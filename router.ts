@@ -1,0 +1,702 @@
+import { WebSocketServer, type WebSocket } from 'ws'
+import type { IncomingMessage } from 'node:http'
+import type { Duplex } from 'node:stream'
+import { buildSchema, graphql, type GraphQLSchema } from 'graphql'
+import { makeExecutableSchema } from '@graphql-tools/schema'
+import { streamText } from 'ai'
+import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
+
+type StreamTextParams = Parameters<typeof streamText>[0]
+
+export type WebSocketHandler = {
+  open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
+  message?: (ws: WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>
+  close?: (ws: WebSocket, ctx: Context) => void | Promise<void>
+  error?: (ws: WebSocket, ctx: Context, error: Error) => void | Promise<void>
+}
+
+export type AIOptions = Omit<StreamTextParams, 'model'> & {
+  model: string | (() => any)
+}
+
+export type AIHandler = (
+  req: Request,
+  ctx: Context,
+) => AIOptions | Promise<AIOptions>
+
+export type GraphQLOptions = {
+  schema: string | GraphQLSchema
+  rootValue?: any
+  resolvers?: any
+  context?: (req: Request, ctx: Context) => Record<string, any> | Promise<Record<string, any>>
+  graphiql?: boolean
+}
+
+type TrieNode = {
+  children: Map<string, TrieNode>
+  handlers: Map<string, Handler>
+  middlewares: Map<string, Middleware[]>
+  param?: string
+  wildcard?: boolean
+  pathMws: Middleware[]
+  subRouter?: Router
+}
+
+type WsTrieNode = {
+  children: Map<string, WsTrieNode>
+  handler?: WebSocketHandler
+  middlewares: Middleware[]
+  param?: string
+}
+
+const createTrieNode = (): TrieNode => ({
+  children: new Map(),
+  handlers: new Map(),
+  middlewares: new Map(),
+  pathMws: [],
+})
+
+const createWsNode = (): WsTrieNode => ({
+  children: new Map(),
+  middlewares: [],
+})
+
+const getTrieNode = (node: TrieNode, segment: string): TrieNode => {
+  if (segment.startsWith(':')) {
+    if (!node.children.has(':')) {
+      const child = createTrieNode()
+      child.param = segment.slice(1)
+      node.children.set(':', child)
+    }
+    const child = node.children.get(':')!
+    if (child.param !== segment.slice(1)) {
+      throw new Error(
+        `Param name conflict: ":${child.param}" already registered at this path position, cannot register ":"${segment.slice(1)}"`,
+      )
+    }
+    return child
+  }
+  if (!node.children.has(segment)) {
+    node.children.set(segment, createTrieNode())
+  }
+  return node.children.get(segment)!
+}
+
+const matchTrieNode = (
+  node: TrieNode,
+  segment: string,
+  params: Record<string, string>,
+): TrieNode | null => {
+  if (node.children.has(segment)) return node.children.get(segment)!
+  if (node.children.has(':')) {
+    const child = node.children.get(':')!
+    if (child.param) params[child.param] = segment
+    return child
+  }
+  return null
+}
+
+const getWsNode = (node: WsTrieNode, segment: string): WsTrieNode => {
+  if (segment.startsWith(':')) {
+    if (!node.children.has(':')) {
+      const child = createWsNode()
+      child.param = segment.slice(1)
+      node.children.set(':', child)
+    }
+    const child = node.children.get(':')!
+    if (child.param !== segment.slice(1)) {
+      throw new Error(
+        `Param name conflict: ":${child.param}" already registered at this path position`,
+      )
+    }
+    return child
+  }
+  if (!node.children.has(segment)) {
+    node.children.set(segment, createWsNode())
+  }
+  return node.children.get(segment)!
+}
+
+const matchWsNode = (
+  node: WsTrieNode,
+  segment: string,
+  params: Record<string, string>,
+): WsTrieNode | null => {
+  if (node.children.has(segment)) return node.children.get(segment)!
+  if (node.children.has(':')) {
+    const child = node.children.get(':')!
+    if (child.param) params[child.param] = segment
+    return child
+  }
+  return null
+}
+
+type WsMatchResult = {
+  handler: WebSocketHandler
+  middlewares: Middleware[]
+  params: Record<string, string>
+} | null
+
+type WsUpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => void
+
+export class Router {
+  private root: TrieNode = createTrieNode()
+  private wsRoot: WsTrieNode = createWsNode()
+  private globalMws: Middleware[] = []
+  private errorHandler?: ErrorHandler
+
+  use(mw: Middleware): this
+  use(path: string, router: Router): this
+  use(path: string, mw: Middleware): this
+  use(arg1: string | Middleware, arg2?: Router | Middleware): this {
+    if (typeof arg1 === 'string') {
+      if (arg2 instanceof Router) {
+        let node = this.root
+        for (const segment of this.splitPath(arg1)) {
+          node = getTrieNode(node, segment)
+        }
+        node.subRouter = arg2
+      } else if (typeof arg2 === 'function') {
+        let node = this.root
+        for (const segment of this.splitPath(arg1)) {
+          node = getTrieNode(node, segment)
+        }
+        node.pathMws.push(arg2)
+      }
+    } else if (typeof arg1 === 'function') {
+      this.globalMws.push(arg1)
+    }
+    return this
+  }
+
+  get(path: string, ...args: [...Middleware[], Handler]): this {
+    return this.route('GET', path, ...args)
+  }
+
+  post(path: string, ...args: [...Middleware[], Handler]): this {
+    return this.route('POST', path, ...args)
+  }
+
+  put(path: string, ...args: [...Middleware[], Handler]): this {
+    return this.route('PUT', path, ...args)
+  }
+
+  delete(path: string, ...args: [...Middleware[], Handler]): this {
+    return this.route('DELETE', path, ...args)
+  }
+
+  patch(path: string, ...args: [...Middleware[], Handler]): this {
+    return this.route('PATCH', path, ...args)
+  }
+
+  head(path: string, ...args: [...Middleware[], Handler]): this {
+    return this.route('HEAD', path, ...args)
+  }
+
+  options(path: string, ...args: [...Middleware[], Handler]): this {
+    return this.route('OPTIONS', path, ...args)
+  }
+
+  all(path: string, ...args: [...Middleware[], Handler]): this {
+    return this.route('*', path, ...args)
+  }
+
+  onError(handler: ErrorHandler): this {
+    this.errorHandler = handler
+    return this
+  }
+
+  route(method: string, path: string, ...args: [...Middleware[], Handler]): this {
+    const handler = args.pop()! as Handler
+    const middlewares = args as Middleware[]
+    const segments = this.splitPath(path)
+    let node = this.root
+
+    for (const segment of segments) {
+      if (segment === '*') {
+        node.wildcard = true
+        node.handlers.set(method, handler)
+        if (middlewares.length > 0) node.middlewares.set(method, middlewares)
+        return this
+      }
+      node = getTrieNode(node, segment)
+    }
+
+    node.handlers.set(method, handler)
+    if (middlewares.length > 0) node.middlewares.set(method, middlewares)
+    return this
+  }
+
+  ws(path: string, ...args: [...Middleware[], WebSocketHandler]): this {
+    const handler = args.pop()! as WebSocketHandler
+    const middlewares = args as Middleware[]
+    const segments = this.splitPath(path)
+    let node = this.wsRoot
+
+    for (const segment of segments) {
+      node = getWsNode(node, segment)
+    }
+
+    node.handler = handler
+    if (middlewares.length > 0) node.middlewares = middlewares
+    return this
+  }
+
+  graphql(path: string, ...args: [...Middleware[], GraphQLOptions]): this {
+    const options = args.pop()! as GraphQLOptions
+    const middlewares = args as Middleware[]
+    const schema: GraphQLSchema =
+      typeof options.schema === 'string'
+        ? options.resolvers
+          ? makeExecutableSchema({
+              typeDefs: options.schema,
+              resolvers: options.resolvers,
+            })
+          : buildSchema(options.schema)
+        : options.schema
+
+    const handler: Handler = (req, ctx) => {
+      const url = new URL(req.url)
+
+      if (
+        options.graphiql &&
+        req.method === 'GET' &&
+        !url.searchParams.has('query')
+      ) {
+        return new Response(getGraphiQLHtml(url.pathname), {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        })
+      }
+
+      if (req.method !== 'GET' && req.method !== 'POST') {
+        return new Response('Not Found', { status: 404 })
+      }
+
+      const paramsPromise =
+        req.method === 'GET'
+          ? Promise.resolve(parseGraphQLParamsFromGet(url))
+          : parseGraphQLParamsFromPost(req)
+
+      return paramsPromise.then((params) => {
+        if (!params) {
+          return Response.json(
+            { errors: [{ message: 'Missing query' }] },
+            { status: 400 },
+          )
+        }
+        return executeGraphQLQuery(schema, params, options, req, ctx)
+      })
+    }
+
+    return this.all(path, ...middlewares, handler)
+  }
+
+  ai(path: string, ...args: [...Middleware[], AIHandler]): this {
+    const handler = args.pop()! as AIHandler
+    const middlewares = args as Middleware[]
+
+    const routeHandler: Handler = async (req, ctx) => {
+      const options = await handler(req, ctx)
+      const result = streamText(options as StreamTextParams)
+      return result.toTextStreamResponse()
+    }
+
+    return this.post(path, ...middlewares, routeHandler)
+  }
+
+  handler(): Handler {
+    return (req, ctx) => {
+      const url = new URL(req.url)
+      return this.handle(req, ctx, this.splitPath(url.pathname), Object.fromEntries(url.searchParams))
+    }
+  }
+
+  websocketHandler(): WsUpgradeHandler {
+    const wss = new WebSocketServer({ noServer: true })
+    const wsRoot = this.wsRoot
+    const router = this
+
+    return (req, socket, head) => {
+      const url = new URL(req.url ?? '/', 'http://localhost')
+      const segments = url.pathname.split('/').filter(Boolean)
+      const query = Object.fromEntries(url.searchParams)
+
+      const match = router.matchWsTrie(wsRoot, segments)
+      if (!match) {
+        socket.destroy()
+        return
+      }
+
+      const webReq = new Request(url.href, {
+        method: req.method ?? 'GET',
+        headers: Object.fromEntries(
+          Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
+        ),
+      })
+      const ctx: Context = { params: match.params, query }
+
+      if (match.middlewares.length === 0) {
+        upgradeSocket(wss, req, socket, head, match.handler, ctx)
+        return
+      }
+
+      let index = 0
+      const dispatch: Handler = async (innerReq, ctx) => {
+        if (index < match.middlewares.length) {
+          const mw = match.middlewares[index++]
+          return mw!(innerReq, ctx, dispatch)
+        }
+        return await new Promise<Response>((resolve) => {
+          upgradeSocket(wss, req, socket, head, match.handler, ctx)
+          resolve(new Response(null, { status: 101 }))
+        })
+      }
+
+      Promise.resolve(dispatch(webReq, ctx)).then((result) => {
+        if (result.status !== 101) {
+          sendHttpResponseOnSocket(socket, result)
+        }
+      }).catch(() => {
+        socket.destroy()
+      })
+    }
+  }
+
+  private splitPath(path: string): string[] {
+    return path.split('/').filter(Boolean)
+  }
+
+  private matchTrie(
+    method: string,
+    segments: string[],
+  ): {
+    handler?: Handler
+    middlewares: Middleware[]
+    pathMws: Middleware[]
+    params: Record<string, string>
+    subRouter?: { router: Router; remainingIdx: number }
+  } | null {
+    let node = this.root
+    const params: Record<string, string> = {}
+    const pathMws: Middleware[] = [...this.root.pathMws]
+    let wildcardHandler: Handler | null = null
+    let wildcardMws: Middleware[] = []
+    let wildcardIdx = -1
+
+    for (let i = 0; i < segments.length; i++) {
+      if (node.subRouter) {
+        return {
+          pathMws,
+          params,
+          middlewares: [],
+          subRouter: { router: node.subRouter, remainingIdx: i },
+        }
+      }
+
+      pathMws.push(...node.pathMws)
+
+      if (node.wildcard) {
+        const h = node.handlers.get(method) || node.handlers.get('*')
+        if (h) {
+          wildcardHandler = h
+          wildcardMws = node.middlewares.get(method) || node.middlewares.get('*') || []
+          wildcardIdx = i
+        }
+      }
+
+      const segment = segments[i]
+      if (!segment) break
+
+      const next = matchTrieNode(node, segment, params)
+      if (!next) {
+        if (wildcardHandler) {
+          params['*'] = segments.slice(wildcardIdx).join('/')
+          return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params }
+        }
+        return null
+      }
+      node = next
+    }
+
+    if (node.subRouter) {
+      return {
+        pathMws,
+        params,
+        middlewares: [],
+        subRouter: { router: node.subRouter, remainingIdx: segments.length },
+      }
+    }
+
+    pathMws.push(...node.pathMws)
+
+    const handler = node.handlers.get(method) || node.handlers.get('*')
+    if (handler) {
+      if (node.wildcard) params['*'] = segments.slice(segments.length).join('/')
+      return {
+        handler,
+        middlewares: node.middlewares.get(method) || node.middlewares.get('*') || [],
+        pathMws,
+        params,
+      }
+    }
+
+    if (wildcardHandler) {
+      params['*'] = segments.slice(wildcardIdx).join('/')
+      return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params }
+    }
+    return null
+  }
+
+  private matchWsTrie(root: WsTrieNode, segments: string[]): WsMatchResult {
+    let node = root
+    const params: Record<string, string> = {}
+
+    for (const segment of segments) {
+      const next = matchWsNode(node, segment, params)
+      if (!next) return null
+      node = next
+    }
+
+    return node.handler
+      ? { handler: node.handler, middlewares: node.middlewares, params }
+      : null
+  }
+
+  private async handle(
+    req: Request,
+    ctx: Context,
+    segments: string[],
+    query: Record<string, string>,
+  ): Promise<Response> {
+    const match = this.matchTrie(req.method, segments)
+
+    if (match?.subRouter) {
+      const { router: sub, remainingIdx } = match.subRouter
+      const remainingSegments = segments.slice(remainingIdx)
+      const delegate: Handler = (req, ctx) =>
+        sub.handle(req, ctx, remainingSegments, query)
+
+      const allMws = this.globalMws.length + match.pathMws.length === 0
+        ? [] as Middleware[]
+        : [...this.globalMws, ...match.pathMws]
+
+      try {
+        return await this.runChain(allMws, delegate, req, { ...ctx, params: { ...ctx.params, ...match.params } })
+      } catch (e) {
+        return this.errorHandler
+          ? this.errorHandler(e as Error, req, ctx)
+          : new Response('Internal Server Error', { status: 500 })
+      }
+    }
+
+    if (match?.handler) {
+      const { handler, middlewares: routeMws, pathMws, params } = match
+      const allMws = this.globalMws.length + pathMws.length + routeMws.length === 0
+        ? [] as Middleware[]
+        : [...this.globalMws, ...pathMws, ...routeMws]
+      const ctxWithMatch = { ...ctx, params: { ...ctx.params, ...params } }
+
+      try {
+        return await this.runChain(allMws, handler, req, ctxWithMatch)
+      } catch (e) {
+        return this.errorHandler
+          ? this.errorHandler(e as Error, req, ctxWithMatch)
+          : new Response('Internal Server Error', { status: 500 })
+      }
+    }
+
+    if (this.globalMws.length > 0) {
+      try {
+        const delegate: Handler = () => new Response('Not Found', { status: 404 })
+        return await this.runChain(this.globalMws, delegate, req, ctx)
+      } catch (e) {
+        return this.errorHandler
+          ? this.errorHandler(e as Error, req, ctx)
+          : new Response('Internal Server Error', { status: 500 })
+      }
+    }
+
+    return new Response('Not Found', { status: 404 })
+  }
+
+  private async runChain(
+    middlewares: Middleware[],
+    finalHandler: Handler,
+    req: Request,
+    ctx: Context,
+  ): Promise<Response> {
+    let index = 0
+    const dispatch: Handler = async (req, ctx) => {
+      if (index < middlewares.length) {
+        const mw = middlewares[index++]
+        return mw
+          ? await mw(req, ctx, dispatch)
+          : new Response('Middleware error', { status: 500 })
+      }
+      return await finalHandler(req, ctx)
+    }
+    return dispatch(req, ctx)
+  }
+}
+
+function upgradeSocket(
+  wss: WebSocketServer,
+  req: IncomingMessage,
+  socket: Duplex,
+  head: Buffer,
+  handler: WebSocketHandler,
+  ctx: Context,
+): void {
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    if (handler.open) {
+      handler.open(ws, ctx)
+    }
+
+    ws.on('message', (data) => {
+      handler.message?.(ws, ctx, data as string | Buffer)
+    })
+
+    ws.on('close', () => {
+      handler.close?.(ws, ctx)
+    })
+
+    ws.on('error', (err) => {
+      handler.error?.(ws, ctx, err)
+    })
+  })
+}
+
+function sendHttpResponseOnSocket(socket: Duplex, response: Response): void {
+  const statusLine = `HTTP/1.1 ${response.status} ${response.statusText}`
+  const headerLines: string[] = [statusLine]
+  response.headers.forEach((value, key) => {
+    headerLines.push(`${key}: ${value}`)
+  })
+  headerLines.push('Connection: close')
+  headerLines.push('')
+  const headerStr = headerLines.join('\r\n')
+
+  response.arrayBuffer().then((buf) => {
+    const body = Buffer.from(buf)
+    socket.write(headerStr + '\r\n' + body.toString())
+    socket.end()
+  }).catch(() => {
+    socket.write(headerStr + '\r\n')
+    socket.end()
+  })
+}
+
+type GraphQLParams = {
+  query: string
+  variables: Record<string, any>
+  operationName?: string
+}
+
+function parseGraphQLParamsFromGet(url: URL): GraphQLParams | null {
+  const query = url.searchParams.get('query')
+  if (!query) return null
+  const variablesStr = url.searchParams.get('variables')
+  let variables = {}
+  if (variablesStr) {
+    try {
+      variables = JSON.parse(variablesStr)
+    } catch {
+      return null
+    }
+  }
+  return {
+    query,
+    variables,
+    operationName: url.searchParams.get('operationName') || undefined,
+  }
+}
+
+async function parseGraphQLParamsFromPost(req: Request): Promise<GraphQLParams | null> {
+  try {
+    const body = (await req.json()) as {
+      query?: string
+      variables?: Record<string, any>
+      operationName?: string
+    }
+    if (!body.query) return null
+    return {
+      query: body.query,
+      variables: body.variables || {},
+      operationName: body.operationName,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function executeGraphQLQuery(
+  schema: GraphQLSchema,
+  params: GraphQLParams,
+  options: GraphQLOptions,
+  req: Request,
+  ctx: Context,
+): Promise<Response> {
+  const contextValue = options.context ? await options.context(req, ctx) : ctx
+  const result = await graphql({
+    schema,
+    source: params.query,
+    rootValue: options.rootValue,
+    contextValue,
+    variableValues: params.variables,
+    operationName: params.operationName,
+  })
+  return Response.json(result, { status: result.errors ? 400 : 200 })
+}
+
+function getGraphiQLHtml(endpoint: string): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GraphiQL</title>
+    <style>
+      body { margin: 0; }
+      #graphiql { height: 100dvh; }
+    </style>
+    <link rel="stylesheet" href="https://esm.sh/graphiql@5.2.2/dist/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@19.2.5",
+          "react/": "https://esm.sh/react@19.2.5/",
+          "react-dom": "https://esm.sh/react-dom@19.2.5",
+          "react-dom/": "https://esm.sh/react-dom@19.2.5/",
+          "graphiql": "https://esm.sh/graphiql@5.2.2?standalone&external=react,react-dom,@graphiql/react,graphql",
+          "graphiql/": "https://esm.sh/graphiql@5.2.2/",
+          "@graphiql/react": "https://esm.sh/@graphiql/react@0.37.3?standalone&external=react,react-dom,graphql,@graphiql/toolkit,@emotion/is-prop-valid",
+          "@graphiql/toolkit": "https://esm.sh/@graphiql/toolkit@0.11.3?standalone&external=graphql",
+          "graphql": "https://esm.sh/graphql@16.13.2",
+          "@emotion/is-prop-valid": "data:text/javascript,"
+        }
+      }
+    </script>
+    <script type="module">
+      import React from 'react';
+      import ReactDOM from 'react-dom/client';
+      import { GraphiQL } from 'graphiql';
+      import { createGraphiQLFetcher } from '@graphiql/toolkit';
+      import 'graphiql/setup-workers/esm.sh';
+
+      const fetcher = createGraphiQLFetcher({ url: "${endpoint}" });
+
+      function App() {
+        return React.createElement(GraphiQL, { fetcher });
+      }
+
+      const container = document.getElementById('graphiql');
+      const root = ReactDOM.createRoot(container);
+      root.render(React.createElement(App));
+    </script>
+  </head>
+  <body>
+    <div id="graphiql">Loading\u2026</div>
+  </body>
+</html>`
+}

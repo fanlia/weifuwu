@@ -1,0 +1,21 @@
+{
+  "name": "weifuwu",
+  "version": "0.1.0",
+  "description": "Web-standard HTTP framework for Node.js — (req, ctx) => Response",
+  "main": "index.ts",
+  "scripts": {
+    "test": "node --test 'test/**/*.test.ts'"
+  },
+  "dependencies": {
+    "@graphql-tools/schema": "^10",
+    "ai": "^6",
+    "graphql": "^16",
+    "ws": "^8",
+    "zod": "^4.4.3"
+  },
+  "type": "module",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}

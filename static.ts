@@ -1,0 +1,113 @@
+import { createHash } from 'node:crypto'
+import { open } from 'node:fs/promises'
+import { extname, resolve, normalize, sep } from 'node:path'
+import type { Handler } from './types.ts'
+
+export interface ServeStaticOptions {
+  index?: string
+  maxAge?: number
+  immutable?: boolean
+}
+
+export function serveStatic(root: string, options?: ServeStaticOptions): Handler {
+  const rootDir = resolve(root)
+
+  const opts = options ?? {}
+
+  return async (req, ctx) => {
+    const relativePath = ctx.params['*'] ?? new URL(req.url).pathname.slice(1)
+    const decoded = decodeURIComponent(relativePath)
+
+    if (decoded.includes('..') || decoded.includes('\0')) {
+      return new Response('Forbidden', { status: 403 })
+    }
+
+    let filePath = normalize(resolve(rootDir, decoded))
+    if (!filePath.startsWith(rootDir + sep) && filePath !== rootDir) {
+      return new Response('Forbidden', { status: 403 })
+    }
+
+    let fileHandle
+    try {
+      fileHandle = await open(filePath, 'r')
+      const stat = await fileHandle.stat()
+
+      if (stat.isDirectory()) {
+        await fileHandle.close()
+        const indexFile = opts.index ?? 'index.html'
+        filePath = resolve(filePath, indexFile)
+        if (!filePath.startsWith(rootDir + sep)) {
+          return new Response('Forbidden', { status: 403 })
+        }
+        fileHandle = await open(filePath, 'r')
+        const dirStat = await fileHandle.stat()
+        if (!dirStat.isFile()) {
+          await fileHandle.close()
+          return new Response('Not Found', { status: 404 })
+        }
+      }
+
+      const mimeType = MIME_TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream'
+
+      const etag = `"${createHash('md5').update(`${stat.size}-${stat.mtimeMs}`).digest('hex')}"`
+      const ifNoneMatch = req.headers.get('if-none-match')
+      if (ifNoneMatch === etag) {
+        await fileHandle.close()
+        return new Response(null, { status: 304 })
+      }
+
+      const ifModifiedSince = req.headers.get('if-modified-since')
+      if (ifModifiedSince && stat.mtimeMs <= new Date(ifModifiedSince).getTime()) {
+        await fileHandle.close()
+        return new Response(null, { status: 304 })
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': mimeType,
+        'Content-Length': String(stat.size),
+        'ETag': etag,
+        'Last-Modified': stat.mtime.toUTCString(),
+        'Cache-Control': opts.immutable
+          ? `public, max-age=${opts.maxAge ?? 31536000}, immutable`
+          : `public, max-age=${opts.maxAge ?? 0}`,
+      }
+
+      const stream = fileHandle.readableWebStream()
+      return new Response(stream, { headers })
+    } catch (err) {
+      if (fileHandle) await fileHandle.close().catch(() => {})
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+        return new Response('Not Found', { status: 404 })
+      }
+      return new Response('Internal Server Error', { status: 500 })
+    }
+  }
+}
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.eot': 'application/vnd.ms-fontobject',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml',
+  '.pdf': 'application/pdf',
+  '.zip': 'application/zip',
+  '.wasm': 'application/wasm',
+  '.map': 'application/json',
+}
