@@ -37,19 +37,6 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 
 `tsx({ dir })` — creates a Router from a React pages directory:
 
-```ts
-type TsxRoute = {
-  component: React.ComponentType<any>
-  props?: Record<string, any>       // custom props (merged with params + query)
-  source?: string                   // component source path → enables hydration
-}
-
-type TsxHandler = (
-  req: Request,
-  ctx: Context,
-) => TsxRoute | Promise<TsxRoute>
-```
-
 - SSR via `react-dom/server` `renderToReadableStream`
 - Props are serialized as `window.__WEIFUWU_PROPS` in HTML
 - Hydration: esbuild lazily compiles source → client bundle served at `/_wfw/client/`
@@ -71,8 +58,9 @@ pages/
 
 - `page.tsx` — default export = React component, receives `{ params, query }` + load data
 - `load.ts` — default export = async function `({ params, query }) => props`, server-only
-- `layout.tsx` — default export = React component with `{ children }`, auto-nested by directory level
-- `route.ts` — named exports `GET`/`POST`/`PUT`/`DELETE`/`PATCH`, standard Handler signature
+- `layout.tsx` — root layout receives `{ children, req, ctx }` (not hydrated); nested layouts receive `{ children }` (hydrated)
+- `route.ts` — named exports `POST`/`PUT`/`DELETE`/`PATCH`, standard Handler signature (GET handled by page.tsx)
+- `not-found.tsx` — default export = React component, rendered on 404 with full layout chain
 
 ### Usage
 
