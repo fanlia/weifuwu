@@ -18,6 +18,7 @@ Features like `tsx()`, WebSocket, GraphQL, and AI streaming all follow the same 
 - **WebSocket** — `router.ws()` with upgrade middleware (auth before connect)
 - **GraphQL** — `router.graphql()` with GraphiQL IDE
 - **AI streaming** — `router.ai()` via Vercel AI SDK
+- **AI workflows** — `router.workflow()` — intent-to-execution pipelines with `tool()` + SSE
 - **Static files** — `serveStatic()` with ETag, 304, MIME, directory index
 - **Request validation** — `validate()` with Zod (body / query / params / headers)
 - **File upload** — `upload()` multipart parser with disk save, size & type limits
@@ -428,6 +429,35 @@ const app = new Router()
   })
 
 serve(app.handler(), { port: 3000 })
+```
+
+## Workflow
+
+Define tools (business capabilities) and let AI generate and execute multi-step workflows.
+
+```ts
+import { Router, tool, createWorkflowEngine } from 'weifuwu'
+import { z } from 'zod'
+
+const tools = {
+  queryUser: tool({
+    description: '查询用户信息，返回 email, name',
+    inputSchema: z.object({ userId: z.string() }),
+    execute: async ({ userId }) => ({ id: userId, email: 'user@test.com', name: 'Test' }),
+  }),
+}
+
+const app = new Router()
+
+// Router method — accepts { nodes } or { goal } with model
+app.workflow('/api/agent', { tools })
+
+// Or manual execution
+const engine = createWorkflowEngine({ tools })
+const result = await engine.execute({ nodes: [
+  { id: 's1', tool: 'set', input: { name: 'msg', value: 'hello' } },
+  { id: 'g1', tool: 'get', input: { name: 'msg' } },
+]})
 ```
 
 ## Graceful shutdown

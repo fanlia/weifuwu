@@ -3,8 +3,10 @@ import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { buildSchema, graphql, type GraphQLSchema } from 'graphql'
 import { makeExecutableSchema } from '@graphql-tools/schema'
-import { streamText } from 'ai'
+import { streamText, generateText } from 'ai'
 import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
+import { createWorkflowEngine, tool, createSSEManager } from './workflow/index.ts'
+import type { Tool as WfTool } from './workflow/types.ts'
 
 type StreamTextParams = Parameters<typeof streamText>[0]
 
@@ -303,6 +305,62 @@ export class Router {
     }
 
     return this.post(path, ...middlewares, routeHandler)
+  }
+
+  workflow(path: string, options: {
+    tools: Record<string, WfTool>
+    model?: Parameters<typeof generateText>[0]['model']
+    stream?: boolean
+  }): this {
+    const sseManager = options.stream ? createSSEManager() : undefined
+
+    if (options.stream && sseManager) {
+      this.get(`${path}/:workflowId/events`, async (req, ctx) => {
+        const stream = sseManager.createStream(ctx.params.workflowId)
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        })
+      })
+    }
+
+    this.post(path, async (req) => {
+      const body = await req.json() as Record<string, unknown>
+      const engine = createWorkflowEngine({
+        tools: options.tools,
+        model: options.model,
+        sseManager,
+      })
+
+      let wf: import('./workflow/types.ts').Workflow
+
+      if (body.goal && options.model) {
+        wf = await engine.generateWorkflow(body.goal as string)
+      } else if (body.workflow) {
+        wf = body.workflow as import('./workflow/types.ts').Workflow
+      } else if (body.nodes) {
+        wf = { nodes: body.nodes as import('./workflow/types.ts').Node[] }
+      } else {
+        return Response.json(
+          { error: 'Provide "goal" (with model) or "workflow"/"nodes"' },
+          { status: 400 },
+        )
+      }
+
+      if (options.stream && sseManager) {
+        const workflowId = crypto.randomUUID()
+        engine.runAsync(workflowId, wf)
+        return Response.json({ workflowId, eventsUrl: `${path}/${workflowId}/events` })
+      }
+
+      const result = await engine.execute(wf)
+      return Response.json({ workflow: wf, result })
+    })
+
+    return this
   }
 
   handler(): Handler {
