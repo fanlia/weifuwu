@@ -45,13 +45,13 @@ serve(app.handler(), { port: 3000 })
 ```
 pages/
   page.tsx              → GET /           (React component, default export)
-  layout.tsx            → root layout     (wraps all pages)
+  layout.tsx            → root layout     (HTML shell, receives req/ctx, NOT hydrated)
   about/page.tsx        → GET /about
   blog/[slug]/
     page.tsx            → GET /blog/:slug
     load.ts             → data fetching   (server-only, default export)
     route.ts            → POST /blog/:slug (API, named exports GET/POST/...)
-  blog/layout.tsx       → /blog/* layout  (auto-wraps blog pages)
+  blog/layout.tsx       → /blog/* layout  (UI structure, receives children, hydrated)
 ```
 
 ### page.tsx — page component
@@ -81,12 +81,21 @@ export default async function load({ params, query }: {
 
 `load()` runs only on the server. Its return value is merged with `{ params, query }` and passed to the page component. The merged props are serialized as `window.__WEIFUWU_PROPS` for client hydration.
 
-### layout.tsx — nested layouts
+### layout.tsx — root layout vs nested layouts
+
+Two types of layouts, distinguished by their position in the directory tree:
+
+**Root layout** (`pages/layout.tsx`) — receives `{ children, req, ctx }`:
 
 ```tsx
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children, req, ctx }: {
+  children: React.ReactNode
+  req: Request
+  ctx: Context
+}) {
+  const theme = req.headers.get('Cookie')?.includes('theme=dark') ? 'dark' : 'light'
   return (
-    <html>
+    <html class={theme}>
       <head><title>App</title></head>
       <body>
         <div id="__weifuwu_root">{children}</div>
@@ -96,7 +105,46 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
+- Controls the full HTML shell (`<html>`, `<head>`, `<body>`)
+- Has access to `req`/`ctx` for cookie/header-based customization
+- **Not hydrated** — safe to use `req`/`ctx` (never serialized to client)
+
+**Nested layouts** (`pages/blog/layout.tsx`) — receives only `{ children }`:
+
+```tsx
+export default function BlogLayout({ children }: { children: React.ReactNode }) {
+  return <div className="sidebar-layout">{children}</div>
+}
+```
+
+- Provide UI structure (sidebar, nav, search box)
+- **Hydrated** on the client — can use `useState`, event handlers
+- No access to `req`/`ctx` (not serializable)
+
 Layouts auto-nest by directory depth — `pages/blog/layout.tsx` wraps `pages/blog/*` pages inside `pages/layout.tsx`.
+
+### `TsxContext` and `useTsx()`
+
+Any component in the tree can access routing context without prop drilling:
+
+```tsx
+import { useTsx } from 'weifuwu'
+
+function Sidebar() {
+  const { params, query, user, parsed } = useTsx()
+  // params.slug, query.page, user.name — from any depth
+  return <aside>User: {user?.name}</aside>
+}
+```
+
+Available fields:
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| `params` | URL path | Route parameters (`:slug`, `:id`) |
+| `query` | URL search | Query string (`?page=1`) |
+| `user` | `auth()` middleware | Set by `verify` callback |
+| `parsed` | `validate()` / `upload()` | Validated body / uploaded files |
 
 ### route.ts — API (co-located with page)
 
@@ -427,6 +475,9 @@ Returns `Promise<Router>`.
 | `getCookies(req)` | Parse Cookie header → object |
 | `setCookie(res, name, value, options?)` | Set cookie (returns new Response) |
 | `deleteCookie(res, name)` | Delete cookie (returns new Response) |
+| `useTsx()` | Hook returning `{ params, query, user, parsed }` from `TsxContext` |
+
+Import `useTsx` and `TsxContext` from `'weifuwu'`.
 
 ## License
 
