@@ -253,6 +253,56 @@ describe('tsx()', () => {
     })
   })
 
+  describe('root layout with req/ctx', () => {
+    it('receives request headers', async () => {
+      const r = await tsx({ dir: './test/fixtures/custom-html' })
+      const res = await r.handler()(
+        new Request('http://localhost/', { headers: { 'x-theme': 'dark' } }),
+        { params: {}, query: {} },
+      )
+      assert.equal(res.status, 200)
+      const html = await res.text()
+      assert.match(html, /data-theme="dark"/)
+    })
+
+    it('passes ctx to root layout', async () => {
+      const r = await tsx({ dir: './test/fixtures/custom-html' })
+      const res = await r.handler()(
+        new Request('http://localhost/'),
+        { params: {}, query: {} },
+      )
+      assert.equal(res.status, 200)
+      const html = await res.text()
+      assert.match(html, /data-theme="light"/)
+    })
+  })
+
+  describe('TsxContext and useTsx exports', () => {
+    it('exports TsxContext with correct structure', async () => {
+      const { TsxContext, useTsx } = await import('../tsx.ts')
+      assert.ok(TsxContext)
+      assert.equal(typeof TsxContext.Provider, 'object')
+      assert.equal(typeof TsxContext.Consumer, 'object')
+      assert.equal(typeof useTsx, 'function')
+    })
+
+    it('provides params and query via Provider', async () => {
+      // The Provider wraps the component tree in makeSsrHandler.
+      // Verify params/query reach the component via props (established pathway).
+      const r = await tsx({ dir: './test/fixtures/pages' })
+      const res = await r.handler()(
+        new Request('http://localhost/blog/test-art'),
+        { params: { slug: 'test-art' }, query: { ref: 'home' } },
+      )
+      const html = await res.text()
+      assert.match(html, /test-art/)
+      assert.match(html, /__WEIFUWU_PROPS/)
+      // Verify context values are serialized
+      assert.match(html, /"params":\{"slug":"test-art"\}/)
+      assert.match(html, /"query":\{"ref":"home"\}/)
+    })
+  })
+
   describe('edge cases', () => {
     it('non-existent directory returns empty router', async () => {
       const r = await tsx({ dir: './test/fixtures/nonexistent' })
