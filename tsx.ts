@@ -158,8 +158,6 @@ function resolveLayouts(dir: string, pagesDir: string): string[] {
 
 // ── compilation ────────────────────────────────────────────────────────────
 
-const esbId = '__weifuwu_tsx_build'
-
 async function compileAll(
   files: string[],
   outDir: string,
@@ -316,7 +314,6 @@ function makeSsrHandler(
 export async function tsx(options: TsxOptions): Promise<Router> {
   const pagesDir = resolve(options.dir)
   const outDir = join(pagesDir, '..', '.weifuwu', 'ssr')
-  const clientDir = join(pagesDir, '..', '.weifuwu', 'client')
 
   // 1. Scan
   const pages = scanPages(pagesDir)
@@ -324,18 +321,11 @@ export async function tsx(options: TsxOptions): Promise<Router> {
 
   // 2. Collect all files to compile
   const allFiles = new Set<string>()
-  const loadMap = new Map<string, string>()
-  const layoutMap = new Map<string, string[]>()
 
   for (const p of pages) {
     if (p.entryPath) allFiles.add(p.entryPath)
-    if (p.loadPath) {
-      allFiles.add(p.loadPath)
-      loadMap.set(p.entryPath, p.loadPath)
-    }
+    if (p.loadPath) allFiles.add(p.loadPath)
     for (const lp of p.layouts) allFiles.add(lp)
-    layoutMap.set(p.entryPath, [...p.layouts])
-
     if (p.routePath) allFiles.add(p.routePath)
   }
 
