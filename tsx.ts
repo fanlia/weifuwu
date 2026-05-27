@@ -189,23 +189,12 @@ async function getOrBuildClientBundle(
 
     if (!buf) {
       try {
-        const layoutsImport = layoutPaths.map((p, i) =>
-          `import L${i} from${JSON.stringify(p)};`,
-        ).join('')
-        const layoutsWrap = layoutPaths.map((_, i) => {
-          const idx = layoutPaths.length - 1 - i
-          return `el=createElement(L${idx},null,el);`
-        }).join('')
-
         const code = [
           `import{hydrateRoot}from'react-dom/client';`,
           `import{createElement}from'react';`,
           `import P from${JSON.stringify(entryPath)};`,
-          layoutsImport,
           `const p=window.__WEIFUWU_PROPS;`,
-          `let el=createElement(P,p);`,
-          layoutsWrap,
-          `hydrateRoot(document.getElementById('__weifuwu_root'),el);`,
+          `hydrateRoot(document.getElementById('__weifuwu_root'),createElement(P,p));`,
         ].join('')
 
         const result = await esbuild.build({
