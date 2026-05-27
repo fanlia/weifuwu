@@ -1,6 +1,6 @@
 # weifuwu
 
-**Web-standard HTTP framework for Node.js.** `(req, ctx) => Response` — no framework-specific objects, just the Web API your browser already speaks.
+**Web-standard HTTP framework for Node.js, with AI-driven workflow engine.** `(req, ctx) => Response` — no framework-specific objects, just the Web API your browser already speaks.
 
 ### Design
 
@@ -433,32 +433,197 @@ serve(app.handler(), { port: 3000 })
 
 ## Workflow
 
-Define tools (business capabilities) and let AI generate and execute multi-step workflows.
+Define business capabilities as **Tools** (`tool()`), then chain them into **workflows** for AI-driven multi-step execution. Works with or without an LLM — hand-write the workflow JSON or let AI generate it from a goal.
 
 ```ts
-import { Router, tool, createWorkflowEngine } from 'weifuwu'
+import { Router, tool, createWorkflowEngine, createSSEManager } from 'weifuwu'
 import { z } from 'zod'
 
+// 1. Define tools (business capabilities)
 const tools = {
   queryUser: tool({
     description: '查询用户信息，返回 email, name',
     inputSchema: z.object({ userId: z.string() }),
     execute: async ({ userId }) => ({ id: userId, email: 'user@test.com', name: 'Test' }),
   }),
+  sendEmail: tool({
+    description: '发送邮件',
+    inputSchema: z.object({ to: z.string(), subject: z.string() }),
+    execute: async ({ to, subject }) => ({ sent: true }),
+  }),
 }
 
+// 2. Routes
 const app = new Router()
+  .workflow('/agent/sync', { tools })                     // sync — returns result
+  .workflow('/agent/stream', { tools, stream: true })      // SSE — returns events
 
-// Router method — accepts { nodes } or { goal } with model
-app.workflow('/api/agent', { tools })
-
-// Or manual execution
+// 3. Or use engine directly
 const engine = createWorkflowEngine({ tools })
-const result = await engine.execute({ nodes: [
-  { id: 's1', tool: 'set', input: { name: 'msg', value: 'hello' } },
-  { id: 'g1', tool: 'get', input: { name: 'msg' } },
-]})
+const result = await engine.execute({
+  nodes: [
+    { id: 'u', tool: 'call', input: { tool: 'queryUser', args: { userId: '123' } } },
+    { id: 'e', tool: 'set', input: { name: 'email', value: '$nodes.u.output.email' } },
+    { id: 's', tool: 'call', input: { tool: 'sendEmail', args: { to: '$var.email', subject: 'Welcome' } } },
+  ],
+})
 ```
+
+### Tool
+
+`tool()` wraps a business operation with a Zod input schema and a description — the LLM reads the description to decide when to use it.
+
+```ts
+import { tool } from 'weifuwu'
+import { z } from 'zod'
+
+const myTool = tool({
+  description: '做什么的，返回什么',        // LLM 靠这个选择工具
+  inputSchema: z.object({ key: z.string() }), // 参数校验
+  execute: async (input, ctx) => {
+    // input.key — 类型安全
+    // ctx.workflowId / ctx.nodeId / ctx.onStream — 可选
+    return { result: input.key }
+  },
+})
+```
+
+`ctx.onStream` 用于流式推送（如 LLM token 输出）：
+
+```ts
+const llmTool = tool({
+  description: '生成文本',
+  inputSchema: z.object({ prompt: z.string() }),
+  execute: async (input, ctx) => {
+    const stream = await openai.chat.completions.create({ ... })
+    let full = ''
+    for await (const chunk of stream) {
+      full += chunk.choices[0]?.delta?.content || ''
+      ctx.onStream?.({ type: 'llm-stream', chunk, accumulated: full })
+    }
+    return { text: full }
+  },
+})
+```
+
+### Core Nodes
+
+7 built-in node types — the workflow engine's instruction set. All other logic is expressed through **Tools**.
+
+| Node | Purpose | Input |
+|------|---------|-------|
+| `call` | Call a tool or sub-workflow | `{ tool: "name", args: {...} }` or `{ function: "name", args: {...} }` |
+| `set` | Declare or assign a variable | `{ name: "x", value: 42 }` |
+| `get` | Read a variable | `{ name: "x" }` |
+| `eval` | Evaluate an expression | `{ expression: "$var.x + 1" }` |
+| `if` | Conditional branch | `{ conditions: [{ test: ..., body: [nodes] }] }` |
+| `while` | Loop | `{ condition: "$var.i < 5" }, body: [nodes]` |
+| `http` | HTTP request | `{ url: "https://...", method: "GET" }` |
+
+### Variable Reference Syntax
+
+Tools and expressions reference each other's outputs:
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `$var.x` | Variable `x` | `$var.counter` |
+| `$nodes.u.output` | Full output of node `u` | `$nodes.u.output` |
+| `$nodes.u.output.field` | Specific field | `$nodes.u.output.email` |
+| `$input.userId` | Workflow input param | `$input.userId` |
+| `42`, `true`, `"hello"` | Literal values | Passed as-is |
+
+Expressions support operators: `+ - * / % > < >= <= == === != !== && ||`.
+
+### Router Integration
+
+**Sync mode** (default):
+```ts
+app.workflow('/agent', { tools })
+// POST /agent  { nodes: [...] }
+// ← 200 { workflow: {...}, result: ... }
+```
+
+**SSE stream mode**:
+```ts
+app.workflow('/agent', { tools, stream: true })
+// POST /agent  { nodes: [...] }
+// ← 200 { workflowId: "xxx", eventsUrl: "/agent/xxx/events" }
+// GET  /agent/xxx/events
+// ← SSE: workflow-start → node-start → node-end → complete
+```
+
+**With LLM model** (generates workflow from goal):
+```ts
+app.workflow('/agent', { tools, model: openai('gpt-4o') })
+// POST /agent  { goal: "给用户123发欢迎邮件" }
+// ← LLM generates → executes → returns result
+```
+
+### Engine API
+
+For programmatic use outside of Router:
+
+```ts
+import { createWorkflowEngine, createSSEManager } from 'weifuwu'
+
+const sse = createSSEManager()
+const engine = createWorkflowEngine({ tools, sseManager: sse })
+
+// Sync execution
+const result = await engine.execute({ nodes: [...] })
+
+// Async execution with SSE
+engine.runAsync('wf-1', { nodes: [...] })
+// Events pushed to sse.createStream('wf-1')
+```
+
+### SSE Events
+
+`createSSEManager()` returns `{ createStream, send, close }`.
+
+```ts
+const sse = createSSEManager()
+const stream = sse.createStream('wf-1')
+
+const reader = stream.getReader()
+// Reads events:
+//   event: workflow-start   — { workflowId, goal }
+//   event: node-start       — { nodeId, tool, input }
+//   event: node-end         — { nodeId, output }
+//   event: llm-stream       — { nodeId, chunk, accumulated }
+//   event: complete         — { result, duration }
+//   event: error            — { error }
+```
+
+### Sub-workflows
+
+Define reusable sub-workflows in the `functions` field:
+
+```json
+{
+  "functions": {
+    "double": {
+      "inputSchema": { "type": "object", "properties": { "x": { "type": "number" } } },
+      "workflow": {
+        "nodes": [
+          { "id": "calc", "tool": "eval", "input": { "expression": "$input.x * 2" } }
+        ]
+      }
+    }
+  },
+  "nodes": [
+    { "id": "call_double", "tool": "call", "input": { "function": "double", "args": { "x": 21 } } }
+  ]
+}
+```
+
+### Error Handling
+
+- Tool `execute` throws → engine catches, sends `node-error` SSE event
+- Step limit exceeded (`maxSteps`, default 1000) → throws, stops execution
+- `inputSchema` validation fails (Zod) → throws before execution
+- Unknown node type → throws with clear message
+- SSE mode: all errors appear as `event: error` on the stream, workflow state set to `error`
 
 ## Graceful shutdown
 
