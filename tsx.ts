@@ -1,4 +1,4 @@
-import { createElement } from 'react'
+import { createElement, createContext, useContext } from 'react'
 import { renderToReadableStream } from 'react-dom/server'
 import * as esbuild from 'esbuild'
 import { readdirSync, statSync, existsSync, mkdirSync } from 'node:fs'
@@ -6,10 +6,21 @@ import { join, relative, resolve, sep, dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { Router } from './router.ts'
-import type { Handler } from './types.ts'
+import type { Context, Handler } from './types.ts'
 
 export interface TsxOptions {
   dir: string
+}
+
+export const TsxContext = createContext<{
+  params: Record<string, string>
+  query: Record<string, string>
+  user?: unknown
+  parsed?: Record<string, unknown>
+}>({ params: {}, query: {} })
+
+export function useTsx() {
+  return useContext(TsxContext)
 }
 
 type PageEntry = {
@@ -189,12 +200,24 @@ async function getOrBuildClientBundle(
 
     if (!buf) {
       try {
+        const nested = layoutPaths.slice(1)
+        const layoutsImport = nested.map((p, i) =>
+          `import L${i} from${JSON.stringify(p)};`,
+        ).join('')
+        const layoutsWrap = nested.map((_, i) => {
+          const idx = nested.length - 1 - i
+          return `el=createElement(L${idx},null,el);`
+        }).join('')
+
         const code = [
           `import{hydrateRoot}from'react-dom/client';`,
           `import{createElement}from'react';`,
           `import P from${JSON.stringify(entryPath)};`,
+          layoutsImport,
           `const p=window.__WEIFUWU_PROPS;`,
-          `hydrateRoot(document.getElementById('__weifuwu_root'),createElement(P,p));`,
+          `let el=createElement(P,p);`,
+          layoutsWrap,
+          `hydrateRoot(document.getElementById('__weifuwu_root'),el);`,
         ].join('')
 
         const result = await esbuild.build({
@@ -244,8 +267,16 @@ function makeSsrHandler(
 
     let element = createElement(Component, allProps)
     for (let i = layouts.length - 1; i >= 0; i--) {
-      element = createElement(layouts[i], null, element)
+      const isRoot = i === 0
+      element = createElement(
+        layouts[i],
+        isRoot ? { children: element, req, ctx } : { children: element },
+      )
     }
+
+    element = createElement(TsxContext.Provider, {
+      value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
+    }, element)
 
     const stream = await renderToReadableStream(element)
     const body = await readStream(stream)
