@@ -407,6 +407,40 @@ const app = new Router()
 serve(app.handler(), { port: 3000 })
 ```
 
+## Graceful shutdown
+
+```ts
+import { serve } from 'weifuwu'
+import type { Server } from 'weifuwu'
+
+const ac = new AbortController()
+let server: Server
+
+process.on('SIGTERM', () => {
+  console.log('shutting down…')
+  ac.abort()
+  server.stop()
+})
+
+server = serve((req, ctx) => new Response('Hello'), {
+  port: 3000,
+  signal: ac.signal,
+})
+await server.ready
+console.log(`listening on :${server.port}`)
+```
+
+### Using with WebSocket
+
+```ts
+const app = new Router().ws('/chat', { … })
+const server = serve(app.handler(), {
+  port: 3000,
+  signal: ac.signal,
+  websocket: app.websocketHandler(),
+})
+```
+
 ## Error handling
 
 ```ts
