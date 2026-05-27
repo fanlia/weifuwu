@@ -2,6 +2,12 @@
 
 **Web-standard HTTP framework for Node.js.** `(req, ctx) => Response` — no framework-specific objects, just the Web API your browser already speaks.
 
+### Design
+
+weifuwu doesn't invent its own request/response abstraction. `Request` and `Response` are the same objects you use in `fetch()` — what you learn in the browser applies directly on the server. `ctx` is the only framework object, and it only carries what the router parsed for you (`params`, `query`).
+
+Features like `tsx()`, WebSocket, GraphQL, and AI streaming all follow the same `(req, ctx) => Response` contract. There is no separate concept for "page route" vs "API route" — everything is a handler that returns a `Response`. `tsx()` just generates a `Response` from a React component the same way `router.get()` returns a `Response` from a handler function.
+
 ## Features
 
 - **Web Standard** — `Request` / `Response` / `ReadableStream`, zero abstractions
