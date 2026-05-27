@@ -162,14 +162,20 @@ async function compileAll(
     entryPoints[id(f)] = f
   }
 
+  const isBrowser = platform === 'browser'
   await esbuild.build({
     entryPoints,
     outdir: outDir,
     format: 'esm',
-    platform: platform === 'node' ? 'node' : 'browser',
+    platform: 'node',
     jsx: 'automatic',
     jsxImportSource: 'react',
-    bundle: platform === 'browser',
+    bundle: true,
+    external: isBrowser ? undefined : [
+      'react', 'react-dom', 'esbuild',
+      'graphql', 'ws', 'zod',
+      '@graphql-tools/schema', 'ai',
+    ],
     write: true,
     allowOverwrite: true,
   })
