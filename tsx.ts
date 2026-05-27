@@ -29,6 +29,7 @@ type PageEntry = {
   loadPath?: string
   layouts: string[]
   routePath?: string
+  routeOnly?: boolean
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -93,7 +94,6 @@ function scanPages(dir: string): PageEntry[] {
 
     if (entryPath) {
       let relPath = relative(dir, entryPath).replace(sep, '/')
-      // Remove page.tsx / page.ts suffix
       relPath = relPath.replace(/\/page\.tsx?$/, '')
       relPath = relPath.replace(/^page\.tsx?$/, '')
 
@@ -105,12 +105,20 @@ function scanPages(dir: string): PageEntry[] {
         ? join(current, 'route.ts') : undefined
 
       pages.push({
-        route,
-        entryPath,
-        loadPath,
-        layouts,
-        routePath: rPath,
+        route, entryPath, loadPath, layouts, routePath: rPath,
       })
+
+    // Standalone route.ts (no page.tsx)
+    } else {
+      const rPath = join(current, 'route.ts')
+      if (existsSync(rPath)) {
+        let relPath = relative(dir, rPath).replace(sep, '/')
+        relPath = relPath.replace(/\/route\.tsx?$/, '')
+        const route = filePathToRoute(relPath)
+        pages.push({
+          route, entryPath: '', layouts: [], routePath: rPath, routeOnly: true,
+        })
+      }
     }
 
     for (const d of dirs) walk(d)
@@ -320,7 +328,7 @@ export async function tsx(options: TsxOptions): Promise<Router> {
   const layoutMap = new Map<string, string[]>()
 
   for (const p of pages) {
-    allFiles.add(p.entryPath)
+    if (p.entryPath) allFiles.add(p.entryPath)
     if (p.loadPath) {
       allFiles.add(p.loadPath)
       loadMap.set(p.entryPath, p.loadPath)
@@ -339,6 +347,19 @@ export async function tsx(options: TsxOptions): Promise<Router> {
   const router = new Router()
 
   for (const p of pages) {
+    if (p.routeOnly && p.routePath) {
+      // Standalone route.ts — register all methods including GET
+      const rUrl = compiledUrl(p.routePath, outDir)
+      const modR = await import(rUrl)
+      const methods = (['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const)
+      for (const method of methods) {
+        if (modR[method]) {
+          router.route(method, p.route, modR[method])
+        }
+      }
+      continue
+    }
+
     const url = compiledUrl(p.entryPath, outDir)
     const mod = await import(url)
     const Component = mod.default
@@ -363,7 +384,7 @@ export async function tsx(options: TsxOptions): Promise<Router> {
     )
     router.get(p.route, handler)
 
-    // route.ts — skip GET (handled by page.tsx SSR)
+    // route.ts alongside page.tsx — skip GET (handled by SSR)
     if (p.routePath) {
       const rUrl = compiledUrl(p.routePath, outDir)
       const modR = await import(rUrl)
