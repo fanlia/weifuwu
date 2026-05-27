@@ -303,6 +303,31 @@ describe('tsx()', () => {
     })
   })
 
+  describe('not-found.tsx', () => {
+    it('returns 404 page with layout for unknown routes', async () => {
+      const r = await tsx({ dir: fixtures })
+      const res = await r.handler()(
+        new Request('http://localhost/unknown-path'),
+        { params: {}, query: {} },
+      )
+      assert.equal(res.status, 404)
+
+      const html = await res.text()
+      assert.match(html, /404 - Not Found/)
+      assert.match(html, /<html>/)
+      assert.match(html, /<title>App<\/title>/)
+    })
+
+    it('returns 200 for existing routes', async () => {
+      const r = await tsx({ dir: fixtures })
+      const res = await r.handler()(
+        new Request('http://localhost/about'),
+        { params: {}, query: {} },
+      )
+      assert.equal(res.status, 200)
+    })
+  })
+
   describe('edge cases', () => {
     it('non-existent directory returns empty router', async () => {
       const r = await tsx({ dir: './test/fixtures/nonexistent' })

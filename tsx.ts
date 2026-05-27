@@ -329,6 +329,16 @@ export async function tsx(options: TsxOptions): Promise<Router> {
     if (p.routePath) allFiles.add(p.routePath)
   }
 
+  // Check for not-found.tsx at root
+  const nfPath = join(pagesDir, 'not-found.tsx')
+  const hasNotFound = existsSync(nfPath)
+  if (hasNotFound) {
+    allFiles.add(nfPath)
+    // Ensure root layouts are compiled for not-found.tsx
+    const rootLayouts = resolveLayouts(pagesDir, pagesDir)
+    for (const lp of rootLayouts) allFiles.add(lp)
+  }
+
   // 3. Compile for SSR
   mkdirSync(outDir, { recursive: true })
   await compileAll([...allFiles], outDir, 'node')
@@ -385,6 +395,41 @@ export async function tsx(options: TsxOptions): Promise<Router> {
         }
       }
     }
+  }
+
+  // not-found.tsx — catch-all with 404 status
+  if (hasNotFound) {
+    const nfUrl = compiledUrl(nfPath, outDir)
+    const modNf = await import(nfUrl)
+    const NfComponent = modNf.default
+
+    const nfLayouts: any[] = []
+    const rootLayouts = resolveLayouts(pagesDir, pagesDir)
+    for (const lp of rootLayouts) {
+      const lUrl = compiledUrl(lp, outDir)
+      const modL = await import(lUrl)
+      nfLayouts.push(modL.default)
+    }
+
+    const handler: Handler = async (req, ctx) => {
+      let element = createElement(NfComponent, { params: ctx.params, query: ctx.query })
+      for (let i = nfLayouts.length - 1; i >= 0; i--) {
+        element = createElement(nfLayouts[i], { children: element })
+      }
+      element = createElement(TsxContext.Provider as any, {
+        value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
+      }, element)
+
+      const stream = await renderToReadableStream(element)
+      const body = await readStream(stream)
+      const html = `<!DOCTYPE html>\n${body}`
+      return new Response(html, {
+        status: 404,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      })
+    }
+
+    router.all('/*', handler)
   }
 
   return router

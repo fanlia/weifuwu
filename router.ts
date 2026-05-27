@@ -388,7 +388,7 @@ export class Router {
       pathMws.push(...node.pathMws)
 
       if (node.wildcard) {
-        const h = node.handlers.get(method) || node.handlers.get('*')
+        const h = node.handlers.get('*') || node.handlers.get(method)
         if (h) {
           wildcardHandler = h
           wildcardMws = node.middlewares.get(method) || node.middlewares.get('*') || []
