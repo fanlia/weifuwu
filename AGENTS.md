@@ -9,7 +9,7 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 ## TypeScript rules
 
 - All imports must use explicit `.ts` extensions (e.g. `import { x } from './foo.ts'`)
-- Node.js v26+ supports TypeScript natively with `--experimental-strip-types`
+- Node.js v24+ supports TypeScript natively (no `--experimental-strip-types` needed)
 - No `tsc` compiler needed for runtime (native TS via Node.js)
 
 ## Code conventions
@@ -28,8 +28,66 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - `graphql` + `@graphql-tools/schema` for GraphQL
 - `ai` (Vercel AI SDK) for AI streaming
 - `zod` for request validation
+- `react` + `react-dom` for `.tsx()` SSR + hydration
+- `esbuild` for hydration bundle compilation
 - Node.js built-in `WebSocket` for WebSocket clients
 - Node.js built-in `zlib` for response compression
+
+## tsx() — React SSR + Auto Hydration
+
+`tsx({ dir })` — creates a Router from a React pages directory:
+
+```ts
+type TsxRoute = {
+  component: React.ComponentType<any>
+  props?: Record<string, any>       // custom props (merged with params + query)
+  source?: string                   // component source path → enables hydration
+}
+
+type TsxHandler = (
+  req: Request,
+  ctx: Context,
+) => TsxRoute | Promise<TsxRoute>
+```
+
+- SSR via `react-dom/server` `renderToReadableStream`
+- Props are serialized as `window.__WEIFUWU_PROPS` in HTML
+- Hydration: esbuild lazily compiles source → client bundle served at `/_wfw/client/`
+- Props passed to component: `{ ...props, params, query }` (never `req`/`ctx`)
+
+### File conventions
+
+```
+pages/
+  page.tsx              → GET /           (React component, default export)
+  layout.tsx            → root layout     (wraps all pages)
+  about/page.tsx        → GET /about
+  blog/[slug]/
+    page.tsx            → GET /blog/:slug
+    load.ts             → data fetching   (server-only, default export)
+    route.ts            → POST /blog/:slug (API, named exports GET/POST/...)
+  blog/layout.tsx       → /blog/* layout  (auto-wraps blog pages)
+```
+
+- `page.tsx` — default export = React component, receives `{ params, query }` + load data
+- `load.ts` — default export = async function `({ params, query }) => props`, server-only
+- `layout.tsx` — default export = React component with `{ children }`, auto-nested by directory level
+- `route.ts` — named exports `GET`/`POST`/`PUT`/`DELETE`/`PATCH`, standard Handler signature
+
+### Usage
+
+```ts
+import { serve, Router } from 'weifuwu'
+import { tsx } from 'weifuwu/tsx'
+
+const r = new Router()
+r.use('/', await tsx({ dir: './pages/' }))
+
+// Other features coexist
+r.ws('/chat', { message(ws, _, data) { ws.send(data) } })
+
+serve(r.handler())
+```
 
 ## Testing
 

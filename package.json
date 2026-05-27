@@ -1,6 +1,6 @@
 {
   "name": "weifuwu",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Web-standard HTTP framework for Node.js — (req, ctx) => Response",
   "main": "index.ts",
   "scripts": {
@@ -9,13 +9,19 @@
   "dependencies": {
     "@graphql-tools/schema": "^10",
     "ai": "^6",
+    "esbuild": "^0.28.0",
     "graphql": "^16",
+    "react": "^19",
+    "react-dom": "^19",
     "ws": "^8",
     "zod": "^4.4.3"
   },
   "type": "module",
   "license": "MIT",
   "devDependencies": {
-    "@types/ws": "^8.18.1"
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
+    "typescript": "^6.0.3"
   }
 }
