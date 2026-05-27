@@ -8,7 +8,7 @@
 - **Trie router** — static > param > wildcard, sub-router mounting, path params
 - **Middleware** — global, path-scoped, route-level — onion model, short-circuit
 - **Built-in middleware** — `auth()`, `cors()`, `logger()`, `rateLimit()`, `compress()`
-- **React SSR + Hydration** — `tsx({ dir })` — page.tsx / load.ts / layout.tsx / route.ts
+- **React SSR + Hydration** — `tsx({ dir })` — page.tsx / load.ts / layout.tsx / route.ts / not-found.tsx
 - **WebSocket** — `router.ws()` with upgrade middleware (auth before connect)
 - **GraphQL** — `router.graphql()` with GraphiQL IDE
 - **AI streaming** — `router.ai()` via Vercel AI SDK
@@ -46,12 +46,15 @@ serve(app.handler(), { port: 3000 })
 pages/
   page.tsx              → GET /           (React component, default export)
   layout.tsx            → root layout     (HTML shell, receives req/ctx, NOT hydrated)
+  not-found.tsx         → 404 error page  (rendered for unmatched routes, wrapped in layout)
   about/page.tsx        → GET /about
   blog/[slug]/
     page.tsx            → GET /blog/:slug
     load.ts             → data fetching   (server-only, default export)
-    route.ts            → POST /blog/:slug (API, named exports GET/POST/...)
+    route.ts            → POST /blog/:slug (API, named exports POST/PUT/DELETE/...)
   blog/layout.tsx       → /blog/* layout  (UI structure, receives children, hydrated)
+  api/search/
+    route.ts            → GET /api/search (standalone API, no page.tsx needed)
 ```
 
 ### page.tsx — page component
@@ -155,7 +158,18 @@ export const POST: Handler = async (req, ctx) => {
 }
 ```
 
-Route.ts exports `POST`/`PUT`/`DELETE`/`PATCH` (GET is handled by page.tsx). The same `route.ts` file coexists with `page.tsx` in the same directory for handling form submissions or AJAX requests.
+Route.ts exports `POST`/`PUT`/`DELETE`/`PATCH` (GET is handled by page.tsx). The same `route.ts` file coexists with `page.tsx` in the same directory for handling form submissions or AJAX requests. Standalone `route.ts` (without a co-located `page.tsx`) registers all methods including `GET`.
+
+### not-found.tsx — 404 page
+
+```tsx
+// pages/not-found.tsx
+export default function NotFound() {
+  return <h1 class="text-4xl">404 – Not Found</h1>
+}
+```
+
+Automatically rendered for unmatched routes, wrapped in the full layout chain. Works with `use('/')` mounting and standalone usage.
 
 ### Usage within a full app
 
@@ -224,6 +238,9 @@ app.get('/protected', auth({ proxy: 'http://auth:3000/validate' }), handler)
 
 // Custom header
 app.use(auth({ header: 'X-API-Key', token: 'my-key' }))
+
+// Token can also be passed via query string ?access_token=xxx
+// Proxy forwards using the same method the client used (header ↔ query)
 ```
 
 ### CORS
