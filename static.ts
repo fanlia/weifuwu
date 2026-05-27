@@ -73,7 +73,7 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
       }
 
       const stream = fileHandle.readableWebStream()
-      return new Response(stream, { headers })
+      return new Response(stream as unknown as BodyInit, { headers })
     } catch (err) {
       if (fileHandle) await fileHandle.close().catch(() => {})
       if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {

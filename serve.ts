@@ -39,7 +39,7 @@ export function createRequest(req: IncomingMessage, body: Buffer): [Request, Rec
     method: req.method?.toUpperCase() ?? 'GET',
     headers,
     body: (req.method !== 'GET' && req.method !== 'HEAD' && body.length > 0)
-      ? body
+      ? body as BodyInit
       : null,
   })
 

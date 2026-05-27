@@ -60,7 +60,7 @@ export function compress(options?: CompressOptions): Middleware {
     headers.delete('Content-Range')
     headers.set('Vary', 'Accept-Encoding')
 
-    return new Response(compressed, {
+    return new Response(compressed as BodyInit, {
       status: res.status,
       statusText: res.statusText,
       headers,
