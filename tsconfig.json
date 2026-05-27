@@ -4,10 +4,11 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
-    "noEmit": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["*.ts", "test/**/*.ts"]
+  "include": ["*.ts"]
 }

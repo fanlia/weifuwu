@@ -1,9 +1,21 @@
 {
   "name": "weifuwu",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Web-standard HTTP framework for Node.js — (req, ctx) => Response",
-  "main": "index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./tsx": "./dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
+    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --external:react --external:react-dom --external:esbuild --external:graphql --external:ws --external:zod --external:@graphql-tools/schema --external:ai",
+    "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "test": "node --test 'test/**/*.test.ts'"
   },
   "dependencies": {

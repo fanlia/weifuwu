@@ -280,7 +280,7 @@ function makeSsrHandler(
       )
     }
 
-    element = createElement(TsxContext.Provider, {
+    element = createElement(TsxContext.Provider as any, {
       value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
     }, element)
 
