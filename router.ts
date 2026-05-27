@@ -385,15 +385,6 @@ export class Router {
     let wildcardIdx = -1
 
     for (let i = 0; i < segments.length; i++) {
-      if (node.subRouter) {
-        return {
-          pathMws,
-          params,
-          middlewares: [],
-          subRouter: { router: node.subRouter, remainingIdx: i },
-        }
-      }
-
       pathMws.push(...node.pathMws)
 
       if (node.wildcard) {
@@ -410,6 +401,14 @@ export class Router {
 
       const next = matchTrieNode(node, segment, params)
       if (!next) {
+        if (node.subRouter) {
+          return {
+            pathMws,
+            params,
+            middlewares: [],
+            subRouter: { router: node.subRouter, remainingIdx: i },
+          }
+        }
         if (wildcardHandler) {
           params['*'] = segments.slice(wildcardIdx).join('/')
           return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params }
