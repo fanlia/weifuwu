@@ -8,6 +8,7 @@
 - **Trie router** — static > param > wildcard, sub-router mounting, path params
 - **Middleware** — global, path-scoped, route-level — onion model, short-circuit
 - **Built-in middleware** — `auth()`, `cors()`, `logger()`, `rateLimit()`, `compress()`
+- **React SSR + Hydration** — `tsx({ dir })` — page.tsx / load.ts / layout.tsx / route.ts
 - **WebSocket** — `router.ws()` with upgrade middleware (auth before connect)
 - **GraphQL** — `router.graphql()` with GraphiQL IDE
 - **AI streaming** — `router.ai()` via Vercel AI SDK
@@ -26,6 +27,110 @@ import { serve } from 'weifuwu'
 
 serve((req, ctx) => new Response('Hello, World!'), { port: 3000 })
 ```
+
+## React pages with tsx()
+
+```ts
+import { serve, Router } from 'weifuwu'
+import { tsx } from 'weifuwu/tsx'
+
+const app = new Router()
+app.use('/', await tsx({ dir: './pages/' }))
+
+serve(app.handler(), { port: 3000 })
+```
+
+### File conventions
+
+```
+pages/
+  page.tsx              → GET /           (React component, default export)
+  layout.tsx            → root layout     (wraps all pages)
+  about/page.tsx        → GET /about
+  blog/[slug]/
+    page.tsx            → GET /blog/:slug
+    load.ts             → data fetching   (server-only, default export)
+    route.ts            → POST /blog/:slug (API, named exports GET/POST/...)
+  blog/layout.tsx       → /blog/* layout  (auto-wraps blog pages)
+```
+
+### page.tsx — page component
+
+```tsx
+export default function Page({ params, query }: {
+  params: { slug: string }
+  query: Record<string, string>
+}) {
+  return <article><h1>{params.slug}</h1></article>
+}
+```
+
+### load.ts — data fetching (server-only)
+
+```ts
+import { db } from './db.ts'
+
+export default async function load({ params, query }: {
+  params: Record<string, string>
+  query: Record<string, string>
+}) {
+  const data = await db.query(params.slug)
+  return { data }   // merged into props passed to page.tsx
+}
+```
+
+`load()` runs only on the server. Its return value is merged with `{ params, query }` and passed to the page component. The merged props are serialized as `window.__WEIFUWU_PROPS` for client hydration.
+
+### layout.tsx — nested layouts
+
+```tsx
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html>
+      <head><title>App</title></head>
+      <body>
+        <div id="__weifuwu_root">{children}</div>
+      </body>
+    </html>
+  )
+}
+```
+
+Layouts auto-nest by directory depth — `pages/blog/layout.tsx` wraps `pages/blog/*` pages inside `pages/layout.tsx`.
+
+### route.ts — API (co-located with page)
+
+```ts
+export const POST: Handler = async (req, ctx) => {
+  const body = await req.json()
+  return Response.json({ ...body, slug: ctx.params.slug })
+}
+```
+
+Route.ts exports `POST`/`PUT`/`DELETE`/`PATCH` (GET is handled by page.tsx). The same `route.ts` file coexists with `page.tsx` in the same directory for handling form submissions or AJAX requests.
+
+### Usage within a full app
+
+```ts
+import { serve, Router } from 'weifuwu'
+import { tsx } from 'weifuwu/tsx'
+
+const r = new Router()
+r.use('/', await tsx({ dir: './pages/' }))
+
+// Other features coexist in the same process
+r.ws('/chat', { message(ws, _, data) { ws.send(data) } })
+r.graphql('/graphql', { schema: `...`, resolvers: { ... } })
+
+serve(r.handler())
+```
+
+```bash
+node --watch app.ts    # development
+node app.ts            # production
+```
+
+No build step, no configuration file — just Node.js and React.
 
 ## Router
 
@@ -276,6 +381,18 @@ const app = new Router()
 | `websocket` | — | Upgrade handler from `router.websocketHandler()` |
 
 Returns `{ stop, port, hostname, ready }`.
+
+### `tsx(options)`
+
+```ts
+import { tsx } from 'weifuwu/tsx'
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `dir` | — | Pages directory path |
+
+Returns `Promise<Router>`.
 
 ### `Router`
 
