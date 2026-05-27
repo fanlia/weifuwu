@@ -277,7 +277,7 @@ function makeSsrHandler(
     const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
     const allProps = { ...loadProps, params: ctx.params, query: ctx.query }
 
-    let element = createElement(Component, allProps)
+    let element: any = createElement(Component, allProps)
     for (let i = layouts.length - 1; i >= 0; i--) {
       const isRoot = i === 0
       element = createElement(
@@ -412,11 +412,11 @@ export async function tsx(options: TsxOptions): Promise<Router> {
     }
 
     const handler: Handler = async (req, ctx) => {
-      let element = createElement(NfComponent, { params: ctx.params, query: ctx.query })
+      let element: any = createElement(NfComponent, { params: ctx.params, query: ctx.query })
       for (let i = nfLayouts.length - 1; i >= 0; i--) {
         element = createElement(nfLayouts[i], { children: element })
       }
-      element = createElement(TsxContext.Provider as any, {
+      element = createElement(TsxContext.Provider, {
         value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
       }, element)
 
