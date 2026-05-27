@@ -385,10 +385,10 @@ describe('auth', () => {
     proxy.stop()
   })
 
-  it('proxy sends access_token query param for custom header', async () => {
-    let receivedQuery = ''
+  it('proxy forwards custom header when token from header', async () => {
+    let receivedHeader = ''
     const proxy = serve((req) => {
-      receivedQuery = new URL(req.url).search
+      receivedHeader = req.headers.get('X-API-Key') ?? ''
       return new Response('ok')
     }, { port: 0 })
     await proxy.ready
@@ -400,6 +400,26 @@ describe('auth', () => {
     await r.handler()(
       new Request('http://localhost/data', { headers: { 'X-API-Key': 'my-key' } }),
       { params: {}, query: {} },
+    )
+    assert.equal(receivedHeader, 'my-key')
+    proxy.stop()
+  })
+
+  it('proxy sends access_token query param when token from query', async () => {
+    let receivedQuery = ''
+    const proxy = serve((req) => {
+      receivedQuery = new URL(req.url).search
+      return new Response('ok')
+    }, { port: 0 })
+    await proxy.ready
+    const proxyUrl = `http://localhost:${proxy.port}/validate`
+
+    const r = new Router()
+      .get('/data', auth({ proxy: proxyUrl }), handler())
+
+    await r.handler()(
+      new Request('http://localhost/data?access_token=my-key'),
+      { params: {}, query: { access_token: 'my-key' } },
     )
     assert.ok(receivedQuery.includes('access_token=my-key'))
     proxy.stop()

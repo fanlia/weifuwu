@@ -96,23 +96,35 @@ export interface AuthOptions {
 export function auth(options: AuthOptions): Middleware {
   return async (req, ctx, next) => {
     const headerName = options.header ?? 'Authorization'
-    const header = req.headers.get(headerName)
+    let from = 'header'
+    let header = req.headers.get(headerName)
 
-    if (!header) {
+    // Fall back to query string ?access_token=xxx
+    let token = ''
+    if (header) {
+      token = header
+      if (headerName.toLowerCase() === 'authorization') {
+        const parts = header.split(' ')
+        if (parts[0]?.toLowerCase() === 'bearer') {
+          token = parts.slice(1).join(' ')
+        }
+      }
+    } else {
+      const url = new URL(req.url)
+      const qsToken = url.searchParams.get('access_token')
+      if (qsToken) {
+        token = qsToken
+        from = 'query'
+      }
+    }
+
+    if (!token) {
       return new Response('Unauthorized', {
         status: 401,
         headers: headerName.toLowerCase() === 'authorization'
           ? { 'WWW-Authenticate': 'Bearer' }
           : undefined,
       })
-    }
-
-    let token = header
-    if (headerName.toLowerCase() === 'authorization') {
-      const parts = header.split(' ')
-      if (parts[0]?.toLowerCase() === 'bearer') {
-        token = parts.slice(1).join(' ')
-      }
     }
 
     // ── Proxy mode ──────────────────────────────────────────────────────────
@@ -123,9 +135,11 @@ export function auth(options: AuthOptions): Middleware {
 
       const proxyHeaders: Record<string, string> = {}
 
-      if (headerName.toLowerCase() === 'authorization') {
-        proxyHeaders['Authorization'] = header
+      if (from === 'header' && header) {
+        // Forward as the same header
+        proxyHeaders[headerName] = header
       } else {
+        // Forward as query param
         proxyUrl.searchParams.set('access_token', token)
       }
 
