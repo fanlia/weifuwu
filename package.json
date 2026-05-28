@@ -14,7 +14,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --external:react --external:react-dom --external:esbuild --external:graphql --external:ws --external:zod --external:@graphql-tools/schema --external:ai --external:postgres",
+    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --external:react --external:react-dom --external:esbuild --external:graphql --external:ws --external:zod --external:@graphql-tools/schema --external:ai --external:postgres --external:jsonwebtoken",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "test": "node --test 'test/**/*.test.ts'"
   },
@@ -23,6 +23,7 @@
     "ai": "^6",
     "esbuild": "^0.28.0",
     "graphql": "^16",
+    "jsonwebtoken": "^9.0.3",
     "postgres": "^3.4.9",
     "react": "^19",
     "react-dom": "^19",
@@ -32,6 +33,7 @@
   "type": "module",
   "license": "MIT",
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",

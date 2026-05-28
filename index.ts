@@ -27,3 +27,5 @@ export { tool, createWorkflowEngine, createSSEManager, generateWorkflow, workflo
 export type { Tool, Workflow, WorkflowEngine, WorkflowState, SSEEvent, WorkflowOptions, WorkflowHandler } from './workflow/index.ts'
 export { postgres } from './postgres/index.ts'
 export type { PostgresOptions, PostgresClient, TableProxy, ListOptions, TableBuilder } from './postgres/types.ts'
+export { user } from './user.ts'
+export type { UserOptions, UserData, UserModule } from './user.ts'

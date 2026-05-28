@@ -24,6 +24,7 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **Cookie** — `getCookies()`, `setCookie()`, `deleteCookie()` — immutable
 - **Error handling** — global `onError()`
 - **Zero build** — native TypeScript in Node.js v24+
+- **Built-in authentication** — `user()` — register, login, JWT, role
 - **Zero deps** (core) — only `node:http` and `node:stream`
 
 ## Quick start
@@ -258,14 +259,33 @@ await pg.close()                             // explicit close
 | `id: z.string().uuid().optional()` | `UUID PRIMARY KEY DEFAULT gen_random_uuid()` |
 | `id: z.string()` | `TEXT PRIMARY KEY` (you pass the value) |
 
-## WebSocket
+## Authentication
+
+Built-in user registration, login, and JWT authentication.
 
 ```ts
+import { serve, Router, postgres, user } from 'weifuwu'
+
 const app = new Router()
-  .ws('/chat/:room', {
-    open(ws, ctx) {
-      ws.send(`Connected to room: ${ctx.params.room}`)
-    },
+const pg = postgres()
+await pg.migrate()
+
+const auth = user({ pg, jwtSecret: process.env.JWT_SECRET! })
+
+// POST /auth/register  { email, password, name }
+// POST /auth/login     { email, password }
+app.use('/auth', auth.router())
+
+// Protected routes — verifies JWT, sets ctx.user
+app.get('/me', auth.middleware(), async (req, ctx) => {
+  return Response.json(ctx.user)
+  // { id, email, name, role }
+})
+```
+
+Password hashing uses `crypto.scryptSync` + `timingSafeEqual` (Node.js built-in, zero deps). JWT tokens use the `jsonwebtoken` package. The users table (`_users` by default) is auto-created via `CREATE TABLE IF NOT EXISTS` on first `migrate()`.
+
+## WebSocket
     message(ws, ctx, data) {
       ws.send(`echo: ${data}`)
     },
@@ -690,6 +710,7 @@ Returns `Promise<Router>`.
 | Import | Description |
 |--------|-------------|
 | `postgres(options?)` | PostgreSQL connection + auto-migration + 6 CRUD methods |
+| `user(options)` | Built-in authentication (register, login, JWT, middleware) |
 | `graphql(handler)` | GraphQL endpoint (GET/POST + GraphiQL) |
 | `ai(handler)` | AI streaming endpoint (POST) |
 | `workflow(handler)` | Workflow engine (POST + SSE) |
