@@ -23,6 +23,7 @@ Features like `tsx()`, WebSocket, GraphQL, and AI streaming all follow the same 
 - **Request validation** — `validate()` with Zod (body / query / params / headers)
 - **File upload** — `upload()` multipart parser with disk save, size & type limits
 - **Cookie** — `getCookies()`, `setCookie()`, `deleteCookie()` — immutable
+- **PostgreSQL** — `postgres()` — zod-to-DDL, auto-migration, 6 CRUD methods, `ctx.sql` escape hatch
 - **Error handling** — global `onError()`
 - **Zero build** — native TypeScript in Node.js v24+
 - **Zero deps** (core) — only `node:http` and `node:stream`
@@ -362,6 +363,83 @@ res = setCookie(res, 'session', 'token', { httpOnly: true, secure: true, maxAge:
 // Delete
 res = deleteCookie(res, 'session')
 ```
+
+## PostgreSQL
+
+Bring your own PostgreSQL database — zero config, zero ORM, zero migration files.
+
+```ts
+import { serve, Router, postgres } from 'weifuwu'
+import { z } from 'zod'
+
+const app = new Router()
+const pg = postgres()
+
+const User = pg.table('users', {
+  id:    z.number().optional(),    // → SERIAL PRIMARY KEY
+  name:  z.string().min(1),       // → TEXT NOT NULL
+  email: z.string().email(),      // → TEXT NOT NULL
+  age:   z.number().optional(),   // → INTEGER
+})
+
+await pg.migrate()
+// Auto-creates tables / adds missing columns via information_schema
+app.use(pg)  // injects ctx.sql into handlers
+```
+
+### 6 methods — HTTP semantics
+
+```ts
+User.get(1)                          // GET    /users/:id
+User.list({ name: 'a' },             // GET    /users?name=a
+  { limit: 10, offset: 0, sort: { id: 'desc' } })
+// → { rows: User[], count: number }
+
+User.create({ name: 'A', email: 'a@b.com' })           // POST   /users
+User.patch(1, { name: 'B' })                           // PATCH  /users/:id
+User.remove(1)                                          // DELETE /users/:id
+```
+
+Every method validates input against your zod schema automatically. Complex queries use `ctx.sql`:
+
+```ts
+app.get('/users/stats', async (req, ctx) => {
+  const rows = await ctx.sql`
+    SELECT u.*, count(p.id) as posts
+    FROM users u LEFT JOIN posts p ON p.user_id = u.id
+    GROUP BY u.id
+  `
+  return Response.json(rows)
+})
+```
+
+### Migration-free sync
+
+`pg.migrate()` queries `information_schema.columns` and only runs the DDL needed:
+
+- **Table missing** → `CREATE TABLE IF NOT EXISTS`
+- **Column missing** → `ALTER TABLE ADD COLUMN IF NOT EXISTS`
+- **Existing** → no-op
+
+Safe for production: never drops or alters existing columns. Destructive operations (rename, type change, drop) are done via `ctx.sql`.
+
+### Connection lifecycle
+
+```ts
+const pg = postgres()                        // reads DATABASE_URL
+const pg = postgres('postgres://...')        // explicit connection
+const pg = postgres({ signal: ac.signal })   // abort → sql.end()
+serve(app.handler())                         // server.stop() → pg.close() (manual)
+await pg.close()                             // explicit close
+```
+
+### How primary keys work
+
+| zod field | PostgreSQL |
+|-----------|-----------|
+| `id: z.number().optional()` | `SERIAL PRIMARY KEY` |
+| `id: z.string().uuid().optional()` | `UUID PRIMARY KEY DEFAULT gen_random_uuid()` |
+| `id: z.string()` | `TEXT PRIMARY KEY` (you pass the value) |
 
 ## WebSocket
 
@@ -716,6 +794,7 @@ Returns `Promise<Router>`.
 | `logger(options?)` | Request logging with duration |
 | `rateLimit(options?)` | In-memory rate limiting with headers |
 | `compress(options?)` | Brotli / Gzip / Deflate compression |
+| `postgres(options?)` | PostgreSQL connection + auto-migration + 6 CRUD methods |
 
 ### Utilities
 
