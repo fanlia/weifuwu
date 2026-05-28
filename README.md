@@ -20,11 +20,13 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **AI streaming** — `ai(handler)` sub-Router via Vercel AI SDK
 - **AI workflows** — `workflow(handler)` sub-Router — intent-to-execution pipelines with `tool()` + SSE
 - **PostgreSQL** — `postgres()` — zod-to-DDL, auto-migration, 6 CRUD methods, `ctx.sql` escape hatch
+- **Redis** — `redis()` — ioredis client, `ctx.redis`, middleware
+- **Queue** — `queue()` — Redis-backed job queue with immediate, delayed, and cron scheduling
+- **Auth** — `user()` — register/login/JWT + OAuth2 Server (authorization code + PKCE + client_credentials)
 - **Static files** — `serveStatic()` with ETag, 304, MIME, directory index
 - **Cookie** — `getCookies()`, `setCookie()`, `deleteCookie()` — immutable
 - **Error handling** — global `onError()`
 - **Zero build** — native TypeScript in Node.js v24+
-- **Built-in authentication** — `user()` — register, login, JWT, role
 - **Zero deps** (core) — only `node:http` and `node:stream`
 
 ## Quick start
@@ -261,7 +263,7 @@ await pg.close()                             // explicit close
 
 ## Authentication
 
-Built-in user registration, login, and JWT authentication.
+Built-in user management — password login, JWT, and OAuth2 Server. Zero config beyond PostgreSQL and a secret key.
 
 ```ts
 import { serve, Router, postgres, user } from 'weifuwu'
@@ -274,6 +276,9 @@ const auth = user({ pg, jwtSecret: process.env.JWT_SECRET! })
 
 // POST /auth/register  { email, password, name }
 // POST /auth/login     { email, password }
+// GET  /auth/oauth/authorize?client_id=...&redirect_uri=...&response_type=code
+// POST /auth/oauth/consent
+// POST /auth/oauth/token  (grant_type=authorization_code|client_credentials)
 app.use('/auth', auth.router())
 
 // Protected routes — verifies JWT, sets ctx.user
@@ -283,7 +288,80 @@ app.get('/me', auth.middleware(), async (req, ctx) => {
 })
 ```
 
-Password hashing uses `crypto.scryptSync` + `timingSafeEqual` (Node.js built-in, zero deps). JWT tokens use the `jsonwebtoken` package. The users table (`_users` by default) is auto-created via `CREATE TABLE IF NOT EXISTS` on first `migrate()`.
+Password hashing uses `crypto.scryptSync` + `timingSafeEqual` (Node.js built-in, zero deps). JWT tokens use the `jsonwebtoken` package. The users table (`_users` by default) is auto-created on first `migrate()`.
+
+### OAuth2 Server
+
+Enable OAuth2 Server to let third-party apps (SPA, mobile, microservices) authenticate users through your app.
+
+```ts
+const auth = user({
+  pg,
+  jwtSecret: process.env.JWT_SECRET!,
+  oauth2: { server: true },
+})
+
+await auth.migrate()  // creates _users + _oauth2_clients + _oauth2_codes + _oauth2_tokens
+
+// Register a client app (programmatic — CLI, admin UI, seed script)
+const client = await auth.registerClient({
+  name: 'My SPA',
+  redirectUris: ['https://myapp.com/callback'],
+})
+// → { clientId, clientSecret, name, redirectUris }
+
+// Use auth middleware to protect routes — OAuth2 JWT tokens work seamlessly
+app.get('/api/data', auth.middleware(), handler)
+```
+
+#### Supported Grant Types
+
+| Grant | Use Case | PKCE |
+|-------|----------|------|
+| `authorization_code` (with client_secret) | Server-side apps | Optional |
+| `authorization_code` (with `code_challenge`/`code_verifier`) | SPA / Mobile apps | Required |
+| `client_credentials` | Machine-to-machine | — |
+
+#### Flow (Authorization Code + PKCE)
+
+```
+1. 第三方 App 引导用户:
+    GET /oauth/authorize?client_id=xxx&redirect_uri=https://app.com/cb
+                       &response_type=code&code_challenge=S256&state=yyy
+
+2. 用户未登录 → 302 到 /login?redirect=... → 登录后自动回到授权页
+
+3. 用户确认授权 → POST /oauth/consent { approve: true, client_id, ... }
+   302 redirect_uri?code=xxx&state=yyy
+
+4. 第三方 App POST /oauth/token
+   { grant_type: authorization_code, code, client_id, client_secret,
+     redirect_uri, code_verifier }
+   → { access_token, token_type: "Bearer", expires_in, refresh_token }
+
+5. access_token 是标准 JWT，auth.middleware() 和 auth.verify() 直接可用
+```
+
+#### Client Management
+
+```ts
+const client  = await auth.registerClient({ name, redirectUris })
+const found   = await auth.getClient(client.clientId)
+await auth.revokeClient(client.clientId)
+```
+
+#### Using OAuth2 Tokens with the Built-in Auth Middleware
+
+OAuth2 Server 签发的 `access_token` 与密码登录的 JWT 使用同一 `jwtSecret`，payload 向下兼容（`sub`、`email`、`role`），所以 `auth()` 无需任何修改即可验证 OAuth2 签发的 token：
+
+```ts
+import { auth } from 'weifuwu'
+
+// 同一个 auth() 中间件同时支持密码登录 JWT 和 OAuth2 JWT
+app.get('/api', auth({ verify: (token) => auth.verify(token) }), handler)
+```
+
+For `client_credentials` tokens (machine-to-machine), `verify()` returns `null` since no user is associated.
 
 ## WebSocket
     message(ws, ctx, data) {
@@ -674,6 +752,18 @@ const app = new Router()
 
 Returns `{ stop, port, hostname, ready }`.
 
+### `user(options)`
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `pg` | — | PostgreSQL client from `postgres()` |
+| `jwtSecret` | — | Secret key for JWT signing |
+| `table` | `'_users'` | Users table name |
+| `expiresIn` | `'24h'` | JWT expiration |
+| `oauth2.server` | `false` | Enable OAuth2 Server |
+
+Returns `UserModule` — `{ router, middleware, migrate, register, login, verify, registerClient, getClient, revokeClient, close }`.
+
 ### `tsx(options)`
 
 | Option | Default | Description |
@@ -710,7 +800,9 @@ Returns `Promise<Router>`.
 | Import | Description |
 |--------|-------------|
 | `postgres(options?)` | PostgreSQL connection + auto-migration + 6 CRUD methods |
-| `user(options)` | Built-in authentication (register, login, JWT, middleware) |
+| `redis(options?)` | Redis client (ioredis) — injects `ctx.redis` |
+| `queue(options?)` | Redis-backed job queue — immediate, delayed, cron scheduling |
+| `user(options)` | Built-in authentication (password + OAuth2 Server + JWT, middleware) |
 | `graphql(handler)` | GraphQL endpoint (GET/POST + GraphiQL) |
 | `ai(handler)` | AI streaming endpoint (POST) |
 | `workflow(handler)` | Workflow engine (POST + SSE) |
