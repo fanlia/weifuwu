@@ -779,8 +779,6 @@ Returns `Promise<Router>`.
 | `get/post/put/delete/patch/head/options/all(path, ...mws, handler)` | Route registration |
 | `use(mw)` / `use(path, mw)` / `use(path, subRouter)` | Middleware / sub-router |
 | `ws(path, ...mws, handler)` | WebSocket route |
-| `graphql(path, ...mws, options)` | GraphQL endpoint |
-| `ai(path, ...mws, handler)` | AI streaming |
 | `onError(handler)` | Global error handler |
 | `handler()` | Returns `(req, ctx) => Response` for `serve()` |
 | `websocketHandler()` | Returns upgrade handler for `serve({ websocket })` |
@@ -807,6 +805,9 @@ Returns `Promise<Router>`.
 | `setCookie(res, name, value, options?)` | Set cookie (returns new Response) |
 | `deleteCookie(res, name)` | Delete cookie (returns new Response) |
 | `useTsx()` | Hook returning `{ params, query, user, parsed }` from `TsxContext` |
+| `graphql(options)` | GraphQL sub-Router (GET/POST + GraphiQL) |
+| `ai(handler)` | AI streaming sub-Router (POST) |
+| `workflow(options)` | Workflow engine sub-Router |
 
 Import `useTsx` and `TsxContext` from `'weifuwu'`.
 
