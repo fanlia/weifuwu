@@ -62,7 +62,7 @@ describe('postgres', { skip: !DATABASE_URL }, () => {
     await pg.migrate()
 
     const created = await User.create({ name: 'Bob', email: 'bob@test.com' })
-    const found = await User.get(created.id)
+    const found = await User.get(created.id!)
     assert.ok(found)
     assert.equal(found.name, 'Bob')
     assert.equal(found.email, 'bob@test.com')
@@ -164,7 +164,7 @@ describe('postgres', { skip: !DATABASE_URL }, () => {
     await pg.migrate()
 
     const created = await User.create({ name: 'Old', email: 'old@test.com' })
-    const updated = await User.patch(created.id, { name: 'New' })
+    const updated = await User.patch(created.id!, { name: 'New' })
     assert.ok(updated)
     assert.equal(updated.name, 'New')
     assert.equal(updated.email, 'old@test.com')
@@ -193,10 +193,10 @@ describe('postgres', { skip: !DATABASE_URL }, () => {
     await pg.migrate()
 
     const created = await User.create({ name: 'DeleteMe' })
-    const deleted = await User.remove(created.id)
+    const deleted = await User.remove(created.id!)
     assert.equal(deleted, true)
 
-    const found = await User.get(created.id)
+    const found = await User.get(created.id!)
     assert.equal(found, undefined)
 
     await pg.sql`DROP TABLE "__test_users_r"`
@@ -220,7 +220,7 @@ describe('postgres', { skip: !DATABASE_URL }, () => {
     const handler = pg as unknown as (req: Request, ctx: any, next: any) => any
     await handler(
       new Request('http://localhost/'),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
       (_req: any, ctx: any) => {
         capturedSql = ctx.sql
         return new Response('ok')
@@ -283,7 +283,7 @@ describe('postgres', { skip: !DATABASE_URL }, () => {
     assert.ok(created.id)
     assert.equal(created.name, 'UUID Item')
 
-    const found = await Item.get(created.id)
+    const found = await Item.get(created.id!)
     assert.ok(found)
 
     await pg.sql`DROP TABLE "__test_uuids"`

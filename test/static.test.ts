@@ -24,44 +24,44 @@ after(async () => {
 describe('serveStatic', () => {
   it('serves a file', async () => {
     const r = new Router().get('/files/*', serveStatic(tmpDir))
-    const res = await r.handler()(new Request('http://localhost/files/hello.txt'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/files/hello.txt'), { params: {}, query: {} } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'Hello, World!')
   })
 
   it('sets Content-Type based on extension', async () => {
     const r = new Router().get('/files/*', serveStatic(tmpDir))
-    const res = await r.handler()(new Request('http://localhost/files/script.js'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/files/script.js'), { params: {}, query: {} } as any)
     assert.ok(res.headers.get('Content-Type')?.includes('javascript'))
   })
 
   it('sets ETag header', async () => {
     const r = new Router().get('/files/*', serveStatic(tmpDir))
-    const res = await r.handler()(new Request('http://localhost/files/hello.txt'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/files/hello.txt'), { params: {}, query: {} } as any)
     assert.ok(res.headers.get('ETag'))
   })
 
   it('returns 304 on matching ETag', async () => {
     const r = new Router().get('/files/*', serveStatic(tmpDir))
-    const res1 = await r.handler()(new Request('http://localhost/files/hello.txt'), { params: {}, query: {} })
+    const res1 = await r.handler()(new Request('http://localhost/files/hello.txt'), { params: {}, query: {} } as any)
     const etag = res1.headers.get('ETag')
     const res2 = await r.handler()(
       new Request('http://localhost/files/hello.txt', { headers: { 'if-none-match': etag! } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res2.status, 304)
   })
 
   it('serves index.html for directory', async () => {
     const r = new Router().get('/files/*', serveStatic(tmpDir))
-    const res = await r.handler()(new Request('http://localhost/files/'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/files/'), { params: {}, query: {} } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), '<h1>Index</h1>')
   })
 
   it('returns 404 for missing file', async () => {
     const r = new Router().get('/files/*', serveStatic(tmpDir))
-    const res = await r.handler()(new Request('http://localhost/files/nope.txt'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/files/nope.txt'), { params: {}, query: {} } as any)
     assert.equal(res.status, 404)
   })
 
@@ -69,14 +69,14 @@ describe('serveStatic', () => {
     const handler = serveStatic(tmpDir)
     const res = await handler(
       new Request('http://localhost/ignored'),
-      { params: { '*': '../../package.json' }, query: {} },
+      { params: { '*': '../../package.json' }, query: {} } as any,
     )
     assert.equal(res.status, 403)
   })
 
   it('supports nested paths', async () => {
     const r = new Router().get('/files/*', serveStatic(tmpDir))
-    const res = await r.handler()(new Request('http://localhost/files/sub/deep.txt'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/files/sub/deep.txt'), { params: {}, query: {} } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'deep')
   })

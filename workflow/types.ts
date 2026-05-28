@@ -73,7 +73,7 @@ export interface WorkflowContext {
   stepCount: number
   maxSteps: number
   input: Record<string, unknown>
-  toolRegistry: Map<string, Tool>
+  toolRegistry: Map<string, Tool<any, any>>
   sseManager?: SSEManager
   workflowId?: string
   onNodeEvent?: (event: SSEEvent) => void
@@ -86,7 +86,7 @@ export interface SSEManager {
 }
 
 export interface EngineOptions {
-  tools: Record<string, Tool>
+  tools: Record<string, Tool<any, any>>
   model?: unknown
   sseManager?: SSEManager
 }

@@ -4,11 +4,11 @@ import { generateWorkflow as llmGenerate } from './llm.ts'
 import { generateText, type LanguageModel } from 'ai'
 
 export function createWorkflowEngine(options: {
-  tools: Record<string, Tool>
+  tools: Record<string, Tool<any, any>>
   sseManager?: SSEManager
   model?: LanguageModel
 }): WorkflowEngine {
-  const toolRegistry = new Map<string, Tool>()
+  const toolRegistry = new Map<string, Tool<any, any>>()
 
   for (const [key, t] of Object.entries(options.tools)) {
     t.name = t.name || key

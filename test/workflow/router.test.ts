@@ -28,7 +28,7 @@ describe('workflow sub-router', () => {
           ],
         }),
       }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
 
     assert.equal(res.status, 200)
@@ -50,7 +50,7 @@ describe('workflow sub-router', () => {
           ],
         }),
       }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
 
     assert.equal(res.status, 200)
@@ -68,7 +68,7 @@ describe('workflow sub-router', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 400)
   })
@@ -88,7 +88,7 @@ describe('workflow sub-router', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodes: [{ id: 's1', tool: 'set', input: { name: 'x', value: 1 } }] }),
       }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
 
     assert.equal(middlewareCalled, true)

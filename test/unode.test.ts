@@ -85,7 +85,7 @@ describe('serve', () => {
 describe('Router', () => {
   it('matches GET route', async () => {
     const r = new Router().get('/hello', () => new Response('world'))
-    const res = await r.handler()(new Request('http://localhost/hello'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/hello'), { params: {}, query: {} } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'world')
   })
@@ -95,7 +95,7 @@ describe('Router', () => {
       const body = await req.text()
       return new Response(body, { status: 201 })
     })
-    const res = await r.handler()(new Request('http://localhost/data', { method: 'POST', body: 'hello' }), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/data', { method: 'POST', body: 'hello' }), { params: {}, query: {} } as any)
     assert.equal(res.status, 201)
     assert.equal(await res.text(), 'hello')
   })
@@ -104,7 +104,7 @@ describe('Router', () => {
     const r = new Router().get('/users/:id', (req, ctx) =>
       Response.json({ id: ctx.params.id }),
     )
-    const res = await r.handler()(new Request('http://localhost/users/42'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/users/42'), { params: {}, query: {} } as any)
     const data = await res.json() as Record<string, string>
     assert.equal(data.id, '42')
   })
@@ -113,7 +113,7 @@ describe('Router', () => {
     const r = new Router().get('/:a/:b', (req, ctx) =>
       Response.json({ a: ctx.params.a, b: ctx.params.b }),
     )
-    const res = await r.handler()(new Request('http://localhost/foo/bar'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/foo/bar'), { params: {}, query: {} } as any)
     const data = await res.json() as Record<string, string>
     assert.equal(data.a, 'foo')
     assert.equal(data.b, 'bar')
@@ -123,9 +123,9 @@ describe('Router', () => {
     const r = new Router()
       .get('/users/me', () => new Response('me'))
       .get('/users/:id', (req, ctx) => new Response(ctx.params.id))
-    const res1 = await r.handler()(new Request('http://localhost/users/me'), { params: {}, query: {} })
+    const res1 = await r.handler()(new Request('http://localhost/users/me'), { params: {}, query: {} } as any)
     assert.equal(await res1.text(), 'me')
-    const res2 = await r.handler()(new Request('http://localhost/users/42'), { params: {}, query: {} })
+    const res2 = await r.handler()(new Request('http://localhost/users/42'), { params: {}, query: {} } as any)
     assert.equal(await res2.text(), '42')
   })
 
@@ -133,21 +133,21 @@ describe('Router', () => {
     const r = new Router().all('/api/*', (req, ctx) =>
       Response.json({ wildcard: ctx.params['*'] }),
     )
-    const res = await r.handler()(new Request('http://localhost/api/foo/bar'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/api/foo/bar'), { params: {}, query: {} } as any)
     const data = await res.json() as Record<string, string>
     assert.equal(data.wildcard, 'foo/bar')
   })
 
   it('returns 404 for unmatched route', async () => {
     const r = new Router().get('/exists', () => new Response('ok'))
-    const res = await r.handler()(new Request('http://localhost/nonexistent'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/nonexistent'), { params: {}, query: {} } as any)
     assert.equal(res.status, 404)
   })
 
   it('all() matches any method', async () => {
     const r = new Router().all('/any', () => new Response('ok'))
     for (const method of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']) {
-      const res = await r.handler()(new Request('http://localhost/any', { method }), { params: {}, query: {} })
+      const res = await r.handler()(new Request('http://localhost/any', { method }), { params: {}, query: {} } as any)
       assert.equal(res.status, 200)
     }
   })
@@ -155,7 +155,7 @@ describe('Router', () => {
   it('sub-router mounting', async () => {
     const sub = new Router().get('/nested', () => new Response('sub'))
     const main = new Router().use('/api', sub)
-    const res = await main.handler()(new Request('http://localhost/api/nested'), { params: {}, query: {} })
+    const res = await main.handler()(new Request('http://localhost/api/nested'), { params: {}, query: {} } as any)
     assert.equal(await res.text(), 'sub')
   })
 
@@ -164,7 +164,7 @@ describe('Router', () => {
       Response.json({ userId: ctx.params.userId }),
     )
     const main = new Router().use('/orgs/:orgId', sub)
-    const res = await main.handler()(new Request('http://localhost/orgs/acme/john'), { params: {}, query: {} })
+    const res = await main.handler()(new Request('http://localhost/orgs/acme/john'), { params: {}, query: {} } as any)
     const data = await res.json() as Record<string, string>
     assert.equal(data.userId, 'john')
   })
@@ -178,7 +178,7 @@ describe('Router', () => {
         (_req, _ctx, next) => { order.push(3); return next(_req, _ctx) },
         () => { order.push(4); return Response.json(order) },
       )
-    await r.handler()(new Request('http://localhost/scoped/route'), { params: {}, query: {} })
+    await r.handler()(new Request('http://localhost/scoped/route'), { params: {}, query: {} } as any)
     assert.deepEqual(order, [1, 2, 3, 4])
   })
 
@@ -186,7 +186,7 @@ describe('Router', () => {
     const r = new Router()
       .use(() => new Response('blocked', { status: 403 }))
       .get('/blocked', () => new Response('should not reach'))
-    const res = await r.handler()(new Request('http://localhost/blocked'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/blocked'), { params: {}, query: {} } as any)
     assert.equal(res.status, 403)
     assert.equal(await res.text(), 'blocked')
   })
@@ -200,7 +200,7 @@ describe('Router', () => {
         return Response.json(body)
       })
       .get('/modify', () => Response.json({ original: true }))
-    const res = await r.handler()(new Request('http://localhost/modify'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/modify'), { params: {}, query: {} } as any)
     const data = await res.json() as Record<string, unknown>
     assert.equal(data.original, true)
     assert.equal(data.modified, true)
@@ -210,7 +210,7 @@ describe('Router', () => {
     const r = new Router()
       .onError((err) => Response.json({ error: err.message }, { status: 500 }))
       .get('/crash', () => { throw new Error('oops') })
-    const res = await r.handler()(new Request('http://localhost/crash'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/crash'), { params: {}, query: {} } as any)
     assert.equal(res.status, 500)
     const data = await res.json() as Record<string, string>
     assert.equal(data.error, 'oops')
@@ -218,7 +218,7 @@ describe('Router', () => {
 
   it('root path / matches', async () => {
     const r = new Router().get('/', () => new Response('root'))
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
     assert.equal(await res.text(), 'root')
   })
 
@@ -226,8 +226,8 @@ describe('Router', () => {
     const r = new Router()
       .get('/:id', () => new Response('a'))
       .get('/:id/profile', () => new Response('b'))
-    assert.equal(await (await r.handler()(new Request('http://localhost/foo'), { params: {}, query: {} })).text(), 'a')
-    assert.equal(await (await r.handler()(new Request('http://localhost/foo/profile'), { params: {}, query: {} })).text(), 'b')
+    assert.equal(await (await r.handler()(new Request('http://localhost/foo'), { params: {}, query: {} } as any)).text(), 'a')
+    assert.equal(await (await r.handler()(new Request('http://localhost/foo/profile'), { params: {}, query: {} } as any)).text(), 'b')
   })
 
   it('different param names on same path position throw', () => {
@@ -246,7 +246,7 @@ describe('Router', () => {
     const h = r.handler()
     const tests = ['GET', 'POST', 'PUT', 'DELETE'] as const
     for (const method of tests) {
-      const res = await h(new Request('http://localhost/resource', { method }), { params: {}, query: {} })
+      const res = await h(new Request('http://localhost/resource', { method }), { params: {}, query: {} } as any)
       const data = await res.json() as Record<string, string>
       assert.equal(data.method, method)
     }
@@ -259,7 +259,7 @@ describe('Router', () => {
     const h = r.handler()
     const results = await Promise.all(
       Array.from({ length: 50 }, (_, i) =>
-        Promise.resolve(h(new Request(`http://localhost/echo/${i}`), { params: {}, query: {} })).then(r => r.json()) as Promise<Record<string, string>>,
+        Promise.resolve(h(new Request(`http://localhost/echo/${i}`), { params: {}, query: {} } as any)).then(r => r.json()) as Promise<Record<string, string>>,
       ),
     )
     results.forEach((data, i) => {

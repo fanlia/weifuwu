@@ -12,7 +12,7 @@ describe('compress', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { 'accept-encoding': 'gzip' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('content-encoding'), 'gzip')
     const body = await res.bytes()
@@ -27,7 +27,7 @@ describe('compress', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { 'accept-encoding': 'br, gzip' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('content-encoding'), 'br')
   })
@@ -39,7 +39,7 @@ describe('compress', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { 'accept-encoding': 'gzip' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('content-encoding'), null)
   })
@@ -51,7 +51,7 @@ describe('compress', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data'),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('content-encoding'), null)
   })
@@ -63,7 +63,7 @@ describe('compress', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { 'accept-encoding': 'gzip' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('content-encoding'), null)
   })
@@ -75,7 +75,7 @@ describe('compress', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { 'accept-encoding': 'gzip' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('content-encoding'), 'gzip')
   })
@@ -87,7 +87,7 @@ describe('compress', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { 'accept-encoding': 'gzip' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.ok(res.headers.get('content-length'))
   })
@@ -99,7 +99,7 @@ describe('compress', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { 'accept-encoding': 'gzip' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('Vary'), 'Accept-Encoding')
   })

@@ -19,7 +19,7 @@ describe('logger', () => {
       .use(logger())
       .get('/hello', handler())
 
-    await r.handler()(new Request('http://localhost/hello'), { params: {}, query: {} })
+    await r.handler()(new Request('http://localhost/hello'), { params: {}, query: {} } as any)
 
     assert.equal(logs.length, 1)
     assert.ok(logs[0]!.includes('GET'))
@@ -37,7 +37,7 @@ describe('logger', () => {
       .use(logger({ format: 'combined' }))
       .get('/search', handler())
 
-    await r.handler()(new Request('http://localhost/search?q=test'), { params: {}, query: {} })
+    await r.handler()(new Request('http://localhost/search?q=test'), { params: {}, query: {} } as any)
 
     assert.ok(logs[0]!.includes('?q=test'))
 
@@ -53,7 +53,7 @@ describe('cors', () => {
       .use(cors())
       .get('/data', handler())
 
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*')
   })
 
@@ -64,7 +64,7 @@ describe('cors', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { origin: 'https://example.com' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://example.com')
   })
@@ -76,7 +76,7 @@ describe('cors', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { origin: 'https://evil.com' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), null)
   })
@@ -88,7 +88,7 @@ describe('cors', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { method: 'OPTIONS', headers: { origin: 'https://example.com' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 204)
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://example.com')
@@ -104,7 +104,7 @@ describe('cors', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { origin: 'https://example.com' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('Access-Control-Allow-Credentials'), 'true')
   })
@@ -114,7 +114,7 @@ describe('cors', () => {
       .use(cors({ origin: '*', exposedHeaders: ['X-Total-Count', 'X-Page'] }))
       .get('/data', handler())
 
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.headers.get('Access-Control-Expose-Headers'), 'X-Total-Count, X-Page')
   })
 
@@ -125,7 +125,7 @@ describe('cors', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { origin: 'https://example.com' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.headers.get('Vary'), 'Origin')
   })
@@ -139,13 +139,13 @@ describe('cors', () => {
 
     const res1 = await r.handler()(
       new Request('http://localhost/data', { headers: { origin: 'https://app.trusted.com' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res1.headers.get('Access-Control-Allow-Origin'), 'https://app.trusted.com')
 
     const res2 = await r.handler()(
       new Request('http://localhost/data', { headers: { origin: 'https://evil.com' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res2.headers.get('Access-Control-Allow-Origin'), null)
   })
@@ -157,7 +157,7 @@ describe('cors', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/other', { method: 'OPTIONS', headers: { origin: 'https://example.com' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 204)
   })
@@ -176,7 +176,7 @@ describe('auth', () => {
       .use(auth({ token: 'secret' }))
       .get('/data', handler())
 
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.status, 401)
   })
 
@@ -185,7 +185,7 @@ describe('auth', () => {
       .use(auth({ token: 'secret' }))
       .get('/data', handler())
 
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.headers.get('WWW-Authenticate'), 'Bearer')
   })
 
@@ -196,7 +196,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { Authorization: 'Bearer secret' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
   })
@@ -208,7 +208,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { Authorization: 'Bearer wrong' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 403)
   })
@@ -220,13 +220,13 @@ describe('auth', () => {
 
     const res1 = await r.handler()(
       new Request('http://localhost/data', { headers: { 'X-API-Key': 'my-key' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res1.status, 200)
 
     const res2 = await r.handler()(
       new Request('http://localhost/data', { headers: { 'X-API-Key': 'wrong' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res2.status, 403)
   })
@@ -236,7 +236,7 @@ describe('auth', () => {
       .use(auth({ token: 'my-key', header: 'X-API-Key' }))
       .get('/data', handler())
 
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.headers.get('WWW-Authenticate'), null)
   })
 
@@ -249,7 +249,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { Authorization: 'Bearer any' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
   })
@@ -263,7 +263,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { Authorization: 'Bearer any' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 403)
   })
@@ -277,7 +277,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/admin', { headers: { Authorization: 'Bearer token' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     const data = await res.json() as Record<string, unknown>
     assert.deepEqual(data.user, { sub: 'user-1', role: 'admin' })
@@ -292,7 +292,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { Authorization: 'Bearer any' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 403)
   })
@@ -307,7 +307,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/admin', { headers: { Authorization: 'Bearer token' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
@@ -322,7 +322,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/admin'),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 401)
   })
@@ -341,7 +341,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { Authorization: 'Bearer valid' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
@@ -359,7 +359,7 @@ describe('auth', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/data', { headers: { Authorization: 'Bearer bad' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 401)
     proxy.stop()
@@ -379,7 +379,7 @@ describe('auth', () => {
 
     await r.handler()(
       new Request('http://localhost/data', { headers: { Authorization: 'Bearer mytoken' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(receivedAuth, 'Bearer mytoken')
     proxy.stop()
@@ -399,7 +399,7 @@ describe('auth', () => {
 
     await r.handler()(
       new Request('http://localhost/data', { headers: { 'X-API-Key': 'my-key' } }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(receivedHeader, 'my-key')
     proxy.stop()
@@ -419,7 +419,7 @@ describe('auth', () => {
 
     await r.handler()(
       new Request('http://localhost/data?access_token=my-key'),
-      { params: {}, query: { access_token: 'my-key' } },
+      { params: {}, query: { access_token: 'my-key' } } as any,
     )
     assert.ok(receivedQuery.includes('access_token=my-key'))
     proxy.stop()

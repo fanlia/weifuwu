@@ -1,6 +1,6 @@
 import type { Tool, Workflow } from './types.ts'
 
-function buildToolsDescription(tools: Record<string, Tool>): string {
+function buildToolsDescription(tools: Record<string, Tool<any, any>>): string {
   return Object.entries(tools).map(([key, t]) => {
     const name = t.name || key
     const schema = t.inputSchema
@@ -59,7 +59,7 @@ Output ONLY valid JSON. No explanation, no markdown.`
 
 export async function generateWorkflow(
   goal: string,
-  tools: Record<string, Tool>,
+  tools: Record<string, Tool<any, any>>,
   generateFn: (prompt: { system: string; messages: { role: string; content: string }[] }) => Promise<{ text: string }>,
 ): Promise<Workflow> {
   const toolsDesc = buildToolsDescription(tools)

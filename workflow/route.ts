@@ -4,7 +4,7 @@ import type { Tool as WfTool } from './types.ts'
 import type { generateText } from 'ai'
 
 export interface WorkflowOptions {
-  tools: Record<string, WfTool>
+  tools: Record<string, WfTool<any, any>>
   model?: Parameters<typeof generateText>[0]['model']
   stream?: boolean
 }

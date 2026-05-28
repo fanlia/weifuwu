@@ -43,7 +43,7 @@ describe('upload', () => {
       .post('/upload', upload(), (req, ctx) => Response.json(ctx.parsed?.fields))
 
     const [req] = createFormData({ title: 'hello', desc: 'world' })
-    const res = await r.handler()(req, { params: {}, query: {} })
+    const res = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, string>
     assert.deepEqual(data, { title: 'hello', desc: 'world' })
@@ -59,7 +59,7 @@ describe('upload', () => {
     const [req] = createFormData({}, {
       avatar: { name: 'photo.png', data: 'fakeimagedata', type: 'image/png' },
     })
-    const res = await r.handler()(req, { params: {}, query: {} })
+    const res = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, any>
     const file = data.avatar
@@ -82,7 +82,7 @@ describe('upload', () => {
     const [req] = createFormData({}, {
       doc: { name: 'test.txt', data: 'file content' },
     })
-    const res = await r.handler()(req, { params: {}, query: {} })
+    const res = await r.handler()(req, { params: {}, query: {} } as any)
     const data = await res.json() as Record<string, any>
     assert.ok(data.doc.path)
     const saved = await readFile(data.doc.path, 'utf-8')
@@ -97,7 +97,7 @@ describe('upload', () => {
     const [req] = createFormData({}, {
       big: { name: 'big.txt', data: 'too large content' },
     })
-    const res = await r.handler()(req, { params: {}, query: {} })
+    const res = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res.status, 413)
   })
 
@@ -108,7 +108,7 @@ describe('upload', () => {
     const [req] = createFormData({}, {
       bad: { name: 'script.exe', data: 'evil', type: 'application/x-msdownload' },
     })
-    const res = await r.handler()(req, { params: {}, query: {} })
+    const res = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res.status, 415)
   })
 
@@ -122,7 +122,7 @@ describe('upload', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/upload', { method: 'POST', body: 'plain text' }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
     assert.equal(reached, true)

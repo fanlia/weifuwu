@@ -12,7 +12,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
 
@@ -25,7 +25,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/about'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
 
@@ -37,7 +37,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/blog/hello-world'),
-        { params: { slug: 'hello-world' }, query: {} },
+        { params: { slug: 'hello-world' }, query: {} } as any,
       )
       assert.equal(res.status, 200)
 
@@ -49,7 +49,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/?foo=bar'),
-        { params: {}, query: { foo: 'bar' } },
+        { params: {}, query: { foo: 'bar' } } as any,
       )
       assert.equal(res.status, 200)
       assert.equal((await res.text()).includes('Home'), true)
@@ -59,7 +59,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/nonexistent'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 404)
     })
@@ -70,7 +70,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/blog/my-post'),
-        { params: { slug: 'my-post' }, query: {} },
+        { params: { slug: 'my-post' }, query: {} } as any,
       )
       assert.equal(res.status, 200)
 
@@ -82,7 +82,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/blog/my-post'),
-        { params: { slug: 'my-post' }, query: {} },
+        { params: { slug: 'my-post' }, query: {} } as any,
       )
       const html = await res.text()
       assert.match(html, /__WEIFUWU_PROPS/)
@@ -95,7 +95,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
 
       const html = await res.text()
@@ -108,7 +108,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/blog/some-post'),
-        { params: { slug: 'some-post' }, query: {} },
+        { params: { slug: 'some-post' }, query: {} } as any,
       )
 
       const html = await res.text()
@@ -121,7 +121,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/blog/my-route'),
-        { params: { slug: 'my-route' }, query: {} },
+        { params: { slug: 'my-route' }, query: {} } as any,
       )
       // GET is handled by page.tsx SSR, not route.ts
       const html = await res.text()
@@ -133,7 +133,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/blog/my-route', { method: 'POST' }),
-        { params: { slug: 'my-route' }, query: {} },
+        { params: { slug: 'my-route' }, query: {} } as any,
       )
 
       const data = await res.json() as any
@@ -147,7 +147,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
 
       const html = await res.text()
@@ -159,7 +159,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res1 = await r.handler()(
         new Request('http://localhost/'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       const html = await res1.text()
       const match = html.match(/src="(\/__wfw\/client\/[^"]+)"/)
@@ -167,7 +167,7 @@ describe('tsx()', () => {
 
       const res2 = await r.handler()(
         new Request(`http://localhost${match[1]}`),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res2.status, 200)
       const js = await res2.text()
@@ -183,7 +183,7 @@ describe('tsx()', () => {
 
       const res = await main.handler()(
         new Request('http://localhost/app/about'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
       const html = await res.text()
@@ -198,7 +198,7 @@ describe('tsx()', () => {
 
       const res1 = await main.handler()(
         new Request('http://localhost/app/about'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res1.status, 200)
       const html = await res1.text()
@@ -206,7 +206,7 @@ describe('tsx()', () => {
 
       const res2 = await main.handler()(
         new Request('http://localhost/api/ping'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       const data = await res2.json() as any
       assert.equal(data.ok, true)
@@ -258,7 +258,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: './test/fixtures/custom-html' })
       const res = await r.handler()(
         new Request('http://localhost/', { headers: { 'x-theme': 'dark' } }),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
       const html = await res.text()
@@ -269,7 +269,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: './test/fixtures/custom-html' })
       const res = await r.handler()(
         new Request('http://localhost/'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
       const html = await res.text()
@@ -292,7 +292,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: './test/fixtures/pages' })
       const res = await r.handler()(
         new Request('http://localhost/blog/test-art'),
-        { params: { slug: 'test-art' }, query: { ref: 'home' } },
+        { params: { slug: 'test-art' }, query: { ref: 'home' } } as any,
       )
       const html = await res.text()
       assert.match(html, /test-art/)
@@ -308,7 +308,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/unknown-path'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 404)
 
@@ -322,7 +322,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/about'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
     })
@@ -333,7 +333,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: './test/fixtures/nonexistent' })
       const res = await r.handler()(
         new Request('http://localhost/'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 404)
     })
@@ -342,7 +342,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: './test/fixtures/empty' })
       const res = await r.handler()(
         new Request('http://localhost/'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 404)
     })
@@ -352,7 +352,7 @@ describe('tsx()', () => {
       const r = await tsx({ dir: fixtures })
       const res = await r.handler()(
         new Request('http://localhost/about'),
-        { params: {}, query: {} },
+        { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
     })

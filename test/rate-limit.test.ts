@@ -10,7 +10,7 @@ describe('rateLimit', () => {
       .get('/data', () => new Response('ok'))
 
     for (let i = 0; i < 5; i++) {
-      const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+      const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
       assert.equal(res.status, 200)
     }
   })
@@ -21,11 +21,11 @@ describe('rateLimit', () => {
       .get('/data', () => new Response('ok'))
 
     for (let i = 0; i < 3; i++) {
-      const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+      const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
       assert.equal(res.status, 200)
     }
 
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.status, 429)
   })
 
@@ -34,13 +34,13 @@ describe('rateLimit', () => {
       .use(rateLimit({ max: 2, window: 60_000 }))
       .get('/data', () => new Response('ok'))
 
-    let res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    let res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.headers.get('X-RateLimit-Remaining'), '1')
 
-    res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.headers.get('X-RateLimit-Remaining'), '0')
 
-    res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} })
+    res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
     assert.equal(res.status, 429)
     assert.equal(res.headers.get('X-RateLimit-Limit'), '2')
     assert.equal(res.headers.get('X-RateLimit-Remaining'), '0')
@@ -63,14 +63,14 @@ describe('rateLimit', () => {
       .get('/data', () => new Response('ok'))
 
     const req1 = new Request('http://localhost/data', { headers: { 'x-api-key': 'alice' } })
-    const res1 = await r.handler()(req1, { params: {}, query: {} })
+    const res1 = await r.handler()(req1, { params: {}, query: {} } as any)
     assert.equal(res1.status, 200)
 
-    const res2 = await r.handler()(req1, { params: {}, query: {} })
+    const res2 = await r.handler()(req1, { params: {}, query: {} } as any)
     assert.equal(res2.status, 429)
 
     const req2 = new Request('http://localhost/data', { headers: { 'x-api-key': 'bob' } })
-    const res3 = await r.handler()(req2, { params: {}, query: {} })
+    const res3 = await r.handler()(req2, { params: {}, query: {} } as any)
     assert.equal(res3.status, 200)
   })
 
@@ -80,15 +80,15 @@ describe('rateLimit', () => {
       .get('/data', () => new Response('ok'))
 
     const req = new Request('http://localhost/data')
-    const res1 = await r.handler()(req, { params: {}, query: {} })
+    const res1 = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res1.status, 200)
 
-    const res2 = await r.handler()(req, { params: {}, query: {} })
+    const res2 = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res2.status, 429)
 
     await new Promise((r) => setTimeout(r, 150))
 
-    const res3 = await r.handler()(req, { params: {}, query: {} })
+    const res3 = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res3.status, 200)
   })
 })

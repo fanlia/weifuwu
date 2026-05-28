@@ -18,7 +18,7 @@ describe('validate', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'Alice', age: 30 }),
       }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
@@ -38,7 +38,7 @@ describe('validate', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: '' }),
       }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 400)
     const data = await res.json() as Record<string, unknown>
@@ -54,7 +54,7 @@ describe('validate', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/search?q=hello&page=2'),
-      { params: {}, query: { q: 'hello', page: '2' } },
+      { params: {}, query: { q: 'hello', page: '2' } } as any,
     )
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
@@ -70,7 +70,7 @@ describe('validate', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/507f1f77bcf86cd799439011'),
-      { params: { id: '507f1f77bcf86cd799439011' }, query: {} },
+      { params: { id: '507f1f77bcf86cd799439011' }, query: {} } as any,
     )
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
@@ -86,7 +86,7 @@ describe('validate', () => {
 
     const res = await r.handler()(
       new Request('http://localhost/bad-id'),
-      { params: { id: 'bad-id' }, query: {} },
+      { params: { id: 'bad-id' }, query: {} } as any,
     )
     assert.equal(res.status, 400)
   })
@@ -107,7 +107,7 @@ describe('validate', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: 42 }),
       }),
-      { params: {}, query: { token: 'abc' } },
+      { params: {}, query: { token: 'abc' } } as any,
     )
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
@@ -126,7 +126,7 @@ describe('validate', () => {
         method: 'POST',
         body: JSON.stringify({ x: 1 }),
       }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
   })
