@@ -1,34 +1,11 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import { z } from 'zod'
-import type { Middleware, Context } from './types.ts'
-import { Router } from './router.ts'
-import type { PostgresClient } from './postgres/types.ts'
-
-export interface UserOptions {
-  pg: PostgresClient
-  jwtSecret: string
-  table?: string
-  expiresIn?: string | number
-}
-
-export interface UserData {
-  id: number
-  email: string
-  name: string
-  role: string
-  created_at: Date
-  updated_at: Date
-}
-
-export interface UserModule {
-  router: () => Router
-  middleware: () => Middleware
-  migrate: () => Promise<void>
-  register: (data: { email: string; password: string; name: string }) => Promise<{ user: Omit<UserData, 'password'>; token: string }>
-  login: (data: { email: string; password: string }) => Promise<{ user: Omit<UserData, 'password'>; token: string }>
-  verify: (token: string) => Promise<Omit<UserData, 'password'> | null>
-}
+import type { Middleware, Context } from '../types.ts'
+import { Router } from '../router.ts'
+import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client } from './types.ts'
+import { migrate as runMigrations } from './migrate.ts'
+import { createOAuth2Server } from './oauth2.ts'
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -59,19 +36,15 @@ export function user(options: UserOptions): UserModule {
   const pg = options.pg
   const secret = options.jwtSecret
   const expiresIn = options.expiresIn ?? '24h'
+  const oauth2Enabled = options.oauth2?.server ?? false
+
+  let oauth2: ReturnType<typeof createOAuth2Server> | null = null
+  if (oauth2Enabled) {
+    oauth2 = createOAuth2Server({ pg, usersTable: table, jwtSecret: secret, expiresIn })
+  }
 
   async function migrate(): Promise<void> {
-    await pg.sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS "${table}" (
-        "id" SERIAL PRIMARY KEY,
-        "email" TEXT UNIQUE NOT NULL,
-        "password" TEXT NOT NULL,
-        "name" TEXT NOT NULL,
-        "role" TEXT NOT NULL DEFAULT 'user',
-        "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `)
+    await runMigrations({ pg, usersTable: table, oauth2: oauth2Enabled })
   }
 
   function signToken(user: UserData): string {
@@ -97,7 +70,7 @@ export function user(options: UserOptions): UserModule {
     return row
   }
 
-  async function register(data: { email: string; password: string; name: string }): Promise<{ user: Omit<UserData, 'password'>; token: string }> {
+  async function register(data: { email: string; password: string; name: string }): Promise<AuthResult> {
     const { email, password, name } = RegisterSchema.parse(data)
 
     const existing = await findByEmail(email)
@@ -118,7 +91,7 @@ export function user(options: UserOptions): UserModule {
     return { user: stripPassword(userData), token }
   }
 
-  async function login(data: { email: string; password: string }): Promise<{ user: Omit<UserData, 'password'>; token: string }> {
+  async function login(data: { email: string; password: string }): Promise<AuthResult> {
     const { email, password } = LoginSchema.parse(data)
 
     const row = await findByEmail(email)
@@ -142,6 +115,7 @@ export function user(options: UserOptions): UserModule {
   async function verify(token: string): Promise<Omit<UserData, 'password'> | null> {
     try {
       const payload = jwt.verify(token, secret) as any
+      if (payload.token_type === 'client_credentials') return null
       const row = await findById(payload.sub)
       if (!row) return null
       return stripPassword(row)
@@ -189,7 +163,9 @@ export function user(options: UserOptions): UserModule {
       try {
         const body = await req.json() as Record<string, unknown>
         const result = await login(body as any)
-        return Response.json(result)
+        const res = Response.json(result)
+        res.headers.set('Set-Cookie', `session=${result.token}; HttpOnly; SameSite=Lax; Path=/`)
+        return res
       } catch (err: any) {
         if (err instanceof z.ZodError) {
           return Response.json({ error: 'Validation failed', issues: err.issues }, { status: 400 })
@@ -199,8 +175,35 @@ export function user(options: UserOptions): UserModule {
       }
     })
 
+    if (oauth2) {
+      r.get('/oauth/authorize', (req, ctx) => oauth2!.authorizeHandler(req, ctx))
+      r.post('/oauth/consent', (req) => oauth2!.consentHandler(req))
+      r.post('/oauth/token', (req) => oauth2!.tokenHandler(req))
+    }
+
     return r
   }
 
-  return { router, middleware, migrate, register, login, verify }
+  const mod: UserModule = {
+    router,
+    middleware,
+    migrate,
+    register,
+    login,
+    verify,
+    registerClient: oauth2
+      ? (data) => oauth2!.registerClient(data)
+      : async () => { throw new Error('OAuth2 server is not enabled') },
+    getClient: oauth2
+      ? (clientId) => oauth2!.getClient(clientId)
+      : async () => { throw new Error('OAuth2 server is not enabled') },
+    revokeClient: oauth2
+      ? (clientId) => oauth2!.revokeClient(clientId)
+      : async () => { throw new Error('OAuth2 server is not enabled') },
+    close: async () => {
+      if (pg.close) await pg.close()
+    },
+  }
+
+  return mod
 }

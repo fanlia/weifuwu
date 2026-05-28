@@ -1,8 +1,9 @@
 import { describe, it, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
 import { z } from 'zod'
 import { postgres } from '../postgres/index.ts'
-import { user } from '../user.ts'
+import { user } from '../user/index.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
@@ -23,7 +24,10 @@ describe('user', { skip: !DATABASE_URL }, () => {
   })
 
   after(async () => {
-    await pg.sql.unsafe(`DROP TABLE IF EXISTS "${table}"`)
+    await pg.sql.unsafe(`DROP TABLE IF EXISTS "_oauth2_tokens"`)
+    await pg.sql.unsafe(`DROP TABLE IF EXISTS "_oauth2_codes"`)
+    await pg.sql.unsafe(`DROP TABLE IF EXISTS "_oauth2_clients"`)
+    await pg.sql.unsafe(`DROP TABLE IF EXISTS "${table}" CASCADE`)
     await pg.close()
   })
 
@@ -208,6 +212,307 @@ describe('user', { skip: !DATABASE_URL }, () => {
       }),
       { params: {}, query: {} } as any,
     )
+
     assert.equal(res.status, 400)
+  })
+
+  describe('oauth2 server', () => {
+    const oauthTable = '__test_user_oauth'
+    const oauthSecret = 'oauth-test-secret'
+    let auth: ReturnType<typeof user>
+
+    before(async () => {
+      auth = user({ pg, jwtSecret: oauthSecret, table: oauthTable, oauth2: { server: true } })
+      await auth.migrate()
+    })
+
+    beforeEach(async () => {
+      await pg.sql`DELETE FROM "_oauth2_tokens"`
+      await pg.sql`DELETE FROM "_oauth2_codes"`
+      await pg.sql`DELETE FROM "_oauth2_clients"`
+      await pg.sql`DELETE FROM ${pg.sql(oauthTable as any)}`
+    })
+
+    after(async () => {
+      await pg.sql.unsafe(`DROP TABLE IF EXISTS "_oauth2_tokens"`)
+      await pg.sql.unsafe(`DROP TABLE IF EXISTS "_oauth2_codes"`)
+      await pg.sql.unsafe(`DROP TABLE IF EXISTS "_oauth2_clients"`)
+      await pg.sql.unsafe(`DROP TABLE IF EXISTS "${oauthTable}" CASCADE`)
+    })
+
+    it('registerClient creates a client', async () => {
+      const client = await auth.registerClient({
+        name: 'Test App',
+        redirectUris: ['https://app.com/callback'],
+      })
+      assert.ok(client.id)
+      assert.ok(client.clientId)
+      assert.ok(client.clientSecret)
+      assert.equal(client.name, 'Test App')
+      assert.deepEqual(client.redirectUris, ['https://app.com/callback'])
+    })
+
+    it('getClient returns client by client_id', async () => {
+      const created = await auth.registerClient({
+        name: 'Find Me',
+        redirectUris: ['https://find.me/cb'],
+      })
+      const found = await auth.getClient(created.clientId)
+      assert.ok(found)
+      assert.equal(found!.name, 'Find Me')
+    })
+
+    it('getClient returns null for unknown client_id', async () => {
+      const found = await auth.getClient('non-existent')
+      assert.equal(found, null)
+    })
+
+    it('revokeClient removes a client', async () => {
+      const created = await auth.registerClient({
+        name: 'Revoke Me',
+        redirectUris: ['https://revoke.me/cb'],
+      })
+      await auth.revokeClient(created.clientId)
+      const found = await auth.getClient(created.clientId)
+      assert.equal(found, null)
+    })
+
+    it('authorization code flow (without PKCE)', async () => {
+      const client = await auth.registerClient({
+        name: 'AuthCode App',
+        redirectUris: ['https://authcode.app/cb'],
+      })
+      const { user: u } = await auth.register({ email: 'oauth-user@test.com', password: 'password123', name: 'OAuth' })
+
+      const router = auth.router()
+
+      const authorizeRes = await router.handler()(
+        new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://authcode.app/cb&response_type=code&state=xyz`, {
+          headers: { Authorization: `Bearer ${(await auth.login({ email: 'oauth-user@test.com', password: 'password123' })).token}` },
+        }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(authorizeRes.status, 200)
+      const html = await authorizeRes.text()
+      assert.ok(html.includes(client.name))
+      assert.ok(html.includes(client.clientId))
+
+      const consentRes = await router.handler()(
+        new Request('http://localhost/oauth/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            approve: 'true',
+            client_id: client.clientId,
+            redirect_uri: 'https://authcode.app/cb',
+            state: 'xyz',
+            user_id: String(u.id),
+          }),
+        }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(consentRes.status, 302)
+      const location = consentRes.headers.get('location') || ''
+      assert.ok(location.startsWith('https://authcode.app/cb?code='))
+      const code = new URL(location).searchParams.get('code') || ''
+
+      const tokenRes = await router.handler()(
+        new Request('http://localhost/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant_type: 'authorization_code',
+            code,
+            client_id: client.clientId,
+            client_secret: client.clientSecret,
+            redirect_uri: 'https://authcode.app/cb',
+          }),
+        }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(tokenRes.status, 200)
+      const tokenBody = await tokenRes.json() as any
+      assert.ok(tokenBody.access_token)
+      assert.equal(tokenBody.token_type, 'Bearer')
+      assert.ok(tokenBody.refresh_token)
+      assert.ok(tokenBody.expires_in)
+
+      const verified = await auth.verify(tokenBody.access_token)
+      assert.ok(verified)
+      assert.equal(verified!.id, u.id)
+    })
+
+    it('authorization code flow with PKCE', async () => {
+      const client = await auth.registerClient({
+        name: 'PKCE App',
+        redirectUris: ['https://pkce.app/cb'],
+      })
+      const { user: u } = await auth.register({ email: 'pkce-user@test.com', password: 'password123', name: 'PKCE' })
+
+      const codeVerifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXK'
+      const challenge = crypto.createHash('sha256').update(codeVerifier).digest().toString('base64url')
+
+      const router = auth.router()
+
+      const authorizeRes = await router.handler()(
+        new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://pkce.app/cb&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=pkce`, {
+          headers: { Authorization: `Bearer ${(await auth.login({ email: 'pkce-user@test.com', password: 'password123' })).token}` },
+        }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(authorizeRes.status, 200)
+
+      const consentRes = await router.handler()(
+        new Request('http://localhost/oauth/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            approve: 'true',
+            client_id: client.clientId,
+            redirect_uri: 'https://pkce.app/cb',
+            state: 'pkce',
+            user_id: String(u.id),
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
+          }),
+        }),
+        { params: {}, query: {} } as any,
+      )
+      const location = consentRes.headers.get('location') || ''
+      const code = new URL(location).searchParams.get('code') || ''
+
+      const tokenRes = await router.handler()(
+        new Request('http://localhost/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant_type: 'authorization_code',
+            code,
+            client_id: client.clientId,
+            client_secret: client.clientSecret,
+            redirect_uri: 'https://pkce.app/cb',
+            code_verifier: codeVerifier,
+          }),
+        }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(tokenRes.status, 200)
+      const tokenBody = await tokenRes.json() as any
+      assert.ok(tokenBody.access_token)
+
+      const verified = await auth.verify(tokenBody.access_token)
+      assert.ok(verified)
+      assert.equal(verified!.id, u.id)
+    })
+
+    it('token exchange with wrong code rejects', async () => {
+      const client = await auth.registerClient({
+        name: 'BadCode App',
+        redirectUris: ['https://badcode.app/cb'],
+      })
+
+      const router = auth.router()
+      const tokenRes = await router.handler()(
+        new Request('http://localhost/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant_type: 'authorization_code',
+            code: 'non-existent-code',
+            client_id: client.clientId,
+            client_secret: client.clientSecret,
+            redirect_uri: 'https://badcode.app/cb',
+          }),
+        }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(tokenRes.status, 400)
+      const body = await tokenRes.json() as any
+      assert.equal(body.error, 'invalid_grant')
+    })
+
+    it('authorize redirects to /login when not authenticated', async () => {
+      const client = await auth.registerClient({
+        name: 'NoAuth App',
+        redirectUris: ['https://noauth.app/cb'],
+      })
+
+      const router = auth.router()
+      const res = await router.handler()(
+        new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://noauth.app/cb&response_type=code`),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(res.status, 302)
+      const loc = res.headers.get('location') || ''
+      assert.ok(loc.startsWith('/login?redirect='))
+    })
+
+    it('consent deny redirects with error', async () => {
+      const client = await auth.registerClient({
+        name: 'Deny App',
+        redirectUris: ['https://deny.app/cb'],
+      })
+      const { user: u } = await auth.register({ email: 'deny-user@test.com', password: 'password123', name: 'Deny' })
+
+      const router = auth.router()
+      const res = await router.handler()(
+        new Request('http://localhost/oauth/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            approve: 'false',
+            client_id: client.clientId,
+            redirect_uri: 'https://deny.app/cb',
+            state: 'mystate',
+            user_id: String(u.id),
+          }),
+        }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(res.status, 302)
+      const loc = res.headers.get('location') || ''
+      assert.ok(loc.startsWith('https://deny.app/cb?error=access_denied'))
+      assert.ok(loc.includes('state=mystate'))
+    })
+
+    it('client_credentials grant works', async () => {
+      const client = await auth.registerClient({
+        name: 'Machine App',
+        redirectUris: ['https://machine.app/cb'],
+      })
+
+      const router = auth.router()
+      const tokenRes = await router.handler()(
+        new Request('http://localhost/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant_type: 'client_credentials',
+            client_id: client.clientId,
+            client_secret: client.clientSecret,
+            scope: 'read',
+          }),
+        }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(tokenRes.status, 200)
+      const body = await tokenRes.json() as any
+      assert.ok(body.access_token)
+      assert.equal(body.token_type, 'Bearer')
+
+      const verified = await auth.verify(body.access_token)
+      assert.equal(verified, null, 'client_credentials token should not verify as user')
+    })
+
+    it('authorize rejects invalid client_id', async () => {
+      const router = auth.router()
+      const res = await router.handler()(
+        new Request('http://localhost/oauth/authorize?client_id=nonexistent&redirect_uri=https://x.com/cb&response_type=code'),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(res.status, 400)
+      const html = await res.text()
+      assert.ok(html.includes('Invalid client_id'))
+    })
   })
 })
