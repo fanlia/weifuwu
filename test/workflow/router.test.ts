@@ -15,7 +15,7 @@ const testTools = {
 describe('workflow sub-router', () => {
   it('executes workflow from nodes in POST body', async () => {
     const app = new Router()
-    app.use('/test', workflow({ tools: testTools }))
+    app.use('/test', workflow(() => ({ tools: testTools })))
 
     const res = await app.handler()(
       new Request('http://localhost/test', {
@@ -38,7 +38,7 @@ describe('workflow sub-router', () => {
 
   it('executes tool call workflow from POST body', async () => {
     const app = new Router()
-    app.use('/call', workflow({ tools: testTools }))
+    app.use('/call', workflow(() => ({ tools: testTools })))
 
     const res = await app.handler()(
       new Request('http://localhost/call', {
@@ -60,7 +60,7 @@ describe('workflow sub-router', () => {
 
   it('returns 400 when no goal/nodes/workflow provided', async () => {
     const app = new Router()
-    app.use('/test', workflow({ tools: testTools }))
+    app.use('/test', workflow(() => ({ tools: testTools })))
 
     const res = await app.handler()(
       new Request('http://localhost/test', {
@@ -80,7 +80,7 @@ describe('workflow sub-router', () => {
       middlewareCalled = true
       return next(req, ctx)
     })
-    app.use('/api/run', workflow({ tools: testTools }))
+    app.use('/api/run', workflow(() => ({ tools: testTools })))
 
     await app.handler()(
       new Request('http://localhost/api/run', {

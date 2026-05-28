@@ -1,39 +1,48 @@
 import { Router } from '../router.ts'
-import { createWorkflowEngine, createSSEManager } from './index.ts'
+import { createWorkflowEngine, createSSEManager, tool } from './index.ts'
 import type { Tool as WfTool } from './types.ts'
 import type { generateText } from 'ai'
 
-export function workflow(options: {
+export interface WorkflowOptions {
   tools: Record<string, WfTool>
   model?: Parameters<typeof generateText>[0]['model']
   stream?: boolean
-}): Router {
+}
+
+export type WorkflowHandler = (
+  req: Request,
+  ctx: Context,
+) => WorkflowOptions | Promise<WorkflowOptions>
+
+import type { Context } from '../types.ts'
+
+type WorkflowNode = import('./types.ts').Node
+type WorkflowDef = import('./types.ts').Workflow
+
+export function workflow(handler: WorkflowHandler): Router {
   const r = new Router()
-  const sseManager = options.stream ? createSSEManager() : undefined
+  const sseManager = createSSEManager()
 
-  if (options.stream && sseManager) {
-    r.get('/:workflowId/events', async (req, ctx) => {
-      const stream = sseManager.createStream(ctx.params.workflowId)
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      })
+  r.get('/:workflowId/events', async (req, ctx) => {
+    const stream = sseManager.createStream(ctx.params.workflowId)
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     })
-  }
+  })
 
-  r.post('/', async (req) => {
-    const body = await req.json() as Record<string, unknown>
+  r.post('/', async (req, ctx) => {
+    const options = await handler(req, ctx)
     const engine = createWorkflowEngine({
       tools: options.tools,
       model: options.model,
-      sseManager,
+      sseManager: options.stream ? sseManager : undefined,
     })
 
-    type WorkflowNode = import('./types.ts').Node
-    type WorkflowDef = import('./types.ts').Workflow
+    const body = await req.json() as Record<string, unknown>
     let wf: WorkflowDef
 
     if (body.goal && options.model) {

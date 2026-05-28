@@ -11,6 +11,11 @@ export interface GraphQLOptions {
   graphiql?: boolean
 }
 
+export type GraphQLHandler = (
+  req: Request,
+  ctx: Context,
+) => GraphQLOptions | Promise<GraphQLOptions>
+
 type GraphQLParams = {
   query: string
   variables: Record<string, any>
@@ -115,11 +120,12 @@ function graphiqlHTML(endpoint: string): string {
 </html>`
 }
 
-export function graphql(options: GraphQLOptions): Router {
-  const schema = buildSchemaFromOptions(options)
+export function graphql(handler: GraphQLHandler): Router {
   const r = new Router()
 
   r.get('/', async (req, ctx) => {
+    const options = await handler(req, ctx)
+    const schema = buildSchemaFromOptions(options)
     const url = new URL(req.url)
 
     if (options.graphiql && !url.searchParams.has('query')) {
@@ -138,6 +144,8 @@ export function graphql(options: GraphQLOptions): Router {
   })
 
   r.post('/', async (req, ctx) => {
+    const options = await handler(req, ctx)
+    const schema = buildSchemaFromOptions(options)
     const params = await parseParamsFromPost(req)
     if (!params) {
       return Response.json({ errors: [{ message: 'Missing query' }] }, { status: 400 })
