@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["*.ts", "workflow/*.ts", "postgres/*.ts"]
+  "include": ["*.ts", "workflow/*.ts", "postgres/*.ts", "redis/*.ts"]
 }

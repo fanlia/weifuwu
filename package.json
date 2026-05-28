@@ -23,6 +23,7 @@
     "ai": "^6",
     "esbuild": "^0.28.0",
     "graphql": "^16",
+    "ioredis": "^5.11.0",
     "jsonwebtoken": "^9.0.3",
     "postgres": "^3.4.9",
     "react": "^19",
