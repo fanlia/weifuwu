@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { WebSocket } from 'ws'
-import { serve, Router, type Handler, type Server } from '../index.ts'
+import { serve, Router, graphql, type Handler, type Server } from '../index.ts'
 
 async function createTestServer(handler: Handler): Promise<{ server: Server; url: string }> {
   const server = serve(handler, { port: 0 })
@@ -345,15 +345,15 @@ describe('Router.ws', () => {
   })
 })
 
-// ── Router.graphql ────────────────────────────────────────────────────────────
+// ── graphql middleware ──────────────────────────────────────────────────────────
 
-describe('Router.graphql', () => {
+describe('graphql', () => {
   it('handles GET query', async () => {
     const r = new Router()
-      .graphql('/graphql', {
-        schema: `type Query { hello: String }`,
-        resolvers: { Query: { hello: () => 'world' } },
-      })
+    r.use('/graphql', graphql({
+      schema: `type Query { hello: String }`,
+      resolvers: { Query: { hello: () => 'world' } },
+    }))
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql?query={hello}`)
@@ -365,10 +365,10 @@ describe('Router.graphql', () => {
 
   it('handles POST query', async () => {
     const r = new Router()
-      .graphql('/graphql', {
-        schema: `type Query { hello: String }`,
-        resolvers: { Query: { hello: () => 'world' } },
-      })
+    r.use('/graphql', graphql({
+      schema: `type Query { hello: String }`,
+      resolvers: { Query: { hello: () => 'world' } },
+    }))
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql`, {
@@ -384,11 +384,11 @@ describe('Router.graphql', () => {
 
   it('returns GraphiQL HTML on GET without query', async () => {
     const r = new Router()
-      .graphql('/graphql', {
-        schema: `type Query { hello: String }`,
-        resolvers: { Query: { hello: () => 'world' } },
-        graphiql: true,
-      })
+    r.use('/graphql', graphql({
+      schema: `type Query { hello: String }`,
+      resolvers: { Query: { hello: () => 'world' } },
+      graphiql: true,
+    }))
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql`)

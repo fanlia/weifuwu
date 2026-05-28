@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from '../../router.ts'
-import { tool } from '../../workflow/tool.ts'
+import { workflow, tool } from '../../workflow/index.ts'
 import { z } from 'zod'
 
 const testTools = {
@@ -12,10 +12,10 @@ const testTools = {
   }),
 }
 
-describe('Router workflow integration', () => {
+describe('workflow sub-router', () => {
   it('executes workflow from nodes in POST body', async () => {
     const app = new Router()
-    app.workflow('/test', { tools: testTools })
+    app.use('/test', workflow({ tools: testTools }))
 
     const res = await app.handler()(
       new Request('http://localhost/test', {
@@ -38,7 +38,7 @@ describe('Router workflow integration', () => {
 
   it('executes tool call workflow from POST body', async () => {
     const app = new Router()
-    app.workflow('/call', { tools: testTools })
+    app.use('/call', workflow({ tools: testTools }))
 
     const res = await app.handler()(
       new Request('http://localhost/call', {
@@ -60,7 +60,8 @@ describe('Router workflow integration', () => {
 
   it('returns 400 when no goal/nodes/workflow provided', async () => {
     const app = new Router()
-    app.workflow('/test', { tools: testTools })
+    app.use('/test', workflow({ tools: testTools }))
+
     const res = await app.handler()(
       new Request('http://localhost/test', {
         method: 'POST',
@@ -79,7 +80,7 @@ describe('Router workflow integration', () => {
       middlewareCalled = true
       return next(req, ctx)
     })
-    app.workflow('/api/run', { tools: testTools })
+    app.use('/api/run', workflow({ tools: testTools }))
 
     await app.handler()(
       new Request('http://localhost/api/run', {

@@ -1,37 +1,13 @@
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
-import { buildSchema, graphql, type GraphQLSchema } from 'graphql'
-import { makeExecutableSchema } from '@graphql-tools/schema'
-import { streamText, generateText } from 'ai'
 import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
-import { createWorkflowEngine, tool, createSSEManager } from './workflow/index.ts'
-import type { Tool as WfTool } from './workflow/types.ts'
-
-type StreamTextParams = Parameters<typeof streamText>[0]
 
 export type WebSocketHandler = {
   open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
   message?: (ws: WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>
   close?: (ws: WebSocket, ctx: Context) => void | Promise<void>
   error?: (ws: WebSocket, ctx: Context, error: Error) => void | Promise<void>
-}
-
-export type AIOptions = Omit<StreamTextParams, 'model'> & {
-  model: string | (() => any)
-}
-
-export type AIHandler = (
-  req: Request,
-  ctx: Context,
-) => AIOptions | Promise<AIOptions>
-
-export type GraphQLOptions = {
-  schema: string | GraphQLSchema
-  rootValue?: any
-  resolvers?: any
-  context?: (req: Request, ctx: Context) => Record<string, any> | Promise<Record<string, any>>
-  graphiql?: boolean
 }
 
 type TrieNode = {
@@ -244,124 +220,7 @@ export class Router {
     return this
   }
 
-  graphql(path: string, ...args: [...Middleware[], GraphQLOptions]): this {
-    const options = args.pop()! as GraphQLOptions
-    const middlewares = args as Middleware[]
-    const schema: GraphQLSchema =
-      typeof options.schema === 'string'
-        ? options.resolvers
-          ? makeExecutableSchema({
-              typeDefs: options.schema,
-              resolvers: options.resolvers,
-            })
-          : buildSchema(options.schema)
-        : options.schema
 
-    const handler: Handler = (req, ctx) => {
-      const url = new URL(req.url)
-
-      if (
-        options.graphiql &&
-        req.method === 'GET' &&
-        !url.searchParams.has('query')
-      ) {
-        return new Response(getGraphiQLHtml(url.pathname), {
-          status: 200,
-          headers: { 'Content-Type': 'text/html' },
-        })
-      }
-
-      if (req.method !== 'GET' && req.method !== 'POST') {
-        return new Response('Not Found', { status: 404 })
-      }
-
-      const paramsPromise =
-        req.method === 'GET'
-          ? Promise.resolve(parseGraphQLParamsFromGet(url))
-          : parseGraphQLParamsFromPost(req)
-
-      return paramsPromise.then((params) => {
-        if (!params) {
-          return Response.json(
-            { errors: [{ message: 'Missing query' }] },
-            { status: 400 },
-          )
-        }
-        return executeGraphQLQuery(schema, params, options, req, ctx)
-      })
-    }
-
-    return this.all(path, ...middlewares, handler)
-  }
-
-  ai(path: string, ...args: [...Middleware[], AIHandler]): this {
-    const handler = args.pop()! as AIHandler
-    const middlewares = args as Middleware[]
-
-    const routeHandler: Handler = async (req, ctx) => {
-      const options = await handler(req, ctx)
-      const result = streamText(options as StreamTextParams)
-      return result.toTextStreamResponse()
-    }
-
-    return this.post(path, ...middlewares, routeHandler)
-  }
-
-  workflow(path: string, options: {
-    tools: Record<string, WfTool>
-    model?: Parameters<typeof generateText>[0]['model']
-    stream?: boolean
-  }): this {
-    const sseManager = options.stream ? createSSEManager() : undefined
-
-    if (options.stream && sseManager) {
-      this.get(`${path}/:workflowId/events`, async (req, ctx) => {
-        const stream = sseManager.createStream(ctx.params.workflowId)
-        return new Response(stream, {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        })
-      })
-    }
-
-    this.post(path, async (req) => {
-      const body = await req.json() as Record<string, unknown>
-      const engine = createWorkflowEngine({
-        tools: options.tools,
-        model: options.model,
-        sseManager,
-      })
-
-      let wf: import('./workflow/types.ts').Workflow
-
-      if (body.goal && options.model) {
-        wf = await engine.generateWorkflow(body.goal as string)
-      } else if (body.workflow) {
-        wf = body.workflow as import('./workflow/types.ts').Workflow
-      } else if (body.nodes) {
-        wf = { nodes: body.nodes as import('./workflow/types.ts').Node[] }
-      } else {
-        return Response.json(
-          { error: 'Provide "goal" (with model) or "workflow"/"nodes"' },
-          { status: 400 },
-        )
-      }
-
-      if (options.stream && sseManager) {
-        const workflowId = crypto.randomUUID()
-        engine.runAsync(workflowId, wf)
-        return Response.json({ workflowId, eventsUrl: `${path}/${workflowId}/events` })
-      }
-
-      const result = await engine.execute(wf)
-      return Response.json({ workflow: wf, result })
-    })
-
-    return this
-  }
 
   handler(): Handler {
     return (req, ctx) => {
@@ -644,116 +503,6 @@ function sendHttpResponseOnSocket(socket: Duplex, response: Response): void {
   })
 }
 
-type GraphQLParams = {
-  query: string
-  variables: Record<string, any>
-  operationName?: string
-}
 
-function parseGraphQLParamsFromGet(url: URL): GraphQLParams | null {
-  const query = url.searchParams.get('query')
-  if (!query) return null
-  const variablesStr = url.searchParams.get('variables')
-  let variables = {}
-  if (variablesStr) {
-    try {
-      variables = JSON.parse(variablesStr)
-    } catch {
-      return null
-    }
-  }
-  return {
-    query,
-    variables,
-    operationName: url.searchParams.get('operationName') || undefined,
-  }
-}
 
-async function parseGraphQLParamsFromPost(req: Request): Promise<GraphQLParams | null> {
-  try {
-    const body = (await req.json()) as {
-      query?: string
-      variables?: Record<string, any>
-      operationName?: string
-    }
-    if (!body.query) return null
-    return {
-      query: body.query,
-      variables: body.variables || {},
-      operationName: body.operationName,
-    }
-  } catch {
-    return null
-  }
-}
 
-async function executeGraphQLQuery(
-  schema: GraphQLSchema,
-  params: GraphQLParams,
-  options: GraphQLOptions,
-  req: Request,
-  ctx: Context,
-): Promise<Response> {
-  const contextValue = options.context ? await options.context(req, ctx) : ctx
-  const result = await graphql({
-    schema,
-    source: params.query,
-    rootValue: options.rootValue,
-    contextValue,
-    variableValues: params.variables,
-    operationName: params.operationName,
-  })
-  return Response.json(result, { status: result.errors ? 400 : 200 })
-}
-
-function getGraphiQLHtml(endpoint: string): string {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GraphiQL</title>
-    <style>
-      body { margin: 0; }
-      #graphiql { height: 100dvh; }
-    </style>
-    <link rel="stylesheet" href="https://esm.sh/graphiql@5.2.2/dist/style.css" />
-    <script type="importmap">
-      {
-        "imports": {
-          "react": "https://esm.sh/react@19.2.5",
-          "react/": "https://esm.sh/react@19.2.5/",
-          "react-dom": "https://esm.sh/react-dom@19.2.5",
-          "react-dom/": "https://esm.sh/react-dom@19.2.5/",
-          "graphiql": "https://esm.sh/graphiql@5.2.2?standalone&external=react,react-dom,@graphiql/react,graphql",
-          "graphiql/": "https://esm.sh/graphiql@5.2.2/",
-          "@graphiql/react": "https://esm.sh/@graphiql/react@0.37.3?standalone&external=react,react-dom,graphql,@graphiql/toolkit,@emotion/is-prop-valid",
-          "@graphiql/toolkit": "https://esm.sh/@graphiql/toolkit@0.11.3?standalone&external=graphql",
-          "graphql": "https://esm.sh/graphql@16.13.2",
-          "@emotion/is-prop-valid": "data:text/javascript,"
-        }
-      }
-    </script>
-    <script type="module">
-      import React from 'react';
-      import ReactDOM from 'react-dom/client';
-      import { GraphiQL } from 'graphiql';
-      import { createGraphiQLFetcher } from '@graphiql/toolkit';
-      import 'graphiql/setup-workers/esm.sh';
-
-      const fetcher = createGraphiQLFetcher({ url: "${endpoint}" });
-
-      function App() {
-        return React.createElement(GraphiQL, { fetcher });
-      }
-
-      const container = document.getElementById('graphiql');
-      const root = ReactDOM.createRoot(container);
-      root.render(React.createElement(App));
-    </script>
-  </head>
-  <body>
-    <div id="graphiql">Loading\u2026</div>
-  </body>
-</html>`
-}
