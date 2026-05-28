@@ -4,7 +4,7 @@ import type { Context, Handler } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {
-    sql?: Sql<{}>
+    sql: Sql<{}>
   }
 }
 

@@ -251,7 +251,7 @@ export class Router {
           Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
         ),
       })
-      const ctx: Context = { params: match.params, query }
+      const ctx = { params: match.params, query } as Context
 
       if (match.middlewares.length === 0) {
         upgradeSocket(wss, req, socket, head, match.handler, ctx)

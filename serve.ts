@@ -1,6 +1,6 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
-import type { Handler } from './types.ts'
+import type { Context, Handler } from './types.ts'
 
 export interface ServeOptions {
   port?: number
@@ -78,7 +78,7 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     try {
       const body = await readBody(req)
       const [request, query] = createRequest(req, body)
-      const response = await handler(request, { params: {}, query })
+      const response = await handler(request, { params: {}, query } as Context)
       await sendResponse(res, response)
     } catch {
       res.writeHead(500, { 'Content-Type': 'text/plain' })
