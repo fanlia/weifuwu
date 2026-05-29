@@ -19,6 +19,8 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **GraphQL** — `graphql(handler)` sub-Router with GraphiQL IDE
 - **AI streaming** — `ai(handler)` sub-Router via Vercel AI SDK
 - **AI workflows** — `workflow(handler)` sub-Router — intent-to-execution pipelines with `tool()` + SSE
+- **AI Agent** — `agent()` — server-side AI agents with chat/workflow/knowledge types, OpenAI-compatible, Ollama-ready
+- **Messaging** — `messager()` — real-time chat with channels, WebSocket, agent routing, webhook support
 - **Tenant BaaS** — `tenant()` — multi-tenant dynamic tables, auto REST + GraphQL, row-level isolation, pgvector/HNSW
 - **Redis** — `redis()` — ioredis client, `ctx.redis`, middleware
 - **Queue** — `queue()` — Redis-backed job queue with immediate, delayed, and cron scheduling
@@ -534,6 +536,92 @@ await fetch('http://localhost/api/sys/tenants/invite', {
 })
 ```
 
+## AI Agent
+
+Server-side AI agents with OpenAI-compatible API. Built-in chat, workflow (tool-calling), and knowledge (RAG) types. Works out of the box with Ollama or any OpenAI-compatible provider.
+
+```ts
+import { agent } from 'weifuwu'
+
+const agents = agent({ pg })
+
+await agents.migrate()
+app.use('/api', agents.router())
+```
+
+| Type | Description | Execution |
+|------|-------------|-----------|
+| `chat` | Pure conversation | `streamText()` / `generateText()` |
+| `workflow` | Tool-calling agent | `streamText({ tools })` |
+
+### Knowledge (RAG)
+
+Add documents to any agent — `searchKnowledge` tool auto-injected:
+
+```ts
+await agents.addKnowledge(agentId, 'Title', 'Document content...')
+// The agent automatically calls searchKnowledge when answering
+```
+
+### Streaming
+
+```http
+POST /agents/:id/run  { input: "hello", stream: true }
+→ event-stream (fullStream SSE: text-delta, tool-call, tool-result, finish)
+```
+
+### Programmatic API
+
+```ts
+const result = await agents.run(agentId, { input: 'hello', stream: false })
+// { output: "Hello!", elapsed: 1234 }
+```
+
+## Messager
+
+Real-time chat with channels, WebSocket, and agent routing.
+
+```ts
+import { messager, agent } from 'weifuwu'
+
+const agents = agent({ pg })
+const msg = messager({ pg, agents })
+
+await msg.migrate()
+app.use('/api', msg.router())
+app.ws('/ws', u.middleware(), msg.wsHandler())
+```
+
+### Channels
+
+```http
+POST   /channels            name, type (channel|dm), members
+GET    /channels
+GET    /channels/:id
+```
+
+### Messages
+
+```http
+GET  /channels/:id/messages     ?limit=50&before={id}
+POST /channels/:id/messages     content, sender_type, type
+POST /channels/:id/read         last_message_id
+```
+
+### WebSocket
+
+```json
+{ "type": "message",  "channel_id": 1, "content": "Hi" }
+{ "type": "typing",   "channel_id": 1, "is_typing": true }
+{ "type": "read",     "channel_id": 1, "last_message_id": 42 }
+```
+
+### Programmatic send
+
+```ts
+await msg.send(channelId, 'System message', { sender_type: 'system' })
+```
+
 ## WebSocket
     message(ws, ctx, data) {
       ws.send(`echo: ${data}`)
@@ -944,6 +1032,27 @@ Returns `UserModule` — `{ router, middleware, migrate, register, login, verify
 
 Returns `TenantModule` — `{ migrate, middleware, router, graphql, close }`.
 
+### `agent(options)`
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `pg` | — | PostgreSQL client from `postgres()` |
+| `model` | env `OPENAI_MODEL` → Ollama | `LanguageModel` from ai SDK |
+| `embeddingModel` | env `OPENAI_EMBEDDING_MODEL` → Ollama | `EmbeddingModel` for knowledge RAG |
+| `embeddingDimension` | `1024` | Vector dimension for pgvector |
+| `tools` | — | Tools for workflow-type agents (ai SDK `Tool` objects) |
+
+Returns `AgentModule` — `{ migrate, router, run, addKnowledge, close }`.
+
+### `messager(options)`
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `pg` | — | PostgreSQL client from `postgres()` |
+| `agents` | — | `AgentModule` instance (enables agent message routing) |
+
+Returns `MessagerModule` — `{ migrate, router, wsHandler, send, close }`.
+
 ### `tsx(options)`
 
 | Option | Default | Description |
@@ -984,6 +1093,8 @@ Returns `Promise<Router>`.
 | `queue(options?)` | Redis-backed job queue — immediate, delayed, cron scheduling |
 | `user(options)` | Built-in authentication (password + OAuth2 Server + JWT, middleware) |
 | `tenant(options)` | Multi-tenant BaaS — dynamic tables, REST + GraphQL auto-generation, row-level isolation |
+| `agent(options)` | AI Agent — chat/workflow/knowledge, Ollama-ready, programmatic API |
+| `messager(options)` | Real-time messaging — channels, WebSocket, agent routing, webhooks |
 | `graphql(handler)` | GraphQL endpoint (GET/POST + GraphiQL) |
 | `ai(handler)` | AI streaming endpoint (POST) |
 | `workflow(handler)` | Workflow engine (POST + SSE) |

@@ -19,6 +19,7 @@
     "test": "node --test 'test/**/*.test.ts'"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.66",
     "@graphql-tools/schema": "^10",
     "ai": "^6",
     "esbuild": "^0.28.0",
