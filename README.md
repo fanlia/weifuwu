@@ -893,6 +893,40 @@ node app.ts                # development (auto-reload + live refresh)
 NODE_ENV=production node app.ts   # production
 ```
 
+### Tailwind CSS
+
+tsx() includes built-in Tailwind CSS v4 support. If an `app.css` file exists in the `dir` directory, it is compiled automatically through PostCSS + `@tailwindcss/postcss`. If no `app.css` is found, one is created automatically:
+
+```css
+@import "tailwindcss";
+```
+
+Write `className` directly in your components — no CLI, no configuration:
+
+```tsx
+export default function Home() {
+  return <h1 className="text-3xl font-bold text-blue-600">Hello</h1>
+}
+```
+
+In development mode, Tailwind is reprocessed whenever a `.tsx` file changes (new class names are picked up automatically).
+
+### `@` alias
+
+If your project has a `tsconfig.json` or `jsconfig.json` with `compilerOptions.paths`, tsx() reads it automatically and passes aliases to all esbuild builds (SSR compilation, hydration bundles, and hot reload):
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./ui/*"]
+    }
+  }
+}
+```
+
+This enables imports like `@/components/button` or `@/lib/utils` in both server-rendered and client-hydrated code. Works with shadcn/ui out of the box.
+
 ### Backward compatibility
 
 `tsx({ dir: './pages/' })` still works. When there is no `pages/` subdirectory under `dir`, the `dir` itself is used as the pages directory.
@@ -1118,9 +1152,25 @@ Returns `MessagerModule` — `{ migrate, router, wsHandler, send, close }`.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `dir` | — | Pages directory path |
+| `dir` | — | UI directory path (containing `pages/` and optionally `components/`) |
 
 Returns `Promise<Router>`.
+
+Auto-detected features (no configuration needed):
+
+| Feature | Behavior |
+|---------|----------|
+| **File watching** | Enabled in dev mode. Watches `dir` for changes, recompiles on the fly, sends reload via WebSocket |
+| **WebSocket live reload** | Endpoint at `/__weifuwu/livereload`. Browser auto-refreshes on file changes or server restart |
+| **Tailwind CSS** | Auto-detected when `app.css` exists. Compiled through PostCSS + `@tailwindcss/postcss`. Served at `/__wfw/style.css`, auto-injected into HTML `<head>` |
+| **`@` alias** | Read from `tsconfig.json` / `jsconfig.json` `compilerOptions.paths`. Passed to all esbuild builds |
+| **Process state** | Dev mode keeps the process alive on file changes. DB connections, WebSockets, in-memory caches persist |
+
+To use WebSocket features, pass `router.websocketHandler()` to `serve()`:
+
+```ts
+serve(app.handler(), { websocket: app.websocketHandler() })
+```
 
 ### `Router`
 
