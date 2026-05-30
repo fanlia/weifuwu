@@ -34,10 +34,41 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 
 ## Quick start
 
+### Hello World
+
 ```ts
 import { serve } from 'weifuwu'
 serve((req, ctx) => new Response('Hello, World!'), { port: 3000 })
 ```
+
+### React + Tailwind
+
+```bash
+npm install weifuwu
+mkdir -p ui/pages
+```
+
+```ts
+// app.ts
+import { serve, Router } from 'weifuwu'
+
+const app = new Router()
+app.use('/', await tsx({ dir: './ui/' }))
+serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
+```
+
+```tsx
+// ui/pages/page.tsx
+export default function Home() {
+  return <h1 className="text-3xl font-bold text-blue-600">Hello</h1>
+}
+```
+
+```bash
+node app.ts
+```
+
+Open http://localhost:3000 — Tailwind CSS is compiled automatically, pages hot-reload on save.
 
 ## Router
 
