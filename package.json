@@ -14,7 +14,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --external:react --external:react-dom --external:esbuild --external:graphql --external:ws --external:zod --external:@graphql-tools/schema --external:ai --external:postgres --external:jsonwebtoken --external:ioredis --external:chokidar --external:@tailwindcss/*",
+    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --external:react --external:react-dom --external:esbuild --external:graphql --external:ws --external:zod --external:@graphql-tools/schema --external:ai --external:postgres --external:jsonwebtoken --external:ioredis --external:chokidar --external:@tailwindcss/* --external:postcss",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "test": "node --test 'test/**/*.test.ts'"
   },
