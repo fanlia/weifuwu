@@ -32,6 +32,12 @@ type PageEntry = {
   routeOnly?: boolean
 }
 
+// ── module registry (hot-swappable) ────────────────────────────────────────
+const pageModules = new Map<string, any>()
+const layoutModules = new Map<string, any>()
+const loadModules = new Map<string, any>()
+const routeModules = new Map<string, Map<string, Handler>>()
+
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function id(s: string): string {
@@ -208,9 +214,7 @@ async function getOrBuildClientBundle(
   const url = `/__wfw/client/${key}.js`
 
   if (!clientRouteLog.get(router)?.has(url)) {
-    let buf = clientBundleCache.get(key)
-
-    if (!buf) {
+    if (!clientBundleCache.has(key)) {
       try {
         const nested = layoutPaths.slice(1)
         const layoutsImport = nested.map((p, i) =>
@@ -242,17 +246,21 @@ async function getOrBuildClientBundle(
           minify: true,
         })
 
-        buf = result.outputFiles[0].contents
-        clientBundleCache.set(key, buf)
+        clientBundleCache.set(key, result.outputFiles[0].contents)
       } catch (err) {
         console.error('hydration bundle failed:', err)
         return null
       }
     }
 
-    router.get(url, () => new Response(buf! as BodyInit, {
-      headers: { 'content-type': 'application/javascript; charset=utf-8' },
-    }))
+    router.get(url, () => {
+      const buf = clientBundleCache.get(key)
+      return buf
+        ? new Response(buf as BodyInit, {
+            headers: { 'content-type': 'application/javascript; charset=utf-8' },
+          })
+        : new Response('', { status: 500 })
+    })
 
     const set = clientRouteLog.get(router) ?? new Set()
     set.add(url)
@@ -265,23 +273,31 @@ async function getOrBuildClientBundle(
 // ── SSR handler ────────────────────────────────────────────────────────────
 
 function makeSsrHandler(
-  Component: any,
-  loadFn: any | undefined,
-  layouts: any[],
   entryPath: string,
   layoutPaths: string[],
+  loadPath: string | undefined,
   pagesDir: string,
   router: Router,
 ): Handler {
   return async (req, ctx) => {
+    const pageMod = pageModules.get(entryPath)
+    if (!pageMod) return new Response('', { status: 500 })
+    const Component = pageMod.default
+
+    const loadMod = loadPath ? loadModules.get(loadPath) : undefined
+    const loadFn = loadMod?.default
     const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
     const allProps = { ...loadProps, params: ctx.params, query: ctx.query }
 
     let element: any = createElement(Component, allProps)
-    for (let i = layouts.length - 1; i >= 0; i--) {
+    for (let i = layoutPaths.length - 1; i >= 0; i--) {
+      const lp = layoutPaths[i]
+      const LMod = layoutModules.get(lp)
+      if (!LMod) continue
+      const Layout = LMod.default
       const isRoot = i === 0
       element = createElement(
-        layouts[i],
+        Layout,
         isRoot ? { children: element, req, ctx } : { children: element },
       )
     }
@@ -343,56 +359,65 @@ export async function tsx(options: TsxOptions): Promise<Router> {
   mkdirSync(outDir, { recursive: true })
   await compileAll([...allFiles], outDir, 'node')
 
-  // 4. Import and register routes
+  // 4. Load modules into registry and register routes
   const router = new Router()
+  const methods = ['POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const
 
   for (const p of pages) {
     if (p.routeOnly && p.routePath) {
-      // Standalone route.ts — register all methods including GET
+      // Standalone route.ts — proxy through registry
       const rUrl = compiledUrl(p.routePath, outDir)
       const modR = await import(rUrl)
-      const methods = (['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const)
-      for (const method of methods) {
-        if (modR[method]) {
-          router.route(method, p.route, modR[method])
-        }
+      const handlers = new Map<string, Handler>()
+      for (const m of ['GET', ...methods] as const) {
+        if (modR[m]) handlers.set(m, modR[m])
+      }
+      routeModules.set(p.routePath, handlers)
+
+      router.route('GET', p.route, (req, ctx) =>
+        routeModules.get(p.routePath!)?.get('GET')?.(req, ctx) ?? new Response('', { status: 501 }),
+      )
+      for (const m of methods) {
+        router.route(m, p.route, (req, ctx) =>
+          routeModules.get(p.routePath!)?.get(m)?.(req, ctx) ?? new Response('', { status: 501 }),
+        )
       }
       continue
     }
 
-    const url = compiledUrl(p.entryPath, outDir)
-    const mod = await import(url)
-    const Component = mod.default
+    // Load modules into registry
+    const pageUrl = compiledUrl(p.entryPath, outDir)
+    pageModules.set(p.entryPath, await import(pageUrl))
 
-    let loadFn: any
     if (p.loadPath) {
       const loadUrl = compiledUrl(p.loadPath, outDir)
-      const modLoad = await import(loadUrl)
-      loadFn = modLoad.default
+      loadModules.set(p.loadPath, await import(loadUrl))
     }
 
-    const layoutComponents: any[] = []
     for (const lp of p.layouts) {
       const lUrl = compiledUrl(lp, outDir)
-      const modL = await import(lUrl)
-      layoutComponents.push(modL.default)
+      layoutModules.set(lp, await import(lUrl))
     }
 
-    const handler = makeSsrHandler(
-      Component, loadFn, layoutComponents,
-      p.entryPath, p.layouts, pagesDir, router,
-    )
-    router.get(p.route, handler)
-
-    // route.ts alongside page.tsx — skip GET (handled by SSR)
+    // route handlers
     if (p.routePath) {
       const rUrl = compiledUrl(p.routePath, outDir)
       const modR = await import(rUrl)
-      const methods = (['POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const)
-      for (const method of methods) {
-        if (modR[method]) {
-          router.route(method, p.route, modR[method])
-        }
+      const handlers = new Map<string, Handler>()
+      for (const m of methods) {
+        if (modR[m]) handlers.set(m, modR[m])
+      }
+      routeModules.set(p.routePath, handlers)
+    }
+
+    const handler = makeSsrHandler(p.entryPath, p.layouts, p.loadPath, pagesDir, router)
+    router.get(p.route, handler)
+
+    if (p.routePath) {
+      for (const m of methods) {
+        router.route(m, p.route, (req, ctx) =>
+          routeModules.get(p.routePath!)?.get(m)?.(req, ctx) ?? new Response('', { status: 501 }),
+        )
       }
     }
   }
@@ -400,21 +425,26 @@ export async function tsx(options: TsxOptions): Promise<Router> {
   // not-found.tsx — catch-all with 404 status
   if (hasNotFound) {
     const nfUrl = compiledUrl(nfPath, outDir)
-    const modNf = await import(nfUrl)
-    const NfComponent = modNf.default
+    pageModules.set(nfPath, await import(nfUrl))
 
-    const nfLayouts: any[] = []
     const rootLayouts = resolveLayouts(pagesDir, pagesDir)
     for (const lp of rootLayouts) {
-      const lUrl = compiledUrl(lp, outDir)
-      const modL = await import(lUrl)
-      nfLayouts.push(modL.default)
+      if (!layoutModules.has(lp)) {
+        const lUrl = compiledUrl(lp, outDir)
+        layoutModules.set(lp, await import(lUrl))
+      }
     }
 
     const handler: Handler = async (req, ctx) => {
+      const nfMod = pageModules.get(nfPath)
+      if (!nfMod) return new Response('Not Found', { status: 404 })
+      const NfComponent = nfMod.default
+
       let element: any = createElement(NfComponent, { params: ctx.params, query: ctx.query })
-      for (let i = nfLayouts.length - 1; i >= 0; i--) {
-        element = createElement(nfLayouts[i], { children: element })
+      for (let i = rootLayouts.length - 1; i >= 0; i--) {
+        const LMod = layoutModules.get(rootLayouts[i])
+        if (!LMod) continue
+        element = createElement(LMod.default, { children: element })
       }
       element = createElement(TsxContext.Provider, {
         value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
