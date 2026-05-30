@@ -28,20 +28,20 @@ await deploy(defineConfig({
 
 ---
 
-## 从一台新 VPS 到应用上线
+## From a fresh VPS to a running app
 
-### Step 1: 购买 VPS + 安装 Node.js
+### Step 1: Provision a VPS + install Node.js
 
 ```bash
-ssh root@你的服务器IP
+ssh root@your-server-ip
 
-# 安装 Node.js v24+（weifuwu 需要原生 TS 支持）
+# Install Node.js v24+ (weifuwu needs native TS support)
 curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 apt-get install -y nodejs git
-node --version   # 确认 >= 24
+node --version   # must be >= 24
 ```
 
-### Step 2: 创建部署项目
+### Step 2: Create the deploy project
 
 ```bash
 mkdir -p /opt/deploy && cd /opt/deploy
@@ -49,17 +49,17 @@ npm init -y
 npm install weifuwu
 ```
 
-### Step 3: 配置域名解析
+### Step 3: Configure DNS
 
-在 DNS 管理面板中，将域名和子域名指向 VPS IP：
+Point your domain and subdomains to the VPS IP:
 
 ```
 blog.example.com   A → 1.2.3.4
 api.example.com    A → 1.2.3.4
-*.example.com      A → 1.2.3.4   (可选，泛域名)
+*.example.com      A → 1.2.3.4   (optional, wildcard)
 ```
 
-### Step 4: 写 deploy.ts
+### Step 4: Write deploy.ts
 
 ```ts
 // /opt/deploy/deploy.ts
@@ -76,44 +76,44 @@ await deploy(defineConfig({
       subdomain: 'blog',
       entry: 'app.ts',
       port: 3001,
-      ports: [3001, 3002],   // 零停机更新
+      ports: [3001, 3002],   // zero-downtime updates
     },
   },
 }))
 ```
 
-### Step 5: 启动
+### Step 5: Start
 
 ```bash
 DEPLOY_TOKEN='my-secret-token' node deploy.ts
 ```
 
-启动瞬间自动完成：
+On startup, deploy automatically:
 
 ```
-  ├─ git clone 博客仓库
+  ├─ git clone the app repo
   ├─ npm install
-  ├─ fork 子进程 (端口 3001)
+  ├─ fork child process (port 3001)
   ├─ health check → OK
-  ├─ 启动反向代理 (端口 80)  → blog.example.com → :3001
-  ├─ 启动管理 API (/_deploy/*)
-  ├─ 自动申请 SSL 证书 (acme.sh)
-  └─ 设置证书自动续期 (cron)
+  ├─ start reverse proxy (port 80)  → blog.example.com → :3001
+  ├─ start management API (/_deploy/*)
+  ├─ issue SSL certificate via acme.sh
+  └─ set up auto-renewal cron job
 ```
 
-### Step 6: 日常更新
+### Step 6: Daily updates
 
 ```bash
-# 在本地开发机
+# On your dev machine
 git add . && git commit -m "update"
 git push
 ```
 
-GitHub webhook → `/deploy/webhook` → 自动 git pull + 零停机重启。
+GitHub webhook → `/_deploy/webhook` → auto git pull + zero-downtime restart.
 
 ---
 
-## 架构
+## Architecture
 
 ```
                         Port 80/443
@@ -134,7 +134,7 @@ GitHub webhook → `/deploy/webhook` → 自动 git pull + 零停机重启。
 
 ---
 
-## 子域名 & 子路径路由
+## Subdomain & path routing
 
 ```ts
 apps: {
@@ -145,13 +145,13 @@ apps: {
 }
 ```
 
-匹配优先级：精确子域名 > 最长路径前缀 > defaultApp。
+Match priority: exact subdomain > longest path prefix > defaultApp.
 
 ---
 
-## Blue-green 零停机更新
+## Blue-green zero-downtime deployment
 
-使用 `ports` 配置两个端口，新进程在备用端口启动通过健康检查后，网关才切换流量：
+Use `ports` to enable rolling restarts — the new process starts on the alternate port before the old one is killed:
 
 ```ts
 apps: {
@@ -165,89 +165,87 @@ apps: {
 }
 ```
 
-更新流程：
-1. 新进程启动在 3002（旧进程仍在 3001 处理请求）
-2. 健康检查通过
-3. 网关切换：`blog.example.com` → `:3002`
-4. SIGTERM 旧进程（处理完当前请求后退出）
+Deploy flow:
+1. New process starts on port 3002 (old process still handles traffic on 3001)
+2. Health check passes
+3. Gateway switches: `blog.example.com` → `:3002`
+4. SIGTERM old process (finishes current requests then exits)
 
 ---
 
 ## WebSocket
 
-WebSocket 自动桥接，无需额外配置：
+WebSocket connections are automatically bridged through the gateway. No extra config needed:
 
 ```ts
-// 在应用里正常写 WebSocket
+// In your app — works through deploy automatically
 const app = new Router()
   .ws('/chat', {
     message(ws, _, data) { ws.send(data) },
   })
 ```
 
-通过 deploy 部署后，`wss://chat.example.com/chat` 自动被网关 bridge。
-
 ---
 
-## 进程守护
+## Process watchdog
 
-子进程意外退出后自动重启，指数退避：1s → 2s → 4s → … → 30s 上限。
+If a child process exits unexpectedly, deploy auto-restarts it with exponential backoff: 1s → 2s → 4s → … → 30s max.
 
 ---
 
 ## Git webhook
 
-配置 GitHub/GitLab webhook，push 自动部署：
+Configure GitHub/GitLab webhook for push-triggered deployment:
 
 ```ts
 defineConfig({
   domain: 'example.com',
-  webhookSecret: 'your-github-webhook-secret',  // HMAC 签名验证
+  webhookSecret: 'your-github-webhook-secret',  // optional HMAC verification
   apps: { /* ... */ },
 })
 ```
 
-在 GitHub 仓库 Settings → Webhooks 中添加：
+In your GitHub repo: Settings → Webhooks → Add webhook:
 - **Payload URL:** `https://example.com/_deploy/webhook`
-- **Secret:** 与 `webhookSecret` 一致
+- **Secret:** must match `webhookSecret`
 - **Content type:** `application/json`
 
 ---
 
-## 自动 SSL (acme.sh)
+## Auto SSL (acme.sh)
 
 ```ts
 defineConfig({
   domain: 'example.com',
   ssl: {
     email: 'admin@example.com',
-    staging: true,   // 测试用，避免 Let's Encrypt 频率限制
+    staging: true,   // use --staging to avoid Let's Encrypt rate limits during testing
   },
   apps: { /* ... */ },
 })
 ```
 
-首次运行自动安装 `acme.sh`，签发域名和所有子域名的证书，通过 cron 自动续期。
+On first run, deploy installs `acme.sh`, issues certificates for the domain and all subdomains, and sets up automatic renewal via cron.
 
 ---
 
-## 管理 API
+## Management API
 
-所有端点需要 `Authorization: Bearer <deployToken>`：
+All endpoints require `Authorization: Bearer <deployToken>`:
 
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/_deploy/apps` | GET | 列出所有应用及状态 |
-| `/_deploy/apps/:name` | GET | 应用详情 |
-| `/_deploy/apps/:name/deploy` | POST | git pull + 重启 |
-| `/_deploy/apps/:name/restart` | POST | 重启 |
-| `/_deploy/apps/:name/stop` | POST | 停止 |
-| `/_deploy/apps/:name/start` | POST | 启动 |
-| `/_deploy/apps/:name/logs` | GET | SSE 实时日志流 |
-| `/_deploy/webhook` | POST | GitHub webhook 接收 |
-| `/_deploy/reload` | POST | 重载配置 |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/_deploy/apps` | GET | List all apps and their status |
+| `/_deploy/apps/:name` | GET | Get app details |
+| `/_deploy/apps/:name/deploy` | POST | git pull + restart |
+| `/_deploy/apps/:name/restart` | POST | Restart |
+| `/_deploy/apps/:name/stop` | POST | Stop |
+| `/_deploy/apps/:name/start` | POST | Start |
+| `/_deploy/apps/:name/logs` | GET | SSE real-time log stream |
+| `/_deploy/webhook` | POST | GitHub webhook receiver |
+| `/_deploy/reload` | POST | Reload config |
 
-示例：
+Examples:
 
 ```bash
 curl -H "Authorization: Bearer my-token" https://example.com/_deploy/apps
@@ -257,13 +255,13 @@ curl -H "Authorization: Bearer my-token" https://example.com/_deploy/apps/blog/l
 
 ---
 
-## 运行
+## Running
 
 ```bash
 node deploy.ts
 ```
 
-生产环境建议用 systemd 管理：
+For production, use systemd:
 
 ```ini
 # /etc/systemd/system/weifuwu-deploy.service
@@ -289,36 +287,36 @@ systemctl enable --now weifuwu-deploy
 
 ---
 
-## API 参考
+## API Reference
 
 ### `deploy(config)`
 
-| 参数 (DeployConfig) | 默认值 | 说明 |
-|---------------------|--------|------|
-| `domain` | — | 根域名（必填） |
-| `port` | `80` | 网关监听端口 |
-| `ssl` | — | `{ email, staging? }` |
-| `deployToken` | — | 管理 API 鉴权 |
-| `webhookSecret` | — | GitHub webhook HMAC 密钥 |
-| `appsDir` | `/opt/weifuwu/apps` | 应用存放目录 |
-| `defaultApp` | — | 根域名映射的应用 |
-| `apps` | — | 应用配置 |
+| Option (DeployConfig) | Default | Description |
+|-----------------------|---------|-------------|
+| `domain` | — | Root domain (required) |
+| `port` | `80` | Gateway listen port |
+| `ssl` | — | `{ email, staging? }` — auto SSL |
+| `deployToken` | — | Bearer token for management API |
+| `webhookSecret` | — | GitHub webhook HMAC secret |
+| `appsDir` | `/opt/weifuwu/apps` | Where apps are cloned |
+| `defaultApp` | — | App to route bare domain to |
+| `apps` | — | `Record<string, AppConfig>` |
 
 ### `defineConfig(config)`
 
-类型安全的配置辅助函数，自动校验必填字段并补默认值。
+Type-safe config helper. Validates required fields and sets defaults.
 
 ### AppConfig
 
-| 字段 | 默认值 | 说明 |
-|------|--------|------|
-| `repo` | — | Git 仓库 URL（必填） |
-| `branch` | `main` | Git 分支 |
+| Field | Default | Description |
+|-------|---------|-------------|
+| `repo` | — | Git repository URL (required) |
+| `branch` | `main` | Git branch |
 | `subdomain` | — | `blog` → `blog.example.com` |
 | `path` | — | `/api` → `example.com/api` |
-| `port` | — | 内部端口 |
-| `ports` | — | `[port, port+1]` 启用 blue-green |
-| `entry` | — | 入口文件，如 `app.ts` |
-| `env` | — | 环境变量 |
-| `healthEndpoint` | `/` | 健康检查路径 |
-| `buildCommand` | — | 构建命令，如 `npm run build` |
+| `port` | — | Internal port |
+| `ports` | — | `[port, port+1]` enables blue-green |
+| `entry` | — | Entry file, e.g. `app.ts` |
+| `env` | — | Environment variables |
+| `healthEndpoint` | `/` | Health check path |
+| `buildCommand` | — | Build command, e.g. `npm run build` |
