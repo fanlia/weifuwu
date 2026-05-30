@@ -53,6 +53,11 @@ async function getUserTable(sql: Sql<{}>, tenantId: string, slug: string): Promi
   return (row as UserTableRow) ?? null
 }
 
+function requireAdmin(ctx: Context): Response | null {
+  if (ctx.tenant?.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 })
+  return null
+}
+
 export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   const r = new Router()
 
@@ -83,6 +88,8 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   })
 
   r.post('/sys/tenants/invite', async (req: Request, ctx: Context) => {
+    const err = requireAdmin(ctx)
+    if (err) return err
     const { email, role = 'member' } = await req.json() as { email: string; role?: string }
     const [user] = await sql`
       SELECT id FROM ${sql(usersTable as any)} WHERE "email" = ${email} LIMIT 1
@@ -101,6 +108,8 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   })
 
   r.delete('/sys/tenants/members/:userId', async (req: Request, ctx: Context) => {
+    const err = requireAdmin(ctx)
+    if (err) return err
     const userId = parseInt(ctx.params.userId, 10)
     await sql`
       DELETE FROM "_tenant_members"
@@ -112,6 +121,8 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   // ── Tables ───────────────────────────────────────────────
 
   r.post('/sys/tables', async (req: Request, ctx: Context) => {
+    const err = requireAdmin(ctx)
+    if (err) return err
     const body = await req.json() as { slug: string; label?: string; fields: FieldDef[] }
     const slugErr = validateSlug(body.slug)
     if (slugErr) return Response.json({ error: slugErr }, { status: 400 })
@@ -155,6 +166,8 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   })
 
   r.patch('/sys/tables/:slug', async (req: Request, ctx: Context) => {
+    const err = requireAdmin(ctx)
+    if (err) return err
     const body = await req.json() as { fields?: FieldDef[] }
     if (!body.fields || !Array.isArray(body.fields)) {
       return Response.json({ error: 'fields array required' }, { status: 400 })
@@ -178,6 +191,8 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   })
 
   r.delete('/sys/tables/:slug', async (_req: Request, ctx: Context) => {
+    const err = requireAdmin(ctx)
+    if (err) return err
     await sql.unsafe(dropTableSQL(ctx.tenant!.id, ctx.params.slug))
     await sql`
       DELETE FROM "_user_tables"
