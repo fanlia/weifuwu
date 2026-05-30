@@ -51,6 +51,10 @@ function broadcastReload() {
 
 const isDev = process.env.NODE_ENV !== 'production'
 
+let _projectDir = ''
+let _allFiles: string[] = []
+let _outDir = ''
+
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function id(s: string): string {
@@ -218,8 +222,10 @@ function startFileWatcher(pagesDir: string, outDir: string) {
   let timeout: ReturnType<typeof setTimeout> | null = null
   const pending = new Set<string>()
 
-  chokidar.watch(pagesDir, {
-    ignored: /(^|[/\\])\.(?!\.)|\.weifuwu/,
+  const watchDir = _projectDir && _projectDir !== pagesDir ? _projectDir : pagesDir
+
+  chokidar.watch(watchDir, {
+    ignored: /(^|[/\\])\.(?!\.)|node_modules|\.weifuwu|dist/,
     persistent: false,
     ignoreInitial: true,
   }).on('all', async (event, filePath) => {
@@ -233,8 +239,16 @@ function startFileWatcher(pagesDir: string, outDir: string) {
       timeout = null
       const files = [...pending]
       pending.clear()
-      for (const f of files) {
-        if (existsSync(f)) await recompileAndSwap(f, outDir)
+      const exists = files.filter(f => existsSync(f))
+
+      const allKnown = exists.every(f =>
+        pageModules.has(f) || layoutModules.has(f) || loadModules.has(f) || routeModules.has(f)
+      )
+
+      if (allKnown) {
+        for (const f of exists) await recompileAndSwap(f, outDir)
+      } else {
+        await recompileAll()
       }
     }, 50)
   })
@@ -277,6 +291,40 @@ async function recompileAndSwap(filePath: string, outDir: string) {
     broadcastReload()
   } catch (err) {
     console.error('recompile failed:', (err as Error).message)
+  }
+}
+
+async function recompileAll() {
+  try {
+    await esbuild.build({
+      entryPoints: Object.fromEntries(_allFiles.map(f => [id(f), f])),
+      outdir: _outDir,
+      format: 'esm',
+      platform: 'node',
+      jsx: 'automatic',
+      jsxImportSource: 'react',
+      bundle: true,
+      external: ['react', 'react-dom', 'esbuild', 'graphql', 'ws', 'zod', '@graphql-tools/schema', 'ai'],
+      write: true,
+      allowOverwrite: true,
+    })
+
+    // Re-import and update registry for all page files
+    for (const f of _allFiles) {
+      const bustUrl = compiledUrl(f, _outDir) + '?t=' + Date.now()
+      const freshMod = await import(bustUrl)
+      const name = basename(f)
+      if (name === 'layout.tsx') layoutModules.set(f, freshMod)
+      else if (name === 'load.ts') loadModules.set(f, freshMod)
+      else pageModules.set(f, freshMod)
+    }
+
+    // Clear all hydration bundle caches
+    clientBundleCache.clear()
+
+    broadcastReload()
+  } catch (err) {
+    console.error('recompile all failed:', (err as Error).message)
   }
 }
 
@@ -414,7 +462,9 @@ function makeSsrHandler(
 
 export async function tsx(options: TsxOptions): Promise<Router> {
   const pagesDir = resolve(options.dir)
+  _projectDir = resolve(pagesDir, '..')
   const outDir = join(pagesDir, '..', '.weifuwu', 'ssr')
+  _outDir = outDir
 
   // 1. Scan
   const pages = scanPages(pagesDir)
@@ -442,7 +492,8 @@ export async function tsx(options: TsxOptions): Promise<Router> {
 
   // 3. Compile for SSR
   mkdirSync(outDir, { recursive: true })
-  await compileAll([...allFiles], outDir, 'node')
+  _allFiles = [...allFiles]
+  await compileAll(_allFiles, outDir, 'node')
 
   // 4. Load modules into registry and register routes
   const router = new Router()
