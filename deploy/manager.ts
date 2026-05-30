@@ -1,0 +1,169 @@
+import crypto from 'node:crypto'
+import { Router } from '../router.ts'
+import type { Context, Handler, Middleware } from '../types.ts'
+import type { DeployConfig, AppStatus } from './types.ts'
+
+export interface AppRuntime {
+  config: import('./types.ts').AppConfig
+  status: AppStatus
+  logs: string[]
+  process: import('node:child_process').ChildProcess | null
+  currentPort: number
+  startedAt: number | null
+  restartCount: number
+  restartTimer: ReturnType<typeof setTimeout> | undefined
+}
+
+export function createManager(
+  config: DeployConfig,
+  apps: Map<string, AppRuntime>,
+  manager: {
+    deployApp(name: string): Promise<void>
+    reloadConfig(): Promise<void>
+  },
+): Router {
+  const router = new Router()
+
+  const auth: Middleware = (req, ctx, next) => {
+    if (!config.deployToken) return next(req, ctx)
+    const header = req.headers.get('authorization') ?? ''
+    const token = header.replace('Bearer ', '')
+    if (token !== config.deployToken) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return next(req, ctx)
+  }
+
+  router.get('/apps', auth, () => {
+    const list = Array.from(apps.values()).map(a => a.status)
+    return Response.json(list)
+  })
+
+  router.get('/apps/:name', auth, (req, ctx) => {
+    const app = apps.get(ctx.params.name)
+    if (!app) return new Response('Not Found', { status: 404 })
+    return Response.json(app.status)
+  })
+
+  router.post('/apps/:name/deploy', auth, async (req, ctx) => {
+    const app = apps.get(ctx.params.name)
+    if (!app) return new Response('Not Found', { status: 404 })
+    try {
+      await manager.deployApp(ctx.params.name)
+      return Response.json({ success: true })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return Response.json({ error: msg }, { status: 500 })
+    }
+  })
+
+  router.post('/apps/:name/restart', auth, async (req, ctx) => {
+    const app = apps.get(ctx.params.name)
+    if (!app) return new Response('Not Found', { status: 404 })
+    try {
+      await manager.deployApp(ctx.params.name)
+      return Response.json({ success: true })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return Response.json({ error: msg }, { status: 500 })
+    }
+  })
+
+  router.post('/apps/:name/stop', auth, async (req, ctx) => {
+    const app = apps.get(ctx.params.name)
+    if (!app) return new Response('Not Found', { status: 404 })
+    if (app.process) {
+      app.process.kill('SIGTERM')
+      app.process = null
+    }
+    app.status = { ...app.status, status: 'stopped', pid: undefined }
+    return Response.json({ success: true })
+  })
+
+  router.post('/apps/:name/start', auth, async (req, ctx) => {
+    const app = apps.get(ctx.params.name)
+    if (!app) return new Response('Not Found', { status: 404 })
+    try {
+      await manager.deployApp(ctx.params.name)
+      return Response.json({ success: true })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return Response.json({ error: msg }, { status: 500 })
+    }
+  })
+
+  router.get('/apps/:name/logs', auth, (req, ctx) => {
+    const app = apps.get(ctx.params.name)
+    if (!app) return new Response('Not Found', { status: 404 })
+
+    let index = app.logs.length
+    let interval: ReturnType<typeof setInterval> | undefined
+
+    const stream = new ReadableStream({
+      start(controller) {
+        for (const line of app.logs) {
+          controller.enqueue(`data: ${JSON.stringify({ line })}\n\n`)
+        }
+
+        interval = setInterval(() => {
+          while (index < app.logs.length) {
+            controller.enqueue(`data: ${JSON.stringify({ line: app.logs[index] })}\n\n`)
+            index++
+          }
+        }, 500)
+      },
+      cancel() {
+        if (interval) clearInterval(interval)
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+      },
+    })
+  })
+
+  router.post('/reload', auth, async () => {
+    try {
+      await manager.reloadConfig()
+      return Response.json({ success: true })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return Response.json({ error: msg }, { status: 400 })
+    }
+  })
+
+  router.post('/webhook', async (req) => {
+    if (config.webhookSecret) {
+      const sig = req.headers.get('x-hub-signature-256') ?? ''
+      const body = await req.clone().text()
+      const hmac = crypto.createHmac('sha256', config.webhookSecret).update(body).digest('hex')
+      if (sig !== `sha256=${hmac}`) {
+        return Response.json({ error: 'invalid signature' }, { status: 401 })
+      }
+    }
+
+    const payload = await req.json() as Record<string, any>
+    const repoUrl = payload?.repository?.clone_url ?? payload?.repository?.html_url ?? ''
+
+    if (!repoUrl) return Response.json({ deployed: [] })
+
+    const deployed: string[] = []
+    for (const [name] of apps) {
+      const ac = apps.get(name)?.config
+      if (!ac) continue
+      const repoNorm = ac.repo.replace(/\.git$/, '').replace(/https:\/\/[^@]+@/, 'https://')
+      const payloadNorm = repoUrl.replace(/\.git$/, '').replace(/https:\/\/[^@]+@/, 'https://')
+      if (payloadNorm.includes(repoNorm)) {
+        await manager.deployApp(name)
+        deployed.push(name)
+      }
+    }
+
+    return Response.json({ deployed })
+  })
+
+  return router
+}

@@ -28,6 +28,7 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **Static files** — `serveStatic()` with ETag, 304, MIME, directory index
 - **Cookie** — `getCookies()`, `setCookie()`, `deleteCookie()` — immutable
 - **Error handling** — global `onError()`
+- **Deploy** — `deploy()` — self-hosted PaaS: multi-app reverse proxy, subdomain routing, zero-downtime updates, auto SSL, Git-based deployment
 - **Zero build** — native TypeScript in Node.js v24+
 - **Zero deps** (core) — only `node:http` and `node:stream`
 
@@ -998,6 +999,156 @@ const app = new Router()
   .get('/crash', () => { throw new Error('boom') })
 ```
 
+## Deploy
+
+Turn any VPS into your own PaaS — host multiple weifuwu apps with subdomain routing, zero-downtime updates, auto SSL, and Git-based deployment.
+
+```ts
+import { deploy, defineConfig } from 'weifuwu'
+
+await deploy(defineConfig({
+  domain: 'example.com',
+  deployToken: process.env.DEPLOY_TOKEN,
+
+  apps: {
+    blog: {
+      repo: 'https://github.com/me/blog.git',
+      subdomain: 'blog',
+      entry: 'app.ts',
+      port: 3001,
+    },
+    api: {
+      repo: 'https://github.com/me/api.git',
+      path: '/api',
+      entry: 'app.ts',
+      port: 3002,
+    },
+  },
+}))
+```
+
+### How it works
+
+```
+                        Port 80/443
+                            |
+                    Gateway (built-in reverse proxy)
+              blog.example.com → :3001
+              example.com/api  → :3002
+                            |
+              ┌─────────────┴─────────────┐
+          blog (child process)      api (child process)
+          git pull → npm install    git pull → npm install
+              │                          │
+         Management API at /_deploy
+         POST /_deploy/apps/:name/deploy  → git pull + zero-downtime restart
+         POST /_deploy/webhook            → GitHub webhook auto-deploy
+         GET  /_deploy/apps/:name/logs    → SSE log stream
+```
+
+### Subdomain & path routing
+
+Apps use `subdomain` or `path` — or both:
+
+```ts
+apps: {
+  blog:  { subdomain: 'blog',            port: 3001 },  // blog.example.com
+  api:   { path: '/api',                 port: 3002 },  // example.com/api
+  admin: { subdomain: 'admin',           port: 3003 },  // admin.example.com
+  www:   { path: '/',                    port: 3004 },  // example.com (root)
+}
+```
+
+Priority: exact subdomain > longest path prefix > default app.
+
+### Blue-green zero-downtime deployment
+
+Use `ports` to enable rolling restarts — the new process starts on the alternate port before the old one is killed:
+
+```ts
+apps: {
+  blog: {
+    repo: 'https://github.com/me/blog.git',
+    subdomain: 'blog',
+    entry: 'app.ts',
+    port: 3001,
+    ports: [3001, 3002],      // ← blue-green ports
+  },
+}
+```
+
+On each deploy: start new version on the other port → health check → switch gateway → kill old process. Zero downtime.
+
+### WebSocket support
+
+WebSocket connections are automatically bridged through the gateway. No extra configuration needed:
+
+```ts
+// In your app — works through deploy gateway automatically
+const app = new Router()
+  .ws('/chat', {
+    message(ws, _, data) { ws.send(data) },
+  })
+```
+
+### Auto-restart on crash
+
+If a child process exits unexpectedly, deploy automatically restarts it with exponential backoff (1s → 2s → 4s → … → 30s max).
+
+### Git webhook
+
+Set up automatic deployment when you push to GitHub/GitLab:
+
+```ts
+// deploy.config.ts
+export default defineConfig({
+  domain: 'example.com',
+  webhookSecret: 'your-github-webhook-secret',  // optional, verifies signature
+  apps: { /* ... */ },
+})
+```
+
+Configure your Git provider to send push events to `https://example.com/_deploy/webhook`.
+
+### SSL (via acme.sh)
+
+```ts
+export default defineConfig({
+  domain: 'example.com',
+  ssl: {
+    email: 'admin@example.com',   // required for Let's Encrypt
+    staging: true,                 // for testing (avoids rate limits)
+  },
+  apps: { /* ... */ },
+})
+```
+
+On first run, deploy installs `acme.sh` and issues certificates for your domain and all subdomains. Auto-renewal is set up via cron.
+
+### Management API
+
+All endpoints at `/_deploy/*` require `Authorization: Bearer <deployToken>`:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/_deploy/apps` | GET | List all apps and their status |
+| `/_deploy/apps/:name` | GET | Get app status |
+| `/_deploy/apps/:name/deploy` | POST | Git pull + restart |
+| `/_deploy/apps/:name/restart` | POST | Restart |
+| `/_deploy/apps/:name/stop` | POST | Stop |
+| `/_deploy/apps/:name/start` | POST | Start |
+| `/_deploy/apps/:name/logs` | GET | SSE real-time log stream |
+| `/_deploy/webhook` | POST | GitHub/GitLab webhook receiver |
+| `/_deploy/reload` | POST | Reload config (restart process) |
+
+### Running
+
+```bash
+node deploy.ts
+```
+
+For production, run as a daemon (systemd, pm2, or screen/tmux).
+
 ## API
 
 ### `serve(handler, options?)`
@@ -1098,6 +1249,37 @@ Returns `Promise<Router>`.
 | `graphql(handler)` | GraphQL endpoint (GET/POST + GraphiQL) |
 | `ai(handler)` | AI streaming endpoint (POST) |
 | `workflow(handler)` | Workflow engine (POST + SSE) |
+
+### Deploy
+
+| Import | Description |
+|--------|-------------|
+| `deploy(config)` | Start the deployment platform — reverse proxy, process manager, management API |
+| `defineConfig(config)` | Type-safe config helper with validation |
+
+| Option (DeployConfig) | Default | Description |
+|----------------------|---------|-------------|
+| `domain` | — | Root domain (required) |
+| `port` | `80` | Gateway listen port |
+| `ssl` | — | `{ email, staging? }` — auto SSL via acme.sh |
+| `deployToken` | — | Bearer token for management API |
+| `webhookSecret` | — | GitHub webhook HMAC secret |
+| `appsDir` | `/opt/weifuwu/apps` | Where apps are cloned |
+| `defaultApp` | — | App to route bare domain to |
+| `apps` | — | `Record<string, AppConfig>` |
+
+| Option (AppConfig) | Default | Description |
+|--------------------|---------|-------------|
+| `repo` | — | Git repository URL (required) |
+| `branch` | `main` | Git branch |
+| `subdomain` | — | `blog` → `blog.example.com` |
+| `path` | — | `/api` → `example.com/api` |
+| `port` | — | Internal port for the app |
+| `ports` | — | `[port, port+1]` for blue-green zero-downtime |
+| `entry` | — | Entry file, e.g. `app.ts` |
+| `env` | — | `Record<string, string>` of env vars |
+| `healthEndpoint` | `/` | Health check path |
+| `buildCommand` | — | Build command, e.g. `npm run build` |
 
 ### Utilities
 
