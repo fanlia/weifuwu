@@ -51,7 +51,7 @@ function broadcastReload() {
 
 const isDev = process.env.NODE_ENV !== 'production'
 
-let _projectDir = ''
+let _uiDir = ''
 let _allFiles: string[] = []
 let _outDir = ''
 
@@ -218,13 +218,11 @@ function compiledUrl(filePath: string, outDir: string): string {
 
 // ── dev file watcher ──────────────────────────────────────────────────────
 
-function startFileWatcher(pagesDir: string, outDir: string) {
+function startFileWatcher() {
   let timeout: ReturnType<typeof setTimeout> | null = null
   const pending = new Set<string>()
 
-  const watchDir = _projectDir && _projectDir !== pagesDir ? _projectDir : pagesDir
-
-  chokidar.watch(watchDir, {
+  chokidar.watch(_uiDir, {
     ignored: /(^|[/\\])\.(?!\.)|node_modules|\.weifuwu|dist/,
     persistent: false,
     ignoreInitial: true,
@@ -246,7 +244,7 @@ function startFileWatcher(pagesDir: string, outDir: string) {
       )
 
       if (allKnown) {
-        for (const f of exists) await recompileAndSwap(f, outDir)
+        for (const f of exists) await recompileAndSwap(f, _outDir)
       } else {
         await recompileAll()
       }
@@ -461,9 +459,10 @@ function makeSsrHandler(
 // ── main export ────────────────────────────────────────────────────────────
 
 export async function tsx(options: TsxOptions): Promise<Router> {
-  const pagesDir = resolve(options.dir)
-  _projectDir = resolve(pagesDir, '..')
-  const outDir = join(pagesDir, '..', '.weifuwu', 'ssr')
+  const uiDir = resolve(options.dir)
+  const pagesDir = existsSync(join(uiDir, 'pages')) ? join(uiDir, 'pages') : uiDir
+  _uiDir = uiDir
+  const outDir = join(uiDir, '.weifuwu', 'ssr')
   _outDir = outDir
 
   // 1. Scan
@@ -609,7 +608,7 @@ export async function tsx(options: TsxOptions): Promise<Router> {
         ws.on('error', () => liveReloadClients.delete(ws))
       },
     })
-    startFileWatcher(pagesDir, outDir)
+    startFileWatcher()
   }
 
   return router
