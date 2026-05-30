@@ -60,20 +60,15 @@ let _outDir = ''
 // ── helpers ────────────────────────────────────────────────────────────────
 
 const _cjsRequire = createRequire(import.meta.url)
+const _vmCtx = vm.createContext(Object.create(globalThis))
 
-function createSSRSandbox(mod: { exports: any }) {
-  return {
-    require: (name: string) => _cjsRequire(name),
-    module: mod,
-    exports: mod.exports,
-    console,
-    process,
-    setTimeout,
-    clearTimeout,
-    Buffer,
-    __dirname: '',
-    __filename: '',
-  }
+function loadSSRModule(code: string): any {
+  const mod = { exports: {} }
+  _vmCtx.require = (name: string) => _cjsRequire(name)
+  _vmCtx.module = mod
+  _vmCtx.exports = mod.exports
+  new vm.Script(code).runInContext(_vmCtx)
+  return mod.exports
 }
 
 function id(s: string): string {
@@ -286,22 +281,21 @@ async function recompileAndSwap(filePath: string, outDir: string) {
     })
 
     const code = new TextDecoder().decode(result.outputFiles[0].contents)
-    const mod = { exports: {} }
-    vm.runInNewContext(code, createSSRSandbox(mod))
+    const mod = loadSSRModule(code)
 
     const name = basename(filePath)
     if (name === 'layout.tsx') {
-      layoutModules.set(filePath, mod.exports)
+      layoutModules.set(filePath, mod)
     } else if (name === 'route.ts') {
       const handlers = new Map<string, Handler>()
       for (const m of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const) {
-        if ((mod.exports as any)[m]) handlers.set(m, (mod.exports as any)[m])
+        if ((mod as any)[m]) handlers.set(m, (mod as any)[m])
       }
       routeModules.set(filePath, handlers)
     } else if (name === 'load.ts') {
-      loadModules.set(filePath, mod.exports)
+      loadModules.set(filePath, mod)
     } else {
-      pageModules.set(filePath, mod.exports)
+      pageModules.set(filePath, mod)
       clientBundleCache.delete(id(filePath))
     }
 
@@ -327,16 +321,15 @@ async function recompileAll() {
 
     for (const file of result.outputFiles) {
       const code = new TextDecoder().decode(file.contents)
-      const mod = { exports: {} }
-      vm.runInNewContext(code, createSSRSandbox(mod))
+      const mod = loadSSRModule(code)
 
       const srcPath = _allFiles.find(f => file.path.endsWith(id(f) + '.js'))
       if (!srcPath) continue
 
       const name = basename(srcPath)
-      if (name === 'layout.tsx') layoutModules.set(srcPath, mod.exports)
-      else if (name === 'load.ts') loadModules.set(srcPath, mod.exports)
-      else pageModules.set(srcPath, mod.exports)
+      if (name === 'layout.tsx') layoutModules.set(srcPath, mod)
+      else if (name === 'load.ts') loadModules.set(srcPath, mod)
+      else pageModules.set(srcPath, mod)
     }
 
     clientBundleCache.clear()
