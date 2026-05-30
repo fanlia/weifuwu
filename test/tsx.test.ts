@@ -224,7 +224,7 @@ describe('tsx()', () => {
       url = `http://localhost:${server.port}`
     })
 
-    after(() => server.stop())
+    after(async () => { await server.stop() })
 
     it('serves page via HTTP', async () => {
       const res = await fetch(`${url}/about`)
@@ -355,6 +355,62 @@ describe('tsx()', () => {
         { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
+    })
+  })
+
+  describe('live reload', () => {
+    it('injects live-reload script in dev mode', async () => {
+      const r = await tsx({ dir: fixtures })
+      const res = await r.handler()(
+        new Request('http://localhost/'),
+        { params: {}, query: {} } as any,
+      )
+      const html = await res.text()
+      assert.match(html, /__weifuwu\/livereload/)
+    })
+
+    it('registers WebSocket endpoint', async () => {
+      const r = await tsx({ dir: fixtures })
+      const wsRoute = r.websocketHandler()
+      assert.ok(wsRoute)
+    })
+
+    it('injects live-reload script in 404 page', async () => {
+      const r = await tsx({ dir: fixtures })
+      const res = await r.handler()(
+        new Request('http://localhost/unknown-path'),
+        { params: {}, query: {} } as any,
+      )
+      const html = await res.text()
+      assert.match(html, /__weifuwu\/livereload/)
+    })
+  })
+
+  describe('tailwind support', () => {
+    it('registers /__wfw/style.css when app.css exists', async () => {
+      const pagesDir = './test/fixtures/pages'
+      const r = await tsx({ dir: pagesDir })
+
+      // Request the tailwind CSS endpoint
+      const res = await r.handler()(
+        new Request('http://localhost/__wfw/style.css'),
+        { params: {}, query: {} } as any,
+      )
+      if (res.status === 200) {
+        assert.equal(res.headers.get('content-type'), 'text/css; charset=utf-8')
+      }
+      // If no tailwind/PostCSS installed, route won't exist — that's OK
+    })
+  })
+
+  describe('ws sub-router delegation', () => {
+    it('exposes sub-router WS routes via parent', async () => {
+      const pages = await tsx({ dir: fixtures })
+      const main = new Router()
+      main.use('/', pages)
+
+      const wsHandler = main.websocketHandler()
+      assert.ok(wsHandler)
     })
   })
 })

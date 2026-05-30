@@ -132,7 +132,12 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   server.listen(port, hostname, () => { resolveReady() })
 
   return {
-    stop: () => { server.close() },
+    stop: () => {
+      return new Promise<void>((resolve) => {
+        server.closeAllConnections()
+        server.close(() => resolve())
+      })
+    },
     ready,
     get port() {
       const addr = server.address()

@@ -239,49 +239,59 @@ export class Router {
       const segments = url.pathname.split('/').filter(Boolean)
       const query = Object.fromEntries(url.searchParams)
 
+      // 1. Try WS trie
       const match = router.matchWsTrie(wsRoot, segments)
-      if (!match) {
-        socket.destroy()
-        return
-      }
-
-      const webReq = new Request(url.href, {
-        method: req.method ?? 'GET',
-        headers: Object.fromEntries(
-          Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
-        ),
-      })
-      const ctx = { params: match.params, query } as Context
-
-      if (match.middlewares.length === 0) {
-        upgradeSocket(wss, req, socket, head, match.handler, ctx)
-        return
-      }
-
-      let index = 0
-      const dispatch: Handler = async (innerReq, ctx) => {
-        if (index < match.middlewares.length) {
-          const mw = match.middlewares[index++]
-          return mw!(innerReq, ctx, dispatch)
-        }
-        return await new Promise<Response>((resolve) => {
-          try {
-            upgradeSocket(wss, req, socket, head, match.handler, ctx)
-            resolve(new Response(null, { status: 101 }))
-          } catch {
-            socket.destroy()
-            resolve(new Response('WebSocket upgrade failed', { status: 500 }))
-          }
+      if (match) {
+        const webReq = new Request(url.href, {
+          method: req.method ?? 'GET',
+          headers: Object.fromEntries(
+            Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
+          ),
         })
+        const ctx = { params: match.params, query } as Context
+
+        if (match.middlewares.length === 0) {
+          upgradeSocket(wss, req, socket, head, match.handler, ctx)
+          return
+        }
+
+        let index = 0
+        const dispatch: Handler = async (innerReq, ctx) => {
+          if (index < match.middlewares.length) {
+            const mw = match.middlewares[index++]
+            return mw!(innerReq, ctx, dispatch)
+          }
+          return await new Promise<Response>((resolve) => {
+            try {
+              upgradeSocket(wss, req, socket, head, match.handler, ctx)
+              resolve(new Response(null, { status: 101 }))
+            } catch {
+              socket.destroy()
+              resolve(new Response('WebSocket upgrade failed', { status: 500 }))
+            }
+          })
+        }
+
+        Promise.resolve(dispatch(webReq, ctx)).then((result) => {
+          if (result.status !== 101) {
+            sendHttpResponseOnSocket(socket, result)
+          }
+        }).catch(() => {
+          socket.destroy()
+        })
+        return
       }
 
-      Promise.resolve(dispatch(webReq, ctx)).then((result) => {
-        if (result.status !== 101) {
-          sendHttpResponseOnSocket(socket, result)
-        }
-      }).catch(() => {
-        socket.destroy()
-      })
+      // 2. No WS match — check HTTP sub-routers
+      const httpMatch = router.matchTrie('GET', segments)
+      if (httpMatch?.subRouter) {
+        const remaining = '/' + segments.slice(httpMatch.subRouter.remainingIdx).join('/')
+        req.url = remaining
+        httpMatch.subRouter.router.websocketHandler()(req, socket, head)
+        return
+      }
+
+      socket.destroy()
     }
   }
 

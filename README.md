@@ -853,7 +853,23 @@ import { tsx } from 'weifuwu/tsx'
 const app = new Router()
 app.use('/', await tsx({ dir: './pages/' }))
 
-serve(app.handler(), { port: 3000 })
+serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
+```
+
+### Development mode
+
+`tsx()` automatically runs in development mode (`NODE_ENV !== 'production'`):
+
+- **File watching** — editing a `.tsx`/`.ts` file triggers recompilation and the browser auto-refreshes via WebSocket
+- **Tailwind CSS** — if an `app.css` or `globals.css` file is found, Tailwind CSS is processed automatically. Write `className` directly.
+- **`@` aliases** — if `tsconfig.json` or `jsconfig.json` has `compilerOptions.paths`, the `@` alias is passed to esbuild automatically (works with shadcn/ui)
+- **Process state preserved** — DB connections, WebSockets, in-memory caches are not lost
+
+Production mode (`NODE_ENV=production`) disables file watching and live reload. All other features work the same.
+
+```bash
+node app.ts                # development
+NODE_ENV=production node app.ts   # production
 ```
 
 ### File conventions
@@ -947,12 +963,12 @@ app.use('/graphql', graphql(() => ({ schema: `type Query { hello: String }`, res
 app.use('/agent', workflow(() => ({ tools: myTools, stream: true })))
 app.ws('/chat', { message(ws, _, data) { ws.send(data) } })
 
-serve(app.handler())
+serve(app.handler(), { websocket: app.websocketHandler() })
 ```
 
 ```bash
-node --watch app.ts    # development
-node app.ts            # production
+node app.ts                # development (auto-reload on changes)
+NODE_ENV=production node app.ts   # production
 ```
 
 No build step, no configuration file — just Node.js.
@@ -1094,9 +1110,24 @@ Returns `MessagerModule` — `{ migrate, router, wsHandler, send, close }`.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `dir` | — | Pages directory path |
+| `dir`  | —       | Pages directory path |
 
 Returns `Promise<Router>`.
+
+Development features (auto-detected, no configuration needed):
+
+| Feature | Behavior |
+|---------|----------|
+| **File watching** | Enabled when `NODE_ENV !== 'production'`. Watches pages directory, recompiles on change, sends live-reload signal via WebSocket |
+| **Tailwind CSS** | Auto-detected when `app.css` / `globals.css` exists. Processed through PostCSS + Tailwind plugin. Served at `/__wfw/style.css` and auto-injected into HTML `<head>` |
+| **`@` alias** | Read from `tsconfig.json` / `jsconfig.json` `compilerOptions.paths` and passed to esbuild |
+| **WebSocket live reload** | Endpoint at `/__weifuwu/livereload`. Browser auto-refreshes on file changes or server restart |
+
+To use WebSocket features, pass `router.websocketHandler()` to `serve()`:
+
+```ts
+serve(app.handler(), { websocket: app.websocketHandler() })
+```
 
 ### `Router`
 
