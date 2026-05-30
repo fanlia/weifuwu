@@ -53,7 +53,8 @@ export function upload(options?: UploadOptions): Middleware {
         }
 
         if (saveDir) {
-          const filePath = join(saveDir, `${randomUUID()}-${value.name}`)
+          const safeName = value.name.replace(/[/\\]/g, '')
+          const filePath = join(saveDir, `${randomUUID()}-${safeName}`)
           await mkdir(saveDir, { recursive: true })
           await writeFile(filePath, buf)
           uf.path = filePath

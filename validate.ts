@@ -82,7 +82,7 @@ export function validate(schemas: ValidationSchemas): Middleware {
       return Response.json({ error: 'Validation failed', issues }, { status: 400 })
     }
 
-    ctx.parsed = parsed
+    ctx.parsed = { ...ctx.parsed, ...parsed }
     return next(req, ctx)
   }
 }

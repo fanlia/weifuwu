@@ -265,8 +265,13 @@ export class Router {
           return mw!(innerReq, ctx, dispatch)
         }
         return await new Promise<Response>((resolve) => {
-          upgradeSocket(wss, req, socket, head, match.handler, ctx)
-          resolve(new Response(null, { status: 101 }))
+          try {
+            upgradeSocket(wss, req, socket, head, match.handler, ctx)
+            resolve(new Response(null, { status: 101 }))
+          } catch {
+            socket.destroy()
+            resolve(new Response('WebSocket upgrade failed', { status: 500 }))
+          }
         })
       }
 

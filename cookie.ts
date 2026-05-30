@@ -19,7 +19,11 @@ export function getCookies(req: Request): Record<string, string> {
     const name = pair.slice(0, idx).trim()
     const value = pair.slice(idx + 1).trim()
     if (name) {
-      cookies[name] = decodeURIComponent(value)
+      try {
+        cookies[name] = decodeURIComponent(value)
+      } catch {
+        cookies[name] = value
+      }
     }
   }
   return cookies
