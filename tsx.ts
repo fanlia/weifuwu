@@ -79,6 +79,34 @@ function id(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
 }
 
+let _alias: Record<string, string> | null = null
+
+function resolveAliases(): Record<string, string> {
+  if (_alias) return _alias
+  const configFiles = ['tsconfig.json', 'jsconfig.json']
+  for (const file of configFiles) {
+    const p = resolve(file)
+    if (existsSync(p)) {
+      try {
+        const config = JSON.parse(readFileSync(p, 'utf-8'))
+        const paths = config.compilerOptions?.paths
+        if (paths) {
+          const alias: Record<string, string> = {}
+          for (const [key, values] of Object.entries(paths as Record<string, string[]>)) {
+            const cleanKey = key.replace('/*', '')
+            const val = values[0]?.replace('/*', '')
+            if (val) alias[cleanKey] = resolve(dirname(p), val)
+          }
+          _alias = alias
+          return alias
+        }
+      } catch {}
+    }
+  }
+  _alias = {}
+  return {}
+}
+
 function concatUint8(chunks: Uint8Array[]): Uint8Array {
   const len = chunks.reduce((a, c) => a + c.length, 0)
   const out = new Uint8Array(len)
@@ -203,6 +231,7 @@ async function compileAll(
   files: string[],
   outDir: string,
   platform: 'node' | 'browser',
+  alias?: Record<string, string>,
 ): Promise<void> {
   const entryPoints: Record<string, string> = {}
   for (const f of files) {
@@ -224,6 +253,7 @@ async function compileAll(
       '@graphql-tools/schema', 'ai',
     ],
     write: true,
+    alias,
     allowOverwrite: true,
   })
 }
@@ -281,6 +311,7 @@ async function recompileAndSwap(filePath: string, outDir: string) {
       jsxImportSource: 'react',
       bundle: true,
       external: ['react', 'react-dom', 'esbuild', 'graphql', 'ws', 'zod', '@graphql-tools/schema', 'ai'],
+      alias: resolveAliases(),
       write: false,
     })
 
@@ -321,6 +352,7 @@ async function recompileAll() {
       jsxImportSource: 'react',
       bundle: true,
       external: ['react', 'react-dom', 'esbuild', 'graphql', 'ws', 'zod', '@graphql-tools/schema', 'ai'],
+      alias: resolveAliases(),
       write: false,
     })
 
@@ -448,6 +480,7 @@ async function getOrBuildClientBundle(
           format: 'esm',
           jsx: 'automatic',
           jsxImportSource: 'react',
+          alias: resolveAliases(),
           write: false,
           minify: true,
         })
@@ -576,7 +609,7 @@ export async function tsx(options: TsxOptions): Promise<Router> {
   // 3. Compile for SSR
   mkdirSync(outDir, { recursive: true })
   _allFiles = [...allFiles]
-  await compileAll(_allFiles, outDir, 'node')
+  await compileAll(_allFiles, outDir, 'node', resolveAliases())
 
   // 4. Load modules into registry and register routes
   const router = new Router()
