@@ -156,9 +156,13 @@ export function buildRouter(deps: RestDeps): Router {
               VALUES (${channelId}, ${am.member_id}, 'agent', ${result.output})
             `.then(([r]) => {
               broadcastToChannel(channelId, { type: 'message', data: r })
+            }).catch((e) => {
+              console.error('[messager] agent reply insert failed:', e)
             })
           }
-        }).catch(() => {})
+        }).catch((e) => {
+          console.error('[messager] agent run failed:', e)
+        })
       }
     }
 

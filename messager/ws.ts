@@ -99,15 +99,20 @@ export function createWSHandler(deps: WSDeps): any {
                     VALUES (${channel_id}, ${am.member_id}, 'agent', ${result.output})
                   `.then(([r]) => {
                     broadcastToChannel(channel_id, { type: 'message', data: r })
+                  }).catch((e) => {
+                    console.error('[messager] agent reply insert failed:', e)
                   })
                 }
-              }).catch(() => {})
+              }).catch((e) => {
+                console.error('[messager] agent run failed:', e)
+              })
             }
           }
           break
         }
 
         case 'typing': {
+          if (channel_id) subscribe(ws, userId, channel_id)
           broadcastToChannel(channel_id, {
             type: 'typing',
             channel_id,
@@ -119,6 +124,7 @@ export function createWSHandler(deps: WSDeps): any {
 
         case 'read': {
           if (!channel_id || !last_message_id) return
+          subscribe(ws, userId, channel_id)
           await sql`
             UPDATE "_channel_members"
             SET last_read_id = ${last_message_id}, last_read_at = NOW()

@@ -93,14 +93,24 @@ export function queue(opts?: QueueOptions): Queue {
 
     try {
       const now = Date.now()
-      const jobs = await redis.zrangebyscore(jobKey, 0, now)
 
-      if (jobs.length > 0) {
-        await redis.zrem(jobKey, ...jobs)
-      }
+      while (true) {
+        const result = await redis.zpopmin(jobKey)
+        if (result.length < 2) break
+        const raw = result[0]
+        const score = parseInt(result[1], 10)
+        if (score > now) {
+          await redis.zadd(jobKey, score, raw)
+          break
+        }
 
-      for (const raw of jobs) {
-        const job: QueueJob = JSON.parse(raw)
+        let job: QueueJob
+        try {
+          job = JSON.parse(raw)
+        } catch {
+          continue
+        }
+
         const handler = handlers.get(job.type)
         if (handler) {
           handler(job).then(() => {
@@ -108,11 +118,12 @@ export function queue(opts?: QueueOptions): Queue {
               try {
                 const nextRun = cronNext(job.schedule)
                 const nextJob = { ...job, id: crypto.randomUUID(), runAt: nextRun, createdAt: Date.now() }
-                redis.zadd(jobKey, nextRun, JSON.stringify(nextJob))
-              } catch {
-              }
+                redis.zadd(jobKey, nextRun, JSON.stringify(nextJob)).catch(() => {})
+              } catch {}
             }
-          }).catch(() => {})
+          }).catch((e) => {
+            console.error('[queue] handler error:', e)
+          })
         }
       }
     } catch {
