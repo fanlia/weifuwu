@@ -412,8 +412,14 @@ export class Router {
         ? [] as Middleware[]
         : [...this.globalMws, ...match.pathMws]
 
+      const levelMount = '/' + segments.slice(0, remainingIdx).join('/')
+
       try {
-        return await this.runChain(allMws, delegate, req, { ...ctx, params: { ...ctx.params, ...match.params } })
+        return await this.runChain(allMws, delegate, req, {
+          ...ctx,
+          params: { ...ctx.params, ...match.params },
+          mountPath: (ctx.mountPath || '') + levelMount,
+        })
       } catch (e) {
         return this.errorHandler
           ? this.errorHandler(e as Error, req, ctx)

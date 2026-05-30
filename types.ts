@@ -3,6 +3,7 @@ export interface Context {
   query: Record<string, string>
   user?: unknown
   parsed?: Record<string, unknown>
+  mountPath?: string
 }
 
 export type Handler = (

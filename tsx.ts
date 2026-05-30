@@ -519,6 +519,7 @@ function makeSsrHandler(
   router: Router,
 ): Handler {
   return async (req, ctx) => {
+    const base = ctx.mountPath || ''
     const pageMod = pageModules.get(entryPath)
     if (!pageMod) return new Response('', { status: 500 })
     const Component = pageMod.default
@@ -553,18 +554,18 @@ function makeSsrHandler(
 
     const bundle = await getOrBuildClientBundle(entryPath, layoutPaths, pagesDir, router)
     if (bundle) {
-      scripts.push(`<script type="module" src="${bundle.url}"></script>`)
+      scripts.push(`<script type="module" src="${base}${bundle.url}"></script>`)
     }
 
     let html = `<!DOCTYPE html>\n${body}\n${scripts.join('\n')}`
 
     if (tailwindCssUrl && html.includes('</head>')) {
       html = html.replace('</head>',
-        `<link rel="stylesheet" href="${tailwindCssUrl}" />\n</head>`)
+        `<link rel="stylesheet" href="${base}${tailwindCssUrl}" />\n</head>`)
     }
 
     if (isDev) {
-      html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
+      html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${base}/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
     }
 
     return new Response(html, {
@@ -688,6 +689,7 @@ export async function tsx(options: TsxOptions): Promise<Router> {
     }
 
     const handler: Handler = async (req, ctx) => {
+      const base = ctx.mountPath || ''
       const nfMod = pageModules.get(nfPath)
       if (!nfMod) return new Response('Not Found', { status: 404 })
       const NfComponent = nfMod.default
@@ -707,10 +709,10 @@ export async function tsx(options: TsxOptions): Promise<Router> {
       let html = `<!DOCTYPE html>\n${body}`
       if (tailwindCssUrl && html.includes('</head>')) {
         html = html.replace('</head>',
-          `<link rel="stylesheet" href="${tailwindCssUrl}" />\n</head>`)
+          `<link rel="stylesheet" href="${base}${tailwindCssUrl}" />\n</head>`)
       }
       if (isDev) {
-        html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
+        html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${base}/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
       }
       return new Response(html, {
         status: 404,
