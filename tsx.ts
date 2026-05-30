@@ -5,6 +5,8 @@ import { readdirSync, statSync, existsSync, mkdirSync, readFileSync } from 'node
 import { join, relative, resolve, sep, dirname, basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
+import vm from 'node:vm'
+import { createRequire } from 'node:module'
 import chokidar from 'chokidar'
 import type { WebSocket } from 'ws'
 import { Router } from './router.ts'
@@ -56,6 +58,23 @@ let _allFiles: string[] = []
 let _outDir = ''
 
 // ── helpers ────────────────────────────────────────────────────────────────
+
+const _cjsRequire = createRequire(import.meta.url)
+
+function createSSRSandbox(mod: { exports: any }) {
+  return {
+    require: (name: string) => _cjsRequire(name),
+    module: mod,
+    exports: mod.exports,
+    console,
+    process,
+    setTimeout,
+    clearTimeout,
+    Buffer,
+    __dirname: '',
+    __filename: '',
+  }
+}
 
 function id(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
@@ -254,35 +273,35 @@ function startFileWatcher() {
 
 async function recompileAndSwap(filePath: string, outDir: string) {
   try {
-    await esbuild.build({
+    const result = await esbuild.build({
       entryPoints: { [id(filePath)]: filePath },
       outdir: outDir,
-      format: 'esm',
+      format: 'cjs',
       platform: 'node',
       jsx: 'automatic',
       jsxImportSource: 'react',
       bundle: true,
       external: ['react', 'react-dom', 'esbuild', 'graphql', 'ws', 'zod', '@graphql-tools/schema', 'ai'],
-      write: true,
-      allowOverwrite: true,
+      write: false,
     })
 
-    const bustUrl = compiledUrl(filePath, outDir) + '?t=' + Date.now()
-    const freshMod = await import(bustUrl)
+    const code = new TextDecoder().decode(result.outputFiles[0].contents)
+    const mod = { exports: {} }
+    vm.runInNewContext(code, createSSRSandbox(mod))
 
     const name = basename(filePath)
     if (name === 'layout.tsx') {
-      layoutModules.set(filePath, freshMod)
+      layoutModules.set(filePath, mod.exports)
     } else if (name === 'route.ts') {
       const handlers = new Map<string, Handler>()
       for (const m of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const) {
-        if (freshMod[m]) handlers.set(m, freshMod[m])
+        if ((mod.exports as any)[m]) handlers.set(m, (mod.exports as any)[m])
       }
       routeModules.set(filePath, handlers)
     } else if (name === 'load.ts') {
-      loadModules.set(filePath, freshMod)
+      loadModules.set(filePath, mod.exports)
     } else {
-      pageModules.set(filePath, freshMod)
+      pageModules.set(filePath, mod.exports)
       clientBundleCache.delete(id(filePath))
     }
 
@@ -294,32 +313,33 @@ async function recompileAndSwap(filePath: string, outDir: string) {
 
 async function recompileAll() {
   try {
-    await esbuild.build({
+    const result = await esbuild.build({
       entryPoints: Object.fromEntries(_allFiles.map(f => [id(f), f])),
       outdir: _outDir,
-      format: 'esm',
+      format: 'cjs',
       platform: 'node',
       jsx: 'automatic',
       jsxImportSource: 'react',
       bundle: true,
       external: ['react', 'react-dom', 'esbuild', 'graphql', 'ws', 'zod', '@graphql-tools/schema', 'ai'],
-      write: true,
-      allowOverwrite: true,
+      write: false,
     })
 
-    // Re-import and update registry for all page files
-    for (const f of _allFiles) {
-      const bustUrl = compiledUrl(f, _outDir) + '?t=' + Date.now()
-      const freshMod = await import(bustUrl)
-      const name = basename(f)
-      if (name === 'layout.tsx') layoutModules.set(f, freshMod)
-      else if (name === 'load.ts') loadModules.set(f, freshMod)
-      else pageModules.set(f, freshMod)
+    for (const file of result.outputFiles) {
+      const code = new TextDecoder().decode(file.contents)
+      const mod = { exports: {} }
+      vm.runInNewContext(code, createSSRSandbox(mod))
+
+      const srcPath = _allFiles.find(f => file.path.endsWith(id(f) + '.js'))
+      if (!srcPath) continue
+
+      const name = basename(srcPath)
+      if (name === 'layout.tsx') layoutModules.set(srcPath, mod.exports)
+      else if (name === 'load.ts') loadModules.set(srcPath, mod.exports)
+      else pageModules.set(srcPath, mod.exports)
     }
 
-    // Clear all hydration bundle caches
     clientBundleCache.clear()
-
     broadcastReload()
   } catch (err) {
     console.error('recompile all failed:', (err as Error).message)
