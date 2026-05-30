@@ -1,7 +1,7 @@
 import { createElement, createContext, useContext } from 'react'
 import { renderToReadableStream } from 'react-dom/server'
 import * as esbuild from 'esbuild'
-import { readdirSync, statSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { readdirSync, statSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve, sep, dirname, basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
@@ -56,6 +56,10 @@ const isDev = process.env.NODE_ENV !== 'production'
 let _uiDir = ''
 let _allFiles: string[] = []
 let _outDir = ''
+
+// ── Tailwind CSS ─────────────────────────────────────────────────────────
+let tailwindCssUrl: string | null = null
+let tailwindCssCode = ''
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -299,6 +303,7 @@ async function recompileAndSwap(filePath: string, outDir: string) {
       clientBundleCache.delete(id(filePath))
     }
 
+    await reprocessTailwind()
     broadcastReload()
   } catch (err) {
     console.error('recompile failed:', (err as Error).message)
@@ -333,10 +338,71 @@ async function recompileAll() {
     }
 
     clientBundleCache.clear()
+    await reprocessTailwind()
     broadcastReload()
   } catch (err) {
     console.error('recompile all failed:', (err as Error).message)
   }
+}
+
+
+// ── Tailwind CSS ────────────────────────────────────────────────────────────
+
+async function setupTailwind(uiDir: string, router: Router) {
+  let tailwindPlugin: any, postcss: any
+  try {
+    tailwindPlugin = (await import('@tailwindcss/postcss')).default
+    postcss = (await import('postcss')).default
+  } catch {
+    return
+  }
+
+  const inputFile = resolve(uiDir, 'app.css')
+  if (!existsSync(inputFile)) {
+    mkdirSync(uiDir, { recursive: true })
+    writeFileSync(inputFile, '@import "tailwindcss"\n', 'utf-8')
+    console.log('ℹ weifuwu/tsx: created ' + relative(process.cwd(), inputFile))
+  }
+
+  try {
+    const src = readFileSync(inputFile, 'utf-8')
+    const result = await postcss([tailwindPlugin()]).process(src, { from: inputFile })
+    tailwindCssCode = result.css
+  } catch (err) {
+    console.warn('Tailwind CSS processing failed:', (err as Error).message)
+    return
+  }
+
+  router.get('/__wfw/style.css', () => new Response(tailwindCssCode, {
+    headers: { 'content-type': 'text/css; charset=utf-8' },
+  }))
+  tailwindCssUrl = '/__wfw/style.css'
+
+  if (isDev) {
+    chokidar.watch(inputFile, { persistent: false }).on('change', async () => {
+      try {
+        const newSrc = readFileSync(inputFile, 'utf-8')
+        const newResult = await postcss([tailwindPlugin()]).process(newSrc, { from: inputFile })
+        tailwindCssCode = newResult.css
+        broadcastReload()
+      } catch (err) {
+        console.warn('Tailwind CSS reprocess failed:', (err as Error).message)
+      }
+    })
+  }
+}
+
+async function reprocessTailwind() {
+  if (!tailwindCssUrl) return
+  try {
+    const inputFile = resolve(_uiDir, 'app.css')
+    if (!existsSync(inputFile)) return
+    const tailwindPlugin = (await import('@tailwindcss/postcss')).default
+    const postcss = (await import('postcss')).default
+    const src = readFileSync(inputFile, 'utf-8')
+    const result = await postcss([tailwindPlugin()]).process(src, { from: inputFile })
+    tailwindCssCode = result.css
+  } catch {}
 }
 
 // ── client bundle (lazy) ───────────────────────────────────────────────────
@@ -458,6 +524,11 @@ function makeSsrHandler(
     }
 
     let html = `<!DOCTYPE html>\n${body}\n${scripts.join('\n')}`
+
+    if (tailwindCssUrl && html.includes('</head>')) {
+      html = html.replace('</head>',
+        `<link rel="stylesheet" href="${tailwindCssUrl}" />\n</head>`)
+    }
 
     if (isDev) {
       html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
@@ -601,6 +672,10 @@ export async function tsx(options: TsxOptions): Promise<Router> {
       const stream = await renderToReadableStream(element)
       const body = await readStream(stream)
       let html = `<!DOCTYPE html>\n${body}`
+      if (tailwindCssUrl && html.includes('</head>')) {
+        html = html.replace('</head>',
+          `<link rel="stylesheet" href="${tailwindCssUrl}" />\n</head>`)
+      }
       if (isDev) {
         html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
       }
@@ -612,6 +687,8 @@ export async function tsx(options: TsxOptions): Promise<Router> {
 
     router.all('/*', handler)
   }
+
+  await setupTailwind(uiDir, router)
 
   if (isDev) {
     router.ws('/__weifuwu/livereload', {
