@@ -851,27 +851,51 @@ import { serve, Router } from 'weifuwu'
 import { tsx } from 'weifuwu/tsx'
 
 const app = new Router()
-app.use('/', await tsx({ dir: './pages/' }))
+app.use('/', await tsx({ dir: './ui/' }))
 
-serve(app.handler(), { port: 3000 })
+serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
 ```
 
-### File conventions
+### Directory structure
 
 ```
-pages/
-  page.tsx              → GET /           (React component, default export)
-  layout.tsx            → root layout     (HTML shell, receives req/ctx, NOT hydrated)
-  not-found.tsx         → 404 error page  (rendered for unmatched routes, wrapped in layout)
-  about/page.tsx        → GET /about
-  blog/[slug]/
-    page.tsx            → GET /blog/:slug
-    load.ts             → data fetching   (server-only, default export)
-    route.ts            → POST /blog/:slug (API, named exports POST/PUT/DELETE/...)
-  blog/layout.tsx       → /blog/* layout  (UI structure, receives children, hydrated)
-  api/search/
-    route.ts            → GET /api/search (standalone API, no page.tsx needed)
+ui/
+├── pages/              ← 页面文件
+│   ├── page.tsx        → GET /           (React component, default export)
+│   ├── layout.tsx      → root layout     (HTML shell, receives req/ctx, NOT hydrated)
+│   ├── not-found.tsx   → 404 error page  (rendered for unmatched routes, wrapped in layout)
+│   ├── about/page.tsx  → GET /about
+│   ├── blog/[slug]/
+│   │   ├── page.tsx    → GET /blog/:slug
+│   │   ├── load.ts     → data fetching   (server-only, default export)
+│   │   └── route.ts    → POST /blog/:slug (API, named exports POST/PUT/DELETE/...)
+│   ├── blog/layout.tsx → /blog/* layout  (UI structure, receives children, hydrated)
+│   └── api/search/
+│       └── route.ts    → GET /api/search (standalone API, no page.tsx needed)
+└── components/         ← 组件文件（会被热更自动感知）
+    └── button.tsx
 ```
+
+### Development mode
+
+tsx() runs in development mode automatically when `NODE_ENV !== 'production'`:
+
+- **File watching** — chokidar watches the `ui/` directory for `.tsx`/`.ts` changes
+  - Page files in `pages/` → single-file recompilation + registry update
+  - Component files in `components/` → full rebuild of all pages
+  - New files are detected automatically
+- **Live reload** — Compiled via esbuild `write: false` + `vm.Script.runInContext` (no disk writes, no `node --watch` conflict)
+- **WebSocket auto-refresh** — `/__weifuwu/livereload` endpoint pushes reload signals; browser refreshes automatically
+- **`node --watch` compatible** — External files (`app.ts`, `middleware/`) handled by `--watch` restart; `ui/` changes handled by tsx() without conflict
+
+```bash
+node app.ts                # development (auto-reload + live refresh)
+NODE_ENV=production node app.ts   # production
+```
+
+### Backward compatibility
+
+`tsx({ dir: './pages/' })` still works. When there is no `pages/` subdirectory under `dir`, the `dir` itself is used as the pages directory.
 
 ### page.tsx — page component
 
@@ -947,12 +971,12 @@ app.use('/graphql', graphql(() => ({ schema: `type Query { hello: String }`, res
 app.use('/agent', workflow(() => ({ tools: myTools, stream: true })))
 app.ws('/chat', { message(ws, _, data) { ws.send(data) } })
 
-serve(app.handler())
+serve(app.handler(), { websocket: app.websocketHandler() })
 ```
 
 ```bash
-node --watch app.ts    # development
-node app.ts            # production
+node app.ts                # development (auto-reload + live refresh)
+NODE_ENV=production node app.ts   # production
 ```
 
 No build step, no configuration file — just Node.js.
