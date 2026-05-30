@@ -1,6 +1,6 @@
 {
   "name": "weifuwu",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "Web-standard HTTP framework for Node.js — (req, ctx) => Response",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,7 +14,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --external:react --external:react-dom --external:esbuild --external:graphql --external:ws --external:zod --external:@graphql-tools/schema --external:ai --external:postgres --external:jsonwebtoken",
+    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --external:react --external:react-dom --external:esbuild --external:graphql --external:ws --external:zod --external:@graphql-tools/schema --external:ai --external:postgres --external:jsonwebtoken --external:chokidar --external:tailwindcss --external:@tailwindcss/* --external:postcss --external:autoprefixer --external:lightningcss",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "test": "node --test 'test/**/*.test.ts'"
   },
