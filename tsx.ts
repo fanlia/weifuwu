@@ -565,13 +565,23 @@ export async function tsx(options: TsxOptions): Promise<Router> {
 
 async function setupTailwind(pagesDir: string, router: Router, alias?: Record<string, string>): Promise<string | null> {
   let tailwindPlugin: any, postcss: any, autoprefixer: any
+  // Suppress DEP0205 from @tailwindcss/node (Node 26 compat issue in Tailwind v4)
+  const _onWarning = (w: Error) => {
+    if ((w as any).code === 'DEP0205') return
+    process.removeListener('warning', _onWarning)
+    process.emitWarning(w)
+    process.on('warning', _onWarning)
+  }
+  process.on('warning', _onWarning)
   try {
     tailwindPlugin = (await import('@tailwindcss/postcss')).default
     postcss = (await import('postcss')).default
     autoprefixer = (await import('autoprefixer')).default
   } catch {
+    process.removeListener('warning', _onWarning)
     return null
   }
+  process.removeListener('warning', _onWarning)
 
   const candidates = ['app.css', 'globals.css', 'src/app.css', 'src/globals.css', 'style.css']
   let inputFile = ''
