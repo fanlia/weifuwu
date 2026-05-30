@@ -1,10 +1,12 @@
 import { createElement, createContext, useContext } from 'react'
 import { renderToReadableStream } from 'react-dom/server'
 import * as esbuild from 'esbuild'
-import { readdirSync, statSync, existsSync, mkdirSync } from 'node:fs'
-import { join, relative, resolve, sep, dirname } from 'node:path'
+import { readdirSync, statSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { join, relative, resolve, sep, dirname, basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
+import chokidar from 'chokidar'
+import type { WebSocket } from 'ws'
 import { Router } from './router.ts'
 import type { Context, Handler } from './types.ts'
 
@@ -37,6 +39,17 @@ const pageModules = new Map<string, any>()
 const layoutModules = new Map<string, any>()
 const loadModules = new Map<string, any>()
 const routeModules = new Map<string, Map<string, Handler>>()
+
+// ── live reload ────────────────────────────────────────────────────────────
+const liveReloadClients = new Set<WebSocket>()
+
+function broadcastReload() {
+  for (const ws of liveReloadClients) {
+    try { ws.send('reload') } catch { liveReloadClients.delete(ws) }
+  }
+}
+
+const isDev = process.env.NODE_ENV !== 'production'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -199,6 +212,74 @@ function compiledUrl(filePath: string, outDir: string): string {
   return pathToFileURL(p).href
 }
 
+// ── dev file watcher ──────────────────────────────────────────────────────
+
+function startFileWatcher(pagesDir: string, outDir: string) {
+  let timeout: ReturnType<typeof setTimeout> | null = null
+  const pending = new Set<string>()
+
+  chokidar.watch(pagesDir, {
+    ignored: /(^|[/\\])\.(?!\.)|\.weifuwu/,
+    persistent: false,
+    ignoreInitial: true,
+  }).on('all', async (event, filePath) => {
+    if (event !== 'change' && event !== 'add') return
+    if (!/\.tsx?$/.test(filePath)) return
+
+    pending.add(filePath)
+
+    if (timeout) clearTimeout(timeout)
+    timeout = setTimeout(async () => {
+      timeout = null
+      const files = [...pending]
+      pending.clear()
+      for (const f of files) {
+        if (existsSync(f)) await recompileAndSwap(f, outDir)
+      }
+    }, 50)
+  })
+}
+
+async function recompileAndSwap(filePath: string, outDir: string) {
+  try {
+    await esbuild.build({
+      entryPoints: { [id(filePath)]: filePath },
+      outdir: outDir,
+      format: 'esm',
+      platform: 'node',
+      jsx: 'automatic',
+      jsxImportSource: 'react',
+      bundle: true,
+      external: ['react', 'react-dom', 'esbuild', 'graphql', 'ws', 'zod', '@graphql-tools/schema', 'ai'],
+      write: true,
+      allowOverwrite: true,
+    })
+
+    const bustUrl = compiledUrl(filePath, outDir) + '?t=' + Date.now()
+    const freshMod = await import(bustUrl)
+
+    const name = basename(filePath)
+    if (name === 'layout.tsx') {
+      layoutModules.set(filePath, freshMod)
+    } else if (name === 'route.ts') {
+      const handlers = new Map<string, Handler>()
+      for (const m of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const) {
+        if (freshMod[m]) handlers.set(m, freshMod[m])
+      }
+      routeModules.set(filePath, handlers)
+    } else if (name === 'load.ts') {
+      loadModules.set(filePath, freshMod)
+    } else {
+      pageModules.set(filePath, freshMod)
+      clientBundleCache.delete(id(filePath))
+    }
+
+    broadcastReload()
+  } catch (err) {
+    console.error('recompile failed:', (err as Error).message)
+  }
+}
+
 // ── client bundle (lazy) ───────────────────────────────────────────────────
 
 const clientBundleCache = new Map<string, Uint8Array>()
@@ -317,7 +398,11 @@ function makeSsrHandler(
       scripts.push(`<script type="module" src="${bundle.url}"></script>`)
     }
 
-    const html = `<!DOCTYPE html>\n${body}\n${scripts.join('\n')}`
+    let html = `<!DOCTYPE html>\n${body}\n${scripts.join('\n')}`
+
+    if (isDev) {
+      html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
+    }
 
     return new Response(html, {
       headers: { 'content-type': 'text/html; charset=utf-8' },
@@ -452,7 +537,10 @@ export async function tsx(options: TsxOptions): Promise<Router> {
 
       const stream = await renderToReadableStream(element)
       const body = await readStream(stream)
-      const html = `<!DOCTYPE html>\n${body}`
+      let html = `<!DOCTYPE html>\n${body}`
+      if (isDev) {
+        html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
+      }
       return new Response(html, {
         status: 404,
         headers: { 'content-type': 'text/html; charset=utf-8' },
@@ -460,6 +548,17 @@ export async function tsx(options: TsxOptions): Promise<Router> {
     }
 
     router.all('/*', handler)
+  }
+
+  if (isDev) {
+    router.ws('/__weifuwu/livereload', {
+      open(ws) {
+        liveReloadClients.add(ws)
+        ws.on('close', () => liveReloadClients.delete(ws))
+        ws.on('error', () => liveReloadClients.delete(ws))
+      },
+    })
+    startFileWatcher(pagesDir, outDir)
   }
 
   return router
