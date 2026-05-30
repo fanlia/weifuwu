@@ -880,7 +880,7 @@ ui/
 
 tsx() runs in development mode automatically when `NODE_ENV !== 'production'`:
 
-- **File watching** — chokidar watches the `ui/` directory for `.tsx`/`.ts` changes
+- **File watching** — chokidar watches the `dir` directory for `.tsx`/`.ts` changes
   - Page files in `pages/` → single-file recompilation + registry update
   - Component files in `components/` → full rebuild of all pages
   - New files are detected automatically
