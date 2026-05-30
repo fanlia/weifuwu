@@ -70,6 +70,25 @@ describe('serve', () => {
     await assert.rejects(() => fetch(`http://localhost:${port}`))
   })
 
+  it('rejects body exceeding maxBodySize', async () => {
+    const handler: Handler = async (req) => new Response(await req.text())
+    const server = serve(handler, { port: 0, maxBodySize: 5 })
+    await server.ready
+    const res = await fetch(`http://localhost:${server.port}`, { method: 'POST', body: 'too large' })
+    assert.equal(res.status, 413)
+    server.stop()
+  })
+
+  it('accepts body within maxBodySize', async () => {
+    const handler: Handler = async (req) => new Response(await req.text())
+    const server = serve(handler, { port: 0, maxBodySize: 100 })
+    await server.ready
+    const res = await fetch(`http://localhost:${server.port}`, { method: 'POST', body: 'small' })
+    assert.equal(res.status, 200)
+    assert.equal(await res.text(), 'small')
+    server.stop()
+  })
+
   it('AbortSignal prevents server from starting', async () => {
     const ac = new AbortController()
     ac.abort()

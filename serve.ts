@@ -7,6 +7,7 @@ export interface ServeOptions {
   hostname?: string
   signal?: AbortSignal
   websocket?: (req: IncomingMessage, socket: Duplex, head: Buffer) => void
+  maxBodySize?: number
 }
 
 export interface Server {
@@ -16,9 +17,25 @@ export interface Server {
   ready: Promise<void>
 }
 
-export async function readBody(req: IncomingMessage): Promise<Buffer> {
+export async function readBody(req: IncomingMessage, maxSize?: number): Promise<Buffer> {
+  if (maxSize) {
+    const cl = parseInt(req.headers['content-length'] ?? '0', 10)
+    if (cl > maxSize) {
+      const err = new Error('Request body too large')
+      ;(err as any).status = 413
+      throw err
+    }
+  }
+
   const chunks: Buffer[] = []
+  let total = 0
   for await (const chunk of req) {
+    total += (chunk as Buffer).byteLength
+    if (maxSize && total > maxSize) {
+      const err = new Error('Request body too large')
+      ;(err as any).status = 413
+      throw err
+    }
     chunks.push(chunk as Buffer)
   }
   return Buffer.concat(chunks)
@@ -76,11 +93,16 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
 
   const server = http.createServer(async (req, res) => {
     try {
-      const body = await readBody(req)
+      const body = await readBody(req, options?.maxBodySize)
       const [request, query] = createRequest(req, body)
       const response = await handler(request, { params: {}, query } as Context)
       await sendResponse(res, response)
-    } catch {
+    } catch (err) {
+      if ((err as any)?.status === 413) {
+        res.writeHead(413, { 'Content-Type': 'text/plain' })
+        res.end('Request Body Too Large')
+        return
+      }
       res.writeHead(500, { 'Content-Type': 'text/plain' })
       res.end('Internal Server Error')
     }
