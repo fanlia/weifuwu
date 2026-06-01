@@ -6,7 +6,6 @@ import type { PostgresClient } from '../postgres/types.ts'
 import type { AgentModule } from '../agent/types.ts'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
-const HAS_AI_MODEL = !!(process.env.OPENAI_API_KEY || process.env.OLLAMA_URL)
 
 describe('agent', { skip: !DATABASE_URL }, () => {
   let pg: PostgresClient
@@ -55,7 +54,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
     await pg.sql`DELETE FROM "_agents"`
   })
 
-  it('runs an agent without stream', { skip: !HAS_AI_MODEL }, async () => {
+  it('runs an agent without stream', async () => {
     const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('RunTest', 'chat', 1) RETURNING *`
     const result = await a.run((ag as any).id, { input: 'hello' })
     if ('output' in result) {
@@ -65,7 +64,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
     await pg.sql`DELETE FROM "_agents" WHERE id = ${(ag as any).id}`
   })
 
-  it('runs an agent with stream', { skip: !HAS_AI_MODEL }, async () => {
+  it('runs an agent with stream', async () => {
     const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('StreamTest', 'chat', 1) RETURNING *`
     const result = await a.run((ag as any).id, { input: 'hello', stream: true })
     if ('stream' in result) {
