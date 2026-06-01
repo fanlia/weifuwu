@@ -1,7 +1,7 @@
 import type { WebSocket } from '../vendor.ts'
 import type { LanguageModel } from '../vendor.ts'
 import type { Context } from '../types.ts'
-import type { PendingQuestion, SkillDef } from './types.ts'
+import type { PendingQuestion, SkillDef, SkillRegistry } from './types.ts'
 import { createSession, getSession, getHistory, addTextMessage } from './session.ts'
 import { executeGenerator } from './run.ts'
 import { buildSystemPrompt } from './prompt.ts'
@@ -14,6 +14,7 @@ interface WsDeps {
   workspace: string
   systemPrompt?: string
   skills: SkillDef[]
+  skillsRegistry: SkillRegistry
   permissions?: OpencodePermissions
   pendingQuestions: Map<string, PendingQuestion>
 }
@@ -26,7 +27,7 @@ const clients = new WeakMap<WebSocket, {
 }>()
 
 export function createWSHandler(deps: WsDeps) {
-  const { sql, model, workspace, systemPrompt, skills, permissions, pendingQuestions } = deps
+  const { sql, model, workspace, systemPrompt, skills, skillsRegistry, permissions, pendingQuestions } = deps
 
   return {
     open(ws: WebSocket, ctx: Context) {
@@ -87,6 +88,7 @@ export function createWSHandler(deps: WsDeps) {
               workspace: session.workspace || workspace,
               permissions,
               pendingQuestions,
+              skillsRegistry,
             }
             const tools = createTools(toolCtx)
             const allSkills = [...skills]

@@ -98,8 +98,7 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
     })
     assert.ok(prompt.includes('/test'))
     assert.ok(prompt.includes('deepseek-v4-flash'))
-    assert.ok(prompt.includes('test-skill'))
-    assert.ok(prompt.includes('Do something'))
+    assert.ok(prompt.includes('Use the skill tool to load relevant skills when needed.'))
     assert.ok(prompt.includes('Custom instruction'))
   })
 

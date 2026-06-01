@@ -32,6 +32,15 @@ export interface SkillDef {
   name: string
   description: string
   content: string
+  license?: string
+  compatibility?: string
+  path?: string
+}
+
+export interface SkillRegistry {
+  all: SkillDef[]
+  get(name: string): SkillDef | undefined
+  list(): SkillDef[]
 }
 
 export interface ToolPermission {
@@ -48,6 +57,7 @@ export interface OpencodePermissions {
   grep?: ToolPermission & { allowPaths?: string[] }
   glob?: ToolPermission
   web?: ToolPermission
+  skill?: Record<string, ToolPermission>
 }
 
 export interface OpencodeOptions {

@@ -1,7 +1,7 @@
 import { Router } from '../router.ts'
 import { tsx } from '../tsx.ts'
 import type { LanguageModel } from '../vendor.ts'
-import type { SkillDef, OpencodePermissions, PendingQuestion } from './types.ts'
+import type { SkillDef, SkillRegistry, OpencodePermissions, PendingQuestion } from './types.ts'
 import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage } from './session.ts'
 import { executeGenerator } from './run.ts'
 import { buildSystemPrompt } from './prompt.ts'
@@ -14,12 +14,13 @@ interface RestDeps {
   workspace: string
   systemPrompt?: string
   skills: SkillDef[]
+  skillsRegistry: SkillRegistry
   permissions?: OpencodePermissions
   pendingQuestions: Map<string, PendingQuestion>
 }
 
 export async function buildRouter(deps: RestDeps): Promise<Router> {
-  const { sql, model, workspace, systemPrompt, skills, permissions, pendingQuestions } = deps
+  const { sql, model, workspace, systemPrompt, skills, skillsRegistry, permissions, pendingQuestions } = deps
   const router = new Router()
 
   router.post('/sessions', async (req: Request) => {
@@ -65,6 +66,7 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
       workspace: session.workspace || workspace,
       permissions,
       pendingQuestions,
+      skillsRegistry: deps.skillsRegistry,
     }
     const tools = createTools(toolCtx)
     const allSkills = [...skills]

@@ -20,16 +20,8 @@ export function buildSystemPrompt(opts: PromptOptions): string {
   ]
 
   if (opts.skills.length > 0) {
-    lines.push('=== Skills ===')
-    lines.push('The following skills are relevant to this task. Use them when appropriate.')
+    lines.push('Use the skill tool to load relevant skills when needed.')
     lines.push('')
-    for (const skill of opts.skills) {
-      lines.push(`## ${skill.name}`)
-      if (skill.description) lines.push(`Description: ${skill.description}`)
-      lines.push('')
-      lines.push(skill.content)
-      lines.push('')
-    }
   }
 
   if (opts.systemPrompt) {

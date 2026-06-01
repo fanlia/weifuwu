@@ -45,3 +45,34 @@ export function isToolEnabled(
   if (p === undefined) return true
   return p.allow !== false
 }
+
+function matchGlob(str: string, pattern: string): boolean {
+  const parts = pattern.split('*')
+  if (parts.length === 1) return str === pattern
+  if (!str.startsWith(parts[0])) return false
+  if (!str.endsWith(parts[parts.length - 1])) return false
+  return true
+}
+
+export function isSkillAllowed(
+  name: string,
+  perms?: OpencodePermissions,
+): boolean {
+  if (!perms?.skill) return true
+
+  const entries = Object.entries(perms.skill)
+  entries.sort(([a], [b]) => {
+    const hasStarA = a.includes('*') ? 1 : 0
+    const hasStarB = b.includes('*') ? 1 : 0
+    if (hasStarA !== hasStarB) return hasStarA - hasStarB
+    return b.length - a.length
+  })
+
+  for (const [pattern, perm] of entries) {
+    if (matchGlob(name, pattern)) {
+      return perm.allow !== false
+    }
+  }
+
+  return true
+}

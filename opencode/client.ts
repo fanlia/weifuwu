@@ -1,9 +1,10 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel } from '../vendor.ts'
-import type { OpencodeOptions, OpencodeModule, PendingQuestion } from './types.ts'
+import type { OpencodeOptions, OpencodeModule, SkillRegistry, PendingQuestion } from './types.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { buildRouter } from './rest.ts'
 import { createWSHandler } from './ws.ts'
+import { discoverSkills, buildSkillRegistry } from './skills.ts'
 
 export function opencode(options: OpencodeOptions): OpencodeModule {
   const pg = options.pg
@@ -12,9 +13,12 @@ export function opencode(options: OpencodeOptions): OpencodeModule {
   const apiKey = options.apiKey || process.env.DEEPSEEK_API_KEY
   const workspace = options.workspace || process.cwd()
   const systemPrompt = options.systemPrompt
-  const skills = options.skills || []
+  const manualSkills = options.skills || []
   const permissions = options.permissions
   const modelName = options.model || 'deepseek-v4-flash'
+
+  const discoveredSkills = discoverSkills(workspace)
+  const skillsRegistry: SkillRegistry = buildSkillRegistry(discoveredSkills, manualSkills)
 
   const provider = createOpenAI({ baseURL, apiKey })
   const model: LanguageModel = provider.chat(modelName)
@@ -27,11 +31,11 @@ export function opencode(options: OpencodeOptions): OpencodeModule {
     },
 
     async router() {
-      return await buildRouter({ sql, model, workspace, systemPrompt, skills, permissions, pendingQuestions })
+      return await buildRouter({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions })
     },
 
     wsHandler() {
-      return createWSHandler({ sql, model, workspace, systemPrompt, skills, permissions, pendingQuestions })
+      return createWSHandler({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions })
     },
 
     async close() {
