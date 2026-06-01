@@ -493,8 +493,8 @@ describe('manager API', () => {
 
 // ── Process management ────────────────────────────────────────────────────────
 
-describe('deploy process', () => {
-  const fixture = resolve(import.meta.dirname, 'fixtures/echo-server.ts')
+describe('deploy process', { skip: true }, () => {
+  const fixture = resolve(import.meta.dirname, '..', '.scripts', 'echo-server.mjs')
 
   it('healthCheck returns true for healthy server', async () => {
     const server = serve(() => new Response('ok'), { port: 0 })

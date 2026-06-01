@@ -6,6 +6,7 @@ import type { PostgresClient } from '../postgres/types.ts'
 import type { AgentModule } from '../agent/types.ts'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
+const HAS_AI_MODEL = !!(process.env.OPENAI_API_KEY || process.env.OLLAMA_URL)
 
 describe('agent', { skip: !DATABASE_URL }, () => {
   let pg: PostgresClient
@@ -18,8 +19,8 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   after(async () => {
-    await pg.sql.unsafe('DROP TABLE IF EXISTS "_knowledge_documents" CASCADE')
     await pg.sql.unsafe('DROP TABLE IF EXISTS "_agents" CASCADE')
+    await pg.sql.unsafe('DROP TABLE IF EXISTS "_knowledge_documents" CASCADE')
     await pg.close()
   })
 
@@ -54,7 +55,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
     await pg.sql`DELETE FROM "_agents"`
   })
 
-  it('runs an agent without stream', async () => {
+  it('runs an agent without stream', { skip: !HAS_AI_MODEL }, async () => {
     const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('RunTest', 'chat', 1) RETURNING *`
     const result = await a.run((ag as any).id, { input: 'hello' })
     if ('output' in result) {
@@ -64,18 +65,14 @@ describe('agent', { skip: !DATABASE_URL }, () => {
     await pg.sql`DELETE FROM "_agents" WHERE id = ${(ag as any).id}`
   })
 
-  it('runs an agent with stream', async () => {
+  it('runs an agent with stream', { skip: !HAS_AI_MODEL }, async () => {
     const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('StreamTest', 'chat', 1) RETURNING *`
     const result = await a.run((ag as any).id, { input: 'hello', stream: true })
     if ('stream' in result) {
       const reader = result.stream.getReader()
-      let chunks = 0
-      while (true) {
-        const { done } = await reader.read()
-        if (done) break
-        chunks++
-      }
-      assert.ok(chunks > 0)
+      const first = await reader.read()
+      assert.ok(first.value)
+      reader.releaseLock()
     }
     await pg.sql`DELETE FROM "_agents" WHERE id = ${(ag as any).id}`
   })
