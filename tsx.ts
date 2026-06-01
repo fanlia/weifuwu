@@ -441,6 +441,51 @@ async function reprocessTailwind() {
 
 const clientBundleCache = new Map<string, Uint8Array>()
 const clientRouteLog = new WeakMap<object, Set<string>>()
+const clientBuildParams = new Map<string, { entryPath: string; layoutPaths: string[]; pagesDir: string }>()
+
+async function buildClientBundle(
+  entryPath: string,
+  layoutPaths: string[],
+  pagesDir: string,
+): Promise<Uint8Array | null> {
+  try {
+    const nested = layoutPaths.slice(1)
+    const layoutsImport = nested.map((p, i) =>
+      `import L${i} from${JSON.stringify(p)};`,
+    ).join('')
+    const layoutsWrap = nested.map((_, i) => {
+      const idx = nested.length - 1 - i
+      return `el=createElement(L${idx},null,el);`
+    }).join('')
+
+    const code = [
+      `import{hydrateRoot}from'react-dom/client';`,
+      `import{createElement}from'react';`,
+      `import P from${JSON.stringify(entryPath)};`,
+      layoutsImport,
+      `const p=window.__WEIFUWU_PROPS;`,
+      `let el=createElement(P,p);`,
+      layoutsWrap,
+      `hydrateRoot(document.getElementById('__weifuwu_root'),el);`,
+    ].join('')
+
+    const result = await esbuild.build({
+      stdin: { contents: code, loader: 'tsx', resolveDir: pagesDir },
+      bundle: true,
+      format: 'esm',
+      jsx: 'automatic',
+      jsxImportSource: 'react',
+      alias: resolveAliases(),
+      write: false,
+      minify: true,
+    })
+
+    return result.outputFiles[0].contents
+  } catch (err) {
+    console.error('hydration bundle failed:', err)
+    return null
+  }
+}
 
 async function getOrBuildClientBundle(
   entryPath: string,
@@ -451,49 +496,27 @@ async function getOrBuildClientBundle(
   const key = id(entryPath)
   const url = `/__wfw/client/${key}.js`
 
+  clientBuildParams.set(key, { entryPath, layoutPaths, pagesDir })
+
   if (!clientRouteLog.get(router)?.has(url)) {
     if (!clientBundleCache.has(key)) {
-      try {
-        const nested = layoutPaths.slice(1)
-        const layoutsImport = nested.map((p, i) =>
-          `import L${i} from${JSON.stringify(p)};`,
-        ).join('')
-        const layoutsWrap = nested.map((_, i) => {
-          const idx = nested.length - 1 - i
-          return `el=createElement(L${idx},null,el);`
-        }).join('')
-
-        const code = [
-          `import{hydrateRoot}from'react-dom/client';`,
-          `import{createElement}from'react';`,
-          `import P from${JSON.stringify(entryPath)};`,
-          layoutsImport,
-          `const p=window.__WEIFUWU_PROPS;`,
-          `let el=createElement(P,p);`,
-          layoutsWrap,
-          `hydrateRoot(document.getElementById('__weifuwu_root'),el);`,
-        ].join('')
-
-        const result = await esbuild.build({
-          stdin: { contents: code, loader: 'tsx', resolveDir: pagesDir },
-          bundle: true,
-          format: 'esm',
-          jsx: 'automatic',
-          jsxImportSource: 'react',
-          alias: resolveAliases(),
-          write: false,
-          minify: true,
-        })
-
-        clientBundleCache.set(key, result.outputFiles[0].contents)
-      } catch (err) {
-        console.error('hydration bundle failed:', err)
-        return null
-      }
+      const buf = await buildClientBundle(entryPath, layoutPaths, pagesDir)
+      if (!buf) return null
+      clientBundleCache.set(key, buf)
     }
 
-    router.get(url, () => {
-      const buf = clientBundleCache.get(key)
+    router.get(url, async () => {
+      let buf = clientBundleCache.get(key)
+      if (!buf) {
+        const params = clientBuildParams.get(key)
+        if (params) {
+          const rebuilt = await buildClientBundle(params.entryPath, params.layoutPaths, params.pagesDir)
+          if (rebuilt) {
+            clientBundleCache.set(key, rebuilt)
+            buf = rebuilt
+          }
+        }
+      }
       return buf
         ? new Response(buf as BodyInit, {
             headers: { 'content-type': 'application/javascript; charset=utf-8' },
@@ -519,7 +542,7 @@ function makeSsrHandler(
   router: Router,
 ): Handler {
   return async (req, ctx) => {
-    const base = ctx.mountPath || ''
+    const base = (ctx.mountPath || '').replace(/\/$/, '')
     const pageMod = pageModules.get(entryPath)
     if (!pageMod) return new Response('', { status: 500 })
     const Component = pageMod.default
@@ -557,7 +580,8 @@ function makeSsrHandler(
       scripts.push(`<script type="module" src="${base}${bundle.url}"></script>`)
     }
 
-    let html = `<!DOCTYPE html>\n${body}\n${scripts.join('\n')}`
+    let html = body.startsWith('<!DOCTYPE html>') ? body : `<!DOCTYPE html>\n${body}`
+    html += '\n' + scripts.join('\n')
 
     if (tailwindCssUrl && html.includes('</head>')) {
       html = html.replace('</head>',
@@ -689,7 +713,7 @@ export async function tsx(options: TsxOptions): Promise<Router> {
     }
 
     const handler: Handler = async (req, ctx) => {
-      const base = ctx.mountPath || ''
+      const base = (ctx.mountPath || '').replace(/\/$/, '')
       const nfMod = pageModules.get(nfPath)
       if (!nfMod) return new Response('Not Found', { status: 404 })
       const NfComponent = nfMod.default
@@ -706,7 +730,7 @@ export async function tsx(options: TsxOptions): Promise<Router> {
 
       const stream = await renderToReadableStream(element)
       const body = await readStream(stream)
-      let html = `<!DOCTYPE html>\n${body}`
+      let html = body.startsWith('<!DOCTYPE html>') ? body : `<!DOCTYPE html>\n${body}`
       if (tailwindCssUrl && html.includes('</head>')) {
         html = html.replace('</head>',
           `<link rel="stylesheet" href="${base}${tailwindCssUrl}" />\n</head>`)
