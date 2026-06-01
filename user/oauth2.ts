@@ -271,7 +271,12 @@ h2{color:#dc2626}.desc{color:#555}</style>
       if (!codeVerifier) {
         return Response.json({ error: 'invalid_grant', error_description: 'code_verifier required' }, { status: 400 })
       }
-      const expected = crypto.createHash('sha256').update(codeVerifier).digest().toString('base64url')
+      let expected: string
+      if (stored.code_challenge_method === 'plain') {
+        expected = codeVerifier
+      } else {
+        expected = crypto.createHash('sha256').update(codeVerifier).digest().toString('base64url')
+      }
       if (expected !== stored.code_challenge) {
         return Response.json({ error: 'invalid_grant', error_description: 'code_verifier mismatch' }, { status: 400 })
       }

@@ -70,4 +70,13 @@ describe('resolveValue', () => {
     const result = resolveValue({ a: '$var.count', b: { c: '$nodes.fetch.output.body.title' } }, makeCtx())
     assert.deepEqual(result, { a: 42, b: { c: 'hello' } })
   })
+
+  it('blocks prototype pollution via __proto__', () => {
+    const obj = { nested: { value: 1 } }
+    const ctx = makeCtx()
+    ctx.nodeOutputs.set('evil', obj)
+    // Attempting to access __proto__ should return undefined
+    assert.equal(resolveRef('$nodes.evil.output.__proto__.polluted', ctx), undefined)
+    assert.equal(resolveRef('$nodes.evil.output.constructor.prototype.polluted', ctx), undefined)
+  })
 })

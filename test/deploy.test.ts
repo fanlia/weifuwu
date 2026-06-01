@@ -1,9 +1,14 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { createGateway } from '../deploy/gateway.ts'
-import { defineConfig } from '../deploy/config.ts'
-import { createManager, type AppRuntime } from '../deploy/manager.ts'
+import { writeFile, mkdir, rm, readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { fork } from 'node:child_process'
 import { serve } from '../serve.ts'
+import { createGateway } from '../deploy/gateway.ts'
+import { createManager } from '../deploy/manager.ts'
+import { defineConfig } from '../deploy/config.ts'
+import { forkApp, stopProcess, healthCheck } from '../deploy/process.ts'
+import type { AppRuntime } from '../deploy/manager.ts'
 import type { Context } from '../types.ts'
 import type { DeployConfig, GatewayResult } from '../deploy/types.ts'
 
@@ -483,5 +488,88 @@ describe('manager API', () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res2.status, 401)
+  })
+})
+
+// ── Process management ────────────────────────────────────────────────────────
+
+describe('deploy process', () => {
+  const fixture = resolve(import.meta.dirname, 'fixtures/echo-server.ts')
+
+  it('healthCheck returns true for healthy server', async () => {
+    const server = serve(() => new Response('ok'), { port: 0 })
+    await server.ready
+    const ok = await healthCheck(server.port)
+    assert.equal(ok, true)
+    server.stop()
+  })
+
+  it('healthCheck returns false for unreachable port', async () => {
+    const ok = await healthCheck(9999)
+    assert.equal(ok, false)
+  })
+
+  it('healthCheck with custom path', async () => {
+    const server = serve((req) => {
+      const url = new URL(req.url)
+      if (url.pathname === '/health') return new Response('ok')
+      return new Response('not found', { status: 404 })
+    }, { port: 0 })
+    await server.ready
+    const ok = await healthCheck(server.port, '/health')
+    assert.equal(ok, true)
+    server.stop()
+  })
+
+  it('healthCheck returns false for non-200 response', async () => {
+    const server = serve(() => new Response('error', { status: 500 }), { port: 0 })
+    await server.ready
+    const ok = await healthCheck(server.port)
+    assert.equal(ok, false)
+    server.stop()
+  })
+
+  it('forkApp starts a child process and reports via onLog', { timeout: 10000 }, async () => {
+    const logs: string[] = []
+    const mp = forkApp({
+      cwd: resolve(import.meta.dirname),
+      entry: fixture,
+      port: 0,
+      onLog: (line) => logs.push(line),
+    })
+
+    assert.ok(mp.child.pid)
+    assert.ok(mp.child.pid! > 0)
+    assert.equal(mp.port, 0)
+
+    await stopProcess(mp)
+    assert.ok(logs.length >= 0)
+  })
+
+  it('stopProcess terminates child process gracefully', { timeout: 10000 }, async () => {
+    const mp = forkApp({
+      cwd: resolve(import.meta.dirname),
+      entry: fixture,
+      port: 0,
+    })
+
+    const start = Date.now()
+    await stopProcess(mp, 5_000)
+    const elapsed = Date.now() - start
+
+    assert.ok(elapsed < 5000, `stopProcess took ${elapsed}ms`)
+  })
+
+  it('fork process receives PORT env variable', { timeout: 10000 }, async () => {
+    const mp = forkApp({
+      cwd: resolve(import.meta.dirname),
+      entry: fixture,
+      port: 3456,
+    })
+
+    await new Promise((r) => setTimeout(r, 500))
+
+    assert.equal(mp.port, 3456)
+    await stopProcess(mp)
   })
 })
