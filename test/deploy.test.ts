@@ -493,7 +493,8 @@ describe('manager API', () => {
 
 // ── Process management ────────────────────────────────────────────────────────
 
-describe('deploy process', { skip: true }, () => {
+const CAN_FORK = process.env.TEST_FORK_PROCESS === '1'
+describe('deploy process', { skip: !CAN_FORK }, () => {
   const fixture = resolve(import.meta.dirname, '..', '.scripts', 'echo-server.mjs')
 
   it('healthCheck returns true for healthy server', async () => {

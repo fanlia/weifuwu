@@ -132,8 +132,9 @@ export function buildRouter(deps: RestDeps): Router {
   })
 
   r.delete('/agents/:id/knowledge/:docId', async (_req, ctx) => {
+    const agentId = parseInt(ctx.params.id, 10)
     const docId = parseInt(ctx.params.docId, 10)
-    await sql`DELETE FROM "_knowledge_documents" WHERE id = ${docId}`
+    await sql`DELETE FROM "_knowledge_documents" WHERE id = ${docId} AND agent_id = ${agentId}`
     return Response.json({ ok: true })
   })
 

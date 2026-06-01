@@ -39,7 +39,7 @@ export function sqlTypeForField(field: FieldDef): string {
 const RESERVED_SLUGS = new Set(['sys', 'graphql', 'auth'])
 
 export function validateSlug(slug: string): string | null {
-  if (!/^[a-z][a-z0-9_]+$/.test(slug)) {
+  if (!/^[a-z][a-z0-9_]*$/.test(slug)) {
     return 'Slug must start with a letter and contain only lowercase letters, numbers, and underscores'
   }
   if (RESERVED_SLUGS.has(slug)) {

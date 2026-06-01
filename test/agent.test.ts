@@ -92,4 +92,62 @@ describe('agent', { skip: !DATABASE_URL }, () => {
     await pg.sql`DELETE FROM "_knowledge_documents" WHERE agent_id = ${aid}`
     await pg.sql`DELETE FROM "_agents" WHERE id = ${aid}`
   })
+
+  it('deletes knowledge doc with correct agent ownership', async () => {
+    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('KnowDelTest', 'chat', 1) RETURNING *`
+    const agentId = (ag as any).id
+
+    const r = a.router()
+    const createRes = await r.handler()(
+      new Request(`http://localhost/agents/${agentId}/knowledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Test', content: 'test content' }),
+      }),
+      { params: {}, query: {}, user: { id: 1 } } as any,
+    )
+    assert.equal(createRes.status, 201)
+    const created = await createRes.json() as any
+
+    const delRes = await r.handler()(
+      new Request(`http://localhost/agents/${agentId}/knowledge/${created.id}`, { method: 'DELETE' }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(delRes.status, 200)
+
+    const [check] = await pg.sql`SELECT id FROM "_knowledge_documents" WHERE id = ${created.id}` as any[]
+    assert.equal(check, undefined)
+
+    await pg.sql`DELETE FROM "_knowledge_documents" WHERE agent_id = ${agentId}`
+    await pg.sql`DELETE FROM "_agents" WHERE id = ${agentId}`
+  })
+
+  it('rejects knowledge delete for wrong agent', async () => {
+    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('WrongAgent', 'chat', 1) RETURNING *`
+    const agentId = (ag as any).id
+
+    const r = a.router()
+    const createRes = await r.handler()(
+      new Request(`http://localhost/agents/${agentId}/knowledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Secret', content: 'secret data' }),
+      }),
+      { params: {}, query: {}, user: { id: 1 } } as any,
+    )
+    assert.equal(createRes.status, 201)
+    const created = await createRes.json() as any
+
+    const delRes = await r.handler()(
+      new Request(`http://localhost/agents/${agentId + 999}/knowledge/${created.id}`, { method: 'DELETE' }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(delRes.status, 200)
+
+    const [check] = await pg.sql`SELECT id FROM "_knowledge_documents" WHERE id = ${created.id}` as any[]
+    assert.ok(check, 'doc should still exist')
+
+    await pg.sql`DELETE FROM "_knowledge_documents" WHERE agent_id = ${agentId}`
+    await pg.sql`DELETE FROM "_agents" WHERE id = ${agentId}`
+  })
 })
