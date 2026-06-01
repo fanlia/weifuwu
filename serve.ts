@@ -66,7 +66,14 @@ export function createRequest(req: IncomingMessage, body: Buffer): [Request, Rec
 export async function sendResponse(res: ServerResponse, response: Response): Promise<void> {
   const headers: Record<string, string | string[]> = {}
   response.headers.forEach((value, key) => {
-    headers[key] = value
+    if (key.toLowerCase() === 'set-cookie') {
+      const existing = headers[key]
+      headers[key] = existing
+        ? (Array.isArray(existing) ? [...existing, value] : [existing, value])
+        : value
+    } else {
+      headers[key] = value
+    }
   })
 
   res.writeHead(response.status, response.statusText, headers)
@@ -129,6 +136,10 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     options.signal.addEventListener('abort', () => { server.close() }, { once: true })
   }
 
+  server.on('error', (err) => {
+    console.error('Failed to start server:', err.message)
+    process.exit(1)
+  })
   server.listen(port, hostname, () => { resolveReady() })
 
   return {

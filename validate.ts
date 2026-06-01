@@ -52,18 +52,31 @@ export function validate(schemas: ValidationSchemas): Middleware {
     }
 
     if (schemas.body) {
-      if (req.body === null) {
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        // No body expected
+      } else if (req.body === null) {
         issues.push({ path: ['body'], message: 'Request body is required' })
       } else {
         const bodyText = await req.text()
-        if (!bodyText && req.method !== 'GET' && req.method !== 'HEAD') {
+        if (!bodyText) {
           issues.push({ path: ['body'], message: 'Request body is required' })
         } else {
-          let bodyValue: unknown
-          try {
-            bodyValue = JSON.parse(bodyText)
-          } catch {
+          const ct = req.headers.get('content-type') ?? ''
+          let bodyValue: unknown = bodyText
+          if (ct.includes('application/json') || ct.includes('text/') || ct.includes('*/json')) {
+            try {
+              bodyValue = JSON.parse(bodyText)
+            } catch {
+              // keep raw string
+            }
+          } else if (ct.includes('application/x-www-form-urlencoded') || ct.includes('multipart/form-data')) {
             bodyValue = bodyText
+          } else {
+            try {
+              bodyValue = JSON.parse(bodyText)
+            } catch {
+              // keep raw string
+            }
           }
           const result = schemas.body.safeParse(bodyValue)
           if (result.success) {

@@ -94,12 +94,15 @@ export interface AuthOptions {
 }
 
 export function auth(options: AuthOptions): Middleware {
+  if (!options.token && !options.verify && !options.proxy) {
+    throw new Error('auth() requires at least one of: token, verify, or proxy')
+  }
+
   return async (req, ctx, next) => {
     const headerName = options.header ?? 'Authorization'
     let from = 'header'
     let header = req.headers.get(headerName)
 
-    // Fall back to query string ?access_token=xxx
     let token = ''
     if (header) {
       token = header
@@ -109,7 +112,8 @@ export function auth(options: AuthOptions): Middleware {
           token = parts.slice(1).join(' ')
         }
       }
-    } else {
+    } else if (!options.header) {
+      // Only fall back to query string when using default header (Authorization)
       const url = new URL(req.url)
       const qsToken = url.searchParams.get('access_token')
       if (qsToken) {

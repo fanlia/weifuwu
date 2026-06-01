@@ -30,7 +30,7 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
     let fileHandle
     try {
       fileHandle = await open(filePath, 'r')
-      const stat = await fileHandle.stat()
+      let stat = await fileHandle.stat()
 
       if (stat.isDirectory()) {
         await fileHandle.close()
@@ -40,8 +40,8 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
           return new Response('Forbidden', { status: 403 })
         }
         fileHandle = await open(filePath, 'r')
-        const dirStat = await fileHandle.stat()
-        if (!dirStat.isFile()) {
+        stat = await fileHandle.stat()
+        if (!stat.isFile()) {
           await fileHandle.close()
           return new Response('Not Found', { status: 404 })
         }

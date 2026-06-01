@@ -76,6 +76,14 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
 
     // ── git ─────────────────────────────────────────────────────────
     try {
+      // Validate repo URL to prevent shell injection
+      if (typeof ac.repo !== 'string' || !/^https?:\/\/[^\s"']+\/[^\s"']+/.test(ac.repo) && !/^git@[^\s"']+:[^\s"']+/.test(ac.repo)) {
+        throw new Error(`Invalid repo URL: ${ac.repo}`)
+      }
+      if (ac.branch && typeof ac.branch === 'string' && !/^[\w.\-/]+$/.test(ac.branch)) {
+        throw new Error(`Invalid branch name: ${ac.branch}`)
+      }
+
       if (fs.existsSync(path.join(appDir, '.git'))) {
         execSync('git pull', { cwd: appDir, stdio: 'pipe', timeout: 120_000 })
         log('[deploy] git pull done')
@@ -83,7 +91,7 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
         if (fs.existsSync(appDir)) {
           fs.rmSync(appDir, { recursive: true })
         }
-        execSync(`git clone ${ac.repo} ${appDir}`, { stdio: 'pipe', timeout: 120_000 })
+        execSync(`git clone --depth=1 ${ac.repo} ${appDir}`, { stdio: 'pipe', timeout: 120_000 })
         log('[deploy] git clone done')
         if (ac.branch) {
           execSync(`git checkout ${ac.branch}`, { cwd: appDir, stdio: 'pipe', timeout: 30_000 })
@@ -115,6 +123,10 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
 
     // ── build (optional) ────────────────────────────────────────────
     if (ac.buildCommand) {
+      if (typeof ac.buildCommand !== 'string' || /[;&|`$()]/.test(ac.buildCommand)) {
+        log(`[deploy] invalid build command (rejected): ${ac.buildCommand}`)
+        return
+      }
       try {
         execSync(ac.buildCommand, { cwd: appDir, stdio: 'pipe', timeout: 120_000 })
         log('[deploy] build done')

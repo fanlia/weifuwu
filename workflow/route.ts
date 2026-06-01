@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { Router } from '../router.ts'
 import { createWorkflowEngine, createSSEManager, tool } from './index.ts'
 import type { Tool as WfTool } from './types.ts'

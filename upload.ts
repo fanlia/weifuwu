@@ -1,6 +1,6 @@
 import { writeFile, mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { join, extname } from 'node:path'
 import type { Middleware } from './types.ts'
 
 export interface UploadedFile {
@@ -15,6 +15,37 @@ export interface UploadOptions {
   dir?: string
   maxFileSize?: number
   allowedTypes?: string[]
+}
+
+const extensionMimeMap: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.zip': 'application/zip',
+  '.gz': 'application/gzip',
+  '.mp4': 'video/mp4',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.json': 'application/json',
+  '.csv': 'text/csv',
+  '.txt': 'text/plain',
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'text/javascript',
+  '.ts': 'application/x-typescript',
+  '.tsx': 'application/x-typescript',
+}
+
+function detectMimeFromExtension(filename: string): string | undefined {
+  return extensionMimeMap[extname(filename).toLowerCase()]
 }
 
 export function upload(options?: UploadOptions): Middleware {
@@ -36,8 +67,14 @@ export function upload(options?: UploadOptions): Middleware {
 
     for (const [key, value] of formData) {
       if (value instanceof File) {
-        if (options?.allowedTypes && !options.allowedTypes.includes(value.type)) {
-          return Response.json({ error: `File type not allowed: ${value.type}` }, { status: 415 })
+        // Validate: check client-declared type AND extension-based type
+        if (options?.allowedTypes) {
+          const clientOk = options.allowedTypes.includes(value.type)
+          const extType = detectMimeFromExtension(value.name)
+          const extOk = extType ? options.allowedTypes.includes(extType) : false
+          if (!clientOk && !extOk) {
+            return Response.json({ error: `File type not allowed: ${value.type}` }, { status: 415 })
+          }
         }
         if (options?.maxFileSize && value.size > options.maxFileSize) {
           return Response.json({ error: `File too large: ${value.name}` }, { status: 413 })
@@ -53,7 +90,7 @@ export function upload(options?: UploadOptions): Middleware {
         }
 
         if (saveDir) {
-          const safeName = value.name.replace(/[/\\]/g, '')
+          const safeName = value.name.replace(/[/\\\0]/g, '')
           const filePath = join(saveDir, `${randomUUID()}-${safeName}`)
           await mkdir(saveDir, { recursive: true })
           await writeFile(filePath, buf)

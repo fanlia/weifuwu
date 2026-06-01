@@ -122,6 +122,7 @@ export class Router {
   private wsRoot: WsTrieNode = createWsNode()
   private globalMws: Middleware[] = []
   private errorHandler?: ErrorHandler
+  private wss = new WebSocketServer({ noServer: true })
 
   use(mw: Middleware): this
   use(path: string, router: Router): this
@@ -230,7 +231,6 @@ export class Router {
   }
 
   websocketHandler(): WsUpgradeHandler {
-    const wss = new WebSocketServer({ noServer: true })
     const wsRoot = this.wsRoot
     const router = this
 
@@ -251,7 +251,7 @@ export class Router {
         const ctx = { params: match.params, query } as Context
 
         if (match.middlewares.length === 0) {
-          upgradeSocket(wss, req, socket, head, match.handler, ctx)
+          upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
           return
         }
 
@@ -263,7 +263,7 @@ export class Router {
           }
           return await new Promise<Response>((resolve) => {
             try {
-              upgradeSocket(wss, req, socket, head, match.handler, ctx)
+              upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
               resolve(new Response(null, { status: 101 }))
             } catch {
               socket.destroy()
@@ -311,7 +311,7 @@ export class Router {
   } | null {
     let node = this.root
     const params: Record<string, string> = {}
-    const pathMws: Middleware[] = [...this.root.pathMws]
+    const pathMws: Middleware[] = []
     let wildcardHandler: Handler | null = null
     let wildcardMws: Middleware[] = []
     let wildcardIdx = -1
@@ -350,6 +350,8 @@ export class Router {
       node = next
     }
 
+    pathMws.push(...node.pathMws)
+
     if (node.subRouter) {
       return {
         pathMws,
@@ -358,8 +360,6 @@ export class Router {
         subRouter: { router: node.subRouter, remainingIdx: segments.length },
       }
     }
-
-    pathMws.push(...node.pathMws)
 
     const handler = node.handlers.get(method) || node.handlers.get('*')
     if (handler) {
@@ -421,8 +421,9 @@ export class Router {
           mountPath: (ctx.mountPath || '') + levelMount,
         })
       } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e))
         return this.errorHandler
-          ? this.errorHandler(e as Error, req, ctx)
+          ? this.errorHandler(err, req, ctx)
           : new Response('Internal Server Error', { status: 500 })
       }
     }
@@ -437,8 +438,9 @@ export class Router {
       try {
         return await this.runChain(allMws, handler, req, ctxWithMatch)
       } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e))
         return this.errorHandler
-          ? this.errorHandler(e as Error, req, ctxWithMatch)
+          ? this.errorHandler(err, req, ctxWithMatch)
           : new Response('Internal Server Error', { status: 500 })
       }
     }
@@ -448,8 +450,9 @@ export class Router {
         const delegate: Handler = () => new Response('Not Found', { status: 404 })
         return await this.runChain(this.globalMws, delegate, req, ctx)
       } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e))
         return this.errorHandler
-          ? this.errorHandler(e as Error, req, ctx)
+          ? this.errorHandler(err, req, ctx)
           : new Response('Internal Server Error', { status: 500 })
       }
     }

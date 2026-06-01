@@ -1,4 +1,4 @@
-import { gzipSync, brotliCompressSync, constants } from 'node:zlib'
+import { gzipSync, brotliCompressSync, deflateSync, constants } from 'node:zlib'
 import type { Middleware } from './types.ts'
 
 export interface CompressOptions {
@@ -23,7 +23,7 @@ export function compress(options?: CompressOptions): Middleware {
 
     const res = await next(req, ctx)
 
-    if (res.status === 304 || res.status === 204 || res.status < 200 || res.status >= 300) {
+    if (res.status === 304 || res.status === 204 || res.status === 206 || res.status < 200 || res.status >= 300) {
       return res
     }
 
@@ -50,7 +50,7 @@ export function compress(options?: CompressOptions): Middleware {
       compressed = gzipSync(body, { level: Math.min(level, 9) })
       encoding = 'gzip'
     } else {
-      compressed = gzipSync(body, { level: Math.min(level, 9) })
+      compressed = deflateSync(body, { level: Math.min(level, 9) })
       encoding = 'deflate'
     }
 
@@ -58,7 +58,8 @@ export function compress(options?: CompressOptions): Middleware {
     headers.set('Content-Encoding', encoding)
     headers.set('Content-Length', String(compressed.byteLength))
     headers.delete('Content-Range')
-    headers.set('Vary', 'Accept-Encoding')
+    const existingVary = headers.get('Vary')
+    headers.set('Vary', existingVary ? `${existingVary}, Accept-Encoding` : 'Accept-Encoding')
 
     return new Response(compressed as BodyInit, {
       status: res.status,

@@ -21,4 +21,4 @@ export type ErrorHandler = (
   error: Error,
   req: Request,
   ctx: Context,
-) => Response
+) => Response | Promise<Response>
