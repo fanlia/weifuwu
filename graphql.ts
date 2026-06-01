@@ -68,10 +68,11 @@ async function executeQuery(
     variableValues: params.variables,
     operationName: params.operationName,
   }) as any
-  return Response.json(result, { status: result.errors ? 400 : 200 })
+  return Response.json(result, { status: result.errors ? 200 : 200 })
 }
 
 function graphiqlHTML(endpoint: string): string {
+  const safeEndpoint = endpoint.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/</g, '\\x3C')
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -103,7 +104,7 @@ function graphiqlHTML(endpoint: string): string {
       import { createGraphiQLFetcher } from '@graphiql/toolkit';
       import 'graphiql/setup-workers/esm.sh';
 
-      const fetcher = createGraphiQLFetcher({ url: "${endpoint}" });
+      const fetcher = createGraphiQLFetcher({ url: "${safeEndpoint}" });
 
       function App() {
         return React.createElement(GraphiQL, { fetcher });

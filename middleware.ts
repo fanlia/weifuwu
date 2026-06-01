@@ -43,7 +43,12 @@ export function cors(options?: CORSOptions): Middleware {
   }
 
   function resolveOrigin(requestOrigin: string): string {
-    if (typeof opts.origin === 'string') return opts.origin === '*' ? '*' : opts.origin
+    if (typeof opts.origin === 'string') {
+      if (opts.origin === '*') {
+        return opts.credentials ? requestOrigin : '*'
+      }
+      return opts.origin
+    }
     if (Array.isArray(opts.origin)) {
       return opts.origin.includes(requestOrigin) ? requestOrigin : ''
     }
@@ -59,7 +64,7 @@ export function cors(options?: CORSOptions): Middleware {
     headers.set('Access-Control-Allow-Origin', acao)
     if (opts.credentials) headers.set('Access-Control-Allow-Credentials', 'true')
     if (opts.exposedHeaders?.length) headers.set('Access-Control-Expose-Headers', opts.exposedHeaders.join(', '))
-    headers.set('Vary', 'Origin')
+    if (acao !== '*') headers.set('Vary', 'Origin')
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
   }
 
@@ -74,7 +79,7 @@ export function cors(options?: CORSOptions): Middleware {
       headers.set('Access-Control-Allow-Headers', opts.allowedHeaders.join(', '))
       if (opts.credentials) headers.set('Access-Control-Allow-Credentials', 'true')
       if (opts.maxAge != null) headers.set('Access-Control-Max-Age', String(opts.maxAge))
-      headers.set('Vary', 'Origin')
+      if (acao !== '*') headers.set('Vary', 'Origin')
       return new Response(null, { status: 204, headers })
     }
 
@@ -105,11 +110,11 @@ export function auth(options: AuthOptions): Middleware {
 
     let token = ''
     if (header) {
-      token = header
+      token = header.trim()
       if (headerName.toLowerCase() === 'authorization') {
         const parts = header.split(' ')
         if (parts[0]?.toLowerCase() === 'bearer') {
-          token = parts.slice(1).join(' ')
+          token = parts.slice(1).join(' ').trim()
         }
       }
     } else if (!options.header) {
@@ -133,9 +138,14 @@ export function auth(options: AuthOptions): Middleware {
 
     // ── Proxy mode ──────────────────────────────────────────────────────────
     if (options.proxy) {
-      const proxyUrl = typeof options.proxy === 'string'
-        ? new URL(options.proxy)
-        : options.proxy
+      let proxyUrl: URL
+      try {
+        proxyUrl = typeof options.proxy === 'string'
+          ? new URL(options.proxy)
+          : options.proxy
+      } catch {
+        return new Response('Invalid proxy URL', { status: 500 })
+      }
 
       const proxyHeaders: Record<string, string> = {}
 

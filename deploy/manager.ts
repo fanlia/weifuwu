@@ -28,7 +28,10 @@ export function createManager(
     if (!config.deployToken) return next(req, ctx)
     const header = req.headers.get('authorization') ?? ''
     const token = header.replace('Bearer ', '')
-    if (token !== config.deployToken) {
+    const tokenBuf = Buffer.from(token)
+    const secretBuf = Buffer.from(config.deployToken)
+    if (tokenBuf.length !== secretBuf.length ||
+        !crypto.timingSafeEqual(tokenBuf, secretBuf)) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return next(req, ctx)
@@ -136,16 +139,21 @@ export function createManager(
   })
 
   router.post('/webhook', async (req) => {
+    const rawBody = await req.text()
+
     if (config.webhookSecret) {
       const sig = req.headers.get('x-hub-signature-256') ?? ''
-      const body = await req.clone().text()
-      const hmac = crypto.createHmac('sha256', config.webhookSecret).update(body).digest('hex')
-      if (sig !== `sha256=${hmac}`) {
+      const expected = `sha256=${crypto.createHmac('sha256', config.webhookSecret).update(rawBody).digest('hex')}`
+      const sigBuf = Buffer.from(sig)
+      const expectedBuf = Buffer.from(expected)
+      if (sigBuf.length !== expectedBuf.length ||
+          !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
         return Response.json({ error: 'invalid signature' }, { status: 401 })
       }
     }
 
-    const payload = await req.json() as Record<string, any>
+    let payload: Record<string, any>
+    try { payload = JSON.parse(rawBody) } catch { payload = {} }
     const repoUrl = payload?.repository?.clone_url ?? payload?.repository?.html_url ?? ''
 
     if (!repoUrl) return Response.json({ deployed: [] })

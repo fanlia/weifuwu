@@ -54,6 +54,7 @@ export function upload(options?: UploadOptions): Middleware {
   return async (req, ctx, next) => {
     const ct = req.headers.get('content-type') ?? ''
     if (!ct.includes('multipart/form-data')) return next(req, ctx)
+    if (saveDir) await mkdir(saveDir, { recursive: true }).catch(() => {})
 
     let formData: FormData
     try {
@@ -90,9 +91,8 @@ export function upload(options?: UploadOptions): Middleware {
         }
 
         if (saveDir) {
-          const safeName = value.name.replace(/[/\\\0]/g, '')
+          const safeName = value.name.replace(/[/\\\0]/g, '_')
           const filePath = join(saveDir, `${randomUUID()}-${safeName}`)
-          await mkdir(saveDir, { recursive: true })
           await writeFile(filePath, buf)
           uf.path = filePath
         }

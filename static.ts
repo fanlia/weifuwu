@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { open } from 'node:fs/promises'
+import { open, realpath } from 'node:fs/promises'
 import { extname, resolve, normalize, sep } from 'node:path'
 import type { Handler } from './types.ts'
 
@@ -31,6 +31,13 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
     try {
       fileHandle = await open(filePath, 'r')
       let stat = await fileHandle.stat()
+
+      // Resolve symlinks and verify within root
+      const realPath = await realpath(filePath)
+      if (!realPath.startsWith(rootDir + sep) && realPath !== rootDir) {
+        await fileHandle.close()
+        return new Response('Forbidden', { status: 403 })
+      }
 
       if (stat.isDirectory()) {
         await fileHandle.close()
@@ -88,8 +95,8 @@ const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.htm': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
-  '.js': 'application/javascript; charset=utf-8',
-  '.mjs': 'application/javascript; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -110,4 +117,13 @@ const MIME_TYPES: Record<string, string> = {
   '.zip': 'application/zip',
   '.wasm': 'application/wasm',
   '.map': 'application/json',
+  '.ts': 'application/x-typescript',
+  '.tsx': 'application/x-typescript',
+  '.md': 'text/markdown; charset=utf-8',
+  '.yaml': 'application/x-yaml',
+  '.yml': 'application/x-yaml',
+  '.csv': 'text/csv; charset=utf-8',
+  '.mp4': 'video/mp4',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
 }
