@@ -1,5 +1,6 @@
 import type { Middleware } from '../types.ts'
 import type { Router } from '../router.ts'
+import type { PostgresClient } from '../postgres/types.ts'
 
 export interface UserData {
   id: number
@@ -29,7 +30,7 @@ export interface OAuth2ServerOptions {
 }
 
 export interface UserOptions {
-  pg: any
+  pg: PostgresClient
   jwtSecret: string
   table?: string
   expiresIn?: string | number

@@ -153,6 +153,7 @@ describe('tsx()', () => {
       const html = await res.text()
       assert.match(html, /<script type="module"/)
       assert.match(html, /__wfw\/client\//)
+      assert.match(html, /id="__weifuwu_root"/)
     })
 
     it('serves hydration bundle', async () => {

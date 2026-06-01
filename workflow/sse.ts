@@ -1,10 +1,11 @@
+import { formatSSE } from '../sse.ts'
 import type { SSEManager, SSEEvent } from './types.ts'
 
 interface StreamState {
   controller: ReadableStreamDefaultController<Uint8Array>
   encoder: TextEncoder
   closed: boolean
-  buffer: string[]
+  buffer: Uint8Array[]
 }
 
 export function createSSEManager(): SSEManager {
@@ -24,10 +25,9 @@ export function createSSEManager(): SSEManager {
         state.controller = controller
         streams.set(workflowId, state)
 
-        // Flush any buffered events
-        for (const event of state.buffer) {
+        for (const chunk of state.buffer) {
           try {
-            controller.enqueue(encoder.encode(event))
+            controller.enqueue(chunk)
           } catch {
             break
           }
@@ -47,17 +47,17 @@ export function createSSEManager(): SSEManager {
     const state = streams.get(workflowId)
     if (!state || state.closed) return
 
-    const data = `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`
+    const chunk = encoder.encode(formatSSE(event.event, event.data))
 
     if (state.controller) {
       try {
-        state.controller.enqueue(encoder.encode(data))
+        state.controller.enqueue(chunk)
       } catch {
         state.closed = true
         streams.delete(workflowId)
       }
     } else {
-      state.buffer.push(data)
+      state.buffer.push(chunk)
     }
   }
 

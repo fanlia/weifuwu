@@ -3,6 +3,7 @@ import type { LanguageModel, EmbeddingModel, Tool } from 'ai'
 import { z } from 'zod'
 import type { Sql } from 'postgres'
 import type { AgentConfig, RunParams, RunResult, KnowledgeDoc } from './types.ts'
+import { formatSSE } from '../sse.ts'
 
 interface RunnerDeps {
   sql: Sql<{}>
@@ -101,12 +102,10 @@ export function createRunner(deps: RunnerDeps) {
         async start(controller) {
           try {
             for await (const event of fullStream) {
-              const { type: _t, ...rest } = event as any
-              const data = JSON.stringify({ type: _t, ...rest })
-              controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${data}\n\n`))
+              controller.enqueue(encoder.encode(formatSSE(event.type, event)))
             }
           } catch (err: any) {
-            controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: err.message })}\n\n`))
+            controller.enqueue(encoder.encode(formatSSE('error', { error: err.message })))
           } finally {
             controller.close()
           }

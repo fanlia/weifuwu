@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { Router } from '../router.ts'
 import type { Context, Handler, Middleware } from '../types.ts'
 import type { DeployConfig, AppStatus } from './types.ts'
+import { formatSSEData } from '../sse.ts'
 
 export interface AppRuntime {
   config: import('./types.ts').AppConfig
@@ -102,15 +103,16 @@ export function createManager(
     let index = app.logs.length
     let interval: ReturnType<typeof setInterval> | undefined
 
+    const encoder = new TextEncoder()
     const stream = new ReadableStream({
       start(controller) {
         for (const line of app.logs) {
-          controller.enqueue(`data: ${JSON.stringify({ line })}\n\n`)
+          controller.enqueue(encoder.encode(formatSSEData({ line })))
         }
 
         interval = setInterval(() => {
           while (index < app.logs.length) {
-            controller.enqueue(`data: ${JSON.stringify({ line: app.logs[index] })}\n\n`)
+            controller.enqueue(encoder.encode(formatSSEData({ line: app.logs[index] })))
             index++
           }
         }, 500)

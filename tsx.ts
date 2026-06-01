@@ -1,4 +1,4 @@
-import { createElement, createContext, useContext } from 'react'
+import { createElement } from 'react'
 import { renderToReadableStream } from 'react-dom/server'
 import * as esbuild from 'esbuild'
 import { readdirSync, statSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -11,20 +11,12 @@ import chokidar from 'chokidar'
 import type { WebSocket } from 'ws'
 import { Router } from './router.ts'
 import type { Context, Handler } from './types.ts'
+import { TsxContext, useTsx } from './tsx-context.ts'
+
+export { TsxContext, useTsx }
 
 export interface TsxOptions {
   dir: string
-}
-
-export const TsxContext = createContext<{
-  params: Record<string, string>
-  query: Record<string, string>
-  user?: unknown
-  parsed?: Record<string, unknown>
-}>({ params: {}, query: {} })
-
-export function useTsx() {
-  return useContext(TsxContext)
 }
 
 type PageEntry = {
@@ -61,8 +53,7 @@ let _pagesDir = ''
 let _nodeEntries: Record<string, { route: string; entryPath: string; layouts: string[]; loadPath?: string; routePath?: string }> = {}
 
 // ── Tailwind CSS ─────────────────────────────────────────────────────────
-let tailwindCssUrl: string | null = null
-let tailwindCssCode = ''
+let _compiledTailwindCss = ''
 let _tailwindPlugin: any = null
 let _postcss: any = null
 
@@ -298,7 +289,7 @@ function startFileWatcher() {
 
       if (allKnown) {
         for (const f of exists) await recompileAndSwap(f, _outDir)
-        await reprocessTailwind()
+        _compiledTailwindCss = ''; await compileTailwind(_uiDir)
         broadcastReload()
       } else {
         await recompileAll()
@@ -442,7 +433,7 @@ async function recompileAll() {
     }
 
     clientBundleCache.clear()
-    await reprocessTailwind()
+    _compiledTailwindCss = ''; await compileTailwind(_uiDir)
     broadcastReload()
   } catch (err) {
     console.error('recompile all failed:', (err as Error).message)
@@ -452,12 +443,15 @@ async function recompileAll() {
 
 // ── Tailwind CSS ────────────────────────────────────────────────────────────
 
-async function setupTailwind(uiDir: string, router: Router) {
+async function compileTailwind(uiDir: string): Promise<string> {
+  // Only compile once — all app.css files are identical (@import "tailwindcss")
+  if (_compiledTailwindCss) return _compiledTailwindCss
+
   try {
-    _tailwindPlugin = (await import('@tailwindcss/postcss')).default
-    _postcss = (await import('postcss')).default
+    _tailwindPlugin ??= (await import('@tailwindcss/postcss')).default
+    _postcss ??= (await import('postcss')).default
   } catch {
-    return
+    return ''
   }
 
   const inputFile = resolve(uiDir, 'app.css')
@@ -470,40 +464,29 @@ async function setupTailwind(uiDir: string, router: Router) {
   try {
     const src = readFileSync(inputFile, 'utf-8')
     const result = await _postcss([_tailwindPlugin()]).process(src, { from: inputFile })
-    tailwindCssCode = result.css
+    _compiledTailwindCss = result.css
   } catch (err) {
     console.warn('Tailwind CSS processing failed:', (err as Error).message)
-    return
   }
 
-  router.get('/__wfw/style.css', () => new Response(tailwindCssCode, {
-    headers: { 'content-type': 'text/css; charset=utf-8' },
-  }))
-  tailwindCssUrl = '/__wfw/style.css'
-
-  if (isDev) {
-    chokidar.watch(inputFile, { persistent: false }).on('change', async () => {
-      try {
-        const newSrc = readFileSync(inputFile, 'utf-8')
-        const newResult = await _postcss([_tailwindPlugin()]).process(newSrc, { from: inputFile })
-        tailwindCssCode = newResult.css
-        broadcastReload()
-      } catch (err) {
-        console.warn('Tailwind CSS reprocess failed:', (err as Error).message)
-      }
-    })
-  }
+  return _compiledTailwindCss
 }
 
-async function reprocessTailwind() {
-  if (!tailwindCssUrl || !_postcss || !_tailwindPlugin) return
-  try {
-    const inputFile = resolve(_uiDir, 'app.css')
-    if (!existsSync(inputFile)) return
-    const src = readFileSync(inputFile, 'utf-8')
-    const result = await _postcss([_tailwindPlugin()]).process(src, { from: inputFile })
-    tailwindCssCode = result.css
-  } catch {}
+async function setupTailwind(uiDir: string, router: Router) {
+  await compileTailwind(uiDir)
+
+  router.get('/__wfw/style.css', () => new Response(_compiledTailwindCss || '', {
+    headers: { 'content-type': 'text/css; charset=utf-8' },
+  }))
+
+  if (isDev) {
+    const inputFile = resolve(uiDir, 'app.css')
+    chokidar.watch(inputFile, { persistent: false }).on('change', async () => {
+      _compiledTailwindCss = ''  // Force recompile
+      await compileTailwind(uiDir)
+      broadcastReload()
+    })
+  }
 }
 
 // ── client bundle (lazy) ───────────────────────────────────────────────────
@@ -514,27 +497,18 @@ const clientBuildParams = new Map<string, { entryPath: string; layoutPaths: stri
 
 async function buildClientBundle(
   entryPath: string,
-  layoutPaths: string[],
+  _layoutPaths: string[],
   pagesDir: string,
 ): Promise<Uint8Array | null> {
   try {
-    const nested = layoutPaths.slice(1)
-    const layoutsImport = nested.map((p, i) =>
-      `import L${i} from${JSON.stringify(p)};`,
-    ).join('')
-    const layoutsWrap = nested.map((_, i) => {
-      const idx = nested.length - 1 - i
-      return `el=createElement(L${idx},null,el);`
-    }).join('')
-
+    // Hydration targets __weifuwu_root (inside layout's <body>), creates Page(props)
+    // Provider is omitted — Page receives props directly from __WEIFUWU_PROPS
     const code = [
       `import{hydrateRoot}from'react-dom/client';`,
       `import{createElement}from'react';`,
       `import P from${JSON.stringify(entryPath)};`,
-      layoutsImport,
       `const p=window.__WEIFUWU_PROPS;`,
       `let el=createElement(P,p);`,
-      layoutsWrap,
       `hydrateRoot(document.getElementById('__weifuwu_root'),el);`,
     ].join('')
 
@@ -621,22 +595,35 @@ function makeSsrHandler(
     const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
     const allProps = { ...loadProps, params: ctx.params, query: ctx.query }
 
-    let element: any = createElement(Component, allProps)
-    for (let i = layoutPaths.length - 1; i >= 0; i--) {
-      const lp = layoutPaths[i]
-      const LMod = layoutModules.get(lp)
-      if (!LMod) continue
-      const Layout = LMod.default
-      const isRoot = i === 0
-      element = createElement(
-        Layout,
-        isRoot ? { children: element, req, ctx } : { children: element },
-      )
-    }
-
-    element = createElement(TsxContext.Provider as any, {
+    // Provider wraps Page (for useTsx), then layouts wrap Provider+Page
+    let element: any = createElement(TsxContext.Provider as any, {
       value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
-    }, element)
+    }, createElement(Component, allProps))
+
+    // Layouts wrap Provider+Page. Root layout must render <body><div id="__weifuwu_root">{children}</div></body>
+    if (layoutPaths.length === 0) {
+      // Default layout when project has no layout.tsx
+      element = createElement('html', { lang: 'en' },
+        createElement('head', null,
+          createElement('meta', { charSet: 'utf-8' }),
+          createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
+          createElement('title', null, 'weifuwu'),
+        ),
+        createElement('body', null, createElement('div', { id: '__weifuwu_root' }, element)),
+      )
+    } else {
+      for (let i = layoutPaths.length - 1; i >= 0; i--) {
+        const lp = layoutPaths[i]
+        const LMod = layoutModules.get(lp)
+        if (!LMod) continue
+        const Layout = LMod.default
+        const isRoot = i === 0
+        element = createElement(
+          Layout,
+          isRoot ? { children: element, req, ctx } : { children: element },
+        )
+      }
+    }
 
     const stream = await renderToReadableStream(element)
     const body = await readStream(stream)
@@ -652,9 +639,9 @@ function makeSsrHandler(
     let html = body.startsWith('<!DOCTYPE html>') ? body : `<!DOCTYPE html>\n${body}`
     html += '\n' + scripts.join('\n')
 
-    if (tailwindCssUrl && html.includes('</head>')) {
+    if (_compiledTailwindCss && html.includes('</head>')) {
       html = html.replace('</head>',
-        `<link rel="stylesheet" href="${base}${tailwindCssUrl}" />\n</head>`)
+        `<link rel="stylesheet" href="${base}/__wfw/style.css" />\n</head>`)
     }
 
     if (isDev) {
@@ -792,22 +779,22 @@ export async function tsx(options: TsxOptions): Promise<Router> {
       if (!nfMod) return new Response('Not Found', { status: 404 })
       const NfComponent = nfMod.default
 
-      let element: any = createElement(NfComponent, { params: ctx.params, query: ctx.query })
+      let element: any = createElement(TsxContext.Provider, {
+        value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
+      }, createElement(NfComponent, { params: ctx.params, query: ctx.query }))
+
       for (let i = rootLayouts.length - 1; i >= 0; i--) {
         const LMod = layoutModules.get(rootLayouts[i])
         if (!LMod) continue
         element = createElement(LMod.default, { children: element })
       }
-      element = createElement(TsxContext.Provider, {
-        value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
-      }, element)
 
       const stream = await renderToReadableStream(element)
       const body = await readStream(stream)
       let html = body.startsWith('<!DOCTYPE html>') ? body : `<!DOCTYPE html>\n${body}`
-      if (tailwindCssUrl && html.includes('</head>')) {
+      if (_compiledTailwindCss && html.includes('</head>')) {
         html = html.replace('</head>',
-          `<link rel="stylesheet" href="${base}${tailwindCssUrl}" />\n</head>`)
+          `<link rel="stylesheet" href="${base}/__wfw/style.css" />\n</head>`)
       }
       if (isDev) {
         html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${base}/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`

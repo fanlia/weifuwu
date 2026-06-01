@@ -35,7 +35,7 @@ export type RunResult =
   | { stream: ReadableStream<Uint8Array> }
 
 export interface AgentOptions {
-  pg: any
+  pg: import('../postgres/types.ts').PostgresClient
   model?: LanguageModel
   embeddingModel?: EmbeddingModel
   embeddingDimension?: number

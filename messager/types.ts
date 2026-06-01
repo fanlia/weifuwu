@@ -1,7 +1,8 @@
 import type { AgentModule } from '../agent/types.ts'
+import type { PostgresClient } from '../postgres/types.ts'
 
 export interface MessagerOptions {
-  pg: any
+  pg: PostgresClient
   agents?: AgentModule
   webhookTimeout?: number
 }

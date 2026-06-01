@@ -1,4 +1,5 @@
 import type { Context } from '../types.ts'
+import type { PostgresClient } from '../postgres/types.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -43,7 +44,7 @@ export interface UserTableRow {
 }
 
 export interface TenantOptions {
-  pg: any
+  pg: PostgresClient
   usersTable: string
 }
 
