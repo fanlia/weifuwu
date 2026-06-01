@@ -170,4 +170,27 @@ describe('while node', () => {
 
     assert.equal(ctx.variables.get('executed'), false)
   })
+
+  it('respects operator precedence in complex expressions', async () => {
+    const result = await executeNode(
+      { id: 'e3', tool: 'eval', input: { expression: '1 + 2 * 3' } },
+      makeCtx(),
+    )
+    // Should be 1 + (2 * 3) = 7, not (1 + 2) * 3 = 9
+    assert.equal((result as any).result, 7)
+  })
+
+  it('throws when step limit exceeded in while loop', async () => {
+    const ctx = makeCtx({ maxSteps: 5 })
+    await assert.rejects(
+      () => executeNode({
+        id: 'w3',
+        tool: 'while',
+        input: { condition: 'true' },
+        body: [
+          { id: 'inc', tool: 'set', input: { name: 'i', value: 1 } },
+        ],
+      }, ctx),
+    )
+  })
 })

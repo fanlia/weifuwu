@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { WebSocket } from 'ws'
-import { serve, Router, graphql, type Handler, type Server } from '../index.ts'
+import { serve, Router, graphql, setCookie, type Handler, type Server } from '../index.ts'
 
 async function createTestServer(handler: Handler): Promise<{ server: Server; url: string }> {
   const server = serve(handler, { port: 0 })
@@ -416,5 +416,128 @@ describe('graphql', () => {
     assert.ok(text.includes('GraphiQL'))
     assert.ok(text.includes('graphiql'))
     server.stop()
+  })
+})
+
+// ── Additional serve tests ─────────────────────────────────────────────────
+
+describe('serve additional', () => {
+  it('passes WebSocket upgrade handler to server', async () => {
+    let upgraded = false
+    const handler: Handler = () => new Response('ok')
+    const wsHandler = () => { upgraded = true }
+    const server = serve(handler, { port: 0, websocket: wsHandler })
+    await server.ready
+    assert.equal(server.port > 0, true)
+    server.stop()
+  })
+
+  it('preserves multiple Set-Cookie headers in sendResponse', async () => {
+    const { server, url } = await createTestServer(() => {
+      let res = new Response('ok')
+      res = setCookie(res, 'a', '1')
+      res = setCookie(res, 'b', '2')
+      return res
+    })
+    const res = await fetch(url)
+    const cookies = res.headers.getSetCookie?.() ?? [res.headers.get('Set-Cookie')!]
+    assert.ok(Array.isArray(cookies) ? cookies.length >= 2 : true)
+    server.stop()
+  })
+
+  it('handles HEAD method without body', async () => {
+    const { server, url } = await createTestServer(() => new Response('body'))
+    const res = await fetch(url, { method: 'HEAD' })
+    assert.equal(res.status, 200)
+    server.stop()
+  })
+})
+
+// ── Router additional tests ────────────────────────────────────────────────
+
+describe('Router additional', () => {
+  it('uses route-level middleware on sub-router nodes', async () => {
+    let mwCalled = false
+    const sub = new Router().get('/data', () => new Response('ok'))
+    const main = new Router()
+      .use('/api', (req, ctx, next) => {
+        mwCalled = true
+        return next(req, ctx)
+      })
+      .use('/api', sub)
+
+    const res = await main.handler()(new Request('http://localhost/api/data'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+    assert.equal(mwCalled, true)
+  })
+
+  it('accumulates mountPath across nested sub-routers', async () => {
+    let capturedMountPath = ''
+    const leaf = new Router().get('/action', (req, ctx) => {
+      capturedMountPath = ctx.mountPath ?? ''
+      return new Response('ok')
+    })
+    const middle = new Router().use('/middle', leaf)
+    const root = new Router().use('/root', middle)
+
+    await root.handler()(new Request('http://localhost/root/middle/action'), { params: {}, query: {} } as any)
+    assert.equal(capturedMountPath, '/root/middle')
+  })
+
+  it('error handler receives non-Error throws as wrapped Error', async () => {
+    let caughtMessage = ''
+    const r = new Router()
+      .onError((err) => {
+        caughtMessage = err.message
+        return new Response('handled', { status: 500 })
+      })
+      .get('/crash', () => { throw 'string error' })
+
+    await r.handler()(new Request('http://localhost/crash'), { params: {}, query: {} } as any)
+    assert.equal(caughtMessage, 'string error')
+  })
+
+  it('ws wildcard matches sub-paths', async () => {
+    const router = new Router()
+      .ws('/chat/*', { open(ws, ctx) { ws.send('wildcard') } })
+
+    const server = serve(router.handler(), {
+      port: 0,
+      websocket: router.websocketHandler(),
+    })
+    await server.ready
+
+    const { WebSocket } = await import('ws')
+    const ws = new WebSocket(`ws://localhost:${server.port}/chat/room123`)
+    const msg = await new Promise<string>((resolve, reject) => {
+      ws.on('message', (data) => resolve(data.toString()))
+      ws.on('error', reject)
+      setTimeout(() => reject(new Error('timeout')), 3000)
+    })
+    assert.equal(msg, 'wildcard')
+    ws.close()
+    server.stop()
+  })
+
+  it('head method route works', async () => {
+    const r = new Router().head('/x', () => new Response('ok', { headers: { 'x-custom': 'v' } }))
+    const res = await r.handler()(new Request('http://localhost/x', { method: 'HEAD' }), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+    assert.equal(res.headers.get('x-custom'), 'v')
+  })
+
+  it('options method route works', async () => {
+    const r = new Router().options('/x', () => new Response('ok'))
+    const res = await r.handler()(new Request('http://localhost/x', { method: 'OPTIONS' }), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+  })
+
+  it('all() with wildcard path matches any method and path', async () => {
+    const r = new Router().all('/*', (req, ctx) => Response.json({ method: req.method, wildcard: ctx.params['*'] }))
+
+    const res = await r.handler()(new Request('http://localhost/foo/bar', { method: 'PUT' }), { params: {}, query: {} } as any)
+    const data = await res.json() as any
+    assert.equal(data.method, 'PUT')
+    assert.equal(data.wildcard, 'foo/bar')
   })
 })

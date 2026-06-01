@@ -39,11 +39,20 @@ function evaluateExpression(expr: string, ctx: WorkflowContext): unknown {
     }
   }
 
+  function resolveOperand(raw: string): unknown {
+    const trimmed = raw.trim()
+    if (/^[\d.]+$/.test(trimmed)) return Number(trimmed)
+    // Recurse for sub-expressions
+    const subIdx = operators.findIndex(({ op }) => trimmed.includes(op))
+    if (subIdx !== -1) return evaluateExpression(trimmed, ctx)
+    return resolveValue(trimmed, ctx)
+  }
+
   if (bestIdx > 0 && bestOp && bestFn) {
     const leftRaw = expr.slice(0, bestIdx).trim()
     const rightRaw = expr.slice(bestIdx + bestOp.length).trim()
-    const left = resolveValue(leftRaw, ctx)
-    const right = resolveValue(rightRaw, ctx)
+    const left = resolveOperand(leftRaw)
+    const right = resolveOperand(rightRaw)
     return bestFn(left, right)
   }
 

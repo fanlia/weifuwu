@@ -425,3 +425,88 @@ describe('auth', () => {
     proxy.stop()
   })
 })
+
+// ── CORS edge cases ──────────────────────────────────────────────────────────
+
+describe('cors edge cases', () => {
+  it('reflects origin when credentials:true with origin:*', async () => {
+    const r = new Router()
+      .use(cors({ credentials: true }))
+      .get('/data', () => new Response('ok'))
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', { headers: { origin: 'https://example.com' } }),
+      { params: {}, query: {} } as any,
+    )
+    // When credentials:true and origin:* , reflect request origin instead of *
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://example.com')
+    assert.equal(res.headers.get('Access-Control-Allow-Credentials'), 'true')
+  })
+
+  it('omits Vary when Access-Control-Allow-Origin is *', async () => {
+    const r = new Router()
+      .use(cors())
+      .get('/data', () => new Response('ok'))
+
+    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*')
+    // Vary should not be set when origin is * (no caching harm needed)
+    assert.equal(res.headers.get('Vary'), null)
+  })
+
+  it('function origin can return a fixed string', async () => {
+    const r = new Router()
+      .use(cors({ origin: () => 'https://fixed.com' }))
+      .get('/data', () => new Response('ok'))
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', { headers: { origin: 'https://whatever.com' } }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://fixed.com')
+  })
+})
+
+// ── Auth edge cases ───────────────────────────────────────────────────────────
+
+describe('auth edge cases', () => {
+  it('throws when initialized with no options', () => {
+    assert.throws(() => auth({}), /auth\(\) requires/)
+  })
+
+  it('accepts access_token query param in non-proxy mode', async () => {
+    const r = new Router()
+      .use(auth({ token: 'my-key' }))
+      .get('/data', () => new Response('ok'))
+
+    const res = await r.handler()(
+      new Request('http://localhost/data?access_token=my-key'),
+      { params: {}, query: { access_token: 'my-key' } } as any,
+    )
+    assert.equal(res.status, 200)
+  })
+
+  it('accepts Authorization header without Bearer prefix', async () => {
+    const r = new Router()
+      .use(auth({ token: 'my-key' }))
+      .get('/data', () => new Response('ok'))
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', { headers: { Authorization: 'my-key' } }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+  })
+
+  it('returns 500 for invalid proxy URL', async () => {
+    const r = new Router()
+      .use(auth({ proxy: 'not-a-valid-url' }))
+      .get('/data', () => new Response('ok'))
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', { headers: { Authorization: 'Bearer token' } }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 500)
+  })
+})

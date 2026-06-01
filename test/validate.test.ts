@@ -130,4 +130,127 @@ describe('validate', () => {
     )
     assert.equal(res.status, 200)
   })
+
+  it('validates headers schema', async () => {
+    const r = new Router()
+      .get('/check',
+        validate({ headers: z.object({ 'x-api-key': z.string().min(1) }) }),
+        (req, ctx) => Response.json(ctx.parsed?.headers),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/check', { headers: { 'x-api-key': 'abc' } }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data['x-api-key'], 'abc')
+  })
+
+  it('rejects invalid headers with 400', async () => {
+    const r = new Router()
+      .get('/check',
+        validate({ headers: z.object({ 'x-api-key': z.string().min(1) }) }),
+        () => new Response('ok'),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/check', { headers: {} }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 400)
+  })
+
+  it('parses JSON body with application/json Content-Type', async () => {
+    const r = new Router()
+      .post('/data',
+        validate({ body: z.object({ name: z.string() }) }),
+        (req, ctx) => Response.json(ctx.parsed?.body),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Alice' }),
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.name, 'Alice')
+  })
+
+  it('keeps raw string body for text/plain Content-Type', async () => {
+    const r = new Router()
+      .post('/data',
+        validate({ body: z.string() }),
+        (req, ctx) => Response.json({ body: ctx.parsed?.body }),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: 'raw text',
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.body, 'raw text')
+  })
+
+  it('skips body validation for GET method even with body schema', async () => {
+    const r = new Router()
+      .get('/data',
+        validate({ body: z.object({ name: z.string() }) }),
+        () => new Response('ok'),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', { method: 'GET' }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+  })
+
+  it('returns 400 when POST body is null', async () => {
+    const r = new Router()
+      .post('/data',
+        validate({ body: z.object({ name: z.string() }) }),
+        () => new Response('ok'),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', { method: 'POST' }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 400)
+  })
+
+  it('preserves existing ctx.parsed values from upstream middleware', async () => {
+    const r = new Router()
+      .use((req, ctx, next) => {
+        ctx.parsed = { ...ctx.parsed, existingField: 'preserved' }
+        return next(req, ctx)
+      })
+      .post('/data',
+        validate({ body: z.object({ value: z.number() }) }),
+        (req, ctx) => Response.json(ctx.parsed),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 42 }),
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.existingField, 'preserved')
+    assert.equal(data.body.value, 42)
+  })
 })
