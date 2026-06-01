@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -9,9 +9,9 @@ describe('skills', () => {
   const skillsDir = resolve(tmpDir, '.opencode', 'skills')
   const skillDir = resolve(skillsDir, 'test-skill')
 
-  before(() => {
-    mkdirSync(skillDir, { recursive: true })
-    writeFileSync(resolve(skillDir, 'SKILL.md'), [
+  before(async () => {
+    await mkdir(skillDir, { recursive: true })
+    await writeFile(resolve(skillDir, 'SKILL.md'), [
       '---',
       'name: test-skill',
       'description: A test skill for unit tests',
@@ -25,13 +25,13 @@ describe('skills', () => {
     ].join('\n'), 'utf-8')
   })
 
-  after(() => {
-    rmSync(tmpDir, { recursive: true, force: true })
+  after(async () => {
+    await rm(tmpDir, { recursive: true, force: true })
   })
 
   it('parses SKILL.md with frontmatter', async () => {
     const { parseSkillFile } = await import('../opencode/skills.ts')
-    const skill = parseSkillFile(resolve(skillDir, 'SKILL.md'))
+    const skill = await parseSkillFile(resolve(skillDir, 'SKILL.md'))
     assert.ok(skill)
     assert.equal(skill.name, 'test-skill')
     assert.equal(skill.description, 'A test skill for unit tests')
@@ -44,7 +44,7 @@ describe('skills', () => {
 
   it('discoverSkills finds skills in .opencode/skills', async () => {
     const { discoverSkills } = await import('../opencode/skills.ts')
-    const skills = discoverSkills(tmpDir)
+    const skills = await discoverSkills(tmpDir)
     assert.ok(skills.length >= 1)
     const found = skills.find(s => s.name === 'test-skill')
     assert.ok(found)
@@ -52,7 +52,7 @@ describe('skills', () => {
 
   it('buildSkillRegistry merges discovered and manual', async () => {
     const { discoverSkills, buildSkillRegistry } = await import('../opencode/skills.ts')
-    const discovered = discoverSkills(tmpDir)
+    const discovered = await discoverSkills(tmpDir)
     const manual = [
       { name: 'manual-skill', description: 'Manual', content: 'Manual content' },
     ]
@@ -67,7 +67,7 @@ describe('skills', () => {
 
   it('manual skills override discovered with same name', async () => {
     const { discoverSkills, buildSkillRegistry } = await import('../opencode/skills.ts')
-    const discovered = discoverSkills(tmpDir)
+    const discovered = await discoverSkills(tmpDir)
     const manual = [
       { name: 'test-skill', description: 'Override', content: 'Override content' },
     ]
@@ -82,26 +82,26 @@ describe('skills', () => {
   it('returns null for invalid SKILL.md (no frontmatter)', async () => {
     const { parseSkillFile } = await import('../opencode/skills.ts')
     const invalidDir = resolve(tmpDir, 'bad-skill')
-    mkdirSync(invalidDir, { recursive: true })
+    await mkdir(invalidDir, { recursive: true })
     const filePath = resolve(invalidDir, 'SKILL.md')
-    writeFileSync(filePath, 'Just some text without frontmatter', 'utf-8')
-    const result = parseSkillFile(filePath)
+    await writeFile(filePath, 'Just some text without frontmatter', 'utf-8')
+    const result = await parseSkillFile(filePath)
     assert.equal(result, null)
   })
 
   it('returns null for SKILL.md missing name', async () => {
     const { parseSkillFile } = await import('../opencode/skills.ts')
     const invalidDir = resolve(tmpDir, 'no-name-skill')
-    mkdirSync(invalidDir, { recursive: true })
+    await mkdir(invalidDir, { recursive: true })
     const filePath = resolve(invalidDir, 'SKILL.md')
-    writeFileSync(filePath, [
+    await writeFile(filePath, [
       '---',
       'description: No name here',
       '---',
       '',
       'Some content',
     ].join('\n'), 'utf-8')
-    const result = parseSkillFile(filePath)
+    const result = await parseSkillFile(filePath)
     assert.equal(result, null)
   })
 

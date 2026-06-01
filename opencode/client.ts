@@ -6,7 +6,7 @@ import { buildRouter } from './rest.ts'
 import { createWSHandler } from './ws.ts'
 import { discoverSkills, buildSkillRegistry } from './skills.ts'
 
-export function opencode(options: OpencodeOptions): OpencodeModule {
+export async function opencode(options: OpencodeOptions): Promise<OpencodeModule> {
   const pg = options.pg
   const sql = pg.sql
   const baseURL = options.baseURL || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1'
@@ -17,7 +17,7 @@ export function opencode(options: OpencodeOptions): OpencodeModule {
   const permissions = options.permissions
   const modelName = options.model || 'deepseek-v4-flash'
 
-  const discoveredSkills = discoverSkills(workspace)
+  const [discoveredSkills] = await Promise.all([discoverSkills(workspace)])
   const skillsRegistry: SkillRegistry = buildSkillRegistry(discoveredSkills, manualSkills)
 
   const provider = createOpenAI({ baseURL, apiKey })

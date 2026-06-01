@@ -13,7 +13,7 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
 
   before(async () => {
     pg = postgres({ connection: DATABASE_URL })
-    mod = opencode({ pg })
+    mod = await opencode({ pg })
     await mod.migrate()
   })
 

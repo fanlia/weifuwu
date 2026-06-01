@@ -1,5 +1,5 @@
-import { readFileSync, existsSync } from 'node:fs'
-import { readdirSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { glob } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
@@ -17,9 +17,9 @@ const GLOBAL_DIRS = [
   `${homedir()}/.agents/skills`,
 ]
 
-export function parseSkillFile(filePath: string): SkillDef | null {
+export async function parseSkillFile(filePath: string): Promise<SkillDef | null> {
   try {
-    const raw = readFileSync(filePath, 'utf-8')
+    const raw = await readFile(filePath, 'utf-8')
 
     const frontmatch = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
     if (!frontmatch) return null
@@ -44,35 +44,28 @@ export function parseSkillFile(filePath: string): SkillDef | null {
   }
 }
 
-function scanDir(dir: string): SkillDef[] {
+async function scanDir(dir: string): Promise<SkillDef[]> {
   try {
-    if (!existsSync(dir)) return []
-    const entries = readdirSync(dir, { withFileTypes: true })
-    const skills: SkillDef[] = []
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const skillFile = resolve(dir, entry.name, 'SKILL.md')
-        if (existsSync(skillFile)) {
-          const skill = parseSkillFile(skillFile)
-          if (skill) skills.push(skill)
-        }
-      }
+    const files: SkillDef[] = []
+    for await (const entry of glob('*/SKILL.md', { cwd: dir })) {
+      const skill = await parseSkillFile(resolve(dir, entry))
+      if (skill) files.push(skill)
     }
-    return skills
+    return files
   } catch {
     return []
   }
 }
 
-export function discoverSkills(workspace: string): SkillDef[] {
+export async function discoverSkills(workspace: string): Promise<SkillDef[]> {
   const skills: SkillDef[] = []
 
   for (const dirFn of SEARCH_DIRS) {
-    skills.push(...scanDir(dirFn(workspace)))
+    skills.push(...await scanDir(dirFn(workspace)))
   }
 
   for (const dir of GLOBAL_DIRS) {
-    skills.push(...scanDir(dir))
+    skills.push(...await scanDir(dir))
   }
 
   return skills
