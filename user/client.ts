@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { Middleware, Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client } from './types.ts'
+import { PgModule } from '../postgres/module.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { createOAuth2Server } from './oauth2.ts'
 
@@ -37,6 +38,8 @@ export function user(options: UserOptions): UserModule {
   const secret = options.jwtSecret
   const expiresIn = options.expiresIn ?? '24h'
   const oauth2Enabled = options.oauth2?.server ?? false
+
+  const base = new PgModule(pg)
 
   let oauth2: ReturnType<typeof createOAuth2Server> | null = null
   if (oauth2Enabled) {
@@ -200,9 +203,7 @@ export function user(options: UserOptions): UserModule {
     revokeClient: oauth2
       ? (clientId) => oauth2!.revokeClient(clientId)
       : async () => { throw new Error('OAuth2 server is not enabled') },
-    close: async () => {
-      if (pg.close) await pg.close()
-    },
+    close: () => base.close(),
   }
 
   return mod

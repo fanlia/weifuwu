@@ -1,4 +1,5 @@
 import type { MessagerOptions, MessagerModule, Message } from './types.ts'
+import { PgModule } from '../postgres/module.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { buildRouter } from './rest.ts'
 import { createWSHandler, broadcastToChannel } from './ws.ts'
@@ -8,19 +9,12 @@ export function messager(options: MessagerOptions): MessagerModule {
   const sql = pg.sql
   const agents = options.agents
 
+  const base = new PgModule(pg)
+
   return {
-    async migrate() {
-      await runMigrations(sql)
-    },
-
-    router() {
-      return buildRouter({ sql, agents })
-    },
-
-    wsHandler() {
-      return createWSHandler({ sql, agents })
-    },
-
+    migrate: () => runMigrations(sql),
+    router: () => buildRouter({ sql, agents }),
+    wsHandler: () => createWSHandler({ sql, agents }),
     async send(channelId: number, content: string, opts?: {
       sender_type?: string
       sender_id?: number
@@ -35,11 +29,6 @@ export function messager(options: MessagerOptions): MessagerModule {
       broadcastToChannel(channelId, { type: 'message', data: msg })
       return msg
     },
-
-    async close() {
-      if (typeof pg.close === 'function') {
-        await pg.close()
-      }
-    },
+    close: () => base.close(),
   }
 }

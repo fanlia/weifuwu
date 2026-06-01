@@ -1,6 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel, EmbeddingModel } from '../vendor.ts'
 import type { AgentOptions, AgentModule } from './types.ts'
+import { PgModule } from '../postgres/module.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { buildRouter } from './rest.ts'
 import { createRunner } from './run.ts'
@@ -42,27 +43,13 @@ export function agent(options: AgentOptions): AgentModule {
 
   const runner = createRunner({ sql, getModel, getEmbeddingModel, userTools: options.tools })
 
+  const base = new PgModule(pg)
+
   return {
-    async migrate() {
-      await runMigrations({ sql, embeddingDimension: dimension })
-    },
-
-    router() {
-      return buildRouter({ sql, runner })
-    },
-
-    run(agentId: number, params) {
-      return runner.run(agentId, params)
-    },
-
-    addKnowledge(agentId: number, title: string, content: string) {
-      return runner.addKnowledge(agentId, title, content)
-    },
-
-    async close() {
-      if (typeof pg.close === 'function') {
-        await pg.close()
-      }
-    },
+    migrate: () => runMigrations({ sql, embeddingDimension: dimension }),
+    router: () => buildRouter({ sql, runner }),
+    run: (agentId: number, params) => runner.run(agentId, params),
+    addKnowledge: (agentId: number, title: string, content: string) => runner.addKnowledge(agentId, title, content),
+    close: () => base.close(),
   }
 }

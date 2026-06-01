@@ -1,8 +1,6 @@
 import postgresFactory from 'postgres'
 import type { Context, Handler } from '../types.ts'
-import type { PostgresOptions, PostgresClient, TableDef } from './types.ts'
-import { buildTable } from './table.ts'
-import { runMigrations } from './migrate.ts'
+import type { PostgresOptions, PostgresClient } from './types.ts'
 
 export function postgres(opts?: string | PostgresOptions): PostgresClient {
   const options: PostgresOptions = typeof opts === 'string'
@@ -16,12 +14,18 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
     )
   }
 
-  const sql = postgresFactory(connection as any)
-  const tables: TableDef[] = []
+  const sql = postgresFactory(connection as any, {
+    max: options.max,
+    ssl: options.ssl,
+    idle_timeout: options.idle_timeout,
+    connect_timeout: options.connect_timeout,
+  })
 
   if (options.signal) {
     options.signal.addEventListener('abort', () => { sql.end() }, { once: true })
   }
+
+  const closeTimeout = options.closeTimeout ?? 5
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
     ctx.sql = sql
@@ -29,9 +33,11 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   }) as unknown as PostgresClient
 
   mw.sql = sql
-  mw.table = buildTable(sql, tables) as unknown as PostgresClient['table']
-  mw.migrate = () => runMigrations(sql, tables)
-  mw.close = () => sql.end({ timeout: 5 })
+  mw.migrate = async () => {}
+  mw.transaction = (async (fn: any) => {
+    return await sql.begin(fn)
+  }) as any
+  mw.close = () => sql.end({ timeout: closeTimeout })
 
   return mw
 }

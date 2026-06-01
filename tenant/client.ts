@@ -1,5 +1,6 @@
 import type { Context, Handler } from '../types.ts'
 import type { TenantOptions, TenantModule, TenantContext } from './types.ts'
+import { PgModule } from '../postgres/module.ts'
 import { migrate } from './migrate.ts'
 import { buildRouter } from './rest.ts'
 import { buildGraphQLHandler } from './graphql.ts'
@@ -9,11 +10,10 @@ export function tenant(options: TenantOptions): TenantModule {
   const sql = pg.sql
   const usersTable = options.usersTable
 
-  return {
-    async migrate() {
-      await migrate({ sql, usersTable })
-    },
+  const base = new PgModule(pg)
 
+  return {
+    migrate: () => migrate({ sql, usersTable }),
     middleware() {
       return async (req: Request, ctx: Context, next: Handler): Promise<Response> => {
         const user = (ctx as any).user as { id: number } | undefined
@@ -55,19 +55,8 @@ export function tenant(options: TenantOptions): TenantModule {
         return next(req, ctx)
       }
     },
-
-    router() {
-      return buildRouter(sql, usersTable)
-    },
-
-    graphql() {
-      return buildGraphQLHandler(sql)
-    },
-
-    async close() {
-      if (typeof pg.close === 'function') {
-        await pg.close()
-      }
-    },
+    router: () => buildRouter(sql, usersTable),
+    graphql: () => buildGraphQLHandler(sql),
+    close: () => base.close(),
   }
 }

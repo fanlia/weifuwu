@@ -1,6 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel } from '../vendor.ts'
 import type { OpencodeOptions, OpencodeModule, SkillRegistry, PendingQuestion } from './types.ts'
+import { PgModule } from '../postgres/module.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { buildRouter } from './rest.ts'
 import { createWSHandler } from './ws.ts'
@@ -25,23 +26,12 @@ export async function opencode(options: OpencodeOptions): Promise<OpencodeModule
 
   const pendingQuestions: Map<string, PendingQuestion> = new Map()
 
+  const base = new PgModule(pg)
+
   return {
-    async migrate() {
-      await runMigrations(sql)
-    },
-
-    async router() {
-      return await buildRouter({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions })
-    },
-
-    wsHandler() {
-      return createWSHandler({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions })
-    },
-
-    async close() {
-      if (typeof pg.close === 'function') {
-        await pg.close()
-      }
-    },
+    migrate: () => runMigrations(sql),
+    router: () => buildRouter({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions }),
+    wsHandler: () => createWSHandler({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions }),
+    close: () => base.close(),
   }
 }
