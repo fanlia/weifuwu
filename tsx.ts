@@ -56,10 +56,15 @@ const isDev = process.env.NODE_ENV !== 'production'
 let _uiDir = ''
 let _allFiles: string[] = []
 let _outDir = ''
+let _router: Router | null = null
+let _pagesDir = ''
+let _nodeEntries: Record<string, { route: string; entryPath: string; layouts: string[]; loadPath?: string; routePath?: string }> = {}
 
 // ── Tailwind CSS ─────────────────────────────────────────────────────────
 let tailwindCssUrl: string | null = null
 let tailwindCssCode = ''
+let _tailwindPlugin: any = null
+let _postcss: any = null
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -271,7 +276,7 @@ function startFileWatcher() {
   const pending = new Set<string>()
 
   chokidar.watch(_uiDir, {
-    ignored: /(^|[/\\])\.(?!\.)|node_modules|\.weifuwu|dist/,
+    ignored: /(^|[/\\])\.(?!\.)|node_modules|[/\\]\.weifuwu[/\\]|[/\\]dist[/\\]/,
     persistent: false,
     ignoreInitial: true,
   }).on('all', async (event, filePath) => {
@@ -293,6 +298,8 @@ function startFileWatcher() {
 
       if (allKnown) {
         for (const f of exists) await recompileAndSwap(f, _outDir)
+        await reprocessTailwind()
+        broadcastReload()
       } else {
         await recompileAll()
       }
@@ -321,6 +328,7 @@ async function recompileAndSwap(filePath: string, outDir: string) {
     const name = basename(filePath)
     if (name === 'layout.tsx') {
       layoutModules.set(filePath, mod)
+      clientBundleCache.clear()
     } else if (name === 'route.ts') {
       const handlers = new Map<string, Handler>()
       for (const m of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const) {
@@ -333,9 +341,6 @@ async function recompileAndSwap(filePath: string, outDir: string) {
       pageModules.set(filePath, mod)
       clientBundleCache.delete(id(filePath))
     }
-
-    await reprocessTailwind()
-    broadcastReload()
   } catch (err) {
     console.error('recompile failed:', (err as Error).message)
   }
@@ -343,6 +348,27 @@ async function recompileAndSwap(filePath: string, outDir: string) {
 
 async function recompileAll() {
   try {
+    // Re-scan for new files
+    const freshPages = scanPages(_pagesDir)
+    const freshFiles = new Set<string>()
+    const nodeEntries: Record<string, { route: string; entryPath: string; layouts: string[]; loadPath?: string; routePath?: string }> = {}
+    for (const p of freshPages) {
+      const nodeKey = p.entryPath || p.routePath || ''
+      nodeEntries[nodeKey] = { route: p.route, entryPath: p.entryPath, layouts: p.layouts, loadPath: p.loadPath, routePath: p.routePath }
+      if (p.entryPath) freshFiles.add(p.entryPath)
+      if (p.loadPath) freshFiles.add(p.loadPath)
+      for (const lp of p.layouts) freshFiles.add(lp)
+      if (p.routePath) freshFiles.add(p.routePath)
+    }
+    const nfPath = join(_pagesDir, 'not-found.tsx')
+    if (existsSync(nfPath)) {
+      freshFiles.add(nfPath)
+      const rootLayouts = resolveLayouts(_pagesDir, _pagesDir)
+      for (const lp of rootLayouts) freshFiles.add(lp)
+    }
+
+    _allFiles = [...freshFiles]
+
     const result = await esbuild.build({
       entryPoints: Object.fromEntries(_allFiles.map(f => [id(f), f])),
       outdir: _outDir,
@@ -364,9 +390,55 @@ async function recompileAll() {
       if (!srcPath) continue
 
       const name = basename(srcPath)
-      if (name === 'layout.tsx') layoutModules.set(srcPath, mod)
-      else if (name === 'load.ts') loadModules.set(srcPath, mod)
-      else pageModules.set(srcPath, mod)
+      if (name === 'layout.tsx') {
+        layoutModules.set(srcPath, mod)
+      } else if (name === 'route.ts') {
+        const handlers = new Map<string, Handler>()
+        for (const m of ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const) {
+          if ((mod as any)[m]) handlers.set(m, (mod as any)[m])
+        }
+        routeModules.set(srcPath, handlers)
+      } else if (name === 'load.ts') {
+        loadModules.set(srcPath, mod)
+      } else if (name !== 'not-found.tsx') {
+        pageModules.set(srcPath, mod)
+      }
+    }
+
+    // Register routes for new entries
+    if (_router) {
+      const methods = ['POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const
+      for (const [key, entry] of Object.entries(nodeEntries)) {
+        if (_nodeEntries[key]) continue
+
+        if (entry.routePath && !entry.entryPath) {
+          // Standalone route.ts
+          _router.route('GET', entry.route, (req, ctx) =>
+            routeModules.get(entry.routePath!)?.get('GET')?.(req, ctx) ?? new Response('', { status: 501 }),
+          )
+          for (const m of methods) {
+            _router.route(m, entry.route, (req, ctx) =>
+              routeModules.get(entry.routePath!)?.get(m)?.(req, ctx) ?? new Response('', { status: 501 }),
+            )
+          }
+        }
+
+        if (entry.entryPath) {
+          const handler = makeSsrHandler(entry.entryPath, entry.layouts, entry.loadPath, _pagesDir, _router)
+          _router.get(entry.route, handler)
+
+          if (entry.routePath) {
+            for (const m of methods) {
+              _router.route(m, entry.route, (req, ctx) =>
+                routeModules.get(entry.routePath!)?.get(m)?.(req, ctx) ?? new Response('', { status: 501 }),
+              )
+            }
+          }
+        }
+
+        console.log('ℹ weifuwu/tsx: registered new route ' + entry.route)
+      }
+      _nodeEntries = nodeEntries
     }
 
     clientBundleCache.clear()
@@ -381,10 +453,9 @@ async function recompileAll() {
 // ── Tailwind CSS ────────────────────────────────────────────────────────────
 
 async function setupTailwind(uiDir: string, router: Router) {
-  let tailwindPlugin: any, postcss: any
   try {
-    tailwindPlugin = (await import('@tailwindcss/postcss')).default
-    postcss = (await import('postcss')).default
+    _tailwindPlugin = (await import('@tailwindcss/postcss')).default
+    _postcss = (await import('postcss')).default
   } catch {
     return
   }
@@ -398,7 +469,7 @@ async function setupTailwind(uiDir: string, router: Router) {
 
   try {
     const src = readFileSync(inputFile, 'utf-8')
-    const result = await postcss([tailwindPlugin()]).process(src, { from: inputFile })
+    const result = await _postcss([_tailwindPlugin()]).process(src, { from: inputFile })
     tailwindCssCode = result.css
   } catch (err) {
     console.warn('Tailwind CSS processing failed:', (err as Error).message)
@@ -414,7 +485,7 @@ async function setupTailwind(uiDir: string, router: Router) {
     chokidar.watch(inputFile, { persistent: false }).on('change', async () => {
       try {
         const newSrc = readFileSync(inputFile, 'utf-8')
-        const newResult = await postcss([tailwindPlugin()]).process(newSrc, { from: inputFile })
+        const newResult = await _postcss([_tailwindPlugin()]).process(newSrc, { from: inputFile })
         tailwindCssCode = newResult.css
         broadcastReload()
       } catch (err) {
@@ -425,14 +496,12 @@ async function setupTailwind(uiDir: string, router: Router) {
 }
 
 async function reprocessTailwind() {
-  if (!tailwindCssUrl) return
+  if (!tailwindCssUrl || !_postcss || !_tailwindPlugin) return
   try {
     const inputFile = resolve(_uiDir, 'app.css')
     if (!existsSync(inputFile)) return
-    const tailwindPlugin = (await import('@tailwindcss/postcss')).default
-    const postcss = (await import('postcss')).default
     const src = readFileSync(inputFile, 'utf-8')
-    const result = await postcss([tailwindPlugin()]).process(src, { from: inputFile })
+    const result = await _postcss([_tailwindPlugin()]).process(src, { from: inputFile })
     tailwindCssCode = result.css
   } catch {}
 }
@@ -604,6 +673,7 @@ export async function tsx(options: TsxOptions): Promise<Router> {
   const uiDir = resolve(options.dir)
   const pagesDir = existsSync(join(uiDir, 'pages')) ? join(uiDir, 'pages') : uiDir
   _uiDir = uiDir
+  _pagesDir = pagesDir
   const outDir = join(uiDir, '.weifuwu', 'ssr')
   _outDir = outDir
 
@@ -638,9 +708,13 @@ export async function tsx(options: TsxOptions): Promise<Router> {
 
   // 4. Load modules into registry and register routes
   const router = new Router()
+  _router = router
   const methods = ['POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const
 
   for (const p of pages) {
+    const nodeKey = p.entryPath || p.routePath || ''
+    _nodeEntries[nodeKey] = { route: p.route, entryPath: p.entryPath || '', layouts: p.layouts, loadPath: p.loadPath, routePath: p.routePath }
+
     if (p.routeOnly && p.routePath) {
       // Standalone route.ts — proxy through registry
       const rUrl = compiledUrl(p.routePath, outDir)
