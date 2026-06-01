@@ -1,4 +1,4 @@
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 
 export interface MigrateOptions {
   sql: Sql<{}>

@@ -1,4 +1,4 @@
-import type { Redis } from 'ioredis'
+import type { Redis } from '../vendor.ts'
 import type { Context, Handler } from '../types.ts'
 
 declare module '../types.ts' {

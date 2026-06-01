@@ -1,7 +1,7 @@
 import { streamText, generateText, embed } from 'ai'
-import type { LanguageModel, EmbeddingModel, Tool } from 'ai'
+import type { LanguageModel, EmbeddingModel, Tool } from '../vendor.ts'
 import { z } from 'zod'
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 import type { AgentConfig, RunParams, RunResult, KnowledgeDoc } from './types.ts'
 import { formatSSE } from '../sse.ts'
 

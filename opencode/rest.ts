@@ -1,6 +1,6 @@
 import { Router } from '../router.ts'
 import { tsx } from '../tsx.ts'
-import type { LanguageModel } from 'ai'
+import type { LanguageModel } from '../vendor.ts'
 import type { SkillDef, OpencodePermissions, PendingQuestion } from './types.ts'
 import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage } from './session.ts'
 import { executeGenerator } from './run.ts'

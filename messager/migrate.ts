@@ -1,4 +1,4 @@
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 
 export async function migrate(sql: Sql<{}>): Promise<void> {
   await sql.unsafe(`

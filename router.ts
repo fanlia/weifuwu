@@ -1,4 +1,5 @@
-import { WebSocketServer, type WebSocket } from 'ws'
+import { WebSocketServer } from 'ws'
+import type { WebSocket } from './vendor.ts'
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'

@@ -1,4 +1,4 @@
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 import { Router } from '../router.ts'
 import { broadcastToChannel } from './ws.ts'
 import type { AgentModule } from '../agent/types.ts'

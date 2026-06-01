@@ -1,7 +1,8 @@
 import type { Tool, Workflow, WorkflowContext, WorkflowState, WorkflowEngine, ExecuteOptions, SSEManager } from './types.ts'
 import { executeNode } from './nodes.ts'
 import { generateWorkflow as llmGenerate } from './llm.ts'
-import { generateText, type LanguageModel } from 'ai'
+import { generateText } from 'ai'
+import type { LanguageModel } from '../vendor.ts'
 
 export function createWorkflowEngine(options: {
   tools: Record<string, Tool<any, any>>

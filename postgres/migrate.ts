@@ -1,4 +1,4 @@
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 import type { ColumnDef, TableDef } from './types.ts'
 
 function toDDL(col: ColumnDef): string {

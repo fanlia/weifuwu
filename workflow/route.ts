@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { Router } from '../router.ts'
 import { createWorkflowEngine, createSSEManager, tool } from './index.ts'
 import type { Tool as WfTool } from './types.ts'
-import type { generateText } from 'ai'
+import type { generateText } from '../vendor.ts'
 
 export interface WorkflowOptions {
   tools: Record<string, WfTool<any, any>>

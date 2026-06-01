@@ -1,4 +1,4 @@
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 import type { Session, Message } from './types.ts'
 
 export async function createSession(

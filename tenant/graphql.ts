@@ -4,7 +4,7 @@ import {
   GraphQLID, GraphQLList, GraphQLNonNull, GraphQLEnumType,
 } from 'graphql'
 import { graphql as executeGraphQL } from 'graphql'
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 import type { Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { FieldDef, UserTableRow } from './types.ts'

@@ -1,4 +1,4 @@
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 import { z } from 'zod'
 import type { ColumnDef, TableDef, TableProxy, ListOptions } from './types.ts'
 

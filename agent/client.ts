@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import type { LanguageModel, EmbeddingModel } from 'ai'
+import type { LanguageModel, EmbeddingModel } from '../vendor.ts'
 import type { AgentOptions, AgentModule } from './types.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { buildRouter } from './rest.ts'

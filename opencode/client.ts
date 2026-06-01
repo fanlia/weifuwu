@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import type { LanguageModel } from 'ai'
+import type { LanguageModel } from '../vendor.ts'
 import type { OpencodeOptions, OpencodeModule, PendingQuestion } from './types.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { buildRouter } from './rest.ts'

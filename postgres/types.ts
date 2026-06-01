@@ -1,4 +1,4 @@
-import type { Sql } from 'postgres'
+import type { Sql } from '../vendor.ts'
 import type { z } from 'zod'
 import type { Context, Handler } from '../types.ts'
 
