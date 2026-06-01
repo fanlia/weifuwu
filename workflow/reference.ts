@@ -1,8 +1,11 @@
 import type { WorkflowContext } from './types.ts'
 
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
 function getByPath(obj: unknown, path: string[]): unknown {
   let current = obj
   for (const key of path) {
+    if (DANGEROUS_KEYS.has(key)) return undefined
     if (current === null || current === undefined) return undefined
     if (typeof current === 'object' && key in (current as Record<string, unknown>)) {
       current = (current as Record<string, unknown>)[key]

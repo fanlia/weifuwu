@@ -1,4 +1,4 @@
-import type { Middleware } from './types.ts'
+import type { Context, Handler, Middleware } from './types.ts'
 
 export interface RateLimitOptions {
   max?: number
@@ -7,7 +7,7 @@ export interface RateLimitOptions {
   message?: string
 }
 
-export function rateLimit(options?: RateLimitOptions): Middleware {
+export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () => void } {
   const max = options?.max ?? 100
   const window = options?.window ?? 60_000
   const getKey = options?.key ?? ((req) => {
@@ -32,7 +32,7 @@ export function rateLimit(options?: RateLimitOptions): Middleware {
 
   if (interval.unref) interval.unref()
 
-  return async (req, ctx, next) => {
+  const mw = async (req: Request, ctx: Context, next: Handler) => {
     const key = getKey(req)
     const now = Date.now()
     const entry = hits.get(key)
@@ -69,4 +69,7 @@ export function rateLimit(options?: RateLimitOptions): Middleware {
     headers.set('X-RateLimit-Reset', String(Math.ceil(entry.reset / 1000)))
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
   }
+
+  mw.stop = () => { clearInterval(interval); hits.clear() }
+  return mw
 }

@@ -12,28 +12,39 @@ function evaluateExpression(expr: string, ctx: WorkflowContext): unknown {
     { op: '!==', fn: (a: unknown, b: unknown) => a !== b },
     { op: '>=', fn: (a: unknown, b: unknown) => Number(a) >= Number(b) },
     { op: '<=', fn: (a: unknown, b: unknown) => Number(a) <= Number(b) },
-    { op: '>', fn: (a: unknown, b: unknown) => Number(a) > Number(b) },
-    { op: '<', fn: (a: unknown, b: unknown) => Number(a) < Number(b) },
     { op: '==', fn: (a: unknown, b: unknown) => a == b },
     { op: '!=', fn: (a: unknown, b: unknown) => a != b },
+    { op: '&&', fn: (a: unknown, b: unknown) => Boolean(a) && Boolean(b) },
+    { op: '||', fn: (a: unknown, b: unknown) => Boolean(a) || Boolean(b) },
+    { op: '>', fn: (a: unknown, b: unknown) => Number(a) > Number(b) },
+    { op: '<', fn: (a: unknown, b: unknown) => Number(a) < Number(b) },
     { op: '+', fn: (a: unknown, b: unknown) => Number(a) + Number(b) },
     { op: '-', fn: (a: unknown, b: unknown) => Number(a) - Number(b) },
     { op: '*', fn: (a: unknown, b: unknown) => Number(a) * Number(b) },
     { op: '/', fn: (a: unknown, b: unknown) => Number(a) / Number(b) },
     { op: '%', fn: (a: unknown, b: unknown) => Number(a) % Number(b) },
-    { op: '&&', fn: (a: unknown, b: unknown) => Boolean(a) && Boolean(b) },
-    { op: '||', fn: (a: unknown, b: unknown) => Boolean(a) || Boolean(b) },
   ]
+
+  // Find the operator with the lowest precedence match (last in list) that appears in expr
+  let bestIdx = -1
+  let bestOp: string | null = null
+  let bestFn: ((a: unknown, b: unknown) => unknown) | null = null
 
   for (const { op, fn } of operators) {
     const idx = expr.indexOf(op)
-    if (idx > 0) {
-      const leftRaw = expr.slice(0, idx).trim()
-      const rightRaw = expr.slice(idx + op.length).trim()
-      const left = resolveValue(leftRaw, ctx)
-      const right = resolveValue(rightRaw, ctx)
-      return fn(left, right)
+    if (idx > 0 && (bestIdx === -1 || idx < bestIdx)) {
+      bestIdx = idx
+      bestOp = op
+      bestFn = fn
     }
+  }
+
+  if (bestIdx > 0 && bestOp && bestFn) {
+    const leftRaw = expr.slice(0, bestIdx).trim()
+    const rightRaw = expr.slice(bestIdx + bestOp.length).trim()
+    const left = resolveValue(leftRaw, ctx)
+    const right = resolveValue(rightRaw, ctx)
+    return bestFn(left, right)
   }
 
   const trimmed = expr.trim()

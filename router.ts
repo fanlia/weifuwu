@@ -25,6 +25,7 @@ type WsTrieNode = {
   handler?: WebSocketHandler
   middlewares: Middleware[]
   param?: string
+  wildcard?: boolean
 }
 
 const createTrieNode = (): TrieNode => ({
@@ -75,6 +76,10 @@ const matchTrieNode = (
 }
 
 const getWsNode = (node: WsTrieNode, segment: string): WsTrieNode => {
+  if (segment === '*') {
+    node.wildcard = true
+    return node
+  }
   if (segment.startsWith(':')) {
     if (!node.children.has(':')) {
       const child = createWsNode()
@@ -106,6 +111,7 @@ const matchWsNode = (
     if (child.param) params[child.param] = segment
     return child
   }
+  if (node.wildcard) return node
   return null
 }
 
@@ -193,6 +199,10 @@ export class Router {
 
     for (const segment of segments) {
       if (segment === '*') {
+        const remaining = segments.indexOf('*') < segments.length - 1
+        if (remaining) {
+          console.warn(`Route "${path}": segments after "*" are ignored`)
+        }
         node.wildcard = true
         node.handlers.set(method, handler)
         if (middlewares.length > 0) node.middlewares.set(method, middlewares)
