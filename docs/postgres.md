@@ -279,6 +279,24 @@ const result = await pg.transaction(async (tx) => {
 })
 ```
 
+Use BoundTable methods inside transactions with `withSql()`:
+
+```ts
+const users = pg.table('_users', { ... })
+const wallets = pg.table('_wallets', { ... })
+
+const result = await pg.transaction(async (tx) => {
+  const txUsers = users.withSql(tx)
+  const txWallets = wallets.withSql(tx)
+
+  const user = await txUsers.insert({ name: 'Alice' })
+  await txWallets.insert({ user_id: user.id })
+  return user
+})
+```
+
+This ensures all operations participate in the same transaction — a failure rolls everything back.
+
 ### Connection lifecycle
 
 ```ts

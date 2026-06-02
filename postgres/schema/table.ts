@@ -31,10 +31,12 @@ interface ColEntry {
 export class Table<R extends Record<string, unknown>> {
   readonly tableName: string
   readonly columns: ColumnBuilder<unknown>[]
+  readonly builders: Record<string, ColumnBuilder<unknown>>
   private colEntries: ColEntry[]
 
   constructor(tableName: string, builders: Record<string, ColumnBuilder<unknown>>) {
     this.tableName = tableName
+    this.builders = builders
     this.columns = Object.values(builders)
     this.colEntries = Object.entries(builders).map(([prop, col]) => ({
       prop,
@@ -378,6 +380,10 @@ export class BoundTable<R extends Record<string, unknown>> {
   async hardDeleteMany(where: Partial<R> | SQL | SQL[]): Promise<number> { return await this.inner.hardDeleteMany(this.sql, where) }
   async upsert(data: Partial<R>, conflict: string | string[]): Promise<R> { return await this.inner.upsert(this.sql, data, conflict) }
   async count(where?: Partial<R> | SQL | SQL[]): Promise<number> { return await this.inner.count(this.sql, where) }
+
+  withSql(sql: Sql<{}>): BoundTable<R> {
+    return new BoundTable(sql, this.inner.tableName, this.inner.builders)
+  }
 }
 
 export function pgTable<R extends Record<string, unknown>>(
