@@ -2,6 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel, EmbeddingModel } from 'ai'
 import type { AgentOptions, AgentModule } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
+import { serial, text, integer, boolean, timestamptz, jsonb, vector, sql } from '../postgres/schema/index.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { buildRouter } from './rest.ts'
 import { createRunner } from './run.ts'
@@ -41,13 +42,37 @@ export function agent(options: AgentOptions): AgentModule {
     return defaultModels.embeddingModel
   }
 
-  const runner = createRunner({ sql, getModel, getEmbeddingModel, userTools: options.tools })
+  const agentsTable = pg.table('_agents', {
+    id: serial('id'),
+    tenant_id: text('tenant_id'),
+    name: text('name'),
+    description: text('description'),
+    type: text('type'),
+    model: text('model'),
+    system_prompt: text('system_prompt'),
+    owner_id: integer('owner_id'),
+    active: boolean('active'),
+    created_at: timestamptz('created_at'),
+    updated_at: timestamptz('updated_at'),
+  })
+
+  const knowledgeTable = pg.table('_knowledge_documents', {
+    id: serial('id'),
+    agent_id: integer('agent_id'),
+    title: text('title'),
+    content: text('content'),
+    embedding: vector('embedding', dimension),
+    metadata: jsonb('metadata'),
+    created_at: timestamptz('created_at'),
+  })
+
+  const runner = createRunner({ sql, agents: agentsTable, knowledge: knowledgeTable, getModel, getEmbeddingModel, userTools: options.tools })
 
   const base = new PgModule(pg)
 
   return {
     migrate: () => runMigrations({ sql, embeddingDimension: dimension }),
-    router: () => buildRouter({ sql, runner }),
+    router: () => buildRouter({ sql, agents: agentsTable, runner }),
     run: (agentId: number, params) => runner.run(agentId, params),
     addKnowledge: (agentId: number, title: string, content: string) => runner.addKnowledge(agentId, title, content),
     close: () => base.close(),

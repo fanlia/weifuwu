@@ -1,14 +1,22 @@
 import { streamText, generateText, embed, type LanguageModel, type EmbeddingModel, type Tool } from 'ai'
 import { z } from 'zod'
 import type { Sql } from '../vendor.ts'
+import type { BoundTable } from '../postgres/schema/index.ts'
 import type { AgentConfig, RunParams, RunResult, KnowledgeDoc } from './types.ts'
 import { formatSSE } from '../sse.ts'
 
 interface RunnerDeps {
   sql: Sql<{}>
+  agents: BoundTable<any>
+  knowledge: BoundTable<any>
   getModel: () => LanguageModel
   getEmbeddingModel: () => EmbeddingModel
   userTools?: Record<string, Tool>
+}
+
+function hasKnowledgeDocs(sql: Sql<{}>, agentId: number): Promise<boolean> {
+  return sql`SELECT 1 FROM "_knowledge_documents" WHERE agent_id = ${agentId} LIMIT 1`
+    .then(r => (r as any[]).length > 0)
 }
 
 function chunkContent(content: string, chunkSize = 512, overlap = 64): string[] {
@@ -26,11 +34,6 @@ function chunkContent(content: string, chunkSize = 512, overlap = 64): string[] 
   return chunks
 }
 
-function hasKnowledgeDocs(sql: Sql<{}>, agentId: number): Promise<boolean> {
-  return sql`SELECT 1 FROM "_knowledge_documents" WHERE agent_id = ${agentId} LIMIT 1`
-    .then(r => (r as any[]).length > 0)
-}
-
 async function searchKnowledge(sql: Sql<{}>, embedModel: EmbeddingModel, agentId: number, query: string, limit = 5) {
   const { embedding } = await embed({ model: embedModel, value: query })
   const vec = `[${embedding.join(',')}]`
@@ -41,16 +44,16 @@ async function searchKnowledge(sql: Sql<{}>, embedModel: EmbeddingModel, agentId
   return docs.map(d => ({ id: d.id, title: d.title, content: d.content, score: d._score }))
 }
 
-async function loadAgent(sql: Sql<{}>, agentId: number): Promise<AgentConfig | null> {
-  const [row] = await sql`SELECT * FROM "_agents" WHERE id = ${agentId} LIMIT 1`
+async function loadAgent(agents: BoundTable<any>, agentId: number): Promise<AgentConfig | null> {
+  const row = await agents.read(agentId)
   return (row as AgentConfig) ?? null
 }
 
 export function createRunner(deps: RunnerDeps) {
-  const { sql, getModel, getEmbeddingModel, userTools } = deps
+  const { sql, agents, getModel, getEmbeddingModel, userTools } = deps
 
   async function run(agentId: number, params: RunParams): Promise<RunResult> {
-    const agent = await loadAgent(sql, agentId)
+    const agent = await loadAgent(agents, agentId)
     if (!agent || !agent.active) throw new Error('Agent not found or inactive')
 
     const model = getModel()

@@ -2,14 +2,19 @@ import type { Sql } from '../vendor.ts'
 import { Router } from '../router.ts'
 import { broadcastToChannel } from './ws.ts'
 import type { AgentModule } from '../agent/types.ts'
+import { eq, lt } from '../postgres/schema/index.ts'
+import type { BoundTable } from '../postgres/schema/index.ts'
 
 interface RestDeps {
   sql: Sql<{}>
+  channels: BoundTable<any>
+  members: BoundTable<any>
+  messages: BoundTable<any>
   agents?: AgentModule
 }
 
 export function buildRouter(deps: RestDeps): Router {
-  const { sql, agents } = deps
+  const { sql, channels, members, messages, agents } = deps
   const r = new Router()
 
   // ── Channels ───────────────────────────────────────────
@@ -63,13 +68,11 @@ export function buildRouter(deps: RestDeps): Router {
 
   r.get('/channels/:id', async (_req, ctx) => {
     const id = parseInt(ctx.params.id, 10)
-    const [ch] = await sql`SELECT * FROM "_channels" WHERE id = ${id} LIMIT 1`
+    const ch = await channels.read(id)
     if (!ch) return Response.json({ error: 'Channel not found' }, { status: 404 })
 
-    const members = await sql`
-      SELECT * FROM "_channel_members" WHERE channel_id = ${id}
-    `
-    return Response.json({ channel: ch, members })
+    const { data: memberRows } = await members.readMany({ channel_id: id })
+    return Response.json({ channel: ch, members: memberRows })
   })
 
   r.delete('/channels/:id', async (_req, ctx) => {
@@ -110,20 +113,18 @@ export function buildRouter(deps: RestDeps): Router {
     const before = url.searchParams.get('before')
 
     if (before) {
-      const rows = await sql`
-        SELECT * FROM "_messages"
-        WHERE channel_id = ${channelId} AND id < ${parseInt(before, 10)}
-        ORDER BY created_at DESC LIMIT ${limit}
-      `
-      return Response.json({ rows: rows.reverse(), count: (rows as any[]).length })
+      const { data: rows } = await messages.readMany(
+        [eq('channel_id', channelId), lt('id', parseInt(before, 10))],
+        { orderBy: { created_at: 'desc' }, limit },
+      )
+      return Response.json({ rows: rows.reverse(), count: rows.length })
     }
 
-    const rows = await sql`
-      SELECT * FROM "_messages"
-      WHERE channel_id = ${channelId}
-      ORDER BY created_at DESC LIMIT ${limit}
-    `
-    return Response.json({ rows: rows.reverse(), count: (rows as any[]).length })
+    const { data: rows } = await messages.readMany(
+      { channel_id: channelId },
+      { orderBy: { created_at: 'desc' }, limit },
+    )
+    return Response.json({ rows: rows.reverse(), count: rows.length })
   })
 
   r.post('/channels/:id/messages', async (req, ctx) => {

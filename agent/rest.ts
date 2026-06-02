@@ -1,22 +1,25 @@
 import type { Sql } from '../vendor.ts'
 import { Router } from '../router.ts'
+import type { BoundTable } from '../postgres/schema/index.ts'
 import type { AgentConfig, RunParams } from './types.ts'
 
 interface RestDeps {
   sql: Sql<{}>
+  agents: BoundTable<any>
   runner: {
     run: (agentId: number, params: RunParams) => Promise<any>
     addKnowledge: (agentId: number, title: string, content: string) => Promise<any>
   }
 }
 
-async function getAgent(sql: Sql<{}>, id: number): Promise<AgentConfig | null> {
-  const [row] = await sql`SELECT * FROM "_agents" WHERE id = ${id} LIMIT 1`
-  return (row as AgentConfig) ?? null
-}
-
 export function buildRouter(deps: RestDeps): Router {
-  const { sql, runner } = deps
+  const { sql, agents: agentsTable, runner } = deps
+
+  async function getAgent(id: number): Promise<AgentConfig | null> {
+    const row = await agentsTable.read(id)
+    return (row as AgentConfig) ?? null
+  }
+
   const r = new Router()
 
   // ── Agent CRUD ─────────────────────────────────────────
@@ -34,19 +37,19 @@ export function buildRouter(deps: RestDeps): Router {
   })
 
   r.get('/agents', async () => {
-    const rows = await sql`SELECT * FROM "_agents" ORDER BY created_at DESC`
+    const { data: rows } = await agentsTable.readMany(undefined, { orderBy: { created_at: 'desc' } })
     return Response.json(rows)
   })
 
   r.get('/agents/:id', async (_req, ctx) => {
-    const agent = await getAgent(sql, parseInt(ctx.params.id, 10))
+    const agent = await getAgent(parseInt(ctx.params.id, 10))
     if (!agent) return Response.json({ error: 'Agent not found' }, { status: 404 })
     return Response.json(agent)
   })
 
   r.patch('/agents/:id', async (req, ctx) => {
     const id = parseInt(ctx.params.id, 10)
-    const agent = await getAgent(sql, id)
+    const agent = await getAgent(id)
     if (!agent) return Response.json({ error: 'Agent not found' }, { status: 404 })
 
     const body = await req.json() as Partial<AgentConfig>
@@ -107,7 +110,7 @@ export function buildRouter(deps: RestDeps): Router {
 
   r.post('/agents/:id/knowledge', async (req, ctx) => {
     const agentId = parseInt(ctx.params.id, 10)
-    const agent = await getAgent(sql, agentId)
+    const agent = await getAgent(agentId)
     if (!agent) return Response.json({ error: 'Agent not found' }, { status: 404 })
 
     const body = await req.json() as { title?: string; content: string }
