@@ -60,12 +60,16 @@ async function cmdInit(name: string) {
   await writeFile(join(targetDir, '.env'), 'PORT=3000\n')
 
   await writeFile(join(targetDir, 'app.ts'), [
-    "import { serve, loadEnv } from 'weifuwu'",
+    "import { serve, Router, loadEnv } from 'weifuwu'",
     '',
     "loadEnv()",
     "const port = Number(process.env.PORT) || 3000",
     '',
-    "serve((req, ctx) => new Response('Hello, Weifuwu!'), { port })",
+    "const app = new Router()",
+    "app.get('/', (req, ctx) => new Response('Hello, Weifuwu!'))",
+    '',
+    "serve(app.handler(), { port })",
+    "console.log(`Listening on http://localhost:${port}`)",
     '',
   ].join('\n'))
 
