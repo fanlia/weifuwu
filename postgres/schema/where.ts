@@ -11,6 +11,14 @@ export function gte(col: string, val: unknown): SQL { return op(col, '>=', val) 
 export function lt(col: string, val: unknown): SQL { return op(col, '<', val) }
 export function lte(col: string, val: unknown): SQL { return op(col, '<=', val) }
 
+export function isNull(col: string): SQL {
+  return new SQL([`"${col}" IS NULL`] as any, [])
+}
+
+export function isNotNull(col: string): SQL {
+  return new SQL([`"${col}" IS NOT NULL`] as any, [])
+}
+
 export function contains(col: string, val: Record<string, unknown>): SQL {
   return new SQL([`"${col}" @> `, ''] as any, [val])
 }
