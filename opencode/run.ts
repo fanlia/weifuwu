@@ -1,5 +1,4 @@
-import { streamText, stepCountIs } from 'ai'
-import type { LanguageModel, Tool } from '../vendor.ts'
+import { streamText, stepCountIs, type LanguageModel, type Tool } from 'ai'
 import type { SessionMessage } from './session.ts'
 import { addTextMessage, addToolMessages } from './session.ts'
 

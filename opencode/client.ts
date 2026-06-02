@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import type { LanguageModel } from '../vendor.ts'
+import type { LanguageModel } from 'ai'
 import type { OpencodeOptions, OpencodeModule, SkillRegistry, PendingQuestion } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
 import { migrate as runMigrations } from './migrate.ts'

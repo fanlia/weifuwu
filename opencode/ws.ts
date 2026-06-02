@@ -1,5 +1,5 @@
 import type { WebSocket } from '../vendor.ts'
-import type { LanguageModel } from '../vendor.ts'
+import type { LanguageModel } from 'ai'
 import type { Context } from '../types.ts'
 import type { PendingQuestion, SkillDef, SkillRegistry } from './types.ts'
 import { createSession, getSession, getHistory, addTextMessage } from './session.ts'

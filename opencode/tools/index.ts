@@ -1,4 +1,4 @@
-import type { Tool } from '../../vendor.ts'
+import type { Tool } from 'ai'
 import type { OpencodePermissions, SkillRegistry } from '../types.ts'
 import { isToolEnabled } from '../permissions.ts'
 import { createBashTool } from './bash.ts'

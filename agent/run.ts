@@ -1,5 +1,4 @@
-import { streamText, generateText, embed } from 'ai'
-import type { LanguageModel, EmbeddingModel, Tool } from '../vendor.ts'
+import { streamText, generateText, embed, type LanguageModel, type EmbeddingModel, type Tool } from 'ai'
 import { z } from 'zod'
 import type { Sql } from '../vendor.ts'
 import type { AgentConfig, RunParams, RunResult, KnowledgeDoc } from './types.ts'

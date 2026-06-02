@@ -1,4 +1,4 @@
-import type { LanguageModel, EmbeddingModel, Tool } from '../vendor.ts'
+import type { LanguageModel, EmbeddingModel, Tool } from 'ai'
 
 export interface AgentConfig {
   id: number
