@@ -17,6 +17,7 @@ export interface FindOptions {
   orderBy?: Record<string, 'asc' | 'desc'>
   limit?: number
   offset?: number
+  where?: SQL
 }
 
 interface ColEntry {
@@ -121,6 +122,18 @@ export class Table<R extends Record<string, unknown>> {
       const db = entry ? entry.db : prop
       conditions.push(`"${db}" = $${conditions.length + 1}`)
       values.push(value)
+    }
+
+    if (opts?.where) {
+      let fragment = ''
+      for (let i = 0; i < opts.where.strings.length; i++) {
+        fragment += opts.where.strings[i]
+        if (i < opts.where.values.length) {
+          fragment += `$${values.length + 1}`
+          values.push(opts.where.values[i])
+        }
+      }
+      conditions.push(`(${fragment})`)
     }
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''

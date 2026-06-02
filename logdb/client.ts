@@ -30,8 +30,8 @@ export function logdb(options: LogdbOptions): LogdbModule {
   function router(): Router {
     const r = new Router()
     r.post('/', createHandler(base.sql, tableName))
-    r.get('/', listHandler(base.sql, tableName))
-    r.get('/:id', getHandler(base.sql, tableName))
+    r.get('/', listHandler(entries))
+    r.get('/:id', getHandler(entries))
     return r
   }
 
