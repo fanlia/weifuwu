@@ -14,22 +14,35 @@ type StreamTextParams = {
 export type AIHandler = (
   req: Request,
   ctx: Context,
-) => StreamTextParams | Promise<StreamTextParams>
+) => Record<string, unknown> | Promise<Record<string, unknown>>
 
-export const _ai = {
-  streamText: null as unknown as (params: StreamTextParams) => { toTextStreamResponse: () => Response },
+export const _ai: Record<string, any> = {}
+
+async function getStreamText() {
+  if (!_ai.streamText) _ai.streamText = (await import('ai')).streamText
+  return _ai.streamText
+}
+
+async function getStreamObject() {
+  if (!_ai.streamObject) _ai.streamObject = (await import('ai')).streamObject
+  return _ai.streamObject
 }
 
 export async function ai(handler: AIHandler): Promise<Router> {
-  if (!_ai.streamText) {
-    _ai.streamText = (await import('ai')).streamText as typeof _ai.streamText
-  }
-
   const r = new Router()
 
   r.post('/', async (req, ctx) => {
     const options = await handler(req, ctx)
-    const result = _ai.streamText(options)
+
+    if (options.schema) {
+      const streamObject = await getStreamObject()
+      const { schema, ...params } = options
+      const result = streamObject({ ...params, schema: schema as any, output: 'object' as const })
+      return result.toTextStreamResponse()
+    }
+
+    const streamText = await getStreamText()
+    const result = streamText(options)
     return result.toTextStreamResponse()
   })
 
