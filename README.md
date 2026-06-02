@@ -17,7 +17,7 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **React SSR + Hydration** — `tsx({ dir })` — page.tsx / load.ts / layout.tsx / route.ts / not-found.tsx
 - **WebSocket** — `router.ws()` with upgrade middleware (auth before connect)
 - **GraphQL** — `graphql(handler)` sub-Router with GraphiQL IDE
-- **AI streaming** — `ai(handler)` sub-Router via Vercel AI SDK
+- **AI streaming** — `aiStream(handler)` sub-Router via Vercel AI SDK
 - **DAG workflow tool** — `runWorkflow()` — multi-step execution engine as a single AI SDK `Tool`
 - **AI Agent** — `agent()` — server-side AI agents with chat/tool-use/knowledge types, OpenAI-compatible, Ollama-ready
 - **Messaging** — `messager()` — real-time chat with channels, WebSocket, agent routing, webhook support
@@ -873,14 +873,15 @@ The handler receives `(req, ctx)` so you can customize the schema based on the r
 Server-sent event streaming via the Vercel AI SDK:
 
 ```ts
-import { serve, Router, ai } from 'weifuwu'
+import { serve, Router, aiStream } from 'weifuwu'
 import { openai } from '@ai-sdk/openai'
 
 const app = new Router()
-app.use('/chat', ai(async (req, ctx) => {
+const chat = await aiStream(async (req, ctx) => {
   const { messages } = await req.json()
   return { model: openai('gpt-4o'), messages }
-}))
+})
+app.use('/chat', chat.router())
 
 serve(app.handler(), { port: 3000 })
 ```
@@ -1156,11 +1157,12 @@ export default function NotFound() {
 ## Usage within a full app
 
 ```ts
-import { serve, Router, ai, graphql } from 'weifuwu'
+import { serve, Router, aiStream, graphql } from 'weifuwu'
 
 const app = new Router()
 app.use('/', await tsx({ dir: './pages/' }))
-app.use('/chat', ai(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages })))
+const chat = await aiStream(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages }))
+app.use('/chat', chat.router())
 app.use('/graphql', graphql(() => ({ schema: `type Query { hello: String }`, resolvers: { Query: { hello: () => 'world' } } })))
 app.ws('/chat', { message(ws, _, data) { ws.send(data) } })
 
@@ -1382,7 +1384,7 @@ serve(app.handler(), { websocket: app.websocketHandler() })
 | `messager(options)` | Real-time messaging — channels, WebSocket, agent routing, webhooks |
 | `opencode(options)` | AI programming assistant — chat agents with tools, skills, permissions, isolated workspaces |
 | `graphql(handler)` | GraphQL endpoint (GET/POST + GraphiQL) |
-| `ai(handler)` | AI streaming endpoint (POST) |
+| `aiStream(handler)` | AI streaming endpoint (POST) |
 | `runWorkflow(options)` | DAG execution engine as an AI SDK `Tool` — use with `streamText()` |
 
 ### Deploy

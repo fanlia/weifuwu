@@ -1,16 +1,6 @@
 import type { Context } from './types.ts'
 import { Router } from './router.ts'
 
-type StreamTextParams = {
-  model: unknown
-  prompt?: string
-  system?: string
-  messages?: unknown[]
-  maxTokens?: number
-  temperature?: number
-  [key: string]: unknown
-}
-
 export type AIHandler = (
   req: Request,
   ctx: Context,
@@ -28,7 +18,7 @@ async function getStreamObject() {
   return _ai.streamObject
 }
 
-export async function ai(handler: AIHandler): Promise<Router> {
+export async function aiStream(handler: AIHandler): Promise<{ router(): Router }> {
   const r = new Router()
 
   r.post('/', async (req, ctx) => {
@@ -46,5 +36,5 @@ export async function ai(handler: AIHandler): Promise<Router> {
     return result.toTextStreamResponse()
   })
 
-  return r
+  return { router: () => r }
 }

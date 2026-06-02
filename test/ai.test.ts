@@ -6,17 +6,17 @@ const fakeStreamResponse = new Response('stream data', {
   headers: { 'content-type': 'text/event-stream' },
 })
 
-describe('ai', () => {
+describe('aiStream', () => {
   it('calls streamText with handler options and returns response', async () => {
-    const { _ai, ai } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai.ts')
     const streamTextMock = mock.fn(() => ({
       toTextStreamResponse: () => fakeStreamResponse,
     }))
     _ai.streamText = streamTextMock
 
-    const r = await ai(async () => ({ model: 'gpt-4', prompt: 'hi' }))
+    const m = await aiStream(async () => ({ model: 'gpt-4', prompt: 'hi' }))
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),
       { params: {}, query: {} } as Context,
     )
@@ -28,12 +28,12 @@ describe('ai', () => {
   })
 
   it('returns 500 when handler throws', async () => {
-    const { _ai, ai } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai.ts')
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
-    const r = await ai(async () => { throw new Error('fail') })
+    const m = await aiStream(async () => { throw new Error('fail') })
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),
       { params: {}, query: {} } as Context,
     )
@@ -41,12 +41,12 @@ describe('ai', () => {
   })
 
   it('returns 404 for GET request', async () => {
-    const { _ai, ai } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai.ts')
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
-    const r = await ai(async () => ({ model: 'test', prompt: 'x' }))
+    const m = await aiStream(async () => ({ model: 'test', prompt: 'x' }))
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', { method: 'GET' }),
       { params: {}, query: {} } as Context,
     )
@@ -54,19 +54,19 @@ describe('ai', () => {
   })
 
   it('handler receives request and context', async () => {
-    const { _ai, ai } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai.ts')
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
     let receivedReq: Request | null = null
     let receivedCtx: Context | null = null
-    const r = await ai(async (req, ctx) => {
+    const m = await aiStream(async (req, ctx) => {
       receivedReq = req
       receivedCtx = ctx
       return { model: 'gpt-4', prompt: 'test' }
     })
 
     const testCtx = { params: { id: '1' }, query: { q: 'test' } } as Context
-    await r.handler()(
+    await m.router().handler()(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),
       testCtx,
     )

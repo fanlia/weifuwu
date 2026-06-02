@@ -255,7 +255,7 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
   const portSuffix = config.port !== 80 ? `:${config.port}` : ''
 
   return {
-    stop: async () => {
+    close: async () => {
       for (const [, app] of apps) {
         if (app.restartTimer) clearTimeout(app.restartTimer)
         if (app.process) {

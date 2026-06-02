@@ -41,7 +41,7 @@ export interface AppStatus {
 }
 
 export interface DeployServer {
-  stop(): Promise<void>
+  close(): Promise<void>
   ready: Promise<void>
   url: string
   apps: {
