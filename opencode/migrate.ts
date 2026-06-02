@@ -1,42 +1,35 @@
 import type { Sql } from '../vendor.ts'
+import { pgTable, uuid, serial, text, integer, boolean, timestamptz, jsonb, sql as schemaSql } from '../postgres/schema/index.ts'
 
 export async function migrate(sql: Sql<{}>): Promise<void> {
-  await sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS "_opencode_sessions" (
-      "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      "tenant_id" TEXT,
-      "user_id" INTEGER NOT NULL DEFAULT 0,
-      "title" TEXT,
-      "agent_type" TEXT NOT NULL DEFAULT 'build',
-      "model" TEXT NOT NULL DEFAULT 'deepseek-v4-flash',
-      "system_prompt" TEXT,
-      "workspace" TEXT,
-      "metadata" JSONB NOT NULL DEFAULT '{}',
-      "active" BOOLEAN NOT NULL DEFAULT true,
-      "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
+  const sessions = pgTable('_opencode_sessions', {
+    id: uuid('id').default(schemaSql`gen_random_uuid()`).primaryKey(),
+    tenant_id: text('tenant_id'),
+    user_id: integer('user_id').default(0),
+    title: text('title'),
+    agent_type: text('agent_type').default('build'),
+    model: text('model').default('deepseek-v4-flash'),
+    system_prompt: text('system_prompt'),
+    workspace: text('workspace'),
+    metadata: jsonb('metadata').default(schemaSql`'{}'::jsonb`),
+    active: boolean('active').default(true),
+    created_at: timestamptz('created_at').default(schemaSql`NOW()`),
+    updated_at: timestamptz('updated_at').default(schemaSql`NOW()`),
+  })
+  await sessions.create(sql)
+  await sessions.createIndex(sql, 'user_id')
 
-  await sql.unsafe(`
-    CREATE INDEX IF NOT EXISTS "_opencode_sessions_user_idx" ON "_opencode_sessions" ("user_id")
-  `)
-
-  await sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS "_opencode_messages" (
-      "id" SERIAL PRIMARY KEY,
-      "session_id" UUID NOT NULL REFERENCES "_opencode_sessions"("id") ON DELETE CASCADE,
-      "role" TEXT NOT NULL,
-      "content" TEXT,
-      "tool_calls" JSONB,
-      "tool_results" JSONB,
-      "tokens_in" INTEGER NOT NULL DEFAULT 0,
-      "tokens_out" INTEGER NOT NULL DEFAULT 0,
-      "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
-
-  await sql.unsafe(`
-    CREATE INDEX IF NOT EXISTS "_opencode_messages_session_idx" ON "_opencode_messages" ("session_id", "created_at")
-  `)
+  const messages = pgTable('_opencode_messages', {
+    id: serial('id').primaryKey(),
+    session_id: uuid('session_id').notNull().references('_opencode_sessions', 'id', 'cascade'),
+    role: text('role').notNull(),
+    content: text('content'),
+    tool_calls: jsonb('tool_calls'),
+    tool_results: jsonb('tool_results'),
+    tokens_in: integer('tokens_in').default(0),
+    tokens_out: integer('tokens_out').default(0),
+    created_at: timestamptz('created_at').default(schemaSql`NOW()`),
+  })
+  await messages.create(sql)
+  await messages.createIndex(sql, ['session_id', 'created_at'])
 }
