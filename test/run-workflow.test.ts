@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { tool } from 'ai'
 import { z } from 'zod'
+import { createTestServer } from '../serve.ts'
 
 describe('runWorkflow', () => {
   it('executes nodes directly', async () => {
@@ -41,20 +42,27 @@ describe('runWorkflow', () => {
   })
 
   it('executes http node', async () => {
-    const { runWorkflow } = await import('../ai/workflow.ts')
-    const wf = runWorkflow()
+    const { server, url } = await createTestServer(async (req) => {
+      return Response.json({ status: 200, url: req.url })
+    })
+    try {
+      const { runWorkflow } = await import('../ai/workflow.ts')
+      const wf = runWorkflow()
 
-    const result = await wf.execute!({
-      goal: 'test http',
-      nodes: [
-        { id: 'h1', tool: 'http', input: { url: 'https://httpbin.org/get', method: 'GET' } },
-      ],
-    } as any, { toolCallId: 'test' })
+      const result = await wf.execute!({
+        goal: 'test http',
+        nodes: [
+          { id: 'h1', tool: 'http', input: { url: url + '/get', method: 'GET' } },
+        ],
+      } as any, { toolCallId: 'test' })
 
-    assert.ok(result)
-    const httpResult = (result as any).result
-    assert.ok(httpResult)
-    assert.equal(httpResult.status, 200)
+      assert.ok(result)
+      const httpResult = (result as any).result
+      assert.ok(httpResult)
+      assert.equal(httpResult.status, 200)
+    } finally {
+      server.stop()
+    }
   })
 
   it('executes call node with AI SDK tool', async () => {
@@ -186,27 +194,35 @@ describe('runWorkflow', () => {
   })
 
   it('http node with JSON body', async () => {
-    const { runWorkflow } = await import('../ai/workflow.ts')
-    const wf = runWorkflow()
+    const { server, url } = await createTestServer(async (req) => {
+      const body = req.method === 'POST' ? await req.json() : null
+      return Response.json({ status: 200, body: { json: body } })
+    })
+    try {
+      const { runWorkflow } = await import('../ai/workflow.ts')
+      const wf = runWorkflow()
 
-    const result = await wf.execute!({
-      goal: 'test http post',
-      nodes: [
-        {
-          id: 'h1', tool: 'http', input: {
-            url: 'https://httpbin.org/post',
-            method: 'POST',
-            body: { hello: 'world' },
+      const result = await wf.execute!({
+        goal: 'test http post',
+        nodes: [
+          {
+            id: 'h1', tool: 'http', input: {
+              url: url + '/post',
+              method: 'POST',
+              body: { hello: 'world' },
+            },
           },
-        },
-      ],
-    } as any, { toolCallId: 'test' })
+        ],
+      } as any, { toolCallId: 'test' })
 
-    assert.ok(result)
-    const h = (result as any).result
-    assert.ok(h)
-    assert.equal(h.status, 200)
-    assert.equal(h.body?.json?.hello, 'world')
+      assert.ok(result)
+      const h = (result as any).result
+      assert.ok(h)
+      assert.equal(h.status, 200)
+      assert.equal(h.body?.body?.json?.hello, 'world')
+    } finally {
+      server.stop()
+    }
   })
 
   it('expressions: arithmetic and comparison', async () => {
