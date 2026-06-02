@@ -338,4 +338,73 @@ describe('schema', { skip: !DATABASE_URL }, () => {
 
     await t.drop({ cascade: true })
   })
+
+  it('find with orderBy works', async () => {
+    const t = pgTable('__schema_test_ord', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { name: 'c' })
+    await t.insert(pg.sql, { name: 'a' })
+    await t.insert(pg.sql, { name: 'b' })
+
+    const rows = await t.find(pg.sql, undefined, { orderBy: { name: 'asc' } })
+    assert.equal(rows.length, 3)
+    assert.equal(rows[0].name, 'a')
+    assert.equal(rows[1].name, 'b')
+    assert.equal(rows[2].name, 'c')
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('find with limit works', async () => {
+    const t = pgTable('__schema_test_lim', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+    })
+    await t.create(pg.sql)
+
+    for (const n of ['a', 'b', 'c']) await t.insert(pg.sql, { name: n })
+
+    const rows = await t.find(pg.sql, undefined, { limit: 2, orderBy: { id: 'asc' } })
+    assert.equal(rows.length, 2)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('find with offset works', async () => {
+    const t = pgTable('__schema_test_off', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+    })
+    await t.create(pg.sql)
+
+    for (const n of ['a', 'b', 'c']) await t.insert(pg.sql, { name: n })
+
+    const rows = await t.find(pg.sql, undefined, { offset: 1, orderBy: { id: 'asc' } })
+    assert.equal(rows.length, 2)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('BoundTable find with opts works', async () => {
+    const t = pg.table('__schema_test_bnd_find', {
+      id: serial('id').primaryKey(),
+      label: text('label'),
+    })
+    await t.create()
+
+    await t.insert({ label: 'z' })
+    await t.insert({ label: 'a' })
+    await t.insert({ label: 'm' })
+
+    const rows = await t.find(undefined, { orderBy: { label: 'desc' } })
+    assert.equal(rows.length, 3)
+    assert.equal(rows[0].label, 'z')
+    assert.equal(rows[2].label, 'a')
+
+    await t.drop({ cascade: true })
+  })
 })

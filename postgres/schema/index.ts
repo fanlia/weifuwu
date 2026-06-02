@@ -14,4 +14,4 @@ export {
   toDDL,
 } from './columns.ts'
 export { pgTable, Table, BoundTable } from './table.ts'
-export type { IndexOptions } from './table.ts'
+export type { IndexOptions, FindOptions } from './table.ts'
