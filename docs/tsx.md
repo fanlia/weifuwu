@@ -18,7 +18,7 @@ serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
 
 ```
 ui/
-├── pages/              ← 页面文件
+├── pages/              ← page files
 │   ├── page.tsx        → GET /           (React component, default export)
 │   ├── layout.tsx      → root layout     (HTML shell, receives req/ctx, NOT hydrated)
 │   ├── not-found.tsx   → 404 error page  (rendered for unmatched routes, wrapped in layout)
@@ -30,7 +30,7 @@ ui/
 │   ├── blog/layout.tsx → /blog/* layout  (UI structure, receives children, hydrated)
 │   └── api/search/
 │       └── route.ts    → GET /api/search (standalone API, no page.tsx needed)
-└── components/         ← 组件文件（会被热更自动感知）
+└── components/         ← component files (auto-detected by HMR)
     └── button.tsx
 ```
 

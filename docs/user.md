@@ -62,21 +62,21 @@ app.get('/api/data', auth.middleware(), handler)
 #### Flow (Authorization Code + PKCE)
 
 ```
-1. 第三方 App 引导用户:
+1. Third-party app redirects user:
     GET /oauth/authorize?client_id=xxx&redirect_uri=https://app.com/cb
                        &response_type=code&code_challenge=S256&state=yyy
 
-2. 用户未登录 → 302 到 /login?redirect=... → 登录后自动回到授权页
+2. User not logged in → 302 to /login?redirect=... → auto returns to consent page after login
 
-3. 用户确认授权 → POST /oauth/consent { approve: true, client_id, ... }
-   302 redirect_uri?code=xxx&state=yyy
+3. User confirms consent → POST /oauth/consent { approve: true, client_id, ... }
+    302 redirect_uri?code=xxx&state=yyy
 
-4. 第三方 App POST /oauth/token
+4. Third-party app POST /oauth/token
    { grant_type: authorization_code, code, client_id, client_secret,
      redirect_uri, code_verifier }
    → { access_token, token_type: "Bearer", expires_in, refresh_token }
 
-5. access_token 是标准 JWT，auth.middleware() 和 auth.verify() 直接可用
+5. access_token is a standard JWT — auth.middleware() and auth.verify() work with it directly
 ```
 
 #### Client Management
@@ -89,12 +89,12 @@ await auth.revokeClient(client.clientId)
 
 #### Using OAuth2 Tokens with the Built-in Auth Middleware
 
-OAuth2 Server 签发的 `access_token` 与密码登录的 JWT 使用同一 `jwtSecret`，payload 向下兼容（`sub`、`email`、`role`），所以 `auth()` 无需任何修改即可验证 OAuth2 签发的 token：
+The `access_token` issued by the OAuth2 Server shares the same `jwtSecret` and compatible payload (`sub`, `email`, `role`) as password-login JWTs, so `auth()` can verify OAuth2 tokens without any modifications:
 
 ```ts
 import { auth } from 'weifuwu'
 
-// 同一个 auth() 中间件同时支持密码登录 JWT 和 OAuth2 JWT
+// Same auth() middleware validates both password-login JWTs and OAuth2 JWTs
 app.get('/api', auth({ verify: (token) => auth.verify(token) }), handler)
 ```
 
@@ -102,7 +102,7 @@ For `client_credentials` tokens (machine-to-machine), `verify()` returns `null` 
 
 ### Social Login (GitHub) — Cookbook
 
-`user()` 不内置 social login（避免绑定第三方平台），但用底层 API 加一个 GitHub 登录只需 ~30 行：
+`user()` does not bundle social login (to avoid third-party dependencies), but adding a GitHub login with the low-level API takes ~30 lines:
 
 ```ts
 import { user } from 'weifuwu'
@@ -110,7 +110,7 @@ import jwt from 'jsonwebtoken'
 
 const auth = user({ pg, jwtSecret })
 
-// 1. 跳转 GitHub 授权
+// 1. Redirect to GitHub authorization
 app.get('/auth/github', () => {
   const url = new URL('https://github.com/login/oauth/authorize')
   url.searchParams.set('client_id', process.env.GH_CLIENT_ID!)
@@ -119,12 +119,12 @@ app.get('/auth/github', () => {
   return Response.redirect(url.href)
 })
 
-// 2. GitHub 回调 → 获取用户信息 → 注册/登录
+// 2. GitHub callback → fetch user info → register/login
 app.get('/auth/github/callback', async (req) => {
   const { code } = Object.fromEntries(new URL(req.url).searchParams)
   if (!code) return new Response('Missing code', { status: 400 })
 
-  // 交换 token
+  // Exchange code for token
   const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -136,25 +136,25 @@ app.get('/auth/github/callback', async (req) => {
   })
   const { access_token } = await tokenRes.json() as any
 
-  // 获取用户信息
+  // Fetch user info from GitHub
   const userRes = await fetch('https://api.github.com/user', {
     headers: { Authorization: `Bearer ${access_token}` },
   })
   const ghUser = await userRes.json() as any
 
-  // 查找或创建本地用户
+  // Find or create local user
   const existing = await pg.sql`SELECT * FROM "_users" WHERE email = ${ghUser.email}`
   let localUser = existing[0]
 
   if (!localUser) {
     localUser = await auth.register({
       email: ghUser.email,
-      password: crypto.randomUUID(),  // 随机密码，用户只能用 GitHub 登录
+      password: crypto.randomUUID(),  // Random password — user can only log in via GitHub
       name: ghUser.name ?? ghUser.login,
     })
   }
 
-  // 签发 JWT（与 user() 同一格式）
+  // Sign JWT (same format as user())
   const token = jwt.sign(
     { sub: localUser.id, email: localUser.email, role: localUser.role ?? 'user' },
     process.env.JWT_SECRET!,
@@ -164,4 +164,4 @@ app.get('/auth/github/callback', async (req) => {
 })
 ```
 
-同样的模式适配 Google、微信、任何 OAuth2 provider。
+The same pattern works for Google, WeChat, or any OAuth2 provider.

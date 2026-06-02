@@ -47,7 +47,7 @@ const tools = {
 const result = await streamText({
   model,
   tools,
-  messages: [{ role: 'user', content: '查询用户123，如果存在则发送欢迎邮件' }],
+  messages: [{ role: 'user', content: 'Query user 123, send welcome email if exists' }],
 })
 ```
 
