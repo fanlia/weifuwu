@@ -150,7 +150,7 @@ await t.read(ctx.sql, 1)
 Importable functions for composing complex WHERE clauses. Works with `readMany` — pass as the first argument (single `SQL` or `SQL[]` for implicit AND):
 
 ```ts
-import { eq, ne, gt, gte, lt, lte, isNull, isNotNull, contains, in_, and, or } from 'weifuwu'
+import { eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not } from 'weifuwu'
 
 // Single condition
 const { data } = await users.readMany(gte('created_at', '2026-01-01'))
@@ -182,10 +182,12 @@ const { data } = await users.readMany(
 | `lte(col, val)` | `<= $1` | `lte('score', 100)` |
 | `isNull(col)` | `IS NULL` | `isNull('deleted_at')` |
 | `isNotNull(col)` | `IS NOT NULL` | `isNotNull('email')` |
+| `like(col, pattern)` | `LIKE $1` | `like('name', 'Alice%')` |
 | `contains(col, obj)` | `@> $1::jsonb` | `contains('metadata', { service: 'auth' })` |
 | `in_(col, arr)` | `= ANY($1)` | `in_('id', [1, 2, 3])` |
 | `and(...conds)` | `(... AND ...)` | `and(eq('a', 1), eq('b', 2))` |
 | `or(...conds)` | `(... OR ...)` | `or(eq('a', 1), eq('b', 2))` |
+| `not(cond)` | `NOT (...)` | `not(eq('status', 'archived'))` |
 
 ### Complex queries use raw SQL
 

@@ -19,6 +19,21 @@ export function isNotNull(col: string): SQL {
   return new SQL([`"${col}" IS NOT NULL`] as any, [])
 }
 
+export function like(col: string, pattern: string): SQL { return op(col, 'LIKE', pattern) }
+
+export function not(condition: SQL): SQL {
+  const strings = condition.strings
+  const values = condition.values
+  if (strings.length === 1 && strings[0] === '') return new SQL(['NOT ()'] as any, [])
+  const result: string[] = ['NOT (']
+  for (let i = 0; i < strings.length; i++) {
+    if (i > 0) result.push(strings[i])
+    else result[0] += strings[i]
+  }
+  result[result.length - 1] += ')'
+  return new SQL(result as any, [...values])
+}
+
 export function contains(col: string, val: Record<string, unknown>): SQL {
   return new SQL([`"${col}" @> `, ''] as any, [val])
 }
