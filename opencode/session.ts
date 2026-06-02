@@ -67,7 +67,7 @@ export async function listSessions(sql: Sql<{}>, userId?: number): Promise<Sessi
 }
 
 export async function deleteSession(sql: Sql<{}>, id: string): Promise<void> {
-  await sessions.update(sql, { id } as any, { active: false, updated_at: schemaSql`NOW()` } as any)
+  await sessions.update(sql, id, { active: false, updated_at: schemaSql`NOW()` } as any)
 }
 
 export async function getHistory(sql: Sql<{}>, sessionId: string, limit = 50): Promise<SessionMessage[]> {
@@ -121,5 +121,5 @@ export async function addToolMessages(
 }
 
 export async function updateSessionTitle(sql: Sql<{}>, id: string, title: string): Promise<void> {
-  await sessions.update(sql, { id } as any, { title, updated_at: schemaSql`NOW()` } as any)
+  await sessions.update(sql, id, { title, updated_at: schemaSql`NOW()` } as any)
 }

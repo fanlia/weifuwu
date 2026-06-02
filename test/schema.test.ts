@@ -268,7 +268,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     await t.create(pg.sql)
 
     const inserted = await t.insert(pg.sql, { name: 'Old', email: 'old@test.com' })
-    const updated = await t.update(pg.sql, { id: inserted.id }, { name: 'New' })
+    const updated = await t.update(pg.sql, inserted.id, { name: 'New' })
     assert.ok(updated)
     assert.equal(updated.name, 'New')
     assert.equal(updated.email, 'old@test.com')
@@ -283,13 +283,13 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     })
     await t.create(pg.sql)
 
-    const result = await t.update(pg.sql, { id: 99999 }, { name: 'Nope' })
+    const result = await t.update(pg.sql, 99999, { name: 'Nope' })
     assert.equal(result, undefined)
 
     await t.drop(pg.sql, { cascade: true })
   })
 
-  it('delete returns true for existing row', async () => {
+  it('delete returns deleted row', async () => {
     const t = pgTable('__schema_test_del', {
       id: serial('id').primaryKey(),
       name: text('name'),
@@ -297,8 +297,9 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     await t.create(pg.sql)
 
     const inserted = await t.insert(pg.sql, { name: 'DeleteMe' })
-    const deleted = await t.delete(pg.sql, { id: inserted.id })
-    assert.equal(deleted, true)
+    const deleted = await t.delete(pg.sql, inserted.id)
+    assert.ok(deleted)
+    assert.equal(deleted.name, 'DeleteMe')
 
     const found = await t.read(pg.sql, inserted.id)
     assert.equal(found, undefined)
@@ -306,15 +307,15 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     await t.drop(pg.sql, { cascade: true })
   })
 
-  it('delete returns false for non-existent id', async () => {
+  it('delete returns undefined for non-existent id', async () => {
     const t = pgTable('__schema_test_del_none', {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
     await t.create(pg.sql)
 
-    const deleted = await t.delete(pg.sql, { id: 99999 })
-    assert.equal(deleted, false)
+    const deleted = await t.delete(pg.sql, 99999)
+    assert.equal(deleted, undefined)
 
     await t.drop(pg.sql, { cascade: true })
   })

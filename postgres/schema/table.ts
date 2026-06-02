@@ -18,6 +18,7 @@ export interface FindOptions {
   orderBy?: Record<string, 'asc' | 'desc'>
   limit?: number
   offset?: number
+  select?: string[]
 }
 
 interface ColEntry {
@@ -147,12 +148,13 @@ export class Table<R extends Record<string, unknown>> {
     const [countRow] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as any[])
     const count = Number((countRow as any)._total)
 
-    if (conditions.length === 0 && !opts?.orderBy && !opts?.limit && !opts?.offset) {
+    if (conditions.length === 0 && !opts?.orderBy && !opts?.limit && !opts?.offset && !opts?.select) {
       const rows = await sql`SELECT * FROM ${sql(this.tableName as any)}`
       return { count, data: rows as unknown as R[] }
     }
 
-    let query = `SELECT * FROM "${this.tableName}"${whereClause}`
+    const columns = opts?.select?.length ? opts.select.map(c => `"${c}"`).join(', ') : '*'
+    let query = `SELECT ${columns} FROM "${this.tableName}"${whereClause}`
     if (opts?.orderBy) {
       const orders = Object.entries(opts.orderBy)
         .map(([prop, dir]) => {
@@ -169,7 +171,7 @@ export class Table<R extends Record<string, unknown>> {
     return { count, data: rows as unknown as R[] }
   }
 
-  async update(sql: Sql<{}>, where: Partial<R>, data: Partial<R>): Promise<R | undefined> {
+  async update(sql: Sql<{}>, id: string | number, data: Partial<R>): Promise<R | undefined> {
     const sets: string[] = []
     const setValues: unknown[] = []
 
@@ -185,21 +187,10 @@ export class Table<R extends Record<string, unknown>> {
       }
     }
 
-    const values: unknown[] = [...setValues]
+    if (sets.length === 0) return undefined
 
-    const wConditions: string[] = []
-    for (const [prop, value] of Object.entries(where) as [string, unknown][]) {
-      if (value === undefined) continue
-      const entry = this.colEntries.find(e => e.prop === prop)
-      const db = entry ? entry.db : prop
-      wConditions.push(`"${db}" = $${values.length + 1}`)
-      values.push(value)
-    }
-
-    if (sets.length === 0 || wConditions.length === 0) return undefined
-
-    const query = `UPDATE "${this.tableName}" AS t SET ${sets.join(', ')} FROM (SELECT ctid FROM "${this.tableName}" WHERE ${wConditions.join(' AND ')} LIMIT 1) AS sub WHERE t.ctid = sub.ctid RETURNING t.*`
-    const rows = await sql.unsafe(query, values as any[])
+    const query = `UPDATE "${this.tableName}" AS t SET ${sets.join(', ')} FROM (SELECT ctid FROM "${this.tableName}" WHERE id = $${setValues.length + 1} LIMIT 1) AS sub WHERE t.ctid = sub.ctid RETURNING t.*`
+    const rows = await sql.unsafe(query, [...setValues, id] as any[])
     return (rows as any[])[0] as unknown as R ?? undefined
   }
 
@@ -259,22 +250,11 @@ export class Table<R extends Record<string, unknown>> {
     return rows.length
   }
 
-  async delete(sql: Sql<{}>, where: Partial<R>): Promise<boolean> {
-    const conditions: string[] = []
-    const values: unknown[] = []
-    for (const [prop, value] of Object.entries(where) as [string, unknown][]) {
-      if (value === undefined) continue
-      const entry = this.colEntries.find(e => e.prop === prop)
-      const db = entry ? entry.db : prop
-      conditions.push(`"${db}" = $${conditions.length + 1}`)
-      values.push(value)
-    }
-
-    if (conditions.length === 0) return false
-
-    const query = `DELETE FROM "${this.tableName}" WHERE ${conditions.join(' AND ')} RETURNING 1`
-    const rows = await sql.unsafe(query, values as any[])
-    return rows.length > 0
+  async delete(sql: Sql<{}>, id: string | number): Promise<R | undefined> {
+    const [row] = await sql`
+      DELETE FROM ${sql(this.tableName as any)} WHERE ${sql('id' as any)} = ${id} RETURNING *
+    `
+    return (row as unknown as R) ?? undefined
   }
 }
 
@@ -296,9 +276,9 @@ export class BoundTable<R extends Record<string, unknown>> {
   async insertMany(data: Partial<R>[]): Promise<R[]> { return await this.inner.insertMany(this.sql, data) }
   async read(id: string | number): Promise<R | undefined> { return await this.inner.read(this.sql, id) }
   async readMany(where?: Partial<R>, opts?: FindOptions): Promise<{ count: number; data: R[] }> { return await this.inner.readMany(this.sql, where, opts) }
-  async update(where: Partial<R>, data: Partial<R>): Promise<R | undefined> { return await this.inner.update(this.sql, where, data) }
+  async update(id: string | number, data: Partial<R>): Promise<R | undefined> { return await this.inner.update(this.sql, id, data) }
   async updateMany(where: Partial<R>, data: Partial<R>): Promise<number> { return await this.inner.updateMany(this.sql, where, data) }
-  async delete(where: Partial<R>): Promise<boolean> { return await this.inner.delete(this.sql, where) }
+  async delete(id: string | number): Promise<R | undefined> { return await this.inner.delete(this.sql, id) }
   async deleteMany(where: Partial<R>): Promise<number> { return await this.inner.deleteMany(this.sql, where) }
 }
 
