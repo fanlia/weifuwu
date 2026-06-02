@@ -96,6 +96,7 @@ node app.ts
 | **Messager** | [docs/messager.md](./docs/messager.md) | Real-time chat, channels, WebSocket, agent routing |
 | **GraphQL** | [docs/graphql.md](./docs/graphql.md) | GraphQL endpoint with GraphiQL |
 | **Tenant BaaS** | [docs/tenant.md](./docs/tenant.md) | Dynamic tables, auto REST + GraphQL, row isolation |
+| **LogDB** | [docs/logdb.md](./docs/logdb.md) | Structured event logging with partitioning, metadata search, REST API |
 | **Extra** | [docs/extra.md](./docs/extra.md) | Health check, i18n, email, test utilities |
 
 ### Infrastructure
@@ -120,6 +121,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `messager(options)` | Real-time messaging | `migrate()`, `wsHandler()`, `send()`, `close()` |
 | `aiStream(handler)` | AI streaming endpoint | — |
 | `graphql(handler)` | GraphQL endpoint | — |
+| `logdb(options)` | Structured event logging | `log()`, `migrate()`, `clean()`, `close()` |
 | `health(options?)` | Health check | — |
 
 ### Middleware (all `(req, ctx, next) => Response`)
