@@ -198,7 +198,7 @@ export class Table<R extends Record<string, unknown>> {
 
     if (sets.length === 0 || wConditions.length === 0) return undefined
 
-    const query = `UPDATE "${this.tableName}" SET ${sets.join(', ')} WHERE ${wConditions.join(' AND ')} RETURNING *`
+    const query = `UPDATE "${this.tableName}" AS t SET ${sets.join(', ')} FROM (SELECT ctid FROM "${this.tableName}" WHERE ${wConditions.join(' AND ')} LIMIT 1) AS sub WHERE t.ctid = sub.ctid RETURNING t.*`
     const rows = await sql.unsafe(query, values as any[])
     return (rows as any[])[0] as unknown as R ?? undefined
   }

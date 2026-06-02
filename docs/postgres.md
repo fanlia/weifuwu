@@ -121,7 +121,7 @@ const { data } = await users.readMany(
   { limit: 10 },
 )
 
-// Update — single
+// Update — single row (LIMIT 1 by ctid, returns first match)
 const updated = await users.update({ id: 1 }, { name: 'Bob' })
 // With SQL expressions:
 await users.update({ id: 1 }, { name: 'Bob', updated_at: sql`NOW()` })
