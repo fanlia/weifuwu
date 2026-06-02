@@ -278,6 +278,50 @@ await users.createIndex('embedding', {       // pgvector HNSW
 await users.drop({ cascade: true })
 ```
 
+### Type-safe CRUD with BoundTable
+
+Two usage paths — use `pg.table()` when you have a `pg` handle, or `pgTable()` with explicit `sql`:
+
+```ts
+// pg.table() — auto-binds sql, no need to pass it
+const users = pg.table('_users', {
+  id:        serial('id').primaryKey(),
+  name:      text('name').notNull(),
+  email:     text('email').unique(),
+  active:    boolean('active').default(true),
+  createdAt: timestamptz('created_at').default(sql`NOW()`),
+})
+
+// INSERT ... RETURNING * — auto-strips serial id
+const user = await users.insert({ name: 'Alice', email: 'alice@test.com' })
+// → { id: 1, name: 'Alice', email: 'alice@test.com', active: true, ... }
+
+// SELECT ... WHERE id = ? LIMIT 1
+const found = await users.findById(1)
+
+// SELECT ... WHERE ... [ORDER BY ...] [LIMIT ...] [OFFSET ...]
+const admins = await users.find({ role: 'admin' })
+const sorted = await users.find({ active: true }, { orderBy: { name: 'asc' } })
+const page = await users.find(undefined, { limit: 10, offset: 0 })
+const filtered = await users.find({ role: 'admin' }, { orderBy: { name: 'desc' }, limit: 5 })
+
+// UPDATE ... SET ... WHERE ... RETURNING *
+const updated = await users.update({ id: 1 }, { name: 'Bob' })
+// With SQL expressions:
+await users.update({ id: 1 }, { name: 'Bob', updated_at: sql`NOW()` })
+
+// DELETE ... WHERE ... RETURNING 1
+const ok = await users.delete({ id: 1 })
+```
+
+When using `pgTable()` directly (without `pg`), pass `sql` as the first argument:
+
+```ts
+const t = pgTable('_users', { ... })
+await t.insert(ctx.sql, { name: 'Alice' })
+await t.find(ctx.sql, { role: 'admin' }, { orderBy: { name: 'asc' } })
+```
+
 ### Complex queries use raw SQL
 
 ```ts
@@ -1444,10 +1488,13 @@ serve(app.handler(), { websocket: app.websocketHandler() })
 | `createWorkflowEngine(options)` | Programmatic workflow engine |
 | `createSSEManager()` | SSE event manager for workflows |
 | `tool(def)` | Define a workflow tool |
-| `pgTable(name, columns)` | Type-safe table schema definition with DDL generation |
+| `pgTable(name, columns)` | Type-safe table schema definition with DDL + CRUD |
+| `pg.table(name, columns)` | Pre-bound table (no `sql` parameter needed for CRUD) |
 | `serial()`, `uuid()`, `text()`, `integer()`, `boolean()`, `timestamptz()`, `jsonb()`, `textArray()`, `vector()` | Column type builders |
-| `sql(strings, ...)` | SQL expression literal for table defaults (e.g. `sql\`NOW()\``) |
+| `sql(strings, ...)` | SQL expression literal for defaults and SET values (e.g. `sql\`NOW()\``) |
 | `PgModule` | Base class for database-backed modules (provides `sql`, `close()`) |
+| `BoundTable` | Table with pre-bound `sql` — returned by `pg.table()` |
+| `FindOptions` | Query options: `{ orderBy?, limit?, offset? }` for `find()` |
 
 Import `useTsx` and `TsxContext` from `'weifuwu'`.
 
