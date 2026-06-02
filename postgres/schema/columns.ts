@@ -12,6 +12,7 @@ export class ColumnBuilder<T> {
   isPrimaryKey = false
   isNullable = true
   isUnique = false
+  isAutoGenerate = false
   defaultExpr: string | null = null
   ref: ColumnReference | null = null
 
@@ -62,7 +63,11 @@ function col<T>(name: string, sqlType: string): ColumnBuilder<T> {
   return new ColumnBuilder<T>(name, sqlType)
 }
 
-export function serial(name: string) { return col<number>(name, 'SERIAL') }
+export function serial(name: string) {
+  const c = col<number>(name, 'SERIAL')
+  c.isAutoGenerate = true
+  return c
+}
 export function uuid(name: string) { return col<string>(name, 'UUID') }
 export function text(name: string) { return col<string>(name, 'TEXT') }
 export function integer(name: string) { return col<number>(name, 'INTEGER') }

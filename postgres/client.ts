@@ -1,6 +1,8 @@
 import postgresFactory from 'postgres'
 import type { Context, Handler } from '../types.ts'
 import type { PostgresOptions, PostgresClient } from './types.ts'
+import { BoundTable } from './schema/table.ts'
+import type { ColumnBuilder } from './schema/columns.ts'
 
 export function postgres(opts?: string | PostgresOptions): PostgresClient {
   const options: PostgresOptions = typeof opts === 'string'
@@ -33,6 +35,9 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   }) as unknown as PostgresClient
 
   mw.sql = sql
+  mw.table = ((tableName: string, builders: Record<string, ColumnBuilder<unknown>>) => {
+    return new BoundTable(sql, tableName, builders)
+  }) as any
   mw.migrate = async () => {}
   mw.transaction = (async (fn: any) => {
     return await sql.begin(fn)

@@ -13,5 +13,5 @@ export {
   vector,
   toDDL,
 } from './columns.ts'
-export { pgTable, Table } from './table.ts'
+export { pgTable, Table, BoundTable } from './table.ts'
 export type { IndexOptions } from './table.ts'

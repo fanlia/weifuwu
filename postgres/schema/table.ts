@@ -8,13 +8,25 @@ export interface IndexOptions {
   operator?: string
 }
 
+interface ColEntry {
+  prop: string
+  db: string
+  auto: boolean
+}
+
 export class Table<R extends Record<string, unknown>> {
   readonly tableName: string
   readonly columns: ColumnBuilder<unknown>[]
+  private colEntries: ColEntry[]
 
   constructor(tableName: string, builders: Record<string, ColumnBuilder<unknown>>) {
     this.tableName = tableName
     this.columns = Object.values(builders)
+    this.colEntries = Object.entries(builders).map(([prop, col]) => ({
+      prop,
+      db: col.name,
+      auto: col.isAutoGenerate,
+    }))
   }
 
   async create(sql: Sql<{}>): Promise<void> {
@@ -43,6 +55,124 @@ export class Table<R extends Record<string, unknown>> {
   async createUniqueIndex(sql: Sql<{}>, columns: string | string[]): Promise<void> {
     await this.createIndex(sql, columns, { unique: true })
   }
+
+  // --- CRUD ---
+
+  async insert(sql: Sql<{}>, data: Partial<R>): Promise<R> {
+    const filtered: Record<string, unknown> = {}
+    for (const { prop, db, auto } of this.colEntries) {
+      if (auto) continue
+      if (prop in (data as any)) {
+        filtered[db] = (data as any)[prop]
+      }
+    }
+    const [row] = await sql`
+      INSERT INTO ${sql(this.tableName as any)} ${sql(filtered as any)} RETURNING *
+    `
+    return row as unknown as R
+  }
+
+  async findById(sql: Sql<{}>, id: string | number): Promise<R | undefined> {
+    const [row] = await sql`
+      SELECT * FROM ${sql(this.tableName as any)}
+      WHERE ${sql('id' as any)} = ${id} LIMIT 1
+    `
+    return (row as unknown as R) ?? undefined
+  }
+
+  async find(sql: Sql<{}>, where?: Partial<R>): Promise<R[]> {
+    if (!where || Object.keys(where).length === 0) {
+      const rows = await sql`SELECT * FROM ${sql(this.tableName as any)}`
+      return rows as unknown as R[]
+    }
+
+    const conditions: string[] = []
+    const values: unknown[] = []
+    for (const [prop, value] of Object.entries(where) as [string, unknown][]) {
+      if (value === undefined) continue
+      const entry = this.colEntries.find(e => e.prop === prop)
+      const db = entry ? entry.db : prop
+      conditions.push(`"${db}" = $${conditions.length + 1}`)
+      values.push(value)
+    }
+
+    if (conditions.length === 0) {
+      const rows = await sql`SELECT * FROM ${sql(this.tableName as any)}`
+      return rows as unknown as R[]
+    }
+
+    const query = `SELECT * FROM "${this.tableName}" WHERE ${conditions.join(' AND ')}`
+    const rows = await sql.unsafe(query, values as any[])
+    return rows as unknown as R[]
+  }
+
+  async update(sql: Sql<{}>, where: Partial<R>, data: Partial<R>): Promise<R | undefined> {
+    const pkEntry = this.colEntries.find(e => e.prop === 'id')
+    if (!pkEntry) {
+      const rows = await sql`UPDATE ${sql(this.tableName as any)} SET ${sql((data || {}) as any)} RETURNING *`
+      return (rows as any[])[0] as unknown as R ?? undefined
+    }
+
+    const idVal = (where as any)[pkEntry.prop]
+    if (idVal === undefined) {
+      const rows = await sql`UPDATE ${sql(this.tableName as any)} SET ${sql((data || {}) as any)} RETURNING *`
+      return (rows as any[])[0] as unknown as R ?? undefined
+    }
+
+    const filtered: Record<string, unknown> = {}
+    for (const { prop, db } of this.colEntries) {
+      if (prop in (data as any) && (data as any)[prop] !== undefined) {
+        filtered[db] = (data as any)[prop]
+      }
+    }
+
+    const rows = await sql`
+      UPDATE ${sql(this.tableName as any)}
+      SET ${sql(filtered as any)}
+      WHERE ${sql(pkEntry.db as any)} = ${idVal}
+      RETURNING *
+    `
+    return (rows as any[])[0] as unknown as R ?? undefined
+  }
+
+  async delete(sql: Sql<{}>, where: Partial<R>): Promise<boolean> {
+    const conditions: string[] = []
+    const values: unknown[] = []
+    for (const [prop, value] of Object.entries(where) as [string, unknown][]) {
+      if (value === undefined) continue
+      const entry = this.colEntries.find(e => e.prop === prop)
+      const db = entry ? entry.db : prop
+      conditions.push(`"${db}" = $${conditions.length + 1}`)
+      values.push(value)
+    }
+
+    if (conditions.length === 0) return false
+
+    const query = `DELETE FROM "${this.tableName}" WHERE ${conditions.join(' AND ')} RETURNING 1`
+    const rows = await sql.unsafe(query, values as any[])
+    return rows.length > 0
+  }
+}
+
+export class BoundTable<R extends Record<string, unknown>> {
+  private inner: Table<R>
+  private sql: Sql<{}>
+
+  constructor(sql: Sql<{}>, tableName: string, builders: Record<string, ColumnBuilder<unknown>>) {
+    this.inner = new Table<R>(tableName, builders)
+    this.sql = sql
+  }
+
+  async create(): Promise<void> { await this.inner.create(this.sql) }
+  async drop(opts?: { cascade?: boolean }): Promise<void> { await this.inner.drop(this.sql, opts) }
+  async createIndex(columns: string | string[], opts?: IndexOptions): Promise<void> { await this.inner.createIndex(this.sql, columns, opts) }
+  async createUniqueIndex(columns: string | string[]): Promise<void> { await this.inner.createUniqueIndex(this.sql, columns) }
+
+  async insert(data: Partial<R>): Promise<R> { return await this.inner.insert(this.sql, data) }
+  async findById(id: string | number): Promise<R | undefined> { return await this.inner.findById(this.sql, id) }
+  async find(where?: Partial<R>): Promise<R[]> { return await this.inner.find(this.sql, where) }
+  async update(where: Partial<R>, data: Partial<R>): Promise<R | undefined> { return await this.inner.update(this.sql, where, data) }
+  async delete(where: Partial<R>): Promise<boolean> { return await this.inner.delete(this.sql, where) }
 }
 
 export function pgTable<R extends Record<string, unknown>>(
