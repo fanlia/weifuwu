@@ -561,6 +561,72 @@ app.get('/api', auth({ verify: (token) => auth.verify(token) }), handler)
 
 For `client_credentials` tokens (machine-to-machine), `verify()` returns `null` since no user is associated.
 
+### Social Login (GitHub) — Cookbook
+
+`user()` 不内置 social login（避免绑定第三方平台），但用底层 API 加一个 GitHub 登录只需 ~30 行：
+
+```ts
+import { user } from 'weifuwu'
+import jwt from 'jsonwebtoken'
+
+const auth = user({ pg, jwtSecret })
+
+// 1. 跳转 GitHub 授权
+app.get('/auth/github', () => {
+  const url = new URL('https://github.com/login/oauth/authorize')
+  url.searchParams.set('client_id', process.env.GH_CLIENT_ID!)
+  url.searchParams.set('redirect_uri', 'http://localhost:3000/auth/github/callback')
+  url.searchParams.set('scope', 'user:email')
+  return Response.redirect(url.href)
+})
+
+// 2. GitHub 回调 → 获取用户信息 → 注册/登录
+app.get('/auth/github/callback', async (req) => {
+  const { code } = Object.fromEntries(new URL(req.url).searchParams)
+  if (!code) return new Response('Missing code', { status: 400 })
+
+  // 交换 token
+  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      client_id: process.env.GH_CLIENT_ID,
+      client_secret: process.env.GH_CLIENT_SECRET,
+      code,
+    }),
+  })
+  const { access_token } = await tokenRes.json() as any
+
+  // 获取用户信息
+  const userRes = await fetch('https://api.github.com/user', {
+    headers: { Authorization: `Bearer ${access_token}` },
+  })
+  const ghUser = await userRes.json() as any
+
+  // 查找或创建本地用户
+  const existing = await pg.sql`SELECT * FROM "_users" WHERE email = ${ghUser.email}`
+  let localUser = existing[0]
+
+  if (!localUser) {
+    localUser = await auth.register({
+      email: ghUser.email,
+      password: crypto.randomUUID(),  // 随机密码，用户只能用 GitHub 登录
+      name: ghUser.name ?? ghUser.login,
+    })
+  }
+
+  // 签发 JWT（与 user() 同一格式）
+  const token = jwt.sign(
+    { sub: localUser.id, email: localUser.email, role: localUser.role ?? 'user' },
+    process.env.JWT_SECRET!,
+    { expiresIn: '24h' },
+  )
+  return Response.json({ token })
+})
+```
+
+同样的模式适配 Google、微信、任何 OAuth2 provider。
+
 ## Tenant BaaS
 
 Built-in multi-tenant backend-as-a-service — define tables at runtime via API, get RESTful CRUD + GraphQL automatically, with row-level tenant isolation.
