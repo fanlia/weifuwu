@@ -44,6 +44,22 @@ DATABASE_URL=postgres://root:123456@localhost:5432/demo node --test
 
 Tests that require a database are auto-skipped when no URL is set.
 
+### postgres.js JSONB gotchas
+
+- **`@>` with `sql.unsafe`** — pass a plain JS object, not `JSON.stringify()`:
+  ```ts
+  // broken — returns 0 rows
+  sql.unsafe('WHERE metadata @> $1', [JSON.stringify({ service: 'auth' })])
+  // fixed
+  sql.unsafe('WHERE metadata @> $1', [{ service: 'auth' }])
+  ```
+- **JSONB return type on partitioned tables** — postgres.js may return `row.metadata` as a JSON string instead of a parsed object. Always coerce in handlers:
+  ```ts
+  if (typeof row.metadata === 'string') {
+    row.metadata = JSON.parse(row.metadata)
+  }
+  ```
+
 ## Testing
 
 ```ts#test/example.test.ts
