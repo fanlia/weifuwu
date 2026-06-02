@@ -12,6 +12,8 @@ export {
   textArray,
   vector,
   toDDL,
+  partitionBy,
 } from './columns.ts'
+export type { PartitionByDef } from './columns.ts'
 export { pgTable, Table, BoundTable } from './table.ts'
-export type { IndexOptions, FindOptions } from './table.ts'
+export type { IndexOptions, FindOptions, CreateOptions } from './table.ts'

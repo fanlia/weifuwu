@@ -205,7 +205,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     await t.create(pg.sql)
 
     const inserted = await t.insert(pg.sql, { name: 'Bob' })
-    const found = await t.findById(pg.sql, inserted.id)
+    const found = await t.read(pg.sql, inserted.id)
     assert.ok(found)
     assert.equal(found.name, 'Bob')
 
@@ -219,7 +219,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     })
     await t.create(pg.sql)
 
-    const found = await t.findById(pg.sql, 99999)
+    const found = await t.read(pg.sql, 99999)
     assert.equal(found, undefined)
 
     await t.drop(pg.sql, { cascade: true })
@@ -234,13 +234,13 @@ describe('schema', { skip: !DATABASE_URL }, () => {
 
     await t.insert(pg.sql, { name: 'A' })
     await t.insert(pg.sql, { name: 'B' })
-    const rows = await t.find(pg.sql)
+    const { data: rows } = await t.readMany(pg.sql)
     assert.equal(rows.length, 2)
 
     await t.drop(pg.sql, { cascade: true })
   })
 
-  it('find with where returns filtered rows', async () => {
+  it('readMany with where returns filtered rows', async () => {
     const t = pgTable('__schema_test_find_whr', {
       id: serial('id').primaryKey(),
       name: text('name'),
@@ -252,7 +252,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     await t.insert(pg.sql, { name: 'B', role: 'user' })
     await t.insert(pg.sql, { name: 'C', role: 'admin' })
 
-    const admins = await t.find(pg.sql, { role: 'admin' })
+    const { data: admins } = await t.readMany(pg.sql, { role: 'admin' })
     assert.equal(admins.length, 2)
     admins.forEach(r => assert.equal(r.role, 'admin'))
 
@@ -300,7 +300,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     const deleted = await t.delete(pg.sql, { id: inserted.id })
     assert.equal(deleted, true)
 
-    const found = await t.findById(pg.sql, inserted.id)
+    const found = await t.read(pg.sql, inserted.id)
     assert.equal(found, undefined)
 
     await t.drop(pg.sql, { cascade: true })
@@ -332,14 +332,14 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     assert.ok(typeof row.id === 'number')
     assert.equal(row.name, 'Bound')
 
-    const found = await t.findById(row.id)
+    const found = await t.read(row.id)
     assert.ok(found)
     assert.equal(found.name, 'Bound')
 
     await t.drop({ cascade: true })
   })
 
-  it('find with orderBy works', async () => {
+  it('readMany with orderBy works', async () => {
     const t = pgTable('__schema_test_ord', {
       id: serial('id').primaryKey(),
       name: text('name'),
@@ -350,7 +350,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     await t.insert(pg.sql, { name: 'a' })
     await t.insert(pg.sql, { name: 'b' })
 
-    const rows = await t.find(pg.sql, undefined, { orderBy: { name: 'asc' } })
+    const { data: rows } = await t.readMany(pg.sql, undefined, { orderBy: { name: 'asc' } })
     assert.equal(rows.length, 3)
     assert.equal(rows[0].name, 'a')
     assert.equal(rows[1].name, 'b')
@@ -359,7 +359,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     await t.drop(pg.sql, { cascade: true })
   })
 
-  it('find with limit works', async () => {
+  it('readMany with limit works', async () => {
     const t = pgTable('__schema_test_lim', {
       id: serial('id').primaryKey(),
       name: text('name'),
@@ -368,13 +368,13 @@ describe('schema', { skip: !DATABASE_URL }, () => {
 
     for (const n of ['a', 'b', 'c']) await t.insert(pg.sql, { name: n })
 
-    const rows = await t.find(pg.sql, undefined, { limit: 2, orderBy: { id: 'asc' } })
+    const { data: rows } = await t.readMany(pg.sql, undefined, { limit: 2, orderBy: { id: 'asc' } })
     assert.equal(rows.length, 2)
 
     await t.drop(pg.sql, { cascade: true })
   })
 
-  it('find with offset works', async () => {
+  it('readMany with offset works', async () => {
     const t = pgTable('__schema_test_off', {
       id: serial('id').primaryKey(),
       name: text('name'),
@@ -383,13 +383,13 @@ describe('schema', { skip: !DATABASE_URL }, () => {
 
     for (const n of ['a', 'b', 'c']) await t.insert(pg.sql, { name: n })
 
-    const rows = await t.find(pg.sql, undefined, { offset: 1, orderBy: { id: 'asc' } })
+    const { data: rows } = await t.readMany(pg.sql, undefined, { offset: 1, orderBy: { id: 'asc' } })
     assert.equal(rows.length, 2)
 
     await t.drop(pg.sql, { cascade: true })
   })
 
-  it('BoundTable find with opts works', async () => {
+  it('BoundTable readMany with opts works', async () => {
     const t = pg.table('__schema_test_bnd_find', {
       id: serial('id').primaryKey(),
       label: text('label'),
@@ -400,7 +400,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     await t.insert({ label: 'a' })
     await t.insert({ label: 'm' })
 
-    const rows = await t.find(undefined, { orderBy: { label: 'desc' } })
+    const { data: rows } = await t.readMany(undefined, { orderBy: { label: 'desc' } })
     assert.equal(rows.length, 3)
     assert.equal(rows[0].label, 'z')
     assert.equal(rows[2].label, 'a')

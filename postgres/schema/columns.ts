@@ -78,6 +78,15 @@ export function jsonb<T = unknown>(name: string) { return col<T>(name, 'JSONB') 
 export function textArray(name: string) { return col<string[]>(name, 'TEXT[]') }
 export function vector(name: string, dims: number) { return col<number[]>(name, `vector(${dims})`) }
 
+export interface PartitionByDef {
+  type: 'RANGE' | 'LIST' | 'HASH'
+  column: string
+}
+
+export function partitionBy(type: 'range' | 'list' | 'hash', column: string): PartitionByDef {
+  return { type: type.toUpperCase() as 'RANGE' | 'LIST' | 'HASH', column }
+}
+
 export function toDDL(col: ColumnBuilder<unknown>): string {
   const parts = [`"${col.name}"`, col.sqlType]
   if (col.isPrimaryKey) parts.push('PRIMARY KEY')

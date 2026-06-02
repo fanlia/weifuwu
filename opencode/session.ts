@@ -52,17 +52,17 @@ function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: stri
 }
 
 export async function getSession(sql: Sql<{}>, id: string): Promise<Session | null> {
-  const rows = await sessions.find(sql, { id, active: true } as any)
+  const { data: rows } = await sessions.readMany(sql, { id, active: true } as any)
   return (rows[0] as any as Session) ?? null
 }
 
 export async function listSessions(sql: Sql<{}>, userId?: number): Promise<Session[]> {
   const opts = { orderBy: { updated_at: 'desc' as const } }
   if (userId !== undefined) {
-    const rows = await sessions.find(sql, { user_id: userId, active: true } as any, opts)
+    const { data: rows } = await sessions.readMany(sql, { user_id: userId, active: true } as any, opts)
     return rows as any as Session[]
   }
-  const rows = await sessions.find(sql, { active: true } as any, opts)
+  const { data: rows } = await sessions.readMany(sql, { active: true } as any, opts)
   return rows as any as Session[]
 }
 
@@ -71,7 +71,7 @@ export async function deleteSession(sql: Sql<{}>, id: string): Promise<void> {
 }
 
 export async function getHistory(sql: Sql<{}>, sessionId: string, limit = 50): Promise<SessionMessage[]> {
-  const rows = await messages.find(sql, { session_id: sessionId } as any, {
+  const { data: rows } = await messages.readMany(sql, { session_id: sessionId } as any, {
     orderBy: { created_at: 'asc' },
     limit,
   })

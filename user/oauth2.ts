@@ -285,7 +285,7 @@ h2{color:#dc2626}.desc{color:#555}</style>
 
     await pg.sql`UPDATE "_oauth2_codes" SET "used" = TRUE WHERE "id" = ${stored.id}`
 
-    const user = await users.findById(stored.user_id)
+    const user = await users.read(stored.user_id)
     if (!user) {
       return Response.json({ error: 'invalid_grant' }, { status: 400 })
     }

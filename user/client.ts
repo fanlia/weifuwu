@@ -75,12 +75,12 @@ export function user(options: UserOptions): UserModule {
   }
 
   async function findByEmail(email: string): Promise<any | undefined> {
-    const rows = await users.find({ email } as any)
+    const { data: rows } = await users.readMany({ email } as any)
     return rows[0]
   }
 
   async function findById(id: number): Promise<any | undefined> {
-    return await users.findById(id)
+    return await users.read(id)
   }
 
   async function register(data: { email: string; password: string; name: string }): Promise<AuthResult> {
@@ -103,7 +103,7 @@ export function user(options: UserOptions): UserModule {
   async function login(data: { email: string; password: string }): Promise<AuthResult> {
     const { email, password } = LoginSchema.parse(data)
 
-    const rows = await users.find({ email } as any)
+    const { data: rows } = await users.readMany({ email } as any)
     const row = rows[0]
     if (!row) {
       const err = new Error('Invalid email or password')
