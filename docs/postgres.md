@@ -51,6 +51,9 @@ Column constraints chainable: `.primaryKey()`, `.notNull()`, `.nullable()`, `.de
 
 ```ts
 await users.create()                         // CREATE TABLE IF NOT EXISTS
+await users.create(sql, {                    // WITH PARTITION BY RANGE
+  partitionBy: partitionBy('range', 'created_at'),
+})
 await users.createIndex('email')             // CREATE INDEX
 await users.createUniqueIndex('slug')        // CREATE UNIQUE INDEX
 await users.createIndex('created_at', { desc: true })
@@ -65,6 +68,8 @@ await users.drop({ cascade: true })
 
 Two usage paths — use `pg.table()` when you have a `pg` handle, or `pgTable()` with explicit `sql`:
 
+The `BoundTable` follows a clean CRUD naming — singular for one, plural for many:
+
 ```ts
 // pg.table() — auto-binds sql, no need to pass it
 const users = pg.table('_users', {
@@ -75,26 +80,60 @@ const users = pg.table('_users', {
   createdAt: timestamptz('created_at').default(sql`NOW()`),
 })
 
-// INSERT ... RETURNING * — auto-strips serial id
+// Create — single
 const user = await users.insert({ name: 'Alice', email: 'alice@test.com' })
-// → { id: 1, name: 'Alice', email: 'alice@test.com', active: true, ... }
+// → { id: 1, name: 'Alice', ... }
 
-// SELECT ... WHERE id = ? LIMIT 1
-const found = await users.findById(1)
+// Create — many
+const batch = await users.insertMany([
+  { name: 'Alice' },
+  { name: 'Bob' },
+  { name: 'Charlie' },
+])
+// → [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }, { id: 3, name: 'Charlie' }]
 
-// SELECT ... WHERE ... [ORDER BY ...] [LIMIT ...] [OFFSET ...]
-const admins = await users.find({ role: 'admin' })
-const sorted = await users.find({ active: true }, { orderBy: { name: 'asc' } })
-const page = await users.find(undefined, { limit: 10, offset: 0 })
-const filtered = await users.find({ role: 'admin' }, { orderBy: { name: 'desc' }, limit: 5 })
+// Read — by id
+const found = await users.read(1)
 
-// UPDATE ... SET ... WHERE ... RETURNING *
+// Read — many with optional filtering + pagination
+const { count, data } = await users.readMany({ role: 'admin' })
+// count is total matching rows, data is the page
+const { data: sorted } = await users.readMany({ active: true }, { orderBy: { name: 'asc' } })
+const { data: page } = await users.readMany(undefined, { limit: 10, offset: 0 })
+const { data: filtered } = await users.readMany(
+  { role: 'admin' },
+  { orderBy: { name: 'desc' }, limit: 5 },
+)
+
+// Read — complex conditions with where helpers
+import { eq, gte, lt, contains, and } from 'weifuwu'
+const { count, data } = await users.readMany(
+  and(
+    eq('role', 'admin'),
+    gte('created_at', '2026-01-01'),
+    contains('metadata', { region: 'us' }),
+  ),
+  { orderBy: { name: 'asc' } },
+)
+// Array shorthand — implicit AND
+const { data } = await users.readMany(
+  [eq('role', 'admin'), gte('created_at', '2026-01-01')],
+  { limit: 10 },
+)
+
+// Update — single
 const updated = await users.update({ id: 1 }, { name: 'Bob' })
 // With SQL expressions:
 await users.update({ id: 1 }, { name: 'Bob', updated_at: sql`NOW()` })
 
-// DELETE ... WHERE ... RETURNING 1
+// Update — many, returns count of affected rows
+const count = await users.updateMany({ role: 'guest' }, { role: 'user' })
+
+// Delete — single
 const ok = await users.delete({ id: 1 })
+
+// Delete — many, returns count of deleted rows
+const deleted = await users.deleteMany({ active: false })
 ```
 
 When using `pgTable()` directly (without `pg`), pass `sql` as the first argument:
@@ -102,8 +141,49 @@ When using `pgTable()` directly (without `pg`), pass `sql` as the first argument
 ```ts
 const t = pgTable('_users', { ... })
 await t.insert(ctx.sql, { name: 'Alice' })
-await t.find(ctx.sql, { role: 'admin' }, { orderBy: { name: 'asc' } })
+await t.readMany(ctx.sql, { role: 'admin' }, { orderBy: { name: 'asc' } })
+await t.read(ctx.sql, 1)
 ```
+
+### Where helpers
+
+Importable functions for composing complex WHERE clauses. Works with `readMany` — pass as the first argument (single `SQL` or `SQL[]` for implicit AND):
+
+```ts
+import { eq, ne, gt, gte, lt, lte, contains, in_, and, or } from 'weifuwu'
+
+// Single condition
+const { data } = await users.readMany(gte('created_at', '2026-01-01'))
+
+// Array = implicit AND
+const { data } = await users.readMany([
+  eq('role', 'admin'),
+  gte('created_at', '2026-01-01'),
+  contains('metadata', { region: 'us' }),
+])
+
+// Explicit AND/OR composition
+const { data } = await users.readMany(
+  or(
+    and(eq('role', 'admin'), eq('status', 'active')),
+    eq('role', 'superadmin'),
+  ),
+  { orderBy: { name: 'asc' }, limit: 10 },
+)
+```
+
+| Helper | SQL | Example |
+|--------|-----|---------|
+| `eq(col, val)` | `= $1` | `eq('level', 'error')` |
+| `ne(col, val)` | `!= $1` | `ne('status', 'archived')` |
+| `gt(col, val)` | `> $1` | `gt('age', 18)` |
+| `gte(col, val)` | `>= $1` | `gte('created_at', '2026-01-01')` |
+| `lt(col, val)` | `< $1` | `lt('id', beforeId)` |
+| `lte(col, val)` | `<= $1` | `lte('score', 100)` |
+| `contains(col, obj)` | `@> $1::jsonb` | `contains('metadata', { service: 'auth' })` |
+| `in_(col, arr)` | `= ANY($1)` | `in_('id', [1, 2, 3])` |
+| `and(...conds)` | `(... AND ...)` | `and(eq('a', 1), eq('b', 2))` |
+| `or(...conds)` | `(... OR ...)` | `or(eq('a', 1), eq('b', 2))` |
 
 ### Complex queries use raw SQL
 
