@@ -2,7 +2,7 @@ import { Router } from '../router.ts'
 import { tsx } from '../tsx.ts'
 import type { LanguageModel } from '../vendor.ts'
 import type { SkillDef, SkillRegistry, OpencodePermissions, PendingQuestion } from './types.ts'
-import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage } from './session.ts'
+import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage, initSessionWorkspace } from './session.ts'
 import { executeGenerator } from './run.ts'
 import { buildSystemPrompt } from './prompt.ts'
 import { createTools, type ToolContext } from './tools/index.ts'
@@ -23,14 +23,15 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
   const { sql, model, workspace, systemPrompt, skills, skillsRegistry, permissions, pendingQuestions } = deps
   const router = new Router()
 
-  router.post('/sessions', async (req: Request) => {
+  router.post('/sessions', async (req: Request, ctx: any) => {
     const body = await req.json().catch(() => ({}))
     const session = await createSession(sql, {
       title: body.title,
       model: body.model,
-      workspace: body.workspace || workspace,
       systemPrompt: body.systemPrompt || systemPrompt,
     })
+    const ws = await initSessionWorkspace(sql, session.id, workspace, ctx.mountPath || '')
+    session.workspace = ws
     return Response.json(session, { status: 201 })
   })
 

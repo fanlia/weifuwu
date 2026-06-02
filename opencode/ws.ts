@@ -2,7 +2,7 @@ import type { WebSocket } from '../vendor.ts'
 import type { LanguageModel } from '../vendor.ts'
 import type { Context } from '../types.ts'
 import type { PendingQuestion, SkillDef, SkillRegistry } from './types.ts'
-import { createSession, getSession, getHistory, addTextMessage } from './session.ts'
+import { createSession, getSession, getHistory, addTextMessage, initSessionWorkspace } from './session.ts'
 import { executeGenerator } from './run.ts'
 import { buildSystemPrompt } from './prompt.ts'
 import { createTools, type ToolContext } from './tools/index.ts'
@@ -24,6 +24,7 @@ const clients = new WeakMap<WebSocket, {
   abortController?: AbortController
   currentSessionId?: number
   userId: number
+  mountPath: string
 }>()
 
 export function createWSHandler(deps: WsDeps) {
@@ -32,7 +33,8 @@ export function createWSHandler(deps: WsDeps) {
   return {
     open(ws: WebSocket, ctx: Context) {
       const userId = (ctx as any).user?.id ?? 0
-      clients.set(ws, { userId })
+      const mountPath = (ctx as any).mountPath ?? ''
+      clients.set(ws, { userId, mountPath })
     },
 
     async message(ws: WebSocket, ctx: Context, data: string | Buffer) {
@@ -54,9 +56,10 @@ export function createWSHandler(deps: WsDeps) {
               userId: client.userId,
               title: msg.title,
               model: msg.model,
-              workspace: msg.workspace || workspace,
               systemPrompt: msg.systemPrompt || systemPrompt,
             })
+            const wsPath = await initSessionWorkspace(sql, session.id, workspace, client.mountPath)
+            session.workspace = wsPath
             ws.send(JSON.stringify({ type: 'session_created', session }))
           } catch (e: any) {
             ws.send(JSON.stringify({ type: 'error', error: e.message }))

@@ -1,16 +1,30 @@
+import { join } from 'node:path'
+import { mkdir } from 'node:fs/promises'
 import type { Sql } from '../vendor.ts'
 import type { Session, Message } from './types.ts'
 
 export async function createSession(
   sql: Sql<{}>,
-  opts: { userId?: number; title?: string; model?: string; workspace?: string; systemPrompt?: string },
+  opts: { userId?: number; title?: string; model?: string; systemPrompt?: string },
 ): Promise<Session> {
   const [row] = await sql`
-    INSERT INTO "_opencode_sessions" ("user_id", "title", "model", "workspace", "system_prompt")
-    VALUES (${opts.userId ?? 0}, ${opts.title ?? null}, ${opts.model ?? 'deepseek-v4-flash'}, ${opts.workspace ?? null}, ${opts.systemPrompt ?? null})
+    INSERT INTO "_opencode_sessions" ("user_id", "title", "model", "system_prompt")
+    VALUES (${opts.userId ?? 0}, ${opts.title ?? null}, ${opts.model ?? 'deepseek-v4-flash'}, ${opts.systemPrompt ?? null})
     RETURNING *
   `
   return row as Session
+}
+
+export function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: number): string {
+  const name = !mountPath || mountPath === '/' ? 'default' : mountPath.replace(/^\//, '')
+  return join(cwd, '.sessions', name, String(sessionId))
+}
+
+export async function initSessionWorkspace(sql: Sql<{}>, sessionId: number, cwd: string, mountPath: string): Promise<string> {
+  const ws = computeSessionWorkspace(cwd, mountPath, sessionId)
+  await mkdir(ws, { recursive: true })
+  await sql`UPDATE "_opencode_sessions" SET workspace = ${ws} WHERE id = ${sessionId}`
+  return ws
 }
 
 export async function getSession(sql: Sql<{}>, id: number): Promise<Session | null> {
