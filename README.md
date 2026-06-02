@@ -1,3 +1,8 @@
+---
+name: weifuwu
+description: Web-standard HTTP framework for Node.js — (req, ctx) => Response
+---
+
 # weifuwu
 
 **Web-standard HTTP framework for Node.js.** `(req, ctx) => Response` — no framework-specific objects, just the Web API your browser already speaks.

@@ -8,14 +8,18 @@
     ".": "./dist/index.js",
     "./tsx": "./dist/index.js"
   },
+  "bin": {
+    "weifuwu": "./dist/cli.js"
+  },
   "files": [
     "dist/",
     "docs/",
+    "cli.ts",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external",
+    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "test": "node --test 'test/**/*.test.ts'"
   },

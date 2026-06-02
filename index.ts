@@ -1,4 +1,5 @@
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
+export { loadEnv } from './env.ts'
 export { serve, createTestServer } from './serve.ts'
 export type { ServeOptions, Server } from './serve.ts'
 export { Router } from './router.ts'
