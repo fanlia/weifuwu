@@ -99,4 +99,135 @@ describe('runWorkflow', () => {
     assert.ok(result)
     assert.equal((result as any).result, 'Hi Alice!')
   })
+
+  it('executes while loop', async () => {
+    const { runWorkflow } = await import('../ai/workflow.ts')
+    const wf = runWorkflow()
+
+    const result = await wf.execute!({
+      goal: 'test while',
+      nodes: [
+        { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
+        {
+          id: 'w1', tool: 'while', input: { condition: '$var.i < 3' }, body: [
+            { id: 'inc', tool: 'eval', input: { expression: '$var.i + 1' } },
+            { id: 's2', tool: 'set', input: { name: 'i', value: '$nodes.inc.output.result' } },
+          ],
+        },
+        { id: 's3', tool: 'get', input: { name: 'i' } },
+      ],
+    } as any, { toolCallId: 'test' })
+
+    assert.ok(result)
+    assert.equal((result as any).result, 3)
+  })
+
+  it('while loop stops when condition is false', async () => {
+    const { runWorkflow } = await import('../ai/workflow.ts')
+    const wf = runWorkflow()
+
+    const result = await wf.execute!({
+      goal: 'test while stop',
+      nodes: [
+        { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
+        {
+          id: 'w1', tool: 'while', input: { condition: 'false' }, body: [
+            { id: 'inc', tool: 'set', input: { name: 'i', value: 99 } },
+          ],
+        },
+        { id: 's2', tool: 'get', input: { name: 'i' } },
+      ],
+    } as any, { toolCallId: 'test' })
+
+    assert.ok(result)
+    assert.equal((result as any).result, 0)
+  })
+
+  it('steps limit exceeded throws', async () => {
+    const { runWorkflow } = await import('../ai/workflow.ts')
+    const wf = runWorkflow({ maxSteps: 5 })
+
+    await assert.rejects(
+      () => wf.execute!({
+        goal: 'test limit',
+        nodes: [
+          { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
+          {
+            id: 'w1', tool: 'while', input: { condition: 'true' }, body: [
+              { id: 'inc', tool: 'eval', input: { expression: '$var.i + 1' } },
+              { id: 's2', tool: 'set', input: { name: 'i', value: '$nodes.inc.output.result' } },
+            ],
+          },
+        ],
+      } as any, { toolCallId: 'test' }),
+      /Step limit exceeded/,
+    )
+  })
+
+  it('conditional false branch', async () => {
+    const { runWorkflow } = await import('../ai/workflow.ts')
+    const wf = runWorkflow()
+
+    const result = await wf.execute!({
+      goal: 'test false',
+      nodes: [
+        { id: 's1', tool: 'set', input: { name: 'val', value: false } },
+        {
+          id: 'if1', tool: 'if', input: {}, conditions: [
+            { test: '$var.val', body: [{ id: 's2', tool: 'set', input: { name: 'r', value: 'yes' } }] },
+          ],
+        },
+        { id: 's3', tool: 'eval', input: { expression: 'false' } },
+      ],
+    } as any, { toolCallId: 'test' })
+
+    // if condition was false, so the last executed node is s3 (eval false)
+    assert.equal((result as any).result?.result, false)
+  })
+
+  it('http node with JSON body', async () => {
+    const { runWorkflow } = await import('../ai/workflow.ts')
+    const wf = runWorkflow()
+
+    const result = await wf.execute!({
+      goal: 'test http post',
+      nodes: [
+        {
+          id: 'h1', tool: 'http', input: {
+            url: 'https://httpbin.org/post',
+            method: 'POST',
+            body: { hello: 'world' },
+          },
+        },
+      ],
+    } as any, { toolCallId: 'test' })
+
+    assert.ok(result)
+    const h = (result as any).result
+    assert.ok(h)
+    assert.equal(h.status, 200)
+    assert.equal(h.body?.json?.hello, 'world')
+  })
+
+  it('expressions: arithmetic and comparison', async () => {
+    const { runWorkflow } = await import('../ai/workflow.ts')
+    const wf = runWorkflow()
+
+    async function evalExpr(expression: string) {
+      const r = await wf.execute!({
+        goal: 'test',
+        nodes: [{ id: 'e1', tool: 'eval', input: { expression } }],
+      } as any, { toolCallId: 'test' })
+      return (r as any).result?.result
+    }
+
+    assert.equal(await evalExpr('2 + 3'), 5)
+    assert.equal(await evalExpr('10 - 4'), 6)
+    assert.equal(await evalExpr('3 * 4'), 12)
+    assert.equal(await evalExpr('10 / 2'), 5)
+    assert.equal(await evalExpr('1 === 1'), true)
+    assert.equal(await evalExpr('1 !== 2'), true)
+    assert.equal(await evalExpr('5 > 3'), true)
+    assert.equal(await evalExpr('3 < 5'), true)
+  })
 })

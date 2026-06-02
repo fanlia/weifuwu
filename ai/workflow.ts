@@ -152,7 +152,10 @@ async function executeNode(node: Node, ctx: WorkflowCtx): Promise<unknown> {
         const test = typeof c.test === 'string' ? Boolean(resolveValue(c.test, ctx)) : c.test
         if (test && c.body) {
           let last: unknown
-          for (const n of c.body) last = await executeNode(n, ctx)
+          for (const n of c.body) {
+            last = await executeNode(n, ctx)
+            ctx.nodeOutputs.set(n.id, last)
+          }
           return last
         }
       }
@@ -168,7 +171,10 @@ async function executeNode(node: Node, ctx: WorkflowCtx): Promise<unknown> {
         ctx.stepCount++
         if (ctx.stepCount > ctx.maxSteps) throw new Error(`Step limit exceeded`)
         if (!Boolean(evaluateExpression(conditionExpr, ctx))) break
-        for (const n of body ?? []) last = await executeNode(n, ctx)
+        for (const n of body ?? []) {
+          last = await executeNode(n, ctx)
+          ctx.nodeOutputs.set(n.id, last)
+        }
       }
       return last
     }
