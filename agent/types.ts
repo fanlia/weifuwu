@@ -5,7 +5,7 @@ export interface AgentConfig {
   tenant_id: string | null
   name: string
   description: string
-  type: 'chat' | 'workflow'
+  type: 'chat' | 'tool-use'
   model: string
   system_prompt: string
   owner_id: number

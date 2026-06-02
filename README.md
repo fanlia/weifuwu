@@ -6,7 +6,7 @@
 
 weifuwu doesn't invent its own request/response abstraction. `Request` and `Response` are the same objects you use in `fetch()` — what you learn in the browser applies directly on the server. `ctx` is the only framework object, and it only carries what the router parsed for you (`params`, `query`).
 
-Everything follows the same `(req, ctx) => Response` contract. The Router handles HTTP routing and WebSocket. All other features — auth, validation, database, GraphQL, AI, workflow — are standalone modules you import and mount with `app.use()`.
+Everything follows the same `(req, ctx) => Response` contract. The Router handles HTTP routing and WebSocket. All other features — auth, validation, database, GraphQL, AI — are standalone modules you import and mount with `app.use()`.
 
 ## Features
 
@@ -18,8 +18,8 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **WebSocket** — `router.ws()` with upgrade middleware (auth before connect)
 - **GraphQL** — `graphql(handler)` sub-Router with GraphiQL IDE
 - **AI streaming** — `ai(handler)` sub-Router via Vercel AI SDK
-- **AI workflows** — `workflow(handler)` sub-Router — intent-to-execution pipelines with `tool()` + SSE
-- **AI Agent** — `agent()` — server-side AI agents with chat/workflow/knowledge types, OpenAI-compatible, Ollama-ready
+- **DAG workflow tool** — `runWorkflow()` — multi-step execution engine as a single AI SDK `Tool`
+- **AI Agent** — `agent()` — server-side AI agents with chat/tool-use/knowledge types, OpenAI-compatible, Ollama-ready
 - **Messaging** — `messager()` — real-time chat with channels, WebSocket, agent routing, webhook support
 - **Tenant BaaS** — `tenant()` — multi-tenant dynamic tables, auto REST + GraphQL, row-level isolation, pgvector/HNSW
 - **Redis** — `redis()` — ioredis client, `ctx.redis`, middleware
@@ -734,7 +734,7 @@ await fetch('http://localhost/api/sys/tenants/invite', {
 
 ## AI Agent
 
-Server-side AI agents with OpenAI-compatible API. Built-in chat, workflow (tool-calling), and knowledge (RAG) types. Works out of the box with Ollama or any OpenAI-compatible provider.
+Server-side AI agents with OpenAI-compatible API. Built-in chat, tool-use (tool-calling), and knowledge (RAG) types. Works out of the box with Ollama or any OpenAI-compatible provider.
 
 ```ts
 import { agent } from 'weifuwu'
@@ -748,7 +748,7 @@ app.use('/api', agents.router())
 | Type | Description | Execution |
 |------|-------------|-----------|
 | `chat` | Pure conversation | `streamText()` / `generateText()` |
-| `workflow` | Tool-calling agent | `streamText({ tools })` |
+| `tool-use` | Tool-calling agent | `streamText({ tools })` |
 
 ### Knowledge (RAG)
 
@@ -885,18 +885,18 @@ app.use('/chat', ai(async (req, ctx) => {
 serve(app.handler(), { port: 3000 })
 ```
 
-## Workflow
+## runWorkflow
 
-Define business capabilities as **Tools** (`tool()`), then chain them into **workflows** for AI-driven multi-step execution. Works with or without an LLM — hand-write the workflow JSON or let AI generate it from a goal.
+Multi-step DAG execution engine — packaged as a single AI SDK `Tool`. Use it with `streamText()` or `generateText()` when the LLM needs conditional logic, loops, or multi-step tool orchestration.
 
 ```ts
-import { Router, tool, workflow } from 'weifuwu'
+import { tool, streamText } from 'ai'
+import { runWorkflow } from 'weifuwu'
 import { z } from 'zod'
 
-// 1. Define tools (business capabilities)
 const tools = {
   queryUser: tool({
-    description: 'Query user info, returns email, name',
+    description: 'Query user info',
     inputSchema: z.object({ userId: z.string() }),
     execute: async ({ userId }) => ({ id: userId, email: 'user@test.com', name: 'Test' }),
   }),
@@ -905,139 +905,57 @@ const tools = {
     inputSchema: z.object({ to: z.string(), subject: z.string() }),
     execute: async ({ to, subject }) => ({ sent: true }),
   }),
+  runWF: runWorkflow({ tools: { queryUser, sendEmail } }),
 }
 
-// 2. Mount workflow sub-router
-const app = new Router()
-app.use('/agent', workflow(() => ({ tools })))
-// POST /agent  { nodes: [...] }  →  200 { workflow: {...}, result: ... }
-
-// With SSE streaming:
-app.use('/agent-stream', workflow(() => ({ tools, stream: true })))
-// POST /agent-stream  { nodes: [...] }
-// → 200 { workflowId: "xxx", eventsUrl: "/xxx/events" }
-// GET  /agent-stream/:workflowId/events
-// → SSE: workflow-start → node-start → node-end → complete
-
-// With LLM model (generates workflow from goal):
-app.use('/agent-llm', workflow(() => ({
+// Use in any streamText call — the LLM can decide when to trigger a workflow
+const result = await streamText({
+  model,
   tools,
-  model: openai('gpt-4o'),
-})))
-// POST /agent-llm  { goal: "给用户123发欢迎邮件" }
-// ← LLM generates → executes → returns result
-```
-
-### Tool
-
-```ts
-import { tool } from 'weifuwu'
-import { z } from 'zod'
-
-const myTool = tool({
-  description: '做什么的，返回什么',
-  inputSchema: z.object({ key: z.string() }),
-  execute: async (input, ctx) => {
-    return { result: input.key }
-  },
+  messages: [{ role: 'user', content: '查询用户123，如果存在则发送欢迎邮件' }],
 })
 ```
 
-`ctx.onStream` 用于流式推送（如 LLM token 输出）：
+### Node types
 
-```ts
-const llmTool = tool({
-  description: '生成文本',
-  inputSchema: z.object({ prompt: z.string() }),
-  execute: async (input, ctx) => {
-    const stream = await openai.chat.completions.create({ ... })
-    let full = ''
-    for await (const chunk of stream) {
-      full += chunk.choices[0]?.delta?.content || ''
-      ctx.onStream?.({ type: 'llm-stream', chunk, accumulated: full })
-    }
-    return { text: full }
-  },
-})
-```
-
-### Core Nodes
-
-7 built-in node types:
+7 built-in node types for defining the execution graph:
 
 | Node | Purpose | Input |
 |------|---------|-------|
-| `call` | Call a tool or sub-workflow | `{ tool: "name", args: {...} }` or `{ function: "name", args: {...} }` |
-| `set` | Declare or assign a variable | `{ name: "x", value: 42 }` |
+| `call` | Call a registered AI SDK Tool | `{ tool: "name", args: {...} }` |
+| `set` | Assign a variable | `{ name: "x", value: 42 }` |
 | `get` | Read a variable | `{ name: "x" }` |
 | `eval` | Evaluate an expression | `{ expression: "$var.x + 1" }` |
 | `if` | Conditional branch | `{ conditions: [{ test: ..., body: [nodes] }] }` |
 | `while` | Loop | `{ condition: "$var.i < 5" }, body: [nodes]` |
 | `http` | HTTP request | `{ url: "https://...", method: "GET" }` |
 
-### Variable Reference Syntax
+### Reference syntax
 
 | Pattern | Meaning | Example |
 |---------|---------|---------|
 | `$var.x` | Variable `x` | `$var.counter` |
 | `$nodes.u.output` | Full output of node `u` | `$nodes.u.output` |
 | `$nodes.u.output.field` | Specific field | `$nodes.u.output.email` |
-| `$input.userId` | Workflow input param | `$input.userId` |
-| `42`, `true`, `"hello"` | Literal values | Passed as-is |
+| `$input.userId` | Input param | `$input.userId` |
 
-### Engine API
+### LLM generation
 
-For programmatic use outside of Router:
-
-```ts
-import { createWorkflowEngine, createSSEManager } from 'weifuwu'
-
-const sse = createSSEManager()
-const engine = createWorkflowEngine({ tools, sseManager: sse })
-
-// Sync execution
-const result = await engine.execute({ nodes: [...] })
-
-// Async execution with SSE
-engine.runAsync('wf-1', { nodes: [...] })
-```
-
-### SSE Events
+Pass a `model` to `runWorkflow` — the LLM generates the workflow JSON from a goal:
 
 ```ts
-const sse = createSSEManager()
-const stream = sse.createStream('wf-1')
+const runWF = runWorkflow({
+  tools: { queryUser, sendEmail },
+  model: openai('gpt-4o'),
+})
 
-const reader = stream.getReader()
-//   event: workflow-start   — { workflowId, goal }
-//   event: node-start       — { nodeId, tool, input }
-//   event: node-end         — { nodeId, output }
-//   event: llm-stream       — { nodeId, chunk, accumulated }
-//   event: complete         — { result, duration }
-//   event: error            — { error }
+const result = await streamText({
+  model,
+  tools: { runWF },
+})
 ```
 
-### Sub-workflows
-
-Define reusable sub-workflows in the `functions` field:
-
-```json
-{
-  "functions": {
-    "double": {
-      "inputSchema": { "type": "object", "properties": { "x": { "type": "number" } } },
-      "workflow": {
-        "nodes": [
-          { "id": "calc", "tool": "eval", "input": { "expression": "$input.x * 2" } }
-        ]
-      }
-    }
-  },
-  "nodes": [
-    { "id": "call_double", "tool": "call", "input": { "function": "double", "args": { "x": 21 } } }
-  ]
-}
-```
+The LLM calls `runWF` with a goal, and `runWorkflow` internally calls `generateText` to produce the workflow nodes, then executes them.
 
 ## React pages with tsx()
 
@@ -1238,14 +1156,12 @@ export default function NotFound() {
 ## Usage within a full app
 
 ```ts
-import { serve, Router, ai, graphql, workflow } from 'weifuwu'
-import { tsx } from 'weifuwu/tsx'
+import { serve, Router, ai, graphql } from 'weifuwu'
 
 const app = new Router()
 app.use('/', await tsx({ dir: './pages/' }))
 app.use('/chat', ai(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages })))
 app.use('/graphql', graphql(() => ({ schema: `type Query { hello: String }`, resolvers: { Query: { hello: () => 'world' } } })))
-app.use('/agent', workflow(() => ({ tools: myTools, stream: true })))
 app.ws('/chat', { message(ws, _, data) { ws.send(data) } })
 
 serve(app.handler(), { websocket: app.websocketHandler() })
@@ -1378,7 +1294,7 @@ Returns `TenantModule` — `{ migrate, middleware, router, graphql, close }`.
 | `model` | env `OPENAI_MODEL` → Ollama | `LanguageModel` from ai SDK |
 | `embeddingModel` | env `OPENAI_EMBEDDING_MODEL` → Ollama | `EmbeddingModel` for knowledge RAG |
 | `embeddingDimension` | `1024` | Vector dimension for pgvector |
-| `tools` | — | Tools for workflow-type agents (ai SDK `Tool` objects) |
+| `tools` | — | Tools for tool-use agents (ai SDK `Tool` objects) |
 
 Returns `AgentModule` — `{ migrate, router, run, addKnowledge, close }`.
 
@@ -1462,12 +1378,12 @@ serve(app.handler(), { websocket: app.websocketHandler() })
 | `queue(options?)` | Redis-backed job queue — immediate, delayed, cron scheduling |
 | `user(options)` | Built-in authentication (password + OAuth2 Server + JWT, middleware) |
 | `tenant(options)` | Multi-tenant BaaS — dynamic tables, REST + GraphQL auto-generation, row-level isolation |
-| `agent(options)` | AI Agent — chat/workflow/knowledge, Ollama-ready, programmatic API |
+| `agent(options)` | AI Agent — chat/tool-use/knowledge, Ollama-ready, programmatic API |
 | `messager(options)` | Real-time messaging — channels, WebSocket, agent routing, webhooks |
 | `opencode(options)` | AI programming assistant — chat agents with tools, skills, permissions, isolated workspaces |
 | `graphql(handler)` | GraphQL endpoint (GET/POST + GraphiQL) |
 | `ai(handler)` | AI streaming endpoint (POST) |
-| `workflow(handler)` | Workflow engine (POST + SSE) |
+| `runWorkflow(options)` | DAG execution engine as an AI SDK `Tool` — use with `streamText()` |
 
 ### Deploy
 
@@ -1485,9 +1401,7 @@ serve(app.handler(), { websocket: app.websocketHandler() })
 | `setCookie(res, name, value, options?)` | Set cookie (returns new Response) |
 | `deleteCookie(res, name)` | Delete cookie (returns new Response) |
 | `useTsx()` | Hook returning `{ params, query, user, parsed }` from `TsxContext` |
-| `createWorkflowEngine(options)` | Programmatic workflow engine |
-| `createSSEManager()` | SSE event manager for workflows |
-| `tool(def)` | Define a workflow tool |
+| `runWorkflow(options)` | Create a DAG execution AI SDK `Tool` — `{ tools?, model?, maxSteps? }` |
 | `pgTable(name, columns)` | Type-safe table schema definition with DDL + CRUD |
 | `pg.table(name, columns)` | Pre-bound table (no `sql` parameter needed for CRUD) |
 | `serial()`, `uuid()`, `text()`, `integer()`, `boolean()`, `timestamptz()`, `jsonb()`, `textArray()`, `vector()` | Column type builders |

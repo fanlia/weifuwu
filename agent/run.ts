@@ -78,7 +78,7 @@ export function createRunner(deps: RunnerDeps) {
       } as unknown as Tool
     }
 
-    if (agent.type === 'workflow' && userTools) {
+    if (agent.type === 'tool-use' && userTools) {
       for (const [key, tool] of Object.entries(userTools)) {
         tools[key] = tool
       }
