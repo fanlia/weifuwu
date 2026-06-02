@@ -4,7 +4,7 @@ import type { SessionMessage } from './session.ts'
 import { addTextMessage, addToolMessages } from './session.ts'
 
 export interface ExecuteOptions {
-  sessionId: number
+  sessionId: string
   input: string
   model: LanguageModel
   tools: Record<string, Tool>

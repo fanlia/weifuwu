@@ -3,7 +3,7 @@ import type { Sql } from '../vendor.ts'
 export async function migrate(sql: Sql<{}>): Promise<void> {
   await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS "_opencode_sessions" (
-      "id" SERIAL PRIMARY KEY,
+      "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       "tenant_id" TEXT,
       "user_id" INTEGER NOT NULL DEFAULT 0,
       "title" TEXT,
@@ -25,7 +25,7 @@ export async function migrate(sql: Sql<{}>): Promise<void> {
   await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS "_opencode_messages" (
       "id" SERIAL PRIMARY KEY,
-      "session_id" INTEGER NOT NULL REFERENCES "_opencode_sessions"("id") ON DELETE CASCADE,
+      "session_id" UUID NOT NULL REFERENCES "_opencode_sessions"("id") ON DELETE CASCADE,
       "role" TEXT NOT NULL,
       "content" TEXT,
       "tool_calls" JSONB,

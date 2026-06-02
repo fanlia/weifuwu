@@ -2,7 +2,7 @@ import type { WebSocket } from '../vendor.ts'
 import type { LanguageModel } from '../vendor.ts'
 import type { Context } from '../types.ts'
 import type { PendingQuestion, SkillDef, SkillRegistry } from './types.ts'
-import { createSession, getSession, getHistory, addTextMessage, initSessionWorkspace } from './session.ts'
+import { createSession, getSession, getHistory, addTextMessage } from './session.ts'
 import { executeGenerator } from './run.ts'
 import { buildSystemPrompt } from './prompt.ts'
 import { createTools, type ToolContext } from './tools/index.ts'
@@ -22,7 +22,7 @@ interface WsDeps {
 // Per-connection state
 const clients = new WeakMap<WebSocket, {
   abortController?: AbortController
-  currentSessionId?: number
+  currentSessionId?: string
   userId: number
   mountPath: string
 }>()
@@ -57,9 +57,7 @@ export function createWSHandler(deps: WsDeps) {
               title: msg.title,
               model: msg.model,
               systemPrompt: msg.systemPrompt || systemPrompt,
-            })
-            const wsPath = await initSessionWorkspace(sql, session.id, workspace, client.mountPath)
-            session.workspace = wsPath
+            }, workspace, client.mountPath)
             ws.send(JSON.stringify({ type: 'session_created', session }))
           } catch (e: any) {
             ws.send(JSON.stringify({ type: 'error', error: e.message }))

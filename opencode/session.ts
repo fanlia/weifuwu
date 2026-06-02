@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import type { Sql } from '../vendor.ts'
@@ -6,28 +7,26 @@ import type { Session, Message } from './types.ts'
 export async function createSession(
   sql: Sql<{}>,
   opts: { userId?: number; title?: string; model?: string; systemPrompt?: string },
+  cwd: string,
+  mountPath: string,
 ): Promise<Session> {
+  const id = randomUUID()
+  const ws = computeSessionWorkspace(cwd, mountPath, id)
+  await mkdir(ws, { recursive: true })
   const [row] = await sql`
-    INSERT INTO "_opencode_sessions" ("user_id", "title", "model", "system_prompt")
-    VALUES (${opts.userId ?? 0}, ${opts.title ?? null}, ${opts.model ?? 'deepseek-v4-flash'}, ${opts.systemPrompt ?? null})
+    INSERT INTO "_opencode_sessions" ("id", "user_id", "title", "model", "workspace", "system_prompt")
+    VALUES (${id}, ${opts.userId ?? 0}, ${opts.title ?? null}, ${opts.model ?? 'deepseek-v4-flash'}, ${ws}, ${opts.systemPrompt ?? null})
     RETURNING *
   `
   return row as Session
 }
 
-export function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: number): string {
+function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: string): string {
   const name = !mountPath || mountPath === '/' ? 'default' : mountPath.replace(/^\//, '')
-  return join(cwd, '.sessions', name, String(sessionId))
+  return join(cwd, '.sessions', name, sessionId)
 }
 
-export async function initSessionWorkspace(sql: Sql<{}>, sessionId: number, cwd: string, mountPath: string): Promise<string> {
-  const ws = computeSessionWorkspace(cwd, mountPath, sessionId)
-  await mkdir(ws, { recursive: true })
-  await sql`UPDATE "_opencode_sessions" SET workspace = ${ws} WHERE id = ${sessionId}`
-  return ws
-}
-
-export async function getSession(sql: Sql<{}>, id: number): Promise<Session | null> {
+export async function getSession(sql: Sql<{}>, id: string): Promise<Session | null> {
   const [row] = await sql`SELECT * FROM "_opencode_sessions" WHERE id = ${id} AND active = true LIMIT 1`
   return (row as any as Session) ?? null
 }
@@ -41,11 +40,11 @@ export async function listSessions(sql: Sql<{}>, userId?: number): Promise<Sessi
   return rows as any as Session[]
 }
 
-export async function deleteSession(sql: Sql<{}>, id: number): Promise<void> {
+export async function deleteSession(sql: Sql<{}>, id: string): Promise<void> {
   await sql`UPDATE "_opencode_sessions" SET active = false, updated_at = NOW() WHERE id = ${id}`
 }
 
-export async function getHistory(sql: Sql<{}>, sessionId: number, limit = 50): Promise<SessionMessage[]> {
+export async function getHistory(sql: Sql<{}>, sessionId: string, limit = 50): Promise<SessionMessage[]> {
   const rows = await sql`
     SELECT * FROM "_opencode_messages"
     WHERE session_id = ${sessionId}
@@ -57,7 +56,7 @@ export async function getHistory(sql: Sql<{}>, sessionId: number, limit = 50): P
 
 export interface SessionMessage {
   id: number
-  session_id: number
+  session_id: string
   role: 'user' | 'assistant' | 'tool'
   content: string | null
   tool_calls: unknown[] | null
@@ -69,7 +68,7 @@ export interface SessionMessage {
 
 export async function addTextMessage(
   sql: Sql<{}>,
-  sessionId: number,
+  sessionId: string,
   role: 'user' | 'assistant',
   content: string,
   tokensIn = 0,
@@ -85,7 +84,7 @@ export async function addTextMessage(
 
 export async function addToolMessages(
   sql: Sql<{}>,
-  sessionId: number,
+  sessionId: string,
   toolCalls: unknown[],
   toolResults: unknown[],
 ): Promise<Message> {
@@ -97,6 +96,6 @@ export async function addToolMessages(
   return row as Message
 }
 
-export async function updateSessionTitle(sql: Sql<{}>, id: number, title: string): Promise<void> {
+export async function updateSessionTitle(sql: Sql<{}>, id: string, title: string): Promise<void> {
   await sql`UPDATE "_opencode_sessions" SET title = ${title}, updated_at = NOW() WHERE id = ${id}`
 }

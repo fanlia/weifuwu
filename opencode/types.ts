@@ -2,7 +2,7 @@ import type { Router } from '../router.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
 export interface Session {
-  id: number
+  id: string
   tenant_id: string | null
   user_id: number
   title: string | null
@@ -18,7 +18,7 @@ export interface Session {
 
 export interface Message {
   id: number
-  session_id: number
+  session_id: string
   role: 'user' | 'assistant' | 'tool'
   content: string | null
   tool_calls: unknown[] | null
@@ -79,7 +79,7 @@ export interface OpencodeModule {
 }
 
 export interface WsClientInfo {
-  sessionId?: number
+  sessionId?: string
   abortController?: AbortController
 }
 

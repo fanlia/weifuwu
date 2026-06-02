@@ -2,7 +2,7 @@ import { Router } from '../router.ts'
 import { tsx } from '../tsx.ts'
 import type { LanguageModel } from '../vendor.ts'
 import type { SkillDef, SkillRegistry, OpencodePermissions, PendingQuestion } from './types.ts'
-import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage, initSessionWorkspace } from './session.ts'
+import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage } from './session.ts'
 import { executeGenerator } from './run.ts'
 import { buildSystemPrompt } from './prompt.ts'
 import { createTools, type ToolContext } from './tools/index.ts'
@@ -29,9 +29,7 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
       title: body.title,
       model: body.model,
       systemPrompt: body.systemPrompt || systemPrompt,
-    })
-    const ws = await initSessionWorkspace(sql, session.id, workspace, ctx.mountPath || '')
-    session.workspace = ws
+    }, workspace, ctx.mountPath || '')
     return Response.json(session, { status: 201 })
   })
 
@@ -41,7 +39,7 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
   })
 
   router.get('/sessions/:id', async (_req: Request, ctx: any) => {
-    const id = parseInt(ctx.params.id)
+    const id = ctx.params.id
     const session = await getSession(sql, id)
     if (!session) return new Response('Not Found', { status: 404 })
 
@@ -50,13 +48,13 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
   })
 
   router.delete('/sessions/:id', async (_req: Request, ctx: any) => {
-    const id = parseInt(ctx.params.id)
+    const id = ctx.params.id
     await deleteSession(sql, id)
     return new Response(null, { status: 204 })
   })
 
   router.post('/sessions/:id/message', async (req: Request, ctx: any) => {
-    const sessionId = parseInt(ctx.params.id)
+    const sessionId = ctx.params.id
     const session = await getSession(sql, sessionId)
     if (!session) return new Response('Session Not Found', { status: 404 })
 
