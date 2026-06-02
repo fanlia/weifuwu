@@ -1,3 +1,5 @@
+import { pgTable, serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
+
 export interface MigrateOptions {
   usersTable: string
   pg: any
@@ -5,58 +7,54 @@ export interface MigrateOptions {
 }
 
 export async function migrate(opts: MigrateOptions): Promise<void> {
-  const { pg, usersTable, oauth2 } = opts
+  const { pg, usersTable: name, oauth2 } = opts
 
-  await pg.sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS "${usersTable}" (
-      "id" SERIAL PRIMARY KEY,
-      "email" TEXT UNIQUE NOT NULL,
-      "password" TEXT NOT NULL,
-      "name" TEXT NOT NULL,
-      "role" TEXT NOT NULL DEFAULT 'user',
-      "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
+  const users = pgTable(name, {
+    id: serial('id').primaryKey(),
+    email: text('email').unique().notNull(),
+    password: text('password').notNull(),
+    name: text('name').notNull(),
+    role: text('role').default('user'),
+    created_at: timestamptz('created_at').default(sql`NOW()`),
+    updated_at: timestamptz('updated_at').default(sql`NOW()`),
+  })
+  await users.create(pg.sql)
 
   if (!oauth2) return
 
-  await pg.sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS "_oauth2_clients" (
-      "id" SERIAL PRIMARY KEY,
-      "name" TEXT NOT NULL,
-      "client_id" TEXT UNIQUE NOT NULL,
-      "client_secret" TEXT NOT NULL,
-      "redirect_uris" TEXT[] NOT NULL,
-      "scopes" TEXT DEFAULT '',
-      "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
+  const clients = pgTable('_oauth2_clients', {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+    client_id: text('client_id').unique().notNull(),
+    client_secret: text('client_secret').notNull(),
+    redirect_uris: textArray('redirect_uris').notNull(),
+    scopes: text('scopes').default(''),
+    created_at: timestamptz('created_at').default(sql`NOW()`),
+  })
+  await clients.create(pg.sql)
 
-  await pg.sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS "_oauth2_codes" (
-      "id" SERIAL PRIMARY KEY,
-      "code" TEXT UNIQUE NOT NULL,
-      "client_id" TEXT NOT NULL,
-      "user_id" INTEGER NOT NULL REFERENCES "${usersTable}"("id"),
-      "redirect_uri" TEXT NOT NULL,
-      "code_challenge" TEXT,
-      "code_challenge_method" TEXT,
-      "scope" TEXT,
-      "expires_at" TIMESTAMPTZ NOT NULL,
-      "used" BOOLEAN NOT NULL DEFAULT FALSE
-    )
-  `)
+  const codes = pgTable('_oauth2_codes', {
+    id: serial('id').primaryKey(),
+    code: text('code').unique().notNull(),
+    client_id: text('client_id').notNull(),
+    user_id: integer('user_id').notNull().references(name, 'id'),
+    redirect_uri: text('redirect_uri').notNull(),
+    code_challenge: text('code_challenge'),
+    code_challenge_method: text('code_challenge_method'),
+    scope: text('scope'),
+    expires_at: timestamptz('expires_at').notNull(),
+    used: boolean('used').default(false),
+  })
+  await codes.create(pg.sql)
 
-  await pg.sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS "_oauth2_tokens" (
-      "id" SERIAL PRIMARY KEY,
-      "token" TEXT UNIQUE NOT NULL,
-      "client_id" TEXT NOT NULL,
-      "user_id" INTEGER REFERENCES "${usersTable}"("id"),
-      "scope" TEXT,
-      "expires_at" TIMESTAMPTZ NOT NULL,
-      "revoked" BOOLEAN NOT NULL DEFAULT FALSE
-    )
-  `)
+  const tokens = pgTable('_oauth2_tokens', {
+    id: serial('id').primaryKey(),
+    token: text('token').unique().notNull(),
+    client_id: text('client_id').notNull(),
+    user_id: integer('user_id').references(name, 'id'),
+    scope: text('scope'),
+    expires_at: timestamptz('expires_at').notNull(),
+    revoked: boolean('revoked').default(false),
+  })
+  await tokens.create(pg.sql)
 }

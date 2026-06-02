@@ -2,16 +2,17 @@ import crypto from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import type { Context } from '../types.ts'
 import type { OAuth2Client } from './types.ts'
+import type { BoundTable } from '../postgres/schema/index.ts'
 
 interface OAuth2Deps {
   pg: any
-  usersTable: string
+  users: BoundTable<any>
   jwtSecret: string
   expiresIn: string | number
 }
 
 export function createOAuth2Server(deps: OAuth2Deps) {
-  const { pg, usersTable, jwtSecret, expiresIn } = deps
+  const { pg, users, jwtSecret, expiresIn } = deps
 
   async function getClient(clientId: string): Promise<OAuth2Client | null> {
     const [row] = await pg.sql`
@@ -284,9 +285,7 @@ h2{color:#dc2626}.desc{color:#555}</style>
 
     await pg.sql`UPDATE "_oauth2_codes" SET "used" = TRUE WHERE "id" = ${stored.id}`
 
-    const [user] = await pg.sql`
-      SELECT * FROM ${pg.sql(usersTable as any)} WHERE "id" = ${stored.user_id} LIMIT 1
-    `
+    const user = await users.findById(stored.user_id)
     if (!user) {
       return Response.json({ error: 'invalid_grant' }, { status: 400 })
     }

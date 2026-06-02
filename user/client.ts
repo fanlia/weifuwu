@@ -5,6 +5,7 @@ import type { Middleware, Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
+import { pgTable, serial, text, timestamptz, sql } from '../postgres/schema/index.ts'
 import { migrate as runMigrations } from './migrate.ts'
 import { createOAuth2Server } from './oauth2.ts'
 
@@ -41,9 +42,19 @@ export function user(options: UserOptions): UserModule {
 
   const base = new PgModule(pg)
 
+  const users = pg.table(table, {
+    id: serial('id').primaryKey(),
+    email: text('email').unique().notNull(),
+    password: text('password').notNull(),
+    name: text('name').notNull(),
+    role: text('role').default('user'),
+    created_at: timestamptz('created_at').default(sql`NOW()`),
+    updated_at: timestamptz('updated_at').default(sql`NOW()`),
+  })
+
   let oauth2: ReturnType<typeof createOAuth2Server> | null = null
   if (oauth2Enabled) {
-    oauth2 = createOAuth2Server({ pg, usersTable: table, jwtSecret: secret, expiresIn })
+    oauth2 = createOAuth2Server({ pg, users, jwtSecret: secret, expiresIn })
   }
 
   async function migrate(): Promise<void> {
@@ -64,13 +75,12 @@ export function user(options: UserOptions): UserModule {
   }
 
   async function findByEmail(email: string): Promise<any | undefined> {
-    const [row] = await pg.sql`SELECT * FROM ${pg.sql(table as any)} WHERE "email" = ${email} LIMIT 1`
-    return row
+    const rows = await users.find({ email } as any)
+    return rows[0]
   }
 
   async function findById(id: number): Promise<any | undefined> {
-    const [row] = await pg.sql`SELECT * FROM ${pg.sql(table as any)} WHERE "id" = ${id} LIMIT 1`
-    return row
+    return await users.findById(id)
   }
 
   async function register(data: { email: string; password: string; name: string }): Promise<AuthResult> {
@@ -84,12 +94,8 @@ export function user(options: UserOptions): UserModule {
     }
 
     const hashed = hashPassword(password)
-
-    const [row] = await pg.sql`
-      INSERT INTO ${pg.sql(table as any)} ("email", "password", "name") VALUES (${email}, ${hashed}, ${name}) RETURNING *
-    `
-
-    const userData = row as UserData
+    const row = await users.insert({ email, password: hashed, name } as any)
+    const userData = row as unknown as UserData
     const token = signToken(userData)
     return { user: stripPassword(userData), token }
   }
@@ -97,7 +103,8 @@ export function user(options: UserOptions): UserModule {
   async function login(data: { email: string; password: string }): Promise<AuthResult> {
     const { email, password } = LoginSchema.parse(data)
 
-    const row = await findByEmail(email)
+    const rows = await users.find({ email } as any)
+    const row = rows[0]
     if (!row) {
       const err = new Error('Invalid email or password')
       ;(err as any).status = 401
@@ -110,7 +117,7 @@ export function user(options: UserOptions): UserModule {
       throw err
     }
 
-    const userData = row as UserData
+    const userData = row as unknown as UserData
     const token = signToken(userData)
     return { user: stripPassword(userData), token }
   }
