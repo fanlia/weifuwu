@@ -9,7 +9,7 @@
     "./tsx": "./dist/index.js"
   },
   "bin": {
-    "weifuwu": "./dist/cli.js"
+    "weifuwu": "dist/cli.js"
   },
   "files": [
     "dist/",
