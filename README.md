@@ -21,7 +21,7 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **Middleware** — global/path-scoped/route-level — onion model with short-circuit
 - **Modules** — auth, validation, upload, compression, rate-limit, cookies, static files, CORS, logging
 - **React SSR** — `tsx()` — pages, layouts, loaders, route handlers, Tailwind CSS, HMR
-- **PostgreSQL** — schema builder with type-safe DDL + CRUD, transactions, vector search
+- **PostgreSQL** — schema builder with type-safe DDL, CRUD (`read`/`readMany`, `insertMany`, `update`/`updateMany`, `delete`/`deleteMany`), WHERE helpers (`eq`, `gte`, `contains`, `and`, `or`), transactions, vector search
 - **Auth** — password + JWT + OAuth2 Server (authorization code / PKCE / client_credentials)
 - **Real-time** — WebSocket, messaging channels with agent routing
 - **AI** — streaming endpoint, DAG workflow tool, AI agents with RAG and tool-use
@@ -103,7 +103,7 @@ node app.ts
 
 | Module | Import | What it gives you |
 |--------|--------|-------------------|
-| PostgreSQL | `postgres(options?)` | Connection pool + schema builder + CRUD + transactions |
+| PostgreSQL | `postgres(options?)` | Connection pool + schema builder + CRUD (`read`/`readMany`, `insertMany`, `update`/`updateMany`, `delete`/`deleteMany`) + where helpers (`eq`, `gte`, `contains`, `and`, `or`) + transactions |
 | Redis | `redis(options?)` | ioredis client injected as `ctx.redis` |
 | Queue | `queue(options?)` | Redis-backed job queue with cron scheduling |
 | Deploy | `deploy(config)` | Self-hosted PaaS, see [deploy.md](./deploy.md) |
@@ -150,6 +150,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `pgTable(name, columns)` | Type-safe table schema builder |
 | `pg.table(name, columns)` | Pre-bound table (no `sql` param needed) |
 | `serial()`, `uuid()`, `text()`, ... | Column type builders |
+| `eq()`, `gte()`, `contains()`, `and()` ... | WHERE clause helpers — same API as Drizzle |
 | `PgModule` | Base class for DB-backed modules |
 
 ## License
