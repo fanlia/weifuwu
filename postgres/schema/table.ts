@@ -1,6 +1,7 @@
 import type { Sql } from '../../vendor.ts'
 import { ColumnBuilder, toDDL, type PartitionByDef } from './columns.ts'
 import { SQL } from './sql.ts'
+import { and } from './where.ts'
 
 export interface IndexOptions {
   unique?: boolean
@@ -17,7 +18,6 @@ export interface FindOptions {
   orderBy?: Record<string, 'asc' | 'desc'>
   limit?: number
   offset?: number
-  where?: SQL
 }
 
 interface ColEntry {
@@ -113,27 +113,33 @@ export class Table<R extends Record<string, unknown>> {
     return (row as unknown as R) ?? undefined
   }
 
-  async readMany(sql: Sql<{}>, where?: Partial<R>, opts?: FindOptions): Promise<{ count: number; data: R[] }> {
+  async readMany(sql: Sql<{}>, where?: Partial<R> | SQL | SQL[], opts?: FindOptions): Promise<{ count: number; data: R[] }> {
     const conditions: string[] = []
     const values: unknown[] = []
-    for (const [prop, value] of Object.entries(where || {}) as [string, unknown][]) {
-      if (value === undefined) continue
-      const entry = this.colEntries.find(e => e.prop === prop)
-      const db = entry ? entry.db : prop
-      conditions.push(`"${db}" = $${conditions.length + 1}`)
-      values.push(value)
+
+    let w = where
+    if (Array.isArray(w)) {
+      w = w.length > 0 ? and(...w) : undefined
     }
 
-    if (opts?.where) {
+    if (w instanceof SQL) {
       let fragment = ''
-      for (let i = 0; i < opts.where.strings.length; i++) {
-        fragment += opts.where.strings[i]
-        if (i < opts.where.values.length) {
+      for (let i = 0; i < w.strings.length; i++) {
+        fragment += w.strings[i]
+        if (i < w.values.length) {
           fragment += `$${values.length + 1}`
-          values.push(opts.where.values[i])
+          values.push(w.values[i])
         }
       }
-      conditions.push(`(${fragment})`)
+      conditions.push(fragment)
+    } else {
+      for (const [prop, value] of Object.entries(w || {}) as [string, unknown][]) {
+        if (value === undefined) continue
+        const entry = this.colEntries.find(e => e.prop === prop)
+        const db = entry ? entry.db : prop
+        conditions.push(`"${db}" = $${conditions.length + 1}`)
+        values.push(value)
+      }
     }
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''

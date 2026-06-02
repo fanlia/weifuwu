@@ -1,12 +1,8 @@
-import { SQL } from '../postgres/schema/sql.ts'
-import type { BoundTable } from '../postgres/schema/index.ts'
+import { eq, gte, lt, contains, and } from '../postgres/schema/index.ts'
+import type { BoundTable, SQL } from '../postgres/schema/index.ts'
 import type { Context } from '../types.ts'
 import type { Sql } from '../vendor.ts'
 import type { LogEntryInput } from './types.ts'
-
-function rawSQL(strings: TemplateStringsArray, ...values: unknown[]): SQL {
-  return new SQL(strings, values)
-}
 
 export function createHandler(sql: Sql<{}>, tableName: string) {
   return async (req: Request, ctx: Context) => {
@@ -35,54 +31,32 @@ export function createHandler(sql: Sql<{}>, tableName: string) {
 export function listHandler(entries: BoundTable<any>) {
   return async (req: Request) => {
     const url = new URL(req.url)
-    const where: Record<string, unknown> = {}
-    const strings: string[] = ['']
-    const values: unknown[] = []
+    const conditions: SQL[] = []
 
     const level = url.searchParams.get('level')
-    if (level) where.level = level
+    if (level) conditions.push(eq('level', level))
 
     const source = url.searchParams.get('source')
-    if (source) where.source = source
+    if (source) conditions.push(eq('source', source))
 
     for (const [key, value] of url.searchParams) {
       if (key.startsWith('meta.')) {
-        if (values.length > 0) strings[strings.length - 1] += ' AND '
-        strings[strings.length - 1] += 'metadata @> '
-        strings.push('')
-        values.push({ [key.slice(5)]: value })
+        conditions.push(contains('metadata', { [key.slice(5)]: value }))
       }
     }
 
     const after = url.searchParams.get('after')
-    if (after) {
-      if (values.length > 0) strings[strings.length - 1] += ' AND '
-      strings[strings.length - 1] += 'created_at >= '
-      strings.push('')
-      values.push(after)
-    }
+    if (after) conditions.push(gte('created_at', after))
 
     const before = url.searchParams.get('before')
-    if (before) {
-      if (values.length > 0) strings[strings.length - 1] += ' AND '
-      strings[strings.length - 1] += 'created_at < '
-      strings.push('')
-      values.push(before)
-    }
+    if (before) conditions.push(lt('created_at', before))
 
     const limit = parseInt(url.searchParams.get('limit') ?? '50', 10)
     const offset = parseInt(url.searchParams.get('offset') ?? '0', 10)
 
     const { count, data } = await entries.readMany(
-      Object.keys(where).length > 0 ? where as any : undefined,
-      {
-        orderBy: { created_at: 'desc' },
-        limit,
-        offset,
-        where: values.length > 0
-          ? rawSQL(Object.assign(strings, { raw: [...strings] }) as TemplateStringsArray, ...values)
-          : undefined,
-      },
+      conditions.length > 0 ? conditions : undefined,
+      { orderBy: { created_at: 'desc' }, limit, offset },
     )
 
     for (const row of data as any[]) {
