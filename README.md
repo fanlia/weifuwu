@@ -31,6 +31,7 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **i18n** — locale detection, JSON translations, `ctx.t()`
 - **Email** — SMTP or custom transport
 - **Health check** — configurable `/health` endpoint
+- **Environment** — `loadEnv()` — `.env` file loader into `process.env`
 - **Test utilities** — `createTestServer()` — one-line test server setup
 
 ## Quick start
@@ -139,6 +140,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | Function | Description |
 |----------|-------------|
 | `serveStatic(root, options?)` | Static file serving |
+| `loadEnv(path?)` | Load `.env` file into `process.env` — no override, comments, quotes |
 | `getCookies(req)` / `setCookie(res, ...)` / `deleteCookie(res, ...)` | Cookie helpers |
 | `mailer(options)` | Email sender (SMTP or custom) |
 | `createTestServer(handler)` | Start test server → `{ server, url }` |
