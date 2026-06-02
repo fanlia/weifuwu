@@ -221,83 +221,203 @@ Features: MIME type detection (20+ types), ETag + If-None-Match (304), directory
 
 ## PostgreSQL
 
-Built-in PostgreSQL — zero config, zero ORM, zero migration files.
+Built-in PostgreSQL client — connection management, type-safe DDL, transactions, and module lifecycle.
 
 ```ts
 import { serve, Router, postgres } from 'weifuwu'
-import { z } from 'zod'
 
 const app = new Router()
-const pg = postgres()
-
-const User = pg.table('users', {
-  id:    z.number().optional(),    // → SERIAL PRIMARY KEY
-  name:  z.string().min(1),       // → TEXT NOT NULL
-  email: z.string().email(),      // → TEXT NOT NULL
-  age:   z.number().optional(),   // → INTEGER
-})
-
-await pg.migrate()
-// Auto-creates tables / adds missing columns via information_schema
-app.use(pg)  // injects ctx.sql into handlers
+const pg = postgres()          // reads DATABASE_URL
+app.use(pg)                     // injects ctx.sql into handlers
 ```
 
-### 6 methods — HTTP semantics
+### Type-safe DDL with schema builder
+
+Define tables declaratively with type inference — no raw SQL for common operations, no Zod needed:
 
 ```ts
-User.get(1)                          // GET    /users/:id
-User.list({ name: 'a' },             // GET    /users?name=a
-  { limit: 10, offset: 0, sort: { id: 'desc' } })
-// → { rows: User[], count: number }
+import { pgTable, serial, uuid, text, integer, boolean, timestamptz, jsonb, sql } from 'weifuwu'
 
-User.create({ name: 'A', email: 'a@b.com' })           // POST   /users
-User.patch(1, { name: 'B' })                           // PATCH  /users/:id
-User.remove(1)                                          // DELETE /users/:id
+const users = pgTable('_users', {
+  id:        serial('id').primaryKey(),
+  name:      text('name').notNull(),
+  email:     text('email').unique().notNull(),
+  age:       integer('age'),
+  active:    boolean('active').default(true),
+  createdAt: timestamptz('created_at').default(sql`NOW()`),
+  metadata:  jsonb<{ role: string }>('metadata'),
+})
 ```
 
-Every method validates input against your zod schema automatically. Complex queries use `ctx.sql`:
+Supports 10 column types:
+| Builder | DDL | TS Type |
+|---------|-----|---------|
+| `serial()` | `SERIAL` | `number` |
+| `uuid()` | `UUID` | `string` |
+| `text()` | `TEXT` | `string` |
+| `integer()` | `INTEGER` | `number` |
+| `boolean()` | `BOOLEAN` | `boolean` |
+| `timestamptz()` | `TIMESTAMPTZ` | `string` |
+| `jsonb<T>()` | `JSONB` | `T` |
+| `textArray()` | `TEXT[]` | `string[]` |
+| `vector(name, dims)` | `vector(N)` | `number[]` |
+
+Column constraints chainable: `.primaryKey()`, `.notNull()`, `.nullable()`, `.default(value | sql\`...\`)`, `.unique()`, `.references(table, column?, onDelete?)`.
+
+### DDL execution
+
+```ts
+await users.create()                         // CREATE TABLE IF NOT EXISTS
+await users.createIndex('email')             // CREATE INDEX
+await users.createUniqueIndex('slug')        // CREATE UNIQUE INDEX
+await users.createIndex('created_at', { desc: true })
+await users.createIndex(['a', 'b'])          // multi-column
+await users.createIndex('embedding', {       // pgvector HNSW
+  type: 'hnsw', operator: 'vector_cosine_ops',
+})
+await users.drop({ cascade: true })
+```
+
+### Complex queries use raw SQL
 
 ```ts
 app.get('/users/stats', async (req, ctx) => {
   const rows = await ctx.sql`
     SELECT u.*, count(p.id) as posts
-    FROM users u LEFT JOIN posts p ON p.user_id = u.id
+    FROM ${users} u LEFT JOIN posts p ON p.user_id = u.id
     GROUP BY u.id
   `
   return Response.json(rows)
 })
 ```
 
-### Migration-free sync
+### Transactions
 
-`pg.migrate()` queries `information_schema.columns` and only runs the DDL needed:
-
-- **Table missing** → `CREATE TABLE IF NOT EXISTS`
-- **Column missing** → `ALTER TABLE ADD COLUMN IF NOT EXISTS`
-- **Existing** → no-op
-
-Safe for production: never drops or alters existing columns. Destructive operations (rename, type change, drop) are done via `ctx.sql`.
+```ts
+const result = await pg.transaction(async (tx) => {
+  const [user] = await tx`INSERT INTO "_users" (...) VALUES (...) RETURNING *`
+  const [wallet] = await tx`INSERT INTO "_wallets" ("user_id") VALUES (${user.id}) RETURNING *`
+  return { user, wallet }
+})
+```
 
 ### Connection lifecycle
 
 ```ts
-const pg = postgres()                        // reads DATABASE_URL
-const pg = postgres('postgres://...')        // explicit connection
-const pg = postgres({ signal: ac.signal })   // abort → sql.end()
-await pg.close()                             // explicit close
+const pg = postgres()                          // reads DATABASE_URL
+const pg = postgres('postgres://...')          // explicit connection
+const pg = postgres({
+  connection: 'postgres://...',
+  max: 10,                                     // pool size
+  ssl: { rejectUnauthorized: false },          // SSL options
+  idle_timeout: 30,                            // idle timeout (s)
+  connect_timeout: 10,                         // connection timeout (s)
+  closeTimeout: 5,                             // close grace period (s)
+  signal: ac.signal,                           // abort → sql.end()
+})
+await pg.close()
 ```
 
-### Primary keys
+### Module base class
 
-| zod field | PostgreSQL |
-|-----------|-----------|
-| `id: z.number().optional()` | `SERIAL PRIMARY KEY` |
-| `id: z.string().uuid().optional()` | `UUID PRIMARY KEY DEFAULT gen_random_uuid()` |
-| `id: z.string()` | `TEXT PRIMARY KEY` (you pass the value) |
+Every database module (`opencode`, `messager`, `tenant`, `agent`, `user`) extends `PgModule`:
 
-## Authentication
+```ts
+import { PgModule } from 'weifuwu'
 
-Built-in user management — password login, JWT, and OAuth2 Server. Zero config beyond PostgreSQL and a secret key.
+class MyModule extends PgModule {
+  constructor(pg: PostgresClient) {
+    super(pg)   // sets this.sql = pg.sql
+  }
+  async migrate() { /* override */ }
+  // close() inherited — calls pg.close() automatically
+}
+```
+
+## Opencode
+
+AI programming assistant — chat with LLM agents that have access to filesystem tools, skills, and isolated session workspaces.
+
+```ts
+import { serve, Router, postgres, opencode } from 'weifuwu'
+
+const app = new Router()
+const pg = postgres()
+const oc = await opencode({ pg, permissions: { ... } })
+
+await oc.migrate()
+app.use('/opencode', await oc.router())
+app.ws('/opencode', oc.wsHandler())
+
+serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
+```
+
+### Session-isolated workspaces
+
+Each session gets its own sandbox directory — tools operate within it, files cannot escape:
+
+```
+cwd/.sessions/opencode/1/    ← session 1's workspace
+cwd/.sessions/opencode/2/    ← session 2's workspace
+cwd/.sessions/chat/3/        ← different mount point
+```
+
+Workspaces are computed from `cwd { ctx.mountPath } { sessionId }`. The system prompt shows the session's workspace so the LLM knows where it is.
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `bash` | Execute shell commands in the workspace |
+| `read` | Read files with offset/limit |
+| `write` | Create or overwrite files |
+| `edit` | Exact string replacements |
+| `grep` | Regex content search |
+| `glob` | Glob pattern file search |
+| `web` | Fetch URL content |
+| `question` | Ask the user for input |
+| `skill` | Load a skill on demand |
+
+### Skills
+
+Skills are discovered from filesystem and loaded on demand via the `skill` tool — no system prompt bloat:
+
+- Project: `.opencode/skills/{name}/SKILL.md`
+- Global: `~/.config/opencode/skills/{name}/SKILL.md`
+- Also reads: `.claude/skills/`, `.agents/skills/` (project + global)
+
+```ts
+const oc = await opencode({
+  pg,
+  skills: [{ name: 'git', description: 'Git workflow', content: '...' }],
+})
+```
+
+### Permissions
+
+Control tool access per conversation:
+
+```ts
+const oc = await opencode({
+  pg,
+  permissions: {
+    bash: { allow: true },
+    read: { allow: true },
+    write: { allow: false },
+    edit: { allow: false },
+    skill: { '*': { allow: true }, 'internal-*': { allow: false } },
+  },
+})
+```
+
+### Workspace isolation
+
+```ts
+const oc = await opencode({ pg, permissions })
+// All sessions inherit the instance's workspace (default: process.cwd())
+// Sessions cannot override their workspace
+// Different mount points = different opencode() instances = isolated workspaces
+```
 
 ```ts
 import { serve, Router, postgres, user } from 'weifuwu'
@@ -1218,6 +1338,21 @@ Returns `TenantModule` — `{ migrate, middleware, router, graphql, close }`.
 
 Returns `AgentModule` — `{ migrate, router, run, addKnowledge, close }`.
 
+### `opencode(options)`
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `pg` | — | PostgreSQL client from `postgres()` |
+| `workspace` | `process.cwd()` | Base directory for `.sessions` |
+| `model` | `'deepseek-v4-flash'` | LLM model name |
+| `baseURL` | env `DEEPSEEK_BASE_URL` | API base URL |
+| `apiKey` | env `DEEPSEEK_API_KEY` | API key |
+| `systemPrompt` | — | Custom system prompt |
+| `skills` | `[]` | Static skill definitions |
+| `permissions` | — | Tool permission config |
+
+Returns `OpencodeModule` — `{ migrate, router, wsHandler, close }`.
+
 ### `messager(options)`
 
 | Option | Default | Description |
@@ -1278,13 +1413,14 @@ serve(app.handler(), { websocket: app.websocketHandler() })
 
 | Import | Description |
 |--------|-------------|
-| `postgres(options?)` | PostgreSQL connection + auto-migration + 6 CRUD methods |
+| `postgres(options?)` | PostgreSQL connection + DDL schema builder + transactions + module lifecycle |
 | `redis(options?)` | Redis client (ioredis) — injects `ctx.redis` |
 | `queue(options?)` | Redis-backed job queue — immediate, delayed, cron scheduling |
 | `user(options)` | Built-in authentication (password + OAuth2 Server + JWT, middleware) |
 | `tenant(options)` | Multi-tenant BaaS — dynamic tables, REST + GraphQL auto-generation, row-level isolation |
 | `agent(options)` | AI Agent — chat/workflow/knowledge, Ollama-ready, programmatic API |
 | `messager(options)` | Real-time messaging — channels, WebSocket, agent routing, webhooks |
+| `opencode(options)` | AI programming assistant — chat agents with tools, skills, permissions, isolated workspaces |
 | `graphql(handler)` | GraphQL endpoint (GET/POST + GraphiQL) |
 | `ai(handler)` | AI streaming endpoint (POST) |
 | `workflow(handler)` | Workflow engine (POST + SSE) |
@@ -1308,6 +1444,10 @@ serve(app.handler(), { websocket: app.websocketHandler() })
 | `createWorkflowEngine(options)` | Programmatic workflow engine |
 | `createSSEManager()` | SSE event manager for workflows |
 | `tool(def)` | Define a workflow tool |
+| `pgTable(name, columns)` | Type-safe table schema definition with DDL generation |
+| `serial()`, `uuid()`, `text()`, `integer()`, `boolean()`, `timestamptz()`, `jsonb()`, `textArray()`, `vector()` | Column type builders |
+| `sql(strings, ...)` | SQL expression literal for table defaults (e.g. `sql\`NOW()\``) |
+| `PgModule` | Base class for database-backed modules (provides `sql`, `close()`) |
 
 Import `useTsx` and `TsxContext` from `'weifuwu'`.
 
