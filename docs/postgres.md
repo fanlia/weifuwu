@@ -19,7 +19,7 @@ app.use(pg)                     // injects ctx.sql into handlers
 Define tables declaratively with type inference — no raw SQL for common operations, no Zod needed:
 
 ```ts
-import { pgTable, serial, uuid, text, integer, boolean, timestamptz, jsonb, sql } from 'weifuwu'
+import { pgTable, serial, uuid, text, integer, boolean, timestamptz, jsonb, sql, timestamps } from 'weifuwu'
 
 const users = pgTable('_users', {
   id:        serial('id').primaryKey(),
@@ -27,12 +27,12 @@ const users = pgTable('_users', {
   email:     text('email').unique().notNull(),
   age:       integer('age'),
   active:    boolean('active').default(true),
-  createdAt: timestamptz('created_at').default(sql`NOW()`),
+  ...timestamps(),               // adds created_at + updated_at with defaults
   metadata:  jsonb<{ role: string }>('metadata'),
 })
 ```
 
-Supports 10 column types:
+Supports 11 column types:
 | Builder | DDL | TS Type |
 |---------|-----|---------|
 | `serial()` | `SERIAL` | `number` |
@@ -44,6 +44,7 @@ Supports 10 column types:
 | `jsonb<T>()` | `JSONB` | `T` |
 | `textArray()` | `TEXT[]` | `string[]` |
 | `vector(name, dims)` | `vector(N)` | `number[]` |
+| `timestamps()` | two TIMESTAMPTZ columns | `{ created_at, updated_at }` |
 
 Column constraints chainable: `.primaryKey()`, `.notNull()`, `.nullable()`, `.default(value | sql\`...\`)`, `.unique()`, `.references(table, column?, onDelete?)`.
 
@@ -51,7 +52,7 @@ Column constraints chainable: `.primaryKey()`, `.notNull()`, `.nullable()`, `.de
 
 ```ts
 await users.create()                         // CREATE TABLE IF NOT EXISTS
-await users.create(sql, {                    // WITH PARTITION BY RANGE
+await users.create({                         // WITH PARTITION BY RANGE
   partitionBy: partitionBy('range', 'created_at'),
 })
 await users.createIndex('email')             // CREATE INDEX
@@ -77,7 +78,7 @@ const users = pg.table('_users', {
   name:      text('name').notNull(),
   email:     text('email').unique(),
   active:    boolean('active').default(true),
-  createdAt: timestamptz('created_at').default(sql`NOW()`),
+  ...timestamps(),
 })
 
 // Create — single
@@ -94,6 +95,9 @@ const batch = await users.insertMany([
 
 // Read — by id
 const found = await users.read(1)
+
+// Read — with selected columns
+const partial = await users.read(1, { select: ['id', 'name'] })
 
 // Read — many with optional filtering + pagination
 const { count, data } = await users.readMany({ role: 'admin' })
@@ -121,21 +125,21 @@ const { data } = await users.readMany(
   { limit: 10 },
 )
 
-// Update — single row by id
+// Update — single row by id (auto-sets updated_at if column exists)
 const updated = await users.update(1, { name: 'Bob' })
 // → { id: 1, name: 'Bob', email: 'alice@test.com', ... }
 
-// Update — with SQL expressions:
-await users.update(1, { name: 'Bob', updated_at: sql`NOW()` })
-
-// Update — many, returns count of affected rows
+// Update — many with Partial where
 const count = await users.updateMany({ role: 'guest' }, { role: 'user' })
+
+// Update — many with SQL where
+await users.updateMany(gte('age', 65), { role: 'retired' })
 
 // Delete — single row by id, returns deleted row
 const deleted = await users.delete(1)
 // → { id: 1, name: 'Bob', ... } or undefined
 
-// Delete — many, returns count of deleted rows
+// Delete — many
 const deleted = await users.deleteMany({ active: false })
 
 // Read — select specific columns
@@ -145,20 +149,68 @@ const { data } = await users.readMany(
 )
 ```
 
-When using `pgTable()` directly (without `pg`), pass `sql` as the first argument:
+#### Upsert
 
 ```ts
-const t = pgTable('_users', { ... })
-await t.insert(ctx.sql, { name: 'Alice' })
-await t.readMany(ctx.sql, { role: 'admin' }, { orderBy: { name: 'asc' } })
-await t.read(ctx.sql, 1)
-await t.update(ctx.sql, 1, { name: 'Bob' })
-await t.delete(ctx.sql, 1)
+// Insert or update on conflict
+const user = await users.upsert(
+  { email: 'alice@test.com', name: 'Alice' },
+  'email',  // conflict target — column(s) with unique constraint
+)
+// ON CONFLICT (email) DO UPDATE SET "name" = EXCLUDED."name" RETURNING *
 ```
+
+Supports composite conflict targets:
+
+```ts
+await members.upsert(
+  { channel_id: 1, member_id: 42, role: 'admin' },
+  ['channel_id', 'member_id'],
+)
+```
+
+#### Count
+
+```ts
+const total = await users.count()                         // all rows
+const admins = await users.count({ role: 'admin' })       // with Partial filter
+const recent = await users.count(gte('created_at', from)) // with SQL condition
+```
+
+### Soft delete
+
+If a table has a `deleted_at` column, `delete()` and `deleteMany()` set the timestamp instead of removing the row:
+
+```ts
+const users = pg.table('_users', {
+  id: serial('id').primaryKey(),
+  name: text('name'),
+  deleted_at: timestamptz('deleted_at'),  // enables soft delete
+})
+
+await users.delete(1)           // SET deleted_at = NOW() WHERE id = 1
+await users.deleteMany({ role: 'guest' })
+
+// readMany auto-filters soft-deleted rows
+const { data } = await users.readMany()   // WHERE deleted_at IS NULL
+
+// Include soft-deleted rows
+const { data } = await users.readMany(undefined, { withDeleted: true })
+
+// Hard delete (bypass soft delete)
+await users.hardDelete(1)
+await users.hardDeleteMany({ role: 'guest' })
+```
+
+### Timestamps
+
+The `timestamps()` macro adds `created_at` and `updated_at` columns with `NOT NULL DEFAULT NOW()`.
+
+`update()` automatically appends `"updated_at" = NOW()` to the SET clause when the column exists — no need to pass it manually.
 
 ### Where helpers
 
-Importable functions for composing complex WHERE clauses. Works with `readMany` — pass as the first argument (single `SQL` or `SQL[]` for implicit AND):
+Importable functions for composing complex WHERE clauses. Works with `readMany`, `updateMany`, `deleteMany`, and `count` — pass as the first argument (single `SQL` or `SQL[]` for implicit AND):
 
 ```ts
 import { eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not } from 'weifuwu'
@@ -181,6 +233,10 @@ const { data } = await users.readMany(
   ),
   { orderBy: { name: 'asc' }, limit: 10 },
 )
+
+// Also works with updateMany and deleteMany
+await users.updateMany(gte('age', 65), { role: 'retired' })
+await users.deleteMany(eq('status', 'archived'))
 ```
 
 | Helper | SQL | Example |
@@ -242,7 +298,7 @@ await pg.close()
 
 ### Module base class
 
-Every database module (`opencode`, `messager`, `tenant`, `agent`, `user`) extends `PgModule`:
+Every database module extends `PgModule`:
 
 ```ts
 import { PgModule } from 'weifuwu'
@@ -252,6 +308,30 @@ class MyModule extends PgModule {
     super(pg)   // sets this.sql = pg.sql
   }
   async migrate() { /* override */ }
-  // close() inherited — calls pg.close() automatically
+
+  // Built-in helpers
+  // this.table(name, builders) — create a BoundTable
+  // this.transaction(fn) — run in a transaction
+  // close() — calls pg.close() automatically
+}
+```
+
+Migration is inlined in the module factory — no separate `migrate.ts` file needed:
+
+```ts
+export function myModule(options) {
+  const pg = options.pg
+  const table = pg.table('_my_table', {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+  })
+
+  return {
+    migrate: async () => {
+      await table.create()
+      await table.createIndex('name')
+    },
+    close: () => pg.close(),
+  }
 }
 ```
