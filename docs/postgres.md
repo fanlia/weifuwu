@@ -121,19 +121,28 @@ const { data } = await users.readMany(
   { limit: 10 },
 )
 
-// Update — single row (LIMIT 1 by ctid, returns first match)
-const updated = await users.update({ id: 1 }, { name: 'Bob' })
-// With SQL expressions:
-await users.update({ id: 1 }, { name: 'Bob', updated_at: sql`NOW()` })
+// Update — single row by id
+const updated = await users.update(1, { name: 'Bob' })
+// → { id: 1, name: 'Bob', email: 'alice@test.com', ... }
+
+// Update — with SQL expressions:
+await users.update(1, { name: 'Bob', updated_at: sql`NOW()` })
 
 // Update — many, returns count of affected rows
 const count = await users.updateMany({ role: 'guest' }, { role: 'user' })
 
-// Delete — single
-const ok = await users.delete({ id: 1 })
+// Delete — single row by id, returns deleted row
+const deleted = await users.delete(1)
+// → { id: 1, name: 'Bob', ... } or undefined
 
 // Delete — many, returns count of deleted rows
 const deleted = await users.deleteMany({ active: false })
+
+// Read — select specific columns
+const { data } = await users.readMany(
+  { role: 'admin' },
+  { select: ['id', 'name', 'email'], limit: 10 },
+)
 ```
 
 When using `pgTable()` directly (without `pg`), pass `sql` as the first argument:
@@ -143,6 +152,8 @@ const t = pgTable('_users', { ... })
 await t.insert(ctx.sql, { name: 'Alice' })
 await t.readMany(ctx.sql, { role: 'admin' }, { orderBy: { name: 'asc' } })
 await t.read(ctx.sql, 1)
+await t.update(ctx.sql, 1, { name: 'Bob' })
+await t.delete(ctx.sql, 1)
 ```
 
 ### Where helpers

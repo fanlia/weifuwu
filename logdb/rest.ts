@@ -1,10 +1,9 @@
-import { eq, gte, lt, contains, and } from '../postgres/schema/index.ts'
+import { eq, gte, lt, contains } from '../postgres/schema/index.ts'
 import type { BoundTable, SQL } from '../postgres/schema/index.ts'
 import type { Context } from '../types.ts'
-import type { Sql } from '../vendor.ts'
 import type { LogEntryInput } from './types.ts'
 
-export function createHandler(sql: Sql<{}>, tableName: string) {
+export function createHandler(entries: BoundTable<any>) {
   return async (req: Request, ctx: Context) => {
     const body = await req.json() as LogEntryInput
     if (!body.level || !body.source || !body.message) {
@@ -16,11 +15,13 @@ export function createHandler(sql: Sql<{}>, tableName: string) {
       metadata.user_id = ((ctx as any).user as any).id
     }
 
-    const [row] = await sql`
-      INSERT INTO ${sql(tableName as any)} (level, source, message, metadata)
-      VALUES (${body.level}, ${body.source}, ${body.message}, ${metadata})
-      RETURNING *
-    `
+    const row = await entries.insert({
+      level: body.level,
+      source: body.source,
+      message: body.message,
+      metadata,
+    } as any)
+
     if (typeof (row as any).metadata === 'string') {
       try { (row as any).metadata = JSON.parse((row as any).metadata as string) } catch {}
     }
