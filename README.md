@@ -851,7 +851,7 @@ GraphQL endpoint with GraphiQL IDE. Mount as a sub-Router:
 import { serve, Router, graphql } from 'weifuwu'
 
 const app = new Router()
-app.use('/graphql', graphql(() => ({
+const gql = graphql(() => ({
   schema: `
     type Query { hello: String }
     type Mutation { setMessage(msg: String!): String }
@@ -861,7 +861,8 @@ app.use('/graphql', graphql(() => ({
     Mutation: { setMessage: (_, { msg }) => msg },
   },
   graphiql: true,
-})))
+}))
+app.use('/graphql', gql.router())
 
 serve(app.handler(), { port: 3000 })
 ```
@@ -1163,7 +1164,8 @@ const app = new Router()
 app.use('/', await tsx({ dir: './pages/' }))
 const chat = await aiStream(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages }))
 app.use('/chat', chat.router())
-app.use('/graphql', graphql(() => ({ schema: `type Query { hello: String }`, resolvers: { Query: { hello: () => 'world' } } })))
+const gql = graphql(() => ({ schema: `type Query { hello: String }`, resolvers: { Query: { hello: () => 'world' } } }))
+app.use('/graphql', gql.router())
 app.ws('/chat', { message(ws, _, data) { ws.send(data) } })
 
 serve(app.handler(), { websocket: app.websocketHandler() })

@@ -369,10 +369,11 @@ describe('Router.ws', () => {
 describe('graphql', () => {
   it('handles GET query', async () => {
     const r = new Router()
-    r.use('/graphql', graphql(() => ({
+    const gql1 = graphql(() => ({
       schema: `type Query { hello: String }`,
       resolvers: { Query: { hello: () => 'world' } },
-    })))
+    }))
+    r.use('/graphql', gql1.router())
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql?query={hello}`)
@@ -384,10 +385,11 @@ describe('graphql', () => {
 
   it('handles POST query', async () => {
     const r = new Router()
-    r.use('/graphql', graphql(() => ({
+    const gql2 = graphql(() => ({
       schema: `type Query { hello: String }`,
       resolvers: { Query: { hello: () => 'world' } },
-    })))
+    }))
+    r.use('/graphql', gql2.router())
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql`, {
@@ -403,11 +405,12 @@ describe('graphql', () => {
 
   it('returns GraphiQL HTML on GET without query', async () => {
     const r = new Router()
-    r.use('/graphql', graphql(() => ({
+    const gql3 = graphql(() => ({
       schema: `type Query { hello: String }`,
       resolvers: { Query: { hello: () => 'world' } },
       graphiql: true,
-    })))
+    }))
+    r.use('/graphql', gql3.router())
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql`)

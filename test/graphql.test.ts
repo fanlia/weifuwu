@@ -26,10 +26,9 @@ function gqlHandler(opts?: Record<string, unknown>) {
 
 describe('graphql', () => {
   it('handles GET query', async () => {
-    const r = graphql(gqlHandler())
-    r.use('/', graphql(gqlHandler()))
+    const m = graphql(gqlHandler())
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/?query={hello}'),
       { params: {}, query: {} } as Context,
     )
@@ -39,9 +38,9 @@ describe('graphql', () => {
   })
 
   it('handles POST query', async () => {
-    const r = graphql(gqlHandler())
+    const m = graphql(gqlHandler())
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,13 +54,13 @@ describe('graphql', () => {
   })
 
   it('handles POST with variables', async () => {
-    const r = graphql(gqlHandler({
+    const m = graphql(gqlHandler({
       schema: `type Query { dummy: String } type Mutation { set(v: Int!): Int }`,
       resolvers: { Query: { dummy: () => '' }, Mutation: { set: (_: unknown, args: { v: number }) => args.v } },
       graphiql: false,
     }))
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,13 +74,13 @@ describe('graphql', () => {
   })
 
   it('handles GET with variables', async () => {
-    const r = graphql(gqlHandler({
+    const m = graphql(gqlHandler({
       schema: `type Query { hello(name: String!): String }`,
       resolvers: { Query: { hello: (_: unknown, args: { name: string }) => `Hello ${args.name}` } },
       graphiql: false,
     }))
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/?query={hello(name:"world")}&variables={}'),
       { params: {}, query: {} } as Context,
     )
@@ -89,9 +88,9 @@ describe('graphql', () => {
   })
 
   it('returns 200 with errors for invalid query (not 400)', async () => {
-    const r = graphql(gqlHandler())
+    const m = graphql(gqlHandler())
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,9 +106,9 @@ describe('graphql', () => {
   })
 
   it('returns 400 for missing query', async () => {
-    const r = graphql(gqlHandler({ graphiql: false }))
+    const m = graphql(gqlHandler({ graphiql: false }))
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', { method: 'GET' }),
       { params: {}, query: {} } as Context,
     )
@@ -117,9 +116,9 @@ describe('graphql', () => {
   })
 
   it('returns 400 for POST with invalid JSON body', async () => {
-    const r = graphql(gqlHandler())
+    const m = graphql(gqlHandler())
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,9 +130,9 @@ describe('graphql', () => {
   })
 
   it('returns 400 for GET with invalid variables JSON', async () => {
-    const r = graphql(gqlHandler({ graphiql: false }))
+    const m = graphql(gqlHandler({ graphiql: false }))
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/?query={hello}&variables=not-json'),
       { params: {}, query: {} } as Context,
     )
@@ -141,9 +140,9 @@ describe('graphql', () => {
   })
 
   it('returns GraphiQL HTML on GET without query when enabled', async () => {
-    const r = graphql(gqlHandler({ graphiql: true }))
+    const m = graphql(gqlHandler({ graphiql: true }))
 
-    const res = await r.handler()(
+    const res = await m.router().handler()(
       new Request('http://localhost/', { method: 'GET' }),
       { params: {}, query: {} } as Context,
     )
