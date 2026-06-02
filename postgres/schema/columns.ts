@@ -1,4 +1,4 @@
-import { SQL } from './sql.ts'
+import { SQL, sql } from './sql.ts'
 
 export interface ColumnReference {
   table: string
@@ -85,6 +85,13 @@ export interface PartitionByDef {
 
 export function partitionBy(type: 'range' | 'list' | 'hash', column: string): PartitionByDef {
   return { type: type.toUpperCase() as 'RANGE' | 'LIST' | 'HASH', column }
+}
+
+export function timestamps() {
+  return {
+    created_at: timestamptz('created_at').notNull().default(sql`NOW()`),
+    updated_at: timestamptz('updated_at').notNull().default(sql`NOW()`),
+  } as const
 }
 
 export function toDDL(col: ColumnBuilder<unknown>): string {

@@ -1,5 +1,6 @@
 import type { PostgresClient } from './types.ts'
 import type { Sql } from '../vendor.ts'
+import type { ColumnBuilder, BoundTable } from './schema/index.ts'
 
 export class PgModule {
   protected sql: Sql<{}>
@@ -8,6 +9,17 @@ export class PgModule {
   constructor(pg: PostgresClient) {
     this.pg = pg
     this.sql = pg.sql
+  }
+
+  table<R extends Record<string, unknown>>(
+    tableName: string,
+    builders: { [K in keyof R]: ColumnBuilder<R[K]> },
+  ): BoundTable<R> {
+    return this.pg.table(tableName, builders)
+  }
+
+  async transaction<T>(fn: (sql: Sql<{}>) => Promise<T>): Promise<T> {
+    return await this.pg.transaction(fn)
   }
 
   async migrate(): Promise<void> {

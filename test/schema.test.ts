@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { postgres } from '../postgres/index.ts'
 import type { PostgresClient } from '../postgres/types.ts'
-import { pgTable, BoundTable, serial, uuid, text, integer, boolean as bool, timestamptz, jsonb, vector, sql } from '../postgres/schema/index.ts'
+import { pgTable, BoundTable, serial, uuid, text, integer, boolean as bool, timestamptz, jsonb, vector, sql, timestamps, eq, lt, gte, isNull } from '../postgres/schema/index.ts'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
 
@@ -407,5 +407,331 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     assert.equal(rows[2].label, 'a')
 
     await t.drop({ cascade: true })
+  })
+
+  // --- New CRUD features ---
+
+  it('insertMany inserts multiple rows', async () => {
+    const t = pgTable('__schema_test_ins_many', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+    })
+    await t.create(pg.sql)
+
+    const rows = await t.insertMany(pg.sql, [
+      { name: 'A' },
+      { name: 'B' },
+      { name: 'C' },
+    ])
+    assert.equal(rows.length, 3)
+    assert.ok(rows.every(r => typeof r.id === 'number'))
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('insertMany on BoundTable works', async () => {
+    const t = pg.table('__schema_test_ins_many_bt', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+    })
+    await t.create()
+
+    const rows = await t.insertMany([{ name: 'X' }, { name: 'Y' }])
+    assert.equal(rows.length, 2)
+
+    await t.drop({ cascade: true })
+  })
+
+  it('read with select returns subset of columns', async () => {
+    const t = pgTable('__schema_test_rd_sel', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+      email: text('email'),
+    })
+    await t.create(pg.sql)
+
+    const inserted = await t.insert(pg.sql, { name: 'Alice', email: 'a@b.com' })
+    const found = await t.read(pg.sql, inserted.id, { select: ['id', 'name'] })
+    assert.ok(found)
+    assert.equal(found.name, 'Alice')
+    assert.equal(found.email, undefined)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('readMany with select returns subset of columns', async () => {
+    const t = pgTable('__schema_test_rdm_sel', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+      email: text('email'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { name: 'Bob', email: 'b@c.com' })
+    const { data: rows } = await t.readMany(pg.sql, undefined, { select: ['name'] })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].name, 'Bob')
+    assert.equal(rows[0].email, undefined)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('updateMany with Partial where works', async () => {
+    const t = pgTable('__schema_test_upd_many', {
+      id: serial('id').primaryKey(),
+      role: text('role'),
+      active: bool('active'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { role: 'admin', active: true })
+    await t.insert(pg.sql, { role: 'user', active: true })
+    await t.insert(pg.sql, { role: 'admin', active: false })
+
+    const count = await t.updateMany(pg.sql, { role: 'admin' }, { active: false })
+    assert.equal(count, 2)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('updateMany with SQL where works', async () => {
+    const t = pgTable('__schema_test_upd_sql', {
+      id: serial('id').primaryKey(),
+      role: text('role'),
+      score: integer('score'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { role: 'admin', score: 10 })
+    await t.insert(pg.sql, { role: 'user', score: 5 })
+
+    const count = await t.updateMany(pg.sql, eq('role', 'admin'), { score: 99 })
+    assert.equal(count, 1)
+
+    const { data: rows } = await t.readMany(pg.sql, { role: 'admin' })
+    assert.equal(rows[0].score, 99)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('deleteMany with Partial where works', async () => {
+    const t = pgTable('__schema_test_del_many', {
+      id: serial('id').primaryKey(),
+      status: text('status'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { status: 'active' })
+    await t.insert(pg.sql, { status: 'archived' })
+    await t.insert(pg.sql, { status: 'active' })
+
+    const count = await t.deleteMany(pg.sql, { status: 'archived' })
+    assert.equal(count, 1)
+
+    const { data: rows } = await t.readMany(pg.sql)
+    assert.equal(rows.length, 2)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('deleteMany with SQL where works', async () => {
+    const t = pgTable('__schema_test_del_sql', {
+      id: serial('id').primaryKey(),
+      status: text('status'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { status: 'active' })
+    await t.insert(pg.sql, { status: 'archived' })
+    await t.insert(pg.sql, { status: 'active' })
+
+    const count = await t.deleteMany(pg.sql, eq('status', 'archived'))
+    assert.equal(count, 1)
+
+    const { data: rows } = await t.readMany(pg.sql)
+    assert.equal(rows.length, 2)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('upsert inserts new row', async () => {
+    const t = pgTable('__schema_test_ups_ins', {
+      id: serial('id').primaryKey(),
+      slug: text('slug').unique().notNull(),
+      label: text('label'),
+    })
+    await t.create(pg.sql)
+
+    const row = await t.upsert(pg.sql, { slug: 'hello', label: 'Hello' }, 'slug')
+    assert.ok(row)
+    assert.equal(row.label, 'Hello')
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('upsert updates existing row on conflict', async () => {
+    const t = pgTable('__schema_test_ups_upd', {
+      id: serial('id').primaryKey(),
+      slug: text('slug').unique().notNull(),
+      label: text('label'),
+    })
+    await t.create(pg.sql)
+
+    await t.upsert(pg.sql, { slug: 'foo', label: 'Original' }, 'slug')
+    const updated = await t.upsert(pg.sql, { slug: 'foo', label: 'Updated' }, 'slug')
+    assert.equal(updated.label, 'Updated')
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('count returns total rows without conditions', async () => {
+    const t = pgTable('__schema_test_cnt_all', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { name: 'a' })
+    await t.insert(pg.sql, { name: 'b' })
+
+    const total = await t.count(pg.sql)
+    assert.equal(total, 2)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('count with where returns filtered count', async () => {
+    const t = pgTable('__schema_test_cnt_whr', {
+      id: serial('id').primaryKey(),
+      role: text('role'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { role: 'admin' })
+    await t.insert(pg.sql, { role: 'user' })
+    await t.insert(pg.sql, { role: 'admin' })
+
+    const total = await t.count(pg.sql, { role: 'admin' })
+    assert.equal(total, 2)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('count with SQL where works', async () => {
+    const t = pgTable('__schema_test_cnt_sql', {
+      id: serial('id').primaryKey(),
+      score: integer('score'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { score: 5 })
+    await t.insert(pg.sql, { score: 15 })
+    await t.insert(pg.sql, { score: 25 })
+
+    const total = await t.count(pg.sql, gte('score', 10))
+    assert.equal(total, 2)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  // --- Timestamps ---
+
+  it('timestamps macro is usable in table definition', async () => {
+    const t = pgTable('__schema_test_ts', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+      ...timestamps(),
+    })
+    await t.create(pg.sql)
+    assert.ok(true)
+
+    const row = await t.insert(pg.sql, { name: 'test' })
+    assert.ok(row.created_at)
+    assert.ok(row.updated_at)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  // --- Soft delete ---
+
+  it('delete with deleted_at column soft-deletes', async () => {
+    const t = pgTable('__schema_test_sd', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+      deleted_at: timestamptz('deleted_at'),
+    })
+    await t.create(pg.sql)
+
+    const inserted = await t.insert(pg.sql, { name: 'SoftDeleteMe' })
+    const deleted = await t.delete(pg.sql, inserted.id)
+    assert.ok(deleted)
+    assert.ok(deleted.deleted_at)
+
+    // readMany should auto-filter deleted
+    const { data: rows } = await t.readMany(pg.sql)
+    assert.equal(rows.length, 0)
+
+    // read with withDeleted should include soft-deleted
+    const { data: withDeleted } = await t.readMany(pg.sql, undefined, { withDeleted: true })
+    assert.equal(withDeleted.length, 1)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('hardDelete actually deletes', async () => {
+    const t = pgTable('__schema_test_hd', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+      deleted_at: timestamptz('deleted_at'),
+    })
+    await t.create(pg.sql)
+
+    const inserted = await t.insert(pg.sql, { name: 'HardDeleteMe' })
+    const deleted = await t.hardDelete(pg.sql, inserted.id)
+    assert.ok(deleted)
+    assert.ok(!deleted.deleted_at)
+
+    const found = await t.read(pg.sql, inserted.id)
+    assert.equal(found, undefined)
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('deleteMany with deleted_at column soft-deletes', async () => {
+    const t = pgTable('__schema_test_sd_many', {
+      id: serial('id').primaryKey(),
+      status: text('status'),
+      deleted_at: timestamptz('deleted_at'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { status: 'active' })
+    await t.insert(pg.sql, { status: 'archived' })
+
+    const count = await t.deleteMany(pg.sql, { status: 'archived' })
+    assert.equal(count, 1)
+
+    const { data: rows } = await t.readMany(pg.sql)
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0].status, 'active')
+
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('hardDeleteMany actually deletes', async () => {
+    const t = pgTable('__schema_test_hd_many', {
+      id: serial('id').primaryKey(),
+      status: text('status'),
+      deleted_at: timestamptz('deleted_at'),
+    })
+    await t.create(pg.sql)
+
+    await t.insert(pg.sql, { status: 'archived' })
+    await t.hardDeleteMany(pg.sql, { status: 'archived' })
+
+    const { data: rows } = await t.readMany(pg.sql)
+    assert.equal(rows.length, 0)
+
+    await t.drop(pg.sql, { cascade: true })
   })
 })

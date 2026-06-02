@@ -1,11 +1,11 @@
-import type { Sql } from '../vendor.ts'
 import { Router } from '../router.ts'
 import type { BoundTable } from '../postgres/schema/index.ts'
 import type { AgentConfig, RunParams } from './types.ts'
+import { eq } from '../postgres/schema/index.ts'
 
 interface RestDeps {
-  sql: Sql<{}>
   agents: BoundTable<any>
+  knowledge: BoundTable<any>
   runner: {
     run: (agentId: number, params: RunParams) => Promise<any>
     addKnowledge: (agentId: number, title: string, content: string) => Promise<any>
@@ -13,7 +13,7 @@ interface RestDeps {
 }
 
 export function buildRouter(deps: RestDeps): Router {
-  const { sql, agents: agentsTable, runner } = deps
+  const { agents: agentsTable, knowledge, runner } = deps
 
   async function getAgent(id: number): Promise<AgentConfig | null> {
     const row = await agentsTable.read(id)
@@ -28,11 +28,14 @@ export function buildRouter(deps: RestDeps): Router {
     const body = await req.json() as Partial<AgentConfig>
     if (!body.name) return Response.json({ error: 'name is required' }, { status: 400 })
 
-    const [row] = await sql`
-      INSERT INTO "_agents" ("name", "description", "type", "model", "system_prompt", "owner_id")
-      VALUES (${body.name}, ${body.description || ''}, ${body.type || 'chat'}, ${body.model || ''}, ${body.system_prompt || ''}, ${body.owner_id || 1})
-      RETURNING *
-    `
+    const row = await agentsTable.insert({
+      name: body.name,
+      description: body.description || '',
+      type: body.type || 'chat',
+      model: body.model || '',
+      system_prompt: body.system_prompt || '',
+      owner_id: body.owner_id || 1,
+    })
     return Response.json(row, { status: 201 })
   })
 
@@ -53,31 +56,25 @@ export function buildRouter(deps: RestDeps): Router {
     if (!agent) return Response.json({ error: 'Agent not found' }, { status: 404 })
 
     const body = await req.json() as Partial<AgentConfig>
-    const fields: string[] = []
-    const values: any[] = []
-    let idx = 1
+    const updateData: Record<string, unknown> = {}
 
     for (const key of ['name', 'description', 'type', 'model', 'system_prompt', 'active'] as const) {
       if (body[key] !== undefined) {
-        fields.push(`"${key}" = $${idx++}`)
-        values.push(body[key])
+        updateData[key] = body[key]
       }
     }
 
-    if (fields.length === 0) return Response.json({ error: 'No fields to update' }, { status: 400 })
-    values.push(id)
-    fields.push(`"updated_at" = NOW()`)
+    if (Object.keys(updateData).length === 0) {
+      return Response.json({ error: 'No fields to update' }, { status: 400 })
+    }
 
-    const [row] = await sql.unsafe(
-      `UPDATE "_agents" SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
-      values,
-    )
+    const row = await agentsTable.update(id, updateData)
     return Response.json(row)
   })
 
   r.delete('/agents/:id', async (_req, ctx) => {
     const id = parseInt(ctx.params.id, 10)
-    const [row] = await sql`DELETE FROM "_agents" WHERE id = ${id} RETURNING 1`
+    const row = await agentsTable.delete(id)
     if (!row) return Response.json({ error: 'Agent not found' }, { status: 404 })
     return Response.json({ ok: true })
   })
@@ -126,18 +123,17 @@ export function buildRouter(deps: RestDeps): Router {
 
   r.get('/agents/:id/knowledge', async (_req, ctx) => {
     const agentId = parseInt(ctx.params.id, 10)
-    const rows = await sql`
-      SELECT id, title, created_at FROM "_knowledge_documents"
-      WHERE agent_id = ${agentId}
-      ORDER BY created_at DESC
-    `
+    const { data: rows } = await knowledge.readMany(
+      { agent_id: agentId },
+      { orderBy: { created_at: 'desc' }, select: ['id', 'title', 'created_at'] },
+    )
     return Response.json(rows)
   })
 
   r.delete('/agents/:id/knowledge/:docId', async (_req, ctx) => {
     const agentId = parseInt(ctx.params.id, 10)
     const docId = parseInt(ctx.params.docId, 10)
-    await sql`DELETE FROM "_knowledge_documents" WHERE id = ${docId} AND agent_id = ${agentId}`
+    await knowledge.deleteMany([eq('agent_id', agentId), eq('id', docId)])
     return Response.json({ ok: true })
   })
 

@@ -5,8 +5,7 @@ import type { Middleware, Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
-import { pgTable, serial, text, timestamptz, sql } from '../postgres/schema/index.ts'
-import { migrate as runMigrations } from './migrate.ts'
+import { pgTable, serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
 import { createOAuth2Server } from './oauth2.ts'
 
 const RegisterSchema = z.object({
@@ -58,7 +57,45 @@ export function user(options: UserOptions): UserModule {
   }
 
   async function migrate(): Promise<void> {
-    await runMigrations({ pg, usersTable: table, oauth2: oauth2Enabled })
+    await users.create()
+
+    if (!oauth2Enabled) return
+
+    const clients = pgTable('_oauth2_clients', {
+      id: serial('id').primaryKey(),
+      name: text('name').notNull(),
+      client_id: text('client_id').unique().notNull(),
+      client_secret: text('client_secret').notNull(),
+      redirect_uris: textArray('redirect_uris').notNull(),
+      scopes: text('scopes').default(''),
+      created_at: timestamptz('created_at').default(sql`NOW()`),
+    })
+    await clients.create(pg.sql)
+
+    const codes = pgTable('_oauth2_codes', {
+      id: serial('id').primaryKey(),
+      code: text('code').unique().notNull(),
+      client_id: text('client_id').notNull(),
+      user_id: integer('user_id').notNull().references(table, 'id'),
+      redirect_uri: text('redirect_uri').notNull(),
+      code_challenge: text('code_challenge'),
+      code_challenge_method: text('code_challenge_method'),
+      scope: text('scope'),
+      expires_at: timestamptz('expires_at').notNull(),
+      used: boolean('used').default(false),
+    })
+    await codes.create(pg.sql)
+
+    const tokens = pgTable('_oauth2_tokens', {
+      id: serial('id').primaryKey(),
+      token: text('token').unique().notNull(),
+      client_id: text('client_id').notNull(),
+      user_id: integer('user_id').references(table, 'id'),
+      scope: text('scope'),
+      expires_at: timestamptz('expires_at').notNull(),
+      revoked: boolean('revoked').default(false),
+    })
+    await tokens.create(pg.sql)
   }
 
   function signToken(user: UserData): string {

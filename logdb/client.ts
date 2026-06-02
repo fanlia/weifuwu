@@ -1,9 +1,38 @@
-import { serial, text, timestamptz, jsonb, sql as schemaSql } from '../postgres/schema/index.ts'
+import { serial, text, timestamptz, jsonb, sql as schemaSql, partitionBy } from '../postgres/schema/index.ts'
 import { Router } from '../router.ts'
-import { migrate } from './migrate.ts'
 import { createHandler, listHandler, getHandler } from './rest.ts'
 import type { LogdbOptions, LogEntry, LogEntryInput, LogdbModule } from './types.ts'
 import type { Sql } from '../vendor.ts'
+
+function pad(n: number): string {
+  return n < 10 ? '0' + n : String(n)
+}
+
+function startOfMonth(year: number, month: number): Date {
+  return new Date(year, month, 1)
+}
+
+function formatYM(d: Date): string {
+  return `${d.getFullYear()}_${pad(d.getMonth() + 1)}`
+}
+
+function toISO(d: Date): string {
+  return d.toISOString().slice(0, 19) + '+00:00'
+}
+
+async function ensurePartitions(sql: Sql<{}>, tableName: string): Promise<void> {
+  const now = new Date()
+  for (let i = 0; i < 13; i++) {
+    const start = startOfMonth(now.getFullYear(), now.getMonth() + i)
+    const end = startOfMonth(now.getFullYear(), now.getMonth() + i + 1)
+    const partName = `${tableName}_${formatYM(start)}`
+    await sql.unsafe(`
+      CREATE TABLE IF NOT EXISTS "${partName}"
+      PARTITION OF "${tableName}"
+      FOR VALUES FROM ('${toISO(start)}') TO ('${toISO(end)}')
+    `)
+  }
+}
 
 export function logdb(options: LogdbOptions): LogdbModule {
   const pg = options.pg
@@ -62,7 +91,14 @@ export function logdb(options: LogdbOptions): LogdbModule {
   return {
     log,
     router,
-    migrate: () => migrate(pg, tableName),
+    migrate: async () => {
+      await entries.create({ partitionBy: partitionBy('range', 'created_at') })
+      await entries.createIndex(['created_at', 'id'])
+      await entries.createIndex(['level'])
+      await entries.createIndex(['source'])
+      await entries.createIndex(['level', 'created_at'])
+      await ensurePartitions(sql, tableName)
+    },
     clean,
     close: () => pg.close(),
   }

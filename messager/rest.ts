@@ -23,27 +23,32 @@ export function buildRouter(deps: RestDeps): Router {
     const body = await req.json() as any
     if (!body.name) return Response.json({ error: 'name is required' }, { status: 400 })
 
-    const [ch] = await sql`
-      INSERT INTO "_channels" ("name", "type", "created_by")
-      VALUES (${body.name}, ${body.type || 'channel'}, ${body.created_by || 1})
-      RETURNING *
-    `
-    const channel = ch as any
+    const channel = await channels.insert({
+      name: body.name,
+      type: body.type || 'channel',
+      created_by: body.created_by || 1,
+    })
 
     // Add creator as admin member
-    await sql`
-      INSERT INTO "_channel_members" ("channel_id", "member_id", "member_type", "role")
-      VALUES (${channel.id}, ${channel.created_by}, 'user', 'admin')
-    `
+    await members.insert({
+      channel_id: channel.id,
+      member_id: channel.created_by,
+      member_type: 'user',
+      role: 'admin',
+    })
 
     // Add additional members
     if (Array.isArray(body.members)) {
       for (const m of body.members) {
-        await sql`
-          INSERT INTO "_channel_members" ("channel_id", "member_id", "member_type", "role")
-          VALUES (${channel.id}, ${m.member_id ?? m}, ${m.member_type ?? 'user'}, ${m.role ?? 'member'})
-          ON CONFLICT DO NOTHING
-        `
+        await members.upsert(
+          {
+            channel_id: channel.id,
+            member_id: m.member_id ?? m,
+            member_type: m.member_type ?? 'user',
+            role: m.role ?? 'member',
+          },
+          ['channel_id', 'member_id', 'member_type'],
+        )
       }
     }
 
@@ -77,7 +82,7 @@ export function buildRouter(deps: RestDeps): Router {
 
   r.delete('/channels/:id', async (_req, ctx) => {
     const id = parseInt(ctx.params.id, 10)
-    await sql`DELETE FROM "_channels" WHERE id = ${id}`
+    await channels.delete(id)
     return Response.json({ ok: true })
   })
 
@@ -86,21 +91,22 @@ export function buildRouter(deps: RestDeps): Router {
   r.post('/channels/:id/members', async (req, ctx) => {
     const channelId = parseInt(ctx.params.id, 10)
     const body = await req.json() as any
-    await sql`
-      INSERT INTO "_channel_members" ("channel_id", "member_id", "member_type", "role")
-      VALUES (${channelId}, ${body.member_id}, ${body.member_type || 'user'}, ${body.role || 'member'})
-      ON CONFLICT DO NOTHING
-    `
+    await members.upsert(
+      {
+        channel_id: channelId,
+        member_id: body.member_id,
+        member_type: body.member_type || 'user',
+        role: body.role || 'member',
+      },
+      ['channel_id', 'member_id', 'member_type'],
+    )
     return Response.json({ ok: true }, { status: 201 })
   })
 
   r.delete('/channels/:id/members/:memberId', async (_req, ctx) => {
     const channelId = parseInt(ctx.params.id, 10)
     const memberId = parseInt(ctx.params.memberId, 10)
-    await sql`
-      DELETE FROM "_channel_members"
-      WHERE channel_id = ${channelId} AND member_id = ${memberId}
-    `
+    await members.deleteMany([eq('channel_id', channelId), eq('member_id', memberId)])
     return Response.json({ ok: true })
   })
 
@@ -132,12 +138,13 @@ export function buildRouter(deps: RestDeps): Router {
     const body = await req.json() as any
     if (!body.content) return Response.json({ error: 'content is required' }, { status: 400 })
 
-    const [row] = await sql`
-      INSERT INTO "_messages" ("channel_id", "sender_id", "sender_type", "type", "content")
-      VALUES (${channelId}, ${body.sender_id ?? 1}, ${body.sender_type || 'user'}, ${body.type || 'text'}, ${body.content})
-      RETURNING *
-    `
-    const msg = row as any
+    const msg = await messages.insert({
+      channel_id: channelId,
+      sender_id: body.sender_id ?? 1,
+      sender_type: body.sender_type || 'user',
+      type: body.type || 'text',
+      content: body.content,
+    })
 
     // Broadcast via WebSocket
     broadcastToChannel(channelId, { type: 'message', data: msg })
@@ -152,10 +159,12 @@ export function buildRouter(deps: RestDeps): Router {
       for (const am of agentMembers) {
         agents.run(am.member_id, { input: body.content, stream: false }).then(result => {
           if ('output' in result && result.output) {
-            sql`
-              INSERT INTO "_messages" ("channel_id", "sender_id", "sender_type", "content")
-              VALUES (${channelId}, ${am.member_id}, 'agent', ${result.output})
-            `.then(([r]) => {
+            messages.insert({
+              channel_id: channelId,
+              sender_id: am.member_id,
+              sender_type: 'agent',
+              content: result.output,
+            }).then((r) => {
               broadcastToChannel(channelId, { type: 'message', data: r })
             }).catch((e) => {
               console.error('[messager] agent reply insert failed:', e)
@@ -177,11 +186,10 @@ export function buildRouter(deps: RestDeps): Router {
     const body = await req.json() as { last_message_id: number; user_id?: number }
     const userId = body.user_id ?? (ctx as any).user?.id ?? 1
 
-    await sql`
-      UPDATE "_channel_members"
-      SET last_read_id = ${body.last_message_id}, last_read_at = NOW()
-      WHERE channel_id = ${channelId} AND member_id = ${userId} AND member_type = 'user'
-    `
+    await members.updateMany(
+      [eq('channel_id', channelId), eq('member_id', userId), eq('member_type', 'user')],
+      { last_read_id: body.last_message_id },
+    )
     return Response.json({ ok: true })
   })
 

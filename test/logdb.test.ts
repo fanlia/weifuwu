@@ -26,8 +26,19 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     for (const { name } of partitions) {
       await pg.sql.unsafe(`DROP TABLE IF EXISTS "${name}"`)
     }
-    const { ensurePartitions } = await import('../logdb/migrate.ts')
-    await ensurePartitions(pg.sql, tableName)
+    // Recreate partitions for the current month
+    const now = new Date()
+    for (let i = 0; i < 13; i++) {
+      const start = new Date(now.getFullYear(), now.getMonth() + i, 1)
+      const end = new Date(now.getFullYear(), now.getMonth() + i + 1, 1)
+      const pad = (n: number) => n < 10 ? '0' + n : String(n)
+      const partName = `${tableName}_${start.getFullYear()}_${pad(start.getMonth() + 1)}`
+      await pg.sql.unsafe(`
+        CREATE TABLE IF NOT EXISTS "${partName}"
+        PARTITION OF "${tableName}"
+        FOR VALUES FROM ('${start.toISOString().slice(0, 19)}+00:00') TO ('${end.toISOString().slice(0, 19)}+00:00')
+      `)
+    }
   })
 
   after(async () => {
