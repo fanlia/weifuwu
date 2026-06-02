@@ -22,6 +22,28 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - Every module needs tests in `test/`
 - All `ctx` mutations (like `ctx.parsed` or `ctx.user`) should be additive, never overwrite
 
+## Database (PostgreSQL + Redis)
+
+Docker Compose at `docker-compose.yml` starts all services:
+
+```bash
+docker compose up -d          # start PostgreSQL, Redis, Adminer
+```
+
+| Service | Port | Credentials |
+|---------|------|-------------|
+| PostgreSQL | 5432 | `root / 123456 / demo` |
+| Adminer | 30080 | — |
+| Redis | 6379 | — |
+
+DB-dependent tests use `DATABASE_URL` or `TEST_DATABASE_URL`:
+
+```bash
+DATABASE_URL=postgres://root:123456@localhost:5432/demo node --test
+```
+
+Tests that require a database are auto-skipped when no URL is set.
+
 ## Testing
 
 ```ts#test/example.test.ts
