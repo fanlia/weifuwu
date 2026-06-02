@@ -4,6 +4,8 @@ export interface Context {
   user?: unknown
   parsed?: Record<string, unknown>
   mountPath?: string
+  locale?: string
+  t?: (key: string, params?: Record<string, string>) => string
 }
 
 export type Handler = (

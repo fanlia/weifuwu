@@ -1,13 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { WebSocket } from 'ws'
-import { serve, Router, graphql, setCookie, type Handler, type Server } from '../index.ts'
-
-async function createTestServer(handler: Handler): Promise<{ server: Server; url: string }> {
-  const server = serve(handler, { port: 0 })
-  await server.ready
-  return { server, url: `http://localhost:${server.port}` }
-}
+import { serve, Router, graphql, setCookie, createTestServer, type Handler, type Server } from '../index.ts'
 
 // ── serve ────────────────────────────────────────────────────────────────────
 

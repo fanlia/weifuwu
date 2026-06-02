@@ -28,6 +28,7 @@
     "graphql": "^16",
     "ioredis": "^5.11.0",
     "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^8.0.10",
     "postgres": "^3.4.9",
     "react": "^19",
     "react-dom": "^19",
@@ -39,6 +40,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/nodemailer": "^8.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",

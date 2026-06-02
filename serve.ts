@@ -94,6 +94,12 @@ export async function sendResponse(res: ServerResponse, response: Response): Pro
   res.end()
 }
 
+export async function createTestServer(handler: Handler): Promise<{ server: Server; url: string }> {
+  const server = serve(handler, { port: 0 })
+  await server.ready
+  return { server, url: `http://localhost:${server.port}` }
+}
+
 export function serve(handler: Handler, options?: ServeOptions): Server {
   const port = options?.port ?? 0
   const hostname = options?.hostname ?? '0.0.0.0'
