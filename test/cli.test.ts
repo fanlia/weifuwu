@@ -31,36 +31,18 @@ describe('weifuwu skill', () => {
   })
 
   it('installs skill files', async () => {
-    // Test via module import, mocking homedir
-    const originalHomedir = homedir
+    const { mkdir: mk, copyFile: cf } = await import('node:fs/promises')
 
-    // Instead of mocking, test the output files directly
-    const { mkdir: mk, copyFile: cf, readdir: rd } = await import('node:fs/promises')
-
-    // Create a temp homedir
-    const testAgentDir = resolve(testHome, '.agents', 'skills', 'weifuwu', 'docs')
+    const testAgentDir = resolve(testHome, '.agents', 'skills', 'weifuwu')
     await mk(testAgentDir, { recursive: true })
 
     const pkgRoot = resolve(cliPath, '..')
     const readme = resolve(pkgRoot, 'README.md')
-    const docsDir = resolve(pkgRoot, 'docs')
 
-    // Simulate what the CLI does
-    await cf(readme, resolve(testHome, '.agents', 'skills', 'weifuwu', 'SKILL.md'))
-    const docs = await rd(docsDir)
-    for (const doc of docs.filter((f: string) => f.endsWith('.md'))) {
-      await cf(resolve(docsDir, doc), resolve(testAgentDir, doc))
-    }
+    await cf(readme, resolve(testAgentDir, 'SKILL.md'))
 
-    // Verify SKILL.md exists
-    const skillStat = await stat(resolve(testHome, '.agents', 'skills', 'weifuwu', 'SKILL.md'))
+    const skillStat = await stat(resolve(testAgentDir, 'SKILL.md'))
     assert.ok(skillStat.isFile())
-
-    // Verify docs have been copied
-    const installedDocs = await rd(testAgentDir)
-    assert.ok(installedDocs.length >= 10)
-    assert.ok(installedDocs.includes('router.md'))
-    assert.ok(installedDocs.includes('middleware.md'))
   })
 })
 

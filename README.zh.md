@@ -85,18 +85,19 @@ node app.ts
 
 | 模块 | 文档 | 说明 |
 |--------|------|------|
-| **Router** | [docs/router.md](./docs/router.md) | 路由、中间件、WebSocket、错误处理 |
-| **Middleware** | [docs/middleware.md](./docs/middleware.md) | auth, cors, logger, rateLimit, compress, validate, upload, cookie, static |
-| **PostgreSQL** | [docs/postgres.md](./docs/postgres.md) | Schema 构建器、CRUD、DDL、事务、PgModule |
-| **Auth & User** | [docs/user.md](./docs/user.md) | 密码、JWT、OAuth2 服务端、社交登录示例 |
-| **React SSR** | [docs/tsx.md](./docs/tsx.md) | 页面、布局、数据加载、Tailwind、shadcn/ui |
-| **AI** | [docs/ai.md](./docs/ai.md) | `aiStream()`, `runWorkflow()` |
-| **AI Agent** | [docs/agent.md](./docs/agent.md) | 对话、工具调用、RAG 知识库 |
-| **Opencode** | [docs/opencode.md](./docs/opencode.md) | 编程助手、技能、会话、权限 |
-| **Messager** | [docs/messager.md](./docs/messager.md) | 实时聊天、频道、WebSocket、agent 路由 |
-| **GraphQL** | [docs/graphql.md](./docs/graphql.md) | 带 GraphiQL 的 GraphQL 端点 |
-| **Tenant BaaS** | [docs/tenant.md](./docs/tenant.md) | 动态表、自动 REST + GraphQL、行隔离 |
-| **Extra** | [docs/extra.md](./docs/extra.md) | 健康检查、国际化、邮件、测试工具 |
+| **Router** | [README.md](#router) | 路由、中间件、WebSocket、错误处理 |
+| **Middleware** | [README.md](#middleware) | auth, cors, logger, rateLimit, compress, validate, upload, cookie, static |
+| **PostgreSQL** | [README.md](#postgresql) | Schema 构建器、CRUD、DDL、事务、PgModule |
+| **Auth & User** | [README.md](#auth--user) | 密码、JWT、OAuth2 服务端、社交登录示例 |
+| **React SSR** | [README.md](#react-ssr-with-tsx) | 页面、布局、数据加载、Tailwind、shadcn/ui |
+| **AI** | [README.md](#ai-streaming--workflow) | `aiStream()`, `runWorkflow()` |
+| **AI Agent** | [README.md](#ai-agent) | 对话、工具调用、RAG 知识库 |
+| **Opencode** | [README.md](#opencode) | 编程助手、技能、会话、权限 |
+| **Messager** | [README.md](#messager) | 实时聊天、频道、WebSocket、agent 路由 |
+| **GraphQL** | [README.md](#graphql) | 带 GraphiQL 的 GraphQL 端点 |
+| **Tenant BaaS** | [README.md](#tenant-baas) | 动态表、自动 REST + GraphQL、行隔离 |
+| **LogDB** | [README.md](#logdb--structured-event-logging) | 结构化事件日志、分区、元数据搜索 |
+| **Extra** | [README.md](#health-i18n-email--testing) | 健康检查、国际化、邮件、测试工具 |
 
 ### 基础设施
 
@@ -121,6 +122,8 @@ node app.ts
 | `aiStream(handler)` | AI 流式端点 | — |
 | `graphql(handler)` | GraphQL 端点 | — |
 | `health(options?)` | 健康检查 | — |
+| `iii(options?)` | Worker/Function/Trigger 服务范式 | `migrate()`, `trigger()`, `addWorker()`, `listWorkers()`, `listFunctions()`, `listTriggers()`, `shutdown()` |
+| `registerWorker(url)` | 纯 WebSocket SDK（浏览器/Node） | `registerFunction()`, `registerTrigger()`, `trigger()`, `shutdown()` |
 
 ### 中间件（全部为 `(req, ctx, next) => Response`）
 
