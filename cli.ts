@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { mkdir, writeFile, copyFile } from 'node:fs/promises'
+import { mkdir, writeFile, copyFile, readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -7,13 +8,18 @@ import { fileURLToPath } from 'node:url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-const pkgRoot = resolve(__dirname, '..')
+const pkgRoot = existsSync(join(__dirname, 'package.json')) ? __dirname : resolve(__dirname, '..')
 
 async function cmdSkill() {
   const targetDir = join(homedir(), '.agents', 'skills', 'weifuwu')
   await mkdir(targetDir, { recursive: true })
   await copyFile(join(pkgRoot, 'README.md'), join(targetDir, 'SKILL.md'))
   console.log('✅ Installed weifuwu skill to ~/.agents/skills/weifuwu/')
+}
+
+async function cmdVersion() {
+  const pkg = JSON.parse(await readFile(join(pkgRoot, 'package.json'), 'utf-8'))
+  console.log(pkg.version)
 }
 
 async function cmdInit(name: string) {
@@ -67,7 +73,9 @@ async function cmdInit(name: string) {
 
 const cmd = process.argv[2]
 
-if (cmd === 'skill') {
+if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
+  cmdVersion().catch(console.error)
+} else if (cmd === 'skill') {
   cmdSkill().catch(console.error)
 } else if (cmd === 'init') {
   const name = process.argv[3]
@@ -77,5 +85,5 @@ if (cmd === 'skill') {
   }
   cmdInit(name).catch(console.error)
 } else {
-  console.log('\nUsage:\n  npx weifuwu init <name>    Create a new weifuwu project\n  npx weifuwu skill           Install weifuwu skill to ~/.agents/skills/\n')
+  console.log('\nUsage:\n  npx weifuwu version          Print version\n  npx weifuwu init <name>    Create a new weifuwu project\n  npx weifuwu skill           Install weifuwu skill to ~/.agents/skills/\n')
 }
