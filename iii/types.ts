@@ -24,7 +24,7 @@ export interface TriggerInput {
 export interface IIIOptions {
   pg?: PostgresClient
   redis?: Redis
-  /** TTL in seconds for Redis stream keys. Default: no expiration. */
+  /** TTL in seconds for Redis stream keys. Default: 3600 (1 hour). Set to 0 for no expiration. */
   streamTTL?: number
 }
 

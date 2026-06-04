@@ -326,7 +326,7 @@ export function createStream(opts?: { pg?: PostgresClient; redis?: Redis; stream
   const store = opts?.pg
     ? createPgStore(opts.pg)
     : opts?.redis
-      ? createRedisStore(opts.redis, opts.streamTTL)
+      ? createRedisStore(opts.redis, opts.streamTTL ?? 3600)
       : createMemoryStore()
 
   let redisSub: Redis | null = null
