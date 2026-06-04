@@ -13,7 +13,6 @@
   },
   "files": [
     "dist/",
-    "docs/",
     "cli.ts",
     "README.md",
     "LICENSE"

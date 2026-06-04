@@ -31,6 +31,18 @@ export type { GraphQLOptions, GraphQLHandler } from './graphql.ts'
 export { aiStream } from './ai.ts'
 export type { AIHandler } from './ai.ts'
 export { runWorkflow } from './ai/workflow.ts'
+export {
+  streamText,
+  generateText,
+  generateObject,
+  streamObject,
+  tool,
+  embed,
+  embedMany,
+  smoothStream,
+  openai,
+  createOpenAI,
+} from './ai-sdk.ts'
 export { postgres } from './postgres/index.ts'
 export type { PostgresOptions, PostgresClient } from './postgres/types.ts'
 export { user } from './user/index.ts'

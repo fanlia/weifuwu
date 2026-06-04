@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, writeFile, copyFile, readdir } from 'node:fs/promises'
+import { mkdir, writeFile, copyFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,19 +11,8 @@ const pkgRoot = resolve(__dirname, '..')
 
 async function cmdSkill() {
   const targetDir = join(homedir(), '.agents', 'skills', 'weifuwu')
-  const docsTarget = join(targetDir, 'docs')
-
-  await mkdir(docsTarget, { recursive: true })
+  await mkdir(targetDir, { recursive: true })
   await copyFile(join(pkgRoot, 'README.md'), join(targetDir, 'SKILL.md'))
-
-  const docDir = join(pkgRoot, 'docs')
-  const entries = await readdir(docDir)
-  for (const entry of entries) {
-    if (entry.endsWith('.md')) {
-      await copyFile(join(docDir, entry), join(docsTarget, entry))
-    }
-  }
-
   console.log('✅ Installed weifuwu skill to ~/.agents/skills/weifuwu/')
 }
 
