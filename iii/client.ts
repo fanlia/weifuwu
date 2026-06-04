@@ -188,6 +188,24 @@ export function iii(opts: IIIOptions = {}): IIIModule {
         pending.delete(invocationId)
       }
     },
+    handleInvoke(ws, invocationId, functionId, payload) {
+      const fn = functions.get(functionId)
+      if (!fn) {
+        ws.send(JSON.stringify({
+          type: 'invoke_error', invocation_id: invocationId,
+          error: `Function "${functionId}" not found`,
+        }))
+        return
+      }
+      const ctx = { engine: module as any, functionId, workerName: fn.workerName }
+      Promise.resolve(fn.handler(payload, ctx))
+        .then((result) => {
+          ws.send(JSON.stringify({ type: 'invoke_result', invocation_id: invocationId, result }))
+        })
+        .catch((err) => {
+          ws.send(JSON.stringify({ type: 'invoke_error', invocation_id: invocationId, error: err.message }))
+        })
+    },
   })
 
   function doTrigger(request: { function_id: string; payload: unknown; action?: string; timeout_ms?: number }) {

@@ -11,6 +11,7 @@ interface WsHandlerDeps {
   removeStreamSubscriber: (ws: WebSocket) => void
   handleInvokeResult: (invocationId: string, result: unknown) => void
   handleInvokeError: (invocationId: string, error: string) => void
+  handleInvoke: (ws: WebSocket, invocationId: string, functionId: string, payload: unknown) => void
 }
 
 export function createWsHandler(deps: WsHandlerDeps) {
@@ -70,6 +71,11 @@ export function createWsHandler(deps: WsHandlerDeps) {
         case 'unregister_trigger': {
           const workerId = getWorkerId(ws)
           if (workerId) deps.unregisterRemoteTrigger(workerId, msg.function_id)
+          break
+        }
+
+        case 'invoke': {
+          deps.handleInvoke(ws, msg.invocation_id, msg.function_id, msg.payload)
           break
         }
 
