@@ -6,6 +6,7 @@ export interface Context {
   mountPath?: string
   locale?: string
   t?: (key: string, params?: Record<string, string>) => string
+  requestId?: string
 }
 
 export type Handler = (

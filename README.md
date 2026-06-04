@@ -28,6 +28,7 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **Data** — Redis client, job queue with cron scheduling
 - **Multi-tenant BaaS** — dynamic tables, auto REST + GraphQL, row-level isolation
 - **Deploy** — self-hosted PaaS: multi-app proxy, zero-downtime updates, auto SSL
+- **Security** — `helmet()` security headers, request ID tracing, rate limiting, CORS, auth
 - **SEO** — `robots.txt`, `sitemap.xml`, `X-Robots-Tag` middleware, `seoTags()` for meta / OG / Twitter Card
 - **i18n** — locale detection, JSON translations, `ctx.t()`
 - **Email** — SMTP or custom transport
@@ -124,6 +125,8 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `upload(options?)` | Multipart file upload |
 | `i18n(options)` | Internationalization — `ctx.t()`, locale detection |
 | `seoMiddleware(options?)` | `X-Robots-Tag` header — string or path-based function |
+| `helmet(options?)` | Security headers — CSP, HSTS, X-Frame-Options, etc. |
+| `requestId(options?)` | `X-Request-ID` header + `ctx.requestId` |
 
 ## Utility functions
 
@@ -135,6 +138,9 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `mailer(options)` | Email sender (SMTP or custom) |
 | `createTestServer(handler)` | Start test server → `{ server, url }` |
 | `seoTags(config)` | Generate `<title>`, `<meta>`, Open Graph, Twitter Card, canonical tags |
+| `createSSEStream(iterable, opts?)` | SSE response from `AsyncIterable` |
+| `formatSSE(event, data)` | Format SSE event string |
+| `formatSSEData(data)` | Format SSE data string |
 | `runWorkflow(options)` | DAG execution engine as AI SDK `Tool` |
 | `pgTable(name, columns)` | Type-safe table schema builder |
 | `pg.table(name, columns)` | Pre-bound table (no `sql` param needed) |
@@ -1574,6 +1580,90 @@ export default function RootLayout({ children }) {
   )
 }
 ```
+
+# Security
+
+## Helmet — Security headers
+
+```ts
+import { helmet } from 'weifuwu'
+
+// Apply all security headers with safe defaults
+app.use(helmet())
+
+// Customize individual headers (any can be set to false to remove)
+app.use(helmet({
+  contentSecurityPolicy: "default-src 'self'",
+  xFrameOptions: 'DENY',
+  strictTransportSecurity: 'max-age=63072000; includeSubDomains; preload',
+}))
+
+// Middleware-order: set after helmet to override
+app.use(helmet({ xFrameOptions: false }))  // remove a header
+```
+
+13 security headers set by default:
+
+| Header | Default |
+|--------|---------|
+| `Content-Security-Policy` | `default-src 'self'; ...` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `SAMEORIGIN` |
+| `Strict-Transport-Security` | `max-age=15552000; includeSubDomains` |
+| `X-XSS-Protection` | `0` |
+| `Referrer-Policy` | `no-referrer` |
+| `Permissions-Policy` | `camera=(),geolocation=(),...` |
+| `Cross-Origin-Embedder-Policy` | `require-corp` |
+| `Cross-Origin-Opener-Policy` | `same-origin` |
+| `Cross-Origin-Resource-Policy` | `same-origin` |
+| `Origin-Agent-Cluster` | `?1` |
+| `X-DNS-Prefetch-Control` | `off` |
+| `X-Download-Options` | `noopen` |
+| `X-Permitted-Cross-Domain-Policies` | `none` |
+
+Does not override response headers already set by the application — your explicit headers take precedence.
+
+## Request ID
+
+```ts
+import { requestId } from 'weifuwu'
+
+// Every response gets X-Request-ID
+app.use(requestId())
+
+// Custom header name
+app.use(requestId({ header: 'X-Trace-Id' }))
+
+// Custom ID generator
+app.use(requestId({ generator: () => crypto.randomUUID() }))
+
+// Access the ID in handlers via ctx.requestId
+app.get('/log', (req, ctx) => {
+  console.log(`Handling request ${ctx.requestId}`)
+  return Response.json({ id: ctx.requestId })
+})
+```
+
+Preserves incoming `X-Request-ID` for distributed tracing — if the upstream service already set it, the value is reused and propagated.
+
+## Server-Sent Events
+
+```ts
+import { createSSEStream, formatSSE } from 'weifuwu'
+
+async function* eventStream() {
+  yield { type: 'ping', data: { time: Date.now() } }
+  yield { type: 'message', data: { text: 'hello' } }
+}
+
+app.get('/events', () => createSSEStream(eventStream()))
+```
+
+| Function | Description |
+|----------|-------------|
+| `createSSEStream(iterable, opts?)` | Returns a `Response` with `Content-Type: text/event-stream` |
+| `formatSSE(event, data)` | Formats an SSE event string (`event: ...\ndata: ...\n\n`) |
+| `formatSSEData(data)` | Formats SSE data-only string (`data: ...\n\n`) |
 
 # Health, i18n, Email & Testing
 
