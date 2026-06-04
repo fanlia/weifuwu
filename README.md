@@ -24,7 +24,7 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **PostgreSQL** — schema builder with type-safe DDL, CRUD (`read`/`readMany`, `insertMany`, `update`/`updateMany`, `delete`/`deleteMany`), WHERE helpers (`eq`, `gte`, `contains`, `and`, `or`), transactions, vector search
 - **Auth** — password + JWT + OAuth2 Server (authorization code / PKCE / client_credentials)
 - **Real-time** — WebSocket, messaging channels with agent routing
-- **AI** — streaming endpoint, DAG workflow tool, AI agents with RAG and tool-use
+- **AI** — streaming endpoint, DAG workflow tool, AI agents with RAG and tool-use — re-exports `streamText`, `tool`, `openai` and more from AI SDK
 - **Data** — Redis client, job queue with cron scheduling
 - **Multi-tenant BaaS** — dynamic tables, auto REST + GraphQL, row-level isolation
 - **Deploy** — self-hosted PaaS: multi-app proxy, zero-downtime updates, auto SSL
@@ -49,8 +49,7 @@ serve((req, ctx) => new Response('Hello, World!'), { port: 3000 })
 ### Full app
 
 ```ts
-import { serve, Router, postgres, user, aiStream, graphql } from 'weifuwu'
-import { openai } from '@ai-sdk/openai'
+import { serve, Router, postgres, user, aiStream, graphql, openai } from 'weifuwu'
 
 const app = new Router()
 const pg = postgres()
@@ -147,6 +146,11 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `serial()`, `uuid()`, `text()`, ... | Column type builders |
 | `eq()`, `gte()`, `contains()`, `and()` ... | WHERE clause helpers — same API as Drizzle |
 | `PgModule` | Base class for DB-backed modules |
+| `streamText()` / `generateText()` / `streamObject()` / `generateObject()` | AI SDK — text/structured generation |
+| `tool()` | AI SDK — tool definition |
+| `embed()` / `embedMany()` | AI SDK — text embeddings |
+| `smoothStream()` | AI SDK — smooth streaming middleware |
+| `openai` / `createOpenAI()` | OpenAI provider for AI SDK |
 
 ---
 
@@ -1096,8 +1100,7 @@ export default function NotFound() {
 Server-sent event streaming via the Vercel AI SDK:
 
 ```ts
-import { serve, Router, aiStream } from 'weifuwu'
-import { openai } from '@ai-sdk/openai'
+import { serve, Router, aiStream, openai } from 'weifuwu'
 
 const app = new Router()
 const chat = await aiStream(async (req, ctx) => {
@@ -1114,8 +1117,7 @@ serve(app.handler(), { port: 3000 })
 Multi-step DAG execution engine — packaged as a single AI SDK `Tool`. Use it with `streamText()` or `generateText()` when the LLM needs conditional logic, loops, or multi-step tool orchestration.
 
 ```ts
-import { tool, streamText } from 'ai'
-import { runWorkflow } from 'weifuwu'
+import { tool, streamText, runWorkflow } from 'weifuwu'
 import { z } from 'zod'
 
 const tools = {
