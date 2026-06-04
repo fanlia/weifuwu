@@ -5,7 +5,7 @@ import { createWsHandler } from './ws.ts'
 import { buildRouter } from './rest.ts'
 
 export function iii(opts: IIIOptions = {}): IIIModule {
-  const stream = createStream({ pg: opts.pg, redis: opts.redis })
+  const stream = createStream({ pg: opts.pg, redis: opts.redis, streamTTL: opts.streamTTL })
 
   const workers = new Map<string, WorkerRegistration>()
   const functions = new Map<string, FunctionRegistration>()

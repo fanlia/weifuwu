@@ -223,9 +223,13 @@ function createPgStore(pg: PostgresClient) {
   }
 }
 
-function createRedisStore(redis: Redis) {
+function createRedisStore(redis: Redis, ttl?: number) {
   function hashKey(stream: string, group: string) {
     return `iii:stream:${stream}:${group}`
+  }
+
+  function setTTL(hk: string) {
+    if (ttl) redis.expire(hk, ttl)
   }
 
   return {
@@ -234,6 +238,7 @@ function createRedisStore(redis: Redis) {
       const oldRaw = await redis.hget(hk, item)
       let old: unknown = oldRaw ? JSON.parse(oldRaw) : null
       await redis.hset(hk, item, JSON.stringify(data))
+      setTTL(hk)
       await redis.publish(`iii:stream:${stream}`, JSON.stringify({ event: 'set', group, item, data }))
       notify(stream, group, item, 'set', data)
       return { old_value: old, new_value: deepClone(data) }
@@ -247,6 +252,8 @@ function createRedisStore(redis: Redis) {
       const oldRaw = await redis.hget(hk, item)
       const old = oldRaw ? JSON.parse(oldRaw) : null
       await redis.hdel(hk, item)
+      const remaining = await redis.hlen(hk)
+      if (remaining === 0) await redis.del(hk)
       await redis.publish(`iii:stream:${stream}`, JSON.stringify({ event: 'delete', group, item }))
       notify(stream, group, item, 'delete', null)
       return { old_value: old }
@@ -307,6 +314,7 @@ function createRedisStore(redis: Redis) {
       const old = oldRaw ? JSON.parse(oldRaw) : null
       const newVal = applyOps(old, ops)
       await redis.hset(hk, item, JSON.stringify(newVal))
+      setTTL(hk)
       await redis.publish(`iii:stream:${stream}`, JSON.stringify({ event: 'update', group, item, data: newVal }))
       notify(stream, group, item, 'update', newVal)
       return { old_value: old, new_value: deepClone(newVal) }
@@ -314,11 +322,11 @@ function createRedisStore(redis: Redis) {
   }
 }
 
-export function createStream(opts?: { pg?: PostgresClient; redis?: Redis }) {
+export function createStream(opts?: { pg?: PostgresClient; redis?: Redis; streamTTL?: number }) {
   const store = opts?.pg
     ? createPgStore(opts.pg)
     : opts?.redis
-      ? createRedisStore(opts.redis)
+      ? createRedisStore(opts.redis, opts.streamTTL)
       : createMemoryStore()
 
   let redisSub: Redis | null = null
