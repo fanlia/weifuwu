@@ -28,6 +28,7 @@ Everything follows the same `(req, ctx) => Response` contract. The Router handle
 - **Data** — Redis client, job queue with cron scheduling
 - **Multi-tenant BaaS** — dynamic tables, auto REST + GraphQL, row-level isolation
 - **Deploy** — self-hosted PaaS: multi-app proxy, zero-downtime updates, auto SSL
+- **SEO** — `robots.txt`, `sitemap.xml`, `X-Robots-Tag` middleware, `seoTags()` for meta / OG / Twitter Card
 - **i18n** — locale detection, JSON translations, `ctx.t()`
 - **Email** — SMTP or custom transport
 - **Health check** — configurable `/health` endpoint
@@ -106,6 +107,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `graphql(handler)` | GraphQL endpoint | — |
 | `logdb(options)` | Structured event logging | `log()`, `migrate()`, `clean()`, `close()` |
 | `health(options?)` | Health check | — |
+| `seo(options?)` | `robots.txt`, `sitemap.xml`, indexing control | `seoMiddleware()`, `seoTags()` |
 | `iii(options?)` | Worker/Function/Trigger service paradigm | `migrate()`, `trigger()`, `addWorker()`, `listWorkers()`, `listFunctions()`, `listTriggers()`, `shutdown()` |
 | `registerWorker(url)` | Pure WebSocket SDK (browser/Node) | `registerFunction()`, `registerTrigger()`, `trigger()`, `shutdown()` |
 
@@ -121,6 +123,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `validate(schemas)` | Zod validation (body, query, params) |
 | `upload(options?)` | Multipart file upload |
 | `i18n(options)` | Internationalization — `ctx.t()`, locale detection |
+| `seoMiddleware(options?)` | `X-Robots-Tag` header — string or path-based function |
 
 ## Utility functions
 
@@ -131,6 +134,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `getCookies(req)` / `setCookie(res, ...)` / `deleteCookie(res, ...)` | Cookie helpers |
 | `mailer(options)` | Email sender (SMTP or custom) |
 | `createTestServer(handler)` | Start test server → `{ server, url }` |
+| `seoTags(config)` | Generate `<title>`, `<meta>`, Open Graph, Twitter Card, canonical tags |
 | `runWorkflow(options)` | DAG execution engine as AI SDK `Tool` |
 | `pgTable(name, columns)` | Type-safe table schema builder |
 | `pg.table(name, columns)` | Pre-bound table (no `sql` param needed) |
@@ -1484,6 +1488,92 @@ const oc = await opencode({
 ```
 
 ---
+
+# SEO
+
+Built-in SEO module — `robots.txt`, `sitemap.xml`, indexing headers, and meta tag utilities.
+
+```ts
+import { seo, seoMiddleware, seoTags } from 'weifuwu'
+
+const app = new Router()
+
+// robots.txt + sitemap.xml
+app.use(seo({
+  baseUrl: 'https://example.com',
+  robots: [
+    { userAgent: '*', allow: '/', disallow: ['/admin', '/api'] },
+  ],
+  sitemap: {
+    urls: [
+      { loc: '/', changefreq: 'daily', priority: 1.0 },
+      { loc: '/about', changefreq: 'monthly', priority: 0.8 },
+    ],
+    // Dynamic URLs from database
+    async resolve() {
+      const articles = await db.query('SELECT slug, updated_at FROM articles')
+      return articles.map(a => ({
+        loc: `/blog/${a.slug}`,
+        lastmod: a.updated_at,
+      }))
+    },
+    cacheTTL: 3_600_000,  // re-generate every hour (default)
+  },
+}))
+```
+
+### Endpoints
+
+| Path | Description |
+|------|-------------|
+| `GET /robots.txt` | Generated robots.txt with optional Sitemap reference |
+| `GET /sitemap.xml` | Generated XML sitemap with caching |
+
+### seoMiddleware — Indexing control
+
+```ts
+// Global — block all paths
+app.use(seoMiddleware({ headers: { 'X-Robots-Tag': 'noindex' } }))
+
+// Per-path via function
+app.use(seoMiddleware({
+  headers: {
+    'X-Robots-Tag': (path) => path.startsWith('/admin') ? 'noindex' : undefined,
+  },
+}))
+```
+
+### seoTags — Meta / OG / Twitter Card
+
+Generate SEO meta tags for SSR pages:
+
+```ts
+const tags = seoTags({
+  title: 'My Page',
+  description: 'A great page about things',
+  ogImage: 'https://example.com/og.png',
+  twitterCard: 'summary_large_image',
+  canonical: 'https://example.com/page',
+})
+// → <title>My Page</title>
+// → <meta property="og:title" content="My Page">
+// → <meta name="twitter:card" content="summary_large_image">
+// → <link rel="canonical" href="https://example.com/page">
+//   ...
+```
+
+Use in `layout.tsx` or `page.tsx` with `tsx()`:
+
+```tsx
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <head>{seoTags({ title: 'My App' })}</head>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
 
 # Health, i18n, Email & Testing
 
