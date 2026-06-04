@@ -159,7 +159,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 Optional module that organizes service logic as **Worker + Function + Trigger**, plus a pure WebSocket SDK for connecting remote workers. Built-in `stream::*` functions for hierarchical real-time data.
 
 ```ts
-import { serve, Router, iii, createWorker as Worker, registerWorker } from 'weifuwu'
+import { serve, Router, iii, Worker, registerWorker } from 'weifuwu'
 
 // Engine
 const engine = iii({ pg, redis })
