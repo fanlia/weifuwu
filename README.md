@@ -183,7 +183,7 @@ app.get('/admin', middleware, handler)       // route-level
 | `compress(options?)` | Brotli / Gzip / Deflate compression |
 | `validate(schemas)` | Zod validation (body, query, params) |
 | `upload(options?)` | Multipart file upload |
-| `i18n(options)` | Internationalization — `ctx.t()`, locale detection |
+| `preferences(options?)` | Locale + theme detection, `ctx.t()`, `ctx.prefs`, `ctx.setPref()` |
 | `seoMiddleware(options?)` | `X-Robots-Tag` header — string or path-based function |
 | `helmet(options?)` | Security headers — CSP, HSTS, X-Frame-Options, etc. |
 | `requestId(options?)` | `X-Request-ID` header + `ctx.requestId` |
@@ -490,13 +490,14 @@ Auto-serializes JSON, auto-reads `_csrf` cookie and sends as `X-CSRF-Token`. Ret
 ### Client-side navigation
 
 ```tsx
-import { Link, useNavigate } from 'weifuwu/react'
+import { Link, useNavigate, useNavigating } from 'weifuwu/react'
 
 function Nav() {
   const navigate = useNavigate()
+  const loading = useNavigating()
   return (
-    <nav>
-      <Link href="/about">About</Link>
+    <nav className={loading ? 'opacity-50' : ''}>
+      <Link href="/about" prefetch>About</Link>
       <button onClick={() => navigate('/contact')}>Contact</button>
     </nav>
   )
@@ -504,6 +505,55 @@ function Nav() {
 ```
 
 `navigate(href)` fetches the target via SSR, extracts `__weifuwu_root` content and `__WEIFUWU_PROPS`, replaces in-place, then imports the new hydration bundle. `load.ts` runs on the server for every navigation. Initial load is full SSR; subsequent navigations are client-side.
+
+- `<Link prefetch>` — pre-fetches page data on hover / when entering viewport (200px margin)
+- `useNavigating()` — reactive boolean, `true` while navigation is in-flight
+- `isNavigating()` / `onNavigate(fn)` — non-hook alternatives
+- Scroll position is saved before navigation and restored after the new page renders
+
+### Head — per-page meta tags
+
+```tsx
+import { Head } from 'weifuwu/react'
+
+export default function Page() {
+  return (
+    <>
+      <Head>
+        <title>My Page - App</title>
+        <meta name="description" content="Page description" />
+        <meta property="og:title" content="My Page" />
+      </Head>
+      <h1>Content</h1>
+    </>
+  )
+}
+```
+
+During SSR, the `<Head>` content is extracted from the body and merged into `<head>`. On client-side navigation via `<Link>`, title and meta tags are updated automatically.
+
+### Flash messages
+
+```ts
+// Server: set a flash message before redirect
+router.post('/post', (req, ctx) => {
+  return ctx.setPref('flash', JSON.stringify({
+    type: 'success', message: 'Published!'
+  }))  // → 302 with Set-Cookie: flash=...
+})
+```
+
+```tsx
+// Client: display flash from preferences
+function Toast() {
+  const { prefs } = useCtx()
+  const flash = prefs?.flash ? JSON.parse(prefs.flash) : null
+  if (!flash) return null
+  return <div className={`toast ${flash.type}`}>{flash.message}</div>
+}
+```
+
+Flash is read once from the cookie, then automatically cleared on the response. After page refresh the flash is gone.
 
 ### Development mode
 
@@ -990,18 +1040,31 @@ app.use(health({
 
 ---
 
-## Internationalization
+## Preferences
 
 ```ts
-import { i18n } from 'weifuwu'
+import { preferences } from 'weifuwu'
 
-app.use(i18n({ dir: './locales', defaultLocale: 'en' }))
+app.use(preferences({
+  dir: './locales',                // translation directory (optional)
+  locale: { default: 'en' },       // locale detection
+  theme: { default: 'system' },    // 'light' | 'dark' | 'system'
+}))
 
 // In handlers: ctx.t('greeting') → "Hello"
-// In layout: ctx.locale → "en"
+//              ctx.locale → "en"
+//              ctx.theme → "light"
+//              ctx.prefs → { locale: 'en', theme: 'light' }
+//              ctx.setPref('locale', 'zh') → 302 + cookie
+//              ctx.setPref('flash', '{"type":"success","message":"Done"}') → flash message
+
+// In tsx components:
+const { t, locale, theme } = useCtx()
 ```
 
-Locale detection: `Accept-Language` header → browser preference. Falls back to `defaultLocale`.
+Locale detection priority: cookie → `Accept-Language` → default.
+Theme detection: cookie → default (`'system'`).
+Flash messages: set via `ctx.setPref('flash', ...)` → auto-read from cookie → cleared after rendering.
 
 ---
 

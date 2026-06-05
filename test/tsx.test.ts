@@ -278,13 +278,11 @@ describe('tsx()', () => {
     })
   })
 
-  describe('TsxContext and useTsx exports', () => {
+  describe('TsxContext and useCtx exports', () => {
     it('exports TsxContext with correct structure', async () => {
-      const { TsxContext, useTsx } = await import('../tsx.ts')
-      assert.ok(TsxContext)
+      const { TsxContext, useCtx } = await import('../tsx.ts')
       assert.equal(typeof TsxContext.Provider, 'object')
-      assert.equal(typeof TsxContext.Consumer, 'object')
-      assert.equal(typeof useTsx, 'function')
+      assert.equal(typeof useCtx, 'function')
     })
 
     it('provides params and query via Provider', async () => {

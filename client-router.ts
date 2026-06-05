@@ -1,4 +1,21 @@
-import { createElement, useCallback } from 'react'
+import { createElement, useCallback, useState, useEffect, useRef } from 'react'
+
+let _navigating = false
+let _listeners: Array<(v: boolean) => void> = []
+
+export function isNavigating(): boolean {
+  return _navigating
+}
+
+export function onNavigate(fn: (v: boolean) => void): () => void {
+  _listeners.push(fn)
+  return () => { _listeners = _listeners.filter(l => l !== fn) }
+}
+
+function setNavigating(v: boolean) {
+  _navigating = v
+  for (const fn of _listeners) fn(v)
+}
 
 export async function navigate(href: string): Promise<void> {
   if (typeof document === 'undefined') return
@@ -9,46 +26,100 @@ export async function navigate(href: string): Promise<void> {
     return
   }
 
-  const html = await fetch(url.pathname + url.search, {
-    headers: { accept: 'text/html' },
-  }).then(r => r.text())
+  // Save scroll position
+  const scrollPos = [window.scrollX, window.scrollY]
 
-  const doc = new DOMParser().parseFromString(html, 'text/html')
+  setNavigating(true)
 
-  const rootEl = doc.getElementById('__weifuwu_root')
-  if (!rootEl) {
-    location.href = href
-    return
-  }
-  const newHtml = rootEl.innerHTML
+  try {
+    const html = await fetch(url.pathname + url.search, {
+      headers: { accept: 'text/html' },
+    }).then(r => r.text())
 
-  const propsMatch = html.match(/window\.__WEIFUWU_PROPS=(.+?)<\/script>/)
-  if (!propsMatch) {
-    location.href = href
-    return
-  }
+    const doc = new DOMParser().parseFromString(html, 'text/html')
 
-  const bundleMatch = html.match(/src="(\/__wfw\/client\/[^"]+\.js)"/)
-  const bundleUrl = bundleMatch ? bundleMatch[1] : null
+    const rootEl = doc.getElementById('__weifuwu_root')
+    if (!rootEl) { location.href = href; return }
+    const newHtml = rootEl.innerHTML
 
-  const currentRoot = document.getElementById('__weifuwu_root')
-  if (!currentRoot) {
-    location.href = href
-    return
-  }
+    const propsMatch = html.match(/window\.__WEIFUWU_PROPS=(.+?)<\/script>/)
+    if (!propsMatch) { location.href = href; return }
 
-  ;(window as any).__WEIFUWU_ROOT?.unmount()
-  currentRoot.innerHTML = newHtml
-  ;(window as any).__WEIFUWU_PROPS = JSON.parse(propsMatch[1])
-  history.pushState(null, '', url.pathname + url.search)
+    const bundleMatch = html.match(/src="(\/__wfw\/client\/[^"]+\.js)"/)
+    const bundleUrl = bundleMatch ? bundleMatch[1] : null
 
-  if (bundleUrl) {
-    const cacheBust = bundleUrl.includes('?') ? '&_t=' : '?_t='
-    try {
-      await import(/* @vite-ignore */ `${bundleUrl}${cacheBust}${Date.now()}`)
-    } catch (e) {
-      console.error('[weifuwu/router] hydration failed:', e)
+    // Update head from new page
+    applyHead(html)
+
+    const currentRoot = document.getElementById('__weifuwu_root')
+    if (!currentRoot) { location.href = href; return }
+
+    ;(window as any).__WEIFUWU_ROOT?.unmount()
+    currentRoot.innerHTML = newHtml
+    ;(window as any).__WEIFUWU_PROPS = JSON.parse(propsMatch[1])
+    history.pushState(null, '', url.pathname + url.search)
+
+    // Update __WEIFUWU_CTX from the new page
+    const ctxMatch = html.match(/window\.__WEIFUWU_CTX=(.+?)<\/script>/)
+    if (ctxMatch) {
+      try { (window as any).__WEIFUWU_CTX = JSON.parse(ctxMatch[1]) } catch {}
     }
+    const localeMatch = html.match(/window\.__LOCALE_DATA__=(.+?)<\/script>/)
+    if (localeMatch) {
+      try { (window as any).__LOCALE_DATA__ = JSON.parse(localeMatch[1]) } catch {}
+    }
+
+    if (bundleUrl) {
+      const cacheBust = bundleUrl.includes('?') ? '&_t=' : '?_t='
+      try {
+        await import(/* @vite-ignore */ `${bundleUrl}${cacheBust}${Date.now()}`)
+      } catch (e) {
+        console.error('[weifuwu/router] hydration failed:', e)
+      }
+    }
+
+    // Restore scroll position
+    window.scrollTo(scrollPos[0], scrollPos[1])
+  } finally {
+    setNavigating(false)
+  }
+}
+
+function applyHead(html: string) {
+  const match = html.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
+  if (!match) return
+  const headHtml = match[1]
+
+  const titleMatch = headHtml.match(/<title>([^<]*)<\/title>/)
+  if (titleMatch) document.title = titleMatch[1]
+
+  // Replace all meta tags
+  const doc = new DOMParser().parseFromString(headHtml, 'text/html')
+  const newMeta = doc.querySelectorAll('meta')
+  const existing = document.querySelectorAll('head meta')
+  const newNames = new Set(Array.from(newMeta).map(m => m.getAttribute('name') || m.getAttribute('property') || ''))
+  for (const el of existing) {
+    const key = el.getAttribute('name') || el.getAttribute('property') || ''
+    if (!newNames.has(key)) el.remove()
+  }
+  for (const el of newMeta) {
+    const key = el.getAttribute('name') || el.getAttribute('property') || ''
+    const existingEl = document.querySelector(`meta[name="${key}"], meta[property="${key}"]`)
+    if (existingEl) {
+      for (const attr of el.attributes) (existingEl as HTMLElement).setAttribute(attr.name, attr.value)
+    } else {
+      document.head.appendChild(el.cloneNode() as HTMLElement)
+    }
+  }
+
+  // Update canonical link
+  const newLink = doc.querySelector('link[rel="canonical"]')
+  const existingLink = document.querySelector('link[rel="canonical"]')
+  if (newLink) {
+    if (existingLink) existingLink.setAttribute('href', newLink.getAttribute('href') || '')
+    else document.head.appendChild(newLink.cloneNode() as HTMLElement)
+  } else if (existingLink) {
+    existingLink.remove()
   }
 }
 
@@ -56,18 +127,61 @@ export function useNavigate(): (href: string) => Promise<void> {
   return useCallback((href: string) => navigate(href), [])
 }
 
+export function useNavigating(): boolean {
+  const [v, setV] = useState(false)
+  useEffect(() => onNavigate(setV), [])
+  return v
+}
+
 interface LinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
   href: string
   children: React.ReactNode
+  prefetch?: boolean
 }
 
-export function Link({ href, children, onClick, ...props }: LinkProps) {
+const prefetchCache = new Map<string, { html: string; fetched: number }>()
+const PREFETCH_TTL = 60_000
+
+export function Link({ href, children, onClick, prefetch, ...props }: LinkProps) {
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const doNavigate = useNavigate()
+
+  useEffect(() => {
+    if (!prefetch) return
+    const el = document.querySelector(`a[href="${href}"]`)
+    if (!el) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) prefetchPage(href)
+    }, { rootMargin: '200px' })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [href, prefetch])
+
+  const handleMouseEnter = useCallback(() => {
+    if (prefetch) prefetchPage(href)
+  }, [href, prefetch])
+
   const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
     e.preventDefault()
-    navigate(href)
+    doNavigate(href)
     onClick?.(e)
-  }, [href, onClick])
+  }, [href, onClick, doNavigate])
 
-  return createElement('a', { href, onClick: handleClick, ...props }, children)
+  return createElement('a', {
+    href,
+    onClick: handleClick,
+    onMouseEnter: handleMouseEnter,
+    ...props,
+  }, children)
+}
+
+async function prefetchPage(href: string) {
+  const cached = prefetchCache.get(href)
+  if (cached && Date.now() - cached.fetched < PREFETCH_TTL) return
+  try {
+    const html = await fetch(href, { headers: { accept: 'text/html' } }).then(r => r.text())
+    prefetchCache.set(href, { html, fetched: Date.now() })
+  } catch {}
 }

@@ -11,9 +11,9 @@ import chokidar from 'chokidar'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
 import type { Context, Handler } from './types.ts'
-import { TsxContext, useTsx } from './tsx-context.ts'
+import { TsxContext, useCtx } from './tsx-context.ts'
 
-export { TsxContext, useTsx }
+export { TsxContext, useCtx }
 
 export interface TsxOptions {
   dir: string
@@ -389,7 +389,16 @@ export class TsxInstance {
         const NfComponent = nfMod.default
 
         let element: any = createElement(TsxContext.Provider, {
-          value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
+          value: {
+            params: ctx.params,
+            query: ctx.query,
+            user: ctx.user,
+            parsed: ctx.parsed,
+            prefs: ctx.prefs,
+            locale: ctx.locale,
+            theme: ctx.theme,
+            t: ctx.t,
+          },
         }, createElement(NfComponent, { params: ctx.params, query: ctx.query }))
 
         for (let i = rootLayouts.length - 1; i >= 0; i--) {
@@ -401,6 +410,8 @@ export class TsxInstance {
         const stream = await renderToReadableStream(element)
         const body = await readStream(stream)
         let html = body.startsWith('<!DOCTYPE html>') ? body : `<!DOCTYPE html>\n${body}`
+        html = injectHead(html)
+        html = injectBridgeScripts(html, ctx, base)
         if (this.compiledTailwindCss && html.includes('</head>')) {
           html = html.replace('</head>',
             `<link rel="stylesheet" href="${base}/__wfw/style.css" />\n</head>`)
@@ -592,7 +603,16 @@ export class TsxInstance {
 
       let element: any = createElement('div', { id: '__weifuwu_root' },
         createElement(TsxContext.Provider as any, {
-          value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
+          value: {
+            params: ctx.params,
+            query: ctx.query,
+            user: ctx.user,
+            parsed: ctx.parsed,
+            prefs: ctx.prefs,
+            locale: ctx.locale,
+            theme: ctx.theme,
+            t: ctx.t,
+          },
         }, createElement(Component, allProps)),
       )
 
@@ -629,16 +649,11 @@ export class TsxInstance {
         )
       }
 
-      const scripts: string[] = []
-      scripts.push(`<script>window.__WEIFUWU_PROPS=${JSON.stringify(allProps)}</script>`)
-
       const bundle = await this.getOrBuildClientBundle(entryPath, layoutPaths, this.pagesDir)
-      if (bundle) {
-        scripts.push(`<script type="module" src="${base}${bundle.url}"></script>`)
-      }
 
       let html = body.startsWith('<!DOCTYPE html>') ? body : `<!DOCTYPE html>\n${body}`
-      html += '\n' + scripts.join('\n')
+      html = injectHead(html)
+      html = injectBridgeScripts(html, ctx, base, bundle, allProps)
 
       if (this.compiledTailwindCss && html.includes('</head>')) {
         html = html.replace('</head>',
@@ -829,4 +844,62 @@ export class TsxInstance {
       console.error('recompile all failed:', (err as Error).message)
     }
   }
+}
+
+function injectHead(html: string): string {
+  const match = html.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
+  if (match) {
+    html = html.replace(match[0], '')
+    html = html.replace('</head>', match[1] + '\n</head>')
+  }
+  return html
+}
+
+function injectBridgeScripts(
+  html: string,
+  ctx: Context,
+  base: string,
+  bundle?: { url: string } | null,
+  allProps?: Record<string, unknown>,
+): string {
+  const prefs = ctx.prefs
+  const theme = ctx.theme
+
+  let headInjection = ''
+
+  if (theme) {
+    headInjection += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
+  }
+
+  const localeData = (globalThis as any).__LOCALE_DATA__
+  if (localeData && Object.keys(localeData).length > 0) {
+    headInjection += `<script>window.__LOCALE_DATA__=${JSON.stringify(localeData)}<\/script>\n`
+  }
+
+  const ctxData: Record<string, unknown> = {
+    params: ctx.params,
+    query: ctx.query,
+    user: ctx.user,
+    parsed: ctx.parsed,
+  }
+  if (prefs) ctxData.prefs = prefs
+  if (ctx.locale) ctxData.locale = ctx.locale
+  if (ctx.theme) ctxData.theme = ctx.theme
+
+  headInjection += `<script>window.__WEIFUWU_CTX=${JSON.stringify(ctxData)}<\/script>\n`
+
+  if (headInjection && html.includes('</head>')) {
+    html = html.replace('</head>', headInjection + '</head>')
+  }
+
+  if (bundle) {
+    const bodyScripts: string[] = []
+    if (allProps) {
+      bodyScripts.push(`<script>window.__WEIFUWU_PROPS=${JSON.stringify(allProps)}<\/script>`)
+    }
+    bodyScripts.push(`<script type="module" src="${base}${bundle.url}"><\/script>`)
+    html += '\n' + bodyScripts.join('\n')
+  }
+
+  return html
 }

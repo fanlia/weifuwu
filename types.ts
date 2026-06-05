@@ -7,6 +7,9 @@ export interface Context {
   locale?: string
   t?: (key: string, params?: Record<string, string>) => string
   requestId?: string
+  prefs?: Record<string, string>
+  theme?: string
+  setPref?: (name: string, value: string) => Response
 }
 
 export type Handler = (
