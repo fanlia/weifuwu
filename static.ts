@@ -79,8 +79,10 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
           : `public, max-age=${opts.maxAge ?? 0}`,
       }
 
-      const stream = fileHandle.readableWebStream()
-      return new Response(stream as unknown as BodyInit, { headers })
+      const fileBuffer = await fileHandle.readFile()
+      await fileHandle.close()
+      fileHandle = undefined
+      return new Response(fileBuffer as BodyInit, { headers })
     } catch (err) {
       if (fileHandle) await fileHandle.close().catch(() => {})
       if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {

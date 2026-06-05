@@ -208,49 +208,8 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     },
   })
 
-  function doTrigger(request: { function_id: string; payload: unknown; action?: string; timeout_ms?: number }) {
-    const fn = functions.get(request.function_id)
-    if (!fn) throw new Error(`Function "${request.function_id}" not found`)
-    const ctx = { engine: module, functionId: request.function_id, workerName: fn.workerName }
-    if (request.action === 'void') {
-      queueMicrotask(() => fn.handler(request.payload, ctx))
-      return Promise.resolve(undefined)
-    }
-    return Promise.resolve(fn.handler(request.payload, ctx))
-  }
-
-  const router = buildRouter({
-    listWorkers: () => Array.from(workers.values()).map(w => ({
-      id: w.id, name: w.name, status: 'connected' as const,
-      connectedAt: Date.now(), functionCount: w.functions.length, triggerCount: w.triggers.length,
-    })),
-    listFunctions: () => Array.from(functions.values()).map(f => ({
-      id: f.id, workerId: f.workerId, workerName: f.workerName, triggers: f.triggers,
-    })),
-    listTriggers: () => Array.from(triggers.values()).map(t => ({
-      id: t.id, type: t.type, function_id: t.function_id, config: t.config, workerId: t.workerId,
-    })),
-    trigger: doTrigger,
-    addWorker: addLocalWorker,
-    removeWorker: (worker: Worker) => {
-      for (const [wid, reg] of workers) {
-        if (reg.name === worker.name) { removeWorker(wid); return }
-      }
-    },
-    shutdown: async () => {
-      for (const [, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Engine shutting down')) }
-      pending.clear()
-      for (const [, reg] of workers) reg.ws?.close()
-      workers.clear(); functions.clear(); triggers.clear()
-      await stream.close()
-    },
-    migrate: async () => {
-      await stream.migrate()
-    },
-  } as any, wsHandler)
-
   const module: IIIModule = {
-    router: () => router,
+    router: () => { const r = buildRouter(module, wsHandler); (module as any).router = () => r; return r },
     wsHandler: () => wsHandler,
     addWorker: addLocalWorker,
     removeWorker: (worker: Worker) => {
@@ -258,7 +217,16 @@ export function iii(opts: IIIOptions = {}): IIIModule {
         if (reg.name === worker.name) { removeWorker(wid); return }
       }
     },
-    trigger: doTrigger,
+    trigger(request: import('./types.ts').TriggerRequest) {
+      const fn = functions.get(request.function_id)
+      if (!fn) throw new Error(`Function "${request.function_id}" not found`)
+      const ctx = { engine: module, functionId: request.function_id, workerName: fn.workerName }
+      if (request.action === 'void') {
+        queueMicrotask(() => fn.handler(request.payload, ctx))
+        return Promise.resolve(undefined)
+      }
+      return Promise.resolve(fn.handler(request.payload, ctx))
+    },
     listWorkers: () => Array.from(workers.values()).map(w => ({
       id: w.id, name: w.name, status: 'connected' as const,
       connectedAt: Date.now(), functionCount: w.functions.length, triggerCount: w.triggers.length,
