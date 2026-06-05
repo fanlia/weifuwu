@@ -13,26 +13,47 @@ export interface CtxValue {
 const fallbackT = (key: string, _params?: Record<string, string>, fallback?: string) => fallback ?? key
 
 const DEFAULT_CTX: CtxValue = { params: {}, query: {}, parsed: {}, prefs: {}, env: {}, t: fallbackT, user: {} }
-let _ctx: CtxValue = DEFAULT_CTX
-let _snapshot = { params: _ctx.params, query: _ctx.query, user: _ctx.user, parsed: _ctx.parsed, prefs: _ctx.prefs, env: _ctx.env }
-const _listeners = new Set<() => void>()
 
-const subscribe = (cb: () => void) => { _listeners.add(cb); return () => { _listeners.delete(cb) } }
-const getSnapshot = () => _snapshot
+interface CtxStore {
+  _ctx: CtxValue
+  _snapshot: Omit<CtxValue, 't'>
+  _listeners: Set<() => void>
+  _alsGetStore: (() => CtxValue | undefined) | null
+}
+
+const KEY = '__WEIFUWU_CTX'
+
+function getStore(): CtxStore {
+  if (typeof globalThis !== 'undefined' && (globalThis as any)[KEY]) {
+    return (globalThis as any)[KEY]
+  }
+  const s: CtxStore = {
+    _ctx: DEFAULT_CTX,
+    _snapshot: { params: DEFAULT_CTX.params, query: DEFAULT_CTX.query, user: DEFAULT_CTX.user, parsed: DEFAULT_CTX.parsed, prefs: DEFAULT_CTX.prefs, env: DEFAULT_CTX.env },
+    _listeners: new Set<() => void>(),
+    _alsGetStore: null,
+  }
+  if (typeof globalThis !== 'undefined') {
+    (globalThis as any)[KEY] = s
+  }
+  return s
+}
+
+const store = getStore()
+
+const subscribe = (cb: () => void) => { store._listeners.add(cb); return () => { store._listeners.delete(cb) } }
+const getSnapshot = () => store._snapshot
 const getServerSnapshot = getSnapshot
-
-// ── Optional ALS integration (injected by tsx-instance.ts on server) ──
-let _alsGetStore: (() => CtxValue | undefined) | null = null
 
 /** @internal Injected by tsx-instance.ts for async-safe context isolation */
 export function __registerAls(getStore: () => CtxValue | undefined) {
-  _alsGetStore = getStore
+  store._alsGetStore = getStore
 }
 
 export function setCtx(value: Partial<CtxValue>) {
-  _ctx = { ..._ctx, ...value }
-  _snapshot = { params: _ctx.params, query: _ctx.query, user: _ctx.user, parsed: _ctx.parsed, prefs: _ctx.prefs, env: _ctx.env }
-  _listeners.forEach(fn => fn())
+  store._ctx = { ...store._ctx, ...value }
+  store._snapshot = { params: store._ctx.params, query: store._ctx.query, user: store._ctx.user, parsed: store._ctx.parsed, prefs: store._ctx.prefs, env: store._ctx.env }
+  store._listeners.forEach(fn => fn())
 }
 
 function _buildT(): (key: string, params?: Record<string, string>, fallback?: string) => string {
@@ -51,8 +72,8 @@ function _buildT(): (key: string, params?: Record<string, string>, fallback?: st
 }
 
 function _readCtx(): CtxValue {
-  const alsStore = _alsGetStore?.()
-  const base = alsStore ?? _ctx
+  const alsStore = store._alsGetStore?.()
+  const base = alsStore ?? store._ctx
   const data = typeof window !== 'undefined' ? (window as any).__WEIFUWU_CTX : null
   return { ...base, ...data, t: _buildT() }
 }

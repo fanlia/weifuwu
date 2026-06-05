@@ -3,7 +3,8 @@ import { setCtx, useCtx } from './tsx-context.ts'
 import { navigate } from './client-router.ts'
 
 function resolveTheme(theme: string): string {
-  if (theme === 'system' && typeof window !== 'undefined') {
+  if (theme === 'system') {
+    if (typeof window === 'undefined') return 'light'
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
   return theme
