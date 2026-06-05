@@ -506,6 +506,8 @@ const count = useStore(s => s.count)
 
 ```
 
+**`TsxContext`** — React context holding page data (`params`, `query`, `user`, `parsed`, `prefs`, `env`). Used internally by hooks; rarely needed directly.
+
 ### Locale & Theme
 
 ```tsx
@@ -520,7 +522,7 @@ function LangSwitch() {
 |--------|-------------|
 | `locale` | Current locale string (from `ctx.prefs.locale`) |
 | `setLocale(locale)` | Switch locale (calls `navigate('/__lang/' + locale)`) |
-| `t` | Translation function (same as `useCtx().t`) |
+| `t` | Translate a key using loaded locale messages |
 
 ```tsx
 import { useTheme } from 'weifuwu/react'
@@ -571,11 +573,19 @@ addInterceptor(async (url) => {
 ### Flash messages
 
 ```ts
-// Server
+// Server — set flash cookie on redirect, auto-cleared after first read
 return ctx.setPref('flash', JSON.stringify({ type: 'success', message: 'Done' }))  // 302 + Set-Cookie
+```
 
-// Client (tsx)
-function Toast() { const { prefs } = useCtx(); const flash = prefs?.flash ? JSON.parse(prefs.flash) : null; ... }
+```tsx
+// Client
+import { useFlashMessage } from 'weifuwu/react'
+
+function Toast() {
+  const flash = useFlashMessage<{ type: string; message: string }>()
+  if (!flash) return null
+  return <div className={`toast toast-${flash.type}`}>{flash.message}</div>
+}
 ```
 
 ### Dev mode
