@@ -43,7 +43,7 @@ export function useCtx(): CtxValue {
   )
 
   const data = typeof window !== 'undefined' ? (window as any).__WEIFUWU_CTX : null
-  const t = data?.t ?? _ctx.t ?? _buildT()
+  const t = data?.t ?? (_ctx.t !== fallbackT ? _ctx.t : _buildT())
   return { ..._ctx, ...data, t }
 }
 
