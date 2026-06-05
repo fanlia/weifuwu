@@ -9,6 +9,7 @@ import { serveStatic } from '../static.ts'
 const tmpDir = resolve(import.meta.dirname, '../.test-static')
 
 before(async () => {
+  await rm(tmpDir, { recursive: true, force: true })
   await mkdir(tmpDir, { recursive: true })
   await writeFile(resolve(tmpDir, 'hello.txt'), 'Hello, World!')
   await writeFile(resolve(tmpDir, 'index.html'), '<h1>Index</h1>')
