@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { open, realpath } from 'node:fs/promises'
+import { open, realpath, type FileHandle } from 'node:fs/promises'
 import { extname, resolve, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import type { Handler } from './types.ts'
@@ -28,7 +28,7 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
       return new Response('Forbidden', { status: 403 })
     }
 
-    let fileHandle
+    let fileHandle: FileHandle | undefined
     try {
       fileHandle = await open(filePath, 'r')
       let stat = await fileHandle.stat()

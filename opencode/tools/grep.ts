@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import type { ToolContext } from './index.ts'
@@ -24,13 +24,13 @@ export function createGrepTool(ctx: ToolContext) {
           if (context > 0) args.push('-C', String(context))
           if (include) args.push('-g', include)
           args.push(pattern, searchDir)
-          stdout = execSync('rg', args, { timeout: 15000, maxBuffer: 1024 * 1024 }).toString()
+          stdout = execFileSync('rg', args, { timeout: 15000, maxBuffer: 1024 * 1024 }).toString()
         } else {
           const args = ['-rn']
           if (context > 0) args.push('-C', String(context))
           if (include) args.push('--include', include)
           args.push(pattern, searchDir)
-          stdout = execSync('grep', args, { timeout: 15000, maxBuffer: 1024 * 1024 }).toString()
+          stdout = execFileSync('grep', args, { timeout: 15000, maxBuffer: 1024 * 1024 }).toString()
         }
         const lines = stdout.split('\n').filter(Boolean)
         return { matches: lines.length, results: lines.slice(0, 200), truncated: lines.length > 200 }

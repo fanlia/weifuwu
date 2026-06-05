@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import type { ToolContext } from './index.ts'
 
@@ -15,7 +15,7 @@ export function createGlobTool(ctx: ToolContext) {
       const searchDir = path ? resolve(ctx.workspace, path) : ctx.workspace
 
       try {
-        const stdout = execSync('find', [
+        const stdout = execFileSync('find', [
           searchDir,
           '-name', pattern,
           '-not', '-path', '*/node_modules/*',

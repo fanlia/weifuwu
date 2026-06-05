@@ -277,8 +277,8 @@ export class TsxInstance {
   private clientRouteLog = new Set<string>()
 
   // file watchers (dev mode, stored for cleanup)
-  private watcher: chokidar.FSWatcher | null = null
-  private twWatcher: chokidar.FSWatcher | null = null
+  private watcher: any = null
+  private twWatcher: any = null
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 
@@ -402,11 +402,11 @@ export class TsxInstance {
         const ctxValue: CtxValue = {
           params: ctx.params,
           query: ctx.query,
-          user: ctx.user as { id?: string } | undefined,
-          parsed: ctx.parsed,
-          prefs: ctx.prefs,
-          t: ctx.t,
-          env: ctx.env,
+          user: (ctx.user ?? {}) as { id?: string },
+          parsed: ctx.parsed ?? {},
+          prefs: ctx.prefs ?? {},
+          t: ctx.t ?? ((key: string) => key),
+          env: ctx.env ?? {},
         }
 
         return als.run(ctxValue, async () => {
@@ -642,11 +642,11 @@ export class TsxInstance {
       const ctxValue: CtxValue = {
         params: ctx.params,
         query: ctx.query,
-        user: ctx.user as { id?: string } | undefined,
-        parsed: ctx.parsed,
-        prefs: ctx.prefs,
-        t: ctx.t,
-        env: ctx.env,
+        user: (ctx.user ?? {}) as { id?: string },
+        parsed: ctx.parsed ?? {},
+        prefs: ctx.prefs ?? {},
+        t: ctx.t ?? ((key: string) => key),
+        env: ctx.env ?? {},
       }
 
       // Isolate per-request context so load() and render see the correct ctx
@@ -708,7 +708,7 @@ export class TsxInstance {
       persistent: false,
       ignoreInitial: true,
     })
-    this.watcher.on('all', async (event, filePath) => {
+    this.watcher.on('all', async (event: string, filePath: string) => {
       if (event !== 'change' && event !== 'add') return
       if (!/\.tsx?$/.test(filePath)) return
 
