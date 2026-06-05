@@ -18,7 +18,6 @@ type TrieNode = {
   param?: string
   wildcard?: boolean
   pathMws: Middleware[]
-  subRouter?: Router
 }
 
 type WsTrieNode = {
@@ -137,11 +136,7 @@ export class Router {
   use(arg1: string | Middleware, arg2?: Router | Middleware): this {
     if (typeof arg1 === 'string') {
       if (arg2 instanceof Router) {
-        let node = this.root
-        for (const segment of this.splitPath(arg1)) {
-          node = getTrieNode(node, segment)
-        }
-        node.subRouter = arg2
+        this._mountRouter(arg1, arg2)
       } else if (typeof arg2 === 'function') {
         let node = this.root
         for (const segment of this.splitPath(arg1)) {
@@ -249,7 +244,6 @@ export class Router {
       const url = new URL(req.url ?? '/', 'http://localhost')
       const segments = url.pathname.split('/').filter(Boolean)
 
-      // 1. Try WS trie
       const match = router.matchWsTrie(wsRoot, segments)
       if (match) {
         const query = Object.fromEntries(url.searchParams)
@@ -293,16 +287,62 @@ export class Router {
         return
       }
 
-      // 2. No WS match — check HTTP sub-routers
-      const httpMatch = router.matchTrie('GET', segments)
-      if (httpMatch?.subRouter) {
-        const remaining = '/' + segments.slice(httpMatch.subRouter.remainingIdx).join('/')
-        req.url = remaining
-        httpMatch.subRouter.router.websocketHandler()(req, socket, head)
-        return
-      }
-
       socket.destroy()
+    }
+  }
+
+  private _mountRouter(prefix: string, sub: Router): void {
+    const base = prefix === '/' ? '' : prefix.replace(/\/$/, '')
+
+    const mountMw: Middleware = (req, ctx, next) => {
+      ctx.mountPath = (ctx.mountPath || '') + base
+      return next(req, ctx)
+    }
+
+    const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
+    this._collect(sub.root, '', routes, [])
+    for (const { method, path, handler, middlewares } of routes) {
+      this.route(method, base + path, mountMw, ...sub.globalMws, ...middlewares, handler)
+    }
+
+    const wsRoutes: Array<{ path: string; handler: WebSocketHandler }> = []
+    this._collectWs(sub.wsRoot, '', wsRoutes)
+    for (const { path, handler } of wsRoutes) {
+      this.ws(base + path, handler)
+    }
+  }
+
+  private _collect(
+    node: TrieNode,
+    prefix: string,
+    result: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }>,
+    pathMwsAcc: Middleware[],
+  ): void {
+    const mws = [...pathMwsAcc, ...node.pathMws]
+    if (node.wildcard) {
+      for (const [method, handler] of node.handlers) {
+        result.push({ method, path: prefix + '/*', handler, middlewares: [...mws, ...(node.middlewares.get(method) || [])] })
+      }
+    } else {
+      for (const [method, handler] of node.handlers) {
+        result.push({ method, path: prefix || '/', handler, middlewares: [...mws, ...(node.middlewares.get(method) || [])] })
+      }
+    }
+    for (const [seg, child] of node.children) {
+      if (seg === ':') this._collect(child, prefix + '/:' + child.param, result, mws)
+      else this._collect(child, prefix + '/' + seg, result, mws)
+    }
+  }
+
+  private _collectWs(
+    node: WsTrieNode,
+    prefix: string,
+    result: Array<{ path: string; handler: WebSocketHandler }>,
+  ): void {
+    if (node.handler) result.push({ path: prefix || '/', handler: node.handler })
+    for (const [seg, child] of node.children) {
+      if (seg === ':') this._collectWs(child, prefix + '/:' + child.param, result)
+      else this._collectWs(child, prefix + '/' + seg, result)
     }
   }
 
@@ -318,7 +358,6 @@ export class Router {
     middlewares: Middleware[]
     pathMws: Middleware[]
     params: Record<string, string>
-    subRouter?: { router: Router; remainingIdx: number }
   } | null {
     let node = this.root
     const params: Record<string, string> = {}
@@ -344,14 +383,6 @@ export class Router {
 
       const next = matchTrieNode(node, segment, params)
       if (!next) {
-        if (node.subRouter) {
-          return {
-            pathMws,
-            params,
-            middlewares: [],
-            subRouter: { router: node.subRouter, remainingIdx: i },
-          }
-        }
         if (wildcardHandler) {
           params['*'] = segments.slice(wildcardIdx).join('/')
           return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params }
@@ -362,15 +393,6 @@ export class Router {
     }
 
     pathMws.push(...node.pathMws)
-
-    if (node.subRouter) {
-      return {
-        pathMws,
-        params,
-        middlewares: [],
-        subRouter: { router: node.subRouter, remainingIdx: segments.length },
-      }
-    }
 
     const handler = node.handlers.get(method) || node.handlers.get('*')
     if (handler) {
@@ -412,32 +434,6 @@ export class Router {
     query: Record<string, string>,
   ): Promise<Response> {
     const match = this.matchTrie(req.method, segments)
-
-    if (match?.subRouter) {
-      const { router: sub, remainingIdx } = match.subRouter
-      const remainingSegments = segments.slice(remainingIdx)
-      const delegate: Handler = (req, ctx) =>
-        sub.handle(req, ctx, remainingSegments, query)
-
-      const allMws = this.globalMws.length + match.pathMws.length === 0
-        ? [] as Middleware[]
-        : [...this.globalMws, ...match.pathMws]
-
-      const levelMount = '/' + segments.slice(0, remainingIdx).join('/')
-
-      try {
-        return await this.runChain(allMws, delegate, req, {
-          ...ctx,
-          params: { ...ctx.params, ...match.params },
-          mountPath: (ctx.mountPath || '') + levelMount,
-        })
-      } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e))
-        return this.errorHandler
-          ? this.errorHandler(err, req, ctx)
-          : new Response('Internal Server Error', { status: 500 })
-      }
-    }
 
     if (match?.handler) {
       const { handler, middlewares: routeMws, pathMws, params } = match

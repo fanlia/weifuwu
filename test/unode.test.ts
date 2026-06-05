@@ -182,6 +182,41 @@ describe('Router', () => {
     assert.equal(data.userId, 'john')
   })
 
+  it('multiple routers at same path both work', async () => {
+    const a = new Router().get('/a', () => new Response('mod-a'))
+    const b = new Router().get('/b', () => new Response('mod-b'))
+    const main = new Router().use('/mod', a).use('/mod', b)
+    const res1 = await main.handler()(new Request('http://localhost/mod/a'), { params: {}, query: {} } as any)
+    const res2 = await main.handler()(new Request('http://localhost/mod/b'), { params: {}, query: {} } as any)
+    assert.equal(await res1.text(), 'mod-a')
+    assert.equal(await res2.text(), 'mod-b')
+  })
+
+  it('sub-router global middleware is applied', async () => {
+    let called = false
+    const sub = new Router()
+      .use((_req, _ctx, next) => { called = true; return next(_req, _ctx) })
+      .get('/data', () => new Response('ok'))
+    const main = new Router().use('/api', sub)
+    await main.handler()(new Request('http://localhost/api/data'), { params: {}, query: {} } as any)
+    assert.equal(called, true)
+  })
+
+  it('sub-router ws route works after merge', async () => {
+    const sub = new Router().ws('/echo', { message(ws, _ctx, data) { ws.send(data.toString()) } })
+    const main = new Router().use('/ws', sub)
+    const server = serve(main.handler(), { port: 0, websocket: main.websocketHandler() })
+    await server.ready
+    const ws = new WebSocket(`ws://localhost:${server.port}/ws/echo`)
+    const msg = await new Promise<string>((resolve) => {
+      ws.onmessage = (e) => resolve(e.data as string)
+      ws.onopen = () => ws.send('pong')
+    })
+    ws.close()
+    server.stop()
+    assert.equal(msg, 'pong')
+  })
+
   it('middleware order: global → path → route', async () => {
     const order: number[] = []
     const r = new Router()
