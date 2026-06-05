@@ -14,7 +14,6 @@ description: Web-standard HTTP framework for Node.js — (req, ctx) => Response
 - [React SSR (tsx)](#react-ssr-tsx)
 - [PostgreSQL](#postgresql)
 - [Auth](#auth)
-- [Security](#security)
 - [WebSocket & Real-time](#websocket--real-time)
 - [AI](#ai)
 - [Data Layer](#data-layer)
@@ -405,12 +404,25 @@ ui/
 
 ### page.tsx — page component
 
+Components receive `{ params, query }` from routing and can use hooks for
+context, data fetching, state, URL sync, and meta tags (see [exports table](#react-exports-weifuwureact)):
+
 ```tsx
-export default function Page({ params, query }: {
-  params: { slug: string }
-  query: Record<string, string>
-}) {
-  return <article><h1>{params.slug}</h1></article>
+import { Head, useCtx, useData, createStore, useQueryState } from 'weifuwu/react'
+
+const useFilters = createStore({ category: '' })
+
+export default function Page({ params, query }: { params: { slug: string }; query: Record<string, string> }) {
+  const { t, locale, theme } = useCtx()                    // i18n + theme + prefs
+  const [page, setPage] = useQueryState('page', '1')       // URL sync
+  const { data, loading, mutate } = useData(`/api/posts?page=${page}`)  // data fetching
+
+  return (
+    <>
+      <Head><title>{t('page.title')}</title></Head>
+      {loading ? <Skeleton /> : data.posts.map(p => <Card key={p.id} />)}
+    </>
+  )
 }
 ```
 
@@ -448,6 +460,8 @@ export default function RootLayout({ children, req, ctx }: {
 ```
 
 **Nested layouts** (`pages/blog/layout.tsx`) — receives only `{ children }`.
+
+Page components access preferences, i18n, and theme via `useCtx()` — see [Preferences](#preferences).
 
 ### route.ts — API (co-located with page)
 
