@@ -54,12 +54,11 @@ export async function navigate(href: string): Promise<void> {
     const currentRoot = document.getElementById('__weifuwu_root')
     if (!currentRoot) { location.href = href; return }
 
-    ;(window as any).__WEIFUWU_ROOT?.unmount()
-    currentRoot.innerHTML = newHtml
     ;(window as any).__WEIFUWU_PROPS = JSON.parse(propsMatch[1])
     history.pushState(null, '', url.pathname + url.search)
+    currentRoot.innerHTML = newHtml
 
-    // Update __WEIFUWU_CTX from the new page
+    // Update globals from the new page
     const ctxMatch = html.match(/window\.__WEIFUWU_CTX=(.+?)<\/script>/)
     if (ctxMatch) {
       try { (window as any).__WEIFUWU_CTX = JSON.parse(ctxMatch[1]) } catch {}
@@ -70,11 +69,12 @@ export async function navigate(href: string): Promise<void> {
     }
 
     if (bundleUrl) {
-      const cacheBust = bundleUrl.includes('?') ? '&_t=' : '?_t='
       try {
-        await import(/* @vite-ignore */ `${bundleUrl}${cacheBust}${Date.now()}`)
+        await import(/* @vite-ignore */ `${bundleUrl}`)
       } catch (e) {
         console.error('[weifuwu/router] hydration failed:', e)
+        // Fallback: full navigation
+        location.href = href
       }
     }
 

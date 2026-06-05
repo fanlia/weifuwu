@@ -446,6 +446,17 @@ const apiUrl = process.env.WEIFUWU_PUBLIC_API_URL
 
 The hydration bundle also injects `self.process = { env: {} }` as a safety net so any `process.env.*` reference in bundled dependencies won't throw.
 
+### Streaming SSR
+
+HTML is streamed via `TransformStream` — the browser starts rendering before the full page is ready. `<head>` content (theme blocking script, locale data, CSS) is injected at the `</head>` boundary and sent immediately.
+
+### Persistent layout
+
+The client hydration bundle creates a persistent `App` root that wraps all pages. Client-side navigation via `<Link>` (or `navigate()`) replaces the page component in-place instead of unmounting and re-hydrating. This means:
+- `TsxContext.Provider` stays alive across navigations
+- `createStore()` state persists (no cache-busting on bundle imports)
+- Faster navigation — React only re-renders the page component
+
 ### Client-side hooks
 
 #### useWebsocket — auto-reconnecting WebSocket
@@ -554,6 +565,77 @@ function Toast() {
 ```
 
 Flash is read once from the cookie, then automatically cleared on the response. After page refresh the flash is gone.
+
+### Client-side state management
+
+#### createStore — shared state (replaces Zustand)
+
+```tsx
+import { createStore } from 'weifuwu/react'
+
+const useStore = createStore({ count: 0, items: [] as string[] })
+
+function Counter() {
+  const count = useStore(s => s.count)       // selector
+  const { setState, getState } = useStore()   // full state + API
+  return <button onClick={() => setState({ count: count + 1 })}>{count}</button>
+}
+
+function List() {
+  const items = useStore(s => s.items)
+  return items.map(i => <div>{i}</div>)
+}
+
+// Outside components:
+useStore.getState()
+useStore.setState({ count: 1 })
+useStore.subscribe(() => {})
+```
+
+Uses `useSyncExternalStore` internally. No context provider needed. State persists across client-side navigations (no cache-busting on bundle imports).
+
+#### useData — data fetching (replaces React Query / SWR)
+
+```tsx
+import { useData } from 'weifuwu/react'
+
+function PostList() {
+  const { data, error, loading, mutate } = useData('/api/posts')
+
+  if (loading) return <Skeleton />
+  if (error) return <Error msg={error.message} />
+  return (
+    <>
+      {data.posts.map(p => <PostCard key={p.id} post={p} />)}
+      <button onClick={() => mutate()}>Refresh</button>
+    </>
+  )
+}
+```
+
+In-memory cache with 60s TTL, concurrent request dedup. `mutate(data)` for optimistic updates, `mutate()` for revalidation. `fallback` option for initial SSR data.
+
+#### useQueryState — URL query params
+
+```tsx
+import { useQueryState } from 'weifuwu/react'
+
+function SearchPage() {
+  const [q, setQ] = useQueryState('q', '')
+  const [page, setPage] = useQueryState('page', '1')
+  const { data } = useData(`/api/search?q=${q}&page=${page}`)
+
+  return (
+    <>
+      <input value={q} onChange={e => { setQ(e.target.value); setPage('1') }} />
+      <Results items={data?.items} />
+      <Pagination page={Number(page)} onChange={setPage} />
+    </>
+  )
+}
+```
+
+Synced with `window.location.search` via `useSyncExternalStore`. Back/forward navigation updates the state. Changes use `history.replaceState` and dispatch a synthetic `popstate` for reactivity.
 
 ### Development mode
 

@@ -3,7 +3,7 @@ import { renderToReadableStream } from 'react-dom/server'
 import * as esbuild from 'esbuild'
 import { readdirSync, statSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve, sep, dirname, basename } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 import vm from 'node:vm'
 import { createRequire } from 'node:module'
@@ -14,6 +14,8 @@ import type { Context, Handler } from './types.ts'
 import { TsxContext, useCtx } from './tsx-context.ts'
 
 export { TsxContext, useCtx }
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export interface TsxOptions {
   dir: string
@@ -408,20 +410,11 @@ export class TsxInstance {
         }
 
         const stream = await renderToReadableStream(element)
-        const body = await readStream(stream)
-        let html = body.startsWith('<!DOCTYPE html>') ? body : `<!DOCTYPE html>\n${body}`
-        html = injectHead(html)
-        html = injectBridgeScripts(html, ctx, base)
-        if (this.compiledTailwindCss && html.includes('</head>')) {
-          html = html.replace('</head>',
-            `<link rel="stylesheet" href="${base}/__wfw/style.css" />\n</head>`)
-        }
-        if (isDev) {
-          html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${base}/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
-        }
-        return new Response(html, {
+        return streamResponse(stream, {
+          ctx, base,
+          compiledTailwindCss: this.compiledTailwindCss,
+          isDev,
           status: 404,
-          headers: { 'content-type': 'text/html; charset=utf-8' },
         })
       }
 
@@ -499,18 +492,28 @@ export class TsxInstance {
 
   private async buildClientBundle(
     entryPath: string,
-    _layoutPaths: string[],
+    layoutPaths: string[],
     pagesDir: string,
   ): Promise<Uint8Array | null> {
     try {
       const code = [
         `import{hydrateRoot}from'react-dom/client';`,
-        `import{createElement}from'react';`,
+        `import{createElement,useState,useEffect}from'react';`,
+        `import{TsxContext}from'weifuwu/react';`,
         `import P from${JSON.stringify(entryPath)};`,
-        `const p=window.__WEIFUWU_PROPS;`,
         `const c=document.getElementById('__weifuwu_root');`,
-        `const r=hydrateRoot(c,createElement(P,p));`,
-        `window.__WEIFUWU_ROOT=r;`,
+        `if(!window.__WFW_ROOT){`,
+        `function App(){`,
+        `const[p,setP]=useState({C:P,props:window.__WEIFUWU_PROPS});`,
+        `useEffect(()=>{window.__WFW_SET_PAGE=(C,props)=>setP({C,props})},[]);`,
+        `const ctx=window.__WEIFUWU_CTX||{params:{},query:{}};`,
+        `return createElement(TsxContext.Provider,{value:ctx},`,
+        `createElement(p.C,p.props))`,
+        `}`,
+        `window.__WFW_ROOT=hydrateRoot(c,createElement(App));`,
+        `}else{`,
+        `window.__WFW_SET_PAGE?.(P,window.__WEIFUWU_PROPS);`,
+        `}`,
       ].join('')
 
       const publicEnv: Record<string, string> = {}
@@ -520,13 +523,17 @@ export class TsxInstance {
         }
       }
 
+      const weifuwuAlias: Record<string, string> = {
+        'weifuwu/react': resolve(__dirname, 'react.ts'),
+      }
+
       const result = await esbuild.build({
         stdin: { contents: code, loader: 'tsx', resolveDir: pagesDir },
         bundle: true,
         format: 'esm',
         jsx: 'automatic',
         jsxImportSource: 'react',
-        alias: resolveAliases(),
+        alias: { ...resolveAliases(), ...weifuwuAlias },
         banner: { js: 'self.process={env:{}};' },
         define: Object.keys(publicEnv).length > 0 ? publicEnv : undefined,
         loader: { '.node': 'empty' },
@@ -639,33 +646,12 @@ export class TsxInstance {
         }
       }
 
-      const stream = await renderToReadableStream(element)
-      const body = await readStream(stream)
-
-      if (layoutPaths.length > 0 && (body.match(/__weifuwu_root/g) || []).length > 1) {
-        console.warn(
-          '[weifuwu/tsx] <div id="__weifuwu_root"> is auto-injected by the framework. ' +
-          'Remove the duplicate from your root layout to avoid hydration conflicts.',
-        )
-      }
-
       const bundle = await this.getOrBuildClientBundle(entryPath, layoutPaths, this.pagesDir)
-
-      let html = body.startsWith('<!DOCTYPE html>') ? body : `<!DOCTYPE html>\n${body}`
-      html = injectHead(html)
-      html = injectBridgeScripts(html, ctx, base, bundle, allProps)
-
-      if (this.compiledTailwindCss && html.includes('</head>')) {
-        html = html.replace('</head>',
-          `<link rel="stylesheet" href="${base}/__wfw/style.css" />\n</head>`)
-      }
-
-      if (isDev) {
-        html += `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${base}/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
-      }
-
-      return new Response(html, {
-        headers: { 'content-type': 'text/html; charset=utf-8' },
+      const stream = await renderToReadableStream(element)
+      return streamResponse(stream, {
+        ctx, base,
+        compiledTailwindCss: this.compiledTailwindCss,
+        isDev, bundle, allProps,
       })
     }
   }
@@ -846,34 +832,107 @@ export class TsxInstance {
   }
 }
 
-function injectHead(html: string): string {
-  const match = html.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
-  if (match) {
-    html = html.replace(match[0], '')
-    html = html.replace('</head>', match[1] + '\n</head>')
-  }
-  return html
+interface StreamOpts {
+  ctx: Context
+  base: string
+  compiledTailwindCss?: string
+  isDev: boolean
+  status?: number
+  bundle?: { url: string } | null
+  allProps?: Record<string, unknown>
 }
 
-function injectBridgeScripts(
-  html: string,
-  ctx: Context,
-  base: string,
-  bundle?: { url: string } | null,
-  allProps?: Record<string, unknown>,
-): string {
-  const prefs = ctx.prefs
-  const theme = ctx.theme
+function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response {
+  const decoder = new TextDecoder()
+  const encoder = new TextEncoder()
 
-  let headInjection = ''
+  // Pre-compute head injection payload (static before streaming)
+  const headPayload = buildHeadPayload(opts)
 
-  if (theme) {
-    headInjection += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
+  let buffer = ''
+  let headFlushed = false
+  let extractedHead = ''
+
+  const output = new ReadableStream({
+    async start(controller) {
+      const reader = reactStream.getReader()
+
+      async function push(chunk: Uint8Array) {
+        buffer += decoder.decode(chunk, { stream: true })
+
+        // Extract <template id="__wfw_head"> content and remove from body
+        if (!extractedHead) {
+          const m = buffer.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
+          if (m) {
+            extractedHead = m[1]
+            buffer = buffer.replace(m[0], '')
+          }
+        }
+
+        // Flush when we hit </head>, injecting all head content
+        if (!headFlushed) {
+          const idx = buffer.indexOf('</head>')
+          if (idx !== -1) {
+            const before = buffer.slice(0, idx)
+            let injection = ''
+            if (extractedHead) injection += '\n' + extractedHead
+            injection += headPayload
+            controller.enqueue(encoder.encode(before + injection))
+            buffer = buffer.slice(idx)
+            headFlushed = true
+          }
+          return
+        }
+
+        controller.enqueue(encoder.encode(buffer))
+        buffer = ''
+      }
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        await push(value)
+      }
+
+      // Flush remaining buffer
+      if (buffer) controller.enqueue(encoder.encode(buffer))
+
+      // Body scripts
+      const body = buildBodyScripts(opts)
+      if (body) controller.enqueue(encoder.encode('\n' + body))
+
+      // Dev livereload
+      if (opts.isDev) {
+        controller.enqueue(encoder.encode(
+          `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${opts.base}/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
+        ))
+      }
+
+      controller.close()
+    },
+  })
+
+  return new Response(output, {
+    status: opts.status ?? 200,
+    headers: { 'content-type': 'text/html; charset=utf-8' },
+  })
+}
+
+function buildHeadPayload(opts: StreamOpts): string {
+  const { ctx, base, compiledTailwindCss } = opts
+  let result = ''
+
+  if (ctx.theme) {
+    result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
+  }
+
+  if (compiledTailwindCss) {
+    result += `<link rel="stylesheet" href="${base}/__wfw/style.css" />\n`
   }
 
   const localeData = (globalThis as any).__LOCALE_DATA__
   if (localeData && Object.keys(localeData).length > 0) {
-    headInjection += `<script>window.__LOCALE_DATA__=${JSON.stringify(localeData)}<\/script>\n`
+    result += `<script>window.__LOCALE_DATA__=${JSON.stringify(localeData)}<\/script>\n`
   }
 
   const ctxData: Record<string, unknown> = {
@@ -882,24 +941,20 @@ function injectBridgeScripts(
     user: ctx.user,
     parsed: ctx.parsed,
   }
-  if (prefs) ctxData.prefs = prefs
+  if (ctx.prefs) ctxData.prefs = ctx.prefs
   if (ctx.locale) ctxData.locale = ctx.locale
   if (ctx.theme) ctxData.theme = ctx.theme
+  result += `<script>window.__WEIFUWU_CTX=${JSON.stringify(ctxData)}<\/script>\n`
 
-  headInjection += `<script>window.__WEIFUWU_CTX=${JSON.stringify(ctxData)}<\/script>\n`
+  return result
+}
 
-  if (headInjection && html.includes('</head>')) {
-    html = html.replace('</head>', headInjection + '</head>')
+function buildBodyScripts(opts: StreamOpts): string {
+  if (!opts.bundle) return ''
+  const parts: string[] = []
+  if (opts.allProps) {
+    parts.push(`<script>window.__WEIFUWU_PROPS=${JSON.stringify(opts.allProps)}<\/script>`)
   }
-
-  if (bundle) {
-    const bodyScripts: string[] = []
-    if (allProps) {
-      bodyScripts.push(`<script>window.__WEIFUWU_PROPS=${JSON.stringify(allProps)}<\/script>`)
-    }
-    bodyScripts.push(`<script type="module" src="${base}${bundle.url}"><\/script>`)
-    html += '\n' + bodyScripts.join('\n')
-  }
-
-  return html
+  parts.push(`<script type="module" src="${opts.base}${opts.bundle.url}"><\/script>`)
+  return parts.join('\n')
 }
