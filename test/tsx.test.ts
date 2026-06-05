@@ -212,6 +212,27 @@ describe('tsx()', () => {
       const data = await res2.json() as any
       assert.equal(data.ok, true)
     })
+
+    it('multiple mount points serve correct client script paths', async () => {
+      const pages = await tsx({ dir: fixtures })
+      const main = new Router()
+      main.use('/a', pages)
+      main.use('/b', pages)
+
+      const resA = await main.handler()(
+        new Request('http://localhost/a/'),
+        { params: {}, query: {} } as any,
+      )
+      const htmlA = await resA.text()
+      assert.match(htmlA, /src="\/a\/__wfw\/client\/[^"]+\.js"/)
+
+      const resB = await main.handler()(
+        new Request('http://localhost/b/'),
+        { params: {}, query: {} } as any,
+      )
+      const htmlB = await resB.text()
+      assert.match(htmlB, /src="\/b\/__wfw\/client\/[^"]+\.js"/)
+    })
   })
 
   describe('end-to-end via serve()', () => {
