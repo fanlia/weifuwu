@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { open, realpath } from 'node:fs/promises'
 import { extname, resolve, normalize, sep } from 'node:path'
+import { Readable } from 'node:stream'
 import type { Handler } from './types.ts'
 
 export interface ServeStaticOptions {
@@ -79,10 +80,12 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
           : `public, max-age=${opts.maxAge ?? 0}`,
       }
 
-      const fileBuffer = await fileHandle.readFile()
-      await fileHandle.close()
-      fileHandle = undefined
-      return new Response(fileBuffer as BodyInit, { headers })
+      const readStream = fileHandle.createReadStream()
+      const cleanup = () => fileHandle.close().catch(() => {})
+      readStream.on('close', cleanup)
+      readStream.on('error', cleanup)
+      const webStream = Readable.toWeb(readStream)
+      return new Response(webStream as any, { headers })
     } catch (err) {
       if (fileHandle) await fileHandle.close().catch(() => {})
       if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
