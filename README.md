@@ -61,19 +61,19 @@ app.use('/', await tsx({ dir: './ui' }))
 serve(app.handler(), { port: 3000 })
 ```
 
-你的 tsx 页面可以直接用：
+Your tsx pages can use it directly:
 
 ```tsx
 import { Head, useCtx, useData, createStore } from 'weifuwu/react'
 
 export default function Page() {
-  const { t, theme } = useCtx()       // 翻译 + 主题
-  const { data } = useData('/api/list') // 数据获取
+  const { t, theme } = useCtx()          // i18n + theme
+  const { data } = useData('/api/list')  // data fetching
   return <h1>{t('hello')} / {theme}</h1>
 }
 ```
 
-**零额外依赖** — 不用装 zustand、react-query、next-intl、next-themes、react-hot-toast。
+**Zero extra dependencies** — no zustand, react-query, next-intl, next-themes, react-hot-toast needed.
 
 ### weifuwu init
 
