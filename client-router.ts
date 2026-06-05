@@ -1,8 +1,9 @@
 import { createElement, useCallback, useState, useEffect } from 'react'
-import { setCtx } from './tsx-context.ts'
 import { runInterceptors } from './client-pref.ts'
 
 export { addInterceptor } from './client-pref.ts'
+
+import { setCtx } from './tsx-context.ts'
 
 let _navigating = false
 let _listeners: Array<(v: boolean) => void> = []

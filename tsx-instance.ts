@@ -12,13 +12,13 @@ import chokidar from 'chokidar'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
 import type { Context, Handler } from './types.ts'
-import type { CtxValue } from './tsx-context.ts'
-import { TsxContext, useCtx, setCtx, __registerAls } from './tsx-context.ts'
+import { TsxContext, setCtx, __registerAls } from './tsx-context.ts'
+import type { PageContext } from './tsx-context.ts'
 
-export { TsxContext, useCtx, setCtx }
+export { TsxContext }
 
 // ── Per-request context isolation via AsyncLocalStorage ────────────
-const als = new AsyncLocalStorage<CtxValue>()
+const als = new AsyncLocalStorage<PageContext>()
 __registerAls(() => als.getStore())
 
 export interface TsxOptions {
@@ -399,13 +399,13 @@ export class TsxInstance {
         if (!nfMod) return new Response('Not Found', { status: 404 })
         const NfComponent = nfMod.default
 
-        const ctxValue: CtxValue = {
+        const ctxValue: PageContext = {
           params: ctx.params,
           query: ctx.query,
           user: (ctx.user ?? {}) as { id?: string },
           parsed: ctx.parsed ?? {},
           prefs: ctx.prefs ?? {},
-          t: ctx.t ?? ((key: string) => key),
+          loaderData: {},
           env: ctx.env ?? {},
         }
 
@@ -531,24 +531,27 @@ export class TsxInstance {
   ): Promise<Uint8Array | null> {
     try {
       const layoutImports = layoutPaths.map(p => `import${JSON.stringify(p)};`).join('')
+      const _sc = `(function(){var k='__WEIFUWU_CTX_STORE';var s=typeof globalThis!='undefined'&&globalThis[k];if(!s)return function(){};return function(v){s._ctx={...s._ctx,...v};s._snapshot={params:s._ctx.params,query:s._ctx.query,user:s._ctx.user,parsed:s._ctx.parsed,prefs:s._ctx.prefs,env:s._ctx.env};s._listeners.forEach(function(fn){fn()})}})()`
       const code = [
         layoutImports,
         `import{hydrateRoot}from'react-dom/client';`,
         `import{createElement,useState,useEffect}from'react';`,
         `import{TsxContext}from'weifuwu/react';`,
         `import P from${JSON.stringify(entryPath)};`,
+        `var setCtx=${_sc};`,
         `const c=document.getElementById('__weifuwu_root');`,
+        `if(window.__WEIFUWU_PROPS)setCtx({loaderData:window.__WEIFUWU_PROPS});`,
         `if(!window.__WFW_ROOT){`,
         `function App(){`,
-        `const[p,setP]=useState({C:P,props:window.__WEIFUWU_PROPS});`,
-        `useEffect(()=>{window.__WFW_SET_PAGE=(C,props)=>setP({C,props})},[]);`,
-        `const ctx=window.__WEIFUWU_CTX||{params:{},query:{}};`,
+        `const[p,setP]=useState({C:P});`,
+        `useEffect(()=>{window.__WFW_SET_PAGE=(C)=>{setCtx({loaderData:window.__WEIFUWU_PROPS});setP({C})}},[]);`,
+        `const ctx=window.__WEIFUWU_CTX||{};`,
         `return createElement(TsxContext.Provider,{value:ctx},`,
-        `createElement(p.C,p.props))`,
+        `createElement(p.C,null))`,
         `}`,
         `window.__WFW_ROOT=hydrateRoot(c,createElement(App));`,
         `}else{`,
-        `window.__WFW_SET_PAGE?.(P,window.__WEIFUWU_PROPS);`,
+        `window.__WFW_SET_PAGE?.(P);`,
         `}`,
       ].join('')
 
@@ -641,13 +644,17 @@ export class TsxInstance {
       if (!pageMod) return new Response('', { status: 500 })
       const Component = pageMod.default
 
-      const ctxValue: CtxValue = {
+      const loadMod = loadPath ? this.loadModules.get(loadPath) : undefined
+      const loadFn = loadMod?.default
+      const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
+
+      const ctxValue: PageContext = {
         params: ctx.params,
         query: ctx.query,
         user: (ctx.user ?? {}) as { id?: string },
         parsed: ctx.parsed ?? {},
         prefs: ctx.prefs ?? {},
-        t: ctx.t ?? ((key: string) => key),
+        loaderData: loadProps,
         env: ctx.env ?? {},
       }
 
@@ -655,14 +662,9 @@ export class TsxInstance {
       return als.run(ctxValue, async () => {
         setCtx(ctxValue)
 
-        const loadMod = loadPath ? this.loadModules.get(loadPath) : undefined
-        const loadFn = loadMod?.default
-        const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
-        const allProps = { ...loadProps, params: ctx.params, query: ctx.query }
-
         let element: any = createElement(TsxContext.Provider, { value: ctxValue },
           createElement('div', { id: '__weifuwu_root' },
-            createElement(Component, allProps),
+            createElement(Component, null),
           ),
         )
 
@@ -694,7 +696,7 @@ export class TsxInstance {
         return streamResponse(stream, {
           ctx, base,
           compiledTailwindCss: this.compiledTailwindCss,
-          isDev, bundle, allProps,
+          isDev, bundle, loaderData: loadProps,
         })
       })
     }
@@ -888,7 +890,7 @@ interface StreamOpts {
   isDev: boolean
   status?: number
   bundle?: { url: string } | null
-  allProps?: Record<string, unknown>
+  loaderData?: Record<string, unknown>
 }
 
 function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response {
@@ -1023,11 +1025,12 @@ function buildHeadPayload(opts: StreamOpts): string {
 }
 
 function buildBodyScripts(opts: StreamOpts): string {
-  if (!opts.bundle) return ''
   const parts: string[] = []
-  if (opts.allProps) {
-    parts.push(`<script>window.__WEIFUWU_PROPS=${JSON.stringify(opts.allProps)}<\/script>`)
+  if (opts.loaderData && Object.keys(opts.loaderData).length > 0) {
+    parts.push(`<script>window.__WEIFUWU_PROPS=${JSON.stringify(opts.loaderData)}<\/script>`)
   }
-  parts.push(`<script type="module" src="${opts.base}${opts.bundle.url}"><\/script>`)
+  if (opts.bundle) {
+    parts.push(`<script type="module" src="${opts.base}${opts.bundle.url}"><\/script>`)
+  }
   return parts.join('\n')
 }

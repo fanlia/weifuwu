@@ -275,21 +275,20 @@ describe('tsx()', () => {
     })
   })
 
-  describe('TsxContext / useCtx', () => {
-    it('exports TsxContext and useCtx with correct structure', async () => {
-      const { TsxContext, useCtx } = await import('../tsx.ts')
+  describe('TsxContext / useLoaderData', () => {
+    it('exports TsxContext', async () => {
+      const { TsxContext } = await import('../tsx.ts')
       assert.equal(typeof TsxContext.Provider, 'object')
-      assert.equal(typeof useCtx, 'function')
     })
 
-    it('provides params and query via Provider', async () => {
+    it('provides params and query via Provider and loaderData via hook', async () => {
       const r = await tsx({ dir: './test/fixtures/pages' })
       const res = await r.handler()(
         new Request('http://localhost/blog/test-art'),
         { params: { slug: 'test-art' }, query: { ref: 'home' } } as any,
       )
       const html = await res.text()
-      assert.match(html, /test-art/)
+      assert.match(html, /Post: test-art/)
       assert.match(html, /__WEIFUWU_PROPS/)
       assert.match(html, /"params":\{"slug":"test-art"\}/)
       assert.match(html, /"query":\{"ref":"home"\}/)

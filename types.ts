@@ -4,12 +4,8 @@ export interface Context {
   user?: unknown
   parsed?: Record<string, unknown>
   mountPath?: string
-  locale?: string
   t?: (key: string, params?: Record<string, string>, fallback?: string) => string
-  requestId?: string
   prefs?: Record<string, string>
-  theme?: string
-  setPref?: (name: string, value: string) => Response
   env?: Record<string, string>
 }
 

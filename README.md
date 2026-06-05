@@ -439,9 +439,10 @@ ui/
 
 ```tsx
 // page.tsx
-export default function Page({ params, query }: { params: { slug: string }; query: Record<string, string> }) {
-  const { t } = useCtx()
-  return <h1>{t('title')}</h1>
+export default function Page() {
+  const { t } = useLocale()
+  const data = useLoaderData()
+  return <h1>{t('title') ?? data.title}</h1>
 }
 ```
 
@@ -479,8 +480,8 @@ const loading = useNavigating()              // reactive loading state
 ### Client-side hooks
 
 ```tsx
-import { useWebsocket, useAction, useData, useQueryState, createStore, Head, setCtx } from 'weifuwu/react'
-import { useLocale, useTheme, applyTheme, addInterceptor } from 'weifuwu/react'
+import { useWebsocket, useAction, useData, useQueryState, createStore, Head } from 'weifuwu/react'
+import { useLocale, useTheme, applyTheme, addInterceptor, useLoaderData } from 'weifuwu/react'
 
 // WebSocket — auto-reconnecting
 const { send, lastMessage, readyState } = useWebsocket('/ws/chat', { onMessage: (d) => console.log(d), reconnect: { maxRetries: 10, delay: 3000 } })
@@ -503,8 +504,6 @@ const count = useStore(s => s.count)
 // Per-page meta tags
 <Head><title>Page Title</title><meta name="description" content="..." /></Head>
 
-// Update context (locale switch etc.)
-setCtx({ locale: 'en', prefs: { locale: 'en' } })
 ```
 
 ### Locale & Theme
@@ -547,6 +546,16 @@ function ThemeToggle() {
 | `setTheme(theme)` | Switch theme (calls `navigate('/__theme/' + theme)`) |
 
 **`applyTheme(theme)`** — DOM-only theme application. Sets `data-theme` on `<html>`, registers `matchMedia` listener for `'system'`. Used by the interceptor; exported for custom scenarios.
+
+**`useLoaderData()`** — Returns the data returned by `load.ts`. Update-triggered; re-renders on SPA navigation.
+
+```tsx
+import { useLoaderData } from 'weifuwu/react'
+function Page() {
+  const data = useLoaderData<{ post: { title: string } }>()
+  return <h1>{data.post.title}</h1>
+}
+```
 
 **`addInterceptor(fn)`** — Register a URL interceptor. Interceptors run before SPA navigation; if one returns `true`, `navigate()` skips the fetch-and-swap.
 

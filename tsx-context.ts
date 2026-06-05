@@ -1,24 +1,22 @@
 import { useSyncExternalStore, createContext } from 'react'
 
-export interface CtxValue {
+export interface PageContext {
   params: Record<string, string>
   query: Record<string, string>
   user: { id?: string }
   parsed: Record<string, unknown>
   prefs: Record<string, string>
-  t: (key: string, params?: Record<string, string>, fallback?: string) => string
+  loaderData: Record<string, unknown>
   env: Record<string, string>
 }
 
-const fallbackT = (key: string, _params?: Record<string, string>, fallback?: string) => fallback ?? key
-
-const DEFAULT_CTX: CtxValue = { params: {}, query: {}, parsed: {}, prefs: {}, env: {}, t: fallbackT, user: {} }
+const DEFAULT_CTX: PageContext = { params: {}, query: {}, parsed: {}, prefs: {}, loaderData: {}, env: {}, user: {} }
 
 interface CtxStore {
-  _ctx: CtxValue
-  _snapshot: Omit<CtxValue, 't'>
+  _ctx: PageContext
+  _snapshot: Omit<PageContext, 'loaderData'>
   _listeners: Set<() => void>
-  _alsGetStore: (() => CtxValue | undefined) | null
+  _alsGetStore: (() => PageContext | undefined) | null
 }
 
 const KEY = '__WEIFUWU_CTX_STORE'
@@ -46,41 +44,30 @@ const getSnapshot = () => store._snapshot
 const getServerSnapshot = getSnapshot
 
 /** @internal Injected by tsx-instance.ts for async-safe context isolation */
-export function __registerAls(getStore: () => CtxValue | undefined) {
+export function __registerAls(getStore: () => PageContext | undefined) {
   store._alsGetStore = getStore
 }
 
-export function setCtx(value: Partial<CtxValue>) {
+function setCtx(value: Partial<PageContext>) {
   store._ctx = { ...store._ctx, ...value }
   store._snapshot = { params: store._ctx.params, query: store._ctx.query, user: store._ctx.user, parsed: store._ctx.parsed, prefs: store._ctx.prefs, env: store._ctx.env }
   store._listeners.forEach(fn => fn())
 }
 
-function _buildT(): (key: string, params?: Record<string, string>, fallback?: string) => string {
-  const messages = typeof window !== 'undefined'
-    ? (window as any).__LOCALE_DATA__
-    : (globalThis as any).__LOCALE_DATA__
-  if (!messages) return fallbackT
-  return (key: string, params?: Record<string, string>, fallback?: string) => {
-    const msg = key.split('.').reduce((o: any, k: string) => o?.[k], messages as any)
-    if (msg === undefined || msg === null) return fallback ?? key
-    if (!params) return String(msg)
-    let result = String(msg)
-    for (const [k, v] of Object.entries(params)) result = result.replace(`{${k}}`, v)
-    return result
-  }
-}
-
-function _readCtx(): CtxValue {
+function useCtx(): PageContext {
   const alsStore = store._alsGetStore?.()
   const base = alsStore ?? store._ctx
   const data = typeof window !== 'undefined' ? (window as any).__WEIFUWU_CTX : null
-  return { ...base, ...data, t: _buildT() }
+  return { ...base, ...data }
 }
 
-export function useCtx(): CtxValue {
-  useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
-  return _readCtx()
+export function useLoaderData<T = Record<string, unknown>>(): T {
+  const alsStore = store._alsGetStore?.()
+  const base = alsStore ?? store._ctx
+  const data = typeof window !== 'undefined' ? (window as any).__WEIFUWU_CTX : null
+  return ({ ...base, ...data }).loaderData as T
 }
 
-export const TsxContext = createContext<CtxValue>(DEFAULT_CTX)
+export const TsxContext = createContext<PageContext>(DEFAULT_CTX)
+
+export { useCtx, setCtx }

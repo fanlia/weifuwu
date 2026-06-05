@@ -13,7 +13,7 @@ export function requestId(options?: RequestIdOptions): Middleware {
   return async (req, ctx, next) => {
     const existing = req.headers.get(header)
     const id = existing ?? gen()
-    ctx.requestId = id
+    ;(ctx as any).requestId = id
     const res = await next(req, ctx)
     if (res.headers.has(header)) return res
     const h = new Headers(res.headers)

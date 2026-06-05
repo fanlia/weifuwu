@@ -1,3 +1,6 @@
-export default function Post({ post, params }: { post?: { title: string }; params: { slug: string } }) {
-  return <article><h1>{post?.title ?? params.slug}</h1></article>
+import { useLoaderData } from 'weifuwu/react'
+
+export default function Post() {
+  const data = useLoaderData<{ post?: { title: string } }>()
+  return <article><h1>{data.post?.title ?? ''}</h1></article>
 }

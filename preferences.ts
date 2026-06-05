@@ -127,7 +127,7 @@ export function preferences(options: PrefOptions): Middleware {
       ctx.parsed = { ...ctx.parsed, __localeData: msgs }
     }
 
-    ctx.setPref = (name: string, value: string) => {
+    ;(ctx as any).setPref = (name: string, value: string) => {
       const cookieOpts: string[] = [`${name}=${encodeURIComponent(value)}`, 'Path=/', 'SameSite=Lax']
       const referer = req.headers.get('referer') || '/'
       return new Response(null, {
