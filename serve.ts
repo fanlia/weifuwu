@@ -130,8 +130,15 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   const ready = new Promise<void>((r) => { resolveReady = r })
 
   if (options?.shutdown !== false) {
-    process.on('SIGTERM', () => { server.close() })
-    process.on('SIGINT', () => { server.close() })
+    let shuttingDown = false
+    const shutdown = () => {
+      if (shuttingDown) return
+      shuttingDown = true
+      server.close()
+      process.exit(0)
+    }
+    process.on('SIGTERM', shutdown)
+    process.on('SIGINT', shutdown)
   }
 
   if (options?.signal) {
