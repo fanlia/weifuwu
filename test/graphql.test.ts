@@ -87,7 +87,7 @@ describe('graphql', () => {
     assert.equal(res.status, 200)
   })
 
-  it('returns 200 with errors for invalid query (not 400)', async () => {
+  it('returns 400 with errors for invalid query', async () => {
     const m = graphql(gqlHandler())
 
     const res = await m.router().handler()(
@@ -98,8 +98,7 @@ describe('graphql', () => {
       }),
       { params: {}, query: {} } as Context,
     )
-    // GraphQL errors should be 200 per spec
-    assert.equal(res.status, 200)
+    assert.equal(res.status, 400)
     const data = await res.json() as any
     assert.ok(data.errors)
     assert.ok(data.errors.length > 0)

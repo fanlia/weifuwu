@@ -2,6 +2,7 @@ import type { Sql } from '../vendor.ts'
 import { Router } from '../router.ts'
 import { broadcastToChannel } from './ws.ts'
 import type { AgentModule } from '../agent/types.ts'
+import type { Hub } from '../hub.ts'
 import { eq, lt } from '../postgres/schema/index.ts'
 import type { BoundTable } from '../postgres/schema/index.ts'
 
@@ -11,10 +12,11 @@ interface RestDeps {
   members: BoundTable<any>
   messages: BoundTable<any>
   agents?: AgentModule
+  hub: Hub
 }
 
 export function buildRouter(deps: RestDeps): Router {
-  const { sql, channels, members, messages, agents } = deps
+  const { sql, channels, members, messages, agents, hub } = deps
   const r = new Router()
 
   // ── Channels ───────────────────────────────────────────
@@ -147,7 +149,7 @@ export function buildRouter(deps: RestDeps): Router {
     })
 
     // Broadcast via WebSocket
-    broadcastToChannel(channelId, { type: 'message', data: msg })
+    broadcastToChannel(hub, channelId, { type: 'message', data: msg })
 
     // Agent routing
     if (agents) {
@@ -165,7 +167,7 @@ export function buildRouter(deps: RestDeps): Router {
               sender_type: 'agent',
               content: result.output,
             }).then((r) => {
-              broadcastToChannel(channelId, { type: 'message', data: r })
+              broadcastToChannel(hub, channelId, { type: 'message', data: r })
             }).catch((e) => {
               console.error('[messager] agent reply insert failed:', e)
             })

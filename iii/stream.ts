@@ -2,9 +2,7 @@ import type { Redis } from '../vendor.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 import type { StreamUpdateOp, StreamSubscription } from './types.ts'
 
-const channels = new Map<string, Set<WebSocket>>()
-
-function notify(stream: string, group: string, item: string, event: string, data: unknown) {
+function notify(channels: Map<string, Set<WebSocket>>, stream: string, group: string, item: string, event: string, data: unknown) {
   const keys = [
     `${stream}`,
     `${stream}:${group}`,
@@ -56,7 +54,7 @@ function applyOps(value: any, ops: StreamUpdateOp[]): any {
   return current
 }
 
-function createMemoryStore() {
+function createMemoryStore(channels: Map<string, Set<WebSocket>>) {
   const store = new Map<string, unknown>()
 
   function key(stream: string, group: string, item: string) {
@@ -68,7 +66,7 @@ function createMemoryStore() {
       const k = key(stream, group, item)
       const old = store.get(k) ?? null
       store.set(k, deepClone(data))
-      notify(stream, group, item, 'set', data)
+      notify(channels, stream, group, item, 'set', data)
       return { old_value: old, new_value: deepClone(data) }
     },
     async get(stream: string, group: string, item: string) {
@@ -79,7 +77,7 @@ function createMemoryStore() {
       const k = key(stream, group, item)
       const old = store.get(k) ?? null
       store.delete(k)
-      notify(stream, group, item, 'delete', null)
+      notify(channels, stream, group, item, 'delete', null)
       return { old_value: old }
     },
     async list(stream: string, group: string) {
@@ -123,20 +121,20 @@ function createMemoryStore() {
       return { streams, count: streams.length }
     },
     async send(stream: string, group: string, type: string, data: unknown, id?: string) {
-      notify(stream, group, id ?? '', 'send', { type, data })
+      notify(channels, stream, group, id ?? '', 'send', { type, data })
     },
     async update(stream: string, group: string, item: string, ops: StreamUpdateOp[]) {
       const k = key(stream, group, item)
       const old = deepClone(store.get(k) ?? null)
       const newVal = applyOps(old, ops)
       store.set(k, deepClone(newVal))
-      notify(stream, group, item, 'update', newVal)
+      notify(channels, stream, group, item, 'update', newVal)
       return { old_value: old, new_value: deepClone(newVal) }
     },
   }
 }
 
-function createPgStore(pg: PostgresClient) {
+function createPgStore(channels: Map<string, Set<WebSocket>>, pg: PostgresClient) {
   const sql = pg.sql
 
   return {
@@ -148,7 +146,7 @@ function createPgStore(pg: PostgresClient) {
         DO UPDATE SET data = ${data as any}, updated_at = NOW()
         RETURNING data
       `
-      notify(stream, group, item, 'set', data)
+      notify(channels, stream, group, item, 'set', data)
       return { old_value: null, new_value: data }
     },
     async get(stream: string, group: string, item: string) {
@@ -168,7 +166,7 @@ function createPgStore(pg: PostgresClient) {
         RETURNING data
       `
       const old = (rows[0] as any)?.data ?? null
-      notify(stream, group, item, 'delete', null)
+      notify(channels, stream, group, item, 'delete', null)
       return { old_value: old }
     },
     async list(stream: string, group: string) {
@@ -206,7 +204,7 @@ function createPgStore(pg: PostgresClient) {
       return { streams, count: streams.length }
     },
     async send(stream: string, group: string, type: string, data: unknown, id?: string) {
-      notify(stream, group, id ?? '', 'send', { type, data })
+      notify(channels, stream, group, id ?? '', 'send', { type, data })
     },
     async update(stream: string, group: string, item: string, ops: StreamUpdateOp[]) {
       const { value: oldVal } = await this.get(stream, group, item)
@@ -217,13 +215,13 @@ function createPgStore(pg: PostgresClient) {
         ON CONFLICT (stream_name, group_id, item_id)
         DO UPDATE SET data = ${newVal as any}, updated_at = NOW()
       `
-      notify(stream, group, item, 'update', newVal)
+      notify(channels, stream, group, item, 'update', newVal)
       return { old_value: oldVal, new_value: deepClone(newVal) }
     },
   }
 }
 
-function createRedisStore(redis: Redis, ttl?: number) {
+function createRedisStore(channels: Map<string, Set<WebSocket>>, redis: Redis, ttl?: number) {
   function hashKey(stream: string, group: string) {
     return `iii:stream:${stream}:${group}`
   }
@@ -240,7 +238,7 @@ function createRedisStore(redis: Redis, ttl?: number) {
       await redis.hset(hk, item, JSON.stringify(data))
       setTTL(hk)
       await redis.publish(`iii:stream:${stream}`, JSON.stringify({ event: 'set', group, item, data }))
-      notify(stream, group, item, 'set', data)
+      notify(channels, stream, group, item, 'set', data)
       return { old_value: old, new_value: deepClone(data) }
     },
     async get(stream: string, group: string, item: string) {
@@ -255,7 +253,7 @@ function createRedisStore(redis: Redis, ttl?: number) {
       const remaining = await redis.hlen(hk)
       if (remaining === 0) await redis.del(hk)
       await redis.publish(`iii:stream:${stream}`, JSON.stringify({ event: 'delete', group, item }))
-      notify(stream, group, item, 'delete', null)
+      notify(channels, stream, group, item, 'delete', null)
       return { old_value: old }
     },
     async list(stream: string, group: string) {
@@ -306,7 +304,7 @@ function createRedisStore(redis: Redis, ttl?: number) {
       return { streams, count: streams.length }
     },
     async send(stream: string, group: string, type: string, data: unknown, id?: string) {
-      notify(stream, group, id ?? '', 'send', { type, data })
+      notify(channels, stream, group, id ?? '', 'send', { type, data })
     },
     async update(stream: string, group: string, item: string, ops: StreamUpdateOp[]) {
       const hk = hashKey(stream, group)
@@ -316,18 +314,20 @@ function createRedisStore(redis: Redis, ttl?: number) {
       await redis.hset(hk, item, JSON.stringify(newVal))
       setTTL(hk)
       await redis.publish(`iii:stream:${stream}`, JSON.stringify({ event: 'update', group, item, data: newVal }))
-      notify(stream, group, item, 'update', newVal)
+      notify(channels, stream, group, item, 'update', newVal)
       return { old_value: old, new_value: deepClone(newVal) }
     },
   }
 }
 
 export function createStream(opts?: { pg?: PostgresClient; redis?: Redis; streamTTL?: number }) {
+  const channels = new Map<string, Set<WebSocket>>()
+
   const store = opts?.pg
-    ? createPgStore(opts.pg)
+    ? createPgStore(channels, opts.pg)
     : opts?.redis
-      ? createRedisStore(opts.redis, opts.streamTTL ?? 3600)
-      : createMemoryStore()
+      ? createRedisStore(channels, opts.redis, opts.streamTTL ?? 3600)
+      : createMemoryStore(channels)
 
   let redisSub: Redis | null = null
 
@@ -339,9 +339,9 @@ export function createStream(opts?: { pg?: PostgresClient; redis?: Redis; stream
       try {
         const msg = JSON.parse(rawData)
         if (msg.event === 'set' || msg.event === 'update') {
-          notify(stream, msg.group, msg.item, msg.event, msg.data)
+          notify(channels, stream, msg.group, msg.item, msg.event, msg.data)
         } else if (msg.event === 'delete') {
-          notify(stream, msg.group, msg.item, 'delete', null)
+          notify(channels, stream, msg.group, msg.item, 'delete', null)
         }
       } catch {}
     })

@@ -81,8 +81,13 @@ export function preferences(options: PrefOptions): Middleware {
   const themeOpts = { ...defaults.theme, ...options.theme }
   const cache = new Map<string, Record<string, unknown>>()
 
+  function validLocale(locale: string): boolean {
+    return /^[\w-]+$/.test(locale) && !locale.includes('..')
+  }
+
   async function load(locale: string): Promise<Record<string, unknown>> {
     if (!dir) return {}
+    if (!validLocale(locale)) return {}
     const cached = cache.get(locale)
     if (cached) return cached
     const filePath = join(dir, `${locale}.json`)

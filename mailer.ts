@@ -45,7 +45,7 @@ export function mailer(options: MailerOptions): Mailer {
   }
 
   async function close(): Promise<void> {
-    if (transporter) transporter.close()
+    transporter?.close()
   }
 
   return { send, close }

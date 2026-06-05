@@ -15,13 +15,17 @@ export function createGlobTool(ctx: ToolContext) {
       const searchDir = path ? resolve(ctx.workspace, path) : ctx.workspace
 
       try {
-        const stdout = execSync(`find '${searchDir}' -name '${pattern.replace(/'/g, "'\\''")}' -not -path '*/node_modules/*' 2>/dev/null | head -200`, {
+        const stdout = execSync('find', [
+          searchDir,
+          '-name', pattern,
+          '-not', '-path', '*/node_modules/*',
+        ], {
           timeout: 10000,
           maxBuffer: 1024 * 1024,
         }).toString()
 
-        const files = stdout.split('\n').filter(Boolean)
-        return { files, total: files.length, truncated: files.length >= 200 }
+        const lines = stdout.split('\n').filter(Boolean).slice(0, 200)
+        return { files: lines, total: lines.length, truncated: stdout.split('\n').filter(Boolean).length > 200 }
       } catch {
         return { files: [], total: 0, truncated: false }
       }

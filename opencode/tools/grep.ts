@@ -16,17 +16,22 @@ export function createGrepTool(ctx: ToolContext) {
     }),
     execute: async ({ pattern, include, path, context }) => {
       const searchDir = path ? resolve(ctx.workspace, path) : ctx.workspace
-      const contextArg = context > 0 ? `-C ${context}` : ''
-
-      let cmd: string
-      if (existsSync('/usr/bin/rg') || existsSync('/usr/local/bin/rg')) {
-        cmd = `rg -n ${contextArg} ${include ? `-g '${include}'` : ''} '${pattern.replace(/'/g, "'\\''")}' '${searchDir}'`
-      } else {
-        cmd = `grep -rn ${contextArg} ${include ? `--include='${include}'` : ''} '${pattern.replace(/'/g, "'\\''")}' '${searchDir}'`
-      }
 
       try {
-        const stdout = execSync(cmd, { timeout: 15000, maxBuffer: 1024 * 1024 }).toString()
+        let stdout: string
+        if (existsSync('/usr/bin/rg') || existsSync('/usr/local/bin/rg')) {
+          const args = ['-n']
+          if (context > 0) args.push('-C', String(context))
+          if (include) args.push('-g', include)
+          args.push(pattern, searchDir)
+          stdout = execSync('rg', args, { timeout: 15000, maxBuffer: 1024 * 1024 }).toString()
+        } else {
+          const args = ['-rn']
+          if (context > 0) args.push('-C', String(context))
+          if (include) args.push('--include', include)
+          args.push(pattern, searchDir)
+          stdout = execSync('grep', args, { timeout: 15000, maxBuffer: 1024 * 1024 }).toString()
+        }
         const lines = stdout.split('\n').filter(Boolean)
         return { matches: lines.length, results: lines.slice(0, 200), truncated: lines.length > 200 }
       } catch (e: any) {

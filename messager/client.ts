@@ -3,6 +3,7 @@ import { PgModule } from '../postgres/module.ts'
 import { serial, text, integer, timestamptz, sql as schemaSql } from '../postgres/schema/index.ts'
 import { buildRouter } from './rest.ts'
 import { createWSHandler, broadcastToChannel } from './ws.ts'
+import type { Hub } from '../hub.ts'
 
 export function messager(options: MessagerOptions): MessagerModule {
   const pg = options.pg
@@ -11,6 +12,8 @@ export function messager(options: MessagerOptions): MessagerModule {
   const redis = options.redis
 
   const base = new PgModule(pg)
+  const wsResult = createWSHandler({ sql, agents, redis })
+  const hub: Hub = wsResult.hub
 
   const channels = pg.table('_channels', {
     id: serial('id').primaryKey(),
@@ -55,8 +58,8 @@ export function messager(options: MessagerOptions): MessagerModule {
       await messages.create()
       await messages.createIndex(['channel_id', 'created_at'], { desc: true })
     },
-    router: () => buildRouter({ sql, channels, members, messages, agents }),
-    wsHandler: () => createWSHandler({ sql, agents, redis }),
+    router: () => buildRouter({ sql, channels, members, messages, agents, hub }),
+    wsHandler: () => wsResult.handler,
     async send(channelId: number, content: string, opts?: {
       sender_type?: string
       sender_id?: number
@@ -69,7 +72,7 @@ export function messager(options: MessagerOptions): MessagerModule {
         type: opts?.type ?? 'text',
         content,
       })
-      broadcastToChannel(channelId, { type: 'message', data: msg })
+      broadcastToChannel(hub, channelId, { type: 'message', data: msg })
       return msg as Message
     },
     close: () => base.close(),
