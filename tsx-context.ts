@@ -13,14 +13,16 @@ export interface CtxValue {
 const fallbackT = (key: string, _params?: Record<string, string>, fallback?: string) => fallback ?? key
 
 let _ctx: CtxValue = { params: {}, query: {}, parsed: {}, prefs: {}, env: {}, t: fallbackT, user: {} }
+let _snapshot = { params: _ctx.params, query: _ctx.query, user: _ctx.user, parsed: _ctx.parsed, prefs: _ctx.prefs, env: _ctx.env }
 const _listeners = new Set<() => void>()
 
 const subscribe = (cb: () => void) => { _listeners.add(cb); return () => { _listeners.delete(cb) } }
-const getSnapshot = () => ({ params: _ctx.params, query: _ctx.query, user: _ctx.user, parsed: _ctx.parsed, prefs: _ctx.prefs, env: _ctx.env })
+const getSnapshot = () => _snapshot
 const getServerSnapshot = getSnapshot
 
 export function setCtx(value: Partial<CtxValue>) {
   _ctx = { ..._ctx, ...value }
+  _snapshot = { params: _ctx.params, query: _ctx.query, user: _ctx.user, parsed: _ctx.parsed, prefs: _ctx.prefs, env: _ctx.env }
   _listeners.forEach(fn => fn())
 }
 
