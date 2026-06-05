@@ -73,7 +73,7 @@ describe('analytics with PostgreSQL', { skip: !process.env.DATABASE_URL && true 
     await a.middleware()(new Request('http://localhost/test'), { params: {}, query: {} } as Context, async () => new Response('ok'))
 
     const r = a.router()
-    const res = await r.handler()(new Request('http://localhost/analytics'), { params: {}, query: {} } as Context)
+    const res = await r.handler()(new Request('http://localhost/__analytics'), { params: {}, query: {} } as Context)
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /<title>Analytics/)

@@ -1155,19 +1155,19 @@ In-memory page view tracking with a built-in dashboard. Zero extra dependencies.
 ```ts
 import { analytics } from 'weifuwu'
 
-app.use(analytics())  // mounts middleware + /analytics + /__analytics/data
+app.use(analytics())  // mounts middleware + /__analytics + /__analytics/data
 ```
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /analytics` | Dashboard — PV trend, top pages, referrers, device breakdown |
+| `GET /__analytics` | Dashboard — PV trend, top pages, referrers, device breakdown |
 | `GET /__analytics/data?days=7` | Raw JSON data for custom dashboards |
 
-Excluded paths (not recorded): `/__analytics/*`, `__wfw/*`, `/static/*`, `/analytics`.
+Excluded paths (not recorded): `/__analytics/*`, `/__wfw/*`, `/static/*`.
 
 ### Dashboard
 
-The built-in `/analytics` page renders a server-generated HTML dashboard with:
+The built-in `/__analytics` page renders a server-generated HTML dashboard with:
 
 - **Summary cards** — total PV, unique pages, mobile/desktop ratio
 - **Bar chart** — daily page views for the selected period

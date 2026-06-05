@@ -66,7 +66,7 @@ describe('analytics', () => {
     await m(new Request('http://localhost/test'), ctx, async () => new Response('ok'))
 
     const r = a.router()
-    const res = await r.handler()(new Request('http://localhost/analytics'), ctx)
+    const res = await r.handler()(new Request('http://localhost/__analytics'), ctx)
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /<title>Analytics/)

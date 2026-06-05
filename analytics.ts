@@ -14,7 +14,7 @@ export interface AnalyticsModule {
   close: () => Promise<void>
 }
 
-const DEFAULT_EXCLUDED = ['/__analytics', '/__wfw', '/static', '/analytics']
+const DEFAULT_EXCLUDED = ['/__analytics', '/__wfw', '/static']
 
 interface QueryResult {
   total_pv: number
@@ -235,7 +235,7 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
   const router = () => {
     const r = new Router()
     r.get('/__analytics/data', handler)
-    r.get('/analytics', handler)
+    r.get('/__analytics', handler)
     return r
   }
 
