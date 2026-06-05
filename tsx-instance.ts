@@ -530,7 +530,9 @@ export class TsxInstance {
     pagesDir: string,
   ): Promise<Uint8Array | null> {
     try {
+      const layoutImports = layoutPaths.map(p => `import${JSON.stringify(p)};`).join('')
       const code = [
+        layoutImports,
         `import{hydrateRoot}from'react-dom/client';`,
         `import{createElement,useState,useEffect}from'react';`,
         `import{TsxContext}from'weifuwu/react';`,
