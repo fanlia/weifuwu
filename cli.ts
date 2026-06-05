@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, writeFile, copyFile, readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,6 +25,10 @@ async function cmdVersion() {
 
 async function cmdInit(name: string) {
   const targetDir = resolve(process.cwd(), name)
+  const pkg = JSON.parse(await readFile(join(pkgRoot, 'package.json'), 'utf-8'))
+  const v = pkg.version
+  const depVer = (depName: string) => `^${pkg.devDependencies[depName].replace(/^\^/, '')}`
+
   await mkdir(targetDir, { recursive: true })
 
   await writeFile(join(targetDir, 'package.json'), JSON.stringify({
@@ -31,10 +36,14 @@ async function cmdInit(name: string) {
     type: 'module',
     scripts: {
       dev: 'node --watch app.ts',
-      start: 'node app.ts',
+      start: 'NODE_ENV=production node app.ts',
     },
     dependencies: {
-      weifuwu: 'latest',
+      weifuwu: `^${v}`,
+    },
+    devDependencies: {
+      '@types/node': depVer('@types/node'),
+      '@types/react': depVer('@types/react'),
     },
   }, null, 2) + '\n')
 
@@ -46,6 +55,8 @@ async function cmdInit(name: string) {
       strict: true,
       jsx: 'react-jsx',
       skipLibCheck: true,
+      noEmit: true,
+      allowImportingTsExtensions: true,
     },
     include: ['*.ts', 'ui/**/*.ts', 'ui/**/*.tsx'],
   }, null, 2) + '\n')
@@ -62,9 +73,9 @@ async function cmdInit(name: string) {
     '## Commands',
     '',
     '- `npm run dev` — start dev server with `--watch`',
-    '- `npm start` — start production server',
+    '- `npm start` — start production server (NODE_ENV=production)',
     '- `npm install` — install dependencies',
-    '- `node --test` — run tests',
+    '- `npx tsc --noEmit` — type-check without emitting',
     '',
     '## TypeScript',
     '',
@@ -166,7 +177,9 @@ async function cmdInit(name: string) {
     '',
   ].join('\n'))
 
-  console.log(`✅ Created ${name}/ — cd ${name} && npm install && npm run dev`)
+  console.log('\nInstalling dependencies...')
+  execSync('npm install', { cwd: targetDir, stdio: 'inherit' })
+  console.log(`\n✅ Created ${name}/ — cd ${name} && npm start`)
 }
 
 const cmd = process.argv[2]

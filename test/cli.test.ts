@@ -5,6 +5,7 @@ import { resolve, join } from 'node:path'
 import { tmpdir, homedir } from 'node:os'
 
 const cliPath = resolve(import.meta.dirname, '..', 'cli.ts')
+const pkgRoot = resolve(import.meta.dirname, '..')
 
 async function runCli(...args: string[]) {
   const modPath = resolve(import.meta.dirname, '..', 'cli.ts')
@@ -77,7 +78,8 @@ describe('weifuwu init', () => {
 
     const pkg = JSON.parse(await readFile(resolve(projectDir, 'package.json'), 'utf-8'))
     assert.equal(pkg.name, 'test-app')
-    assert.equal(pkg.dependencies.weifuwu, 'latest')
+    const weifuwuPkg = JSON.parse(await readFile(resolve(pkgRoot, 'package.json'), 'utf-8'))
+    assert.equal(pkg.dependencies.weifuwu, `^${weifuwuPkg.version}`)
 
     // Check tsx + ui files
     const appContent = await readFile(resolve(projectDir, 'app.ts'), 'utf-8')
