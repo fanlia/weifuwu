@@ -88,7 +88,7 @@ app.get('/admin', mw, handler)       // route-level
 
 ## Module Patterns
 
-All modules follow one of 5 patterns. The pattern letter is marked in each module's heading.
+All modules follow one of 6 patterns. The pattern letter is marked in each module's heading.
 
 | Pattern | How to mount | Example |
 |---------|-------------|---------|
@@ -105,12 +105,27 @@ All modules follow one of 5 patterns. The pattern letter is marked in each modul
 ### agent [C]
 
 ```ts
-const a = agent({ pg })
+const a = agent({ pg, model: openai('gpt-4o'), embeddingModel: openai.embedding('text-embedding-3-small') })
 await a.migrate()
 app.use('/api', a.router())
-await a.addKnowledge(agentId, 'Title', 'docs')
-a.run(agentId, { task: 'summarize' })
+await a.addKnowledge(agentId, 'Title', 'some knowledge content')
+a.run(agentId, { input: 'summarize the data', stream: true })
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `object` | — | PostgreSQL client |
+| `model` | `object` | — | AI model (e.g. `openai('gpt-4o')`) |
+| `embeddingModel` | `object` | — | Embedding model for knowledge search |
+| `embeddingDimension` | `number` | `1536` | Embedding vector dimension |
+| `tools` | `object[]` | — | Custom tool definitions |
+
+| Method | Description |
+|--------|-------------|
+| `.run(agentId, { input, stream?, messages? })` | Execute agent with input |
+| `.addKnowledge(agentId, title, content)` | Add knowledge document |
+| `.router()` | REST + WS API |
+| `.close()` | Cleanup |
 
 ### aiStream [E]
 
@@ -147,16 +162,28 @@ app.use('/', a.router())
 ```ts
 app.use(auth({ token: 'sk-123' }))                              // static token
 app.use(auth({ header: 'X-API-Key', token: 'my-key' }))         // custom header
-app.use(auth({ verify: async (token) => ({ sub: 'abc' }) }))    // custom verify
+app.use(auth({ verify: async (token, req) => ({ sub: 'abc' }) })) // custom verify → sets ctx.user
 app.get('/protected', auth({ proxy: 'http://auth:3000/validate' }), handler)
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `token` | `string` | — | Static token to match |
+| `header` | `string` | `'Authorization'` | Header name |
+| `verify` | `(token, req) => object\|null` | — | Verify function, return value sets `ctx.user` |
+| `proxy` | `string` | — | Auth service URL to proxy requests to |
 
 ### compress [A]
 
 ```ts
-app.use(compress())                         // brotli > gzip > deflate
-app.use(compress({ threshold: 2048 }))      // only > 2KB
+app.use(compress())                         // brotli > gzip > deflate (min 1KB)
+app.use(compress({ threshold: 2048, level: 4 }))      // custom threshold and level
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `threshold` | `number` | `1024` | Minimum byte size to compress |
+| `level` | `number` | `6` | Compression level (zlib) |
 
 ### cors [A]
 
@@ -167,18 +194,28 @@ app.use(cors({ origin: (o) => o.endsWith('.trusted.com') && o }))
 app.use(cors({ credentials: true, maxAge: 3600 }))
 ```
 
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `origin` | `string\|string[]\|function` | `'*'` | Allowed origins |
+| `methods` | `string[]` | `['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS']` | Allowed methods |
+| `allowedHeaders` | `string[]` | — | Custom allowed headers |
+| `exposedHeaders` | `string[]` | — | Response headers exposed to client |
+| `credentials` | `boolean` | `false` | Allow cookies/credentials |
+| `maxAge` | `number` | — | Preflight cache duration (seconds) |
+
 ### csrf [A]
 
 ```ts
 app.use(csrf())
-// ctx.csrfToken available in handlers
-// Auto-validates X-CSRF-Token header on POST/PUT/DELETE/PATCH
+// ctx.csrfToken — set on GET/HEAD/OPTIONS
+// Auto-validates x-csrf-token or x-xsrf-token header on POST/PUT/DELETE/PATCH
+// Falls back to body field matching the key name
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `cookie` | `'_csrf'` | Cookie name |
-| `header` | `'x-csrf-token'` | Header name |
+| `header` | `'x-csrf-token'` | Header name (also accepts `x-xsrf-token`) |
 | `key` | `'_csrf'` | Body field fallback |
 | `excludeMethods` | `['GET','HEAD','OPTIONS']` | Skip validation |
 
@@ -186,31 +223,57 @@ app.use(csrf())
 
 ```ts
 import { deploy, defineConfig } from 'weifuwu'
-const config = defineConfig({ apps: [{ name: 'api', dir: './api', domain: 'api.example.com', port: 3001 }] })
-await deploy(config)
+const config = defineConfig({
+  domain: 'example.com',
+  apps: {
+    api: { repo: 'git@github.com:user/api.git', entry: 'app.ts', port: 3001, subdomain: 'api' },
+  },
+})
+const server = await deploy(config)
+// server.close(), server.ready, server.url
+// server.apps.list(), server.apps.status(name), server.apps.deploy(name)
 ```
 
 ### health [D]
 
 ```ts
-app.use(health())                         // GET /health → 200
-app.use(health({ checks: { db: async () => { await pg.sql`SELECT 1`; return { ok: true } } } }))
+app.use(health({ path: '/health' }))
+// Returns 200 on success, 503 when check throws
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `path` | `string` | `'/health'` | Health check endpoint |
+| `check` | `() => Promise<void>` | — | Async function; throws → 503 |
 
 ### helmet [A]
 
-13 security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.
+15 security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.
 
 ```ts
 app.use(helmet())
 app.use(helmet({ contentSecurityPolicy: "default-src 'self'", xFrameOptions: 'DENY' }))
 ```
 
+| Option | Default | Description |
+|--------|---------|-------------|
+| `contentSecurityPolicy` | `"default-src 'self'"` | CSP policy |
+| `xFrameOptions` | `'SAMEORIGIN'` | Frame-embedding policy |
+| `strictTransportSecurity` | `'max-age=15552000; includeSubDomains'` | HSTS |
+| `referrerPolicy` | `'no-referrer'` | Referrer header |
+| `xContentTypeOptions` | `'nosniff'` | MIME sniffing protection |
+| `permissionsPolicy` | — | Feature permissions policy |
+| `crossOriginEmbedderPolicy` | — | COEP header |
+| `crossOriginOpenerPolicy` | — | COOP header |
+| `crossOriginResourcePolicy` | — | CORP header |
+
 ### iii [C] — Worker / Function / Trigger
 
 ```ts
+import { createWorker } from 'weifuwu'
 const engine = iii({ pg, redis })
 app.use('/iii', engine.router())
+app.ws('/iii', engine.wsHandler())
 
 const w = createWorker('orders')
 w.registerFunction('orders::create', async (payload) => db.query('INSERT INTO orders ...', [payload.items]))
@@ -221,8 +284,15 @@ await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'
 | Method | Description |
 |--------|-------------|
 | `.addWorker(w)` | Register a worker |
-| `.trigger({ function_id, payload, action? })` | Invoke a function (sync or void) |
+| `.removeWorker(w)` | Remove a worker |
+| `.trigger({ function_id, payload, action?, timeout_ms? })` | Invoke a function |
+| `.listWorkers()` | List registered workers |
+| `.listFunctions()` | List registered functions |
+| `.listTriggers()` | List registered triggers |
 | `.router()` | REST + WS API |
+| `.wsHandler()` | WebSocket handler |
+| `.migrate()` | DB setup |
+| `.shutdown()` | Clean shutdown |
 
 ### logdb [C]
 
@@ -233,8 +303,13 @@ const logger = logdb({ pg })
 await logger.migrate()
 app.use('/logs', logger.router())
 await logger.clean(12)   // drop partitions older than 12 months
-await logger.log({ level: 'info', source: 'app', message: 'hello' })
+await logger.log({ level: 'info', source: 'app', message: 'hello', metadata: { userId: 1 } })
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `object` | — | PostgreSQL client |
+| `table` | `string` | `'_log_entries'` | Table name |
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -252,9 +327,15 @@ app.use(logger({ format: 'combined' }))       // with query params
 ### mailer
 
 ```ts
-const mail = mailer({ host: 'smtp.example.com', port: 587, auth: { user, pass } })
-await mail.send({ to: 'user@test.com', subject: 'Hello', text: 'Body', html: '<p>Body</p>' })
+const mail = mailer({ from: 'noreply@example.com', transport: 'smtp://user:pass@smtp.example.com:587' })
+await mail.send({ to: 'user@test.com', subject: 'Hello', text: 'Body', html: '<p>Body</p>', cc: 'admin@test.com' })
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `transport` | `string\|object` | — | Nodemailer transport config or connection string |
+| `from` | `string` | — | Default sender address |
+| `send` | `function` | — | Custom send function (alternative to transport) |
 
 ### messager [C]
 
@@ -263,20 +344,43 @@ Real-time chat with channels, WebSocket, agent routing.
 ```ts
 const msg = messager({ pg, agents, redis: redis() })
 await msg.migrate()
-app.ws('/ws', u.middleware(), msg.wsHandler())
-await msg.send(channelId, 'System message', { sender_type: 'system' })
+app.ws('/ws', msg.wsHandler())
+await msg.send(channelId, 'System message', { sender_type: 'system', sender_id: 'bot' })
 ```
+
+| Method | Description |
+|--------|-------------|
+| `.wsHandler()` | WebSocket handler (channels, typing, read receipts) |
+| `.send(channel, content, opts?)` | Send message to channel |
+| `.router()` | REST API |
+| `.close()` | Cleanup |
 
 ### opencode [C]
 
 AI programming assistant.
 
 ```ts
-const oc = await opencode({ pg, permissions: { bash: { allow: true }, write: { allow: false } } })
+const oc = await opencode({
+  pg,
+  model: openai('gpt-4o'),
+  workspace: '/home/user/project',
+  permissions: { bash: { allow: true }, write: { allow: false } },
+})
 await oc.migrate()
 app.use('/opencode', await oc.router())
 app.ws('/opencode', oc.wsHandler())
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `object` | — | PostgreSQL client |
+| `model` | `object` | — | AI model |
+| `baseURL` | `string` | — | OpenAI-compatible API base URL |
+| `apiKey` | `string` | — | API key for the model |
+| `workspace` | `string` | — | Project directory |
+| `systemPrompt` | `string` | — | Custom system prompt |
+| `skills` | `object[]` | — | Custom skill definitions |
+| `permissions` | `object` | — | Tool permission rules |
 
 ### postgres [B]
 
@@ -284,6 +388,14 @@ app.ws('/opencode', oc.wsHandler())
 const pg = postgres()          // reads DATABASE_URL
 app.use(pg)                    // injects ctx.sql
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `connection` | `string` | `DATABASE_URL` env | PostgreSQL connection string |
+| `max` | `number` | `10` | Max pool connections |
+| `ssl` | `boolean\|object` | — | SSL options |
+| `idle_timeout` | `number` | `30` | Idle timeout (seconds) |
+| `connect_timeout` | `number` | `30` | Connection timeout |
 
 ```ts
 // Type-safe DDL
@@ -308,6 +420,7 @@ Locale detection + theme + translations. `/__lang/:locale` and `/__theme/:theme`
 ```ts
 app.use(preferences({ dir: './locales', locale: { default: 'en' }, theme: { default: 'system' } }))
 // ctx.prefs.locale, ctx.prefs.theme, ctx.t('key'), ctx.setPref('locale', 'zh')
+// ctx.setPref() returns a 302 Response with Set-Cookie — return it from your handler
 // GET /__lang/zh → 302 + Set-Cookie  (or JSON if Accept: application/json)
 // GET /__theme/dark → same pattern
 ```
@@ -335,8 +448,24 @@ const { theme, resolvedTheme, setTheme } = useTheme()
 
 ```ts
 const q = queue({ redis })
+app.use(q)                     // injects ctx.queue
 await q.add('send-email', { to: 'user@test.com' }, { cron: '0 8 * * *' })
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `redis` | `object` | — | Redis client |
+| `url` | `string` | — | Redis URL (alternative to client) |
+| `prefix` | `string` | `'queue:'` | Redis key prefix |
+| `pollInterval` | `number` | `1000` | Poll interval (ms) |
+
+| Method | Description |
+|--------|-------------|
+| `.add(name, data, opts?)` | Add job to queue |
+| `.process(handler)` | Register job processor |
+| `.run()` | Start processing |
+| `.stop()` | Stop processing |
+| `.close()` | Cleanup |
 
 ### rateLimit [B]
 
@@ -344,24 +473,43 @@ await q.add('send-email', { to: 'user@test.com' }, { cron: '0 8 * * *' })
 app.use(rateLimit({ max: 100, window: 60_000 }))            // 100 req/min
 app.get('/api', rateLimit({ max: 10 }), handler)            // per-route
 app.use(rateLimit({ key: (req) => req.headers.get('x-api-key') ?? 'anonymous' }))
+// Sets X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After headers
 // m.stop() — clear interval
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `max` | `number` | `100` | Max requests per window |
+| `window` | `number` | `60_000` | Window duration (ms) |
+| `key` | `(req) => string` | IP-based | Key function |
+| `message` | `string` | `'Too Many Requests'` | 429 response body |
 
 ### redis [B]
 
 ```ts
-const r = redis()        // reads REDIS_URL
-app.use(r)               // injects ctx.redis
+const r = redis()          // reads REDIS_URL
+app.use(r)                 // injects ctx.redis
 await ctx.redis.set('key', 'value')
 // r.close() — cleanup
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `url` | `string` | `REDIS_URL` env | Redis connection string |
+| (all ioredis options) | — | — | Passed directly to ioredis |
 
 ### requestId [A]
 
 ```ts
 app.use(requestId())
+app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID() }))
 // Sets X-Request-ID header on responses, available as ctx.requestId
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `header` | `string` | `'X-Request-ID'` | Header name to read/write |
+| `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
 
 ### seo [D] + seoMiddleware [A]
 
@@ -371,6 +519,8 @@ app.use(seo({ baseUrl: 'https://example.com', robots: [{ userAgent: '*', allow: 
 
 app.use(seoMiddleware({ headers: { 'X-Robots-Tag': (path) => path.startsWith('/admin') ? 'noindex' : undefined } }))
 ```
+
+Also exports `seoTags(config)` for generating meta/og/twitter tags as an HTML string.
 
 ### tenant [C]
 
@@ -387,29 +537,58 @@ app.use('/graphql', t.graphql()) // dynamic GraphQL
 ### upload [A]
 
 ```ts
-app.post('/upload', upload({ dir: './uploads', maxFileSize: 10_485_760 }), (req, ctx) => {
-  // ctx.parsed.files.avatar → { name, type, size, path }
+app.post('/upload', upload({ dir: './uploads', maxFileSize: 10_485_760, allowedTypes: ['image/jpeg', 'image/png'] }), (req, ctx) => {
+  // ctx.parsed.files.avatar → { name, type, size, path } or { name, type, size, buffer } (when no dir)
+  // Multiple files with same field name → array
   // ctx.parsed.fields.title → 'hello'
 })
 ```
 
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `dir` | `string` | — | Write files to disk (omit for in-memory) |
+| `maxFileSize` | `number` | — | Max bytes per file |
+| `allowedTypes` | `string[]` | — | Allowed MIME types |
+
 ### user [C]
+
+Authentication: register, login, JWT, OAuth2.
 
 ```ts
 const auth = user({ pg, jwtSecret: process.env.JWT_SECRET! })
 await auth.migrate()
-app.use('/auth', auth.router())               // POST /register, POST /login
+app.use('/auth', auth.router())               // POST /register, POST /login, OAuth2 routes
 app.get('/me', auth.middleware(), (req, ctx) => Response.json(ctx.user))
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `object` | — | PostgreSQL client |
+| `jwtSecret` | `string` | — | JWT signing secret |
+| `table` | `string` | `'_users'` | Users table name |
+| `expiresIn` | `string` | `'7d'` | JWT expiration |
+| `oauth2` | `object` | — | OAuth2 client config (PKCE flow) |
+
+| Method | Description |
+|--------|-------------|
+| `.register(data)` | Register a new user programmatically |
+| `.login(data)` | Log in programmatically |
+| `.verify(token)` | Verify JWT token |
+| `.router()` | REST routes (register, login, OAuth2) |
+| `.middleware()` | JWT verify middleware — sets `ctx.user` |
 
 ### validate [A]
 
 ```ts
 import { z } from 'zod'
 const CreateUser = z.object({ name: z.string().min(1), email: z.string().email() })
-app.post('/users', validate({ body: CreateUser }), (req, ctx) => {
+app.post('/users', validate({ body: CreateUser, query: z.object({ ref: z.string().optional() }) }), (req, ctx) => {
   // ctx.parsed.body — typed & validated
+  // ctx.parsed.query — typed & validated
+  // ctx.parsed.params — typed & validated (for dynamic routes)
+  // ctx.parsed.headers — typed & validated
 })
+// Validation failure: returns 400 with { error: 'Validation failed', issues: [...] }
 ```
 
 ---
@@ -481,17 +660,27 @@ const loading = useNavigating()              // reactive loading state
 
 ```tsx
 import { useWebsocket, useAction, useFetch, useQueryState, createStore, Head } from 'weifuwu/react'
-import { useLocale, useTheme, applyTheme, addInterceptor, useLoaderData } from 'weifuwu/react'
+import { useLocale, useTheme, applyTheme, addInterceptor, useLoaderData, useFlashMessage } from 'weifuwu/react'
 
 // WebSocket — auto-reconnecting
-const { send, lastMessage, readyState } = useWebsocket('/ws/chat', { onMessage: (d) => console.log(d), reconnect: { maxRetries: 10, delay: 3000 } })
+const { send, lastMessage, readyState, close, reconnect } = useWebsocket('/ws/chat', {
+  onMessage: (d) => console.log(d),
+  reconnect: { maxRetries: 10, delay: 3000 },
+  protocols: [],          // optional sub-protocols
+  enabled: true,          // pause/resume connection
+})
 
 // Form action
-const { submit, data, error, pending } = useAction('/api/feedback', { method: 'POST' })
-// Auto-reads _csrf cookie, sends as X-CSRF-Token
+const { submit, data, error, pending, reset } = useAction('/api/feedback', {
+  method: 'POST',
+  headers: { 'X-Custom': 'value' },
+  onSuccess: (data) => console.log(data),
+  onError: (err) => console.error(err),
+})
+// Auto-reads _csrf cookie, sends as x-csrf-token or x-xsrf-token
 
 // Data fetching — cache + dedup + mutate
-const { data, error, loading, mutate } = useFetch('/api/posts', { fallback: loadData })
+const { data, error, loading, mutate } = useFetch('/api/posts', { fallback: loadData, ttl: 30_000 })
 
 // URL query state
 const [q, setQ] = useQueryState('q', '')
@@ -503,7 +692,6 @@ const count = useStore(s => s.count)
 
 // Per-page meta tags
 <Head><title>Page Title</title><meta name="description" content="..." /></Head>
-
 ```
 
 **`TsxContext`** — React context holding page data (`params`, `query`, `user`, `parsed`, `prefs`, `env`). Used internally by hooks; rarely needed directly.
