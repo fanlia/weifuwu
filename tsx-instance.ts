@@ -7,13 +7,19 @@ import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import vm from 'node:vm'
 import { createRequire } from 'node:module'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import chokidar from 'chokidar'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
 import type { Context, Handler } from './types.ts'
-import { TsxContext, useCtx, setCtx } from './tsx-context.ts'
+import type { CtxValue } from './tsx-context.ts'
+import { TsxContext, useCtx, setCtx, getCtx, __registerAls } from './tsx-context.ts'
 
-export { TsxContext, useCtx, setCtx }
+export { TsxContext, useCtx, setCtx, getCtx }
+
+// ── Per-request context isolation via AsyncLocalStorage ────────────
+const als = new AsyncLocalStorage<CtxValue>()
+__registerAls(() => als.getStore())
 
 export interface TsxOptions {
   dir: string
@@ -54,14 +60,14 @@ let _postcss: any = null
 // ── helpers (shared) ───────────────────────────────────────────────────────
 
 const _cjsRequire = createRequire(import.meta.url)
-const _vmCtx = vm.createContext(Object.create(globalThis))
 
 function loadSSRModule(code: string): any {
+  const ctx = vm.createContext(Object.create(globalThis))
   const mod = { exports: {} }
-  _vmCtx.require = (name: string) => _cjsRequire(name)
-  _vmCtx.module = mod
-  _vmCtx.exports = mod.exports
-  new vm.Script(code).runInContext(_vmCtx)
+  ctx.require = (name: string) => _cjsRequire(name)
+  ctx.module = mod
+  ctx.exports = mod.exports
+  new vm.Script(code).runInContext(ctx)
   return mod.exports
 }
 
@@ -270,6 +276,11 @@ export class TsxInstance {
   private clientBuildParams = new Map<string, { entryPath: string; layoutPaths: string[]; pagesDir: string }>()
   private clientRouteLog = new Set<string>()
 
+  // file watchers (dev mode, stored for cleanup)
+  private watcher: chokidar.FSWatcher | null = null
+  private twWatcher: chokidar.FSWatcher | null = null
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null
+
 
 
   constructor(options: TsxOptions) {
@@ -279,10 +290,10 @@ export class TsxInstance {
     this.router = new Router()
   }
 
-  async build(): Promise<Router> {
+  async build(): Promise<Router & { stop: () => void }> {
     // 1. Scan
     const pages = scanPages(this.pagesDir)
-    if (pages.length === 0) return this.router
+    if (pages.length === 0) return attachStop(this.router, this)
 
     // 2. Collect all files to compile
     const allFiles = new Set<string>()
@@ -388,7 +399,7 @@ export class TsxInstance {
         if (!nfMod) return new Response('Not Found', { status: 404 })
         const NfComponent = nfMod.default
 
-        setCtx({
+        const ctxValue: CtxValue = {
           params: ctx.params,
           query: ctx.query,
           user: ctx.user as { id?: string } | undefined,
@@ -396,22 +407,28 @@ export class TsxInstance {
           prefs: ctx.prefs,
           t: ctx.t,
           env: ctx.env,
-        })
-
-        let element: any = createElement(NfComponent, { params: ctx.params, query: ctx.query })
-
-        for (let i = rootLayouts.length - 1; i >= 0; i--) {
-          const LMod = this.layoutModules.get(rootLayouts[i])
-          if (!LMod) continue
-          element = createElement(LMod.default, { children: element })
         }
 
-        const stream = await renderToReadableStream(element)
-        return streamResponse(stream, {
-          ctx, base,
-          compiledTailwindCss: this.compiledTailwindCss,
-          isDev,
-          status: 404,
+        return als.run(ctxValue, async () => {
+          setCtx(ctxValue)
+
+          let element: any = createElement(TsxContext.Provider, { value: ctxValue },
+            createElement(NfComponent, { params: ctx.params, query: ctx.query }),
+          )
+
+          for (let i = rootLayouts.length - 1; i >= 0; i--) {
+            const LMod = this.layoutModules.get(rootLayouts[i])
+            if (!LMod) continue
+            element = createElement(LMod.default, { children: element })
+          }
+
+          const stream = await renderToReadableStream(element)
+          return streamResponse(stream, {
+            ctx, base,
+            compiledTailwindCss: this.compiledTailwindCss,
+            isDev,
+            status: 404,
+          })
         })
       }
 
@@ -439,7 +456,18 @@ export class TsxInstance {
       this.startFileWatcher()
     }
 
-    return this.router
+    return attachStop(this.router, this)
+  }
+
+  /**
+   * Clean up file watchers and pending timers. Call when shutting down
+   * to prevent resource leaks.
+   */
+  stop() {
+    this.watcher?.close()
+    this.twWatcher?.close()
+    if (this.debounceTimer) clearTimeout(this.debounceTimer)
+    this.debounceTimer = null
   }
 
   // ── Tailwind CSS ──────────────────────────────────────────────────────────
@@ -485,7 +513,8 @@ export class TsxInstance {
 
     if (isDev) {
       const inputFile = resolve(this.uiDir, 'app.css')
-      chokidar.watch(inputFile, { persistent: false }).on('change', async () => {
+      this.twWatcher = chokidar.watch(inputFile, { persistent: false })
+      this.twWatcher.on('change', async () => {
         this.compiledTailwindCss = ''
         await this.compileTailwind()
         broadcastReload()
@@ -610,12 +639,7 @@ export class TsxInstance {
       if (!pageMod) return new Response('', { status: 500 })
       const Component = pageMod.default
 
-      const loadMod = loadPath ? this.loadModules.get(loadPath) : undefined
-      const loadFn = loadMod?.default
-      const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
-      const allProps = { ...loadProps, params: ctx.params, query: ctx.query }
-
-      setCtx({
+      const ctxValue: CtxValue = {
         params: ctx.params,
         query: ctx.query,
         user: ctx.user as { id?: string } | undefined,
@@ -623,41 +647,53 @@ export class TsxInstance {
         prefs: ctx.prefs,
         t: ctx.t,
         env: ctx.env,
-      })
-
-      let element: any = createElement('div', { id: '__weifuwu_root' },
-        createElement(Component, allProps),
-      )
-
-      if (layoutPaths.length === 0) {
-        element = createElement('html', { lang: 'en' },
-          createElement('head', null,
-            createElement('meta', { charSet: 'utf-8' }),
-            createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
-            createElement('title', null, 'weifuwu'),
-          ),
-          createElement('body', null, element),
-        )
-      } else {
-        for (let i = layoutPaths.length - 1; i >= 0; i--) {
-          const lp = layoutPaths[i]
-          const LMod = this.layoutModules.get(lp)
-          if (!LMod) continue
-          const Layout = LMod.default
-          const isRoot = i === 0
-          element = createElement(
-            Layout,
-            isRoot ? { children: element, req } : { children: element },
-          )
-        }
       }
 
-      const bundle = await this.getOrBuildClientBundle(entryPath, layoutPaths, this.pagesDir)
-      const stream = await renderToReadableStream(element)
-      return streamResponse(stream, {
-        ctx, base,
-        compiledTailwindCss: this.compiledTailwindCss,
-        isDev, bundle, allProps,
+      // Isolate per-request context so load() and render see the correct ctx
+      return als.run(ctxValue, async () => {
+        setCtx(ctxValue)
+
+        const loadMod = loadPath ? this.loadModules.get(loadPath) : undefined
+        const loadFn = loadMod?.default
+        const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
+        const allProps = { ...loadProps, params: ctx.params, query: ctx.query }
+
+        let element: any = createElement(TsxContext.Provider, { value: ctxValue },
+          createElement('div', { id: '__weifuwu_root' },
+            createElement(Component, allProps),
+          ),
+        )
+
+        if (layoutPaths.length === 0) {
+          element = createElement('html', { lang: 'en' },
+            createElement('head', null,
+              createElement('meta', { charSet: 'utf-8' }),
+              createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
+              createElement('title', null, 'weifuwu'),
+            ),
+            createElement('body', null, element),
+          )
+        } else {
+          for (let i = layoutPaths.length - 1; i >= 0; i--) {
+            const lp = layoutPaths[i]
+            const LMod = this.layoutModules.get(lp)
+            if (!LMod) continue
+            const Layout = LMod.default
+            const isRoot = i === 0
+            element = createElement(
+              Layout,
+              isRoot ? { children: element, req } : { children: element },
+            )
+          }
+        }
+
+        const bundle = await this.getOrBuildClientBundle(entryPath, layoutPaths, this.pagesDir)
+        const stream = await renderToReadableStream(element)
+        return streamResponse(stream, {
+          ctx, base,
+          compiledTailwindCss: this.compiledTailwindCss,
+          isDev, bundle, allProps,
+        })
       })
     }
   }
@@ -665,22 +701,22 @@ export class TsxInstance {
   // ── dev file watcher ──────────────────────────────────────────────────────
 
   private startFileWatcher() {
-    let timeout: ReturnType<typeof setTimeout> | null = null
     const pending = new Set<string>()
 
-    chokidar.watch(this.uiDir, {
+    this.watcher = chokidar.watch(this.uiDir, {
       ignored: /(^|[/\\])\.(?!\.)|node_modules|[/\\]\.weifuwu[/\\]|[/\\]dist[/\\]/,
       persistent: false,
       ignoreInitial: true,
-    }).on('all', async (event, filePath) => {
+    })
+    this.watcher.on('all', async (event, filePath) => {
       if (event !== 'change' && event !== 'add') return
       if (!/\.tsx?$/.test(filePath)) return
 
       pending.add(filePath)
 
-      if (timeout) clearTimeout(timeout)
-      timeout = setTimeout(async () => {
-        timeout = null
+      if (this.debounceTimer) clearTimeout(this.debounceTimer)
+      this.debounceTimer = setTimeout(async () => {
+        this.debounceTimer = null
         const files = [...pending]
         pending.clear()
         const exists = files.filter(f => existsSync(f))
@@ -838,6 +874,11 @@ export class TsxInstance {
   }
 }
 
+function attachStop(router: Router, instance: TsxInstance): Router & { stop: () => void } {
+  ;(router as any).stop = () => instance.stop()
+  return router as Router & { stop: () => void }
+}
+
 interface StreamOpts {
   ctx: Context
   base: string
@@ -846,16 +887,6 @@ interface StreamOpts {
   status?: number
   bundle?: { url: string } | null
   allProps?: Record<string, unknown>
-}
-
-function setGlobalCtx(ctx: Context) {
-  ;(globalThis as any).__WEIFUWU_CTX = {
-    params: ctx.params,
-    query: ctx.query,
-    user: ctx.user,
-    parsed: ctx.parsed,
-    prefs: ctx.prefs,
-  }
 }
 
 function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response {
@@ -871,60 +902,66 @@ function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response
 
   const output = new ReadableStream({
     async start(controller) {
-      const reader = reactStream.getReader()
+      try {
+        const reader = reactStream.getReader()
 
-      async function push(chunk: Uint8Array) {
-        buffer += decoder.decode(chunk, { stream: true })
+        async function push(chunk: Uint8Array) {
+          buffer += decoder.decode(chunk, { stream: true })
 
-        // Extract <template id="__wfw_head"> content and remove from body
-        if (!extractedHead) {
-          const m = buffer.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
-          if (m) {
-            extractedHead = m[1]
-            buffer = buffer.replace(m[0], '')
+          // Extract <template id="__wfw_head"> content and remove from body
+          if (!extractedHead) {
+            const m = buffer.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
+            if (m) {
+              extractedHead = m[1]
+              buffer = buffer.replace(m[0], '')
+            }
           }
+
+          // Flush when we hit </head>, injecting all head content
+          if (!headFlushed) {
+            const idx = buffer.indexOf('</head>')
+            if (idx !== -1) {
+              const before = buffer.slice(0, idx)
+              let injection = ''
+              if (extractedHead) injection += '\n' + extractedHead
+              injection += headPayload
+              controller.enqueue(encoder.encode(before + injection))
+              buffer = buffer.slice(idx)
+              headFlushed = true
+            }
+            return
+          }
+
+          controller.enqueue(encoder.encode(buffer))
+          buffer = ''
         }
 
-        // Flush when we hit </head>, injecting all head content
-        if (!headFlushed) {
-          const idx = buffer.indexOf('</head>')
-          if (idx !== -1) {
-            const before = buffer.slice(0, idx)
-            let injection = ''
-            if (extractedHead) injection += '\n' + extractedHead
-            injection += headPayload
-            controller.enqueue(encoder.encode(before + injection))
-            buffer = buffer.slice(idx)
-            headFlushed = true
-          }
-          return
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          await push(value)
         }
 
-        controller.enqueue(encoder.encode(buffer))
-        buffer = ''
+        // Flush remaining buffer (clean up any unflushed template tags)
+        buffer = buffer.replace(/<template id="__wfw_head">[\s\S]*?<\/template>/g, '')
+        if (buffer) controller.enqueue(encoder.encode(buffer))
+
+        // Body scripts
+        const body = buildBodyScripts(opts)
+        if (body) controller.enqueue(encoder.encode('\n' + body))
+
+        // Dev livereload
+        if (opts.isDev) {
+          controller.enqueue(encoder.encode(
+            `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${opts.base}/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
+          ))
+        }
+      } catch (err) {
+        const fallback = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>500</title></head><body><h1>500 - Internal Server Error</h1></body></html>`
+        controller.enqueue(encoder.encode(fallback))
+      } finally {
+        controller.close()
       }
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        await push(value)
-      }
-
-      // Flush remaining buffer
-      if (buffer) controller.enqueue(encoder.encode(buffer))
-
-      // Body scripts
-      const body = buildBodyScripts(opts)
-      if (body) controller.enqueue(encoder.encode('\n' + body))
-
-      // Dev livereload
-      if (opts.isDev) {
-        controller.enqueue(encoder.encode(
-          `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${opts.base}/__weifuwu/livereload');ws.onmessage=function(e){if(e.data==='reload')location.reload()};ws.onclose=function(){setTimeout(function(){location.reload()},500)}})()<\/script>`
-        ))
-      }
-
-      controller.close()
     },
   })
 
@@ -932,6 +969,19 @@ function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response
     status: opts.status ?? 200,
     headers: { 'content-type': 'text/html; charset=utf-8' },
   })
+}
+
+let _publicEnv: Record<string, string> | null = null
+
+function getPublicEnv(): Record<string, string> {
+  if (_publicEnv) return _publicEnv
+  _publicEnv = {}
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith('WEIFUWU_PUBLIC_')) {
+      _publicEnv[key] = process.env[key]!
+    }
+  }
+  return _publicEnv
 }
 
 function buildHeadPayload(opts: StreamOpts): string {
@@ -959,13 +1009,8 @@ function buildHeadPayload(opts: StreamOpts): string {
     prefs: ctx.prefs,
   }
 
-  // Collect WEIFUWU_PUBLIC_* env vars for client
-  const publicEnv: Record<string, string> = {}
-  for (const key of Object.keys(process.env)) {
-    if (key.startsWith('WEIFUWU_PUBLIC_')) {
-      publicEnv[key] = process.env[key]!
-    }
-  }
+  // Collect WEIFUWU_PUBLIC_* env vars for client (cached)
+  const publicEnv = getPublicEnv()
   if (Object.keys(publicEnv).length > 0) {
     ctxData.env = publicEnv
   }

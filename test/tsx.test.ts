@@ -299,11 +299,12 @@ describe('tsx()', () => {
     })
   })
 
-  describe('TsxContext and useCtx exports', () => {
-    it('exports TsxContext with correct structure', async () => {
-      const { TsxContext, useCtx } = await import('../tsx.ts')
+  describe('TsxContext / useCtx / getCtx exports', () => {
+    it('exports TsxContext, useCtx, getCtx with correct structure', async () => {
+      const { TsxContext, useCtx, getCtx } = await import('../tsx.ts')
       assert.equal(typeof TsxContext.Provider, 'object')
       assert.equal(typeof useCtx, 'function')
+      assert.equal(typeof getCtx, 'function')
     })
 
     it('provides params and query via Provider', async () => {
@@ -320,6 +321,15 @@ describe('tsx()', () => {
       // Verify context values are serialized
       assert.match(html, /"params":\{"slug":"test-art"\}/)
       assert.match(html, /"query":\{"ref":"home"\}/)
+    })
+
+    it('getCtx returns current context values', async () => {
+      const { setCtx, getCtx } = await import('../tsx.ts')
+      setCtx({ params: { foo: 'bar' }, prefs: { locale: 'en' } })
+      const ctx = getCtx()
+      assert.equal(ctx.params.foo, 'bar')
+      assert.equal(ctx.prefs.locale, 'en')
+      assert.equal(typeof ctx.t, 'function')
     })
   })
 
