@@ -21,7 +21,7 @@ interface CtxStore {
   _alsGetStore: (() => CtxValue | undefined) | null
 }
 
-const KEY = '__WEIFUWU_CTX'
+const KEY = '__WEIFUWU_CTX_STORE'
 
 function getStore(): CtxStore {
   if (typeof globalThis !== 'undefined' && (globalThis as any)[KEY]) {
