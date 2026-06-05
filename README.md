@@ -322,8 +322,13 @@ app.use(preferences({ dir: './locales', locale: { default: 'en' }, theme: { defa
 | `theme.cookie` | `'theme'` | Cookie name |
 
 ```tsx
-// Client-side no-refresh switching with <Link>
-<Link href="/__lang/zh">中文</Link>
+// Client-side no-refresh switching — import enables it automatically
+import { useLocale, useTheme } from 'weifuwu/react'
+
+<Link href="/__lang/zh">中文</Link>         // <Link> handles it via interceptor
+<button onClick={() => setLocale('en')}>EN</button>  // or programmatic
+const { theme, resolvedTheme, setTheme } = useTheme()
+// resolvedTheme resolves 'system' → 'dark'|'light' based on prefers-color-scheme
 ```
 
 ### queue [B]
@@ -467,12 +472,15 @@ const navigate = useNavigate()               // programmatic: navigate('/contact
 const loading = useNavigating()              // reactive loading state
 ```
 
-`navigate()` fetches SSR, extracts `__weifuwu_root`, replaces in-place. `load.ts` runs on server each nav. `/__lang/:locale` and `/__theme/:theme` intercepted for no-refresh switching.
+`navigate()` fetches SSR, extracts `__weifuwu_root`, replaces in-place. `load.ts` runs on server each nav.
+
+**Preference URLs** (`/__lang/`, `/__theme/`) are intercepted by modular interceptors registered via `addInterceptor()` — no page reload needed. Importing `useLocale` or `useTheme` registers the interceptor automatically.
 
 ### Client-side hooks
 
 ```tsx
 import { useWebsocket, useAction, useData, useQueryState, createStore, Head, setCtx } from 'weifuwu/react'
+import { useLocale, useTheme, applyTheme, addInterceptor } from 'weifuwu/react'
 
 // WebSocket — auto-reconnecting
 const { send, lastMessage, readyState } = useWebsocket('/ws/chat', { onMessage: (d) => console.log(d), reconnect: { maxRetries: 10, delay: 3000 } })
@@ -497,6 +505,58 @@ const count = useStore(s => s.count)
 
 // Update context (locale switch etc.)
 setCtx({ locale: 'en', prefs: { locale: 'en' } })
+```
+
+### Locale & Theme
+
+```tsx
+import { useLocale } from 'weifuwu/react'
+function LangSwitch() {
+  const { locale, setLocale, t } = useLocale()
+  return <button onClick={() => setLocale('zh-CN')}>{t('switch_lang')}</button>
+}
+```
+
+| Return | Description |
+|--------|-------------|
+| `locale` | Current locale string (from `ctx.prefs.locale`) |
+| `setLocale(locale)` | Switch locale (calls `navigate('/__lang/' + locale)`) |
+| `t` | Translation function (same as `useCtx().t`) |
+
+```tsx
+import { useTheme } from 'weifuwu/react'
+function ThemeToggle() {
+  const { theme, resolvedTheme, setTheme } = useTheme()
+  return (
+    <>
+      <span>Current: {resolvedTheme}</span>  {/* 'dark' | 'light' — never 'system' */}
+      <select value={theme} onChange={e => setTheme(e.target.value)}>
+        <option value="light">☀ Light</option>
+        <option value="dark">🌙 Dark</option>
+        <option value="system">💻 System</option>
+      </select>
+    </>
+  )
+}
+```
+
+| Return | Description |
+|--------|-------------|
+| `theme` | Raw preference (`'light'` \| `'dark'` \| `'system'`) |
+| `resolvedTheme` | Resolved value (`'light'` \| `'dark'`) — `'system'` → matchMedia |
+| `setTheme(theme)` | Switch theme (calls `navigate('/__theme/' + theme)`) |
+
+**`applyTheme(theme)`** — DOM-only theme application. Sets `data-theme` on `<html>`, registers `matchMedia` listener for `'system'`. Used by the interceptor; exported for custom scenarios.
+
+**`addInterceptor(fn)`** — Register a URL interceptor. Interceptors run before SPA navigation; if one returns `true`, `navigate()` skips the fetch-and-swap.
+
+```ts
+import { addInterceptor } from 'weifuwu/react'
+addInterceptor(async (url) => {
+  if (!url.pathname.startsWith('/__custom/')) return false
+  // handle without page reload
+  return true
+})
 ```
 
 ### Flash messages

@@ -152,18 +152,57 @@ app.use('/graphql', g.router().handler())
 | `graphql(handler)` | `{ router(): Router }` |
 | `aiStream(handler)` | `Promise<{ router(): Router }>` |
 
+### Pattern F — Client preference module
+
+For client-side preference modules that intercept URLs and self-register via `addInterceptor()`. No server-side code needed.
+
+```ts
+// client-my-feature.ts
+import { addInterceptor } from './client-pref.ts'
+import { setCtx, useCtx } from './tsx-context.ts'
+import { navigate } from './client-router.ts'
+
+addInterceptor(async (url) => {
+  const m = url.pathname.match(/^\/__myfeature\/(\w+)$/)
+  if (!m) return false
+  // JSON fetch + update context + DOM
+  return true
+})
+
+export function useMyFeature() {
+  const ctx = useCtx()
+  return {
+    value: ctx.prefs.myfeature,
+    setValue: (v: string) => navigate('/__myfeature/' + v),
+  }
+}
+```
+
+**Rules:**
+- Self-registers at module level via `addInterceptor()` (no setup required — just import the hook)
+- Interceptor returns `true` to claim the URL, `false` to pass through
+- Exported from `react.ts` for barrel import
+- SSR-side counterpart in a server module (e.g. `preferences()`) handles the `/__xxx/:value` route
+
+| Module | Intercepts |
+|--------|-----------|
+| `client-locale.ts` | `/__lang/:locale` |
+| `client-theme.ts` | `/__theme/:theme` |
+
 ### Decision guide
 
 ```
-Does the module need to intercept requests?
-  ├─ No → Does it expose routes?
-  │     ├─ No utility function, not a factory (e.g. getCookies, formatSSE)
-  │     ├─ Yes, just routes → Pattern D or E
-  │     └─ Yes, routes + DB + programmatic API → Pattern C
-  └─ Yes → Does it need routes / DB migration / many extra methods?
-        ├─ No → Pattern A
-        ├─ Yes, but it's fundamentally middleware with a few extras → Pattern B
-        └─ Yes, complex → Pattern C (with .middleware() factory)
+Does the module run on the client (browser)?
+  ├─ Yes → Pattern F (self-register via addInterceptor)
+  └─ No → Does it need to intercept requests?
+        ├─ No → Does it expose routes?
+        │     ├─ No utility function, not a factory (e.g. getCookies, formatSSE)
+        │     ├─ Yes, just routes → Pattern D or E
+        │     └─ Yes, routes + DB + programmatic API → Pattern C
+        └─ Yes → Does it need routes / DB migration / many extra methods?
+              ├─ No → Pattern A
+              ├─ Yes, but it's fundamentally middleware with a few extras → Pattern B
+              └─ Yes, complex → Pattern C (with .middleware() factory)
 ```
 
 ### Naming conventions

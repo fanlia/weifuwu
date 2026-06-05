@@ -1,5 +1,8 @@
 import { createElement, useCallback, useState, useEffect } from 'react'
 import { setCtx } from './tsx-context.ts'
+import { runInterceptors } from './client-pref.ts'
+
+export { addInterceptor } from './client-pref.ts'
 
 let _navigating = false
 let _listeners: Array<(v: boolean) => void> = []
@@ -27,30 +30,8 @@ export async function navigate(href: string): Promise<void> {
     return
   }
 
-  // Handle preference switch URLs without page navigation
-  const langMatch = url.pathname.match(/^\/__lang\/(\w+)$/)
-  const themeMatch = url.pathname.match(/^\/__theme\/(\w+)$/)
-  if (langMatch || themeMatch) {
-    try {
-      const res = await fetch(url.pathname, {
-        headers: { accept: 'application/json' },
-      })
-      const data = await res.json()
-      const ctx: any = { ...((window as any).__WEIFUWU_CTX || {}), params: {}, query: {} }
-      if (data.locale) {
-        ctx.prefs = { ...ctx.prefs, locale: data.locale }
-        if (data.messages) (window as any).__LOCALE_DATA__ = data.messages
-      }
-      if (data.theme) {
-        ctx.prefs = { ...ctx.prefs, theme: data.theme }
-      }
-      ;(window as any).__WEIFUWU_CTX = ctx
-      setCtx(ctx)
-    } catch {
-      location.href = href
-    }
-    return
-  }
+  // Preference interceptors handle /__lang/ and /__theme/ URLs
+  if (await runInterceptors(url)) return
 
   // Save scroll position
   const scrollPos = [window.scrollX, window.scrollY]
