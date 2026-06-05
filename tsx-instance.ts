@@ -497,9 +497,17 @@ export class TsxInstance {
         `import{createElement}from'react';`,
         `import P from${JSON.stringify(entryPath)};`,
         `const p=window.__WEIFUWU_PROPS;`,
-        `let el=createElement(P,p);`,
-        `hydrateRoot(document.getElementById('__weifuwu_root'),el);`,
+        `const c=document.getElementById('__weifuwu_root');`,
+        `const r=hydrateRoot(c,createElement(P,p));`,
+        `window.__WEIFUWU_ROOT=r;`,
       ].join('')
+
+      const publicEnv: Record<string, string> = {}
+      for (const key of Object.keys(process.env)) {
+        if (key.startsWith('WEIFUWU_PUBLIC_')) {
+          publicEnv[`process.env.${key}`] = JSON.stringify(process.env[key])
+        }
+      }
 
       const result = await esbuild.build({
         stdin: { contents: code, loader: 'tsx', resolveDir: pagesDir },
@@ -508,6 +516,8 @@ export class TsxInstance {
         jsx: 'automatic',
         jsxImportSource: 'react',
         alias: resolveAliases(),
+        banner: { js: 'self.process={env:{}};' },
+        define: Object.keys(publicEnv).length > 0 ? publicEnv : undefined,
         write: false,
         minify: true,
       })
@@ -579,9 +589,11 @@ export class TsxInstance {
       const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
       const allProps = { ...loadProps, params: ctx.params, query: ctx.query }
 
-      let element: any = createElement(TsxContext.Provider as any, {
-        value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
-      }, createElement(Component, allProps))
+      let element: any = createElement('div', { id: '__weifuwu_root' },
+        createElement(TsxContext.Provider as any, {
+          value: { params: ctx.params, query: ctx.query, user: ctx.user, parsed: ctx.parsed },
+        }, createElement(Component, allProps)),
+      )
 
       if (layoutPaths.length === 0) {
         element = createElement('html', { lang: 'en' },
@@ -590,7 +602,7 @@ export class TsxInstance {
             createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
             createElement('title', null, 'weifuwu'),
           ),
-          createElement('body', null, createElement('div', { id: '__weifuwu_root' }, element)),
+          createElement('body', null, element),
         )
       } else {
         for (let i = layoutPaths.length - 1; i >= 0; i--) {
@@ -608,6 +620,13 @@ export class TsxInstance {
 
       const stream = await renderToReadableStream(element)
       const body = await readStream(stream)
+
+      if (layoutPaths.length > 0 && (body.match(/__weifuwu_root/g) || []).length > 1) {
+        console.warn(
+          '[weifuwu/tsx] <div id="__weifuwu_root"> is auto-injected by the framework. ' +
+          'Remove the duplicate from your root layout to avoid hydration conflicts.',
+        )
+      }
 
       const scripts: string[] = []
       scripts.push(`<script>window.__WEIFUWU_PROPS=${JSON.stringify(allProps)}</script>`)

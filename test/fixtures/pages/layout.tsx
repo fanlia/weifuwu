@@ -5,7 +5,7 @@ export default function RootLayout({ children }: { children: any }) {
         <title>App</title>
       </head>
       <body>
-        <div id="__weifuwu_root">{children}</div>
+        <main>{children}</main>
       </body>
     </html>
   )

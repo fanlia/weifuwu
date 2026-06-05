@@ -8,6 +8,7 @@ export interface ServeOptions {
   signal?: AbortSignal
   websocket?: (req: IncomingMessage, socket: Duplex, head: Buffer) => void
   maxBodySize?: number
+  shutdown?: boolean
 }
 
 export interface Server {
@@ -127,6 +128,11 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
 
   let resolveReady!: () => void
   const ready = new Promise<void>((r) => { resolveReady = r })
+
+  if (options?.shutdown !== false) {
+    process.on('SIGTERM', () => { server.close() })
+    process.on('SIGINT', () => { server.close() })
+  }
 
   if (options?.signal) {
     if (options.signal.aborted) {

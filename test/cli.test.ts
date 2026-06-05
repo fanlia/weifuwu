@@ -70,14 +70,37 @@ describe('weifuwu init', () => {
     assert.ok(files.includes('app.ts'))
     assert.ok(files.includes('.gitignore'))
     assert.ok(files.includes('.env'))
+    assert.ok(files.includes('AGENTS.md'))
+
+    const agentsContent = await readFile(resolve(projectDir, 'AGENTS.md'), 'utf-8')
+    assert.ok(agentsContent.includes('node_modules/weifuwu/README.md'))
 
     const pkg = JSON.parse(await readFile(resolve(projectDir, 'package.json'), 'utf-8'))
     assert.equal(pkg.name, 'test-app')
     assert.equal(pkg.dependencies.weifuwu, 'latest')
 
+    // Check tsx + ui files
     const appContent = await readFile(resolve(projectDir, 'app.ts'), 'utf-8')
-    assert.ok(appContent.includes('serve'))
-    assert.ok(appContent.includes('loadEnv'))
+    assert.ok(appContent.includes("from 'weifuwu/tsx'"))
+    assert.ok(appContent.includes('tsx({ dir:'))
+    assert.ok(appContent.includes('/api/ping'))
+    assert.ok(appContent.includes('/ws/echo'))
+    assert.ok(appContent.includes('websocket: app.websocketHandler()'))
+    assert.ok(appContent.includes('await server.ready'))
+
+    const uiFiles = await readdir(resolve(projectDir, 'ui', 'pages'))
+    assert.ok(uiFiles.includes('layout.tsx'))
+    assert.ok(uiFiles.includes('page.tsx'))
+
+    const uiDir = await readdir(resolve(projectDir, 'ui'))
+    assert.ok(uiDir.includes('app.css'))
+
+    const layoutContent = await readFile(resolve(projectDir, 'ui', 'pages', 'layout.tsx'), 'utf-8')
+    assert.ok(layoutContent.includes('<main>{children}</main>'))
+
+    const pageContent = await readFile(resolve(projectDir, 'ui', 'pages', 'page.tsx'), 'utf-8')
+    assert.ok(pageContent.includes('useWebsocket'))
+    assert.ok(pageContent.includes('/ws/echo'))
   })
 
   it('fails without project name', async () => {

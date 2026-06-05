@@ -4,7 +4,7 @@ export default function RootLayout({ children, req }: { children: any; req: Requ
     <html>
       <head><title>Test</title></head>
       <body data-theme={theme}>
-        <div id="__weifuwu_root">{children}</div>
+        <main>{children}</main>
       </body>
     </html>
   )

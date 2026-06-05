@@ -117,6 +117,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 |-----------|-------------|
 | `auth(options)` | Bearer token / custom header / verify / proxy |
 | `cors(options?)` | CORS with preflight, origin whitelist, credentials |
+| `csrf(options?)` | Double-submit cookie CSRF protection |
 | `logger(options?)` | Request logging with duration |
 | `rateLimit(options?)` | In-memory rate limiting with headers |
 | `compress(options?)` | Brotli / Gzip / Deflate compression |
@@ -126,6 +127,45 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `seoMiddleware(options?)` | `X-Robots-Tag` header — string or path-based function |
 | `helmet(options?)` | Security headers — CSP, HSTS, X-Frame-Options, etc. |
 | `requestId(options?)` | `X-Request-ID` header + `ctx.requestId` |
+
+## CSRF
+
+Double-submit cookie pattern — the server sets a random token as an `HttpOnly` cookie on GET requests, then validates it against the `X-CSRF-Token` header (or a body field) on state-changing requests.
+
+```ts
+import { csrf } from 'weifuwu'
+
+app.use(csrf())
+
+app.post('/feedback', async (req, ctx) => {
+  // Token validated automatically — 403 if mismatch
+  const body = await req.json()
+  return Response.json({ ok: true })
+})
+```
+
+### Accessing the token
+
+Use `ctx.csrfToken` in SSR templates or pass it to the client:
+
+```ts
+app.get('/form', (req, ctx) => {
+  return new Response(`<input name="_csrf" value="${ctx.csrfToken}" hidden />`, {
+    headers: { 'content-type': 'text/html' },
+  })
+})
+```
+
+For fetch-based forms, `useAction()` reads the `_csrf` cookie automatically and sends it as `X-CSRF-Token`.
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `cookie` | `'_csrf'` | Cookie name for the token |
+| `header` | `'x-csrf-token'` | Header name to read from requests |
+| `key` | `'_csrf'` | Body field name (fallback when header is absent) |
+| `excludeMethods` | `['GET', 'HEAD', 'OPTIONS']` | Methods that skip validation |
 
 ## Utility functions
 
@@ -141,6 +181,11 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `formatSSE(event, data)` | Format SSE event string |
 | `formatSSEData(data)` | Format SSE data string |
 | `runWorkflow(options)` | DAG execution engine as AI SDK `Tool` |
+| `useWebsocket(url, options?)` | React hook — auto-reconnecting WebSocket |
+| `useAction(url, options?)` | React hook — async form submission with state |
+| `navigate(href)` | Client-side page navigation (SSR + hydrate) |
+| `useNavigate()` | React hook — returns navigate function |
+| `<Link href>...</Link>` | React component — client-side navigation |
 | `pgTable(name, columns)` | Type-safe table schema builder |
 | `pg.table(name, columns)` | Pre-bound table (no `sql` param needed) |
 | `serial()`, `uuid()`, `text()`, ... | Column type builders |
@@ -1064,6 +1109,84 @@ npx shadcn@latest init
 # Import alias: @/  →  ./ui/
 ```
 
+### Public environment variables
+
+Environment variables prefixed with `WEIFUWU_PUBLIC_` are automatically inlined into the client hydration bundle by esbuild. Use them to safely expose values to browser code:
+
+```bash
+WEIFUWU_PUBLIC_API_URL=https://api.example.com
+WEIFUWU_PUBLIC_AD_SENSE_ID=ca-pub-xxx
+```
+
+```tsx
+// page.tsx — works on both server and client
+const apiUrl = process.env.WEIFUWU_PUBLIC_API_URL
+```
+
+> The hydration bundle also injects `self.process = { env: {} }` as a safety net so `process.env.*` references in any bundled dependency don't throw `ReferenceError`.
+
+### useWebsocket — auto-reconnecting WebSocket hook
+
+```tsx
+import { useWebsocket } from 'weifuwu'
+
+function Chat() {
+  const { send, lastMessage, readyState, close } = useWebsocket('/ws/chat', {
+    onMessage: (data) => console.log('received', data),
+    reconnect: { maxRetries: 10, delay: 3000 },
+  })
+
+  return (
+    <div>
+      <p>Status: {readyState === 1 ? 'Connected' : readyState === 0 ? 'Connecting...' : 'Disconnected'}</p>
+      <button onClick={() => send('Hello')}>Send</button>
+      {lastMessage && <p>Last: {lastMessage}</p>}
+      <button onClick={close}>Disconnect</button>
+    </div>
+  )
+}
+```
+
+`url` accepts a string, `URL`, or a function `() => string | URL | null` (useful for dynamic URLs without reconnecting on every render). The hook auto-reconnects on disconnect with configurable retry limits and delay. Returns `{ send, close, readyState, lastMessage, reconnect }`.
+
+### useAction — async form submission hook
+
+```tsx
+import { useAction } from 'weifuwu'
+
+function FeedbackForm() {
+  const { submit, data, error, pending } = useAction('/api/feedback', { method: 'POST' })
+
+  return (
+    <form onSubmit={() => submit({ name, email })}>
+      <button disabled={pending}>{pending ? 'Saving...' : 'Submit'}</button>
+      {error && <p className="text-red-500">{error.message}</p>}
+      {data && <p>Saved: {data.id}</p>}
+    </form>
+  )
+}
+```
+
+Automatically serializes JSON bodies, reads the `_csrf` cookie and sends it as `X-CSRF-Token` header. Returns `{ submit, data, error, pending, reset }`.
+
+### Client-side navigation — `<Link>` and `useNavigate`
+
+```tsx
+import { Link, useNavigate } from 'weifuwu'
+
+function Nav() {
+  const navigate = useNavigate()
+  return (
+    <nav>
+      <Link href="/about">About</Link>
+      <button onClick={() => navigate('/contact')}>Contact</button>
+    </nav>
+  )
+}
+```
+
+`navigate(href)` fetches the target page via SSR, extracts the `__weifuwu_root` content and `__WEIFUWU_PROPS` from the server-rendered HTML, replaces the current page content in-place, then dynamically imports the new hydration bundle — preserving React state where appropriate. The initial page load remains a full SSR, only subsequent navigations become client-side.
+
 ### page.tsx — page component
 
 ```tsx
@@ -1091,6 +1214,8 @@ export default async function load({ params, query }: {
 
 **Root layout** (`pages/layout.tsx`) — receives `{ children, req, ctx }`:
 
+> **ℹ️ Note:** The `<div id="__weifuwu_root">` hydration target is **auto-injected** by the framework — do not add it manually. Just render `{children}` where you want the page content to appear.
+
 ```tsx
 export default function RootLayout({ children, req, ctx }: {
   children: React.ReactNode
@@ -1100,7 +1225,7 @@ export default function RootLayout({ children, req, ctx }: {
   return (
     <html>
       <head><title>App</title></head>
-      <body><div id="__weifuwu_root">{children}</div></body>
+      <body><main>{children}</main></body>
     </html>
   )
 }
