@@ -8,6 +8,7 @@ export function messager(options: MessagerOptions): MessagerModule {
   const pg = options.pg
   const sql = pg.sql
   const agents = options.agents
+  const redis = options.redis
 
   const base = new PgModule(pg)
 
@@ -55,7 +56,7 @@ export function messager(options: MessagerOptions): MessagerModule {
       await messages.createIndex(['channel_id', 'created_at'], { desc: true })
     },
     router: () => buildRouter({ sql, channels, members, messages, agents }),
-    wsHandler: () => createWSHandler({ sql, agents }),
+    wsHandler: () => createWSHandler({ sql, agents, redis }),
     async send(channelId: number, content: string, opts?: {
       sender_type?: string
       sender_id?: number

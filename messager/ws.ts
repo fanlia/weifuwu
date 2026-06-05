@@ -2,48 +2,31 @@ import type { Sql } from '../vendor.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { WSMessage, Message } from './types.ts'
 import type { Context } from '../types.ts'
+import { createHub } from '../hub.ts'
+import type { Hub } from '../hub.ts'
 
 interface WSDeps {
   sql: Sql<{}>
   agents?: AgentModule
+  redis?: import('../vendor.ts').Redis
 }
 
-// In-memory channel subscriptions
-// channel_id → Set<{ ws, userId }>
-const channels = new Map<number, Set<{ ws: WebSocket; userId: number }>>()
-// user_id → Set<WebSocket>
+// user_id → Set<WebSocket> (hub handles channel membership)
 const userConnections = new Map<number, Set<WebSocket>>()
 
+let hub: Hub | undefined
+
 export function broadcastToChannel(channelId: number, data: any): void {
-  const members = channels.get(channelId)
-  if (!members) return
-  const msg = JSON.stringify(data)
-  for (const { ws } of members) {
-    try { ws.send(msg) } catch {}
-  }
-}
-
-function subscribe(ws: WebSocket, userId: number, channelId: number): void {
-  if (!channels.has(channelId)) channels.set(channelId, new Set())
-  channels.get(channelId)!.add({ ws, userId })
-
-  if (!userConnections.has(userId)) userConnections.set(userId, new Set())
-  userConnections.get(userId)!.add(ws)
-}
-
-function unsubscribe(ws: WebSocket): void {
-  for (const [, members] of channels) {
-    for (const m of members) {
-      if (m.ws === ws) { members.delete(m); break }
-    }
-  }
-  for (const [, conns] of userConnections) {
-    conns.delete(ws)
-  }
+  hub?.broadcast(`messager:${channelId}`, data)
 }
 
 export function createWSHandler(deps: WSDeps): any {
   const { sql, agents } = deps
+
+  hub = createHub({
+    redis: deps.redis,
+    prefix: 'messager:',
+  })
 
   return {
     open(ws: WebSocket, ctx: Context) {
@@ -78,11 +61,11 @@ export function createWSHandler(deps: WSDeps): any {
           `
           const message = row as Message
 
-          // Broadcast to all channel members
-          broadcastToChannel(channel_id, { type: 'message', data: message })
+          hub!.join(`messager:${channel_id}`, ws)
+          if (!userConnections.has(userId)) userConnections.set(userId, new Set())
+          userConnections.get(userId)!.add(ws)
 
-          // Auto-subscribe
-          subscribe(ws, userId, channel_id)
+          broadcastToChannel(channel_id, { type: 'message', data: message })
 
           // Agent routing
           if (agents) {
@@ -112,7 +95,9 @@ export function createWSHandler(deps: WSDeps): any {
         }
 
         case 'typing': {
-          if (channel_id) subscribe(ws, userId, channel_id)
+          if (channel_id) {
+            hub!.join(`messager:${channel_id}`, ws)
+          }
           broadcastToChannel(channel_id, {
             type: 'typing',
             channel_id,
@@ -124,7 +109,7 @@ export function createWSHandler(deps: WSDeps): any {
 
         case 'read': {
           if (!channel_id || !last_message_id) return
-          subscribe(ws, userId, channel_id)
+          hub!.join(`messager:${channel_id}`, ws)
           await sql`
             UPDATE "_channel_members"
             SET last_read_id = ${last_message_id}, last_read_at = NOW()
@@ -142,11 +127,17 @@ export function createWSHandler(deps: WSDeps): any {
     },
 
     close(ws: WebSocket) {
-      unsubscribe(ws)
+      hub?.leave(ws)
+      for (const [, conns] of userConnections) {
+        conns.delete(ws)
+      }
     },
 
     error(ws: WebSocket) {
-      unsubscribe(ws)
+      hub?.leave(ws)
+      for (const [, conns] of userConnections) {
+        conns.delete(ws)
+      }
     },
   }
 }

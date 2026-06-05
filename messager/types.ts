@@ -1,10 +1,12 @@
 import type { AgentModule } from '../agent/types.ts'
 import type { PostgresClient } from '../postgres/types.ts'
+import type { Redis } from '../vendor.ts'
 
 export interface MessagerOptions {
   pg: PostgresClient
   agents?: AgentModule
   webhookTimeout?: number
+  redis?: Redis
 }
 
 export interface Channel {

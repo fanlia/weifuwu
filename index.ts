@@ -54,6 +54,8 @@ export type {
 } from './user/types.ts'
 export { redis } from './redis/index.ts'
 export type { RedisOptions, RedisClient } from './redis/types.ts'
+export { createHub } from './hub.ts'
+export type { Hub, HubOptions } from './hub.ts'
 export { queue } from './queue/index.ts'
 export type { QueueOptions, QueueJob, Queue } from './queue/types.ts'
 export { tenant } from './tenant/index.ts'
