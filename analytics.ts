@@ -1,21 +1,18 @@
-import type { Context, Middleware } from './types.ts'
-import { Router } from './router.ts'
+import type { Context, Handler, Middleware } from './types.ts'
 
 export interface AnalyticsOptions {
-  pg?: { sql: any }
   excluded?: string[]
 }
 
 interface DayStats {
   pv: number
-  uv: Set<string>  // unique paths
+  uv: Set<string>
   mobile: number
   desktop: number
 }
 
 interface PageStats {
   count: number
-  dates: Set<string>
 }
 
 const DEFAULT_EXCLUDED = ['/__analytics', '/__wfw', '/static', '/analytics']
@@ -33,9 +30,8 @@ class MemStore {
     if (mobile) { day.mobile++ } else { day.desktop++ }
 
     let page = this.pages.get(path)
-    if (!page) { page = { count: 0, dates: new Set() }; this.pages.set(path, page) }
+    if (!page) { page = { count: 0 }; this.pages.set(path, page) }
     page.count++
-    page.dates.add(date)
 
     if (refDomain) {
       let refs = this.refs.get(date)
@@ -66,9 +62,6 @@ class MemStore {
     }
 
     for (const [path, page] of this.pages) {
-      let count = 0
-      for (const d of page.dates) if (d >= sinceStr) count += page.count / page.dates.size
-      // simplified: use raw count
       pageMap.set(path, page.count)
     }
 
@@ -98,75 +91,39 @@ class MemStore {
       devices: { mobile: Math.round(totalMobile / total * 1000) / 10, desktop: Math.round(totalDesktop / total * 1000) / 10 },
     }
   }
-}
 
-export function analytics(options?: AnalyticsOptions) {
-  const excluded = options?.excluded ?? DEFAULT_EXCLUDED
-  const store = new MemStore()
+  handler(): Handler {
+    return async (req) => {
+      const url = new URL(req.url)
+      const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 7, 1), 365)
+      const data = this.query(days)
 
-  function shouldExclude(path: string): boolean {
-    return excluded.some(e => path.startsWith(e))
-  }
+      if (url.pathname === '/__analytics/data') {
+        return Response.json(data)
+      }
 
-  const middleware: Middleware = async (req, ctx, next) => {
-    const url = new URL(req.url)
-    const path = url.pathname
-
-    if (!shouldExclude(path)) {
-      const date = new Date().toISOString().slice(0, 10)
-      const ref = req.headers.get('referer') || ''
-      const refDomain = ref ? new URL(ref).hostname.replace(/^www\./, '') : ''
-      const ua = req.headers.get('user-agent') || ''
-      const mobile = /mobile|android|iphone|ipad/i.test(ua)
-      store.record(path, date, refDomain, mobile)
+      return new Response(this.renderDashboard(days, data), {
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      })
     }
-
-    return next(req, ctx)
   }
 
-  const router = new Router()
-  router.use(middleware)
+  private renderDashboard(days: number, data: ReturnType<MemStore['query']>): string {
+    const { total_pv, total_uv, daily, top_pages, referrers, devices } = data
+    const maxPv = Math.max(...daily.map(d => d.pv), 1)
+    const bars = daily.map(d =>
+      `<div class="bar-wrap"><div class="bar" style="height:${(d.pv / maxPv) * 100}%"></div><span class="bar-label">${d.date.slice(5)}</span></div>`
+    ).join('')
+    const rows = top_pages.map((p, i) =>
+      `<tr><td class="num">${i + 1}</td><td class="path">${p.path}</td><td class="num">${p.pv}</td></tr>`
+    ).join('')
+    const refRows = referrers.map(r =>
+      `<tr><td>${r.domain}</td><td class="num">${r.count}</td></tr>`
+    ).join('')
 
-  router.get('/__analytics/data', async (req) => {
-    const url = new URL(req.url)
-    const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 7, 1), 365)
-    return Response.json(store.query(days))
-  })
-
-  router.get('/analytics', async (req) => {
-    const url = new URL(req.url)
-    const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 7, 1), 365)
-    const data = store.query(days)
-    return new Response(renderDashboard(days, data), {
-      headers: { 'content-type': 'text/html; charset=utf-8' },
-    })
-  })
-
-  return router
-}
-
-function renderDashboard(days: number, data: ReturnType<MemStore['query']>): string {
-  const { total_pv, total_uv, daily, top_pages, referrers, devices } = data
-
-  const maxPv = Math.max(...daily.map(d => d.pv), 1)
-  const bars = daily.map(d =>
-    `<div class="bar-wrap"><div class="bar" style="height:${(d.pv / maxPv) * 100}%"></div><span class="bar-label">${d.date.slice(5)}</span></div>`
-  ).join('')
-
-  const rows = top_pages.map((p, i) =>
-    `<tr><td class="num">${i + 1}</td><td class="path">${p.path}</td><td class="num">${p.pv}</td></tr>`
-  ).join('')
-
-  const refRows = referrers.map(r =>
-    `<tr><td>${r.domain}</td><td class="num">${r.count}</td></tr>`
-  ).join('')
-
-  return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Analytics - weifuwu</title>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Analytics - weifuwu</title>
 <style>
 *,:before,:after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8f9fa;color:#333;padding:24px;max-width:960px;margin:0 auto}
@@ -179,7 +136,7 @@ h1{font-size:24px;font-weight:700;margin-bottom:24px}
 .section h2{font-size:14px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px}
 .chart{display:flex;align-items:flex-end;gap:4px;height:160px;padding-top:8px}
 .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end}
-.bar{width:100%;background:#2563eb;border-radius:4px 4px 0 0;min-height:2px;transition:height .3s}
+.bar{width:100%;background:#2563eb;border-radius:4px 4px 0 0;min-height:2px}
 .bar-label{font-size:10px;color:#888;margin-top:6px;white-space:nowrap}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:6px 8px;color:#888;font-weight:500;border-bottom:1px solid #eee}
@@ -187,8 +144,7 @@ td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .path{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px}
 tr:hover td{background:#f8faff}
-</style>
-</head>
+</style></head>
 <body>
 <h1>Analytics</h1>
 <div class="cards">
@@ -197,15 +153,36 @@ tr:hover td{background:#f8faff}
   <div class="card"><div class="val">${devices.mobile}%</div><div class="lbl">Mobile</div></div>
   <div class="card"><div class="val">${devices.desktop}%</div><div class="lbl">Desktop</div></div>
 </div>
-<div class="section">
-  <h2>Daily Page Views</h2>
-  <div class="chart">${bars}</div>
-</div>
-<div class="section">
-  <h2>Top Pages</h2>
-  <table><thead><tr><th style="width:32px">#</th><th>Path</th><th style="width:64px">Views</th></tr></thead><tbody>${rows}</tbody></table>
-</div>
+<div class="section"><h2>Daily Page Views</h2><div class="chart">${bars}</div></div>
+<div class="section"><h2>Top Pages</h2>
+<table><thead><tr><th style="width:32px">#</th><th>Path</th><th style="width:64px">Views</th></tr></thead><tbody>${rows}</tbody></table></div>
 ${referrers.length ? `<div class="section"><h2>Referrers</h2><table><thead><tr><th>Domain</th><th style="width:64px">Views</th></tr></thead><tbody>${refRows}</tbody></table></div>` : ''}
-</body>
-</html>`
+</body></html>`
+  }
+}
+
+export function analytics(options?: AnalyticsOptions) {
+  const excluded = options?.excluded ?? DEFAULT_EXCLUDED
+  const store = new MemStore()
+
+  const middleware: Middleware = async (req, ctx, next) => {
+    const url = new URL(req.url)
+    const path = url.pathname
+
+    if (!excluded.some(e => path.startsWith(e))) {
+      const date = new Date().toISOString().slice(0, 10)
+      const ref = req.headers.get('referer') || ''
+      const refDomain = ref ? new URL(ref).hostname.replace(/^www\./, '') : ''
+      const ua = req.headers.get('user-agent') || ''
+      const mobile = /mobile|android|iphone|ipad/i.test(ua)
+      store.record(path, date, refDomain, mobile)
+    }
+
+    return next(req, ctx)
+  }
+
+  return {
+    middleware,
+    handler: store.handler(),
+  }
 }
