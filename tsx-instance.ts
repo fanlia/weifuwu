@@ -391,7 +391,7 @@ export class TsxInstance {
         setCtx({
           params: ctx.params,
           query: ctx.query,
-          user: ctx.user,
+          user: ctx.user as { id?: string } | undefined,
           parsed: ctx.parsed,
           prefs: ctx.prefs,
           t: ctx.t,
@@ -604,7 +604,7 @@ export class TsxInstance {
       setCtx({
         params: ctx.params,
         query: ctx.query,
-        user: ctx.user,
+        user: ctx.user as { id?: string } | undefined,
         parsed: ctx.parsed,
         prefs: ctx.prefs,
         t: ctx.t,
