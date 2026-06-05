@@ -21,6 +21,8 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - New modules get their own file, exported from `index.ts`
 - Every module needs tests in `test/`
 - All `ctx` mutations (like `ctx.parsed` or `ctx.user`) should be additive, never overwrite
+- Public hooks go in `react.ts` barrel; internal utilities stay in their module
+- Frontend hooks use `useXxx` naming; each hook solves one concrete concern
 
 ## Built-in module patterns
 
@@ -159,7 +161,7 @@ For client-side preference modules that intercept URLs and self-register via `ad
 ```ts
 // client-my-feature.ts
 import { addInterceptor } from './client-pref.ts'
-import { setCtx, useCtx } from './tsx-context.ts'
+import { setCtx } from './tsx-context.ts'
 import { navigate } from './client-router.ts'
 
 addInterceptor(async (url) => {
