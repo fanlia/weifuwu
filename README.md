@@ -349,7 +349,7 @@ app.use(requestId())
 
 ```ts
 import { serve, Router } from 'weifuwu'
-import { tsx } from 'weifuwu/tsx'
+import { serve, Router, tsx } from 'weifuwu'
 
 const app = new Router()
 app.use('/', await tsx({ dir: './ui/' }))

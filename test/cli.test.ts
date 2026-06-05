@@ -81,7 +81,7 @@ describe('weifuwu init', () => {
 
     // Check tsx + ui files
     const appContent = await readFile(resolve(projectDir, 'app.ts'), 'utf-8')
-    assert.ok(appContent.includes("from 'weifuwu/tsx'"))
+    assert.ok(appContent.includes('import { serve, Router, loadEnv, tsx }'))
     assert.ok(appContent.includes('tsx({ dir:'))
     assert.ok(appContent.includes('/api/ping'))
     assert.ok(appContent.includes('/ws/echo'))

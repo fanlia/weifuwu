@@ -79,8 +79,7 @@ async function cmdInit(name: string) {
   ].join('\n'))
 
   await writeFile(join(targetDir, 'app.ts'), [
-    "import { serve, Router, loadEnv } from 'weifuwu'",
-    "import { tsx } from 'weifuwu/tsx'",
+    "import { serve, Router, loadEnv, tsx } from 'weifuwu'",
     '',
     "loadEnv()",
     "const port = Number(process.env.PORT) || 3000",
