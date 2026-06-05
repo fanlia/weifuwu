@@ -518,6 +518,7 @@ export class TsxInstance {
         alias: resolveAliases(),
         banner: { js: 'self.process={env:{}};' },
         define: Object.keys(publicEnv).length > 0 ? publicEnv : undefined,
+        loader: { '.node': 'empty' },
         write: false,
         minify: true,
       })

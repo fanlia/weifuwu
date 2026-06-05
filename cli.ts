@@ -123,7 +123,7 @@ async function cmdInit(name: string) {
 
   await writeFile(join(targetDir, 'ui', 'pages', 'page.tsx'), [
     "import { useState } from 'react'",
-    "import { useWebsocket } from 'weifuwu'",
+    "import { useWebsocket } from 'weifuwu/react'",
     '',
     'export default function Home() {',
     '  const [input, setInput] = useState("")',

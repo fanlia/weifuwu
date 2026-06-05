@@ -451,7 +451,7 @@ The hydration bundle also injects `self.process = { env: {} }` as a safety net s
 #### useWebsocket — auto-reconnecting WebSocket
 
 ```tsx
-import { useWebsocket } from 'weifuwu'
+import { useWebsocket } from 'weifuwu/react'
 
 function Chat() {
   const { send, lastMessage, readyState, close, reconnect } = useWebsocket('/ws/chat', {
@@ -472,7 +472,7 @@ function Chat() {
 #### useAction — async form submission
 
 ```tsx
-import { useAction } from 'weifuwu'
+import { useAction } from 'weifuwu/react'
 
 function FeedbackForm() {
   const { submit, data, error, pending, reset } = useAction('/api/feedback', { method: 'POST' })
@@ -490,7 +490,7 @@ Auto-serializes JSON, auto-reads `_csrf` cookie and sends as `X-CSRF-Token`. Ret
 ### Client-side navigation
 
 ```tsx
-import { Link, useNavigate } from 'weifuwu'
+import { Link, useNavigate } from 'weifuwu/react'
 
 function Nav() {
   const navigate = useNavigate()

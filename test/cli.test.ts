@@ -99,6 +99,7 @@ describe('weifuwu init', () => {
     assert.ok(layoutContent.includes('<main>{children}</main>'))
 
     const pageContent = await readFile(resolve(projectDir, 'ui', 'pages', 'page.tsx'), 'utf-8')
+    assert.ok(pageContent.includes("from 'weifuwu/react'"))
     assert.ok(pageContent.includes('useWebsocket'))
     assert.ok(pageContent.includes('/ws/echo'))
   })

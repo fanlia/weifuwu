@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./tsx": "./dist/index.js"
+    "./react": "./dist/react.js"
   },
   "bin": {
     "weifuwu": "dist/cli.js"
@@ -18,7 +18,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external",
+    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external && esbuild react.ts --bundle --format=esm --outfile=dist/react.js --external:react --external:react-dom",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "test": "node --test 'test/**/*.test.ts'"
   },
