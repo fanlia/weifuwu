@@ -151,6 +151,7 @@ All use the same pattern — `const m = module(options)` → `app.use('/path', m
 | `embed()` / `embedMany()` | AI SDK — text embeddings |
 | `smoothStream()` | AI SDK — smooth streaming middleware |
 | `openai` / `createOpenAI()` | OpenAI provider for AI SDK |
+| `createHub(options?)` | WebSocket channel hub — `join()`, `leave()`, `broadcast()` with optional Redis pub/sub |
 
 ---
 
@@ -306,6 +307,39 @@ const server = serve(app.handler(), {
   websocket: app.websocketHandler(),
 })
 ```
+
+### Cross-process WebSocket with `createHub`
+
+Use `createHub()` to group WebSocket connections into named channels and broadcast to them — works within a single process, and with optional Redis pub/sub across multiple Node.js processes behind a load balancer.
+
+```ts
+import { createHub, serve, Router } from 'weifuwu'
+import { redis } from 'weifuwu'
+
+const hub = createHub({ redis })   // omit redis for in-process only
+
+const app = new Router().ws('/chat/:room', {
+  open(ws, ctx) {
+    hub.join(`room:${ctx.params.room}`, ws)
+  },
+  message(ws, ctx, data) {
+    hub.broadcast(`room:${ctx.params.room}`, {
+      user: ctx.user?.id,
+      text: data.toString(),
+    })
+  },
+  close(ws) {
+    hub.leave(ws)
+  },
+})
+
+serve(app.handler(), {
+  port: 3000,
+  websocket: app.websocketHandler(),
+})
+```
+
+With Redis configured, `hub.broadcast()` publishes to a Redis channel — all processes subscribed via `createHub({ redis })` receive and forward to their local WebSocket connections.
 
 ---
 
@@ -1326,10 +1360,14 @@ All routes require `ctx.tenant` (set by `t.middleware()`). All queries automatic
 Real-time chat with channels, WebSocket, and agent routing.
 
 ```ts
-import { messager, agent } from 'weifuwu'
+import { messager, agent, redis } from 'weifuwu'
 
 const agents = agent({ pg })
-const msg = messager({ pg, agents })
+
+// Single process (no cross-process broadcast):
+// const msg = messager({ pg, agents })
+// Multi-process (Redis pub/sub broadcast):
+const msg = messager({ pg, agents, redis: redis() })
 
 await msg.migrate()
 app.use('/api', msg.router())
