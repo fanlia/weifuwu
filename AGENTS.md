@@ -23,6 +23,7 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - All `ctx` mutations (like `ctx.parsed` or `ctx.user`) should be additive, never overwrite
 - Public hooks go in `react.ts` barrel; internal utilities stay in their module
 - Frontend hooks use `useXxx` naming; each hook solves one concrete concern
+- **README.md must be LLM-friendly** — document all public APIs with examples, avoid internal implementation details like `window.__xxx` globals
 
 ## Built-in module patterns
 
