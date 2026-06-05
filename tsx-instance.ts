@@ -3,7 +3,7 @@ import { renderToReadableStream } from 'react-dom/server'
 import * as esbuild from 'esbuild'
 import { readdirSync, statSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve, sep, dirname, basename } from 'node:path'
-import { pathToFileURL, fileURLToPath } from 'node:url'
+import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import vm from 'node:vm'
 import { createRequire } from 'node:module'
@@ -14,8 +14,6 @@ import type { Context, Handler } from './types.ts'
 import { TsxContext, useCtx } from './tsx-context.ts'
 
 export { TsxContext, useCtx }
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export interface TsxOptions {
   dir: string
@@ -523,17 +521,13 @@ export class TsxInstance {
         }
       }
 
-      const weifuwuAlias: Record<string, string> = {
-        'weifuwu/react': resolve(__dirname, 'react.ts'),
-      }
-
       const result = await esbuild.build({
         stdin: { contents: code, loader: 'tsx', resolveDir: pagesDir },
         bundle: true,
         format: 'esm',
         jsx: 'automatic',
         jsxImportSource: 'react',
-        alias: { ...resolveAliases(), ...weifuwuAlias },
+        alias: resolveAliases(),
         banner: { js: 'self.process={env:{}};' },
         define: Object.keys(publicEnv).length > 0 ? publicEnv : undefined,
         loader: { '.node': 'empty' },
