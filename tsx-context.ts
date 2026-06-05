@@ -35,15 +35,12 @@ export function setCtx(value: Partial<CtxValue>) {
   _listeners.forEach(fn => fn())
 }
 
-let _cachedT: ((key: string, params?: Record<string, string>, fallback?: string) => string) | null = null
-
 function _buildT(): (key: string, params?: Record<string, string>, fallback?: string) => string {
-  if (_cachedT) return _cachedT
   const messages = typeof window !== 'undefined'
     ? (window as any).__LOCALE_DATA__
     : (globalThis as any).__LOCALE_DATA__
-  if (!messages) { _cachedT = fallbackT; return fallbackT }
-  _cachedT = (key: string, params?: Record<string, string>, fallback?: string) => {
+  if (!messages) return fallbackT
+  return (key: string, params?: Record<string, string>, fallback?: string) => {
     const msg = key.split('.').reduce((o: any, k: string) => o?.[k], messages as any)
     if (msg === undefined || msg === null) return fallback ?? key
     if (!params) return String(msg)
@@ -51,33 +48,17 @@ function _buildT(): (key: string, params?: Record<string, string>, fallback?: st
     for (const [k, v] of Object.entries(params)) result = result.replace(`{${k}}`, v)
     return result
   }
-  return _cachedT
 }
 
 function _readCtx(): CtxValue {
-  // Prefer ALS store (async-safe, per-request isolation set by tsx-instance)
   const alsStore = _alsGetStore?.()
   const base = alsStore ?? _ctx
-
   const data = typeof window !== 'undefined' ? (window as any).__WEIFUWU_CTX : null
-  const t = typeof base.t === 'function' && base.t !== fallbackT ? base.t : _buildT()
-  return { ...base, ...data, t }
+  return { ...base, ...data, t: _buildT() }
 }
 
-/**
- * React hook — returns the current request context.
- * Must be called from a React component or custom hook.
- */
 export function useCtx(): CtxValue {
   useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
-  return _readCtx()
-}
-
-/**
- * Plain accessor — returns the current request context without calling any React hooks.
- * Safe to call from utility functions, route handlers, middleware, load functions, etc.
- */
-export function getCtx(): CtxValue {
   return _readCtx()
 }
 

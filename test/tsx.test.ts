@@ -299,17 +299,14 @@ describe('tsx()', () => {
     })
   })
 
-  describe('TsxContext / useCtx / getCtx exports', () => {
-    it('exports TsxContext, useCtx, getCtx with correct structure', async () => {
-      const { TsxContext, useCtx, getCtx } = await import('../tsx.ts')
+  describe('TsxContext / useCtx', () => {
+    it('exports TsxContext and useCtx with correct structure', async () => {
+      const { TsxContext, useCtx } = await import('../tsx.ts')
       assert.equal(typeof TsxContext.Provider, 'object')
       assert.equal(typeof useCtx, 'function')
-      assert.equal(typeof getCtx, 'function')
     })
 
     it('provides params and query via Provider', async () => {
-      // The Provider wraps the component tree in makeSsrHandler.
-      // Verify params/query reach the component via props (established pathway).
       const r = await tsx({ dir: './test/fixtures/pages' })
       const res = await r.handler()(
         new Request('http://localhost/blog/test-art'),
@@ -318,18 +315,8 @@ describe('tsx()', () => {
       const html = await res.text()
       assert.match(html, /test-art/)
       assert.match(html, /__WEIFUWU_PROPS/)
-      // Verify context values are serialized
       assert.match(html, /"params":\{"slug":"test-art"\}/)
       assert.match(html, /"query":\{"ref":"home"\}/)
-    })
-
-    it('getCtx returns current context values', async () => {
-      const { setCtx, getCtx } = await import('../tsx.ts')
-      setCtx({ params: { foo: 'bar' }, prefs: { locale: 'en' } })
-      const ctx = getCtx()
-      assert.equal(ctx.params.foo, 'bar')
-      assert.equal(ctx.prefs.locale, 'en')
-      assert.equal(typeof ctx.t, 'function')
     })
   })
 

@@ -3,7 +3,7 @@ export type { UseWebsocketOptions, UseWebsocketReturn } from './use-websocket.ts
 export { useAction } from './use-action.ts'
 export type { UseActionOptions, UseActionReturn } from './use-action.ts'
 export { Link, useNavigate, navigate, useNavigating } from './client-router.ts'
-export { TsxContext, useCtx, setCtx, getCtx } from './tsx-context.ts'
+export { TsxContext, useCtx, setCtx } from './tsx-context.ts'
 export { Head } from './head.tsx'
 export { createStore, useData, useQueryState } from './client-state.ts'
 export type { StoreApi } from './client-state.ts'

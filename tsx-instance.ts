@@ -13,9 +13,9 @@ import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
 import type { Context, Handler } from './types.ts'
 import type { CtxValue } from './tsx-context.ts'
-import { TsxContext, useCtx, setCtx, getCtx, __registerAls } from './tsx-context.ts'
+import { TsxContext, useCtx, setCtx, __registerAls } from './tsx-context.ts'
 
-export { TsxContext, useCtx, setCtx, getCtx }
+export { TsxContext, useCtx, setCtx }
 
 // ── Per-request context isolation via AsyncLocalStorage ────────────
 const als = new AsyncLocalStorage<CtxValue>()
