@@ -26,9 +26,11 @@ description: Web-standard HTTP framework for Node.js — (req, ctx) => Response
 - [Opencode](#opencode)
 - [Deploy](#deploy)
 - [Health check](#health-check)
-- [Internationalization](#internationalization)
+- [Preferences](#preferences)
 - [Email](#email)
 - [Server-Sent Events](#server-sent-events)
+- [Flash messages](#flash-messages)
+- [Client-side state management](#client-side-state-management)
 - [Utility functions](#utility-functions)
 - [Testing](#testing)
 - [License](#license)
@@ -44,16 +46,41 @@ import { serve } from 'weifuwu'
 serve((req, ctx) => new Response('Hello, World!'), { port: 3000 })
 ```
 
-### weifuwu init
+### Full-stack SSR in one file
 
-Generate a full project with React SSR, WebSocket, Tailwind CSS, and graceful shutdown:
+```ts
+import { serve, Router, tsx, preferences } from 'weifuwu'
+
+const app = new Router()
+app.use(preferences({
+  dir: './locales',           // i18n (0 extra deps)
+  theme: {},                  // dark mode (0 extra deps)
+}))
+app.use('/', await tsx({ dir: './ui' }))
+
+serve(app.handler(), { port: 3000 })
+```
+
+你的 tsx 页面可以直接用：
+
+```tsx
+import { Head, useCtx, useData, createStore } from 'weifuwu/react'
+
+export default function Page() {
+  const { t, theme } = useCtx()       // 翻译 + 主题
+  const { data } = useData('/api/list') // 数据获取
+  return <h1>{t('hello')} / {theme}</h1>
+}
+```
+
+**零额外依赖** — 不用装 zustand、react-query、next-intl、next-themes、react-hot-toast。
+
+### weifuwu init
 
 ```bash
 npx weifuwu init my-app
 cd my-app && npm install && npm run dev
 ```
-
-Creates `app.ts` with `tsx()`, `router.ws()`, `/api/ping` API route, and `ui/pages/layout.tsx` + `page.tsx`.
 
 ---
 
@@ -1190,10 +1217,22 @@ app.get('/stream', (req, ctx) => createSSEStream(events()))
 | `formatSSE(event, data)` | Format SSE event string |
 | `formatSSEData(data)` | Format SSE data string |
 | `runWorkflow(options)` | DAG execution engine as AI SDK Tool |
-| `useWebsocket(url, opts?)` | React auto-reconnecting WebSocket hook |
-| `useAction(url, opts?)` | React async form submission hook |
-| `navigate(href)` | Client-side page navigation |
-| `useNavigate()` | React hook returning navigate function |
+
+### React exports (`weifuwu/react`)
+
+| Hook / Component | Description |
+|-----------------|-------------|
+| `useCtx()` | Unified context — `{ prefs, locale, theme, t, params, query }` |
+| `createStore(initial)` | Zustand-compatible shared state — `getState`, `setState`, `subscribe` |
+| `useData(url, opts?)` | SWR-style data fetching — cache, dedup, mutate, fallback |
+| `useQueryState(key, default)` | URL query param sync — `?page=1` via `useSyncExternalStore` |
+| `useAction(url, opts?)` | Async form submission — `{ submit, data, error, pending }` |
+| `useWebsocket(url, opts?)` | Auto-reconnecting WebSocket — `{ send, lastMessage, readyState }` |
+| `useNavigate()` | Client-side navigation callback |
+| `useNavigating()` | Reactive loading state during navigation |
+| `navigate(href)` | Client-side page navigation (imperative) |
+| `Link` | `<Link href prefetch>` — prefetch on hover/visible |
+| `Head` | `<Head>` — per-page `<title>` / `<meta>` merged into `<head>` |
 | `csrf(options?)` | CSRF protection middleware |
 | `seoTags(config)` | Generate `<title>`, `<meta>`, OG, Twitter Card tags |
 | `createHub(options?)` | WebSocket channel hub |
