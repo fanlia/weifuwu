@@ -9,6 +9,7 @@ export const TsxContext = createContext<{
   locale?: string
   theme?: string
   t?: (key: string, params?: Record<string, string>) => string
+  env?: Record<string, string>
 }>({ params: {}, query: {} })
 
 export function useCtx() {

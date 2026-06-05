@@ -398,9 +398,10 @@ export class TsxInstance {
             locale: ctx.locale,
             theme: ctx.theme,
             t: ctx.t,
+            env: ctx.env,
           },
         }, createElement(NfComponent, { params: ctx.params, query: ctx.query }))
-
+        
         for (let i = rootLayouts.length - 1; i >= 0; i--) {
           const LMod = this.layoutModules.get(rootLayouts[i])
           if (!LMod) continue
@@ -613,6 +614,7 @@ export class TsxInstance {
             locale: ctx.locale,
             theme: ctx.theme,
             t: ctx.t,
+            env: ctx.env,
           },
         }, createElement(Component, allProps)),
       )
@@ -938,6 +940,18 @@ function buildHeadPayload(opts: StreamOpts): string {
   if (ctx.prefs) ctxData.prefs = ctx.prefs
   if (ctx.locale) ctxData.locale = ctx.locale
   if (ctx.theme) ctxData.theme = ctx.theme
+
+  // Collect WEIFUWU_PUBLIC_* env vars for client
+  const publicEnv: Record<string, string> = {}
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith('WEIFUWU_PUBLIC_')) {
+      publicEnv[key] = process.env[key]!
+    }
+  }
+  if (Object.keys(publicEnv).length > 0) {
+    ctxData.env = publicEnv
+  }
+
   result += `<script>window.__WEIFUWU_CTX=${JSON.stringify(ctxData)}<\/script>\n`
 
   return result

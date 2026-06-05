@@ -10,6 +10,7 @@ export interface Context {
   prefs?: Record<string, string>
   theme?: string
   setPref?: (name: string, value: string) => Response
+  env?: Record<string, string>
 }
 
 export type Handler = (

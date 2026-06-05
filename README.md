@@ -1173,11 +1173,13 @@ app.use(preferences({
 }))
 
 // In handlers: ctx.t('greeting') → "Hello"
+//              ctx.t('tools.uppercase.title') → "Uppercase"   (nested key)
 //              ctx.locale → "en"
 //              ctx.theme → "light"
 //              ctx.prefs → { locale: 'en', theme: 'light' }
 //              ctx.setPref('locale', 'zh') → 302 + cookie
 //              ctx.setPref('flash', '{"type":"success","message":"Done"}') → flash message
+//              ctx.env → { WEIFUWU_PUBLIC_API_URL: '...' }  (public env vars)
 
 // In tsx components:
 const { t, locale, theme } = useCtx()
@@ -1186,6 +1188,9 @@ const { t, locale, theme } = useCtx()
 Locale detection priority: cookie → `Accept-Language` → default.
 Theme detection: cookie → default (`'system'`).
 Flash messages: set via `ctx.setPref('flash', ...)` → auto-read from cookie → cleared after rendering.
+
+`ctx.t()` supports dot-path nested keys: `t('tools.uppercase.title')` traverses the JSON structure.
+`ctx.env` exposes `WEIFUWU_PUBLIC_*` environment variables on both server and client (via `useCtx().env`).
 
 ---
 
@@ -1234,7 +1239,7 @@ app.get('/stream', (req, ctx) => createSSEStream(events()))
 
 | Hook / Component | Description |
 |-----------------|-------------|
-| `useCtx()` | Unified context — `{ prefs, locale, theme, t, params, query }` (requires `preferences` middleware) |
+| `useCtx()` | Unified context — `{ prefs, locale, theme, t, params, query, env }` (requires `preferences` middleware) |
 | `createStore(initial)` | Zustand-compatible shared state — `getState`, `setState`, `subscribe` |
 | `useData(url, opts?)` | SWR-style data fetching — cache, dedup, mutate, fallback |
 | `useQueryState(key, default)` | URL query param sync — `?page=1` via `useSyncExternalStore` |

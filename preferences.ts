@@ -21,10 +21,11 @@ const defaults = {
   theme: { default: 'system', cookie: 'theme' },
 }
 
-function translate(msgs: Record<string, string>, key: string, params?: Record<string, string>): string {
-  const msg = msgs[key] ?? key
-  if (!params) return msg
-  let result = msg
+function translate(msgs: Record<string, unknown>, key: string, params?: Record<string, string>): string {
+  const msg = key.split('.').reduce((o: any, k: string) => o?.[k], msgs)
+  if (msg === undefined || msg === null) return key
+  if (!params) return String(msg)
+  let result = String(msg)
   for (const [k, v] of Object.entries(params)) {
     result = result.replace(`{${k}}`, v)
   }
@@ -45,9 +46,9 @@ export function preferences(options: PrefOptions): Middleware {
   const dir = options.dir ? resolve(options.dir) : undefined
   const localeOpts = { ...defaults.locale, ...options.locale }
   const themeOpts = { ...defaults.theme, ...options.theme }
-  const cache = new Map<string, Record<string, string>>()
+  const cache = new Map<string, Record<string, unknown>>()
 
-  async function load(locale: string): Promise<Record<string, string>> {
+  async function load(locale: string): Promise<Record<string, unknown>> {
     if (!dir) return {}
     const cached = cache.get(locale)
     if (cached) return cached
@@ -55,7 +56,7 @@ export function preferences(options: PrefOptions): Middleware {
     if (!existsSync(filePath)) return {}
     try {
       const content = await readFile(filePath, 'utf-8')
-      const data = JSON.parse(content) as Record<string, string>
+      const data = JSON.parse(content) as Record<string, unknown>
       cache.set(locale, data)
       return data
     } catch {

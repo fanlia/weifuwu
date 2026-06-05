@@ -13,6 +13,11 @@ describe('preferences', () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'prefs-test-'))
     writeFileSync(join(tmpDir, 'en.json'), JSON.stringify({ greeting: 'Hello, {name}!', bye: 'Bye' }))
     writeFileSync(join(tmpDir, 'zh.json'), JSON.stringify({ greeting: '你好，{name}！', bye: '再见' }))
+    writeFileSync(join(tmpDir, 'nested.json'), JSON.stringify({
+      nav: { home: 'Home', tools: 'Tools' },
+      categories: { text: 'Text Tools', encode: 'Encoding' },
+      tools: { uppercase: { title: 'Uppercase', desc: 'Convert to uppercase' } },
+    }))
   })
 
   after(() => {
@@ -172,6 +177,38 @@ describe('preferences', () => {
       )
       assert.equal(ctx1.t!('bye'), 'Bye')
       assert.equal(ctx2.t!('bye'), '再见')
+    })
+
+    it('supports nested dot-path keys', async () => {
+      const mw = preferences({ dir: tmpDir })
+      const ctx = { params: {}, query: {} } as Context
+      await mw(
+        new Request('http://localhost/', { headers: { 'Accept-Language': 'en' } }),
+        ctx,
+        async () => new Response('ok'),
+      )
+      // Force reload from nested.json
+      await mw(
+        new Request('http://localhost/', { headers: { 'Accept-Language': 'nested' } }),
+        ctx,
+        async () => new Response('ok'),
+      )
+      assert.equal(ctx.t!('nav.home'), 'Home')
+      assert.equal(ctx.t!('categories.text'), 'Text Tools')
+      assert.equal(ctx.t!('tools.uppercase.title'), 'Uppercase')
+      assert.equal(ctx.t!('tools.uppercase.desc'), 'Convert to uppercase')
+    })
+
+    it('returns key for non-existent nested path', async () => {
+      const mw = preferences({ dir: tmpDir })
+      const ctx = { params: {}, query: {} } as Context
+      await mw(
+        new Request('http://localhost/', { headers: { 'Accept-Language': 'nested' } }),
+        ctx,
+        async () => new Response('ok'),
+      )
+      assert.equal(ctx.t!('nonexistent.key'), 'nonexistent.key')
+      assert.equal(ctx.t!('tools.uppercase.missing'), 'tools.uppercase.missing')
     })
   })
 
