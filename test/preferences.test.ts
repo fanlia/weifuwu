@@ -256,4 +256,94 @@ describe('preferences', () => {
       assert.equal(res.headers.get('Location'), '/')
     })
   })
+
+  describe('auto-routing', () => {
+    it('GET /__lang/:locale returns 302 with cookie', async () => {
+      const mw = preferences({ dir: tmpDir, locale: { default: 'en' } })
+      const ctx = { params: {}, query: {} } as Context
+      const res = await mw(
+        new Request('http://localhost/__lang/zh', { headers: { Referer: 'http://localhost/page' } }),
+        ctx,
+        async () => new Response('ok'),
+      )
+      assert.equal(res.status, 302)
+      assert.equal(res.headers.get('Location'), 'http://localhost/page')
+      assert.ok(res.headers.get('Set-Cookie')?.includes('locale=zh'))
+    })
+
+    it('GET /__lang/:locale returns JSON with messages when Accept: application/json', async () => {
+      const mw = preferences({ dir: tmpDir, locale: { default: 'en' } })
+      const ctx = { params: {}, query: {} } as Context
+      const res = await mw(
+        new Request('http://localhost/__lang/zh', {
+          headers: { accept: 'application/json' },
+        }),
+        ctx,
+        async () => new Response('ok'),
+      )
+      assert.equal(res.status, 200)
+      assert.match(res.headers.get('content-type') || '', /application\/json/)
+      const data = await res.json() as any
+      assert.equal(data.ok, true)
+      assert.equal(data.locale, 'zh')
+      assert.deepEqual(data.messages, { greeting: '你好，{name}！', bye: '再见' })
+      assert.ok(res.headers.get('Set-Cookie')?.includes('locale=zh'))
+    })
+
+    it('GET /__theme/:locale returns 302 with cookie', async () => {
+      const mw = preferences({})
+      const ctx = { params: {}, query: {} } as Context
+      const res = await mw(
+        new Request('http://localhost/__theme/dark', { headers: { Referer: 'http://localhost/page' } }),
+        ctx,
+        async () => new Response('ok'),
+      )
+      assert.equal(res.status, 302)
+      assert.equal(res.headers.get('Location'), 'http://localhost/page')
+      assert.ok(res.headers.get('Set-Cookie')?.includes('theme=dark'))
+    })
+
+    it('GET /__theme/:locale returns JSON when Accept: application/json', async () => {
+      const mw = preferences({})
+      const ctx = { params: {}, query: {} } as Context
+      const res = await mw(
+        new Request('http://localhost/__theme/light', {
+          headers: { accept: 'application/json' },
+        }),
+        ctx,
+        async () => new Response('ok'),
+      )
+      assert.equal(res.status, 200)
+      assert.match(res.headers.get('content-type') || '', /application\/json/)
+      const data = await res.json() as any
+      assert.equal(data.ok, true)
+      assert.equal(data.theme, 'light')
+      assert.ok(res.headers.get('Set-Cookie')?.includes('theme=light'))
+    })
+
+    it('does not intercept normal requests', async () => {
+      const mw = preferences({ dir: tmpDir, locale: { default: 'en' } })
+      let called = false
+      const ctx = { params: {}, query: {} } as Context
+      await mw(
+        new Request('http://localhost/some-page'),
+        ctx,
+        async () => { called = true; return new Response('ok') },
+      )
+      assert.equal(called, true)
+      assert.equal(ctx.locale, 'en')
+    })
+
+    it('POST to /__lang/:locale is not intercepted', async () => {
+      const mw = preferences({})
+      let called = false
+      const ctx = { params: {}, query: {} } as Context
+      const res = await mw(
+        new Request('http://localhost/__lang/zh', { method: 'POST' }),
+        ctx,
+        async () => { called = true; return new Response('ok') },
+      )
+      assert.equal(called, true)
+    })
+  })
 })

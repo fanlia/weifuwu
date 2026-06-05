@@ -42,6 +42,39 @@ function extractCookie(req: Request, name: string): string | null {
   return null
 }
 
+function prefCookie(name: string, value: string): string {
+  return `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
+}
+
+async function handlePrefSwitch(
+  req: Request,
+  value: string,
+  cookieName: string,
+  load: (locale: string) => Promise<Record<string, unknown>>,
+): Promise<Response> {
+  const isJson = req.headers.get('accept')?.includes('application/json')
+
+  if (isJson) {
+    const result: Record<string, any> = { ok: true }
+    if (cookieName === 'locale' || cookieName === 'lang') {
+      result.locale = value
+      const messages = await load(value)
+      if (Object.keys(messages).length > 0) result.messages = messages
+    } else {
+      result.theme = value
+    }
+    return Response.json(result, {
+      headers: { 'Set-Cookie': prefCookie(cookieName, value) },
+    })
+  }
+
+  const referer = req.headers.get('referer') || '/'
+  return new Response(null, {
+    status: 302,
+    headers: { Location: referer, 'Set-Cookie': prefCookie(cookieName, value) },
+  })
+}
+
 export function preferences(options: PrefOptions): Middleware {
   const dir = options.dir ? resolve(options.dir) : undefined
   const localeOpts = { ...defaults.locale, ...options.locale }
@@ -65,6 +98,18 @@ export function preferences(options: PrefOptions): Middleware {
   }
 
   return async (req, ctx, next) => {
+    const url = new URL(req.url)
+
+    const langMatch = url.pathname.match(/^\/__lang\/(\w+)$/)
+    if (langMatch && req.method === 'GET') {
+      return handlePrefSwitch(req, langMatch[1], localeOpts.cookie, load)
+    }
+
+    const themeMatch = url.pathname.match(/^\/__theme\/(\w+)$/)
+    if (themeMatch && req.method === 'GET') {
+      return handlePrefSwitch(req, themeMatch[1], themeOpts.cookie, load)
+    }
+
     const locale = detectLocale(req, localeOpts)
     const theme = detectTheme(req, themeOpts)
 

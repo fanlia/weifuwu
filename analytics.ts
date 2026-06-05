@@ -1,9 +1,17 @@
 import type { Context, Handler, Middleware } from './types.ts'
 import { text, integer } from './postgres/schema/columns.ts'
+import { Router } from './router.ts'
 
 export interface AnalyticsOptions {
   excluded?: string[]
   pg?: { sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>; table: (name: string, cols: any) => any }
+}
+
+export interface AnalyticsModule {
+  middleware: () => Middleware
+  router: () => Router
+  migrate: () => Promise<void>
+  close: () => Promise<void>
 }
 
 const DEFAULT_EXCLUDED = ['/__analytics', '/__wfw', '/static', '/analytics']
@@ -188,27 +196,30 @@ ${referrers.length ? `<div class="section"><h2>Referrers</h2><table><thead><tr><
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-export function analytics(options?: AnalyticsOptions) {
+export function analytics(options?: AnalyticsOptions): AnalyticsModule {
   const excluded = options?.excluded ?? DEFAULT_EXCLUDED
   const pg = options?.pg
   const store = pg ? null : new MemStore()
 
-  const middleware: Middleware = async (req, ctx, next) => {
-    const path = new URL(req.url).pathname
-    if (excluded.some(e => path.startsWith(e))) return next(req, ctx)
+  const middleware = () => {
+    const m: Middleware = async (req, ctx, next) => {
+      const path = new URL(req.url).pathname
+      if (excluded.some(e => path.startsWith(e))) return next(req, ctx)
 
-    const date = new Date().toISOString().slice(0, 10)
-    const ua = req.headers.get('user-agent') || ''
-    const mobile = /mobile|android|iphone|ipad/i.test(ua)
+      const date = new Date().toISOString().slice(0, 10)
+      const ua = req.headers.get('user-agent') || ''
+      const mobile = /mobile|android|iphone|ipad/i.test(ua)
 
-    if (pg) {
-      await recordPg(pg.sql, path, date, mobile)
-    } else {
-      const ref = req.headers.get('referer') || ''
-      const refDomain = ref ? new URL(ref).hostname.replace(/^www\./, '') : ''
-      store!.record(path, date, refDomain, mobile)
+      if (pg) {
+        await recordPg(pg.sql, path, date, mobile)
+      } else {
+        const ref = req.headers.get('referer') || ''
+        const refDomain = ref ? new URL(ref).hostname.replace(/^www\./, '') : ''
+        store!.record(path, date, refDomain, mobile)
+      }
+      return next(req, ctx)
     }
-    return next(req, ctx)
+    return m
   }
 
   const handler: Handler = async (req) => {
@@ -221,7 +232,18 @@ export function analytics(options?: AnalyticsOptions) {
     })
   }
 
-  const migrate = pg ? () => migratePg(pg.sql, pg.table) : undefined
+  const router = () => {
+    const r = new Router()
+    r.get('/__analytics/data', handler)
+    r.get('/analytics', handler)
+    return r
+  }
 
-  return { middleware, handler, migrate }
+  const migrate = async () => {
+    if (pg) await migratePg(pg.sql, pg.table)
+  }
+
+  const close = async () => {}
+
+  return { middleware, router, migrate, close }
 }
