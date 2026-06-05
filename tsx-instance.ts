@@ -418,6 +418,14 @@ export class TsxInstance {
       this.router.all('/*', handler)
     }
 
+    // Register client bundle routes eagerly so they work with flattened router
+    for (const p of pages) {
+      if (p.entryPath) {
+        const rootLayouts = resolveLayouts(this.pagesDir, this.pagesDir)
+        this.registerClientBundleRoute(p.entryPath, p.layouts.length > 0 ? p.layouts : rootLayouts, this.pagesDir)
+      }
+    }
+
     await this.setupTailwind()
 
     if (isDev) {
@@ -551,13 +559,22 @@ export class TsxInstance {
 
     this.clientBuildParams.set(key, { entryPath, layoutPaths, pagesDir })
 
-    if (!this.clientRouteLog.has(url)) {
-      if (!this.clientBundleCache.has(key)) {
-        const buf = await this.buildClientBundle(entryPath, layoutPaths, pagesDir)
-        if (!buf) return null
-        this.clientBundleCache.set(key, buf)
-      }
+    if (!this.clientBundleCache.has(key)) {
+      const buf = await this.buildClientBundle(entryPath, layoutPaths, pagesDir)
+      if (!buf) return null
+      this.clientBundleCache.set(key, buf)
+    }
 
+    return { url }
+  }
+
+  private registerClientBundleRoute(entryPath: string, layoutPaths: string[], pagesDir: string) {
+    const key = id(entryPath)
+    const url = `/__wfw/client/${key}.js`
+
+    this.clientBuildParams.set(key, { entryPath, layoutPaths, pagesDir })
+
+    if (!this.clientRouteLog.has(url)) {
       this.router.get(url, async () => {
         let buf = this.clientBundleCache.get(key)
         if (!buf) {
@@ -576,11 +593,8 @@ export class TsxInstance {
             })
           : new Response('', { status: 500 })
       })
-
       this.clientRouteLog.add(url)
     }
-
-    return { url }
   }
 
   // ── SSR handler ───────────────────────────────────────────────────────────
