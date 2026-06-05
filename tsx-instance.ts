@@ -408,6 +408,7 @@ export class TsxInstance {
           element = createElement(LMod.default, { children: element })
         }
 
+        setGlobalCtx(ctx)
         const stream = await renderToReadableStream(element)
         return streamResponse(stream, {
           ctx, base,
@@ -643,6 +644,7 @@ export class TsxInstance {
       }
 
       const bundle = await this.getOrBuildClientBundle(entryPath, layoutPaths, this.pagesDir)
+      setGlobalCtx(ctx)
       const stream = await renderToReadableStream(element)
       return streamResponse(stream, {
         ctx, base,
@@ -836,6 +838,18 @@ interface StreamOpts {
   status?: number
   bundle?: { url: string } | null
   allProps?: Record<string, unknown>
+}
+
+function setGlobalCtx(ctx: Context) {
+  ;(globalThis as any).__WEIFUWU_CTX = {
+    params: ctx.params,
+    query: ctx.query,
+    user: ctx.user,
+    parsed: ctx.parsed,
+    prefs: ctx.prefs,
+    locale: ctx.locale,
+    theme: ctx.theme,
+  }
 }
 
 function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response {

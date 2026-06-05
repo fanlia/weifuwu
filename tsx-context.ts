@@ -13,19 +13,24 @@ export const TsxContext = createContext<{
 }>({ params: {}, query: {} })
 
 export function useCtx() {
-  if (typeof window !== 'undefined') {
-    const wc = (window as any).__WEIFUWU_CTX
-    if (wc) {
-      const messages = (window as any).__LOCALE_DATA__
-      if (messages && !wc.t) {
-        wc.t = (key: string, params?: Record<string, string>) => {
-          let msg = messages[key] ?? key
-          if (params) for (const [k, v] of Object.entries(params)) msg = msg.replace(`{${k}}`, v)
-          return msg
-        }
+  const wc = typeof window !== 'undefined'
+    ? (window as any).__WEIFUWU_CTX
+    : (globalThis as any).__WEIFUWU_CTX
+  if (wc) {
+    const messages = typeof window !== 'undefined'
+      ? (window as any).__LOCALE_DATA__
+      : (globalThis as any).__LOCALE_DATA__
+    if (messages && typeof wc.t !== 'function') {
+      wc.t = (key: string, params?: Record<string, string>) => {
+        const msg = key.split('.').reduce((o: any, k: string) => o?.[k], messages as any)
+        if (msg === undefined || msg === null) return key
+        if (!params) return String(msg)
+        let result = String(msg)
+        for (const [k, v] of Object.entries(params)) result = result.replace(`{${k}}`, v)
+        return result
       }
-      return wc
     }
+    return wc
   }
   return useContext(TsxContext)
 }
