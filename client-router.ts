@@ -1,4 +1,4 @@
-import { createElement, useCallback, useState, useEffect, useRef } from 'react'
+import { createElement, useCallback, useState, useEffect } from 'react'
 
 let _navigating = false
 let _listeners: Array<(v: boolean) => void> = []
@@ -104,7 +104,14 @@ function applyHead(html: string) {
   }
   for (const el of newMeta) {
     const key = el.getAttribute('name') || el.getAttribute('property') || ''
-    const existingEl = document.querySelector(`meta[name="${key}"], meta[property="${key}"]`)
+    let existingEl: Element | null = null
+    if (key) {
+      for (const m of document.head.querySelectorAll('meta')) {
+        if (m.getAttribute('name') === key || m.getAttribute('property') === key) {
+          existingEl = m; break
+        }
+      }
+    }
     if (existingEl) {
       for (const attr of el.attributes) (existingEl as HTMLElement).setAttribute(attr.name, attr.value)
     } else {
@@ -143,14 +150,17 @@ const prefetchCache = new Map<string, { html: string; fetched: number }>()
 const PREFETCH_TTL = 60_000
 
 export function Link({ href, children, onClick, prefetch, ...props }: LinkProps) {
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const doNavigate = useNavigate()
 
   useEffect(() => {
     if (!prefetch) return
-    const el = document.querySelector(`a[href="${href}"]`)
+    let el = document.querySelector(`a[href="${CSS.escape(href)}"]`)
+    if (!el) {
+      for (const a of document.querySelectorAll('a')) {
+        if (a.getAttribute('href') === href) { el = a; break }
+      }
+    }
     if (!el) return
-
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) prefetchPage(href)
     }, { rootMargin: '200px' })
