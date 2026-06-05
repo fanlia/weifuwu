@@ -211,6 +211,7 @@ app.get('/admin', middleware, handler)       // route-level
 | `seoMiddleware(options?)` | `X-Robots-Tag` header — string or path-based function |
 | `helmet(options?)` | Security headers — CSP, HSTS, X-Frame-Options, etc. |
 | `requestId(options?)` | `X-Request-ID` header + `ctx.requestId` |
+| `health(options?)` | `GET /health` endpoint with custom checks |
 
 ### auth
 
@@ -356,6 +357,8 @@ app.use(helmet({
 }))
 ```
 
+13 security headers by default: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security`, `Content-Security-Policy`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `Cross-Origin-Embedder-Policy`, `X-DNS-Prefetch-Control`, `X-Download-Options`, `X-Permitted-Cross-Domain-Policies`.
+
 ### requestId
 
 ```ts
@@ -365,14 +368,11 @@ app.use(requestId())
 // Sets X-Request-ID header on responses, available as ctx.requestId
 ```
 
-13 security headers set by default with `helmet()`: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security`, `Content-Security-Policy`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Openner-Policy`, `Cross-Origin-Resource-Policy`, `Cross-Origin-Embedder-Policy`, `X-DNS-Prefetch-Control`, `X-Download-Options`, `X-Permitted-Cross-Domain-Policies`.
-
 ---
 
 ## React SSR (tsx)
 
 ```ts
-import { serve, Router } from 'weifuwu'
 import { serve, Router, tsx } from 'weifuwu'
 
 const app = new Router()
@@ -638,21 +638,21 @@ Uses `useSyncExternalStore` internally. No context provider needed. State persis
 ```tsx
 import { useData } from 'weifuwu/react'
 
+// Client-only fetch (shows loading skeleton on first load)
 function PostList() {
   const { data, error, loading, mutate } = useData('/api/posts')
-
   if (loading) return <Skeleton />
-  if (error) return <Error msg={error.message} />
-  return (
-    <>
-      {data.posts.map(p => <PostCard key={p.id} post={p} />)}
-      <button onClick={() => mutate()}>Refresh</button>
-    </>
-  )
+  return <div>{data.posts.map(p => <PostCard key={p.id} post={p} />)}</div>
+}
+
+// With SSR fallback — data from load.ts, client takes over after hydration
+function PostList({ load }: { load: { posts: Post[] } }) {
+  const { data, mutate } = useData('/api/posts', { fallback: load })
+  return <div>{data.posts.map(p => <PostCard key={p.id} post={p} />)}</div>
 }
 ```
 
-In-memory cache with 60s TTL, concurrent request dedup. `mutate(data)` for optimistic updates, `mutate()` for revalidation. `fallback` option for initial SSR data.
+In-memory cache with 60s TTL, concurrent request dedup. `mutate(data)` for optimistic updates, `mutate()` for revalidation.
 
 #### useQueryState — URL query params
 
