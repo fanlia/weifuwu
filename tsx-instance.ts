@@ -394,8 +394,6 @@ export class TsxInstance {
           user: ctx.user,
           parsed: ctx.parsed,
           prefs: ctx.prefs,
-          locale: ctx.locale,
-          theme: ctx.theme,
           t: ctx.t,
           env: ctx.env,
         })
@@ -609,8 +607,6 @@ export class TsxInstance {
         user: ctx.user,
         parsed: ctx.parsed,
         prefs: ctx.prefs,
-        locale: ctx.locale,
-        theme: ctx.theme,
         t: ctx.t,
         env: ctx.env,
       })
@@ -845,8 +841,6 @@ function setGlobalCtx(ctx: Context) {
     user: ctx.user,
     parsed: ctx.parsed,
     prefs: ctx.prefs,
-    locale: ctx.locale,
-    theme: ctx.theme,
   }
 }
 
@@ -930,7 +924,7 @@ function buildHeadPayload(opts: StreamOpts): string {
   const { ctx, base, compiledTailwindCss } = opts
   let result = ''
 
-  if (ctx.theme) {
+  if (ctx.prefs?.theme) {
     result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
   }
 
@@ -950,8 +944,6 @@ function buildHeadPayload(opts: StreamOpts): string {
     parsed: ctx.parsed,
     prefs: ctx.prefs,
   }
-  if (ctx.locale) ctxData.locale = ctx.locale
-  if (ctx.theme) ctxData.theme = ctx.theme
 
   // Collect WEIFUWU_PUBLIC_* env vars for client
   const publicEnv: Record<string, string> = {}

@@ -114,8 +114,6 @@ export function preferences(options: PrefOptions): Middleware {
     const theme = detectTheme(req, themeOpts)
 
     ctx.prefs = { locale, theme }
-    ctx.locale = locale
-    ctx.theme = theme
 
     if (dir) {
       const msgs = await load(locale)

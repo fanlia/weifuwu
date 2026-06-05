@@ -3,18 +3,16 @@ import { useSyncExternalStore, createContext } from 'react'
 export interface CtxValue {
   params: Record<string, string>
   query: Record<string, string>
-  user?: unknown
+  user: unknown
   parsed: Record<string, unknown>
   prefs: Record<string, string>
-  locale?: string
-  theme?: string
   t: (key: string, params?: Record<string, string>, fallback?: string) => string
   env: Record<string, string>
 }
 
 const fallbackT = (key: string, _params?: Record<string, string>, fallback?: string) => fallback ?? key
 
-let _ctx: CtxValue = { params: {}, query: {}, parsed: {}, prefs: {}, env: {}, t: fallbackT }
+let _ctx: CtxValue = { params: {}, query: {}, parsed: {}, prefs: {}, env: {}, t: fallbackT, user: undefined }
 const _listeners = new Set<() => void>()
 
 export function setCtx(value: Partial<CtxValue>) {
@@ -49,5 +47,4 @@ export function useCtx(): CtxValue {
   return { ..._ctx, ...data, t }
 }
 
-// Keep for backward compatibility
-export const TsxContext = createContext<CtxValue>({ params: {}, query: {}, parsed: {}, prefs: {}, env: {}, t: fallbackT })
+export const TsxContext = createContext<CtxValue>({ params: {}, query: {}, parsed: {}, prefs: {}, env: {}, t: fallbackT, user: undefined })

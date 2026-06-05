@@ -38,12 +38,10 @@ export async function navigate(href: string): Promise<void> {
       const data = await res.json()
       const ctx: any = { ...((window as any).__WEIFUWU_CTX || {}), params: {}, query: {} }
       if (data.locale) {
-        ctx.locale = data.locale
         ctx.prefs = { ...ctx.prefs, locale: data.locale }
         if (data.messages) (window as any).__LOCALE_DATA__ = data.messages
       }
       if (data.theme) {
-        ctx.theme = data.theme
         ctx.prefs = { ...ctx.prefs, theme: data.theme }
       }
       ;(window as any).__WEIFUWU_CTX = ctx

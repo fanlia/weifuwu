@@ -33,7 +33,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.locale, 'zh')
+      assert.equal(ctx.prefs!.locale, 'zh')
       assert.equal(ctx.prefs!.locale, 'zh')
       assert.equal(ctx.t!('greeting', { name: 'World' }), '你好，World！')
     })
@@ -46,7 +46,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.locale, 'en')
+      assert.equal(ctx.prefs!.locale, 'en')
       assert.equal(ctx.prefs!.locale, 'en')
       assert.equal(ctx.t!('greeting', { name: 'World' }), 'Hello, World!')
     })
@@ -59,7 +59,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.locale, 'zh')
+      assert.equal(ctx.prefs!.locale, 'zh')
       assert.equal(ctx.prefs!.locale, 'zh')
     })
 
@@ -76,7 +76,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.locale, 'en')
+      assert.equal(ctx.prefs!.locale, 'en')
     })
 
     it('supports custom cookie name', async () => {
@@ -87,7 +87,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.locale, 'zh')
+      assert.equal(ctx.prefs!.locale, 'zh')
     })
 
     it('disables Accept-Language detection', async () => {
@@ -98,7 +98,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.locale, 'ja')
+      assert.equal(ctx.prefs!.locale, 'ja')
     })
   })
 
@@ -111,7 +111,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.theme, 'system')
+      assert.equal(ctx.prefs!.theme, 'system')
       assert.equal(ctx.prefs!.theme, 'system')
     })
 
@@ -123,7 +123,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.theme, 'dark')
+      assert.equal(ctx.prefs!.theme, 'dark')
     })
 
     it('supports custom cookie name', async () => {
@@ -134,7 +134,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.theme, 'dark')
+      assert.equal(ctx.prefs!.theme, 'dark')
     })
   })
 
@@ -221,7 +221,7 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.theme, 'system')
+      assert.equal(ctx.prefs!.theme, 'system')
       assert.equal(ctx.prefs!.theme, 'system')
       assert.equal(ctx.t, undefined)
     })
@@ -331,7 +331,7 @@ describe('preferences', () => {
         async () => { called = true; return new Response('ok') },
       )
       assert.equal(called, true)
-      assert.equal(ctx.locale, 'en')
+      assert.equal(ctx.prefs!.locale, 'en')
     })
 
     it('POST to /__lang/:locale is not intercepted', async () => {
