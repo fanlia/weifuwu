@@ -123,7 +123,7 @@ export function preferences(options: PrefOptions): Middleware {
     if (dir) {
       const msgs = await load(locale)
       ctx.t = (key: string, params?: Record<string, string>, fallback?: string) => translate(msgs, key, params, fallback)
-      ;(globalThis as any).__LOCALE_DATA__ = msgs
+      ctx.parsed = { ...ctx.parsed, __localeData: msgs }
     }
 
     ctx.setPref = (name: string, value: string) => {

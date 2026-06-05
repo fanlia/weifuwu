@@ -100,6 +100,6 @@ export function logdb(options: LogdbOptions): LogdbModule {
       await ensurePartitions(sql, tableName)
     },
     clean,
-    close: () => pg.close(),
+    close: async () => {},
   }
 }

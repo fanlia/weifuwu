@@ -1,4 +1,4 @@
-import { gzipSync, brotliCompressSync, deflateSync, constants } from 'node:zlib'
+import { createGzip, createBrotliCompress, createDeflate, constants, gzipSync, brotliCompressSync, deflateSync } from 'node:zlib'
 import type { Middleware } from './types.ts'
 
 export interface CompressOptions {
@@ -13,13 +13,12 @@ export function compress(options?: CompressOptions): Middleware {
   return async (req, ctx, next) => {
     const accept = req.headers.get('accept-encoding') ?? ''
 
-    const useBrotli = accept.includes('br')
-    const useGzip = !useBrotli && accept.includes('gzip')
-    const useDeflate = !useBrotli && !useGzip && accept.includes('deflate')
+    const encoding = accept.includes('br') ? 'br'
+      : accept.includes('gzip') ? 'gzip'
+      : accept.includes('deflate') ? 'deflate'
+      : ''
 
-    if (!useBrotli && !useGzip && !useDeflate) {
-      return next(req, ctx)
-    }
+    if (!encoding) return next(req, ctx)
 
     const res = await next(req, ctx)
 
@@ -27,8 +26,7 @@ export function compress(options?: CompressOptions): Middleware {
       return res
     }
 
-    const ce = res.headers.get('content-encoding')
-    if (ce) return res
+    if (res.headers.get('content-encoding')) return res
 
     const ct = res.headers.get('content-type') ?? ''
     if (!ct || ct.startsWith('audio/') || ct.startsWith('video/') || ct.startsWith('image/') || ct === 'application/zip') {
@@ -39,23 +37,21 @@ export function compress(options?: CompressOptions): Middleware {
     if (body.byteLength < threshold) return res
 
     let compressed: Buffer
-    let encoding: string
+    let enc: string
 
-    if (useBrotli) {
-      compressed = brotliCompressSync(body, {
-        params: { [constants.BROTLI_PARAM_QUALITY]: Math.min(level, 11) },
-      })
-      encoding = 'br'
-    } else if (useGzip) {
+    if (encoding === 'br') {
+      compressed = brotliCompressSync(body, { params: { [constants.BROTLI_PARAM_QUALITY]: Math.min(level, 11) } })
+      enc = 'br'
+    } else if (encoding === 'gzip') {
       compressed = gzipSync(body, { level: Math.min(level, 9) })
-      encoding = 'gzip'
+      enc = 'gzip'
     } else {
       compressed = deflateSync(body, { level: Math.min(level, 9) })
-      encoding = 'deflate'
+      enc = 'deflate'
     }
 
     const headers = new Headers(res.headers)
-    headers.set('Content-Encoding', encoding)
+    headers.set('Content-Encoding', enc)
     headers.set('Content-Length', String(compressed.byteLength))
     headers.delete('Content-Range')
     const existingVary = headers.get('Vary')

@@ -15,6 +15,7 @@ export interface Hub {
 export function createHub(opts?: HubOptions): Hub {
   const prefix = opts?.prefix ?? 'hub:'
   const channels = new Map<string, Set<WebSocket>>()
+  const wsKeys = new Map<WebSocket, Set<string>>()
 
   let redisPub: Redis | undefined
   let redisSub: Redis | null = null
@@ -39,11 +40,18 @@ export function createHub(opts?: HubOptions): Hub {
       redisSub?.subscribe(`${prefix}${key}`)
     }
     channels.get(key)!.add(ws)
+    let keys = wsKeys.get(ws)
+    if (!keys) { keys = new Set(); wsKeys.set(ws, keys) }
+    keys.add(key)
   }
 
   function leave(ws: WebSocket): void {
-    for (const [, members] of channels) {
-      members.delete(ws)
+    const keys = wsKeys.get(ws)
+    if (keys) {
+      for (const key of keys) {
+        channels.get(key)?.delete(ws)
+      }
+      wsKeys.delete(ws)
     }
   }
 

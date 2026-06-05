@@ -145,7 +145,9 @@ export function registerWorker(url: string) {
     },
 
     unregisterTrigger(functionId: string) {
-      registeredTriggers.clear()
+      for (const key of registeredTriggers) {
+        try { const parsed = JSON.parse(key); if (parsed.function_id === functionId) { registeredTriggers.delete(key); break } } catch {}
+      }
       send({ type: 'unregister_trigger', function_id: functionId })
     },
 
