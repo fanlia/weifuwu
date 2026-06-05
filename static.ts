@@ -80,8 +80,8 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
           : `public, max-age=${opts.maxAge ?? 0}`,
       }
 
-      const readStream = fileHandle.createReadStream()
-      const cleanup = () => fileHandle.close().catch(() => {})
+      const readStream = fileHandle!.createReadStream()
+      const cleanup = () => fileHandle!.close().catch(() => {})
       readStream.on('close', cleanup)
       readStream.on('error', cleanup)
       const webStream = Readable.toWeb(readStream)
