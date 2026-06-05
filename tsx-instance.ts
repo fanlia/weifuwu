@@ -948,8 +948,8 @@ function buildHeadPayload(opts: StreamOpts): string {
     query: ctx.query,
     user: ctx.user,
     parsed: ctx.parsed,
+    prefs: ctx.prefs,
   }
-  if (ctx.prefs) ctxData.prefs = ctx.prefs
   if (ctx.locale) ctxData.locale = ctx.locale
   if (ctx.theme) ctxData.theme = ctx.theme
 
