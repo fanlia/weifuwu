@@ -2,6 +2,7 @@ import type { Context, Handler, Middleware } from './types.ts'
 
 export interface AnalyticsOptions {
   excluded?: string[]
+  pg?: { sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]> }
 }
 
 interface DayStats {
@@ -91,37 +92,61 @@ class MemStore {
       devices: { mobile: Math.round(totalMobile / total * 1000) / 10, desktop: Math.round(totalDesktop / total * 1000) / 10 },
     }
   }
+}
 
-  handler(): Handler {
-    return async (req) => {
-      const url = new URL(req.url)
-      const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 7, 1), 365)
-      const data = this.query(days)
+async function queryPg(sql: (sql: any, ...args: any[]) => Promise<any[]>, days: number) {
+  const since = new Date()
+  since.setDate(since.getDate() - days)
 
-      if (url.pathname === '/__analytics/data') {
-        return Response.json(data)
-      }
+  const daily = await sql`
+    SELECT date, SUM(count) as pv, COUNT(DISTINCT path) as uv
+    FROM __analytics WHERE date >= ${since.toISOString().slice(0, 10)}
+    GROUP BY date ORDER BY date
+  ` as { date: string; pv: number; uv: number }[]
 
-      return new Response(this.renderDashboard(days, data), {
-        headers: { 'content-type': 'text/html; charset=utf-8' },
-      })
-    }
+  const pageRows = await sql`
+    SELECT path, SUM(count) as pv
+    FROM __analytics WHERE date >= ${since.toISOString().slice(0, 10)}
+    GROUP BY path ORDER BY pv DESC LIMIT 20
+  ` as { path: string; pv: number }[]
+
+  const totalRes = await sql`
+    SELECT COALESCE(SUM(count), 0) as total_pv,
+           COALESCE(SUM(mobile), 0) as total_mobile,
+           COALESCE(SUM(desktop), 0) as total_desktop
+    FROM __analytics WHERE date >= ${since.toISOString().slice(0, 10)}
+  ` as { total_pv: number; total_mobile: number; total_desktop: number }[]
+
+  const total = totalRes[0]
+  const totalMobileDesktop = total.total_mobile + total.total_desktop || 1
+
+  return {
+    total_pv: total.total_pv,
+    total_uv: pageRows.length,
+    daily: daily.map(d => ({ date: d.date, pv: Number(d.pv), uv: Number(d.uv) })),
+    top_pages: pageRows.map(p => ({ path: p.path, pv: Number(p.pv) })),
+    referrers: [],
+    devices: {
+      mobile: Math.round(total.total_mobile / totalMobileDesktop * 1000) / 10,
+      desktop: Math.round(total.total_desktop / totalMobileDesktop * 1000) / 10,
+    },
   }
+}
 
-  private renderDashboard(days: number, data: ReturnType<MemStore['query']>): string {
-    const { total_pv, total_uv, daily, top_pages, referrers, devices } = data
-    const maxPv = Math.max(...daily.map(d => d.pv), 1)
-    const bars = daily.map(d =>
-      `<div class="bar-wrap"><div class="bar" style="height:${(d.pv / maxPv) * 100}%"></div><span class="bar-label">${d.date.slice(5)}</span></div>`
-    ).join('')
-    const rows = top_pages.map((p, i) =>
-      `<tr><td class="num">${i + 1}</td><td class="path">${p.path}</td><td class="num">${p.pv}</td></tr>`
-    ).join('')
-    const refRows = referrers.map(r =>
-      `<tr><td>${r.domain}</td><td class="num">${r.count}</td></tr>`
-    ).join('')
+function renderDashboard(days: number, data: ReturnType<MemStore['query']>): string {
+  const { total_pv, total_uv, daily, top_pages, referrers } = data
+  const maxPv = Math.max(...daily.map(d => d.pv), 1)
+  const bars = daily.map(d =>
+    `<div class="bar-wrap"><div class="bar" style="height:${(d.pv / maxPv) * 100}%"></div><span class="bar-label">${d.date.slice(5)}</span></div>`
+  ).join('')
+  const rows = top_pages.map((p, i) =>
+    `<tr><td class="num">${i + 1}</td><td class="path">${p.path}</td><td class="num">${p.pv}</td></tr>`
+  ).join('')
+  const refRows = referrers.map(r =>
+    `<tr><td>${r.domain}</td><td class="num">${r.count}</td></tr>`
+  ).join('')
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Analytics - weifuwu</title>
 <style>
@@ -150,39 +175,56 @@ tr:hover td{background:#f8faff}
 <div class="cards">
   <div class="card"><div class="val">${total_pv}</div><div class="lbl">Page Views (${days}d)</div></div>
   <div class="card"><div class="val">${total_uv}</div><div class="lbl">Unique Pages</div></div>
-  <div class="card"><div class="val">${devices.mobile}%</div><div class="lbl">Mobile</div></div>
-  <div class="card"><div class="val">${devices.desktop}%</div><div class="lbl">Desktop</div></div>
+  <div class="card"><div class="val">${data.devices.mobile}%</div><div class="lbl">Mobile</div></div>
+  <div class="card"><div class="val">${data.devices.desktop}%</div><div class="lbl">Desktop</div></div>
 </div>
 <div class="section"><h2>Daily Page Views</h2><div class="chart">${bars}</div></div>
 <div class="section"><h2>Top Pages</h2>
 <table><thead><tr><th style="width:32px">#</th><th>Path</th><th style="width:64px">Views</th></tr></thead><tbody>${rows}</tbody></table></div>
 ${referrers.length ? `<div class="section"><h2>Referrers</h2><table><thead><tr><th>Domain</th><th style="width:64px">Views</th></tr></thead><tbody>${refRows}</tbody></table></div>` : ''}
 </body></html>`
-  }
 }
 
 export function analytics(options?: AnalyticsOptions) {
   const excluded = options?.excluded ?? DEFAULT_EXCLUDED
-  const store = new MemStore()
+  const pg = options?.pg
+  const store = pg ? null : new MemStore()
 
   const middleware: Middleware = async (req, ctx, next) => {
     const url = new URL(req.url)
     const path = url.pathname
+    if (excluded.some(e => path.startsWith(e))) return next(req, ctx)
 
-    if (!excluded.some(e => path.startsWith(e))) {
-      const date = new Date().toISOString().slice(0, 10)
-      const ref = req.headers.get('referer') || ''
+    const date = new Date().toISOString().slice(0, 10)
+    const ref = req.headers.get('referer') || ''
+    const ua = req.headers.get('user-agent') || ''
+    const mobile = /mobile|android|iphone|ipad/i.test(ua)
+
+    if (pg) {
+      await pg.sql`
+        INSERT INTO __analytics (date, path, count, mobile, desktop)
+        VALUES (${date}, ${path}, 1, ${mobile ? 1 : 0}, ${mobile ? 0 : 1})
+        ON CONFLICT (date, path) DO UPDATE SET
+          count = __analytics.count + 1,
+          mobile = __analytics.mobile + ${mobile ? 1 : 0},
+          desktop = __analytics.desktop + ${mobile ? 0 : 1}
+      `
+    } else {
       const refDomain = ref ? new URL(ref).hostname.replace(/^www\./, '') : ''
-      const ua = req.headers.get('user-agent') || ''
-      const mobile = /mobile|android|iphone|ipad/i.test(ua)
-      store.record(path, date, refDomain, mobile)
+      store!.record(path, date, refDomain, mobile)
     }
-
     return next(req, ctx)
   }
 
-  return {
-    middleware,
-    handler: store.handler(),
+  const handler: Handler = async (req) => {
+    const url = new URL(req.url)
+    const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 7, 1), 365)
+    const data = pg ? await queryPg(pg.sql, days) : store!.query(days)
+    if (url.pathname === '/__analytics/data') return Response.json(data)
+    return new Response(renderDashboard(days, data), {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
   }
+
+  return { middleware, handler }
 }
