@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { addInterceptor } from './client-pref.ts'
 import { setCtx, useCtx } from './tsx-context.ts'
 import { navigate } from './client-router.ts'
@@ -52,6 +53,7 @@ addInterceptor(async (url) => {
 export function useTheme() {
   const ctx = useCtx()
   const theme = ctx.prefs.theme ?? 'system'
+  useEffect(() => { applyTheme(theme) }, [theme])
   return {
     theme,
     resolvedTheme: resolveTheme(theme),

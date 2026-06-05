@@ -1,9 +1,8 @@
-export default function RootLayout({ children, req }: { children: any; req: Request }) {
-  const theme = req.headers.get('x-theme') || 'light'
+export default function RootLayout({ children }: { children: any }) {
   return (
     <html>
       <head><title>Test</title></head>
-      <body data-theme={theme}>
+      <body>
         <main>{children}</main>
       </body>
     </html>

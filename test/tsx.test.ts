@@ -275,30 +275,6 @@ describe('tsx()', () => {
     })
   })
 
-  describe('root layout with req/ctx', () => {
-    it('receives request headers', async () => {
-      const r = await tsx({ dir: './test/fixtures/custom-html' })
-      const res = await r.handler()(
-        new Request('http://localhost/', { headers: { 'x-theme': 'dark' } }),
-        { params: {}, query: {} } as any,
-      )
-      assert.equal(res.status, 200)
-      const html = await res.text()
-      assert.match(html, /data-theme="dark"/)
-    })
-
-    it('passes ctx to root layout', async () => {
-      const r = await tsx({ dir: './test/fixtures/custom-html' })
-      const res = await r.handler()(
-        new Request('http://localhost/'),
-        { params: {}, query: {} } as any,
-      )
-      assert.equal(res.status, 200)
-      const html = await res.text()
-      assert.match(html, /data-theme="light"/)
-    })
-  })
-
   describe('TsxContext / useCtx', () => {
     it('exports TsxContext and useCtx with correct structure', async () => {
       const { TsxContext, useCtx } = await import('../tsx.ts')

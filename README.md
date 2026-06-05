@@ -447,7 +447,7 @@ export default function Page({ params, query }: { params: { slug: string }; quer
 
 ```tsx
 // layout.tsx
-export default function RootLayout({ children, req }: { children: React.ReactNode; req: Request }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return <html><head/><body><main>{children}</main></body></html>
 }
 ```

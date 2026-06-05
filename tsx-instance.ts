@@ -684,7 +684,7 @@ export class TsxInstance {
             const isRoot = i === 0
             element = createElement(
               Layout,
-              isRoot ? { children: element, req } : { children: element },
+              { children: element },
             )
           }
         }
