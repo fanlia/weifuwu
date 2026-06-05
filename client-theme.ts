@@ -3,7 +3,7 @@ import { setCtx, useCtx } from './tsx-context.ts'
 import { navigate } from './client-router.ts'
 
 function resolveTheme(theme: string): string {
-  if (theme === 'system') {
+  if (theme === 'system' && typeof window !== 'undefined') {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
   return theme
@@ -12,6 +12,7 @@ function resolveTheme(theme: string): string {
 let _mqListener: MediaQueryList | null = null
 
 function applyTheme(theme: string) {
+  if (typeof document === 'undefined') return
   const resolved = resolveTheme(theme)
   document.documentElement.dataset.theme = resolved
 
