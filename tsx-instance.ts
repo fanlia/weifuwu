@@ -996,7 +996,7 @@ function buildHeadPayload(opts: StreamOpts): string {
     result += `<link rel="stylesheet" href="${base}/__wfw/style.css" />\n`
   }
 
-  const localeData = (ctx.parsed as any)?.__localeData
+  const localeData = (ctx.parsed as any)?.__localeData ?? (globalThis as any).__LOCALE_DATA__
   if (localeData && Object.keys(localeData).length > 0) {
     result += `<script>window.__LOCALE_DATA__=${JSON.stringify(localeData)}<\/script>\n`
   }
