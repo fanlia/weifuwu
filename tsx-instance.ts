@@ -11,9 +11,9 @@ import chokidar from 'chokidar'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
 import type { Context, Handler } from './types.ts'
-import { TsxContext, useCtx } from './tsx-context.ts'
+import { TsxContext, useCtx, setCtx } from './tsx-context.ts'
 
-export { TsxContext, useCtx }
+export { TsxContext, useCtx, setCtx }
 
 export interface TsxOptions {
   dir: string
@@ -388,27 +388,26 @@ export class TsxInstance {
         if (!nfMod) return new Response('Not Found', { status: 404 })
         const NfComponent = nfMod.default
 
-        let element: any = createElement(TsxContext.Provider, {
-          value: {
-            params: ctx.params,
-            query: ctx.query,
-            user: ctx.user,
-            parsed: ctx.parsed,
-            prefs: ctx.prefs,
-            locale: ctx.locale,
-            theme: ctx.theme,
-            t: ctx.t,
-            env: ctx.env,
-          },
-        }, createElement(NfComponent, { params: ctx.params, query: ctx.query }))
-        
+        setCtx({
+          params: ctx.params,
+          query: ctx.query,
+          user: ctx.user,
+          parsed: ctx.parsed,
+          prefs: ctx.prefs,
+          locale: ctx.locale,
+          theme: ctx.theme,
+          t: ctx.t,
+          env: ctx.env,
+        })
+
+        let element: any = createElement(NfComponent, { params: ctx.params, query: ctx.query })
+
         for (let i = rootLayouts.length - 1; i >= 0; i--) {
           const LMod = this.layoutModules.get(rootLayouts[i])
           if (!LMod) continue
           element = createElement(LMod.default, { children: element })
         }
 
-        setGlobalCtx(ctx)
         const stream = await renderToReadableStream(element)
         return streamResponse(stream, {
           ctx, base,
@@ -604,20 +603,20 @@ export class TsxInstance {
       const loadProps = loadFn ? await loadFn({ params: ctx.params, query: ctx.query }) : {}
       const allProps = { ...loadProps, params: ctx.params, query: ctx.query }
 
+      setCtx({
+        params: ctx.params,
+        query: ctx.query,
+        user: ctx.user,
+        parsed: ctx.parsed,
+        prefs: ctx.prefs,
+        locale: ctx.locale,
+        theme: ctx.theme,
+        t: ctx.t,
+        env: ctx.env,
+      })
+
       let element: any = createElement('div', { id: '__weifuwu_root' },
-        createElement(TsxContext.Provider as any, {
-          value: {
-            params: ctx.params,
-            query: ctx.query,
-            user: ctx.user,
-            parsed: ctx.parsed,
-            prefs: ctx.prefs,
-            locale: ctx.locale,
-            theme: ctx.theme,
-            t: ctx.t,
-            env: ctx.env,
-          },
-        }, createElement(Component, allProps)),
+        createElement(Component, allProps),
       )
 
       if (layoutPaths.length === 0) {
@@ -638,13 +637,12 @@ export class TsxInstance {
           const isRoot = i === 0
           element = createElement(
             Layout,
-            isRoot ? { children: element, req, ctx } : { children: element },
+            isRoot ? { children: element, req } : { children: element },
           )
         }
       }
 
       const bundle = await this.getOrBuildClientBundle(entryPath, layoutPaths, this.pagesDir)
-      setGlobalCtx(ctx)
       const stream = await renderToReadableStream(element)
       return streamResponse(stream, {
         ctx, base,

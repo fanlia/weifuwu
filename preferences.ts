@@ -21,9 +21,9 @@ const defaults = {
   theme: { default: 'system', cookie: 'theme' },
 }
 
-function translate(msgs: Record<string, unknown>, key: string, params?: Record<string, string>): string {
+function translate(msgs: Record<string, unknown>, key: string, params?: Record<string, string>, fallback?: string): string {
   const msg = key.split('.').reduce((o: any, k: string) => o?.[k], msgs)
-  if (msg === undefined || msg === null) return key
+  if (msg === undefined || msg === null) return fallback ?? key
   if (!params) return String(msg)
   let result = String(msg)
   for (const [k, v] of Object.entries(params)) {
@@ -74,7 +74,7 @@ export function preferences(options: PrefOptions): Middleware {
 
     if (dir) {
       const msgs = await load(locale)
-      ctx.t = (key: string, params?: Record<string, string>) => translate(msgs, key, params)
+      ctx.t = (key: string, params?: Record<string, string>, fallback?: string) => translate(msgs, key, params, fallback)
       ;(globalThis as any).__LOCALE_DATA__ = msgs
     }
 

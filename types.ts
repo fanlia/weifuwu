@@ -5,7 +5,7 @@ export interface Context {
   parsed?: Record<string, unknown>
   mountPath?: string
   locale?: string
-  t?: (key: string, params?: Record<string, string>) => string
+  t?: (key: string, params?: Record<string, string>, fallback?: string) => string
   requestId?: string
   prefs?: Record<string, string>
   theme?: string
