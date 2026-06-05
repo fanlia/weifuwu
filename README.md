@@ -28,8 +28,6 @@ description: Web-standard HTTP framework for Node.js — (req, ctx) => Response
 - [Preferences](#preferences)
 - [Email](#email)
 - [Server-Sent Events](#server-sent-events)
-- [Flash messages](#flash-messages)
-- [Client-side state management](#client-side-state-management)
 - [Utility functions](#utility-functions)
 - [Testing](#testing)
 - [License](#license)
@@ -1236,7 +1234,7 @@ app.get('/stream', (req, ctx) => createSSEStream(events()))
 
 | Hook / Component | Description |
 |-----------------|-------------|
-| `useCtx()` | Unified context — `{ prefs, locale, theme, t, params, query }` |
+| `useCtx()` | Unified context — `{ prefs, locale, theme, t, params, query }` (requires `preferences` middleware) |
 | `createStore(initial)` | Zustand-compatible shared state — `getState`, `setState`, `subscribe` |
 | `useData(url, opts?)` | SWR-style data fetching — cache, dedup, mutate, fallback |
 | `useQueryState(key, default)` | URL query param sync — `?page=1` via `useSyncExternalStore` |
@@ -1247,9 +1245,6 @@ app.get('/stream', (req, ctx) => createSSEStream(events()))
 | `navigate(href)` | Client-side page navigation (imperative) |
 | `Link` | `<Link href prefetch>` — prefetch on hover/visible |
 | `Head` | `<Head>` — per-page `<title>` / `<meta>` merged into `<head>` |
-| `csrf(options?)` | CSRF protection middleware |
-| `seoTags(config)` | Generate `<title>`, `<meta>`, OG, Twitter Card tags |
-| `createHub(options?)` | WebSocket channel hub |
 
 ### AI SDK re-exports
 
