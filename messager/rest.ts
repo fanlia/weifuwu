@@ -1,6 +1,7 @@
 import type { Sql } from '../vendor.ts'
 import { Router } from '../router.ts'
 import { broadcastToChannel } from './ws.ts'
+import { runAgentRouting } from './agent.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { Hub } from '../hub.ts'
 import { eq, lt } from '../postgres/schema/index.ts'
@@ -152,31 +153,7 @@ export function buildRouter(deps: RestDeps): Router {
     broadcastToChannel(hub, channelId, { type: 'message', data: msg })
 
     // Agent routing
-    if (agents) {
-      const agentMembers = await sql`
-        SELECT member_id FROM "_channel_members"
-        WHERE channel_id = ${channelId} AND member_type = 'agent'
-      ` as any[]
-
-      for (const am of agentMembers) {
-        agents.run(am.member_id, { input: body.content, stream: false }).then(result => {
-          if ('output' in result && result.output) {
-            messages.insert({
-              channel_id: channelId,
-              sender_id: am.member_id,
-              sender_type: 'agent',
-              content: result.output,
-            }).then((r) => {
-              broadcastToChannel(hub, channelId, { type: 'message', data: r })
-            }).catch((e) => {
-              console.error('[messager] agent reply insert failed:', e)
-            })
-          }
-        }).catch((e) => {
-          console.error('[messager] agent run failed:', e)
-        })
-      }
-    }
+    runAgentRouting(sql, messages, agents, hub, channelId, body.content)
 
     return Response.json(msg, { status: 201 })
   })

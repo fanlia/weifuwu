@@ -3,6 +3,13 @@ import type { BoundTable, SQL } from '../postgres/schema/index.ts'
 import type { Context } from '../types.ts'
 import type { LogEntryInput } from './types.ts'
 
+function parseMetadata(row: any): any {
+  if (typeof row.metadata === 'string') {
+    try { row.metadata = JSON.parse(row.metadata) } catch {}
+  }
+  return row
+}
+
 export function createHandler(entries: BoundTable<any>) {
   return async (req: Request, ctx: Context) => {
     const body = await req.json() as LogEntryInput
@@ -22,10 +29,7 @@ export function createHandler(entries: BoundTable<any>) {
       metadata,
     } as any)
 
-    if (typeof (row as any).metadata === 'string') {
-      try { (row as any).metadata = JSON.parse((row as any).metadata as string) } catch {}
-    }
-    return Response.json(row, { status: 201 })
+    return Response.json(parseMetadata(row), { status: 201 })
   }
 }
 
@@ -60,13 +64,7 @@ export function listHandler(entries: BoundTable<any>) {
       { orderBy: { created_at: 'desc' }, limit, offset },
     )
 
-    for (const row of data as any[]) {
-      if (typeof row.metadata === 'string') {
-        try { row.metadata = JSON.parse(row.metadata) } catch {}
-      }
-    }
-
-    return Response.json({ entries: data, total: count })
+    return Response.json({ entries: data.map(parseMetadata), total: count })
   }
 }
 
@@ -77,9 +75,6 @@ export function getHandler(entries: BoundTable<any>) {
 
     const row = await entries.read(parseInt(id))
     if (!row) return Response.json({ error: 'not found' }, { status: 404 })
-    if (typeof (row as any).metadata === 'string') {
-      try { (row as any).metadata = JSON.parse((row as any).metadata as string) } catch {}
-    }
-    return Response.json(row)
+    return Response.json(parseMetadata(row))
   }
 }

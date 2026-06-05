@@ -4,6 +4,7 @@ import type { WSMessage, Message } from './types.ts'
 import type { Context } from '../types.ts'
 import { createHub } from '../hub.ts'
 import type { Hub } from '../hub.ts'
+import { runAgentRouting } from './agent.ts'
 
 interface WSDeps {
   sql: Sql<{}>
@@ -81,30 +82,15 @@ export function createWSHandler(deps: WSDeps): { handler: any; hub: Hub } {
 
             broadcastToChannel(hub, channel_id, { type: 'message', data: message })
 
-            // Agent routing
-            if (agents) {
-              const agentMembers = await sql`
-                SELECT member_id FROM "_channel_members"
-                WHERE channel_id = ${channel_id} AND member_type = 'agent'
-              ` as any[]
-
-              for (const am of agentMembers) {
-                agents.run(am.member_id, { input: content, stream: false }).then(result => {
-                  if ('output' in result && result.output) {
-                    sql`
-                      INSERT INTO "_messages" ("channel_id", "sender_id", "sender_type", "content")
-                      VALUES (${channel_id}, ${am.member_id}, 'agent', ${result.output})
-                    `.then(([r]) => {
-                      broadcastToChannel(hub, channel_id, { type: 'message', data: r })
-                    }).catch((e) => {
-                      console.error('[messager] agent reply insert failed:', e)
-                    })
-                  }
-                }).catch((e) => {
-                  console.error('[messager] agent run failed:', e)
-                })
-              }
-            }
+          // Agent routing
+          if (agents) {
+            const insertMsg = (data: any) => sql`
+              INSERT INTO "_messages" ("channel_id", "sender_id", "sender_type", "content")
+              VALUES (${data.channel_id}, ${data.sender_id}, ${data.sender_type}, ${data.content})
+              RETURNING *
+            `.then(([r]) => r)
+            runAgentRouting(sql, { insert: insertMsg }, agents, hub, channel_id, content)
+          }
             break
           }
 
