@@ -78,6 +78,7 @@ export function queue(opts?: QueueOptions): Queue {
   const handlers = new Map<string, (job: any) => Promise<void>>()
   let running = false
   let pollTimer: ReturnType<typeof setTimeout> | null = null
+  let epoch = 0
 
   const jobKey = `${prefix}:jobs`
 
@@ -88,13 +89,37 @@ export function queue(opts?: QueueOptions): Queue {
 
   const q: Queue = mw
 
+  const MAX_CONCURRENT = 16
+  let inflight = 0
+
+  async function processJob(job: QueueJob, jobHandler: (job: QueueJob) => Promise<void>): Promise<void> {
+    inflight++
+    try {
+      await jobHandler(job)
+    } catch (e) {
+      console.error('[queue] handler error:', (e as Error).message)
+    } finally {
+      inflight--
+    }
+    if (job.schedule) {
+      try {
+        const nextRun = cronNext(job.schedule)
+        const nextJob = { ...job, id: crypto.randomUUID(), runAt: nextRun, createdAt: Date.now() }
+        await redis.zadd(jobKey, nextRun, JSON.stringify(nextJob))
+      } catch (e) {
+        console.error('[queue] cron re-queue failed:', (e as Error).message)
+      }
+    }
+  }
+
   async function poll(): Promise<void> {
+    const currentEpoch = epoch
     if (!running) return
 
     try {
       const now = Date.now()
 
-      while (true) {
+      while (running && inflight < MAX_CONCURRENT) {
         const result = await redis.zpopmin(jobKey)
         if (result.length < 2) break
         const raw = result[0]
@@ -111,25 +136,16 @@ export function queue(opts?: QueueOptions): Queue {
           continue
         }
 
-        const handler = handlers.get(job.type)
-        if (handler) {
-          handler(job).then(() => {
-            if (job.schedule) {
-              try {
-                const nextRun = cronNext(job.schedule)
-                const nextJob = { ...job, id: crypto.randomUUID(), runAt: nextRun, createdAt: Date.now() }
-                redis.zadd(jobKey, nextRun, JSON.stringify(nextJob)).catch(() => {})
-              } catch {}
-            }
-          }).catch((e) => {
-            console.error('[queue] handler error:', e)
-          })
+        const jobHandler = handlers.get(job.type)
+        if (jobHandler) {
+          processJob(job, jobHandler)
         }
       }
-    } catch {
+    } catch (e) {
+      console.error('[queue] poll error:', (e as Error).message)
     }
 
-    if (running) {
+    if (running && currentEpoch === epoch) {
       pollTimer = setTimeout(poll, pollInterval)
     }
   }
@@ -164,6 +180,7 @@ export function queue(opts?: QueueOptions): Queue {
 
   mw.stop = function stop(): void {
     running = false
+    epoch++
     if (pollTimer) {
       clearTimeout(pollTimer)
       pollTimer = null
@@ -172,6 +189,8 @@ export function queue(opts?: QueueOptions): Queue {
 
   mw.close = async function close(): Promise<void> {
     mw.stop()
+    // Wait for in-flight handlers to finish
+    while (inflight > 0) await new Promise(r => setTimeout(r, 50))
     redis.disconnect()
   }
 

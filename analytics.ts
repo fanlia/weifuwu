@@ -27,10 +27,19 @@ interface QueryResult {
 
 // ── In-memory store ─────────────────────────────────────────────────────────
 
+const MAX_MEM_ENTRIES = 10000
+
 class MemStore {
   private days = new Map<string, { pv: number; uv: Set<string>; mobile: number; desktop: number }>()
   private pages = new Map<string, { count: number }>()
   private refs = new Map<string, Map<string, number>>()
+
+  private evict() {
+    if (this.days.size <= MAX_MEM_ENTRIES) return
+    const sorted = [...this.days.keys()].sort()
+    const toDelete = sorted.slice(0, this.days.size - MAX_MEM_ENTRIES)
+    for (const d of toDelete) { this.days.delete(d); this.refs.delete(d) }
+  }
 
   record(path: string, date: string, refDomain: string, mobile: boolean) {
     let day = this.days.get(date)
@@ -47,6 +56,8 @@ class MemStore {
       if (!refs) { refs = new Map(); this.refs.set(date, refs) }
       refs.set(refDomain, (refs.get(refDomain) || 0) + 1)
     }
+
+    this.evict()
   }
 
   query(days: number): QueryResult {

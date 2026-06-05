@@ -21,6 +21,7 @@ export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () =
   })
   const message = options?.message ?? 'Too Many Requests'
 
+  const MAX_ENTRIES = 10000
   const hits = new Map<string, { count: number; reset: number }>()
 
   const interval = setInterval(() => {
@@ -28,17 +29,24 @@ export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () =
     for (const [key, entry] of hits) {
       if (entry.reset < now) hits.delete(key)
     }
-  }, window)
+    // Evict oldest entries if over cap
+    if (hits.size > MAX_ENTRIES) {
+      const toDelete = [...hits.entries()].sort((a, b) => a[1].reset - b[1].reset).slice(0, hits.size - MAX_ENTRIES)
+      for (const [k] of toDelete) hits.delete(k)
+    }
+  }, Math.min(window, 30000))
 
   if (interval.unref) interval.unref()
 
   const mw = async (req: Request, ctx: Context, next: Handler) => {
     const key = getKey(req)
     const now = Date.now()
-    const entry = hits.get(key)
+    let entry = hits.get(key)
 
+    // Create new entry or reset expired one atomically
     if (!entry || entry.reset < now) {
       hits.set(key, { count: 1, reset: now + window })
+      entry = { count: 1, reset: now + window }
       const res = await next(req, ctx)
       const headers = new Headers(res.headers)
       headers.set('X-RateLimit-Limit', String(max))

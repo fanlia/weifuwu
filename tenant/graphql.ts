@@ -49,12 +49,11 @@ interface BuildCtx {
   sql: Sql<{}>
   tenantId: string
   tables: UserTableRow[]
+  typeCache: Map<number, GraphQLObjectType>
 }
 
-const typeCache = new Map<number, GraphQLObjectType>()
-
 function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType {
-  const cached = typeCache.get(table.id)
+  const cached = ctx.typeCache.get(table.id)
   if (cached) return cached
   const typeName = pascalCase(table.slug)
   const fieldsThunk = () => {
@@ -138,7 +137,7 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
   }
 
   const type = new GraphQLObjectType({ name: typeName, fields: fieldsThunk })
-  typeCache.set(table.id, type)
+  ctx.typeCache.set(table.id, type)
   return type
 }
 
@@ -271,7 +270,7 @@ export function buildGraphQLHandler(sql: Sql<{}>): Router {
       ORDER BY created_at ASC
     ` as unknown as UserTableRow[]
 
-    const buildCtx: BuildCtx = { sql, tenantId: ctx.tenant!.id, tables }
+    const buildCtx: BuildCtx = { sql, tenantId: ctx.tenant!.id, tables, typeCache: new Map() }
 
     const schema = new GraphQLSchema({
       query: new GraphQLObjectType({
@@ -318,7 +317,7 @@ export function buildGraphQLHandler(sql: Sql<{}>): Router {
       ORDER BY created_at ASC
     ` as unknown as UserTableRow[]
 
-    const buildCtx: BuildCtx = { sql, tenantId: _ctx.tenant!.id, tables }
+    const buildCtx: BuildCtx = { sql, tenantId: _ctx.tenant!.id, tables, typeCache: new Map() }
 
     const schema = new GraphQLSchema({
       query: new GraphQLObjectType({

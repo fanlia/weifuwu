@@ -238,8 +238,11 @@ export function iii(opts: IIIOptions = {}): IIIModule {
       }
     },
     shutdown: async () => {
+      for (const [, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Engine shutting down')) }
+      pending.clear()
       for (const [, reg] of workers) reg.ws?.close()
       workers.clear(); functions.clear(); triggers.clear()
+      await stream.close()
     },
     migrate: async () => {
       await stream.migrate()
@@ -270,8 +273,11 @@ export function iii(opts: IIIOptions = {}): IIIModule {
       await stream.migrate()
     },
     shutdown: async () => {
+      for (const [, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Engine shutting down')) }
+      pending.clear()
       for (const [, reg] of workers) reg.ws?.close()
       workers.clear(); functions.clear(); triggers.clear()
+      await stream.close()
     },
   }
 

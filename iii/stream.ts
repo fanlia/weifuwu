@@ -384,5 +384,9 @@ export function createStream(opts?: { pg?: PostgresClient; redis?: Redis; stream
         await sql`CREATE INDEX IF NOT EXISTS idx_iii_stream_group ON "_iii_stream" (stream_name, group_id)`
       }
     },
+
+    async close() {
+      if (redisSub) await redisSub.quit()
+    },
   }
 }

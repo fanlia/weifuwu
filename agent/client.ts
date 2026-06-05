@@ -27,18 +27,14 @@ export function agent(options: AgentOptions): AgentModule {
   const embeddingModel = options.embeddingModel
   const dimension = options.embeddingDimension ?? 1024
 
-  let defaultModels: { model: LanguageModel; embeddingModel: EmbeddingModel } | null = null
+  const defaultModels = !model || !embeddingModel ? createModelsFromEnv() : null
 
   function getModel(): LanguageModel {
-    if (model) return model
-    if (!defaultModels) defaultModels = createModelsFromEnv()
-    return defaultModels.model
+    return model ?? defaultModels!.model
   }
 
   function getEmbeddingModel(): EmbeddingModel {
-    if (embeddingModel) return embeddingModel
-    if (!defaultModels) defaultModels = createModelsFromEnv()
-    return defaultModels.embeddingModel
+    return embeddingModel ?? defaultModels!.embeddingModel
   }
 
   const agentsTable = pg.table('_agents', {

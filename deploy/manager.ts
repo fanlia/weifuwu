@@ -3,6 +3,7 @@ import { Router } from '../router.ts'
 import type { Context, Handler, Middleware } from '../types.ts'
 import type { DeployConfig, AppStatus } from './types.ts'
 import { formatSSEData } from '../sse.ts'
+import { stopProcess } from './process.ts'
 
 export interface AppRuntime {
   config: import('./types.ts').AppConfig
@@ -77,7 +78,7 @@ export function createManager(
     const app = apps.get(ctx.params.name)
     if (!app) return new Response('Not Found', { status: 404 })
     if (app.process) {
-      app.process.kill('SIGTERM')
+      await stopProcess({ child: app.process, port: app.currentPort })
       app.process = null
     }
     app.status = { ...app.status, status: 'stopped', pid: undefined }
