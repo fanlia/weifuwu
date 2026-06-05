@@ -480,7 +480,7 @@ const loading = useNavigating()              // reactive loading state
 ### Client-side hooks
 
 ```tsx
-import { useWebsocket, useAction, useData, useQueryState, createStore, Head } from 'weifuwu/react'
+import { useWebsocket, useAction, useFetch, useQueryState, createStore, Head } from 'weifuwu/react'
 import { useLocale, useTheme, applyTheme, addInterceptor, useLoaderData } from 'weifuwu/react'
 
 // WebSocket — auto-reconnecting
@@ -491,7 +491,7 @@ const { submit, data, error, pending } = useAction('/api/feedback', { method: 'P
 // Auto-reads _csrf cookie, sends as X-CSRF-Token
 
 // Data fetching — cache + dedup + mutate
-const { data, error, loading, mutate } = useData('/api/posts', { fallback: loadData })
+const { data, error, loading, mutate } = useFetch('/api/posts', { fallback: loadData })
 
 // URL query state
 const [q, setQ] = useQueryState('q', '')

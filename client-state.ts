@@ -42,16 +42,16 @@ export function createStore<T extends Record<string, unknown>>(initial: T): Stor
   return useStore
 }
 
-// ── useData ─────────────────────────────────────────────────────────────────
+// ── useFetch ────────────────────────────────────────────────────────────────
 
-interface UseDataResult<T> {
+interface UseFetchResult<T> {
   data: T | undefined
   error: Error | undefined
   loading: boolean
   mutate: (data?: T) => Promise<void>
 }
 
-interface UseDataOptions<T> {
+interface UseFetchOptions<T> {
   fallback?: T
   ttl?: number
 }
@@ -60,7 +60,7 @@ const dataCache = new Map<string, { data: unknown; error: unknown; timestamp: nu
 const inflight = new Map<string, Promise<unknown>>()
 const CACHE_TTL = 60_000
 
-export function useData<T = unknown>(url: string | null, options?: UseDataOptions<T>): UseDataResult<T> {
+export function useFetch<T = unknown>(url: string | null, options?: UseFetchOptions<T>): UseFetchResult<T> {
   const ttl = options?.ttl ?? CACHE_TTL
   const [state, setState] = useState<{ data?: T; error?: Error; loading: boolean }>({
     data: options?.fallback,
