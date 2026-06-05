@@ -1146,6 +1146,56 @@ await deploy(config)
 
 ---
 
+## Analytics
+
+In-memory page view tracking with a built-in dashboard. Zero extra dependencies.
+
+```ts
+import { analytics } from 'weifuwu'
+
+app.use(analytics())  // mounts middleware + /analytics + /__analytics/data
+```
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /analytics` | Dashboard — PV trend, top pages, referrers, device breakdown |
+| `GET /__analytics/data?days=7` | Raw JSON data for custom dashboards |
+
+Excluded paths (not recorded): `/__analytics/*`, `__wfw/*`, `/static/*`, `/analytics`.
+
+### Dashboard
+
+The built-in `/analytics` page renders a server-generated HTML dashboard with:
+
+- **Summary cards** — total PV, unique pages, mobile/desktop ratio
+- **Bar chart** — daily page views for the selected period
+- **Top pages table** — most visited paths ranked by views
+- **Referrers table** — top referring domains
+
+### JSON API
+
+```ts
+// GET /__analytics/data?days=30
+{
+  "total_pv": 2847,
+  "total_uv": 1231,
+  "daily": [{ "date": "2026-06-05", "pv": 520, "uv": 310 }],
+  "top_pages": [{ "path": "/tools/uppercase", "pv": 1284 }],
+  "referrers": [{ "domain": "google.com", "count": 380 }],
+  "devices": { "mobile": 45.2, "desktop": 54.8 }
+}
+```
+
+### Options
+
+```ts
+app.use(analytics({
+  excluded: ['/admin', '/api'],  // custom exclude patterns (defaults listed above)
+}))
+```
+
+---
+
 ## Health check
 
 ```ts

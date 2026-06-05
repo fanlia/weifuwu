@@ -102,6 +102,8 @@ export type {
 } from './opencode/types.ts'
 export { health } from './health.ts'
 export type { HealthOptions } from './health.ts'
+export { analytics } from './analytics.ts'
+export type { AnalyticsOptions } from './analytics.ts'
 export { preferences } from './preferences.ts'
 export type { PrefOptions } from './preferences.ts'
 export { seo, seoMiddleware, seoTags } from './seo.ts'
