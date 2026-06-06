@@ -40,6 +40,7 @@ async function buildClientBundle(
     const _sc = `(function(){var k='__WEIFUWU_CTX_STORE';var s=typeof globalThis!='undefined'&&globalThis[k];if(!s)return function(){};return function(v){s._ctx={...s._ctx,...v};s._snapshot={params:s._ctx.params,query:s._ctx.query,user:s._ctx.user,parsed:s._ctx.parsed,prefs:s._ctx.prefs,env:s._ctx.env};s._listeners.forEach(function(fn){fn()})}})()`
     const code = [
       layoutImports,
+      `import*as React__ from'react';import*as ReactDOM__ from'react-dom/client';import{TsxContext}from'weifuwu/react';window.__REACT__=React__;window.__REACTDOM__=ReactDOM__;window.__WFW_REACT__={TsxContext};`,
       `import{hydrateRoot}from'react-dom/client';`,
       `import{createElement,useState,useEffect}from'react';`,
       `import{TsxContext}from'weifuwu/react';`,

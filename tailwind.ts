@@ -1,11 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { Router } from './router.ts'
-import { broadcastReload } from './live.ts'
-
-const isDev = process.env.NODE_ENV !== 'production'
 
 const extraSources = new Set<string>()
+const cssCache = new Map<string, string>()
 
 export function addTailwindSource(dir: string) {
   extraSources.add(resolve(dir))
@@ -14,30 +12,22 @@ export function addTailwindSource(dir: string) {
 export function tailwind(dir: string): Router {
   const cssDir = resolve(dir)
   const cssPath = join(cssDir, 'app.css')
-  let compiledCss = ''
-  let twWatcher: any = null
 
   const r = new Router()
 
-  // Middleware — set ctx.compiledTailwindCss for ssr() to inject <link>
   r.use(async (req, ctx, next) => {
-    if (!compiledCss) compiledCss = await compile(cssPath, cssDir)
-    ctx.compiledTailwindCss = compiledCss
-
-    if (isDev && !twWatcher) {
-      twWatcher = watchFile(cssPath, () => {
-        compiledCss = ''
-        broadcastReload()
-      })
+    if (!cssCache.has(cssPath)) {
+      cssCache.set(cssPath, await compileTailwindCss(cssPath, cssDir))
     }
-
+    ctx.compiledTailwindCss = cssCache.get(cssPath)!
     return next(req, ctx)
   })
 
-  // Route — serve compiled CSS
   r.get('/__wfw/style.css', async (req, ctx) => {
-    if (!compiledCss) compiledCss = await compile(cssPath, cssDir)
-    return new Response(compiledCss || '', {
+    if (!cssCache.has(cssPath)) {
+      cssCache.set(cssPath, await compileTailwindCss(cssPath, cssDir))
+    }
+    return new Response(cssCache.get(cssPath) || '', {
       headers: { 'content-type': 'text/css; charset=utf-8' },
     })
   })
@@ -45,7 +35,7 @@ export function tailwind(dir: string): Router {
   return r
 }
 
-async function compile(cssPath: string, cssDir: string): Promise<string> {
+export async function compileTailwindCss(cssPath: string, cssDir: string): Promise<string> {
   try {
     if (!existsSync(cssPath)) {
       mkdirSync(cssDir, { recursive: true })
@@ -64,18 +54,10 @@ async function compile(cssPath: string, cssDir: string): Promise<string> {
     }
 
     const result = await postcss([tailwindPlugin()]).process(src, { from: cssPath })
+    cssCache.set(cssPath, result.css)
     return result.css
   } catch (err) {
     console.warn('Tailwind CSS processing failed:', (err as Error).message)
     return ''
   }
-}
-
-function watchFile(path: string, onChange: () => void): any {
-  let watcher: any = null
-  import('chokidar').then(chokidar => {
-    watcher = chokidar.default.watch(resolve(path), { persistent: false })
-    watcher.on('change', onChange)
-  })
-  return watcher
 }

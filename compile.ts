@@ -110,3 +110,19 @@ export async function compileTsxDev(path: string): Promise<any> {
   cache.set(absPath, mod)
   return mod
 }
+
+/** Browser hot-reload: CJS + react externals, sent via WS and evaled in browser */
+export async function compileTsxBrowser(path: string): Promise<string> {
+  const absPath = resolve(path)
+  const result = await esbuild.build({
+    entryPoints: { [id(absPath)]: absPath },
+    format: 'cjs',
+    platform: 'browser',
+    jsx: 'automatic',
+    jsxImportSource: 'react',
+    bundle: true,
+    external: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu/react'],
+    write: false,
+  })
+  return new TextDecoder().decode(result.outputFiles[0].contents)
+}
