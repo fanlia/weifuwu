@@ -5,7 +5,7 @@ import { clearCompileCache } from './compile.ts'
 
 const clients = new Set<WebSocket>()
 
-function broadcastReload() {
+export function broadcastReload() {
   for (const ws of clients) {
     try { ws.send('reload') } catch { clients.delete(ws) }
   }
