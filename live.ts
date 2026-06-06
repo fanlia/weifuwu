@@ -1,25 +1,13 @@
 import chokidar from 'chokidar'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
-import { compileTsxDev, compileHotComponent, compileVendorModule, clearCompileCache } from './compile.ts'
+import { compileTsxDev, compileHotComponent, compileVendorBundle, clearCompileCache } from './compile.ts'
 import { compileTailwindCss } from './tailwind.ts'
 
 const clients = new Set<WebSocket>()
 const hotBundleCache = new Map<string, string>()
-
-const VENDOR_ENTRIES: Record<string, string> = (() => {
-  const root = process.cwd()
-  return {
-    'react': resolve(root, 'node_modules/react'),
-    'react-dom': resolve(root, 'node_modules/react-dom'),
-    'react-dom-client': resolve(root, 'node_modules/react-dom/client.js'),
-    'jsx-runtime': resolve(root, 'node_modules/react/jsx-runtime.js'),
-    'weifuwu-react': resolve(root, 'node_modules/weifuwu/dist/react.js'),
-  }
-})()
 
 export function broadcastReload() {
   for (const ws of clients) {
@@ -37,12 +25,9 @@ function broadcastCss(css: string) {
 export function liveReload(opts: { dirs: string[] }): Router & { close: () => void } {
   const r = new Router()
 
-  // vendor 端点
-  r.get('/__wfw/v/:name', async (req, ctx) => {
-    const name = ctx.params.name.replace(/\.js$/i, '')
-    const entry = VENDOR_ENTRIES[name]
-    if (!entry || !existsSync(entry)) return new Response('', { status: 404 })
-    const code = await compileVendorModule(name, entry)
+  // single vendor bundle
+  r.get('/__wfw/v/bundle', async (req, ctx) => {
+    const code = await compileVendorBundle()
     return new Response(code, {
       headers: { 'content-type': 'application/javascript; charset=utf-8' },
     })

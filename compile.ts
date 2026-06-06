@@ -112,37 +112,50 @@ export async function compileTsxDev(path: string): Promise<any> {
   return mod
 }
 
-const vendorCache = new Map<string, string>()
+let vendorBundle: string | null = null
 
-function buildReExportStdin(entry: string): string {
+/** Build a single vendor bundle containing all needed vendor modules */
+export async function compileVendorBundle(): Promise<string> {
+  if (vendorBundle) return vendorBundle
   if (!_userRequire) _userRequire = createRequire(join(process.cwd(), 'package.json'))
-  const mod = _userRequire(entry)
-  const keys = Object.keys(mod).filter(k => !k.startsWith('_') && !k.startsWith('unstable_'))
-  const reExports = keys.map(k => `export var ${k}=__m.${k};`).join('')
-  return `import __m from ${JSON.stringify(entry)};export default __m;${reExports}`
-}
 
-/** Compile a vendor module to standalone ESM with named exports */
-export async function compileVendorModule(name: string, entry: string): Promise<string> {
-  if (vendorCache.has(name)) return vendorCache.get(name)!
-  if (!existsSync(entry)) return 'export default null;'
+  const modules: Record<string, string[]> = {
+    'react': [],
+    'react-dom': ['react'],
+    'react-dom/client': ['react'],
+    'react/jsx-runtime': ['react'],
+  }
 
-  const isEsm = name === 'weifuwu-react'
+  for (const request of Object.keys(modules)) {
+    const mod = _userRequire(request)
+    const keys = Object.keys(mod).filter(k => !k.startsWith('_') && k !== 'default')
+    modules[request] = keys
+  }
+
+  // weifuwu/react is already ESM — import * as + re-export works
+  const wfwMod = _userRequire('weifuwu/react')
+  const wfwKeys = Object.keys(wfwMod).filter(k => !k.startsWith('_') && k !== 'default')
+
+  const used = new Set<string>()
+  const stmts = ['']
+  for (const [request, keys] of Object.entries(modules)) {
+    const unique = keys.filter(k => !used.has(k) && used.add(k))
+    if (unique.length > 0) stmts.push(`export { ${unique.join(', ')} } from ${JSON.stringify(request)};`)
+  }
+  const uidWfw = wfwKeys.filter(k => !used.has(k) && used.add(k))
+  if (uidWfw.length > 0) stmts.push(`export { ${uidWfw.join(', ')} } from 'weifuwu/react';`)
+
   const result = await esbuild.build({
-    stdin: isEsm ? undefined : { contents: buildReExportStdin(entry), resolveDir: dirname(entry) },
-    entryPoints: isEsm ? { [name]: entry } : undefined,
+    stdin: { contents: stmts.join('\n'), resolveDir: process.cwd() },
     format: 'esm',
-    platform: 'browser',
     bundle: true,
-    external: name === 'react-dom' || name === 'react-dom-client' || name === 'jsx-runtime' ? ['react'] : undefined,
     write: false,
   })
-  const code = new TextDecoder().decode(result.outputFiles[0].contents)
-  vendorCache.set(name, code)
-  return code
+  vendorBundle = new TextDecoder().decode(result.outputFiles[0].contents)
+  return vendorBundle
 }
 
-/** Hot-reload: ESM bundle with vendor externals, calls __WFW_SET_PAGE on import */
+/** Hot-reload: ESM bundle, calls __WFW_SET_PAGE on import */
 export async function compileHotComponent(path: string): Promise<{ hash: string; code: string }> {
   const absPath = resolve(path)
   const h = id(absPath)
@@ -157,5 +170,8 @@ export async function compileHotComponent(path: string): Promise<{ hash: string;
     external: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu/react'],
     write: false,
   })
-  return { hash: h, code: new TextDecoder().decode(result.outputFiles[0].contents) }
+  let code = new TextDecoder().decode(result.outputFiles[0].contents)
+  // Replace esbuild's CJS require polyfill calls with import from vendor bundle
+  code = `import __r from '/__wfw/v/bundle';\n` + code.replace(/__require\("react"\)/g, '__r').replace(/__require\('react'\)/g, '__r')
+  return { hash: h, code }
 }
