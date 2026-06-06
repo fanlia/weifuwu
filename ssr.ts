@@ -159,6 +159,7 @@ export function ssr(path: string): Router {
         isDev,
         bundle,
         loaderData,
+        compiledTailwindCss: (ctx as any).compiledTailwindCss,
       })
     })
   })

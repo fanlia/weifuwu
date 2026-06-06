@@ -11,9 +11,13 @@ export function tailwind(cssPath: string, scanDir?: string): Middleware {
   return async (req, ctx, next) => {
     const url = new URL(req.url)
 
+    // Eagerly compile on first request
+    if (!compiledCss) {
+      compiledCss = await compile(cssPath, scanDir)
+    }
+
     // Serve compiled CSS
     if (url.pathname === '/__wfw/style.css') {
-      if (!compiledCss) compiledCss = await compile(cssPath, scanDir)
       return new Response(compiledCss || '', {
         headers: { 'content-type': 'text/css; charset=utf-8' },
       })
