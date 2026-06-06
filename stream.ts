@@ -56,7 +56,7 @@ function buildHeadPayload(opts: StreamOpts): string {
     "react": "/__wfw/v/react",
     "react-dom": "/__wfw/v/react-dom",
     "react-dom/client": "/__wfw/v/react-dom",
-    "react/jsx-runtime": "/__wfw/v/react",
+    "react/jsx-runtime": "/__wfw/v/jsx-runtime",
     "weifuwu/react": "/__wfw/v/weifuwu-react"
   }
 }<\/script>\n`

@@ -114,12 +114,12 @@ export async function compileTsxDev(path: string): Promise<any> {
 
 const vendorCache = new Map<string, string>()
 
-function buildReExportStdin(name: string): string {
+function buildReExportStdin(entry: string): string {
   if (!_userRequire) _userRequire = createRequire(join(process.cwd(), 'package.json'))
-  const mod = _userRequire(name)
+  const mod = _userRequire(entry)
   const keys = Object.keys(mod).filter(k => !k.startsWith('_') && !k.startsWith('unstable_'))
   const reExports = keys.map(k => `export var ${k}=__m.${k};`).join('')
-  return `import __m from ${JSON.stringify(name)};export default __m;${reExports}`
+  return `import __m from ${JSON.stringify(entry)};export default __m;${reExports}`
 }
 
 /** Compile a vendor module to standalone ESM with named exports */
@@ -129,12 +129,12 @@ export async function compileVendorModule(name: string, entry: string): Promise<
 
   const isEsm = name === 'weifuwu-react'
   const result = await esbuild.build({
-    stdin: isEsm ? undefined : { contents: buildReExportStdin(name), resolveDir: process.cwd() },
+    stdin: isEsm ? undefined : { contents: buildReExportStdin(entry), resolveDir: dirname(entry) },
     entryPoints: isEsm ? { [name]: entry } : undefined,
     format: 'esm',
     platform: 'browser',
     bundle: true,
-    external: name === 'react-dom' ? ['react'] : undefined,
+    external: name === 'react-dom' || name === 'jsx-runtime' ? ['react'] : undefined,
     write: false,
   })
   const code = new TextDecoder().decode(result.outputFiles[0].contents)
