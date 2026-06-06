@@ -1,6 +1,6 @@
 {
   "name": "weifuwu",
-  "version": "0.18.10",
+  "version": "0.18.11",
   "description": "Web-standard HTTP framework for Node.js — (req, ctx) => Response",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
