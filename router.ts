@@ -153,35 +153,35 @@ export class Router {
     return this
   }
 
-  get(path: string, ...args: [...Middleware[], Handler]): this {
+  get(path: string, ...args: [...Middleware[], Handler | Router]): this {
     return this.route('GET', path, ...args)
   }
 
-  post(path: string, ...args: [...Middleware[], Handler]): this {
+  post(path: string, ...args: [...Middleware[], Handler | Router]): this {
     return this.route('POST', path, ...args)
   }
 
-  put(path: string, ...args: [...Middleware[], Handler]): this {
+  put(path: string, ...args: [...Middleware[], Handler | Router]): this {
     return this.route('PUT', path, ...args)
   }
 
-  delete(path: string, ...args: [...Middleware[], Handler]): this {
+  delete(path: string, ...args: [...Middleware[], Handler | Router]): this {
     return this.route('DELETE', path, ...args)
   }
 
-  patch(path: string, ...args: [...Middleware[], Handler]): this {
+  patch(path: string, ...args: [...Middleware[], Handler | Router]): this {
     return this.route('PATCH', path, ...args)
   }
 
-  head(path: string, ...args: [...Middleware[], Handler]): this {
+  head(path: string, ...args: [...Middleware[], Handler | Router]): this {
     return this.route('HEAD', path, ...args)
   }
 
-  options(path: string, ...args: [...Middleware[], Handler]): this {
+  options(path: string, ...args: [...Middleware[], Handler | Router]): this {
     return this.route('OPTIONS', path, ...args)
   }
 
-  all(path: string, ...args: [...Middleware[], Handler]): this {
+  all(path: string, ...args: [...Middleware[], Handler | Router]): this {
     return this.route('*', path, ...args)
   }
 
@@ -190,7 +190,12 @@ export class Router {
     return this
   }
 
-  route(method: string, path: string, ...args: [...Middleware[], Handler]): this {
+  route(method: string, path: string, ...args: [...Middleware[], Handler | Router]): this {
+    const last = args[args.length - 1]
+    if (last instanceof Router) {
+      this._mountRouter(path, last)
+      return this
+    }
     const handler = args.pop()! as Handler
     const middlewares = args as Middleware[]
     const segments = this.splitPath(path)

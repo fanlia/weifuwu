@@ -2,11 +2,11 @@ import { createElement } from 'react'
 import { createHash } from 'node:crypto'
 import { dirname, resolve } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { compileTsx, clearCompileCache } from './compile.ts'
+import { compileTsx } from './compile.ts'
 import { streamResponse } from './stream.ts'
-import type { Handler } from '../types.ts'
 import type { PageContext } from '../tsx-context.ts'
 import { TsxContext, setCtx, __registerAls } from '../tsx-context.ts'
+import { Router } from '../router.ts'
 
 const als = new AsyncLocalStorage<PageContext>()
 __registerAls(() => als.getStore())
@@ -17,6 +17,16 @@ const bundleCache = new Map<string, Uint8Array>()
 
 function id(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
+}
+
+function serializeLoaderData(ctx: any): Record<string, unknown> {
+  const data: Record<string, unknown> = {}
+  for (const key of Object.keys(ctx)) {
+    if (!['params', 'query', 'mountPath', 'layoutStack'].includes(key)) {
+      data[key] = (ctx as any)[key]
+    }
+  }
+  return data
 }
 
 async function buildClientBundle(
@@ -71,24 +81,22 @@ async function buildClientBundle(
   }
 }
 
-const bundleRegistry = new Map<string, Uint8Array>()
-
-function serializeLoaderData(ctx: any): Record<string, unknown> {
-  const data: Record<string, unknown> = {}
-  for (const key of Object.keys(ctx)) {
-    if (!['params', 'query', 'mountPath', 'layoutStack'].includes(key)) {
-      data[key] = (ctx as any)[key]
-    }
-  }
-  return data
-}
-
-export function ssr(path: string): Handler {
+export function ssr(path: string): Router {
   const entryId = id(resolve(path))
   const bundleKey = `/__ssr/${entryId}.js`
-  let bundleBuilt = false
 
-  return async (req, ctx) => {
+  const r = new Router()
+
+  r.get('/__ssr/:path', (req, ctx) => {
+    const buf = bundleCache.get('/__ssr/' + ctx.params.path)
+    return buf
+      ? new Response(buf as BodyInit, {
+          headers: { 'content-type': 'application/javascript; charset=utf-8' },
+        })
+      : new Response('', { status: 404 })
+  })
+
+  r.get('/', async (req, ctx) => {
     const pageMod = await compileTsx(path)
     const Component = pageMod.default
     if (!Component) return new Response('', { status: 500 })
@@ -135,14 +143,11 @@ export function ssr(path: string): Handler {
       }
 
       let bundle: { url: string } | null = null
-      if (!bundleBuilt) {
+      if (!bundleCache.has(bundleKey)) {
         const buf = await buildClientBundle(path, layoutPaths)
-        if (buf) {
-          bundleRegistry.set(bundleKey, buf)
-          bundleBuilt = true
-        }
+        if (buf) bundleCache.set(bundleKey, buf)
       }
-      if (bundleRegistry.has(bundleKey)) {
+      if (bundleCache.has(bundleKey)) {
         bundle = { url: bundleKey }
       }
 
@@ -156,17 +161,7 @@ export function ssr(path: string): Handler {
         loaderData,
       })
     })
-  }
-}
+  })
 
-export function ssrBundleHandler(): Handler {
-  return (req, ctx) => {
-    const url = new URL(req.url)
-    const buf = bundleRegistry.get(url.pathname)
-    return buf
-      ? new Response(buf as BodyInit, {
-          headers: { 'content-type': 'application/javascript; charset=utf-8' },
-        })
-      : new Response('', { status: 404 })
-  }
+  return r
 }

@@ -1,4 +1,4 @@
-export { ssr, ssrBundleHandler } from './ssr.ts'
+export { ssr } from './ssr.ts'
 export { layout } from './layout.ts'
 export { tailwind } from './tailwind.ts'
 export { notFound } from './not-found.ts'

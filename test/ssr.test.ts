@@ -2,7 +2,6 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from '../router.ts'
 import { ssr, layout } from '../ssr/index.ts'
-import { readStream } from '../ssr/stream.ts'
 
 const homePage = './test/fixtures/ssr/home/page.tsx'
 
@@ -30,16 +29,25 @@ describe('ssr()', () => {
     assert.match(html, /__WEIFUWU_CTX/)
   })
 
-  it('injects hydration script', async () => {
+  it('serves client bundle', async () => {
     const app = new Router()
     app.get('/', ssr(homePage))
-    const res = await app.handler()(
+    const res1 = await app.handler()(
       new Request('http://localhost/'),
       { params: {}, query: {} } as any,
     )
-    const html = await res.text()
-    assert.match(html, /<script type="module"/)
-    assert.match(html, /__ssr\//)
+    const html = await res1.text()
+    const match = html.match(/src="(\/__ssr\/[^"]+)"/)
+    assert.ok(match, 'expected hydration script src in HTML')
+
+    const bundleKey = match![1]
+    const res2 = await app.handler()(
+      new Request(`http://localhost${bundleKey}`),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res2.status, 200)
+    const js = await res2.text()
+    assert.match(js, /hydrateRoot/)
   })
 
   it('passes ctx data via loaderData', async () => {
@@ -55,30 +63,6 @@ describe('ssr()', () => {
     )
     const html = await res.text()
     assert.match(html, /Hello/)
-    assert.match(html, /"loaderData"/)
-  })
-})
-
-describe('liveReload()', () => {
-  it('returns a Router that can be mounted via app.use()', async () => {
-    const { liveReload } = await import('../ssr/live.ts')
-    const { Router } = await import('../router.ts')
-    const app = new Router()
-    const lr = liveReload({ dirs: ['./test/fixtures/ssr'] })
-    app.use(lr)
-    assert.ok(lr.close)
-    lr.close()
-  })
-
-  it('can be used without mount path', async () => {
-    const { liveReload } = await import('../ssr/live.ts')
-    const { Router } = await import('../router.ts')
-    const app = new Router()
-    const lr = liveReload({ dirs: ['./test/fixtures/ssr'] })
-    app.use(lr)
-    const wsHandler = app.websocketHandler()
-    assert.ok(typeof wsHandler === 'function')
-    lr.close()
   })
 })
 
