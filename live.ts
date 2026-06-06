@@ -5,6 +5,7 @@ import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
 import { compileTsxDev, compileHotComponent, compileVendorBundle, clearCompileCache } from './compile.ts'
 import { compileTailwindCss } from './tailwind.ts'
+import { clearClientBundleCache } from './ssr.ts'
 
 const clients = new Set<WebSocket>()
 const hotBundleCache = new Map<string, string>()
@@ -59,6 +60,7 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
   watcher.on('change', async (filePath: string) => {
     if (/\.tsx?$/i.test(filePath)) {
       clearCompileCache()
+      clearClientBundleCache()
       try {
         await compileTsxDev(filePath)
         const { hash, code } = await compileHotComponent(filePath)
