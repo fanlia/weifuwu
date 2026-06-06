@@ -7,7 +7,7 @@ export default function RootLayout({ children }: { children: any }) {
         <title>Opencode Chat</title>
       </head>
       <body>
-        <div id="__weifuwu_root">{children}</div>
+        {children}
       </body>
     </html>
   )
