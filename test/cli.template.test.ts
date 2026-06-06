@@ -75,6 +75,26 @@ describe('template app', () => {
     assert.equal(data.pong, true)
     assert.ok(typeof data.time === 'string')
   })
+
+  it('injects tailwind CSS link', async () => {
+    const res = await app.handler()(
+      new Request('http://localhost/'),
+      { params: {}, query: {} } as any,
+    )
+    const html = await res.text()
+    assert.match(html, /\/__wfw\/style\.css/)
+  })
+
+  it('serves compiled tailwind CSS', async () => {
+    const res = await app.handler()(
+      new Request('http://localhost/__wfw/style.css'),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    assert.match(res.headers.get('content-type') || '', /text\/css/)
+    const css = await res.text()
+    assert.ok(css.length > 1000, 'expected substantial compiled CSS')
+  })
 })
 
 describe('weifuwu init', () => {
