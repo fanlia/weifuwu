@@ -32,7 +32,7 @@ async function cmdInit(name: string) {
   await mkdir(targetDir, { recursive: true })
 
   // Copy code templates
-  const templateDir = join(__dirname, 'cli', 'template')
+  const templateDir = join(pkgRoot, 'cli', 'template')
   await cp(templateDir, targetDir, { recursive: true })
 
   // Write config files
