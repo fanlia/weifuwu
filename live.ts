@@ -32,7 +32,9 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
     clearCompileCache()
     try {
       await compileTsxDev(filePath)
-    } catch {}
+    } catch (e) {
+      console.error('live reload compile failed:', e)
+    }
     broadcastReload()
   })
 
