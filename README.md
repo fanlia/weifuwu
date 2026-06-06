@@ -151,10 +151,16 @@ a.run(agentId, { input: 'summarize the data', stream: true })
 
 ### aiStream [β]
 
+Creates an AI streaming chat endpoint using the Vercel AI SDK.
+
 ```ts
 const chat = await aiStream(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages }))
 app.use('/chat', chat)
 ```
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `handler` | `(req, ctx) => AIStreamOptions \| Promise<AIStreamOptions>` | Returns AI SDK options (model, messages, schema, etc.) |
 
 ### analytics [β]
 
@@ -179,7 +185,7 @@ app.use(a.middleware())
 app.use('/', a)            // dashboard routes
 ```
 
-### auth [A]
+### auth [α]
 
 ```ts
 app.use(auth({ token: 'sk-123' }))                              // static token
@@ -195,7 +201,7 @@ app.get('/protected', auth({ proxy: 'http://auth:3000/validate' }), handler)
 | `verify` | `(token, req) => object\|null` | — | Verify function, return value sets `ctx.user` |
 | `proxy` | `string` | — | Auth service URL to proxy requests to |
 
-### compress [A]
+### compress [α]
 
 ```ts
 app.use(compress())                         // brotli > gzip > deflate (min 1KB)
@@ -207,7 +213,7 @@ app.use(compress({ threshold: 2048, level: 4 }))      // custom threshold and le
 | `threshold` | `number` | `1024` | Minimum byte size to compress |
 | `level` | `number` | `6` | Compression level (zlib) |
 
-### cors [A]
+### cors [α]
 
 ```ts
 app.use(cors())                                            // allow all
@@ -225,7 +231,7 @@ app.use(cors({ credentials: true, maxAge: 3600 }))
 | `credentials` | `boolean` | `false` | Allow cookies/credentials |
 | `maxAge` | `number` | — | Preflight cache duration (seconds) |
 
-### csrf [A]
+### csrf [α]
 
 ```ts
 app.use(csrf())
@@ -268,7 +274,7 @@ app.use('/health', health())
 | `path` | `string` | `'/health'` | Health check endpoint |
 | `check` | `() => Promise<void>` | — | Async function; throws → 503 |
 
-### helmet [A]
+### helmet [α]
 
 15 security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.
 
@@ -338,12 +344,16 @@ await logger.log({ level: 'info', source: 'app', message: 'hello', metadata: { u
 | GET | `/` | Query (`?level=`, `?source=`, `?after=`, `?before=`, `?meta.*=`) |
 | GET | `/:id` | Get single entry |
 
-### logger [A]
+### logger [α]
 
 ```ts
 app.use(logger())                             // GET /hello 200 5ms
 app.use(logger({ format: 'combined' }))       // with query params
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `format` | `'short' \| 'combined'` | `'short'` | Log format: path only, or path + query params |
 
 ### mailer
 
@@ -358,16 +368,24 @@ await mail.send({ to: 'user@test.com', subject: 'Hello', text: 'Body', html: '<p
 | `from` | `string` | — | Default sender address |
 | `send` | `function` | — | Custom send function (alternative to transport) |
 
-### messager [C]
+### messager [β]
 
 Real-time chat with channels, WebSocket, agent routing.
 
 ```ts
 const msg = messager({ pg, agents, redis: redis() })
 await msg.migrate()
+app.use('/api', msg)
 app.ws('/ws', msg.wsHandler())
 await msg.send(channelId, 'System message', { sender_type: 'system', sender_id: 'bot' })
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `object` | — | PostgreSQL client |
+| `agents` | `AgentModule` | — | Agent module for routing |
+| `webhookTimeout` | `number` | — | Webhook timeout |
+| `redis` | `object` | — | Redis client |
 
 | Method | Description |
 |--------|-------------|
@@ -402,7 +420,7 @@ app.ws('/opencode', oc.wsHandler())
 | `skills` | `object[]` | — | Custom skill definitions |
 | `permissions` | `object` | — | Tool permission rules |
 
-### postgres [B]
+### postgres [α]
 
 ```ts
 const pg = postgres()          // reads DATABASE_URL
@@ -433,7 +451,7 @@ await pg.transaction(async (tx) => { const users = pg.table('_users', { ... }).w
 
 Where helpers: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `isNull`, `isNotNull`, `like`, `contains`, `in_`, `and`, `or`, `not`.
 
-### preferences [A]
+### preferences [α]
 
 Locale detection + theme + translations. `/__lang/:locale` and `/__theme/:theme` auto-routed.
 
@@ -464,7 +482,7 @@ const { theme, resolvedTheme, setTheme } = useTheme()
 // resolvedTheme resolves 'system' → 'dark'|'light' based on prefers-color-scheme
 ```
 
-### queue [B]
+### queue [α]
 
 ```ts
 const q = queue({ redis })
@@ -487,7 +505,7 @@ await q.add('send-email', { to: 'user@test.com' }, { cron: '0 8 * * *' })
 | `.stop()` | Stop processing |
 | `.close()` | Cleanup |
 
-### rateLimit [B]
+### rateLimit [α]
 
 ```ts
 app.use(rateLimit({ max: 100, window: 60_000 }))            // 100 req/min
@@ -504,7 +522,7 @@ app.use(rateLimit({ key: (req) => req.headers.get('x-api-key') ?? 'anonymous' })
 | `key` | `(req) => string` | IP-based | Key function |
 | `message` | `string` | `'Too Many Requests'` | 429 response body |
 
-### redis [B]
+### redis [α]
 
 ```ts
 const r = redis()          // reads REDIS_URL
@@ -518,7 +536,7 @@ await ctx.redis.set('key', 'value')
 | `url` | `string` | `REDIS_URL` env | Redis connection string |
 | (all ioredis options) | — | — | Passed directly to ioredis |
 
-### requestId [A]
+### requestId [α]
 
 ```ts
 app.use(requestId())
@@ -554,7 +572,7 @@ app.use('/api', t)      // dynamic CRUD
 app.use('/graphql', t.graphql()) // dynamic GraphQL
 ```
 
-### upload [A]
+### upload [α]
 
 ```ts
 app.post('/upload', upload({ dir: './uploads', maxFileSize: 10_485_760, allowedTypes: ['image/jpeg', 'image/png'] }), (req, ctx) => {
@@ -596,7 +614,7 @@ app.get('/me', auth.middleware(), (req, ctx) => Response.json(ctx.user))
 | `.verify(token)` | Verify JWT token |
 | `.middleware()` | JWT verify middleware — sets `ctx.user` |
 
-### validate [A]
+### validate [α]
 
 ```ts
 import { z } from 'zod'
@@ -808,21 +826,7 @@ import { openai, streamText, generateText, streamObject, generateObject, tool, e
 import { runWorkflow } from 'weifuwu'
 ```
 
-### Streaming
-
-```ts
-const chat = await aiStream(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages }))
-app.use('/chat', chat)
-```
-
-### Agents
-
-```ts
-const agents = agent({ pg })
-await agents.migrate()
-app.use('/api', agents)
-await agents.addKnowledge(agentId, 'Title', 'content')
-```
+For AI streaming endpoints see [`aiStream`](#aistream-β). For AI agent APIs see [`agent`](#agent-β).
 
 ### DAG Workflow
 
