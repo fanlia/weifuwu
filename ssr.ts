@@ -15,6 +15,10 @@ const isDev = process.env.NODE_ENV !== 'production'
 
 const bundleCache = new Map<string, Uint8Array>()
 
+export function clearClientBundleCache() {
+  bundleCache.clear()
+}
+
 function id(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
 }

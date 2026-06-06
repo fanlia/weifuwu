@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
 import { compileTsxDev, clearCompileCache } from './compile.ts'
+import { clearClientBundleCache } from './ssr.ts'
 import { compileTailwindCss } from './tailwind.ts'
 
 const clients = new Set<WebSocket>()
@@ -40,8 +41,15 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
   watcher.on('change', async (filePath: string) => {
     if (/\.tsx?$/i.test(filePath)) {
       clearCompileCache()
+      clearClientBundleCache()
       try {
         await compileTsxDev(filePath)
+        for (const dir of opts.dirs) {
+          const cssPath = join(resolve(dir), 'app.css')
+          if (existsSync(cssPath)) {
+            await compileTailwindCss(cssPath, resolve(dir))
+          }
+        }
       } catch (e) {
         console.error('live reload compile failed:', e)
       }
