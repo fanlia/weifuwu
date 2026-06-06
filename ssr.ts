@@ -4,9 +4,9 @@ import { dirname, resolve } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { compileTsx } from './compile.ts'
 import { streamResponse } from './stream.ts'
-import type { PageContext } from '../tsx-context.ts'
-import { TsxContext, setCtx, __registerAls } from '../tsx-context.ts'
-import { Router } from '../router.ts'
+import type { PageContext } from './tsx-context.ts'
+import { TsxContext, setCtx, __registerAls } from './tsx-context.ts'
+import { Router } from './router.ts'
 
 const als = new AsyncLocalStorage<PageContext>()
 __registerAls(() => als.getStore())

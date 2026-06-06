@@ -1,6 +1,6 @@
 import { createElement } from 'react'
 import { compileTsx } from './compile.ts'
-import type { Middleware } from '../types.ts'
+import type { Middleware } from './types.ts'
 import { TextEncoder } from 'node:util'
 
 export function errorBoundary(errorPath: string): Middleware {

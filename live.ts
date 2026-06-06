@@ -1,6 +1,6 @@
 import chokidar from 'chokidar'
-import type { WebSocket } from '../vendor.ts'
-import { Router } from '../router.ts'
+import type { WebSocket } from './vendor.ts'
+import { Router } from './router.ts'
 import { clearCompileCache } from './compile.ts'
 
 const clients = new Set<WebSocket>()

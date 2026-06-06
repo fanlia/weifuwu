@@ -1,5 +1,5 @@
 import { compileTsx } from './compile.ts'
-import type { Middleware } from '../types.ts'
+import type { Middleware } from './types.ts'
 
 export function layout(path: string): Middleware {
   return async (req, ctx, next) => {

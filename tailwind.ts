@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
-import type { Middleware } from '../types.ts'
+import type { Middleware } from './types.ts'
 
 const isDev = process.env.NODE_ENV !== 'production'
 

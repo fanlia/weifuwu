@@ -1,5 +1,5 @@
 import { TextDecoder, TextEncoder } from 'node:util'
-import type { Context } from '../types.ts'
+import type { Context } from './types.ts'
 
 export interface StreamOpts {
   ctx: Context

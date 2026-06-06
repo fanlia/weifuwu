@@ -1,5 +1,5 @@
 import { compileTsx } from './compile.ts'
-import type { Handler } from '../types.ts'
+import type { Handler } from './types.ts'
 
 export function notFound(path?: string): Handler {
   return async (req, ctx) => {

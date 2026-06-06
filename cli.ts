@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, writeFile, copyFile, readFile } from 'node:fs/promises'
+import { mkdir, writeFile, copyFile, readFile, cp } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { homedir } from 'node:os'
@@ -31,12 +31,17 @@ async function cmdInit(name: string) {
 
   await mkdir(targetDir, { recursive: true })
 
+  // Copy code templates
+  const templateDir = join(__dirname, 'template')
+  await cp(templateDir, targetDir, { recursive: true })
+
+  // Write config files
   await writeFile(join(targetDir, 'package.json'), JSON.stringify({
     name,
     type: 'module',
     scripts: {
-      dev: 'node --watch app.ts',
-      start: 'NODE_ENV=production node app.ts',
+      dev: 'node --watch index.ts',
+      start: 'NODE_ENV=production node index.ts',
     },
     dependencies: {
       weifuwu: `^${v}`,
@@ -62,7 +67,6 @@ async function cmdInit(name: string) {
   }, null, 2) + '\n')
 
   await writeFile(join(targetDir, '.gitignore'), 'node_modules\ndist\n.env\n.sessions\n')
-
   await writeFile(join(targetDir, '.env'), 'PORT=3000\n')
 
   await writeFile(join(targetDir, 'AGENTS.md'), [
@@ -72,7 +76,7 @@ async function cmdInit(name: string) {
     '',
     '## Before you start',
     '',
-    'Read `node_modules/weifuwu/README.md` first. Understand every module and API before writing any code. The weifuwu framework has its own patterns, types, and conventions — do not guess or assume.',
+    'Read `node_modules/weifuwu/README.md` first.',
     '',
     '## Commands',
     '',
@@ -81,104 +85,9 @@ async function cmdInit(name: string) {
     '- `npm install` — install dependencies',
     '- `npx tsc --noEmit` — type-check without emitting',
     '',
-    '## TypeScript',
-    '',
-    '- Node.js v24+ runs TypeScript natively (no build step needed)',
-    "- All imports use explicit `.ts` extensions (e.g. `import { x } from './foo.ts'`)",
-    '- For JSX/React SSR, use `.tsx` files',
-    '',
     '## API Reference',
     '',
-    'See `node_modules/weifuwu/README.md` for the full weifuwu API documentation including `serve()`, `Router`, middleware, PostgreSQL, auth, and more.',
-    '',
-  ].join('\n'))
-
-  await writeFile(join(targetDir, 'app.ts'), [
-    "import { serve, Router, loadEnv } from 'weifuwu'",
-    "import { ssr, layout } from 'weifuwu/ssr'",
-    '',
-    "loadEnv()",
-    "const port = Number(process.env.PORT) || 3000",
-    '',
-    "const app = new Router()",
-    "app.use(layout('./ui/layout.tsx'))",
-    "app.get('/', ssr('./ui/page.tsx'))",
-    '',
-    "app.get('/api/ping', () => Response.json({ pong: true, time: new Date().toISOString() }))",
-    '',
-    "app.ws('/ws/echo', { message(ws, _ctx, data) { ws.send(`echo: ${data}`) } })",
-    '',
-    "const server = serve(app.handler(), { port, websocket: app.websocketHandler() })",
-    "await server.ready",
-    "console.log(`Listening on http://localhost:${server.port}`)",
-    '',
-  ].join('\n'))
-
-  await mkdir(join(targetDir, 'ui'), { recursive: true })
-
-  await writeFile(join(targetDir, 'ui', 'app.css'), '@import "tailwindcss";\n')
-
-  await writeFile(join(targetDir, 'ui', 'layout.tsx'), [
-    "import { ReactNode } from 'react'",
-    '',
-    'export default function RootLayout({ children }: { children: ReactNode }) {',
-    '  return (',
-    '    <html lang="en">',
-    '      <head>',
-    '        <meta charSet="utf-8" />',
-    '        <meta name="viewport" content="width=device-width, initial-scale=1" />',
-    '      </head>',
-    '      <body>',
-    '        <main>{children}</main>',
-    '      </body>',
-    '    </html>',
-    '  )',
-    '}',
-    '',
-  ].join('\n'))
-
-  await writeFile(join(targetDir, 'ui', 'page.tsx'), [
-    "import { useState } from 'react'",
-    "import { useWebsocket } from 'weifuwu/react'",
-    '',
-    'export default function Home() {',
-    '  const [input, setInput] = useState("")',
-    '  const { send, lastMessage, readyState } = useWebsocket("/ws/echo")',
-    '',
-    '  return (',
-    '    <div className="p-8 max-w-xl mx-auto">',
-    '      <h1 className="text-3xl font-bold mb-2">Hello, Weifuwu!</h1>',
-    '      <p className="text-gray-600 mb-6">',
-    '        Welcome to your weifuwu application.',
-    '      </p>',
-    '      <div className="border rounded-lg p-4 space-y-3">',
-    '        <p className="text-sm text-gray-500">',
-    '          WebSocket: {readyState === 1 ? "Connected" : readyState === 0 ? "Connecting..." : "Disconnected"}',
-    '        </p>',
-    '        <div className="flex gap-2">',
-    '          <input',
-    '            value={input}',
-    '            onChange={e => setInput(e.target.value)}',
-    '            onKeyDown={e => { if (e.key === "Enter") { send(input); setInput("") } }}',
-    '            placeholder="Type a message..."',
-    '            className="flex-1 border rounded px-3 py-2 text-sm"',
-    '          />',
-    '          <button',
-    '            onClick={() => { send(input); setInput("") }}',
-    '            className="bg-blue-600 text-white px-4 py-2 rounded text-sm"',
-    '          >',
-    '            Send',
-    '          </button>',
-    '        </div>',
-    '        {lastMessage && (',
-    '          <div className="text-sm bg-gray-50 rounded p-2">',
-    '            <span className="font-medium">Echo:</span> {lastMessage}',
-    '          </div>',
-    '        )}',
-    '      </div>',
-    '    </div>',
-    '  )',
-    '}',
+    'See `node_modules/weifuwu/README.md` for the full weifuwu API documentation.',
     '',
   ].join('\n'))
 

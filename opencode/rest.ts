@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { Router } from '../router.ts'
-import { ssr, layout } from '../ssr/index.ts'
+import { ssr } from '../ssr.ts'
+import { layout } from '../layout.ts'
 import type { LanguageModel } from 'ai'
 import type { SkillDef, SkillRegistry, OpencodePermissions, PendingQuestion } from './types.ts'
 import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage } from './session.ts'
