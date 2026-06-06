@@ -457,6 +457,7 @@ export class Router {
         return await this.runChain(allMws, handler, req, ctxWithMatch)
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e))
+        console.error(err)
         return this.errorHandler
           ? this.errorHandler(err, req, ctxWithMatch)
           : new Response('Internal Server Error', { status: 500 })
@@ -469,6 +470,7 @@ export class Router {
         return await this.runChain(this.globalMws, delegate, req, ctx)
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e))
+        console.error(err)
         return this.errorHandler
           ? this.errorHandler(err, req, ctx)
           : new Response('Internal Server Error', { status: 500 })
