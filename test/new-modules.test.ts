@@ -9,7 +9,7 @@ describe('health', () => {
   it('returns 200 on /health', async () => {
     const r = health()
     const res = await r.handler()(
-      new Request('http://localhost/health'),
+      new Request('http://localhost/'),
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 200)
@@ -30,7 +30,7 @@ describe('health', () => {
       check: async () => { throw new Error('db down') },
     })
     const res = await r.handler()(
-      new Request('http://localhost/health'),
+      new Request('http://localhost/'),
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 503)

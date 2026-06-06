@@ -7,7 +7,7 @@ export interface HealthOptions {
 }
 
 export function health(options?: HealthOptions): Router {
-  const path = options?.path ?? '/health'
+  const path = options?.path ?? '/'
   const r = new Router()
 
   const handler: Handler = async () => {

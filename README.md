@@ -130,7 +130,7 @@ app.use('/', a)           // dashboard
 ```ts
 const a = agent({ pg, model: openai('gpt-4o'), embeddingModel: openai.embedding('text-embedding-3-small') })
 await a.migrate()
-  app.use('/api', a)
+app.use('/api', a)
 await a.addKnowledge(agentId, 'Title', 'some knowledge content')
 a.run(agentId, { input: 'summarize the data', stream: true })
 ```
@@ -147,6 +147,7 @@ a.run(agentId, { input: 'summarize the data', stream: true })
 |--------|-------------|
 | `.run(agentId, { input, stream?, messages? })` | Execute agent with input |
 | `.addKnowledge(agentId, title, content)` | Add knowledge document |
+| `.migrate()` | DB setup |
 | `.close()` | Cleanup |
 
 ### aiStream [β]
@@ -297,6 +298,8 @@ app.use(helmet({ contentSecurityPolicy: "default-src 'self'", xFrameOptions: 'DE
 
 ### iii [β] — Worker / Function / Trigger
 
+Distributed function execution with WebSocket workers, triggers, and Redis streams.
+
 ```ts
 import { createWorker } from 'weifuwu'
 const engine = iii({ pg, redis })
@@ -308,6 +311,12 @@ w.registerFunction('orders::create', async (payload) => db.query('INSERT INTO or
 engine.addWorker(w)
 await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'] } })
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `object` | — | PostgreSQL client for persistent triggers |
+| `redis` | `object` | — | Redis client for streams |
+| `streamTTL` | `number` | `3600` | Redis stream key TTL (seconds, 0 = no expiry) |
 
 | Method | Description |
 |--------|-------------|
@@ -412,7 +421,7 @@ app.ws('/opencode', oc.wsHandler())
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `pg` | `object` | — | PostgreSQL client |
-| `model` | `object` | — | AI model |
+| `model` | `string` | — | AI model name (e.g. `'gpt-4o'`, `'deepseek-v4-flash'`) |
 | `baseURL` | `string` | — | OpenAI-compatible API base URL |
 | `apiKey` | `string` | — | API key for the model |
 | `workspace` | `string` | — | Project directory |
@@ -560,6 +569,13 @@ app.use(seoMiddleware({ headers: { 'X-Robots-Tag': (path) => path.startsWith('/a
 
 Also exports `seoTags(config)` for generating meta/og/twitter tags as an HTML string.
 
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `baseUrl` | `string` | — | Base URL for sitemap URLs |
+| `robots` | `RobotsRule[]` | `[{ userAgent: '*', allow: '/' }]` | Robots.txt rules |
+| `sitemap` | `SitemapConfig` | — | Sitemap configuration (urls, resolve, cacheTTL) |
+| `headers` | `SeoHeadersConfig` | — | Response headers (e.g. `X-Robots-Tag`) |
+
 ### tenant [β]
 
 Multi-tenant BaaS with dynamic table API and GraphQL.
@@ -571,6 +587,11 @@ app.use('/api', t.middleware())   // → ctx.tenant
 app.use('/api', t)      // dynamic CRUD
 app.use('/graphql', t.graphql()) // dynamic GraphQL
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `object` | — | PostgreSQL client |
+| `usersTable` | `string` | — | Users table name for tenant membership lookup |
 
 ### upload [α]
 
