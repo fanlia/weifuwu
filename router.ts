@@ -307,6 +307,9 @@ export class Router {
       return next(req, ctx)
     }
 
+    // Merge sub-router's global middleware into parent so they run on ALL routes
+    this.globalMws.push(...sub.globalMws)
+
     const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
     this._collect(sub.root, '', routes, [])
     for (const { method, path, handler, middlewares } of routes) {

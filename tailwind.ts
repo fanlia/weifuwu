@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
-import type { Middleware } from './types.ts'
+import { Router } from './router.ts'
 import { broadcastReload } from './live.ts'
 
 const isDev = process.env.NODE_ENV !== 'production'
@@ -11,26 +11,17 @@ export function addTailwindSource(dir: string) {
   extraSources.add(resolve(dir))
 }
 
-export function tailwind(dir: string): Middleware {
+export function tailwind(dir: string): Router {
   const cssDir = resolve(dir)
   const cssPath = join(cssDir, 'app.css')
   let compiledCss = ''
   let twWatcher: any = null
 
-  return async (req, ctx, next) => {
-    const url = new URL(req.url)
+  const r = new Router()
 
-    // Eagerly compile on first request
+  // Middleware — set ctx.compiledTailwindCss for ssr() to inject <link>
+  r.use(async (req, ctx, next) => {
     if (!compiledCss) compiledCss = await compile(cssPath, cssDir)
-
-    // Serve compiled CSS at {mountPath}/__wfw/style.css
-    const stylePath = (ctx.mountPath || '') + '/__wfw/style.css'
-    if (url.pathname === stylePath) {
-      return new Response(compiledCss || '', {
-        headers: { 'content-type': 'text/css; charset=utf-8' },
-      })
-    }
-
     ctx.compiledTailwindCss = compiledCss
 
     if (isDev && !twWatcher) {
@@ -41,7 +32,17 @@ export function tailwind(dir: string): Middleware {
     }
 
     return next(req, ctx)
-  }
+  })
+
+  // Route — serve compiled CSS
+  r.get('/__wfw/style.css', async (req, ctx) => {
+    if (!compiledCss) compiledCss = await compile(cssPath, cssDir)
+    return new Response(compiledCss || '', {
+      headers: { 'content-type': 'text/css; charset=utf-8' },
+    })
+  })
+
+  return r
 }
 
 async function compile(cssPath: string, cssDir: string): Promise<string> {
