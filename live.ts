@@ -15,6 +15,7 @@ const VENDOR_ENTRIES: Record<string, string> = (() => {
   return {
     'react': resolve(root, 'node_modules/react'),
     'react-dom': resolve(root, 'node_modules/react-dom'),
+    'react-dom-client': resolve(root, 'node_modules/react-dom/client.js'),
     'jsx-runtime': resolve(root, 'node_modules/react/jsx-runtime.js'),
     'weifuwu-react': resolve(root, 'node_modules/weifuwu/dist/react.js'),
   }

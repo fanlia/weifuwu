@@ -134,7 +134,7 @@ export async function compileVendorModule(name: string, entry: string): Promise<
     format: 'esm',
     platform: 'browser',
     bundle: true,
-    external: name === 'react-dom' || name === 'jsx-runtime' ? ['react'] : undefined,
+    external: name === 'react-dom' || name === 'react-dom-client' || name === 'jsx-runtime' ? ['react'] : undefined,
     write: false,
   })
   const code = new TextDecoder().decode(result.outputFiles[0].contents)
