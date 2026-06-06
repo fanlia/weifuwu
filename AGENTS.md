@@ -27,7 +27,7 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 
 ## Built-in module patterns
 
-All built-in factory functions follow one of **two patterns**. Choose the right one based on whether the module needs to **intercept requests** or **serve routes**.
+All built-in factory functions follow one of **three patterns**. Choose the right one based on whether the module needs to **intercept requests** or **serve routes**.
 
 ### Pattern α — Middleware: `app.use(mod())`
 
@@ -46,6 +46,7 @@ app.use(upload({ dir: './uploads' }))
 app.use(auth({ token: 'sk-123' }))
 app.use(seoMiddleware({ headers: { ... } }))
 app.use(preferences({ dir: './locales' }))
+app.use(tailwind('./app.css'))
 
 // With extras
 const pg = postgres()
@@ -108,15 +109,33 @@ app.use('/api', t.middleware())  // ctx.tenant
 app.use('/api', t)               // CRUD routes
 ```
 
+**Without a path** — for modules that register internal `__` routes invisible to the user:
+```ts
+app.use(liveReload({ dirs: ['./pages'] }))  // → /__weifuwu/livereload
+```
+The Router accepts `app.use(routerInstance)` — the sub-router is mounted at root, its internal paths are isolated.
+
+### Pattern γ — SSR helper: `app.get('/', ssr('./page.tsx'))`
+
+`ssr()` and `layout()` are not Router instances or middleware — they compile `.tsx` files and return the expected type (`Handler` or `Middleware`).
+
+```ts
+app.use(layout('./layouts/root.tsx'))   // returns Middleware
+app.get('/', ssr('./pages/home.tsx'))   // returns Handler
+```
+
 ### Decision guide
 
 ```
 Does the module need to intercept requests?
   ├─ Yes → Pattern α (Middleware)
   └─ No or also serves routes → Pattern β (Router)
+  
+Need to compile a .tsx file?
+  └─ ssr(path) → Handler, layout(path) → Middleware
 ```
 
-### Client-side modules (Pattern γ)
+### Client-side modules (Pattern δ)
 
 Client-side modules self-register via `addInterceptor()` — import a hook to enable.
 
@@ -137,7 +156,7 @@ addInterceptor(async (url) => {
 - File: `my-mod.ts`, export `myMod`
 - Options type: `MyOptions` (always exported)
 - Pattern β modules: if the module has many custom methods beyond Router's, export `MyModule` interface extending `Router`
-- Route URLs use `__` prefix to avoid user conflicts: `__analytics`, `__lang/:locale`, `__theme/:theme`
+- Route URLs use `__` prefix to avoid user conflicts: `__analytics`, `__lang/:locale`, `__theme/:theme`, `__weifuwu/livereload`, `__ssr/[hash].js`
 
 ## Database (PostgreSQL + Redis)
 
@@ -194,4 +213,4 @@ Tests live in `test/` and follow the pattern: create a `Router`, call `r.handler
 
 ## API Reference
 
-See [README.md](./README.md) for full API documentation including `tsx()`, Router, middleware, and utilities.
+See [README.md](./README.md) for full API documentation including `ssr()`, `layout()`, Router, middleware, and utilities.

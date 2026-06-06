@@ -15,11 +15,14 @@ serve((req, ctx) => new Response('Hello, World!'), { port: 3000 })
 ```
 
 ```ts
-import { serve, Router, tsx, preferences } from 'weifuwu'
+import { serve, Router, preferences } from 'weifuwu'
+import { ssr, layout, liveReload } from 'weifuwu/ssr'
 const app = new Router()
 app.use(preferences({ dir: './locales' }))
-app.use('/', await tsx({ dir: './ui' }))
-serve(app.handler(), { port: 3000 })
+app.use(layout('./layouts/root.tsx'))
+app.get('/', ssr('./pages/home.tsx'))
+app.use(liveReload({ dirs: ['./pages', './layouts'] }))
+serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
 ```
 
 ```bash
@@ -107,11 +110,16 @@ app.use(rateLimit({ max: 100 }))  // with .stop()
 ### Pattern β — Router
 
 ```ts
-app.use('/health', health())                                    // no extras
+app.use('/health', health())                                    // with path
 app.use('/graphql', graphql(handler))
 app.use('/logs', logdb({ pg }))                                 // with .log(), .migrate()
 app.use('/auth', user({ pg, jwtSecret }))                       // with .middleware(), .register()
 app.ws('/ws', messager({ pg }).wsHandler())
+```
+
+β modules can also be mounted **without a path** — internal routes (`/__xxx`) are inaccessible to the user:
+```ts
+app.use(liveReload({ dirs: ['./pages'] }))                      // no path, /__weifuwu/livereload
 ```
 
 β modules that need **separate middleware** use `.middleware()`:
@@ -558,6 +566,102 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 | `header` | `string` | `'X-Request-ID'` | Header name to read/write |
 | `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
 
+---
+
+## React SSR (weifuwu/ssr)
+
+Import from `'weifuwu/ssr'`:
+
+```ts
+import { ssr, layout, liveReload, errorBoundary, notFound, tailwind } from 'weifuwu/ssr'
+```
+
+### ssr(path) [β]
+
+Compiles a `.tsx` file and returns a Router handler that renders the React component to HTML with streaming, client bundle injection, and context serialization.
+
+```ts
+app.get('/about', ssr('./pages/about.tsx'))
+```
+
+- Compiles via esbuild at runtime (no build step)
+- Reads `ctx.layoutStack` (set by `layout()` middleware) and wraps the component from outer to inner
+- Injects hydration script pointing to the auto-generated client bundle at `/__ssr/[hash].js`
+- Serializes middleware-injected `ctx` data to `window.__WEIFUWU_CTX` for client-side hydration
+- Dev mode: injects live reload WebSocket script
+
+### layout(path) [β]
+
+Compiles a `.tsx` file and returns middleware that pushes the layout component onto `ctx.layoutStack`. Pages rendered by `ssr()` consume this stack.
+
+```ts
+app.use(layout('./layouts/root.tsx'))       // outermost
+app.use('/blog', layout('./layouts/blog.tsx'))  // inner
+```
+
+Layout components receive `{ children }` (the child page or nested layout). Multiple layouts wrap from outer to inner in `use()` order.
+
+```tsx
+// layouts/root.tsx
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html><head/><body><main>{children}</main></body></html>
+}
+```
+
+### liveReload(opts) [β]
+
+Returns a `Router` that registers a WebSocket endpoint at `/__weifuwu/livereload` and starts a file watcher on the given directories. When a `.tsx` file changes, it clears the compile cache and broadcasts a reload to all connected browsers.
+
+```ts
+if (process.env.NODE_ENV !== 'production') {
+  app.use(liveReload({ dirs: ['./pages', './layouts'] }))
+}
+```
+
+Mount without a path — the internal `/__weifuwu/livereload` route is invisible to the user. The `ssr()` function automatically injects the client-side WS script in dev mode.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `dirs` | `string[]` | — | Directories to watch for `.tsx` changes |
+
+Returns `Router & { close: () => void }` — call `.close()` to stop the watcher.
+
+### errorBoundary(path) [β]
+
+Wraps child routes in an error boundary. If a page or middleware throws, the error component is rendered instead.
+
+```ts
+app.use('/blog', errorBoundary('./blog-error.tsx'))
+```
+
+The error component receives `{ error, reset }` as props:
+
+```tsx
+export default function BlogError({ error, reset }: { error: Error; reset: () => void }) {
+  return <div><h2>Error</h2><p>{error.message}</p></div>
+}
+```
+
+Error boundaries nest — the nearest one up the middleware chain catches the error.
+
+### notFound(path) [β]
+
+Returns a catch-all handler for 404 pages. Typically registered last:
+
+```ts
+app.all('/*', notFound('./not-found.tsx'))
+```
+
+### tailwind(path) [α]
+
+Compiles Tailwind CSS v4 via `@tailwindcss/postcss` and serves it at `/__wfw/style.css`. In dev mode, watches the CSS file for changes.
+
+```ts
+app.use(tailwind('./app.css'))
+```
+
+When `tailwind()` middleware is detected, `ssr()` automatically injects `<link rel="stylesheet" href="/__wfw/style.css" />` into the HTML `<head>`.
+
 ### seo [β] + seoMiddleware [α]
 
 ```ts
@@ -648,58 +752,6 @@ app.post('/users', validate({ body: CreateUser, query: z.object({ ref: z.string(
 })
 // Validation failure: returns 400 with { error: 'Validation failed', issues: [...] }
 ```
-
----
-
-## React SSR (tsx)
-
-```ts
-app.use('/', await tsx({ dir: './ui/' }))
-```
-
-```
-ui/
-├── pages/
-│   ├── page.tsx          → GET /
-│   ├── layout.tsx        → root layout
-│   ├── not-found.tsx     → 404
-│   ├── about/page.tsx    → GET /about
-│   ├── blog/[slug]/
-│   │   ├── page.tsx      → GET /blog/:slug
-│   │   ├── load.ts       → server data fetching
-│   │   └── route.ts      → API (named exports: POST, PUT...)
-│   ├── blog/layout.tsx   → nested layout
-│   └── api/search/
-│       └── route.ts      → GET /api/search
-└── components/
-```
-
-```tsx
-// page.tsx
-export default function Page() {
-  const { t } = useLocale()
-  const data = useLoaderData()
-  return <h1>{t('title') ?? data.title}</h1>
-}
-```
-
-```tsx
-// layout.tsx
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html><head/><body><main>{children}</main></body></html>
-}
-```
-
-```ts
-// load.ts — server-only data fetching
-export default async function load({ params, query }) { return { data: await db.query(params.slug) } }
-```
-
-```ts
-// route.ts — API co-located with page
-export const POST: Handler = async (req, ctx) => Response.json({ slug: ctx.params.slug })
-```
-
 ### Client-side navigation
 
 ```tsx
@@ -710,7 +762,7 @@ const navigate = useNavigate()               // programmatic: navigate('/contact
 const loading = useNavigating()              // reactive loading state
 ```
 
-`navigate()` fetches SSR, extracts `__weifuwu_root`, replaces in-place. `load.ts` runs on server each nav.
+`navigate()` fetches SSR, extracts `__weifuwu_root`, replaces in-place. Middleware runs on server each nav — data is always fresh.
 
 **Preference URLs** (`/__lang/`, `/__theme/`) are intercepted by modular interceptors registered via `addInterceptor()` — no page reload needed. Importing `useLocale` or `useTheme` registers the interceptor automatically.
 
@@ -795,15 +847,17 @@ function ThemeToggle() {
 
 **`applyTheme(theme)`** — DOM-only theme application. Sets `data-theme` on `<html>`, registers `matchMedia` listener for `'system'`. Used by the interceptor; exported for custom scenarios.
 
-**`useLoaderData()`** — Returns the data returned by `load.ts`. Update-triggered; re-renders on SPA navigation.
+**`useLoaderData()`** — Returns middleware-injected data from the request context. Works identically on server (SSR) and client (hydration/SPA). Re-renders on SPA navigation.
 
 ```tsx
 import { useLoaderData } from 'weifuwu/react'
 function Page() {
-  const data = useLoaderData<{ post: { title: string } }>()
-  return <h1>{data.post.title}</h1>
+  const data = useLoaderData<{ posts: Post[] }>()
+  return <ul>{data.posts.map(p => <li key={p.id}>{p.title}</li>)}</ul>
 }
 ```
+
+On the server, data flows from middleware → `ctx` → `ctx.loaderData` (serialized). On the client, it's restored from `window.__WEIFUWU_CTX`. Under the hood, `useLoaderData()` uses `AsyncLocalStorage` on the server and `window.__WEIFUWU_CTX` on the client — no SSR-specific code needed in your components.
 
 **`addInterceptor(fn)`** — Register a URL interceptor. Interceptors run before SPA navigation; if one returns `true`, `navigate()` skips the fetch-and-swap.
 
@@ -836,7 +890,19 @@ function Toast() {
 
 ### Dev mode
 
-Auto-detected when `NODE_ENV !== 'production'`. File watching, live reload, Tailwind v4 auto-compile.
+Auto-detected when `NODE_ENV !== 'production'`. File watching + live reload via `liveReload()`:
+
+```ts
+import { liveReload } from 'weifuwu/ssr'
+
+if (process.env.NODE_ENV !== 'production') {
+  app.use(liveReload({ dirs: ['./pages', './layouts'] }))
+}
+```
+
+When a `.tsx` file changes, `ssr()` clears its compile cache and the browser auto-refreshes. No process restart needed.
+
+Tailwind v4 auto-compile via `tailwind()` middleware:
 
 ---
 

@@ -94,14 +94,15 @@ async function cmdInit(name: string) {
   ].join('\n'))
 
   await writeFile(join(targetDir, 'app.ts'), [
-    "import { serve, Router, loadEnv, tsx } from 'weifuwu'",
+    "import { serve, Router, loadEnv } from 'weifuwu'",
+    "import { ssr, layout } from 'weifuwu/ssr'",
     '',
     "loadEnv()",
     "const port = Number(process.env.PORT) || 3000",
     '',
     "const app = new Router()",
-    "const ui = await tsx({ dir: './ui/' })",
-    "app.use('/', ui)",
+    "app.use(layout('./ui/layout.tsx'))",
+    "app.get('/', ssr('./ui/page.tsx'))",
     '',
     "app.get('/api/ping', () => Response.json({ pong: true, time: new Date().toISOString() }))",
     '',
@@ -113,11 +114,11 @@ async function cmdInit(name: string) {
     '',
   ].join('\n'))
 
-  await mkdir(join(targetDir, 'ui', 'pages'), { recursive: true })
+  await mkdir(join(targetDir, 'ui'), { recursive: true })
 
   await writeFile(join(targetDir, 'ui', 'app.css'), '@import "tailwindcss";\n')
 
-  await writeFile(join(targetDir, 'ui', 'pages', 'layout.tsx'), [
+  await writeFile(join(targetDir, 'ui', 'layout.tsx'), [
     "import { ReactNode } from 'react'",
     '',
     'export default function RootLayout({ children }: { children: ReactNode }) {',
@@ -136,7 +137,7 @@ async function cmdInit(name: string) {
     '',
   ].join('\n'))
 
-  await writeFile(join(targetDir, 'ui', 'pages', 'page.tsx'), [
+  await writeFile(join(targetDir, 'ui', 'page.tsx'), [
     "import { useState } from 'react'",
     "import { useWebsocket } from 'weifuwu/react'",
     '',

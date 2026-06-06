@@ -83,24 +83,24 @@ describe('weifuwu init', () => {
 
     // Check tsx + ui files
     const appContent = await readFile(resolve(projectDir, 'app.ts'), 'utf-8')
-    assert.ok(appContent.includes('import { serve, Router, loadEnv, tsx }'))
-    assert.ok(appContent.includes('tsx({ dir:'))
+    assert.ok(appContent.includes('import { ssr, layout }'))
+    assert.ok(appContent.includes("ssr('./ui/page.tsx')"))
     assert.ok(appContent.includes('/api/ping'))
     assert.ok(appContent.includes('/ws/echo'))
     assert.ok(appContent.includes('websocket: app.websocketHandler()'))
     assert.ok(appContent.includes('await server.ready'))
 
-    const uiFiles = await readdir(resolve(projectDir, 'ui', 'pages'))
+    const uiFiles = await readdir(resolve(projectDir, 'ui'))
     assert.ok(uiFiles.includes('layout.tsx'))
     assert.ok(uiFiles.includes('page.tsx'))
 
     const uiDir = await readdir(resolve(projectDir, 'ui'))
     assert.ok(uiDir.includes('app.css'))
 
-    const layoutContent = await readFile(resolve(projectDir, 'ui', 'pages', 'layout.tsx'), 'utf-8')
+    const layoutContent = await readFile(resolve(projectDir, 'ui', 'layout.tsx'), 'utf-8')
     assert.ok(layoutContent.includes('<main>{children}</main>'))
 
-    const pageContent = await readFile(resolve(projectDir, 'ui', 'pages', 'page.tsx'), 'utf-8')
+    const pageContent = await readFile(resolve(projectDir, 'ui', 'page.tsx'), 'utf-8')
     assert.ok(pageContent.includes("from 'weifuwu/react'"))
     assert.ok(pageContent.includes('useWebsocket'))
     assert.ok(pageContent.includes('/ws/echo'))

@@ -8,6 +8,8 @@ export interface Context {
   setPref?: (name: string, value: string) => Response
   prefs?: Record<string, string>
   env?: Record<string, string>
+  layoutStack?: { path: string; component: any }[]  // set by layout() middleware, read by ssr()
+  [key: string]: unknown  // allow arbitrary middleware-injected data
 }
 
 export type Handler = (
