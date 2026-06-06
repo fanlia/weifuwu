@@ -55,8 +55,8 @@ export function clearCompileCache() {
 }
 
 export async function compileTsx(path: string): Promise<any> {
-  if (cache.has(path)) return cache.get(path)!
   const absPath = resolve(path)
+  if (cache.has(absPath)) return cache.get(absPath)!
   mkdirSync(OUT_DIR, { recursive: true })
   const hash = id(absPath)
   const outPath = join(OUT_DIR, hash + '.js')
@@ -76,7 +76,7 @@ export async function compileTsx(path: string): Promise<any> {
   })
 
   const mod = await import(pathToFileURL(outPath).href)
-  cache.set(path, mod)
+  cache.set(absPath, mod)
   return mod
 }
 
@@ -92,8 +92,8 @@ function loadSSRModule(code: string): any {
 
 /** Dev hot-reload: CJS + in-memory + vm (faster than ESM + disk + import) */
 export async function compileTsxDev(path: string): Promise<any> {
-  if (cache.has(path)) return cache.get(path)!
   const absPath = resolve(path)
+  if (cache.has(absPath)) return cache.get(absPath)!
   const result = await esbuild.build({
     entryPoints: { [id(absPath)]: absPath },
     format: 'cjs',
@@ -107,6 +107,6 @@ export async function compileTsxDev(path: string): Promise<any> {
   })
   const code = new TextDecoder().decode(result.outputFiles[0].contents)
   const mod = loadSSRModule(code)
-  cache.set(path, mod)
+  cache.set(absPath, mod)
   return mod
 }

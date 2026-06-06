@@ -139,6 +139,26 @@ describe('weifuwu init', () => {
   })
 })
 
+describe('compile cache', () => {
+  it('shares cache between relative and absolute paths', async () => {
+    const { compileTsx, compileTsxDev, clearCompileCache } = await import('../compile.ts')
+    const { resolve } = await import('node:path')
+
+    clearCompileCache()
+    const tsxPath = './cli/template/ui/page.tsx'
+    const absPath = resolve(tsxPath)
+
+    // Simulate watcher (absolute path)
+    const mod1 = await compileTsxDev(absPath)
+
+    // Simulate ssr() (relative path) — should hit same cache
+    const mod2 = await compileTsx(tsxPath)
+
+    assert.ok(mod1?.default)
+    assert.strictEqual(mod1, mod2, 'should return same cached module')
+  })
+})
+
 describe('liveReload()', () => {
   it('registers WS route at /__weifuwu/livereload', async () => {
     const { Router: R } = await import('../router.ts')
