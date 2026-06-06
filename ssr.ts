@@ -122,8 +122,8 @@ export function ssr(path: string): Router {
     return als.run(ctxValue, async () => {
       setCtx(ctxValue)
 
-      let element: any = createElement(TsxContext.Provider, { value: ctxValue },
-        createElement('div', { id: '__weifuwu_root' },
+      let element: any = createElement('div', { id: '__weifuwu_root' },
+        createElement(TsxContext.Provider, { value: ctxValue },
           createElement(Component, null),
         ),
       )
