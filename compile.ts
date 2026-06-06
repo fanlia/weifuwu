@@ -112,17 +112,24 @@ export async function compileTsxDev(path: string): Promise<any> {
 }
 
 const vendorCache = new Map<string, string>()
+const vendorReExports: Record<string, string> = {
+  'react': `import __r from 'react';export default __r;export var createElement=__r.createElement;export var cloneElement=__r.cloneElement;export var isValidElement=__r.isValidElement;export var useState=__r.useState;export var useEffect=__r.useEffect;export var useCallback=__r.useCallback;export var useRef=__r.useRef;export var useMemo=__r.useMemo;export var useReducer=__r.useReducer;export var createContext=__r.createContext;export var useContext=__r.useContext;export var useLayoutEffect=__r.useLayoutEffect;export var useDebugValue=__r.useDebugValue;export var forwardRef=__r.forwardRef;export var memo=__r.memo;export var lazy=__r.lazy;export var Suspense=__r.Suspense;export var Fragment=__r.Fragment;export var Children=__r.Children;export var PureComponent=__r.PureComponent;export var Component=__r.Component;export var createRef=__r.createRef;export var StrictMode=__r.StrictMode;export var startTransition=__r.startTransition;export var useId=__r.useId;export var useSyncExternalStore=__r.useSyncExternalStore;export var useTransition=__r.useTransition;export var useDeferredValue=__r.useDeferredValue;export var useInsertionEffect=__r.useInsertionEffect;export var use=__r.use;export var useActionState=__r.useActionState;export var useOptimistic=__r.useOptimistic;export var useImperativeHandle=__r.useImperativeHandle;export var version=__r.version;`,
+  'react-dom': `import __rd from 'react-dom';export default __rd;export var createPortal=__rd.createPortal;export var createRoot=__rd.createRoot;export var hydrateRoot=__rd.hydrateRoot;export var flushSync=__rd.flushSync;export var findDOMNode=__rd.findDOMNode;export var preinit=__rd.preinit;export var preload=__rd.preload;export var version=__rd.version;`,
+}
 
-/** Compile a vendor module (react, react-dom, weifuwu/react) to standalone ESM */
+/** Compile a vendor module to standalone ESM with named exports */
 export async function compileVendorModule(name: string, entry: string): Promise<string> {
   if (vendorCache.has(name)) return vendorCache.get(name)!
-  const isRoot = name === 'react' || name === 'react/jsx-runtime'
+  if (!existsSync(entry)) return 'export default null;'
+
+  const isEsm = name === 'weifuwu-react'
   const result = await esbuild.build({
-    entryPoints: { [name]: entry },
+    stdin: isEsm ? undefined : { contents: vendorReExports[name], resolveDir: process.cwd() },
+    entryPoints: isEsm ? { [name]: entry } : undefined,
     format: 'esm',
     platform: 'browser',
     bundle: true,
-    external: isRoot ? [] : ['react'],
+    external: name === 'react-dom' ? ['react'] : undefined,
     write: false,
   })
   const code = new TextDecoder().decode(result.outputFiles[0].contents)
