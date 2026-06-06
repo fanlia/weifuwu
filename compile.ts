@@ -111,12 +111,33 @@ export async function compileTsxDev(path: string): Promise<any> {
   return mod
 }
 
-/** Browser hot-reload: CJS + react externals, sent via WS and evaled in browser */
-export async function compileTsxBrowser(path: string): Promise<string> {
-  const absPath = resolve(path)
+const vendorCache = new Map<string, string>()
+
+/** Compile a vendor module (react, react-dom, weifuwu/react) to standalone ESM */
+export async function compileVendorModule(name: string, entry: string): Promise<string> {
+  if (vendorCache.has(name)) return vendorCache.get(name)!
+  const isRoot = name === 'react' || name === 'react/jsx-runtime'
   const result = await esbuild.build({
-    entryPoints: { [id(absPath)]: absPath },
-    format: 'cjs',
+    entryPoints: { [name]: entry },
+    format: 'esm',
+    platform: 'browser',
+    bundle: true,
+    external: isRoot ? [] : ['react'],
+    write: false,
+  })
+  const code = new TextDecoder().decode(result.outputFiles[0].contents)
+  vendorCache.set(name, code)
+  return code
+}
+
+/** Hot-reload: ESM bundle with vendor externals, calls __WFW_SET_PAGE on import */
+export async function compileHotComponent(path: string): Promise<{ hash: string; code: string }> {
+  const absPath = resolve(path)
+  const h = id(absPath)
+  const stdin = `import C from ${JSON.stringify(absPath)};\n(window.__WFW_SET_PAGE||function(){})(C)`
+  const result = await esbuild.build({
+    stdin: { contents: stdin, loader: 'tsx', resolveDir: dirname(absPath) },
+    format: 'esm',
     platform: 'browser',
     jsx: 'automatic',
     jsxImportSource: 'react',
@@ -124,5 +145,5 @@ export async function compileTsxBrowser(path: string): Promise<string> {
     external: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu/react'],
     write: false,
   })
-  return new TextDecoder().decode(result.outputFiles[0].contents)
+  return { hash: h, code: new TextDecoder().decode(result.outputFiles[0].contents) }
 }

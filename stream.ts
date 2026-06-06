@@ -47,8 +47,20 @@ function getPublicEnv(): Record<string, string> {
 }
 
 function buildHeadPayload(opts: StreamOpts): string {
-  const { ctx, base, compiledTailwindCss } = opts
+  const { ctx, base, compiledTailwindCss, isDev } = opts
   let result = ''
+
+  if (isDev) {
+    result += `<script type="importmap">{
+  "imports": {
+    "react": "/__wfw/v/react",
+    "react-dom": "/__wfw/v/react-dom",
+    "react-dom/client": "/__wfw/v/react-dom",
+    "react/jsx-runtime": "/__wfw/v/react",
+    "weifuwu/react": "/__wfw/v/weifuwu-react"
+  }
+}<\/script>\n`
+  }
 
   if (ctx.prefs?.theme) {
     result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
@@ -152,7 +164,7 @@ export function streamResponse(reactStream: ReadableStream, opts: StreamOpts): R
 
         if (opts.isDev) {
           controller.enqueue(encoder.encode(
-            `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');var t=0;ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='css'){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css;return}}catch(_){}if(e.data==='reload'&&Date.now()-t>1e3){t=Date.now();location.reload()}};ws.onclose=function(){if(Date.now()-t>1e3){t=Date.now();setTimeout(function(){location.reload()},500)}}})()<\/script>`
+            `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');var t=0;ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='component'){import('/__wfw/h/'+m.hash).catch(function(){location.reload()});if(m.css){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css}return}if(m.type==='css'){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css;return}}catch(_){}if(e.data==='reload'&&Date.now()-t>1e3){t=Date.now();location.reload()}};ws.onclose=function(){if(Date.now()-t>1e3){t=Date.now();setTimeout(function(){location.reload()},500)}}})()<\/script>`
           ))
         }
       } catch {
