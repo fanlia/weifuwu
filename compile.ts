@@ -3,6 +3,10 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
+import vm from 'node:vm'
+import { createRequire } from 'node:module'
+
+const _cjsRequire = createRequire(import.meta.url)
 
 const OUT_DIR = '.weifuwu/ssr'
 const cache = new Map<string, any>()
@@ -72,6 +76,37 @@ export async function compileTsx(path: string): Promise<any> {
   })
 
   const mod = await import(pathToFileURL(outPath).href)
+  cache.set(path, mod)
+  return mod
+}
+
+function loadSSRModule(code: string): any {
+  const ctx = vm.createContext(Object.create(globalThis))
+  const mod = { exports: {} }
+  ;(ctx as any).require = (name: string) => _cjsRequire(name)
+  ;(ctx as any).module = mod
+  ;(ctx as any).exports = mod.exports
+  new vm.Script(code).runInContext(ctx)
+  return mod.exports
+}
+
+/** Dev hot-reload: CJS + in-memory + vm (faster than ESM + disk + import) */
+export async function compileTsxDev(path: string): Promise<any> {
+  if (cache.has(path)) return cache.get(path)!
+  const absPath = resolve(path)
+  const result = await esbuild.build({
+    entryPoints: { [id(absPath)]: absPath },
+    format: 'cjs',
+    platform: 'node',
+    jsx: 'automatic',
+    jsxImportSource: 'react',
+    bundle: true,
+    external: externals,
+    alias: resolveAliases(),
+    write: false,
+  })
+  const code = new TextDecoder().decode(result.outputFiles[0].contents)
+  const mod = loadSSRModule(code)
   cache.set(path, mod)
   return mod
 }

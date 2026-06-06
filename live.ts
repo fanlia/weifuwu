@@ -1,7 +1,7 @@
 import chokidar from 'chokidar'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
-import { clearCompileCache } from './compile.ts'
+import { compileTsxDev, clearCompileCache } from './compile.ts'
 
 const clients = new Set<WebSocket>()
 
@@ -27,10 +27,13 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
     ignoreInitial: true,
   })
 
-  watcher.on('change', (path: string) => {
-    if (!/\.tsx?$/.test(path)) return
+  watcher.on('change', async (filePath: string) => {
+    if (!/\.tsx?$/.test(filePath)) return
     clearCompileCache()
-    setTimeout(broadcastReload, 50)
+    try {
+      await compileTsxDev(filePath)
+    } catch {}
+    broadcastReload()
   })
 
   ;(r as any).close = () => {
