@@ -25,7 +25,7 @@ describe('messager', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates a channel via router', async () => {
-    const r = msg.router()
+    const r = msg
     const res = await r.handler()(
       new Request('http://localhost/channels', {
         method: 'POST',
@@ -43,7 +43,7 @@ describe('messager', { skip: !DATABASE_URL }, () => {
   })
 
   it('lists channels for user', async () => {
-    const r = msg.router()
+    const r = msg
     const [ch] = await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('Test', 1) RETURNING *`
     await pg.sql`INSERT INTO "_channel_members" ("channel_id", "member_id", "member_type", "role") VALUES (${(ch as any).id}, 1, 'user', 'admin')`
 
@@ -60,7 +60,7 @@ describe('messager', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates and lists messages', async () => {
-    const r = msg.router()
+    const r = msg
     const [ch] = await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('MsgTest', 1) RETURNING *`
     const channelId = (ch as any).id
 
@@ -97,7 +97,7 @@ describe('messager', { skip: !DATABASE_URL }, () => {
   })
 
   it('marks channel as read', async () => {
-    const r = msg.router()
+    const r = msg
     const [ch] = await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('ReadTest', 1) RETURNING *`
     const channelId = (ch as any).id
     await pg.sql`INSERT INTO "_channel_members" ("channel_id", "member_id", "member_type", "role") VALUES (${channelId}, 1, 'user', 'admin')`
@@ -132,7 +132,7 @@ describe('messager', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates channel with members', async () => {
-    const r = msg.router()
+    const r = msg
     const res = await r.handler()(
       new Request('http://localhost/channels', {
         method: 'POST',

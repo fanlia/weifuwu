@@ -37,8 +37,7 @@ export interface UserOptions {
   oauth2?: OAuth2ServerOptions
 }
 
-export interface UserModule {
-  router: () => Router
+export interface UserModule extends Router {
   middleware: () => Middleware
   migrate: () => Promise<void>
   register: (data: { email: string; password: string; name: string }) => Promise<AuthResult>

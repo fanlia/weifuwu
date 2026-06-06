@@ -65,16 +65,16 @@ export function agent(options: AgentOptions): AgentModule {
 
   const base = new PgModule(pg)
 
-  return {
-    migrate: async () => {
-      await agentsTable.create()
-      await agentsTable.createIndex('tenant_id')
-      await knowledgeTable.create()
-      await knowledgeTable.createIndex('agent_id')
-    },
-    router: () => buildRouter({ agents: agentsTable, knowledge: knowledgeTable, runner }),
-    run: (agentId: number, params) => runner.run(agentId, params),
-    addKnowledge: (agentId: number, title: string, content: string) => runner.addKnowledge(agentId, title, content),
-    close: () => base.close(),
+  const r = buildRouter({ agents: agentsTable, knowledge: knowledgeTable, runner })
+  const mod = r as AgentModule
+  mod.migrate = async () => {
+    await agentsTable.create()
+    await agentsTable.createIndex('tenant_id')
+    await knowledgeTable.create()
+    await knowledgeTable.createIndex('agent_id')
   }
+  mod.run = (agentId: number, params) => runner.run(agentId, params)
+  mod.addKnowledge = (agentId: number, title: string, content: string) => runner.addKnowledge(agentId, title, content)
+  mod.close = () => base.close()
+  return mod
 }

@@ -74,7 +74,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
 
   it('POST / creates entry and returns 201', async () => {
     const logger = logdb({ pg, table: tableName })
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready
@@ -95,7 +95,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
 
   it('POST / requires level, source, message', async () => {
     const logger = logdb({ pg, table: tableName })
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready
@@ -113,7 +113,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
 
   it('POST / auto-captures ctx.user.id in metadata', async () => {
     const logger = logdb({ pg, table: tableName })
-    const handler = logger.router().handler()
+    const handler = logger.handler()
 
     const req = new Request('http://localhost/', {
       method: 'POST',
@@ -132,7 +132,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     await logger.log({ level: 'info', source: 'test', message: 'first' })
     await logger.log({ level: 'info', source: 'test', message: 'second' })
 
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready
@@ -152,7 +152,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     await logger.log({ level: 'info', source: 'test', message: 'a' })
     await logger.log({ level: 'error', source: 'test', message: 'b' })
 
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready
@@ -171,7 +171,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     await logger.log({ level: 'info', source: 'test', message: 'old' })
     await logger.log({ level: 'info', source: 'test', message: 'new' })
 
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready
@@ -190,7 +190,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     await logger.log({ level: 'info', source: 'test', message: 'a', metadata: { service: 'auth' } })
     await logger.log({ level: 'info', source: 'test', message: 'b', metadata: { service: 'api' } })
 
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready
@@ -209,7 +209,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     await logger.log({ level: 'info', source: 'test', message: 'a', metadata: { service: 'auth', env: 'prod' } })
     await logger.log({ level: 'info', source: 'test', message: 'b', metadata: { service: 'auth', env: 'dev' } })
 
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready
@@ -227,7 +227,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     const logger = logdb({ pg, table: tableName })
     const entry = await logger.log({ level: 'info', source: 'test', message: 'findme' })
 
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready
@@ -244,7 +244,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
 
   it('GET /:id returns 404 for missing', async () => {
     const logger = logdb({ pg, table: tableName })
-    const handler = logger.router().handler()
+    const handler = logger.handler()
     const { server, url } = await createTestServer(handler)
     try {
       await server.ready

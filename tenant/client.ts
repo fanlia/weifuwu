@@ -12,83 +12,87 @@ export function tenant(options: TenantOptions): TenantModule {
 
   const base = new PgModule(pg)
 
-  return {
-    migrate: async () => {
-      await sql.unsafe(`CREATE EXTENSION IF NOT EXISTS "vector"`)
+  async function migrate(): Promise<void> {
+    await sql.unsafe(`CREATE EXTENSION IF NOT EXISTS "vector"`)
 
-      const tenants = pgTable('_tenants', {
-        id: text('id').primaryKey().default(schemaSql`gen_random_uuid()`),
-        name: text('name').notNull(),
-        created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
-      })
-      await tenants.create(sql)
+    const tenants = pgTable('_tenants', {
+      id: text('id').primaryKey().default(schemaSql`gen_random_uuid()`),
+      name: text('name').notNull(),
+      created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+    })
+    await tenants.create(sql)
 
-      const members = pgTable('_tenant_members', {
-        id: serial('id').primaryKey(),
-        tenant_id: text('tenant_id').notNull().references('_tenants', 'id', 'cascade'),
-        user_id: integer('user_id').notNull(),
-        role: text('role').notNull().default('member'),
-        created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
-      })
-      await members.create(sql)
-      await members.createIndex(sql, 'user_id')
-      await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "_tenant_members_unique_idx" ON "_tenant_members" ("tenant_id", "user_id")`)
+    const members = pgTable('_tenant_members', {
+      id: serial('id').primaryKey(),
+      tenant_id: text('tenant_id').notNull().references('_tenants', 'id', 'cascade'),
+      user_id: integer('user_id').notNull(),
+      role: text('role').notNull().default('member'),
+      created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+    })
+    await members.create(sql)
+    await members.createIndex(sql, 'user_id')
+    await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "_tenant_members_unique_idx" ON "_tenant_members" ("tenant_id", "user_id")`)
 
-      const tables = pgTable('_user_tables', {
-        id: serial('id').primaryKey(),
-        tenant_id: text('tenant_id').notNull().references('_tenants', 'id', 'cascade'),
-        slug: text('slug').notNull(),
-        label: text('label').notNull().default(''),
-        fields: jsonb('fields').notNull().default(schemaSql`'[]'::jsonb`),
-        created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
-      })
-      await tables.create(sql)
-      await tables.createIndex(sql, 'tenant_id')
-      await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "_user_tables_unique_idx" ON "_user_tables" ("tenant_id", "slug")`)
-    },
-    middleware() {
-      return async (req: Request, ctx: Context, next: Handler): Promise<Response> => {
-        const user = (ctx as any).user as { id: number } | undefined
-        if (!user) {
-          return new Response('Unauthorized', { status: 401 })
-        }
+    const tables = pgTable('_user_tables', {
+      id: serial('id').primaryKey(),
+      tenant_id: text('tenant_id').notNull().references('_tenants', 'id', 'cascade'),
+      slug: text('slug').notNull(),
+      label: text('label').notNull().default(''),
+      fields: jsonb('fields').notNull().default(schemaSql`'[]'::jsonb`),
+      created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+    })
+    await tables.create(sql)
+    await tables.createIndex(sql, 'tenant_id')
+    await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "_user_tables_unique_idx" ON "_user_tables" ("tenant_id", "slug")`)
+  }
 
-        const members = await sql`
-          SELECT tm.role, t.id, t.name
-          FROM "_tenant_members" tm
-          JOIN "_tenants" t ON t.id = tm.tenant_id
-          WHERE tm.user_id = ${user.id}
-        ` as any[]
+  function middleware(): (req: Request, ctx: Context, next: Handler) => Promise<Response> {
+    return async (req: Request, ctx: Context, next: Handler): Promise<Response> => {
+      const user = (ctx as any).user as { id: number } | undefined
+      if (!user) {
+        return new Response('Unauthorized', { status: 401 })
+      }
 
-        if (members.length === 0) {
-          return new Response('No tenant found. Create one via POST /sys/tenants.', { status: 403 })
-        }
+      const members = await sql`
+        SELECT tm.role, t.id, t.name
+        FROM "_tenant_members" tm
+        JOIN "_tenants" t ON t.id = tm.tenant_id
+        WHERE tm.user_id = ${user.id}
+      ` as any[]
 
-        if (members.length === 1) {
-          const m = members[0]
-          ctx.tenant = { id: m.id, name: m.name, role: m.role } as TenantContext
-          return next(req, ctx)
-        }
+      if (members.length === 0) {
+        return new Response('No tenant found. Create one via POST /sys/tenants.', { status: 403 })
+      }
 
-        const headerId = req.headers.get('X-Tenant-ID')
-        if (!headerId) {
-          return Response.json({
-            error: 'Multiple tenants. Set X-Tenant-ID header.',
-            tenants: members.map((m: any) => ({ id: m.id, name: m.name, role: m.role })),
-          }, { status: 300 })
-        }
-
-        const member = members.find((m: any) => m.id === headerId)
-        if (!member) {
-          return new Response('Tenant not found', { status: 403 })
-        }
-
-        ctx.tenant = { id: member.id, name: member.name, role: member.role } as TenantContext
+      if (members.length === 1) {
+        const m = members[0]
+        ctx.tenant = { id: m.id, name: m.name, role: m.role } as TenantContext
         return next(req, ctx)
       }
-    },
-    router: () => buildRouter(sql, usersTable),
-    graphql: () => buildGraphQLHandler(sql),
-    close: () => base.close(),
+
+      const headerId = req.headers.get('X-Tenant-ID')
+      if (!headerId) {
+        return Response.json({
+          error: 'Multiple tenants. Set X-Tenant-ID header.',
+          tenants: members.map((m: any) => ({ id: m.id, name: m.name, role: m.role })),
+        }, { status: 300 })
+      }
+
+      const member = members.find((m: any) => m.id === headerId)
+      if (!member) {
+        return new Response('Tenant not found', { status: 403 })
+      }
+
+      ctx.tenant = { id: member.id, name: member.name, role: member.role } as TenantContext
+      return next(req, ctx)
+    }
   }
+
+  const r = buildRouter(sql, usersTable)
+  const mod = r as TenantModule
+  mod.migrate = migrate
+  mod.middleware = middleware
+  mod.graphql = () => buildGraphQLHandler(sql)
+  mod.close = () => base.close()
+  return mod
 }

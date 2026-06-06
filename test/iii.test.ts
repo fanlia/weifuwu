@@ -10,7 +10,7 @@ describe('iii', () => {
   it('creates an engine', () => {
     engine = iii()
     assert.ok(engine)
-    assert.ok(engine.router)
+    assert.ok(engine.handler)
     assert.ok(engine.trigger)
     assert.ok(engine.addWorker)
   })
@@ -310,7 +310,7 @@ describe('iii', () => {
   // ── REST API ────────────────────────────────────────────
 
   it('triggers via REST API', async () => {
-    const r = engine.router()
+    const r = engine
     const res = await r.handler()(
       new Request('http://localhost/trigger/math::add', {
         method: 'POST',
@@ -325,7 +325,7 @@ describe('iii', () => {
   })
 
   it('REST API lists workers/functions/triggers', async () => {
-    const r = engine.router()
+    const r = engine
 
     const workersRes = await r.handler()(
       new Request('http://localhost/workers'),
@@ -353,7 +353,7 @@ describe('iii', () => {
   })
 
   it('REST trigger with void returns 202', async () => {
-    const r = engine.router()
+    const r = engine
     const res = await r.handler()(
       new Request('http://localhost/trigger/math::add', {
         method: 'POST',
@@ -366,7 +366,7 @@ describe('iii', () => {
   })
 
   it('REST trigger with non-existent function returns 500', async () => {
-    const r = engine.router()
+    const r = engine
     const res = await r.handler()(
       new Request('http://localhost/trigger/nope::fn', {
         method: 'POST',

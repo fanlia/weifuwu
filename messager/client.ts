@@ -48,33 +48,36 @@ export function messager(options: MessagerOptions): MessagerModule {
     created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
   })
 
-  return {
-    migrate: async () => {
-      await channels.create()
-      await channels.createIndex('tenant_id')
-      await members.create()
-      await members.createIndex('member_id')
-      await members.createIndex(['channel_id', 'member_id', 'member_type'], { unique: true })
-      await messages.create()
-      await messages.createIndex(['channel_id', 'created_at'], { desc: true })
-    },
-    router: () => buildRouter({ sql, channels, members, messages, agents, hub }),
-    wsHandler: () => wsResult.handler,
-    async send(channelId: number, content: string, opts?: {
-      sender_type?: string
-      sender_id?: number
-      type?: string
-    }): Promise<Message> {
-      const msg = await messages.insert({
-        channel_id: channelId,
-        sender_id: opts?.sender_id ?? 0,
-        sender_type: opts?.sender_type ?? 'system',
-        type: opts?.type ?? 'text',
-        content,
-      })
-      broadcastToChannel(hub, channelId, { type: 'message', data: msg })
-      return msg as Message
-    },
-    close: () => base.close(),
+  const r = buildRouter({ sql, channels, members, messages, agents, hub })
+
+  async function send(channelId: number, content: string, opts?: {
+    sender_type?: string
+    sender_id?: number
+    type?: string
+  }): Promise<Message> {
+    const msg = await messages.insert({
+      channel_id: channelId,
+      sender_id: opts?.sender_id ?? 0,
+      sender_type: opts?.sender_type ?? 'system',
+      type: opts?.type ?? 'text',
+      content,
+    })
+    broadcastToChannel(hub, channelId, { type: 'message', data: msg })
+    return msg as Message
   }
+
+  const mod = r as MessagerModule
+  mod.migrate = async () => {
+    await channels.create()
+    await channels.createIndex('tenant_id')
+    await members.create()
+    await members.createIndex('member_id')
+    await members.createIndex(['channel_id', 'member_id', 'member_type'], { unique: true })
+    await messages.create()
+    await messages.createIndex(['channel_id', 'created_at'], { desc: true })
+  }
+  mod.wsHandler = () => wsResult.handler
+  mod.send = send
+  mod.close = () => base.close()
+  return mod
 }

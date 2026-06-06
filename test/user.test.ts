@@ -163,7 +163,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
 
   it('router POST /register works', async () => {
     const auth = user({ pg, jwtSecret, table })
-    const r = auth.router()
+    const r = auth
 
     const res = await r.handler()(
       new Request('http://localhost/register', {
@@ -185,7 +185,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
 
     await auth.register({ email: 'rlogin@test.com', password: 'password456', name: 'RL' })
 
-    const r = auth.router()
+    const r = auth
     const res = await r.handler()(
       new Request('http://localhost/login', {
         method: 'POST',
@@ -202,7 +202,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
 
   it('router returns 400 for invalid input', async () => {
     const auth = user({ pg, jwtSecret, table })
-    const r = auth.router()
+    const r = auth
 
     const res = await r.handler()(
       new Request('http://localhost/register', {
@@ -284,7 +284,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
       })
       const { user: u } = await auth.register({ email: 'oauth-user@test.com', password: 'password123', name: 'OAuth' })
 
-      const router = auth.router()
+      const router = auth
 
       const authorizeRes = await router.handler()(
         new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://authcode.app/cb&response_type=code&state=xyz`, {
@@ -352,7 +352,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
       const codeVerifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXK'
       const challenge = crypto.createHash('sha256').update(codeVerifier).digest().toString('base64url')
 
-      const router = auth.router()
+      const router = auth
 
       const authorizeRes = await router.handler()(
         new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://pkce.app/cb&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=pkce`, {
@@ -411,7 +411,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
         redirectUris: ['https://badcode.app/cb'],
       })
 
-      const router = auth.router()
+      const router = auth
       const tokenRes = await router.handler()(
         new Request('http://localhost/oauth/token', {
           method: 'POST',
@@ -437,7 +437,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
         redirectUris: ['https://noauth.app/cb'],
       })
 
-      const router = auth.router()
+      const router = auth
       const res = await router.handler()(
         new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://noauth.app/cb&response_type=code`),
         { params: {}, query: {} } as any,
@@ -454,7 +454,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
       })
       const { user: u } = await auth.register({ email: 'deny-user@test.com', password: 'password123', name: 'Deny' })
 
-      const router = auth.router()
+      const router = auth
       const res = await router.handler()(
         new Request('http://localhost/oauth/consent', {
           method: 'POST',
@@ -481,7 +481,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
         redirectUris: ['https://machine.app/cb'],
       })
 
-      const router = auth.router()
+      const router = auth
       const tokenRes = await router.handler()(
         new Request('http://localhost/oauth/token', {
           method: 'POST',
@@ -505,7 +505,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
     })
 
     it('authorize rejects invalid client_id', async () => {
-      const router = auth.router()
+      const router = auth
       const res = await router.handler()(
         new Request('http://localhost/oauth/authorize?client_id=nonexistent&redirect_uri=https://x.com/cb&response_type=code'),
         { params: {}, query: {} } as any,

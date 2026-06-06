@@ -1,3 +1,4 @@
+import type { Router } from '../router.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 import type { Redis } from '../vendor.ts'
@@ -41,9 +42,8 @@ export interface Message {
   created_at: string
 }
 
-export interface MessagerModule {
+export interface MessagerModule extends Router {
   migrate: () => Promise<void>
-  router: () => any
   wsHandler: () => any
   send: (channelId: number, content: string, opts?: {
     sender_type?: string

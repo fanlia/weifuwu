@@ -402,7 +402,7 @@ describe('graphql', () => {
       schema: `type Query { hello: String }`,
       resolvers: { Query: { hello: () => 'world' } },
     }))
-    r.use('/graphql', gql1.router())
+    r.use('/graphql', gql1)
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql?query={hello}`)
@@ -418,7 +418,7 @@ describe('graphql', () => {
       schema: `type Query { hello: String }`,
       resolvers: { Query: { hello: () => 'world' } },
     }))
-    r.use('/graphql', gql2.router())
+    r.use('/graphql', gql2)
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql`, {
@@ -439,7 +439,7 @@ describe('graphql', () => {
       resolvers: { Query: { hello: () => 'world' } },
       graphiql: true,
     }))
-    r.use('/graphql', gql3.router())
+    r.use('/graphql', gql3)
 
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql`)

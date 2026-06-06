@@ -40,8 +40,7 @@ export interface TriggerOptions {
   timeout_ms?: number
 }
 
-export interface IIIModule {
-  router: () => Router
+export interface IIIModule extends Router {
   wsHandler: () => any
   addWorker: (worker: Worker) => void
   trigger: (request: TriggerRequest) => Promise<unknown>

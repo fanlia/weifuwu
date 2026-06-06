@@ -24,10 +24,10 @@ app.get('/', () => new Response('Home'))
 app.get('/health', () => Response.json({ status: 'ok' }))
 
 // Mount iii under /iii — all iii routes are now prefixed
-app.use('/iii', engine.router())
+app.use('/iii', engine)
 
 // Also expose iii directly at root for comparison
-// app.use('/', engine.router())
+// app.use('/', engine)
 
 const server = serve(app.handler(), {
   port: +process.env.PORT! || 3000,

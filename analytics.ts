@@ -7,9 +7,8 @@ export interface AnalyticsOptions {
   pg?: { sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>; table: (name: string, cols: any) => any }
 }
 
-export interface AnalyticsModule {
+export interface AnalyticsModule extends Router {
   middleware: () => Middleware
-  router: () => Router
   migrate: () => Promise<void>
   close: () => Promise<void>
 }
@@ -243,12 +242,9 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
     })
   }
 
-  const router = () => {
-    const r = new Router()
-    r.get('/__analytics/data', handler)
-    r.get('/__analytics', handler)
-    return r
-  }
+  const r = new Router()
+  r.get('/__analytics/data', handler)
+  r.get('/__analytics', handler)
 
   const migrate = async () => {
     if (pg) await migratePg(pg.sql, pg.table)
@@ -256,5 +252,9 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
 
   const close = async () => {}
 
-  return { middleware, router, migrate, close }
+  const mod = r as AnalyticsModule
+  mod.middleware = middleware
+  mod.migrate = migrate
+  mod.close = close
+  return mod
 }

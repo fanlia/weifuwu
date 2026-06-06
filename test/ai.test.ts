@@ -16,7 +16,7 @@ describe('aiStream', () => {
 
     const m = await aiStream(async () => ({ model: 'gpt-4', prompt: 'hi' }))
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),
       { params: {}, query: {} } as Context,
     )
@@ -33,7 +33,7 @@ describe('aiStream', () => {
 
     const m = await aiStream(async () => { throw new Error('fail') })
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),
       { params: {}, query: {} } as Context,
     )
@@ -46,7 +46,7 @@ describe('aiStream', () => {
 
     const m = await aiStream(async () => ({ model: 'test', prompt: 'x' }))
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', { method: 'GET' }),
       { params: {}, query: {} } as Context,
     )
@@ -66,7 +66,7 @@ describe('aiStream', () => {
     })
 
     const testCtx = { params: { id: '1' }, query: { q: 'test' } } as Context
-    await m.router().handler()(
+    await m.handler()(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),
       testCtx,
     )

@@ -18,7 +18,7 @@ async function getStreamObject() {
   return _ai.streamObject
 }
 
-export async function aiStream(handler: AIHandler): Promise<{ router(): Router }> {
+export async function aiStream(handler: AIHandler): Promise<Router> {
   const r = new Router()
 
   r.post('/', async (req, ctx) => {
@@ -36,5 +36,5 @@ export async function aiStream(handler: AIHandler): Promise<{ router(): Router }
     return result.toTextStreamResponse()
   })
 
-  return { router: () => r }
+  return r
 }

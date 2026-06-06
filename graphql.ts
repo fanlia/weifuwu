@@ -121,7 +121,7 @@ function graphiqlHTML(endpoint: string): string {
 </html>`
 }
 
-export function graphql(handler: GraphQLHandler): { router(): Router } {
+export function graphql(handler: GraphQLHandler): Router {
   const r = new Router()
 
   r.get('/', async (req, ctx) => {
@@ -154,5 +154,5 @@ export function graphql(handler: GraphQLHandler): { router(): Router } {
     return executeQuery(schema, params, options, req, ctx)
   })
 
-  return { router: () => r }
+  return r
 }

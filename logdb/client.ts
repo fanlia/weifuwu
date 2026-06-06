@@ -88,18 +88,20 @@ export function logdb(options: LogdbOptions): LogdbModule {
     return dropped
   }
 
-  return {
-    log,
-    router,
-    migrate: async () => {
-      await entries.create({ partitionBy: partitionBy('range', 'created_at') })
-      await entries.createIndex(['created_at', 'id'])
-      await entries.createIndex(['level'])
-      await entries.createIndex(['source'])
-      await entries.createIndex(['level', 'created_at'])
-      await ensurePartitions(sql, tableName)
-    },
-    clean,
-    close: async () => {},
+  async function migrate(): Promise<void> {
+    await entries.create({ partitionBy: partitionBy('range', 'created_at') })
+    await entries.createIndex(['created_at', 'id'])
+    await entries.createIndex(['level'])
+    await entries.createIndex(['source'])
+    await entries.createIndex(['level', 'created_at'])
+    await ensurePartitions(sql, tableName)
   }
+
+  const r = router()
+  const mod = r as LogdbModule
+  mod.log = log
+  mod.migrate = migrate
+  mod.clean = clean
+  mod.close = async () => {}
+  return mod
 }

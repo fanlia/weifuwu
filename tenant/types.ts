@@ -1,4 +1,5 @@
 import type { Context } from '../types.ts'
+import type { Router } from '../router.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
 declare module '../types.ts' {
@@ -48,10 +49,9 @@ export interface TenantOptions {
   usersTable: string
 }
 
-export interface TenantModule {
+export interface TenantModule extends Router {
   migrate: () => Promise<void>
   middleware: () => (req: Request, ctx: Context, next: any) => Promise<Response>
-  router: () => any
   graphql: () => any
   close: () => Promise<void>
 }

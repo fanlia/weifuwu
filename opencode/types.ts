@@ -71,9 +71,8 @@ export interface OpencodeOptions {
   permissions?: OpencodePermissions
 }
 
-export interface OpencodeModule {
+export interface OpencodeModule extends Router {
   migrate: () => Promise<void>
-  router: () => Router | Promise<Router>
   wsHandler: () => any
   close: () => Promise<void>
 }

@@ -231,24 +231,23 @@ export function user(options: UserOptions): UserModule {
     return r
   }
 
-  const mod: UserModule = {
-    router,
-    middleware,
-    migrate,
-    register,
-    login,
-    verify,
-    registerClient: oauth2
-      ? (data) => oauth2!.registerClient(data)
-      : async () => { throw new Error('OAuth2 server is not enabled') },
-    getClient: oauth2
-      ? (clientId) => oauth2!.getClient(clientId)
-      : async () => { throw new Error('OAuth2 server is not enabled') },
-    revokeClient: oauth2
-      ? (clientId) => oauth2!.revokeClient(clientId)
-      : async () => { throw new Error('OAuth2 server is not enabled') },
-    close: () => base.close(),
-  }
+  const r = router()
+  const mod = r as UserModule
+  mod.middleware = middleware
+  mod.migrate = migrate
+  mod.register = register
+  mod.login = login
+  mod.verify = verify
+  mod.registerClient = oauth2
+    ? (data) => oauth2!.registerClient(data)
+    : async () => { throw new Error('OAuth2 server is not enabled') }
+  mod.getClient = oauth2
+    ? (clientId) => oauth2!.getClient(clientId)
+    : async () => { throw new Error('OAuth2 server is not enabled') }
+  mod.revokeClient = oauth2
+    ? (clientId) => oauth2!.revokeClient(clientId)
+    : async () => { throw new Error('OAuth2 server is not enabled') }
+  mod.close = () => base.close()
 
   return mod
 }

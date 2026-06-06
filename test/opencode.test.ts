@@ -24,8 +24,7 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates a session via router', async () => {
-    const r = await mod.router()
-    const res = await r.handler()(
+    const res = await mod.handler()(
       new Request('http://localhost/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,8 +42,7 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
 
   it('lists sessions', async () => {
     await pg.sql`INSERT INTO "_opencode_sessions" ("title", "user_id") VALUES ('ListTest', 1)`
-    const r = await mod.router()
-    const res = await r.handler()(
+    const res = await mod.handler()(
       new Request('http://localhost/sessions'),
       { params: {}, query: {} } as any,
     )
@@ -58,8 +56,7 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
     const [row] = await pg.sql`
       INSERT INTO "_opencode_sessions" ("title", "user_id") VALUES ('GetTest', 1) RETURNING *
     ` as any
-    const r = await mod.router()
-    const res = await r.handler()(
+    const res = await mod.handler()(
       new Request(`http://localhost/sessions/${row.id}`),
       { params: { id: String(row.id) }, query: {} } as any,
     )
@@ -74,8 +71,7 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
     const [row] = await pg.sql`
       INSERT INTO "_opencode_sessions" ("title", "user_id") VALUES ('DeleteTest', 1) RETURNING *
     ` as any
-    const r = await mod.router()
-    const res = await r.handler()(
+    const res = await mod.handler()(
       new Request(`http://localhost/sessions/${row.id}`, { method: 'DELETE' }),
       { params: { id: String(row.id) }, query: {} } as any,
     )

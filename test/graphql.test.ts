@@ -28,7 +28,7 @@ describe('graphql', () => {
   it('handles GET query', async () => {
     const m = graphql(gqlHandler())
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/?query={hello}'),
       { params: {}, query: {} } as Context,
     )
@@ -40,7 +40,7 @@ describe('graphql', () => {
   it('handles POST query', async () => {
     const m = graphql(gqlHandler())
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,7 +60,7 @@ describe('graphql', () => {
       graphiql: false,
     }))
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,7 +80,7 @@ describe('graphql', () => {
       graphiql: false,
     }))
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/?query={hello(name:"world")}&variables={}'),
       { params: {}, query: {} } as Context,
     )
@@ -90,7 +90,7 @@ describe('graphql', () => {
   it('returns 400 with errors for invalid query', async () => {
     const m = graphql(gqlHandler())
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,7 +107,7 @@ describe('graphql', () => {
   it('returns 400 for missing query', async () => {
     const m = graphql(gqlHandler({ graphiql: false }))
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', { method: 'GET' }),
       { params: {}, query: {} } as Context,
     )
@@ -117,7 +117,7 @@ describe('graphql', () => {
   it('returns 400 for POST with invalid JSON body', async () => {
     const m = graphql(gqlHandler())
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,7 +131,7 @@ describe('graphql', () => {
   it('returns 400 for GET with invalid variables JSON', async () => {
     const m = graphql(gqlHandler({ graphiql: false }))
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/?query={hello}&variables=not-json'),
       { params: {}, query: {} } as Context,
     )
@@ -141,7 +141,7 @@ describe('graphql', () => {
   it('returns GraphiQL HTML on GET without query when enabled', async () => {
     const m = graphql(gqlHandler({ graphiql: true }))
 
-    const res = await m.router().handler()(
+    const res = await m.handler()(
       new Request('http://localhost/', { method: 'GET' }),
       { params: {}, query: {} } as Context,
     )

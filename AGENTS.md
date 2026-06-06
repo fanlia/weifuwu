@@ -27,194 +27,117 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 
 ## Built-in module patterns
 
-All built-in factory functions follow one of **five patterns**. Choose the right one based on what your module needs.
+All built-in factory functions follow one of **two patterns**. Choose the right one based on whether the module needs to **intercept requests** or **serve routes**.
 
-### Pattern A — Pure Middleware
+### Pattern α — Middleware: `app.use(mod())`
 
-For modules that only need to intercept requests and set context. No routes, no DB migration.
+The module returns a `Middleware` callable — `(req, ctx, next) => Response`. Optionally has extras like `.close()`, `.stop()`.
 
 ```ts
-export function myMod(options?: MyOptions): Middleware
+// Basic
+app.use(compress())
+app.use(cors())
+app.use(csrf())
+app.use(helmet())
+app.use(logger())
+app.use(requestId())
+app.use(validate({ body: schema }))
+app.use(upload({ dir: './uploads' }))
+app.use(auth({ token: 'sk-123' }))
+app.use(seoMiddleware({ headers: { ... } }))
+app.use(preferences({ dir: './locales' }))
+
+// With extras
+const pg = postgres()
+app.use(pg)        // + .sql, .table, .migrate(), .transaction(), .close()
+
+const q = queue({ redis })
+app.use(q)         // + .add(), .process(), .run(), .stop(), .close()
+
+const rl = rateLimit({ max: 100 })
+app.use(rl)        // + .stop()
 ```
 
-**Usage:** `app.use(myMod({ ... }))`
+### Pattern β — Router: `app.use('/path', mod())`
 
-| Module | Extra |
-|--------|-------|
-| `compress()` | — |
-| `cors()` | — |
-| `csrf()` | sets `ctx.csrfToken` |
-| `helmet()` | — |
-| `logger()` | — |
-| `requestId()` | sets `ctx.requestId` |
-| `validate()` | sets `ctx.parsed` |
-| `upload()` | sets `ctx.parsed` |
-| `auth()` | sets `ctx.user` |
-| `seoMiddleware()` | — |
-| `preferences()` | auto-handles `/__lang/:locale`, `/__theme/:theme` |
-
-### Pattern B — Middleware with extras
-
-Same as Pattern A, but the middleware function has additional methods attached as properties (for cleanup, migration, etc.).
+The module returns a **`Router` instance** (same `Router` class from `router.ts`). May have `.migrate()`, `.close()`, `.middleware()` etc. attached.
 
 ```ts
-export function myMod(options?: MyOptions): Middleware & { stop: () => void }
-```
+// Simple routers
+app.use('/health', health())
+app.use('/', seo({ baseUrl: 'https://example.com' }))
+app.use('/graphql', graphql(handler))
+app.use('/chat', await aiStream(handler))
 
-**Usage:**
-```ts
-const m = myMod({ ... })
-app.use(m)
-// m.stop() — cleanup
-```
+// Router with DB + programmatic API
+const l = logdb({ pg })
+await l.migrate()
+app.use('/logs', l)
+await l.log({ level: 'info', source: 'app', message: 'hello' })
 
-| Module | Attached |
-|--------|----------|
-| `rateLimit()` | `.stop()` |
-| `postgres()` | `.sql`, `.table`, `.migrate()`, `.transaction()`, `.close()` |
-| `redis()` | `.redis`, `.close()` |
-| `queue()` | `.add()`, `.process()`, `.run()`, `.stop()`, `.close()` |
-
-Use this pattern when:
-- The module IS middleware (callable as `(req, ctx, next)`)
-- But also needs a few extra methods for lifecycle or configuration
-- Not suitable when there are many methods or a full router
-
-### Pattern C — Module object
-
-For complex modules that need middleware + routes + DB migration + programmatic API. Returns a non-callable object with methods.
-
-```ts
-export interface MyModule {
-  middleware: () => Middleware     // factory, returns a Middleware
-  router: () => Router             // routes to mount
-  migrate: () => Promise<void>     // DB setup (idempotent)
-  close: () => Promise<void>       // cleanup
-}
-
-export function myMod(options: MyOptions): MyModule
-```
-
-**Usage:**
-```ts
-const m = myMod({ pg })
+const m = messager({ pg, agents, redis })
 await m.migrate()
-app.use(m.middleware())
-app.use('/', m.router())
+app.use('/api', m)
+app.ws('/ws', m.wsHandler())
+
+const a = agent({ pg, model })
+await a.migrate()
+app.use('/api', a)
+
+const engine = iii({ pg, redis })
+await engine.migrate()
+app.use('/iii', engine)
+
+const oc = await opencode({ pg, model, workspace })
+await oc.migrate()
+app.use('/opencode', oc)
+
+// Router with separate middleware injection
+const al = analytics()
+app.use(al.middleware())   // tracking (global)
+app.use('/', al)           // dashboard routes
+
+const auth = user({ pg, jwtSecret })
+await auth.migrate()
+app.use('/auth', auth)                                     // register/login routes
+app.get('/me', auth.middleware(), handler)                  // JWT middleware
+
+const t = tenant({ pg, usersTable: '_users' })
+await t.migrate()
+app.use('/api', t.middleware())  // ctx.tenant
+app.use('/api', t)               // CRUD routes
 ```
-
-**Conventions:**
-- `middleware()` is a **factory method** (returns a new `Middleware` each call), not a direct property
-- `router()` creates and returns a `Router` (routes may be recreated each call)
-- `migrate()` is always present; if no DB connection provided, it should be a no-op
-- `close()` is always present for cleanup
-- Export the module interface type for consumers
-
-| Module | Extra methods beyond the standard four |
-|--------|----------------------------------------|
-| `analytics()` | — |
-| `logdb()` | `.log()`, `.clean()` |
-| `user()` | `.register()`, `.login()`, `.verify()`, `.registerClient()`, `.getClient()`, `.revokeClient()` |
-| `tenant()` | `.graphql()` |
-| `messager()` | `.wsHandler()`, `.send()` |
-| `agent()` | `.run()`, `.addKnowledge()` |
-| `iii()` | `.addWorker()`, `.removeWorker()`, `.trigger()`, `.listWorkers()`, `.listFunctions()`, `.listTriggers()`, `.shutdown()` |
-| `opencode()` | `.wsHandler()` |
-
-### Pattern D — Router factory
-
-For modules that are purely route-based (no middleware, no state to inject into context).
-
-```ts
-export function myMod(options?: MyOptions): Router
-```
-
-**Usage:** `app.use('/', myMod({ ... }).handler())`
-
-| Module | Routes registered |
-|--------|-------------------|
-| `health()` | `GET /health`, `HEAD /health` |
-| `seo()` | `GET /robots.txt`, `GET /sitemap.xml` |
-
-### Pattern E — Minimal router holder
-
-For modules that only need to expose routes, but the factory itself is not a Router.
-
-```ts
-export function myMod(handler: X): { router(): Router }
-```
-
-**Usage:**
-```ts
-const g = graphql(handler)
-app.use('/graphql', g.router().handler())
-```
-
-| Module | Signature |
-|--------|----------|
-| `graphql(handler)` | `{ router(): Router }` |
-| `aiStream(handler)` | `Promise<{ router(): Router }>` |
-
-### Pattern F — Client preference module
-
-For client-side preference modules that intercept URLs and self-register via `addInterceptor()`. No server-side code needed.
-
-```ts
-// client-my-feature.ts
-import { addInterceptor } from './client-pref.ts'
-import { setCtx } from './tsx-context.ts'
-import { navigate } from './client-router.ts'
-
-addInterceptor(async (url) => {
-  const m = url.pathname.match(/^\/__myfeature\/(\w+)$/)
-  if (!m) return false
-  // JSON fetch + update context + DOM
-  return true
-})
-
-export function useMyFeature() {
-  const ctx = useCtx()
-  return {
-    value: ctx.prefs.myfeature,
-    setValue: (v: string) => navigate('/__myfeature/' + v),
-  }
-}
-```
-
-**Rules:**
-- Self-registers at module level via `addInterceptor()` (no setup required — just import the hook)
-- Interceptor returns `true` to claim the URL, `false` to pass through
-- Exported from `react.ts` for barrel import
-- SSR-side counterpart in a server module (e.g. `preferences()`) handles the `/__xxx/:value` route
-
-| Module | Intercepts |
-|--------|-----------|
-| `client-locale.ts` | `/__lang/:locale` |
-| `client-theme.ts` | `/__theme/:theme` |
 
 ### Decision guide
 
 ```
-Does the module run on the client (browser)?
-  ├─ Yes → Pattern F (self-register via addInterceptor)
-  └─ No → Does it need to intercept requests?
-        ├─ No → Does it expose routes?
-        │     ├─ No utility function, not a factory (e.g. getCookies, formatSSE)
-        │     ├─ Yes, just routes → Pattern D or E
-        │     └─ Yes, routes + DB + programmatic API → Pattern C
-        └─ Yes → Does it need routes / DB migration / many extra methods?
-              ├─ No → Pattern A
-              ├─ Yes, but it's fundamentally middleware with a few extras → Pattern B
-              └─ Yes, complex → Pattern C (with .middleware() factory)
+Does the module need to intercept requests?
+  ├─ Yes → Pattern α (Middleware)
+  └─ No or also serves routes → Pattern β (Router)
+```
+
+### Client-side modules (Pattern γ)
+
+Client-side modules self-register via `addInterceptor()` — import a hook to enable.
+
+```ts
+// client-my-feature.ts
+import { addInterceptor } from './client-pref.ts'
+
+addInterceptor(async (url) => {
+  const m = url.pathname.match(/^\/__myfeature\/(\w+)$/)
+  if (!m) return false
+  // handle without page reload
+  return true
+})
 ```
 
 ### Naming conventions
 
-- Pure middleware file: `my-mod.ts`, export `myMod`
-- Module object file: `my-mod/index.ts` (if multi-file) or `my-mod.ts` (if single), export `myMod` + `MyOptions` + `MyModule`
-- Options type: `MyOptions` (always exported for consumers to use)
-- Module interface: `MyModule` (Pattern C only, always exported)
-- Route URLs use `__` prefix to avoid user conflicts: `__analytics`, `__analytics/data`, `__lang/:locale`, `__theme/:theme`
+- File: `my-mod.ts`, export `myMod`
+- Options type: `MyOptions` (always exported)
+- Pattern β modules: if the module has many custom methods beyond Router's, export `MyModule` interface extending `Router`
+- Route URLs use `__` prefix to avoid user conflicts: `__analytics`, `__lang/:locale`, `__theme/:theme`
 
 ## Database (PostgreSQL + Redis)
 

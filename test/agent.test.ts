@@ -24,7 +24,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates an agent via router', async () => {
-    const r = a.router()
+    const r = a
     const res = await r.handler()(
       new Request('http://localhost/agents', {
         method: 'POST',
@@ -43,7 +43,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
 
   it('lists agents', async () => {
     await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('ListTest', 'chat', 1)`
-    const r = a.router()
+    const r = a
     const res = await r.handler()(
       new Request('http://localhost/agents'),
       { params: {}, query: {} } as any,
@@ -97,7 +97,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
     const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('KnowDelTest', 'chat', 1) RETURNING *`
     const agentId = (ag as any).id
 
-    const r = a.router()
+    const r = a
     const createRes = await r.handler()(
       new Request(`http://localhost/agents/${agentId}/knowledge`, {
         method: 'POST',
@@ -126,7 +126,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
     const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('WrongAgent', 'chat', 1) RETURNING *`
     const agentId = (ag as any).id
 
-    const r = a.router()
+    const r = a
     const createRes = await r.handler()(
       new Request(`http://localhost/agents/${agentId}/knowledge`, {
         method: 'POST',

@@ -43,8 +43,7 @@ describe('analytics with PostgreSQL', { skip: !process.env.DATABASE_URL && true 
     }
     await m(new Request('http://localhost/tools/json-formatter'), ctx, async () => new Response('ok'))
 
-    const r = a.router()
-    const dataRes = await r.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
     const data = await dataRes.json() as any
     assert.equal(data.total_pv, 4)
     assert.equal(data.top_pages[0].path, '/tools/uppercase')
@@ -61,8 +60,7 @@ describe('analytics with PostgreSQL', { skip: !process.env.DATABASE_URL && true 
     await a1.middleware()(new Request('http://localhost/page-a'), ctx, async () => new Response('ok'))
 
     const a2 = analytics({ pg })
-    const r = a2.router()
-    const dataRes = await r.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const dataRes = await a2.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
     const data = await dataRes.json() as any
     assert.ok(data.total_pv >= 1)
     assert.ok(data.top_pages.some((p: any) => p.path === '/page-a'))
@@ -72,8 +70,7 @@ describe('analytics with PostgreSQL', { skip: !process.env.DATABASE_URL && true 
     const a = analytics({ pg })
     await a.middleware()(new Request('http://localhost/test'), { params: {}, query: {} } as Context, async () => new Response('ok'))
 
-    const r = a.router()
-    const res = await r.handler()(new Request('http://localhost/__analytics'), { params: {}, query: {} } as Context)
+    const res = await a.handler()(new Request('http://localhost/__analytics'), { params: {}, query: {} } as Context)
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /<title>Analytics/)

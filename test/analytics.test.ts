@@ -15,8 +15,7 @@ describe('analytics', () => {
     }
     await m(new Request('http://localhost/tools/json-formatter'), ctx, async () => new Response('ok'))
 
-    const r = a.router()
-    const dataRes = await r.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
     const data = await dataRes.json() as any
     assert.equal(data.total_pv, 4)
     assert.equal(data.top_pages[0].path, '/tools/uppercase')
@@ -32,8 +31,7 @@ describe('analytics', () => {
     await m(new Request('http://localhost/__wfw/style.css'), ctx, async () => new Response('ok'))
     await m(new Request('http://localhost/static/foo.js'), ctx, async () => new Response('ok'))
 
-    const r = a.router()
-    const data = await r.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r2 => r2.json()) as any
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r2 => r2.json()) as any
     assert.equal(data.total_pv, 0)
   })
 
@@ -42,8 +40,7 @@ describe('analytics', () => {
     const m = a.middleware()
     await m(new Request('http://localhost/tools/a', { headers: { Referer: 'https://google.com/search?q=test' } }), ctx, async () => new Response('ok'))
 
-    const r = a.router()
-    const data = await r.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r2 => r2.json()) as any
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r2 => r2.json()) as any
     assert.equal(data.referrers.length, 1)
     assert.equal(data.referrers[0].domain, 'google.com')
     assert.equal(data.referrers[0].count, 1)
@@ -54,8 +51,7 @@ describe('analytics', () => {
     const m = a.middleware()
     await m(new Request('http://localhost/page', { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0)' } }), ctx, async () => new Response('ok'))
 
-    const r = a.router()
-    const data = await r.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r2 => r2.json()) as any
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r2 => r2.json()) as any
     assert.equal(data.devices.mobile, 100)
     assert.equal(data.devices.desktop, 0)
   })
@@ -65,8 +61,7 @@ describe('analytics', () => {
     const m = a.middleware()
     await m(new Request('http://localhost/test'), ctx, async () => new Response('ok'))
 
-    const r = a.router()
-    const res = await r.handler()(new Request('http://localhost/__analytics'), ctx)
+    const res = await a.handler()(new Request('http://localhost/__analytics'), ctx)
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /<title>Analytics/)

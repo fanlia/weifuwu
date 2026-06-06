@@ -22,9 +22,8 @@ export interface LogEntryInput {
   metadata?: Record<string, unknown>
 }
 
-export interface LogdbModule {
+export interface LogdbModule extends Router {
   log(input: LogEntryInput): Promise<LogEntry>
-  router(): Router
   migrate(): Promise<void>
   clean(retentionMonths: number): Promise<number>
   close(): Promise<void>

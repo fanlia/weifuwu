@@ -86,7 +86,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
 
   describe('tenants', () => {
     it('creates a tenant and adds creator as admin', async () => {
-      const r = t.router()
+      const r = t
       const res = await r.handler()(
         new Request('http://localhost/sys/tenants', {
           method: 'POST',
@@ -110,7 +110,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('lists user tenants', async () => {
-      const r = t.router()
+      const r = t
       // Create tenant first
       const createRes = await r.handler()(
         new Request('http://localhost/sys/tenants', {
@@ -134,7 +134,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('rejects create without name', async () => {
-      const r = t.router()
+      const r = t
       const res = await r.handler()(
         new Request('http://localhost/sys/tenants', {
           method: 'POST',
@@ -165,7 +165,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         { name: 'active', type: 'boolean', default: true },
       ]
 
-      const r = t.router()
+      const r = t
       const res = await r.handler()(
         new Request('http://localhost/sys/tables', {
           method: 'POST',
@@ -194,7 +194,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('rejects duplicate slug', async () => {
-      const r = t.router()
+      const r = t
       const fields: FieldDef[] = [{ name: 'val', type: 'string' }]
 
       await r.handler()(
@@ -216,7 +216,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('rejects reserved slug', async () => {
-      const r = t.router()
+      const r = t
       const res = await r.handler()(
         new Request('http://localhost/sys/tables', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -228,7 +228,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('lists tables', async () => {
-      const r = t.router()
+      const r = t
       const fields: FieldDef[] = [{ name: 'n', type: 'string' }]
       await r.handler()(
         new Request('http://localhost/sys/tables', {
@@ -248,7 +248,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('deletes a table', async () => {
-      const r = t.router()
+      const r = t
       const fields: FieldDef[] = [{ name: 'x', type: 'string' }]
 
       await r.handler()(
@@ -300,7 +300,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('creates a row', async () => {
-      const r = t.router()
+      const r = t
       const res = await r.handler()(
         new Request('http://localhost/posts', {
           method: 'POST',
@@ -317,7 +317,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('lists rows with pagination', async () => {
-      const r = t.router()
+      const r = t
       const name = `_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts`
 
       // Insert 3 rows directly
@@ -336,7 +336,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('gets a row by id', async () => {
-      const r = t.router()
+      const r = t
       const name = `_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts`
       await pg.sql`INSERT INTO ${pg.sql(name as any)} ("tenant_id", "title") VALUES (${tenantCtx.id}, 'Get Me') RETURNING *`
       const [inserted] = await pg.sql`SELECT * FROM ${pg.sql(name as any)} WHERE title = 'Get Me' LIMIT 1`
@@ -351,7 +351,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('patches a row', async () => {
-      const r = t.router()
+      const r = t
       const name = `_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts`
       const [inserted] = await pg.sql`INSERT INTO ${pg.sql(name as any)} ("tenant_id", "title") VALUES (${tenantCtx.id}, 'Old') RETURNING *`
       const id = (inserted as any).id
@@ -370,7 +370,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('deletes a row', async () => {
-      const r = t.router()
+      const r = t
       const name = `_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts`
       const [inserted] = await pg.sql`INSERT INTO ${pg.sql(name as any)} ("tenant_id", "title") VALUES (${tenantCtx.id}, 'Delete') RETURNING *`
       const id = (inserted as any).id
@@ -424,7 +424,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('tenant A cannot see tenant B data', async () => {
-      const r = t.router()
+      const r = t
       tenantCtx = { id: tenantAId, name: 'Tenant A', role: 'admin' }
 
       const res = await r.handler()(
@@ -472,7 +472,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('lists nested resources via relation', async () => {
-      const r = t.router()
+      const r = t
       const [author] = await pg.sql`INSERT INTO ${pg.sql(parentName as any)} ("tenant_id", "name") VALUES (${tenantId}, 'Tolkien') RETURNING *`
       await pg.sql`INSERT INTO ${pg.sql(childName as any)} ("tenant_id", "author_id", "title") VALUES (${tenantId}, ${(author as any).id}, 'LotR')`
       await pg.sql`INSERT INTO ${pg.sql(childName as any)} ("tenant_id", "author_id", "title") VALUES (${tenantId}, ${(author as any).id}, 'The Hobbit')`
@@ -488,7 +488,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     it('POST nested creates with relation field auto-filled', async () => {
-      const r = t.router()
+      const r = t
       const [author] = await pg.sql`INSERT INTO ${pg.sql(parentName as any)} ("tenant_id", "name") VALUES (${tenantId}, 'Orwell') RETURNING *`
 
       const res = await r.handler()(

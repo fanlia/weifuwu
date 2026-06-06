@@ -88,26 +88,49 @@ app.get('/admin', mw, handler)       // route-level
 
 ## Module Patterns
 
-All modules follow one of 6 patterns. The pattern letter is marked in each module's heading.
+All modules follow one of **2 patterns** — learn these and you know every module.
 
 | Pattern | How to mount | Example |
 |---------|-------------|---------|
-| `[A]` | `app.use(mod())` | `compress()`, `preferences()` |
-| `[B]` | `app.use(mod())` + call `.stop()` / `.close()` etc. | `rateLimit({...})` |
-| `[C]` | `app.use(mod.middleware())` + `app.use('/', mod.router())` | `analytics()`, `user()` |
-| `[D]` | `app.use(mod().handler())` | `health()`, `seo()` |
-| `[E]` | `app.use('/', g.router().handler())` | `graphql(handler)` |
+| `[α]` | `app.use(mod())` | `compress()`, `preferences()`, `postgres()` |
+| `[β]` | `app.use('/path', mod())` | `health()`, `graphql(handler)`, `user()` |
+
+### Pattern α — Middleware
+
+```ts
+app.use(compress())           // basic
+const pg = postgres()         // with extras: .sql, .table, .migrate(), .close()
+app.use(pg)
+app.use(rateLimit({ max: 100 }))  // with .stop()
+```
+
+### Pattern β — Router
+
+```ts
+app.use('/health', health())                                    // no extras
+app.use('/graphql', graphql(handler))
+app.use('/logs', logdb({ pg }))                                 // with .log(), .migrate()
+app.use('/auth', user({ pg, jwtSecret }))                       // with .middleware(), .register()
+app.ws('/ws', messager({ pg }).wsHandler())
+```
+
+β modules that need **separate middleware** use `.middleware()`:
+```ts
+const a = analytics()
+app.use(a.middleware())   // tracking
+app.use('/', a)           // dashboard
+```
 
 ---
 
 ## Module Reference
 
-### agent [C]
+### agent [β]
 
 ```ts
 const a = agent({ pg, model: openai('gpt-4o'), embeddingModel: openai.embedding('text-embedding-3-small') })
 await a.migrate()
-app.use('/api', a.router())
+  app.use('/api', a)
 await a.addKnowledge(agentId, 'Title', 'some knowledge content')
 a.run(agentId, { input: 'summarize the data', stream: true })
 ```
@@ -124,24 +147,23 @@ a.run(agentId, { input: 'summarize the data', stream: true })
 |--------|-------------|
 | `.run(agentId, { input, stream?, messages? })` | Execute agent with input |
 | `.addKnowledge(agentId, title, content)` | Add knowledge document |
-| `.router()` | REST + WS API |
 | `.close()` | Cleanup |
 
-### aiStream [E]
+### aiStream [β]
 
 ```ts
 const chat = await aiStream(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages }))
-app.use('/chat', chat.router().handler())
+app.use('/chat', chat)
 ```
 
-### analytics [C]
+### analytics [β]
 
 In-memory or PostgreSQL page view tracking with built-in dashboard.
 
 ```ts
 const a = analytics()
 app.use(a.middleware())
-app.use('/', a.router())       // GET /__analytics (dashboard), GET /__analytics/data?days=7 (JSON)
+app.use('/', a)       // GET /__analytics (dashboard), GET /__analytics/data?days=7 (JSON)
 ```
 
 | Option | Type | Default | Description |
@@ -154,7 +176,7 @@ app.use('/', a.router())       // GET /__analytics (dashboard), GET /__analytics
 const a = analytics({ pg })
 await a.migrate()
 app.use(a.middleware())
-app.use('/', a.router())
+app.use('/', a)            // dashboard routes
 ```
 
 ### auth [A]
@@ -234,10 +256,10 @@ const server = await deploy(config)
 // server.apps.list(), server.apps.status(name), server.apps.deploy(name)
 ```
 
-### health [D]
+### health [β]
 
 ```ts
-app.use(health({ path: '/health' }))
+app.use('/health', health())
 // Returns 200 on success, 503 when check throws
 ```
 
@@ -267,12 +289,12 @@ app.use(helmet({ contentSecurityPolicy: "default-src 'self'", xFrameOptions: 'DE
 | `crossOriginOpenerPolicy` | — | COOP header |
 | `crossOriginResourcePolicy` | — | CORP header |
 
-### iii [C] — Worker / Function / Trigger
+### iii [β] — Worker / Function / Trigger
 
 ```ts
 import { createWorker } from 'weifuwu'
 const engine = iii({ pg, redis })
-app.use('/iii', engine.router())
+app.use('/iii', engine)
 app.ws('/iii', engine.wsHandler())
 
 const w = createWorker('orders')
@@ -289,19 +311,18 @@ await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'
 | `.listWorkers()` | List registered workers |
 | `.listFunctions()` | List registered functions |
 | `.listTriggers()` | List registered triggers |
-| `.router()` | REST + WS API |
 | `.wsHandler()` | WebSocket handler |
 | `.migrate()` | DB setup |
 | `.shutdown()` | Clean shutdown |
 
-### logdb [C]
+### logdb [β]
 
 PostgreSQL structured event logging with monthly partitioning.
 
 ```ts
 const logger = logdb({ pg })
 await logger.migrate()
-app.use('/logs', logger.router())
+app.use('/logs', logger)
 await logger.clean(12)   // drop partitions older than 12 months
 await logger.log({ level: 'info', source: 'app', message: 'hello', metadata: { userId: 1 } })
 ```
@@ -352,10 +373,9 @@ await msg.send(channelId, 'System message', { sender_type: 'system', sender_id: 
 |--------|-------------|
 | `.wsHandler()` | WebSocket handler (channels, typing, read receipts) |
 | `.send(channel, content, opts?)` | Send message to channel |
-| `.router()` | REST API |
 | `.close()` | Cleanup |
 
-### opencode [C]
+### opencode [β]
 
 AI programming assistant.
 
@@ -367,7 +387,7 @@ const oc = await opencode({
   permissions: { bash: { allow: true }, write: { allow: false } },
 })
 await oc.migrate()
-app.use('/opencode', await oc.router())
+app.use('/opencode', oc)
 app.ws('/opencode', oc.wsHandler())
 ```
 
@@ -511,10 +531,10 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 | `header` | `string` | `'X-Request-ID'` | Header name to read/write |
 | `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
 
-### seo [D] + seoMiddleware [A]
+### seo [β] + seoMiddleware [α]
 
 ```ts
-app.use(seo({ baseUrl: 'https://example.com', robots: [{ userAgent: '*', allow: '/' }], sitemap: { urls: [{ loc: '/' }] } }))
+app.use('/', seo({ baseUrl: 'https://example.com', robots: [{ userAgent: '*', allow: '/' }], sitemap: { urls: [{ loc: '/' }] } }))
 // GET /robots.txt, GET /sitemap.xml
 
 app.use(seoMiddleware({ headers: { 'X-Robots-Tag': (path) => path.startsWith('/admin') ? 'noindex' : undefined } }))
@@ -522,7 +542,7 @@ app.use(seoMiddleware({ headers: { 'X-Robots-Tag': (path) => path.startsWith('/a
 
 Also exports `seoTags(config)` for generating meta/og/twitter tags as an HTML string.
 
-### tenant [C]
+### tenant [β]
 
 Multi-tenant BaaS with dynamic table API and GraphQL.
 
@@ -530,7 +550,7 @@ Multi-tenant BaaS with dynamic table API and GraphQL.
 const t = tenant({ pg, usersTable: '_users' })
 await t.migrate()
 app.use('/api', t.middleware())   // → ctx.tenant
-app.use('/api', t.router())      // dynamic CRUD
+app.use('/api', t)      // dynamic CRUD
 app.use('/graphql', t.graphql()) // dynamic GraphQL
 ```
 
@@ -550,14 +570,14 @@ app.post('/upload', upload({ dir: './uploads', maxFileSize: 10_485_760, allowedT
 | `maxFileSize` | `number` | — | Max bytes per file |
 | `allowedTypes` | `string[]` | — | Allowed MIME types |
 
-### user [C]
+### user [β]
 
 Authentication: register, login, JWT, OAuth2.
 
 ```ts
 const auth = user({ pg, jwtSecret: process.env.JWT_SECRET! })
 await auth.migrate()
-app.use('/auth', auth.router())               // POST /register, POST /login, OAuth2 routes
+app.use('/auth', auth)               // POST /register, POST /login, OAuth2 routes
 app.get('/me', auth.middleware(), (req, ctx) => Response.json(ctx.user))
 ```
 
@@ -574,7 +594,6 @@ app.get('/me', auth.middleware(), (req, ctx) => Response.json(ctx.user))
 | `.register(data)` | Register a new user programmatically |
 | `.login(data)` | Log in programmatically |
 | `.verify(token)` | Verify JWT token |
-| `.router()` | REST routes (register, login, OAuth2) |
 | `.middleware()` | JWT verify middleware — sets `ctx.user` |
 
 ### validate [A]
@@ -793,7 +812,7 @@ import { runWorkflow } from 'weifuwu'
 
 ```ts
 const chat = await aiStream(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages }))
-app.use('/chat', chat.router().handler())
+app.use('/chat', chat)
 ```
 
 ### Agents
@@ -801,7 +820,7 @@ app.use('/chat', chat.router().handler())
 ```ts
 const agents = agent({ pg })
 await agents.migrate()
-app.use('/api', agents.router())
+app.use('/api', agents)
 await agents.addKnowledge(agentId, 'Title', 'content')
 ```
 

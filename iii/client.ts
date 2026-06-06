@@ -128,6 +128,9 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     workers.delete(workerId)
   }
 
+  // Forward reference — filled after router is created
+  let engineRef: any = null
+
   const wsHandler = createWsHandler({
     registerRemoteWorker(ws, name) {
       const id = crypto.randomUUID()
@@ -197,7 +200,7 @@ export function iii(opts: IIIOptions = {}): IIIModule {
         }))
         return
       }
-      const ctx = { engine: module as any, functionId, workerName: fn.workerName }
+      const ctx = { engine: engineRef, functionId, workerName: fn.workerName }
       Promise.resolve(fn.handler(payload, ctx))
         .then((result) => {
           ws.send(JSON.stringify({ type: 'invoke_result', invocation_id: invocationId, result }))
@@ -208,46 +211,63 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     },
   })
 
-  const module: IIIModule = {
-    router: () => { const r = buildRouter(module, wsHandler); (module as any).router = () => r; return r },
-    wsHandler: () => wsHandler,
-    addWorker: addLocalWorker,
-    removeWorker: (worker: Worker) => {
-      for (const [wid, reg] of workers) {
-        if (reg.name === worker.name) { removeWorker(wid); return }
-      }
-    },
-    trigger(request: import('./types.ts').TriggerRequest) {
-      const fn = functions.get(request.function_id)
-      if (!fn) throw new Error(`Function "${request.function_id}" not found`)
-      const ctx = { engine: module, functionId: request.function_id, workerName: fn.workerName }
-      if (request.action === 'void') {
-        queueMicrotask(() => fn.handler(request.payload, ctx))
-        return Promise.resolve(undefined)
-      }
-      return Promise.resolve(fn.handler(request.payload, ctx))
-    },
-    listWorkers: () => Array.from(workers.values()).map(w => ({
-      id: w.id, name: w.name, status: 'connected' as const,
-      connectedAt: Date.now(), functionCount: w.functions.length, triggerCount: w.triggers.length,
-    })),
-    listFunctions: () => Array.from(functions.values()).map(f => ({
-      id: f.id, workerId: f.workerId, workerName: f.workerName, triggers: f.triggers,
-    })),
-    listTriggers: () => Array.from(triggers.values()).map(t => ({
-      id: t.id, type: t.type, function_id: t.function_id, config: t.config, workerId: t.workerId,
-    })),
-    migrate: async () => {
-      await stream.migrate()
-    },
-    shutdown: async () => {
-      for (const [, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Engine shutting down')) }
-      pending.clear()
-      for (const [, reg] of workers) reg.ws?.close()
-      workers.clear(); functions.clear(); triggers.clear()
-      await stream.close()
-    },
+  function removeWorkerByName(worker: Worker) {
+    for (const [wid, reg] of workers) {
+      if (reg.name === worker.name) { removeWorker(wid); return }
+    }
   }
 
-  return module
+  function trigger(request: import('./types.ts').TriggerRequest) {
+    const fn = functions.get(request.function_id)
+    if (!fn) throw new Error(`Function "${request.function_id}" not found`)
+    const ctx = { engine: engineRef, functionId: request.function_id, workerName: fn.workerName }
+    if (request.action === 'void') {
+      queueMicrotask(() => fn.handler(request.payload, ctx))
+      return Promise.resolve(undefined)
+    }
+    return Promise.resolve(fn.handler(request.payload, ctx))
+  }
+
+  function listWorkers() {
+    return Array.from(workers.values()).map(w => ({
+      id: w.id, name: w.name, status: 'connected' as const,
+      connectedAt: Date.now(), functionCount: w.functions.length, triggerCount: w.triggers.length,
+    }))
+  }
+
+  function listFunctions() {
+    return Array.from(functions.values()).map(f => ({
+      id: f.id, workerId: f.workerId, workerName: f.workerName, triggers: f.triggers,
+    }))
+  }
+
+  function listTriggers() {
+    return Array.from(triggers.values()).map(t => ({
+      id: t.id, type: t.type, function_id: t.function_id, config: t.config, workerId: t.workerId,
+    }))
+  }
+
+  const routerMethods = { listWorkers, listFunctions, listTriggers, trigger }
+  const r = buildRouter(routerMethods as any, wsHandler)
+  engineRef = r
+
+  const mod = r as IIIModule
+  mod.wsHandler = () => wsHandler
+  mod.addWorker = addLocalWorker
+  mod.removeWorker = removeWorkerByName
+  mod.trigger = trigger
+  mod.listWorkers = listWorkers
+  mod.listFunctions = listFunctions
+  mod.listTriggers = listTriggers
+  mod.migrate = async () => {
+    await stream.migrate()
+  }
+  mod.shutdown = async () => {
+    for (const [, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Engine shutting down')) }
+    pending.clear()
+    for (const [, reg] of workers) reg.ws?.close()
+    workers.clear(); functions.clear(); triggers.clear()
+    await stream.close()
+  }
+  return mod
 }
