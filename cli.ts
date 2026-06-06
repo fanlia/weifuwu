@@ -32,7 +32,7 @@ async function cmdInit(name: string) {
   await mkdir(targetDir, { recursive: true })
 
   // Copy code templates
-  const templateDir = join(__dirname, 'template')
+  const templateDir = join(__dirname, 'cli', 'template')
   await cp(templateDir, targetDir, { recursive: true })
 
   // Write config files
@@ -66,7 +66,7 @@ async function cmdInit(name: string) {
     include: ['*.ts', 'ui/**/*.ts', 'ui/**/*.tsx'],
   }, null, 2) + '\n')
 
-  await writeFile(join(targetDir, '.gitignore'), 'node_modules\ndist\n.env\n.sessions\n')
+  await writeFile(join(targetDir, '.gitignore'), 'node_modules\ndist\n.env\n.sessions\n.weifuwu\n')
   await writeFile(join(targetDir, '.env'), 'PORT=3000\n')
 
   await writeFile(join(targetDir, 'AGENTS.md'), [
