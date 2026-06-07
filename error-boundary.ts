@@ -1,5 +1,5 @@
 import { createElement } from 'react'
-import { compileTsx } from './compile.ts'
+import { compile } from './compile.ts'
 import type { Middleware } from './types.ts'
 import { TextEncoder } from 'node:util'
 
@@ -8,7 +8,7 @@ export function errorBoundary(errorPath: string): Middleware {
     try {
       return await next(req, ctx)
     } catch (err) {
-      const mod = await compileTsx(errorPath)
+      const mod = await compile(errorPath)
       const ErrorComponent = mod.default
       if (!ErrorComponent) throw err
 

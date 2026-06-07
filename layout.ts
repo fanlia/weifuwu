@@ -1,9 +1,9 @@
-import { compileTsx } from './compile.ts'
+import { compile } from './compile.ts'
 import type { Middleware } from './types.ts'
 
 export function layout(path: string): Middleware {
   return async (req, ctx, next) => {
-    const mod = await compileTsx(path)
+    const mod = await compile(path)
     const Component = mod.default
     if (!Component) throw new Error(`Layout ${path} has no default export`)
 

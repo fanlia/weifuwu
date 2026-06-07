@@ -112,6 +112,11 @@ export async function compileTsxDev(path: string): Promise<any> {
   return mod
 }
 
+/** Auto-select dev (vm) or prod (ESM + import) compilation */
+export function compile(path: string): Promise<any> {
+  return process.env.NODE_ENV !== 'production' ? compileTsxDev(path) : compileTsx(path)
+}
+
 let vendorBundle: string | null = null
 
 /** Build a single vendor bundle containing all needed vendor modules */
