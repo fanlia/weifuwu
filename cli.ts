@@ -58,7 +58,7 @@ async function cmdInit(name: string) {
     name,
     type: 'module',
     scripts: {
-      dev: 'node --watch index.ts',
+      dev: 'node index.ts',
       start: 'NODE_ENV=production node index.ts',
     },
     dependencies: {
