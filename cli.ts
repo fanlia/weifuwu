@@ -44,6 +44,8 @@ async function cmdInit(name: string) {
       .replace(/from '\.\.\/\.\.\/\.\.\/react\.ts'/g, "from 'weifuwu/react'")
       .replace(/import \{ join \} from 'node:path'\n/gm, '')
       .replace(/const _ui = join\(import\.meta\.dirname, 'ui'\)\n\n/, '')
+      .replace(/const _loc = join\(import\.meta\.dirname, 'locales'\)\n\n/, '')
+      .replace(/preferences\(\{ dir: _loc, locale: \{ default: 'en' \}, theme: \{ default: 'light' \} \}\)/g, "preferences({ dir: './locales' })")
       .replace(/tailwind\(_ui\)/g, "tailwind('./ui')")
       .replace(/layout\(join\(_ui, 'layout\.tsx'\)\)/g, "layout('./ui/layout.tsx')")
       .replace(/ssr\(join\(_ui, 'page\.tsx'\)\)/g, "ssr('./ui/page.tsx')")

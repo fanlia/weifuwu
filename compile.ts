@@ -46,7 +46,7 @@ function resolveAliases(): Record<string, string> {
   return {}
 }
 
-function id(s: string): string {
+export function id(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
 }
 

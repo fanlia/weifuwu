@@ -91,26 +91,35 @@ export function preferences(options: PrefOptions): Middleware {
     const cached = cache.get(locale)
     if (cached) return cached
     const filePath = join(dir, `${locale}.json`)
-    if (!existsSync(filePath)) return {}
-    try {
-      const content = await readFile(filePath, 'utf-8')
-      const data = JSON.parse(content) as Record<string, unknown>
-      cache.set(locale, data)
-      return data
-    } catch {
-      return {}
+    if (existsSync(filePath)) {
+      try {
+        const content = await readFile(filePath, 'utf-8')
+        const data = JSON.parse(content) as Record<string, unknown>
+        cache.set(locale, data)
+        return data
+      } catch { return {} }
     }
+    // Fallback: zh-CN → zh
+    const short = locale.split('-')[0]
+    if (short !== locale) {
+      const fallback = cache.get(short) || await load(short)
+      if (fallback && Object.keys(fallback).length > 0) {
+        cache.set(locale, fallback)
+        return fallback
+      }
+    }
+    return {}
   }
 
   return async (req, ctx, next) => {
     const url = new URL(req.url)
 
-    const langMatch = url.pathname.match(/^\/__lang\/(\w+)$/)
+    const langMatch = url.pathname.match(/^\/__lang\/([\w-]+)$/)
     if (langMatch && req.method === 'GET') {
       return handlePrefSwitch(req, langMatch[1], localeOpts.cookie, load)
     }
 
-    const themeMatch = url.pathname.match(/^\/__theme\/(\w+)$/)
+    const themeMatch = url.pathname.match(/^\/__theme\/([\w-]+)$/)
     if (themeMatch && req.method === 'GET') {
       return handlePrefSwitch(req, themeMatch[1], themeOpts.cookie, load)
     }
@@ -162,7 +171,7 @@ function detectLocale(req: Request, opts: Required<NonNullable<PrefOptions['loca
     if (fromCookie) return fromCookie
   }
   if (opts.fromAcceptLanguage) {
-    const fromHeader = req.headers.get('Accept-Language')?.split(',')[0]?.split('-')[0]
+    const fromHeader = req.headers.get('Accept-Language')?.split(',')[0]?.trim()
     if (fromHeader) return fromHeader
   }
   return opts.default

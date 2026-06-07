@@ -32,7 +32,7 @@ function applyTheme(theme: string) {
 }
 
 addInterceptor(async (url) => {
-  const m = url.pathname.match(/^\/__theme\/(\w+)$/)
+  const m = url.pathname.match(/^\/__theme\/([\w-]+)$/)
   if (!m) return false
   try {
     const res = await fetch(url.pathname, {

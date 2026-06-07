@@ -55,17 +55,17 @@ function setCtx(value: Partial<PageContext>) {
 }
 
 function useCtx(): PageContext {
+  if (typeof window !== 'undefined') {
+    const snapshot = useSyncExternalStore(subscribe, getSnapshot)
+    return { ...snapshot, ...(window as any).__WEIFUWU_CTX }
+  }
   const alsStore = store._alsGetStore?.()
-  const base = alsStore ?? store._ctx
-  const data = typeof window !== 'undefined' ? (window as any).__WEIFUWU_CTX : null
-  return { ...base, ...data }
+  return alsStore ?? store._ctx
 }
 
 export function useLoaderData<T = Record<string, unknown>>(): T {
-  const alsStore = store._alsGetStore?.()
-  const base = alsStore ?? store._ctx
-  const data = typeof window !== 'undefined' ? (window as any).__WEIFUWU_CTX : null
-  return ({ ...base, ...data }).loaderData as T
+  const ctx = useCtx()
+  return ctx.loaderData as T
 }
 
 export const TsxContext = createContext<PageContext>(DEFAULT_CTX)

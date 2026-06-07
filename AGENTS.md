@@ -211,6 +211,58 @@ describe('example', () => {
 
 Tests live in `test/` and follow the pattern: create a `Router`, call `r.handler()(request, ctx)`, assert on the response. For end-to-end tests, use `serve()`.
 
+### SSR + HMR 手动测试流程
+
+使用 `cli/template/` 作为测试项目（模板已引用本地源文件，无需编译）：
+
+```bash
+# 1. 从 repo root 启动
+node cli/template/index.ts
+
+# 或指定数据库启动（测试 opencode 等多 ssr 路由）
+DATABASE_URL=postgres://root:123456@localhost:5432/demo node cli/template/index.ts
+```
+
+```bash
+# 2. 打开浏览器
+open http://localhost:3000/
+```
+
+```bash
+# 3. 验证热更新
+# 编辑 cli/template/ui/page.tsx 或 ui/components/Greeting.tsx
+# 保存后页面自动更新，URL 不变
+
+# 4. 验证状态保持
+# 在页面输入框打字 → 编辑组件 → 输入框内容保留
+
+# 5. 验证多 ssr 路由
+# 先启动时传入 DATABASE_URL，然后访问 /opencode/
+# 编辑 page.tsx 只触发 / 页面更新，不影响 /opencode/
+
+# 6. 验证编译失败 fallback
+# 在 page.tsx 中引入语法错误 → 浏览器全页面刷新
+```
+
+```bash
+# 7. 查看 vendor bundle
+curl -s http://localhost:3000/__wfw/v/bundle | head
+
+# 8. 查看 hydration bundle（entry hash 从 SSR HTML 中取）
+curl -s http://localhost:3000/__ssr/<hash>.js | head
+
+# 9. 查看热更新 bundle（hash 在 WS 消息中）
+curl -s http://localhost:3000/__wfw/h/<hash> | head
+```
+
+### SSR 关键机制
+
+- **dev 模式**（`NODE_ENV !== 'production'`）：`createRoot` + 稳定代理 `_W`，`root.render()` 触发 reconciliation → fiber 复用 → `useState` 保留
+- **prod 模式**：`hydrateRoot`，无额外依赖
+- **vendor bundle**：`/__wfw/v/bundle`，所有 ssr() 共享同一份 React + weifuwu/react
+- **entry hash 隔离**：每个 `ssr()` 独立 hydration bundle（`bundleCache` keyed by entry hash），WS 消息携带 `entry` 字段匹配当前页面
+- **惰性清除**：hydration bundle 在热更新时仅标记脏，下次请求才清除并重编
+
 ## API Reference
 
 See [README.md](./README.md) for full API documentation including `ssr()`, `layout()`, Router, middleware, and utilities.

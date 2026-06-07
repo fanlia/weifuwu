@@ -53,7 +53,7 @@ describe('ssr()', () => {
   it('passes ctx data via loaderData', async () => {
     const app = new Router()
     app.use(async (req, ctx, next) => {
-      ctx.posts = [{ title: 'Hello' }]
+      ctx.loaderData = { posts: [{ title: 'Hello' }] }
       return next(req, ctx)
     })
     app.get('/', ssr(homePage))

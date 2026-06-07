@@ -14,9 +14,26 @@ __registerAls(() => als.getStore())
 const isDev = process.env.NODE_ENV !== 'production'
 
 const bundleCache = new Map<string, Uint8Array>()
+let _bundleDirty = false
 
-export function clearClientBundleCache() {
-  bundleCache.clear()
+export function markClientBundleDirty() {
+  _bundleDirty = true
+}
+
+function getBundle(key: string): Uint8Array | undefined {
+  if (_bundleDirty) {
+    bundleCache.clear()
+    _bundleDirty = false
+  }
+  return bundleCache.get(key)
+}
+
+function setBundle(key: string, buf: Uint8Array) {
+  if (_bundleDirty) {
+    bundleCache.clear()
+    _bundleDirty = false
+  }
+  bundleCache.set(key, buf)
 }
 
 function id(s: string): string {
@@ -24,13 +41,8 @@ function id(s: string): string {
 }
 
 function serializeLoaderData(ctx: any): Record<string, unknown> {
-  const data: Record<string, unknown> = {}
-  for (const key of Object.keys(ctx)) {
-    if (!['params', 'query', 'mountPath', 'layoutStack'].includes(key)) {
-      data[key] = (ctx as any)[key]
-    }
-  }
-  return data
+  const ld = (ctx as any).loaderData
+  return ld && typeof ld === 'object' ? ld : {}
 }
 
 async function buildClientBundle(
@@ -54,7 +66,7 @@ async function buildClientBundle(
       // Dev: stable proxy chain — _P → _W (stable) → actual component
       isDev ? `const _W=function(props){return(_W._fn||P)(props)};_W._fn=P;const _P=function(props){return createElement(_W,props)};` : '',
       // Dev: HMR handler — updates proxy + re-renders root
-      isDev ? `window.__WFW_REFRESH=function(n){_W._fn=n;window.__WFW_ROOT.render(createElement(App))};` : '',
+      isDev ? `window.__WFW_ENTRY=${JSON.stringify(id(absEntry))};window.__WFW_REFRESH=function(n){_W._fn=n;window.__WFW_ROOT.render(createElement(App))};` : '',
       `function App(){`,
       `const ctx=window.__WEIFUWU_CTX||{};`,
       `return createElement(TsxContext.Provider,{value:ctx},`,
@@ -91,7 +103,7 @@ export function ssr(path: string): Router {
   const r = new Router()
 
   r.get('/__ssr/:path', (req, ctx) => {
-    const buf = bundleCache.get('/__ssr/' + ctx.params.path)
+    const buf = getBundle('/__ssr/' + ctx.params.path)
     return buf
       ? new Response(buf as BodyInit, {
           headers: { 'content-type': 'application/javascript; charset=utf-8' },
@@ -123,6 +135,10 @@ export function ssr(path: string): Router {
 
     return als.run(ctxValue, async () => {
       setCtx(ctxValue)
+      // Ensure locale data is available on globalThis for SSR translation
+      if (ctxValue.parsed?.__localeData) {
+        ;(globalThis as any).__LOCALE_DATA__ = ctxValue.parsed.__localeData
+      }
 
       let element: any = createElement('div', { id: '__weifuwu_root' },
         createElement(TsxContext.Provider, { value: ctxValue },
@@ -146,11 +162,11 @@ export function ssr(path: string): Router {
       }
 
       let bundle: { url: string } | null = null
-      if (!bundleCache.has(bundleKey)) {
+      if (!getBundle(bundleKey)) {
         const buf = await buildClientBundle(path, layoutPaths)
-        if (buf) bundleCache.set(bundleKey, buf)
+        if (buf) setBundle(bundleKey, buf)
       }
-      if (bundleCache.has(bundleKey)) {
+      if (getBundle(bundleKey)) {
         bundle = { url: bundleKey }
       }
 

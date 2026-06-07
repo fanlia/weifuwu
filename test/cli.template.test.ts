@@ -9,7 +9,7 @@ import type { Router } from '../router.ts'
 const templateDir = './cli/template'
 
 describe('cli/template structure', () => {
-  const files = ['app.ts', 'index.ts', 'ui/layout.tsx', 'ui/page.tsx', 'ui/app.css']
+  const files = ['app.ts', 'index.ts', 'ui/layout.tsx', 'ui/page.tsx', 'ui/app.css', 'locales/en.json', 'locales/zh.json', 'locales/zh-CN.json', 'locales/zh-TW.json']
   for (const f of files) {
     it(`has ${f}`, () => {
       assert.ok(existsSync(join(templateDir, f)), `missing ${f}`)
@@ -41,7 +41,7 @@ describe('template app', () => {
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /<html/)
-    assert.match(html, /Hello,.*Weifuwu/)
+    assert.match(html, /Weifuwu|Build Faster/)
     assert.match(html, /__ssr\//)
     assert.match(html, /__WEIFUWU_CTX/)
   })
@@ -111,6 +111,7 @@ describe('weifuwu init', () => {
       'package.json', 'tsconfig.json', '.gitignore', '.env', 'AGENTS.md',
       'app.ts', 'index.ts',
       'ui/layout.tsx', 'ui/page.tsx', 'ui/app.css', 'ui/components/Greeting.tsx',
+      'locales/en.json', 'locales/zh.json', 'locales/zh-CN.json', 'locales/zh-TW.json',
     ]
     for (const f of expected) {
       assert.ok(existsSync(join(dir, f)), `missing ${f}`)

@@ -33,8 +33,8 @@ describe('preferences', () => {
         ctx,
         async () => new Response('ok'),
       )
-      assert.equal(ctx.prefs!.locale, 'zh')
-      assert.equal(ctx.prefs!.locale, 'zh')
+      assert.equal(ctx.prefs!.locale, 'zh-CN')
+      assert.equal(ctx.prefs!.locale, 'zh-CN')
       assert.equal(ctx.t!('greeting', { name: 'World' }), '你好，World！')
     })
 

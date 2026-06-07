@@ -3,12 +3,25 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
-import { compileTsxDev, compileHotComponent, compileVendorBundle, clearCompileCache } from './compile.ts'
+import { compileTsxDev, compileHotComponent, compileVendorBundle, clearCompileCache, id } from './compile.ts'
 import { compileTailwindCss } from './tailwind.ts'
-import { clearClientBundleCache } from './ssr.ts'
+import { markClientBundleDirty } from './ssr.ts'
 
 const clients = new Set<WebSocket>()
 const hotBundleCache = new Map<string, string>()
+const hotKeys: string[] = []
+const MAX_HOT = 10
+
+function setHot(hash: string, code: string) {
+  if (!hotBundleCache.has(hash)) {
+    hotKeys.push(hash)
+    if (hotKeys.length > MAX_HOT) {
+      const old = hotKeys.shift()!
+      hotBundleCache.delete(old)
+    }
+  }
+  hotBundleCache.set(hash, code)
+}
 
 export function broadcastReload() {
   for (const ws of clients) {
@@ -69,12 +82,12 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
   watcher.on('change', async (filePath: string) => {
     if (/\.tsx?$/i.test(filePath)) {
       clearCompileCache()
-      clearClientBundleCache()
+      markClientBundleDirty()
       try {
         const target = entryPath || filePath
         await compileTsxDev(target)
         const { hash, code } = await compileHotComponent(target)
-        hotBundleCache.set(hash, code)
+        setHot(hash, code)
         let css: string | undefined
         for (const dir of opts.dirs) {
           const cssPath = join(resolve(dir), 'app.css')
@@ -82,7 +95,8 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
             css = await compileTailwindCss(cssPath, resolve(dir))
           }
         }
-        const msg: any = { type: 'component', hash }
+        const entry = entryPath ? id(entryPath) : ''
+        const msg: any = { type: 'component', hash, entry }
         if (css) msg.css = css
         const str = JSON.stringify(msg)
         for (const ws of clients) {

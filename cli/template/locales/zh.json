@@ -1,0 +1,8 @@
+{
+  "nav": { "home": "首页", "docs": "文档", "api": "API" },
+  "hero": { "title": "更快地构建", "subtitle": "一个现代的 Node.js Web 框架" },
+  "cta": { "start": "开始使用", "learn": "了解更多" },
+  "demo": { "title": "WebSocket 演示", "placeholder": "输入消息...", "send": "发送", "echo": "回声" },
+  "ws": { "connected": "已连接", "connecting": "连接中...", "disconnected": "未连接" },
+  "footer": { "privacy": "隐私", "terms": "条款" }
+}

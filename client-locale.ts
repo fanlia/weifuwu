@@ -3,9 +3,8 @@ import { useCtx, setCtx } from './tsx-context.ts'
 import { navigate } from './client-router.ts'
 
 function buildT(): (key: string, params?: Record<string, string>, fallback?: string) => string {
-  const messages = typeof window !== 'undefined'
-    ? (window as any).__LOCALE_DATA__
-    : (globalThis as any).__LOCALE_DATA__
+  const messages = (globalThis as any).__LOCALE_DATA__
+    || (typeof window !== 'undefined' ? (window as any).__LOCALE_DATA__ : null)
   if (!messages) return (key: string, _p?: Record<string, string>, fb?: string) => fb ?? key
   return (key: string, params?: Record<string, string>, fallback?: string) => {
     const msg = key.split('.').reduce((o: any, k: string) => o?.[k], messages as any)
@@ -18,7 +17,7 @@ function buildT(): (key: string, params?: Record<string, string>, fallback?: str
 }
 
 addInterceptor(async (url) => {
-  const m = url.pathname.match(/^\/__lang\/(\w+)$/)
+  const m = url.pathname.match(/^\/__lang\/([\w-]+)$/)
   if (!m) return false
   try {
     const res = await fetch(url.pathname, {
