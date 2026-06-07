@@ -121,7 +121,7 @@ describe('weifuwu init', () => {
   it('generates correct package.json', () => {
     const pkg = JSON.parse(readFileSync(resolve(tmpDir, 'test-app', 'package.json'), 'utf-8'))
     assert.equal(pkg.name, 'test-app')
-    assert.equal(pkg.scripts.dev, 'node --watch index.ts')
+    assert.equal(pkg.scripts.dev, 'node index.ts')
     assert.equal(pkg.scripts.start, 'NODE_ENV=production node index.ts')
   })
 
