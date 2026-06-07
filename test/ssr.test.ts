@@ -47,7 +47,7 @@ describe('ssr()', () => {
     )
     assert.equal(res2.status, 200)
     const js = await res2.text()
-    assert.match(js, /hydrateRoot/)
+    assert.match(js, /(createRoot|hydrateRoot)/)
   })
 
   it('passes ctx data via loaderData', async () => {

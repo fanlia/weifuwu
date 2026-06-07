@@ -155,11 +155,11 @@ export async function compileVendorBundle(): Promise<string> {
   return vendorBundle
 }
 
-/** Hot-reload: ESM bundle, calls __WFW_SET_PAGE on import */
+/** Hot-reload: ESM bundle, calls __WFW_REFRESH on import */
 export async function compileHotComponent(path: string): Promise<{ hash: string; code: string }> {
   const absPath = resolve(path)
   const h = id(absPath)
-  const stdin = `import C from ${JSON.stringify(absPath)};\n(window.__WFW_SET_PAGE||function(){})(C)`
+  const stdin = `import C from ${JSON.stringify(absPath)};\n(window.__WFW_REFRESH||function(){})(C)`
   const result = await esbuild.build({
     stdin: { contents: stdin, loader: 'tsx', resolveDir: dirname(absPath) },
     format: 'esm',
@@ -172,6 +172,8 @@ export async function compileHotComponent(path: string): Promise<{ hash: string;
   })
   let code = new TextDecoder().decode(result.outputFiles[0].contents)
   // Replace esbuild's CJS require polyfill calls with import from vendor bundle
-  code = `import __r from '/__wfw/v/bundle';\n` + code.replace(/__require\("react"\)/g, '__r').replace(/__require\('react'\)/g, '__r')
+  if (code.includes('__require') && (code.includes('"react"') || code.includes("'react'"))) {
+    code = `import __r from '/__wfw/v/bundle';\n` + code.replace(/__require\(["']react["']\)/g, '__r')
+  }
   return { hash: h, code }
 }

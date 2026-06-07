@@ -41,7 +41,7 @@ describe('template app', () => {
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /<html/)
-    assert.match(html, /Hello, Weifuwu/)
+    assert.match(html, /Hello,.*Weifuwu/)
     assert.match(html, /__ssr\//)
     assert.match(html, /__WEIFUWU_CTX/)
   })
@@ -62,7 +62,7 @@ describe('template app', () => {
     assert.equal(res2.status, 200)
     assert.match(res2.headers.get('content-type') || '', /application\/javascript/)
     const js = await res2.text()
-    assert.match(js, /hydrateRoot/)
+    assert.match(js, /(createRoot|hydrateRoot)/)
   })
 
   it('GET /api/ping returns JSON', async () => {
@@ -110,7 +110,7 @@ describe('weifuwu init', () => {
     const expected = [
       'package.json', 'tsconfig.json', '.gitignore', '.env', 'AGENTS.md',
       'app.ts', 'index.ts',
-      'ui/layout.tsx', 'ui/page.tsx', 'ui/app.css',
+      'ui/layout.tsx', 'ui/page.tsx', 'ui/app.css', 'ui/components/Greeting.tsx',
     ]
     for (const f of expected) {
       assert.ok(existsSync(join(dir, f)), `missing ${f}`)

@@ -35,6 +35,22 @@ async function cmdInit(name: string) {
   const templateDir = join(pkgRoot, 'cli', 'template')
   await cp(templateDir, targetDir, { recursive: true })
 
+  // Rewrite local imports → package imports for the copied project
+  for (const file of ['app.ts', 'index.ts', 'ui/page.tsx']) {
+    const fp = join(targetDir, file)
+    let content = await readFile(fp, 'utf-8')
+    content = content
+      .replace(/from '\.\.\/\.\.\/index\.ts'/g, "from 'weifuwu'")
+      .replace(/from '\.\.\/\.\.\/\.\.\/react\.ts'/g, "from 'weifuwu/react'")
+      .replace(/import \{ join \} from 'node:path'\n/gm, '')
+      .replace(/const _ui = join\(import\.meta\.dirname, 'ui'\)\n\n/, '')
+      .replace(/tailwind\(_ui\)/g, "tailwind('./ui')")
+      .replace(/layout\(join\(_ui, 'layout\.tsx'\)\)/g, "layout('./ui/layout.tsx')")
+      .replace(/ssr\(join\(_ui, 'page\.tsx'\)\)/g, "ssr('./ui/page.tsx')")
+      .replace(/join\(import\.meta\.dirname, 'ui'\)/g, "'./ui'")
+    await writeFile(fp, content)
+  }
+
   // Write config files
   await writeFile(join(targetDir, 'package.json'), JSON.stringify({
     name,

@@ -26,7 +26,16 @@ function broadcastCss(css: string) {
 export function liveReload(opts: { dirs: string[] }): Router & { close: () => void } {
   const r = new Router()
 
-  // single vendor bundle
+  // Auto-detect entry page (first dir / page.tsx)
+  const entryPath = (() => {
+    for (const dir of opts.dirs) {
+      const p = join(resolve(dir), 'page.tsx')
+      if (existsSync(p)) return p
+    }
+    return ''
+  })()
+
+  // single vendor bundle (includes react-refresh/runtime)
   r.get('/__wfw/v/bundle', async (req, ctx) => {
     const code = await compileVendorBundle()
     return new Response(code, {
@@ -62,8 +71,9 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
       clearCompileCache()
       clearClientBundleCache()
       try {
-        await compileTsxDev(filePath)
-        const { hash, code } = await compileHotComponent(filePath)
+        const target = entryPath || filePath
+        await compileTsxDev(target)
+        const { hash, code } = await compileHotComponent(target)
         hotBundleCache.set(hash, code)
         let css: string | undefined
         for (const dir of opts.dirs) {

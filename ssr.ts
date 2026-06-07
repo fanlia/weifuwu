@@ -44,26 +44,24 @@ async function buildClientBundle(
     const _sc = `(function(){var k='__WEIFUWU_CTX_STORE';var s=typeof globalThis!='undefined'&&globalThis[k];if(!s)return function(){};return function(v){s._ctx={...s._ctx,...v};s._snapshot={params:s._ctx.params,query:s._ctx.query,user:s._ctx.user,parsed:s._ctx.parsed,prefs:s._ctx.prefs,env:s._ctx.env};s._listeners.forEach(function(fn){fn()})}})()`
     const code = [
       layoutImports,
-      `import{hydrateRoot}from'react-dom/client';`,
-      `import{createElement,useState,useEffect}from'react';`,
+      `${isDev ? "import{createRoot}from'react-dom/client';" : "import{hydrateRoot}from'react-dom/client';"}`,
+      `import{createElement}from'react';`,
       `import{TsxContext}from'weifuwu/react';`,
       `import P from${JSON.stringify(absEntry)};`,
       `var setCtx=${_sc};`,
       `const c=document.getElementById('__weifuwu_root');`,
       `if(window.__WEIFUWU_PROPS)setCtx({loaderData:window.__WEIFUWU_PROPS});`,
-      `if(!window.__WFW_ROOT){`,
+      // Dev: stable proxy chain — _P → _W (stable) → actual component
+      isDev ? `const _W=function(props){return(_W._fn||P)(props)};_W._fn=P;const _P=function(props){return createElement(_W,props)};` : '',
+      // Dev: HMR handler — updates proxy + re-renders root
+      isDev ? `window.__WFW_REFRESH=function(n){_W._fn=n;window.__WFW_ROOT.render(createElement(App))};` : '',
       `function App(){`,
-      `const[p,setP]=useState({C:P});`,
-      `useEffect(()=>{window.__WFW_SET_PAGE=(C)=>{setCtx({loaderData:window.__WEIFUWU_PROPS});setP({C})}},[]);`,
       `const ctx=window.__WEIFUWU_CTX||{};`,
       `return createElement(TsxContext.Provider,{value:ctx},`,
-      `createElement(p.C,null))`,
+      isDev ? `createElement(_P,null))` : `createElement(P,null))`,
       `}`,
-      `window.__WFW_ROOT=hydrateRoot(c,createElement(App));`,
-      `}else{`,
-      `window.__WFW_SET_PAGE?.(P);`,
-      `}`,
-    ].join('')
+      isDev ? `window.__WFW_ROOT=createRoot(c);window.__WFW_ROOT.render(createElement(App));` : `hydrateRoot(c,createElement(App));`,
+    ].filter(Boolean).join('')
 
     const { default: esbuild } = await import('esbuild')
     const result = await esbuild.build({
