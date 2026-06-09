@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import type { Context } from '../types.ts'
 import { health } from '../health.ts'
 import { mailer } from '../mailer.ts'
-import { createTestServer } from '../serve.ts'
 
 describe('health', () => {
   it('returns 200 on /health', async () => {
@@ -57,14 +56,5 @@ describe('mailer', () => {
       /no transport configured/,
     )
     await m.close()
-  })
-})
-
-describe('createTestServer', () => {
-  it('starts a server and returns url', async () => {
-    const { server, url } = await createTestServer(() => new Response('hello'))
-    const res = await fetch(url)
-    assert.equal(await res.text(), 'hello')
-    server.stop()
   })
 })

@@ -40,7 +40,7 @@ describe('aiStream', () => {
     assert.equal(res.status, 500)
   })
 
-  it('returns 404 for GET request', async () => {
+  it('returns 405 for GET request', async () => {
     const { _ai, aiStream } = await import('../ai.ts')
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
@@ -50,7 +50,8 @@ describe('aiStream', () => {
       new Request('http://localhost/', { method: 'GET' }),
       { params: {}, query: {} } as Context,
     )
-    assert.equal(res.status, 404)
+    assert.equal(res.status, 405)
+    assert.equal(res.headers.get('Allow'), 'POST')
   })
 
   it('handler receives request and context', async () => {

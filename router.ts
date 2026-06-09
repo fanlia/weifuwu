@@ -128,7 +128,11 @@ export class Router {
   private wsRoot: WsTrieNode = createWsNode()
   private globalMws: Middleware[] = []
   private errorHandler?: ErrorHandler
-  private wss = new WebSocketServer({ noServer: true })
+  private _wss?: WebSocketServer
+  private get wss(): WebSocketServer {
+    if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
+    return this._wss
+  }
 
   use(mw: Middleware): this
   use(router: Router): this
@@ -193,7 +197,7 @@ export class Router {
   route(method: string, path: string, ...args: [...Middleware[], Handler | Router]): this {
     const last = args[args.length - 1]
     if (last instanceof Router) {
-      this._mountRouter(path, last)
+      this._mountRouter(path, last, args.slice(0, -1) as Middleware[])
       return this
     }
     const handler = args.pop()! as Handler
@@ -231,16 +235,14 @@ export class Router {
     }
 
     node.handler = handler
-    if (middlewares.length > 0) node.middlewares = middlewares
+    node.middlewares = middlewares
     return this
   }
-
-
 
   handler(): Handler {
     return (req, ctx) => {
       const url = new URL(req.url)
-      return this.handle(req, ctx, this.splitPath(url.pathname), Object.fromEntries(url.searchParams))
+      return this.handle(req, ctx, this.splitPath(url.pathname))
     }
   }
 
@@ -253,53 +255,45 @@ export class Router {
       const segments = url.pathname.split('/').filter(Boolean)
 
       const match = router.matchWsTrie(wsRoot, segments)
-      if (match) {
-        const query = Object.fromEntries(url.searchParams)
-        const webReq = new Request(url.href, {
-          method: req.method ?? 'GET',
-          headers: Object.fromEntries(
-            Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
-          ),
-        })
-        const ctx = { params: match.params, query } as Context
+      if (!match) { socket.destroy(); return }
 
-        if (match.middlewares.length === 0) {
-          upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
-          return
-        }
+      const query = Object.fromEntries(url.searchParams)
+      const webReq = new Request(url.href, {
+        method: req.method ?? 'GET',
+        headers: Object.fromEntries(
+          Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
+        ),
+      })
+      const ctx = { params: match.params, query } as Context
 
-        let index = 0
-        const dispatch: Handler = async (innerReq, ctx) => {
-          if (index < match.middlewares.length) {
-            const mw = match.middlewares[index++]
-            return mw!(innerReq, ctx, dispatch)
-          }
-          return await new Promise<Response>((resolve) => {
-            try {
-              upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
-              resolve(new Response(null, { status: 101 }))
-            } catch {
-              socket.destroy()
-              resolve(new Response('WebSocket upgrade failed', { status: 500 }))
-            }
-          })
-        }
+      const allMws = [...router.globalMws, ...match.middlewares]
 
-        Promise.resolve(dispatch(webReq, ctx)).then((result) => {
-          if (result.status !== 101) {
-            sendHttpResponseOnSocket(socket, result)
-          }
-        }).catch(() => {
-          socket.destroy()
-        })
+      if (allMws.length === 0) {
+        upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
         return
       }
 
-      socket.destroy()
+      const finalHandler: Handler = () => {
+        try {
+          upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
+        } catch {
+          socket.destroy()
+          return new Response('WebSocket upgrade failed', { status: 500 })
+        }
+        return new Response(null, { status: 200 })
+      }
+
+      void router.runChain(allMws, finalHandler, webReq, ctx).then((result) => {
+        if (result.status >= 400) {
+          sendHttpResponseOnSocket(socket, result)
+        }
+      }).catch(() => {
+        socket.destroy()
+      })
     }
   }
 
-  private _mountRouter(prefix: string, sub: Router): void {
+  private _mountRouter(prefix: string, sub: Router, extraMws: Middleware[] = []): void {
     const base = prefix === '/' ? '' : prefix.replace(/\/$/, '')
 
     const mountMw: Middleware = (req, ctx, next) => {
@@ -307,19 +301,16 @@ export class Router {
       return next(req, ctx)
     }
 
-    // Merge sub-router's global middleware into parent so they run on ALL routes
-    this.globalMws.push(...sub.globalMws)
-
     const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
     this._collect(sub.root, '', routes, [])
     for (const { method, path, handler, middlewares } of routes) {
-      this.route(method, base + path, mountMw, ...sub.globalMws, ...middlewares, handler)
+      this.route(method, base + path, mountMw, ...extraMws, ...sub.globalMws, ...middlewares, handler)
     }
 
-    const wsRoutes: Array<{ path: string; handler: WebSocketHandler }> = []
+    const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
     this._collectWs(sub.wsRoot, '', wsRoutes)
-    for (const { path, handler } of wsRoutes) {
-      this.ws(base + path, handler)
+    for (const { path, handler, middlewares } of wsRoutes) {
+      this.ws(base + path, mountMw, ...extraMws, ...sub.globalMws, ...middlewares, handler)
     }
   }
 
@@ -348,12 +339,14 @@ export class Router {
   private _collectWs(
     node: WsTrieNode,
     prefix: string,
-    result: Array<{ path: string; handler: WebSocketHandler }>,
+    result: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }>,
+    pathMwsAcc: Middleware[] = [],
   ): void {
-    if (node.handler) result.push({ path: prefix || '/', handler: node.handler })
+    const mws = [...pathMwsAcc, ...node.middlewares]
+    if (node.handler) result.push({ path: prefix || '/', handler: node.handler, middlewares: mws })
     for (const [seg, child] of node.children) {
-      if (seg === ':') this._collectWs(child, prefix + '/:' + child.param, result)
-      else this._collectWs(child, prefix + '/' + seg, result)
+      if (seg === ':') this._collectWs(child, prefix + '/:' + child.param, result, mws)
+      else this._collectWs(child, prefix + '/' + seg, result, mws)
     }
   }
 
@@ -369,6 +362,7 @@ export class Router {
     middlewares: Middleware[]
     pathMws: Middleware[]
     params: Record<string, string>
+    allowedMethods?: string[]
   } | null {
     let node = this.root
     const params: Record<string, string> = {}
@@ -390,7 +384,6 @@ export class Router {
       }
 
       const segment = segments[i]
-      if (!segment) break
 
       const next = matchTrieNode(node, segment, params)
       if (!next) {
@@ -420,6 +413,11 @@ export class Router {
       params['*'] = segments.slice(wildcardIdx).join('/')
       return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params }
     }
+
+    if (node.handlers.size > 0) {
+      return { middlewares: [], pathMws, params, allowedMethods: [...node.handlers.keys()].filter(k => k !== '*') }
+    }
+
     return null
   }
 
@@ -442,25 +440,49 @@ export class Router {
     req: Request,
     ctx: Context,
     segments: string[],
-    query: Record<string, string>,
   ): Promise<Response> {
     const match = this.matchTrie(req.method, segments)
 
-    if (match?.handler) {
-      const { handler, middlewares: routeMws, pathMws, params } = match
-      const allMws = this.globalMws.length + pathMws.length + routeMws.length === 0
-        ? [] as Middleware[]
-        : [...this.globalMws, ...pathMws, ...routeMws]
-      const ctxWithMatch = { ...ctx, params: { ...ctx.params, ...params } }
+    if (match) {
+      Object.assign(ctx.params, match.params)
 
-      try {
-        return await this.runChain(allMws, handler, req, ctxWithMatch)
-      } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e))
-        console.error(err)
-        return this.errorHandler
-          ? this.errorHandler(err, req, ctxWithMatch)
-          : new Response('Internal Server Error', { status: 500 })
+      if (match.handler) {
+        const { handler, middlewares: routeMws, pathMws } = match
+        const allMws = this.globalMws.length + pathMws.length + routeMws.length === 0
+          ? [] as Middleware[]
+          : [...this.globalMws, ...pathMws, ...routeMws]
+
+        try {
+          return await this.runChain(allMws, handler, req, ctx)
+        } catch (e) {
+          const err = e instanceof Error ? e : new Error(String(e))
+          console.error(err)
+          return this.errorHandler
+            ? this.errorHandler(err, req, ctx)
+            : new Response('Internal Server Error', { status: 500 })
+        }
+      }
+
+      if (match.allowedMethods && match.allowedMethods.length > 0) {
+        if (this.globalMws.length > 0) {
+          const delegate: Handler = () => new Response('Method Not Allowed', {
+            status: 405,
+            headers: { 'Allow': match.allowedMethods!.join(', ') },
+          })
+          try {
+            return await this.runChain(this.globalMws, delegate, req, ctx)
+          } catch (e) {
+            const err = e instanceof Error ? e : new Error(String(e))
+            console.error(err)
+            return this.errorHandler
+              ? this.errorHandler(err, req, ctx)
+              : new Response('Internal Server Error', { status: 500 })
+          }
+        }
+        return new Response('Method Not Allowed', {
+          status: 405,
+          headers: { 'Allow': match.allowedMethods.join(', ') },
+        })
       }
     }
 
@@ -490,9 +512,7 @@ export class Router {
     const dispatch: Handler = async (req, ctx) => {
       if (index < middlewares.length) {
         const mw = middlewares[index++]
-        return mw
-          ? await mw(req, ctx, dispatch)
-          : new Response('Middleware error', { status: 500 })
+        return await mw(req, ctx, dispatch)
       }
       return await finalHandler(req, ctx)
     }
@@ -546,7 +566,4 @@ function sendHttpResponseOnSocket(socket: Duplex, response: Response): void {
     socket.end()
   })
 }
-
-
-
 
