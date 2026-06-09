@@ -164,10 +164,8 @@ export function streamResponse(reactStream: ReadableStream, opts: StreamOpts): R
         if (body) controller.enqueue(encoder.encode('\n' + body))
 
         if (opts.isDev) {
-          const wsUrl = `${opts.base}/__weifuwu/livereload`
-          const hbUrl = `${opts.base}/__wfw/h/`
           controller.enqueue(encoder.encode(
-            `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${wsUrl}');var t=0;ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='component'){if(m.entry&&m.entry!==window.__WFW_ENTRY)return;import('${hbUrl}'+m.hash+'?'+Date.now()).catch(function(){location.reload()});if(m.css){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css}return}if(m.type==='css'){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css;return}}catch(_){}if(e.data==='reload'&&Date.now()-t>1e3){t=Date.now();location.reload()}};ws.onclose=function(){if(Date.now()-t>1e3){t=Date.now();setTimeout(function(){location.reload()},500)}}})()<\/script>`
+            `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');var t=0;ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='component'){if(m.entry&&m.entry!==window.__WFW_ENTRY)return;import('/__wfw/h/'+m.hash+'?'+Date.now()).catch(function(){location.reload()});if(m.css){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css}return}if(m.type==='css'){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css;return}}catch(_){}if(e.data==='reload'&&Date.now()-t>1e3){t=Date.now();location.reload()}};ws.onclose=function(){if(Date.now()-t>1e3){t=Date.now();setTimeout(function(){location.reload()},500)}}})()<\/script>`
           ))
         }
       } catch {
