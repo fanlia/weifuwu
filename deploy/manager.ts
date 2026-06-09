@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { Router } from '../router.ts'
-import type { Context, Handler, Middleware } from '../types.ts'
+import type { Context, Middleware } from '../types.ts'
 import type { DeployConfig, AppStatus } from './types.ts'
 import { formatSSEData } from '../sse.ts'
 import { stopProcess } from './process.ts'
@@ -129,51 +129,6 @@ export function createManager(
         'Cache-Control': 'no-cache',
       },
     })
-  })
-
-  router.post('/reload', auth, async () => {
-    try {
-      await manager.reloadConfig()
-      return Response.json({ success: true })
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      return Response.json({ error: msg }, { status: 400 })
-    }
-  })
-
-  router.post('/webhook', async (req) => {
-    const rawBody = await req.text()
-
-    if (config.webhookSecret) {
-      const sig = req.headers.get('x-hub-signature-256') ?? ''
-      const expected = `sha256=${crypto.createHmac('sha256', config.webhookSecret).update(rawBody).digest('hex')}`
-      const sigBuf = Buffer.from(sig)
-      const expectedBuf = Buffer.from(expected)
-      if (sigBuf.length !== expectedBuf.length ||
-          !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
-        return Response.json({ error: 'invalid signature' }, { status: 401 })
-      }
-    }
-
-    let payload: Record<string, any>
-    try { payload = JSON.parse(rawBody) } catch { payload = {} }
-    const repoUrl = payload?.repository?.clone_url ?? payload?.repository?.html_url ?? ''
-
-    if (!repoUrl) return Response.json({ deployed: [] })
-
-    const deployed: string[] = []
-    for (const [name] of apps) {
-      const ac = apps.get(name)?.config
-      if (!ac) continue
-      const repoNorm = ac.repo.replace(/\.git$/, '').replace(/https:\/\/[^@]+@/, 'https://')
-      const payloadNorm = repoUrl.replace(/\.git$/, '').replace(/https:\/\/[^@]+@/, 'https://')
-      if (payloadNorm.includes(repoNorm)) {
-        await manager.deployApp(name)
-        deployed.push(name)
-      }
-    }
-
-    return Response.json({ deployed })
   })
 
   return router

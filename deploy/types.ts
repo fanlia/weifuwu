@@ -3,37 +3,28 @@ import type { Duplex } from 'node:stream'
 import type { Context, Handler } from '../types.ts'
 
 export interface DeployConfig {
-  domain: string
+  domain?: string
   port?: number
-  ssl?: {
-    email: string
-    staging?: boolean
-  }
   deployToken?: string
-  webhookSecret?: string
-  appsDir?: string
   defaultApp?: string
   apps: Record<string, AppConfig>
 }
 
 export interface AppConfig {
-  repo: string
-  branch?: string
-  subdomain?: string
+  dir?: string
+  port?: number
+  entry?: string
   path?: string
-  port: number
-  ports?: [number, number]
-  entry: string
   env?: Record<string, string>
   healthEndpoint?: string
   buildCommand?: string
+  ports?: [number, number]
 }
 
 export interface AppStatus {
   name: string
   status: 'starting' | 'running' | 'stopped' | 'error'
   port: number
-  subdomain?: string
   path?: string
   pid?: number
   uptime?: number

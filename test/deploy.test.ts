@@ -1,8 +1,6 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFile, mkdir, rm, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { fork } from 'node:child_process'
 import { serve } from '../serve.ts'
 import { createGateway } from '../deploy/gateway.ts'
 import { createManager } from '../deploy/manager.ts'
@@ -15,88 +13,55 @@ import type { DeployConfig, GatewayResult } from '../deploy/types.ts'
 // ── Config ─────────────────────────────────────────────────────────────
 
 describe('defineConfig', () => {
-  it('throws when domain is missing', () => {
-    assert.throws(() => defineConfig({} as any), /domain is required/)
+  it('defaults domain to localhost', () => {
+    const cfg = defineConfig({ apps: { app1: {} } })
+    assert.equal(cfg.domain, 'localhost')
+    assert.equal(cfg.port, 3000)
   })
 
-  it('throws when no apps', () => {
-    assert.throws(
-      () => defineConfig({ domain: 'x.com', apps: {} }),
-      /at least one app/,
-    )
-  })
-
-  it('throws when app has no repo', () => {
-    assert.throws(
-      () => defineConfig({ domain: 'x.com', apps: { a: {} as any } }),
-      /no repo/,
-    )
-  })
-
-  it('throws when app has no entry', () => {
-    assert.throws(
-      () => defineConfig({ domain: 'x.com', apps: { a: { repo: 'x' } as any } }),
-      /no entry/,
-    )
-  })
-
-  it('throws when app has no port', () => {
-    assert.throws(
-      () => defineConfig({ domain: 'x.com', apps: { a: { repo: 'x', entry: 'a.ts' } as any } }),
-      /no port/,
-    )
-  })
-
-  it('sets defaults', () => {
-    const cfg = defineConfig({
-      domain: 'example.com',
-      apps: {
-        app1: { repo: 'https://example.com/repo.git', entry: 'app.ts', port: 3000 },
-      },
-    })
-    assert.equal(cfg.port, 80)
-    assert.equal(cfg.appsDir, '/opt/weifuwu/apps')
+  it('auto-derives dir, entry, port, path for localhost', () => {
+    const cfg = defineConfig({ apps: { app1: {}, app2: {} } })
+    assert.equal(cfg.apps.app1.dir, 'app1')
+    assert.equal(cfg.apps.app1.entry, 'index.ts')
+    assert.equal(cfg.apps.app1.port, 3001)
+    assert.equal(cfg.apps.app1.path, '/app1')
+    assert.equal(cfg.apps.app2.dir, 'app2')
+    assert.equal(cfg.apps.app2.port, 3002)
+    assert.equal(cfg.apps.app2.path, '/app2')
   })
 
   it('preserves explicit values', () => {
     const cfg = defineConfig({
       domain: 'example.com',
       port: 8080,
-      appsDir: '/data/apps',
       deployToken: 'secret',
       apps: {
-        app1: { repo: 'https://example.com/repo.git', entry: 'app.ts', port: 3000 },
+        app1: { dir: '/data/app1', entry: 'server.ts', port: 9000 },
       },
     })
     assert.equal(cfg.port, 8080)
-    assert.equal(cfg.appsDir, '/data/apps')
     assert.equal(cfg.deployToken, 'secret')
+    assert.equal(cfg.apps.app1.dir, '/data/app1')
+    assert.equal(cfg.apps.app1.entry, 'server.ts')
+    assert.equal(cfg.apps.app1.port, 9000)
+  })
+
+  it('does not auto-derive path for non-localhost domain', () => {
+    const cfg = defineConfig({
+      domain: 'example.com',
+      apps: { app1: {} },
+    })
+    assert.equal(cfg.apps.app1.path, undefined)
   })
 
   it('accepts blue-green ports config', () => {
     const cfg = defineConfig({
       domain: 'example.com',
       apps: {
-        app1: {
-          repo: 'https://example.com/repo.git',
-          entry: 'app.ts',
-          port: 3001,
-          ports: [3001, 3002],
-        },
+        app1: { port: 3001, ports: [3001, 3002] },
       },
     })
     assert.deepEqual(cfg.apps.app1.ports, [3001, 3002])
-  })
-
-  it('accepts webhook secret', () => {
-    const cfg = defineConfig({
-      domain: 'example.com',
-      webhookSecret: 'github-secret',
-      apps: {
-        app1: { repo: '...', entry: 'app.ts', port: 3000 },
-      },
-    })
-    assert.equal(cfg.webhookSecret, 'github-secret')
   })
 })
 
@@ -119,7 +84,6 @@ describe('gateway', () => {
     blogServer = serve(() => new Response('hello from blog'), { port: 0 })
     await blogServer.ready
     blogPort = blogServer.port
-    blogPort = blogPort // ensure used
 
     apiServer = serve(() => new Response('hello from api'), { port: 0 })
     await apiServer.ready
@@ -128,8 +92,8 @@ describe('gateway', () => {
     config = defineConfig({
       domain: 'example.com',
       apps: {
-        blog: { repo: '...', subdomain: 'blog', entry: 'app.ts', port: blogPort },
-        api: { repo: '...', path: '/api', entry: 'app.ts', port: apiPort },
+        blog: { port: blogPort },
+        api: { path: '/api', port: apiPort },
       },
       defaultApp: 'blog',
     })
@@ -142,7 +106,7 @@ describe('gateway', () => {
     apiServer.stop()
   })
 
-  it('routes by subdomain', async () => {
+  it('routes by app key host (key.domain)', async () => {
     const res = await gw.handler(
       new Request(`http://blog.example.com/`),
       { params: {}, query: {} } as any,
@@ -151,7 +115,7 @@ describe('gateway', () => {
     assert.equal(await res.text(), 'hello from blog')
   })
 
-  it('routes by subdomain preserving path', async () => {
+  it('routes by app key host preserving path', async () => {
     const res = await gw.handler(
       new Request(`http://blog.example.com/posts/123`),
       { params: {}, query: {} } as any,
@@ -178,8 +142,14 @@ describe('gateway', () => {
     assert.equal(await res.text(), 'hello from blog')
   })
 
-  it('returns 404 for unknown subdomain', async () => {
-    const res = await gw.handler(
+  it('returns 404 for unknown host when no defaultApp', async () => {
+    const gw2 = createGateway(defineConfig({
+      domain: 'example.com',
+      apps: {
+        blog: { port: blogPort },
+      },
+    }), getPort)
+    const res = await gw2.handler(
       new Request(`http://unknown.example.com/`),
       { params: {}, query: {} } as any,
     )
@@ -196,9 +166,9 @@ describe('gateway', () => {
   })
 })
 
-// ── Gateway with path rewriting ────────────────────────────────────────
+// ── Gateway localhost mode ────────────────────────────────────────────
 
-describe('gateway path rewriting', () => {
+describe('gateway localhost', () => {
   let backend: ReturnType<typeof serve>
   let port: number
 
@@ -213,37 +183,50 @@ describe('gateway path rewriting', () => {
 
   after(() => backend.stop())
 
-  it('strips path prefix when proxying', async () => {
+  it('routes by app key path (/key)', async () => {
     const config = defineConfig({
-      domain: 'example.com',
       apps: {
-        svc: { repo: '...', path: '/api/v2', entry: 'app.ts', port },
+        svc: { port },
       },
     })
     const gw = createGateway(config, () => port)
 
     const res = await gw.handler(
-      new Request(`http://example.com/api/v2/users/123`),
+      new Request(`http://localhost/svc/users/123`),
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
     assert.equal(await res.text(), '/users/123')
   })
 
-  it('preserves path when no prefix match', async () => {
+  it('strips path prefix when proxying', async () => {
     const config = defineConfig({
-      domain: 'example.com',
       apps: {
-        svc: { repo: '...', path: '/api', entry: 'app.ts', port },
+        svc: { path: '/api/v2', port },
       },
     })
     const gw = createGateway(config, () => port)
 
     const res = await gw.handler(
-      new Request(`http://example.com/other`),
+      new Request(`http://localhost/api/v2/users/123`),
       { params: {}, query: {} } as any,
     )
-    // Falls through to defaultApp — there is none, so 404
+    assert.equal(res.status, 200)
+    assert.equal(await res.text(), '/users/123')
+  })
+
+  it('returns 404 for unknown path', async () => {
+    const config = defineConfig({
+      apps: {
+        svc: { path: '/api', port },
+      },
+    })
+    const gw = createGateway(config, () => port)
+
+    const res = await gw.handler(
+      new Request(`http://localhost/other`),
+      { params: {}, query: {} } as any,
+    )
     assert.equal(res.status, 404)
   })
 })
@@ -255,7 +238,7 @@ describe('manager API', () => {
     domain: 'test.com',
     deployToken: 'test-token',
     apps: {
-      app1: { repo: '...', subdomain: 'app1', entry: 'app.ts', port: 3001 },
+      app1: { port: 3001 },
     },
   })
 
@@ -263,7 +246,7 @@ describe('manager API', () => {
     const apps = new Map<string, AppRuntime>()
     apps.set('app1', {
       config: config.apps.app1,
-      status: { name: 'app1', status: 'running', port: 3001, subdomain: 'app1', pid: 12345 },
+      status: { name: 'app1', status: 'running', port: 3001, pid: 12345 },
       logs: ['started', 'running'],
       process: null,
       currentPort: 3001,
@@ -323,7 +306,7 @@ describe('manager API', () => {
     const cfg = defineConfig({
       domain: 'test.com',
       apps: {
-        app1: { repo: '...', entry: 'app.ts', port: 3001 },
+        app1: { port: 3001 },
       },
     })
     const apps = new Map<string, AppRuntime>()
@@ -345,149 +328,6 @@ describe('manager API', () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
-  })
-
-  it('does not require auth for root domain default', async () => {
-    // Test that the handler works without auth for non-manager routes
-    const result = defineConfig({
-      domain: 'test.com',
-      apps: {
-        main: { repo: '...', entry: 'app.ts', port: 3000 },
-      },
-    })
-    assert.ok(result)
-  })
-
-  it('webhook matches app by repo and triggers deploy', async () => {
-    let deployed = ''
-    const cfg = defineConfig({
-      domain: 'test.com',
-      apps: {
-        blog: { repo: 'https://github.com/user/blog.git', entry: 'app.ts', port: 3001 },
-      },
-    })
-    const apps = new Map<string, AppRuntime>()
-    apps.set('blog', {
-      config: cfg.apps.blog,
-      status: { name: 'blog', status: 'running', port: 3001 },
-      logs: [],
-      process: null,
-      currentPort: 3001,
-      startedAt: null,
-    })
-    const router = createManager(cfg, apps, {
-      deployApp: async (name) => { deployed = name },
-      reloadConfig: async () => {},
-    })
-
-    const res = await router.handler()(
-      new Request('http://localhost/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repository: { clone_url: 'https://github.com/user/blog.git' },
-        }),
-      }),
-      { params: {}, query: {} } as any,
-    )
-    assert.equal(res.status, 200)
-    const data = await res.json() as any
-    assert.deepEqual(data.deployed, ['blog'])
-    assert.equal(deployed, 'blog')
-  })
-
-  it('webhook returns empty when no app matches', async () => {
-    const cfg = defineConfig({
-      domain: 'test.com',
-      apps: {
-        blog: { repo: 'https://github.com/user/blog.git', entry: 'app.ts', port: 3001 },
-      },
-    })
-    const apps = new Map<string, AppRuntime>()
-    apps.set('blog', {
-      config: cfg.apps.blog,
-      status: { name: 'blog', status: 'running', port: 3001 },
-      logs: [],
-      process: null,
-      currentPort: 3001,
-      startedAt: null,
-    })
-    const router = createManager(cfg, apps, {
-      deployApp: async () => {},
-      reloadConfig: async () => {},
-    })
-
-    const res = await router.handler()(
-      new Request('http://localhost/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repository: { clone_url: 'https://github.com/other/project.git' },
-        }),
-      }),
-      { params: {}, query: {} } as any,
-    )
-    assert.equal(res.status, 200)
-    const data = await res.json() as any
-    assert.deepEqual(data.deployed, [])
-  })
-
-  it('webhook verifies signature when secret is set', async () => {
-    const cfg = defineConfig({
-      domain: 'test.com',
-      webhookSecret: 'my-secret',
-      apps: {
-        blog: { repo: 'https://github.com/user/blog.git', entry: 'app.ts', port: 3001 },
-      },
-    })
-    const apps = new Map<string, AppRuntime>()
-    apps.set('blog', {
-      config: cfg.apps.blog,
-      status: { name: 'blog', status: 'running', port: 3001 },
-      logs: [],
-      process: null,
-      currentPort: 3001,
-      startedAt: null,
-    })
-    const router = createManager(cfg, apps, {
-      deployApp: async () => {},
-      reloadConfig: async () => {},
-    })
-
-    const body = JSON.stringify({
-      repository: { clone_url: 'https://github.com/user/blog.git' },
-    })
-
-    // Compute valid signature
-    const crypto = await import('node:crypto')
-    const sig = 'sha256=' + crypto.createHmac('sha256', 'my-secret').update(body).digest('hex')
-
-    const res = await router.handler()(
-      new Request('http://localhost/webhook', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-hub-signature-256': sig,
-        },
-        body,
-      }),
-      { params: {}, query: {} } as any,
-    )
-    assert.equal(res.status, 200)
-
-    // Invalid signature
-    const res2 = await router.handler()(
-      new Request('http://localhost/webhook', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-hub-signature-256': 'sha256=invalid',
-        },
-        body,
-      }),
-      { params: {}, query: {} } as any,
-    )
-    assert.equal(res2.status, 401)
   })
 })
 

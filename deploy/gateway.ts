@@ -1,7 +1,7 @@
 import WebSocket, { WebSocketServer } from 'ws'
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
-import type { Context, Handler } from '../types.ts'
+import type { Handler } from '../types.ts'
 import type { DeployConfig, GatewayResult } from './types.ts'
 
 interface AppMatch {
@@ -10,23 +10,15 @@ interface AppMatch {
   stripPath?: string
 }
 
-function isBareDomain(host: string, domain: string): boolean {
-  return host === domain || host === `www.${domain}`
-}
-
 function matchApp(
   config: DeployConfig,
   getPort: (name: string) => number | undefined,
   host: string,
   pathname: string,
 ): AppMatch | undefined {
-  for (const [name, ac] of Object.entries(config.apps)) {
-    if (ac.subdomain && host === `${ac.subdomain}.${config.domain}`) {
-      const port = getPort(name)
-      if (port) return { name, port }
-    }
-  }
+  const domain = config.domain || 'localhost'
 
+  // 1. Apps with explicit path — match by longest prefix
   const pathApps = Object.entries(config.apps)
     .filter(([, ac]) => ac.path)
     .sort(([, a], [, b]) => (b.path?.length ?? 0) - (a.path?.length ?? 0))
@@ -38,7 +30,19 @@ function matchApp(
     }
   }
 
-  if (config.defaultApp && isBareDomain(host, config.domain)) {
+  // 2. Apps without path — match by host (key.domain) or path prefix (/key)
+  for (const [name, ac] of Object.entries(config.apps)) {
+    if (ac.path) continue
+    const hostMatch = host === `${name}.${domain}` || host === name
+    const pathMatch = pathname === `/${name}` || pathname.startsWith(`/${name}/`)
+    if (hostMatch || pathMatch) {
+      const port = getPort(name)
+      if (port) return { name, port }
+    }
+  }
+
+  // 3. Default app
+  if (config.defaultApp) {
     const port = getPort(config.defaultApp)
     if (port) return { name: config.defaultApp, port }
   }
