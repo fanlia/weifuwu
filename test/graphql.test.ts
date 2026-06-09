@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { graphql } from '../graphql.ts'
+import { Router, graphql, createTestServer } from '../index.ts'
 import type { Context } from '../types.ts'
 
 const schema = `type Query { hello: String, fail: Int }
@@ -149,5 +149,53 @@ describe('graphql', () => {
     const text = await res.text()
     assert.ok(text.includes('GraphiQL'))
     assert.ok(text.includes('graphiql'))
+  })
+})
+
+// ── graphql HTTP integration ──────────────────────────────────────────────
+
+describe('graphql http', () => {
+  it('handles GET query via HTTP', async () => {
+    const r = new Router()
+    const m = graphql(gqlHandler())
+    r.use('/graphql', m)
+
+    const { server, url } = await createTestServer(r.handler())
+    const res = await fetch(`${url}/graphql?query={hello}`)
+    assert.equal(res.status, 200)
+    const data = await res.json() as Record<string, unknown>
+    assert.deepEqual(data, { data: { hello: 'world' } })
+    server.stop()
+  })
+
+  it('handles POST query via HTTP', async () => {
+    const r = new Router()
+    const m = graphql(gqlHandler())
+    r.use('/graphql', m)
+
+    const { server, url } = await createTestServer(r.handler())
+    const res = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{ hello }' }),
+    })
+    assert.equal(res.status, 200)
+    const data = await res.json() as Record<string, unknown>
+    assert.deepEqual(data, { data: { hello: 'world' } })
+    server.stop()
+  })
+
+  it('returns GraphiQL HTML on GET without query via HTTP', async () => {
+    const r = new Router()
+    const m = graphql(gqlHandler({ graphiql: true }))
+    r.use('/graphql', m)
+
+    const { server, url } = await createTestServer(r.handler())
+    const res = await fetch(`${url}/graphql`)
+    assert.equal(res.status, 200)
+    const text = await res.text()
+    assert.ok(text.includes('GraphiQL'))
+    assert.ok(text.includes('graphiql'))
+    server.stop()
   })
 })
