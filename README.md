@@ -18,9 +18,9 @@ serve((req, ctx) => new Response('Hello, World!'), { port: 3000 })
 import { serve, Router, preferences, ssr, layout, liveReload } from 'weifuwu'
 const app = new Router()
 app.use(preferences({ dir: './locales' }))
-app.use(layout('./layouts/root.tsx'))
-app.get('/', ssr('./pages/home.tsx'))
-app.use(liveReload('./pages'))
+app.use(layout('./ui/layouts/root.tsx'))
+app.get('/', ssr('./ui/pages/home.tsx'))
+app.use(liveReload('./ui'))
 serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
 ```
 
@@ -118,7 +118,7 @@ app.ws('/ws', messager({ pg }).wsHandler())
 
 β modules can also be mounted **without a path** — internal routes (`/__xxx`) are inaccessible to the user:
 ```ts
-app.use(liveReload('./pages'))                                   // no path, /__weifuwu/livereload
+app.use(liveReload('./ui'))                                   // no path, /__weifuwu/livereload
 ```
 
 β modules that need **separate middleware** use `.middleware()`:
@@ -576,7 +576,7 @@ import { ssr, layout, liveReload, errorBoundary, notFound, tailwind } from 'weif
 Compiles a `.tsx` file and returns a Router handler that renders the React component to HTML with streaming, client bundle injection, and context serialization.
 
 ```ts
-app.get('/about', ssr('./pages/about.tsx'))
+app.get('/about', ssr('./ui/pages/about.tsx'))
 ```
 
 - Compiles via esbuild at runtime (no build step)
@@ -591,8 +591,8 @@ app.get('/about', ssr('./pages/about.tsx'))
 Compiles a `.tsx` file and returns middleware that pushes the layout component onto `ctx.layoutStack`. Pages rendered by `ssr()` consume this stack.
 
 ```ts
-app.use(layout('./layouts/root.tsx'))       // outermost
-app.use('/blog', layout('./layouts/blog.tsx'))  // inner
+app.use(layout('./ui/layouts/root.tsx'))       // outermost
+app.use('/blog', layout('./ui/layouts/blog.tsx'))  // inner
 ```
 
 Layout components receive `{ children }` (the child page or nested layout). Multiple layouts wrap from outer to inner in `use()` order.
@@ -610,7 +610,7 @@ Watches a directory for `.tsx` changes and returns a `Router` that registers a W
 
 ```ts
 if (process.env.NODE_ENV !== 'production') {
-  app.use(liveReload('./pages'))
+  app.use(liveReload('./ui'))
 }
 ```
 
@@ -911,7 +911,7 @@ Auto-detected when `NODE_ENV !== 'production'`. File watching + live reload via 
 import { liveReload } from 'weifuwu'
 
 if (process.env.NODE_ENV !== 'production') {
-  app.use(liveReload('./pages'))
+  app.use(liveReload('./ui'))
 }
 ```
 
