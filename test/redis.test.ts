@@ -66,4 +66,20 @@ describe('redis', { skip: !REDIS_URL }, () => {
     const obj = await r.redis.hgetall('test:hash')
     assert.deepEqual(obj, { field1: 'a', field2: 'b' })
   })
+
+  it('accepts string URL form', async () => {
+    const { redis } = await import('../redis/index.ts')
+    const r = redis(process.env.REDIS_URL!)
+    const val = await r.redis.set('test:string', 'ok')
+    assert.equal(val, 'OK')
+    await r.close()
+  })
+
+  it('uses default URL when no opts provided', async () => {
+    const { redis } = await import('../redis/index.ts')
+    const r = redis()
+    const val = await r.redis.set('test:default', 'ok')
+    assert.equal(val, 'OK')
+    await r.close()
+  })
 })
