@@ -76,23 +76,23 @@ describe('template app', () => {
     assert.ok(typeof data.time === 'string')
   })
 
-  it('injects tailwind CSS link', async () => {
+  it('injects tailwind CSS link with hash', async () => {
     const res = await app.handler()(
       new Request('http://localhost/'),
       { params: {}, query: {} } as any,
     )
     const html = await res.text()
-    assert.match(html, /\/__wfw\/style\.css/)
-  })
+    const match = html.match(/href="(\/__wfw\/style\/[a-f0-9]+\.css)"/)
+    assert.ok(match, 'expected CSS link with hash in HTML')
+    assert.ok(match[1].length > 20, 'expected hash to be present')
 
-  it('serves compiled tailwind CSS', async () => {
-    const res = await app.handler()(
-      new Request('http://localhost/__wfw/style.css'),
+    const cssRes = await app.handler()(
+      new Request(`http://localhost${match[1]}`),
       { params: {}, query: {} } as any,
     )
-    assert.equal(res.status, 200)
-    assert.match(res.headers.get('content-type') || '', /text\/css/)
-    const css = await res.text()
+    assert.equal(cssRes.status, 200)
+    assert.match(cssRes.headers.get('content-type') || '', /text\/css/)
+    const css = await cssRes.text()
     assert.ok(css.length > 1000, 'expected substantial compiled CSS')
   })
 })
@@ -160,15 +160,15 @@ describe('compile cache', () => {
   })
 })
 
-describe('liveReload()', () => {
-  it('registers WS route at /__weifuwu/livereload', async () => {
+describe('rootLayout()', () => {
+  it('registers WS route at /__weifuwu/livereload in dev', async () => {
     const { Router: R } = await import('../router.ts')
-    const { liveReload } = await import('../live.ts')
+    const { rootLayout } = await import('../root-layout.ts')
     const app = new R()
-    const lr = liveReload('./cli/template')
-    app.use(lr)
+    const rl = rootLayout('./cli/template/ui')
+    app.use(rl)
     const wsHandler = app.websocketHandler()
     assert.equal(typeof wsHandler, 'function')
-    lr.close()
+    if (typeof (rl as any).close === 'function') (rl as any).close()
   })
 })

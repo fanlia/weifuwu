@@ -74,6 +74,10 @@ export function liveReload(dir: string): Router & { close: () => void } {
 
   watcher.on('change', async (filePath: string) => {
     if (/\.tsx?$/i.test(filePath)) {
+      // Layout change → full reload (layout not in hot bundle)
+      if (filePath.endsWith('layout.tsx')) {
+        return broadcastReload()
+      }
       clearCompileCache()
       markClientBundleDirty()
       try {
