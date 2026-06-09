@@ -90,7 +90,7 @@ export function liveReload(dir: string): Router & { close: () => void } {
         if (existsSync(cssPath)) {
           css = await compileTailwindCss(cssPath, resolved)
         }
-        const entry = id(entryPath)
+        const entry = id(target)
         const msg: any = { type: 'component', hash, entry }
         if (css) msg.css = css
         const str = JSON.stringify(msg)
