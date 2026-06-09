@@ -70,8 +70,8 @@ function buildHeadPayload(opts: StreamOpts): string {
   }
 
   if (compiledTailwindCss) {
-    const cssUrl = (ctx as any).tailwindCssUrl || '/__wfw/style.css'
-    result += `<link rel="stylesheet" href="${cssUrl}" />\n`
+    const cssUrl = (ctx as any).tailwindCssUrl
+    if (cssUrl) result += `<link rel="stylesheet" href="${cssUrl}" />\n`
   }
 
   const localeData = (ctx.parsed as any)?.__localeData ?? (globalThis as any).__LOCALE_DATA__

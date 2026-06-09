@@ -53,7 +53,7 @@ export async function navigate(href: string): Promise<void> {
     const propsMatch = html.match(/window\.__WEIFUWU_PROPS=(.+?)<\/script>/)
     if (!propsMatch) { location.href = href; return }
 
-    const bundleMatch = html.match(/src="(\/__wfw\/client\/[^"]+\.js)"/)
+    const bundleMatch = html.match(/src="(\/__ssr\/[^"]+\.js)"/)
     const bundleUrl = bundleMatch ? bundleMatch[1] : null
 
     // Update head from new page

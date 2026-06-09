@@ -178,7 +178,7 @@ export async function compileHotComponent(path: string): Promise<{ hash: string;
   let code = new TextDecoder().decode(result.outputFiles[0].contents)
   // Replace esbuild's CJS require polyfill calls with import from vendor bundle
   if (code.includes('__require') && (code.includes('"react"') || code.includes("'react'"))) {
-    code = `import __r from '/__wfw/v/bundle';\n` + code.replace(/__require\(["']react["']\)/g, '__r')
+    code = `import * as __r from 'react';\n` + code.replace(/__require\(["']react["']\)/g, '__r')
   }
   return { hash: h, code }
 }
