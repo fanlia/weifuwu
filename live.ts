@@ -36,12 +36,13 @@ function broadcastCss(css: string) {
   }
 }
 
-export function liveReload(opts: { dirs: string[] }): Router & { close: () => void } {
+export function liveReload(dirs: string | string[] | { dirs: string[] }): Router & { close: () => void } {
+  const resolvedDirs = Array.isArray(dirs) ? dirs : typeof dirs === 'string' ? [dirs] : dirs.dirs
   const r = new Router()
 
   // Auto-detect entry page (first dir / page.tsx)
   const entryPath = (() => {
-    for (const dir of opts.dirs) {
+    for (const dir of resolvedDirs) {
       const p = join(resolve(dir), 'page.tsx')
       if (existsSync(p)) return p
     }
@@ -74,7 +75,7 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
     },
   })
 
-  const watcher = chokidar.watch(opts.dirs, {
+  const watcher = chokidar.watch(resolvedDirs, {
     ignored: /(^|[/\\])\.|node_modules|[/\\]\.weifuwu[/\\]/,
     ignoreInitial: true,
   })
@@ -89,7 +90,7 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
         const { hash, code } = await compileHotComponent(target)
         setHot(hash, code)
         let css: string | undefined
-        for (const dir of opts.dirs) {
+        for (const dir of resolvedDirs) {
           const cssPath = join(resolve(dir), 'app.css')
           if (existsSync(cssPath)) {
             css = await compileTailwindCss(cssPath, resolve(dir))
@@ -107,7 +108,7 @@ export function liveReload(opts: { dirs: string[] }): Router & { close: () => vo
         broadcastReload()
       }
     } else if (/\.css$/i.test(filePath)) {
-      for (const dir of opts.dirs) {
+      for (const dir of resolvedDirs) {
         const cssPath = join(resolve(dir), 'app.css')
         if (existsSync(cssPath)) {
           const css = await compileTailwindCss(cssPath, resolve(dir))

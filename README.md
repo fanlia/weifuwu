@@ -20,7 +20,7 @@ const app = new Router()
 app.use(preferences({ dir: './locales' }))
 app.use(layout('./layouts/root.tsx'))
 app.get('/', ssr('./pages/home.tsx'))
-app.use(liveReload({ dirs: ['./pages', './layouts'] }))
+app.use(liveReload('./pages'))
 serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
 ```
 
@@ -118,7 +118,7 @@ app.ws('/ws', messager({ pg }).wsHandler())
 
 β modules can also be mounted **without a path** — internal routes (`/__xxx`) are inaccessible to the user:
 ```ts
-app.use(liveReload({ dirs: ['./pages'] }))                      // no path, /__weifuwu/livereload
+app.use(liveReload('./pages'))                                   // no path, /__weifuwu/livereload
 ```
 
 β modules that need **separate middleware** use `.middleware()`:
@@ -604,13 +604,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-### liveReload(opts) [β]
+### liveReload(dir) [β]
 
-Returns a `Router` that registers a WebSocket endpoint at `/__weifuwu/livereload` and starts a file watcher on the given directories. When a `.tsx` file changes, it compiles a hot-update bundle and broadcasts it to all connected browsers.
+Accepts a directory (or array of directories) to watch for `.tsx` changes. Returns a `Router` that registers a WebSocket endpoint at `/__weifuwu/livereload`. When a `.tsx` file changes, it compiles a hot-update bundle and broadcasts it to all connected browsers.
 
 ```ts
 if (process.env.NODE_ENV !== 'production') {
-  app.use(liveReload({ dirs: ['./pages', './layouts'] }))
+  app.use(liveReload('./pages'))
+  app.use(liveReload(['./pages', './layouts']))  // multiple dirs
 }
 ```
 
@@ -631,21 +632,21 @@ if (process.env.NODE_ENV !== 'production') {
 
 Mount without a path — the internal `/__weifuwu/livereload` route is invisible to the user. The `ssr()` function automatically injects the client-side WS script in dev mode.
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `dirs` | `string[]` | — | Directories to watch for `.tsx` changes |
+| Argument | Type | Description |
+|----------|------|-------------|
+| `dir` | `string \| string[]` | Directory (or array of directories) to watch |
 
 Returns `Router & { close: () => void }` — call `.close()` to stop the watcher.
 
 ### errorBoundary(path) [β]
 
-Wraps child routes in an error boundary. If a page or middleware throws, the error component is rendered instead.
+Wraps child routes in an error boundary. If a page or middleware throws, the error component is rendered via SSR with head injection (CSS, theme, context) and layout wrapping.
 
 ```ts
 app.use('/blog', errorBoundary('./blog-error.tsx'))
 ```
 
-The error component receives `{ error, reset }` as props:
+The error component receives `{ error, reset }` as props (`reset` is a no-op on the server):
 
 ```tsx
 export default function BlogError({ error, reset }: { error: Error; reset: () => void }) {
@@ -657,9 +658,13 @@ Error boundaries nest — the nearest one up the middleware chain catches the er
 
 ### notFound(path) [β]
 
-Returns a catch-all handler for 404 pages. Typically registered last:
+Returns a catch-all handler for 404 pages. When a path is given, the component is rendered via SSR with layout support. Falls back to plain text if compilation fails or no path given.
 
 ```ts
+// No path — plain text
+app.all('/*', notFound())
+
+// Path to a .tsx component — renders via SSR
 app.all('/*', notFound('./not-found.tsx'))
 ```
 
@@ -907,7 +912,7 @@ Auto-detected when `NODE_ENV !== 'production'`. File watching + live reload via 
 import { liveReload } from 'weifuwu'
 
 if (process.env.NODE_ENV !== 'production') {
-  app.use(liveReload({ dirs: ['./pages', './layouts'] }))
+  app.use(liveReload('./pages'))
 }
 ```
 
