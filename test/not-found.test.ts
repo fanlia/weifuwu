@@ -57,4 +57,16 @@ describe('notFound()', () => {
     assert.match(html, /Layout-Header/)
     assert.match(html, /404 - Page Not Found/)
   })
+
+  it('returns plain text when component has no default export', async () => {
+    const app = new Router()
+    app.all('/*', notFound('./test/fixtures/not-found/no-default.tsx'))
+    const res = await app.handler()(
+      new Request('http://localhost/any'),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 404)
+    const text = await res.text()
+    assert.equal(text, 'Not Found')
+  })
 })

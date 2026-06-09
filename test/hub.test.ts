@@ -65,6 +65,46 @@ describe('createHub', () => {
     assert.equal(count, 0)
   })
 
+  it('broadcast to empty channel does nothing', () => {
+    const hub = createHub()
+    hub.broadcast('no-members', 'data')
+    // Should not throw
+  })
+
+  it('broadcast handles ws.send failure gracefully', () => {
+    const hub = createHub()
+    let badSend = 0
+    const badWs = { send: () => { badSend++; throw new Error('broken') } } as any
+    const goodWs = { send: () => goodSend++ } as any
+    let goodSend = 0
+
+    hub.join('room', badWs)
+    hub.join('room', goodWs)
+    hub.broadcast('room', 'data')
+
+    assert.equal(badSend, 1)
+    assert.equal(goodSend, 1, 'good send should still fire after bad one')
+  })
+
+  it('leave a WS that was never joined does nothing', () => {
+    const hub = createHub()
+    const ws = { send: () => {} } as any
+    hub.leave(ws)
+    // Should not throw
+  })
+
+  it('join same WS to same key twice only registers once', () => {
+    const hub = createHub()
+    let count = 0
+    const ws = { send: () => count++ } as any
+
+    hub.join('room', ws)
+    hub.join('room', ws)
+    hub.leave(ws)
+    hub.broadcast('room', 'data')
+    assert.equal(count, 0, 'leave should remove WS entirely from all keys')
+  })
+
   describe('with Redis', { skip: !REDIS_URL }, () => {
     let redis: Redis
     let otherRedis: Redis
@@ -122,6 +162,24 @@ describe('createHub', () => {
       assert.equal(received.length, 1)
 
       await hub.close()
+    })
+
+    it('Redis subscription filters by prefix', async () => {
+      const hubA = createHub({ redis, prefix: 'app:' })
+      const hubB = createHub({ redis: otherRedis, prefix: 'app:' })
+
+      const received: string[] = []
+      const ws = { send: (d: string) => received.push(d) } as any as WebSocket
+      hubB.join('room:1', ws)
+      await new Promise(r => setTimeout(r, 100))
+
+      hubA.broadcast('room:1', { text: 'prefixed' })
+      await new Promise(r => setTimeout(r, 100))
+
+      assert.equal(received.length, 1)
+
+      await hubA.close()
+      await hubB.close()
     })
   })
 })
