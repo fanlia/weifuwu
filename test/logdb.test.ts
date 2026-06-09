@@ -269,4 +269,17 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     const dropped = await logger.clean(12)
     assert.ok(dropped >= 1)
   })
+
+  it('clean(0) drops all partitions', async () => {
+    const logger = logdb({ pg, table: tableName })
+    await logger.migrate()
+    const dropped = await logger.clean(0)
+    assert.ok(dropped >= 0)
+  })
+
+  it('close() is callable', async () => {
+    const logger = logdb({ pg, table: tableName })
+    await logger.migrate()
+    await logger.close()
+  })
 })

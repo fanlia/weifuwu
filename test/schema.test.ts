@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { postgres } from '../postgres/index.ts'
 import type { PostgresClient } from '../postgres/types.ts'
-import { pgTable, BoundTable, serial, uuid, text, integer, boolean as bool, timestamptz, jsonb, vector, sql, timestamps, eq, lt, gte, isNull } from '../postgres/schema/index.ts'
+import { pgTable, BoundTable, serial, uuid, text, integer, textArray, boolean as bool, timestamptz, jsonb, vector, sql, timestamps, eq, lt, gte, isNull, toDDL, partitionBy } from '../postgres/schema/index.ts'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
 
@@ -732,6 +732,121 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     const { data: rows } = await t.readMany(pg.sql)
     assert.equal(rows.length, 0)
 
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('textArray column type creates TEXT[] column', async () => {
+    const t = pgTable('__schema_test_text_array', {
+      id: serial('id').primaryKey(),
+      tags: textArray('tags'),
+    })
+    await t.create(pg.sql)
+    await t.insert(pg.sql, { tags: ['a', 'b'] })
+    const { data: rows } = await t.readMany(pg.sql)
+    assert.deepEqual(rows[0].tags, ['a', 'b'])
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('partitionBy supports LIST type', async () => {
+    const def = partitionBy('list', 'status')
+    assert.equal(def.type, 'LIST')
+    assert.equal(def.column, 'status')
+  })
+
+  it('partitionBy supports HASH type', async () => {
+    const def = partitionBy('hash', 'user_id')
+    assert.equal(def.type, 'HASH')
+    assert.equal(def.column, 'user_id')
+  })
+
+  it('default() escapes single quotes in string values', async () => {
+    const col = text('name').default("O'Brien")
+    const ddl = toDDL(col)
+    assert.match(ddl, /DEFAULT 'O''Brien'/)
+  })
+
+  it('createIndex supports GIN type', async () => {
+    const t = pgTable('__schema_test_gin', {
+      id: serial('id').primaryKey(),
+      tags: jsonb('tags'),
+    })
+    await t.create(pg.sql)
+    await t.createIndex(pg.sql, 'tags', { type: 'gin' })
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('BoundTable upsert works', async () => {
+    const t = pg.table('__schema_test_bound_upsert', {
+      id: serial('id').primaryKey(),
+      email: text('email').unique(),
+    })
+    await t.create()
+    await t.upsert({ email: 'a@b.com' }, ['email'])
+    const { data: rows } = await t.readMany()
+    assert.equal(rows[0].email, 'a@b.com')
+    await t.drop({ cascade: true })
+  })
+
+  it('BoundTable count works', async () => {
+    const t = pg.table('__schema_test_bound_count', {
+      id: serial('id').primaryKey(),
+    })
+    await t.create()
+    const c = await t.count()
+    assert.equal(typeof c, 'number')
+    await t.drop({ cascade: true })
+  })
+
+  it('BoundTable withSql creates new instance', async () => {
+    const t = pg.table('__schema_test_bound_copy', {
+      id: serial('id').primaryKey(),
+    })
+    const t2 = t.withSql(pg.sql)
+    assert.ok(t2)
+    assert.equal(t2.tableName, t.tableName)
+    await t.create()
+    await t.drop({ cascade: true })
+  })
+
+  it('update with empty data returns undefined', async () => {
+    const t = pgTable('__schema_test_empty_update', {
+      id: serial('id').primaryKey(),
+      val: text('val'),
+    })
+    await t.create(pg.sql)
+    const result = await t.update(pg.sql, { id: 1 }, {} as any)
+    assert.equal(result, undefined)
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('upsert throws on empty data', async () => {
+    const t = pgTable('__schema_test_empty_upsert', {
+      id: serial('id').primaryKey(),
+    })
+    await t.create(pg.sql)
+    await assert.rejects(() => t.upsert(pg.sql, {} as any))
+    await t.drop(pg.sql, { cascade: true })
+  })
+
+  it('references without onDelete argument', async () => {
+    const t = pgTable('__schema_test_ref', {
+      id: serial('id').primaryKey(),
+      parent_id: integer('parent_id').references('other_table'),
+    })
+    const ddl = toDDL(t.builders.parent_id)
+    assert.match(ddl, /REFERENCES "other_table"\("id"\)/)
+  })
+
+  it('count on table with deleted_at filters softly-deleted rows', async () => {
+    const t = pgTable('__schema_test_count_soft', {
+      id: serial('id').primaryKey(),
+      name: text('name'),
+      deleted_at: timestamptz('deleted_at'),
+    })
+    await t.create(pg.sql)
+    await t.insert(pg.sql, { name: 'active', deleted_at: null as any })
+    const c = await t.count(pg.sql, {})
+    assert.equal(c, 1)
     await t.drop(pg.sql, { cascade: true })
   })
 })
