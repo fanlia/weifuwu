@@ -398,6 +398,24 @@ Restart=always
 | `buildCommand` | — | Build command |
 | `ports` | — | `[port, port+1]` for blue-green |
 
+### errorBoundary(path) [β]
+
+Wraps child routes in an error boundary. If a page or middleware throws, the error component is rendered via SSR with head injection (CSS, theme, context) and layout wrapping.
+
+```ts
+app.use('/blog', errorBoundary('./blog-error.tsx'))
+```
+
+The error component receives `{ error, reset }` as props (`reset` is a no-op on the server):
+
+```tsx
+export default function BlogError({ error, reset }: { error: Error; reset: () => void }) {
+  return <div><h2>Error</h2><p>{error.message}</p></div>
+}
+```
+
+Error boundaries nest — the nearest one up the middleware chain catches the error.
+
 ### health [β]
 
 ```ts
@@ -464,6 +482,17 @@ await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'
 | `.wsHandler()` | WebSocket handler |
 | `.migrate()` | DB setup |
 | `.shutdown()` | Clean shutdown |
+
+### layout(path) [β]
+
+Compiles a `.tsx` file and returns middleware that pushes the layout component onto `ctx.layoutStack`. Pages rendered by `ssr()` consume this stack. Use after `rootLayout()` to extend a shared structure.
+
+```ts
+app.use(rootLayout('./ui'))
+app.use(layout('./extra.tsx'))   // appended after rootLayout
+```
+
+Layout components receive `{ children }` (the child page or nested layout). Multiple layouts wrap from outer to inner in `use()` order.
 
 ### logdb [β]
 
@@ -536,6 +565,18 @@ await msg.send(channelId, 'System message', { sender_type: 'system', sender_id: 
 | `.wsHandler()` | WebSocket handler (channels, typing, read receipts) |
 | `.send(channel, content, opts?)` | Send message to channel |
 | `.close()` | Cleanup |
+
+### notFound(path) [β]
+
+Returns a catch-all handler for 404 pages. When a path is given, the component is rendered via SSR with layout support. Falls back to plain text if compilation fails or no path given.
+
+```ts
+// No path — plain text
+app.all('/*', notFound())
+
+// Path to a .tsx component — renders via SSR
+app.all('/*', notFound('./not-found.tsx'))
+```
 
 ### opencode [β]
 
@@ -784,16 +825,6 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 | `header` | `string` | `'X-Request-ID'` | Header name to read/write |
 | `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
 
----
-
-## React SSR (weifuwu)
-
-Import from `'weifuwu'` (no separate ssr entry):
-
-```ts
-import { ssr, layout, rootLayout, errorBoundary, notFound } from 'weifuwu'
-```
-
 ### rootLayout(dir) [α]
 
 One-stop middleware for a page structure. Compiles `layout.tsx` and `app.css` from the given directory, and in dev mode registers vendor bundle, HMR WebSocket, and file watcher.
@@ -808,63 +839,6 @@ app.use(rootLayout('./ui'))
 - Sets `ctx.layoutStack` (consumed by `ssr()`)
 - Registers CSS route at `/__wfw/style/:hash.css` — Tailwind CSS compiled via `@tailwindcss/postcss` if `app.css` exists in the dir. Hash is content-based, ensuring cache invalidation on changes.
 - Each `rootLayout` instance is independent — sub-routes can define their own
-
-### layout(path) [β]
-
-Compiles a `.tsx` file and returns middleware that pushes the layout component onto `ctx.layoutStack`. Pages rendered by `ssr()` consume this stack. Use after `rootLayout()` to extend a shared structure.
-
-```ts
-app.use(rootLayout('./ui'))
-app.use(layout('./extra.tsx'))   // appended after rootLayout
-```
-
-Layout components receive `{ children }` (the child page or nested layout). Multiple layouts wrap from outer to inner in `use()` order.
-
-### ssr(path) [β]
-
-Compiles a `.tsx` file and returns a Router handler that renders the React component to HTML with streaming, client bundle injection, and context serialization.
-
-```ts
-app.get('/about', ssr('./ui/pages/about.tsx'))
-```
-
-- Compiles via esbuild at runtime (no build step)
-- Reads `ctx.layoutStack` (set by `rootLayout()` or `layout()`) and wraps the component from outer to inner
-- Injects hydration script pointing to the auto-generated client bundle at `/__ssr/{entryId}.js`
-- Injects `<link>` for tailwind CSS from `ctx.tailwindCssUrl` (set by `rootLayout()`)
-- Serializes middleware-injected `ctx` data to `window.__WEIFUWU_CTX` for client-side hydration
-- **Dev mode:** uses `createRoot` instead of `hydrateRoot` — all hooks (`useState`, `useEffect`) work correctly; SSR content is still streamed for fast first paint
-- **Prod mode:** uses `hydrateRoot` for full SSR hydration
-
-### errorBoundary(path) [β]
-
-Wraps child routes in an error boundary. If a page or middleware throws, the error component is rendered via SSR with head injection (CSS, theme, context) and layout wrapping.
-
-```ts
-app.use('/blog', errorBoundary('./blog-error.tsx'))
-```
-
-The error component receives `{ error, reset }` as props (`reset` is a no-op on the server):
-
-```tsx
-export default function BlogError({ error, reset }: { error: Error; reset: () => void }) {
-  return <div><h2>Error</h2><p>{error.message}</p></div>
-}
-```
-
-Error boundaries nest — the nearest one up the middleware chain catches the error.
-
-### notFound(path) [β]
-
-Returns a catch-all handler for 404 pages. When a path is given, the component is rendered via SSR with layout support. Falls back to plain text if compilation fails or no path given.
-
-```ts
-// No path — plain text
-app.all('/*', notFound())
-
-// Path to a .tsx component — renders via SSR
-app.all('/*', notFound('./not-found.tsx'))
-```
 
 ### seo [β] + seoMiddleware [α]
 
@@ -883,6 +857,22 @@ Also exports `seoTags(config)` for generating meta/og/twitter tags as an HTML st
 | `robots` | `RobotsRule[]` | `[{ userAgent: '*', allow: '/' }]` | Robots.txt rules |
 | `sitemap` | `SitemapConfig` | — | Sitemap configuration (urls, resolve, cacheTTL) |
 | `headers` | `SeoHeadersConfig` | — | Response headers (e.g. `X-Robots-Tag`) |
+
+### ssr(path) [β]
+
+Compiles a `.tsx` file and returns a Router handler that renders the React component to HTML with streaming, client bundle injection, and context serialization.
+
+```ts
+app.get('/about', ssr('./ui/pages/about.tsx'))
+```
+
+- Compiles via esbuild at runtime (no build step)
+- Reads `ctx.layoutStack` (set by `rootLayout()` or `layout()`) and wraps the component from outer to inner
+- Injects hydration script pointing to the auto-generated client bundle at `/__ssr/{entryId}.js`
+- Injects `<link>` for tailwind CSS from `ctx.tailwindCssUrl` (set by `rootLayout()`)
+- Serializes middleware-injected `ctx` data to `window.__WEIFUWU_CTX` for client-side hydration
+- **Dev mode:** uses `createRoot` instead of `hydrateRoot` — all hooks (`useState`, `useEffect`) work correctly; SSR content is still streamed for fast first paint
+- **Prod mode:** uses `hydrateRoot` for full SSR hydration
 
 ### tenant [β]
 
@@ -1159,12 +1149,6 @@ ColumnBuilder, serial, uuid, text, integer, boolean, boolean_, timestamptz, json
 partitionBy, timestamps, toDDL, PartitionByDef,
 Table, BoundTable, IndexOptions, FindOptions, CreateOptions,
 eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not
-```
-
-### React SSR
-
-```ts
-ssr, layout, rootLayout, errorBoundary, notFound, clearCompileCache
 ```
 
 ### Client-side (from `'weifuwu/react'`)
