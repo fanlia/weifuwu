@@ -15,12 +15,11 @@ serve((req, ctx) => new Response('Hello, World!'), { port: 3000 })
 ```
 
 ```ts
-import { serve, Router, preferences, ssr, layout, liveReload } from 'weifuwu'
+import { serve, Router, preferences, ssr, rootLayout } from 'weifuwu'
 const app = new Router()
 app.use(preferences({ dir: './locales' }))
-app.use(layout('./ui/layouts/root.tsx'))
+app.use(rootLayout('./ui'))
 app.get('/', ssr('./ui/pages/home.tsx'))
-app.use(liveReload('./ui'))
 serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
 ```
 
@@ -117,9 +116,6 @@ app.ws('/ws', messager({ pg }).wsHandler())
 ```
 
 β modules can also be mounted **without a path** — internal routes (`/__xxx`) are inaccessible to the user:
-```ts
-app.use(liveReload('./ui'))                                   // no path, /__weifuwu/livereload
-```
 
 β modules that need **separate middleware** use `.middleware()`:
 ```ts
@@ -568,8 +564,34 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 Import from `'weifuwu'` (no separate ssr entry):
 
 ```ts
-import { ssr, layout, liveReload, errorBoundary, notFound, tailwind } from 'weifuwu'
+import { ssr, layout, rootLayout, errorBoundary, notFound } from 'weifuwu'
 ```
+
+### rootLayout(dir) [α]
+
+One-stop middleware for a page structure. Compiles `layout.tsx` and `app.css` from the given directory, and in dev mode registers vendor bundle, HMR WebSocket, and file watcher.
+
+```ts
+app.use(rootLayout('./ui'))
+// Scans ./ui/layout.tsx → layout component
+// Scans ./ui/app.css → tailwind CSS at /{mountPath}/__wfw/style/{hash}.css
+// Dev: vendor bundle + HMR WS + file watcher
+```
+
+- Sets `ctx.layoutStack` (consumed by `ssr()`)
+- Registers CSS route at `/__wfw/style/:hash.css` (hash based on content, cache-safe)
+- Each `rootLayout` instance is independent — sub-routes can define their own
+
+### layout(path) [β]
+
+Compiles a `.tsx` file and returns middleware that pushes the layout component onto `ctx.layoutStack`. Pages rendered by `ssr()` consume this stack. Use after `rootLayout()` to extend a shared structure.
+
+```ts
+app.use(rootLayout('./ui'))
+app.use(layout('./extra.tsx'))   // appended after rootLayout
+```
+
+Layout components receive `{ children }` (the child page or nested layout). Multiple layouts wrap from outer to inner in `use()` order.
 
 ### ssr(path) [β]
 
@@ -580,62 +602,12 @@ app.get('/about', ssr('./ui/pages/about.tsx'))
 ```
 
 - Compiles via esbuild at runtime (no build step)
-- Reads `ctx.layoutStack` (set by `layout()` middleware) and wraps the component from outer to inner
-- Injects hydration script pointing to the auto-generated client bundle at `/__ssr/[hash].js`
+- Reads `ctx.layoutStack` (set by `rootLayout()` or `layout()`) and wraps the component from outer to inner
+- Injects hydration script pointing to the auto-generated client bundle at `/__ssr/{entryId}.js`
+- Injects `<link>` for tailwind CSS from `ctx.tailwindCssUrl` (set by `rootLayout()`)
 - Serializes middleware-injected `ctx` data to `window.__WEIFUWU_CTX` for client-side hydration
 - **Dev mode:** uses `createRoot` instead of `hydrateRoot` — all hooks (`useState`, `useEffect`) work correctly; SSR content is still streamed for fast first paint
 - **Prod mode:** uses `hydrateRoot` for full SSR hydration
-
-### layout(path) [β]
-
-Compiles a `.tsx` file and returns middleware that pushes the layout component onto `ctx.layoutStack`. Pages rendered by `ssr()` consume this stack.
-
-```ts
-app.use(layout('./ui/layouts/root.tsx'))       // outermost
-app.use('/blog', layout('./ui/layouts/blog.tsx'))  // inner
-```
-
-Layout components receive `{ children }` (the child page or nested layout). Multiple layouts wrap from outer to inner in `use()` order.
-
-```tsx
-// layouts/root.tsx
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html><head/><body><main>{children}</main></body></html>
-}
-```
-
-### liveReload(dir) [β]
-
-Watches a directory for `.tsx` changes and returns a `Router` that registers a WebSocket endpoint at `/__weifuwu/livereload`. When a file changes, it compiles a hot-update bundle and broadcasts it to all connected browsers.
-
-```ts
-if (process.env.NODE_ENV !== 'production') {
-  app.use(liveReload('./ui'))
-}
-```
-
-**How HMR works:**
-
-1. File change detected → compiles the entry `page.tsx` (bundles all dependencies) with esbuild
-2. Browser receives WS message → `import()` the hot bundle
-3. Hot bundle calls `window.__WFW_REFRESH(newComponent)` → updates a stable proxy component
-4. Proxy reference unchanged → React reuses fiber tree → `useState` values preserved
-5. Sets `ctx.tick` to trigger re-render without page navigation
-
-**Key properties:**
-
-- **State preservation** — input fields, scroll position, and other `useState`-driven state survive edits
-- **Entry hash isolation** — each `ssr()` route has its own entry hash; WS messages carry the hash so only matching tabs update
-- **Lazy hydration cache** — hydration bundle is only rebuilt on actual page load, not on every file change
-- **Compilation fallback** — if esbuild encounters a syntax error, `location.reload()` is called to show the error
-
-Mount without a path — the internal `/__weifuwu/livereload` route is invisible to the user. The `ssr()` function automatically injects the client-side WS script in dev mode.
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `dir` | `string` | Directory to watch |
-
-Returns `Router & { close: () => void }` — call `.close()` to stop the watcher.
 
 ### errorBoundary(path) [β]
 
@@ -667,15 +639,9 @@ app.all('/*', notFound())
 app.all('/*', notFound('./not-found.tsx'))
 ```
 
-### tailwind(cssPath) [α]
+### tailwind
 
-Compiles Tailwind CSS v4 via `@tailwindcss/postcss` and serves it at `/__wfw/style.css`. The file is compiled once and cached; on `app.css` changes in dev mode, the style is pushed to connected browsers via liveReload's WebSocket.
-
-```ts
-app.use(tailwind('./ui'))
-```
-
-The `dir` argument is the directory containing `app.css`. When `tailwind()` middleware is detected, `ssr()` automatically injects `<link rel="stylesheet" href="/__wfw/style.css" />` into the HTML `<head>`.
+Not a public module. Handled internally by `rootLayout(dir)` — if `app.css` exists in the dir, it is compiled via `@tailwindcss/postcss` and served at `/{mountPath}/__wfw/style/{hash}.css`. The hash is content-based, ensuring cache invalidation on changes.
 
 ### seo [β] + seoMiddleware [α]
 
@@ -905,19 +871,9 @@ function Toast() {
 
 ### Dev mode
 
-Auto-detected when `NODE_ENV !== 'production'`. File watching + live reload via `liveReload()`:
+Auto-detected when `NODE_ENV !== 'production'`. `rootLayout(dir)` automatically registers vendor bundle, HMR WebSocket, and file watcher. No explicit setup needed.
 
-```ts
-import { liveReload } from 'weifuwu'
-
-if (process.env.NODE_ENV !== 'production') {
-  app.use(liveReload('./ui'))
-}
-```
-
-When a `.tsx` file changes, the browser hot-updates without refreshing — `useState` values are preserved. See `liveReload` section for details.
-
-Tailwind v4 auto-compile via `tailwind()` middleware:
+When a `.tsx` or `.css` file changes under the `rootLayout` dir, the browser hot-updates without refreshing — `useState` values are preserved. Layout changes trigger a full page reload.
 
 ---
 
