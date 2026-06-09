@@ -36,18 +36,10 @@ function broadcastCss(css: string) {
   }
 }
 
-export function liveReload(dirs: string | string[] | { dirs: string[] }): Router & { close: () => void } {
-  const resolvedDirs = Array.isArray(dirs) ? dirs : typeof dirs === 'string' ? [dirs] : dirs.dirs
+export function liveReload(dir: string): Router & { close: () => void } {
   const r = new Router()
-
-  // Auto-detect entry page (first dir / page.tsx)
-  const entryPath = (() => {
-    for (const dir of resolvedDirs) {
-      const p = join(resolve(dir), 'page.tsx')
-      if (existsSync(p)) return p
-    }
-    return ''
-  })()
+  const resolved = resolve(dir)
+  const entryPath = join(resolved, 'page.tsx')
 
   // single vendor bundle (includes react-refresh/runtime)
   r.get('/__wfw/v/bundle', async (req, ctx) => {
@@ -75,7 +67,7 @@ export function liveReload(dirs: string | string[] | { dirs: string[] }): Router
     },
   })
 
-  const watcher = chokidar.watch(resolvedDirs, {
+  const watcher = chokidar.watch(dir, {
     ignored: /(^|[/\\])\.|node_modules|[/\\]\.weifuwu[/\\]/,
     ignoreInitial: true,
   })
@@ -85,18 +77,16 @@ export function liveReload(dirs: string | string[] | { dirs: string[] }): Router
       clearCompileCache()
       markClientBundleDirty()
       try {
-        const target = entryPath || filePath
+        const target = existsSync(entryPath) ? entryPath : filePath
         await compileTsxDev(target)
         const { hash, code } = await compileHotComponent(target)
         setHot(hash, code)
         let css: string | undefined
-        for (const dir of resolvedDirs) {
-          const cssPath = join(resolve(dir), 'app.css')
-          if (existsSync(cssPath)) {
-            css = await compileTailwindCss(cssPath, resolve(dir))
-          }
+        const cssPath = join(resolved, 'app.css')
+        if (existsSync(cssPath)) {
+          css = await compileTailwindCss(cssPath, resolved)
         }
-        const entry = entryPath ? id(entryPath) : ''
+        const entry = id(entryPath)
         const msg: any = { type: 'component', hash, entry }
         if (css) msg.css = css
         const str = JSON.stringify(msg)
@@ -108,12 +98,10 @@ export function liveReload(dirs: string | string[] | { dirs: string[] }): Router
         broadcastReload()
       }
     } else if (/\.css$/i.test(filePath)) {
-      for (const dir of resolvedDirs) {
-        const cssPath = join(resolve(dir), 'app.css')
-        if (existsSync(cssPath)) {
-          const css = await compileTailwindCss(cssPath, resolve(dir))
-          if (css) broadcastCss(css)
-        }
+      const cssPath = join(resolved, 'app.css')
+      if (existsSync(cssPath)) {
+        const css = await compileTailwindCss(cssPath, resolved)
+        if (css) broadcastCss(css)
       }
     }
   })

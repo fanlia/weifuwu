@@ -606,12 +606,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ### liveReload(dir) [β]
 
-Accepts a directory (or array of directories) to watch for `.tsx` changes. Returns a `Router` that registers a WebSocket endpoint at `/__weifuwu/livereload`. When a `.tsx` file changes, it compiles a hot-update bundle and broadcasts it to all connected browsers.
+Watches a directory for `.tsx` changes and returns a `Router` that registers a WebSocket endpoint at `/__weifuwu/livereload`. When a file changes, it compiles a hot-update bundle and broadcasts it to all connected browsers.
 
 ```ts
 if (process.env.NODE_ENV !== 'production') {
   app.use(liveReload('./pages'))
-  app.use(liveReload(['./pages', './layouts']))  // multiple dirs
 }
 ```
 
@@ -634,7 +633,7 @@ Mount without a path — the internal `/__weifuwu/livereload` route is invisible
 
 | Argument | Type | Description |
 |----------|------|-------------|
-| `dir` | `string \| string[]` | Directory (or array of directories) to watch |
+| `dir` | `string` | Directory to watch |
 
 Returns `Router & { close: () => void }` — call `.close()` to stop the watcher.
 

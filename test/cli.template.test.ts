@@ -165,7 +165,7 @@ describe('liveReload()', () => {
     const { Router: R } = await import('../router.ts')
     const { liveReload } = await import('../live.ts')
     const app = new R()
-    const lr = liveReload({ dirs: ['./cli/template'] })
+    const lr = liveReload('./cli/template')
     app.use(lr)
     const wsHandler = app.websocketHandler()
     assert.equal(typeof wsHandler, 'function')
