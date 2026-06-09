@@ -26,11 +26,8 @@ describe('template app', () => {
 
     process.chdir(resolve(templateDir))
     const m = await import('../cli/template/app.ts')
-    app = m.app
-  })
-
-  after(() => {
     process.chdir(origCwd)
+    app = m.app
   })
 
   it('GET / returns 200 with SSR HTML', async () => {
@@ -121,8 +118,8 @@ describe('weifuwu init', () => {
   it('generates correct package.json', () => {
     const pkg = JSON.parse(readFileSync(resolve(tmpDir, 'test-app', 'package.json'), 'utf-8'))
     assert.equal(pkg.name, 'test-app')
-    assert.equal(pkg.scripts.dev, 'node index.ts')
-    assert.equal(pkg.scripts.start, 'NODE_ENV=production node index.ts')
+    assert.equal(pkg.scripts.dev, 'NODE_ENV=development node index.ts')
+    assert.equal(pkg.scripts.start, 'node index.ts')
   })
 
   it('generates .gitignore with .weifuwu', () => {
@@ -161,6 +158,11 @@ describe('compile cache', () => {
 })
 
 describe('rootLayout()', () => {
+  const origEnv = process.env.NODE_ENV
+
+  before(() => { process.env.NODE_ENV = 'development' })
+  after(() => { process.env.NODE_ENV = origEnv })
+
   it('registers WS route at /__weifuwu/livereload in dev', async () => {
     const { Router: R } = await import('../router.ts')
     const { rootLayout } = await import('../root-layout.ts')

@@ -1,5 +1,6 @@
 import { createElement } from 'react'
 import { compile } from './compile.ts'
+import { isDev } from './env.ts'
 import type { Handler } from './types.ts'
 import { streamResponse } from './stream.ts'
 
@@ -44,7 +45,7 @@ export function notFound(path?: string): Handler {
     return streamResponse(stream, {
       ctx: ctx as any,
       base,
-      isDev: process.env.NODE_ENV !== 'production',
+        isDev: isDev(),
       compiledTailwindCss: (ctx as any).compiledTailwindCss,
       status: 404,
     })

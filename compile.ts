@@ -1,6 +1,7 @@
 import * as esbuild from 'esbuild'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
+import { isDev } from './env.ts'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import vm from 'node:vm'
@@ -114,7 +115,7 @@ export async function compileTsxDev(path: string): Promise<any> {
 
 /** Auto-select dev (vm) or prod (ESM + import) compilation */
 export function compile(path: string): Promise<any> {
-  return process.env.NODE_ENV !== 'production' ? compileTsxDev(path) : compileTsx(path)
+  return isDev() ? compileTsxDev(path) : compileTsx(path)
 }
 
 let vendorBundle: string | null = null
@@ -181,4 +182,9 @@ export async function compileHotComponent(path: string): Promise<{ hash: string;
     code = `import * as __r from 'react';\n` + code.replace(/__require\(["']react["']\)/g, '__r')
   }
   return { hash: h, code }
+}
+
+/** Clean up esbuild's internal worker pool. Call when you're done compiling. */
+export async function closeCompile(): Promise<void> {
+  await esbuild.stop()
 }

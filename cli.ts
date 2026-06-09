@@ -57,8 +57,8 @@ async function cmdInit(name: string) {
     name,
     type: 'module',
     scripts: {
-      dev: 'node index.ts',
-      start: 'NODE_ENV=production node index.ts',
+      dev: 'NODE_ENV=development node index.ts',
+      start: 'node index.ts',
     },
     dependencies: {
       weifuwu: `^${v}`,
@@ -98,7 +98,7 @@ async function cmdInit(name: string) {
     '## Commands',
     '',
     '- `npm run dev` — start dev server with `--watch`',
-    '- `npm start` — start production server (NODE_ENV=production)',
+    '- `npm start` — start production server',
     '- `npm install` — install dependencies',
     '- `npx tsc --noEmit` — type-check without emitting',
     '',

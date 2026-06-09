@@ -1,5 +1,5 @@
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
-export { loadEnv } from './env.ts'
+export { loadEnv, isDev } from './env.ts'
 export { serve, createTestServer } from './serve.ts'
 export type { ServeOptions, Server } from './serve.ts'
 export { Router } from './router.ts'
@@ -148,3 +148,16 @@ export { errorBoundary } from './error-boundary.ts'
 export { clearCompileCache } from './compile.ts'
 export { ssrEntries } from './ssr-entries.ts'
 export type { SsrEntry } from './ssr-entries.ts'
+export { cms } from './cms/index.ts'
+export type {
+  CmsOptions,
+  CmsModule,
+  ContentType,
+  ContentEntry,
+  ContentVersion,
+  CmsMedia,
+  CmsFieldDef,
+  CmsFieldType,
+  EntryStatus,
+  ContentTypeConfig,
+} from './cms/types.ts'

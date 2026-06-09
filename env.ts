@@ -1,6 +1,11 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+/** Whether NODE_ENV is explicitly set to 'development' */
+export function isDev(): boolean {
+  return process.env.NODE_ENV === 'development'
+}
+
 export function loadEnv(path?: string): void {
   const filePath = resolve(process.cwd(), path ?? '.env')
   if (!existsSync(filePath)) return

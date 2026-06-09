@@ -8,11 +8,10 @@ import type { PageContext } from './tsx-context.ts'
 import { TsxContext, setCtx, __registerAls } from './tsx-context.ts'
 import { Router } from './router.ts'
 import { ssrEntries } from './ssr-entries.ts'
+import { isDev } from './env.ts'
 
 const als = new AsyncLocalStorage<PageContext>()
 __registerAls(() => als.getStore())
-
-const isDev = process.env.NODE_ENV !== 'production'
 
 const bundleCache = new Map<string, Uint8Array>()
 let _bundleDirty = false

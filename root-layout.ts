@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { isDev } from './env.ts'
 import { Router } from './router.ts'
 import { compile } from './compile.ts'
 import { tailwind } from './tailwind.ts'
@@ -8,7 +9,6 @@ import { liveReload } from './live.ts'
 export function rootLayout(dir: string): Router & { close?: () => void } {
   const r = new Router()
   const resolved = resolve(dir)
-  const isDev = process.env.NODE_ENV !== 'production'
 
   // Layout middleware
   const layoutPath = join(resolved, 'layout.tsx')
@@ -25,7 +25,7 @@ export function rootLayout(dir: string): Router & { close?: () => void } {
   }
 
   // Dev: vendor + WS + watcher
-  if (isDev) {
+  if (isDev()) {
     const lr = liveReload(resolved)
     r.use(lr)
     ;(r as any).close = lr.close
