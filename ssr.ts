@@ -175,6 +175,7 @@ export function ssr(path: string): Router {
       return streamResponse(stream, {
         ctx: ctx as any,
         base,
+        rootBase: (ctx as any).rootLayoutBase || '',
         isDev,
         bundle,
         loaderData,

@@ -15,6 +15,7 @@ export function rootLayout(dir: string): Router & { close?: () => void } {
   r.use(async (req, ctx, next) => {
     const mod = await compile(layoutPath)
     if (mod?.default) ctx.layoutStack = [{ path: layoutPath, component: mod.default }]
+    ctx.rootLayoutBase = (ctx.mountPath || '').replace(/\/$/, '')
     return next(req, ctx)
   })
 

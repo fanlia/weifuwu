@@ -4,6 +4,7 @@ import type { Context } from './types.ts'
 export interface StreamOpts {
   ctx: Context
   base: string
+  rootBase?: string
   compiledTailwindCss?: string
   isDev: boolean
   status?: number
@@ -47,17 +48,19 @@ function getPublicEnv(): Record<string, string> {
 }
 
 function buildHeadPayload(opts: StreamOpts): string {
-  const { ctx, base, compiledTailwindCss, isDev } = opts
+  const { ctx, compiledTailwindCss, isDev } = opts
+  const rb = opts.rootBase || ''
   let result = ''
 
   if (isDev) {
+    const vUrl = `${rb}/__wfw/v/bundle`
     result += `<script type="importmap">{
   "imports": {
-    "react": "/__wfw/v/bundle",
-    "react-dom": "/__wfw/v/bundle",
-    "react-dom/client": "/__wfw/v/bundle",
-    "react/jsx-runtime": "/__wfw/v/bundle",
-    "weifuwu/react": "/__wfw/v/bundle"
+    "react": "${vUrl}",
+    "react-dom": "${vUrl}",
+    "react-dom/client": "${vUrl}",
+    "react/jsx-runtime": "${vUrl}",
+    "weifuwu/react": "${vUrl}"
   }
 }<\/script>\n`
   }
@@ -164,8 +167,11 @@ export function streamResponse(reactStream: ReadableStream, opts: StreamOpts): R
         if (body) controller.enqueue(encoder.encode('\n' + body))
 
         if (opts.isDev) {
+          const rb = opts.rootBase || ''
+          const wsUrl = `${rb}/__weifuwu/livereload`
+          const hbUrl = `${rb}/__wfw/h/`
           controller.enqueue(encoder.encode(
-            `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/__weifuwu/livereload');var t=0;ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='component'){if(m.entry&&m.entry!==window.__WFW_ENTRY)return;import('/__wfw/h/'+m.hash+'?'+Date.now()).catch(function(){location.reload()});if(m.css){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css}return}if(m.type==='css'){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css;return}}catch(_){}if(e.data==='reload'&&Date.now()-t>1e3){t=Date.now();location.reload()}};ws.onclose=function(){if(Date.now()-t>1e3){t=Date.now();setTimeout(function(){location.reload()},500)}}})()<\/script>`
+            `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${wsUrl}');var t=0;ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='component'){if(m.entry&&m.entry!==window.__WFW_ENTRY)return;import('${hbUrl}'+m.hash+'?'+Date.now()).catch(function(){location.reload()});if(m.css){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css}return}if(m.type==='css'){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css;return}}catch(_){}if(e.data==='reload'&&Date.now()-t>1e3){t=Date.now();location.reload()}};ws.onclose=function(){if(Date.now()-t>1e3){t=Date.now();setTimeout(function(){location.reload()},500)}}})()<\/script>`
           ))
         }
       } catch {
