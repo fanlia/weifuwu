@@ -67,7 +67,7 @@ function buildHeadPayload(opts: StreamOpts): string {
   }
 
   if (compiledTailwindCss) {
-    result += `<link rel="stylesheet" href="${base}/__wfw/style.css" />\n`
+    result += `<link rel="stylesheet" href="/__wfw/style.css" />\n`
   }
 
   const localeData = (ctx.parsed as any)?.__localeData ?? (globalThis as any).__LOCALE_DATA__
