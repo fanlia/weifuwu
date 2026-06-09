@@ -77,4 +77,35 @@ describe('aiStream', () => {
     assert.equal(receivedCtx!.params.id, '1')
     assert.equal(receivedCtx!.query.q, 'test')
   })
+
+  it('uses streamObject when handler returns schema', async () => {
+    const { _ai, aiStream } = await import('../ai.ts')
+    const fos = new Response('object-stream', { headers: { 'content-type': 'text/event-stream' } })
+    const streamObjectMock = mock.fn(() => ({
+      toTextStreamResponse: () => fos,
+    }))
+    _ai.streamObject = streamObjectMock
+    _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
+
+    const m = await aiStream(async () => ({ model: 'gpt-4', prompt: 'hi', schema: { type: 'object' } }))
+
+    const res = await m.handler()(
+      new Request('http://localhost/', { method: 'POST', body: '{}' }),
+      { params: {}, query: {} } as Context,
+    )
+    assert.equal(res.status, 200)
+    assert.equal(await res.text(), 'object-stream')
+  })
+
+  it('lazy-loads streamText when not pre-populated', async () => {
+    const { _ai, aiStream } = await import('../ai.ts')
+    delete _ai.streamText
+    const m = await aiStream(async () => ({ model: 'test', prompt: 'x' }))
+
+    const res = await m.handler()(
+      new Request('http://localhost/', { method: 'POST', body: '{}' }),
+      { params: {}, query: {} } as Context,
+    )
+    assert.equal(res.status, 200)
+  })
 })

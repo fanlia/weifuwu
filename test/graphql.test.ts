@@ -198,4 +198,110 @@ describe('graphql http', () => {
     assert.ok(text.includes('graphiql'))
     server.stop()
   })
+
+  it('executes query when graphiql=true but query param present', async () => {
+    const m = graphql(gqlHandler({ graphiql: true }))
+
+    const res = await m.handler()(
+      new Request('http://localhost/?query={hello}'),
+      { params: {}, query: {} } as Context,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.deepEqual(data, { data: { hello: 'world' } })
+  })
+
+  it('handles POST with missing query field', async () => {
+    const m = graphql(gqlHandler({ graphiql: false }))
+
+    const res = await m.handler()(
+      new Request('http://localhost/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notQuery: 'x' }),
+      }),
+      { params: {}, query: {} } as Context,
+    )
+    assert.equal(res.status, 400)
+  })
+
+  it('handles POST with operationName', async () => {
+    const opts = {
+      schema: `type Query { hello: String, world: String }
+type Mutation { set(v: Int!): Int }`,
+      resolvers: {
+        Query: { hello: () => 'HELLO', world: () => 'WORLD' },
+        Mutation: { set: (_: unknown, args: { v: number }) => args.v },
+      },
+      graphiql: false,
+    }
+    const m = graphql(() => opts)
+
+    const res = await m.handler()(
+      new Request('http://localhost/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'query H { hello } query W { world }', operationName: 'W' }),
+      }),
+      { params: {}, query: {} } as Context,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.deepEqual(data, { data: { world: 'WORLD' } })
+  })
+
+  it('handles GET with operationName', async () => {
+    const opts = {
+      schema: `type Query { hello: String, world: String }`,
+      resolvers: { Query: { hello: () => 'HELLO', world: () => 'WORLD' } },
+      graphiql: false,
+    }
+    const m = graphql(() => opts)
+
+    const res = await m.handler()(
+      new Request('http://localhost/?query=query H { hello } query W { world }&operationName=H'),
+      { params: {}, query: {} } as Context,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.deepEqual(data, { data: { hello: 'HELLO' } })
+  })
+
+  it('executes with custom context function', async () => {
+    let ctxReceived: any = null
+    const m = graphql(() => ({
+      schema,
+      resolvers: { Query: { hello: (_: unknown, __: unknown, c: any) => c.foo } },
+      context: async (req: Request, ctx: Context) => {
+        ctxReceived = ctx
+        return { foo: 'bar-from-context' }
+      },
+      graphiql: false,
+    }))
+
+    const testCtx = { params: {}, query: {} } as Context
+    const res = await m.handler()(
+      new Request('http://localhost/?query={hello}'),
+      testCtx,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.deepEqual(data, { data: { hello: 'bar-from-context' } })
+    assert.ok(ctxReceived)
+  })
+
+  it('builds schema from SDL string without resolvers', async () => {
+    const m = graphql(() => ({
+      schema: `type Query { hello: String }`,
+      graphiql: false,
+    }))
+
+    const res = await m.handler()(
+      new Request('http://localhost/?query={hello}'),
+      { params: {}, query: {} } as Context,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.deepEqual(data, { data: { hello: null } })
+  })
 })

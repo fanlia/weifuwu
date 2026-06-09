@@ -67,4 +67,67 @@ describe('analytics', () => {
     assert.match(html, /<title>Analytics/)
     assert.match(html, /Page Views/)
   })
+
+  it('uses custom excluded paths', async () => {
+    const a = analytics({ excluded: ['/private'] })
+    const m = a.middleware()
+    await m(new Request('http://localhost/private'), ctx, async () => new Response('ok'))
+    await m(new Request('http://localhost/public'), ctx, async () => new Response('ok'))
+
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r => r.json()) as any
+    assert.equal(data.total_pv, 1)
+    assert.equal(data.top_pages[0].path, '/public')
+  })
+
+  it('strips www. from referrer domain', async () => {
+    const a = analytics()
+    const m = a.middleware()
+    await m(new Request('http://localhost/page', { headers: { Referer: 'https://www.example.com/page' } }), ctx, async () => new Response('ok'))
+
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r => r.json()) as any
+    assert.equal(data.referrers[0].domain, 'example.com')
+  })
+
+  it('clamps days parameter below 1', async () => {
+    const a = analytics()
+    const m = a.middleware()
+    await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
+
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=0'), ctx).then(r => r.json()) as any
+    assert.equal(data.total_pv, 1)
+  })
+
+  it('clamps days parameter above 365', async () => {
+    const a = analytics()
+    const m = a.middleware()
+    await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
+
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=999'), ctx).then(r => r.json()) as any
+    assert.equal(data.total_pv, 1)
+  })
+
+  it('falls back to 7 days for non-numeric days', async () => {
+    const a = analytics()
+    const m = a.middleware()
+    await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
+
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=abc'), ctx).then(r => r.json()) as any
+    assert.equal(data.total_pv, 1)
+  })
+
+  it('returns analytics without referrers section when empty', async () => {
+    const a = analytics()
+    const m = a.middleware()
+    await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
+
+    const data = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r => r.json()) as any
+    assert.equal(data.referrers.length, 0)
+  })
+
+  it('close() is callable', async () => {
+    const a = analytics()
+    const m = a.middleware()
+    await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
+    await a.close()
+  })
 })

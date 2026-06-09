@@ -33,4 +33,13 @@ describe('health', () => {
     )
     assert.equal(res.status, 503)
   })
+
+  it('handles HEAD request', async () => {
+    const r = health({ path: '/_health' })
+    const res = await r.handler()(
+      new Request('http://localhost/_health', { method: 'HEAD' }),
+      { params: {}, query: {} } as Context,
+    )
+    assert.equal(res.status, 200)
+  })
 })
