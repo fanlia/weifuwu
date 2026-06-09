@@ -117,6 +117,12 @@ describe('getCookies edge cases', () => {
     const cookies = getCookies(req)
     assert.equal(cookies.name, '%FF%FF')
   })
+
+  it('falls back to raw name when decodeURIComponent fails on name', () => {
+    const req = new Request('http://localhost', { headers: { cookie: '%FF=value' } })
+    const cookies = getCookies(req)
+    assert.equal(cookies['%FF'], 'value')
+  })
 })
 
 describe('setCookie edge cases', () => {

@@ -3,6 +3,30 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
+import { isDev } from '../env.ts'
+
+describe('isDev', () => {
+  it('returns true when NODE_ENV is development', () => {
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = 'development'
+    assert.equal(isDev(), true)
+    process.env.NODE_ENV = prev
+  })
+
+  it('returns false when NODE_ENV is production', () => {
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    assert.equal(isDev(), false)
+    process.env.NODE_ENV = prev
+  })
+
+  it('returns false when NODE_ENV is not set', () => {
+    const prev = process.env.NODE_ENV
+    delete process.env.NODE_ENV
+    assert.equal(isDev(), false)
+    process.env.NODE_ENV = prev
+  })
+})
 
 describe('loadEnv', () => {
   const tmpDir = resolve(tmpdir(), 'wfw-env-test-' + Date.now())
@@ -77,5 +101,29 @@ describe('loadEnv', () => {
   it('silently handles missing file', async () => {
     const { loadEnv } = await import('../env.ts')
     loadEnv(resolve(tmpDir, '.env.nonexistent'))
+  })
+
+  it('skips lines without equals sign', async () => {
+    const envPath = resolve(tmpDir, '.env.nolineqn')
+    await writeFile(envPath, 'JUSTAVALUE\nKEY=val\n')
+    const { loadEnv } = await import('../env.ts')
+
+    delete process.env.KEY
+    loadEnv(envPath)
+
+    assert.equal(process.env.KEY, 'val')
+    assert.equal(process.env.JUSTAVALUE, undefined, 'line without = should be skipped')
+  })
+
+  it('skips lines with empty key', async () => {
+    const envPath = resolve(tmpDir, '.env.emptykey')
+    await writeFile(envPath, '=value\nKEY=val\n')
+    const { loadEnv } = await import('../env.ts')
+
+    delete process.env.KEY
+    loadEnv(envPath)
+
+    assert.equal(process.env.KEY, 'val')
+    assert.equal(process.env[''], undefined, 'line with empty key should be skipped')
   })
 })
