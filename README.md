@@ -251,16 +251,111 @@ app.use(csrf())
 | `key` | `'_csrf'` | Body field fallback |
 | `excludeMethods` | `['GET','HEAD','OPTIONS']` | Skip validation |
 
-### deploy
+### deploy [β]
+
+Multi-process manager with reverse proxy, health checks, auto-restart, and zero-downtime updates. Works identically locally and in production.
 
 ```ts
 import { deploy, defineConfig } from 'weifuwu'
-const server = await deploy(defineConfig({
-  apps: { api: {}, blog: {} },
+
+// Local
+await deploy(defineConfig({
+  apps: { blog: {}, api: {} },
 }))
-// server.url → http://localhost:3000/
-// server.apps.list(), server.apps.deploy('api')
+
+// Production
+await deploy(defineConfig({
+  domain: 'example.com',
+  deployToken: process.env.DEPLOY_TOKEN,
+  apps: { blog: {}, api: {} },
+}))
 ```
+
+**Auto-derived defaults** — each app key derives `dir`, `port`, `entry`, and `path`:
+
+| Field | Default | Rule |
+|-------|---------|------|
+| `dir` | App key | `blog` → `'./blog'` |
+| `entry` | `'index.ts'` | Default entry file |
+| `port` | `3001+` | Auto-incremented from 3001 |
+| `path` | `'/key'` | Only for localhost domain |
+
+Override any field explicitly:
+
+```ts
+defineConfig({
+  apps: {
+    blog: { dir: '../packages/blog', entry: 'server.ts', port: 8080, path: '/blog' },
+  },
+})
+```
+
+**Routing** — match priority: explicit path > app key > defaultApp.
+
+```ts
+apps: {
+  api: { path: '/api' },     // example.com/api  or  localhost:3000/api
+  blog: {},                   // blog.example.com or  localhost:3000/blog
+}
+```
+
+**Blue-green** — zero-downtime via `ports`:
+
+```ts
+apps: { blog: { ports: [3001, 3002] } }
+```
+
+**WebSocket** — automatically bridged through the gateway.
+
+**Process watchdog** — auto-restarts with exponential backoff on unexpected exit.
+
+**Management API** — all endpoints require `Authorization: Bearer <deployToken>`:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/_deploy/apps` | GET | List apps |
+| `/_deploy/apps/:name` | GET | App details |
+| `/_deploy/apps/:name/deploy` | POST | Restart |
+| `/_deploy/apps/:name/restart` | POST | Restart |
+| `/_deploy/apps/:name/stop` | POST | Stop |
+| `/_deploy/apps/:name/start` | POST | Start |
+| `/_deploy/apps/:name/logs` | GET | SSE log stream |
+
+```bash
+curl -H "Authorization: Bearer my-token" http://localhost:3000/_deploy/apps
+```
+
+**Running** — use systemd for production:
+
+```ini
+[Service]
+WorkingDirectory=/opt/deploy
+ExecStart=/usr/bin/node /opt/deploy/deploy.ts
+Restart=always
+```
+
+**DeployConfig:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `domain` | `'localhost'` | Root domain |
+| `port` | `3000` | Gateway port |
+| `deployToken` | — | Bearer token for management API |
+| `defaultApp` | — | Fallback route |
+| `apps` | — | `Record<string, AppConfig>` |
+
+**AppConfig:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `dir` | App key | Directory containing the app |
+| `port` | Auto (3001+) | Internal port |
+| `entry` | `'index.ts'` | Entry file |
+| `path` | `'/key'` (local) | URL path prefix |
+| `env` | — | Environment variables |
+| `healthEndpoint` | `/` | Health check path |
+| `buildCommand` | — | Build command |
+| `ports` | — | `[port, port+1]` for blue-green |
 
 ### health [β]
 
