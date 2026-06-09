@@ -76,6 +76,23 @@ serve(handler, { port: 3000, websocket: wsHandler })
 
 Query params → `ctx.query`.
 
+### Request lifecycle
+
+```
+Request → serve() → app.handler() → global middleware × N → path middleware × N → route handler → Response
+                                                                      ↑
+                                                              mountPath set by sub-router
+```
+
+1. `serve()` receives HTTP request
+2. `app.handler()` creates `ctx = { params, query }` and routes to the matching trie node
+3. **Global middleware** runs in `use()` order (e.g. `preferences()`, `postgres()`, `cors()`)
+4. **Path‑scoped middleware** runs for matching paths (e.g. `app.use('/admin', authMW)`)
+5. **Route‑level middleware** runs (e.g. `app.get('/admin', validate(...), handler)`)
+6. **Route handler** returns `Response` — middleware chain unwinds
+
+Sub-routers (`app.use('/admin', adminRouter)`) are **flattened** into the parent trie. The sub-router's global middleware merges with the parent's. `ctx.mountPath` is set when entering a sub-router, allowing each module to derive its own paths.
+
 ### Middleware
 
 ```ts
@@ -84,6 +101,32 @@ app.use(mw)                          // global
 app.use('/admin', mw)                // path-scoped
 app.get('/admin', mw, handler)       // route-level
 ```
+
+### Context
+
+The `ctx` object accumulates properties as it passes through the middleware chain. Below are all documented properties:
+
+| Property | Set by | Type | Description |
+|----------|--------|------|-------------|
+| `params` | Router | `Record<string, string>` | URL path parameters |
+| `query` | Router | `Record<string, string>` | URL query parameters |
+| `mountPath` | Router | `string` | Current sub-router mount prefix |
+| `env` | `loadEnv()` | `Record<string, string>` | Public env vars (`WEIFUWU_PUBLIC_*`) |
+| `csrfToken` | `csrf()` | `string` | CSRF token |
+| `requestId` | `requestId()` | `string` | Request ID |
+| `sql` | `postgres()` | `Sql<{}>` | PostgreSQL tagged-template client |
+| `redis` | `redis()` | `Redis` | Redis client |
+| `queue` | `queue()` | `Queue` | Job queue |
+| `prefs` | `preferences()` | `{ locale, theme }` | User preferences (locale, theme) |
+| `deploy` | `deploy()` | `{ appName? }` | Deploy gateway info |
+| `layoutStack` | `rootLayout()` / `layout()` | `LayoutEntry[]` | React layout component stack |
+| `loaderData` | User middleware | `Record<string, unknown>` | SSR data passed to client |
+| `user` | `auth()` / `user().middleware()` | `{ id?: string }` | Authenticated user |
+| `parsed` | `validate()` / `upload()` | `{ body, query, params, headers, files }` | Validated/parsed request data |
+| `t` | `preferences()` | `(key) => string` | Translation function |
+| `setPref` | `preferences()` | `(key, val) => Response` | Set preference cookie + redirect |
+| `compiledTailwindCss` | `tailwind()` | `string` | Compiled CSS content (internal) |
+| `tailwindCssUrl` | `tailwind()` | `string` | Compiled CSS route URL (internal) |
 
 ---
 
@@ -114,8 +157,6 @@ app.use('/logs', logdb({ pg }))                                 // with .log(), 
 app.use('/auth', user({ pg, jwtSecret }))                       // with .middleware(), .register()
 app.ws('/ws', messager({ pg }).wsHandler())
 ```
-
-β modules can also be mounted **without a path** — internal routes (`/__xxx`) are inaccessible to the user:
 
 β modules that need **separate middleware** use `.middleware()`:
 ```ts
@@ -765,7 +806,7 @@ app.use(rootLayout('./ui'))
 ```
 
 - Sets `ctx.layoutStack` (consumed by `ssr()`)
-- Registers CSS route at `/__wfw/style/:hash.css` (hash based on content, cache-safe)
+- Registers CSS route at `/__wfw/style/:hash.css` — Tailwind CSS compiled via `@tailwindcss/postcss` if `app.css` exists in the dir. Hash is content-based, ensuring cache invalidation on changes.
 - Each `rootLayout` instance is independent — sub-routes can define their own
 
 ### layout(path) [β]
@@ -824,10 +865,6 @@ app.all('/*', notFound())
 // Path to a .tsx component — renders via SSR
 app.all('/*', notFound('./not-found.tsx'))
 ```
-
-### tailwind
-
-Not a public module. Handled internally by `rootLayout(dir)` — if `app.css` exists in the dir, it is compiled via `@tailwindcss/postcss` and served at `/{mountPath}/__wfw/style/{hash}.css`. The hash is content-based, ensuring cache invalidation on changes.
 
 ### seo [β] + seoMiddleware [α]
 
@@ -1091,20 +1128,56 @@ app.get('/stream', (req, ctx) => createSSEStream(events()))
 
 ---
 
-## Utility Functions
+## Complete export index
 
-### Common
+Every public symbol can be imported from `'weifuwu'`:
 
-| Function | Description |
-|----------|-------------|
-| `loadEnv(path?)` | Load `.env` into `process.env` |
-| `serveStatic(root, opts?)` | Static file serving (20+ MIME, ETag, 304, path traversal protection) |
-| `getCookies(req)` | Parse cookies |
-| `setCookie(res, name, value, opts?)` | Set cookie |
-| `deleteCookie(res, name, opts?)` | Delete cookie |
-| `createTestServer(handler)` | `→ { server, url }` |
+### Core
 
-### AI re-exports
+```ts
+serve, createTestServer, Router,
+Context, Handler, Middleware, ErrorHandler, ServeOptions, Server,
+loadEnv
+```
+
+### Middleware modules
+
+```ts
+auth, cors, csrf, compress, helmet, logger, rateLimit, requestId, validate, upload,
+preferences, serveStatic
+```
+
+### Database
+
+```ts
+postgres, PostgresOptions, PostgresClient,
+redis, RedisOptions, RedisClient,
+queue, QueueOptions, QueueJob, Queue,
+// Schema helpers — importable alongside postgres:
+pgTable, SQL, sql,
+ColumnBuilder, serial, uuid, text, integer, boolean, boolean_, timestamptz, jsonb, textArray, vector,
+partitionBy, timestamps, toDDL, PartitionByDef,
+Table, BoundTable, IndexOptions, FindOptions, CreateOptions,
+eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not
+```
+
+### React SSR
+
+```ts
+ssr, layout, rootLayout, errorBoundary, notFound, clearCompileCache
+```
+
+### Client-side (from `'weifuwu/react'`)
+
+```ts
+TsxContext, useLoaderData,
+useWebsocket, useAction, useFetch, useQueryState, createStore,
+Link, useNavigate, useNavigating, addInterceptor,
+useLocale, useTheme, applyTheme, useFlashMessage,
+Head
+```
+
+### AI SDK (re-exported from `ai`)
 
 ```ts
 streamText, generateText, streamObject, generateObject,
@@ -1112,37 +1185,15 @@ tool, embed, embedMany, smoothStream,
 openai, createOpenAI
 ```
 
-### pgTable helpers
+### Other modules
 
 ```ts
-pgTable, pg.table,
-serial, uuid, text, integer, boolean, timestamptz, jsonb, textArray, vector, timestamps,
-eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not
-```
-
----
-
-## Testing
-
-```ts
-import { describe, it } from 'node:test'
-import assert from 'node:assert/strict'
-import { Router } from 'weifuwu'
-
-describe('hello', () => {
-  it('returns 200', async () => {
-    const r = new Router()
-    r.get('/', () => new Response('ok'))
-    const res = await r.handler()(new Request('http://localhost/'), {} as any)
-    assert.equal(res.status, 200)
-  })
-})
-```
-
-```ts
-import { createTestServer } from 'weifuwu'
-const { server, url } = await createTestServer(handler)
-const res = await fetch(`${url}/api/ping`)
+health, analytics, seo, seoMiddleware, seoTags,
+user, mailer, graphql, aiStream, runWorkflow,
+logdb, messager, agent, iii, createWorker, registerWorker,
+opencode, deploy, defineConfig,
+getCookies, setCookie, deleteCookie,
+createSSEStream, formatSSE, formatSSEData
 ```
 
 ---
