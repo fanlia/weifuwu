@@ -79,4 +79,12 @@ describe('layout()', () => {
     const html = await res.text()
     assert.match(html, /Layout-Header/)
   })
+
+  it('throws when layout has no default export', async () => {
+    const app = new Router()
+    app.use(layout('./test/fixtures/error/no-default-error.tsx'))
+    app.get('/page', ssr(homePage))
+    const res = await app.handler()(new Request('http://localhost/page'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 500)
+  })
 })
