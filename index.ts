@@ -148,16 +148,4 @@ export { errorBoundary } from './error-boundary.ts'
 export { clearCompileCache } from './compile.ts'
 export { ssrEntries } from './ssr-entries.ts'
 export type { SsrEntry } from './ssr-entries.ts'
-export { cms } from './cms/index.ts'
-export type {
-  CmsOptions,
-  CmsModule,
-  ContentType,
-  ContentEntry,
-  ContentVersion,
-  CmsMedia,
-  CmsFieldDef,
-  CmsFieldType,
-  EntryStatus,
-  ContentTypeConfig,
-} from './cms/types.ts'
+

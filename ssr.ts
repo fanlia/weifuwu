@@ -8,7 +8,8 @@ import type { PageContext } from './tsx-context.ts'
 import { TsxContext, setCtx, __registerAls } from './tsx-context.ts'
 import { Router } from './router.ts'
 import { ssrEntries } from './ssr-entries.ts'
-import { isDev } from './env.ts'
+import { isDev as _isDev } from './env.ts'
+const isDev = _isDev()
 
 const als = new AsyncLocalStorage<PageContext>()
 __registerAls(() => als.getStore())
