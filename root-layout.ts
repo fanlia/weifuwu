@@ -14,7 +14,7 @@ export function rootLayout(dir: string): Router & { close?: () => void } {
   const layoutPath = join(resolved, 'layout.tsx')
   r.use(async (req, ctx, next) => {
     const mod = await compile(layoutPath)
-    if (mod?.default) ctx.layoutStack = [{ path: '', component: mod.default }]
+    if (mod?.default) ctx.layoutStack = [{ path: layoutPath, component: mod.default }]
     return next(req, ctx)
   })
 

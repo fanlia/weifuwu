@@ -84,7 +84,7 @@ async function buildClientBundle(
       jsxImportSource: 'react',
       banner: { js: 'self.process={env:{}};' },
       loader: { '.node': 'empty' },
-      external: isDev ? ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu/react'] : undefined,
+      external: isDev ? ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu', 'weifuwu/react'] : undefined,
       write: false,
       minify: !isDev,
     })
