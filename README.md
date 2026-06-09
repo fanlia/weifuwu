@@ -259,15 +259,11 @@ app.use(csrf())
 
 ```ts
 import { deploy, defineConfig } from 'weifuwu'
-const config = defineConfig({
-  domain: 'example.com',
-  apps: {
-    api: { repo: 'git@github.com:user/api.git', entry: 'app.ts', port: 3001, subdomain: 'api' },
-  },
-})
-const server = await deploy(config)
-// server.close(), server.ready, server.url
-// server.apps.list(), server.apps.status(name), server.apps.deploy(name)
+const server = await deploy(defineConfig({
+  apps: { api: {}, blog: {} },
+}))
+// server.url → http://localhost:3000/
+// server.apps.list(), server.apps.deploy('api')
 ```
 
 ### health [β]
