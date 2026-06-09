@@ -28,7 +28,7 @@ describe('analytics', () => {
     const a = analytics()
     const m = a.middleware()
     await m(new Request('http://localhost/__analytics/data'), ctx, async () => new Response('ok'))
-    await m(new Request('http://localhost/__wfw/style.css'), ctx, async () => new Response('ok'))
+    await m(new Request('http://localhost/__wfw/style.a1b2c3.css'), ctx, async () => new Response('ok'))
     await m(new Request('http://localhost/static/foo.js'), ctx, async () => new Response('ok'))
 
     const data = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx).then(r2 => r2.json()) as any

@@ -1,9 +1,15 @@
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { Router } from './router.ts'
 
 const extraSources = new Set<string>()
-const cssCache = new Map<string, string>()
+
+interface CssEntry {
+  css: string
+  hash: string
+}
+const cssCache = new Map<string, CssEntry>()
 
 export function addTailwindSource(dir: string) {
   extraSources.add(resolve(dir))
@@ -17,17 +23,22 @@ export function tailwind(dir: string): Router {
 
   r.use(async (req, ctx, next) => {
     if (!cssCache.has(cssPath)) {
-      cssCache.set(cssPath, await compileTailwindCss(cssPath, cssDir))
+      await compileTailwindCss(cssPath, cssDir)
     }
-    ctx.compiledTailwindCss = cssCache.get(cssPath)!
+    const entry = cssCache.get(cssPath)!
+    ctx.compiledTailwindCss = entry.css
+    const base = (ctx.mountPath || '').replace(/\/$/, '')
+    ctx.tailwindCssUrl = base ? `${base}/__wfw/style/${entry.hash}.css` : `/__wfw/style/${entry.hash}.css`
     return next(req, ctx)
   })
 
-  r.get('/__wfw/style.css', async (req, ctx) => {
+  r.get('/__wfw/style/:hash.css', async (req, ctx) => {
     if (!cssCache.has(cssPath)) {
-      cssCache.set(cssPath, await compileTailwindCss(cssPath, cssDir))
+      await compileTailwindCss(cssPath, cssDir)
     }
-    return new Response(cssCache.get(cssPath) || '', {
+    const entry = cssCache.get(cssPath)
+    if (!entry) return new Response('', { status: 404 })
+    return new Response(entry.css, {
       headers: { 'content-type': 'text/css; charset=utf-8' },
     })
   })
@@ -54,7 +65,8 @@ export async function compileTailwindCss(cssPath: string, cssDir: string): Promi
     }
 
     const result = await postcss([tailwindPlugin()]).process(src, { from: cssPath })
-    cssCache.set(cssPath, result.css)
+    const hash = createHash('md5').update(result.css).digest('hex').slice(0, 8)
+    cssCache.set(cssPath, { css: result.css, hash })
     return result.css
   } catch (err) {
     console.warn('Tailwind CSS processing failed:', (err as Error).message)
