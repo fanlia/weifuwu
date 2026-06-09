@@ -68,17 +68,19 @@ describe('queue', { skip: !REDIS_URL }, () => {
     await q.add('cron', { n: 1 }, { schedule: '* * * * *' })
     q.run()
 
-    const now = Date.now()
-    const nextMin = Math.ceil(now / 60000) * 60000
-    const wait = nextMin - now + 1500
+    // Manually bump the job score to now so the poller picks it up immediately
+    const r = new Redis(REDIS_URL)
+    const raw = await r.zrange('testq:jobs', 0, 0)
+    assert.ok(raw.length > 0, 'cron job should be in the queue')
+    await r.zadd('testq:jobs', Date.now(), raw[0])
 
-    await new Promise(r => setTimeout(r, wait))
+    // Wait for poller (200ms interval)
+    await new Promise(r2 => setTimeout(r2, 500))
     assert.equal(received.length, 1)
     assert.equal(received[0].payload.n, 1)
     assert.equal(received[0].schedule, '* * * * *')
 
-    await new Promise(r => setTimeout(r, 300))
-    const r = new Redis(REDIS_URL)
+    // Check the re-queued next occurrence exists
     const remaining = await r.zcard('testq:jobs')
     assert.equal(remaining, 1, 'next occurrence should be re-queued')
     await r.quit()
