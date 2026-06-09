@@ -1,11 +1,12 @@
 import chokidar from 'chokidar'
 import { existsSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
 import { compileTsxDev, compileHotComponent, compileVendorBundle, clearCompileCache, id } from './compile.ts'
 import { compileTailwindCss } from './tailwind.ts'
 import { markClientBundleDirty } from './ssr.ts'
+import { ssrEntries } from './ssr-entries.ts'
 
 const clients = new Set<WebSocket>()
 const hotBundleCache = new Map<string, string>()
@@ -72,30 +73,53 @@ export function liveReload(dir: string): Router & { close: () => void } {
     ignoreInitial: true,
   })
 
+  function findEntries(changedPath: string): string[] {
+    const matched: string[] = []
+    for (const [, entry] of ssrEntries) {
+      if (!entry.path.startsWith(resolved)) continue
+      if (entry.path === changedPath) {
+        matched.push(entry.path)
+      } else {
+        const ed = dirname(entry.path)
+        if (changedPath.startsWith(ed)) matched.push(entry.path)
+      }
+    }
+    if (matched.length === 0) {
+      for (const [, entry] of ssrEntries) {
+        if (entry.path.startsWith(resolved)) matched.push(entry.path)
+      }
+    }
+    return matched
+  }
+
   watcher.on('change', async (filePath: string) => {
     if (/\.tsx?$/i.test(filePath)) {
-      // Layout change → full reload (layout not in hot bundle)
       if (filePath.endsWith('layout.tsx')) {
         return broadcastReload()
       }
       clearCompileCache()
       markClientBundleDirty()
+      const targets = existsSync(entryPath)
+        ? [entryPath]
+        : findEntries(resolve(filePath))
+      if (targets.length === 0) return broadcastReload()
       try {
-        const target = existsSync(entryPath) ? entryPath : filePath
-        await compileTsxDev(target)
-        const { hash, code } = await compileHotComponent(target)
-        setHot(hash, code)
         let css: string | undefined
         const cssPath = join(resolved, 'app.css')
         if (existsSync(cssPath)) {
           css = await compileTailwindCss(cssPath, resolved)
         }
-        const entry = id(target)
-        const msg: any = { type: 'component', hash, entry }
-        if (css) msg.css = css
-        const str = JSON.stringify(msg)
-        for (const ws of clients) {
-          try { ws.send(str) } catch { clients.delete(ws) }
+        for (const target of targets) {
+          await compileTsxDev(target)
+          const { hash, code } = await compileHotComponent(target)
+          setHot(hash, code)
+          const entry = id(target)
+          const msg: any = { type: 'component', hash, entry }
+          if (css) msg.css = css
+          const str = JSON.stringify(msg)
+          for (const ws of clients) {
+            try { ws.send(str) } catch { clients.delete(ws) }
+          }
         }
       } catch (e) {
         console.error('live reload failed, fallback to full reload:', e)

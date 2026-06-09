@@ -7,6 +7,7 @@ import { streamResponse } from './stream.ts'
 import type { PageContext } from './tsx-context.ts'
 import { TsxContext, setCtx, __registerAls } from './tsx-context.ts'
 import { Router } from './router.ts'
+import { ssrEntries } from './ssr-entries.ts'
 
 const als = new AsyncLocalStorage<PageContext>()
 __registerAls(() => als.getStore())
@@ -97,7 +98,9 @@ async function buildClientBundle(
 }
 
 export function ssr(path: string): Router {
-  const entryId = id(resolve(path))
+  const absPath = resolve(path)
+  const entryId = id(absPath)
+  ssrEntries.set(entryId, { path: absPath })
   const bundleKey = `/__ssr/${entryId}.js`
 
   const r = new Router()
