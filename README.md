@@ -430,6 +430,8 @@ app.ws('/opencode', oc.wsHandler())
 
 ### postgres [α]
 
+Type-safe PostgreSQL client with schema builder, CRUD, migrations, soft delete, and JSONB/vector support.
+
 ```ts
 const pg = postgres()          // reads DATABASE_URL
 app.use(pg)                    // injects ctx.sql
@@ -444,20 +446,109 @@ app.use(pg)                    // injects ctx.sql
 | `connect_timeout` | `number` | `30` | Connection timeout |
 
 ```ts
-// Type-safe DDL
-const users = pgTable('_users', { id: serial('id').primaryKey(), name: text('name').notNull(), email: text('email').unique().notNull(), active: boolean('active').default(true), ...timestamps() })
-await users.create()
-await users.createIndex('email')
+// Raw SQL via tagged template
+await pg.sql`SELECT * FROM users WHERE email = ${email}`
 
-// BoundTable CRUD
-const t = pg.table('_users', { ... })
+// Type-safe DDL
+import { pgTable, serial, text, boolean, timestamps } from 'weifuwu'
+
+const users = pgTable('_users', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').unique().notNull(),
+  active: boolean('active').default(true),
+  ...timestamps(),
+})
+await users.create(pg.sql)
+await users.createIndex(pg.sql, 'email')
+
+// BoundTable — sql bound once, no need to pass sql to every call
+const t = pg.table('_users', { id: serial('id'), name: text('name'), email: text('email'), ...timestamps() })
 await t.insert({ name: 'Alice' })
+// vs unbound Table — sql passed as first argument each time
+// const t = pgTable('_users', { ... })
+// await t.insert(pg.sql, { name: 'Alice' })
 const { count, data } = await t.readMany({ role: 'admin' }, { orderBy: { name: 'asc' }, limit: 10 })
 await t.upsert({ email: 'alice@test.com' }, 'email')
-await pg.transaction(async (tx) => { const users = pg.table('_users', { ... }).withSql(tx); return users.insert({ name: 'Bob' }) })
+
+// Transactions
+await pg.transaction(async (sql) => {
+  const users = pg.table('_users', {}).withSql(sql)
+  return users.insert({ name: 'Bob' })
+})
+
+// Soft delete — automatic if deleted_at column exists
+await t.delete(1)       // SET deleted_at = NOW()
+await t.hardDelete(1)   // DELETE FROM
+await t.readMany()      // WHERE deleted_at IS NULL (use withDeleted: true to include)
+
+// JSONB queries
+const logs = pg.table('logs', { meta: jsonb<{ service: string }>('meta') })
+await logs.readMany(contains('meta', { service: 'auth' }))
+
+// Partitioned tables
+await logs.create({ partitionBy: partitionBy('range', 'created_at') })
 ```
 
-Where helpers: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `isNull`, `isNotNull`, `like`, `contains`, `in_`, `and`, `or`, `not`.
+| Column builder | Type | Notes |
+|---------------|------|-------|
+| `serial(name)` | `number` | Auto-increment |
+| `uuid(name)` | `string` | — |
+| `text(name)` | `string` | — |
+| `integer(name)` | `number` | — |
+| `boolean(name)` / `boolean_(name)` | `boolean` | `_` suffix for JS reserved word |
+| `timestamptz(name)` | `string` | — |
+| `jsonb<T>(name)` | `T` | Generic for typed JSONB access |
+| `textArray(name)` | `string[]` | TEXT[] |
+| `vector(name, dims)` | `number[]` | pgvector support |
+
+**Column modifiers:** `.primaryKey()`, `.notNull()`, `.nullable()`, `.default(val)`, `.unique()`, `.references(table, column?, onDelete?)`.
+
+**BoundTable CRUD methods:**
+
+| Method | Description |
+|--------|-------------|
+| `insert(data)` | INSERT + RETURNING \*, returns the inserted row |
+| `insertMany(data)` | Bulk INSERT + RETURNING \*, returns rows |
+| `read(id, opts?)` | SELECT by primary key, returns row or undefined |
+| `readMany(where?, opts?)` | Filtered query with `{ count, data }` — auto-filters soft-deleted |
+| `update(id, data)` | UPDATE by id + RETURNING \*, returns updated row |
+| `updateMany(where, data)` | Bulk UPDATE, returns affected row count |
+| `delete(id)` | Soft delete if `deleted_at` exists, else hard delete |
+| `hardDelete(id)` | Always DELETE FROM |
+| `deleteMany(where)` | Soft bulk delete if `deleted_at` exists |
+| `hardDeleteMany(where)` | Always DELETE FROM |
+| `upsert(data, conflict)` | INSERT ON CONFLICT DO UPDATE, returns row |
+| `count(where?)` | SELECT COUNT(\*) |
+| `create(opts?)` | CREATE TABLE IF NOT EXISTS |
+| `drop(opts?)` | DROP TABLE IF EXISTS |
+| `createIndex(columns, opts?)` | CREATE INDEX |
+| `createUniqueIndex(columns)` | CREATE UNIQUE INDEX |
+| `withSql(sql)` | Returns a new BoundTable bound to a different sql (for transactions) |
+
+**Where helpers** — composable query conditions:
+
+| Helper | SQL |
+|--------|-----|
+| `eq(col, val)` | `"col" = val` |
+| `ne(col, val)` | `"col" != val` |
+| `gt` / `gte` / `lt` / `lte` | Comparison operators |
+| `isNull(col)` / `isNotNull(col)` | `IS NULL` / `IS NOT NULL` |
+| `like(col, pattern)` | `LIKE` |
+| `contains(col, val)` | `@>` JSONB containment |
+| `in_(col, vals)` | `= ANY(...)` |
+| `and(...)` / `or(...)` / `not(...)` | Boolean composition |
+
+**PgModule** — base class for modules that need DB access:
+
+```ts
+class MyModule extends PgModule {
+  async migrate() { /* run DDL */ }
+  async getUsers() { return this.table('users', {}).readMany() }
+}
+```
+
+Where helpers + `and`/`or`/`not` can be imported from `'weifuwu'` alongside `postgres`. Full column builders and table helpers are in the same barrel.
 
 ### preferences [α]
 
