@@ -1,7 +1,7 @@
 import { describe, it, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from '../router.ts'
-import { logger } from '../middleware.ts'
+import { logger } from '../logger.ts'
 
 function handler(text = 'ok') {
   return () => new Response(text)

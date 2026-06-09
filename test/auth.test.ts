@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from '../router.ts'
 import { serve } from '../serve.ts'
-import { auth } from '../middleware.ts'
+import { auth } from '../auth.ts'
 
 function handler(text = 'ok') {
   return () => new Response(text)

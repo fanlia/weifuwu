@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from '../router.ts'
-import { cors } from '../middleware.ts'
+import { cors } from '../cors.ts'
 
 function handler(text = 'ok') {
   return () => new Response(text)
