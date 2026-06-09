@@ -51,14 +51,13 @@ function buildHeadPayload(opts: StreamOpts): string {
   let result = ''
 
   if (isDev) {
-    const vUrl = `${base}/__wfw/v/bundle`
     result += `<script type="importmap">{
   "imports": {
-    "react": "${vUrl}",
-    "react-dom": "${vUrl}",
-    "react-dom/client": "${vUrl}",
-    "react/jsx-runtime": "${vUrl}",
-    "weifuwu/react": "${vUrl}"
+    "react": "/__wfw/v/bundle",
+    "react-dom": "/__wfw/v/bundle",
+    "react-dom/client": "/__wfw/v/bundle",
+    "react/jsx-runtime": "/__wfw/v/bundle",
+    "weifuwu/react": "/__wfw/v/bundle"
   }
 }<\/script>\n`
   }
