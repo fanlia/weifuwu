@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFile, mkdir, rm, symlink } from 'node:fs/promises'
+import { writeFile, mkdir, rm, symlink, chmod } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { Router } from '../router.ts'
 import { serve } from '../serve.ts'
@@ -19,6 +19,15 @@ before(async () => {
   await writeFile(resolve(tmpDir, 'sub', 'deep.txt'), 'deep')
   // Symlink within root (should work)
   await symlink(resolve(tmpDir, 'hello.txt'), resolve(tmpDir, 'link.txt'))
+  // Symlink escaping root (should be blocked)
+  await symlink('/etc/passwd', resolve(tmpDir, 'escape.txt'))
+  // File with unknown extension
+  await writeFile(resolve(tmpDir, 'data.bin'), 'binary')
+  // Empty directory for non-file index test
+  await mkdir(resolve(tmpDir, 'not-a-file'), { recursive: true })
+  // File with zero permissions for 500 error test
+  await writeFile(resolve(tmpDir, 'no-perm.txt'), 'secret')
+  await chmod(resolve(tmpDir, 'no-perm.txt'), 0o000)
 })
 
 after(async () => {
@@ -155,5 +164,44 @@ describe('serveStatic', () => {
     const res = await r.handler()(new Request('http://localhost/files/'), { params: {}, query: {} } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), '<h1>App</h1>')
+  })
+
+  it('blocks null byte in path', async () => {
+    const r = new Router().get('/files/*', serveStatic(tmpDir))
+    const res = await r.handler()(new Request('http://localhost/files/%00x.txt'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 403)
+  })
+
+  it('blocks symlink escaping root directory', async () => {
+    const r = new Router().get('/files/*', serveStatic(tmpDir))
+    const res = await r.handler()(new Request('http://localhost/files/escape.txt'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 403)
+  })
+
+  it('returns 404 when directory index target is not a file', async () => {
+    const r = new Router().get('/files/*', serveStatic(tmpDir))
+    const res = await r.handler()(new Request('http://localhost/files/not-a-file/'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 404)
+  })
+
+  it('falls back to application/octet-stream for unknown extension', async () => {
+    const r = new Router().get('/files/*', serveStatic(tmpDir))
+    const res = await r.handler()(new Request('http://localhost/files/data.bin'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+    assert.equal(res.headers.get('Content-Type'), 'application/octet-stream')
+  })
+
+  it('default Cache-Control is public, max-age=0', async () => {
+    const r = new Router().get('/files/*', serveStatic(tmpDir))
+    const res = await r.handler()(new Request('http://localhost/files/hello.txt'), { params: {}, query: {} } as any)
+    assert.ok(res.headers.get('Cache-Control')!.includes('public'))
+    assert.ok(res.headers.get('Cache-Control')!.includes('max-age=0'))
+    assert.doesNotMatch(res.headers.get('Cache-Control')!, /immutable/)
+  })
+
+  it('returns 500 for unreadable file', async () => {
+    const r = new Router().get('/files/*', serveStatic(tmpDir))
+    const res = await r.handler()(new Request('http://localhost/files/no-perm.txt'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 500)
   })
 })

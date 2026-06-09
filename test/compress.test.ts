@@ -195,4 +195,40 @@ describe('compress', () => {
     )
     assert.equal(res.headers.get('content-encoding'), null)
   })
+
+  it('skips compression of application/zip', async () => {
+    const r = new Router()
+      .use(compress({ threshold: 0 }))
+      .get('/file', () => new Response(Buffer.alloc(2000), { headers: { 'Content-Type': 'application/zip' } }))
+
+    const res = await r.handler()(
+      new Request('http://localhost/file', { headers: { 'accept-encoding': 'gzip' } }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.headers.get('content-encoding'), null)
+  })
+
+  it('skips compression of video content', async () => {
+    const r = new Router()
+      .use(compress({ threshold: 0 }))
+      .get('/clip', () => new Response(Buffer.alloc(2000), { headers: { 'Content-Type': 'video/mp4' } }))
+
+    const res = await r.handler()(
+      new Request('http://localhost/clip', { headers: { 'accept-encoding': 'gzip' } }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.headers.get('content-encoding'), null)
+  })
+
+  it('skips compression when response has no content-type', async () => {
+    const r = new Router()
+      .use(compress({ threshold: 0 }))
+      .get('/data', () => new Response(Buffer.alloc(2000)))
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', { headers: { 'accept-encoding': 'gzip' } }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.headers.get('content-encoding'), null)
+  })
 })

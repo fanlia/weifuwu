@@ -237,4 +237,14 @@ describe('upload', () => {
     const res = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res.status, 400)
   })
+
+  it('maxFileSize of 0 allows any file size', async () => {
+    const r = new Router()
+      .post('/upload', upload({ maxFileSize: 0 }), (req, ctx) => Response.json(ctx.parsed?.files))
+    const [req] = createFormData(undefined, { file: { name: 'large.txt', data: 'x'.repeat(1000), type: 'text/plain' } })
+    const res = await r.handler()(req, { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.file.name, 'large.txt')
+  })
 })

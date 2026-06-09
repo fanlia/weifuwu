@@ -88,4 +88,14 @@ describe('helmet', () => {
     )
     assert.equal(res.headers.get('x-custom'), 'val')
   })
+
+  it('explicit undefined option removes default header', async () => {
+    const mw = helmet({ xFrameOptions: undefined })
+    const res = await mw(
+      new Request('http://localhost/'),
+      { params: {}, query: {} } as Context,
+      async () => new Response('ok'),
+    )
+    assert.equal(res.headers.get('X-Frame-Options'), null)
+  })
 })

@@ -53,4 +53,67 @@ describe('sse', () => {
     const text = await res.text()
     assert.match(text, /^data: {"text":"hello"}\n\n$/)
   })
+
+  it('createSSEStream uses formatSSEData when type is empty string', async () => {
+    async function* gen() {
+      yield { type: '', text: 'hello' }
+    }
+    const res = createSSEStream(gen())
+    const text = await res.text()
+    assert.match(text, /^data: {"type":"","text":"hello"}\n\n$/)
+  })
+
+  it('createSSEStream uses formatSSEData when type is null', async () => {
+    async function* gen() {
+      yield { type: null, text: 'hello' }
+    }
+    const res = createSSEStream(gen())
+    const text = await res.text()
+    assert.match(text, /^data: {"type":null,"text":"hello"}\n\n$/)
+  })
+
+  it('createSSEStream emits multiple events', async () => {
+    async function* gen() {
+      yield { type: 'msg', text: 'first' }
+      yield { type: 'msg', text: 'second' }
+    }
+    const res = createSSEStream(gen())
+    const text = await res.text()
+    assert.match(text, /event: msg\ndata: {"type":"msg","text":"first"}\n\nevent: msg\ndata: {"type":"msg","text":"second"}\n\n/)
+  })
+
+  it('createSSEStream closes immediately for empty iterable', async () => {
+    async function* gen() {
+    }
+    const res = createSSEStream(gen())
+    const text = await res.text()
+    assert.equal(text, '')
+  })
+
+  it('createSSEStream sends error SSE on non-AbortError exception', async () => {
+    async function* gen() {
+      yield { type: 'msg', text: 'before-error' }
+      throw new Error('something broke')
+    }
+    const res = createSSEStream(gen())
+    const text = await res.text()
+    assert.match(text, /event: msg/)
+    assert.match(text, /event: error/)
+    assert.match(text, /something broke/)
+  })
+
+  it('createSSEStream silently swallows AbortError', async () => {
+    async function* gen() {
+      yield { type: 'msg', text: 'before-abort' }
+      const err = new Error('cancelled')
+      err.name = 'AbortError'
+      throw err
+    }
+    const res = createSSEStream(gen())
+    const text = await res.text()
+    assert.match(text, /event: msg/)
+    assert.match(text, /before-abort/)
+    // AbortError should be swallowed, no error event
+    assert.doesNotMatch(text, /event: error/)
+  })
 })

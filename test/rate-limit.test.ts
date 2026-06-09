@@ -152,4 +152,28 @@ describe('rateLimit', () => {
     assert.ok(retryAfter > 0)
     assert.ok(retryAfter <= 60)
   })
+
+  it('uses x-real-ip when x-forwarded-for is absent', async () => {
+    const r = new Router()
+      .use(rateLimit({ max: 1, window: 60_000 }))
+      .get('/data', () => new Response('ok'))
+
+    const req = new Request('http://localhost/data', { headers: { 'x-real-ip': '10.0.0.1' } })
+    const res1 = await r.handler()(req, { params: {}, query: {} } as any)
+    assert.equal(res1.status, 200)
+    const res2 = await r.handler()(req, { params: {}, query: {} } as any)
+    assert.equal(res2.status, 429)
+  })
+
+  it('uses cf-connecting-ip when other headers are absent', async () => {
+    const r = new Router()
+      .use(rateLimit({ max: 1, window: 60_000 }))
+      .get('/data', () => new Response('ok'))
+
+    const req = new Request('http://localhost/data', { headers: { 'cf-connecting-ip': '9.9.9.9' } })
+    const res1 = await r.handler()(req, { params: {}, query: {} } as any)
+    assert.equal(res1.status, 200)
+    const res2 = await r.handler()(req, { params: {}, query: {} } as any)
+    assert.equal(res2.status, 429)
+  })
 })

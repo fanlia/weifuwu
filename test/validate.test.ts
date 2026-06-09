@@ -253,4 +253,116 @@ describe('validate', () => {
     assert.equal(data.existingField, 'preserved')
     assert.equal(data.body.value, 42)
   })
+
+  it('keeps raw string for application/x-www-form-urlencoded body', async () => {
+    const r = new Router()
+      .post('/data',
+        validate({ body: z.string() }),
+        (req, ctx) => Response.json({ body: ctx.parsed?.body }),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'name=Alice&age=30',
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.body, 'name=Alice&age=30')
+  })
+
+  it('skips body validation for HEAD method', async () => {
+    const r = new Router()
+      .head('/data',
+        validate({ body: z.object({ name: z.string() }) }),
+        () => new Response('ok'),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', { method: 'HEAD' }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+  })
+
+  it('returns 400 when POST body is empty string', async () => {
+    const r = new Router()
+      .post('/data',
+        validate({ body: z.object({ name: z.string() }) }),
+        () => new Response('ok'),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: '',
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 400)
+  })
+
+  it('parses JSON for application/vnd.api+json content-type', async () => {
+    const r = new Router()
+      .post('/data',
+        validate({ body: z.object({ name: z.string() }) }),
+        (req, ctx) => Response.json(ctx.parsed?.body),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/vnd.api+json' },
+        body: JSON.stringify({ name: 'Alice' }),
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.name, 'Alice')
+  })
+
+  it('keeps raw string for unknown content-type after JSON parse failure', async () => {
+    const r = new Router()
+      .post('/data',
+        validate({ body: z.string() }),
+        (req, ctx) => Response.json({ body: ctx.parsed?.body }),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: 'raw bytes here',
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.body, 'raw bytes here')
+  })
+
+  it('keeps raw string when JSON body fails to parse under application/json', async () => {
+    const r = new Router()
+      .post('/data',
+        validate({ body: z.string() }),
+        (req, ctx) => Response.json({ body: ctx.parsed?.body }),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: 'not-valid-json',
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.body, 'not-valid-json')
+  })
 })
