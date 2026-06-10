@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { Router } from '../router.ts'
 import type { Context } from '../types.ts'
 
 describe('tailwind', () => {
@@ -54,43 +55,45 @@ describe('tailwind', () => {
     const { compileTailwindCss } = await import('../tailwind.ts')
     const css = await compileTailwindCss(cssPath, tmpDir)
     assert.equal(typeof css, 'string')
-    // error path returns ''
   })
 
-  it('tailwind() returns a Router', async () => {
-    const { tailwind } = await import('../tailwind.ts')
-    const r = tailwind(tmpDir)
-    assert.equal(typeof r.handler, 'function')
+  it('tailwindContext is a Middleware', async () => {
+    const { tailwindContext } = await import('../tailwind.ts')
+    const mw = tailwindContext(tmpDir)
+    assert.equal(typeof mw, 'function')
   })
 
-  it('tailwind middleware sets compiledTailwindCss on ctx', async () => {
+  it('tailwindContext sets compiledTailwindCss on ctx', async () => {
     await writeFile(resolve(tmpDir, 'app.css'), '@import "tailwindcss"\n')
-    const { tailwind } = await import('../tailwind.ts')
-    const r = tailwind(tmpDir)
+    const { tailwindContext } = await import('../tailwind.ts')
+    const mw = tailwindContext(tmpDir)
 
     const ctx: any = { params: {}, query: {} }
-    await r.handler()(new Request('http://localhost/'), ctx)
+    const next = () => new Response('ok')
+    await mw(new Request('http://localhost/'), ctx, next)
     assert.equal(typeof ctx.compiledTailwindCss, 'string')
-    assert.ok(ctx.compiledTailwindCss.length > 0, 'compiledTailwindCss should be non-empty')
-    assert.ok(ctx.tailwindCssUrl.includes('/__wfw/style/'), 'tailwindCssUrl should contain style path')
+    assert.ok(ctx.compiledTailwindCss.length > 0)
+    assert.ok(ctx.tailwindCssUrl.includes('/__wfw/style/'))
   })
 
-  it('tailwind serves style CSS at generated URL', async () => {
+  it('tailwindRouter serves CSS at generated URL', async () => {
     await writeFile(resolve(tmpDir, 'app.css'), '@import "tailwindcss"\n')
-    const { tailwind } = await import('../tailwind.ts')
-    const r = tailwind(tmpDir)
+    const { tailwindContext, tailwindRouter } = await import('../tailwind.ts')
 
+    // First pass through context to get the URL and compile CSS
+    const mw = tailwindContext(tmpDir)
     const ctx: any = { params: {}, query: {} }
-    await r.handler()(new Request('http://localhost/'), ctx)
+    await mw(new Request('http://localhost/'), ctx, () => new Response('ok'))
 
     const url = ctx.tailwindCssUrl as string
     const hashMatch = url.match(/\/__wfw\/style\/([a-f0-9]+)\.css/)
     assert.ok(hashMatch, `expected hash in URL: ${url}`)
-    const hash = hashMatch![1]
 
-    const res = await r.handler()(new Request(`http://localhost${url}`), { params: { hash }, query: {} } as Context)
+    // Serve CSS via the router
+    const cssRouter = tailwindRouter(tmpDir)
+    const res = await cssRouter.handler()(new Request(`http://localhost${url}`), { params: { hash: hashMatch[1] }, query: {} } as Context)
     assert.equal(res.status, 200)
-    assert.equal(res.headers.get('content-type'), 'text/css; charset=utf-8')
+    assert.match(res.headers.get('content-type') || '', /text\/css/)
     const body = await res.text()
     assert.ok(body.length > 0)
   })

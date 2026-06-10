@@ -5,7 +5,9 @@ const _ui = join(import.meta.dirname, 'ui')
 const _loc = join(import.meta.dirname, 'locales')
 
 export const app = new Router()
-app.use(rootLayout(_ui))
+const _uiRouter = rootLayout(_ui)
+_uiRouter.get('/', ssr(join(_ui, 'page.tsx')))
+app.use('/', _uiRouter)
 app.use(preferences({ dir: _loc, locale: { default: 'en' }, theme: { default: 'system' } }))
 app.use(async (req, ctx, next) => {
   ctx.loaderData = {
@@ -17,6 +19,5 @@ app.use(async (req, ctx, next) => {
   }
   return next(req, ctx)
 })
-app.get('/', ssr(join(_ui, 'page.tsx')))
 app.get('/api/ping', () => Response.json({ pong: true, time: new Date().toISOString() }))
 app.ws('/ws/echo', { message(ws, _ctx, data) { ws.send(`echo: ${data}`) } })

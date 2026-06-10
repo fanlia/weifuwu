@@ -94,11 +94,13 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
     return createSSEStream(stream)
   })
 
-  // Mount the chat UI
+  // Mount the chat UI — page route MUST be inside rootLayout so
+  // layout/tailwind global middlewares apply to it
   try {
     const uiDir = new URL('../opencode/ui/', import.meta.url).pathname
-    router.use(rootLayout(uiDir))
-    router.get('/', ssr(join(uiDir, 'page.tsx')))
+    const ui = rootLayout(uiDir)
+    ui.get('/', ssr(join(uiDir, 'page.tsx')))
+    router.use('/', ui)
   } catch (e) {
     console.warn('[opencode] UI not available:', e)
   }

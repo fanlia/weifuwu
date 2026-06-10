@@ -2,6 +2,7 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { Router } from '../router.ts'
 
 const tmpDir = resolve(import.meta.dirname, '../.test-live')
 
@@ -16,31 +17,27 @@ describe('liveReload', () => {
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
-  it('liveReload() returns a Router with close()', async () => {
-    const { liveReload } = await import('../live.ts')
-    const lr = liveReload(tmpDir)
-    assert.equal(typeof lr.handler, 'function')
-    assert.equal(typeof lr.close, 'function')
-    lr.close()
+  it('liveRouter() returns a Router', async () => {
+    const { liveRouter } = await import('../live.ts')
+    const r = liveRouter(tmpDir)
+    assert.equal(typeof r.handler, 'function')
   })
 
-  it('liveReload serves vendor bundle', async () => {
-    const { liveReload } = await import('../live.ts')
-    const lr = liveReload(tmpDir)
-    const res = await lr.handler()(new Request('http://localhost/__wfw/v/bundle'), { params: {}, query: {} } as any)
+  it('liveRouter serves vendor bundle', async () => {
+    const { liveRouter } = await import('../live.ts')
+    const r = liveRouter(tmpDir)
+    const res = await r.handler()(new Request('http://localhost/__wfw/v/bundle'), { params: {}, query: {} } as any)
     assert.equal(res.status, 200)
     const body = await res.text()
     assert.ok(body.length > 0)
     assert.ok(body.includes('import') || body.includes('export') || body.includes('react'), 'vendor bundle should contain code')
-    lr.close()
   })
 
-  it('liveReload hot component endpoint returns 404 for unknown hash', async () => {
-    const { liveReload } = await import('../live.ts')
-    const lr = liveReload(tmpDir)
-    const res = await lr.handler()(new Request('http://localhost/__wfw/h/unknownhash'), { params: { hash: 'unknownhash' }, query: {} } as any)
+  it('liveRouter hot component endpoint returns 404 for unknown hash', async () => {
+    const { liveRouter } = await import('../live.ts')
+    const r = liveRouter(tmpDir)
+    const res = await r.handler()(new Request('http://localhost/__wfw/h/unknownhash'), { params: { hash: 'unknownhash' }, query: {} } as any)
     assert.equal(res.status, 404)
-    lr.close()
   })
 
   it('broadcastReload handles empty client set', async () => {
@@ -48,10 +45,10 @@ describe('liveReload', () => {
     broadcastReload()
   })
 
-  it('liveReload registers WebSocket route', async () => {
-    const { liveReload } = await import('../live.ts')
-    const lr = liveReload(tmpDir)
-    assert.equal(typeof lr.websocketHandler, 'function')
-    lr.close()
+  it('liveWs() returns a WebSocketHandler', async () => {
+    const { liveWs } = await import('../live.ts')
+    const ws = liveWs()
+    assert.equal(typeof ws, 'object')
+    assert.equal(typeof ws.open, 'function')
   })
 })

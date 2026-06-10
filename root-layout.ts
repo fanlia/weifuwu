@@ -3,14 +3,14 @@ import { join, resolve } from 'node:path'
 import { isDev } from './env.ts'
 import { Router } from './router.ts'
 import { compile } from './compile.ts'
-import { tailwind } from './tailwind.ts'
-import { liveReload } from './live.ts'
+import { tailwindContext, tailwindRouter } from './tailwind.ts'
+import { liveRouter, liveWatcher, liveWs } from './live.ts'
 
 export function rootLayout(dir: string): Router & { close?: () => void } {
   const r = new Router()
   const resolved = resolve(dir)
 
-  // Layout middleware
+  // Layout middleware — sets ctx.layoutStack
   const layoutPath = join(resolved, 'layout.tsx')
   r.use(async (req, ctx, next) => {
     const mod = await compile(layoutPath)
@@ -19,16 +19,18 @@ export function rootLayout(dir: string): Router & { close?: () => void } {
     return next(req, ctx)
   })
 
-  // Tailwind
+  // Tailwind CSS — context middleware + CSS serving route
   if (existsSync(join(resolved, 'app.css'))) {
-    r.use(tailwind(resolved))
+    r.use(tailwindContext(resolved))
+    r.use('/', tailwindRouter(resolved))
   }
 
   // Dev: vendor + WS + watcher
   if (isDev()) {
-    const lr = liveReload(resolved)
-    r.use(lr)
-    ;(r as any).close = lr.close
+    r.use('/', liveRouter(resolved))
+    r.ws('/__weifuwu/livereload', liveWs())
+    const watcher = liveWatcher(resolved)
+    ;(r as any).close = watcher.close
   }
 
   return r

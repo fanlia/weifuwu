@@ -168,7 +168,7 @@ describe('rootLayout()', () => {
     const { rootLayout } = await import('../root-layout.ts')
     const app = new R()
     const rl = rootLayout('./cli/template/ui')
-    app.use(rl)
+    app.use('/', rl)
     const wsHandler = app.websocketHandler()
     assert.equal(typeof wsHandler, 'function')
     if (typeof (rl as any).close === 'function') (rl as any).close()

@@ -449,7 +449,7 @@ describe('Router sub-router', () => {
 
   it('mounts sub-router at root without path', async () => {
     const sub = new Router().get('/rooted', () => new Response('sub-root'))
-    const main = new Router().use(sub)
+    const main = new Router().use('/', sub)
     const res = await main.handler()(new Request('http://localhost/rooted'), mkCtx())
     assert.equal(await res.text(), 'sub-root')
   })

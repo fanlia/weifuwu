@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type { WebSocket } from './vendor.ts'
 import { Router } from './router.ts'
+import type { WebSocketHandler } from './router.ts'
 import { compileTsxDev, compileHotComponent, compileVendorBundle, clearCompileCache, id } from './compile.ts'
 import { compileTailwindCss } from './tailwind.ts'
 import { markClientBundleDirty } from './ssr.ts'
@@ -37,20 +38,26 @@ function broadcastCss(css: string) {
   }
 }
 
-export function liveReload(dir: string): Router & { close: () => void } {
-  const r = new Router()
-  const resolved = resolve(dir)
-  const entryPath = join(resolved, 'page.tsx')
+export function liveWs(): WebSocketHandler {
+  return {
+    open(ws: WebSocket) {
+      clients.add(ws)
+      ws.on('close', () => clients.delete(ws))
+      ws.on('error', () => clients.delete(ws))
+    },
+  }
+}
 
-  // single vendor bundle (includes react-refresh/runtime)
-  r.get('/__wfw/v/bundle', async (req, ctx) => {
+export function liveRouter(dir: string): Router {
+  const r = new Router()
+
+  r.get('/__wfw/v/bundle', async () => {
     const code = await compileVendorBundle()
     return new Response(code, {
       headers: { 'content-type': 'application/javascript; charset=utf-8' },
     })
   })
 
-  // hot component 端点
   r.get('/__wfw/h/:hash', async (req, ctx) => {
     const hash = ctx.params.hash.replace(/\.js$/i, '')
     const code = hotBundleCache.get(hash)
@@ -60,13 +67,12 @@ export function liveReload(dir: string): Router & { close: () => void } {
     })
   })
 
-  r.ws('/__weifuwu/livereload', {
-    open(ws: WebSocket) {
-      clients.add(ws)
-      ws.on('close', () => clients.delete(ws))
-      ws.on('error', () => clients.delete(ws))
-    },
-  })
+  return r
+}
+
+export function liveWatcher(dir: string): { close: () => void } {
+  const resolved = resolve(dir)
+  const entryPath = join(resolved, 'page.tsx')
 
   const watcher = chokidar.watch(dir, {
     ignored: /(^|[/\\])\.|node_modules|[/\\]\.weifuwu[/\\]/,
@@ -134,10 +140,10 @@ export function liveReload(dir: string): Router & { close: () => void } {
     }
   })
 
-  ;(r as any).close = () => {
-    watcher.close()
-    clients.clear()
+  return {
+    close: () => {
+      watcher.close()
+      clients.clear()
+    },
   }
-
-  return r as Router & { close: () => void }
 }

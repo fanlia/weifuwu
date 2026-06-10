@@ -135,10 +135,9 @@ export class Router {
   }
 
   use(mw: Middleware): this
-  use(router: Router): this
   use(path: string, router: Router): this
   use(path: string, mw: Middleware): this
-  use(arg1: string | Middleware | Router, arg2?: Router | Middleware): this {
+  use(arg1: string | Middleware, arg2?: Router | Middleware): this {
     if (typeof arg1 === 'string') {
       if (arg2 instanceof Router) {
         this._mountRouter(arg1, arg2)
@@ -149,8 +148,6 @@ export class Router {
         }
         node.pathMws.push(arg2)
       }
-    } else if (arg1 instanceof Router) {
-      this._mountRouter('/', arg1)
     } else if (typeof arg1 === 'function') {
       this.globalMws.push(arg1)
     }

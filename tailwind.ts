@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { Router } from './router.ts'
+import type { Middleware } from './types.ts'
 
 const extraSources = new Set<string>()
 
@@ -15,13 +16,11 @@ export function addTailwindSource(dir: string) {
   extraSources.add(resolve(dir))
 }
 
-export function tailwind(dir: string): Router {
+// Middleware: sets ctx.tailwindCssUrl for SSR pages
+export function tailwindContext(dir: string): Middleware {
   const cssDir = resolve(dir)
   const cssPath = join(cssDir, 'app.css')
-
-  const r = new Router()
-
-  r.use(async (req, ctx, next) => {
+  return async (req, ctx, next) => {
     if (!cssCache.has(cssPath)) {
       await compileTailwindCss(cssPath, cssDir)
     }
@@ -30,8 +29,14 @@ export function tailwind(dir: string): Router {
     const base = (ctx.mountPath || '').replace(/\/$/, '')
     ctx.tailwindCssUrl = base ? `${base}/__wfw/style/${entry.hash}.css` : `/__wfw/style/${entry.hash}.css`
     return next(req, ctx)
-  })
+  }
+}
 
+// Router: serves compiled CSS at /__wfw/style/:hash.css
+export function tailwindRouter(dir: string): Router {
+  const cssDir = resolve(dir)
+  const cssPath = join(cssDir, 'app.css')
+  const r = new Router()
   r.get('/__wfw/style/:hash.css', async (req, ctx) => {
     if (!cssCache.has(cssPath)) {
       await compileTailwindCss(cssPath, cssDir)
@@ -42,7 +47,6 @@ export function tailwind(dir: string): Router {
       headers: { 'content-type': 'text/css; charset=utf-8' },
     })
   })
-
   return r
 }
 
