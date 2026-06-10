@@ -36,7 +36,7 @@ async function cmdInit(name: string) {
   await cp(templateDir, targetDir, { recursive: true })
 
   // Rewrite local imports → package imports for the copied project
-  for (const file of ['app.ts', 'index.ts', 'ui/page.tsx']) {
+  for (const file of ['app.ts', 'index.ts', 'ui/app/page.tsx']) {
     const fp = join(targetDir, file)
     let content = await readFile(fp, 'utf-8')
     content = content

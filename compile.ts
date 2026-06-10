@@ -59,13 +59,14 @@ export function clearCompileCache() {
 export async function compileTsx(path: string): Promise<any> {
   const absPath = resolve(path)
   if (cache.has(absPath)) return cache.get(absPath)!
-  mkdirSync(OUT_DIR, { recursive: true })
+  const outDir = resolve(OUT_DIR)
+  mkdirSync(outDir, { recursive: true })
   const hash = id(absPath)
-  const outPath = join(OUT_DIR, hash + '.js')
+  const outPath = join(outDir, hash + '.js')
 
   await esbuild.build({
     entryPoints: { [hash]: absPath },
-    outdir: OUT_DIR,
+    outdir: outDir,
     format: 'esm',
     platform: 'node',
     jsx: 'automatic',

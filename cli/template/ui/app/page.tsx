@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useWebsocket, useLoaderData, useLocale, useTheme } from '../../../react.ts'
-import Greeting from './components/Greeting.tsx'
+import { useWebsocket, useLoaderData, useLocale, useTheme } from '../../../../react.ts'
+import Greeting from '../components/Greeting.tsx'
 
 export default function Home() {
   const [input, setInput] = useState('')

@@ -9,7 +9,7 @@ import type { Router } from '../router.ts'
 const templateDir = './cli/template'
 
 describe('cli/template structure', () => {
-  const files = ['app.ts', 'index.ts', 'ui/layout.tsx', 'ui/page.tsx', 'ui/app.css', 'locales/en.json', 'locales/zh.json', 'locales/zh-CN.json', 'locales/zh-TW.json']
+  const files = ['app.ts', 'index.ts', 'ui/app/layout.tsx', 'ui/app/page.tsx', 'ui/app.css', 'ui/components/Greeting.tsx', 'locales/en.json', 'locales/zh.json', 'locales/zh-CN.json', 'locales/zh-TW.json']
   for (const f of files) {
     it(`has ${f}`, () => {
       assert.ok(existsSync(join(templateDir, f)), `missing ${f}`)
@@ -22,6 +22,8 @@ describe('template app', () => {
   const origCwd = process.cwd()
 
   before(async () => {
+    const { clearCompileCache } = await import('../compile.ts')
+    clearCompileCache()
     execSync('rm -rf .weifuwu', { cwd: resolve(templateDir) })
 
     process.chdir(resolve(templateDir))
@@ -107,7 +109,7 @@ describe('weifuwu init', () => {
     const expected = [
       'package.json', 'tsconfig.json', '.gitignore', '.env', 'AGENTS.md',
       'app.ts', 'index.ts',
-      'ui/layout.tsx', 'ui/page.tsx', 'ui/app.css', 'ui/components/Greeting.tsx',
+      'ui/app/layout.tsx', 'ui/app/page.tsx', 'ui/app.css', 'ui/components/Greeting.tsx',
       'locales/en.json', 'locales/zh.json', 'locales/zh-CN.json', 'locales/zh-TW.json',
     ]
     for (const f of expected) {
@@ -143,7 +145,7 @@ describe('compile cache', () => {
     const { resolve } = await import('node:path')
 
     clearCompileCache()
-    const tsxPath = './cli/template/ui/page.tsx'
+    const tsxPath = './cli/template/ui/app/page.tsx'
     const absPath = resolve(tsxPath)
 
     // Simulate watcher (absolute path)

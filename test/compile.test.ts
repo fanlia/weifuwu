@@ -46,7 +46,7 @@ describe('compile', () => {
     const prev = process.env.NODE_ENV
     process.env.NODE_ENV = 'development'
     const { compileTsxDev } = await import('../compile.ts')
-    const mod = await compileTsxDev('./test/fixtures/ssr/posts/page.tsx')
+    const mod = await compileTsxDev('./test/fixtures/ssr/posts/app/page.tsx')
     assert.ok(mod)
     assert.ok(typeof mod.default === 'function')
     process.env.NODE_ENV = prev

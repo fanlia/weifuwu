@@ -114,8 +114,9 @@ interface ResolvedRoute {
   notFoundFile: string | null
 }
 
-function resolveFileSync(baseDir: string, segments: string[]): ResolvedRoute | null {
-  let dir = baseDir
+function resolveFileSync(ssrDir: string, segments: string[]): ResolvedRoute | null {
+  const appDir = join(ssrDir, 'app')
+  let dir = appDir
   const paramNames: string[] = []
   const paramValues: string[] = []
   let catchAll: string | null = null
@@ -163,33 +164,33 @@ function resolveFileSync(baseDir: string, segments: string[]): ResolvedRoute | n
     routeParams.push(segments[i])
   }
 
-  // Collect layouts from page dir up to baseDir
+  // Collect layouts from page dir up to appDir
   const layoutFiles: string[] = []
   let d = dir
-  while (d.startsWith(baseDir)) {
+  while (d.startsWith(appDir)) {
     const lf = join(d, 'layout.tsx')
     if (existsSync(lf)) layoutFiles.unshift(lf)
-    if (d === baseDir) break
+    if (d === appDir) break
     d = dirname(d)
   }
 
   // Collect errors (nearest → farthest)
   const errorFiles: string[] = []
   d = dir
-  while (d.startsWith(baseDir)) {
+  while (d.startsWith(appDir)) {
     const ef = join(d, 'error.tsx')
     if (existsSync(ef)) errorFiles.unshift(ef)
-    if (d === baseDir) break
+    if (d === appDir) break
     d = dirname(d)
   }
 
   // Nearest not-found.tsx walking up
   let notFoundFile: string | null = null
   d = dir
-  while (d.startsWith(baseDir)) {
+  while (d.startsWith(appDir)) {
     const nf = join(d, 'not-found.tsx')
     if (existsSync(nf)) { notFoundFile = nf; break }
-    if (d === baseDir) break
+    if (d === appDir) break
     d = dirname(d)
   }
 

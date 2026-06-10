@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from 'weifuwu'
+import { Router } from '../router.ts'
 import { notFound } from '../not-found.ts'
 import { layout } from '../layout.ts'
 
