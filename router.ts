@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws'
 import type { WebSocket } from './vendor.ts'
-import type { IncomingMessage } from 'node:http'
+import http, { type IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
 
@@ -40,82 +40,60 @@ const createWsNode = (): WsTrieNode => ({
   middlewares: [],
 })
 
-function getParamName(segment: string): string {
-  return segment.slice(1)
+interface TrieNodeBase<T> {
+  children: Map<string, T>
+  param?: string
+  wildcard?: boolean
 }
 
-function getTrieNode(node: TrieNode, segment: string): TrieNode {
-  if (segment.startsWith(':')) {
-    const paramName = getParamName(segment)
-    if (!node.children.has(':')) {
-      const child = createTrieNode()
-      child.param = paramName
-      node.children.set(':', child)
-    }
-    const child = node.children.get(':')!
-    if (child.param !== paramName) {
-      throw new Error(
-        `Param name conflict: ":${child.param}" already registered, cannot register ":"${paramName}"`,
-      )
-    }
-    return child
-  }
-  if (!node.children.has(segment)) {
-    node.children.set(segment, createTrieNode())
-  }
-  return node.children.get(segment)!
-}
-
-function matchTrieNode(
-  node: TrieNode,
+function createParamChild<T extends TrieNodeBase<T>>(
+  node: T,
   segment: string,
-  params: Record<string, string>,
-): TrieNode | null {
-  if (node.children.has(segment)) return node.children.get(segment)!
-  if (node.children.has(':')) {
-    const child = node.children.get(':')!
-    if (child.param) params[child.param] = segment
-    return child
+  createNode: () => T,
+): T {
+  const paramName = segment.slice(1)
+  if (!node.children.has(':')) {
+    const child = createNode()
+    child.param = paramName
+    node.children.set(':', child)
   }
-  return null
+  const child = node.children.get(':')!
+  if (child.param !== paramName) {
+    throw new Error(
+      `Param name conflict: ":${child.param}" already registered, cannot register ":"${paramName}"`,
+    )
+  }
+  return child
 }
 
-function getWsNode(node: WsTrieNode, segment: string): WsTrieNode {
-  if (segment === '*') {
+function getOrCreateChild<T extends TrieNodeBase<T>>(
+  node: T,
+  segment: string,
+  createNode: () => T,
+  allowWildcard: boolean,
+): T {
+  if (allowWildcard && segment === '*') {
     node.wildcard = true
     return node
   }
-  if (segment.startsWith(':')) {
-    const paramName = getParamName(segment)
-    if (!node.children.has(':')) {
-      const child = createWsNode()
-      child.param = paramName
-      node.children.set(':', child)
-    }
-    const child = node.children.get(':')!
-    if (child.param !== paramName) {
-      throw new Error(`Param name conflict: ":${child.param}" already registered at this path position`)
-    }
-    return child
-  }
-  if (!node.children.has(segment)) {
-    node.children.set(segment, createWsNode())
-  }
+  if (segment.startsWith(':')) return createParamChild(node, segment, createNode)
+  if (!node.children.has(segment)) node.children.set(segment, createNode())
   return node.children.get(segment)!
 }
 
-function matchWsNode(
-  node: WsTrieNode,
+function matchChild<T extends TrieNodeBase<T>>(
+  node: T,
   segment: string,
   params: Record<string, string>,
-): WsTrieNode | null {
+  allowWildcard = false,
+): T | null {
   if (node.children.has(segment)) return node.children.get(segment)!
   if (node.children.has(':')) {
     const child = node.children.get(':')!
     if (child.param) params[child.param] = segment
     return child
   }
-  if (node.wildcard) return node
+  if (allowWildcard && node.wildcard) return node
   return null
 }
 
@@ -148,7 +126,7 @@ export class Router {
       } else if (typeof arg2 === 'function') {
         let node = this.root
         for (const segment of this.splitPath(arg1)) {
-          node = getTrieNode(node, segment)
+          node = getOrCreateChild(node, segment, createTrieNode, false)
         }
         node.pathMws.push(arg2)
       }
@@ -217,7 +195,7 @@ export class Router {
         if (middlewares.length > 0) node.middlewares.set(method, middlewares)
         return this
       }
-      node = getTrieNode(node, segment)
+      node = getOrCreateChild(node, segment, createTrieNode, false)
     }
 
     node.handlers.set(method, handler)
@@ -232,7 +210,7 @@ export class Router {
     let node = this.wsRoot
 
     for (const segment of segments) {
-      node = getWsNode(node, segment)
+      node = getOrCreateChild(node, segment, createWsNode, true)
     }
 
     node.handler = handler
@@ -282,9 +260,7 @@ export class Router {
 
       const webReq = new Request(url.href, {
         method: req.method ?? 'GET',
-        headers: Object.fromEntries(
-          Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
-        ),
+        headers: nodeReqHeadersToRecord(req.headers),
       })
 
       void router.runChain(allMws, finalHandler, webReq, ctx).then((result) => {
@@ -305,17 +281,27 @@ export class Router {
       return next(req, ctx)
     }
 
+    const allExtra = extraMws.length === 0 && sub.globalMws.length === 0
+      ? [mountMw]
+      : [mountMw, ...extraMws, ...sub.globalMws]
+
     const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
     this._collect(sub.root, '', routes, [])
     for (const { method, path, handler, middlewares } of routes) {
-      this.route(method, base + path, mountMw, ...extraMws, ...sub.globalMws, ...middlewares, handler)
+      this.route(method, base + path, ...allExtra, ...middlewares, handler)
     }
 
     const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
     this._collectWs(sub.wsRoot, '', wsRoutes)
     for (const { path, handler, middlewares } of wsRoutes) {
-      this.ws(base + path, mountMw, ...extraMws, ...sub.globalMws, ...middlewares, handler)
+      this.ws(base + path, ...allExtra, ...middlewares, handler)
     }
+  }
+
+  private mergeMws(base: Middleware[], extra: Middleware[]): Middleware[] {
+    if (base.length === 0) return extra.length === 0 ? base : extra
+    if (extra.length === 0) return base
+    return [...base, ...extra]
   }
 
   private _collect(
@@ -324,25 +310,15 @@ export class Router {
     result: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }>,
     pathMwsAcc: Middleware[],
   ): void {
-    const mws = pathMwsAcc.length === 0 && node.pathMws.length === 0
-      ? pathMwsAcc
-      : (pathMwsAcc.length === 0 ? node.pathMws : (node.pathMws.length === 0 ? pathMwsAcc : [...pathMwsAcc, ...node.pathMws]))
-    if (node.wildcard) {
-      for (const [method, handler] of node.handlers) {
-        const rmws = node.middlewares.get(method) || []
-        const allMws = mws.length === 0 && rmws.length === 0 ? mws : [...mws, ...rmws]
-        result.push({ method, path: prefix + '/*', handler, middlewares: allMws })
-      }
-    } else {
-      for (const [method, handler] of node.handlers) {
-        const rmws = node.middlewares.get(method) || []
-        const allMws = mws.length === 0 && rmws.length === 0 ? mws : [...mws, ...rmws]
-        result.push({ method, path: prefix || '/', handler, middlewares: allMws })
-      }
+    const mws = this.mergeMws(pathMwsAcc, node.pathMws)
+    for (const [method, handler] of node.handlers) {
+      const rmws = node.middlewares.get(method) || []
+      const suffix = node.wildcard ? '/*' : ''
+      result.push({ method, path: (prefix || '/') + suffix, handler, middlewares: this.mergeMws(mws, rmws) })
     }
     for (const [seg, child] of node.children) {
-      if (seg === ':') this._collect(child, prefix + '/:' + child.param, result, mws)
-      else this._collect(child, prefix + '/' + seg, result, mws)
+      const next = seg === ':' ? `/:${child.param}` : `/${seg}`
+      this._collect(child, prefix + next, result, mws)
     }
   }
 
@@ -352,13 +328,11 @@ export class Router {
     result: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }>,
     pathMwsAcc: Middleware[] = [],
   ): void {
-    const mws = pathMwsAcc.length === 0 && node.middlewares.length === 0
-      ? pathMwsAcc
-      : (pathMwsAcc.length === 0 ? node.middlewares : (node.middlewares.length === 0 ? pathMwsAcc : [...pathMwsAcc, ...node.middlewares]))
+    const mws = this.mergeMws(pathMwsAcc, node.middlewares)
     if (node.handler) result.push({ path: prefix || '/', handler: node.handler, middlewares: mws })
     for (const [seg, child] of node.children) {
-      if (seg === ':') this._collectWs(child, prefix + '/:' + child.param, result, mws)
-      else this._collectWs(child, prefix + '/' + seg, result, mws)
+      const next = seg === ':' ? `/:${child.param}` : `/${seg}`
+      this._collectWs(child, prefix + next, result, mws)
     }
   }
 
@@ -397,7 +371,7 @@ export class Router {
 
       const segment = segments[i]
 
-      const next = matchTrieNode(node, segment, params)
+      const next = matchChild(node, segment, params, false)
       if (!next) {
         if (wildcardHandler) {
           params['*'] = segments.slice(wildcardIdx).join('/')
@@ -438,7 +412,7 @@ export class Router {
     const params: Record<string, string> = {}
 
     for (const segment of segments) {
-      const next = matchWsNode(node, segment, params)
+      const next = matchChild(node, segment, params, true)
       if (!next) return null
       node = next
     }
@@ -468,12 +442,9 @@ export class Router {
 
       if (match.handler) {
         const { handler, middlewares: routeMws, pathMws } = match
-        const allMws = this.globalMws.length + pathMws.length + routeMws.length === 0
-          ? [] as Middleware[]
-          : [...this.globalMws, ...pathMws, ...routeMws]
-
+        const mws = this.mergeMws(this.mergeMws(this.globalMws, pathMws), routeMws)
         try {
-          return await this.runChain(allMws, handler, req, ctx)
+          return await this.runChain(mws, handler, req, ctx)
         } catch (e) {
           return this.handleError(e, req, ctx)
         }
@@ -481,12 +452,11 @@ export class Router {
 
       if (match.allowedMethods && match.allowedMethods.length > 0) {
         if (this.globalMws.length > 0) {
-          const delegate: Handler = () => new Response('Method Not Allowed', {
-            status: 405,
-            headers: { 'Allow': match.allowedMethods!.join(', ') },
-          })
           try {
-            return await this.runChain(this.globalMws, delegate, req, ctx)
+            return await this.runChain(this.globalMws, () => new Response('Method Not Allowed', {
+              status: 405,
+              headers: { 'Allow': match.allowedMethods!.join(', ') },
+            }), req, ctx)
           } catch (e) {
             return this.handleError(e, req, ctx)
           }
@@ -500,8 +470,7 @@ export class Router {
 
     if (this.globalMws.length > 0) {
       try {
-        const delegate: Handler = () => new Response('Not Found', { status: 404 })
-        return await this.runChain(this.globalMws, delegate, req, ctx)
+        return await this.runChain(this.globalMws, () => new Response('Not Found', { status: 404 }), req, ctx)
       } catch (e) {
         return this.handleError(e, req, ctx)
       }
@@ -560,6 +529,14 @@ function upgradeSocket(
       handler.error?.(ws, ctx, err)
     })
   })
+}
+
+function nodeReqHeadersToRecord(headers: http.IncomingHttpHeaders): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [k, v] of Object.entries(headers)) {
+    if (v !== undefined) result[k] = Array.isArray(v) ? v.join(', ') : v
+  }
+  return result
 }
 
 function sendHttpResponseOnSocket(socket: Duplex, response: Response): void {
