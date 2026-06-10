@@ -818,32 +818,35 @@ const app = new Router()
 app.use('/', ssr({ dir: './ui' }))
 ```
 
-**Directory conventions:**
+**Directory conventions (Next.js-style):**
 
 ```
 ./ui/
-├── layout.tsx           → root layout (wraps all pages)
-├── page.tsx             → GET /
-├── app.css              → tailwind CSS entry (optional)
-├── not-found.tsx        → 404 page (optional)
-├── error.tsx            → error boundary (optional)
-├── about/
-│   ├── page.tsx         → GET /about
-│   └── layout.tsx       → group layout
-└── posts/
-    ├── page.tsx         → GET /posts
-    └── [id]/
-        └── page.tsx     → GET /posts/:id
+├── app/                 ← only this directory affects routing
+│   ├── globals.css      ← tailwind CSS + CSS variables (optional)
+│   ├── layout.tsx       → root layout (wraps all pages)
+│   ├── page.tsx         → GET /
+│   ├── not-found.tsx    → 404 page (optional)
+│   ├── error.tsx        → error boundary (optional)
+│   ├── about/
+│   │   ├── page.tsx     → GET /about
+│   │   └── layout.tsx   → group layout
+│   └── posts/
+│       ├── page.tsx     → GET /posts
+│       └── [id]/
+│           └── page.tsx → GET /posts/:id
+├── components/          ← shared components (does not affect routing)
+└── lib/                 ← utilities (does not affect routing)
 ```
 
-| File | Route |
-|------|-------|
-| `page.tsx` | `GET /` (or `/path` for subdirectories) |
-| `[param]/page.tsx` | `GET /:param` |
-| `layout.tsx` | Wraps all pages in its directory (inherits upward) |
-| `not-found.tsx` | 404 fallback for that directory subtree |
-| `error.tsx` | Error boundary for that directory subtree |
-| `app.css` | Enables tailwind CSS (compiled via `@tailwindcss/postcss`) |
+| Location | Route |
+|----------|-------|
+| `app/page.tsx` | `GET /` |
+| `app/[param]/page.tsx` | `GET /:param` |
+| `app/layout.tsx` | Root layout (wraps all pages in its subtree) |
+| `app/not-found.tsx` | 404 fallback for that subtree |
+| `app/error.tsx` | Error boundary for that subtree |
+| `app/globals.css` | Tailwind CSS entry (compiled via `@tailwindcss/postcss`) |
 
 **How it works:**
 
