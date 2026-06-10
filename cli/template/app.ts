@@ -1,7 +1,10 @@
+import { join } from 'node:path'
 import { Router, ssr, preferences } from '../../index.ts'
 
+const _ui = join(import.meta.dirname, 'ui')
+
 export const app = new Router()
-app.use('/', ssr({ dir: './ui' }))
+app.use('/', ssr({ dir: _ui }))
 app.use(preferences({ dir: './locales', locale: { default: 'en' }, theme: { default: 'system' } }))
 app.use(async (req, ctx, next) => {
   ctx.loaderData = {
