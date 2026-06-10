@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "dev": "cd cli/template && NODE_ENV=development node --watch index.ts",
-    "start": "node ./cli/template/index.ts",
+    "start": "cd cli/template && node index.ts",
     "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external && esbuild react.ts --bundle --format=esm --outfile=dist/react.js --external:react --external:react-dom",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "test": "node --test 'test/**/*.test.ts'"
