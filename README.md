@@ -15,11 +15,9 @@ serve((req, ctx) => new Response('Hello, World!'), { port: 3000 })
 ```
 
 ```ts
-import { serve, Router, preferences, ssr, rootLayout } from 'weifuwu'
+import { serve, Router, ssr } from 'weifuwu'
 const app = new Router()
-app.use(preferences({ dir: './locales' }))
-app.use(rootLayout('./ui'))
-app.get('/', ssr('./ui/pages/home.tsx'))
+app.use('/', ssr({ dir: './ui' }))
 serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
 ```
 
@@ -119,14 +117,14 @@ The `ctx` object accumulates properties as it passes through the middleware chai
 | `queue` | `queue()` | `Queue` | Job queue |
 | `prefs` | `preferences()` | `{ locale, theme }` | User preferences (locale, theme) |
 | `deploy` | `deploy()` | `{ appName? }` | Deploy gateway info |
-| `layoutStack` | `rootLayout()` / `layout()` | `LayoutEntry[]` | React layout component stack |
+| `layoutStack` | `ssr()` internal | `LayoutEntry[]` | React layout component stack |
 | `loaderData` | User middleware | `Record<string, unknown>` | SSR data passed to client |
 | `user` | `auth()` / `user().middleware()` | `{ id?: string }` | Authenticated user |
 | `parsed` | `validate()` / `upload()` | `{ body, query, params, headers, files }` | Validated/parsed request data |
 | `t` | `preferences()` | `(key) => string` | Translation function |
 | `setPref` | `preferences()` | `(key, val) => Response` | Set preference cookie + redirect |
-| `compiledTailwindCss` | `tailwind()` | `string` | Compiled CSS content (internal) |
-| `tailwindCssUrl` | `tailwind()` | `string` | Compiled CSS route URL (internal) |
+| `compiledTailwindCss` | `ssr()` internal | `string` | Compiled CSS content (internal) |
+| `tailwindCssUrl` | `ssr()` internal | `string` | Compiled CSS route URL (internal) |
 
 ---
 
@@ -137,7 +135,7 @@ All modules follow one of **2 patterns** — learn these and you know every modu
 | Pattern | How to mount | Example |
 |---------|-------------|---------|
 | `[α]` | `app.use(mod())` | `compress()`, `preferences()`, `postgres()` |
-| `[β]` | `app.use('/path', mod())` | `health()`, `graphql(handler)`, `user()` |
+| `[β]` | `app.use('/path', mod())` | `health()`, `ssr({dir})`, `graphql(handler)`, `user()` |
 
 ### Pattern α — Middleware
 
@@ -398,23 +396,7 @@ Restart=always
 | `buildCommand` | — | Build command |
 | `ports` | — | `[port, port+1]` for blue-green |
 
-### errorBoundary(path) [β]
 
-Wraps child routes in an error boundary. If a page or middleware throws, the error component is rendered via SSR with head injection (CSS, theme, context) and layout wrapping.
-
-```ts
-app.use('/blog', errorBoundary('./blog-error.tsx'))
-```
-
-The error component receives `{ error, reset }` as props (`reset` is a no-op on the server):
-
-```tsx
-export default function BlogError({ error, reset }: { error: Error; reset: () => void }) {
-  return <div><h2>Error</h2><p>{error.message}</p></div>
-}
-```
-
-Error boundaries nest — the nearest one up the middleware chain catches the error.
 
 ### health [β]
 
@@ -483,16 +465,7 @@ await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'
 | `.migrate()` | DB setup |
 | `.shutdown()` | Clean shutdown |
 
-### layout(path) [β]
 
-Compiles a `.tsx` file and returns middleware that pushes the layout component onto `ctx.layoutStack`. Pages rendered by `ssr()` consume this stack. Use after `rootLayout()` to extend a shared structure.
-
-```ts
-app.use(rootLayout('./ui'))
-app.use(layout('./extra.tsx'))   // appended after rootLayout
-```
-
-Layout components receive `{ children }` (the child page or nested layout). Multiple layouts wrap from outer to inner in `use()` order.
 
 ### logdb [β]
 
@@ -566,17 +539,7 @@ await msg.send(channelId, 'System message', { sender_type: 'system', sender_id: 
 | `.send(channel, content, opts?)` | Send message to channel |
 | `.close()` | Cleanup |
 
-### notFound(path) [β]
 
-Returns a catch-all handler for 404 pages. When a path is given, the component is rendered via SSR with layout support. Falls back to plain text if compilation fails or no path given.
-
-```ts
-// No path — plain text
-app.all('/*', notFound())
-
-// Path to a .tsx component — renders via SSR
-app.all('/*', notFound('./not-found.tsx'))
-```
 
 ### opencode [β]
 
@@ -825,20 +788,7 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 | `header` | `string` | `'X-Request-ID'` | Header name to read/write |
 | `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
 
-### rootLayout(dir) [α]
 
-One-stop middleware for a page structure. Compiles `layout.tsx` and `app.css` from the given directory, and in dev mode registers vendor bundle, HMR WebSocket, and file watcher.
-
-```ts
-app.use(rootLayout('./ui'))
-// Scans ./ui/layout.tsx → layout component
-// Scans ./ui/app.css → tailwind CSS at /{mountPath}/__wfw/style/{hash}.css
-// Dev: vendor bundle + HMR WS + file watcher
-```
-
-- Sets `ctx.layoutStack` (consumed by `ssr()`)
-- Registers CSS route at `/__wfw/style/:hash.css` — Tailwind CSS compiled via `@tailwindcss/postcss` if `app.css` exists in the dir. Hash is content-based, ensuring cache invalidation on changes.
-- Each `rootLayout` instance is independent — sub-routes can define their own
 
 ### seo [β] + seoMiddleware [α]
 
@@ -858,21 +808,61 @@ Also exports `seoTags(config)` for generating meta/og/twitter tags as an HTML st
 | `sitemap` | `SitemapConfig` | — | Sitemap configuration (urls, resolve, cacheTTL) |
 | `headers` | `SeoHeadersConfig` | — | Response headers (e.g. `X-Robots-Tag`) |
 
-### ssr(path) [β]
+### ssr({ dir }) [β]
 
-Compiles a `.tsx` file and returns a Router handler that renders the React component to HTML with streaming, client bundle injection, and context serialization.
+One-stop Server-Side Rendering. Accepts a directory and returns a Router that handles all SSR routes, tailwind CSS, hydration bundles, and livereload — using Next.js-style file conventions.
 
 ```ts
-app.get('/about', ssr('./ui/pages/about.tsx'))
+import { Router, ssr } from 'weifuwu'
+const app = new Router()
+app.use('/', ssr({ dir: './ui' }))
 ```
 
-- Compiles via esbuild at runtime (no build step)
-- Reads `ctx.layoutStack` (set by `rootLayout()` or `layout()`) and wraps the component from outer to inner
-- Injects hydration script pointing to the auto-generated client bundle at `/__ssr/{entryId}.js`
-- Injects `<link>` for tailwind CSS from `ctx.tailwindCssUrl` (set by `rootLayout()`)
-- Serializes middleware-injected `ctx` data to `window.__WEIFUWU_CTX` for client-side hydration
-- **Dev mode:** uses `createRoot` instead of `hydrateRoot` — all hooks (`useState`, `useEffect`) work correctly; SSR content is still streamed for fast first paint
-- **Prod mode:** uses `hydrateRoot` for full SSR hydration
+**Directory conventions:**
+
+```
+./ui/
+├── layout.tsx           → root layout (wraps all pages)
+├── page.tsx             → GET /
+├── app.css              → tailwind CSS entry (optional)
+├── not-found.tsx        → 404 page (optional)
+├── error.tsx            → error boundary (optional)
+├── about/
+│   ├── page.tsx         → GET /about
+│   └── layout.tsx       → group layout
+└── posts/
+    ├── page.tsx         → GET /posts
+    └── [id]/
+        └── page.tsx     → GET /posts/:id
+```
+
+| File | Route |
+|------|-------|
+| `page.tsx` | `GET /` (or `/path` for subdirectories) |
+| `[param]/page.tsx` | `GET /:param` |
+| `layout.tsx` | Wraps all pages in its directory (inherits upward) |
+| `not-found.tsx` | 404 fallback for that directory subtree |
+| `error.tsx` | Error boundary for that directory subtree |
+| `app.css` | Enables tailwind CSS (compiled via `@tailwindcss/postcss`) |
+
+**How it works:**
+
+- Each page is lazy-resolved on first request — only the `page.tsx` and its layout chain are compiled
+- Hydration bundle generated per-page at `/__ssr/{hash}.js`
+- Tailwind CSS served at `/__wfw/style/{hash}.css` (cached, content-hashed)
+- Dev mode: vendor bundle, HMR WebSocket, file watcher — all automatic
+- Page components and layouts are compiled via esbuild at runtime — no build step needed
+
+```ts
+// Multiple independent SSR directories
+app.use('/',      ssr({ dir: './www' }))
+app.use('/admin', ssr({ dir: './admin' }))
+
+// API routes coexist normally
+app.get('/api/ping', () => Response.json({ pong: true }))
+```
+
+Layout components receive `{ children }` and wrap from outer to inner:
 
 ### tenant [β]
 
@@ -1084,9 +1074,9 @@ function Toast() {
 
 ### Dev mode
 
-Auto-detected when `NODE_ENV !== 'production'`. `rootLayout(dir)` automatically registers vendor bundle, HMR WebSocket, and file watcher. No explicit setup needed.
+Auto-detected when `NODE_ENV !== 'production'`. `ssr({dir})` automatically registers vendor bundle, HMR WebSocket, and file watcher. No explicit setup needed.
 
-When a `.tsx` or `.css` file changes under the `rootLayout` dir, the browser hot-updates without refreshing — `useState` values are preserved. Layout changes trigger a full page reload.
+When a `.tsx` or `.css` file changes under the `ssr` dir, the browser hot-updates without refreshing — `useState` values are preserved. Layout changes trigger a full page reload.
 
 ---
 
@@ -1125,7 +1115,7 @@ Every public symbol can be imported from `'weifuwu'`:
 ### Core
 
 ```ts
-serve, createTestServer, Router,
+serve, createTestServer, Router, ssr,
 Context, Handler, Middleware, ErrorHandler, ServeOptions, Server,
 loadEnv
 ```
@@ -1172,7 +1162,7 @@ openai, createOpenAI
 ### Other modules
 
 ```ts
-health, analytics, seo, seoMiddleware, seoTags,
+preferences, health, analytics, seo, seoMiddleware, seoTags,
 user, mailer, graphql, aiStream, runWorkflow,
 logdb, messager, agent, iii, createWorker, registerWorker,
 opencode, deploy, defineConfig,
