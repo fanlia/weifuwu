@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from 'weifuwu'
-import { notFound, layout } from 'weifuwu'
+import { notFound } from '../not-found.ts'
+import { layout } from '../layout.ts'
 
 const nfPage = './test/fixtures/not-found/page.tsx'
 const nfLayout = './test/fixtures/not-found/layout.tsx'

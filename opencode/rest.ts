@@ -1,7 +1,5 @@
-import { join } from 'node:path'
 import { Router } from '../router.ts'
 import { ssr } from '../ssr.ts'
-import { rootLayout } from '../root-layout.ts'
 import type { LanguageModel } from 'ai'
 import type { SkillDef, SkillRegistry, OpencodePermissions, PendingQuestion } from './types.ts'
 import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage } from './session.ts'
@@ -94,13 +92,9 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
     return createSSEStream(stream)
   })
 
-  // Mount the chat UI — page route MUST be inside rootLayout so
-  // layout/tailwind global middlewares apply to it
   try {
     const uiDir = new URL('../opencode/ui/', import.meta.url).pathname
-    const ui = rootLayout(uiDir)
-    ui.get('/', ssr(join(uiDir, 'page.tsx')))
-    router.use('/', ui)
+    router.use('/', ssr({ dir: uiDir }))
   } catch (e) {
     console.warn('[opencode] UI not available:', e)
   }

@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from 'weifuwu'
-import { ssr, layout } from 'weifuwu'
+import { ssr } from 'weifuwu'
+import { layout } from '../layout.ts'
 
 const homePage = './test/fixtures/ssr/home/page.tsx'
 

@@ -157,7 +157,7 @@ describe('compile cache', () => {
   })
 })
 
-describe('rootLayout()', () => {
+describe('ssr()', () => {
   const origEnv = process.env.NODE_ENV
 
   before(() => { process.env.NODE_ENV = 'development' })
@@ -165,12 +165,12 @@ describe('rootLayout()', () => {
 
   it('registers WS route at /__weifuwu/livereload in dev', async () => {
     const { Router: R } = await import('../router.ts')
-    const { rootLayout } = await import('../root-layout.ts')
+    const { ssr } = await import('../ssr.ts')
     const app = new R()
-    const rl = rootLayout('./cli/template/ui')
-    app.use('/', rl)
+    const r = ssr({ dir: './cli/template/ui' })
+    app.use('/', r)
     const wsHandler = app.websocketHandler()
     assert.equal(typeof wsHandler, 'function')
-    if (typeof (rl as any).close === 'function') (rl as any).close()
+    if (typeof (r as any).close === 'function') (r as any).close()
   })
 })

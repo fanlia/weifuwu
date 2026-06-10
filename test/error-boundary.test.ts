@@ -1,7 +1,9 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from 'weifuwu'
-import { ssr, layout, errorBoundary } from 'weifuwu'
+import { ssr } from 'weifuwu'
+import { layout } from '../layout.ts'
+import { errorBoundary } from '../error-boundary.ts'
 
 const errPage = './test/fixtures/error/page.tsx'
 const errComponent = './test/fixtures/error/error.tsx'

@@ -143,13 +143,6 @@ export type {
   TriggerRequest,
 } from './iii/types.ts'
 
-// React SSR
+// React SSR — directory-convention server-side rendering
 export { ssr } from './ssr.ts'
-export { rootLayout } from './root-layout.ts'
-export { layout } from './layout.ts'
-export { notFound } from './not-found.ts'
-export { errorBoundary } from './error-boundary.ts'
-export { clearCompileCache } from './compile.ts'
-export { ssrEntries } from './ssr-entries.ts'
-export type { SsrEntry } from './ssr-entries.ts'
 
