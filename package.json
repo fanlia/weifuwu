@@ -20,7 +20,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "dev": "NODE_ENV=development node --watch ./cli/template/index.ts",
+    "dev": "cd cli/template && NODE_ENV=development node --watch index.ts",
     "start": "node ./cli/template/index.ts",
     "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external && esbuild react.ts --bundle --format=esm --outfile=dist/react.js --external:react --external:react-dom",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",

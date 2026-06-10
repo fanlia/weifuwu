@@ -42,11 +42,6 @@ async function cmdInit(name: string) {
     content = content
       .replace(/from '\.\.\/\.\.\/index\.ts'/g, "from 'weifuwu'")
       .replace(/from '\.\.\/\.\.\/\.\.\/react\.ts'/g, "from 'weifuwu/react'")
-      .replace(/import \{ join \} from 'node:path'\n\n/, '')
-      .replace(/const _ui = join\(import\.meta\.dirname, 'ui'\)\n/, '')
-      .replace(/const _loc = join\(import\.meta\.dirname, 'locales'\)\n\n/, '')
-      .replace(/ssr\(\{ dir: _ui \}\)/g, "ssr({ dir: './ui' })")
-      .replace(/preferences\(\{ dir: _loc,/g, "preferences({ dir: './locales',")
     await writeFile(fp, content)
   }
 
