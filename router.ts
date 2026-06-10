@@ -40,17 +40,22 @@ const createWsNode = (): WsTrieNode => ({
   middlewares: [],
 })
 
-const getTrieNode = (node: TrieNode, segment: string): TrieNode => {
+function getParamName(segment: string): string {
+  return segment.slice(1)
+}
+
+function getTrieNode(node: TrieNode, segment: string): TrieNode {
   if (segment.startsWith(':')) {
+    const paramName = getParamName(segment)
     if (!node.children.has(':')) {
       const child = createTrieNode()
-      child.param = segment.slice(1)
+      child.param = paramName
       node.children.set(':', child)
     }
     const child = node.children.get(':')!
-    if (child.param !== segment.slice(1)) {
+    if (child.param !== paramName) {
       throw new Error(
-        `Param name conflict: ":${child.param}" already registered at this path position, cannot register ":"${segment.slice(1)}"`,
+        `Param name conflict: ":${child.param}" already registered, cannot register ":"${paramName}"`,
       )
     }
     return child
@@ -61,11 +66,11 @@ const getTrieNode = (node: TrieNode, segment: string): TrieNode => {
   return node.children.get(segment)!
 }
 
-const matchTrieNode = (
+function matchTrieNode(
   node: TrieNode,
   segment: string,
   params: Record<string, string>,
-): TrieNode | null => {
+): TrieNode | null {
   if (node.children.has(segment)) return node.children.get(segment)!
   if (node.children.has(':')) {
     const child = node.children.get(':')!
@@ -75,22 +80,21 @@ const matchTrieNode = (
   return null
 }
 
-const getWsNode = (node: WsTrieNode, segment: string): WsTrieNode => {
+function getWsNode(node: WsTrieNode, segment: string): WsTrieNode {
   if (segment === '*') {
     node.wildcard = true
     return node
   }
   if (segment.startsWith(':')) {
+    const paramName = getParamName(segment)
     if (!node.children.has(':')) {
       const child = createWsNode()
-      child.param = segment.slice(1)
+      child.param = paramName
       node.children.set(':', child)
     }
     const child = node.children.get(':')!
-    if (child.param !== segment.slice(1)) {
-      throw new Error(
-        `Param name conflict: ":${child.param}" already registered at this path position`,
-      )
+    if (child.param !== paramName) {
+      throw new Error(`Param name conflict: ":${child.param}" already registered at this path position`)
     }
     return child
   }
@@ -100,11 +104,11 @@ const getWsNode = (node: WsTrieNode, segment: string): WsTrieNode => {
   return node.children.get(segment)!
 }
 
-const matchWsNode = (
+function matchWsNode(
   node: WsTrieNode,
   segment: string,
   params: Record<string, string>,
-): WsTrieNode | null => {
+): WsTrieNode | null {
   if (node.children.has(segment)) return node.children.get(segment)!
   if (node.children.has(':')) {
     const child = node.children.get(':')!
@@ -255,15 +259,11 @@ export class Router {
       if (!match) { socket.destroy(); return }
 
       const query = Object.fromEntries(url.searchParams)
-      const webReq = new Request(url.href, {
-        method: req.method ?? 'GET',
-        headers: Object.fromEntries(
-          Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
-        ),
-      })
       const ctx = { params: match.params, query } as Context
 
-      const allMws = [...router.globalMws, ...match.middlewares]
+      const allMws = router.globalMws.length === 0 && match.middlewares.length === 0
+        ? [] as Middleware[]
+        : [...router.globalMws, ...match.middlewares]
 
       if (allMws.length === 0) {
         upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
@@ -279,6 +279,13 @@ export class Router {
         }
         return new Response(null, { status: 200 })
       }
+
+      const webReq = new Request(url.href, {
+        method: req.method ?? 'GET',
+        headers: Object.fromEntries(
+          Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
+        ),
+      })
 
       void router.runChain(allMws, finalHandler, webReq, ctx).then((result) => {
         if (result.status >= 400) {
@@ -441,6 +448,14 @@ export class Router {
       : null
   }
 
+  private async handleError(e: unknown, req: Request, ctx: Context): Promise<Response> {
+    const err = e instanceof Error ? e : new Error(String(e))
+    console.error(err)
+    return this.errorHandler
+      ? await this.errorHandler(err, req, ctx)
+      : new Response('Internal Server Error', { status: 500 })
+  }
+
   private async handle(
     req: Request,
     ctx: Context,
@@ -460,11 +475,7 @@ export class Router {
         try {
           return await this.runChain(allMws, handler, req, ctx)
         } catch (e) {
-          const err = e instanceof Error ? e : new Error(String(e))
-          console.error(err)
-          return this.errorHandler
-            ? this.errorHandler(err, req, ctx)
-            : new Response('Internal Server Error', { status: 500 })
+          return this.handleError(e, req, ctx)
         }
       }
 
@@ -477,11 +488,7 @@ export class Router {
           try {
             return await this.runChain(this.globalMws, delegate, req, ctx)
           } catch (e) {
-            const err = e instanceof Error ? e : new Error(String(e))
-            console.error(err)
-            return this.errorHandler
-              ? this.errorHandler(err, req, ctx)
-              : new Response('Internal Server Error', { status: 500 })
+            return this.handleError(e, req, ctx)
           }
         }
         return new Response('Method Not Allowed', {
@@ -496,11 +503,7 @@ export class Router {
         const delegate: Handler = () => new Response('Not Found', { status: 404 })
         return await this.runChain(this.globalMws, delegate, req, ctx)
       } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e))
-        console.error(err)
-        return this.errorHandler
-          ? this.errorHandler(err, req, ctx)
-          : new Response('Internal Server Error', { status: 500 })
+        return this.handleError(e, req, ctx)
       }
     }
 
@@ -513,16 +516,23 @@ export class Router {
     req: Request,
     ctx: Context,
   ): Promise<Response> {
-    let index = 0
-    const dispatch: Handler = async (req, ctx) => {
-      if (index < middlewares.length) {
-        const mw = middlewares[index++]
-        return await mw(req, ctx, dispatch)
-      }
-      return await finalHandler(req, ctx)
-    }
-    return dispatch(req, ctx)
+    if (middlewares.length === 0) return await finalHandler(req, ctx)
+    return await runChainLoop(middlewares, 0, finalHandler, req, ctx)
   }
+}
+
+function runChainLoop(
+  middlewares: Middleware[],
+  index: number,
+  finalHandler: Handler,
+  req: Request,
+  ctx: Context,
+): Promise<Response> {
+  if (index < middlewares.length) {
+    const mw = middlewares[index]
+    return Promise.resolve(mw(req, ctx, (r, c) => runChainLoop(middlewares, index + 1, finalHandler, r, c)))
+  }
+  return Promise.resolve(finalHandler(req, ctx))
 }
 
 function upgradeSocket(
@@ -563,8 +573,8 @@ function sendHttpResponseOnSocket(socket: Duplex, response: Response): void {
   const headerStr = headerLines.join('\r\n')
 
   response.arrayBuffer().then((buf) => {
-    const body = Buffer.from(buf)
-    socket.write(headerStr + '\r\n' + body.toString())
+    socket.write(headerStr + '\r\n')
+    if (buf.byteLength > 0) socket.write(Buffer.from(buf))
     socket.end()
   }).catch(() => {
     socket.write(headerStr + '\r\n')

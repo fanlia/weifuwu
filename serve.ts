@@ -18,25 +18,26 @@ export interface Server {
   ready: Promise<void>
 }
 
+class HttpError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+    this.name = 'HttpError'
+  }
+}
+
 export async function readBody(req: IncomingMessage, maxSize?: number): Promise<Buffer> {
   if (maxSize) {
     const cl = parseInt(req.headers['content-length'] ?? '0', 10)
-    if (cl > maxSize) {
-      const err = new Error('Request body too large')
-      ;(err as any).status = 413
-      throw err
-    }
+    if (cl > maxSize) throw new HttpError('Request body too large', 413)
   }
 
   const chunks: Buffer[] = []
   let total = 0
   for await (const chunk of req) {
     total += (chunk as Buffer).byteLength
-    if (maxSize && total > maxSize) {
-      const err = new Error('Request body too large')
-      ;(err as any).status = 413
-      throw err
-    }
+    if (maxSize && total > maxSize) throw new HttpError('Request body too large', 413)
     chunks.push(chunk as Buffer)
   }
   return Buffer.concat(chunks)
@@ -112,7 +113,7 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
       const response = await handler(request, { params: {}, query } as Context)
       await sendResponse(res, response)
     } catch (err) {
-      if ((err as any)?.status === 413) {
+      if (err instanceof HttpError && err.status === 413) {
         res.writeHead(413, { 'Content-Type': 'text/plain' })
         res.end('Request Body Too Large')
         return
@@ -139,10 +140,6 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     }
     process.on('SIGTERM', shutdown)
     process.on('SIGINT', shutdown)
-    server.on('close', () => {
-      process.off('SIGTERM', shutdown)
-      process.off('SIGINT', shutdown)
-    })
   }
 
   if (options?.signal) {
@@ -166,18 +163,25 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   })
   server.listen(port, hostname, () => { resolveReady() })
 
+  let cachedPort: number | undefined
+  let cachedHost: string | undefined
+
   return {
     stop: () => { server.close() },
     ready,
     get port() {
+      if (cachedPort !== undefined) return cachedPort
       const addr = server.address()
       if (!addr || typeof addr === 'string') return 0
-      return addr.port
+      cachedPort = addr.port
+      return cachedPort
     },
     get hostname() {
+      if (cachedHost !== undefined) return cachedHost
       const addr = server.address()
       if (!addr) return hostname
-      return typeof addr === 'string' ? addr : addr.address
+      cachedHost = typeof addr === 'string' ? addr : addr.address
+      return cachedHost
     },
   }
 }
