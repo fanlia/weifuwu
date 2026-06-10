@@ -111,7 +111,7 @@ export function liveWatcher(dir: string): { close: () => void } {
       if (targets.length === 0) return broadcastReload()
       try {
         let css: string | undefined
-        const cssPath = join(resolved, 'app.css')
+        const cssPath = join(resolved, 'app', 'globals.css')
         if (existsSync(cssPath)) {
           css = await compileTailwindCss(cssPath, resolved)
         }
@@ -132,7 +132,7 @@ export function liveWatcher(dir: string): { close: () => void } {
         broadcastReload()
       }
     } else if (/\.css$/i.test(filePath)) {
-      const cssPath = join(resolved, 'app.css')
+      const cssPath = join(resolved, 'app', 'globals.css')
       if (existsSync(cssPath)) {
         const css = await compileTailwindCss(cssPath, resolved)
         if (css) broadcastCss(css)

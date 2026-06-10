@@ -19,7 +19,7 @@ export function addTailwindSource(dir: string) {
 // Middleware: sets ctx.tailwindCssUrl for SSR pages
 export function tailwindContext(dir: string): Middleware {
   const cssDir = resolve(dir)
-  const cssPath = join(cssDir, 'app.css')
+  const cssPath = join(cssDir, 'app', 'globals.css')
   return async (req, ctx, next) => {
     if (!cssCache.has(cssPath)) {
       await compileTailwindCss(cssPath, cssDir)
@@ -35,7 +35,7 @@ export function tailwindContext(dir: string): Middleware {
 // Router: serves compiled CSS at /__wfw/style/:hash.css
 export function tailwindRouter(dir: string): Router {
   const cssDir = resolve(dir)
-  const cssPath = join(cssDir, 'app.css')
+  const cssPath = join(cssDir, 'app', 'globals.css')
   const r = new Router()
   r.get('/__wfw/style/:hash.css', async (req, ctx) => {
     if (!cssCache.has(cssPath)) {

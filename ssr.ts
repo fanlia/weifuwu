@@ -306,7 +306,7 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void } {
     })
   })
 
-  if (existsSync(join(dir, 'app.css'))) {
+  if (existsSync(join(dir, 'app', 'globals.css'))) {
     r.use('/', tailwindRouter(dir))
   }
 

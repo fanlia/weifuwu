@@ -1,8 +1,8 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, mkdirSync } from 'node:fs'
+import { resolve, join } from 'node:path'
 import { Router } from '../router.ts'
 import type { Context } from '../types.ts'
 
@@ -64,7 +64,9 @@ describe('tailwind', () => {
   })
 
   it('tailwindContext sets compiledTailwindCss on ctx', async () => {
-    await writeFile(resolve(tmpDir, 'app.css'), '@import "tailwindcss"\n')
+    const globalsDir = resolve(tmpDir, 'app')
+    mkdirSync(globalsDir, { recursive: true })
+    await writeFile(join(globalsDir, 'globals.css'), '@import "tailwindcss"\n')
     const { tailwindContext } = await import('../tailwind.ts')
     const mw = tailwindContext(tmpDir)
 
@@ -77,7 +79,9 @@ describe('tailwind', () => {
   })
 
   it('tailwindRouter serves CSS at generated URL', async () => {
-    await writeFile(resolve(tmpDir, 'app.css'), '@import "tailwindcss"\n')
+    const globalsDir = resolve(tmpDir, 'app')
+    mkdirSync(globalsDir, { recursive: true })
+    await writeFile(join(globalsDir, 'globals.css'), '@import "tailwindcss"\n')
     const { tailwindContext, tailwindRouter } = await import('../tailwind.ts')
 
     // First pass through context to get the URL and compile CSS
