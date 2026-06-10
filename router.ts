@@ -317,14 +317,20 @@ export class Router {
     result: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }>,
     pathMwsAcc: Middleware[],
   ): void {
-    const mws = [...pathMwsAcc, ...node.pathMws]
+    const mws = pathMwsAcc.length === 0 && node.pathMws.length === 0
+      ? pathMwsAcc
+      : (pathMwsAcc.length === 0 ? node.pathMws : (node.pathMws.length === 0 ? pathMwsAcc : [...pathMwsAcc, ...node.pathMws]))
     if (node.wildcard) {
       for (const [method, handler] of node.handlers) {
-        result.push({ method, path: prefix + '/*', handler, middlewares: [...mws, ...(node.middlewares.get(method) || [])] })
+        const rmws = node.middlewares.get(method) || []
+        const allMws = mws.length === 0 && rmws.length === 0 ? mws : [...mws, ...rmws]
+        result.push({ method, path: prefix + '/*', handler, middlewares: allMws })
       }
     } else {
       for (const [method, handler] of node.handlers) {
-        result.push({ method, path: prefix || '/', handler, middlewares: [...mws, ...(node.middlewares.get(method) || [])] })
+        const rmws = node.middlewares.get(method) || []
+        const allMws = mws.length === 0 && rmws.length === 0 ? mws : [...mws, ...rmws]
+        result.push({ method, path: prefix || '/', handler, middlewares: allMws })
       }
     }
     for (const [seg, child] of node.children) {
@@ -339,7 +345,9 @@ export class Router {
     result: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }>,
     pathMwsAcc: Middleware[] = [],
   ): void {
-    const mws = [...pathMwsAcc, ...node.middlewares]
+    const mws = pathMwsAcc.length === 0 && node.middlewares.length === 0
+      ? pathMwsAcc
+      : (pathMwsAcc.length === 0 ? node.middlewares : (node.middlewares.length === 0 ? pathMwsAcc : [...pathMwsAcc, ...node.middlewares]))
     if (node.handler) result.push({ path: prefix || '/', handler: node.handler, middlewares: mws })
     for (const [seg, child] of node.children) {
       if (seg === ':') this._collectWs(child, prefix + '/:' + child.param, result, mws)

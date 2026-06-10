@@ -74,17 +74,30 @@ function buildHeadPayload(opts: StreamOpts): string {
 
   const localeData = (ctx.parsed as any)?.__localeData ?? (globalThis as any).__LOCALE_DATA__
   if (localeData && Object.keys(localeData).length > 0) {
-    result += `<script>window.__LOCALE_DATA__=${JSON.stringify(localeData)}<\/script>\n`
+    if (!_localeDataCache || _localeDataCache.data !== localeData) {
+      _localeDataCache = { data: localeData, json: JSON.stringify(localeData) }
+    }
+    result += `<script>window.__LOCALE_DATA__=${_localeDataCache.json}<\/script>\n`
   }
 
   const loaderData = opts.loaderData || {}
   const ctxData: Record<string, unknown> = {
     params: ctx.params,
     query: ctx.query,
-    user: ctx.user,
     parsed: ctx.parsed,
     prefs: ctx.prefs,
     loaderData,
+  }
+
+  // Only include safe user fields (never include tokens or secrets)
+  if (ctx.user && typeof ctx.user === 'object') {
+    const safeUser: Record<string, unknown> = {}
+    for (const k of ['id', 'name', 'email', 'role', 'avatar']) {
+      if (k in (ctx.user as Record<string, unknown>)) {
+        safeUser[k] = (ctx.user as Record<string, unknown>)[k]
+      }
+    }
+    ctxData.user = safeUser
   }
 
   const publicEnv = getPublicEnv()
@@ -107,6 +120,8 @@ function buildBodyScripts(opts: StreamOpts): string {
   }
   return parts.join('\n')
 }
+
+let _localeDataCache: { data: Record<string, unknown>; json: string } | null = null
 
 export function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response {
   const decoder = new TextDecoder()

@@ -35,6 +35,10 @@ export function getCookies(req: Request): Record<string, string> {
 }
 
 function serializeCookie(name: string, value: string, options?: CookieOptions): string {
+  // Reject control characters and special chars per RFC 6265
+  if (/[\x00-\x1F\x7F-\x9F;,]/.test(name) || /[\x00-\x1F\x7F-\x9F;,]/.test(value)) {
+    throw new Error(`Invalid cookie name or value: contains control characters or special chars`)
+  }
   const parts = [`${encodeURIComponent(name)}=${encodeURIComponent(value)}`]
   if (options?.maxAge != null) parts.push(`Max-Age=${options.maxAge}`)
   if (options?.expires) parts.push(`Expires=${options.expires.toUTCString()}`)

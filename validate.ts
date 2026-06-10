@@ -62,16 +62,10 @@ export function validate(schemas: ValidationSchemas): Middleware {
           issues.push({ path: ['body'], message: 'Request body is required' })
         } else {
           const ct = req.headers.get('content-type') ?? ''
+          const shouldParseJson = ct.includes('application/json') || ct.includes('text/') || ct.includes('*/json')
+            || (!ct.includes('multipart/form-data') && !ct.includes('application/x-www-form-urlencoded'))
           let bodyValue: unknown = bodyText
-          if (ct.includes('application/json') || ct.includes('text/') || ct.includes('*/json')) {
-            try {
-              bodyValue = JSON.parse(bodyText)
-            } catch {
-              // keep raw string
-            }
-          } else if (ct.includes('application/x-www-form-urlencoded') || ct.includes('multipart/form-data')) {
-            bodyValue = bodyText
-          } else {
+          if (shouldParseJson) {
             try {
               bodyValue = JSON.parse(bodyText)
             } catch {

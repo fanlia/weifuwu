@@ -4,10 +4,10 @@ import type { Context } from '../types.ts'
 import { health } from '../health.ts'
 
 describe('health', () => {
-  it('returns 200 on /health', async () => {
+  it('returns 200 on /__health', async () => {
     const r = health()
     const res = await r.handler()(
-      new Request('http://localhost/'),
+      new Request('http://localhost/__health'),
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 200)
@@ -28,7 +28,7 @@ describe('health', () => {
       check: async () => { throw new Error('db down') },
     })
     const res = await r.handler()(
-      new Request('http://localhost/'),
+      new Request('http://localhost/__health'),
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 503)

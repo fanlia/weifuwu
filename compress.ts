@@ -1,5 +1,10 @@
-import { createGzip, createBrotliCompress, createDeflate, constants, gzipSync, brotliCompressSync, deflateSync } from 'node:zlib'
+import { createGzip, createBrotliCompress, createDeflate, constants, brotliCompress, gzip, deflate } from 'node:zlib'
+import { promisify } from 'node:util'
 import type { Middleware } from './types.ts'
+
+const brotliCompressAsync = promisify(brotliCompress)
+const gzipAsync = promisify(gzip)
+const deflateAsync = promisify(deflate)
 
 export interface CompressOptions {
   level?: number
@@ -33,25 +38,26 @@ export function compress(options?: CompressOptions): Middleware {
       return res
     }
 
+    if (!res.body) return res
+
     const body = await res.bytes()
     if (body.byteLength < threshold) return res
 
     let compressed: Buffer
-    let enc: string
-
-    if (encoding === 'br') {
-      compressed = brotliCompressSync(body, { params: { [constants.BROTLI_PARAM_QUALITY]: Math.min(level, 11) } })
-      enc = 'br'
-    } else if (encoding === 'gzip') {
-      compressed = gzipSync(body, { level: Math.min(level, 9) })
-      enc = 'gzip'
-    } else {
-      compressed = deflateSync(body, { level: Math.min(level, 9) })
-      enc = 'deflate'
+    try {
+      if (encoding === 'br') {
+        compressed = await brotliCompressAsync(body, { params: { [constants.BROTLI_PARAM_QUALITY]: Math.min(level, 11) } })
+      } else if (encoding === 'gzip') {
+        compressed = await gzipAsync(body, { level: Math.min(level, 9) })
+      } else {
+        compressed = await deflateAsync(body, { level: Math.min(level, 9) })
+      }
+    } catch {
+      return res
     }
 
     const headers = new Headers(res.headers)
-    headers.set('Content-Encoding', enc)
+    headers.set('Content-Encoding', encoding)
     headers.set('Content-Length', String(compressed.byteLength))
     headers.delete('Content-Range')
     const existingVary = headers.get('Vary')

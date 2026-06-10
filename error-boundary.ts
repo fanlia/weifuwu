@@ -3,6 +3,7 @@ import { compile } from './compile.ts'
 import { isDev } from './env.ts'
 import type { Middleware } from './types.ts'
 import { streamResponse } from './stream.ts'
+import { buildHtmlShell } from './html-shell.ts'
 
 export function errorBoundary(errorPath: string): Middleware {
   return async (req, ctx, next) => {
@@ -21,20 +22,7 @@ export function errorBoundary(errorPath: string): Middleware {
         reset: () => {},
       })
 
-      if (layouts.length === 0) {
-        element = createElement('html', { lang: 'en' },
-          createElement('head', null,
-            createElement('meta', { charSet: 'utf-8' }),
-            createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
-            createElement('title', null, '500'),
-          ),
-          createElement('body', null, element),
-        )
-      } else {
-        for (const L of layouts.toReversed()) {
-          element = createElement(L, { children: element })
-        }
-      }
+      element = buildHtmlShell('500', element, layouts)
 
       const { renderToReadableStream } = await import('react-dom/server')
       const stream = await renderToReadableStream(element)

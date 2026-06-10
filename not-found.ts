@@ -3,6 +3,7 @@ import { compile } from './compile.ts'
 import { isDev } from './env.ts'
 import type { Handler } from './types.ts'
 import { streamResponse } from './stream.ts'
+import { buildHtmlShell } from './html-shell.ts'
 
 export function notFound(path?: string): Handler {
   return async (req, ctx) => {
@@ -25,20 +26,7 @@ export function notFound(path?: string): Handler {
       createElement(Component, null),
     )
 
-    if (layoutComponents.length === 0) {
-      element = createElement('html', { lang: 'en' },
-        createElement('head', null,
-          createElement('meta', { charSet: 'utf-8' }),
-          createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
-          createElement('title', null, '404'),
-        ),
-        createElement('body', null, element),
-      )
-    } else {
-      for (const L of layoutComponents.toReversed()) {
-        element = createElement(L, { children: element })
-      }
-    }
+    element = buildHtmlShell('404', element, layoutComponents)
 
     const { renderToReadableStream } = await import('react-dom/server')
     const stream = await renderToReadableStream(element)

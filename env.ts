@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 /** Whether NODE_ENV is explicitly set to 'development' */
@@ -8,9 +8,11 @@ export function isDev(): boolean {
 
 export function loadEnv(path?: string): void {
   const filePath = resolve(process.cwd(), path ?? '.env')
-  if (!existsSync(filePath)) return
 
-  const content = readFileSync(filePath, 'utf-8')
+  let content: string
+  try {
+    content = readFileSync(filePath, 'utf-8')
+  } catch { return }
 
   for (const line of content.split('\n')) {
     const trimmed = line.trim()
@@ -30,7 +32,8 @@ export function loadEnv(path?: string): void {
         (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1)
     } else {
-      const commentIdx = value.indexOf(' #')
+      // Strip inline comments: space before #, or # at start of value
+      const commentIdx = value.search(/\s#/)
       if (commentIdx !== -1) {
         value = value.slice(0, commentIdx).trimEnd()
       }

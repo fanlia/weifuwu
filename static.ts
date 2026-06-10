@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { open, realpath, type FileHandle } from 'node:fs/promises'
 import { extname, resolve, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
@@ -57,7 +56,7 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
 
       const mimeType = MIME_TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream'
 
-      const etag = `"${createHash('md5').update(`${stat.size}-${stat.mtimeMs}`).digest('hex')}"`
+      const etag = `"${stat.ino}-${stat.size}-${stat.mtimeMs}"`
       const ifNoneMatch = req.headers.get('if-none-match')
       if (ifNoneMatch === etag) {
         await fileHandle.close()

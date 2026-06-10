@@ -32,12 +32,27 @@ class MemStore {
   private days = new Map<string, { pv: number; uv: Set<string>; mobile: number; desktop: number }>()
   private pages = new Map<string, { count: number }>()
   private refs = new Map<string, Map<string, number>>()
+  private timer: ReturnType<typeof setInterval> | null = null
 
-  private evict() {
+  private evict(forceAll = false) {
     if (this.days.size <= MAX_MEM_ENTRIES) return
-    const sorted = [...this.days.keys()].sort()
-    const toDelete = sorted.slice(0, this.days.size - MAX_MEM_ENTRIES)
+    const target = forceAll ? 0 : MAX_MEM_ENTRIES
+    const toDelete: string[] = []
+    for (const d of this.days.keys()) {
+      toDelete.push(d)
+      if (!forceAll && this.days.size - toDelete.length <= target) break
+    }
     for (const d of toDelete) { this.days.delete(d); this.refs.delete(d) }
+  }
+
+  startCleanup(interval: number) {
+    if (this.timer) return
+    this.timer = setInterval(() => this.evict(true), interval)
+    if (this.timer.unref) this.timer.unref()
+  }
+
+  stopCleanup() {
+    if (this.timer) { clearInterval(this.timer); this.timer = null }
   }
 
   record(path: string, date: string, refDomain: string, mobile: boolean) {
@@ -154,17 +169,21 @@ async function queryPg(sql: (sql: any, ...args: any[]) => Promise<any[]>, days: 
 
 // ── Dashboard ───────────────────────────────────────────────────────────────
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function renderDashboard(days: number, data: QueryResult): string {
   const { total_pv, total_uv, top_pages, referrers } = data
   const maxPv = Math.max(...data.daily.map(d => d.pv), 1)
   const bars = data.daily.map(d =>
-    `<div class="bar-wrap"><div class="bar" style="height:${(d.pv / maxPv) * 100}%"></div><span class="bar-label">${d.date.slice(5)}</span></div>`
+    `<div class="bar-wrap"><div class="bar" style="height:${(d.pv / maxPv) * 100}%"></div><span class="bar-label">${escapeHtml(d.date.slice(5))}</span></div>`
   ).join('')
   const rows = top_pages.map((p, i) =>
-    `<tr><td class="num">${i + 1}</td><td class="path">${p.path}</td><td class="num">${p.pv}</td></tr>`
+    `<tr><td class="num">${i + 1}</td><td class="path">${escapeHtml(p.path)}</td><td class="num">${p.pv}</td></tr>`
   ).join('')
   const refRows = referrers.map(r =>
-    `<tr><td>${r.domain}</td><td class="num">${r.count}</td></tr>`
+    `<tr><td>${escapeHtml(r.domain)}</td><td class="num">${r.count}</td></tr>`
   ).join('')
 
   return `<!DOCTYPE html><html lang="en">
@@ -210,6 +229,7 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
   const excluded = options?.excluded ?? DEFAULT_EXCLUDED
   const pg = options?.pg
   const store = pg ? null : new MemStore()
+  if (store) store.startCleanup(60_000)
 
   const middleware = () => {
     const m: Middleware = async (req, ctx, next) => {
@@ -224,7 +244,10 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
         await recordPg(pg.sql, path, date, mobile)
       } else {
         const ref = req.headers.get('referer') || ''
-        const refDomain = ref ? new URL(ref).hostname.replace(/^www\./, '') : ''
+        let refDomain = ''
+        if (ref) {
+          try { refDomain = new URL(ref).hostname.replace(/^www\./, '') } catch { /* invalid referer URL */ }
+        }
         store!.record(path, date, refDomain, mobile)
       }
       return next(req, ctx)
@@ -250,7 +273,9 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
     if (pg) await migratePg(pg.sql, pg.table)
   }
 
-  const close = async () => {}
+  const close = async () => {
+    if (store) store.stopCleanup()
+  }
 
   const mod = r as AnalyticsModule
   mod.middleware = middleware

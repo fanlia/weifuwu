@@ -1,7 +1,7 @@
-import { readFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { readFile, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import type { Context, Middleware } from './types.ts'
+import { getCookies } from './cookie.ts'
 
 export interface PrefOptions {
   dir?: string
@@ -30,16 +30,6 @@ function translate(msgs: Record<string, unknown>, key: string, params?: Record<s
     result = result.replace(`{${k}}`, v)
   }
   return result
-}
-
-function extractCookie(req: Request, name: string): string | null {
-  const cookie = req.headers.get('cookie')
-  if (!cookie) return null
-  for (const part of cookie.split(';')) {
-    const [k, v] = part.trim().split('=')
-    if (k === name && v) return decodeURIComponent(v)
-  }
-  return null
 }
 
 function prefCookie(name: string, value: string): string {
@@ -91,21 +81,23 @@ export function preferences(options: PrefOptions): Middleware {
     const cached = cache.get(locale)
     if (cached) return cached
     const filePath = join(dir, `${locale}.json`)
-    if (existsSync(filePath)) {
-      try {
-        const content = await readFile(filePath, 'utf-8')
-        const data = JSON.parse(content) as Record<string, unknown>
-        cache.set(locale, data)
-        return data
-      } catch { return {} }
-    }
+    let data: Record<string, unknown> | null = null
+    try {
+      await stat(filePath)
+      const content = await readFile(filePath, 'utf-8')
+      data = JSON.parse(content) as Record<string, unknown>
+      cache.set(locale, data)
+      return data
+    } catch { /* file not found or parse error */ }
     // Fallback: zh-CN → zh
-    const short = locale.split('-')[0]
-    if (short !== locale) {
-      const fallback = cache.get(short) || await load(short)
-      if (fallback && Object.keys(fallback).length > 0) {
-        cache.set(locale, fallback)
-        return fallback
+    if (!data) {
+      const short = locale.split('-')[0]
+      if (short !== locale) {
+        const fallback = cache.get(short) || await load(short)
+        if (fallback && Object.keys(fallback).length > 0) {
+          cache.set(locale, fallback)
+          return fallback
+        }
       }
     }
     return {}
@@ -148,7 +140,7 @@ export function preferences(options: PrefOptions): Middleware {
       })
     }
 
-    const flashVal = extractCookie(req, 'flash')
+    const flashVal = getCookies(req)['flash'] ?? null
     if (flashVal) {
       try { ctx.prefs.flash = JSON.parse(flashVal) } catch { ctx.prefs.flash = flashVal }
     }
@@ -167,7 +159,7 @@ export function preferences(options: PrefOptions): Middleware {
 
 function detectLocale(req: Request, opts: Required<NonNullable<PrefOptions['locale']>>): string {
   if (opts.cookie) {
-    const fromCookie = extractCookie(req, opts.cookie)
+    const fromCookie = getCookies(req)[opts.cookie]
     if (fromCookie) return fromCookie
   }
   if (opts.fromAcceptLanguage) {
@@ -179,7 +171,7 @@ function detectLocale(req: Request, opts: Required<NonNullable<PrefOptions['loca
 
 function detectTheme(req: Request, opts: Required<NonNullable<PrefOptions['theme']>>): string {
   if (opts.cookie) {
-    const fromCookie = extractCookie(req, opts.cookie)
+    const fromCookie = getCookies(req)[opts.cookie]
     if (fromCookie) return fromCookie
   }
   return opts.default

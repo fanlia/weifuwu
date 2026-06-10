@@ -123,10 +123,22 @@ function graphiqlHTML(endpoint: string): string {
 
 export function graphql(handler: GraphQLHandler): Router {
   const r = new Router()
+  let cachedHandler: GraphQLOptions | null = null
+  let cachedSchema: GraphQLSchema | null = null
+
+  async function getSchema(req: Request, ctx: Context): Promise<{ options: GraphQLOptions; schema: GraphQLSchema }> {
+    const options = await handler(req, ctx)
+    if (cachedHandler === options && cachedSchema) {
+      return { options, schema: cachedSchema }
+    }
+    const schema = buildSchemaFromOptions(options)
+    cachedHandler = options
+    cachedSchema = schema
+    return { options, schema }
+  }
 
   r.get('/', async (req, ctx) => {
-    const options = await handler(req, ctx)
-    const schema = buildSchemaFromOptions(options)
+    const { options, schema } = await getSchema(req, ctx)
     const url = new URL(req.url)
 
     if (options.graphiql && !url.searchParams.has('query')) {
@@ -145,8 +157,7 @@ export function graphql(handler: GraphQLHandler): Router {
   })
 
   r.post('/', async (req, ctx) => {
-    const options = await handler(req, ctx)
-    const schema = buildSchemaFromOptions(options)
+    const { options, schema } = await getSchema(req, ctx)
     const params = await parseParamsFromPost(req)
     if (!params) {
       return Response.json({ errors: [{ message: 'Missing query' }] }, { status: 400 })

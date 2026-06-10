@@ -54,7 +54,12 @@ export function upload(options?: UploadOptions): Middleware {
   return async (req, ctx, next) => {
     const ct = req.headers.get('content-type') ?? ''
     if (!ct.includes('multipart/form-data')) return next(req, ctx)
-    if (saveDir) await mkdir(saveDir, { recursive: true }).catch(() => {})
+    try {
+      if (saveDir) await mkdir(saveDir, { recursive: true })
+    } catch (e) {
+      console.error('upload: failed to create directory', saveDir, e)
+      return Response.json({ error: 'Server configuration error' }, { status: 500 })
+    }
 
     let formData: FormData
     try {
@@ -91,7 +96,7 @@ export function upload(options?: UploadOptions): Middleware {
         }
 
         if (saveDir) {
-          const safeName = value.name.replace(/[/\\\0]/g, '_')
+          const safeName = value.name.replace(/[/\\\0]/g, '_').replace(/\.\./g, '_')
           const filePath = join(saveDir, `${randomUUID()}-${safeName}`)
           await writeFile(filePath, buf)
           uf.path = filePath

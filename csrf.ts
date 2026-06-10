@@ -40,13 +40,15 @@ export function csrf(options?: CsrfOptions): Middleware {
 
     const cookieToken = getCookies(req)[cookieName]
 
-    let headerToken = req.headers.get(headerName) ?? req.headers.get('x-xsrf-token') ?? ''
-    // Fallback: try to extract from request body (may fail if body already consumed)
+    let headerToken = req.headers.get(headerName) ?? ''
+    // Fallback: try to extract from request body
     if (!headerToken && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE')) {
       try {
         const body = await req.clone().json()
         headerToken = body[bodyKey] ?? ''
-      } catch {}
+      } catch (e) {
+        return new Response('Invalid request body', { status: 400 })
+      }
     }
 
     if (!cookieToken || !headerToken || cookieToken !== headerToken) {

@@ -142,28 +142,11 @@ describe('csrf', () => {
     assert.ok(res.headers.get('set-cookie')?.includes('_csrf='))
   })
 
-  it('reads token from x-xsrf-token when x-csrf-token is absent', async () => {
-    const mw = csrf()
-    const token = crypto.randomUUID()
-    const req = mockReq('POST', {
-      cookie: `_csrf=${token}`,
-      'x-xsrf-token': token,
-    })
-    let passed = false
-
-    await mw(req, mockCtx(), async () => {
-      passed = true
-      return new Response('ok')
-    })
-
-    assert.ok(passed)
-  })
-
-  it('rejects with 403 when body is invalid JSON', async () => {
+  it('rejects with 400 when body is invalid JSON', async () => {
     const mw = csrf()
     const req = mockReq('POST', { cookie: '_csrf=abc123' }, 'not-valid-json')
     const res = await mw(req, mockCtx(), async () => new Response('ok'))
-    assert.equal(res.status, 403)
+    assert.equal(res.status, 400)
   })
 
   it('reads token from body for PUT method', async () => {

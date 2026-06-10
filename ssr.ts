@@ -15,6 +15,7 @@ import { liveRouter, liveWatcher, liveWs } from './live.ts'
 import { layout } from './layout.ts'
 import { notFound } from './not-found.ts'
 import { errorBoundary } from './error-boundary.ts'
+import { buildHtmlShell } from './html-shell.ts'
 import type { Context, Handler, Middleware } from './types.ts'
 
 const isDev = _isDev()
@@ -240,20 +241,7 @@ function renderPage(pageFile: string): Handler {
         ),
       )
 
-      if (layoutComponents.length === 0) {
-        element = createElement('html', { lang: 'en' },
-          createElement('head', null,
-            createElement('meta', { charSet: 'utf-8' }),
-            createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
-            createElement('title', null, 'weifuwu'),
-          ),
-          createElement('body', null, element),
-        )
-      } else {
-        for (const L of layoutComponents.toReversed()) {
-          element = createElement(L, { children: element })
-        }
-      }
+      element = buildHtmlShell('weifuwu', element, layoutComponents)
 
       let bundle: { url: string } | null = null
       if (!getBundle(bundleKey)) {
@@ -287,7 +275,7 @@ function runChain(mws: Middleware[], handler: Handler, req: Request, ctx: Contex
     if (idx < mws.length) return mws[idx++](r, c, dispatch as any)
     return handler(r, c)
   }
-  return dispatch(req, ctx)
+  return Promise.resolve(dispatch(req, ctx))
 }
 
 // ---------------------------------------------------------------------------
@@ -301,7 +289,7 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void } {
   r.get('/__ssr/:path', (req, ctx) => {
     const buf = getBundle('/__ssr/' + ctx.params.path)
     if (!buf) return new Response('', { status: 404 })
-    return new Response(buf, {
+    return new Response(buf as BodyInit, {
       headers: { 'content-type': 'application/javascript; charset=utf-8' },
     })
   })

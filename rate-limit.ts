@@ -3,21 +3,21 @@ import type { Context, Handler, Middleware } from './types.ts'
 export interface RateLimitOptions {
   max?: number
   window?: number
-  key?: (req: Request) => string
+  key?: (req: Request, ctx: Context) => string
   message?: string
 }
 
 export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () => void } {
   const max = options?.max ?? 100
   const window = options?.window ?? 60_000
-  const getKey = options?.key ?? ((req) => {
-    const forwarded = req.headers.get('x-forwarded-for')
+  const getKey = options?.key ?? ((_req, _ctx) => {
+    const forwarded = _req.headers.get('x-forwarded-for')
     if (forwarded) return forwarded.split(',')[0]!.trim()
-    const realIp = req.headers.get('x-real-ip')
+    const realIp = _req.headers.get('x-real-ip')
     if (realIp) return realIp
-    const cfIp = req.headers.get('cf-connecting-ip')
+    const cfIp = _req.headers.get('cf-connecting-ip')
     if (cfIp) return cfIp
-    return req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'global'
+    return 'global'
   })
   const message = options?.message ?? 'Too Many Requests'
 
@@ -29,17 +29,22 @@ export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () =
     for (const [key, entry] of hits) {
       if (entry.reset < now) hits.delete(key)
     }
-    // Evict oldest entries if over cap
+    // Evict oldest entries if over cap — O(n) iteration without sorting
     if (hits.size > MAX_ENTRIES) {
-      const toDelete = [...hits.entries()].sort((a, b) => a[1].reset - b[1].reset).slice(0, hits.size - MAX_ENTRIES)
-      for (const [k] of toDelete) hits.delete(k)
+      const toDelete = hits.size - MAX_ENTRIES
+      let deleted = 0
+      for (const key of hits.keys()) {
+        if (deleted >= toDelete) break
+        hits.delete(key)
+        deleted++
+      }
     }
   }, Math.min(window, 30000))
 
   if (interval.unref) interval.unref()
 
   const mw = async (req: Request, ctx: Context, next: Handler) => {
-    const key = getKey(req)
+    const key = getKey(req, ctx)
     const now = Date.now()
     let entry = hits.get(key)
 
@@ -48,11 +53,7 @@ export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () =
       hits.set(key, { count: 1, reset: now + window })
       entry = { count: 1, reset: now + window }
       const res = await next(req, ctx)
-      const headers = new Headers(res.headers)
-      headers.set('X-RateLimit-Limit', String(max))
-      headers.set('X-RateLimit-Remaining', String(max - 1))
-      headers.set('X-RateLimit-Reset', String(Math.ceil((now + window) / 1000)))
-      return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+      return addRateLimitHeaders(res, max, max - 1, now + window)
     }
 
     entry.count++
@@ -71,13 +72,17 @@ export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () =
     }
 
     const res = await next(req, ctx)
-    const headers = new Headers(res.headers)
-    headers.set('X-RateLimit-Limit', String(max))
-    headers.set('X-RateLimit-Remaining', String(remaining))
-    headers.set('X-RateLimit-Reset', String(Math.ceil(entry.reset / 1000)))
-    return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+    return addRateLimitHeaders(res, max, remaining, entry.reset)
   }
 
   mw.stop = () => { clearInterval(interval); hits.clear() }
   return mw
+}
+
+function addRateLimitHeaders(res: Response, limit: number, remaining: number, reset: number): Response {
+  const headers = new Headers(res.headers)
+  headers.set('X-RateLimit-Limit', String(limit))
+  headers.set('X-RateLimit-Remaining', String(remaining))
+  headers.set('X-RateLimit-Reset', String(Math.ceil(reset / 1000)))
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
 }

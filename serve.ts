@@ -139,6 +139,10 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     }
     process.on('SIGTERM', shutdown)
     process.on('SIGINT', shutdown)
+    server.on('close', () => {
+      process.off('SIGTERM', shutdown)
+      process.off('SIGINT', shutdown)
+    })
   }
 
   if (options?.signal) {
@@ -157,7 +161,8 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
 
   server.on('error', (err) => {
     console.error('Failed to start server:', err.message)
-    process.exit(1)
+    server.close()
+    resolveReady()
   })
   server.listen(port, hostname, () => { resolveReady() })
 
