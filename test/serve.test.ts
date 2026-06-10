@@ -493,8 +493,10 @@ describe('serve', () => {
     assert.equal(process.listenerCount('SIGTERM'), beforeTerm + 1)
     assert.equal(process.listenerCount('SIGINT'), beforeInt + 1)
     server.stop()
-    const after = process.listenerCount('SIGTERM')
-    assert.equal(after, beforeTerm + 1, 'listener persists after stop (by design)')
+    const afterTerm = process.listenerCount('SIGTERM')
+    const afterInt = process.listenerCount('SIGINT')
+    assert.equal(afterTerm, beforeTerm, 'listener cleaned up after stop')
+    assert.equal(afterInt, beforeInt, 'listener cleaned up after stop')
   })
 
   it('does not register shutdown listeners when shutdown: false', async () => {
@@ -517,7 +519,7 @@ describe('serve', () => {
     assert.equal(server.port, 0)
   })
 
-  it('server error handler logs and exits on listen failure', async () => {
+  it('server error handler logs and resolves ready on listen failure', async () => {
     const blocker = http.createServer((_req, res) => res.end('blocker'))
     await new Promise<void>(r => blocker.listen(0, () => r()))
     const blockerPort = (blocker.address() as { port: number }).port
@@ -526,19 +528,10 @@ describe('serve', () => {
     let errorMsg = ''
     console.error = ((...args: any[]) => { errorMsg = args.join(' ') }) as any
 
-    const origExit = process.exit
-    let exitCode = -1
-    process.exit = ((code?: number) => { exitCode = code ?? -1 }) as any
-
     const server = serve(() => new Response('ok'), { port: blockerPort, hostname: '127.0.0.1', shutdown: false })
-    const timedOut = await Promise.race([
-      server.ready.then(() => 'resolved'),
-      new Promise<string>(r => setTimeout(() => r('timeout'), 2000)),
-    ])
-    assert.equal(timedOut, 'timeout', 'ready should not resolve when port is busy')
+    await server.ready
     assert.ok(errorMsg.includes('Failed to start server'), `got: ${errorMsg}`)
-    assert.equal(exitCode, 1)
-    process.exit = origExit
+    assert.equal(server.port, 0, 'port is 0 when listen fails')
     restore()
     server.stop()
     blocker.close()

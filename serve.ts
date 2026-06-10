@@ -130,6 +130,8 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   let resolveReady!: () => void
   const ready = new Promise<void>((r) => { resolveReady = r })
 
+  let shutdownHandler: (() => void) | null = null
+
   if (options?.shutdown !== false) {
     let shuttingDown = false
     const shutdown = () => {
@@ -138,6 +140,7 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
       server.close()
       process.exit(0)
     }
+    shutdownHandler = shutdown
     process.on('SIGTERM', shutdown)
     process.on('SIGINT', shutdown)
   }
@@ -163,25 +166,25 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   })
   server.listen(port, hostname, () => { resolveReady() })
 
-  let cachedPort: number | undefined
-  let cachedHost: string | undefined
-
   return {
-    stop: () => { server.close() },
+    stop: () => {
+      if (shutdownHandler) {
+        process.off('SIGTERM', shutdownHandler)
+        process.off('SIGINT', shutdownHandler)
+        shutdownHandler = null
+      }
+      server.close()
+    },
     ready,
     get port() {
-      if (cachedPort !== undefined) return cachedPort
       const addr = server.address()
       if (!addr || typeof addr === 'string') return 0
-      cachedPort = addr.port
-      return cachedPort
+      return addr.port
     },
     get hostname() {
-      if (cachedHost !== undefined) return cachedHost
       const addr = server.address()
       if (!addr) return hostname
-      cachedHost = typeof addr === 'string' ? addr : addr.address
-      return cachedHost
+      return typeof addr === 'string' ? addr : addr.address
     },
   }
 }
