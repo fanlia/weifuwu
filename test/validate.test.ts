@@ -254,11 +254,11 @@ describe('validate', () => {
     assert.equal(data.body.value, 42)
   })
 
-  it('keeps raw string for application/x-www-form-urlencoded body', async () => {
+  it('parses application/x-www-form-urlencoded body into Record<string, string>', async () => {
     const r = new Router()
       .post('/data',
-        validate({ body: z.string() }),
-        (req, ctx) => Response.json({ body: ctx.parsed?.body }),
+        validate({ body: z.object({ name: z.string(), age: z.string() }) }),
+        (req, ctx) => Response.json(ctx.parsed?.body),
       )
 
     const res = await r.handler()(
@@ -271,7 +271,49 @@ describe('validate', () => {
     )
     assert.equal(res.status, 200)
     const data = await res.json() as any
-    assert.equal(data.body, 'name=Alice&age=30')
+    assert.equal(data.name, 'Alice')
+    assert.equal(data.age, '30')
+  })
+
+  it('parses form body without Zod schema when validate() has no schemas', async () => {
+    const r = new Router()
+      .post('/contact',
+        validate(),
+        (req, ctx) => Response.json(ctx.parsed?.body as Record<string, string>),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'email=test@test.com&message=hello',
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.email, 'test@test.com')
+    assert.equal(data.message, 'hello')
+  })
+
+  it('URL-encoded form with duplicate keys uses last value', async () => {
+    const r = new Router()
+      .post('/data',
+        validate(),
+        (req, ctx) => Response.json(ctx.parsed?.body as Record<string, string>),
+      )
+
+    const res = await r.handler()(
+      new Request('http://localhost/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'key=a&key=b',
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const data = await res.json() as any
+    assert.equal(data.key, 'b')
   })
 
   it('skips body validation for HEAD method', async () => {

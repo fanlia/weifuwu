@@ -8,12 +8,55 @@ export interface ValidationSchemas {
   headers?: ZodSchema
 }
 
-export function validate(schemas: ValidationSchemas): Middleware {
+/**
+ * Parse application/x-www-form-urlencoded body string into Record<string, string>.
+ * Duplicate keys become comma-joined string (most common HTML form behavior).
+ */
+function parseFormBody(text: string): Record<string, string> {
+  const params = new URLSearchParams(text)
+  const result: Record<string, string> = {}
+  for (const [key, value] of params) {
+    // Collapse duplicates: last value wins (matches standard server behavior)
+    result[key] = value
+  }
+  return result
+}
+
+// Parse body text based on content-type. Returns parsed value or raw string.
+// Rules:
+// - application/x-www-form-urlencoded => Record<string, string> via URLSearchParams
+// - application/json, text/*, vendor+json, or any non-form/non-multipart => try JSON.parse
+// - multipart/form-data => raw string (handled by upload())
+// - fallback => raw string
+function parseBody(text: string, ct: string): unknown {
+  if (ct.includes('application/x-www-form-urlencoded')) {
+    return parseFormBody(text)
+  }
+
+  // Try JSON parse when:
+  // - Content-Type explicitly indicates JSON (application/json, *+json)
+  // - Content-Type is text/*
+  // - Content-Type is not multipart and not urlencoded (catch-all for API types)
+  const isExplicitJson = ct.includes('application/json') || ct.includes('+json') || ct.includes('text/') || ct.includes('*/json')
+  const isNotSpecialMultipart = !ct.includes('multipart/form-data') && !ct.includes('application/x-www-form-urlencoded')
+
+  if (isExplicitJson || isNotSpecialMultipart) {
+    try {
+      return JSON.parse(text)
+    } catch {
+      // keep raw string
+    }
+  }
+
+  return text
+}
+
+export function validate(schemas?: ValidationSchemas): Middleware {
   return async (req, ctx, next) => {
     const parsed: Record<string, unknown> = {}
     const issues: { path: string[]; message: string }[] = []
 
-    if (schemas.params) {
+    if (schemas?.params) {
       const result = schemas.params.safeParse(ctx.params)
       if (result.success) {
         parsed.params = result.data
@@ -25,7 +68,7 @@ export function validate(schemas: ValidationSchemas): Middleware {
       }
     }
 
-    if (schemas.query) {
+    if (schemas?.query) {
       const result = schemas.query.safeParse(ctx.query)
       if (result.success) {
         parsed.query = result.data
@@ -37,7 +80,7 @@ export function validate(schemas: ValidationSchemas): Middleware {
       }
     }
 
-    if (schemas.headers) {
+    if (schemas?.headers) {
       const rawHeaders: Record<string, string> = {}
       req.headers.forEach((v, k) => { rawHeaders[k] = v })
       const result = schemas.headers.safeParse(rawHeaders)
@@ -51,35 +94,40 @@ export function validate(schemas: ValidationSchemas): Middleware {
       }
     }
 
-    if (schemas.body) {
-      if (req.method === 'GET' || req.method === 'HEAD') {
-        // No body expected
-      } else if (req.body === null) {
-        issues.push({ path: ['body'], message: 'Request body is required' })
-      } else {
-        const bodyText = await req.text()
-        if (!bodyText) {
-          issues.push({ path: ['body'], message: 'Request body is required' })
-        } else {
-          const ct = req.headers.get('content-type') ?? ''
-          const shouldParseJson = ct.includes('application/json') || ct.includes('text/') || ct.includes('*/json')
-            || (!ct.includes('multipart/form-data') && !ct.includes('application/x-www-form-urlencoded'))
-          let bodyValue: unknown = bodyText
-          if (shouldParseJson) {
-            try {
-              bodyValue = JSON.parse(bodyText)
-            } catch {
-              // keep raw string
-            }
+    // Always attempt body parsing for non-GET/HEAD methods
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const ct = req.headers.get('content-type') ?? ''
+      const isForm = ct.includes('application/x-www-form-urlencoded')
+
+      // Parse body if: schema asks for it, OR it's a form (no schema needed)
+      if (schemas?.body || isForm) {
+        if (req.body === null) {
+          if (schemas?.body) {
+            issues.push({ path: ['body'], message: 'Request body is required' })
           }
-          const result = schemas.body.safeParse(bodyValue)
-          if (result.success) {
-            parsed.body = result.data
+        } else {
+          const bodyText = await req.text()
+          if (!bodyText) {
+            if (schemas?.body) {
+              issues.push({ path: ['body'], message: 'Request body is required' })
+            }
           } else {
-            issues.push(...result.error.issues.map((i) => ({
-              path: ['body', ...i.path.map(String)],
-              message: i.message,
-            })))
+            const bodyValue = parseBody(bodyText, ct)
+            if (schemas?.body) {
+              const result = schemas.body.safeParse(bodyValue)
+              if (result.success) {
+                parsed.body = result.data
+              } else {
+                issues.push(...result.error.issues.map((i) => ({
+                  path: ['body', ...i.path.map(String)],
+                  message: i.message,
+                })))
+              }
+            } else {
+              // No schema: still populate ctx.parsed.body with parsed value
+              // (for form-urlencoded, this is a Record<string, string>)
+              parsed.body = bodyValue as Record<string, string>
+            }
           }
         }
       }

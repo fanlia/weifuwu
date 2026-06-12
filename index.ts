@@ -31,8 +31,8 @@ export { requestId } from './request-id.ts'
 export type { RequestIdOptions } from './request-id.ts'
 export { createSSEStream, formatSSE, formatSSEData } from './sse.ts'
 export type { SSEEvent } from './sse.ts'
-export { testApp, TestApp, TestRequest } from './test-utils.ts'
-export type { TestResponse } from './test-utils.ts'
+export { testApp, TestApp, TestRequest, createTestDb, withTestDb } from './test-utils.ts'
+export type { TestResponse, TestDb } from './test-utils.ts'
 export { graphql } from './graphql.ts'
 export type { GraphQLOptions, GraphQLHandler } from './graphql.ts'
 export { aiStream } from './ai.ts'
@@ -150,4 +150,19 @@ export type {
 
 // React SSR — directory-convention server-side rendering
 export { ssr } from './ssr.ts'
+
+// Session management
+export { session, MemoryStore, RedisStore } from './session.ts'
+export type { Session, SessionOptions, SessionStore, SessionData, SessionInjected } from './session.ts'
+
+// Response caching
+export { cache, MemoryCache, RedisCache } from './cache.ts'
+export type { CacheOptions, CacheStore, CacheMiddleware, CachedResponse } from './cache.ts'
+
+// Webhook receiver
+export { webhook } from './webhook.ts'
+export type { WebhookOptions, WebhookModule, WebhookEvent, WebhookHandler, PlatformConfig, CustomVerifierConfig } from './webhook.ts'
+
+// Full-text search (PostgreSQL)
+export * as fts from './fts.ts'
 

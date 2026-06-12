@@ -63,8 +63,6 @@ async function cmdInit(name: string, opts: { minimal?: boolean; skipInstall?: bo
 
   // Minimal mode: strip SSR/i18n/theme, keep only HTTP core
   if (opts.minimal) {
-    // Remove UI directory
-    await cp(join(templateDir, '..', '..', '..'), '/dev/null') // noop
     try { await rmrf(join(targetDir, 'ui')) } catch {}
     try { await rmrf(join(targetDir, 'locales')) } catch {}
 
@@ -245,6 +243,8 @@ async function rmrf(dir: string) {
   } catch { /* ignore */ }
 }
 
+import { parseArgs } from 'node:util'
+
 // ── CLI dispatcher ──────────────────────────────────────────────────────
 
 const cmd = process.argv[2]
@@ -253,11 +253,12 @@ const HELP = `
 weifuwu — Web-standard HTTP framework for Node.js
 
 Usage:
-  npx weifuwu init <name>            Create a new project (SSR + i18n + theme)
-  npx weifuwu init <name> --minimal  Create a minimal HTTP project
-  npx weifuwu dev                     Start dev server in current directory
-  npx weifuwu generate module <name>  Scaffold a new module
-  npx weifuwu version                 Print version
+  npx weifuwu init <name>              Create a new project (SSR + i18n + theme)
+  npx weifuwu init <name> --minimal    Create a minimal HTTP project
+  npx weifuwu init <name> --skip-install  Create project, skip npm install
+  npx weifuwu dev                       Start dev server in current directory
+  npx weifuwu generate module <name>    Scaffold a new module
+  npx weifuwu version                   Print version
 `
 
 if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
@@ -265,19 +266,32 @@ if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
 } else if (cmd === 'skill') {
   cmdSkill().catch(console.error)
 } else if (cmd === 'init') {
-  const name = process.argv[3]
+  const { values, positionals } = parseArgs({
+    args: process.argv.slice(3),
+    options: {
+      minimal: { type: 'boolean', short: 'm' },
+      'skip-install': { type: 'boolean' },
+    },
+    strict: false,
+    allowPositionals: true,
+  })
+  const name = positionals[0]
   if (!name) {
-    console.error('Usage: npx weifuwu init <name> [--minimal]')
+    console.error('Usage: npx weifuwu init <name> [--minimal] [--skip-install]')
     process.exit(1)
   }
-  const minimal = process.argv.includes('--minimal')
-  const skipInstall = process.argv.includes('--skip-install')
-  cmdInit(name, { minimal, skipInstall }).catch(console.error)
+  cmdInit(name, { minimal: !!values.minimal, skipInstall: !!values['skip-install'] }).catch(console.error)
 } else if (cmd === 'dev') {
   cmdDev()
 } else if (cmd === 'generate' || cmd === 'g') {
-  const type = process.argv[3]
-  const name = process.argv[4]
+  const { positionals } = parseArgs({
+    args: process.argv.slice(3),
+    options: {},
+    strict: false,
+    allowPositionals: true,
+  })
+  const type = positionals[0]
+  const name = positionals[1]
   if (!type || !name) {
     console.error('Usage: npx weifuwu generate module <name>')
     process.exit(1)

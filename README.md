@@ -141,6 +141,8 @@ The `ctx` object accumulates properties as it passes through the middleware chai
 | `env` | `loadEnv()` | `Record<string, string>` | Public env vars (`WEIFUWU_PUBLIC_*`) |
 | `csrfToken` | `csrf()` | `string` | CSRF token |
 | `requestId` | `requestId()` | `string` | Request ID |
+| `session` | `session()` | `Session` | Session data object |
+| `sessionId` | `session()` | `string` | Session ID |
 | `sql` | `postgres()` | `Sql<{}>` | PostgreSQL tagged-template client |
 | `redis` | `redis()` | `Redis` | Redis client |
 | `queue` | `queue()` | `Queue` | Job queue |
@@ -154,6 +156,8 @@ The `ctx` object accumulates properties as it passes through the middleware chai
 | `setPref` | `preferences()` | `(key, val) => Response` | Set preference cookie + redirect |
 | `compiledTailwindCss` | `ssr()` internal | `string` | Compiled CSS content (internal) |
 | `tailwindCssUrl` | `ssr()` internal | `string` | Compiled CSS route URL (internal) |
+| `session` | `session()` | `Session` | Session data object |
+| `sessionId` | `session()` | `string` | Session ID |
 
 ### Type-Safe Context
 
@@ -303,6 +307,31 @@ assert.deepEqual(await res.json(), { id: '42', user: { id: 1 } })
 | `.header(k,v)` `.body(data)` `.rawBody(str)` | Set request properties |
 | `.send()` → `TestResponse` | Execute and get `{ status, headers, json(), text() }` |
 
+### Database test isolation
+
+```ts
+import { createTestDb, withTestDb } from 'weifuwu'
+
+// Isolated schema — each test gets its own schema, destroyed after
+const db = await createTestDb()
+await db.sql`CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT)`
+await db.sql`INSERT INTO users (name) VALUES ('Alice')`
+await db.destroy()  // DROP SCHEMA ... CASCADE
+
+// Transaction rollback — all changes are rolled back after callback
+await withTestDb(async (sql) => {
+  await sql`INSERT INTO users ...`
+  // Automatically rolled back
+})
+```
+
+| Function | Description |
+|----------|-------------|
+| `createTestDb(opts?)` | Create isolated schema, returns `{ sql, url, schema, destroy }` |
+| `withTestDb(url?, fn)` | Run callback in a transaction, auto-rollback |
+
+Uses `TEST_DATABASE_URL` or `DATABASE_URL`. Automatically skipped in CI if unset.
+
 ---
 
 ## Module Reference
@@ -413,6 +442,46 @@ app.use(cors({ credentials: true, maxAge: 3600 }))
 | `exposedHeaders` | `string[]` | — | Response headers exposed to client |
 | `credentials` | `boolean` | `false` | Allow cookies/credentials |
 | `maxAge` | `number` | — | Preflight cache duration (seconds) |
+
+### cache [α]
+
+Response caching middleware with memory and Redis stores. Caches GET/HEAD responses, with tag-based invalidation.
+
+```ts
+app.use(cache())                                                     // in-memory, 5min TTL
+app.use(cache({ ttl: 60_000, store: 'redis', redis: ctx.redis }))    // Redis store
+app.use(cache({
+  ttl: 30_000,
+  tag: (req, ctx) => ctx.user ? `user:${ctx.user.id}` : undefined,   // per-user invalidation
+}))
+
+// Programmatic invalidation
+const c = cache({ store: 'redis', redis: ctx.redis })
+app.use(c)
+await c.invalidate('users')     // invalidate all entries tagged with 'users'
+await c.flush()                 // clear entire cache
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `ttl` | `number` | `300000` (5min) | Cache TTL in ms |
+| `store` | `'memory' \| 'redis' \| CacheStore` | `'memory'` | Cache store backend |
+| `redis` | `Redis` | — | Redis client (required when `store: 'redis'`) |
+| `key` | `(req) => string` | SHA256(method+URL) | Custom cache key |
+| `tag` | `(req, ctx) => string \| string[]` | — | Tag for grouped invalidation |
+| `cacheCookies` | `boolean` | `false` | Cache responses with Set-Cookie |
+| `cacheStatus` | `number[]` | `[200]` | Status codes to cache |
+| `maxBodySize` | `number` | `1048576` (1MB) | Max body bytes to cache |
+
+Cached responses include `X-Cache: HIT` and `Age` headers. Requests with `Authorization` or `Cookie` headers are never cached. Binary content types (image, audio, video) are skipped.
+
+```ts
+import { MemoryCache, RedisCache } from 'weifuwu'
+
+const mem = new MemoryCache()
+await mem.set('key', { status: 200, statusText: 'OK', headers: {}, body: '...', createdAt: Date.now(), tags: [] }, 300_000)
+mem.close()
+```
 
 ### csrf [α]
 
@@ -871,6 +940,42 @@ class MyModule extends PgModule {
 
 Where helpers + `and`/`or`/`not` can be imported from `'weifuwu'` alongside `postgres`. Full column builders and table helpers are in the same barrel.
 
+### fts — Full-Text Search (PostgreSQL)
+
+Utilities for PostgreSQL full-text search: create GIN indexes, search with ranking, and generate highlighted snippets.
+
+```ts
+import { fts } from 'weifuwu'
+
+const articles = pg.table('articles', {
+  id: serial('id').primaryKey(),
+  title: text('title'),
+  body: text('body'),
+})
+
+// Create search index
+await fts.createIndex(pg.sql, articles, ['title', 'body'], { language: 'english' })
+
+// Search with ranking
+const results = await fts.search(pg.sql, articles, 'node.js framework', {
+  fields: ['title', 'body'],
+  limit: 20,
+  headline: true, // highlighted snippets via ts_headline
+})
+// → [{ id, rank: 0.8, row: { title, body, ... }, headline: '...<b>Node.js</b> framework...' }]
+
+// Drop index
+await fts.dropIndex(pg.sql, articles)
+```
+
+| Function | Description |
+|----------|-------------|
+| `createIndex(sql, table, fields, opts?)` | Create GIN/GiST tsvector index |
+| `search(sql, table, query, opts?)` | Search with ts_rank ordering |
+| `dropIndex(sql, table, opts?)` | Drop the index |
+
+Search options: `fields`, `limit` (20), `offset` (0), `headline` (false), `language` ('english'), `minRank`.
+
 ### preferences [α]
 
 Locale detection + theme + translations. `/__lang/:locale` and `/__theme/:theme` auto-routed.
@@ -923,16 +1028,34 @@ await q.add('send-email', { to: 'user@test.com' }, { cron: '0 8 * * *' })
 | `.process(handler)` | Register job processor |
 | `.run()` | Start processing |
 | `.stop()` | Stop processing |
+| `.jobs(limit?)` | List pending jobs |
+| `.failedJobs(limit?)` | List failed jobs with error messages |
+| `.retryFailed(jobId)` | Retry a specific failed job |
+| `.retryAllFailed(type?)` | Retry all failed jobs (optionally by type) |
+| `.dashboard()` | Returns a Router with management endpoints |
 | `.close()` | Cleanup |
+
+**Dashboard endpoints** (mount via `app.use('/__queue', q.dashboard())`):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Queue stats + pending/failed counts by type |
+| GET | `/:type/failed` | List failed jobs for a type |
+| POST | `/:type/retry` | Retry all failed jobs of a type |
+| POST | `/retry/:id` | Retry a specific failed job by ID |
 
 ### rateLimit [α]
 
 ```ts
-app.use(rateLimit({ max: 100, window: 60_000 }))            // 100 req/min
+app.use(rateLimit({ max: 100, window: 60_000 }))            // 100 req/min, in-memory
 app.get('/api', rateLimit({ max: 10 }), handler)            // per-route
 app.use(rateLimit({ key: (req) => req.headers.get('x-api-key') ?? 'anonymous' }))
+
+// Multi-process: Redis-backed rate limiting
+app.use(rateLimit({ max: 100, store: 'redis', redis: ctx.redis }))
+
 // Sets X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After headers
-// m.stop() — clear interval
+// m.stop() — clear interval (memory) or Redis cleanup
 ```
 
 | Option | Type | Default | Description |
@@ -941,6 +1064,11 @@ app.use(rateLimit({ key: (req) => req.headers.get('x-api-key') ?? 'anonymous' })
 | `window` | `number` | `60_000` | Window duration (ms) |
 | `key` | `(req) => string` | IP-based | Key function |
 | `message` | `string` | `'Too Many Requests'` | 429 response body |
+| `store` | `'memory' \| 'redis'` | `'memory'` | Backend store |
+| `redis` | `Redis` | — | Redis client (required when `store: 'redis'`) |
+| `prefix` | `string` | `'ratelimit:'` | Redis key prefix |
+
+Redis mode uses `INCR` + `EXPIRE` for atomic counting, enabling accurate rate limiting across multiple server processes. Memory mode is ideal for single-process deployments.
 
 ### redis [α]
 
@@ -988,6 +1116,58 @@ Also exports `seoTags(config)` for generating meta/og/twitter tags as an HTML st
 | `robots` | `RobotsRule[]` | `[{ userAgent: '*', allow: '/' }]` | Robots.txt rules |
 | `sitemap` | `SitemapConfig` | — | Sitemap configuration (urls, resolve, cacheTTL) |
 | `headers` | `SeoHeadersConfig` | — | Response headers (e.g. `X-Robots-Tag`) |
+
+### session [α]
+
+Cookie-based server-side session management with memory and Redis stores.
+
+```ts
+app.use(session())                                          // in-memory store (default)
+app.use(session({ store: 'redis', redis: ctx.redis }))       // Redis store
+app.use(session({ store: 'redis', redis, ttl: 30 * 60_000, cookieName: 'sid' }))
+
+app.get('/login', async (req, ctx) => {
+  ctx.session.userId = 42
+  ctx.session.role = 'admin'
+  // Auto-saved on response — cookie set automatically
+  return Response.json({ ok: true })
+})
+
+app.get('/logout', async (req, ctx) => {
+  ctx.session.destroy()     // or ctx.session = null
+  return Response.json({ ok: true })
+})
+
+// ctx.session.id — readonly session ID
+// ctx.session.save() — explicit dirty mark (for deep mutations)
+// ctx.session.destroy() — clear session + remove cookie
+// Session mutations are auto-detected on property set/delete
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `store` | `'memory' \| 'redis' \| SessionStore` | `'memory'` | Session store backend |
+| `redis` | `Redis` | — | Redis client (required when `store: 'redis'`) |
+| `ttl` | `number` | `86400000` (24h) | Session TTL in ms |
+| `cookieName` | `string` | `'__session'` | Cookie name |
+| `cookie.httpOnly` | `boolean` | `true` | Cookie httpOnly flag |
+| `cookie.secure` | `boolean` | `auto` | Cookie Secure flag (true in production) |
+| `cookie.sameSite` | `string` | `'lax'` | SameSite policy |
+| `cookie.path` | `string` | `'/'` | Cookie path |
+| `cookie.domain` | `string` | — | Cookie domain |
+
+**Stores** are also exported for standalone use:
+
+```ts
+import { MemoryStore, RedisStore } from 'weifuwu'
+
+const mem = new MemoryStore()  // auto-cleanup every 60s
+await mem.set('sid', { userId: 1 }, 86400000)
+mem.close()
+
+const redis = new RedisStore(redisClient, 'myapp:session:')
+await redis.destroy('sid')
+```
 
 ### ssr({ dir }) [β]
 
@@ -1119,7 +1299,67 @@ app.post('/users', validate({ body: CreateUser, query: z.object({ ref: z.string(
   // ctx.parsed.headers — typed & validated
 })
 // Validation failure: returns 400 with { error: 'Validation failed', issues: [...] }
+
+**Form body auto-parsing** — `application/x-www-form-urlencoded` bodies are automatically parsed into `Record<string, string>` via `URLSearchParams`, even without a Zod schema:
+
+```ts
+// No schema needed — just parse the form
+app.post('/contact', validate(), (req, ctx) => {
+  const email = ctx.parsed.body.email  // string
+  const msg = ctx.parsed.body.message  // string
+  return Response.json({ received: true })
+})
+
+// Or validate with Zod
+app.post('/contact', validate({ body: z.object({ email: z.string().email() }) }), handler)
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `body` | `ZodSchema` | — | Body validation schema (omit to skip) |
+| `query` | `ZodSchema` | — | Query validation schema |
+| `params` | `ZodSchema` | — | URL params validation schema |
+| `headers` | `ZodSchema` | — | Header validation schema |
+
+### webhook [β]
+
+Webhook receiver with built-in signature verification for Stripe, GitHub, and Slack. Event-based dispatch with replay protection.
+
+```ts
+import { webhook } from 'weifuwu'
+
+const wh = webhook({
+  stripe: { secret: process.env.STRIPE_WEBHOOK_SECRET! },
+  github: { secret: process.env.GITHUB_WEBHOOK_SECRET! },
+  slack: { secret: process.env.SLACK_WEBHOOK_SECRET! },
+})
+
+app.use('/webhooks', wh)
+
+wh.on('checkout.session.completed', async (event, ctx) => {
+  await fulfillOrder(event.payload.data.object)
+})
+
+wh.on('push', async (event, ctx) => {
+  await triggerCI(event.payload)
+})
+
+wh.on('*', (event) => {
+  console.log(`Received ${event.provider}.${event.event}`)
+})
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `stripe` | `PlatformConfig` | — | Stripe webhook config with `secret` |
+| `github` | `PlatformConfig` | — | GitHub webhook config |
+| `slack` | `PlatformConfig` | — | Slack webhook config |
+| `custom` | `CustomVerifierConfig[]` | — | Custom signature verifiers |
+| `replayProtection` | `boolean` | `true` | Deduplicate by event ID |
+| `idempotencyTTL` | `number` | `3600000` | Dedup TTL (ms) |
+
+Built-in verifiers handle HMAC-SHA256, timestamp validation (Slack's 5-min window), and Stripe's `t=` / `v1=` signature format. Slack URL verification challenges are auto-responded.
+
 ### Client-side navigation
 
 ```tsx
@@ -1309,7 +1549,8 @@ currentTraceId, currentTrace, runWithTrace, traceElapsed, TraceContext,
 
 ```ts
 auth, cors, csrf, compress, helmet, logger, rateLimit, requestId, validate, upload,
-preferences, serveStatic
+preferences, serveStatic, session, MemoryStore, RedisStore, SessionStore,
+cache, MemoryCache, RedisCache, CacheStore
 ```
 
 ### Database
@@ -1353,13 +1594,15 @@ openai, createOpenAI
 preferences, health, analytics, seo, seoMiddleware, seoTags,
 user, mailer, graphql, aiStream, runWorkflow,
 logdb, messager, agent, iii, createWorker, registerWorker,
-opencode, deploy, defineConfig,
+opencode, deploy, defineConfig, webhook,
 testApp, TestApp, TestRequest, TestResponse,
+createTestDb, withTestDb,
 getCookies, setCookie, deleteCookie,
 createSSEStream, formatSSE, formatSSEData,
 currentTraceId, currentTrace, runWithTrace, traceElapsed,
 createHub, Hub, HubOptions,
 DEFAULT_MAX_BODY, MIGRATIONS_TABLE,
+fts,
 ```
 
 ---

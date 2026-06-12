@@ -1,7 +1,8 @@
 import { Redis as IORedis } from 'ioredis'
 import crypto from 'node:crypto'
 import type { Context, Handler } from '../types.ts'
-import type { Queue, QueueOptions, QueueJob } from './types.ts'
+import { Router } from '../router.ts'
+import type { Queue, QueueOptions, QueueJob, QueueJobWithError } from './types.ts'
 
 function cronNext(expr: string, from: Date = new Date()): number {
   const parts = expr.trim().split(/\s+/)
@@ -83,6 +84,8 @@ export function queue(opts?: QueueOptions): Queue {
   let _failed = 0
 
   const jobKey = `${prefix}:jobs`
+  const failedKey = `${prefix}:failed`
+  const MAX_FAILED = 1000
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
     ctx.queue = q
@@ -101,7 +104,16 @@ export function queue(opts?: QueueOptions): Queue {
       _processed++
     } catch (e) {
       _failed++
-      console.error('[queue] handler error:', (e as Error).message)
+      const errMsg = (e as Error).message
+      console.error('[queue] handler error:', errMsg)
+      // Store failed job details in a list (trimmed to MAX_FAILED)
+      const failedEntry = JSON.stringify({
+        ...job,
+        error: errMsg,
+        failedAt: Date.now(),
+      })
+      await redis.lpush(failedKey, failedEntry)
+      await redis.ltrim(failedKey, 0, MAX_FAILED - 1)
     } finally {
       inflight--
     }
@@ -197,7 +209,109 @@ export function queue(opts?: QueueOptions): Queue {
     redis.disconnect()
   }
 
-  ;(mw as any).stats = () => ({
+  mw.jobs = async function jobs(limit?: number): Promise<QueueJob[]> {
+    const raw = await redis.zrevrange(jobKey, 0, (limit ?? 50) - 1)
+    return raw.map((r: string) => { try { return JSON.parse(r) } catch { return null } }).filter(Boolean)
+  }
+
+  mw.failedJobs = async function failedJobs(limit?: number): Promise<QueueJobWithError[]> {
+    const raw = await redis.lrange(failedKey, 0, (limit ?? 50) - 1)
+    return raw.map((r: string) => { try { return JSON.parse(r) } catch { return null } }).filter(Boolean)
+  }
+
+  mw.retryFailed = async function retryFailed(jobId: string): Promise<boolean> {
+    const raw = await redis.lrange(failedKey, 0, -1)
+    for (const entry of raw) {
+      try {
+        const job = JSON.parse(entry)
+        if (job.id === jobId) {
+          // Remove from failed list
+          await redis.lrem(failedKey, 1, entry)
+          // Re-add to job queue
+          const reJob = { ...job, runAt: Date.now() }
+          delete reJob.error
+          delete reJob.failedAt
+          await redis.zadd(jobKey, reJob.runAt, JSON.stringify(reJob))
+          _failed--
+          return true
+        }
+      } catch {}
+    }
+    return false
+  }
+
+  mw.retryAllFailed = async function retryAllFailed(type?: string): Promise<number> {
+    const raw = await redis.lrange(failedKey, 0, -1)
+    let count = 0
+    for (const entry of raw) {
+      try {
+        const job = JSON.parse(entry)
+        if (type && job.type !== type) continue
+        await redis.lrem(failedKey, 1, entry)
+        const reJob = { ...job, runAt: Date.now() }
+        delete reJob.error
+        delete reJob.failedAt
+        await redis.zadd(jobKey, reJob.runAt, JSON.stringify(reJob))
+        _failed--
+        count++
+      } catch {}
+    }
+    return count
+  }
+
+  mw.dashboard = function dashboard(): Router {
+    const r = new Router()
+
+    // GET / — queue stats + pending jobs by type
+    r.get('/', async (req, ctx) => {
+      const s = q.stats()
+      const pending = await q.jobs(100)
+
+      // Group by type
+      const byType: Record<string, { pending: number; failed: number }> = {}
+      for (const job of pending) {
+        if (!byType[job.type]) byType[job.type] = { pending: 0, failed: 0 }
+        byType[job.type].pending++
+      }
+
+      // Count failed by type
+      const failed = await q.failedJobs(1000)
+      for (const job of failed) {
+        if (!byType[job.type]) byType[job.type] = { pending: 0, failed: 0 }
+        byType[job.type].failed++
+      }
+
+      return Response.json({
+        stats: s,
+        types: byType,
+        failedCount: failed.length,
+      })
+    })
+
+    // GET /:type/failed — list failed jobs for a type
+    r.get('/:type/failed', async (req, ctx) => {
+      const failed = await q.failedJobs(100)
+      const filtered = failed.filter(j => j.type === ctx.params.type)
+      return Response.json({ jobs: filtered, count: filtered.length })
+    })
+
+    // POST /:type/retry — retry all failed jobs of a type
+    r.post('/:type/retry', async (req, ctx) => {
+      const count = await q.retryAllFailed(ctx.params.type)
+      return Response.json({ retried: count })
+    })
+
+    // POST /retry/:id — retry a specific failed job
+    r.post('/retry/:id', async (req, ctx) => {
+      const ok = await q.retryFailed(ctx.params.id)
+      if (!ok) return new Response('Job not found', { status: 404 })
+      return Response.json({ retried: true })
+    })
+
+    return r
+  }
+
+  ;(mw as any).stats = () => ({ 
     running,
     inflight,
     processed: _processed,

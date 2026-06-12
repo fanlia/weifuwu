@@ -1,4 +1,5 @@
 import type { Context, Handler } from './types.ts'
+import type { Sql } from './vendor.ts'
 import { Router } from './router.ts'
 
 export interface TestResponse {
@@ -196,3 +197,130 @@ export class TestApp {
 export function testApp(): TestApp {
   return new TestApp()
 }
+
+// ── Test Database Utilities ────────────────────────────────────────────────
+
+/**
+ * Result of createTestDb().
+ */
+export interface TestDb {
+  /** Tagged-template SQL client connected to the test database. */
+  sql: Sql<{}>
+  /** Connection URL of the test database. */
+  url: string
+  /** Schema name used for this test session. */
+  schema: string
+  /** Destroy the test database (drop schema). */
+  destroy: () => Promise<void>
+}
+
+/**
+ * Create an isolated test database schema for integration testing.
+ *
+ * Uses PostgreSQL schemas for isolation — no separate database needed.
+ * Each call creates a unique schema under the same database.
+ *
+ * ```ts
+ * const db = await createTestDb()
+ * await db.sql\`CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT)\`
+ * // ... run tests ...
+ * await db.destroy()  // drops the schema
+ * ```
+ *
+ * Uses `TEST_DATABASE_URL` or `DATABASE_URL` env var.
+ */
+export async function createTestDb(options?: {
+  /** Database URL. Default: TEST_DATABASE_URL or DATABASE_URL. */
+  url?: string
+  /** Schema name. Default: auto-generated 'test_<timestamp>_<random>'. */
+  schema?: string
+  /** Import postgres dynamically (avoid circular dep at module level). */
+}): Promise<TestDb> {
+  const dbUrl = options?.url || process.env.TEST_DATABASE_URL || process.env.DATABASE_URL
+  if (!dbUrl) throw new Error('createTestDb: DATABASE_URL or TEST_DATABASE_URL required')
+
+  const schema = options?.schema || `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+  // Dynamic import to avoid circular dependency
+  const { default: postgres } = await import('postgres')
+  const adminSql = postgres(dbUrl)
+
+  // Create schema — use double quotes for identifier (single-quoting via sql() doesn't work for DDL)
+  await adminSql.unsafe('CREATE SCHEMA IF NOT EXISTS "' + schema.replace(/"/g, '""') + '"')
+
+  // Set search_path to the schema
+  const schemaUrl = new URL(dbUrl)
+  schemaUrl.searchParams.set('search_path', schema)
+
+  const sql = postgres(schemaUrl.toString())
+
+  // Close the admin connection (only needed for schema creation)
+  await adminSql.end()
+
+  return {
+    sql,
+    url: schemaUrl.toString(),
+    schema,
+    destroy: async () => {
+      const destroySql = postgres(dbUrl)
+      await destroySql.unsafe('DROP SCHEMA IF EXISTS "' + schema.replace(/"/g, '""') + '" CASCADE')
+      await destroySql.end()
+      // Also close the main connection
+      await sql.end()
+    },
+  }
+}
+
+/**
+ * Run a test callback within an isolated transaction that is rolled back
+ * after completion. This provides the fastest isolation — no cleanup needed.
+ *
+ * ```ts
+ * await withTestDb(async (sql) => {
+ *   await sql\`INSERT INTO users ...\`
+ *   // All changes are rolled back after this callback returns
+ * })
+ * ```
+ *
+ * @param optionsOrFn Either a URL string or options object, or the callback directly.
+ * @param fn Async callback receiving a tagged-template sql client.
+ */
+export async function withTestDb(
+  optionsOrFn: string | { url?: string } | ((sql: Sql<{}>) => Promise<void>),
+  fn?: (sql: Sql<{}>) => Promise<void>,
+): Promise<void> {
+  // Resolve arguments
+  let dbUrl: string | undefined
+  let callback: (sql: Sql<{}>) => Promise<void>
+
+  if (typeof optionsOrFn === 'function') {
+    callback = optionsOrFn
+  } else if (typeof optionsOrFn === 'string') {
+    dbUrl = optionsOrFn
+    callback = fn!
+  } else {
+    dbUrl = optionsOrFn?.url
+    callback = fn!
+  }
+
+  const resolvedUrl = dbUrl || process.env.TEST_DATABASE_URL || process.env.DATABASE_URL
+  if (!resolvedUrl) throw new Error('withTestDb: DATABASE_URL or TEST_DATABASE_URL required')
+
+  const { default: postgres } = await import('postgres')
+  const sql = postgres(resolvedUrl)
+
+  try {
+    // sql.begin() auto-commits on success, rolls back on throw
+    // We always throw to force rollback (test isolation pattern)
+    await sql.begin(async (txSql) => {
+      await callback(txSql)
+      throw undefined  // force rollback
+    })
+  } catch {
+    // Expected — thrown to prevent commit
+  } finally {
+    await sql.end()
+  }
+}
+
+

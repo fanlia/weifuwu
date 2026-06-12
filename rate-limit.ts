@@ -1,3 +1,4 @@
+import type { Redis } from './vendor.ts'
 import type { Context, Handler, Middleware } from './types.ts'
 
 export interface RateLimitOptions {
@@ -5,78 +6,119 @@ export interface RateLimitOptions {
   window?: number
   key?: (req: Request, ctx: Context) => string
   message?: string
+  /** Rate limit store. 'memory' (default) or 'redis'. Redis enables multi-process counting. */
+  store?: 'memory' | 'redis'
+  /** Redis client (required when store: 'redis'). */
+  redis?: Redis
+  /** Redis key prefix. Default: 'ratelimit:'. */
+  prefix?: string
+}
+
+function defaultKey(_req: Request, _ctx: Context): string {
+  const forwarded = _req.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0]!.trim()
+  const realIp = _req.headers.get('x-real-ip')
+  if (realIp) return realIp
+  const cfIp = _req.headers.get('cf-connecting-ip')
+  if (cfIp) return cfIp
+  return 'global'
 }
 
 export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () => void } {
   const max = options?.max ?? 100
   const window = options?.window ?? 60_000
-  const getKey = options?.key ?? ((_req, _ctx) => {
-    const forwarded = _req.headers.get('x-forwarded-for')
-    if (forwarded) return forwarded.split(',')[0]!.trim()
-    const realIp = _req.headers.get('x-real-ip')
-    if (realIp) return realIp
-    const cfIp = _req.headers.get('cf-connecting-ip')
-    if (cfIp) return cfIp
-    return 'global'
-  })
+  const getKey = options?.key ?? defaultKey
   const message = options?.message ?? 'Too Many Requests'
+  const storeType = options?.store ?? 'memory'
 
+  if (storeType === 'redis' && !options?.redis) {
+    throw new Error('rateLimit: redis client required when store: "redis"')
+  }
+
+  const redis = options?.redis ?? null
+  const keyPrefix = options?.prefix ?? 'ratelimit:'
+
+  // Memory store: in-memory counter map
   const MAX_ENTRIES = 10000
   const hits = new Map<string, { count: number; reset: number }>()
 
-  const interval = setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of hits) {
-      if (entry.reset < now) hits.delete(key)
-    }
-    // Evict oldest entries if over cap — O(n) iteration without sorting
-    if (hits.size > MAX_ENTRIES) {
-      const toDelete = hits.size - MAX_ENTRIES
-      let deleted = 0
-      for (const key of hits.keys()) {
-        if (deleted >= toDelete) break
-        hits.delete(key)
-        deleted++
-      }
-    }
-  }, Math.min(window, 30000))
+  const interval = storeType === 'memory'
+    ? setInterval(() => {
+        const now = Date.now()
+        for (const [key, entry] of hits) {
+          if (entry.reset < now) hits.delete(key)
+        }
+        if (hits.size > MAX_ENTRIES) {
+          const toDelete = hits.size - MAX_ENTRIES
+          let deleted = 0
+          for (const key of hits.keys()) {
+            if (deleted >= toDelete) break
+            hits.delete(key)
+            deleted++
+          }
+        }
+      }, Math.min(window, 30000))
+    : null
 
-  if (interval.unref) interval.unref()
+  if (interval?.unref) interval.unref()
+
+  // Shared rate check logic — dispatches to memory or redis
+  async function checkAndIncrement(key: string): Promise<{ count: number; reset: number }> {
+    const now = Date.now()
+
+    if (storeType === 'redis' && redis) {
+      const redisKey = `${keyPrefix}${key}`
+      const count = await redis.incr(redisKey)
+      if (count === 1) {
+        await redis.pexpire(redisKey, window)
+      }
+      const pttl = await redis.pttl(redisKey)
+      const reset = pttl > 0 ? now + pttl : now + window
+      return { count, reset }
+    }
+
+    // Memory store
+    let entry = hits.get(key)
+    if (!entry || entry.reset < now) {
+      hits.set(key, { count: 1, reset: now + window })
+      return { count: 1, reset: now + window }
+    }
+    entry.count++
+    return { count: entry.count, reset: entry.reset }
+  }
 
   const mw = async (req: Request, ctx: Context, next: Handler) => {
     const key = getKey(req, ctx)
     const now = Date.now()
-    let entry = hits.get(key)
 
-    // Create new entry or reset expired one atomically
-    if (!entry || entry.reset < now) {
-      hits.set(key, { count: 1, reset: now + window })
-      entry = { count: 1, reset: now + window }
-      const res = await next(req, ctx)
-      return addRateLimitHeaders(res, max, max - 1, now + window)
-    }
+    const { count, reset } = await checkAndIncrement(key)
 
-    entry.count++
-    const remaining = Math.max(0, max - entry.count)
-
-    if (entry.count > max) {
+    if (count > max) {
       return new Response(message, {
         status: 429,
         headers: {
-          'Retry-After': String(Math.ceil((entry.reset - now) / 1000)),
+          'Retry-After': String(Math.ceil((reset - now) / 1000)),
           'X-RateLimit-Limit': String(max),
           'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(Math.ceil(entry.reset / 1000)),
+          'X-RateLimit-Reset': String(Math.ceil(reset / 1000)),
         },
       })
     }
 
+    const remaining = max - count
     const res = await next(req, ctx)
-    return addRateLimitHeaders(res, max, remaining, entry.reset)
+    return addRateLimitHeaders(res, max, remaining, reset)
   }
 
-  mw.stop = () => { clearInterval(interval); hits.clear() }
-  ;(mw as any).stats = () => ({ entries: hits.size, maxEntries: MAX_ENTRIES })
+  mw.stop = () => {
+    if (interval) clearInterval(interval)
+    hits.clear()
+  }
+  ;(mw as any).stats = () => ({
+    store: storeType,
+    entries: storeType === 'memory' ? hits.size : undefined,
+    maxEntries: MAX_ENTRIES,
+  })
   return mw
 }
 
