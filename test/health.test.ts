@@ -1,44 +1,39 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import type { Context } from '../types.ts'
+import { testApp } from '../test-utils.ts'
 import { health } from '../health.ts'
 
 describe('health', () => {
-  it('returns 200 on /__health', async () => {
-    const r = health()
-    const res = await r.handler()(
+  it('returns 200 on GET', async () => {
+    const res = await health().handler()(
       new Request('http://localhost/__health'),
-      { params: {}, query: {} } as Context,
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'OK')
   })
 
-  it('supports custom path', async () => {
-    const r = health({ path: '/healthz' })
-    const res = await r.handler()(
-      new Request('http://localhost/healthz'),
-      { params: {}, query: {} } as Context,
+  it('returns 200 on HEAD', async () => {
+    const res = await health().handler()(
+      new Request('http://localhost/__health', { method: 'HEAD' }),
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
   })
 
-  it('returns 503 when custom check fails', async () => {
-    const r = health({
-      check: async () => { throw new Error('db down') },
-    })
-    const res = await r.handler()(
+  it('returns 503 when check throws', async () => {
+    const res = await health({ check: () => { throw new Error('db down') } }).handler()(
       new Request('http://localhost/__health'),
-      { params: {}, query: {} } as Context,
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 503)
+    assert.equal(await res.text(), 'Service Unavailable')
   })
 
-  it('handles HEAD request', async () => {
-    const r = health({ path: '/_health' })
-    const res = await r.handler()(
-      new Request('http://localhost/_health', { method: 'HEAD' }),
-      { params: {}, query: {} } as Context,
+  it('supports custom path', async () => {
+    const res = await health({ path: '/__healthz' }).handler()(
+      new Request('http://localhost/__healthz'),
+      { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
   })

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from '../router.ts'
+import { testApp } from '../test-utils.ts'
 import { serve } from '../serve.ts'
 import { auth } from '../auth.ts'
 
@@ -17,137 +17,112 @@ function authHandler() {
 
 describe('auth', () => {
   it('rejects missing Authorization header with 401', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ token: 'secret' }))
       .get('/data', handler())
-
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
+      .getReq('/data')
+      .send()
     assert.equal(res.status, 401)
   })
 
   it('sets WWW-Authenticate header on 401', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ token: 'secret' }))
       .get('/data', handler())
-
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
+      .getReq('/data')
+      .send()
     assert.equal(res.headers.get('WWW-Authenticate'), 'Bearer')
   })
 
   it('accepts valid Bearer token', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ token: 'secret' }))
       .get('/data', handler())
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer secret' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer secret')
+      .send()
     assert.equal(res.status, 200)
   })
 
   it('rejects invalid Bearer token with 403', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ token: 'secret' }))
       .get('/data', handler())
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer wrong' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer wrong')
+      .send()
     assert.equal(res.status, 403)
   })
 
   it('supports custom header name (X-API-Key)', async () => {
-    const r = new Router()
+    const app = testApp()
       .use(auth({ token: 'my-key', header: 'X-API-Key' }))
       .get('/data', handler())
 
-    const res1 = await r.handler()(
-      new Request('http://localhost/data', { headers: { 'X-API-Key': 'my-key' } }),
-      { params: {}, query: {} } as any,
-    )
+    const res1 = await app.getReq('/data').header('X-API-Key', 'my-key').send()
     assert.equal(res1.status, 200)
 
-    const res2 = await r.handler()(
-      new Request('http://localhost/data', { headers: { 'X-API-Key': 'wrong' } }),
-      { params: {}, query: {} } as any,
-    )
+    const res2 = await app.getReq('/data').header('X-API-Key', 'wrong').send()
     assert.equal(res2.status, 403)
   })
 
   it('does not set WWW-Authenticate for custom header', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ token: 'my-key', header: 'X-API-Key' }))
       .get('/data', handler())
-
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
+      .getReq('/data')
+      .send()
     assert.equal(res.headers.get('WWW-Authenticate'), null)
   })
 
   it('verify returning boolean true passes', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ verify: () => true }))
       .get('/data', handler())
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer any' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer any')
+      .send()
     assert.equal(res.status, 200)
   })
 
   it('verify returning boolean false rejects with 403', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ verify: () => false }))
       .get('/data', handler())
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer any' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer any')
+      .send()
     assert.equal(res.status, 403)
   })
 
   it('verify returning object sets ctx.user', async () => {
-    const r = new Router()
-      .use(auth({
-        verify: () => ({ sub: 'user-1', role: 'admin' }),
-      }))
+    const res = await testApp()
+      .use(auth({ verify: () => ({ sub: 'user-1', role: 'admin' }) }))
       .get('/admin', authHandler())
-
-    const res = await r.handler()(
-      new Request('http://localhost/admin', { headers: { Authorization: 'Bearer token' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/admin')
+      .header('Authorization', 'Bearer token')
+      .send()
     const data = await res.json() as Record<string, unknown>
     assert.deepEqual(data.user, { sub: 'user-1', role: 'admin' })
   })
 
   it('verify returning null rejects with 403', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ verify: () => null }))
       .get('/data', handler())
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer any' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer any')
+      .send()
     assert.equal(res.status, 403)
   })
 
   it('works as route-level middleware', async () => {
     const mw = auth({ verify: () => ({ sub: 'u1' }) })
-
-    const r = new Router()
-      .get('/admin', mw, (req, ctx) =>
-        Response.json({ user: ctx.user }),
-      )
-
-    const res = await r.handler()(
-      new Request('http://localhost/admin', { headers: { Authorization: 'Bearer token' } }),
-      { params: {}, query: {} } as any,
-    )
+    const res = await testApp()
+      .get('/admin', mw, (req, ctx) => Response.json({ user: ctx.user }))
+      .getReq('/admin')
+      .header('Authorization', 'Bearer token')
+      .send()
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
     assert.deepEqual(data.user, { sub: 'u1' })
@@ -155,14 +130,10 @@ describe('auth', () => {
 
   it('route-level auth rejects without token', async () => {
     const mw = auth({ verify: () => ({ sub: 'u1' }) })
-
-    const r = new Router()
+    const res = await testApp()
       .get('/admin', mw, (req, ctx) => Response.json({ user: ctx.user }))
-
-    const res = await r.handler()(
-      new Request('http://localhost/admin'),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/admin')
+      .send()
     assert.equal(res.status, 401)
   })
 
@@ -175,13 +146,11 @@ describe('auth', () => {
     await proxy.ready
     const proxyUrl = `http://localhost:${proxy.port}/validate`
 
-    const r = new Router()
+    const res = await testApp()
       .get('/data', auth({ proxy: proxyUrl }), authHandler())
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer valid' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer valid')
+      .send()
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
     assert.deepEqual(data.user, { sub: 'u1' })
@@ -193,13 +162,11 @@ describe('auth', () => {
     await proxy.ready
     const proxyUrl = `http://localhost:${proxy.port}/validate`
 
-    const r = new Router()
+    const res = await testApp()
       .get('/data', auth({ proxy: proxyUrl }), handler())
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer bad' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer bad')
+      .send()
     assert.equal(res.status, 401)
     proxy.stop()
   })
@@ -213,13 +180,11 @@ describe('auth', () => {
     await proxy.ready
     const proxyUrl = `http://localhost:${proxy.port}/validate`
 
-    const r = new Router()
+    await testApp()
       .get('/data', auth({ proxy: proxyUrl }), handler())
-
-    await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer mytoken' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer mytoken')
+      .send()
     assert.equal(receivedAuth, 'Bearer mytoken')
     proxy.stop()
   })
@@ -233,13 +198,11 @@ describe('auth', () => {
     await proxy.ready
     const proxyUrl = `http://localhost:${proxy.port}/validate`
 
-    const r = new Router()
+    await testApp()
       .get('/data', auth({ proxy: proxyUrl, header: 'X-API-Key' }), handler())
-
-    await r.handler()(
-      new Request('http://localhost/data', { headers: { 'X-API-Key': 'my-key' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('X-API-Key', 'my-key')
+      .send()
     assert.equal(receivedHeader, 'my-key')
     proxy.stop()
   })
@@ -253,13 +216,10 @@ describe('auth', () => {
     await proxy.ready
     const proxyUrl = `http://localhost:${proxy.port}/validate`
 
-    const r = new Router()
+    await testApp()
       .get('/data', auth({ proxy: proxyUrl }), handler())
-
-    await r.handler()(
-      new Request('http://localhost/data?access_token=my-key'),
-      { params: {}, query: { access_token: 'my-key' } } as any,
-    )
+      .getReq('/data?access_token=my-key')
+      .send()
     assert.ok(receivedQuery.includes('access_token=my-key'))
     proxy.stop()
   })
@@ -273,38 +233,31 @@ describe('auth edge cases', () => {
   })
 
   it('accepts access_token query param in non-proxy mode', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ token: 'my-key' }))
       .get('/data', () => new Response('ok'))
-
-    const res = await r.handler()(
-      new Request('http://localhost/data?access_token=my-key'),
-      { params: {}, query: { access_token: 'my-key' } } as any,
-    )
+      .getReq('/data?access_token=my-key')
+      .send()
     assert.equal(res.status, 200)
   })
 
   it('accepts Authorization header without Bearer prefix', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ token: 'my-key' }))
       .get('/data', () => new Response('ok'))
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'my-key' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'my-key')
+      .send()
     assert.equal(res.status, 200)
   })
 
   it('returns 500 for invalid proxy URL', async () => {
-    const r = new Router()
+    const res = await testApp()
       .use(auth({ proxy: 'not-a-valid-url' }))
       .get('/data', () => new Response('ok'))
-
-    const res = await r.handler()(
-      new Request('http://localhost/data', { headers: { Authorization: 'Bearer token' } }),
-      { params: {}, query: {} } as any,
-    )
+      .getReq('/data')
+      .header('Authorization', 'Bearer token')
+      .send()
     assert.equal(res.status, 500)
   })
 })

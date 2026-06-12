@@ -30,6 +30,14 @@ class TestResponseImpl implements TestResponse {
   async text(): Promise<string> {
     return this.response.text()
   }
+
+  async bytes(): Promise<Uint8Array> {
+    return this.response.bytes()
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    return this.response.arrayBuffer()
+  }
 }
 
 export class TestRequest {
@@ -132,33 +140,33 @@ export class TestApp {
     return this
   }
 
-  /** Register a GET route */
-  get(path: string, handler: Handler): this {
-    this.router.get(path, handler)
+  /** Register a GET route — supports route-level middleware via spread args. */
+  get(path: string, ...args: any[]): this {
+    (this.router.get as any)(path, ...args)
     return this
   }
 
-  /** Register a POST route */
-  post(path: string, handler: Handler): this {
-    this.router.post(path, handler)
+  /** Register a POST route. */
+  post(path: string, ...args: any[]): this {
+    (this.router.post as any)(path, ...args)
     return this
   }
 
-  /** Register a PUT route */
-  put(path: string, handler: Handler): this {
-    this.router.put(path, handler)
+  /** Register a PUT route. */
+  put(path: string, ...args: any[]): this {
+    (this.router.put as any)(path, ...args)
     return this
   }
 
-  /** Register a PATCH route */
-  patch(path: string, handler: Handler): this {
-    this.router.patch(path, handler)
+  /** Register a PATCH route. */
+  patch(path: string, ...args: any[]): this {
+    (this.router.patch as any)(path, ...args)
     return this
   }
 
-  /** Register a DELETE route */
-  delete(path: string, handler: Handler): this {
-    this.router.delete(path, handler)
+  /** Register a DELETE route. */
+  delete(path: string, ...args: any[]): this {
+    (this.router.delete as any)(path, ...args)
     return this
   }
 
