@@ -42,7 +42,10 @@ await server.ready
 | `hostname` | `string` | `'0.0.0.0'` | Listen address |
 | `signal` | `AbortSignal` | — | Shutdown on abort |
 | `websocket` | `WsUpgradeHandler` | — | WebSocket upgrade handler |
-| `maxBodySize` | `number` | — | Max body bytes |
+| `maxBodySize` | `number` | `10MB` | Max body bytes (0 = unlimited) |
+| `timeout` | `number` | `30_000` | Socket inactivity timeout (ms) |
+| `keepAliveTimeout` | `number` | `5_000` | Keep-Alive idle timeout (ms) |
+| `headersTimeout` | `number` | `6_000` | Headers read timeout (ms) |
 | `shutdown` | `boolean` | `true` | Auto SIGTERM/SIGINT |
 
 ```ts
@@ -58,8 +61,23 @@ app.get('/hello/:name', (req, ctx) => Response.json({ message: `Hello, ${ctx.par
 app.post('/data', async (req, ctx) => { const body = await req.json(); return Response.json(body, { status: 201 }) })
 app.use('/admin', authMW)                    // path-scoped middleware
 app.use('/admin', adminRouter)               // sub-router (flattened into parent trie)
-app.ws('/echo', { open(ws) { ws.send('connected') }, message(ws, _ctx, data) { ws.send(`echo: ${data}`) } })
+app.ws('/echo', {
+  open(ws, ctx) { ctx.ws.json({ type: 'connected' }) },
+  message(ws, ctx, data) { ctx.ws.json({ echo: data.toString() }) },
+})
+app.ws('/chat', {
+  open(ws, ctx) { ctx.ws.join('room') },
+  message(ws, ctx, data) { ctx.ws.sendRoom('room', JSON.parse(data.toString())) },
+})
 app.onError((err, req, ctx) => Response.json({ error: err.message }, { status: 500 }))
+
+// Debug: list all registered routes
+console.log(app.routes())
+// [ 'GET     /hello/:name', 'POST    /data', 'WS       /echo', 'WS       /chat' ]
+
+// Cross-process WebSocket broadcast (Redis)
+import { createHub } from 'weifuwu'
+app.wsHub(createHub({ redis: redis() }))
 
 const handler = app.handler()
 const wsHandler = app.websocketHandler()
@@ -695,51 +713,69 @@ app.use(pg)                    // injects ctx.sql
 | `ssl` | `boolean\|object` | — | SSL options |
 | `idle_timeout` | `number` | `30` | Idle timeout (seconds) |
 | `connect_timeout` | `number` | `30` | Connection timeout |
+| `statementTimeout` | `number` | `30_000` | Per-statement timeout (ms, 0 = disable) |
+| `onQuery` | `(query, ms, rows) => void` | — | Query logging callback |
 
 ```ts
 // Raw SQL via tagged template
 await pg.sql`SELECT * FROM users WHERE email = ${email}`
 
-// Type-safe DDL
-import { pgTable, serial, text, boolean, timestamps } from 'weifuwu'
+// Define a table — one API, sql pre-bound
+import { serial, text, boolean, timestamps } from 'weifuwu'
 
-const users = pgTable('_users', {
+const users = pg.table('_users', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').unique().notNull(),
   active: boolean('active').default(true),
   ...timestamps(),
 })
-await users.create(pg.sql)
-await users.createIndex(pg.sql, 'email')
+await users.create()           // DDL — no need to pass sql
+await users.createIndex('email')
 
-// BoundTable — sql bound once, no need to pass sql to every call
-const t = pg.table('_users', { id: serial('id'), name: text('name'), email: text('email'), ...timestamps() })
-await t.insert({ name: 'Alice' })
-// vs unbound Table — sql passed as first argument each time
-// const t = pgTable('_users', { ... })
-// await t.insert(pg.sql, { name: 'Alice' })
-const { count, data } = await t.readMany({ role: 'admin' }, { orderBy: { name: 'asc' }, limit: 10 })
-await t.upsert({ email: 'alice@test.com' }, 'email')
+// CRUD — sql already bound
+await users.insert({ name: 'Alice' })
+const { count, data } = await users.readMany({ role: 'admin' }, { orderBy: { name: 'asc' }, limit: 10 })
+await users.upsert({ email: 'alice@test.com' }, 'email')
 
-// Transactions
+// Reuse schema without redefining fields
+import { pgTable } from 'weifuwu'
+const usersSchema = pgTable('_users', { id: serial('id'), name: text('name') })  // define once
+const users = pg.table(usersSchema)  // bind — no field duplication
+
+// Transactions — with auto-retry on deadlock/serialization failure
 await pg.transaction(async (sql) => {
-  const users = pg.table('_users', {}).withSql(sql)
-  return users.insert({ name: 'Bob' })
-})
+  const txUsers = users.withSql(sql)
+  return txUsers.insert({ name: 'Bob' })
+}, { maxRetries: 3 })
 
 // Soft delete — automatic if deleted_at column exists
-await t.delete(1)       // SET deleted_at = NOW()
-await t.hardDelete(1)   // DELETE FROM
-await t.readMany()      // WHERE deleted_at IS NULL (use withDeleted: true to include)
+await users.delete(1)       // SET deleted_at = NOW()
+await users.hardDelete(1)   // DELETE FROM
+await users.read(1)         // auto-filters deleted_at IS NULL (use withDeleted: true to include)
 
 // JSONB queries
 const logs = pg.table('logs', { meta: jsonb<{ service: string }>('meta') })
 await logs.readMany(contains('meta', { service: 'auth' }))
 
+// Connection pool visibility
+console.log(pg.poolStats())  // { active: 3, idle: 7, waiting: 0, max: 10 }
+
+// Migration tracking
+await pg.migrate()           // creates _weifuwu_migrations
+await pg.markMigrated('myModule')  // idempotent
+const done = await pg.isMigrated('myModule')
+
 // Partitioned tables
 await logs.create({ partitionBy: partitionBy('range', 'created_at') })
 ```
+
+**When to use pgTable vs pg.table:**
+| API | Use when |
+|-----|---------|
+| `pg.table('t', cols)` | You have `pg` available (factory, handler, migrate) |
+| `pg.table(schema)` | Reusing a schema without duplicating field definitions |
+| `pgTable('t', cols)` | No `pg` reference (utility modules, standalone schema files) |
 
 | Column builder | Type | Notes |
 |---------------|------|-------|
@@ -755,27 +791,27 @@ await logs.create({ partitionBy: partitionBy('range', 'created_at') })
 
 **Column modifiers:** `.primaryKey()`, `.notNull()`, `.nullable()`, `.default(val)`, `.unique()`, `.references(table, column?, onDelete?)`.
 
-**BoundTable CRUD methods:**
+**CRUD methods:**
 
 | Method | Description |
 |--------|-------------|
 | `insert(data)` | INSERT + RETURNING \*, returns the inserted row |
 | `insertMany(data)` | Bulk INSERT + RETURNING \*, returns rows |
-| `read(id, opts?)` | SELECT by primary key, returns row or undefined |
+| `read(id, opts?)` | SELECT by detected primary key + auto soft-delete filter |
 | `readMany(where?, opts?)` | Filtered query with `{ count, data }` — auto-filters soft-deleted |
-| `update(id, data)` | UPDATE by id + RETURNING \*, returns updated row |
+| `update(id, data)` | UPDATE by primary key + RETURNING \*, returns updated row |
 | `updateMany(where, data)` | Bulk UPDATE, returns affected row count |
 | `delete(id)` | Soft delete if `deleted_at` exists, else hard delete |
 | `hardDelete(id)` | Always DELETE FROM |
 | `deleteMany(where)` | Soft bulk delete if `deleted_at` exists |
 | `hardDeleteMany(where)` | Always DELETE FROM |
 | `upsert(data, conflict)` | INSERT ON CONFLICT DO UPDATE, returns row |
-| `count(where?)` | SELECT COUNT(\*) |
+| `count(where?)` | SELECT COUNT(\*) — auto-filters soft-deleted |
 | `create(opts?)` | CREATE TABLE IF NOT EXISTS |
 | `drop(opts?)` | DROP TABLE IF EXISTS |
 | `createIndex(columns, opts?)` | CREATE INDEX |
 | `createUniqueIndex(columns)` | CREATE UNIQUE INDEX |
-| `withSql(sql)` | Returns a new BoundTable bound to a different sql (for transactions) |
+| `withSql(sql)` | Returns copy bound to a different sql (for transactions) |
 
 **Where helpers** — composable query conditions:
 
@@ -1288,6 +1324,8 @@ testApp, TestApp, TestRequest, TestResponse,
 getCookies, setCookie, deleteCookie,
 createSSEStream, formatSSE, formatSSEData,
 currentTraceId, currentTrace, runWithTrace, traceElapsed,
+createHub, Hub, HubOptions,
+DEFAULT_MAX_BODY, MIGRATIONS_TABLE,
 ```
 
 ---
