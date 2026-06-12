@@ -1,7 +1,7 @@
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { WebSocket } from 'ws'
-import { Router, serve, type Handler, type Context } from '../index.ts'
+import { Router, serve, testApp, type Handler, type Context } from '../index.ts'
 
 function mkCtx(ctx?: Partial<Context>): Context {
   return { params: {}, query: {}, ...ctx } as Context
@@ -21,36 +21,41 @@ function suppressErrorLog() {
 
 describe('Router registration', () => {
   it('GET route', async () => {
-    const r = new Router().get('/hello', () => new Response('world'))
-    const res = await r.handler()(new Request('http://localhost/hello'), mkCtx())
+    const app = testApp()
+    app.get('/hello', () => new Response('world'))
+    const res = await app.getReq('/hello').send()
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'world')
   })
 
   it('POST route', async () => {
-    const r = new Router().post('/data', async (req) => new Response(await req.text(), { status: 201 }))
-    const res = await r.handler()(new Request('http://localhost/data', { method: 'POST', body: 'hello' }), mkCtx())
+    const app = testApp()
+    app.post('/data', async (req) => new Response(await req.text(), { status: 201 }))
+    const res = await app.postReq('/data').rawBody('hello').send()
     assert.equal(res.status, 201)
     assert.equal(await res.text(), 'hello')
   })
 
   it('PUT route', async () => {
-    const r = new Router().put('/item', () => new Response('updated', { status: 200 }))
-    const res = await r.handler()(new Request('http://localhost/item', { method: 'PUT', body: 'x' }), mkCtx())
+    const app = testApp()
+    app.put('/item', () => new Response('updated', { status: 200 }))
+    const res = await app.putReq('/item').rawBody('x').send()
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'updated')
   })
 
   it('PATCH route', async () => {
-    const r = new Router().patch('/item', () => new Response('patched'))
-    const res = await r.handler()(new Request('http://localhost/item', { method: 'PATCH' }), mkCtx())
+    const app = testApp()
+    app.patch('/item', () => new Response('patched'))
+    const res = await app.patchReq('/item').send()
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'patched')
   })
 
   it('DELETE route', async () => {
-    const r = new Router().delete('/item', () => new Response(null, { status: 204 }))
-    const res = await r.handler()(new Request('http://localhost/item', { method: 'DELETE' }), mkCtx())
+    const app = testApp()
+    app.delete('/item', () => new Response(null, { status: 204 }))
+    const res = await app.deleteReq('/item').send()
     assert.equal(res.status, 204)
   })
 

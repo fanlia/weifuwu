@@ -1,16 +1,31 @@
-import { describe, it, before, after } from 'node:test'
+import { describe, it, before, after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { postgres } from '../postgres/index.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 import { pgTable, BoundTable, serial, uuid, text, integer, textArray, boolean as bool, timestamptz, jsonb, vector, sql, timestamps, eq, lt, gte, isNull, toDDL, partitionBy } from '../postgres/schema/index.ts'
+import { randomUUID } from 'node:crypto'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
 
+/** Generate a unique table name for test isolation. Automatically tracked for cleanup. */
+function tn(name: string): string {
+  const t = `__test_${name}_${randomUUID().slice(0, 8)}`
+  createdTables.push(t)
+  return t
+}
+
 describe('schema', { skip: !DATABASE_URL }, () => {
   let pg: PostgresClient
+  const createdTables: string[] = []
 
   before(async () => {
     pg = postgres({ connection: DATABASE_URL })
+  })
+
+  afterEach(async () => {
+    for (const t of createdTables.splice(0)) {
+      await pg.sql.unsafe(`DROP TABLE IF EXISTS "${t}" CASCADE`)
+    }
   })
 
   after(async () => {
@@ -18,7 +33,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates a table with various column types', async () => {
-    const t = pgTable('__schema_test_types', {
+    const t = pgTable(tn('types'), {
       id: serial('id').primaryKey(),
       name: text('name').notNull(),
       email: text('email').unique(),
@@ -34,7 +49,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates a table with UUID primary key', async () => {
-    const t = pgTable('__schema_test_uuid', {
+    const t = pgTable(tn('uuid'), {
       id: uuid('id').default(sql`gen_random_uuid()`).primaryKey(),
       name: text('name').notNull(),
     })
@@ -50,13 +65,13 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates a table with foreign key', async () => {
-    const parent = pgTable('__schema_test_parent', {
+    const parent = pgTable(tn('parent'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
-    const child = pgTable('__schema_test_child', {
+    const child = pgTable(tn('child'), {
       id: serial('id').primaryKey(),
-      parent_id: integer('parent_id').notNull().references('__schema_test_parent', 'id', 'cascade'),
+      parent_id: integer('parent_id').notNull().references(tn('parent'), 'id', 'cascade'),
     })
 
     await parent.create(pg.sql)
@@ -66,7 +81,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates basic index', async () => {
-    const t = pgTable('__schema_test_idx', {
+    const t = pgTable(tn('idx'), {
       id: serial('id').primaryKey(),
       email: text('email'),
     })
@@ -77,7 +92,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates unique index', async () => {
-    const t = pgTable('__schema_test_uidx', {
+    const t = pgTable(tn('uidx'), {
       id: serial('id').primaryKey(),
       slug: text('slug'),
     })
@@ -88,7 +103,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates multi-column index', async () => {
-    const t = pgTable('__schema_test_mcol', {
+    const t = pgTable(tn('mcol'), {
       id: serial('id').primaryKey(),
       a: integer('a'),
       b: integer('b'),
@@ -100,7 +115,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('creates descending index', async () => {
-    const t = pgTable('__schema_test_desc', {
+    const t = pgTable(tn('desc'), {
       id: serial('id').primaryKey(),
       created_at: timestamptz('created_at'),
     })
@@ -117,7 +132,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
       return  // skip if vector extension not available
     }
 
-    const t = pgTable('__schema_test_hnsw', {
+    const t = pgTable(tn('hnsw'), {
       id: serial('id').primaryKey(),
       embedding: vector('embedding', 3),
     })
@@ -131,7 +146,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('create is idempotent', async () => {
-    const t = pgTable('__schema_test_idem', {
+    const t = pgTable(tn('idem'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -141,7 +156,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('string default value', async () => {
-    const t = pgTable('__schema_test_strdef', {
+    const t = pgTable(tn('strdef'), {
       id: serial('id').primaryKey(),
       role: text('role').default('user'),
     })
@@ -153,7 +168,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('supports nullable columns', async () => {
-    const t = pgTable('__schema_test_null', {
+    const t = pgTable(tn('null'), {
       id: serial('id').primaryKey(),
       name: text('name').nullable(),
     })
@@ -167,7 +182,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   // --- CRUD ---
 
   it('insert returns the created row with auto-generated id', async () => {
-    const t = pgTable('__schema_test_insert', {
+    const t = pgTable(tn('insert'), {
       id: serial('id').primaryKey(),
       name: text('name').notNull(),
       email: text('email'),
@@ -184,7 +199,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('insert auto-strips serial id', async () => {
-    const t = pgTable('__schema_test_insert_auto', {
+    const t = pgTable(tn('insert_auto'), {
       id: serial('id').primaryKey(),
       label: text('label'),
     })
@@ -198,7 +213,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('findById returns the row by primary key', async () => {
-    const t = pgTable('__schema_test_fbid', {
+    const t = pgTable(tn('fbid'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -213,7 +228,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('findById returns undefined for missing id', async () => {
-    const t = pgTable('__schema_test_fbid_miss', {
+    const t = pgTable(tn('fbid_miss'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -226,7 +241,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('find with empty where returns all rows', async () => {
-    const t = pgTable('__schema_test_find_all', {
+    const t = pgTable(tn('find_all'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -241,7 +256,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('readMany with where returns filtered rows', async () => {
-    const t = pgTable('__schema_test_find_whr', {
+    const t = pgTable(tn('find_whr'), {
       id: serial('id').primaryKey(),
       name: text('name'),
       role: text('role'),
@@ -260,7 +275,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('update modifies and returns the row', async () => {
-    const t = pgTable('__schema_test_upd', {
+    const t = pgTable(tn('upd'), {
       id: serial('id').primaryKey(),
       name: text('name'),
       email: text('email'),
@@ -277,7 +292,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('update returns undefined for non-existent id', async () => {
-    const t = pgTable('__schema_test_upd_none', {
+    const t = pgTable(tn('upd_none'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -290,7 +305,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('delete returns deleted row', async () => {
-    const t = pgTable('__schema_test_del', {
+    const t = pgTable(tn('del'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -308,7 +323,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('delete returns undefined for non-existent id', async () => {
-    const t = pgTable('__schema_test_del_none', {
+    const t = pgTable(tn('del_none'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -321,7 +336,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('BoundTable via pg.table() works', async () => {
-    const t = pg.table('__schema_test_bound', {
+    const t = pg.table(tn('bound'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -341,7 +356,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('readMany with orderBy works', async () => {
-    const t = pgTable('__schema_test_ord', {
+    const t = pgTable(tn('ord'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -361,7 +376,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('readMany with limit works', async () => {
-    const t = pgTable('__schema_test_lim', {
+    const t = pgTable(tn('lim'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -376,7 +391,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('readMany with offset works', async () => {
-    const t = pgTable('__schema_test_off', {
+    const t = pgTable(tn('off'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -391,7 +406,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('BoundTable readMany with opts works', async () => {
-    const t = pg.table('__schema_test_bnd_find', {
+    const t = pg.table(tn('bnd_find'), {
       id: serial('id').primaryKey(),
       label: text('label'),
     })
@@ -412,7 +427,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   // --- New CRUD features ---
 
   it('insertMany inserts multiple rows', async () => {
-    const t = pgTable('__schema_test_ins_many', {
+    const t = pgTable(tn('ins_many'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -430,7 +445,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('insertMany on BoundTable works', async () => {
-    const t = pg.table('__schema_test_ins_many_bt', {
+    const t = pg.table(tn('ins_many_bt'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -443,7 +458,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('read with select returns subset of columns', async () => {
-    const t = pgTable('__schema_test_rd_sel', {
+    const t = pgTable(tn('rd_sel'), {
       id: serial('id').primaryKey(),
       name: text('name'),
       email: text('email'),
@@ -460,7 +475,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('readMany with select returns subset of columns', async () => {
-    const t = pgTable('__schema_test_rdm_sel', {
+    const t = pgTable(tn('rdm_sel'), {
       id: serial('id').primaryKey(),
       name: text('name'),
       email: text('email'),
@@ -477,7 +492,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('updateMany with Partial where works', async () => {
-    const t = pgTable('__schema_test_upd_many', {
+    const t = pgTable(tn('upd_many'), {
       id: serial('id').primaryKey(),
       role: text('role'),
       active: bool('active'),
@@ -495,7 +510,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('updateMany with SQL where works', async () => {
-    const t = pgTable('__schema_test_upd_sql', {
+    const t = pgTable(tn('upd_sql'), {
       id: serial('id').primaryKey(),
       role: text('role'),
       score: integer('score'),
@@ -515,7 +530,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('deleteMany with Partial where works', async () => {
-    const t = pgTable('__schema_test_del_many', {
+    const t = pgTable(tn('del_many'), {
       id: serial('id').primaryKey(),
       status: text('status'),
     })
@@ -535,7 +550,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('deleteMany with SQL where works', async () => {
-    const t = pgTable('__schema_test_del_sql', {
+    const t = pgTable(tn('del_sql'), {
       id: serial('id').primaryKey(),
       status: text('status'),
     })
@@ -555,7 +570,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('upsert inserts new row', async () => {
-    const t = pgTable('__schema_test_ups_ins', {
+    const t = pgTable(tn('ups_ins'), {
       id: serial('id').primaryKey(),
       slug: text('slug').unique().notNull(),
       label: text('label'),
@@ -570,7 +585,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('upsert updates existing row on conflict', async () => {
-    const t = pgTable('__schema_test_ups_upd', {
+    const t = pgTable(tn('ups_upd'), {
       id: serial('id').primaryKey(),
       slug: text('slug').unique().notNull(),
       label: text('label'),
@@ -585,7 +600,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('count returns total rows without conditions', async () => {
-    const t = pgTable('__schema_test_cnt_all', {
+    const t = pgTable(tn('cnt_all'), {
       id: serial('id').primaryKey(),
       name: text('name'),
     })
@@ -601,7 +616,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('count with where returns filtered count', async () => {
-    const t = pgTable('__schema_test_cnt_whr', {
+    const t = pgTable(tn('cnt_whr'), {
       id: serial('id').primaryKey(),
       role: text('role'),
     })
@@ -618,7 +633,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('count with SQL where works', async () => {
-    const t = pgTable('__schema_test_cnt_sql', {
+    const t = pgTable(tn('cnt_sql'), {
       id: serial('id').primaryKey(),
       score: integer('score'),
     })
@@ -637,7 +652,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   // --- Timestamps ---
 
   it('timestamps macro is usable in table definition', async () => {
-    const t = pgTable('__schema_test_ts', {
+    const t = pgTable(tn('ts'), {
       id: serial('id').primaryKey(),
       name: text('name'),
       ...timestamps(),
@@ -655,7 +670,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   // --- Soft delete ---
 
   it('delete with deleted_at column soft-deletes', async () => {
-    const t = pgTable('__schema_test_sd', {
+    const t = pgTable(tn('sd'), {
       id: serial('id').primaryKey(),
       name: text('name'),
       deleted_at: timestamptz('deleted_at'),
@@ -679,7 +694,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('hardDelete actually deletes', async () => {
-    const t = pgTable('__schema_test_hd', {
+    const t = pgTable(tn('hd'), {
       id: serial('id').primaryKey(),
       name: text('name'),
       deleted_at: timestamptz('deleted_at'),
@@ -698,7 +713,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('deleteMany with deleted_at column soft-deletes', async () => {
-    const t = pgTable('__schema_test_sd_many', {
+    const t = pgTable(tn('sd_many'), {
       id: serial('id').primaryKey(),
       status: text('status'),
       deleted_at: timestamptz('deleted_at'),
@@ -719,7 +734,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('hardDeleteMany actually deletes', async () => {
-    const t = pgTable('__schema_test_hd_many', {
+    const t = pgTable(tn('hd_many'), {
       id: serial('id').primaryKey(),
       status: text('status'),
       deleted_at: timestamptz('deleted_at'),
@@ -736,7 +751,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('textArray column type creates TEXT[] column', async () => {
-    const t = pgTable('__schema_test_text_array', {
+    const t = pgTable(tn('text_array'), {
       id: serial('id').primaryKey(),
       tags: textArray('tags'),
     })
@@ -766,7 +781,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('createIndex supports GIN type', async () => {
-    const t = pgTable('__schema_test_gin', {
+    const t = pgTable(tn('gin'), {
       id: serial('id').primaryKey(),
       tags: jsonb('tags'),
     })
@@ -776,7 +791,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('BoundTable upsert works', async () => {
-    const t = pg.table('__schema_test_bound_upsert', {
+    const t = pg.table(tn('bound_upsert'), {
       id: serial('id').primaryKey(),
       email: text('email').unique(),
     })
@@ -788,7 +803,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('BoundTable count works', async () => {
-    const t = pg.table('__schema_test_bound_count', {
+    const t = pg.table(tn('bound_count'), {
       id: serial('id').primaryKey(),
     })
     await t.create()
@@ -798,7 +813,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('BoundTable withSql creates new instance', async () => {
-    const t = pg.table('__schema_test_bound_copy', {
+    const t = pg.table(tn('bound_copy'), {
       id: serial('id').primaryKey(),
     })
     const t2 = t.withSql(pg.sql)
@@ -809,7 +824,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('update with empty data returns undefined', async () => {
-    const t = pgTable('__schema_test_empty_update', {
+    const t = pgTable(tn('empty_update'), {
       id: serial('id').primaryKey(),
       val: text('val'),
     })
@@ -820,7 +835,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('upsert throws on empty data', async () => {
-    const t = pgTable('__schema_test_empty_upsert', {
+    const t = pgTable(tn('empty_upsert'), {
       id: serial('id').primaryKey(),
     })
     await t.create(pg.sql)
@@ -829,7 +844,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('references without onDelete argument', async () => {
-    const t = pgTable('__schema_test_ref', {
+    const t = pgTable(tn('ref'), {
       id: serial('id').primaryKey(),
       parent_id: integer('parent_id').references('other_table'),
     })
@@ -838,7 +853,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
   })
 
   it('count on table with deleted_at filters softly-deleted rows', async () => {
-    const t = pgTable('__schema_test_count_soft', {
+    const t = pgTable(tn('count_soft'), {
       id: serial('id').primaryKey(),
       name: text('name'),
       deleted_at: timestamptz('deleted_at'),
