@@ -4,6 +4,9 @@ import type { PostgresOptions, PostgresClient } from './types.ts'
 import { BoundTable } from './schema/table.ts'
 import type { ColumnBuilder } from './schema/columns.ts'
 
+/** Migration tracking table name. Created automatically on first migrate(). */
+export const MIGRATIONS_TABLE = '_weifuwu_migrations'
+
 export function postgres(opts?: string | PostgresOptions): PostgresClient {
   const options: PostgresOptions = typeof opts === 'string'
     ? { connection: opts }
@@ -38,7 +41,30 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   mw.table = ((tableName: string, builders: Record<string, ColumnBuilder<unknown>>) => {
     return new BoundTable(sql, tableName, builders)
   }) as any
-  mw.migrate = async () => {}
+  mw.migrate = async () => {
+    // Ensure migration tracking table exists
+    await sql.unsafe(`
+      CREATE TABLE IF NOT EXISTS "${MIGRATIONS_TABLE}" (
+        name TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+  }
+  /** Record that a module's migration has been applied. */
+  mw.markMigrated = async (moduleName: string) => {
+    await sql.unsafe(
+      `INSERT INTO "${MIGRATIONS_TABLE}" (name) VALUES ($1) ON CONFLICT DO NOTHING`,
+      [moduleName],
+    )
+  }
+  /** Check if a module's migration has been applied. */
+  mw.isMigrated = async (moduleName: string): Promise<boolean> => {
+    const [row] = await sql.unsafe(
+      `SELECT 1 FROM "${MIGRATIONS_TABLE}" WHERE name = $1`,
+      [moduleName],
+    ) as any[]
+    return !!row
+  }
   mw.transaction = (async (fn: any) => {
     return await sql.begin(fn)
   }) as any

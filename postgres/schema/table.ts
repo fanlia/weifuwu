@@ -26,6 +26,7 @@ interface ColEntry {
   prop: string
   db: string
   auto: boolean
+  column: ColumnBuilder<unknown>
 }
 
 export class Table<R extends Record<string, unknown>> {
@@ -42,11 +43,29 @@ export class Table<R extends Record<string, unknown>> {
       prop,
       db: col.name,
       auto: col.isAutoGenerate,
+      column: col,
     }))
   }
 
   hasColumn(dbName: string): boolean {
     return this.colEntries.some(e => e.db === dbName)
+  }
+
+  /** Returns the primary key column name (DB name), or 'id' as fallback. */
+  private get pkColumn(): string {
+    const entry = this.colEntries.find(e => e.column.isPrimaryKey)
+    return entry ? entry.db : 'id'
+  }
+
+  /** Adds `deleted_at IS NULL` condition if the table has soft delete and not explicitly excluded. */
+  private _softDeleteFilter(where: unknown, opts?: FindOptions): string | null {
+    if (!this.hasColumn('deleted_at')) return null
+    if (opts?.withDeleted) return null
+    // If user explicitly filters by deleted_at, don't add our own
+    if (where && typeof where === 'object' && !Array.isArray(where) && !(where instanceof SQL)) {
+      if ('deleted_at' in (where as any)) return null
+    }
+    return '"deleted_at" IS NULL'
   }
 
   async create(sql: Sql<{}>, opts?: CreateOptions): Promise<void> {
@@ -172,32 +191,24 @@ export class Table<R extends Record<string, unknown>> {
     return rows as unknown as R[]
   }
 
-  async read(sql: Sql<{}>, id: string | number, opts?: Pick<FindOptions, 'select'>): Promise<R | undefined> {
-    if (opts?.select?.length) {
-      const columns = opts.select.map(c => `"${c}"`).join(', ')
-      const [row] = await sql.unsafe(
-        `SELECT ${columns} FROM "${this.tableName}" WHERE id = $1 LIMIT 1`,
-        [id],
-      )
-      return (row as unknown as R) ?? undefined
-    }
-    const [row] = await sql`
-      SELECT * FROM ${sql(this.tableName as any)}
-      WHERE ${sql('id' as any)} = ${id} LIMIT 1
-    `
+  async read(sql: Sql<{}>, id: string | number, opts?: Pick<FindOptions, 'select' | 'withDeleted'>): Promise<R | undefined> {
+    const pk = this.pkColumn
+    const columns = opts?.select?.length ? opts.select.map(c => `"${c}"`).join(', ') : '*'
+    const softDel = this._softDeleteFilter(null, opts)
+    const extraAnd = softDel ? ` AND ${softDel}` : ''
+
+    const [row] = await sql.unsafe(
+      `SELECT ${columns} FROM "${this.tableName}" WHERE "${pk}" = $1${extraAnd} LIMIT 1`,
+      [id],
+    )
     return (row as unknown as R) ?? undefined
   }
 
   async readMany(sql: Sql<{}>, where?: Partial<R> | SQL | SQL[], opts?: FindOptions): Promise<{ count: number; data: R[] }> {
     const { conditions, values } = this._buildConditions(where, 0)
 
-    if (this.hasColumn('deleted_at') && !opts?.withDeleted) {
-      if (!where || typeof where === 'object' && !Array.isArray(where) && !(where instanceof SQL) && !('deleted_at' in (where as any))) {
-        conditions.push('"deleted_at" IS NULL')
-      } else if (where instanceof SQL || Array.isArray(where)) {
-        conditions.push('"deleted_at" IS NULL')
-      }
-    }
+    const softDel = this._softDeleteFilter(where, opts)
+    if (softDel) conditions.push(softDel)
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
 
@@ -231,9 +242,12 @@ export class Table<R extends Record<string, unknown>> {
     const { sets, values: setValues } = this._buildSET(data)
     if (sets.length === 0) return undefined
 
-    const query = `UPDATE "${this.tableName}" AS t SET ${sets.join(', ')} FROM (SELECT ctid FROM "${this.tableName}" WHERE id = $${setValues.length + 1} LIMIT 1) AS sub WHERE t.ctid = sub.ctid RETURNING t.*`
-    const rows = await sql.unsafe(query, [...setValues, id] as any[])
-    return (rows as any[])[0] as unknown as R ?? undefined
+    const pk = this.pkColumn
+    const [row] = await sql.unsafe(
+      `UPDATE "${this.tableName}" SET ${sets.join(', ')} WHERE "${pk}" = $${setValues.length + 1} RETURNING *`,
+      [...setValues, id] as any[],
+    )
+    return (row as unknown as R) ?? undefined
   }
 
   async updateMany(sql: Sql<{}>, where: Partial<R> | SQL | SQL[], data: Partial<R>): Promise<number> {
@@ -251,23 +265,27 @@ export class Table<R extends Record<string, unknown>> {
   }
 
   async delete(sql: Sql<{}>, id: string | number): Promise<R | undefined> {
+    const pk = this.pkColumn
     if (this.hasColumn('deleted_at')) {
       const [row] = await sql.unsafe(
-        `UPDATE "${this.tableName}" SET "deleted_at" = NOW() WHERE id = $1 RETURNING *`,
+        `UPDATE "${this.tableName}" SET "deleted_at" = NOW() WHERE "${pk}" = $1 RETURNING *`,
         [id],
       )
       return (row as unknown as R) ?? undefined
     }
-    const [row] = await sql`
-      DELETE FROM ${sql(this.tableName as any)} WHERE ${sql('id' as any)} = ${id} RETURNING *
-    `
+    const [row] = await sql.unsafe(
+      `DELETE FROM "${this.tableName}" WHERE "${pk}" = $1 RETURNING *`,
+      [id],
+    )
     return (row as unknown as R) ?? undefined
   }
 
   async hardDelete(sql: Sql<{}>, id: string | number): Promise<R | undefined> {
-    const [row] = await sql`
-      DELETE FROM ${sql(this.tableName as any)} WHERE ${sql('id' as any)} = ${id} RETURNING *
-    `
+    const pk = this.pkColumn
+    const [row] = await sql.unsafe(
+      `DELETE FROM "${this.tableName}" WHERE "${pk}" = $1 RETURNING *`,
+      [id],
+    )
     return (row as unknown as R) ?? undefined
   }
 
@@ -340,13 +358,8 @@ export class Table<R extends Record<string, unknown>> {
   async count(sql: Sql<{}>, where?: Partial<R> | SQL | SQL[]): Promise<number> {
     const { conditions, values } = this._buildConditions(where, 0)
 
-    if (this.hasColumn('deleted_at')) {
-      if (!where || typeof where === 'object' && !Array.isArray(where) && !(where instanceof SQL) && !('deleted_at' in (where as any))) {
-        conditions.push('"deleted_at" IS NULL')
-      } else if (where instanceof SQL || Array.isArray(where)) {
-        conditions.push('"deleted_at" IS NULL')
-      }
-    }
+    const softDel = this._softDeleteFilter(where)
+    if (softDel) conditions.push(softDel)
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
     const [row] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as any[])
@@ -370,7 +383,7 @@ export class BoundTable<R extends Record<string, unknown>> {
 
   async insert(data: Partial<R>): Promise<R> { return await this.inner.insert(this.sql, data) }
   async insertMany(data: Partial<R>[]): Promise<R[]> { return await this.inner.insertMany(this.sql, data) }
-  async read(id: string | number, opts?: Pick<FindOptions, 'select'>): Promise<R | undefined> { return await this.inner.read(this.sql, id, opts) }
+  async read(id: string | number, opts?: Pick<FindOptions, 'select' | 'withDeleted'>): Promise<R | undefined> { return await this.inner.read(this.sql, id, opts) }
   async readMany(where?: Partial<R> | SQL | SQL[], opts?: FindOptions): Promise<{ count: number; data: R[] }> { return await this.inner.readMany(this.sql, where, opts) }
   async update(id: string | number, data: Partial<R>): Promise<R | undefined> { return await this.inner.update(this.sql, id, data) }
   async updateMany(where: Partial<R> | SQL | SQL[], data: Partial<R>): Promise<number> { return await this.inner.updateMany(this.sql, where, data) }

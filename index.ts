@@ -50,7 +50,7 @@ export {
   openai,
   createOpenAI,
 } from './ai-sdk.ts'
-export { postgres } from './postgres/index.ts'
+export { postgres, MIGRATIONS_TABLE } from './postgres/index.ts'
 export type { PostgresOptions, PostgresClient, PostgresInjected } from './postgres/types.ts'
 export { user } from './user/index.ts'
 export type {
