@@ -5,7 +5,7 @@ import type { Middleware, Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client, UserInjected } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
-import { pgTable, serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
+import { serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
 import { createOAuth2Server } from './oauth2.ts'
 
 const RegisterSchema = z.object({
@@ -61,7 +61,7 @@ export function user(options: UserOptions): UserModule {
 
     if (!oauth2Enabled) return
 
-    const clients = pgTable('_oauth2_clients', {
+    const clients = pg.table('_oauth2_clients', {
       id: serial('id').primaryKey(),
       name: text('name').notNull(),
       client_id: text('client_id').unique().notNull(),
@@ -70,9 +70,9 @@ export function user(options: UserOptions): UserModule {
       scopes: text('scopes').default(''),
       created_at: timestamptz('created_at').default(sql`NOW()`),
     })
-    await clients.create(pg.sql)
+    await clients.create()
 
-    const codes = pgTable('_oauth2_codes', {
+    const codes = pg.table('_oauth2_codes', {
       id: serial('id').primaryKey(),
       code: text('code').unique().notNull(),
       client_id: text('client_id').notNull(),
@@ -84,9 +84,9 @@ export function user(options: UserOptions): UserModule {
       expires_at: timestamptz('expires_at').notNull(),
       used: boolean('used').default(false),
     })
-    await codes.create(pg.sql)
+    await codes.create()
 
-    const tokens = pgTable('_oauth2_tokens', {
+    const tokens = pg.table('_oauth2_tokens', {
       id: serial('id').primaryKey(),
       token: text('token').unique().notNull(),
       client_id: text('client_id').notNull(),
@@ -95,7 +95,7 @@ export function user(options: UserOptions): UserModule {
       expires_at: timestamptz('expires_at').notNull(),
       revoked: boolean('revoked').default(false),
     })
-    await tokens.create(pg.sql)
+    await tokens.create()
   }
 
   function signToken(user: UserData): string {

@@ -1,7 +1,7 @@
 import type { Context, Handler } from '../types.ts'
 import type { TenantOptions, TenantModule, TenantContext } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
-import { pgTable, serial, text, integer, timestamptz, jsonb, sql as schemaSql } from '../postgres/schema/index.ts'
+import { serial, text, integer, timestamptz, jsonb, sql as schemaSql } from '../postgres/schema/index.ts'
 import { buildRouter } from './rest.ts'
 import { buildGraphQLHandler } from './graphql.ts'
 
@@ -15,25 +15,25 @@ export function tenant(options: TenantOptions): TenantModule {
   async function migrate(): Promise<void> {
     await sql.unsafe(`CREATE EXTENSION IF NOT EXISTS "vector"`)
 
-    const tenants = pgTable('_tenants', {
+    const tenants = pg.table('_tenants', {
       id: text('id').primaryKey().default(schemaSql`gen_random_uuid()`),
       name: text('name').notNull(),
       created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
     })
-    await tenants.create(sql)
+    await tenants.create()
 
-    const members = pgTable('_tenant_members', {
+    const members = pg.table('_tenant_members', {
       id: serial('id').primaryKey(),
       tenant_id: text('tenant_id').notNull().references('_tenants', 'id', 'cascade'),
       user_id: integer('user_id').notNull(),
       role: text('role').notNull().default('member'),
       created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
     })
-    await members.create(sql)
-    await members.createIndex(sql, 'user_id')
+    await members.create()
+    await members.createIndex('user_id')
     await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "_tenant_members_unique_idx" ON "_tenant_members" ("tenant_id", "user_id")`)
 
-    const tables = pgTable('_user_tables', {
+    const tables = pg.table('_user_tables', {
       id: serial('id').primaryKey(),
       tenant_id: text('tenant_id').notNull().references('_tenants', 'id', 'cascade'),
       slug: text('slug').notNull(),
@@ -41,8 +41,8 @@ export function tenant(options: TenantOptions): TenantModule {
       fields: jsonb('fields').notNull().default(schemaSql`'[]'::jsonb`),
       created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
     })
-    await tables.create(sql)
-    await tables.createIndex(sql, 'tenant_id')
+    await tables.create()
+    await tables.createIndex('tenant_id')
     await sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "_user_tables_unique_idx" ON "_user_tables" ("tenant_id", "slug")`)
   }
 
