@@ -1,7 +1,8 @@
 import { createElement } from 'react'
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, statSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, readdirSync } from 'node:fs'
+import { readdir, stat } from 'node:fs/promises'
+import { dirname, join, resolve, relative } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { compile } from './compile.ts'
 import { streamResponse } from './stream.ts'
@@ -31,22 +32,16 @@ export function markClientBundleDirty() {
 }
 
 function getBundle(key: string): Uint8Array | undefined {
-  if (_bundleDirty) {
-    bundleCache.clear()
-    _bundleDirty = false
-  }
+  if (_bundleDirty) { bundleCache.clear(); _bundleDirty = false }
   return bundleCache.get(key)
 }
 
 function setBundle(key: string, buf: Uint8Array) {
-  if (_bundleDirty) {
-    bundleCache.clear()
-    _bundleDirty = false
-  }
+  if (_bundleDirty) { bundleCache.clear(); _bundleDirty = false }
   bundleCache.set(key, buf)
 }
 
-function id(s: string): string {
+function hashId(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
 }
 
@@ -54,6 +49,139 @@ function serializeLoaderData(ctx: any): Record<string, unknown> {
   const ld = (ctx as any).loaderData
   return ld && typeof ld === 'object' ? ld : {}
 }
+
+// ── Error page (browser-visible, dev-friendly) ──────────────────────────
+
+function errorPage(title: string, detail: string, stack?: string): Response {
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:40px auto;padding:0 24px;color:#1a1a2e}
+  h1{color:#e53e3e;font-size:24px;margin-bottom:8px}
+  .info{color:#718096;font-size:14px;margin-bottom:24px}
+  pre{background:#1a1a2e;color:#a0ffa0;padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .trace{color:#e0e0e0}
+</style></head><body>
+<h1>${escapeHtml(title)}</h1>
+<p class="info">${escapeHtml(detail)}</p>
+${stack ? `<pre><span class="trace">${escapeHtml(stack)}</span></pre>` : ''}
+</body></html>`
+  return new Response(html, {
+    status: 500,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  })
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// ── Route resolution (async, cached per-path) ───────────────────────────
+
+interface ResolvedRoute {
+  routePath: string
+  pageFile: string
+  layoutFiles: string[]
+  errorFiles: string[]
+  notFoundFile: string | null
+}
+
+async function resolveRoute(
+  ssrDir: string,
+  segments: string[],
+  routeCache: Map<string, ResolvedRoute | null>,
+): Promise<ResolvedRoute | null> {
+  const cacheKey = segments.join('/') || '/'
+  // In production, cache permanently. In dev, skip cache (HMR may change files).
+  if (!isDev) {
+    const cached = routeCache.get(cacheKey)
+    if (cached !== undefined) return cached
+  }
+
+  const appDir = join(ssrDir, 'app')
+  let dir = appDir
+  let catchAll: string | null = null
+  let segIdx = 0
+
+  for (; segIdx < segments.length; segIdx++) {
+    const seg = segments[segIdx]
+    const literal = join(dir, seg)
+    try {
+      const s = await stat(literal)
+      if (s.isDirectory()) { dir = literal; continue }
+    } catch { /* not found */ }
+
+    let entries: { name: string; isDirectory: () => boolean }[]
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      routeCache.set(cacheKey, null)
+      return null
+    }
+
+    const paramDir = entries.find(e =>
+      e.isDirectory() && e.name.startsWith('[') && e.name.endsWith(']') && !e.name.startsWith('[...'),
+    )
+    if (paramDir) { dir = join(dir, paramDir.name); continue }
+
+    const catchAllDir = entries.find(e =>
+      e.isDirectory() && e.name.startsWith('[...') && e.name.endsWith(']'),
+    )
+    if (catchAllDir) {
+      catchAll = segments.slice(segIdx).join('/')
+      dir = join(dir, catchAllDir.name)
+      break
+    }
+
+    routeCache.set(cacheKey, null)
+    return null
+  }
+
+  const pageFile = join(dir, 'page.tsx')
+  if (!existsSync(pageFile)) { routeCache.set(cacheKey, null); return null }
+
+  const consumed = catchAll !== null ? segIdx : segments.length
+  const routeParams: string[] = []
+  for (let i = 0; i < consumed; i++) routeParams.push(segments[i])
+
+  const layoutFiles: string[] = []
+  let d = dir
+  while (d.startsWith(appDir)) {
+    const lf = join(d, 'layout.tsx')
+    if (existsSync(lf)) layoutFiles.unshift(lf)
+    if (d === appDir) break
+    d = dirname(d)
+  }
+
+  const errorFiles: string[] = []
+  d = dir
+  while (d.startsWith(appDir)) {
+    const ef = join(d, 'error.tsx')
+    if (existsSync(ef)) errorFiles.unshift(ef)
+    if (d === appDir) break
+    d = dirname(d)
+  }
+
+  let notFoundFile: string | null = null
+  d = dir
+  while (d.startsWith(appDir)) {
+    const nf = join(d, 'not-found.tsx')
+    if (existsSync(nf)) { notFoundFile = nf; break }
+    if (d === appDir) break
+    d = dirname(d)
+  }
+
+  const result: ResolvedRoute = { routePath: '/' + routeParams.join('/'), pageFile, layoutFiles, errorFiles, notFoundFile }
+  routeCache.set(cacheKey, result)
+  return result
+}
+
+/** Clear route cache (called by HMR watcher in dev mode). */
+export function clearRouteCache(cache: Map<string, ResolvedRoute | null>) {
+  cache.clear()
+}
+
+// ── Hydration bundle builder ────────────────────────────────────────────
 
 async function buildClientBundle(
   entryPath: string,
@@ -74,7 +202,7 @@ async function buildClientBundle(
       `const c=document.getElementById('__weifuwu_root');`,
       `if(window.__WEIFUWU_PROPS)setCtx({loaderData:window.__WEIFUWU_PROPS});`,
       isDev ? `const _W=function(props){return(_W._fn||P)(props)};_W._fn=P;const _P=function(props){return createElement(_W,props)};` : '',
-      isDev ? `window.__WFW_ENTRY=${JSON.stringify(id(absEntry))};window.__WFW_REFRESH=function(n){_W._fn=n;window.__WFW_ROOT.render(createElement(App))};` : '',
+      isDev ? `window.__WFW_ENTRY=${JSON.stringify(hashId(absEntry))};window.__WFW_REFRESH=function(n){_W._fn=n;window.__WFW_ROOT.render(createElement(App))};` : '',
       `function App(){`,
       `const ctx=window.__WEIFUWU_CTX||{};`,
       `return createElement(TsxContext.Provider,{value:ctx},`,
@@ -104,113 +232,27 @@ async function buildClientBundle(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Internal: resolve URL segments against the directory convention (sync)
-// ---------------------------------------------------------------------------
-interface ResolvedRoute {
-  routePath: string
-  pageFile: string
-  layoutFiles: string[]
-  errorFiles: string[]
-  notFoundFile: string | null
-}
+// ── Page renderer ───────────────────────────────────────────────────────
 
-function resolveFileSync(ssrDir: string, segments: string[]): ResolvedRoute | null {
-  const appDir = join(ssrDir, 'app')
-  let dir = appDir
-  const paramNames: string[] = []
-  const paramValues: string[] = []
-  let catchAll: string | null = null
-  let segIdx = 0
-
-  for (; segIdx < segments.length; segIdx++) {
-    const seg = segments[segIdx]
-    const literal = join(dir, seg)
-    if (existsSync(literal) && statSync(literal).isDirectory()) {
-      dir = literal
-      continue
-    }
-
-    const entries = readdirSync(dir, { withFileTypes: true })
-    const paramDir = entries.find(e =>
-      e.isDirectory() && e.name.startsWith('[') && e.name.endsWith(']') && !e.name.startsWith('[...'),
-    )
-    if (paramDir) {
-      paramNames.push(paramDir.name.slice(1, -1))
-      paramValues.push(seg)
-      dir = join(dir, paramDir.name)
-      continue
-    }
-
-    const catchAllDir = entries.find(e =>
-      e.isDirectory() && e.name.startsWith('[...') && e.name.endsWith(']'),
-    )
-    if (catchAllDir) {
-      catchAll = segments.slice(segIdx).join('/')
-      dir = join(dir, catchAllDir.name)
-      break
-    }
-
-    return null
-  }
-
-  const pageFile = join(dir, 'page.tsx')
-  if (!existsSync(pageFile)) return null
-
-  // Build routePath for ctx.params matching
-  let pi = 0
-  const consumed = catchAll !== null ? segIdx : segments.length
-  const routeParams: string[] = []
-  for (let i = 0; i < consumed; i++) {
-    routeParams.push(segments[i])
-  }
-
-  // Collect layouts from page dir up to appDir
-  const layoutFiles: string[] = []
-  let d = dir
-  while (d.startsWith(appDir)) {
-    const lf = join(d, 'layout.tsx')
-    if (existsSync(lf)) layoutFiles.unshift(lf)
-    if (d === appDir) break
-    d = dirname(d)
-  }
-
-  // Collect errors (nearest → farthest)
-  const errorFiles: string[] = []
-  d = dir
-  while (d.startsWith(appDir)) {
-    const ef = join(d, 'error.tsx')
-    if (existsSync(ef)) errorFiles.unshift(ef)
-    if (d === appDir) break
-    d = dirname(d)
-  }
-
-  // Nearest not-found.tsx walking up
-  let notFoundFile: string | null = null
-  d = dir
-  while (d.startsWith(appDir)) {
-    const nf = join(d, 'not-found.tsx')
-    if (existsSync(nf)) { notFoundFile = nf; break }
-    if (d === appDir) break
-    d = dirname(d)
-  }
-
-  return { routePath: '/' + routeParams.join('/'), pageFile, layoutFiles, errorFiles, notFoundFile }
-}
-
-// ---------------------------------------------------------------------------
-// Internal: SSR handler for a single page
-// ---------------------------------------------------------------------------
 function renderPage(pageFile: string): Handler {
   const absPath = resolve(pageFile)
-  const entryId = id(absPath)
+  const entryId = hashId(absPath)
   ssrEntries.set(entryId, { path: absPath })
   const bundleKey = `/__ssr/${entryId}.js`
 
   return async (req, ctx) => {
-    const pageMod = await compile(absPath)
+    // Compile page
+    let pageMod: any
+    try {
+      pageMod = await compile(absPath)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[ssr] compile failed: ${pageFile} — ${msg}`)
+      return errorPage('Compilation failed', `${pageFile}: ${msg}`)
+    }
+
     const Component = pageMod.default
-    if (!Component) return new Response('', { status: 500 })
+    if (!Component) return errorPage('Missing default export', pageFile)
 
     const layouts = (ctx.layoutStack || [])
     const layoutComponents = layouts.map((l: any) => l.component)
@@ -266,9 +308,8 @@ function renderPage(pageFile: string): Handler {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Internal: run a middleware chain manually
-// ---------------------------------------------------------------------------
+// ── Middleware chain runner ─────────────────────────────────────────────
+
 function runChain(mws: Middleware[], handler: Handler, req: Request, ctx: Context): Promise<Response> {
   let idx = 0
   const dispatch: Handler = (r, c) => {
@@ -278,14 +319,54 @@ function runChain(mws: Middleware[], handler: Handler, req: Request, ctx: Contex
   return Promise.resolve(dispatch(req, ctx))
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-export function ssr(opts: { dir: string }): Router & { close?: () => void } {
+// ── Route discovery (sync, for ssr.routes()) ────────────────────────────
+
+export interface RouteEntry {
+  path: string
+  file: string
+}
+
+function discoverRoutes(dir: string): RouteEntry[] {
+  const appDir = join(dir, 'app')
+  if (!existsSync(appDir)) return []
+
+  const result: RouteEntry[] = []
+
+  function walk(currentDir: string, routePath: string) {
+    let entries
+    try { entries = readdirSync(currentDir, { withFileTypes: true }) }
+    catch { return }
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        let segment = entry.name
+        if (entry.name.startsWith('[...') && entry.name.endsWith(']')) {
+          segment = '*'
+        } else if (entry.name.startsWith('[') && entry.name.endsWith(']')) {
+          segment = ':' + entry.name.slice(1, -1)
+        }
+        walk(join(currentDir, entry.name), routePath + '/' + segment)
+      } else if (entry.name === 'page.tsx') {
+        result.push({
+          path: routePath || '/',
+          file: relative(appDir, join(currentDir, entry.name)),
+        })
+      }
+    }
+  }
+
+  walk(appDir, '')
+  return result
+}
+
+// ── Public API ──────────────────────────────────────────────────────────
+
+export function ssr(opts: { dir: string }): Router & { close?: () => void; pages?: () => RouteEntry[] } {
   const r = new Router()
   const dir = resolve(opts.dir)
+  const routeCache = new Map<string, ResolvedRoute | null>()
 
-  // Infrastructure routes — eager (must be registered before _mountRouter)
+  // Infrastructure routes
   r.get('/__ssr/:path', (req, ctx) => {
     const buf = getBundle('/__ssr/' + ctx.params.path)
     if (!buf) return new Response('', { status: 404 })
@@ -305,15 +386,19 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void } {
     ;(r as any).close = watcher.close
   }
 
-  // Catch-all: lazy page route resolution
+  // Catch-all: lazy page route resolution (async + cached)
   r.all('/*', async (req, ctx) => {
     const prefix = ctx.mountPath || ''
     const pathname = new URL(req.url).pathname
     const relativePath = pathname.replace(prefix, '') || '/'
     const segments = relativePath.split('/').filter(Boolean)
 
-    const resolved = resolveFileSync(dir, segments)
-    if (!resolved) return new Response('Not Found', { status: 404 })
+    const resolved = await resolveRoute(dir, segments, routeCache)
+    if (!resolved) {
+      return isDev
+        ? Response.json({ error: 'Not Found', path: '/' + segments.join('/'), method: req.method }, { status: 404 })
+        : new Response('Not Found', { status: 404 })
+    }
 
     const mws: Middleware[] = [
       ...resolved.errorFiles.map(f => errorBoundary(f)),
@@ -325,5 +410,7 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void } {
     return runChain(mws, handler, req, ctx)
   })
 
-  return r as Router & { close?: () => void }
+  const mod = r as Router & { close?: () => void; pages?: () => RouteEntry[] }
+  mod.pages = () => discoverRoutes(dir)
+  return mod
 }
