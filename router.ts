@@ -6,7 +6,7 @@ import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
 import { createHub } from './hub.ts'
 import type { Hub } from './hub.ts'
 
-const isProduction = process.env.NODE_ENV === 'production'
+import { isProd } from './env.ts'
 
 export type WebSocketHandler = {
   open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
@@ -230,7 +230,7 @@ export class Router<T extends Context = Context> {
       node = getOrCreateChild(node, segment, createTrieNode, false)
     }
 
-    if (process.env.NODE_ENV !== 'production' && node.handlers.has(method)) {
+    if (!isProd() && node.handlers.has(method)) {
       console.warn(
         `[router] route conflict: ${method} ${path} overwrites existing handler`
       )
@@ -545,7 +545,7 @@ export class Router<T extends Context = Context> {
     if (this.globalMws.length > 0) {
       try {
         return await this.runChain(this.globalMws, () => {
-          if (!isProduction) {
+          if (!isProd()) {
             return Response.json({ error: 'Not Found', path: '/' + (segments.join('/')), method: req.method }, { status: 404 })
           }
           return new Response('Not Found', { status: 404 })
@@ -555,7 +555,7 @@ export class Router<T extends Context = Context> {
       }
     }
 
-    if (!isProduction) {
+    if (!isProd()) {
       return Response.json({
         error: 'Not Found',
         path: '/' + (segments.join('/')),

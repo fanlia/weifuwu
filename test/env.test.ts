@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { isDev } from '../env.ts'
+import { isDev, isProd } from '../env.ts'
 
 describe('isDev', () => {
   it('returns true when NODE_ENV is development', () => {
@@ -24,6 +24,37 @@ describe('isDev', () => {
     const prev = process.env.NODE_ENV
     delete process.env.NODE_ENV
     assert.equal(isDev(), false)
+    process.env.NODE_ENV = prev
+  })
+})
+
+describe('isProd', () => {
+  it('returns true when NODE_ENV is production', () => {
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    assert.equal(isProd(), true)
+    process.env.NODE_ENV = prev
+  })
+
+  it('returns false when NODE_ENV is development', () => {
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = 'development'
+    assert.equal(isProd(), false)
+    process.env.NODE_ENV = prev
+  })
+
+  it('returns false when NODE_ENV is not set', () => {
+    const prev = process.env.NODE_ENV
+    delete process.env.NODE_ENV
+    assert.equal(isProd(), false)
+    process.env.NODE_ENV = prev
+  })
+
+  it('isDev and isProd are not opposites', () => {
+    const prev = process.env.NODE_ENV
+    delete process.env.NODE_ENV
+    assert.equal(isDev(), false)
+    assert.equal(isProd(), false)  // both false = default mode
     process.env.NODE_ENV = prev
   })
 })

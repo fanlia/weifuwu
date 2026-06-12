@@ -1,7 +1,7 @@
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
 export { currentTraceId, currentTrace, runWithTrace, traceElapsed } from './trace.ts'
 export type { TraceContext } from './trace.ts'
-export { loadEnv, isDev } from './env.ts'
+export { loadEnv, isDev, isProd } from './env.ts'
 export { serve, createTestServer, DEFAULT_MAX_BODY } from './serve.ts'
 export type { ServeOptions, Server } from './serve.ts'
 export { Router } from './router.ts'
