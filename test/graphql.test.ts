@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router, graphql, createTestServer } from '../index.ts'
+import { Router, graphql, createTestServer, type GraphQLHandler } from '../index.ts'
 import type { Context } from '../types.ts'
 
 const schema = `type Query { hello: String, fail: Int }
@@ -165,7 +165,7 @@ describe('graphql http', () => {
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
     assert.deepEqual(data, { data: { hello: 'world' } })
-    server.stop()
+    await server.stop()
   })
 
   it('handles POST query via HTTP', async () => {
@@ -182,7 +182,7 @@ describe('graphql http', () => {
     assert.equal(res.status, 200)
     const data = await res.json() as Record<string, unknown>
     assert.deepEqual(data, { data: { hello: 'world' } })
-    server.stop()
+    await server.stop()
   })
 
   it('returns GraphiQL HTML on GET without query via HTTP', async () => {
@@ -196,7 +196,7 @@ describe('graphql http', () => {
     const text = await res.text()
     assert.ok(text.includes('GraphiQL'))
     assert.ok(text.includes('graphiql'))
-    server.stop()
+    await server.stop()
   })
 
   it('executes query when graphiql=true but query param present', async () => {

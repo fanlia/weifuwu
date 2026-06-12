@@ -20,7 +20,7 @@ export interface ServeOptions {
 }
 
 export interface Server {
-  stop: () => void
+  stop: () => Promise<void>
   readonly port: number
   readonly hostname: string
   ready: Promise<void>
@@ -197,7 +197,7 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
       server.close()
       resolveReady()
       return {
-        stop: () => {},
+        stop: () => Promise.resolve(),
         ready,
         get port() { return 0 },
         get hostname() { return hostname },
@@ -233,7 +233,12 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
         process.off('SIGINT', shutdownHandler)
         shutdownHandler = null
       }
-      server.close()
+      return new Promise<void>((resolve) => {
+        if (!server.listening) { resolve(); return }
+        server.closeIdleConnections()
+        server.closeAllConnections()
+        server.close(() => resolve())
+      })
     },
     ready,
     get port() {

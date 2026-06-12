@@ -122,14 +122,17 @@ async function executeQuery(
       operationName: params.operationName,
     }) as any
 
-    const result = timeout > 0
-      ? await Promise.race([
-          resultPromise,
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Query timeout')), timeout)
-          ),
-        ])
-      : await resultPromise
+    let result
+    if (timeout > 0) {
+      let timer: ReturnType<typeof setTimeout> | null = null
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Query timeout')), timeout)
+      })
+      result = await Promise.race([resultPromise, timeoutPromise])
+      if (timer) clearTimeout(timer)
+    } else {
+      result = await resultPromise
+    }
 
     return Response.json(result, { status: result.errors ? 400 : 200 })
   } catch (err) {
