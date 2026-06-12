@@ -18,8 +18,8 @@ export class PgModule {
     return this.pg.table(tableName, builders)
   }
 
-  async transaction<T>(fn: (sql: Sql<{}>) => Promise<T>): Promise<T> {
-    return await this.pg.transaction(fn)
+  async transaction<T>(fn: (sql: Sql<{}>) => Promise<T>, retryOpts?: { maxRetries?: number }): Promise<T> {
+    return await this.pg.transaction(fn, retryOpts)
   }
 
   async migrate(): Promise<void> {
