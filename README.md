@@ -126,6 +126,25 @@ The `ctx` object accumulates properties as it passes through the middleware chai
 | `compiledTailwindCss` | `ssr()` internal | `string` | Compiled CSS content (internal) |
 | `tailwindCssUrl` | `ssr()` internal | `string` | Compiled CSS route URL (internal) |
 
+### Type-Safe Context
+
+Middleware-injected properties are **automatically typed** through chained `use()` calls:
+
+```ts
+const app = new Router()
+  .use(csrf())          // → Router<Context & { csrfToken: string }>
+  .use(requestId())     // → Router<Context & { csrfToken, requestId }>
+  .use(postgres())      // → Router<Context & { csrfToken, requestId, sql }>
+
+app.get('/me', (_req, ctx) => {
+  ctx.csrfToken   // ✅ string (IDE autocomplete)
+  ctx.requestId   // ✅ string
+  ctx.sql`SELECT 1` // ✅ Sql<{}>
+})
+```
+
+Each module exports an `XxxInjected` type (e.g. `PostgresInjected`, `UserInjected`) for composing custom context types. `Context` is an interface — modules augment it via `declare module` for ambient compatibility.
+
 ---
 
 ## Module Patterns
@@ -162,6 +181,98 @@ const a = analytics()
 app.use(a.middleware())   // tracking
 app.use('/', a)           // dashboard
 ```
+
+---
+
+## Request Tracing & Logging
+
+Every request gets a **trace ID** via `AsyncLocalStorage`, injected into responses as `X-Trace-Id`. W3C `traceparent` headers are forwarded.
+
+```ts
+import { currentTraceId } from 'weifuwu'
+
+app.get('/api', (req, ctx) => {
+  console.log('Handling request', currentTraceId()) // f240a3f3-60e2-...
+})
+```
+
+**Structured logging** — `logger({ format: 'json' })` outputs JSON to stderr with `traceId`, `timestamp`, `elapsed_ms`:
+
+```json
+{"level":"info","message":"request","method":"GET","path":"/api/users","status":200,"elapsed_ms":42,"traceId":"f240a3f3-...","timestamp":"2025-01-15T10:30:00.000Z"}
+```
+
+Default format is `'short'` (human-readable). `'combined'` includes query strings.
+
+---
+
+## AI Observability
+
+Agent runs are **automatically logged** to `_agent_runs`. Dashboard endpoints provide analytics:
+
+```
+GET /agents/:id/runs?days=7       → [{ input, output, tokens_in, tokens_out, elapsed_ms, status, trace_id, ... }]
+GET /agents/:id/runs/summary?days=7 → { total, success, error, success_rate, tokens_in, tokens_out, avg_elapsed_ms, p95_elapsed_ms }
+GET /opencode/sessions/:id/usage    → { message_count, tokens_in, tokens_out, tokens_total }
+```
+
+Non-streaming runs log full token data; streaming runs log `status: 'stream'`.
+
+---
+
+## Agent ↔ Messager Streaming
+
+Agent replies in messager channels now stream **token-by-token** via WebSocket:
+
+```ts
+// Backend — automatic when agents are attached to messager
+const msg = messager({ pg, agents: agent({ pg, model }) })
+app.ws('/ws', msg.wsHandler())
+// Agent replies stream to: hub.broadcast({ type: 'agent_stream', data: { token, full } })
+```
+
+```tsx
+// Frontend — React hook
+import { useAgentStream } from 'weifuwu/react'
+
+const { getAgentText, isAgentStreaming, stream } = useAgentStream({
+  wsPath: '/ws',
+  channelId: 1,
+})
+```
+
+Multi-round conversation context: the last 10 channel messages are automatically injected into agent calls.
+
+---
+
+## Test Utilities
+
+Chainable test helper for HTTP-level testing without starting a server:
+
+```ts
+import { testApp } from 'weifuwu'
+
+const app = testApp()
+app.use(postgres({ connection: TEST_DB }))
+app.get('/users/:id', (req, ctx) => Response.json({ id: ctx.params.id, user: ctx.user }))
+
+const res = await app
+  .getReq('/users/42?name=Alice')
+  .withUser({ id: 1 })
+  .header('X-Custom', 'val')
+  .body({ data: 'test' })
+  .send()
+
+assert.equal(res.status, 200)
+assert.deepEqual(await res.json(), { id: '42', user: { id: 1 } })
+```
+
+| Method | Description |
+|--------|-------------|
+| `app.getReq(path)` `postReq` `putReq` `patchReq` `deleteReq` | Start building a request |
+| `.withUser(u)` `.withTenant(t)` `.with(ctx)` | Simulate middleware injection |
+| `.header(k,v)` `.body(data)` `.rawBody(str)` | Set request properties |
+| `.send()` → `TestResponse` | Execute and get `{ status, headers, json(), text() }` |
 
 ---
 
@@ -1120,7 +1231,8 @@ Every public symbol can be imported from `'weifuwu'`:
 ```ts
 serve, createTestServer, Router, ssr,
 Context, Handler, Middleware, ErrorHandler, ServeOptions, Server,
-loadEnv
+loadEnv, testApp, TestApp, TestRequest, TestResponse,
+currentTraceId, currentTrace, runWithTrace, traceElapsed, TraceContext,
 ```
 
 ### Middleware modules
@@ -1136,6 +1248,7 @@ preferences, serveStatic
 postgres, PostgresOptions, PostgresClient,
 redis, RedisOptions, RedisClient,
 queue, QueueOptions, QueueJob, Queue,
+PostgresInjected, RedisInjected, QueueInjected,
 // Schema helpers — importable alongside postgres:
 pgTable, SQL, sql,
 ColumnBuilder, serial, uuid, text, integer, boolean, boolean_, timestamptz, jsonb, textArray, vector,
@@ -1151,8 +1264,10 @@ TsxContext, useLoaderData,
 useWebsocket, useAction, useFetch, useQueryState, createStore,
 Link, useNavigate, useNavigating, addInterceptor,
 useLocale, useTheme, applyTheme, useFlashMessage,
+useAgentStream,
 Head
 ```
+export type { UseAgentStreamOptions, UseAgentStreamReturn, AgentStreamState } from 'weifuwu/react'
 
 ### AI SDK (re-exported from `ai`)
 
@@ -1169,8 +1284,10 @@ preferences, health, analytics, seo, seoMiddleware, seoTags,
 user, mailer, graphql, aiStream, runWorkflow,
 logdb, messager, agent, iii, createWorker, registerWorker,
 opencode, deploy, defineConfig,
+testApp, TestApp, TestRequest, TestResponse,
 getCookies, setCookie, deleteCookie,
-createSSEStream, formatSSE, formatSSEData
+createSSEStream, formatSSE, formatSSEData,
+currentTraceId, currentTrace, runWithTrace, traceElapsed,
 ```
 
 ---

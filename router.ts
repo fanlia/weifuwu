@@ -105,21 +105,28 @@ type WsMatchResult = {
 
 type WsUpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => void
 
-export class Router {
+// Router<T> — T accumulates types from global middleware calls via use(mw).
+// Route-level middleware does not change the Router's type parameter.
+export class Router<T extends Context = Context> {
   private root: TrieNode = createTrieNode()
   private wsRoot: WsTrieNode = createWsNode()
   private globalMws: Middleware[] = []
-  private errorHandler?: ErrorHandler
+  private errorHandler?: ErrorHandler<T>
   private _wss?: WebSocketServer
   private get wss(): WebSocketServer {
     if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
     return this._wss
   }
 
-  use(mw: Middleware): this
-  use(path: string, router: Router): this
-  use(path: string, mw: Middleware): this
-  use(arg1: string | Middleware, arg2?: Router | Middleware): this {
+  // Global middleware — accumulates types into Router<T>.
+  // The middleware's In type is Context (base); Out is what it injects.
+  // Router accumulates via intersection: Router<T & Out>
+  use<Out extends Context>(mw: Middleware<Context, Out>): Router<T & Out>
+  // Path-scoped middleware — does not accumulate
+  use(path: string, mw: Middleware<T, T>): Router<T>
+  // Mount sub-router — flattens into parent, does not accumulate
+  use(path: string, router: Router<any>): Router<T>
+  use(arg1: string | Middleware<any, any>, arg2?: Router<any> | Middleware<T, T>): Router<any> {
     if (typeof arg1 === 'string') {
       if (arg2 instanceof Router) {
         this._mountRouter(arg1, arg2)
@@ -128,59 +135,61 @@ export class Router {
         for (const segment of this.splitPath(arg1)) {
           node = getOrCreateChild(node, segment, createTrieNode, false)
         }
-        node.pathMws.push(arg2)
+        node.pathMws.push(arg2 as unknown as Middleware)
       }
     } else if (typeof arg1 === 'function') {
-      this.globalMws.push(arg1)
+      this.globalMws.push(arg1 as unknown as Middleware)
     }
-    return this
+    return this as any
   }
 
-  get(path: string, ...args: [...Middleware[], Handler | Router]): this {
-    return this.route('GET', path, ...args)
+  // Route registration — returns Router<T> unchanged.
+  // Route-level middleware and handlers get Context<T>.
+  get(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._route('GET', path, ...args)
   }
 
-  post(path: string, ...args: [...Middleware[], Handler | Router]): this {
-    return this.route('POST', path, ...args)
+  post(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._route('POST', path, ...args)
   }
 
-  put(path: string, ...args: [...Middleware[], Handler | Router]): this {
-    return this.route('PUT', path, ...args)
+  put(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._route('PUT', path, ...args)
   }
 
-  delete(path: string, ...args: [...Middleware[], Handler | Router]): this {
-    return this.route('DELETE', path, ...args)
+  delete(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._route('DELETE', path, ...args)
   }
 
-  patch(path: string, ...args: [...Middleware[], Handler | Router]): this {
-    return this.route('PATCH', path, ...args)
+  patch(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._route('PATCH', path, ...args)
   }
 
-  head(path: string, ...args: [...Middleware[], Handler | Router]): this {
-    return this.route('HEAD', path, ...args)
+  head(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._route('HEAD', path, ...args)
   }
 
-  options(path: string, ...args: [...Middleware[], Handler | Router]): this {
-    return this.route('OPTIONS', path, ...args)
+  options(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._route('OPTIONS', path, ...args)
   }
 
-  all(path: string, ...args: [...Middleware[], Handler | Router]): this {
-    return this.route('*', path, ...args)
+  all(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._route('*', path, ...args)
   }
 
-  onError(handler: ErrorHandler): this {
+  onError(handler: ErrorHandler<T>): Router<T> {
     this.errorHandler = handler
     return this
   }
 
-  route(method: string, path: string, ...args: [...Middleware[], Handler | Router]): this {
+  private _route(method: string, path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
     const last = args[args.length - 1]
     if (last instanceof Router) {
-      this._mountRouter(path, last, args.slice(0, -1) as Middleware[])
+      this._mountRouter(path, last, args.slice(0, -1) as unknown as Middleware[])
       return this
     }
-    const handler = args.pop()! as Handler
-    const middlewares = args as Middleware[]
+    const handler = args.pop()! as unknown as Handler<T>
+    const middlewares = args as unknown as Middleware[]
     const segments = this.splitPath(path)
     let node = this.root
 
@@ -191,21 +200,21 @@ export class Router {
           console.warn(`Route "${path}": segments after "*" are ignored`)
         }
         node.wildcard = true
-        node.handlers.set(method, handler)
+        node.handlers.set(method, handler as Handler)
         if (middlewares.length > 0) node.middlewares.set(method, middlewares)
         return this
       }
       node = getOrCreateChild(node, segment, createTrieNode, false)
     }
 
-    node.handlers.set(method, handler)
+    node.handlers.set(method, handler as Handler)
     if (middlewares.length > 0) node.middlewares.set(method, middlewares)
     return this
   }
 
-  ws(path: string, ...args: [...Middleware[], WebSocketHandler]): this {
+  ws(path: string, ...args: [...Middleware<T, T>[], WebSocketHandler]): Router<T> {
     const handler = args.pop()! as WebSocketHandler
-    const middlewares = args as Middleware[]
+    const middlewares = args as unknown as Middleware[]
     const segments = this.splitPath(path)
     let node = this.wsRoot
 
@@ -218,10 +227,10 @@ export class Router {
     return this
   }
 
-  handler(): Handler {
+  handler(): Handler<T> {
     return (req, ctx) => {
       const url = new URL(req.url)
-      return this.handle(req, ctx, this.splitPath(url.pathname))
+      return this.handle(req, ctx as Context, this.splitPath(url.pathname))
     }
   }
 
@@ -273,7 +282,7 @@ export class Router {
     }
   }
 
-  private _mountRouter(prefix: string, sub: Router, extraMws: Middleware[] = []): void {
+  private _mountRouter(prefix: string, sub: Router<any>, extraMws: Middleware[] = []): void {
     const base = prefix === '/' ? '' : prefix.replace(/\/$/, '')
 
     const mountMw: Middleware = (req, ctx, next) => {
@@ -288,13 +297,19 @@ export class Router {
     const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
     this._collect(sub.root, '', routes, [])
     for (const { method, path, handler, middlewares } of routes) {
-      this.route(method, base + path, ...allExtra, ...middlewares, handler)
+      this._route(
+        method as any,
+        base + path,
+        ...(allExtra as any),
+        ...(middlewares as any),
+        handler as any,
+      )
     }
 
     const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
     this._collectWs(sub.wsRoot, '', wsRoutes)
     for (const { path, handler, middlewares } of wsRoutes) {
-      this.ws(base + path, ...allExtra, ...middlewares, handler)
+      this.ws(base + path, ...(allExtra as any), ...(middlewares as any), handler)
     }
   }
 
@@ -426,7 +441,7 @@ export class Router {
     const err = e instanceof Error ? e : new Error(String(e))
     console.error(err)
     return this.errorHandler
-      ? await this.errorHandler(err, req, ctx)
+      ? await this.errorHandler(err, req, ctx as T)
       : new Response('Internal Server Error', { status: 500 })
   }
 
@@ -558,4 +573,3 @@ function sendHttpResponseOnSocket(socket: Duplex, response: Response): void {
     socket.end()
   })
 }
-

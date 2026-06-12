@@ -92,6 +92,29 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
     return createSSEStream(stream)
   })
 
+  router.get('/sessions/:id/usage', async (_req: Request, ctx: any) => {
+    const sessionId = ctx.params.id
+    const session = await getSession(sql, sessionId)
+    if (!session) return new Response('Not Found', { status: 404 })
+
+    const rows = await sql`
+      SELECT
+        COUNT(*)::int AS message_count,
+        COALESCE(SUM(tokens_in), 0)::int AS total_tokens_in,
+        COALESCE(SUM(tokens_out), 0)::int AS total_tokens_out
+      FROM "_opencode_messages"
+      WHERE session_id = ${sessionId}
+    `
+    const stats = (rows as any[])[0] || { message_count: 0, total_tokens_in: 0, total_tokens_out: 0 }
+    return Response.json({
+      session_id: sessionId,
+      message_count: stats.message_count,
+      tokens_in: stats.total_tokens_in,
+      tokens_out: stats.total_tokens_out,
+      tokens_total: stats.total_tokens_in + stats.total_tokens_out,
+    })
+  })
+
   try {
     const uiDir = new URL('../opencode/ui/', import.meta.url).pathname
     router.use('/', ssr({ dir: uiDir }))

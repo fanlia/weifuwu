@@ -4,10 +4,12 @@ import type { Sql } from '../vendor.ts'
 import type { BoundTable } from '../postgres/schema/index.ts'
 import type { AgentConfig, RunParams, RunResult, KnowledgeDoc } from './types.ts'
 import { formatSSE } from '../sse.ts'
+import { currentTraceId } from '../trace.ts'
 
 interface RunnerDeps {
   sql: Sql<{}>
   agents: BoundTable<any>
+  runs: BoundTable<any>
   knowledge: BoundTable<any>
   getModel: () => LanguageModel
   getEmbeddingModel: () => EmbeddingModel
@@ -50,7 +52,33 @@ async function loadAgent(agents: BoundTable<any>, agentId: number): Promise<Agen
 }
 
 export function createRunner(deps: RunnerDeps) {
-  const { sql, agents, getModel, getEmbeddingModel, userTools } = deps
+  const { sql, agents, runs, getModel, getEmbeddingModel, userTools } = deps
+
+  function truncate(s: string, max = 200): string {
+    return s.length > max ? s.slice(0, max) + '...' : s
+  }
+
+  async function logRun(agentId: number, params: RunParams, result: Partial<{
+    output: string; elapsed: number; tokensIn: number; tokensOut: number;
+    status: string; errorMsg: string | null; model: string
+  }>) {
+    try {
+      await runs.insert({
+        agent_id: agentId,
+        input: truncate(params.input),
+        output: result.output ? truncate(result.output) : null,
+        model: result.model || '',
+        tokens_in: result.tokensIn || 0,
+        tokens_out: result.tokensOut || 0,
+        elapsed_ms: result.elapsed || 0,
+        status: result.status || 'success',
+        error_msg: result.errorMsg || null,
+        trace_id: currentTraceId() || null,
+      })
+    } catch (e) {
+      console.error('[agent] failed to log run:', (e as Error).message)
+    }
+  }
 
   async function run(agentId: number, params: RunParams): Promise<RunResult> {
     const agent = await loadAgent(agents, agentId)
@@ -97,6 +125,10 @@ export function createRunner(deps: RunnerDeps) {
         tools: Object.keys(tools).length > 0 ? (tools as any) : undefined,
       })
 
+      // Log streaming runs with partial data (tokens not known upfront)
+      const elapsed = Date.now() - start
+      logRun(agentId, params, { model: agent.model, status: 'stream', elapsed }).catch(() => {})
+
       const fullStream = result.fullStream
       const encoder = new TextEncoder()
 
@@ -123,7 +155,17 @@ export function createRunner(deps: RunnerDeps) {
         tools: Object.keys(tools).length > 0 ? (tools as any) : undefined,
       })
 
-      return { output: result.text, elapsed: Date.now() - start }
+      const elapsed = Date.now() - start
+      logRun(agentId, params, {
+        output: result.text,
+        elapsed,
+        tokensIn: result.usage?.inputTokens,
+        tokensOut: result.usage?.outputTokens,
+        model: agent.model,
+        status: 'success',
+      }).catch(() => {})
+
+      return { output: result.text, elapsed }
     }
   }
 

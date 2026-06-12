@@ -8,7 +8,7 @@ export interface CsrfOptions {
   excludeMethods?: string[]
 }
 
-export function csrf(options?: CsrfOptions): Middleware {
+export function csrf(options?: CsrfOptions): Middleware<Context, Context & { csrfToken: string }> {
   const cookieName = options?.cookie ?? '_csrf'
   const headerName = options?.header ?? 'x-csrf-token'
   const bodyKey = options?.key ?? '_csrf'
@@ -26,7 +26,7 @@ export function csrf(options?: CsrfOptions): Middleware {
         ;(ctx as any).csrfToken = token
       }
 
-      const res = await next(req, ctx)
+      const res = await next(req, ctx as Context & { csrfToken: string })
       const tokenToSet = (ctx as any).csrfToken
       if (tokenToSet && !getCookies(req)[cookieName]) {
         return setCookie(res, cookieName, tokenToSet, {
@@ -55,6 +55,6 @@ export function csrf(options?: CsrfOptions): Middleware {
       return new Response('CSRF token mismatch', { status: 403 })
     }
 
-    return next(req, ctx)
+    return next(req, ctx as Context & { csrfToken: string })
   }
 }

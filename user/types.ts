@@ -1,4 +1,4 @@
-import type { Middleware } from '../types.ts'
+import type { Middleware, Context } from '../types.ts'
 import type { Router } from '../router.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
@@ -37,8 +37,12 @@ export interface UserOptions {
   oauth2?: OAuth2ServerOptions
 }
 
+export interface UserInjected {
+  user: UserData
+}
+
 export interface UserModule extends Router {
-  middleware: () => Middleware
+  middleware: () => Middleware<Context, Context & UserInjected>
   migrate: () => Promise<void>
   register: (data: { email: string; password: string; name: string }) => Promise<AuthResult>
   login: (data: { email: string; password: string }) => Promise<AuthResult>

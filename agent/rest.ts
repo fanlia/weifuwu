@@ -1,10 +1,11 @@
 import { Router } from '../router.ts'
 import type { BoundTable } from '../postgres/schema/index.ts'
 import type { AgentConfig, RunParams } from './types.ts'
-import { eq } from '../postgres/schema/index.ts'
+import { eq, and, gte } from '../postgres/schema/index.ts'
 
 interface RestDeps {
   agents: BoundTable<any>
+  runs: BoundTable<any>
   knowledge: BoundTable<any>
   runner: {
     run: (agentId: number, params: RunParams) => Promise<any>
@@ -13,7 +14,7 @@ interface RestDeps {
 }
 
 export function buildRouter(deps: RestDeps): Router {
-  const { agents: agentsTable, knowledge, runner } = deps
+  const { agents: agentsTable, runs: runsTable, knowledge, runner } = deps
 
   async function getAgent(id: number): Promise<AgentConfig | null> {
     const row = await agentsTable.read(id)
@@ -101,6 +102,69 @@ export function buildRouter(deps: RestDeps): Router {
     } catch (err: any) {
       return Response.json({ error: err.message }, { status: 500 })
     }
+  })
+
+  // ── Run history & analytics ──────────────────────────
+
+  r.get('/agents/:id/runs', async (_req, ctx) => {
+    const agentId = parseInt(ctx.params.id, 10)
+    const agent = await getAgent(agentId)
+    if (!agent) return Response.json({ error: 'Agent not found' }, { status: 404 })
+
+    const url = new URL(_req.url)
+    const days = parseInt(url.searchParams.get('days') || '7', 10)
+    const since = new Date()
+    since.setDate(since.getDate() - days)
+    const sinceStr = since.toISOString()
+
+    const { data: rows } = await runsTable.readMany(
+      and(eq('agent_id', agentId), gte('created_at', sinceStr)),
+      { orderBy: { created_at: 'desc' }, limit: 100 },
+    )
+    return Response.json(rows)
+  })
+
+  r.get('/agents/:id/runs/summary', async (_req, ctx) => {
+    const agentId = parseInt(ctx.params.id, 10)
+    const agent = await getAgent(agentId)
+    if (!agent) return Response.json({ error: 'Agent not found' }, { status: 404 })
+
+    const url = new URL(_req.url)
+    const days = parseInt(url.searchParams.get('days') || '7', 10)
+    const since = new Date()
+    since.setDate(since.getDate() - days)
+    const sinceStr = since.toISOString()
+
+    const { data: rows } = await runsTable.readMany(
+      and(eq('agent_id', agentId), gte('created_at', sinceStr)),
+      { orderBy: { created_at: 'desc' } },
+    )
+
+    const total = rows.length
+    const success = rows.filter((r: any) => r.status === 'success' || r.status === 'stream').length
+    const error = rows.filter((r: any) => r.status === 'error').length
+    const totalTokensIn = rows.reduce((sum: number, r: any) => sum + (r.tokens_in || 0), 0)
+    const totalTokensOut = rows.reduce((sum: number, r: any) => sum + (r.tokens_out || 0), 0)
+    const totalElapsed = rows.reduce((sum: number, r: any) => sum + (r.elapsed_ms || 0), 0)
+    const avgElapsed = total > 0 ? Math.round(totalElapsed / total) : 0
+
+    // P95 elapsed
+    const sorted = [...rows].sort((a: any, b: any) => (a.elapsed_ms || 0) - (b.elapsed_ms || 0))
+    const p95Idx = Math.ceil(sorted.length * 0.95) - 1
+    const p95Elapsed = sorted.length > 0 ? sorted[p95Idx]?.elapsed_ms || 0 : 0
+
+    return Response.json({
+      agent_id: agentId,
+      period_days: days,
+      total,
+      success,
+      error,
+      success_rate: total > 0 ? (success / total * 100).toFixed(1) : '0',
+      tokens_in: totalTokensIn,
+      tokens_out: totalTokensOut,
+      avg_elapsed_ms: avgElapsed,
+      p95_elapsed_ms: p95Elapsed,
+    })
   })
 
   // ── Knowledge ──────────────────────────────────────────

@@ -595,3 +595,40 @@ describe('createTestServer', () => {
     server.stop()
   })
 })
+
+// ── trace ───────────────────────────────────────────────────────────────────
+
+describe('serve trace', () => {
+  it('adds X-Trace-Id to response', async () => {
+    const { server, url } = await createTestServer(() => new Response('ok'))
+    const res = await fetch(url)
+    assert.equal(res.status, 200)
+    assert.ok(res.headers.get('X-Trace-Id'), 'X-Trace-Id header should be present')
+    // Should be a valid UUID
+    const traceId = res.headers.get('X-Trace-Id')!
+    assert.ok(/^[a-f0-9-]{36}$/.test(traceId), `traceId should be UUID, got: ${traceId}`)
+    server.stop()
+  })
+
+  it('forwards incoming X-Trace-Id', async () => {
+    const { server, url } = await createTestServer((req) => {
+      const tid = req.headers.get('X-Trace-Id')
+      return new Response(tid ?? 'missing', { headers: { 'Content-Type': 'text/plain' } })
+    })
+    const incomingTid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+    const res = await fetch(url, { headers: { 'X-Trace-Id': incomingTid } })
+    assert.equal(res.headers.get('X-Trace-Id'), incomingTid)
+    server.stop()
+  })
+
+  it('generates unique trace IDs per request', async () => {
+    const { server, url } = await createTestServer(() => new Response('ok'))
+    const [res1, res2] = await Promise.all([fetch(url), fetch(url)])
+    const tid1 = res1.headers.get('X-Trace-Id')
+    const tid2 = res2.headers.get('X-Trace-Id')
+    assert.ok(tid1)
+    assert.ok(tid2)
+    assert.notEqual(tid1, tid2, 'each request should have unique traceId')
+    server.stop()
+  })
+})

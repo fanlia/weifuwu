@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken'
 import { z } from 'zod'
 import type { Middleware, Context } from '../types.ts'
 import { Router } from '../router.ts'
-import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client } from './types.ts'
+import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client, UserInjected } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
 import { pgTable, serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
 import { createOAuth2Server } from './oauth2.ts'
@@ -171,7 +171,7 @@ export function user(options: UserOptions): UserModule {
     }
   }
 
-  function middleware(): Middleware {
+  function middleware(): Middleware<Context, Context & UserInjected> {
     return async (req, ctx, next) => {
       const header = req.headers.get('Authorization')
       if (!header?.startsWith('Bearer ')) {
@@ -185,7 +185,7 @@ export function user(options: UserOptions): UserModule {
       }
 
       ctx.user = userData
-      return next(req, ctx)
+      return next(req, ctx as Context & UserInjected)
     }
   }
 

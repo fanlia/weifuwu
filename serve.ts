@@ -1,6 +1,7 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Context, Handler } from './types.ts'
+import { runWithTrace, currentTraceId } from './trace.ts'
 
 export interface ServeOptions {
   port?: number
@@ -107,10 +108,25 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   const hostname = options?.hostname ?? '0.0.0.0'
 
   const server = http.createServer(async (req, res) => {
+    const incomingTrace = (req.headers['x-trace-id'] as string) ||
+                          (req.headers['traceparent'] as string)?.split('-')[1] || null
+
     try {
-      const body = await readBody(req, options?.maxBodySize)
-      const [request, query] = createRequest(req, body)
-      const response = await handler(request, { params: {}, query } as Context)
+      const response = await runWithTrace(incomingTrace, async () => {
+        const body = await readBody(req, options?.maxBodySize)
+        const [request, query] = createRequest(req, body)
+        const response = await handler(request, { params: {}, query } as Context)
+
+        // Inject trace ID into response (must be inside runWithTrace for ALS to work)
+        const traceId = incomingTrace || currentTraceId()
+        if (traceId && !response.headers.has('X-Trace-Id')) {
+          const headers = new Headers(response.headers)
+          headers.set('X-Trace-Id', traceId)
+          return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
+        }
+        return response
+      })
+
       await sendResponse(res, response)
     } catch (err) {
       if (err instanceof HttpError && err.status === 413) {

@@ -1,5 +1,5 @@
 import type { Redis } from '../vendor.ts'
-import type { Context, Handler } from '../types.ts'
+import type { Context, Middleware } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -23,8 +23,11 @@ export interface QueueOptions {
   pollInterval?: number
 }
 
-export interface Queue {
-  (req: Request, ctx: Context, next: Handler): Response | Promise<Response>
+export interface QueueInjected {
+  queue: Queue
+}
+
+export interface Queue extends Middleware<Context, Context & QueueInjected> {
   add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string>
   process<T>(type: string, handler: (job: QueueJob<T>) => Promise<void>): void
   run(): Promise<void>

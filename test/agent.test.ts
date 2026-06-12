@@ -18,6 +18,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   after(async () => {
+    await pg.sql.unsafe('DROP TABLE IF EXISTS "_agent_runs" CASCADE')
     await pg.sql.unsafe('DROP TABLE IF EXISTS "_agents" CASCADE')
     await pg.sql.unsafe('DROP TABLE IF EXISTS "_knowledge_documents" CASCADE')
     await pg.close()
@@ -149,5 +150,60 @@ describe('agent', { skip: !DATABASE_URL }, () => {
 
     await pg.sql`DELETE FROM "_knowledge_documents" WHERE agent_id = ${agentId}`
     await pg.sql`DELETE FROM "_agents" WHERE id = ${agentId}`
+  })
+
+  it('returns run summary for an agent', async () => {
+    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('SummaryTest', 'chat', 1) RETURNING *`
+    const agentId = (ag as any).id
+
+    // Insert some synthetic runs
+    await pg.sql`INSERT INTO "_agent_runs" ("agent_id", "input", "output", "model", "tokens_in", "tokens_out", "elapsed_ms", "status") VALUES (${agentId}, 'hello', 'hi', 'gpt-4o', 10, 20, 100, 'success')`
+    await pg.sql`INSERT INTO "_agent_runs" ("agent_id", "input", "output", "model", "tokens_in", "tokens_out", "elapsed_ms", "status") VALUES (${agentId}, 'bye', 'goodbye', 'gpt-4o', 5, 15, 200, 'success')`
+    await pg.sql`INSERT INTO "_agent_runs" ("agent_id", "input", "model", "tokens_in", "tokens_out", "elapsed_ms", "status", "error_msg") VALUES (${agentId}, 'fail', 'gpt-4o', 0, 0, 300, 'error', 'test error')`
+
+    const r = a
+    const res = await r.handler()(
+      new Request(`http://localhost/agents/${agentId}/runs/summary?days=30`),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const summary = await res.json() as any
+    assert.equal(summary.total, 3)
+    assert.equal(summary.success, 2)
+    assert.equal(summary.error, 1)
+    assert.equal(summary.tokens_in, 15)
+    assert.equal(summary.tokens_out, 35)
+
+    await pg.sql`DELETE FROM "_agent_runs" WHERE agent_id = ${agentId}`
+    await pg.sql`DELETE FROM "_agents" WHERE id = ${agentId}`
+  })
+
+  it('lists runs for an agent', async () => {
+    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('RunListTest', 'chat', 1) RETURNING *`
+    const agentId = (ag as any).id
+
+    await pg.sql`INSERT INTO "_agent_runs" ("agent_id", "input", "output", "status") VALUES (${agentId}, 'q1', 'a1', 'success')`
+    await pg.sql`INSERT INTO "_agent_runs" ("agent_id", "input", "output", "status") VALUES (${agentId}, 'q2', 'a2', 'success')`
+
+    const r = a
+    const res = await r.handler()(
+      new Request(`http://localhost/agents/${agentId}/runs?days=30`),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const list = await res.json() as any[]
+    assert.ok(list.length >= 2)
+
+    await pg.sql`DELETE FROM "_agent_runs" WHERE agent_id = ${agentId}`
+    await pg.sql`DELETE FROM "_agents" WHERE id = ${agentId}`
+  })
+
+  it('rejects summary for non-existent agent', async () => {
+    const r = a
+    const res = await r.handler()(
+      new Request('http://localhost/agents/99999/runs/summary'),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 404)
   })
 })

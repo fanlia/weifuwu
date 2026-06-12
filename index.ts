@@ -1,4 +1,6 @@
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
+export { currentTraceId, currentTrace, runWithTrace, traceElapsed } from './trace.ts'
+export type { TraceContext } from './trace.ts'
 export { loadEnv, isDev } from './env.ts'
 export { serve, createTestServer } from './serve.ts'
 export type { ServeOptions, Server } from './serve.ts'
@@ -29,6 +31,8 @@ export { requestId } from './request-id.ts'
 export type { RequestIdOptions } from './request-id.ts'
 export { createSSEStream, formatSSE, formatSSEData } from './sse.ts'
 export type { SSEEvent } from './sse.ts'
+export { testApp, TestApp, TestRequest } from './test-utils.ts'
+export type { TestResponse } from './test-utils.ts'
 export { graphql } from './graphql.ts'
 export type { GraphQLOptions, GraphQLHandler } from './graphql.ts'
 export { aiStream } from './ai.ts'
@@ -47,7 +51,7 @@ export {
   createOpenAI,
 } from './ai-sdk.ts'
 export { postgres } from './postgres/index.ts'
-export type { PostgresOptions, PostgresClient } from './postgres/types.ts'
+export type { PostgresOptions, PostgresClient, PostgresInjected } from './postgres/types.ts'
 export { user } from './user/index.ts'
 export type {
   UserOptions,
@@ -55,12 +59,13 @@ export type {
   UserModule,
   OAuth2Client,
 } from './user/types.ts'
+export type { UserInjected } from './user/types.ts'
 export { redis } from './redis/index.ts'
-export type { RedisOptions, RedisClient } from './redis/types.ts'
+export type { RedisOptions, RedisClient, RedisInjected } from './redis/types.ts'
 export { createHub } from './hub.ts'
 export type { Hub, HubOptions } from './hub.ts'
 export { queue } from './queue/index.ts'
-export type { QueueOptions, QueueJob, Queue } from './queue/types.ts'
+export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types.ts'
 export { tenant } from './tenant/index.ts'
 export type {
   TenantOptions,

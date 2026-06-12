@@ -40,4 +40,27 @@ describe('logger', () => {
 
     mock.restoreAll()
   })
+
+  it('json format writes structured JSON to stderr', async (t) => {
+    const events: string[] = []
+    const orig = process.stderr.write
+    ;(process.stderr as any).write = (chunk: string) => { events.push(chunk); return true }
+    t.after(() => { (process.stderr as any).write = orig })
+
+    const r = new Router()
+      .use(logger({ format: 'json' }))
+      .get('/test', () => new Response('ok'))
+
+    await r.handler()(new Request('http://localhost/test'), { params: {}, query: {} } as any)
+
+    assert.equal(events.length, 1)
+    const event = JSON.parse(events[0]) as Record<string, unknown>
+    assert.equal(event.level, 'info')
+    assert.equal(event.method, 'GET')
+    assert.equal(event.path, '/test')
+    assert.equal(event.status, 200)
+    assert.ok(typeof event.elapsed_ms === 'number')
+    // traceId is optional — only present when request goes through serve()
+    assert.ok(typeof event.timestamp === 'string')
+  })
 })

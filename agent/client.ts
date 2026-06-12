@@ -61,17 +61,34 @@ export function agent(options: AgentOptions): AgentModule {
     created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
   })
 
-  const runner = createRunner({ sql, agents: agentsTable, knowledge: knowledgeTable, getModel, getEmbeddingModel, userTools: options.tools })
+  const runsTable = pg.table('_agent_runs', {
+    id: serial('id').primaryKey(),
+    agent_id: integer('agent_id').notNull().references('_agents', 'id', 'cascade'),
+    input: text('input'),
+    output: text('output'),
+    model: text('model').notNull().default(''),
+    tokens_in: integer('tokens_in').notNull().default(0),
+    tokens_out: integer('tokens_out').notNull().default(0),
+    elapsed_ms: integer('elapsed_ms').notNull().default(0),
+    status: text('status').notNull().default('success'),
+    error_msg: text('error_msg'),
+    trace_id: text('trace_id'),
+    created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+  })
+
+  const runner = createRunner({ sql, agents: agentsTable, runs: runsTable, knowledge: knowledgeTable, getModel, getEmbeddingModel, userTools: options.tools })
 
   const base = new PgModule(pg)
 
-  const r = buildRouter({ agents: agentsTable, knowledge: knowledgeTable, runner })
+  const r = buildRouter({ agents: agentsTable, runs: runsTable, knowledge: knowledgeTable, runner })
   const mod = r as AgentModule
   mod.migrate = async () => {
     await agentsTable.create()
     await agentsTable.createIndex('tenant_id')
     await knowledgeTable.create()
     await knowledgeTable.createIndex('agent_id')
+    await runsTable.create()
+    await runsTable.createIndex(['agent_id', 'created_at'])
   }
   mod.run = (agentId: number, params) => runner.run(agentId, params)
   mod.addKnowledge = (agentId: number, title: string, content: string) => runner.addKnowledge(agentId, title, content)

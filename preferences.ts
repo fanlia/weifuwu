@@ -65,7 +65,7 @@ async function handlePrefSwitch(
   })
 }
 
-export function preferences(options: PrefOptions): Middleware {
+export function preferences(options: PrefOptions): Middleware<Context, Context & { prefs: Record<string, string>; t: NonNullable<Context['t']>; setPref: NonNullable<Context['setPref']> }> {
   const dir = options.dir ? resolve(options.dir) : undefined
   const localeOpts = { ...defaults.locale, ...options.locale }
   const themeOpts = { ...defaults.theme, ...options.theme }
@@ -145,7 +145,7 @@ export function preferences(options: PrefOptions): Middleware {
       try { ctx.prefs.flash = JSON.parse(flashVal) } catch { ctx.prefs.flash = flashVal }
     }
 
-    const res = await next(req, ctx)
+    const res = await next(req, ctx as Context & { prefs: Record<string, string>; t: NonNullable<Context['t']>; setPref: NonNullable<Context['setPref']> })
 
     if (flashVal) {
       const headers = new Headers(res.headers)
