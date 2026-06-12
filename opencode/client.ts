@@ -2,7 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel } from 'ai'
 import type { OpencodeOptions, OpencodeModule, SkillRegistry, PendingQuestion } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
-import { pgTable, uuid, serial, text, integer, boolean, timestamptz, jsonb, sql as schemaSql } from '../postgres/schema/index.ts'
+import { uuid, serial, text, integer, boolean, timestamptz, jsonb, sql as schemaSql } from '../postgres/schema/index.ts'
 import { buildRouter } from './rest.ts'
 import { createWSHandler } from './ws.ts'
 import { discoverSkills, buildSkillRegistry } from './skills.ts'
@@ -31,7 +31,7 @@ export async function opencode(options: OpencodeOptions): Promise<OpencodeModule
   const r = await buildRouter({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions })
   const mod = r as OpencodeModule
   mod.migrate = async () => {
-    const sessions = pgTable('_opencode_sessions', {
+    const sessions = pg.table('_opencode_sessions', {
       id: uuid('id').default(schemaSql`gen_random_uuid()`).primaryKey(),
       tenant_id: text('tenant_id'),
       user_id: integer('user_id').default(0),
@@ -45,10 +45,10 @@ export async function opencode(options: OpencodeOptions): Promise<OpencodeModule
       created_at: timestamptz('created_at').default(schemaSql`NOW()`),
       updated_at: timestamptz('updated_at').default(schemaSql`NOW()`),
     })
-    await sessions.create(sql)
-    await sessions.createIndex(sql, 'user_id')
+    await sessions.create()
+    await sessions.createIndex('user_id')
 
-    const messages = pgTable('_opencode_messages', {
+    const messages = pg.table('_opencode_messages', {
       id: serial('id').primaryKey(),
       session_id: uuid('session_id').notNull().references('_opencode_sessions', 'id', 'cascade'),
       role: text('role').notNull(),
@@ -59,8 +59,8 @@ export async function opencode(options: OpencodeOptions): Promise<OpencodeModule
       tokens_out: integer('tokens_out').default(0),
       created_at: timestamptz('created_at').default(schemaSql`NOW()`),
     })
-    await messages.create(sql)
-    await messages.createIndex(sql, ['session_id', 'created_at'])
+    await messages.create()
+    await messages.createIndex(['session_id', 'created_at'])
   }
   mod.wsHandler = () => createWSHandler({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions })
   mod.close = () => base.close()
