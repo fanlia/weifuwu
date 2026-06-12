@@ -16,6 +16,15 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - Import types from `./types.ts`, source from individual files
 - New modules get their own file, exported from `index.ts`
 - Every module needs tests in `test/`
+- **ctx field principle**: each capability adds exactly one namespaced field on `ctx`. Standard objects (`req`, `ws`) are never modified. The framework injects, the developer uses.
+  ```ts
+  app.use(postgres())    →  ctx.sql
+  app.use(redis())       →  ctx.redis
+  app.use(user().mws())  →  ctx.user
+  app.use(queue())       →  ctx.queue
+  ws('/chat', { ... })   →  ctx.ws      // per-connection, auto-cloned from upgrade ctx
+  ```
+  `ctx.ws` is the per-connection WebSocket helper: `ctx.ws.state`, `ctx.ws.json()`, `ctx.ws.join(room)`, `ctx.ws.sendRoom(room, data)`. The `ws` parameter in handlers is the standard `WebSocket` from the `ws` library — never augmented.
 - All `ctx` mutations (like `ctx.parsed` or `ctx.user`) should be additive, never overwrite
 - Public hooks go in `react.ts` barrel; internal utilities stay in their module
 - Frontend hooks use `useXxx` naming; each hook solves one concrete concern
