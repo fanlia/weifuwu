@@ -29,7 +29,7 @@ async function cmdVersion() {
   console.log(pkg.version)
 }
 
-async function cmdInit(name: string, opts: { minimal?: boolean }) {
+async function cmdInit(name: string, opts: { minimal?: boolean; skipInstall?: boolean }) {
   const targetDir = resolve(process.cwd(), name)
   const pkg = await readPkg()
   const v = pkg.version
@@ -146,9 +146,11 @@ async function cmdInit(name: string, opts: { minimal?: boolean }) {
     '',
   ].join('\n'))
 
-  console.log('\nInstalling dependencies...')
-  execSync('npm install', { cwd: targetDir, stdio: 'inherit' })
-  console.log(`\n✅ Created ${name}/ — cd ${name} && npm run dev`)
+  if (!opts.skipInstall) {
+    console.log('\nInstalling dependencies...')
+    execSync('npm install', { cwd: targetDir, stdio: 'inherit' })
+  }
+  console.log(`\n✅ Created ${name}/ — cd ${name} && ${opts.skipInstall ? 'npm install && ' : ''}npm run dev`)
 }
 
 async function cmdDev() {
@@ -269,7 +271,8 @@ if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
     process.exit(1)
   }
   const minimal = process.argv.includes('--minimal')
-  cmdInit(name, { minimal }).catch(console.error)
+  const skipInstall = process.argv.includes('--skip-install')
+  cmdInit(name, { minimal, skipInstall }).catch(console.error)
 } else if (cmd === 'dev') {
   cmdDev()
 } else if (cmd === 'generate' || cmd === 'g') {

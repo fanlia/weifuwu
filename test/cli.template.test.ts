@@ -104,7 +104,7 @@ describe('weifuwu init', () => {
   after(() => rmSync(tmpDir, { recursive: true, force: true }))
 
   it('creates project with all expected files', () => {
-    execSync(`node ${cliPath} init test-app`, { cwd: tmpDir })
+    execSync(`node ${cliPath} init test-app --skip-install`, { cwd: tmpDir })
     const dir = resolve(tmpDir, 'test-app')
     const expected = [
       'package.json', 'tsconfig.json', '.gitignore', '.env', 'AGENTS.md',
@@ -135,7 +135,7 @@ describe('weifuwu init', () => {
   })
 
   it('fails without project name', () => {
-    assert.throws(() => execSync(`node ${cliPath} init`, { cwd: tmpDir }))
+    assert.throws(() => execSync(`node ${cliPath} init --skip-install`, { cwd: tmpDir }))
   })
 })
 
