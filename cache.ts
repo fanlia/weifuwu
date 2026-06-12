@@ -18,6 +18,7 @@ export interface CacheStore {
   set(key: string, entry: CachedResponse, ttl: number): Promise<void>
   delete(key: string): Promise<void>
   invalidate(tag: string): Promise<void>
+  flush(): Promise<void>
 }
 
 export interface CacheOptions {
@@ -313,7 +314,7 @@ export function cache(options?: CacheOptions): CacheMiddleware {
 
     // Serialize headers
     const headers: Record<string, string> = {}
-    res.headers.forEach((value, key) => {
+    res.headers.forEach((value: string, key: string) => {
       if (key.toLowerCase() === 'set-cookie' && !cacheCookies) return
       headers[key] = value
     })

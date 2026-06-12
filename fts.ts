@@ -1,5 +1,5 @@
 import type { Sql } from './vendor.ts'
-import type { BoundTable } from './postgres/types.ts'
+import type { BoundTable } from './postgres/schema/index.ts'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

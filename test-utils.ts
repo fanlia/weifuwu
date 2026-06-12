@@ -312,8 +312,8 @@ export async function withTestDb(
   try {
     // sql.begin() auto-commits on success, rolls back on throw
     // We always throw to force rollback (test isolation pattern)
-    await sql.begin(async (txSql) => {
-      await callback(txSql)
+    await sql.begin(async (txSql: any) => {
+      await callback(txSql as Sql<{}>)
       throw undefined  // force rollback
     })
   } catch {
