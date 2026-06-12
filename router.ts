@@ -4,6 +4,8 @@ import http, { type IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
 
+const isProduction = process.env.NODE_ENV === 'production'
+
 export type WebSocketHandler = {
   open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
   message?: (ws: WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>
@@ -243,6 +245,43 @@ export class Router<T extends Context = Context> {
     return (req, ctx) => {
       const url = new URL(req.url)
       return this.handle(req, ctx as Context, this.splitPath(url.pathname))
+    }
+  }
+
+  /** Returns a human-readable list of all registered routes. Useful for debugging. */
+  routes(): string[] {
+    const result: string[] = []
+    if (this.globalMws.length > 0) {
+      result.push(`MIDDLEWARE  [${this.globalMws.length} global]`)
+    }
+    this._collectRoutes(this.root, '', result)
+    this._collectWsRoutes(this.wsRoot, '', result)
+    return result
+  }
+
+  private _collectRoutes(node: TrieNode, prefix: string, result: string[]): void {
+    for (const [method, handler] of node.handlers) {
+      const m = method === '*' ? 'ANY' : method
+      const path = (prefix || '/') + (node.wildcard ? '/*' : '')
+      const middlewares = node.middlewares.get(method)
+      const mwCount = middlewares ? ` (+${middlewares.length} mw)` : ''
+      result.push(`${m.padEnd(7)} ${path}${mwCount}`)
+    }
+    for (const [seg, child] of node.children) {
+      const segment = seg === ':' ? `:${child.param}` : seg
+      this._collectRoutes(child, prefix + '/' + segment, result)
+    }
+  }
+
+  private _collectWsRoutes(node: WsTrieNode, prefix: string, result: string[]): void {
+    if (node.handler) {
+      const path = prefix || '/'
+      const mwCount = node.middlewares.length ? ` (+${node.middlewares.length} mw)` : ''
+      result.push(`WS       ${path}${mwCount}`)
+    }
+    for (const [seg, child] of node.children) {
+      const segment = seg === ':' ? `:${child.param}` : seg
+      this._collectWsRoutes(child, prefix + '/' + segment, result)
     }
   }
 
@@ -491,12 +530,24 @@ export class Router<T extends Context = Context> {
 
     if (this.globalMws.length > 0) {
       try {
-        return await this.runChain(this.globalMws, () => new Response('Not Found', { status: 404 }), req, ctx)
+        return await this.runChain(this.globalMws, () => {
+          if (!isProduction) {
+            return Response.json({ error: 'Not Found', path: '/' + (segments.join('/')), method: req.method }, { status: 404 })
+          }
+          return new Response('Not Found', { status: 404 })
+        }, req, ctx)
       } catch (e) {
         return this.handleError(e, req, ctx)
       }
     }
 
+    if (!isProduction) {
+      return Response.json({
+        error: 'Not Found',
+        path: '/' + (segments.join('/')),
+        method: req.method,
+      }, { status: 404 })
+    }
     return new Response('Not Found', { status: 404 })
   }
 

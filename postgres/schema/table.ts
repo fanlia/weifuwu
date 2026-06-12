@@ -51,6 +51,11 @@ export class Table<R extends Record<string, unknown>> {
     return this.colEntries.some(e => e.db === dbName)
   }
 
+  /** Returns a BoundTable pre-bound to the given sql connection (no need to pass sql to every method). */
+  bind(sql: Sql<{}>): BoundTable<R> {
+    return new BoundTable(sql, this.tableName, this.builders)
+  }
+
   /** Returns the primary key column name (DB name), or 'id' as fallback. */
   private get pkColumn(): string {
     const entry = this.colEntries.find(e => e.column.isPrimaryKey)

@@ -220,6 +220,10 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
       _cachedHostname = addr.address
     }
     resolveReady()
+
+    // Startup message — automatic in all environments
+    const displayHost = _cachedHostname === '0.0.0.0' ? 'localhost' : (_cachedHostname || 'localhost')
+    console.log(`weifuwu listening on http://${displayHost}:${_cachedPort}`)
   })
 
   return {
