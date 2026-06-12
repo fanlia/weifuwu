@@ -173,19 +173,35 @@ export function user(options: UserOptions): UserModule {
 
   function middleware(): Middleware<Context, Context & UserInjected> {
     return async (req, ctx, next) => {
+      // Strategy 1: Session-based auth — load user from ctx.session.userId
+      const sessionUserId = (ctx as any).session?.userId
+      if (sessionUserId) {
+        const row = await findById(sessionUserId)
+        if (row) {
+          ctx.user = stripPassword(row)
+          return next(req, ctx as Context & UserInjected)
+        }
+        // User was deleted — clear stale session reference
+        if (typeof (ctx as any).session?.destroy === 'function') {
+          ;(ctx as any).session.destroy()
+        } else {
+          delete (ctx as any).session?.userId
+        }
+      }
+
+      // Strategy 2: JWT-based auth from Authorization header
       const header = req.headers.get('Authorization')
-      if (!header?.startsWith('Bearer ')) {
-        return new Response('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } })
+      const token = header?.startsWith('Bearer ') ? header.slice(7) : null
+
+      if (token) {
+        const userData = await verify(token)
+        if (userData) {
+          ctx.user = userData
+          return next(req, ctx as Context & UserInjected)
+        }
       }
 
-      const token = header.slice(7)
-      const userData = await verify(token)
-      if (!userData) {
-        return new Response('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } })
-      }
-
-      ctx.user = userData
-      return next(req, ctx as Context & UserInjected)
+      return new Response('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } })
     }
   }
 
@@ -206,12 +222,23 @@ export function user(options: UserOptions): UserModule {
       }
     })
 
-    r.post('/login', async (req) => {
+    r.post('/login', async (req, ctx) => {
       try {
         const body = await req.json() as Record<string, unknown>
         const result = await login(body as any)
+
+        // Populate session if session middleware is present
+        if ((ctx as any).session) {
+          ;(ctx as any).session.userId = result.user.id
+          ;(ctx as any).session.role = result.user.role
+        }
+
         const res = Response.json(result)
-        res.headers.set('Set-Cookie', `session=${result.token}; HttpOnly; SameSite=Lax; Path=/`)
+        // Also set a cookie for SPA/JWT-based clients
+        // (the session-based path takes priority in middleware())
+        if (!(ctx as any).session) {
+          res.headers.set('Set-Cookie', `session=${result.token}; HttpOnly; SameSite=Lax; Path=/`)
+        }
         return res
       } catch (err: any) {
         if (err instanceof z.ZodError) {

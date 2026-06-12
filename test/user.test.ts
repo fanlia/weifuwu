@@ -515,4 +515,50 @@ describe('user', { skip: !DATABASE_URL }, () => {
       assert.ok(html.includes('Invalid client_id'))
     })
   })
+
+  describe('session integration', () => {
+    it('middleware loads user from ctx.session.userId', async () => {
+      const { Router } = await import('../router.ts')
+      const { MemoryStore } = await import('../session.ts')
+
+      const auth = user({ pg, jwtSecret, table })
+      const memStore = new MemoryStore()
+
+      // Register a user fresh for this test
+      const result = await auth.register({ email: 'session-int@test.com', password: 'password123', name: 'Session Int' })
+
+      const app = new Router()
+      app.use(auth.middleware())
+      app.get('/me', (req, ctx: any) => Response.json({ id: ctx.user.id, email: ctx.user.email }))
+
+      const handler = app.handler()
+      const ctx1 = { params: {}, query: {}, session: { userId: result.user.id } }
+      const res1 = await handler(new Request('http://localhost/me'), ctx1 as any)
+      assert.equal(res1.status, 200)
+      const data1 = await res1.json() as any
+      assert.equal(data1.id, result.user.id)
+      assert.equal(data1.email, 'session-int@test.com')
+
+      memStore.close()
+    })
+
+    it('middleware falls back to JWT when no session.userId', async () => {
+      const auth = user({ pg, jwtSecret, table })
+      const result = await auth.register({ email: 'jwt-int@test.com', password: 'password123', name: 'JWT Int' })
+
+      // JWT-based auth should still work (no session set)
+      const { Router } = await import('../router.ts')
+      const app = new Router()
+      app.use(auth.middleware())
+      app.get('/me', (req, ctx: any) => Response.json({ id: ctx.user.id }))
+
+      const handler = app.handler()
+      const res = await handler(
+        new Request('http://localhost/me', { headers: { authorization: 'Bearer ' + result.token } }),
+        { params: {}, query: {} } as any,
+      )
+      assert.equal(res.status, 200)
+      assert.equal((await res.json() as any).id, result.user.id)
+    })
+  })
 })
