@@ -32,5 +32,7 @@ export interface Queue extends Middleware<Context, Context & QueueInjected> {
   process<T>(type: string, handler: (job: QueueJob<T>) => Promise<void>): void
   run(): Promise<void>
   stop(): void
+  /** Stats: { running, inflight, processed, failed, handlers, maxConcurrent } */
+  stats(): { running: boolean; inflight: number; processed: number; failed: number; handlers: number; maxConcurrent: number }
   close(): Promise<void>
 }

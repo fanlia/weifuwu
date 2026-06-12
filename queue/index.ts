@@ -79,6 +79,8 @@ export function queue(opts?: QueueOptions): Queue {
   let running = false
   let pollTimer: ReturnType<typeof setTimeout> | null = null
   let epoch = 0
+  let _processed = 0
+  let _failed = 0
 
   const jobKey = `${prefix}:jobs`
 
@@ -96,7 +98,9 @@ export function queue(opts?: QueueOptions): Queue {
     inflight++
     try {
       await jobHandler(job)
+      _processed++
     } catch (e) {
+      _failed++
       console.error('[queue] handler error:', (e as Error).message)
     } finally {
       inflight--
@@ -189,10 +193,18 @@ export function queue(opts?: QueueOptions): Queue {
 
   mw.close = async function close(): Promise<void> {
     mw.stop()
-    // Wait for in-flight handlers to finish
     while (inflight > 0) await new Promise(r => setTimeout(r, 50))
     redis.disconnect()
   }
+
+  ;(mw as any).stats = () => ({
+    running,
+    inflight,
+    processed: _processed,
+    failed: _failed,
+    handlers: handlers.size,
+    maxConcurrent: MAX_CONCURRENT,
+  })
 
   return q
 }
