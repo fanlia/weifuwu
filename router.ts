@@ -3,14 +3,30 @@ import type { WebSocket } from './vendor.ts'
 import http, { type IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
+import { createHub } from './hub.ts'
+import type { Hub } from './hub.ts'
 
 const isProduction = process.env.NODE_ENV === 'production'
 
+/** Extended WebSocket with per-connection state and room helpers. */
+export interface WsConnection extends WebSocket {
+  /** Per-connection state — auto-cleaned on close. */
+  state: Record<string, unknown>
+  /** Send JSON without manual JSON.stringify. */
+  json(data: unknown): void
+  /** Join a broadcast room (uses built-in hub). */
+  join(room: string): void
+  /** Leave a broadcast room. */
+  leave(room: string): void
+  /** Send JSON to all connections in a room. */
+  sendRoom(room: string, data: unknown): void
+}
+
 export type WebSocketHandler = {
-  open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
-  message?: (ws: WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>
-  close?: (ws: WebSocket, ctx: Context) => void | Promise<void>
-  error?: (ws: WebSocket, ctx: Context, error: Error) => void | Promise<void>
+  open?: (ws: WsConnection, ctx: Context) => void | Promise<void>
+  message?: (ws: WsConnection, ctx: Context, data: string | Buffer) => void | Promise<void>
+  close?: (ws: WsConnection, ctx: Context) => void | Promise<void>
+  error?: (ws: WsConnection, ctx: Context, error: Error) => void | Promise<void>
 }
 
 type TrieNode = {
@@ -115,10 +131,22 @@ export class Router<T extends Context = Context> {
   private globalMws: Middleware[] = []
   private errorHandler?: ErrorHandler<T>
   private _hasWildcard = false
+  private _hub?: Hub
   private _wss?: WebSocketServer
   private get wss(): WebSocketServer {
     if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
     return this._wss
+  }
+
+  private get hub(): Hub {
+    if (!this._hub) this._hub = createHub()
+    return this._hub
+  }
+
+  /** Inject a custom hub (e.g. with Redis for cross-process broadcast). */
+  wsHub(hub: Hub): this {
+    this._hub = hub
+    return this
   }
 
   // Global middleware — accumulates types into Router<T>.
@@ -304,13 +332,13 @@ export class Router<T extends Context = Context> {
         : [...router.globalMws, ...match.middlewares]
 
       if (allMws.length === 0) {
-        upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
+        upgradeSocket(router.wss, req, socket, head, match.handler, ctx, router.hub)
         return
       }
 
       const finalHandler: Handler = () => {
         try {
-          upgradeSocket(router.wss, req, socket, head, match.handler, ctx)
+          upgradeSocket(router.wss, req, socket, head, match.handler, ctx, router.hub)
         } catch {
           socket.destroy()
           return new Response('WebSocket upgrade failed', { status: 500 })
@@ -592,8 +620,26 @@ function upgradeSocket(
   head: Buffer,
   handler: WebSocketHandler,
   ctx: Context,
+  hub: Hub,
 ): void {
-  wss.handleUpgrade(req, socket, head, (ws) => {
+  wss.handleUpgrade(req, socket, head, (rawWs) => {
+    const ws = rawWs as unknown as WsConnection
+
+    // ── Per-connection state ────────────────────────────────
+    const wsState: Record<string, unknown> = {}
+    Object.defineProperty(ws, 'state', {
+      get() { return wsState },
+      configurable: true,
+    })
+
+    // ── Convenience methods ─────────────────────────────────
+    ws.json = (data: unknown) => { ws.send(JSON.stringify(data)) }
+    ws.join = (room: string) => { hub.join(room, ws as any) }
+    ws.leave = (room: string) => { hub.leave(ws as any) }
+    ws.sendRoom = (room: string, data: unknown) => {
+      hub.broadcast(room, JSON.stringify(data))
+    }
+
     if (handler.open) {
       handler.open(ws, ctx)
     }
@@ -603,6 +649,7 @@ function upgradeSocket(
     })
 
     ws.on('close', () => {
+      hub.leave(ws as any)
       handler.close?.(ws, ctx)
     })
 
