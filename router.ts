@@ -8,25 +8,11 @@ import type { Hub } from './hub.ts'
 
 const isProduction = process.env.NODE_ENV === 'production'
 
-/** Extended WebSocket with per-connection state and room helpers. */
-export interface WsConnection extends WebSocket {
-  /** Per-connection state — auto-cleaned on close. */
-  state: Record<string, unknown>
-  /** Send JSON without manual JSON.stringify. */
-  json(data: unknown): void
-  /** Join a broadcast room (uses built-in hub). */
-  join(room: string): void
-  /** Leave a broadcast room. */
-  leave(room: string): void
-  /** Send JSON to all connections in a room. */
-  sendRoom(room: string, data: unknown): void
-}
-
 export type WebSocketHandler = {
-  open?: (ws: WsConnection, ctx: Context) => void | Promise<void>
-  message?: (ws: WsConnection, ctx: Context, data: string | Buffer) => void | Promise<void>
-  close?: (ws: WsConnection, ctx: Context) => void | Promise<void>
-  error?: (ws: WsConnection, ctx: Context, error: Error) => void | Promise<void>
+  open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
+  message?: (ws: WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>
+  close?: (ws: WebSocket, ctx: Context) => void | Promise<void>
+  error?: (ws: WebSocket, ctx: Context, error: Error) => void | Promise<void>
 }
 
 type TrieNode = {
@@ -622,39 +608,36 @@ function upgradeSocket(
   ctx: Context,
   hub: Hub,
 ): void {
-  wss.handleUpgrade(req, socket, head, (rawWs) => {
-    const ws = rawWs as unknown as WsConnection
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    // ── Per-connection ctx — cloned from upgrade ctx ─────────
+    // Each connection gets its own ctx, inheriting params/query/user/etc.
+    const connCtx: Context = { ...ctx, params: { ...ctx.params }, query: { ...ctx.query } }
 
-    // ── Per-connection state ────────────────────────────────
+    // ── ctx.ws — per-connection WS helpers ───────────────────
     const wsState: Record<string, unknown> = {}
-    Object.defineProperty(ws, 'state', {
-      get() { return wsState },
-      configurable: true,
-    })
-
-    // ── Convenience methods ─────────────────────────────────
-    ws.json = (data: unknown) => { ws.send(JSON.stringify(data)) }
-    ws.join = (room: string) => { hub.join(room, ws as any) }
-    ws.leave = (room: string) => { hub.leave(ws as any) }
-    ws.sendRoom = (room: string, data: unknown) => {
-      hub.broadcast(room, JSON.stringify(data))
+    connCtx.ws = {
+      get state() { return wsState },
+      json(data: unknown) { ws.send(JSON.stringify(data)) },
+      join(room: string) { hub.join(room, ws as any) },
+      leave(room: string) { hub.leave(ws as any) },
+      sendRoom(room: string, data: unknown) { hub.broadcast(room, JSON.stringify(data)) },
     }
 
     if (handler.open) {
-      handler.open(ws, ctx)
+      handler.open(ws, connCtx)
     }
 
     ws.on('message', (data) => {
-      handler.message?.(ws, ctx, data as string | Buffer)
+      handler.message?.(ws, connCtx, data as string | Buffer)
     })
 
     ws.on('close', () => {
       hub.leave(ws as any)
-      handler.close?.(ws, ctx)
+      handler.close?.(ws, connCtx)
     })
 
     ws.on('error', (err) => {
-      handler.error?.(ws, ctx, err)
+      handler.error?.(ws, connCtx, err)
     })
   })
 }
