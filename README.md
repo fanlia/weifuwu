@@ -25,6 +25,17 @@ serve(app.handler(), { port: 3000, websocket: app.websocketHandler() })
 npx weifuwu init my-app && cd my-app && npm run dev
 ```
 
+## CLI
+
+```bash
+npx weifuwu init my-app              # Full project (SSR + i18n + theme + WS demo)
+npx weifuwu init my-api --minimal    # Minimal HTTP project (2 files)
+npx weifuwu init my-api --skip-install # Skip npm install
+npx weifuwu dev                       # Start dev server (auto-detect index.ts)
+npx weifuwu generate module my-mod    # Scaffold middleware module + test
+npx weifuwu version                   # Print version
+```
+
 ---
 
 ## Core Concepts
@@ -49,7 +60,7 @@ await server.ready
 | `shutdown` | `boolean` | `true` | Auto SIGTERM/SIGINT |
 
 ```ts
-interface Server { stop: () => void; readonly port: number; readonly hostname: string; ready: Promise<void> }
+interface Server { stop: () => Promise<void>; readonly port: number; readonly hostname: string; ready: Promise<void> }
 const { server, url } = await createTestServer(handler)
 ```
 
@@ -526,6 +537,29 @@ Restart=always
 | `ports` | — | `[port, port+1]` for blue-green |
 
 
+
+### graphql [β]
+
+```ts
+const handler: GraphQLHandler = () => ({
+  schema: `type Query { hello: String }`,
+  resolvers: { Query: { hello: () => 'world' } },
+  graphiql: true,         // GET / returns GraphiQL IDE
+  maxDepth: 10,            // max query nesting (default 10, 0 = disable)
+  timeout: 30_000,         // execution timeout in ms
+})
+app.use('/graphql', graphql(handler))
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `schema` | `string \| GraphQLSchema` | — | SDL string or pre-built schema |
+| `resolvers` | `object` | — | Resolver map |
+| `rootValue` | `any` | — | Root value for queries |
+| `context` | `(req, ctx) => object` | — | Per-request context factory |
+| `graphiql` | `boolean` | `false` | Serve GraphiQL IDE at GET / |
+| `maxDepth` | `number` | `10` | Max query nesting depth |
+| `timeout` | `number` | `30_000` | Execution timeout (ms) |
 
 ### health [β]
 
