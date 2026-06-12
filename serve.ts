@@ -8,7 +8,14 @@ export interface ServeOptions {
   hostname?: string
   signal?: AbortSignal
   websocket?: (req: IncomingMessage, socket: Duplex, head: Buffer) => void
+  /** Max request body size in bytes. Default: 10MB. Set to 0 for unlimited. */
   maxBodySize?: number
+  /** Socket timeout in ms (inactivity). Default: 30_000. */
+  timeout?: number
+  /** Keep-Alive idle timeout in ms. Default: 5_000. */
+  keepAliveTimeout?: number
+  /** Headers timeout in ms (must be > keepAliveTimeout). Default: 6_000. */
+  headersTimeout?: number
   shutdown?: boolean
 }
 
@@ -28,17 +35,22 @@ class HttpError extends Error {
   }
 }
 
+/** Default max body size: 10MB. Set maxBodySize: 0 for unlimited. */
+export const DEFAULT_MAX_BODY = 10 * 1024 * 1024
+
 export async function readBody(req: IncomingMessage, maxSize?: number): Promise<Buffer> {
-  if (maxSize) {
+  const limit = maxSize ?? DEFAULT_MAX_BODY
+
+  if (limit > 0) {
     const cl = parseInt(req.headers['content-length'] ?? '0', 10)
-    if (cl > maxSize) throw new HttpError('Request body too large', 413)
+    if (cl > limit) throw new HttpError('Request body too large', 413)
   }
 
   const chunks: Buffer[] = []
   let total = 0
   for await (const chunk of req) {
     total += (chunk as Buffer).byteLength
-    if (maxSize && total > maxSize) throw new HttpError('Request body too large', 413)
+    if (limit > 0 && total > limit) throw new HttpError('Request body too large', 413)
     chunks.push(chunk as Buffer)
   }
   return Buffer.concat(chunks)
@@ -66,7 +78,11 @@ export function createRequest(req: IncomingMessage, body: Buffer): [Request, Rec
   return [request, query]
 }
 
-export async function sendResponse(res: ServerResponse, response: Response): Promise<void> {
+export async function sendResponse(
+  res: ServerResponse,
+  response: Response,
+  opts?: { traceId?: string | null },
+): Promise<void> {
   const headers: Record<string, string | string[]> = {}
   response.headers.forEach((value, key) => {
     if (key.toLowerCase() === 'set-cookie') {
@@ -79,6 +95,11 @@ export async function sendResponse(res: ServerResponse, response: Response): Pro
     }
   })
 
+  // Inject trace header — zero allocation, no Response re-wrapping
+  if (opts?.traceId && !headers['x-trace-id']) {
+    headers['x-trace-id'] = opts.traceId
+  }
+
   res.writeHead(response.status, response.statusText, headers)
 
   if (response.body) {
@@ -89,9 +110,16 @@ export async function sendResponse(res: ServerResponse, response: Response): Pro
         if (done) break
         res.write(value)
       }
+      res.end()
+    } catch (err) {
+      // Client disconnected or write failed — destroy socket cleanly
+      if (!res.destroyed) {
+        res.destroy(err instanceof Error ? err : undefined)
+      }
     } finally {
       reader.releaseLock()
     }
+    return
   }
 
   res.end()
@@ -111,33 +139,31 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     const incomingTrace = (req.headers['x-trace-id'] as string) ||
                           (req.headers['traceparent'] as string)?.split('-')[1] || null
 
-    try {
-      const response = await runWithTrace(incomingTrace, async () => {
+    await runWithTrace(incomingTrace, async () => {
+      try {
         const body = await readBody(req, options?.maxBodySize)
         const [request, query] = createRequest(req, body)
         const response = await handler(request, { params: {}, query } as Context)
-
-        // Inject trace ID into response (must be inside runWithTrace for ALS to work)
-        const traceId = incomingTrace || currentTraceId()
-        if (traceId && !response.headers.has('X-Trace-Id')) {
-          const headers = new Headers(response.headers)
-          headers.set('X-Trace-Id', traceId)
-          return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
+        await sendResponse(res, response, { traceId: currentTraceId() })
+      } catch (err) {
+        if (err instanceof HttpError && err.status === 413) {
+          res.writeHead(413, { 'Content-Type': 'text/plain' })
+          res.end('Request Body Too Large')
+          return
         }
-        return response
-      })
-
-      await sendResponse(res, response)
-    } catch (err) {
-      if (err instanceof HttpError && err.status === 413) {
-        res.writeHead(413, { 'Content-Type': 'text/plain' })
-        res.end('Request Body Too Large')
-        return
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[${currentTraceId()}] unhandled error: ${msg}`)
+        if (err instanceof Error && err.stack) console.error(err.stack)
+        res.writeHead(500, { 'Content-Type': 'text/plain' })
+        res.end('Internal Server Error')
       }
-      res.writeHead(500, { 'Content-Type': 'text/plain' })
-      res.end('Internal Server Error')
-    }
+    })
   })
+
+  // Connection timeouts — prevent slowloris and idle connection leaks
+  server.timeout = options?.timeout ?? 30_000
+  server.keepAliveTimeout = options?.keepAliveTimeout ?? 5_000
+  server.headersTimeout = options?.headersTimeout ?? 6_000
 
   if (options?.websocket) {
     server.on('upgrade', options.websocket)
@@ -161,8 +187,13 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     process.on('SIGINT', shutdown)
   }
 
+  let _cachedPort = 0
+  let _cachedHostname = ''
+
   if (options?.signal) {
     if (options.signal.aborted) {
+      _cachedPort = 0
+      _cachedHostname = ''
       server.close()
       resolveReady()
       return {
@@ -178,9 +209,18 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   server.on('error', (err) => {
     console.error('Failed to start server:', err.message)
     server.close()
+    _cachedPort = 0
     resolveReady()
   })
-  server.listen(port, hostname, () => { resolveReady() })
+
+  server.listen(port, hostname, () => {
+    const addr = server.address()
+    if (addr && typeof addr !== 'string') {
+      _cachedPort = addr.port
+      _cachedHostname = addr.address
+    }
+    resolveReady()
+  })
 
   return {
     stop: () => {
@@ -193,14 +233,12 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     },
     ready,
     get port() {
-      const addr = server.address()
-      if (!addr || typeof addr === 'string') return 0
-      return addr.port
+      if (!server.listening) return 0
+      return _cachedPort
     },
     get hostname() {
-      const addr = server.address()
-      if (!addr) return hostname
-      return typeof addr === 'string' ? addr : addr.address
+      if (!server.listening) return hostname
+      return _cachedHostname || hostname
     },
   }
 }

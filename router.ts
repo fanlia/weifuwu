@@ -112,6 +112,7 @@ export class Router<T extends Context = Context> {
   private wsRoot: WsTrieNode = createWsNode()
   private globalMws: Middleware[] = []
   private errorHandler?: ErrorHandler<T>
+  private _hasWildcard = false
   private _wss?: WebSocketServer
   private get wss(): WebSocketServer {
     if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
@@ -183,31 +184,42 @@ export class Router<T extends Context = Context> {
   }
 
   private _route(method: string, path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+    return this._routeImpl(method, path, args)
+  }
+
+  /** Internal route registration — no type constraints (used by _mountRouter). */
+  private _routeImpl(method: string, path: string, args: any[]): Router<T> {
     const last = args[args.length - 1]
     if (last instanceof Router) {
-      this._mountRouter(path, last, args.slice(0, -1) as unknown as Middleware[])
+      this._mountRouter(path, last, args.slice(0, -1))
       return this
     }
-    const handler = args.pop()! as unknown as Handler<T>
-    const middlewares = args as unknown as Middleware[]
+    const handler = args.pop()
+    const middlewares: Middleware[] = args
     const segments = this.splitPath(path)
     let node = this.root
 
     for (const segment of segments) {
       if (segment === '*') {
+        this._hasWildcard = true
         const remaining = segments.indexOf('*') < segments.length - 1
         if (remaining) {
           console.warn(`Route "${path}": segments after "*" are ignored`)
         }
         node.wildcard = true
-        node.handlers.set(method, handler as Handler)
+        node.handlers.set(method, handler)
         if (middlewares.length > 0) node.middlewares.set(method, middlewares)
         return this
       }
       node = getOrCreateChild(node, segment, createTrieNode, false)
     }
 
-    node.handlers.set(method, handler as Handler)
+    if (process.env.NODE_ENV !== 'production' && node.handlers.has(method)) {
+      console.warn(
+        `[router] route conflict: ${method} ${path} overwrites existing handler`
+      )
+    }
+    node.handlers.set(method, handler)
     if (middlewares.length > 0) node.middlewares.set(method, middlewares)
     return this
   }
@@ -297,13 +309,7 @@ export class Router<T extends Context = Context> {
     const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
     this._collect(sub.root, '', routes, [])
     for (const { method, path, handler, middlewares } of routes) {
-      this._route(
-        method as any,
-        base + path,
-        ...(allExtra as any),
-        ...(middlewares as any),
-        handler as any,
-      )
+      this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
     }
 
     const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
@@ -375,7 +381,7 @@ export class Router<T extends Context = Context> {
     for (let i = 0; i < segments.length; i++) {
       pathMws.push(...node.pathMws)
 
-      if (node.wildcard) {
+      if (this._hasWildcard && node.wildcard) {
         const h = node.handlers.get('*') || node.handlers.get(method)
         if (h) {
           wildcardHandler = h
@@ -514,7 +520,16 @@ function runChainLoop(
 ): Promise<Response> {
   if (index < middlewares.length) {
     const mw = middlewares[index]
-    return Promise.resolve(mw(req, ctx, (r, c) => runChainLoop(middlewares, index + 1, finalHandler, r, c)))
+    let called = false
+    const dispatch: Handler = (r, c) => {
+      if (called) {
+        console.warn('[router] next() called more than once in middleware — ignoring duplicate call')
+        return Promise.resolve(new Response('Internal Server Error', { status: 500 }))
+      }
+      called = true
+      return runChainLoop(middlewares, index + 1, finalHandler, r, c)
+    }
+    return Promise.resolve(mw(req, ctx, dispatch as any))
   }
   return Promise.resolve(finalHandler(req, ctx))
 }
