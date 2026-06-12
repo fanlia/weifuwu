@@ -1,4 +1,5 @@
 import type { Middleware } from './types.ts'
+import { currentTraceId } from './trace.ts'
 
 export interface AuthOptions {
   token?: string
@@ -87,6 +88,7 @@ export function auth(options: AuthOptions): Middleware {
 
     if (options.token) {
       if (token !== options.token) {
+        console.warn(`[${currentTraceId()}] auth: invalid static token`)
         return new Response('Forbidden', { status: 403 })
       }
       return next(req, ctx)
@@ -95,6 +97,7 @@ export function auth(options: AuthOptions): Middleware {
     if (options.verify) {
       const result = await options.verify(token, req)
       if (!result) {
+        console.warn(`[${currentTraceId()}] auth: verify failed for token`)
         return new Response('Forbidden', { status: 403 })
       }
       if (typeof result === 'object' && result !== null) {

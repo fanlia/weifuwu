@@ -76,6 +76,7 @@ export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () =
   }
 
   mw.stop = () => { clearInterval(interval); hits.clear() }
+  ;(mw as any).stats = () => ({ entries: hits.size, maxEntries: MAX_ENTRIES })
   return mw
 }
 

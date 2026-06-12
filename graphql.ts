@@ -1,7 +1,8 @@
-import { buildSchema, graphql as executeGraphQL, type GraphQLSchema } from 'graphql'
+import { buildSchema, graphql as executeGraphQL, type GraphQLSchema, validate as validateQuery, parse, type DocumentNode } from 'graphql'
 import { makeExecutableSchema } from '@graphql-tools/schema'
 import type { Context } from './types.ts'
 import { Router } from './router.ts'
+import { currentTraceId } from './trace.ts'
 
 export interface GraphQLOptions {
   schema: string | GraphQLSchema
@@ -9,6 +10,10 @@ export interface GraphQLOptions {
   resolvers?: any
   context?: (req: Request, ctx: Context) => Record<string, any> | Promise<Record<string, any>>
   graphiql?: boolean
+  /** Max query depth (nesting). Default: 10. Set 0 to disable. */
+  maxDepth?: number
+  /** Execution timeout in ms. Default: 30_000. */
+  timeout?: number
 }
 
 export type GraphQLHandler = (
@@ -44,12 +49,37 @@ async function parseParamsFromPost(req: Request): Promise<GraphQLParams | null> 
 }
 
 function buildSchemaFromOptions(options: GraphQLOptions): GraphQLSchema {
-  if (typeof options.schema === 'string') {
-    return options.resolvers
-      ? makeExecutableSchema({ typeDefs: options.schema, resolvers: options.resolvers })
-      : buildSchema(options.schema)
+  try {
+    if (typeof options.schema === 'string') {
+      return options.resolvers
+        ? makeExecutableSchema({ typeDefs: options.schema, resolvers: options.resolvers })
+        : buildSchema(options.schema)
+    }
+    return options.schema
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[graphql] schema build failed: ${msg}`)
+    throw err
   }
-  return options.schema
+}
+
+/** Count max nesting depth of a GraphQL query. */
+function queryDepth(doc: DocumentNode): number {
+  let max = 0
+  function walk(node: any, depth: number) {
+    if (depth > max) max = depth
+    if (node.selectionSet) {
+      for (const sel of node.selectionSet.selections) {
+        walk(sel, depth + 1)
+      }
+    }
+  }
+  for (const def of doc.definitions) {
+    if (def.kind === 'OperationDefinition') {
+      walk(def, 0)
+    }
+  }
+  return max
 }
 
 async function executeQuery(
@@ -59,16 +89,54 @@ async function executeQuery(
   req: Request,
   ctx: Context,
 ): Promise<Response> {
+  // Depth limit
+  const maxDepth = options.maxDepth ?? 10
+  if (maxDepth > 0) {
+    try {
+      const doc = parse(params.query)
+      const depth = queryDepth(doc)
+      if (depth > maxDepth) {
+        return Response.json({ errors: [{ message: `Query depth ${depth} exceeds limit ${maxDepth}` }] }, { status: 400 })
+      }
+      const validationErrors = validateQuery(schema, doc)
+      if (validationErrors.length > 0) {
+        return Response.json({ errors: validationErrors.map(e => ({ message: e.message })) }, { status: 400 })
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return Response.json({ errors: [{ message: `Parse error: ${msg}` }] }, { status: 400 })
+    }
+  }
+
+  // Timeout
+  const timeout = options.timeout ?? 30_000
   const contextValue = options.context ? await options.context(req, ctx) : ctx
-  const result = await executeGraphQL({
-    schema,
-    source: params.query,
-    rootValue: options.rootValue,
-    contextValue,
-    variableValues: params.variables,
-    operationName: params.operationName,
-  }) as any
-  return Response.json(result, { status: result.errors ? 400 : 200 })
+
+  try {
+    const resultPromise = executeGraphQL({
+      schema,
+      source: params.query,
+      rootValue: options.rootValue,
+      contextValue,
+      variableValues: params.variables,
+      operationName: params.operationName,
+    }) as any
+
+    const result = timeout > 0
+      ? await Promise.race([
+          resultPromise,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout')), timeout)
+          ),
+        ])
+      : await resultPromise
+
+    return Response.json(result, { status: result.errors ? 400 : 200 })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[${currentTraceId()}] graphql execution failed: ${msg}`)
+    return Response.json({ errors: [{ message: msg }] }, { status: 500 })
+  }
 }
 
 function graphiqlHTML(endpoint: string): string {
@@ -123,16 +191,18 @@ function graphiqlHTML(endpoint: string): string {
 
 export function graphql(handler: GraphQLHandler): Router {
   const r = new Router()
-  let cachedHandler: GraphQLOptions | null = null
+  let cachedOptions: GraphQLOptions | null = null
   let cachedSchema: GraphQLSchema | null = null
 
   async function getSchema(req: Request, ctx: Context): Promise<{ options: GraphQLOptions; schema: GraphQLSchema }> {
     const options = await handler(req, ctx)
-    if (cachedHandler === options && cachedSchema) {
+    // Cache schema — handler must return the same schema reference for cache to work.
+    // If schema changes (e.g. hot-reload), return a different object reference.
+    if (cachedSchema && cachedOptions === options) {
       return { options, schema: cachedSchema }
     }
     const schema = buildSchemaFromOptions(options)
-    cachedHandler = options
+    cachedOptions = options
     cachedSchema = schema
     return { options, schema }
   }
