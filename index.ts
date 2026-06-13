@@ -115,8 +115,10 @@ export { health } from './health.ts'
 export type { HealthOptions } from './health.ts'
 export { analytics } from './analytics.ts'
 export type { AnalyticsOptions, AnalyticsModule } from './analytics.ts'
-export { preferences } from './preferences.ts'
-export type { PrefOptions } from './preferences.ts'
+export { theme } from './theme.ts'
+export type { ThemeOptions } from './theme.ts'
+export { i18n } from './i18n.ts'
+export type { I18nOptions } from './i18n.ts'
 export { seo, seoMiddleware, seoTags } from './seo.ts'
 export type {
   SeoOptions,

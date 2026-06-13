@@ -123,7 +123,7 @@ Request → serve() → app.handler() → global middleware × N → path middle
 
 1. `serve()` receives HTTP request
 2. `app.handler()` creates `ctx = { params, query }` and routes to the matching trie node
-3. **Global middleware** runs in `use()` order (e.g. `preferences()`, `postgres()`, `cors()`)
+3. **Global middleware** runs in `use()` order (e.g. `theme()`, `i18n()`, `postgres()`, `cors()`) 
 4. **Path‑scoped middleware** runs for matching paths (e.g. `app.use('/admin', authMW)`)
 5. **Route‑level middleware** runs (e.g. `app.get('/admin', validate(...), handler)`)
 6. **Route handler** returns `Response` — middleware chain unwinds
@@ -156,14 +156,13 @@ The `ctx` object accumulates properties as it passes through the middleware chai
 | `sql` | `postgres()` | `Sql<{}>` | PostgreSQL tagged-template client |
 | `redis` | `redis()` | `Redis` | Redis client |
 | `queue` | `queue()` | `Queue` | Job queue |
-| `prefs` | `preferences()` | `{ locale, theme }` | User preferences (locale, theme) |
+| `theme` | `theme()` | `'dark'` | Current theme |
 | `deploy` | `deploy()` | `{ appName? }` | Deploy gateway info |
 | `layoutStack` | `ssr()` internal | `LayoutEntry[]` | React layout component stack |
 | `loaderData` | User middleware | `Record<string, unknown>` | SSR data passed to client |
 | `user` | `auth()` / `user().middleware()` | `{ id?: string }` | Authenticated user |
 | `parsed` | `validate()` / `upload()` | `{ body, query, params, headers, files }` | Validated/parsed request data |
-| `t` | `preferences()` | `(key) => string` | Translation function |
-| `setPref` | `preferences()` | `(key, val) => Response` | Set preference cookie + redirect |
+| `i18n` | `i18n()` | `{ locale, t }` | Locale + translation function |
 | `compiledTailwindCss` | `ssr()` internal | `string` | Compiled CSS content (internal) |
 | `tailwindCssUrl` | `ssr()` internal | `string` | Compiled CSS route URL (internal) |
 | `session` | `session()` | `Session` | Session data object |
@@ -1127,36 +1126,48 @@ await fts.dropIndex(pg.sql, articles)
 
 Search options: `fields`, `limit` (20), `offset` (0), `headline` (false), `language` ('english'), `minRank`.
 
-### preferences [α]
-
-Locale detection + theme + translations. `/__lang/:locale` and `/__theme/:theme` auto-routed.
+### theme [α]
 
 ```ts
-app.use(preferences({ dir: './locales', locale: { default: 'en' }, theme: { default: 'system' } }))
-// ctx.prefs.locale, ctx.prefs.theme, ctx.t('key'), ctx.setPref('locale', 'zh')
-// ctx.setPref() returns a 302 Response with Set-Cookie — return it from your handler
-// GET /__lang/zh → 302 + Set-Cookie  (or JSON if Accept: application/json)
-// GET /__theme/dark → same pattern
+app.use(theme({ default: 'dark' }))
+// → ctx.theme = 'dark'
+// → GET /__theme/dark — switch theme (handled by client-side interceptor)
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `dir` | — | Translation JSON directory |
-| `locale.default` | `'en'` | Fallback locale |
-| `locale.cookie` | `'locale'` | Cookie name |
-| `locale.fromAcceptLanguage` | `true` | Detect from header |
-| `theme.default` | `'system'` | `'light'` \| `'dark'` \| `'system'` |
-| `theme.cookie` | `'theme'` | Cookie name |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `default` | `string` | `'system'` | Default theme |
+| `cookie` | `string` | `'theme'` | Cookie name (empty to disable) |
 
-```tsx
-// Client-side no-refresh switching — import enables it automatically
-import { useLocale, useTheme } from 'weifuwu/react'
+See [`useTheme()`](#usetheme) for client-side usage.
 
-<Link href="/__lang/zh">中文</Link>         // <Link> handles it via interceptor
-<button onClick={() => setLocale('en')}>EN</button>  // or programmatic
-const { theme, resolvedTheme, setTheme } = useTheme()
-// resolvedTheme resolves 'system' → 'dark'|'light' based on prefers-color-scheme
+### i18n [α]
+
+```ts
+app.use(i18n({ default: 'zh', dir: './locales' }))
+// → ctx.i18n = { locale: 'zh', t: (key) => string }
+// → ctx.i18n.t('welcome') → '欢迎'
+// → ctx.i18n.locale → 'zh'
+// → GET /__lang/en — switch locale
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `default` | `string` | `'en'` | Default locale |
+| `dir` | `string` | — | Directory with `{locale}.json` files |
+| `messages` | `object` | — | Inline translations: `{ zh: { welcome: '欢迎' } }` |
+| `cookie` | `string` | `'locale'` | Cookie name (empty to disable) |
+| `fromAcceptLanguage` | `boolean` | `true` | Detect from Accept-Language header |
+
+```ts
+// Handler
+app.get('/greet', async (req, ctx) => {
+  const greeting = ctx.i18n?.t('welcome', { name: 'Alice' })
+  return Response.json({ greeting, locale: ctx.i18n?.locale })
+})
+```
+
+**Client-side:** import `useLocale` from `weifuwu/react`, `useTheme` from `weifuwu/react`.
 
 ### queue [α]
 

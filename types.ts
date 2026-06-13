@@ -7,9 +7,11 @@ export interface Context {
   user?: unknown
   parsed?: Record<string, unknown>
   mountPath?: string
-  t?: (key: string, params?: Record<string, string>, fallback?: string) => string
-  setPref?: (name: string, value: string) => Response
-  prefs?: Record<string, string>
+  theme?: string
+  i18n?: {
+    locale: string
+    t: (key: string, params?: Record<string, string>, fallback?: string) => string
+  }
   env?: Record<string, string>
   layoutStack?: { path: string; component: any }[]  // set by layout() middleware, read by ssr()
   [key: string]: unknown  // allow arbitrary middleware-injected data

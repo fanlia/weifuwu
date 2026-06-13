@@ -63,7 +63,7 @@ function buildHeadPayload(opts: StreamOpts): string {
 }<\/script>\n`
   }
 
-  if (ctx.prefs?.theme) {
+  if (ctx.theme) {
     result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
   }
 
@@ -85,7 +85,8 @@ function buildHeadPayload(opts: StreamOpts): string {
     params: ctx.params,
     query: ctx.query,
     parsed: ctx.parsed,
-    prefs: ctx.prefs,
+    theme: ctx.theme,
+    i18n: ctx.i18n,
     loaderData,
   }
 

@@ -191,7 +191,7 @@ async function buildClientBundle(
     const absEntry = resolve(entryPath)
     const absLayouts = layoutPaths.map(p => resolve(p))
     const layoutImports = absLayouts.map(p => `import${JSON.stringify(p)};`).join('')
-    const _sc = `(function(){var k='__WEIFUWU_CTX_STORE';var s=typeof globalThis!='undefined'&&globalThis[k];if(!s)return function(){};return function(v){s._ctx={...s._ctx,...v};s._snapshot={params:s._ctx.params,query:s._ctx.query,user:s._ctx.user,parsed:s._ctx.parsed,prefs:s._ctx.prefs,env:s._ctx.env};s._listeners.forEach(function(fn){fn()})}})()`
+    const _sc = `(function(){var k='__WEIFUWU_CTX_STORE';var s=typeof globalThis!='undefined'&&globalThis[k];if(!s)return function(){};return function(v){s._ctx={...s._ctx,...v};s._snapshot={params:s._ctx.params,query:s._ctx.query,user:s._ctx.user,parsed:s._ctx.parsed,theme:s._ctx.theme,i18n:s._ctx.i18n,env:s._ctx.env};s._listeners.forEach(function(fn){fn()})}})()`
     const code = [
       layoutImports,
       `${isDev ? "import{createRoot}from'react-dom/client';" : "import{hydrateRoot}from'react-dom/client';"}`,
@@ -261,12 +261,13 @@ function renderPage(pageFile: string): Handler {
     const base = (ctx.mountPath || '').replace(/\/$/, '')
     const loaderData = serializeLoaderData(ctx)
 
-    const ctxValue: PageContext = {
+    const ctxValue: any = {
       params: ctx.params,
       query: ctx.query,
       user: (ctx.user ?? {}) as { id?: string },
       parsed: ctx.parsed ?? {},
-      prefs: ctx.prefs ?? {},
+      theme: ctx.theme,
+      i18n: ctx.i18n,
       loaderData,
       env: ctx.env ?? {},
     }

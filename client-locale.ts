@@ -24,11 +24,9 @@ addInterceptor(async (url) => {
       headers: { accept: 'application/json' },
     })
     const data = await res.json()
-    const ctx: any = { ...((window as any).__WEIFUWU_CTX || {}), params: {}, query: {} }
-    ctx.prefs = { ...ctx.prefs, locale: data.locale }
+    ;(window as any).__WEIFUWU_CTX = { ...(window as any).__WEIFUWU_CTX, i18n: { locale: data.locale, t: buildT() } }
     if (data.messages) (window as any).__LOCALE_DATA__ = data.messages
-    ;(window as any).__WEIFUWU_CTX = ctx
-    setCtx(ctx)
+    setCtx({ i18n: { locale: data.locale, t: buildT() } } as any)
   } catch {
     location.href = url.href
   }
@@ -38,8 +36,8 @@ addInterceptor(async (url) => {
 export function useLocale() {
   const ctx = useCtx()
   return {
-    locale: ctx.prefs.locale,
+    locale: ctx.i18n?.locale,
     setLocale: (locale: string) => navigate('/__lang/' + locale),
-    t: buildT(),
+    t: ctx.i18n?.t ?? buildT(),
   }
 }

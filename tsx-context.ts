@@ -5,12 +5,13 @@ export interface PageContext {
   query: Record<string, string>
   user: { id?: string }
   parsed: Record<string, unknown>
-  prefs: Record<string, string>
+  theme?: string
+  i18n?: { locale: string; t: (key: string, params?: Record<string, string>, fallback?: string) => string }
   loaderData: Record<string, unknown>
   env: Record<string, string>
 }
 
-const DEFAULT_CTX: PageContext = { params: {}, query: {}, parsed: {}, prefs: {}, loaderData: {}, env: {}, user: {} }
+const DEFAULT_CTX: PageContext = { params: {}, query: {}, parsed: {}, loaderData: {}, env: {}, user: {} }
 
 interface CtxStore {
   _ctx: PageContext
@@ -27,7 +28,7 @@ function getStore(): CtxStore {
   }
   const s: CtxStore = {
     _ctx: DEFAULT_CTX,
-    _snapshot: { params: DEFAULT_CTX.params, query: DEFAULT_CTX.query, user: DEFAULT_CTX.user, parsed: DEFAULT_CTX.parsed, prefs: DEFAULT_CTX.prefs, env: DEFAULT_CTX.env },
+    _snapshot: { params: DEFAULT_CTX.params, query: DEFAULT_CTX.query, user: DEFAULT_CTX.user, parsed: DEFAULT_CTX.parsed, theme: DEFAULT_CTX.theme, i18n: DEFAULT_CTX.i18n, env: DEFAULT_CTX.env },
     _listeners: new Set<() => void>(),
     _alsGetStore: null,
   }
@@ -50,7 +51,7 @@ export function __registerAls(getStore: () => PageContext | undefined) {
 
 function setCtx(value: Partial<PageContext>) {
   store._ctx = { ...store._ctx, ...value }
-  store._snapshot = { params: store._ctx.params, query: store._ctx.query, user: store._ctx.user, parsed: store._ctx.parsed, prefs: store._ctx.prefs, env: store._ctx.env }
+  store._snapshot = { params: store._ctx.params, query: store._ctx.query, user: store._ctx.user, parsed: store._ctx.parsed, theme: store._ctx.theme, i18n: store._ctx.i18n, env: store._ctx.env }
   store._listeners.forEach(fn => fn())
 }
 
