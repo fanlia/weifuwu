@@ -277,7 +277,7 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
 
   function writeCookie(res: Response, sid: string): Response {
     const value = secret ? signSessionId(sid, secret) : sid
-    return setCookie(res, cookieName, value, cookieOpts as any)
+    return setCookie(res, cookieName, value, cookieOpts)
   }
 
   const mw = (async (req: Request, ctx: Context, next: any) => {
@@ -319,19 +319,19 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
     // save/destroy/id are non-enumerable, so they don't appear in JSON.stringify
     const snapshot = isSessionActive(session) ? JSON.stringify(session) : null
 
-    ;(ctx as any).session = session
+    ctx.session = session
 
     const res = await next(req, ctx)
 
     // Read session again — handler may have replaced ctx.session entirely
-    const currentSession = (ctx as any).session as Session | null | undefined
+    const currentSession = ctx.session as Session | null | undefined
 
     if (!currentSession || currentSession[kDestroyed]) {
       // Destroyed
       if (loadedSid) {
         await store.destroy(loadedSid)
       }
-      return deleteCookie(res, cookieName, cookieOpts as any)
+      return deleteCookie(res, cookieName, cookieOpts)
     }
 
     // Check if rotation is needed (session was loaded from store and is old)
@@ -345,8 +345,8 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
       loadedSid = newId
       // Update session object's internal ID and __createdAt so subsequent
       // snapshot comparison uses the corrected timestamp
-      ;(currentSession as any)[kId] = newId
-      ;(currentSession as any)[kCreatedAt] = data[kCreatedAt]
+      // Update session internals via Symbol keys — not part of Session public API
+      Object.assign(currentSession, { [kId]: newId, [kCreatedAt]: data[kCreatedAt] })
     }
 
     // Check if data changed
@@ -379,7 +379,7 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
     } else if (loadedSid) {
       // Session emptied — destroy
       await store.destroy(loadedSid)
-      return deleteCookie(res, cookieName, cookieOpts as any)
+      return deleteCookie(res, cookieName, cookieOpts)
     }
 
     return res

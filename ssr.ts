@@ -31,9 +31,9 @@ function hashId(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
 }
 
-function serializeLoaderData(ctx: any): Record<string, unknown> {
-  const ld = (ctx as any).loaderData
-  return ld && typeof ld === 'object' ? ld : {}
+function serializeLoaderData(ctx: Record<string, unknown>): Record<string, unknown> {
+  const ld = ctx.loaderData
+  return ld && typeof ld === 'object' ? ld as Record<string, unknown> : {}
 }
 
 // ── Error page (browser-visible, dev-friendly) ──────────────────────────
@@ -277,11 +277,11 @@ function renderPage(pageFile: string, outDir: string): Handler {
       const { renderToReadableStream } = await import('react-dom/server')
       const stream = await renderToReadableStream(element)
       return streamResponse(stream, {
-        ctx: ctx as any,
+        ctx: ctx as Context,
         base,
         isDev,
         loaderData,
-        tailwind: (ctx as any).tailwind,
+        tailwind: (ctx as Record<string, unknown>).tailwind as { css: string; url: string } | undefined,
       }, buildHydrationScript(entryId, JSON.stringify(ctxValue), base))
     })
   }
@@ -292,7 +292,7 @@ function renderPage(pageFile: string, outDir: string): Handler {
 function runChain(mws: Middleware[], handler: Handler, req: Request, ctx: Context): Promise<Response> {
   let idx = 0
   const dispatch: Handler = (r, c) => {
-    if (idx < mws.length) return mws[idx++](r, c, dispatch as any)
+    if (idx < mws.length) return mws[idx++](r, c, dispatch as Handler<Context>)
     return handler(r, c)
   }
   return Promise.resolve(dispatch(req, ctx))
@@ -373,11 +373,11 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void; pages
     r.use('/', tailwindRouter(dir))
   }
 
+  let devWatcher: { close: () => void } | undefined
   if (isDev) {
     r.use('/', liveRouter(dir))
     r.ws('/__weifuwu/livereload', liveWs())
-    const watcher = liveWatcher(dir)
-    ;(r as any).close = watcher.close
+    devWatcher = liveWatcher(dir)
   }
 
   // Catch-all: lazy page route resolution (async + cached)
@@ -406,5 +406,6 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void; pages
 
   const mod = r as Router & { close?: () => void; pages?: () => RouteEntry[] }
   mod.pages = () => discoverRoutes(dir)
+  if (devWatcher) mod.close = devWatcher.close.bind(devWatcher)
   return mod
 }

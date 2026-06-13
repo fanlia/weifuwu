@@ -157,7 +157,7 @@ export class Router<T extends Context = Context> {
     } else if (typeof arg1 === 'function') {
       this.globalMws.push(arg1 as unknown as Middleware)
     }
-    return this as any
+    return this
   }
 
   // Route registration — returns Router<T> unchanged.
@@ -368,7 +368,8 @@ export class Router<T extends Context = Context> {
     const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
     this._collectWs(sub.wsRoot, '', wsRoutes)
     for (const { path, handler, middlewares } of wsRoutes) {
-      this.ws(base + path, ...(allExtra as any), ...(middlewares as any), handler)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.ws(base + path, ...(allExtra as Middleware<any, any>[]), ...(middlewares as Middleware<any, any>[]), handler)
     }
   }
 
@@ -594,7 +595,7 @@ function runChainLoop(
       called = true
       return runChainLoop(middlewares, index + 1, finalHandler, r, c)
     }
-    return Promise.resolve(mw(req, ctx, dispatch as any))
+    return Promise.resolve(mw(req, ctx, dispatch as unknown as Parameters<typeof mw>[2]))
   }
   return Promise.resolve(finalHandler(req, ctx))
 }
@@ -618,8 +619,8 @@ function upgradeSocket(
     connCtx.ws = {
       get state() { return wsState },
       json(data: unknown) { ws.send(JSON.stringify(data)) },
-      join(room: string) { hub.join(room, ws as any) },
-      leave(room: string) { hub.leave(ws as any) },
+      join(room: string) { hub.join(room, ws) },
+      leave(room: string) { hub.leave(ws) },
       sendRoom(room: string, data: unknown) { hub.broadcast(room, JSON.stringify(data)) },
     }
 
@@ -632,7 +633,7 @@ function upgradeSocket(
     })
 
     ws.on('close', () => {
-      hub.leave(ws as any)
+      hub.leave(ws)
       handler.close?.(ws, connCtx)
     })
 

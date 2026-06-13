@@ -103,13 +103,13 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
     const [existing] = await sql.unsafe(
       `SELECT id FROM ${escapeIdent(rolesTable)} WHERE name = $1 LIMIT 1`,
       [role],
-    ) as any[]
+    ) as Array<{ id: number }>
     if (existing) return existing.id
 
     const [created] = await sql.unsafe(
       `INSERT INTO ${escapeIdent(rolesTable)} (name) VALUES ($1) RETURNING id`,
       [role],
-    ) as any[]
+    ) as Array<{ id: number }>
     return created.id
   }
 
@@ -149,7 +149,7 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
        JOIN ${escapeIdent(rolesTable)} r ON r.id = ur.role_id
        WHERE ur.user_id = $1 ORDER BY r.name`,
       [userId],
-    ) as any[]
+    ) as Array<{ name: string }>
     return rows.map(r => r.name)
   }
 
@@ -159,14 +159,14 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
        JOIN ${escapeIdent(rolePermsTable)} rp ON rp.role_id = ur.role_id
        WHERE ur.user_id = $1 ORDER BY rp.permission`,
       [userId],
-    ) as any[]
+    ) as Array<{ permission: string }>
     return rows.map(r => r.permission)
   }
 
   // ── Middleware ──
 
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
-    const userId = (ctx as any).user?.id
+    const userId = (ctx.user as { id?: number } | undefined)?.id
     let roles = new Set<string>()
     let perms = new Set<string>()
 
@@ -192,7 +192,8 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
 
   function requireRole(...roles: string[]): Middleware {
     return (req, ctx, next) => {
-      if (!(ctx.permissions as any)?.roles || !roles.some((r: string) => (ctx.permissions as any).roles.has(r))) {
+      const p = ctx as Context & { permissions: { roles: Set<string>; permissions: Set<string> } }
+      if (!p.permissions?.roles || !roles.some((r: string) => p.permissions.roles.has(r))) {
         return Response.json(
           { error: `Forbidden: requires one of roles [${roles.join(', ')}]` },
           { status: 403 },
@@ -204,7 +205,8 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
 
   function requirePermission(...perms: string[]): Middleware {
     return (req, ctx, next) => {
-      const userPerms = (ctx.permissions as any)?.permissions
+      const p = ctx as Context & { permissions: { roles: Set<string>; permissions: Set<string> } }
+      const userPerms = p.permissions?.permissions
       if (!userPerms) {
         return Response.json({ error: 'Forbidden: no permissions loaded' }, { status: 403 })
       }

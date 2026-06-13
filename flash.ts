@@ -62,7 +62,7 @@ export function flash(options?: FlashOptions): Middleware<Context, Context & { f
       set: makeSetFlash(name, referer),
     } as FlashInjected
 
-    const res = await next(req, ctx)
+    const res = await next(req, ctx as Context & { flash: FlashInjected })
 
     if (raw) {
       const headers = new Headers(res.headers)

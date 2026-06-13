@@ -1,4 +1,4 @@
-import type { Redis } from './vendor.ts'
+import type { Redis, WebSocket } from './vendor.ts'
 
 export interface HubOptions {
   redis?: Redis
