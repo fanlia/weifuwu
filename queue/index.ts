@@ -3,76 +3,206 @@ import crypto from 'node:crypto'
 import type { Context, Handler } from '../types.ts'
 import { Router } from '../router.ts'
 import type { Queue, QueueOptions, QueueJob, QueueJobWithError } from './types.ts'
+import { cronNext, parsePattern, matches, parseField } from '../cron-utils.ts'
 
-function cronNext(expr: string, from: Date = new Date()): number {
-  const parts = expr.trim().split(/\s+/)
-  if (parts.length !== 5) throw new Error(`Invalid cron expression "${expr}": expected 5 fields`)
-
-  const fields = parts.map((f, i) => {
-    const ranges = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 6]] as const
-    const [min, max] = ranges[i]
-    return parseField(f, min, max)
-  })
-
-  let candidate = new Date(from.getTime() + 60_000)
-  candidate.setSeconds(0, 0)
-
-  for (let i = 0; i < 525600; i++) {
-    const m = candidate.getMonth() + 1
-    const d = candidate.getDate()
-    const h = candidate.getHours()
-    const min = candidate.getMinutes()
-    const dw = candidate.getDay()
-
-    if (
-      fields[4].has(dw) &&
-      fields[3].has(m) &&
-      fields[2].has(d) &&
-      fields[1].has(h) &&
-      fields[0].has(min)
-    ) {
-      return candidate.getTime()
-    }
-
-    candidate.setTime(candidate.getTime() + 60_000)
-  }
-
-  throw new Error(`No future date found for cron expression "${expr}"`)
-}
-
-function parseField(field: string, min: number, max: number): Set<number> {
-  const values = new Set<number>()
-
-  for (const part of field.split(',')) {
-    if (part === '*') {
-      for (let i = min; i <= max; i++) values.add(i)
-    } else if (part.includes('/')) {
-      const [range, stepStr] = part.split('/')
-      const step = parseInt(stepStr, 10)
-      let start = min
-      let end = max
-      if (range !== '*') {
-        const parts = range.split('-')
-        start = parseInt(parts[0], 10)
-        end = parts.length > 1 ? parseInt(parts[1], 10) : max
-      }
-      for (let i = start; i <= end; i += step) values.add(i)
-    } else if (part.includes('-')) {
-      const [s, e] = part.split('-').map(Number)
-      for (let i = s; i <= e; i++) values.add(i)
-    } else {
-      values.add(parseInt(part, 10))
-    }
-  }
-
-  const result = new Set<number>()
-  for (const v of values) {
-    if (v >= min && v <= max) result.add(v)
-  }
-  return result
-}
+// ── Factory — auto-selects mode based on Redis availability ─────────────────
 
 export function queue(opts?: QueueOptions): Queue {
+  if (opts?.redis || opts?.url) {
+    return createRedisQueue(opts)
+  }
+  return createMemoryQueue(opts)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Memory mode — no Redis required
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function createMemoryQueue(opts?: QueueOptions): Queue {
+  const pollInterval = opts?.pollInterval ?? 200
+  const handlers = new Map<string, (job: any) => Promise<void>>()
+  const jobs: QueueJob[] = []          // sorted by runAt ascending
+  const failed: QueueJobWithError[] = []
+  const MAX_FAILED = 1000
+  let running = false
+  let pollTimer: ReturnType<typeof setTimeout> | null = null
+  let _processed = 0
+  let _failed = 0
+  let inflight = 0
+  const MAX_CONCURRENT = 16
+
+  function insertJob(job: QueueJob): void {
+    // Insert sorted by runAt
+    let i = 0
+    while (i < jobs.length && jobs[i].runAt <= job.runAt) i++
+    jobs.splice(i, 0, job)
+  }
+
+  function removeJob(id: string): void {
+    const idx = jobs.findIndex(j => j.id === id)
+    if (idx >= 0) jobs.splice(idx, 1)
+  }
+
+  async function execute(job: QueueJob, handler: (job: QueueJob) => Promise<void>): Promise<void> {
+    inflight++
+    try {
+      await handler(job)
+      _processed++
+    } catch (e) {
+      _failed++
+      const errMsg = (e as Error).message
+      console.error('[queue] handler error:', errMsg)
+      const failedEntry: QueueJobWithError = {
+        ...job,
+        error: errMsg,
+        failedAt: Date.now(),
+      }
+      failed.unshift(failedEntry)
+      if (failed.length > MAX_FAILED) failed.length = MAX_FAILED
+    } finally {
+      inflight--
+    }
+
+    // Re-queue recurring jobs
+    if (job.schedule) {
+      try {
+        const nextRun = cronNext(job.schedule)
+        insertJob({ ...job, id: crypto.randomUUID(), runAt: nextRun, createdAt: Date.now() })
+      } catch (e) {
+        console.error('[queue] cron re-queue failed:', (e as Error).message)
+      }
+    }
+  }
+
+  async function poll(): Promise<void> {
+    if (!running) return
+    const now = Date.now()
+
+    while (running && inflight < MAX_CONCURRENT && jobs.length > 0 && jobs[0].runAt <= now) {
+      const job = jobs.shift()!
+      const handler = handlers.get(job.type)
+      if (handler) {
+        execute(job, handler)
+      }
+    }
+
+    if (running) {
+      pollTimer = setTimeout(poll, pollInterval)
+    }
+  }
+
+  const mw = ((req: Request, ctx: Context, next: Handler) => {
+    ctx.queue = q
+    return next(req, ctx)
+  }) as unknown as Queue
+
+  const q: Queue = mw
+
+  mw.add = function add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string> {
+    const id = crypto.randomUUID()
+    let runAt: number
+
+    if (opts?.schedule) {
+      // If the pattern matches right now, fire immediately; otherwise schedule next occurrence
+      try {
+        const fields = parsePattern(opts.schedule)
+        if (matches(fields, new Date())) {
+          runAt = Date.now()
+        } else {
+          runAt = cronNext(opts.schedule)
+        }
+      } catch {
+        runAt = cronNext(opts.schedule)
+      }
+    } else if (opts?.delay) {
+      runAt = Date.now() + opts.delay
+    } else {
+      runAt = Date.now()
+    }
+
+    const job: QueueJob<T> = { id, type, payload, createdAt: Date.now(), runAt }
+    if (opts?.schedule) job.schedule = opts.schedule
+    insertJob(job)
+    return Promise.resolve(id)
+  }
+
+  mw.process = function process<T>(type: string, handler: (job: QueueJob<T>) => Promise<void>): void {
+    handlers.set(type, handler as (job: any) => Promise<void>)
+  }
+
+  mw.run = async function run(): Promise<void> {
+    if (running) return
+    running = true
+    poll()
+  }
+
+  mw.stop = function stop(): void {
+    running = false
+    if (pollTimer) {
+      clearTimeout(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  mw.close = async function close(): Promise<void> {
+    mw.stop()
+    while (inflight > 0) await new Promise(r => setTimeout(r, 50))
+    // no-op for memory mode
+  }
+
+  mw.jobs = async function listJobs(limit?: number): Promise<QueueJob[]> {
+    return jobs.slice(0, limit ?? 50)
+  }
+
+  mw.failedJobs = async function listFailed(limit?: number): Promise<QueueJobWithError[]> {
+    return failed.slice(0, limit ?? 50)
+  }
+
+  mw.retryFailed = async function retry(jobId: string): Promise<boolean> {
+    const idx = failed.findIndex(j => j.id === jobId)
+    if (idx < 0) return false
+    const [entry] = failed.splice(idx, 1)
+    _failed--
+    insertJob({ ...entry, runAt: Date.now() })
+    delete (entry as any).error
+    delete (entry as any).failedAt
+    return true
+  }
+
+  mw.retryAllFailed = async function retryAll(type?: string): Promise<number> {
+    let count = 0
+    for (let i = failed.length - 1; i >= 0; i--) {
+      const entry = failed[i]
+      if (type && entry.type !== type) continue
+      failed.splice(i, 1)
+      _failed--
+      insertJob({ ...entry, runAt: Date.now() })
+      count++
+    }
+    return count
+  }
+
+  mw.dashboard = function dashboard(): Router {
+    return buildDashboard(q)
+  }
+
+  ;(mw as any).stats = () => ({
+    running,
+    inflight,
+    processed: _processed,
+    failed: _failed,
+    handlers: handlers.size,
+    maxConcurrent: MAX_CONCURRENT,
+  })
+
+  return q
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Redis mode — existing implementation (uses shared cron utils)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function createRedisQueue(opts?: QueueOptions): Queue {
   const redis = opts?.redis ?? new IORedis(opts?.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379')
   const prefix = opts?.prefix ?? 'queue'
   const pollInterval = opts?.pollInterval ?? 200
@@ -106,7 +236,6 @@ export function queue(opts?: QueueOptions): Queue {
       _failed++
       const errMsg = (e as Error).message
       console.error('[queue] handler error:', errMsg)
-      // Store failed job details in a list (trimmed to MAX_FAILED)
       const failedEntry = JSON.stringify({
         ...job,
         error: errMsg,
@@ -146,16 +275,10 @@ export function queue(opts?: QueueOptions): Queue {
         }
 
         let job: QueueJob
-        try {
-          job = JSON.parse(raw)
-        } catch {
-          continue
-        }
+        try { job = JSON.parse(raw) } catch { continue }
 
         const jobHandler = handlers.get(job.type)
-        if (jobHandler) {
-          processJob(job, jobHandler)
-        }
+        if (jobHandler) processJob(job, jobHandler)
       }
     } catch (e) {
       console.error('[queue] poll error:', (e as Error).message)
@@ -225,12 +348,9 @@ export function queue(opts?: QueueOptions): Queue {
       try {
         const job = JSON.parse(entry)
         if (job.id === jobId) {
-          // Remove from failed list
           await redis.lrem(failedKey, 1, entry)
-          // Re-add to job queue
           const reJob = { ...job, runAt: Date.now() }
-          delete reJob.error
-          delete reJob.failedAt
+          delete reJob.error; delete reJob.failedAt
           await redis.zadd(jobKey, reJob.runAt, JSON.stringify(reJob))
           _failed--
           return true
@@ -249,8 +369,7 @@ export function queue(opts?: QueueOptions): Queue {
         if (type && job.type !== type) continue
         await redis.lrem(failedKey, 1, entry)
         const reJob = { ...job, runAt: Date.now() }
-        delete reJob.error
-        delete reJob.failedAt
+        delete reJob.error; delete reJob.failedAt
         await redis.zadd(jobKey, reJob.runAt, JSON.stringify(reJob))
         _failed--
         count++
@@ -260,58 +379,10 @@ export function queue(opts?: QueueOptions): Queue {
   }
 
   mw.dashboard = function dashboard(): Router {
-    const r = new Router()
-
-    // GET / — queue stats + pending jobs by type
-    r.get('/', async (req, ctx) => {
-      const s = q.stats()
-      const pending = await q.jobs(100)
-
-      // Group by type
-      const byType: Record<string, { pending: number; failed: number }> = {}
-      for (const job of pending) {
-        if (!byType[job.type]) byType[job.type] = { pending: 0, failed: 0 }
-        byType[job.type].pending++
-      }
-
-      // Count failed by type
-      const failed = await q.failedJobs(1000)
-      for (const job of failed) {
-        if (!byType[job.type]) byType[job.type] = { pending: 0, failed: 0 }
-        byType[job.type].failed++
-      }
-
-      return Response.json({
-        stats: s,
-        types: byType,
-        failedCount: failed.length,
-      })
-    })
-
-    // GET /:type/failed — list failed jobs for a type
-    r.get('/:type/failed', async (req, ctx) => {
-      const failed = await q.failedJobs(100)
-      const filtered = failed.filter(j => j.type === ctx.params.type)
-      return Response.json({ jobs: filtered, count: filtered.length })
-    })
-
-    // POST /:type/retry — retry all failed jobs of a type
-    r.post('/:type/retry', async (req, ctx) => {
-      const count = await q.retryAllFailed(ctx.params.type)
-      return Response.json({ retried: count })
-    })
-
-    // POST /retry/:id — retry a specific failed job
-    r.post('/retry/:id', async (req, ctx) => {
-      const ok = await q.retryFailed(ctx.params.id)
-      if (!ok) return new Response('Job not found', { status: 404 })
-      return Response.json({ retried: true })
-    })
-
-    return r
+    return buildDashboard(q)
   }
 
-  ;(mw as any).stats = () => ({ 
+  ;(mw as any).stats = () => ({
     running,
     inflight,
     processed: _processed,
@@ -322,3 +393,49 @@ export function queue(opts?: QueueOptions): Queue {
 
   return q
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Shared dashboard builder (used by both modes)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function buildDashboard(q: Queue): Router {
+  const r = new Router()
+
+  r.get('/', async () => {
+    const s = q.stats()
+    const pending = await q.jobs(100)
+    const byType: Record<string, { pending: number; failed: number }> = {}
+    for (const job of pending) {
+      if (!byType[job.type]) byType[job.type] = { pending: 0, failed: 0 }
+      byType[job.type].pending++
+    }
+    const failed = await q.failedJobs(1000)
+    for (const job of failed) {
+      if (!byType[job.type]) byType[job.type] = { pending: 0, failed: 0 }
+      byType[job.type].failed++
+    }
+    return Response.json({ stats: s, types: byType, failedCount: failed.length })
+  })
+
+  r.get('/:type/failed', async (req, ctx) => {
+    const failed = await q.failedJobs(100)
+    return Response.json({ jobs: failed.filter(j => j.type === ctx.params.type) })
+  })
+
+  r.post('/:type/retry', async (req, ctx) => {
+    const count = await q.retryAllFailed(ctx.params.type)
+    return Response.json({ retried: count })
+  })
+
+  r.post('/retry/:id', async (req, ctx) => {
+    const ok = await q.retryFailed(ctx.params.id)
+    if (!ok) return new Response('Job not found', { status: 404 })
+    return Response.json({ retried: true })
+  })
+
+  return r
+}
+
+// Re-export parseField for backward compatibility (used by queue tests that
+// manually manipulate Redis scores)
+export { parseField }

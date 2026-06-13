@@ -181,7 +181,3 @@ export type { KBOptions, KBIngestOptions, KBSearchResult, KBSearchOptions, KBLis
 export { permissions } from './permissions.ts'
 export type { PermissionsOptions, PermissionsModule } from './permissions.ts'
 
-// Cron scheduler
-export { cron, startCron, stopCron, cronJobCount } from './cron.ts'
-export type { CronJobOptions, CronJob } from './cron.ts'
-

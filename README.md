@@ -474,63 +474,6 @@ app.use(cors({ credentials: true, maxAge: 3600 }))
 | `credentials` | `boolean` | `false` | Allow cookies/credentials |
 | `maxAge` | `number` | — | Preflight cache duration (seconds) |
 
-### cron — Scheduled tasks
-
-Lightweight in-process cron scheduler. Supports standard 5-field cron expressions, optional PostgreSQL-backed locking for multi-instance deployments.
-
-```ts
-import { cron, startCron, stopCron } from 'weifuwu'
-
-// Register a weekly report job
-cron('0 9 * * 1', async () => {
-  await sendWeeklyReport()
-})
-
-// Every 5 minutes
-cron('*/5 * * * *', async () => {
-  await checkHealth()
-})
-
-// Start the scheduler
-startCron()
-
-// Stop when shutting down (or SIGTERM auto-stops)
-stopCron()
-```
-
-| Cron field | Range |
-|-----------|-------|
-| minute | 0–59 |
-| hour | 0–23 |
-| day of month | 1–31 |
-| month | 1–12 |
-| day of week | 0–6 (0=Sunday) |
-
-Supported syntax: `*` (any), `*/n` (every n), `n-m` (range), `n,m,o` (list), `n` (exact).
-
-For multi-instance deployments, pass a PostgreSQL client for DB-level locking to prevent duplicate execution:
-
-```ts
-import { cron, startCron } from 'weifuwu'
-
-cron('0 9 * * 1', async () => {
-  await generateReport()
-}, { name: 'weekly-report', pg })  // unique name + pg = distributed lock
-
-startCron()
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `name` | `string` | pattern | Unique job name (required when `pg` is set) |
-| `pg` | `object` | — | PostgreSQL client for multi-instance locking |
-| `table` | `string` | `'_cron_jobs'` | DB table for lock state |
-
-```ts
-import { cronJobCount } from 'weifuwu'
-cronJobCount()  // number of registered jobs
-```
-
 ### cache [α]
 
 Response caching middleware with memory and Redis stores. Caches GET/HEAD responses, with tag-based invalidation.
@@ -1217,23 +1160,50 @@ const { theme, resolvedTheme, setTheme } = useTheme()
 
 ### queue [α]
 
+Async job queue with two modes:
+- **In-memory** (no Redis) — lightweight, for dev or simple deployments
+- **Redis-backed** — persistent, distributed, survives restarts
+
 ```ts
-const q = queue({ redis })
+// In-memory mode — no Redis required
+const q = queue()
 app.use(q)                     // injects ctx.queue
-await q.add('send-email', { to: 'user@test.com' }, { cron: '0 8 * * *' })
+
+// Redis mode — persistent
+const q = queue({ redis })
+app.use(q)
+```
+
+```ts
+// Immediate job
+await q.add('send-email', { to: 'user@test.com' })
+
+// Delayed job
+await q.add('send-email', { to: 'user@test.com' }, { delay: 60_000 })
+
+// Scheduled (cron) job — re-queues automatically
+await q.add('weekly-report', {}, { schedule: '0 9 * * 1' })
+
+// Register handler
+q.process('send-email', async (job) => {
+  await sendMail(job.payload.to, job.payload.body)
+})
+
+// Start processing
+q.run()
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `redis` | `object` | — | Redis client |
+| `redis` | `object` | — | Redis client (omit for in-memory mode) |
 | `url` | `string` | — | Redis URL (alternative to client) |
-| `prefix` | `string` | `'queue:'` | Redis key prefix |
-| `pollInterval` | `number` | `1000` | Poll interval (ms) |
+| `prefix` | `string` | `'queue'` | Redis key prefix (Redis mode only) |
+| `pollInterval` | `number` | `200` | Poll interval (ms) |
 
 | Method | Description |
 |--------|-------------|
-| `.add(name, data, opts?)` | Add job to queue |
-| `.process(handler)` | Register job processor |
+| `.add(type, payload, opts?)` | Add job (opts: `delay`, `schedule`) |
+| `.process(type, handler)` | Register job processor |
 | `.run()` | Start processing |
 | `.stop()` | Stop processing |
 | `.jobs(limit?)` | List pending jobs |
@@ -1242,6 +1212,18 @@ await q.add('send-email', { to: 'user@test.com' }, { cron: '0 8 * * *' })
 | `.retryAllFailed(type?)` | Retry all failed jobs (optionally by type) |
 | `.dashboard()` | Returns a Router with management endpoints |
 | `.close()` | Cleanup |
+
+**Schedule (cron) field reference:**
+
+| Field | Range |
+|-------|-------|
+| minute | 0–59 |
+| hour | 0–23 |
+| day of month | 1–31 |
+| month | 1–12 |
+| day of week | 0–6 (0=Sunday) |
+
+Supported cron syntax: `*` (any), `*/n` (every n), `n-m` (range), `n,m,o` (list), `n` (exact).
 
 **Dashboard endpoints** (mount via `app.use('/__queue', q.dashboard())`):
 
@@ -2001,7 +1983,7 @@ openai, createOpenAI
 
 ```ts
 preferences, health, analytics, seo, seoMiddleware, seoTags,
-user, mailer, graphql, aiStream, runWorkflow, knowledgeBase, permissions, cron, startCron, stopCron,
+user, mailer, graphql, aiStream, runWorkflow, knowledgeBase, permissions, queue,
 logdb, messager, agent, iii, createWorker, registerWorker,
 opencode, deploy, defineConfig, webhook,
 testApp, TestApp, TestRequest, TestResponse,
