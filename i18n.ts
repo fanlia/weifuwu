@@ -122,6 +122,12 @@ export function i18n(options?: I18nOptions): Middleware {
       },
     }
 
+    // SSR hydration: set ctx.parsed.__localeData for ssr/stream serialization
+    if (Object.keys(msgs).length > 0) {
+      ;(ctx as any).parsed = { ...(ctx as any).parsed, __localeData: msgs }
+      ;(globalThis as any).__LOCALE_DATA__ = msgs
+    }
+
     return next(req, ctx)
   }
 }
