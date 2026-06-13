@@ -1,8 +1,9 @@
-import { Router, ssr, preferences } from '../../index.ts'
+import { Router, ssr, theme, i18n } from '../../index.ts'
 
 export const app = new Router()
 app.use('/', ssr({ dir: './ui' }))
-app.use(preferences({ dir: './locales', locale: { default: 'en' }, theme: { default: 'system' } }))
+app.use(theme())
+app.use(i18n({ dir: './locales' }))
 app.use(async (req, ctx, next) => {
   ctx.loaderData = {
     features: [

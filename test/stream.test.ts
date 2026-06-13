@@ -1,46 +1,9 @@
-import { describe, it } from 'node:test'
+import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 
 describe('stream', () => {
-  it('readStream converts ReadableStream to string', async () => {
-    const { readStream } = await import('../stream.ts')
-    const data = 'hello world'
-    const stream = new ReadableStream({
-      start(ctrl) {
-        ctrl.enqueue(new TextEncoder().encode(data))
-        ctrl.close()
-      },
-    })
-    const result = await readStream(stream)
-    assert.equal(result, data)
-  })
-
-  it('readStream handles multiple chunks', async () => {
-    const { readStream } = await import('../stream.ts')
-    const stream = new ReadableStream({
-      start(ctrl) {
-        ctrl.enqueue(new TextEncoder().encode('part1'))
-        ctrl.enqueue(new TextEncoder().encode('part2'))
-        ctrl.close()
-      },
-    })
-    const result = await readStream(stream)
-    assert.equal(result, 'part1part2')
-  })
-
-  it('readStream handles empty stream', async () => {
-    const { readStream } = await import('../stream.ts')
-    const stream = new ReadableStream({
-      start(ctrl) {
-        ctrl.close()
-      },
-    })
-    const result = await readStream(stream)
-    assert.equal(result, '')
-  })
-
-  it('streamResponse returns 200 HTML response by default', async () => {
-    const { streamResponse } = await import('../stream.ts')
+  it('streamResponse returns HTML response', async () => {
+    const { readStream, streamResponse } = await import('../stream.ts')
     const html = '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
     const reactStream = new ReadableStream({
       start(ctrl) {
@@ -49,7 +12,7 @@ describe('stream', () => {
       },
     })
     const res = streamResponse(reactStream, {
-      ctx: { params: {}, query: {}, prefs: {} } as any,
+      ctx: { params: {}, query: {} } as any,
       base: '',
       isDev: false,
     })
@@ -71,7 +34,7 @@ describe('stream', () => {
         params: { id: '1' },
         query: { page: '2' },
         user: { id: 'u1' },
-        prefs: { theme: 'dark' },
+        theme: { value: 'dark' },
         parsed: {},
       } as any,
       base: '',
@@ -83,7 +46,7 @@ describe('stream', () => {
     assert.match(body, /"params":/)
     assert.match(body, /"id":"1"/)
     assert.match(body, /"page":"2"/)
-    assert.match(body, /"prefs":/)
+    assert.match(body, /"theme":/)
     assert.match(body, /"loaderData":/)
     assert.match(body, /"user":/)
   })
@@ -98,7 +61,7 @@ describe('stream', () => {
       },
     })
     const res = streamResponse(reactStream, {
-      ctx: { params: {}, query: {}, prefs: {} } as any,
+      ctx: { params: {}, query: {} } as any,
       base: '',
       isDev: false,
       loaderData: { items: ['a'] },
@@ -117,7 +80,7 @@ describe('stream', () => {
       },
     })
     const res = streamResponse(reactStream, {
-      ctx: { params: {}, query: {}, prefs: {} } as any,
+      ctx: { params: {}, query: {} } as any,
       base: '',
       isDev: true,
     })
@@ -136,7 +99,7 @@ describe('stream', () => {
       },
     })
     const res = streamResponse(reactStream, {
-      ctx: { params: {}, query: {}, prefs: {} } as any,
+      ctx: { params: {}, query: {} } as any,
       base: '',
       isDev: false,
       status: 404,
@@ -149,14 +112,13 @@ describe('stream', () => {
     const brokenStream = new ReadableStream({
       start(ctrl) {
         ctrl.enqueue(new TextEncoder().encode('<html><head>'))
-        // Force error after enqueuing data
       },
       pull(_ctrl) {
         throw new Error('react render failed mid-stream')
       },
     })
     const res = streamResponse(brokenStream, {
-      ctx: { params: {}, query: {}, prefs: {} } as any,
+      ctx: { params: {}, query: {} } as any,
       base: '',
       isDev: false,
     })

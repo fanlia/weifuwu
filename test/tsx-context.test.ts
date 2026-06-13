@@ -28,7 +28,6 @@ describe('tsx-context', () => {
       query: {},
       user: {},
       parsed: {},
-      prefs: {},
       loaderData: {},
       env: {},
     }))
