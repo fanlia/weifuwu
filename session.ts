@@ -321,7 +321,6 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
     const snapshot = isSessionActive(session) ? JSON.stringify(session) : null
 
     ;(ctx as any).session = session
-    ;(ctx as any).sessionId = session.id
 
     const res = await next(req, ctx)
 
