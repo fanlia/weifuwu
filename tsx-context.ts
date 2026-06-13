@@ -5,13 +5,14 @@ export interface PageContext {
   query: Record<string, string>
   user: { id?: string }
   parsed: Record<string, unknown>
-  theme?: string
-  i18n?: { locale: string; t: (key: string, params?: Record<string, string>, fallback?: string) => string }
+  theme?: { value: string; set?: (value: string, loc?: string) => Response }
+  i18n?: { locale: string; messages?: Record<string, unknown>; t: (key: string, params?: Record<string, string>, fallback?: string) => string }
+  flash?: { value?: string; set?: (data: any, loc?: string) => Response }
   loaderData: Record<string, unknown>
   env: Record<string, string>
 }
 
-const DEFAULT_CTX: PageContext = { params: {}, query: {}, parsed: {}, loaderData: {}, env: {}, user: {} }
+const DEFAULT_CTX: PageContext = { params: {}, query: {}, parsed: {}, loaderData: {}, env: {}, user: {}, flash: {} }
 
 interface CtxStore {
   _ctx: PageContext

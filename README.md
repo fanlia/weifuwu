@@ -1478,7 +1478,7 @@ await redis.destroy('sid')
 
 ### ssr({ dir }) [β]
 
-One-stop Server-Side Rendering. Accepts a directory and returns a Router that handles all SSR routes, tailwind CSS, hydration bundles, and livereload — using Next.js-style file conventions.
+One-stop Server-Side Rendering. Accepts a directory and returns a Router that handles all SSR routes, tailwind CSS, hydration, and livereload — using Next.js-style file conventions.
 
 ```ts
 import { Router, ssr } from 'weifuwu'
@@ -1988,7 +1988,7 @@ currentTraceId, currentTrace, runWithTrace, traceElapsed, TraceContext,
 
 ```ts
 auth, cors, csrf, compress, helmet, logger, rateLimit, requestId, validate, upload,
-theme, i18n, flash, serveStatic, session, MemoryStore, RedisStore, SessionStore,
+theme, i18n, flash, permissions, serveStatic, session, MemoryStore, RedisStore, SessionStore,
 cache, MemoryCache, RedisCache, CacheStore
 ```
 
@@ -2010,7 +2010,7 @@ eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not
 ### Client-side (from `'weifuwu/react'`)
 
 ```ts
-TsxContext, useLoaderData,
+TsxContext, setCtx, useCtx, addCtxRebuilder, useLoaderData,
 useWebsocket, useAction, useFetch, useQueryState, createStore,
 Link, useNavigate, useNavigating, addInterceptor,
 useLocale, useTheme, applyTheme, useFlashMessage,
