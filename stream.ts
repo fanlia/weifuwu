@@ -1,5 +1,6 @@
 import { TextDecoder, TextEncoder } from 'node:util'
 import type { Context } from './types.ts'
+import { vendorHash } from './compile.ts'
 
 export interface StreamOpts {
   ctx: Context
@@ -50,7 +51,7 @@ function buildHeadPayload(opts: StreamOpts): string {
   let result = ''
 
   if (isDev) {
-    const vUrl = `${base}/__wfw/v/bundle`
+    const vUrl = `${base}/__wfw/v/bundle?h=${vendorHash}`
     result += `<script type="importmap">{
   "imports": {
     "react": "${vUrl}",

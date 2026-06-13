@@ -120,6 +120,7 @@ export function compile(path: string): Promise<any> {
 }
 
 let vendorBundle: string | null = null
+export let vendorHash = ''
 
 /** Build a single vendor bundle containing all needed vendor modules */
 export async function compileVendorBundle(): Promise<string> {
@@ -169,6 +170,10 @@ export async function compileVendorBundle(): Promise<string> {
     write: false,
   })
   vendorBundle = new TextDecoder().decode(result.outputFiles[0].contents)
+  // Content hash for cache busting
+  const hashBytes = new TextEncoder().encode(vendorBundle)
+  const hashBuffer = await crypto.subtle.digest('SHA-1', hashBytes)
+  vendorHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 8)
   return vendorBundle
 }
 

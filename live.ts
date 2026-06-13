@@ -50,6 +50,9 @@ export function liveWs(): WebSocketHandler {
 export function liveRouter(dir: string): Router {
   const r = new Router()
 
+  // Pre-warm vendor bundle so vendorHash is available for importmap
+  compileVendorBundle().catch(() => {})
+
   r.get('/__wfw/v/bundle', async () => {
     const code = await compileVendorBundle()
     return new Response(code, {
