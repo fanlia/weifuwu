@@ -113,6 +113,7 @@ export function i18n(options?: I18nOptions): Middleware {
 
     ctx.i18n = {
       locale,
+      messages: msgs,
       t: (key: string, params?: Record<string, string>, fallback?: string) =>
         translate(msgs, key, params, fallback),
       set: (value: string, loc?: string) => {
@@ -120,12 +121,6 @@ export function i18n(options?: I18nOptions): Middleware {
         const location = loc ?? (req.headers.get('referer') || '/')
         return new Response(null, { status: 302, headers: { Location: location, 'Set-Cookie': cookie } })
       },
-    }
-
-    // SSR hydration: set ctx.parsed.__localeData for ssr/stream serialization
-    if (Object.keys(msgs).length > 0) {
-      ;(ctx as any).parsed = { ...(ctx as any).parsed, __localeData: msgs }
-      ;(globalThis as any).__LOCALE_DATA__ = msgs
     }
 
     return next(req, ctx)

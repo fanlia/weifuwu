@@ -71,14 +71,6 @@ function buildHeadPayload(opts: StreamOpts): string {
     result += `<link rel="stylesheet" href="${tailwind.url}" />\n`
   }
 
-  const localeData = (ctx.parsed as any)?.__localeData ?? (globalThis as any).__LOCALE_DATA__
-  if (localeData && Object.keys(localeData).length > 0) {
-    if (!_localeDataCache || _localeDataCache.data !== localeData) {
-      _localeDataCache = { data: localeData, json: JSON.stringify(localeData) }
-    }
-    result += `<script>window.__LOCALE_DATA__=${_localeDataCache.json}<\/script>\n`
-  }
-
   const loaderData = opts.loaderData || {}
   const ctxData: Record<string, unknown> = {
     params: ctx.params,
@@ -121,8 +113,6 @@ function buildBodyScripts(opts: StreamOpts): string {
   }
   return parts.join('\n')
 }
-
-let _localeDataCache: { data: Record<string, unknown>; json: string } | null = null
 
 export function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response {
   const decoder = new TextDecoder()
