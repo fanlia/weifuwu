@@ -1,7 +1,7 @@
 import * as esbuild from 'esbuild'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
-import { isDev } from './env.ts'
+import { isDev as _isDev } from './env.ts'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import vm from 'node:vm'
@@ -116,7 +116,7 @@ export async function compileTsxDev(path: string): Promise<any> {
 
 /** Auto-select dev (vm) or prod (ESM + import) compilation */
 export function compile(path: string): Promise<any> {
-  return isDev() ? compileTsxDev(path) : compileTsx(path)
+  return _isDev() ? compileTsxDev(path) : compileTsx(path)
 }
 
 let vendorBundle: string | null = null
@@ -184,6 +184,9 @@ export async function compileBrowser(path: string, outDir?: string): Promise<str
   const absPath = resolve(path)
   const h = id(absPath)
   outDir = outDir ?? resolve(OUT_DIR)
+  const outPath = join(outDir, h + '.js')
+  // Skip esbuild if already compiled (production: file persists; dev: HMR handles recompilation)
+  if (!_isDev() && existsSync(outPath)) return h
   mkdirSync(outDir, { recursive: true })
 
   // Map weifuwu source paths to weifuwu/react (external) so they are not inlined
