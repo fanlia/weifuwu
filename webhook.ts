@@ -4,30 +4,34 @@ import { Router } from './router.ts'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
+/** A parsed webhook event delivered to handlers. */
 export interface WebhookEvent {
-  /** Raw event name from the provider (e.g. 'checkout.session.completed') */
+  /** Raw event name from the provider (e.g. 'checkout.session.completed'). */
   event: string
-  /** Parsed event payload */
+  /** Parsed event payload (body after verification). */
   payload: unknown
-  /** Provider name (e.g. 'stripe', 'github') */
+  /** Provider name (e.g. 'stripe', 'github'). */
   provider: string
-  /** Unique event ID for replay protection */
+  /** Unique event ID for replay protection. */
   id?: string
 }
 
+/** Handler function for a webhook event. */
 export interface WebhookHandler {
   (event: WebhookEvent, ctx: Context): void | Promise<void>
 }
 
+/** Configuration for a built-in platform webhook verifier (Stripe, GitHub, Slack). */
 export interface PlatformConfig {
-  /** HMAC-SHA256 secret */
+  /** HMAC-SHA256 signing secret. */
   secret: string
-  /** Optional custom event prefix (default: platform name) */
+  /** Optional event prefix (default: platform name, e.g. 'stripe'). */
   prefix?: string
 }
 
+/** Configuration for a custom webhook verifier. */
 export interface CustomVerifierConfig {
-  /** Name for this verifier */
+  /** Name for this verifier. */
   name: string
   /** Verify function. Return true if signature is valid. */
   verify: (body: string, headers: Record<string, string>) => boolean | Promise<boolean>
@@ -35,18 +39,19 @@ export interface CustomVerifierConfig {
   event: (body: unknown, headers: Record<string, string>) => string
 }
 
+/** Options for {@link webhook}. */
 export interface WebhookOptions {
-  /** Stripe webhook config (enables Stripe signature verification) */
+  /** Stripe webhook config (enables Stripe signature verification). */
   stripe?: PlatformConfig
-  /** GitHub webhook config */
+  /** GitHub webhook config. */
   github?: PlatformConfig
-  /** Slack webhook config */
+  /** Slack webhook config. */
   slack?: PlatformConfig
-  /** Custom verifiers */
+  /** Custom verifiers. */
   custom?: CustomVerifierConfig[]
-  /** Global prefix for all event types (default: none) */
+  /** Global prefix for all event types (default: none). */
   prefix?: string
-  /** Path to mount the webhook receiver. Default: '/'. */
+  /** Path to mount the webhook receiver. Default: `'/'`. */
   path?: string
   /** Enable replay protection (requires provider to send unique event IDs). Default: true. */
   replayProtection?: boolean
@@ -54,10 +59,11 @@ export interface WebhookOptions {
   idempotencyTTL?: number
 }
 
+/** Webhook module instance returned by {@link webhook}. */
 export interface WebhookModule extends Router {
-  /** Register an event handler */
+  /** Register an event handler. */
   on(event: string, handler: WebhookHandler): this
-  /** Remove an event handler */
+  /** Remove an event handler. */
   off(event: string, handler: WebhookHandler): this
 }
 
@@ -231,6 +237,25 @@ class EventBus {
 
 // ── Middleware ──────────────────────────────────────────────────────────────
 
+/**
+ * Webhook receiver module. Validates signatures and dispatches events.
+ *
+ * Supports built-in verifiers for Stripe, GitHub, and Slack, plus custom verifiers.
+ *
+ * ```ts
+ * import { webhook } from 'weifuwu'
+ *
+ * const wh = webhook({
+ *   stripe: { secret: process.env.STRIPE_WEBHOOK_SECRET },
+ * })
+ *
+ * wh.on('checkout.session.completed', async (event, ctx) => {
+ *   // event.payload contains the parsed Stripe event
+ * })
+ *
+ * app.use('/', wh)
+ * ```
+ */
 export function webhook(options?: WebhookOptions): WebhookModule {
   const replayProtection = options?.replayProtection ?? true
   const idempotencyTTL = options?.idempotencyTTL ?? 3_600_000

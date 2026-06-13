@@ -1,32 +1,51 @@
 import type { Handler, Middleware, Context } from './types.ts'
 import { Router } from './router.ts'
 
+/** A rule in `robots.txt`. */
 export interface RobotsRule {
+  /** User-agent this rule applies to (default: `'*'`). */
   userAgent?: string
+  /** Path(s) to allow. */
   allow?: string | string[]
+  /** Path(s) to disallow. */
   disallow?: string | string[]
 }
 
+/** A URL entry in `sitemap.xml`. */
 export interface SitemapUrl {
+  /** Absolute URL of the page. */
   loc: string
+  /** Last modification date (ISO 8601). */
   lastmod?: string
+  /** Expected change frequency. */
   changefreq?: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never'
+  /** Priority (0.0 to 1.0). */
   priority?: number
 }
 
+/** Configuration for sitemap generation. */
 export interface SitemapConfig {
+  /** Static list of URLs to include. */
   urls?: SitemapUrl[]
+  /** Dynamic URL resolver (called on each sitemap request, or cached per `cacheTTL`). */
   resolve?: () => SitemapUrl[] | Promise<SitemapUrl[]>
+  /** Cache TTL in ms (default: 3600000 = 1 hour). Set 0 to disable cache. */
   cacheTTL?: number
 }
 
+/** Configuration for per-path response headers. */
 export interface SeoHeadersConfig {
+  /** `X-Robots-Tag` header value. Use a function for path-dependent values. */
   'X-Robots-Tag'?: string | ((path: string) => string | undefined)
 }
 
+/** Options for {@link seo}. */
 export interface SeoOptions {
+  /** Rules for `robots.txt`. */
   robots?: RobotsRule[]
+  /** Configuration for `sitemap.xml`. */
   sitemap?: SitemapConfig
+  /** Per-path response headers. */
   headers?: SeoHeadersConfig
   baseUrl?: string
 }
@@ -103,6 +122,16 @@ function getRobotsHeader(headers: SeoHeadersConfig | undefined, path: string): s
   return val
 }
 
+/**
+ * SEO middleware — sets `X-Robots-Tag` headers per path.
+ * Used standalone or included automatically by {@link seo}.
+ *
+ * ```ts
+ * app.use(seoMiddleware({
+ *   headers: { 'X-Robots-Tag': (path) => path.startsWith('/admin') ? 'noindex' : undefined },
+ * }))
+ * ```
+ */
 export function seoMiddleware(options?: SeoOptions): Middleware {
   const headers = options?.headers
   return async (req: Request, ctx: Context, next: Handler) => {
@@ -119,6 +148,22 @@ export function seoMiddleware(options?: SeoOptions): Middleware {
   }
 }
 
+/**
+ * SEO module — serves `robots.txt` and `sitemap.xml`.
+ *
+ * ```ts
+ * import { seo } from 'weifuwu'
+ *
+ * app.use(seo({
+ *   robots: [{ userAgent: '*', allow: '/', disallow: '/admin' }],
+ *   sitemap: {
+ *     resolve: async () => [
+ *       { loc: 'https://example.com/', changefreq: 'daily', priority: 1.0 },
+ *     ],
+ *   },
+ * }))
+ * ```
+ */
 export function seo(options?: SeoOptions): Router {
   const { robots, sitemap: sitemapConfig, baseUrl } = options ?? {}
   const r = new Router()
@@ -163,16 +208,36 @@ export function seo(options?: SeoOptions): Router {
   return r
 }
 
+/** Options for {@link seoTags}. */
 export interface SeoTagsConfig {
+  /** Page title (`<title>` + `og:title`). */
   title?: string
+  /** Meta description. */
   description?: string
+  /** Open Graph image URL. */
   ogImage?: string
+  /** Override `og:title` (defaults to `title`). */
   ogTitle?: string
+  /** Override `og:description` (defaults to `description`). */
   ogDescription?: string
+  /** Twitter card type. */
   twitterCard?: 'summary' | 'summary_large_image'
+  /** Canonical URL (`<link rel="canonical">`). */
   canonical?: string
 }
 
+/**
+ * Generate `<meta>` and `<link>` tag HTML string for SEO.
+ *
+ * ```ts
+ * const tags = seoTags({
+ *   title: 'My App',
+ *   description: 'A description',
+ *   ogImage: 'https://example.com/og.png',
+ * })
+ * // <meta name="description" content="A description" />...
+ * ```
+ */
 export function seoTags(config: SeoTagsConfig): string {
   const tags: string[] = []
   if (config.title) {

@@ -1,19 +1,39 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-/** Whether NODE_ENV is explicitly set to 'development'.
- *  Used for dev-only features: HMR, livereload, no minification, createRoot (not hydrate).
- *  NOT the opposite of isProd() — when NODE_ENV is unset, both return false. */
+/**
+ * Whether `NODE_ENV` is explicitly set to `'development'`.
+ *
+ * Used for dev-only features: HMR, livereload, React `createRoot` (not hydrate).
+ * **Not** the opposite of {@link isProd} — when `NODE_ENV` is unset, both return `false`.
+ */
 export function isDev(): boolean {
   return process.env.NODE_ENV === 'development'
 }
 
-/** Whether NODE_ENV is explicitly set to 'production'.
- *  Used for production-only behavior: plain-text 404, suppressed warnings, minification. */
+/**
+ * Whether `NODE_ENV` is explicitly set to `'production'`.
+ *
+ * Used for production-only behavior: plain-text 404, suppressed warnings, minified output.
+ */
 export function isProd(): boolean {
   return process.env.NODE_ENV === 'production'
 }
 
+/**
+ * Load environment variables from a `.env` file into `process.env`.
+ *
+ * Does **not** override existing `process.env` values.
+ * Supports quoted values and inline comments.
+ *
+ * @param path - Path to `.env` file (default: `'.env'` relative to cwd).
+ *
+ * ```ts
+ * import { loadEnv } from 'weifuwu'
+ * loadEnv()
+ * console.log(process.env.PORT)
+ * ```
+ */
 export function loadEnv(path?: string): void {
   const filePath = resolve(process.cwd(), path ?? '.env')
 

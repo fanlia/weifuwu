@@ -2,14 +2,21 @@ import type { Context, Handler, Middleware } from './types.ts'
 import { text, integer } from './postgres/schema/columns.ts'
 import { Router } from './router.ts'
 
+/** Options for {@link analytics}. */
 export interface AnalyticsOptions {
+  /** Path prefixes to exclude from analytics (default: `['/__analytics', '/__wfw', '/static']`). */
   excluded?: string[]
+  /** PostgreSQL client for persistent storage. Required for production use. */
   pg?: { sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>; table: (name: string, cols: any) => any }
 }
 
+/** Analytics module returned by {@link analytics}. */
 export interface AnalyticsModule extends Router {
+  /** Middleware that records page views. */
   middleware: () => Middleware
+  /** Create/update the analytics database tables. */
   migrate: () => Promise<void>
+  /** Close the in-memory store and any timers. */
   close: () => Promise<void>
 }
 
@@ -225,6 +232,19 @@ ${referrers.length ? `<div class="section"><h2>Referrers</h2><table><thead><tr><
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
+/**
+ * Page view analytics module.
+ *
+ * Records page views with referrer and device type. Supports in-memory and PostgreSQL storage.
+ * Provides a dashboard at `GET /__analytics`.
+ *
+ * ```ts
+ * import { analytics, postgres } from 'weifuwu'
+ *
+ * const pg = postgres({ connection: DATABASE_URL })
+ * app.use(analytics({ pg }).middleware())
+ * ```
+ */
 export function analytics(options?: AnalyticsOptions): AnalyticsModule {
   const excluded = options?.excluded ?? DEFAULT_EXCLUDED
   const pg = options?.pg
