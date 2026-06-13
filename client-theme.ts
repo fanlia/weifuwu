@@ -13,6 +13,16 @@ function resolveTheme(theme: string): string {
 
 let _mqListener: MediaQueryList | null = null
 
+/**
+ * Apply a theme value to the DOM by setting `document.documentElement.dataset.theme`.
+ * Resolves `'system'` to the user's `prefers-color-scheme` preference.
+ * Call this directly from non-React code (e.g. a `<script>` tag).
+ *
+ * ```ts
+ * import { applyTheme } from 'weifuwu/react'
+ * applyTheme('dark')
+ * ```
+ */
 function applyTheme(theme: string) {
   if (typeof document === 'undefined') return
   const resolved = resolveTheme(theme)
@@ -48,6 +58,25 @@ addInterceptor(async (url) => {
   return true
 })
 
+/**
+ * React hook to read and change the theme on the client side.
+ *
+ * Applies the resolved theme to `document.documentElement.dataset.theme`.
+ * Tracks system preference changes when theme is `'system'`.
+ *
+ * ```tsx
+ * import { useTheme } from 'weifuwu/react'
+ *
+ * function ThemeToggle() {
+ *   const { theme, resolvedTheme, setTheme } = useTheme()
+ *   return (
+ *     <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+ *       Current: {resolvedTheme}
+ *     </button>
+ *   )
+ * }
+ * ```
+ */
 export function useTheme() {
   const ctx = useCtx()
   const theme = ctx.theme?.value ?? 'system'

@@ -44,6 +44,26 @@ addInterceptor(async (url) => {
 
 // ── Hook ──
 
+/**
+ * React hook to read and change the locale on the client side.
+ *
+ * Changes are made via SPA navigation to `/__lang/{locale}`, which is
+ * intercepted by the client router and applied without a full page reload.
+ *
+ * ```tsx
+ * import { useLocale } from 'weifuwu/react'
+ *
+ * function LangSwitcher() {
+ *   const { locale, setLocale, t } = useLocale()
+ *   return (
+ *     <>
+ *       <p>{t('greeting')}</p>
+ *       <button onClick={() => setLocale('zh')}>中文</button>
+ *     </>
+ *   )
+ * }
+ * ```
+ */
 export function useLocale() {
   const ctx = useCtx()
   return {

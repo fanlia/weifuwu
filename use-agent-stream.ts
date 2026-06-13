@@ -1,35 +1,57 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useWebsocket } from './use-websocket.ts'
 
+/** Streaming state for all agents in a channel. */
 export interface AgentStreamState {
-  /** Accumulated streaming text per agent, keyed by agent_id */
+  /** Accumulated streaming text per agent, keyed by `agent_id`. */
   streams: Record<number, string>
-  /** Whether any agent is currently streaming (typing) */
+  /** Whether any agent is currently streaming (typing). */
   streaming: boolean
-  /** Set of agent IDs currently streaming */
+  /** Set of agent IDs currently streaming. */
   activeAgents: Set<number>
 }
 
+/** Options for {@link useAgentStream}. */
 export interface UseAgentStreamOptions {
-  /** WebSocket path, e.g. '/ws' */
+  /** WebSocket path, e.g. `'/ws'`. */
   wsPath: string
-  /** Channel ID to listen for agent streams */
+  /** Channel ID to listen for agent streams. */
   channelId: number
-  /** Called when a stream finishes (agent done generating) */
+  /** Called when an agent finishes generating. */
   onStreamEnd?: (agentId: number, fullText: string) => void
-  /** Called on stream error */
+  /** Called on stream error. */
   onError?: (agentId: number, error: string) => void
 }
 
+/** Return value of {@link useAgentStream}. */
 export interface UseAgentStreamReturn {
-  /** Accumulated streaming state */
+  /** Accumulated streaming state for all agents. */
   stream: AgentStreamState
-  /** Get accumulated text for a specific agent */
+  /** Get accumulated text for a specific agent by ID. */
   getAgentText: (agentId: number) => string
-  /** Whether a specific agent is currently streaming */
+  /** Whether a specific agent is currently streaming. */
   isAgentStreaming: (agentId: number) => boolean
 }
 
+/**
+ * React hook to consume agent AI streaming output via WebSocket.
+ *
+ * Connects to a WebSocket endpoint, listens for `agent_stream`,
+ * `agent_stream_end`, and `agent_error` messages, and accumulates
+ * the token stream per agent.
+ *
+ * ```tsx
+ * import { useAgentStream } from 'weifuwu/react'
+ *
+ * function Chat() {
+ *   const { stream, getAgentText } = useAgentStream({
+ *     wsPath: '/ws/chat',
+ *     channelId: 1,
+ *   })
+ *   return <pre>{getAgentText(1)}</pre>
+ * }
+ * ```
+ */
 export function useAgentStream(opts: UseAgentStreamOptions): UseAgentStreamReturn {
   const { wsPath, channelId, onStreamEnd, onError } = opts
 

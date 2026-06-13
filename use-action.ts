@@ -1,17 +1,28 @@
 import { useState, useCallback, useRef } from 'react'
 
+/** Options for {@link useAction}. */
 export interface UseActionOptions<T = any> {
+  /** HTTP method (default: `'POST'`). */
   method?: string
+  /** Additional request headers. */
   headers?: Record<string, string>
+  /** Called with the response data on success. */
   onSuccess?: (data: T) => void
+  /** Called with the error on failure. */
   onError?: (err: Error) => void
 }
 
+/** Return value of {@link useAction}. */
 export interface UseActionReturn<T = any> {
+  /** Submit the action. Pass a body to send as JSON (or FormData). */
   submit: (body?: any) => Promise<T | undefined>
+  /** Response data from the last successful submission. */
   data: T | null
+  /** Error from the last failed submission. */
   error: Error | null
+  /** Whether a submission is in progress. */
   pending: boolean
+  /** Reset data and error to their initial states. */
   reset: () => void
 }
 
@@ -21,6 +32,23 @@ function getCsrfToken(): string | undefined {
   return match ? decodeURIComponent(match[1]) : undefined
 }
 
+/**
+ * Hook to submit form actions via `fetch`. Handles JSON serialization,
+ * CSRF token injection, and loading/error state.
+ *
+ * ```tsx
+ * import { useAction } from 'weifuwu/react'
+ *
+ * function SaveButton() {
+ *   const { submit, pending, error } = useAction('/api/save')
+ *   return (
+ *     <button onClick={() => submit({ title: 'Hello' })} disabled={pending}>
+ *       {pending ? 'Saving...' : 'Save'}
+ *     </button>
+ *   )
+ * }
+ * ```
+ */
 export function useAction<T = any>(
   url: string | URL,
   options?: UseActionOptions<T>,

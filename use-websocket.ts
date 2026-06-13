@@ -3,18 +3,29 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 const RECONNECT_DELAY = 3000
 const MAX_RETRIES = 10
 
+/** Options for {@link useWebsocket}. */
 export type UseWebsocketOptions = {
+  /** Called when a message is received. */
   onMessage?: (data: string) => void
+  /** Auto-reconnect config. Set to `false` to disable. Default: `{ maxRetries: 10, delay: 3000 }`. */
   reconnect?: boolean | { maxRetries?: number; delay?: number }
+  /** WebSocket sub-protocols. */
   protocols?: string | string[]
+  /** Whether the WebSocket is enabled. Set to `false` to keep closed. Default: `true`. */
   enabled?: boolean
 }
 
+/** Return value of {@link useWebsocket}. */
 export type UseWebsocketReturn = {
+  /** Send data through the WebSocket. */
   send: (data: string | ArrayBuffer | Blob) => void
+  /** Close the WebSocket manually. */
   close: () => void
+  /** Current `WebSocket.readyState`. */
   readyState: number
+  /** The last received message string. */
   lastMessage: string | null
+  /** Manually trigger reconnection. */
   reconnect: () => void
 }
 
@@ -22,6 +33,20 @@ function resolveUrl(url: string | URL | (() => string | URL | null)): string | U
   return typeof url === 'function' ? url() : url
 }
 
+/**
+ * React hook for WebSocket connections with auto-reconnect.
+ *
+ * ```tsx
+ * import { useWebsocket } from 'weifuwu/react'
+ *
+ * function Chat() {
+ *   const { send, lastMessage, readyState } = useWebsocket('/ws/chat', {
+ *     onMessage: (data) => console.log('received:', data),
+ *   })
+ *   return <button onClick={() => send('Hello')}>Send</button>
+ * }
+ * ```
+ */
 export function useWebsocket(
   url: string | URL | (() => string | URL | null),
   options?: UseWebsocketOptions,

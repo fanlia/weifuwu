@@ -475,6 +475,26 @@ app.use(cors({ credentials: true, maxAge: 3600 }))
 | `credentials` | `boolean` | `false` | Allow cookies/credentials |
 | `maxAge` | `number` | — | Preflight cache duration (seconds) |
 
+### flash [α]
+
+Cookie-based flash message. Read from request, write via redirect.
+
+```ts
+app.use(flash())
+
+app.get('/', (req, ctx) => {
+  const msg = ctx.flash.value  // { type: 'success', text: 'Saved!' } or undefined
+})
+
+app.post('/save', (req, ctx) => {
+  return ctx.flash.set({ type: 'success', text: 'Saved!' }, '/articles')
+})
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `name` | `string` | `'flash'` | Cookie name |
+
 ### cache [α]
 
 Response caching middleware with memory and Redis stores. Caches GET/HEAD responses, with tag-based invalidation.
@@ -1092,6 +1112,24 @@ class MyModule extends PgModule {
 
 Where helpers + `and`/`or`/`not` can be imported from `'weifuwu'` alongside `postgres`. Full column builders and table helpers are in the same barrel.
 
+### cron-utils
+
+Shared cron expression parsing utilities. All functions operate in **local timezone**.
+
+```ts
+import { cronNext } from 'weifuwu'
+
+// Next weekday at 09:00
+const next = cronNext('0 9 * * 1-5')
+console.log(new Date(next))
+```
+
+| Function | Description |
+|----------|-------------|
+| `parsePattern(pattern)` | Parse 5-field cron pattern into `Set<number>[]` |
+| `matches(fields, date)` | Check if a date matches a parsed pattern |
+| `cronNext(expr, from?)` | Calculate next matching timestamp (`from` defaults to now) |
+
 ### fts — Full-Text Search (PostgreSQL)
 
 Utilities for PostgreSQL full-text search: create GIN indexes, search with ranking, and generate highlighted snippets.
@@ -1315,7 +1353,24 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 | `header` | `string` | `'X-Request-ID'` | Header name to read/write |
 | `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
 
+### trace
 
+Request-scoped tracing via `AsyncLocalStorage`. Used internally by `serve()`.
+
+```ts
+import { currentTraceId, runWithTrace, traceElapsed } from 'weifuwu'
+
+// Inside a middleware or handler
+const traceId = currentTraceId()  // UUID or incoming X-Trace-Id
+const elapsed = traceElapsed()    // ms since request started
+```
+
+| Function | Description |
+|----------|-------------|
+| `currentTraceId()` | Current request trace ID, or `undefined` outside a request |
+| `currentTrace()` | Full `{ traceId, startTime }` context |
+| `traceElapsed()` | Milliseconds elapsed since the trace started |
+| `runWithTrace(traceId, fn)` | Execute `fn` inside a trace scope |
 
 ### s3 [α] — S3-compatible object storage
 
