@@ -1503,13 +1503,23 @@ app.post('/upload', upload({ dir: './uploads', maxFileSize: 10_485_760, allowedT
 
 ### user [β]
 
-Authentication: register, login, JWT, OAuth2.
+Authentication: register, login, JWT, OAuth2 服务端, 社会化登录.
 
 ```ts
-const auth = user({ pg, jwtSecret: process.env.JWT_SECRET! })
-await auth.migrate()
-app.use('/auth', auth)               // POST /register, POST /login, OAuth2 routes
-app.get('/me', auth.middleware(), (req, ctx) => Response.json(ctx.user))
+const u = user({
+  pg,
+  jwtSecret: process.env.JWT_SECRET!,
+  oauthLogin: {                                          // 可选 — 社会化登录
+    providers: {
+      github: { clientId: '...', clientSecret: '...' },
+      google: { clientId: '...', clientSecret: '...' },
+    },
+  },
+})
+await u.migrate()
+app.use(u)                              // POST /register, POST /login
+app.use(u.middleware())                  // ctx.user
+// GET /auth/github, GET /auth/github/callback  (如配置 oauthLogin)
 ```
 
 | Option | Type | Default | Description |
@@ -1517,8 +1527,9 @@ app.get('/me', auth.middleware(), (req, ctx) => Response.json(ctx.user))
 | `pg` | `object` | — | PostgreSQL client |
 | `jwtSecret` | `string` | — | JWT signing secret |
 | `table` | `string` | `'_users'` | Users table name |
-| `expiresIn` | `string` | `'7d'` | JWT expiration |
-| `oauth2` | `object` | — | OAuth2 client config (PKCE flow) |
+| `expiresIn` | `string` | `'24h'` | JWT expiration |
+| `oauth2` | `object` | — | OAuth2 服务端 config (PKCE flow) |
+| `oauthLogin` | `object` | — | 社会化登录: `{ providers: Record<string, OAuthProviderConfig>, redirectUrl? }` |
 
 | Method | Description |
 |--------|-------------|
@@ -1526,6 +1537,54 @@ app.get('/me', auth.middleware(), (req, ctx) => Response.json(ctx.user))
 | `.login(data)` | Log in programmatically |
 | `.verify(token)` | Verify JWT token |
 | `.middleware()` | JWT verify middleware — sets `ctx.user` |
+
+### permissions [α] — RBAC
+
+Role-based access control.
+
+```ts
+const perm = permissions({ pg })
+await perm.migrate()
+
+// Assign roles & permissions
+await perm.assignRole(userId, 'admin')
+await perm.grantPermission('admin', 'posts:create')
+await perm.grantPermission('admin', 'posts:edit')
+await perm.grantPermission('admin', '*')         // wildcard — all permissions
+
+// Use as middleware
+app.use((req, ctx, next) => { ctx.user = { id: userId }; return next(req, ctx) })
+app.use(perm)                                     // → ctx.roles, ctx.permissions
+
+// Route guards
+app.get('/admin', perm.requireRole('admin'), adminHandler)
+app.post('/posts', perm.requirePermission('posts:create'), createHandler)
+
+// Handler-level check
+app.get('/posts/:id', async (req, ctx) => {
+  if (!ctx.permissions.has('posts:read')) {
+    return Response.json({ error: 'forbidden' }, { status: 403 })
+  }
+  return Response.json(post)
+})
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `object` | — | PostgreSQL client |
+| `prefix` | `string` | `''` | Table prefix (e.g. `'myapp'` → `myapp_roles`) |
+
+| Method | Description |
+|--------|-------------|
+| `.assignRole(userId, role)` | Assign role to user (creates role if missing) |
+| `.removeRole(userId, role)` | Remove role from user |
+| `.grantPermission(role, permission)` | Grant permission to role |
+| `.revokePermission(role, permission)` | Revoke permission from role |
+| `.getUserRoles(userId)` | List user's roles |
+| `.getUserPermissions(userId)` | List user's permissions (union of all roles) |
+| `.requireRole(...roles)` | Middleware — rejects if user lacks any of the roles |
+| `.requirePermission(...perms)` | Middleware — rejects if user lacks any permission |
+| `.migrate()` | Create tables |
 
 ### validate [α]
 
@@ -1885,7 +1944,7 @@ openai, createOpenAI
 
 ```ts
 preferences, health, analytics, seo, seoMiddleware, seoTags,
-user, mailer, graphql, aiStream, runWorkflow, knowledgeBase,
+user, mailer, graphql, aiStream, runWorkflow, knowledgeBase, permissions,
 logdb, messager, agent, iii, createWorker, registerWorker,
 opencode, deploy, defineConfig, webhook,
 testApp, TestApp, TestRequest, TestResponse,

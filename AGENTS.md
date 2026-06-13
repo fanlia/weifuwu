@@ -44,7 +44,34 @@ The framework has five core modules that other modules depend on:
 | **redis** | `redis()` | Redis client (Pattern α — middleware), connection management |
 | **ai provider** | `aiProvider()` | AI model & embedding abstraction, env-based config |
 
-Modules like `agent`, `kb`, `user`, `session`, `queue` depend on `postgres`. Modules like `agent`, `kb`, `aiStream`, `runWorkflow` depend on `ai provider`. Every module that depends on a core module accepts it as a constructor parameter (e.g. `agent({ pg, provider })`), never creates its own connection.
+Modules like `agent`, `kb`, `user`, `session`, `queue`, `permissions` depend on `postgres`. Modules like `agent`, `kb`, `aiStream`, `runWorkflow` depend on `ai provider`. Every module that depends on a core module accepts it as a constructor parameter (e.g. `agent({ pg, provider })`), never creates its own connection.
+
+### User 模块能力
+
+`user()` 集成了三个子能力:
+
+| 子能力 | 选项 | 路由 |
+|--------|------|------|
+| 本地注册/登录 | — | `POST /register`, `POST /login` |
+| OAuth2 服务端 | `oauth2: { server: true }` | `GET /oauth/authorize`, `POST /oauth/consent`, `POST /oauth/token` |
+| 社会化登录 | `oauthLogin: { providers: {...} }` | `GET /auth/:provider`, `GET /auth/:provider/callback` |
+| JWT 验证 | `.middleware()` | — (注入 ctx.user) |
+
+### Permissions 模块
+
+`permissions()` 是 Pattern α 模块，提供 RBAC 授权:
+
+```ts
+const perm = permissions({ pg })
+app.use((req, ctx, next) => { ctx.user = { id: 1 }; return next(req, ctx) })
+app.use(perm)                    // → ctx.roles, ctx.permissions
+app.get('/admin', perm.requireRole('admin'), handler)
+app.post('/posts', perm.requirePermission('posts:create'), handler)
+
+// 管理 API
+await perm.assignRole(userId, 'editor')
+await perm.grantPermission('editor', 'posts:create')
+```
 
 `aiProvider()` is also a Pattern α middleware — `app.use(aiProvider())` injects `ctx.ai`, allowing handlers and middlewares to make AI calls directly:
 

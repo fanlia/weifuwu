@@ -177,3 +177,7 @@ export type { S3Options, S3PutOptions, S3UrlOptions, S3Module, S3Body } from './
 export { knowledgeBase } from './kb/index.ts'
 export type { KBOptions, KBIngestOptions, KBSearchResult, KBSearchOptions, KBListEntry, KBModule } from './kb/types.ts'
 
+// Permissions (RBAC)
+export { permissions } from './permissions.ts'
+export type { PermissionsOptions, PermissionsModule } from './permissions.ts'
+
