@@ -128,67 +128,100 @@ export function streamResponse(reactStream: ReadableStream, opts: StreamOpts): R
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
 
-  const headPayload = buildHeadPayload(opts)
-
-  let buffer = ''
-  let headFlushed = false
-  let extractedHead = ''
-
   const output = new ReadableStream({
     async start(controller) {
       try {
+        // 1. Collect full HTML from React stream
         const reader = reactStream.getReader()
-
-        async function push(chunk: Uint8Array) {
-          buffer += decoder.decode(chunk, { stream: true })
-
-          if (!extractedHead) {
-            const m = buffer.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
-            if (m) {
-              extractedHead = m[1]
-              buffer = buffer.replace(m[0], '')
-            }
-          }
-
-          if (!headFlushed) {
-            const idx = buffer.indexOf('</head>')
-            if (idx !== -1) {
-              const before = buffer.slice(0, idx)
-              let injection = ''
-              if (extractedHead) injection += '\n' + extractedHead
-              injection += headPayload
-              controller.enqueue(encoder.encode(before + injection))
-              buffer = buffer.slice(idx)
-              headFlushed = true
-            }
-            return
-          }
-
-          controller.enqueue(encoder.encode(buffer))
-          buffer = ''
-        }
-
+        let html = ''
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          await push(value)
+          html += decoder.decode(value, { stream: true })
+        }
+        html += decoder.decode() // flush decoder
+
+        // 2. Extract head content from <template>
+        const headTmpl = html.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
+        if (headTmpl) {
+          const extractedHead = headTmpl[1]
+          html = html.replace(headTmpl[0], '')
+          // Inject extracted head before </head>
+          const headIdx = html.indexOf('</head>')
+          if (headIdx !== -1) {
+            html = html.slice(0, headIdx) + '\n' + extractedHead + html.slice(headIdx)
+          }
         }
 
-        buffer = buffer.replace(/<template id="__wfw_head">[\s\S]*?<\/template>/g, '')
-        if (buffer) controller.enqueue(encoder.encode(buffer))
+        // 3. Build head payload and inject before </head>
+        const headPayload = buildHeadPayload(opts)
+        const headIdx = html.indexOf('</head>')
+        if (headIdx !== -1) {
+          html = html.slice(0, headIdx) + headPayload + html.slice(headIdx)
+        }
 
-        const body = buildBodyScripts(opts)
-        if (body) controller.enqueue(encoder.encode('\n' + body))
+        // 4. Build body scripts and inject before </body>
+        let bodyScripts = ''
+        const built = buildBodyScripts(opts)
+        if (built) bodyScripts += built
 
         if (opts.isDev) {
           const wsUrl = `${opts.base}/__weifuwu/livereload`
           const hbUrl = `${opts.base}/__wfw/h/`
-          controller.enqueue(encoder.encode(
-            `\n<script>(function(){var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${wsUrl}');var t=0;ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='component'){if(m.entry&&m.entry!==window.__WFW_ENTRY)return;import('${hbUrl}'+m.hash+'?'+Date.now()).catch(function(){location.reload()});if(m.css){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css}return}if(m.type==='css'){var s=document.querySelector('style[data-lr]')||function(){var x=document.createElement('style');x.setAttribute('data-lr','');document.head.appendChild(x);return x}();s.textContent=m.css;return}}catch(_){}if(e.data==='reload'&&Date.now()-t>1e3){t=Date.now();location.reload()}};ws.onclose=function(){if(Date.now()-t>1e3){t=Date.now();setTimeout(function(){location.reload()},500)}}})()<\/script>`
-          ))
+          bodyScripts += `\n<script>
+(function(){
+var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${wsUrl}');
+var t=0;
+ws.onmessage=function(e){
+  try{
+    var m=JSON.parse(e.data);
+    if(m.type==='component'){
+      if(m.entry&&m.entry!==window.__WFW_ENTRY)return;
+      import('${hbUrl}'+m.hash+'?'+Date.now()).catch(function(){location.reload()});
+      if(m.css){
+        var s=document.querySelector('style[data-lr]')||function(){
+          var x=document.createElement('style');
+          x.setAttribute('data-lr','');
+          document.head.appendChild(x);
+          return x
+        }();
+        s.textContent=m.css
+      }
+      return
+    }
+    if(m.type==='css'){
+      var s=document.querySelector('style[data-lr]')||function(){
+        var x=document.createElement('style');
+        x.setAttribute('data-lr','');
+        document.head.appendChild(x);
+        return x
+      }();
+      s.textContent=m.css
+      return
+    }
+  }catch(_){}
+  if(e.data==='reload'&&Date.now()-t>1e3){t=Date.now();location.reload()}
+};
+ws.onclose=function(){
+  if(Date.now()-t>1e3){
+    t=Date.now();
+    setTimeout(function(){location.reload()},500)
+  }
+};
+})();
+<\/script>`
         }
+
+        if (bodyScripts) {
+          const bodyIdx = html.lastIndexOf('</body>')
+          if (bodyIdx !== -1) {
+            html = html.slice(0, bodyIdx) + bodyScripts + html.slice(bodyIdx)
+          }
+        }
+
+        controller.enqueue(encoder.encode(html))
       } catch {
-        const fallback = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>500</title></head><body><h1>500 - Internal Server Error</h1></body></html>`
+        const fallback = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' + '<title>500</title></head><body><h1>500 - Internal Server Error</h1></body></html>'
         controller.enqueue(encoder.encode(fallback))
       } finally {
         controller.close()
