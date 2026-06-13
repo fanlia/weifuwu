@@ -66,6 +66,18 @@ export interface SessionOptions {
     secure?: boolean
     sameSite?: 'strict' | 'lax' | 'none'
   }
+  /**
+   * Secret for signing the session cookie with HMAC-SHA256.
+   * When set, the cookie value becomes `sid.signature` — tampering is detected
+   * and rejected. Strongly recommended in production.
+   */
+  secret?: string
+  /**
+   * Interval (ms) for automatic session ID rotation.
+   * Rotating the ID mitigates session fixation attacks.
+   * Default: 900_000 (15 min). Set to 0 to disable.
+   */
+  rotateInterval?: number
 }
 
 export interface SessionInjected {
@@ -274,7 +286,7 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
     const rawSid = cookies[cookieName]
 
     // Unsign cookie value if secret is configured
-    let sid: string | undefined
+    let sid: string | null | undefined
     if (rawSid) {
       sid = secret ? unsignSessionId(rawSid, secret) : rawSid
     }
