@@ -187,12 +187,28 @@ async function init() {
   const app = createElement(TsxContext.Provider, { value: _ctx },
     createElement(Page));
   ${isDev ? `
+  // Stable proxy — same function ref = React preserves fiber + useState state across HMR
+  const _pageImpl = { current: Page };
+  const _pageProxy = new Proxy(function __wfw_page(){}, {
+    apply(_target, _thisArg, args) {
+      return Reflect.apply(_pageImpl.current, _thisArg, args);
+    },
+  });
+
   const reactRoot = createRoot(_root);
-  reactRoot.render(app);
+  let _tick = 0;
+  function renderPage() {
+    reactRoot.render(createElement(TsxContext.Provider, { value: _ctx },
+      createElement(_pageProxy, { __t: _tick })));
+  }
+  renderPage();
+
   window.__WFW_REFRESH = async (NewComponent) => {
     const store = globalThis.__WEIFUWU_CTX_STORE?._ctx || _ctx;
+    _pageImpl.current = NewComponent;
+    _tick++;
     reactRoot.render(createElement(TsxContext.Provider, { value: store },
-      createElement(NewComponent)));
+      createElement(_pageProxy, { __t: _tick })));
   };
   ` : `
   hydrateRoot(_root, app);
