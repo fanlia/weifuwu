@@ -1160,14 +1160,20 @@ const { theme, resolvedTheme, setTheme } = useTheme()
 
 ### queue [α]
 
-Async job queue with two modes:
-- **In-memory** (no Redis) — lightweight, for dev or simple deployments
-- **Redis-backed** — persistent, distributed, survives restarts
+Async job queue with three modes:
+- **In-memory** (no dependency) — lightweight, for dev or simple deployments
+- **PostgreSQL** (`{ pg }`) — persistent, multi-instance safe via `FOR UPDATE SKIP LOCKED`
+- **Redis** (`{ redis }`) — persistent, distributed, survives restarts
 
 ```ts
-// In-memory mode — no Redis required
+// In-memory mode — no dependency
 const q = queue()
 app.use(q)                     // injects ctx.queue
+
+// PostgreSQL mode — persistent, multi-instance safe
+const q = queue({ pg })
+await (q as any).migrate()
+app.use(q)
 
 // Redis mode — persistent
 const q = queue({ redis })
@@ -1195,9 +1201,10 @@ q.run()
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `redis` | `object` | — | Redis client (omit for in-memory mode) |
+| `redis` | `object` | — | Redis client (omit for in-memory/PG mode) |
 | `url` | `string` | — | Redis URL (alternative to client) |
-| `prefix` | `string` | `'queue'` | Redis key prefix (Redis mode only) |
+| `pg` | `object` | — | PostgreSQL client (PG mode) |
+| `prefix` | `string` | `'queue'` | Key/table prefix |
 | `pollInterval` | `number` | `200` | Poll interval (ms) |
 
 | Method | Description |

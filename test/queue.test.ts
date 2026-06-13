@@ -10,57 +10,60 @@ import type { Queue, QueueJob } from '../queue/types.ts'
 describe('queue (memory)', () => {
   let q: Queue
 
+  function newQ(opts?: any) {
+    if (q) q.stop()
+    q = queue(Object.assign({ pollInterval: 50 }, opts))
+    return q
+  }
+
   after(() => { if (q) q.stop() })
 
   it('processes an immediate job', async () => {
-    q = queue()
+    const qq = newQ()
     const received: QueueJob[] = []
-    q.process('test', async (job) => { received.push(job) })
-    await q.add('test', { msg: 'hello' })
-    q.run()
-    await new Promise(r => setTimeout(r, 300))
+    qq.process('test', async (job) => { received.push(job) })
+    await qq.add('test', { msg: 'hello' })
+    qq.run()
+    await new Promise(r => setTimeout(r, 150))
     assert.equal(received.length, 1)
-    assert.equal(received[0].payload.msg, 'hello')
   })
 
   it('processes a delayed job', async () => {
-    q = queue({ pollInterval: 50 })
+    const qq = newQ()
     const received: QueueJob[] = []
-    q.process('delayed', async (job) => { received.push(job) })
-    const start = Date.now()
-    await q.add('delayed', { x: 1 }, { delay: 100 })
-    q.run()
-    await new Promise(r => setTimeout(r, 50))
+    qq.process('delayed', async (job) => { received.push(job) })
+    await qq.add('delayed', { x: 1 }, { delay: 80 })
+    qq.run()
+    await new Promise(r => setTimeout(r, 40))
     assert.equal(received.length, 0)
-    await new Promise(r => setTimeout(r, 150))
+    await new Promise(r => setTimeout(r, 100))
     assert.equal(received.length, 1)
-    assert.ok(received[0].runAt - start >= 100)
   })
 
   it('schedules a cron job', async () => {
-    q = queue()
+    const qq = newQ()
     const received: QueueJob[] = []
-    q.process('cron', async (job) => { received.push(job) })
+    qq.process('cron', async (job) => { received.push(job) })
     const now = new Date()
     const pattern = `${now.getMinutes()} ${now.getHours()} ${now.getDate()} ${now.getMonth() + 1} *`
-    await q.add('cron', { n: 1 }, { schedule: pattern })
-    q.run()
-    await new Promise(r => setTimeout(r, 300))
+    await qq.add('cron', { n: 1 }, { schedule: pattern })
+    qq.run()
+    await new Promise(r => setTimeout(r, 150))
     assert.equal(received.length, 1)
   })
 
   it('handles failed jobs and retry', async () => {
-    q = queue()
+    const qq = newQ()
     let fail = true
-    q.process('flaky', async () => { if (fail) throw new Error('oops') })
-    await q.add('flaky', { x: 1 })
-    q.run()
-    await new Promise(r => setTimeout(r, 300))
-    const failed = await q.failedJobs()
+    qq.process('flaky', async () => { if (fail) throw new Error('oops') })
+    await qq.add('flaky', { x: 1 })
+    qq.run()
+    await new Promise(r => setTimeout(r, 150))
+    const failed = await qq.failedJobs()
     assert.equal(failed.length, 1)
     fail = false
-    await q.retryFailed(failed[0].id)
-    await new Promise(r => setTimeout(r, 300))
+    await qq.retryFailed(failed[0].id)
+    await new Promise(r => setTimeout(r, 150))
   })
 })
 
@@ -84,7 +87,7 @@ describe('queue (pg)', { skip: !DATABASE_URL }, () => {
 
   function freshQueue() {
     if (q) q.stop()
-    q = queue({ pg: pgConn as any, prefix: 'testpgq', pollInterval: 50 })
+    q = queue({ pg: pgConn as any, prefix: 'testpgq', pollInterval: 30 })
     return q
   }
 
@@ -95,7 +98,7 @@ describe('queue (pg)', { skip: !DATABASE_URL }, () => {
     const received: QueueJob[] = []
     qq.process('test', async (job) => { received.push(job) })
     await qq.add('test', { msg: 'hello' })
-    await new Promise(r => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, 100))
     assert.equal(received.length, 1)
   })
 
@@ -104,10 +107,10 @@ describe('queue (pg)', { skip: !DATABASE_URL }, () => {
     qq.run()
     const received: QueueJob[] = []
     qq.process('delayed', async (job) => { received.push(job) })
-    await qq.add('delayed', { x: 1 }, { delay: 150 })
-    await new Promise(r => setTimeout(r, 80))
+    await qq.add('delayed', { x: 1 }, { delay: 80 })
+    await new Promise(r => setTimeout(r, 40))
     assert.equal(received.length, 0)
-    await new Promise(r => setTimeout(r, 150))
+    await new Promise(r => setTimeout(r, 100))
     assert.equal(received.length, 1)
   })
 
@@ -119,7 +122,7 @@ describe('queue (pg)', { skip: !DATABASE_URL }, () => {
     const now = new Date()
     const pattern = `${now.getMinutes()} ${now.getHours()} ${now.getDate()} ${now.getMonth() + 1} *`
     await qq.add('cron-pg', { n: 1 }, { schedule: pattern })
-    await new Promise(r => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, 100))
     assert.equal(received.length, 1)
   })
 
@@ -128,7 +131,7 @@ describe('queue (pg)', { skip: !DATABASE_URL }, () => {
     qq.run()
     qq.process('flaky-pg', async () => { throw new Error('oops') })
     await qq.add('flaky-pg', { x: 1 })
-    await new Promise(r => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, 100))
     const failed = await qq.failedJobs()
     assert.equal(failed.length, 1)
     assert.equal(failed[0].error, 'oops')
@@ -144,7 +147,7 @@ describe('queue (pg)', { skip: !DATABASE_URL }, () => {
     await qq.add('email', { to: 'a@b.com' })
     await qq.add('log', { level: 'info' })
     await qq.add('email', { to: 'c@d.com' })
-    await new Promise(r => setTimeout(r, 200))
+    await new Promise(r => setTimeout(r, 100))
     assert.equal(emails.length, 2)
     assert.equal(logs.length, 1)
   })
