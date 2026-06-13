@@ -18,14 +18,22 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - Every module needs tests in `test/`
 - AIProvider is the unified AI config interface: `model()`, `embeddingModel()`, `embed()`, `embedMany()`, `generateText()`, `streamText()`, `dimension`. Modules use it for model resolution; handlers use `ctx.ai` for direct AI calls.
 - **Never import `streamText`/`generateText`/`embed` from the `ai` SDK directly in application code.** Always use `provider.streamText()` or `ctx.ai.streamText()` — the provider injects the configured model automatically.
-- **ctx field principle**: each capability adds exactly one namespaced field on `ctx`. Standard objects (`req`, `ws`) are never modified. The framework injects, the developer uses.
-  ```ts
-  app.use(postgres())    →  ctx.sql
-  app.use(redis())       →  ctx.redis
-  app.use(user().mws())  →  ctx.user
-  app.use(queue())       →  ctx.queue
-  ws('/chat', { ... })   →  ctx.ws      // per-connection, auto-cloned from upgrade ctx
-  ```
+- **ctx field principle**: each middleware adds exactly one namespaced field on `ctx`. Standard objects (`req`, `ws`) are never modified. The framework injects, the developer uses.
+
+  | Pattern α middleware | Injects |
+  |---|---|
+  | `app.use(postgres())` | `ctx.sql` |
+  | `app.use(redis())` | `ctx.redis` |
+  | `app.use(aiProvider())` | `ctx.ai` |
+  | `app.use(queue())` | `ctx.queue` |
+  | `app.use(session())` | `ctx.session` |
+  | `app.use(auth())` | `ctx.user` |
+  | `app.use(user().middleware())` | `ctx.user` (含完整用户数据) |
+  | `app.use(permissions())` | `ctx.roles`, `ctx.permissions` |
+  | `app.use(theme())` | `ctx.prefs.theme` |
+  | `app.use(i18n())` | `ctx.prefs.locale`, `ctx.t()` |
+  | `ws('/chat', handler)` | `ctx.ws` (per-connection) |
+
   `ctx.ws` is the per-connection WebSocket helper: `ctx.ws.state`, `ctx.ws.json()`, `ctx.ws.join(room)`, `ctx.ws.sendRoom(room, data)`. The `ws` parameter in handlers is the standard `WebSocket` from the `ws` library — never augmented.
 - All `ctx` mutations (like `ctx.parsed` or `ctx.user`) should be additive, never overwrite
 - Public hooks go in `react.ts` barrel; internal utilities stay in their module
