@@ -1,4 +1,4 @@
-import type { Sql } from '../vendor.ts'
+import type { Sql, WebSocket } from '../vendor.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { WSMessage, Message } from './types.ts'
 import type { Context } from '../types.ts'
