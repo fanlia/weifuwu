@@ -16,81 +16,34 @@
 
 ### Phase 1：修复现有问题（不改变架构）
 
-这些修复独立于重构，可以先做。
-
-1. **P1a**: `setCtx()` snapshot 加上 `loaderData`
-   - 文件：`tsx-context.ts`
-   - 改动：`store._snapshot = { ..., loaderData: store._ctx.loaderData, ... }`
-
-2. **P1b**: 脚本移到 `</body>` 前
-   - 文件：`stream.ts`
-   - 改动：stream 结束后收集完整 HTML，在 `</body>` 前注入脚本
-
-3. **P1c**: `__ssr/[hash].js` 去掉 immutable cache（dev 模式）
-   - 文件：`ssr.ts`（`__ssr/:path` 路由）
+1. **P1a** ✅ `setCtx()` snapshot 加上 `loaderData`
+2. **P1b** ✅ 脚本移到 `</body>` 前
+3. **P1c** ✅ dev 模式 cache 策略（无需改动）
 
 ### Phase 2：统一客户端上下文（setCtx 作为唯一入口）
 
-4. **P2a**: 添加 `addCtxRebuilder()` 机制
-   - 文件：`tsx-context.ts`
-   - 改动：注册函数列表，`setCtx()` 时遍历重建不可序列化的值（如 `t()`）
-
-5. **P2b**: 消除 `window.__LOCALE_DATA__`
-   - 文件：`stream.ts`、`i18n.ts`、`client-locale.ts`
-   - 改动：翻译消息放 `ctx.i18n.messages`，通过 `addCtxRebuilder` 重建 `t()`
-
-6. **P2c**: 消除 `window.__WEIFUWU_PROPS`
-   - 文件：`stream.ts`、`ssr.ts`
-   - 改动：loaderData 统一走 `ctx.loaderData` → `setCtx()`
-
-7. **P2d**: `useCtx()` 只读 snapshot，不合并 `window.__WEIFUWU_CTX`
-   - 文件：`tsx-context.ts`
-   - 改动：`setCtx()` 同步更新 `window.__WEIFUWU_CTX`，`useCtx()` 只从 snapshot 读
+4. **P2a** ✅ `addCtxRebuilder()` 机制
+5. **P2b** ✅ 消除 `window.__LOCALE_DATA__`
+6. **P2c** ✅ 消除 `window.__WEIFUWU_PROPS`
+7. **P2d** ✅ `useCtx()` 只读 snapshot
 
 ### Phase 3：替换 hydration bundle
 
-这是核心改动。分两小步：
-
-8. **P3a**: `compile.ts` 新增 `compileBrowser()` 
-   - 功能：把页面组件编译为浏览器可执行的 ESM 文件
-   - 输出：`.weifuwu/ssr/[hash].js`
-   - 注意：external 列表必须包含 `weifuwu/react` 以及 weifuwu 源码路径
-
-9. **P3b**: `ssr.ts` 用 inline `<script type="module">` 替换 `buildClientBundle()`
-   - 生成：
-     ```html
-     <script type="module">
-     import { setCtx, TsxContext } from 'weifuwu/react';
-     import { createElement } from 'react';
-     import { hydrateRoot, createRoot } from 'react-dom/client';
-     setCtx(ctxData);
-     const { default: Page } = await import('/__ssr/[hash].js');
-     // dev: createRoot → render;  prod: hydrateRoot
-     </script>
-     ```
-   - Dev 模式定义 `window.__WFW_REFRESH` 用于 HMR
-   - 脚本必须插在 `</body>` 之前
-
-10. **P3c**: `stream.ts` 改为接收 `hydrationScript` 参数而非 `bundle` 对象
-    - 删除 `buildBodyScripts` 中的 bundle script 逻辑
-    - 通过之前 P1b 的脚本注入机制插入
+8. **P3a** ✅ `compileBrowser()` — 预编译页面组件为浏览器 ESM
+9. **P3b** ✅ inline `<script type="module">` 替换 `buildClientBundle()`
+10. **P3c** ✅ stream.ts 接收 `hydrationScript` 参数
 
 ### Phase 4：调整 HMR 机制
 
-11. **P4a**: `live.ts` 热更新通道适配新 format
-    - `compileHotComponent` 导入组件后调用 `__WFW_REFRESH(C)`
-    - WebSocket handler 处理 `{ type: 'component', hash, entry }`
-    - 客户端 `__WFW_REFRESH` 直接用新组件 `createRoot.render()`
+11. **P4a** ✅ `compileHotComponent` 适配新格式（externalize weifuwu 源码）
+12. **P4b** ✅ 删除 `markClientBundleDirty()` 和 `bundleCache`
 
-12. **P4b**: 删除 `markClientBundleDirty()` 和 `bundleCache`
-    - 不再有运行时 esbuild bundle，不需要缓存失效
+### Phase 5：已清理
 
-### Phase 5：清理
-
-13. **P5a**: 删除 `buildClientBundle()` 函数
-14. **P5b**: 删除不再使用的全局变量引用
-15. **P5c**: 更新测试
-16. **P5d**: 更新 README
+13. ✅ 删除 `buildClientBundle()` 函数
+14. ✅ 删除不再使用的全局变量引用
+15. ✅ 更新测试
+16. ❌ 更新 README（可选）
 
 ## 风险与注意事项
 
