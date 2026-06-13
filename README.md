@@ -197,7 +197,7 @@ All modules follow one of **2 patterns** — learn these and you know every modu
 
 | Pattern | How to mount | Example |
 |---------|-------------|---------|
-| `[α]` | `app.use(mod())` | `compress()`, `preferences()`, `postgres()` |
+| `[α]` | `app.use(mod())` | `compress()`, `theme()`, `postgres()` |
 | `[β]` | `app.use('/path', mod())` | `health()`, `ssr({dir})`, `graphql(handler)`, `user()` |
 
 ### Pattern α — Middleware
@@ -1516,13 +1516,18 @@ app.use('/', ssr({ dir: './ui' }))
 | `app/error.tsx` | Error boundary for that subtree |
 | `app/globals.css` | Tailwind CSS entry (compiled via `@tailwindcss/postcss`) |
 
-**How it works:**
+**How hydration works:**
 
 - Each page is lazy-resolved on first request — only the `page.tsx` and its layout chain are compiled
-- Hydration bundle generated per-page at `/__ssr/{hash}.js`
+- An inline `<script type="module">` in the HTML handles hydration
+- It imports `{ setCtx, TsxContext }` from the vendor bundle (`/__wfw/v/bundle`) via importmap
+- Then dynamically imports the page component: `await import('/__ssr/[hash].js')`
+- The vendor bundle (react + react-dom + weifuwu client libs) is compiled once and cached
+- Page components are pre-compiled to `/__ssr/{hash}.js` — no runtime esbuild after first request
+- **Dev:** `createRoot` + render; **Production:** `hydrateRoot` (reuses SSR DOM)
+- Both the hydration script and the page component share the same store via `globalThis.__WEIFUWU_CTX_STORE`
 - Tailwind CSS served at `/__wfw/style/{hash}.css` (cached, content-hashed)
-- Dev mode: vendor bundle, HMR WebSocket, file watcher — all automatic
-- Page components and layouts are compiled via esbuild at runtime — no build step needed
+- Dev mode extras: HMR WebSocket, file watcher, hot component replacement
 
 ```ts
 // Multiple independent SSR directories
@@ -1778,7 +1783,7 @@ const count = useStore(s => s.count)
 <Head><title>Page Title</title><meta name="description" content="..." /></Head>
 ```
 
-**`TsxContext`** — React context holding page data (`params`, `query`, `user`, `parsed`, `prefs`, `env`). Used internally by hooks; rarely needed directly.
+**`TsxContext`** — React context holding page data (`params`, `query`, `user`, `parsed`, `theme`, `i18n`, `flash`, `loaderData`, `env`). Used internally by hooks; rarely needed directly.
 
 ### Locale & Theme
 
@@ -1792,7 +1797,7 @@ function LangSwitch() {
 
 | Return | Description |
 |--------|-------------|
-| `locale` | Current locale string (from `ctx.prefs.locale`) |
+| `locale` | Current locale string (from `ctx.i18n.locale`) |
 | `setLocale(locale)` | Switch locale (calls `navigate('/__lang/' + locale)`) |
 | `t` | Translate a key using loaded locale messages |
 
@@ -1831,7 +1836,7 @@ function Page() {
 }
 ```
 
-On the server, data flows from middleware → `ctx` → `ctx.loaderData` (serialized). On the client, it's restored from `window.__WEIFUWU_CTX`. Under the hood, `useLoaderData()` uses `AsyncLocalStorage` on the server and `window.__WEIFUWU_CTX` on the client — no SSR-specific code needed in your components.
+On the server, data flows from middleware → `ctx` → `setCtx(ctxValue)` (serialized via JSON). On the client, the hydration script calls `setCtx(ctxData)` which populates the shared store (`globalThis.__WEIFUWU_CTX_STORE`). `useLoaderData()` reads from the snapshot via `useSyncExternalStore` — no SSR-specific code needed in your components.
 
 **`addInterceptor(fn)`** — Register a URL interceptor. Interceptors run before SPA navigation; if one returns `true`, `navigate()` skips the fetch-and-swap.
 
@@ -1881,9 +1886,13 @@ function Toast() {
 
 ### Dev mode
 
-Auto-detected when `NODE_ENV !== 'production'`. `ssr({dir})` automatically registers vendor bundle, HMR WebSocket, and file watcher. No explicit setup needed.
+Auto-detected when `NODE_ENV === 'development'`. `ssr({dir})` automatically registers importmap, vendor bundle, HMR WebSocket, and file watcher. No explicit setup needed.
 
-When a `.tsx` or `.css` file changes under the `ssr` dir, the browser hot-updates without refreshing — `useState` values are preserved. Layout changes trigger a full page reload.
+- Inline hydration script uses `createRoot` + render (replaces SSR DOM)
+- Vendor bundle served at `/__wfw/v/bundle?h=<hash>` — compiled from source, unminified
+- Hot component replacement: file changes → WebSocket message → browser imports hot bundle → `__WFW_REFRESH(NewComponent)` — `useState` values preserved
+- Tailwind CSS hot-reloads without page refresh
+- Layout changes trigger a full page reload
 
 ---
 
@@ -1979,7 +1988,7 @@ currentTraceId, currentTrace, runWithTrace, traceElapsed, TraceContext,
 
 ```ts
 auth, cors, csrf, compress, helmet, logger, rateLimit, requestId, validate, upload,
-preferences, serveStatic, session, MemoryStore, RedisStore, SessionStore,
+theme, i18n, flash, serveStatic, session, MemoryStore, RedisStore, SessionStore,
 cache, MemoryCache, RedisCache, CacheStore
 ```
 
