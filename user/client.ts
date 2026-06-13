@@ -37,6 +37,21 @@ function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(Buffer.from(hash), Buffer.from(verify))
 }
 
+/**
+ * User authentication module — local register/login, JWT verification, OAuth2 server, social login.
+ *
+ * ```ts
+ * import { user, postgres } from 'weifuwu'
+ *
+ * const pg = postgres({ connection: DATABASE_URL })
+ * const auth = user({ pg, jwtSecret: process.env.JWT_SECRET })
+ *
+ * await auth.migrate()
+ *
+ * app.use(auth.middleware())   // inject `ctx.user` on every request
+ * app.use('/', auth)           // mount auth routes: /register, /login
+ * ```
+ */
 export function user(options: UserOptions): UserModule {
   const table = options.table ?? '_users'
   const pg = options.pg

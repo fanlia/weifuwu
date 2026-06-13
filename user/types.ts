@@ -2,6 +2,7 @@ import type { Middleware, Context } from '../types.ts'
 import type { Router } from '../router.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
+/** A user record from the database. */
 export interface UserData {
   id: number
   email: string
@@ -11,11 +12,15 @@ export interface UserData {
   updated_at: Date
 }
 
+/** Result of a successful register or login. */
 export interface AuthResult {
+  /** User data (excluding password hash). */
   user: Omit<UserData, 'password'>
+  /** Signed JWT token. */
   token: string
 }
 
+/** An OAuth2 client application registered with the server. */
 export interface OAuth2Client {
   id: number
   name: string
@@ -25,13 +30,18 @@ export interface OAuth2Client {
   scopes: string
 }
 
+/** Enable OAuth2 server mode (authorization code flow). */
 export interface OAuth2ServerOptions {
   server: true
 }
 
+/** Configuration for an OAuth login provider (e.g. GitHub, Google). */
 export interface OAuthProviderConfig {
+  /** OAuth app client ID. */
   clientId: string
+  /** OAuth app client secret. */
   clientSecret: string
+  /** Scopes to request (default: `'openid profile email'`). */
   scope?: string
   /** Custom auth URL (overrides built-in provider default). */
   authUrl?: string
@@ -41,41 +51,67 @@ export interface OAuthProviderConfig {
   userUrl?: string
   /**
    * Custom user parser.
-   * Required when any of authUrl/tokenUrl/userUrl is custom.
-   * Receives the raw response from userUrl + the access token.
+   * Required when any of `authUrl`/`tokenUrl`/`userUrl` is custom.
+   * Receives the raw response from `userUrl` + the access token.
    */
   parseUser?: (data: any, accessToken: string) => { id: string; email: string; name: string; avatarUrl?: string }
 }
 
+/** Options for {@link user}. */
 export interface UserOptions {
+  /** PostgreSQL client for user storage. */
   pg: PostgresClient
+  /** Secret key for JWT signing. */
   jwtSecret: string
+  /** Custom table name for users (default: `'users'`). */
   table?: string
+  /** JWT expiration time (default: `'7d'`). */
   expiresIn?: string | number
+  /** Enable OAuth2 server mode (authorization code flow). */
   oauth2?: OAuth2ServerOptions
   /**
    * OAuth login providers (login with GitHub/Google).
-   * Registers GET /auth/:provider and GET /auth/:provider/callback routes.
+   * Registers `GET /auth/:provider` and `GET /auth/:provider/callback` routes.
    */
   oauthLogin?: {
+    /** Map of provider name to config (e.g. `{ github: {...}, google: {...} }`). */
     providers: Record<string, OAuthProviderConfig>
-    /** Where to redirect after successful login (default: '/'). */
+    /** Redirect URL after successful login (default: `'/'`). */
     redirectUrl?: string
   }
 }
 
+/** The shape of `ctx.user` when the user middleware is active. */
 export interface UserInjected {
   user: UserData
 }
 
+/**
+ * User module returned by {@link user}. Provides auth routes, middleware, and programmatic API.
+ *
+ * ```ts
+ * const auth = user({ pg, jwtSecret: process.env.JWT_SECRET })
+ * app.use(auth.middleware())   // injects ctx.user on every request
+ * app.use('/', auth)           // mounts routes: /register, /login
+ * ```
+ */
 export interface UserModule extends Router {
+  /** Middleware that reads JWT from Authorization header and injects `ctx.user`. */
   middleware: () => Middleware<Context, Context & UserInjected>
+  /** Create the users table. */
   migrate: () => Promise<void>
+  /** Register a new user. Returns user data + JWT. */
   register: (data: { email: string; password: string; name: string }) => Promise<AuthResult>
+  /** Authenticate by email + password. Returns user data + JWT. */
   login: (data: { email: string; password: string }) => Promise<AuthResult>
+  /** Verify a JWT and return the user data (or null if invalid). */
   verify: (token: string) => Promise<Omit<UserData, 'password'> | null>
+  /** Register a new OAuth2 client application. */
   registerClient: (data: { name: string; redirectUris: string[] }) => Promise<OAuth2Client>
+  /** Look up an OAuth2 client by clientId. */
   getClient: (clientId: string) => Promise<OAuth2Client | null>
+  /** Revoke an OAuth2 client. */
   revokeClient: (clientId: string) => Promise<void>
+  /** Close the underlying DB connection. */
   close: () => Promise<void>
 }

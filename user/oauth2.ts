@@ -11,6 +11,16 @@ interface OAuth2Deps {
   expiresIn: string | number
 }
 
+/**
+ * Create an OAuth2 authorization code server.
+ *
+ * Registers routes:
+ * - `GET /oauth/authorize` — authorization page (user consent)
+ * - `POST /oauth/consent` — user grants/denies access
+ * - `POST /oauth/token` — exchange code for access token
+ *
+ * Used internally by the user module when `oauth2: { server: true }` is set.
+ */
 export function createOAuth2Server(deps: OAuth2Deps) {
   const { pg, users, jwtSecret, expiresIn } = deps
 
