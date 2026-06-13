@@ -17,6 +17,7 @@ interface CtxStore {
   _ctx: PageContext
   _snapshot: PageContext
   _listeners: Set<() => void>
+  _rebuilders: Array<(value: Partial<PageContext>) => Partial<PageContext> | null>
   _alsGetStore: (() => PageContext | undefined) | null
 }
 
@@ -30,6 +31,7 @@ function getStore(): CtxStore {
     _ctx: DEFAULT_CTX,
     _snapshot: { params: DEFAULT_CTX.params, query: DEFAULT_CTX.query, user: DEFAULT_CTX.user, parsed: DEFAULT_CTX.parsed, theme: DEFAULT_CTX.theme, i18n: DEFAULT_CTX.i18n, loaderData: DEFAULT_CTX.loaderData, env: DEFAULT_CTX.env },
     _listeners: new Set<() => void>(),
+    _rebuilders: [],
     _alsGetStore: null,
   }
   if (typeof globalThis !== 'undefined') {
@@ -43,10 +45,8 @@ const store = getStore()
 // ── Function rebuilders (reconstruct non-serializable values after setCtx) ──
 
 type Rebuilder = (value: Partial<PageContext>) => Partial<PageContext> | null
-const rebuilders: Rebuilder[] = []
-
 export function addCtxRebuilder(fn: Rebuilder) {
-  rebuilders.push(fn)
+  store._rebuilders.push(fn)
 }
 
 const subscribe = (cb: () => void) => { store._listeners.add(cb); return () => { store._listeners.delete(cb) } }
@@ -60,7 +60,7 @@ export function __registerAls(getStore: () => PageContext | undefined) {
 
 function setCtx(value: Partial<PageContext>) {
   if (typeof window !== 'undefined') {
-    for (const r of rebuilders) {
+    for (const r of store._rebuilders) {
       const rebuilt = r(value)
       if (rebuilt) Object.assign(value, rebuilt)
     }

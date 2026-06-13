@@ -191,7 +191,7 @@ async function buildClientBundle(
     const absEntry = resolve(entryPath)
     const absLayouts = layoutPaths.map(p => resolve(p))
     const layoutImports = absLayouts.map(p => `import${JSON.stringify(p)};`).join('')
-    const _sc = `(function(){var k='__WEIFUWU_CTX_STORE';var s=typeof globalThis!='undefined'&&globalThis[k];if(!s)return function(){};return function(v){s._ctx={...s._ctx,...v};s._snapshot={params:s._ctx.params,query:s._ctx.query,user:s._ctx.user,parsed:s._ctx.parsed,theme:s._ctx.theme,i18n:s._ctx.i18n,flash:s._ctx.flash,loaderData:s._ctx.loaderData,env:s._ctx.env};s._listeners.forEach(function(fn){fn()})}})()`
+    const _sc = `(function(){var k='__WEIFUWU_CTX_STORE';var s=typeof globalThis!='undefined'&&globalThis[k];if(!s)return function(){};return function(v){for(var r of(s._rebuilders||[])){var b=r(v);if(b)Object.assign(v,b)}s._ctx={...s._ctx,...v};s._snapshot={params:s._ctx.params,query:s._ctx.query,user:s._ctx.user,parsed:s._ctx.parsed,theme:s._ctx.theme,i18n:s._ctx.i18n,flash:s._ctx.flash,loaderData:s._ctx.loaderData,env:s._ctx.env};s._listeners.forEach(function(fn){fn()})}})()`
     const code = [
       layoutImports,
       `${isDev ? "import{createRoot}from'react-dom/client';" : "import{hydrateRoot}from'react-dom/client';"}`,
