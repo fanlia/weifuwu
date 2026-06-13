@@ -1,16 +1,21 @@
 import type { Redis } from './vendor.ts'
 import type { Context, Handler, Middleware } from './types.ts'
 
+/** Options for {@link rateLimit}. */
 export interface RateLimitOptions {
+  /** Maximum requests within the window (default: 100). */
   max?: number
+  /** Window duration in ms (default: 60000 = 1 minute). */
   window?: number
+  /** Custom key function. Default: IP from `x-forwarded-for` or `x-real-ip` or `cf-connecting-ip`. */
   key?: (req: Request, ctx: Context) => string
+  /** Custom 429 response body." */
   message?: string
-  /** Rate limit store. 'memory' (default) or 'redis'. Redis enables multi-process counting. */
+  /** Store backend. `'memory'` (default) or `'redis'`. */
   store?: 'memory' | 'redis'
-  /** Redis client (required when store: 'redis'). */
+  /** Redis client (required when `store: 'redis'`). */
   redis?: Redis
-  /** Redis key prefix. Default: 'ratelimit:'. */
+  /** Redis key prefix (default: `'ratelimit:'`). */
   prefix?: string
 }
 
@@ -24,6 +29,23 @@ function defaultKey(_req: Request, _ctx: Context): string {
   return 'global'
 }
 
+/**
+ * Rate limiting middleware (in-memory or Redis-backed).
+ *
+ * Limits requests per key (default: client IP) within a rolling window.
+ * Returns 429 when the limit is exceeded, with `Retry-After` header.
+ *
+ * ```ts
+ * import { rateLimit } from 'weifuwu'
+ *
+ * // In-memory (single process)
+ * app.use(rateLimit({ max: 60, window: 60_000 }))
+ *
+ * // Redis-backed (multi-process)
+ * import { Redis } from 'ioredis'
+ * app.use(rateLimit({ store: 'redis', redis: new Redis(), max: 100 }))
+ * ```
+ */
 export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () => void } {
   const max = options?.max ?? 100
   const window = options?.window ?? 60_000

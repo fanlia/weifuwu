@@ -2,12 +2,19 @@ import { TextDecoder, TextEncoder } from 'node:util'
 import type { Context } from './types.ts'
 import { vendorHash } from './compile.ts'
 
+/** Options for {@link streamResponse}. */
 export interface StreamOpts {
+  /** Request context (for injecting hydration data). */
   ctx: Context
+  /** Base path for SSR asset URLs. */
   base: string
+  /** Tailwind CSS context. */
   tailwind?: { css: string; url: string }
+  /** Whether in development mode (injects livereload script). */
   isDev: boolean
+  /** HTTP status code (default: 200). */
   status?: number
+  /** Serialized loader data injected into the HTML shell. */
   loaderData?: Record<string, unknown>
 }
 
@@ -107,6 +114,14 @@ function buildBodyScripts(opts: StreamOpts, hydrationScript?: string): string {
   return parts.join('\n')
 }
 
+/**
+ * Create an HTML response from a React SSR stream.
+ *
+ * Injects the React stream into an HTML shell, adds hydration script,
+ * loader data script, tailwind CSS, and (in dev mode) livereload script.
+ *
+ * Used internally by {@link ssr}.
+ */
 export function streamResponse(reactStream: ReadableStream, opts: StreamOpts, hydrationScript?: string): Response {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()

@@ -6,11 +6,25 @@ const brotliCompressAsync = promisify(brotliCompress)
 const gzipAsync = promisify(gzip)
 const deflateAsync = promisify(deflate)
 
+/** Options for {@link compress}. */
 export interface CompressOptions {
+  /** Compression level (1-9, default: 6). */
   level?: number
+  /** Minimum response body size in bytes to compress (default: 1024). */
   threshold?: number
 }
 
+/**
+ * Response compression middleware (brotli, gzip, deflate).
+ *
+ * Automatically selects the best encoding based on `Accept-Encoding` header.
+ * Skips compression for small responses, images, audio, video, and already-encoded responses.
+ *
+ * ```ts
+ * import { compress } from 'weifuwu'
+ * app.use(compress())
+ * ```
+ */
 export function compress(options?: CompressOptions): Middleware {
   const level = options?.level ?? 6
   const threshold = options?.threshold ?? 1024
