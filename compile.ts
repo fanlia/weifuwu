@@ -189,8 +189,11 @@ export async function compileBrowser(path: string, outDir?: string): Promise<str
       build.onResolve({ filter: /./ }, (args) => {
         if (args.kind === 'entry-point') return
         const abs = args.path.startsWith('.') ? join(args.resolveDir, args.path) : args.path
-        // If it's a weifuwu source file (not node_modules), make it external
+        // Only externalize weifuwu framework source files directly in wfwDir (no subdir).
+        // User project files (cli/template/ui/) should be bundled normally.
         if (abs.startsWith(wfwDir) && !abs.includes('node_modules')) {
+          const rel = abs.slice(wfwDir.length + 1)
+          if (rel.includes('/')) return
           return { path: 'weifuwu/react', external: true }
         }
       })
