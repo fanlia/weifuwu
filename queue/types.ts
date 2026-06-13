@@ -17,11 +17,13 @@ export interface QueueJob<T = unknown> {
 }
 
 export interface QueueOptions {
+  /** Backend store. Default: 'memory'. */
+  store?: 'memory' | 'pg' | 'redis'
   redis?: Redis
   url?: string
   prefix?: string
   pollInterval?: number
-  /** PostgreSQL client — enables PG-backed queue mode. */
+  /** PostgreSQL client (required when store: 'pg'). */
   pg?: { sql: import('../vendor.ts').Sql<{}> }
 }
 
@@ -35,21 +37,17 @@ export interface QueueJobWithError<T = unknown> extends QueueJob<T> {
 }
 
 export interface Queue extends Middleware<Context, Context & QueueInjected> {
+  /** Register a cron job. Uses queue's backend (memory/pg/redis) for execution. */
+  cron(pattern: string, handler: () => void | Promise<void>): { stop: () => void }
   add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string>
   process<T>(type: string, handler: (job: QueueJob<T>) => Promise<void>): void
   run(): Promise<void>
   stop(): void
-  /** Stats: { running, inflight, processed, failed, handlers, maxConcurrent } */
   stats(): { running: boolean; inflight: number; processed: number; failed: number; handlers: number; maxConcurrent: number }
-  /** List pending jobs (up to `limit`). */
   jobs(limit?: number): Promise<QueueJob[]>
-  /** List failed jobs (up to `limit`). */
   failedJobs(limit?: number): Promise<QueueJobWithError[]>
-  /** Retry a specific failed job by re-adding it to the queue. */
   retryFailed(jobId: string): Promise<boolean>
-  /** Retry all failed jobs matching a type (or all types if omitted). */
   retryAllFailed(type?: string): Promise<number>
-  /** Returns a Router with management dashboard endpoints (GET/POST). */
   dashboard(): import('../router.ts').Router
   /** Create the jobs table (PG mode only; safe to call multiple times). */
   migrate?(): Promise<void>

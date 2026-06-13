@@ -1160,55 +1160,50 @@ const { theme, resolvedTheme, setTheme } = useTheme()
 
 ### queue [α]
 
-Async job queue with three modes:
-- **In-memory** (no dependency) — lightweight, for dev or simple deployments
-- **PostgreSQL** (`{ pg }`) — persistent, multi-instance safe via `FOR UPDATE SKIP LOCKED`
-- **Redis** (`{ redis }`) — persistent, distributed, survives restarts
+Async job queue. Supports immediate, delayed, and recurring (cron) tasks with three backends:
+
+- `{ store: 'memory' }` — in-memory, zero dependency, suitable for dev & cron-like tasks
+- `{ store: 'pg', pg }` — PostgreSQL-backed, persistent, multi-instance safe via `FOR UPDATE SKIP LOCKED`
+- `{ store: 'redis', redis }` — Redis-backed, production-grade, distributed
 
 ```ts
-// In-memory mode — no dependency
-const q = queue()
-app.use(q)                     // injects ctx.queue
+// Create queue
+const q = queue({ store: 'memory' })
+// const q = queue({ store: 'pg', pg })
+// const q = queue({ store: 'redis', redis })
 
-// PostgreSQL mode — persistent, multi-instance safe
-const q = queue({ pg })
-await (q as any).migrate()
-app.use(q)
+// Register cron job (uses the same backend for persistence)
+q.cron('*/5 * * * *', async () => { await cleanCache() })
 
-// Redis mode — persistent
-const q = queue({ redis })
-app.use(q)
-```
-
-```ts
-// Immediate job
-await q.add('send-email', { to: 'user@test.com' })
-
-// Delayed job
-await q.add('send-email', { to: 'user@test.com' }, { delay: 60_000 })
-
-// Scheduled (cron) job — re-queues automatically
-await q.add('weekly-report', {}, { schedule: '0 9 * * 1' })
-
-// Register handler
+// Or use process/add for full queue semantics
 q.process('send-email', async (job) => {
-  await sendMail(job.payload.to, job.payload.body)
+  await sendMail(job.payload)
 })
 
-// Start processing
+// Immediate
+q.add('send-email', { to: 'user@test.com' })
+
+// Delayed
+q.add('send-email', { to: 'user@test.com' }, { delay: 60_000 })
+
+// Scheduled (cron) — re-queues automatically
+q.add('weekly-report', {}, { schedule: '0 9 * * 1' })
+
 q.run()
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `redis` | `object` | — | Redis client (omit for in-memory/PG mode) |
+| `store` | `'memory' \| 'pg' \| 'redis'` | `'memory'` | Backend store |
+| `redis` | `object` | — | Redis client (required when `store: 'redis'`) |
 | `url` | `string` | — | Redis URL (alternative to client) |
-| `pg` | `object` | — | PostgreSQL client (PG mode) |
+| `pg` | `object` | — | PostgreSQL client (required when `store: 'pg'`) |
 | `prefix` | `string` | `'queue'` | Key/table prefix |
 | `pollInterval` | `number` | `200` | Poll interval (ms) |
 
 | Method | Description |
 |--------|-------------|
+| `.cron(pattern, handler)` | Register a cron job (uses process + add internally) |
 | `.add(type, payload, opts?)` | Add job (opts: `delay`, `schedule`) |
 | `.process(type, handler)` | Register job processor |
 | `.run()` | Start processing |
