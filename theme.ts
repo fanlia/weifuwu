@@ -40,9 +40,10 @@ export function theme(options?: ThemeOptions): Middleware {
       if (fromCookie) themeValue = fromCookie
     }
 
-    const themeWithSet = new String(themeValue) as any
-    themeWithSet.set = makeSetTheme(opts.cookie, req.headers.get('referer') || '/')
-    ctx.theme = themeWithSet
+    ctx.theme = {
+      value: themeValue,
+      set: makeSetTheme(opts.cookie, req.headers.get('referer') || '/'),
+    }
     return next(req, ctx)
   }
 }

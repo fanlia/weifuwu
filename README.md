@@ -1130,7 +1130,8 @@ Search options: `fields`, `limit` (20), `offset` (0), `headline` (false), `langu
 
 ```ts
 app.use(theme({ default: 'dark' }))
-// → ctx.theme = 'dark'
+// → ctx.theme = { value: 'dark', set: fn }
+// → ctx.theme.value — 'dark'
 // → ctx.theme.set('light', '/settings') — 302 + Set-Cookie
 
 // Client-side switching (interceptor auto-handles /__theme/:value)
@@ -1850,8 +1851,7 @@ app.use(flash())
 
 // Read flash
 app.get('/', (req, ctx) => {
-  const msg = ctx.flash  // { type: 'success', text: 'Saved!' }
-  // 无 flash 时 ctx.flash 只有 .set() 方法
+  const msg = ctx.flash.value  // { type: 'success', text: 'Saved!' }
 })
 
 // Set flash + redirect

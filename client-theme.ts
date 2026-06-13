@@ -22,7 +22,7 @@ function applyTheme(theme: string) {
     if (!_mqListener) {
       const mq = window.matchMedia('(prefers-color-scheme: dark)')
       mq.addEventListener('change', (e) => {
-        if ((window as any).__WEIFUWU_CTX?.theme === 'system') {
+        if ((window as any).__WEIFUWU_CTX?.theme?.value === 'system') {
           document.documentElement.dataset.theme = e.matches ? 'dark' : 'light'
         }
       })
@@ -39,8 +39,8 @@ addInterceptor(async (url) => {
       headers: { accept: 'application/json' },
     })
     const data = await res.json()
-    ;(window as any).__WEIFUWU_CTX = { ...(window as any).__WEIFUWU_CTX, theme: data.theme }
-    setCtx({ theme: data.theme } as any)
+    ;(window as any).__WEIFUWU_CTX = { ...(window as any).__WEIFUWU_CTX, theme: { value: data.theme } }
+    setCtx({ theme: { value: data.theme } } as any)
     applyTheme(data.theme)
   } catch {
     location.href = url.href
@@ -50,7 +50,7 @@ addInterceptor(async (url) => {
 
 export function useTheme() {
   const ctx = useCtx()
-  const theme = ctx.theme ?? 'system'
+  const theme = ctx.theme?.value ?? 'system'
   useEffect(() => { applyTheme(theme) }, [theme])
   return {
     theme,

@@ -63,7 +63,7 @@ function buildHeadPayload(opts: StreamOpts): string {
 }<\/script>\n`
   }
 
-  if (ctx.theme) {
+  if (ctx.theme?.value) {
     result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
   }
 

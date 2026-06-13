@@ -26,16 +26,15 @@ function makeSetFlash(name: string, location: string) {
  * ```ts
  * app.use(flash())
  *
- * // Read flash (from cookie, auto-cleared after first read)
+ * // Read flash
  * app.get('/', (req, ctx) => {
- *   const msg = ctx.flash  // { type: 'success', text: 'Saved!' }
+ *   const msg = ctx.flash.value  // { type: 'success', text: 'Saved!' }
  * })
  *
  * // Set flash + redirect
  * app.post('/save', async (req, ctx) => {
  *   await save()
  *   return ctx.flash.set({ type: 'success', text: 'Saved!' }, '/articles')
- *   // → 302 /articles + Set-Cookie flash=...
  * })
  * ```
  */
@@ -46,24 +45,15 @@ export function flash(options?: FlashOptions): Middleware {
     const raw = getCookies(req)[name] ?? null
     const referer = req.headers.get('referer') || '/'
 
-    const handler: Record<string, unknown> = {
+    let value: unknown = undefined
+    if (raw) {
+      try { value = JSON.parse(decodeURIComponent(raw)) } catch { value = raw }
+    }
+
+    ;(ctx as any).flash = {
+      value,
       set: makeSetFlash(name, referer),
     }
-
-    if (raw) {
-      try {
-        const data = JSON.parse(decodeURIComponent(raw))
-        if (typeof data === 'object' && data !== null) {
-          Object.assign(handler, data)
-        } else {
-          handler.value = data
-        }
-      } catch {
-        handler.value = raw
-      }
-    }
-
-    ;(ctx as any).flash = handler
 
     const res = await next(req, ctx)
 
