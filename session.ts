@@ -7,7 +7,6 @@ import type { Redis } from './vendor.ts'
 declare module './types.ts' {
   interface Context {
     session: Session
-    sessionId: string
   }
 }
 
