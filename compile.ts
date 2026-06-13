@@ -222,6 +222,23 @@ export async function compileHotComponent(path: string): Promise<{ hash: string;
   const absPath = resolve(path)
   const h = id(absPath)
   const stdin = `import C from ${JSON.stringify(absPath)};\n(window.__WFW_REFRESH||function(){})(C)`
+
+  const wfwDir = resolve(import.meta.dirname ?? __dirname)
+  const plugin: esbuild.Plugin = {
+    name: 'wfw-external',
+    setup(build) {
+      build.onResolve({ filter: /./ }, (args) => {
+        if (args.kind === 'entry-point') return
+        const abs = args.path.startsWith('.') ? join(args.resolveDir, args.path) : args.path
+        if (abs.startsWith(wfwDir) && !abs.includes('node_modules')) {
+          const rel = abs.slice(wfwDir.length + 1)
+          if (rel.includes('/')) return
+          return { path: 'weifuwu/react', external: true }
+        }
+      })
+    },
+  }
+
   const result = await esbuild.build({
     stdin: { contents: stdin, loader: 'tsx', resolveDir: dirname(absPath) },
     format: 'esm',
@@ -229,7 +246,8 @@ export async function compileHotComponent(path: string): Promise<{ hash: string;
     jsx: 'automatic',
     jsxImportSource: 'react',
     bundle: true,
-    external: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu/react'],
+    external: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu', 'weifuwu/react'],
+    plugins: [plugin],
     write: false,
   })
   let code = new TextDecoder().decode(result.outputFiles[0].contents)
