@@ -37,6 +37,6 @@ export function useLocale() {
   return {
     locale: ctx.i18n?.locale,
     setLocale: (locale: string) => navigate('/__lang/' + locale),
-    t: ctx.i18n?.t ?? buildT(),
+    t: buildT(),
   }
 }
