@@ -24,7 +24,9 @@
     "start": "cd cli/template && node index.ts",
     "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external && esbuild react.ts --bundle --format=esm --outfile=dist/react.js --external:react --external:react-dom",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
-    "test": "node --test 'test/**/*.test.ts'"
+    "test": "node --test 'test/**/*.test.ts'",
+    "test:unit": "bash scripts/test-unit.sh",
+    "test:ci": "node --test 'test/**/*.test.ts'"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
