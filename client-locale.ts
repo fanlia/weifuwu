@@ -24,7 +24,6 @@ addInterceptor(async (url) => {
       headers: { accept: 'application/json' },
     })
     const data = await res.json()
-    ;(window as any).__WEIFUWU_CTX = { ...(window as any).__WEIFUWU_CTX, i18n: { locale: data.locale, t: buildT() } }
     if (data.messages) (window as any).__LOCALE_DATA__ = data.messages
     setCtx({ i18n: { locale: data.locale, t: buildT() } } as any)
   } catch {
