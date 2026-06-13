@@ -40,6 +40,15 @@ function getStore(): CtxStore {
 
 const store = getStore()
 
+// ── Function rebuilders (reconstruct non-serializable values after setCtx) ──
+
+type Rebuilder = (value: Partial<PageContext>) => Partial<PageContext> | null
+const rebuilders: Rebuilder[] = []
+
+export function addCtxRebuilder(fn: Rebuilder) {
+  rebuilders.push(fn)
+}
+
 const subscribe = (cb: () => void) => { store._listeners.add(cb); return () => { store._listeners.delete(cb) } }
 const getSnapshot = () => store._snapshot
 const getServerSnapshot = getSnapshot
@@ -50,15 +59,23 @@ export function __registerAls(getStore: () => PageContext | undefined) {
 }
 
 function setCtx(value: Partial<PageContext>) {
+  if (typeof window !== 'undefined') {
+    for (const r of rebuilders) {
+      const rebuilt = r(value)
+      if (rebuilt) Object.assign(value, rebuilt)
+    }
+  }
   store._ctx = { ...store._ctx, ...value }
   store._snapshot = { params: store._ctx.params, query: store._ctx.query, user: store._ctx.user, parsed: store._ctx.parsed, theme: store._ctx.theme, i18n: store._ctx.i18n, loaderData: store._ctx.loaderData, env: store._ctx.env }
+  if (typeof window !== 'undefined') {
+    ;(window as any).__WEIFUWU_CTX = { ...(window as any).__WEIFUWU_CTX, ...value }
+  }
   store._listeners.forEach(fn => fn())
 }
 
 function useCtx(): PageContext {
   if (typeof window !== 'undefined') {
-    const snapshot = useSyncExternalStore(subscribe, getSnapshot)
-    return { ...snapshot, ...(window as any).__WEIFUWU_CTX }
+    return useSyncExternalStore(subscribe, getSnapshot)
   }
   const alsStore = store._alsGetStore?.()
   return alsStore ?? store._ctx
