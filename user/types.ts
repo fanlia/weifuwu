@@ -29,12 +29,39 @@ export interface OAuth2ServerOptions {
   server: true
 }
 
+export interface OAuthProviderConfig {
+  clientId: string
+  clientSecret: string
+  scope?: string
+  /** Custom auth URL (overrides built-in provider default). */
+  authUrl?: string
+  /** Custom token URL (overrides built-in provider default). */
+  tokenUrl?: string
+  /** Custom user info URL (overrides built-in provider default). */
+  userUrl?: string
+  /**
+   * Custom user parser.
+   * Required when any of authUrl/tokenUrl/userUrl is custom.
+   * Receives the raw response from userUrl + the access token.
+   */
+  parseUser?: (data: any, accessToken: string) => { id: string; email: string; name: string; avatarUrl?: string }
+}
+
 export interface UserOptions {
   pg: PostgresClient
   jwtSecret: string
   table?: string
   expiresIn?: string | number
   oauth2?: OAuth2ServerOptions
+  /**
+   * OAuth login providers (login with GitHub/Google).
+   * Registers GET /auth/:provider and GET /auth/:provider/callback routes.
+   */
+  oauthLogin?: {
+    providers: Record<string, OAuthProviderConfig>
+    /** Where to redirect after successful login (default: '/'). */
+    redirectUrl?: string
+  }
 }
 
 export interface UserInjected {

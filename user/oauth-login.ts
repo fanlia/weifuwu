@@ -1,42 +1,9 @@
 import crypto from 'node:crypto'
-import jwt from 'jsonwebtoken'
-import type { Sql } from './vendor.ts'
-import type { PostgresClient } from './postgres/types.ts'
-import type { Middleware } from './types.ts'
-import { Router } from './router.ts'
+import type { Sql } from '../vendor.ts'
+import type { Router } from '../router.ts'
+import type { OAuthProviderConfig } from './types.ts'
 
-export interface OAuthProviderConfig {
-  clientId: string
-  clientSecret: string
-  scope?: string
-  /** Custom auth URL (overrides built-in provider default). */
-  authUrl?: string
-  /** Custom token URL (overrides built-in provider default). */
-  tokenUrl?: string
-  /** Custom user info URL (overrides built-in provider default). */
-  userUrl?: string
-  /**
-   * Custom user parser.
-   * Required when any of authUrl/tokenUrl/userUrl is custom.
-   * Receives the raw response from userUrl + the access token.
-   */
-  parseUser?: (data: any, accessToken: string) => ProviderUser
-}
-
-export interface OAuthClientOptions {
-  /** Postgres client (required). */
-  pg: PostgresClient
-  /** JWT secret — must match user() module's jwtSecret. */
-  jwtSecret: string
-  /** JWT expiry (default: '24h'). */
-  expiresIn?: string | number
-  /** Where to redirect after successful login (default: '/'). */
-  redirectUrl?: string
-  /** Provider configurations. */
-  providers: Record<string, OAuthProviderConfig>
-  /** Table name for provider-user links (default: '_auth_providers'). */
-  table?: string
-}
+// ── Built-in provider presets ───────────────────────────────────────────────
 
 interface ProviderMeta {
   authUrl: string
@@ -52,8 +19,6 @@ interface ProviderUser {
   name: string
   avatarUrl?: string
 }
-
-// ── Built-in provider presets ───────────────────────────────────────────────
 
 const BUILTIN_PROVIDERS: Record<string, ProviderMeta> = {
   google: {
@@ -82,105 +47,87 @@ const BUILTIN_PROVIDERS: Record<string, ProviderMeta> = {
   },
 }
 
-export function oauthClient(options: OAuthClientOptions): Router {
-  const {
-    pg,
-    jwtSecret,
-    providers,
-    redirectUrl = '/',
-    expiresIn = '24h',
-  } = options
+// ── Internal deps ───────────────────────────────────────────────────────────
 
-  const providerTable = options.table ?? '_auth_providers'
-  const router = new Router()
+interface OAuthLoginDeps {
+  sql: Sql<{}>
+  jwtSecret: string
+  expiresIn: string | number
+  usersTable: string
+  /** Table for provider-user link, derived from usersTable. */
+  providerTable: string
+  redirectUrl: string
+  signToken: (user: any) => string
+  /** Create a placeholder user for OAuth login (no password). */
+  createPlaceholderUser: (email: string, name: string) => Promise<any>
+  /** Find user by internal ID. */
+  findUserById: (id: number) => Promise<any | undefined>
+  /** Find user by email. */
+  findUserByEmail: (email: string) => Promise<any | undefined>
+}
 
-  // ── State management in session ────────────────────────────────
-  // The middleware reads/writes OAuth state in ctx.session.oauthState
-  // Must be placed after session() middleware.
+// ── Route registration ──────────────────────────────────────────────────────
 
-  async function saveOAuthState(ctx: any, state: string, provider: string): Promise<void> {
-    if (ctx.session) {
-      ctx.session.oauthState = { state, provider }
-    }
-  }
+export function registerOAuthLoginRoutes(
+  router: Router,
+  deps: OAuthLoginDeps,
+  providers: Record<string, OAuthProviderConfig>,
+): void {
+  const { sql, providerTable, signToken, redirectUrl } = deps
 
-  function verifyOAuthState(ctx: any, state: string, provider: string): boolean {
-    const saved = ctx.session?.oauthState
-    if (!saved) return false
-    if (saved.state !== state || saved.provider !== provider) return false
-    // Clear used state
-    delete ctx.session.oauthState
-    return true
-  }
-
-  // ── Database helpers ───────────────────────────────────────────
-
+  let tableReady: Promise<void> | null = null
   async function ensureTable(): Promise<void> {
-    await pg.sql`
-      CREATE TABLE IF NOT EXISTS ${pg.sql(providerTable)} (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES "_users"(id) ON DELETE CASCADE,
-        provider TEXT NOT NULL,
-        provider_id TEXT NOT NULL,
-        email TEXT NOT NULL DEFAULT '',
-        name TEXT NOT NULL DEFAULT '',
-        avatar_url TEXT NOT NULL DEFAULT '',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        UNIQUE(provider, provider_id)
-      )
-    `
-    // Index for user lookup
-    await pg.sql`
-      CREATE INDEX IF NOT EXISTS ${pg.sql(providerTable + '_user_idx')}
-      ON ${pg.sql(providerTable)}(user_id)
-    `
+    if (tableReady) return tableReady
+    tableReady = (async () => {
+      await sql.unsafe(`
+        CREATE TABLE IF NOT EXISTS ${escapeIdent(providerTable)} (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES ${escapeIdent(deps.usersTable)}(id) ON DELETE CASCADE,
+          provider TEXT NOT NULL,
+          provider_id TEXT NOT NULL,
+          email TEXT NOT NULL DEFAULT '',
+          name TEXT NOT NULL DEFAULT '',
+          avatar_url TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(provider, provider_id)
+        )
+      `)
+      await sql.unsafe(`
+        CREATE INDEX IF NOT EXISTS ${escapeIdent(providerTable + '_user_idx')}
+        ON ${escapeIdent(providerTable)}(user_id)
+      `)
+    })()
+    return tableReady
   }
 
   async function findUserByProvider(provider: string, providerId: string): Promise<any | null> {
-    const [row] = await pg.sql`
-      SELECT * FROM ${pg.sql(providerTable)}
-      WHERE provider = ${provider} AND provider_id = ${providerId}
-      LIMIT 1
-    `
+    const [row] = await sql.unsafe(
+      `SELECT * FROM ${escapeIdent(providerTable)} WHERE provider = $1 AND provider_id = $2 LIMIT 1`,
+      [provider, providerId],
+    )
     return row ?? null
-  }
-
-  async function findUserByEmail(email: string): Promise<any | null> {
-    const [row] = await pg.sql`
-      SELECT * FROM "_users" WHERE email = ${email} LIMIT 1
-    `
-    return row ?? null
-  }
-
-  async function createUser(email: string, name: string): Promise<any> {
-    const randomPassword = crypto.randomBytes(32).toString('hex')
-    const [row] = await pg.sql`
-      INSERT INTO "_users" (email, password, name, role)
-      VALUES (${email}, ${randomPassword}, ${name}, 'user')
-      RETURNING *
-    `
-    return row
   }
 
   async function linkProvider(userId: number, provider: string, providerId: string, email: string, name: string, avatarUrl: string): Promise<void> {
-    await pg.sql`
-      INSERT INTO ${pg.sql(providerTable)} (user_id, provider, provider_id, email, name, avatar_url)
-      VALUES (${userId}, ${provider}, ${providerId}, ${email}, ${name}, ${avatarUrl})
-      ON CONFLICT (provider, provider_id) DO NOTHING
-    `
+    await sql.unsafe(
+      `INSERT INTO ${escapeIdent(providerTable)} (user_id, provider, provider_id, email, name, avatar_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (provider, provider_id) DO NOTHING`,
+      [userId, provider, providerId, email, name, avatarUrl],
+    )
   }
 
   async function findOrCreateUser(provider: string, providerId: string, email: string, name: string, avatarUrl: string): Promise<any> {
     // Step 1: Check if provider link exists
     const link = await findUserByProvider(provider, providerId)
     if (link) {
-      const [user] = await pg.sql`SELECT * FROM "_users" WHERE id = ${link.user_id} LIMIT 1`
-      return user ?? null
+      const user = await deps.findUserById(link.user_id)
+      if (user) return user
     }
 
     // Step 2: Check if email already registered
     if (email) {
-      const existingUser = await findUserByEmail(email)
+      const existingUser = await deps.findUserByEmail(email)
       if (existingUser) {
         await linkProvider(existingUser.id, provider, providerId, email, name, avatarUrl)
         return existingUser
@@ -188,33 +135,18 @@ export function oauthClient(options: OAuthClientOptions): Router {
     }
 
     // Step 3: Create new user
-    const newUser = await createUser(email || `${provider}_${providerId}@oauth.local`, name || provider)
+    const newUser = await deps.createPlaceholderUser(
+      email || `${provider}_${providerId}@oauth.local`,
+      name || provider,
+    )
     await linkProvider(newUser.id, provider, providerId, email, name, avatarUrl)
     return newUser
-  }
-
-  function signToken(user: any): string {
-    return jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
-      jwtSecret,
-      { expiresIn } as any,
-    )
-  }
-
-  // ── Routes ─────────────────────────────────────────────────────
-
-  // Init table on first use
-  let tableReady: Promise<void> | null = null
-  function ensureInit(): Promise<void> {
-    if (!tableReady) tableReady = ensureTable()
-    return tableReady
   }
 
   function getProviderMeta(providerName: string): { config: OAuthProviderConfig; meta: ProviderMeta } | null {
     const config = providers[providerName]
     if (!config) return null
 
-    // Use custom URLs if provided, else fall back to built-in preset
     const builtin = BUILTIN_PROVIDERS[providerName]
     const parseUser = config.parseUser ?? builtin?.parseUser
     if (!parseUser) return null
@@ -231,9 +163,11 @@ export function oauthClient(options: OAuthClientOptions): Router {
     return { config, meta }
   }
 
-  // GET /:provider — redirect to provider's auth page
-  router.get('/:provider', async (req, ctx: any) => {
-    await ensureInit()
+  // ── Routes ──
+
+  // GET /auth/:provider — redirect to provider's auth page
+  router.get('/auth/:provider', async (req, ctx: any) => {
+    await ensureTable()
     const providerName = ctx.params.provider
     const resolved = getProviderMeta(providerName)
     if (!resolved) {
@@ -245,8 +179,10 @@ export function oauthClient(options: OAuthClientOptions): Router {
     const redirectUri = new URL(req.url)
     redirectUri.pathname = redirectUri.pathname.replace(/\/[^/]+$/, '/') + providerName + '/callback'
 
-    // Store state in session
-    await saveOAuthState(ctx, state, providerName)
+    // Store state in session for CSRF protection
+    if (ctx.session) {
+      ctx.session.oauthState = { state, provider: providerName }
+    }
 
     const scope = config.scope ?? meta.scope
     const params = new URLSearchParams({
@@ -262,9 +198,8 @@ export function oauthClient(options: OAuthClientOptions): Router {
     return Response.redirect(`${meta.authUrl}?${params.toString()}`, 302)
   })
 
-  // GET /:provider/callback — handle OAuth callback
-  router.get('/:provider/callback', async (req, ctx: any) => {
-    await ensureInit()
+  // GET /auth/:provider/callback — handle OAuth callback
+  router.get('/auth/:provider/callback', async (req, ctx: any) => {
     const providerName = ctx.params.provider
     const resolved = getProviderMeta(providerName)
     if (!resolved) {
@@ -280,10 +215,12 @@ export function oauthClient(options: OAuthClientOptions): Router {
       return Response.json({ error: 'Missing code or state parameter' }, { status: 400 })
     }
 
-    // Verify state matches session
-    if (!verifyOAuthState(ctx, state, providerName)) {
+    // Verify state matches session (CSRF protection)
+    const savedState = ctx.session?.oauthState
+    if (!savedState || savedState.state !== state || savedState.provider !== providerName) {
       return Response.json({ error: 'Invalid state — possible CSRF attack' }, { status: 403 })
     }
+    if (ctx.session) delete ctx.session.oauthState
 
     const redirectUri = url.origin + url.pathname.replace(/\/callback$/, '')
 
@@ -291,21 +228,18 @@ export function oauthClient(options: OAuthClientOptions): Router {
     let tokenRes: Response
     try {
       tokenRes = await fetch(meta.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({
-        code,
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
-      }),
-    })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          code,
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
+      })
     } catch (err) {
-      console.error(`[oauth] token exchange network error for ${providerName}:`, err)
+      console.error(`[oauth] token exchange network error for ${providerName}:`, (err as Error).message)
       return Response.json({ error: 'Failed to connect to OAuth provider' }, { status: 502 })
     }
 
@@ -324,11 +258,9 @@ export function oauthClient(options: OAuthClientOptions): Router {
     // Fetch user info from provider
     let userRes: Response
     try {
-      userRes = await fetch(meta.userUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
+      userRes = await fetch(meta.userUrl, { headers: { Authorization: 'Bearer ' + accessToken } })
     } catch (err) {
-      console.error(`[oauth] user info network error for ${providerName}:`, err)
+      console.error('[oauth] user info network error for ' + providerName + ':', (err as Error).message)
       return Response.json({ error: 'Failed to connect to OAuth provider' }, { status: 502 })
     }
 
@@ -370,11 +302,15 @@ export function oauthClient(options: OAuthClientOptions): Router {
       })
     }
 
-    // Browser redirect — attach token as query param (SPA catches it)
+    // Browser redirect — attach token as query param
     const finalUrl = new URL(redirectUrl, url.origin)
     finalUrl.searchParams.set('token', token)
     return Response.redirect(finalUrl.toString(), 302)
   })
+}
 
-  return router
+// ── Helper ──
+
+function escapeIdent(s: string): string {
+  return `"${s.replace(/"/g, '""')}"`
 }

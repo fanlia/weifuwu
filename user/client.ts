@@ -7,6 +7,7 @@ import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client, UserI
 import { PgModule } from '../postgres/module.ts'
 import { serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
 import { createOAuth2Server } from './oauth2.ts'
+import { registerOAuthLoginRoutes } from './oauth-login.ts'
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -18,6 +19,10 @@ const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 })
+
+function escapeIdent(s: string): string {
+  return `"${s.replace(/"/g, '""')}"`
+}
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex')
@@ -58,6 +63,27 @@ export function user(options: UserOptions): UserModule {
 
   async function migrate(): Promise<void> {
     await users.create()
+
+    // OAuth provider table (for login with GitHub/Google)
+    if (options.oauthLogin) {
+      await pg.sql.unsafe(`
+        CREATE TABLE IF NOT EXISTS "_auth_providers" (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES ${escapeIdent(table)}(id) ON DELETE CASCADE,
+          provider TEXT NOT NULL,
+          provider_id TEXT NOT NULL,
+          email TEXT NOT NULL DEFAULT '',
+          name TEXT NOT NULL DEFAULT '',
+          avatar_url TEXT NOT NULL DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(provider, provider_id)
+        )
+      `)
+      await pg.sql.unsafe(`
+        CREATE INDEX IF NOT EXISTS "_auth_providers_user_idx"
+        ON "_auth_providers"(user_id)
+      `)
+    }
 
     if (!oauth2Enabled) return
 
@@ -118,6 +144,12 @@ export function user(options: UserOptions): UserModule {
 
   async function findById(id: number): Promise<any | undefined> {
     return await users.read(id)
+  }
+
+  async function createPlaceholderUser(email: string, name: string): Promise<any> {
+    const randomPassword = randomBytes(32).toString('hex')
+    const row = await users.insert({ email, password: randomPassword, name } as any)
+    return row as any
   }
 
   async function register(data: { email: string; password: string; name: string }): Promise<AuthResult> {
@@ -259,6 +291,23 @@ export function user(options: UserOptions): UserModule {
   }
 
   const r = router()
+
+  // Register OAuth login routes (login with GitHub/Google)
+  if (options.oauthLogin) {
+    registerOAuthLoginRoutes(r, {
+      sql: pg.sql,
+      jwtSecret: secret,
+      expiresIn,
+      usersTable: table,
+      providerTable: '_auth_providers',
+      redirectUrl: options.oauthLogin.redirectUrl || '/',
+      signToken,
+      createPlaceholderUser,
+      findUserById: findById,
+      findUserByEmail: findByEmail,
+    }, options.oauthLogin.providers)
+  }
+
   const mod = r as UserModule
   mod.middleware = middleware
   mod.migrate = migrate

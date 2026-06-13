@@ -13,8 +13,6 @@ export { cors } from './cors.ts'
 export type { CORSOptions } from './cors.ts'
 export { auth } from './auth.ts'
 export type { AuthOptions } from './auth.ts'
-export { oauthClient } from './oauth-client.ts'
-export type { OAuthClientOptions, OAuthProviderConfig } from './oauth-client.ts'
 export { serveStatic } from './static.ts'
 export type { ServeStaticOptions } from './static.ts'
 export { validate } from './validate.ts'
@@ -62,6 +60,7 @@ export type {
   UserData,
   UserModule,
   OAuth2Client,
+  OAuthProviderConfig,
 } from './user/types.ts'
 export type { UserInjected } from './user/types.ts'
 export { redis } from './redis/index.ts'
