@@ -12,6 +12,7 @@ import { Router } from './router.ts'
 import { ssrEntries } from './ssr-entries.ts'
 import { isDev as _isDev } from './env.ts'
 import { tailwindContext, tailwindRouter } from './tailwind.ts'
+import { compileVendorBundle } from './compile.ts'
 import { liveRouter, liveWatcher, liveWs } from './live.ts'
 import { layout } from './layout.ts'
 import { notFound } from './not-found.ts'
@@ -329,6 +330,9 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void; pages
   const outDir = resolve(OUT_DIR)
   const routeCache = new Map<string, ResolvedRoute | null>()
 
+  // Pre-warm vendor bundle so vendorHash is available for importmap
+  compileVendorBundle().catch(() => {})
+
   // Serve browser-compiled page components
   r.get('/__ssr/:file', (req, ctx) => {
     const filePath = join(outDir, ctx.params.file)
@@ -337,6 +341,14 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void; pages
     }
     const content = readFileSync(filePath, 'utf-8')
     return new Response(content, {
+      headers: { 'content-type': 'application/javascript; charset=utf-8' },
+    })
+  })
+
+  // Vendor bundle (shared by all SSR instances, compiled once and cached)
+  r.get('/__wfw/v/bundle', async () => {
+    const code = await compileVendorBundle()
+    return new Response(code, {
       headers: { 'content-type': 'application/javascript; charset=utf-8' },
     })
   })

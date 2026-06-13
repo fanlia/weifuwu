@@ -47,12 +47,11 @@ function getPublicEnv(): Record<string, string> {
 }
 
 function buildHeadPayload(opts: StreamOpts): string {
-  const { ctx, base, tailwind, isDev } = opts
+  const { ctx, base, tailwind } = opts
   let result = ''
 
-  if (isDev) {
-    const vUrl = `${base}/__wfw/v/bundle?h=${vendorHash}`
-    result += `<script type="importmap">{
+  const vUrl = `${base}/__wfw/v/bundle?h=${vendorHash}`
+  result += `<script type="importmap">{
   "imports": {
     "react": "${vUrl}",
     "react-dom": "${vUrl}",
@@ -61,7 +60,6 @@ function buildHeadPayload(opts: StreamOpts): string {
     "weifuwu/react": "${vUrl}"
   }
 }<\/script>\n`
-  }
 
   if (ctx.theme?.value) {
     result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
