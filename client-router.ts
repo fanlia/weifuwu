@@ -50,11 +50,18 @@ export async function navigate(href: string): Promise<void> {
     if (!rootEl) { location.href = href; return }
     const newHtml = rootEl.innerHTML
 
-    const propsMatch = html.match(/window\.__WEIFUWU_PROPS=(.+?)<\/script>/)
-    if (!propsMatch) { location.href = href; return }
-
     const bundleMatch = html.match(/src="(\/__ssr\/[^"]+\.js)"/)
     const bundleUrl = bundleMatch ? bundleMatch[1] : null
+
+    // Update ctx from the new page
+    const ctxMatch = html.match(/window\.__WEIFUWU_CTX=(.+?)<\/script>/)
+    if (ctxMatch) {
+      try {
+        const ctx = JSON.parse(ctxMatch[1])
+        ;(window as any).__WEIFUWU_CTX = ctx
+        setCtx(ctx)
+      } catch {}
+    }
 
     // Update head from new page
     applyHead(html)
@@ -62,19 +69,8 @@ export async function navigate(href: string): Promise<void> {
     const currentRoot = document.getElementById('__weifuwu_root')
     if (!currentRoot) { location.href = href; return }
 
-    ;(window as any).__WEIFUWU_PROPS = JSON.parse(propsMatch[1])
     history.pushState(null, '', url.pathname + url.search)
     currentRoot.innerHTML = newHtml
-
-    // Update globals from the new page
-    const ctxMatch = html.match(/window\.__WEIFUWU_CTX=(.+?)<\/script>/)
-    if (ctxMatch) {
-      try { (window as any).__WEIFUWU_CTX = JSON.parse(ctxMatch[1]) } catch {}
-    }
-    const localeMatch = html.match(/window\.__LOCALE_DATA__=(.+?)<\/script>/)
-    if (localeMatch) {
-      try { (window as any).__LOCALE_DATA__ = JSON.parse(localeMatch[1]) } catch {}
-    }
 
     if (bundleUrl) {
       try {

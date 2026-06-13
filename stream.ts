@@ -105,9 +105,6 @@ function buildHeadPayload(opts: StreamOpts): string {
 
 function buildBodyScripts(opts: StreamOpts): string {
   const parts: string[] = []
-  if (opts.loaderData && Object.keys(opts.loaderData).length > 0) {
-    parts.push(`<script>window.__WEIFUWU_PROPS=${JSON.stringify(opts.loaderData)}<\/script>`)
-  }
   if (opts.bundle) {
     parts.push(`<script type="module" src="${opts.base}${opts.bundle.url}"><\/script>`)
   }

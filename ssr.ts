@@ -200,7 +200,7 @@ async function buildClientBundle(
       `import P from${JSON.stringify(absEntry)};`,
       `var setCtx=${_sc};`,
       `const c=document.getElementById('__weifuwu_root');`,
-      `if(window.__WEIFUWU_PROPS)setCtx({loaderData:window.__WEIFUWU_PROPS});`,
+      
       isDev ? `const _W=function(props){return(_W._fn||P)(props)};_W._fn=P;const _P=function(props){return createElement(_W,props)};` : '',
       isDev ? `window.__WFW_ENTRY=${JSON.stringify(hashId(absEntry))};window.__WFW_REFRESH=function(n){_W._fn=n;window.__WFW_ROOT.render(createElement(App))};` : '',
       `function App(){`,

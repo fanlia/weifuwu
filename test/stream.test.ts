@@ -67,7 +67,7 @@ describe('stream', () => {
       loaderData: { items: ['a'] },
     })
     const body = await readStream(res.body!)
-    assert.match(body, /window\.__WEIFUWU_PROPS/)
+    assert.match(body, /window\.__WEIFUWU_CTX/)
   })
 
   it('streamResponse injects dev livereload in dev mode', async () => {
