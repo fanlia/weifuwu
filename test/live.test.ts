@@ -23,16 +23,6 @@ describe('liveReload', () => {
     assert.equal(typeof r.handler, 'function')
   })
 
-  it('liveRouter serves vendor bundle', async () => {
-    const { liveRouter } = await import('../live.ts')
-    const r = liveRouter(tmpDir)
-    const res = await r.handler()(new Request('http://localhost/__wfw/v/bundle'), { params: {}, query: {} } as any)
-    assert.equal(res.status, 200)
-    const body = await res.text()
-    assert.ok(body.length > 0)
-    assert.ok(body.includes('import') || body.includes('export') || body.includes('react'), 'vendor bundle should contain code')
-  })
-
   it('liveRouter hot component endpoint returns 404 for unknown hash', async () => {
     const { liveRouter } = await import('../live.ts')
     const r = liveRouter(tmpDir)

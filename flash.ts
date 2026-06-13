@@ -1,9 +1,16 @@
-import type { Middleware } from './types.ts'
+import type { Context, Middleware } from './types.ts'
 import { getCookies } from './cookie.ts'
 
 export interface FlashOptions {
   /** Cookie name (default: 'flash'). */
   name?: string
+}
+
+export interface FlashInjected {
+  /** Flash value read from cookie, or undefined if not set. */
+  value: unknown
+  /** Set a flash message and redirect. */
+  set: (data: unknown, location?: string) => Response
 }
 
 function makeSetFlash(name: string, location: string) {
@@ -38,7 +45,7 @@ function makeSetFlash(name: string, location: string) {
  * })
  * ```
  */
-export function flash(options?: FlashOptions): Middleware {
+export function flash(options?: FlashOptions): Middleware<Context, Context & { flash: FlashInjected }> {
   const name = options?.name ?? 'flash'
 
   return async (req, ctx, next) => {
@@ -50,10 +57,10 @@ export function flash(options?: FlashOptions): Middleware {
       try { value = JSON.parse(decodeURIComponent(raw)) } catch { value = raw }
     }
 
-    ;(ctx as any).flash = {
+    ctx.flash = {
       value,
       set: makeSetFlash(name, referer),
-    }
+    } as FlashInjected
 
     const res = await next(req, ctx)
 

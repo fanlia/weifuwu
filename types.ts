@@ -8,7 +8,7 @@ export interface Context {
   parsed?: Record<string, unknown>
   mountPath?: string
   theme?: { value: string; set?: (value: string, loc?: string) => Response }
-  flash?: { value?: string; set?: (data: any, loc?: string) => Response }
+  flash?: { value: unknown; set: (data: unknown, location?: string) => Response }
   i18n?: {
     locale: string
     messages?: Record<string, unknown>
