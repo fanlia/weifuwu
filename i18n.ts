@@ -80,11 +80,11 @@ export function i18n(options?: I18nOptions): Middleware {
   function detectLocale(req: Request): string {
     if (opts.cookie) {
       const fromCookie = getCookies(req)[opts.cookie]
-      if (fromCookie) return fromCookie
+      if (fromCookie && validLocale(fromCookie)) return fromCookie
     }
     if (opts.fromAcceptLanguage) {
       const fromHeader = req.headers.get('Accept-Language')?.split(',')[0]?.trim()
-      if (fromHeader) return fromHeader
+      if (fromHeader && validLocale(fromHeader)) return fromHeader
     }
     return opts.default
   }
