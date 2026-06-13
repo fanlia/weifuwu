@@ -3,22 +3,35 @@ import { ColumnBuilder, toDDL, type PartitionByDef } from './columns.ts'
 import { SQL } from './sql.ts'
 import { and } from './where.ts'
 
+/** Options for table index creation. */
 export interface IndexOptions {
+  /** Whether the index should be UNIQUE. */
   unique?: boolean
+  /** Index type: btree (default), hnsw (pgvector), gin (JSONB). */
   type?: 'btree' | 'hnsw' | 'gin'
+  /** Create index in DESC order. */
   desc?: boolean
+  /** Custom operator class (e.g. `vector_cosine_ops`). */
   operator?: string
 }
 
+/** Options for CREATE TABLE. */
 export interface CreateOptions {
+  /** Partition by clause (RANGE, LIST, or HASH). */
   partitionBy?: PartitionByDef
 }
 
+/** Options for find/read queries. */
 export interface FindOptions {
+  /** ORDER BY clause: `{ column: 'asc' | 'desc' }`. */
   orderBy?: Record<string, 'asc' | 'desc'>
+  /** LIMIT. */
   limit?: number
+  /** OFFSET. */
   offset?: number
+  /** Columns to SELECT (default: all). */
   select?: string[]
+  /** Include soft-deleted rows (also sets `withDeleted` context). */
   withDeleted?: boolean
 }
 
@@ -29,9 +42,31 @@ interface ColEntry {
   column: ColumnBuilder<unknown>
 }
 
+/**
+ * Type-safe table schema + CRUD operations.
+ *
+ * Create an instance with {@link pgTable}, then call `.bind(sql)` to get a
+ * `BoundTable` for running queries.
+ *
+ * ```ts
+ * const users = pgTable('users', {
+ *   id: serial('id').primaryKey(),
+ *   name: text('name').notNull(),
+ *   email: text('email').unique(),
+ * })
+ *
+ * const db = users.bind(sql)
+ * await db.create()
+ * await db.insert({ name: 'Alice', email: 'a@b.com' })
+ * const row = await db.findBy({ email: 'a@b.com' })
+ * ```
+ */
 export class Table<R extends Record<string, unknown>> {
+  /** Database table name. */
   readonly tableName: string
+  /** All column builders (order-preserving). */
   readonly columns: ColumnBuilder<unknown>[]
+  /** Column builders keyed by property name. */
   readonly builders: Record<string, ColumnBuilder<unknown>>
   private colEntries: ColEntry[]
 
@@ -47,11 +82,15 @@ export class Table<R extends Record<string, unknown>> {
     }))
   }
 
+  /** Check if the table has a column with the given DB name. */
   hasColumn(dbName: string): boolean {
     return this.colEntries.some(e => e.db === dbName)
   }
 
-  /** Returns a BoundTable pre-bound to the given sql connection (no need to pass sql to every method). */
+  /**
+   * Bind this table schema to a SQL connection, returning a `BoundTable`
+   * that can run queries without passing `sql` to every call.
+   */
   bind(sql: Sql<{}>): BoundTable<R> {
     return new BoundTable(sql, this.tableName, this.builders)
   }
@@ -404,6 +443,20 @@ export class BoundTable<R extends Record<string, unknown>> {
   }
 }
 
+/**
+ * Define a type-safe table schema.
+ *
+ * ```ts
+ * const users = pgTable('users', {
+ *   id: serial('id').primaryKey(),
+ *   name: text('name').notNull(),
+ *   email: text('email').unique(),
+ * })
+ *
+ * // The generic type R preserves the column types:
+ * // Table<{ id: number; name: string; email: string }>
+ * ```
+ */
 export function pgTable<R extends Record<string, unknown>>(
   tableName: string,
   builders: { [K in keyof R]: ColumnBuilder<R[K]> },
