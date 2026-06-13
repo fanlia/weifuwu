@@ -1835,15 +1835,18 @@ addInterceptor(async (url) => {
 import { flash } from 'weifuwu'
 
 app.use(flash())
-// → ctx.flash — auto-cleared after first read
 
-// Handler — set flash via Set-Cookie
-app.post('/save', async () => {
-  return new Response('OK', {
-    headers: {
-      'Set-Cookie': `flash=${encodeURIComponent(JSON.stringify({ type: 'success', text: 'Saved!' }))}; Path=/; SameSite=Lax`,
-    },
-  })
+// Read flash
+app.get('/', (req, ctx) => {
+  const msg = ctx.flash  // { type: 'success', text: 'Saved!' }
+  // 无 flash 时 ctx.flash 只有 .set() 方法
+})
+
+// Set flash + redirect
+app.post('/save', async (req, ctx) => {
+  await saveArticle()
+  return ctx.flash.set({ type: 'success', text: '已保存' }, '/articles')
+  // → 302 /articles + Set-Cookie flash=...
 })
 ```
 

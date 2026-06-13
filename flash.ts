@@ -6,25 +6,36 @@ export interface FlashOptions {
   name?: string
 }
 
+function makeSetFlash(name: string, location: string) {
+  return (data: unknown, loc?: string) => {
+    const finalLoc = loc ?? location
+    const value = encodeURIComponent(JSON.stringify(data))
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: finalLoc,
+        'Set-Cookie': `${name}=${value}; Path=/; SameSite=Lax`,
+      },
+    })
+  }
+}
+
 /**
  * Flash message middleware.
- *
- * Reads a `flash` cookie on each request and makes it available at `ctx.flash`.
- * Automatically clears the cookie after reading so it's only shown once.
  *
  * ```ts
  * app.use(flash())
  *
- * // Handler — read flash
+ * // Read flash (from cookie, auto-cleared after first read)
  * app.get('/', (req, ctx) => {
  *   const msg = ctx.flash  // { type: 'success', text: 'Saved!' }
  * })
  *
- * // Set flash — return a response with Set-Cookie
- * app.post('/save', () => {
- *   return new Response('OK', {
- *     headers: { 'Set-Cookie': 'flash=%7B%22type%22%3A%22success%22%7D; Path=/; SameSite=Lax' },
- *   })
+ * // Set flash + redirect
+ * app.post('/save', async (req, ctx) => {
+ *   await save()
+ *   return ctx.flash.set({ type: 'success', text: 'Saved!' }, '/articles')
+ *   // → 302 /articles + Set-Cookie flash=...
  * })
  * ```
  */
@@ -33,19 +44,30 @@ export function flash(options?: FlashOptions): Middleware {
 
   return async (req, ctx, next) => {
     const raw = getCookies(req)[name] ?? null
+    const referer = req.headers.get('referer') || '/'
+
+    const handler: Record<string, unknown> = {
+      set: makeSetFlash(name, referer),
+    }
 
     if (raw) {
       try {
-        (ctx as any).flash = JSON.parse(decodeURIComponent(raw))
+        const data = JSON.parse(decodeURIComponent(raw))
+        if (typeof data === 'object' && data !== null) {
+          Object.assign(handler, data)
+        } else {
+          handler.value = data
+        }
       } catch {
-        (ctx as any).flash = raw
+        handler.value = raw
       }
     }
+
+    ;(ctx as any).flash = handler
 
     const res = await next(req, ctx)
 
     if (raw) {
-      // Clear the flash cookie after reading (one-time display)
       const headers = new Headers(res.headers)
       headers.append('Set-Cookie', `${name}=; Path=/; Max-Age=0`)
       return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
