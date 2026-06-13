@@ -1,18 +1,20 @@
-import { streamText, generateText, embed, type LanguageModel, type EmbeddingModel, type Tool } from 'ai'
+import { type Tool } from 'ai'
 import { z } from 'zod'
 import type { Sql } from '../vendor.ts'
 import type { BoundTable } from '../postgres/schema/index.ts'
+import type { AIProvider } from '../ai/provider.ts'
 import type { AgentConfig, RunParams, RunResult, KnowledgeDoc } from './types.ts'
 import { formatSSE } from '../sse.ts'
 import { currentTraceId } from '../trace.ts'
+import { chunkContent } from '../ai/utils.ts'
 
 interface RunnerDeps {
   sql: Sql<{}>
   agents: BoundTable<any>
   runs: BoundTable<any>
   knowledge: BoundTable<any>
-  getModel: () => LanguageModel
-  getEmbeddingModel: () => EmbeddingModel
+  provider: AIProvider
+  modelName?: string
   userTools?: Record<string, Tool>
 }
 
@@ -21,23 +23,8 @@ function hasKnowledgeDocs(sql: Sql<{}>, agentId: number): Promise<boolean> {
     .then(r => (r as any[]).length > 0)
 }
 
-function chunkContent(content: string, chunkSize = 512, overlap = 64): string[] {
-  const paragraphs = content.split(/\n\n+/)
-  const chunks: string[] = []
-  let current = ''
-  for (const p of paragraphs) {
-    if (current.length + p.length > chunkSize && current.length > 0) {
-      chunks.push(current)
-      current = current.slice(-overlap)
-    }
-    current += (current ? '\n\n' : '') + p
-  }
-  if (current) chunks.push(current)
-  return chunks
-}
-
-async function searchKnowledge(sql: Sql<{}>, embedModel: EmbeddingModel, agentId: number, query: string, limit = 5) {
-  const { embedding } = await embed({ model: embedModel, value: query })
+async function searchKnowledge(sql: Sql<{}>, provider: AIProvider, agentId: number, query: string, limit = 5) {
+  const embedding = await provider.embed(query)
   const vec = `[${embedding.join(',')}]`
   const docs = await sql.unsafe(
     `SELECT id, title, content, metadata, embedding <=> $1::vector AS _score FROM "_knowledge_documents" WHERE agent_id = $2 ORDER BY embedding <=> $1::vector LIMIT $3`,
@@ -52,7 +39,7 @@ async function loadAgent(agents: BoundTable<any>, agentId: number): Promise<Agen
 }
 
 export function createRunner(deps: RunnerDeps) {
-  const { sql, agents, runs, getModel, getEmbeddingModel, userTools } = deps
+  const { sql, agents, runs, provider, modelName, userTools } = deps
 
   function truncate(s: string, max = 200): string {
     return s.length > max ? s.slice(0, max) + '...' : s
@@ -84,8 +71,6 @@ export function createRunner(deps: RunnerDeps) {
     const agent = await loadAgent(agents, agentId)
     if (!agent || !agent.active) throw new Error('Agent not found or inactive')
 
-    const model = getModel()
-    const embedModel = getEmbeddingModel()
     const start = Date.now()
     const hasKB = await hasKnowledgeDocs(sql, agentId)
 
@@ -104,7 +89,7 @@ export function createRunner(deps: RunnerDeps) {
           limit: z.number().default(5).describe('返回结果数量'),
         }),
         execute: async ({ query, limit }: { query: string; limit?: number }) => {
-          return searchKnowledge(sql, embedModel, agentId, query, limit)
+          return searchKnowledge(sql, provider, agentId, query, limit)
         },
       } as unknown as Tool
     }
@@ -118,8 +103,7 @@ export function createRunner(deps: RunnerDeps) {
     const system = agent.system_prompt || undefined
 
     if (params.stream) {
-      const result = streamText({
-        model,
+      const result = provider.streamText({
         system,
         messages: messages as any,
         tools: Object.keys(tools).length > 0 ? (tools as any) : undefined,
@@ -148,8 +132,7 @@ export function createRunner(deps: RunnerDeps) {
 
       return { stream: sseStream }
     } else {
-      const result = await generateText({
-        model,
+      const result = await provider.generateText({
         system,
         messages: messages as any,
         tools: Object.keys(tools).length > 0 ? (tools as any) : undefined,
@@ -170,11 +153,10 @@ export function createRunner(deps: RunnerDeps) {
   }
 
   async function addKnowledge(agentId: number, title: string, content: string): Promise<KnowledgeDoc> {
-    const embedModel = getEmbeddingModel()
     const chunks = chunkContent(content)
 
     const [first] = chunks
-    const { embedding } = await embed({ model: embedModel, value: first })
+    const embedding = await provider.embed(first)
     const vec = `[${embedding.join(',')}]`
 
     const [doc] = await sql.unsafe(
@@ -183,10 +165,11 @@ export function createRunner(deps: RunnerDeps) {
     ) as any[]
 
     for (let i = 1; i < chunks.length; i++) {
-      const { embedding: emb } = await embed({ model: embedModel, value: chunks[i] })
+      const emb = await provider.embed(chunks[i])
+      const vec = `[${emb.join(',')}]`
       await sql.unsafe(
         `INSERT INTO "_knowledge_documents" ("agent_id", "title", "content", "embedding") VALUES ($1, $2, $3, $4::vector)`,
-        [agentId, `${title} (${i + 1})`, chunks[i], `[${emb.join(',')}]`],
+        [agentId, `${title} (${i + 1})`, chunks[i], vec],
       )
     }
 

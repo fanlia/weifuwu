@@ -40,6 +40,8 @@ export type { GraphQLOptions, GraphQLHandler } from './graphql.ts'
 export { aiStream } from './ai.ts'
 export type { AIHandler } from './ai.ts'
 export { runWorkflow } from './ai/workflow.ts'
+export { aiProvider } from './ai/provider.ts'
+export type { AIProvider, AIProviderOptions } from './ai/provider.ts'
 export {
   streamText,
   generateText,
@@ -173,6 +175,6 @@ export { s3 } from './s3.ts'
 export type { S3Options, S3PutOptions, S3UrlOptions, S3Module, S3Body } from './s3.ts'
 
 // Knowledge Base (RAG with pgvector)
-export { knowledgeBase } from './kb.ts'
-export type { KBOptions, KBIngestOptions, KBSearchResult, KBSearchOptions, KBListEntry, KBModule } from './kb.ts'
+export { knowledgeBase } from './kb/index.ts'
+export type { KBOptions, KBIngestOptions, KBSearchResult, KBSearchOptions, KBListEntry, KBModule } from './kb/types.ts'
 

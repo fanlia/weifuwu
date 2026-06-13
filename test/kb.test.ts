@@ -1,8 +1,9 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { knowledgeBase } from '../kb.ts'
+import { knowledgeBase } from '../kb/index.ts'
 import { Router } from '../router.ts'
 import { postgres } from '../postgres/index.ts'
+import type { AIProvider } from '../ai/provider.ts'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
 
@@ -10,32 +11,39 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
   let pg: ReturnType<typeof postgres>
   let kb: ReturnType<typeof knowledgeBase>
 
-  // Simple mock embedding: returns a fixed-dimension vector based on text hash
-  // We use 4 dimensions for simplicity
-  function mockEmbed(text: string): Promise<number[]> {
-    let hash = 0
-    for (const c of text) {
-      hash = (hash * 31 + c.charCodeAt(0)) | 0
+  // Simple mock AI provider returning fixed-dimension vectors based on text hash
+  function mockProvider(): AIProvider {
+    function embedHash(text: string): number[] {
+      let hash = 0
+      for (const c of text) {
+        hash = (hash * 31 + c.charCodeAt(0)) | 0
+      }
+      const seed = Math.abs(hash)
+      const v = [
+        Math.sin(seed * 0.1),
+        Math.cos(seed * 0.2),
+        Math.sin(seed * 0.3 + 1),
+        Math.cos(seed * 0.4 + 2),
+      ]
+      const len = Math.sqrt(v.reduce((s, x) => s + x * x, 0))
+      return v.map(x => x / len)
     }
-    // Normalize to unit vector (4 dimensions)
-    const seed = Math.abs(hash)
-    const v = [
-      Math.sin(seed * 0.1),
-      Math.cos(seed * 0.2),
-      Math.sin(seed * 0.3 + 1),
-      Math.cos(seed * 0.4 + 2),
-    ]
-    const len = Math.sqrt(v.reduce((s, x) => s + x * x, 0))
-    return Promise.resolve(v.map(x => x / len))
+
+    return {
+      dimension: 4,
+      model: () => { throw new Error('not used in tests') },
+      embeddingModel: () => { throw new Error('not used in tests') },
+      embed: (text: string) => Promise.resolve(embedHash(text)),
+      embedMany: (texts: string[]) => Promise.resolve(texts.map(embedHash)),
+    }
   }
 
   before(async () => {
     pg = postgres({ connection: DATABASE_URL })
     await pg.sql`CREATE EXTENSION IF NOT EXISTS "vector"`
     kb = knowledgeBase({
-      sql: pg.sql,
-      embedding: mockEmbed,
-      dimensions: 4,
+      pg,
+      provider: mockProvider(),
       table: '_test_kb',
       chunkSize: 200,
       chunkOverlap: 20,

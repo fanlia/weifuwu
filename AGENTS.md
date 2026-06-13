@@ -16,6 +16,8 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - Import types from `./types.ts`, source from individual files
 - New modules get their own file, exported from `index.ts`
 - Every module needs tests in `test/`
+- AIProvider is the unified AI config interface: `model()`, `embeddingModel()`, `embed()`, `embedMany()`, `generateText()`, `streamText()`, `dimension`. Modules use it for model resolution; handlers use `ctx.ai` for direct AI calls.
+- **Never import `streamText`/`generateText`/`embed` from the `ai` SDK directly in application code.** Always use `provider.streamText()` or `ctx.ai.streamText()` — the provider injects the configured model automatically.
 - **ctx field principle**: each capability adds exactly one namespaced field on `ctx`. Standard objects (`req`, `ws`) are never modified. The framework injects, the developer uses.
   ```ts
   app.use(postgres())    →  ctx.sql
@@ -29,6 +31,31 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - Public hooks go in `react.ts` barrel; internal utilities stay in their module
 - Frontend hooks use `useXxx` naming; each hook solves one concrete concern
 - **README.md must be LLM-friendly** — document all public APIs with examples, avoid internal implementation details like `window.__xxx` globals
+
+### Core modules
+
+The framework has five core modules that other modules depend on:
+
+| Module | Import | Role |
+|--------|--------|------|
+| **serve** | `serve()` | HTTP server, lifecycle, graceful shutdown |
+| **router** | `Router` | Request routing, middleware chain, WebSocket upgrade |
+| **postgres** | `postgres()` | Database client (Pattern α — middleware), pool management, table builder, migrations |
+| **redis** | `redis()` | Redis client (Pattern α — middleware), connection management |
+| **ai provider** | `aiProvider()` | AI model & embedding abstraction, env-based config |
+
+Modules like `agent`, `kb`, `user`, `session`, `queue` depend on `postgres`. Modules like `agent`, `kb`, `aiStream`, `runWorkflow` depend on `ai provider`. Every module that depends on a core module accepts it as a constructor parameter (e.g. `agent({ pg, provider })`), never creates its own connection.
+
+`aiProvider()` is also a Pattern α middleware — `app.use(aiProvider())` injects `ctx.ai`, allowing handlers and middlewares to make AI calls directly:
+
+```ts
+app.use(aiProvider())
+
+app.get('/ask', async (req, ctx) => {
+  const result = await ctx.ai.generateText({ prompt: ctx.query.q })
+  return Response.json(result)
+})
+```
 
 ### Module patterns
 

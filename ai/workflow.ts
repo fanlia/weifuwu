@@ -1,6 +1,7 @@
 import { tool, generateText } from 'ai'
 import { z } from 'zod'
 import type { LanguageModel } from 'ai'
+import type { AIProvider } from './provider.ts'
 
 // ── Reference resolution (from old workflow/reference.ts) ──
 
@@ -215,6 +216,8 @@ async function executeNode(node: Node, ctx: WorkflowCtx): Promise<unknown> {
 export function runWorkflow(opts: {
   tools?: Record<string, any>
   model?: LanguageModel
+  /** AI provider — `provider.model()` is used as fallback if no explicit `model` is set. */
+  provider?: AIProvider
   maxSteps?: number
 } = {}) {
   const toolRegistry = new Map<string, any>()
@@ -241,23 +244,25 @@ export function runWorkflow(opts: {
 
       if (input.nodes && input.nodes.length > 0) {
         nodes = input.nodes as Node[]
-      } else if (opts.model) {
+      } else {
+        if (!opts.provider && !opts.model) throw new Error('Provide either "nodes", a "model", or a "provider" with a model to generate the workflow from "goal"')
         const toolsDesc = Object.entries(opts.tools ?? {})
           .map(([k, t]) => `- ${k}: ${(t as any).description}`).join('\n')
-        const result = await (generateText as any)({
-          model: opts.model!,
-          system: [
-            'You are a workflow generator. Given a user goal and available tools, output a workflow JSON.',
-            '',
-            'Available tools:',
-            toolsDesc,
-            '',
-            'Node types: eval (expression), set (variable), get (variable), if (condition), while (loop), call (tool), http (request).',
-            'Reference syntax: $var.name, $nodes.id.output, $nodes.id.output.field, $input.field',
-            'Output ONLY valid JSON. No explanation, no markdown.',
-          ].filter(Boolean).join('\n'),
-          messages: [{ role: 'user', content: input.goal }],
-        })
+        const system = [
+          'You are a workflow generator. Given a user goal and available tools, output a workflow JSON.',
+          '',
+          'Available tools:',
+          toolsDesc,
+          '',
+          'Node types: eval (expression), set (variable), get (variable), if (condition), while (loop), call (tool), http (request).',
+          'Reference syntax: $var.name, $nodes.id.output, $nodes.id.output.field, $input.field',
+          'Output ONLY valid JSON. No explanation, no markdown.',
+        ].filter(Boolean).join('\n')
+
+        const genParams = { system, messages: [{ role: 'user', content: input.goal }] }
+        const result = opts.provider
+          ? await opts.provider.generateText(genParams)
+          : await (generateText as any)({ ...genParams, model: opts.model! })
 
         const text = result.text.trim()
         const jsonStart = text.indexOf('{')
@@ -266,8 +271,6 @@ export function runWorkflow(opts: {
         const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1))
         nodes = parsed.nodes ?? parsed.workflow?.nodes ?? []
         if (!Array.isArray(nodes)) throw new Error('Generated workflow has no nodes array')
-      } else {
-        throw new Error('Provide either "nodes" or a "model" to generate the workflow from "goal"')
       }
 
       const ctx: WorkflowCtx = {

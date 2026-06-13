@@ -1,5 +1,6 @@
 import type { Context } from './types.ts'
 import { Router } from './router.ts'
+import type { AIProvider } from './ai/provider.ts'
 
 export type AIHandler = (
   req: Request,
@@ -18,11 +19,23 @@ async function getStreamObject() {
   return _ai.streamObject
 }
 
-export async function aiStream(handler: AIHandler): Promise<Router> {
+/**
+ * Create a streaming AI endpoint.
+ *
+ * @param handler - Returns options for `streamText` or `streamObject` (if `schema` is present).
+ * @param provider - Optional AI provider. If provided and the handler does not return a `model`,
+ *                   `provider.model()` is used as the default.
+ */
+export async function aiStream(handler: AIHandler, provider?: AIProvider): Promise<Router> {
   const r = new Router()
 
   r.post('/', async (req, ctx) => {
     const options = await handler(req, ctx)
+
+    // Inject default model from provider if handler didn't specify one
+    if (provider && !options.model) {
+      options.model = provider.model()
+    }
 
     if (options.schema) {
       const streamObject = await getStreamObject()

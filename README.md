@@ -349,7 +349,8 @@ Uses `TEST_DATABASE_URL` or `DATABASE_URL`. Automatically skipped in CI if unset
 ### agent [β]
 
 ```ts
-const a = agent({ pg, model: openai('gpt-4o'), embeddingModel: openai.embedding('text-embedding-3-small') })
+const provider = aiProvider()
+const a = agent({ pg, provider })
 await a.migrate()
 app.use('/api', a)
 await a.addKnowledge(agentId, 'Title', 'some knowledge content')
@@ -359,9 +360,10 @@ a.run(agentId, { input: 'summarize the data', stream: true })
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `pg` | `object` | — | PostgreSQL client |
-| `model` | `object` | — | AI model (e.g. `openai('gpt-4o')`) |
-| `embeddingModel` | `object` | — | Embedding model for knowledge search |
-| `embeddingDimension` | `number` | `1536` | Embedding vector dimension |
+| `provider` | `AIProvider` | `aiProvider()` (from env) | AI provider for model & embedding resolution |
+| `model` | `object` | — | Explicit AI model (overrides provider) |
+| `embeddingModel` | `object` | — | Explicit embedding model (overrides provider) |
+| `embeddingDimension` | `number` | `provider.dimension` | Embedding vector dimension |
 | `tools` | `object[]` | — | Custom tool definitions |
 
 | Method | Description |
@@ -376,13 +378,15 @@ a.run(agentId, { input: 'summarize the data', stream: true })
 Creates an AI streaming chat endpoint using the Vercel AI SDK.
 
 ```ts
-const chat = await aiStream(async (req) => ({ model: openai('gpt-4o'), messages: (await req.json()).messages }))
+const provider = aiProvider()
+const chat = await aiStream(async (req) => ({ messages: (await req.json()).messages }), provider)
 app.use('/chat', chat)
 ```
 
 | Param | Type | Description |
 |-------|------|-------------|
 | `handler` | `(req, ctx) => AIStreamOptions \| Promise<AIStreamOptions>` | Returns AI SDK options (model, messages, schema, etc.) |
+| `provider` | `AIProvider` | Optional. If provided and handler omits `model`, `provider.model()` is used as default |
 
 ### analytics [β]
 
@@ -729,15 +733,12 @@ await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'
 ### knowledgeBase [β] — RAG with pgvector
 
 ```ts
-import { knowledgeBase } from 'weifuwu'
-import { embed } from 'ai'
+import { knowledgeBase, aiProvider } from 'weifuwu'
 
 const kb = knowledgeBase({
-  sql: ctx.sql,
-  embedding: (text) =>
-    embed({ model: openai.embedding('text-embedding-3-small'), value: text })
-      .then(r => r.embedding),
-  dimensions: 1536,
+  pg: postgres(),
+  provider: aiProvider(),
+  table: 'my_docs',
 })
 
 // Create table + HNSW index (safe to call multiple times)
@@ -770,9 +771,8 @@ app.get('/search', async (req, ctx) => {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `sql` | `Sql<{}>` | — | **Required.** Postgres client with pgvector |
-| `embedding` | `(text) => Promise<number[]>` | — | **Required.** Embedding function |
-| `dimensions` | `number` | `1536` | Vector dimensions |
+| `pg` | `PostgresClient` | — | **Required.** PostgreSQL client |
+| `provider` | `AIProvider` | — | **Required.** AI provider for embedding |
 | `table` | `string` | `'_kb_docs'` | Database table name |
 | `chunkSize` | `number` | `512` | Max characters per chunk |
 | `chunkOverlap` | `number` | `64` | Overlap between chunks |
@@ -780,8 +780,8 @@ app.get('/search', async (req, ctx) => {
 | `searchThreshold` | `number` | `0` | Minimum similarity (0–1) |
 
 Documents are split on paragraph boundaries (`\n\n`). Re-ingesting the same key
-replaces old chunks. The HNSW index enables fast approximate nearest-neighbor
-search (cosine distance).
+replaces old chunks. Provider's `embed()` is used automatically.
+The HNSW index enables fast approximate nearest-neighbor search (cosine distance).
 
 
 ### logdb [β]
@@ -1747,18 +1747,65 @@ When a `.tsx` or `.css` file changes under the `ssr` dir, the browser hot-update
 ## AI
 
 ```ts
-import { openai, streamText, generateText, streamObject, generateObject, tool, embed, embedMany } from 'weifuwu'
+import { openai, streamText, generateText, streamObject, generateObject, tool, embed, embedMany, aiProvider } from 'weifuwu'
 import { runWorkflow } from 'weifuwu'
+
+const provider = aiProvider()
 ```
 
 For AI streaming endpoints see [`aiStream`](#aistream-β). For AI agent APIs see [`agent`](#agent-β).
+
+### aiProvider [α] — AI model & embedding configuration
+
+```ts
+const provider = aiProvider()                 // auto from env
+app.use(provider)                              // → ctx.ai
+
+// Handler
+app.post('/ask', async (req, ctx) => {
+  const { text } = await ctx.ai.generateText({ prompt: 'hello' })
+  const vec = await ctx.ai.embed('some text')
+  const stream = ctx.ai.streamText({ system: 'assistant', messages: [...] })
+  return stream.toTextStreamResponse()
+})
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `baseURL` | `string` | `OPENAI_BASE_URL` env or `http://localhost:11434/v1` | API base URL |
+| `apiKey` | `string` | `OPENAI_API_KEY` env or `'ollama'` | API key |
+| `model` | `string` | `OPENAI_MODEL` env or `'qwen3:0.6b'` | Chat model name |
+| `embeddingModel` | `string` | `OPENAI_EMBEDDING_MODEL` env or `'qwen3-embedding:0.6b'` | Embedding model name |
+| `embeddingDimension` | `number` | `EMBEDDING_DIMENSION` env or `1024` | Vector dimension |
+
+| Method | Description |
+|--------|-------------|
+| `.model(name?)` | Get `LanguageModel` instance |
+| `.embeddingModel(name?)` | Get `EmbeddingModel` instance |
+| `.embed(text)` | Embed single text → `Promise<number[]>` |
+| `.embedMany(texts)` | Batch embed → `Promise<number[][]>` |
+| `.generateText(params)` | Generate text (model auto-injected) |
+| `.streamText(params)` | Stream text (model auto-injected) |
+| `.dimension` | Configured embedding dimension |
 
 ### DAG Workflow
 
 ```ts
 const tools = { queryUser: tool({ ... }) }
-const wf = runWorkflow({ tools })
+
+// Via provider:
+const wf = runWorkflow({ tools, provider })
+
+// Or explicit model:
+const wf = runWorkflow({ tools, model: openai('gpt-4o') })
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `tools` | `object` | — | Registered tool definitions |
+| `provider` | `AIProvider` | — | AI provider (uses `provider.model()` for LLM-generated workflow) |
+| `model` | `LanguageModel` | — | Explicit model (overrides provider) |
+| `maxSteps` | `number` | `200` | Max execution steps |
 
 ---
 
@@ -1820,6 +1867,12 @@ Head
 ```
 export type { UseAgentStreamOptions, UseAgentStreamReturn, AgentStreamState } from 'weifuwu/react'
 
+### AI Provider (framework abstraction)
+
+```ts
+aiProvider, AIProvider, AIProviderOptions
+```
+
 ### AI SDK (re-exported from `ai`)
 
 ```ts
@@ -1832,7 +1885,7 @@ openai, createOpenAI
 
 ```ts
 preferences, health, analytics, seo, seoMiddleware, seoTags,
-user, mailer, graphql, aiStream, runWorkflow,
+user, mailer, graphql, aiStream, runWorkflow, knowledgeBase,
 logdb, messager, agent, iii, createWorker, registerWorker,
 opencode, deploy, defineConfig, webhook,
 testApp, TestApp, TestRequest, TestResponse,

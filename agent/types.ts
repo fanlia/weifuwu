@@ -1,5 +1,6 @@
 import type { Router } from '../router.ts'
 import type { LanguageModel, EmbeddingModel, Tool } from 'ai'
+import type { AIProvider } from '../ai/provider.ts'
 
 export interface AgentConfig {
   id: number
@@ -37,6 +38,8 @@ export type RunResult =
 
 export interface AgentOptions {
   pg: import('../postgres/types.ts').PostgresClient
+  /** AI provider for model and embedding resolution. Overridden by explicit model/embeddingModel. */
+  provider?: AIProvider
   model?: LanguageModel
   embeddingModel?: EmbeddingModel
   embeddingDimension?: number
