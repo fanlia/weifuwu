@@ -1,10 +1,34 @@
 /**
  * Shared cron expression parsing utilities.
  * Used by both queue (Redis-backed) and in-memory scheduler.
+ *
+ * All functions operate in **local timezone**.
+ *
+ * ```ts
+ * import { cronNext } from 'weifuwu'
+ *
+ * // Get next weekday at 09:00
+ * const next = cronNext('0 9 * * 1-5')
+ * console.log(new Date(next))
+ * ```
  */
 
 // ── Parse a single cron field ───────────────────────────────────────────────
 
+/**
+ * Parse a single cron field (e.g. `"* /5"`, `"1-10"`, `"1,3,5"`) into a set
+ * of matching integer values within `[min, max]`.
+ *
+ * @param field - The cron field expression.
+ * @param min - Minimum valid value (inclusive).
+ * @param max - Maximum valid value (inclusive).
+ * @returns Set of matching integer values.
+ * @throws If the field contains an invalid expression (step of 0, NaN, etc.).
+ *
+ * ```ts
+ * parseField('1-5', 1, 31)  // Set { 1, 2, 3, 4, 5 }
+ * ```
+ */
 export function parseField(field: string, min: number, max: number): Set<number> {
   const values = new Set<number>()
 
@@ -52,6 +76,19 @@ const FIELD_RANGES: [number, number][] = [
   [0, 6],   // day of week (0=Sunday)
 ]
 
+/**
+ * Parse a full 5-field cron expression into an array of 5 Sets.
+ *
+ * @param pattern - Standard cron expression: `minute hour day month weekday`
+ * @returns Array of 5 Sets (minute, hour, day, month, weekday).
+ * @throws If the pattern does not contain exactly 5 fields.
+ *
+ * ```ts
+ * const fields = parsePattern('0 9 * * 1-5')
+ * fields[1] // hour: { 9 }
+ * fields[4] // weekday: { 1, 2, 3, 4, 5 }
+ * ```
+ */
 export function parsePattern(pattern: string): Set<number>[] {
   const fields = pattern.trim().split(/\s+/)
   if (fields.length !== 5) {
@@ -64,6 +101,19 @@ export function parsePattern(pattern: string): Set<number>[] {
 
 // ── Check if a date matches a parsed pattern ────────────────────────────────
 
+/**
+ * Check whether a given date matches a parsed cron pattern.
+ * Uses local timezone methods (getMinutes, getHours, etc.).
+ *
+ * @param fields - Parsed pattern from {@link parsePattern}.
+ * @param date - Date to check.
+ * @returns `true` if the date matches the pattern.
+ *
+ * ```ts
+ * const fields = parsePattern('0 9 * * 1-5') // weekdays at 09:00
+ * matches(fields, new Date('2026-06-15T09:00:00')) // true (Monday)
+ * ```
+ */
 export function matches(fields: Set<number>[], date: Date): boolean {
   return (
     fields[0].has(date.getMinutes()) &&
@@ -76,6 +126,21 @@ export function matches(fields: Set<number>[], date: Date): boolean {
 
 // ── Calculate next future timestamp matching a cron expression ──────────────
 
+/**
+ * Calculate the next future timestamp (ms since epoch) matching a cron expression.
+ * Scans forward minute by minute, up to 1 year ahead.
+ * Uses local timezone.
+ *
+ * @param expr - Standard 5-field cron expression.
+ * @param from - Starting point (default: now). The result is always > `from`.
+ * @returns Unix timestamp (ms) of the next matching time.
+ * @throws If no matching time is found within 1 year.
+ *
+ * ```ts
+ * const next = cronNext('30 14 * * *') // next 14:30
+ * console.log(new Date(next).toISOString())
+ * ```
+ */
 export function cronNext(expr: string, from: Date = new Date()): number {
   const fields = parsePattern(expr)
 
