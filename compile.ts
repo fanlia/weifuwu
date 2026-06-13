@@ -1,7 +1,7 @@
 import * as esbuild from 'esbuild'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
-import { isDev as _isDev } from './env.ts'
+import { isDev as _isDev, isBundled } from './env.ts'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import vm from 'node:vm'
@@ -140,14 +140,31 @@ export async function compileVendorBundle(): Promise<string> {
     modules[request] = keys
   }
 
-  // Read react.ts source to get exported names (avoids CJS require of ESM dist)
-  const reactTsPath = resolve(import.meta.dirname ?? __dirname, 'react.ts')
-  const reactSrc = readFileSync(reactTsPath, 'utf-8')
+  // isBundled() avoids runtime filesystem check — determined at build time via --define.
+  // Dev (TS source):   import.meta.dirname = repo root → react.ts barrel file
+  // Published (dist/): import.meta.dirname = dist/     → react.js bundled output
+  const baseDir = import.meta.dirname ?? __dirname
+  const reactAbsPath = isBundled()
+    ? resolve(baseDir, 'react.js')
+    : resolve(baseDir, 'react.ts')
+  const reactSrc = readFileSync(reactAbsPath, 'utf-8')
   const wfwKeys: string[] = []
-  for (const line of reactSrc.split('\n')) {
-    const m = line.match(/^export\s+\{[^}]+\}\s*from/)
-    if (m) {
-      const names = line.slice(line.indexOf('{') + 1, line.indexOf('}')).split(',').map(s => s.trim()).filter(Boolean)
+  if (reactAbsPath.endsWith('.ts')) {
+    // Parse export { ... } from in TS barrel file
+    for (const line of reactSrc.split('\n')) {
+      const m = line.match(/^export\s+\{[^}]+\}\s*from/)
+      if (m) {
+        const names = line.slice(line.indexOf('{') + 1, line.indexOf('}')).split(',').map(s => s.trim()).filter(Boolean)
+        for (const n of names) {
+          if (!n.startsWith('type ') && !wfwKeys.includes(n)) wfwKeys.push(n)
+        }
+      }
+    }
+  } else {
+    // Parse final export { ... } block in bundled JS
+    const exportMatch = reactSrc.match(/\bexport\s*\{([^}]+)\}\s*;/)
+    if (exportMatch) {
+      const names = exportMatch[1].split(',').map(s => s.trim()).filter(Boolean)
       for (const n of names) {
         if (!n.startsWith('type ') && !wfwKeys.includes(n)) wfwKeys.push(n)
       }
@@ -161,7 +178,7 @@ export async function compileVendorBundle(): Promise<string> {
     if (unique.length > 0) stmts.push(`export { ${unique.join(', ')} } from ${JSON.stringify(request)};`)
   }
   const uidWfw = wfwKeys.filter(k => !used.has(k) && used.add(k))
-  if (uidWfw.length > 0) stmts.push(`export { ${uidWfw.join(', ')} } from ${JSON.stringify(reactTsPath)};`)
+  if (uidWfw.length > 0) stmts.push(`export { ${uidWfw.join(', ')} } from ${JSON.stringify(reactAbsPath)};`)
 
   const result = await esbuild.build({
     stdin: { contents: stmts.join('\n'), resolveDir: process.cwd() },

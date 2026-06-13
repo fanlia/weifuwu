@@ -1,6 +1,20 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+/** Build-time injection from esbuild --define. `true` in dist/index.js, undefined in TS source. */
+declare var __WFW_BUNDLED__: boolean | undefined
+
+/**
+ * Whether this code is running from the compiled `dist/index.js` bundle.
+ * `false` when running TypeScript source directly (dev workflow in weifuwu repo).
+ *
+ * Used by modules that need to resolve package-internal files differently
+ * depending on whether they are compiled (published npm package) or raw TS.
+ */
+export function isBundled(): boolean {
+  return typeof __WFW_BUNDLED__ !== 'undefined' ? __WFW_BUNDLED__ : false
+}
+
 /**
  * Whether `NODE_ENV` is explicitly set to `'development'`.
  *
