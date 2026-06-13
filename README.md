@@ -1835,7 +1835,7 @@ addInterceptor(async (url) => {
 import { flash } from 'weifuwu'
 
 app.use(flash())
-// → ctx.parsed.flash — auto-cleared after first read
+// → ctx.flash — auto-cleared after first read
 
 // Handler — set flash via Set-Cookie
 app.post('/save', async () => {

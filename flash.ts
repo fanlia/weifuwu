@@ -9,7 +9,7 @@ export interface FlashOptions {
 /**
  * Flash message middleware.
  *
- * Reads a `flash` cookie on each request and makes it available at `ctx.parsed.flash`.
+ * Reads a `flash` cookie on each request and makes it available at `ctx.flash`.
  * Automatically clears the cookie after reading so it's only shown once.
  *
  * ```ts
@@ -17,7 +17,7 @@ export interface FlashOptions {
  *
  * // Handler — read flash
  * app.get('/', (req, ctx) => {
- *   const msg = ctx.parsed?.flash  // { type: 'success', text: 'Saved!' }
+ *   const msg = ctx.flash  // { type: 'success', text: 'Saved!' }
  * })
  *
  * // Set flash — return a response with Set-Cookie
@@ -36,9 +36,9 @@ export function flash(options?: FlashOptions): Middleware {
 
     if (raw) {
       try {
-        ;(ctx as any).parsed = { ...(ctx as any).parsed, flash: JSON.parse(decodeURIComponent(raw)) }
+        (ctx as any).flash = JSON.parse(decodeURIComponent(raw))
       } catch {
-        ;(ctx as any).parsed = { ...(ctx as any).parsed, flash: raw }
+        (ctx as any).flash = raw
       }
     }
 

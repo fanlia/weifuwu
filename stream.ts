@@ -87,6 +87,7 @@ function buildHeadPayload(opts: StreamOpts): string {
     parsed: ctx.parsed,
     theme: ctx.theme,
     i18n: ctx.i18n,
+    flash: ctx.flash,
     loaderData,
   }
 
