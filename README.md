@@ -1099,6 +1099,85 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 
 
 
+### s3 [α] — S3-compatible object storage
+
+```ts
+import { s3 } from 'weifuwu'
+
+app.use(s3({
+  bucket: 'my-app',
+  region: 'us-east-1',
+  endpoint: process.env.S3_URL,              // MinIO / R2 / AWS
+  forcePathStyle: true,                       // required for MinIO
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_KEY,
+  },
+  publicUrl: 'https://cdn.example.com',       // for unsigned public URLs
+}))
+```
+
+Injects `ctx.s3` with methods for S3-compatible object storage.
+
+```ts
+// Upload
+await ctx.s3.put('images/logo.png', buffer, { contentType: 'image/png' })
+
+// Download
+const buf = await ctx.s3.get('images/logo.png')  // Buffer | null
+
+// Delete
+await ctx.s3.delete('images/logo.png')
+
+// Check existence
+if (await ctx.s3.exists('images/logo.png')) { ... }
+
+// Signed URL (expires in 1 hour by default)
+const url = await ctx.s3.url('images/logo.png')
+const shortUrl = await ctx.s3.url('images/logo.png', { expiresIn: 60 })
+
+// Public URL (requires publicUrl in options)
+const publicUrl = await ctx.s3.url('images/logo.png', { expiresIn: 0 })
+
+// List objects under a prefix
+const keys = await ctx.s3.list('images/')
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `bucket` | `string` | — | **Required.** S3 bucket name |
+| `region` | `string` | `'us-east-1'` | AWS region |
+| `endpoint` | `string` | — | Custom endpoint (MinIO, R2, B2) |
+| `forcePathStyle` | `boolean` | `false` | Path-style addressing (required for MinIO) |
+| `credentials` | `{ accessKeyId, secretAccessKey }` | — | Falls back to AWS env vars / IAM role |
+| `publicUrl` | `string` | — | Base URL for unsigned public URLs via `url(key, { expiresIn: 0 })` |
+
+Credentials can be omitted to use AWS environment variables (`AWS_ACCESS_KEY_ID`,
+`AWS_SECRET_ACCESS_KEY`) or IAM roles (EC2, ECS, Lambda).
+
+The module can also be used standalone without the middleware:
+
+```ts
+const storage = s3({ bucket: 'my-app', endpoint: '...' })
+await storage.put('key', body)
+const data = await storage.get('key')
+```
+
+Requires MinIO or another S3-compatible service for local development.
+Add to `docker-compose.yml`:
+
+```yml
+minio:
+  image: minio/minio
+  ports:
+    - '9000:9000'
+  environment:
+    MINIO_ROOT_USER: minioadmin
+    MINIO_ROOT_PASSWORD: minioadmin
+  command: server /data
+```
+
+
 ### seo [β] + seoMiddleware [α]
 
 ```ts

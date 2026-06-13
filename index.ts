@@ -166,3 +166,7 @@ export type { WebhookOptions, WebhookModule, WebhookEvent, WebhookHandler, Platf
 // Full-text search (PostgreSQL)
 export * as fts from './fts.ts'
 
+// Object storage (S3-compatible)
+export { s3 } from './s3.ts'
+export type { S3Options, S3PutOptions, S3UrlOptions, S3Module, S3Body } from './s3.ts'
+
