@@ -218,6 +218,21 @@ export function user(options: UserOptions): UserModule {
     }
   }
 
+  function extractToken(req: Request, cookieName?: string): string | null {
+    // Strategy A: Authorization header
+    const header = req.headers.get('Authorization')
+    if (header?.startsWith('Bearer ')) return header.slice(7)
+    // Strategy B: Cookie
+    if (cookieName) {
+      const cookies = req.headers.get('cookie')?.split(';').map(c => c.trim()).filter(Boolean) || []
+      for (const c of cookies) {
+        const eq = c.indexOf('=')
+        if (eq > 0 && c.slice(0, eq) === cookieName) return c.slice(eq + 1)
+      }
+    }
+    return null
+  }
+
   function middleware(): Middleware<Context, Context & UserInjected> {
     return async (req, ctx, next) => {
       // Strategy 1: Session-based auth — load user from ctx.session.userId
@@ -237,9 +252,7 @@ export function user(options: UserOptions): UserModule {
       }
 
       // Strategy 2: JWT-based auth from Authorization header
-      const header = req.headers.get('Authorization')
-      const token = header?.startsWith('Bearer ') ? header.slice(7) : null
-
+      const token = extractToken(req)
       if (token) {
         const userData = await verify(token)
         if (userData) {
@@ -252,12 +265,40 @@ export function user(options: UserOptions): UserModule {
     }
   }
 
+  function middlewareOptional(opts?: { cookie?: string }): Middleware {
+    const cookieName = opts?.cookie
+    return async (req, ctx, next) => {
+      const token = extractToken(req, cookieName)
+      if (token) {
+        const userData = await verify(token)
+        if (userData) {
+          ctx.user = userData as any
+        }
+      }
+      return next(req, ctx)
+    }
+  }
+
+  async function parseBody(req: Request): Promise<Record<string, unknown>> {
+    const ct = req.headers.get('content-type') || ''
+    if (ct.includes('application/json')) {
+      return req.json() as Promise<Record<string, unknown>>
+    }
+    // Form data
+    const form = await req.formData()
+    const obj: Record<string, unknown> = {}
+    for (const [key, val] of form) {
+      obj[key] = val
+    }
+    return obj
+  }
+
   function router(): Router {
     const r = new Router()
 
     r.post('/register', async (req) => {
       try {
-        const body = await req.json() as Record<string, unknown>
+        const body = await parseBody(req)
         const result = await register(body as any)
         return Response.json(result, { status: 201 })
       } catch (err: any) {
@@ -271,7 +312,7 @@ export function user(options: UserOptions): UserModule {
 
     r.post('/login', async (req, ctx) => {
       try {
-        const body = await req.json() as Record<string, unknown>
+        const body = await parseBody(req)
         const result = await login(body as any)
 
         // Populate session if session middleware is present
@@ -325,6 +366,7 @@ export function user(options: UserOptions): UserModule {
 
   const mod = r as UserModule
   mod.middleware = middleware
+  mod.middlewareOptional = middlewareOptional
   mod.migrate = migrate
   mod.register = register
   mod.login = login

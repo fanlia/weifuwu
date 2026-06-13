@@ -389,9 +389,17 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void; pages
 
     const resolved = await resolveRoute(dir, segments, routeCache)
     if (!resolved) {
-      return isDev
-        ? Response.json({ error: 'Not Found', path: '/' + segments.join('/'), method: req.method }, { status: 404 })
-        : new Response('Not Found', { status: 404 })
+      if (isDev) {
+        const pages = discoverRoutes(dir).map(p => p.path).sort()
+        return Response.json({
+          error: 'Not Found',
+          path: '/' + segments.join('/'),
+          method: req.method,
+          hint: 'Available SSR pages',
+          pages,
+        }, { status: 404 })
+      }
+      return new Response('Not Found', { status: 404 })
     }
 
     const mws: Middleware[] = [

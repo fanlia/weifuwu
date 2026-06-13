@@ -24,17 +24,7 @@ const auth = user({ pg, jwtSecret: JWT_SECRET })
 export { auth }
 
 // ── Optional auth middleware (reads JWT from cookie, non-blocking) ──────
-app.use(async (req, ctx, next) => {
-  const cookies = Object.fromEntries(
-    req.headers.get('cookie')?.split(';').map(c => c.trim().split('=')).filter(p => p[0]) || []
-  )
-  const token = cookies['token'] || null
-  if (token) {
-    const userData = await auth.verify(token)
-    if (userData) (ctx as any).user = userData
-  }
-  return next(req, ctx)
-})
+app.use(auth.middlewareOptional({ cookie: 'token' }))
 
 // ── Global middleware ──────────────────────────────────────────────────
 app.use(theme())

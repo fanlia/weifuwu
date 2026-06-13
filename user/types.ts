@@ -96,8 +96,24 @@ export interface UserInjected {
  * ```
  */
 export interface UserModule extends Router {
-  /** Middleware that reads JWT from Authorization header and injects `ctx.user`. */
+  /**
+   * Strict auth middleware. Reads JWT from `Authorization: Bearer` header.
+   * Returns 401 if no valid token is found.
+   * Use for routes that require authentication.
+   */
   middleware: () => Middleware<Context, Context & UserInjected>
+  /**
+   * Optional auth middleware. Reads JWT from `Authorization` header or `token` cookie.
+   * Sets `ctx.user` if a valid token is present, but does **not** block unauthenticated requests.
+   * Use as a global middleware when some routes are public and some are protected.
+   *
+   * ```ts
+   * app.use(auth.middlewareOptional({ cookie: 'token' }))
+   * app.get('/profile', auth.middleware(), handler)  // protected
+   * app.get('/', handler)                              // public
+   * ```
+   */
+  middlewareOptional: (opts?: { cookie?: string }) => Middleware
   /** Create the users table. */
   migrate: () => Promise<void>
   /** Register a new user. Returns user data + JWT. */
