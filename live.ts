@@ -53,13 +53,6 @@ export function liveRouter(dir: string): Router {
   // Pre-warm vendor bundle so vendorHash is available for importmap
   compileVendorBundle().catch(() => {})
 
-  r.get('/__wfw/v/bundle', async () => {
-    const code = await compileVendorBundle()
-    return new Response(code, {
-      headers: { 'content-type': 'application/javascript; charset=utf-8' },
-    })
-  })
-
   r.get('/__wfw/h/:hash', async (req, ctx) => {
     const hash = ctx.params.hash.replace(/\.js$/i, '')
     const code = hotBundleCache.get(hash)
