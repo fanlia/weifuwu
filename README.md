@@ -746,6 +746,72 @@ await mail.send({ to: 'user@test.com', subject: 'Hello', text: 'Body', html: '<p
 | `from` | `string` | — | Default sender address |
 | `send` | `function` | — | Custom send function (alternative to transport) |
 
+
+
+### oauthClient [β] — Social login (OAuth 2.0 client)
+
+```ts
+import { oauthClient } from 'weifuwu'
+
+app.use(session())                       // required — stores OAuth state
+app.use(user({ pg, jwtSecret }))         // required — user management
+app.use('/auth', oauthClient({           // mounts /auth/google, /auth/google/callback
+  pg,
+  jwtSecret,
+  redirectUrl: '/dashboard',
+  providers: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    },
+  },
+}))
+```
+
+**Flow:** User clicks "Login with Google" → redirected to Google → back to app → user created/linked in database → JWT signed → session created → redirected to `redirectUrl` with `?token=` (or JSON response for API clients).
+
+Supports custom providers via `authUrl`, `tokenUrl`, `userUrl`, and `parseUser`:
+
+```ts
+app.use('/auth', oauthClient({
+  pg,
+  jwtSecret,
+  providers: {
+    discord: {
+      clientId: process.env.DISCORD_CLIENT_ID,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET,
+      authUrl: 'https://discord.com/api/oauth2/authorize',
+      tokenUrl: 'https://discord.com/api/oauth2/token',
+      userUrl: 'https://discord.com/api/users/@me',
+      parseUser: (data) => ({
+        id: data.id,
+        email: data.email ?? '',
+        name: data.global_name ?? data.username,
+        avatarUrl: data.avatar
+          ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png`
+          : '',
+      }),
+    },
+  },
+}))
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pg` | `PostgresClient` | — | **Required.** Database connection |
+| `jwtSecret` | `string` | — | **Required.** Must match `user()` module's secret |
+| `providers` | `Record<string, OAuthProviderConfig>` | — | **Required.** Provider configs (Google/GitHub built-in, any custom) |
+| `redirectUrl` | `string` | `'/'` | Post-login redirect destination |
+| `expiresIn` | `string \| number` | `'24h'` | JWT expiry |
+| `table` | `string` | `'_auth_providers'` | Provider-user link table name |
+
+The module auto-creates a `_auth_providers` table (`user_id`, `provider`, `provider_id`, `email`, `name`, `avatar_url`) on first request. Built-in providers (Google, GitHub) have preset URLs — you only need to provide `clientId` and `clientSecret`.
+
+
 ### messager [β]
 
 Real-time chat with channels, WebSocket, agent routing.
