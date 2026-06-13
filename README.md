@@ -60,9 +60,19 @@ await server.ready
 | `shutdown` | `boolean` | `true` | Auto SIGTERM/SIGINT |
 
 ```ts
-interface Server { stop: () => Promise<void>; readonly port: number; readonly hostname: string; ready: Promise<void> }
+interface Server {
+  stop: (timeoutMs?: number) => Promise<void>  // graceful: waits for in-flight, force-closes after timeoutMs (default 10s)
+  readonly port: number
+  readonly hostname: string
+  ready: Promise<void>
+}
 const { server, url } = await createTestServer(handler)
 ```
+
+`server.stop()` performs a graceful shutdown: stops accepting new connections,
+closes idle keep-alive sockets, then waits for in-flight requests to complete.
+If they don't finish within `timeoutMs` (default 10 seconds), remaining connections
+are forcibly closed. SIGTERM/SIGINT use the same graceful pattern.
 
 ### Router
 
@@ -404,6 +414,16 @@ app.use(auth({ token: 'sk-123' }))                              // static token
 app.use(auth({ header: 'X-API-Key', token: 'my-key' }))         // custom header
 app.use(auth({ verify: async (token, req) => ({ sub: 'abc' }) })) // custom verify → sets ctx.user
 app.get('/protected', auth({ proxy: 'http://auth:3000/validate' }), handler)
+
+// Session-based auth (must be placed after session() middleware)
+app.use(session())
+app.use(auth({
+  session: true,
+  resolveUser: async (userId) => {          // load user from DB
+    const [user] = await sql`SELECT * FROM users WHERE id = ${userId}`
+    return user ?? null                      // null → destroy stale session
+  },
+}))
 ```
 
 | Option | Type | Default | Description |
@@ -412,6 +432,13 @@ app.get('/protected', auth({ proxy: 'http://auth:3000/validate' }), handler)
 | `header` | `string` | `'Authorization'` | Header name |
 | `verify` | `(token, req) => object\|null` | — | Verify function, return value sets `ctx.user` |
 | `proxy` | `string` | — | Auth service URL to proxy requests to |
+| `session` | `boolean` | `false` | Enable session-based auth. Checks `ctx.session.userId` first |
+| `resolveUser` | `(userId) => object\|null` | — | Load user from userId (called when `session: true`). Return falsy to reject + auto-destroy stale session |
+
+When `session: true`, auth checks `ctx.session.userId` before the
+Authorization header. This lets logged-in users authenticate via their
+session cookie without sending a token. Falls back to header/token auth
+if no session userId is present.
 
 ### compress [α]
 
@@ -1358,6 +1385,16 @@ app.get('/logout', async (req, ctx) => {
 | `cookie.sameSite` | `string` | `'lax'` | SameSite policy |
 | `cookie.path` | `string` | `'/'` | Cookie path |
 | `cookie.domain` | `string` | — | Cookie domain |
+| `secret` | `string` | — | HMAC-SHA256 sign the session cookie (`uuid.signature`). Prevents tampering **strongly recommended in production** |
+| `rotateInterval` | `number` | `900000` (15min) | Auto-rotate session ID to prevent fixation attacks. Set `0` to disable |
+
+When `secret` is set, the cookie value is signed with HMAC-SHA256:
+`uuid.base64url(hmac)`. Tampered cookies are rejected and treated as new
+sessions (no error message, no data leak).
+
+Session ID auto-rotation copies data to a new ID and deletes the old one
+from the store. Rotation happens transparently on the next request after
+`rotateInterval` has elapsed.
 
 **Stores** are also exported for standalone use:
 
