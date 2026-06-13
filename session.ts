@@ -161,6 +161,33 @@ export class RedisStore implements SessionStore {
   }
 }
 
+// ── Cookie signing ────────────────────────────────────────────────────────────
+
+const COOKIE_SEPARATOR = '.'
+
+function signSessionId(sid: string, secret: string): string {
+  const hmac = crypto.createHmac('sha256', secret).update(sid).digest('base64url').slice(0, 16)
+  return sid + COOKIE_SEPARATOR + hmac
+}
+
+function unsignSessionId(value: string, secret: string): string | null {
+  const dot = value.lastIndexOf(COOKIE_SEPARATOR)
+  if (dot === -1) return null
+  const sid = value.slice(0, dot)
+  const sig = value.slice(dot + 1)
+  const expected = crypto.createHmac('sha256', secret).update(sid).digest('base64url').slice(0, 16)
+  if (sig.length !== expected.length) return null
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) ? sid : null
+  } catch {
+    return null
+  }
+}
+
+// ── Internal metadata keys (prefixed to avoid collision with user data) ─────
+
+const kCreatedAt = '__createdAt'
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function createSessionObject(
@@ -168,6 +195,7 @@ function createSessionObject(
   sid: string,
   store: SessionStore,
   ttl: number,
+  createdAt?: number,
 ): Session {
   const obj = (data ?? {}) as Session
   obj[kSaved] = false
@@ -175,6 +203,8 @@ function createSessionObject(
   obj[kId] = sid
   obj[kStore] = store
   obj[kTtl] = ttl
+  // Stamp __createdAt on the object so it survives JSON roundtrip
+  if (createdAt) obj[kCreatedAt] = createdAt
   obj.save = () => { obj[kSaved] = true }
   obj.destroy = () => {
     obj[kDestroyed] = true
@@ -208,6 +238,8 @@ function isSessionActive(session: Session): boolean {
 export function session(options?: SessionOptions): Middleware & { close: () => void; store: SessionStore } {
   const ttl = options?.ttl ?? 24 * 60 * 60 * 1000
   const cookieName = options?.cookieName ?? '__session'
+  const secret = options?.secret
+  const rotateInterval = options?.rotateInterval ?? 900_000 // 15 min default
   const cookieOpts = {
     path: options?.cookie?.path ?? '/',
     domain: options?.cookie?.domain,
@@ -232,24 +264,44 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
     closeStore = () => mem.close()
   }
 
+  function writeCookie(res: Response, sid: string): Response {
+    const value = secret ? signSessionId(sid, secret) : sid
+    return setCookie(res, cookieName, value, cookieOpts as any)
+  }
+
   const mw = (async (req: Request, ctx: Context, next: any) => {
     const cookies = getCookies(req)
-    const sid = cookies[cookieName]
+    const rawSid = cookies[cookieName]
+
+    // Unsign cookie value if secret is configured
+    let sid: string | undefined
+    if (rawSid) {
+      sid = secret ? unsignSessionId(rawSid, secret) : rawSid
+    }
+
     let session: Session
     let loadedSid: string | null = sid ?? null
+    let needsRotation = false
 
     if (sid) {
       const data = await store.get(sid)
       if (data) {
-        session = createSessionObject(data, sid, store, ttl)
+        const createdAt = (data[kCreatedAt] as number) ?? Date.now()
+        session = createSessionObject(data, sid, store, ttl, createdAt)
+
+        // Check if session ID needs rotation
+        if (rotateInterval > 0 && Date.now() - createdAt > rotateInterval) {
+          needsRotation = true
+        }
       } else {
         // Expired or invalid session — don't write back to corrupted sid
         loadedSid = null
-        session = createSessionObject({}, crypto.randomUUID(), store, ttl)
+        session = createSessionObject({}, crypto.randomUUID(), store, ttl, Date.now())
       }
     } else {
-      // No cookie — start empty, don't allocate store entry yet
-      session = createSessionObject({}, crypto.randomUUID(), store, ttl)
+      // No cookie (or invalid signature when secret is set) — new session
+      loadedSid = null
+      session = createSessionObject({}, crypto.randomUUID(), store, ttl, Date.now())
     }
 
     // Take a snapshot before handler runs
@@ -272,21 +324,31 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
       return deleteCookie(res, cookieName, cookieOpts as any)
     }
 
+    // Check if rotation is needed (session was loaded from store and is old)
+    if (needsRotation && loadedSid) {
+      const newId = crypto.randomUUID()
+      // Copy session data to new ID with updated __createdAt
+      const data = JSON.parse(JSON.stringify(currentSession))
+      data[kCreatedAt] = Date.now()
+      await store.set(newId, data, ttl)
+      await store.destroy(loadedSid)
+      loadedSid = newId
+      // Update session object's internal ID and __createdAt so subsequent
+      // snapshot comparison uses the corrected timestamp
+      ;(currentSession as any)[kId] = newId
+      ;(currentSession as any)[kCreatedAt] = data[kCreatedAt]
+    }
+
     // Check if data changed
-    // save/destroy/id are non-enumerable, excluded from JSON.stringify automatically
     const currentData = isSessionActive(currentSession) ? JSON.stringify(currentSession) : null
 
     const wasSaved = currentSession[kSaved]
-    const changed = wasSaved || (currentData !== snapshot)
+    const changed = wasSaved || needsRotation || (currentData !== snapshot)
 
     if (!changed) {
       // No changes — just extend TTL if session exists in store
-      if (loadedSid) {
-        // For memory store, touch happens automatically (same object in map).
-        // For redis, extend TTL via SETEX.
-        if (store instanceof RedisStore) {
-          await store.set(loadedSid, JSON.parse(currentData ?? '{}'), ttl)
-        }
+      if (loadedSid && store instanceof RedisStore) {
+        await store.set(loadedSid, JSON.parse(currentData ?? '{}'), ttl)
       }
       return res
     }
@@ -297,9 +359,12 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
       const data = JSON.parse(currentData)
       await store.set(targetSid, data, ttl)
       if (!loadedSid) {
-        // New session — set cookie
-        const cookieRes = setCookie(res, cookieName, targetSid, cookieOpts as any)
-        return cookieRes
+        // New session — set signed cookie
+        return writeCookie(res, targetSid)
+      }
+      if (needsRotation) {
+        // Rotation changed the SID — update cookie
+        return writeCookie(res, targetSid)
       }
     } else if (loadedSid) {
       // Session emptied — destroy

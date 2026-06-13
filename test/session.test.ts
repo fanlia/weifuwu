@@ -421,4 +421,199 @@ describe('session', () => {
     assert.equal(body.x, undefined)
     assert.equal(body.y, 2)
   })
+
+  // ── Signed cookie tests ────────────────────────────────────────
+
+  it('signs cookie when secret is provided', async () => {
+    const sess = session({ store: memStore, ttl: 60_000, secret: 'my-secret' })
+
+    const r = new Router()
+      .use(sess)
+      .get('/set', (req, ctx: any) => {
+        ctx.session.userId = 1
+        return new Response('ok')
+      })
+
+    const res = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const cookies = parseSetCookie(res)
+    const value = cookies.__session
+    // Must be uuid.signature format
+    assert.ok(value.includes('.'), 'cookie must be signed')
+    const [sid, sig] = value.split('.')
+    assert.equal(sid.length, 36, 'sid must be a UUID')
+    assert.ok(sig.length > 0, 'signature must be present')
+  })
+
+  it('rejects tampered cookie when secret is set', async () => {
+    const sess = session({ store: memStore, ttl: 60_000, secret: 'my-secret' })
+
+    const r = new Router()
+      .use(sess)
+      .get('/get', (req, ctx: any) => {
+        return Response.json({ userId: ctx.session.userId, id: ctx.session.id })
+      })
+
+    // Send a tampered cookie — valid UUID but bad HMAC
+    const res = await r.handler()(
+      new Request('http://localhost/get', {
+        headers: { cookie: '__session=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.badhmac' },
+      }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const body = await res.json() as any
+    // Tampered cookie → treated as new session (no user data, different ID)
+    assert.equal(body.userId, undefined)
+    assert.notEqual(body.id, 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')
+  })
+
+  it('signature with different secret is rejected', async () => {
+    const sessA = session({ store: memStore, ttl: 60_000, secret: 'secret-a' })
+    const sessB = session({ store: memStore, ttl: 60_000, secret: 'secret-b' })
+
+    const rA = new Router().use(sessA).get('/set', (req, ctx: any) => {
+      ctx.session.userId = 1
+      return new Response('ok')
+    })
+
+    const resA = await rA.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const cookieValue = parseSetCookie(resA).__session
+
+    // Now try to use this cookie with secret-b
+    const rB = new Router().use(sessB).get('/get', (req, ctx: any) => {
+      return Response.json({ userId: ctx.session.userId })
+    })
+    const resB = await rB.handler()(
+      new Request('http://localhost/get', { headers: { cookie: `__session=${cookieValue}` } }),
+      { params: {}, query: {} } as any,
+    )
+    const body = await resB.json() as any
+    assert.equal(body.userId, undefined, 'different secret must reject signature')
+  })
+
+  it('no secret — cookie is plain UUID (backward compat)', async () => {
+    const sess = session({ store: memStore, ttl: 60_000 })
+
+    const r = new Router()
+      .use(sess)
+      .get('/set', (req, ctx: any) => {
+        ctx.session.userId = 1
+        return new Response('ok')
+      })
+
+    const res = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const value = parseSetCookie(res).__session
+    // No dot — plain UUID
+    assert.ok(!value.includes('.'), 'without secret, cookie must be plain UUID')
+    assert.equal(value.length, 36)
+  })
+
+  it('signed cookie roundtrip works', async () => {
+    const sess = session({ store: memStore, ttl: 60_000, secret: 'my-secret' })
+
+    const r = new Router()
+      .use(sess)
+      .get('/set', (req, ctx: any) => {
+        ctx.session.userId = 42
+        ctx.session.role = 'admin'
+        return new Response('ok')
+      })
+      .get('/get', (req, ctx: any) => {
+        return Response.json({ userId: ctx.session.userId, role: ctx.session.role, id: ctx.session.id })
+      })
+
+    // Set session
+    const setRes = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const cookieValue = parseSetCookie(setRes).__session
+
+    // Read session with signed cookie
+    const getRes = await r.handler()(
+      new Request('http://localhost/get', { headers: { cookie: `__session=${cookieValue}` } }),
+      { params: {}, query: {} } as any,
+    )
+    const body = await getRes.json() as any
+    assert.equal(body.userId, 42)
+    assert.equal(body.role, 'admin')
+    assert.ok(body.id)
+  })
+
+  // ── Rotation tests ─────────────────────────────────────────────
+
+  it('rotates session ID after rotateInterval', async () => {
+    const mem = new MemoryStore()
+    const sess = session({ store: mem, ttl: 60_000, secret: 'test', rotateInterval: 50 })
+
+    const r = new Router()
+      .use(sess)
+      .get('/set', (req, ctx: any) => {
+        ctx.session.userId = 99
+        return new Response('ok')
+      })
+      .get('/get', (req, ctx: any) => {
+        return Response.json({ userId: ctx.session.userId })
+      })
+
+    // Create session
+    const setRes = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const cookie1 = parseSetCookie(setRes).__session
+    const oldSid = cookie1!.split('.')[0]
+
+    // Wait for rotation interval
+    await new Promise(r => setTimeout(r, 60))
+
+    // Read session — should auto-rotate
+    const getRes = await r.handler()(
+      new Request('http://localhost/get', { headers: { cookie: `__session=${cookie1}` } }),
+      { params: {}, query: {} } as any,
+    )
+    const body = await getRes.json() as any
+    assert.equal(body.userId, 99, 'data preserved after rotation')
+
+    // Cookie should be updated with new signed ID
+    const cookie2 = parseSetCookie(getRes).__session
+    assert.ok(cookie2, 'new cookie must be set after rotation')
+    assert.notEqual(cookie2, cookie1, 'cookie value must change after rotation')
+    assert.ok(cookie2!.includes('.'), 'new cookie must be signed')
+
+    // New cookie SID should be different from old
+    const newSid = cookie2!.split('.')[0]
+    assert.notEqual(newSid, oldSid, 'session ID must rotate')
+
+    // Old SID should be gone from store
+    const oldData = await mem.get(oldSid)
+    assert.equal(oldData, null, 'old session ID must be deleted')
+
+    mem.close()
+  })
+
+  it('rotateInterval: 0 disables rotation', async () => {
+    const sess = session({ store: memStore, ttl: 60_000, secret: 'test', rotateInterval: 0 })
+    let capturedId: string
+
+    const r = new Router()
+      .use(sess)
+      .get('/set', (req, ctx: any) => {
+        ctx.session.userId = 1
+        capturedId = ctx.session.id
+        return new Response('ok')
+      })
+      .get('/get', (req, ctx: any) => {
+        return Response.json({ id: ctx.session.id, userId: ctx.session.userId })
+      })
+
+    const setRes = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const cookie1 = parseSetCookie(setRes).__session
+    const sid1 = capturedId!
+
+    // Even after long wait, no rotation
+    await new Promise(r => setTimeout(r, 120))
+
+    const getRes = await r.handler()(
+      new Request('http://localhost/get', { headers: { cookie: `__session=${cookie1}` } }),
+      { params: {}, query: {} } as any,
+    )
+    const body = await getRes.json() as any
+    assert.equal(body.id, sid1, 'ID must not change when rotation is disabled')
+    assert.equal(body.userId, 1)
+  })
 })

@@ -6,14 +6,51 @@ export interface AuthOptions {
   verify?: (token: string, req: Request) => unknown | Promise<unknown>
   proxy?: string | URL
   header?: string
+  /**
+   * Enable session-based authentication.
+   * When true, auth() checks `ctx.session.userId` first.
+   * If found, the user is authenticated via session (no token required).
+   * Falls back to header-based auth if no session userId is present.
+   */
+  session?: boolean
+  /**
+   * Function to load user data from a user ID stored in the session.
+   * Called when `session: true` and `ctx.session.userId` is present.
+   * Return a falsy value to reject (e.g. if the user was deleted).
+   * If not provided, `ctx.user` is set to `{ id: ctx.session.userId }`.
+   */
+  resolveUser?: (userId: unknown) => unknown | Promise<unknown>
 }
 
 export function auth(options: AuthOptions): Middleware {
-  if (!options.token && !options.verify && !options.proxy) {
-    throw new Error('auth() requires at least one of: token, verify, or proxy')
+  if (!options.token && !options.verify && !options.proxy && !options.session) {
+    throw new Error('auth() requires at least one of: token, verify, proxy, or session')
   }
 
   return async (req, ctx, next) => {
+    // ── Strategy 1: Session-based auth ──────────────────────────
+    if (options.session) {
+      const sessionUserId = (ctx as any).session?.userId
+      if (sessionUserId !== undefined && sessionUserId !== null) {
+        if (options.resolveUser) {
+          const userData = await options.resolveUser(sessionUserId)
+          if (userData) {
+            ctx.user = userData
+            return next(req, ctx)
+          }
+          // User was deleted — clear stale session reference
+          if (typeof (ctx as any).session?.destroy === 'function') {
+            ;(ctx as any).session.destroy()
+          }
+          console.warn(`[${currentTraceId()}] auth: session userId ${sessionUserId} resolved to null`)
+        } else {
+          ctx.user = { id: sessionUserId } as any
+          return next(req, ctx)
+        }
+      }
+    }
+
+    // ── Strategy 2: Header-based auth ───────────────────────────
     const headerName = options.header ?? 'Authorization'
     let from = 'header'
     let header = req.headers.get(headerName)

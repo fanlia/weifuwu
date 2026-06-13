@@ -20,7 +20,7 @@ export interface ServeOptions {
 }
 
 export interface Server {
-  stop: () => Promise<void>
+  stop: (timeoutMs?: number) => Promise<void>
   readonly port: number
   readonly hostname: string
   ready: Promise<void>
@@ -180,7 +180,15 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
       if (shuttingDown) return
       shuttingDown = true
       server.close()
-      process.exit(0)
+      // Give in-flight requests a chance to complete
+      const timer = setTimeout(() => {
+        server.closeAllConnections()
+        process.exit(0)
+      }, 10_000)
+      server.on('close', () => {
+        clearTimeout(timer)
+        process.exit(0)
+      })
     }
     shutdownHandler = shutdown
     process.on('SIGTERM', shutdown)
@@ -227,7 +235,7 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   })
 
   return {
-    stop: () => {
+    stop: (timeoutMs = 10_000) => {
       if (shutdownHandler) {
         process.off('SIGTERM', shutdownHandler)
         process.off('SIGINT', shutdownHandler)
@@ -235,9 +243,23 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
       }
       return new Promise<void>((resolve) => {
         if (!server.listening) { resolve(); return }
+
+        // 1. Stop accepting new connections
+        server.close()
+
+        // 2. Close idle keep-alive connections
         server.closeIdleConnections()
-        server.closeAllConnections()
-        server.close(() => resolve())
+
+        // 3. Wait for in-flight requests to finish, or force-close after timeout
+        const timer = setTimeout(() => {
+          server.closeAllConnections()
+          resolve()
+        }, timeoutMs)
+
+        server.on('close', () => {
+          clearTimeout(timer)
+          resolve()
+        })
       })
     },
     ready,

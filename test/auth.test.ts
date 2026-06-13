@@ -261,3 +261,116 @@ describe('auth edge cases', () => {
     assert.equal(res.status, 500)
   })
 })
+
+// ── Session-based auth ───────────────────────────────────────────────────────
+
+describe('auth with session', () => {
+  it('session: true requires no token/verify/proxy', () => {
+    // Should not throw — session alone is sufficient
+    assert.doesNotThrow(() => auth({ session: true }))
+  })
+
+  it('authenticates via ctx.session.userId with resolveUser', async () => {
+    const userDb = new Map<number, unknown>()
+    userDb.set(1, { id: 1, email: 'alice@test.com', role: 'admin' })
+
+    const app = testApp()
+      .use((req, ctx: any, next) => {
+        ctx.session = { userId: 1 }
+        ctx.sessionId = 'fake-sid'
+        return next(req, ctx)
+      })
+      .use(auth({
+        session: true,
+        resolveUser: (userId: any) => userDb.get(userId) ?? null,
+      }))
+      .get('/me', (req, ctx: any) => Response.json(ctx.user))
+
+    const res = await app.getReq('/me').send()
+    assert.equal(res.status, 200)
+    const body = await res.json() as any
+    assert.equal(body.id, 1)
+    assert.equal(body.email, 'alice@test.com')
+  })
+
+  it('authenticates via session without resolveUser (minimal { id })', async () => {
+    const app = testApp()
+      .use((req, ctx: any, next) => {
+        ctx.session = { userId: 42 }
+        ctx.sessionId = 'fake-sid'
+        return next(req, ctx)
+      })
+      .use(auth({ session: true }))
+      .get('/me', (req, ctx: any) => Response.json(ctx.user))
+
+    const res = await app.getReq('/me').send()
+    assert.equal(res.status, 200)
+    const body = await res.json() as any
+    assert.equal(body.id, 42)
+  })
+
+  it('rejects when resolveUser returns null and destroys session', async () => {
+    let destroyed = false
+
+    const app = testApp()
+      .use((req, ctx: any, next) => {
+        ctx.session = {
+          userId: 999,
+          destroy: () => { destroyed = true },
+        }
+        ctx.sessionId = 'fake-sid'
+        return next(req, ctx)
+      })
+      .use(auth({
+        session: true,
+        resolveUser: () => null, // user deleted
+      }))
+      .get('/me', (req, ctx: any) => Response.json(ctx.user))
+
+    const res = await app.getReq('/me').send()
+    // Falls through to header check → no token → 401
+    assert.equal(res.status, 401)
+    assert.equal(destroyed, true, 'stale session must be destroyed')
+  })
+
+  it('falls back to header-based auth when no session userId', async () => {
+    const app = testApp()
+      .use(auth({ session: true, token: 'header-token' }))
+      .get('/data', () => new Response('ok'))
+
+    const res = await app.getReq('/data')
+      .header('Authorization', 'Bearer header-token')
+      .send()
+    assert.equal(res.status, 200, 'header auth works when no session')
+  })
+
+  it('returns 401 when neither session nor token present', async () => {
+    const app = testApp()
+      .use(auth({ session: true, token: 'secret' }))
+      .get('/data', () => new Response('ok'))
+
+    const res = await app.getReq('/data').send()
+    assert.equal(res.status, 401)
+  })
+
+  it('session takes priority over header when both present', async () => {
+    const app = testApp()
+      .use((req, ctx: any, next) => {
+        ctx.session = { userId: 1 }
+        ctx.sessionId = 'fake-sid'
+        return next(req, ctx)
+      })
+      .use(auth({
+        session: true,
+        token: 'wrong-token', // would fail if header was checked
+      }))
+      .get('/me', (req, ctx: any) => Response.json(ctx.user))
+
+    const res = await app.getReq('/me')
+      .header('Authorization', 'Bearer wrong-token')
+      .send()
+    assert.equal(res.status, 200, 'session auth takes priority')
+    const body = await res.json() as any
+    assert.equal(body.id, 1)
+  })
+})
