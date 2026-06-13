@@ -40,7 +40,7 @@ function attachCron(q: Queue, handlers: Map<string, any>): void {
 function createMemoryQueue(opts?: QueueOptions): Queue {
   const pollInterval = opts?.pollInterval ?? 200
   const handlers = new Map<string, (job: any) => Promise<void>>()
-  const jobs: QueueJob[] = []
+  const pending: QueueJob[] = []
   const failed: QueueJobWithError[] = []
   const MAX_FAILED = 1000
   let running = false
@@ -52,8 +52,8 @@ function createMemoryQueue(opts?: QueueOptions): Queue {
 
   function insertJob(job: QueueJob): void {
     let i = 0
-    while (i < jobs.length && jobs[i].runAt <= job.runAt) i++
-    jobs.splice(i, 0, job)
+    while (i < pending.length && pending[i].runAt <= job.runAt) i++
+    pending.splice(i, 0, job)
   }
 
   async function execute(job: QueueJob, handler: (job: QueueJob) => Promise<void>): Promise<void> {
@@ -73,8 +73,8 @@ function createMemoryQueue(opts?: QueueOptions): Queue {
   async function poll(): Promise<void> {
     if (!running) return
     const now = Date.now()
-    while (running && inflight < MAX_CONCURRENT && jobs.length > 0 && jobs[0].runAt <= now) {
-      const job = jobs.shift()!
+    while (running && inflight < MAX_CONCURRENT && pending.length > 0 && pending[0].runAt <= now) {
+      const job = pending.shift()!
       const handler = handlers.get(job.type)
       if (handler) execute(job, handler)
     }
@@ -101,7 +101,7 @@ function createMemoryQueue(opts?: QueueOptions): Queue {
   mw.run = async function run(): Promise<void> { if (running) return; running = true; poll() }
   mw.stop = function stop(): void { running = false; if (pollTimer) { clearTimeout(pollTimer); pollTimer = null } }
   mw.close = async function close(): Promise<void> { mw.stop(); while (inflight > 0) await new Promise(r => setTimeout(r, 50)) }
-  mw.jobs = async function jobs(limit?: number): Promise<QueueJob[]> { return jobs.slice(0, limit ?? 50) }
+  mw.jobs = async function(limit?: number): Promise<QueueJob[]> { return pending.slice(0, limit ?? 50) }
   mw.failedJobs = async function failedJobs(limit?: number): Promise<QueueJobWithError[]> { return failed.slice(0, limit ?? 50) }
   mw.retryFailed = async function retry(jobId: string): Promise<boolean> {
     const idx = failed.findIndex(j => j.id === jobId); if (idx < 0) return false
@@ -179,7 +179,7 @@ function createPgQueue(opts?: QueueOptions): Queue {
     if (running) pollTimer = setTimeout(poll, pollInterval)
   }
 
-  const mw = ((req, ctx, next) => { ctx.queue = q; return next(req, ctx) }) as unknown as Queue
+  const mw = ((req: Request, ctx: Context, next: Handler) => { ctx.queue = q; return next(req, ctx) }) as unknown as Queue
   const q: Queue = mw
   mw.add = function add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string> {
     return (async () => {
@@ -259,7 +259,7 @@ function createRedisQueue(opts?: QueueOptions): Queue {
     if (running && currentEpoch === epoch) pollTimer = setTimeout(poll, pollInterval)
   }
 
-  const mw = ((req, ctx, next) => { ctx.queue = q; return next(req, ctx) }) as unknown as Queue
+  const mw = ((req: Request, ctx: Context, next: Handler) => { ctx.queue = q; return next(req, ctx) }) as unknown as Queue
   const q: Queue = mw
   mw.add = function add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string> {
     const id = crypto.randomUUID(); let runAt: number

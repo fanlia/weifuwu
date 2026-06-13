@@ -153,7 +153,7 @@ export function createRunner(deps: RunnerDeps) {
   }
 
   async function addKnowledge(agentId: number, title: string, content: string): Promise<KnowledgeDoc> {
-    const chunks = chunkContent(content)
+    const chunks = chunkContent(content, 1024, 128)
 
     const [first] = chunks
     const embedding = await provider.embed(first)

@@ -1,6 +1,6 @@
 import { tool, generateText } from 'ai'
 import { z } from 'zod'
-import type { LanguageModel } from 'ai'
+import type { LanguageModel, ModelMessage } from 'ai'
 import type { AIProvider } from './provider.ts'
 
 // ── Reference resolution (from old workflow/reference.ts) ──
@@ -259,7 +259,7 @@ export function runWorkflow(opts: {
           'Output ONLY valid JSON. No explanation, no markdown.',
         ].filter(Boolean).join('\n')
 
-        const genParams = { system, messages: [{ role: 'user', content: input.goal }] }
+        const genParams: { system: string; messages: ModelMessage[] } = { system, messages: [{ role: 'user', content: input.goal }] }
         const result = opts.provider
           ? await opts.provider.generateText(genParams)
           : await (generateText as any)({ ...genParams, model: opts.model! })

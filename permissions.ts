@@ -1,12 +1,11 @@
 import type { Sql } from './vendor.ts'
-import type { Middleware, Context } from './types.ts'
+import type { Middleware, Context, Handler } from './types.ts'
 
 // ── Context augmentation ─────────────────────────────────────────────────────
 
 declare module './types.ts' {
   interface Context {
-    roles: Set<string>
-    permissions: Set<string>
+    permissions: { roles: Set<string>; permissions: Set<string> }
   }
 }
 

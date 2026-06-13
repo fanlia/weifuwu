@@ -82,7 +82,7 @@ export function aiProvider(options?: AIProviderOptions): AIProvider {
     },
 
     async embedMany(texts: string[]): Promise<number[][]> {
-      const result = await aiEmbedMany({ model: this.embeddingModel(), value: texts })
+      const result = await aiEmbedMany({ model: this.embeddingModel(), values: texts })
       return result.embeddings
     },
 

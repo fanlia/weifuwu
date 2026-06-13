@@ -7,10 +7,13 @@ export interface Context {
   user?: unknown
   parsed?: Record<string, unknown>
   mountPath?: string
-  theme?: string
+  theme?: { value: string; set?: (value: string, loc?: string) => Response }
+  flash?: { value?: string; set?: (data: any, loc?: string) => Response }
   i18n?: {
     locale: string
+    messages?: Record<string, unknown>
     t: (key: string, params?: Record<string, string>, fallback?: string) => string
+    set?: (value: string, loc?: string) => Response
   }
   env?: Record<string, string>
   layoutStack?: { path: string; component: any }[]  // set by layout() middleware, read by ssr()
