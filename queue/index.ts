@@ -5,11 +5,14 @@ import { Router } from '../router.ts'
 import type { Queue, QueueOptions, QueueJob, QueueJobWithError } from './types.ts'
 import { cronNext, parsePattern, matches, parseField } from '../cron-utils.ts'
 
-// ── Factory — auto-selects mode based on Redis availability ─────────────────
+// ── Factory — auto-selects mode based on available backends ─────────────────
 
 export function queue(opts?: QueueOptions): Queue {
   if (opts?.redis || opts?.url) {
     return createRedisQueue(opts)
+  }
+  if (opts?.pg) {
+    return createPgQueue(opts)
   }
   return createMemoryQueue(opts)
 }
@@ -199,7 +202,257 @@ function createMemoryQueue(opts?: QueueOptions): Queue {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Redis mode — existing implementation (uses shared cron utils)
+// PostgreSQL mode — uses FOR UPDATE SKIP LOCKED for multi-instance safety
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function createPgQueue(opts?: QueueOptions): Queue {
+  const sql = opts!.pg!.sql
+  const pollInterval = opts?.pollInterval ?? 200
+  const table = (opts?.prefix ?? 'queue') + '_jobs'
+  const handlers = new Map<string, (job: any) => Promise<void>>()
+  let running = false
+  let pollTimer: ReturnType<typeof setTimeout> | null = null
+  let _processed = 0
+  let _failed = 0
+  let inflight = 0
+  const MAX_CONCURRENT = 16
+  let ready = false
+
+  async function ensureTable(): Promise<void> {
+    if (ready) return
+    await sql.unsafe(`
+      CREATE TABLE IF NOT EXISTS ${escapeIdent(table)} (
+        id UUID PRIMARY KEY,
+        type TEXT NOT NULL,
+        payload JSONB NOT NULL DEFAULT '{}',
+        run_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        schedule TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        error TEXT,
+        failed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+    await sql.unsafe(`
+      CREATE INDEX IF NOT EXISTS ${escapeIdent(table + '_run_at_idx')}
+      ON ${escapeIdent(table)} (run_at, status)
+    `)
+    ready = true
+  }
+
+  async function processJob(job: any, handler: (job: any) => Promise<void>): Promise<void> {
+    inflight++
+    try {
+      await handler(job)
+      _processed++
+      // Delete completed job
+      await sql.unsafe(`DELETE FROM ${escapeIdent(table)} WHERE id = $1`, [job.id])
+    } catch (e) {
+      _failed++
+      const errMsg = (e as Error).message
+      console.error('[queue] handler error:', errMsg)
+      await sql.unsafe(
+        `UPDATE ${escapeIdent(table)} SET status = 'failed', error = $2, failed_at = NOW() WHERE id = $1`,
+        [job.id, errMsg],
+      )
+    } finally {
+      inflight--
+    }
+
+    // Re-queue recurring jobs
+    if (job.schedule) {
+      try {
+        const nextRun = cronNext(job.schedule)
+        await sql.unsafe(
+          `INSERT INTO ${escapeIdent(table)} (id, type, payload, run_at, schedule) VALUES ($1, $2, $3::jsonb, $4, $5)`,
+          [crypto.randomUUID(), job.type, JSON.stringify(job.payload), new Date(nextRun).toISOString(), job.schedule],
+        )
+      } catch (e) {
+        console.error('[queue] cron re-queue failed:', (e as Error).message)
+      }
+    }
+  }
+
+  async function poll(): Promise<void> {
+    if (!running) return
+
+    try {
+      while (running && inflight < MAX_CONCURRENT) {
+        // Atomically claim the next pending job
+        const rows = await sql.unsafe(
+          `UPDATE ${escapeIdent(table)} SET status = 'running'
+           WHERE id = (
+             SELECT id FROM ${escapeIdent(table)}
+             WHERE run_at <= NOW() AND status = 'pending'
+             ORDER BY run_at LIMIT 1
+             FOR UPDATE SKIP LOCKED
+           )
+           RETURNING *`,
+        ) as any[]
+
+        if (rows.length === 0) break
+
+        const row = rows[0]
+        const job = {
+          id: row.id,
+          type: row.type,
+          payload: typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
+          createdAt: new Date(row.created_at).getTime(),
+          runAt: new Date(row.run_at).getTime(),
+          schedule: row.schedule || undefined,
+        }
+
+        const handler = handlers.get(job.type)
+        if (handler) processJob(job, handler)
+      }
+    } catch (e) {
+      const msg = (e as Error).message
+      if (msg.includes('CONNECTION_ENDED') || msg.includes('Connection terminated')) {
+        running = false  // Connection is gone — stop polling
+        return
+      }
+      console.error('[queue] poll error:', msg)
+    }
+
+    if (running) {
+      pollTimer = setTimeout(poll, pollInterval)
+    }
+  }
+
+  const mw = ((req: Request, ctx: Context, next: Handler) => {
+    ctx.queue = q
+    return next(req, ctx)
+  }) as unknown as Queue
+
+  const q: Queue = mw
+
+  mw.add = function add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string> {
+    return (async () => {
+      const id = crypto.randomUUID()
+      let runAt: Date
+
+      if (opts?.schedule) {
+        try {
+          const fields = parsePattern(opts.schedule)
+          if (matches(fields, new Date())) {
+            runAt = new Date()
+          } else {
+            runAt = new Date(cronNext(opts.schedule))
+          }
+        } catch {
+          runAt = new Date(cronNext(opts.schedule))
+        }
+      } else if (opts?.delay) {
+        runAt = new Date(Date.now() + opts.delay)
+      } else {
+        runAt = new Date()
+      }
+
+      await sql.unsafe(
+        `INSERT INTO ${escapeIdent(table)} (id, type, payload, run_at, schedule) VALUES ($1, $2, $3::jsonb, $4, $5)`,
+        [id, type, JSON.stringify(payload), runAt.toISOString(), opts?.schedule || null],
+      )
+      return id
+    })()
+  }
+
+  mw.process = function process<T>(type: string, handler: (job: any) => Promise<void>): void {
+    handlers.set(type, handler)
+  }
+
+  mw.migrate = ensureTable
+
+  mw.run = async function run(): Promise<void> {
+    if (running) return
+    await ensureTable()
+    running = true
+    poll()
+  }
+
+  mw.stop = function stop(): void {
+    running = false
+    if (pollTimer) {
+      clearTimeout(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  mw.close = async function close(): Promise<void> {
+    mw.stop()
+    while (inflight > 0) await new Promise(r => setTimeout(r, 50))
+  }
+
+  mw.jobs = async function jobs(limit?: number): Promise<QueueJob[]> {
+    const rows = await sql.unsafe(
+      `SELECT * FROM ${escapeIdent(table)} WHERE status = 'pending' ORDER BY run_at LIMIT $1`,
+      [limit ?? 50],
+    ) as any[]
+    return rows.map((r: any) => ({
+      id: r.id,
+      type: r.type,
+      payload: typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload,
+      createdAt: new Date(r.created_at).getTime(),
+      runAt: new Date(r.run_at).getTime(),
+      schedule: r.schedule || undefined,
+    }))
+  }
+
+  mw.failedJobs = async function failedJobs(limit?: number): Promise<QueueJobWithError[]> {
+    const rows = await sql.unsafe(
+      `SELECT * FROM ${escapeIdent(table)} WHERE status = 'failed' ORDER BY failed_at DESC LIMIT $1`,
+      [limit ?? 50],
+    ) as any[]
+    return rows.map((r: any) => ({
+      id: r.id,
+      type: r.type,
+      payload: typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload,
+      createdAt: new Date(r.created_at).getTime(),
+      runAt: new Date(r.run_at).getTime(),
+      schedule: r.schedule || undefined,
+      error: r.error || '',
+      failedAt: new Date(r.failed_at).getTime(),
+    }))
+  }
+
+  mw.retryFailed = async function retryFailed(jobId: string): Promise<boolean> {
+    const result = await sql.unsafe(
+      `UPDATE ${escapeIdent(table)} SET status = 'pending', error = NULL, failed_at = NULL, run_at = NOW()
+       WHERE id = $1 AND status = 'failed' RETURNING id`,
+      [jobId],
+    ) as any[]
+    return result.length > 0
+  }
+
+  mw.retryAllFailed = async function retryAllFailed(type?: string): Promise<number> {
+    const result = await sql.unsafe(
+      type
+        ? `UPDATE ${escapeIdent(table)} SET status = 'pending', error = NULL, failed_at = NULL, run_at = NOW()
+           WHERE status = 'failed' AND type = $1 RETURNING id`
+        : `UPDATE ${escapeIdent(table)} SET status = 'pending', error = NULL, failed_at = NULL, run_at = NOW()
+           WHERE status = 'failed' RETURNING id`,
+      type ? [type] : [],
+    ) as any[]
+    return result.length
+  }
+
+  mw.dashboard = function dashboard(): Router {
+    return buildDashboard(q)
+  }
+
+  ;(mw as any).stats = () => ({
+    running,
+    inflight,
+    processed: _processed,
+    failed: _failed,
+    handlers: handlers.size,
+    maxConcurrent: MAX_CONCURRENT,
+  })
+
+  return q
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Redis mode — uses Redis sorted sets for distributed queue
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function createRedisQueue(opts?: QueueOptions): Queue {
@@ -436,6 +689,8 @@ function buildDashboard(q: Queue): Router {
   return r
 }
 
-// Re-export parseField for backward compatibility (used by queue tests that
-// manually manipulate Redis scores)
-export { parseField }
+// ── Helper ──
+
+function escapeIdent(s: string): string {
+  return '"' + s.replace(/"/g, '""') + '"'
+}

@@ -21,6 +21,8 @@ export interface QueueOptions {
   url?: string
   prefix?: string
   pollInterval?: number
+  /** PostgreSQL client — enables PG-backed queue mode. */
+  pg?: { sql: import('../vendor.ts').Sql<{}> }
 }
 
 export interface QueueInjected {
@@ -49,5 +51,7 @@ export interface Queue extends Middleware<Context, Context & QueueInjected> {
   retryAllFailed(type?: string): Promise<number>
   /** Returns a Router with management dashboard endpoints (GET/POST). */
   dashboard(): import('../router.ts').Router
+  /** Create the jobs table (PG mode only; safe to call multiple times). */
+  migrate?(): Promise<void>
   close(): Promise<void>
 }
