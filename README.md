@@ -474,6 +474,63 @@ app.use(cors({ credentials: true, maxAge: 3600 }))
 | `credentials` | `boolean` | `false` | Allow cookies/credentials |
 | `maxAge` | `number` | — | Preflight cache duration (seconds) |
 
+### cron — Scheduled tasks
+
+Lightweight in-process cron scheduler. Supports standard 5-field cron expressions, optional PostgreSQL-backed locking for multi-instance deployments.
+
+```ts
+import { cron, startCron, stopCron } from 'weifuwu'
+
+// Register a weekly report job
+cron('0 9 * * 1', async () => {
+  await sendWeeklyReport()
+})
+
+// Every 5 minutes
+cron('*/5 * * * *', async () => {
+  await checkHealth()
+})
+
+// Start the scheduler
+startCron()
+
+// Stop when shutting down (or SIGTERM auto-stops)
+stopCron()
+```
+
+| Cron field | Range |
+|-----------|-------|
+| minute | 0–59 |
+| hour | 0–23 |
+| day of month | 1–31 |
+| month | 1–12 |
+| day of week | 0–6 (0=Sunday) |
+
+Supported syntax: `*` (any), `*/n` (every n), `n-m` (range), `n,m,o` (list), `n` (exact).
+
+For multi-instance deployments, pass a PostgreSQL client for DB-level locking to prevent duplicate execution:
+
+```ts
+import { cron, startCron } from 'weifuwu'
+
+cron('0 9 * * 1', async () => {
+  await generateReport()
+}, { name: 'weekly-report', pg })  // unique name + pg = distributed lock
+
+startCron()
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `name` | `string` | pattern | Unique job name (required when `pg` is set) |
+| `pg` | `object` | — | PostgreSQL client for multi-instance locking |
+| `table` | `string` | `'_cron_jobs'` | DB table for lock state |
+
+```ts
+import { cronJobCount } from 'weifuwu'
+cronJobCount()  // number of registered jobs
+```
+
 ### cache [α]
 
 Response caching middleware with memory and Redis stores. Caches GET/HEAD responses, with tag-based invalidation.
@@ -1944,7 +2001,7 @@ openai, createOpenAI
 
 ```ts
 preferences, health, analytics, seo, seoMiddleware, seoTags,
-user, mailer, graphql, aiStream, runWorkflow, knowledgeBase, permissions,
+user, mailer, graphql, aiStream, runWorkflow, knowledgeBase, permissions, cron, startCron, stopCron,
 logdb, messager, agent, iii, createWorker, registerWorker,
 opencode, deploy, defineConfig, webhook,
 testApp, TestApp, TestRequest, TestResponse,
