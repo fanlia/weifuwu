@@ -152,21 +152,23 @@ The `ctx` object accumulates properties as it passes through the middleware chai
 | `csrfToken` | `csrf()` | `string` | CSRF token |
 | `requestId` | `requestId()` | `string` | Request ID |
 | `session` | `session()` | `Session` | Session data object |
-| `sessionId` | `session()` | `string` | Session ID |
 | `sql` | `postgres()` | `Sql<{}>` | PostgreSQL tagged-template client |
 | `redis` | `redis()` | `Redis` | Redis client |
+| `ai` | `aiProvider()` | `AIProvider` | AI model & embedding |
 | `queue` | `queue()` | `Queue` | Job queue |
-| `theme` | `theme()` | `'dark'` | Current theme |
-| `deploy` | `deploy()` | `{ appName? }` | Deploy gateway info |
+| `session` | `session()` | `Session` | Session data object |
+| `user` | `auth()` / `user().middleware()` | `{ id?: string }` | Authenticated user |
+| `permissions` | `permissions()` | `{ roles, permissions }` | RBAC roles & permissions sets |
+| `theme` | `theme()` | `{ value, set }` | Current theme + switcher |
+| `i18n` | `i18n()` | `{ locale, t, set }` | Locale, translation, switcher |
+| `flash` | `flash()` | `{ value, set }` | Flash message + setter |
+| `tailwind` | `tailwindContext()` | `{ css, url }` | Compiled Tailwind CSS |
+| `tenant` | `tenant()` | `TenantContext` | Current tenant info |
+| `parsed` | `validate()` / `upload()` | `{ body, files }` | Validated/parsed request data |
 | `layoutStack` | `ssr()` internal | `LayoutEntry[]` | React layout component stack |
 | `loaderData` | User middleware | `Record<string, unknown>` | SSR data passed to client |
-| `user` | `auth()` / `user().middleware()` | `{ id?: string }` | Authenticated user |
-| `parsed` | `validate()` / `upload()` | `{ body, query, params, headers, files }` | Validated/parsed request data |
-| `i18n` | `i18n()` | `{ locale, t }` | Locale + translation function |
-| `compiledTailwindCss` | `ssr()` internal | `string` | Compiled CSS content (internal) |
-| `tailwindCssUrl` | `ssr()` internal | `string` | Compiled CSS route URL (internal) |
-| `session` | `session()` | `Session` | Session data object |
-| `sessionId` | `session()` | `string` | Session ID |
+| `mountPath` | `Router` | `string` | Sub-router mount path |
+| `deploy` | `deploy()` | `{ appName? }` | Deploy gateway info |
 
 ### Type-Safe Context
 
