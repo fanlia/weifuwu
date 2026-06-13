@@ -29,7 +29,7 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
   | `app.use(session())` | `ctx.session` |
   | `app.use(auth())` | `ctx.user` |
   | `app.use(user().middleware())` | `ctx.user` (含完整用户数据) |
-  | `app.use(permissions())` | `ctx.roles`, `ctx.permissions` |
+  | `app.use(permissions())` | `ctx.permissions` `{ roles, permissions }` |
   | `app.use(theme())` | `ctx.theme` `{ value, set }` |
   | `app.use(i18n())` | `ctx.i18n` `{ locale, t, set }` |
   | `app.use(flash())` | `ctx.flash` `{ value, set }` |

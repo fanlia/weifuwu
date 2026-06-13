@@ -16,7 +16,7 @@ export function addTailwindSource(dir: string) {
   extraSources.add(resolve(dir))
 }
 
-// Middleware: sets ctx.tailwindCssUrl for SSR pages
+// Middleware: sets ctx.tailwind for SSR pages
 export function tailwindContext(dir: string): Middleware {
   const cssDir = resolve(dir)
   const cssPath = join(cssDir, 'app', 'globals.css')
@@ -25,9 +25,9 @@ export function tailwindContext(dir: string): Middleware {
       await compileTailwindCss(cssPath, cssDir)
     }
     const entry = cssCache.get(cssPath)!
-    ctx.compiledTailwindCss = entry.css
     const base = (ctx.mountPath || '').replace(/\/$/, '')
-    ctx.tailwindCssUrl = base ? `${base}/__wfw/style/${entry.hash}.css` : `/__wfw/style/${entry.hash}.css`
+    const url = base ? `${base}/__wfw/style/${entry.hash}.css` : `/__wfw/style/${entry.hash}.css`
+    ;(ctx as any).tailwind = { css: entry.css, url }
     return next(req, ctx)
   }
 }

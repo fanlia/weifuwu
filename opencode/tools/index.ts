@@ -21,28 +21,28 @@ export interface ToolContext {
 export function createTools(ctx: ToolContext): Record<string, Tool> {
   const tools: Record<string, Tool> = {}
 
-  if (isToolEnabled('bash', ctx.permissions)) {
+  if (isToolEnabled('bash', (ctx as any).permissions.permissions)) {
     tools.bash = createBashTool(ctx)
   }
-  if (isToolEnabled('read', ctx.permissions)) {
+  if (isToolEnabled('read', (ctx as any).permissions.permissions)) {
     tools.read = createReadTool(ctx)
   }
-  if (isToolEnabled('write', ctx.permissions)) {
+  if (isToolEnabled('write', (ctx as any).permissions.permissions)) {
     tools.write = createWriteTool(ctx)
   }
-  if (isToolEnabled('edit', ctx.permissions)) {
+  if (isToolEnabled('edit', (ctx as any).permissions.permissions)) {
     tools.edit = createEditTool(ctx)
   }
-  if (isToolEnabled('grep', ctx.permissions)) {
+  if (isToolEnabled('grep', (ctx as any).permissions.permissions)) {
     tools.grep = createGrepTool(ctx)
   }
-  if (isToolEnabled('glob', ctx.permissions)) {
+  if (isToolEnabled('glob', (ctx as any).permissions.permissions)) {
     tools.glob = createGlobTool(ctx)
   }
-  if (isToolEnabled('web', ctx.permissions)) {
+  if (isToolEnabled('web', (ctx as any).permissions.permissions)) {
     tools.web = createWebTool(ctx)
   }
-  if (ctx.skillsRegistry.all.length > 0 && isToolEnabled('skill', ctx.permissions)) {
+  if (ctx.skillsRegistry.all.length > 0 && isToolEnabled('skill', (ctx as any).permissions.permissions)) {
     tools.skill = createSkillTool(ctx)
   }
 

@@ -20,7 +20,7 @@ export function createSkillTool(ctx: ToolContext) {
       name: z.string().describe('The name of the skill to load'),
     }),
     execute: async ({ name }) => {
-      if (!isSkillAllowed(name, ctx.permissions)) {
+      if (!isSkillAllowed(name, (ctx as any).permissions.permissions)) {
         return { error: `Skill "${name}" is not permitted` }
       }
 

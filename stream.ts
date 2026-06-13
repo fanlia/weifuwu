@@ -4,7 +4,7 @@ import type { Context } from './types.ts'
 export interface StreamOpts {
   ctx: Context
   base: string
-  compiledTailwindCss?: string
+  tailwind?: { css: string; url: string }
   isDev: boolean
   status?: number
   bundle?: { url: string } | null
@@ -47,7 +47,7 @@ function getPublicEnv(): Record<string, string> {
 }
 
 function buildHeadPayload(opts: StreamOpts): string {
-  const { ctx, base, compiledTailwindCss, isDev } = opts
+  const { ctx, base, tailwind, isDev } = opts
   let result = ''
 
   if (isDev) {
@@ -67,9 +67,8 @@ function buildHeadPayload(opts: StreamOpts): string {
     result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
   }
 
-  if (compiledTailwindCss) {
-    const cssUrl = (ctx as any).tailwindCssUrl
-    if (cssUrl) result += `<link rel="stylesheet" href="${cssUrl}" />\n`
+  if (tailwind?.css) {
+    result += `<link rel="stylesheet" href="${tailwind.url}" />\n`
   }
 
   const localeData = (ctx.parsed as any)?.__localeData ?? (globalThis as any).__LOCALE_DATA__

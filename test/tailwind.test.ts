@@ -63,7 +63,7 @@ describe('tailwind', () => {
     assert.equal(typeof mw, 'function')
   })
 
-  it('tailwindContext sets compiledTailwindCss on ctx', async () => {
+  it('tailwindContext sets ctx.tailwind', async () => {
     const globalsDir = resolve(tmpDir, 'app')
     mkdirSync(globalsDir, { recursive: true })
     await writeFile(join(globalsDir, 'globals.css'), '@import "tailwindcss"\n')
@@ -73,9 +73,10 @@ describe('tailwind', () => {
     const ctx: any = { params: {}, query: {} }
     const next = () => new Response('ok')
     await mw(new Request('http://localhost/'), ctx, next)
-    assert.equal(typeof ctx.compiledTailwindCss, 'string')
-    assert.ok(ctx.compiledTailwindCss.length > 0)
-    assert.ok(ctx.tailwindCssUrl.includes('/__wfw/style/'))
+    assert.ok(ctx.tailwind)
+    assert.equal(typeof ctx.tailwind.css, 'string')
+    assert.ok(ctx.tailwind.css.length > 0)
+    assert.ok(ctx.tailwind.url.includes('/__wfw/style/'))
   })
 
   it('tailwindRouter serves CSS at generated URL', async () => {
@@ -89,7 +90,7 @@ describe('tailwind', () => {
     const ctx: any = { params: {}, query: {} }
     await mw(new Request('http://localhost/'), ctx, () => new Response('ok'))
 
-    const url = ctx.tailwindCssUrl as string
+    const url = ctx.tailwind.url as string
     const hashMatch = url.match(/\/__wfw\/style\/([a-f0-9]+)\.css/)
     assert.ok(hashMatch, `expected hash in URL: ${url}`)
 

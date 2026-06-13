@@ -304,7 +304,7 @@ function renderPage(pageFile: string): Handler {
         isDev,
         bundle,
         loaderData,
-        compiledTailwindCss: (ctx as any).compiledTailwindCss,
+        tailwind: (ctx as any).tailwind,
       })
     })
   }

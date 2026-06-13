@@ -30,7 +30,7 @@ export function errorBoundary(errorPath: string): Middleware {
         ctx: ctx as any,
         base,
         isDev: isDev(),
-        compiledTailwindCss: (ctx as any).compiledTailwindCss,
+        tailwind: (ctx as any).tailwind,
         status: 500,
       })
     }

@@ -89,7 +89,7 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
 
   // ── Middleware ──
 
-  it('injects ctx.roles and ctx.permissions for authenticated user', async () => {
+  it('injects ctx.permissions { roles, permissions } for authenticated user', async () => {
     const app = new Router()
 
     app.use((req, ctx, next) => {
@@ -100,11 +100,12 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
     app.use(perm)
 
     app.get('/test', async (req, ctx) => {
-      assert.ok(ctx.roles instanceof Set)
-      assert.ok(ctx.permissions instanceof Set)
-      assert.ok(ctx.roles.has('admin'))
-      assert.ok(ctx.roles.has('editor'))
-      assert.ok(ctx.permissions.has('posts:create'))
+      const p = (ctx as any).permissions
+      assert.ok(p.roles instanceof Set)
+      assert.ok(p.permissions instanceof Set)
+      assert.ok(p.roles.has('admin'))
+      assert.ok(p.roles.has('editor'))
+      assert.ok(p.permissions.has('posts:create'))
       return Response.json({ ok: true })
     })
 
@@ -120,8 +121,9 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
     app.use(perm)
 
     app.get('/test', async (req, ctx) => {
-      assert.equal(ctx.roles.size, 0)
-      assert.equal(ctx.permissions.size, 0)
+      const p = (ctx as any).permissions
+      assert.equal(p.roles.size, 0)
+      assert.equal(p.permissions.size, 0)
       return Response.json({ ok: true })
     })
 

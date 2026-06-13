@@ -16,7 +16,7 @@ export function createReadTool(ctx: ToolContext) {
     execute: async ({ path, offset, limit }) => {
       const resolved = resolve(ctx.workspace, path)
 
-      if (!isPathAllowed(resolved, ctx.workspace, ctx.permissions)) {
+      if (!isPathAllowed(resolved, ctx.workspace, (ctx as any).permissions.permissions)) {
         return { error: 'Path not allowed', content: null, totalLines: 0 }
       }
 

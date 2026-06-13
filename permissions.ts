@@ -21,7 +21,7 @@ export interface PermissionsOptions {
 
 export interface PermissionsModule extends Middleware {
   /**
-   * Middleware that injects `ctx.roles` and `ctx.permissions`.
+   * Middleware that injects `ctx.permissions = { roles, permissions }`.
    * Reads `ctx.user.id` to look up role assignments.
    * Must be placed after a middleware that sets `ctx.user`.
    */
@@ -42,12 +42,12 @@ export interface PermissionsModule extends Middleware {
 
   /**
    * Middleware that rejects the request if the user does not have any of the specified roles.
-   * Must be placed after `permissions()` middleware (which injects ctx.roles).
+   * Must be placed after `permissions()` middleware (which injects ctx.permissions.roles).
    */
   requireRole(...roles: string[]): Middleware
   /**
    * Middleware that rejects the request if the user does not have all specified permissions.
-   * Must be placed after `permissions()` middleware (which injects ctx.permissions).
+   * Must be placed after `permissions()` middleware (which injects ctx.permissions.permissions).
    */
   requirePermission(...permissions: string[]): Middleware
 
@@ -168,22 +168,24 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
 
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
     const userId = (ctx as any).user?.id
+    let roles = new Set<string>()
+    let perms = new Set<string>()
+
     if (userId) {
       const userRoles = await getUserRoles(userId)
       const userPerms = userId ? await getUserPermissions(userId) : []
 
-      ctx.roles = new Set(userRoles)
-      ctx.permissions = new Set(userPerms)
+      roles = new Set(userRoles)
+      perms = new Set(userPerms)
 
       // Support wildcard: role with '*' permission grants everything
       const hasWildcard = userPerms.includes('*')
       if (hasWildcard) {
-        ctx.permissions = new Set(['*'])  // marker, not exhaustive
+        perms = new Set(['*'])  // marker, not exhaustive
       }
-    } else {
-      ctx.roles = new Set<string>()
-      ctx.permissions = new Set<string>()
     }
+
+    ctx.permissions = { roles, permissions: perms }
     return next(req, ctx)
   }) as unknown as PermissionsModule
 
@@ -191,7 +193,7 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
 
   function requireRole(...roles: string[]): Middleware {
     return (req, ctx, next) => {
-      if (!ctx.roles || !roles.some(r => ctx.roles.has(r))) {
+      if (!(ctx.permissions as any)?.roles || !roles.some((r: string) => (ctx.permissions as any).roles.has(r))) {
         return Response.json(
           { error: `Forbidden: requires one of roles [${roles.join(', ')}]` },
           { status: 403 },
@@ -201,15 +203,14 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
     }
   }
 
-  function requirePermission(...permissions: string[]): Middleware {
+  function requirePermission(...perms: string[]): Middleware {
     return (req, ctx, next) => {
-      if (!ctx.permissions) {
+      const userPerms = (ctx.permissions as any)?.permissions
+      if (!userPerms) {
         return Response.json({ error: 'Forbidden: no permissions loaded' }, { status: 403 })
       }
-      // Wildcard check: '*' permission grants everything
-      if (ctx.permissions.has('*')) return next(req, ctx)
-      // Check all required permissions are present
-      const missing = permissions.filter(p => !ctx.permissions.has(p))
+      if (userPerms.has('*')) return next(req, ctx)
+      const missing = perms.filter((p: string) => !userPerms.has(p))
       if (missing.length > 0) {
         return Response.json(
           { error: `Forbidden: missing permissions [${missing.join(', ')}]` },

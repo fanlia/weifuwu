@@ -17,7 +17,7 @@ export function createEditTool(ctx: ToolContext) {
     execute: async ({ path, oldString, newString, replaceAll }) => {
       const resolved = resolve(ctx.workspace, path)
 
-      if (!isPathAllowed(resolved, ctx.workspace, ctx.permissions)) {
+      if (!isPathAllowed(resolved, ctx.workspace, (ctx as any).permissions.permissions)) {
         return { error: 'Path not allowed' }
       }
 
