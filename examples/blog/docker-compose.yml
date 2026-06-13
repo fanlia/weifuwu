@@ -1,0 +1,14 @@
+services:
+  pgvector:
+    image: pgvector/pgvector:pg18
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: blog
+      POSTGRES_PASSWORD: blogpass
+      POSTGRES_DB: blog
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
