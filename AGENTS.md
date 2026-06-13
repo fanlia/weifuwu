@@ -30,8 +30,9 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
   | `app.use(auth())` | `ctx.user` |
   | `app.use(user().middleware())` | `ctx.user` (含完整用户数据) |
   | `app.use(permissions())` | `ctx.roles`, `ctx.permissions` |
-  | `app.use(theme())` | `ctx.prefs.theme` |
-  | `app.use(i18n())` | `ctx.prefs.locale`, `ctx.t()` |
+  | `app.use(theme())` | `ctx.theme` |
+  | `app.use(i18n())` | `ctx.i18n` `{ locale, t }` |
+  | `app.use(flash())` | `ctx.parsed.flash` |
   | `ws('/chat', handler)` | `ctx.ws` (per-connection) |
 
   `ctx.ws` is the per-connection WebSocket helper: `ctx.ws.state`, `ctx.ws.json()`, `ctx.ws.join(room)`, `ctx.ws.sendRoom(room, data)`. The `ws` parameter in handlers is the standard `WebSocket` from the `ws` library — never augmented.

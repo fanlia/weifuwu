@@ -119,6 +119,8 @@ export { theme } from './theme.ts'
 export type { ThemeOptions } from './theme.ts'
 export { i18n } from './i18n.ts'
 export type { I18nOptions } from './i18n.ts'
+export { flash } from './flash.ts'
+export type { FlashOptions } from './flash.ts'
 export { seo, seoMiddleware, seoTags } from './seo.ts'
 export type {
   SeoOptions,

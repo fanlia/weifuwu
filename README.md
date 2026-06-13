@@ -1832,8 +1832,19 @@ addInterceptor(async (url) => {
 ### Flash messages
 
 ```ts
-// Server — set flash cookie on redirect, auto-cleared after first read
-return ctx.setPref('flash', JSON.stringify({ type: 'success', message: 'Done' }))  // 302 + Set-Cookie
+import { flash } from 'weifuwu'
+
+app.use(flash())
+// → ctx.parsed.flash — auto-cleared after first read
+
+// Handler — set flash via Set-Cookie
+app.post('/save', async () => {
+  return new Response('OK', {
+    headers: {
+      'Set-Cookie': `flash=${encodeURIComponent(JSON.stringify({ type: 'success', text: 'Saved!' }))}; Path=/; SameSite=Lax`,
+    },
+  })
+})
 ```
 
 ```tsx
@@ -1841,11 +1852,15 @@ return ctx.setPref('flash', JSON.stringify({ type: 'success', message: 'Done' })
 import { useFlashMessage } from 'weifuwu/react'
 
 function Toast() {
-  const flash = useFlashMessage<{ type: string; message: string }>()
+  const flash = useFlashMessage<{ type: string; text: string }>()
   if (!flash) return null
-  return <div className={`toast toast-${flash.type}`}>{flash.message}</div>
+  return <div className={`toast toast-${flash.type}`}>{flash.text}</div>
 }
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `name` | `string` | `'flash'` | Cookie name |
 
 ### Dev mode
 
@@ -1995,7 +2010,7 @@ openai, createOpenAI
 ### Other modules
 
 ```ts
-preferences, health, analytics, seo, seoMiddleware, seoTags,
+theme, i18n, flash, health, analytics, seo, seoMiddleware, seoTags,
 user, mailer, graphql, aiStream, runWorkflow, knowledgeBase, permissions, queue,
 logdb, messager, agent, iii, createWorker, registerWorker,
 opencode, deploy, defineConfig, webhook,
