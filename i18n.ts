@@ -115,6 +115,11 @@ export function i18n(options?: I18nOptions): Middleware {
       locale,
       t: (key: string, params?: Record<string, string>, fallback?: string) =>
         translate(msgs, key, params, fallback),
+      set: (value: string, loc?: string) => {
+        const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
+        const location = loc ?? req.headers.get('referer') || '/'
+        return new Response(null, { status: 302, headers: { Location: location, 'Set-Cookie': cookie } })
+      },
     }
 
     return next(req, ctx)

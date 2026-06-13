@@ -8,6 +8,14 @@ export interface ThemeOptions {
   cookie?: string
 }
 
+function makeSetTheme(cookie: string, location: string) {
+  return (value: string, loc?: string) => {
+    const finalLoc = loc ?? location
+    const c = `${cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
+    return new Response(null, { status: 302, headers: { Location: finalLoc, 'Set-Cookie': c } })
+  }
+}
+
 export function theme(options?: ThemeOptions): Middleware {
   const opts = { default: 'system', cookie: 'theme', ...options }
 
@@ -26,13 +34,15 @@ export function theme(options?: ThemeOptions): Middleware {
       return new Response(null, { status: 302, headers: { Location: referer, 'Set-Cookie': cookie } })
     }
 
-    let theme = opts.default
+    let themeValue = opts.default
     if (opts.cookie) {
       const fromCookie = getCookies(req)[opts.cookie]
-      if (fromCookie) theme = fromCookie
+      if (fromCookie) themeValue = fromCookie
     }
 
-    ctx.theme = theme
+    const themeWithSet = new String(themeValue) as any
+    themeWithSet.set = makeSetTheme(opts.cookie, req.headers.get('referer') || '/')
+    ctx.theme = themeWithSet
     return next(req, ctx)
   }
 }

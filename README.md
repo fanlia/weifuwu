@@ -1131,7 +1131,10 @@ Search options: `fields`, `limit` (20), `offset` (0), `headline` (false), `langu
 ```ts
 app.use(theme({ default: 'dark' }))
 // → ctx.theme = 'dark'
-// → GET /__theme/dark — switch theme (handled by client-side interceptor)
+// → ctx.theme.set('light', '/settings') — 302 + Set-Cookie
+
+// Client-side switching (interceptor auto-handles /__theme/:value)
+// → GET /__theme/dark — 302 + Set-Cookie
 ```
 
 | Option | Type | Default | Description |
@@ -1139,16 +1142,25 @@ app.use(theme({ default: 'dark' }))
 | `default` | `string` | `'system'` | Default theme |
 | `cookie` | `string` | `'theme'` | Cookie name (empty to disable) |
 
+```ts
+// Server-side switching
+app.post('/settings', async (req, ctx) => {
+  const { theme } = await req.json()
+  return ctx.theme.set(theme, '/settings')
+})
+```
+
 See [`useTheme()`](#usetheme) for client-side usage.
 
 ### i18n [α]
 
 ```ts
 app.use(i18n({ default: 'zh', dir: './locales' }))
-// → ctx.i18n = { locale: 'zh', t: (key) => string }
+// → ctx.i18n = { locale: 'zh', t: (key) => string, set: (locale) => Response }
 // → ctx.i18n.t('welcome') → '欢迎'
 // → ctx.i18n.locale → 'zh'
-// → GET /__lang/en — switch locale
+// → ctx.i18n.set('en', '/settings') — 302 + Set-Cookie
+// → GET /__lang/en — switch locale (client-side interceptor)
 ```
 
 | Option | Type | Default | Description |
