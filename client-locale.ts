@@ -19,8 +19,17 @@ function buildT(): (key: string, params?: Record<string, string>, fallback?: str
 addInterceptor(async (url) => {
   const m = url.pathname.match(/^\/__lang\/([\w-]+)$/)
   if (!m) return false
-  // Full page reload — SSR 重新渲染页面，避免客户端 context 同步问题
-  location.href = url.href
+  try {
+    const res = await fetch(url.pathname, {
+      headers: { accept: 'application/json' },
+    })
+    const data = await res.json()
+    if (data.messages) (window as any).__LOCALE_DATA__ = data.messages
+    ;(window as any).__WEIFUWU_CTX = { ...(window as any).__WEIFUWU_CTX, i18n: { locale: data.locale, t: buildT() } }
+    setCtx({ i18n: { locale: data.locale, t: buildT() } } as any)
+  } catch {
+    location.href = url.href
+  }
   return true
 })
 
