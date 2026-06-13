@@ -699,6 +699,64 @@ await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'
 
 
 
+### knowledgeBase [β] — RAG with pgvector
+
+```ts
+import { knowledgeBase } from 'weifuwu'
+import { embed } from 'ai'
+
+const kb = knowledgeBase({
+  sql: ctx.sql,
+  embedding: (text) =>
+    embed({ model: openai.embedding('text-embedding-3-small'), value: text })
+      .then(r => r.embedding),
+  dimensions: 1536,
+})
+
+// Create table + HNSW index (safe to call multiple times)
+await kb.migrate()
+
+// Ingest a document (auto chunk → embed → store)
+await kb.ingest('docs/intro.md', `# Welcome\n\nThis is the introduction...`, {
+  title: 'Introduction',
+  metadata: { source: 'docs', author: 'alice' },
+})
+
+// Semantic search
+const results = await kb.search('how to get started?', { limit: 5 })
+// → [{ key, title, content, score: 0.92, metadata }, ...]
+
+// Delete
+await kb.delete('docs/outdated.md')
+
+// List all documents
+const entries = await kb.list()
+// → [{ key, title, chunks: 3 }, ...]
+
+// Use as middleware (injects ctx.kb.search)
+app.use(kb.middleware())
+app.get('/search', async (req, ctx) => {
+  const results = await ctx.kb.search(ctx.query.q)
+  return Response.json(results)
+})
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sql` | `Sql<{}>` | — | **Required.** Postgres client with pgvector |
+| `embedding` | `(text) => Promise<number[]>` | — | **Required.** Embedding function |
+| `dimensions` | `number` | `1536` | Vector dimensions |
+| `table` | `string` | `'_kb_docs'` | Database table name |
+| `chunkSize` | `number` | `512` | Max characters per chunk |
+| `chunkOverlap` | `number` | `64` | Overlap between chunks |
+| `searchLimit` | `number` | `5` | Default search result count |
+| `searchThreshold` | `number` | `0` | Minimum similarity (0–1) |
+
+Documents are split on paragraph boundaries (`\n\n`). Re-ingesting the same key
+replaces old chunks. The HNSW index enables fast approximate nearest-neighbor
+search (cosine distance).
+
+
 ### logdb [β]
 
 PostgreSQL structured event logging with monthly partitioning.
