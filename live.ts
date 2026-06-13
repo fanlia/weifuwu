@@ -6,7 +6,6 @@ import { Router } from './router.ts'
 import type { WebSocketHandler } from './router.ts'
 import { compileTsxDev, compileHotComponent, compileVendorBundle, clearCompileCache, id } from './compile.ts'
 import { compileTailwindCss } from './tailwind.ts'
-import { markClientBundleDirty } from './ssr.ts'
 import { ssrEntries } from './ssr-entries.ts'
 
 const clients = new Set<WebSocket>()
@@ -104,7 +103,6 @@ export function liveWatcher(dir: string): { close: () => void } {
         return broadcastReload()
       }
       clearCompileCache()
-      markClientBundleDirty()
       const targets = existsSync(entryPath)
         ? [entryPath]
         : findEntries(resolve(filePath))

@@ -7,7 +7,6 @@ export interface StreamOpts {
   tailwind?: { css: string; url: string }
   isDev: boolean
   status?: number
-  bundle?: { url: string } | null
   loaderData?: Record<string, unknown>
 }
 
@@ -103,15 +102,13 @@ function buildHeadPayload(opts: StreamOpts): string {
   return result
 }
 
-function buildBodyScripts(opts: StreamOpts): string {
+function buildBodyScripts(opts: StreamOpts, hydrationScript?: string): string {
   const parts: string[] = []
-  if (opts.bundle) {
-    parts.push(`<script type="module" src="${opts.base}${opts.bundle.url}"><\/script>`)
-  }
+  if (hydrationScript) parts.push(hydrationScript)
   return parts.join('\n')
 }
 
-export function streamResponse(reactStream: ReadableStream, opts: StreamOpts): Response {
+export function streamResponse(reactStream: ReadableStream, opts: StreamOpts, hydrationScript?: string): Response {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
 
@@ -149,7 +146,7 @@ export function streamResponse(reactStream: ReadableStream, opts: StreamOpts): R
 
         // 4. Build body scripts and inject before </body>
         let bodyScripts = ''
-        const built = buildBodyScripts(opts)
+        const built = buildBodyScripts(opts, hydrationScript)
         if (built) bodyScripts += built
 
         if (opts.isDev) {
@@ -163,8 +160,7 @@ ws.onmessage=function(e){
   try{
     var m=JSON.parse(e.data);
     if(m.type==='component'){
-      if(m.entry&&m.entry!==window.__WFW_ENTRY)return;
-      import('${hbUrl}'+m.hash+'?'+Date.now()).catch(function(){location.reload()});
+      import('${hbUrl}'+m.hash+'?t='+Date.now()).catch(function(){location.reload()});
       if(m.css){
         var s=document.querySelector('style[data-lr]')||function(){
           var x=document.createElement('style');

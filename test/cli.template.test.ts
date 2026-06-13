@@ -50,18 +50,17 @@ describe('template app', () => {
       new Request('http://localhost/'),
       { params: {}, query: {} } as any,
     )
-    const m = res1.text().then(h => h.match(/src="(\/__ssr\/[^"]+)"/))
-    const src = await m
-    assert.ok(src, 'hydration script src found')
+    const m = await res1.text().then(h => h.match(/\/__ssr\/([a-f0-9]+)\.js/))
+    assert.ok(m, 'expected __ssr/[hash].js in HTML')
 
     const res2 = await app.handler()(
-      new Request(`http://localhost${src![1]}`),
+      new Request(`http://localhost/__ssr/${m![1]}.js`),
       { params: {}, query: {} } as any,
     )
     assert.equal(res2.status, 200)
     assert.match(res2.headers.get('content-type') || '', /application\/javascript/)
     const js = await res2.text()
-    assert.match(js, /(createRoot|hydrateRoot)/)
+    assert.match(js, /React|createElement|export/)
   })
 
   it('GET /api/ping returns JSON', async () => {

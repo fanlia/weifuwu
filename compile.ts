@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 const _cjsRequire = createRequire(import.meta.url)
 let _userRequire: ReturnType<typeof createRequire> | null = null
 
-const OUT_DIR = '.weifuwu/ssr'
+export const OUT_DIR = '.weifuwu/ssr'
 const cache = new Map<string, any>()
 
 const externals = [
@@ -170,6 +170,48 @@ export async function compileVendorBundle(): Promise<string> {
   })
   vendorBundle = new TextDecoder().decode(result.outputFiles[0].contents)
   return vendorBundle
+}
+
+/** Compile page component for browser (served at /__ssr/[hash].js).
+ *  The weifuwu source modules are externalized — they come from the vendor
+ *  bundle at runtime via importmap, ensuring store is shared. */
+export async function compileBrowser(path: string, outDir?: string): Promise<string> {
+  const absPath = resolve(path)
+  const h = id(absPath)
+  outDir = outDir ?? resolve(OUT_DIR)
+  mkdirSync(outDir, { recursive: true })
+
+  // Map weifuwu source paths to weifuwu/react (external) so they are not inlined
+  const wfwDir = resolve(import.meta.dirname ?? __dirname)
+  const plugin: esbuild.Plugin = {
+    name: 'wfw-external',
+    setup(build) {
+      build.onResolve({ filter: /./ }, (args) => {
+        if (args.kind === 'entry-point') return
+        const abs = args.path.startsWith('.') ? join(args.resolveDir, args.path) : args.path
+        // If it's a weifuwu source file (not node_modules), make it external
+        if (abs.startsWith(wfwDir) && !abs.includes('node_modules')) {
+          return { path: 'weifuwu/react', external: true }
+        }
+      })
+    },
+  }
+
+  await esbuild.build({
+    entryPoints: { [h]: absPath },
+    outdir: outDir,
+    format: 'esm',
+    platform: 'browser',
+    jsx: 'automatic',
+    jsxImportSource: 'react',
+    bundle: true,
+    external: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu', 'weifuwu/react'],
+    plugins: [plugin],
+    write: true,
+    allowOverwrite: true,
+  })
+
+  return h
 }
 
 /** Hot-reload: ESM bundle, calls __WFW_REFRESH on import */

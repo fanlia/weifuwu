@@ -38,17 +38,18 @@ describe('ssr({dir})', () => {
       { params: {}, query: {} } as any,
     )
     const html = await res1.text()
-    const match = html.match(/src="(\/__ssr\/[^"]+)"/)
-    assert.ok(match, 'expected hydration script src in HTML')
+    // New format: inline <script type="module"> with dynamic import
+    const match = html.match(/\/__ssr\/([a-f0-9]+)\.js/)
+    assert.ok(match, 'expected __ssr/[hash].js in HTML')
 
-    const bundleKey = match![1]
+    const bundleKey = '/__ssr/' + match![1] + '.js'
     const res2 = await app.handler()(
       new Request(`http://localhost${bundleKey}`),
       { params: {}, query: {} } as any,
     )
     assert.equal(res2.status, 200)
     const js = await res2.text()
-    assert.match(js, /(createRoot|hydrateRoot)/)
+    assert.match(js, /React|createElement|export/)
   })
 
   it('passes ctx data via loaderData', async () => {

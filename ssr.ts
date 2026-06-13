@@ -1,10 +1,10 @@
 import { createElement } from 'react'
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { dirname, join, resolve, relative } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { compile } from './compile.ts'
+import { compile, compileBrowser, OUT_DIR } from './compile.ts'
 import { streamResponse } from './stream.ts'
 import type { PageContext } from './tsx-context.ts'
 import { TsxContext, setCtx, __registerAls } from './tsx-context.ts'
@@ -12,7 +12,7 @@ import { Router } from './router.ts'
 import { ssrEntries } from './ssr-entries.ts'
 import { isDev as _isDev } from './env.ts'
 import { tailwindContext, tailwindRouter } from './tailwind.ts'
-import { liveRouter, liveWatcher, liveWs } from './live.ts'
+import { liveRouter, liveWs } from './live.ts'
 import { layout } from './layout.ts'
 import { notFound } from './not-found.ts'
 import { errorBoundary } from './error-boundary.ts'
@@ -24,22 +24,7 @@ const isDev = _isDev()
 const als = new AsyncLocalStorage<PageContext>()
 __registerAls(() => als.getStore())
 
-const bundleCache = new Map<string, Uint8Array>()
-let _bundleDirty = false
 
-export function markClientBundleDirty() {
-  _bundleDirty = true
-}
-
-function getBundle(key: string): Uint8Array | undefined {
-  if (_bundleDirty) { bundleCache.clear(); _bundleDirty = false }
-  return bundleCache.get(key)
-}
-
-function setBundle(key: string, buf: Uint8Array) {
-  if (_bundleDirty) { bundleCache.clear(); _bundleDirty = false }
-  bundleCache.set(key, buf)
-}
 
 function hashId(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
@@ -181,61 +166,45 @@ export function clearRouteCache(cache: Map<string, ResolvedRoute | null>) {
   cache.clear()
 }
 
-// ── Hydration bundle builder ────────────────────────────────────────────
+// ── Hydration script builder (inline <script type="module">) ────────────
 
-async function buildClientBundle(
-  entryPath: string,
-  layoutPaths: string[],
-): Promise<Uint8Array | null> {
-  try {
-    const absEntry = resolve(entryPath)
-    const absLayouts = layoutPaths.map(p => resolve(p))
-    const layoutImports = absLayouts.map(p => `import${JSON.stringify(p)};`).join('')
-    const _sc = `(function(){var k='__WEIFUWU_CTX_STORE';var s=typeof globalThis!='undefined'&&globalThis[k];if(!s)return function(){};return function(v){for(var r of(s._rebuilders||[])){var b=r(v);if(b)Object.assign(v,b)}s._ctx={...s._ctx,...v};s._snapshot={params:s._ctx.params,query:s._ctx.query,user:s._ctx.user,parsed:s._ctx.parsed,theme:s._ctx.theme,i18n:s._ctx.i18n,flash:s._ctx.flash,loaderData:s._ctx.loaderData,env:s._ctx.env};s._listeners.forEach(function(fn){fn()})}})()`
-    const code = [
-      layoutImports,
-      `${isDev ? "import{createRoot}from'react-dom/client';" : "import{hydrateRoot}from'react-dom/client';"}`,
-      `import{createElement}from'react';`,
-      `import{TsxContext}from'weifuwu/react';`,
-      `import P from${JSON.stringify(absEntry)};`,
-      `var setCtx=${_sc};`,
-      `if(window.__WEIFUWU_CTX)setCtx(window.__WEIFUWU_CTX);`,
-      `const c=document.getElementById('__weifuwu_root');`,
-      
-      isDev ? `const _W=function(props){return(_W._fn||P)(props)};_W._fn=P;const _P=function(props){return createElement(_W,props)};` : '',
-      isDev ? `window.__WFW_ENTRY=${JSON.stringify(hashId(absEntry))};window.__WFW_REFRESH=function(n){_W._fn=n;window.__WFW_ROOT.render(createElement(App))};` : '',
-      `function App(){`,
-      `const ctx=window.__WEIFUWU_CTX||{};`,
-      `return createElement(TsxContext.Provider,{value:ctx},`,
-      isDev ? `createElement(_P,null))` : `createElement(P,null))`,
-      `}`,
-      isDev ? `window.__WFW_ROOT=createRoot(c);window.__WFW_ROOT.render(createElement(App));` : `hydrateRoot(c,createElement(App));`,
-    ].filter(Boolean).join('')
+function buildHydrationScript(entryId: string, ctxJson: string, base: string): string {
+  const ssrPrefix = `${base}/__ssr`
+  return `
+<script type="module">
+import { setCtx, TsxContext } from 'weifuwu/react';
+import { createElement } from 'react';
+import { hydrateRoot, createRoot } from 'react-dom/client';
 
-    const { default: esbuild } = await import('esbuild')
-    const result = await esbuild.build({
-      stdin: { contents: code, loader: 'tsx', resolveDir: dirname(absEntry) },
-      bundle: true,
-      format: 'esm',
-      jsx: 'automatic',
-      jsxImportSource: 'react',
-      banner: { js: 'self.process={env:{}};' },
-      loader: { '.node': 'empty' },
-      external: isDev ? ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'weifuwu', 'weifuwu/react'] : undefined,
-      write: false,
-      minify: !isDev,
-    })
+const _ctx = ${ctxJson};
+setCtx(_ctx);
 
-    return result.outputFiles[0].contents
-  } catch (err) {
-    console.error('hydration bundle failed:', err)
-    return null
-  }
+const _root = document.getElementById('__weifuwu_root');
+
+async function init() {
+  const { default: Page } = await import('${ssrPrefix}/${entryId}.js');
+  const app = createElement(TsxContext.Provider, { value: _ctx },
+    createElement(Page));
+  ${isDev ? `
+  const reactRoot = createRoot(_root);
+  reactRoot.render(app);
+  window.__WFW_REFRESH = async (NewComponent) => {
+    const store = globalThis.__WEIFUWU_CTX_STORE?._ctx || _ctx;
+    reactRoot.render(createElement(TsxContext.Provider, { value: store },
+      createElement(NewComponent)));
+  };
+  ` : `
+  hydrateRoot(_root, app);
+  `}
+}
+
+init();
+</script>`
 }
 
 // ── Page renderer ───────────────────────────────────────────────────────
 
-function renderPage(pageFile: string): Handler {
+function renderPage(pageFile: string, outDir: string): Handler {
   const absPath = resolve(pageFile)
   const entryId = hashId(absPath)
   ssrEntries.set(entryId, { path: absPath })
@@ -276,9 +245,9 @@ function renderPage(pageFile: string): Handler {
 
     return als.run(ctxValue, async () => {
       setCtx(ctxValue)
-      if (ctxValue.parsed?.__localeData) {
-        (globalThis as any).__LOCALE_DATA__ = ctxValue.parsed.__localeData
-      }
+
+      // Compile page component for browser (served at /__ssr/[hash].js)
+      await compileBrowser(absPath, outDir)
 
       let element: any = createElement('div', { id: '__weifuwu_root' },
         createElement(TsxContext.Provider, { value: ctxValue },
@@ -288,25 +257,15 @@ function renderPage(pageFile: string): Handler {
 
       element = buildHtmlShell('weifuwu', element, layoutComponents)
 
-      let bundle: { url: string } | null = null
-      if (!getBundle(bundleKey)) {
-        const buf = await buildClientBundle(absPath, layoutPaths)
-        if (buf) setBundle(bundleKey, buf)
-      }
-      if (getBundle(bundleKey)) {
-        bundle = { url: bundleKey }
-      }
-
       const { renderToReadableStream } = await import('react-dom/server')
       const stream = await renderToReadableStream(element)
       return streamResponse(stream, {
         ctx: ctx as any,
         base,
         isDev,
-        bundle,
         loaderData,
         tailwind: (ctx as any).tailwind,
-      })
+      }, buildHydrationScript(entryId, JSON.stringify(ctxValue), base))
     })
   }
 }
@@ -367,13 +326,17 @@ function discoverRoutes(dir: string): RouteEntry[] {
 export function ssr(opts: { dir: string }): Router & { close?: () => void; pages?: () => RouteEntry[] } {
   const r = new Router()
   const dir = resolve(opts.dir)
+  const outDir = resolve(OUT_DIR)
   const routeCache = new Map<string, ResolvedRoute | null>()
 
-  // Infrastructure routes
-  r.get('/__ssr/:path', (req, ctx) => {
-    const buf = getBundle('/__ssr/' + ctx.params.path)
-    if (!buf) return new Response('', { status: 404 })
-    return new Response(buf as BodyInit, {
+  // Serve browser-compiled page components
+  r.get('/__ssr/:file', (req, ctx) => {
+    const filePath = join(outDir, ctx.params.file)
+    if (!filePath.startsWith(outDir) || !existsSync(filePath)) {
+      return new Response('Not Found', { status: 404 })
+    }
+    const content = readFileSync(filePath, 'utf-8')
+    return new Response(content, {
       headers: { 'content-type': 'application/javascript; charset=utf-8' },
     })
   })
@@ -409,7 +372,7 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void; pages
       tailwindContext(dir),
     ]
 
-    const handler: Handler = (req, ctx) => renderPage(resolved.pageFile)(req, ctx)
+    const handler: Handler = (req, ctx) => renderPage(resolved.pageFile, outDir)(req, ctx)
     return runChain(mws, handler, req, ctx)
   })
 
