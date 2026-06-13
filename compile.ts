@@ -139,9 +139,19 @@ export async function compileVendorBundle(): Promise<string> {
     modules[request] = keys
   }
 
-  // weifuwu/react is already ESM — import * as + re-export works
-  const wfwMod = _userRequire('weifuwu/react')
-  const wfwKeys = Object.keys(wfwMod).filter(k => !k.startsWith('_') && k !== 'default')
+  // Read react.ts source to get exported names (avoids CJS require of ESM dist)
+  const reactTsPath = resolve(import.meta.dirname ?? __dirname, 'react.ts')
+  const reactSrc = readFileSync(reactTsPath, 'utf-8')
+  const wfwKeys: string[] = []
+  for (const line of reactSrc.split('\n')) {
+    const m = line.match(/^export\s+\{[^}]+\}\s*from/)
+    if (m) {
+      const names = line.slice(line.indexOf('{') + 1, line.indexOf('}')).split(',').map(s => s.trim()).filter(Boolean)
+      for (const n of names) {
+        if (!n.startsWith('type ') && !wfwKeys.includes(n)) wfwKeys.push(n)
+      }
+    }
+  }
 
   const used = new Set<string>()
   const stmts = ['']
@@ -150,7 +160,7 @@ export async function compileVendorBundle(): Promise<string> {
     if (unique.length > 0) stmts.push(`export { ${unique.join(', ')} } from ${JSON.stringify(request)};`)
   }
   const uidWfw = wfwKeys.filter(k => !used.has(k) && used.add(k))
-  if (uidWfw.length > 0) stmts.push(`export { ${uidWfw.join(', ')} } from 'weifuwu/react';`)
+  if (uidWfw.length > 0) stmts.push(`export { ${uidWfw.join(', ')} } from ${JSON.stringify(reactTsPath)};`)
 
   const result = await esbuild.build({
     stdin: { contents: stmts.join('\n'), resolveDir: process.cwd() },
