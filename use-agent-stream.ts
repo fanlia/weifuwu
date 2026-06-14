@@ -53,7 +53,7 @@ export interface UseAgentStreamReturn {
  * ```
  */
 export function useAgentStream(opts: UseAgentStreamOptions): UseAgentStreamReturn {
-  const { wsPath, channelId, onStreamEnd, onError } = opts
+  const { wsPath, onStreamEnd, onError } = opts
 
   const [streams, setStreams] = useState<Record<number, string>>({})
   const activeRef = useRef<Set<number>>(new Set())

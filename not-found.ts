@@ -6,7 +6,7 @@ import { streamResponse } from './stream.ts'
 import { buildHtmlShell } from './html-shell.ts'
 
 export function notFound(path?: string): Handler {
-  return async (req, ctx) => {
+  return async (_req, ctx) => {
     if (!path) return new Response('Not Found', { status: 404 })
 
     let Component: any
