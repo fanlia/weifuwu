@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Sql } from '../../vendor.ts'
 import { ColumnBuilder, toDDL, type PartitionByDef } from './columns.ts'
 import { SQL } from './sql.ts'

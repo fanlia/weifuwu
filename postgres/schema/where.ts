@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SQL } from './sql.ts'
 
 function op(col: string, sqlOp: string, val: unknown): SQL {

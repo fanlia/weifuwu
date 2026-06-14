@@ -1,4 +1,5 @@
 import type { PostgresClient } from './types.ts'
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import type { Sql } from '../vendor.ts'
 import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'
 import type { Closeable } from '../types.ts'
@@ -16,6 +17,7 @@ export class PgModule implements Closeable {
     tableOrSchema: string | Table<R>,
     builders?: { [K in keyof R]: ColumnBuilder<R[K]> },
   ): BoundTable<R> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.pg.table(tableOrSchema as any, builders as any)
   }
 
