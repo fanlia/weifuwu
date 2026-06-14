@@ -6,7 +6,7 @@ export default function Home() {
   const [input, setInput] = useState('')
   const { send, lastMessage, readyState } = useWebsocket('/ws/echo')
   const { locale, t, setLocale } = useLocale()
-  const { theme, resolvedTheme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   const ld = useLoaderData<{ features?: { title: string; desc: string }[] }>()
 
   return (
