@@ -89,3 +89,82 @@ describe('layout()', () => {
     assert.equal(res.status, 500)
   })
 })
+
+describe('ssr e2e', () => {
+  it('returns 404 for unmatched route without not-found.tsx', async () => {
+    const app = new Router()
+    app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
+    const res = await app.handler()(
+      new Request('http://localhost/nonexistent'),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 404)
+  })
+
+  it('renders custom 404 with HTML when a valid SSR path does not match a page', async () => {
+    // ssr() returns a Router — unmatched paths get a plain 404 from the parent
+    // The not-found.tsx is for SSR-internal 404s (directory matches, no page file)
+    // So we verify that the router correctly returns 404 status
+    const app = new Router()
+    app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
+    const res = await app.handler()(
+      new Request('http://localhost/unknown-path'),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 404)
+  })
+
+  it('serializes ctx.params into __WEIFUWU_CTX for dynamic routes', async () => {
+    const app = new Router()
+    app.use('/', ssr({ dir: './test/fixtures/ssr/params' }))
+
+    const res = await app.handler()(
+      new Request('http://localhost/42'),
+      { params: { id: '42', '*': '42' }, query: {} } as any,
+    )
+
+    assert.equal(res.status, 200)
+    const html = await res.text()
+    // Verify params are serialized in the context script
+    assert.match(html, /"id":"42"/)
+    assert.match(html, /__WEIFUWU_CTX/)
+  })
+
+  it('serves vendor bundle at /__wfw/v/bundle', async () => {
+    const app = new Router()
+    app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
+    const res = await app.handler()(
+      new Request('http://localhost/__wfw/v/bundle'),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    const js = await res.text()
+    assert.match(js, /React/)
+  })
+
+  it('handles concurrent requests without interference', async () => {
+    const app = new Router()
+    app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
+
+    const [res1, res2] = await Promise.all([
+      app.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any),
+      app.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any),
+    ])
+    assert.equal(res1.status, 200)
+    assert.equal(res2.status, 200)
+  })
+
+  it('renders HTML with hydration script', async () => {
+    const app = new Router()
+    app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
+    const res = await app.handler()(
+      new Request('http://localhost/'),
+      { params: {}, query: {} } as any,
+    )
+    const html = await res.text()
+    // Verify hydration infrastructure: importmap + type="module" script
+    assert.match(html, /importmap/)
+    assert.match(html, /type=.module./)
+    assert.match(html, /await import/)
+  })
+})

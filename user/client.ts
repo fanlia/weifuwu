@@ -1,5 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
-import jwt from 'jsonwebtoken'
+import jwt, { type SignOptions } from 'jsonwebtoken'
 import { z } from 'zod'
 import type { Middleware, Context } from '../types.ts'
 import { Router } from '../router.ts'
@@ -189,7 +189,7 @@ export function user(options: UserOptions): UserModule {
     return jwt.sign(
       { sub: user.id, email: user.email, role: user.role },
       secret!,
-      { expiresIn } as any,
+      { expiresIn } as SignOptions,
     )
   }
 
@@ -254,7 +254,7 @@ export function user(options: UserOptions): UserModule {
 
   async function verify(token: string): Promise<Omit<UserData, 'password'> | null> {
     try {
-      const payload = jwt.verify(token, secret!) as any
+      const payload = jwt.verify(token, secret!) as { sub: string; email?: string; role?: string; token_type?: string }
       if (payload.token_type === 'client_credentials') return null
       if (!hasDb || !findById) return null
       const row = await findById(payload.sub)
@@ -364,7 +364,7 @@ export function user(options: UserOptions): UserModule {
     // ── Strategy 5: JWT-based auth (requires jwtSecret + DB) ───────
     if (secret && hasDb) {
       try {
-        const payload = jwt.verify(token, secret) as any
+        const payload = jwt.verify(token, secret) as { sub: string; email?: string; role?: string; token_type?: string }
         if (payload.token_type === 'client_credentials') return null
         const row = await findById(payload.sub)
         if (row) return stripPassword(row)

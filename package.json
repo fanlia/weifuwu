@@ -24,7 +24,9 @@
     "start": "cd cli/template && node index.ts",
     "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external --define:__WFW_BUNDLED__=true && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external && esbuild react.ts --bundle --format=esm --outfile=dist/react.js --external:react --external:react-dom",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
+    "typecheck": "tsc --noEmit",
     "test": "node --test 'test/**/*.test.ts'",
+    "test:coverage": "node --experimental-test-coverage --test 'test/**/*.test.ts'",
     "test:unit": "bash scripts/test-unit.sh",
     "test:ci": "node --test 'test/**/*.test.ts'"
   },
@@ -48,16 +50,12 @@
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
-  "type": "module",
-  "license": "MIT",
   "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.0.0",
-    "@types/nodemailer": "^8.0.0",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/nodemailer": "^6.4.17",
     "@types/ws": "^8.18.1",
     "happy-dom": "^20.10.3",
-    "typescript": "^6.0.3"
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.0.0"
   }
 }

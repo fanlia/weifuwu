@@ -13,6 +13,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     services:
       postgres:
@@ -60,19 +61,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Run all tests
         run: npm test
-        env:
-          TEST_DATABASE_URL: postgres://root:123456@localhost:5432/demo
-          REDIS_URL: redis://localhost:6379
-          S3_ENDPOINT: http://localhost:9000
-          S3_REGION: us-east-1
-          S3_ACCESS_KEY_ID: minioadmin
-          S3_SECRET_ACCESS_KEY: minioadmin
