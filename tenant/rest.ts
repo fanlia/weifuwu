@@ -4,15 +4,15 @@ import type { Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { FieldDef, UserTableRow } from './types.ts'
 import {
-  internalTableName, validateSlug, validateFieldDefs, pascalCase, getRelationFields, findRelation,
+  internalTableName, validateSlug, validateFieldDefs, getRelationFields, findRelation,
 } from './utils.ts'
 import { createTableSQL, addColumnSQL, dropTableSQL, createIndexesSQL } from './schema.ts'
 
 // ── Type-safe helpers for dynamic-table patterns ───────────────────────────
 
 /** Extract user ID from context (user middleware may or may not be present). */
-function userId(ctx: Context): number | undefined {
-  return ((ctx as Context & { user?: { id?: number } }).user?.id)
+function userId(ctx: Context): number | null {
+  return ((ctx as Context & { user?: { id?: number } }).user?.id) ?? null
 }
 
 /** Extract typed `count` from a SQL count result row. */
@@ -26,8 +26,8 @@ function asJson<T>(val: T): T {
 }
 
 /** Cast a table name for use with `sql()` tag (dynamic names can't be typed). */
-function tableRef(name: string): ReturnType<typeof sql> {
-  return sql(name) as unknown as ReturnType<typeof sql>
+function tableRef(s: Sql<{}>, name: string) {
+  return (s as any)(name)
 }
 
 /** Add tenant_id to a parsed record before insert. */
@@ -107,7 +107,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     `
     await sql`
       INSERT INTO "_tenant_members" ("tenant_id", "user_id", "role")
-      VALUES (${(tenant as Record<string, unknown>).id}, ${userId(ctx)}, 'admin')
+      VALUES (${(tenant as Record<string, unknown>).id as number}, ${userId(ctx)}, 'admin')
     `
     return Response.json(tenant, { status: 201 })
   })
@@ -126,17 +126,17 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     if (err) return err
     const { email, role = 'member' } = await req.json() as { email: string; role?: string }
     const [user] = await sql`
-      SELECT id FROM ${tableRef(usersTable)} WHERE "email" = ${email} LIMIT 1
+      SELECT id FROM ${tableRef(sql, usersTable)} WHERE "email" = ${email} LIMIT 1
     `
     if (!user) return Response.json({ error: 'User not found' }, { status: 404 })
     const [existing] = await sql`
       SELECT id FROM "_tenant_members"
-      WHERE tenant_id = ${ctx.tenant!.id} AND user_id = ${(user as Record<string, unknown>).id} LIMIT 1
+      WHERE tenant_id = ${ctx.tenant!.id} AND user_id = ${(user as Record<string, unknown>).id as number} LIMIT 1
     `
     if (existing) return Response.json({ error: 'Already a member' }, { status: 409 })
     await sql`
       INSERT INTO "_tenant_members" ("tenant_id", "user_id", "role")
-      VALUES (${ctx.tenant!.id}, ${(user as Record<string, unknown>).id}, ${role})
+      VALUES (${ctx.tenant!.id}, ${(user as Record<string, unknown>).id as number}, ${role})
     `
     return Response.json({ ok: true }, { status: 201 })
   })
@@ -178,7 +178,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
 
     const [row] = await sql`
       INSERT INTO "_user_tables" ("tenant_id", "slug", "label", "fields")
-      VALUES (${ctx.tenant!.id}, ${body.slug}, ${body.label || ''}, ${asJson(body.fields)})
+      VALUES (${ctx.tenant!.id}, ${body.slug}, ${body.label || ''}, ${asJson(body.fields) as any})
       RETURNING *
     `
     return Response.json(row, { status: 201 })
@@ -218,7 +218,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     const merged = [...table.fields, ...newFields]
     await sql`
       UPDATE "_user_tables"
-      SET fields = ${asJson(merged)}
+      SET fields = ${asJson(merged) as any}
       WHERE id = ${table.id}
     `
     return Response.json({ ...table, fields: merged })
@@ -309,7 +309,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     delete parsed.id
 
     const name = internalName(ctx)
-    const [row] = await sql`INSERT INTO ${tableRef(name)} ${sql(parsed as Record<string, unknown>)} RETURNING *`
+    const [row] = await sql`INSERT INTO ${tableRef(sql, name)} ${sql(parsed as Record<string, unknown>)} RETURNING *`
     return Response.json(row, { status: 201 })
   })
 
@@ -319,7 +319,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
 
     const name = internalName(ctx)
     const [row] = await sql`
-      SELECT * FROM ${tableRef(name)}
+      SELECT * FROM ${tableRef(sql, name)}
       WHERE id = ${parseInt(ctx.params.id, 10)} AND tenant_id = ${ctx.tenant!.id}
       LIMIT 1
     `
@@ -343,7 +343,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     if (Object.keys(parsed).length === 0) {
       const name = internalName(ctx)
       const [row] = await sql`
-        SELECT * FROM ${tableRef(name)}
+        SELECT * FROM ${tableRef(sql, name)}
         WHERE id = ${parseInt(ctx.params.id, 10)} AND tenant_id = ${ctx.tenant!.id}
         LIMIT 1
       `
@@ -352,7 +352,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
 
     const name = internalName(ctx)
     const [row] = await sql`
-      UPDATE ${tableRef(name)} SET ${sql(parsed as Record<string, unknown>)}
+      UPDATE ${tableRef(sql, name)} SET ${sql(parsed as Record<string, unknown>)}
       WHERE id = ${parseInt(ctx.params.id, 10)} AND tenant_id = ${ctx.tenant!.id}
       RETURNING *
     `
@@ -363,7 +363,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   r.delete('/:_slug/:id', async (_req: Request, ctx: Context) => {
     const name = internalName(ctx)
     const result = await sql`
-      DELETE FROM ${tableRef(name)}
+      DELETE FROM ${tableRef(sql, name)}
       WHERE id = ${parseInt(ctx.params.id, 10)} AND tenant_id = ${ctx.tenant!.id}
       RETURNING 1
     `
@@ -450,7 +450,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     ;(parsed as Record<string, unknown>)[relField.name] = parentId
     delete parsed.id
 
-    const [row] = await sql`INSERT INTO ${tableRef(childName)} ${sql(parsed as Record<string, unknown>)} RETURNING *`
+    const [row] = await sql`INSERT INTO ${tableRef(sql, childName)} ${sql(parsed as Record<string, unknown>)} RETURNING *`
     return Response.json(row, { status: 201 })
   }
 

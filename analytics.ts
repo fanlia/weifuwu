@@ -1,4 +1,4 @@
-import type { Context, Handler, Middleware, Closeable } from './types.ts'
+import type { Handler, Middleware, Closeable } from './types.ts'
 import { text, integer } from './postgres/schema/columns.ts'
 import { Router } from './router.ts'
 
@@ -294,7 +294,7 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
   }
 
   const close = async () => {
-    if (store) store.stopCleanup()
+    store?.stopCleanup()
   }
 
   const mod = r as AnalyticsModule

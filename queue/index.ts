@@ -42,7 +42,7 @@ function createMemoryQueue(opts?: QueueOptions): Queue {
   const handlers = new Map<string, (job: any) => Promise<void>>()
   const pending: QueueJob[] = []
   const failed: QueueJobWithError[] = []
-  const MAX_FAILED = 1000
+  // const MAX_FAILED = 1000
   let running = false
   let pollTimer: ReturnType<typeof setTimeout> | null = null
   let _processed = 0
@@ -136,7 +136,7 @@ function createPgQueue(opts?: QueueOptions): Queue {
   let running = false, pollTimer: ReturnType<typeof setTimeout> | null = null
   let _processed = 0, _failed = 0, inflight = 0, ready = false
   const MAX_CONCURRENT = 16
-  const MAX_FAILED = 1000
+  // const MAX_FAILED = 1000
 
   async function ensureTable(): Promise<void> {
     if (ready) return

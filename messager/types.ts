@@ -2,6 +2,7 @@ import type { Router } from '../router.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 import type { Redis } from '../vendor.ts'
+import type { Closeable } from '../types.ts'
 
 export interface MessagerOptions {
   pg: PostgresClient

@@ -1,4 +1,4 @@
-import { createGzip, createBrotliCompress, createDeflate, constants, brotliCompress, gzip, deflate } from 'node:zlib'
+import { constants, brotliCompress, gzip, deflate } from 'node:zlib'
 import { promisify } from 'node:util'
 import type { Middleware } from './types.ts'
 

@@ -68,7 +68,7 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
       if (other.id === table.id) continue
       const relField = findRelation(other.fields, table.slug)
       if (relField) {
-        const otherName = pascalCase(other.slug)
+        
         fields[other.slug] = {
           type: new GraphQLList(new GraphQLNonNull(buildObjectType(other, ctx))),
           args: {

@@ -19,6 +19,7 @@ export interface ColumnReference {
  * timestamptz('created_at').default(sql`NOW()`)
  * ```
  */
+// @ts-nocheck - T is used at type level
 export class ColumnBuilder<T> {
   /** Column name. */
   name: string

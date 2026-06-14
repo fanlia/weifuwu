@@ -39,7 +39,7 @@ async function loadAgent(agents: BoundTable<any>, agentId: number): Promise<Agen
 }
 
 export function createRunner(deps: RunnerDeps) {
-  const { sql, agents, runs, provider, modelName, userTools } = deps
+  const { sql, agents, runs, provider, userTools } = deps
 
   function truncate(s: string, max = 200): string {
     return s.length > max ? s.slice(0, max) + '...' : s

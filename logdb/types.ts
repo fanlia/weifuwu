@@ -1,5 +1,6 @@
 import type { PostgresClient } from '../postgres/types.ts'
 import type { Router } from '../router.ts'
+import type { Closeable } from '../types.ts'
 
 export interface LogdbOptions {
   pg: PostgresClient

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import type { IIIModule, IIIOptions, Worker, TriggerOptions, FunctionRegistration, TriggerRegistration, WorkerRegistration, FunctionHandler, StreamSubscription } from './types.ts'
+import type { IIIModule, IIIOptions, Worker, FunctionRegistration, TriggerRegistration, WorkerRegistration, FunctionHandler, StreamSubscription } from './types.ts'
 import { createStream } from './stream.ts'
 import { createWsHandler } from './ws.ts'
 import { buildRouter } from './rest.ts'

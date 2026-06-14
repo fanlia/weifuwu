@@ -46,7 +46,7 @@ export interface CacheMiddleware extends Middleware, Closeable {
   /** Flush all cached entries. */
   flush(): Promise<void>
   /** Cleanup. */
-  close(): void
+  close(): Promise<void>
   /** Store reference (for testing). */
   store: CacheStore
 }
@@ -337,7 +337,7 @@ export function cache(options?: CacheOptions): CacheMiddleware {
   mw.store = store
   mw.invalidate = async (tag: string) => store.invalidate(tag)
   mw.flush = async () => store.flush()
-  mw.close = () => { closeStore?.() }
+  mw.close = async () => { await closeStore?.() }
 
   return mw
 }

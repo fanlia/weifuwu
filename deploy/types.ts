@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
-import type { Context, Handler, Closeable } from '../types.ts'
+import type { Handler, Closeable } from '../types.ts'
 
 export interface DeployConfig {
   domain?: string

@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { Router } from '../router.ts'
-import type { Context, Middleware } from '../types.ts'
+import type { Middleware } from '../types.ts'
 import type { DeployConfig, AppStatus } from './types.ts'
 import { formatSSEData } from '../sse.ts'
 import { stopProcess } from './process.ts'

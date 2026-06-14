@@ -5,7 +5,7 @@ import type { Middleware, Context } from '../types.ts'
 import { Router } from '../router.ts'
 import { currentTraceId } from '../trace.ts'
 import type { PostgresClient } from '../postgres/types.ts'
-import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client, UserInjected } from './types.ts'
+import type { UserOptions, UserData, UserModule, AuthResult, UserInjected } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
 import { serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
 import { createOAuth2Server } from './oauth2.ts'
@@ -395,9 +395,9 @@ export function user(options: UserOptions): UserModule {
     return async (req, ctx, next) => {
       const userData = await resolveUser(req, ctx)
       if (userData) {
-        (ctx as Context & UserInjected).user = userData
+        (ctx as Context & UserInjected).user = userData as UserData
       }
-      return next(req, ctx)
+      return next(req, ctx as Context & UserInjected)
     }
   }
 

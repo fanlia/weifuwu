@@ -1,4 +1,4 @@
-import type { Middleware, Context } from '../types.ts'
+import type { Middleware } from '../types.ts'
 import type { AIProvider } from '../ai/provider.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 

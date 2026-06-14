@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useWebsocket } from './use-websocket.ts'
 
 /** Streaming state for all agents in a channel. */

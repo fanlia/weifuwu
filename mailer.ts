@@ -1,5 +1,6 @@
 import { createTransport } from 'nodemailer'
 import type { Transporter } from 'nodemailer'
+import type { Closeable } from './types.ts'
 
 /** Options for sending an email. */
 export interface MailOptions {

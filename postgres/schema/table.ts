@@ -256,7 +256,7 @@ export class Table<R extends Record<string, unknown>> {
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
 
-    const [countRow] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as unknown[])
+    const [countRow] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as any[])
     const count = Number((countRow as Record<string, number>)._total)
 
     if (conditions.length === 0 && !opts?.orderBy && !opts?.limit && !opts?.offset && !opts?.select) {
@@ -406,7 +406,7 @@ export class Table<R extends Record<string, unknown>> {
     if (softDel) conditions.push(softDel)
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
-    const [row] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as unknown[])
+    const [row] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as any[])
     return Number((row as Record<string, number>)._total)
   }
 }
