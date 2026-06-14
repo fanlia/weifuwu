@@ -152,7 +152,7 @@ export class MemoryCache implements CacheStore {
     }
   }
 
-  close(): void {
+  async close(): Promise<void> {
     clearInterval(this.interval)
     this.store.clear()
     this.tagIndex.clear()

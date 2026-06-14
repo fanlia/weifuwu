@@ -1,8 +1,9 @@
 import type { PostgresClient } from './types.ts'
 import type { Sql } from '../vendor.ts'
 import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'
+import type { Closeable } from '../types.ts'
 
-export class PgModule {
+export class PgModule implements Closeable {
   protected sql: Sql<{}>
   protected pg: PostgresClient
 

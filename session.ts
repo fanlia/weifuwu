@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import type { Context, Middleware } from './types.ts'
 import { getCookies, setCookie, deleteCookie } from './cookie.ts'
 import type { Redis } from './vendor.ts'
+import type { Closeable } from './types.ts'
 
 // Augment Context with session properties
 declare module './types.ts' {
@@ -40,10 +41,12 @@ export interface Session extends SessionData {
 
 // ── SessionStore interface ──────────────────────────────────────────────────
 
-export interface SessionStore {
+export interface SessionStore extends Closeable {
   get(sid: string): Promise<Record<string, unknown> | null>
   set(sid: string, data: Record<string, unknown>, ttl: number): Promise<void>
   destroy(sid: string): Promise<void>
+  /** Release resources. Default no-op. */
+  close(): Promise<void>
 }
 
 // ── Options ─────────────────────────────────────────────────────────────────
@@ -127,7 +130,7 @@ export class MemoryStore implements SessionStore {
     }
   }
 
-  close(): void {
+  async close(): Promise<void> {
     clearInterval(this.interval)
     this.store.clear()
   }
@@ -169,6 +172,10 @@ export class RedisStore implements SessionStore {
 
   async destroy(sid: string): Promise<void> {
     await this.redis.del(this.key(sid))
+  }
+
+  async close(): Promise<void> {
+    this.redis.disconnect()
   }
 }
 
@@ -246,7 +253,7 @@ function isSessionActive(session: Session): boolean {
 
 // ── Middleware ──────────────────────────────────────────────────────────────
 
-export function session(options?: SessionOptions): Middleware & { close: () => void; store: SessionStore } {
+export function session(options?: SessionOptions): Middleware<Context, Context & SessionInjected> & { close: () => Promise<void>; store: SessionStore } {
   const ttl = options?.ttl ?? 24 * 60 * 60 * 1000
   const cookieName = options?.cookieName ?? '__session'
   const secret = options?.secret
@@ -261,7 +268,7 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
 
   // Resolve store
   let store: SessionStore
-  let closeStore: (() => void) | null = null
+  let closeStore: (() => Promise<void>) | null = null
 
   // Use duck-type check: SessionStore is an interface, not a class
   if (options?.store && typeof (options.store as SessionStore).get === 'function') {
@@ -269,6 +276,7 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
   } else if (options?.store === 'redis') {
     if (!options.redis) throw new Error('session: redis client required when store: "redis"')
     store = new RedisStore(options.redis)
+    closeStore = () => (store as RedisStore).close()
   } else {
     const mem = new MemoryStore()
     store = mem
@@ -383,9 +391,9 @@ export function session(options?: SessionOptions): Middleware & { close: () => v
     }
 
     return res
-  }) as Middleware & { close: () => void; store: SessionStore }
+  }) as Middleware<Context, Context & SessionInjected> & { close: () => Promise<void>; store: SessionStore }
 
-  mw.close = () => { closeStore?.() }
+  mw.close = async () => { await closeStore?.() }
   mw.store = store
 
   return mw
