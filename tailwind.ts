@@ -48,7 +48,7 @@ export function tailwindRouter(dir: string): Router {
   const cssDir = resolve(dir)
   const cssPath = join(cssDir, 'app', 'globals.css')
   const r = new Router()
-  r.get('/__wfw/style/:hash.css', async (req, ctx) => {
+  r.get('/__wfw/style/:hash.css', async (_req, _ctx) => {
     if (!cssCache.has(cssPath)) {
       await compileTailwindCss(cssPath, cssDir)
     }

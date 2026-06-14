@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { useSyncExternalStore, createContext } from 'react'
 
 export interface PageContext {
@@ -79,7 +79,7 @@ const subscribe = (cb: () => void) => {
   }
 }
 const getSnapshot = () => store._snapshot
-const getServerSnapshot = getSnapshot
+const _getServerSnapshot = getSnapshot
 
 /** @internal Injected by tsx-instance.ts for async-safe context isolation */
 export function __registerAls(getStore: () => PageContext | undefined) {

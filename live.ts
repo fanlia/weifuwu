@@ -61,7 +61,7 @@ export function liveWs(): WebSocketHandler {
   }
 }
 
-export function liveRouter(dir: string): Router {
+export function liveRouter(_dir: string): Router {
   const r = new Router()
 
   // Pre-warm vendor bundle so vendorHash is available for importmap

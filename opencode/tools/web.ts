@@ -3,7 +3,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import type { ToolContext } from './index.ts'
 
-export function createWebTool(ctx: ToolContext) {
+export function createWebTool(_ctx: ToolContext) {
   return tool({
     description: 'Fetch a URL and return the content as text.',
     inputSchema: z.object({

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import type { Context, Middleware } from './types.ts'
 import { getCookies, setCookie } from './cookie.ts'
 

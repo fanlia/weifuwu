@@ -294,7 +294,7 @@ export class Router<T extends Context = Context> {
   }
 
   private _collectRoutes(node: TrieNode, prefix: string, result: string[]): void {
-    for (const [method, handler] of node.handlers) {
+    for (const [method] of node.handlers) {
       const m = method === '*' ? 'ANY' : method
       const path = (prefix || '/') + (node.wildcard ? '/*' : '')
       const middlewares = node.middlewares.get(method)

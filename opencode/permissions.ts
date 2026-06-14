@@ -22,7 +22,7 @@ export function isCommandAllowed(command: string): boolean {
 export function isPathAllowed(
   resolvedPath: string,
   workspace: string,
-  perms?: OpencodePermissions,
+  _perms?: OpencodePermissions,
 ): boolean {
   if (!resolvedPath.startsWith(workspace)) return false
 
