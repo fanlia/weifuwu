@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto'
 import type { Sql } from '../vendor.ts'
 import type { Router } from '../router.ts'

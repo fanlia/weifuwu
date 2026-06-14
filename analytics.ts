@@ -8,7 +8,9 @@ export interface AnalyticsOptions {
   excluded?: string[]
   /** PostgreSQL client for persistent storage. Required for production use. */
   pg?: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     table: (name: string, cols: any) => any
   }
 }
@@ -153,10 +155,12 @@ class MemStore {
 
 // ── PG store ────────────────────────────────────────────────────────────────
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 async function migratePg(
   sql: (sql: any, ...args: any[]) => Promise<any[]>,
   table: (name: string, cols: any) => any,
 ) {
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const analytics = table('__analytics', {
     date: text('date').notNull(),
     path: text('path').notNull(),
@@ -169,12 +173,14 @@ async function migratePg(
   return analytics
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 async function recordPg(
   sql: (sql: any, ...args: any[]) => Promise<any[]>,
   path: string,
   date: string,
   mobile: boolean,
 ) {
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   await sql`
     INSERT INTO __analytics (date, path, count, mobile, desktop)
     VALUES (${date}, ${path}, 1, ${mobile ? 1 : 0}, ${mobile ? 0 : 1})
@@ -185,10 +191,12 @@ async function recordPg(
   `
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 async function queryPg(
   sql: (sql: any, ...args: any[]) => Promise<any[]>,
   days: number,
 ): Promise<QueryResult> {
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const since = new Date()
   since.setDate(since.getDate() - days)
   const sinceStr = since.toISOString().slice(0, 10)

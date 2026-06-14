@@ -74,6 +74,7 @@ export class TestRequest {
 
   /** Shortcut: set ctx.tenant */
   withTenant(tenant: { id: string; name: string; role: string }): this {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.ctxMixin.tenant = tenant as any
     return this
   }
@@ -131,36 +132,42 @@ export class TestApp {
   }
 
   /** Add global middleware */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   use(mw: any): this {
     this.router.use(mw)
     return this
   }
 
   /** Register a GET route — supports route-level middleware via spread args. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   get(path: string, ...args: any[]): this {
     ;(this.router.get as any)(path, ...args)
     return this
   }
 
   /** Register a POST route. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   post(path: string, ...args: any[]): this {
     ;(this.router.post as any)(path, ...args)
     return this
   }
 
   /** Register a PUT route. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   put(path: string, ...args: any[]): this {
     ;(this.router.put as any)(path, ...args)
     return this
   }
 
   /** Register a PATCH route. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   patch(path: string, ...args: any[]): this {
     ;(this.router.patch as any)(path, ...args)
     return this
   }
 
   /** Register a DELETE route. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete(path: string, ...args: any[]): this {
     ;(this.router.delete as any)(path, ...args)
     return this
