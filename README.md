@@ -37,11 +37,9 @@ const app = new Router()
 // 1. Observability (order matters — run early)
 app.use(logger())
 
-// 2. UX middleware
-app.use('/', i18n({ default: 'zh', dir: './locales' }))
-app.use(i18n({ default: 'zh', dir: './locales' }).middleware())
-app.use('/', theme())
-app.use(theme().middleware())
+// 2. UX middleware — single-line auto-registers middleware + routes
+app.use(theme())
+app.use(i18n({ default: 'zh', dir: './locales' }))
 app.use(flash())
 
 // 3. Database
@@ -52,8 +50,8 @@ app.use(pg)
 app.use(session({ store: 'redis', redis: myRedis }))
 const auth = user({ pg, jwtSecret: process.env.JWT_SECRET })
 await auth.migrate()
-app.use(auth.middleware())   // ctx.user (optional: allows public routes)
-app.use('/auth', auth)       // /register, /login, /auth/github...
+app.use(auth)                // auto-registers middleware + /register, /login
+app.use('/auth', auth)       // explicit path mounts for more control
 
 // 5. API protection
 app.use('/api', rateLimit({ max: 60, window: 60_000 }))
@@ -270,11 +268,17 @@ app.use('/auth', user({ pg, jwtSecret }))                       // with .middlew
 app.ws('/ws', messager({ pg }).wsHandler())
 ```
 
-β modules that need **separate middleware** use `.middleware()`:
+β modules that need **separate middleware** use `.middleware()`. Most can auto-register both middleware and routes in one call:
 ```ts
+app.use(theme())           // auto: middleware + /__theme/:value
+app.use(i18n({ dir: './locales' }))  // auto: middleware + /__lang/:locale
+app.use(analytics({ pg })) // auto: middleware + /__analytics
+app.use(auth)              // auto: middleware + /register, /login (user())
+
+// Explicit form when more control is needed:
 const a = analytics()
-app.use(a.middleware())   // tracking
-app.use('/', a)           // dashboard
+app.use(a.middleware())   // tracking only
+app.use('/', a)           // dashboard at custom path
 ```
 
 ### Pattern γ — Standalone
@@ -1325,12 +1329,17 @@ Search options: `fields`, `limit` (20), `offset` (0), `headline` (false), `langu
 ### theme [α] [UX]
 
 ```ts
-const t = theme({ default: 'dark' })
-app.use(t.middleware())  // → ctx.theme = { value: 'dark', set: fn }
-app.use('/', t)          // → GET /__theme/dark — 302 + Set-Cookie
+// Single line — auto-registers middleware + /__theme/:value route
+app.use(theme({ default: 'dark' }))
 
+// ctx.theme = { value: 'dark', set: fn }
 // ctx.theme.value — 'dark'
 // ctx.theme.set('light', '/settings') — 302 + Set-Cookie
+
+// Explicit form for more control:
+// const t = theme()
+// app.use(t.middleware())
+// app.use('/', t)
 ```
 
 | Option | Type | Default | Description |
@@ -1351,13 +1360,18 @@ See [`useTheme()`](#usetheme) for client-side usage.
 ### i18n [α] [UX]
 
 ```ts
-const l = i18n({ default: 'zh', dir: './locales' })
-app.use(l.middleware())  // → ctx.i18n = { locale: 'zh', t, set }
-app.use('/', l)          // → GET /__lang/en — switch locale
+// Single line — auto-registers middleware + /__lang/:locale route
+app.use(i18n({ default: 'zh', dir: './locales' }))
 
+// ctx.i18n = { locale: 'zh', t, set }
 // ctx.i18n.t('welcome') → '欢迎'
 // ctx.i18n.locale → 'zh'
 // ctx.i18n.set('en', '/settings') — 302 + Set-Cookie
+
+// Explicit form for more control:
+// const l = i18n()
+// app.use(l.middleware())
+// app.use('/', l)
 ```
 ```
 

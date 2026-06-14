@@ -143,7 +143,9 @@ export class Router<T extends Context = Context> {
   use(path: string, mw: Middleware<T, T>): Router<T>
   // Mount sub-router — flattens into parent, does not accumulate
   use(path: string, router: Router<any>): Router<T>
-  use(arg1: string | Middleware<any, any>, arg2?: Router<any> | Middleware<T, T>): Router<any> {
+  // Module with .middleware() — auto-register middleware + mount at /
+  use(mod: Router & { middleware: () => Middleware }): Router<T>
+  use(arg1: string | Middleware<any, any> | (Router & { middleware: () => Middleware }), arg2?: Router<any> | Middleware<T, T>): Router<any> {
     if (typeof arg1 === 'string') {
       if (arg2 instanceof Router) {
         this._mountRouter(arg1, arg2)
@@ -156,6 +158,12 @@ export class Router<T extends Context = Context> {
       }
     } else if (typeof arg1 === 'function') {
       this.globalMws.push(arg1 as unknown as Middleware)
+    } else if (typeof arg1 === 'object' && arg1 !== null && 'middleware' in arg1 && typeof (arg1 as any).middleware === 'function' && arg1 instanceof Router) {
+      // Auto-register modules with .middleware() — e.g. theme(), i18n(), analytics()
+      // Registers both the middleware and mounts routes at /
+      const mod = arg1 as Router & { middleware: () => Middleware }
+      this.globalMws.push(mod.middleware() as unknown as Middleware)
+      this._mountRouter('/', mod as Router)
     }
     return this
   }

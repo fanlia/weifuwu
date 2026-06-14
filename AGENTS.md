@@ -30,8 +30,8 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
   | `app.use(auth())` | `ctx.user` | `declare module` |
   | `app.use(user().middleware())` | `ctx.user` (含完整用户数据) | `UserInjected` |
   | `app.use(permissions())` | `ctx.permissions` `{ roles, permissions }` | `declare module` + `PermissionsModule` |
-  | `app.use(theme().middleware())` | `ctx.theme` `{ value, set }` | `declare module` + `ThemeInjected` |
-  | `app.use(i18n().middleware())` | `ctx.i18n` `{ locale, t, set }` | `declare module` + `I18nInjected` |
+  | `app.use(theme())` | `ctx.theme` `{ value, set }` | `declare module` + `ThemeInjected` |
+  | `app.use(i18n())` | `ctx.i18n` `{ locale, t, set }` | `declare module` + `I18nInjected` |
   | `app.use(flash())` | `ctx.flash` `{ value, set }` | `declare module` + `FlashInjected` |
   | `app.use(csrf())` | `ctx.csrf.token` | `declare module` + `CsrfInjected` |
   | `app.use(requestId())` | `ctx.requestId` | `declare module` |
@@ -111,6 +111,7 @@ All built-in factory functions follow one of four patterns:
 - **Pattern α — Middleware**: module returns a `Middleware` callable. Use with `app.use(mod())`. Optionally has extras like `.close()`, `.migrate()`.
   - e.g. `compress()`, `csrf()`, `flash()`, `helmet()`, `postgres()`, `redis()`, `aiProvider()`, `session()`, `permissions()`, `rateLimit()`, `s3()`, `cache()`, `validate()`, `upload()`
 - **Pattern β — Router**: module returns a `Router` instance. Use with `app.use('/path', mod())`. May have `.migrate()`, `.close()`, `.middleware()` attached.
+  - Modules with `.middleware()` (theme, i18n, analytics, user, kb) support **auto-registration**: `app.use(mod())` registers both the middleware and default routes in one call.
   - e.g. `health()`, `graphql()`, `ssr()`, `user()`, `analytics()`, `agent()`, `messager()`, `opencode()`, `iii()`, `logdb()`, `kb()`, `seo()`, `webhook()`, `theme()`, `i18n()`
 - **Pattern γ — Standalone**: module returns a utility object, not middleware or router. Import and call directly.
   - e.g. `mailer()`, `fts`, `cron-utils`, `createSSEStream()`
