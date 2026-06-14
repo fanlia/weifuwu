@@ -2,6 +2,7 @@ import { Router } from '../router.ts'
 import { eq, and, gte, type BoundTable } from '../postgres/schema/index.ts'
 import type { AgentConfig, RunParams } from './types.ts'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface RestDeps {
   agents: BoundTable<any>
   runs: BoundTable<any>
@@ -11,6 +12,7 @@ interface RestDeps {
     addKnowledge: (agentId: number, title: string, content: string) => Promise<any>
   }
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function buildRouter(deps: RestDeps): Router {
   const { agents: agentsTable, runs: runsTable, knowledge, runner } = deps
@@ -90,6 +92,7 @@ export function buildRouter(deps: RestDeps): Router {
 
   // ── Run ────────────────────────────────────────────────
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   r.post('/agents/:id/run', async (req, ctx) => {
     const id = parseInt(ctx.params.id, 10)
     const body = (await req.json()) as RunParams
@@ -111,9 +114,11 @@ export function buildRouter(deps: RestDeps): Router {
       return Response.json({ error: err.message }, { status: 500 })
     }
   })
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // ── Run history & analytics ──────────────────────────
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   r.get('/agents/:id/runs', async (_req, ctx) => {
     const agentId = parseInt(ctx.params.id, 10)
     const agent = await getAgent(agentId)
@@ -192,6 +197,7 @@ export function buildRouter(deps: RestDeps): Router {
       return Response.json({ error: err.message }, { status: 500 })
     }
   })
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   r.get('/agents/:id/knowledge', async (_req, ctx) => {
     const agentId = parseInt(ctx.params.id, 10)

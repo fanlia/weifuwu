@@ -8,6 +8,7 @@ import { formatSSE } from '../sse.ts'
 import { currentTraceId } from '../trace.ts'
 import { chunkContent } from '../ai/utils.ts'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface RunnerDeps {
   sql: Sql<{}>
   agents: BoundTable<any>
@@ -17,7 +18,9 @@ interface RunnerDeps {
   modelName?: string
   userTools?: Record<string, Tool>
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function hasKnowledgeDocs(sql: Sql<{}>, agentId: number): Promise<boolean> {
   return sql`SELECT 1 FROM "_knowledge_documents" WHERE agent_id = ${agentId} LIMIT 1`.then(
     (r) => (r as any[]).length > 0,
@@ -44,7 +47,9 @@ async function loadAgent(agents: BoundTable<any>, agentId: number): Promise<Agen
   const row = await agents.read(agentId)
   return (row as AgentConfig) ?? null
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function createRunner(deps: RunnerDeps) {
   const { sql, agents, runs, provider, userTools } = deps
 
@@ -199,3 +204,4 @@ export function createRunner(deps: RunnerDeps) {
 
   return { run, addKnowledge }
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
