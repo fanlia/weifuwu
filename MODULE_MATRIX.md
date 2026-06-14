@@ -152,37 +152,21 @@ All built-in modules, their pattern classification, type safety approach, lifecy
 
 ## Key Findings
 
-### 1. Type Safety Gaps
+### ✅ Resolved Issues
 
-**Missing `declare module`** — these modules inject ctx fields without augmenting `Context`:
+| Issue | Resolution |
+|-------|-----------|
+| Missing `declare module` in 10 modules | All modules now use `declare module` + generics |
+| `ctx.csrfToken` not namespaced | Changed to `ctx.csrf.token` |
+| `auth.ts` and `user()` both set `ctx.user` | `auth.ts` removed, `user()` replaced it |
+| `aiProvider()` not a Middleware | Now returns `Middleware & AIProvider` via `Object.assign` |
+| `theme()`/`i18n()` self-routing without `.middleware()` | Split into β Router + `.middleware()`, supports auto-registration |
+| `stop()` vs `close()` vs `shutdown()` | Unified to `close()` with backward-compatible aliases |
+| `ctx.requestId` bare string | `trace()` middleware now injects `ctx.trace.requestId` (namespace) |
+| `ctx.env` declared but not populated | `env()` middleware injects `ctx.env` from `WEIFUWU_PUBLIC_*` |
 
-| Module | ctx field | Current | Should be |
-|--------|-----------|---------|-----------|
-| `csrf.ts` | `ctx.csrfToken` | generic only | `declare module` + generic |
-| `request-id.ts` | `ctx.requestId` | generic only | `declare module` + generic |
-| `env.ts` | `ctx.env` | none | `declare module` |
-| `auth.ts` | `ctx.user` | none | `declare module` |
-| `theme.ts` | `ctx.theme` | none | `declare module` |
-| `i18n.ts` | `ctx.i18n` | none | `declare module` |
-| `flash.ts` | `ctx.flash` | generic only | `declare module` + generic |
-| `validate.ts` | `ctx.parsed` | none | `declare module` |
-| `upload.ts` | `ctx.parsed` | none | `declare module` |
-| `ai/provider.ts` | `ctx.ai` | **not implemented** | implement + `declare module` |
+### 🔴 Still Open
 
-### 2. Lifecycle Inconsistencies
-
-- `stop()` vs `close()`: rateLimit uses `stop()`, queue uses both `stop()` + `close()`
-- `iii` uses `shutdown()` instead of `close()`
-- Some modules expose `.close()` but it's not part of any shared interface
-
-### 3. Pattern Misalignment
-
-- `theme()` and `i18n()` are α but handle routes internally — should be split like `analytics()`
-- `aiProvider()` is documented as α but returns a non-Middleware object
-- `validate()` and `upload()` share `ctx.parsed` — violates one-field-per-module principle
-
-### 4. Return Type Inconsistencies
-
-- `PermissionsModule extends Middleware` — α pattern, not β (but has `.migrate()` like β modules)
-- `CacheMiddleware extends Middleware` — α pattern with extras, naming consistent
-- `S3Module & Middleware` — TypeScript intersection type, unique in the codebase
+- `ctx.parsed` is shared by `validate()` and `upload()` — minor, documented as shared field
+- No client-side hook tests (stubs only)
+- No shared `Closeable` interface (convention-based)
