@@ -6,7 +6,7 @@ describe('theme', () => {
   it('injects ctx.theme with default value "system"', async () => {
     const { theme } = await import('../theme.ts')
     const r = new Router()
-    r.use(theme())
+    r.use(theme().middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.theme?.value, 'system')
       return Response.json({ ok: true })
@@ -19,7 +19,7 @@ describe('theme', () => {
   it('supports custom default theme', async () => {
     const { theme } = await import('../theme.ts')
     const r = new Router()
-    r.use(theme({ default: 'dark' }))
+    r.use(theme({ default: 'dark' }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.theme?.value, 'dark')
       return Response.json({ ok: true })
@@ -32,7 +32,7 @@ describe('theme', () => {
   it('reads theme from cookie', async () => {
     const { theme } = await import('../theme.ts')
     const r = new Router()
-    r.use(theme())
+    r.use(theme().middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.theme?.value, 'light')
       return Response.json({ ok: true })
@@ -48,8 +48,7 @@ describe('theme', () => {
   it('__theme/:value route redirects with Set-Cookie', async () => {
     const { theme } = await import('../theme.ts')
     const r = new Router()
-    r.use(theme())
-    // The route is handled internally by theme middleware
+    r.use('/', theme())
 
     const res = await r.handler()(
       new Request('http://localhost/__theme/dark', { headers: { referer: '/settings' } }),
@@ -64,7 +63,7 @@ describe('theme', () => {
   it('__theme/:value returns JSON when Accept includes application/json', async () => {
     const { theme } = await import('../theme.ts')
     const r = new Router()
-    r.use(theme())
+    r.use('/', theme())
 
     const res = await r.handler()(
       new Request('http://localhost/__theme/dark', {
@@ -83,7 +82,7 @@ describe('theme', () => {
   it('set() returns redirect with cookie', async () => {
     const { theme } = await import('../theme.ts')
     const r = new Router()
-    r.use(theme())
+    r.use(theme().middleware())
     r.get('/set-theme', (_req, ctx) => {
       return ctx.theme?.set?.('light', '/home') ?? new Response('no theme', { status: 500 })
     })
@@ -101,7 +100,7 @@ describe('theme', () => {
   it('supports custom cookie name', async () => {
     const { theme } = await import('../theme.ts')
     const r = new Router()
-    r.use(theme({ cookie: 'pref_theme' }))
+    r.use(theme({ cookie: 'pref_theme' }).middleware())
     r.get('/__theme/dark', (_req, ctx) => {
       return ctx.theme?.set?.('dark') ?? new Response('no theme', { status: 500 })
     })
@@ -117,7 +116,7 @@ describe('theme', () => {
   it('handles empty cookie name (no cookie persistence)', async () => {
     const { theme } = await import('../theme.ts')
     const r = new Router()
-    r.use(theme({ cookie: '' }))
+    r.use(theme({ cookie: '' }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.theme?.value, 'system')
       return Response.json({ ok: true })

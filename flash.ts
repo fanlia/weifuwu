@@ -26,6 +26,13 @@
 import type { Context, Middleware } from './types.ts'
 import { getCookies } from './cookie.ts'
 
+// Augment Context with flash property
+declare module './types.ts' {
+  interface Context {
+    flash: FlashInjected
+  }
+}
+
 /** Options for {@link flash}. */
 export interface FlashOptions {
   /**

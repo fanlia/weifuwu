@@ -4,7 +4,7 @@ import { testApp } from '../test-utils.ts'
 import { csrf } from '../csrf.ts'
 
 describe('csrf', () => {
-  it('sets cookie and ctx.csrfToken on GET', async () => {
+  it('sets cookie and ctx.csrf.token on GET', async () => {
     const app = testApp().use(csrf()).get('/data', () => new Response('ok'))
     const res = await app.getReq('/data').send()
     assert.equal(res.status, 200)

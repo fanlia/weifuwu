@@ -2,6 +2,21 @@ import { readFile, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import type { Context, Middleware } from './types.ts'
 import { getCookies } from './cookie.ts'
+import { Router } from './router.ts'
+
+// Augment Context with i18n property
+declare module './types.ts' {
+  interface Context {
+    i18n: I18nInjected
+  }
+}
+
+export interface I18nInjected {
+  locale: string
+  messages?: Record<string, unknown>
+  t: (key: string, params?: Record<string, string>, fallback?: string) => string
+  set?: (value: string, loc?: string) => Response
+}
 
 export interface I18nOptions {
   /** Default locale (default: 'en'). */
@@ -38,7 +53,21 @@ function translate(
   return result
 }
 
-export function i18n(options?: I18nOptions): Middleware {
+/**
+ * i18n module. Returns a Router with an attached `.middleware()` method.
+ *
+ * ```ts
+ * const l = i18n({ dir: './locales' })
+ * app.use(l.middleware())  // → ctx.i18n = { locale, t, set }
+ * app.use('/', l)          // → GET /__lang/:locale (switch route)
+ * ```
+ */
+export interface I18nModule extends Router {
+  /** Middleware that injects `ctx.i18n = { locale, t, set }`. */
+  middleware: () => Middleware<Context, Context & I18nInjected>
+}
+
+export function i18n(options?: I18nOptions): I18nModule {
   const opts = { ...DEFAULTS, ...options }
   const dir = opts.dir ? resolve(opts.dir) : undefined
   const cache = new Map<string, Record<string, unknown>>()
@@ -89,29 +118,11 @@ export function i18n(options?: I18nOptions): Middleware {
     return opts.default
   }
 
-  return async (req, ctx, next) => {
-    const url = new URL(req.url)
-    const match = url.pathname.match(/^\/__lang\/([\w-]+)$/)
-
-    if (match && req.method === 'GET') {
-      const value = match[1]
-      const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
-      const messages = await loadMessages(value)
-      const accept = req.headers.get('accept') ?? ''
-      if (accept.includes('application/json')) {
-        return Response.json(
-          { ok: true, locale: value, messages: Object.keys(messages).length > 0 ? messages : undefined },
-          { headers: { 'Set-Cookie': cookie } },
-        )
-      }
-      const referer = req.headers.get('referer') || '/'
-      return new Response(null, { status: 302, headers: { Location: referer, 'Set-Cookie': cookie } })
-    }
-
+  const mw: Middleware<Context, Context & I18nInjected> = async (req, ctx, next) => {
     const locale = detectLocale(req)
     const msgs = await loadMessages(locale)
 
-    ctx.i18n = {
+    ;(ctx as Context & I18nInjected).i18n = {
       locale,
       messages: msgs,
       t: (key: string, params?: Record<string, string>, fallback?: string) =>
@@ -123,6 +134,29 @@ export function i18n(options?: I18nOptions): Middleware {
       },
     }
 
-    return next(req, ctx)
+    return next(req, ctx as Context & I18nInjected)
   }
+
+  class I18nRouter extends Router {
+    middleware() { return mw }
+  }
+
+  const router = new I18nRouter()
+  router.get('/__lang/:locale', async (req) => {
+    const url = new URL(req.url)
+    const value = url.pathname.split('/__lang/')[1] ?? ''
+    const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
+    const messages = await loadMessages(value)
+    const accept = req.headers.get('accept') ?? ''
+    if (accept.includes('application/json')) {
+      return Response.json(
+        { ok: true, locale: value, messages: Object.keys(messages).length > 0 ? messages : undefined },
+        { headers: { 'Set-Cookie': cookie } },
+      )
+    }
+    const referer = req.headers.get('referer') || '/'
+    return new Response(null, { status: 302, headers: { Location: referer, 'Set-Cookie': cookie } })
+  })
+
+  return router
 }

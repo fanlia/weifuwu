@@ -1,3 +1,4 @@
+import type { Context, Middleware } from '../types.ts'
 import { createOpenAI } from '@ai-sdk/openai'
 import {
   embed as aiEmbed,
@@ -8,7 +9,18 @@ import {
   type EmbeddingModel,
 } from 'ai'
 
+// Augment Context with ai property
+declare module '../types.ts' {
+  interface Context {
+    ai: AIProvider
+  }
+}
+
 // ── Types ───────────────────────────────────────────────────────────────────
+
+export interface AIProviderInjected {
+  ai: AIProvider
+}
 
 export interface AIProviderOptions {
   /** API base URL (default: OPENAI_BASE_URL env or http://localhost:11434/v1). */
@@ -49,7 +61,7 @@ export interface AIProvider {
 
 // ── Factory ─────────────────────────────────────────────────────────────────
 
-export function aiProvider(options?: AIProviderOptions): AIProvider {
+export function aiProvider(options?: AIProviderOptions): Middleware<Context, Context & AIProviderInjected> & AIProvider {
   const baseURL = options?.baseURL ?? process.env.OPENAI_BASE_URL ?? 'http://localhost:11434/v1'
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY ?? 'ollama'
   const modelName = options?.model ?? process.env.OPENAI_MODEL ?? 'qwen3:0.6b'
@@ -61,7 +73,7 @@ export function aiProvider(options?: AIProviderOptions): AIProvider {
   let _model: LanguageModel | undefined
   let _embedModel: EmbeddingModel | undefined
 
-  return {
+  const provider: AIProvider = {
     get dimension() { return dimension },
 
     model(name?: string): LanguageModel {
@@ -94,4 +106,11 @@ export function aiProvider(options?: AIProviderOptions): AIProvider {
       return aiStreamText({ ...params, model: this.model() } as any)
     },
   }
+
+  const mw: Middleware<Context, Context & AIProviderInjected> = async (req, ctx, next) => {
+    ;(ctx as Context & AIProviderInjected).ai = provider
+    return next(req, ctx as Context & AIProviderInjected)
+  }
+
+  return Object.assign(mw, provider) as Middleware<Context, Context & AIProviderInjected> & AIProvider
 }

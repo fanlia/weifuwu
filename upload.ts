@@ -1,7 +1,14 @@
 import { writeFile, mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, extname } from 'node:path'
-import type { Middleware } from './types.ts'
+import type { Context, Middleware } from './types.ts'
+
+// Augment Context with parsed property (shared with validate)
+declare module './types.ts' {
+  interface Context {
+    parsed: Record<string, unknown>
+  }
+}
 
 /** A parsed file from a multipart upload. */
 export interface UploadedFile {

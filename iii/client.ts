@@ -269,5 +269,6 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     workers.clear(); functions.clear(); triggers.clear()
     await stream.close()
   }
+  mod.close = mod.shutdown
   return mod
 }

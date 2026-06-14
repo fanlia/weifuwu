@@ -50,6 +50,8 @@ export interface IIIModule extends Router {
   listTriggers: () => TriggerInfo[]
   migrate: () => Promise<void>
   shutdown: () => Promise<void>
+  /** Alias for shutdown(). */
+  close: () => Promise<void>
 }
 
 export interface WorkerInfo {

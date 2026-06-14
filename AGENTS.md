@@ -20,22 +20,33 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - **Never import `streamText`/`generateText`/`embed` from the `ai` SDK directly in application code.** Always use `provider.streamText()` or `ctx.ai.streamText()` — the provider injects the configured model automatically.
 - **ctx field principle**: each middleware adds exactly one namespaced field on `ctx`. Standard objects (`req`, `ws`) are never modified. The framework injects, the developer uses.
 
-  | Pattern α middleware | Injects |
-  |---|---|
-  | `app.use(postgres())` | `ctx.sql` |
-  | `app.use(redis())` | `ctx.redis` |
-  | `app.use(aiProvider())` | `ctx.ai` |
-  | `app.use(queue())` | `ctx.queue` |
-  | `app.use(session())` | `ctx.session` |
-  | `app.use(auth())` | `ctx.user` |
-  | `app.use(user().middleware())` | `ctx.user` (含完整用户数据) |
-  | `app.use(permissions())` | `ctx.permissions` `{ roles, permissions }` |
-  | `app.use(theme())` | `ctx.theme` `{ value, set }` |
-  | `app.use(i18n())` | `ctx.i18n` `{ locale, t, set }` |
-  | `app.use(flash())` | `ctx.flash` `{ value, set }` |
-  | `ws('/chat', handler)` | `ctx.ws` (per-connection) |
+  | Pattern α middleware | Injects | Type safety |
+  |---|---|---|
+  | `app.use(postgres())` | `ctx.sql` | `declare module` + `PostgresInjected` |
+  | `app.use(redis())` | `ctx.redis` | `declare module` + `RedisInjected` |
+  | `app.use(aiProvider())` | `ctx.ai` | `declare module` + `AIProviderInjected` |
+  | `app.use(queue())` | `ctx.queue` | `declare module` + `QueueInjected` |
+  | `app.use(session())` | `ctx.session` | `declare module` + `SessionInjected` |
+  | `app.use(auth())` | `ctx.user` | `declare module` |
+  | `app.use(user().middleware())` | `ctx.user` (含完整用户数据) | `UserInjected` |
+  | `app.use(permissions())` | `ctx.permissions` `{ roles, permissions }` | `declare module` + `PermissionsModule` |
+  | `app.use(theme().middleware())` | `ctx.theme` `{ value, set }` | `declare module` + `ThemeInjected` |
+  | `app.use(i18n().middleware())` | `ctx.i18n` `{ locale, t, set }` | `declare module` + `I18nInjected` |
+  | `app.use(flash())` | `ctx.flash` `{ value, set }` | `declare module` + `FlashInjected` |
+  | `app.use(csrf())` | `ctx.csrf.token` | `declare module` + `CsrfInjected` |
+  | `app.use(requestId())` | `ctx.requestId` | `declare module` |
+  | `app.use(s3())` | `ctx.s3` | `declare module` + `S3Module` |
+  | `app.use(tenant())` | `ctx.tenant` | `declare module` + `TenantContext` |
+  | `app.use(validate())` / `app.use(upload())` | `ctx.parsed` | `declare module` (shared field) |
+  | `ws('/chat', handler)` | `ctx.ws` (per-connection) | — |
 
   `ctx.ws` is the per-connection WebSocket helper: `ctx.ws.state`, `ctx.ws.json()`, `ctx.ws.join(room)`, `ctx.ws.sendRoom(room, data)`. The `ws` parameter in handlers is the standard `WebSocket` from the `ws` library — never augmented.
+
+- **Type safety rule**: Every ctx-injecting module MUST add `declare module './types.ts' { interface Context { field: Type } }` in its module file. This ensures ctx fields are typed regardless of whether the user chains `use()` calls or uses standalone `app.use()`.
+- Modules SHOULD also export an `XxxInjected` type for composing custom context types and for use in generic type parameters.
+
+- **Lifecycle rule**: All stateful modules cleanup via `.close(): Promise<void>`. Aliases `.stop()` and `.shutdown()` are deprecated in favor of `.close()`.
+
 - All `ctx` mutations (like `ctx.parsed` or `ctx.user`) should be additive, never overwrite
 - Public hooks go in `react.ts` barrel; internal utilities stay in their module
 - Frontend hooks use `useXxx` naming; each hook solves one concrete concern
@@ -95,18 +106,24 @@ app.get('/ask', async (req, ctx) => {
 
 ### Module patterns
 
-All built-in factory functions follow one of three patterns, determined by whether the module intercepts requests or serves routes:
+All built-in factory functions follow one of four patterns:
 
-- **Pattern α — Middleware**: module returns a `Middleware` callable. Use with `app.use(mod())`. Optionally has extras like `.close()`, `.stop()`.
+- **Pattern α — Middleware**: module returns a `Middleware` callable. Use with `app.use(mod())`. Optionally has extras like `.close()`, `.migrate()`.
+  - e.g. `compress()`, `csrf()`, `flash()`, `helmet()`, `postgres()`, `redis()`, `aiProvider()`, `session()`, `permissions()`, `rateLimit()`, `s3()`, `cache()`, `validate()`, `upload()`
 - **Pattern β — Router**: module returns a `Router` instance. Use with `app.use('/path', mod())`. May have `.migrate()`, `.close()`, `.middleware()` attached.
-- **Pattern γ — SSR helper**: `ssr(path)` → `Handler`, `layout(path)` → `Middleware`. Compile `.tsx` files.
+  - e.g. `health()`, `graphql()`, `ssr()`, `user()`, `analytics()`, `agent()`, `messager()`, `opencode()`, `iii()`, `logdb()`, `kb()`, `seo()`, `webhook()`, `theme()`, `i18n()`
+- **Pattern γ — Standalone**: module returns a utility object, not middleware or router. Import and call directly.
+  - e.g. `mailer()`, `fts`, `cron-utils`, `createSSEStream()`
 - **Pattern δ — Client-side**: modules self-register via `addInterceptor()` — import a hook to enable.
+  - e.g. `useTheme()`, `useLocale()`, `useWebsocket()` from `'weifuwu/react'`
 
 ### Naming conventions
 
 - File: `my-mod.ts`, export `myMod`
 - Options type: `MyOptions` (always exported)
 - Pattern β modules with many custom methods: export `MyModule` interface extending `Router`
+- Pattern α modules that inject ctx fields: export `XxxInjected` interface for the injected shape; add `declare module './types.ts'` in the module file
+- Lifecycle methods: cleanup is always `.close()` (not `stop()` or `shutdown()`); DB setup is always `.migrate()`
 - Route URLs use `__` prefix to avoid user conflicts: `__analytics`, `__lang/:locale`, `__theme/:theme`, `__weifuwu/livereload`, `__ssr/[hash].js`
 
 ### Database (PostgreSQL + Redis)

@@ -1,5 +1,12 @@
 import type { ZodSchema } from 'zod'
-import type { Middleware } from './types.ts'
+import type { Context, Middleware } from './types.ts'
+
+// Augment Context with parsed property (shared with upload)
+declare module './types.ts' {
+  interface Context {
+    parsed: Record<string, unknown>
+  }
+}
 
 export interface ValidationSchemas {
   body?: ZodSchema

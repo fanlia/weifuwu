@@ -1,6 +1,17 @@
 import type { Context, Middleware } from './types.ts'
 import { getCookies, setCookie } from './cookie.ts'
 
+// Augment Context with csrf property
+declare module './types.ts' {
+  interface Context {
+    csrf: CsrfInjected
+  }
+}
+
+export interface CsrfInjected {
+  token: string
+}
+
 /** Options for {@link csrf}. */
 export interface CsrfOptions {
   /** Cookie name for CSRF token (default: `'_csrf'`). */
@@ -20,7 +31,7 @@ export interface CsrfOptions {
  * in a cookie. On other methods, validates the token from header or body
  * against the cookie.
  *
- * Injects `ctx.csrfToken` for use in forms.
+ * Injects `ctx.csrf.token` for use in forms.
  *
  * ```ts
  * import { csrf } from 'weifuwu'
@@ -30,14 +41,14 @@ export interface CsrfOptions {
  * app.get('/form', (req, ctx) => {
  *   return new Response(`
  *     <form method="POST">
- *       <input type="hidden" name="_csrf" value="${ctx.csrfToken}" />
+ *       <input type="hidden" name="_csrf" value="${ctx.csrf.token}" />
  *       <input type="submit" />
  *     </form>
  *   `, { headers: { 'content-type': 'text/html' } })
  * })
  * ```
  */
-export function csrf(options?: CsrfOptions): Middleware<Context, Context & { csrfToken: string }> {
+export function csrf(options?: CsrfOptions): Middleware<Context, Context & CsrfInjected> {
   const cookieName = options?.cookie ?? '_csrf'
   const headerName = options?.header ?? 'x-csrf-token'
   const bodyKey = options?.key ?? '_csrf'
@@ -50,13 +61,13 @@ export function csrf(options?: CsrfOptions): Middleware<Context, Context & { csr
       let token = getCookies(req)[cookieName]
       if (!token) {
         token = crypto.randomUUID()
-        ;(ctx as any).csrfToken = token
+        ;(ctx as any).csrf = { token }
       } else {
-        ;(ctx as any).csrfToken = token
+        ;(ctx as any).csrf = { token }
       }
 
-      const res = await next(req, ctx as Context & { csrfToken: string })
-      const tokenToSet = (ctx as any).csrfToken
+      const res = await next(req, ctx as Context & CsrfInjected)
+      const tokenToSet = (ctx as any).csrf?.token
       if (tokenToSet && !getCookies(req)[cookieName]) {
         return setCookie(res, cookieName, tokenToSet, {
           httpOnly: true,
@@ -84,6 +95,6 @@ export function csrf(options?: CsrfOptions): Middleware<Context, Context & { csr
       return new Response('CSRF token mismatch', { status: 403 })
     }
 
-    return next(req, ctx as Context & { csrfToken: string })
+    return next(req, ctx as Context & CsrfInjected)
   }
 }

@@ -46,7 +46,7 @@ function defaultKey(_req: Request, _ctx: Context): string {
  * app.use(rateLimit({ store: 'redis', redis: new Redis(), max: 100 }))
  * ```
  */
-export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () => void } {
+export function rateLimit(options?: RateLimitOptions): Middleware & { close: () => void; stop?: () => void } {
   const max = options?.max ?? 100
   const window = options?.window ?? 60_000
   const getKey = options?.key ?? defaultKey
@@ -132,10 +132,11 @@ export function rateLimit(options?: RateLimitOptions): Middleware & { stop: () =
     return addRateLimitHeaders(res, max, remaining, reset)
   }
 
-  mw.stop = () => {
+  mw.close = () => {
     if (interval) clearInterval(interval)
     hits.clear()
   }
+  ;(mw as any).stop = mw.close  // backward-compatible alias
   ;(mw as any).stats = () => ({
     store: storeType,
     entries: storeType === 'memory' ? hits.size : undefined,

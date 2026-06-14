@@ -27,6 +27,55 @@ npx weifuwu init my-app && cd my-app && npm run dev
 
 ## CLI
 
+### Typical Full App
+
+```ts
+import { serve, Router, postgres, session, user, aiProvider, ssr, flash, i18n, theme, logger, rateLimit } from 'weifuwu'
+
+const app = new Router()
+
+// 1. Observability (order matters — run early)
+app.use(logger())
+
+// 2. UX middleware
+app.use('/', i18n({ default: 'zh', dir: './locales' }))
+app.use(i18n({ default: 'zh', dir: './locales' }).middleware())
+app.use('/', theme())
+app.use(theme().middleware())
+app.use(flash())
+
+// 3. Database
+const pg = postgres()
+app.use(pg)
+
+// 4. Session & Auth
+app.use(session({ store: 'redis', redis: myRedis }))
+const auth = user({ pg, jwtSecret: process.env.JWT_SECRET })
+await auth.migrate()
+app.use(auth.middleware())   // ctx.user (optional: allows public routes)
+app.use('/auth', auth)       // /register, /login, /auth/github...
+
+// 5. API protection
+app.use('/api', rateLimit({ max: 60, window: 60_000 }))
+
+// 6. AI
+app.use(aiProvider())  // ctx.ai
+
+// 7. SSR
+app.use('/', ssr({ dir: './ui' }))
+
+// 8. REST API
+app.get('/api/ping', () => Response.json({ ok: true }))
+app.post('/api/chat', async (req, ctx) => {
+  const { prompt } = await req.json()
+  const result = await ctx.ai.generateText({ prompt })
+  return Response.json(result)
+})
+
+// 9. Start
+const server = serve(app.handler(), { port: 3000 })
+```
+
 ```bash
 npx weifuwu init my-app              # Full project (SSR + i18n + theme + WS demo)
 npx weifuwu init my-api --minimal    # Minimal HTTP project (2 files)
@@ -193,12 +242,14 @@ Each module exports an `XxxInjected` type (e.g. `PostgresInjected`, `UserInjecte
 
 ## Module Patterns
 
-All modules follow one of **2 patterns** — learn these and you know every module.
+All modules follow one of **4 patterns** — learn these and you know every module.
 
 | Pattern | How to mount | Example |
 |---------|-------------|---------|
 | `[α]` | `app.use(mod())` | `compress()`, `theme()`, `postgres()` |
 | `[β]` | `app.use('/path', mod())` | `health()`, `ssr({dir})`, `graphql(handler)`, `user()` |
+| `[γ]` | Import and call directly | `mailer()`, `fts`, `cron-utils` |
+| `[δ]` | `import { useXxx } from 'weifuwu/react'` | `useTheme()`, `useLocale()`, `useWebsocket()` |
 
 ### Pattern α — Middleware
 
@@ -206,7 +257,7 @@ All modules follow one of **2 patterns** — learn these and you know every modu
 app.use(compress())           // basic
 const pg = postgres()         // with extras: .sql, .table, .migrate(), .close()
 app.use(pg)
-app.use(rateLimit({ max: 100 }))  // with .stop()
+app.use(rateLimit({ max: 100 }))  // with .close()
 ```
 
 ### Pattern β — Router
@@ -225,6 +276,105 @@ const a = analytics()
 app.use(a.middleware())   // tracking
 app.use('/', a)           // dashboard
 ```
+
+### Pattern γ — Standalone
+
+Modules that don't intercept requests or serve routes. Import and use directly.
+
+```ts
+import { mailer, cronNext, fts } from 'weifuwu'
+
+const email = mailer({ transport: 'smtp://...', from: 'noreply@example.com' })
+await email.send({ to: 'user@test.com', subject: 'Hello', text: 'Body' })
+
+const next = cronNext('0 9 * * 1-5')  // next weekday at 09:00
+```
+
+### Pattern δ — Client-side
+
+React hooks that self-register via `addInterceptor()`. Import to enable.
+
+```tsx
+import { useTheme, useLocale, useWebsocket } from 'weifuwu/react'
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+  return <button onClick={() => setTheme('dark')}>Dark</button>
+}
+```
+
+---
+
+## Module Dependency Map
+
+```mermaid
+graph TD
+    serve --> Router
+    Router --> postgres
+    Router --> redis
+    Router --> aiProvider
+
+    subgraph "DB-Dependent Modules"
+        user --> postgres
+        session --> postgres
+        session -.-> redis
+        queue --> postgres
+        queue -.-> redis
+        permissions --> postgres
+        analytics --> postgres
+        logdb --> postgres
+        tenant --> postgres
+        messager --> postgres
+        messager -.-> redis
+        agent --> postgres
+        kb --> postgres
+        iii --> postgres
+        iii -.-> redis
+    end
+
+    subgraph "AI-Dependent Modules"
+        agent --> aiProvider
+        kb --> aiProvider
+        aiStream --> aiProvider
+        opencode --> aiProvider
+        runWorkflow --> aiProvider
+    end
+```
+
+## Quick Module Selection
+
+| What do you want to do? | Module | Pattern |
+|------------------------|--------|---------|
+| **User registration / login** | `user()` | β |
+| **Simple token/header auth** | `auth()` | α |
+| **JWT verification** | `user().middleware()` | α |
+| **Role-based access control** | `permissions()` | α |
+| **AI chat / generate / stream** | `ctx.ai.generateText()` / `ctx.ai.streamText()` | α (via `aiProvider()`) |
+| **AI agent with knowledge** | `agent()` + `knowledgeBase()` | β |
+| **Send email** | `mailer()` | γ |
+| **File upload** | `upload()` | α |
+| **Object storage (S3/MinIO)** | `s3()` | α |
+| **Rate limiting** | `rateLimit()` | α |
+| **Response caching** | `cache()` | α |
+| **Periodic / delayed jobs** | `queue()` | α |
+| **Page view analytics** | `analytics()` | β |
+| **Structured logging** | `logdb()` | β |
+| **Real-time chat / messager** | `messager()` | β |
+| **Full-text search** | `fts` | γ |
+| **Theme switching** | `theme()` | α |
+| **i18n / localization** | `i18n()` | α |
+| **Flash messages** | `flash()` | α |
+| **Server-Sent Events** | `createSSEStream()` | γ |
+| **GraphQL endpoint** | `graphql()` | β |
+| **Webhook receiver** | `webhook()` | β |
+| **SSR with React** | `ssr()` | β |
+| **Health check** | `health()` | β |
+| **SEO (robots.txt, sitemap)** | `seo()` | β |
+| **Multi-process deploy** | `deploy()` | γ |
+| **Distributed functions (iii)** | `iii()` | β |
+| **Multi-tenant BaaS** | `tenant()` | β |
+| **Client-side routing** | `useNavigate()`, `<Link>` | δ |
+| **WebSocket in React** | `useWebsocket()` | δ |
 
 ---
 
@@ -347,7 +497,13 @@ Uses `TEST_DATABASE_URL` or `DATABASE_URL`. Automatically skipped in CI if unset
 
 ## Module Reference
 
-### agent [β]
+Modules are organized alphabetically. Each module shows its pattern badge (`[α]` Middleware, `[β]` Router, `[γ]` Standalone, `[δ]` Client-side) and category.
+
+**Category key:** AI, API, Clientδ, Database, DevTools, Networking, Security, SSR, UX
+
+---
+
+### agent [β] [AI]
 
 ```ts
 const provider = aiProvider()
@@ -374,7 +530,7 @@ a.run(agentId, { input: 'summarize the data', stream: true })
 | `.migrate()` | DB setup |
 | `.close()` | Cleanup |
 
-### aiStream [β]
+### aiStream [β] [AI]
 
 Creates an AI streaming chat endpoint using the Vercel AI SDK.
 
@@ -389,7 +545,7 @@ app.use('/chat', chat)
 | `handler` | `(req, ctx) => AIStreamOptions \| Promise<AIStreamOptions>` | Returns AI SDK options (model, messages, schema, etc.) |
 | `provider` | `AIProvider` | Optional. If provided and handler omits `model`, `provider.model()` is used as default |
 
-### analytics [β]
+### analytics [β] [API]
 
 In-memory or PostgreSQL page view tracking with built-in dashboard.
 
@@ -412,7 +568,7 @@ app.use(a.middleware())
 app.use('/', a)            // dashboard routes
 ```
 
-### auth [α]
+### auth [α] [Security]
 
 ```ts
 app.use(auth({ token: 'sk-123' }))                              // static token
@@ -445,7 +601,7 @@ Authorization header. This lets logged-in users authenticate via their
 session cookie without sending a token. Falls back to header/token auth
 if no session userId is present.
 
-### compress [α]
+### compress [α] [DevTools]
 
 ```ts
 app.use(compress())                         // brotli > gzip > deflate (min 1KB)
@@ -457,7 +613,7 @@ app.use(compress({ threshold: 2048, level: 4 }))      // custom threshold and le
 | `threshold` | `number` | `1024` | Minimum byte size to compress |
 | `level` | `number` | `6` | Compression level (zlib) |
 
-### cors [α]
+### cors [α] [DevTools]
 
 ```ts
 app.use(cors())                                            // allow all
@@ -475,7 +631,7 @@ app.use(cors({ credentials: true, maxAge: 3600 }))
 | `credentials` | `boolean` | `false` | Allow cookies/credentials |
 | `maxAge` | `number` | — | Preflight cache duration (seconds) |
 
-### flash [α]
+### flash [α] [UX]
 
 Cookie-based flash message. Read from request, write via redirect.
 
@@ -495,7 +651,7 @@ app.post('/save', (req, ctx) => {
 |--------|------|---------|-------------|
 | `name` | `string` | `'flash'` | Cookie name |
 
-### cache [α]
+### cache [α] [DevTools]
 
 Response caching middleware with memory and Redis stores. Caches GET/HEAD responses, with tag-based invalidation.
 
@@ -535,7 +691,7 @@ await mem.set('key', { status: 200, statusText: 'OK', headers: {}, body: '...', 
 mem.close()
 ```
 
-### csrf [α]
+### csrf [α] [Security]
 
 ```ts
 app.use(csrf())
@@ -551,7 +707,7 @@ app.use(csrf())
 | `key` | `'_csrf'` | Body field fallback |
 | `excludeMethods` | `['GET','HEAD','OPTIONS']` | Skip validation |
 
-### deploy [β]
+### deploy [β] [Networking]
 
 Multi-process manager with reverse proxy, health checks, auto-restart, and zero-downtime updates. Works identically locally and in production.
 
@@ -659,7 +815,7 @@ Restart=always
 
 
 
-### graphql [β]
+### graphql [β] [API]
 
 ```ts
 const handler: GraphQLHandler = () => ({
@@ -682,7 +838,7 @@ app.use('/graphql', graphql(handler))
 | `maxDepth` | `number` | `10` | Max query nesting depth |
 | `timeout` | `number` | `30_000` | Execution timeout (ms) |
 
-### health [β]
+### health [β] [API]
 
 ```ts
 app.use('/health', health())
@@ -694,7 +850,7 @@ app.use('/health', health())
 | `path` | `string` | `'/health'` | Health check endpoint |
 | `check` | `() => Promise<void>` | — | Async function; throws → 503 |
 
-### helmet [α]
+### helmet [α] [Security]
 
 15 security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.
 
@@ -715,7 +871,7 @@ app.use(helmet({ contentSecurityPolicy: "default-src 'self'", xFrameOptions: 'DE
 | `crossOriginOpenerPolicy` | — | COOP header |
 | `crossOriginResourcePolicy` | — | CORP header |
 
-### iii [β] — Worker / Function / Trigger
+### iii [β] — Worker / Function / Trigger [API]
 
 Distributed function execution with WebSocket workers, triggers, and Redis streams.
 
@@ -751,7 +907,7 @@ await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'
 
 
 
-### knowledgeBase [β] — RAG with pgvector
+### knowledgeBase [β] — RAG with pgvector [AI]
 
 ```ts
 import { knowledgeBase, aiProvider } from 'weifuwu'
@@ -805,7 +961,7 @@ replaces old chunks. Provider's `embed()` is used automatically.
 The HNSW index enables fast approximate nearest-neighbor search (cosine distance).
 
 
-### logdb [β]
+### logdb [β] [API]
 
 PostgreSQL structured event logging with monthly partitioning.
 
@@ -828,7 +984,7 @@ await logger.log({ level: 'info', source: 'app', message: 'hello', metadata: { u
 | GET | `/` | Query (`?level=`, `?source=`, `?after=`, `?before=`, `?meta.*=`) |
 | GET | `/:id` | Get single entry |
 
-### logger [α]
+### logger [α] [DevTools]
 
 ```ts
 app.use(logger())                             // GET /hello 200 5ms
@@ -839,7 +995,7 @@ app.use(logger({ format: 'combined' }))       // with query params
 |--------|------|---------|-------------|
 | `format` | `'short' \| 'combined'` | `'short'` | Log format: path only, or path + query params |
 
-### mailer
+### mailer [γ] [Networking]
 
 ```ts
 const mail = mailer({ from: 'noreply@example.com', transport: 'smtp://user:pass@smtp.example.com:587' })
@@ -854,7 +1010,7 @@ await mail.send({ to: 'user@test.com', subject: 'Hello', text: 'Body', html: '<p
 
 
 
-### oauthClient [β] — Social login (OAuth 2.0 client)
+### oauthClient [β] — Social login (OAuth 2.0 client) [Security]
 
 ```ts
 import { oauthClient } from 'weifuwu'
@@ -918,7 +1074,7 @@ app.use('/auth', oauthClient({
 The module auto-creates a `_auth_providers` table (`user_id`, `provider`, `provider_id`, `email`, `name`, `avatar_url`) on first request. Built-in providers (Google, GitHub) have preset URLs — you only need to provide `clientId` and `clientSecret`.
 
 
-### messager [β]
+### messager [β] [Networking]
 
 Real-time chat with channels, WebSocket, agent routing.
 
@@ -945,7 +1101,7 @@ await msg.send(channelId, 'System message', { sender_type: 'system', sender_id: 
 
 
 
-### opencode [β]
+### opencode [β] [AI]
 
 AI programming assistant.
 
@@ -972,7 +1128,7 @@ app.ws('/opencode', oc.wsHandler())
 | `skills` | `object[]` | — | Custom skill definitions |
 | `permissions` | `object` | — | Tool permission rules |
 
-### postgres [α]
+### postgres [α] [Database]
 
 Type-safe PostgreSQL client with schema builder, CRUD, migrations, soft delete, and JSONB/vector support.
 
@@ -1112,7 +1268,7 @@ class MyModule extends PgModule {
 
 Where helpers + `and`/`or`/`not` can be imported from `'weifuwu'` alongside `postgres`. Full column builders and table helpers are in the same barrel.
 
-### cron-utils
+### cron-utils [γ] [DevTools]
 
 Shared cron expression parsing utilities. All functions operate in **local timezone**.
 
@@ -1130,7 +1286,7 @@ console.log(new Date(next))
 | `matches(fields, date)` | Check if a date matches a parsed pattern |
 | `cronNext(expr, from?)` | Calculate next matching timestamp (`from` defaults to now) |
 
-### fts — Full-Text Search (PostgreSQL)
+### fts — Full-Text Search (PostgreSQL) [Database]
 
 Utilities for PostgreSQL full-text search: create GIN indexes, search with ranking, and generate highlighted snippets.
 
@@ -1166,16 +1322,15 @@ await fts.dropIndex(pg.sql, articles)
 
 Search options: `fields`, `limit` (20), `offset` (0), `headline` (false), `language` ('english'), `minRank`.
 
-### theme [α]
+### theme [α] [UX]
 
 ```ts
-app.use(theme({ default: 'dark' }))
-// → ctx.theme = { value: 'dark', set: fn }
-// → ctx.theme.value — 'dark'
-// → ctx.theme.set('light', '/settings') — 302 + Set-Cookie
+const t = theme({ default: 'dark' })
+app.use(t.middleware())  // → ctx.theme = { value: 'dark', set: fn }
+app.use('/', t)          // → GET /__theme/dark — 302 + Set-Cookie
 
-// Client-side switching (interceptor auto-handles /__theme/:value)
-// → GET /__theme/dark — 302 + Set-Cookie
+// ctx.theme.value — 'dark'
+// ctx.theme.set('light', '/settings') — 302 + Set-Cookie
 ```
 
 | Option | Type | Default | Description |
@@ -1193,15 +1348,17 @@ app.post('/settings', async (req, ctx) => {
 
 See [`useTheme()`](#usetheme) for client-side usage.
 
-### i18n [α]
+### i18n [α] [UX]
 
 ```ts
-app.use(i18n({ default: 'zh', dir: './locales' }))
-// → ctx.i18n = { locale: 'zh', t: (key) => string, set: (locale) => Response }
-// → ctx.i18n.t('welcome') → '欢迎'
-// → ctx.i18n.locale → 'zh'
-// → ctx.i18n.set('en', '/settings') — 302 + Set-Cookie
-// → GET /__lang/en — switch locale (client-side interceptor)
+const l = i18n({ default: 'zh', dir: './locales' })
+app.use(l.middleware())  // → ctx.i18n = { locale: 'zh', t, set }
+app.use('/', l)          // → GET /__lang/en — switch locale
+
+// ctx.i18n.t('welcome') → '欢迎'
+// ctx.i18n.locale → 'zh'
+// ctx.i18n.set('en', '/settings') — 302 + Set-Cookie
+```
 ```
 
 | Option | Type | Default | Description |
@@ -1222,7 +1379,7 @@ app.get('/greet', async (req, ctx) => {
 
 **Client-side:** import `useLocale` from `weifuwu/react`, `useTheme` from `weifuwu/react`.
 
-### queue [α]
+### queue [α] [Database]
 
 Async job queue. Supports immediate, delayed, and recurring (cron) tasks with three backends:
 
@@ -1300,7 +1457,7 @@ Supported cron syntax: `*` (any), `*/n` (every n), `n-m` (range), `n,m,o` (list)
 | POST | `/:type/retry` | Retry all failed jobs of a type |
 | POST | `/retry/:id` | Retry a specific failed job by ID |
 
-### rateLimit [α]
+### rateLimit [α] [Security]
 
 ```ts
 app.use(rateLimit({ max: 100, window: 60_000 }))            // 100 req/min, in-memory
@@ -1326,7 +1483,7 @@ app.use(rateLimit({ max: 100, store: 'redis', redis: ctx.redis }))
 
 Redis mode uses `INCR` + `EXPIRE` for atomic counting, enabling accurate rate limiting across multiple server processes. Memory mode is ideal for single-process deployments.
 
-### redis [α]
+### redis [α] [Database]
 
 ```ts
 const r = redis()          // reads REDIS_URL
@@ -1340,7 +1497,7 @@ await ctx.redis.set('key', 'value')
 | `url` | `string` | `REDIS_URL` env | Redis connection string |
 | (all ioredis options) | — | — | Passed directly to ioredis |
 
-### requestId [α]
+### requestId [α] [DevTools]
 
 ```ts
 app.use(requestId())
@@ -1353,7 +1510,7 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 | `header` | `string` | `'X-Request-ID'` | Header name to read/write |
 | `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
 
-### trace
+### trace [γ] [DevTools]
 
 Request-scoped tracing via `AsyncLocalStorage`. Used internally by `serve()`.
 
@@ -1372,7 +1529,7 @@ const elapsed = traceElapsed()    // ms since request started
 | `traceElapsed()` | Milliseconds elapsed since the trace started |
 | `runWithTrace(traceId, fn)` | Execute `fn` inside a trace scope |
 
-### s3 [α] — S3-compatible object storage
+### s3 [α] — S3-compatible object storage [Networking]
 
 ```ts
 import { s3 } from 'weifuwu'
@@ -1451,7 +1608,7 @@ minio:
 ```
 
 
-### seo [β] + seoMiddleware [α]
+### seo [β] + seoMiddleware [α] [API]
 
 ```ts
 app.use('/', seo({ baseUrl: 'https://example.com', robots: [{ userAgent: '*', allow: '/' }], sitemap: { urls: [{ loc: '/' }] } }))
@@ -1469,7 +1626,7 @@ Also exports `seoTags(config)` for generating meta/og/twitter tags as an HTML st
 | `sitemap` | `SitemapConfig` | — | Sitemap configuration (urls, resolve, cacheTTL) |
 | `headers` | `SeoHeadersConfig` | — | Response headers (e.g. `X-Robots-Tag`) |
 
-### session [α]
+### session [α] [Security]
 
 Cookie-based server-side session management with memory and Redis stores.
 
@@ -1531,7 +1688,7 @@ const redis = new RedisStore(redisClient, 'myapp:session:')
 await redis.destroy('sid')
 ```
 
-### ssr({ dir }) [β]
+### ssr({ dir }) [β] [SSR]
 
 One-stop Server-Side Rendering. Accepts a directory and returns a Router that handles all SSR routes, tailwind CSS, hydration, and livereload — using Next.js-style file conventions.
 
@@ -1595,7 +1752,7 @@ app.get('/api/ping', () => Response.json({ pong: true }))
 
 Layout components receive `{ children }` and wrap from outer to inner:
 
-### tenant [β]
+### tenant [β] [Networking]
 
 Multi-tenant BaaS with dynamic table API and GraphQL.
 
@@ -1612,7 +1769,7 @@ app.use('/graphql', t.graphql()) // dynamic GraphQL
 | `pg` | `object` | — | PostgreSQL client |
 | `usersTable` | `string` | — | Users table name for tenant membership lookup |
 
-### upload [α]
+### upload [α] [DevTools]
 
 ```ts
 app.post('/upload', upload({ dir: './uploads', maxFileSize: 10_485_760, allowedTypes: ['image/jpeg', 'image/png'] }), (req, ctx) => {
@@ -1628,7 +1785,7 @@ app.post('/upload', upload({ dir: './uploads', maxFileSize: 10_485_760, allowedT
 | `maxFileSize` | `number` | — | Max bytes per file |
 | `allowedTypes` | `string[]` | — | Allowed MIME types |
 
-### user [β]
+### user [β] [Security]
 
 Authentication: register, login, JWT, OAuth2 服务端, 社会化登录.
 
@@ -1665,7 +1822,7 @@ app.use(u.middleware())                  // ctx.user
 | `.verify(token)` | Verify JWT token |
 | `.middleware()` | JWT verify middleware — sets `ctx.user` |
 
-### permissions [α] — RBAC
+### permissions [α] — RBAC [Security]
 
 Role-based access control.
 
@@ -1713,7 +1870,7 @@ app.get('/posts/:id', async (req, ctx) => {
 | `.requirePermission(...perms)` | Middleware — rejects if user lacks any permission |
 | `.migrate()` | Create tables |
 
-### validate [α]
+### validate [α] [DevTools]
 
 ```ts
 import { z } from 'zod'
@@ -1747,7 +1904,7 @@ app.post('/contact', validate({ body: z.object({ email: z.string().email() }) })
 | `params` | `ZodSchema` | — | URL params validation schema |
 | `headers` | `ZodSchema` | — | Header validation schema |
 
-### webhook [β]
+### webhook [β] [API]
 
 Webhook receiver with built-in signature verification for Stripe, GitHub, and Slack. Event-based dispatch with replay protection.
 
@@ -1786,7 +1943,7 @@ wh.on('*', (event) => {
 
 Built-in verifiers handle HMAC-SHA256, timestamp validation (Slack's 5-min window), and Stripe's `t=` / `v1=` signature format. Slack URL verification challenges are auto-responded.
 
-### Client-side navigation
+### Client-side navigation [δ] [Client]
 
 ```tsx
 import { Link, useNavigate, useNavigating } from 'weifuwu/react'
@@ -1800,7 +1957,7 @@ const loading = useNavigating()              // reactive loading state
 
 **Preference URLs** (`/__lang/`, `/__theme/`) are intercepted by modular interceptors registered via `addInterceptor()` — no page reload needed. Importing `useLocale` or `useTheme` registers the interceptor automatically.
 
-### Client-side hooks
+### Client-side hooks [δ] [Client]
 
 ```tsx
 import { useWebsocket, useAction, useFetch, useQueryState, createStore, Head } from 'weifuwu/react'
@@ -1840,7 +1997,7 @@ const count = useStore(s => s.count)
 
 **`TsxContext`** — React context holding page data (`params`, `query`, `user`, `parsed`, `theme`, `i18n`, `flash`, `loaderData`, `env`). Used internally by hooks; rarely needed directly.
 
-### Locale & Theme
+### Locale & Theme [δ] [Client]
 
 ```tsx
 import { useLocale } from 'weifuwu/react'
@@ -1904,7 +2061,7 @@ addInterceptor(async (url) => {
 })
 ```
 
-### Flash messages
+### Flash messages [δ] [Client]
 
 ```ts
 import { flash } from 'weifuwu'
@@ -1939,7 +2096,7 @@ function Toast() {
 |--------|------|---------|-------------|
 | `name` | `string` | `'flash'` | Cookie name |
 
-### Dev mode
+### Dev mode [δ] [Client]
 
 Auto-detected when `NODE_ENV === 'development'`. `ssr({dir})` automatically registers importmap, vendor bundle, HMR WebSocket, and file watcher. No explicit setup needed.
 
@@ -1962,7 +2119,7 @@ const provider = aiProvider()
 
 For AI streaming endpoints see [`aiStream`](#aistream-β). For AI agent APIs see [`agent`](#agent-β).
 
-### aiProvider [α] — AI model & embedding configuration
+### aiProvider [α] — AI model & embedding configuration [AI]
 
 ```ts
 const provider = aiProvider()                 // auto from env
@@ -1995,7 +2152,7 @@ app.post('/ask', async (req, ctx) => {
 | `.streamText(params)` | Stream text (model auto-injected) |
 | `.dimension` | Configured embedding dimension |
 
-### DAG Workflow
+### DAG Workflow [AI]
 
 ```ts
 const tools = { queryUser: tool({ ... }) }

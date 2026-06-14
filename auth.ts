@@ -1,5 +1,12 @@
-import type { Middleware } from './types.ts'
+import type { Context, Middleware } from './types.ts'
 import { currentTraceId } from './trace.ts'
+
+// Augment Context with user property
+declare module './types.ts' {
+  interface Context {
+    user: unknown
+  }
+}
 
 export interface AuthOptions {
   token?: string

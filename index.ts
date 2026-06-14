@@ -39,7 +39,7 @@ export { aiStream } from './ai.ts'
 export type { AIHandler } from './ai.ts'
 export { runWorkflow } from './ai/workflow.ts'
 export { aiProvider } from './ai/provider.ts'
-export type { AIProvider, AIProviderOptions } from './ai/provider.ts'
+export type { AIProvider, AIProviderOptions, AIProviderInjected } from './ai/provider.ts'
 export {
   streamText,
   generateText,
@@ -116,11 +116,11 @@ export type { HealthOptions } from './health.ts'
 export { analytics } from './analytics.ts'
 export type { AnalyticsOptions, AnalyticsModule } from './analytics.ts'
 export { theme } from './theme.ts'
-export type { ThemeOptions } from './theme.ts'
+export type { ThemeOptions, ThemeInjected } from './theme.ts'
 export { i18n } from './i18n.ts'
-export type { I18nOptions } from './i18n.ts'
+export type { I18nOptions, I18nInjected } from './i18n.ts'
 export { flash } from './flash.ts'
-export type { FlashOptions } from './flash.ts'
+export type { FlashOptions, FlashInjected } from './flash.ts'
 export { seo, seoMiddleware, seoTags } from './seo.ts'
 export type {
   SeoOptions,
@@ -133,7 +133,7 @@ export type {
 export { mailer } from './mailer.ts'
 export type { MailerOptions, MailOptions, Mailer } from './mailer.ts'
 export { csrf } from './csrf.ts'
-export type { CsrfOptions } from './csrf.ts'
+export type { CsrfOptions, CsrfInjected } from './csrf.ts'
 export { logdb } from './logdb/index.ts'
 export type {
   LogdbOptions,

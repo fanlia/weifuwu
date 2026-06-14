@@ -29,7 +29,7 @@ describe('i18n', () => {
   it('injects ctx.i18n with default locale', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.locale, 'en')
       assert.equal(typeof ctx.i18n?.t, 'function')
@@ -43,7 +43,7 @@ describe('i18n', () => {
   it('translates using t()', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('greeting'), 'Hello')
       assert.equal(ctx.i18n?.t('farewell'), 'Goodbye')
@@ -57,7 +57,7 @@ describe('i18n', () => {
   it('translates with parameters', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('with_param', { name: 'World' }), 'Hello, World!')
       return Response.json({ ok: true })
@@ -70,7 +70,7 @@ describe('i18n', () => {
   it('returns key as fallback for missing translation', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('nonexistent'), 'nonexistent')
       return Response.json({ ok: true })
@@ -83,7 +83,7 @@ describe('i18n', () => {
   it('supports custom fallback in t()', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('missing', undefined, 'Custom fallback'), 'Custom fallback')
       return Response.json({ ok: true })
@@ -96,7 +96,7 @@ describe('i18n', () => {
   it('navigates nested keys with dot notation', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('nested.key'), 'Nested value')
       return Response.json({ ok: true })
@@ -109,7 +109,7 @@ describe('i18n', () => {
   it('reads locale from cookie', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.locale, 'zh')
       return Response.json({ ok: true })
@@ -125,7 +125,7 @@ describe('i18n', () => {
   it('translates in zh locale', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('greeting'), '你好')
       return Response.json({ ok: true })
@@ -141,7 +141,7 @@ describe('i18n', () => {
   it('reads locale from Accept-Language header', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       // Accept-Language: zh-CN,zh;q=0.9 => first value is zh-CN
       assert.equal(ctx.i18n?.locale, 'zh-CN')
@@ -160,8 +160,8 @@ describe('i18n', () => {
   it('__lang/:value route sets cookie and redirects', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
-    r.get('/settings', () => new Response('settings'))
+    r.use('/', i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
 
     const res = await r.handler()(
       new Request('http://localhost/__lang/zh', { headers: { referer: '/settings' } }),
@@ -176,7 +176,8 @@ describe('i18n', () => {
   it('__lang/:value returns JSON when Accept includes application/json', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use('/', i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
 
     const res = await r.handler()(
       new Request('http://localhost/__lang/fr', {
@@ -193,7 +194,7 @@ describe('i18n', () => {
   it('uses custom default locale', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir, default: 'zh' }))
+    r.use(i18n({ dir: tmpDir, default: 'zh' }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.locale, 'zh')
       return Response.json({ ok: true })
@@ -212,7 +213,7 @@ describe('i18n', () => {
         de: { hello: 'Hallo' },
         fr: { hello: 'Bonjour' },
       },
-    }))
+    }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('hello'), 'Hallo')
       return Response.json({ ok: true })
@@ -228,7 +229,7 @@ describe('i18n', () => {
     r.use(i18n({
       dir: tmpDir,
       messages: { en: { greeting: 'Overridden' } },
-    }))
+    }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('greeting'), 'Overridden')
       return Response.json({ ok: true })
@@ -241,7 +242,7 @@ describe('i18n', () => {
   it('set() returns redirect with cookie', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/set-locale', (_req, ctx) => {
       return ctx.i18n?.set?.('fr', '/home') ?? new Response('no i18n', { status: 500 })
     })
@@ -259,7 +260,7 @@ describe('i18n', () => {
   it('custom cookie name', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir, cookie: 'lang' }))
+    r.use(i18n({ dir: tmpDir, cookie: 'lang' }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.locale, 'zh')
       return Response.json({ ok: true })
@@ -275,7 +276,7 @@ describe('i18n', () => {
   it('disables Accept-Language detection', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir, fromAcceptLanguage: false }))
+    r.use(i18n({ dir: tmpDir, fromAcceptLanguage: false }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.locale, 'en') // default, not from header
       return Response.json({ ok: true })
@@ -293,7 +294,7 @@ describe('i18n', () => {
   it('zh-CN falls back to zh messages', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({ dir: tmpDir }))
+    r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('greeting'), '你好')
       return Response.json({ ok: true })

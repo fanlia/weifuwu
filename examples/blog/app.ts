@@ -27,8 +27,10 @@ export { auth }
 app.use(auth.middlewareOptional({ cookie: 'token' }))
 
 // ── Global middleware ──────────────────────────────────────────────────
-app.use(theme())
-app.use(i18n({ dir: './locales' }))
+app.use('/', theme())
+app.use(theme().middleware())
+app.use('/', i18n({ dir: './locales' }))
+app.use(i18n({ dir: './locales' }).middleware())
 app.use(flash())
 
 // ── Form-based auth routes (cookie-style) ───────────────────────────────

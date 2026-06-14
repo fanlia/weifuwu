@@ -1,5 +1,18 @@
-import type { Context, Middleware } from './types.ts'
+import type { Context, Handler, Middleware } from './types.ts'
 import { getCookies } from './cookie.ts'
+import { Router } from './router.ts'
+
+// Augment Context with theme property
+declare module './types.ts' {
+  interface Context {
+    theme: ThemeInjected
+  }
+}
+
+export interface ThemeInjected {
+  value: string
+  set: (value: string, loc?: string) => Response
+}
 
 export interface ThemeOptions {
   /** Default theme value (default: 'system'). */
@@ -16,34 +29,53 @@ function makeSetTheme(cookie: string, location: string) {
   }
 }
 
-export function theme(options?: ThemeOptions): Middleware {
+/**
+ * Theme module. Returns a Router with an attached `.middleware()` method.
+ *
+ * ```ts
+ * const t = theme()
+ * app.use(t.middleware())  // → ctx.theme = { value, set }
+ * app.use('/', t)          // → GET /__theme/dark (switch route)
+ * ```
+ */
+export interface ThemeModule extends Router {
+  /** Middleware that injects `ctx.theme = { value, set }`. */
+  middleware: () => Middleware<Context, Context & ThemeInjected>
+}
+
+export function theme(options?: ThemeOptions): ThemeModule {
   const opts = { default: 'system', cookie: 'theme', ...options }
 
-  return async (req, ctx, next) => {
-    const url = new URL(req.url)
-    const match = url.pathname.match(/^\/__theme\/([\w-]+)$/)
-
-    if (match && req.method === 'GET') {
-      const value = match[1]
-      const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
-      const accept = req.headers.get('accept') ?? ''
-      if (accept.includes('application/json')) {
-        return Response.json({ ok: true, theme: value }, { headers: { 'Set-Cookie': cookie } })
-      }
-      const referer = req.headers.get('referer') || '/'
-      return new Response(null, { status: 302, headers: { Location: referer, 'Set-Cookie': cookie } })
-    }
-
+  const mw: Middleware<Context, Context & ThemeInjected> = async (req, ctx, next) => {
     let themeValue = opts.default
     if (opts.cookie) {
       const fromCookie = getCookies(req)[opts.cookie]
       if (fromCookie) themeValue = fromCookie
     }
 
-    ctx.theme = {
+    ;(ctx as Context & ThemeInjected).theme = {
       value: themeValue,
       set: makeSetTheme(opts.cookie, req.headers.get('referer') || '/'),
     }
-    return next(req, ctx)
+    return next(req, ctx as Context & ThemeInjected)
   }
+
+  class ThemeRouter extends Router {
+    middleware() { return mw }
+  }
+
+  const router = new ThemeRouter()
+  router.get('/__theme/:value', (req) => {
+    const url = new URL(req.url)
+    const value = url.pathname.split('/__theme/')[1] ?? ''
+    const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
+    const accept = req.headers.get('accept') ?? ''
+    if (accept.includes('application/json')) {
+      return Response.json({ ok: true, theme: value }, { headers: { 'Set-Cookie': cookie } })
+    }
+    const referer = req.headers.get('referer') || '/'
+    return new Response(null, { status: 302, headers: { Location: referer, 'Set-Cookie': cookie } })
+  })
+
+  return router
 }

@@ -4,19 +4,9 @@
 export interface Context {
   params: Record<string, string>
   query: Record<string, string>
-  user?: unknown
-  parsed?: Record<string, unknown>
   mountPath?: string
-  theme?: { value: string; set?: (value: string, loc?: string) => Response }
-  flash?: { value: unknown; set: (data: unknown, location?: string) => Response }
-  i18n?: {
-    locale: string
-    messages?: Record<string, unknown>
-    t: (key: string, params?: Record<string, string>, fallback?: string) => string
-    set?: (value: string, loc?: string) => Response
-  }
-  env?: Record<string, string>
   layoutStack?: { path: string; component: any }[]  // set by layout() middleware, read by ssr()
+  env?: Record<string, string>  // public env vars (WEIFUWU_PUBLIC_*)
   [key: string]: unknown  // allow arbitrary middleware-injected data
 }
 

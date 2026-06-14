@@ -1,6 +1,13 @@
 import crypto from 'node:crypto'
 import type { Context, Middleware } from './types.ts'
 
+// Augment Context with requestId property
+declare module './types.ts' {
+  interface Context {
+    requestId: string
+  }
+}
+
 /** Options for {@link requestId}. */
 export interface RequestIdOptions {
   /** Header name for request ID (default: `'X-Request-ID'`). */
