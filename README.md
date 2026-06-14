@@ -196,14 +196,13 @@ The `ctx` object accumulates properties as it passes through the middleware chai
 | `query` | Router | `Record<string, string>` | URL query parameters |
 | `mountPath` | Router | `string` | Current sub-router mount prefix |
 | `env` | `loadEnv()` | `Record<string, string>` | Public env vars (`WEIFUWU_PUBLIC_*`) |
-| `csrfToken` | `csrf()` | `string` | CSRF token |
+| `csrf.token` | `csrf()` | `string` | CSRF token (namespace) |
 | `requestId` | `requestId()` | `string` | Request ID |
 | `session` | `session()` | `Session` | Session data object |
 | `sql` | `postgres()` | `Sql<{}>` | PostgreSQL tagged-template client |
 | `redis` | `redis()` | `Redis` | Redis client |
 | `ai` | `aiProvider()` | `AIProvider` | AI model & embedding |
 | `queue` | `queue()` | `Queue` | Job queue |
-| `session` | `session()` | `Session` | Session data object |
 | `user` | `auth()` / `user().middleware()` | `{ id?: string }` | Authenticated user |
 | `permissions` | `permissions()` | `{ roles, permissions }` | RBAC roles & permissions sets |
 | `theme` | `theme()` | `{ value, set }` | Current theme + switcher |
@@ -223,12 +222,12 @@ Middleware-injected properties are **automatically typed** through chained `use(
 
 ```ts
 const app = new Router()
-  .use(csrf())          // → Router<Context & { csrfToken: string }>
-  .use(requestId())     // → Router<Context & { csrfToken, requestId }>
-  .use(postgres())      // → Router<Context & { csrfToken, requestId, sql }>
+  .use(csrf())          // → Router<Context & { csrf: { token: string } }>
+  .use(requestId())     // → Router<Context & { csrf: ..., requestId }>
+  .use(postgres())      // → Router<Context & { csrf: ..., requestId, sql }>
 
 app.get('/me', (_req, ctx) => {
-  ctx.csrfToken   // ✅ string (IDE autocomplete)
+  ctx.csrf.token  // ✅ string (IDE autocomplete)
   ctx.requestId   // ✅ string
   ctx.sql`SELECT 1` // ✅ Sql<{}>
 })
@@ -379,6 +378,22 @@ graph TD
 | **Multi-tenant BaaS** | `tenant()` | β |
 | **Client-side routing** | `useNavigate()`, `<Link>` | δ |
 | **WebSocket in React** | `useWebsocket()` | δ |
+| **Compression (brotli/gzip)** | `compress()` | α |
+| **Security headers (CSP, HSTS)** | `helmet()` | α |
+| **CORS** | `cors()` | α |
+| **CSRF protection** | `csrf()` | α |
+| **Request ID tracing** | `requestId()` | α |
+| **Environment variables** | `env()` / `loadEnv()` | α |
+| **Static file serving** | `serveStatic()` | α |
+| **Object storage (S3/MinIO)** | `s3()` | α |
+| **Send email** | `mailer()` | γ |
+| **Scheduled / cron tasks** | `cron-utils` (`cronNext()`) | γ |
+| **Server-Sent Events** | `createSSEStream()` | γ |
+| **Multi-process deploy** | `deploy()` | γ |
+| **Distributed functions (iii)** | `iii()` | β |
+| **Webhook receiver** | `webhook()` | β |
+| **Social login (OAuth)** | `user({ oauthLogin })` | β |
+| **Database migrations** | `pg.migrate()` | — |
 
 ---
 
@@ -699,7 +714,7 @@ mem.close()
 
 ```ts
 app.use(csrf())
-// ctx.csrfToken — set on GET/HEAD/OPTIONS
+// ctx.csrf.token — set on GET/HEAD/OPTIONS
 // Auto-validates x-csrf-token or x-xsrf-token header on POST/PUT/DELETE/PATCH
 // Falls back to body field matching the key name
 ```
@@ -817,7 +832,40 @@ Restart=always
 | `buildCommand` | — | Build command |
 | `ports` | — | `[port, port+1]` for blue-green |
 
+### env [α] [DevTools]
 
+Environment variable middleware. Injects `ctx.env` with all `WEIFUWU_PUBLIC_*` variables (prefix stripped).
+Safe to expose to the client.
+
+```ts
+import { env, loadEnv } from 'weifuwu'
+loadEnv()                                // Load .env into process.env
+app.use(env())                           // → ctx.env
+
+app.get('/config', (req, ctx) => {
+  return Response.json({ apiUrl: ctx.env.API_URL })
+})
+```
+
+Helper utilities:
+
+```ts
+import { isDev, isProd, isBundled, getPublicEnv } from 'weifuwu'
+
+isDev()      // NODE_ENV === 'development'
+isProd()     // NODE_ENV === 'production'
+isBundled()  // Running from compiled dist/index.js?
+getPublicEnv()  // { API_URL: '...' } — no middleware needed
+```
+
+| Function | Description |
+|----------|-------------|
+| `loadEnv(path?)` | Load `.env` file into `process.env` (does not override existing) |
+| `env()` | Middleware — injects `ctx.env` with public vars |
+| `getPublicEnv()` | Returns `WEIFUWU_PUBLIC_*` vars with prefix stripped |
+| `isDev()` | `true` when `NODE_ENV === 'development'` |
+| `isProd()` | `true` when `NODE_ENV === 'production'` |
+| `isBundled()` | `true` when running from compiled bundle |
 
 ### graphql [β] [API]
 
@@ -997,7 +1045,7 @@ app.use(logger({ format: 'combined' }))       // with query params
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `format` | `'short' \| 'combined'` | `'short'` | Log format: path only, or path + query params |
+| `format` | `'short' \| 'combined' \| 'json'` | `'short'` | Log format: path only, path + query params, or JSON to stderr |
 
 ### mailer [γ] [Networking]
 
@@ -1014,28 +1062,31 @@ await mail.send({ to: 'user@test.com', subject: 'Hello', text: 'Body', html: '<p
 
 
 
-### oauthClient [β] — Social login (OAuth 2.0 client) [Security]
+### oauthLogin (via user()) — Social login (OAuth 2.0 client) [Security]
+
+Social login is built into the [`user()`](#user-β) module via the `oauthLogin` option — no separate import needed.
 
 ```ts
-import { oauthClient } from 'weifuwu'
-
 app.use(session())                       // required — stores OAuth state
-app.use(user({ pg, jwtSecret }))         // required — user management
-app.use('/auth', oauthClient({           // mounts /auth/google, /auth/google/callback
+const u = user({
   pg,
-  jwtSecret,
-  redirectUrl: '/dashboard',
-  providers: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    },
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  jwtSecret: process.env.JWT_SECRET!,
+  oauthLogin: {
+    redirectUrl: '/dashboard',
+    providers: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      },
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      },
     },
   },
-}))
+})
+await u.migrate()
+app.use(u)   // POST /register, POST /login, GET /auth/:provider, GET /auth/:provider/callback
 ```
 
 **Flow:** User clicks "Login with Google" → redirected to Google → back to app → user created/linked in database → JWT signed → session created → redirected to `redirectUrl` with `?token=` (or JSON response for API clients).
@@ -1043,39 +1094,37 @@ app.use('/auth', oauthClient({           // mounts /auth/google, /auth/google/ca
 Supports custom providers via `authUrl`, `tokenUrl`, `userUrl`, and `parseUser`:
 
 ```ts
-app.use('/auth', oauthClient({
+const u = user({
   pg,
-  jwtSecret,
-  providers: {
-    discord: {
-      clientId: process.env.DISCORD_CLIENT_ID,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET,
-      authUrl: 'https://discord.com/api/oauth2/authorize',
-      tokenUrl: 'https://discord.com/api/oauth2/token',
-      userUrl: 'https://discord.com/api/users/@me',
-      parseUser: (data) => ({
-        id: data.id,
-        email: data.email ?? '',
-        name: data.global_name ?? data.username,
-        avatarUrl: data.avatar
-          ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png`
-          : '',
-      }),
+  jwtSecret: process.env.JWT_SECRET!,
+  oauthLogin: {
+    providers: {
+      discord: {
+        clientId: process.env.DISCORD_CLIENT_ID,
+        clientSecret: process.env.DISCORD_CLIENT_SECRET,
+        authUrl: 'https://discord.com/api/oauth2/authorize',
+        tokenUrl: 'https://discord.com/api/oauth2/token',
+        userUrl: 'https://discord.com/api/users/@me',
+        parseUser: (data) => ({
+          id: data.id,
+          email: data.email ?? '',
+          name: data.global_name ?? data.username,
+          avatarUrl: data.avatar
+            ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png`
+            : '',
+        }),
+      },
     },
   },
-}))
+})
 ```
 
-| Option | Type | Default | Description |
+| Option (oauthLogin) | Type | Default | Description |
 |--------|------|---------|-------------|
-| `pg` | `PostgresClient` | — | **Required.** Database connection |
-| `jwtSecret` | `string` | — | **Required.** Must match `user()` module's secret |
 | `providers` | `Record<string, OAuthProviderConfig>` | — | **Required.** Provider configs (Google/GitHub built-in, any custom) |
 | `redirectUrl` | `string` | `'/'` | Post-login redirect destination |
-| `expiresIn` | `string \| number` | `'24h'` | JWT expiry |
-| `table` | `string` | `'_auth_providers'` | Provider-user link table name |
 
-The module auto-creates a `_auth_providers` table (`user_id`, `provider`, `provider_id`, `email`, `name`, `avatar_url`) on first request. Built-in providers (Google, GitHub) have preset URLs — you only need to provide `clientId` and `clientSecret`.
+Built-in providers (Google, GitHub) have preset URLs — you only need to provide `clientId` and `clientSecret`. The module auto-creates a `_auth_providers` table on first request.
 
 
 ### messager [β] [Networking]
@@ -1373,7 +1422,6 @@ app.use(i18n({ default: 'zh', dir: './locales' }))
 // app.use(l.middleware())
 // app.use('/', l)
 ```
-```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -1524,16 +1572,35 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 | `header` | `string` | `'X-Request-ID'` | Header name to read/write |
 | `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
 
-### trace [γ] [DevTools]
+### trace [α] [DevTools]
 
-Request-scoped tracing via `AsyncLocalStorage`. Used internally by `serve()`.
+Request-scoped tracing via `AsyncLocalStorage`. Use as middleware to inject `ctx.trace`:
 
 ```ts
-import { currentTraceId, runWithTrace, traceElapsed } from 'weifuwu'
+import { trace } from 'weifuwu'
+app.use(trace())                             // → ctx.trace
+app.use(trace({ header: 'X-Trace-Id' }))     // custom header
 
-// Inside a middleware or handler
+app.get('/', (req, ctx) => {
+  console.log(ctx.trace.requestId)  // 550e8400-e29b-...
+  console.log(ctx.trace.traceId)    // trace UUID
+  console.log(ctx.trace.elapsed())  // ms since request start
+})
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `header` | `string` | `'X-Request-ID'` | Request ID header name |
+| `generator` | `() => string` | `crypto.randomUUID()` | Custom ID generator |
+
+Utility functions (also available standalone):
+
+```ts
+import { currentTraceId, runWithTrace, traceElapsed, currentTrace } from 'weifuwu'
+
 const traceId = currentTraceId()  // UUID or incoming X-Trace-Id
 const elapsed = traceElapsed()    // ms since request started
+runWithTrace(incomingId, () => { ... })  // manual scope
 ```
 
 | Function | Description |
@@ -1751,7 +1818,7 @@ app.use('/', ssr({ dir: './ui' }))
 - The vendor bundle (react + react-dom + weifuwu client libs) is compiled once and cached
 - Page components are pre-compiled to `/__ssr/{hash}.js` — no runtime esbuild after first request
 - **Dev:** `createRoot` + render; **Production:** `hydrateRoot` (reuses SSR DOM)
-- Both the hydration script and the page component share the same store via `globalThis.__WEIFUWU_CTX_STORE`
+- The hydration script and page component share the same SSR context store — data flows seamlessly from server to client
 - Tailwind CSS served at `/__wfw/style/{hash}.css` (cached, content-hashed)
 - Dev mode extras: HMR WebSocket, file watcher, hot component replacement
 
@@ -1960,14 +2027,15 @@ Built-in verifiers handle HMAC-SHA256, timestamp validation (Slack's 5-min windo
 ### Client-side navigation [δ] [Client]
 
 ```tsx
-import { Link, useNavigate, useNavigating } from 'weifuwu/react'
+import { Link, navigate, useNavigate, useNavigating } from 'weifuwu/react'
 
 <Link href="/about" prefetch>About</Link>   // client-side nav + prefetch on hover/visible
-const navigate = useNavigate()               // programmatic: navigate('/contact')
+const n = useNavigate()                      // hook: n('/contact')
+navigate('/contact')                         // bare function (no hook needed)
 const loading = useNavigating()              // reactive loading state
 ```
 
-`navigate()` fetches SSR, extracts `__weifuwu_root`, replaces in-place. Middleware runs on server each nav — data is always fresh.
+`navigate()` fetches the SSR page, extracts the root container content, and replaces it in-place. Middleware runs on server each nav — data is always fresh.
 
 **Preference URLs** (`/__lang/`, `/__theme/`) are intercepted by modular interceptors registered via `addInterceptor()` — no page reload needed. Importing `useLocale` or `useTheme` registers the interceptor automatically.
 
@@ -2062,7 +2130,7 @@ function Page() {
 }
 ```
 
-On the server, data flows from middleware → `ctx` → `setCtx(ctxValue)` (serialized via JSON). On the client, the hydration script calls `setCtx(ctxData)` which populates the shared store (`globalThis.__WEIFUWU_CTX_STORE`). `useLoaderData()` reads from the snapshot via `useSyncExternalStore` — no SSR-specific code needed in your components.
+On the server, data flows from middleware → `ctx` → `setCtx(ctxValue)` (serialized via JSON). On the client, the hydration script calls `setCtx(ctxData)` which populates the shared context store. `useLoaderData()` reads from the snapshot via `useSyncExternalStore` — no SSR-specific code needed in your components.
 
 **`addInterceptor(fn)`** — Register a URL interceptor. Interceptors run before SPA navigation; if one returns `true`, `navigate()` skips the fetch-and-swap.
 
@@ -2116,7 +2184,7 @@ Auto-detected when `NODE_ENV === 'development'`. `ssr({dir})` automatically regi
 
 - Inline hydration script uses `createRoot` + render (replaces SSR DOM)
 - Vendor bundle served at `/__wfw/v/bundle?h=<hash>` — compiled from source, unminified
-- Hot component replacement: file changes → WebSocket message → browser imports hot bundle → `__WFW_REFRESH(NewComponent)` — `useState` values preserved
+- Hot component replacement: file changes → WebSocket message → browser imports hot bundle → component refreshed in place — `useState` values preserved
 - Tailwind CSS hot-reloads without page refresh
 - Layout changes trigger a full page reload
 
@@ -2206,16 +2274,24 @@ Every public symbol can be imported from `'weifuwu'`:
 ```ts
 serve, createTestServer, Router, ssr,
 Context, Handler, Middleware, ErrorHandler, ServeOptions, Server,
-loadEnv, testApp, TestApp, TestRequest, TestResponse,
-currentTraceId, currentTrace, runWithTrace, traceElapsed, TraceContext,
+loadEnv, env, isDev, isProd, isBundled, getPublicEnv,
+currentTraceId, currentTrace, runWithTrace, traceElapsed, trace, TraceContext,
+testApp, TestApp, TestRequest, TestResponse,
+createTestDb, withTestDb,
+getCookies, setCookie, deleteCookie,
+createSSEStream, formatSSE, formatSSEData, SSEEvent,
+DEFAULT_MAX_BODY, MIGRATIONS_TABLE,
 ```
 
-### Middleware modules
+### Middleware / DevTools
 
 ```ts
-auth, cors, csrf, compress, helmet, logger, rateLimit, requestId, validate, upload,
-theme, i18n, flash, permissions, serveStatic, session, MemoryStore, RedisStore, SessionStore,
-cache, MemoryCache, RedisCache, CacheStore
+logger, cors, compress, helmet,
+rateLimit, requestId, validate, upload,
+csrf, session, MemoryStore, RedisStore, SessionStore,
+cache, MemoryCache, RedisCache, CacheStore,
+flash, permissions,
+serveStatic, s3,
 ```
 
 ### Database
@@ -2225,12 +2301,70 @@ postgres, PostgresOptions, PostgresClient,
 redis, RedisOptions, RedisClient,
 queue, QueueOptions, QueueJob, Queue,
 PostgresInjected, RedisInjected, QueueInjected,
-// Schema helpers — importable alongside postgres:
+// Schema helpers:
 pgTable, SQL, sql,
 ColumnBuilder, serial, uuid, text, integer, boolean, boolean_, timestamptz, jsonb, textArray, vector,
 partitionBy, timestamps, toDDL, PartitionByDef,
 Table, BoundTable, IndexOptions, FindOptions, CreateOptions,
-eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not
+eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not,
+fts,
+```
+
+### Security / Auth
+
+```ts
+auth,
+user, UserModule, UserData, UserOptions, UserInjected, OAuthProviderConfig, OAuth2Client,
+permissions, PermissionsModule, PermissionsOptions,
+csrf, CsrfOptions, CsrfInjected,
+helmet, HelmetOptions,
+session, SessionStore, SessionOptions, SessionData, SessionInjected,
+rateLimit, RateLimitOptions,
+```
+
+### UX Middleware
+
+```ts
+theme, ThemeOptions, ThemeInjected,
+i18n, I18nOptions, I18nInjected,
+flash, FlashOptions, FlashInjected,
+```
+
+### AI
+
+```ts
+aiProvider, AIProvider, AIProviderOptions, AIProviderInjected,
+streamText, generateText, streamObject, generateObject,
+tool, embed, embedMany, smoothStream,
+openai, createOpenAI,
+aiStream, AIHandler,
+runWorkflow,
+agent, AgentModule, AgentOptions,
+knowledgeBase, KBModule, KBOptions,
+opencode, OpencodeModule, OpencodeOptions,
+```
+
+### API / Routing
+
+```ts
+analytics, AnalyticsModule, AnalyticsOptions,
+health, HealthOptions,
+graphql, GraphQLOptions, GraphQLHandler,
+logdb, LogdbModule, LogdbOptions,
+seo, seoMiddleware, seoTags, SeoOptions,
+webhook, WebhookModule, WebhookOptions,
+iii, createWorker, registerWorker, IIIModule, IIIOptions,
+```
+
+### Networking / Storage
+
+```ts
+s3, S3Options, S3Module, S3Body,
+mailer, MailerOptions, Mailer,
+messager, MessagerModule, MessagerOptions,
+hub, createHub, Hub, HubOptions,
+deploy, defineConfig, DeployConfig, AppConfig,
+tenant, TenantModule, TenantOptions, TenantContext,
 ```
 
 ### Client-side (from `'weifuwu/react'`)
@@ -2241,39 +2375,13 @@ useWebsocket, useAction, useFetch, useQueryState, createStore,
 Link, useNavigate, useNavigating, addInterceptor,
 useLocale, useTheme, applyTheme, useFlashMessage,
 useAgentStream,
-Head
-```
-export type { UseAgentStreamOptions, UseAgentStreamReturn, AgentStreamState } from 'weifuwu/react'
+Head,
 
-### AI Provider (framework abstraction)
-
-```ts
-aiProvider, AIProvider, AIProviderOptions
-```
-
-### AI SDK (re-exported from `ai`)
-
-```ts
-streamText, generateText, streamObject, generateObject,
-tool, embed, embedMany, smoothStream,
-openai, createOpenAI
-```
-
-### Other modules
-
-```ts
-theme, i18n, flash, health, analytics, seo, seoMiddleware, seoTags,
-user, mailer, graphql, aiStream, runWorkflow, knowledgeBase, permissions, queue,
-logdb, messager, agent, iii, createWorker, registerWorker,
-opencode, deploy, defineConfig, webhook,
-testApp, TestApp, TestRequest, TestResponse,
-createTestDb, withTestDb,
-getCookies, setCookie, deleteCookie,
-createSSEStream, formatSSE, formatSSEData,
-currentTraceId, currentTrace, runWithTrace, traceElapsed,
-createHub, Hub, HubOptions,
-DEFAULT_MAX_BODY, MIGRATIONS_TABLE,
-fts,
+// Types:
+StoreApi,
+UseActionOptions, UseActionReturn,
+UseWebsocketOptions, UseWebsocketReturn,
+UseAgentStreamOptions, UseAgentStreamReturn, AgentStreamState,
 ```
 
 ---
