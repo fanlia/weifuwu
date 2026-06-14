@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { serve } from '../serve.ts'
 import type { Handler } from '../types.ts'
-import type { DeployConfig, DeployServer } from './types.ts'
+import type { DeployConfig, DeployServer, AppStatus } from './types.ts'
 import { createGateway } from './gateway.ts'
 import { createManager, type AppRuntime } from './manager.ts'
 import { forkApp, stopProcess, healthCheck } from './process.ts'
@@ -13,6 +13,7 @@ export type { DeployConfig, AppConfig, DeployServer, AppStatus, GatewayResult } 
 
 export async function deploy(config: DeployConfig): Promise<DeployServer> {
   const apps = new Map<string, AppRuntime>()
+
   let httpServer: ReturnType<typeof serve> | undefined
 
   async function forkAndCheck(
@@ -163,7 +164,7 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
   ) {
     apps.set(name, {
       config: ac,
-      status: { name, ...overrides } as any,
+      status: { name, status: 'starting', port: 0, ...overrides } as AppStatus,
       logs,
       process: null,
       currentPort: overrides.port ?? ac.port ?? 0,

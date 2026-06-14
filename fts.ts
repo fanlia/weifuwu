@@ -33,12 +33,7 @@ export interface FTSSearchOptions {
 // ── SQL helpers ─────────────────────────────────────────────────────────────
 
 function resolveTableName(table: BoundTable<any>): string {
-  // pg.table() stores tableName on `.inner`, not on the BoundTable directly
-  const name = (table as any).inner?.tableName ?? (table as any).tableName
-  if (!name || typeof name !== 'string') {
-    throw new Error('fts: could not determine table name. Ensure you pass a pg.table() result.')
-  }
-  return name
+  return table.tableName
 }
 
 function escapeIdent(s: string): string {
@@ -134,11 +129,11 @@ export async function search<T extends Record<string, unknown>>(
 
   const rows = await sql.unsafe(sql_query)
 
-  return rows.map((row: any) => {
+  return rows.map((row) => {
     const result: FTSSearchResult = {
       id: row.id,
       rank: Number(row[rankCol]) || 0,
-      row: row as Record<string, unknown>,
+      row: row,
     }
 
     if (options?.headline && searchFields) {
@@ -176,5 +171,5 @@ export async function suggest(
     LIMIT ${limit}
   `)
 
-  return rows.map((r: any) => r.tokens?.[0] ?? '').filter(Boolean)
+  return rows.map((r) => r.tokens?.[0] ?? '').filter(Boolean)
 }

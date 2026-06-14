@@ -248,15 +248,16 @@ function renderPage(pageFile: string, outDir: string): Handler {
   const absPath = resolve(pageFile)
   const entryId = hashId(absPath)
   ssrEntries.set(entryId, { path: absPath })
-  const bundleKey = `/__ssr/${entryId}.js`
 
   return async (req, ctx) => {
     // Compile page
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let pageMod: any
     try {
       pageMod = await compile(absPath)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
+      // eslint-disable-next-line no-console
       console.error(`[ssr] compile failed: ${pageFile} — ${msg}`)
       return errorPage('Compilation failed', `${pageFile}: ${msg}`)
     }
@@ -265,20 +266,19 @@ function renderPage(pageFile: string, outDir: string): Handler {
     if (!Component) return errorPage('Missing default export', pageFile)
 
     const layouts = ctx.layoutStack || []
-    const layoutComponents = layouts.map((l: any) => l.component)
-    const layoutPaths = layouts.map((l: any) => l.path)
+    const layoutComponents = layouts.map((l) => l.component)
 
     const base = (ctx.mountPath || '').replace(/\/$/, '')
     const loaderData = serializeLoaderData(ctx)
 
-    const ctxValue: any = {
+    const ctxValue: PageContext = {
       params: ctx.params,
       query: ctx.query,
       user: (ctx.user ?? {}) as { id?: string },
       parsed: ctx.parsed ?? {},
       theme: ctx.theme,
       i18n: ctx.i18n,
-      flash: ctx.flash,
+      flash: ctx.flash as PageContext['flash'],
       loaderData,
       env: ctx.env ?? {},
     }
@@ -289,6 +289,7 @@ function renderPage(pageFile: string, outDir: string): Handler {
       // Compile page component for browser (served at /__ssr/[hash].js)
       await compileBrowser(absPath, outDir)
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let element: any = createElement(
         'div',
         { id: '__weifuwu_root' },

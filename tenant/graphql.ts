@@ -1,4 +1,7 @@
 import {
+  type GraphQLOutputType,
+  type GraphQLInputType,
+  type GraphQLFieldConfigMap,
   GraphQLSchema,
   GraphQLObjectType,
   GraphQLInputObjectType,
@@ -18,8 +21,14 @@ import { Router } from '../router.ts'
 import type { FieldDef, UserTableRow } from './types.ts'
 import { internalTableName, pascalCase, findRelation, getRelationFields } from './utils.ts'
 
-function graphqlType(field: FieldDef, required: boolean): any {
-  let t: any
+// GraphQL schema generation is inherently dynamic — the any types below are
+// unavoidable because resolver parent/args depend on the user-defined schema.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type GQLFieldMap = GraphQLFieldConfigMap<any, any>
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+function graphqlType(field: FieldDef, required: boolean): GraphQLOutputType {
+  let t: GraphQLOutputType = GraphQLString
   switch (field.type) {
     case 'integer':
       t = GraphQLInt
@@ -36,21 +45,17 @@ function graphqlType(field: FieldDef, required: boolean): any {
           name: `Enum_${field.name}`,
           values: Object.fromEntries(field.options.map((o) => [o, { value: o }])),
         })
-      } else {
-        t = GraphQLString
       }
       break
     case 'vector':
       t = GraphQLString
       break
-    default:
-      t = GraphQLString
   }
   return required ? new GraphQLNonNull(t) : t
 }
 
-function inputGraphqlType(field: FieldDef): any {
-  return graphqlType(field, false)
+function inputGraphqlType(field: FieldDef): GraphQLInputType {
+  return graphqlType(field, false) as GraphQLInputType
 }
 
 interface BuildCtx {
@@ -65,7 +70,7 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
   if (cached) return cached
   const typeName = pascalCase(table.slug)
   const fieldsThunk = () => {
-    const fields: Record<string, any> = {}
+    const fields: GQLFieldMap = {}
     fields.id = { type: new GraphQLNonNull(GraphQLID) }
     for (const f of table.fields) {
       fields[f.name] = { type: graphqlType(f, !!f.required) }
@@ -82,6 +87,7 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
             limit: { type: GraphQLInt, defaultValue: 20 },
             offset: { type: GraphQLInt, defaultValue: 0 },
           },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           resolve: async (parent: any) => {
             const childName = internalTableName(ctx.tenantId, other.slug)
             const rows = await ctx.sql.unsafe(
@@ -106,6 +112,7 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
                 limit: { type: GraphQLInt, defaultValue: 20 },
                 offset: { type: GraphQLInt, defaultValue: 0 },
               },
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               resolve: async (parent: any) => {
                 const childName = internalTableName(ctx.tenantId, other.slug)
                 const targetName = internalTableName(ctx.tenantId, targetSlug)
@@ -129,6 +136,7 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
       if (!targetTable) continue
       fields[targetSlug] = {
         type: buildObjectType(targetTable, ctx),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolve: async (parent: any) => {
           const name = internalTableName(ctx.tenantId, targetSlug)
           const [row] = await ctx.sql.unsafe(
@@ -156,8 +164,8 @@ function buildInputType(table: UserTableRow, prefix: string): GraphQLInputObject
   })
 }
 
-function buildQueryFields(tables: UserTableRow[], ctx: BuildCtx): Record<string, any> {
-  const fields: Record<string, any> = {}
+function buildQueryFields(tables: UserTableRow[], ctx: BuildCtx): GQLFieldMap {
+  const fields: GQLFieldMap = {}
   for (const table of tables) {
     const objType = buildObjectType(table, ctx)
     const slug = table.slug
@@ -170,6 +178,7 @@ function buildQueryFields(tables: UserTableRow[], ctx: BuildCtx): Record<string,
         limit: { type: GraphQLInt, defaultValue: 20 },
         offset: { type: GraphQLInt, defaultValue: 0 },
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       resolve: async (_: any, args: any) => {
         const name = internalTableName(ctx.tenantId, slug)
         const rows = await ctx.sql.unsafe(
@@ -184,6 +193,7 @@ function buildQueryFields(tables: UserTableRow[], ctx: BuildCtx): Record<string,
     fields[`get${pascal}`] = {
       type: objType,
       args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       resolve: async (_: any, args: any) => {
         const name = internalTableName(ctx.tenantId, slug)
         const [row] = await ctx.sql.unsafe(
@@ -197,8 +207,8 @@ function buildQueryFields(tables: UserTableRow[], ctx: BuildCtx): Record<string,
   return fields
 }
 
-function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): Record<string, any> {
-  const fields: Record<string, any> = {}
+function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): GQLFieldMap {
+  const fields: GQLFieldMap = {}
   for (const table of tables) {
     const objType = buildObjectType(table, ctx)
     const pascal = pascalCase(table.slug)
@@ -208,6 +218,7 @@ function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): Record<stri
     fields[`create${pascal}`] = {
       type: objType,
       args: { data: { type: new GraphQLNonNull(inputType) } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       resolve: async (_: any, args: any) => {
         const name = internalTableName(ctx.tenantId, table.slug)
         const data = { ...args.data, tenant_id: ctx.tenantId }
@@ -225,6 +236,7 @@ function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): Record<stri
         id: { type: new GraphQLNonNull(GraphQLID) },
         data: { type: new GraphQLNonNull(patchType) },
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       resolve: async (_: any, args: any) => {
         const name = internalTableName(ctx.tenantId, table.slug)
         const setClauses = table.fields
@@ -252,13 +264,14 @@ function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): Record<stri
     fields[`delete${pascal}`] = {
       type: GraphQLBoolean,
       args: { id: { type: new GraphQLNonNull(GraphQLID) } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       resolve: async (_: any, args: any) => {
         const name = internalTableName(ctx.tenantId, table.slug)
         const result = await ctx.sql.unsafe(
           `DELETE FROM "${name}" WHERE id = $1 AND tenant_id = $2 RETURNING 1`,
           [parseInt(args.id, 10), ctx.tenantId],
         )
-        return (result as any[]).length > 0
+        return result.length > 0
       },
     }
   }
@@ -290,20 +303,20 @@ export function buildGraphQLHandler(sql: Sql<{}>): Router {
 
     const body = (await req.json()) as {
       query?: string
-      variables?: Record<string, any>
+      variables?: Record<string, unknown>
       operationName?: string
     }
     if (!body.query) {
       return Response.json({ errors: [{ message: 'Missing query' }] }, { status: 400 })
     }
 
-    const result = (await executeGraphQL({
+    const result = await executeGraphQL({
       schema,
       source: body.query,
       variableValues: body.variables,
       operationName: body.operationName,
       contextValue: ctx,
-    })) as any
+    })
 
     return Response.json(result, { status: result.errors ? 400 : 200 })
   })
@@ -343,13 +356,13 @@ export function buildGraphQLHandler(sql: Sql<{}>): Router {
       if (v) variables = JSON.parse(v)
     } catch {}
 
-    const result = (await executeGraphQL({
+    const result = await executeGraphQL({
       schema,
       source: query,
       variableValues: variables,
       operationName: url.searchParams.get('operationName') || undefined,
       contextValue: _ctx,
-    })) as any
+    })
 
     return Response.json(result, { status: result.errors ? 400 : 200 })
   }

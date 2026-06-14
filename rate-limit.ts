@@ -142,8 +142,7 @@ export function rateLimit(
     if (interval) clearInterval(interval)
     hits.clear()
   }
-  ;(mw as any).stop = mw.close // backward-compatible alias
-  ;(mw as any).stats = () => ({
+  mw.stats = () => ({
     store: storeType,
     entries: storeType === 'memory' ? hits.size : undefined,
     maxEntries: MAX_ENTRIES,

@@ -450,6 +450,11 @@ export class BoundTable<R extends Record<string, unknown>> {
   private inner: Table<R>
   private sql: Sql<{}>
 
+  /** The underlying table name. */
+  get tableName(): string {
+    return this.inner.tableName
+  }
+
   constructor(sql: Sql<{}>, tableName: string, builders: Record<string, ColumnBuilder<unknown>>) {
     this.inner = new Table<R>(tableName, builders)
     this.sql = sql
