@@ -40,6 +40,8 @@ export interface MockWebSocket {
   close: () => void
   /** Simulate receiving a message from the server. */
   simulateMessage(data: string): void
+  /** Simulate the WebSocket connection opening (fires both onopen and listeners). */
+  connect(): void
   /** Simulate the connection opening. */
   simulateOpen(): void
   /** Simulate the connection closing. */

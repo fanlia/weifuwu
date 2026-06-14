@@ -11,10 +11,7 @@
     "allowImportingTsExtensions": true
   },
   "include": [
-    "cli.ts",
-    "env.ts",
     "*.ts",
-    "workflow/*.ts",
     "postgres/*.ts",
     "redis/*.ts",
     "queue/*.ts",

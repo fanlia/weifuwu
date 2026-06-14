@@ -302,8 +302,12 @@ describe('webhook', () => {
         github: { secret: 'gh_secret' },
       })
       const events: string[] = []
-      wh.on('push', (e) => events.push(`github:${e.event}`))
-      wh.on('charge.succeeded', (e) => events.push(`stripe:${e.event}`))
+      wh.on('push', (e) => {
+        events.push(`github:${e.event}`)
+      })
+      wh.on('charge.succeeded', (e) => {
+        events.push(`stripe:${e.event}`)
+      })
 
       // GitHub webhook
       const ghPayload = JSON.stringify({ ref: 'main' })
