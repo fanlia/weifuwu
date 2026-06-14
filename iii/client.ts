@@ -262,13 +262,12 @@ export function iii(opts: IIIOptions = {}): IIIModule {
   mod.migrate = async () => {
     await stream.migrate()
   }
-  mod.shutdown = async () => {
+  mod.close = async () => {
     for (const [, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Engine shutting down')) }
     pending.clear()
     for (const [, reg] of workers) reg.ws?.close()
     workers.clear(); functions.clear(); triggers.clear()
     await stream.close()
   }
-  mod.close = mod.shutdown
   return mod
 }

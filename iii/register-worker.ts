@@ -183,7 +183,7 @@ export function registerWorker(url: string) {
       handlers.set('__stream__', handler as FunctionHandler)
     },
 
-    shutdown() {
+    close() {
       intentionalClose = true
       if (reconnectTimer) clearTimeout(reconnectTimer)
       ws?.close()

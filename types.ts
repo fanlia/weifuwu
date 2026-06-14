@@ -36,7 +36,7 @@ export type ErrorHandler<T extends Context = Context> = (
 
 /**
  * Interface for resources that require explicit cleanup (connections, pools, timers).
- * All stateful modules implement this. Preferred over ad-hoc `stop()` / `shutdown()`.
+ * All stateful modules implement this.
  */
 export interface Closeable {
   /** Release all resources. Call once when shutting down. */

@@ -107,7 +107,7 @@ export class Table<R extends Record<string, unknown>> {
     if (opts?.withDeleted) return null
     // If user explicitly filters by deleted_at, don't add our own
     if (where && typeof where === 'object' && !Array.isArray(where) && !(where instanceof SQL)) {
-      if ('deleted_at' in (where as any)) return null
+      if ('deleted_at' in (where as Record<string, unknown>)) return null
     }
     return '"deleted_at" IS NULL'
   }
@@ -211,7 +211,7 @@ export class Table<R extends Record<string, unknown>> {
       }
     }
     const [row] = await sql`
-      INSERT INTO ${sql(this.tableName as any)} ${sql(filtered as any)} RETURNING *
+      INSERT INTO ${sql(this.tableName as string)} ${sql(filtered as any)} RETURNING *
     `
     return row as unknown as R
   }
@@ -230,7 +230,7 @@ export class Table<R extends Record<string, unknown>> {
       filtered.push(row)
     }
     const rows = await sql`
-      INSERT INTO ${sql(this.tableName as any)} ${sql(filtered as any)} RETURNING *
+      INSERT INTO ${sql(this.tableName as string)} ${sql(filtered as any)} RETURNING *
     `
     return rows as unknown as R[]
   }
@@ -256,11 +256,11 @@ export class Table<R extends Record<string, unknown>> {
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
 
-    const [countRow] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as any[])
-    const count = Number((countRow as any)._total)
+    const [countRow] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as unknown[])
+    const count = Number((countRow as Record<string, number>)._total)
 
     if (conditions.length === 0 && !opts?.orderBy && !opts?.limit && !opts?.offset && !opts?.select) {
-      const rows = await sql`SELECT * FROM ${sql(this.tableName as any)}`
+      const rows = await sql`SELECT * FROM ${sql(this.tableName as string)}`
       return { count, data: rows as unknown as R[] }
     }
 
@@ -406,8 +406,8 @@ export class Table<R extends Record<string, unknown>> {
     if (softDel) conditions.push(softDel)
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
-    const [row] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as any[])
-    return Number((row as any)._total)
+    const [row] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as unknown[])
+    return Number((row as Record<string, number>)._total)
   }
 }
 

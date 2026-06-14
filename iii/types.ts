@@ -50,8 +50,6 @@ export interface IIIModule extends Router, Closeable {
   listFunctions: () => FunctionInfo[]
   listTriggers: () => TriggerInfo[]
   migrate: () => Promise<void>
-  shutdown: () => Promise<void>
-  /** Alias for shutdown(). */
   close: () => Promise<void>
 }
 
@@ -95,7 +93,8 @@ export interface RemoteWorker {
   registerTrigger: (input: TriggerInput) => void
   unregisterTrigger: (functionId: string) => void
   trigger: (request: TriggerRequest) => Promise<unknown>
-  shutdown: () => void
+  /** Cleanup worker resources. */
+  close: () => void
 }
 
 export interface FunctionRegistration {
