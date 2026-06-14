@@ -1,4 +1,4 @@
-import type { Middleware } from '../types.ts'
+import type { Middleware, Context } from '../types.ts'
 import type { AIProvider } from '../ai/provider.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
@@ -45,6 +45,16 @@ export interface KBListEntry {
   key: string
   title: string
   chunks: number
+}
+
+export interface KBInjected {
+  search(query: string, searchOptions?: KBSearchOptions): Promise<KBSearchResult[]>
+}
+
+declare module '../types.ts' {
+  interface Context {
+    kb?: KBInjected
+  }
 }
 
 export interface KBModule {

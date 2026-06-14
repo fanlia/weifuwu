@@ -1,4 +1,4 @@
-import type { Middleware, Context } from '../types.ts'
+import type { Middleware, Context, Closeable } from '../types.ts'
 import type { Router } from '../router.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
@@ -113,7 +113,7 @@ export interface UserInjected {
  * app.use('/', auth)           // mounts routes: /register, /login
  * ```
  */
-export interface UserModule extends Router {
+export interface UserModule extends Router, Closeable {
   /**
    * Strict auth middleware. Reads JWT from `Authorization: Bearer` header.
    * Returns 401 if no valid token is found.

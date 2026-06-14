@@ -1,4 +1,4 @@
-import type { Context, Handler, Middleware } from './types.ts'
+import type { Context, Handler, Middleware, Closeable } from './types.ts'
 import { text, integer } from './postgres/schema/columns.ts'
 import { Router } from './router.ts'
 
@@ -11,7 +11,7 @@ export interface AnalyticsOptions {
 }
 
 /** Analytics module returned by {@link analytics}. */
-export interface AnalyticsModule extends Router {
+export interface AnalyticsModule extends Router, Closeable {
   /** Middleware that records page views. */
   middleware: () => Middleware
   /** Create/update the analytics database tables. */

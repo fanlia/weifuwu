@@ -1,6 +1,7 @@
 import type { Router } from '../router.ts'
 import type { LanguageModel, EmbeddingModel, Tool } from 'ai'
 import type { AIProvider } from '../ai/provider.ts'
+import type { Closeable } from '../types.ts'
 
 export interface AgentConfig {
   id: number
@@ -46,7 +47,7 @@ export interface AgentOptions {
   tools?: Record<string, Tool>
 }
 
-export interface AgentModule extends Router {
+export interface AgentModule extends Router, Closeable {
   migrate: () => Promise<void>
   run: (agentId: number, params: RunParams) => Promise<RunResult>
   addKnowledge: (agentId: number, title: string, content: string) => Promise<KnowledgeDoc>

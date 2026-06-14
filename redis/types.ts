@@ -1,5 +1,5 @@
 import type { Redis, RedisOptions as IORedisOptions } from '../vendor.ts'
-import type { Context, Middleware } from '../types.ts'
+import type { Context, Middleware, Closeable } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -17,7 +17,7 @@ export interface RedisInjected {
   redis: Redis
 }
 
-export interface RedisClient extends Middleware<Context, Context & RedisInjected> {
+export interface RedisClient extends Middleware<Context, Context & RedisInjected>, Closeable {
   redis: Redis
   close: () => Promise<void>
 }

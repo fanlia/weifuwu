@@ -1,5 +1,5 @@
 import type { Redis } from '../vendor.ts'
-import type { Context, Middleware } from '../types.ts'
+import type { Context, Middleware, Closeable } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -36,7 +36,7 @@ export interface QueueJobWithError<T = unknown> extends QueueJob<T> {
   failedAt: number
 }
 
-export interface Queue extends Middleware<Context, Context & QueueInjected> {
+export interface Queue extends Middleware<Context, Context & QueueInjected>, Closeable {
   /** Register a cron job. Uses queue's backend (memory/pg/redis) for execution. */
   cron(pattern: string, handler: () => void | Promise<void>): { stop: () => void }
   add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string>

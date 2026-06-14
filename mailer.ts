@@ -30,7 +30,7 @@ export interface MailerOptions {
 }
 
 /** Mailer instance returned by {@link mailer}. */
-export interface Mailer {
+export interface Mailer extends Closeable {
   /** Send an email. */
   send: (opts: MailOptions) => Promise<void>
   /** Close the nodemailer transport. */

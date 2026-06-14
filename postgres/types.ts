@@ -1,5 +1,5 @@
 import type { Sql } from '../vendor.ts'
-import type { Context, Middleware } from '../types.ts'
+import type { Context, Middleware, Closeable } from '../types.ts'
 import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'
 
 declare module '../types.ts' {
@@ -26,7 +26,7 @@ export interface PostgresOptions {
   onQuery?: (query: string, durationMs: number, rowCount: number) => void
 }
 
-export interface PostgresClient extends Middleware<Context, Context & PostgresInjected> {
+export interface PostgresClient extends Middleware<Context, Context & PostgresInjected>, Closeable {
   sql: Sql<{}>
   /** Creates the migration tracking table (_weifuwu_migrations). Called once at startup. */
   migrate: () => Promise<void>

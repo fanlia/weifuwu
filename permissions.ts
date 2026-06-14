@@ -43,12 +43,12 @@ export interface PermissionsModule extends Middleware {
    * Middleware that rejects the request if the user does not have any of the specified roles.
    * Must be placed after `permissions()` middleware (which injects ctx.permissions.roles).
    */
-  requireRole(...roles: string[]): Middleware
+  requireRole(...roles: string[]): Middleware<Context, Context>
   /**
    * Middleware that rejects the request if the user does not have all specified permissions.
    * Must be placed after `permissions()` middleware (which injects ctx.permissions.permissions).
    */
-  requirePermission(...permissions: string[]): Middleware
+  requirePermission(...permissions: string[]): Middleware<Context, Context>
 
   /** Create the underlying tables. Safe to call multiple times. */
   migrate(): Promise<void>
@@ -190,7 +190,7 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
 
   // ── Guard middleware factories ──
 
-  function requireRole(...roles: string[]): Middleware {
+  function requireRole(...roles: string[]): Middleware<Context, Context> {
     return (req, ctx, next) => {
       const p = ctx as Context & { permissions: { roles: Set<string>; permissions: Set<string> } }
       if (!p.permissions?.roles || !roles.some((r: string) => p.permissions.roles.has(r))) {
@@ -203,7 +203,7 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
     }
   }
 
-  function requirePermission(...perms: string[]): Middleware {
+  function requirePermission(...perms: string[]): Middleware<Context, Context> {
     return (req, ctx, next) => {
       const p = ctx as Context & { permissions: { roles: Set<string>; permissions: Set<string> } }
       const userPerms = p.permissions?.permissions

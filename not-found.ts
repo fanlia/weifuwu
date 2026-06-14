@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { compile } from './compile.ts'
 import { isDev } from './env.ts'
-import type { Handler } from './types.ts'
+import type { Handler, Context } from './types.ts'
 import { streamResponse } from './stream.ts'
 import { buildHtmlShell } from './html-shell.ts'
 
@@ -18,9 +18,10 @@ export function notFound(path?: string): Handler {
     }
     if (!Component) return new Response('Not Found', { status: 404 })
 
-    const layouts = (ctx.layoutStack || [])
-    const layoutComponents = layouts.map((l: any) => l.component)
-    const base = (ctx.mountPath || '').replace(/\/$/, '')
+    const ctx2 = ctx as Context & { layoutStack?: Array<{ component: unknown }>; mountPath?: string; tailwind?: { css: string; url: string } }
+    const layouts = (ctx2.layoutStack || [])
+    const layoutComponents = layouts.map(l => l.component)
+    const base = (ctx2.mountPath || '').replace(/\/$/, '')
 
     let element: any = createElement('div', { id: '__weifuwu_root' },
       createElement(Component, null),
@@ -31,10 +32,10 @@ export function notFound(path?: string): Handler {
     const { renderToReadableStream } = await import('react-dom/server')
     const stream = await renderToReadableStream(element)
     return streamResponse(stream, {
-      ctx: ctx as any,
+      ctx: ctx2,
       base,
-        isDev: isDev(),
-      tailwind: (ctx as any).tailwind,
+      isDev: isDev(),
+      tailwind: ctx2.tailwind,
       status: 404,
     })
   }

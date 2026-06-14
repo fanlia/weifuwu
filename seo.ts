@@ -132,7 +132,7 @@ function getRobotsHeader(headers: SeoHeadersConfig | undefined, path: string): s
  * }))
  * ```
  */
-export function seoMiddleware(options?: SeoOptions): Middleware {
+export function seoMiddleware(options?: SeoOptions): Middleware<Context, Context> {
   const headers = options?.headers
   return async (req: Request, ctx: Context, next: Handler) => {
     const res = await next(req, ctx)

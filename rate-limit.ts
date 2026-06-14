@@ -46,7 +46,7 @@ function defaultKey(_req: Request, _ctx: Context): string {
  * app.use(rateLimit({ store: 'redis', redis: new Redis(), max: 100 }))
  * ```
  */
-export function rateLimit(options?: RateLimitOptions): Middleware & { close: () => void; stop?: () => void } {
+export function rateLimit(options?: RateLimitOptions): Middleware<Context, Context> & { close: () => void; stop?: () => void } {
   const max = options?.max ?? 100
   const window = options?.window ?? 60_000
   const getKey = options?.key ?? defaultKey

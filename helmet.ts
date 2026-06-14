@@ -1,4 +1,4 @@
-import type { Middleware } from './types.ts'
+import type { Middleware, Context } from './types.ts'
 
 /** Options for {@link helmet}. Set any header to `false` to omit it. */
 export interface HelmetOptions {
@@ -60,7 +60,7 @@ const HEADER_MAP: Record<string, keyof HelmetOptions> = {
   'Permissions-Policy': 'permissionsPolicy',
 }
 
-export function helmet(options?: HelmetOptions): Middleware {
+export function helmet(options?: HelmetOptions): Middleware<Context, Context> {
   const opts = { ...DEFAULTS, ...options } as HelmetOptions
 
   const headers = new Headers()

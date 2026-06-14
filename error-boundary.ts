@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { compile } from './compile.ts'
 import { isDev } from './env.ts'
-import type { Middleware } from './types.ts'
+import type { Middleware, Context } from './types.ts'
 import { streamResponse } from './stream.ts'
 import { buildHtmlShell } from './html-shell.ts'
 
@@ -14,8 +14,9 @@ export function errorBoundary(errorPath: string): Middleware {
       const ErrorComponent = mod.default
       if (!ErrorComponent) throw err
 
-      const layouts = (ctx.layoutStack || []).map((l: any) => l.component)
-      const base = (ctx.mountPath || '').replace(/\/$/, '')
+      const ctx2 = ctx as Context & { layoutStack?: Array<{ component: unknown }>; mountPath?: string; tailwind?: { css: string; url: string } }
+      const layouts = (ctx2.layoutStack || []).map(l => l.component)
+      const base = (ctx2.mountPath || '').replace(/\/$/, '')
 
       let element: any = createElement(ErrorComponent, {
         error: err instanceof Error ? err : new Error(String(err)),
@@ -27,10 +28,10 @@ export function errorBoundary(errorPath: string): Middleware {
       const { renderToReadableStream } = await import('react-dom/server')
       const stream = await renderToReadableStream(element)
       return streamResponse(stream, {
-        ctx: ctx as any,
+        ctx: ctx2,
         base,
         isDev: isDev(),
-        tailwind: (ctx as any).tailwind,
+        tailwind: ctx2.tailwind,
         status: 500,
       })
     }

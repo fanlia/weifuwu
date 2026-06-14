@@ -53,17 +53,17 @@ function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: stri
 
 export async function getSession(sql: Sql<{}>, id: string): Promise<Session | null> {
   const { data: rows } = await sessions.readMany(sql, { id, active: true } as any)
-  return (rows[0] as any as Session) ?? null
+  return (rows[0] as unknown as Session) ?? null
 }
 
 export async function listSessions(sql: Sql<{}>, userId?: number): Promise<Session[]> {
   const opts = { orderBy: { updated_at: 'desc' as const } }
   if (userId !== undefined) {
     const { data: rows } = await sessions.readMany(sql, { user_id: userId, active: true } as any, opts)
-    return rows as any as Session[]
+    return rows as unknown as Session[]
   }
   const { data: rows } = await sessions.readMany(sql, { active: true } as any, opts)
-  return rows as any as Session[]
+  return rows as unknown as Session[]
 }
 
 export async function deleteSession(sql: Sql<{}>, id: string): Promise<void> {
@@ -75,7 +75,7 @@ export async function getHistory(sql: Sql<{}>, sessionId: string, limit = 50): P
     orderBy: { created_at: 'asc' },
     limit,
   })
-  return rows as any as SessionMessage[]
+  return rows as unknown as SessionMessage[]
 }
 
 export interface SessionMessage {

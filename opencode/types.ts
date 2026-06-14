@@ -1,5 +1,6 @@
 import type { Router } from '../router.ts'
 import type { PostgresClient } from '../postgres/types.ts'
+import type { Closeable } from '../types.ts'
 
 export interface Session {
   id: string
@@ -71,7 +72,7 @@ export interface OpencodeOptions {
   permissions?: OpencodePermissions
 }
 
-export interface OpencodeModule extends Router {
+export interface OpencodeModule extends Router, Closeable {
   migrate: () => Promise<void>
   wsHandler: () => any
   close: () => Promise<void>

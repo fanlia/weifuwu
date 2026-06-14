@@ -2,7 +2,18 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { Router } from './router.ts'
-import type { Middleware } from './types.ts'
+import type { Middleware, Context } from './types.ts'
+
+export interface TailwindInjected {
+  css: string
+  url: string
+}
+
+declare module './types.ts' {
+  interface Context {
+    tailwind?: TailwindInjected
+  }
+}
 
 const extraSources = new Set<string>()
 
@@ -27,7 +38,7 @@ export function tailwindContext(dir: string): Middleware {
     const entry = cssCache.get(cssPath)!
     const base = (ctx.mountPath || '').replace(/\/$/, '')
     const url = base ? `${base}/__wfw/style/${entry.hash}.css` : `/__wfw/style/${entry.hash}.css`
-    ;(ctx as any).tailwind = { css: entry.css, url }
+    ;(ctx as Context & { tailwind: TailwindInjected }).tailwind = { css: entry.css, url }
     return next(req, ctx)
   }
 }

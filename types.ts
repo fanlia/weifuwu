@@ -33,3 +33,12 @@ export type ErrorHandler<T extends Context = Context> = (
   req: Request,
   ctx: T,
 ) => Response | Promise<Response>
+
+/**
+ * Interface for resources that require explicit cleanup (connections, pools, timers).
+ * All stateful modules implement this. Preferred over ad-hoc `stop()` / `shutdown()`.
+ */
+export interface Closeable {
+  /** Release all resources. Call once when shutting down. */
+  close(): Promise<void>
+}

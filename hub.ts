@@ -1,4 +1,5 @@
 import type { Redis, WebSocket } from './vendor.ts'
+import type { Closeable } from './types.ts'
 
 /** Options for {@link createHub}. */
 export interface HubOptions {
@@ -12,7 +13,7 @@ export interface HubOptions {
  * In-memory (and optionally Redis-backed) pub/sub hub for WebSocket rooms.
  *
  * Used internally by the WebSocket handler to implement `ctx.ws.join()` / `ctx.ws.sendRoom()`. */
-export interface Hub {
+export interface Hub extends Closeable {
   /** Subscribe a WebSocket to a room/group. */
   join(key: string, ws: WebSocket): void
   /** Unsubscribe a WebSocket from all rooms. */

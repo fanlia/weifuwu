@@ -42,7 +42,7 @@ export interface Message {
   created_at: string
 }
 
-export interface MessagerModule extends Router {
+export interface MessagerModule extends Router, Closeable {
   migrate: () => Promise<void>
   wsHandler: () => any
   send: (channelId: number, content: string, opts?: {

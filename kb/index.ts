@@ -1,7 +1,7 @@
-import type { Middleware } from '../types.ts'
+import type { Middleware, Context } from '../types.ts'
 import { serial, text, integer, jsonb, vector, timestamptz, sql as schemaSql } from '../postgres/schema/index.ts'
 import { chunkContent } from '../ai/utils.ts'
-import type { KBOptions, KBModule, KBIngestOptions, KBSearchOptions, KBSearchResult, KBListEntry } from './types.ts'
+import type { KBOptions, KBModule, KBIngestOptions, KBSearchOptions, KBSearchResult, KBListEntry, KBInjected } from './types.ts'
 
 export type { KBOptions, KBIngestOptions, KBSearchResult, KBSearchOptions, KBListEntry, KBModule }
 
@@ -122,7 +122,8 @@ export function knowledgeBase(options: KBOptions): KBModule {
 
   function mw(): Middleware {
     return (req, ctx, next) => {
-      ;(ctx as any).kb = { search }
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      ;(ctx as Context & { kb: KBInjected }).kb = { search }
       return next(req, ctx)
     }
   }

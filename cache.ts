@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import type { Context, Middleware } from './types.ts'
+import type { Context, Middleware, Closeable } from './types.ts'
 import type { Redis } from './vendor.ts'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export interface CacheOptions {
   maxBodySize?: number
 }
 
-export interface CacheMiddleware extends Middleware {
+export interface CacheMiddleware extends Middleware, Closeable {
   /** Invalidate all entries with a given tag. */
   invalidate(tag: string): Promise<void>
   /** Flush all cached entries. */

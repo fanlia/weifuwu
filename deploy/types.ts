@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
-import type { Context, Handler } from '../types.ts'
+import type { Context, Handler, Closeable } from '../types.ts'
 
 export interface DeployConfig {
   domain?: string
@@ -31,7 +31,7 @@ export interface AppStatus {
   error?: string
 }
 
-export interface DeployServer {
+export interface DeployServer extends Closeable {
   close(): Promise<void>
   ready: Promise<void>
   url: string

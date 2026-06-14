@@ -85,7 +85,7 @@ function detectMimeFromExtension(filename: string): string | undefined {
  * })
  * ```
  */
-export function upload(options?: UploadOptions): Middleware {
+export function upload(options?: UploadOptions): Middleware<Context, Context & { parsed: Record<string, unknown> }> {
   const saveDir = options?.dir
 
   return async (req, ctx, next) => {

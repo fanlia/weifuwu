@@ -1,4 +1,4 @@
-import type { Middleware } from './types.ts'
+import type { Middleware, Context } from './types.ts'
 
 /** Options for {@link cors}. */
 export interface CORSOptions {
@@ -24,7 +24,7 @@ export interface CORSOptions {
  * app.use(cors({ origin: 'https://myapp.com', credentials: true }))
  * ```
  */
-export function cors(options?: CORSOptions): Middleware {
+export function cors(options?: CORSOptions): Middleware<Context, Context> {
   const opts: Required<Pick<CORSOptions, 'origin' | 'methods' | 'allowedHeaders'>> & CORSOptions = {
     origin: '*',
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],

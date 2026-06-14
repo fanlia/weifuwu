@@ -1,4 +1,5 @@
 import type { Router } from '../router.ts'
+import type { Closeable } from '../types.ts'
 import type { Redis } from '../vendor.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
@@ -40,7 +41,7 @@ export interface TriggerOptions {
   timeout_ms?: number
 }
 
-export interface IIIModule extends Router {
+export interface IIIModule extends Router, Closeable {
   wsHandler: () => any
   addWorker: (worker: Worker) => void
   trigger: (request: TriggerRequest) => Promise<unknown>

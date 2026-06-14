@@ -272,8 +272,10 @@ export function user(options: UserOptions): UserModule {
    * Used by both middleware() (strict) and middlewareOptional() (non-blocking).
    */
   async function resolveUser(req: Request, ctx: Context): Promise<unknown> {
+    const s = ctx as Context & { session?: { userId?: number; destroy?: () => void } }
+
     // ── Strategy 1: Session-based auth ──────────────────────────────
-    const sessionUserId = (ctx as any).session?.userId
+    const sessionUserId = s.session?.userId
     if (sessionUserId !== undefined && sessionUserId !== null) {
       if (hasDb) {
         const row = await findById(sessionUserId)
@@ -281,10 +283,10 @@ export function user(options: UserOptions): UserModule {
           return stripPassword(row)
         }
         // User was deleted — clear stale session reference
-        if (typeof (ctx as any).session?.destroy === 'function') {
-          ;(ctx as any).session.destroy()
-        } else {
-          delete (ctx as any).session?.userId
+        if (typeof s.session?.destroy === 'function') {
+          s.session.destroy()
+        } else if (s.session) {
+          delete s.session.userId
         }
       } else if (options.resolveUser) {
         const userData = await options.resolveUser(sessionUserId)
@@ -292,8 +294,8 @@ export function user(options: UserOptions): UserModule {
           return userData
         }
         // User was deleted — clear stale session reference
-        if (typeof (ctx as any).session?.destroy === 'function') {
-          ;(ctx as any).session.destroy()
+        if (typeof s.session?.destroy === 'function') {
+          s.session.destroy()
         }
         console.warn(`[${currentTraceId()}] user: session userId ${sessionUserId} resolved to null`)
       } else {
@@ -389,11 +391,11 @@ export function user(options: UserOptions): UserModule {
     }
   }
 
-  function middlewareOptional(_opts?: { cookie?: string }): Middleware {
+  function middlewareOptional(_opts?: { cookie?: string }): Middleware<Context, Context & UserInjected> {
     return async (req, ctx, next) => {
       const userData = await resolveUser(req, ctx)
       if (userData) {
-        ctx.user = userData as any
+        (ctx as Context & UserInjected).user = userData
       }
       return next(req, ctx)
     }
@@ -434,14 +436,15 @@ export function user(options: UserOptions): UserModule {
       try {
         const body = await parseBody(req)
         const result = await login(body as any)
+        const s = ctx as Context & { session?: { userId?: number; role?: string } }
 
-        if ((ctx as any).session) {
-          ;(ctx as any).session.userId = result.user.id
-          ;(ctx as any).session.role = result.user.role
+        if (s.session) {
+          s.session.userId = result.user.id
+          s.session.role = result.user.role
         }
 
         const res = Response.json(result)
-        if (!(ctx as any).session) {
+        if (!s.session) {
           res.headers.set('Set-Cookie', `session=${result.token}; HttpOnly; SameSite=Lax; Path=/`)
         }
         return res
