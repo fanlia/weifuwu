@@ -9,13 +9,16 @@ describe('runWorkflow', () => {
     const { runWorkflow } = await import('../ai/workflow.ts')
     const wf = runWorkflow()
 
-    const result = await wf.execute!({
-      goal: 'test',
-      nodes: [
-        { id: 's1', tool: 'set', input: { name: 'x', value: '42' } },
-        { id: 's2', tool: 'eval', input: { expression: '$var.x + 1' } },
-      ],
-    } as any, { toolCallId: 'test' })
+    const result = await wf.execute!(
+      {
+        goal: 'test',
+        nodes: [
+          { id: 's1', tool: 'set', input: { name: 'x', value: '42' } },
+          { id: 's2', tool: 'eval', input: { expression: '$var.x + 1' } },
+        ],
+      } as any,
+      { toolCallId: 'test' },
+    )
 
     assert.ok(result)
     assert.equal((result as any).result?.result, 43)
@@ -25,17 +28,26 @@ describe('runWorkflow', () => {
     const { runWorkflow } = await import('../ai/workflow.ts')
     const wf = runWorkflow()
 
-    const result = await wf.execute!({
-      goal: 'test condition',
-      nodes: [
-        { id: 's1', tool: 'set', input: { name: 'val', value: true } },
-        {
-          id: 's2', tool: 'if', input: {}, conditions: [
-            { test: '$var.val', body: [{ id: 's3', tool: 'set', input: { name: 'result', value: 'true_branch' } }] },
-          ],
-        },
-      ],
-    } as any, { toolCallId: 'test' })
+    const result = await wf.execute!(
+      {
+        goal: 'test condition',
+        nodes: [
+          { id: 's1', tool: 'set', input: { name: 'val', value: true } },
+          {
+            id: 's2',
+            tool: 'if',
+            input: {},
+            conditions: [
+              {
+                test: '$var.val',
+                body: [{ id: 's3', tool: 'set', input: { name: 'result', value: 'true_branch' } }],
+              },
+            ],
+          },
+        ],
+      } as any,
+      { toolCallId: 'test' },
+    )
 
     assert.ok(result)
     assert.equal((result as any).result, 'true_branch')
@@ -49,12 +61,13 @@ describe('runWorkflow', () => {
       const { runWorkflow } = await import('../ai/workflow.ts')
       const wf = runWorkflow()
 
-      const result = await wf.execute!({
-        goal: 'test http',
-        nodes: [
-          { id: 'h1', tool: 'http', input: { url: url + '/get', method: 'GET' } },
-        ],
-      } as any, { toolCallId: 'test' })
+      const result = await wf.execute!(
+        {
+          goal: 'test http',
+          nodes: [{ id: 'h1', tool: 'http', input: { url: url + '/get', method: 'GET' } }],
+        } as any,
+        { toolCallId: 'test' },
+      )
 
       assert.ok(result)
       const httpResult = (result as any).result
@@ -75,12 +88,13 @@ describe('runWorkflow', () => {
 
     const wf = runWorkflow({ tools: { greet: greetTool } })
 
-    const result = await wf.execute!({
-      goal: 'test call',
-      nodes: [
-        { id: 'g1', tool: 'call', input: { tool: 'greet', args: { name: 'World' } } },
-      ],
-    } as any, { toolCallId: 'test' })
+    const result = await wf.execute!(
+      {
+        goal: 'test call',
+        nodes: [{ id: 'g1', tool: 'call', input: { tool: 'greet', args: { name: 'World' } } }],
+      } as any,
+      { toolCallId: 'test' },
+    )
 
     assert.ok(result)
     assert.equal((result as any).result, 'Hello, World!')
@@ -96,13 +110,16 @@ describe('runWorkflow', () => {
 
     const wf = runWorkflow({ tools: { greet: greetTool } })
 
-    const result = await wf.execute!({
-      goal: 'test ref',
-      nodes: [
-        { id: 's1', tool: 'set', input: { name: 'person', value: 'Alice' } },
-        { id: 'g1', tool: 'call', input: { tool: 'greet', args: { name: '$var.person' } } },
-      ],
-    } as any, { toolCallId: 'test' })
+    const result = await wf.execute!(
+      {
+        goal: 'test ref',
+        nodes: [
+          { id: 's1', tool: 'set', input: { name: 'person', value: 'Alice' } },
+          { id: 'g1', tool: 'call', input: { tool: 'greet', args: { name: '$var.person' } } },
+        ],
+      } as any,
+      { toolCallId: 'test' },
+    )
 
     assert.ok(result)
     assert.equal((result as any).result, 'Hi Alice!')
@@ -112,19 +129,25 @@ describe('runWorkflow', () => {
     const { runWorkflow } = await import('../ai/workflow.ts')
     const wf = runWorkflow()
 
-    const result = await wf.execute!({
-      goal: 'test while',
-      nodes: [
-        { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
-        {
-          id: 'w1', tool: 'while', input: { condition: '$var.i < 3' }, body: [
-            { id: 'inc', tool: 'eval', input: { expression: '$var.i + 1' } },
-            { id: 's2', tool: 'set', input: { name: 'i', value: '$nodes.inc.output.result' } },
-          ],
-        },
-        { id: 's3', tool: 'get', input: { name: 'i' } },
-      ],
-    } as any, { toolCallId: 'test' })
+    const result = await wf.execute!(
+      {
+        goal: 'test while',
+        nodes: [
+          { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
+          {
+            id: 'w1',
+            tool: 'while',
+            input: { condition: '$var.i < 3' },
+            body: [
+              { id: 'inc', tool: 'eval', input: { expression: '$var.i + 1' } },
+              { id: 's2', tool: 'set', input: { name: 'i', value: '$nodes.inc.output.result' } },
+            ],
+          },
+          { id: 's3', tool: 'get', input: { name: 'i' } },
+        ],
+      } as any,
+      { toolCallId: 'test' },
+    )
 
     assert.ok(result)
     assert.equal((result as any).result, 3)
@@ -134,18 +157,22 @@ describe('runWorkflow', () => {
     const { runWorkflow } = await import('../ai/workflow.ts')
     const wf = runWorkflow()
 
-    const result = await wf.execute!({
-      goal: 'test while stop',
-      nodes: [
-        { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
-        {
-          id: 'w1', tool: 'while', input: { condition: 'false' }, body: [
-            { id: 'inc', tool: 'set', input: { name: 'i', value: 99 } },
-          ],
-        },
-        { id: 's2', tool: 'get', input: { name: 'i' } },
-      ],
-    } as any, { toolCallId: 'test' })
+    const result = await wf.execute!(
+      {
+        goal: 'test while stop',
+        nodes: [
+          { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
+          {
+            id: 'w1',
+            tool: 'while',
+            input: { condition: 'false' },
+            body: [{ id: 'inc', tool: 'set', input: { name: 'i', value: 99 } }],
+          },
+          { id: 's2', tool: 'get', input: { name: 'i' } },
+        ],
+      } as any,
+      { toolCallId: 'test' },
+    )
 
     assert.ok(result)
     assert.equal((result as any).result, 0)
@@ -156,18 +183,29 @@ describe('runWorkflow', () => {
     const wf = runWorkflow({ maxSteps: 5 })
 
     await assert.rejects(
-      () => wf.execute!({
-        goal: 'test limit',
-        nodes: [
-          { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
+      () =>
+        wf.execute!(
           {
-            id: 'w1', tool: 'while', input: { condition: 'true' }, body: [
-              { id: 'inc', tool: 'eval', input: { expression: '$var.i + 1' } },
-              { id: 's2', tool: 'set', input: { name: 'i', value: '$nodes.inc.output.result' } },
+            goal: 'test limit',
+            nodes: [
+              { id: 's1', tool: 'set', input: { name: 'i', value: 0 } },
+              {
+                id: 'w1',
+                tool: 'while',
+                input: { condition: 'true' },
+                body: [
+                  { id: 'inc', tool: 'eval', input: { expression: '$var.i + 1' } },
+                  {
+                    id: 's2',
+                    tool: 'set',
+                    input: { name: 'i', value: '$nodes.inc.output.result' },
+                  },
+                ],
+              },
             ],
-          },
-        ],
-      } as any, { toolCallId: 'test' }),
+          } as any,
+          { toolCallId: 'test' },
+        ),
       /Step limit exceeded/,
     )
   })
@@ -176,18 +214,27 @@ describe('runWorkflow', () => {
     const { runWorkflow } = await import('../ai/workflow.ts')
     const wf = runWorkflow()
 
-    const result = await wf.execute!({
-      goal: 'test false',
-      nodes: [
-        { id: 's1', tool: 'set', input: { name: 'val', value: false } },
-        {
-          id: 'if1', tool: 'if', input: {}, conditions: [
-            { test: '$var.val', body: [{ id: 's2', tool: 'set', input: { name: 'r', value: 'yes' } }] },
-          ],
-        },
-        { id: 's3', tool: 'eval', input: { expression: 'false' } },
-      ],
-    } as any, { toolCallId: 'test' })
+    const result = await wf.execute!(
+      {
+        goal: 'test false',
+        nodes: [
+          { id: 's1', tool: 'set', input: { name: 'val', value: false } },
+          {
+            id: 'if1',
+            tool: 'if',
+            input: {},
+            conditions: [
+              {
+                test: '$var.val',
+                body: [{ id: 's2', tool: 'set', input: { name: 'r', value: 'yes' } }],
+              },
+            ],
+          },
+          { id: 's3', tool: 'eval', input: { expression: 'false' } },
+        ],
+      } as any,
+      { toolCallId: 'test' },
+    )
 
     // if condition was false, so the last executed node is s3 (eval false)
     assert.equal((result as any).result?.result, false)
@@ -202,18 +249,23 @@ describe('runWorkflow', () => {
       const { runWorkflow } = await import('../ai/workflow.ts')
       const wf = runWorkflow()
 
-      const result = await wf.execute!({
-        goal: 'test http post',
-        nodes: [
-          {
-            id: 'h1', tool: 'http', input: {
-              url: url + '/post',
-              method: 'POST',
-              body: { hello: 'world' },
+      const result = await wf.execute!(
+        {
+          goal: 'test http post',
+          nodes: [
+            {
+              id: 'h1',
+              tool: 'http',
+              input: {
+                url: url + '/post',
+                method: 'POST',
+                body: { hello: 'world' },
+              },
             },
-          },
-        ],
-      } as any, { toolCallId: 'test' })
+          ],
+        } as any,
+        { toolCallId: 'test' },
+      )
 
       assert.ok(result)
       const h = (result as any).result
@@ -230,10 +282,13 @@ describe('runWorkflow', () => {
     const wf = runWorkflow()
 
     async function evalExpr(expression: string) {
-      const r = await wf.execute!({
-        goal: 'test',
-        nodes: [{ id: 'e1', tool: 'eval', input: { expression } }],
-      } as any, { toolCallId: 'test' })
+      const r = await wf.execute!(
+        {
+          goal: 'test',
+          nodes: [{ id: 'e1', tool: 'eval', input: { expression } }],
+        } as any,
+        { toolCallId: 'test' },
+      )
       return (r as any).result?.result
     }
 

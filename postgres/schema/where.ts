@@ -5,17 +5,29 @@ function op(col: string, sqlOp: string, val: unknown): SQL {
 }
 
 /** Column equals value: `col = val`. */
-export function eq(col: string, val: unknown): SQL { return op(col, '=', val) }
+export function eq(col: string, val: unknown): SQL {
+  return op(col, '=', val)
+}
 /** Column not equals value: `col != val`. */
-export function ne(col: string, val: unknown): SQL { return op(col, '!=', val) }
+export function ne(col: string, val: unknown): SQL {
+  return op(col, '!=', val)
+}
 /** Column greater than value: `col > val`. */
-export function gt(col: string, val: unknown): SQL { return op(col, '>', val) }
+export function gt(col: string, val: unknown): SQL {
+  return op(col, '>', val)
+}
 /** Column greater than or equal value: `col >= val`. */
-export function gte(col: string, val: unknown): SQL { return op(col, '>=', val) }
+export function gte(col: string, val: unknown): SQL {
+  return op(col, '>=', val)
+}
 /** Column less than value: `col < val`. */
-export function lt(col: string, val: unknown): SQL { return op(col, '<', val) }
+export function lt(col: string, val: unknown): SQL {
+  return op(col, '<', val)
+}
 /** Column less than or equal value: `col <= val`. */
-export function lte(col: string, val: unknown): SQL { return op(col, '<=', val) }
+export function lte(col: string, val: unknown): SQL {
+  return op(col, '<=', val)
+}
 
 /** Column IS NULL. */
 export function isNull(col: string): SQL {
@@ -28,7 +40,9 @@ export function isNotNull(col: string): SQL {
 }
 
 /** Column LIKE pattern. */
-export function like(col: string, pattern: string): SQL { return op(col, 'LIKE', pattern) }
+export function like(col: string, pattern: string): SQL {
+  return op(col, 'LIKE', pattern)
+}
 
 /** Negate a condition: `NOT (condition)`. */
 export function not(condition: SQL): SQL {
@@ -75,6 +89,10 @@ function combine(conditions: SQL[], joiner: string): SQL {
 }
 
 /** Combine conditions with AND. */
-export function and(...conditions: SQL[]): SQL { return combine(conditions, 'AND') }
+export function and(...conditions: SQL[]): SQL {
+  return combine(conditions, 'AND')
+}
 /** Combine conditions with OR. */
-export function or(...conditions: SQL[]): SQL { return combine(conditions, 'OR') }
+export function or(...conditions: SQL[]): SQL {
+  return combine(conditions, 'OR')
+}

@@ -11,11 +11,7 @@ function handler(text = 'ok') {
 
 describe('cors', () => {
   it('adds Access-Control-Allow-Origin: * by default', async () => {
-    const res = await testApp()
-      .use(cors())
-      .get('/data', handler())
-      .getReq('/data')
-      .send()
+    const res = await testApp().use(cors()).get('/data', handler()).getReq('/data').send()
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), '*')
   })
 
@@ -41,7 +37,14 @@ describe('cors', () => {
 
   it('handles OPTIONS preflight', async () => {
     const res = await testApp()
-      .use(cors({ origin: 'https://example.com', methods: ['GET', 'POST'], allowedHeaders: ['X-Custom'], maxAge: 3600 }))
+      .use(
+        cors({
+          origin: 'https://example.com',
+          methods: ['GET', 'POST'],
+          allowedHeaders: ['X-Custom'],
+          maxAge: 3600,
+        }),
+      )
       .get('/data', handler())
       .getReq('/data')
       .header('origin', 'https://example.com')
@@ -50,11 +53,21 @@ describe('cors', () => {
     // For OPTIONS, we need a separate path.
     // Let's use the handler directly for this case
     const r = testApp()
-      .use(cors({ origin: 'https://example.com', methods: ['GET', 'POST'], allowedHeaders: ['X-Custom'], maxAge: 3600 }))
+      .use(
+        cors({
+          origin: 'https://example.com',
+          methods: ['GET', 'POST'],
+          allowedHeaders: ['X-Custom'],
+          maxAge: 3600,
+        }),
+      )
       .get('/data', handler())
     const handler2 = r.handler()
     const res2 = await handler2(
-      new Request('http://localhost/data', { method: 'OPTIONS', headers: { origin: 'https://example.com' } }),
+      new Request('http://localhost/data', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://example.com' },
+      }),
       { params: {}, query: {} } as any,
     )
     assert.equal(res2.status, 204)
@@ -95,7 +108,7 @@ describe('cors', () => {
 
   it('uses dynamic origin function', async () => {
     const app = testApp()
-      .use(cors({ origin: (origin: string) => origin.endsWith('.trusted.com') ? origin : false }))
+      .use(cors({ origin: (origin: string) => (origin.endsWith('.trusted.com') ? origin : false) }))
       .get('/data', handler())
 
     const res1 = await app.getReq('/data').header('origin', 'https://app.trusted.com').send()
@@ -112,7 +125,10 @@ describe('cors', () => {
       .get('/data', handler())
     const h = app.handler()
     const res = await h(
-      new Request('http://localhost/other', { method: 'OPTIONS', headers: { origin: 'https://example.com' } }),
+      new Request('http://localhost/other', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://example.com' },
+      }),
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 204)

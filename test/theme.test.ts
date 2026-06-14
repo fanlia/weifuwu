@@ -12,7 +12,10 @@ describe('theme', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -25,7 +28,10 @@ describe('theme', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -57,7 +63,7 @@ describe('theme', () => {
     assert.equal(res.status, 302)
     assert.equal(res.headers.get('location'), '/settings')
     const cookies = res.headers.getSetCookie()
-    assert.ok(cookies.some(c => c.startsWith('theme=dark')))
+    assert.ok(cookies.some((c) => c.startsWith('theme=dark')))
   })
 
   it('__theme/:value returns JSON when Accept includes application/json', async () => {
@@ -76,7 +82,7 @@ describe('theme', () => {
     assert.equal(body.theme, 'dark')
     assert.equal(body.ok, true)
     const cookies = res.headers.getSetCookie()
-    assert.ok(cookies.some(c => c.startsWith('theme=dark')))
+    assert.ok(cookies.some((c) => c.startsWith('theme=dark')))
   })
 
   it('set() returns redirect with cookie', async () => {
@@ -87,14 +93,14 @@ describe('theme', () => {
       return ctx.theme?.set?.('light', '/home') ?? new Response('no theme', { status: 500 })
     })
 
-    const res = await r.handler()(
-      new Request('http://localhost/set-theme'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await r.handler()(new Request('http://localhost/set-theme'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 302)
     assert.equal(res.headers.get('location'), '/home')
     const cookies = res.headers.getSetCookie()
-    assert.ok(cookies.some(c => c.startsWith('theme=light')))
+    assert.ok(cookies.some((c) => c.startsWith('theme=light')))
   })
 
   it('supports custom cookie name', async () => {
@@ -110,7 +116,7 @@ describe('theme', () => {
       { params: {}, query: {} } as any,
     )
     const cookies = res.headers.getSetCookie()
-    assert.ok(cookies.some(c => c.startsWith('pref_theme=dark')))
+    assert.ok(cookies.some((c) => c.startsWith('pref_theme=dark')))
   })
 
   it('handles empty cookie name (no cookie persistence)', async () => {

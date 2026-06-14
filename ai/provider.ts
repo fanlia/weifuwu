@@ -51,22 +51,30 @@ export interface AIProvider {
    * Generate text using the configured model.
    * All options are passed through to the AI SDK's `generateText`, with `model` auto-injected.
    */
-  generateText(params: Omit<Parameters<typeof aiGenerateText>[0], 'model'>): ReturnType<typeof aiGenerateText>
+  generateText(
+    params: Omit<Parameters<typeof aiGenerateText>[0], 'model'>,
+  ): ReturnType<typeof aiGenerateText>
   /**
    * Stream text using the configured model.
    * All options are passed through to the AI SDK's `streamText`, with `model` auto-injected.
    */
-  streamText(params: Omit<Parameters<typeof aiStreamText>[0], 'model'>): ReturnType<typeof aiStreamText>
+  streamText(
+    params: Omit<Parameters<typeof aiStreamText>[0], 'model'>,
+  ): ReturnType<typeof aiStreamText>
 }
 
 // ── Factory ─────────────────────────────────────────────────────────────────
 
-export function aiProvider(options?: AIProviderOptions): Middleware<Context, Context & AIProviderInjected> & AIProvider {
+export function aiProvider(
+  options?: AIProviderOptions,
+): Middleware<Context, Context & AIProviderInjected> & AIProvider {
   const baseURL = options?.baseURL ?? process.env.OPENAI_BASE_URL ?? 'http://localhost:11434/v1'
   const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY ?? 'ollama'
   const modelName = options?.model ?? process.env.OPENAI_MODEL ?? 'qwen3:0.6b'
-  const embedModelName = options?.embeddingModel ?? process.env.OPENAI_EMBEDDING_MODEL ?? 'qwen3-embedding:0.6b'
-  const dimension = options?.embeddingDimension ?? parseInt(process.env.EMBEDDING_DIMENSION || '1024', 10)
+  const embedModelName =
+    options?.embeddingModel ?? process.env.OPENAI_EMBEDDING_MODEL ?? 'qwen3-embedding:0.6b'
+  const dimension =
+    options?.embeddingDimension ?? parseInt(process.env.EMBEDDING_DIMENSION || '1024', 10)
 
   const client = createOpenAI({ baseURL, apiKey })
 
@@ -74,7 +82,9 @@ export function aiProvider(options?: AIProviderOptions): Middleware<Context, Con
   let _embedModel: EmbeddingModel | undefined
 
   const provider: AIProvider = {
-    get dimension() { return dimension },
+    get dimension() {
+      return dimension
+    },
 
     model(name?: string): LanguageModel {
       const m = name ?? modelName
@@ -112,5 +122,6 @@ export function aiProvider(options?: AIProviderOptions): Middleware<Context, Con
     return next(req, ctx as Context & AIProviderInjected)
   }
 
-  return Object.assign(mw, provider) as Middleware<Context, Context & AIProviderInjected> & AIProvider
+  return Object.assign(mw, provider) as Middleware<Context, Context & AIProviderInjected> &
+    AIProvider
 }

@@ -4,8 +4,7 @@ import { broadcastToChannel } from './ws.ts'
 import { runAgentRouting } from './agent.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { Hub } from '../hub.ts'
-import { eq, lt } from '../postgres/schema/index.ts'
-import type { BoundTable } from '../postgres/schema/index.ts'
+import { eq, lt, type BoundTable } from '../postgres/schema/index.ts'
 
 interface RestDeps {
   sql: Sql<{}>
@@ -23,7 +22,7 @@ export function buildRouter(deps: RestDeps): Router {
   // ── Channels ───────────────────────────────────────────
 
   r.post('/channels', async (req) => {
-    const body = await req.json() as any
+    const body = (await req.json()) as any
     if (!body.name) return Response.json({ error: 'name is required' }, { status: 400 })
 
     const channel = await channels.insert({
@@ -93,7 +92,7 @@ export function buildRouter(deps: RestDeps): Router {
 
   r.post('/channels/:id/members', async (req, ctx) => {
     const channelId = parseInt(ctx.params.id, 10)
-    const body = await req.json() as any
+    const body = (await req.json()) as any
     await members.upsert(
       {
         channel_id: channelId,
@@ -138,7 +137,7 @@ export function buildRouter(deps: RestDeps): Router {
 
   r.post('/channels/:id/messages', async (req, ctx) => {
     const channelId = parseInt(ctx.params.id, 10)
-    const body = await req.json() as any
+    const body = (await req.json()) as any
     if (!body.content) return Response.json({ error: 'content is required' }, { status: 400 })
 
     const msg = await messages.insert({
@@ -162,7 +161,7 @@ export function buildRouter(deps: RestDeps): Router {
 
   r.post('/channels/:id/read', async (req, ctx) => {
     const channelId = parseInt(ctx.params.id, 10)
-    const body = await req.json() as { last_message_id: number; user_id?: number }
+    const body = (await req.json()) as { last_message_id: number; user_id?: number }
     const userId = body.user_id ?? (ctx as any).user?.id ?? 1
 
     await members.updateMany(
@@ -175,7 +174,12 @@ export function buildRouter(deps: RestDeps): Router {
   // ── Upload ─────────────────────────────────────────────
 
   r.post('/upload', async (req) => {
-    const body = await req.json() as { file_url?: string; file_name?: string; file_size?: number; mime_type?: string }
+    const body = (await req.json()) as {
+      file_url?: string
+      file_name?: string
+      file_size?: number
+      mime_type?: string
+    }
     return Response.json(body, { status: 201 })
   })
 

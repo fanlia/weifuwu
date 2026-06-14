@@ -82,7 +82,13 @@ export function csrf(options?: CsrfOptions): Middleware<Context, Context & CsrfI
 
     let headerToken = req.headers.get(headerName) ?? ''
     // Fallback: try to extract from request body
-    if (!headerToken && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE')) {
+    if (
+      !headerToken &&
+      (req.method === 'POST' ||
+        req.method === 'PUT' ||
+        req.method === 'PATCH' ||
+        req.method === 'DELETE')
+    ) {
       try {
         const body = await req.clone().json()
         headerToken = body[bodyKey] ?? ''

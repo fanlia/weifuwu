@@ -59,16 +59,12 @@ export function createSSEStream(
       async start(controller) {
         try {
           for await (const event of iterable) {
-            const text = event.type
-              ? formatSSE(event.type, event)
-              : formatSSEData(event)
+            const text = event.type ? formatSSE(event.type, event) : formatSSEData(event)
             controller.enqueue(encoder.encode(text))
           }
         } catch (e: any) {
           if (e.name !== 'AbortError') {
-            controller.enqueue(
-              encoder.encode(formatSSE('error', { error: e.message })),
-            )
+            controller.enqueue(encoder.encode(formatSSE('error', { error: e.message })))
           }
         } finally {
           controller.close()

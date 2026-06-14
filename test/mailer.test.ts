@@ -6,7 +6,9 @@ describe('mailer', () => {
   it('sends via custom send function', async () => {
     const sent: any[] = []
     const m = mailer({
-      send: async (opts) => { sent.push(opts) },
+      send: async (opts) => {
+        sent.push(opts)
+      },
     })
     await m.send({ to: 'a@b.com', subject: 'Test', text: 'Hello' })
     assert.equal(sent.length, 1)
@@ -41,7 +43,9 @@ describe('mailer', () => {
     const sent: any[] = []
     const m = mailer({
       from: 'default@sender.com',
-      send: async (opts) => { sent.push(opts) },
+      send: async (opts) => {
+        sent.push(opts)
+      },
     })
     await m.send({ to: 'r@x.com', subject: 'Hi', text: 'there' })
     assert.equal(sent.length, 1)
@@ -51,7 +55,9 @@ describe('mailer', () => {
   it('handles array recipients', async () => {
     const sent: any[] = []
     const m = mailer({
-      send: async (opts) => { sent.push(opts) },
+      send: async (opts) => {
+        sent.push(opts)
+      },
     })
     await m.send({ to: ['a@b.com', 'c@d.com'], subject: 'Multi', text: 'hi' })
     assert.ok(Array.isArray(sent[0].to))

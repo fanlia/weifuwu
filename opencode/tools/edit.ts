@@ -7,7 +7,8 @@ import type { ToolContext } from './index.ts'
 
 export function createEditTool(ctx: ToolContext) {
   return tool({
-    description: 'Perform exact string replacements in a file. If oldString appears multiple times, provide more surrounding context.',
+    description:
+      'Perform exact string replacements in a file. If oldString appears multiple times, provide more surrounding context.',
     inputSchema: z.object({
       path: z.string().describe('File path relative to workspace'),
       oldString: z.string().describe('The exact text to replace'),
@@ -39,7 +40,10 @@ export function createEditTool(ctx: ToolContext) {
       }
       const secondIdx = content.indexOf(oldString, firstIdx + 1)
       if (secondIdx !== -1) {
-        return { error: 'Found multiple matches. Provide more surrounding context in oldString.', replaced: 0 }
+        return {
+          error: 'Found multiple matches. Provide more surrounding context in oldString.',
+          replaced: 0,
+        }
       }
 
       const result = content.replace(oldString, newString)

@@ -26,13 +26,17 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
         Math.cos(seed * 0.4 + 2),
       ]
       const len = Math.sqrt(v.reduce((s, x) => s + x * x, 0))
-      return v.map(x => x / len)
+      return v.map((x) => x / len)
     }
 
     return {
       dimension: 4,
-      model: () => { throw new Error('not used in tests') },
-      embeddingModel: () => { throw new Error('not used in tests') },
+      model: () => {
+        throw new Error('not used in tests')
+      },
+      embeddingModel: () => {
+        throw new Error('not used in tests')
+      },
       embed: (text: string) => Promise.resolve(embedHash(text)),
       embedMany: (texts: string[]) => Promise.resolve(texts.map(embedHash)),
     }
@@ -77,8 +81,10 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
   })
 
   it('ingests a long document split into multiple chunks', async () => {
-    const paragraphs = Array.from({ length: 10 }, (_, i) =>
-      `Paragraph number ${i + 1}. This is some text content for testing chunking behavior. It contains enough words to fill up the chunk size limit.`
+    const paragraphs = Array.from(
+      { length: 10 },
+      (_, i) =>
+        `Paragraph number ${i + 1}. This is some text content for testing chunking behavior. It contains enough words to fill up the chunk size limit.`,
     )
     const text = paragraphs.join('\n\n')
     const chunks = await kb.ingest('test/doc2', text, { title: 'Long Doc' })
@@ -93,7 +99,7 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
 
     // List should show only 1 entry for this key (not 2 from old + new)
     const entries = await kb.list()
-    const match = entries.filter(e => e.key === 'test/replace')
+    const match = entries.filter((e) => e.key === 'test/replace')
     assert.equal(match.length, 1, 'should have only one entry per key')
     assert.equal(match[0].title, 'v2')
   })
@@ -101,9 +107,21 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
   // ── Search ─────────────────────────────────────────────────────
 
   it('search returns relevant results by semantic similarity', async () => {
-    await kb.ingest('search/apples', 'Apples are fruits that grow on trees. They are sweet and delicious.', { title: 'Apples' })
-    await kb.ingest('search/cars', 'Cars are vehicles with four wheels. They run on gasoline or electricity.', { title: 'Cars' })
-    await kb.ingest('search/fruit', 'Fruits come in many varieties including apples, oranges, and bananas.', { title: 'Fruits' })
+    await kb.ingest(
+      'search/apples',
+      'Apples are fruits that grow on trees. They are sweet and delicious.',
+      { title: 'Apples' },
+    )
+    await kb.ingest(
+      'search/cars',
+      'Cars are vehicles with four wheels. They run on gasoline or electricity.',
+      { title: 'Cars' },
+    )
+    await kb.ingest(
+      'search/fruit',
+      'Fruits come in many varieties including apples, oranges, and bananas.',
+      { title: 'Fruits' },
+    )
 
     const results = await kb.search('apple fruit', { limit: 3 })
     assert.ok(results.length >= 2, 'should find fruit-related docs')
@@ -124,7 +142,7 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
 
     const results = await kb.search('metadata', { limit: 1 })
     // Results may not include the exact doc due to mock embedding, but if found, check metadata
-    const metaDoc = results.find(r => r.key === 'search/metadata')
+    const metaDoc = results.find((r) => r.key === 'search/metadata')
     if (metaDoc) {
       assert.deepEqual(metaDoc.metadata, metadata)
     }
@@ -137,12 +155,15 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
 
     // Verify via list (not search, since mock embedding may not rank it high)
     let entries = await kb.list()
-    assert.ok(entries.find(e => e.key === 'test/delete-me'), 'doc should exist before delete')
+    assert.ok(
+      entries.find((e) => e.key === 'test/delete-me'),
+      'doc should exist before delete',
+    )
 
     await kb.delete('test/delete-me')
 
     entries = await kb.list()
-    assert.ok(!entries.find(e => e.key === 'test/delete-me'), 'doc should be gone after delete')
+    assert.ok(!entries.find((e) => e.key === 'test/delete-me'), 'doc should be gone after delete')
   })
 
   it('delete on non-existent key does not throw', async () => {
@@ -154,7 +175,7 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
   it('list returns all document keys with chunk counts', async () => {
     const entries = await kb.list()
     assert.ok(entries.length > 0, 'should have at least the docs from previous tests')
-    const first = entries.find(e => e.key === 'test/doc1')
+    const first = entries.find((e) => e.key === 'test/doc1')
     assert.ok(first, 'should find test/doc1')
     assert.equal(first!.chunks, 1, 'doc1 should have 1 chunk')
     assert.equal(first!.title, 'Fox Dog')
@@ -173,12 +194,12 @@ describe('knowledgeBase', { skip: !DATABASE_URL }, () => {
       return Response.json({ count: results.length })
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/search'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/search'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.equal(typeof body.count, 'number')
   })
 

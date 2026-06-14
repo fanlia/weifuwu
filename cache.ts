@@ -54,14 +54,20 @@ export interface CacheMiddleware extends Middleware, Closeable {
 // ── Binary content types that should not be cached as text ──────────────────
 
 const BINARY_PREFIXES = [
-  'image/', 'audio/', 'video/', 'application/octet-stream',
-  'application/pdf', 'application/zip', 'application/gzip',
-  'application/x-tar', 'application/vnd.ms-',
+  'image/',
+  'audio/',
+  'video/',
+  'application/octet-stream',
+  'application/pdf',
+  'application/zip',
+  'application/gzip',
+  'application/x-tar',
+  'application/vnd.ms-',
   'application/vnd.openxmlformats-',
 ]
 
 function isCacheableContentType(ct: string): boolean {
-  return !BINARY_PREFIXES.some(p => ct.startsWith(p))
+  return !BINARY_PREFIXES.some((p) => ct.startsWith(p))
 }
 
 function isCacheableStatus(status: number, allowed: number[]): boolean {
@@ -159,7 +165,9 @@ export class MemoryCache implements CacheStore {
   }
 
   /** Testing only. */
-  get size(): number { return this.store.size }
+  get size(): number {
+    return this.store.size
+  }
 }
 
 // ── RedisCache ──────────────────────────────────────────────────────────────
@@ -175,8 +183,12 @@ export class RedisCache implements CacheStore {
     this.tagPrefix = `${prefix}tag:`
   }
 
-  private key(sid: string): string { return `${this.prefix}${sid}` }
-  private tagKey(tag: string): string { return `${this.tagPrefix}${tag}` }
+  private key(sid: string): string {
+    return `${this.prefix}${sid}`
+  }
+  private tagKey(tag: string): string {
+    return `${this.tagPrefix}${tag}`
+  }
 
   async get(key: string): Promise<CachedResponse | null> {
     const raw = await this.redis.get(this.key(key))
@@ -337,7 +349,9 @@ export function cache(options?: CacheOptions): CacheMiddleware {
   mw.store = store
   mw.invalidate = async (tag: string) => store.invalidate(tag)
   mw.flush = async () => store.flush()
-  mw.close = async () => { await closeStore?.() }
+  mw.close = async () => {
+    await closeStore?.()
+  }
 
   return mw
 }

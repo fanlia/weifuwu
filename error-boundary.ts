@@ -14,8 +14,12 @@ export function errorBoundary(errorPath: string): Middleware {
       const ErrorComponent = mod.default
       if (!ErrorComponent) throw err
 
-      const ctx2 = ctx as Context & { layoutStack?: Array<{ component: unknown }>; mountPath?: string; tailwind?: { css: string; url: string } }
-      const layouts = (ctx2.layoutStack || []).map(l => l.component)
+      const ctx2 = ctx as Context & {
+        layoutStack?: Array<{ component: unknown }>
+        mountPath?: string
+        tailwind?: { css: string; url: string }
+      }
+      const layouts = (ctx2.layoutStack || []).map((l) => l.component)
       const base = (ctx2.mountPath || '').replace(/\/$/, '')
 
       let element: any = createElement(ErrorComponent, {

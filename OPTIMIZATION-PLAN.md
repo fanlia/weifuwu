@@ -19,9 +19,10 @@ const response = await runWithTrace(incomingTrace, async () => {
   // ... handler 返回 response
   const traceId = incomingTrace || currentTraceId()
   if (traceId && !response.headers.has('X-Trace-Id')) {
-    const headers = new Headers(response.headers)  // ① 克隆 headers
+    const headers = new Headers(response.headers) // ① 克隆 headers
     headers.set('X-Trace-Id', traceId)
-    return new Response(response.body, {           // ② 重新包装 Response
+    return new Response(response.body, {
+      // ② 重新包装 Response
       status: response.status,
       statusText: response.statusText,
       headers,
@@ -72,11 +73,11 @@ export async function sendResponse(
 
 ### 效果
 
-| | Before | After |
-|---|---|---|
-| 每请求 Response 构造 | 1-2 次 | 1 次 |
-| 每请求 Headers 克隆 | 0-1 次 | 0 次 |
-| traceId 注入方式 | 重新包装 Response | 写入 headers 对象 |
+|                      | Before            | After             |
+| -------------------- | ----------------- | ----------------- |
+| 每请求 Response 构造 | 1-2 次            | 1 次              |
+| 每请求 Headers 克隆  | 0-1 次            | 0 次              |
+| traceId 注入方式     | 重新包装 Response | 写入 headers 对象 |
 
 ---
 
@@ -157,8 +158,12 @@ server.listen(port, hostname, () => {
 })
 
 return {
-  get port() { return cachedPort },
-  get hostname() { return cachedHostname || hostname },
+  get port() {
+    return cachedPort
+  },
+  get hostname() {
+    return cachedHostname || hostname
+  },
   // ...
 }
 ```
@@ -236,7 +241,7 @@ if (this._hasWildcard && node.wildcard) { ... }
 
 ---
 
-## 五、router.ts — _route 内部 as any 清理
+## 五、router.ts — \_route 内部 as any 清理
 
 ### 当前行为
 
@@ -278,6 +283,7 @@ private _routeImpl(method: string, path: string, args: any[]): Router<T> {
 ```
 
 这样：
+
 - 公共方法（`get`/`post`/...）走 `_route`，保持类型安全
 - `_mountRouter` 走 `_routeImpl`，无需 `as any`
 
@@ -287,14 +293,14 @@ private _routeImpl(method: string, path: string, args: any[]): Router<T> {
 
 ## 六、不做的事
 
-| 不做 | 理由 |
-|------|------|
-| `mergeMws` 缓存 | 增加版本号跟踪的复杂度，实际收益几乎为零（globalMws 通常 ≤ 5 个） |
-| `runChainLoop` 改迭代 | 递归 Promise 链在中间件 ≤ 10000 时不会栈溢出。实际不会超过 50 个 |
-| `handler()` 预计算闭包 | 典型用法只调一次 `handler()`。测试里多次调用也不影响性能 |
-| Trie 压缩（radix tree） | URL 段通常很短（1-3 段），压缩收益不明显，但代码复杂度翻倍 |
-| `sendResponse` 流式优化 | `getReader()` + `while(true)` 循环已经是最优的流式消费方式 |
-| `readBody` 与 `createRequest` 合并 | 职责分离是好的设计，合并后更难测试 |
+| 不做                               | 理由                                                              |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| `mergeMws` 缓存                    | 增加版本号跟踪的复杂度，实际收益几乎为零（globalMws 通常 ≤ 5 个） |
+| `runChainLoop` 改迭代              | 递归 Promise 链在中间件 ≤ 10000 时不会栈溢出。实际不会超过 50 个  |
+| `handler()` 预计算闭包             | 典型用法只调一次 `handler()`。测试里多次调用也不影响性能          |
+| Trie 压缩（radix tree）            | URL 段通常很短（1-3 段），压缩收益不明显，但代码复杂度翻倍        |
+| `sendResponse` 流式优化            | `getReader()` + `while(true)` 循环已经是最优的流式消费方式        |
+| `readBody` 与 `createRequest` 合并 | 职责分离是好的设计，合并后更难测试                                |
 
 ---
 

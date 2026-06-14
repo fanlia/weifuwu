@@ -88,7 +88,7 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
       const headers: Record<string, string> = {
         'Content-Type': mimeType,
         'Content-Length': String(stat.size),
-        'ETag': etag,
+        ETag: etag,
         'Last-Modified': stat.mtime.toUTCString(),
         'Cache-Control': opts.immutable
           ? `public, max-age=${opts.maxAge ?? 31536000}, immutable`

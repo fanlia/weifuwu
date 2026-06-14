@@ -3,7 +3,17 @@ import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import type { Sql } from '../vendor.ts'
 import type { Session, Message } from './types.ts'
-import { pgTable, uuid, serial, text, integer, boolean, timestamptz, jsonb, sql as schemaSql } from '../postgres/schema/index.ts'
+import {
+  pgTable,
+  uuid,
+  serial,
+  text,
+  integer,
+  boolean,
+  timestamptz,
+  jsonb,
+  sql as schemaSql,
+} from '../postgres/schema/index.ts'
 
 const sessions = pgTable('_opencode_sessions', {
   id: uuid('id'),
@@ -59,7 +69,11 @@ export async function getSession(sql: Sql<{}>, id: string): Promise<Session | nu
 export async function listSessions(sql: Sql<{}>, userId?: number): Promise<Session[]> {
   const opts = { orderBy: { updated_at: 'desc' as const } }
   if (userId !== undefined) {
-    const { data: rows } = await sessions.readMany(sql, { user_id: userId, active: true } as any, opts)
+    const { data: rows } = await sessions.readMany(
+      sql,
+      { user_id: userId, active: true } as any,
+      opts,
+    )
     return rows as unknown as Session[]
   }
   const { data: rows } = await sessions.readMany(sql, { active: true } as any, opts)
@@ -70,7 +84,11 @@ export async function deleteSession(sql: Sql<{}>, id: string): Promise<void> {
   await sessions.update(sql, id, { active: false, updated_at: schemaSql`NOW()` } as any)
 }
 
-export async function getHistory(sql: Sql<{}>, sessionId: string, limit = 50): Promise<SessionMessage[]> {
+export async function getHistory(
+  sql: Sql<{}>,
+  sessionId: string,
+  limit = 50,
+): Promise<SessionMessage[]> {
   const { data: rows } = await messages.readMany(sql, { session_id: sessionId } as any, {
     orderBy: { created_at: 'asc' },
     limit,

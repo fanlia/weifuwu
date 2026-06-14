@@ -4,7 +4,9 @@ import { navigate } from './client-router.ts'
 
 // ── Function rebuilder — reconstruct t() from messages after setCtx ──
 
-function buildT(messages: Record<string, unknown>): NonNullable<NonNullable<ReturnType<typeof useCtx>['i18n']>>['t'] {
+function buildT(
+  messages: Record<string, unknown>,
+): NonNullable<NonNullable<ReturnType<typeof useCtx>['i18n']>>['t'] {
   if (!messages || Object.keys(messages).length === 0) {
     return (key, _p, fb) => fb ?? key
   }

@@ -103,7 +103,9 @@ function makeSetFlash(name: string, location: string) {
  * })
  * ```
  */
-export function flash(options?: FlashOptions): Middleware<Context, Context & { flash: FlashInjected }> {
+export function flash(
+  options?: FlashOptions,
+): Middleware<Context, Context & { flash: FlashInjected }> {
   const name = options?.name ?? 'flash'
 
   return async (req, ctx, next) => {
@@ -112,7 +114,11 @@ export function flash(options?: FlashOptions): Middleware<Context, Context & { f
 
     let value: unknown = undefined
     if (raw) {
-      try { value = JSON.parse(decodeURIComponent(raw)) } catch { value = raw }
+      try {
+        value = JSON.parse(decodeURIComponent(raw))
+      } catch {
+        value = raw
+      }
     }
 
     ctx.flash = {

@@ -1,4 +1,11 @@
-import { buildSchema, graphql as executeGraphQL, type GraphQLSchema, validate as validateQuery, parse, type DocumentNode } from 'graphql'
+import {
+  buildSchema,
+  graphql as executeGraphQL,
+  type GraphQLSchema,
+  validate as validateQuery,
+  parse,
+  type DocumentNode,
+} from 'graphql'
 import { makeExecutableSchema } from '@graphql-tools/schema'
 import type { Context } from './types.ts'
 import { Router } from './router.ts'
@@ -33,14 +40,22 @@ function parseParamsFromGet(url: URL): GraphQLParams | null {
   let variables = {}
   const variablesStr = url.searchParams.get('variables')
   if (variablesStr) {
-    try { variables = JSON.parse(variablesStr) } catch { return null }
+    try {
+      variables = JSON.parse(variablesStr)
+    } catch {
+      return null
+    }
   }
   return { query, variables, operationName: url.searchParams.get('operationName') || undefined }
 }
 
 async function parseParamsFromPost(req: Request): Promise<GraphQLParams | null> {
   try {
-    const body = await req.json() as { query?: string; variables?: Record<string, any>; operationName?: string }
+    const body = (await req.json()) as {
+      query?: string
+      variables?: Record<string, any>
+      operationName?: string
+    }
     if (!body.query) return null
     return { query: body.query, variables: body.variables || {}, operationName: body.operationName }
   } catch {
@@ -96,11 +111,17 @@ async function executeQuery(
       const doc = parse(params.query)
       const depth = queryDepth(doc)
       if (depth > maxDepth) {
-        return Response.json({ errors: [{ message: `Query depth ${depth} exceeds limit ${maxDepth}` }] }, { status: 400 })
+        return Response.json(
+          { errors: [{ message: `Query depth ${depth} exceeds limit ${maxDepth}` }] },
+          { status: 400 },
+        )
       }
       const validationErrors = validateQuery(schema, doc)
       if (validationErrors.length > 0) {
-        return Response.json({ errors: validationErrors.map(e => ({ message: e.message })) }, { status: 400 })
+        return Response.json(
+          { errors: validationErrors.map((e) => ({ message: e.message })) },
+          { status: 400 },
+        )
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -197,7 +218,10 @@ export function graphql(handler: GraphQLHandler): Router {
   let cachedOptions: GraphQLOptions | null = null
   let cachedSchema: GraphQLSchema | null = null
 
-  async function getSchema(req: Request, ctx: Context): Promise<{ options: GraphQLOptions; schema: GraphQLSchema }> {
+  async function getSchema(
+    req: Request,
+    ctx: Context,
+  ): Promise<{ options: GraphQLOptions; schema: GraphQLSchema }> {
     const options = await handler(req, ctx)
     // Cache schema — handler must return the same schema reference for cache to work.
     // If schema changes (e.g. hot-reload), return a different object reference.

@@ -1,6 +1,15 @@
 import type { AgentOptions, AgentModule } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
-import { serial, text, integer, boolean, timestamptz, jsonb, vector, sql as schemaSql } from '../postgres/schema/index.ts'
+import {
+  serial,
+  text,
+  integer,
+  boolean,
+  timestamptz,
+  jsonb,
+  vector,
+  sql as schemaSql,
+} from '../postgres/schema/index.ts'
 import { buildRouter } from './rest.ts'
 import { createRunner } from './run.ts'
 import { aiProvider } from '../ai/provider.ts'
@@ -21,8 +30,12 @@ export function agent(options: AgentOptions): AgentModule {
     system_prompt: text('system_prompt').notNull().default(''),
     owner_id: integer('owner_id').notNull(),
     active: boolean('active').notNull().default(true),
-    created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
-    updated_at: timestamptz('updated_at').notNull().default(schemaSql`NOW()`),
+    created_at: timestamptz('created_at')
+      .notNull()
+      .default(schemaSql`NOW()`),
+    updated_at: timestamptz('updated_at')
+      .notNull()
+      .default(schemaSql`NOW()`),
   })
 
   const knowledgeTable = pg.table('_knowledge_documents', {
@@ -31,8 +44,12 @@ export function agent(options: AgentOptions): AgentModule {
     title: text('title').notNull().default(''),
     content: text('content').notNull(),
     embedding: vector('embedding', dimension),
-    metadata: jsonb('metadata').notNull().default(schemaSql`'{}'::jsonb`),
-    created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(schemaSql`'{}'::jsonb`),
+    created_at: timestamptz('created_at')
+      .notNull()
+      .default(schemaSql`NOW()`),
   })
 
   const runsTable = pg.table('_agent_runs', {
@@ -47,10 +64,19 @@ export function agent(options: AgentOptions): AgentModule {
     status: text('status').notNull().default('success'),
     error_msg: text('error_msg'),
     trace_id: text('trace_id'),
-    created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+    created_at: timestamptz('created_at')
+      .notNull()
+      .default(schemaSql`NOW()`),
   })
 
-  const runner = createRunner({ sql, agents: agentsTable, runs: runsTable, knowledge: knowledgeTable, provider: resolvedProvider, userTools: options.tools })
+  const runner = createRunner({
+    sql,
+    agents: agentsTable,
+    runs: runsTable,
+    knowledge: knowledgeTable,
+    provider: resolvedProvider,
+    userTools: options.tools,
+  })
 
   const base = new PgModule(pg)
 
@@ -65,7 +91,8 @@ export function agent(options: AgentOptions): AgentModule {
     await runsTable.createIndex(['agent_id', 'created_at'])
   }
   mod.run = (agentId: number, params) => runner.run(agentId, params)
-  mod.addKnowledge = (agentId: number, title: string, content: string) => runner.addKnowledge(agentId, title, content)
+  mod.addKnowledge = (agentId: number, title: string, content: string) =>
+    runner.addKnowledge(agentId, title, content)
   mod.close = () => base.close()
   return mod
 }

@@ -32,15 +32,14 @@ export function createManager(
     const token = header.replace('Bearer ', '')
     const tokenBuf = Buffer.from(token)
     const secretBuf = Buffer.from(config.deployToken)
-    if (tokenBuf.length !== secretBuf.length ||
-        !crypto.timingSafeEqual(tokenBuf, secretBuf)) {
+    if (tokenBuf.length !== secretBuf.length || !crypto.timingSafeEqual(tokenBuf, secretBuf)) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return next(req, ctx)
   }
 
   router.get('/apps', auth, () => {
-    const list = Array.from(apps.values()).map(a => a.status)
+    const list = Array.from(apps.values()).map((a) => a.status)
     return Response.json(list)
   })
 

@@ -1,6 +1,21 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { eq, ne, gt, gte, lt, lte, isNull, isNotNull, like, contains, in_, and, or, not } from '../postgres/schema/where.ts'
+import {
+  eq,
+  ne,
+  gt,
+  gte,
+  lt,
+  lte,
+  isNull,
+  isNotNull,
+  like,
+  contains,
+  in_,
+  and,
+  or,
+  not,
+} from '../postgres/schema/where.ts'
 
 describe('where helpers', () => {
   it('eq', () => {
@@ -105,10 +120,7 @@ describe('where helpers', () => {
   })
 
   it('and + or nested', () => {
-    const s = or(
-      and(eq('role', 'admin'), eq('status', 'active')),
-      eq('role', 'superadmin'),
-    )
+    const s = or(and(eq('role', 'admin'), eq('status', 'active')), eq('role', 'superadmin'))
     assert.equal(s.values[0], 'admin')
     assert.equal(s.values[1], 'active')
     assert.equal(s.values[2], 'superadmin')

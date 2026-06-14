@@ -52,7 +52,10 @@ describeRedis('session with RedisStore', () => {
         return Response.json({ userId: ctx.session.userId })
       })
 
-    const setRes = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const setRes = await r.handler()(new Request('http://localhost/set'), {
+      params: {},
+      query: {},
+    } as any)
     const sid = parseSetCookie(setRes).__session
     assert.ok(sid)
 
@@ -60,7 +63,7 @@ describeRedis('session with RedisStore', () => {
       new Request('http://localhost/get', { headers: { cookie: `__session=${sid}` } }),
       { params: {}, query: {} } as any,
     )
-    assert.equal((await getRes.json() as any).userId, 42)
+    assert.equal(((await getRes.json()) as any).userId, 42)
   })
 
   it('destroy removes session from Redis', async () => {
@@ -77,7 +80,10 @@ describeRedis('session with RedisStore', () => {
         return new Response('ok')
       })
 
-    const setRes = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const setRes = await r.handler()(new Request('http://localhost/set'), {
+      params: {},
+      query: {},
+    } as any)
     const sid = parseSetCookie(setRes).__session
 
     // Verify data is in Redis
@@ -99,14 +105,15 @@ describeRedis('session with RedisStore', () => {
   it('TTL is set on Redis key', async () => {
     const sess = session({ store, ttl: 5000 }) // 5 seconds
 
-    const r = new Router()
-      .use(sess)
-      .get('/set', (req, ctx: any) => {
-        ctx.session.userId = 1
-        return new Response('ok')
-      })
+    const r = new Router().use(sess).get('/set', (req, ctx: any) => {
+      ctx.session.userId = 1
+      return new Response('ok')
+    })
 
-    const setRes = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const setRes = await r.handler()(new Request('http://localhost/set'), {
+      params: {},
+      query: {},
+    } as any)
     const sid = parseSetCookie(setRes).__session
 
     const ttl = await redisClient.redis.ttl(`test:session:${sid}`)
@@ -118,11 +125,9 @@ describeRedis('session with RedisStore', () => {
     // Manually corrupt the session data in Redis
     const sess = session({ store, ttl: 60_000 })
 
-    const r = new Router()
-      .use(sess)
-      .get('/get', (req, ctx: any) => {
-        return Response.json({ userId: ctx.session.userId })
-      })
+    const r = new Router().use(sess).get('/get', (req, ctx: any) => {
+      return Response.json({ userId: ctx.session.userId })
+    })
 
     // Corrupt the data for a fake session
     await redisClient.redis.set('test:session:corrupted-sid', 'not-json')
@@ -132,7 +137,7 @@ describeRedis('session with RedisStore', () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
-    assert.equal((await res.json() as any).userId, undefined)
+    assert.equal(((await res.json()) as any).userId, undefined)
 
     // Corrupted key should be deleted
     const exists = await redisClient.redis.exists('test:session:corrupted-sid')
@@ -142,42 +147,47 @@ describeRedis('session with RedisStore', () => {
   it('supports multiple independent sessions', async () => {
     const sess = session({ store, ttl: 60_000 })
 
-    const r = new Router()
-      .use(sess)
-      .get('/set', (req, ctx: any) => {
-        ctx.session.val = ctx.session.val ?? 0
-        ctx.session.val++
-        return Response.json({ val: ctx.session.val })
-      })
+    const r = new Router().use(sess).get('/set', (req, ctx: any) => {
+      ctx.session.val = ctx.session.val ?? 0
+      ctx.session.val++
+      return Response.json({ val: ctx.session.val })
+    })
 
     // Session A
-    const resA = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const resA = await r.handler()(new Request('http://localhost/set'), {
+      params: {},
+      query: {},
+    } as any)
     const sidA = parseSetCookie(resA).__session
-    assert.equal((await resA.json() as any).val, 1)
+    assert.equal(((await resA.json()) as any).val, 1)
 
     // Session B
-    const resB = await r.handler()(new Request('http://localhost/set'), { params: {}, query: {} } as any)
+    const resB = await r.handler()(new Request('http://localhost/set'), {
+      params: {},
+      query: {},
+    } as any)
     const sidB = parseSetCookie(resB).__session
-    assert.equal((await resB.json() as any).val, 1)
+    assert.equal(((await resB.json()) as any).val, 1)
 
     // Session A again
     const resA2 = await r.handler()(
       new Request('http://localhost/set', { headers: { cookie: `__session=${sidA}` } }),
       { params: {}, query: {} } as any,
     )
-    assert.equal((await resA2.json() as any).val, 2)
+    assert.equal(((await resA2.json()) as any).val, 2)
   })
 
   it('loading non-existent session returns empty object', async () => {
     const sess = session({ store, ttl: 60_000 })
 
-    const r = new Router()
-      .use(sess)
-      .get('/get', (req, ctx: any) => {
-        return Response.json({ val: ctx.session.val ?? null })
-      })
+    const r = new Router().use(sess).get('/get', (req, ctx: any) => {
+      return Response.json({ val: ctx.session.val ?? null })
+    })
 
-    const res = await r.handler()(new Request('http://localhost/get'), { params: {}, query: {} } as any)
-    assert.equal((await res.json() as any).val, null)
+    const res = await r.handler()(new Request('http://localhost/get'), {
+      params: {},
+      query: {},
+    } as any)
+    assert.equal(((await res.json()) as any).val, null)
   })
 })

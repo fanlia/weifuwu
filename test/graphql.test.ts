@@ -8,7 +8,9 @@ const schema = `type Query { hello: String, fail: Int }
 const resolvers = {
   Query: {
     hello: () => 'world',
-    fail: () => { throw new Error('execution error') },
+    fail: () => {
+      throw new Error('execution error')
+    },
   },
   Mutation: {
     set: (_: unknown, args: { v: number }) => args.v,
@@ -28,12 +30,12 @@ describe('graphql', () => {
   it('handles GET query', async () => {
     const m = graphql(gqlHandler())
 
-    const res = await m.handler()(
-      new Request('http://localhost/?query={hello}'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await m.handler()(new Request('http://localhost/?query={hello}'), {
+      params: {},
+      query: {},
+    } as Context)
     assert.equal(res.status, 200)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.deepEqual(data, { data: { hello: 'world' } })
   })
 
@@ -49,16 +51,21 @@ describe('graphql', () => {
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 200)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.deepEqual(data, { data: { hello: 'world' } })
   })
 
   it('handles POST with variables', async () => {
-    const m = graphql(gqlHandler({
-      schema: `type Query { dummy: String } type Mutation { set(v: Int!): Int }`,
-      resolvers: { Query: { dummy: () => '' }, Mutation: { set: (_: unknown, args: { v: number }) => args.v } },
-      graphiql: false,
-    }))
+    const m = graphql(
+      gqlHandler({
+        schema: `type Query { dummy: String } type Mutation { set(v: Int!): Int }`,
+        resolvers: {
+          Query: { dummy: () => '' },
+          Mutation: { set: (_: unknown, args: { v: number }) => args.v },
+        },
+        graphiql: false,
+      }),
+    )
 
     const res = await m.handler()(
       new Request('http://localhost/', {
@@ -69,16 +76,20 @@ describe('graphql', () => {
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 200)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.deepEqual(data, { data: { set: 42 } })
   })
 
   it('handles GET with variables', async () => {
-    const m = graphql(gqlHandler({
-      schema: `type Query { hello(name: String!): String }`,
-      resolvers: { Query: { hello: (_: unknown, args: { name: string }) => `Hello ${args.name}` } },
-      graphiql: false,
-    }))
+    const m = graphql(
+      gqlHandler({
+        schema: `type Query { hello(name: String!): String }`,
+        resolvers: {
+          Query: { hello: (_: unknown, args: { name: string }) => `Hello ${args.name}` },
+        },
+        graphiql: false,
+      }),
+    )
 
     const res = await m.handler()(
       new Request('http://localhost/?query={hello(name:"world")}&variables={}'),
@@ -99,7 +110,7 @@ describe('graphql', () => {
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 400)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.ok(data.errors)
     assert.ok(data.errors.length > 0)
   })
@@ -107,10 +118,10 @@ describe('graphql', () => {
   it('returns 400 for missing query', async () => {
     const m = graphql(gqlHandler({ graphiql: false }))
 
-    const res = await m.handler()(
-      new Request('http://localhost/', { method: 'GET' }),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await m.handler()(new Request('http://localhost/', { method: 'GET' }), {
+      params: {},
+      query: {},
+    } as Context)
     assert.equal(res.status, 400)
   })
 
@@ -141,10 +152,10 @@ describe('graphql', () => {
   it('returns GraphiQL HTML on GET without query when enabled', async () => {
     const m = graphql(gqlHandler({ graphiql: true }))
 
-    const res = await m.handler()(
-      new Request('http://localhost/', { method: 'GET' }),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await m.handler()(new Request('http://localhost/', { method: 'GET' }), {
+      params: {},
+      query: {},
+    } as Context)
     assert.equal(res.status, 200)
     const text = await res.text()
     assert.ok(text.includes('GraphiQL'))
@@ -163,7 +174,7 @@ describe('graphql http', () => {
     const { server, url } = await createTestServer(r.handler())
     const res = await fetch(`${url}/graphql?query={hello}`)
     assert.equal(res.status, 200)
-    const data = await res.json() as Record<string, unknown>
+    const data = (await res.json()) as Record<string, unknown>
     assert.deepEqual(data, { data: { hello: 'world' } })
     await server.stop()
   })
@@ -180,7 +191,7 @@ describe('graphql http', () => {
       body: JSON.stringify({ query: '{ hello }' }),
     })
     assert.equal(res.status, 200)
-    const data = await res.json() as Record<string, unknown>
+    const data = (await res.json()) as Record<string, unknown>
     assert.deepEqual(data, { data: { hello: 'world' } })
     await server.stop()
   })
@@ -202,12 +213,12 @@ describe('graphql http', () => {
   it('executes query when graphiql=true but query param present', async () => {
     const m = graphql(gqlHandler({ graphiql: true }))
 
-    const res = await m.handler()(
-      new Request('http://localhost/?query={hello}'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await m.handler()(new Request('http://localhost/?query={hello}'), {
+      params: {},
+      query: {},
+    } as Context)
     assert.equal(res.status, 200)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.deepEqual(data, { data: { hello: 'world' } })
   })
 
@@ -246,7 +257,7 @@ type Mutation { set(v: Int!): Int }`,
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 200)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.deepEqual(data, { data: { world: 'WORLD' } })
   })
 
@@ -263,7 +274,7 @@ type Mutation { set(v: Int!): Int }`,
       { params: {}, query: {} } as Context,
     )
     assert.equal(res.status, 200)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.deepEqual(data, { data: { hello: 'HELLO' } })
   })
 
@@ -280,12 +291,9 @@ type Mutation { set(v: Int!): Int }`,
     }))
 
     const testCtx = { params: {}, query: {} } as Context
-    const res = await m.handler()(
-      new Request('http://localhost/?query={hello}'),
-      testCtx,
-    )
+    const res = await m.handler()(new Request('http://localhost/?query={hello}'), testCtx)
     assert.equal(res.status, 200)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.deepEqual(data, { data: { hello: 'bar-from-context' } })
     assert.ok(ctxReceived)
   })
@@ -296,12 +304,12 @@ type Mutation { set(v: Int!): Int }`,
       graphiql: false,
     }))
 
-    const res = await m.handler()(
-      new Request('http://localhost/?query={hello}'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await m.handler()(new Request('http://localhost/?query={hello}'), {
+      params: {},
+      query: {},
+    } as Context)
     assert.equal(res.status, 200)
-    const data = await res.json() as any
+    const data = (await res.json()) as any
     assert.deepEqual(data, { data: { hello: null } })
   })
 })

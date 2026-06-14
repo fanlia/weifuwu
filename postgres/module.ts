@@ -19,7 +19,10 @@ export class PgModule implements Closeable {
     return this.pg.table(tableOrSchema as any, builders as any)
   }
 
-  async transaction<T>(fn: (sql: Sql<{}>) => Promise<T>, retryOpts?: { maxRetries?: number }): Promise<T> {
+  async transaction<T>(
+    fn: (sql: Sql<{}>) => Promise<T>,
+    retryOpts?: { maxRetries?: number },
+  ): Promise<T> {
     return await this.pg.transaction(fn, retryOpts)
   }
 

@@ -31,13 +31,13 @@
 
 ### 破坏性变更
 
-| 变更 | 迁移 |
-|------|------|
-| `auth()` 移除 | 改用 `user({ tokens/verify/proxy }).middleware()` |
-| `ctx.csrfToken` | 改为 `ctx.csrf.token` |
-| `rateLimit().stop()` | 改为 `.close()`（旧名仍可用） |
-| `iii.shutdown()` | 改为 `.close()`（旧名仍可用） |
-| `requestId()` | 推荐改 `trace()`（旧模块仍可用，`@deprecated`） |
+| 变更                 | 迁移                                              |
+| -------------------- | ------------------------------------------------- |
+| `auth()` 移除        | 改用 `user({ tokens/verify/proxy }).middleware()` |
+| `ctx.csrfToken`      | 改为 `ctx.csrf.token`                             |
+| `rateLimit().stop()` | 改为 `.close()`（旧名仍可用）                     |
+| `iii.shutdown()`     | 改为 `.close()`（旧名仍可用）                     |
+| `requestId()`        | 推荐改 `trace()`（旧模块仍可用，`@deprecated`）   |
 
 ## v0.23.0 — 2026-06-13
 

@@ -1,5 +1,14 @@
 import crypto from 'node:crypto'
-import type { IIIModule, IIIOptions, Worker, FunctionRegistration, TriggerRegistration, WorkerRegistration, FunctionHandler, StreamSubscription } from './types.ts'
+import type {
+  IIIModule,
+  IIIOptions,
+  Worker,
+  FunctionRegistration,
+  TriggerRegistration,
+  WorkerRegistration,
+  FunctionHandler,
+  StreamSubscription,
+} from './types.ts'
 import { createStream } from './stream.ts'
 import { createWsHandler } from './ws.ts'
 import { buildRouter } from './rest.ts'
@@ -10,7 +19,14 @@ export function iii(opts: IIIOptions = {}): IIIModule {
   const workers = new Map<string, WorkerRegistration>()
   const functions = new Map<string, FunctionRegistration>()
   const triggers = new Map<string, TriggerRegistration>()
-  const pending = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>()
+  const pending = new Map<
+    string,
+    {
+      resolve: (v: unknown) => void
+      reject: (e: Error) => void
+      timer: ReturnType<typeof setTimeout>
+    }
+  >()
 
   function registerBuiltin(id: string, handler: FunctionHandler) {
     functions.set(id, {
@@ -23,21 +39,19 @@ export function iii(opts: IIIOptions = {}): IIIModule {
   }
 
   registerBuiltin('stream::set', (p: any) =>
-    stream.set(p.stream_name, p.group_id, p.item_id, p.data))
-  registerBuiltin('stream::get', (p: any) =>
-    stream.get(p.stream_name, p.group_id, p.item_id))
-  registerBuiltin('stream::delete', (p: any) =>
-    stream.delete(p.stream_name, p.group_id, p.item_id))
-  registerBuiltin('stream::list', (p: any) =>
-    stream.list(p.stream_name, p.group_id))
-  registerBuiltin('stream::list_groups', (p: any) =>
-    stream.list_groups(p.stream_name))
-  registerBuiltin('stream::list_all', () =>
-    stream.list_all())
+    stream.set(p.stream_name, p.group_id, p.item_id, p.data),
+  )
+  registerBuiltin('stream::get', (p: any) => stream.get(p.stream_name, p.group_id, p.item_id))
+  registerBuiltin('stream::delete', (p: any) => stream.delete(p.stream_name, p.group_id, p.item_id))
+  registerBuiltin('stream::list', (p: any) => stream.list(p.stream_name, p.group_id))
+  registerBuiltin('stream::list_groups', (p: any) => stream.list_groups(p.stream_name))
+  registerBuiltin('stream::list_all', () => stream.list_all())
   registerBuiltin('stream::send', (p: any) =>
-    stream.send(p.stream_name, p.group_id, p.type, p.data, p.id))
+    stream.send(p.stream_name, p.group_id, p.type, p.data, p.id),
+  )
   registerBuiltin('stream::update', (p: any) =>
-    stream.update(p.stream_name, p.group_id, p.item_id, p.ops))
+    stream.update(p.stream_name, p.group_id, p.item_id, p.ops),
+  )
 
   function addLocalWorker(worker: Worker) {
     const workerId = crypto.randomUUID()
@@ -100,12 +114,14 @@ export function iii(opts: IIIOptions = {}): IIIModule {
 
         pending.set(invocationId, { resolve, reject, timer })
 
-        worker.ws!.send(JSON.stringify({
-          type: 'invoke',
-          invocation_id: invocationId,
-          function_id: id,
-          payload,
-        }))
+        worker.ws!.send(
+          JSON.stringify({
+            type: 'invoke',
+            invocation_id: invocationId,
+            function_id: id,
+            payload,
+          }),
+        )
       })
     }
 
@@ -154,7 +170,7 @@ export function iii(opts: IIIOptions = {}): IIIModule {
       functions.delete(id)
       const worker = workers.get(workerId)
       if (worker) {
-        worker.functions = worker.functions.filter(f => f.id !== id)
+        worker.functions = worker.functions.filter((f) => f.id !== id)
       }
     },
     unregisterRemoteTrigger(workerId, functionId) {
@@ -166,7 +182,7 @@ export function iii(opts: IIIOptions = {}): IIIModule {
       }
       const worker = workers.get(workerId)
       if (worker) {
-        worker.triggers = worker.triggers.filter(t => t.function_id !== functionId)
+        worker.triggers = worker.triggers.filter((t) => t.function_id !== functionId)
       }
     },
     addStreamSubscriber(ws, sub: StreamSubscription) {
@@ -194,10 +210,13 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     handleInvoke(ws, invocationId, functionId, payload) {
       const fn = functions.get(functionId)
       if (!fn) {
-        ws.send(JSON.stringify({
-          type: 'invoke_error', invocation_id: invocationId,
-          error: `Function "${functionId}" not found`,
-        }))
+        ws.send(
+          JSON.stringify({
+            type: 'invoke_error',
+            invocation_id: invocationId,
+            error: `Function "${functionId}" not found`,
+          }),
+        )
         return
       }
       const ctx = { engine: engineRef, functionId, workerName: fn.workerName }
@@ -206,14 +225,23 @@ export function iii(opts: IIIOptions = {}): IIIModule {
           ws.send(JSON.stringify({ type: 'invoke_result', invocation_id: invocationId, result }))
         })
         .catch((err) => {
-          ws.send(JSON.stringify({ type: 'invoke_error', invocation_id: invocationId, error: err.message }))
+          ws.send(
+            JSON.stringify({
+              type: 'invoke_error',
+              invocation_id: invocationId,
+              error: err.message,
+            }),
+          )
         })
     },
   })
 
   function removeWorkerByName(worker: Worker) {
     for (const [wid, reg] of workers) {
-      if (reg.name === worker.name) { removeWorker(wid); return }
+      if (reg.name === worker.name) {
+        removeWorker(wid)
+        return
+      }
     }
   }
 
@@ -229,21 +257,32 @@ export function iii(opts: IIIOptions = {}): IIIModule {
   }
 
   function listWorkers() {
-    return Array.from(workers.values()).map(w => ({
-      id: w.id, name: w.name, status: 'connected' as const,
-      connectedAt: Date.now(), functionCount: w.functions.length, triggerCount: w.triggers.length,
+    return Array.from(workers.values()).map((w) => ({
+      id: w.id,
+      name: w.name,
+      status: 'connected' as const,
+      connectedAt: Date.now(),
+      functionCount: w.functions.length,
+      triggerCount: w.triggers.length,
     }))
   }
 
   function listFunctions() {
-    return Array.from(functions.values()).map(f => ({
-      id: f.id, workerId: f.workerId, workerName: f.workerName, triggers: f.triggers,
+    return Array.from(functions.values()).map((f) => ({
+      id: f.id,
+      workerId: f.workerId,
+      workerName: f.workerName,
+      triggers: f.triggers,
     }))
   }
 
   function listTriggers() {
-    return Array.from(triggers.values()).map(t => ({
-      id: t.id, type: t.type, function_id: t.function_id, config: t.config, workerId: t.workerId,
+    return Array.from(triggers.values()).map((t) => ({
+      id: t.id,
+      type: t.type,
+      function_id: t.function_id,
+      config: t.config,
+      workerId: t.workerId,
     }))
   }
 
@@ -263,10 +302,15 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     await stream.migrate()
   }
   mod.close = async () => {
-    for (const [, p] of pending) { clearTimeout(p.timer); p.reject(new Error('Engine shutting down')) }
+    for (const [, p] of pending) {
+      clearTimeout(p.timer)
+      p.reject(new Error('Engine shutting down'))
+    }
     pending.clear()
     for (const [, reg] of workers) reg.ws?.close()
-    workers.clear(); functions.clear(); triggers.clear()
+    workers.clear()
+    functions.clear()
+    triggers.clear()
     await stream.close()
   }
   return mod

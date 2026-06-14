@@ -66,10 +66,7 @@ export function currentTrace(): TraceContext | undefined {
  * @param fn - Function to execute within the trace scope.
  * @returns The return value of `fn`.
  */
-export function runWithTrace<T>(
-  incomingTraceId: string | null,
-  fn: () => T,
-): T {
+export function runWithTrace<T>(incomingTraceId: string | null, fn: () => T): T {
   const traceId = incomingTraceId || crypto.randomUUID()
   const startTime = Date.now()
   return als.run({ traceId, startTime }, fn)
@@ -119,7 +116,9 @@ export interface TraceOptions {
  * })
  * ```
  */
-export function trace(options?: TraceOptions): Middleware<Context, Context & { trace: TraceInjected }> {
+export function trace(
+  options?: TraceOptions,
+): Middleware<Context, Context & { trace: TraceInjected }> {
   const header = options?.header ?? 'X-Request-ID'
   const gen = options?.generator ?? (() => crypto.randomUUID())
 

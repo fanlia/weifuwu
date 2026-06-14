@@ -101,8 +101,8 @@ export function useWebsocket(
 
       const ro = optsRef.current.reconnectOpt
       if (ro && shouldReconnectRef.current && mountedRef.current) {
-        const maxRetries = typeof ro === 'object' ? ro.maxRetries ?? MAX_RETRIES : MAX_RETRIES
-        const delay = typeof ro === 'object' ? ro.delay ?? RECONNECT_DELAY : RECONNECT_DELAY
+        const maxRetries = typeof ro === 'object' ? (ro.maxRetries ?? MAX_RETRIES) : MAX_RETRIES
+        const delay = typeof ro === 'object' ? (ro.delay ?? RECONNECT_DELAY) : RECONNECT_DELAY
         if (retryRef.current < maxRetries) {
           retryRef.current++
           timerRef.current = setTimeout(() => connect(), delay)

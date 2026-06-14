@@ -1,12 +1,11 @@
 import type { WebSocket } from '../vendor.ts'
 import type { LanguageModel } from 'ai'
 import type { Context } from '../types.ts'
-import type { PendingQuestion, SkillDef, SkillRegistry } from './types.ts'
+import type { PendingQuestion, SkillDef, SkillRegistry, OpencodePermissions } from './types.ts'
 import { createSession, getSession, getHistory, addTextMessage } from './session.ts'
 import { executeGenerator } from './run.ts'
 import { buildSystemPrompt } from './prompt.ts'
 import { createTools, type ToolContext } from './tools/index.ts'
-import type { OpencodePermissions } from './types.ts'
 
 interface WsDeps {
   sql: any
@@ -20,15 +19,27 @@ interface WsDeps {
 }
 
 // Per-connection state
-const clients = new WeakMap<WebSocket, {
-  abortController?: AbortController
-  currentSessionId?: string
-  userId: number
-  mountPath: string
-}>()
+const clients = new WeakMap<
+  WebSocket,
+  {
+    abortController?: AbortController
+    currentSessionId?: string
+    userId: number
+    mountPath: string
+  }
+>()
 
 export function createWSHandler(deps: WsDeps) {
-  const { sql, model, workspace, systemPrompt, skills, skillsRegistry, permissions, pendingQuestions } = deps
+  const {
+    sql,
+    model,
+    workspace,
+    systemPrompt,
+    skills,
+    skillsRegistry,
+    permissions,
+    pendingQuestions,
+  } = deps
 
   return {
     open(ws: WebSocket, ctx: Context) {
@@ -52,12 +63,17 @@ export function createWSHandler(deps: WsDeps) {
       switch (msg.type) {
         case 'create': {
           try {
-            const session = await createSession(sql, {
-              userId: client.userId,
-              title: msg.title,
-              model: msg.model,
-              systemPrompt: msg.systemPrompt || systemPrompt,
-            }, workspace, client.mountPath)
+            const session = await createSession(
+              sql,
+              {
+                userId: client.userId,
+                title: msg.title,
+                model: msg.model,
+                systemPrompt: msg.systemPrompt || systemPrompt,
+              },
+              workspace,
+              client.mountPath,
+            )
             ws.send(JSON.stringify({ type: 'session_created', session }))
           } catch (e: any) {
             ws.send(JSON.stringify({ type: 'error', error: e.message }))

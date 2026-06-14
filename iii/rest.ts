@@ -40,10 +40,7 @@ export function buildRouter(engine: IIIModule, wsHandler: any): Router {
 
       return Response.json(result)
     } catch (err: any) {
-      return Response.json(
-        { error: err.message || 'Internal error' },
-        { status: 500 },
-      )
+      return Response.json({ error: err.message || 'Internal error' }, { status: 500 })
     }
   })
 

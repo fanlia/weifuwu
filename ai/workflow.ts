@@ -1,6 +1,5 @@
-import { tool, generateText } from 'ai'
+import { tool, generateText, type LanguageModel, type ModelMessage } from 'ai'
 import { z } from 'zod'
-import type { LanguageModel, ModelMessage } from 'ai'
 import type { AIProvider } from './provider.ts'
 
 // ── Reference resolution (from old workflow/reference.ts) ──
@@ -14,16 +13,21 @@ function getByPath(obj: unknown, path: string[]): unknown {
     if (current === null || current === undefined) return undefined
     if (typeof current === 'object' && key in (current as Record<string, unknown>)) {
       current = (current as Record<string, unknown>)[key]
-    } else { return undefined }
+    } else {
+      return undefined
+    }
   }
   return current
 }
 
-function resolveRef(path: string, ctx: {
-  variables: Map<string, unknown>
-  nodeOutputs: Map<string, unknown>
-  input: Record<string, unknown>
-}): unknown {
+function resolveRef(
+  path: string,
+  ctx: {
+    variables: Map<string, unknown>
+    nodeOutputs: Map<string, unknown>
+    input: Record<string, unknown>
+  },
+): unknown {
   if (path.startsWith('$nodes.')) {
     const after = path.slice(7)
     const dot = after.indexOf('.')
@@ -32,7 +36,12 @@ function resolveRef(path: string, ctx: {
     const propPath = after.slice(dot + 1)
     const output = ctx.nodeOutputs.get(id)
     if (output === undefined) throw new Error(`Node "${id}" has no output yet`)
-    return getByPath(output, propPath.startsWith('output') ? propPath.slice(7).split('.').filter(Boolean) : propPath.split('.'))
+    return getByPath(
+      output,
+      propPath.startsWith('output')
+        ? propPath.slice(7).split('.').filter(Boolean)
+        : propPath.split('.'),
+    )
   }
   if (path.startsWith('$var.')) {
     const name = path.slice(5)
@@ -50,10 +59,11 @@ function resolveRef(path: string, ctx: {
 
 function resolveValue(v: unknown, ctx: any): unknown {
   if (typeof v === 'string' && v.startsWith('$')) return resolveRef(v, ctx)
-  if (Array.isArray(v)) return v.map(item => resolveValue(item, ctx))
+  if (Array.isArray(v)) return v.map((item) => resolveValue(item, ctx))
   if (typeof v === 'object' && v !== null) {
     const result: Record<string, unknown> = {}
-    for (const [k, val] of Object.entries(v as Record<string, unknown>)) result[k] = resolveValue(val, ctx)
+    for (const [k, val] of Object.entries(v as Record<string, unknown>))
+      result[k] = resolveValue(val, ctx)
     return result
   }
   return v
@@ -85,15 +95,27 @@ function evaluateExpression(expr: string, ctx: any): unknown {
   let bestFn: ((a: unknown, b: unknown) => unknown) | null = null
   for (const { op, fn } of operators) {
     const idx = expr.indexOf(op)
-    if (idx > 0 && (bestIdx === -1 || idx < bestIdx)) { bestIdx = idx; bestOp = op; bestFn = fn }
+    if (idx > 0 && (bestIdx === -1 || idx < bestIdx)) {
+      bestIdx = idx
+      bestOp = op
+      bestFn = fn
+    }
   }
 
   if (bestIdx > 0 && bestOp && bestFn) {
     const left = expr.slice(0, bestIdx).trim()
     const right = expr.slice(bestIdx + bestOp.length).trim()
     const isExpr = (s: string) => /[+\-*/%&|><=!]/.test(s) && !/^[\d.]+$/.test(s)
-    const lv = isExpr(left) ? evaluateExpression(left, ctx) : /^[\d.]+$/.test(left) ? Number(left) : resolveValue(left, ctx)
-    const rv = isExpr(right) ? evaluateExpression(right, ctx) : /^[\d.]+$/.test(right) ? Number(right) : resolveValue(right, ctx)
+    const lv = isExpr(left)
+      ? evaluateExpression(left, ctx)
+      : /^[\d.]+$/.test(left)
+        ? Number(left)
+        : resolveValue(left, ctx)
+    const rv = isExpr(right)
+      ? evaluateExpression(right, ctx)
+      : /^[\d.]+$/.test(right)
+        ? Number(right)
+        : resolveValue(right, ctx)
     return bestFn(lv, rv)
   }
 
@@ -138,7 +160,10 @@ async function executeNode(node: Node, ctx: WorkflowCtx): Promise<unknown> {
     case 'set': {
       const name = input.name as string
       if (!name) throw new Error('set node requires "name"')
-      const value = typeof input.value === 'string' ? evaluateExpression(input.value as string, ctx) : resolveValue(input.value, ctx)
+      const value =
+        typeof input.value === 'string'
+          ? evaluateExpression(input.value as string, ctx)
+          : resolveValue(input.value, ctx)
       ctx.variables.set(name, value)
       return value
     }
@@ -171,7 +196,7 @@ async function executeNode(node: Node, ctx: WorkflowCtx): Promise<unknown> {
         iters++
         ctx.stepCount++
         if (ctx.stepCount > ctx.maxSteps) throw new Error(`Step limit exceeded`)
-        if (!Boolean(evaluateExpression(conditionExpr, ctx))) break
+        if (!evaluateExpression(conditionExpr, ctx)) break
         for (const n of body ?? []) {
           last = await executeNode(n, ctx)
           ctx.nodeOutputs.set(n.id, last)
@@ -198,13 +223,18 @@ async function executeNode(node: Node, ctx: WorkflowCtx): Promise<unknown> {
       try {
         const res = await fetch(url, {
           method: (opts.method as string) ?? 'GET',
-          headers: opts.headers as Record<string, string> ?? {},
+          headers: (opts.headers as Record<string, string>) ?? {},
           body: opts.method !== 'GET' ? JSON.stringify(opts.body) : undefined,
           signal: controller.signal,
         })
         const ct = res.headers.get('content-type') ?? ''
-        return { status: res.status, body: ct.includes('json') ? await res.json() : await res.text() }
-      } finally { clearTimeout(timer) }
+        return {
+          status: res.status,
+          body: ct.includes('json') ? await res.json() : await res.text(),
+        }
+      } finally {
+        clearTimeout(timer)
+      }
     }
     default:
       throw new Error(`Unknown node type: "${nodeType}"`)
@@ -213,13 +243,15 @@ async function executeNode(node: Node, ctx: WorkflowCtx): Promise<unknown> {
 
 // ── Tool ──
 
-export function runWorkflow(opts: {
-  tools?: Record<string, any>
-  model?: LanguageModel
-  /** AI provider — `provider.model()` is used as fallback if no explicit `model` is set. */
-  provider?: AIProvider
-  maxSteps?: number
-} = {}) {
+export function runWorkflow(
+  opts: {
+    tools?: Record<string, any>
+    model?: LanguageModel
+    /** AI provider — `provider.model()` is used as fallback if no explicit `model` is set. */
+    provider?: AIProvider
+    maxSteps?: number
+  } = {},
+) {
   const toolRegistry = new Map<string, any>()
   if (opts.tools) {
     for (const [key, t] of Object.entries(opts.tools)) {
@@ -228,16 +260,22 @@ export function runWorkflow(opts: {
   }
 
   return tool({
-    description: 'Execute a multi-step workflow. Supports eval, set, get, if, while, call, http nodes. Use $var.x for variables, $nodes.id.output for previous node results, $input.x for input parameters. Call nodes invoke registered tools.',
+    description:
+      'Execute a multi-step workflow. Supports eval, set, get, if, while, call, http nodes. Use $var.x for variables, $nodes.id.output for previous node results, $input.x for input parameters. Call nodes invoke registered tools.',
     inputSchema: z.object({
       goal: z.string().describe('What the workflow should accomplish'),
-      nodes: z.array(z.object({
-        id: z.string(),
-        tool: z.string(),
-        input: z.record(z.string(), z.unknown()).optional(),
-        conditions: z.array(z.object({ test: z.any(), body: z.any() })).optional(),
-        body: z.array(z.any()).optional(),
-      })).optional().describe('Workflow nodes. Skip this and provide model for LLM to generate from goal.'),
+      nodes: z
+        .array(
+          z.object({
+            id: z.string(),
+            tool: z.string(),
+            input: z.record(z.string(), z.unknown()).optional(),
+            conditions: z.array(z.object({ test: z.any(), body: z.any() })).optional(),
+            body: z.array(z.any()).optional(),
+          }),
+        )
+        .optional()
+        .describe('Workflow nodes. Skip this and provide model for LLM to generate from goal.'),
     }),
     execute: async (input: { goal: string; nodes?: any[] }) => {
       let nodes: Node[]
@@ -245,9 +283,13 @@ export function runWorkflow(opts: {
       if (input.nodes && input.nodes.length > 0) {
         nodes = input.nodes as Node[]
       } else {
-        if (!opts.provider && !opts.model) throw new Error('Provide either "nodes", a "model", or a "provider" with a model to generate the workflow from "goal"')
+        if (!opts.provider && !opts.model)
+          throw new Error(
+            'Provide either "nodes", a "model", or a "provider" with a model to generate the workflow from "goal"',
+          )
         const toolsDesc = Object.entries(opts.tools ?? {})
-          .map(([k, t]) => `- ${k}: ${(t as any).description}`).join('\n')
+          .map(([k, t]) => `- ${k}: ${(t as any).description}`)
+          .join('\n')
         const system = [
           'You are a workflow generator. Given a user goal and available tools, output a workflow JSON.',
           '',
@@ -257,9 +299,14 @@ export function runWorkflow(opts: {
           'Node types: eval (expression), set (variable), get (variable), if (condition), while (loop), call (tool), http (request).',
           'Reference syntax: $var.name, $nodes.id.output, $nodes.id.output.field, $input.field',
           'Output ONLY valid JSON. No explanation, no markdown.',
-        ].filter(Boolean).join('\n')
+        ]
+          .filter(Boolean)
+          .join('\n')
 
-        const genParams: { system: string; messages: ModelMessage[] } = { system, messages: [{ role: 'user', content: input.goal }] }
+        const genParams: { system: string; messages: ModelMessage[] } = {
+          system,
+          messages: [{ role: 'user', content: input.goal }],
+        }
         const result = opts.provider
           ? await opts.provider.generateText(genParams)
           : await (generateText as any)({ ...genParams, model: opts.model! })

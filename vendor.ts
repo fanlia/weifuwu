@@ -4,5 +4,3 @@ export type { Sql } from 'postgres'
 export type { WebSocket } from 'ws'
 
 export type { Redis, RedisOptions } from 'ioredis'
-
-

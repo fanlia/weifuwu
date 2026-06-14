@@ -2,7 +2,14 @@ import { Router } from '../router.ts'
 import { ssr } from '../ssr.ts'
 import type { LanguageModel } from 'ai'
 import type { SkillDef, SkillRegistry, OpencodePermissions, PendingQuestion } from './types.ts'
-import { createSession, getSession, listSessions, deleteSession, getHistory, addTextMessage } from './session.ts'
+import {
+  createSession,
+  getSession,
+  listSessions,
+  deleteSession,
+  getHistory,
+  addTextMessage,
+} from './session.ts'
 import { executeGenerator } from './run.ts'
 import { buildSystemPrompt } from './prompt.ts'
 import { createTools, type ToolContext } from './tools/index.ts'
@@ -20,16 +27,30 @@ interface RestDeps {
 }
 
 export async function buildRouter(deps: RestDeps): Promise<Router> {
-  const { sql, model, workspace, systemPrompt, skills, skillsRegistry, permissions, pendingQuestions } = deps
+  const {
+    sql,
+    model,
+    workspace,
+    systemPrompt,
+    skills,
+    skillsRegistry,
+    permissions,
+    pendingQuestions,
+  } = deps
   const router = new Router()
 
   router.post('/sessions', async (req: Request, ctx: any) => {
     const body = await req.json().catch(() => ({}))
-    const session = await createSession(sql, {
-      title: body.title,
-      model: body.model,
-      systemPrompt: body.systemPrompt || systemPrompt,
-    }, workspace, ctx.mountPath || '')
+    const session = await createSession(
+      sql,
+      {
+        title: body.title,
+        model: body.model,
+        systemPrompt: body.systemPrompt || systemPrompt,
+      },
+      workspace,
+      ctx.mountPath || '',
+    )
     return Response.json(session, { status: 201 })
   })
 
@@ -105,7 +126,11 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
       FROM "_opencode_messages"
       WHERE session_id = ${sessionId}
     `
-    const stats = (rows as any[])[0] || { message_count: 0, total_tokens_in: 0, total_tokens_out: 0 }
+    const stats = (rows as any[])[0] || {
+      message_count: 0,
+      total_tokens_in: 0,
+      total_tokens_out: 0,
+    }
     return Response.json({
       session_id: sessionId,
       message_count: stats.message_count,

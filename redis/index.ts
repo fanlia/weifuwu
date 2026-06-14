@@ -5,9 +5,7 @@ import type { RedisOptions, RedisClient } from './types.ts'
 export { redis as default }
 
 export function redis(opts?: string | RedisOptions): RedisClient {
-  const options: RedisOptions = typeof opts === 'string'
-    ? { url: opts }
-    : opts ?? {}
+  const options: RedisOptions = typeof opts === 'string' ? { url: opts } : (opts ?? {})
 
   const url = options.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
   const client = new IORedis(url, options)

@@ -5,7 +5,10 @@ import { addInterceptor, runInterceptors } from '../client-pref.ts'
 describe('client-pref', () => {
   it('addInterceptor registers a function', () => {
     let called = false
-    addInterceptor((_url) => { called = true; return false })
+    addInterceptor((_url) => {
+      called = true
+      return false
+    })
     assert.equal(typeof addInterceptor, 'function')
   })
 

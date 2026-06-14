@@ -4,7 +4,11 @@ import type { Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { FieldDef, UserTableRow } from './types.ts'
 import {
-  internalTableName, validateSlug, validateFieldDefs, getRelationFields, findRelation,
+  internalTableName,
+  validateSlug,
+  validateFieldDefs,
+  getRelationFields,
+  findRelation,
 } from './utils.ts'
 import { createTableSQL, addColumnSQL, dropTableSQL, createIndexesSQL } from './schema.ts'
 
@@ -12,7 +16,7 @@ import { createTableSQL, addColumnSQL, dropTableSQL, createIndexesSQL } from './
 
 /** Extract user ID from context (user middleware may or may not be present). */
 function userId(ctx: Context): number | null {
-  return ((ctx as Context & { user?: { id?: number } }).user?.id) ?? null
+  return (ctx as Context & { user?: { id?: number } }).user?.id ?? null
 }
 
 /** Extract typed `count` from a SQL count result row. */
@@ -31,7 +35,10 @@ function tableRef(s: Sql<{}>, name: string) {
 }
 
 /** Add tenant_id to a parsed record before insert. */
-function withTenant<T extends Record<string, unknown>>(ctx: Context, data: T): T & { tenant_id: string } {
+function withTenant<T extends Record<string, unknown>>(
+  ctx: Context,
+  data: T,
+): T & { tenant_id: string } {
   ;(data as Record<string, unknown>).tenant_id = ctx.tenant!.id
   return data as T & { tenant_id: string }
 }
@@ -55,9 +62,10 @@ function zodType(field: FieldDef): z.ZodTypeAny {
       t = z.boolean()
       break
     case 'enum':
-      t = field.options && field.options.length > 0
-        ? z.enum(field.options as [string, ...string[]])
-        : z.string()
+      t =
+        field.options && field.options.length > 0
+          ? z.enum(field.options as [string, ...string[]])
+          : z.string()
       break
     case 'json':
       t = z.record(z.string(), z.unknown())
@@ -78,7 +86,11 @@ function zodType(field: FieldDef): z.ZodTypeAny {
   return t
 }
 
-async function getUserTable(sql: Sql<{}>, tenantId: string, slug: string): Promise<UserTableRow | null> {
+async function getUserTable(
+  sql: Sql<{}>,
+  tenantId: string,
+  slug: string,
+): Promise<UserTableRow | null> {
   const [row] = await sql`
     SELECT * FROM "_user_tables"
     WHERE tenant_id = ${tenantId} AND slug = ${slug}
@@ -98,7 +110,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   // ── Tenants ──────────────────────────────────────────────
 
   r.post('/sys/tenants', async (req: Request, ctx: Context) => {
-    const { name } = await req.json() as { name: string }
+    const { name } = (await req.json()) as { name: string }
     if (!name || typeof name !== 'string') {
       return Response.json({ error: 'name is required' }, { status: 400 })
     }
@@ -124,7 +136,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   r.post('/sys/tenants/invite', async (req: Request, ctx: Context) => {
     const err = requireAdmin(ctx)
     if (err) return err
-    const { email, role = 'member' } = await req.json() as { email: string; role?: string }
+    const { email, role = 'member' } = (await req.json()) as { email: string; role?: string }
     const [user] = await sql`
       SELECT id FROM ${tableRef(sql, usersTable)} WHERE "email" = ${email} LIMIT 1
     `
@@ -157,7 +169,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   r.post('/sys/tables', async (req: Request, ctx: Context) => {
     const err = requireAdmin(ctx)
     if (err) return err
-    const body = await req.json() as { slug: string; label?: string; fields: FieldDef[] }
+    const body = (await req.json()) as { slug: string; label?: string; fields: FieldDef[] }
     const slugErr = validateSlug(body.slug)
     if (slugErr) return Response.json({ error: slugErr }, { status: 400 })
     const fieldErrs = validateFieldDefs(body.fields)
@@ -202,7 +214,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
   r.patch('/sys/tables/:slug', async (req: Request, ctx: Context) => {
     const err = requireAdmin(ctx)
     if (err) return err
-    const body = await req.json() as { fields?: FieldDef[] }
+    const body = (await req.json()) as { fields?: FieldDef[] }
     if (!body.fields || !Array.isArray(body.fields)) {
       return Response.json({ error: 'fields array required' }, { status: 400 })
     }
@@ -270,10 +282,9 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
             `SELECT *, "${searchField}" ${operator} $1::vector AS "_distance" FROM "${name}" WHERE tenant_id = $2 ORDER BY "_distance" LIMIT $3 OFFSET $4`,
             [parsed, ctx.tenant!.id, limit, offset],
           ),
-          sql.unsafe(
-            `SELECT count(*) as count FROM "${name}" WHERE tenant_id = $1`,
-            [ctx.tenant!.id],
-          ),
+          sql.unsafe(`SELECT count(*) as count FROM "${name}" WHERE tenant_id = $1`, [
+            ctx.tenant!.id,
+          ]),
         ])
         return Response.json({ rows, count: extractCount(countResult) })
       } catch {
@@ -287,10 +298,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
         `SELECT * FROM "${name}" WHERE tenant_id = $1 ORDER BY "${orderCol}" ${orderDir} LIMIT $2 OFFSET $3`,
         [ctx.tenant!.id, limit, offset],
       ),
-      sql.unsafe(
-        `SELECT count(*) as count FROM "${name}" WHERE tenant_id = $1`,
-        [ctx.tenant!.id],
-      ),
+      sql.unsafe(`SELECT count(*) as count FROM "${name}" WHERE tenant_id = $1`, [ctx.tenant!.id]),
     ])
     return Response.json({ rows, count: extractCount(countResult) })
   })
@@ -299,7 +307,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     const table = await resolveTable(ctx)
     if (!table) return Response.json({ error: 'Table not found' }, { status: 404 })
 
-    const data = await req.json() as Record<string, unknown>
+    const data = (await req.json()) as Record<string, unknown>
     const shape: Record<string, z.ZodTypeAny> = {}
     for (const f of table.fields) {
       shape[f.name] = zodType(f)
@@ -309,7 +317,8 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     delete parsed.id
 
     const name = internalName(ctx)
-    const [row] = await sql`INSERT INTO ${tableRef(sql, name)} ${sql(parsed as Record<string, unknown>)} RETURNING *`
+    const [row] =
+      await sql`INSERT INTO ${tableRef(sql, name)} ${sql(parsed as Record<string, unknown>)} RETURNING *`
     return Response.json(row, { status: 201 })
   })
 
@@ -331,7 +340,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     const table = await resolveTable(ctx)
     if (!table) return Response.json({ error: 'Table not found' }, { status: 404 })
 
-    const data = await req.json() as Record<string, unknown>
+    const data = (await req.json()) as Record<string, unknown>
     const shape: Record<string, z.ZodTypeAny> = {}
     for (const f of table.fields) {
       shape[f.name] = zodType(f)
@@ -375,7 +384,11 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
 
   // ── Nested routes ─────────────────────────────────────────
 
-  async function handleNested(req: Request, ctx: Context, method: 'GET' | 'POST'): Promise<Response> {
+  async function handleNested(
+    req: Request,
+    ctx: Context,
+    method: 'GET' | 'POST',
+  ): Promise<Response> {
     const [parentTable, nestedSlug] = await Promise.all([
       getUserTable(sql, ctx.tenant!.id, ctx.params['_slug']),
       ctx.params['_nested'],
@@ -388,14 +401,17 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     // Find relation field on child table pointing to parent
     const relField = findRelation(childTable.fields, ctx.params['_slug'])
     if (!relField) {
-      return Response.json({ error: `No relation from "${nestedSlug}" to "${ctx.params['_slug']}"` }, { status: 400 })
+      return Response.json(
+        { error: `No relation from "${nestedSlug}" to "${ctx.params['_slug']}"` },
+        { status: 400 },
+      )
     }
 
     // M2M: check if child is a junction table with exactly two relation fields
     const relFields = getRelationFields(childTable.fields)
     if (relFields.length === 2) {
       // Junction table — bypass to the target table
-      const otherRel = relFields.find(f => f.name !== relField.name)!
+      const otherRel = relFields.find((f) => f.name !== relField.name)!
       const targetSlug = otherRel.relation!.table
       const targetTable = await getUserTable(sql, ctx.tenant!.id, targetSlug)
       if (!targetTable) return Response.json({ error: 'Target table not found' }, { status: 404 })
@@ -439,7 +455,7 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     }
 
     // POST: create child row with relation field pre-filled
-    const body = await req.json() as Record<string, unknown>
+    const body = (await req.json()) as Record<string, unknown>
     const shape: Record<string, z.ZodTypeAny> = {}
     for (const f of childTable.fields) {
       shape[f.name] = zodType(f)
@@ -450,7 +466,8 @@ export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
     ;(parsed as Record<string, unknown>)[relField.name] = parentId
     delete parsed.id
 
-    const [row] = await sql`INSERT INTO ${tableRef(sql, childName)} ${sql(parsed as Record<string, unknown>)} RETURNING *`
+    const [row] =
+      await sql`INSERT INTO ${tableRef(sql, childName)} ${sql(parsed as Record<string, unknown>)} RETURNING *`
     return Response.json(row, { status: 201 })
   }
 

@@ -1,18 +1,19 @@
-import { eq, gte, lt, contains } from '../postgres/schema/index.ts'
-import type { BoundTable, SQL } from '../postgres/schema/index.ts'
+import { eq, gte, lt, contains, type BoundTable, type SQL } from '../postgres/schema/index.ts'
 import type { Context } from '../types.ts'
 import type { LogEntryInput } from './types.ts'
 
 function parseMetadata(row: any): any {
   if (typeof row.metadata === 'string') {
-    try { row.metadata = JSON.parse(row.metadata) } catch {}
+    try {
+      row.metadata = JSON.parse(row.metadata)
+    } catch {}
   }
   return row
 }
 
 export function createHandler(entries: BoundTable<any>) {
   return async (req: Request, ctx: Context) => {
-    const body = await req.json() as LogEntryInput
+    const body = (await req.json()) as LogEntryInput
     if (!body.level || !body.source || !body.message) {
       return Response.json({ error: 'level, source, message are required' }, { status: 400 })
     }
@@ -59,10 +60,11 @@ export function listHandler(entries: BoundTable<any>) {
     const limit = parseInt(url.searchParams.get('limit') ?? '50', 10)
     const offset = parseInt(url.searchParams.get('offset') ?? '0', 10)
 
-    const { count, data } = await entries.readMany(
-      conditions.length > 0 ? conditions : undefined,
-      { orderBy: { created_at: 'desc' }, limit, offset },
-    )
+    const { count, data } = await entries.readMany(conditions.length > 0 ? conditions : undefined, {
+      orderBy: { created_at: 'desc' },
+      limit,
+      offset,
+    })
 
     return Response.json({ entries: data.map(parseMetadata), total: count })
   }

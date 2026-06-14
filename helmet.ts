@@ -80,7 +80,8 @@ export function helmet(options?: HelmetOptions): Middleware<Context, Context> {
 }
 
 const DEFAULTS: HelmetOptions = {
-  contentSecurityPolicy: "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests",
+  contentSecurityPolicy:
+    "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests",
   crossOriginEmbedderPolicy: 'require-corp',
   crossOriginOpenerPolicy: 'same-origin',
   crossOriginResourcePolicy: 'same-origin',
@@ -95,5 +96,3 @@ const DEFAULTS: HelmetOptions = {
   xXssProtection: '0',
   permissionsPolicy: 'camera=(),display-capture=(),fullscreen=(),geolocation=(),microphone=()',
 }
-
-

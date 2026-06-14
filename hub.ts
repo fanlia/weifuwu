@@ -54,7 +54,9 @@ export function createHub(opts?: HubOptions): Hub {
       const members = channels.get(key)
       if (!members) return
       for (const ws of members) {
-        try { ws.send(rawData) } catch {}
+        try {
+          ws.send(rawData)
+        } catch {}
       }
     })
   }
@@ -66,7 +68,10 @@ export function createHub(opts?: HubOptions): Hub {
     }
     channels.get(key)!.add(ws)
     let keys = wsKeys.get(ws)
-    if (!keys) { keys = new Set(); wsKeys.set(ws, keys) }
+    if (!keys) {
+      keys = new Set()
+      wsKeys.set(ws, keys)
+    }
     keys.add(key)
     // Auto-cleanup on close (if WebSocket supports addEventListener)
     if (typeof ws.addEventListener === 'function') {
@@ -99,7 +104,11 @@ export function createHub(opts?: HubOptions): Hub {
     if (members) {
       const dead: WebSocket[] = []
       for (const ws of members) {
-        try { ws.send(msg) } catch { dead.push(ws) }
+        try {
+          ws.send(msg)
+        } catch {
+          dead.push(ws)
+        }
       }
       for (const ws of dead) removeFromChannels(ws)
     }

@@ -35,7 +35,7 @@ describe('messager', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 201)
-    const ch = await res.json() as any
+    const ch = (await res.json()) as any
     assert.ok(ch.id)
     assert.equal(ch.name, 'General')
     await pg.sql`DELETE FROM "_channel_members" WHERE channel_id = ${ch.id}`
@@ -44,15 +44,17 @@ describe('messager', { skip: !DATABASE_URL }, () => {
 
   it('lists channels for user', async () => {
     const r = msg
-    const [ch] = await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('Test', 1) RETURNING *`
+    const [ch] =
+      await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('Test', 1) RETURNING *`
     await pg.sql`INSERT INTO "_channel_members" ("channel_id", "member_id", "member_type", "role") VALUES (${(ch as any).id}, 1, 'user', 'admin')`
 
-    const res = await r.handler()(
-      new Request('http://localhost/channels'),
-      { params: {}, query: {}, user: { id: 1 } } as any,
-    )
+    const res = await r.handler()(new Request('http://localhost/channels'), {
+      params: {},
+      query: {},
+      user: { id: 1 },
+    } as any)
     assert.equal(res.status, 200)
-    const list = await res.json() as any[]
+    const list = (await res.json()) as any[]
     assert.ok(list.length >= 1)
 
     await pg.sql`DELETE FROM "_channel_members" WHERE channel_id = ${(ch as any).id}`
@@ -61,7 +63,8 @@ describe('messager', { skip: !DATABASE_URL }, () => {
 
   it('creates and lists messages', async () => {
     const r = msg
-    const [ch] = await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('MsgTest', 1) RETURNING *`
+    const [ch] =
+      await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('MsgTest', 1) RETURNING *`
     const channelId = (ch as any).id
 
     // Create messages
@@ -88,7 +91,7 @@ describe('messager', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.equal(body.rows.length, 2)
 
     await pg.sql`DELETE FROM "_messages" WHERE channel_id = ${channelId}`
@@ -98,7 +101,8 @@ describe('messager', { skip: !DATABASE_URL }, () => {
 
   it('marks channel as read', async () => {
     const r = msg
-    const [ch] = await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('ReadTest', 1) RETURNING *`
+    const [ch] =
+      await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('ReadTest', 1) RETURNING *`
     const channelId = (ch as any).id
     await pg.sql`INSERT INTO "_channel_members" ("channel_id", "member_id", "member_type", "role") VALUES (${channelId}, 1, 'user', 'admin')`
 
@@ -111,7 +115,7 @@ describe('messager', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.ok(body.ok)
 
     await pg.sql`DELETE FROM "_channel_members" WHERE channel_id = ${channelId}`
@@ -119,7 +123,8 @@ describe('messager', { skip: !DATABASE_URL }, () => {
   })
 
   it('sends message programmatically', async () => {
-    const [ch] = await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('SendTest', 1) RETURNING *`
+    const [ch] =
+      await pg.sql`INSERT INTO "_channels" ("name", "created_by") VALUES ('SendTest', 1) RETURNING *`
     const channelId = (ch as any).id
 
     const message = await msg.send(channelId, 'System message', { sender_type: 'system' })
@@ -149,9 +154,10 @@ describe('messager', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 201)
-    const ch = await res.json() as any
+    const ch = (await res.json()) as any
 
-    const count = await pg.sql`SELECT count(*) as c FROM "_channel_members" WHERE channel_id = ${ch.id}`
+    const count =
+      await pg.sql`SELECT count(*) as c FROM "_channel_members" WHERE channel_id = ${ch.id}`
     assert.equal(Number((count as any[])[0].c), 3) // creator + user + agent
 
     await pg.sql`DELETE FROM "_channel_members" WHERE channel_id = ${ch.id}`

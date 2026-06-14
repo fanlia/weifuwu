@@ -102,7 +102,11 @@ describe('user', { skip: !DATABASE_URL }, () => {
   it('verify returns user for valid token', async () => {
     const auth = user({ pg, jwtSecret, table })
 
-    const { user: u, token } = await auth.register({ email: 'verify@test.com', password: 'password123', name: 'Verify' })
+    const { user: u, token } = await auth.register({
+      email: 'verify@test.com',
+      password: 'password123',
+      name: 'Verify',
+    })
 
     const verified = await auth.verify(token)
     assert.ok(verified)
@@ -119,21 +123,33 @@ describe('user', { skip: !DATABASE_URL }, () => {
     const auth1 = user({ pg, jwtSecret: 'secret1', table })
     const auth2 = user({ pg, jwtSecret: 'secret2', table })
 
-    const { token } = await auth1.register({ email: 'ws@test.com', password: 'password123', name: 'WS' })
+    const { token } = await auth1.register({
+      email: 'ws@test.com',
+      password: 'password123',
+      name: 'WS',
+    })
     assert.equal(await auth2.verify(token), null)
   })
 
   it('role defaults to "user"', async () => {
     const auth = user({ pg, jwtSecret, table })
 
-    const { user: u } = await auth.register({ email: 'role@test.com', password: 'password123', name: 'Role' })
+    const { user: u } = await auth.register({
+      email: 'role@test.com',
+      password: 'password123',
+      name: 'Role',
+    })
     assert.equal(u.role, 'user')
   })
 
   it('middleware sets ctx.user for valid token', async () => {
     const auth = user({ pg, jwtSecret, table })
 
-    const { token } = await auth.register({ email: 'mw@test.com', password: 'password123', name: 'MW' })
+    const { token } = await auth.register({
+      email: 'mw@test.com',
+      password: 'password123',
+      name: 'MW',
+    })
 
     const mw = auth.middleware()
     let captured: any = null
@@ -141,7 +157,10 @@ describe('user', { skip: !DATABASE_URL }, () => {
     const res = await mw(
       new Request('http://localhost/me', { headers: { Authorization: `Bearer ${token}` } }),
       { params: {}, query: {} } as any,
-      (_req: any, ctx: any) => { captured = ctx.user; return new Response('ok') },
+      (_req: any, ctx: any) => {
+        captured = ctx.user
+        return new Response('ok')
+      },
     )
 
     assert.equal(res.status, 200)
@@ -175,7 +194,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
     )
 
     assert.equal(res.status, 201)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.ok(body.user)
     assert.ok(body.token)
   })
@@ -196,7 +215,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
     )
 
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.ok(body.token)
   })
 
@@ -282,14 +301,23 @@ describe('user', { skip: !DATABASE_URL }, () => {
         name: 'AuthCode App',
         redirectUris: ['https://authcode.app/cb'],
       })
-      const { user: u } = await auth.register({ email: 'oauth-user@test.com', password: 'password123', name: 'OAuth' })
+      const { user: u } = await auth.register({
+        email: 'oauth-user@test.com',
+        password: 'password123',
+        name: 'OAuth',
+      })
 
       const router = auth
 
       const authorizeRes = await router.handler()(
-        new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://authcode.app/cb&response_type=code&state=xyz`, {
-          headers: { Authorization: `Bearer ${(await auth.login({ email: 'oauth-user@test.com', password: 'password123' })).token}` },
-        }),
+        new Request(
+          `http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://authcode.app/cb&response_type=code&state=xyz`,
+          {
+            headers: {
+              Authorization: `Bearer ${(await auth.login({ email: 'oauth-user@test.com', password: 'password123' })).token}`,
+            },
+          },
+        ),
         { params: {}, query: {} } as any,
       )
       assert.equal(authorizeRes.status, 200)
@@ -331,7 +359,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
         { params: {}, query: {} } as any,
       )
       assert.equal(tokenRes.status, 200)
-      const tokenBody = await tokenRes.json() as any
+      const tokenBody = (await tokenRes.json()) as any
       assert.ok(tokenBody.access_token)
       assert.equal(tokenBody.token_type, 'Bearer')
       assert.ok(tokenBody.refresh_token)
@@ -347,17 +375,30 @@ describe('user', { skip: !DATABASE_URL }, () => {
         name: 'PKCE App',
         redirectUris: ['https://pkce.app/cb'],
       })
-      const { user: u } = await auth.register({ email: 'pkce-user@test.com', password: 'password123', name: 'PKCE' })
+      const { user: u } = await auth.register({
+        email: 'pkce-user@test.com',
+        password: 'password123',
+        name: 'PKCE',
+      })
 
       const codeVerifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXK'
-      const challenge = crypto.createHash('sha256').update(codeVerifier).digest().toString('base64url')
+      const challenge = crypto
+        .createHash('sha256')
+        .update(codeVerifier)
+        .digest()
+        .toString('base64url')
 
       const router = auth
 
       const authorizeRes = await router.handler()(
-        new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://pkce.app/cb&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=pkce`, {
-          headers: { Authorization: `Bearer ${(await auth.login({ email: 'pkce-user@test.com', password: 'password123' })).token}` },
-        }),
+        new Request(
+          `http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://pkce.app/cb&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&state=pkce`,
+          {
+            headers: {
+              Authorization: `Bearer ${(await auth.login({ email: 'pkce-user@test.com', password: 'password123' })).token}`,
+            },
+          },
+        ),
         { params: {}, query: {} } as any,
       )
       assert.equal(authorizeRes.status, 200)
@@ -397,7 +438,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
         { params: {}, query: {} } as any,
       )
       assert.equal(tokenRes.status, 200)
-      const tokenBody = await tokenRes.json() as any
+      const tokenBody = (await tokenRes.json()) as any
       assert.ok(tokenBody.access_token)
 
       const verified = await auth.verify(tokenBody.access_token)
@@ -427,7 +468,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
         { params: {}, query: {} } as any,
       )
       assert.equal(tokenRes.status, 400)
-      const body = await tokenRes.json() as any
+      const body = (await tokenRes.json()) as any
       assert.equal(body.error, 'invalid_grant')
     })
 
@@ -439,7 +480,9 @@ describe('user', { skip: !DATABASE_URL }, () => {
 
       const router = auth
       const res = await router.handler()(
-        new Request(`http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://noauth.app/cb&response_type=code`),
+        new Request(
+          `http://localhost/oauth/authorize?client_id=${client.clientId}&redirect_uri=https://noauth.app/cb&response_type=code`,
+        ),
         { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 302)
@@ -452,7 +495,11 @@ describe('user', { skip: !DATABASE_URL }, () => {
         name: 'Deny App',
         redirectUris: ['https://deny.app/cb'],
       })
-      const { user: u } = await auth.register({ email: 'deny-user@test.com', password: 'password123', name: 'Deny' })
+      const { user: u } = await auth.register({
+        email: 'deny-user@test.com',
+        password: 'password123',
+        name: 'Deny',
+      })
 
       const router = auth
       const res = await router.handler()(
@@ -496,7 +543,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
         { params: {}, query: {} } as any,
       )
       assert.equal(tokenRes.status, 200)
-      const body = await tokenRes.json() as any
+      const body = (await tokenRes.json()) as any
       assert.ok(body.access_token)
       assert.equal(body.token_type, 'Bearer')
 
@@ -507,7 +554,9 @@ describe('user', { skip: !DATABASE_URL }, () => {
     it('authorize rejects invalid client_id', async () => {
       const router = auth
       const res = await router.handler()(
-        new Request('http://localhost/oauth/authorize?client_id=nonexistent&redirect_uri=https://x.com/cb&response_type=code'),
+        new Request(
+          'http://localhost/oauth/authorize?client_id=nonexistent&redirect_uri=https://x.com/cb&response_type=code',
+        ),
         { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 400)
@@ -525,7 +574,11 @@ describe('user', { skip: !DATABASE_URL }, () => {
       const memStore = new MemoryStore()
 
       // Register a user fresh for this test
-      const result = await auth.register({ email: 'session-int@test.com', password: 'password123', name: 'Session Int' })
+      const result = await auth.register({
+        email: 'session-int@test.com',
+        password: 'password123',
+        name: 'Session Int',
+      })
 
       const app = new Router()
       app.use(auth.middleware())
@@ -535,7 +588,7 @@ describe('user', { skip: !DATABASE_URL }, () => {
       const ctx1 = { params: {}, query: {}, session: { userId: result.user.id } }
       const res1 = await handler(new Request('http://localhost/me'), ctx1 as any)
       assert.equal(res1.status, 200)
-      const data1 = await res1.json() as any
+      const data1 = (await res1.json()) as any
       assert.equal(data1.id, result.user.id)
       assert.equal(data1.email, 'session-int@test.com')
 
@@ -544,7 +597,11 @@ describe('user', { skip: !DATABASE_URL }, () => {
 
     it('middleware falls back to JWT when no session.userId', async () => {
       const auth = user({ pg, jwtSecret, table })
-      const result = await auth.register({ email: 'jwt-int@test.com', password: 'password123', name: 'JWT Int' })
+      const result = await auth.register({
+        email: 'jwt-int@test.com',
+        password: 'password123',
+        name: 'JWT Int',
+      })
 
       // JWT-based auth should still work (no session set)
       const { Router } = await import('../router.ts')
@@ -554,11 +611,13 @@ describe('user', { skip: !DATABASE_URL }, () => {
 
       const handler = app.handler()
       const res = await handler(
-        new Request('http://localhost/me', { headers: { authorization: 'Bearer ' + result.token } }),
+        new Request('http://localhost/me', {
+          headers: { authorization: 'Bearer ' + result.token },
+        }),
         { params: {}, query: {} } as any,
       )
       assert.equal(res.status, 200)
-      assert.equal((await res.json() as any).id, result.user.id)
+      assert.equal(((await res.json()) as any).id, result.user.id)
     })
   })
 })

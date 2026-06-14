@@ -14,8 +14,17 @@ export interface TenantContext {
   role: string
 }
 
-export type FieldType = 'string' | 'integer' | 'float' | 'boolean' | 'text'
-  | 'datetime' | 'date' | 'enum' | 'json' | 'vector'
+export type FieldType =
+  | 'string'
+  | 'integer'
+  | 'float'
+  | 'boolean'
+  | 'text'
+  | 'datetime'
+  | 'date'
+  | 'enum'
+  | 'json'
+  | 'vector'
 
 export interface RelationDef {
   table: string

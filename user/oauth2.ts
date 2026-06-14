@@ -39,7 +39,10 @@ export function createOAuth2Server(deps: OAuth2Deps) {
     }
   }
 
-  async function registerClient(data: { name: string; redirectUris: string[] }): Promise<OAuth2Client> {
+  async function registerClient(data: {
+    name: string
+    redirectUris: string[]
+  }): Promise<OAuth2Client> {
     const clientId = crypto.randomUUID()
     const clientSecret = crypto.randomBytes(32).toString('hex')
     const [row] = await pg.sql`
@@ -87,7 +90,10 @@ export function createOAuth2Server(deps: OAuth2Deps) {
 
     const cookie = req.headers.get('cookie')
     if (cookie) {
-      const match = cookie.split(';').map(c => c.trim()).find(c => c.startsWith('session='))
+      const match = cookie
+        .split(';')
+        .map((c) => c.trim())
+        .find((c) => c.startsWith('session='))
       if (match) {
         try {
           const payload = jwt.verify(match.slice(8), jwtSecret) as any
@@ -102,11 +108,12 @@ export function createOAuth2Server(deps: OAuth2Deps) {
   }
 
   function consentPage(client: OAuth2Client, params: Record<string, string>): Response {
-    const fields = Object.entries(params).map(([k, v]) =>
-      `<input type="hidden" name="${k}" value="${v.replace(/"/g, '&quot;')}">`
-    ).join('\n      ')
+    const fields = Object.entries(params)
+      .map(([k, v]) => `<input type="hidden" name="${k}" value="${v.replace(/"/g, '&quot;')}">`)
+      .join('\n      ')
 
-    return new Response(`<!DOCTYPE html>
+    return new Response(
+      `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Authorize</title>
 <style>
@@ -133,18 +140,23 @@ export function createOAuth2Server(deps: OAuth2Deps) {
     </form>
   </div>
 </body>
-</html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+</html>`,
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
   }
 
   function errorPage(error: string, description?: string): Response {
-    return new Response(`<!DOCTYPE html>
+    return new Response(
+      `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Error</title>
 <style>body{font-family:sans-serif;max-width:480px;margin:80px auto;padding:0 20px}
 h2{color:#dc2626}.desc{color:#555}</style>
 </head>
 <body><h2>${error}</h2>${description ? `<p class="desc">${description}</p>` : ''}</body>
-</html>`, { status: 400, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+</html>`,
+      { status: 400, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
   }
 
   async function authorizeHandler(req: Request, _ctx: Context): Promise<Response> {
@@ -167,7 +179,10 @@ h2{color:#dc2626}.desc{color:#555}</style>
     }
 
     if (!client.redirectUris.includes(redirectUri)) {
-      return errorPage('Invalid redirect_uri', 'The redirect_uri is not registered for this client.')
+      return errorPage(
+        'Invalid redirect_uri',
+        'The redirect_uri is not registered for this client.',
+      )
     }
 
     const user = extractUser(req)
@@ -223,7 +238,7 @@ h2{color:#dc2626}.desc{color:#555}</style>
     const body: Record<string, string> = {}
     const contentType = req.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
-      const json = await req.json() as Record<string, string>
+      const json = (await req.json()) as Record<string, string>
       Object.assign(body, json)
     } else {
       const form = await req.formData()
@@ -271,16 +286,25 @@ h2{color:#dc2626}.desc{color:#555}</style>
     }
 
     if (new Date(stored.expires_at) < new Date()) {
-      return Response.json({ error: 'invalid_grant', error_description: 'Code expired' }, { status: 400 })
+      return Response.json(
+        { error: 'invalid_grant', error_description: 'Code expired' },
+        { status: 400 },
+      )
     }
 
     if (stored.redirect_uri !== redirectUri) {
-      return Response.json({ error: 'invalid_grant', error_description: 'redirect_uri mismatch' }, { status: 400 })
+      return Response.json(
+        { error: 'invalid_grant', error_description: 'redirect_uri mismatch' },
+        { status: 400 },
+      )
     }
 
     if (stored.code_challenge) {
       if (!codeVerifier) {
-        return Response.json({ error: 'invalid_grant', error_description: 'code_verifier required' }, { status: 400 })
+        return Response.json(
+          { error: 'invalid_grant', error_description: 'code_verifier required' },
+          { status: 400 },
+        )
       }
       let expected: string
       if (stored.code_challenge_method === 'plain') {
@@ -289,7 +313,10 @@ h2{color:#dc2626}.desc{color:#555}</style>
         expected = crypto.createHash('sha256').update(codeVerifier).digest().toString('base64url')
       }
       if (expected !== stored.code_challenge) {
-        return Response.json({ error: 'invalid_grant', error_description: 'code_verifier mismatch' }, { status: 400 })
+        return Response.json(
+          { error: 'invalid_grant', error_description: 'code_verifier mismatch' },
+          { status: 400 },
+        )
       }
     }
 

@@ -3,7 +3,7 @@ import { internalTableName, sqlTypeForField, formatDefault } from './utils.ts'
 
 export function createTableSQL(tenantId: string, slug: string, fields: FieldDef[]): string {
   const name = internalTableName(tenantId, slug)
-  const cols = fields.map(f => buildColumnDDL(tenantId, f)).join(',\n  ')
+  const cols = fields.map((f) => buildColumnDDL(tenantId, f)).join(',\n  ')
   return `CREATE TABLE "${name}" (\n  "id" SERIAL PRIMARY KEY,\n  "tenant_id" TEXT NOT NULL,\n  ${cols}\n)`
 }
 
@@ -22,11 +22,15 @@ export function createIndexesSQL(tenantId: string, slug: string, fields: FieldDe
   const statements: string[] = []
 
   statements.push(`CREATE INDEX IF NOT EXISTS "${name}_tenant_idx" ON "${name}" ("tenant_id")`)
-  statements.push(`CREATE INDEX IF NOT EXISTS "${name}_tenant_id_idx" ON "${name}" ("tenant_id", "id")`)
+  statements.push(
+    `CREATE INDEX IF NOT EXISTS "${name}_tenant_id_idx" ON "${name}" ("tenant_id", "id")`,
+  )
 
   for (const f of fields) {
     if (f.unique) {
-      statements.push(`CREATE UNIQUE INDEX IF NOT EXISTS "${name}_${f.name}_uidx" ON "${name}" ("${f.name}")`)
+      statements.push(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "${name}_${f.name}_uidx" ON "${name}" ("${f.name}")`,
+      )
     } else if (f.index === 'hnsw') {
       statements.push(
         `CREATE INDEX IF NOT EXISTS "${name}_${f.name}_hnsw_idx" ON "${name}" USING hnsw ("${f.name}" vector_cosine_ops)`,

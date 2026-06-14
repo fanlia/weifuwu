@@ -32,23 +32,38 @@ export function compress(options?: CompressOptions): Middleware {
   return async (req, ctx, next) => {
     const accept = req.headers.get('accept-encoding') ?? ''
 
-    const encoding = accept.includes('br') ? 'br'
-      : accept.includes('gzip') ? 'gzip'
-      : accept.includes('deflate') ? 'deflate'
-      : ''
+    const encoding = accept.includes('br')
+      ? 'br'
+      : accept.includes('gzip')
+        ? 'gzip'
+        : accept.includes('deflate')
+          ? 'deflate'
+          : ''
 
     if (!encoding) return next(req, ctx)
 
     const res = await next(req, ctx)
 
-    if (res.status === 304 || res.status === 204 || res.status === 206 || res.status < 200 || res.status >= 300) {
+    if (
+      res.status === 304 ||
+      res.status === 204 ||
+      res.status === 206 ||
+      res.status < 200 ||
+      res.status >= 300
+    ) {
       return res
     }
 
     if (res.headers.get('content-encoding')) return res
 
     const ct = res.headers.get('content-type') ?? ''
-    if (!ct || ct.startsWith('audio/') || ct.startsWith('video/') || ct.startsWith('image/') || ct === 'application/zip') {
+    if (
+      !ct ||
+      ct.startsWith('audio/') ||
+      ct.startsWith('video/') ||
+      ct.startsWith('image/') ||
+      ct === 'application/zip'
+    ) {
       return res
     }
 
@@ -60,7 +75,9 @@ export function compress(options?: CompressOptions): Middleware {
     let compressed: Buffer
     try {
       if (encoding === 'br') {
-        compressed = await brotliCompressAsync(body, { params: { [constants.BROTLI_PARAM_QUALITY]: Math.min(level, 11) } })
+        compressed = await brotliCompressAsync(body, {
+          params: { [constants.BROTLI_PARAM_QUALITY]: Math.min(level, 11) },
+        })
       } else if (encoding === 'gzip') {
         compressed = await gzipAsync(body, { level: Math.min(level, 9) })
       } else {

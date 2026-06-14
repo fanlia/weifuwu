@@ -35,7 +35,7 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
     await perm.assignRole(1, 'admin')
     await perm.assignRole(1, 'admin')
     const roles = await perm.getUserRoles(1)
-    const count = roles.filter(r => r === 'admin').length
+    const count = roles.filter((r) => r === 'admin').length
     assert.equal(count, 1)
   })
 
@@ -93,7 +93,7 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
     const app = new Router()
 
     app.use((req, ctx, next) => {
-      (ctx as any).user = { id: 1 }
+      ;(ctx as any).user = { id: 1 }
       return next(req, ctx)
     })
 
@@ -109,10 +109,10 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
       return Response.json({ ok: true })
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/test'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/test'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -127,10 +127,10 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
       return Response.json({ ok: true })
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/test'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/test'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -138,81 +138,96 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
 
   it('requireRole passes when user has the role', async () => {
     const app = new Router()
-    app.use((req, ctx, next) => { (ctx as any).user = { id: 1 }; return next(req, ctx) })
+    app.use((req, ctx, next) => {
+      ;(ctx as any).user = { id: 1 }
+      return next(req, ctx)
+    })
     app.use(perm)
 
     app.get('/admin', perm.requireRole('admin'), async () => {
       return Response.json({ ok: true })
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/admin'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/admin'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
   it('requireRole rejects when user lacks the role', async () => {
     const app = new Router()
-    app.use((req, ctx, next) => { (ctx as any).user = { id: 3 }; return next(req, ctx) })
+    app.use((req, ctx, next) => {
+      ;(ctx as any).user = { id: 3 }
+      return next(req, ctx)
+    })
     app.use(perm)
 
     app.get('/admin', perm.requireRole('admin'), async () => {
       return Response.json({ ok: true })
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/admin'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/admin'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 403)
   })
 
   it('requireRole accepts multiple roles (any match)', async () => {
     const app = new Router()
-    app.use((req, ctx, next) => { (ctx as any).user = { id: 1 }; return next(req, ctx) })
+    app.use((req, ctx, next) => {
+      ;(ctx as any).user = { id: 1 }
+      return next(req, ctx)
+    })
     app.use(perm)
 
     app.get('/mod', perm.requireRole('moderator', 'admin'), async () => {
       return Response.json({ ok: true })
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/mod'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/mod'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
   it('requirePermission passes when user has the permission', async () => {
     const app = new Router()
-    app.use((req, ctx, next) => { (ctx as any).user = { id: 1 }; return next(req, ctx) })
+    app.use((req, ctx, next) => {
+      ;(ctx as any).user = { id: 1 }
+      return next(req, ctx)
+    })
     app.use(perm)
 
     app.post('/posts', perm.requirePermission('posts:create'), async () => {
       return Response.json({ ok: true })
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/posts', { method: 'POST' }),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/posts', { method: 'POST' }), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
   it('requirePermission rejects when user lacks permission', async () => {
     const app = new Router()
-    app.use((req, ctx, next) => { (ctx as any).user = { id: 3 }; return next(req, ctx) })
+    app.use((req, ctx, next) => {
+      ;(ctx as any).user = { id: 3 }
+      return next(req, ctx)
+    })
     app.use(perm)
 
     app.post('/posts', perm.requirePermission('posts:create'), async () => {
       return Response.json({ ok: true })
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/posts', { method: 'POST' }),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/posts', { method: 'POST' }), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 403)
   })
 
@@ -221,7 +236,10 @@ describe('permissions', { skip: !DATABASE_URL }, () => {
     await perm.assignRole(4, 'superadmin')
 
     const app = new Router()
-    app.use((req, ctx, next) => { (ctx as any).user = { id: 4 }; return next(req, ctx) })
+    app.use((req, ctx, next) => {
+      ;(ctx as any).user = { id: 4 }
+      return next(req, ctx)
+    })
     app.use(perm)
 
     app.delete('/anything', perm.requirePermission('anything:delete'), async () => {

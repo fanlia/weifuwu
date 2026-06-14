@@ -5,7 +5,11 @@ import { Readable } from 'node:stream'
 import { serve, createTestServer, setCookie, type Handler, type Context } from '../index.ts'
 import { readBody, createRequest, sendResponse } from '../serve.ts'
 
-function mkIncoming(opts?: { url?: string; method?: string; headers?: Record<string, string | string[] | undefined> }): IncomingMessage {
+function mkIncoming(opts?: {
+  url?: string
+  method?: string
+  headers?: Record<string, string | string[] | undefined>
+}): IncomingMessage {
   const req = new Readable({ read() {} }) as unknown as IncomingMessage
   req.url = opts?.url ?? '/'
   req.method = opts?.method ?? 'GET'
@@ -23,7 +27,9 @@ async function pushBody(req: IncomingMessage, body: string | Buffer): Promise<vo
 function suppressErrorLog() {
   const orig = console.error
   console.error = () => {}
-  return () => { console.error = orig }
+  return () => {
+    console.error = orig
+  }
 }
 
 // ── readBody ────────────────────────────────────────────────────────────────
@@ -46,13 +52,19 @@ describe('readBody', () => {
   it('rejects body exceeding maxSize via content-length', async () => {
     const req = mkIncoming({ method: 'POST', headers: { 'content-length': '100' } })
     pushBody(req, 'x')
-    await assert.rejects(() => readBody(req, 50), (err: any) => err.status === 413)
+    await assert.rejects(
+      () => readBody(req, 50),
+      (err: any) => err.status === 413,
+    )
   })
 
   it('rejects body exceeding maxSize mid-stream', async () => {
     const req = mkIncoming({ method: 'POST' })
     pushBody(req, 'x'.repeat(20))
-    await assert.rejects(() => readBody(req, 5), (err: any) => err.status === 413)
+    await assert.rejects(
+      () => readBody(req, 5),
+      (err: any) => err.status === 413,
+    )
   })
 
   it('accepts body exactly at maxSize', async () => {
@@ -91,7 +103,11 @@ describe('readBody', () => {
 describe('createRequest', () => {
   it('creates Request with URL and method', () => {
     const body = Buffer.from('hello')
-    const req = mkIncoming({ url: '/path?x=1', method: 'POST', headers: { 'content-type': 'text/plain' } })
+    const req = mkIncoming({
+      url: '/path?x=1',
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+    })
     const [request, query] = createRequest(req, body)
     assert.equal(request.url, 'http://localhost/path?x=1')
     assert.equal(request.method, 'POST')
@@ -180,9 +196,13 @@ describe('sendResponse', () => {
     let writeHeadArgs: any[] = []
     let ended = false
     const mockRes = {
-      writeHead: (...args: any[]) => { writeHeadArgs = args },
+      writeHead: (...args: any[]) => {
+        writeHeadArgs = args
+      },
       write: () => {},
-      end: () => { ended = true },
+      end: () => {
+        ended = true
+      },
     } as any
 
     const resp = new Response('hello', {
@@ -200,7 +220,9 @@ describe('sendResponse', () => {
   it('preserves multiple Set-Cookie headers', async () => {
     const headerBag: Record<string, string | string[]> = {}
     const mockRes = {
-      writeHead: (_status: number, _text: string, hdrs: Record<string, string | string[]>) => { Object.assign(headerBag, hdrs) },
+      writeHead: (_status: number, _text: string, hdrs: Record<string, string | string[]>) => {
+        Object.assign(headerBag, hdrs)
+      },
       write: () => {},
       end: () => {},
     } as any
@@ -218,7 +240,9 @@ describe('sendResponse', () => {
   it('accumulates 3+ Set-Cookie headers into array', async () => {
     const headerBag: Record<string, string | string[]> = {}
     const mockRes = {
-      writeHead: (_status: number, _text: string, hdrs: Record<string, string | string[]>) => { Object.assign(headerBag, hdrs) },
+      writeHead: (_status: number, _text: string, hdrs: Record<string, string | string[]>) => {
+        Object.assign(headerBag, hdrs)
+      },
       write: () => {},
       end: () => {},
     } as any
@@ -237,7 +261,9 @@ describe('sendResponse', () => {
   it('handles response with statusText', async () => {
     let statusTextArg = ''
     const mockRes = {
-      writeHead: (s: number, t: string, _h: any) => { statusTextArg = t },
+      writeHead: (s: number, t: string, _h: any) => {
+        statusTextArg = t
+      },
       write: () => {},
       end: () => {},
     } as any
@@ -250,7 +276,9 @@ describe('sendResponse', () => {
     let ended = false
     const mockRes = {
       writeHead: () => {},
-      end: () => { ended = true },
+      end: () => {
+        ended = true
+      },
     } as any
 
     const resp = new Response(null, { status: 204 })
@@ -262,12 +290,18 @@ describe('sendResponse', () => {
     const chunks: any[] = []
     const mockRes = {
       writeHead: () => {},
-      write: (c: any) => { chunks.push(c) },
+      write: (c: any) => {
+        chunks.push(c)
+      },
       end: () => {},
     } as any
 
     const stream = new ReadableStream({
-      start(ctrl) { ctrl.enqueue('part1'); ctrl.enqueue('part2'); ctrl.close() },
+      start(ctrl) {
+        ctrl.enqueue('part1')
+        ctrl.enqueue('part2')
+        ctrl.close()
+      },
     })
     const resp = new Response(stream as any, { status: 200 })
     await sendResponse(mockRes as ServerResponse, resp)
@@ -278,7 +312,9 @@ describe('sendResponse', () => {
     let writeCalled = false
     const mockRes = {
       writeHead: () => {},
-      write: () => { writeCalled = true },
+      write: () => {
+        writeCalled = true
+      },
       end: () => {},
     } as any
 
@@ -311,8 +347,8 @@ describe('serve', () => {
   })
 
   it('passes response headers through', async () => {
-    const { server, url } = await createTestServer(() =>
-      new Response('ok', { headers: { 'x-custom': 'value', 'content-type': 'text/plain' } }),
+    const { server, url } = await createTestServer(
+      () => new Response('ok', { headers: { 'x-custom': 'value', 'content-type': 'text/plain' } }),
     )
     const res = await fetch(url)
     assert.equal(res.headers.get('x-custom'), 'value')
@@ -321,11 +357,9 @@ describe('serve', () => {
   })
 
   it('provides ctx.query from URL', async () => {
-    const { server, url } = await createTestServer((req, ctx) =>
-      Response.json(ctx.query),
-    )
+    const { server, url } = await createTestServer((req, ctx) => Response.json(ctx.query))
     const res = await fetch(`${url}?foo=bar&baz=qux`)
-    const data = await res.json() as Record<string, string>
+    const data = (await res.json()) as Record<string, string>
     assert.equal(data.foo, 'bar')
     assert.equal(data.baz, 'qux')
     server.stop()
@@ -353,7 +387,10 @@ describe('serve', () => {
     const handler: Handler = async (req) => new Response(await req.text())
     const server = serve(handler, { port: 0, maxBodySize: 5 })
     await server.ready
-    const res = await fetch(`http://localhost:${server.port}`, { method: 'POST', body: 'too large' })
+    const res = await fetch(`http://localhost:${server.port}`, {
+      method: 'POST',
+      body: 'too large',
+    })
     assert.equal(res.status, 413)
     server.stop()
   })
@@ -411,17 +448,15 @@ describe('serve', () => {
       return new Response('ok')
     })
     const results = await Promise.all(
-      Array.from({ length: 20 }, (_, i) =>
-        fetch(`${url}?i=${i}`).then(r => r.status),
-      ),
+      Array.from({ length: 20 }, (_, i) => fetch(`${url}?i=${i}`).then((r) => r.status)),
     )
-    results.forEach(s => assert.equal(s, 200))
+    results.forEach((s) => assert.equal(s, 200))
     server.stop()
   })
 
   it('handles 302 redirect response', async () => {
-    const { server, url } = await createTestServer(() =>
-      new Response(null, { status: 302, headers: { Location: '/other' } }),
+    const { server, url } = await createTestServer(
+      () => new Response(null, { status: 302, headers: { Location: '/other' } }),
     )
     const res = await fetch(url, { redirect: 'manual' })
     assert.equal(res.status, 302)
@@ -439,7 +474,9 @@ describe('serve', () => {
   it('passes WebSocket upgrade handler to server', async () => {
     let upgraded = false
     const handler: Handler = () => new Response('ok')
-    const wsHandler = () => { upgraded = true }
+    const wsHandler = () => {
+      upgraded = true
+    }
     const server = serve(handler, { port: 0, websocket: wsHandler })
     await server.ready
     assert.ok(server.port > 0)
@@ -476,7 +513,7 @@ describe('serve', () => {
 
   it('handles handler returning async response', async () => {
     const { server, url } = await createTestServer(async () => {
-      await new Promise(r => setTimeout(r, 5))
+      await new Promise((r) => setTimeout(r, 5))
       return new Response('delayed')
     })
     const res = await fetch(url)
@@ -521,14 +558,20 @@ describe('serve', () => {
 
   it('server error handler logs and resolves ready on listen failure', async () => {
     const blocker = http.createServer((_req, res) => res.end('blocker'))
-    await new Promise<void>(r => blocker.listen(0, () => r()))
+    await new Promise<void>((r) => blocker.listen(0, () => r()))
     const blockerPort = (blocker.address() as { port: number }).port
 
     const restore = suppressErrorLog()
     let errorMsg = ''
-    console.error = ((...args: any[]) => { errorMsg = args.join(' ') }) as any
+    console.error = ((...args: any[]) => {
+      errorMsg = args.join(' ')
+    }) as any
 
-    const server = serve(() => new Response('ok'), { port: blockerPort, hostname: '127.0.0.1', shutdown: false })
+    const server = serve(() => new Response('ok'), {
+      port: blockerPort,
+      hostname: '127.0.0.1',
+      shutdown: false,
+    })
     await server.ready
     assert.ok(errorMsg.includes('Failed to start server'), `got: ${errorMsg}`)
     assert.equal(server.port, 0, 'port is 0 when listen fails')
@@ -567,8 +610,16 @@ describe('createTestServer', () => {
     const { server, url } = await createTestServer(() => new Response('ok'))
     const res = await fetch(url)
     assert.equal(res.status, 200)
-    assert.equal(process.listenerCount('SIGTERM'), beforeTerm, 'createTestServer must not add SIGTERM listeners')
-    assert.equal(process.listenerCount('SIGINT'), beforeInt, 'createTestServer must not add SIGINT listeners')
+    assert.equal(
+      process.listenerCount('SIGTERM'),
+      beforeTerm,
+      'createTestServer must not add SIGTERM listeners',
+    )
+    assert.equal(
+      process.listenerCount('SIGINT'),
+      beforeInt,
+      'createTestServer must not add SIGINT listeners',
+    )
     server.stop()
   })
 
@@ -585,7 +636,7 @@ describe('createTestServer', () => {
 
   it('works with async handler', async () => {
     const { server, url } = await createTestServer(async (req) => {
-      await new Promise(r => setTimeout(r, 3))
+      await new Promise((r) => setTimeout(r, 3))
       const body = await req.text()
       return new Response(body)
     })

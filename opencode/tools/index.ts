@@ -42,7 +42,10 @@ export function createTools(ctx: ToolContext): Record<string, Tool> {
   if (isToolEnabled('web', (ctx as any).permissions.permissions)) {
     tools.web = createWebTool(ctx)
   }
-  if (ctx.skillsRegistry.all.length > 0 && isToolEnabled('skill', (ctx as any).permissions.permissions)) {
+  if (
+    ctx.skillsRegistry.all.length > 0 &&
+    isToolEnabled('skill', (ctx as any).permissions.permissions)
+  ) {
     tools.skill = createSkillTool(ctx)
   }
 

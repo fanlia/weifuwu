@@ -39,9 +39,7 @@ export interface PostgresClient extends Middleware<Context, Context & PostgresIn
       tableName: string,
       builders: { [K in keyof R]: ColumnBuilder<R[K]> },
     ): BoundTable<R>
-    <R extends Record<string, unknown>>(
-      schema: Table<R>,
-    ): BoundTable<R>
+    <R extends Record<string, unknown>>(schema: Table<R>): BoundTable<R>
   }
   transaction: <T>(fn: (sql: any) => Promise<T>, retryOpts?: { maxRetries?: number }) => Promise<T>
   /** Snapshot of connection pool state: active, idle, waiting, max connections. */

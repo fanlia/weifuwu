@@ -21,7 +21,9 @@ export function messager(options: MessagerOptions): MessagerModule {
     name: text('name').notNull().default(''),
     type: text('type').notNull().default('channel'),
     created_by: integer('created_by').notNull(),
-    created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+    created_at: timestamptz('created_at')
+      .notNull()
+      .default(schemaSql`NOW()`),
   })
 
   const members = pg.table('_channel_members', {
@@ -45,16 +47,22 @@ export function messager(options: MessagerOptions): MessagerModule {
     file_name: text('file_name'),
     file_size: integer('file_size'),
     mime_type: text('mime_type'),
-    created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+    created_at: timestamptz('created_at')
+      .notNull()
+      .default(schemaSql`NOW()`),
   })
 
   const r = buildRouter({ sql, channels, members, messages, agents, hub })
 
-  async function send(channelId: number, content: string, opts?: {
-    sender_type?: string
-    sender_id?: number
-    type?: string
-  }): Promise<Message> {
+  async function send(
+    channelId: number,
+    content: string,
+    opts?: {
+      sender_type?: string
+      sender_id?: number
+      type?: string
+    },
+  ): Promise<Message> {
     const msg = await messages.insert({
       channel_id: channelId,
       sender_id: opts?.sender_id ?? 0,

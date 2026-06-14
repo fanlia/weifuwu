@@ -14,7 +14,9 @@ export function isNavigating(): boolean {
 
 export function onNavigate(fn: (v: boolean) => void): () => void {
   _listeners.push(fn)
-  return () => { _listeners = _listeners.filter(l => l !== fn) }
+  return () => {
+    _listeners = _listeners.filter((l) => l !== fn)
+  }
 }
 
 function setNavigating(v: boolean) {
@@ -42,12 +44,15 @@ export async function navigate(href: string): Promise<void> {
   try {
     const html = await fetch(url.pathname + url.search, {
       headers: { accept: 'text/html' },
-    }).then(r => r.text())
+    }).then((r) => r.text())
 
     const doc = new DOMParser().parseFromString(html, 'text/html')
 
     const rootEl = doc.getElementById('__weifuwu_root')
-    if (!rootEl) { location.href = href; return }
+    if (!rootEl) {
+      location.href = href
+      return
+    }
     const newHtml = rootEl.innerHTML
 
     const bundleMatch = html.match(/src="(\/__ssr\/[^"]+\.js)"/)
@@ -67,7 +72,10 @@ export async function navigate(href: string): Promise<void> {
     applyHead(html)
 
     const currentRoot = document.getElementById('__weifuwu_root')
-    if (!currentRoot) { location.href = href; return }
+    if (!currentRoot) {
+      location.href = href
+      return
+    }
 
     history.pushState(null, '', url.pathname + url.search)
     currentRoot.innerHTML = newHtml
@@ -101,7 +109,9 @@ function applyHead(html: string) {
   const doc = new DOMParser().parseFromString(headHtml, 'text/html')
   const newMeta = doc.querySelectorAll('meta')
   const existing = document.querySelectorAll('head meta')
-  const newNames = new Set(Array.from(newMeta).map(m => m.getAttribute('name') || m.getAttribute('property') || ''))
+  const newNames = new Set(
+    Array.from(newMeta).map((m) => m.getAttribute('name') || m.getAttribute('property') || ''),
+  )
   for (const el of existing) {
     const key = el.getAttribute('name') || el.getAttribute('property') || ''
     if (!newNames.has(key)) el.remove()
@@ -112,12 +122,14 @@ function applyHead(html: string) {
     if (key) {
       for (const m of document.head.querySelectorAll('meta')) {
         if (m.getAttribute('name') === key || m.getAttribute('property') === key) {
-          existingEl = m; break
+          existingEl = m
+          break
         }
       }
     }
     if (existingEl) {
-      for (const attr of el.attributes) (existingEl as HTMLElement).setAttribute(attr.name, attr.value)
+      for (const attr of el.attributes)
+        (existingEl as HTMLElement).setAttribute(attr.name, attr.value)
     } else {
       document.head.appendChild(el.cloneNode() as HTMLElement)
     }
@@ -161,13 +173,19 @@ export function Link({ href, children, onClick, prefetch, ...props }: LinkProps)
     let el = document.querySelector(`a[href="${CSS.escape(href)}"]`)
     if (!el) {
       for (const a of document.querySelectorAll('a')) {
-        if (a.getAttribute('href') === href) { el = a; break }
+        if (a.getAttribute('href') === href) {
+          el = a
+          break
+        }
       }
     }
     if (!el) return
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) prefetchPage(href)
-    }, { rootMargin: '200px' })
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) prefetchPage(href)
+      },
+      { rootMargin: '200px' },
+    )
     observer.observe(el)
     return () => observer.disconnect()
   }, [href, prefetch])
@@ -176,26 +194,33 @@ export function Link({ href, children, onClick, prefetch, ...props }: LinkProps)
     if (prefetch) prefetchPage(href)
   }, [href, prefetch])
 
-  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-    e.preventDefault()
-    doNavigate(href)
-    onClick?.(e)
-  }, [href, onClick, doNavigate])
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      e.preventDefault()
+      doNavigate(href)
+      onClick?.(e)
+    },
+    [href, onClick, doNavigate],
+  )
 
-  return createElement('a', {
-    href,
-    onClick: handleClick,
-    onMouseEnter: handleMouseEnter,
-    ...props,
-  }, children)
+  return createElement(
+    'a',
+    {
+      href,
+      onClick: handleClick,
+      onMouseEnter: handleMouseEnter,
+      ...props,
+    },
+    children,
+  )
 }
 
 async function prefetchPage(href: string) {
   const cached = prefetchCache.get(href)
   if (cached && Date.now() - cached.fetched < PREFETCH_TTL) return
   try {
-    const html = await fetch(href, { headers: { accept: 'text/html' } }).then(r => r.text())
+    const html = await fetch(href, { headers: { accept: 'text/html' } }).then((r) => r.text())
     prefetchCache.set(href, { html, fetched: Date.now() })
   } catch {}
 }

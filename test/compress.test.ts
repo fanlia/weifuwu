@@ -114,10 +114,14 @@ describe('compress', () => {
   it('skips compression for 206 Partial Content', async () => {
     const res = await testApp()
       .use(compress({ threshold: 0 }))
-      .get('/partial', () => new Response('partial', {
-        status: 206,
-        headers: { 'Content-Range': 'bytes 0-4/100' },
-      }))
+      .get(
+        '/partial',
+        () =>
+          new Response('partial', {
+            status: 206,
+            headers: { 'Content-Range': 'bytes 0-4/100' },
+          }),
+      )
       .getReq('/partial')
       .header('accept-encoding', 'gzip')
       .send()
@@ -138,9 +142,13 @@ describe('compress', () => {
   it('appends to existing Vary header', async () => {
     const res = await testApp()
       .use(compress({ threshold: 0 }))
-      .get('/data', () => new Response('hello '.repeat(100), {
-        headers: { 'Vary': 'Origin' },
-      }))
+      .get(
+        '/data',
+        () =>
+          new Response('hello '.repeat(100), {
+            headers: { Vary: 'Origin' },
+          }),
+      )
       .getReq('/data')
       .header('accept-encoding', 'gzip')
       .send()
@@ -150,7 +158,10 @@ describe('compress', () => {
   it('skips compression for audio content', async () => {
     const res = await testApp()
       .use(compress({ threshold: 0 }))
-      .get('/audio', () => new Response('audio data', { headers: { 'content-type': 'audio/mpeg' } }))
+      .get(
+        '/audio',
+        () => new Response('audio data', { headers: { 'content-type': 'audio/mpeg' } }),
+      )
       .getReq('/audio')
       .header('accept-encoding', 'gzip')
       .send()
@@ -160,7 +171,7 @@ describe('compress', () => {
   it('skips compression for 302 redirect', async () => {
     const res = await testApp()
       .use(compress({ threshold: 0 }))
-      .get('/redirect', () => new Response(null, { status: 302, headers: { 'Location': '/new' } }))
+      .get('/redirect', () => new Response(null, { status: 302, headers: { Location: '/new' } }))
       .getReq('/redirect')
       .header('accept-encoding', 'gzip')
       .send()
@@ -170,7 +181,10 @@ describe('compress', () => {
   it('skips compression of application/zip', async () => {
     const res = await testApp()
       .use(compress({ threshold: 0 }))
-      .get('/file', () => new Response(Buffer.alloc(2000), { headers: { 'Content-Type': 'application/zip' } }))
+      .get(
+        '/file',
+        () => new Response(Buffer.alloc(2000), { headers: { 'Content-Type': 'application/zip' } }),
+      )
       .getReq('/file')
       .header('accept-encoding', 'gzip')
       .send()
@@ -180,7 +194,10 @@ describe('compress', () => {
   it('skips compression of video content', async () => {
     const res = await testApp()
       .use(compress({ threshold: 0 }))
-      .get('/clip', () => new Response(Buffer.alloc(2000), { headers: { 'Content-Type': 'video/mp4' } }))
+      .get(
+        '/clip',
+        () => new Response(Buffer.alloc(2000), { headers: { 'Content-Type': 'video/mp4' } }),
+      )
       .getReq('/clip')
       .header('accept-encoding', 'gzip')
       .send()

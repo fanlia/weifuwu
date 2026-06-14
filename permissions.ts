@@ -100,16 +100,16 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
   }
 
   async function ensureRole(role: string): Promise<number> {
-    const [existing] = await sql.unsafe(
+    const [existing] = (await sql.unsafe(
       `SELECT id FROM ${escapeIdent(rolesTable)} WHERE name = $1 LIMIT 1`,
       [role],
-    ) as Array<{ id: number }>
+    )) as Array<{ id: number }>
     if (existing) return existing.id
 
-    const [created] = await sql.unsafe(
+    const [created] = (await sql.unsafe(
       `INSERT INTO ${escapeIdent(rolesTable)} (name) VALUES ($1) RETURNING id`,
       [role],
-    ) as Array<{ id: number }>
+    )) as Array<{ id: number }>
     return created.id
   }
 
@@ -144,23 +144,23 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
   }
 
   async function getUserRoles(userId: number): Promise<string[]> {
-    const rows = await sql.unsafe(
+    const rows = (await sql.unsafe(
       `SELECT r.name FROM ${escapeIdent(userRolesTable)} ur
        JOIN ${escapeIdent(rolesTable)} r ON r.id = ur.role_id
        WHERE ur.user_id = $1 ORDER BY r.name`,
       [userId],
-    ) as Array<{ name: string }>
-    return rows.map(r => r.name)
+    )) as Array<{ name: string }>
+    return rows.map((r) => r.name)
   }
 
   async function getUserPermissions(userId: number): Promise<string[]> {
-    const rows = await sql.unsafe(
+    const rows = (await sql.unsafe(
       `SELECT DISTINCT rp.permission FROM ${escapeIdent(userRolesTable)} ur
        JOIN ${escapeIdent(rolePermsTable)} rp ON rp.role_id = ur.role_id
        WHERE ur.user_id = $1 ORDER BY rp.permission`,
       [userId],
-    ) as Array<{ permission: string }>
-    return rows.map(r => r.permission)
+    )) as Array<{ permission: string }>
+    return rows.map((r) => r.permission)
   }
 
   // ── Middleware ──
@@ -180,7 +180,7 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
       // Support wildcard: role with '*' permission grants everything
       const hasWildcard = userPerms.includes('*')
       if (hasWildcard) {
-        perms = new Set(['*'])  // marker, not exhaustive
+        perms = new Set(['*']) // marker, not exhaustive
       }
     }
 

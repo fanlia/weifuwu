@@ -1,14 +1,14 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import './setup.ts'
+import { type UseAgentStreamReturn, type MockWebSocket } from './setup.ts'
 import { createElement } from 'react'
 import { renderHook } from './react-harness.ts'
 import { useAgentStream } from '../use-agent-stream.ts'
-import type { UseAgentStreamReturn, MockWebSocket } from './setup.ts'
 
 /** Wait for React effects to flush, then get the mock WS. */
 async function getMockWs(): Promise<MockWebSocket> {
-  await new Promise(r => setTimeout(r, 50))
+  await new Promise((r) => setTimeout(r, 50))
   const ws = (globalThis as any).__lastMockWs as MockWebSocket | undefined
   if (!ws) throw new Error('WebSocket not created — did the hook mount?')
   return ws
@@ -53,16 +53,20 @@ void describe('useAgentStream', () => {
     const ws = await getMockWs()
     ws.connect()
 
-    ws.simulateMessage(JSON.stringify({
-      type: 'agent_stream',
-      data: { agent_id: 1, token: 'Hello ' },
-    }))
-    ws.simulateMessage(JSON.stringify({
-      type: 'agent_stream',
-      data: { agent_id: 1, token: 'World' },
-    }))
+    ws.simulateMessage(
+      JSON.stringify({
+        type: 'agent_stream',
+        data: { agent_id: 1, token: 'Hello ' },
+      }),
+    )
+    ws.simulateMessage(
+      JSON.stringify({
+        type: 'agent_stream',
+        data: { agent_id: 1, token: 'World' },
+      }),
+    )
 
-    await new Promise(r => setTimeout(r, 50))
+    await new Promise((r) => setTimeout(r, 50))
 
     assert.equal(result.getAgentText(1), 'Hello World')
     assert.equal(result.isAgentStreaming(1), true)
@@ -89,17 +93,21 @@ void describe('useAgentStream', () => {
     const ws = await getMockWs()
     ws.connect()
 
-    ws.simulateMessage(JSON.stringify({
-      type: 'agent_stream',
-      data: { agent_id: 2, token: 'Done' },
-    }))
+    ws.simulateMessage(
+      JSON.stringify({
+        type: 'agent_stream',
+        data: { agent_id: 2, token: 'Done' },
+      }),
+    )
 
-    ws.simulateMessage(JSON.stringify({
-      type: 'agent_stream_end',
-      data: { agent_id: 2 },
-    }))
+    ws.simulateMessage(
+      JSON.stringify({
+        type: 'agent_stream_end',
+        data: { agent_id: 2 },
+      }),
+    )
 
-    await new Promise(r => setTimeout(r, 50))
+    await new Promise((r) => setTimeout(r, 50))
 
     assert.equal(result.getAgentText(2), 'Done')
     assert.equal(result.isAgentStreaming(2), false)
@@ -128,12 +136,14 @@ void describe('useAgentStream', () => {
     const ws = await getMockWs()
     ws.connect()
 
-    ws.simulateMessage(JSON.stringify({
-      type: 'agent_error',
-      data: { agent_id: 3, error: 'Something broke' },
-    }))
+    ws.simulateMessage(
+      JSON.stringify({
+        type: 'agent_error',
+        data: { agent_id: 3, error: 'Something broke' },
+      }),
+    )
 
-    await new Promise(r => setTimeout(r, 50))
+    await new Promise((r) => setTimeout(r, 50))
 
     assert.equal(result.isAgentStreaming(3), false)
     assert.equal(errorAgentId, 3)
@@ -156,7 +166,7 @@ void describe('useAgentStream', () => {
     ws.simulateMessage('not json')
     ws.simulateMessage(JSON.stringify({}))
 
-    await new Promise(r => setTimeout(r, 50))
+    await new Promise((r) => setTimeout(r, 50))
 
     assert.equal(result.getAgentText(1), '')
     assert.equal(result.isAgentStreaming(1), false)

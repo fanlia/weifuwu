@@ -76,7 +76,10 @@ interface VerifierResult {
   id?: string
 }
 
-type Verifier = (body: string, headers: Record<string, string>) => VerifierResult | Promise<VerifierResult>
+type Verifier = (
+  body: string,
+  headers: Record<string, string>,
+) => VerifierResult | Promise<VerifierResult>
 
 function timingSafeEqual(a: string, b: string): boolean {
   try {
@@ -100,7 +103,8 @@ function createStripeVerifier(config: PlatformConfig): Verifier {
 
     const timestamp = parts['t']
     const signature = parts['v1']
-    if (!timestamp || !signature) return { valid: false, provider: 'stripe', event: '', id: undefined }
+    if (!timestamp || !signature)
+      return { valid: false, provider: 'stripe', event: '', id: undefined }
 
     const signed = `${timestamp}.${body}`
     const expected = crypto.createHmac('sha256', config.secret).update(signed).digest('hex')
@@ -127,7 +131,7 @@ function createGitHubVerifier(config: PlatformConfig): Verifier {
     const expected = `sha256=${crypto.createHmac('sha256', config.secret).update(body).digest('hex')}`
     const valid = timingSafeEqual(sig, expected)
 
-    let event = headers['x-github-event'] ?? ''
+    const event = headers['x-github-event'] ?? ''
     let id: string | undefined
     try {
       const parsed = JSON.parse(body)
@@ -142,7 +146,8 @@ function createSlackVerifier(config: PlatformConfig): Verifier {
   return (body: string, headers: Record<string, string>) => {
     const signature = headers['x-slack-signature']
     const timestamp = headers['x-slack-request-timestamp']
-    if (!signature || !timestamp) return { valid: false, provider: 'slack', event: '', id: undefined }
+    if (!signature || !timestamp)
+      return { valid: false, provider: 'slack', event: '', id: undefined }
 
     // Reject requests older than 5 minutes (replay protection)
     const now = Math.floor(Date.now() / 1000)
@@ -214,7 +219,13 @@ class EventBus {
     if (set.size === 0) this.handlers.delete(event)
   }
 
-  async emit(event: string, payload: unknown, provider: string, id: string | undefined, ctx: Context): Promise<void> {
+  async emit(
+    event: string,
+    payload: unknown,
+    provider: string,
+    id: string | undefined,
+    ctx: Context,
+  ): Promise<void> {
     const we = { event, payload, provider, id }
 
     // Emit to specific event
@@ -294,7 +305,9 @@ export function webhook(options?: WebhookOptions): WebhookModule {
 
     // Collect headers
     const headers: Record<string, string> = {}
-    req.headers.forEach((v, k) => { headers[k] = v })
+    req.headers.forEach((v, k) => {
+      headers[k] = v
+    })
 
     // Try each verifier
     for (const verify of verifiers) {
@@ -344,8 +357,14 @@ export function webhook(options?: WebhookOptions): WebhookModule {
   router.post(mountPath, handler)
 
   const mod = router as unknown as WebhookModule
-  mod.on = (event: string, handler: WebhookHandler) => { bus.on(event, handler); return mod }
-  mod.off = (event: string, handler: WebhookHandler) => { bus.off(event, handler); return mod }
+  mod.on = (event: string, handler: WebhookHandler) => {
+    bus.on(event, handler)
+    return mod
+  }
+  mod.off = (event: string, handler: WebhookHandler) => {
+    bus.off(event, handler)
+    return mod
+  }
 
   // Store cleanup reference
   ;(mod as any)._cleanup = () => {

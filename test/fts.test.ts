@@ -23,7 +23,10 @@ describePg('fts', () => {
     await articles.insertMany([
       { title: 'Node.js Guide', body: 'A comprehensive guide to Node.js for beginners' },
       { title: 'TypeScript Handbook', body: 'Learn TypeScript with practical examples' },
-      { title: 'Web Framework Comparison', body: 'Comparing Express, Fastify, and modern web frameworks' },
+      {
+        title: 'Web Framework Comparison',
+        body: 'Comparing Express, Fastify, and modern web frameworks',
+      },
       { title: 'PostgreSQL Tips', body: 'Advanced PostgreSQL query optimization techniques' },
       { title: 'Docker for Developers', body: 'Containerization made easy with Docker' },
     ])
@@ -47,7 +50,7 @@ describePg('fts', () => {
     })
     assert.ok(results.length > 0)
     // "Node.js Guide" should match
-    const titles = results.map(r => (r.row as any).title)
+    const titles = results.map((r) => (r.row as any).title)
     assert.ok(titles.some((t: string) => t.includes('Node.js')))
   })
 

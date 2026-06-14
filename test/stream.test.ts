@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 describe('stream', () => {
   it('streamResponse returns HTML response', async () => {
     const { readStream, streamResponse } = await import('../stream.ts')
-    const html = '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
+    const html =
+      '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
     const reactStream = new ReadableStream({
       start(ctrl) {
         ctrl.enqueue(new TextEncoder().encode(html))
@@ -22,7 +23,8 @@ describe('stream', () => {
 
   it('streamResponse injects WEIFUWU_CTX script', async () => {
     const { readStream, streamResponse } = await import('../stream.ts')
-    const html = '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
+    const html =
+      '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
     const reactStream = new ReadableStream({
       start(ctrl) {
         ctrl.enqueue(new TextEncoder().encode(html))
@@ -53,7 +55,8 @@ describe('stream', () => {
 
   it('streamResponse injects loaderData props script', async () => {
     const { readStream, streamResponse } = await import('../stream.ts')
-    const html = '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
+    const html =
+      '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
     const reactStream = new ReadableStream({
       start(ctrl) {
         ctrl.enqueue(new TextEncoder().encode(html))
@@ -72,7 +75,8 @@ describe('stream', () => {
 
   it('streamResponse injects dev livereload in dev mode', async () => {
     const { readStream, streamResponse } = await import('../stream.ts')
-    const html = '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
+    const html =
+      '<!DOCTYPE html><html><head></head><body><div id="__weifuwu_root"></div></body></html>'
     const reactStream = new ReadableStream({
       start(ctrl) {
         ctrl.enqueue(new TextEncoder().encode(html))

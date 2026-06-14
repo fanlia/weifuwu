@@ -26,7 +26,10 @@ describe('liveReload', () => {
   it('liveRouter hot component endpoint returns 404 for unknown hash', async () => {
     const { liveRouter } = await import('../live.ts')
     const r = liveRouter(tmpDir)
-    const res = await r.handler()(new Request('http://localhost/__wfw/h/unknownhash'), { params: { hash: 'unknownhash' }, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/__wfw/h/unknownhash'), {
+      params: { hash: 'unknownhash' },
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
   })
 

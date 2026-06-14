@@ -42,7 +42,9 @@ describe('trace', () => {
       const e1 = traceElapsed()
       // Busy-wait a bit
       const start = Date.now()
-      while (Date.now() - start < 10) { /* spin */ }
+      while (Date.now() - start < 10) {
+        /* spin */
+      }
       const e2 = traceElapsed()
       return { e1, e2 }
     })
@@ -70,7 +72,10 @@ describe('trace', () => {
       assert.equal(typeof ctx.trace?.startTime, 'number')
       return Response.json({ ok: true })
     })
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     assert.ok(res.headers.has('X-Request-ID'))
   })
@@ -95,15 +100,18 @@ describe('trace', () => {
     r.use(trace())
     r.get('/', async (_req, ctx) => {
       const e1 = ctx.trace!.elapsed()
-      await new Promise(r => setTimeout(r, 5))
+      await new Promise((r) => setTimeout(r, 5))
       const e2 = ctx.trace!.elapsed()
       assert.ok(typeof e1 === 'number')
       assert.ok(typeof e2 === 'number')
       return Response.json({ ok: true, startTime: ctx.trace!.startTime })
     })
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.ok(body.startTime > 0, 'startTime should be set')
     assert.ok(Date.now() >= body.startTime, 'startTime should be in the past')
   })

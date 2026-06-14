@@ -37,14 +37,15 @@ describe('tenant schema (SQL generation)', () => {
     assert.ok(sql.includes('NOT NULL'), 'required field should be NOT NULL')
     assert.ok(sql.includes('"age" INTEGER'), 'integer type')
     assert.ok(sql.includes('"score" DOUBLE PRECISION'), 'float type')
-    assert.ok(sql.includes('"active" BOOLEAN DEFAULT true'), 'boolean with default (lowercase true)')
+    assert.ok(
+      sql.includes('"active" BOOLEAN DEFAULT true'),
+      'boolean with default (lowercase true)',
+    )
     assert.ok(sql.includes('"tags" JSONB'), 'json type maps to JSONB')
   })
 
   it('createTableSQL includes UNIQUE constraint', () => {
-    const fields: FieldDef[] = [
-      { name: 'email', type: 'text', unique: true },
-    ]
+    const fields: FieldDef[] = [{ name: 'email', type: 'text', unique: true }]
 
     const sql = createTableSQL(tenantId, 'contacts', fields)
     assert.ok(sql.includes('UNIQUE'), 'should include UNIQUE')
@@ -73,18 +74,14 @@ describe('tenant schema (SQL generation)', () => {
   })
 
   it('createTableSQL uses DEFAULT for text field', () => {
-    const fields: FieldDef[] = [
-      { name: 'status', type: 'text', default: 'active' },
-    ]
+    const fields: FieldDef[] = [{ name: 'status', type: 'text', default: 'active' }]
 
     const sql = createTableSQL(tenantId, 'items', fields)
     assert.ok(sql.includes("DEFAULT 'active'"))
   })
 
   it('createTableSQL handles vector type', () => {
-    const fields: FieldDef[] = [
-      { name: 'embedding', type: 'vector', dimensions: 384 },
-    ]
+    const fields: FieldDef[] = [{ name: 'embedding', type: 'vector', dimensions: 384 }]
 
     const sql = createTableSQL(tenantId, 'docs', fields)
     assert.ok(sql.includes('vector(384)'), 'vector with dimensions')
@@ -119,40 +116,32 @@ describe('tenant schema (SQL generation)', () => {
   describe('createIndexesSQL', () => {
     it('creates tenant and ID indexes for every table', () => {
       const indexes = createIndexesSQL(tenantId, 'items', [])
-      assert.ok(indexes.some(i => i.includes('_tenant_idx')))
-      assert.ok(indexes.some(i => i.includes('_tenant_id_idx')))
+      assert.ok(indexes.some((i) => i.includes('_tenant_idx')))
+      assert.ok(indexes.some((i) => i.includes('_tenant_id_idx')))
     })
 
     it('creates unique index for unique fields', () => {
-      const fields: FieldDef[] = [
-        { name: 'slug', type: 'text', unique: true },
-      ]
+      const fields: FieldDef[] = [{ name: 'slug', type: 'text', unique: true }]
       const indexes = createIndexesSQL(tenantId, 'pages', fields)
-      assert.ok(indexes.some(i => i.includes('UNIQUE') && i.includes('slug')))
+      assert.ok(indexes.some((i) => i.includes('UNIQUE') && i.includes('slug')))
     })
 
     it('creates HNSW index for vector fields with hnsw index', () => {
-      const fields: FieldDef[] = [
-        { name: 'vec', type: 'vector', dimensions: 128, index: 'hnsw' },
-      ]
+      const fields: FieldDef[] = [{ name: 'vec', type: 'vector', dimensions: 128, index: 'hnsw' }]
       const indexes = createIndexesSQL(tenantId, 'embeddings', fields)
-      assert.ok(indexes.some(i => i.includes('hnsw') && i.includes('vec')))
+      assert.ok(indexes.some((i) => i.includes('hnsw') && i.includes('vec')))
     })
 
     it('creates GIN index for json fields', () => {
-      const fields: FieldDef[] = [
-        { name: 'metadata', type: 'json', index: 'gin' },
-      ]
+      const fields: FieldDef[] = [{ name: 'metadata', type: 'json', index: 'gin' }]
       const indexes = createIndexesSQL(tenantId, 'events', fields)
-      assert.ok(indexes.some(i => i.includes('GIN') && i.includes('metadata')))
+      assert.ok(indexes.some((i) => i.includes('GIN') && i.includes('metadata')))
     })
 
     it('creates DESC index', () => {
-      const fields: FieldDef[] = [
-        { name: 'created_at', type: 'text', index: 'desc' },
-      ]
+      const fields: FieldDef[] = [{ name: 'created_at', type: 'text', index: 'desc' }]
       const indexes = createIndexesSQL(tenantId, 'logs', fields)
-      assert.ok(indexes.some(i => i.includes('DESC') && i.includes('created_at')))
+      assert.ok(indexes.some((i) => i.includes('DESC') && i.includes('created_at')))
     })
 
     it('creates relation index for relation fields', () => {
@@ -160,7 +149,7 @@ describe('tenant schema (SQL generation)', () => {
         { name: 'author_id', type: 'integer', relation: { table: 'users' } },
       ]
       const indexes = createIndexesSQL(tenantId, 'posts', fields)
-      assert.ok(indexes.some(i => i.includes('rel_idx') && i.includes('author_id')))
+      assert.ok(indexes.some((i) => i.includes('rel_idx') && i.includes('author_id')))
     })
   })
 })

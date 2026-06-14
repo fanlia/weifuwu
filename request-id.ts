@@ -36,7 +36,9 @@ export interface RequestIdOptions {
  * request. If absent, generates a new UUID. Sets the response header and
  * injects `ctx.requestId`.
  */
-export function requestId(options?: RequestIdOptions): Middleware<Context, Context & { requestId: string }> {
+export function requestId(
+  options?: RequestIdOptions,
+): Middleware<Context, Context & { requestId: string }> {
   const header = options?.header ?? 'X-Request-ID'
   const gen = options?.generator ?? (() => crypto.randomUUID())
 

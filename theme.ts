@@ -61,7 +61,9 @@ export function theme(options?: ThemeOptions): ThemeModule {
   }
 
   class ThemeRouter extends Router {
-    middleware() { return mw }
+    middleware() {
+      return mw
+    }
   }
 
   const router = new ThemeRouter()

@@ -11,10 +11,10 @@ describe('notFound()', () => {
   it('returns plain text when no path given', async () => {
     const app = new Router()
     app.all('/*', notFound())
-    const res = await app.handler()(
-      new Request('http://localhost/any'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/any'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
     const text = await res.text()
     assert.equal(text, 'Not Found')
@@ -23,10 +23,10 @@ describe('notFound()', () => {
   it('returns plain text when component file not found', async () => {
     const app = new Router()
     app.all('/*', notFound('./test/fixtures/not-found/nonexistent.tsx'))
-    const res = await app.handler()(
-      new Request('http://localhost/any'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/any'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
     const text = await res.text()
     assert.equal(text, 'Not Found')
@@ -35,10 +35,10 @@ describe('notFound()', () => {
   it('returns HTML with 404 status', async () => {
     const app = new Router()
     app.all('/*', notFound(nfPage))
-    const res = await app.handler()(
-      new Request('http://localhost/any'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/any'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
     const html = await res.text()
     assert.match(html, /<!DOCTYPE html>/i)
@@ -49,10 +49,10 @@ describe('notFound()', () => {
     const app = new Router()
     app.use(layout(nfLayout))
     app.all('/*', notFound(nfPage))
-    const res = await app.handler()(
-      new Request('http://localhost/any'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/any'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
     const html = await res.text()
     assert.match(html, /Layout-Header/)
@@ -62,10 +62,10 @@ describe('notFound()', () => {
   it('returns plain text when component has no default export', async () => {
     const app = new Router()
     app.all('/*', notFound('./test/fixtures/not-found/no-default.tsx'))
-    const res = await app.handler()(
-      new Request('http://localhost/any'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/any'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
     const text = await res.text()
     assert.equal(text, 'Not Found')

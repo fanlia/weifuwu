@@ -27,7 +27,9 @@ void describe('CLI', () => {
         cwd: projectRoot,
         stdio: 'pipe',
         timeout: 10_000,
-      }).toString().trim()
+      })
+        .toString()
+        .trim()
       assert.ok(output.length > 0)
       assert.match(output, /^\d+\.\d+\.\d+$/)
     })

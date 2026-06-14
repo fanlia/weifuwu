@@ -1,5 +1,4 @@
-import { readFile } from 'node:fs/promises'
-import { glob } from 'node:fs/promises'
+import { readFile, glob } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
@@ -36,7 +35,8 @@ export async function parseSkillFile(filePath: string): Promise<SkillDef | null>
       description,
       content,
       license: typeof frontmatter.license === 'string' ? frontmatter.license : undefined,
-      compatibility: typeof frontmatter.compatibility === 'string' ? frontmatter.compatibility : undefined,
+      compatibility:
+        typeof frontmatter.compatibility === 'string' ? frontmatter.compatibility : undefined,
       path: filePath,
     }
   } catch {
@@ -61,11 +61,11 @@ export async function discoverSkills(workspace: string): Promise<SkillDef[]> {
   const skills: SkillDef[] = []
 
   for (const dirFn of SEARCH_DIRS) {
-    skills.push(...await scanDir(dirFn(workspace)))
+    skills.push(...(await scanDir(dirFn(workspace))))
   }
 
   for (const dir of GLOBAL_DIRS) {
-    skills.push(...await scanDir(dir))
+    skills.push(...(await scanDir(dir)))
   }
 
   return skills

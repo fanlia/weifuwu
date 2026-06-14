@@ -11,7 +11,14 @@ export function registerWorker(url: string) {
 
   const handlers = new Map<string, FunctionHandler>()
   const pendingQueue: object[] = []
-  const pendingInvocations = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>()
+  const pendingInvocations = new Map<
+    string,
+    {
+      resolve: (v: unknown) => void
+      reject: (e: Error) => void
+      timer: ReturnType<typeof setTimeout>
+    }
+  >()
   const registeredFunctionIds = new Set<string>()
   const registeredTriggers = new Set<string>()
 
@@ -37,7 +44,9 @@ export function registerWorker(url: string) {
     if (intentionalClose) return
 
     ws = new WebSocket(url)
-    ready = new Promise((resolve) => { resolveReady = resolve })
+    ready = new Promise((resolve) => {
+      resolveReady = resolve
+    })
 
     ws.onopen = () => {
       reconnectAttempt = 0
@@ -63,23 +72,33 @@ export function registerWorker(url: string) {
         case 'invoke': {
           const handler = handlers.get(msg.function_id)
           if (!handler) {
-            ws?.send(JSON.stringify({
-              type: 'invoke_error',
-              invocation_id: msg.invocation_id,
-              error: `Function "${msg.function_id}" not found`,
-            }))
+            ws?.send(
+              JSON.stringify({
+                type: 'invoke_error',
+                invocation_id: msg.invocation_id,
+                error: `Function "${msg.function_id}" not found`,
+              }),
+            )
             return
           }
           Promise.resolve(handler(msg.payload, {} as any))
             .then((result) => {
-              ws?.send(JSON.stringify({
-                type: 'invoke_result', invocation_id: msg.invocation_id, result,
-              }))
+              ws?.send(
+                JSON.stringify({
+                  type: 'invoke_result',
+                  invocation_id: msg.invocation_id,
+                  result,
+                }),
+              )
             })
             .catch((err) => {
-              ws?.send(JSON.stringify({
-                type: 'invoke_error', invocation_id: msg.invocation_id, error: err.message,
-              }))
+              ws?.send(
+                JSON.stringify({
+                  type: 'invoke_error',
+                  invocation_id: msg.invocation_id,
+                  error: err.message,
+                }),
+              )
             })
           break
         }
@@ -141,12 +160,23 @@ export function registerWorker(url: string) {
 
     registerTrigger(input: TriggerInput) {
       registeredTriggers.add(JSON.stringify(input))
-      send({ type: 'register_trigger', function_id: input.function_id, trigger_type: input.type, config: input.config })
+      send({
+        type: 'register_trigger',
+        function_id: input.function_id,
+        trigger_type: input.type,
+        config: input.config,
+      })
     },
 
     unregisterTrigger(functionId: string) {
       for (const key of registeredTriggers) {
-        try { const parsed = JSON.parse(key); if (parsed.function_id === functionId) { registeredTriggers.delete(key); break } } catch {}
+        try {
+          const parsed = JSON.parse(key)
+          if (parsed.function_id === functionId) {
+            registeredTriggers.delete(key)
+            break
+          }
+        } catch {}
       }
       send({ type: 'unregister_trigger', function_id: functionId })
     },

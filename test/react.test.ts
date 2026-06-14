@@ -7,12 +7,20 @@ describe('react (barrel re-exports)', () => {
   const source = readFileSync(resolve(import.meta.dirname, '../react.ts'), 'utf-8')
 
   it('re-exports client-router symbols', () => {
-    assert.ok(source.includes("export { Link, useNavigate, navigate, useNavigating, addInterceptor } from './client-router.ts'"))
+    assert.ok(
+      source.includes(
+        "export { Link, useNavigate, navigate, useNavigating, addInterceptor } from './client-router.ts'",
+      ),
+    )
     assert.ok(source.includes('./client-router.ts'))
   })
 
   it('re-exports tsx-context symbols', () => {
-    assert.ok(source.includes("export { TsxContext, useCtx, setCtx, addCtxRebuilder, useLoaderData } from './tsx-context.ts'"))
+    assert.ok(
+      source.includes(
+        "export { TsxContext, useCtx, setCtx, addCtxRebuilder, useLoaderData } from './tsx-context.ts'",
+      ),
+    )
   })
 
   it('re-exports Head component', () => {

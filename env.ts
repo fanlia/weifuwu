@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import type { Context, Middleware } from './types.ts'
 
 /** Build-time injection from esbuild --define. `true` in dist/index.js, undefined in TS source. */
-declare var __WFW_BUNDLED__: boolean | undefined
+declare let __WFW_BUNDLED__: boolean | undefined
 
 const PUBLIC_PREFIX = 'WEIFUWU_PUBLIC_'
 
@@ -83,7 +83,9 @@ export function loadEnv(path?: string): void {
   let content: string
   try {
     content = readFileSync(filePath, 'utf-8')
-  } catch { return }
+  } catch {
+    return
+  }
 
   for (const line of content.split('\n')) {
     const trimmed = line.trim()
@@ -99,8 +101,10 @@ export function loadEnv(path?: string): void {
 
     let value = trimmed.slice(eqIdx + 1).trim()
 
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1)
     } else {
       // Strip inline comments: space before #, or # at start of value

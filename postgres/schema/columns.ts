@@ -98,22 +98,38 @@ export function serial(name: string) {
   return c
 }
 /** UUID column. */
-export function uuid(name: string) { return col<string>(name, 'UUID') }
+export function uuid(name: string) {
+  return col<string>(name, 'UUID')
+}
 /** TEXT column. */
-export function text(name: string) { return col<string>(name, 'TEXT') }
+export function text(name: string) {
+  return col<string>(name, 'TEXT')
+}
 /** INTEGER column. */
-export function integer(name: string) { return col<number>(name, 'INTEGER') }
+export function integer(name: string) {
+  return col<number>(name, 'INTEGER')
+}
 /** BOOLEAN column (exported as `boolean`). */
-export function boolean_(name: string) { return col<boolean>(name, 'BOOLEAN') }
+export function boolean_(name: string) {
+  return col<boolean>(name, 'BOOLEAN')
+}
 export { boolean_ as boolean }
 /** TIMESTAMPTZ column (timestamp with time zone). */
-export function timestamptz(name: string) { return col<string>(name, 'TIMESTAMPTZ') }
+export function timestamptz(name: string) {
+  return col<string>(name, 'TIMESTAMPTZ')
+}
 /** JSONB column (stores arbitrary JSON data). */
-export function jsonb<T = unknown>(name: string) { return col<T>(name, 'JSONB') }
+export function jsonb<T = unknown>(name: string) {
+  return col<T>(name, 'JSONB')
+}
 /** TEXT[] column (PostgreSQL array of text). */
-export function textArray(name: string) { return col<string[]>(name, 'TEXT[]') }
+export function textArray(name: string) {
+  return col<string[]>(name, 'TEXT[]')
+}
 /** Vector column for pgvector (embedding storage). Requires `dimensions`. */
-export function vector(name: string, dims: number) { return col<number[]>(name, `vector(${dims})`) }
+export function vector(name: string, dims: number) {
+  return col<number[]>(name, `vector(${dims})`)
+}
 
 export interface PartitionByDef {
   type: 'RANGE' | 'LIST' | 'HASH'
@@ -138,8 +154,12 @@ export function partitionBy(type: 'range' | 'list' | 'hash', column: string): Pa
  */
 export function timestamps() {
   return {
-    created_at: timestamptz('created_at').notNull().default(sql`NOW()`),
-    updated_at: timestamptz('updated_at').notNull().default(sql`NOW()`),
+    created_at: timestamptz('created_at')
+      .notNull()
+      .default(sql`NOW()`),
+    updated_at: timestamptz('updated_at')
+      .notNull()
+      .default(sql`NOW()`),
   } as const
 }
 

@@ -33,7 +33,7 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 201)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.ok(body.id)
     assert.equal(body.title, 'Test Session')
     assert.equal(body.agent_type, 'build')
@@ -42,43 +42,43 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
 
   it('lists sessions', async () => {
     await pg.sql`INSERT INTO "_opencode_sessions" ("title", "user_id") VALUES ('ListTest', 1)`
-    const res = await mod.handler()(
-      new Request('http://localhost/sessions'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await mod.handler()(new Request('http://localhost/sessions'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
-    const list = await res.json() as any[]
+    const list = (await res.json()) as any[]
     assert.ok(list.length >= 1)
     await pg.sql`DELETE FROM "_opencode_sessions"`
   })
 
   it('gets a session by id', async () => {
-    const [row] = await pg.sql`
+    const [row] = (await pg.sql`
       INSERT INTO "_opencode_sessions" ("title", "user_id") VALUES ('GetTest', 1) RETURNING *
-    ` as any
-    const res = await mod.handler()(
-      new Request(`http://localhost/sessions/${row.id}`),
-      { params: { id: String(row.id) }, query: {} } as any,
-    )
+    `) as any
+    const res = await mod.handler()(new Request(`http://localhost/sessions/${row.id}`), {
+      params: { id: String(row.id) },
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
-    const { session } = await res.json() as any
+    const { session } = (await res.json()) as any
     assert.equal(session.id, row.id)
     assert.equal(session.title, 'GetTest')
     await pg.sql`DELETE FROM "_opencode_sessions" WHERE id = ${row.id}`
   })
 
   it('deletes a session', async () => {
-    const [row] = await pg.sql`
+    const [row] = (await pg.sql`
       INSERT INTO "_opencode_sessions" ("title", "user_id") VALUES ('DeleteTest', 1) RETURNING *
-    ` as any
+    `) as any
     const res = await mod.handler()(
       new Request(`http://localhost/sessions/${row.id}`, { method: 'DELETE' }),
       { params: { id: String(row.id) }, query: {} } as any,
     )
     assert.equal(res.status, 204)
-    const [check] = await pg.sql`
+    const [check] = (await pg.sql`
       SELECT * FROM "_opencode_sessions" WHERE id = ${row.id}
-    ` as any
+    `) as any
     assert.equal(check.active, false)
   })
 
@@ -87,9 +87,7 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
     const prompt = buildSystemPrompt({
       workspace: '/test',
       model: 'deepseek-v4-flash',
-      skills: [
-        { name: 'test-skill', description: 'A test skill', content: 'Do something' },
-      ],
+      skills: [{ name: 'test-skill', description: 'A test skill', content: 'Do something' }],
       systemPrompt: 'Custom instruction',
     })
     assert.ok(prompt.includes('/test'))
@@ -99,7 +97,8 @@ describe('opencode', { skip: !DATABASE_URL }, () => {
   })
 
   it('checks permissions', async () => {
-    const { isCommandAllowed, isPathAllowed, isToolEnabled } = await import('../opencode/permissions.ts')
+    const { isCommandAllowed, isPathAllowed, isToolEnabled } =
+      await import('../opencode/permissions.ts')
 
     assert.equal(isCommandAllowed('ls -la'), true)
     assert.equal(isCommandAllowed('rm -rf /'), false)

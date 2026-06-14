@@ -45,7 +45,10 @@ app.post('/register', async (req) => {
       status: 302,
       headers: {
         location: '/register',
-        'set-cookie': 'flash=' + encodeURIComponent(JSON.stringify({ type: 'error', text: 'All fields are required' })) + '; Path=/; SameSite=Lax',
+        'set-cookie':
+          'flash=' +
+          encodeURIComponent(JSON.stringify({ type: 'error', text: 'All fields are required' })) +
+          '; Path=/; SameSite=Lax',
       },
     })
   }
@@ -58,7 +61,11 @@ app.post('/register', async (req) => {
         location: '/',
         'set-cookie': [
           `token=${result.token}; Path=/; SameSite=Lax; HttpOnly`,
-          'flash=' + encodeURIComponent(JSON.stringify({ type: 'success', text: 'Registered successfully!' })) + '; Path=/; SameSite=Lax',
+          'flash=' +
+            encodeURIComponent(
+              JSON.stringify({ type: 'success', text: 'Registered successfully!' }),
+            ) +
+            '; Path=/; SameSite=Lax',
         ],
       },
     })
@@ -67,7 +74,12 @@ app.post('/register', async (req) => {
       status: 302,
       headers: {
         location: '/register',
-        'set-cookie': 'flash=' + encodeURIComponent(JSON.stringify({ type: 'error', text: e.message || 'Registration failed' })) + '; Path=/; SameSite=Lax',
+        'set-cookie':
+          'flash=' +
+          encodeURIComponent(
+            JSON.stringify({ type: 'error', text: e.message || 'Registration failed' }),
+          ) +
+          '; Path=/; SameSite=Lax',
       },
     })
   }
@@ -84,7 +96,12 @@ app.post('/login', async (req) => {
       status: 302,
       headers: {
         location: '/login',
-        'set-cookie': 'flash=' + encodeURIComponent(JSON.stringify({ type: 'error', text: 'Email and password are required' })) + '; Path=/; SameSite=Lax',
+        'set-cookie':
+          'flash=' +
+          encodeURIComponent(
+            JSON.stringify({ type: 'error', text: 'Email and password are required' }),
+          ) +
+          '; Path=/; SameSite=Lax',
       },
     })
   }
@@ -97,7 +114,9 @@ app.post('/login', async (req) => {
         location: '/',
         'set-cookie': [
           `token=${result.token}; Path=/; SameSite=Lax; HttpOnly`,
-          'flash=' + encodeURIComponent(JSON.stringify({ type: 'success', text: 'Welcome back!' })) + '; Path=/; SameSite=Lax',
+          'flash=' +
+            encodeURIComponent(JSON.stringify({ type: 'success', text: 'Welcome back!' })) +
+            '; Path=/; SameSite=Lax',
         ],
       },
     })
@@ -106,7 +125,12 @@ app.post('/login', async (req) => {
       status: 302,
       headers: {
         location: '/login',
-        'set-cookie': 'flash=' + encodeURIComponent(JSON.stringify({ type: 'error', text: e.message || 'Invalid credentials' })) + '; Path=/; SameSite=Lax',
+        'set-cookie':
+          'flash=' +
+          encodeURIComponent(
+            JSON.stringify({ type: 'error', text: e.message || 'Invalid credentials' }),
+          ) +
+          '; Path=/; SameSite=Lax',
       },
     })
   }
@@ -179,7 +203,10 @@ app.post('/posts/create', async (req, ctx) => {
     INSERT INTO posts (title, content, author_id) VALUES (${title}, ${content}, ${ctx.user.id})
   `
 
-  return ctx.flash!.set({ type: 'success', text: ctx.i18n?.t('create.success') || 'Post published!' }, '/')
+  return ctx.flash!.set(
+    { type: 'success', text: ctx.i18n?.t('create.success') || 'Post published!' },
+    '/',
+  )
 })
 
 // ── Middleware: inject data into SSR pages ──────────────────────────────
@@ -201,7 +228,7 @@ app.use(async (req, ctx, next) => {
       ORDER BY p.created_at DESC
       LIMIT 10
     `
-    ctx.loaderData = { ...ctx.loaderData as any, posts: rows }
+    ctx.loaderData = { ...(ctx.loaderData as any), posts: rows }
   }
 
   // Post detail — load single post by ID
@@ -214,7 +241,7 @@ app.use(async (req, ctx, next) => {
       LEFT JOIN users u ON u.id = p.author_id
       WHERE p.id = ${detailMatch[1]}
     `
-    ctx.loaderData = { ...ctx.loaderData as any, post: row || null }
+    ctx.loaderData = { ...(ctx.loaderData as any), post: row || null }
   }
 
   return next(req, ctx)

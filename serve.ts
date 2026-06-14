@@ -56,7 +56,10 @@ export async function readBody(req: IncomingMessage, maxSize?: number): Promise<
   return Buffer.concat(chunks)
 }
 
-export function createRequest(req: IncomingMessage, body: Buffer): [Request, Record<string, string>] {
+export function createRequest(
+  req: IncomingMessage,
+  body: Buffer,
+): [Request, Record<string, string>] {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const query = Object.fromEntries(url.searchParams)
 
@@ -70,9 +73,8 @@ export function createRequest(req: IncomingMessage, body: Buffer): [Request, Rec
   const request = new Request(url.href, {
     method: req.method?.toUpperCase() ?? 'GET',
     headers,
-    body: (req.method !== 'GET' && req.method !== 'HEAD' && body.length > 0)
-      ? body as BodyInit
-      : null,
+    body:
+      req.method !== 'GET' && req.method !== 'HEAD' && body.length > 0 ? (body as BodyInit) : null,
   })
 
   return [request, query]
@@ -88,7 +90,9 @@ export async function sendResponse(
     if (key.toLowerCase() === 'set-cookie') {
       const existing = headers[key]
       headers[key] = existing
-        ? (Array.isArray(existing) ? [...existing, value] : [existing, value])
+        ? Array.isArray(existing)
+          ? [...existing, value]
+          : [existing, value]
         : value
     } else {
       headers[key] = value
@@ -125,7 +129,10 @@ export async function sendResponse(
   res.end()
 }
 
-export async function createTestServer(handler: Handler, options?: ServeOptions): Promise<{ server: Server; url: string }> {
+export async function createTestServer(
+  handler: Handler,
+  options?: ServeOptions,
+): Promise<{ server: Server; url: string }> {
   const server = serve(handler, { ...options, port: options?.port ?? 0, shutdown: false })
   await server.ready
   return { server, url: `http://localhost:${server.port}` }
@@ -136,8 +143,10 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   const hostname = options?.hostname ?? '0.0.0.0'
 
   const server = http.createServer(async (req, res) => {
-    const incomingTrace = (req.headers['x-trace-id'] as string) ||
-                          (req.headers['traceparent'] as string)?.split('-')[1] || null
+    const incomingTrace =
+      (req.headers['x-trace-id'] as string) ||
+      (req.headers['traceparent'] as string)?.split('-')[1] ||
+      null
 
     await runWithTrace(incomingTrace, async () => {
       try {
@@ -170,7 +179,9 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
   }
 
   let resolveReady!: () => void
-  const ready = new Promise<void>((r) => { resolveReady = r })
+  const ready = new Promise<void>((r) => {
+    resolveReady = r
+  })
 
   let shutdownHandler: (() => void) | null = null
 
@@ -207,11 +218,21 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
       return {
         stop: () => Promise.resolve(),
         ready,
-        get port() { return 0 },
-        get hostname() { return hostname },
+        get port() {
+          return 0
+        },
+        get hostname() {
+          return hostname
+        },
       }
     }
-    options.signal.addEventListener('abort', () => { server.close() }, { once: true })
+    options.signal.addEventListener(
+      'abort',
+      () => {
+        server.close()
+      },
+      { once: true },
+    )
   }
 
   server.on('error', (err) => {
@@ -230,7 +251,7 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     resolveReady()
 
     // Startup message — automatic in all environments
-    const displayHost = _cachedHostname === '0.0.0.0' ? 'localhost' : (_cachedHostname || 'localhost')
+    const displayHost = _cachedHostname === '0.0.0.0' ? 'localhost' : _cachedHostname || 'localhost'
     console.log(`weifuwu listening on http://${displayHost}:${_cachedPort}`)
   })
 
@@ -242,7 +263,10 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
         shutdownHandler = null
       }
       return new Promise<void>((resolve) => {
-        if (!server.listening) { resolve(); return }
+        if (!server.listening) {
+          resolve()
+          return
+        }
 
         // 1. Stop accepting new connections
         server.close()

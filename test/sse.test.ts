@@ -79,12 +79,14 @@ describe('sse', () => {
     }
     const res = createSSEStream(gen())
     const text = await res.text()
-    assert.match(text, /event: msg\ndata: {"type":"msg","text":"first"}\n\nevent: msg\ndata: {"type":"msg","text":"second"}\n\n/)
+    assert.match(
+      text,
+      /event: msg\ndata: {"type":"msg","text":"first"}\n\nevent: msg\ndata: {"type":"msg","text":"second"}\n\n/,
+    )
   })
 
   it('createSSEStream closes immediately for empty iterable', async () => {
-    async function* gen() {
-    }
+    async function* gen() {}
     const res = createSSEStream(gen())
     const text = await res.text()
     assert.equal(text, '')

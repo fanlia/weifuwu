@@ -2,7 +2,12 @@
   "nav": { "home": "首頁", "docs": "文件", "api": "API" },
   "hero": { "title": "更快構建", "subtitle": "一個現代的 Node.js Web 框架" },
   "cta": { "start": "開始使用", "learn": "了解更多" },
-  "demo": { "title": "WebSocket 演示", "placeholder": "輸入訊息...", "send": "發送", "echo": "回聲" },
+  "demo": {
+    "title": "WebSocket 演示",
+    "placeholder": "輸入訊息...",
+    "send": "發送",
+    "echo": "回聲"
+  },
   "ws": { "connected": "已連線", "connecting": "連線中...", "disconnected": "未連線" },
   "footer": { "privacy": "隱私", "terms": "條款" }
 }

@@ -46,7 +46,9 @@ function defaultKey(_req: Request, _ctx: Context): string {
  * app.use(rateLimit({ store: 'redis', redis: new Redis(), max: 100 }))
  * ```
  */
-export function rateLimit(options?: RateLimitOptions): Middleware<Context, Context> & { close: () => void; stop?: () => void } {
+export function rateLimit(
+  options?: RateLimitOptions,
+): Middleware<Context, Context> & { close: () => void; stop?: () => void } {
   const max = options?.max ?? 100
   const window = options?.window ?? 60_000
   const getKey = options?.key ?? defaultKey
@@ -64,23 +66,27 @@ export function rateLimit(options?: RateLimitOptions): Middleware<Context, Conte
   const MAX_ENTRIES = 10000
   const hits = new Map<string, { count: number; reset: number }>()
 
-  const interval = storeType === 'memory'
-    ? setInterval(() => {
-        const now = Date.now()
-        for (const [key, entry] of hits) {
-          if (entry.reset < now) hits.delete(key)
-        }
-        if (hits.size > MAX_ENTRIES) {
-          const toDelete = hits.size - MAX_ENTRIES
-          let deleted = 0
-          for (const key of hits.keys()) {
-            if (deleted >= toDelete) break
-            hits.delete(key)
-            deleted++
-          }
-        }
-      }, Math.min(window, 30000))
-    : null
+  const interval =
+    storeType === 'memory'
+      ? setInterval(
+          () => {
+            const now = Date.now()
+            for (const [key, entry] of hits) {
+              if (entry.reset < now) hits.delete(key)
+            }
+            if (hits.size > MAX_ENTRIES) {
+              const toDelete = hits.size - MAX_ENTRIES
+              let deleted = 0
+              for (const key of hits.keys()) {
+                if (deleted >= toDelete) break
+                hits.delete(key)
+                deleted++
+              }
+            }
+          },
+          Math.min(window, 30000),
+        )
+      : null
 
   if (interval?.unref) interval.unref()
 
@@ -100,7 +106,7 @@ export function rateLimit(options?: RateLimitOptions): Middleware<Context, Conte
     }
 
     // Memory store
-    let entry = hits.get(key)
+    const entry = hits.get(key)
     if (!entry || entry.reset < now) {
       hits.set(key, { count: 1, reset: now + window })
       return { count: 1, reset: now + window }
@@ -136,7 +142,7 @@ export function rateLimit(options?: RateLimitOptions): Middleware<Context, Conte
     if (interval) clearInterval(interval)
     hits.clear()
   }
-  ;(mw as any).stop = mw.close  // backward-compatible alias
+  ;(mw as any).stop = mw.close // backward-compatible alias
   ;(mw as any).stats = () => ({
     store: storeType,
     entries: storeType === 'memory' ? hits.size : undefined,
@@ -145,7 +151,12 @@ export function rateLimit(options?: RateLimitOptions): Middleware<Context, Conte
   return mw
 }
 
-function addRateLimitHeaders(res: Response, limit: number, remaining: number, reset: number): Response {
+function addRateLimitHeaders(
+  res: Response,
+  limit: number,
+  remaining: number,
+  reset: number,
+): Response {
   const headers = new Headers(res.headers)
   headers.set('X-RateLimit-Limit', String(limit))
   headers.set('X-RateLimit-Remaining', String(remaining))

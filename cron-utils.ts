@@ -69,11 +69,11 @@ export function parseField(field: string, min: number, max: number): Set<number>
 // ── Parse full 5-field pattern ─────────────────────────────────────────────
 
 const FIELD_RANGES: [number, number][] = [
-  [0, 59],  // minute
-  [0, 23],  // hour
-  [1, 31],  // day of month
-  [1, 12],  // month
-  [0, 6],   // day of week (0=Sunday)
+  [0, 59], // minute
+  [0, 23], // hour
+  [1, 31], // day of month
+  [1, 12], // month
+  [0, 6], // day of week (0=Sunday)
 ]
 
 /**
@@ -92,9 +92,7 @@ const FIELD_RANGES: [number, number][] = [
 export function parsePattern(pattern: string): Set<number>[] {
   const fields = pattern.trim().split(/\s+/)
   if (fields.length !== 5) {
-    throw new Error(
-      `Invalid cron pattern "${pattern}": expected 5 fields, got ${fields.length}`,
-    )
+    throw new Error(`Invalid cron pattern "${pattern}": expected 5 fields, got ${fields.length}`)
   }
   return fields.map((f, i) => parseField(f, FIELD_RANGES[i][0], FIELD_RANGES[i][1]))
 }
@@ -144,7 +142,7 @@ export function matches(fields: Set<number>[], date: Date): boolean {
 export function cronNext(expr: string, from: Date = new Date()): number {
   const fields = parsePattern(expr)
 
-  let candidate = new Date(from.getTime() + 60_000)
+  const candidate = new Date(from.getTime() + 60_000)
   candidate.setSeconds(0, 0)
 
   // Scan up to 1 year ahead

@@ -10,10 +10,10 @@ describe('ssr({dir})', () => {
   it('renders page from directory', async () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /<!DOCTYPE html>/)
@@ -22,10 +22,10 @@ describe('ssr({dir})', () => {
   it('injects __WEIFUWU_CTX', async () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     const html = await res.text()
     assert.match(html, /__WEIFUWU_CTX/)
   })
@@ -33,20 +33,20 @@ describe('ssr({dir})', () => {
   it('serves client bundle', async () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
-    const res1 = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res1 = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     const html = await res1.text()
     // New format: inline <script type="module"> with dynamic import
     const match = html.match(/\/__ssr\/([a-f0-9]+)\.js/)
     assert.ok(match, 'expected __ssr/[hash].js in HTML')
 
     const bundleKey = '/__ssr/' + match![1] + '.js'
-    const res2 = await app.handler()(
-      new Request(`http://localhost${bundleKey}`),
-      { params: {}, query: {} } as any,
-    )
+    const res2 = await app.handler()(new Request(`http://localhost${bundleKey}`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res2.status, 200)
     const js = await res2.text()
     assert.match(js, /React|createElement|export/)
@@ -59,10 +59,10 @@ describe('ssr({dir})', () => {
       return next(req, ctx)
     })
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     const html = await res.text()
     assert.match(html, /Hello/)
   })
@@ -72,10 +72,10 @@ describe('layout()', () => {
   it('wraps page component', async () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/posts' }))
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /Layout-Header/)
@@ -85,7 +85,10 @@ describe('layout()', () => {
     const app = new Router()
     app.use(layout('./test/fixtures/error/no-default-error.tsx'))
     app.get('/page', () => new Response('ok'))
-    const res = await app.handler()(new Request('http://localhost/page'), { params: {}, query: {} } as any)
+    const res = await app.handler()(new Request('http://localhost/page'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 500)
   })
 })
@@ -94,10 +97,10 @@ describe('ssr e2e', () => {
   it('returns 404 for unmatched route without not-found.tsx', async () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
-    const res = await app.handler()(
-      new Request('http://localhost/nonexistent'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/nonexistent'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
   })
 
@@ -107,10 +110,10 @@ describe('ssr e2e', () => {
     // So we verify that the router correctly returns 404 status
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
-    const res = await app.handler()(
-      new Request('http://localhost/unknown-path'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/unknown-path'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
   })
 
@@ -118,10 +121,10 @@ describe('ssr e2e', () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/params' }))
 
-    const res = await app.handler()(
-      new Request('http://localhost/42'),
-      { params: { id: '42', '*': '42' }, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/42'), {
+      params: { id: '42', '*': '42' },
+      query: {},
+    } as any)
 
     assert.equal(res.status, 200)
     const html = await res.text()
@@ -133,10 +136,10 @@ describe('ssr e2e', () => {
   it('serves vendor bundle at /__wfw/v/bundle', async () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
-    const res = await app.handler()(
-      new Request('http://localhost/__wfw/v/bundle'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/__wfw/v/bundle'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     const js = await res.text()
     assert.match(js, /React/)
@@ -157,10 +160,10 @@ describe('ssr e2e', () => {
   it('renders HTML with hydration script', async () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     const html = await res.text()
     // Verify hydration infrastructure: importmap + type="module" script
     assert.match(html, /importmap/)

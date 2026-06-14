@@ -93,12 +93,24 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
       targetPort = old.currentPort === ac.ports[0] ? ac.ports[1] : ac.ports[0]
     }
 
-    const mp = await forkAndCheck(name, appDir, ac.entry!, targetPort, ac.env, log, ac.healthEndpoint)
+    const mp = await forkAndCheck(
+      name,
+      appDir,
+      ac.entry!,
+      targetPort,
+      ac.env,
+      log,
+      ac.healthEndpoint,
+    )
     if (!mp) {
       log('[deploy] new process failed to start, keeping old running')
       if (old?.process) apps.set(name, old)
       else {
-        setAppRuntime(name, ac, logs, { status: 'error', port: targetPort, error: 'failed to start' })
+        setAppRuntime(name, ac, logs, {
+          status: 'error',
+          port: targetPort,
+          error: 'failed to start',
+        })
       }
       return
     }
@@ -168,7 +180,9 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
   const getPort = (name: string): number | undefined => apps.get(name)?.currentPort
   const gw = createGateway(config, getPort)
   const managerRouter = createManager(config, apps, {
-    deployApp: async (name) => { await initApp(name) },
+    deployApp: async (name) => {
+      await initApp(name)
+    },
     reloadConfig: async () => {
       throw new Error('reload not supported, restart the deploy process')
     },
@@ -203,10 +217,14 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
     ready: httpServer.ready,
     url: `http://localhost:${config.port}/`,
     apps: {
-      list: () => Array.from(apps.values()).map(a => a.status),
+      list: () => Array.from(apps.values()).map((a) => a.status),
       status: (name) => apps.get(name)?.status,
-      deploy: async (name) => { await initApp(name) },
-      restart: async (name) => { await initApp(name) },
+      deploy: async (name) => {
+        await initApp(name)
+      },
+      restart: async (name) => {
+        await initApp(name)
+      },
       stop: async (name) => {
         const app = apps.get(name)
         if (app?.restartTimer) clearTimeout(app.restartTimer)
@@ -216,7 +234,9 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
           app.status = { ...app.status, status: 'stopped', pid: undefined }
         }
       },
-      start: async (name) => { await initApp(name) },
+      start: async (name) => {
+        await initApp(name)
+      },
     },
   }
 }

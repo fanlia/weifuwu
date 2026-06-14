@@ -10,16 +10,22 @@ describe('i18n', () => {
   before(() => {
     rmSync(tmpDir, { recursive: true, force: true })
     mkdirSync(tmpDir, { recursive: true })
-    writeFileSync(resolve(tmpDir, 'en.json'), JSON.stringify({
-      greeting: 'Hello',
-      farewell: 'Goodbye',
-      nested: { key: 'Nested value' },
-      with_param: 'Hello, {name}!',
-    }))
-    writeFileSync(resolve(tmpDir, 'zh.json'), JSON.stringify({
-      greeting: '你好',
-      farewell: '再见',
-    }))
+    writeFileSync(
+      resolve(tmpDir, 'en.json'),
+      JSON.stringify({
+        greeting: 'Hello',
+        farewell: 'Goodbye',
+        nested: { key: 'Nested value' },
+        with_param: 'Hello, {name}!',
+      }),
+    )
+    writeFileSync(
+      resolve(tmpDir, 'zh.json'),
+      JSON.stringify({
+        greeting: '你好',
+        farewell: '再见',
+      }),
+    )
   })
 
   after(() => {
@@ -36,7 +42,10 @@ describe('i18n', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -50,7 +59,10 @@ describe('i18n', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -63,7 +75,10 @@ describe('i18n', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -76,7 +91,10 @@ describe('i18n', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -89,7 +107,10 @@ describe('i18n', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -102,7 +123,10 @@ describe('i18n', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -170,7 +194,7 @@ describe('i18n', () => {
     assert.equal(res.status, 302)
     assert.equal(res.headers.get('location'), '/settings')
     const cookies = res.headers.getSetCookie()
-    assert.ok(cookies.some(c => c.startsWith('locale=zh')))
+    assert.ok(cookies.some((c) => c.startsWith('locale=zh')))
   })
 
   it('__lang/:value returns JSON when Accept includes application/json', async () => {
@@ -200,42 +224,55 @@ describe('i18n', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
   it('supports inline messages (no filesystem)', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({
-      default: 'de',
-      messages: {
-        de: { hello: 'Hallo' },
-        fr: { hello: 'Bonjour' },
-      },
-    }).middleware())
+    r.use(
+      i18n({
+        default: 'de',
+        messages: {
+          de: { hello: 'Hallo' },
+          fr: { hello: 'Bonjour' },
+        },
+      }).middleware(),
+    )
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('hello'), 'Hallo')
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
   it('inline messages override filesystem', async () => {
     const { i18n } = await import('../i18n.ts')
     const r = new Router()
-    r.use(i18n({
-      dir: tmpDir,
-      messages: { en: { greeting: 'Overridden' } },
-    }).middleware())
+    r.use(
+      i18n({
+        dir: tmpDir,
+        messages: { en: { greeting: 'Overridden' } },
+      }).middleware(),
+    )
     r.get('/', (_req, ctx) => {
       assert.equal(ctx.i18n?.t('greeting'), 'Overridden')
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -247,14 +284,14 @@ describe('i18n', () => {
       return ctx.i18n?.set?.('fr', '/home') ?? new Response('no i18n', { status: 500 })
     })
 
-    const res = await r.handler()(
-      new Request('http://localhost/set-locale'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await r.handler()(new Request('http://localhost/set-locale'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 302)
     assert.equal(res.headers.get('location'), '/home')
     const cookies = res.headers.getSetCookie()
-    assert.ok(cookies.some(c => c.startsWith('locale=fr')))
+    assert.ok(cookies.some((c) => c.startsWith('locale=fr')))
   })
 
   it('custom cookie name', async () => {

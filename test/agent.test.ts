@@ -35,7 +35,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 201)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.ok(body.id)
     assert.equal(body.name, 'Test')
     assert.equal(body.type, 'chat')
@@ -45,18 +45,19 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   it('lists agents', async () => {
     await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('ListTest', 'chat', 1)`
     const r = a
-    const res = await r.handler()(
-      new Request('http://localhost/agents'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await r.handler()(new Request('http://localhost/agents'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
-    const list = await res.json() as any[]
+    const list = (await res.json()) as any[]
     assert.ok(list.length >= 1)
     await pg.sql`DELETE FROM "_agents"`
   })
 
   it('runs an agent without stream', async () => {
-    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('RunTest', 'chat', 1) RETURNING *`
+    const [ag] =
+      await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('RunTest', 'chat', 1) RETURNING *`
     const result = await a.run((ag as any).id, { input: 'hello' })
     if ('output' in result) {
       assert.ok(result.output.length > 0)
@@ -66,7 +67,8 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   it('runs an agent with stream', async () => {
-    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('StreamTest', 'chat', 1) RETURNING *`
+    const [ag] =
+      await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('StreamTest', 'chat', 1) RETURNING *`
     const result = await a.run((ag as any).id, { input: 'hello', stream: true })
     if ('stream' in result) {
       const reader = result.stream.getReader()
@@ -78,15 +80,21 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   it('adds and searches knowledge', async () => {
-    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "system_prompt", "owner_id") VALUES ('KnowTest', 'chat', '你是一个测试助手，基于知识库回答用户问题。', 1) RETURNING *`
+    const [ag] =
+      await pg.sql`INSERT INTO "_agents" ("name", "type", "system_prompt", "owner_id") VALUES ('KnowTest', 'chat', '你是一个测试助手，基于知识库回答用户问题。', 1) RETURNING *`
     const aid = (ag as any).id
 
-    const doc = await a.addKnowledge(aid, '测试文档', 'RAG（检索增强生成）是一种结合信息检索和文本生成的技术。它通过从知识库中检索相关文档片段，然后提供给语言模型生成回答。')
+    const doc = await a.addKnowledge(
+      aid,
+      '测试文档',
+      'RAG（检索增强生成）是一种结合信息检索和文本生成的技术。它通过从知识库中检索相关文档片段，然后提供给语言模型生成回答。',
+    )
     assert.ok(doc.id)
     assert.equal(doc.title, '测试文档')
 
     // Verify the doc exists in DB
-    const [stored] = await pg.sql`SELECT id, content FROM "_knowledge_documents" WHERE id = ${doc.id} LIMIT 1`
+    const [stored] =
+      await pg.sql`SELECT id, content FROM "_knowledge_documents" WHERE id = ${doc.id} LIMIT 1`
     assert.ok(stored)
     assert.ok((stored as any).content.length > 0)
 
@@ -95,7 +103,8 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   it('deletes knowledge doc with correct agent ownership', async () => {
-    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('KnowDelTest', 'chat', 1) RETURNING *`
+    const [ag] =
+      await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('KnowDelTest', 'chat', 1) RETURNING *`
     const agentId = (ag as any).id
 
     const r = a
@@ -108,15 +117,18 @@ describe('agent', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {}, user: { id: 1 } } as any,
     )
     assert.equal(createRes.status, 201)
-    const created = await createRes.json() as any
+    const created = (await createRes.json()) as any
 
     const delRes = await r.handler()(
-      new Request(`http://localhost/agents/${agentId}/knowledge/${created.id}`, { method: 'DELETE' }),
+      new Request(`http://localhost/agents/${agentId}/knowledge/${created.id}`, {
+        method: 'DELETE',
+      }),
       { params: {}, query: {} } as any,
     )
     assert.equal(delRes.status, 200)
 
-    const [check] = await pg.sql`SELECT id FROM "_knowledge_documents" WHERE id = ${created.id}` as any[]
+    const [check] =
+      (await pg.sql`SELECT id FROM "_knowledge_documents" WHERE id = ${created.id}`) as any[]
     assert.equal(check, undefined)
 
     await pg.sql`DELETE FROM "_knowledge_documents" WHERE agent_id = ${agentId}`
@@ -124,7 +136,8 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   it('rejects knowledge delete for wrong agent', async () => {
-    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('WrongAgent', 'chat', 1) RETURNING *`
+    const [ag] =
+      await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('WrongAgent', 'chat', 1) RETURNING *`
     const agentId = (ag as any).id
 
     const r = a
@@ -137,15 +150,18 @@ describe('agent', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {}, user: { id: 1 } } as any,
     )
     assert.equal(createRes.status, 201)
-    const created = await createRes.json() as any
+    const created = (await createRes.json()) as any
 
     const delRes = await r.handler()(
-      new Request(`http://localhost/agents/${agentId + 999}/knowledge/${created.id}`, { method: 'DELETE' }),
+      new Request(`http://localhost/agents/${agentId + 999}/knowledge/${created.id}`, {
+        method: 'DELETE',
+      }),
       { params: {}, query: {} } as any,
     )
     assert.equal(delRes.status, 200)
 
-    const [check] = await pg.sql`SELECT id FROM "_knowledge_documents" WHERE id = ${created.id}` as any[]
+    const [check] =
+      (await pg.sql`SELECT id FROM "_knowledge_documents" WHERE id = ${created.id}`) as any[]
     assert.ok(check, 'doc should still exist')
 
     await pg.sql`DELETE FROM "_knowledge_documents" WHERE agent_id = ${agentId}`
@@ -153,7 +169,8 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   it('returns run summary for an agent', async () => {
-    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('SummaryTest', 'chat', 1) RETURNING *`
+    const [ag] =
+      await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('SummaryTest', 'chat', 1) RETURNING *`
     const agentId = (ag as any).id
 
     // Insert some synthetic runs
@@ -167,7 +184,7 @@ describe('agent', { skip: !DATABASE_URL }, () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
-    const summary = await res.json() as any
+    const summary = (await res.json()) as any
     assert.equal(summary.total, 3)
     assert.equal(summary.success, 2)
     assert.equal(summary.error, 1)
@@ -179,19 +196,20 @@ describe('agent', { skip: !DATABASE_URL }, () => {
   })
 
   it('lists runs for an agent', async () => {
-    const [ag] = await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('RunListTest', 'chat', 1) RETURNING *`
+    const [ag] =
+      await pg.sql`INSERT INTO "_agents" ("name", "type", "owner_id") VALUES ('RunListTest', 'chat', 1) RETURNING *`
     const agentId = (ag as any).id
 
     await pg.sql`INSERT INTO "_agent_runs" ("agent_id", "input", "output", "status") VALUES (${agentId}, 'q1', 'a1', 'success')`
     await pg.sql`INSERT INTO "_agent_runs" ("agent_id", "input", "output", "status") VALUES (${agentId}, 'q2', 'a2', 'success')`
 
     const r = a
-    const res = await r.handler()(
-      new Request(`http://localhost/agents/${agentId}/runs?days=30`),
-      { params: {}, query: {} } as any,
-    )
+    const res = await r.handler()(new Request(`http://localhost/agents/${agentId}/runs?days=30`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
-    const list = await res.json() as any[]
+    const list = (await res.json()) as any[]
     assert.ok(list.length >= 2)
 
     await pg.sql`DELETE FROM "_agent_runs" WHERE agent_id = ${agentId}`
@@ -200,10 +218,10 @@ describe('agent', { skip: !DATABASE_URL }, () => {
 
   it('rejects summary for non-existent agent', async () => {
     const r = a
-    const res = await r.handler()(
-      new Request('http://localhost/agents/99999/runs/summary'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await r.handler()(new Request('http://localhost/agents/99999/runs/summary'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
   })
 })

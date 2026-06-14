@@ -7,12 +7,16 @@ import type { ToolContext } from './index.ts'
 
 export function createGrepTool(ctx: ToolContext) {
   return tool({
-    description: 'Search file contents using regex. Supports file type filtering and context lines.',
+    description:
+      'Search file contents using regex. Supports file type filtering and context lines.',
     inputSchema: z.object({
       pattern: z.string().describe('The regex pattern to search for'),
       include: z.string().optional().describe('File glob filter (e.g. "*.ts")'),
       path: z.string().optional().describe('Subdirectory relative to workspace'),
-      context: z.number().default(0).describe('Number of context lines before and after each match'),
+      context: z
+        .number()
+        .default(0)
+        .describe('Number of context lines before and after each match'),
     }),
     execute: async ({ pattern, include, path, context }) => {
       const searchDir = path ? resolve(ctx.workspace, path) : ctx.workspace
@@ -33,7 +37,11 @@ export function createGrepTool(ctx: ToolContext) {
           stdout = execFileSync('grep', args, { timeout: 15000, maxBuffer: 1024 * 1024 }).toString()
         }
         const lines = stdout.split('\n').filter(Boolean)
-        return { matches: lines.length, results: lines.slice(0, 200), truncated: lines.length > 200 }
+        return {
+          matches: lines.length,
+          results: lines.slice(0, 200),
+          truncated: lines.length > 200,
+        }
       } catch (e: any) {
         if (e.status === 1) {
           return { matches: 0, results: [], truncated: false }

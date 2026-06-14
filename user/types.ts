@@ -54,7 +54,10 @@ export interface OAuthProviderConfig {
    * Required when any of `authUrl`/`tokenUrl`/`userUrl` is custom.
    * Receives the raw response from `userUrl` + the access token.
    */
-  parseUser?: (data: any, accessToken: string) => { id: string; email: string; name: string; avatarUrl?: string }
+  parseUser?: (
+    data: any,
+    accessToken: string,
+  ) => { id: string; email: string; name: string; avatarUrl?: string }
 }
 
 /** Options for {@link user}. */

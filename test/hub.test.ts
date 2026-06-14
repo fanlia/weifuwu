@@ -31,7 +31,8 @@ describe('createHub', () => {
     const hub = createHub()
     const ws1 = { send: () => c1++ } as any
     const ws2 = { send: () => c2++ } as any
-    let c1 = 0, c2 = 0
+    let c1 = 0,
+      c2 = 0
 
     hub.join('ch', ws1)
     hub.join('ch', ws2)
@@ -74,7 +75,12 @@ describe('createHub', () => {
   it('broadcast handles ws.send failure gracefully', () => {
     const hub = createHub()
     let badSend = 0
-    const badWs = { send: () => { badSend++; throw new Error('broken') } } as any
+    const badWs = {
+      send: () => {
+        badSend++
+        throw new Error('broken')
+      },
+    } as any
     const goodWs = { send: () => goodSend++ } as any
     let goodSend = 0
 
@@ -132,11 +138,11 @@ describe('createHub', () => {
       hubB.join('room:1', wsB)
 
       // Wait for Redis subscription to register
-      await new Promise(r => setTimeout(r, 100))
+      await new Promise((r) => setTimeout(r, 100))
 
       hubA.broadcast('room:1', { text: 'cross-process' })
 
-      await new Promise(r => setTimeout(r, 100))
+      await new Promise((r) => setTimeout(r, 100))
 
       assert.equal(received.length, 1)
       assert.equal(JSON.parse(received[0]).text, 'cross-process')
@@ -152,11 +158,11 @@ describe('createHub', () => {
       const ws = { send: (d: string) => received.push(d) } as any as WebSocket
       hub.join('dup', ws)
 
-      await new Promise(r => setTimeout(r, 100))
+      await new Promise((r) => setTimeout(r, 100))
 
       hub.broadcast('dup', { n: 1 })
 
-      await new Promise(r => setTimeout(r, 100))
+      await new Promise((r) => setTimeout(r, 100))
 
       // Local broadcast + Redis forward = exactly 1 (not 2)
       assert.equal(received.length, 1)
@@ -171,10 +177,10 @@ describe('createHub', () => {
       const received: string[] = []
       const ws = { send: (d: string) => received.push(d) } as any as WebSocket
       hubB.join('room:1', ws)
-      await new Promise(r => setTimeout(r, 100))
+      await new Promise((r) => setTimeout(r, 100))
 
       hubA.broadcast('room:1', { text: 'prefixed' })
-      await new Promise(r => setTimeout(r, 100))
+      await new Promise((r) => setTimeout(r, 100))
 
       assert.equal(received.length, 1)
 

@@ -26,27 +26,38 @@ describeRedis('cache with RedisCache', () => {
   it('sets and reads cache entries', async () => {
     let count = 0
     const c = cache({ store, ttl: 60_000 })
-    const r = new Router()
-      .use(c)
-      .get('/a1', () => { count++; return Response.json({ count }) })
+    const r = new Router().use(c).get('/a1', () => {
+      count++
+      return Response.json({ count })
+    })
 
     await r.handler()(new Request('http://localhost/a1'), { params: {}, query: {} } as any)
-    const res = await r.handler()(new Request('http://localhost/a1'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/a1'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.headers.get('X-Cache'), 'HIT')
     assert.equal(count, 1)
   })
 
   it('invalidate(tag) clears tagged entries from Redis', async () => {
     const c = cache({
-      store, ttl: 60_000,
-      tag: (req) => req.url.includes('b-users') ? 'b-users' : undefined,
+      store,
+      ttl: 60_000,
+      tag: (req) => (req.url.includes('b-users') ? 'b-users' : undefined),
     })
     let userCount = 0
     let postCount = 0
     const r = new Router()
       .use(c)
-      .get('/b-users', () => { userCount++; return Response.json({}) })
-      .get('/b-posts', () => { postCount++; return Response.json({}) })
+      .get('/b-users', () => {
+        userCount++
+        return Response.json({})
+      })
+      .get('/b-posts', () => {
+        postCount++
+        return Response.json({})
+      })
 
     await r.handler()(new Request('http://localhost/b-users'), { params: {}, query: {} } as any)
     await r.handler()(new Request('http://localhost/b-posts'), { params: {}, query: {} } as any)
@@ -66,29 +77,37 @@ describeRedis('cache with RedisCache', () => {
   it('flush() clears all Redis cache entries', async () => {
     const c = cache({ store, ttl: 60_000 })
     let count = 0
-    const r = new Router()
-      .use(c)
-      .get('/c-data', () => { count++; return Response.json({ count }) })
+    const r = new Router().use(c).get('/c-data', () => {
+      count++
+      return Response.json({ count })
+    })
 
     await r.handler()(new Request('http://localhost/c-data'), { params: {}, query: {} } as any)
     assert.equal(count, 1)
     await c.flush()
-    const res = await r.handler()(new Request('http://localhost/c-data'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/c-data'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.headers.get('X-Cache'), null)
-    assert.equal((await res.json() as any).count, 2)
+    assert.equal(((await res.json()) as any).count, 2)
   })
 
   it('TTL expires naturally in Redis', async () => {
     const c = cache({ store, ttl: 100 })
     let count = 0
-    const r = new Router()
-      .use(c)
-      .get('/d-data', () => { count++; return Response.json({ count }) })
+    const r = new Router().use(c).get('/d-data', () => {
+      count++
+      return Response.json({ count })
+    })
 
     await r.handler()(new Request('http://localhost/d-data'), { params: {}, query: {} } as any)
-    await new Promise(r => setTimeout(r, 150))
-    const res = await r.handler()(new Request('http://localhost/d-data'), { params: {}, query: {} } as any)
-    assert.equal((await res.json() as any).count, 2)
+    await new Promise((r) => setTimeout(r, 150))
+    const res = await r.handler()(new Request('http://localhost/d-data'), {
+      params: {},
+      query: {},
+    } as any)
+    assert.equal(((await res.json()) as any).count, 2)
   })
 
   it('different URLs have separate entries in Redis', async () => {
@@ -97,8 +116,14 @@ describeRedis('cache with RedisCache', () => {
     const c = cache({ store, ttl: 60_000 })
     const r = new Router()
       .use(c)
-      .get('/e-a', () => { aCount++; return Response.json({}) })
-      .get('/e-b', () => { bCount++; return Response.json({}) })
+      .get('/e-a', () => {
+        aCount++
+        return Response.json({})
+      })
+      .get('/e-b', () => {
+        bCount++
+        return Response.json({})
+      })
 
     await r.handler()(new Request('http://localhost/e-a'), { params: {}, query: {} } as any)
     await r.handler()(new Request('http://localhost/e-b'), { params: {}, query: {} } as any)

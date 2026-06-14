@@ -15,7 +15,7 @@ export function forkApp(opts: {
   const child = fork(opts.entry, [], {
     cwd: opts.cwd,
     env: {
-      ...process.env as Record<string, string>,
+      ...(process.env as Record<string, string>),
       ...opts.env,
       PORT: String(opts.port),
     },

@@ -8,8 +8,7 @@ function handler(text = 'ok') {
 }
 
 function userHandler() {
-  return (req: Request, ctx: { user?: unknown }) =>
-    Response.json({ user: ctx.user })
+  return (req: Request, ctx: { user?: unknown }) => Response.json({ user: ctx.user })
 }
 
 // ── Static token auth ────────────────────────────────────────────────────────
@@ -139,7 +138,7 @@ describe('user() — custom verify', () => {
       .getReq('/admin')
       .header('Authorization', 'Bearer token')
       .send()
-    const data = await res.json() as Record<string, unknown>
+    const data = (await res.json()) as Record<string, unknown>
     assert.deepEqual(data.user, { sub: 'user-1', role: 'admin' })
   })
 
@@ -161,7 +160,7 @@ describe('user() — custom verify', () => {
       .header('Authorization', 'Bearer token')
       .send()
     assert.equal(res.status, 200)
-    const data = await res.json() as Record<string, unknown>
+    const data = (await res.json()) as Record<string, unknown>
     assert.deepEqual(data.user, { sub: 'u1' })
   })
 
@@ -179,9 +178,13 @@ describe('user() — custom verify', () => {
 
 describe('user() — proxy auth', () => {
   it('2xx response passes auth', async () => {
-    const proxy = serve(() => new Response(JSON.stringify({ sub: 'u1' }), {
-      headers: { 'content-type': 'application/json' },
-    }), { port: 0 })
+    const proxy = serve(
+      () =>
+        new Response(JSON.stringify({ sub: 'u1' }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+      { port: 0 },
+    )
     await proxy.ready
     const proxyUrl = `http://localhost:${proxy.port}/validate`
 
@@ -191,7 +194,7 @@ describe('user() — proxy auth', () => {
       .header('Authorization', 'Bearer valid')
       .send()
     assert.equal(res.status, 200)
-    const data = await res.json() as Record<string, unknown>
+    const data = (await res.json()) as Record<string, unknown>
     assert.deepEqual(data.user, { sub: 'u1' })
     proxy.stop()
   })
@@ -212,10 +215,13 @@ describe('user() — proxy auth', () => {
 
   it('forwards Authorization header', async () => {
     let receivedAuth: string | null = null
-    const proxy = serve((req) => {
-      receivedAuth = req.headers.get('Authorization')
-      return new Response('ok')
-    }, { port: 0 })
+    const proxy = serve(
+      (req) => {
+        receivedAuth = req.headers.get('Authorization')
+        return new Response('ok')
+      },
+      { port: 0 },
+    )
     await proxy.ready
     const proxyUrl = `http://localhost:${proxy.port}/validate`
 
@@ -235,14 +241,15 @@ describe('user() — session auth', () => {
   it('authenticates via ctx.session.userId (no DB)', async () => {
     const app = testApp()
       .use((req, ctx: any, next) => {
-        ctx.session = { userId: 1 }; return next(req, ctx)
+        ctx.session = { userId: 1 }
+        return next(req, ctx)
       })
       .use(user({}).middleware())
       .get('/me', (req, ctx: any) => Response.json(ctx.user))
 
     const res = await app.getReq('/me').send()
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.equal(body.id, 1)
   })
 
@@ -252,16 +259,19 @@ describe('user() — session auth', () => {
 
     const app = testApp()
       .use((req, ctx: any, next) => {
-        ctx.session = { userId: 1 }; return next(req, ctx)
+        ctx.session = { userId: 1 }
+        return next(req, ctx)
       })
-      .use(user({
-        resolveUser: (userId: any) => userDb.get(userId) ?? null,
-      }).middleware())
+      .use(
+        user({
+          resolveUser: (userId: any) => userDb.get(userId) ?? null,
+        }).middleware(),
+      )
       .get('/me', (req, ctx: any) => Response.json(ctx.user))
 
     const res = await app.getReq('/me').send()
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.equal(body.id, 1)
     assert.equal(body.email, 'alice@test.com')
   })
@@ -273,13 +283,17 @@ describe('user() — session auth', () => {
       .use((req, ctx: any, next) => {
         ctx.session = {
           userId: 999,
-          destroy: () => { destroyed = true },
+          destroy: () => {
+            destroyed = true
+          },
         }
         return next(req, ctx)
       })
-      .use(user({
-        resolveUser: () => null,
-      }).middleware())
+      .use(
+        user({
+          resolveUser: () => null,
+        }).middleware(),
+      )
       .get('/me', (req, ctx: any) => Response.json(ctx.user))
 
     const res = await app.getReq('/me').send()
@@ -290,16 +304,15 @@ describe('user() — session auth', () => {
   it('session takes priority over header when both present', async () => {
     const app = testApp()
       .use((req, ctx: any, next) => {
-        ctx.session = { userId: 1 }; return next(req, ctx)
+        ctx.session = { userId: 1 }
+        return next(req, ctx)
       })
       .use(user({ tokens: ['wrong-token'] }).middleware())
       .get('/me', (req, ctx: any) => Response.json(ctx.user))
 
-    const res = await app.getReq('/me')
-      .header('Authorization', 'Bearer wrong-token')
-      .send()
+    const res = await app.getReq('/me').header('Authorization', 'Bearer wrong-token').send()
     assert.equal(res.status, 200, 'session auth takes priority')
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.equal(body.id, 1)
   })
 
@@ -330,11 +343,9 @@ describe('user() — middlewareOptional', () => {
       .use(user({ tokens: ['secret'] }).middlewareOptional())
       .get('/me', (req, ctx: any) => Response.json({ user: ctx.user ?? null }))
 
-    const res = await app.getReq('/me')
-      .header('Authorization', 'Bearer secret')
-      .send()
+    const res = await app.getReq('/me').header('Authorization', 'Bearer secret').send()
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.ok(body.user, 'ctx.user should be set')
   })
 
@@ -343,11 +354,9 @@ describe('user() — middlewareOptional', () => {
       .use(user({ tokens: ['secret'] }).middlewareOptional())
       .get('/me', (req, ctx: any) => Response.json({ user: ctx.user ?? null }))
 
-    const res = await app.getReq('/me')
-      .header('Authorization', 'Bearer wrong')
-      .send()
+    const res = await app.getReq('/me').header('Authorization', 'Bearer wrong').send()
     assert.equal(res.status, 200)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     assert.equal(body.user, null)
   })
 })

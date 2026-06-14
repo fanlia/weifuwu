@@ -22,7 +22,7 @@ describe('createStore', () => {
 
   it('setState accepts updater function', () => {
     const store = createStore({ count: 0 })
-    store.setState(s => ({ count: s.count + 1 }))
+    store.setState((s) => ({ count: s.count + 1 }))
     assert.equal(store.getState().count, 1)
   })
 
@@ -40,7 +40,8 @@ describe('createStore', () => {
 
   it('multiple subscribers', () => {
     const store = createStore({ count: 0 })
-    let a = 0, b = 0
+    let a = 0,
+      b = 0
     store.subscribe(() => a++)
     store.subscribe(() => b++)
     store.setState({ count: 1 })

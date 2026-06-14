@@ -183,10 +183,7 @@ describe('s3', { skip: process.env.TEST_S3_SKIP }, () => {
       },
     })
 
-    await assert.rejects(
-      () => storageNoPublic.url('any-key', { expiresIn: 0 }),
-      /publicUrl/,
-    )
+    await assert.rejects(() => storageNoPublic.url('any-key', { expiresIn: 0 }), /publicUrl/)
   })
 
   // ── Middleware ─────────────────────────────────────────────────
@@ -201,10 +198,10 @@ describe('s3', { skip: process.env.TEST_S3_SKIP }, () => {
       return new Response('ok')
     })
 
-    const res = await app.handler()(
-      new Request('http://localhost/check'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/check'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 })

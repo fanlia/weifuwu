@@ -49,17 +49,17 @@ stop(timeoutMs = 10_000): Promise<void> {
 
   // 3. 清理信号处理器
   if (shutdownHandler) { ... }
-  
+
   return grace
 }
 ```
 
 ### 新增 API（向后兼容）
 
-| 变更 | 说明 |
-|------|------|
-| `stop()` → `stop(timeoutMs?: number)` | 可选超时参数，默认 10s |
-| `stop()` 返回 `Promise<void>` | 当前返回 `void`，改为 `Promise<void>`——现有 `server.stop()` 调用不需要 await，向后兼容 |
+| 变更                                  | 说明                                                                                   |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `stop()` → `stop(timeoutMs?: number)` | 可选超时参数，默认 10s                                                                 |
+| `stop()` 返回 `Promise<void>`         | 当前返回 `void`，改为 `Promise<void>`——现有 `server.stop()` 调用不需要 await，向后兼容 |
 
 ### 影响
 
@@ -84,18 +84,18 @@ server.keepAliveTimeout = options?.keepAliveTimeout ?? 5_000
 server.headersTimeout = options?.headersTimeout ?? 6_000
 ```
 
-| 选项 | 默认值 | 说明 |
-|------|--------|------|
-| `timeout` | `30_000` | 请求总超时（含 body 读取），超时后 socket 销毁 |
-| `keepAliveTimeout` | `5_000` | Keep-Alive 连接空闲超时 |
-| `headersTimeout` | `6_000` | 等待请求头超时（必须 > keepAliveTimeout） |
+| 选项               | 默认值   | 说明                                           |
+| ------------------ | -------- | ---------------------------------------------- |
+| `timeout`          | `30_000` | 请求总超时（含 body 读取），超时后 socket 销毁 |
+| `keepAliveTimeout` | `5_000`  | Keep-Alive 连接空闲超时                        |
+| `headersTimeout`   | `6_000`  | 等待请求头超时（必须 > keepAliveTimeout）      |
 
 ### 向后兼容
 
 默认值兼容 99% 场景。现有代码零改动。慢请求场景（文件上传、LLM 流式）通过 `ServeOptions` 覆盖：
 
 ```ts
-serve(handler, { timeout: 120_000 })  // 2 分钟超时
+serve(handler, { timeout: 120_000 }) // 2 分钟超时
 ```
 
 ---
@@ -109,7 +109,7 @@ serve(handler, { timeout: 120_000 })  // 2 分钟超时
 ### 方案
 
 ```ts
-const DEFAULT_MAX_BODY = 10 * 1024 * 1024  // 10MB
+const DEFAULT_MAX_BODY = 10 * 1024 * 1024 // 10MB
 
 // readBody 中：
 const limit = maxSize ?? DEFAULT_MAX_BODY
@@ -168,7 +168,7 @@ try {
 
 ```ts
 app.get('/api/users', handler1)
-app.get('/api/users', handler2)  // 静默覆盖 handler1
+app.get('/api/users', handler2) // 静默覆盖 handler1
 ```
 
 没有任何警告，调试非常困难。
@@ -178,9 +178,9 @@ app.get('/api/users', handler2)  // 静默覆盖 handler1
 ```ts
 // _routeImpl 中：
 if (node.handlers.has(method)) {
-  const existingPath = findPath(root, node)  // 重建路由路径用于日志
+  const existingPath = findPath(root, node) // 重建路由路径用于日志
   console.warn(
-    `Route conflict: ${method} ${path} overwrites existing handler at ${method} ${existingPath}`
+    `Route conflict: ${method} ${path} overwrites existing handler at ${method} ${existingPath}`,
   )
 }
 node.handlers.set(method, handler)
@@ -198,11 +198,11 @@ node.handlers.set(method, handler)
 
 ```ts
 // Middleware 中:
-return next(req, ctx)  // ✅ 正确
+return next(req, ctx) // ✅ 正确
 
 // 但有人会写:
 await next(req, ctx)
-return new Response('extra')  // ❌ next() 已经返回了响应
+return new Response('extra') // ❌ next() 已经返回了响应
 ```
 
 问题：next() 内部走了完整的剩余中间件链和 handler，返回了 Response。外部代码又返回一个新的 Response，两者冲突。
@@ -268,10 +268,10 @@ app.use(async (req, ctx, next) => {
 
 ## 八、不做的事
 
-| 不做 | 理由 |
-|------|------|
-| 限流内置 | 已有 `rateLimit()` 中间件 |
-| 请求体大小以外的 DoS 防护 | 应用层应该由反向代理（nginx/Caddy）处理 |
-| HTTP/2 原生支持 | Node.js `http2` 模块 API 差异大，用反向代理终止更实际 |
-| 中间件超时独立于 serve timeout | 复杂度 > 收益，serve 级别的 timeout 已覆盖 |
-| 参数名冲突运行时检测 | 注册时静态检测足够，运行时检测开销大 |
+| 不做                           | 理由                                                  |
+| ------------------------------ | ----------------------------------------------------- |
+| 限流内置                       | 已有 `rateLimit()` 中间件                             |
+| 请求体大小以外的 DoS 防护      | 应用层应该由反向代理（nginx/Caddy）处理               |
+| HTTP/2 原生支持                | Node.js `http2` 模块 API 差异大，用反向代理终止更实际 |
+| 中间件超时独立于 serve timeout | 复杂度 > 收益，serve 级别的 timeout 已覆盖            |
+| 参数名冲突运行时检测           | 注册时静态检测足够，运行时检测开销大                  |

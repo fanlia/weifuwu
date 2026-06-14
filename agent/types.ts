@@ -33,9 +33,7 @@ export interface RunParams {
   messages?: Array<{ role: string; content: string }>
 }
 
-export type RunResult =
-  | { output: string; elapsed: number }
-  | { stream: ReadableStream<Uint8Array> }
+export type RunResult = { output: string; elapsed: number } | { stream: ReadableStream<Uint8Array> }
 
 export interface AgentOptions {
   pg: import('../postgres/types.ts').PostgresClient

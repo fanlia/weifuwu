@@ -69,7 +69,7 @@ export function createGateway(
       const proxyReq = new Request(target, {
         method: req.method,
         headers: req.headers,
-        body: (req.method !== 'GET' && req.method !== 'HEAD') ? req.body : null,
+        body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : null,
       })
       return await fetch(proxyReq)
     } catch {
@@ -100,8 +100,12 @@ export function createGateway(
 
     backendWS.on('open', () => {
       wss.handleUpgrade(req, socket, head, (clientWS) => {
-        const clientSend = (data: WebSocket.Data) => { clientWS.send(data) }
-        const backendSend = (data: WebSocket.Data) => { backendWS.send(data) }
+        const clientSend = (data: WebSocket.Data) => {
+          clientWS.send(data)
+        }
+        const backendSend = (data: WebSocket.Data) => {
+          backendWS.send(data)
+        }
 
         clientWS.on('message', backendSend)
         backendWS.on('message', clientSend)

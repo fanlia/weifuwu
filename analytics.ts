@@ -7,7 +7,10 @@ export interface AnalyticsOptions {
   /** Path prefixes to exclude from analytics (default: `['/__analytics', '/__wfw', '/static']`). */
   excluded?: string[]
   /** PostgreSQL client for persistent storage. Required for production use. */
-  pg?: { sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>; table: (name: string, cols: any) => any }
+  pg?: {
+    sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>
+    table: (name: string, cols: any) => any
+  }
 }
 
 /** Analytics module returned by {@link analytics}. */
@@ -49,7 +52,10 @@ class MemStore {
       toDelete.push(d)
       if (!forceAll && this.days.size - toDelete.length <= target) break
     }
-    for (const d of toDelete) { this.days.delete(d); this.refs.delete(d) }
+    for (const d of toDelete) {
+      this.days.delete(d)
+      this.refs.delete(d)
+    }
   }
 
   startCleanup(interval: number) {
@@ -59,22 +65,36 @@ class MemStore {
   }
 
   stopCleanup() {
-    if (this.timer) { clearInterval(this.timer); this.timer = null }
+    if (this.timer) {
+      clearInterval(this.timer)
+      this.timer = null
+    }
   }
 
   record(path: string, date: string, refDomain: string, mobile: boolean) {
     let day = this.days.get(date)
-    if (!day) { day = { pv: 0, uv: new Set(), mobile: 0, desktop: 0 }; this.days.set(date, day) }
-    day.pv++; day.uv.add(path)
-    if (mobile) day.mobile++; else day.desktop++
+    if (!day) {
+      day = { pv: 0, uv: new Set(), mobile: 0, desktop: 0 }
+      this.days.set(date, day)
+    }
+    day.pv++
+    day.uv.add(path)
+    if (mobile) day.mobile++
+    else day.desktop++
 
     let page = this.pages.get(path)
-    if (!page) { page = { count: 0 }; this.pages.set(path, page) }
+    if (!page) {
+      page = { count: 0 }
+      this.pages.set(path, page)
+    }
     page.count++
 
     if (refDomain) {
       let refs = this.refs.get(date)
-      if (!refs) { refs = new Map(); this.refs.set(date, refs) }
+      if (!refs) {
+        refs = new Map()
+        this.refs.set(date, refs)
+      }
       refs.set(refDomain, (refs.get(refDomain) || 0) + 1)
     }
 
@@ -82,21 +102,29 @@ class MemStore {
   }
 
   query(days: number): QueryResult {
-    const since = new Date(); since.setDate(since.getDate() - days)
+    const since = new Date()
+    since.setDate(since.getDate() - days)
     const sinceStr = since.toISOString().slice(0, 10)
     const daily: { date: string; pv: number; uv: number }[] = []
-    let totalPv = 0, totalMobile = 0, totalDesktop = 0
-    const allUv = new Set<string>(), pageMap = new Map<string, number>()
+    let totalPv = 0,
+      totalMobile = 0,
+      totalDesktop = 0
+    const allUv = new Set<string>(),
+      pageMap = new Map<string, number>()
 
     for (const [date, day] of this.days) {
       if (date < sinceStr) continue
       daily.push({ date, pv: day.pv, uv: day.uv.size })
-      totalPv += day.pv; totalMobile += day.mobile; totalDesktop += day.desktop
+      totalPv += day.pv
+      totalMobile += day.mobile
+      totalDesktop += day.desktop
       for (const p of day.uv) allUv.add(p)
     }
     for (const [path, page] of this.pages) pageMap.set(path, page.count)
 
-    const topPages = [...pageMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20)
+    const topPages = [...pageMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
       .map(([path, count]) => ({ path, pv: count }))
 
     const refMap = new Map<string, number>()
@@ -107,17 +135,28 @@ class MemStore {
 
     const total = totalMobile + totalDesktop || 1
     return {
-      total_pv: totalPv, total_uv: allUv.size, daily, top_pages: topPages,
-      referrers: [...refMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+      total_pv: totalPv,
+      total_uv: allUv.size,
+      daily,
+      top_pages: topPages,
+      referrers: [...refMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
         .map(([domain, count]) => ({ domain, count })),
-      devices: { mobile: Math.round(totalMobile / total * 1000) / 10, desktop: Math.round(totalDesktop / total * 1000) / 10 },
+      devices: {
+        mobile: Math.round((totalMobile / total) * 1000) / 10,
+        desktop: Math.round((totalDesktop / total) * 1000) / 10,
+      },
     }
   }
 }
 
 // ── PG store ────────────────────────────────────────────────────────────────
 
-async function migratePg(sql: (sql: any, ...args: any[]) => Promise<any[]>, table: (name: string, cols: any) => any) {
+async function migratePg(
+  sql: (sql: any, ...args: any[]) => Promise<any[]>,
+  table: (name: string, cols: any) => any,
+) {
   const analytics = table('__analytics', {
     date: text('date').notNull(),
     path: text('path').notNull(),
@@ -130,7 +169,12 @@ async function migratePg(sql: (sql: any, ...args: any[]) => Promise<any[]>, tabl
   return analytics
 }
 
-async function recordPg(sql: (sql: any, ...args: any[]) => Promise<any[]>, path: string, date: string, mobile: boolean) {
+async function recordPg(
+  sql: (sql: any, ...args: any[]) => Promise<any[]>,
+  path: string,
+  date: string,
+  mobile: boolean,
+) {
   await sql`
     INSERT INTO __analytics (date, path, count, mobile, desktop)
     VALUES (${date}, ${path}, 1, ${mobile ? 1 : 0}, ${mobile ? 0 : 1})
@@ -141,57 +185,75 @@ async function recordPg(sql: (sql: any, ...args: any[]) => Promise<any[]>, path:
   `
 }
 
-async function queryPg(sql: (sql: any, ...args: any[]) => Promise<any[]>, days: number): Promise<QueryResult> {
-  const since = new Date(); since.setDate(since.getDate() - days)
+async function queryPg(
+  sql: (sql: any, ...args: any[]) => Promise<any[]>,
+  days: number,
+): Promise<QueryResult> {
+  const since = new Date()
+  since.setDate(since.getDate() - days)
   const sinceStr = since.toISOString().slice(0, 10)
 
-  const daily = await sql`
+  const daily = (await sql`
     SELECT date, SUM(count)::int as pv, COUNT(DISTINCT path)::int as uv
     FROM __analytics WHERE date >= ${sinceStr} GROUP BY date ORDER BY date
-  ` as { date: string; pv: number; uv: number }[]
+  `) as { date: string; pv: number; uv: number }[]
 
-  const pageRows = await sql`
+  const pageRows = (await sql`
     SELECT path, SUM(count)::int as pv
     FROM __analytics WHERE date >= ${sinceStr}
     GROUP BY path ORDER BY pv DESC LIMIT 20
-  ` as { path: string; pv: number }[]
+  `) as { path: string; pv: number }[]
 
-  const totalRes = await sql`
+  const totalRes = (await sql`
     SELECT COALESCE(SUM(count), 0)::int as total_pv,
            COALESCE(SUM(mobile), 0)::int as total_mobile,
            COALESCE(SUM(desktop), 0)::int as total_desktop
     FROM __analytics WHERE date >= ${sinceStr}
-  ` as { total_pv: number; total_mobile: number; total_desktop: number }[]
+  `) as { total_pv: number; total_mobile: number; total_desktop: number }[]
 
   const t = totalRes[0]
   const denom = t.total_mobile + t.total_desktop || 1
   return {
-    total_pv: t.total_pv, total_uv: pageRows.length,
-    daily: daily.map(d => ({ date: d.date, pv: d.pv, uv: d.uv })),
-    top_pages: pageRows.map(p => ({ path: p.path, pv: p.pv })),
+    total_pv: t.total_pv,
+    total_uv: pageRows.length,
+    daily: daily.map((d) => ({ date: d.date, pv: d.pv, uv: d.uv })),
+    top_pages: pageRows.map((p) => ({ path: p.path, pv: p.pv })),
     referrers: [],
-    devices: { mobile: Math.round(t.total_mobile / denom * 1000) / 10, desktop: Math.round(t.total_desktop / denom * 1000) / 10 },
+    devices: {
+      mobile: Math.round((t.total_mobile / denom) * 1000) / 10,
+      desktop: Math.round((t.total_desktop / denom) * 1000) / 10,
+    },
   }
 }
 
 // ── Dashboard ───────────────────────────────────────────────────────────────
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 function renderDashboard(days: number, data: QueryResult): string {
   const { total_pv, total_uv, top_pages, referrers } = data
-  const maxPv = Math.max(...data.daily.map(d => d.pv), 1)
-  const bars = data.daily.map(d =>
-    `<div class="bar-wrap"><div class="bar" style="height:${(d.pv / maxPv) * 100}%"></div><span class="bar-label">${escapeHtml(d.date.slice(5))}</span></div>`
-  ).join('')
-  const rows = top_pages.map((p, i) =>
-    `<tr><td class="num">${i + 1}</td><td class="path">${escapeHtml(p.path)}</td><td class="num">${p.pv}</td></tr>`
-  ).join('')
-  const refRows = referrers.map(r =>
-    `<tr><td>${escapeHtml(r.domain)}</td><td class="num">${r.count}</td></tr>`
-  ).join('')
+  const maxPv = Math.max(...data.daily.map((d) => d.pv), 1)
+  const bars = data.daily
+    .map(
+      (d) =>
+        `<div class="bar-wrap"><div class="bar" style="height:${(d.pv / maxPv) * 100}%"></div><span class="bar-label">${escapeHtml(d.date.slice(5))}</span></div>`,
+    )
+    .join('')
+  const rows = top_pages
+    .map(
+      (p, i) =>
+        `<tr><td class="num">${i + 1}</td><td class="path">${escapeHtml(p.path)}</td><td class="num">${p.pv}</td></tr>`,
+    )
+    .join('')
+  const refRows = referrers
+    .map((r) => `<tr><td>${escapeHtml(r.domain)}</td><td class="num">${r.count}</td></tr>`)
+    .join('')
 
   return `<!DOCTYPE html><html lang="en">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Analytics - weifuwu</title>
@@ -254,7 +316,7 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
   const middleware = () => {
     const m: Middleware = async (req, ctx, next) => {
       const path = new URL(req.url).pathname
-      if (excluded.some(e => path.startsWith(e))) return next(req, ctx)
+      if (excluded.some((e) => path.startsWith(e))) return next(req, ctx)
 
       const date = new Date().toISOString().slice(0, 10)
       const ua = req.headers.get('user-agent') || ''
@@ -266,7 +328,11 @@ export function analytics(options?: AnalyticsOptions): AnalyticsModule {
         const ref = req.headers.get('referer') || ''
         let refDomain = ''
         if (ref) {
-          try { refDomain = new URL(ref).hostname.replace(/^www\./, '') } catch { /* invalid referer URL */ }
+          try {
+            refDomain = new URL(ref).hostname.replace(/^www\./, '')
+          } catch {
+            /* invalid referer URL */
+          }
         }
         store!.record(path, date, refDomain, mobile)
       }

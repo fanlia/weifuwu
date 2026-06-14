@@ -6,7 +6,9 @@ export default function Home() {
   return (
     <div>
       <h1>Home</h1>
-      {posts?.map((p: any, i: number) => <p key={i}>{p.title}</p>)}
+      {posts?.map((p: any, i: number) => (
+        <p key={i}>{p.title}</p>
+      ))}
     </div>
   )
 }

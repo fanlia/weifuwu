@@ -6,9 +6,12 @@ import type { ToolContext } from './index.ts'
 export function createSkillTool(ctx: ToolContext) {
   const skills = ctx.skillsRegistry.list()
 
-  const availableList = skills.map(s =>
-    `  <skill>\n    <name>${s.name}</name>\n    <description>${s.description}</description>\n  </skill>`
-  ).join('\n')
+  const availableList = skills
+    .map(
+      (s) =>
+        `  <skill>\n    <name>${s.name}</name>\n    <description>${s.description}</description>\n  </skill>`,
+    )
+    .join('\n')
 
   const description = availableList
     ? `Load a skill by name to get specialized instructions.\n\n<available_skills>\n${availableList}\n</available_skills>`

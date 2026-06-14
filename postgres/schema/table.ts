@@ -84,7 +84,7 @@ export class Table<R extends Record<string, unknown>> {
 
   /** Check if the table has a column with the given DB name. */
   hasColumn(dbName: string): boolean {
-    return this.colEntries.some(e => e.db === dbName)
+    return this.colEntries.some((e) => e.db === dbName)
   }
 
   /**
@@ -97,7 +97,7 @@ export class Table<R extends Record<string, unknown>> {
 
   /** Returns the primary key column name (DB name), or 'id' as fallback. */
   private get pkColumn(): string {
-    const entry = this.colEntries.find(e => e.column.isPrimaryKey)
+    const entry = this.colEntries.find((e) => e.column.isPrimaryKey)
     return entry ? entry.db : 'id'
   }
 
@@ -131,10 +131,14 @@ export class Table<R extends Record<string, unknown>> {
     const name = `"${this.tableName}_${cols.join('_')}${opts?.unique ? '_uidx' : '_idx'}"`
     const unique = opts?.unique ? 'UNIQUE' : ''
     const using = opts?.type ? `USING ${opts.type.toUpperCase()}` : ''
-    const colList = cols.map(c => opts?.desc ? `"${c}" DESC` : `"${c}"`).join(', ')
+    const colList = cols.map((c) => (opts?.desc ? `"${c}" DESC` : `"${c}"`)).join(', ')
     const operator = opts?.operator ? ` ${opts.operator}` : ''
 
-    const ddl = `CREATE ${unique} INDEX IF NOT EXISTS ${name} ON "${this.tableName}" ${using} (${colList}${operator})`.replace(/\s+/g, ' ')
+    const ddl =
+      `CREATE ${unique} INDEX IF NOT EXISTS ${name} ON "${this.tableName}" ${using} (${colList}${operator})`.replace(
+        /\s+/g,
+        ' ',
+      )
     await sql.unsafe(ddl)
   }
 
@@ -144,7 +148,10 @@ export class Table<R extends Record<string, unknown>> {
 
   // --- Private helpers ---
 
-  private _buildConditions(where: Partial<R> | SQL | SQL[] | undefined, startIndex: number): { conditions: string[]; values: unknown[] } {
+  private _buildConditions(
+    where: Partial<R> | SQL | SQL[] | undefined,
+    startIndex: number,
+  ): { conditions: string[]; values: unknown[] } {
     const conditions: string[] = []
     const values: unknown[] = []
 
@@ -166,7 +173,7 @@ export class Table<R extends Record<string, unknown>> {
     } else {
       for (const [prop, value] of Object.entries(w || {}) as [string, unknown][]) {
         if (value === undefined) continue
-        const entry = this.colEntries.find(e => e.prop === prop)
+        const entry = this.colEntries.find((e) => e.prop === prop)
         const db = entry ? entry.db : prop
         conditions.push(`"${db}" = $${startIndex + values.length + 1}`)
         values.push(value)
@@ -236,9 +243,13 @@ export class Table<R extends Record<string, unknown>> {
     return rows as unknown as R[]
   }
 
-  async read(sql: Sql<{}>, id: string | number, opts?: Pick<FindOptions, 'select' | 'withDeleted'>): Promise<R | undefined> {
+  async read(
+    sql: Sql<{}>,
+    id: string | number,
+    opts?: Pick<FindOptions, 'select' | 'withDeleted'>,
+  ): Promise<R | undefined> {
     const pk = this.pkColumn
-    const columns = opts?.select?.length ? opts.select.map(c => `"${c}"`).join(', ') : '*'
+    const columns = opts?.select?.length ? opts.select.map((c) => `"${c}"`).join(', ') : '*'
     const softDel = this._softDeleteFilter(null, opts)
     const extraAnd = softDel ? ` AND ${softDel}` : ''
 
@@ -249,7 +260,11 @@ export class Table<R extends Record<string, unknown>> {
     return (row as unknown as R) ?? undefined
   }
 
-  async readMany(sql: Sql<{}>, where?: Partial<R> | SQL | SQL[], opts?: FindOptions): Promise<{ count: number; data: R[] }> {
+  async readMany(
+    sql: Sql<{}>,
+    where?: Partial<R> | SQL | SQL[],
+    opts?: FindOptions,
+  ): Promise<{ count: number; data: R[] }> {
     const { conditions, values } = this._buildConditions(where, 0)
 
     const softDel = this._softDeleteFilter(where, opts)
@@ -257,20 +272,29 @@ export class Table<R extends Record<string, unknown>> {
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
 
-    const [countRow] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as any[])
+    const [countRow] = await sql.unsafe(
+      `SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`,
+      values as any[],
+    )
     const count = Number((countRow as Record<string, number>)._total)
 
-    if (conditions.length === 0 && !opts?.orderBy && !opts?.limit && !opts?.offset && !opts?.select) {
+    if (
+      conditions.length === 0 &&
+      !opts?.orderBy &&
+      !opts?.limit &&
+      !opts?.offset &&
+      !opts?.select
+    ) {
       const rows = await sql`SELECT * FROM ${sql(this.tableName as string)}`
       return { count, data: rows as unknown as R[] }
     }
 
-    const columns = opts?.select?.length ? opts.select.map(c => `"${c}"`).join(', ') : '*'
+    const columns = opts?.select?.length ? opts.select.map((c) => `"${c}"`).join(', ') : '*'
     let query = `SELECT ${columns} FROM "${this.tableName}"${whereClause}`
     if (opts?.orderBy) {
       const orders = Object.entries(opts.orderBy)
         .map(([prop, dir]) => {
-          const entry = this.colEntries.find(e => e.prop === prop)
+          const entry = this.colEntries.find((e) => e.prop === prop)
           return `"${entry?.db || prop}" ${dir.toUpperCase()}`
         })
         .join(', ')
@@ -295,11 +319,18 @@ export class Table<R extends Record<string, unknown>> {
     return (row as unknown as R) ?? undefined
   }
 
-  async updateMany(sql: Sql<{}>, where: Partial<R> | SQL | SQL[], data: Partial<R>): Promise<number> {
+  async updateMany(
+    sql: Sql<{}>,
+    where: Partial<R> | SQL | SQL[],
+    data: Partial<R>,
+  ): Promise<number> {
     const { sets, values: setValues } = this._buildSET(data)
     if (sets.length === 0) return 0
 
-    const { conditions: wConditions, values: wValues } = this._buildConditions(where, setValues.length)
+    const { conditions: wConditions, values: wValues } = this._buildConditions(
+      where,
+      setValues.length,
+    )
     if (wConditions.length === 0) return 0
 
     const rows = await sql.unsafe(
@@ -378,23 +409,23 @@ export class Table<R extends Record<string, unknown>> {
     if (keys.length === 0) throw new Error('upsert: no data to insert')
 
     const conflictCols = Array.isArray(conflict) ? conflict : [conflict]
-    const dbCols = keys.map(c => `"${c}"`)
+    const dbCols = keys.map((c) => `"${c}"`)
     const placeholders = keys.map((_, i) => `$${i + 1}`)
     const updateSet = keys
-      .filter(k => !conflictCols.includes(k))
-      .map(k => `"${k}" = EXCLUDED."${k}"`)
+      .filter((k) => !conflictCols.includes(k))
+      .map((k) => `"${k}" = EXCLUDED."${k}"`)
       .join(', ')
 
     if (!updateSet) {
       const [row] = await sql.unsafe(
-        `INSERT INTO "${this.tableName}" (${dbCols.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflictCols.map(c => `"${c}"`).join(', ')}) DO NOTHING RETURNING *`,
+        `INSERT INTO "${this.tableName}" (${dbCols.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflictCols.map((c) => `"${c}"`).join(', ')}) DO NOTHING RETURNING *`,
         Object.values(filtered) as any[],
       )
-      return (row as unknown as R) ?? undefined as unknown as R
+      return (row as unknown as R) ?? (undefined as unknown as R)
     }
 
     const [row] = await sql.unsafe(
-      `INSERT INTO "${this.tableName}" (${dbCols.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflictCols.map(c => `"${c}"`).join(', ')}) DO UPDATE SET ${updateSet} RETURNING *`,
+      `INSERT INTO "${this.tableName}" (${dbCols.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflictCols.map((c) => `"${c}"`).join(', ')}) DO UPDATE SET ${updateSet} RETURNING *`,
       Object.values(filtered) as any[],
     )
     return row as unknown as R
@@ -407,7 +438,10 @@ export class Table<R extends Record<string, unknown>> {
     if (softDel) conditions.push(softDel)
 
     const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
-    const [row] = await sql.unsafe(`SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`, values as any[])
+    const [row] = await sql.unsafe(
+      `SELECT COUNT(*) AS _total FROM "${this.tableName}"${whereClause}`,
+      values as any[],
+    )
     return Number((row as Record<string, number>)._total)
   }
 }
@@ -421,23 +455,61 @@ export class BoundTable<R extends Record<string, unknown>> {
     this.sql = sql
   }
 
-  async create(opts?: CreateOptions): Promise<void> { await this.inner.create(this.sql, opts) }
-  async drop(opts?: { cascade?: boolean }): Promise<void> { await this.inner.drop(this.sql, opts) }
-  async createIndex(columns: string | string[], opts?: IndexOptions): Promise<void> { await this.inner.createIndex(this.sql, columns, opts) }
-  async createUniqueIndex(columns: string | string[]): Promise<void> { await this.inner.createUniqueIndex(this.sql, columns) }
+  async create(opts?: CreateOptions): Promise<void> {
+    await this.inner.create(this.sql, opts)
+  }
+  async drop(opts?: { cascade?: boolean }): Promise<void> {
+    await this.inner.drop(this.sql, opts)
+  }
+  async createIndex(columns: string | string[], opts?: IndexOptions): Promise<void> {
+    await this.inner.createIndex(this.sql, columns, opts)
+  }
+  async createUniqueIndex(columns: string | string[]): Promise<void> {
+    await this.inner.createUniqueIndex(this.sql, columns)
+  }
 
-  async insert(data: Partial<R>): Promise<R> { return await this.inner.insert(this.sql, data) }
-  async insertMany(data: Partial<R>[]): Promise<R[]> { return await this.inner.insertMany(this.sql, data) }
-  async read(id: string | number, opts?: Pick<FindOptions, 'select' | 'withDeleted'>): Promise<R | undefined> { return await this.inner.read(this.sql, id, opts) }
-  async readMany(where?: Partial<R> | SQL | SQL[], opts?: FindOptions): Promise<{ count: number; data: R[] }> { return await this.inner.readMany(this.sql, where, opts) }
-  async update(id: string | number, data: Partial<R>): Promise<R | undefined> { return await this.inner.update(this.sql, id, data) }
-  async updateMany(where: Partial<R> | SQL | SQL[], data: Partial<R>): Promise<number> { return await this.inner.updateMany(this.sql, where, data) }
-  async delete(id: string | number): Promise<R | undefined> { return await this.inner.delete(this.sql, id) }
-  async hardDelete(id: string | number): Promise<R | undefined> { return await this.inner.hardDelete(this.sql, id) }
-  async deleteMany(where: Partial<R> | SQL | SQL[]): Promise<number> { return await this.inner.deleteMany(this.sql, where) }
-  async hardDeleteMany(where: Partial<R> | SQL | SQL[]): Promise<number> { return await this.inner.hardDeleteMany(this.sql, where) }
-  async upsert(data: Partial<R>, conflict: string | string[]): Promise<R> { return await this.inner.upsert(this.sql, data, conflict) }
-  async count(where?: Partial<R> | SQL | SQL[]): Promise<number> { return await this.inner.count(this.sql, where) }
+  async insert(data: Partial<R>): Promise<R> {
+    return await this.inner.insert(this.sql, data)
+  }
+  async insertMany(data: Partial<R>[]): Promise<R[]> {
+    return await this.inner.insertMany(this.sql, data)
+  }
+  async read(
+    id: string | number,
+    opts?: Pick<FindOptions, 'select' | 'withDeleted'>,
+  ): Promise<R | undefined> {
+    return await this.inner.read(this.sql, id, opts)
+  }
+  async readMany(
+    where?: Partial<R> | SQL | SQL[],
+    opts?: FindOptions,
+  ): Promise<{ count: number; data: R[] }> {
+    return await this.inner.readMany(this.sql, where, opts)
+  }
+  async update(id: string | number, data: Partial<R>): Promise<R | undefined> {
+    return await this.inner.update(this.sql, id, data)
+  }
+  async updateMany(where: Partial<R> | SQL | SQL[], data: Partial<R>): Promise<number> {
+    return await this.inner.updateMany(this.sql, where, data)
+  }
+  async delete(id: string | number): Promise<R | undefined> {
+    return await this.inner.delete(this.sql, id)
+  }
+  async hardDelete(id: string | number): Promise<R | undefined> {
+    return await this.inner.hardDelete(this.sql, id)
+  }
+  async deleteMany(where: Partial<R> | SQL | SQL[]): Promise<number> {
+    return await this.inner.deleteMany(this.sql, where)
+  }
+  async hardDeleteMany(where: Partial<R> | SQL | SQL[]): Promise<number> {
+    return await this.inner.hardDeleteMany(this.sql, where)
+  }
+  async upsert(data: Partial<R>, conflict: string | string[]): Promise<R> {
+    return await this.inner.upsert(this.sql, data, conflict)
+  }
+  async count(where?: Partial<R> | SQL | SQL[]): Promise<number> {
+    return await this.inner.count(this.sql, where)
+  }
 
   withSql(sql: Sql<{}>): BoundTable<R> {
     return new BoundTable(sql, this.inner.tableName, this.inner.builders)

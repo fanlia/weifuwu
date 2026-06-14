@@ -15,8 +15,8 @@
 ```ts
 // 现状：全是 unknown
 app.get('/me', auth.middleware(), (req, ctx) => {
-  ctx.user  // unknown
-  ctx.sql   // unknown
+  ctx.user // unknown
+  ctx.sql // unknown
 })
 ```
 
@@ -50,19 +50,19 @@ export type Middleware<CtxIn = {}, CtxOut extends CtxIn = CtxIn> = (
 
 ### 各模块改动
 
-| 模块 | 注入属性 | 新类型 |
-|------|---------|--------|
-| `postgres()` | `sql` | `{ sql: Sql<{}> }` |
-| `redis()` | `redis` | `{ redis: Redis }` |
-| `user().middleware()` | `user` | `{ user: UserData }` |
-| `preferences()` | `prefs`, `t`, `setPref` | `{ prefs: Record<string,string>, t, setPref }` |
-| `csrf()` | `csrfToken` | `{ csrfToken: string }` |
-| `requestId()` | `requestId` | `{ requestId: string }` |
-| `queue()` | `queue` | `{ queue: Queue }` |
-| `deploy()` | `deploy` | `{ deploy: { appName? } }` |
-| `tenant().middleware()` | `tenant` | `{ tenant: TenantContext }` |
-| `validate()` | `parsed` | `{ parsed: ParsedData }` |
-| `upload()` | `parsed` | `{ parsed: { files, fields } }` |
+| 模块                    | 注入属性                | 新类型                                         |
+| ----------------------- | ----------------------- | ---------------------------------------------- |
+| `postgres()`            | `sql`                   | `{ sql: Sql<{}> }`                             |
+| `redis()`               | `redis`                 | `{ redis: Redis }`                             |
+| `user().middleware()`   | `user`                  | `{ user: UserData }`                           |
+| `preferences()`         | `prefs`, `t`, `setPref` | `{ prefs: Record<string,string>, t, setPref }` |
+| `csrf()`                | `csrfToken`             | `{ csrfToken: string }`                        |
+| `requestId()`           | `requestId`             | `{ requestId: string }`                        |
+| `queue()`               | `queue`                 | `{ queue: Queue }`                             |
+| `deploy()`              | `deploy`                | `{ deploy: { appName? } }`                     |
+| `tenant().middleware()` | `tenant`                | `{ tenant: TenantContext }`                    |
+| `validate()`            | `parsed`                | `{ parsed: ParsedData }`                       |
+| `upload()`              | `parsed`                | `{ parsed: { files, fields } }`                |
 
 ### Router 泛型化
 
@@ -94,15 +94,16 @@ class Router<Ctx = {}> {
 - 新增导出：`PostgresInjected`、`RedisInjected`、`QueueInjected`、`UserInjected`
 
 **使用示例**：
+
 ```ts
 const app = new Router()
-  .use(csrf())          // → Router<Context & { csrfToken: string }>
-  .use(requestId())     // → Router<Context & { csrfToken, requestId }>
-  .use(postgres())      // → Router<Context & { csrfToken, requestId, sql }>
+  .use(csrf()) // → Router<Context & { csrfToken: string }>
+  .use(requestId()) // → Router<Context & { csrfToken, requestId }>
+  .use(postgres()) // → Router<Context & { csrfToken, requestId, sql }>
 
 app.get('/me', (req, ctx) => {
-  ctx.csrfToken   // ✅ string
-  ctx.requestId   // ✅ string
+  ctx.csrfToken // ✅ string
+  ctx.requestId // ✅ string
   ctx.sql`SELECT 1` // ✅ Sql<{}>
 })
 ```
@@ -140,7 +141,7 @@ export function currentTraceId(): string | undefined {
 }
 
 // serve() 内：
-const traceId = req.headers['x-trace-id'] as string || randomUUID()
+const traceId = (req.headers['x-trace-id'] as string) || randomUUID()
 const startTime = Date.now()
 await traceAls.run({ traceId, startTime }, async () => {
   // ... handle request
@@ -164,7 +165,7 @@ interface LogEvent {
   method?: string
   path?: string
   status?: number
-  elapsed?: number   // ms
+  elapsed?: number // ms
   metadata?: Record<string, unknown>
 }
 
@@ -181,12 +182,12 @@ export interface LoggerOptions {
 
 #### 2.3 关键模块接入 trace
 
-| 模块 | 接入方式 |
-|------|---------|
-| `postgres` | 慢查询（>100ms）自动记 warn + traceId |
+| 模块          | 接入方式                                        |
+| ------------- | ----------------------------------------------- |
+| `postgres`    | 慢查询（>100ms）自动记 warn + traceId           |
 | `agent.run()` | 每次调用记 info（agentId, input 摘要, traceId） |
-| `opencode` | 每次 session message 记 traceId |
-| `messager` | agent 路由调用记 traceId |
+| `opencode`    | 每次 session message 记 traceId                 |
+| `messager`    | agent 路由调用记 traceId                        |
 
 ### 向后兼容
 
@@ -212,6 +213,7 @@ export interface LoggerOptions {
 ### 问题
 
 agent 模块跑完了，用户不知道：
+
 - 用了多少 token？
 - 花了多少钱？
 - 哪次调用失败了？
@@ -291,6 +293,7 @@ GET /opencode/sessions/:id/usage   → { total_tokens_in, total_tokens_out, cost
 ### 问题
 
 当前 `messager({ agents })` 只做了最基础的路由——用户发消息 → agent 跑 → 回结果。没有：
+
 - 流式输出（agent 一个字一个字回）
 - 进度汇报（「正在读取 3 个文件...」）
 - 上下文保持（频道里多轮对话）
@@ -312,7 +315,7 @@ if ('stream' in result) {
     if (done) break
     hub.broadcast(`messager:${channelId}`, {
       type: 'agent_stream',
-      data: { agentId: am.member_id, token: decoder.decode(value) }
+      data: { agentId: am.member_id, token: decoder.decode(value) },
     })
   }
 }
@@ -373,10 +376,7 @@ app.get('/users/:id', (req, ctx) => {
 })
 
 // 链式调用，自动处理 Request 构造 + Context 初始化
-const res = await app
-  .get('/users/42')
-  .withUser({ id: 1, email: 'test@test.com' })
-  .send()
+const res = await app.get('/users/42').withUser({ id: 1, email: 'test@test.com' }).send()
 
 assert.equal(res.status, 200)
 assert.deepEqual(await res.json(), { id: '42', user: { id: 1, email: 'test@test.com' } })
@@ -466,15 +466,15 @@ ssr/
 
 ## 七、不做的事（明确边界）
 
-| 不做 | 原因 |
-|------|------|
-| 支付/订阅模块 | 框架层不该管钱 |
-| MCP Server 集成 | 留给 0.21，先做核心打通 |
-| Admin UI 全量 | 先有 API 面板（3.4），全量 UI 留给 0.21 |
-| HTTP/2 / HTTP/3 | 反向代理的事 |
-| Webhook 系统 | queue 够用 |
-| CRDT 协同编辑 | 偏离主线 |
-| 新模块 | 收敛期，25 个模块已过多 |
+| 不做            | 原因                                    |
+| --------------- | --------------------------------------- |
+| 支付/订阅模块   | 框架层不该管钱                          |
+| MCP Server 集成 | 留给 0.21，先做核心打通                 |
+| Admin UI 全量   | 先有 API 面板（3.4），全量 UI 留给 0.21 |
+| HTTP/2 / HTTP/3 | 反向代理的事                            |
+| Webhook 系统    | queue 够用                              |
+| CRDT 协同编辑   | 偏离主线                                |
+| 新模块          | 收敛期，25 个模块已过多                 |
 
 ---
 
@@ -489,11 +489,12 @@ Week 5:  五 + 六（测试工具 + 重构）  → testApp + ssr 拆解 + 共用
 ```
 
 每周末 cut 一个预发布版本：
+
 - `0.20.0-alpha.1` → 类型安全完成
 - `0.20.0-alpha.2` → 可观测性完成
-- `0.20.0-beta.1`  → AI 面板完成
-- `0.20.0-rc.1`   → Agent ↔ Messager 打通
-- `0.20.0`        → 全量发布
+- `0.20.0-beta.1` → AI 面板完成
+- `0.20.0-rc.1` → Agent ↔ Messager 打通
+- `0.20.0` → 全量发布
 
 ---
 

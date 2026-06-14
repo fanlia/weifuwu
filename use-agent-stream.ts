@@ -59,15 +59,9 @@ export function useAgentStream(opts: UseAgentStreamOptions): UseAgentStreamRetur
   const activeRef = useRef<Set<number>>(new Set())
   const streamsRef = useRef<Record<number, string>>({})
 
-  const getAgentText = useCallback(
-    (agentId: number) => streams[agentId] || '',
-    [streams],
-  )
+  const getAgentText = useCallback((agentId: number) => streams[agentId] || '', [streams])
 
-  const isAgentStreaming = useCallback(
-    (agentId: number) => activeRef.current.has(agentId),
-    [],
-  )
+  const isAgentStreaming = useCallback((agentId: number) => activeRef.current.has(agentId), [])
 
   const streaming = activeRef.current.size > 0
 
@@ -75,7 +69,12 @@ export function useAgentStream(opts: UseAgentStreamOptions): UseAgentStreamRetur
     onMessage: (raw: string) => {
       try {
         const msg = JSON.parse(raw)
-        if (msg.type !== 'agent_stream' && msg.type !== 'agent_stream_end' && msg.type !== 'agent_error') return
+        if (
+          msg.type !== 'agent_stream' &&
+          msg.type !== 'agent_stream_end' &&
+          msg.type !== 'agent_error'
+        )
+          return
 
         const agentId = msg.data?.agent_id
         if (agentId === undefined || agentId === null) return

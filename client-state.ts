@@ -18,22 +18,20 @@ export function createStore<T extends Record<string, unknown>>(initial: T): Stor
 
   const getState = () => state
   const setState = (partial: SetPartial<T>) => {
-    const next = typeof partial === 'function'
-      ? (partial as (prev: T) => Partial<T>)(state)
-      : partial
+    const next =
+      typeof partial === 'function' ? (partial as (prev: T) => Partial<T>)(state) : partial
     state = { ...state, ...next }
-    listeners.forEach(fn => fn())
+    listeners.forEach((fn) => fn())
   }
   const subscribe = (listener: () => void): (() => void) => {
     listeners.add(listener)
-    return () => { listeners.delete(listener) }
+    return () => {
+      listeners.delete(listener)
+    }
   }
 
   const useStore = (<S>(selector?: (state: T) => S): T | S =>
-    useSyncExternalStore(subscribe, () =>
-      selector ? selector(state) : state,
-    )
-  ) as StoreApi<T>
+    useSyncExternalStore(subscribe, () => (selector ? selector(state) : state))) as StoreApi<T>
 
   useStore.getState = getState
   useStore.setState = setState
@@ -60,7 +58,10 @@ const dataCache = new Map<string, { data: unknown; error: unknown; timestamp: nu
 const inflight = new Map<string, Promise<unknown>>()
 const CACHE_TTL = 60_000
 
-export function useFetch<T = unknown>(url: string | null, options?: UseFetchOptions<T>): UseFetchResult<T> {
+export function useFetch<T = unknown>(
+  url: string | null,
+  options?: UseFetchOptions<T>,
+): UseFetchResult<T> {
   const ttl = options?.ttl ?? CACHE_TTL
   const [state, setState] = useState<{ data?: T; error?: Error; loading: boolean }>({
     data: options?.fallback,
@@ -70,7 +71,10 @@ export function useFetch<T = unknown>(url: string | null, options?: UseFetchOpti
   urlRef.current = url
 
   useEffect(() => {
-    if (!url) { setState({ data: undefined, loading: false }); return }
+    if (!url) {
+      setState({ data: undefined, loading: false })
+      return
+    }
     if (typeof window === 'undefined') return
 
     const u: string = url
@@ -78,20 +82,24 @@ export function useFetch<T = unknown>(url: string | null, options?: UseFetchOpti
 
     const cached = dataCache.get(u)
     if (cached && Date.now() - cached.timestamp < ttl) {
-      if (!cancelled) setState({
-        data: cached.data as T,
-        error: cached.error as Error | undefined,
-        loading: false,
-      })
+      if (!cancelled)
+        setState({
+          data: cached.data as T,
+          error: cached.error as Error | undefined,
+          loading: false,
+        })
       return
     }
 
     async function doFetch() {
       if (!inflight.has(u)) {
-        inflight.set(u, fetch(u).then(r => {
-          if (!r.ok) throw new Error(r.statusText || `HTTP ${r.status}`)
-          return r.json()
-        }))
+        inflight.set(
+          u,
+          fetch(u).then((r) => {
+            if (!r.ok) throw new Error(r.statusText || `HTTP ${r.status}`)
+            return r.json()
+          }),
+        )
       }
       const promise = inflight.get(u)!
       try {
@@ -105,7 +113,9 @@ export function useFetch<T = unknown>(url: string | null, options?: UseFetchOpti
     }
 
     doFetch()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [url, ttl])
 
   const mutate = useCallback(async (data?: T) => {
@@ -139,7 +149,10 @@ function notifyQueryListeners() {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-export function useQueryState(key: string, defaultValue = ''): [string, (val: string | ((prev: string) => string)) => void] {
+export function useQueryState(
+  key: string,
+  defaultValue = '',
+): [string, (val: string | ((prev: string) => string)) => void] {
   function getSnapshot(): string {
     if (typeof window === 'undefined') return defaultValue
     const params = new URLSearchParams(window.location.search)
@@ -156,18 +169,22 @@ export function useQueryState(key: string, defaultValue = ''): [string, (val: st
     () => defaultValue,
   )
 
-  const setValue = useCallback((val: string | ((prev: string) => string)) => {
-    if (typeof window === 'undefined') return
-    const resolved = typeof val === 'function' ? (val as (prev: string) => string)(getSnapshot()) : val
-    const url = new URL(window.location.href)
-    if (resolved === defaultValue || resolved === '') {
-      url.searchParams.delete(key)
-    } else {
-      url.searchParams.set(key, resolved)
-    }
-    window.history.replaceState(null, '', url.toString())
-    notifyQueryListeners()
-  }, [key, defaultValue])
+  const setValue = useCallback(
+    (val: string | ((prev: string) => string)) => {
+      if (typeof window === 'undefined') return
+      const resolved =
+        typeof val === 'function' ? (val as (prev: string) => string)(getSnapshot()) : val
+      const url = new URL(window.location.href)
+      if (resolved === defaultValue || resolved === '') {
+        url.searchParams.delete(key)
+      } else {
+        url.searchParams.set(key, resolved)
+      }
+      window.history.replaceState(null, '', url.toString())
+      notifyQueryListeners()
+    },
+    [key, defaultValue],
+  )
 
   return [value, setValue]
 }

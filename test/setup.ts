@@ -12,7 +12,9 @@ for (const [key, desc] of Object.entries(winProps)) {
   if (desc.get && !(key in globalThis)) {
     Object.defineProperty(globalThis, key, {
       get: () => (win as any)[key],
-      set: (v: unknown) => { (win as any)[key] = v },
+      set: (v: unknown) => {
+        ;(win as any)[key] = v
+      },
       configurable: true,
     })
   }
@@ -68,7 +70,7 @@ class MockWebSocketImpl implements MockWebSocket {
   }
 
   private _emit(event: string, ev: any): void {
-    this._listeners[event]?.forEach(h => h(ev))
+    this._listeners[event]?.forEach((h) => h(ev))
     const onField = ('on' + event) as keyof this
     const handler = this[onField] as ((ev: any) => void) | null
     handler?.(ev)

@@ -1,5 +1,4 @@
-import { createTransport } from 'nodemailer'
-import type { Transporter } from 'nodemailer'
+import { createTransport, type Transporter } from 'nodemailer'
 import type { Closeable } from './types.ts'
 
 /** Options for sending an email. */
@@ -59,9 +58,8 @@ export function mailer(options: MailerOptions): Mailer {
 
   let transporter: Transporter | null = null
   if (!sender && options.transport) {
-    transporter = typeof options.transport === 'string'
-      ? createTransport(options.transport)
-      : options.transport
+    transporter =
+      typeof options.transport === 'string' ? createTransport(options.transport) : options.transport
   }
 
   async function send(opts: MailOptions): Promise<void> {

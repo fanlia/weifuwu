@@ -6,7 +6,10 @@ export function internalTableName(tenantId: string, slug: string): string {
 }
 
 export function pascalCase(slug: string): string {
-  return slug.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('')
+  return slug
+    .split(/[-_]/)
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join('')
 }
 
 export function sqlTypeForField(field: FieldDef): string {
@@ -102,7 +105,7 @@ export function mapFieldToZod(field: FieldDef): string {
       break
     case 'enum':
       if (field.options && field.options.length > 0) {
-        t = `z.enum([${field.options.map(o => `'${o.replace(/'/g, "\\'")}'`).join(', ')}])`
+        t = `z.enum([${field.options.map((o) => `'${o.replace(/'/g, "\\'")}'`).join(', ')}])`
       } else {
         t = 'z.string()'
       }
@@ -125,9 +128,9 @@ export function mapFieldToZod(field: FieldDef): string {
 }
 
 export function getRelationFields(fields: FieldDef[]): FieldDef[] {
-  return fields.filter(f => f.relation)
+  return fields.filter((f) => f.relation)
 }
 
 export function findRelation(fields: FieldDef[], targetSlug: string): FieldDef | undefined {
-  return fields.find(f => f.relation?.table === targetSlug)
+  return fields.find((f) => f.relation?.table === targetSlug)
 }

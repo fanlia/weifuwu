@@ -53,7 +53,8 @@ export function cors(options?: CORSOptions): Middleware<Context, Context> {
     const headers = new Headers(res.headers)
     headers.set('Access-Control-Allow-Origin', acao)
     if (opts.credentials) headers.set('Access-Control-Allow-Credentials', 'true')
-    if (opts.exposedHeaders?.length) headers.set('Access-Control-Expose-Headers', opts.exposedHeaders.join(', '))
+    if (opts.exposedHeaders?.length)
+      headers.set('Access-Control-Expose-Headers', opts.exposedHeaders.join(', '))
     if (acao !== '*') headers.set('Vary', 'Origin')
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
   }

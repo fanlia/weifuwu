@@ -5,8 +5,8 @@ export interface Context {
   params: Record<string, string>
   query: Record<string, string>
   mountPath?: string
-  layoutStack?: { path: string; component: any }[]  // set by layout() middleware, read by ssr()
-  [key: string]: unknown  // allow arbitrary middleware-injected data
+  layoutStack?: { path: string; component: any }[] // set by layout() middleware, read by ssr()
+  [key: string]: unknown // allow arbitrary middleware-injected data
 }
 
 // Generic handler — T extends Context so middleware-injected properties are visible.
@@ -19,10 +19,7 @@ export type Handler<T extends Context = Context> = (
 // Generic middleware — In receives accumulated context from previous middlewares,
 // Out adds new properties. next receives the enriched Out type.
 // Default In = Out = Context means backward-compatible.
-export type Middleware<
-  In extends Context = Context,
-  Out extends In = In,
-> = (
+export type Middleware<In extends Context = Context, Out extends In = In> = (
   req: Request,
   ctx: In,
   next: Handler<Out>,

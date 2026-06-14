@@ -13,7 +13,7 @@ void describe('vendor', () => {
     assert.equal(typeof mod, 'object')
     // Synthetic keys like 'default' and 'module.exports' may appear
     // with type-only re-exports — only real named exports are suspicious
-    const ownKeys = Object.keys(mod).filter(k => k !== 'default' && k !== 'module.exports')
+    const ownKeys = Object.keys(mod).filter((k) => k !== 'default' && k !== 'module.exports')
     assert.equal(ownKeys.length, 0, 'expected no runtime named exports from type-only module')
   })
 

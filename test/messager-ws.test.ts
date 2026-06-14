@@ -9,11 +9,17 @@ describe('messager ws', () => {
   // ── createWSHandler with mocked sql ──────────────────────────────────────
 
   it('open rejects unauthenticated user', async () => {
-    const mockSql = () => { throw new Error('should not be called') }
+    const mockSql = () => {
+      throw new Error('should not be called')
+    }
     const { handler } = createWSHandler({ sql: mockSql as any })
 
     let closedWithCode = 0
-    const mockWs = { close: (code: number) => { closedWithCode = code } } as any
+    const mockWs = {
+      close: (code: number) => {
+        closedWithCode = code
+      },
+    } as any
     const ctx = { params: {}, query: {} } as any
 
     handler.open(mockWs, ctx)
@@ -21,11 +27,17 @@ describe('messager ws', () => {
   })
 
   it('open accepts authenticated user', async () => {
-    const mockSql = () => { throw new Error('should not be called') }
+    const mockSql = () => {
+      throw new Error('should not be called')
+    }
     const { handler } = createWSHandler({ sql: mockSql as any })
 
     let closed = false
-    const mockWs = { close: () => { closed = true } } as any
+    const mockWs = {
+      close: () => {
+        closed = true
+      },
+    } as any
     const ctx = { params: {}, query: {}, user: { id: 1 } } as any
 
     handler.open(mockWs, ctx)
@@ -33,7 +45,9 @@ describe('messager ws', () => {
   })
 
   it('message replies with error for invalid JSON', async () => {
-    const mockSql = () => { throw new Error('should not be called') }
+    const mockSql = () => {
+      throw new Error('should not be called')
+    }
     const { handler } = createWSHandler({ sql: mockSql as any })
 
     const sent: string[] = []
@@ -49,14 +63,21 @@ describe('messager ws', () => {
 
   it('message without userId does nothing', async () => {
     let sqlCalled = false
-    const mockSql = () => { sqlCalled = true; return [] }
+    const mockSql = () => {
+      sqlCalled = true
+      return []
+    }
     const { handler } = createWSHandler({ sql: mockSql as any })
 
     const sent: string[] = []
     const mockWs = { send: (m: string) => sent.push(m) } as any
     const ctx = { params: {}, query: {} } as any
 
-    await handler.message(mockWs, ctx, JSON.stringify({ type: 'message', channel_id: 1, content: 'hi' }))
+    await handler.message(
+      mockWs,
+      ctx,
+      JSON.stringify({ type: 'message', channel_id: 1, content: 'hi' }),
+    )
     assert.equal(sqlCalled, false)
     assert.equal(sent.length, 0)
   })
@@ -65,7 +86,16 @@ describe('messager ws', () => {
     const sqlCalls: { strings: string[]; values: any[] }[] = []
     const sql = ((strings: TemplateStringsArray, ...values: any[]) => {
       sqlCalls.push({ strings: [...strings], values })
-      return Promise.resolve([{ id: 1, channel_id: 1, sender_id: 1, sender_type: 'user', content: 'hi', created_at: new Date() }])
+      return Promise.resolve([
+        {
+          id: 1,
+          channel_id: 1,
+          sender_id: 1,
+          sender_type: 'user',
+          content: 'hi',
+          created_at: new Date(),
+        },
+      ])
     }) as any
 
     const { handler } = createWSHandler({ sql })
@@ -74,19 +104,29 @@ describe('messager ws', () => {
     const mockWs = { send: (m: string) => sent.push(m) } as any
     const ctx = { params: {}, query: {}, user: { id: 1 } } as any
 
-    await handler.message(mockWs, ctx, JSON.stringify({ type: 'message', channel_id: 1, content: 'hi' }))
+    await handler.message(
+      mockWs,
+      ctx,
+      JSON.stringify({ type: 'message', channel_id: 1, content: 'hi' }),
+    )
     assert.ok(sqlCalls.length >= 1)
     assert.ok(sqlCalls[0]!.strings.join('?').includes('INSERT INTO'))
   })
 
   it('typing broadcasts to channel', async () => {
-    const mockSql = () => { return [] }
+    const mockSql = () => {
+      return []
+    }
     const { handler } = createWSHandler({ sql: mockSql as any })
 
     const mockWs = { send: () => {} } as any
     const ctx = { params: {}, query: {}, user: { id: 1 } } as any
 
-    await handler.message(mockWs, ctx, JSON.stringify({ type: 'typing', channel_id: 1, is_typing: true }))
+    await handler.message(
+      mockWs,
+      ctx,
+      JSON.stringify({ type: 'typing', channel_id: 1, is_typing: true }),
+    )
     // Should broadcast to channel members
   })
 
@@ -102,14 +142,20 @@ describe('messager ws', () => {
     const mockWs = { send: () => {} } as any
     const ctx = { params: {}, query: {}, user: { id: 1 } } as any
 
-    await handler.message(mockWs, ctx, JSON.stringify({ type: 'read', channel_id: 1, last_message_id: 5 }))
-    const updateCall = sqlCalls.find(c => c.sql.includes('UPDATE'))
+    await handler.message(
+      mockWs,
+      ctx,
+      JSON.stringify({ type: 'read', channel_id: 1, last_message_id: 5 }),
+    )
+    const updateCall = sqlCalls.find((c) => c.sql.includes('UPDATE'))
     assert.ok(updateCall, 'should execute UPDATE')
     assert.ok(updateCall.values.includes(5), 'should include last_message_id')
   })
 
   it('close calls unsubscribe', async () => {
-    const mockSql = () => { throw new Error('should not be called') }
+    const mockSql = () => {
+      throw new Error('should not be called')
+    }
     const { handler } = createWSHandler({ sql: mockSql as any })
 
     const mockWs = {} as WebSocket

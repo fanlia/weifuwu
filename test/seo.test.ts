@@ -6,10 +6,10 @@ import { seo, seoTags, seoMiddleware } from '../seo.ts'
 describe('seo — robots.txt', () => {
   it('default allows all', async () => {
     const r = seo()
-    const res = await r.handler()(
-      new Request('http://localhost/robots.txt'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/robots.txt'), {
+      params: {},
+      query: {},
+    } as Context)
     assert.equal(res.status, 200)
     assert.equal(res.headers.get('Content-Type'), 'text/plain; charset=utf-8')
     const body = await res.text()
@@ -23,12 +23,15 @@ describe('seo — robots.txt', () => {
         { userAgent: '*', disallow: '/' },
       ],
     })
-    const res = await r.handler()(
-      new Request('http://localhost/robots.txt'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/robots.txt'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
-    assert.match(body, /^User-agent: Googlebot\nAllow: \/\nDisallow: \/admin\nUser-agent: \*\nDisallow: \/\n$/)
+    assert.match(
+      body,
+      /^User-agent: Googlebot\nAllow: \/\nDisallow: \/admin\nUser-agent: \*\nDisallow: \/\n$/,
+    )
   })
 
   it('includes sitemap reference when sitemap is configured', async () => {
@@ -36,26 +39,28 @@ describe('seo — robots.txt', () => {
       sitemap: { urls: [{ loc: '/' }] },
       baseUrl: 'https://example.com',
     })
-    const res = await r.handler()(
-      new Request('http://localhost/robots.txt'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/robots.txt'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
     assert.match(body, /Sitemap: https:\/\/example\.com\/sitemap\.xml/)
   })
 
   it('supports array allow/disallow', async () => {
     const r = seo({
-      robots: [{
-        userAgent: '*',
-        allow: ['/', '/public'],
-        disallow: ['/admin', '/api', '/private'],
-      }],
+      robots: [
+        {
+          userAgent: '*',
+          allow: ['/', '/public'],
+          disallow: ['/admin', '/api', '/private'],
+        },
+      ],
     })
-    const res = await r.handler()(
-      new Request('http://localhost/robots.txt'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/robots.txt'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
     assert.match(body, /Allow: \/\nAllow: \/public/)
     assert.match(body, /Disallow: \/admin\nDisallow: \/api\nDisallow: \/private/)
@@ -65,10 +70,10 @@ describe('seo — robots.txt', () => {
 describe('seo — sitemap.xml', () => {
   it('generates empty sitemap with no URLs', async () => {
     const r = seo({ sitemap: {} })
-    const res = await r.handler()(
-      new Request('http://localhost/sitemap.xml'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/sitemap.xml'), {
+      params: {},
+      query: {},
+    } as Context)
     assert.equal(res.status, 200)
     assert.equal(res.headers.get('Content-Type'), 'application/xml; charset=utf-8')
     const body = await res.text()
@@ -85,10 +90,10 @@ describe('seo — sitemap.xml', () => {
         ],
       },
     })
-    const res = await r.handler()(
-      new Request('http://localhost/sitemap.xml'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/sitemap.xml'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
     assert.match(body, /<loc>https:\/\/example\.com\/<\/loc>/)
     assert.match(body, /<loc>https:\/\/example\.com\/about<\/loc>/)
@@ -103,10 +108,10 @@ describe('seo — sitemap.xml', () => {
         urls: [{ loc: '/', lastmod: '2026-01-15' }],
       },
     })
-    const res = await r.handler()(
-      new Request('http://localhost/sitemap.xml'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/sitemap.xml'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
     assert.match(body, /<lastmod>2026-01-15<\/lastmod>/)
   })
@@ -121,10 +126,10 @@ describe('seo — sitemap.xml', () => {
         ],
       },
     })
-    const res = await r.handler()(
-      new Request('http://localhost/sitemap.xml'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/sitemap.xml'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
     assert.match(body, /<loc>\/static<\/loc>/)
     assert.match(body, /<loc>\/blog\/post-1<\/loc>/)
@@ -166,10 +171,10 @@ describe('seo — sitemap.xml', () => {
         ],
       },
     })
-    const res = await r.handler()(
-      new Request('http://localhost/sitemap.xml'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/sitemap.xml'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
     assert.match(body, /<loc>https:\/\/example\.com\/<\/loc>/)
     assert.match(body, /<loc>https:\/\/example\.com\/about<\/loc>/)
@@ -182,10 +187,10 @@ describe('seo — sitemap.xml', () => {
         urls: [{ loc: '/page' }],
       },
     })
-    const res = await r.handler()(
-      new Request('http://localhost/sitemap.xml'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/sitemap.xml'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
     assert.match(body, /<loc>https:\/\/example\.com\/page<\/loc>/)
   })
@@ -196,10 +201,10 @@ describe('seo — sitemap.xml', () => {
         urls: [{ loc: '/page?q=a&b=c' }],
       },
     })
-    const res = await r.handler()(
-      new Request('http://localhost/sitemap.xml'),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await r.handler()(new Request('http://localhost/sitemap.xml'), {
+      params: {},
+      query: {},
+    } as Context)
     const body = await res.text()
     assert.match(body, /page\?q=a&amp;b=c/)
   })
@@ -266,7 +271,7 @@ describe('seoMiddleware', () => {
   it('sets X-Robots-Tag from function based on path', async () => {
     const mw = seoMiddleware({
       headers: {
-        'X-Robots-Tag': (path) => path.startsWith('/admin') ? 'noindex' : undefined,
+        'X-Robots-Tag': (path) => (path.startsWith('/admin') ? 'noindex' : undefined),
       },
     })
     const adminRes = await mw(

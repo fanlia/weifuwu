@@ -20,25 +20,25 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 - **Never import `streamText`/`generateText`/`embed` from the `ai` SDK directly in application code.** Always use `provider.streamText()` or `ctx.ai.streamText()` — the provider injects the configured model automatically.
 - **ctx field principle**: each middleware adds exactly one namespaced field on `ctx`. Standard objects (`req`, `ws`) are never modified. The framework injects, the developer uses.
 
-  | Pattern α middleware | Injects | Type safety |
-  |---|---|---|
-  | `app.use(postgres())` | `ctx.sql` | `declare module` + `PostgresInjected` |
-  | `app.use(redis())` | `ctx.redis` | `declare module` + `RedisInjected` |
-  | `app.use(aiProvider())` | `ctx.ai` | `declare module` + `AIProviderInjected` |
-  | `app.use(queue())` | `ctx.queue` | `declare module` + `QueueInjected` |
-  | `app.use(session())` | `ctx.session` | `declare module` + `SessionInjected` |
-  | `app.use(auth())` | `ctx.user` | `declare module` |
-  | `app.use(user().middleware())` | `ctx.user` (含完整用户数据) | `UserInjected` |
-  | `app.use(permissions())` | `ctx.permissions` `{ roles, permissions }` | `declare module` + `PermissionsModule` |
-  | `app.use(theme())` | `ctx.theme` `{ value, set }` | `declare module` + `ThemeInjected` |
-  | `app.use(i18n())` | `ctx.i18n` `{ locale, t, set }` | `declare module` + `I18nInjected` |
-  | `app.use(flash())` | `ctx.flash` `{ value, set }` | `declare module` + `FlashInjected` |
-  | `app.use(csrf())` | `ctx.csrf.token` | `declare module` + `CsrfInjected` |
-  | `app.use(requestId())` | `ctx.requestId` | `declare module` |
-  | `app.use(s3())` | `ctx.s3` | `declare module` + `S3Module` |
-  | `app.use(tenant())` | `ctx.tenant` | `declare module` + `TenantContext` |
-  | `app.use(validate())` / `app.use(upload())` | `ctx.parsed` | `declare module` (shared field) |
-  | `ws('/chat', handler)` | `ctx.ws` (per-connection) | — |
+  | Pattern α middleware                        | Injects                                    | Type safety                             |
+  | ------------------------------------------- | ------------------------------------------ | --------------------------------------- |
+  | `app.use(postgres())`                       | `ctx.sql`                                  | `declare module` + `PostgresInjected`   |
+  | `app.use(redis())`                          | `ctx.redis`                                | `declare module` + `RedisInjected`      |
+  | `app.use(aiProvider())`                     | `ctx.ai`                                   | `declare module` + `AIProviderInjected` |
+  | `app.use(queue())`                          | `ctx.queue`                                | `declare module` + `QueueInjected`      |
+  | `app.use(session())`                        | `ctx.session`                              | `declare module` + `SessionInjected`    |
+  | `app.use(auth())`                           | `ctx.user`                                 | `declare module`                        |
+  | `app.use(user().middleware())`              | `ctx.user` (含完整用户数据)                | `UserInjected`                          |
+  | `app.use(permissions())`                    | `ctx.permissions` `{ roles, permissions }` | `declare module` + `PermissionsModule`  |
+  | `app.use(theme())`                          | `ctx.theme` `{ value, set }`               | `declare module` + `ThemeInjected`      |
+  | `app.use(i18n())`                           | `ctx.i18n` `{ locale, t, set }`            | `declare module` + `I18nInjected`       |
+  | `app.use(flash())`                          | `ctx.flash` `{ value, set }`               | `declare module` + `FlashInjected`      |
+  | `app.use(csrf())`                           | `ctx.csrf.token`                           | `declare module` + `CsrfInjected`       |
+  | `app.use(requestId())`                      | `ctx.requestId`                            | `declare module`                        |
+  | `app.use(s3())`                             | `ctx.s3`                                   | `declare module` + `S3Module`           |
+  | `app.use(tenant())`                         | `ctx.tenant`                               | `declare module` + `TenantContext`      |
+  | `app.use(validate())` / `app.use(upload())` | `ctx.parsed`                               | `declare module` (shared field)         |
+  | `ws('/chat', handler)`                      | `ctx.ws` (per-connection)                  | —                                       |
 
   `ctx.ws` is the per-connection WebSocket helper: `ctx.ws.state`, `ctx.ws.json()`, `ctx.ws.join(room)`, `ctx.ws.sendRoom(room, data)`. The `ws` parameter in handlers is the standard `WebSocket` from the `ws` library — never augmented.
 
@@ -56,13 +56,13 @@ This is the weifuwu HTTP framework — pure Node.js, no build step.
 
 The framework has five core modules that other modules depend on:
 
-| Module | Import | Role |
-|--------|--------|------|
-| **serve** | `serve()` | HTTP server, lifecycle, graceful shutdown |
-| **router** | `Router` | Request routing, middleware chain, WebSocket upgrade |
-| **postgres** | `postgres()` | Database client (Pattern α — middleware), pool management, table builder, migrations |
-| **redis** | `redis()` | Redis client (Pattern α — middleware), connection management |
-| **ai provider** | `aiProvider()` | AI model & embedding abstraction, env-based config |
+| Module          | Import         | Role                                                                                 |
+| --------------- | -------------- | ------------------------------------------------------------------------------------ |
+| **serve**       | `serve()`      | HTTP server, lifecycle, graceful shutdown                                            |
+| **router**      | `Router`       | Request routing, middleware chain, WebSocket upgrade                                 |
+| **postgres**    | `postgres()`   | Database client (Pattern α — middleware), pool management, table builder, migrations |
+| **redis**       | `redis()`      | Redis client (Pattern α — middleware), connection management                         |
+| **ai provider** | `aiProvider()` | AI model & embedding abstraction, env-based config                                   |
 
 Modules like `agent`, `kb`, `user`, `session`, `queue`, `permissions` depend on `postgres`. Modules like `agent`, `kb`, `aiStream`, `runWorkflow` depend on `ai provider`. Every module that depends on a core module accepts it as a constructor parameter (e.g. `agent({ pg, provider })`), never creates its own connection.
 
@@ -70,12 +70,12 @@ Modules like `agent`, `kb`, `user`, `session`, `queue`, `permissions` depend on 
 
 `user()` 集成了三个子能力:
 
-| 子能力 | 选项 | 路由 |
-|--------|------|------|
-| 本地注册/登录 | — | `POST /register`, `POST /login` |
-| OAuth2 服务端 | `oauth2: { server: true }` | `GET /oauth/authorize`, `POST /oauth/consent`, `POST /oauth/token` |
-| 社会化登录 | `oauthLogin: { providers: {...} }` | `GET /auth/:provider`, `GET /auth/:provider/callback` |
-| JWT 验证 | `.middleware()` | — (注入 ctx.user) |
+| 子能力        | 选项                               | 路由                                                               |
+| ------------- | ---------------------------------- | ------------------------------------------------------------------ |
+| 本地注册/登录 | —                                  | `POST /register`, `POST /login`                                    |
+| OAuth2 服务端 | `oauth2: { server: true }`         | `GET /oauth/authorize`, `POST /oauth/consent`, `POST /oauth/token` |
+| 社会化登录    | `oauthLogin: { providers: {...} }` | `GET /auth/:provider`, `GET /auth/:provider/callback`              |
+| JWT 验证      | `.middleware()`                    | — (注入 ctx.user)                                                  |
 
 ### Permissions 模块
 
@@ -83,8 +83,11 @@ Modules like `agent`, `kb`, `user`, `session`, `queue`, `permissions` depend on 
 
 ```ts
 const perm = permissions({ pg })
-app.use((req, ctx, next) => { ctx.user = { id: 1 }; return next(req, ctx) })
-app.use(perm)                    // → ctx.roles, ctx.permissions
+app.use((req, ctx, next) => {
+  ctx.user = { id: 1 }
+  return next(req, ctx)
+})
+app.use(perm) // → ctx.roles, ctx.permissions
 app.get('/admin', perm.requireRole('admin'), handler)
 app.post('/posts', perm.requirePermission('posts:create'), handler)
 

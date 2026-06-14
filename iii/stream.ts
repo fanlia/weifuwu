@@ -2,18 +2,30 @@ import type { Redis } from '../vendor.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 import type { StreamUpdateOp, StreamSubscription } from './types.ts'
 
-function notify(channels: Map<string, Set<WebSocket>>, stream: string, group: string, item: string, event: string, data: unknown) {
-  const keys = [
-    `${stream}`,
-    `${stream}:${group}`,
-    `${stream}:${group}:${item}`,
-  ]
-  const msg = JSON.stringify({ type: 'stream', stream_name: stream, group_id: group, item_id: item, event, data })
+function notify(
+  channels: Map<string, Set<WebSocket>>,
+  stream: string,
+  group: string,
+  item: string,
+  event: string,
+  data: unknown,
+) {
+  const keys = [`${stream}`, `${stream}:${group}`, `${stream}:${group}:${item}`]
+  const msg = JSON.stringify({
+    type: 'stream',
+    stream_name: stream,
+    group_id: group,
+    item_id: item,
+    event,
+    data,
+  })
   for (const key of keys) {
     const subs = channels.get(key)
     if (!subs) continue
     for (const ws of subs) {
-      try { ws.send(msg) } catch {}
+      try {
+        ws.send(msg)
+      } catch {}
     }
   }
 }
@@ -175,7 +187,7 @@ function createPgStore(channels: Map<string, Set<WebSocket>>, pg: PostgresClient
         WHERE stream_name = ${stream} AND group_id = ${group}
         ORDER BY item_id
       `
-      const items = (rows as any[]).map(r => ({
+      const items = (rows as any[]).map((r) => ({
         item_id: r.item_id,
         data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data,
       }))
@@ -187,7 +199,7 @@ function createPgStore(channels: Map<string, Set<WebSocket>>, pg: PostgresClient
         WHERE stream_name = ${stream}
         ORDER BY group_id
       `
-      return { groups: (rows as any[]).map(r => r.group_id) }
+      return { groups: (rows as any[]).map((r) => r.group_id) }
     },
     async list_all() {
       const rows = await sql`
@@ -196,7 +208,7 @@ function createPgStore(channels: Map<string, Set<WebSocket>>, pg: PostgresClient
         GROUP BY stream_name
         ORDER BY stream_name
       `
-      const streams = (rows as any[]).map(r => ({
+      const streams = (rows as any[]).map((r) => ({
         stream_name: r.stream_name,
         group_count: Number(r.group_count),
         item_count: Number(r.item_count),
@@ -234,10 +246,13 @@ function createRedisStore(channels: Map<string, Set<WebSocket>>, redis: Redis, t
     async set(stream: string, group: string, item: string, data: unknown) {
       const hk = hashKey(stream, group)
       const oldRaw = await redis.hget(hk, item)
-      let old: unknown = oldRaw ? JSON.parse(oldRaw) : null
+      const old: unknown = oldRaw ? JSON.parse(oldRaw) : null
       await redis.hset(hk, item, JSON.stringify(data))
       setTTL(hk)
-      await redis.publish(`iii:stream:${stream}`, JSON.stringify({ event: 'set', group, item, data }))
+      await redis.publish(
+        `iii:stream:${stream}`,
+        JSON.stringify({ event: 'set', group, item, data }),
+      )
       notify(channels, stream, group, item, 'set', data)
       return { old_value: old, new_value: deepClone(data) }
     },
@@ -313,7 +328,10 @@ function createRedisStore(channels: Map<string, Set<WebSocket>>, redis: Redis, t
       const newVal = applyOps(old, ops)
       await redis.hset(hk, item, JSON.stringify(newVal))
       setTTL(hk)
-      await redis.publish(`iii:stream:${stream}`, JSON.stringify({ event: 'update', group, item, data: newVal }))
+      await redis.publish(
+        `iii:stream:${stream}`,
+        JSON.stringify({ event: 'update', group, item, data: newVal }),
+      )
       notify(channels, stream, group, item, 'update', newVal)
       return { old_value: old, new_value: deepClone(newVal) }
     },
@@ -348,7 +366,6 @@ export function createStream(opts?: { pg?: PostgresClient; redis?: Redis; stream
   }
 
   return {
-
     ...store,
 
     subscribe(ws: WebSocket, sub: StreamSubscription) {

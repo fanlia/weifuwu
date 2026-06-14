@@ -2,7 +2,12 @@
   "nav": { "home": "Home", "docs": "Docs", "api": "API" },
   "hero": { "title": "Build Faster", "subtitle": "A modern web framework for Node.js" },
   "cta": { "start": "Get Started", "learn": "Learn More" },
-  "demo": { "title": "WebSocket Demo", "placeholder": "Type a message...", "send": "Send", "echo": "Echo" },
+  "demo": {
+    "title": "WebSocket Demo",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "echo": "Echo"
+  },
   "ws": { "connected": "Connected", "connecting": "Connecting...", "disconnected": "Disconnected" },
   "footer": { "privacy": "Privacy", "terms": "Terms" }
 }

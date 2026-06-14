@@ -90,7 +90,9 @@ describe('webhook', () => {
     it('rejects duplicate Stripe events (replay protection)', async () => {
       const wh = webhook({ stripe: { secret: 'whsec_test' } })
       let count = 0
-      wh.on('*', () => { count++ })
+      wh.on('*', () => {
+        count++
+      })
 
       const payload = JSON.stringify({
         type: 'payment_intent.succeeded',
@@ -213,7 +215,7 @@ describe('webhook', () => {
         mkCtx(),
       )
       assert.equal(res.status, 200)
-      const data = await res.json() as any
+      const data = (await res.json()) as any
       assert.equal(data.challenge, 'challenge_abc')
     })
 
@@ -241,14 +243,18 @@ describe('webhook', () => {
   describe('Custom verifier', () => {
     it('supports custom verifier with event extraction', async () => {
       const wh = webhook({
-        custom: [{
-          name: 'myapp',
-          verify: (body, headers) => headers['x-webhook-token'] === 'mytoken',
-          event: (body) => (body as any).action,
-        }],
+        custom: [
+          {
+            name: 'myapp',
+            verify: (body, headers) => headers['x-webhook-token'] === 'mytoken',
+            event: (body) => (body as any).action,
+          },
+        ],
       })
       const events: string[] = []
-      wh.on('user.created', (event) => { events.push(event.event) })
+      wh.on('user.created', (event) => {
+        events.push(event.event)
+      })
 
       const payload = JSON.stringify({ action: 'user.created', id: 1 })
       const res = await wh.handler()(
@@ -268,7 +274,9 @@ describe('webhook', () => {
     it('wildcard * receives all events', async () => {
       const wh = webhook({ stripe: { secret: 'whsec_test' } })
       const received: string[] = []
-      wh.on('*', (event) => { received.push(`${event.provider}:${event.event}`) })
+      wh.on('*', (event) => {
+        received.push(`${event.provider}:${event.event}`)
+      })
 
       const payload = JSON.stringify({ type: 'invoice.paid', id: 'evt_1' })
       const timestamp = Math.floor(Date.now() / 1000)
@@ -343,7 +351,9 @@ describe('webhook', () => {
 
     it('handler error returns 500', async () => {
       const wh = webhook({ stripe: { secret: 'whsec_test' } })
-      wh.on('test.event', () => { throw new Error('handler failed') })
+      wh.on('test.event', () => {
+        throw new Error('handler failed')
+      })
 
       const payload = JSON.stringify({ type: 'test.event', id: 'evt_err' })
       const timestamp = Math.floor(Date.now() / 1000)
@@ -377,7 +387,9 @@ describe('webhook', () => {
     it('removes a registered handler', async () => {
       const wh = webhook({ stripe: { secret: 'whsec_test' } })
       let count = 0
-      const handler = () => { count++ }
+      const handler = () => {
+        count++
+      }
       wh.on('test.event', handler)
       wh.off('test.event', handler)
 

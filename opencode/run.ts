@@ -1,6 +1,5 @@
 import { streamText, stepCountIs, type LanguageModel, type Tool } from 'ai'
-import type { SessionMessage } from './session.ts'
-import { addTextMessage, addToolMessages } from './session.ts'
+import { addTextMessage, addToolMessages, type SessionMessage } from './session.ts'
 
 export interface ExecuteOptions {
   sessionId: string
@@ -13,9 +12,7 @@ export interface ExecuteOptions {
   abortSignal?: AbortSignal
 }
 
-export async function* executeGenerator(
-  opts: ExecuteOptions,
-): AsyncGenerator<any, void, unknown> {
+export async function* executeGenerator(opts: ExecuteOptions): AsyncGenerator<any, void, unknown> {
   const { sessionId, input, model, tools, systemPrompt, messages, sql, abortSignal } = opts
 
   const lastStepToolCalls: Array<{ toolCallId: string; toolName: string; args: unknown }> = []
@@ -26,7 +23,7 @@ export async function* executeGenerator(
     model,
     system: systemPrompt,
     messages: [
-      ...messages.map(m => {
+      ...messages.map((m) => {
         if (m.role === 'user') return { role: 'user' as const, content: m.content ?? '' }
         if (m.role === 'assistant') return { role: 'assistant' as const, content: m.content ?? '' }
         return { role: 'user' as const, content: '' }
@@ -61,7 +58,14 @@ export async function* executeGenerator(
         totalTokens: result.usage?.totalTokens ?? 0,
       }
       try {
-        await addTextMessage(sql, sessionId, 'assistant', currentAssistantText, currentUsage.promptTokens, currentUsage.completionTokens)
+        await addTextMessage(
+          sql,
+          sessionId,
+          'assistant',
+          currentAssistantText,
+          currentUsage.promptTokens,
+          currentUsage.completionTokens,
+        )
       } catch (e) {
         console.error('[opencode] save message failed:', e)
       }

@@ -1,6 +1,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { navigate, useNavigate, Link, isNavigating, onNavigate, useNavigating } from '../client-router.ts'
+import {
+  navigate,
+  useNavigate,
+  Link,
+  isNavigating,
+  onNavigate,
+  useNavigating,
+} from '../client-router.ts'
 
 describe('client-router', () => {
   it('exports navigate function', () => {
@@ -34,7 +41,7 @@ describe('client-router', () => {
 
     it('notifies listeners when navigation starts/ends', () => {
       const values: boolean[] = []
-      const unsub = onNavigate(v => values.push(v))
+      const unsub = onNavigate((v) => values.push(v))
       assert.deepEqual(values, [])
 
       // Simulate navigation lifecycle via __WFW_SET_PAGE

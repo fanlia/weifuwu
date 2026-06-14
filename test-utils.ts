@@ -48,11 +48,7 @@ export class TestRequest {
   private method: string
   private path: string
 
-  constructor(
-    app: TestApp,
-    method: string,
-    path: string,
-  ) {
+  constructor(app: TestApp, method: string, path: string) {
     this.app = app
     this.method = method
     this.path = path
@@ -142,31 +138,31 @@ export class TestApp {
 
   /** Register a GET route — supports route-level middleware via spread args. */
   get(path: string, ...args: any[]): this {
-    (this.router.get as any)(path, ...args)
+    ;(this.router.get as any)(path, ...args)
     return this
   }
 
   /** Register a POST route. */
   post(path: string, ...args: any[]): this {
-    (this.router.post as any)(path, ...args)
+    ;(this.router.post as any)(path, ...args)
     return this
   }
 
   /** Register a PUT route. */
   put(path: string, ...args: any[]): this {
-    (this.router.put as any)(path, ...args)
+    ;(this.router.put as any)(path, ...args)
     return this
   }
 
   /** Register a PATCH route. */
   patch(path: string, ...args: any[]): this {
-    (this.router.patch as any)(path, ...args)
+    ;(this.router.patch as any)(path, ...args)
     return this
   }
 
   /** Register a DELETE route. */
   delete(path: string, ...args: any[]): this {
-    (this.router.delete as any)(path, ...args)
+    ;(this.router.delete as any)(path, ...args)
     return this
   }
 
@@ -322,7 +318,7 @@ export async function withTestDb(
     // We always throw to force rollback (test isolation pattern)
     await sql.begin(async (txSql: any) => {
       await callback(txSql as Sql<{}>)
-      throw undefined  // force rollback
+      throw undefined // force rollback
     })
   } catch {
     // Expected — thrown to prevent commit
@@ -330,5 +326,3 @@ export async function withTestDb(
     await sql.end()
   }
 }
-
-

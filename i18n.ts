@@ -93,7 +93,9 @@ export function i18n(options?: I18nOptions): I18nModule {
       const data = JSON.parse(content) as Record<string, unknown>
       cache.set(locale, data)
       return data
-    } catch { /* file not found */ }
+    } catch {
+      /* file not found */
+    }
     // Fallback: zh-CN → zh
     const short = locale.split('-')[0]
     if (short !== locale) {
@@ -130,7 +132,10 @@ export function i18n(options?: I18nOptions): I18nModule {
       set: (value: string, loc?: string) => {
         const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
         const location = loc ?? (req.headers.get('referer') || '/')
-        return new Response(null, { status: 302, headers: { Location: location, 'Set-Cookie': cookie } })
+        return new Response(null, {
+          status: 302,
+          headers: { Location: location, 'Set-Cookie': cookie },
+        })
       },
     }
 
@@ -138,7 +143,9 @@ export function i18n(options?: I18nOptions): I18nModule {
   }
 
   class I18nRouter extends Router {
-    middleware() { return mw }
+    middleware() {
+      return mw
+    }
   }
 
   const router = new I18nRouter()
@@ -150,7 +157,11 @@ export function i18n(options?: I18nOptions): I18nModule {
     const accept = req.headers.get('accept') ?? ''
     if (accept.includes('application/json')) {
       return Response.json(
-        { ok: true, locale: value, messages: Object.keys(messages).length > 0 ? messages : undefined },
+        {
+          ok: true,
+          locale: value,
+          messages: Object.keys(messages).length > 0 ? messages : undefined,
+        },
         { headers: { 'Set-Cookie': cookie } },
       )
     }

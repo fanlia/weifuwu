@@ -1,8 +1,7 @@
 import crypto from 'node:crypto'
-import type { Context, Middleware } from './types.ts'
+import type { Context, Middleware, Closeable } from './types.ts'
 import { getCookies, setCookie, deleteCookie } from './cookie.ts'
 import type { Redis } from './vendor.ts'
-import type { Closeable } from './types.ts'
 
 // Augment Context with session properties
 declare module './types.ts' {
@@ -136,7 +135,9 @@ export class MemoryStore implements SessionStore {
   }
 
   /** Testing only: return approximate count. */
-  get size(): number { return this.store.size }
+  get size(): number {
+    return this.store.size
+  }
 }
 
 // ── RedisStore ──────────────────────────────────────────────────────────────
@@ -223,7 +224,9 @@ function createSessionObject(
   obj[kTtl] = ttl
   // Stamp __createdAt on the object so it survives JSON roundtrip
   if (createdAt) obj[kCreatedAt] = createdAt
-  obj.save = () => { obj[kSaved] = true }
+  obj.save = () => {
+    obj[kSaved] = true
+  }
   obj.destroy = () => {
     obj[kDestroyed] = true
     obj[kSaved] = false
@@ -238,8 +241,18 @@ function createSessionObject(
     enumerable: false,
     configurable: false,
   })
-  Object.defineProperty(obj, 'save', { enumerable: false, configurable: true, writable: true, value: obj.save })
-  Object.defineProperty(obj, 'destroy', { enumerable: false, configurable: true, writable: true, value: obj.destroy })
+  Object.defineProperty(obj, 'save', {
+    enumerable: false,
+    configurable: true,
+    writable: true,
+    value: obj.save,
+  })
+  Object.defineProperty(obj, 'destroy', {
+    enumerable: false,
+    configurable: true,
+    writable: true,
+    value: obj.destroy,
+  })
   return obj
 }
 
@@ -253,7 +266,13 @@ function isSessionActive(session: Session): boolean {
 
 // ── Middleware ──────────────────────────────────────────────────────────────
 
-export function session(options?: SessionOptions): Middleware<Context, Context & SessionInjected> & { close: () => Promise<void>; store: SessionStore } {
+export function session(options?: SessionOptions): Middleware<
+  Context,
+  Context & SessionInjected
+> & {
+  close: () => Promise<void>
+  store: SessionStore
+} {
   const ttl = options?.ttl ?? 24 * 60 * 60 * 1000
   const cookieName = options?.cookieName ?? '__session'
   const secret = options?.secret
@@ -262,8 +281,8 @@ export function session(options?: SessionOptions): Middleware<Context, Context &
     path: options?.cookie?.path ?? '/',
     domain: options?.cookie?.domain,
     httpOnly: options?.cookie?.httpOnly ?? true,
-    secure: options?.cookie?.secure ?? (process.env.NODE_ENV === 'production'),
-    sameSite: options?.cookie?.sameSite ?? 'lax' as const,
+    secure: options?.cookie?.secure ?? process.env.NODE_ENV === 'production',
+    sameSite: options?.cookie?.sameSite ?? ('lax' as const),
   }
 
   // Resolve store
@@ -361,7 +380,7 @@ export function session(options?: SessionOptions): Middleware<Context, Context &
     const currentData = isSessionActive(currentSession) ? JSON.stringify(currentSession) : null
 
     const wasSaved = currentSession[kSaved]
-    const changed = wasSaved || needsRotation || (currentData !== snapshot)
+    const changed = wasSaved || needsRotation || currentData !== snapshot
 
     if (!changed) {
       // No changes — just extend TTL if session exists in store
@@ -391,9 +410,14 @@ export function session(options?: SessionOptions): Middleware<Context, Context &
     }
 
     return res
-  }) as Middleware<Context, Context & SessionInjected> & { close: () => Promise<void>; store: SessionStore }
+  }) as Middleware<Context, Context & SessionInjected> & {
+    close: () => Promise<void>
+    store: SessionStore
+  }
 
-  mw.close = async () => { await closeStore?.() }
+  mw.close = async () => {
+    await closeStore?.()
+  }
   mw.store = store
 
   return mw

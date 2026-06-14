@@ -24,14 +24,19 @@ describe('aiStream', () => {
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'stream data')
     assert.equal(streamTextMock.mock.callCount(), 1)
-    assert.deepStrictEqual(streamTextMock.mock.calls[0]!.arguments[0], { model: 'gpt-4', prompt: 'hi' })
+    assert.deepStrictEqual(streamTextMock.mock.calls[0]!.arguments[0], {
+      model: 'gpt-4',
+      prompt: 'hi',
+    })
   })
 
   it('returns 500 when handler throws', async () => {
     const { _ai, aiStream } = await import('../ai.ts')
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
-    const m = await aiStream(async () => { throw new Error('fail') })
+    const m = await aiStream(async () => {
+      throw new Error('fail')
+    })
 
     const res = await m.handler()(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),
@@ -46,10 +51,10 @@ describe('aiStream', () => {
 
     const m = await aiStream(async () => ({ model: 'test', prompt: 'x' }))
 
-    const res = await m.handler()(
-      new Request('http://localhost/', { method: 'GET' }),
-      { params: {}, query: {} } as Context,
-    )
+    const res = await m.handler()(new Request('http://localhost/', { method: 'GET' }), {
+      params: {},
+      query: {},
+    } as Context)
     assert.equal(res.status, 405)
     assert.equal(res.headers.get('Allow'), 'POST')
   })
@@ -67,10 +72,7 @@ describe('aiStream', () => {
     })
 
     const testCtx = { params: { id: '1' }, query: { q: 'test' } } as Context
-    await m.handler()(
-      new Request('http://localhost/', { method: 'POST', body: '{}' }),
-      testCtx,
-    )
+    await m.handler()(new Request('http://localhost/', { method: 'POST', body: '{}' }), testCtx)
 
     assert.ok(receivedReq)
     assert.equal(receivedReq!.method, 'POST')
@@ -87,7 +89,11 @@ describe('aiStream', () => {
     _ai.streamObject = streamObjectMock
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
-    const m = await aiStream(async () => ({ model: 'gpt-4', prompt: 'hi', schema: { type: 'object' } }))
+    const m = await aiStream(async () => ({
+      model: 'gpt-4',
+      prompt: 'hi',
+      schema: { type: 'object' },
+    }))
 
     const res = await m.handler()(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),

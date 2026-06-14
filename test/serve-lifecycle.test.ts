@@ -5,9 +5,7 @@ import { createTestServer } from '../serve.ts'
 void describe('serve lifecycle', () => {
   void describe('createTestServer', () => {
     it('creates a test server and responds', async () => {
-      const { server, url } = await createTestServer(
-        () => new Response('hello'),
-      )
+      const { server, url } = await createTestServer(() => new Response('hello'))
       assert.ok(url)
       assert.ok(server.port > 0)
 
@@ -19,10 +17,7 @@ void describe('serve lifecycle', () => {
     })
 
     it('supports port 0 for random port', async () => {
-      const { server } = await createTestServer(
-        () => new Response('ok'),
-        { port: 0 },
-      )
+      const { server } = await createTestServer(() => new Response('ok'), { port: 0 })
       assert.ok(server.port > 0)
       await server.stop()
     })
@@ -30,9 +25,7 @@ void describe('serve lifecycle', () => {
 
   void describe('server.stop()', () => {
     it('is idempotent — calling stop() twice does not error', async () => {
-      const { server } = await createTestServer(
-        () => new Response('ok'),
-      )
+      const { server } = await createTestServer(() => new Response('ok'))
       await server.stop()
       await server.stop()
     })
@@ -60,10 +53,9 @@ void describe('serve lifecycle', () => {
     })
 
     it('rejects oversized body with 413', async () => {
-      const { server, url } = await createTestServer(
-        async () => new Response('ok'),
-        { maxBodySize: 10 },
-      )
+      const { server, url } = await createTestServer(async () => new Response('ok'), {
+        maxBodySize: 10,
+      })
 
       const res = await fetch(url, {
         method: 'POST',

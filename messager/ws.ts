@@ -2,8 +2,7 @@ import type { Sql, WebSocket } from '../vendor.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { WSMessage, Message } from './types.ts'
 import type { Context } from '../types.ts'
-import { createHub } from '../hub.ts'
-import type { Hub } from '../hub.ts'
+import { createHub, type Hub } from '../hub.ts'
 import { runAgentRouting } from './agent.ts'
 
 interface WSDeps {
@@ -82,15 +81,16 @@ export function createWSHandler(deps: WSDeps): { handler: any; hub: Hub } {
 
             broadcastToChannel(hub, channel_id, { type: 'message', data: message })
 
-          // Agent routing
-          if (agents) {
-            const insertMsg = (data: any) => sql`
+            // Agent routing
+            if (agents) {
+              const insertMsg = (data: any) =>
+                sql`
               INSERT INTO "_messages" ("channel_id", "sender_id", "sender_type", "content")
               VALUES (${data.channel_id}, ${data.sender_id}, ${data.sender_type}, ${data.content})
               RETURNING *
             `.then(([r]) => r)
-            runAgentRouting(sql, { insert: insertMsg }, agents, hub, channel_id, content)
-          }
+              runAgentRouting(sql, { insert: insertMsg }, agents, hub, channel_id, content)
+            }
             break
           }
 

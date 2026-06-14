@@ -62,36 +62,45 @@ async function cmdInit(name: string, opts: { minimal?: boolean; skipInstall?: bo
   const uiPage = join(targetDir, 'ui', 'app', 'page.tsx')
   if (existsSync(uiPage)) {
     let content = await readFile(uiPage, 'utf-8')
-    content = content
-      .replace(/from '\.\.\/\.\.\/\.\.\/\.\.\/react\.ts'/g, "from 'weifuwu/react'")
+    content = content.replace(/from '\.\.\/\.\.\/\.\.\/\.\.\/react\.ts'/g, "from 'weifuwu/react'")
     await writeFile(uiPage, content)
   }
 
   // Minimal mode: strip SSR/i18n/theme, keep only HTTP core
   if (opts.minimal) {
-    try { await rmrf(join(targetDir, 'ui')) } catch {}
-    try { await rmrf(join(targetDir, 'locales')) } catch {}
+    try {
+      await rmrf(join(targetDir, 'ui'))
+    } catch {}
+    try {
+      await rmrf(join(targetDir, 'locales'))
+    } catch {}
 
     // Write minimal app.ts
-    await writeFile(join(targetDir, 'app.ts'), [
-      `import { Router } from 'weifuwu'`,
-      ``,
-      `export const app = new Router()`,
-      ``,
-      `app.get('/', () => new Response('Hello from ${name}!'))`,
-      `app.get('/api/ping', () => Response.json({ pong: true, time: new Date().toISOString() }))`,
-      ``,
-    ].join('\n'))
+    await writeFile(
+      join(targetDir, 'app.ts'),
+      [
+        `import { Router } from 'weifuwu'`,
+        ``,
+        `export const app = new Router()`,
+        ``,
+        `app.get('/', () => new Response('Hello from ${name}!'))`,
+        `app.get('/api/ping', () => Response.json({ pong: true, time: new Date().toISOString() }))`,
+        ``,
+      ].join('\n'),
+    )
 
     // Write minimal index.ts
-    await writeFile(join(targetDir, 'index.ts'), [
-      `import { serve } from 'weifuwu'`,
-      `import { app } from './app.ts'`,
-      ``,
-      `const port = Number(process.env.PORT) || 3000`,
-      `serve(app.handler(), { port })`,
-      ``,
-    ].join('\n'))
+    await writeFile(
+      join(targetDir, 'index.ts'),
+      [
+        `import { serve } from 'weifuwu'`,
+        `import { app } from './app.ts'`,
+        ``,
+        `const port = Number(process.env.PORT) || 3000`,
+        `serve(app.handler(), { port })`,
+        ``,
+      ].join('\n'),
+    )
   }
 
   // Write package.json
@@ -106,64 +115,81 @@ async function cmdInit(name: string, opts: { minimal?: boolean; skipInstall?: bo
   }
   devDeps['@types/node'] = depVer('@types/node')
 
-  await writeFile(join(targetDir, 'package.json'), JSON.stringify({
-    name,
-    type: 'module',
-    scripts: {
-      dev: 'NODE_ENV=development node --watch index.ts',
-      start: 'node index.ts',
-    },
-    dependencies: deps,
-    devDependencies: devDeps,
-  }, null, 2) + '\n')
+  await writeFile(
+    join(targetDir, 'package.json'),
+    JSON.stringify(
+      {
+        name,
+        type: 'module',
+        scripts: {
+          dev: 'NODE_ENV=development node --watch index.ts',
+          start: 'node index.ts',
+        },
+        dependencies: deps,
+        devDependencies: devDeps,
+      },
+      null,
+      2,
+    ) + '\n',
+  )
 
   // Write tsconfig.json
   const include = opts.minimal ? ['*.ts'] : ['*.ts', 'ui/**/*.ts', 'ui/**/*.tsx']
-  await writeFile(join(targetDir, 'tsconfig.json'), JSON.stringify({
-    compilerOptions: {
-      target: 'ESNext',
-      module: 'NodeNext',
-      moduleResolution: 'NodeNext',
-      strict: true,
-      jsx: 'react-jsx',
-      skipLibCheck: true,
-      noEmit: true,
-      allowImportingTsExtensions: true,
-    },
-    include,
-  }, null, 2) + '\n')
+  await writeFile(
+    join(targetDir, 'tsconfig.json'),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          target: 'ESNext',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          strict: true,
+          jsx: 'react-jsx',
+          skipLibCheck: true,
+          noEmit: true,
+          allowImportingTsExtensions: true,
+        },
+        include,
+      },
+      null,
+      2,
+    ) + '\n',
+  )
 
   await writeFile(join(targetDir, '.gitignore'), 'node_modules\ndist\n.env\n.sessions\n.weifuwu\n')
   await writeFile(join(targetDir, '.env'), 'PORT=3000\n')
-  await writeFile(join(targetDir, 'AGENTS.md'), [
-    `# ${name}`,
-    '',
-    `This is a [weifuwu](https://weifuwu.io) application — pure Node.js, no build step.`,
-    '',
-    '## Commands',
-    '',
-    '- `npm run dev` — start dev server with hot reload',
-    '- `npm start` — start production server',
-    '- `npm install` — install dependencies',
-    '- `npx tsc --noEmit` — type-check',
-    '',
-    '## API Reference',
-    '',
-    'See `node_modules/weifuwu/README.md` for the full documentation.',
-    '',
-  ].join('\n'))
+  await writeFile(
+    join(targetDir, 'AGENTS.md'),
+    [
+      `# ${name}`,
+      '',
+      `This is a [weifuwu](https://weifuwu.io) application — pure Node.js, no build step.`,
+      '',
+      '## Commands',
+      '',
+      '- `npm run dev` — start dev server with hot reload',
+      '- `npm start` — start production server',
+      '- `npm install` — install dependencies',
+      '- `npx tsc --noEmit` — type-check',
+      '',
+      '## API Reference',
+      '',
+      'See `node_modules/weifuwu/README.md` for the full documentation.',
+      '',
+    ].join('\n'),
+  )
 
   if (!opts.skipInstall) {
     console.log('\nInstalling dependencies...')
     execSync('npm install', { cwd: targetDir, stdio: 'inherit' })
   }
-  console.log(`\n✅ Created ${name}/ — cd ${name} && ${opts.skipInstall ? 'npm install && ' : ''}npm run dev`)
+  console.log(
+    `\n✅ Created ${name}/ — cd ${name} && ${opts.skipInstall ? 'npm install && ' : ''}npm run dev`,
+  )
 }
 
 async function cmdDev() {
-  const entry = existsSync('index.ts') ? 'index.ts'
-    : existsSync('app.ts') ? 'app.ts'
-    : null
+  const entry = existsSync('index.ts') ? 'index.ts' : existsSync('app.ts') ? 'app.ts' : null
 
   if (!entry) {
     console.error('No index.ts or app.ts found in current directory.')
@@ -188,44 +214,50 @@ async function cmdGenerate(type: string, name: string) {
   }
 
   await mkdir(dir, { recursive: true })
-  await writeFile(join(dir, 'index.ts'), [
-    `import type { Middleware } from 'weifuwu'`,
-    ``,
-    `export interface ${capitalize(name)}Options {`,
-    `  // Add your options here`,
-    `}`,
-    ``,
-    `export function ${name}(opts?: ${capitalize(name)}Options): Middleware {`,
-    `  return async (req, ctx, next) => {`,
-    `    // Your middleware logic here`,
-    `    return next(req, ctx)`,
-    `  }`,
-    `}`,
-    ``,
-  ].join('\n'))
+  await writeFile(
+    join(dir, 'index.ts'),
+    [
+      `import type { Middleware } from 'weifuwu'`,
+      ``,
+      `export interface ${capitalize(name)}Options {`,
+      `  // Add your options here`,
+      `}`,
+      ``,
+      `export function ${name}(opts?: ${capitalize(name)}Options): Middleware {`,
+      `  return async (req, ctx, next) => {`,
+      `    // Your middleware logic here`,
+      `    return next(req, ctx)`,
+      `  }`,
+      `}`,
+      ``,
+    ].join('\n'),
+  )
 
   await mkdir(join(dir, '..', 'test'), { recursive: true })
-  await writeFile(join(dir, '..', 'test', `${name}.test.ts`), [
-    `import { describe, it } from 'node:test'`,
-    `import assert from 'node:assert/strict'`,
-    `import { ${name} } from '../${name}/index.ts'`,
-    `import { Router } from 'weifuwu'`,
-    ``,
-    `describe('${name}', () => {`,
-    `  it('works as middleware', async () => {`,
-    `    const app = new Router()`,
-    `    app.use(${name}())`,
-    `    app.get('/', () => new Response('ok'))`,
-    ``,
-    `    const res = await app.handler()(`,
-    `      new Request('http://localhost/'),`,
-    `      { params: {}, query: {} } as any,`,
-    `    )`,
-    `    assert.equal(res.status, 200)`,
-    `  })`,
-    `})`,
-    ``,
-  ].join('\n'))
+  await writeFile(
+    join(dir, '..', 'test', `${name}.test.ts`),
+    [
+      `import { describe, it } from 'node:test'`,
+      `import assert from 'node:assert/strict'`,
+      `import { ${name} } from '../${name}/index.ts'`,
+      `import { Router } from 'weifuwu'`,
+      ``,
+      `describe('${name}', () => {`,
+      `  it('works as middleware', async () => {`,
+      `    const app = new Router()`,
+      `    app.use(${name}())`,
+      `    app.get('/', () => new Response('ok'))`,
+      ``,
+      `    const res = await app.handler()(`,
+      `      new Request('http://localhost/'),`,
+      `      { params: {}, query: {} } as any,`,
+      `    )`,
+      `    assert.equal(res.status, 200)`,
+      `  })`,
+      `})`,
+      ``,
+    ].join('\n'),
+  )
 
   console.log(`✅ Created module ${name}/ with index.ts and test/${name}.test.ts`)
 }
@@ -249,7 +281,9 @@ async function rmrf(dir: string) {
     }
     const { rmdir } = await import('node:fs/promises')
     await rmdir(dir)
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 import { parseArgs } from 'node:util'
@@ -289,7 +323,9 @@ if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
     console.error('Usage: npx weifuwu init <name> [--minimal] [--skip-install]')
     process.exit(1)
   }
-  cmdInit(name, { minimal: !!values.minimal, skipInstall: !!values['skip-install'] }).catch(console.error)
+  cmdInit(name, { minimal: !!values.minimal, skipInstall: !!values['skip-install'] }).catch(
+    console.error,
+  )
 } else if (cmd === 'dev') {
   cmdDev()
 } else if (cmd === 'generate' || cmd === 'g') {

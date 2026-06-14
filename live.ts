@@ -2,9 +2,14 @@ import chokidar from 'chokidar'
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type { WebSocket } from './vendor.ts'
-import { Router } from './router.ts'
-import type { WebSocketHandler } from './router.ts'
-import { compileTsxDev, compileHotComponent, compileVendorBundle, clearCompileCache, id } from './compile.ts'
+import { Router, type WebSocketHandler } from './router.ts'
+import {
+  compileTsxDev,
+  compileHotComponent,
+  compileVendorBundle,
+  clearCompileCache,
+  id,
+} from './compile.ts'
 import { compileTailwindCss } from './tailwind.ts'
 import { ssrEntries } from './ssr-entries.ts'
 
@@ -26,14 +31,22 @@ function setHot(hash: string, code: string) {
 
 export function broadcastReload() {
   for (const ws of clients) {
-    try { ws.send('reload') } catch { clients.delete(ws) }
+    try {
+      ws.send('reload')
+    } catch {
+      clients.delete(ws)
+    }
   }
 }
 
 function broadcastCss(css: string) {
   const msg = JSON.stringify({ type: 'css', css })
   for (const ws of clients) {
-    try { ws.send(msg) } catch { clients.delete(ws) }
+    try {
+      ws.send(msg)
+    } catch {
+      clients.delete(ws)
+    }
   }
 }
 
@@ -99,9 +112,7 @@ export function liveWatcher(dir: string): { close: () => void } {
         return broadcastReload()
       }
       clearCompileCache()
-      const targets = existsSync(entryPath)
-        ? [entryPath]
-        : findEntries(resolve(filePath))
+      const targets = existsSync(entryPath) ? [entryPath] : findEntries(resolve(filePath))
       if (targets.length === 0) return broadcastReload()
       try {
         let css: string | undefined
@@ -118,7 +129,11 @@ export function liveWatcher(dir: string): { close: () => void } {
           if (css) msg.css = css
           const str = JSON.stringify(msg)
           for (const ws of clients) {
-            try { ws.send(str) } catch { clients.delete(ws) }
+            try {
+              ws.send(str)
+            } catch {
+              clients.delete(ws)
+            }
           }
         }
       } catch (e) {

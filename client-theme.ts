@@ -49,7 +49,10 @@ addInterceptor(async (url) => {
       headers: { accept: 'application/json' },
     })
     const data = await res.json()
-    ;(window as any).__WEIFUWU_CTX = { ...(window as any).__WEIFUWU_CTX, theme: { value: data.theme } }
+    ;(window as any).__WEIFUWU_CTX = {
+      ...(window as any).__WEIFUWU_CTX,
+      theme: { value: data.theme },
+    }
     setCtx({ theme: { value: data.theme } } as any)
     applyTheme(data.theme)
   } catch {
@@ -80,7 +83,9 @@ addInterceptor(async (url) => {
 export function useTheme() {
   const ctx = useCtx()
   const theme = ctx.theme?.value ?? 'system'
-  useEffect(() => { applyTheme(theme) }, [theme])
+  useEffect(() => {
+    applyTheme(theme)
+  }, [theme])
   return {
     theme,
     resolvedTheme: resolveTheme(theme),

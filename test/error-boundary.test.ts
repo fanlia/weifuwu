@@ -12,10 +12,10 @@ describe('errorBoundary()', () => {
     const app = new Router()
     app.use(errorBoundary(errComponent))
     app.use('/', ssr({ dir: './test/fixtures/error' }))
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 500)
     const html = await res.text()
     assert.match(html, /Something went wrong/)
@@ -27,10 +27,10 @@ describe('errorBoundary()', () => {
     app.use(layout('./test/fixtures/ssr/posts/app/layout.tsx'))
     app.use(errorBoundary(errComponent))
     app.use('/', ssr({ dir: './test/fixtures/error' }))
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 500)
     const html = await res.text()
     assert.match(html, /Layout-Header/)
@@ -41,10 +41,10 @@ describe('errorBoundary()', () => {
     const app = new Router()
     app.use(errorBoundary('./test/fixtures/error/no-default-error.tsx'))
     app.use('/', ssr({ dir: './test/fixtures/error' }))
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 500)
   })
 })

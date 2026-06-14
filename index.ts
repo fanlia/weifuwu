@@ -96,12 +96,7 @@ export type {
   Message,
 } from './messager/types.ts'
 export { deploy, defineConfig } from './deploy/index.ts'
-export type {
-  DeployConfig,
-  AppConfig,
-  DeployServer,
-  AppStatus,
-} from './deploy/types.ts'
+export type { DeployConfig, AppConfig, DeployServer, AppStatus } from './deploy/types.ts'
 export { opencode } from './opencode/index.ts'
 export type {
   OpencodeOptions,
@@ -134,12 +129,7 @@ export type { MailerOptions, MailOptions, Mailer } from './mailer.ts'
 export { csrf } from './csrf.ts'
 export type { CsrfOptions, CsrfInjected } from './csrf.ts'
 export { logdb } from './logdb/index.ts'
-export type {
-  LogdbOptions,
-  LogdbModule,
-  LogEntry,
-  LogEntryInput,
-} from './logdb/types.ts'
+export type { LogdbOptions, LogdbModule, LogEntry, LogEntryInput } from './logdb/types.ts'
 export { iii, createWorker, registerWorker } from './iii/index.ts'
 export type {
   IIIModule,
@@ -159,7 +149,13 @@ export { ssr } from './ssr.ts'
 
 // Session management
 export { session, MemoryStore, RedisStore } from './session.ts'
-export type { Session, SessionOptions, SessionStore, SessionData, SessionInjected } from './session.ts'
+export type {
+  Session,
+  SessionOptions,
+  SessionStore,
+  SessionData,
+  SessionInjected,
+} from './session.ts'
 
 // Response caching
 export { cache, MemoryCache, RedisCache } from './cache.ts'
@@ -167,7 +163,14 @@ export type { CacheOptions, CacheStore, CacheMiddleware, CachedResponse } from '
 
 // Webhook receiver
 export { webhook } from './webhook.ts'
-export type { WebhookOptions, WebhookModule, WebhookEvent, WebhookHandler, PlatformConfig, CustomVerifierConfig } from './webhook.ts'
+export type {
+  WebhookOptions,
+  WebhookModule,
+  WebhookEvent,
+  WebhookHandler,
+  PlatformConfig,
+  CustomVerifierConfig,
+} from './webhook.ts'
 
 // Full-text search (PostgreSQL)
 export * as fts from './fts.ts'
@@ -178,9 +181,15 @@ export type { S3Options, S3PutOptions, S3UrlOptions, S3Module, S3Body } from './
 
 // Knowledge Base (RAG with pgvector)
 export { knowledgeBase } from './kb/index.ts'
-export type { KBOptions, KBIngestOptions, KBSearchResult, KBSearchOptions, KBListEntry, KBModule } from './kb/types.ts'
+export type {
+  KBOptions,
+  KBIngestOptions,
+  KBSearchResult,
+  KBSearchOptions,
+  KBListEntry,
+  KBModule,
+} from './kb/types.ts'
 
 // Permissions (RBAC)
 export { permissions } from './permissions.ts'
 export type { PermissionsOptions, PermissionsModule } from './permissions.ts'
-

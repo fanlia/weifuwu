@@ -5,7 +5,9 @@ import { helmet } from '../helmet.ts'
 
 describe('helmet', () => {
   function mkReq() {
-    return testApp().use(helmet()).get('/data', () => new Response('ok'))
+    return testApp()
+      .use(helmet())
+      .get('/data', () => new Response('ok'))
   }
 
   it('sets default security headers', async () => {

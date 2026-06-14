@@ -66,10 +66,10 @@ function buildHeadPayload(opts: StreamOpts): string {
     "react/jsx-runtime": "${vUrl}",
     "weifuwu/react": "${vUrl}"
   }
-}<\/script>\n`
+}</script>\n`
 
   if (ctx.theme?.value) {
-    result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()<\/script>\n`
+    result += `<script>!function(){var t=(document.cookie.match(/(?:^|;\\s*)theme=([^;]+)/)||[])[1]||'system';if(t==='system'){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}()</script>\n`
   }
 
   if (tailwind?.css) {
@@ -103,7 +103,7 @@ function buildHeadPayload(opts: StreamOpts): string {
     ctxData.env = publicEnv
   }
 
-  result += `<script>window.__WEIFUWU_CTX=${JSON.stringify(ctxData)}<\/script>\n`
+  result += `<script>window.__WEIFUWU_CTX=${JSON.stringify(ctxData)}</script>\n`
 
   return result
 }
@@ -122,7 +122,11 @@ function buildBodyScripts(opts: StreamOpts, hydrationScript?: string): string {
  *
  * Used internally by {@link ssr}.
  */
-export function streamResponse(reactStream: ReadableStream, opts: StreamOpts, hydrationScript?: string): Response {
+export function streamResponse(
+  reactStream: ReadableStream,
+  opts: StreamOpts,
+  hydrationScript?: string,
+): Response {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
 
@@ -206,7 +210,7 @@ ws.onclose=function(){
   }
 };
 })();
-<\/script>`
+</script>`
         }
 
         if (bodyScripts) {
@@ -218,7 +222,9 @@ ws.onclose=function(){
 
         controller.enqueue(encoder.encode(html))
       } catch {
-        const fallback = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' + '<title>500</title></head><body><h1>500 - Internal Server Error</h1></body></html>'
+        const fallback =
+          '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' +
+          '<title>500</title></head><body><h1>500 - Internal Server Error</h1></body></html>'
         controller.enqueue(encoder.encode(fallback))
       } finally {
         controller.close()

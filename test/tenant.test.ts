@@ -13,7 +13,14 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
   const usersTable = '__test_tenant_users'
 
   // Mock user context
-  const mockUser = { id: 9999, email: 'test@tenant.test', name: 'Test', role: 'user', created_at: new Date(), updated_at: new Date() }
+  const mockUser = {
+    id: 9999,
+    email: 'test@tenant.test',
+    name: 'Test',
+    role: 'user',
+    created_at: new Date(),
+    updated_at: new Date(),
+  }
   let tenantCtx: TenantContext
 
   function mockCtx(overrides = {}): any {
@@ -79,7 +86,8 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     await pg.sql.unsafe('DROP TABLE IF EXISTS "_user_tables" CASCADE')
     await pg.sql.unsafe('DROP TABLE IF EXISTS "_tenant_members" CASCADE')
     await pg.sql.unsafe('DROP TABLE IF EXISTS "_tenants" CASCADE')
-    pg.close ? await pg.close() : await pg.sql.end({ timeout: 5 })
+    if (pg.close) await pg.close()
+    else await pg.sql.end({ timeout: 5 })
   })
 
   // ── Tenant management ─────────────────────────────────
@@ -96,7 +104,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         mockCtx(),
       )
       assert.equal(res.status, 201)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.ok(body.id)
       assert.equal(body.name, 'Acme Corp')
 
@@ -120,14 +128,11 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         }),
         mockCtx(),
       )
-      const created = await createRes.json() as any
+      const created = (await createRes.json()) as any
 
-      const res = await r.handler()(
-        new Request('http://localhost/sys/tenants'),
-        mockCtx(),
-      )
+      const res = await r.handler()(new Request('http://localhost/sys/tenants'), mockCtx())
       assert.equal(res.status, 200)
-      const list = await res.json() as any[]
+      const list = (await res.json()) as any[]
       assert.ok(Array.isArray(list))
       assert.ok(list.some((t: any) => t.id === created.id))
       tenantCtx = { id: created.id, name: created.name, role: 'admin' }
@@ -175,7 +180,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         mockTenantCtx(),
       )
       assert.equal(res.status, 201)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.equal(body.slug, 'articles')
       assert.equal(body.fields.length, 3)
 
@@ -199,7 +204,8 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
 
       await r.handler()(
         new Request('http://localhost/sys/tables', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug: 'dupe', fields }),
         }),
         mockTenantCtx(),
@@ -207,7 +213,8 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
 
       const res = await r.handler()(
         new Request('http://localhost/sys/tables', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug: 'dupe', fields }),
         }),
         mockTenantCtx(),
@@ -219,7 +226,8 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
       const r = t
       const res = await r.handler()(
         new Request('http://localhost/sys/tables', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug: 'sys', fields: [] }),
         }),
         mockTenantCtx(),
@@ -232,18 +240,16 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
       const fields: FieldDef[] = [{ name: 'n', type: 'string' }]
       await r.handler()(
         new Request('http://localhost/sys/tables', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug: 'list_test', fields }),
         }),
         mockTenantCtx(),
       )
 
-      const res = await r.handler()(
-        new Request('http://localhost/sys/tables'),
-        mockTenantCtx(),
-      )
+      const res = await r.handler()(new Request('http://localhost/sys/tables'), mockTenantCtx())
       assert.equal(res.status, 200)
-      const list = await res.json() as any[]
+      const list = (await res.json()) as any[]
       assert.ok(list.length >= 1)
     })
 
@@ -253,7 +259,8 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
 
       await r.handler()(
         new Request('http://localhost/sys/tables', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slug: 'delete_me', fields }),
         }),
         mockTenantCtx(),
@@ -296,7 +303,9 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     })
 
     afterEach(async () => {
-      await pg.sql.unsafe(`DROP TABLE IF EXISTS "_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts" CASCADE`)
+      await pg.sql.unsafe(
+        `DROP TABLE IF EXISTS "_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts" CASCADE`,
+      )
     })
 
     it('creates a row', async () => {
@@ -310,7 +319,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         mockTenantCtx(),
       )
       assert.equal(res.status, 201)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.ok(body.id)
       assert.equal(body.title, 'Hello')
       assert.equal(body.tenant_id, tenantCtx.id)
@@ -330,7 +339,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         mockTenantCtx(),
       )
       assert.equal(res.status, 200)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.equal(body.rows.length, 2)
       assert.equal(body.count, 3)
     })
@@ -339,21 +348,23 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
       const r = t
       const name = `_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts`
       await pg.sql`INSERT INTO ${pg.sql(name as any)} ("tenant_id", "title") VALUES (${tenantCtx.id}, 'Get Me') RETURNING *`
-      const [inserted] = await pg.sql`SELECT * FROM ${pg.sql(name as any)} WHERE title = 'Get Me' LIMIT 1`
+      const [inserted] =
+        await pg.sql`SELECT * FROM ${pg.sql(name as any)} WHERE title = 'Get Me' LIMIT 1`
 
       const res = await r.handler()(
         new Request(`http://localhost/posts/${(inserted as any).id}`),
         mockTenantCtx(),
       )
       assert.equal(res.status, 200)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.equal(body.title, 'Get Me')
     })
 
     it('patches a row', async () => {
       const r = t
       const name = `_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts`
-      const [inserted] = await pg.sql`INSERT INTO ${pg.sql(name as any)} ("tenant_id", "title") VALUES (${tenantCtx.id}, 'Old') RETURNING *`
+      const [inserted] =
+        await pg.sql`INSERT INTO ${pg.sql(name as any)} ("tenant_id", "title") VALUES (${tenantCtx.id}, 'Old') RETURNING *`
       const id = (inserted as any).id
 
       const res = await r.handler()(
@@ -365,14 +376,15 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         mockTenantCtx(),
       )
       assert.equal(res.status, 200)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.equal(body.title, 'New')
     })
 
     it('deletes a row', async () => {
       const r = t
       const name = `_t_${tenantCtx.id.replace(/-/g, '').slice(0, 8)}_posts`
-      const [inserted] = await pg.sql`INSERT INTO ${pg.sql(name as any)} ("tenant_id", "title") VALUES (${tenantCtx.id}, 'Delete') RETURNING *`
+      const [inserted] =
+        await pg.sql`INSERT INTO ${pg.sql(name as any)} ("tenant_id", "title") VALUES (${tenantCtx.id}, 'Delete') RETURNING *`
       const id = (inserted as any).id
 
       const res = await r.handler()(
@@ -404,8 +416,12 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
       slugB = `_t_${tenantBId.replace(/-/g, '').slice(0, 8)}_items`
 
       // Create same table for both tenants
-      await pg.sql.unsafe(`CREATE TABLE "${slugA}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "val" TEXT DEFAULT NULL)`)
-      await pg.sql.unsafe(`CREATE TABLE "${slugB}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "val" TEXT DEFAULT NULL)`)
+      await pg.sql.unsafe(
+        `CREATE TABLE "${slugA}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "val" TEXT DEFAULT NULL)`,
+      )
+      await pg.sql.unsafe(
+        `CREATE TABLE "${slugB}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "val" TEXT DEFAULT NULL)`,
+      )
       await pg.sql`
         INSERT INTO "_user_tables" ("tenant_id", "slug", "fields") VALUES (${tenantAId}, 'items', '[]')
       `
@@ -427,11 +443,8 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
       const r = t
       tenantCtx = { id: tenantAId, name: 'Tenant A', role: 'admin' }
 
-      const res = await r.handler()(
-        new Request('http://localhost/items'),
-        mockTenantCtx(),
-      )
-      const body = await res.json() as any
+      const res = await r.handler()(new Request('http://localhost/items'), mockTenantCtx())
+      const body = (await res.json()) as any
       assert.equal(body.rows.length, 1)
       assert.equal(body.rows[0].val, 'A-data')
     })
@@ -453,8 +466,12 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
       childName = `_t_${hash}_books`
 
       // Create tables
-      await pg.sql.unsafe(`CREATE TABLE "${parentName}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "name" TEXT DEFAULT NULL)`)
-      await pg.sql.unsafe(`CREATE TABLE "${childName}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "author_id" INTEGER DEFAULT NULL, "title" TEXT DEFAULT NULL)`)
+      await pg.sql.unsafe(
+        `CREATE TABLE "${parentName}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "name" TEXT DEFAULT NULL)`,
+      )
+      await pg.sql.unsafe(
+        `CREATE TABLE "${childName}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "author_id" INTEGER DEFAULT NULL, "title" TEXT DEFAULT NULL)`,
+      )
 
       // Register in _user_tables
       await pg.sql`
@@ -473,7 +490,8 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
 
     it('lists nested resources via relation', async () => {
       const r = t
-      const [author] = await pg.sql`INSERT INTO ${pg.sql(parentName as any)} ("tenant_id", "name") VALUES (${tenantId}, 'Tolkien') RETURNING *`
+      const [author] =
+        await pg.sql`INSERT INTO ${pg.sql(parentName as any)} ("tenant_id", "name") VALUES (${tenantId}, 'Tolkien') RETURNING *`
       await pg.sql`INSERT INTO ${pg.sql(childName as any)} ("tenant_id", "author_id", "title") VALUES (${tenantId}, ${(author as any).id}, 'LotR')`
       await pg.sql`INSERT INTO ${pg.sql(childName as any)} ("tenant_id", "author_id", "title") VALUES (${tenantId}, ${(author as any).id}, 'The Hobbit')`
 
@@ -482,14 +500,15 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         mockTenantCtx(),
       )
       assert.equal(res.status, 200)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.equal(body.count, 2)
       assert.equal(body.rows.length, 2)
     })
 
     it('POST nested creates with relation field auto-filled', async () => {
       const r = t
-      const [author] = await pg.sql`INSERT INTO ${pg.sql(parentName as any)} ("tenant_id", "name") VALUES (${tenantId}, 'Orwell') RETURNING *`
+      const [author] =
+        await pg.sql`INSERT INTO ${pg.sql(parentName as any)} ("tenant_id", "name") VALUES (${tenantId}, 'Orwell') RETURNING *`
 
       const res = await r.handler()(
         new Request(`http://localhost/authors/${(author as any).id}/books`, {
@@ -500,7 +519,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         mockTenantCtx(),
       )
       assert.equal(res.status, 201)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.ok(body.id)
       assert.equal(body.author_id, (author as any).id)
       assert.equal(body.title, '1984')
@@ -514,13 +533,16 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
     let tableName: string
 
     beforeEach(async () => {
-      const [t] = await pg.sql`INSERT INTO "_tenants" ("name") VALUES ('GraphQL Tenant') RETURNING *`
+      const [t] =
+        await pg.sql`INSERT INTO "_tenants" ("name") VALUES ('GraphQL Tenant') RETURNING *`
       tenantId = (t as any).id
       tenantCtx = { id: tenantId, name: 'GraphQL', role: 'admin' }
       const hash = tenantId.replace(/-/g, '').slice(0, 8)
       tableName = `_t_${hash}_gitems`
 
-      await pg.sql.unsafe(`CREATE TABLE "${tableName}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "label" TEXT DEFAULT NULL, "count" INTEGER DEFAULT NULL)`)
+      await pg.sql.unsafe(
+        `CREATE TABLE "${tableName}" ("id" SERIAL PRIMARY KEY, "tenant_id" TEXT NOT NULL, "label" TEXT DEFAULT NULL, "count" INTEGER DEFAULT NULL)`,
+      )
       await pg.sql`
         INSERT INTO "_user_tables" ("tenant_id", "slug", "fields")
         VALUES (${tenantId}, 'gitems', '[{"name":"label","type":"string"},{"name":"count","type":"integer"}]')
@@ -544,7 +566,7 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
         mockTenantCtx(),
       )
       assert.equal(res.status, 200)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.equal(body.data.gitems.length, 2)
     })
 
@@ -555,14 +577,15 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            query: 'mutation ($data: CreateGitemsInput!) { createGitems(data: $data) { id label count } }',
+            query:
+              'mutation ($data: CreateGitemsInput!) { createGitems(data: $data) { id label count } }',
             variables: { data: { label: 'New Item', count: 5 } },
           }),
         }),
         mockTenantCtx(),
       )
       assert.equal(res.status, 200)
-      const body = await res.json() as any
+      const body = (await res.json()) as any
       assert.ok(body.data.createGitems.id)
       assert.equal(body.data.createGitems.label, 'New Item')
       assert.equal(body.data.createGitems.count, 5)
@@ -589,7 +612,10 @@ describe('tenant BaaS', { skip: !DATABASE_URL }, () => {
       const res = await mw(
         new Request('http://localhost/'),
         { params: {}, query: {}, user: mockUser } as any,
-        (_req: any, ctx: any) => { captured = ctx.tenant; return new Response('ok') },
+        (_req: any, ctx: any) => {
+          captured = ctx.tenant
+          return new Response('ok')
+        },
       )
       assert.equal(res.status, 200)
       assert.ok(captured)

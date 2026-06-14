@@ -1,7 +1,23 @@
 import type { Middleware, Context } from '../types.ts'
-import { serial, text, integer, jsonb, vector, timestamptz, sql as schemaSql } from '../postgres/schema/index.ts'
+import {
+  serial,
+  text,
+  integer,
+  jsonb,
+  vector,
+  timestamptz,
+  sql as schemaSql,
+} from '../postgres/schema/index.ts'
 import { chunkContent } from '../ai/utils.ts'
-import type { KBOptions, KBModule, KBIngestOptions, KBSearchOptions, KBSearchResult, KBListEntry, KBInjected } from './types.ts'
+import type {
+  KBOptions,
+  KBModule,
+  KBIngestOptions,
+  KBSearchOptions,
+  KBSearchResult,
+  KBListEntry,
+  KBInjected,
+} from './types.ts'
 
 export type { KBOptions, KBIngestOptions, KBSearchResult, KBSearchOptions, KBListEntry, KBModule }
 
@@ -14,7 +30,15 @@ function escapeIdent(s: string): string {
 // ── Knowledge Base factory ──────────────────────────────────────────────────
 
 export function knowledgeBase(options: KBOptions): KBModule {
-  const { pg, provider, table = '_kb_docs', chunkSize = 512, chunkOverlap = 64, searchLimit = 5, searchThreshold = 0 } = options
+  const {
+    pg,
+    provider,
+    table = '_kb_docs',
+    chunkSize = 512,
+    chunkOverlap = 64,
+    searchLimit = 5,
+    searchThreshold = 0,
+  } = options
   const sql = pg.sql
   const dimension = provider.dimension
 
@@ -24,9 +48,13 @@ export function knowledgeBase(options: KBOptions): KBModule {
     title: text('title').notNull().default(''),
     content: text('content').notNull(),
     chunk_index: integer('chunk_index').notNull().default(0),
-    metadata: jsonb('metadata').notNull().default(schemaSql`'{}'::jsonb`),
+    metadata: jsonb('metadata')
+      .notNull()
+      .default(schemaSql`'{}'::jsonb`),
     embedding: vector('embedding', dimension),
-    created_at: timestamptz('created_at').notNull().default(schemaSql`NOW()`),
+    created_at: timestamptz('created_at')
+      .notNull()
+      .default(schemaSql`NOW()`),
   })
 
   async function migrate(): Promise<void> {
@@ -43,7 +71,11 @@ export function knowledgeBase(options: KBOptions): KBModule {
     await docsTable.createIndex('embedding', { type: 'hnsw', operator: 'vector_cosine_ops' })
   }
 
-  async function ingest(key: string, content: string, ingestOpts?: KBIngestOptions): Promise<number> {
+  async function ingest(
+    key: string,
+    content: string,
+    ingestOpts?: KBIngestOptions,
+  ): Promise<number> {
     const title = ingestOpts?.title ?? key
     const meta = ingestOpts?.metadata ?? {}
     const cs = ingestOpts?.chunkSize ?? chunkSize
@@ -56,7 +88,7 @@ export function knowledgeBase(options: KBOptions): KBModule {
     await sql.unsafe(`DELETE FROM ${escapeIdent(table)} WHERE doc_key = $1`, [key])
 
     // Compute embeddings in parallel, then insert
-    const embeddings = await Promise.all(chunks.map(c => provider.embed(c)))
+    const embeddings = await Promise.all(chunks.map((c) => provider.embed(c)))
 
     for (let i = 0; i < chunks.length; i++) {
       const vec = `[${embeddings[i].join(',')}]`
@@ -78,11 +110,10 @@ export function knowledgeBase(options: KBOptions): KBModule {
     const vec = `[${embedding.join(',')}]`
 
     // Cosine distance (<=>) returns 0–2. Convert to similarity 0–1: (1 - distance/2)
-    const whereClause = threshold > 0
-      ? `WHERE (1 - (embedding <=> $1::vector) / 2) >= ${threshold}`
-      : ''
+    const whereClause =
+      threshold > 0 ? `WHERE (1 - (embedding <=> $1::vector) / 2) >= ${threshold}` : ''
 
-    const rows = await sql.unsafe(
+    const rows = (await sql.unsafe(
       `SELECT id, doc_key, title, content, chunk_index, metadata,
               1 - (embedding <=> $1::vector) / 2 AS _score
        FROM ${escapeIdent(table)}
@@ -90,7 +121,7 @@ export function knowledgeBase(options: KBOptions): KBModule {
        ORDER BY embedding <=> $1::vector
        LIMIT ${limit}`,
       [vec],
-    ) as any[]
+    )) as any[]
 
     return rows.map((r: any) => ({
       id: r.id,
@@ -107,12 +138,12 @@ export function knowledgeBase(options: KBOptions): KBModule {
   }
 
   async function list(): Promise<KBListEntry[]> {
-    const rows = await sql.unsafe(`
+    const rows = (await sql.unsafe(`
       SELECT doc_key, title, COUNT(*) AS chunks
       FROM ${escapeIdent(table)}
       GROUP BY doc_key, title
       ORDER BY doc_key
-    `) as any[]
+    `)) as any[]
     return rows.map((r: any) => ({
       key: r.doc_key,
       title: r.title,
@@ -122,7 +153,6 @@ export function knowledgeBase(options: KBOptions): KBModule {
 
   function mw(): Middleware {
     return (req, ctx, next) => {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       ;(ctx as Context & { kb: KBInjected }).kb = { search }
       return next(req, ctx)
     }

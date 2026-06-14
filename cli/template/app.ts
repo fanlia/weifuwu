@@ -15,4 +15,8 @@ app.use(async (req, ctx, next) => {
   return next(req, ctx)
 })
 app.get('/api/ping', () => Response.json({ pong: true, time: new Date().toISOString() }))
-app.ws('/ws/echo', { message(ws, _ctx, data) { ws.send(`echo: ${data}`) } })
+app.ws('/ws/echo', {
+  message(ws, _ctx, data) {
+    ws.send(`echo: ${data}`)
+  },
+})

@@ -7,7 +7,15 @@ import { currentTraceId } from '../trace.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 import type { UserOptions, UserData, UserModule, AuthResult, UserInjected } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
-import { serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
+import {
+  serial,
+  text,
+  integer,
+  boolean,
+  timestamptz,
+  textArray,
+  sql,
+} from '../postgres/schema/index.ts'
 import { createOAuth2Server } from './oauth2.ts'
 import { registerOAuthLoginRoutes } from './oauth-login.ts'
 
@@ -59,7 +67,12 @@ function extractToken(req: Request, headerName: string, cookieName?: string): st
   }
   // Priority 3: Cookie
   if (cookieName) {
-    const cookies = req.headers.get('cookie')?.split(';').map(c => c.trim()).filter(Boolean) || []
+    const cookies =
+      req.headers
+        .get('cookie')
+        ?.split(';')
+        .map((c) => c.trim())
+        .filter(Boolean) || []
     for (const c of cookies) {
       const eq = c.indexOf('=')
       if (eq > 0 && c.slice(0, eq) === cookieName) return c.slice(eq + 1)
@@ -186,11 +199,9 @@ export function user(options: UserOptions): UserModule {
   }
 
   function signToken(user: UserData): string {
-    return jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
-      secret!,
-      { expiresIn } as SignOptions,
-    )
+    return jwt.sign({ sub: user.id, email: user.email, role: user.role }, secret!, {
+      expiresIn,
+    } as SignOptions)
   }
 
   function stripPassword(row: any): Omit<UserData, 'password'> {
@@ -213,7 +224,11 @@ export function user(options: UserOptions): UserModule {
     return row as any
   }
 
-  async function register(data: { email: string; password: string; name: string }): Promise<AuthResult> {
+  async function register(data: {
+    email: string
+    password: string
+    name: string
+  }): Promise<AuthResult> {
     const { email, password, name } = RegisterSchema.parse(data)
 
     const existing = await findByEmail(email)
@@ -254,7 +269,12 @@ export function user(options: UserOptions): UserModule {
 
   async function verify(token: string): Promise<Omit<UserData, 'password'> | null> {
     try {
-      const payload = jwt.verify(token, secret!) as { sub: string; email?: string; role?: string; token_type?: string }
+      const payload = jwt.verify(token, secret!) as {
+        sub: string
+        email?: string
+        role?: string
+        token_type?: string
+      }
       if (payload.token_type === 'client_credentials') return null
       if (!hasDb || !findById) return null
       const row = await findById(Number(payload.sub))
@@ -352,7 +372,9 @@ export function user(options: UserOptions): UserModule {
         }
         const ct = proxyRes.headers.get('content-type')
         if (ct?.includes('application/json')) {
-          try { return await proxyRes.json() } catch {}
+          try {
+            return await proxyRes.json()
+          } catch {}
         }
         return { id: token }
       } catch (err) {
@@ -364,7 +386,12 @@ export function user(options: UserOptions): UserModule {
     // ── Strategy 5: JWT-based auth (requires jwtSecret + DB) ───────
     if (secret && hasDb) {
       try {
-        const payload = jwt.verify(token, secret) as { sub: string; email?: string; role?: string; token_type?: string }
+        const payload = jwt.verify(token, secret) as {
+          sub: string
+          email?: string
+          role?: string
+          token_type?: string
+        }
         if (payload.token_type === 'client_credentials') return null
         const row = await findById(Number(payload.sub))
         if (row) return stripPassword(row)
@@ -384,18 +411,21 @@ export function user(options: UserOptions): UserModule {
       }
       return new Response('Unauthorized', {
         status: 401,
-        headers: headerName.toLowerCase() === 'authorization'
-          ? { 'WWW-Authenticate': 'Bearer' }
-          : undefined,
+        headers:
+          headerName.toLowerCase() === 'authorization'
+            ? { 'WWW-Authenticate': 'Bearer' }
+            : undefined,
       })
     }
   }
 
-  function middlewareOptional(_opts?: { cookie?: string }): Middleware<Context, Context & UserInjected> {
+  function middlewareOptional(_opts?: {
+    cookie?: string
+  }): Middleware<Context, Context & UserInjected> {
     return async (req, ctx, next) => {
       const userData = await resolveUser(req, ctx)
       if (userData) {
-        (ctx as Context & UserInjected).user = userData as UserData
+        ;(ctx as Context & UserInjected).user = userData as UserData
       }
       return next(req, ctx as Context & UserInjected)
     }
@@ -466,18 +496,22 @@ export function user(options: UserOptions): UserModule {
 
   // Register OAuth login routes (login with GitHub/Google)
   if (hasDb && options.oauthLogin) {
-    registerOAuthLoginRoutes(r, {
-      sql: _pg.sql,
-      jwtSecret: secret,
-      expiresIn,
-      usersTable: table,
-      providerTable: '_auth_providers',
-      redirectUrl: options.oauthLogin.redirectUrl || '/',
-      signToken,
-      createPlaceholderUser,
-      findUserById: findById,
-      findUserByEmail: findByEmail,
-    }, options.oauthLogin.providers)
+    registerOAuthLoginRoutes(
+      r,
+      {
+        sql: _pg.sql,
+        jwtSecret: secret,
+        expiresIn,
+        usersTable: table,
+        providerTable: '_auth_providers',
+        redirectUrl: options.oauthLogin.redirectUrl || '/',
+        signToken,
+        createPlaceholderUser,
+        findUserById: findById,
+        findUserByEmail: findByEmail,
+      },
+      options.oauthLogin.providers,
+    )
   }
 
   // ── Assemble module ───────────────────────────────────────────────────
@@ -485,18 +519,32 @@ export function user(options: UserOptions): UserModule {
   mod.middleware = middleware
   mod.middlewareOptional = middlewareOptional
   mod.migrate = hasDb ? migrate : async () => {}
-  mod.register = hasDb ? register : async () => { throw new Error('user(): pg required for register') }
-  mod.login = hasDb ? login : async () => { throw new Error('user(): pg required for login') }
+  mod.register = hasDb
+    ? register
+    : async () => {
+        throw new Error('user(): pg required for register')
+      }
+  mod.login = hasDb
+    ? login
+    : async () => {
+        throw new Error('user(): pg required for login')
+      }
   mod.verify = hasDb ? verify : async () => null
   mod.registerClient = oauth2
     ? (data) => oauth2!.registerClient(data)
-    : async () => { throw new Error('OAuth2 server is not enabled') }
+    : async () => {
+        throw new Error('OAuth2 server is not enabled')
+      }
   mod.getClient = oauth2
     ? (clientId) => oauth2!.getClient(clientId)
-    : async () => { throw new Error('OAuth2 server is not enabled') }
+    : async () => {
+        throw new Error('OAuth2 server is not enabled')
+      }
   mod.revokeClient = oauth2
     ? (clientId) => oauth2!.revokeClient(clientId)
-    : async () => { throw new Error('OAuth2 server is not enabled') }
+    : async () => {
+        throw new Error('OAuth2 server is not enabled')
+      }
   mod.close = hasDb ? () => base!.close() : async () => {}
 
   return mod

@@ -10,5 +10,21 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["cli.ts", "env.ts", "*.ts", "workflow/*.ts", "postgres/*.ts", "redis/*.ts", "queue/*.ts", "user/*.ts", "tenant/*.ts", "agent/*.ts", "messager/*.ts", "deploy/*.ts", "opencode/*.ts", "opencode/**/*.ts", "iii/*.ts"]
+  "include": [
+    "cli.ts",
+    "env.ts",
+    "*.ts",
+    "workflow/*.ts",
+    "postgres/*.ts",
+    "redis/*.ts",
+    "queue/*.ts",
+    "user/*.ts",
+    "tenant/*.ts",
+    "agent/*.ts",
+    "messager/*.ts",
+    "deploy/*.ts",
+    "opencode/*.ts",
+    "opencode/**/*.ts",
+    "iii/*.ts"
+  ]
 }

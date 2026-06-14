@@ -5,9 +5,15 @@ interface WsHandlerDeps {
   unregisterRemoteWorker: (workerId: string) => void
   registerRemoteFunction: (workerId: string, id: string) => void
   unregisterRemoteFunction: (workerId: string, id: string) => void
-  registerRemoteTrigger: (workerId: string, input: { type: string; function_id: string; config: Record<string, unknown> }) => void
+  registerRemoteTrigger: (
+    workerId: string,
+    input: { type: string; function_id: string; config: Record<string, unknown> },
+  ) => void
   unregisterRemoteTrigger: (workerId: string, functionId: string) => void
-  addStreamSubscriber: (ws: WebSocket, sub: { stream_name: string; group_id?: string; item_id?: string }) => void
+  addStreamSubscriber: (
+    ws: WebSocket,
+    sub: { stream_name: string; group_id?: string; item_id?: string },
+  ) => void
   removeStreamSubscriber: (ws: WebSocket) => void
   handleInvokeResult: (invocationId: string, result: unknown) => void
   handleInvokeError: (invocationId: string, error: string) => void
@@ -35,10 +41,7 @@ export function createWsHandler(deps: WsHandlerDeps) {
 
       switch (msg.type) {
         case 'register_worker': {
-          const workerId = deps.registerRemoteWorker(
-            ws,
-            msg.worker_name || `remote-${Date.now()}`,
-          )
+          const workerId = deps.registerRemoteWorker(ws, msg.worker_name || `remote-${Date.now()}`)
           wsToWorkerId.set(ws, workerId)
           ws.send(JSON.stringify({ type: 'registered', worker_id: workerId }))
           break

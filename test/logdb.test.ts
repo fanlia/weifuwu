@@ -18,11 +18,11 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
   })
 
   beforeEach(async () => {
-    const partitions = await pg.sql.unsafe(`
+    const partitions = (await pg.sql.unsafe(`
       SELECT relid::regclass::text AS name
       FROM pg_partition_tree('"${tableName}"'::regclass)
       WHERE relid IS DISTINCT FROM '"${tableName}"'::regclass
-    `) as { name: string }[]
+    `)) as { name: string }[]
     for (const { name } of partitions) {
       await pg.sql.unsafe(`DROP TABLE IF EXISTS "${name}"`)
     }
@@ -31,7 +31,7 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
     for (let i = 0; i < 13; i++) {
       const start = new Date(now.getFullYear(), now.getMonth() + i, 1)
       const end = new Date(now.getFullYear(), now.getMonth() + i + 1, 1)
-      const pad = (n: number) => n < 10 ? '0' + n : String(n)
+      const pad = (n: number) => (n < 10 ? '0' + n : String(n))
       const partName = `${tableName}_${start.getFullYear()}_${pad(start.getMonth() + 1)}`
       await pg.sql.unsafe(`
         CREATE TABLE IF NOT EXISTS "${partName}"
@@ -206,8 +206,18 @@ describe('logdb', { skip: !DATABASE_URL }, () => {
 
   it('GET / filters by multiple metadata keys', async () => {
     const logger = logdb({ pg, table: tableName })
-    await logger.log({ level: 'info', source: 'test', message: 'a', metadata: { service: 'auth', env: 'prod' } })
-    await logger.log({ level: 'info', source: 'test', message: 'b', metadata: { service: 'auth', env: 'dev' } })
+    await logger.log({
+      level: 'info',
+      source: 'test',
+      message: 'a',
+      metadata: { service: 'auth', env: 'prod' },
+    })
+    await logger.log({
+      level: 'info',
+      source: 'test',
+      message: 'b',
+      metadata: { service: 'auth', env: 'dev' },
+    })
 
     const handler = logger.handler()
     const { server, url } = await createTestServer(handler)

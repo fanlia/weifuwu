@@ -3,10 +3,7 @@ import type { Closeable } from '../types.ts'
 import type { Redis } from '../vendor.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
-export type FunctionHandler = (
-  payload: unknown,
-  ctx: FunctionContext,
-) => unknown | Promise<unknown>
+export type FunctionHandler = (payload: unknown, ctx: FunctionContext) => unknown | Promise<unknown>
 
 export interface FunctionContext {
   engine: IIIModule
@@ -79,7 +76,11 @@ export interface TriggerInfo {
 
 export interface Worker {
   readonly name: string
-  registerFunction: (id: string, handler: FunctionHandler, opts?: { description?: string }) => Worker
+  registerFunction: (
+    id: string,
+    handler: FunctionHandler,
+    opts?: { description?: string },
+  ) => Worker
   unregisterFunction: (id: string) => Worker
   registerTrigger: (input: TriggerInput) => Worker
   unregisterTrigger: (functionId: string) => Worker

@@ -75,19 +75,20 @@ The old `.shutdown()` still exists as an alias.
 ```
 
 You can still use `aiProvider()` as a standalone provider without middleware:
+
 ```ts
-const provider = aiProvider()  // standalone (no middleware)
+const provider = aiProvider() // standalone (no middleware)
 const result = await provider.generateText({ prompt })
 ```
 
 ### Quick reference: old → new
 
-| Old | New | Notes |
-|-----|-----|-------|
-| `auth({ token: 'x' })` | `user({ tokens: ['x'] }).middleware()` | Multiple tokens supported |
-| `auth({ verify: fn })` | `user({ verify: fn }).middleware()` | Same signature |
-| `auth({ proxy: url })` | `user({ proxy: url }).middleware()` | Same behavior |
-| `auth({ session: true })` | `user({}).middleware()` | Session auto-detected |
-| `ctx.csrfToken` | `ctx.csrf.token` | Namespace consistency |
-| `rateLimiter.stop()` | `rateLimiter.close()` | Universal convention |
-| `engine.shutdown()` | `engine.close()` | Universal convention |
+| Old                       | New                                    | Notes                     |
+| ------------------------- | -------------------------------------- | ------------------------- |
+| `auth({ token: 'x' })`    | `user({ tokens: ['x'] }).middleware()` | Multiple tokens supported |
+| `auth({ verify: fn })`    | `user({ verify: fn }).middleware()`    | Same signature            |
+| `auth({ proxy: url })`    | `user({ proxy: url }).middleware()`    | Same behavior             |
+| `auth({ session: true })` | `user({}).middleware()`                | Session auto-detected     |
+| `ctx.csrfToken`           | `ctx.csrf.token`                       | Namespace consistency     |
+| `rateLimiter.stop()`      | `rateLimiter.close()`                  | Universal convention      |
+| `engine.shutdown()`       | `engine.close()`                       | Universal convention      |

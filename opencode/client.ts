@@ -2,7 +2,16 @@ import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel } from 'ai'
 import type { OpencodeOptions, OpencodeModule, SkillRegistry, PendingQuestion } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
-import { uuid, serial, text, integer, boolean, timestamptz, jsonb, sql as schemaSql } from '../postgres/schema/index.ts'
+import {
+  uuid,
+  serial,
+  text,
+  integer,
+  boolean,
+  timestamptz,
+  jsonb,
+  sql as schemaSql,
+} from '../postgres/schema/index.ts'
 import { buildRouter } from './rest.ts'
 import { createWSHandler } from './ws.ts'
 import { discoverSkills, buildSkillRegistry } from './skills.ts'
@@ -28,11 +37,22 @@ export async function opencode(options: OpencodeOptions): Promise<OpencodeModule
 
   const base = new PgModule(pg)
 
-  const r = await buildRouter({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions })
+  const r = await buildRouter({
+    sql,
+    model,
+    workspace,
+    systemPrompt,
+    skills: manualSkills,
+    skillsRegistry,
+    permissions,
+    pendingQuestions,
+  })
   const mod = r as OpencodeModule
   mod.migrate = async () => {
     const sessions = pg.table('_opencode_sessions', {
-      id: uuid('id').default(schemaSql`gen_random_uuid()`).primaryKey(),
+      id: uuid('id')
+        .default(schemaSql`gen_random_uuid()`)
+        .primaryKey(),
       tenant_id: text('tenant_id'),
       user_id: integer('user_id').default(0),
       title: text('title'),
@@ -62,7 +82,17 @@ export async function opencode(options: OpencodeOptions): Promise<OpencodeModule
     await messages.create()
     await messages.createIndex(['session_id', 'created_at'])
   }
-  mod.wsHandler = () => createWSHandler({ sql, model, workspace, systemPrompt, skills: manualSkills, skillsRegistry, permissions, pendingQuestions })
+  mod.wsHandler = () =>
+    createWSHandler({
+      sql,
+      model,
+      workspace,
+      systemPrompt,
+      skills: manualSkills,
+      skillsRegistry,
+      permissions,
+      pendingQuestions,
+    })
   mod.close = () => base.close()
   return mod
 }

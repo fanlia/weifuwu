@@ -1,4 +1,11 @@
-import { serial, text, timestamptz, jsonb, sql as schemaSql, partitionBy } from '../postgres/schema/index.ts'
+import {
+  serial,
+  text,
+  timestamptz,
+  jsonb,
+  sql as schemaSql,
+  partitionBy,
+} from '../postgres/schema/index.ts'
 import { Router } from '../router.ts'
 import { createHandler, listHandler, getHandler } from './rest.ts'
 import type { LogdbOptions, LogEntry, LogEntryInput, LogdbModule } from './types.ts'
@@ -69,11 +76,11 @@ export function logdb(options: LogdbOptions): LogdbModule {
     const cutoff = new Date()
     cutoff.setMonth(cutoff.getMonth() - retentionMonths)
 
-    const partitions = await sql.unsafe(`
+    const partitions = (await sql.unsafe(`
       SELECT relid::regclass::text AS name
       FROM pg_partition_tree('"${tableName}"'::regclass)
       WHERE relid IS DISTINCT FROM '"${tableName}"'::regclass
-    `) as { name: string }[]
+    `)) as { name: string }[]
 
     let dropped = 0
     for (const { name } of partitions) {

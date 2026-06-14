@@ -17,12 +17,15 @@ describe('layout', () => {
   })
 
   it('injects layout component into ctx.layoutStack', async () => {
-    writeFileSync(resolve(tmpDir, 'layout.tsx'), `
+    writeFileSync(
+      resolve(tmpDir, 'layout.tsx'),
+      `
       import React from 'react'
       export default function Layout({ children }: { children: React.ReactNode }) {
         return <div id="layout">{children}</div>
       }
-    `)
+    `,
+    )
 
     const { layout } = await import('../layout.ts')
     const r = new Router()
@@ -33,26 +36,32 @@ describe('layout', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(
-      new Request('http://localhost/test/page'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await r.handler()(new Request('http://localhost/test/page'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
   it('appends to existing layoutStack', async () => {
-    writeFileSync(resolve(tmpDir, 'outer.tsx'), `
+    writeFileSync(
+      resolve(tmpDir, 'outer.tsx'),
+      `
       import React from 'react'
       export default function Outer({ children }: { children: React.ReactNode }) {
         return <div id="outer">{children}</div>
       }
-    `)
-    writeFileSync(resolve(tmpDir, 'inner.tsx'), `
+    `,
+    )
+    writeFileSync(
+      resolve(tmpDir, 'inner.tsx'),
+      `
       import React from 'react'
       export default function Inner({ children }: { children: React.ReactNode }) {
         return <div id="inner">{children}</div>
       }
-    `)
+    `,
+    )
 
     const { layout } = await import('../layout.ts')
     const r = new Router()
@@ -63,27 +72,30 @@ describe('layout', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(
-      new Request('http://localhost/test/sub/page'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await r.handler()(new Request('http://localhost/test/sub/page'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
   it('returns 500 when layout file has no default export', async () => {
-    writeFileSync(resolve(tmpDir, 'bad.tsx'), `
+    writeFileSync(
+      resolve(tmpDir, 'bad.tsx'),
+      `
       export const notDefault = 42
-    `)
+    `,
+    )
 
     const { layout } = await import('../layout.ts')
     const r = new Router()
     r.use('/test', layout(resolve(tmpDir, 'bad.tsx')))
     r.get('/test/page', () => new Response('ok'))
 
-    const res = await r.handler()(
-      new Request('http://localhost/test/page'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await r.handler()(new Request('http://localhost/test/page'), {
+      params: {},
+      query: {},
+    } as any)
     // The error is caught by router's error handler → 500
     assert.equal(res.status, 500)
   })

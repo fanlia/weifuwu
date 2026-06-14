@@ -20,7 +20,9 @@ export function getCookies(req: Request): Record<string, string> {
     let value = pair.slice(idx + 1).trim()
     if (!name) continue
     // Decode cookie name (consistent with value)
-    try { name = decodeURIComponent(name) } catch {}
+    try {
+      name = decodeURIComponent(name)
+    } catch {}
     // Strip surrounding quotes from value (RFC 6265)
     if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
       value = value.slice(1, -1)
@@ -36,6 +38,7 @@ export function getCookies(req: Request): Record<string, string> {
 
 function serializeCookie(name: string, value: string, options?: CookieOptions): string {
   // Reject control characters and special chars per RFC 6265
+  // eslint-disable-next-line no-control-regex
   if (/[\x00-\x1F\x7F-\x9F;,]/.test(name) || /[\x00-\x1F\x7F-\x9F;,]/.test(value)) {
     throw new Error(`Invalid cookie name or value: contains control characters or special chars`)
   }
@@ -50,7 +53,12 @@ function serializeCookie(name: string, value: string, options?: CookieOptions): 
   return parts.join('; ')
 }
 
-export function setCookie(res: Response, name: string, value: string, options?: CookieOptions): Response {
+export function setCookie(
+  res: Response,
+  name: string,
+  value: string,
+  options?: CookieOptions,
+): Response {
   const headers = new Headers(res.headers)
   headers.append('Set-Cookie', serializeCookie(name, value, options))
   return new Response(res.body, {
@@ -60,13 +68,20 @@ export function setCookie(res: Response, name: string, value: string, options?: 
   })
 }
 
-export function deleteCookie(res: Response, name: string, options?: Omit<CookieOptions, 'maxAge'>): Response {
+export function deleteCookie(
+  res: Response,
+  name: string,
+  options?: Omit<CookieOptions, 'maxAge'>,
+): Response {
   const headers = new Headers(res.headers)
-  headers.append('Set-Cookie', serializeCookie(name, '', {
-    ...options,
-    maxAge: 0,
-    expires: new Date(0),
-  }))
+  headers.append(
+    'Set-Cookie',
+    serializeCookie(name, '', {
+      ...options,
+      maxAge: 0,
+      expires: new Date(0),
+    }),
+  )
   return new Response(res.body, {
     status: res.status,
     statusText: res.statusText,

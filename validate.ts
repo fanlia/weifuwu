@@ -44,8 +44,13 @@ function parseBody(text: string, ct: string): unknown {
   // - Content-Type explicitly indicates JSON (application/json, *+json)
   // - Content-Type is text/*
   // - Content-Type is not multipart and not urlencoded (catch-all for API types)
-  const isExplicitJson = ct.includes('application/json') || ct.includes('+json') || ct.includes('text/') || ct.includes('*/json')
-  const isNotSpecialMultipart = !ct.includes('multipart/form-data') && !ct.includes('application/x-www-form-urlencoded')
+  const isExplicitJson =
+    ct.includes('application/json') ||
+    ct.includes('+json') ||
+    ct.includes('text/') ||
+    ct.includes('*/json')
+  const isNotSpecialMultipart =
+    !ct.includes('multipart/form-data') && !ct.includes('application/x-www-form-urlencoded')
 
   if (isExplicitJson || isNotSpecialMultipart) {
     try {
@@ -68,10 +73,12 @@ export function validate(schemas?: ValidationSchemas): Middleware {
       if (result.success) {
         parsed.params = result.data
       } else {
-        issues.push(...result.error.issues.map((i) => ({
-          path: ['params', ...i.path.map(String)],
-          message: i.message,
-        })))
+        issues.push(
+          ...result.error.issues.map((i) => ({
+            path: ['params', ...i.path.map(String)],
+            message: i.message,
+          })),
+        )
       }
     }
 
@@ -80,24 +87,30 @@ export function validate(schemas?: ValidationSchemas): Middleware {
       if (result.success) {
         parsed.query = result.data
       } else {
-        issues.push(...result.error.issues.map((i) => ({
-          path: ['query', ...i.path.map(String)],
-          message: i.message,
-        })))
+        issues.push(
+          ...result.error.issues.map((i) => ({
+            path: ['query', ...i.path.map(String)],
+            message: i.message,
+          })),
+        )
       }
     }
 
     if (schemas?.headers) {
       const rawHeaders: Record<string, string> = {}
-      req.headers.forEach((v, k) => { rawHeaders[k] = v })
+      req.headers.forEach((v, k) => {
+        rawHeaders[k] = v
+      })
       const result = schemas.headers.safeParse(rawHeaders)
       if (result.success) {
         parsed.headers = result.data
       } else {
-        issues.push(...result.error.issues.map((i) => ({
-          path: ['headers', ...i.path.map(String)],
-          message: i.message,
-        })))
+        issues.push(
+          ...result.error.issues.map((i) => ({
+            path: ['headers', ...i.path.map(String)],
+            message: i.message,
+          })),
+        )
       }
     }
 
@@ -125,10 +138,12 @@ export function validate(schemas?: ValidationSchemas): Middleware {
               if (result.success) {
                 parsed.body = result.data
               } else {
-                issues.push(...result.error.issues.map((i) => ({
-                  path: ['body', ...i.path.map(String)],
-                  message: i.message,
-                })))
+                issues.push(
+                  ...result.error.issues.map((i) => ({
+                    path: ['body', ...i.path.map(String)],
+                    message: i.message,
+                  })),
+                )
               }
             } else {
               // No schema: still populate ctx.parsed.body with parsed value

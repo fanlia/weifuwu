@@ -96,7 +96,10 @@ describe('tailwind', () => {
 
     // Serve CSS via the router
     const cssRouter = tailwindRouter(tmpDir)
-    const res = await cssRouter.handler()(new Request(`http://localhost${url}`), { params: { hash: hashMatch[1] }, query: {} } as Context)
+    const res = await cssRouter.handler()(new Request(`http://localhost${url}`), {
+      params: { hash: hashMatch[1] },
+      query: {},
+    } as Context)
     assert.equal(res.status, 200)
     assert.match(res.headers.get('content-type') || '', /text\/css/)
     const body = await res.text()

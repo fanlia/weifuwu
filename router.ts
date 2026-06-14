@@ -3,8 +3,7 @@ import type { WebSocket } from './vendor.ts'
 import http, { type IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
-import { createHub } from './hub.ts'
-import type { Hub } from './hub.ts'
+import { createHub, type Hub } from './hub.ts'
 
 import { isProd } from './env.ts'
 
@@ -145,7 +144,10 @@ export class Router<T extends Context = Context> {
   use(path: string, router: Router<any>): Router<T>
   // Module with .middleware() — auto-register middleware + mount at /
   use(mod: Router & { middleware: () => Middleware }): Router<T>
-  use(arg1: string | Middleware<any, any> | (Router & { middleware: () => Middleware }), arg2?: Router<any> | Middleware<T, T>): Router<any> {
+  use(
+    arg1: string | Middleware<any, any> | (Router & { middleware: () => Middleware }),
+    arg2?: Router<any> | Middleware<T, T>,
+  ): Router<any> {
     if (typeof arg1 === 'string') {
       if (arg2 instanceof Router) {
         this._mountRouter(arg1, arg2)
@@ -158,7 +160,13 @@ export class Router<T extends Context = Context> {
       }
     } else if (typeof arg1 === 'function') {
       this.globalMws.push(arg1 as unknown as Middleware)
-    } else if (typeof arg1 === 'object' && arg1 !== null && 'middleware' in arg1 && typeof (arg1 as any).middleware === 'function' && arg1 instanceof Router) {
+    } else if (
+      typeof arg1 === 'object' &&
+      arg1 !== null &&
+      'middleware' in arg1 &&
+      typeof (arg1 as any).middleware === 'function' &&
+      arg1 instanceof Router
+    ) {
       // Auto-register modules with .middleware() — e.g. theme(), i18n(), analytics()
       // Registers both the middleware and mounts routes at /
       const mod = arg1 as Router & { middleware: () => Middleware }
@@ -207,7 +215,11 @@ export class Router<T extends Context = Context> {
     return this
   }
 
-  private _route(method: string, path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  private _route(
+    method: string,
+    path: string,
+    ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]
+  ): Router<T> {
     return this._routeImpl(method, path, args)
   }
 
@@ -239,9 +251,7 @@ export class Router<T extends Context = Context> {
     }
 
     if (!isProd() && node.handlers.has(method)) {
-      console.warn(
-        `[router] route conflict: ${method} ${path} overwrites existing handler`
-      )
+      console.warn(`[router] route conflict: ${method} ${path} overwrites existing handler`)
     }
     node.handlers.set(method, handler)
     if (middlewares.length > 0) node.middlewares.set(method, middlewares)
@@ -309,6 +319,7 @@ export class Router<T extends Context = Context> {
 
   websocketHandler(): WsUpgradeHandler {
     const wsRoot = this.wsRoot
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const router = this
 
     return (req, socket, head) => {
@@ -316,14 +327,18 @@ export class Router<T extends Context = Context> {
       const segments = url.pathname.split('/').filter(Boolean)
 
       const match = router.matchWsTrie(wsRoot, segments)
-      if (!match) { socket.destroy(); return }
+      if (!match) {
+        socket.destroy()
+        return
+      }
 
       const query = Object.fromEntries(url.searchParams)
       const ctx = { params: match.params, query } as Context
 
-      const allMws = router.globalMws.length === 0 && match.middlewares.length === 0
-        ? [] as Middleware[]
-        : [...router.globalMws, ...match.middlewares]
+      const allMws =
+        router.globalMws.length === 0 && match.middlewares.length === 0
+          ? ([] as Middleware[])
+          : [...router.globalMws, ...match.middlewares]
 
       if (allMws.length === 0) {
         upgradeSocket(router.wss, req, socket, head, match.handler, ctx, router.hub)
@@ -345,13 +360,16 @@ export class Router<T extends Context = Context> {
         headers: nodeReqHeadersToRecord(req.headers),
       })
 
-      void router.runChain(allMws, finalHandler, webReq, ctx).then((result) => {
-        if (result.status >= 400) {
-          sendHttpResponseOnSocket(socket, result)
-        }
-      }).catch(() => {
-        socket.destroy()
-      })
+      void router
+        .runChain(allMws, finalHandler, webReq, ctx)
+        .then((result) => {
+          if (result.status >= 400) {
+            sendHttpResponseOnSocket(socket, result)
+          }
+        })
+        .catch(() => {
+          socket.destroy()
+        })
     }
   }
 
@@ -363,21 +381,32 @@ export class Router<T extends Context = Context> {
       return next(req, ctx)
     }
 
-    const allExtra = extraMws.length === 0 && sub.globalMws.length === 0
-      ? [mountMw]
-      : [mountMw, ...extraMws, ...sub.globalMws]
+    const allExtra =
+      extraMws.length === 0 && sub.globalMws.length === 0
+        ? [mountMw]
+        : [mountMw, ...extraMws, ...sub.globalMws]
 
-    const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
+    const routes: Array<{
+      method: string
+      path: string
+      handler: Handler
+      middlewares: Middleware[]
+    }> = []
     this._collect(sub.root, '', routes, [])
     for (const { method, path, handler, middlewares } of routes) {
       this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
     }
 
-    const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
+    const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> =
+      []
     this._collectWs(sub.wsRoot, '', wsRoutes)
     for (const { path, handler, middlewares } of wsRoutes) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.ws(base + path, ...(allExtra as Middleware<any, any>[]), ...(middlewares as Middleware<any, any>[]), handler)
+      this.ws(
+        base + path,
+        ...(allExtra as Middleware<any, any>[]),
+        ...(middlewares as Middleware<any, any>[]),
+        handler,
+      )
     }
   }
 
@@ -397,7 +426,12 @@ export class Router<T extends Context = Context> {
     for (const [method, handler] of node.handlers) {
       const rmws = node.middlewares.get(method) || []
       const suffix = node.wildcard ? '/*' : ''
-      result.push({ method, path: (prefix || '/') + suffix, handler, middlewares: this.mergeMws(mws, rmws) })
+      result.push({
+        method,
+        path: (prefix || '/') + suffix,
+        handler,
+        middlewares: this.mergeMws(mws, rmws),
+      })
     }
     for (const [seg, child] of node.children) {
       const next = seg === ':' ? `/:${child.param}` : `/${seg}`
@@ -484,7 +518,12 @@ export class Router<T extends Context = Context> {
     }
 
     if (node.handlers.size > 0) {
-      return { middlewares: [], pathMws, params, allowedMethods: [...node.handlers.keys()].filter(k => k !== '*') }
+      return {
+        middlewares: [],
+        pathMws,
+        params,
+        allowedMethods: [...node.handlers.keys()].filter((k) => k !== '*'),
+      }
     }
 
     return null
@@ -500,9 +539,7 @@ export class Router<T extends Context = Context> {
       node = next
     }
 
-    return node.handler
-      ? { handler: node.handler, middlewares: node.middlewares, params }
-      : null
+    return node.handler ? { handler: node.handler, middlewares: node.middlewares, params } : null
   }
 
   private async handleError(e: unknown, req: Request, ctx: Context): Promise<Response> {
@@ -513,11 +550,7 @@ export class Router<T extends Context = Context> {
       : new Response('Internal Server Error', { status: 500 })
   }
 
-  private async handle(
-    req: Request,
-    ctx: Context,
-    segments: string[],
-  ): Promise<Response> {
+  private async handle(req: Request, ctx: Context, segments: string[]): Promise<Response> {
     const match = this.matchTrie(req.method, segments)
 
     if (match) {
@@ -536,40 +569,57 @@ export class Router<T extends Context = Context> {
       if (match.allowedMethods && match.allowedMethods.length > 0) {
         if (this.globalMws.length > 0) {
           try {
-            return await this.runChain(this.globalMws, () => new Response('Method Not Allowed', {
-              status: 405,
-              headers: { 'Allow': match.allowedMethods!.join(', ') },
-            }), req, ctx)
+            return await this.runChain(
+              this.globalMws,
+              () =>
+                new Response('Method Not Allowed', {
+                  status: 405,
+                  headers: { Allow: match.allowedMethods!.join(', ') },
+                }),
+              req,
+              ctx,
+            )
           } catch (e) {
             return this.handleError(e, req, ctx)
           }
         }
         return new Response('Method Not Allowed', {
           status: 405,
-          headers: { 'Allow': match.allowedMethods.join(', ') },
+          headers: { Allow: match.allowedMethods.join(', ') },
         })
       }
     }
 
     if (this.globalMws.length > 0) {
       try {
-        return await this.runChain(this.globalMws, () => {
-          if (!isProd()) {
-            return Response.json({ error: 'Not Found', path: '/' + (segments.join('/')), method: req.method }, { status: 404 })
-          }
-          return new Response('Not Found', { status: 404 })
-        }, req, ctx)
+        return await this.runChain(
+          this.globalMws,
+          () => {
+            if (!isProd()) {
+              return Response.json(
+                { error: 'Not Found', path: '/' + segments.join('/'), method: req.method },
+                { status: 404 },
+              )
+            }
+            return new Response('Not Found', { status: 404 })
+          },
+          req,
+          ctx,
+        )
       } catch (e) {
         return this.handleError(e, req, ctx)
       }
     }
 
     if (!isProd()) {
-      return Response.json({
-        error: 'Not Found',
-        path: '/' + (segments.join('/')),
-        method: req.method,
-      }, { status: 404 })
+      return Response.json(
+        {
+          error: 'Not Found',
+          path: '/' + segments.join('/'),
+          method: req.method,
+        },
+        { status: 404 },
+      )
     }
     return new Response('Not Found', { status: 404 })
   }
@@ -597,7 +647,9 @@ function runChainLoop(
     let called = false
     const dispatch: Handler = (r, c) => {
       if (called) {
-        console.warn('[router] next() called more than once in middleware — ignoring duplicate call')
+        console.warn(
+          '[router] next() called more than once in middleware — ignoring duplicate call',
+        )
         return Promise.resolve(new Response('Internal Server Error', { status: 500 }))
       }
       called = true
@@ -625,11 +677,21 @@ function upgradeSocket(
     // ── ctx.ws — per-connection WS helpers ───────────────────
     const wsState: Record<string, unknown> = {}
     connCtx.ws = {
-      get state() { return wsState },
-      json(data: unknown) { ws.send(JSON.stringify(data)) },
-      join(room: string) { hub.join(room, ws) },
-      leave(room: string) { hub.leave(ws) },
-      sendRoom(room: string, data: unknown) { hub.broadcast(room, JSON.stringify(data)) },
+      get state() {
+        return wsState
+      },
+      json(data: unknown) {
+        ws.send(JSON.stringify(data))
+      },
+      join(room: string) {
+        hub.join(room, ws)
+      },
+      leave(room: string) {
+        hub.leave(ws)
+      },
+      sendRoom(room: string, data: unknown) {
+        hub.broadcast(room, JSON.stringify(data))
+      },
     }
 
     if (handler.open) {
@@ -669,12 +731,15 @@ function sendHttpResponseOnSocket(socket: Duplex, response: Response): void {
   headerLines.push('')
   const headerStr = headerLines.join('\r\n')
 
-  response.arrayBuffer().then((buf) => {
-    socket.write(headerStr + '\r\n')
-    if (buf.byteLength > 0) socket.write(Buffer.from(buf))
-    socket.end()
-  }).catch(() => {
-    socket.write(headerStr + '\r\n')
-    socket.end()
-  })
+  response
+    .arrayBuffer()
+    .then((buf) => {
+      socket.write(headerStr + '\r\n')
+      if (buf.byteLength > 0) socket.write(Buffer.from(buf))
+      socket.end()
+    })
+    .catch(() => {
+      socket.write(headerStr + '\r\n')
+      socket.end()
+    })
 }

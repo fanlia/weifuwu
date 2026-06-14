@@ -15,9 +15,7 @@ function isRetryable(err: unknown): boolean {
 }
 
 export function postgres(opts?: string | PostgresOptions): PostgresClient {
-  const options: PostgresOptions = typeof opts === 'string'
-    ? { connection: opts }
-    : opts ?? {}
+  const options: PostgresOptions = typeof opts === 'string' ? { connection: opts } : (opts ?? {})
 
   const connection = options.connection ?? process.env.DATABASE_URL
   if (!connection) {
@@ -43,14 +41,20 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   }) as any
 
   if (options.signal) {
-    options.signal.addEventListener('abort', () => { sql.end() }, { once: true })
+    options.signal.addEventListener(
+      'abort',
+      () => {
+        sql.end()
+      },
+      { once: true },
+    )
   }
 
   const closeTimeout = options.closeTimeout ?? 5
 
   // ── Connection pool tracking ────────────────────────────────────
-  let _active = 0
-  let _waiting = 0
+  const _active = 0
+  const _waiting = 0
   const poolMax = options.max ?? 10
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
@@ -59,7 +63,10 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   }) as unknown as PostgresClient
 
   mw.sql = sql
-  mw.table = ((tableOrSchema: string | Table<any>, builders?: Record<string, ColumnBuilder<unknown>>) => {
+  mw.table = ((
+    tableOrSchema: string | Table<any>,
+    builders?: Record<string, ColumnBuilder<unknown>>,
+  ) => {
     if (typeof tableOrSchema === 'string') {
       return new BoundTable(sql, tableOrSchema, builders!)
     }
@@ -83,10 +90,9 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   }
 
   mw.isMigrated = async (moduleName: string): Promise<boolean> => {
-    const [row] = await sql.unsafe(
-      `SELECT 1 FROM "${MIGRATIONS_TABLE}" WHERE name = $1`,
-      [moduleName],
-    ) as any[]
+    const [row] = (await sql.unsafe(`SELECT 1 FROM "${MIGRATIONS_TABLE}" WHERE name = $1`, [
+      moduleName,
+    ])) as any[]
     return !!row
   }
 
@@ -101,7 +107,7 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
       } catch (err) {
         if (attempt < maxRetries && isRetryable(err)) {
           const delay = Math.min(100 * Math.pow(2, attempt - 1), 1000)
-          await new Promise(r => setTimeout(r, delay))
+          await new Promise((r) => setTimeout(r, delay))
           continue
         }
         throw err

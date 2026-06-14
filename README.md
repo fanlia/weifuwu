@@ -30,7 +30,20 @@ npx weifuwu init my-app && cd my-app && npm run dev
 ### Typical Full App
 
 ```ts
-import { serve, Router, postgres, session, user, aiProvider, ssr, flash, i18n, theme, logger, rateLimit } from 'weifuwu'
+import {
+  serve,
+  Router,
+  postgres,
+  session,
+  user,
+  aiProvider,
+  ssr,
+  flash,
+  i18n,
+  theme,
+  logger,
+  rateLimit,
+} from 'weifuwu'
 
 const app = new Router()
 
@@ -50,14 +63,14 @@ app.use(pg)
 app.use(session({ store: 'redis', redis: myRedis }))
 const auth = user({ pg, jwtSecret: process.env.JWT_SECRET })
 await auth.migrate()
-app.use(auth)                // auto-registers middleware + /register, /login
-app.use('/auth', auth)       // explicit path mounts for more control
+app.use(auth) // auto-registers middleware + /register, /login
+app.use('/auth', auth) // explicit path mounts for more control
 
 // 5. API protection
 app.use('/api', rateLimit({ max: 60, window: 60_000 }))
 
 // 6. AI
-app.use(aiProvider())  // ctx.ai
+app.use(aiProvider()) // ctx.ai
 
 // 7. SSR
 app.use('/', ssr({ dir: './ui' }))
@@ -94,21 +107,21 @@ const server = serve(handler, { port: 3000 })
 await server.ready
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `port` | `number` | `0` | Listen port |
-| `hostname` | `string` | `'0.0.0.0'` | Listen address |
-| `signal` | `AbortSignal` | — | Shutdown on abort |
-| `websocket` | `WsUpgradeHandler` | — | WebSocket upgrade handler |
-| `maxBodySize` | `number` | `10MB` | Max body bytes (0 = unlimited) |
-| `timeout` | `number` | `30_000` | Socket inactivity timeout (ms) |
-| `keepAliveTimeout` | `number` | `5_000` | Keep-Alive idle timeout (ms) |
-| `headersTimeout` | `number` | `6_000` | Headers read timeout (ms) |
-| `shutdown` | `boolean` | `true` | Auto SIGTERM/SIGINT |
+| Option             | Type               | Default     | Description                    |
+| ------------------ | ------------------ | ----------- | ------------------------------ |
+| `port`             | `number`           | `0`         | Listen port                    |
+| `hostname`         | `string`           | `'0.0.0.0'` | Listen address                 |
+| `signal`           | `AbortSignal`      | —           | Shutdown on abort              |
+| `websocket`        | `WsUpgradeHandler` | —           | WebSocket upgrade handler      |
+| `maxBodySize`      | `number`           | `10MB`      | Max body bytes (0 = unlimited) |
+| `timeout`          | `number`           | `30_000`    | Socket inactivity timeout (ms) |
+| `keepAliveTimeout` | `number`           | `5_000`     | Keep-Alive idle timeout (ms)   |
+| `headersTimeout`   | `number`           | `6_000`     | Headers read timeout (ms)      |
+| `shutdown`         | `boolean`          | `true`      | Auto SIGTERM/SIGINT            |
 
 ```ts
 interface Server {
-  stop: (timeoutMs?: number) => Promise<void>  // graceful: waits for in-flight, force-closes after timeoutMs (default 10s)
+  stop: (timeoutMs?: number) => Promise<void> // graceful: waits for in-flight, force-closes after timeoutMs (default 10s)
   readonly port: number
   readonly hostname: string
   ready: Promise<void>
@@ -126,16 +139,27 @@ are forcibly closed. SIGTERM/SIGINT use the same graceful pattern.
 ```ts
 const app = new Router()
 app.get('/hello/:name', (req, ctx) => Response.json({ message: `Hello, ${ctx.params.name}!` }))
-app.post('/data', async (req, ctx) => { const body = await req.json(); return Response.json(body, { status: 201 }) })
-app.use('/admin', authMW)                    // path-scoped middleware
-app.use('/admin', adminRouter)               // sub-router (flattened into parent trie)
+app.post('/data', async (req, ctx) => {
+  const body = await req.json()
+  return Response.json(body, { status: 201 })
+})
+app.use('/admin', authMW) // path-scoped middleware
+app.use('/admin', adminRouter) // sub-router (flattened into parent trie)
 app.ws('/echo', {
-  open(ws, ctx) { ctx.ws.json({ type: 'connected' }) },
-  message(ws, ctx, data) { ctx.ws.json({ echo: data.toString() }) },
+  open(ws, ctx) {
+    ctx.ws.json({ type: 'connected' })
+  },
+  message(ws, ctx, data) {
+    ctx.ws.json({ echo: data.toString() })
+  },
 })
 app.ws('/chat', {
-  open(ws, ctx) { ctx.ws.join('room') },
-  message(ws, ctx, data) { ctx.ws.sendRoom('room', JSON.parse(data.toString())) },
+  open(ws, ctx) {
+    ctx.ws.join('room')
+  },
+  message(ws, ctx, data) {
+    ctx.ws.sendRoom('room', JSON.parse(data.toString()))
+  },
 })
 app.onError((err, req, ctx) => Response.json({ error: err.message }, { status: 500 }))
 
@@ -152,11 +176,11 @@ const wsHandler = app.websocketHandler()
 serve(handler, { port: 3000, websocket: wsHandler })
 ```
 
-| Pattern | Example | Match |
-|---------|---------|-------|
-| Static | `/about` | exact |
-| Param | `/users/:id` | `/users/42` → `ctx.params.id` |
-| Wildcard | `/static/*` | `/static/js/app.js` |
+| Pattern  | Example      | Match                         |
+| -------- | ------------ | ----------------------------- |
+| Static   | `/about`     | exact                         |
+| Param    | `/users/:id` | `/users/42` → `ctx.params.id` |
+| Wildcard | `/static/*`  | `/static/js/app.js`           |
 
 Query params → `ctx.query`.
 
@@ -170,7 +194,7 @@ Request → serve() → app.handler() → global middleware × N → path middle
 
 1. `serve()` receives HTTP request
 2. `app.handler()` creates `ctx = { params, query }` and routes to the matching trie node
-3. **Global middleware** runs in `use()` order (e.g. `theme()`, `i18n()`, `postgres()`, `cors()`) 
+3. **Global middleware** runs in `use()` order (e.g. `theme()`, `i18n()`, `postgres()`, `cors()`)
 4. **Path‑scoped middleware** runs for matching paths (e.g. `app.use('/admin', authMW)`)
 5. **Route‑level middleware** runs (e.g. `app.get('/admin', validate(...), handler)`)
 6. **Route handler** returns `Response` — middleware chain unwinds
@@ -181,40 +205,40 @@ Sub-routers (`app.use('/admin', adminRouter)`) are **flattened** into the parent
 
 ```ts
 type Middleware = (req: Request, ctx: Context, next: Handler) => Response | Promise<Response>
-app.use(mw)                          // global
-app.use('/admin', mw)                // path-scoped
-app.get('/admin', mw, handler)       // route-level
+app.use(mw) // global
+app.use('/admin', mw) // path-scoped
+app.get('/admin', mw, handler) // route-level
 ```
 
 ### Context
 
 The `ctx` object accumulates properties as it passes through the middleware chain. Below are all documented properties:
 
-| Property | Set by | Type | Description |
-|----------|--------|------|-------------|
-| `params` | Router | `Record<string, string>` | URL path parameters |
-| `query` | Router | `Record<string, string>` | URL query parameters |
-| `mountPath` | Router | `string` | Current sub-router mount prefix |
-| `env` | `loadEnv()` | `Record<string, string>` | Public env vars (`WEIFUWU_PUBLIC_*`) |
-| `csrf.token` | `csrf()` | `string` | CSRF token (namespace) |
-| `requestId` | `requestId()` | `string` | Request ID |
-| `session` | `session()` | `Session` | Session data object |
-| `sql` | `postgres()` | `Sql<{}>` | PostgreSQL tagged-template client |
-| `redis` | `redis()` | `Redis` | Redis client |
-| `ai` | `aiProvider()` | `AIProvider` | AI model & embedding |
-| `queue` | `queue()` | `Queue` | Job queue |
-| `user` | `auth()` / `user().middleware()` | `{ id?: string }` | Authenticated user |
-| `permissions` | `permissions()` | `{ roles, permissions }` | RBAC roles & permissions sets |
-| `theme` | `theme()` | `{ value, set }` | Current theme + switcher |
-| `i18n` | `i18n()` | `{ locale, t, set }` | Locale, translation, switcher |
-| `flash` | `flash()` | `{ value, set }` | Flash message + setter |
-| `tailwind` | `tailwindContext()` | `{ css, url }` | Compiled Tailwind CSS |
-| `tenant` | `tenant()` | `TenantContext` | Current tenant info |
-| `parsed` | `validate()` / `upload()` | `{ body, files }` | Validated/parsed request data |
-| `layoutStack` | `ssr()` internal | `LayoutEntry[]` | React layout component stack |
-| `loaderData` | User middleware | `Record<string, unknown>` | SSR data passed to client |
-| `mountPath` | `Router` | `string` | Sub-router mount path |
-| `deploy` | `deploy()` | `{ appName? }` | Deploy gateway info |
+| Property      | Set by                           | Type                      | Description                          |
+| ------------- | -------------------------------- | ------------------------- | ------------------------------------ |
+| `params`      | Router                           | `Record<string, string>`  | URL path parameters                  |
+| `query`       | Router                           | `Record<string, string>`  | URL query parameters                 |
+| `mountPath`   | Router                           | `string`                  | Current sub-router mount prefix      |
+| `env`         | `loadEnv()`                      | `Record<string, string>`  | Public env vars (`WEIFUWU_PUBLIC_*`) |
+| `csrf.token`  | `csrf()`                         | `string`                  | CSRF token (namespace)               |
+| `requestId`   | `requestId()`                    | `string`                  | Request ID                           |
+| `session`     | `session()`                      | `Session`                 | Session data object                  |
+| `sql`         | `postgres()`                     | `Sql<{}>`                 | PostgreSQL tagged-template client    |
+| `redis`       | `redis()`                        | `Redis`                   | Redis client                         |
+| `ai`          | `aiProvider()`                   | `AIProvider`              | AI model & embedding                 |
+| `queue`       | `queue()`                        | `Queue`                   | Job queue                            |
+| `user`        | `auth()` / `user().middleware()` | `{ id?: string }`         | Authenticated user                   |
+| `permissions` | `permissions()`                  | `{ roles, permissions }`  | RBAC roles & permissions sets        |
+| `theme`       | `theme()`                        | `{ value, set }`          | Current theme + switcher             |
+| `i18n`        | `i18n()`                         | `{ locale, t, set }`      | Locale, translation, switcher        |
+| `flash`       | `flash()`                        | `{ value, set }`          | Flash message + setter               |
+| `tailwind`    | `tailwindContext()`              | `{ css, url }`            | Compiled Tailwind CSS                |
+| `tenant`      | `tenant()`                       | `TenantContext`           | Current tenant info                  |
+| `parsed`      | `validate()` / `upload()`        | `{ body, files }`         | Validated/parsed request data        |
+| `layoutStack` | `ssr()` internal                 | `LayoutEntry[]`           | React layout component stack         |
+| `loaderData`  | User middleware                  | `Record<string, unknown>` | SSR data passed to client            |
+| `mountPath`   | `Router`                         | `string`                  | Sub-router mount path                |
+| `deploy`      | `deploy()`                       | `{ appName? }`            | Deploy gateway info                  |
 
 ### Type-Safe Context
 
@@ -222,13 +246,13 @@ Middleware-injected properties are **automatically typed** through chained `use(
 
 ```ts
 const app = new Router()
-  .use(csrf())          // → Router<Context & { csrf: { token: string } }>
-  .use(requestId())     // → Router<Context & { csrf: ..., requestId }>
-  .use(postgres())      // → Router<Context & { csrf: ..., requestId, sql }>
+  .use(csrf()) // → Router<Context & { csrf: { token: string } }>
+  .use(requestId()) // → Router<Context & { csrf: ..., requestId }>
+  .use(postgres()) // → Router<Context & { csrf: ..., requestId, sql }>
 
 app.get('/me', (_req, ctx) => {
-  ctx.csrf.token  // ✅ string (IDE autocomplete)
-  ctx.requestId   // ✅ string
+  ctx.csrf.token // ✅ string (IDE autocomplete)
+  ctx.requestId // ✅ string
   ctx.sql`SELECT 1` // ✅ Sql<{}>
 })
 ```
@@ -241,43 +265,44 @@ Each module exports an `XxxInjected` type (e.g. `PostgresInjected`, `UserInjecte
 
 All modules follow one of **4 patterns** — learn these and you know every module.
 
-| Pattern | How to mount | Example |
-|---------|-------------|---------|
-| `[α]` | `app.use(mod())` | `compress()`, `theme()`, `postgres()` |
-| `[β]` | `app.use('/path', mod())` | `health()`, `ssr({dir})`, `graphql(handler)`, `user()` |
-| `[γ]` | Import and call directly | `mailer()`, `fts`, `cron-utils` |
-| `[δ]` | `import { useXxx } from 'weifuwu/react'` | `useTheme()`, `useLocale()`, `useWebsocket()` |
+| Pattern | How to mount                             | Example                                                |
+| ------- | ---------------------------------------- | ------------------------------------------------------ |
+| `[α]`   | `app.use(mod())`                         | `compress()`, `theme()`, `postgres()`                  |
+| `[β]`   | `app.use('/path', mod())`                | `health()`, `ssr({dir})`, `graphql(handler)`, `user()` |
+| `[γ]`   | Import and call directly                 | `mailer()`, `fts`, `cron-utils`                        |
+| `[δ]`   | `import { useXxx } from 'weifuwu/react'` | `useTheme()`, `useLocale()`, `useWebsocket()`          |
 
 ### Pattern α — Middleware
 
 ```ts
-app.use(compress())           // basic
-const pg = postgres()         // with extras: .sql, .table, .migrate(), .close()
+app.use(compress()) // basic
+const pg = postgres() // with extras: .sql, .table, .migrate(), .close()
 app.use(pg)
-app.use(rateLimit({ max: 100 }))  // with .close()
+app.use(rateLimit({ max: 100 })) // with .close()
 ```
 
 ### Pattern β — Router
 
 ```ts
-app.use('/health', health())                                    // with path
+app.use('/health', health()) // with path
 app.use('/graphql', graphql(handler))
-app.use('/logs', logdb({ pg }))                                 // with .log(), .migrate()
-app.use('/auth', user({ pg, jwtSecret }))                       // with .middleware(), .register()
+app.use('/logs', logdb({ pg })) // with .log(), .migrate()
+app.use('/auth', user({ pg, jwtSecret })) // with .middleware(), .register()
 app.ws('/ws', messager({ pg }).wsHandler())
 ```
 
 β modules that need **separate middleware** use `.middleware()`. Most can auto-register both middleware and routes in one call:
+
 ```ts
-app.use(theme())           // auto: middleware + /__theme/:value
-app.use(i18n({ dir: './locales' }))  // auto: middleware + /__lang/:locale
+app.use(theme()) // auto: middleware + /__theme/:value
+app.use(i18n({ dir: './locales' })) // auto: middleware + /__lang/:locale
 app.use(analytics({ pg })) // auto: middleware + /__analytics
-app.use(auth)              // auto: middleware + /register, /login (user())
+app.use(auth) // auto: middleware + /register, /login (user())
 
 // Explicit form when more control is needed:
 const a = analytics()
-app.use(a.middleware())   // tracking only
-app.use('/', a)           // dashboard at custom path
+app.use(a.middleware()) // tracking only
+app.use('/', a) // dashboard at custom path
 ```
 
 ### Pattern γ — Standalone
@@ -290,7 +315,7 @@ import { mailer, cronNext, fts } from 'weifuwu'
 const email = mailer({ transport: 'smtp://...', from: 'noreply@example.com' })
 await email.send({ to: 'user@test.com', subject: 'Hello', text: 'Body' })
 
-const next = cronNext('0 9 * * 1-5')  // next weekday at 09:00
+const next = cronNext('0 9 * * 1-5') // next weekday at 09:00
 ```
 
 ### Pattern δ — Client-side
@@ -346,54 +371,54 @@ graph TD
 
 ## Quick Module Selection
 
-| What do you want to do? | Module | Pattern |
-|------------------------|--------|---------|
-| **User registration / login** | `user()` | β |
-| **Simple token/header auth** | `auth()` | α |
-| **JWT verification** | `user().middleware()` | α |
-| **Role-based access control** | `permissions()` | α |
-| **AI chat / generate / stream** | `ctx.ai.generateText()` / `ctx.ai.streamText()` | α (via `aiProvider()`) |
-| **AI agent with knowledge** | `agent()` + `knowledgeBase()` | β |
-| **Send email** | `mailer()` | γ |
-| **File upload** | `upload()` | α |
-| **Object storage (S3/MinIO)** | `s3()` | α |
-| **Rate limiting** | `rateLimit()` | α |
-| **Response caching** | `cache()` | α |
-| **Periodic / delayed jobs** | `queue()` | α |
-| **Page view analytics** | `analytics()` | β |
-| **Structured logging** | `logdb()` | β |
-| **Real-time chat / messager** | `messager()` | β |
-| **Full-text search** | `fts` | γ |
-| **Theme switching** | `theme()` | α |
-| **i18n / localization** | `i18n()` | α |
-| **Flash messages** | `flash()` | α |
-| **Server-Sent Events** | `createSSEStream()` | γ |
-| **GraphQL endpoint** | `graphql()` | β |
-| **Webhook receiver** | `webhook()` | β |
-| **SSR with React** | `ssr()` | β |
-| **Health check** | `health()` | β |
-| **SEO (robots.txt, sitemap)** | `seo()` | β |
-| **Multi-process deploy** | `deploy()` | γ |
-| **Distributed functions (iii)** | `iii()` | β |
-| **Multi-tenant BaaS** | `tenant()` | β |
-| **Client-side routing** | `useNavigate()`, `<Link>` | δ |
-| **WebSocket in React** | `useWebsocket()` | δ |
-| **Compression (brotli/gzip)** | `compress()` | α |
-| **Security headers (CSP, HSTS)** | `helmet()` | α |
-| **CORS** | `cors()` | α |
-| **CSRF protection** | `csrf()` | α |
-| **Request ID tracing** | `requestId()` | α |
-| **Environment variables** | `env()` / `loadEnv()` | α |
-| **Static file serving** | `serveStatic()` | α |
-| **Object storage (S3/MinIO)** | `s3()` | α |
-| **Send email** | `mailer()` | γ |
-| **Scheduled / cron tasks** | `cron-utils` (`cronNext()`) | γ |
-| **Server-Sent Events** | `createSSEStream()` | γ |
-| **Multi-process deploy** | `deploy()` | γ |
-| **Distributed functions (iii)** | `iii()` | β |
-| **Webhook receiver** | `webhook()` | β |
-| **Social login (OAuth)** | `user({ oauthLogin })` | β |
-| **Database migrations** | `pg.migrate()` | — |
+| What do you want to do?          | Module                                          | Pattern                |
+| -------------------------------- | ----------------------------------------------- | ---------------------- |
+| **User registration / login**    | `user()`                                        | β                      |
+| **Simple token/header auth**     | `auth()`                                        | α                      |
+| **JWT verification**             | `user().middleware()`                           | α                      |
+| **Role-based access control**    | `permissions()`                                 | α                      |
+| **AI chat / generate / stream**  | `ctx.ai.generateText()` / `ctx.ai.streamText()` | α (via `aiProvider()`) |
+| **AI agent with knowledge**      | `agent()` + `knowledgeBase()`                   | β                      |
+| **Send email**                   | `mailer()`                                      | γ                      |
+| **File upload**                  | `upload()`                                      | α                      |
+| **Object storage (S3/MinIO)**    | `s3()`                                          | α                      |
+| **Rate limiting**                | `rateLimit()`                                   | α                      |
+| **Response caching**             | `cache()`                                       | α                      |
+| **Periodic / delayed jobs**      | `queue()`                                       | α                      |
+| **Page view analytics**          | `analytics()`                                   | β                      |
+| **Structured logging**           | `logdb()`                                       | β                      |
+| **Real-time chat / messager**    | `messager()`                                    | β                      |
+| **Full-text search**             | `fts`                                           | γ                      |
+| **Theme switching**              | `theme()`                                       | α                      |
+| **i18n / localization**          | `i18n()`                                        | α                      |
+| **Flash messages**               | `flash()`                                       | α                      |
+| **Server-Sent Events**           | `createSSEStream()`                             | γ                      |
+| **GraphQL endpoint**             | `graphql()`                                     | β                      |
+| **Webhook receiver**             | `webhook()`                                     | β                      |
+| **SSR with React**               | `ssr()`                                         | β                      |
+| **Health check**                 | `health()`                                      | β                      |
+| **SEO (robots.txt, sitemap)**    | `seo()`                                         | β                      |
+| **Multi-process deploy**         | `deploy()`                                      | γ                      |
+| **Distributed functions (iii)**  | `iii()`                                         | β                      |
+| **Multi-tenant BaaS**            | `tenant()`                                      | β                      |
+| **Client-side routing**          | `useNavigate()`, `<Link>`                       | δ                      |
+| **WebSocket in React**           | `useWebsocket()`                                | δ                      |
+| **Compression (brotli/gzip)**    | `compress()`                                    | α                      |
+| **Security headers (CSP, HSTS)** | `helmet()`                                      | α                      |
+| **CORS**                         | `cors()`                                        | α                      |
+| **CSRF protection**              | `csrf()`                                        | α                      |
+| **Request ID tracing**           | `requestId()`                                   | α                      |
+| **Environment variables**        | `env()` / `loadEnv()`                           | α                      |
+| **Static file serving**          | `serveStatic()`                                 | α                      |
+| **Object storage (S3/MinIO)**    | `s3()`                                          | α                      |
+| **Send email**                   | `mailer()`                                      | γ                      |
+| **Scheduled / cron tasks**       | `cron-utils` (`cronNext()`)                     | γ                      |
+| **Server-Sent Events**           | `createSSEStream()`                             | γ                      |
+| **Multi-process deploy**         | `deploy()`                                      | γ                      |
+| **Distributed functions (iii)**  | `iii()`                                         | β                      |
+| **Webhook receiver**             | `webhook()`                                     | β                      |
+| **Social login (OAuth)**         | `user({ oauthLogin })`                          | β                      |
+| **Database migrations**          | `pg.migrate()`                                  | —                      |
 
 ---
 
@@ -412,7 +437,16 @@ app.get('/api', (req, ctx) => {
 **Structured logging** — `logger({ format: 'json' })` outputs JSON to stderr with `traceId`, `timestamp`, `elapsed_ms`:
 
 ```json
-{"level":"info","message":"request","method":"GET","path":"/api/users","status":200,"elapsed_ms":42,"traceId":"f240a3f3-...","timestamp":"2025-01-15T10:30:00.000Z"}
+{
+  "level": "info",
+  "message": "request",
+  "method": "GET",
+  "path": "/api/users",
+  "status": 200,
+  "elapsed_ms": 42,
+  "traceId": "f240a3f3-...",
+  "timestamp": "2025-01-15T10:30:00.000Z"
+}
 ```
 
 Default format is `'short'` (human-readable). `'combined'` includes query strings.
@@ -480,12 +514,12 @@ assert.equal(res.status, 200)
 assert.deepEqual(await res.json(), { id: '42', user: { id: 1 } })
 ```
 
-| Method | Description |
-|--------|-------------|
-| `app.getReq(path)` `postReq` `putReq` `patchReq` `deleteReq` | Start building a request |
-| `.withUser(u)` `.withTenant(t)` `.with(ctx)` | Simulate middleware injection |
-| `.header(k,v)` `.body(data)` `.rawBody(str)` | Set request properties |
-| `.send()` → `TestResponse` | Execute and get `{ status, headers, json(), text() }` |
+| Method                                                       | Description                                           |
+| ------------------------------------------------------------ | ----------------------------------------------------- |
+| `app.getReq(path)` `postReq` `putReq` `patchReq` `deleteReq` | Start building a request                              |
+| `.withUser(u)` `.withTenant(t)` `.with(ctx)`                 | Simulate middleware injection                         |
+| `.header(k,v)` `.body(data)` `.rawBody(str)`                 | Set request properties                                |
+| `.send()` → `TestResponse`                                   | Execute and get `{ status, headers, json(), text() }` |
 
 ### Database test isolation
 
@@ -496,7 +530,7 @@ import { createTestDb, withTestDb } from 'weifuwu'
 const db = await createTestDb()
 await db.sql`CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT)`
 await db.sql`INSERT INTO users (name) VALUES ('Alice')`
-await db.destroy()  // DROP SCHEMA ... CASCADE
+await db.destroy() // DROP SCHEMA ... CASCADE
 
 // Transaction rollback — all changes are rolled back after callback
 await withTestDb(async (sql) => {
@@ -505,10 +539,10 @@ await withTestDb(async (sql) => {
 })
 ```
 
-| Function | Description |
-|----------|-------------|
-| `createTestDb(opts?)` | Create isolated schema, returns `{ sql, url, schema, destroy }` |
-| `withTestDb(url?, fn)` | Run callback in a transaction, auto-rollback |
+| Function               | Description                                                     |
+| ---------------------- | --------------------------------------------------------------- |
+| `createTestDb(opts?)`  | Create isolated schema, returns `{ sql, url, schema, destroy }` |
+| `withTestDb(url?, fn)` | Run callback in a transaction, auto-rollback                    |
 
 Uses `TEST_DATABASE_URL` or `DATABASE_URL`. Automatically skipped in CI if unset.
 
@@ -533,21 +567,21 @@ await a.addKnowledge(agentId, 'Title', 'some knowledge content')
 a.run(agentId, { input: 'summarize the data', stream: true })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client |
-| `provider` | `AIProvider` | `aiProvider()` (from env) | AI provider for model & embedding resolution |
-| `model` | `object` | — | Explicit AI model (overrides provider) |
-| `embeddingModel` | `object` | — | Explicit embedding model (overrides provider) |
-| `embeddingDimension` | `number` | `provider.dimension` | Embedding vector dimension |
-| `tools` | `object[]` | — | Custom tool definitions |
+| Option               | Type         | Default                   | Description                                   |
+| -------------------- | ------------ | ------------------------- | --------------------------------------------- |
+| `pg`                 | `object`     | —                         | PostgreSQL client                             |
+| `provider`           | `AIProvider` | `aiProvider()` (from env) | AI provider for model & embedding resolution  |
+| `model`              | `object`     | —                         | Explicit AI model (overrides provider)        |
+| `embeddingModel`     | `object`     | —                         | Explicit embedding model (overrides provider) |
+| `embeddingDimension` | `number`     | `provider.dimension`      | Embedding vector dimension                    |
+| `tools`              | `object[]`   | —                         | Custom tool definitions                       |
 
-| Method | Description |
-|--------|-------------|
+| Method                                         | Description              |
+| ---------------------------------------------- | ------------------------ |
 | `.run(agentId, { input, stream?, messages? })` | Execute agent with input |
-| `.addKnowledge(agentId, title, content)` | Add knowledge document |
-| `.migrate()` | DB setup |
-| `.close()` | Cleanup |
+| `.addKnowledge(agentId, title, content)`       | Add knowledge document   |
+| `.migrate()`                                   | DB setup                 |
+| `.close()`                                     | Cleanup                  |
 
 ### aiStream [β] [AI]
 
@@ -559,10 +593,10 @@ const chat = await aiStream(async (req) => ({ messages: (await req.json()).messa
 app.use('/chat', chat)
 ```
 
-| Param | Type | Description |
-|-------|------|-------------|
-| `handler` | `(req, ctx) => AIStreamOptions \| Promise<AIStreamOptions>` | Returns AI SDK options (model, messages, schema, etc.) |
-| `provider` | `AIProvider` | Optional. If provided and handler omits `model`, `provider.model()` is used as default |
+| Param      | Type                                                        | Description                                                                            |
+| ---------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `handler`  | `(req, ctx) => AIStreamOptions \| Promise<AIStreamOptions>` | Returns AI SDK options (model, messages, schema, etc.)                                 |
+| `provider` | `AIProvider`                                                | Optional. If provided and handler omits `model`, `provider.model()` is used as default |
 
 ### analytics [β] [API]
 
@@ -571,49 +605,52 @@ In-memory or PostgreSQL page view tracking with built-in dashboard.
 ```ts
 const a = analytics()
 app.use(a.middleware())
-app.use('/', a)       // GET /__analytics (dashboard), GET /__analytics/data?days=7 (JSON)
+app.use('/', a) // GET /__analytics (dashboard), GET /__analytics/data?days=7 (JSON)
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client for persistence |
-| `excluded` | `string[]` | `['/__analytics', '/__wfw', '/static']` | Paths to skip |
+| Option     | Type       | Default                                 | Description                       |
+| ---------- | ---------- | --------------------------------------- | --------------------------------- |
+| `pg`       | `object`   | —                                       | PostgreSQL client for persistence |
+| `excluded` | `string[]` | `['/__analytics', '/__wfw', '/static']` | Paths to skip                     |
 
 ```ts
 // With PostgreSQL
 const a = analytics({ pg })
 await a.migrate()
 app.use(a.middleware())
-app.use('/', a)            // dashboard routes
+app.use('/', a) // dashboard routes
 ```
 
 ### auth [α] [Security]
 
 ```ts
-app.use(auth({ token: 'sk-123' }))                              // static token
-app.use(auth({ header: 'X-API-Key', token: 'my-key' }))         // custom header
+app.use(auth({ token: 'sk-123' })) // static token
+app.use(auth({ header: 'X-API-Key', token: 'my-key' })) // custom header
 app.use(auth({ verify: async (token, req) => ({ sub: 'abc' }) })) // custom verify → sets ctx.user
 app.get('/protected', auth({ proxy: 'http://auth:3000/validate' }), handler)
 
 // Session-based auth (must be placed after session() middleware)
 app.use(session())
-app.use(auth({
-  session: true,
-  resolveUser: async (userId) => {          // load user from DB
-    const [user] = await sql`SELECT * FROM users WHERE id = ${userId}`
-    return user ?? null                      // null → destroy stale session
-  },
-}))
+app.use(
+  auth({
+    session: true,
+    resolveUser: async (userId) => {
+      // load user from DB
+      const [user] = await sql`SELECT * FROM users WHERE id = ${userId}`
+      return user ?? null // null → destroy stale session
+    },
+  }),
+)
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `token` | `string` | — | Static token to match |
-| `header` | `string` | `'Authorization'` | Header name |
-| `verify` | `(token, req) => object\|null` | — | Verify function, return value sets `ctx.user` |
-| `proxy` | `string` | — | Auth service URL to proxy requests to |
-| `session` | `boolean` | `false` | Enable session-based auth. Checks `ctx.session.userId` first |
-| `resolveUser` | `(userId) => object\|null` | — | Load user from userId (called when `session: true`). Return falsy to reject + auto-destroy stale session |
+| Option        | Type                           | Default           | Description                                                                                              |
+| ------------- | ------------------------------ | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `token`       | `string`                       | —                 | Static token to match                                                                                    |
+| `header`      | `string`                       | `'Authorization'` | Header name                                                                                              |
+| `verify`      | `(token, req) => object\|null` | —                 | Verify function, return value sets `ctx.user`                                                            |
+| `proxy`       | `string`                       | —                 | Auth service URL to proxy requests to                                                                    |
+| `session`     | `boolean`                      | `false`           | Enable session-based auth. Checks `ctx.session.userId` first                                             |
+| `resolveUser` | `(userId) => object\|null`     | —                 | Load user from userId (called when `session: true`). Return falsy to reject + auto-destroy stale session |
 
 When `session: true`, auth checks `ctx.session.userId` before the
 Authorization header. This lets logged-in users authenticate via their
@@ -623,32 +660,32 @@ if no session userId is present.
 ### compress [α] [DevTools]
 
 ```ts
-app.use(compress())                         // brotli > gzip > deflate (min 1KB)
-app.use(compress({ threshold: 2048, level: 4 }))      // custom threshold and level
+app.use(compress()) // brotli > gzip > deflate (min 1KB)
+app.use(compress({ threshold: 2048, level: 4 })) // custom threshold and level
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `threshold` | `number` | `1024` | Minimum byte size to compress |
-| `level` | `number` | `6` | Compression level (zlib) |
+| Option      | Type     | Default | Description                   |
+| ----------- | -------- | ------- | ----------------------------- |
+| `threshold` | `number` | `1024`  | Minimum byte size to compress |
+| `level`     | `number` | `6`     | Compression level (zlib)      |
 
 ### cors [α] [DevTools]
 
 ```ts
-app.use(cors())                                            // allow all
-app.use(cors({ origin: ['https://example.com'] }))         // whitelist
+app.use(cors()) // allow all
+app.use(cors({ origin: ['https://example.com'] })) // whitelist
 app.use(cors({ origin: (o) => o.endsWith('.trusted.com') && o }))
 app.use(cors({ credentials: true, maxAge: 3600 }))
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `origin` | `string\|string[]\|function` | `'*'` | Allowed origins |
-| `methods` | `string[]` | `['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS']` | Allowed methods |
-| `allowedHeaders` | `string[]` | — | Custom allowed headers |
-| `exposedHeaders` | `string[]` | — | Response headers exposed to client |
-| `credentials` | `boolean` | `false` | Allow cookies/credentials |
-| `maxAge` | `number` | — | Preflight cache duration (seconds) |
+| Option           | Type                         | Default                                                  | Description                        |
+| ---------------- | ---------------------------- | -------------------------------------------------------- | ---------------------------------- |
+| `origin`         | `string\|string[]\|function` | `'*'`                                                    | Allowed origins                    |
+| `methods`        | `string[]`                   | `['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS']` | Allowed methods                    |
+| `allowedHeaders` | `string[]`                   | —                                                        | Custom allowed headers             |
+| `exposedHeaders` | `string[]`                   | —                                                        | Response headers exposed to client |
+| `credentials`    | `boolean`                    | `false`                                                  | Allow cookies/credentials          |
+| `maxAge`         | `number`                     | —                                                        | Preflight cache duration (seconds) |
 
 ### flash [α] [UX]
 
@@ -658,7 +695,7 @@ Cookie-based flash message. Read from request, write via redirect.
 app.use(flash())
 
 app.get('/', (req, ctx) => {
-  const msg = ctx.flash.value  // { type: 'success', text: 'Saved!' } or undefined
+  const msg = ctx.flash.value // { type: 'success', text: 'Saved!' } or undefined
 })
 
 app.post('/save', (req, ctx) => {
@@ -666,8 +703,8 @@ app.post('/save', (req, ctx) => {
 })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
+| Option | Type     | Default   | Description |
+| ------ | -------- | --------- | ----------- |
 | `name` | `string` | `'flash'` | Cookie name |
 
 ### cache [α] [DevTools]
@@ -675,30 +712,32 @@ app.post('/save', (req, ctx) => {
 Response caching middleware with memory and Redis stores. Caches GET/HEAD responses, with tag-based invalidation.
 
 ```ts
-app.use(cache())                                                     // in-memory, 5min TTL
-app.use(cache({ ttl: 60_000, store: 'redis', redis: ctx.redis }))    // Redis store
-app.use(cache({
-  ttl: 30_000,
-  tag: (req, ctx) => ctx.user ? `user:${ctx.user.id}` : undefined,   // per-user invalidation
-}))
+app.use(cache()) // in-memory, 5min TTL
+app.use(cache({ ttl: 60_000, store: 'redis', redis: ctx.redis })) // Redis store
+app.use(
+  cache({
+    ttl: 30_000,
+    tag: (req, ctx) => (ctx.user ? `user:${ctx.user.id}` : undefined), // per-user invalidation
+  }),
+)
 
 // Programmatic invalidation
 const c = cache({ store: 'redis', redis: ctx.redis })
 app.use(c)
-await c.invalidate('users')     // invalidate all entries tagged with 'users'
-await c.flush()                 // clear entire cache
+await c.invalidate('users') // invalidate all entries tagged with 'users'
+await c.flush() // clear entire cache
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `ttl` | `number` | `300000` (5min) | Cache TTL in ms |
-| `store` | `'memory' \| 'redis' \| CacheStore` | `'memory'` | Cache store backend |
-| `redis` | `Redis` | — | Redis client (required when `store: 'redis'`) |
-| `key` | `(req) => string` | SHA256(method+URL) | Custom cache key |
-| `tag` | `(req, ctx) => string \| string[]` | — | Tag for grouped invalidation |
-| `cacheCookies` | `boolean` | `false` | Cache responses with Set-Cookie |
-| `cacheStatus` | `number[]` | `[200]` | Status codes to cache |
-| `maxBodySize` | `number` | `1048576` (1MB) | Max body bytes to cache |
+| Option         | Type                                | Default            | Description                                   |
+| -------------- | ----------------------------------- | ------------------ | --------------------------------------------- |
+| `ttl`          | `number`                            | `300000` (5min)    | Cache TTL in ms                               |
+| `store`        | `'memory' \| 'redis' \| CacheStore` | `'memory'`         | Cache store backend                           |
+| `redis`        | `Redis`                             | —                  | Redis client (required when `store: 'redis'`) |
+| `key`          | `(req) => string`                   | SHA256(method+URL) | Custom cache key                              |
+| `tag`          | `(req, ctx) => string \| string[]`  | —                  | Tag for grouped invalidation                  |
+| `cacheCookies` | `boolean`                           | `false`            | Cache responses with Set-Cookie               |
+| `cacheStatus`  | `number[]`                          | `[200]`            | Status codes to cache                         |
+| `maxBodySize`  | `number`                            | `1048576` (1MB)    | Max body bytes to cache                       |
 
 Cached responses include `X-Cache: HIT` and `Age` headers. Requests with `Authorization` or `Cookie` headers are never cached. Binary content types (image, audio, video) are skipped.
 
@@ -706,7 +745,11 @@ Cached responses include `X-Cache: HIT` and `Age` headers. Requests with `Author
 import { MemoryCache, RedisCache } from 'weifuwu'
 
 const mem = new MemoryCache()
-await mem.set('key', { status: 200, statusText: 'OK', headers: {}, body: '...', createdAt: Date.now(), tags: [] }, 300_000)
+await mem.set(
+  'key',
+  { status: 200, statusText: 'OK', headers: {}, body: '...', createdAt: Date.now(), tags: [] },
+  300_000,
+)
 mem.close()
 ```
 
@@ -719,12 +762,12 @@ app.use(csrf())
 // Falls back to body field matching the key name
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `cookie` | `'_csrf'` | Cookie name |
-| `header` | `'x-csrf-token'` | Header name (also accepts `x-xsrf-token`) |
-| `key` | `'_csrf'` | Body field fallback |
-| `excludeMethods` | `['GET','HEAD','OPTIONS']` | Skip validation |
+| Option           | Default                    | Description                               |
+| ---------------- | -------------------------- | ----------------------------------------- |
+| `cookie`         | `'_csrf'`                  | Cookie name                               |
+| `header`         | `'x-csrf-token'`           | Header name (also accepts `x-xsrf-token`) |
+| `key`            | `'_csrf'`                  | Body field fallback                       |
+| `excludeMethods` | `['GET','HEAD','OPTIONS']` | Skip validation                           |
 
 ### deploy [β] [Networking]
 
@@ -734,26 +777,30 @@ Multi-process manager with reverse proxy, health checks, auto-restart, and zero-
 import { deploy, defineConfig } from 'weifuwu'
 
 // Local
-await deploy(defineConfig({
-  apps: { blog: {}, api: {} },
-}))
+await deploy(
+  defineConfig({
+    apps: { blog: {}, api: {} },
+  }),
+)
 
 // Production
-await deploy(defineConfig({
-  domain: 'example.com',
-  deployToken: process.env.DEPLOY_TOKEN,
-  apps: { blog: {}, api: {} },
-}))
+await deploy(
+  defineConfig({
+    domain: 'example.com',
+    deployToken: process.env.DEPLOY_TOKEN,
+    apps: { blog: {}, api: {} },
+  }),
+)
 ```
 
 **Auto-derived defaults** — each app key derives `dir`, `port`, `entry`, and `path`:
 
-| Field | Default | Rule |
-|-------|---------|------|
-| `dir` | App key | `blog` → `'./blog'` |
-| `entry` | `'index.ts'` | Default entry file |
-| `port` | `3001+` | Auto-incremented from 3001 |
-| `path` | `'/key'` | Only for localhost domain |
+| Field   | Default      | Rule                       |
+| ------- | ------------ | -------------------------- |
+| `dir`   | App key      | `blog` → `'./blog'`        |
+| `entry` | `'index.ts'` | Default entry file         |
+| `port`  | `3001+`      | Auto-incremented from 3001 |
+| `path`  | `'/key'`     | Only for localhost domain  |
 
 Override any field explicitly:
 
@@ -777,7 +824,11 @@ apps: {
 **Blue-green** — zero-downtime via `ports`:
 
 ```ts
-apps: { blog: { ports: [3001, 3002] } }
+apps: {
+  blog: {
+    ports: [3001, 3002]
+  }
+}
 ```
 
 **WebSocket** — automatically bridged through the gateway.
@@ -786,15 +837,15 @@ apps: { blog: { ports: [3001, 3002] } }
 
 **Management API** — all endpoints require `Authorization: Bearer <deployToken>`:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/_deploy/apps` | GET | List apps |
-| `/_deploy/apps/:name` | GET | App details |
-| `/_deploy/apps/:name/deploy` | POST | Restart |
-| `/_deploy/apps/:name/restart` | POST | Restart |
-| `/_deploy/apps/:name/stop` | POST | Stop |
-| `/_deploy/apps/:name/start` | POST | Start |
-| `/_deploy/apps/:name/logs` | GET | SSE log stream |
+| Endpoint                      | Method | Description    |
+| ----------------------------- | ------ | -------------- |
+| `/_deploy/apps`               | GET    | List apps      |
+| `/_deploy/apps/:name`         | GET    | App details    |
+| `/_deploy/apps/:name/deploy`  | POST   | Restart        |
+| `/_deploy/apps/:name/restart` | POST   | Restart        |
+| `/_deploy/apps/:name/stop`    | POST   | Stop           |
+| `/_deploy/apps/:name/start`   | POST   | Start          |
+| `/_deploy/apps/:name/logs`    | GET    | SSE log stream |
 
 ```bash
 curl -H "Authorization: Bearer my-token" http://localhost:3000/_deploy/apps
@@ -811,26 +862,26 @@ Restart=always
 
 **DeployConfig:**
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `domain` | `'localhost'` | Root domain |
-| `port` | `3000` | Gateway port |
-| `deployToken` | — | Bearer token for management API |
-| `defaultApp` | — | Fallback route |
-| `apps` | — | `Record<string, AppConfig>` |
+| Option        | Default       | Description                     |
+| ------------- | ------------- | ------------------------------- |
+| `domain`      | `'localhost'` | Root domain                     |
+| `port`        | `3000`        | Gateway port                    |
+| `deployToken` | —             | Bearer token for management API |
+| `defaultApp`  | —             | Fallback route                  |
+| `apps`        | —             | `Record<string, AppConfig>`     |
 
 **AppConfig:**
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `dir` | App key | Directory containing the app |
-| `port` | Auto (3001+) | Internal port |
-| `entry` | `'index.ts'` | Entry file |
-| `path` | `'/key'` (local) | URL path prefix |
-| `env` | — | Environment variables |
-| `healthEndpoint` | `/` | Health check path |
-| `buildCommand` | — | Build command |
-| `ports` | — | `[port, port+1]` for blue-green |
+| Field            | Default          | Description                     |
+| ---------------- | ---------------- | ------------------------------- |
+| `dir`            | App key          | Directory containing the app    |
+| `port`           | Auto (3001+)     | Internal port                   |
+| `entry`          | `'index.ts'`     | Entry file                      |
+| `path`           | `'/key'` (local) | URL path prefix                 |
+| `env`            | —                | Environment variables           |
+| `healthEndpoint` | `/`              | Health check path               |
+| `buildCommand`   | —                | Build command                   |
+| `ports`          | —                | `[port, port+1]` for blue-green |
 
 ### env [α] [DevTools]
 
@@ -839,8 +890,8 @@ Safe to expose to the client.
 
 ```ts
 import { env, loadEnv } from 'weifuwu'
-loadEnv()                                // Load .env into process.env
-app.use(env())                           // → ctx.env
+loadEnv() // Load .env into process.env
+app.use(env()) // → ctx.env
 
 app.get('/config', (req, ctx) => {
   return Response.json({ apiUrl: ctx.env.API_URL })
@@ -852,20 +903,20 @@ Helper utilities:
 ```ts
 import { isDev, isProd, isBundled, getPublicEnv } from 'weifuwu'
 
-isDev()      // NODE_ENV === 'development'
-isProd()     // NODE_ENV === 'production'
-isBundled()  // Running from compiled dist/index.js?
-getPublicEnv()  // { API_URL: '...' } — no middleware needed
+isDev() // NODE_ENV === 'development'
+isProd() // NODE_ENV === 'production'
+isBundled() // Running from compiled dist/index.js?
+getPublicEnv() // { API_URL: '...' } — no middleware needed
 ```
 
-| Function | Description |
-|----------|-------------|
+| Function         | Description                                                      |
+| ---------------- | ---------------------------------------------------------------- |
 | `loadEnv(path?)` | Load `.env` file into `process.env` (does not override existing) |
-| `env()` | Middleware — injects `ctx.env` with public vars |
-| `getPublicEnv()` | Returns `WEIFUWU_PUBLIC_*` vars with prefix stripped |
-| `isDev()` | `true` when `NODE_ENV === 'development'` |
-| `isProd()` | `true` when `NODE_ENV === 'production'` |
-| `isBundled()` | `true` when running from compiled bundle |
+| `env()`          | Middleware — injects `ctx.env` with public vars                  |
+| `getPublicEnv()` | Returns `WEIFUWU_PUBLIC_*` vars with prefix stripped             |
+| `isDev()`        | `true` when `NODE_ENV === 'development'`                         |
+| `isProd()`       | `true` when `NODE_ENV === 'production'`                          |
+| `isBundled()`    | `true` when running from compiled bundle                         |
 
 ### graphql [β] [API]
 
@@ -873,22 +924,22 @@ getPublicEnv()  // { API_URL: '...' } — no middleware needed
 const handler: GraphQLHandler = () => ({
   schema: `type Query { hello: String }`,
   resolvers: { Query: { hello: () => 'world' } },
-  graphiql: true,         // GET / returns GraphiQL IDE
-  maxDepth: 10,            // max query nesting (default 10, 0 = disable)
-  timeout: 30_000,         // execution timeout in ms
+  graphiql: true, // GET / returns GraphiQL IDE
+  maxDepth: 10, // max query nesting (default 10, 0 = disable)
+  timeout: 30_000, // execution timeout in ms
 })
 app.use('/graphql', graphql(handler))
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `schema` | `string \| GraphQLSchema` | — | SDL string or pre-built schema |
-| `resolvers` | `object` | — | Resolver map |
-| `rootValue` | `any` | — | Root value for queries |
-| `context` | `(req, ctx) => object` | — | Per-request context factory |
-| `graphiql` | `boolean` | `false` | Serve GraphiQL IDE at GET / |
-| `maxDepth` | `number` | `10` | Max query nesting depth |
-| `timeout` | `number` | `30_000` | Execution timeout (ms) |
+| Option      | Type                      | Default  | Description                    |
+| ----------- | ------------------------- | -------- | ------------------------------ |
+| `schema`    | `string \| GraphQLSchema` | —        | SDL string or pre-built schema |
+| `resolvers` | `object`                  | —        | Resolver map                   |
+| `rootValue` | `any`                     | —        | Root value for queries         |
+| `context`   | `(req, ctx) => object`    | —        | Per-request context factory    |
+| `graphiql`  | `boolean`                 | `false`  | Serve GraphiQL IDE at GET /    |
+| `maxDepth`  | `number`                  | `10`     | Max query nesting depth        |
+| `timeout`   | `number`                  | `30_000` | Execution timeout (ms)         |
 
 ### health [β] [API]
 
@@ -897,10 +948,10 @@ app.use('/health', health())
 // Returns 200 on success, 503 when check throws
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `path` | `string` | `'/health'` | Health check endpoint |
-| `check` | `() => Promise<void>` | — | Async function; throws → 503 |
+| Option  | Type                  | Default     | Description                  |
+| ------- | --------------------- | ----------- | ---------------------------- |
+| `path`  | `string`              | `'/health'` | Health check endpoint        |
+| `check` | `() => Promise<void>` | —           | Async function; throws → 503 |
 
 ### helmet [α] [Security]
 
@@ -911,17 +962,17 @@ app.use(helmet())
 app.use(helmet({ contentSecurityPolicy: "default-src 'self'", xFrameOptions: 'DENY' }))
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `contentSecurityPolicy` | `"default-src 'self'"` | CSP policy |
-| `xFrameOptions` | `'SAMEORIGIN'` | Frame-embedding policy |
-| `strictTransportSecurity` | `'max-age=15552000; includeSubDomains'` | HSTS |
-| `referrerPolicy` | `'no-referrer'` | Referrer header |
-| `xContentTypeOptions` | `'nosniff'` | MIME sniffing protection |
-| `permissionsPolicy` | — | Feature permissions policy |
-| `crossOriginEmbedderPolicy` | — | COEP header |
-| `crossOriginOpenerPolicy` | — | COOP header |
-| `crossOriginResourcePolicy` | — | CORP header |
+| Option                      | Default                                 | Description                |
+| --------------------------- | --------------------------------------- | -------------------------- |
+| `contentSecurityPolicy`     | `"default-src 'self'"`                  | CSP policy                 |
+| `xFrameOptions`             | `'SAMEORIGIN'`                          | Frame-embedding policy     |
+| `strictTransportSecurity`   | `'max-age=15552000; includeSubDomains'` | HSTS                       |
+| `referrerPolicy`            | `'no-referrer'`                         | Referrer header            |
+| `xContentTypeOptions`       | `'nosniff'`                             | MIME sniffing protection   |
+| `permissionsPolicy`         | —                                       | Feature permissions policy |
+| `crossOriginEmbedderPolicy` | —                                       | COEP header                |
+| `crossOriginOpenerPolicy`   | —                                       | COOP header                |
+| `crossOriginResourcePolicy` | —                                       | CORP header                |
 
 ### iii [β] — Worker / Function / Trigger [API]
 
@@ -934,30 +985,30 @@ app.use('/iii', engine)
 app.ws('/iii', engine.wsHandler())
 
 const w = createWorker('orders')
-w.registerFunction('orders::create', async (payload) => db.query('INSERT INTO orders ...', [payload.items]))
+w.registerFunction('orders::create', async (payload) =>
+  db.query('INSERT INTO orders ...', [payload.items]),
+)
 engine.addWorker(w)
 await engine.trigger({ function_id: 'orders::create', payload: { items: ['apple'] } })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client for persistent triggers |
-| `redis` | `object` | — | Redis client for streams |
-| `streamTTL` | `number` | `3600` | Redis stream key TTL (seconds, 0 = no expiry) |
+| Option      | Type     | Default | Description                                   |
+| ----------- | -------- | ------- | --------------------------------------------- |
+| `pg`        | `object` | —       | PostgreSQL client for persistent triggers     |
+| `redis`     | `object` | —       | Redis client for streams                      |
+| `streamTTL` | `number` | `3600`  | Redis stream key TTL (seconds, 0 = no expiry) |
 
-| Method | Description |
-|--------|-------------|
-| `.addWorker(w)` | Register a worker |
-| `.removeWorker(w)` | Remove a worker |
-| `.trigger({ function_id, payload, action?, timeout_ms? })` | Invoke a function |
-| `.listWorkers()` | List registered workers |
-| `.listFunctions()` | List registered functions |
-| `.listTriggers()` | List registered triggers |
-| `.wsHandler()` | WebSocket handler |
-| `.migrate()` | DB setup |
-| `.shutdown()` | Clean shutdown |
-
-
+| Method                                                     | Description               |
+| ---------------------------------------------------------- | ------------------------- |
+| `.addWorker(w)`                                            | Register a worker         |
+| `.removeWorker(w)`                                         | Remove a worker           |
+| `.trigger({ function_id, payload, action?, timeout_ms? })` | Invoke a function         |
+| `.listWorkers()`                                           | List registered workers   |
+| `.listFunctions()`                                         | List registered functions |
+| `.listTriggers()`                                          | List registered triggers  |
+| `.wsHandler()`                                             | WebSocket handler         |
+| `.migrate()`                                               | DB setup                  |
+| `.shutdown()`                                              | Clean shutdown            |
 
 ### knowledgeBase [β] — RAG with pgvector [AI]
 
@@ -998,20 +1049,19 @@ app.get('/search', async (req, ctx) => {
 })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `PostgresClient` | — | **Required.** PostgreSQL client |
-| `provider` | `AIProvider` | — | **Required.** AI provider for embedding |
-| `table` | `string` | `'_kb_docs'` | Database table name |
-| `chunkSize` | `number` | `512` | Max characters per chunk |
-| `chunkOverlap` | `number` | `64` | Overlap between chunks |
-| `searchLimit` | `number` | `5` | Default search result count |
-| `searchThreshold` | `number` | `0` | Minimum similarity (0–1) |
+| Option            | Type             | Default      | Description                             |
+| ----------------- | ---------------- | ------------ | --------------------------------------- |
+| `pg`              | `PostgresClient` | —            | **Required.** PostgreSQL client         |
+| `provider`        | `AIProvider`     | —            | **Required.** AI provider for embedding |
+| `table`           | `string`         | `'_kb_docs'` | Database table name                     |
+| `chunkSize`       | `number`         | `512`        | Max characters per chunk                |
+| `chunkOverlap`    | `number`         | `64`         | Overlap between chunks                  |
+| `searchLimit`     | `number`         | `5`          | Default search result count             |
+| `searchThreshold` | `number`         | `0`          | Minimum similarity (0–1)                |
 
 Documents are split on paragraph boundaries (`\n\n`). Re-ingesting the same key
 replaces old chunks. Provider's `embed()` is used automatically.
 The HNSW index enables fast approximate nearest-neighbor search (cosine distance).
-
 
 ### logdb [β] [API]
 
@@ -1021,53 +1071,60 @@ PostgreSQL structured event logging with monthly partitioning.
 const logger = logdb({ pg })
 await logger.migrate()
 app.use('/logs', logger)
-await logger.clean(12)   // drop partitions older than 12 months
+await logger.clean(12) // drop partitions older than 12 months
 await logger.log({ level: 'info', source: 'app', message: 'hello', metadata: { userId: 1 } })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client |
-| `table` | `string` | `'_log_entries'` | Table name |
+| Option  | Type     | Default          | Description       |
+| ------- | -------- | ---------------- | ----------------- |
+| `pg`    | `object` | —                | PostgreSQL client |
+| `table` | `string` | `'_log_entries'` | Table name        |
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/` | Create log entry |
-| GET | `/` | Query (`?level=`, `?source=`, `?after=`, `?before=`, `?meta.*=`) |
-| GET | `/:id` | Get single entry |
+| Method | Path   | Description                                                      |
+| ------ | ------ | ---------------------------------------------------------------- |
+| POST   | `/`    | Create log entry                                                 |
+| GET    | `/`    | Query (`?level=`, `?source=`, `?after=`, `?before=`, `?meta.*=`) |
+| GET    | `/:id` | Get single entry                                                 |
 
 ### logger [α] [DevTools]
 
 ```ts
-app.use(logger())                             // GET /hello 200 5ms
-app.use(logger({ format: 'combined' }))       // with query params
+app.use(logger()) // GET /hello 200 5ms
+app.use(logger({ format: 'combined' })) // with query params
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
+| Option   | Type                              | Default   | Description                                                   |
+| -------- | --------------------------------- | --------- | ------------------------------------------------------------- |
 | `format` | `'short' \| 'combined' \| 'json'` | `'short'` | Log format: path only, path + query params, or JSON to stderr |
 
 ### mailer [γ] [Networking]
 
 ```ts
-const mail = mailer({ from: 'noreply@example.com', transport: 'smtp://user:pass@smtp.example.com:587' })
-await mail.send({ to: 'user@test.com', subject: 'Hello', text: 'Body', html: '<p>Body</p>', cc: 'admin@test.com' })
+const mail = mailer({
+  from: 'noreply@example.com',
+  transport: 'smtp://user:pass@smtp.example.com:587',
+})
+await mail.send({
+  to: 'user@test.com',
+  subject: 'Hello',
+  text: 'Body',
+  html: '<p>Body</p>',
+  cc: 'admin@test.com',
+})
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `transport` | `string\|object` | — | Nodemailer transport config or connection string |
-| `from` | `string` | — | Default sender address |
-| `send` | `function` | — | Custom send function (alternative to transport) |
-
-
+| Option      | Type             | Default | Description                                      |
+| ----------- | ---------------- | ------- | ------------------------------------------------ |
+| `transport` | `string\|object` | —       | Nodemailer transport config or connection string |
+| `from`      | `string`         | —       | Default sender address                           |
+| `send`      | `function`       | —       | Custom send function (alternative to transport)  |
 
 ### oauthLogin (via user()) — Social login (OAuth 2.0 client) [Security]
 
 Social login is built into the [`user()`](#user-β) module via the `oauthLogin` option — no separate import needed.
 
 ```ts
-app.use(session())                       // required — stores OAuth state
+app.use(session()) // required — stores OAuth state
 const u = user({
   pg,
   jwtSecret: process.env.JWT_SECRET!,
@@ -1086,7 +1143,7 @@ const u = user({
   },
 })
 await u.migrate()
-app.use(u)   // POST /register, POST /login, GET /auth/:provider, GET /auth/:provider/callback
+app.use(u) // POST /register, POST /login, GET /auth/:provider, GET /auth/:provider/callback
 ```
 
 **Flow:** User clicks "Login with Google" → redirected to Google → back to app → user created/linked in database → JWT signed → session created → redirected to `redirectUrl` with `?token=` (or JSON response for API clients).
@@ -1119,13 +1176,12 @@ const u = user({
 })
 ```
 
-| Option (oauthLogin) | Type | Default | Description |
-|--------|------|---------|-------------|
-| `providers` | `Record<string, OAuthProviderConfig>` | — | **Required.** Provider configs (Google/GitHub built-in, any custom) |
-| `redirectUrl` | `string` | `'/'` | Post-login redirect destination |
+| Option (oauthLogin) | Type                                  | Default | Description                                                         |
+| ------------------- | ------------------------------------- | ------- | ------------------------------------------------------------------- |
+| `providers`         | `Record<string, OAuthProviderConfig>` | —       | **Required.** Provider configs (Google/GitHub built-in, any custom) |
+| `redirectUrl`       | `string`                              | `'/'`   | Post-login redirect destination                                     |
 
 Built-in providers (Google, GitHub) have preset URLs — you only need to provide `clientId` and `clientSecret`. The module auto-creates a `_auth_providers` table on first request.
-
 
 ### messager [β] [Networking]
 
@@ -1139,20 +1195,18 @@ app.ws('/ws', msg.wsHandler())
 await msg.send(channelId, 'System message', { sender_type: 'system', sender_id: 'bot' })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client |
-| `agents` | `AgentModule` | — | Agent module for routing |
-| `webhookTimeout` | `number` | — | Webhook timeout |
-| `redis` | `object` | — | Redis client |
+| Option           | Type          | Default | Description              |
+| ---------------- | ------------- | ------- | ------------------------ |
+| `pg`             | `object`      | —       | PostgreSQL client        |
+| `agents`         | `AgentModule` | —       | Agent module for routing |
+| `webhookTimeout` | `number`      | —       | Webhook timeout          |
+| `redis`          | `object`      | —       | Redis client             |
 
-| Method | Description |
-|--------|-------------|
-| `.wsHandler()` | WebSocket handler (channels, typing, read receipts) |
-| `.send(channel, content, opts?)` | Send message to channel |
-| `.close()` | Cleanup |
-
-
+| Method                           | Description                                         |
+| -------------------------------- | --------------------------------------------------- |
+| `.wsHandler()`                   | WebSocket handler (channels, typing, read receipts) |
+| `.send(channel, content, opts?)` | Send message to channel                             |
+| `.close()`                       | Cleanup                                             |
 
 ### opencode [β] [AI]
 
@@ -1170,35 +1224,35 @@ app.use('/opencode', oc)
 app.ws('/opencode', oc.wsHandler())
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client |
-| `model` | `string` | — | AI model name (e.g. `'gpt-4o'`, `'deepseek-v4-flash'`) |
-| `baseURL` | `string` | — | OpenAI-compatible API base URL |
-| `apiKey` | `string` | — | API key for the model |
-| `workspace` | `string` | — | Project directory |
-| `systemPrompt` | `string` | — | Custom system prompt |
-| `skills` | `object[]` | — | Custom skill definitions |
-| `permissions` | `object` | — | Tool permission rules |
+| Option         | Type       | Default | Description                                            |
+| -------------- | ---------- | ------- | ------------------------------------------------------ |
+| `pg`           | `object`   | —       | PostgreSQL client                                      |
+| `model`        | `string`   | —       | AI model name (e.g. `'gpt-4o'`, `'deepseek-v4-flash'`) |
+| `baseURL`      | `string`   | —       | OpenAI-compatible API base URL                         |
+| `apiKey`       | `string`   | —       | API key for the model                                  |
+| `workspace`    | `string`   | —       | Project directory                                      |
+| `systemPrompt` | `string`   | —       | Custom system prompt                                   |
+| `skills`       | `object[]` | —       | Custom skill definitions                               |
+| `permissions`  | `object`   | —       | Tool permission rules                                  |
 
 ### postgres [α] [Database]
 
 Type-safe PostgreSQL client with schema builder, CRUD, migrations, soft delete, and JSONB/vector support.
 
 ```ts
-const pg = postgres()          // reads DATABASE_URL
-app.use(pg)                    // injects ctx.sql
+const pg = postgres() // reads DATABASE_URL
+app.use(pg) // injects ctx.sql
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `connection` | `string` | `DATABASE_URL` env | PostgreSQL connection string |
-| `max` | `number` | `10` | Max pool connections |
-| `ssl` | `boolean\|object` | — | SSL options |
-| `idle_timeout` | `number` | `30` | Idle timeout (seconds) |
-| `connect_timeout` | `number` | `30` | Connection timeout |
-| `statementTimeout` | `number` | `30_000` | Per-statement timeout (ms, 0 = disable) |
-| `onQuery` | `(query, ms, rows) => void` | — | Query logging callback |
+| Option             | Type                        | Default            | Description                             |
+| ------------------ | --------------------------- | ------------------ | --------------------------------------- |
+| `connection`       | `string`                    | `DATABASE_URL` env | PostgreSQL connection string            |
+| `max`              | `number`                    | `10`               | Max pool connections                    |
+| `ssl`              | `boolean\|object`           | —                  | SSL options                             |
+| `idle_timeout`     | `number`                    | `30`               | Idle timeout (seconds)                  |
+| `connect_timeout`  | `number`                    | `30`               | Connection timeout                      |
+| `statementTimeout` | `number`                    | `30_000`           | Per-statement timeout (ms, 0 = disable) |
+| `onQuery`          | `(query, ms, rows) => void` | —                  | Query logging callback                  |
 
 ```ts
 // Raw SQL via tagged template
@@ -1214,40 +1268,46 @@ const users = pg.table('_users', {
   active: boolean('active').default(true),
   ...timestamps(),
 })
-await users.create()           // DDL — no need to pass sql
+await users.create() // DDL — no need to pass sql
 await users.createIndex('email')
 
 // CRUD — sql already bound
 await users.insert({ name: 'Alice' })
-const { count, data } = await users.readMany({ role: 'admin' }, { orderBy: { name: 'asc' }, limit: 10 })
+const { count, data } = await users.readMany(
+  { role: 'admin' },
+  { orderBy: { name: 'asc' }, limit: 10 },
+)
 await users.upsert({ email: 'alice@test.com' }, 'email')
 
 // Reuse schema without redefining fields
 import { pgTable } from 'weifuwu'
-const usersSchema = pgTable('_users', { id: serial('id'), name: text('name') })  // define once
-const users = pg.table(usersSchema)  // bind — no field duplication
+const usersSchema = pgTable('_users', { id: serial('id'), name: text('name') }) // define once
+const users = pg.table(usersSchema) // bind — no field duplication
 
 // Transactions — with auto-retry on deadlock/serialization failure
-await pg.transaction(async (sql) => {
-  const txUsers = users.withSql(sql)
-  return txUsers.insert({ name: 'Bob' })
-}, { maxRetries: 3 })
+await pg.transaction(
+  async (sql) => {
+    const txUsers = users.withSql(sql)
+    return txUsers.insert({ name: 'Bob' })
+  },
+  { maxRetries: 3 },
+)
 
 // Soft delete — automatic if deleted_at column exists
-await users.delete(1)       // SET deleted_at = NOW()
-await users.hardDelete(1)   // DELETE FROM
-await users.read(1)         // auto-filters deleted_at IS NULL (use withDeleted: true to include)
+await users.delete(1) // SET deleted_at = NOW()
+await users.hardDelete(1) // DELETE FROM
+await users.read(1) // auto-filters deleted_at IS NULL (use withDeleted: true to include)
 
 // JSONB queries
 const logs = pg.table('logs', { meta: jsonb<{ service: string }>('meta') })
 await logs.readMany(contains('meta', { service: 'auth' }))
 
 // Connection pool visibility
-console.log(pg.poolStats())  // { active: 3, idle: 7, waiting: 0, max: 10 }
+console.log(pg.poolStats()) // { active: 3, idle: 7, waiting: 0, max: 10 }
 
 // Migration tracking
-await pg.migrate()           // creates _weifuwu_migrations
-await pg.markMigrated('myModule')  // idempotent
+await pg.migrate() // creates _weifuwu_migrations
+await pg.markMigrated('myModule') // idempotent
 const done = await pg.isMigrated('myModule')
 
 // Partitioned tables
@@ -1261,61 +1321,65 @@ await logs.create({ partitionBy: partitionBy('range', 'created_at') })
 | `pg.table(schema)` | Reusing a schema without duplicating field definitions |
 | `pgTable('t', cols)` | No `pg` reference (utility modules, standalone schema files) |
 
-| Column builder | Type | Notes |
-|---------------|------|-------|
-| `serial(name)` | `number` | Auto-increment |
-| `uuid(name)` | `string` | — |
-| `text(name)` | `string` | — |
-| `integer(name)` | `number` | — |
-| `boolean(name)` / `boolean_(name)` | `boolean` | `_` suffix for JS reserved word |
-| `timestamptz(name)` | `string` | — |
-| `jsonb<T>(name)` | `T` | Generic for typed JSONB access |
-| `textArray(name)` | `string[]` | TEXT[] |
-| `vector(name, dims)` | `number[]` | pgvector support |
+| Column builder                     | Type       | Notes                           |
+| ---------------------------------- | ---------- | ------------------------------- |
+| `serial(name)`                     | `number`   | Auto-increment                  |
+| `uuid(name)`                       | `string`   | —                               |
+| `text(name)`                       | `string`   | —                               |
+| `integer(name)`                    | `number`   | —                               |
+| `boolean(name)` / `boolean_(name)` | `boolean`  | `_` suffix for JS reserved word |
+| `timestamptz(name)`                | `string`   | —                               |
+| `jsonb<T>(name)`                   | `T`        | Generic for typed JSONB access  |
+| `textArray(name)`                  | `string[]` | TEXT[]                          |
+| `vector(name, dims)`               | `number[]` | pgvector support                |
 
 **Column modifiers:** `.primaryKey()`, `.notNull()`, `.nullable()`, `.default(val)`, `.unique()`, `.references(table, column?, onDelete?)`.
 
 **CRUD methods:**
 
-| Method | Description |
-|--------|-------------|
-| `insert(data)` | INSERT + RETURNING \*, returns the inserted row |
-| `insertMany(data)` | Bulk INSERT + RETURNING \*, returns rows |
-| `read(id, opts?)` | SELECT by detected primary key + auto soft-delete filter |
-| `readMany(where?, opts?)` | Filtered query with `{ count, data }` — auto-filters soft-deleted |
-| `update(id, data)` | UPDATE by primary key + RETURNING \*, returns updated row |
-| `updateMany(where, data)` | Bulk UPDATE, returns affected row count |
-| `delete(id)` | Soft delete if `deleted_at` exists, else hard delete |
-| `hardDelete(id)` | Always DELETE FROM |
-| `deleteMany(where)` | Soft bulk delete if `deleted_at` exists |
-| `hardDeleteMany(where)` | Always DELETE FROM |
-| `upsert(data, conflict)` | INSERT ON CONFLICT DO UPDATE, returns row |
-| `count(where?)` | SELECT COUNT(\*) — auto-filters soft-deleted |
-| `create(opts?)` | CREATE TABLE IF NOT EXISTS |
-| `drop(opts?)` | DROP TABLE IF EXISTS |
-| `createIndex(columns, opts?)` | CREATE INDEX |
-| `createUniqueIndex(columns)` | CREATE UNIQUE INDEX |
-| `withSql(sql)` | Returns copy bound to a different sql (for transactions) |
+| Method                        | Description                                                       |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `insert(data)`                | INSERT + RETURNING \*, returns the inserted row                   |
+| `insertMany(data)`            | Bulk INSERT + RETURNING \*, returns rows                          |
+| `read(id, opts?)`             | SELECT by detected primary key + auto soft-delete filter          |
+| `readMany(where?, opts?)`     | Filtered query with `{ count, data }` — auto-filters soft-deleted |
+| `update(id, data)`            | UPDATE by primary key + RETURNING \*, returns updated row         |
+| `updateMany(where, data)`     | Bulk UPDATE, returns affected row count                           |
+| `delete(id)`                  | Soft delete if `deleted_at` exists, else hard delete              |
+| `hardDelete(id)`              | Always DELETE FROM                                                |
+| `deleteMany(where)`           | Soft bulk delete if `deleted_at` exists                           |
+| `hardDeleteMany(where)`       | Always DELETE FROM                                                |
+| `upsert(data, conflict)`      | INSERT ON CONFLICT DO UPDATE, returns row                         |
+| `count(where?)`               | SELECT COUNT(\*) — auto-filters soft-deleted                      |
+| `create(opts?)`               | CREATE TABLE IF NOT EXISTS                                        |
+| `drop(opts?)`                 | DROP TABLE IF EXISTS                                              |
+| `createIndex(columns, opts?)` | CREATE INDEX                                                      |
+| `createUniqueIndex(columns)`  | CREATE UNIQUE INDEX                                               |
+| `withSql(sql)`                | Returns copy bound to a different sql (for transactions)          |
 
 **Where helpers** — composable query conditions:
 
-| Helper | SQL |
-|--------|-----|
-| `eq(col, val)` | `"col" = val` |
-| `ne(col, val)` | `"col" != val` |
-| `gt` / `gte` / `lt` / `lte` | Comparison operators |
-| `isNull(col)` / `isNotNull(col)` | `IS NULL` / `IS NOT NULL` |
-| `like(col, pattern)` | `LIKE` |
-| `contains(col, val)` | `@>` JSONB containment |
-| `in_(col, vals)` | `= ANY(...)` |
-| `and(...)` / `or(...)` / `not(...)` | Boolean composition |
+| Helper                              | SQL                       |
+| ----------------------------------- | ------------------------- |
+| `eq(col, val)`                      | `"col" = val`             |
+| `ne(col, val)`                      | `"col" != val`            |
+| `gt` / `gte` / `lt` / `lte`         | Comparison operators      |
+| `isNull(col)` / `isNotNull(col)`    | `IS NULL` / `IS NOT NULL` |
+| `like(col, pattern)`                | `LIKE`                    |
+| `contains(col, val)`                | `@>` JSONB containment    |
+| `in_(col, vals)`                    | `= ANY(...)`              |
+| `and(...)` / `or(...)` / `not(...)` | Boolean composition       |
 
 **PgModule** — base class for modules that need DB access:
 
 ```ts
 class MyModule extends PgModule {
-  async migrate() { /* run DDL */ }
-  async getUsers() { return this.table('users', {}).readMany() }
+  async migrate() {
+    /* run DDL */
+  }
+  async getUsers() {
+    return this.table('users', {}).readMany()
+  }
 }
 ```
 
@@ -1333,10 +1397,10 @@ const next = cronNext('0 9 * * 1-5')
 console.log(new Date(next))
 ```
 
-| Function | Description |
-|----------|-------------|
-| `parsePattern(pattern)` | Parse 5-field cron pattern into `Set<number>[]` |
-| `matches(fields, date)` | Check if a date matches a parsed pattern |
+| Function                | Description                                                |
+| ----------------------- | ---------------------------------------------------------- |
+| `parsePattern(pattern)` | Parse 5-field cron pattern into `Set<number>[]`            |
+| `matches(fields, date)` | Check if a date matches a parsed pattern                   |
 | `cronNext(expr, from?)` | Calculate next matching timestamp (`from` defaults to now) |
 
 ### fts — Full-Text Search (PostgreSQL) [Database]
@@ -1367,11 +1431,11 @@ const results = await fts.search(pg.sql, articles, 'node.js framework', {
 await fts.dropIndex(pg.sql, articles)
 ```
 
-| Function | Description |
-|----------|-------------|
+| Function                                 | Description                    |
+| ---------------------------------------- | ------------------------------ |
 | `createIndex(sql, table, fields, opts?)` | Create GIN/GiST tsvector index |
-| `search(sql, table, query, opts?)` | Search with ts_rank ordering |
-| `dropIndex(sql, table, opts?)` | Drop the index |
+| `search(sql, table, query, opts?)`       | Search with ts_rank ordering   |
+| `dropIndex(sql, table, opts?)`           | Drop the index                 |
 
 Search options: `fields`, `limit` (20), `offset` (0), `headline` (false), `language` ('english'), `minRank`.
 
@@ -1391,10 +1455,10 @@ app.use(theme({ default: 'dark' }))
 // app.use('/', t)
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `default` | `string` | `'system'` | Default theme |
-| `cookie` | `string` | `'theme'` | Cookie name (empty to disable) |
+| Option    | Type     | Default    | Description                    |
+| --------- | -------- | ---------- | ------------------------------ |
+| `default` | `string` | `'system'` | Default theme                  |
+| `cookie`  | `string` | `'theme'`  | Cookie name (empty to disable) |
 
 ```ts
 // Server-side switching
@@ -1423,13 +1487,13 @@ app.use(i18n({ default: 'zh', dir: './locales' }))
 // app.use('/', l)
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `default` | `string` | `'en'` | Default locale |
-| `dir` | `string` | — | Directory with `{locale}.json` files |
-| `messages` | `object` | — | Inline translations: `{ zh: { welcome: '欢迎' } }` |
-| `cookie` | `string` | `'locale'` | Cookie name (empty to disable) |
-| `fromAcceptLanguage` | `boolean` | `true` | Detect from Accept-Language header |
+| Option               | Type      | Default    | Description                                        |
+| -------------------- | --------- | ---------- | -------------------------------------------------- |
+| `default`            | `string`  | `'en'`     | Default locale                                     |
+| `dir`                | `string`  | —          | Directory with `{locale}.json` files               |
+| `messages`           | `object`  | —          | Inline translations: `{ zh: { welcome: '欢迎' } }` |
+| `cookie`             | `string`  | `'locale'` | Cookie name (empty to disable)                     |
+| `fromAcceptLanguage` | `boolean` | `true`     | Detect from Accept-Language header                 |
 
 ```ts
 // Handler
@@ -1456,7 +1520,9 @@ const q = queue({ store: 'memory' })
 // const q = queue({ store: 'redis', redis })
 
 // Register cron job (uses the same backend for persistence)
-q.cron('*/5 * * * *', async () => { await cleanCache() })
+q.cron('*/5 * * * *', async () => {
+  await cleanCache()
+})
 
 // Or use process/add for full queue semantics
 q.process('send-email', async (job) => {
@@ -1475,55 +1541,55 @@ q.add('weekly-report', {}, { schedule: '0 9 * * 1' })
 q.run()
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `store` | `'memory' \| 'pg' \| 'redis'` | `'memory'` | Backend store |
-| `redis` | `object` | — | Redis client (required when `store: 'redis'`) |
-| `url` | `string` | — | Redis URL (alternative to client) |
-| `pg` | `object` | — | PostgreSQL client (required when `store: 'pg'`) |
-| `prefix` | `string` | `'queue'` | Key/table prefix |
-| `pollInterval` | `number` | `200` | Poll interval (ms) |
+| Option         | Type                          | Default    | Description                                     |
+| -------------- | ----------------------------- | ---------- | ----------------------------------------------- |
+| `store`        | `'memory' \| 'pg' \| 'redis'` | `'memory'` | Backend store                                   |
+| `redis`        | `object`                      | —          | Redis client (required when `store: 'redis'`)   |
+| `url`          | `string`                      | —          | Redis URL (alternative to client)               |
+| `pg`           | `object`                      | —          | PostgreSQL client (required when `store: 'pg'`) |
+| `prefix`       | `string`                      | `'queue'`  | Key/table prefix                                |
+| `pollInterval` | `number`                      | `200`      | Poll interval (ms)                              |
 
-| Method | Description |
-|--------|-------------|
-| `.cron(pattern, handler)` | Register a cron job (uses process + add internally) |
-| `.add(type, payload, opts?)` | Add job (opts: `delay`, `schedule`) |
-| `.process(type, handler)` | Register job processor |
-| `.run()` | Start processing |
-| `.stop()` | Stop processing |
-| `.jobs(limit?)` | List pending jobs |
-| `.failedJobs(limit?)` | List failed jobs with error messages |
-| `.retryFailed(jobId)` | Retry a specific failed job |
-| `.retryAllFailed(type?)` | Retry all failed jobs (optionally by type) |
-| `.dashboard()` | Returns a Router with management endpoints |
-| `.close()` | Cleanup |
+| Method                       | Description                                         |
+| ---------------------------- | --------------------------------------------------- |
+| `.cron(pattern, handler)`    | Register a cron job (uses process + add internally) |
+| `.add(type, payload, opts?)` | Add job (opts: `delay`, `schedule`)                 |
+| `.process(type, handler)`    | Register job processor                              |
+| `.run()`                     | Start processing                                    |
+| `.stop()`                    | Stop processing                                     |
+| `.jobs(limit?)`              | List pending jobs                                   |
+| `.failedJobs(limit?)`        | List failed jobs with error messages                |
+| `.retryFailed(jobId)`        | Retry a specific failed job                         |
+| `.retryAllFailed(type?)`     | Retry all failed jobs (optionally by type)          |
+| `.dashboard()`               | Returns a Router with management endpoints          |
+| `.close()`                   | Cleanup                                             |
 
 **Schedule (cron) field reference:**
 
-| Field | Range |
-|-------|-------|
-| minute | 0–59 |
-| hour | 0–23 |
-| day of month | 1–31 |
-| month | 1–12 |
-| day of week | 0–6 (0=Sunday) |
+| Field        | Range          |
+| ------------ | -------------- |
+| minute       | 0–59           |
+| hour         | 0–23           |
+| day of month | 1–31           |
+| month        | 1–12           |
+| day of week  | 0–6 (0=Sunday) |
 
 Supported cron syntax: `*` (any), `*/n` (every n), `n-m` (range), `n,m,o` (list), `n` (exact).
 
 **Dashboard endpoints** (mount via `app.use('/__queue', q.dashboard())`):
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Queue stats + pending/failed counts by type |
-| GET | `/:type/failed` | List failed jobs for a type |
-| POST | `/:type/retry` | Retry all failed jobs of a type |
-| POST | `/retry/:id` | Retry a specific failed job by ID |
+| Method | Path            | Description                                 |
+| ------ | --------------- | ------------------------------------------- |
+| GET    | `/`             | Queue stats + pending/failed counts by type |
+| GET    | `/:type/failed` | List failed jobs for a type                 |
+| POST   | `/:type/retry`  | Retry all failed jobs of a type             |
+| POST   | `/retry/:id`    | Retry a specific failed job by ID           |
 
 ### rateLimit [α] [Security]
 
 ```ts
-app.use(rateLimit({ max: 100, window: 60_000 }))            // 100 req/min, in-memory
-app.get('/api', rateLimit({ max: 10 }), handler)            // per-route
+app.use(rateLimit({ max: 100, window: 60_000 })) // 100 req/min, in-memory
+app.get('/api', rateLimit({ max: 10 }), handler) // per-route
 app.use(rateLimit({ key: (req) => req.headers.get('x-api-key') ?? 'anonymous' }))
 
 // Multi-process: Redis-backed rate limiting
@@ -1533,31 +1599,31 @@ app.use(rateLimit({ max: 100, store: 'redis', redis: ctx.redis }))
 // m.stop() — clear interval (memory) or Redis cleanup
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `max` | `number` | `100` | Max requests per window |
-| `window` | `number` | `60_000` | Window duration (ms) |
-| `key` | `(req) => string` | IP-based | Key function |
-| `message` | `string` | `'Too Many Requests'` | 429 response body |
-| `store` | `'memory' \| 'redis'` | `'memory'` | Backend store |
-| `redis` | `Redis` | — | Redis client (required when `store: 'redis'`) |
-| `prefix` | `string` | `'ratelimit:'` | Redis key prefix |
+| Option    | Type                  | Default               | Description                                   |
+| --------- | --------------------- | --------------------- | --------------------------------------------- |
+| `max`     | `number`              | `100`                 | Max requests per window                       |
+| `window`  | `number`              | `60_000`              | Window duration (ms)                          |
+| `key`     | `(req) => string`     | IP-based              | Key function                                  |
+| `message` | `string`              | `'Too Many Requests'` | 429 response body                             |
+| `store`   | `'memory' \| 'redis'` | `'memory'`            | Backend store                                 |
+| `redis`   | `Redis`               | —                     | Redis client (required when `store: 'redis'`) |
+| `prefix`  | `string`              | `'ratelimit:'`        | Redis key prefix                              |
 
 Redis mode uses `INCR` + `EXPIRE` for atomic counting, enabling accurate rate limiting across multiple server processes. Memory mode is ideal for single-process deployments.
 
 ### redis [α] [Database]
 
 ```ts
-const r = redis()          // reads REDIS_URL
-app.use(r)                 // injects ctx.redis
+const r = redis() // reads REDIS_URL
+app.use(r) // injects ctx.redis
 await ctx.redis.set('key', 'value')
 // r.close() — cleanup
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `url` | `string` | `REDIS_URL` env | Redis connection string |
-| (all ioredis options) | — | — | Passed directly to ioredis |
+| Option                | Type     | Default         | Description                |
+| --------------------- | -------- | --------------- | -------------------------- |
+| `url`                 | `string` | `REDIS_URL` env | Redis connection string    |
+| (all ioredis options) | —        | —               | Passed directly to ioredis |
 
 ### requestId [α] [DevTools]
 
@@ -1567,10 +1633,10 @@ app.use(requestId({ header: 'X-Request-Id', generator: () => crypto.randomUUID()
 // Sets X-Request-ID header on responses, available as ctx.requestId
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `header` | `string` | `'X-Request-ID'` | Header name to read/write |
-| `generator` | `() => string` | `crypto.randomUUID()` | ID generator |
+| Option      | Type           | Default               | Description               |
+| ----------- | -------------- | --------------------- | ------------------------- |
+| `header`    | `string`       | `'X-Request-ID'`      | Header name to read/write |
+| `generator` | `() => string` | `crypto.randomUUID()` | ID generator              |
 
 ### trace [α] [DevTools]
 
@@ -1578,20 +1644,20 @@ Request-scoped tracing via `AsyncLocalStorage`. Use as middleware to inject `ctx
 
 ```ts
 import { trace } from 'weifuwu'
-app.use(trace())                             // → ctx.trace
-app.use(trace({ header: 'X-Trace-Id' }))     // custom header
+app.use(trace()) // → ctx.trace
+app.use(trace({ header: 'X-Trace-Id' })) // custom header
 
 app.get('/', (req, ctx) => {
-  console.log(ctx.trace.requestId)  // 550e8400-e29b-...
-  console.log(ctx.trace.traceId)    // trace UUID
-  console.log(ctx.trace.elapsed())  // ms since request start
+  console.log(ctx.trace.requestId) // 550e8400-e29b-...
+  console.log(ctx.trace.traceId) // trace UUID
+  console.log(ctx.trace.elapsed()) // ms since request start
 })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `header` | `string` | `'X-Request-ID'` | Request ID header name |
-| `generator` | `() => string` | `crypto.randomUUID()` | Custom ID generator |
+| Option      | Type           | Default               | Description            |
+| ----------- | -------------- | --------------------- | ---------------------- |
+| `header`    | `string`       | `'X-Request-ID'`      | Request ID header name |
+| `generator` | `() => string` | `crypto.randomUUID()` | Custom ID generator    |
 
 Utility functions (also available standalone):
 
@@ -1603,29 +1669,31 @@ const elapsed = traceElapsed()    // ms since request started
 runWithTrace(incomingId, () => { ... })  // manual scope
 ```
 
-| Function | Description |
-|----------|-------------|
-| `currentTraceId()` | Current request trace ID, or `undefined` outside a request |
-| `currentTrace()` | Full `{ traceId, startTime }` context |
-| `traceElapsed()` | Milliseconds elapsed since the trace started |
-| `runWithTrace(traceId, fn)` | Execute `fn` inside a trace scope |
+| Function                    | Description                                                |
+| --------------------------- | ---------------------------------------------------------- |
+| `currentTraceId()`          | Current request trace ID, or `undefined` outside a request |
+| `currentTrace()`            | Full `{ traceId, startTime }` context                      |
+| `traceElapsed()`            | Milliseconds elapsed since the trace started               |
+| `runWithTrace(traceId, fn)` | Execute `fn` inside a trace scope                          |
 
 ### s3 [α] — S3-compatible object storage [Networking]
 
 ```ts
 import { s3 } from 'weifuwu'
 
-app.use(s3({
-  bucket: 'my-app',
-  region: 'us-east-1',
-  endpoint: process.env.S3_URL,              // MinIO / R2 / AWS
-  forcePathStyle: true,                       // required for MinIO
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY,
-    secretAccessKey: process.env.S3_SECRET_KEY,
-  },
-  publicUrl: 'https://cdn.example.com',       // for unsigned public URLs
-}))
+app.use(
+  s3({
+    bucket: 'my-app',
+    region: 'us-east-1',
+    endpoint: process.env.S3_URL, // MinIO / R2 / AWS
+    forcePathStyle: true, // required for MinIO
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY,
+      secretAccessKey: process.env.S3_SECRET_KEY,
+    },
+    publicUrl: 'https://cdn.example.com', // for unsigned public URLs
+  }),
+)
 ```
 
 Injects `ctx.s3` with methods for S3-compatible object storage.
@@ -1654,14 +1722,14 @@ const publicUrl = await ctx.s3.url('images/logo.png', { expiresIn: 0 })
 const keys = await ctx.s3.list('images/')
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `bucket` | `string` | — | **Required.** S3 bucket name |
-| `region` | `string` | `'us-east-1'` | AWS region |
-| `endpoint` | `string` | — | Custom endpoint (MinIO, R2, B2) |
-| `forcePathStyle` | `boolean` | `false` | Path-style addressing (required for MinIO) |
-| `credentials` | `{ accessKeyId, secretAccessKey }` | — | Falls back to AWS env vars / IAM role |
-| `publicUrl` | `string` | — | Base URL for unsigned public URLs via `url(key, { expiresIn: 0 })` |
+| Option           | Type                               | Default       | Description                                                        |
+| ---------------- | ---------------------------------- | ------------- | ------------------------------------------------------------------ |
+| `bucket`         | `string`                           | —             | **Required.** S3 bucket name                                       |
+| `region`         | `string`                           | `'us-east-1'` | AWS region                                                         |
+| `endpoint`       | `string`                           | —             | Custom endpoint (MinIO, R2, B2)                                    |
+| `forcePathStyle` | `boolean`                          | `false`       | Path-style addressing (required for MinIO)                         |
+| `credentials`    | `{ accessKeyId, secretAccessKey }` | —             | Falls back to AWS env vars / IAM role                              |
+| `publicUrl`      | `string`                           | —             | Base URL for unsigned public URLs via `url(key, { expiresIn: 0 })` |
 
 Credentials can be omitted to use AWS environment variables (`AWS_ACCESS_KEY_ID`,
 `AWS_SECRET_ACCESS_KEY`) or IAM roles (EC2, ECS, Lambda).
@@ -1688,32 +1756,42 @@ minio:
   command: server /data
 ```
 
-
 ### seo [β] + seoMiddleware [α] [API]
 
 ```ts
-app.use('/', seo({ baseUrl: 'https://example.com', robots: [{ userAgent: '*', allow: '/' }], sitemap: { urls: [{ loc: '/' }] } }))
+app.use(
+  '/',
+  seo({
+    baseUrl: 'https://example.com',
+    robots: [{ userAgent: '*', allow: '/' }],
+    sitemap: { urls: [{ loc: '/' }] },
+  }),
+)
 // GET /robots.txt, GET /sitemap.xml
 
-app.use(seoMiddleware({ headers: { 'X-Robots-Tag': (path) => path.startsWith('/admin') ? 'noindex' : undefined } }))
+app.use(
+  seoMiddleware({
+    headers: { 'X-Robots-Tag': (path) => (path.startsWith('/admin') ? 'noindex' : undefined) },
+  }),
+)
 ```
 
 Also exports `seoTags(config)` for generating meta/og/twitter tags as an HTML string.
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `baseUrl` | `string` | — | Base URL for sitemap URLs |
-| `robots` | `RobotsRule[]` | `[{ userAgent: '*', allow: '/' }]` | Robots.txt rules |
-| `sitemap` | `SitemapConfig` | — | Sitemap configuration (urls, resolve, cacheTTL) |
-| `headers` | `SeoHeadersConfig` | — | Response headers (e.g. `X-Robots-Tag`) |
+| Option    | Type               | Default                            | Description                                     |
+| --------- | ------------------ | ---------------------------------- | ----------------------------------------------- |
+| `baseUrl` | `string`           | —                                  | Base URL for sitemap URLs                       |
+| `robots`  | `RobotsRule[]`     | `[{ userAgent: '*', allow: '/' }]` | Robots.txt rules                                |
+| `sitemap` | `SitemapConfig`    | —                                  | Sitemap configuration (urls, resolve, cacheTTL) |
+| `headers` | `SeoHeadersConfig` | —                                  | Response headers (e.g. `X-Robots-Tag`)          |
 
 ### session [α] [Security]
 
 Cookie-based server-side session management with memory and Redis stores.
 
 ```ts
-app.use(session())                                          // in-memory store (default)
-app.use(session({ store: 'redis', redis: ctx.redis }))       // Redis store
+app.use(session()) // in-memory store (default)
+app.use(session({ store: 'redis', redis: ctx.redis })) // Redis store
 app.use(session({ store: 'redis', redis, ttl: 30 * 60_000, cookieName: 'sid' }))
 
 app.get('/login', async (req, ctx) => {
@@ -1724,7 +1802,7 @@ app.get('/login', async (req, ctx) => {
 })
 
 app.get('/logout', async (req, ctx) => {
-  ctx.session.destroy()     // or ctx.session = null
+  ctx.session.destroy() // or ctx.session = null
   return Response.json({ ok: true })
 })
 
@@ -1734,19 +1812,19 @@ app.get('/logout', async (req, ctx) => {
 // Session mutations are auto-detected on property set/delete
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `store` | `'memory' \| 'redis' \| SessionStore` | `'memory'` | Session store backend |
-| `redis` | `Redis` | — | Redis client (required when `store: 'redis'`) |
-| `ttl` | `number` | `86400000` (24h) | Session TTL in ms |
-| `cookieName` | `string` | `'__session'` | Cookie name |
-| `cookie.httpOnly` | `boolean` | `true` | Cookie httpOnly flag |
-| `cookie.secure` | `boolean` | `auto` | Cookie Secure flag (true in production) |
-| `cookie.sameSite` | `string` | `'lax'` | SameSite policy |
-| `cookie.path` | `string` | `'/'` | Cookie path |
-| `cookie.domain` | `string` | — | Cookie domain |
-| `secret` | `string` | — | HMAC-SHA256 sign the session cookie (`uuid.signature`). Prevents tampering **strongly recommended in production** |
-| `rotateInterval` | `number` | `900000` (15min) | Auto-rotate session ID to prevent fixation attacks. Set `0` to disable |
+| Option            | Type                                  | Default          | Description                                                                                                       |
+| ----------------- | ------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `store`           | `'memory' \| 'redis' \| SessionStore` | `'memory'`       | Session store backend                                                                                             |
+| `redis`           | `Redis`                               | —                | Redis client (required when `store: 'redis'`)                                                                     |
+| `ttl`             | `number`                              | `86400000` (24h) | Session TTL in ms                                                                                                 |
+| `cookieName`      | `string`                              | `'__session'`    | Cookie name                                                                                                       |
+| `cookie.httpOnly` | `boolean`                             | `true`           | Cookie httpOnly flag                                                                                              |
+| `cookie.secure`   | `boolean`                             | `auto`           | Cookie Secure flag (true in production)                                                                           |
+| `cookie.sameSite` | `string`                              | `'lax'`          | SameSite policy                                                                                                   |
+| `cookie.path`     | `string`                              | `'/'`            | Cookie path                                                                                                       |
+| `cookie.domain`   | `string`                              | —                | Cookie domain                                                                                                     |
+| `secret`          | `string`                              | —                | HMAC-SHA256 sign the session cookie (`uuid.signature`). Prevents tampering **strongly recommended in production** |
+| `rotateInterval`  | `number`                              | `900000` (15min) | Auto-rotate session ID to prevent fixation attacks. Set `0` to disable                                            |
 
 When `secret` is set, the cookie value is signed with HMAC-SHA256:
 `uuid.base64url(hmac)`. Tampered cookies are rejected and treated as new
@@ -1761,7 +1839,7 @@ from the store. Rotation happens transparently on the next request after
 ```ts
 import { MemoryStore, RedisStore } from 'weifuwu'
 
-const mem = new MemoryStore()  // auto-cleanup every 60s
+const mem = new MemoryStore() // auto-cleanup every 60s
 await mem.set('sid', { userId: 1 }, 86400000)
 mem.close()
 
@@ -1800,14 +1878,14 @@ app.use('/', ssr({ dir: './ui' }))
 └── lib/                 ← utilities (does not affect routing)
 ```
 
-| Location | Route |
-|----------|-------|
-| `app/page.tsx` | `GET /` |
-| `app/[param]/page.tsx` | `GET /:param` |
-| `app/layout.tsx` | Root layout (wraps all pages in its subtree) |
-| `app/not-found.tsx` | 404 fallback for that subtree |
-| `app/error.tsx` | Error boundary for that subtree |
-| `app/globals.css` | Tailwind CSS entry (compiled via `@tailwindcss/postcss`) |
+| Location               | Route                                                    |
+| ---------------------- | -------------------------------------------------------- |
+| `app/page.tsx`         | `GET /`                                                  |
+| `app/[param]/page.tsx` | `GET /:param`                                            |
+| `app/layout.tsx`       | Root layout (wraps all pages in its subtree)             |
+| `app/not-found.tsx`    | 404 fallback for that subtree                            |
+| `app/error.tsx`        | Error boundary for that subtree                          |
+| `app/globals.css`      | Tailwind CSS entry (compiled via `@tailwindcss/postcss`) |
 
 **How hydration works:**
 
@@ -1824,7 +1902,7 @@ app.use('/', ssr({ dir: './ui' }))
 
 ```ts
 // Multiple independent SSR directories
-app.use('/',      ssr({ dir: './www' }))
+app.use('/', ssr({ dir: './www' }))
 app.use('/admin', ssr({ dir: './admin' }))
 
 // API routes coexist normally
@@ -1840,31 +1918,35 @@ Multi-tenant BaaS with dynamic table API and GraphQL.
 ```ts
 const t = tenant({ pg, usersTable: '_users' })
 await t.migrate()
-app.use('/api', t.middleware())   // → ctx.tenant
-app.use('/api', t)      // dynamic CRUD
+app.use('/api', t.middleware()) // → ctx.tenant
+app.use('/api', t) // dynamic CRUD
 app.use('/graphql', t.graphql()) // dynamic GraphQL
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client |
-| `usersTable` | `string` | — | Users table name for tenant membership lookup |
+| Option       | Type     | Default | Description                                   |
+| ------------ | -------- | ------- | --------------------------------------------- |
+| `pg`         | `object` | —       | PostgreSQL client                             |
+| `usersTable` | `string` | —       | Users table name for tenant membership lookup |
 
 ### upload [α] [DevTools]
 
 ```ts
-app.post('/upload', upload({ dir: './uploads', maxFileSize: 10_485_760, allowedTypes: ['image/jpeg', 'image/png'] }), (req, ctx) => {
-  // ctx.parsed.files.avatar → { name, type, size, path } or { name, type, size, buffer } (when no dir)
-  // Multiple files with same field name → array
-  // ctx.parsed.fields.title → 'hello'
-})
+app.post(
+  '/upload',
+  upload({ dir: './uploads', maxFileSize: 10_485_760, allowedTypes: ['image/jpeg', 'image/png'] }),
+  (req, ctx) => {
+    // ctx.parsed.files.avatar → { name, type, size, path } or { name, type, size, buffer } (when no dir)
+    // Multiple files with same field name → array
+    // ctx.parsed.fields.title → 'hello'
+  },
+)
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `dir` | `string` | — | Write files to disk (omit for in-memory) |
-| `maxFileSize` | `number` | — | Max bytes per file |
-| `allowedTypes` | `string[]` | — | Allowed MIME types |
+| Option         | Type       | Default | Description                              |
+| -------------- | ---------- | ------- | ---------------------------------------- |
+| `dir`          | `string`   | —       | Write files to disk (omit for in-memory) |
+| `maxFileSize`  | `number`   | —       | Max bytes per file                       |
+| `allowedTypes` | `string[]` | —       | Allowed MIME types                       |
 
 ### user [β] [Security]
 
@@ -1874,7 +1956,8 @@ Authentication: register, login, JWT, OAuth2 服务端, 社会化登录.
 const u = user({
   pg,
   jwtSecret: process.env.JWT_SECRET!,
-  oauthLogin: {                                          // 可选 — 社会化登录
+  oauthLogin: {
+    // 可选 — 社会化登录
     providers: {
       github: { clientId: '...', clientSecret: '...' },
       google: { clientId: '...', clientSecret: '...' },
@@ -1882,26 +1965,26 @@ const u = user({
   },
 })
 await u.migrate()
-app.use(u)                              // POST /register, POST /login
-app.use(u.middleware())                  // ctx.user
+app.use(u) // POST /register, POST /login
+app.use(u.middleware()) // ctx.user
 // GET /auth/github, GET /auth/github/callback  (如配置 oauthLogin)
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client |
-| `jwtSecret` | `string` | — | JWT signing secret |
-| `table` | `string` | `'_users'` | Users table name |
-| `expiresIn` | `string` | `'24h'` | JWT expiration |
-| `oauth2` | `object` | — | OAuth2 服务端 config (PKCE flow) |
-| `oauthLogin` | `object` | — | 社会化登录: `{ providers: Record<string, OAuthProviderConfig>, redirectUrl? }` |
+| Option       | Type     | Default    | Description                                                                    |
+| ------------ | -------- | ---------- | ------------------------------------------------------------------------------ |
+| `pg`         | `object` | —          | PostgreSQL client                                                              |
+| `jwtSecret`  | `string` | —          | JWT signing secret                                                             |
+| `table`      | `string` | `'_users'` | Users table name                                                               |
+| `expiresIn`  | `string` | `'24h'`    | JWT expiration                                                                 |
+| `oauth2`     | `object` | —          | OAuth2 服务端 config (PKCE flow)                                               |
+| `oauthLogin` | `object` | —          | 社会化登录: `{ providers: Record<string, OAuthProviderConfig>, redirectUrl? }` |
 
-| Method | Description |
-|--------|-------------|
-| `.register(data)` | Register a new user programmatically |
-| `.login(data)` | Log in programmatically |
-| `.verify(token)` | Verify JWT token |
-| `.middleware()` | JWT verify middleware — sets `ctx.user` |
+| Method            | Description                             |
+| ----------------- | --------------------------------------- |
+| `.register(data)` | Register a new user programmatically    |
+| `.login(data)`    | Log in programmatically                 |
+| `.verify(token)`  | Verify JWT token                        |
+| `.middleware()`   | JWT verify middleware — sets `ctx.user` |
 
 ### permissions [α] — RBAC [Security]
 
@@ -1915,11 +1998,14 @@ await perm.migrate()
 await perm.assignRole(userId, 'admin')
 await perm.grantPermission('admin', 'posts:create')
 await perm.grantPermission('admin', 'posts:edit')
-await perm.grantPermission('admin', '*')         // wildcard — all permissions
+await perm.grantPermission('admin', '*') // wildcard — all permissions
 
 // Use as middleware
-app.use((req, ctx, next) => { ctx.user = { id: userId }; return next(req, ctx) })
-app.use(perm)                                     // → ctx.roles, ctx.permissions
+app.use((req, ctx, next) => {
+  ctx.user = { id: userId }
+  return next(req, ctx)
+})
+app.use(perm) // → ctx.roles, ctx.permissions
 
 // Route guards
 app.get('/admin', perm.requireRole('admin'), adminHandler)
@@ -1934,26 +2020,26 @@ app.get('/posts/:id', async (req, ctx) => {
 })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `pg` | `object` | — | PostgreSQL client |
-| `prefix` | `string` | `''` | Table prefix (e.g. `'myapp'` → `myapp_roles`) |
+| Option   | Type     | Default | Description                                   |
+| -------- | -------- | ------- | --------------------------------------------- |
+| `pg`     | `object` | —       | PostgreSQL client                             |
+| `prefix` | `string` | `''`    | Table prefix (e.g. `'myapp'` → `myapp_roles`) |
 
-| Method | Description |
-|--------|-------------|
-| `.assignRole(userId, role)` | Assign role to user (creates role if missing) |
-| `.removeRole(userId, role)` | Remove role from user |
-| `.grantPermission(role, permission)` | Grant permission to role |
-| `.revokePermission(role, permission)` | Revoke permission from role |
-| `.getUserRoles(userId)` | List user's roles |
-| `.getUserPermissions(userId)` | List user's permissions (union of all roles) |
-| `.requireRole(...roles)` | Middleware — rejects if user lacks any of the roles |
-| `.requirePermission(...perms)` | Middleware — rejects if user lacks any permission |
-| `.migrate()` | Create tables |
+| Method                                | Description                                         |
+| ------------------------------------- | --------------------------------------------------- |
+| `.assignRole(userId, role)`           | Assign role to user (creates role if missing)       |
+| `.removeRole(userId, role)`           | Remove role from user                               |
+| `.grantPermission(role, permission)`  | Grant permission to role                            |
+| `.revokePermission(role, permission)` | Revoke permission from role                         |
+| `.getUserRoles(userId)`               | List user's roles                                   |
+| `.getUserPermissions(userId)`         | List user's permissions (union of all roles)        |
+| `.requireRole(...roles)`              | Middleware — rejects if user lacks any of the roles |
+| `.requirePermission(...perms)`        | Middleware — rejects if user lacks any permission   |
+| `.migrate()`                          | Create tables                                       |
 
 ### validate [α] [DevTools]
 
-```ts
+````ts
 import { z } from 'zod'
 const CreateUser = z.object({ name: z.string().min(1), email: z.string().email() })
 app.post('/users', validate({ body: CreateUser, query: z.object({ ref: z.string().optional() }) }), (req, ctx) => {
@@ -1976,14 +2062,14 @@ app.post('/contact', validate(), (req, ctx) => {
 
 // Or validate with Zod
 app.post('/contact', validate({ body: z.object({ email: z.string().email() }) }), handler)
-```
+````
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `body` | `ZodSchema` | — | Body validation schema (omit to skip) |
-| `query` | `ZodSchema` | — | Query validation schema |
-| `params` | `ZodSchema` | — | URL params validation schema |
-| `headers` | `ZodSchema` | — | Header validation schema |
+| Option    | Type        | Default | Description                           |
+| --------- | ----------- | ------- | ------------------------------------- |
+| `body`    | `ZodSchema` | —       | Body validation schema (omit to skip) |
+| `query`   | `ZodSchema` | —       | Query validation schema               |
+| `params`  | `ZodSchema` | —       | URL params validation schema          |
+| `headers` | `ZodSchema` | —       | Header validation schema              |
 
 ### webhook [β] [API]
 
@@ -2013,14 +2099,14 @@ wh.on('*', (event) => {
 })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `stripe` | `PlatformConfig` | — | Stripe webhook config with `secret` |
-| `github` | `PlatformConfig` | — | GitHub webhook config |
-| `slack` | `PlatformConfig` | — | Slack webhook config |
-| `custom` | `CustomVerifierConfig[]` | — | Custom signature verifiers |
-| `replayProtection` | `boolean` | `true` | Deduplicate by event ID |
-| `idempotencyTTL` | `number` | `3600000` | Dedup TTL (ms) |
+| Option             | Type                     | Default   | Description                         |
+| ------------------ | ------------------------ | --------- | ----------------------------------- |
+| `stripe`           | `PlatformConfig`         | —         | Stripe webhook config with `secret` |
+| `github`           | `PlatformConfig`         | —         | GitHub webhook config               |
+| `slack`            | `PlatformConfig`         | —         | Slack webhook config                |
+| `custom`           | `CustomVerifierConfig[]` | —         | Custom signature verifiers          |
+| `replayProtection` | `boolean`                | `true`    | Deduplicate by event ID             |
+| `idempotencyTTL`   | `number`                 | `3600000` | Dedup TTL (ms)                      |
 
 Built-in verifiers handle HMAC-SHA256, timestamp validation (Slack's 5-min window), and Stripe's `t=` / `v1=` signature format. Slack URL verification challenges are auto-responded.
 
@@ -2028,11 +2114,12 @@ Built-in verifiers handle HMAC-SHA256, timestamp validation (Slack's 5-min windo
 
 ```tsx
 import { Link, navigate, useNavigate, useNavigating } from 'weifuwu/react'
-
-<Link href="/about" prefetch>About</Link>   // client-side nav + prefetch on hover/visible
-const n = useNavigate()                      // hook: n('/contact')
-navigate('/contact')                         // bare function (no hook needed)
-const loading = useNavigating()              // reactive loading state
+;<Link href="/about" prefetch>
+  About
+</Link> // client-side nav + prefetch on hover/visible
+const n = useNavigate() // hook: n('/contact')
+navigate('/contact') // bare function (no hook needed)
+const loading = useNavigating() // reactive loading state
 ```
 
 `navigate()` fetches the SSR page, extracts the root container content, and replaces it in-place. Middleware runs on server each nav — data is always fresh.
@@ -2089,11 +2176,11 @@ function LangSwitch() {
 }
 ```
 
-| Return | Description |
-|--------|-------------|
-| `locale` | Current locale string (from `ctx.i18n.locale`) |
+| Return              | Description                                           |
+| ------------------- | ----------------------------------------------------- |
+| `locale`            | Current locale string (from `ctx.i18n.locale`)        |
 | `setLocale(locale)` | Switch locale (calls `navigate('/__lang/' + locale)`) |
-| `t` | Translate a key using loaded locale messages |
+| `t`                 | Translate a key using loaded locale messages          |
 
 ```tsx
 import { useTheme } from 'weifuwu/react'
@@ -2101,8 +2188,8 @@ function ThemeToggle() {
   const { theme, resolvedTheme, setTheme } = useTheme()
   return (
     <>
-      <span>Current: {resolvedTheme}</span>  {/* 'dark' | 'light' — never 'system' */}
-      <select value={theme} onChange={e => setTheme(e.target.value)}>
+      <span>Current: {resolvedTheme}</span> {/* 'dark' | 'light' — never 'system' */}
+      <select value={theme} onChange={(e) => setTheme(e.target.value)}>
         <option value="light">☀ Light</option>
         <option value="dark">🌙 Dark</option>
         <option value="system">💻 System</option>
@@ -2112,11 +2199,11 @@ function ThemeToggle() {
 }
 ```
 
-| Return | Description |
-|--------|-------------|
-| `theme` | Raw preference (`'light'` \| `'dark'` \| `'system'`) |
-| `resolvedTheme` | Resolved value (`'light'` \| `'dark'`) — `'system'` → matchMedia |
-| `setTheme(theme)` | Switch theme (calls `navigate('/__theme/' + theme)`) |
+| Return            | Description                                                      |
+| ----------------- | ---------------------------------------------------------------- |
+| `theme`           | Raw preference (`'light'` \| `'dark'` \| `'system'`)             |
+| `resolvedTheme`   | Resolved value (`'light'` \| `'dark'`) — `'system'` → matchMedia |
+| `setTheme(theme)` | Switch theme (calls `navigate('/__theme/' + theme)`)             |
 
 **`applyTheme(theme)`** — DOM-only theme application. Sets `data-theme` on `<html>`, registers `matchMedia` listener for `'system'`. Used by the interceptor; exported for custom scenarios.
 
@@ -2126,7 +2213,13 @@ function ThemeToggle() {
 import { useLoaderData } from 'weifuwu/react'
 function Page() {
   const data = useLoaderData<{ posts: Post[] }>()
-  return <ul>{data.posts.map(p => <li key={p.id}>{p.title}</li>)}</ul>
+  return (
+    <ul>
+      {data.posts.map((p) => (
+        <li key={p.id}>{p.title}</li>
+      ))}
+    </ul>
+  )
 }
 ```
 
@@ -2152,7 +2245,7 @@ app.use(flash())
 
 // Read flash
 app.get('/', (req, ctx) => {
-  const msg = ctx.flash.value  // { type: 'success', text: 'Saved!' }
+  const msg = ctx.flash.value // { type: 'success', text: 'Saved!' }
 })
 
 // Set flash + redirect
@@ -2174,8 +2267,8 @@ function Toast() {
 }
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
+| Option | Type     | Default   | Description |
+| ------ | -------- | --------- | ----------- |
 | `name` | `string` | `'flash'` | Cookie name |
 
 ### Dev mode [δ] [Client]
@@ -2193,7 +2286,17 @@ Auto-detected when `NODE_ENV === 'development'`. `ssr({dir})` automatically regi
 ## AI
 
 ```ts
-import { openai, streamText, generateText, streamObject, generateObject, tool, embed, embedMany, aiProvider } from 'weifuwu'
+import {
+  openai,
+  streamText,
+  generateText,
+  streamObject,
+  generateObject,
+  tool,
+  embed,
+  embedMany,
+  aiProvider,
+} from 'weifuwu'
 import { runWorkflow } from 'weifuwu'
 
 const provider = aiProvider()
@@ -2216,23 +2319,23 @@ app.post('/ask', async (req, ctx) => {
 })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `baseURL` | `string` | `OPENAI_BASE_URL` env or `http://localhost:11434/v1` | API base URL |
-| `apiKey` | `string` | `OPENAI_API_KEY` env or `'ollama'` | API key |
-| `model` | `string` | `OPENAI_MODEL` env or `'qwen3:0.6b'` | Chat model name |
-| `embeddingModel` | `string` | `OPENAI_EMBEDDING_MODEL` env or `'qwen3-embedding:0.6b'` | Embedding model name |
-| `embeddingDimension` | `number` | `EMBEDDING_DIMENSION` env or `1024` | Vector dimension |
+| Option               | Type     | Default                                                  | Description          |
+| -------------------- | -------- | -------------------------------------------------------- | -------------------- |
+| `baseURL`            | `string` | `OPENAI_BASE_URL` env or `http://localhost:11434/v1`     | API base URL         |
+| `apiKey`             | `string` | `OPENAI_API_KEY` env or `'ollama'`                       | API key              |
+| `model`              | `string` | `OPENAI_MODEL` env or `'qwen3:0.6b'`                     | Chat model name      |
+| `embeddingModel`     | `string` | `OPENAI_EMBEDDING_MODEL` env or `'qwen3-embedding:0.6b'` | Embedding model name |
+| `embeddingDimension` | `number` | `EMBEDDING_DIMENSION` env or `1024`                      | Vector dimension     |
 
-| Method | Description |
-|--------|-------------|
-| `.model(name?)` | Get `LanguageModel` instance |
-| `.embeddingModel(name?)` | Get `EmbeddingModel` instance |
-| `.embed(text)` | Embed single text → `Promise<number[]>` |
-| `.embedMany(texts)` | Batch embed → `Promise<number[][]>` |
-| `.generateText(params)` | Generate text (model auto-injected) |
-| `.streamText(params)` | Stream text (model auto-injected) |
-| `.dimension` | Configured embedding dimension |
+| Method                   | Description                             |
+| ------------------------ | --------------------------------------- |
+| `.model(name?)`          | Get `LanguageModel` instance            |
+| `.embeddingModel(name?)` | Get `EmbeddingModel` instance           |
+| `.embed(text)`           | Embed single text → `Promise<number[]>` |
+| `.embedMany(texts)`      | Batch embed → `Promise<number[][]>`     |
+| `.generateText(params)`  | Generate text (model auto-injected)     |
+| `.streamText(params)`    | Stream text (model auto-injected)       |
+| `.dimension`             | Configured embedding dimension          |
 
 ### DAG Workflow [AI]
 
@@ -2246,12 +2349,12 @@ const wf = runWorkflow({ tools, provider })
 const wf = runWorkflow({ tools, model: openai('gpt-4o') })
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `tools` | `object` | — | Registered tool definitions |
-| `provider` | `AIProvider` | — | AI provider (uses `provider.model()` for LLM-generated workflow) |
-| `model` | `LanguageModel` | — | Explicit model (overrides provider) |
-| `maxSteps` | `number` | `200` | Max execution steps |
+| Option     | Type            | Default | Description                                                      |
+| ---------- | --------------- | ------- | ---------------------------------------------------------------- |
+| `tools`    | `object`        | —       | Registered tool definitions                                      |
+| `provider` | `AIProvider`    | —       | AI provider (uses `provider.model()` for LLM-generated workflow) |
+| `model`    | `LanguageModel` | —       | Explicit model (overrides provider)                              |
+| `maxSteps` | `number`        | `200`   | Max execution steps                                              |
 
 ---
 
@@ -2259,7 +2362,10 @@ const wf = runWorkflow({ tools, model: openai('gpt-4o') })
 
 ```ts
 import { createSSEStream, formatSSE, formatSSEData } from 'weifuwu'
-async function* events() { yield formatSSE('chat', 'Hello'); yield formatSSE('chat', 'World') }
+async function* events() {
+  yield formatSSE('chat', 'Hello')
+  yield formatSSE('chat', 'World')
+}
 app.get('/stream', (req, ctx) => createSSEStream(events()))
 ```
 

@@ -1,7 +1,6 @@
 import { Router } from '../router.ts'
-import type { BoundTable } from '../postgres/schema/index.ts'
+import { eq, and, gte, type BoundTable } from '../postgres/schema/index.ts'
 import type { AgentConfig, RunParams } from './types.ts'
-import { eq, and, gte } from '../postgres/schema/index.ts'
 
 interface RestDeps {
   agents: BoundTable<any>
@@ -26,7 +25,7 @@ export function buildRouter(deps: RestDeps): Router {
   // ── Agent CRUD ─────────────────────────────────────────
 
   r.post('/agents', async (req) => {
-    const body = await req.json() as Partial<AgentConfig>
+    const body = (await req.json()) as Partial<AgentConfig>
     if (!body.name) return Response.json({ error: 'name is required' }, { status: 400 })
 
     const row = await agentsTable.insert({
@@ -41,7 +40,9 @@ export function buildRouter(deps: RestDeps): Router {
   })
 
   r.get('/agents', async () => {
-    const { data: rows } = await agentsTable.readMany(undefined, { orderBy: { created_at: 'desc' } })
+    const { data: rows } = await agentsTable.readMany(undefined, {
+      orderBy: { created_at: 'desc' },
+    })
     return Response.json(rows)
   })
 
@@ -56,10 +57,17 @@ export function buildRouter(deps: RestDeps): Router {
     const agent = await getAgent(id)
     if (!agent) return Response.json({ error: 'Agent not found' }, { status: 404 })
 
-    const body = await req.json() as Partial<AgentConfig>
+    const body = (await req.json()) as Partial<AgentConfig>
     const updateData: Record<string, unknown> = {}
 
-    for (const key of ['name', 'description', 'type', 'model', 'system_prompt', 'active'] as const) {
+    for (const key of [
+      'name',
+      'description',
+      'type',
+      'model',
+      'system_prompt',
+      'active',
+    ] as const) {
       if (body[key] !== undefined) {
         updateData[key] = body[key]
       }
@@ -84,7 +92,7 @@ export function buildRouter(deps: RestDeps): Router {
 
   r.post('/agents/:id/run', async (req, ctx) => {
     const id = parseInt(ctx.params.id, 10)
-    const body = await req.json() as RunParams
+    const body = (await req.json()) as RunParams
     if (!body.input && !body.messages) {
       return Response.json({ error: 'input or messages is required' }, { status: 400 })
     }
@@ -159,7 +167,7 @@ export function buildRouter(deps: RestDeps): Router {
       total,
       success,
       error,
-      success_rate: total > 0 ? (success / total * 100).toFixed(1) : '0',
+      success_rate: total > 0 ? ((success / total) * 100).toFixed(1) : '0',
       tokens_in: totalTokensIn,
       tokens_out: totalTokensOut,
       avg_elapsed_ms: avgElapsed,
@@ -174,7 +182,7 @@ export function buildRouter(deps: RestDeps): Router {
     const agent = await getAgent(agentId)
     if (!agent) return Response.json({ error: 'Agent not found' }, { status: 404 })
 
-    const body = await req.json() as { title?: string; content: string }
+    const body = (await req.json()) as { title?: string; content: string }
     if (!body.content) return Response.json({ error: 'content is required' }, { status: 400 })
 
     try {

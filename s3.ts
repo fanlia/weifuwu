@@ -95,11 +95,7 @@ export function s3(options: S3Options): S3Module & Middleware {
     credentials: options.credentials,
   })
 
-  async function put(
-    key: string,
-    body: S3Body,
-    putOpts?: S3PutOptions,
-  ): Promise<string> {
+  async function put(key: string, body: S3Body, putOpts?: S3PutOptions): Promise<string> {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -148,7 +144,7 @@ export function s3(options: S3Options): S3Module & Middleware {
       if (!publicUrl) {
         throw new Error(
           's3.url() with expiresIn=0 requires publicUrl in S3Options. ' +
-          'Set publicUrl to enable unsigned public URLs.',
+            'Set publicUrl to enable unsigned public URLs.',
         )
       }
       const base = publicUrl.replace(/\/+$/, '')

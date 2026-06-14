@@ -19,18 +19,25 @@ interface RunnerDeps {
 }
 
 function hasKnowledgeDocs(sql: Sql<{}>, agentId: number): Promise<boolean> {
-  return sql`SELECT 1 FROM "_knowledge_documents" WHERE agent_id = ${agentId} LIMIT 1`
-    .then(r => (r as any[]).length > 0)
+  return sql`SELECT 1 FROM "_knowledge_documents" WHERE agent_id = ${agentId} LIMIT 1`.then(
+    (r) => (r as any[]).length > 0,
+  )
 }
 
-async function searchKnowledge(sql: Sql<{}>, provider: AIProvider, agentId: number, query: string, limit = 5) {
+async function searchKnowledge(
+  sql: Sql<{}>,
+  provider: AIProvider,
+  agentId: number,
+  query: string,
+  limit = 5,
+) {
   const embedding = await provider.embed(query)
   const vec = `[${embedding.join(',')}]`
-  const docs = await sql.unsafe(
+  const docs = (await sql.unsafe(
     `SELECT id, title, content, metadata, embedding <=> $1::vector AS _score FROM "_knowledge_documents" WHERE agent_id = $2 ORDER BY embedding <=> $1::vector LIMIT $3`,
     [vec, agentId, limit],
-  ) as any[]
-  return docs.map(d => ({ id: d.id, title: d.title, content: d.content, score: d._score }))
+  )) as any[]
+  return docs.map((d) => ({ id: d.id, title: d.title, content: d.content, score: d._score }))
 }
 
 async function loadAgent(agents: BoundTable<any>, agentId: number): Promise<AgentConfig | null> {
@@ -45,10 +52,19 @@ export function createRunner(deps: RunnerDeps) {
     return s.length > max ? s.slice(0, max) + '...' : s
   }
 
-  async function logRun(agentId: number, params: RunParams, result: Partial<{
-    output: string; elapsed: number; tokensIn: number; tokensOut: number;
-    status: string; errorMsg: string | null; model: string
-  }>) {
+  async function logRun(
+    agentId: number,
+    params: RunParams,
+    result: Partial<{
+      output: string
+      elapsed: number
+      tokensIn: number
+      tokensOut: number
+      status: string
+      errorMsg: string | null
+      model: string
+    }>,
+  ) {
     try {
       await runs.insert({
         agent_id: agentId,
@@ -83,7 +99,8 @@ export function createRunner(deps: RunnerDeps) {
 
     if (hasKB) {
       tools.searchKnowledge = {
-        description: '搜索知识库文档获取与查询相关的信息。回答用户问题前必须先搜索知识库。如果搜索结果不足以回答，告诉用户你不知道。',
+        description:
+          '搜索知识库文档获取与查询相关的信息。回答用户问题前必须先搜索知识库。如果搜索结果不足以回答，告诉用户你不知道。',
         parameters: z.object({
           query: z.string().describe('搜索关键词，应该用中文提问'),
           limit: z.number().default(5).describe('返回结果数量'),
@@ -152,17 +169,21 @@ export function createRunner(deps: RunnerDeps) {
     }
   }
 
-  async function addKnowledge(agentId: number, title: string, content: string): Promise<KnowledgeDoc> {
+  async function addKnowledge(
+    agentId: number,
+    title: string,
+    content: string,
+  ): Promise<KnowledgeDoc> {
     const chunks = chunkContent(content, 1024, 128)
 
     const [first] = chunks
     const embedding = await provider.embed(first)
     const vec = `[${embedding.join(',')}]`
 
-    const [doc] = await sql.unsafe(
+    const [doc] = (await sql.unsafe(
       `INSERT INTO "_knowledge_documents" ("agent_id", "title", "content", "embedding") VALUES ($1, $2, $3, $4::vector) RETURNING *`,
       [agentId, title, first, vec],
-    ) as any[]
+    )) as any[]
 
     for (let i = 1; i < chunks.length; i++) {
       const emb = await provider.embed(chunks[i])

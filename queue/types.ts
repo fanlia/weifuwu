@@ -43,7 +43,14 @@ export interface Queue extends Middleware<Context, Context & QueueInjected>, Clo
   process<T>(type: string, handler: (job: QueueJob<T>) => Promise<void>): void
   run(): Promise<void>
   stop(): void
-  stats(): { running: boolean; inflight: number; processed: number; failed: number; handlers: number; maxConcurrent: number }
+  stats(): {
+    running: boolean
+    inflight: number
+    processed: number
+    failed: number
+    handlers: number
+    maxConcurrent: number
+  }
   jobs(limit?: number): Promise<QueueJob[]>
   failedJobs(limit?: number): Promise<QueueJobWithError[]>
   retryFailed(jobId: string): Promise<boolean>

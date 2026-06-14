@@ -1,9 +1,17 @@
 import {
-  GraphQLSchema, GraphQLObjectType, GraphQLInputObjectType,
-  GraphQLString, GraphQLInt, GraphQLFloat, GraphQLBoolean,
-  GraphQLID, GraphQLList, GraphQLNonNull, GraphQLEnumType,
+  GraphQLSchema,
+  GraphQLObjectType,
+  GraphQLInputObjectType,
+  GraphQLString,
+  GraphQLInt,
+  GraphQLFloat,
+  GraphQLBoolean,
+  GraphQLID,
+  GraphQLList,
+  GraphQLNonNull,
+  GraphQLEnumType,
+  graphql as executeGraphQL,
 } from 'graphql'
-import { graphql as executeGraphQL } from 'graphql'
 import type { Sql } from '../vendor.ts'
 import type { Context } from '../types.ts'
 import { Router } from '../router.ts'
@@ -26,7 +34,7 @@ function graphqlType(field: FieldDef, required: boolean): any {
       if (field.options && field.options.length > 0) {
         t = new GraphQLEnumType({
           name: `Enum_${field.name}`,
-          values: Object.fromEntries(field.options.map(o => [o, { value: o }])),
+          values: Object.fromEntries(field.options.map((o) => [o, { value: o }])),
         })
       } else {
         t = GraphQLString
@@ -68,7 +76,6 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
       if (other.id === table.id) continue
       const relField = findRelation(other.fields, table.slug)
       if (relField) {
-        
         fields[other.slug] = {
           type: new GraphQLList(new GraphQLNonNull(buildObjectType(other, ctx))),
           args: {
@@ -88,9 +95,9 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
         // M2M: check if the referencing table is a junction
         const relFields = getRelationFields(other.fields)
         if (relFields.length === 2 && other.fields.length <= 3) {
-          const otherRel = relFields.find(f => f.name !== relField.name)!
+          const otherRel = relFields.find((f) => f.name !== relField.name)!
           const targetSlug = otherRel.relation!.table
-          const targetTable = ctx.tables.find(t => t.slug === targetSlug)
+          const targetTable = ctx.tables.find((t) => t.slug === targetSlug)
           if (targetTable) {
             const branchName = targetSlug
             fields[branchName] = {
@@ -118,7 +125,7 @@ function buildObjectType(table: UserTableRow, ctx: BuildCtx): GraphQLObjectType 
     for (const f of table.fields) {
       if (!f.relation) continue
       const targetSlug = f.relation.table
-      const targetTable = ctx.tables.find(t => t.slug === targetSlug)
+      const targetTable = ctx.tables.find((t) => t.slug === targetSlug)
       if (!targetTable) continue
       fields[targetSlug] = {
         type: buildObjectType(targetTable, ctx),
@@ -145,9 +152,7 @@ function buildInputType(table: UserTableRow, prefix: string): GraphQLInputObject
   const typeName = pascalCase(`${prefix}_${table.slug}`) + 'Input'
   return new GraphQLInputObjectType({
     name: typeName,
-    fields: Object.fromEntries(
-      table.fields.map(f => [f.name, { type: inputGraphqlType(f) }]),
-    ),
+    fields: Object.fromEntries(table.fields.map((f) => [f.name, { type: inputGraphqlType(f) }])),
   })
 }
 
@@ -207,8 +212,8 @@ function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): Record<stri
         const name = internalTableName(ctx.tenantId, table.slug)
         const data = { ...args.data, tenant_id: ctx.tenantId }
         const [row] = await ctx.sql.unsafe(
-          `INSERT INTO "${name}" ("tenant_id", "${table.fields.map(f => f.name).join('", "')}") VALUES ($1, ${table.fields.map((_, i) => `$${i + 2}`).join(', ')}) RETURNING *`,
-          [ctx.tenantId, ...table.fields.map(f => data[f.name] ?? null)],
+          `INSERT INTO "${name}" ("tenant_id", "${table.fields.map((f) => f.name).join('", "')}") VALUES ($1, ${table.fields.map((_, i) => `$${i + 2}`).join(', ')}) RETURNING *`,
+          [ctx.tenantId, ...table.fields.map((f) => data[f.name] ?? null)],
         )
         return row
       },
@@ -223,7 +228,7 @@ function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): Record<stri
       resolve: async (_: any, args: any) => {
         const name = internalTableName(ctx.tenantId, table.slug)
         const setClauses = table.fields
-          .filter(f => args.data[f.name] !== undefined)
+          .filter((f) => args.data[f.name] !== undefined)
           .map((f, i) => `"${f.name}" = $${i + 1}`)
         if (setClauses.length === 0) {
           const [row] = await ctx.sql.unsafe(
@@ -233,8 +238,8 @@ function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): Record<stri
           return row ?? null
         }
         const values = table.fields
-          .filter(f => args.data[f.name] !== undefined)
-          .map(f => args.data[f.name])
+          .filter((f) => args.data[f.name] !== undefined)
+          .map((f) => args.data[f.name])
         values.push(parseInt(args.id, 10), ctx.tenantId)
         const [row] = await ctx.sql.unsafe(
           `UPDATE "${name}" SET ${setClauses.join(', ')} WHERE id = $${values.length - 1} AND tenant_id = $${values.length} RETURNING *`,
@@ -264,11 +269,11 @@ export function buildGraphQLHandler(sql: Sql<{}>): Router {
   const r = new Router()
 
   r.post('/', async (req: Request, ctx: Context) => {
-    const tables = await sql`
+    const tables = (await sql`
       SELECT * FROM "_user_tables"
       WHERE tenant_id = ${ctx.tenant!.id}
       ORDER BY created_at ASC
-    ` as unknown as UserTableRow[]
+    `) as unknown as UserTableRow[]
 
     const buildCtx: BuildCtx = { sql, tenantId: ctx.tenant!.id, tables, typeCache: new Map() }
 
@@ -283,18 +288,22 @@ export function buildGraphQLHandler(sql: Sql<{}>): Router {
       }),
     })
 
-    const body = await req.json() as { query?: string; variables?: Record<string, any>; operationName?: string }
+    const body = (await req.json()) as {
+      query?: string
+      variables?: Record<string, any>
+      operationName?: string
+    }
     if (!body.query) {
       return Response.json({ errors: [{ message: 'Missing query' }] }, { status: 400 })
     }
 
-    const result = await executeGraphQL({
+    const result = (await executeGraphQL({
       schema,
       source: body.query,
       variableValues: body.variables,
       operationName: body.operationName,
       contextValue: ctx,
-    }) as any
+    })) as any
 
     return Response.json(result, { status: result.errors ? 400 : 200 })
   })
@@ -311,11 +320,11 @@ export function buildGraphQLHandler(sql: Sql<{}>): Router {
   })
 
   async function handleGET(req: Request, _ctx: Context): Promise<Response> {
-    const tables = await sql`
+    const tables = (await sql`
       SELECT * FROM "_user_tables"
       WHERE tenant_id = ${_ctx.tenant!.id}
       ORDER BY created_at ASC
-    ` as unknown as UserTableRow[]
+    `) as unknown as UserTableRow[]
 
     const buildCtx: BuildCtx = { sql, tenantId: _ctx.tenant!.id, tables, typeCache: new Map() }
 
@@ -334,13 +343,13 @@ export function buildGraphQLHandler(sql: Sql<{}>): Router {
       if (v) variables = JSON.parse(v)
     } catch {}
 
-    const result = await executeGraphQL({
+    const result = (await executeGraphQL({
       schema,
       source: query,
       variableValues: variables,
       operationName: url.searchParams.get('operationName') || undefined,
       contextValue: _ctx,
-    }) as any
+    })) as any
 
     return Response.json(result, { status: result.errors ? 400 : 200 })
   }

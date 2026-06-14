@@ -23,7 +23,10 @@ describe('flash', () => {
       return Response.json({ ok: true })
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 
@@ -58,8 +61,10 @@ describe('flash', () => {
       { params: {}, query: {} } as any,
     )
     const setCookie = res.headers.getSetCookie()
-    assert.ok(setCookie.some(c => c.startsWith('flash=;') || c.includes('Max-Age=0')),
-      `Expected flash clear cookie, got: ${setCookie.join(', ')}`)
+    assert.ok(
+      setCookie.some((c) => c.startsWith('flash=;') || c.includes('Max-Age=0')),
+      `Expected flash clear cookie, got: ${setCookie.join(', ')}`,
+    )
   })
 
   it('set creates a redirect response with flash cookie', async () => {
@@ -70,11 +75,14 @@ describe('flash', () => {
       return ctx.flash.set({ type: 'error', text: 'Failed' }, '/error')
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 302)
     assert.equal(res.headers.get('location'), '/error')
     const cookies = res.headers.getSetCookie()
-    assert.ok(cookies.some(c => c.startsWith('flash=')))
+    assert.ok(cookies.some((c) => c.startsWith('flash=')))
   })
 
   it('set uses referer when no location given', async () => {
@@ -101,9 +109,12 @@ describe('flash', () => {
       return ctx.flash.set({ msg: 'hi' }, '/')
     })
 
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     const cookies = res.headers.getSetCookie()
-    assert.ok(cookies.some(c => c.startsWith('notification=')))
+    assert.ok(cookies.some((c) => c.startsWith('notification=')))
   })
 
   it('handles plain string flash value', async () => {

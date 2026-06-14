@@ -9,7 +9,18 @@ import type { Router } from '../router.ts'
 const templateDir = './cli/template'
 
 describe('cli/template structure', () => {
-  const files = ['app.ts', 'index.ts', 'ui/app/layout.tsx', 'ui/app/page.tsx', 'ui/app/globals.css', 'ui/components/Greeting.tsx', 'locales/en.json', 'locales/zh.json', 'locales/zh-CN.json', 'locales/zh-TW.json']
+  const files = [
+    'app.ts',
+    'index.ts',
+    'ui/app/layout.tsx',
+    'ui/app/page.tsx',
+    'ui/app/globals.css',
+    'ui/components/Greeting.tsx',
+    'locales/en.json',
+    'locales/zh.json',
+    'locales/zh-CN.json',
+    'locales/zh-TW.json',
+  ]
   for (const f of files) {
     it(`has ${f}`, () => {
       assert.ok(existsSync(join(templateDir, f)), `missing ${f}`)
@@ -33,10 +44,10 @@ describe('template app', () => {
   })
 
   it('GET / returns 200 with SSR HTML', async () => {
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     const html = await res.text()
     assert.match(html, /<html/)
@@ -46,17 +57,17 @@ describe('template app', () => {
   })
 
   it('GET /__ssr/[hash].js serves hydration bundle', async () => {
-    const res1 = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
-    const m = await res1.text().then(h => h.match(/\/__ssr\/([a-f0-9]+)\.js/))
+    const res1 = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
+    const m = await res1.text().then((h) => h.match(/\/__ssr\/([a-f0-9]+)\.js/))
     assert.ok(m, 'expected __ssr/[hash].js in HTML')
 
-    const res2 = await app.handler()(
-      new Request(`http://localhost/__ssr/${m![1]}.js`),
-      { params: {}, query: {} } as any,
-    )
+    const res2 = await app.handler()(new Request(`http://localhost/__ssr/${m![1]}.js`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res2.status, 200)
     assert.match(res2.headers.get('content-type') || '', /application\/javascript/)
     const js = await res2.text()
@@ -64,10 +75,10 @@ describe('template app', () => {
   })
 
   it('GET /api/ping returns JSON', async () => {
-    const res = await app.handler()(
-      new Request('http://localhost/api/ping'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/api/ping'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     const data = await res.json()
     assert.equal(data.pong, true)
@@ -75,19 +86,19 @@ describe('template app', () => {
   })
 
   it('injects tailwind CSS link with hash', async () => {
-    const res = await app.handler()(
-      new Request('http://localhost/'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await app.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     const html = await res.text()
     const match = html.match(/href="(\/__wfw\/style\/[a-f0-9]+\.css)"/)
     assert.ok(match, 'expected CSS link with hash in HTML')
     assert.ok(match[1].length > 20, 'expected hash to be present')
 
-    const cssRes = await app.handler()(
-      new Request(`http://localhost${match[1]}`),
-      { params: {}, query: {} } as any,
-    )
+    const cssRes = await app.handler()(new Request(`http://localhost${match[1]}`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(cssRes.status, 200)
     assert.match(cssRes.headers.get('content-type') || '', /text\/css/)
     const css = await cssRes.text()
@@ -106,10 +117,21 @@ describe('weifuwu init', () => {
     execSync(`node ${cliPath} init test-app --skip-install`, { cwd: tmpDir })
     const dir = resolve(tmpDir, 'test-app')
     const expected = [
-      'package.json', 'tsconfig.json', '.gitignore', '.env', 'AGENTS.md',
-      'app.ts', 'index.ts',
-      'ui/app/layout.tsx', 'ui/app/page.tsx', 'ui/app/globals.css', 'ui/components/Greeting.tsx',
-      'locales/en.json', 'locales/zh.json', 'locales/zh-CN.json', 'locales/zh-TW.json',
+      'package.json',
+      'tsconfig.json',
+      '.gitignore',
+      '.env',
+      'AGENTS.md',
+      'app.ts',
+      'index.ts',
+      'ui/app/layout.tsx',
+      'ui/app/page.tsx',
+      'ui/app/globals.css',
+      'ui/components/Greeting.tsx',
+      'locales/en.json',
+      'locales/zh.json',
+      'locales/zh-CN.json',
+      'locales/zh-TW.json',
     ]
     for (const f of expected) {
       assert.ok(existsSync(join(dir, f)), `missing ${f}`)
@@ -161,8 +183,12 @@ describe('compile cache', () => {
 describe('ssr()', () => {
   const origEnv = process.env.NODE_ENV
 
-  before(() => { process.env.NODE_ENV = 'development' })
-  after(() => { process.env.NODE_ENV = origEnv })
+  before(() => {
+    process.env.NODE_ENV = 'development'
+  })
+  after(() => {
+    process.env.NODE_ENV = origEnv
+  })
 
   it('registers WS route at /__weifuwu/livereload in dev', async () => {
     const { Router: R } = await import('../router.ts')

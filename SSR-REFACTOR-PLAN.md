@@ -47,13 +47,13 @@
 
 ## 风险与注意事项
 
-| 风险 | 缓解 |
-|------|------|
-| 编译产物和 vendor bundle 的 store 分离（上次失败主因） | P3a 必须 externalize weifuwu 源码路径 + 用 plugin 映射到 `weifuwu/react` |
-| `compileBrowser()` 输出路径与 `__ssr/:file` 路由路径不一致 | `ssr()` 工厂内缓存 `outDir` 绝对路径，编译和服务用同一个 `outDir` |
-| `t()` 函数在客户端重建后闭包过期 | P2a 的 `addCtxRebuilder` 在每次 `setCtx()` 时重建 |
-| 浏览器缓存旧的 `__ssr/[hash].js` | hash 基于文件路径不变时，不设 immutable 缓存（dev）；或用 content hash |
-| 模板加载顺序（theme → i18n → ssr）影响 ctx 字段 | 保持当前顺序不变 |
+| 风险                                                       | 缓解                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 编译产物和 vendor bundle 的 store 分离（上次失败主因）     | P3a 必须 externalize weifuwu 源码路径 + 用 plugin 映射到 `weifuwu/react` |
+| `compileBrowser()` 输出路径与 `__ssr/:file` 路由路径不一致 | `ssr()` 工厂内缓存 `outDir` 绝对路径，编译和服务用同一个 `outDir`        |
+| `t()` 函数在客户端重建后闭包过期                           | P2a 的 `addCtxRebuilder` 在每次 `setCtx()` 时重建                        |
+| 浏览器缓存旧的 `__ssr/[hash].js`                           | hash 基于文件路径不变时，不设 immutable 缓存（dev）；或用 content hash   |
+| 模板加载顺序（theme → i18n → ssr）影响 ctx 字段            | 保持当前顺序不变                                                         |
 
 ## 测试策略
 

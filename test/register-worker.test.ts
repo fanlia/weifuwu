@@ -22,7 +22,9 @@ class MockWebSocket {
     MockWebSocket.last = this
   }
 
-  send(data: string) { this.sent.push(data) }
+  send(data: string) {
+    this.sent.push(data)
+  }
   close() {
     this.readyState = 3
     this.onclose?.({ code: 1000, reason: '', wasClean: true })
@@ -36,7 +38,9 @@ class MockWebSocket {
 
   static simulateRegistered(workerId = 'w-1') {
     MockWebSocket.simulateOpen()
-    MockWebSocket.last!.onmessage?.({ data: JSON.stringify({ type: 'registered', worker_id: workerId }) })
+    MockWebSocket.last!.onmessage?.({
+      data: JSON.stringify({ type: 'registered', worker_id: workerId }),
+    })
   }
 
   static simulateMessage(data: object) {
@@ -111,7 +115,11 @@ describe('registerWorker', () => {
     worker = registerWorker('ws://localhost:9999/iii')
     MockWebSocket.simulateRegistered()
     getWs().sent.length = 0
-    worker.registerTrigger({ type: 'http', function_id: 'test::add', config: { method: 'POST', path: '/add' } })
+    worker.registerTrigger({
+      type: 'http',
+      function_id: 'test::add',
+      config: { method: 'POST', path: '/add' },
+    })
     assert.equal(getWs().sent.length, 1)
     assert.deepEqual(JSON.parse(getWs().sent[0]), {
       type: 'register_trigger',
@@ -127,7 +135,10 @@ describe('registerWorker', () => {
     getWs().sent.length = 0
     worker.unregisterTrigger('test::add')
     assert.equal(getWs().sent.length, 1)
-    assert.deepEqual(JSON.parse(getWs().sent[0]), { type: 'unregister_trigger', function_id: 'test::add' })
+    assert.deepEqual(JSON.parse(getWs().sent[0]), {
+      type: 'unregister_trigger',
+      function_id: 'test::add',
+    })
   })
 
   it('trigger runs local function directly', async () => {
@@ -158,7 +169,11 @@ describe('registerWorker', () => {
     assert.ok(msg.invocation_id)
     assert.deepEqual(msg.payload, { x: 1 })
 
-    MockWebSocket.simulateMessage({ type: 'invoke_result', invocation_id: msg.invocation_id, result: 'done' })
+    MockWebSocket.simulateMessage({
+      type: 'invoke_result',
+      invocation_id: msg.invocation_id,
+      result: 'done',
+    })
     const result = await promise
     assert.equal(result, 'done')
   })
@@ -169,7 +184,11 @@ describe('registerWorker', () => {
     getWs().sent.length = 0
     const promise = worker.trigger({ function_id: 'remote::fail', payload: {} })
     const msg = JSON.parse(getWs().sent[0])
-    MockWebSocket.simulateMessage({ type: 'invoke_error', invocation_id: msg.invocation_id, error: 'something went wrong' })
+    MockWebSocket.simulateMessage({
+      type: 'invoke_error',
+      invocation_id: msg.invocation_id,
+      error: 'something went wrong',
+    })
     try {
       await promise
       assert.fail('should have thrown')
@@ -183,37 +202,68 @@ describe('registerWorker', () => {
     MockWebSocket.simulateRegistered()
     worker.registerFunction('test::echo', async (p: any) => p)
     getWs().sent.length = 0
-    MockWebSocket.simulateMessage({ type: 'invoke', function_id: 'test::echo', invocation_id: 'inv-1', payload: { msg: 'hi' } })
-    await new Promise(r => setTimeout(r, 0))
+    MockWebSocket.simulateMessage({
+      type: 'invoke',
+      function_id: 'test::echo',
+      invocation_id: 'inv-1',
+      payload: { msg: 'hi' },
+    })
+    await new Promise((r) => setTimeout(r, 0))
     assert.equal(getWs().sent.length, 1)
-    assert.deepEqual(JSON.parse(getWs().sent[0]), { type: 'invoke_result', invocation_id: 'inv-1', result: { msg: 'hi' } })
+    assert.deepEqual(JSON.parse(getWs().sent[0]), {
+      type: 'invoke_result',
+      invocation_id: 'inv-1',
+      result: { msg: 'hi' },
+    })
   })
 
   it('sends invoke_error when local handler throws', async () => {
     worker = registerWorker('ws://localhost:9999/iii')
     MockWebSocket.simulateRegistered()
-    worker.registerFunction('test::fail', async () => { throw new Error('boom') })
+    worker.registerFunction('test::fail', async () => {
+      throw new Error('boom')
+    })
     getWs().sent.length = 0
-    MockWebSocket.simulateMessage({ type: 'invoke', function_id: 'test::fail', invocation_id: 'inv-2', payload: {} })
-    await new Promise(r => setTimeout(r, 0))
+    MockWebSocket.simulateMessage({
+      type: 'invoke',
+      function_id: 'test::fail',
+      invocation_id: 'inv-2',
+      payload: {},
+    })
+    await new Promise((r) => setTimeout(r, 0))
     assert.equal(getWs().sent.length, 1)
-    assert.deepEqual(JSON.parse(getWs().sent[0]), { type: 'invoke_error', invocation_id: 'inv-2', error: 'boom' })
+    assert.deepEqual(JSON.parse(getWs().sent[0]), {
+      type: 'invoke_error',
+      invocation_id: 'inv-2',
+      error: 'boom',
+    })
   })
 
   it('sends invoke_error when handler not found for server invoke', () => {
     worker = registerWorker('ws://localhost:9999/iii')
     MockWebSocket.simulateRegistered()
     getWs().sent.length = 0
-    MockWebSocket.simulateMessage({ type: 'invoke', function_id: 'nope', invocation_id: 'inv-3', payload: {} })
+    MockWebSocket.simulateMessage({
+      type: 'invoke',
+      function_id: 'nope',
+      invocation_id: 'inv-3',
+      payload: {},
+    })
     assert.equal(getWs().sent.length, 1)
-    assert.deepEqual(JSON.parse(getWs().sent[0]), { type: 'invoke_error', invocation_id: 'inv-3', error: 'Function "nope" not found' })
+    assert.deepEqual(JSON.parse(getWs().sent[0]), {
+      type: 'invoke_error',
+      invocation_id: 'inv-3',
+      error: 'Function "nope" not found',
+    })
   })
 
   it('onStream registers __stream__ handler', () => {
     worker = registerWorker('ws://localhost:9999/iii')
     MockWebSocket.simulateRegistered()
     let received: any = null
-    worker.onStream((data: any) => { received = data })
+    worker.onStream((data: any) => {
+      received = data
+    })
     MockWebSocket.simulateMessage({ type: 'stream', event: 'set', data: 'hello' })
     assert.deepEqual(received, { type: 'stream', event: 'set', data: 'hello' })
   })
@@ -223,7 +273,10 @@ describe('registerWorker', () => {
     MockWebSocket.simulateOpen()
     let closeCalled = false
     const origClose = getWs().close.bind(getWs())
-    getWs().close = () => { closeCalled = true; origClose() }
+    getWs().close = () => {
+      closeCalled = true
+      origClose()
+    }
     worker.shutdown()
     assert.ok(closeCalled)
   })

@@ -1,7 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { testApp } from '../test-utils.ts'
-import type { TestResponse } from '../test-utils.ts'
+import { testApp, type TestResponse } from '../test-utils.ts'
 
 describe('testApp', () => {
   it('GET returns response', async () => {
@@ -20,10 +19,7 @@ describe('testApp', () => {
       return Response.json(body)
     })
 
-    const res = await app
-      .postReq('/echo')
-      .body({ hello: 'world' })
-      .send()
+    const res = await app.postReq('/echo').body({ hello: 'world' }).send()
 
     assert.equal(res.status, 200)
     assert.deepEqual(await res.json(), { hello: 'world' })
@@ -35,10 +31,7 @@ describe('testApp', () => {
       return Response.json({ id: (ctx.user as any)?.id })
     })
 
-    const res = await app
-      .getReq('/me')
-      .withUser({ id: 42, email: 'a@b.com' })
-      .send()
+    const res = await app.getReq('/me').withUser({ id: 42, email: 'a@b.com' }).send()
 
     assert.equal(res.status, 200)
     assert.deepEqual(await res.json(), { id: 42 })
@@ -83,11 +76,41 @@ describe('testApp', () => {
     app.patch('/m', () => new Response('patch'))
     app.delete('/m', () => new Response('delete'))
 
-    assert.equal(await app.getReq('/m').send().then(r => r.text()), 'get')
-    assert.equal(await app.postReq('/m').send().then(r => r.text()), 'post')
-    assert.equal(await app.putReq('/m').send().then(r => r.text()), 'put')
-    assert.equal(await app.patchReq('/m').send().then(r => r.text()), 'patch')
-    assert.equal(await app.deleteReq('/m').send().then(r => r.text()), 'delete')
+    assert.equal(
+      await app
+        .getReq('/m')
+        .send()
+        .then((r) => r.text()),
+      'get',
+    )
+    assert.equal(
+      await app
+        .postReq('/m')
+        .send()
+        .then((r) => r.text()),
+      'post',
+    )
+    assert.equal(
+      await app
+        .putReq('/m')
+        .send()
+        .then((r) => r.text()),
+      'put',
+    )
+    assert.equal(
+      await app
+        .patchReq('/m')
+        .send()
+        .then((r) => r.text()),
+      'patch',
+    )
+    assert.equal(
+      await app
+        .deleteReq('/m')
+        .send()
+        .then((r) => r.text()),
+      'delete',
+    )
   })
 
   it('custom header', async () => {
@@ -96,10 +119,7 @@ describe('testApp', () => {
       return new Response(req.headers.get('x-custom') ?? 'none')
     })
 
-    const res = await app
-      .getReq('/headers')
-      .header('X-Custom', 'my-value')
-      .send()
+    const res = await app.getReq('/headers').header('X-Custom', 'my-value').send()
 
     assert.equal(await res.text(), 'my-value')
   })

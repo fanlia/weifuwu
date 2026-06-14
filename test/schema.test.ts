@@ -2,7 +2,27 @@ import { describe, it, before, after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { postgres } from '../postgres/index.ts'
 import type { PostgresClient } from '../postgres/types.ts'
-import { pgTable, BoundTable, serial, uuid, text, integer, textArray, boolean as bool, timestamptz, jsonb, vector, sql, timestamps, eq, lt, gte, isNull, toDDL, partitionBy } from '../postgres/schema/index.ts'
+import {
+  pgTable,
+  BoundTable,
+  serial,
+  uuid,
+  text,
+  integer,
+  textArray,
+  boolean as bool,
+  timestamptz,
+  jsonb,
+  vector,
+  sql,
+  timestamps,
+  eq,
+  lt,
+  gte,
+  isNull,
+  toDDL,
+  partitionBy,
+} from '../postgres/schema/index.ts'
 import { randomUUID } from 'node:crypto'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
@@ -50,7 +70,9 @@ describe('schema', { skip: !DATABASE_URL }, () => {
 
   it('creates a table with UUID primary key', async () => {
     const t = pgTable(tn('uuid'), {
-      id: uuid('id').default(sql`gen_random_uuid()`).primaryKey(),
+      id: uuid('id')
+        .default(sql`gen_random_uuid()`)
+        .primaryKey(),
       name: text('name').notNull(),
     })
 
@@ -129,7 +151,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     try {
       await pg.sql`CREATE EXTENSION IF NOT EXISTS "vector"`
     } catch {
-      return  // skip if vector extension not available
+      return // skip if vector extension not available
     }
 
     const t = pgTable(tn('hnsw'), {
@@ -269,7 +291,7 @@ describe('schema', { skip: !DATABASE_URL }, () => {
 
     const { data: admins } = await t.readMany(pg.sql, { role: 'admin' })
     assert.equal(admins.length, 2)
-    admins.forEach(r => assert.equal(r.role, 'admin'))
+    admins.forEach((r) => assert.equal(r.role, 'admin'))
 
     await t.drop(pg.sql, { cascade: true })
   })
@@ -399,7 +421,10 @@ describe('schema', { skip: !DATABASE_URL }, () => {
 
     for (const n of ['a', 'b', 'c']) await t.insert(pg.sql, { name: n })
 
-    const { data: rows } = await t.readMany(pg.sql, undefined, { offset: 1, orderBy: { id: 'asc' } })
+    const { data: rows } = await t.readMany(pg.sql, undefined, {
+      offset: 1,
+      orderBy: { id: 'asc' },
+    })
     assert.equal(rows.length, 2)
 
     await t.drop(pg.sql, { cascade: true })
@@ -433,13 +458,9 @@ describe('schema', { skip: !DATABASE_URL }, () => {
     })
     await t.create(pg.sql)
 
-    const rows = await t.insertMany(pg.sql, [
-      { name: 'A' },
-      { name: 'B' },
-      { name: 'C' },
-    ])
+    const rows = await t.insertMany(pg.sql, [{ name: 'A' }, { name: 'B' }, { name: 'C' }])
     assert.equal(rows.length, 3)
-    assert.ok(rows.every(r => typeof r.id === 'number'))
+    assert.ok(rows.every((r) => typeof r.id === 'number'))
 
     await t.drop(pg.sql, { cascade: true })
   })

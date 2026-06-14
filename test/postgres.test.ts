@@ -40,7 +40,8 @@ describe('postgres', { skip: !DATABASE_URL }, () => {
   })
 
   it('inserts and selects rows', async () => {
-    const [row] = await pg.sql`INSERT INTO __test_items (name, email) VALUES (${'Alice'}, ${'alice@test.com'}) RETURNING *`
+    const [row] =
+      await pg.sql`INSERT INTO __test_items (name, email) VALUES (${'Alice'}, ${'alice@test.com'}) RETURNING *`
     assert.ok(row)
     assert.equal(row.name, 'Alice')
     assert.equal(row.email, 'alice@test.com')
@@ -53,7 +54,8 @@ describe('postgres', { skip: !DATABASE_URL }, () => {
 
   it('transaction commits successfully', async () => {
     const result = await pg.transaction(async (tx: any) => {
-      const [row] = await tx`INSERT INTO __test_items (name, email) VALUES (${'tx'}, ${'tx@test.com'}) RETURNING *`
+      const [row] =
+        await tx`INSERT INTO __test_items (name, email) VALUES (${'tx'}, ${'tx@test.com'}) RETURNING *`
       const [found] = await tx`SELECT * FROM __test_items WHERE id = ${row.id}`
       return found.name as string
     })

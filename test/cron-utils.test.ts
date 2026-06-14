@@ -122,7 +122,7 @@ describe('cron-utils', () => {
 
   describe('cronNext', () => {
     it('returns next minute for * * * * *', () => {
-      const from = new Date(2026, 5, 13, 10, 0)  // June 13, 10:00 local
+      const from = new Date(2026, 5, 13, 10, 0) // June 13, 10:00 local
       const next = cronNext('* * * * *', from)
       // Should be 10:01
       const d = new Date(next)
@@ -131,7 +131,7 @@ describe('cron-utils', () => {
     })
 
     it('returns next 15-min boundary', () => {
-      const from = new Date(2026, 5, 13, 10, 7)  // 10:07 local
+      const from = new Date(2026, 5, 13, 10, 7) // 10:07 local
       const next = cronNext('*/15 * * * *', from)
       // Should be 10:15
       const d = new Date(next)
@@ -140,7 +140,7 @@ describe('cron-utils', () => {
     })
 
     it('returns next hour for specific minute', () => {
-      const from = new Date(2026, 5, 13, 10, 30)  // 10:30 local
+      const from = new Date(2026, 5, 13, 10, 30) // 10:30 local
       const next = cronNext('0 * * * *', from)
       // Should be 11:00
       const d = new Date(next)
@@ -149,7 +149,7 @@ describe('cron-utils', () => {
     })
 
     it('returns next day for specific time', () => {
-      const from = new Date(2026, 5, 13, 23, 30)  // June 13, 23:30 local
+      const from = new Date(2026, 5, 13, 23, 30) // June 13, 23:30 local
       const next = cronNext('0 0 * * *', from)
       const d = new Date(next)
       assert.equal(d.getHours(), 0)
@@ -160,7 +160,7 @@ describe('cron-utils', () => {
     })
 
     it('throws when no future date found (unreachable pattern)', () => {
-      const from = new Date(2026, 5, 13, 10, 0)  // June 13, 10:00 local
+      const from = new Date(2026, 5, 13, 10, 0) // June 13, 10:00 local
       assert.throws(() => cronNext('59 23 31 2 0', from), /No future date found/)
     })
   })

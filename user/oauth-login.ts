@@ -108,7 +108,14 @@ export function registerOAuthLoginRoutes(
     return row ?? null
   }
 
-  async function linkProvider(userId: number, provider: string, providerId: string, email: string, name: string, avatarUrl: string): Promise<void> {
+  async function linkProvider(
+    userId: number,
+    provider: string,
+    providerId: string,
+    email: string,
+    name: string,
+    avatarUrl: string,
+  ): Promise<void> {
     await sql.unsafe(
       `INSERT INTO ${escapeIdent(providerTable)} (user_id, provider, provider_id, email, name, avatar_url)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -117,7 +124,13 @@ export function registerOAuthLoginRoutes(
     )
   }
 
-  async function findOrCreateUser(provider: string, providerId: string, email: string, name: string, avatarUrl: string): Promise<any> {
+  async function findOrCreateUser(
+    provider: string,
+    providerId: string,
+    email: string,
+    name: string,
+    avatarUrl: string,
+  ): Promise<any> {
     // Step 1: Check if provider link exists
     const link = await findUserByProvider(provider, providerId)
     if (link) {
@@ -143,7 +156,9 @@ export function registerOAuthLoginRoutes(
     return newUser
   }
 
-  function getProviderMeta(providerName: string): { config: OAuthProviderConfig; meta: ProviderMeta } | null {
+  function getProviderMeta(
+    providerName: string,
+  ): { config: OAuthProviderConfig; meta: ProviderMeta } | null {
     const config = providers[providerName]
     if (!config) return null
 
@@ -177,7 +192,8 @@ export function registerOAuthLoginRoutes(
 
     const state = crypto.randomUUID()
     const redirectUri = new URL(req.url)
-    redirectUri.pathname = redirectUri.pathname.replace(/\/[^/]+$/, '/') + providerName + '/callback'
+    redirectUri.pathname =
+      redirectUri.pathname.replace(/\/[^/]+$/, '/') + providerName + '/callback'
 
     // Store state in session for CSRF protection
     if (ctx.session) {
@@ -229,7 +245,7 @@ export function registerOAuthLoginRoutes(
     try {
       tokenRes = await fetch(meta.tokenUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           code,
           client_id: config.clientId,
@@ -239,7 +255,10 @@ export function registerOAuthLoginRoutes(
         }),
       })
     } catch (err) {
-      console.error(`[oauth] token exchange network error for ${providerName}:`, (err as Error).message)
+      console.error(
+        `[oauth] token exchange network error for ${providerName}:`,
+        (err as Error).message,
+      )
       return Response.json({ error: 'Failed to connect to OAuth provider' }, { status: 502 })
     }
 
@@ -249,7 +268,7 @@ export function registerOAuthLoginRoutes(
       return Response.json({ error: 'Failed to exchange authorization code' }, { status: 502 })
     }
 
-    const tokenData = await tokenRes.json() as any
+    const tokenData = (await tokenRes.json()) as any
     const accessToken = tokenData.access_token
     if (!accessToken) {
       return Response.json({ error: 'No access_token in response' }, { status: 502 })
@@ -260,7 +279,10 @@ export function registerOAuthLoginRoutes(
     try {
       userRes = await fetch(meta.userUrl, { headers: { Authorization: 'Bearer ' + accessToken } })
     } catch (err) {
-      console.error('[oauth] user info network error for ' + providerName + ':', (err as Error).message)
+      console.error(
+        '[oauth] user info network error for ' + providerName + ':',
+        (err as Error).message,
+      )
       return Response.json({ error: 'Failed to connect to OAuth provider' }, { status: 502 })
     }
 
@@ -268,7 +290,7 @@ export function registerOAuthLoginRoutes(
       return Response.json({ error: 'Failed to fetch user profile' }, { status: 502 })
     }
 
-    const userData = await userRes.json() as any
+    const userData = (await userRes.json()) as any
     const providerUser = meta.parseUser(userData, accessToken)
 
     // Find or create user

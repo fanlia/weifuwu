@@ -11,18 +11,22 @@ describe('skills', () => {
 
   before(async () => {
     await mkdir(skillDir, { recursive: true })
-    await writeFile(resolve(skillDir, 'SKILL.md'), [
-      '---',
-      'name: test-skill',
-      'description: A test skill for unit tests',
-      'license: MIT',
-      'compatibility: opencode',
-      '---',
-      '',
-      '## What I do',
-      '',
-      'This is the skill content.',
-    ].join('\n'), 'utf-8')
+    await writeFile(
+      resolve(skillDir, 'SKILL.md'),
+      [
+        '---',
+        'name: test-skill',
+        'description: A test skill for unit tests',
+        'license: MIT',
+        'compatibility: opencode',
+        '---',
+        '',
+        '## What I do',
+        '',
+        'This is the skill content.',
+      ].join('\n'),
+      'utf-8',
+    )
   })
 
   after(async () => {
@@ -46,16 +50,14 @@ describe('skills', () => {
     const { discoverSkills } = await import('../opencode/skills.ts')
     const skills = await discoverSkills(tmpDir)
     assert.ok(skills.length >= 1)
-    const found = skills.find(s => s.name === 'test-skill')
+    const found = skills.find((s) => s.name === 'test-skill')
     assert.ok(found)
   })
 
   it('buildSkillRegistry merges discovered and manual', async () => {
     const { discoverSkills, buildSkillRegistry } = await import('../opencode/skills.ts')
     const discovered = await discoverSkills(tmpDir)
-    const manual = [
-      { name: 'manual-skill', description: 'Manual', content: 'Manual content' },
-    ]
+    const manual = [{ name: 'manual-skill', description: 'Manual', content: 'Manual content' }]
 
     const registry = buildSkillRegistry(discovered, manual)
 
@@ -68,9 +70,7 @@ describe('skills', () => {
   it('manual skills override discovered with same name', async () => {
     const { discoverSkills, buildSkillRegistry } = await import('../opencode/skills.ts')
     const discovered = await discoverSkills(tmpDir)
-    const manual = [
-      { name: 'test-skill', description: 'Override', content: 'Override content' },
-    ]
+    const manual = [{ name: 'test-skill', description: 'Override', content: 'Override content' }]
 
     const registry = buildSkillRegistry(discovered, manual)
     const skill = registry.get('test-skill')
@@ -94,13 +94,11 @@ describe('skills', () => {
     const invalidDir = resolve(tmpDir, 'no-name-skill')
     await mkdir(invalidDir, { recursive: true })
     const filePath = resolve(invalidDir, 'SKILL.md')
-    await writeFile(filePath, [
-      '---',
-      'description: No name here',
-      '---',
-      '',
-      'Some content',
-    ].join('\n'), 'utf-8')
+    await writeFile(
+      filePath,
+      ['---', 'description: No name here', '---', '', 'Some content'].join('\n'),
+      'utf-8',
+    )
     const result = await parseSkillFile(filePath)
     assert.equal(result, null)
   })

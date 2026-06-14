@@ -46,11 +46,15 @@ export interface Message {
 export interface MessagerModule extends Router, Closeable {
   migrate: () => Promise<void>
   wsHandler: () => any
-  send: (channelId: number, content: string, opts?: {
-    sender_type?: string
-    sender_id?: number
-    type?: string
-  }) => Promise<Message>
+  send: (
+    channelId: number,
+    content: string,
+    opts?: {
+      sender_type?: string
+      sender_id?: number
+      type?: string
+    },
+  ) => Promise<Message>
   close: () => Promise<void>
 }
 

@@ -10,7 +10,10 @@ describe('rateLimit', () => {
       .get('/data', () => new Response('ok'))
 
     for (let i = 0; i < 5; i++) {
-      const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
+      const res = await r.handler()(new Request('http://localhost/data'), {
+        params: {},
+        query: {},
+      } as any)
       assert.equal(res.status, 200)
     }
   })
@@ -21,11 +24,17 @@ describe('rateLimit', () => {
       .get('/data', () => new Response('ok'))
 
     for (let i = 0; i < 3; i++) {
-      const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
+      const res = await r.handler()(new Request('http://localhost/data'), {
+        params: {},
+        query: {},
+      } as any)
       assert.equal(res.status, 200)
     }
 
-    const res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/data'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 429)
   })
 
@@ -34,7 +43,10 @@ describe('rateLimit', () => {
       .use(rateLimit({ max: 2, window: 60_000 }))
       .get('/data', () => new Response('ok'))
 
-    let res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
+    let res = await r.handler()(new Request('http://localhost/data'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.headers.get('X-RateLimit-Remaining'), '1')
 
     res = await r.handler()(new Request('http://localhost/data'), { params: {}, query: {} } as any)
@@ -51,15 +63,17 @@ describe('rateLimit', () => {
   it('uses custom key function', async () => {
     const keys: string[] = []
     const r = new Router()
-      .use(rateLimit({
-        max: 1,
-        window: 60_000,
-        key: (req) => {
-          const key = req.headers.get('x-api-key') ?? 'anonymous'
-          keys.push(key)
-          return key
-        },
-      }))
+      .use(
+        rateLimit({
+          max: 1,
+          window: 60_000,
+          key: (req) => {
+            const key = req.headers.get('x-api-key') ?? 'anonymous'
+            keys.push(key)
+            return key
+          },
+        }),
+      )
       .get('/data', () => new Response('ok'))
 
     const req1 = new Request('http://localhost/data', { headers: { 'x-api-key': 'alice' } })
@@ -94,9 +108,7 @@ describe('rateLimit', () => {
 
   it('.stop() clears interval and hits map', async () => {
     const rl = rateLimit({ max: 1, window: 60_000 })
-    const r = new Router()
-      .use(rl)
-      .get('/data', () => new Response('ok'))
+    const r = new Router().use(rl).get('/data', () => new Response('ok'))
 
     const req = new Request('http://localhost/data')
     const res1 = await r.handler()(req, { params: {}, query: {} } as any)
@@ -114,7 +126,9 @@ describe('rateLimit', () => {
       .use(rateLimit({ max: 1, window: 60_000 }))
       .get('/data', () => new Response('ok'))
 
-    const reqAlice = new Request('http://localhost/data', { headers: { 'x-forwarded-for': '1.2.3.4' } })
+    const reqAlice = new Request('http://localhost/data', {
+      headers: { 'x-forwarded-for': '1.2.3.4' },
+    })
     const res1 = await r.handler()(reqAlice, { params: {}, query: {} } as any)
     assert.equal(res1.status, 200)
 
@@ -123,7 +137,9 @@ describe('rateLimit', () => {
     assert.equal(res2.status, 429)
 
     // Different IP → allowed
-    const reqBob = new Request('http://localhost/data', { headers: { 'x-forwarded-for': '5.6.7.8' } })
+    const reqBob = new Request('http://localhost/data', {
+      headers: { 'x-forwarded-for': '5.6.7.8' },
+    })
     const res3 = await r.handler()(reqBob, { params: {}, query: {} } as any)
     assert.equal(res3.status, 200)
   })

@@ -4,15 +4,13 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { dirname, join, resolve, relative } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { compile, compileBrowser, OUT_DIR } from './compile.ts'
+import { compile, compileBrowser, OUT_DIR, compileVendorBundle } from './compile.ts'
 import { streamResponse } from './stream.ts'
-import type { PageContext } from './tsx-context.ts'
-import { TsxContext, setCtx, __registerAls } from './tsx-context.ts'
+import { TsxContext, setCtx, __registerAls, type PageContext } from './tsx-context.ts'
 import { Router } from './router.ts'
 import { ssrEntries } from './ssr-entries.ts'
 import { isDev as _isDev } from './env.ts'
 import { tailwindContext, tailwindRouter } from './tailwind.ts'
-import { compileVendorBundle } from './compile.ts'
 import { liveRouter, liveWatcher, liveWs } from './live.ts'
 import { layout } from './layout.ts'
 import { errorBoundary } from './error-boundary.ts'
@@ -24,15 +22,13 @@ const isDev = _isDev()
 const als = new AsyncLocalStorage<PageContext>()
 __registerAls(() => als.getStore())
 
-
-
 function hashId(s: string): string {
   return createHash('md5').update(s).digest('hex').slice(0, 8)
 }
 
 function serializeLoaderData(ctx: Record<string, unknown>): Record<string, unknown> {
   const ld = ctx.loaderData
-  return ld && typeof ld === 'object' ? ld as Record<string, unknown> : {}
+  return ld && typeof ld === 'object' ? (ld as Record<string, unknown>) : {}
 }
 
 // ── Error page (browser-visible, dev-friendly) ──────────────────────────
@@ -93,8 +89,13 @@ async function resolveRoute(
     const literal = join(dir, seg)
     try {
       const s = await stat(literal)
-      if (s.isDirectory()) { dir = literal; continue }
-    } catch { /* not found */ }
+      if (s.isDirectory()) {
+        dir = literal
+        continue
+      }
+    } catch {
+      /* not found */
+    }
 
     let entries: { name: string; isDirectory: () => boolean }[]
     try {
@@ -104,13 +105,20 @@ async function resolveRoute(
       return null
     }
 
-    const paramDir = entries.find(e =>
-      e.isDirectory() && e.name.startsWith('[') && e.name.endsWith(']') && !e.name.startsWith('[...'),
+    const paramDir = entries.find(
+      (e) =>
+        e.isDirectory() &&
+        e.name.startsWith('[') &&
+        e.name.endsWith(']') &&
+        !e.name.startsWith('[...'),
     )
-    if (paramDir) { dir = join(dir, paramDir.name); continue }
+    if (paramDir) {
+      dir = join(dir, paramDir.name)
+      continue
+    }
 
-    const catchAllDir = entries.find(e =>
-      e.isDirectory() && e.name.startsWith('[...') && e.name.endsWith(']'),
+    const catchAllDir = entries.find(
+      (e) => e.isDirectory() && e.name.startsWith('[...') && e.name.endsWith(']'),
     )
     if (catchAllDir) {
       catchAll = segments.slice(segIdx).join('/')
@@ -123,7 +131,10 @@ async function resolveRoute(
   }
 
   const pageFile = join(dir, 'page.tsx')
-  if (!existsSync(pageFile)) { routeCache.set(cacheKey, null); return null }
+  if (!existsSync(pageFile)) {
+    routeCache.set(cacheKey, null)
+    return null
+  }
 
   const consumed = catchAll !== null ? segIdx : segments.length
   const routeParams: string[] = []
@@ -151,12 +162,21 @@ async function resolveRoute(
   d = dir
   while (d.startsWith(appDir)) {
     const nf = join(d, 'not-found.tsx')
-    if (existsSync(nf)) { notFoundFile = nf; break }
+    if (existsSync(nf)) {
+      notFoundFile = nf
+      break
+    }
     if (d === appDir) break
     d = dirname(d)
   }
 
-  const result: ResolvedRoute = { routePath: '/' + routeParams.join('/'), pageFile, layoutFiles, errorFiles, notFoundFile }
+  const result: ResolvedRoute = {
+    routePath: '/' + routeParams.join('/'),
+    pageFile,
+    layoutFiles,
+    errorFiles,
+    notFoundFile,
+  }
   routeCache.set(cacheKey, result)
   return result
 }
@@ -185,7 +205,9 @@ async function init() {
   const { default: Page } = await import('${ssrPrefix}/${entryId}.js');
   const app = createElement(TsxContext.Provider, { value: _ctx },
     createElement(Page));
-  ${isDev ? `
+  ${
+    isDev
+      ? `
   // Stable proxy — same function ref = React preserves fiber + useState state across HMR
   const _pageImpl = { current: Page };
   const _pageProxy = new Proxy(function __wfw_page(){}, {
@@ -209,9 +231,11 @@ async function init() {
     reactRoot.render(createElement(TsxContext.Provider, { value: store },
       createElement(_pageProxy, { __t: _tick })));
   };
-  ` : `
+  `
+      : `
   hydrateRoot(_root, app);
-  `}
+  `
+  }
 }
 
 init();
@@ -240,7 +264,7 @@ function renderPage(pageFile: string, outDir: string): Handler {
     const Component = pageMod.default
     if (!Component) return errorPage('Missing default export', pageFile)
 
-    const layouts = (ctx.layoutStack || [])
+    const layouts = ctx.layoutStack || []
     const layoutComponents = layouts.map((l: any) => l.component)
     const layoutPaths = layouts.map((l: any) => l.path)
 
@@ -265,30 +289,41 @@ function renderPage(pageFile: string, outDir: string): Handler {
       // Compile page component for browser (served at /__ssr/[hash].js)
       await compileBrowser(absPath, outDir)
 
-      let element: any = createElement('div', { id: '__weifuwu_root' },
-        createElement(TsxContext.Provider, { value: ctxValue },
-          createElement(Component, null),
-        ),
+      let element: any = createElement(
+        'div',
+        { id: '__weifuwu_root' },
+        createElement(TsxContext.Provider, { value: ctxValue }, createElement(Component, null)),
       )
 
       element = buildHtmlShell('weifuwu', element, layoutComponents)
 
       const { renderToReadableStream } = await import('react-dom/server')
       const stream = await renderToReadableStream(element)
-      return streamResponse(stream, {
-        ctx: ctx as Context,
-        base,
-        isDev,
-        loaderData,
-        tailwind: (ctx as Record<string, unknown>).tailwind as { css: string; url: string } | undefined,
-      }, buildHydrationScript(entryId, JSON.stringify(ctxValue), base))
+      return streamResponse(
+        stream,
+        {
+          ctx: ctx as Context,
+          base,
+          isDev,
+          loaderData,
+          tailwind: (ctx as Record<string, unknown>).tailwind as
+            | { css: string; url: string }
+            | undefined,
+        },
+        buildHydrationScript(entryId, JSON.stringify(ctxValue), base),
+      )
     })
   }
 }
 
 // ── Middleware chain runner ─────────────────────────────────────────────
 
-function runChain(mws: Middleware[], handler: Handler, req: Request, ctx: Context): Promise<Response> {
+function runChain(
+  mws: Middleware[],
+  handler: Handler,
+  req: Request,
+  ctx: Context,
+): Promise<Response> {
   let idx = 0
   const dispatch: Handler = (r, c) => {
     if (idx < mws.length) return mws[idx++](r, c, dispatch as Handler<Context>)
@@ -312,8 +347,11 @@ function discoverRoutes(dir: string): RouteEntry[] {
 
   function walk(currentDir: string, routePath: string) {
     let entries
-    try { entries = readdirSync(currentDir, { withFileTypes: true }) }
-    catch { return }
+    try {
+      entries = readdirSync(currentDir, { withFileTypes: true })
+    } catch {
+      return
+    }
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
@@ -339,7 +377,9 @@ function discoverRoutes(dir: string): RouteEntry[] {
 
 // ── Public API ──────────────────────────────────────────────────────────
 
-export function ssr(opts: { dir: string }): Router & { close?: () => void; pages?: () => RouteEntry[] } {
+export function ssr(opts: {
+  dir: string
+}): Router & { close?: () => void; pages?: () => RouteEntry[] } {
   const r = new Router()
   const dir = resolve(opts.dir)
   const outDir = resolve(OUT_DIR)
@@ -389,21 +429,26 @@ export function ssr(opts: { dir: string }): Router & { close?: () => void; pages
     const resolved = await resolveRoute(dir, segments, routeCache)
     if (!resolved) {
       if (isDev) {
-        const pages = discoverRoutes(dir).map(p => p.path).sort()
-        return Response.json({
-          error: 'Not Found',
-          path: '/' + segments.join('/'),
-          method: req.method,
-          hint: 'Available SSR pages',
-          pages,
-        }, { status: 404 })
+        const pages = discoverRoutes(dir)
+          .map((p) => p.path)
+          .sort()
+        return Response.json(
+          {
+            error: 'Not Found',
+            path: '/' + segments.join('/'),
+            method: req.method,
+            hint: 'Available SSR pages',
+            pages,
+          },
+          { status: 404 },
+        )
       }
       return new Response('Not Found', { status: 404 })
     }
 
     const mws: Middleware[] = [
-      ...resolved.errorFiles.map(f => errorBoundary(f)),
-      ...resolved.layoutFiles.map(f => layout(f)),
+      ...resolved.errorFiles.map((f) => errorBoundary(f)),
+      ...resolved.layoutFiles.map((f) => layout(f)),
       tailwindContext(dir),
     ]
 

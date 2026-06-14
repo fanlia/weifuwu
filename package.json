@@ -26,10 +26,14 @@
     "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external --define:__WFW_BUNDLED__=true && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external && esbuild react.ts --bundle --format=esm --outfile=dist/react.js --external:react --external:react-dom",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint --ext .ts,.tsx .",
     "test": "node --test 'test/**/*.test.ts'",
     "test:coverage": "node --experimental-test-coverage --test 'test/**/*.test.ts'",
     "test:unit": "bash scripts/test-unit.sh",
-    "test:ci": "node --test 'test/**/*.test.ts'"
+    "test:ci": "node --test 'test/**/*.test.ts'",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
@@ -51,15 +55,31 @@
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
+  },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^25.9.3",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
+    "eslint": "^10.5.0",
+    "globals": "^17.6.0",
     "happy-dom": "^20.10.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
     "postcss": "^8.5.3",
-    "tailwindcss": "^4.0.0"
+    "prettier": "^3.8.4",
+    "tailwindcss": "^4.0.0",
+    "typescript-eslint": "^8.61.0"
   }
 }

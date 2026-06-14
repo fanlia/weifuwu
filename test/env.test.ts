@@ -55,7 +55,7 @@ describe('isProd', () => {
     const prev = process.env.NODE_ENV
     delete process.env.NODE_ENV
     assert.equal(isDev(), false)
-    assert.equal(isProd(), false)  // both false = default mode
+    assert.equal(isProd(), false) // both false = default mode
     process.env.NODE_ENV = prev
   })
 })
@@ -210,7 +210,10 @@ describe('env() middleware', () => {
       assert.deepEqual(ctx.env?.MODE, 'test')
       return Response.json({ ok: true })
     })
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
 
     if (prev !== undefined) process.env.WEIFUWU_PUBLIC_MODE = prev
@@ -227,7 +230,10 @@ describe('env() middleware', () => {
       assert.equal(e1, e2)
       return Response.json({ ok: true })
     })
-    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    const res = await r.handler()(new Request('http://localhost/'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
   })
 })

@@ -110,9 +110,12 @@ export async function search<T extends Record<string, unknown>>(
   const tableId = escapeIdent(tableName)
 
   const headlineExpr = options?.headline
-    ? searchFields.map((f) =>
-        `ts_headline(${langLit}, ${escapeIdent(f)}, websearch_to_tsquery(${langLit}, ${queryLit}), 'MaxWords=30,MinWords=15') as ${escapeIdent(f + '_headline')}`
-      ).join(',\n      ')
+    ? searchFields
+        .map(
+          (f) =>
+            `ts_headline(${langLit}, ${escapeIdent(f)}, websearch_to_tsquery(${langLit}, ${queryLit}), 'MaxWords=30,MinWords=15') as ${escapeIdent(f + '_headline')}`,
+        )
+        .join(',\n      ')
     : ''
 
   const sql_query = `
@@ -139,9 +142,7 @@ export async function search<T extends Record<string, unknown>>(
     }
 
     if (options?.headline && searchFields) {
-      const snippets = searchFields
-        .map((f) => row[`${f}_headline`])
-        .filter(Boolean)
+      const snippets = searchFields.map((f) => row[`${f}_headline`]).filter(Boolean)
       result.headline = snippets.join(' ... ')
     }
 
@@ -175,7 +176,5 @@ export async function suggest(
     LIMIT ${limit}
   `)
 
-  return rows
-    .map((r: any) => r.tokens?.[0] ?? '')
-    .filter(Boolean)
+  return rows.map((r: any) => r.tokens?.[0] ?? '').filter(Boolean)
 }

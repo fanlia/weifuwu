@@ -13,8 +13,19 @@ describe('oauthLogin', { skip: !DATABASE_URL }, () => {
 
   // Mock OAuth provider server
   const mockUsers: Record<string, any> = {
-    'google-123': { id: '123', email: 'alice@gmail.com', name: 'Alice', picture: 'https://example.com/avatar.png' },
-    'github-456': { id: 456, login: 'bob', email: 'bob@github.com', name: 'Bob', avatar_url: 'https://example.com/bob.png' },
+    'google-123': {
+      id: '123',
+      email: 'alice@gmail.com',
+      name: 'Alice',
+      picture: 'https://example.com/avatar.png',
+    },
+    'github-456': {
+      id: 456,
+      login: 'bob',
+      email: 'bob@github.com',
+      name: 'Bob',
+      avatar_url: 'https://example.com/bob.png',
+    },
   }
   const codeMap = new Map<string, string>()
 
@@ -22,7 +33,7 @@ describe('oauthLogin', { skip: !DATABASE_URL }, () => {
     const purl = new URL(req.url)
     if (purl.pathname === '/oauth/token') {
       return (async () => {
-        const body = await req.json() as any
+        const body = (await req.json()) as any
         const userKey = body.code ? codeMap.get(body.code) : undefined
         if (!userKey) return Response.json({ error: 'invalid_code' }, { status: 400 })
         // token format: token_{provider}_{userId}
@@ -47,28 +58,51 @@ describe('oauthLogin', { skip: !DATABASE_URL }, () => {
   }
 
   // Build providers lazily (mockUrl is set in before())
-  function googleProviders() { return {
-    google: {
-      clientId: 'mock-client-id', clientSecret: 'mock-client-secret',
-      authUrl: mockUrl + '/oauth/authorize', tokenUrl: mockUrl + '/oauth/token', userUrl: mockUrl + '/oauth/userinfo',
-      parseUser: (data: any) => ({ id: data.id, email: data.email, name: data.name, avatarUrl: data.picture }),
-    },
-  } }
+  function googleProviders() {
+    return {
+      google: {
+        clientId: 'mock-client-id',
+        clientSecret: 'mock-client-secret',
+        authUrl: mockUrl + '/oauth/authorize',
+        tokenUrl: mockUrl + '/oauth/token',
+        userUrl: mockUrl + '/oauth/userinfo',
+        parseUser: (data: any) => ({
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          avatarUrl: data.picture,
+        }),
+      },
+    }
+  }
 
-  function githubProviders() { return {
-    github: {
-      clientId: 'mock-github-id', clientSecret: 'mock-github-secret',
-      authUrl: mockUrl + '/oauth/authorize', tokenUrl: mockUrl + '/oauth/token', userUrl: mockUrl + '/oauth/userinfo',
-      parseUser: (data: any) => ({ id: String(data.id), email: data.email ?? '', name: data.name ?? data.login, avatarUrl: data.avatar_url }),
-    },
-  } }
+  function githubProviders() {
+    return {
+      github: {
+        clientId: 'mock-github-id',
+        clientSecret: 'mock-github-secret',
+        authUrl: mockUrl + '/oauth/authorize',
+        tokenUrl: mockUrl + '/oauth/token',
+        userUrl: mockUrl + '/oauth/userinfo',
+        parseUser: (data: any) => ({
+          id: String(data.id),
+          email: data.email ?? '',
+          name: data.name ?? data.login,
+          avatarUrl: data.avatar_url,
+        }),
+      },
+    }
+  }
 
   // Helper: create a callable handler with session
   function makeHandler(providers: Record<string, any>) {
-    const u = user({ pg: pg as any, jwtSecret: 'test-jwt-secret', oauthLogin: { redirectUrl: '/dashboard', providers } })
+    const u = user({
+      pg: pg as any,
+      jwtSecret: 'test-jwt-secret',
+      oauthLogin: { redirectUrl: '/dashboard', providers },
+    })
     const h = u.handler()
-    return (req: Request, session: any) =>
-      h(req, { params: {}, query: {}, session } as any)
+    return (req: Request, session: any) => h(req, { params: {}, query: {}, session } as any)
   }
 
   before(async () => {
@@ -117,7 +151,10 @@ describe('oauthLogin', { skip: !DATABASE_URL }, () => {
 
   it('rejects invalid state (CSRF protection)', async () => {
     const call = makeHandler(googleProviders())
-    const res = await call(new Request('http://localhost/auth/google/callback?code=xxx&state=bad-state'), {})
+    const res = await call(
+      new Request('http://localhost/auth/google/callback?code=xxx&state=bad-state'),
+      {},
+    )
     assert.equal(res.status, 403)
   })
 
@@ -135,11 +172,15 @@ describe('oauthLogin', { skip: !DATABASE_URL }, () => {
     const code = 'test-code-' + Date.now()
     codeMap.set(code, 'google-123')
     session = { oauthState: { state, provider: 'google' } }
-    const callbackRes = await call(new Request(`http://localhost/auth/google/callback?code=${code}&state=${state}`), session)
+    const callbackRes = await call(
+      new Request(`http://localhost/auth/google/callback?code=${code}&state=${state}`),
+      session,
+    )
     assert.equal(callbackRes.status, 302)
 
     // Verify user created
-    const [userRow] = await pg.sql`SELECT * FROM "_users" WHERE email = 'alice@gmail.com' LIMIT 1` as any
+    const [userRow] =
+      (await pg.sql`SELECT * FROM "_users" WHERE email = 'alice@gmail.com' LIMIT 1`) as any
     assert.ok(userRow)
     assert.equal(session.userId, userRow.id)
   })
@@ -154,18 +195,22 @@ describe('oauthLogin', { skip: !DATABASE_URL }, () => {
     const code = 'test-code-gh-' + Date.now()
     codeMap.set(code, 'github-456')
     session = { oauthState: { state, provider: 'github' } }
-    const callbackRes = await call(new Request(`http://localhost/auth/github/callback?code=${code}&state=${state}`), session)
+    const callbackRes = await call(
+      new Request(`http://localhost/auth/github/callback?code=${code}&state=${state}`),
+      session,
+    )
     assert.equal(callbackRes.status, 302)
 
-    const [userRow] = await pg.sql`SELECT id, name FROM "_users" WHERE email = 'bob@github.com' LIMIT 1` as any
+    const [userRow] =
+      (await pg.sql`SELECT id, name FROM "_users" WHERE email = 'bob@github.com' LIMIT 1`) as any
     assert.ok(userRow)
     assert.equal(userRow.name, 'Bob')
   })
 
   it('re-use existing account when email matches', async () => {
-    const [existingUser] = await pg.sql`
+    const [existingUser] = (await pg.sql`
       INSERT INTO "_users" (email, password, name, role) VALUES ('existing@test.com', 'hash', 'Existing', 'user') RETURNING id
-    ` as any
+    `) as any
 
     const call = makeHandler(googleProviders())
     let session: any = {}
@@ -175,10 +220,18 @@ describe('oauthLogin', { skip: !DATABASE_URL }, () => {
 
     const code = 'test-code-link-' + Date.now()
     codeMap.set(code, 'google-link')
-    mockUsers['google-link'] = { id: 'link', email: 'existing@test.com', name: 'Linked', picture: '' }
+    mockUsers['google-link'] = {
+      id: 'link',
+      email: 'existing@test.com',
+      name: 'Linked',
+      picture: '',
+    }
 
     session = { oauthState: { state, provider: 'google' } }
-    const callbackRes = await call(new Request(`http://localhost/auth/google/callback?code=${code}&state=${state}`), session)
+    const callbackRes = await call(
+      new Request(`http://localhost/auth/google/callback?code=${code}&state=${state}`),
+      session,
+    )
     assert.equal(callbackRes.status, 302)
     assert.equal(session.userId, existingUser.id)
   })
@@ -195,11 +248,13 @@ describe('oauthLogin', { skip: !DATABASE_URL }, () => {
     session = { oauthState: { state, provider: 'google' } }
 
     const callbackRes = await call(
-      new Request(`http://localhost/auth/google/callback?code=${code}&state=${state}`, { headers: { accept: 'application/json' } }),
+      new Request(`http://localhost/auth/google/callback?code=${code}&state=${state}`, {
+        headers: { accept: 'application/json' },
+      }),
       session,
     )
     assert.equal(callbackRes.status, 200)
-    const body = await callbackRes.json() as any
+    const body = (await callbackRes.json()) as any
     assert.ok(body.token)
     assert.equal(body.user.email, 'alice@gmail.com')
   })

@@ -3,10 +3,9 @@ import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
 import { serve } from '../serve.ts'
 import { createGateway } from '../deploy/gateway.ts'
-import { createManager } from '../deploy/manager.ts'
+import { createManager, type AppRuntime } from '../deploy/manager.ts'
 import { defineConfig } from '../deploy/config.ts'
 import { forkApp, stopProcess, healthCheck } from '../deploy/process.ts'
-import type { AppRuntime } from '../deploy/manager.ts'
 import type { Context } from '../types.ts'
 import type { DeployConfig, GatewayResult } from '../deploy/types.ts'
 
@@ -107,61 +106,64 @@ describe('gateway', () => {
   })
 
   it('routes by app key host (key.domain)', async () => {
-    const res = await gw.handler(
-      new Request(`http://blog.example.com/`),
-      { params: {}, query: {} } as any,
-    )
+    const res = await gw.handler(new Request(`http://blog.example.com/`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'hello from blog')
   })
 
   it('routes by app key host preserving path', async () => {
-    const res = await gw.handler(
-      new Request(`http://blog.example.com/posts/123`),
-      { params: {}, query: {} } as any,
-    )
+    const res = await gw.handler(new Request(`http://blog.example.com/posts/123`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'hello from blog')
   })
 
   it('routes by path prefix', async () => {
-    const res = await gw.handler(
-      new Request(`http://example.com/api/users`),
-      { params: {}, query: {} } as any,
-    )
+    const res = await gw.handler(new Request(`http://example.com/api/users`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'hello from api')
   })
 
   it('falls back to defaultApp for bare domain', async () => {
-    const res = await gw.handler(
-      new Request(`http://example.com/`),
-      { params: {}, query: {} } as any,
-    )
+    const res = await gw.handler(new Request(`http://example.com/`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), 'hello from blog')
   })
 
   it('returns 404 for unknown host when no defaultApp', async () => {
-    const gw2 = createGateway(defineConfig({
-      domain: 'example.com',
-      apps: {
-        blog: { port: blogPort },
-      },
-    }), getPort)
-    const res = await gw2.handler(
-      new Request(`http://unknown.example.com/`),
-      { params: {}, query: {} } as any,
+    const gw2 = createGateway(
+      defineConfig({
+        domain: 'example.com',
+        apps: {
+          blog: { port: blogPort },
+        },
+      }),
+      getPort,
     )
+    const res = await gw2.handler(new Request(`http://unknown.example.com/`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
   })
 
   it('returns 502 when backend is unreachable', async () => {
-    const gw2 = createGateway(config, (name) => name === 'blog' ? 19999 : apiPort)
-    const res = await gw2.handler(
-      new Request(`http://blog.example.com/`),
-      { params: {}, query: {} } as any,
-    )
+    const gw2 = createGateway(config, (name) => (name === 'blog' ? 19999 : apiPort))
+    const res = await gw2.handler(new Request(`http://blog.example.com/`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 502)
   })
 })
@@ -173,10 +175,13 @@ describe('gateway localhost', () => {
   let port: number
 
   before(async () => {
-    backend = serve((req) => {
-      const url = new URL(req.url)
-      return new Response(url.pathname)
-    }, { port: 0 })
+    backend = serve(
+      (req) => {
+        const url = new URL(req.url)
+        return new Response(url.pathname)
+      },
+      { port: 0 },
+    )
     await backend.ready
     port = backend.port
   })
@@ -191,10 +196,10 @@ describe('gateway localhost', () => {
     })
     const gw = createGateway(config, () => port)
 
-    const res = await gw.handler(
-      new Request(`http://localhost/svc/users/123`),
-      { params: {}, query: {} } as any,
-    )
+    const res = await gw.handler(new Request(`http://localhost/svc/users/123`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), '/users/123')
   })
@@ -207,10 +212,10 @@ describe('gateway localhost', () => {
     })
     const gw = createGateway(config, () => port)
 
-    const res = await gw.handler(
-      new Request(`http://localhost/api/v2/users/123`),
-      { params: {}, query: {} } as any,
-    )
+    const res = await gw.handler(new Request(`http://localhost/api/v2/users/123`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 200)
     assert.equal(await res.text(), '/users/123')
   })
@@ -223,10 +228,10 @@ describe('gateway localhost', () => {
     })
     const gw = createGateway(config, () => port)
 
-    const res = await gw.handler(
-      new Request(`http://localhost/other`),
-      { params: {}, query: {} } as any,
-    )
+    const res = await gw.handler(new Request(`http://localhost/other`), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 404)
   })
 })
@@ -261,7 +266,9 @@ describe('manager API', () => {
           app.status = { ...app.status, status: 'running' }
         }
       },
-      reloadConfig: async () => { throw new Error('not supported') },
+      reloadConfig: async () => {
+        throw new Error('not supported')
+      },
     })
 
     return { apps, router }
@@ -276,7 +283,7 @@ describe('manager API', () => {
       { params: {}, query: {} } as any,
     )
     assert.equal(res.status, 200)
-    const data = await res.json() as any[]
+    const data = (await res.json()) as any[]
     assert.equal(data.length, 1)
     assert.equal(data[0].name, 'app1')
     assert.equal(data[0].status, 'running')
@@ -284,10 +291,10 @@ describe('manager API', () => {
 
   it('requires auth when token is set', async () => {
     const { router } = createTestManager()
-    const res = await router.handler()(
-      new Request('http://localhost/apps'),
-      { params: {}, query: {} } as any,
-    )
+    const res = await router.handler()(new Request('http://localhost/apps'), {
+      params: {},
+      query: {},
+    } as any)
     assert.equal(res.status, 401)
   })
 
@@ -351,11 +358,14 @@ describe('deploy process', { skip: !CAN_FORK }, () => {
   })
 
   it('healthCheck with custom path', async () => {
-    const server = serve((req) => {
-      const url = new URL(req.url)
-      if (url.pathname === '/health') return new Response('ok')
-      return new Response('not found', { status: 404 })
-    }, { port: 0 })
+    const server = serve(
+      (req) => {
+        const url = new URL(req.url)
+        if (url.pathname === '/health') return new Response('ok')
+        return new Response('not found', { status: 404 })
+      },
+      { port: 0 },
+    )
     await server.ready
     const ok = await healthCheck(server.port, '/health')
     assert.equal(ok, true)

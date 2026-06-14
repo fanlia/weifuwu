@@ -56,7 +56,7 @@ describe('redis', { skip: !REDIS_URL }, () => {
     await r.redis.set('test:exp', 'temp', 'EX', 1)
     const val = await r.redis.get('test:exp')
     assert.equal(val, 'temp')
-    await new Promise(r => setTimeout(r, 1100))
+    await new Promise((r) => setTimeout(r, 1100))
     const expired = await r.redis.get('test:exp')
     assert.equal(expired, null)
   })

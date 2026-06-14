@@ -23,8 +23,10 @@ describe('buildHtmlShell', () => {
     const html = renderToString(result)
 
     // React 19 SSR preserves the camelCase prop as charSet
-    assert.ok(html.includes('charSet="utf-8"') || html.includes('charset="utf-8"'),
-      'Expected charset meta tag in: ' + html)
+    assert.ok(
+      html.includes('charSet="utf-8"') || html.includes('charset="utf-8"'),
+      'Expected charset meta tag in: ' + html,
+    )
     assert.ok(html.includes('name="viewport"'))
   })
 

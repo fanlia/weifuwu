@@ -18,12 +18,18 @@ export function notFound(path?: string): Handler {
     }
     if (!Component) return new Response('Not Found', { status: 404 })
 
-    const ctx2 = ctx as Context & { layoutStack?: Array<{ component: unknown }>; mountPath?: string; tailwind?: { css: string; url: string } }
-    const layouts = (ctx2.layoutStack || [])
-    const layoutComponents = layouts.map(l => l.component)
+    const ctx2 = ctx as Context & {
+      layoutStack?: Array<{ component: unknown }>
+      mountPath?: string
+      tailwind?: { css: string; url: string }
+    }
+    const layouts = ctx2.layoutStack || []
+    const layoutComponents = layouts.map((l) => l.component)
     const base = (ctx2.mountPath || '').replace(/\/$/, '')
 
-    let element: any = createElement('div', { id: '__weifuwu_root' },
+    let element: any = createElement(
+      'div',
+      { id: '__weifuwu_root' },
       createElement(Component, null),
     )
 

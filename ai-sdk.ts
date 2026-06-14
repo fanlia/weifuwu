@@ -9,7 +9,4 @@ export {
   smoothStream,
 } from 'ai'
 
-export {
-  openai,
-  createOpenAI,
-} from '@ai-sdk/openai'
+export { openai, createOpenAI } from '@ai-sdk/openai'

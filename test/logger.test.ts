@@ -10,11 +10,11 @@ function handler(text = 'ok') {
 describe('logger', () => {
   it('logs method, path and status', async () => {
     const logs: string[] = []
-    mock.method(console, 'log', (msg: string) => { logs.push(msg) })
+    mock.method(console, 'log', (msg: string) => {
+      logs.push(msg)
+    })
 
-    const r = new Router()
-      .use(logger())
-      .get('/hello', handler())
+    const r = new Router().use(logger()).get('/hello', handler())
 
     await r.handler()(new Request('http://localhost/hello'), { params: {}, query: {} } as any)
 
@@ -28,13 +28,16 @@ describe('logger', () => {
 
   it('combined format includes search params', async () => {
     const logs: string[] = []
-    mock.method(console, 'log', (msg: string) => { logs.push(msg) })
+    mock.method(console, 'log', (msg: string) => {
+      logs.push(msg)
+    })
 
-    const r = new Router()
-      .use(logger({ format: 'combined' }))
-      .get('/search', handler())
+    const r = new Router().use(logger({ format: 'combined' })).get('/search', handler())
 
-    await r.handler()(new Request('http://localhost/search?q=test'), { params: {}, query: {} } as any)
+    await r.handler()(new Request('http://localhost/search?q=test'), {
+      params: {},
+      query: {},
+    } as any)
 
     assert.ok(logs[0]!.includes('?q=test'))
 
@@ -44,12 +47,15 @@ describe('logger', () => {
   it('json format writes structured JSON to stderr', async (t) => {
     const events: string[] = []
     const orig = process.stderr.write
-    ;(process.stderr as any).write = (chunk: string) => { events.push(chunk); return true }
-    t.after(() => { (process.stderr as any).write = orig })
+    ;(process.stderr as any).write = (chunk: string) => {
+      events.push(chunk)
+      return true
+    }
+    t.after(() => {
+      ;(process.stderr as any).write = orig
+    })
 
-    const r = new Router()
-      .use(logger({ format: 'json' }))
-      .get('/test', () => new Response('ok'))
+    const r = new Router().use(logger({ format: 'json' })).get('/test', () => new Response('ok'))
 
     await r.handler()(new Request('http://localhost/test'), { params: {}, query: {} } as any)
 
