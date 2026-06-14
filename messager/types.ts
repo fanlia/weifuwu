@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Router } from '../router.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { PostgresClient } from '../postgres/types.ts'

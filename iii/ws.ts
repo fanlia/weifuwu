@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Context } from '../types.ts'
 
 interface WsHandlerDeps {

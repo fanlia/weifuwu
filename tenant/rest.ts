@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod'
 import type { Sql } from '../vendor.ts'
 import type { Context } from '../types.ts'

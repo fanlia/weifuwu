@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Middleware, Context, Closeable } from '../types.ts'
 import type { Router } from '../router.ts'
 import type { PostgresClient } from '../postgres/types.ts'

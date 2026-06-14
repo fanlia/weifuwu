@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback, useRef } from 'react'
 
 /** Options for {@link useAction}. */

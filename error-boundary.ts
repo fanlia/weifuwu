@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createElement } from 'react'
 import { compile } from './compile.ts'
 import { isDev } from './env.ts'

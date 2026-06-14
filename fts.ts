@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Sql } from './vendor.ts'
 import type { BoundTable } from './postgres/schema/index.ts'
 

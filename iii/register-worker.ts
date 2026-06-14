@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { FunctionHandler, TriggerInput, TriggerRequest } from './types.ts'
 
 const genId = () => globalThis.crypto.randomUUID()

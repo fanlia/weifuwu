@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Middleware, Context } from '../types.ts'
 import {
   serial,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export default function IdPage() {
   const params = (globalThis as any).__TEST_PARAMS
   return (

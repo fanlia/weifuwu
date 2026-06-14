@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from '../router.ts'
 import type { IIIModule } from './types.ts'
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ToolPermission, OpencodePermissions } from './types.ts'
 
 const DENIED_COMMANDS = [

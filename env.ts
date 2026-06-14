@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Context, Middleware } from './types.ts'

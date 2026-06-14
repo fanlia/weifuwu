@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect } from 'react'
 import { addInterceptor } from './client-pref.ts'
 import { setCtx, useCtx } from './tsx-context.ts'

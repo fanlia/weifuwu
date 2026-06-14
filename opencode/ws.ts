@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { WebSocket } from '../vendor.ts'
 import type { LanguageModel } from 'ai'
 import type { Context } from '../types.ts'

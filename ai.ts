@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Context } from './types.ts'
 import { Router } from './router.ts'
 import type { AIProvider } from './ai/provider.ts'

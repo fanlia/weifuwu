@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createElement } from 'react'
 
 export function buildHtmlShell(title: string, bodyElement: any, layoutComponents: any[]): any {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Sql } from '../vendor.ts'
 import type { Context, Middleware, Closeable } from '../types.ts'
 import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'

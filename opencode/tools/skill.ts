@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { tool } from 'ai'
 import { z } from 'zod'
 import { isSkillAllowed } from '../permissions.ts'

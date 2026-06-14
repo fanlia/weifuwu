@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { readFile, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import type { Context, Middleware } from './types.ts'

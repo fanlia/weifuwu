@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { addInterceptor } from './client-pref.ts'
 import { useCtx, setCtx, addCtxRebuilder } from './tsx-context.ts'
 import { navigate } from './client-router.ts'

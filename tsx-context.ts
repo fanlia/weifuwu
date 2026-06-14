@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useSyncExternalStore, createContext } from 'react'
 
 export interface PageContext {

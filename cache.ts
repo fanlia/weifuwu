@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto'
 import type { Context, Middleware, Closeable } from './types.ts'
 import type { Redis } from './vendor.ts'

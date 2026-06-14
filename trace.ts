@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Context, Middleware } from './types.ts'

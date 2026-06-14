@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export default function Home() {
   const params = (globalThis as any).__TEST_PARAMS
   return (

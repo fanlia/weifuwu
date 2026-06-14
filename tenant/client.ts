@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Context, Handler } from '../types.ts'
 import type { TenantOptions, TenantModule, TenantContext } from './types.ts'
 import { PgModule } from '../postgres/module.ts'

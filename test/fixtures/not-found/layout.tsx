@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createElement } from 'react'
 
 export default function Layout({ children }: { children: any }) {

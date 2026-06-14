@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { streamText, stepCountIs, type LanguageModel, type Tool } from 'ai'
 import { addTextMessage, addToolMessages, type SessionMessage } from './session.ts'
 

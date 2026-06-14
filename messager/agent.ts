@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Sql } from '../vendor.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { Hub } from '../hub.ts'

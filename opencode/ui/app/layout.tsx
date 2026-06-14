@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export default function RootLayout({ children }: { children: any }) {
   return (
     <html lang="en">

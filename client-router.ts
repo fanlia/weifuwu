@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createElement, useCallback, useState, useEffect } from 'react'
 import { runInterceptors } from './client-pref.ts'
 

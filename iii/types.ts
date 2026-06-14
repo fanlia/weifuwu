@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Router } from '../router.ts'
 import type { Closeable } from '../types.ts'
 import type { Redis } from '../vendor.ts'

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Context, Middleware } from './types.ts'
 import { getCookies, setCookie } from './cookie.ts'
 

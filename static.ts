@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { open, realpath, type FileHandle } from 'node:fs/promises'
 import { extname, resolve, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
