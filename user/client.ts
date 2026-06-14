@@ -257,7 +257,7 @@ export function user(options: UserOptions): UserModule {
       const payload = jwt.verify(token, secret!) as { sub: string; email?: string; role?: string; token_type?: string }
       if (payload.token_type === 'client_credentials') return null
       if (!hasDb || !findById) return null
-      const row = await findById(payload.sub)
+      const row = await findById(Number(payload.sub))
       if (!row) return null
       return stripPassword(row)
     } catch {
@@ -366,7 +366,7 @@ export function user(options: UserOptions): UserModule {
       try {
         const payload = jwt.verify(token, secret) as { sub: string; email?: string; role?: string; token_type?: string }
         if (payload.token_type === 'client_credentials') return null
-        const row = await findById(payload.sub)
+        const row = await findById(Number(payload.sub))
         if (row) return stripPassword(row)
       } catch {}
       return null
