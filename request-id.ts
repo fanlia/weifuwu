@@ -19,18 +19,22 @@ export interface RequestIdOptions {
 /**
  * Request ID middleware.
  *
+ * @deprecated Use `trace()` from 'weifuwu' instead — it injects `ctx.trace.requestId`
+ * along with `traceId` and `elapsed()` in a single middleware.
+ *
+ * ```ts
+ * // Old:
+ * app.use(requestId())
+ * ctx.requestId
+ *
+ * // New:
+ * app.use(trace())
+ * ctx.trace.requestId
+ * ```
+ *
  * Reads an incoming `X-Request-ID` header (or custom header name) from the
  * request. If absent, generates a new UUID. Sets the response header and
  * injects `ctx.requestId`.
- *
- * ```ts
- * import { requestId } from 'weifuwu'
- * app.use(requestId())
- *
- * app.get('/', (req, ctx) => {
- *   console.log('request ID:', ctx.requestId)
- * })
- * ```
  */
 export function requestId(options?: RequestIdOptions): Middleware<Context, Context & { requestId: string }> {
   const header = options?.header ?? 'X-Request-ID'

@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { currentTraceId, currentTrace, runWithTrace, traceElapsed } from '../trace.ts'
+import { Router } from '../router.ts'
+import { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from '../trace.ts'
 
 describe('trace', () => {
   it('returns undefined outside a trace context', () => {
@@ -57,5 +58,53 @@ describe('trace', () => {
     // runWithTrace creates a new ALS scope — the inner call uses its own store
     // This tests that inner gets its own ID, not that they're shared
     assert.equal(result.inner, 'ignored')
+  })
+
+  it('trace() middleware injects ctx.trace', async () => {
+    const r = new Router()
+    r.use(trace())
+    r.get('/', (_req, ctx) => {
+      assert.equal(typeof ctx.trace?.requestId, 'string')
+      assert.equal(typeof ctx.trace?.traceId, 'string')
+      assert.equal(typeof ctx.trace?.elapsed, 'function')
+      assert.equal(typeof ctx.trace?.startTime, 'number')
+      return Response.json({ ok: true })
+    })
+    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+    assert.ok(res.headers.has('X-Request-ID'))
+  })
+
+  it('trace() preserves incoming X-Request-ID header', async () => {
+    const r = new Router()
+    r.use(trace())
+    r.get('/', (_req, ctx) => {
+      assert.equal(ctx.trace?.requestId, 'my-custom-id')
+      return Response.json({ ok: true })
+    })
+    const res = await r.handler()(
+      new Request('http://localhost/', { headers: { 'X-Request-ID': 'my-custom-id' } }),
+      { params: {}, query: {} } as any,
+    )
+    assert.equal(res.status, 200)
+    assert.equal(res.headers.get('X-Request-ID'), 'my-custom-id')
+  })
+
+  it('trace() elapsed() returns time since start', async () => {
+    const r = new Router()
+    r.use(trace())
+    r.get('/', async (_req, ctx) => {
+      const e1 = ctx.trace!.elapsed()
+      await new Promise(r => setTimeout(r, 5))
+      const e2 = ctx.trace!.elapsed()
+      assert.ok(typeof e1 === 'number')
+      assert.ok(typeof e2 === 'number')
+      return Response.json({ ok: true, startTime: ctx.trace!.startTime })
+    })
+    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+    const body = await res.json() as any
+    assert.ok(body.startTime > 0, 'startTime should be set')
+    assert.ok(Date.now() >= body.startTime, 'startTime should be in the past')
   })
 })
