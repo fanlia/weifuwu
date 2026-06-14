@@ -180,9 +180,10 @@ export class Table<R extends Record<string, unknown>> {
     const sets: string[] = []
     const values: unknown[] = []
 
+    const d = data as Record<string, unknown>
     for (const { prop, db } of this.colEntries) {
-      if (prop in (data as any) && (data as any)[prop] !== undefined) {
-        const val = (data as any)[prop]
+      if (prop in d && d[prop] !== undefined) {
+        const val = d[prop]
         if (val instanceof SQL) {
           sets.push(`"${db}" = ${val.toSQL()}`)
         } else {
@@ -192,7 +193,7 @@ export class Table<R extends Record<string, unknown>> {
       }
     }
 
-    if (this.hasColumn('updated_at') && !(data as any).updated_at) {
+    if (this.hasColumn('updated_at') && !d.updated_at) {
       sets.push('"updated_at" = NOW()')
     }
 
@@ -205,7 +206,7 @@ export class Table<R extends Record<string, unknown>> {
     const filtered: Record<string, unknown> = {}
     for (const { prop, db, auto } of this.colEntries) {
       if (auto) continue
-      const val = (data as any)[prop]
+      const val = (data as Record<string, unknown>)[prop]
       if (val !== undefined) {
         filtered[db] = val
       }
@@ -222,7 +223,7 @@ export class Table<R extends Record<string, unknown>> {
       const row: Record<string, unknown> = {}
       for (const { prop, db, auto } of this.colEntries) {
         if (auto) continue
-        const val = (item as any)[prop]
+        const val = (item as Record<string, unknown>)[prop]
         if (val !== undefined) {
           row[db] = val
         }
@@ -367,7 +368,7 @@ export class Table<R extends Record<string, unknown>> {
     const filtered: Record<string, unknown> = {}
     for (const { prop, db, auto } of this.colEntries) {
       if (auto) continue
-      const val = (data as any)[prop]
+      const val = (data as Record<string, unknown>)[prop]
       if (val !== undefined) {
         filtered[db] = val
       }
@@ -389,7 +390,7 @@ export class Table<R extends Record<string, unknown>> {
         `INSERT INTO "${this.tableName}" (${dbCols.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflictCols.map(c => `"${c}"`).join(', ')}) DO NOTHING RETURNING *`,
         Object.values(filtered) as any[],
       )
-      return (row as unknown as R) ?? undefined as any
+      return (row as unknown as R) ?? undefined as unknown as R
     }
 
     const [row] = await sql.unsafe(

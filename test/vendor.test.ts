@@ -7,11 +7,14 @@ import assert from 'node:assert/strict'
 
 void describe('vendor', () => {
   it('exports Redis type', async () => {
-    // Type-only re-exports are erased at runtime — we verify the module
-    // exists and has no undesired side effects
+    // Type-only re-exports are erased at runtime — verify the module
+    // has no runtime-exposed named exports beyond synthetic keys
     const mod = await import('../vendor.ts')
     assert.equal(typeof mod, 'object')
-    assert.equal(Object.keys(mod).length, 0) // all type-only exports
+    // Synthetic keys like 'default' and 'module.exports' may appear
+    // with type-only re-exports — only real named exports are suspicious
+    const ownKeys = Object.keys(mod).filter(k => k !== 'default' && k !== 'module.exports')
+    assert.equal(ownKeys.length, 0, 'expected no runtime named exports from type-only module')
   })
 
   it('type-check: Redis type is usable', () => {
