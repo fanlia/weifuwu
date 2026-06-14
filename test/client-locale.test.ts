@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 
 describe('client-locale', () => {
   it('exports useLocale', async () => {
-    const { useLocale } = await import('../client-locale.ts')
-    assert.equal(typeof useLocale, 'function')
+    const mod = await import('../client-locale.ts')
+    assert.equal(typeof mod.useLocale, 'function')
   })
 })

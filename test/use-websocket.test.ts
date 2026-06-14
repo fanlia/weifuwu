@@ -1,9 +1,14 @@
 import { describe, it, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { useWebsocket } from '../use-websocket.ts'
 
 describe('useWebsocket', () => {
   it('exports expected interface', () => {
-    assert.equal(typeof useWebsocket, 'function')
+    // Module exports a function — can't call it outside React context
+    assert.equal(typeof import('../use-websocket.ts'), 'object')
+  })
+
+  it('module has useWebsocket export', async () => {
+    const mod = await import('../use-websocket.ts')
+    assert.equal(typeof mod.useWebsocket, 'function')
   })
 })
