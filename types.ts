@@ -6,7 +6,6 @@ export interface Context {
   query: Record<string, string>
   mountPath?: string
   layoutStack?: { path: string; component: any }[]  // set by layout() middleware, read by ssr()
-  env?: Record<string, string>  // public env vars (WEIFUWU_PUBLIC_*)
   [key: string]: unknown  // allow arbitrary middleware-injected data
 }
 

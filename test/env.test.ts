@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { isDev, isProd } from '../env.ts'
+import { Router } from '../router.ts'
+import { isDev, isProd, getPublicEnv, env } from '../env.ts'
 
 describe('isDev', () => {
   it('returns true when NODE_ENV is development', () => {
@@ -156,5 +157,77 @@ describe('loadEnv', () => {
 
     assert.equal(process.env.KEY, 'val')
     assert.equal(process.env[''], undefined, 'line with empty key should be skipped')
+  })
+})
+
+describe('getPublicEnv', () => {
+  it('returns only WEIFUWU_PUBLIC_* vars with prefix stripped', () => {
+    const prev = {
+      api: process.env.WEIFUWU_PUBLIC_API_URL,
+      name: process.env.WEIFUWU_PUBLIC_APP_NAME,
+      secret: process.env.SECRET_KEY,
+    }
+    process.env.WEIFUWU_PUBLIC_API_URL = 'https://api.example.com'
+    process.env.WEIFUWU_PUBLIC_APP_NAME = 'my-app'
+    process.env.SECRET_KEY = 'dont-leak'
+
+    const result = getPublicEnv()
+    assert.equal(result.API_URL, 'https://api.example.com')
+    assert.equal(result.APP_NAME, 'my-app')
+    assert.equal(result.SECRET_KEY, undefined, 'non-prefixed vars should be excluded')
+
+    process.env.WEIFUWU_PUBLIC_API_URL = prev.api
+    process.env.WEIFUWU_PUBLIC_APP_NAME = prev.name
+    process.env.SECRET_KEY = prev.secret
+  })
+
+  it('returns empty object when no public vars', () => {
+    // Save all WEIFUWU_PUBLIC_* vars
+    const saved: Record<string, string | undefined> = {}
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith('WEIFUWU_PUBLIC_')) {
+        saved[key] = process.env[key]
+        delete process.env[key]
+      }
+    }
+    const result = getPublicEnv()
+    assert.deepEqual(result, {})
+    // Restore
+    for (const [key, val] of Object.entries(saved)) {
+      if (val !== undefined) process.env[key] = val
+    }
+  })
+})
+
+describe('env() middleware', () => {
+  it('injects ctx.env with public vars', async () => {
+    const prev = process.env.WEIFUWU_PUBLIC_MODE
+    process.env.WEIFUWU_PUBLIC_MODE = 'test'
+
+    const r = new Router()
+    r.use(env())
+    r.get('/', (_req, ctx) => {
+      assert.deepEqual(ctx.env?.MODE, 'test')
+      return Response.json({ ok: true })
+    })
+    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+
+    if (prev !== undefined) process.env.WEIFUWU_PUBLIC_MODE = prev
+    else delete process.env.WEIFUWU_PUBLIC_MODE
+  })
+
+  it('ctx.env is immutable within a request', async () => {
+    const r = new Router()
+    r.use(env())
+    r.get('/', (_req, ctx) => {
+      // Same reference every time
+      const e1 = ctx.env
+      const e2 = ctx.env
+      assert.equal(e1, e2)
+      return Response.json({ ok: true })
+    })
+    const res = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
   })
 })

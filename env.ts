@@ -1,8 +1,37 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import type { Context, Middleware } from './types.ts'
 
 /** Build-time injection from esbuild --define. `true` in dist/index.js, undefined in TS source. */
 declare var __WFW_BUNDLED__: boolean | undefined
+
+const PUBLIC_PREFIX = 'WEIFUWU_PUBLIC_'
+
+/**
+ * Get all public environment variables (those prefixed with `WEIFUWU_PUBLIC_`),
+ * with the prefix stripped.
+ *
+ * ```ts
+ * const pub = getPublicEnv()
+ * // WEIFUWU_PUBLIC_API_URL=http://api.example.com → { API_URL: 'http://api.example.com' }
+ * ```
+ */
+export function getPublicEnv(): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.startsWith(PUBLIC_PREFIX) && value !== undefined) {
+      result[key.slice(PUBLIC_PREFIX.length)] = value
+    }
+  }
+  return result
+}
+
+// Augment Context with env property
+declare module './types.ts' {
+  interface Context {
+    env?: Record<string, string>
+  }
+}
 
 /**
  * Whether this code is running from the compiled `dist/index.js` bundle.
@@ -82,5 +111,27 @@ export function loadEnv(path?: string): void {
     }
 
     process.env[key] = value
+  }
+}
+
+/**
+ * Public env middleware.
+ *
+ * Injects `ctx.env` with all environment variables prefixed with `WEIFUWU_PUBLIC_`,
+ * with the prefix stripped. Safe to expose to the client.
+ *
+ * ```ts
+ * import { env } from 'weifuwu'
+ * app.use(env())
+ *
+ * // .env:  WEIFUWU_PUBLIC_API_URL=https://api.example.com
+ * // ctx:   ctx.env.API_URL === 'https://api.example.com'
+ * ```
+ */
+export function env(): Middleware<Context, Context & { env: Record<string, string> }> {
+  const entries = getPublicEnv()
+  return async (req, ctx, next) => {
+    ;(ctx as any).env = entries
+    return next(req, ctx as Context & { env: Record<string, string> })
   }
 }
