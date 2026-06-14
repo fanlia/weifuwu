@@ -34,6 +34,7 @@ function deepClone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v))
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function applyOps(value: any, ops: StreamUpdateOp[]): any {
   let current = deepClone(value ?? {})
   for (const op of ops) {
@@ -65,7 +66,6 @@ function applyOps(value: any, ops: StreamUpdateOp[]): any {
   }
   return current
 }
-
 function createMemoryStore(channels: Map<string, Set<WebSocket>>) {
   const store = new Map<string, unknown>()
 
@@ -337,6 +337,7 @@ function createRedisStore(channels: Map<string, Set<WebSocket>>, redis: Redis, t
     },
   }
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function createStream(opts?: { pg?: PostgresClient; redis?: Redis; streamTTL?: number }) {
   const channels = new Map<string, Set<WebSocket>>()

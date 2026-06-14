@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { eq, gte, lt, contains, type BoundTable, type SQL } from '../postgres/schema/index.ts'
 import type { Context } from '../types.ts'
 import type { LogEntryInput } from './types.ts'

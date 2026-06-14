@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import jwt, { type SignOptions } from 'jsonwebtoken'
 import { z } from 'zod'
@@ -204,24 +205,21 @@ export function user(options: UserOptions): UserModule {
     } as SignOptions)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function stripPassword(row: any): Omit<UserData, 'password'> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...user } = row
     return user as Omit<UserData, 'password'>
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function findByEmail(email: string): Promise<any | undefined> {
     const { data: rows } = await _users.readMany({ email } as any)
     return rows[0]
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function findById(id: number): Promise<any | undefined> {
     return await _users.read(id)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function createPlaceholderUser(email: string, name: string): Promise<any> {
     const randomPassword = randomBytes(32).toString('hex')
     const row = await _users.insert({ email, password: randomPassword, name } as any)
@@ -238,7 +236,6 @@ export function user(options: UserOptions): UserModule {
     const existing = await findByEmail(email)
     if (existing) {
       const err = new Error('Email already registered')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(err as any).status = 409
       throw err
     }
@@ -456,7 +453,6 @@ export function user(options: UserOptions): UserModule {
     r.post('/register', async (req) => {
       try {
         const body = await parseBody(req)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result = await register(body as any)
         return Response.json(result, { status: 201 })
       } catch (err: any) {
@@ -471,7 +467,6 @@ export function user(options: UserOptions): UserModule {
     r.post('/login', async (req, ctx) => {
       try {
         const body = await parseBody(req)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result = await login(body as any)
         const s = ctx as Context & { session?: { userId?: number; role?: string } }
 
@@ -489,7 +484,6 @@ export function user(options: UserOptions): UserModule {
         if (err instanceof z.ZodError) {
           return Response.json({ error: 'Validation failed', issues: err.issues }, { status: 400 })
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const status = (err as any).status ?? 500
         return Response.json({ error: err.message }, { status })
       }
