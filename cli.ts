@@ -92,6 +92,9 @@ async function cmdInit(name: string, opts: { minimal?: boolean; skipInstall?: bo
   const deps: Record<string, string> = { weifuwu: `^${v}` }
   const devDeps: Record<string, string> = {}
   if (!opts.minimal) {
+    deps['react'] = '^19'
+    deps['react-dom'] = '^19'
+    deps['tailwindcss'] = '^4'
     devDeps['@types/react'] = depVer('@types/react')
     devDeps['@types/react-dom'] = depVer('@types/react-dom')
   }

@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.24.0 — 2026-06-14
+
+### 认证体系统一
+
+- **`auth.ts` 移除** — 统一使用 `user()`，所有策略（静态 token、自定义 verify、proxy 代理验证、session 验证）全部集成在 `user().middleware()` 中
+- **`user()` 支持无 DB 模式** — `pg` 和 `jwtSecret` 改为可选，不传则只启用无数据库的认证策略
+
+### 模块模式规范
+
+- **`theme()` / `i18n()` 拆分** — 从 α 自路由中间件拆分为 β Router + `.middleware()`，模式与 `analytics()` 一致
+- **Router 自动注册** — `app.use(theme())` 自动注册中间件 + 挂载路由，一行即可
+- **生命周期统一** — 所有有状态模块使用 `.close()`（`rateLimit.stop()` → `.close()`，`iii.shutdown()` → `.close()`）
+
+### 类型系统强化
+
+- **`declare module` 全覆盖** — 所有 16 个 ctx 注入模块使用模块增强，无论链式还是独立 `use()` 调用都有类型
+- **`ctx.csrfToken` → `ctx.csrf.token`** — 命名空间化
+- **`trace()` 中间件** — `ctx.trace = { requestId, traceId, elapsed, startTime }`，统一追踪入口，`requestId()` 标记 `@deprecated`
+- **`env()` 中间件** — `ctx.env` 自动注入 `WEIFUWU_PUBLIC_*` 环境变量
+- **`aiProvider()` 实现为 Middleware** — `app.use(aiProvider())` → `ctx.ai`，同时保留独立使用
+
+### 新增
+
+- `MIGRATION.md` — 0.22 → 0.24 完整迁移指南
+- `user().middlewareOptional()` — 非阻塞的认证中间件
+- `user({ resolveUser })` — session 用户解析
+- `env()` / `getPublicEnv()` — 公共环境变量中间件
+- `trace()` — 集成 requestId + traceId + elapsed 的追踪中间件
+
+### 破坏性变更
+
+| 变更 | 迁移 |
+|------|------|
+| `auth()` 移除 | 改用 `user({ tokens/verify/proxy }).middleware()` |
+| `ctx.csrfToken` | 改为 `ctx.csrf.token` |
+| `rateLimit().stop()` | 改为 `.close()`（旧名仍可用） |
+| `iii.shutdown()` | 改为 `.close()`（旧名仍可用） |
+| `requestId()` | 推荐改 `trace()`（旧模块仍可用，`@deprecated`） |
+
 ## v0.23.0 — 2026-06-13
 
 ### SSR 架构重构
