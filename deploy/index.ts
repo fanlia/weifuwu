@@ -200,6 +200,7 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
     return gw.handler(req, ctx)
   }
 
+  // eslint-disable-next-line prefer-const
   httpServer = serve(fullHandler, {
     port: config.port,
     websocket: gw.wsHandler,

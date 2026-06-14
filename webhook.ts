@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
 import crypto from 'node:crypto'
 import type { Context, Handler } from './types.ts'
 import { Router } from './router.ts'

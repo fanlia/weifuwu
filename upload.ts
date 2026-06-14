@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { writeFile, mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, extname } from 'node:path'

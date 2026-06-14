@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import type { FunctionHandler, TriggerInput, TriggerRequest } from './types.ts'
 
 const genId = () => globalThis.crypto.randomUUID()

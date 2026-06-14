@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
 import crypto from 'node:crypto'
 import type { SqlClient } from '../vendor.ts'
 import type { Router } from '../router.ts'

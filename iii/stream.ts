@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { Redis } from '../vendor.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 import type { StreamUpdateOp, StreamSubscription } from './types.ts'

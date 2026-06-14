@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
 import type { SqlClient } from '../vendor.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { Hub } from '../hub.ts'

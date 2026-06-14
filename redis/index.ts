@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Redis as IORedis } from 'ioredis'
 import type { Context, Handler } from '../types.ts'
 import type { RedisOptions, RedisClient } from './types.ts'

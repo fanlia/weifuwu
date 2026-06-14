@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { mkdir, writeFile, copyFile, readFile, cp } from 'node:fs/promises'
 import { existsSync, readdirSync } from 'node:fs'

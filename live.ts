@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
 import chokidar from 'chokidar'
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'

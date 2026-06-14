@@ -1,4 +1,4 @@
-import type { Context, Handler, Middleware } from './types.ts'
+import type { Context, Middleware } from './types.ts'
 import { getCookies } from './cookie.ts'
 import { Router } from './router.ts'
 

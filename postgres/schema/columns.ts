@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { SQL, sql } from './sql.ts'
 
 /** Reference to another table's column (foreign key). */

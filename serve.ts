@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Context, Handler } from './types.ts'

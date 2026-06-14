@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { type Tool } from 'ai'
 import { z } from 'zod'
 import type { SqlClient } from '../vendor.ts'

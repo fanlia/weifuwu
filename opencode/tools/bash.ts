@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { tool } from 'ai'
 import { z } from 'zod'
 import { exec } from 'node:child_process'

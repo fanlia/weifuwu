@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { WebSocketServer } from 'ws'
 import type { WebSocket } from './vendor.ts'
 import http, { type IncomingMessage } from 'node:http'
@@ -690,7 +691,7 @@ function upgradeSocket(
       join(room: string) {
         hub.join(room, ws)
       },
-      leave(room: string) {
+      leave(_room: string) {
         hub.leave(ws)
       },
       sendRoom(room: string, data: unknown) {

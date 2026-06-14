@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, no-console */
 import { Redis as IORedis } from 'ioredis'
 import crypto from 'node:crypto'
 import type { Context, Handler } from '../types.ts'
