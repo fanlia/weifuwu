@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Sql, WebSocket } from '../vendor.ts'
+import type { SqlClient, WebSocket } from '../vendor.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { WSMessage, Message } from './types.ts'
 import type { Context } from '../types.ts'
@@ -7,7 +7,7 @@ import { createHub, type Hub } from '../hub.ts'
 import { runAgentRouting } from './agent.ts'
 
 interface WSDeps {
-  sql: Sql<{}>
+  sql: SqlClient
   agents?: AgentModule
   redis?: import('../vendor.ts').Redis
 }

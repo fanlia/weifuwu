@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod'
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 import type { Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { FieldDef, UserTableRow } from './types.ts'
@@ -31,7 +31,7 @@ function asJson<T>(val: T): T {
 }
 
 /** Cast a table name for use with `sql()` tag (dynamic names can't be typed). */
-function tableRef(s: Sql<{}>, name: string) {
+function tableRef(s: SqlClient, name: string) {
   return (s as any)(name)
 }
 
@@ -88,7 +88,7 @@ function zodType(field: FieldDef): z.ZodTypeAny {
 }
 
 async function getUserTable(
-  sql: Sql<{}>,
+  sql: SqlClient,
   tenantId: string,
   slug: string,
 ): Promise<UserTableRow | null> {
@@ -105,7 +105,7 @@ function requireAdmin(ctx: Context): Response | null {
   return null
 }
 
-export function buildRouter(sql: Sql<{}>, usersTable: string): Router {
+export function buildRouter(sql: SqlClient, usersTable: string): Router {
   const r = new Router()
 
   // ── Tenants ──────────────────────────────────────────────

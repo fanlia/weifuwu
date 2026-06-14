@@ -10,7 +10,7 @@ import {
 import { Router } from '../router.ts'
 import { createHandler, listHandler, getHandler } from './rest.ts'
 import type { LogdbOptions, LogEntry, LogEntryInput, LogdbModule } from './types.ts'
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 
 function pad(n: number): string {
   return n < 10 ? '0' + n : String(n)
@@ -28,7 +28,7 @@ function toISO(d: Date): string {
   return d.toISOString().slice(0, 19) + '+00:00'
 }
 
-async function ensurePartitions(sql: Sql<{}>, tableName: string): Promise<void> {
+async function ensurePartitions(sql: SqlClient, tableName: string): Promise<void> {
   const now = new Date()
   for (let i = 0; i < 13; i++) {
     const start = startOfMonth(now.getFullYear(), now.getMonth() + i)

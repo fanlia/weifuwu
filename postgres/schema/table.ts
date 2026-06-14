@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Sql } from '../../vendor.ts'
+import type { SqlClient } from '../../vendor.ts'
 import { ColumnBuilder, toDDL, type PartitionByDef } from './columns.ts'
 import { SQL } from './sql.ts'
 import { and } from './where.ts'
@@ -93,7 +92,7 @@ export class Table<R extends Record<string, unknown>> {
    * Bind this table schema to a SQL connection, returning a `BoundTable`
    * that can run queries without passing `sql` to every call.
    */
-  bind(sql: Sql<{}>): BoundTable<R> {
+  bind(sql: SqlClient): BoundTable<R> {
     return new BoundTable(sql, this.tableName, this.builders)
   }
 
@@ -114,7 +113,7 @@ export class Table<R extends Record<string, unknown>> {
     return '"deleted_at" IS NULL'
   }
 
-  async create(sql: Sql<{}>, opts?: CreateOptions): Promise<void> {
+  async create(sql: SqlClient, opts?: CreateOptions): Promise<void> {
     const colDDL = this.columns.map(toDDL)
     let ddl = `CREATE TABLE IF NOT EXISTS "${this.tableName}" (\n  ${colDDL.join(',\n  ')}\n)`
     if (opts?.partitionBy) {
@@ -123,12 +122,16 @@ export class Table<R extends Record<string, unknown>> {
     await sql.unsafe(ddl)
   }
 
-  async drop(sql: Sql<{}>, opts?: { cascade?: boolean }): Promise<void> {
+  async drop(sql: SqlClient, opts?: { cascade?: boolean }): Promise<void> {
     const cascade = opts?.cascade ? ' CASCADE' : ''
     await sql.unsafe(`DROP TABLE IF EXISTS "${this.tableName}"${cascade}`)
   }
 
-  async createIndex(sql: Sql<{}>, columns: string | string[], opts?: IndexOptions): Promise<void> {
+  async createIndex(
+    sql: SqlClient,
+    columns: string | string[],
+    opts?: IndexOptions,
+  ): Promise<void> {
     const cols = Array.isArray(columns) ? columns : [columns]
     const name = `"${this.tableName}_${cols.join('_')}${opts?.unique ? '_uidx' : '_idx'}"`
     const unique = opts?.unique ? 'UNIQUE' : ''
@@ -144,7 +147,7 @@ export class Table<R extends Record<string, unknown>> {
     await sql.unsafe(ddl)
   }
 
-  async createUniqueIndex(sql: Sql<{}>, columns: string | string[]): Promise<void> {
+  async createUniqueIndex(sql: SqlClient, columns: string | string[]): Promise<void> {
     await this.createIndex(sql, columns, { unique: true })
   }
 
@@ -211,7 +214,7 @@ export class Table<R extends Record<string, unknown>> {
 
   // --- CRUD ---
 
-  async insert(sql: Sql<{}>, data: Partial<R>): Promise<R> {
+  async insert(sql: SqlClient, data: Partial<R>): Promise<R> {
     const filtered: Record<string, unknown> = {}
     for (const { prop, db, auto } of this.colEntries) {
       if (auto) continue
@@ -226,7 +229,7 @@ export class Table<R extends Record<string, unknown>> {
     return row as unknown as R
   }
 
-  async insertMany(sql: Sql<{}>, data: Partial<R>[]): Promise<R[]> {
+  async insertMany(sql: SqlClient, data: Partial<R>[]): Promise<R[]> {
     const filtered: Record<string, unknown>[] = []
     for (const item of data) {
       const row: Record<string, unknown> = {}
@@ -246,7 +249,7 @@ export class Table<R extends Record<string, unknown>> {
   }
 
   async read(
-    sql: Sql<{}>,
+    sql: SqlClient,
     id: string | number,
     opts?: Pick<FindOptions, 'select' | 'withDeleted'>,
   ): Promise<R | undefined> {
@@ -263,7 +266,7 @@ export class Table<R extends Record<string, unknown>> {
   }
 
   async readMany(
-    sql: Sql<{}>,
+    sql: SqlClient,
     where?: Partial<R> | SQL | SQL[],
     opts?: FindOptions,
   ): Promise<{ count: number; data: R[] }> {
@@ -309,7 +312,7 @@ export class Table<R extends Record<string, unknown>> {
     return { count, data: rows as unknown as R[] }
   }
 
-  async update(sql: Sql<{}>, id: string | number, data: Partial<R>): Promise<R | undefined> {
+  async update(sql: SqlClient, id: string | number, data: Partial<R>): Promise<R | undefined> {
     const { sets, values: setValues } = this._buildSET(data)
     if (sets.length === 0) return undefined
 
@@ -322,7 +325,7 @@ export class Table<R extends Record<string, unknown>> {
   }
 
   async updateMany(
-    sql: Sql<{}>,
+    sql: SqlClient,
     where: Partial<R> | SQL | SQL[],
     data: Partial<R>,
   ): Promise<number> {
@@ -342,7 +345,7 @@ export class Table<R extends Record<string, unknown>> {
     return rows.length
   }
 
-  async delete(sql: Sql<{}>, id: string | number): Promise<R | undefined> {
+  async delete(sql: SqlClient, id: string | number): Promise<R | undefined> {
     const pk = this.pkColumn
     if (this.hasColumn('deleted_at')) {
       const [row] = await sql.unsafe(
@@ -358,7 +361,7 @@ export class Table<R extends Record<string, unknown>> {
     return (row as unknown as R) ?? undefined
   }
 
-  async hardDelete(sql: Sql<{}>, id: string | number): Promise<R | undefined> {
+  async hardDelete(sql: SqlClient, id: string | number): Promise<R | undefined> {
     const pk = this.pkColumn
     const [row] = await sql.unsafe(
       `DELETE FROM "${this.tableName}" WHERE "${pk}" = $1 RETURNING *`,
@@ -367,7 +370,7 @@ export class Table<R extends Record<string, unknown>> {
     return (row as unknown as R) ?? undefined
   }
 
-  async deleteMany(sql: Sql<{}>, where: Partial<R> | SQL | SQL[]): Promise<number> {
+  async deleteMany(sql: SqlClient, where: Partial<R> | SQL | SQL[]): Promise<number> {
     const { conditions, values } = this._buildConditions(where, 0)
     if (conditions.length === 0) return 0
 
@@ -386,7 +389,7 @@ export class Table<R extends Record<string, unknown>> {
     return rows.length
   }
 
-  async hardDeleteMany(sql: Sql<{}>, where: Partial<R> | SQL | SQL[]): Promise<number> {
+  async hardDeleteMany(sql: SqlClient, where: Partial<R> | SQL | SQL[]): Promise<number> {
     const { conditions, values } = this._buildConditions(where, 0)
     if (conditions.length === 0) return 0
 
@@ -397,7 +400,7 @@ export class Table<R extends Record<string, unknown>> {
     return rows.length
   }
 
-  async upsert(sql: Sql<{}>, data: Partial<R>, conflict: string | string[]): Promise<R> {
+  async upsert(sql: SqlClient, data: Partial<R>, conflict: string | string[]): Promise<R> {
     const filtered: Record<string, unknown> = {}
     for (const { prop, db, auto } of this.colEntries) {
       if (auto) continue
@@ -433,7 +436,7 @@ export class Table<R extends Record<string, unknown>> {
     return row as unknown as R
   }
 
-  async count(sql: Sql<{}>, where?: Partial<R> | SQL | SQL[]): Promise<number> {
+  async count(sql: SqlClient, where?: Partial<R> | SQL | SQL[]): Promise<number> {
     const { conditions, values } = this._buildConditions(where, 0)
 
     const softDel = this._softDeleteFilter(where)
@@ -450,14 +453,14 @@ export class Table<R extends Record<string, unknown>> {
 
 export class BoundTable<R extends Record<string, unknown>> {
   private inner: Table<R>
-  private sql: Sql<{}>
+  private sql: SqlClient
 
   /** The underlying table name. */
   get tableName(): string {
     return this.inner.tableName
   }
 
-  constructor(sql: Sql<{}>, tableName: string, builders: Record<string, ColumnBuilder<unknown>>) {
+  constructor(sql: SqlClient, tableName: string, builders: Record<string, ColumnBuilder<unknown>>) {
     this.inner = new Table<R>(tableName, builders)
     this.sql = sql
   }
@@ -518,7 +521,7 @@ export class BoundTable<R extends Record<string, unknown>> {
     return await this.inner.count(this.sql, where)
   }
 
-  withSql(sql: Sql<{}>): BoundTable<R> {
+  withSql(sql: SqlClient): BoundTable<R> {
     return new BoundTable(sql, this.inner.tableName, this.inner.builders)
   }
 }

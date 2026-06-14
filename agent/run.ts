@@ -1,6 +1,6 @@
 import { type Tool } from 'ai'
 import { z } from 'zod'
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 import type { BoundTable } from '../postgres/schema/index.ts'
 import type { AIProvider } from '../ai/provider.ts'
 import type { AgentConfig, RunParams, RunResult, KnowledgeDoc } from './types.ts'
@@ -10,7 +10,7 @@ import { chunkContent } from '../ai/utils.ts'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface RunnerDeps {
-  sql: Sql<{}>
+  sql: SqlClient
   agents: BoundTable<any>
   runs: BoundTable<any>
   knowledge: BoundTable<any>
@@ -21,14 +21,14 @@ interface RunnerDeps {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function hasKnowledgeDocs(sql: Sql<{}>, agentId: number): Promise<boolean> {
+function hasKnowledgeDocs(sql: SqlClient, agentId: number): Promise<boolean> {
   return sql`SELECT 1 FROM "_knowledge_documents" WHERE agent_id = ${agentId} LIMIT 1`.then(
     (r) => (r as any[]).length > 0,
   )
 }
 
 async function searchKnowledge(
-  sql: Sql<{}>,
+  sql: SqlClient,
   provider: AIProvider,
   agentId: number,
   query: string,

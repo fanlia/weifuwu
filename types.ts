@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Context — extensible via module augmentation.
 // Built-in middleware modules declare additional properties here.
-// e.g. postgres/types.ts → `declare module '../types.ts' { interface Context { sql: Sql<{}> } }`
+// e.g. postgres/types.ts → `declare module '../types.ts' { interface Context { sql: SqlClient } }`
 export interface Context {
   params: Record<string, string>
   query: Record<string, string>

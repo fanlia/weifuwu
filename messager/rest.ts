@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 import { Router } from '../router.ts'
 import { broadcastToChannel } from './ws.ts'
 import { runAgentRouting } from './agent.ts'
@@ -8,7 +8,7 @@ import type { Hub } from '../hub.ts'
 import { eq, lt, type BoundTable } from '../postgres/schema/index.ts'
 
 interface RestDeps {
-  sql: Sql<{}>
+  sql: SqlClient
   channels: BoundTable<any>
   members: BoundTable<any>
   messages: BoundTable<any>

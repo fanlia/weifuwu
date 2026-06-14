@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 import type { Session, Message } from './types.ts'
 import {
   pgTable,
@@ -41,7 +41,7 @@ const messages = pgTable('_opencode_messages', {
 })
 
 export async function createSession(
-  sql: Sql<{}>,
+  sql: SqlClient,
   opts: { userId?: number; title?: string; model?: string; systemPrompt?: string },
   cwd: string,
   mountPath: string,
@@ -62,12 +62,12 @@ function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: stri
   return join(cwd, '.sessions', name, sessionId)
 }
 
-export async function getSession(sql: Sql<{}>, id: string): Promise<Session | null> {
+export async function getSession(sql: SqlClient, id: string): Promise<Session | null> {
   const { data: rows } = await sessions.readMany(sql, { id, active: true } as any)
   return (rows[0] as unknown as Session) ?? null
 }
 
-export async function listSessions(sql: Sql<{}>, userId?: number): Promise<Session[]> {
+export async function listSessions(sql: SqlClient, userId?: number): Promise<Session[]> {
   const opts = { orderBy: { updated_at: 'desc' as const } }
   if (userId !== undefined) {
     const { data: rows } = await sessions.readMany(
@@ -81,12 +81,12 @@ export async function listSessions(sql: Sql<{}>, userId?: number): Promise<Sessi
   return rows as unknown as Session[]
 }
 
-export async function deleteSession(sql: Sql<{}>, id: string): Promise<void> {
+export async function deleteSession(sql: SqlClient, id: string): Promise<void> {
   await sessions.update(sql, id, { active: false, updated_at: schemaSql`NOW()` } as any)
 }
 
 export async function getHistory(
-  sql: Sql<{}>,
+  sql: SqlClient,
   sessionId: string,
   limit = 50,
 ): Promise<SessionMessage[]> {
@@ -110,7 +110,7 @@ export interface SessionMessage {
 }
 
 export async function addTextMessage(
-  sql: Sql<{}>,
+  sql: SqlClient,
   sessionId: string,
   role: 'user' | 'assistant',
   content: string,
@@ -126,7 +126,7 @@ export async function addTextMessage(
 }
 
 export async function addToolMessages(
-  sql: Sql<{}>,
+  sql: SqlClient,
   sessionId: string,
   toolCalls: unknown[],
   toolResults: unknown[],
@@ -139,6 +139,6 @@ export async function addToolMessages(
   return row as Message
 }
 
-export async function updateSessionTitle(sql: Sql<{}>, id: string, title: string): Promise<void> {
+export async function updateSessionTitle(sql: SqlClient, id: string, title: string): Promise<void> {
   await sessions.update(sql, id, { title, updated_at: schemaSql`NOW()` } as any)
 }

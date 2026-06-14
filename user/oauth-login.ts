@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto'
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 import type { Router } from '../router.ts'
 import type { OAuthProviderConfig } from './types.ts'
 
@@ -51,7 +51,7 @@ const BUILTIN_PROVIDERS: Record<string, ProviderMeta> = {
 // ── Internal deps ───────────────────────────────────────────────────────────
 
 interface OAuthLoginDeps {
-  sql: Sql<{}>
+  sql: SqlClient
   jwtSecret: string
   expiresIn: string | number
   usersTable: string

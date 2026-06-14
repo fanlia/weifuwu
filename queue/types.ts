@@ -24,7 +24,7 @@ export interface QueueOptions {
   prefix?: string
   pollInterval?: number
   /** PostgreSQL client (required when store: 'pg'). */
-  pg?: { sql: import('../vendor.ts').Sql<{}> }
+  pg?: { sql: import('../vendor.ts').SqlClient }
 }
 
 export interface QueueInjected {

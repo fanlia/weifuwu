@@ -1,16 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 import type { Context, Middleware, Closeable } from '../types.ts'
 import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'
 
 declare module '../types.ts' {
   interface Context {
-    sql: Sql<{}>
+    sql: SqlClient
   }
 }
 
 export interface PostgresInjected {
-  sql: Sql<{}>
+  sql: SqlClient
 }
 
 export interface PostgresOptions {
@@ -28,7 +28,7 @@ export interface PostgresOptions {
 }
 
 export interface PostgresClient extends Middleware<Context, Context & PostgresInjected>, Closeable {
-  sql: Sql<{}>
+  sql: SqlClient
   /** Creates the migration tracking table (_weifuwu_migrations). Called once at startup. */
   migrate: () => Promise<void>
   /** Record that a module's migration has been applied (idempotent). */

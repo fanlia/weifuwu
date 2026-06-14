@@ -1,4 +1,4 @@
-import type { Sql } from './vendor.ts'
+import type { SqlClient } from './vendor.ts'
 import type { Middleware, Context, Handler } from './types.ts'
 
 // ── Context augmentation ─────────────────────────────────────────────────────
@@ -13,7 +13,7 @@ declare module './types.ts' {
 
 export interface PermissionsOptions {
   /** PostgreSQL client. */
-  pg: { sql: Sql<{}> }
+  pg: { sql: SqlClient }
   /** Table prefix (default: '' → _roles, _user_roles, _role_permissions). */
   prefix?: string
 }

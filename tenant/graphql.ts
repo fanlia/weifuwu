@@ -15,7 +15,7 @@ import {
   GraphQLEnumType,
   graphql as executeGraphQL,
 } from 'graphql'
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 import type { Context } from '../types.ts'
 import { Router } from '../router.ts'
 import type { FieldDef, UserTableRow } from './types.ts'
@@ -59,7 +59,7 @@ function inputGraphqlType(field: FieldDef): GraphQLInputType {
 }
 
 interface BuildCtx {
-  sql: Sql<{}>
+  sql: SqlClient
   tenantId: string
   tables: UserTableRow[]
   typeCache: Map<number, GraphQLObjectType>
@@ -278,7 +278,7 @@ function buildMutationFields(tables: UserTableRow[], ctx: BuildCtx): GQLFieldMap
   return fields
 }
 
-export function buildGraphQLHandler(sql: Sql<{}>): Router {
+export function buildGraphQLHandler(sql: SqlClient): Router {
   const r = new Router()
 
   r.post('/', async (req: Request, ctx: Context) => {

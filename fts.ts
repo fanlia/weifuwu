@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Sql } from './vendor.ts'
+import type { SqlClient } from './vendor.ts'
 import type { BoundTable } from './postgres/schema/index.ts'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ function sqlLit(s: string): string {
 // ── Core functions ──────────────────────────────────────────────────────────
 
 export async function createIndex(
-  sql: Sql<{}>,
+  sql: SqlClient,
   table: BoundTable<any>,
   fields: string[],
   options?: FTSCreateIndexOptions,
@@ -68,7 +68,7 @@ export async function createIndex(
 }
 
 export async function dropIndex(
-  sql: Sql<{}>,
+  sql: SqlClient,
   table: BoundTable<any>,
   options?: { indexName?: string },
 ): Promise<void> {
@@ -78,7 +78,7 @@ export async function dropIndex(
 }
 
 export async function search<T extends Record<string, unknown>>(
-  sql: Sql<{}>,
+  sql: SqlClient,
   table: BoundTable<T>,
   query: string,
   options?: FTSSearchOptions,
@@ -147,7 +147,7 @@ export async function search<T extends Record<string, unknown>>(
 }
 
 export async function suggest(
-  sql: Sql<{}>,
+  sql: SqlClient,
   table: BoundTable<any>,
   prefix: string,
   options?: { field?: string; language?: string; limit?: number },

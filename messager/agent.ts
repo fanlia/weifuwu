@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Sql } from '../vendor.ts'
+import type { SqlClient } from '../vendor.ts'
 import type { AgentModule } from '../agent/types.ts'
 import type { Hub } from '../hub.ts'
 
@@ -9,7 +9,7 @@ import type { Hub } from '../hub.ts'
  * - Multi-round: passes recent channel history as conversation context
  */
 export async function runAgentRouting(
-  sql: Sql<{}>,
+  sql: SqlClient,
   messages: { insert: (data: any) => Promise<any> },
   agents: AgentModule | undefined,
   hub: Hub,

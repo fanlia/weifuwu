@@ -1,11 +1,11 @@
 import type { PostgresClient } from './types.ts'
-/* eslint-disable @typescript-eslint/no-empty-object-type */
-import type { Sql } from '../vendor.ts'
+ 
+import type { SqlClient } from '../vendor.ts'
 import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'
 import type { Closeable } from '../types.ts'
 
 export class PgModule implements Closeable {
-  protected sql: Sql<{}>
+  protected sql: SqlClient
   protected pg: PostgresClient
 
   constructor(pg: PostgresClient) {
@@ -22,7 +22,7 @@ export class PgModule implements Closeable {
   }
 
   async transaction<T>(
-    fn: (sql: Sql<{}>) => Promise<T>,
+    fn: (sql: SqlClient) => Promise<T>,
     retryOpts?: { maxRetries?: number },
   ): Promise<T> {
     return await this.pg.transaction(fn, retryOpts)

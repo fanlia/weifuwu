@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Context, Handler } from './types.ts'
-import type { Sql } from './vendor.ts'
+import type { SqlClient } from './vendor.ts'
 import { Router } from './router.ts'
 
 export interface TestResponse {
@@ -210,7 +210,7 @@ export function testApp(): TestApp {
  */
 export interface TestDb {
   /** Tagged-template SQL client connected to the test database. */
-  sql: Sql<{}>
+  sql: SqlClient
   /** Connection URL of the test database. */
   url: string
   /** Schema name used for this test session. */
@@ -291,12 +291,12 @@ export async function createTestDb(options?: {
  * @param fn Async callback receiving a tagged-template sql client.
  */
 export async function withTestDb(
-  optionsOrFn: string | { url?: string } | ((sql: Sql<{}>) => Promise<void>),
-  fn?: (sql: Sql<{}>) => Promise<void>,
+  optionsOrFn: string | { url?: string } | ((sql: SqlClient) => Promise<void>),
+  fn?: (sql: SqlClient) => Promise<void>,
 ): Promise<void> {
   // Resolve arguments
   let dbUrl: string | undefined
-  let callback: (sql: Sql<{}>) => Promise<void>
+  let callback: (sql: SqlClient) => Promise<void>
 
   if (typeof optionsOrFn === 'function') {
     callback = optionsOrFn
@@ -318,7 +318,7 @@ export async function withTestDb(
     // sql.begin() auto-commits on success, rolls back on throw
     // We always throw to force rollback (test isolation pattern)
     await sql.begin(async (txSql: any) => {
-      await callback(txSql as Sql<{}>)
+      await callback(txSql as SqlClient)
       throw undefined // force rollback
     })
   } catch {
