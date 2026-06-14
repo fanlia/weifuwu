@@ -57,6 +57,7 @@ export function useAgentStream(opts: UseAgentStreamOptions): UseAgentStreamRetur
 
   const [streams, setStreams] = useState<Record<number, string>>({})
   const activeRef = useRef<Set<number>>(new Set())
+  const streamsRef = useRef<Record<number, string>>({})
 
   const getAgentText = useCallback(
     (agentId: number) => streams[agentId] || '',
@@ -86,20 +87,19 @@ export function useAgentStream(opts: UseAgentStreamOptions): UseAgentStreamRetur
           case 'agent_stream': {
             activeRef.current.add(agentId)
             const token = msg.data?.token || ''
-            setStreams(prev => {
-              const current = prev[agentId] || ''
-              return { ...prev, [agentId]: current + token }
-            })
+            streamsRef.current[agentId] = (streamsRef.current[agentId] || '') + token
+            setStreams({ ...streamsRef.current })
             break
           }
           case 'agent_stream_end': {
             activeRef.current.delete(agentId)
-            const fullText = streams[agentId] || ''
+            const fullText = streamsRef.current[agentId] || ''
             onStreamEnd?.(agentId, fullText)
             break
           }
           case 'agent_error': {
             activeRef.current.delete(agentId)
+            delete streamsRef.current[agentId]
             onError?.(agentId, msg.data?.error || 'Unknown error')
             break
           }
