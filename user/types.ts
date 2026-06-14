@@ -59,14 +59,32 @@ export interface OAuthProviderConfig {
 
 /** Options for {@link user}. */
 export interface UserOptions {
-  /** PostgreSQL client for user storage. */
-  pg: PostgresClient
-  /** Secret key for JWT signing. */
-  jwtSecret: string
+  /** PostgreSQL client for user storage. Omit for DB-less token/verify/proxy auth. */
+  pg?: PostgresClient
+  /** Secret key for JWT signing. Required for JWT auth and login/register routes. */
+  jwtSecret?: string
   /** Custom table name for users (default: `'users'`). */
   table?: string
   /** JWT expiration time (default: `'7d'`). */
   expiresIn?: string | number
+
+  // ── DB-less auth strategies (from auth()) ────────────────────────────
+  /** Static token(s) for simple bearer auth. No DB or JWT needed. */
+  tokens?: string[]
+  /** Custom verify function. Receives the token and request, returns user data or null. */
+  verify?: (token: string, req: Request) => unknown | Promise<unknown>
+  /** Proxy auth — forward request to an external auth service for validation. */
+  proxy?: string | URL
+  /** Custom header name for token extraction (default: `'Authorization'`). */
+  header?: string
+  /**
+   * Function to load user data from a user ID stored in the session.
+   * Called when `ctx.session.userId` is present. Only used when `pg` is not provided.
+   * Return a falsy value to reject (e.g. if the user was deleted).
+   * If not provided and no pg, `ctx.user` is set to `{ id: userId }`.
+   */
+  resolveUser?: (userId: unknown) => unknown | Promise<unknown>
+
   /** Enable OAuth2 server mode (authorization code flow). */
   oauth2?: OAuth2ServerOptions
   /**

@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken'
 import { z } from 'zod'
 import type { Middleware, Context } from '../types.ts'
 import { Router } from '../router.ts'
+import { currentTraceId } from '../trace.ts'
+import type { PostgresClient } from '../postgres/types.ts'
 import type { UserOptions, UserData, UserModule, AuthResult, OAuth2Client, UserInjected } from './types.ts'
 import { PgModule } from '../postgres/module.ts'
 import { serial, text, integer, boolean, timestamptz, textArray, sql } from '../postgres/schema/index.ts'
@@ -37,51 +39,95 @@ function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(Buffer.from(hash), Buffer.from(verify))
 }
 
+function extractToken(req: Request, headerName: string, cookieName?: string): string | null {
+  // Priority 1: Authorization header
+  const header = req.headers.get(headerName)
+  if (header) {
+    if (headerName.toLowerCase() === 'authorization') {
+      const parts = header.split(' ')
+      if (parts[0]?.toLowerCase() === 'bearer') {
+        return parts.slice(1).join(' ').trim()
+      }
+    }
+    return header.trim()
+  }
+  // Priority 2: Query param (access_token) — only when using default Authorization header
+  if (headerName.toLowerCase() === 'authorization') {
+    const url = new URL(req.url)
+    const qsToken = url.searchParams.get('access_token')
+    if (qsToken) return qsToken
+  }
+  // Priority 3: Cookie
+  if (cookieName) {
+    const cookies = req.headers.get('cookie')?.split(';').map(c => c.trim()).filter(Boolean) || []
+    for (const c of cookies) {
+      const eq = c.indexOf('=')
+      if (eq > 0 && c.slice(0, eq) === cookieName) return c.slice(eq + 1)
+    }
+  }
+  return null
+}
+
 /**
  * User authentication module — local register/login, JWT verification, OAuth2 server, social login.
+ * Supports DB-less auth via tokens/verify/proxy options.
  *
  * ```ts
+ * // Full auth with DB
  * import { user, postgres } from 'weifuwu'
- *
  * const pg = postgres({ connection: DATABASE_URL })
  * const auth = user({ pg, jwtSecret: process.env.JWT_SECRET })
  *
  * await auth.migrate()
+ * app.use(auth.middleware())   // inject ctx.user
+ * app.use('/', auth)           // /register, /login
  *
- * app.use(auth.middleware())   // inject `ctx.user` on every request
- * app.use('/', auth)           // mount auth routes: /register, /login
+ * // DB-less token auth
+ * const auth = user({ tokens: ['sk-123', 'sk-456'] })
+ * app.use(auth.middleware())   // injects ctx.user for valid tokens
+ *
+ * // DB-less custom verify
+ * const auth = user({ verify: async (token) => validateToken(token) })
+ * app.use(auth.middleware())
  * ```
  */
 export function user(options: UserOptions): UserModule {
+  const hasDb = !!options.pg
   const table = options.table ?? '_users'
-  const pg = options.pg
-  const secret = options.jwtSecret
+  const pg = options.pg! as NonNullable<typeof options.pg>
+  const secret = options.jwtSecret as string
   const expiresIn = options.expiresIn ?? '24h'
   const oauth2Enabled = options.oauth2?.server ?? false
 
-  const base = new PgModule(pg)
+  const base = hasDb ? new PgModule(pg) : null
 
-  const users = pg.table(table, {
-    id: serial('id').primaryKey(),
-    email: text('email').unique().notNull(),
-    password: text('password').notNull(),
-    name: text('name').notNull(),
-    role: text('role').default('user'),
-    created_at: timestamptz('created_at').default(sql`NOW()`),
-    updated_at: timestamptz('updated_at').default(sql`NOW()`),
-  })
+  // DB-only: define users table and related helpers
+  const users = hasDb
+    ? (pg as NonNullable<typeof pg>).table(table, {
+        id: serial('id').primaryKey(),
+        email: text('email').unique().notNull(),
+        password: text('password').notNull(),
+        name: text('name').notNull(),
+        role: text('role').default('user'),
+        created_at: timestamptz('created_at').default(sql`NOW()`),
+        updated_at: timestamptz('updated_at').default(sql`NOW()`),
+      })
+    : null
+
+  const _pg = pg! as PostgresClient
+  const _users = users!
 
   let oauth2: ReturnType<typeof createOAuth2Server> | null = null
   if (oauth2Enabled) {
-    oauth2 = createOAuth2Server({ pg, users, jwtSecret: secret, expiresIn })
+    oauth2 = createOAuth2Server({ pg: _pg, users: _users, jwtSecret: secret!, expiresIn })
   }
 
   async function migrate(): Promise<void> {
-    await users.create()
+    await _users.create()
 
     // OAuth provider table (for login with GitHub/Google)
     if (options.oauthLogin) {
-      await pg.sql.unsafe(`
+      await _pg.sql.unsafe(`
         CREATE TABLE IF NOT EXISTS "_auth_providers" (
           id SERIAL PRIMARY KEY,
           user_id INTEGER NOT NULL REFERENCES ${escapeIdent(table)}(id) ON DELETE CASCADE,
@@ -94,7 +140,7 @@ export function user(options: UserOptions): UserModule {
           UNIQUE(provider, provider_id)
         )
       `)
-      await pg.sql.unsafe(`
+      await _pg.sql.unsafe(`
         CREATE INDEX IF NOT EXISTS "_auth_providers_user_idx"
         ON "_auth_providers"(user_id)
       `)
@@ -102,7 +148,7 @@ export function user(options: UserOptions): UserModule {
 
     if (!oauth2Enabled) return
 
-    const clients = pg.table('_oauth2_clients', {
+    const clients = _pg.table('_oauth2_clients', {
       id: serial('id').primaryKey(),
       name: text('name').notNull(),
       client_id: text('client_id').unique().notNull(),
@@ -113,7 +159,7 @@ export function user(options: UserOptions): UserModule {
     })
     await clients.create()
 
-    const codes = pg.table('_oauth2_codes', {
+    const codes = _pg.table('_oauth2_codes', {
       id: serial('id').primaryKey(),
       code: text('code').unique().notNull(),
       client_id: text('client_id').notNull(),
@@ -127,7 +173,7 @@ export function user(options: UserOptions): UserModule {
     })
     await codes.create()
 
-    const tokens = pg.table('_oauth2_tokens', {
+    const tokens = _pg.table('_oauth2_tokens', {
       id: serial('id').primaryKey(),
       token: text('token').unique().notNull(),
       client_id: text('client_id').notNull(),
@@ -142,7 +188,7 @@ export function user(options: UserOptions): UserModule {
   function signToken(user: UserData): string {
     return jwt.sign(
       { sub: user.id, email: user.email, role: user.role },
-      secret,
+      secret!,
       { expiresIn } as any,
     )
   }
@@ -153,17 +199,17 @@ export function user(options: UserOptions): UserModule {
   }
 
   async function findByEmail(email: string): Promise<any | undefined> {
-    const { data: rows } = await users.readMany({ email } as any)
+    const { data: rows } = await _users.readMany({ email } as any)
     return rows[0]
   }
 
   async function findById(id: number): Promise<any | undefined> {
-    return await users.read(id)
+    return await _users.read(id)
   }
 
   async function createPlaceholderUser(email: string, name: string): Promise<any> {
     const randomPassword = randomBytes(32).toString('hex')
-    const row = await users.insert({ email, password: randomPassword, name } as any)
+    const row = await _users.insert({ email, password: randomPassword, name } as any)
     return row as any
   }
 
@@ -178,7 +224,7 @@ export function user(options: UserOptions): UserModule {
     }
 
     const hashed = hashPassword(password)
-    const row = await users.insert({ email, password: hashed, name } as any)
+    const row = await _users.insert({ email, password: hashed, name } as any)
     const userData = row as unknown as UserData
     const token = signToken(userData)
     return { user: stripPassword(userData), token }
@@ -187,7 +233,7 @@ export function user(options: UserOptions): UserModule {
   async function login(data: { email: string; password: string }): Promise<AuthResult> {
     const { email, password } = LoginSchema.parse(data)
 
-    const { data: rows } = await users.readMany({ email } as any)
+    const { data: rows } = await _users.readMany({ email } as any)
     const row = rows[0]
     if (!row) {
       const err = new Error('Invalid email or password')
@@ -208,8 +254,9 @@ export function user(options: UserOptions): UserModule {
 
   async function verify(token: string): Promise<Omit<UserData, 'password'> | null> {
     try {
-      const payload = jwt.verify(token, secret) as any
+      const payload = jwt.verify(token, secret!) as any
       if (payload.token_type === 'client_credentials') return null
+      if (!hasDb || !findById) return null
       const row = await findById(payload.sub)
       if (!row) return null
       return stripPassword(row)
@@ -218,30 +265,20 @@ export function user(options: UserOptions): UserModule {
     }
   }
 
-  function extractToken(req: Request, cookieName?: string): string | null {
-    // Strategy A: Authorization header
-    const header = req.headers.get('Authorization')
-    if (header?.startsWith('Bearer ')) return header.slice(7)
-    // Strategy B: Cookie
-    if (cookieName) {
-      const cookies = req.headers.get('cookie')?.split(';').map(c => c.trim()).filter(Boolean) || []
-      for (const c of cookies) {
-        const eq = c.indexOf('=')
-        if (eq > 0 && c.slice(0, eq) === cookieName) return c.slice(eq + 1)
-      }
-    }
-    return null
-  }
+  const headerName = options.header ?? 'Authorization'
 
-  function middleware(): Middleware<Context, Context & UserInjected> {
-    return async (req, ctx, next) => {
-      // Strategy 1: Session-based auth — load user from ctx.session.userId
-      const sessionUserId = (ctx as any).session?.userId
-      if (sessionUserId) {
+  /**
+   * Try all auth strategies in order. Returns `ctx.user` value or null.
+   * Used by both middleware() (strict) and middlewareOptional() (non-blocking).
+   */
+  async function resolveUser(req: Request, ctx: Context): Promise<unknown> {
+    // ── Strategy 1: Session-based auth ──────────────────────────────
+    const sessionUserId = (ctx as any).session?.userId
+    if (sessionUserId !== undefined && sessionUserId !== null) {
+      if (hasDb) {
         const row = await findById(sessionUserId)
         if (row) {
-          ctx.user = stripPassword(row)
-          return next(req, ctx as Context & UserInjected)
+          return stripPassword(row)
         }
         // User was deleted — clear stale session reference
         if (typeof (ctx as any).session?.destroy === 'function') {
@@ -249,31 +286,114 @@ export function user(options: UserOptions): UserModule {
         } else {
           delete (ctx as any).session?.userId
         }
-      }
-
-      // Strategy 2: JWT-based auth from Authorization header
-      const token = extractToken(req)
-      if (token) {
-        const userData = await verify(token)
+      } else if (options.resolveUser) {
+        const userData = await options.resolveUser(sessionUserId)
         if (userData) {
-          ctx.user = userData
-          return next(req, ctx as Context & UserInjected)
+          return userData
         }
+        // User was deleted — clear stale session reference
+        if (typeof (ctx as any).session?.destroy === 'function') {
+          ;(ctx as any).session.destroy()
+        }
+        console.warn(`[${currentTraceId()}] user: session userId ${sessionUserId} resolved to null`)
+      } else {
+        // DB-less, no resolveUser: trust the session
+        return { id: sessionUserId }
+      }
+    }
+
+    // Extract token from header / query / cookie
+    const token = extractToken(req, headerName)
+    if (!token) return null
+
+    // ── Strategy 2: Static tokens ──────────────────────────────────
+    if (options.tokens?.length) {
+      if (options.tokens.includes(token)) {
+        return { id: token }
+      }
+      console.warn(`[${currentTraceId()}] user: invalid static token`)
+      return null
+    }
+
+    // ── Strategy 3: Custom verify ──────────────────────────────────
+    if (options.verify) {
+      const result = await options.verify(token, req)
+      if (!result) {
+        console.warn(`[${currentTraceId()}] user: verify failed for token`)
+        return null
+      }
+      return result
+    }
+
+    // ── Strategy 4: Proxy auth ─────────────────────────────────────
+    if (options.proxy) {
+      let proxyUrl: URL
+      try {
+        proxyUrl = typeof options.proxy === 'string' ? new URL(options.proxy) : options.proxy
+      } catch {
+        return null
       }
 
-      return new Response('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } })
+      const proxyHeaders: Record<string, string> = {}
+      proxyHeaders[headerName] = req.headers.get(headerName) ?? `Bearer ${token}`
+
+      for (const name of ['x-forwarded-for', 'x-real-ip', 'user-agent', 'content-type']) {
+        const v = req.headers.get(name)
+        if (v) proxyHeaders[name] = v
+      }
+
+      try {
+        const proxyRes = await fetch(proxyUrl.href, { headers: proxyHeaders })
+        if (proxyRes.status >= 400) {
+          console.warn(`[${currentTraceId()}] user: proxy auth rejected (${proxyRes.status})`)
+          return null
+        }
+        const ct = proxyRes.headers.get('content-type')
+        if (ct?.includes('application/json')) {
+          try { return await proxyRes.json() } catch {}
+        }
+        return { id: token }
+      } catch (err) {
+        console.warn(`[${currentTraceId()}] user: proxy auth error: ${err}`)
+        return null
+      }
+    }
+
+    // ── Strategy 5: JWT-based auth (requires jwtSecret + DB) ───────
+    if (secret && hasDb) {
+      try {
+        const payload = jwt.verify(token, secret) as any
+        if (payload.token_type === 'client_credentials') return null
+        const row = await findById(payload.sub)
+        if (row) return stripPassword(row)
+      } catch {}
+      return null
+    }
+
+    return null
+  }
+
+  function middleware(): Middleware<Context, Context & UserInjected> {
+    return async (req, ctx, next) => {
+      const userData = await resolveUser(req, ctx)
+      if (userData) {
+        ctx.user = userData
+        return next(req, ctx as Context & UserInjected)
+      }
+      return new Response('Unauthorized', {
+        status: 401,
+        headers: headerName.toLowerCase() === 'authorization'
+          ? { 'WWW-Authenticate': 'Bearer' }
+          : undefined,
+      })
     }
   }
 
-  function middlewareOptional(opts?: { cookie?: string }): Middleware {
-    const cookieName = opts?.cookie
+  function middlewareOptional(_opts?: { cookie?: string }): Middleware {
     return async (req, ctx, next) => {
-      const token = extractToken(req, cookieName)
-      if (token) {
-        const userData = await verify(token)
-        if (userData) {
-          ctx.user = userData as any
-        }
+      const userData = await resolveUser(req, ctx)
+      if (userData) {
+        ctx.user = userData as any
       }
       return next(req, ctx)
     }
@@ -284,7 +404,6 @@ export function user(options: UserOptions): UserModule {
     if (ct.includes('application/json')) {
       return req.json() as Promise<Record<string, unknown>>
     }
-    // Form data
     const form = await req.formData()
     const obj: Record<string, unknown> = {}
     for (const [key, val] of form) {
@@ -293,9 +412,10 @@ export function user(options: UserOptions): UserModule {
     return obj
   }
 
-  function router(): Router {
-    const r = new Router()
+  // ── Router (only when DB is available) ───────────────────────────────
+  const r = new Router()
 
+  if (hasDb) {
     r.post('/register', async (req) => {
       try {
         const body = await parseBody(req)
@@ -315,15 +435,12 @@ export function user(options: UserOptions): UserModule {
         const body = await parseBody(req)
         const result = await login(body as any)
 
-        // Populate session if session middleware is present
         if ((ctx as any).session) {
           ;(ctx as any).session.userId = result.user.id
           ;(ctx as any).session.role = result.user.role
         }
 
         const res = Response.json(result)
-        // Also set a cookie for SPA/JWT-based clients
-        // (the session-based path takes priority in middleware())
         if (!(ctx as any).session) {
           res.headers.set('Set-Cookie', `session=${result.token}; HttpOnly; SameSite=Lax; Path=/`)
         }
@@ -336,22 +453,18 @@ export function user(options: UserOptions): UserModule {
         return Response.json({ error: err.message }, { status })
       }
     })
-
-    if (oauth2) {
-      r.get('/oauth/authorize', (req, ctx) => oauth2!.authorizeHandler(req, ctx))
-      r.post('/oauth/consent', (req) => oauth2!.consentHandler(req))
-      r.post('/oauth/token', (req) => oauth2!.tokenHandler(req))
-    }
-
-    return r
   }
 
-  const r = router()
+  if (oauth2) {
+    r.get('/oauth/authorize', (req, ctx) => oauth2!.authorizeHandler(req, ctx))
+    r.post('/oauth/consent', (req) => oauth2!.consentHandler(req))
+    r.post('/oauth/token', (req) => oauth2!.tokenHandler(req))
+  }
 
   // Register OAuth login routes (login with GitHub/Google)
-  if (options.oauthLogin) {
+  if (hasDb && options.oauthLogin) {
     registerOAuthLoginRoutes(r, {
-      sql: pg.sql,
+      sql: _pg.sql,
       jwtSecret: secret,
       expiresIn,
       usersTable: table,
@@ -364,13 +477,14 @@ export function user(options: UserOptions): UserModule {
     }, options.oauthLogin.providers)
   }
 
+  // ── Assemble module ───────────────────────────────────────────────────
   const mod = r as UserModule
   mod.middleware = middleware
   mod.middlewareOptional = middlewareOptional
-  mod.migrate = migrate
-  mod.register = register
-  mod.login = login
-  mod.verify = verify
+  mod.migrate = hasDb ? migrate : async () => {}
+  mod.register = hasDb ? register : async () => { throw new Error('user(): pg required for register') }
+  mod.login = hasDb ? login : async () => { throw new Error('user(): pg required for login') }
+  mod.verify = hasDb ? verify : async () => null
   mod.registerClient = oauth2
     ? (data) => oauth2!.registerClient(data)
     : async () => { throw new Error('OAuth2 server is not enabled') }
@@ -380,7 +494,7 @@ export function user(options: UserOptions): UserModule {
   mod.revokeClient = oauth2
     ? (clientId) => oauth2!.revokeClient(clientId)
     : async () => { throw new Error('OAuth2 server is not enabled') }
-  mod.close = () => base.close()
+  mod.close = hasDb ? () => base!.close() : async () => {}
 
   return mod
 }
