@@ -7,7 +7,15 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/', 'node_modules/', '**/.weifuwu/', '**/.sessions/', 'coverage/', 'examples/', '.scripts/'],
+    ignores: [
+      'dist/',
+      'node_modules/',
+      '**/.weifuwu/',
+      '**/.sessions/',
+      'coverage/',
+      'examples/',
+      '.scripts/',
+    ],
   },
   {
     languageOptions: {
@@ -18,7 +26,7 @@ export default tseslint.config(
     },
     rules: {
       // ── Gradual strictness ──────────────────────────────────────
-      '@typescript-eslint/no-explicit-any': 'warn',            // Stage 2 target: error
+      '@typescript-eslint/no-explicit-any': 'warn', // Stage 2 target: error
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-require-imports': 'error',
       // {} is valid in many patterns (e.g. Record<string, {}>); fix gradually
@@ -27,7 +35,7 @@ export default tseslint.config(
       // ── Code quality ───────────────────────────────────────────
       'no-var': 'error',
       'prefer-const': 'warn',
-      'no-console': 'warn',                                     // allow logger but not raw console
+      'no-console': 'warn', // allow logger but not raw console
       'no-duplicate-imports': 'error',
       // Empty catch blocks need comments; use _err pattern
       'no-empty': ['error', { allowEmptyCatch: true }],

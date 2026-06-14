@@ -1,5 +1,5 @@
 import type { PostgresClient } from './types.ts'
- 
+
 import type { SqlClient } from '../vendor.ts'
 import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'
 import type { Closeable } from '../types.ts'
