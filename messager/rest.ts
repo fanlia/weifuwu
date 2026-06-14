@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Sql } from '../vendor.ts'
 import { Router } from '../router.ts'
 import { broadcastToChannel } from './ws.ts'

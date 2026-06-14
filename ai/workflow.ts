@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { tool, generateText, type LanguageModel, type ModelMessage } from 'ai'
 import { z } from 'zod'
 import type { AIProvider } from './provider.ts'
