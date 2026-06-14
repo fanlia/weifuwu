@@ -114,7 +114,7 @@ describe('rateLimit', () => {
     const res1 = await r.handler()(req, { params: {}, query: {} } as any)
     assert.equal(res1.status, 200)
 
-    rl.stop()
+    rl.close()
 
     // After stop, new requests should work as if fresh
     const res2 = await r.handler()(req, { params: {}, query: {} } as any)

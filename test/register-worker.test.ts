@@ -63,7 +63,7 @@ describe('registerWorker', () => {
   let worker: ReturnType<typeof registerWorker>
 
   afterEach(() => {
-    if (worker) worker.shutdown()
+    if (worker) worker.close()
     MockWebSocket.last = null
   })
 
@@ -277,14 +277,14 @@ describe('registerWorker', () => {
       closeCalled = true
       origClose()
     }
-    worker.shutdown()
+    worker.close()
     assert.ok(closeCalled)
   })
 
   it('shutdown prevents reconnect', () => {
     worker = registerWorker('ws://localhost:9999/iii')
     MockWebSocket.simulateOpen()
-    worker.shutdown()
+    worker.close()
     const oncloseBefore = getWs().onclose
     getWs().onclose?.({ code: 1006, reason: 'abnormal', wasClean: false })
     assert.equal(getWs().onclose, oncloseBefore, 'reconnect timer should not be set after shutdown')

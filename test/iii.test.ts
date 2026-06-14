@@ -434,7 +434,7 @@ describe('iii', () => {
   })
 
   it('shutdown cleans up', async () => {
-    await engine.shutdown()
+    await engine.close()
     assert.equal(engine.listWorkers().length, 0)
     assert.equal(engine.listFunctions().length, 0)
   })
