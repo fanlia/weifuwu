@@ -2,6 +2,7 @@
  * Test setup: registers happy-dom globals before any tests run.
  * Import this first in tests that need a DOM environment.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Window } from 'happy-dom'
 
 const win = new Window()

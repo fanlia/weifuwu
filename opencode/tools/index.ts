@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Tool } from 'ai'
 import type { OpencodePermissions, SkillRegistry } from '../types.ts'
 import { isToolEnabled } from '../permissions.ts'

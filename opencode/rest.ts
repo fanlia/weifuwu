@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from '../router.ts'
 import { ssr } from '../ssr.ts'
 import type { LanguageModel } from 'ai'
