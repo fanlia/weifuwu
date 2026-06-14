@@ -141,13 +141,13 @@ export class Router<T extends Context = Context> {
   // Path-scoped middleware — does not accumulate
   use(path: string, mw: Middleware<T, T>): Router<T>
   // Mount sub-router — flattens into parent, does not accumulate
-  use(path: string, router: Router<any>): Router<T>
+  use(path: string, router: Router<Context>): Router<T>
   // Module with .middleware() — auto-register middleware + mount at /
   use(mod: Router & { middleware: () => Middleware }): Router<T>
   use(
-    arg1: string | Middleware<any, any> | (Router & { middleware: () => Middleware }),
-    arg2?: Router<any> | Middleware<T, T>,
-  ): Router<any> {
+    arg1: string | Middleware<Context, Context> | (Router & { middleware: () => Middleware }),
+    arg2?: Router<Context> | Middleware<T, T>,
+  ): Router<T> {
     if (typeof arg1 === 'string') {
       if (arg2 instanceof Router) {
         this._mountRouter(arg1, arg2)
@@ -164,6 +164,7 @@ export class Router<T extends Context = Context> {
       typeof arg1 === 'object' &&
       arg1 !== null &&
       'middleware' in arg1 &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       typeof (arg1 as any).middleware === 'function' &&
       arg1 instanceof Router
     ) {
@@ -178,35 +179,35 @@ export class Router<T extends Context = Context> {
 
   // Route registration — returns Router<T> unchanged.
   // Route-level middleware and handlers get Context<T>.
-  get(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  get(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
     return this._route('GET', path, ...args)
   }
 
-  post(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  post(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
     return this._route('POST', path, ...args)
   }
 
-  put(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  put(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
     return this._route('PUT', path, ...args)
   }
 
-  delete(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  delete(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
     return this._route('DELETE', path, ...args)
   }
 
-  patch(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  patch(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
     return this._route('PATCH', path, ...args)
   }
 
-  head(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  head(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
     return this._route('HEAD', path, ...args)
   }
 
-  options(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  options(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
     return this._route('OPTIONS', path, ...args)
   }
 
-  all(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]): Router<T> {
+  all(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
     return this._route('*', path, ...args)
   }
 
@@ -218,12 +219,13 @@ export class Router<T extends Context = Context> {
   private _route(
     method: string,
     path: string,
-    ...args: [...Middleware<T, T>[], Handler<T> | Router<any>]
+    ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]
   ): Router<T> {
     return this._routeImpl(method, path, args)
   }
 
   /** Internal route registration — no type constraints (used by _mountRouter). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _routeImpl(method: string, path: string, args: any[]): Router<T> {
     const last = args[args.length - 1]
     if (last instanceof Router) {
@@ -373,7 +375,7 @@ export class Router<T extends Context = Context> {
     }
   }
 
-  private _mountRouter(prefix: string, sub: Router<any>, extraMws: Middleware[] = []): void {
+  private _mountRouter(prefix: string, sub: Router<Context>, extraMws: Middleware[] = []): void {
     const base = prefix === '/' ? '' : prefix.replace(/\/$/, '')
 
     const mountMw: Middleware = (req, ctx, next) => {
@@ -403,7 +405,9 @@ export class Router<T extends Context = Context> {
     for (const { path, handler, middlewares } of wsRoutes) {
       this.ws(
         base + path,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ...(allExtra as Middleware<any, any>[]),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ...(middlewares as Middleware<any, any>[]),
         handler,
       )

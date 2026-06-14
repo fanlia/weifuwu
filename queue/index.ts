@@ -5,6 +5,9 @@ import { Router } from '../router.ts'
 import type { Queue, QueueOptions, QueueJob, QueueJobWithError } from './types.ts'
 import { cronNext, parsePattern, matches } from '../cron-utils.ts'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type JobHandler = (job: QueueJob<any>) => Promise<void>
+
 // ── Factory ─────────────────────────────────────────────────────────────────
 
 export function queue(opts?: QueueOptions): Queue {
@@ -24,7 +27,8 @@ function escapeIdent(s: string): string {
 }
 
 /** Adds cron() to a queue instance: uses process + add with schedule internally. */
-function attachCron(q: Queue, handlers: Map<string, any>): void {
+function attachCron(q: Queue, handlers: Map<string, JobHandler>): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(q as any).cron = function (pattern: string, handler: () => void | Promise<void>) {
     const id =
       '__cron_' + pattern.replace(/[^a-zA-Z0-9]/g, '_') + '_' + crypto.randomUUID().slice(0, 8)
@@ -42,7 +46,7 @@ function attachCron(q: Queue, handlers: Map<string, any>): void {
 
 function createMemoryQueue(opts?: QueueOptions): Queue {
   const pollInterval = opts?.pollInterval ?? 200
-  const handlers = new Map<string, (job: any) => Promise<void>>()
+  const handlers = new Map<string, JobHandler>()
   const pending: QueueJob[] = []
   const failed: QueueJobWithError[] = []
   const MAX_FAILED = 1000
@@ -130,7 +134,7 @@ function createMemoryQueue(opts?: QueueOptions): Queue {
     type: string,
     handler: (job: QueueJob<T>) => Promise<void>,
   ): void {
-    handlers.set(type, handler as any)
+    handlers.set(type, handler)
   }
   mw.run = async function run(): Promise<void> {
     if (running) return
@@ -176,6 +180,7 @@ function createMemoryQueue(opts?: QueueOptions): Queue {
   mw.dashboard = function dashboard(): Router {
     return buildDashboard(q)
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(mw as any).stats = () => ({
     running,
     inflight,
@@ -197,7 +202,7 @@ function createPgQueue(opts?: QueueOptions): Queue {
   const sql = opts!.pg!.sql
   const pollInterval = opts?.pollInterval ?? 200
   const table = (opts?.prefix ?? 'queue') + '_jobs'
-  const handlers = new Map<string, (job: any) => Promise<void>>()
+  const handlers = new Map<string, JobHandler>()
   let running = false,
     pollTimer: ReturnType<typeof setTimeout> | null = null
   let _processed = 0,
@@ -218,6 +223,7 @@ function createPgQueue(opts?: QueueOptions): Queue {
     ready = true
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function processJob(job: any, handler: (job: any) => Promise<void>): Promise<void> {
     inflight++
     try {
@@ -260,6 +266,7 @@ function createPgQueue(opts?: QueueOptions): Queue {
       while (running && inflight < MAX_CONCURRENT) {
         const rows = (await sql.unsafe(
           `UPDATE ${escapeIdent(table)} SET status = 'running' WHERE id = (SELECT id FROM ${escapeIdent(table)} WHERE run_at <= NOW() AND status = 'pending' ORDER BY run_at LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *`,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         )) as any[]
         if (rows.length === 0) break
         const row = rows[0]
@@ -317,7 +324,10 @@ function createPgQueue(opts?: QueueOptions): Queue {
       return id
     })()
   }
-  mw.process = function process<T>(type: string, handler: (job: any) => Promise<void>): void {
+  mw.process = function process<T>(
+    type: string,
+    handler: (job: QueueJob<T>) => Promise<void>,
+  ): void {
     handlers.set(type, handler)
   }
   mw.migrate = ensureTable
@@ -342,8 +352,9 @@ function createPgQueue(opts?: QueueOptions): Queue {
     const rows = (await sql.unsafe(
       `SELECT * FROM ${escapeIdent(table)} WHERE status = 'pending' ORDER BY run_at LIMIT $1`,
       [limit ?? 50],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     )) as any[]
-    return rows.map((r: any) => ({
+    return rows.map((r) => ({
       id: r.id,
       type: r.type,
       payload: typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload,
@@ -356,8 +367,9 @@ function createPgQueue(opts?: QueueOptions): Queue {
     const rows = (await sql.unsafe(
       `SELECT * FROM ${escapeIdent(table)} WHERE status = 'failed' ORDER BY failed_at DESC LIMIT $1`,
       [limit ?? 50],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     )) as any[]
-    return rows.map((r: any) => ({
+    return rows.map((r) => ({
       id: r.id,
       type: r.type,
       payload: typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload,
@@ -372,6 +384,7 @@ function createPgQueue(opts?: QueueOptions): Queue {
     const result = (await sql.unsafe(
       `UPDATE ${escapeIdent(table)} SET status = 'pending', error = NULL, failed_at = NULL, run_at = NOW() WHERE id = $1 AND status = 'failed' RETURNING id`,
       [jobId],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     )) as any[]
     return result.length > 0
   }
@@ -381,12 +394,14 @@ function createPgQueue(opts?: QueueOptions): Queue {
         ? `UPDATE ${escapeIdent(table)} SET status = 'pending', error = NULL, failed_at = NULL, run_at = NOW() WHERE status = 'failed' AND type = $1 RETURNING id`
         : `UPDATE ${escapeIdent(table)} SET status = 'pending', error = NULL, failed_at = NULL, run_at = NOW() WHERE status = 'failed' RETURNING id`,
       type ? [type] : [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     )) as any[]
     return result.length
   }
   mw.dashboard = function dashboard(): Router {
     return buildDashboard(q)
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(mw as any).stats = () => ({
     running,
     inflight,
@@ -409,7 +424,7 @@ function createRedisQueue(opts?: QueueOptions): Queue {
     opts?.redis ?? new IORedis(opts?.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379')
   const prefix = opts?.prefix ?? 'queue'
   const pollInterval = opts?.pollInterval ?? 200
-  const handlers = new Map<string, (job: any) => Promise<void>>()
+  const handlers = new Map<string, JobHandler>()
   let running = false,
     pollTimer: ReturnType<typeof setTimeout> | null = null,
     epoch = 0
@@ -513,7 +528,7 @@ function createRedisQueue(opts?: QueueOptions): Queue {
     type: string,
     handler: (job: QueueJob<T>) => Promise<void>,
   ): void {
-    handlers.set(type, handler as any)
+    handlers.set(type, handler)
   }
   mw.run = async function run(): Promise<void> {
     if (running) return
@@ -596,6 +611,7 @@ function createRedisQueue(opts?: QueueOptions): Queue {
   mw.dashboard = function dashboard(): Router {
     return buildDashboard(q)
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(mw as any).stats = () => ({
     running,
     inflight,
@@ -632,7 +648,7 @@ function buildDashboard(q: Queue): Router {
   })
   r.get('/:type/failed', async (req, ctx) => {
     const failed = await q.failedJobs(100)
-    return Response.json({ jobs: failed.filter((j: any) => j.type === ctx.params.type) })
+    return Response.json({ jobs: failed.filter((j) => j.type === ctx.params.type) })
   })
   r.post('/:type/retry', async (req, ctx) => {
     return Response.json({ retried: await q.retryAllFailed(ctx.params.type) })
