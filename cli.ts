@@ -33,8 +33,14 @@ async function cmdInit(name: string, opts: { minimal?: boolean; skipInstall?: bo
   const targetDir = resolve(process.cwd(), name)
   const pkg = await readPkg()
   const v = pkg.version
+  // Map of known type package versions that align with our runtime deps
+  const typeVersions: Record<string, string> = {
+    '@types/react': '^19',
+    '@types/react-dom': '^19',
+    '@types/node': '^22',
+  }
   const depVer = (depName: string) =>
-    `^${(pkg.devDependencies?.[depName] || '0.0.0').replace(/^\^/, '')}`
+    typeVersions[depName] || `^${(pkg.devDependencies?.[depName] || '0.0.0').replace(/^\^/, '')}`
 
   await mkdir(targetDir, { recursive: true })
 
