@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { dirname, join, resolve, relative } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { compile, compileBrowser, OUT_DIR, compileVendorBundle } from './compile.ts'
+import { compile, compileBrowser, getBrowserCode, compileVendorBundle } from './compile.ts'
 import { streamResponse } from './stream.ts'
 import { TsxContext, setCtx, __registerAls, type PageContext } from './tsx-context.ts'
 import { Router } from './router.ts'
@@ -244,7 +244,7 @@ init();
 
 // ── Page renderer ───────────────────────────────────────────────────────
 
-function renderPage(pageFile: string, outDir: string): Handler {
+function renderPage(pageFile: string): Handler {
   const absPath = resolve(pageFile)
   const entryId = hashId(absPath)
   ssrEntries.set(entryId, { path: absPath })
@@ -287,7 +287,7 @@ function renderPage(pageFile: string, outDir: string): Handler {
       setCtx(ctxValue)
 
       // Compile page component for browser (served at /__ssr/[hash].js)
-      await compileBrowser(absPath, outDir)
+      await compileBrowser(absPath)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let element: any = createElement(
@@ -383,20 +383,17 @@ export function ssr(opts: {
 }): Router & { close?: () => void; pages?: () => RouteEntry[] } {
   const r = new Router()
   const dir = resolve(opts.dir)
-  const outDir = resolve(OUT_DIR)
   const routeCache = new Map<string, ResolvedRoute | null>()
 
   // Pre-warm vendor bundle so vendorHash is available for importmap
   compileVendorBundle().catch(() => {})
 
-  // Serve browser-compiled page components
+  // Serve browser-compiled page components from memory
   r.get('/__ssr/:file', (req, ctx) => {
-    const filePath = join(outDir, ctx.params.file)
-    if (!filePath.startsWith(outDir) || !existsSync(filePath)) {
-      return new Response('Not Found', { status: 404 })
-    }
-    const content = readFileSync(filePath, 'utf-8')
-    return new Response(content, {
+    const hash = ctx.params.file.replace(/\.js$/i, '')
+    const code = getBrowserCode(hash)
+    if (!code) return new Response('Not Found', { status: 404 })
+    return new Response(code, {
       headers: { 'content-type': 'application/javascript; charset=utf-8' },
     })
   })
@@ -453,7 +450,7 @@ export function ssr(opts: {
       tailwindContext(dir),
     ]
 
-    const handler: Handler = (req, ctx) => renderPage(resolved.pageFile, outDir)(req, ctx)
+    const handler: Handler = (req, ctx) => renderPage(resolved.pageFile)(req, ctx)
     return runChain(mws, handler, req, ctx)
   })
 

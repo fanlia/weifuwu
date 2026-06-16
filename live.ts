@@ -9,6 +9,7 @@ import {
   compileHotComponent,
   compileVendorBundle,
   clearCompileCache,
+  clearBrowserCache,
   id,
 } from './compile.ts'
 import { compileTailwindCss } from './tailwind.ts'
@@ -113,6 +114,7 @@ export function liveWatcher(dir: string): { close: () => void } {
         return broadcastReload()
       }
       clearCompileCache()
+      clearBrowserCache(filePath)
       const targets = existsSync(entryPath) ? [entryPath] : findEntries(resolve(filePath))
       if (targets.length === 0) return broadcastReload()
       try {

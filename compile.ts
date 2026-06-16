@@ -62,6 +62,18 @@ export function clearCompileCache() {
   _alias = null
 }
 
+// Browser-side compiled code cache (in-memory, no disk writes)
+const browserCache = new Map<string, string>()
+
+export function getBrowserCode(hash: string): string | undefined {
+  return browserCache.get(hash)
+}
+
+export function clearBrowserCache(path?: string) {
+  if (path) browserCache.delete(id(resolve(path)))
+  else browserCache.clear()
+}
+
 export async function compileTsx(path: string): Promise<any> {
   const absPath = resolve(path)
   if (cache.has(absPath)) return cache.get(absPath)!
@@ -212,15 +224,12 @@ export async function compileVendorBundle(): Promise<string> {
 
 /** Compile page component for browser (served at /__ssr/[hash].js).
  *  The weifuwu source modules are externalized — they come from the vendor
- *  bundle at runtime via importmap, ensuring store is shared. */
-export async function compileBrowser(path: string, outDir?: string): Promise<string> {
+ *  bundle at runtime via importmap, ensuring store is shared.
+ *  Results are cached in memory — no disk writes. */
+export async function compileBrowser(path: string): Promise<string> {
   const absPath = resolve(path)
   const h = id(absPath)
-  outDir = outDir ?? resolve(OUT_DIR)
-  const outPath = join(outDir, h + '.js')
-  // Skip esbuild if already compiled (production: file persists; dev: HMR handles recompilation)
-  if (!_isDev() && existsSync(outPath)) return h
-  mkdirSync(outDir, { recursive: true })
+  if (browserCache.has(h)) return h
 
   // Map weifuwu source paths to weifuwu/react (external) so they are not inlined
   const wfwDir = resolve(import.meta.dirname ?? __dirname)
@@ -241,9 +250,8 @@ export async function compileBrowser(path: string, outDir?: string): Promise<str
     },
   }
 
-  await esbuild.build({
+  const result = await esbuild.build({
     entryPoints: { [h]: absPath },
-    outdir: outDir,
     format: 'esm',
     platform: 'browser',
     jsx: 'automatic',
@@ -258,10 +266,10 @@ export async function compileBrowser(path: string, outDir?: string): Promise<str
       'weifuwu/react',
     ],
     plugins: [plugin],
-    write: true,
-    allowOverwrite: true,
+    write: false,
   })
 
+  browserCache.set(h, result.outputFiles[0].text)
   return h
 }
 
