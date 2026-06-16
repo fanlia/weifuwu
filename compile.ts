@@ -5,10 +5,9 @@ import { join, resolve, dirname } from 'node:path'
 import { isDev as _isDev, isBundled } from './env.ts'
 import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
-import vm from 'node:vm'
 import { createRequire } from 'node:module'
+import { getServerModule, clearServerModule } from './server-registry.ts'
 
-const _cjsRequire = createRequire(import.meta.url)
 let _userRequire: ReturnType<typeof createRequire> | null = null
 
 export const OUT_DIR = '.weifuwu/ssr'
@@ -59,6 +58,7 @@ export function id(s: string): string {
 
 export function clearCompileCache() {
   cache.clear()
+  clearServerModule()
   _alias = null
 }
 
@@ -89,40 +89,22 @@ export async function compileTsx(path: string): Promise<any> {
   return mod
 }
 
-function loadSSRModule(code: string): any {
-  const ctx = vm.createContext(Object.create(globalThis))
-  const mod = { exports: {} }
-  ;(ctx as any).require = (name: string) => _cjsRequire(name)
-  ;(ctx as any).module = mod
-  ;(ctx as any).exports = mod.exports
-  new vm.Script(code).runInContext(ctx)
-  return mod.exports
-}
-
-/** Dev hot-reload: CJS + in-memory + vm (faster than ESM + disk + import) */
-export async function compileTsxDev(path: string): Promise<any> {
+/**
+ * Dev hot-reload: per-file transformSync (~0.5ms) + shared vm context.
+ * No bundler, no disk I/O. Relative imports are resolved through
+ * server-registry recursively.
+ */
+export function compileTsxDev(path: string): any {
   const absPath = resolve(path)
-  if (cache.has(absPath)) return cache.get(absPath)!
-  const result = await esbuild.build({
-    entryPoints: { [id(absPath)]: absPath },
-    format: 'cjs',
-    platform: 'node',
-    jsx: 'automatic',
-    jsxImportSource: 'react',
-    bundle: true,
-    external: externals,
-    alias: resolveAliases(),
-    write: false,
-  })
-  const code = new TextDecoder().decode(result.outputFiles[0].contents)
-  const mod = loadSSRModule(code)
+  const mod = getServerModule(absPath)
+  // Also populate compile's cache so compileTsx (production) can share
   cache.set(absPath, mod)
   return mod
 }
 
-/** Auto-select dev (vm) or prod (ESM + import) compilation */
+/** Auto-select dev (registry+vm) or prod (ESM + import) compilation */
 export function compile(path: string): Promise<any> {
-  return _isDev() ? compileTsxDev(path) : compileTsx(path)
+  return _isDev() ? Promise.resolve(compileTsxDev(path)) : compileTsx(path)
 }
 
 let vendorBundle: string | null = null
