@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.25.0 — 2026-06-16
+
+### 新增
+
+- **MCP Server 集成** (`mcp.ts`) — 通过 stdio JSON-RPC 与任何 MCP Server 通信，自动将工具转换为 AI SDK `Tool` 对象。支持 `getTools()`、`refresh()`、`callTool()`、`close()`。8 个测试。
+- **通知系统** (`notifier/`) — 三通道通知：inbox（DB 持久化）、email（Nodemailer）、WebSocket（hub）。用户级频道偏好，完整 CRUD。Pattern α middleware 注入 `ctx.notifier`。11 个测试。
+- **API Key 管理** (`user({ apiKeys: true })`) — 每个用户可以创建/吊销 API keys，`sk_live_` 前缀 + SHA256 哈希，支持 scopes。REST API 路由 `GET/POST /api-keys`、`DELETE /api-keys/:id`。自动集成到 `middleware()` 认证流程。8 个测试。
+- **WebSocket 测试工具** (`testApp().wsReq()`) — `testApp` 新增 `ws()` 和 `wsReq()` 方法，支持连接真实 WebSocket、发送/接收消息、超时断言、静默断言。6 个测试。
+- **中间件依赖运行时检查** — Middleware 通过 `__meta = { injects, depends }` 声明字段依赖，`Router.use()` 在注册时 `console.warn` 提示缺失依赖。内置 `postgres`、`redis`、`session`、`aiProvider`、`rateLimit` 已附加 `__meta`。7 个测试。
+
+### 重构
+
+- **iii 模块简化** — 移除 `stream.ts`（411 行）及 8 个内置流函数（`stream::set/get/delete/list/list_groups/list_all/send/update`），移除 `StreamSubscription`/`StreamUpdateOp` 类型，移除 `onStream()` 方法。iii 只保留跨进程函数调用核心能力。测试从 441 行精简到 187 行，覆盖所有保留功能。
+
+### 修复
+
+- **postgres.js JSONB 序列化陷阱** — 通知系统的 `setPreferences()` 和 `insertNotification()` 改用 `sql.json()` 而非 `JSON.stringify()`，修复 JSONB 数组被存储为 JSON 字符串的问题。
+- **MCP nextId 双重调用** — `createRequest()` 和 `sendRequest()` 各自调用 `nextId()` 导致请求 ID 不匹配，改为一处调用。
+
+### 模块元数据
+
+- `postgres`、`redis`、`session`、`aiProvider`、`rateLimit` 添加 `__meta` 声明
+
 ## v0.24.0 — 2026-06-14
 
 ### 认证体系统一

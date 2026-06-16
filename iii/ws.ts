@@ -11,11 +11,6 @@ interface WsHandlerDeps {
     input: { type: string; function_id: string; config: Record<string, unknown> },
   ) => void
   unregisterRemoteTrigger: (workerId: string, functionId: string) => void
-  addStreamSubscriber: (
-    ws: WebSocket,
-    sub: { stream_name: string; group_id?: string; item_id?: string },
-  ) => void
-  removeStreamSubscriber: (ws: WebSocket) => void
   handleInvokeResult: (invocationId: string, result: unknown) => void
   handleInvokeError: (invocationId: string, error: string) => void
   handleInvoke: (ws: WebSocket, invocationId: string, functionId: string, payload: unknown) => void
@@ -58,9 +53,9 @@ export function createWsHandler(deps: WsHandlerDeps) {
           const workerId = getWorkerId(ws)
           if (workerId) {
             deps.registerRemoteTrigger(workerId, {
-              type: msg.trigger_type || msg.type,
-              function_id: msg.function_id,
-              config: msg.config || {},
+              type: msg.input?.type || 'custom',
+              function_id: msg.input?.function_id || msg.id,
+              config: msg.input?.config || {},
             })
           }
           break
@@ -74,12 +69,7 @@ export function createWsHandler(deps: WsHandlerDeps) {
 
         case 'unregister_trigger': {
           const workerId = getWorkerId(ws)
-          if (workerId) deps.unregisterRemoteTrigger(workerId, msg.function_id)
-          break
-        }
-
-        case 'invoke': {
-          deps.handleInvoke(ws, msg.invocation_id, msg.function_id, msg.payload)
+          if (workerId) deps.unregisterRemoteTrigger(workerId, msg.function_id || msg.id)
           break
         }
 
@@ -93,34 +83,22 @@ export function createWsHandler(deps: WsHandlerDeps) {
           break
         }
 
-        case 'subscribe': {
-          deps.addStreamSubscriber(ws, {
-            stream_name: msg.stream_name || msg.channel || '',
-            group_id: msg.group_id,
-            item_id: msg.item_id,
-          })
+        case 'invoke': {
+          deps.handleInvoke(ws, msg.invocation_id, msg.function_id, msg.payload)
           break
         }
 
-        case 'unsubscribe': {
-          deps.removeStreamSubscriber(ws)
-          break
-        }
+        default:
+          ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: ${msg.type}` }))
       }
     },
 
     close(ws: WebSocket) {
       const workerId = getWorkerId(ws)
-      if (workerId) deps.unregisterRemoteWorker(workerId)
-      wsToWorkerId.delete(ws)
-      deps.removeStreamSubscriber(ws)
-    },
-
-    error(ws: WebSocket) {
-      const workerId = getWorkerId(ws)
-      if (workerId) deps.unregisterRemoteWorker(workerId)
-      wsToWorkerId.delete(ws)
-      deps.removeStreamSubscriber(ws)
+      if (workerId) {
+        deps.unregisterRemoteWorker(workerId)
+        wsToWorkerId.delete(ws)
+      }
     },
   }
 }

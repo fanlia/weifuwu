@@ -138,6 +138,7 @@ export function rateLimit(
     return addRateLimitHeaders(res, max, remaining, reset)
   }
 
+  ;(mw as any).__meta = { injects: [], depends: [] }
   mw.close = () => {
     if (interval) clearInterval(interval)
     hits.clear()

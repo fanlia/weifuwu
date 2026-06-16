@@ -13,3 +13,6 @@ export type {
   TriggerInput,
   RemoteWorker,
 } from './types.ts'
+
+// stream.ts was removed in v0.25 — iii is now focused on function invocation only.
+// For streaming data, use Redis directly or the queue module.

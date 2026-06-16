@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, no-console */
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
 import jwt, { type SignOptions } from 'jsonwebtoken'
 import { z } from 'zod'
 import type { Middleware, Context } from '../types.ts'
@@ -29,6 +29,11 @@ const RegisterSchema = z.object({
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+})
+
+const CreateApiKeySchema = z.object({
+  name: z.string().min(1),
+  scopes: z.array(z.string()).optional(),
 })
 
 function escapeIdent(s: string): string {
@@ -112,6 +117,7 @@ export function user(options: UserOptions): UserModule {
   const secret = options.jwtSecret as string
   const expiresIn = options.expiresIn ?? '24h'
   const oauth2Enabled = options.oauth2?.server ?? false
+  const apiKeysEnabled = options.apiKeys ?? false
 
   const base = hasDb ? new PgModule(pg) : null
 
@@ -157,6 +163,30 @@ export function user(options: UserOptions): UserModule {
       await _pg.sql.unsafe(`
         CREATE INDEX IF NOT EXISTS "_auth_providers_user_idx"
         ON "_auth_providers"(user_id)
+      `)
+    }
+
+    // API keys table
+    if (apiKeysEnabled) {
+      await _pg.sql.unsafe(`
+        CREATE TABLE IF NOT EXISTS "_api_keys" (
+          id          SERIAL PRIMARY KEY,
+          user_id     INTEGER NOT NULL REFERENCES ${escapeIdent(table)}(id) ON DELETE CASCADE,
+          name        TEXT NOT NULL,
+          key_prefix  TEXT NOT NULL,
+          key_hash    TEXT NOT NULL,
+          scopes      TEXT[] DEFAULT '{}',
+          last_used_at TIMESTAMPTZ,
+          expires_at  TIMESTAMPTZ,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          revoked     BOOLEAN DEFAULT false
+        )
+      `)
+      await _pg.sql.unsafe(`
+        CREATE INDEX IF NOT EXISTS "_api_keys_user_idx" ON "_api_keys"(user_id)
+      `)
+      await _pg.sql.unsafe(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "_api_keys_hash_idx" ON "_api_keys"(key_hash)
       `)
     }
 
@@ -287,6 +317,101 @@ export function user(options: UserOptions): UserModule {
     }
   }
 
+  // ── API Key management ────────────────────────────────────────────
+
+  function hashApiKey(key: string): string {
+    return createHash('sha256').update(key).digest('hex')
+  }
+
+  function generateApiKey(): string {
+    const random = randomBytes(32).toString('hex')
+    return `sk_live_${random}`
+  }
+
+  async function createApiKey(
+    userId: number,
+    name: string,
+    scopes?: string[],
+  ): Promise<{ id: number; key: string }> {
+    if (!hasDb) throw new Error('user(): pg required for API key management')
+
+    const key = generateApiKey()
+    const keyHash = hashApiKey(key)
+    const prefix = key.slice(0, 12) + '...' + key.slice(-4)
+
+    const [row] = (await _pg.sql.unsafe(
+      `INSERT INTO "_api_keys" (user_id, name, key_prefix, key_hash, scopes)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [userId, name, prefix, keyHash, scopes ?? []],
+    )) as { id: number }[]
+
+    return { id: row.id, key }
+  }
+
+  async function listApiKeys(userId: number): Promise<import('./types.ts').ApiKeyInfo[]> {
+    if (!hasDb) return []
+    const rows = (await _pg.sql.unsafe(
+      `SELECT id, name, key_prefix, scopes, last_used_at, created_at, revoked
+       FROM "_api_keys" WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId],
+    )) as any[]
+
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      prefix: r.key_prefix as string,
+      scopes: Array.isArray(r.scopes) ? r.scopes : [],
+      last_used_at: r.last_used_at ? new Date(r.last_used_at).toISOString() : null,
+      created_at: new Date(r.created_at).toISOString(),
+      revoked: !!r.revoked,
+    }))
+  }
+
+  async function revokeApiKey(userId: number, keyId: number): Promise<void> {
+    if (!hasDb) throw new Error('user(): pg required for API key management')
+    await _pg.sql.unsafe(`UPDATE "_api_keys" SET revoked = true WHERE id = $1 AND user_id = $2`, [
+      keyId,
+      userId,
+    ])
+  }
+
+  async function verifyApiKey(key: string): Promise<{ userId: number; scopes: string[] } | null> {
+    if (!hasDb || !apiKeysEnabled) return null
+    const keyHash = hashApiKey(key)
+    const [row] = (await _pg.sql.unsafe(
+      `SELECT id, user_id, scopes, revoked, expires_at
+       FROM "_api_keys" WHERE key_hash = $1 LIMIT 1`,
+      [keyHash],
+    )) as any[] | undefined[]
+
+    if (!row) return null
+    if (row.revoked) return null
+    if (row.expires_at && new Date(row.expires_at) < new Date()) return null
+
+    // Update last_used_at (best-effort)
+    await _pg.sql
+      .unsafe(
+        `UPDATE "_api_keys" SET last_used_at = NOW() WHERE id = $1 AND last_used_at IS NULL OR last_used_at < NOW() - interval '1 minute'`,
+        [row.id],
+      )
+      .catch(() => {})
+
+    return {
+      userId: row.user_id,
+      scopes: Array.isArray(row.scopes) ? row.scopes : [],
+    }
+  }
+
+  // ── Strategy: API Key auth (inserted into resolveUser) ────────────
+
+  async function tryApiKeyAuth(
+    token: string,
+  ): Promise<{ userId: number; scopes: string[] } | null> {
+    if (!apiKeysEnabled || !hasDb) return null
+    if (!token.startsWith('sk_')) return null
+    return verifyApiKey(token)
+  }
+
   const headerName = options.header ?? 'Authorization'
 
   /**
@@ -294,6 +419,10 @@ export function user(options: UserOptions): UserModule {
    * Used by both middleware() (strict) and middlewareOptional() (non-blocking).
    */
   async function resolveUser(req: Request, ctx: Context): Promise<unknown> {
+    // Skip if already resolved (nested middleware calls)
+    const _ctx = ctx as Record<string, unknown>
+    if (_ctx.user) return _ctx.user
+
     const s = ctx as Context & { session?: { userId?: number; destroy?: () => void } }
 
     // ── Strategy 1: Session-based auth ──────────────────────────────
@@ -385,7 +514,21 @@ export function user(options: UserOptions): UserModule {
       }
     }
 
-    // ── Strategy 5: JWT-based auth (requires jwtSecret + DB) ───────
+    // ── Strategy 5: API Key auth (sk_ prefix) ──────────────────────
+    if (token.startsWith('sk_')) {
+      const result = await tryApiKeyAuth(token)
+      if (result) {
+        // Return user data for API key auth
+        if (hasDb) {
+          const row = await findById(result.userId)
+          if (row) return { ...stripPassword(row), _apiKeyScopes: result.scopes }
+        }
+        return { id: result.userId, _apiKeyScopes: result.scopes }
+      }
+      return null
+    }
+
+    // ── Strategy 6: JWT-based auth (requires jwtSecret + DB) ───────
     if (secret && hasDb) {
       try {
         const payload = jwt.verify(token, secret) as {
@@ -490,6 +633,37 @@ export function user(options: UserOptions): UserModule {
     })
   }
 
+  // API Key management routes (require auth)
+  if (apiKeysEnabled) {
+    r.get('/api-keys', middleware(), async (_req, ctx) => {
+      const keys = await listApiKeys((ctx as any).user.id)
+      return Response.json(keys)
+    })
+
+    r.post('/api-keys', middleware(), async (req, ctx) => {
+      try {
+        const body = await parseBody(req)
+        const { name, scopes } = CreateApiKeySchema.parse(body)
+        const result = await createApiKey((ctx as any).user.id, name, scopes)
+        return Response.json(result, { status: 201 })
+      } catch (err: any) {
+        if (err instanceof z.ZodError) {
+          return Response.json({ error: 'Validation failed', issues: err.issues }, { status: 400 })
+        }
+        return Response.json({ error: err.message }, { status: 500 })
+      }
+    })
+
+    r.delete('/api-keys/:id', middleware(), async (req, ctx) => {
+      const keyId = parseInt((ctx as any).params.id, 10)
+      if (isNaN(keyId)) {
+        return Response.json({ error: 'Invalid key ID' }, { status: 400 })
+      }
+      await revokeApiKey((ctx as any).user.id, keyId)
+      return Response.json({ ok: true })
+    })
+  }
+
   if (oauth2) {
     r.get('/oauth/authorize', (req, ctx) => oauth2!.authorizeHandler(req, ctx))
     r.post('/oauth/consent', (req) => oauth2!.consentHandler(req))
@@ -547,6 +721,30 @@ export function user(options: UserOptions): UserModule {
     : async () => {
         throw new Error('OAuth2 server is not enabled')
       }
+  mod.createApiKey =
+    hasDb && apiKeysEnabled
+      ? createApiKey
+      : async () => {
+          throw new Error(
+            'API key management is not enabled. Pass apiKeys: true in user() options.',
+          )
+        }
+  mod.listApiKeys =
+    hasDb && apiKeysEnabled
+      ? listApiKeys
+      : async () => {
+          throw new Error(
+            'API key management is not enabled. Pass apiKeys: true in user() options.',
+          )
+        }
+  mod.revokeApiKey =
+    hasDb && apiKeysEnabled
+      ? revokeApiKey
+      : async () => {
+          throw new Error(
+            'API key management is not enabled. Pass apiKeys: true in user() options.',
+          )
+        }
   mod.close = hasDb ? () => base!.close() : async () => {}
 
   return mod

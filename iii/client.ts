@@ -1,4 +1,27 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * iii — distributed function execution engine.
+ *
+ * Register workers (local or remote via WebSocket) and call their functions
+ * across processes. No message queue, no scheduler — just function invocation.
+ *
+ * ```ts
+ * import { iii, createWorker } from 'weifuwu'
+ *
+ * const engine = iii()
+ * const w = createWorker('orders')
+ *   .registerFunction('orders::create', async (payload) => {
+ *     return db.query('INSERT INTO orders ...', [payload.items])
+ *   })
+ * engine.addWorker(w)
+ *
+ * // Call the function
+ * const result = await engine.trigger({
+ *   function_id: 'orders::create',
+ *   payload: { items: ['apple'] },
+ * })
+ * ```
+ */
 import crypto from 'node:crypto'
 import type {
   IIIModule,
@@ -8,15 +31,11 @@ import type {
   TriggerRegistration,
   WorkerRegistration,
   FunctionHandler,
-  StreamSubscription,
 } from './types.ts'
-import { createStream } from './stream.ts'
 import { createWsHandler } from './ws.ts'
 import { buildRouter } from './rest.ts'
 
-export function iii(opts: IIIOptions = {}): IIIModule {
-  const stream = createStream({ pg: opts.pg, redis: opts.redis, streamTTL: opts.streamTTL })
-
+export function iii(_opts: IIIOptions = {}): IIIModule {
   const workers = new Map<string, WorkerRegistration>()
   const functions = new Map<string, FunctionRegistration>()
   const triggers = new Map<string, TriggerRegistration>()
@@ -29,30 +48,7 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     }
   >()
 
-  function registerBuiltin(id: string, handler: FunctionHandler) {
-    functions.set(id, {
-      id,
-      handler,
-      workerId: '__iii__',
-      workerName: '__iii__',
-      triggers: [],
-    })
-  }
-
-  registerBuiltin('stream::set', (p: any) =>
-    stream.set(p.stream_name, p.group_id, p.item_id, p.data),
-  )
-  registerBuiltin('stream::get', (p: any) => stream.get(p.stream_name, p.group_id, p.item_id))
-  registerBuiltin('stream::delete', (p: any) => stream.delete(p.stream_name, p.group_id, p.item_id))
-  registerBuiltin('stream::list', (p: any) => stream.list(p.stream_name, p.group_id))
-  registerBuiltin('stream::list_groups', (p: any) => stream.list_groups(p.stream_name))
-  registerBuiltin('stream::list_all', () => stream.list_all())
-  registerBuiltin('stream::send', (p: any) =>
-    stream.send(p.stream_name, p.group_id, p.type, p.data, p.id),
-  )
-  registerBuiltin('stream::update', (p: any) =>
-    stream.update(p.stream_name, p.group_id, p.item_id, p.ops),
-  )
+  // ── Local worker registration ──────────────────────────────────────
 
   function addLocalWorker(worker: Worker) {
     const workerId = crypto.randomUUID()
@@ -99,6 +95,8 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     workers.set(workerId, reg)
   }
 
+  // ── Remote worker function registration (from WS) ──────────────────
+
   function addRemoteFunction(workerId: string, id: string) {
     const worker = workers.get(workerId)
     if (!worker) return
@@ -111,7 +109,7 @@ export function iii(opts: IIIOptions = {}): IIIModule {
         const timer = setTimeout(() => {
           pending.delete(invocationId)
           reject(new Error(`Invocation timed out for "${id}"`))
-        }, 30000)
+        }, 30_000)
 
         pending.set(invocationId, { resolve, reject, timer })
 
@@ -137,6 +135,8 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     worker.functions.push(fnReg)
   }
 
+  // ── Worker removal ─────────────────────────────────────────────────
+
   function removeWorker(workerId: string) {
     const reg = workers.get(workerId)
     if (!reg) return
@@ -145,7 +145,8 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     workers.delete(workerId)
   }
 
-  // Forward reference — filled after router is created
+  // ── WS handler ─────────────────────────────────────────────────────
+
   let engineRef: any = null
 
   const wsHandler = createWsHandler({
@@ -185,12 +186,6 @@ export function iii(opts: IIIOptions = {}): IIIModule {
       if (worker) {
         worker.triggers = worker.triggers.filter((t) => t.function_id !== functionId)
       }
-    },
-    addStreamSubscriber(ws, sub: StreamSubscription) {
-      stream.subscribe(ws, sub)
-    },
-    removeStreamSubscriber(ws) {
-      stream.unsubscribe(ws)
     },
     handleInvokeResult(invocationId, result) {
       const p = pending.get(invocationId)
@@ -237,6 +232,8 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     },
   })
 
+  // ── Public API ─────────────────────────────────────────────────────
+
   function removeWorkerByName(worker: Worker) {
     for (const [wid, reg] of workers) {
       if (reg.name === worker.name) {
@@ -246,9 +243,9 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     }
   }
 
-  function trigger(request: import('./types.ts').TriggerRequest) {
+  function trigger(request: import('./types.ts').TriggerRequest): Promise<unknown> {
     const fn = functions.get(request.function_id)
-    if (!fn) throw new Error(`Function "${request.function_id}" not found`)
+    if (!fn) return Promise.reject(new Error(`Function "${request.function_id}" not found`))
     const ctx = { engine: engineRef, functionId: request.function_id, workerName: fn.workerName }
     if (request.action === 'void') {
       queueMicrotask(() => fn.handler(request.payload, ctx))
@@ -299,9 +296,7 @@ export function iii(opts: IIIOptions = {}): IIIModule {
   mod.listWorkers = listWorkers
   mod.listFunctions = listFunctions
   mod.listTriggers = listTriggers
-  mod.migrate = async () => {
-    await stream.migrate()
-  }
+  mod.migrate = async () => {}
   mod.close = async () => {
     for (const [, p] of pending) {
       clearTimeout(p.timer)
@@ -312,7 +307,6 @@ export function iii(opts: IIIOptions = {}): IIIModule {
     workers.clear()
     functions.clear()
     triggers.clear()
-    await stream.close()
   }
   return mod
 }

@@ -111,6 +111,25 @@ type WsUpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => 
 
 // Router<T> — T accumulates types from global middleware calls via use(mw).
 // Route-level middleware does not change the Router's type parameter.
+/**
+ * Middleware metadata for dependency checking.
+ * Middleware factories can attach this to their return value for runtime validation.
+ *
+ * ```ts
+ * function postgres(): PostgresClient {
+ *   const mw = async (req, ctx, next) => { ... }
+ *   mw.__meta = { injects: ['sql'], depends: [] }
+ *   return Object.assign(mw, { sql, migrate, close })
+ * }
+ * ```
+ */
+export interface MiddlewareMeta {
+  /** Fields this middleware injects into ctx. */
+  injects: string[]
+  /** Fields this middleware depends on (must be injected earlier). */
+  depends: string[]
+}
+
 export class Router<T extends Context = Context> {
   private root: TrieNode = createTrieNode()
   private wsRoot: WsTrieNode = createWsNode()
@@ -119,6 +138,8 @@ export class Router<T extends Context = Context> {
   private _hasWildcard = false
   private _hub?: Hub
   private _wss?: WebSocketServer
+  /** Track which ctx fields have been injected so far (for dependency checking). */
+  private _ctxFields = new Set<string>()
   private get wss(): WebSocketServer {
     if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
     return this._wss
@@ -158,9 +179,11 @@ export class Router<T extends Context = Context> {
           node = getOrCreateChild(node, segment, createTrieNode, false)
         }
         node.pathMws.push(arg2 as unknown as Middleware)
+        this._checkMiddlewareMeta(arg2, `${arg1}`)
       }
     } else if (typeof arg1 === 'function') {
       this.globalMws.push(arg1 as unknown as Middleware)
+      this._checkMiddlewareMeta(arg1, 'global')
     } else if (
       typeof arg1 === 'object' &&
       arg1 !== null &&
@@ -172,10 +195,41 @@ export class Router<T extends Context = Context> {
       // Auto-register modules with .middleware() — e.g. theme(), i18n(), analytics()
       // Registers both the middleware and mounts routes at /
       const mod = arg1 as Router & { middleware: () => Middleware }
-      this.globalMws.push(mod.middleware() as unknown as Middleware)
+      const mw = mod.middleware()
+      this.globalMws.push(mw as unknown as Middleware)
+      this._checkMiddlewareMeta(mw, 'global (auto-registered)')
       this._mountRouter('/', mod as Router)
     }
     return this
+  }
+
+  /**
+   * Check a middleware's dependency metadata and emit warnings if
+   * required fields haven't been injected yet.
+   * Attach __meta to a middleware function:
+   *
+   * ```ts
+   * mw.__meta = { injects: ['sql'], depends: ['session'] }
+   * ```
+   */
+  private _checkMiddlewareMeta(mw: any, location: string): void {
+    const meta: MiddlewareMeta | undefined = mw.__meta ?? mw.middleware?.().__meta
+    if (!meta) return
+
+    for (const dep of meta.depends) {
+      if (!this._ctxFields.has(dep)) {
+        console.warn(
+          `[weifuwu] Middleware at "${location}" depends on ctx.${dep} but it hasn't been registered yet.` +
+            `\n  Register the provider before this middleware:` +
+            `\n    app.use(${dep}())  // add before this middleware` +
+            `\n  Current ctx fields: [${[...this._ctxFields].join(', ')}]`,
+        )
+      }
+    }
+
+    for (const field of meta.injects) {
+      this._ctxFields.add(field)
+    }
   }
 
   // Route registration — returns Router<T> unchanged.

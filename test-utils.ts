@@ -2,6 +2,8 @@
 import type { Context, Handler } from './types.ts'
 import type { SqlClient } from './vendor.ts'
 import { Router } from './router.ts'
+import { serve } from './serve.ts'
+import { WebSocket as WSWebSocket } from 'ws'
 
 export interface TestResponse {
   readonly status: number
@@ -126,9 +128,24 @@ export class TestRequest {
 
 export class TestApp {
   private router: Router
+  private wsServer: Awaited<ReturnType<typeof serve>> | null = null
+  private wsConnections: TestWSConnection[] = []
 
   constructor() {
     this.router = new Router()
+  }
+
+  /**
+   * Register a WebSocket handler.
+   */
+  ws(path: string, handler: import('./router.ts').WebSocketHandler): this {
+    this.router.ws(path, handler)
+    return this
+  }
+
+  /** Get the raw Router (for advanced use). */
+  get _router(): Router {
+    return this.router
   }
 
   /** Add global middleware */
@@ -196,6 +213,242 @@ export class TestApp {
   handler(): Handler {
     return this.router.handler()
   }
+
+  /** Start building a WebSocket connection to the given path. */
+  wsReq(path: string): TestWSRequest {
+    return new TestWSRequest(this, path)
+  }
+
+  /**
+   * Internal: ensure HTTP server is running for WebSocket connections.
+   * Starts on a random port.
+   */
+  /* @internal */ async _ensureServer(): Promise<string> {
+    if (this.wsServer) {
+      return `http://localhost:${this.wsServer.port}`
+    }
+    const wsHandler = this.router.websocketHandler()
+    if (!wsHandler) {
+      throw new Error(
+        'No WebSocket routes registered. Use app.ws(path, handler) before calling wsReq().',
+      )
+    }
+    this.wsServer = serve(this.router.handler(), {
+      websocket: wsHandler,
+    })
+    await this.wsServer.ready
+    return `http://localhost:${this.wsServer.port}`
+  }
+
+  /**
+   * Internal: register a WS connection for cleanup.
+   */
+  /* @internal */ _trackConnection(conn: TestWSConnection): void {
+    this.wsConnections.push(conn)
+  }
+
+  /**
+   * Cleanup all WebSocket connections and stop the server.
+   */
+  async close(): Promise<void> {
+    for (const conn of this.wsConnections) {
+      try {
+        conn.close()
+      } catch {
+        // ignore
+      }
+    }
+    this.wsConnections = []
+    if (this.wsServer) {
+      this.wsServer.stop()
+      this.wsServer = null
+    }
+  }
+}
+
+// ── WebSocket Test Utilities ──────────────────────────────────────────────
+
+/** Start building a WebSocket test connection. */
+export class TestWSRequest {
+  private app: TestApp
+  private path: string
+  private _timeout = 5000
+
+  constructor(app: TestApp, path: string) {
+    this.app = app
+    this.path = path
+  }
+
+  /** Set the timeout for operations (default: 5000ms). */
+  timeout(ms: number): this {
+    this._timeout = ms
+    return this
+  }
+
+  /**
+   * Connect to the WebSocket endpoint.
+   * Starts a real HTTP server (random port) if not already running.
+   */
+  async connect(): Promise<TestWSConnection> {
+    const baseUrl = await this.app._ensureServer()
+    const wsUrl = baseUrl.replace(/^http/, 'ws') + this.path
+
+    const ws = new WSWebSocket(wsUrl, { handshakeTimeout: this._timeout })
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`WebSocket connection timed out after ${this._timeout}ms`))
+        ws.close()
+      }, this._timeout)
+
+      ws.on('open', () => {
+        clearTimeout(timer)
+        const conn = new TestWSConnection(ws, this._timeout)
+        this.app._trackConnection(conn)
+        resolve(conn)
+      })
+
+      ws.on('error', (err) => {
+        clearTimeout(timer)
+        reject(new Error(`WebSocket connection error: ${err.message}`))
+      })
+
+      ws.on('unexpected-response', (_req, res) => {
+        clearTimeout(timer)
+        let body = ''
+        res.on('data', (chunk: Buffer) => {
+          body += chunk.toString()
+        })
+        res.on('end', () => {
+          reject(new Error(`WebSocket upgrade rejected (${res.statusCode}): ${body.slice(0, 200)}`))
+        })
+      })
+    })
+  }
+}
+
+/**
+ * A connected WebSocket for testing.
+ *
+ * ```ts
+ * const conn = await app.wsReq('/echo').connect()
+ * conn.send('hello')
+ * const msg = await conn.receive()
+ * assert.equal(msg, 'hello')
+ * conn.close()
+ * ```
+ */
+export class TestWSConnection {
+  private ws: WSWebSocket
+  private _timeout: number
+  private messageQueue: string[] = []
+  private resolveQueue: Array<(msg: string) => void> = []
+  private _closed = false
+
+  constructor(ws: WSWebSocket, timeout = 5000) {
+    this.ws = ws
+    this._timeout = timeout
+
+    ws.on('message', (data: Buffer) => {
+      const str = data.toString()
+      if (this.resolveQueue.length > 0) {
+        const resolve = this.resolveQueue.shift()!
+        resolve(str)
+      } else {
+        this.messageQueue.push(str)
+      }
+    })
+
+    ws.on('close', () => {
+      this._closed = true
+      // Resolve any pending receives with close error
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for (const _r of this.resolveQueue) {
+        // pending receives will reject on next tick when they detect closed
+      }
+    })
+  }
+
+  /** Send a text message. */
+  send(data: string): void {
+    this.ws.send(data)
+  }
+
+  /** Send a JSON message. */
+  json(data: unknown): void {
+    this.ws.send(JSON.stringify(data))
+  }
+
+  /**
+   * Wait for the next message. Returns the raw text.
+   * Throws on timeout or if the connection is closed.
+   */
+  async receive(timeout?: number): Promise<string> {
+    if (this.messageQueue.length > 0) {
+      return this.messageQueue.shift()!
+    }
+
+    if (this._closed) {
+      throw new Error('WebSocket connection closed')
+    }
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const idx = this.resolveQueue.indexOf(resolve as any)
+        if (idx !== -1) this.resolveQueue.splice(idx, 1)
+        reject(new Error(`WebSocket receive timed out after ${timeout ?? this._timeout}ms`))
+      }, timeout ?? this._timeout)
+
+      this.resolveQueue.push((msg: string) => {
+        clearTimeout(timer)
+        resolve(msg)
+      })
+    })
+  }
+
+  /** Wait for the next message and parse as JSON. */
+  async receiveJson<T = unknown>(): Promise<T> {
+    const msg = await this.receive()
+    return JSON.parse(msg) as T
+  }
+
+  /**
+   * Assert that no message is received within the given silence period.
+   * Useful for verifying that something did NOT happen.
+   */
+  async expectSilent(ms: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (this.messageQueue.length > 0) {
+        reject(new Error(`Expected silence but got message: ${this.messageQueue[0].slice(0, 100)}`))
+        return
+      }
+      const timer = setTimeout(() => resolve(), ms)
+
+      // If a message arrives during the silence period, fail
+      const origPush = this.resolveQueue.push.bind(this.resolveQueue)
+      this.resolveQueue.push = (_fn) => {
+        clearTimeout(timer)
+        reject(new Error('Expected silence but received a message'))
+        return 0
+      }
+
+      // Restore after timeout
+      setTimeout(() => {
+        this.resolveQueue.push = origPush
+      }, ms + 10).unref()
+    })
+  }
+
+  /** Close the connection. */
+  close(): void {
+    this._closed = true
+    this.ws.close()
+  }
+
+  /** Whether the connection is closed. */
+  get closed(): boolean {
+    return this._closed
+  }
 }
 
 /** Create a new test app */
@@ -227,7 +480,7 @@ export interface TestDb {
  *
  * ```ts
  * const db = await createTestDb()
- * await db.sql\`CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT)\`
+ * await db.sql`CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT)`
  * // ... run tests ...
  * await db.destroy()  // drops the schema
  * ```
@@ -282,7 +535,7 @@ export async function createTestDb(options?: {
  *
  * ```ts
  * await withTestDb(async (sql) => {
- *   await sql\`INSERT INTO users ...\`
+ *   await sql`INSERT INTO users ...`
  *   // All changes are rolled back after this callback returns
  * })
  * ```

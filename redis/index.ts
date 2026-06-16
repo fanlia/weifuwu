@@ -18,6 +18,7 @@ export function redis(opts?: string | RedisOptions): RedisClient {
     return next(req, ctx)
   }) as unknown as RedisClient
 
+  ;(mw as any).__meta = { injects: ['redis'], depends: [] }
   mw.redis = client
   mw.close = () => client.quit() as unknown as Promise<void>
 

@@ -89,6 +89,9 @@ export interface UserOptions {
    */
   resolveUser?: (userId: unknown) => unknown | Promise<unknown>
 
+  /** Enable API key management (per-user keys with scopes). */
+  apiKeys?: boolean
+
   /** Enable OAuth2 server mode (authorization code flow). */
   oauth2?: OAuth2ServerOptions
   /**
@@ -150,6 +153,30 @@ export interface UserModule extends Router, Closeable {
   getClient: (clientId: string) => Promise<OAuth2Client | null>
   /** Revoke an OAuth2 client. */
   revokeClient: (clientId: string) => Promise<void>
+
+  // ── API Key management (when apiKeys: true) ────────────────────────
+  /** Create a new API key for a user. Returns the full key (only shown once). */
+  createApiKey: (
+    userId: number,
+    name: string,
+    scopes?: string[],
+  ) => Promise<{ id: number; key: string }>
+  /** List user\'s API keys (masked — only prefix + last 4 chars visible). */
+  listApiKeys: (userId: number) => Promise<ApiKeyInfo[]>
+  /** Revoke an API key by ID. */
+  revokeApiKey: (userId: number, keyId: number) => Promise<void>
+
   /** Close the underlying DB connection. */
   close: () => Promise<void>
+}
+
+/** An API key record (as returned by listApiKeys — masked). */
+export interface ApiKeyInfo {
+  id: number
+  name: string
+  prefix: string
+  scopes: string[]
+  last_used_at: string | null
+  created_at: string
+  revoked: boolean
 }

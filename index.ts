@@ -60,6 +60,7 @@ export type {
   UserModule,
   OAuth2Client,
   OAuthProviderConfig,
+  ApiKeyInfo,
 } from './user/types.ts'
 export type { UserInjected } from './user/types.ts'
 export { redis } from './redis/index.ts'
@@ -193,3 +194,19 @@ export type {
 // Permissions (RBAC)
 export { permissions } from './permissions.ts'
 export type { PermissionsOptions, PermissionsModule } from './permissions.ts'
+
+// MCP (Model Context Protocol) client
+export { mcpClient } from './mcp.ts'
+export type { MCPClient, MCPClientOptions, MCPToolDef } from './mcp.ts'
+
+// Notification system
+export { notifier } from './notifier/index.ts'
+export type {
+  NotifierOptions,
+  Notifier,
+  NotifierInjected,
+  NotifyMessage,
+  Notification,
+  NotifyChannel,
+  NotifyPreferences,
+} from './notifier/types.ts'

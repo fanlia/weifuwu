@@ -210,6 +210,45 @@ app.use('/admin', mw) // path-scoped
 app.get('/admin', mw, handler) // route-level
 ```
 
+### Middleware Dependency Checking
+
+Middleware factories can declare what ctx fields they inject and depend on via
+`__meta`. The Router warns at registration time if a dependency is unsatisfied.
+
+```ts
+// postgres() declares: __meta = { injects: ['sql'], depends: [] }
+// session() declares:  __meta = { injects: ['session'], depends: [] }
+// user() declares:     __meta = { injects: ['user'], depends: ['sql', 'session'] }
+
+const app = new Router()
+app.use(user()) // ⚠️ Warns: depends on 'sql' and 'session' but they aren't registered
+// → "[weifuwu] Middleware at "global" depends on ctx.sql but it hasn't been registered yet."
+// → "Register the provider before this middleware: app.use(sql())"
+
+// Correct order:
+app.use(postgres())
+app.use(session())
+app.use(user())
+```
+
+To add `__meta` to your own middleware:
+
+```ts
+function myMiddleware() {
+  const mw = async (req, ctx, next) => {
+    ctx.myField = await setup()
+    return next(req, ctx)
+  }
+  mw.__meta = { injects: ['myField'], depends: ['sql'] }
+  return mw
+}
+```
+
+The check is purely advisory — warnings go to `console.warn`, no errors are thrown. Built-in
+middleware (`postgres`, `redis`, `session`, `aiProvider`, `rateLimit`) all have `__meta` pre-attached.
+
+_New in v0.25._
+
 ### Context
 
 The `ctx` object accumulates properties as it passes through the middleware chain. Below are all documented properties:
@@ -236,6 +275,7 @@ The `ctx` object accumulates properties as it passes through the middleware chai
 | `tenant`      | `tenant()`                       | `TenantContext`           | Current tenant info                  |
 | `parsed`      | `validate()` / `upload()`        | `{ body, files }`         | Validated/parsed request data        |
 | `layoutStack` | `ssr()` internal                 | `LayoutEntry[]`           | React layout component stack         |
+| `notifier`    | `notifier()`                     | `Notifier`                | Multi-channel notification system    |
 | `loaderData`  | User middleware                  | `Record<string, unknown>` | SSR data passed to client            |
 | `mountPath`   | `Router`                         | `string`                  | Sub-router mount path                |
 | `deploy`      | `deploy()`                       | `{ appName? }`            | Deploy gateway info                  |
@@ -417,6 +457,10 @@ graph TD
 | **Multi-process deploy**         | `deploy()`                                      | γ                      |
 | **Distributed functions (iii)**  | `iii()`                                         | β                      |
 | **Webhook receiver**             | `webhook()`                                     | β                      |
+| **MCP tool integration**         | `mcpClient()`                                   | γ                      |
+| **Notifications**                | `notifier()`                                    | α                      |
+| **API Key management**           | `user({ apiKeys: true })`                       | β                      |
+| **WebSocket testing**            | `testApp().wsReq()`                             | —                      |
 | **Social login (OAuth)**         | `user({ oauthLogin })`                          | β                      |
 | **Database migrations**          | `pg.migrate()`                                  | —                      |
 
@@ -520,6 +564,47 @@ assert.deepEqual(await res.json(), { id: '42', user: { id: 1 } })
 | `.withUser(u)` `.withTenant(t)` `.with(ctx)`                 | Simulate middleware injection                         |
 | `.header(k,v)` `.body(data)` `.rawBody(str)`                 | Set request properties                                |
 | `.send()` → `TestResponse`                                   | Execute and get `{ status, headers, json(), text() }` |
+
+**WebSocket testing** (new in v0.25) — `app.ws()` + `app.wsReq()`:
+
+```ts
+const app = testApp()
+app.ws('/echo', {
+  open(ws) {
+    ws.send(JSON.stringify({ type: 'connected' }))
+  },
+  message(ws, ctx, data) {
+    ws.send('echo: ' + data.toString())
+  },
+})
+
+// Connect via WebSocket
+const conn = await app.wsReq('/echo').connect()
+
+// Wait for the open message
+const openMsg = await conn.receiveJson()
+assert.equal(openMsg.type, 'connected')
+
+// Send and receive
+conn.send('hello')
+const reply = await conn.receive()
+assert.equal(reply, 'echo: hello')
+
+conn.close()
+await app.close() // cleanup server
+```
+
+| Method                                     | Description                                 |
+| ------------------------------------------ | ------------------------------------------- |
+| `app.ws(path, handler)`                    | Register a WebSocket handler                |
+| `app.wsReq(path)`                          | Start building a WebSocket connection       |
+| `.timeout(ms)`                             | Set connection timeout (default: 5000)      |
+| `.connect()` → `TestWSConnection`          | Connect and return a connection handle      |
+| `conn.send(data)` / `conn.json(obj)`       | Send a message                              |
+| `conn.receive()` / `conn.receiveJson<T>()` | Wait for the next message                   |
+| `conn.expectSilent(ms)`                    | Assert no message arrives within the period |
+| `conn.close()`                             | Close the connection                        |
+| `app.close()`                              | Close all connections and stop the server   |
 
 ### Database test isolation
 
@@ -1119,6 +1204,51 @@ await mail.send({
 | `from`      | `string`         | —       | Default sender address                           |
 | `send`      | `function`       | —       | Custom send function (alternative to transport)  |
 
+### mcpClient [γ] — MCP Server integration [AI]
+
+[Model Context Protocol](https://modelcontextprotocol.io) client. Spawns MCP server
+subprocesses and exposes their tools as AI SDK-compatible tool objects.
+
+```ts
+import { mcpClient, agent, aiProvider } from 'weifuwu'
+
+const fsMcp = mcpClient({
+  command: 'npx',
+  args: ['@modelcontextprotocol/server-filesystem', '/workspace'],
+})
+
+const tools = await fsMcp.getTools()
+
+const a = agent({ pg, provider: aiProvider(), tools })
+await a.run(agentId, { input: 'read package.json' })
+
+// Later, refresh tools if the server provides new ones
+await fsMcp.refresh()
+
+// Or call a tool directly
+const result = await fsMcp.callTool('echo', { text: 'hello' })
+
+await fsMcp.close() // shutdown the MCP server process
+```
+
+| Option            | Type       | Default | Description                                             |
+| ----------------- | ---------- | ------- | ------------------------------------------------------- |
+| `command`         | `string`   | —       | **Required.** Command to spawn (e.g. `'npx'`, `'node'`) |
+| `args`            | `string[]` | `[]`    | Arguments passed to the command                         |
+| `env`             | `object`   | —       | Extra environment variables                             |
+| `timeout`         | `number`   | `15000` | Handshake/response timeout (ms)                         |
+| `maxResponseSize` | `number`   | `10MB`  | Max tool response body size                             |
+
+| Method       | Description                                                               |
+| ------------ | ------------------------------------------------------------------------- |
+| `getTools()` | Fetch tool definitions, returns `Record<string, Tool>`-compatible objects |
+| `refresh()`  | Re-fetch tool definitions from the server                                 |
+| `callTool()` | Call a tool by name directly                                              |
+| `close()`    | Shutdown the MCP server process                                           |
+
+Tool schemas (JSON Schema) are automatically converted to Zod schemas for AI SDK compatibility.
+Responses are concatenated from text content items, with size limiting.
+
 ### oauthLogin (via user()) — Social login (OAuth 2.0 client) [Security]
 
 Social login is built into the [`user()`](#user-β) module via the `oauthLogin` option — no separate import needed.
@@ -1207,6 +1337,72 @@ await msg.send(channelId, 'System message', { sender_type: 'system', sender_id: 
 | `.wsHandler()`                   | WebSocket handler (channels, typing, read receipts) |
 | `.send(channel, content, opts?)` | Send message to channel                             |
 | `.close()`                       | Cleanup                                             |
+
+### notifier [α] [UX]
+
+Multi-channel notification system with inbox (DB persistent), email, and
+WebSocket push. Per-user channel preferences.
+
+```ts
+import { notifier, mailer } from 'weifuwu'
+
+const mail = mailer({ from: 'noreply@example.com', transport: '...' })
+const n = notifier({ sql: pg.sql, mailer: mail })
+await n.migrate()
+app.use(n) // injects ctx.notifier
+
+// Send a notification (routes through user's channel preferences)
+await ctx.notifier.send(
+  { userId: 42, email: 'user@example.com' },
+  { title: 'Welcome!', body: 'Thanks for joining', type: 'onboarding' },
+)
+
+// Broadcast to all users with inbox enabled
+await ctx.notifier.broadcast({
+  title: 'System maintenance tonight',
+  body: 'The system will be down from 2-4 AM',
+})
+
+// Check unread count
+const count = await ctx.notifier.unreadCount(userId)
+
+// List notifications (newest first)
+const notifications = await ctx.notifier.list(userId, { limit: 10 })
+
+// Mark as read
+await ctx.notifier.markRead(userId, [notifId])
+await ctx.notifier.markRead(userId) // mark ALL as read
+
+// User preferences
+await ctx.notifier.setPreferences(userId, { channels: ['inbox', 'email'] })
+const prefs = await ctx.notifier.getPreferences(userId)
+// → { channels: ['inbox', 'email'] }
+```
+
+| Option     | Type        | Default            | Description                     |
+| ---------- | ----------- | ------------------ | ------------------------------- |
+| `sql`      | `SqlClient` | —                  | **Required.** PostgreSQL client |
+| `mailer`   | `Mailer`    | —                  | Mailer for email channel        |
+| `hub`      | `Hub`       | —                  | Pub/sub hub for WebSocket push  |
+| `table`    | `string`    | `'_notifications'` | Notifications table name        |
+| `pageSize` | `number`    | `50`               | Default page size for list()    |
+
+| Method                           | Description                                   |
+| -------------------------------- | --------------------------------------------- |
+| `.send(to, message)`             | Send notification (routes by user preference) |
+| `.broadcast(message)`            | Send to all users with inbox enabled          |
+| `.unreadCount(userId)`           | Count unread notifications                    |
+| `.count(userId, unreadOnly?)`    | Total or unread count                         |
+| `.markRead(userId, ids?)`        | Mark notification(s) as read                  |
+| `.list(userId, opts?)`           | List notifications (paginated)                |
+| `.getPreferences(userId)`        | Get user's channel preferences                |
+| `.setPreferences(userId, prefs)` | Set user's channel preferences                |
+| `.migrate()`                     | Create tables                                 |
+| `.clean(days)`                   | Delete notifications older than N days        |
+
+**Channel routing:** Each user has channel preferences (default: `['inbox']`). When
+`sending`, the notification is delivered to each enabled channel. Email requires
+`mailer` to be configured. WebSocket requires `hub` (e.g. from `messager.wsHandler()`).
 
 ### opencode [β] [AI]
 
@@ -1985,6 +2181,35 @@ app.use(u.middleware()) // ctx.user
 | `.login(data)`    | Log in programmatically                 |
 | `.verify(token)`  | Verify JWT token                        |
 | `.middleware()`   | JWT verify middleware — sets `ctx.user` |
+
+**API Key management** — enable via `user({ apiKeys: true })`:
+
+```ts
+const auth = user({ pg, jwtSecret: process.env.JWT_SECRET, apiKeys: true })
+await auth.migrate()
+app.use(auth)
+
+// Create an API key (server-side)
+const { id, key } = await auth.createApiKey(userId, 'Deploy Key', ['read', 'deploy'])
+// key → 'sk_live_abc123...' (only shown once!)
+
+// List keys (masked)
+const keys = await auth.listApiKeys(userId)
+// → [{ id, name, prefix: 'sk_live_abc...f3a2', scopes: ['read','deploy'], last_used_at, revoked }]
+
+// Revoke a key
+await auth.revokeApiKey(userId, keyId)
+
+// REST API (auto-mounted when routes are registered)
+// POST   /api-keys       → Create (requires auth)
+// GET    /api-keys       → List (requires auth)
+// DELETE /api-keys/:id    → Revoke (requires auth)
+```
+
+API keys start with `sk_live_` and are hashed with SHA256 before storage.
+The middleware resolves API keys automatically — use them with `Authorization: Bearer sk_live_...`.
+
+_New in v0.25._
 
 ### permissions [α] — RBAC [Security]
 

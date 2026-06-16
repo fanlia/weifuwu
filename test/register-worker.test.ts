@@ -257,17 +257,6 @@ describe('registerWorker', () => {
     })
   })
 
-  it('onStream registers __stream__ handler', () => {
-    worker = registerWorker('ws://localhost:9999/iii')
-    MockWebSocket.simulateRegistered()
-    let received: any = null
-    worker.onStream((data: any) => {
-      received = data
-    })
-    MockWebSocket.simulateMessage({ type: 'stream', event: 'set', data: 'hello' })
-    assert.deepEqual(received, { type: 'stream', event: 'set', data: 'hello' })
-  })
-
   it('shutdown closes WebSocket', () => {
     worker = registerWorker('ws://localhost:9999/iii')
     MockWebSocket.simulateOpen()

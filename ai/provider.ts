@@ -122,6 +122,7 @@ export function aiProvider(
     ;(ctx as Context & AIProviderInjected).ai = provider
     return next(req, ctx as Context & AIProviderInjected)
   }
+  ;(mw as any).__meta = { injects: ['ai'], depends: [] }
 
   return Object.assign(mw, provider) as Middleware<Context, Context & AIProviderInjected> &
     AIProvider

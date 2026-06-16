@@ -123,12 +123,6 @@ export function registerWorker(url: string) {
           }
           break
         }
-
-        case 'stream': {
-          const handler = handlers.get('__stream__')
-          if (handler) handler(msg, {} as any)
-          break
-        }
       }
     }
 
@@ -208,10 +202,6 @@ export function registerWorker(url: string) {
           payload: request.payload,
         })
       })
-    },
-
-    onStream(handler: (data: any) => void) {
-      handlers.set('__stream__', handler as FunctionHandler)
     },
 
     close() {
