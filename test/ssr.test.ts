@@ -30,7 +30,7 @@ describe('ssr({dir})', () => {
     assert.match(html, /__WEIFUWU_CTX/)
   })
 
-  it('serves client bundle', async () => {
+  it('serves page via module server', async () => {
     const app = new Router()
     app.use('/', ssr({ dir: './test/fixtures/ssr/home' }))
     const res1 = await app.handler()(new Request('http://localhost/'), {
@@ -38,18 +38,18 @@ describe('ssr({dir})', () => {
       query: {},
     } as any)
     const html = await res1.text()
-    // New format: inline <script type="module"> with dynamic import
-    const match = html.match(/\/__ssr\/([a-f0-9]+)\.js/)
-    assert.ok(match, 'expected __ssr/[hash].js in HTML')
+    // Module server URL in hydration script
+    const match = html.match(/\/__wfw\/m\/[^'"?\s]+/)
+    assert.ok(match, 'expected /__wfw/m/ URL in HTML')
 
-    const bundleKey = '/__ssr/' + match![1] + '.js'
-    const res2 = await app.handler()(new Request(`http://localhost${bundleKey}`), {
+    const moduleUrl = match![0]
+    const res2 = await app.handler()(new Request(`http://localhost${moduleUrl}`), {
       params: {},
       query: {},
     } as any)
     assert.equal(res2.status, 200)
     const js = await res2.text()
-    assert.match(js, /React|createElement|export/)
+    assert.match(js, /import|export/)
   })
 
   it('passes ctx data via loaderData', async () => {

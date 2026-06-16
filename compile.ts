@@ -62,18 +62,6 @@ export function clearCompileCache() {
   _alias = null
 }
 
-// Browser-side compiled code cache (in-memory, no disk writes)
-const browserCache = new Map<string, string>()
-
-export function getBrowserCode(hash: string): string | undefined {
-  return browserCache.get(hash)
-}
-
-export function clearBrowserCache(path?: string) {
-  if (path) browserCache.delete(id(resolve(path)))
-  else browserCache.clear()
-}
-
 export async function compileTsx(path: string): Promise<any> {
   const absPath = resolve(path)
   if (cache.has(absPath)) return cache.get(absPath)!
@@ -220,105 +208,6 @@ export async function compileVendorBundle(): Promise<string> {
     .join('')
     .slice(0, 8)
   return vendorBundle
-}
-
-/** Compile page component for browser (served at /__ssr/[hash].js).
- *  The weifuwu source modules are externalized — they come from the vendor
- *  bundle at runtime via importmap, ensuring store is shared.
- *  Results are cached in memory — no disk writes. */
-export async function compileBrowser(path: string): Promise<string> {
-  const absPath = resolve(path)
-  const h = id(absPath)
-  if (browserCache.has(h)) return h
-
-  // Map weifuwu source paths to weifuwu/react (external) so they are not inlined
-  const wfwDir = resolve(import.meta.dirname ?? __dirname)
-  const plugin: esbuild.Plugin = {
-    name: 'wfw-external',
-    setup(build) {
-      build.onResolve({ filter: /./ }, (args) => {
-        if (args.kind === 'entry-point') return
-        const abs = args.path.startsWith('.') ? join(args.resolveDir, args.path) : args.path
-        // Only externalize weifuwu framework source files directly in wfwDir (no subdir).
-        // User project files (cli/template/ui/) should be bundled normally.
-        if (abs.startsWith(wfwDir) && !abs.includes('node_modules')) {
-          const rel = abs.slice(wfwDir.length + 1)
-          if (rel.includes('/')) return
-          return { path: 'weifuwu/react', external: true }
-        }
-      })
-    },
-  }
-
-  const result = await esbuild.build({
-    entryPoints: { [h]: absPath },
-    format: 'esm',
-    platform: 'browser',
-    jsx: 'automatic',
-    jsxImportSource: 'react',
-    bundle: true,
-    external: [
-      'react',
-      'react-dom',
-      'react-dom/client',
-      'react/jsx-runtime',
-      'weifuwu',
-      'weifuwu/react',
-    ],
-    plugins: [plugin],
-    write: false,
-  })
-
-  browserCache.set(h, result.outputFiles[0].text)
-  return h
-}
-
-/** Hot-reload: ESM bundle, calls __WFW_REFRESH on import */
-export async function compileHotComponent(path: string): Promise<{ hash: string; code: string }> {
-  const absPath = resolve(path)
-  const h = id(absPath)
-  const stdin = `import C from ${JSON.stringify(absPath)};\n(window.__WFW_REFRESH||function(){})(C)`
-
-  const wfwDir = resolve(import.meta.dirname ?? __dirname)
-  const plugin: esbuild.Plugin = {
-    name: 'wfw-external',
-    setup(build) {
-      build.onResolve({ filter: /./ }, (args) => {
-        if (args.kind === 'entry-point') return
-        const abs = args.path.startsWith('.') ? join(args.resolveDir, args.path) : args.path
-        if (abs.startsWith(wfwDir) && !abs.includes('node_modules')) {
-          const rel = abs.slice(wfwDir.length + 1)
-          if (rel.includes('/')) return
-          return { path: 'weifuwu/react', external: true }
-        }
-      })
-    },
-  }
-
-  const result = await esbuild.build({
-    stdin: { contents: stdin, loader: 'tsx', resolveDir: dirname(absPath) },
-    format: 'esm',
-    platform: 'browser',
-    jsx: 'automatic',
-    jsxImportSource: 'react',
-    bundle: true,
-    external: [
-      'react',
-      'react-dom',
-      'react-dom/client',
-      'react/jsx-runtime',
-      'weifuwu',
-      'weifuwu/react',
-    ],
-    plugins: [plugin],
-    write: false,
-  })
-  let code = new TextDecoder().decode(result.outputFiles[0].contents)
-  // Replace esbuild's CJS require polyfill calls with import from vendor bundle
-  if (code.includes('__require') && (code.includes('"react"') || code.includes("'react'"))) {
-    code = `import * as __r from 'react';\n` + code.replace(/__require\(["']react["']\)/g, '__r')
-  }
-  return { hash: h, code }
 }
 
 /** Clean up esbuild's internal worker pool. Call when you're done compiling. */

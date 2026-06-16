@@ -52,26 +52,26 @@ describe('template app', () => {
     const html = await res.text()
     assert.match(html, /<html/)
     assert.match(html, /Weifuwu|Build Faster/)
-    assert.match(html, /__ssr\//)
+    assert.match(html, /\/__wfw\/m\//)
     assert.match(html, /__WEIFUWU_CTX/)
   })
 
-  it('GET /__ssr/[hash].js serves hydration bundle', async () => {
+  it('serves page via module server', async () => {
     const res1 = await app.handler()(new Request('http://localhost/'), {
       params: {},
       query: {},
     } as any)
-    const m = await res1.text().then((h) => h.match(/\/__ssr\/([a-f0-9]+)\.js/))
-    assert.ok(m, 'expected __ssr/[hash].js in HTML')
+    const m = await res1.text().then((h) => h.match(/\/__wfw\/m\/[^'"?\s]+/))
+    assert.ok(m, 'expected /__wfw/m/ page URL in HTML')
 
-    const res2 = await app.handler()(new Request(`http://localhost/__ssr/${m![1]}.js`), {
+    const res2 = await app.handler()(new Request(`http://localhost${m![0]}`), {
       params: {},
       query: {},
     } as any)
     assert.equal(res2.status, 200)
     assert.match(res2.headers.get('content-type') || '', /application\/javascript/)
     const js = await res2.text()
-    assert.match(js, /React|createElement|export/)
+    assert.match(js, /import|export/)
   })
 
   it('GET /api/ping returns JSON', async () => {

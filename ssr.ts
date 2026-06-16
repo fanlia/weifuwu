@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { dirname, join, resolve, relative } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { compile, compileBrowser, getBrowserCode, compileVendorBundle } from './compile.ts'
+import { compile, compileVendorBundle } from './compile.ts'
 import { streamResponse } from './stream.ts'
 import { TsxContext, setCtx, __registerAls, type PageContext } from './tsx-context.ts'
 import { Router } from './router.ts'
@@ -12,6 +12,7 @@ import { ssrEntries } from './ssr-entries.ts'
 import { isDev as _isDev } from './env.ts'
 import { tailwindContext, tailwindRouter } from './tailwind.ts'
 import { liveRouter, liveWatcher, liveWs } from './live.ts'
+import { moduleServer, clearModuleCache } from './module-server.ts'
 import { layout } from './layout.ts'
 import { errorBoundary } from './error-boundary.ts'
 import { buildHtmlShell } from './html-shell.ts'
@@ -188,8 +189,7 @@ export function clearRouteCache(cache: Map<string, ResolvedRoute | null>) {
 
 // ── Hydration script builder (inline <script type="module">) ────────────
 
-function buildHydrationScript(entryId: string, ctxJson: string, base: string): string {
-  const ssrPrefix = `${base}/__ssr`
+function buildHydrationScript(pageUrl: string, ctxJson: string): string {
   return `
 <script type="module">
 import { setCtx, TsxContext } from 'weifuwu/react';
@@ -202,12 +202,13 @@ setCtx(_ctx);
 const _root = document.getElementById('__weifuwu_root');
 
 async function init() {
-  const { default: Page } = await import('${ssrPrefix}/${entryId}.js');
-  const app = createElement(TsxContext.Provider, { value: _ctx },
-    createElement(Page));
+  const { default: Page } = await import('${pageUrl}');
   ${
     isDev
       ? `
+  // Store page URL for __wfw runtime
+  window.__WFW_PAGE_URL = '${pageUrl}';
+
   // Stable proxy — same function ref = React preserves fiber + useState state across HMR
   const _pageImpl = { current: Page };
   const _pageProxy = new Proxy(function __wfw_page(){}, {
@@ -224,15 +225,23 @@ async function init() {
   }
   renderPage();
 
+  // HMR: re-render page (sub-modules resolved via __wfw.h() pick up changes)
+  window.__WFW_RERENDER = () => {
+    _tick++;
+    reactRoot.render(createElement(TsxContext.Provider, { value: _ctx },
+      createElement(_pageProxy, { __t: _tick })));
+  };
+
+  // Fallback: swap entire page component
   window.__WFW_REFRESH = async (NewComponent) => {
     const store = globalThis.__WEIFUWU_CTX_STORE?._ctx || _ctx;
     _pageImpl.current = NewComponent;
-    _tick++;
-    reactRoot.render(createElement(TsxContext.Provider, { value: store },
-      createElement(_pageProxy, { __t: _tick })));
+    __WFW_RERENDER();
   };
   `
       : `
+  const app = createElement(TsxContext.Provider, { value: _ctx },
+    createElement(Page));
   hydrateRoot(_root, app);
   `
   }
@@ -244,7 +253,7 @@ init();
 
 // ── Page renderer ───────────────────────────────────────────────────────
 
-function renderPage(pageFile: string): Handler {
+function renderPage(pageFile: string, projectDir: string): Handler {
   const absPath = resolve(pageFile)
   const entryId = hashId(absPath)
   ssrEntries.set(entryId, { path: absPath })
@@ -283,11 +292,12 @@ function renderPage(pageFile: string): Handler {
       env: ctx.env ?? {},
     }
 
+    // Module server URL for browser to import this page component
+    const pageRelative = relative(projectDir, absPath)
+    const pageUrl = `${base}/__wfw/m/${pageRelative}`
+
     return als.run(ctxValue, async () => {
       setCtx(ctxValue)
-
-      // Compile page component for browser (served at /__ssr/[hash].js)
-      await compileBrowser(absPath)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let element: any = createElement(
@@ -311,7 +321,7 @@ function renderPage(pageFile: string): Handler {
             | { css: string; url: string }
             | undefined,
         },
-        buildHydrationScript(entryId, JSON.stringify(ctxValue), base),
+        buildHydrationScript(pageUrl, JSON.stringify(ctxValue)),
       )
     })
   }
@@ -385,18 +395,12 @@ export function ssr(opts: {
   const dir = resolve(opts.dir)
   const routeCache = new Map<string, ResolvedRoute | null>()
 
+  // Module server: serves individual .tsx files to browser via transformSync
+  const wfwRoot = resolve(import.meta.dirname ?? __dirname)
+  r.use('/', moduleServer({ root: [dir, wfwRoot] }))
+
   // Pre-warm vendor bundle so vendorHash is available for importmap
   compileVendorBundle().catch(() => {})
-
-  // Serve browser-compiled page components from memory
-  r.get('/__ssr/:file', (req, ctx) => {
-    const hash = ctx.params.file.replace(/\.js$/i, '')
-    const code = getBrowserCode(hash)
-    if (!code) return new Response('Not Found', { status: 404 })
-    return new Response(code, {
-      headers: { 'content-type': 'application/javascript; charset=utf-8' },
-    })
-  })
 
   // Vendor bundle (shared by all SSR instances, compiled once and cached)
   r.get('/__wfw/v/bundle', async () => {
@@ -450,7 +454,7 @@ export function ssr(opts: {
       tailwindContext(dir),
     ]
 
-    const handler: Handler = (req, ctx) => renderPage(resolved.pageFile)(req, ctx)
+    const handler: Handler = (req, ctx) => renderPage(resolved.pageFile, dir)(req, ctx)
     return runChain(mws, handler, req, ctx)
   })
 

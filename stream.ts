@@ -57,6 +57,9 @@ function buildHeadPayload(opts: StreamOpts): string {
   const { ctx, base, tailwind } = opts
   let result = ''
 
+  // __wfw runtime — module registry for HMR (single line, no comments)
+  result += `<script>window.__wfw={_cache:{},_k:function(u){return u.split('?')[0]},h:async function(u){var k=this._k(u);if(this._cache[k])return this._cache[k];var m=await import(u);this._cache[k]=m;return m},_update:function(u,mod){var k=this._k(u);this._cache[k]=mod}}</script>\n`
+
   const vUrl = `${base}/__wfw/v/bundle?h=${vendorHash}`
   result += `<script type="importmap">{
   "imports": {
@@ -116,11 +119,6 @@ function buildBodyScripts(opts: StreamOpts, hydrationScript?: string): string {
 
 /**
  * Create an HTML response from a React SSR stream.
- *
- * Injects the React stream into an HTML shell, adds hydration script,
- * loader data script, tailwind CSS, and (in dev mode) livereload script.
- *
- * Used internally by {@link ssr}.
  */
 export function streamResponse(
   reactStream: ReadableStream,
@@ -133,7 +131,6 @@ export function streamResponse(
   const output = new ReadableStream({
     async start(controller) {
       try {
-        // 1. Collect full HTML from React stream
         const reader = reactStream.getReader()
         let html = ''
         while (true) {
@@ -141,53 +138,60 @@ export function streamResponse(
           if (done) break
           html += decoder.decode(value, { stream: true })
         }
-        html += decoder.decode() // flush decoder
+        html += decoder.decode()
 
-        // 2. Extract head content from <template>
         const headTmpl = html.match(/<template id="__wfw_head">([\s\S]*?)<\/template>/)
         if (headTmpl) {
           const extractedHead = headTmpl[1]
           html = html.replace(headTmpl[0], '')
-          // Inject extracted head before </head>
           const headIdx = html.indexOf('</head>')
           if (headIdx !== -1) {
             html = html.slice(0, headIdx) + '\n' + extractedHead + html.slice(headIdx)
           }
         }
 
-        // 3. Build head payload and inject before </head>
         const headPayload = buildHeadPayload(opts)
         const headIdx = html.indexOf('</head>')
         if (headIdx !== -1) {
           html = html.slice(0, headIdx) + headPayload + html.slice(headIdx)
         }
 
-        // 4. Build body scripts and inject before </body>
         let bodyScripts = ''
         const built = buildBodyScripts(opts, hydrationScript)
         if (built) bodyScripts += built
 
         if (opts.isDev) {
           const wsUrl = `${opts.base}/__weifuwu/livereload`
-          const hbUrl = `${opts.base}/__wfw/h/`
           bodyScripts += `\n<script>
 (function(){
 var ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'${wsUrl}');
 var t=0;
+var _w=window;
 ws.onmessage=function(e){
   try{
     var m=JSON.parse(e.data);
-    if(m.type==='component'){
-      import('${hbUrl}'+m.hash+'?t='+Date.now()).catch(function(){location.reload()});
-      if(m.css){
-        var s=document.querySelector('style[data-lr]')||function(){
-          var x=document.createElement('style');
-          x.setAttribute('data-lr','');
-          document.head.appendChild(x);
-          return x
-        }();
-        s.textContent=m.css
-      }
+    if(m.type==='update'&&m.url&&m.code){
+      var blob=new Blob([m.code],{type:'application/javascript'});
+      var blobUrl=URL.createObjectURL(blob);
+      import(blobUrl).then(function(mod){
+        if(_w.__wfw) _w.__wfw._update(m.url,mod);
+        // Re-import page module so it re-evaluates its __wfw.h() imports
+        var pageUrl=_w.__WFW_PAGE_URL;
+        if(pageUrl&&_w.__WFW_REFRESH){
+          import(pageUrl.split('?')[0]+'?t='+Date.now()).then(function(pageMod){
+            if(pageMod.default) _w.__WFW_REFRESH(pageMod.default);
+            if(m.css){
+              var s=document.querySelector('style[data-lr]')||function(){
+                var x=document.createElement('style');
+                x.setAttribute('data-lr','');
+                document.head.appendChild(x);
+                return x
+              }();
+              s.textContent=m.css
+            }
+          });
+        }else{location.reload()}
+      }).catch(function(){location.reload()});
       return
     }
     if(m.type==='css'){

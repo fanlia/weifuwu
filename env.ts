@@ -52,7 +52,8 @@ export function isBundled(): boolean {
  * **Not** the opposite of {@link isProd} — when `NODE_ENV` is unset, both return `false`.
  */
 export function isDev(): boolean {
-  return process.env.NODE_ENV === 'development'
+  const env = process.env.NODE_ENV
+  return env !== 'production' && env !== 'test'
 }
 
 /**
