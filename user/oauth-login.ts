@@ -11,8 +11,7 @@ interface ProviderMeta {
   tokenUrl: string
   userUrl: string
   scope: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parseUser: (data: any, accessToken: string) => ProviderUser
+  parseUser: (data: Record<string, unknown>, accessToken: string) => ProviderUser
 }
 
 interface ProviderUser {
@@ -28,12 +27,11 @@ const BUILTIN_PROVIDERS: Record<string, ProviderMeta> = {
     tokenUrl: 'https://oauth2.googleapis.com/token',
     userUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
     scope: 'openid email profile',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    parseUser: (data: any): ProviderUser => ({
-      id: data.id,
-      email: data.email,
-      name: data.name,
-      avatarUrl: data.picture,
+    parseUser: (data: Record<string, unknown>): ProviderUser => ({
+      id: data.id as string,
+      email: data.email as string,
+      name: data.name as string,
+      avatarUrl: data.picture as string,
     }),
   },
   github: {
@@ -41,12 +39,11 @@ const BUILTIN_PROVIDERS: Record<string, ProviderMeta> = {
     tokenUrl: 'https://github.com/login/oauth/access_token',
     userUrl: 'https://api.github.com/user',
     scope: 'read:user user:email',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    parseUser: (data: any): ProviderUser => ({
+    parseUser: (data: Record<string, unknown>): ProviderUser => ({
       id: String(data.id),
-      email: data.email ?? '',
-      name: data.name ?? data.login,
-      avatarUrl: data.avatar_url,
+      email: (data.email as string) ?? '',
+      name: (data.name as string) ?? (data.login as string),
+      avatarUrl: data.avatar_url as string,
     }),
   },
 }
@@ -61,17 +58,13 @@ interface OAuthLoginDeps {
   /** Table for provider-user link, derived from usersTable. */
   providerTable: string
   redirectUrl: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  signToken: (user: any) => string
+  signToken: (user: Record<string, unknown>) => string
   /** Create a placeholder user for OAuth login (no password). */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createPlaceholderUser: (email: string, name: string) => Promise<any>
+  createPlaceholderUser: (email: string, name: string) => Promise<Record<string, unknown>>
   /** Find user by internal ID. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  findUserById: (id: number) => Promise<any | undefined>
+  findUserById: (id: number) => Promise<Record<string, unknown> | undefined>
   /** Find user by email. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  findUserByEmail: (email: string) => Promise<any | undefined>
+  findUserByEmail: (email: string) => Promise<Record<string, unknown> | undefined>
 }
 
 // ── Route registration ──────────────────────────────────────────────────────
@@ -108,7 +101,10 @@ export function registerOAuthLoginRoutes(
     return tableReady
   }
 
-  async function findUserByProvider(provider: string, providerId: string): Promise<any | null> {
+  async function findUserByProvider(
+    provider: string,
+    providerId: string,
+  ): Promise<Record<string, unknown> | null> {
     const [row] = await sql.unsafe(
       `SELECT * FROM ${escapeIdent(providerTable)} WHERE provider = $1 AND provider_id = $2 LIMIT 1`,
       [provider, providerId],
@@ -138,11 +134,11 @@ export function registerOAuthLoginRoutes(
     email: string,
     name: string,
     avatarUrl: string,
-  ): Promise<any> {
+  ): Promise<Record<string, unknown>> {
     // Step 1: Check if provider link exists
     const link = await findUserByProvider(provider, providerId)
     if (link) {
-      const user = await deps.findUserById(link.user_id)
+      const user = await deps.findUserById((link as unknown as { user_id: number }).user_id)
       if (user) return user
     }
 
@@ -150,7 +146,8 @@ export function registerOAuthLoginRoutes(
     if (email) {
       const existingUser = await deps.findUserByEmail(email)
       if (existingUser) {
-        await linkProvider(existingUser.id, provider, providerId, email, name, avatarUrl)
+        const uid = (existingUser as unknown as { id: number }).id
+        await linkProvider(uid, provider, providerId, email, name, avatarUrl)
         return existingUser
       }
     }
@@ -160,7 +157,8 @@ export function registerOAuthLoginRoutes(
       email || `${provider}_${providerId}@oauth.local`,
       name || provider,
     )
-    await linkProvider(newUser.id, provider, providerId, email, name, avatarUrl)
+    const userId = (newUser as unknown as { id: number }).id
+    await linkProvider(userId, provider, providerId, email, name, avatarUrl)
     return newUser
   }
 
@@ -267,6 +265,7 @@ export function registerOAuthLoginRoutes(
         }),
       })
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error(
         `[oauth] token exchange network error for ${providerName}:`,
         (err as Error).message,
@@ -276,6 +275,7 @@ export function registerOAuthLoginRoutes(
 
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text()
+      // eslint-disable-next-line no-console
       console.error(`[oauth] token exchange failed for ${providerName}:`, errBody)
       return Response.json({ error: 'Failed to exchange authorization code' }, { status: 502 })
     }
@@ -291,6 +291,7 @@ export function registerOAuthLoginRoutes(
     try {
       userRes = await fetch(meta.userUrl, { headers: { Authorization: 'Bearer ' + accessToken } })
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error(
         '[oauth] user info network error for ' + providerName + ':',
         (err as Error).message,

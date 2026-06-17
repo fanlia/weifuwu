@@ -33,6 +33,9 @@ declare module './types.ts' {
   }
 }
 
+/** Flash message module — a {@link Middleware} that injects `ctx.flash`. */
+export type FlashModule = Middleware<Context, Context & FlashInjected>
+
 /** Options for {@link flash}. */
 export interface FlashOptions {
   /**
@@ -136,6 +139,6 @@ export function flash(
 
     return res
   }
-  ;(mw as any).__meta = { injects: ['flash'], depends: [] }
+  mw.__meta = { injects: ['flash'], depends: [] }
   return mw
 }

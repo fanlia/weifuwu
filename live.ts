@@ -1,9 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
+/* eslint-disable no-console */
 import chokidar from 'chokidar'
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { WebSocket } from './vendor.ts'
 import { Router, type WebSocketHandler } from './router.ts'
+import type { Context } from './types.ts'
 import { compileTsxDev, compileVendorBundle, clearCompileCache } from './compile.ts'
 import { clearModuleCache, transformModule } from './module-server.ts'
 import { compileTailwindCss } from './tailwind.ts'
@@ -33,7 +34,7 @@ function broadcastCss(css: string) {
 
 export function liveWs(): WebSocketHandler {
   return {
-    open(ws: WebSocket, _ctx: any) {
+    open(ws: WebSocket, _ctx: Context) {
       clients.add(ws)
       ws.on('close', () => clients.delete(ws))
       ws.on('error', () => clients.delete(ws))
@@ -80,7 +81,7 @@ export function liveWatcher(dir: string): { close: () => void } {
       try {
         const absPath = resolve(filePath)
         const { url, code } = await transformModule(absPath, resolved)
-        const msg: Record<string, any> = { type: 'update', url, code }
+        const msg: Record<string, unknown> = { type: 'update', url, code }
         if (css) msg.css = css
         const str = JSON.stringify(msg)
         for (const ws of clients) {

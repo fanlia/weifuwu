@@ -21,10 +21,10 @@ describe('isDev', () => {
     process.env.NODE_ENV = prev
   })
 
-  it('returns false when NODE_ENV is not set', () => {
+  it('returns true when NODE_ENV is not set (dev is default)', () => {
     const prev = process.env.NODE_ENV
     delete process.env.NODE_ENV
-    assert.equal(isDev(), false)
+    assert.equal(isDev(), true)
     process.env.NODE_ENV = prev
   })
 })
@@ -52,10 +52,11 @@ describe('isProd', () => {
   })
 
   it('isDev and isProd are not opposites', () => {
+    // When NODE_ENV is unset, dev is the default
     const prev = process.env.NODE_ENV
     delete process.env.NODE_ENV
-    assert.equal(isDev(), false)
-    assert.equal(isProd(), false) // both false = default mode
+    assert.equal(isDev(), true)
+    assert.equal(isProd(), false)
     process.env.NODE_ENV = prev
   })
 })

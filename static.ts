@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { open, realpath, type FileHandle } from 'node:fs/promises'
 import { extname, resolve, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
@@ -101,7 +100,7 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
       readStream.on('close', cleanup)
       readStream.on('error', cleanup)
       const webStream = Readable.toWeb(readStream)
-      return new Response(webStream as any, { headers })
+      return new Response(webStream as unknown as ReadableStream, { headers })
     } catch (err) {
       if (fileHandle) await fileHandle.close().catch(() => {})
       if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {

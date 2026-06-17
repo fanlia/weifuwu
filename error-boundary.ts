@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createElement } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { compile } from './compile.ts'
 import { isDev } from './env.ts'
 import type { Middleware, Context } from './types.ts'
@@ -23,7 +22,8 @@ export function errorBoundary(errorPath: string): Middleware {
       const layouts = (ctx2.layoutStack || []).map((l) => l.component)
       const base = (ctx2.mountPath || '').replace(/\/$/, '')
 
-      let element: any = createElement(ErrorComponent, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let element: ReactNode = createElement(ErrorComponent as any, {
         error: err instanceof Error ? err : new Error(String(err)),
         reset: () => {},
       })

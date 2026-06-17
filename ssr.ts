@@ -1,6 +1,6 @@
 import { createElement } from 'react'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { dirname, join, resolve, relative } from 'node:path'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -12,7 +12,7 @@ import { ssrEntries } from './ssr-entries.ts'
 import { isDev as _isDev } from './env.ts'
 import { tailwindContext, tailwindRouter } from './tailwind.ts'
 import { liveRouter, liveWatcher, liveWs } from './live.ts'
-import { moduleServer, clearModuleCache } from './module-server.ts'
+import { moduleServer } from './module-server.ts'
 import { layout } from './layout.ts'
 import { errorBoundary } from './error-boundary.ts'
 import { buildHtmlShell } from './html-shell.ts'
@@ -182,11 +182,6 @@ async function resolveRoute(
   return result
 }
 
-/** Clear route cache (called by HMR watcher in dev mode). */
-export function clearRouteCache(cache: Map<string, ResolvedRoute | null>) {
-  cache.clear()
-}
-
 // ── Hydration script builder (inline <script type="module">) ────────────
 
 function buildHydrationScript(pageUrl: string, ctxJson: string): string {
@@ -283,7 +278,7 @@ function renderPage(pageFile: string, projectDir: string): Handler {
     const ctxValue: PageContext = {
       params: ctx.params,
       query: ctx.query,
-      user: (ctx.user ?? {}) as any,
+      user: (ctx.user ?? {}) as unknown as Record<string, unknown>,
       parsed: ctx.parsed ?? {},
       theme: ctx.theme,
       i18n: ctx.i18n,

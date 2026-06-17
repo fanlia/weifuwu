@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Context, Middleware } from './types.ts'
@@ -137,7 +136,7 @@ export function loadEnv(path?: string): void {
 export function env(): Middleware<Context, Context & { env: Record<string, string> }> {
   const entries = getPublicEnv()
   return async (req, ctx, next) => {
-    ;(ctx as any).env = entries
+    ;(ctx as Context & { env: Record<string, string> }).env = entries
     return next(req, ctx as Context & { env: Record<string, string> })
   }
 }

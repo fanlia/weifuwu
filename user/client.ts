@@ -564,7 +564,7 @@ export function user(options: UserOptions): UserModule {
             : undefined,
       })
     }
-    ;(mw as any).__meta = { injects: ['user'], depends: [] }
+    mw.__meta = { injects: ['user'], depends: [] }
     return mw
   }
 
@@ -578,7 +578,7 @@ export function user(options: UserOptions): UserModule {
       }
       return next(req, ctx as Context & UserInjected)
     }
-    ;(mw as any).__meta = { injects: ['user'], depends: [] }
+    mw.__meta = { injects: ['user'], depends: [] }
     return mw
   }
 
@@ -690,7 +690,7 @@ export function user(options: UserOptions): UserModule {
         usersTable: table,
         providerTable: '_auth_providers',
         redirectUrl: options.oauthLogin.redirectUrl || '/',
-        signToken,
+        signToken: signToken as unknown as (user: Record<string, unknown>) => string,
         createPlaceholderUser,
         findUserById: findById,
         findUserByEmail: findByEmail,

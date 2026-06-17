@@ -31,8 +31,9 @@
     "lint": "eslint --ext .ts,.tsx .",
     "test": "node --test 'test/**/*.test.ts'",
     "test:coverage": "node --experimental-test-coverage --test 'test/**/*.test.ts'",
-    "test:unit": "bash scripts/test-unit.sh",
-    "test:ci": "node --test 'test/**/*.test.ts'",
+    "test:typecheck": "npx tsc -p tsconfig.test.json --noEmit",
+    "test:quick": "bash scripts/test-quick.sh",
+    "test:ci": "node --test --test-force-exit --test-timeout=60000 'test/**/*.test.ts'",
     "prepare": "husky"
   },
   "dependencies": {

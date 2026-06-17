@@ -11,4 +11,4 @@ cd "$(dirname "$0")/.."
 echo "=== Running unit tests (external services disabled) ==="
 echo ""
 
-node --test 'test/**/*.test.ts'
+node --test --test-force-exit --test-timeout=60000 'test/**/*.test.ts'

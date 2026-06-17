@@ -214,7 +214,7 @@ export async function deploy(config: DeployConfig): Promise<DeployServer> {
           await stopProcess({ child: app.process, port: app.currentPort })
         }
       }
-      httpServer?.stop()
+      httpServer?.close()
     },
     ready: httpServer.ready,
     url: `http://localhost:${config.port}/`,

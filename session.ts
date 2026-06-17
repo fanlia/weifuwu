@@ -432,7 +432,7 @@ export function session(options?: SessionOptions): Middleware<
     store: SessionStore
   }
 
-  ;(mw as any).__meta = { injects: ['session'], depends: [] }
+  mw.__meta = { injects: ['session'], depends: [] }
   mw.close = async () => {
     await closeStore?.()
   }

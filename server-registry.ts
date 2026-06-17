@@ -211,8 +211,3 @@ export function clearServerModule(absPath?: string): void {
     _alias = null
   }
 }
-
-/** Release resources. Call when shutting down. */
-export function closeRegistry(): void {
-  registry.clear()
-}

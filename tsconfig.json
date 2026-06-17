@@ -13,15 +13,23 @@
   "include": [
     "*.ts",
     "postgres/*.ts",
+    "postgres/**/*.ts",
     "redis/*.ts",
     "queue/*.ts",
     "user/*.ts",
     "tenant/*.ts",
     "agent/*.ts",
+    "agent/**/*.ts",
     "messager/*.ts",
+    "messager/**/*.ts",
     "deploy/*.ts",
     "opencode/*.ts",
     "opencode/**/*.ts",
-    "iii/*.ts"
+    "iii/*.ts",
+    "iii/**/*.ts",
+    "kb/*.ts",
+    "cli/*.ts",
+    "logdb/*.ts",
+    "notifier/*.ts"
   ]
 }

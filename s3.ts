@@ -204,6 +204,6 @@ export function s3(options: S3Options): S3Module & Middleware {
   mw.url = url
   mw.list = list
   mw.client = client
-  ;(mw as any).__meta = { injects: ['s3'], depends: [] }
+  mw.__meta = { injects: ['s3'], depends: [] }
   return mw
 }

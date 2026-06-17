@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve, dirname, relative } from 'node:path'
 import { createHash } from 'node:crypto'
 import { Router } from './router.ts'
-import type { Handler } from './types.ts'
+import type { Context, Handler } from './types.ts'
 
 const moduleCache = new Map<string, string>()
 const hashCache = new Map<string, string>()
@@ -30,7 +30,7 @@ export function clearModuleCache(filePath?: string) {
 
 let _importRoots: string[] = []
 
-export function _setImportRoots(roots: string[]) {
+function _setImportRoots(roots: string[]) {
   _importRoots = roots
 }
 
@@ -148,8 +148,7 @@ export function moduleServer(opts: { root: string | string[] }): Router {
 
   const router = new Router()
 
-  router.get('/__wfw/m/*', (async (req: Request, ctx: any) => {
-    const reqUrl = new URL(req.url)
+  router.get('/__wfw/m/*', (async (req: Request, ctx: Context) => {
     const filePath = (ctx.params['*'] || '').split('?')[0]
     const ext = filePath.split('.').pop()
 

@@ -59,7 +59,7 @@ export function theme(options?: ThemeOptions): ThemeModule {
     }
     return next(req, ctx as Context & ThemeInjected)
   }
-  ;(mw as any).__meta = { injects: ['theme'], depends: [] }
+  mw.__meta = { injects: ['theme'], depends: [] }
 
   class ThemeRouter extends Router {
     middleware() {

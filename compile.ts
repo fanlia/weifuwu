@@ -191,8 +191,3 @@ export async function compileVendorBundle(): Promise<string> {
     .slice(0, 8)
   return vendorBundle
 }
-
-/** Clean up esbuild's internal worker pool. Call when you're done compiling. */
-export async function closeCompile(): Promise<void> {
-  await esbuild.stop()
-}

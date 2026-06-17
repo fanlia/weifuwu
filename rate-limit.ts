@@ -141,7 +141,7 @@ export function rateLimit(options?: RateLimitOptions): RateLimitModule {
     return addRateLimitHeaders(res, max, remaining, reset)
   }
 
-  ;(mw as any).__meta = { injects: [], depends: [] }
+  mw.__meta = { injects: [], depends: [] }
   mw.close = async () => {
     if (interval) clearInterval(interval)
     hits.clear()

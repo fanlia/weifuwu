@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createElement } from 'react'
+import { createElement, type ComponentType, type ReactNode } from 'react'
 import { compile } from './compile.ts'
 import { isDev } from './env.ts'
 import type { Handler, Context } from './types.ts'
@@ -10,14 +9,14 @@ export function notFound(path?: string): Handler {
   return async (_req, ctx) => {
     if (!path) return new Response('Not Found', { status: 404 })
 
-    let Component: any
+    let Component: ComponentType
     try {
       const mod = await compile(path)
       Component = mod?.default
+      if (!Component) return new Response('Not Found', { status: 404 })
     } catch {
       return new Response('Not Found', { status: 404 })
     }
-    if (!Component) return new Response('Not Found', { status: 404 })
 
     const ctx2 = ctx as Context & {
       layoutStack?: Array<{ component: unknown }>
@@ -28,7 +27,7 @@ export function notFound(path?: string): Handler {
     const layoutComponents = layouts.map((l) => l.component)
     const base = (ctx2.mountPath || '').replace(/\/$/, '')
 
-    let element: any = createElement(
+    let element: ReactNode = createElement(
       'div',
       { id: '__weifuwu_root' },
       createElement(Component, null),

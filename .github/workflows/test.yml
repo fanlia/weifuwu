@@ -1,6 +1,9 @@
 name: test
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_call:
 
 env:
   TEST_DATABASE_URL: postgres://root:123456@localhost:5432/demo
@@ -11,9 +14,44 @@ env:
   S3_SECRET_ACCESS_KEY: minioadmin
 
 jobs:
+  # ── Fast check: typecheck + lint (no services needed) ────────────────────
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    strategy:
+      matrix:
+        node-version: ['20', '22', '24']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test type check
+        run: npx tsc -p tsconfig.test.json --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+  # ── Full test suite (with PostgreSQL, Redis, MinIO) ──────────────────────
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: check
 
     services:
       postgres:
@@ -66,14 +104,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Format check
-        run: npm run format:check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Run all tests
-        run: npm test
+      - name: Run all tests (with --test-force-exit)
+        run: npm run test:ci

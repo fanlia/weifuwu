@@ -4,7 +4,7 @@ import type { Context } from '../types.ts'
 import { analytics } from '../analytics.ts'
 
 describe('analytics', () => {
-  const ctx = { params: {}, query: {} } as Context
+  const ctx = { params: {}, query: {} } as unknown as Context
 
   it('records page views in memory', async () => {
     const a = analytics()
@@ -20,12 +20,15 @@ describe('analytics', () => {
     )
 
     const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
-    const data = (await dataRes.json()) as any
+    const data = (await dataRes.json()) as Record<string, unknown>
     assert.equal(data.total_pv, 4)
-    assert.equal(data.top_pages[0].path, '/tools/uppercase')
-    assert.equal(data.top_pages[0].pv, 3)
-    assert.equal(data.top_pages[1].path, '/tools/json-formatter')
-    assert.equal(data.top_pages[1].pv, 1)
+    assert.equal((data.top_pages as Array<Record<string, unknown>>)[0].path, '/tools/uppercase')
+    assert.equal((data.top_pages as Array<Record<string, unknown>>)[0].pv, 3)
+    assert.equal(
+      (data.top_pages as Array<Record<string, unknown>>)[1].path,
+      '/tools/json-formatter',
+    )
+    assert.equal((data.top_pages as Array<Record<string, unknown>>)[1].pv, 1)
   })
 
   it('excludes internal paths', async () => {
@@ -39,9 +42,8 @@ describe('analytics', () => {
     )
     await m(new Request('http://localhost/static/foo.js'), ctx, async () => new Response('ok'))
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
-      .then((r2) => r2.json())) as any
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const data = (await dataRes.json()) as Record<string, unknown>
     assert.equal(data.total_pv, 0)
   })
 
@@ -56,12 +58,11 @@ describe('analytics', () => {
       async () => new Response('ok'),
     )
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
-      .then((r2) => r2.json())) as any
-    assert.equal(data.referrers.length, 1)
-    assert.equal(data.referrers[0].domain, 'google.com')
-    assert.equal(data.referrers[0].count, 1)
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const data = (await dataRes.json()) as Record<string, unknown>
+    assert.equal((data.referrers as Array<Record<string, unknown>>).length, 1)
+    assert.equal((data.referrers as Array<Record<string, unknown>>)[0].domain, 'google.com')
+    assert.equal((data.referrers as Array<Record<string, unknown>>)[0].count, 1)
   })
 
   it('detects mobile user-agent', async () => {
@@ -75,11 +76,11 @@ describe('analytics', () => {
       async () => new Response('ok'),
     )
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
-      .then((r2) => r2.json())) as any
-    assert.equal(data.devices.mobile, 100)
-    assert.equal(data.devices.desktop, 0)
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const data = (await dataRes.json()) as Record<string, unknown>
+    const devices = data.devices as Record<string, unknown>
+    assert.equal(devices.mobile, 100)
+    assert.equal(devices.desktop, 0)
   })
 
   it('dashboard page returns HTML', async () => {
@@ -100,11 +101,10 @@ describe('analytics', () => {
     await m(new Request('http://localhost/private'), ctx, async () => new Response('ok'))
     await m(new Request('http://localhost/public'), ctx, async () => new Response('ok'))
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
-      .then((r) => r.json())) as any
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const data = (await dataRes.json()) as Record<string, unknown>
     assert.equal(data.total_pv, 1)
-    assert.equal(data.top_pages[0].path, '/public')
+    assert.equal((data.top_pages as Array<Record<string, unknown>>)[0].path, '/public')
   })
 
   it('strips www. from referrer domain', async () => {
@@ -118,10 +118,9 @@ describe('analytics', () => {
       async () => new Response('ok'),
     )
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
-      .then((r) => r.json())) as any
-    assert.equal(data.referrers[0].domain, 'example.com')
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const data = (await dataRes.json()) as Record<string, unknown>
+    assert.equal((data.referrers as Array<Record<string, unknown>>)[0].domain, 'example.com')
   })
 
   it('clamps days parameter below 1', async () => {
@@ -129,9 +128,8 @@ describe('analytics', () => {
     const m = a.middleware()
     await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=0'), ctx)
-      .then((r) => r.json())) as any
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=0'), ctx)
+    const data = (await dataRes.json()) as Record<string, unknown>
     assert.equal(data.total_pv, 1)
   })
 
@@ -140,9 +138,11 @@ describe('analytics', () => {
     const m = a.middleware()
     await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=999'), ctx)
-      .then((r) => r.json())) as any
+    const dataRes = await a.handler()(
+      new Request('http://localhost/__analytics/data?days=999'),
+      ctx,
+    )
+    const data = (await dataRes.json()) as Record<string, unknown>
     assert.equal(data.total_pv, 1)
   })
 
@@ -151,9 +151,11 @@ describe('analytics', () => {
     const m = a.middleware()
     await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=abc'), ctx)
-      .then((r) => r.json())) as any
+    const dataRes = await a.handler()(
+      new Request('http://localhost/__analytics/data?days=abc'),
+      ctx,
+    )
+    const data = (await dataRes.json()) as Record<string, unknown>
     assert.equal(data.total_pv, 1)
   })
 
@@ -162,10 +164,9 @@ describe('analytics', () => {
     const m = a.middleware()
     await m(new Request('http://localhost/page'), ctx, async () => new Response('ok'))
 
-    const data = (await a
-      .handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
-      .then((r) => r.json())) as any
-    assert.equal(data.referrers.length, 0)
+    const dataRes = await a.handler()(new Request('http://localhost/__analytics/data?days=7'), ctx)
+    const data = (await dataRes.json()) as Record<string, unknown>
+    assert.equal((data.referrers as Array<Record<string, unknown>>).length, 0)
   })
 
   it('close() is callable', async () => {

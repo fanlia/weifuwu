@@ -8,13 +8,13 @@ describe('middleware __meta dependency checking', () => {
     const app = new Router()
 
     // Create mock middlewares with __meta
-    const sqlMw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+    const sqlMw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
     sqlMw.__meta = { injects: ['sql'], depends: [] }
 
-    const redisMw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+    const redisMw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
     redisMw.__meta = { injects: ['redis'], depends: [] }
 
-    const sessionMw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+    const sessionMw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
     sessionMw.__meta = { injects: ['session'], depends: ['redis'] }
 
     app.use(sqlMw)
@@ -36,7 +36,7 @@ describe('middleware __meta dependency checking', () => {
     }
 
     try {
-      const sessionMw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+      const sessionMw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
       sessionMw.__meta = { injects: ['session'], depends: ['redis'] }
 
       app.use(sessionMw)
@@ -60,7 +60,7 @@ describe('middleware __meta dependency checking', () => {
     }
 
     try {
-      const mw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+      const mw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
       mw.__meta = { injects: [], depends: ['sql'] }
 
       app.use('/admin', mw)
@@ -81,10 +81,10 @@ describe('middleware __meta dependency checking', () => {
     }
 
     try {
-      const sqlMw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+      const sqlMw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
       sqlMw.__meta = { injects: ['sql'], depends: [] }
 
-      const userMw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+      const userMw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
       userMw.__meta = { injects: ['user'], depends: ['sql'] }
 
       app.use(sqlMw)
@@ -107,7 +107,7 @@ describe('middleware __meta dependency checking', () => {
 
     try {
       // Simulate a module like theme() that has .middleware()
-      const moduleMw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+      const moduleMw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
       moduleMw.__meta = { injects: ['theme'], depends: [] }
 
       const mod = new Router() as any
@@ -130,7 +130,7 @@ describe('middleware __meta dependency checking', () => {
     }
 
     try {
-      const mw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+      const mw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
       // No __meta attached
 
       app.use(mw)
@@ -143,7 +143,7 @@ describe('middleware __meta dependency checking', () => {
   it('should track multiple injects from one middleware', () => {
     const app = new Router()
 
-    const mw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+    const mw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
     mw.__meta = { injects: ['sql', 'redis', 'ai'], depends: [] }
 
     app.use(mw)
@@ -156,7 +156,7 @@ describe('middleware __meta dependency checking', () => {
     }
 
     try {
-      const userMw = ((_req: Request, ctx: Context, next: any) => next(req, ctx)) as any
+      const userMw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
       userMw.__meta = { injects: ['user'], depends: ['sql'] }
 
       app.use(userMw)

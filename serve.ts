@@ -22,6 +22,8 @@ export interface ServeOptions {
 
 export interface Server {
   stop: (timeoutMs?: number) => Promise<void>
+  /** Alias for `stop()`. Prefer this for consistency with other modules. */
+  close: (timeoutMs?: number) => Promise<void>
   readonly port: number
   readonly hostname: string
   ready: Promise<void>
@@ -209,6 +211,7 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
       resolveReady()
       return {
         stop: () => Promise.resolve(),
+        close: () => Promise.resolve(),
         ready,
         get port() {
           return 0
@@ -247,37 +250,37 @@ export function serve(handler: Handler, options?: ServeOptions): Server {
     console.log(`weifuwu listening on http://${displayHost}:${_cachedPort}`)
   })
 
-  return {
-    stop: (timeoutMs = 10_000) => {
-      if (shutdownHandler) {
-        process.off('SIGTERM', shutdownHandler)
-        process.off('SIGINT', shutdownHandler)
-        shutdownHandler = null
-      }
-      return new Promise<void>((resolve) => {
-        if (!server.listening) {
-          resolve()
-          return
-        }
+  async function stop(timeoutMs = 10_000): Promise<void> {
+    if (shutdownHandler) {
+      process.off('SIGTERM', shutdownHandler)
+      process.off('SIGINT', shutdownHandler)
+      shutdownHandler = null
+    }
+    if (!server.listening) return
 
-        // 1. Stop accepting new connections
-        server.close()
+    // 1. Stop accepting new connections
+    server.close()
 
-        // 2. Close idle keep-alive connections
-        server.closeIdleConnections()
+    // 2. Close idle keep-alive connections
+    server.closeIdleConnections()
 
-        // 3. Wait for in-flight requests to finish, or force-close after timeout
-        const timer = setTimeout(() => {
-          server.closeAllConnections()
-          resolve()
-        }, timeoutMs)
+    // 3. Wait for in-flight requests to finish, or force-close after timeout
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        server.closeAllConnections()
+        resolve()
+      }, timeoutMs)
 
-        server.on('close', () => {
-          clearTimeout(timer)
-          resolve()
-        })
+      server.on('close', () => {
+        clearTimeout(timer)
+        resolve()
       })
-    },
+    })
+  }
+
+  return {
+    close: stop,
+    stop,
     ready,
     get port() {
       if (!server.listening) return 0

@@ -8,6 +8,9 @@ declare module './types.ts' {
   }
 }
 
+/** Validation middleware — a {@link Middleware} that injects `ctx.parsed` with validated data. */
+export type ValidateModule = Middleware
+
 export interface ValidationSchemas {
   body?: ZodSchema
   query?: ZodSchema
@@ -178,6 +181,6 @@ export function validate(schemas?: ValidationSchemas): Middleware {
     ctx.parsed = { ...ctx.parsed, ...parsed }
     return next(req, ctx)
   }
-  ;(mw as any).__meta = { injects: ['parsed'], depends: [] }
+  mw.__meta = { injects: ['parsed'], depends: [] }
   return mw
 }

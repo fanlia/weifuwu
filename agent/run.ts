@@ -9,22 +9,19 @@ import { formatSSE } from '../sse.ts'
 import { currentTraceId } from '../trace.ts'
 import { chunkContent } from '../ai/utils.ts'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 interface RunnerDeps {
   sql: SqlClient
-  agents: BoundTable<any>
-  runs: BoundTable<any>
-  knowledge: BoundTable<any>
+  agents: BoundTable<Record<string, unknown>>
+  runs: BoundTable<Record<string, unknown>>
+  knowledge: BoundTable<Record<string, unknown>>
   provider: AIProvider
   modelName?: string
   userTools?: Record<string, Tool>
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function hasKnowledgeDocs(sql: SqlClient, agentId: number): Promise<boolean> {
   return sql`SELECT 1 FROM "_knowledge_documents" WHERE agent_id = ${agentId} LIMIT 1`.then(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (r) => (r as any[]).length > 0,
+    (r: unknown) => (r as unknown[]).length > 0,
   )
 }
 
@@ -37,11 +34,11 @@ async function searchKnowledge(
 ) {
   const embedding = await provider.embed(query)
   const vec = `[${embedding.join(',')}]`
-   
+
   const docs = (await sql.unsafe(
     `SELECT id, title, content, metadata, embedding <=> $1::vector AS _score FROM "_knowledge_documents" WHERE agent_id = $2 ORDER BY embedding <=> $1::vector LIMIT $3`,
     [vec, agentId, limit],
-  )) as any[]
+  )) as Array<Record<string, unknown>>
   return docs.map((d: Record<string, unknown>) => ({
     id: d.id,
     title: d.title,
@@ -151,7 +148,6 @@ export function createRunner(deps: RunnerDeps) {
             for await (const event of fullStream) {
               controller.enqueue(encoder.encode(formatSSE(event.type, event)))
             }
-             
           } catch (err: any) {
             controller.enqueue(encoder.encode(formatSSE('error', { error: err.message })))
           } finally {
@@ -193,11 +189,10 @@ export function createRunner(deps: RunnerDeps) {
     const embedding = await provider.embed(first)
     const vec = `[${embedding.join(',')}]`
 
-     
     const [doc] = (await sql.unsafe(
       `INSERT INTO "_knowledge_documents" ("agent_id", "title", "content", "embedding") VALUES ($1, $2, $3, $4::vector) RETURNING *`,
       [agentId, title, first, vec],
-    )) as any[]
+    )) as Array<Record<string, unknown>>
 
     for (let i = 1; i < chunks.length; i++) {
       const emb = await provider.embed(chunks[i])
@@ -208,7 +203,7 @@ export function createRunner(deps: RunnerDeps) {
       )
     }
 
-    return doc as KnowledgeDoc
+    return doc as unknown as KnowledgeDoc
   }
 
   return { run, addKnowledge }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Context, Middleware } from './types.ts'
@@ -128,7 +127,7 @@ export function trace(
     const requestId = existing ?? gen()
     const tc = als.getStore()
 
-    ;(ctx as any).trace = {
+    ;(ctx as Context & { trace: TraceInjected }).trace = {
       requestId,
       traceId: tc?.traceId ?? requestId,
       startTime: tc?.startTime ?? Date.now(),

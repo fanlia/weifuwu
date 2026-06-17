@@ -62,7 +62,7 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
     ctx.sql = sql
     return next(req, ctx)
   }) as unknown as PostgresClient
-  ;(mw as any).__meta = { injects: ['sql'], depends: [] }
+  mw.__meta = { injects: ['sql'], depends: [] }
 
   mw.sql = sql
   mw.table = ((

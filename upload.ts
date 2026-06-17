@@ -11,6 +11,9 @@ declare module './types.ts' {
   }
 }
 
+/** Upload middleware — a {@link Middleware} that injects `ctx.parsed` with file fields. */
+export type UploadModule = Middleware<Context, Context & { parsed: Record<string, unknown> }>
+
 /** A parsed file from a multipart upload. */
 export interface UploadedFile {
   /** Original filename from the client. */
@@ -160,6 +163,6 @@ export function upload(
     ctx.parsed = { ...ctx.parsed, files, fields }
     return next(req, ctx)
   }
-  ;(mw as any).__meta = { injects: ['parsed'], depends: [] }
+  mw.__meta = { injects: ['parsed'], depends: [] }
   return mw
 }

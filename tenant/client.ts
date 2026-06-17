@@ -111,7 +111,7 @@ export function tenant(options: TenantOptions): TenantModule {
       ctx.tenant = { id: member.id, name: member.name, role: member.role } as TenantContext
       return next(req, ctx)
     }
-    ;(mw as any).__meta = { injects: ['tenant'], depends: ['user'] }
+    mw.__meta = { injects: ['tenant'], depends: ['user'] }
     return mw
   }
 

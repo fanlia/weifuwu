@@ -2,16 +2,26 @@ import type { Handler, Middleware, Closeable } from './types.ts'
 import { text, integer } from './postgres/schema/columns.ts'
 import { Router } from './router.ts'
 
+/** Tagged-template SQL function from the postgres.js library. */
+type PgSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>
+
+/** Schema table builder callback. */
+type PgTable = (
+  name: string,
+  cols: Record<string, unknown>,
+) => {
+  create(): Promise<void>
+  createIndex(cols: string[], opts: { unique: boolean }): Promise<void>
+}
+
 /** Options for {@link analytics}. */
 export interface AnalyticsOptions {
   /** Path prefixes to exclude from analytics (default: `['/__analytics', '/__wfw', '/static']`). */
   excluded?: string[]
   /** PostgreSQL client for persistent storage. Required for production use. */
   pg?: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sql: (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    table: (name: string, cols: any) => any
+    sql: PgSql
+    table: PgTable
   }
 }
 
@@ -155,10 +165,7 @@ class MemStore {
 
 // ── PG store ────────────────────────────────────────────────────────────────
 
-async function migratePg(
-  sql: (sql: any, ...args: any[]) => Promise<any[]>,
-  table: (name: string, cols: any) => any,
-) {
+async function migratePg(sql: PgSql, table: PgTable) {
   const analytics = table('__analytics', {
     date: text('date').notNull(),
     path: text('path').notNull(),
@@ -171,12 +178,7 @@ async function migratePg(
   return analytics
 }
 
-async function recordPg(
-  sql: (sql: any, ...args: any[]) => Promise<any[]>,
-  path: string,
-  date: string,
-  mobile: boolean,
-) {
+async function recordPg(sql: PgSql, path: string, date: string, mobile: boolean) {
   await sql`
     INSERT INTO __analytics (date, path, count, mobile, desktop)
     VALUES (${date}, ${path}, 1, ${mobile ? 1 : 0}, ${mobile ? 0 : 1})
@@ -187,10 +189,7 @@ async function recordPg(
   `
 }
 
-async function queryPg(
-  sql: (sql: any, ...args: any[]) => Promise<any[]>,
-  days: number,
-): Promise<QueryResult> {
+async function queryPg(sql: PgSql, days: number): Promise<QueryResult> {
   const since = new Date()
   since.setDate(since.getDate() - days)
   const sinceStr = since.toISOString().slice(0, 10)

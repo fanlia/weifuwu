@@ -14,6 +14,9 @@ export interface CsrfInjected {
 }
 
 /** Options for {@link csrf}. */
+/** CSRF protection module — a {@link Middleware} that injects `ctx.csrf`. */
+export type CsrfModule = Middleware<Context, Context & CsrfInjected>
+
 export interface CsrfOptions {
   /** Cookie name for CSRF token (default: `'_csrf'`). */
   cookie?: string
@@ -104,6 +107,6 @@ export function csrf(options?: CsrfOptions): Middleware<Context, Context & CsrfI
 
     return next(req, ctx as Context & CsrfInjected)
   }
-  ;(mw as any).__meta = { injects: ['csrf'], depends: [] }
+  mw.__meta = { injects: ['csrf'], depends: [] }
   return mw
 }

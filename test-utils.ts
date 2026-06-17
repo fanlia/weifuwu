@@ -260,7 +260,7 @@ export class TestApp {
     }
     this.wsConnections = []
     if (this.wsServer) {
-      this.wsServer.stop()
+      this.wsServer.close()
       this.wsServer = null
     }
   }

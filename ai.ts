@@ -31,7 +31,16 @@ export async function aiStream(handler: AIHandler, provider?: AIProvider): Promi
   const r = new Router()
 
   r.post('/', async (req, ctx) => {
-    const options = await handler(req, ctx)
+    let options
+    try {
+      options = await handler(req, ctx)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return new Response(JSON.stringify({ error: message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
     // Inject default model from provider if handler didn't specify one
     if (provider && !options.model) {

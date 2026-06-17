@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const encoder = new TextEncoder()
 
 /**
@@ -52,6 +51,7 @@ export interface SSEEvent {
  * ```
  */
 export function createSSEStream(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   iterable: AsyncIterable<any>,
   opts?: { headers?: Record<string, string>; status?: number },
 ): Response {
@@ -63,8 +63,8 @@ export function createSSEStream(
             const text = event.type ? formatSSE(event.type, event) : formatSSEData(event)
             controller.enqueue(encoder.encode(text))
           }
-        } catch (e: any) {
-          if (e.name !== 'AbortError') {
+        } catch (e: unknown) {
+          if (e instanceof Error && e.name !== 'AbortError') {
             controller.enqueue(encoder.encode(formatSSE('error', { error: e.message })))
           }
         } finally {

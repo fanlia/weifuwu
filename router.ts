@@ -3,7 +3,7 @@ import { WebSocketServer } from 'ws'
 import type { WebSocket } from './vendor.ts'
 import http, { type IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
-import type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
+import type { Context, Handler, Middleware, MiddlewareMeta, ErrorHandler } from './types.ts'
 import { createHub, type Hub } from './hub.ts'
 
 import { isProd } from './env.ts'
@@ -111,25 +111,6 @@ type WsUpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => 
 
 // Router<T> — T accumulates types from global middleware calls via use(mw).
 // Route-level middleware does not change the Router's type parameter.
-/**
- * Middleware metadata for dependency checking.
- * Middleware factories can attach this to their return value for runtime validation.
- *
- * ```ts
- * function postgres(): PostgresClient {
- *   const mw = async (req, ctx, next) => { ... }
- *   mw.__meta = { injects: ['sql'], depends: [] }
- *   return Object.assign(mw, { sql, migrate, close })
- * }
- * ```
- */
-export interface MiddlewareMeta {
-  /** Fields this middleware injects into ctx. */
-  injects: string[]
-  /** Fields this middleware depends on (must be injected earlier). */
-  depends: string[]
-}
-
 export class Router<T extends Context = Context> {
   private root: TrieNode = createTrieNode()
   private wsRoot: WsTrieNode = createWsNode()
@@ -212,8 +193,12 @@ export class Router<T extends Context = Context> {
    * mw.__meta = { injects: ['sql'], depends: ['session'] }
    * ```
    */
-  private _checkMiddlewareMeta(mw: any, location: string): void {
-    const meta: MiddlewareMeta | undefined = mw.__meta ?? mw.middleware?.().__meta
+  private _checkMiddlewareMeta(mw: unknown, location: string): void {
+    const meta: MiddlewareMeta | undefined =
+      (mw as Middleware).__meta ??
+      (typeof mw === 'object' && mw && 'middleware' in mw
+        ? (mw as { middleware(): Middleware }).middleware().__meta
+        : undefined)
     if (!meta) return
 
     for (const dep of meta.depends) {

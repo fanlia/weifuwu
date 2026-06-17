@@ -91,42 +91,6 @@ export function formatDefault(field: FieldDef): string {
   }
 }
 
-export function mapFieldToZod(field: FieldDef): string {
-  let t: string
-  switch (field.type) {
-    case 'integer':
-      t = 'z.number().int()'
-      break
-    case 'float':
-      t = 'z.number()'
-      break
-    case 'boolean':
-      t = 'z.boolean()'
-      break
-    case 'enum':
-      if (field.options && field.options.length > 0) {
-        t = `z.enum([${field.options.map((o) => `'${o.replace(/'/g, "\\'")}'`).join(', ')}])`
-      } else {
-        t = 'z.string()'
-      }
-      break
-    case 'json':
-    case 'vector':
-      t = 'z.any()'
-      break
-    default:
-      t = 'z.string()'
-  }
-  if (!field.required) {
-    if (field.default !== undefined) {
-      t += `.default(${JSON.stringify(field.default)})`
-    } else {
-      t += '.optional()'
-    }
-  }
-  return t
-}
-
 export function getRelationFields(fields: FieldDef[]): FieldDef[] {
   return fields.filter((f) => f.relation)
 }

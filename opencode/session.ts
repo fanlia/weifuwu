@@ -53,8 +53,7 @@ export async function createSession(
     VALUES (${id}, ${opts.userId ?? 0}, ${opts.title ?? null}, ${opts.model ?? 'deepseek-v4-flash'}, ${ws}, ${opts.systemPrompt ?? null})
     RETURNING *
   `
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return row as any as Session
+  return row as unknown as Session
 }
 
 function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: string): string {
@@ -63,33 +62,24 @@ function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: stri
 }
 
 export async function getSession(sql: SqlClient, id: string): Promise<Session | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = await sessions.readMany(sql, { id, active: true } as any)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (rows[0] as any as Session) ?? null
+  const { data: rows } = await sessions.readMany(sql, { id, active: true } as Partial<
+    Record<string, unknown>
+  >)
+  return (rows[0] as unknown as Session) ?? null
 }
 
 export async function listSessions(sql: SqlClient, userId?: number): Promise<Session[]> {
   const opts = { orderBy: { updated_at: 'desc' as const } }
-  if (userId !== undefined) {
-     
-    const { data: rows } = await sessions.readMany(
-      sql,
-      { user_id: userId, active: true } as any,
-      opts,
-    )
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return rows as any as Session[]
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = await sessions.readMany(sql, { active: true } as any, opts)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return rows as any as Session[]
+  const filter: Partial<Record<string, unknown>> =
+    userId !== undefined ? { user_id: userId, active: true } : { active: true }
+  const { data: rows } = await sessions.readMany(sql, filter, opts)
+  return rows as unknown as Session[]
 }
 
 export async function deleteSession(sql: SqlClient, id: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await sessions.update(sql, id, { active: false, updated_at: schemaSql`NOW()` } as any)
+  await sessions.update(sql, id, { active: false, updated_at: schemaSql`NOW()` } as Partial<
+    Record<string, unknown>
+  >)
 }
 
 export async function getHistory(
@@ -97,13 +87,15 @@ export async function getHistory(
   sessionId: string,
   limit = 50,
 ): Promise<SessionMessage[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = await messages.readMany(sql, { session_id: sessionId } as any, {
-    orderBy: { created_at: 'asc' },
-    limit,
-  })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return rows as any as SessionMessage[]
+  const { data: rows } = await messages.readMany(
+    sql,
+    { session_id: sessionId } as Partial<Record<string, unknown>>,
+    {
+      orderBy: { created_at: 'asc' },
+      limit,
+    },
+  )
+  return rows as unknown as SessionMessage[]
 }
 
 export interface SessionMessage {
@@ -131,8 +123,7 @@ export async function addTextMessage(
     VALUES (${sessionId}, ${role}, ${content}, ${tokensIn}, ${tokensOut})
     RETURNING *
   `
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return row as any as Message
+  return row as unknown as Message
 }
 
 export async function addToolMessages(
@@ -146,10 +137,11 @@ export async function addToolMessages(
     VALUES (${sessionId}, 'tool', ${JSON.stringify(toolCalls)}, ${JSON.stringify(toolResults)})
     RETURNING *
   `
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return row as any as Message
+  return row as unknown as Message
 }
 
 export async function updateSessionTitle(sql: SqlClient, id: string, title: string): Promise<void> {
-  await sessions.update(sql, id, { title, updated_at: schemaSql`NOW()` } as any)
+  await sessions.update(sql, id, { title, updated_at: schemaSql`NOW()` } as Partial<
+    Record<string, unknown>
+  >)
 }

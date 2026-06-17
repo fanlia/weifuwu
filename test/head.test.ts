@@ -8,4 +8,10 @@ describe('Head', () => {
     const mod = await compile('./head.tsx')
     assert.equal(typeof mod.Head, 'function')
   })
+
+  it('has component named Head', async () => {
+    const { compile } = await import('../compile.ts')
+    const mod = await compile('./head.tsx')
+    assert.ok('Head' in mod)
+  })
 })
