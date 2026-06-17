@@ -92,7 +92,6 @@ export function buildRouter(deps: RestDeps): Router {
 
   // ── Run ────────────────────────────────────────────────
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
   r.post('/agents/:id/run', async (req, ctx) => {
     const id = parseInt(ctx.params.id, 10)
     const body = (await req.json()) as RunParams
@@ -100,25 +99,21 @@ export function buildRouter(deps: RestDeps): Router {
       return Response.json({ error: 'input or messages is required' }, { status: 400 })
     }
 
-    try {
-      const result = await runner.run(id, body)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await runner.run(id, body)
 
-      if ('stream' in result) {
-        return new Response(result.stream, {
-          headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
-        })
-      }
-
-      return Response.json(result)
-    } catch (err: any) {
-      return Response.json({ error: err.message }, { status: 500 })
+    if ('stream' in result) {
+      return new Response(result.stream, {
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      })
     }
+
+    return Response.json(result)
   })
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // ── Run history & analytics ──────────────────────────
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
+   
   r.get('/agents/:id/runs', async (_req, ctx) => {
     const agentId = parseInt(ctx.params.id, 10)
     const agent = await getAgent(agentId)
@@ -154,15 +149,29 @@ export function buildRouter(deps: RestDeps): Router {
     )
 
     const total = rows.length
-    const success = rows.filter((r: any) => r.status === 'success' || r.status === 'stream').length
-    const error = rows.filter((r: any) => r.status === 'error').length
-    const totalTokensIn = rows.reduce((sum: number, r: any) => sum + (r.tokens_in || 0), 0)
-    const totalTokensOut = rows.reduce((sum: number, r: any) => sum + (r.tokens_out || 0), 0)
-    const totalElapsed = rows.reduce((sum: number, r: any) => sum + (r.elapsed_ms || 0), 0)
+    const success = rows.filter(
+      (r: Record<string, unknown>) => r.status === 'success' || r.status === 'stream',
+    ).length
+    const error = rows.filter((r: Record<string, unknown>) => r.status === 'error').length
+    const totalTokensIn = rows.reduce(
+      (sum: number, r: Record<string, unknown>) => sum + ((r.tokens_in as number) || 0),
+      0,
+    )
+    const totalTokensOut = rows.reduce(
+      (sum: number, r: Record<string, unknown>) => sum + ((r.tokens_out as number) || 0),
+      0,
+    )
+    const totalElapsed = rows.reduce(
+      (sum: number, r: Record<string, unknown>) => sum + ((r.elapsed_ms as number) || 0),
+      0,
+    )
     const avgElapsed = total > 0 ? Math.round(totalElapsed / total) : 0
 
     // P95 elapsed
-    const sorted = [...rows].sort((a: any, b: any) => (a.elapsed_ms || 0) - (b.elapsed_ms || 0))
+    const sorted = [...rows].sort(
+      (a: Record<string, unknown>, b: Record<string, unknown>) =>
+        ((a.elapsed_ms as number) || 0) - ((b.elapsed_ms as number) || 0),
+    )
     const p95Idx = Math.ceil(sorted.length * 0.95) - 1
     const p95Elapsed = sorted.length > 0 ? sorted[p95Idx]?.elapsed_ms || 0 : 0
 
@@ -193,11 +202,13 @@ export function buildRouter(deps: RestDeps): Router {
     try {
       const doc = await runner.addKnowledge(agentId, body.title || '', body.content)
       return Response.json(doc, { status: 201 })
-    } catch (err: any) {
-      return Response.json({ error: err.message }, { status: 500 })
+    } catch (err: unknown) {
+      return Response.json(
+        { error: err instanceof Error ? err.message : String(err) },
+        { status: 500 },
+      )
     }
   })
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   r.get('/agents/:id/knowledge', async (_req, ctx) => {
     const agentId = parseInt(ctx.params.id, 10)

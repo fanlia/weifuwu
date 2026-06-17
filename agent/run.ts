@@ -21,9 +21,9 @@ interface RunnerDeps {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 function hasKnowledgeDocs(sql: SqlClient, agentId: number): Promise<boolean> {
   return sql`SELECT 1 FROM "_knowledge_documents" WHERE agent_id = ${agentId} LIMIT 1`.then(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (r) => (r as any[]).length > 0,
   )
 }
@@ -37,18 +37,24 @@ async function searchKnowledge(
 ) {
   const embedding = await provider.embed(query)
   const vec = `[${embedding.join(',')}]`
+   
   const docs = (await sql.unsafe(
     `SELECT id, title, content, metadata, embedding <=> $1::vector AS _score FROM "_knowledge_documents" WHERE agent_id = $2 ORDER BY embedding <=> $1::vector LIMIT $3`,
     [vec, agentId, limit],
   )) as any[]
-  return docs.map((d) => ({ id: d.id, title: d.title, content: d.content, score: d._score }))
+  return docs.map((d: Record<string, unknown>) => ({
+    id: d.id,
+    title: d.title,
+    content: d.content,
+    score: d._score,
+  }))
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadAgent(agents: BoundTable<any>, agentId: number): Promise<AgentConfig | null> {
   const row = await agents.read(agentId)
   return (row as AgentConfig) ?? null
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function createRunner(deps: RunnerDeps) {
@@ -145,6 +151,7 @@ export function createRunner(deps: RunnerDeps) {
             for await (const event of fullStream) {
               controller.enqueue(encoder.encode(formatSSE(event.type, event)))
             }
+             
           } catch (err: any) {
             controller.enqueue(encoder.encode(formatSSE('error', { error: err.message })))
           } finally {
@@ -186,6 +193,7 @@ export function createRunner(deps: RunnerDeps) {
     const embedding = await provider.embed(first)
     const vec = `[${embedding.join(',')}]`
 
+     
     const [doc] = (await sql.unsafe(
       `INSERT INTO "_knowledge_documents" ("agent_id", "title", "content", "embedding") VALUES ($1, $2, $3, $4::vector) RETURNING *`,
       [agentId, title, first, vec],
@@ -205,4 +213,3 @@ export function createRunner(deps: RunnerDeps) {
 
   return { run, addKnowledge }
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
