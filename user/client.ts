@@ -243,6 +243,7 @@ export function user(options: UserOptions): UserModule {
     } as SignOptions)
   }
 
+   
   function stripPassword(row: any): Omit<UserData, 'password'> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...user } = row
@@ -648,7 +649,7 @@ export function user(options: UserOptions): UserModule {
   // API Key management routes (require auth)
   if (apiKeysEnabled) {
     r.get('/api-keys', middleware(), async (_req, ctx) => {
-      const keys = await listApiKeys((ctx as any).user.id)
+      const keys = await listApiKeys((ctx as Context & UserInjected).user.id)
       return Response.json(keys)
     })
 
@@ -656,7 +657,7 @@ export function user(options: UserOptions): UserModule {
       try {
         const body = await parseBody(req)
         const { name, scopes } = CreateApiKeySchema.parse(body)
-        const result = await createApiKey((ctx as any).user.id, name, scopes)
+        const result = await createApiKey((ctx as Context & UserInjected).user.id, name, scopes)
         return Response.json(result, { status: 201 })
       } catch (err: any) {
         if (err instanceof z.ZodError) {
@@ -667,11 +668,11 @@ export function user(options: UserOptions): UserModule {
     })
 
     r.delete('/api-keys/:id', middleware(), async (req, ctx) => {
-      const keyId = parseInt((ctx as any).params.id, 10)
+      const keyId = parseInt(ctx.params.id, 10)
       if (isNaN(keyId)) {
         return Response.json({ error: 'Invalid key ID' }, { status: 400 })
       }
-      await revokeApiKey((ctx as any).user.id, keyId)
+      await revokeApiKey((ctx as Context & UserInjected).user.id, keyId)
       return Response.json({ ok: true })
     })
   }
