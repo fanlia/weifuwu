@@ -123,12 +123,67 @@ All built-in factory functions follow one of four patterns:
 
 ### Naming conventions
 
-- File: `my-mod.ts`, export `myMod`
-- Options type: `MyOptions` (always exported)
-- Pattern β modules with many custom methods: export `MyModule` interface extending `Router`
-- Pattern α modules that inject ctx fields: export `XxxInjected` interface for the injected shape; add `declare module './types.ts'` in the module file
-- Lifecycle methods: cleanup is always `.close()` (not `stop()` or `shutdown()`); DB setup is always `.migrate()`
-- Route URLs use `__` prefix to avoid user conflicts: `__analytics`, `__lang/:locale`, `__theme/:theme`, `__weifuwu/livereload`, `__ssr/[hash].js`
+#### File & directory
+
+- Single-file module: `my-mod.ts`, export `myMod`
+- Directory modules (3+ files):
+  - `index.ts` — barrel re-export (no factory logic)
+  - `client.ts` — main factory function
+  - `types.ts` — type definitions
+  - Sub-features: `routes.ts` for REST routes, `ws.ts` for WebSocket handlers, `utils.ts` for internal helpers
+  - ✅ `postgres/index.ts` (barrel) → `postgres/client.ts` (factory)
+  - ✅ `user/index.ts` (barrel) → `user/client.ts` (factory)
+  - ❌ `user/oauth2.ts`, `user/oauth-login.ts` — file by protocol, not by concern
+
+#### Exports
+
+- Options type: always `export interface XxxOptions`
+- Pattern α modules: export `XxxModule` or `XxxClient` interface `extends Middleware`
+- Pattern β modules: export `XxxModule` interface `extends Router`
+- All injected types: export `XxxInjected` interface
+- All types re-exported from `index.ts` barrel
+
+#### Return type patterns
+
+- Pattern α: `interface XxxClient extends Middleware<Context, Context & XxxInjected>, Closeable { ... }`
+  ```ts
+  export interface PostgresClient
+    extends Middleware<Context, Context & PostgresInjected>, Closeable {
+    sql: Sql<{}>
+    close(): Promise<void>
+    migrate(): Promise<void>
+  }
+  ```
+- Avoid inline return types like `Middleware & { close: () => void }` — use a named interface.
+
+#### `declare module` placement
+
+Every module that injects a ctx field MUST add `declare module` in its module file (not in types.ts):
+
+```ts
+// my-mod.ts
+declare module './types.ts' {
+  interface Context {
+    myField: MyType
+  }
+}
+```
+
+Relative path: root modules use `'./types.ts'`, directory modules use `'../types.ts'`.
+
+#### Lifecycle methods
+
+- Cleanup: always `.close(): Promise<void>`.
+  - `stop()` and `shutdown()` are **not** public API. If needed internally, use a private variable.
+  - Return type always includes `Closeable` (interface or intersection).
+- DB setup: always `.migrate(): Promise<void>`.
+  - Every module that depends on `postgres` must have `migrate()`, even if it's a no-op initially.
+
+#### Route URLs
+
+- Internal routes use `__` prefix: `__analytics`, `__lang/:locale`, `__theme/:theme`, `__weifuwu/livereload`, `__ssr/[hash].js`
+- Public API routes have no prefix.
+- All routes from a module should be mountable under a user-chosen prefix via `app.use('/prefix', mod)`.
 
 ### Database (PostgreSQL + Redis)
 
@@ -139,3 +194,16 @@ All built-in factory functions follow one of four patterns:
 ### Testing
 
 Tests live in `test/` and follow the pattern: create a `Router`, call `r.handler()(request, ctx)`, assert on the response. For end-to-end tests, use `serve()`.
+
+### 明确边界 — 不做的事
+
+以下能力**不会**作为内置模块加入框架。开发者使用社区库自行集成。
+
+| 不做的                | 原因                                          | 推荐替代方案                                  |
+| --------------------- | --------------------------------------------- | --------------------------------------------- |
+| **OpenAPI / Swagger** | 路由声明式信息不足，需要额外注解或 JSDoc 标注 | `@asteasolutions/zod-to-openapi` + Swagger UI |
+|                       | 框架不会引入注解/装饰器体系                   | 或手动维护 `openapi.json` 文件                |
+|                       | 在用户层根据项目实际 schema 生成更灵活        |                                               |
+| **Admin 管理面板**    | 各项目的管理需求差异大，框架层无法抽象        | 项目自行开发，复用框架的 SSR 和主题模块       |
+| **支付/订阅**         | 框架层不该处理支付逻辑                        | Stripe / Lemon Squeezy 直接集成               |
+| **HTTP/2 / HTTP/3**   | 反向代理的事                                  | Caddy / Nginx / Cloudflare 处理               |

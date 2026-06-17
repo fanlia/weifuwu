@@ -42,7 +42,6 @@ export interface Queue extends Middleware<Context, Context & QueueInjected>, Clo
   add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string>
   process<T>(type: string, handler: (job: QueueJob<T>) => Promise<void>): void
   run(): Promise<void>
-  stop(): void
   stats(): {
     running: boolean
     inflight: number

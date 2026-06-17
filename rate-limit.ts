@@ -1,5 +1,5 @@
 import type { Redis } from './vendor.ts'
-import type { Context, Handler, Middleware } from './types.ts'
+import type { Context, Handler, Middleware, Closeable } from './types.ts'
 
 /** Options for {@link rateLimit}. */
 export interface RateLimitOptions {
@@ -29,6 +29,11 @@ function defaultKey(_req: Request, _ctx: Context): string {
   return 'global'
 }
 
+/** Rate limit module — middleware + stats. */
+export interface RateLimitModule extends Middleware<Context, Context>, Closeable {
+  stats(): { store: string; entries?: number; maxEntries: number }
+}
+
 /**
  * Rate limiting middleware (in-memory or Redis-backed).
  *
@@ -46,9 +51,7 @@ function defaultKey(_req: Request, _ctx: Context): string {
  * app.use(rateLimit({ store: 'redis', redis: new Redis(), max: 100 }))
  * ```
  */
-export function rateLimit(
-  options?: RateLimitOptions,
-): Middleware<Context, Context> & { close: () => void; stop?: () => void } {
+export function rateLimit(options?: RateLimitOptions): RateLimitModule {
   const max = options?.max ?? 100
   const window = options?.window ?? 60_000
   const getKey = options?.key ?? defaultKey
@@ -139,7 +142,7 @@ export function rateLimit(
   }
 
   ;(mw as any).__meta = { injects: [], depends: [] }
-  mw.close = () => {
+  mw.close = async () => {
     if (interval) clearInterval(interval)
     hits.clear()
   }

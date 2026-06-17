@@ -106,7 +106,7 @@ describe('rateLimit', () => {
     assert.equal(res3.status, 200)
   })
 
-  it('.stop() clears interval and hits map', async () => {
+  it('.close() clears interval and hits map', async () => {
     const rl = rateLimit({ max: 1, window: 60_000 })
     const r = new Router().use(rl).get('/data', () => new Response('ok'))
 

@@ -283,7 +283,7 @@ function renderPage(pageFile: string, projectDir: string): Handler {
     const ctxValue: PageContext = {
       params: ctx.params,
       query: ctx.query,
-      user: (ctx.user ?? {}) as { id?: string },
+      user: (ctx.user ?? {}) as any,
       parsed: ctx.parsed ?? {},
       theme: ctx.theme,
       i18n: ctx.i18n,

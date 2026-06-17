@@ -91,11 +91,12 @@ function buildHeadPayload(opts: StreamOpts): string {
   }
 
   // Only include safe user fields (never include tokens or secrets)
-  if (ctx.user && typeof ctx.user === 'object') {
+  const rawUser = ctx.user as unknown as Record<string, unknown> | undefined
+  if (rawUser && typeof rawUser === 'object') {
     const safeUser: Record<string, unknown> = {}
     for (const k of ['id', 'name', 'email', 'role', 'avatar']) {
-      if (k in (ctx.user as Record<string, unknown>)) {
-        safeUser[k] = (ctx.user as Record<string, unknown>)[k]
+      if (k in rawUser) {
+        safeUser[k] = rawUser[k]
       }
     }
     ctxData.user = safeUser

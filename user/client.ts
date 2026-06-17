@@ -7,6 +7,14 @@ import { Router } from '../router.ts'
 import { currentTraceId } from '../trace.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 import type { UserOptions, UserData, UserModule, AuthResult, UserInjected } from './types.ts'
+
+// Augment Context with user property
+declare module '../types.ts' {
+  interface Context {
+    user: UserData
+  }
+}
+
 import { PgModule } from '../postgres/module.ts'
 import {
   serial,
@@ -551,7 +559,7 @@ export function user(options: UserOptions): UserModule {
     const mw: Middleware<Context, Context & UserInjected> = async (req, ctx, next) => {
       const userData = await resolveUser(req, ctx)
       if (userData) {
-        ctx.user = userData
+        ctx.user = userData as UserData
         return next(req, ctx as Context & UserInjected)
       }
       return new Response('Unauthorized', {

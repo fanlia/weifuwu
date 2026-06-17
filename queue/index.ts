@@ -142,15 +142,12 @@ function createMemoryQueue(opts?: QueueOptions): Queue {
     running = true
     poll()
   }
-  mw.stop = function stop(): void {
+  mw.close = async function close(): Promise<void> {
     running = false
     if (pollTimer) {
       clearTimeout(pollTimer)
       pollTimer = null
     }
-  }
-  mw.close = async function close(): Promise<void> {
-    mw.stop()
     while (inflight > 0) await new Promise((r) => setTimeout(r, 50))
   }
   mw.jobs = async function (limit?: number): Promise<QueueJob[]> {
@@ -338,15 +335,12 @@ function createPgQueue(opts?: QueueOptions): Queue {
     running = true
     poll()
   }
-  mw.stop = function stop(): void {
+  mw.close = async function close(): Promise<void> {
     running = false
     if (pollTimer) {
       clearTimeout(pollTimer)
       pollTimer = null
     }
-  }
-  mw.close = async function close(): Promise<void> {
-    mw.stop()
     while (inflight > 0) await new Promise((r) => setTimeout(r, 50))
   }
   mw.jobs = async function jobs(limit?: number): Promise<QueueJob[]> {
@@ -536,16 +530,13 @@ function createRedisQueue(opts?: QueueOptions): Queue {
     running = true
     poll()
   }
-  mw.stop = function stop(): void {
+  mw.close = async function close(): Promise<void> {
     running = false
     epoch++
     if (pollTimer) {
       clearTimeout(pollTimer)
       pollTimer = null
     }
-  }
-  mw.close = async function close(): Promise<void> {
-    mw.stop()
     while (inflight > 0) await new Promise((r) => setTimeout(r, 50))
     redis.disconnect()
   }

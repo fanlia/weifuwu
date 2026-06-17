@@ -9,13 +9,13 @@ import type { Queue, QueueJob } from '../queue/types.ts'
 describe('queue (memory)', () => {
   let q: Queue
   function freshQ() {
-    if (q) q.stop()
+    if (q) q.close()
     q = queue({ store: 'memory', pollInterval: 50 })
     return q
   }
 
   after(() => {
-    if (q) q.stop()
+    if (q) q.close()
   })
 
   it('processes an immediate job', async () => {
@@ -86,13 +86,13 @@ describe('queue (pg)', { skip: !DATABASE_URL }, () => {
   })
 
   after(async () => {
-    if (q) q.stop()
+    if (q) q.close()
     await pgConn.sql.unsafe('DROP TABLE IF EXISTS "testq_jobs"')
     await pgConn.close()
   })
 
   function freshQ() {
-    if (q) q.stop()
+    if (q) q.close()
     q = queue({ store: 'pg', pg: pgConn as any, prefix: 'testq', pollInterval: 30 })
     return q
   }

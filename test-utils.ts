@@ -71,7 +71,7 @@ export class TestRequest {
 
   /** Shortcut: set ctx.user */
   withUser(user: unknown): this {
-    this.ctxMixin.user = user
+    ;(this.ctxMixin as Record<string, unknown>).user = user
     return this
   }
 
