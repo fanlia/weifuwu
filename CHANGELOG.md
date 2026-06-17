@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.25.1 — 2026-06-17
+
+### 规范化
+
+- **生命周期统一**: `Queue.stop()` 从公开接口移除，统一使用 `close()`。`rateLimit` 返回类型使用命名接口 `RateLimitModule`，移除 `stop?` 遗留。
+- **模块结构标准化**: `redis` 工厂函数从 `index.ts` 移入 `client.ts`，与所有目录模块的 `client.ts + index.ts barrel` 约定一致。
+- **AGENTS.md 重写**: 明确文件结构、返回类型模式、`declare module` 放置位置、生命周期方法、内部/公共路由前缀的规范。
+- **`__meta` 全覆盖**: 所有 11 个注入 ctx 字段的内置中间件（csrf、flash、validate、upload、requestId、s3、permissions、tenant、theme、i18n、user）添加 `__meta` 声明，`Router.use()` 在注册时自动检查缺失依赖并 `console.warn`。
+
+### 类型安全
+
+- **公共 `HttpError` 类**: 新增 `HttpError extends Error`（带 `status` 属性），从 `types.ts` 导出。`serve.ts` 移除私有实现。`(err as any).status` 模式从代码库中完全清除（user 模块中 6 处全部替换）。
+- **`declare module` 补全**: `user/client.ts` 添加 `ctx.user: UserData` 声明，SSR/stream/test-utils 中暴露的类型不匹配一并修复。
+- **`ctx: any` 消除**: `user/oauth-login.ts`、`opencode/rest.ts`、`opencode/ws.ts` 中所有路由/WS handler 改用 `Context` 类型。
+- **`sql: any` 消除**: `opencode/rest.ts`、`opencode/ws.ts` 改用 `SqlClient` 类型。
+- **`err: any` 消除**: `user/client.ts`、`agent/rest.ts`、`agent/run.ts`、`opencode/ws.ts` 中所有 catch 语句改用 `err: unknown` + `instanceof Error`。
+- **文件级 `eslint-disable` 消除**: `opencode/session.ts`、`opencode/rest.ts`、`agent/rest.ts`、`agent/run.ts`、`user/oauth-login.ts` 转换为行级 `eslint-disable-next-line`。
+
+### 文档
+
+- `validate()`、`session()`、`MemoryStore`、`RedisStore` 添加完整 JSDoc（含代码示例）。
+
+### 测试
+
+- **`module-server` 测试**: 从 0 到 5 个测试（Router 实例检查、404 非存在文件、404 非 ts/tsx 后缀、.ts 编译、.tsx JSX 编译）。
+
+### 变更统计
+
+- 34 files changed, 427 insertions(+), 182 deletions(-)
+- 新增 `redis/client.ts`、`test/module-server.test.ts`
+- 移除 6 处 `(err as any).status`、4 处 `err: any`、4 处文件级 eslint-disable
+
 ## v0.25.0 — 2026-06-16
 
 ### 新增
