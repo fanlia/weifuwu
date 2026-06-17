@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { WebSocket } from '../vendor.ts'
+import type { WebSocket, SqlClient } from '../vendor.ts'
 import type { LanguageModel } from 'ai'
 import type { Context } from '../types.ts'
 import type { PendingQuestion, SkillDef, SkillRegistry, OpencodePermissions } from './types.ts'
@@ -9,7 +8,7 @@ import { buildSystemPrompt } from './prompt.ts'
 import { createTools, type ToolContext } from './tools/index.ts'
 
 interface WsDeps {
-  sql: any
+  sql: SqlClient
   model: LanguageModel
   workspace: string
   systemPrompt?: string
@@ -44,8 +43,9 @@ export function createWSHandler(deps: WsDeps) {
 
   return {
     open(ws: WebSocket, ctx: Context) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const userId = (ctx as any).user?.id ?? 0
-      const mountPath = (ctx as any).mountPath ?? ''
+      const mountPath = ctx.mountPath ?? ''
       clients.set(ws, { userId, mountPath })
     },
 
@@ -53,6 +53,7 @@ export function createWSHandler(deps: WsDeps) {
       const client = clients.get(ws)
       if (!client) return
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let msg: any
       try {
         msg = JSON.parse(data.toString())
@@ -76,8 +77,13 @@ export function createWSHandler(deps: WsDeps) {
               client.mountPath,
             )
             ws.send(JSON.stringify({ type: 'session_created', session }))
-          } catch (e: any) {
-            ws.send(JSON.stringify({ type: 'error', error: e.message }))
+          } catch (err: unknown) {
+            ws.send(
+              JSON.stringify({
+                type: 'error',
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            )
           }
           break
         }
@@ -142,9 +148,9 @@ export function createWSHandler(deps: WsDeps) {
                 break
               }
             }
-          } catch (e: any) {
-            if (e.name !== 'AbortError') {
-              ws.send(JSON.stringify({ type: 'error', error: e.message }))
+          } catch (err: unknown) {
+            if (err instanceof Error && err.name !== 'AbortError') {
+              ws.send(JSON.stringify({ type: 'error', error: err.message }))
             }
           }
           break

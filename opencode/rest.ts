@@ -1,7 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, no-console */
+/* eslint-disable @typescript-eslint/no-unused-vars, no-console */
 import { Router } from '../router.ts'
 import { ssr } from '../ssr.ts'
 import type { LanguageModel } from 'ai'
+import type { Context } from '../types.ts'
+import type { SqlClient } from '../vendor.ts'
 import type { SkillDef, SkillRegistry, OpencodePermissions, PendingQuestion } from './types.ts'
 import {
   createSession,
@@ -17,7 +19,7 @@ import { createTools, type ToolContext } from './tools/index.ts'
 import { createSSEStream } from '../sse.ts'
 
 interface RestDeps {
-  sql: any
+  sql: SqlClient
   model: LanguageModel
   workspace: string
   systemPrompt?: string
@@ -40,7 +42,7 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
   } = deps
   const router = new Router()
 
-  router.post('/sessions', async (req: Request, ctx: any) => {
+  router.post('/sessions', async (req: Request, ctx: Context) => {
     const body = await req.json().catch(() => ({}))
     const session = await createSession(
       sql,
@@ -60,7 +62,7 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
     return Response.json(sessions)
   })
 
-  router.get('/sessions/:id', async (_req: Request, ctx: any) => {
+  router.get('/sessions/:id', async (_req: Request, ctx: Context) => {
     const id = ctx.params.id
     const session = await getSession(sql, id)
     if (!session) return new Response('Not Found', { status: 404 })
@@ -69,13 +71,13 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
     return Response.json({ session, messages })
   })
 
-  router.delete('/sessions/:id', async (_req: Request, ctx: any) => {
+  router.delete('/sessions/:id', async (_req: Request, ctx: Context) => {
     const id = ctx.params.id
     await deleteSession(sql, id)
     return new Response(null, { status: 204 })
   })
 
-  router.post('/sessions/:id/message', async (req: Request, ctx: any) => {
+  router.post('/sessions/:id/message', async (req: Request, ctx: Context) => {
     const sessionId = ctx.params.id
     const session = await getSession(sql, sessionId)
     if (!session) return new Response('Session Not Found', { status: 404 })
@@ -114,7 +116,7 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
     return createSSEStream(stream)
   })
 
-  router.get('/sessions/:id/usage', async (_req: Request, ctx: any) => {
+  router.get('/sessions/:id/usage', async (_req: Request, ctx: Context) => {
     const sessionId = ctx.params.id
     const session = await getSession(sql, sessionId)
     if (!session) return new Response('Not Found', { status: 404 })
@@ -127,17 +129,17 @@ export async function buildRouter(deps: RestDeps): Promise<Router> {
       FROM "_opencode_messages"
       WHERE session_id = ${sessionId}
     `
-    const stats = (rows as any[])[0] || {
+    const raw = (rows as Record<string, unknown>[])[0] || {
       message_count: 0,
       total_tokens_in: 0,
       total_tokens_out: 0,
     }
     return Response.json({
       session_id: sessionId,
-      message_count: stats.message_count,
-      tokens_in: stats.total_tokens_in,
-      tokens_out: stats.total_tokens_out,
-      tokens_total: stats.total_tokens_in + stats.total_tokens_out,
+      message_count: raw.message_count,
+      tokens_in: raw.total_tokens_in,
+      tokens_out: raw.total_tokens_out,
+      tokens_total: Number(raw.total_tokens_in) + Number(raw.total_tokens_out),
     })
   })
 
