@@ -63,6 +63,22 @@ function parseBody(text: string, ct: string): unknown {
   return text
 }
 
+/**
+ * Request validation middleware using Zod schemas.
+ *
+ * Validates `params`, `query`, `body`, and/or `headers` against schemas.
+ * Returns 422 with error details on mismatch.
+ * Injects `ctx.parsed` with validated-and-transformed values.
+ *
+ * ```ts
+ * import { z } from 'zod'
+ *
+ * app.get('/users/:id', validate({
+ *   params: z.object({ id: z.string() }),
+ *   query: z.object({ include: z.string().optional() }),
+ * }), handler)
+ * ```
+ */
 export function validate(schemas?: ValidationSchemas): Middleware {
   const mw: Middleware = async (req, ctx, next) => {
     const parsed: Record<string, unknown> = {}

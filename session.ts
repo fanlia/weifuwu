@@ -141,8 +141,10 @@ export class MemoryStore implements SessionStore {
   }
 }
 
-// ── RedisStore ──────────────────────────────────────────────────────────────
-
+/**
+ * Redis-backed session store.
+ * Pass to `session({ store: new RedisStore({ redis }) })`.
+ */
 export class RedisStore implements SessionStore {
   private redis: Redis
   private prefix: string
@@ -265,8 +267,22 @@ function isSessionActive(session: Session): boolean {
   return false
 }
 
-// ── Middleware ──────────────────────────────────────────────────────────────
-
+/**
+ * Session middleware. Injects `ctx.session` with a persistent key-value store
+ * scoped to the request. Data is automatically saved to the store on response.
+ *
+ * Defaults to memory store. Use `{ store: 'redis', redis }` for multi-process setups.
+ *
+ * ```ts
+ * import { session } from 'weifuwu'
+ * app.use(session())
+ *
+ * app.get('/visit', (req, ctx) => {
+ *   ctx.session.count = (ctx.session.count ?? 0) + 1
+ *   return Response.json({ visits: ctx.session.count })
+ * })
+ * ```
+ */
 export function session(options?: SessionOptions): Middleware<
   Context,
   Context & SessionInjected
