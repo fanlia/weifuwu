@@ -2,7 +2,7 @@
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
 import jwt, { type SignOptions } from 'jsonwebtoken'
 import { z } from 'zod'
-import type { Middleware, Context } from '../types.ts'
+import { HttpError, type Middleware, type Context } from '../types.ts'
 import { Router } from '../router.ts'
 import { currentTraceId } from '../trace.ts'
 import type { PostgresClient } from '../postgres/types.ts'
@@ -243,7 +243,6 @@ export function user(options: UserOptions): UserModule {
     } as SignOptions)
   }
 
-   
   function stripPassword(row: any): Omit<UserData, 'password'> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...user } = row
@@ -274,9 +273,7 @@ export function user(options: UserOptions): UserModule {
 
     const existing = await findByEmail(email)
     if (existing) {
-      const err = new Error('Email already registered')
-      ;(err as any).status = 409
-      throw err
+      throw new HttpError('Email already registered', 409)
     }
 
     const hashed = hashPassword(password)
@@ -292,15 +289,11 @@ export function user(options: UserOptions): UserModule {
     const { data: rows } = await _users.readMany({ email } as any)
     const row = rows[0]
     if (!row) {
-      const err = new Error('Invalid email or password')
-      ;(err as any).status = 401
-      throw err
+      throw new HttpError('Invalid email or password', 401)
     }
 
     if (!verifyPassword(password, row.password)) {
-      const err = new Error('Invalid email or password')
-      ;(err as any).status = 401
-      throw err
+      throw new HttpError('Invalid email or password', 401)
     }
 
     const userData = row as unknown as UserData
@@ -611,12 +604,13 @@ export function user(options: UserOptions): UserModule {
         const body = await parseBody(req)
         const result = await register(body as any)
         return Response.json(result, { status: 201 })
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (err instanceof z.ZodError) {
           return Response.json({ error: 'Validation failed', issues: err.issues }, { status: 400 })
         }
-        const status = (err as any).status ?? 500
-        return Response.json({ error: err.message }, { status })
+        const status = err instanceof HttpError ? err.status : 500
+        const message = err instanceof Error ? err.message : String(err)
+        return Response.json({ error: message }, { status })
       }
     })
 
@@ -636,12 +630,13 @@ export function user(options: UserOptions): UserModule {
           res.headers.set('Set-Cookie', `session=${result.token}; HttpOnly; SameSite=Lax; Path=/`)
         }
         return res
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (err instanceof z.ZodError) {
           return Response.json({ error: 'Validation failed', issues: err.issues }, { status: 400 })
         }
-        const status = (err as any).status ?? 500
-        return Response.json({ error: err.message }, { status })
+        const status = err instanceof HttpError ? err.status : 500
+        const message = err instanceof Error ? err.message : String(err)
+        return Response.json({ error: message }, { status })
       }
     })
   }
@@ -659,11 +654,12 @@ export function user(options: UserOptions): UserModule {
         const { name, scopes } = CreateApiKeySchema.parse(body)
         const result = await createApiKey((ctx as Context & UserInjected).user.id, name, scopes)
         return Response.json(result, { status: 201 })
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (err instanceof z.ZodError) {
           return Response.json({ error: 'Validation failed', issues: err.issues }, { status: 400 })
         }
-        return Response.json({ error: err.message }, { status: 500 })
+        const message = err instanceof Error ? err.message : String(err)
+        return Response.json({ error: message }, { status: 500 })
       }
     })
 

@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
-import type { Context, Handler } from './types.ts'
+import { HttpError, type Context, type Handler } from './types.ts'
 import { runWithTrace, currentTraceId } from './trace.ts'
 
 export interface ServeOptions {
@@ -25,15 +25,6 @@ export interface Server {
   readonly port: number
   readonly hostname: string
   ready: Promise<void>
-}
-
-class HttpError extends Error {
-  status: number
-  constructor(message: string, status: number) {
-    super(message)
-    this.status = status
-    this.name = 'HttpError'
-  }
 }
 
 /** Default max body size: 10MB. Set maxBodySize: 0 for unlimited. */

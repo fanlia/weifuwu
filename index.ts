@@ -1,4 +1,5 @@
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
+export { HttpError } from './types.ts'
 export { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from './trace.ts'
 export type { TraceContext, TraceInjected, TraceOptions } from './trace.ts'
 export { loadEnv, isDev, isProd, isBundled, getPublicEnv, env } from './env.ts'

@@ -40,3 +40,21 @@ export interface Closeable {
   /** Release all resources. Call once when shutting down. */
   close(): Promise<void>
 }
+
+/**
+ * HTTP error with an explicit status code.
+ * Throw from a handler or middleware to return a non-200 response.
+ *
+ * ```ts
+ * if (!resource) throw new HttpError('Not found', 404)
+ * serve() catches it and returns the status code.
+ * ```
+ */
+export class HttpError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'HttpError'
+    this.status = status
+  }
+}
