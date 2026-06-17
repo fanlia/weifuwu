@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
 import crypto from 'node:crypto'
 import type { SqlClient } from '../vendor.ts'
+import type { Context } from '../types.ts'
 import type { Router } from '../router.ts'
 import type { OAuthProviderConfig } from './types.ts'
 
@@ -11,6 +11,7 @@ interface ProviderMeta {
   tokenUrl: string
   userUrl: string
   scope: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parseUser: (data: any, accessToken: string) => ProviderUser
 }
 
@@ -27,6 +28,7 @@ const BUILTIN_PROVIDERS: Record<string, ProviderMeta> = {
     tokenUrl: 'https://oauth2.googleapis.com/token',
     userUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
     scope: 'openid email profile',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parseUser: (data: any): ProviderUser => ({
       id: data.id,
       email: data.email,
@@ -39,6 +41,7 @@ const BUILTIN_PROVIDERS: Record<string, ProviderMeta> = {
     tokenUrl: 'https://github.com/login/oauth/access_token',
     userUrl: 'https://api.github.com/user',
     scope: 'read:user user:email',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parseUser: (data: any): ProviderUser => ({
       id: String(data.id),
       email: data.email ?? '',
@@ -58,12 +61,16 @@ interface OAuthLoginDeps {
   /** Table for provider-user link, derived from usersTable. */
   providerTable: string
   redirectUrl: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signToken: (user: any) => string
   /** Create a placeholder user for OAuth login (no password). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createPlaceholderUser: (email: string, name: string) => Promise<any>
   /** Find user by internal ID. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   findUserById: (id: number) => Promise<any | undefined>
   /** Find user by email. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   findUserByEmail: (email: string) => Promise<any | undefined>
 }
 
@@ -182,7 +189,7 @@ export function registerOAuthLoginRoutes(
   // ── Routes ──
 
   // GET /auth/:provider — redirect to provider's auth page
-  router.get('/auth/:provider', async (req, ctx: any) => {
+  router.get('/auth/:provider', async (req, ctx: Context) => {
     await ensureTable()
     const providerName = ctx.params.provider
     const resolved = getProviderMeta(providerName)
@@ -197,8 +204,10 @@ export function registerOAuthLoginRoutes(
       redirectUri.pathname.replace(/\/[^/]+$/, '/') + providerName + '/callback'
 
     // Store state in session for CSRF protection
-    if (ctx.session) {
-      ctx.session.oauthState = { state, provider: providerName }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sess = ctx.session as any
+    if (sess) {
+      sess.oauthState = { state, provider: providerName }
     }
 
     const scope = config.scope ?? meta.scope
@@ -216,7 +225,7 @@ export function registerOAuthLoginRoutes(
   })
 
   // GET /auth/:provider/callback — handle OAuth callback
-  router.get('/auth/:provider/callback', async (req, ctx: any) => {
+  router.get('/auth/:provider/callback', async (req, ctx: Context) => {
     const providerName = ctx.params.provider
     const resolved = getProviderMeta(providerName)
     if (!resolved) {
@@ -233,11 +242,13 @@ export function registerOAuthLoginRoutes(
     }
 
     // Verify state matches session (CSRF protection)
-    const savedState = ctx.session?.oauthState
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sess = ctx.session as any
+    const savedState = sess?.oauthState
     if (!savedState || savedState.state !== state || savedState.provider !== providerName) {
       return Response.json({ error: 'Invalid state — possible CSRF attack' }, { status: 403 })
     }
-    if (ctx.session) delete ctx.session.oauthState
+    if (sess) delete sess.oauthState
 
     const redirectUri = url.origin + url.pathname.replace(/\/callback$/, '')
 
@@ -269,8 +280,8 @@ export function registerOAuthLoginRoutes(
       return Response.json({ error: 'Failed to exchange authorization code' }, { status: 502 })
     }
 
-    const tokenData = (await tokenRes.json()) as any
-    const accessToken = tokenData.access_token
+    const tokenData = (await tokenRes.json()) as Record<string, unknown>
+    const accessToken = tokenData.access_token as string | undefined
     if (!accessToken) {
       return Response.json({ error: 'No access_token in response' }, { status: 502 })
     }
@@ -291,7 +302,7 @@ export function registerOAuthLoginRoutes(
       return Response.json({ error: 'Failed to fetch user profile' }, { status: 502 })
     }
 
-    const userData = (await userRes.json()) as any
+    const userData = (await userRes.json()) as Record<string, unknown>
     const providerUser = meta.parseUser(userData, accessToken)
 
     // Find or create user
@@ -311,9 +322,11 @@ export function registerOAuthLoginRoutes(
     const token = signToken(user)
 
     // Create session if session middleware is present
-    if (ctx.session) {
-      ctx.session.userId = user.id
-      ctx.session.role = user.role
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sess2 = ctx.session as any
+    if (sess2) {
+      sess2.userId = user.id
+      sess2.role = user.role
     }
 
     // Redirect with token (or return JSON for API clients)
