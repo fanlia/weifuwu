@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
@@ -54,7 +53,8 @@ export async function createSession(
     VALUES (${id}, ${opts.userId ?? 0}, ${opts.title ?? null}, ${opts.model ?? 'deepseek-v4-flash'}, ${ws}, ${opts.systemPrompt ?? null})
     RETURNING *
   `
-  return row as Session
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return row as any as Session
 }
 
 function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: string): string {
@@ -63,25 +63,32 @@ function computeSessionWorkspace(cwd: string, mountPath: string, sessionId: stri
 }
 
 export async function getSession(sql: SqlClient, id: string): Promise<Session | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rows } = await sessions.readMany(sql, { id, active: true } as any)
-  return (rows[0] as unknown as Session) ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (rows[0] as any as Session) ?? null
 }
 
 export async function listSessions(sql: SqlClient, userId?: number): Promise<Session[]> {
   const opts = { orderBy: { updated_at: 'desc' as const } }
   if (userId !== undefined) {
+     
     const { data: rows } = await sessions.readMany(
       sql,
       { user_id: userId, active: true } as any,
       opts,
     )
-    return rows as unknown as Session[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return rows as any as Session[]
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rows } = await sessions.readMany(sql, { active: true } as any, opts)
-  return rows as unknown as Session[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows as any as Session[]
 }
 
 export async function deleteSession(sql: SqlClient, id: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await sessions.update(sql, id, { active: false, updated_at: schemaSql`NOW()` } as any)
 }
 
@@ -90,11 +97,13 @@ export async function getHistory(
   sessionId: string,
   limit = 50,
 ): Promise<SessionMessage[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rows } = await messages.readMany(sql, { session_id: sessionId } as any, {
     orderBy: { created_at: 'asc' },
     limit,
   })
-  return rows as unknown as SessionMessage[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows as any as SessionMessage[]
 }
 
 export interface SessionMessage {
@@ -122,7 +131,8 @@ export async function addTextMessage(
     VALUES (${sessionId}, ${role}, ${content}, ${tokensIn}, ${tokensOut})
     RETURNING *
   `
-  return row as Message
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return row as any as Message
 }
 
 export async function addToolMessages(
@@ -136,7 +146,8 @@ export async function addToolMessages(
     VALUES (${sessionId}, 'tool', ${JSON.stringify(toolCalls)}, ${JSON.stringify(toolResults)})
     RETURNING *
   `
-  return row as Message
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return row as any as Message
 }
 
 export async function updateSessionTitle(sql: SqlClient, id: string, title: string): Promise<void> {
