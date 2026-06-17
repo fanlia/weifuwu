@@ -43,7 +43,7 @@ export function requestId(
   const header = options?.header ?? 'X-Request-ID'
   const gen = options?.generator ?? (() => crypto.randomUUID())
 
-  return async (req, ctx, next) => {
+  const mw: Middleware<Context, Context & { requestId: string }> = async (req, ctx, next) => {
     const existing = req.headers.get(header)
     const id = existing ?? gen()
     ;(ctx as any).requestId = id
@@ -53,4 +53,6 @@ export function requestId(
     h.set(header, id)
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h })
   }
+  ;(mw as any).__meta = { injects: ['requestId'], depends: [] }
+  return mw
 }

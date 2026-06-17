@@ -233,6 +233,6 @@ export function permissions(options: PermissionsOptions): PermissionsModule {
   mw.requireRole = requireRole
   mw.requirePermission = requirePermission
   mw.migrate = migrate
-
+  ;(mw as any).__meta = { injects: ['permissions'], depends: ['user'] }
   return mw
 }

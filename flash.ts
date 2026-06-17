@@ -108,7 +108,7 @@ export function flash(
 ): Middleware<Context, Context & { flash: FlashInjected }> {
   const name = options?.name ?? 'flash'
 
-  return async (req, ctx, next) => {
+  const mw: Middleware<Context, Context & { flash: FlashInjected }> = async (req, ctx, next) => {
     const raw = getCookies(req)[name] ?? null
     const referer = req.headers.get('referer') || '/'
 
@@ -136,4 +136,6 @@ export function flash(
 
     return res
   }
+  ;(mw as any).__meta = { injects: ['flash'], depends: [] }
+  return mw
 }

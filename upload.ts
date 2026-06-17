@@ -91,7 +91,11 @@ export function upload(
 ): Middleware<Context, Context & { parsed: Record<string, unknown> }> {
   const saveDir = options?.dir
 
-  return async (req, ctx, next) => {
+  const mw: Middleware<Context, Context & { parsed: Record<string, unknown> }> = async (
+    req,
+    ctx,
+    next,
+  ) => {
     const ct = req.headers.get('content-type') ?? ''
     if (!ct.includes('multipart/form-data')) return next(req, ctx)
     try {
@@ -156,4 +160,6 @@ export function upload(
     ctx.parsed = { ...ctx.parsed, files, fields }
     return next(req, ctx)
   }
+  ;(mw as any).__meta = { injects: ['parsed'], depends: [] }
+  return mw
 }

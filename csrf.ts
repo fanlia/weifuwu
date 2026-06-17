@@ -55,7 +55,7 @@ export function csrf(options?: CsrfOptions): Middleware<Context, Context & CsrfI
   const bodyKey = options?.key ?? '_csrf'
   const excluded = new Set(options?.excludeMethods ?? ['GET', 'HEAD', 'OPTIONS'])
 
-  return async (req, ctx, next) => {
+  const mw: Middleware<Context, Context & CsrfInjected> = async (req, ctx, next) => {
     const method = req.method.toUpperCase()
 
     if (excluded.has(method)) {
@@ -104,4 +104,6 @@ export function csrf(options?: CsrfOptions): Middleware<Context, Context & CsrfI
 
     return next(req, ctx as Context & CsrfInjected)
   }
+  ;(mw as any).__meta = { injects: ['csrf'], depends: [] }
+  return mw
 }

@@ -142,6 +142,7 @@ export function i18n(options?: I18nOptions): I18nModule {
 
     return next(req, ctx as Context & I18nInjected)
   }
+  ;(mw as any).__meta = { injects: ['i18n'], depends: [] }
 
   class I18nRouter extends Router {
     middleware() {

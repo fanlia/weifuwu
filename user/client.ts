@@ -548,7 +548,7 @@ export function user(options: UserOptions): UserModule {
   }
 
   function middleware(): Middleware<Context, Context & UserInjected> {
-    return async (req, ctx, next) => {
+    const mw: Middleware<Context, Context & UserInjected> = async (req, ctx, next) => {
       const userData = await resolveUser(req, ctx)
       if (userData) {
         ctx.user = userData
@@ -562,18 +562,22 @@ export function user(options: UserOptions): UserModule {
             : undefined,
       })
     }
+    ;(mw as any).__meta = { injects: ['user'], depends: [] }
+    return mw
   }
 
   function middlewareOptional(_opts?: {
     cookie?: string
   }): Middleware<Context, Context & UserInjected> {
-    return async (req, ctx, next) => {
+    const mw: Middleware<Context, Context & UserInjected> = async (req, ctx, next) => {
       const userData = await resolveUser(req, ctx)
       if (userData) {
         ;(ctx as Context & UserInjected).user = userData as UserData
       }
       return next(req, ctx as Context & UserInjected)
     }
+    ;(mw as any).__meta = { injects: ['user'], depends: [] }
+    return mw
   }
 
   async function parseBody(req: Request): Promise<Record<string, unknown>> {

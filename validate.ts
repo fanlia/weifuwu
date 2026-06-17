@@ -64,7 +64,7 @@ function parseBody(text: string, ct: string): unknown {
 }
 
 export function validate(schemas?: ValidationSchemas): Middleware {
-  return async (req, ctx, next) => {
+  const mw: Middleware = async (req, ctx, next) => {
     const parsed: Record<string, unknown> = {}
     const issues: { path: string[]; message: string }[] = []
 
@@ -162,4 +162,6 @@ export function validate(schemas?: ValidationSchemas): Middleware {
     ctx.parsed = { ...ctx.parsed, ...parsed }
     return next(req, ctx)
   }
+  ;(mw as any).__meta = { injects: ['parsed'], depends: [] }
+  return mw
 }

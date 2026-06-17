@@ -69,7 +69,7 @@ export function tenant(options: TenantOptions): TenantModule {
   }
 
   function middleware(): (req: Request, ctx: Context, next: Handler) => Promise<Response> {
-    return async (req: Request, ctx: Context, next: Handler): Promise<Response> => {
+    const mw = async (req: Request, ctx: Context, next: Handler): Promise<Response> => {
       const user = (ctx as any).user as { id: number } | undefined
       if (!user) {
         return new Response('Unauthorized', { status: 401 })
@@ -111,6 +111,8 @@ export function tenant(options: TenantOptions): TenantModule {
       ctx.tenant = { id: member.id, name: member.name, role: member.role } as TenantContext
       return next(req, ctx)
     }
+    ;(mw as any).__meta = { injects: ['tenant'], depends: ['user'] }
+    return mw
   }
 
   const r = buildRouter(sql, usersTable)
