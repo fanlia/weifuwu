@@ -2,8 +2,6 @@
 import postgresFactory from 'postgres'
 import type { Context, Handler } from '../types.ts'
 import type { PostgresOptions, PostgresClient } from './types.ts'
-import { BoundTable, Table } from './schema/table.ts'
-import type { ColumnBuilder } from './schema/columns.ts'
 
 /** Migration tracking table name. Created automatically on first migrate(). */
 export const MIGRATIONS_TABLE = '_weifuwu_migrations'
@@ -65,15 +63,6 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   mw.__meta = { injects: ['sql'], depends: [] }
 
   mw.sql = sql
-  mw.table = ((
-    tableOrSchema: string | Table<any>,
-    builders?: Record<string, ColumnBuilder<unknown>>,
-  ) => {
-    if (typeof tableOrSchema === 'string') {
-      return new BoundTable(sql, tableOrSchema, builders!)
-    }
-    return new BoundTable(sql, tableOrSchema.tableName, tableOrSchema.builders)
-  }) as any
 
   mw.migrate = async () => {
     await sql.unsafe(`

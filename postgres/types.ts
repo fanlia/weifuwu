@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { SqlClient, Context, Middleware, Closeable } from '../types.ts'
-import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -34,13 +33,6 @@ export interface PostgresClient extends Middleware<Context, Context & PostgresIn
   markMigrated: (moduleName: string) => Promise<void>
   /** Check whether a module has already been migrated. */
   isMigrated: (moduleName: string) => Promise<boolean>
-  table: {
-    <R extends Record<string, unknown>>(
-      tableName: string,
-      builders: { [K in keyof R]: ColumnBuilder<R[K]> },
-    ): BoundTable<R>
-    <R extends Record<string, unknown>>(schema: Table<R>): BoundTable<R>
-  }
   transaction: <T>(fn: (sql: any) => Promise<T>, retryOpts?: { maxRetries?: number }) => Promise<T>
   /** Snapshot of connection pool state: active, idle, waiting, max connections. */
   poolStats: () => { active: number; idle: number; waiting: number; max: number }

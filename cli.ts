@@ -105,6 +105,20 @@ async function cmdInit(name: string, opts: { skipInstall?: boolean }) {
   await writeFile(join(targetDir, '.gitignore'), 'node_modules\n.env\n')
   await writeFile(join(targetDir, '.env'), 'PORT=3000\n')
 
+  await writeFile(
+    join(targetDir, 'AGENTS.md'),
+    [
+      '# Project Guide for AI Agents',
+      '',
+      'Before making any changes to this project, first read the weifuwu framework documentation:',
+      '',
+      './node_modules/weifuwu/README.md',
+      '',
+      'This file contains the framework API reference, conventions, and patterns used throughout the codebase.',
+      '',
+    ].join('\n'),
+  )
+
   if (!opts.skipInstall) {
     console.log('\nInstalling dependencies...')
     execSync('npm install', { cwd: targetDir, stdio: 'inherit' })
