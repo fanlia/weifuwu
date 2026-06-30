@@ -407,24 +407,6 @@ Options: `dir`, `defaultLocale`, `cookie`, `param`, `header`
 
 ### Standalone utilities
 
-#### mailer()
-
-```ts
-import { mailer } from 'weifuwu'
-
-const m = mailer({
-  host: 'smtp.example.com',
-  port: 587,
-  auth: { user: '...', pass: '...' },
-  from: 'noreply@example.com',
-})
-
-await m.send({ to: 'user@example.com', subject: 'Hello', text: '...' })
-await m.close()
-```
-
-Options: `host`, `port`, `auth`, `from`, `secure`
-
 #### SSE
 
 ```ts
@@ -519,6 +501,5 @@ Creates a minimal API project with `app.ts`, `index.ts`, and TypeScript config.
 - `graphql`, `@graphql-tools/schema` — GraphQL
 - `ws` — WebSocket
 - `zod` — Schema validation
-- `nodemailer` — Email
 
 Zero build tools. Zero frontend framework dependencies.

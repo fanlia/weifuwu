@@ -38,7 +38,6 @@ weifuwu/
 
   hub.ts                — Pub/sub hub for WebSocket rooms
   graphql.ts            — GraphQL handler (pattern β)
-  mailer.ts             — Email sender (nodemailer wrapper)
 
   test/                 — Tests
     test-utils.ts         Test helpers (TestApp, createTestDb, etc.)
@@ -150,7 +149,7 @@ Modules: `graphql()`, `health()`, `theme()`, `i18n()`
 
 Returns a utility object, not middleware or router.
 
-Modules: `mailer()`, `createSSEStream()`, `formatSSE()`
+Modules: `createSSEStream()`, `formatSSE()`
 
 ## Naming conventions
 

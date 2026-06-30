@@ -7,7 +7,6 @@ const external = [
   'ai',
   'graphql',
   'ioredis',
-  'nodemailer',
   'postgres',
   'ws',
   'zod',
