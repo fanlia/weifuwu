@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from '../router.ts'
-import { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from '../trace.ts'
+import { Router } from '../core/router.ts'
+import { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from '../core/trace.ts'
 
 describe('trace', () => {
   it('returns undefined outside a trace context', () => {

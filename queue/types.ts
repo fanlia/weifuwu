@@ -1,5 +1,4 @@
-import type { Redis } from '../vendor.ts'
-import type { Context, Middleware, Closeable } from '../types.ts'
+import type { Redis, Context, Middleware, Closeable } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -24,7 +23,7 @@ export interface QueueOptions {
   prefix?: string
   pollInterval?: number
   /** PostgreSQL client (required when store: 'pg'). */
-  pg?: { sql: import('../vendor.ts').SqlClient }
+  pg?: { sql: import('../types.ts').SqlClient }
 }
 
 export interface QueueInjected {
@@ -54,7 +53,7 @@ export interface Queue extends Middleware<Context, Context & QueueInjected>, Clo
   failedJobs(limit?: number): Promise<QueueJobWithError[]>
   retryFailed(jobId: string): Promise<boolean>
   retryAllFailed(type?: string): Promise<number>
-  dashboard(): import('../router.ts').Router
+  dashboard(): import('../core/router.ts').Router
   /** Create the jobs table (PG mode only; safe to call multiple times). */
   migrate?(): Promise<void>
   close(): Promise<void>

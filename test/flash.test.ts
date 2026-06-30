@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from '../router.ts'
-import type { FlashInjected } from '../flash.ts'
+import { Router } from '../core/router.ts'
+import type { FlashInjected } from '../middleware/flash.ts'
 
 // Simulate a full middleware chain with flash
 function buildApp() {
@@ -15,7 +15,7 @@ function buildApp() {
 
 describe('flash', () => {
   it('injects ctx.flash with value undefined when no cookie', async () => {
-    const { flash } = await import('../flash.ts')
+    const { flash } = await import('../middleware/flash.ts')
     const r = new Router<{ flash: FlashInjected }>()
     r.use(flash())
     r.get('/', (_req, ctx) => {
@@ -31,7 +31,7 @@ describe('flash', () => {
   })
 
   it('reads flash value from cookie', async () => {
-    const { flash } = await import('../flash.ts')
+    const { flash } = await import('../middleware/flash.ts')
     const r = new Router<{ flash: FlashInjected }>()
     r.use(flash())
     r.get('/', (_req, ctx) => {
@@ -48,7 +48,7 @@ describe('flash', () => {
   })
 
   it('clears flash cookie after read', async () => {
-    const { flash } = await import('../flash.ts')
+    const { flash } = await import('../middleware/flash.ts')
     const r = new Router<{ flash: FlashInjected }>()
     r.use(flash())
     r.get('/', (_req, ctx) => {
@@ -68,7 +68,7 @@ describe('flash', () => {
   })
 
   it('set creates a redirect response with flash cookie', async () => {
-    const { flash } = await import('../flash.ts')
+    const { flash } = await import('../middleware/flash.ts')
     const r = new Router<{ flash: FlashInjected }>()
     r.use(flash())
     r.get('/', (_req, ctx) => {
@@ -86,7 +86,7 @@ describe('flash', () => {
   })
 
   it('set uses referer when no location given', async () => {
-    const { flash } = await import('../flash.ts')
+    const { flash } = await import('../middleware/flash.ts')
     const r = new Router<{ flash: FlashInjected }>()
     r.use(flash())
     r.get('/', (_req, ctx) => {
@@ -102,7 +102,7 @@ describe('flash', () => {
   })
 
   it('supports custom cookie name', async () => {
-    const { flash } = await import('../flash.ts')
+    const { flash } = await import('../middleware/flash.ts')
     const r = new Router<{ flash: FlashInjected }>()
     r.use(flash({ name: 'notification' }))
     r.get('/', (_req, ctx) => {
@@ -118,7 +118,7 @@ describe('flash', () => {
   })
 
   it('handles plain string flash value', async () => {
-    const { flash } = await import('../flash.ts')
+    const { flash } = await import('../middleware/flash.ts')
     const r = new Router<{ flash: FlashInjected }>()
     r.use(flash())
     r.get('/', (_req, ctx) => {
@@ -135,7 +135,7 @@ describe('flash', () => {
   })
 
   it('handles malformed flash cookie gracefully', async () => {
-    const { flash } = await import('../flash.ts')
+    const { flash } = await import('../middleware/flash.ts')
     const r = new Router<{ flash: FlashInjected }>()
     r.use(flash())
     r.get('/', (_req, ctx) => {

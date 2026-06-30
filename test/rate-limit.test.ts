@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from '../router.ts'
-import { rateLimit } from '../rate-limit.ts'
+import { Router } from '../core/router.ts'
+import { rateLimit } from '../middleware/rate-limit.ts'
 
 describe('rateLimit', () => {
   it('allows requests under the limit', async () => {

@@ -1,63 +1,47 @@
 {
   "name": "weifuwu",
   "type": "module",
-  "version": "0.25.2",
-  "description": "Web-standard HTTP framework for Node.js — (req, ctx) => Response",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "version": "0.26.0",
+  "description": "Web-standard HTTP microframework for Node.js — (req, ctx) => Response",
   "exports": {
-    ".": "./dist/index.js",
-    "./react": "./dist/react.js"
+    ".": "./index.ts"
   },
   "bin": {
-    "weifuwu": "dist/cli.js"
+    "weifuwu": "./cli.ts"
   },
   "files": [
-    "dist/",
-    "cli.ts",
-    "cli/template/",
-    "opencode/ui/",
-    "README.md",
-    "LICENSE"
+    "*.ts",
+    "core/*.ts",
+    "middleware/*.ts",
+    "ai/*.ts",
+    "postgres/*.ts",
+    "postgres/**/*.ts",
+    "queue/*.ts",
+    "redis/*.ts"
   ],
   "scripts": {
-    "dev": "cd cli/template && NODE_ENV=development node --watch index.ts",
-    "start": "cd cli/template && NODE_ENV=production node index.ts",
-    "build": "esbuild index.ts --bundle --format=esm --platform=node --outfile=dist/index.js --packages=external --define:__WFW_BUNDLED__=true && esbuild cli.ts --bundle --format=esm --platform=node --outfile=dist/cli.js --packages=external && esbuild react.ts --bundle --format=esm --outfile=dist/react.js --external:react --external:react-dom",
-    "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint --ext .ts,.tsx .",
+    "lint": "eslint --ext .ts .",
     "test": "node --test 'test/**/*.test.ts'",
     "test:coverage": "node --experimental-test-coverage --test 'test/**/*.test.ts'",
-    "test:typecheck": "npx tsc -p tsconfig.test.json --noEmit",
     "test:quick": "bash scripts/test-quick.sh",
-    "test:ci": "node --test --test-force-exit --test-timeout=60000 'test/**/*.test.ts'",
     "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
-    "@aws-sdk/client-s3": "^3.1068.0",
-    "@aws-sdk/s3-request-presigner": "^3.1068.0",
     "@graphql-tools/schema": "^10",
-    "@tailwindcss/postcss": "^4",
     "ai": "^6",
-    "chokidar": "^5.0.0",
-    "esbuild": "^0.28.0",
     "graphql": "^16",
     "ioredis": "^5.11.0",
-    "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.10",
     "postgres": "^3.4.9",
-    "react": "^19",
-    "react-dom": "^19",
     "ws": "^8",
-    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "lint-staged": {
-    "*.{ts,tsx}": [
+    "*.ts": [
       "prettier --write",
       "eslint --fix"
     ],
@@ -67,20 +51,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^25.9.3",
     "@types/nodemailer": "^6.4.17",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
     "eslint": "^10.5.0",
     "globals": "^17.6.0",
-    "happy-dom": "^20.10.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
-    "postcss": "^8.5.3",
     "prettier": "^3.8.4",
-    "tailwindcss": "^4.0.0",
     "typescript-eslint": "^8.61.0"
   }
 }

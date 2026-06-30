@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { z } from 'zod'
-import { Router } from '../router.ts'
-import { validate } from '../validate.ts'
+import { Router } from '../core/router.ts'
+import { validate } from '../middleware/validate.ts'
 
 describe('validate', () => {
   it('validates body with Zod schema', async () => {

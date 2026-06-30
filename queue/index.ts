@@ -2,9 +2,9 @@
 import { Redis as IORedis } from 'ioredis'
 import crypto from 'node:crypto'
 import type { Context, Handler } from '../types.ts'
-import { Router } from '../router.ts'
+import { Router } from '../core/router.ts'
 import type { Queue, QueueOptions, QueueJob, QueueJobWithError } from './types.ts'
-import { cronNext, parsePattern, matches } from '../cron-utils.ts'
+import { cronNext, parsePattern, matches } from './cron.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JobHandler = (job: QueueJob<any>) => Promise<void>

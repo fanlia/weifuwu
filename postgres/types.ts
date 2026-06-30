@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { SqlClient } from '../vendor.ts'
-import type { Context, Middleware, Closeable } from '../types.ts'
+import type { SqlClient, Context, Middleware, Closeable } from '../types.ts'
 import type { ColumnBuilder, BoundTable, Table } from './schema/index.ts'
 
 declare module '../types.ts' {

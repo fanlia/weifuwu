@@ -1,6 +1,6 @@
 import { describe, it, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from '../router.ts'
+import { Router } from '../core/router.ts'
 import type { Context, Middleware } from '../types.ts'
 
 describe('middleware __meta dependency checking', () => {

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { testApp } from '../test-utils.ts'
-import { health } from '../health.ts'
+import { testApp } from '../test/test-utils.ts'
+import { health } from '../middleware/health.ts'
 
 describe('health', () => {
   it('returns 200 on GET', async () => {

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { Router } from '../router.ts'
-import { isDev, isProd, getPublicEnv, env } from '../env.ts'
+import { Router } from '../core/router.ts'
+import { isDev, isProd, getPublicEnv, env } from '../core/env.ts'
 
 describe('isDev', () => {
   it('returns true when NODE_ENV is development', () => {
@@ -75,7 +75,7 @@ describe('loadEnv', () => {
   it('loads KEY=VALUE pairs', async () => {
     const envPath = resolve(tmpDir, '.env')
     await writeFile(envPath, 'FOO=bar\nBAZ=123\n')
-    const { loadEnv } = await import('../env.ts')
+    const { loadEnv } = await import('../core/env.ts')
 
     delete process.env.FOO
     delete process.env.BAZ
@@ -88,7 +88,7 @@ describe('loadEnv', () => {
   it('skips comments and blank lines', async () => {
     const envPath = resolve(tmpDir, '.env.comments')
     await writeFile(envPath, '# comment\n\nKEY=val\n')
-    const { loadEnv } = await import('../env.ts')
+    const { loadEnv } = await import('../core/env.ts')
 
     delete process.env.KEY
     loadEnv(envPath)
@@ -99,7 +99,7 @@ describe('loadEnv', () => {
   it('parses quoted values', async () => {
     const envPath = resolve(tmpDir, '.env.quoted')
     await writeFile(envPath, 'MSG="hello world"\nCODE=\'abc\'\n')
-    const { loadEnv } = await import('../env.ts')
+    const { loadEnv } = await import('../core/env.ts')
 
     delete process.env.MSG
     delete process.env.CODE
@@ -112,7 +112,7 @@ describe('loadEnv', () => {
   it('trims inline comments', async () => {
     const envPath = resolve(tmpDir, '.env.inline')
     await writeFile(envPath, 'HOST=localhost # development\n')
-    const { loadEnv } = await import('../env.ts')
+    const { loadEnv } = await import('../core/env.ts')
 
     delete process.env.HOST
     loadEnv(envPath)
@@ -123,7 +123,7 @@ describe('loadEnv', () => {
   it('does not override existing process.env', async () => {
     const envPath = resolve(tmpDir, '.env.nooverride')
     await writeFile(envPath, 'PATH=/danger\n')
-    const { loadEnv } = await import('../env.ts')
+    const { loadEnv } = await import('../core/env.ts')
 
     const orig = process.env.PATH
     loadEnv(envPath)
@@ -132,14 +132,14 @@ describe('loadEnv', () => {
   })
 
   it('silently handles missing file', async () => {
-    const { loadEnv } = await import('../env.ts')
+    const { loadEnv } = await import('../core/env.ts')
     loadEnv(resolve(tmpDir, '.env.nonexistent'))
   })
 
   it('skips lines without equals sign', async () => {
     const envPath = resolve(tmpDir, '.env.nolineqn')
     await writeFile(envPath, 'JUSTAVALUE\nKEY=val\n')
-    const { loadEnv } = await import('../env.ts')
+    const { loadEnv } = await import('../core/env.ts')
 
     delete process.env.KEY
     loadEnv(envPath)
@@ -151,7 +151,7 @@ describe('loadEnv', () => {
   it('skips lines with empty key', async () => {
     const envPath = resolve(tmpDir, '.env.emptykey')
     await writeFile(envPath, '=value\nKEY=val\n')
-    const { loadEnv } = await import('../env.ts')
+    const { loadEnv } = await import('../core/env.ts')
 
     delete process.env.KEY
     loadEnv(envPath)

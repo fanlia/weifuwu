@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { readFile, rm, mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { Router } from '../router.ts'
-import { upload } from '../upload.ts'
+import { Router } from '../core/router.ts'
+import { upload } from '../middleware/upload.ts'
 
 function createFormData(
   fields?: Record<string, string>,

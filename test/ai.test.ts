@@ -8,7 +8,7 @@ const fakeStreamResponse = new Response('stream data', {
 
 describe('aiStream', () => {
   it('calls streamText with handler options and returns response', async () => {
-    const { _ai, aiStream } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai/stream.ts')
     const streamTextMock = mock.fn(() => ({
       toTextStreamResponse: () => fakeStreamResponse,
     }))
@@ -31,7 +31,7 @@ describe('aiStream', () => {
   })
 
   it('returns 500 when handler throws', async () => {
-    const { _ai, aiStream } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai/stream.ts')
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
     const m = await aiStream(async () => {
@@ -46,7 +46,7 @@ describe('aiStream', () => {
   })
 
   it('returns 405 for GET request', async () => {
-    const { _ai, aiStream } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai/stream.ts')
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
     const m = await aiStream(async () => ({ model: 'test', prompt: 'x' }))
@@ -60,7 +60,7 @@ describe('aiStream', () => {
   })
 
   it('handler receives request and context', async () => {
-    const { _ai, aiStream } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai/stream.ts')
     _ai.streamText = mock.fn(() => ({ toTextStreamResponse: () => new Response() }))
 
     let receivedReq: Request | null = null
@@ -81,7 +81,7 @@ describe('aiStream', () => {
   })
 
   it('uses streamObject when handler returns schema', async () => {
-    const { _ai, aiStream } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai/stream.ts')
     const fos = new Response('object-stream', { headers: { 'content-type': 'text/event-stream' } })
     const streamObjectMock = mock.fn(() => ({
       toTextStreamResponse: () => fos,
@@ -104,7 +104,7 @@ describe('aiStream', () => {
   })
 
   it('lazy-loads streamText when not pre-populated', async () => {
-    const { _ai, aiStream } = await import('../ai.ts')
+    const { _ai, aiStream } = await import('../ai/stream.ts')
     delete _ai.streamText
     const m = await aiStream(async () => ({ model: 'test', prompt: 'x' }))
 

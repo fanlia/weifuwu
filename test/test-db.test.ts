@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createTestDb, withTestDb } from '../test-utils.ts'
+import { createTestDb, withTestDb } from '../test/test-utils.ts'
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL
 const describePg = DATABASE_URL ? describe : describe.skip

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { testApp, type TestResponse } from '../test-utils.ts'
+import { testApp, type TestResponse } from '../test/test-utils.ts'
 
 describe('testApp', () => {
   it('GET returns response', async () => {

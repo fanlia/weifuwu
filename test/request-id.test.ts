@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { testApp } from '../test-utils.ts'
-import { requestId } from '../request-id.ts'
+import { testApp } from '../test/test-utils.ts'
+import { requestId } from '../middleware/request-id.ts'
 
 describe('requestId', () => {
   it('sets X-Request-ID header', async () => {

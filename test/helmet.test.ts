@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { testApp } from '../test-utils.ts'
-import { helmet } from '../helmet.ts'
+import { testApp } from '../test/test-utils.ts'
+import { helmet } from '../middleware/helmet.ts'
 
 describe('helmet', () => {
   function mkReq() {

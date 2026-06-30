@@ -6,30 +6,17 @@
     "strict": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "jsx": "react-jsx",
     "skipLibCheck": true,
     "allowImportingTsExtensions": true
   },
   "include": [
     "*.ts",
+    "core/*.ts",
+    "middleware/*.ts",
+    "ai/*.ts",
     "postgres/*.ts",
     "postgres/**/*.ts",
     "redis/*.ts",
-    "queue/*.ts",
-    "user/*.ts",
-    "tenant/*.ts",
-    "agent/*.ts",
-    "agent/**/*.ts",
-    "messager/*.ts",
-    "messager/**/*.ts",
-    "deploy/*.ts",
-    "opencode/*.ts",
-    "opencode/**/*.ts",
-    "iii/*.ts",
-    "iii/**/*.ts",
-    "kb/*.ts",
-    "cli/*.ts",
-    "logdb/*.ts",
-    "notifier/*.ts"
+    "queue/*.ts"
   ]
 }

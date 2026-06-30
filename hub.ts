@@ -1,5 +1,4 @@
-import type { Redis, WebSocket } from './vendor.ts'
-import type { Closeable } from './types.ts'
+import type { Redis, WebSocket, Closeable } from './types.ts'
 
 /** Options for {@link createHub}. */
 export interface HubOptions {

@@ -9,8 +9,8 @@ import {
 } from 'graphql'
 import { makeExecutableSchema } from '@graphql-tools/schema'
 import type { Context } from './types.ts'
-import { Router } from './router.ts'
-import { currentTraceId } from './trace.ts'
+import { Router } from './core/router.ts'
+import { currentTraceId } from './core/trace.ts'
 
 export interface GraphQLOptions {
   schema: string | GraphQLSchema

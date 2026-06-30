@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatSSE, formatSSEData, createSSEStream } from '../sse.ts'
+import { formatSSE, formatSSEData, createSSEStream } from '../core/sse.ts'
 
 describe('sse', () => {
   it('formatSSE', () => {

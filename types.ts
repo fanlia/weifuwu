@@ -1,3 +1,13 @@
+import type postgres from 'postgres'
+
+/** Untyped postgres.js SQL client. Use typed `Sql<{ table: { col: type } }>` for schemas. */
+export type SqlClient = postgres.Sql<Record<string, unknown>>
+
+/** Re-export for downstream usage. */
+export type { Sql } from 'postgres'
+export type { WebSocket } from 'ws'
+export type { Redis, RedisOptions } from 'ioredis'
+
 // Context — extensible via module augmentation.
 // Built-in middleware modules declare additional properties here.
 // e.g. postgres/types.ts → `declare module '../types.ts' { interface Context { sql: SqlClient } }`
@@ -5,7 +15,6 @@ export interface Context {
   params: Record<string, string>
   query: Record<string, string>
   mountPath?: string
-  layoutStack?: { path: string; component: unknown }[] // set by layout() middleware, read by ssr()
   [key: string]: unknown // allow arbitrary middleware-injected data
 }
 

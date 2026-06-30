@@ -1,5 +1,10 @@
-import type { Redis, RedisOptions as IORedisOptions } from '../vendor.ts'
-import type { Context, Middleware, Closeable } from '../types.ts'
+import type {
+  Redis,
+  RedisOptions as IORedisOptions,
+  Context,
+  Middleware,
+  Closeable,
+} from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {

@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { gunzipSync, brotliDecompressSync, inflateSync } from 'node:zlib'
-import { testApp } from '../test-utils.ts'
-import { compress } from '../compress.ts'
+import { testApp } from '../test/test-utils.ts'
+import { compress } from '../middleware/compress.ts'
 
 describe('compress', () => {
   it('compresses with gzip when accepted', async () => {

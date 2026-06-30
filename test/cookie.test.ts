@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { getCookies, setCookie, deleteCookie } from '../cookie.ts'
+import { getCookies, setCookie, deleteCookie } from '../core/cookie.ts'
 
 describe('getCookies', () => {
   it('parses a single cookie', () => {

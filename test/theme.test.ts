@@ -1,10 +1,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from '../router.ts'
+import { Router } from '../core/router.ts'
 
 describe('theme', () => {
   it('injects ctx.theme with default value "system"', async () => {
-    const { theme } = await import('../theme.ts')
+    const { theme } = await import('../middleware/theme.ts')
     const r = new Router()
     r.use(theme().middleware())
     r.get('/', (_req, ctx) => {
@@ -20,7 +20,7 @@ describe('theme', () => {
   })
 
   it('supports custom default theme', async () => {
-    const { theme } = await import('../theme.ts')
+    const { theme } = await import('../middleware/theme.ts')
     const r = new Router()
     r.use(theme({ default: 'dark' }).middleware())
     r.get('/', (_req, ctx) => {
@@ -36,7 +36,7 @@ describe('theme', () => {
   })
 
   it('reads theme from cookie', async () => {
-    const { theme } = await import('../theme.ts')
+    const { theme } = await import('../middleware/theme.ts')
     const r = new Router()
     r.use(theme().middleware())
     r.get('/', (_req, ctx) => {
@@ -52,7 +52,7 @@ describe('theme', () => {
   })
 
   it('__theme/:value route redirects with Set-Cookie', async () => {
-    const { theme } = await import('../theme.ts')
+    const { theme } = await import('../middleware/theme.ts')
     const r = new Router()
     r.use('/', theme())
 
@@ -67,7 +67,7 @@ describe('theme', () => {
   })
 
   it('__theme/:value returns JSON when Accept includes application/json', async () => {
-    const { theme } = await import('../theme.ts')
+    const { theme } = await import('../middleware/theme.ts')
     const r = new Router()
     r.use('/', theme())
 
@@ -86,7 +86,7 @@ describe('theme', () => {
   })
 
   it('set() returns redirect with cookie', async () => {
-    const { theme } = await import('../theme.ts')
+    const { theme } = await import('../middleware/theme.ts')
     const r = new Router()
     r.use(theme().middleware())
     r.get('/set-theme', (_req, ctx) => {
@@ -104,7 +104,7 @@ describe('theme', () => {
   })
 
   it('supports custom cookie name', async () => {
-    const { theme } = await import('../theme.ts')
+    const { theme } = await import('../middleware/theme.ts')
     const r = new Router()
     r.use(theme({ cookie: 'pref_theme' }).middleware())
     r.get('/__theme/dark', (_req, ctx) => {
@@ -120,7 +120,7 @@ describe('theme', () => {
   })
 
   it('handles empty cookie name (no cookie persistence)', async () => {
-    const { theme } = await import('../theme.ts')
+    const { theme } = await import('../middleware/theme.ts')
     const r = new Router()
     r.use(theme({ cookie: '' }).middleware())
     r.get('/', (_req, ctx) => {

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { testApp } from '../test-utils.ts'
-import { csrf } from '../csrf.ts'
+import { testApp } from '../test/test-utils.ts'
+import { csrf } from '../middleware/csrf.ts'
 
 describe('csrf', () => {
   it('sets cookie and ctx.csrf.token on GET', async () => {

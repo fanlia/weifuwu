@@ -2,9 +2,9 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFile, mkdir, rm, symlink, chmod } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { Router } from '../router.ts'
-import { serve } from '../serve.ts'
-import { serveStatic } from '../static.ts'
+import { Router } from '../core/router.ts'
+import { serve } from '../core/serve.ts'
+import { serveStatic } from '../middleware/static.ts'
 
 const tmpDir = resolve(import.meta.dirname, '../.test-static')
 

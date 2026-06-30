@@ -1,43 +1,41 @@
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
 export { HttpError } from './types.ts'
-export { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from './trace.ts'
-export type { TraceContext, TraceInjected, TraceOptions } from './trace.ts'
-export { loadEnv, isDev, isProd, isBundled, getPublicEnv, env } from './env.ts'
-export { serve, createTestServer, DEFAULT_MAX_BODY } from './serve.ts'
-export type { ServeOptions, Server } from './serve.ts'
-export { Router } from './router.ts'
-export type { WebSocketHandler } from './router.ts'
-export { TsxContext } from './tsx-context.ts'
-export { logger } from './logger.ts'
-export type { LoggerOptions } from './logger.ts'
-export { cors } from './cors.ts'
-export type { CORSOptions } from './cors.ts'
+export { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from './core/trace.ts'
+export type { TraceContext, TraceInjected, TraceOptions } from './core/trace.ts'
+export { loadEnv, isDev, isProd, isBundled, getPublicEnv, env } from './core/env.ts'
+export { serve, createTestServer, DEFAULT_MAX_BODY } from './core/serve.ts'
+export type { ServeOptions, Server } from './core/serve.ts'
+export { Router } from './core/router.ts'
+export type { WebSocketHandler } from './core/router.ts'
+export { logger } from './core/logger.ts'
+export type { LoggerOptions } from './core/logger.ts'
+export { cors } from './middleware/cors.ts'
+export type { CORSOptions } from './middleware/cors.ts'
 
-export { serveStatic } from './static.ts'
-export type { ServeStaticOptions } from './static.ts'
-export { validate } from './validate.ts'
-export type { ValidationSchemas, ValidateModule } from './validate.ts'
-export { getCookies, setCookie, deleteCookie } from './cookie.ts'
-export type { CookieOptions } from './cookie.ts'
-export { upload } from './upload.ts'
-export type { UploadOptions, UploadedFile, UploadModule } from './upload.ts'
-export { rateLimit } from './rate-limit.ts'
-export type { RateLimitOptions } from './rate-limit.ts'
-export { compress } from './compress.ts'
-export type { CompressOptions } from './compress.ts'
-export { helmet } from './helmet.ts'
-export type { HelmetOptions } from './helmet.ts'
-export { requestId } from './request-id.ts'
-export type { RequestIdOptions, RequestIdModule } from './request-id.ts'
-export { createSSEStream, formatSSE, formatSSEData } from './sse.ts'
-export type { SSEEvent } from './sse.ts'
-export { testApp, TestApp, TestRequest, createTestDb, withTestDb } from './test-utils.ts'
-export type { TestResponse, TestDb } from './test-utils.ts'
+export { serveStatic } from './middleware/static.ts'
+export type { ServeStaticOptions } from './middleware/static.ts'
+export { validate } from './middleware/validate.ts'
+export type { ValidationSchemas, ValidateModule } from './middleware/validate.ts'
+export { getCookies, setCookie, deleteCookie } from './core/cookie.ts'
+export type { CookieOptions } from './core/cookie.ts'
+export { upload } from './middleware/upload.ts'
+export type { UploadOptions, UploadedFile, UploadModule } from './middleware/upload.ts'
+export { rateLimit } from './middleware/rate-limit.ts'
+export type { RateLimitOptions } from './middleware/rate-limit.ts'
+export { compress } from './middleware/compress.ts'
+export type { CompressOptions } from './middleware/compress.ts'
+export { helmet } from './middleware/helmet.ts'
+export type { HelmetOptions } from './middleware/helmet.ts'
+export { requestId } from './middleware/request-id.ts'
+export type { RequestIdOptions, RequestIdModule } from './middleware/request-id.ts'
+export { createSSEStream, formatSSE, formatSSEData } from './core/sse.ts'
+export type { SSEEvent } from './core/sse.ts'
+export { testApp, TestApp, TestRequest, createTestDb, withTestDb } from './test/test-utils.ts'
+export type { TestResponse, TestDb } from './test/test-utils.ts'
 export { graphql } from './graphql.ts'
 export type { GraphQLOptions, GraphQLHandler } from './graphql.ts'
-export { aiStream } from './ai.ts'
-export type { AIHandler } from './ai.ts'
-export { runWorkflow } from './ai/workflow.ts'
+export { aiStream } from './ai/stream.ts'
+export type { AIHandler } from './ai/stream.ts'
 export { aiProvider } from './ai/provider.ts'
 export type { AIProvider, AIProviderOptions, AIProviderInjected } from './ai/provider.ts'
 export {
@@ -49,165 +47,25 @@ export {
   embed,
   embedMany,
   smoothStream,
-  openai,
-  createOpenAI,
-} from './ai-sdk.ts'
+} from 'ai'
+export { openai, createOpenAI } from '@ai-sdk/openai'
 export { postgres, MIGRATIONS_TABLE } from './postgres/index.ts'
 export type { PostgresOptions, PostgresClient, PostgresInjected } from './postgres/types.ts'
-export { user } from './user/index.ts'
-export type {
-  UserOptions,
-  UserData,
-  UserModule,
-  OAuth2Client,
-  OAuthProviderConfig,
-  ApiKeyInfo,
-} from './user/types.ts'
-export type { UserInjected } from './user/types.ts'
 export { redis } from './redis/index.ts'
 export type { RedisOptions, RedisClient, RedisInjected } from './redis/types.ts'
 export { createHub } from './hub.ts'
 export type { Hub, HubOptions } from './hub.ts'
 export { queue } from './queue/index.ts'
 export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types.ts'
-export { tenant } from './tenant/index.ts'
-export type {
-  TenantOptions,
-  TenantModule,
-  TenantContext,
-  FieldDef,
-  FieldType,
-  RelationDef,
-  UserTableRow,
-} from './tenant/types.ts'
-export { agent } from './agent/index.ts'
-export type {
-  AgentOptions,
-  AgentModule,
-  AgentConfig,
-  RunParams,
-  RunResult,
-  KnowledgeDoc,
-} from './agent/types.ts'
-export { messager } from './messager/index.ts'
-export type {
-  MessagerOptions,
-  MessagerModule,
-  Channel,
-  ChannelMember,
-  Message,
-} from './messager/types.ts'
-export { deploy, defineConfig } from './deploy/index.ts'
-export type { DeployConfig, AppConfig, DeployServer, AppStatus } from './deploy/types.ts'
-export { opencode } from './opencode/index.ts'
-export type {
-  OpencodeOptions,
-  OpencodeModule,
-  SkillDef,
-  OpencodePermissions,
-  Session as OpencodeSession,
-} from './opencode/types.ts'
-export { health } from './health.ts'
-export type { HealthOptions } from './health.ts'
-export { analytics } from './analytics.ts'
-export type { AnalyticsOptions, AnalyticsModule } from './analytics.ts'
-export { theme } from './theme.ts'
-export type { ThemeOptions, ThemeInjected } from './theme.ts'
-export { i18n } from './i18n.ts'
-export type { I18nOptions, I18nInjected } from './i18n.ts'
-export { flash } from './flash.ts'
-export type { FlashOptions, FlashInjected, FlashModule } from './flash.ts'
-export { seo, seoMiddleware, seoTags } from './seo.ts'
-export type {
-  SeoOptions,
-  RobotsRule,
-  SitemapUrl,
-  SitemapConfig,
-  SeoHeadersConfig,
-  SeoTagsConfig,
-} from './seo.ts'
+export { health } from './middleware/health.ts'
+export type { HealthOptions } from './middleware/health.ts'
+export { theme } from './middleware/theme.ts'
+export type { ThemeOptions, ThemeInjected } from './middleware/theme.ts'
+export { i18n } from './middleware/i18n.ts'
+export type { I18nOptions, I18nInjected } from './middleware/i18n.ts'
+export { flash } from './middleware/flash.ts'
+export type { FlashOptions, FlashInjected, FlashModule } from './middleware/flash.ts'
 export { mailer } from './mailer.ts'
 export type { MailerOptions, MailOptions, Mailer } from './mailer.ts'
-export { csrf } from './csrf.ts'
-export type { CsrfOptions, CsrfInjected, CsrfModule } from './csrf.ts'
-export { logdb } from './logdb/index.ts'
-export type { LogdbOptions, LogdbModule, LogEntry, LogEntryInput } from './logdb/types.ts'
-export { iii, createWorker, registerWorker } from './iii/index.ts'
-export type {
-  IIIModule,
-  IIIOptions,
-  WorkerInfo,
-  FunctionInfo,
-  TriggerInfo,
-  FunctionHandler,
-  FunctionContext,
-  TriggerInput,
-  RemoteWorker,
-  TriggerRequest,
-} from './iii/types.ts'
-
-// React SSR — directory-convention server-side rendering
-export { ssr } from './ssr.ts'
-
-// Session management
-export { session, MemoryStore, RedisStore } from './session.ts'
-export type {
-  Session,
-  SessionOptions,
-  SessionStore,
-  SessionData,
-  SessionInjected,
-} from './session.ts'
-
-// Response caching
-export { cache, MemoryCache, RedisCache } from './cache.ts'
-export type { CacheOptions, CacheStore, CacheMiddleware, CachedResponse } from './cache.ts'
-
-// Webhook receiver
-export { webhook } from './webhook.ts'
-export type {
-  WebhookOptions,
-  WebhookModule,
-  WebhookEvent,
-  WebhookHandler,
-  PlatformConfig,
-  CustomVerifierConfig,
-} from './webhook.ts'
-
-// Full-text search (PostgreSQL)
-export * as fts from './fts.ts'
-
-// Object storage (S3-compatible)
-export { s3 } from './s3.ts'
-export type { S3Options, S3PutOptions, S3UrlOptions, S3Module, S3Body } from './s3.ts'
-
-// Knowledge Base (RAG with pgvector)
-export { knowledgeBase } from './kb/index.ts'
-export type {
-  KBOptions,
-  KBIngestOptions,
-  KBSearchResult,
-  KBSearchOptions,
-  KBListEntry,
-  KBModule,
-} from './kb/types.ts'
-
-// Permissions (RBAC)
-export { permissions } from './permissions.ts'
-export type { PermissionsOptions, PermissionsModule } from './permissions.ts'
-
-// MCP (Model Context Protocol) client
-export { mcpClient } from './mcp.ts'
-export type { MCPClient, MCPClientOptions, MCPToolDef } from './mcp.ts'
-
-// Notification system
-export { notifier } from './notifier/index.ts'
-export type {
-  NotifierOptions,
-  Notifier,
-  NotifierInjected,
-  NotifyMessage,
-  Notification,
-  NotifyChannel,
-  NotifyPreferences,
-} from './notifier/types.ts'
+export { csrf } from './middleware/csrf.ts'
+export type { CsrfOptions, CsrfInjected, CsrfModule } from './middleware/csrf.ts'

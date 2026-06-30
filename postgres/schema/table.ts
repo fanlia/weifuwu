@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { SqlClient } from '../../vendor.ts'
+import type { SqlClient } from '../../types.ts'
 import { ColumnBuilder, toDDL, type PartitionByDef } from './columns.ts'
 import { SQL } from './sql.ts'
 import { and } from './where.ts'

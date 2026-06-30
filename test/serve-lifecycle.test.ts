@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createTestServer } from '../serve.ts'
+import { createTestServer } from '../core/serve.ts'
 
 void describe('serve lifecycle', () => {
   void describe('createTestServer', () => {

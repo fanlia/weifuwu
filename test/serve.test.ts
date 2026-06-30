@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
 import { serve, createTestServer, setCookie, type Handler, type Context } from '../index.ts'
-import { readBody, createRequest, sendResponse } from '../serve.ts'
+import { readBody, createRequest, sendResponse } from '../core/serve.ts'
 
 function mkIncoming(opts?: {
   url?: string

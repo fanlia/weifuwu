@@ -1,7 +1,7 @@
 import { describe, it, before, after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from '../router.ts'
-import { rateLimit } from '../rate-limit.ts'
+import { Router } from '../core/router.ts'
+import { rateLimit } from '../middleware/rate-limit.ts'
 import { redis } from '../redis/index.ts'
 
 const REDIS_URL = process.env.REDIS_URL || process.env.TEST_REDIS_URL

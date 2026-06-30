@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { Router } from '../router.ts'
+import { Router } from '../core/router.ts'
 
 const tmpDir = resolve(import.meta.dirname, '../.test-i18n')
 
@@ -33,7 +33,7 @@ describe('i18n', () => {
   })
 
   it('injects ctx.i18n with default locale', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -50,7 +50,7 @@ describe('i18n', () => {
   })
 
   it('translates using t()', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -67,7 +67,7 @@ describe('i18n', () => {
   })
 
   it('translates with parameters', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -83,7 +83,7 @@ describe('i18n', () => {
   })
 
   it('returns key as fallback for missing translation', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -99,7 +99,7 @@ describe('i18n', () => {
   })
 
   it('supports custom fallback in t()', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -115,7 +115,7 @@ describe('i18n', () => {
   })
 
   it('navigates nested keys with dot notation', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -131,7 +131,7 @@ describe('i18n', () => {
   })
 
   it('reads locale from cookie', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -147,7 +147,7 @@ describe('i18n', () => {
   })
 
   it('translates in zh locale', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -163,7 +163,7 @@ describe('i18n', () => {
   })
 
   it('reads locale from Accept-Language header', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
@@ -182,7 +182,7 @@ describe('i18n', () => {
   })
 
   it('__lang/:value route sets cookie and redirects', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use('/', i18n({ dir: tmpDir }))
     r.use(i18n({ dir: tmpDir }).middleware())
@@ -198,7 +198,7 @@ describe('i18n', () => {
   })
 
   it('__lang/:value returns JSON when Accept includes application/json', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use('/', i18n({ dir: tmpDir }))
     r.use(i18n({ dir: tmpDir }).middleware())
@@ -216,7 +216,7 @@ describe('i18n', () => {
   })
 
   it('uses custom default locale', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir, default: 'zh' }).middleware())
     r.get('/', (_req, ctx) => {
@@ -232,7 +232,7 @@ describe('i18n', () => {
   })
 
   it('supports inline messages (no filesystem)', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(
       i18n({
@@ -256,7 +256,7 @@ describe('i18n', () => {
   })
 
   it('inline messages override filesystem', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(
       i18n({
@@ -277,7 +277,7 @@ describe('i18n', () => {
   })
 
   it('set() returns redirect with cookie', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/set-locale', (_req, ctx) => {
@@ -295,7 +295,7 @@ describe('i18n', () => {
   })
 
   it('custom cookie name', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir, cookie: 'lang' }).middleware())
     r.get('/', (_req, ctx) => {
@@ -311,7 +311,7 @@ describe('i18n', () => {
   })
 
   it('disables Accept-Language detection', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir, fromAcceptLanguage: false }).middleware())
     r.get('/', (_req, ctx) => {
@@ -329,7 +329,7 @@ describe('i18n', () => {
   })
 
   it('zh-CN falls back to zh messages', async () => {
-    const { i18n } = await import('../i18n.ts')
+    const { i18n } = await import('../middleware/i18n.ts')
     const r = new Router()
     r.use(i18n({ dir: tmpDir }).middleware())
     r.get('/', (_req, ctx) => {
