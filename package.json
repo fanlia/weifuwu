@@ -7,10 +7,11 @@
     ".": "./index.ts"
   },
   "bin": {
-    "weifuwu": "./cli.ts"
+    "weifuwu": "./cli.js"
   },
   "files": [
     "*.ts",
+    "cli.js",
     "core/*.ts",
     "middleware/*.ts",
     "ai/*.ts",
