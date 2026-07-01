@@ -8,8 +8,8 @@ export default function (ctx: any) {
     <nav class="wu-flex wu-items-center wu-justify-between wu-p-4 wu-border-bottom">
       <strong class="wu-text-lg">weifuwu</strong>
       <div class="wu-flex wu-gap-sm wu-items-center">
-        <button wu-theme="dark" class="wu-btn wu-btn-sm" wu-text-key="theme.dark">🌙</button>
-        <button wu-lang="zh-CN" class="wu-btn wu-btn-sm" wu-text-key="lang.zh">中文</button>
+        <button wu-theme="dark" class="wu-btn wu-btn-sm" wu-text-key="theme">🌙</button>
+        <button wu-lang="zh-CN" class="wu-btn wu-btn-sm" wu-text-key="lang">中文</button>
       </div>
     </nav>
 
