@@ -47,21 +47,32 @@ const WFU_VERSION = '0.27.20';
     return val != null ? String(val) : key
   }
 
+  // ── Theme init ──────────────────────────────────────────────
+  var themeValue = getCookie('theme') || 'system'
+  var themeResolved = applyTheme(themeValue)
+  syncThemeAttr(themeResolved)
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+      var c = getCookie('theme') || 'system'
+      if (c === 'system') { var r = applyTheme('system'); syncThemeAttr(r) }
+    })
+  }
+
+  // ── Flash init ──────────────────────────────────────────────
+  var flashMessage = '', flashType = 'info', flashShow = false
+  var flashEl = document.getElementById('__wf-flash')
+  if (flashEl) {
+    try {
+      var fd = JSON.parse(flashEl.textContent || '{}')
+      if (fd.message) { flashMessage = fd.message; flashType = fd.type || 'info'; flashShow = true }
+    } catch (e) {}
+  }
+
   // ── Register Alpine stores (Alpine loaded before this script) ─
   function registerStores() {
 
     Alpine.store('theme', {
-      value: getCookie('theme') || 'system',
-      init: function () {
-        var resolved = applyTheme(this.value)
-        syncThemeAttr(resolved)
-        if (window.matchMedia) {
-          window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
-            var current = getCookie('theme') || 'system'
-            if (current === 'system') { var r = applyTheme('system'); syncThemeAttr(r) }
-          })
-        }
-      },
+      value: themeValue,
       toggle: function () {
         var resolved = this.value === 'system'
           ? window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -98,21 +109,9 @@ const WFU_VERSION = '0.27.20';
     })
 
     Alpine.store('flash', {
-      message: '',
-      type: 'info',
-      show: false,
-      init: function () {
-        var el = document.getElementById('__wf-flash')
-        if (el) {
-          try {
-            var data = JSON.parse(el.textContent || '{}')
-            if (data.message) {
-              this.message = data.message; this.type = data.type || 'info'; this.show = true
-              setTimeout(function () { this.show = false }.bind(this), 5000)
-            }
-          } catch (e) {}
-        }
-      },
+      message: flashMessage,
+      type: flashType,
+      show: flashShow,
       clear: function () { this.show = false },
     })
 
@@ -131,14 +130,12 @@ const WFU_VERSION = '0.27.20';
 
   registerStores()
 
-  // ── Init theme on load ─────────────────────────────────────
-  function initTheme() {
-    applyTheme(getCookie('theme') || 'system')
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initTheme)
-  } else {
-    initTheme()
+  // ── Flash auto-dismiss ─────────────────────────────────────
+  if (flashShow) {
+    setTimeout(function () {
+      var s = Alpine.store('flash')
+      if (s) s.show = false
+    }, 5000)
   }
 
   window.WFU_VERSION = WFU_VERSION
