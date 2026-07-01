@@ -66,7 +66,7 @@ app.use(rateLimit({ window: 60 }))
 ## Full-stack SSR
 
 Server-rendered HTML with zero frontend build tools. Uses `html()` tagged templates
-for safe HTML rendering, and `weifuwu-ui.js` for client-side interactions.
+for safe HTML rendering, and **HTMX + Alpine.js + weifuwu-ui** for client-side interactions.
 
 ```ts
 import { Router, serve, html, raw, layout, view, wfuwAssets, wfuwVersion, theme, i18n, flash } from 'weifuwu'
@@ -78,7 +78,7 @@ app.use(theme())
 app.use(i18n({ dir: './locales' }))
 app.use(flash())
 
-// weifuwu-ui frontend runtime
+// HTMX + Alpine.js + weifuwu-ui frontend assets
 app.use('/', wfuwAssets())
 
 // Layout (wraps all pages)
@@ -134,8 +134,10 @@ export default function (body: string, ctx: any) {
       <head>
         <meta charset="utf-8" />
         <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}" />
+        <script src="/__wfw/js/htmx.min.js?v=${wfuwVersion}"></script>
+        <script defer src="/__wfw/js/alpine.min.js?v=${wfuwVersion}"></script>
         <script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
-        <script id="__wfw-i18n" type="application/json">
+        <script id="__wf-i18n" type="application/json">
           ${raw(JSON.stringify(ctx.i18n?.messages || {}))}
         </script>
       </head>
@@ -160,16 +162,14 @@ export default function (ctx: any) {
 }
 ```
 
-### UI frontend runtime (weifuwu-ui)
+### UI frontend runtime
 
-weifuwu-ui is a zero-dependency frontend runtime (~5KB) that ships with weifuwu.
-One `<script>` + `<link>` covers AJAX loading, state binding, SSE streaming,
-WebSocket, theme/i18n/flash integration, and UI components.
+weifuwu ships with **HTMX** (AJAX, SSE, WebSocket, forms) + **Alpine.js** (state, DOM
+binding, UI components) + **weifuwu-ui** (Alpine stores for theme/i18n/flash).
 
 ```ts
 import { wfuwAssets } from 'weifuwu'
-
-app.use(wfuwAssets()) // serve /__wfw/js/weifuwu-ui.js + /__wfw/css/weifuwu-ui.css
+app.use(wfuwAssets()) // serve htmx.min.js + alpine.min.js + weifuwu-ui.js
 ```
 
 In your layout (with cache-busting via `wfuwVersion`):
@@ -179,6 +179,8 @@ import { wfuwVersion } from 'weifuwu'
 ```
 
 ```html
+<script src="/__wfw/js/htmx.min.js?v=${wfuwVersion}"></script>
+<script defer src="/__wfw/js/alpine.min.js?v=${wfuwVersion}"></script>
 <script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
 <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}" />
 ```
@@ -560,9 +562,7 @@ app.get('/', view('./ui/app/page.ts'))
 
 #### wfuwAssets()
 
-Serve weifuwu-ui.js and weifuwu-ui.css — zero-dependency frontend runtime (~5KB total).
-Covers: AJAX loading, state binding, SSE streaming, WebSocket, theme/i18n/flash,
-modal/collapse/tabs/dropdown/toast components.
+Serve HTMX, Alpine.js, and weifuwu-ui (Alpine stores for theme/i18n/flash).
 
 ```ts
 import { wfuwAssets } from 'weifuwu'
@@ -574,6 +574,8 @@ import { wfuwVersion } from 'weifuwu'
 ```
 
 ```html
+<script src="/__wfw/js/htmx.min.js?v=${wfuwVersion}"></script>
+<script defer src="/__wfw/js/alpine.min.js?v=${wfuwVersion}"></script>
 <script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
 <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}" />
 ```
@@ -702,9 +704,8 @@ Creates a minimal API project with `app.ts`, `index.ts`, and TypeScript config.
 
 ### Frontend
 
-- weifuwu-ui.js (~5KB) — built-in, zero external dependencies
-
-Covers: AJAX loading, state binding, SSE streaming, WebSocket, theme/i18n/flash,
-modal/collapse/tabs/dropdown/toast components.
+- **HTMX** (~14KB) — AJAX loading, SSE, WebSocket, form submission
+- **Alpine.js** (~15KB) — state management, DOM binding, UI components
+- **weifuwu-ui** (~2KB) — Alpine stores for theme/i18n/flash/toast
 
 Zero build tools. Zero frontend framework compilation.
