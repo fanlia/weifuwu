@@ -1,4 +1,6 @@
 {
+  "theme": { "dark": "🌙" },
+  "lang": { "zh": "中文", "en": "EN" },
   "title": "零编译构建 API 和 UI",
   "cta": "体验一下",
   "docs": "文档",

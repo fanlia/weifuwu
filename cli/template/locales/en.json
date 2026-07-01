@@ -1,4 +1,6 @@
 {
+  "theme": { "dark": "🌙" },
+  "lang": { "zh": "中文", "en": "EN" },
   "title": "Build APIs & UI, Zero Build Step",
   "cta": "Try Me",
   "docs": "Documentation",

@@ -47,7 +47,7 @@ export function wfuwAssets(): Router {
     return new Response(jsContent, {
       headers: {
         'content-type': 'application/javascript; charset=utf-8',
-        'cache-control': 'public, max-age=31536000, immutable',
+        'cache-control': 'public, max-age=0, must-revalidate',
       },
     })
   })
@@ -63,7 +63,7 @@ export function wfuwAssets(): Router {
     return new Response(cssContent, {
       headers: {
         'content-type': 'text/css; charset=utf-8',
-        'cache-control': 'public, max-age=31536000, immutable',
+        'cache-control': 'public, max-age=0, must-revalidate',
       },
     })
   })
