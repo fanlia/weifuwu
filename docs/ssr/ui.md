@@ -44,7 +44,7 @@ html`
 ### 1. State & Binding (`wu-data`)
 
 ```html
-<div wu-data="{ count: 0, open: false, name: 'World' }">
+<div wu-data='{"count":0,"open":false,"name":"World"}'>
   <button class="wu-btn" wu-on="click: count++">+1</button>
   <span wu-text="count">0</span>
 

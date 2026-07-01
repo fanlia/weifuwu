@@ -1,4 +1,4 @@
-import { html } from 'weifuwu'
+import { html, raw } from 'weifuwu'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function (ctx: any) {
@@ -6,7 +6,7 @@ export default function (ctx: any) {
   const theme = ctx.theme?.value || 'system'
   const locale = ctx.i18n?.locale || 'en'
 
-  return html`<div wu-data="{ open: false }">
+  return html`<div wu-data="${raw(JSON.stringify({ open: false }))}">
     <!-- Navbar -->
     <nav class="wu-flex wu-items-center wu-justify-between wu-p-4 wu-border-bottom">
       <strong class="wu-text-lg">weifuwu</strong>

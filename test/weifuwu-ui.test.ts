@@ -90,7 +90,7 @@ describe('wfuwAssets', () => {
               <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css" />
             </head>
             <body>
-              <div wu-data="{ count: 0 }">
+              <div wu-data='{"count":0}'>
                 <button class="wu-btn" wu-on="click: count++">+1</button>
                 <span wu-text="count">0</span>
               </div>
