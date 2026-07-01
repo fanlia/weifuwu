@@ -1,2 +1,8 @@
 @import "tailwindcss";
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
+
+/* Fallback for browsers without CSS Nesting support */
+[data-theme="dark"] body {
+  background-color: var(--color-gray-950);
+  color: var(--color-gray-100);
+}

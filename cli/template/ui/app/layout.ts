@@ -1,15 +1,15 @@
 import { html, raw, assetScripts } from 'weifuwu'
 
 export default function(body: string, ctx: any) {
-  // Theme: read from ctx at server, resolve system on client
+  // Theme: resolve at server from cookie, override 'system' on client
   const themeVal = ctx.theme?.value || 'system'
-  const isDark = themeVal === 'dark' || (themeVal === 'system' && false)
-  const htmlClass = isDark ? 'dark' : ''
+  const resolvedTheme = themeVal === 'dark' ? 'dark' : 'light'
+
   const themeScript = raw(`<script>
 !function(){
 var t=(document.cookie.match(/(?:^|;\s*)theme=([^;]+)/)||[])[1]||'system';
 if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
-document.documentElement.classList.toggle('dark',t==='dark');
+document.documentElement.setAttribute('data-theme',t);
 }()
 </script>`)
 
@@ -22,11 +22,16 @@ document.documentElement.classList.toggle('dark',t==='dark');
     : ''
 
   return html`<!DOCTYPE html>
-<html lang="${lang}" class="${htmlClass}">
+<html lang="${lang}" data-theme="${resolvedTheme}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${themeScript}
+  <style>
+    /* Fallback: ensure dark mode works regardless of CSS loading */
+    [data-theme="dark"] body { background-color: #030712; color: #f3f4f6; }
+    [data-theme="dark"] a { color: #93c5fd; }
+  </style>
   ${assetScripts()}
   ${cssLink}
 </head>
