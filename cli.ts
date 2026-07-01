@@ -84,7 +84,7 @@ async function writePackageJson(
   targetDir: string,
   name: string,
   version: string,
-  extra: Record<string, unknown>,
+  _extra: Record<string, unknown>,
 ) {
   const pkg: Record<string, unknown> = {
     name,
@@ -93,7 +93,12 @@ async function writePackageJson(
       dev: 'node --watch index.ts',
       start: 'node index.ts',
     },
-    ...extra,
+    dependencies: {
+      weifuwu: '^' + version,
+    },
+    devDependencies: {
+      '@types/node': '^22',
+    },
   }
   await writeFile(join(targetDir, 'package.json'), JSON.stringify(pkg, null, 2) + '\n')
 }
