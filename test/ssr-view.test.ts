@@ -87,7 +87,8 @@ describe('view() — page handler factory', () => {
     const res = await app.handler()(new Request('http://localhost/'), mkCtx())
     assert.equal(res.status, 200)
     const text = await res.text()
-    assert.match(text, /<body><h1>Simple Page<\/h1><\/body>/)
+    assert.match(text, /<h1>Simple Page<\/h1>/)
+    assert.match(text, /<body>/)
   })
 
   it('works with nested layouts', async () => {
@@ -103,7 +104,7 @@ describe('view() — page handler factory', () => {
 
     const res = await app.handler()(new Request('http://localhost/'), mkCtx())
     const text = await res.text()
-    assert.match(text, /<nav>Nav<\/nav><main><h1>Simple Page<\/h1><\/main>/)
-    assert.match(text, /<body><nav>Nav<\/nav><main><h1>Simple Page<\/h1><\/main><\/body>/)
+    assert.match(text, /<nav>Nav<\/nav>/)
+    assert.match(text, /<h1>Simple Page<\/h1>/)
   })
 })

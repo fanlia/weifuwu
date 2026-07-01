@@ -114,7 +114,7 @@ async function generateFull(
       `app.use(layout('./ui/app/layout.ts'))`,
       ``,
       `// Static assets (HTMX, Alpine)`,
-      `app.use(assetRouter())`,
+      `app.use('/', assetRouter())`,
       ``,
       `// CSS serving`,
       `app.use('/', cssRouter('./ui'))`,
