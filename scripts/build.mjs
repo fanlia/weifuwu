@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 import esbuild from 'esbuild'
+import { cpSync, rmSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const root = join(__dirname, '..')
 
 const external = [
   '@ai-sdk/openai',
@@ -35,3 +41,10 @@ await Promise.all([
     external,
   }),
 ])
+
+// Copy template directory into dist for npm publish
+const srcTemplate = join(root, 'cli', 'template')
+const dstTemplate = join(root, 'dist', 'template')
+rmSync(dstTemplate, { recursive: true, force: true })
+cpSync(srcTemplate, dstTemplate, { recursive: true })
+console.log('  ✓ template copied to dist/template/')
