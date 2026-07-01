@@ -34,7 +34,8 @@ async function cmdInit(name: string, opts: { skipInstall?: boolean }) {
   }
 
   const pkg = await readPkg()
-  await generateMinimal(targetDir, name, pkg.version, opts.skipInstall)
+  const typesNodeVersion = pkg.devDependencies?.['@types/node'] || '^22'
+  await generateMinimal(targetDir, name, pkg.version, typesNodeVersion, opts.skipInstall)
 }
 
 // ── Minimal (API-only) project ─────────────────────────────────────────
@@ -43,6 +44,7 @@ async function generateMinimal(
   targetDir: string,
   name: string,
   version: string,
+  typesNodeVersion: string,
   skipInstall?: boolean,
 ) {
   await mkdir(targetDir, { recursive: true })
@@ -73,7 +75,7 @@ async function generateMinimal(
     ].join('\n'),
   )
 
-  await writePackageJson(targetDir, name, version, {})
+  await writePackageJson(targetDir, name, version, typesNodeVersion, {})
   await writeCommonFiles(targetDir)
   await finishInit(targetDir, skipInstall)
 }
@@ -84,6 +86,7 @@ async function writePackageJson(
   targetDir: string,
   name: string,
   version: string,
+  typesNodeVersion: string,
   _extra: Record<string, unknown>,
 ) {
   const pkg: Record<string, unknown> = {
@@ -97,7 +100,7 @@ async function writePackageJson(
       weifuwu: '^' + version,
     },
     devDependencies: {
-      '@types/node': '^22',
+      '@types/node': typesNodeVersion,
     },
   }
   await writeFile(join(targetDir, 'package.json'), JSON.stringify(pkg, null, 2) + '\n')
