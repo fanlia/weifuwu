@@ -135,5 +135,19 @@ const WFU_VERSION = '0.27.20';
     setTimeout(function () { if (t.parentNode) t.remove() }, 3000)
   }
 
+  /* ── Fetch helper ──────────────────────────────────────────── */
+  function wfFetch(url, opts) {
+    return fetch(url, opts).then(function (r) { return r.text() })
+  }
+  function wfPost(url, body, opts) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      ...opts
+    }).then(function (r) { return r.text() })
+  }
+  window.wfFetch = wfFetch
+  window.wfPost = wfPost
   window.WFU_VERSION = WFU_VERSION
 })()

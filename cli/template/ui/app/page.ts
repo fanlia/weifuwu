@@ -31,9 +31,8 @@ export default function (ctx: any) {
         <a href="https://weifuwu.dev" class="wu-btn" target="_blank" wu-text-key="docs">${t('docs')}</a>
       </div>
 
-      <!-- HTMX AJAX demo -->
       <div style="margin-top: 24px;">
-        <button class="wu-btn wu-btn-sm" hx-get="/api/ping" hx-target="#ping-result" hx-swap="innerHTML">Ping API</button>
+        <button class="wu-btn wu-btn-sm" onclick="wfFetch('/api/ping').then(function(r){document.getElementById('ping-result').textContent=r})">Ping API</button>
         <code id="ping-result" style="display:inline-block;margin-left:12px;font-size:14px;"></code>
       </div>
 

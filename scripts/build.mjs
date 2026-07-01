@@ -46,10 +46,7 @@ const uiDir = join(root, 'ssr', 'ui')
 const distDir = join(root, 'dist')
 cpSync(join(uiDir, 'weifuwu-ui.js'), join(distDir, 'weifuwu-ui.js'))
 cpSync(join(uiDir, 'weifuwu-ui.css'), join(distDir, 'weifuwu-ui.css'))
-// Also copy HTMX + Alpine.js
-cpSync(join(uiDir, 'htmx.min.js'), join(distDir, 'htmx.min.js'))
-cpSync(join(uiDir, 'alpine.min.js'), join(distDir, 'alpine.min.js'))
-console.log('  ✓ frontend assets copied to dist/')
+console.log('  ✓ weifuwu-ui files copied to dist/')
 
 // Copy weifuwu-ui docs to dist for npm publish
 cpSync(join(root, 'docs', 'ssr', 'ui.md'), join(root, 'dist', 'docs', 'ssr', 'ui.md'))

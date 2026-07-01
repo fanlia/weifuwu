@@ -1,22 +1,17 @@
 /**
- * wfuwAssets — Serves weifuwu frontend assets (HTMX, Alpine.js, weifuwu-ui).
+ * wfuwAssets — Serves weifuwu-ui.js and weifuwu-ui.css.
  *
  * Endpoints:
- *   /__wfw/js/htmx.min.js      — HTMX (AJAX, SSE, WebSocket, forms)
- *   /__wfw/js/alpine.min.js    — Alpine.js (state, DOM binding, UI)
- *   /__wfw/js/weifuwu-ui.js    — weifuwu-ui (theme/i18n/flash Alpine stores)
+ *   /__wfw/js/weifuwu-ui.js   — theme/i18n/flash/toast helpers
  *   /__wfw/css/weifuwu-ui.css  — UI component styles
  *
  * Usage:
  *   ```ts
- *   import { wfuwAssets } from 'weifuwu'
+ *   import { wfuwAssets, wfuwVersion } from 'weifuwu'
  *   app.use('/', wfuwAssets())
  *
  *   // In layout:
- *   import { wfuwVersion } from 'weifuwu'
  *   html`
- *     <script src="/__wfw/js/htmx.min.js?v=${wfuwVersion}"></script>
- *     <script defer src="/__wfw/js/alpine.min.js?v=${wfuwVersion}"></script>
  *     <script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
  *     <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}">
  *   `
@@ -29,7 +24,7 @@ import { Router } from '../../core/router.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-/** Current weifuwu version. */
+/** Current weifuwu version, extracted from weifuwu-ui.js header. */
 export const wfuwVersion: string = (() => {
   try {
     const js = readFileSync(resolve(__dirname, 'weifuwu-ui.js'), 'utf-8')
@@ -62,8 +57,6 @@ function serveFile(path: string, mime: string) {
 export function wfuwAssets(): Router {
   const router = new Router()
 
-  router.get('/__wfw/js/htmx.min.js', serveFile(resolve(__dirname, 'htmx.min.js'), 'application/javascript; charset=utf-8'))
-  router.get('/__wfw/js/alpine.min.js', serveFile(resolve(__dirname, 'alpine.min.js'), 'application/javascript; charset=utf-8'))
   router.get('/__wfw/js/weifuwu-ui.js', serveFile(resolve(__dirname, 'weifuwu-ui.js'), 'application/javascript; charset=utf-8'))
   router.get('/__wfw/css/weifuwu-ui.css', serveFile(resolve(__dirname, 'weifuwu-ui.css'), 'text/css; charset=utf-8'))
 
