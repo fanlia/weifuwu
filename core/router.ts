@@ -15,10 +15,20 @@ import { createHub, type Hub } from '../hub.ts'
 import { isProd } from './env.ts'
 
 // Augment Context with WebSocket helpers
-import type { WsContext } from '../types.ts'
 declare module '../types.ts' {
   interface Context {
-    ws: WsContext
+    ws: {
+      /** Per-connection state object */
+      state: Record<string, unknown>
+      /** Send JSON to this connection */
+      json(data: unknown): void
+      /** Join a room */
+      join(room: string): void
+      /** Leave a room */
+      leave(room: string): void
+      /** Broadcast to a room */
+      sendRoom(room: string, data: unknown): void
+    }
   }
 }
 

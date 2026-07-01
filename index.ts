@@ -1,4 +1,4 @@
-export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
+export type { Context, Handler, Middleware, ErrorHandler, WsContext } from './types.ts'
 export { HttpError } from './types.ts'
 export { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from './core/trace.ts'
 export type { TraceContext, TraceInjected, TraceOptions } from './core/trace.ts'
