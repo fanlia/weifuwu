@@ -11,7 +11,7 @@
  * @license MIT
  * @version 0.1.0
  */
-const WFU_VERSION = '0.27.19';
+const WFU_VERSION = '0.27.20';
 (function () {
   'use strict'
 

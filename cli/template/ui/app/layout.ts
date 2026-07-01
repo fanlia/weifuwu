@@ -1,4 +1,4 @@
-import { html, raw } from 'weifuwu'
+import { html, raw, wfuwVersion } from 'weifuwu'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function (body: string, ctx: any) {
@@ -16,8 +16,8 @@ export default function (body: string, ctx: any) {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>weifuwu</title>
-        <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css" />
-        <script src="/__wfw/js/weifuwu-ui.js"></script>
+        <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}" />
+        <script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
         <script id="__wfw-i18n" type="application/json">
           ${raw(JSON.stringify(messages))}
         </script>

@@ -27,6 +27,17 @@ import { Router } from '../../core/router.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+/** Current weifuwu version, extracted from weifuwu-ui.js header. */
+export const wfuwVersion: string = (() => {
+  try {
+    const js = readFileSync(resolve(__dirname, 'weifuwu-ui.js'), 'utf-8')
+    const m = js.match(/WFU_VERSION = '([^']+)'/)
+    return m ? m[1] : '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+})()
+
 export function wfuwAssets(): Router {
   const router = new Router()
 
@@ -47,7 +58,7 @@ export function wfuwAssets(): Router {
     return new Response(jsContent, {
       headers: {
         'content-type': 'application/javascript; charset=utf-8',
-        'cache-control': 'public, max-age=0, must-revalidate',
+        'cache-control': 'public, max-age=31536000, immutable',
       },
     })
   })
@@ -63,7 +74,7 @@ export function wfuwAssets(): Router {
     return new Response(cssContent, {
       headers: {
         'content-type': 'text/css; charset=utf-8',
-        'cache-control': 'public, max-age=0, must-revalidate',
+        'cache-control': 'public, max-age=31536000, immutable',
       },
     })
   })
