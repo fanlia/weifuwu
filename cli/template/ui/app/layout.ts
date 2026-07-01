@@ -28,9 +28,11 @@ document.documentElement.setAttribute('data-theme',t);
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${themeScript}
   <style>
-    /* Fallback: ensure dark mode works regardless of CSS loading */
-    [data-theme="dark"] body { background-color: #030712; color: #f3f4f6; }
-    [data-theme="dark"] a { color: #93c5fd; }
+    /* Force dark mode when data-theme is set */
+    [data-theme="dark"] body {
+      background-color: #030712 !important;
+      color: #f3f4f6 !important;
+    }
   </style>
   ${assetScripts()}
   ${cssLink}
