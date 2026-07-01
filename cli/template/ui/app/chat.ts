@@ -1,4 +1,4 @@
-import { html } from 'weifuwu'
+import { html, raw } from 'weifuwu'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function (_ctx: any) {
@@ -13,7 +13,7 @@ export default function (_ctx: any) {
 
       <div class="wu-card" style="height: 300px; overflow-y: auto; margin-bottom: 12px; padding: 12px;">
         <div wu-each="logs" style="margin-bottom: 8px;">
-          <span wu-text="item" style="white-space: pre-wrap;"></span>
+          <span style="white-space: pre-wrap;">${raw('${this}')}</span>
         </div>
       </div>
 
