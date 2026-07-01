@@ -23,7 +23,8 @@ export default function (_ctx: any) {
       </div>
     </section>
 
-    <div wu-ws="${`ws://${_ctx.host}/chat`}"
-         wu-on-ws-message="$s.logs = [...$s.logs, data]"></div>
+    <!-- WebSocket connects to /chat on the same origin -->
+    <div wu-ws="/chat"
+         wu-on-ws-message="$s.logs = [...$s.logs, JSON.parse(data).text]"></div>
   </div>`
 }
