@@ -758,7 +758,7 @@ function upgradeSocket(
         hub.leave(ws)
       },
       sendRoom(room: string, data: unknown) {
-        hub.broadcast(room, JSON.stringify(data))
+        hub.broadcast(room, data)
       },
     }
 
