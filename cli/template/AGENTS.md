@@ -4,12 +4,10 @@
 
 This project uses weifuwu-ui.js — a zero-dependency frontend runtime (~5KB).
 
-Read the full reference at `node_modules/weifuwu/dist/docs/ssr/ui.md` or online:
+**Must read**: `node_modules/weifuwu/README.md` for the full framework reference.
 
-- **weifuwu-ui.js**: AJAX loading, state binding (`wu-data`, `wu-text`, `wu-show`),
-  event handling (`wu-on`), SSE streaming, WebSocket, theme/i18n/flash, UI components
-- **weifuwu-ui.css**: Button, form, card, modal, collapse, tabs, dropdown, toast styles
-  with CSS variable theming (light/dark mode via `data-theme` on `<html>`)
+For weifuwu-ui.js attribute reference and component docs, see:
+`node_modules/weifuwu/dist/docs/ssr/ui.md`
 
 ### Key attributes
 

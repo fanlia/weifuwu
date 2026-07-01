@@ -69,7 +69,7 @@ Server-rendered HTML with zero frontend build tools. Uses `html()` tagged templa
 for safe HTML rendering, and `weifuwu-ui.js` for client-side interactions.
 
 ```ts
-import { Router, serve, html, raw, layout, view, wfuwAssets, theme, i18n, flash } from 'weifuwu'
+import { Router, serve, html, raw, layout, view, wfuwAssets, wfuwVersion, theme, i18n, flash } from 'weifuwu'
 
 const app = new Router()
 
@@ -125,7 +125,7 @@ html`<div>${html`<span>nested</span>`}</div>`
 Wraps page HTML in a layout template. Multiple layouts nest naturally.
 
 ```ts
-import { html, raw } from 'weifuwu'
+import { html, raw, wfuwVersion } from 'weifuwu'
 
 // ui/app/layout.ts
 export default function (body: string, ctx: any) {
@@ -133,8 +133,8 @@ export default function (body: string, ctx: any) {
     <html data-theme="${ctx.theme?.value || 'light'}">
       <head>
         <meta charset="utf-8" />
-        <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css" />
-        <script src="/__wfw/js/weifuwu-ui.js"></script>
+        <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}" />
+        <script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
         <script id="__wfw-i18n" type="application/json">
           ${raw(JSON.stringify(ctx.i18n?.messages || {}))}
         </script>
@@ -172,11 +172,15 @@ import { wfuwAssets } from 'weifuwu'
 app.use(wfuwAssets()) // serve /__wfw/js/weifuwu-ui.js + /__wfw/css/weifuwu-ui.css
 ```
 
-In your layout:
+In your layout (with cache-busting via `wfuwVersion`):
+
+```ts
+import { wfuwVersion } from 'weifuwu'
+```
 
 ```html
-<script src="/__wfw/js/weifuwu-ui.js"></script>
-<link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css" />
+<script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
+<link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}" />
 ```
 
 ---
@@ -565,9 +569,13 @@ import { wfuwAssets } from 'weifuwu'
 app.use(wfuwAssets())
 ```
 
+```ts
+import { wfuwVersion } from 'weifuwu'
+```
+
 ```html
-<script src="/__wfw/js/weifuwu-ui.js"></script>
-<link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css" />
+<script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
+<link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}" />
 ```
 
 ### Standalone utilities
