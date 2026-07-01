@@ -19,7 +19,7 @@ export default function (_ctx: any) {
 
       <div class="wu-flex wu-gap-sm">
         <input wu-model="message" class="wu-input" style="flex: 1;" placeholder="Type a message..." />
-        <button class="wu-btn wu-btn-primary" wu-on="click: wu.send(message); message = ''">Send</button>
+        <button class="wu-btn wu-btn-primary" wu-on="click: wu.send(message), message = ''">Send</button>
       </div>
     </section>
 
