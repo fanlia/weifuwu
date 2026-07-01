@@ -11,12 +11,10 @@ export default function (ctx: any) {
     <nav class="wu-flex wu-items-center wu-justify-between wu-p-4 wu-border-bottom">
       <strong class="wu-text-lg">weifuwu</strong>
       <div class="wu-flex wu-gap-sm wu-items-center">
-        <button wu-theme="${theme === 'dark' ? 'light' : 'dark'}" class="wu-btn wu-btn-sm">
-          ${theme === 'dark' ? '☀️' : '🌙'}
-        </button>
-        <button wu-lang="${locale === 'en' ? 'zh-CN' : 'en'}" class="wu-btn wu-btn-sm">
-          ${locale === 'en' ? '中文' : 'EN'}
-        </button>
+        <button wu-theme="dark" class="wu-btn wu-btn-sm">🌙</button>
+        <button wu-theme="light" class="wu-btn wu-btn-sm">☀️</button>
+        <button wu-lang="zh-CN" class="wu-btn wu-btn-sm">中文</button>
+        <button wu-lang="en" class="wu-btn wu-btn-sm">EN</button>
       </div>
     </nav>
 
