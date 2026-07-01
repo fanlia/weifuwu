@@ -28,6 +28,7 @@ export default function (ctx: any) {
 
       <div class="wu-flex wu-justify-center wu-gap-md">
         <button class="wu-btn wu-btn-primary" wu-on="click: open = !open" wu-text-key="cta">${t('cta')}</button>
+        <a href="/chat" class="wu-btn wu-btn-secondary" wu-text-key="chat">${t('chat')}</a>
         <a href="https://weifuwu.dev" class="wu-btn" target="_blank" wu-text-key="docs">${t('docs')}</a>
       </div>
 
