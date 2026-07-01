@@ -28,7 +28,7 @@
  * @param path - Absolute or relative path to a `.ts` module.
  * @returns A {@link Handler} that renders the page.
  */
-import type { Context, Handler } from '../types.ts'
+import type { Handler } from '../types.ts'
 import { loadModule } from './compile.ts'
 import type { RawString } from './html.ts'
 

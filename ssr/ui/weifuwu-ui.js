@@ -101,6 +101,7 @@
         const state = createReactiveState(el, initial)
         states.set(el, state)
       } catch (e) {
+        // eslint-disable-next-line no-console
         console.warn('[wu] Invalid wu-data:', el.getAttribute('wu-data'), e)
       }
     })
@@ -300,6 +301,7 @@
       const fn = new Function('$s', `with($s) { return (${expr}) }`)
       return fn(state)
     } catch (e) {
+      // eslint-disable-next-line no-console
       console.warn('[wu] Expression error:', expr, e)
       return ''
     }
@@ -403,7 +405,7 @@
     })
   }
 
-  function triggerRequest(el, method, url, event) {
+  function triggerRequest(el, method, url, _event) {
     // Confirmation
     const confirmMsg = el.getAttribute('wu-confirm')
     if (confirmMsg && !confirm(confirmMsg)) return
@@ -488,7 +490,8 @@
       .catch((err) => {
         if (err.name === 'AbortError') return
         if (loadingEl) loadingEl.classList.add('wu-hidden')
-        console.warn('[wu] Fetch error:', err)
+        // eslint-disable-next-line no-console
+      console.warn('[wu] Fetch error:', err)
       })
   }
 
@@ -542,11 +545,14 @@
 
     es.addEventListener('message', (e) => {
       try {
-        const data = JSON.parse(e.data)
         const handler = el.getAttribute('wu-on-sse-message')
         if (handler) {
           const state = findState(el)
-          if (state) evaluateExpr(handler, state)
+          if (state) {
+            const _data = JSON.parse(e.data)
+            const fn = new Function('$s', 'data', `with($s) { ${handler} }`)
+            fn(state, _data)
+          }
         }
       } catch {}
     })
@@ -566,7 +572,8 @@
             fn(state, data)
           }
         } catch (err) {
-          console.warn('[wu] SSE handler error:', err)
+          // eslint-disable-next-line no-console
+      console.warn('[wu] SSE handler error:', err)
         }
       })
     }
@@ -603,8 +610,6 @@
   function emitSSEEvent(el, data) {
     if (!data.type) return
     const handlerAttr = 'wu-on-sse-' + data.type
-    // Walk up from the trigger element
-    const handlerEl = el.closest('[wu-data]') || el
     const state = findState(el)
     if (!state) return
 
@@ -756,7 +761,6 @@
   // ═══════════════════════════════════════════════════════════════════
 
   let i18nMessages = {}
-  let i18nLocale = 'en'
 
   function initI18n() {
     const script = document.getElementById('__wfw-i18n')
@@ -765,7 +769,6 @@
         i18nMessages = JSON.parse(script.textContent)
       } catch {}
     }
-    i18nLocale = document.body.getAttribute('data-locale') || 'en'
   }
 
   // Language switching (delegated click)
@@ -782,7 +785,7 @@
         headers: { Accept: 'application/json' },
       })
       const data = await res.json()
-      i18nLocale = data.locale
+      // locale updated server-side via data-locale attribute
       i18nMessages = data.messages || {}
       document.cookie = 'locale=' + locale + '; Path=/; SameSite=Lax; Max-Age=31536000'
       document.body.setAttribute('data-locale', locale)
@@ -792,6 +795,7 @@
         el.textContent = translate(key)
       })
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.warn('[wu] i18n switch failed:', err)
     }
   }

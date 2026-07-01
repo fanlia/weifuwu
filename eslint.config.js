@@ -15,6 +15,7 @@ export default tseslint.config(
       'coverage/',
       'examples/',
       '.scripts/',
+      'scripts/',
     ],
   },
   {

@@ -43,6 +43,15 @@ await Promise.all([
   }),
 ])
 
+// Copy weifuwu-ui static files to dist for npm publish
+cpSync(join(root, 'ssr', 'ui', 'weifuwu-ui.js'), join(root, 'dist', 'weifuwu-ui.js'))
+cpSync(join(root, 'ssr', 'ui', 'weifuwu-ui.css'), join(root, 'dist', 'weifuwu-ui.css'))
+console.log('  ✓ weifuwu-ui files copied to dist/')
+
+// Copy weifuwu-ui docs to dist for npm publish
+cpSync(join(root, 'docs', 'ssr', 'ui.md'), join(root, 'dist', 'docs', 'ssr', 'ui.md'))
+console.log('  ✓ weifuwu-ui docs copied to dist/')
+
 // Copy template directory into dist for npm publish
 const srcTemplate = join(root, 'cli', 'template')
 const dstTemplate = join(root, 'dist', 'template')
