@@ -1,12 +1,7 @@
 import { html, raw } from 'weifuwu'
 
 export default function () {
-  return html`<div x-data="{ message: '', logs: [], ws: null }"
-              x-init="
-                ws = new WebSocket('/chat');
-                ws.onmessage = (e) => { logs = [...logs, JSON.parse(e.data).text] };
-                ws.onopen = () => {};
-              ">
+  return html`<div wu-data='${raw(JSON.stringify({ message: '', logs: [] }))}'>
     <nav class="wu-flex wu-items-center wu-justify-between wu-p-4 wu-border-bottom">
       <strong class="wu-text-lg">weifuwu Chat</strong>
       <a href="/" class="wu-btn wu-btn-sm">← Home</a>
@@ -16,19 +11,18 @@ export default function () {
       <h1 class="wu-text-2xl" style="margin-bottom: 16px;">WebSocket Chat</h1>
 
       <div class="wu-card" style="height: 300px; overflow-y: auto; margin-bottom: 12px; padding: 12px;">
-        <template x-for="(msg, i) in logs" :key="i">
-          <div style="margin-bottom: 8px;">
-            <span style="white-space: pre-wrap;" x-text="msg"></span>
-          </div>
-        </template>
+        <div wu-each="logs" style="margin-bottom: 8px;">
+          <span style="white-space: pre-wrap;">${raw('${this}')}</span>
+        </div>
       </div>
 
       <div class="wu-flex wu-gap-sm">
-        <input x-model="message" class="wu-input" style="flex: 1;" placeholder="Type a message..."
-               @keyup.enter="if (message.trim()) { ws.send(message); message = '' }" />
-        <button class="wu-btn wu-btn-primary"
-                @click="if (message.trim()) { ws.send(message); message = '' }">Send</button>
+        <input wu-model="message" class="wu-input" style="flex: 1;" placeholder="Type a message..." />
+        <button class="wu-btn wu-btn-primary" wu-on="click: wu.send(message), message = ''">Send</button>
       </div>
     </section>
+
+    <div wu-ws="/chat"
+         wu-on-ws-message="$s.logs = [...$s.logs, JSON.parse(data).text]"></div>
   </div>`
 }
