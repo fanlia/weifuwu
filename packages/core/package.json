@@ -1,0 +1,36 @@
+{
+  "name": "@weifuwujs/core",
+  "type": "module",
+  "version": "0.28.2",
+  "description": "Web-standard HTTP microframework for Node.js — (req, ctx) => Response",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
+    "test": "node --test 'src/test/**/*.test.ts'",
+    "test:coverage": "node --experimental-test-coverage --test 'src/test/**/*.test.ts'"
+  },
+  "dependencies": {
+    "@graphql-tools/schema": "^10",
+    "graphql": "^16",
+    "ioredis": "^5.11.0",
+    "postgres": "^3.4.9",
+    "ws": "^8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25",
+    "@types/ws": "^8"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "paths": {
+      "@weifuwujs/core": ["../core/dist/index.d.ts"]
+    }
+  }
+}

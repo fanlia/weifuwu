@@ -8,7 +8,9 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     ignores: [
-      'dist/',
+      '**/dist/',
+      '**/dist/**',
+      '**/*.d.ts',
       'node_modules/',
       '**/.weifuwu/',
       '**/.sessions/',
@@ -16,6 +18,7 @@ export default tseslint.config(
       'examples/',
       '.scripts/',
       'scripts/',
+      '**/cli/template/',
     ],
   },
   {
@@ -44,7 +47,7 @@ export default tseslint.config(
   },
   // ── Test files get looser rules ──────────────────────────────
   {
-    files: ['test/**/*.test.ts'],
+    files: ['**/src/test/**/*.test.ts', '**/test/**/*.test.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
@@ -57,7 +60,7 @@ export default tseslint.config(
   },
   // ── Client-side hooks (browser globals) ──────────────────────
   {
-    files: ['use-*.ts', 'client-*.ts', 'client-theme.ts'],
+    files: ['**/use-*.ts', '**/client-*.ts', '**/client-theme.ts'],
     rules: {
       'no-console': 'off',
     },

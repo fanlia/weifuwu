@@ -1,0 +1,19 @@
+{
+  "name": "weifuwu",
+  "type": "module",
+  "version": "0.28.2",
+  "description": "Web-standard HTTP microframework — alias for @weifuwujs/core",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "dependencies": {
+    "@weifuwujs/core": "*"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ]
+}

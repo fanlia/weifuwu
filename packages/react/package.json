@@ -1,0 +1,36 @@
+{
+  "name": "@weifuwujs/react",
+  "type": "module",
+  "version": "0.28.2",
+  "description": "React SSR for weifuwu — filesystem routing, HMR, hooks",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@weifuwujs/core": "*",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "optionalDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "chokidar": "^4",
+    "esbuild": "^0.28",
+    "postcss": "^8",
+    "tailwindcss": "^4"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19"
+  },
+  "files": [
+    "dist/"
+  ]
+}

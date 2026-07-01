@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "types": [
+      "node"
+    ],
+    "rootDir": "src"
+  },
+  "include": [
+    "src/*.ts",
+    "src/core/*.ts",
+    "src/middleware/*.ts",
+    "src/postgres/*.ts",
+    "src/queue/*.ts",
+    "src/redis/*.ts"
+  ]
+}
