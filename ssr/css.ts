@@ -11,7 +11,7 @@
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import tailwindPlugin from '@tailwindcss/postcss'
 import postcss from 'postcss'
 import { Router } from '../core/router.ts'
@@ -31,14 +31,51 @@ declare module '../types.ts' {
 
 const cssCache = new Map<string, CssAsset>()
 
+/**
+ * Find the tailwindcss package directory.
+ * Checks both hoisted (project node_modules) and nested
+ * (inside weifuwu's node_modules) installations.
+ */
+function findTailwindDir(): string | null {
+  // Check hoisted location first (when published to npm)
+  const hoisted = resolve(process.cwd(), 'node_modules', 'tailwindcss')
+  if (existsSync(hoisted)) return hoisted
+
+  // Check inside weifuwu's node_modules (local dev / file: dependency)
+  // Walk up from process.cwd() looking for weifuwu's node_modules
+  let dir = process.cwd()
+  const root = sep === '/' ? '/' : ''
+  while (dir !== root) {
+    const wfwDir = resolve(dir, 'node_modules', 'weifuwu')
+    if (existsSync(wfwDir)) {
+      // Check weifuwu's own node_modules
+      const nested = resolve(wfwDir, 'node_modules', 'tailwindcss')
+      if (existsSync(nested)) return nested
+      // Check weifuwu's parent (might be hoisted to project root by older npm)
+      const parent = resolve(dir, '..', 'node_modules', 'tailwindcss')
+      if (existsSync(parent)) return parent
+    }
+    dir = resolve(dir, '..')
+  }
+  return null
+}
+
 export async function compileCSS(cssPath: string, sourceDir: string): Promise<CssAsset> {
   if (!existsSync(cssPath)) {
     return { css: '', hash: 'empty', url: '' }
   }
 
-  const raw = readFileSync(cssPath, 'utf-8')
-  const src = `@source "${sourceDir}";\n${raw}`
+  let raw = readFileSync(cssPath, 'utf-8')
 
+  // Inline @import "tailwindcss" to avoid PostCSS resolution issues
+  // when tailwindcss is installed inside weifuwu's node_modules
+  const tailwindDir = findTailwindDir()
+  if (tailwindDir && raw.includes('@import "tailwindcss"')) {
+    const tailwindCss = readFileSync(join(tailwindDir, 'index.css'), 'utf-8')
+    raw = raw.replace('@import "tailwindcss"', tailwindCss)
+  }
+
+  const src = `@source "${sourceDir}";\n${raw}`
   const result = await postcss([tailwindPlugin()]).process(src, { from: cssPath })
   const hash = createHash('md5').update(result.css).digest('hex').slice(0, 8)
 
