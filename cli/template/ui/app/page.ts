@@ -3,13 +3,20 @@ import { html, raw } from 'weifuwu'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function (ctx: any) {
   const t = ctx.i18n?.t || ((k: string) => k)
+  // Theme/language buttons: show opposite (click to switch)
+  const themeVal = ctx.theme?.value || 'system'
+  const btnTheme = themeVal === 'dark' ? 'light' : 'dark'
+  const btnIcon = btnTheme === 'dark' ? '🌙' : '☀️'
+  const locale = ctx.i18n?.locale || 'en'
+  const btnLang = locale === 'zh-CN' ? 'en' : 'zh-CN'
+  const langLabel = btnLang === 'zh-CN' ? '中文' : 'EN'
 
   return html`<div wu-data='${raw(JSON.stringify({ open: false }))}'>
     <nav class="wu-flex wu-items-center wu-justify-between wu-p-4 wu-border-bottom">
       <strong class="wu-text-lg">weifuwu</strong>
       <div class="wu-flex wu-gap-sm wu-items-center">
-        <button wu-theme="dark" class="wu-btn wu-btn-sm" wu-text-key="theme">🌙</button>
-        <button wu-lang="zh-CN" class="wu-btn wu-btn-sm" wu-text-key="lang">中文</button>
+        <button wu-theme="${btnTheme}" class="wu-btn wu-btn-sm">${raw(btnIcon)}</button>
+        <button wu-lang="${btnLang}" class="wu-btn wu-btn-sm" wu-text-key="lang">${raw(langLabel)}</button>
       </div>
     </nav>
 

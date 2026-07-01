@@ -723,15 +723,19 @@ const WFU_VERSION = '0.27.20';
   // ═══════════════════════════════════════════════════════════════════
 
   function initTheme() {
-    // Set initial theme from cookie
+    // Set initial theme from cookie, sync button state
     const cookie = document.cookie.match(/theme=([^;]+)/)?.[1] || 'system'
-    applyTheme(cookie)
+    const resolved = applyTheme(cookie)
+    syncThemeButtons(resolved)
 
     // Listen for system preference changes
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         const current = document.cookie.match(/theme=([^;]+)/)?.[1] || 'system'
-        if (current === 'system') applyTheme('system')
+        if (current === 'system') {
+          const r = applyTheme('system')
+          syncThemeButtons(r)
+        }
       })
     }
   }
@@ -744,6 +748,15 @@ const WFU_VERSION = '0.27.20';
           : 'light'
         : value
     document.documentElement.setAttribute('data-theme', theme)
+    return theme
+  }
+
+  function syncThemeButtons(resolved) {
+    const target = resolved === 'dark' ? 'light' : 'dark'
+    document.querySelectorAll('[wu-theme]').forEach((b) => {
+      b.setAttribute('wu-theme', target)
+      b.textContent = target === 'dark' ? '🌙' : '☀️'
+    })
   }
 
   // Theme switching (delegated click)
@@ -756,16 +769,7 @@ const WFU_VERSION = '0.27.20';
     // Sync with server (no redirect, JSON request)
     fetch('/__theme/' + value, { headers: { Accept: 'application/json' } }).catch(() => {})
     // Toggle all [wu-theme] buttons: dark ↔ light
-    document.querySelectorAll('[wu-theme]').forEach((b) => {
-      const v = b.getAttribute('wu-theme')
-      if (v === 'dark') {
-        b.setAttribute('wu-theme', 'light')
-        b.textContent = '☀️'
-      } else if (v === 'light') {
-        b.setAttribute('wu-theme', 'dark')
-        b.textContent = '🌙'
-      }
-    })
+    syncThemeButtons(value)
   })
 
   // ═══════════════════════════════════════════════════════════════════
