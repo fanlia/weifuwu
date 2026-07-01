@@ -20,7 +20,7 @@ app.get('/chat', view('./ui/app/chat.ts'))
 // ── API ──────────────────────────────────────────────────────────
 app.get('/api/ping', () => Response.json({ pong: true, time: new Date().toISOString() }))
 
-// ── WebSocket Chat ───────────────────────────────────────────────
+// ── WebSocket Chat (weifuwu-ui wu-ws) ───────────────────────────
 app.ws('/chat', {
   open(ws, ctx) {
     ctx.ws.join('lobby')
