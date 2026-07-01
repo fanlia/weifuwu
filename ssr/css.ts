@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import tailwindPlugin from '@tailwindcss/postcss'
+import postcssNesting from 'postcss-nesting'
 import postcss from 'postcss'
 import { Router } from '../core/router.ts'
 import type { Context, Middleware } from '../types.ts'
@@ -76,7 +77,7 @@ export async function compileCSS(cssPath: string, sourceDir: string): Promise<Cs
   }
 
   const src = `@source "${sourceDir}";\n${raw}`
-  const result = await postcss([tailwindPlugin()]).process(src, { from: cssPath })
+  const result = await postcss([tailwindPlugin(), postcssNesting()]).process(src, { from: cssPath })
   const hash = createHash('md5').update(result.css).digest('hex').slice(0, 8)
 
   const asset: CssAsset = { css: result.css, hash, url: `/__wfw/style/${hash}.css` }

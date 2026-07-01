@@ -17,6 +17,7 @@ const external = [
   'htmx.org',
   'ioredis',
   'postcss',
+  'postcss-nesting',
   'postgres',
   'tailwindcss',
   'ws',

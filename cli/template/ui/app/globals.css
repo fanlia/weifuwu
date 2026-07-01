@@ -1,8 +1,2 @@
-@import "tailwindcss";
-@custom-variant dark (&:is([data-theme="dark"] *));
-
-/* Fallback for browsers without CSS Nesting support */
-[data-theme="dark"] body {
-  background-color: var(--color-gray-950);
-  color: var(--color-gray-100);
-}
+/* Custom styles for your weifuwu app */
+/* weifuwu-ui.css provides base UI component styles */

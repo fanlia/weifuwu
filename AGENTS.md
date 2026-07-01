@@ -36,13 +36,15 @@ weifuwu/
   queue/                — Job queue (pattern α middleware, memory/pg/redis backends)
     index.ts, types.ts, cron.ts
 
-  ssr/                  — SSR engine (html templates, HTMX, Alpine)
+  ssr/                  — SSR (html templates + weifuwu-ui)
     html.ts               html() / raw() tagged template functions
     layout.ts             layout() middleware
     compile.ts            loadModule() with caching
     view.ts               view() page handler factory
-    css.ts                Tailwind v4 CSS compilation pipeline
-    assets.ts             HTMX / Alpine local asset serving
+    ui/                   weifuwu-ui frontend runtime (~5KB, zero deps)
+      weifuwu-ui.js         Frontend runtime (state, AJAX, SSE, WS, components)
+      weifuwu-ui.css        UI component styles (CSS variables, dark mode)
+      assets.ts             wfuwAssets() Router
 
   hub.ts                — Pub/sub hub for WebSocket rooms
   graphql.ts            — GraphQL handler (pattern β)
@@ -75,22 +77,22 @@ type Middleware<In extends Context = Context, Out extends In = In> = {
 
 Each middleware adds exactly one namespaced field on `ctx`. The `req` object is never modified.
 
-| Pattern α middleware    | Injects          | Type safety                              |
-| ----------------------- | ---------------- | ---------------------------------------- |
-| `app.use(postgres())`   | `ctx.sql`        | `declare module` + `PostgresInjected`    |
-| `app.use(redis())`      | `ctx.redis`      | `declare module` + `RedisInjected`       |
-| `app.use(aiProvider())` | `ctx.ai`         | `declare module` + `AIProviderInjected`  |
-| `app.use(queue())`      | `ctx.queue`      | `declare module` + `QueueInjected`       |
-| `app.use(theme())`      | `ctx.theme`      | `declare module` + `ThemeInjected`       |
-| `app.use(i18n())`       | `ctx.i18n`       | `declare module` + `I18nInjected`        |
-| `app.use(flash())`      | `ctx.flash`      | `declare module` + `FlashInjected`       |
-| `app.use(csrf())`       | `ctx.csrf.token` | `declare module` + `CsrfInjected`        |
-| `app.use(requestId())`  | `ctx.requestId`  | `declare module`                         |
-| `app.use(validate())`   | `ctx.parsed`     | `declare module` (shared with upload)    |
-| `app.use(upload())`     | `ctx.parsed`     | `declare module` (shared with validate)  |
-| `ws('/chat', handler)`  | `ctx.ws`         | —                                        |
-| `app.use(cssContext())` | `ctx.css`        | `declare module`                         |
-| `app.use(layout())`     | —                | reads `ctx.css`, `ctx.theme`, `ctx.i18n` |
+| Pattern α middleware    | Injects          | Type safety                             |
+| ----------------------- | ---------------- | --------------------------------------- |
+| `app.use(postgres())`   | `ctx.sql`        | `declare module` + `PostgresInjected`   |
+| `app.use(redis())`      | `ctx.redis`      | `declare module` + `RedisInjected`      |
+| `app.use(aiProvider())` | `ctx.ai`         | `declare module` + `AIProviderInjected` |
+| `app.use(queue())`      | `ctx.queue`      | `declare module` + `QueueInjected`      |
+| `app.use(theme())`      | `ctx.theme`      | `declare module` + `ThemeInjected`      |
+| `app.use(i18n())`       | `ctx.i18n`       | `declare module` + `I18nInjected`       |
+| `app.use(flash())`      | `ctx.flash`      | `declare module` + `FlashInjected`      |
+| `app.use(csrf())`       | `ctx.csrf.token` | `declare module` + `CsrfInjected`       |
+| `app.use(requestId())`  | `ctx.requestId`  | `declare module`                        |
+| `app.use(validate())`   | `ctx.parsed`     | `declare module` (shared with upload)   |
+| `app.use(upload())`     | `ctx.parsed`     | `declare module` (shared with validate) |
+| `ws('/chat', handler)`  | `ctx.ws`         | —                                       |
+| `app.use(wfuwAssets())` | —                | serves `/__wfw/js/weifuwu-ui.js` + CSS  |
+| `app.use(layout())`     | —                | reads `ctx.theme`, `ctx.i18n`           |
 
 ### Type safety rule
 
@@ -153,20 +155,17 @@ Modules with `.middleware()` (theme, i18n) support auto-registration:
 app.use(theme()) // registers both middleware and default routes
 ```
 
-Modules: `graphql()`, `health()`, `theme()`, `i18n()`, `cssRouter()`, `assetRouter()`
+Modules: `graphql()`, `health()`, `theme()`, `i18n()`, `wfuwAssets()`
 
 ### SSR-specific
 
-| Function         | Pattern | Description                                 |
-| ---------------- | ------- | ------------------------------------------- |
-| `html()`         | γ       | Tagged template HTML (auto-escaped)         |
-| `raw()`          | γ       | Mark string as pre-escaped HTML             |
-| `layout()`       | α       | Middleware that wraps page content          |
-| `view()`         | γ       | Handler factory for .ts page files          |
-| `cssContext()`   | α       | Middleware that compiles Tailwind → ctx.css |
-| `cssRouter()`    | β       | Router that serves compiled CSS             |
-| `assetRouter()`  | β       | Router that serves HTMX + Alpine locally    |
-| `assetScripts()` | γ       | Returns `<script>` tags for local assets    |
+| Function       | Pattern | Description                             |
+| -------------- | ------- | --------------------------------------- |
+| `html()`       | γ       | Tagged template HTML (auto-escaped)     |
+| `raw()`        | γ       | Mark string as pre-escaped HTML         |
+| `layout()`     | α       | Middleware that wraps page content      |
+| `view()`       | γ       | Handler factory for .ts page files      |
+| `wfuwAssets()` | β       | Router that serves weifuwu-ui.js + .css |
 
 ### Pattern γ — Standalone
 
@@ -260,9 +259,10 @@ npx weifuwu version                  # Print version
 `weifuwu init` generates a complete project with:
 
 - SSR via `html()` tagged templates (zero deps, auto-escaped)
-- Tailwind v4 CSS compilation (`@tailwindcss/postcss`)
-- HTMX + Alpine.js served locally (no CDN)
-- Theme switching (`/__theme/:value`)
-- Internationalization (`/__lang/:locale`)
+- weifuwu-ui.js frontend runtime (~5KB, zero external deps)
+- Theme switching (`wu-theme`, instant, no refresh)
+- Internationalization (`wu-lang` + `wu-text-key`, instant, no refresh)
+- Flash messages (`wu-flash`)
+- State binding + AJAX + SSE + WebSocket via `wu-*` attributes
 - `ui/app/` directory with layout, page, and CSS
 - `@/` path alias pointing to `./ui/`

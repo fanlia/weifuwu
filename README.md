@@ -66,35 +66,26 @@ app.use(rateLimit({ window: 60 }))
 ## Full-stack SSR
 
 Server-rendered HTML with zero frontend build tools. Uses `html()` tagged templates
-for safe HTML rendering, HTMX for dynamic interactions, and Alpine.js for client-side state.
+for safe HTML rendering, and `weifuwu-ui.js` for client-side interactions.
 
 ```ts
-import { Router, serve, html, raw, layout, view, cssContext, cssRouter, assetRouter } from 'weifuwu'
+import { Router, serve, html, raw, layout, view, wfuwAssets, theme, i18n, flash } from 'weifuwu'
 
 const app = new Router()
 
 // Middleware
 app.use(theme())
 app.use(i18n({ dir: './locales' }))
-app.use(cssContext('./ui')) // compile globals.css → ctx.css
+app.use(flash())
+
+// weifuwu-ui frontend runtime
+app.use('/', wfuwAssets())
 
 // Layout (wraps all pages)
 app.use(layout('./ui/app/layout.ts'))
 
-// Static assets (HTMX, Alpine — served locally, no CDN)
-app.use(assetRouter())
-
-// CSS serving
-app.use('/', cssRouter('./ui'))
-
 // Page
 app.get('/', view('./ui/app/page.ts'))
-
-// HTMX fragment handler
-app.get('/users/table', async (req, ctx) => {
-  const users = await ctx.sql`SELECT * FROM users`
-  return html`${users.map((u) => html`<div>${u.name}</div>`)}`
-})
 
 // API
 app.get('/api/ping', () => Response.json({ pong: true }))
@@ -139,15 +130,17 @@ import { html, raw } from 'weifuwu'
 // ui/app/layout.ts
 export default function (body: string, ctx: any) {
   return html`<!DOCTYPE html>
-    <html>
+    <html data-theme="${ctx.theme?.value || 'light'}">
       <head>
         <meta charset="utf-8" />
-        <script src="/__wfw/js/htmx.min.js"></script>
-        <script defer src="/__wfw/js/alpine.min.js"></script>
+        <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css" />
+        <script src="/__wfw/js/weifuwu-ui.js"></script>
+        <script id="__wfw-i18n" type="application/json">
+          ${raw(JSON.stringify(ctx.i18n?.messages || {}))}
+        </script>
       </head>
-      <body class="min-h-screen bg-white dark:bg-gray-950">
+      <body data-locale="${ctx.i18n?.locale || 'en'}">
         ${raw(body)}
-        <!-- ← use raw() for page content -->
       </body>
     </html>`
 }
@@ -167,29 +160,23 @@ export default function (ctx: any) {
 }
 ```
 
-### CSS pipeline (Tailwind v4)
+### UI frontend runtime (weifuwu-ui)
 
-Compiles `globals.css` via `@tailwindcss/postcss`. Cached and served with content hash.
-
-```css
-/* ui/app/globals.css */
-@import 'tailwindcss';
-@custom-variant dark (&:is(.dark *));
-```
+weifuwu-ui is a zero-dependency frontend runtime (~5KB) that ships with weifuwu.
+One `<script>` + `<link>` covers AJAX loading, state binding, SSE streaming,
+WebSocket, theme/i18n/flash integration, and UI components.
 
 ```ts
-app.use(cssContext('./ui')) // compile → ctx.css.url
-app.use(cssRouter('./ui')) // serve /__wfw/style/:hash.css
+import { wfuwAssets } from 'weifuwu'
+
+app.use(wfuwAssets()) // serve /__wfw/js/weifuwu-ui.js + /__wfw/css/weifuwu-ui.css
 ```
 
-### Local assets (no CDN)
+In your layout:
 
-HTMX and Alpine.js are npm dependencies, served from the weifuwu server.
-No external network requests.
-
-```ts
-app.use(assetRouter()) // serve /__wfw/js/htmx.min.js, alpine.min.js
-// In layout: ${assetScripts()}
+```html
+<script src="/__wfw/js/weifuwu-ui.js"></script>
+<link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css" />
 ```
 
 ---
@@ -567,24 +554,20 @@ import { view } from 'weifuwu'
 app.get('/', view('./ui/app/page.ts'))
 ```
 
-#### cssContext() / cssRouter()
+#### wfuwAssets()
 
-Tailwind v4 CSS compilation and serving.
+Serve weifuwu-ui.js and weifuwu-ui.css — zero-dependency frontend runtime (~5KB total).
+Covers: AJAX loading, state binding, SSE streaming, WebSocket, theme/i18n/flash,
+modal/collapse/tabs/dropdown/toast components.
 
 ```ts
-import { cssContext, cssRouter } from 'weifuwu'
-app.use(cssContext('./ui')) // compile → ctx.css
-app.use(cssRouter('./ui')) // serve /__wfw/style/:hash.css
+import { wfuwAssets } from 'weifuwu'
+app.use(wfuwAssets())
 ```
 
-#### assetRouter() / assetScripts()
-
-Serve HTMX and Alpine.js from node_modules (no CDN).
-
-```ts
-import { assetRouter, assetScripts } from 'weifuwu'
-app.use(assetRouter())
-// In layout: ${assetScripts()}
+```html
+<script src="/__wfw/js/weifuwu-ui.js"></script>
+<link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css" />
 ```
 
 ### Standalone utilities
@@ -666,15 +649,15 @@ throw new HttpError('Not found', 404) // caught by serve(), returns 404
 ## CLI
 
 ```bash
-npx weifuwu init my-app              # Full-stack project (SSR + Tailwind + HTMX + Alpine)
+npx weifuwu init my-app              # Full-stack project (SSR + weifuwu-ui)
 npx weifuwu init my-app --minimal    # Minimal API-only project
 npx weifuwu version                   # Print version
 ```
 
 ### Full-stack template (`init`)
 
-Generates a complete project with SSR, Tailwind CSS compilation, HTMX + Alpine served
-locally, theme switching, internationalization, and a demo home page.
+Generates a complete project with SSR via `html()` tagged templates, weifuwu-ui frontend
+runtime (zero external deps, ~5KB), theme switching, i18n, and flash messages.
 
 ```
 my-app/
@@ -682,9 +665,9 @@ my-app/
   app.ts                — Router setup
   ui/
     app/
-      globals.css       — Tailwind v4
-      layout.ts         — root layout (HTMX + Alpine + theme script)
-      page.ts           — home page (theme/i18n demo)
+      globals.css       — custom styles
+      layout.ts         — root layout (weifuwu-ui + theme/i18n/flash)
+      page.ts           — home page (wu-data/wu-theme/wu-lang demo)
   locales/
     en.json
     zh-CN.json
@@ -709,10 +692,11 @@ Creates a minimal API project with `app.ts`, `index.ts`, and TypeScript config.
 - `ws` — WebSocket
 - `zod` — Schema validation
 
-### Frontend (served locally, no CDN)
+### Frontend
 
-- `tailwindcss`, `@tailwindcss/postcss`, `postcss` — Tailwind v4 CSS compilation
-- `htmx.org` — HTML-over-the-wire dynamic interactions
-- `alpinejs` — Lightweight client interactivity
+- weifuwu-ui.js (~5KB) — built-in, zero external dependencies
+
+Covers: AJAX loading, state binding, SSE streaming, WebSocket, theme/i18n/flash,
+modal/collapse/tabs/dropdown/toast components.
 
 Zero build tools. Zero frontend framework compilation.

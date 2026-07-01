@@ -68,7 +68,7 @@ export type { FlashOptions, FlashInjected, FlashModule } from './middleware/flas
 export { csrf } from './middleware/csrf.ts'
 export type { CsrfOptions, CsrfInjected, CsrfModule } from './middleware/csrf.ts'
 
-// ── SSR (html tagged templates + HTMX + Alpine) ───────────────────────
+// ── SSR (html tagged templates + weifuwu-ui) ───────────────────────
 export { html, raw } from './ssr/html.ts'
 export type { RawString } from './ssr/html.ts'
 export { layout } from './ssr/layout.ts'
@@ -78,3 +78,4 @@ export { loadModule, clearModuleCache } from './ssr/compile.ts'
 export { cssContext, cssRouter, clearCSSCache } from './ssr/css.ts'
 export type { CssAsset } from './ssr/css.ts'
 export { assetRouter, assetScripts } from './ssr/assets.ts'
+export { wfuwAssets } from './ssr/ui/assets.ts'
