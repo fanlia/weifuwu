@@ -9,7 +9,7 @@ var HttpError = class extends Error {
 };
 
 // src/core/trace.ts
-import crypto from "node:crypto";
+import crypto2 from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 var als = new AsyncLocalStorage();
 function currentTraceId() {
@@ -19,7 +19,7 @@ function currentTrace() {
   return als.getStore();
 }
 function runWithTrace(incomingTraceId, fn) {
-  const traceId = incomingTraceId || crypto.randomUUID();
+  const traceId = incomingTraceId || crypto2.randomUUID();
   const startTime = Date.now();
   return als.run({ traceId, startTime }, fn);
 }
@@ -30,7 +30,7 @@ function traceElapsed() {
 }
 function trace(options) {
   const header = options?.header ?? "X-Request-ID";
-  const gen = options?.generator ?? (() => crypto.randomUUID());
+  const gen = options?.generator ?? (() => crypto2.randomUUID());
   return async (req, ctx, next) => {
     const existing = req.headers.get(header);
     const requestId2 = existing ?? gen();
@@ -293,14 +293,14 @@ function serve(handler, options) {
     if (!server.listening) return;
     server.close();
     server.closeIdleConnections();
-    return new Promise((resolve3) => {
+    return new Promise((resolve4) => {
       const timer = setTimeout(() => {
         server.closeAllConnections();
-        resolve3();
+        resolve4();
       }, timeoutMs);
       server.on("close", () => {
         clearTimeout(timer);
-        resolve3();
+        resolve4();
       });
     });
   }
@@ -345,7 +345,7 @@ function createHub(opts) {
       }
     });
   }
-  function join2(key, ws) {
+  function join3(key, ws) {
     if (!channels.has(key)) {
       channels.set(key, /* @__PURE__ */ new Set());
       redisSub?.subscribe(`${prefix}${key}`);
@@ -407,7 +407,7 @@ function createHub(opts) {
     redisPub = void 0;
     redisSub = null;
   }
-  return { join: join2, leave, broadcast, close };
+  return { join: join3, leave, broadcast, close };
 }
 
 // src/core/router.ts
@@ -1082,13 +1082,13 @@ function serveStatic(root, options) {
     let fileHandle;
     try {
       fileHandle = await open(filePath, "r");
-      let stat = await fileHandle.stat();
+      let stat2 = await fileHandle.stat();
       const realPath = await realpath(filePath);
       if (!realPath.startsWith(rootDir + sep) && realPath !== rootDir) {
         await fileHandle.close();
         return new Response("Forbidden", { status: 403 });
       }
-      if (stat.isDirectory()) {
+      if (stat2.isDirectory()) {
         await fileHandle.close();
         const indexFile = opts.index ?? "index.html";
         filePath = resolve2(filePath, indexFile);
@@ -1096,29 +1096,29 @@ function serveStatic(root, options) {
           return new Response("Forbidden", { status: 403 });
         }
         fileHandle = await open(filePath, "r");
-        stat = await fileHandle.stat();
-        if (!stat.isFile()) {
+        stat2 = await fileHandle.stat();
+        if (!stat2.isFile()) {
           await fileHandle.close();
           return new Response("Not Found", { status: 404 });
         }
       }
       const mimeType = MIME_TYPES[extname(filePath).toLowerCase()] ?? "application/octet-stream";
-      const etag = `"${stat.ino}-${stat.size}-${stat.mtimeMs}"`;
+      const etag = `"${stat2.ino}-${stat2.size}-${stat2.mtimeMs}"`;
       const ifNoneMatch = req.headers.get("if-none-match");
       if (ifNoneMatch === etag) {
         await fileHandle.close();
         return new Response(null, { status: 304 });
       }
       const ifModifiedSince = req.headers.get("if-modified-since");
-      if (ifModifiedSince && stat.mtimeMs <= new Date(ifModifiedSince).getTime()) {
+      if (ifModifiedSince && stat2.mtimeMs <= new Date(ifModifiedSince).getTime()) {
         await fileHandle.close();
         return new Response(null, { status: 304 });
       }
       const headers = {
         "Content-Type": mimeType,
-        "Content-Length": String(stat.size),
+        "Content-Length": String(stat2.size),
         ETag: etag,
-        "Last-Modified": stat.mtime.toUTCString(),
+        "Last-Modified": stat2.mtime.toUTCString(),
         "Cache-Control": opts.immutable ? `public, max-age=${opts.maxAge ?? 31536e3}, immutable` : `public, max-age=${opts.maxAge ?? 0}`
       };
       const readStream = fileHandle.createReadStream();
@@ -1656,10 +1656,10 @@ var DEFAULTS = {
 };
 
 // src/middleware/request-id.ts
-import crypto2 from "node:crypto";
+import crypto3 from "node:crypto";
 function requestId(options) {
   const header = options?.header ?? "X-Request-ID";
-  const gen = options?.generator ?? (() => crypto2.randomUUID());
+  const gen = options?.generator ?? (() => crypto3.randomUUID());
   const mw = async (req, ctx, next) => {
     const existing = req.headers.get(header);
     const id = existing ?? gen();
@@ -1960,7 +1960,7 @@ var TestWSRequest = class {
     const baseUrl = await this.app._ensureServer();
     const wsUrl = baseUrl.replace(/^http/, "ws") + this.path;
     const ws = new WSWebSocket(wsUrl, { handshakeTimeout: this._timeout });
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`WebSocket connection timed out after ${this._timeout}ms`));
         ws.close();
@@ -1969,7 +1969,7 @@ var TestWSRequest = class {
         clearTimeout(timer);
         const conn = new TestWSConnection(ws, this._timeout);
         this.app._trackConnection(conn);
-        resolve3(conn);
+        resolve4(conn);
       });
       ws.on("error", (err) => {
         clearTimeout(timer);
@@ -2000,8 +2000,8 @@ var TestWSConnection = class {
     ws.on("message", (data) => {
       const str = data.toString();
       if (this.resolveQueue.length > 0) {
-        const resolve3 = this.resolveQueue.shift();
-        resolve3(str);
+        const resolve4 = this.resolveQueue.shift();
+        resolve4(str);
       } else {
         this.messageQueue.push(str);
       }
@@ -2031,15 +2031,15 @@ var TestWSConnection = class {
     if (this._closed) {
       throw new Error("WebSocket connection closed");
     }
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const timer = setTimeout(() => {
-        const idx = this.resolveQueue.indexOf(resolve3);
+        const idx = this.resolveQueue.indexOf(resolve4);
         if (idx !== -1) this.resolveQueue.splice(idx, 1);
         reject(new Error(`WebSocket receive timed out after ${timeout ?? this._timeout}ms`));
       }, timeout ?? this._timeout);
       this.resolveQueue.push((msg) => {
         clearTimeout(timer);
-        resolve3(msg);
+        resolve4(msg);
       });
     });
   }
@@ -2053,12 +2053,12 @@ var TestWSConnection = class {
    * Useful for verifying that something did NOT happen.
    */
   async expectSilent(ms) {
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       if (this.messageQueue.length > 0) {
         reject(new Error(`Expected silence but got message: ${this.messageQueue[0].slice(0, 100)}`));
         return;
       }
-      const timer = setTimeout(() => resolve3(), ms);
+      const timer = setTimeout(() => resolve4(), ms);
       const origPush = this.resolveQueue.push.bind(this.resolveQueue);
       this.resolveQueue.push = (_fn) => {
         clearTimeout(timer);
@@ -2447,7 +2447,7 @@ function redis(opts) {
 
 // src/queue/index.ts
 import { Redis as IORedis2 } from "ioredis";
-import crypto3 from "node:crypto";
+import crypto4 from "node:crypto";
 
 // src/queue/cron.ts
 function parseField(field, min, max) {
@@ -2526,7 +2526,7 @@ function escapeIdent(s) {
 function attachCron(q, handlers) {
   ;
   q.cron = function(pattern, handler) {
-    const id = "__cron_" + pattern.replace(/[^a-zA-Z0-9]/g, "_") + "_" + crypto3.randomUUID().slice(0, 8);
+    const id = "__cron_" + pattern.replace(/[^a-zA-Z0-9]/g, "_") + "_" + crypto4.randomUUID().slice(0, 8);
     q.process(id, async () => {
       await handler();
     });
@@ -2567,7 +2567,7 @@ function createMemoryQueue(opts) {
       try {
         insertJob({
           ...job,
-          id: crypto3.randomUUID(),
+          id: crypto4.randomUUID(),
           runAt: cronNext(job.schedule),
           createdAt: Date.now()
         });
@@ -2592,7 +2592,7 @@ function createMemoryQueue(opts) {
   });
   const q = mw;
   mw.add = function add(type, payload, opts2) {
-    const id = crypto3.randomUUID();
+    const id = crypto4.randomUUID();
     let runAt;
     if (opts2?.schedule) {
       try {
@@ -2708,7 +2708,7 @@ function createPgQueue(opts) {
         await sql.unsafe(
           `INSERT INTO ${escapeIdent(table)} (id, type, payload, run_at, schedule) VALUES ($1, $2, $3::jsonb, $4, $5)`,
           [
-            crypto3.randomUUID(),
+            crypto4.randomUUID(),
             job.type,
             JSON.stringify(job.payload),
             new Date(nextRun).toISOString(),
@@ -2758,7 +2758,7 @@ function createPgQueue(opts) {
   const q = mw;
   mw.add = function add(type, payload, opts2) {
     return (async () => {
-      const id = crypto3.randomUUID();
+      const id = crypto4.randomUUID();
       let runAt;
       if (opts2?.schedule) {
         try {
@@ -2889,7 +2889,7 @@ function createRedisQueue(opts) {
           nextRun,
           JSON.stringify({
             ...job,
-            id: crypto3.randomUUID(),
+            id: crypto4.randomUUID(),
             runAt: nextRun,
             createdAt: Date.now()
           })
@@ -2907,14 +2907,14 @@ function createRedisQueue(opts) {
       while (running && inflight < MAX_CONCURRENT) {
         const result = await redis2.zpopmin(jobKey);
         if (result.length < 2) break;
-        const raw = result[0], score = parseInt(result[1], 10);
+        const raw2 = result[0], score = parseInt(result[1], 10);
         if (score > now) {
-          await redis2.zadd(jobKey, score, raw);
+          await redis2.zadd(jobKey, score, raw2);
           break;
         }
         let job;
         try {
-          job = JSON.parse(raw);
+          job = JSON.parse(raw2);
         } catch {
           continue;
         }
@@ -2932,7 +2932,7 @@ function createRedisQueue(opts) {
   });
   const q = mw;
   mw.add = function add(type, payload, opts2) {
-    const id = crypto3.randomUUID();
+    const id = crypto4.randomUUID();
     let runAt;
     if (opts2?.schedule) {
       runAt = cronNext(opts2.schedule);
@@ -2964,8 +2964,8 @@ function createRedisQueue(opts) {
     redis2.disconnect();
   };
   mw.jobs = async function jobs(limit) {
-    const raw = await redis2.zrevrange(jobKey, 0, (limit ?? 50) - 1);
-    return raw.map((r) => {
+    const raw2 = await redis2.zrevrange(jobKey, 0, (limit ?? 50) - 1);
+    return raw2.map((r) => {
       try {
         return JSON.parse(r);
       } catch {
@@ -2974,8 +2974,8 @@ function createRedisQueue(opts) {
     }).filter(Boolean);
   };
   mw.failedJobs = async function failedJobs(limit) {
-    const raw = await redis2.lrange(failedKey, 0, (limit ?? 50) - 1);
-    return raw.map((r) => {
+    const raw2 = await redis2.lrange(failedKey, 0, (limit ?? 50) - 1);
+    return raw2.map((r) => {
       try {
         return JSON.parse(r);
       } catch {
@@ -2984,8 +2984,8 @@ function createRedisQueue(opts) {
     }).filter(Boolean);
   };
   mw.retryFailed = async function retryFailed(jobId) {
-    const raw = await redis2.lrange(failedKey, 0, -1);
-    for (const entry of raw) {
+    const raw2 = await redis2.lrange(failedKey, 0, -1);
+    for (const entry of raw2) {
       try {
         const job = JSON.parse(entry);
         if (job.id === jobId) {
@@ -3004,8 +3004,8 @@ function createRedisQueue(opts) {
   };
   mw.retryAllFailed = async function retryAllFailed(type) {
     let count = 0;
-    const raw = await redis2.lrange(failedKey, 0, -1);
-    for (const entry of raw) {
+    const raw2 = await redis2.lrange(failedKey, 0, -1);
+    for (const entry of raw2) {
       try {
         const job = JSON.parse(entry);
         if (type && job.type !== type) continue;
@@ -3083,6 +3083,277 @@ function health(options) {
   r.head(path, handler);
   return r;
 }
+
+// src/core/html.ts
+var ESCAPE = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;"
+};
+function esc(s) {
+  return s.replace(/[&<>"']/g, (c) => ESCAPE[c] ?? c);
+}
+function html(strings, ...values) {
+  let result = "";
+  for (let i = 0; i < strings.length; i++) {
+    result += strings[i];
+    if (i < values.length) {
+      const v = values[i];
+      if (v == null || v === false) continue;
+      if (Array.isArray(v)) {
+        result += v.join("");
+      } else if (typeof v === "object" && v?._raw) {
+        result += v._raw;
+      } else {
+        result += esc(String(v));
+      }
+    }
+  }
+  return result;
+}
+function raw(content) {
+  return { _raw: content };
+}
+
+// src/middleware/theme.ts
+function makeSetTheme(cookie, location) {
+  return (value, loc) => {
+    const finalLoc = loc ?? location;
+    const c = `${cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
+    return new Response(null, { status: 302, headers: { Location: finalLoc, "Set-Cookie": c } });
+  };
+}
+function theme(options) {
+  const opts = { default: "system", cookie: "theme", ...options };
+  const mw = async (req, ctx, next) => {
+    let themeValue = opts.default;
+    if (opts.cookie) {
+      const fromCookie = getCookies(req)[opts.cookie];
+      if (fromCookie) themeValue = fromCookie;
+    }
+    ;
+    ctx.theme = {
+      value: themeValue,
+      set: makeSetTheme(opts.cookie, req.headers.get("referer") || "/")
+    };
+    return next(req, ctx);
+  };
+  mw.__meta = { injects: ["theme"], depends: [] };
+  class ThemeRouter extends Router {
+    middleware() {
+      return mw;
+    }
+  }
+  const router = new ThemeRouter();
+  router.get("/__theme/:value", (req) => {
+    const url = new URL(req.url);
+    const value = url.pathname.split("/__theme/")[1] ?? "";
+    const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
+    const accept = req.headers.get("accept") ?? "";
+    if (accept.includes("application/json")) {
+      return Response.json({ ok: true, theme: value }, { headers: { "Set-Cookie": cookie } });
+    }
+    const referer = req.headers.get("referer") || "/";
+    return new Response(null, { status: 302, headers: { Location: referer, "Set-Cookie": cookie } });
+  });
+  return router;
+}
+
+// src/middleware/i18n.ts
+import { readFile, stat } from "node:fs/promises";
+import { join as join2, resolve as resolve3 } from "node:path";
+var DEFAULTS2 = {
+  default: "en",
+  cookie: "locale",
+  fromAcceptLanguage: true
+};
+function translate(msgs, key, params, fallback) {
+  const msg = key.split(".").reduce((o, k) => o?.[k], msgs);
+  if (msg === void 0 || msg === null) return fallback ?? key;
+  if (!params) return String(msg);
+  let result = String(msg);
+  for (const [k, v] of Object.entries(params)) {
+    result = result.replace(`{${k}}`, v);
+  }
+  return result;
+}
+function i18n(options) {
+  const opts = { ...DEFAULTS2, ...options };
+  const dir = opts.dir ? resolve3(opts.dir) : void 0;
+  const cache = /* @__PURE__ */ new Map();
+  function validLocale(locale) {
+    return /^[\w-]+$/.test(locale) && !locale.includes("..");
+  }
+  async function loadMessages(locale) {
+    if (opts.messages?.[locale] && Object.keys(opts.messages[locale]).length > 0) {
+      cache.set(locale, opts.messages[locale]);
+      return opts.messages[locale];
+    }
+    if (!dir || !validLocale(locale)) return {};
+    const cached = cache.get(locale);
+    if (cached) return cached;
+    const filePath = join2(dir, `${locale}.json`);
+    try {
+      await stat(filePath);
+      const content = await readFile(filePath, "utf-8");
+      const data = JSON.parse(content);
+      cache.set(locale, data);
+      return data;
+    } catch {
+    }
+    const short = locale.split("-")[0];
+    if (short !== locale) {
+      const fallback = cache.get(short) || await loadMessages(short);
+      if (fallback && Object.keys(fallback).length > 0) {
+        cache.set(locale, fallback);
+        return fallback;
+      }
+    }
+    return {};
+  }
+  function detectLocale(req) {
+    if (opts.cookie) {
+      const fromCookie = getCookies(req)[opts.cookie];
+      if (fromCookie && validLocale(fromCookie)) return fromCookie;
+    }
+    if (opts.fromAcceptLanguage) {
+      const fromHeader = req.headers.get("Accept-Language")?.split(",")[0]?.trim();
+      if (fromHeader && validLocale(fromHeader)) return fromHeader;
+    }
+    return opts.default;
+  }
+  const mw = async (req, ctx, next) => {
+    const locale = detectLocale(req);
+    const msgs = await loadMessages(locale);
+    ctx.i18n = {
+      locale,
+      messages: msgs,
+      t: (key, params, fallback) => translate(msgs, key, params, fallback),
+      set: (value, loc) => {
+        const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
+        const location = loc ?? (req.headers.get("referer") || "/");
+        return new Response(null, {
+          status: 302,
+          headers: { Location: location, "Set-Cookie": cookie }
+        });
+      }
+    };
+    return next(req, ctx);
+  };
+  mw.__meta = { injects: ["i18n"], depends: [] };
+  class I18nRouter extends Router {
+    middleware() {
+      return mw;
+    }
+  }
+  const router = new I18nRouter();
+  router.get("/__lang/:locale", async (req) => {
+    const url = new URL(req.url);
+    const value = url.pathname.split("/__lang/")[1] ?? "";
+    const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
+    const messages = await loadMessages(value);
+    const accept = req.headers.get("accept") ?? "";
+    if (accept.includes("application/json")) {
+      return Response.json(
+        {
+          ok: true,
+          locale: value,
+          messages: Object.keys(messages).length > 0 ? messages : void 0
+        },
+        { headers: { "Set-Cookie": cookie } }
+      );
+    }
+    const referer = req.headers.get("referer") || "/";
+    return new Response(null, { status: 302, headers: { Location: referer, "Set-Cookie": cookie } });
+  });
+  return router;
+}
+
+// src/middleware/flash.ts
+function makeSetFlash(name, location) {
+  return (data, loc) => {
+    const finalLoc = loc ?? location;
+    const value = encodeURIComponent(JSON.stringify(data));
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: finalLoc,
+        "Set-Cookie": `${name}=${value}; Path=/; SameSite=Lax`
+      }
+    });
+  };
+}
+function flash(options) {
+  const name = options?.name ?? "flash";
+  const mw = async (req, ctx, next) => {
+    const raw2 = getCookies(req)[name] ?? null;
+    const referer = req.headers.get("referer") || "/";
+    let value = void 0;
+    if (raw2) {
+      try {
+        value = JSON.parse(decodeURIComponent(raw2));
+      } catch {
+        value = raw2;
+      }
+    }
+    ctx.flash = {
+      value,
+      set: makeSetFlash(name, referer)
+    };
+    const res = await next(req, ctx);
+    if (raw2) {
+      const headers = new Headers(res.headers);
+      headers.append("Set-Cookie", `${name}=; Path=/; Max-Age=0`);
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+    }
+    return res;
+  };
+  mw.__meta = { injects: ["flash"], depends: [] };
+  return mw;
+}
+
+// src/middleware/csrf.ts
+function csrf(options) {
+  const cookieName = options?.cookie ?? "_csrf";
+  const headerName = options?.header ?? "x-csrf-token";
+  const bodyKey = options?.key ?? "_csrf";
+  const excluded = new Set(options?.excludeMethods ?? ["GET", "HEAD", "OPTIONS"]);
+  const mw = async (req, ctx, next) => {
+    const method = req.method.toUpperCase();
+    if (excluded.has(method)) {
+      const token = getCookies(req)[cookieName] || crypto.randomUUID();
+      ctx.csrf = { token };
+      const res = await next(req, ctx);
+      const tokenToSet = ctx.csrf?.token;
+      if (tokenToSet && !getCookies(req)[cookieName]) {
+        return setCookie(res, cookieName, tokenToSet, {
+          httpOnly: true,
+          sameSite: "strict",
+          path: "/"
+        });
+      }
+      return res;
+    }
+    const cookieToken = getCookies(req)[cookieName];
+    let headerToken = req.headers.get(headerName) ?? "";
+    if (!headerToken && (req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE")) {
+      try {
+        const body = await req.clone().json();
+        headerToken = body[bodyKey] ?? "";
+      } catch {
+        return new Response("Invalid request body", { status: 400 });
+      }
+    }
+    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+      return new Response("CSRF token mismatch", { status: 403 });
+    }
+    return next(req, ctx);
+  };
+  mw.__meta = { injects: ["csrf"], depends: [] };
+  return mw;
+}
 export {
   DEFAULT_MAX_BODY,
   HttpError,
@@ -3096,10 +3367,12 @@ export {
   createSSEStream,
   createTestDb,
   createTestServer,
+  csrf,
   currentTrace,
   currentTraceId,
   deleteCookie,
   env,
+  flash,
   formatSSE,
   formatSSEData,
   getCookies,
@@ -3107,6 +3380,8 @@ export {
   graphql,
   health,
   helmet,
+  html,
+  i18n,
   isBundled,
   isDev,
   isProd,
@@ -3115,6 +3390,7 @@ export {
   postgres,
   queue,
   rateLimit,
+  raw,
   redis,
   requestId,
   runWithTrace,
@@ -3122,6 +3398,7 @@ export {
   serveStatic,
   setCookie,
   testApp,
+  theme,
   trace,
   traceElapsed,
   upload,

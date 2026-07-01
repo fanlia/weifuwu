@@ -7,12 +7,12 @@
   ],
   "scripts": {
     "build": "npm run build -w packages/core && npm run build -w packages/react",
-    "typecheck": "npm run typecheck -w packages/core && npm run typecheck -w packages/react && npm run typecheck -w packages/cli",
+    "typecheck": "npm run typecheck -w packages/core && npm run typecheck -w packages/react && npm run typecheck -w packages/create-weifuwu",
     "test": "node --test 'packages/core/src/test/**/*.test.ts'",
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run"
   },
-  "version": "0.28.3",
+  "version": "0.28.5",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "globals": "^17.7.0",

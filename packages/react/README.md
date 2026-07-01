@@ -53,6 +53,8 @@ ui/
 ### Middleware
 
 ```ts
+import { theme, i18n, flash, csrf } from '@weifuwujs/core'
+
 app.use(theme())      // → useTheme(), client-side theme switching
 app.use(i18n({ dir: './locales' }))  // → useLocale(), i18n
 app.use(flash())      // → useFlashMessage(), flash messages

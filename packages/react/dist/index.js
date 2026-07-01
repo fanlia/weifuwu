@@ -1,245 +1,3 @@
-// src/middleware/theme.ts
-import { getCookies, Router } from "@weifuwujs/core";
-function makeSetTheme(cookie, location2) {
-  return (value, loc) => {
-    const finalLoc = loc ?? location2;
-    const c = `${cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
-    return new Response(null, { status: 302, headers: { Location: finalLoc, "Set-Cookie": c } });
-  };
-}
-function theme(options) {
-  const opts = { default: "system", cookie: "theme", ...options };
-  const mw = async (req, ctx, next) => {
-    let themeValue = opts.default;
-    if (opts.cookie) {
-      const fromCookie = getCookies(req)[opts.cookie];
-      if (fromCookie) themeValue = fromCookie;
-    }
-    ;
-    ctx.theme = {
-      value: themeValue,
-      set: makeSetTheme(opts.cookie, req.headers.get("referer") || "/")
-    };
-    return next(req, ctx);
-  };
-  mw.__meta = { injects: ["theme"], depends: [] };
-  class ThemeRouter extends Router {
-    middleware() {
-      return mw;
-    }
-  }
-  const router = new ThemeRouter();
-  router.get("/__theme/:value", (req) => {
-    const url = new URL(req.url);
-    const value = url.pathname.split("/__theme/")[1] ?? "";
-    const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
-    const accept = req.headers.get("accept") ?? "";
-    if (accept.includes("application/json")) {
-      return Response.json({ ok: true, theme: value }, { headers: { "Set-Cookie": cookie } });
-    }
-    const referer = req.headers.get("referer") || "/";
-    return new Response(null, { status: 302, headers: { Location: referer, "Set-Cookie": cookie } });
-  });
-  return router;
-}
-
-// src/middleware/i18n.ts
-import { readFile, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
-import { getCookies as getCookies2, Router as Router2 } from "@weifuwujs/core";
-var DEFAULTS = {
-  default: "en",
-  cookie: "locale",
-  fromAcceptLanguage: true
-};
-function translate(msgs, key, params, fallback) {
-  const msg = key.split(".").reduce((o, k) => o?.[k], msgs);
-  if (msg === void 0 || msg === null) return fallback ?? key;
-  if (!params) return String(msg);
-  let result = String(msg);
-  for (const [k, v] of Object.entries(params)) {
-    result = result.replace(`{${k}}`, v);
-  }
-  return result;
-}
-function i18n(options) {
-  const opts = { ...DEFAULTS, ...options };
-  const dir = opts.dir ? resolve(opts.dir) : void 0;
-  const cache2 = /* @__PURE__ */ new Map();
-  function validLocale(locale) {
-    return /^[\w-]+$/.test(locale) && !locale.includes("..");
-  }
-  async function loadMessages(locale) {
-    if (opts.messages?.[locale] && Object.keys(opts.messages[locale]).length > 0) {
-      cache2.set(locale, opts.messages[locale]);
-      return opts.messages[locale];
-    }
-    if (!dir || !validLocale(locale)) return {};
-    const cached = cache2.get(locale);
-    if (cached) return cached;
-    const filePath = join(dir, `${locale}.json`);
-    try {
-      await stat(filePath);
-      const content = await readFile(filePath, "utf-8");
-      const data = JSON.parse(content);
-      cache2.set(locale, data);
-      return data;
-    } catch {
-    }
-    const short = locale.split("-")[0];
-    if (short !== locale) {
-      const fallback = cache2.get(short) || await loadMessages(short);
-      if (fallback && Object.keys(fallback).length > 0) {
-        cache2.set(locale, fallback);
-        return fallback;
-      }
-    }
-    return {};
-  }
-  function detectLocale(req) {
-    if (opts.cookie) {
-      const fromCookie = getCookies2(req)[opts.cookie];
-      if (fromCookie && validLocale(fromCookie)) return fromCookie;
-    }
-    if (opts.fromAcceptLanguage) {
-      const fromHeader = req.headers.get("Accept-Language")?.split(",")[0]?.trim();
-      if (fromHeader && validLocale(fromHeader)) return fromHeader;
-    }
-    return opts.default;
-  }
-  const mw = async (req, ctx, next) => {
-    const locale = detectLocale(req);
-    const msgs = await loadMessages(locale);
-    ctx.i18n = {
-      locale,
-      messages: msgs,
-      t: (key, params, fallback) => translate(msgs, key, params, fallback),
-      set: (value, loc) => {
-        const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
-        const location2 = loc ?? (req.headers.get("referer") || "/");
-        return new Response(null, {
-          status: 302,
-          headers: { Location: location2, "Set-Cookie": cookie }
-        });
-      }
-    };
-    return next(req, ctx);
-  };
-  mw.__meta = { injects: ["i18n"], depends: [] };
-  class I18nRouter extends Router2 {
-    middleware() {
-      return mw;
-    }
-  }
-  const router = new I18nRouter();
-  router.get("/__lang/:locale", async (req) => {
-    const url = new URL(req.url);
-    const value = url.pathname.split("/__lang/")[1] ?? "";
-    const cookie = `${opts.cookie}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
-    const messages = await loadMessages(value);
-    const accept = req.headers.get("accept") ?? "";
-    if (accept.includes("application/json")) {
-      return Response.json(
-        {
-          ok: true,
-          locale: value,
-          messages: Object.keys(messages).length > 0 ? messages : void 0
-        },
-        { headers: { "Set-Cookie": cookie } }
-      );
-    }
-    const referer = req.headers.get("referer") || "/";
-    return new Response(null, { status: 302, headers: { Location: referer, "Set-Cookie": cookie } });
-  });
-  return router;
-}
-
-// src/middleware/flash.ts
-import { getCookies as getCookies3 } from "@weifuwujs/core";
-function makeSetFlash(name, location2) {
-  return (data, loc) => {
-    const finalLoc = loc ?? location2;
-    const value = encodeURIComponent(JSON.stringify(data));
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: finalLoc,
-        "Set-Cookie": `${name}=${value}; Path=/; SameSite=Lax`
-      }
-    });
-  };
-}
-function flash(options) {
-  const name = options?.name ?? "flash";
-  const mw = async (req, ctx, next) => {
-    const raw = getCookies3(req)[name] ?? null;
-    const referer = req.headers.get("referer") || "/";
-    let value = void 0;
-    if (raw) {
-      try {
-        value = JSON.parse(decodeURIComponent(raw));
-      } catch {
-        value = raw;
-      }
-    }
-    ctx.flash = {
-      value,
-      set: makeSetFlash(name, referer)
-    };
-    const res = await next(req, ctx);
-    if (raw) {
-      const headers = new Headers(res.headers);
-      headers.append("Set-Cookie", `${name}=; Path=/; Max-Age=0`);
-      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
-    }
-    return res;
-  };
-  mw.__meta = { injects: ["flash"], depends: [] };
-  return mw;
-}
-
-// src/middleware/csrf.ts
-import { getCookies as getCookies4, setCookie } from "@weifuwujs/core";
-function csrf(options) {
-  const cookieName = options?.cookie ?? "_csrf";
-  const headerName = options?.header ?? "x-csrf-token";
-  const bodyKey = options?.key ?? "_csrf";
-  const excluded = new Set(options?.excludeMethods ?? ["GET", "HEAD", "OPTIONS"]);
-  const mw = async (req, ctx, next) => {
-    const method = req.method.toUpperCase();
-    if (excluded.has(method)) {
-      const token = getCookies4(req)[cookieName] || crypto.randomUUID();
-      ctx.csrf = { token };
-      const res = await next(req, ctx);
-      const tokenToSet = ctx.csrf?.token;
-      if (tokenToSet && !getCookies4(req)[cookieName]) {
-        return setCookie(res, cookieName, tokenToSet, {
-          httpOnly: true,
-          sameSite: "strict",
-          path: "/"
-        });
-      }
-      return res;
-    }
-    const cookieToken = getCookies4(req)[cookieName];
-    let headerToken = req.headers.get(headerName) ?? "";
-    if (!headerToken && (req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE")) {
-      try {
-        const body = await req.clone().json();
-        headerToken = body[bodyKey] ?? "";
-      } catch {
-        return new Response("Invalid request body", { status: 400 });
-      }
-    }
-    if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-      return new Response("CSRF token mismatch", { status: 403 });
-    }
-    return next(req, ctx);
-  };
-  mw.__meta = { injects: ["csrf"], depends: [] };
-  return mw;
-}
-
 // src/ssr/tsx-context.ts
 import { useSyncExternalStore, createContext } from "react";
 var DEFAULT_CTX = {
@@ -333,14 +91,14 @@ var TsxContext = createContext(DEFAULT_CTX);
 import { createElement as createElement3 } from "react";
 import { createHash as createHash4 } from "node:crypto";
 import { existsSync as existsSync6, readdirSync } from "node:fs";
-import { readdir, stat as stat2 } from "node:fs/promises";
-import { dirname as dirname4, join as join5, resolve as resolve7, relative as relative3 } from "node:path";
+import { readdir, stat } from "node:fs/promises";
+import { dirname as dirname4, join as join4, resolve as resolve6, relative as relative3 } from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 // src/ssr/compile.ts
 import * as esbuild2 from "esbuild";
 import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync2 } from "node:fs";
-import { join as join2, resolve as resolve3, dirname as dirname2 } from "node:path";
+import { join, resolve as resolve2, dirname as dirname2 } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import { createRequire as createRequire2 } from "node:module";
@@ -349,14 +107,14 @@ import { isDev as _isDev, isBundled } from "@weifuwujs/core";
 // src/ssr/server-registry.ts
 import * as esbuild from "esbuild";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { resolve as resolve2, dirname } from "node:path";
+import { resolve, dirname } from "node:path";
 import vm from "node:vm";
 import { createRequire } from "node:module";
 var _userRequire = null;
 function getUserRequire() {
   if (!_userRequire) {
     try {
-      _userRequire = createRequire(resolve2(process.cwd(), "package.json"));
+      _userRequire = createRequire(resolve(process.cwd(), "package.json"));
     } catch {
       _userRequire = createRequire(import.meta.url);
     }
@@ -368,7 +126,7 @@ function resolveAliases() {
   if (_alias) return _alias;
   const configFiles = ["tsconfig.json", "jsconfig.json"];
   for (const file of configFiles) {
-    const p = resolve2(file);
+    const p = resolve(file);
     if (existsSync(p)) {
       try {
         const config = JSON.parse(readFileSync(p, "utf-8"));
@@ -378,7 +136,7 @@ function resolveAliases() {
           for (const [key, values] of Object.entries(paths)) {
             const cleanKey = key.replace("/*", "");
             const val = values[0]?.replace("/*", "");
-            if (val) alias[cleanKey] = resolve2(dirname(p), val);
+            if (val) alias[cleanKey] = resolve(dirname(p), val);
           }
           _alias = alias;
           return alias;
@@ -403,11 +161,11 @@ function applyAlias(id2, _moduleDir) {
 var exts = [".tsx", ".ts", ".jsx", ".js"];
 function tryResolve(base) {
   if (existsSync(base)) {
-    const stat3 = statSync(base);
-    if (stat3.isFile()) return base;
-    if (stat3.isDirectory()) {
+    const stat2 = statSync(base);
+    if (stat2.isFile()) return base;
+    if (stat2.isDirectory()) {
       for (const ext of exts) {
-        const p = resolve2(base, `index${ext}`);
+        const p = resolve(base, `index${ext}`);
         if (existsSync(p)) return p;
       }
       return null;
@@ -436,7 +194,7 @@ function makeRequire(modulePath) {
   const moduleDir = dirname(modulePath);
   return (id2) => {
     if (id2.startsWith(".")) {
-      const base = resolve2(moduleDir, id2);
+      const base = resolve(moduleDir, id2);
       const file = tryResolve(base);
       if (!file) {
         throw new Error(
@@ -474,7 +232,7 @@ ${code}
   return mod.exports;
 }
 function getServerModule(absPath) {
-  const normalized = resolve2(absPath);
+  const normalized = resolve(absPath);
   if (registry.has(normalized)) return registry.get(normalized).exports;
   const source = readFileSync(normalized, "utf-8");
   const code = transformToCjs(normalized, source);
@@ -484,7 +242,7 @@ function getServerModule(absPath) {
 }
 function clearServerModule(absPath) {
   if (absPath) {
-    const normalized = resolve2(absPath);
+    const normalized = resolve(absPath);
     registry.delete(normalized);
   } else {
     registry.clear();
@@ -511,7 +269,7 @@ function resolveAliases2() {
   if (_alias2) return _alias2;
   const configFiles = ["tsconfig.json", "jsconfig.json"];
   for (const file of configFiles) {
-    const p = resolve3(file);
+    const p = resolve2(file);
     if (existsSync2(p)) {
       try {
         const config = JSON.parse(readFileSync2(p, "utf-8"));
@@ -521,7 +279,7 @@ function resolveAliases2() {
           for (const [key, values] of Object.entries(paths)) {
             const cleanKey = key.replace("/*", "");
             const val = values[0]?.replace("/*", "");
-            if (val) alias[cleanKey] = resolve3(dirname2(p), val);
+            if (val) alias[cleanKey] = resolve2(dirname2(p), val);
           }
           _alias2 = alias;
           return alias;
@@ -542,12 +300,12 @@ function clearCompileCache() {
   _alias2 = null;
 }
 async function compileTsx(path) {
-  const absPath = resolve3(path);
+  const absPath = resolve2(path);
   if (cache.has(absPath)) return cache.get(absPath);
-  const outDir = resolve3(OUT_DIR);
+  const outDir = resolve2(OUT_DIR);
   mkdirSync(outDir, { recursive: true });
   const hash = id(absPath);
-  const outPath = join2(outDir, hash + ".js");
+  const outPath = join(outDir, hash + ".js");
   await esbuild2.build({
     entryPoints: { [hash]: absPath },
     outdir: outDir,
@@ -566,7 +324,7 @@ async function compileTsx(path) {
   return mod;
 }
 function compileTsxDev(path) {
-  const absPath = resolve3(path);
+  const absPath = resolve2(path);
   const mod = getServerModule(absPath);
   cache.set(absPath, mod);
   return mod;
@@ -578,7 +336,7 @@ var vendorBundle = null;
 var vendorHash = "";
 async function compileVendorBundle() {
   if (vendorBundle) return vendorBundle;
-  if (!_userRequire2) _userRequire2 = createRequire2(join2(process.cwd(), "package.json"));
+  if (!_userRequire2) _userRequire2 = createRequire2(join(process.cwd(), "package.json"));
   const modules = {
     react: [],
     "react-dom": ["react"],
@@ -591,7 +349,7 @@ async function compileVendorBundle() {
     modules[request] = keys;
   }
   const baseDir = import.meta.dirname ?? __dirname;
-  const reactAbsPath = isBundled() ? resolve3(baseDir, "react.js") : resolve3(baseDir, "ssr", "react.ts");
+  const reactAbsPath = isBundled() ? resolve2(baseDir, "react.js") : resolve2(baseDir, "ssr", "react.ts");
   const reactSrc = readFileSync2(reactAbsPath, "utf-8");
   const wfwKeys = [];
   if (reactAbsPath.endsWith(".ts")) {
@@ -833,7 +591,7 @@ ws.onclose=function(){
 }
 
 // src/ssr/ssr.ts
-import { Router as Router6, isDev as _isDev2 } from "@weifuwujs/core";
+import { Router as Router4, isDev as _isDev2 } from "@weifuwujs/core";
 
 // src/ssr/ssr-entries.ts
 var ssrEntries = /* @__PURE__ */ new Map();
@@ -841,16 +599,16 @@ var ssrEntries = /* @__PURE__ */ new Map();
 // src/ssr/tailwind.ts
 import { createHash as createHash2 } from "node:crypto";
 import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync } from "node:fs";
-import { join as join3, relative, resolve as resolve4 } from "node:path";
-import { Router as Router3 } from "@weifuwujs/core";
+import { join as join2, relative, resolve as resolve3 } from "node:path";
+import { Router } from "@weifuwujs/core";
 var extraSources = /* @__PURE__ */ new Set();
 var cssCache = /* @__PURE__ */ new Map();
 function addTailwindSource(dir) {
-  extraSources.add(resolve4(dir));
+  extraSources.add(resolve3(dir));
 }
 function tailwindContext(dir) {
-  const cssDir = resolve4(dir);
-  const cssPath = join3(cssDir, "app", "globals.css");
+  const cssDir = resolve3(dir);
+  const cssPath = join2(cssDir, "app", "globals.css");
   return async (req, ctx, next) => {
     if (!cssCache.has(cssPath)) {
       await compileTailwindCss(cssPath, cssDir);
@@ -865,9 +623,9 @@ function tailwindContext(dir) {
   };
 }
 function tailwindRouter(dir) {
-  const cssDir = resolve4(dir);
-  const cssPath = join3(cssDir, "app", "globals.css");
-  const r = new Router3();
+  const cssDir = resolve3(dir);
+  const cssPath = join2(cssDir, "app", "globals.css");
+  const r = new Router();
   r.get("/__wfw/style/:hash.css", async (_req, _ctx2) => {
     if (!cssCache.has(cssPath)) {
       await compileTailwindCss(cssPath, cssDir);
@@ -909,20 +667,20 @@ ${src}`;
 // src/ssr/live.ts
 import chokidar from "chokidar";
 import { existsSync as existsSync5 } from "node:fs";
-import { join as join4, resolve as resolve6 } from "node:path";
-import { Router as Router5 } from "@weifuwujs/core";
+import { join as join3, resolve as resolve5 } from "node:path";
+import { Router as Router3 } from "@weifuwujs/core";
 
 // src/ssr/module-server.ts
 import * as esbuild3 from "esbuild";
 import { existsSync as existsSync4, readFileSync as readFileSync4 } from "node:fs";
-import { resolve as resolve5, dirname as dirname3, relative as relative2 } from "node:path";
+import { resolve as resolve4, dirname as dirname3, relative as relative2 } from "node:path";
 import { createHash as createHash3 } from "node:crypto";
-import { Router as Router4 } from "@weifuwujs/core";
+import { Router as Router2 } from "@weifuwujs/core";
 var moduleCache = /* @__PURE__ */ new Map();
 var hashCache = /* @__PURE__ */ new Map();
 function clearModuleCache(filePath) {
   if (filePath) {
-    const abs = resolve5(filePath);
+    const abs = resolve4(filePath);
     for (const key of moduleCache.keys()) {
       if (key.endsWith(abs)) moduleCache.delete(key);
     }
@@ -957,7 +715,7 @@ function rewriteImports(code, absPath, mountPath) {
       if (!modPath.startsWith(".")) return _match;
       const isReexport = keyword === "export";
       const imports = clause.replace(/^type\s+/, "");
-      const resolved = resolve5(dirname3(absPath), modPath);
+      const resolved = resolve4(dirname3(absPath), modPath);
       for (const root of _importRoots) {
         const rel = relative2(root, resolved);
         if (!rel.startsWith("..") && !rel.startsWith("/")) {
@@ -1025,7 +783,7 @@ async function transformModule(absPath, root, mountPath) {
 function moduleServer(opts) {
   const roots = Array.isArray(opts.root) ? opts.root : [opts.root];
   _setImportRoots(roots);
-  const router = new Router4();
+  const router = new Router2();
   router.get("/__wfw/m/*", (async (req, ctx) => {
     const filePath = (ctx.params["*"] || "").split("?")[0];
     const ext = filePath.split(".").pop();
@@ -1034,7 +792,7 @@ function moduleServer(opts) {
     }
     const mountPath = ctx.mountPath || "";
     for (const root of roots) {
-      const absPath = resolve5(root, filePath);
+      const absPath = resolve4(root, filePath);
       if (existsSync4(absPath)) {
         try {
           const { code } = await transformModule(absPath, root, mountPath);
@@ -1083,13 +841,13 @@ function liveWs() {
   };
 }
 function liveRouter(_dir) {
-  const r = new Router5();
+  const r = new Router3();
   compileVendorBundle().catch(() => {
   });
   return r;
 }
 function liveWatcher(dir) {
-  const resolved = resolve6(dir);
+  const resolved = resolve5(dir);
   const watcher = chokidar.watch(dir, {
     ignored: /(^|[/\\])\.|node_modules|[/\\]\.weifuwu[/\\]/,
     ignoreInitial: true
@@ -1108,12 +866,12 @@ function liveWatcher(dir) {
         return broadcastReload();
       }
       let css;
-      const cssPath = join4(resolved, "app", "globals.css");
+      const cssPath = join3(resolved, "app", "globals.css");
       if (existsSync5(cssPath)) {
         css = await compileTailwindCss(cssPath, resolved);
       }
       try {
-        const absPath = resolve6(filePath);
+        const absPath = resolve5(filePath);
         const { url, code } = await transformModule(absPath, resolved);
         const msg = { type: "update", url, code };
         if (css) msg.css = css;
@@ -1130,7 +888,7 @@ function liveWatcher(dir) {
         broadcastReload();
       }
     } else if (/\.css$/i.test(filePath)) {
-      const cssPath = join4(resolved, "app", "globals.css");
+      const cssPath = join3(resolved, "app", "globals.css");
       if (existsSync5(cssPath)) {
         const css = await compileTailwindCss(cssPath, resolved);
         if (css) broadcastCss(css);
@@ -1254,15 +1012,15 @@ async function resolveRoute(ssrDir, segments, routeCache) {
     const cached = routeCache.get(cacheKey);
     if (cached !== void 0) return cached;
   }
-  const appDir = join5(ssrDir, "app");
+  const appDir = join4(ssrDir, "app");
   let dir = appDir;
   let catchAll = null;
   let segIdx = 0;
   for (; segIdx < segments.length; segIdx++) {
     const seg = segments[segIdx];
-    const literal = join5(dir, seg);
+    const literal = join4(dir, seg);
     try {
-      const s = await stat2(literal);
+      const s = await stat(literal);
       if (s.isDirectory()) {
         dir = literal;
         continue;
@@ -1280,7 +1038,7 @@ async function resolveRoute(ssrDir, segments, routeCache) {
       (e) => e.isDirectory() && e.name.startsWith("[") && e.name.endsWith("]") && !e.name.startsWith("[...")
     );
     if (paramDir) {
-      dir = join5(dir, paramDir.name);
+      dir = join4(dir, paramDir.name);
       continue;
     }
     const catchAllDir = entries.find(
@@ -1288,13 +1046,13 @@ async function resolveRoute(ssrDir, segments, routeCache) {
     );
     if (catchAllDir) {
       catchAll = segments.slice(segIdx).join("/");
-      dir = join5(dir, catchAllDir.name);
+      dir = join4(dir, catchAllDir.name);
       break;
     }
     routeCache.set(cacheKey, null);
     return null;
   }
-  const pageFile = join5(dir, "page.tsx");
+  const pageFile = join4(dir, "page.tsx");
   if (!existsSync6(pageFile)) {
     routeCache.set(cacheKey, null);
     return null;
@@ -1305,7 +1063,7 @@ async function resolveRoute(ssrDir, segments, routeCache) {
   const layoutFiles = [];
   let d = dir;
   while (d.startsWith(appDir)) {
-    const lf = join5(d, "layout.tsx");
+    const lf = join4(d, "layout.tsx");
     if (existsSync6(lf)) layoutFiles.unshift(lf);
     if (d === appDir) break;
     d = dirname4(d);
@@ -1313,7 +1071,7 @@ async function resolveRoute(ssrDir, segments, routeCache) {
   const errorFiles = [];
   d = dir;
   while (d.startsWith(appDir)) {
-    const ef = join5(d, "error.tsx");
+    const ef = join4(d, "error.tsx");
     if (existsSync6(ef)) errorFiles.unshift(ef);
     if (d === appDir) break;
     d = dirname4(d);
@@ -1321,7 +1079,7 @@ async function resolveRoute(ssrDir, segments, routeCache) {
   let notFoundFile = null;
   d = dir;
   while (d.startsWith(appDir)) {
-    const nf = join5(d, "not-found.tsx");
+    const nf = join4(d, "not-found.tsx");
     if (existsSync6(nf)) {
       notFoundFile = nf;
       break;
@@ -1393,7 +1151,7 @@ init();
 </script>`;
 }
 function renderPage(pageFile, projectDir) {
-  const absPath = resolve7(pageFile);
+  const absPath = resolve6(pageFile);
   const entryId = hashId(absPath);
   ssrEntries.set(entryId, { path: absPath });
   return async (req, ctx) => {
@@ -1457,7 +1215,7 @@ function runChain(mws, handler, req, ctx) {
   return Promise.resolve(dispatch(req, ctx));
 }
 function discoverRoutes(dir) {
-  const appDir = join5(dir, "app");
+  const appDir = join4(dir, "app");
   if (!existsSync6(appDir)) return [];
   const result = [];
   function walk(currentDir, routePath) {
@@ -1475,11 +1233,11 @@ function discoverRoutes(dir) {
         } else if (entry.name.startsWith("[") && entry.name.endsWith("]")) {
           segment = ":" + entry.name.slice(1, -1);
         }
-        walk(join5(currentDir, entry.name), routePath + "/" + segment);
+        walk(join4(currentDir, entry.name), routePath + "/" + segment);
       } else if (entry.name === "page.tsx") {
         result.push({
           path: routePath || "/",
-          file: relative3(appDir, join5(currentDir, entry.name))
+          file: relative3(appDir, join4(currentDir, entry.name))
         });
       }
     }
@@ -1488,10 +1246,10 @@ function discoverRoutes(dir) {
   return result;
 }
 function ssr(opts) {
-  const r = new Router6();
-  const dir = resolve7(opts.dir);
+  const r = new Router4();
+  const dir = resolve6(opts.dir);
   const routeCache = /* @__PURE__ */ new Map();
-  const wfwRoot = resolve7(import.meta.dirname ?? __dirname);
+  const wfwRoot = resolve6(import.meta.dirname ?? __dirname);
   r.use("/", moduleServer({ root: [dir, wfwRoot] }));
   compileVendorBundle().catch(() => {
   });
@@ -1501,7 +1259,7 @@ function ssr(opts) {
       headers: { "content-type": "application/javascript; charset=utf-8" }
     });
   });
-  if (existsSync6(join5(dir, "app", "globals.css"))) {
+  if (existsSync6(join4(dir, "app", "globals.css"))) {
     r.use("/", tailwindRouter(dir));
   }
   let devWatcher;
@@ -2022,19 +1780,19 @@ function useLocale() {
 
 // src/ssr/client-theme.ts
 import { useEffect as useEffect4 } from "react";
-function resolveTheme(theme2) {
-  if (theme2 === "system") {
+function resolveTheme(theme) {
+  if (theme === "system") {
     if (typeof window === "undefined") return "light";
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
-  return theme2;
+  return theme;
 }
 var _mqListener = null;
-function applyTheme(theme2) {
+function applyTheme(theme) {
   if (typeof document === "undefined") return;
-  const resolved = resolveTheme(theme2);
+  const resolved = resolveTheme(theme);
   document.documentElement.dataset.theme = resolved;
-  if (theme2 === "system") {
+  if (theme === "system") {
     if (!_mqListener) {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
       mq.addEventListener("change", (e) => {
@@ -2067,13 +1825,13 @@ addInterceptor(async (url) => {
 });
 function useTheme() {
   const ctx = useCtx();
-  const theme2 = ctx.theme?.value ?? "system";
+  const theme = ctx.theme?.value ?? "system";
   useEffect4(() => {
-    applyTheme(theme2);
-  }, [theme2]);
+    applyTheme(theme);
+  }, [theme]);
   return {
-    theme: theme2,
-    resolvedTheme: resolveTheme(theme2),
+    theme,
+    resolvedTheme: resolveTheme(theme),
     setTheme: (t) => navigate("/__theme/" + t)
   };
 }
@@ -2081,13 +1839,13 @@ function useTheme() {
 // src/ssr/use-flash-message.ts
 import { useState as useState5 } from "react";
 function useFlashMessage() {
-  const [flash2] = useState5(() => {
+  const [flash] = useState5(() => {
     if (typeof window === "undefined") return null;
     const raw = window.__WEIFUWU_CTX?.flash?.value;
     if (raw === void 0 || raw === null) return null;
     return raw;
   });
-  return flash2;
+  return flash;
 }
 
 // src/ssr/use-agent-stream.ts
@@ -2155,11 +1913,8 @@ export {
   compileTsxDev,
   compileVendorBundle,
   createStore,
-  csrf,
   errorBoundary,
-  flash,
   getServerModule,
-  i18n,
   layout,
   liveRouter,
   liveWatcher,
@@ -2172,7 +1927,6 @@ export {
   streamResponse,
   tailwindContext,
   tailwindRouter,
-  theme,
   transformModule,
   useAction,
   useAgentStream,

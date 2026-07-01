@@ -23,12 +23,12 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 
-const PKGS = ['core', 'react', 'cli']
+const PKGS = ['core', 'react', 'create-weifuwu']
 
 const PUBLISH_ORDER = [
   { dir: 'core', name: '@weifuwujs/core', public: true },
   { dir: 'react', name: '@weifuwujs/react', public: true },
-  { dir: 'cli', name: 'create-weifuwu', public: true },
+  { dir: 'create-weifuwu', name: 'create-weifuwu', public: true },
 ]
 
 function run(cmd, opts = {}) {
@@ -130,7 +130,7 @@ async function main() {
 
     // Check entry exists (cli → dist/cli.js, others → dist/index.js)
     let entryPath
-    if (pkg.dir === 'cli') entryPath = join(pkgPath, 'dist', 'cli.js')
+    if (pkg.dir === 'create-weifuwu') entryPath = join(pkgPath, 'dist', 'cli.js')
     else entryPath = join(pkgPath, 'dist', 'index.js')
     if (pkg.public && !existsSync(entryPath)) {
       console.error(`  ✗ ${pkg.name}: ${entryPath} missing!`)

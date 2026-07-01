@@ -22,9 +22,9 @@ serve(app.handler(), { port: 3000 })
 
 | Package | Description |
 |---|---|
-| [`@weifuwujs/core`](./packages/core) | HTTP microframework — Router, middleware, Postgres, Redis, Queue, AI, GraphQL |
+| [`@weifuwujs/core`](./packages/core) | HTTP microframework — Router, middleware, Postgres, Redis, Queue, AI, GraphQL, `html()` SSR, theme/i18n/flash/csrf |
 | [`@weifuwujs/react`](./packages/react) | React SSR — filesystem routing, HMR, hooks |
-| [`create-weifuwu`](./packages/cli) | Project scaffolding CLI |
+| [`create-weifuwu`](./packages/create-weifuwu) | Project scaffolding CLI |
 
 ## CLI
 

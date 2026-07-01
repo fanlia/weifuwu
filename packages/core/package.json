@@ -1,7 +1,7 @@
 {
   "name": "@weifuwujs/core",
   "type": "module",
-  "version": "0.28.3",
+  "version": "0.28.5",
   "description": "Web-standard HTTP microframework for Node.js — (req, ctx) => Response",
   "exports": {
     ".": {

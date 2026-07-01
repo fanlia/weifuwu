@@ -1,11 +1,3 @@
-export { theme } from './middleware/theme.ts';
-export type { ThemeOptions, ThemeInjected, ThemeModule } from './middleware/theme.ts';
-export { i18n } from './middleware/i18n.ts';
-export type { I18nOptions, I18nInjected, I18nModule } from './middleware/i18n.ts';
-export { flash } from './middleware/flash.ts';
-export type { FlashOptions, FlashInjected, FlashModule } from './middleware/flash.ts';
-export { csrf } from './middleware/csrf.ts';
-export type { CsrfOptions, CsrfInjected, CsrfModule } from './middleware/csrf.ts';
 export { TsxContext } from './ssr/tsx-context.ts';
 export { ssr } from './ssr/ssr.ts';
 export type { SsrModule, RouteEntry } from './ssr/ssr.ts';

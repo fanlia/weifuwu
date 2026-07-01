@@ -1,13 +1,3 @@
-// ── SSR middleware ──────────────────────────────────────────────────
-export { theme } from './middleware/theme.ts'
-export type { ThemeOptions, ThemeInjected, ThemeModule } from './middleware/theme.ts'
-export { i18n } from './middleware/i18n.ts'
-export type { I18nOptions, I18nInjected, I18nModule } from './middleware/i18n.ts'
-export { flash } from './middleware/flash.ts'
-export type { FlashOptions, FlashInjected, FlashModule } from './middleware/flash.ts'
-export { csrf } from './middleware/csrf.ts'
-export type { CsrfOptions, CsrfInjected, CsrfModule } from './middleware/csrf.ts'
-
 // ── React SSR engine ───────────────────────────────────────────────
 export { TsxContext } from './ssr/tsx-context.ts'
 export { ssr } from './ssr/ssr.ts'
@@ -23,7 +13,7 @@ export { moduleServer, transformModule } from './ssr/module-server.ts'
 export { streamResponse, readStream } from './ssr/stream.ts'
 export type { StreamOpts } from './ssr/stream.ts'
 
-// ── React client hooks (usage: import { useCtx } from 'weifuwu/react') ──
+// ── React client hooks (usage: import { useCtx } from '@weifuwujs/react') ──
 export { useWebsocket } from './ssr/use-websocket.ts'
 export type { UseWebsocketOptions, UseWebsocketReturn } from './ssr/use-websocket.ts'
 export { useAction } from './ssr/use-action.ts'
