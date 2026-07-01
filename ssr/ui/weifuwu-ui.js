@@ -754,6 +754,12 @@
     document.cookie = 'theme=' + value + '; Path=/; SameSite=Lax; Max-Age=31536000'
     // Sync with server (no redirect, JSON request)
     fetch('/__theme/' + value, { headers: { Accept: 'application/json' } }).catch(() => {})
+    // Toggle all [wu-theme] buttons: dark ↔ light
+    document.querySelectorAll('[wu-theme]').forEach((b) => {
+      const v = b.getAttribute('wu-theme')
+      if (v === 'dark') b.setAttribute('wu-theme', 'light')
+      else if (v === 'light') b.setAttribute('wu-theme', 'dark')
+    })
   })
 
   // ═══════════════════════════════════════════════════════════════════
@@ -777,6 +783,12 @@
     if (!btn) return
     const locale = btn.getAttribute('wu-lang')
     switchLocale(locale)
+    // Toggle all [wu-lang] buttons: zh-CN ↔ en
+    document.querySelectorAll('[wu-lang]').forEach((b) => {
+      const v = b.getAttribute('wu-lang')
+      if (v === 'zh-CN') b.setAttribute('wu-lang', 'en')
+      else if (v === 'en') b.setAttribute('wu-lang', 'zh-CN')
+    })
   })
 
   async function switchLocale(locale) {
