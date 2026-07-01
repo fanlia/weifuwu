@@ -29,7 +29,7 @@ const WFU_VERSION = '0.27.20';
   let activeStream = null
 
   /** WebSocket connections tracked by element */
-  const wsConnections = new WeakMap()
+  const wsConnections = new Map()
 
   // ═══════════════════════════════════════════════════════════════════
   //  Public API
@@ -711,9 +711,11 @@ const WFU_VERSION = '0.27.20';
   }
 
   wu.send = function (data) {
-    for (const [, ws] of wsConnections) {
+    for (const [el, ws] of wsConnections) {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(typeof data === 'string' ? data : JSON.stringify(data))
+      } else {
+        wsConnections.delete(el)
       }
     }
   }
