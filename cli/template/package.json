@@ -1,0 +1,11 @@
+{
+  "name": "__PROJECT_NAME__",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch index.ts",
+    "start": "node index.ts"
+  },
+  "dependencies": {
+    "weifuwu": "^__VERSION__"
+  }
+}
