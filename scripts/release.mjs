@@ -12,7 +12,7 @@
  *   2. Update all package.json versions
  *   3. Build all packages (core → react → cli)
  *   4. Generate .d.ts declarations
- *   5. Publish in order: core → react → cli → weifuwu
+ *   5. Publish in order: core → react → cli
  */
 
 import { execSync } from 'node:child_process'
@@ -23,13 +23,12 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 
-const PKGS = ['core', 'react', 'cli', 'weifuwu']
+const PKGS = ['core', 'react', 'cli']
 
 const PUBLISH_ORDER = [
   { dir: 'core', name: '@weifuwujs/core', public: true },
   { dir: 'react', name: '@weifuwujs/react', public: true },
   { dir: 'cli', name: 'create-weifuwu', public: true },
-  { dir: 'weifuwu', name: 'weifuwu', public: true },
 ]
 
 function run(cmd, opts = {}) {
@@ -129,10 +128,9 @@ async function main() {
     const pkgPath = join(root, 'packages', pkg.dir)
     const data = JSON.parse(readFileSync(join(pkgPath, 'package.json'), 'utf-8'))
 
-    // Check entry exists (cli → dist/cli.js, weifuwu → root index.js, others → dist/index.js)
+    // Check entry exists (cli → dist/cli.js, others → dist/index.js)
     let entryPath
     if (pkg.dir === 'cli') entryPath = join(pkgPath, 'dist', 'cli.js')
-    else if (pkg.dir === 'weifuwu') entryPath = join(pkgPath, 'index.js')
     else entryPath = join(pkgPath, 'dist', 'index.js')
     if (pkg.public && !existsSync(entryPath)) {
       console.error(`  ✗ ${pkg.name}: ${entryPath} missing!`)
