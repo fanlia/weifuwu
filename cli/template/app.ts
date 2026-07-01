@@ -29,6 +29,6 @@ app.ws('/chat', {
   message(_ws, ctx, data) {
     const msg = data.toString().trim()
     if (!msg) return
-    ctx.ws.sendRoom('lobby', JSON.stringify({ type: 'chat', text: msg }))
+    ctx.ws.sendRoom('lobby', { type: 'chat', text: msg })
   },
 })

@@ -14,6 +14,14 @@ import { createHub, type Hub } from '../hub.ts'
 
 import { isProd } from './env.ts'
 
+// Augment Context with WebSocket helpers
+import type { WsContext } from '../types.ts'
+declare module '../types.ts' {
+  interface Context {
+    ws: WsContext
+  }
+}
+
 export type WebSocketHandler = {
   open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
   message?: (ws: WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>

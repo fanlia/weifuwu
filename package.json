@@ -4,7 +4,10 @@
   "version": "0.27.25",
   "description": "Web-standard HTTP microframework for Node.js — (req, ctx) => Response",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "bin": {
     "weifuwu": "./dist/cli.js"

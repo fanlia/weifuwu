@@ -11,13 +11,26 @@ export type { Redis, RedisOptions } from 'ioredis'
 // Context — extensible via module augmentation.
 // Built-in middleware modules declare additional properties here.
 // e.g. postgres/types.ts → `declare module '../types.ts' { interface Context { sql: SqlClient } }`
+export interface WsContext {
+  /** Per-connection state object */
+  state: Record<string, unknown>
+  /** Send JSON to this connection */
+  json(data: unknown): void
+  /** Join a room */
+  join(room: string): void
+  /** Leave a room */
+  leave(room: string): void
+  /** Broadcast to a room */
+  sendRoom(room: string, data: unknown): void
+}
+
 export interface Context {
   params: Record<string, string>
   query: Record<string, string>
   mountPath?: string
   /**
    * Server-side data loaded for the current page.
-   * Set by middleware before a page handler renders.
+   * Set by middleware before a page handler registers.
    * Available in templates via `ctx.loaderData`.
    */
   loaderData?: Record<string, unknown>
