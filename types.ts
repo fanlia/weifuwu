@@ -5,7 +5,21 @@ export type SqlClient = postgres.Sql<Record<string, unknown>>
 
 /** Re-export for downstream usage. */
 export type { Sql } from 'postgres'
-export type { WebSocket } from 'ws'
+/** Lightweight WebSocket interface for WS handler types (avoids external dep resolution). */
+export interface WebSocket {
+  send(data: string | Buffer): void
+  close(code?: number, reason?: string): void
+  ping(data?: unknown): void
+  readyState: number
+  readonly OPEN: number
+  readonly CLOSED: number
+  readonly CONNECTING: number
+  readonly CLOSING: number
+  on(event: string, handler: (...args: unknown[]) => void): this
+  off(event: string, handler: (...args: unknown[]) => void): this
+  addEventListener(event: string, handler: (...args: unknown[]) => void): void
+  removeEventListener(event: string, handler: (...args: unknown[]) => void): void
+}
 export type { Redis, RedisOptions } from 'ioredis'
 
 // Context — extensible via module augmentation.
