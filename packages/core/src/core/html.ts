@@ -15,7 +15,11 @@
  * ```
  */
 
-export type HtmlValue = string | number | boolean | null | undefined | HtmlValue[]
+interface RawHtml {
+  _raw: string
+}
+
+export type HtmlValue = string | number | boolean | null | undefined | HtmlValue[] | RawHtml
 
 const ESCAPE: Record<string, string> = {
   '&': '&amp;',
@@ -47,8 +51,8 @@ export function html(
       if (v == null || v === false) continue
       if (Array.isArray(v)) {
         result += v.join('')
-      } else if (typeof v === 'object' && (v as any)?._raw) {
-        result += (v as any)._raw
+      } else if (typeof v === 'object' && v !== null && '_raw' in v) {
+        result += (v as RawHtml)._raw
       } else {
         result += esc(String(v))
       }
@@ -63,5 +67,5 @@ export function html(
  * Can be used standalone or inside {@link html} tagged templates.
  */
 export function raw(content: string): HtmlValue {
-  return { _raw: content } as unknown as string
+  return { _raw: content }
 }
