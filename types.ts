@@ -15,6 +15,12 @@ export interface Context {
   params: Record<string, string>
   query: Record<string, string>
   mountPath?: string
+  /**
+   * Server-side data loaded for the current page.
+   * Set by middleware before a page handler renders.
+   * Available in templates via `ctx.loaderData`.
+   */
+  loaderData?: Record<string, unknown>
   [key: string]: unknown // allow arbitrary middleware-injected data
 }
 

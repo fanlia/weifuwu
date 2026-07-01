@@ -63,6 +63,137 @@ app.use(rateLimit({ window: 60 }))
 
 ---
 
+## Full-stack SSR
+
+Server-rendered HTML with zero frontend build tools. Uses `html()` tagged templates
+for safe HTML rendering, HTMX for dynamic interactions, and Alpine.js for client-side state.
+
+```ts
+import { Router, serve, html, raw, layout, view, cssContext, cssRouter, assetRouter } from 'weifuwu'
+
+const app = new Router()
+
+// Middleware
+app.use(theme())
+app.use(i18n({ dir: './locales' }))
+app.use(cssContext('./ui')) // compile globals.css → ctx.css
+
+// Layout (wraps all pages)
+app.use(layout('./ui/app/layout.ts'))
+
+// Static assets (HTMX, Alpine — served locally, no CDN)
+app.use(assetRouter())
+
+// CSS serving
+app.use('/', cssRouter('./ui'))
+
+// Page
+app.get('/', view('./ui/app/page.ts'))
+
+// HTMX fragment handler
+app.get('/users/table', async (req, ctx) => {
+  const users = await ctx.sql`SELECT * FROM users`
+  return html`${users.map((u) => html`<div>${u.name}</div>`)}`
+})
+
+// API
+app.get('/api/ping', () => Response.json({ pong: true }))
+
+serve(app.handler(), { port: 3000 })
+```
+
+### html() — Tagged template HTML
+
+Safe HTML rendering with automatic escaping. Zero dependencies — uses JavaScript
+tagged template literals.
+
+```ts
+import { html, raw } from 'weifuwu'
+
+// Auto-escaped
+html`<h1>${userInput}</h1>`
+// `<h1>&lt;script&gt;...&lt;/script&gt;</h1>`
+
+// raw() bypasses escaping (for trusted HTML)
+html`<div>${raw(body)}</div>`
+
+// Arrays (from map)
+html`<ul>
+  ${items.map((i) => html`<li>${i}</li>`)}
+</ul>`
+
+// Conditionals
+html`${isAdmin && html`<button>Admin</button>`}`
+
+// Nested html() is safe from double-escaping
+html`<div>${html`<span>nested</span>`}</div>`
+```
+
+### layout() — Layout middleware
+
+Wraps page HTML in a layout template. Multiple layouts nest naturally.
+
+```ts
+import { html, raw } from 'weifuwu'
+
+// ui/app/layout.ts
+export default function (body: string, ctx: any) {
+  return html`<!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <script src="/__wfw/js/htmx.min.js"></script>
+        <script defer src="/__wfw/js/alpine.min.js"></script>
+      </head>
+      <body class="min-h-screen bg-white dark:bg-gray-950">
+        ${raw(body)}
+        <!-- ← use raw() for page content -->
+      </body>
+    </html>`
+}
+```
+
+### view() — Page handler factory
+
+Loads a `.ts` file and calls its default export to produce an HTML Response.
+
+```ts
+// app.ts
+app.get('/', view('./ui/app/page.ts'))
+
+// ui/app/page.ts
+export default function (ctx: any) {
+  return html`<h1 class="text-3xl font-bold">${ctx.i18n?.t('title')}</h1>`
+}
+```
+
+### CSS pipeline (Tailwind v4)
+
+Compiles `globals.css` via `@tailwindcss/postcss`. Cached and served with content hash.
+
+```css
+/* ui/app/globals.css */
+@import 'tailwindcss';
+@custom-variant dark (&:is(.dark *));
+```
+
+```ts
+app.use(cssContext('./ui')) // compile → ctx.css.url
+app.use(cssRouter('./ui')) // serve /__wfw/style/:hash.css
+```
+
+### Local assets (no CDN)
+
+HTMX and Alpine.js are npm dependencies, served from the weifuwu server.
+No external network requests.
+
+```ts
+app.use(assetRouter()) // serve /__wfw/js/htmx.min.js, alpine.min.js
+// In layout: ${assetScripts()}
+```
+
+---
+
 ## Public API
 
 ### serve
@@ -405,6 +536,57 @@ app.use(i18n({ dir: './locales', defaultLocale: 'en' }))
 
 Options: `dir`, `defaultLocale`, `cookie`, `param`, `header`
 
+### SSR utilities
+
+#### html()
+
+Tagged template literal for safe HTML. See [Full-stack SSR](#full-stack-ssr).
+
+```ts
+import { html, raw } from 'weifuwu'
+
+html`<h1>${title}</h1>` // auto-escaped
+html`<div>${raw(html)}</div>` // unescaped
+```
+
+#### layout()
+
+Middleware that wraps page content in a layout template.
+
+```ts
+import { layout } from 'weifuwu'
+app.use(layout('./ui/app/layout.ts'))
+```
+
+#### view()
+
+Handler factory that loads a `.ts` file as a page.
+
+```ts
+import { view } from 'weifuwu'
+app.get('/', view('./ui/app/page.ts'))
+```
+
+#### cssContext() / cssRouter()
+
+Tailwind v4 CSS compilation and serving.
+
+```ts
+import { cssContext, cssRouter } from 'weifuwu'
+app.use(cssContext('./ui')) // compile → ctx.css
+app.use(cssRouter('./ui')) // serve /__wfw/style/:hash.css
+```
+
+#### assetRouter() / assetScripts()
+
+Serve HTMX and Alpine.js from node_modules (no CDN).
+
+```ts
+import { assetRouter, assetScripts } from 'weifuwu'
+app.use(assetRouter())
+// In layout: ${assetScripts()}
+```
+
 ### Standalone utilities
 
 #### SSE
@@ -484,16 +666,41 @@ throw new HttpError('Not found', 404) // caught by serve(), returns 404
 ## CLI
 
 ```bash
-npx weifuwu init my-api
-cd my-api
-npm run dev
+npx weifuwu init my-app              # Full-stack project (SSR + Tailwind + HTMX + Alpine)
+npx weifuwu init my-app --minimal    # Minimal API-only project
+npx weifuwu version                   # Print version
 ```
+
+### Full-stack template (`init`)
+
+Generates a complete project with SSR, Tailwind CSS compilation, HTMX + Alpine served
+locally, theme switching, internationalization, and a demo home page.
+
+```
+my-app/
+  index.ts              — server entry
+  app.ts                — Router setup
+  ui/
+    app/
+      globals.css       — Tailwind v4
+      layout.ts         — root layout (HTMX + Alpine + theme script)
+      page.ts           — home page (theme/i18n demo)
+  locales/
+    en.json
+    zh-CN.json
+  package.json
+  tsconfig.json         — with @/ path alias
+```
+
+### Minimal template (`init --minimal`)
 
 Creates a minimal API project with `app.ts`, `index.ts`, and TypeScript config.
 
 ---
 
 ## Dependencies
+
+### Backend
 
 - `postgres` — PostgreSQL client
 - `ioredis` — Redis client
@@ -502,4 +709,10 @@ Creates a minimal API project with `app.ts`, `index.ts`, and TypeScript config.
 - `ws` — WebSocket
 - `zod` — Schema validation
 
-Zero build tools. Zero frontend framework dependencies.
+### Frontend (served locally, no CDN)
+
+- `tailwindcss`, `@tailwindcss/postcss`, `postcss` — Tailwind v4 CSS compilation
+- `htmx.org` — HTML-over-the-wire dynamic interactions
+- `alpinejs` — Lightweight client interactivity
+
+Zero build tools. Zero frontend framework compilation.

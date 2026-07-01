@@ -36,6 +36,14 @@ weifuwu/
   queue/                — Job queue (pattern α middleware, memory/pg/redis backends)
     index.ts, types.ts, cron.ts
 
+  ssr/                  — SSR engine (html templates, HTMX, Alpine)
+    html.ts               html() / raw() tagged template functions
+    layout.ts             layout() middleware
+    compile.ts            loadModule() with caching
+    view.ts               view() page handler factory
+    css.ts                Tailwind v4 CSS compilation pipeline
+    assets.ts             HTMX / Alpine local asset serving
+
   hub.ts                — Pub/sub hub for WebSocket rooms
   graphql.ts            — GraphQL handler (pattern β)
 
@@ -67,20 +75,22 @@ type Middleware<In extends Context = Context, Out extends In = In> = {
 
 Each middleware adds exactly one namespaced field on `ctx`. The `req` object is never modified.
 
-| Pattern α middleware    | Injects          | Type safety                             |
-| ----------------------- | ---------------- | --------------------------------------- |
-| `app.use(postgres())`   | `ctx.sql`        | `declare module` + `PostgresInjected`   |
-| `app.use(redis())`      | `ctx.redis`      | `declare module` + `RedisInjected`      |
-| `app.use(aiProvider())` | `ctx.ai`         | `declare module` + `AIProviderInjected` |
-| `app.use(queue())`      | `ctx.queue`      | `declare module` + `QueueInjected`      |
-| `app.use(theme())`      | `ctx.theme`      | `declare module` + `ThemeInjected`      |
-| `app.use(i18n())`       | `ctx.i18n`       | `declare module` + `I18nInjected`       |
-| `app.use(flash())`      | `ctx.flash`      | `declare module` + `FlashInjected`      |
-| `app.use(csrf())`       | `ctx.csrf.token` | `declare module` + `CsrfInjected`       |
-| `app.use(requestId())`  | `ctx.requestId`  | `declare module`                        |
-| `app.use(validate())`   | `ctx.parsed`     | `declare module` (shared with upload)   |
-| `app.use(upload())`     | `ctx.parsed`     | `declare module` (shared with validate) |
-| `ws('/chat', handler)`  | `ctx.ws`         | —                                       |
+| Pattern α middleware    | Injects          | Type safety                              |
+| ----------------------- | ---------------- | ---------------------------------------- |
+| `app.use(postgres())`   | `ctx.sql`        | `declare module` + `PostgresInjected`    |
+| `app.use(redis())`      | `ctx.redis`      | `declare module` + `RedisInjected`       |
+| `app.use(aiProvider())` | `ctx.ai`         | `declare module` + `AIProviderInjected`  |
+| `app.use(queue())`      | `ctx.queue`      | `declare module` + `QueueInjected`       |
+| `app.use(theme())`      | `ctx.theme`      | `declare module` + `ThemeInjected`       |
+| `app.use(i18n())`       | `ctx.i18n`       | `declare module` + `I18nInjected`        |
+| `app.use(flash())`      | `ctx.flash`      | `declare module` + `FlashInjected`       |
+| `app.use(csrf())`       | `ctx.csrf.token` | `declare module` + `CsrfInjected`        |
+| `app.use(requestId())`  | `ctx.requestId`  | `declare module`                         |
+| `app.use(validate())`   | `ctx.parsed`     | `declare module` (shared with upload)    |
+| `app.use(upload())`     | `ctx.parsed`     | `declare module` (shared with validate)  |
+| `ws('/chat', handler)`  | `ctx.ws`         | —                                        |
+| `app.use(cssContext())` | `ctx.css`        | `declare module`                         |
+| `app.use(layout())`     | —                | reads `ctx.css`, `ctx.theme`, `ctx.i18n` |
 
 ### Type safety rule
 
@@ -143,7 +153,20 @@ Modules with `.middleware()` (theme, i18n) support auto-registration:
 app.use(theme()) // registers both middleware and default routes
 ```
 
-Modules: `graphql()`, `health()`, `theme()`, `i18n()`
+Modules: `graphql()`, `health()`, `theme()`, `i18n()`, `cssRouter()`, `assetRouter()`
+
+### SSR-specific
+
+| Function         | Pattern | Description                                 |
+| ---------------- | ------- | ------------------------------------------- |
+| `html()`         | γ       | Tagged template HTML (auto-escaped)         |
+| `raw()`          | γ       | Mark string as pre-escaped HTML             |
+| `layout()`       | α       | Middleware that wraps page content          |
+| `view()`         | γ       | Handler factory for .ts page files          |
+| `cssContext()`   | α       | Middleware that compiles Tailwind → ctx.css |
+| `cssRouter()`    | β       | Router that serves compiled CSS             |
+| `assetRouter()`  | β       | Router that serves HTMX + Alpine locally    |
+| `assetScripts()` | γ       | Returns `<script>` tags for local assets    |
 
 ### Pattern γ — Standalone
 
@@ -227,6 +250,19 @@ import { serve } from '../core/serve.ts'
 ## CLI
 
 ```bash
-npx weifuwu init <name>           # Create a new API project
-npx weifuwu version               # Print version
+npx weifuwu init <name>              # Create a full-stack SSR project
+npx weifuwu init <name> --minimal    # Create a minimal API-only project
+npx weifuwu version                  # Print version
 ```
+
+### Full-stack template
+
+`weifuwu init` generates a complete project with:
+
+- SSR via `html()` tagged templates (zero deps, auto-escaped)
+- Tailwind v4 CSS compilation (`@tailwindcss/postcss`)
+- HTMX + Alpine.js served locally (no CDN)
+- Theme switching (`/__theme/:value`)
+- Internationalization (`/__lang/:locale`)
+- `ui/app/` directory with layout, page, and CSS
+- `@/` path alias pointing to `./ui/`

@@ -28,10 +28,15 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
     "@graphql-tools/schema": "^10",
+    "@tailwindcss/postcss": "^4",
     "ai": "^6",
+    "alpinejs": "^3",
     "graphql": "^16",
+    "htmx.org": "^2",
     "ioredis": "^5.11.0",
+    "postcss": "^8",
     "postgres": "^3.4.9",
+    "tailwindcss": "^4",
     "ws": "^8",
     "zod": "^4.4.3"
   },

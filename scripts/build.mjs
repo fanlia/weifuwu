@@ -4,10 +4,15 @@ import esbuild from 'esbuild'
 const external = [
   '@ai-sdk/openai',
   '@graphql-tools/schema',
+  '@tailwindcss/postcss',
   'ai',
+  'alpinejs',
   'graphql',
+  'htmx.org',
   'ioredis',
+  'postcss',
   'postgres',
+  'tailwindcss',
   'ws',
   'zod',
 ]
