@@ -757,8 +757,13 @@
     // Toggle all [wu-theme] buttons: dark ↔ light
     document.querySelectorAll('[wu-theme]').forEach((b) => {
       const v = b.getAttribute('wu-theme')
-      if (v === 'dark') b.setAttribute('wu-theme', 'light')
-      else if (v === 'light') b.setAttribute('wu-theme', 'dark')
+      if (v === 'dark') {
+        b.setAttribute('wu-theme', 'light')
+        b.textContent = '☀️'
+      } else if (v === 'light') {
+        b.setAttribute('wu-theme', 'dark')
+        b.textContent = '🌙'
+      }
     })
   })
 
