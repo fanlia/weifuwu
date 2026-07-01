@@ -1,22 +1,24 @@
 /**
- * wfuwAssets — Pattern β module that serves weifuwu-ui static files.
+ * wfuwAssets — Serves weifuwu frontend assets (HTMX, Alpine.js, weifuwu-ui).
  *
- * Provides:
- *   /__wfw/js/weifuwu-ui.js   — frontend runtime
- *   /__wfw/css/weifuwu-ui.css — UI component styles
+ * Endpoints:
+ *   /__wfw/js/htmx.min.js      — HTMX (AJAX, SSE, WebSocket, forms)
+ *   /__wfw/js/alpine.min.js    — Alpine.js (state, DOM binding, UI)
+ *   /__wfw/js/weifuwu-ui.js    — weifuwu-ui (theme/i18n/flash Alpine stores)
+ *   /__wfw/css/weifuwu-ui.css  — UI component styles
  *
  * Usage:
  *   ```ts
- *   import { Router } from 'weifuwu'
- *   import { wfuwAssets } from '../ssr/ui/assets.ts'
- *
- *   const app = new Router()
+ *   import { wfuwAssets } from 'weifuwu'
  *   app.use('/', wfuwAssets())
  *
- *   // In your layout:
+ *   // In layout:
+ *   import { wfuwVersion } from 'weifuwu'
  *   html`
- *     <script src="/__wfw/js/weifuwu-ui.js"></script>
- *     <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css">
+ *     <script src="/__wfw/js/htmx.min.js?v=${wfuwVersion}"></script>
+ *     <script defer src="/__wfw/js/alpine.min.js?v=${wfuwVersion}"></script>
+ *     <script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
+ *     <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}">
  *   `
  *   ```
  */
@@ -27,7 +29,7 @@ import { Router } from '../../core/router.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-/** Current weifuwu version, extracted from weifuwu-ui.js header. */
+/** Current weifuwu version. */
 export const wfuwVersion: string = (() => {
   try {
     const js = readFileSync(resolve(__dirname, 'weifuwu-ui.js'), 'utf-8')
@@ -38,46 +40,32 @@ export const wfuwVersion: string = (() => {
   }
 })()
 
+function serveFile(path: string, mime: string) {
+  let content: string | null = null
+  return () => {
+    if (!content) {
+      try {
+        content = readFileSync(path, 'utf-8')
+      } catch {
+        return new Response('File not found', { status: 404 })
+      }
+    }
+    return new Response(content, {
+      headers: {
+        'content-type': mime,
+        'cache-control': 'public, max-age=31536000, immutable',
+      },
+    })
+  }
+}
+
 export function wfuwAssets(): Router {
   const router = new Router()
 
-  const jsPath = resolve(__dirname, 'weifuwu-ui.js')
-  const cssPath = resolve(__dirname, 'weifuwu-ui.css')
-
-  let jsContent: string | null = null
-  let cssContent: string | null = null
-
-  router.get('/__wfw/js/weifuwu-ui.js', () => {
-    if (!jsContent) {
-      try {
-        jsContent = readFileSync(jsPath, 'utf-8')
-      } catch {
-        return new Response('weifuwu-ui.js not found', { status: 404 })
-      }
-    }
-    return new Response(jsContent, {
-      headers: {
-        'content-type': 'application/javascript; charset=utf-8',
-        'cache-control': 'public, max-age=31536000, immutable',
-      },
-    })
-  })
-
-  router.get('/__wfw/css/weifuwu-ui.css', () => {
-    if (!cssContent) {
-      try {
-        cssContent = readFileSync(cssPath, 'utf-8')
-      } catch {
-        return new Response('weifuwu-ui.css not found', { status: 404 })
-      }
-    }
-    return new Response(cssContent, {
-      headers: {
-        'content-type': 'text/css; charset=utf-8',
-        'cache-control': 'public, max-age=31536000, immutable',
-      },
-    })
-  })
+  router.get('/__wfw/js/htmx.min.js', serveFile(resolve(__dirname, 'htmx.min.js'), 'application/javascript; charset=utf-8'))
+  router.get('/__wfw/js/alpine.min.js', serveFile(resolve(__dirname, 'alpine.min.js'), 'application/javascript; charset=utf-8'))
+  router.get('/__wfw/js/weifuwu-ui.js', serveFile(resolve(__dirname, 'weifuwu-ui.js'), 'application/javascript; charset=utf-8'))
+  router.get('/__wfw/css/weifuwu-ui.css', serveFile(resolve(__dirname, 'weifuwu-ui.css'), 'text/css; charset=utf-8'))
 
   return router
 }
