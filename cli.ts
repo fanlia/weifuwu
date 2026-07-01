@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
-import { mkdir, writeFile, readFile, cp } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { join, dirname, resolve } from 'node:path'
@@ -25,7 +25,7 @@ async function cmdVersion() {
   console.log(pkg.version)
 }
 
-async function cmdInit(name: string, opts: { skipInstall?: boolean; minimal?: boolean }) {
+async function cmdInit(name: string, opts: { skipInstall?: boolean }) {
   const targetDir = resolve(process.cwd(), name)
 
   if (existsSync(targetDir)) {
@@ -34,12 +34,7 @@ async function cmdInit(name: string, opts: { skipInstall?: boolean; minimal?: bo
   }
 
   const pkg = await readPkg()
-
-  if (opts.minimal) {
-    await generateMinimal(targetDir, name, pkg.version, opts.skipInstall)
-  } else {
-    await generateFull(targetDir, name, pkg.version, opts.skipInstall)
-  }
+  await generateMinimal(targetDir, name, pkg.version, opts.skipInstall)
 }
 
 // ── Minimal (API-only) project ─────────────────────────────────────────
@@ -80,34 +75,6 @@ async function generateMinimal(
 
   await writePackageJson(targetDir, name, version, {})
   await writeCommonFiles(targetDir)
-  await finishInit(targetDir, skipInstall)
-}
-
-// ── Full (SSR + UI) project ────────────────────────────────────────────
-
-async function generateFull(
-  targetDir: string,
-  name: string,
-  version: string,
-  skipInstall?: boolean,
-) {
-  // Resolve template directory (works in source and dist)
-  const templateDir = existsSync(join(__dirname, 'cli', 'template'))
-    ? join(__dirname, 'cli', 'template')
-    : join(__dirname, 'template')
-
-  // Copy entire template directory
-  await cp(templateDir, targetDir, { recursive: true })
-
-  // Replace placeholders in package.json
-  const pkgPath = join(targetDir, 'package.json')
-  const pkgContent = await readFile(pkgPath, 'utf-8')
-  await writeFile(
-    pkgPath,
-    pkgContent
-      .replace('__PROJECT_NAME__', name)
-      .replace('__VERSION__', version),
-  )
   await finishInit(targetDir, skipInstall)
 }
 
@@ -156,8 +123,7 @@ const HELP = `
 weifuwu — Web-standard HTTP microframework for Node.js
 
 Usage:
-  npx weifuwu init <name>               Create a new project (SSR + shadcn UI)
-  npx weifuwu init <name> --minimal     Create a minimal API-only project
+  npx weifuwu init <name>               Create a new project
   npx weifuwu init <name> --skip-install  Skip npm install
   npx weifuwu version                   Print version
 `
@@ -169,17 +135,16 @@ if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
     args: process.argv.slice(3),
     options: {
       'skip-install': { type: 'boolean' },
-      minimal: { type: 'boolean' },
     },
     strict: false,
     allowPositionals: true,
   })
   const name = positionals[0]
   if (!name) {
-    console.error('Usage: npx weifuwu init <name> [--skip-install] [--minimal]')
+    console.error('Usage: npx weifuwu init <name> [--skip-install]')
     process.exit(1)
   }
-  cmdInit(name, { skipInstall: !!values['skip-install'], minimal: !!values['minimal'] }).catch(
+  cmdInit(name, { skipInstall: !!values['skip-install'] }).catch(
     console.error,
   )
 } else {

@@ -18,9 +18,9 @@ weifuwu/
     sse.ts                Server-Sent Events utilities
 
   middleware/           — Pattern α middleware (flat files, each <200 lines)
-    compress.ts, cors.ts, csrf.ts, flash.ts, helmet.ts
+    compress.ts, cors.ts, helmet.ts
     request-id.ts, rate-limit.ts, static.ts, validate.ts, upload.ts
-    health.ts, theme.ts, i18n.ts
+    health.ts
 
   ai/                   — AI provider + streaming endpoint
     provider.ts           AIProvider factory (ctx.ai)
@@ -35,16 +35,6 @@ weifuwu/
 
   queue/                — Job queue (pattern α middleware, memory/pg/redis backends)
     index.ts, types.ts, cron.ts
-
-  ssr/                  — SSR (html templates + weifuwu-ui)
-    html.ts               html() / raw() tagged template functions
-    layout.ts             layout() middleware
-    compile.ts            loadModule() with caching
-    view.ts               view() page handler factory
-    ui/                   weifuwu-ui frontend runtime (~5KB, zero deps)
-      weifuwu-ui.js         Frontend runtime (state, AJAX, SSE, WS, components)
-      weifuwu-ui.css        UI component styles (CSS variables, dark mode)
-      assets.ts             wfuwAssets() Router
 
   hub.ts                — Pub/sub hub for WebSocket rooms
   graphql.ts            — GraphQL handler (pattern β)
@@ -77,32 +67,26 @@ type Middleware<In extends Context = Context, Out extends In = In> = {
 
 Each middleware adds exactly one namespaced field on `ctx`. The `req` object is never modified.
 
-| Pattern α middleware    | Injects          | Type safety                             |
-| ----------------------- | ---------------- | --------------------------------------- |
-| `app.use(postgres())`   | `ctx.sql`        | `declare module` + `PostgresInjected`   |
-| `app.use(redis())`      | `ctx.redis`      | `declare module` + `RedisInjected`      |
-| `app.use(aiProvider())` | `ctx.ai`         | `declare module` + `AIProviderInjected` |
-| `app.use(queue())`      | `ctx.queue`      | `declare module` + `QueueInjected`      |
-| `app.use(theme())`      | `ctx.theme`      | `declare module` + `ThemeInjected`      |
-| `app.use(i18n())`       | `ctx.i18n`       | `declare module` + `I18nInjected`       |
-| `app.use(flash())`      | `ctx.flash`      | `declare module` + `FlashInjected`      |
-| `app.use(csrf())`       | `ctx.csrf.token` | `declare module` + `CsrfInjected`       |
-| `app.use(requestId())`  | `ctx.requestId`  | `declare module`                        |
-| `app.use(validate())`   | `ctx.parsed`     | `declare module` (shared with upload)   |
-| `app.use(upload())`     | `ctx.parsed`     | `declare module` (shared with validate) |
-| `ws('/chat', handler)`  | `ctx.ws`         | —                                       |
-| `app.use(wfuwAssets())` | —                | serves `/__wfw/js/weifuwu-ui.js` + CSS  |
-| `app.use(layout())`     | —                | reads `ctx.theme`, `ctx.i18n`           |
+| Pattern α middleware  | Injects        | Type safety                             |
+| --------------------- | -------------- | --------------------------------------- |
+| `app.use(postgres())` | `ctx.sql`      | `declare module` + `PostgresInjected`   |
+| `app.use(redis())`    | `ctx.redis`    | `declare module` + `RedisInjected`      |
+| `app.use(aiProvider())`| `ctx.ai`      | `declare module` + `AIProviderInjected` |
+| `app.use(queue())`    | `ctx.queue`    | `declare module` + `QueueInjected`      |
+| `app.use(requestId())`| `ctx.requestId`| `declare module`                        |
+| `app.use(validate())` | `ctx.parsed`   | `declare module` (shared with upload)   |
+| `app.use(upload())`   | `ctx.parsed`   | `declare module` (shared with validate) |
+| `ws('/chat', handler)`| `ctx.ws`       | —                                       |
 
 ### Type safety rule
 
 Every ctx-injecting module MUST add `declare module '../types.ts'` in its module file (relative to the module's location). If the module is in `core/` or `middleware/`, use `declare module '../types.ts'`. Directory modules (`postgres/`, `redis/`) that are siblings of `types.ts` use `declare module '../types.ts'`.
 
 ```ts
-// middleware/csrf.ts
+// middleware/validate.ts
 declare module '../types.ts' {
   interface Context {
-    csrf: { token: string }
+    parsed: Record<string, unknown>
   }
 }
 ```
@@ -138,7 +122,7 @@ app.use(rateLimit()) // → rate-limits requests
 
 Pattern α modules may also have `.close()`, `.migrate()` attached.
 
-Modules: `postgres()`, `redis()`, `aiProvider()`, `queue()`, `compress()`, `cors()`, `csrf()`, `flash()`, `helmet()`, `requestId()`, `rateLimit()`, `static()`, `validate()`, `upload()`, `health()`, `theme()`, `i18n()`
+Modules: `postgres()`, `redis()`, `aiProvider()`, `queue()`, `compress()`, `cors()`, `helmet()`, `requestId()`, `rateLimit()`, `static()`, `validate()`, `upload()`, `health()`
 
 ### Pattern β — Router
 
@@ -149,23 +133,7 @@ app.use('/graphql', graphql({ schema: typeDefs }))
 app.get('/health', health())
 ```
 
-Modules with `.middleware()` (theme, i18n) support auto-registration:
-
-```ts
-app.use(theme()) // registers both middleware and default routes
-```
-
-Modules: `graphql()`, `health()`, `theme()`, `i18n()`, `wfuwAssets()`
-
-### SSR-specific
-
-| Function       | Pattern | Description                             |
-| -------------- | ------- | --------------------------------------- |
-| `html()`       | γ       | Tagged template HTML (auto-escaped)     |
-| `raw()`        | γ       | Mark string as pre-escaped HTML         |
-| `layout()`     | α       | Middleware that wraps page content      |
-| `view()`       | γ       | Handler factory for .ts page files      |
-| `wfuwAssets()` | β       | Router that serves weifuwu-ui.js + .css |
+Modules: `graphql()`, `health()`
 
 ### Pattern γ — Standalone
 
@@ -209,12 +177,6 @@ Avoid inline return types — always use a named interface.
 - Cleanup: always `.close(): Promise<void>`. Never `stop()` or `shutdown()`.
 - DB setup: always `.migrate(): Promise<void>`. Call at startup; safe to call multiple times.
 
-### Route URLs
-
-- Internal routes use `__` prefix (e.g. `__theme/:theme`, `__lang/:locale`)
-- Public API routes have no prefix
-- All routes should be mountable under a user-chosen prefix via `app.use('/prefix', mod)`
-
 ## Database
 
 - Docker Compose: `docker compose up -d` starts PostgreSQL (port 5432, root/123456/demo), Adminer (30080), Redis (6379)
@@ -249,20 +211,6 @@ import { serve } from '../core/serve.ts'
 ## CLI
 
 ```bash
-npx weifuwu init <name>              # Create a full-stack SSR project
-npx weifuwu init <name> --minimal    # Create a minimal API-only project
+npx weifuwu init <name>              # Create a new API project
 npx weifuwu version                  # Print version
 ```
-
-### Full-stack template
-
-`weifuwu init` generates a complete project with:
-
-- SSR via `html()` tagged templates (zero deps, auto-escaped)
-- weifuwu-ui.js frontend runtime (~5KB, zero external deps)
-- Theme switching (`wu-theme`, instant, no refresh)
-- Internationalization (`wu-lang` + `wu-text-key`, instant, no refresh)
-- Flash messages (`wu-flash`)
-- State binding + AJAX + SSE + WebSocket via `wu-*` attributes
-- `ui/app/` directory with layout, page, and CSS
-- `@/` path alias pointing to `./ui/`
