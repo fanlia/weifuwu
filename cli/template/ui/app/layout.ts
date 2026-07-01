@@ -15,7 +15,7 @@ export default function (body: string, ctx: any) {
         <title>weifuwu</title>
         <link rel="stylesheet" href="/__wfw/css/weifuwu-ui.css?v=${wfuwVersion}" />
         <script src="/__wfw/js/htmx.min.js?v=${wfuwVersion}"></script>
-        <script defer src="/__wfw/js/alpine.min.js?v=${wfuwVersion}"></script>
+        <script src="/__wfw/js/alpine.min.js?v=${wfuwVersion}"></script>
         <script src="/__wfw/js/weifuwu-ui.js?v=${wfuwVersion}"></script>
         <script id="__wf-i18n" type="application/json">
           ${raw(JSON.stringify(messages))}
