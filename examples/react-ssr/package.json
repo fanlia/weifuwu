@@ -13,8 +13,10 @@
     "react-dom": "^19"
   },
   "devDependencies": {
+    "@tailwindcss/node": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "esbuild": "^0.28"
+    "esbuild": "^0.28",
+    "tailwindcss": "^4"
   }
 }

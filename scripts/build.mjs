@@ -25,7 +25,9 @@ const external = [
   'react-dom',
   'react-dom/server',
   'react-dom/client',
+  '@tailwindcss/node',  // dynamic import in tailwindDev
   'esbuild',  // dynamic import in esbuildDev — must be external for native binary
+  'tailwindcss',  // dependency of @tailwindcss/node
 ]
 
 await esbuild.build({
@@ -75,6 +77,16 @@ await esbuild.build({
   platform: 'node',
   bundle: true,
   external: [...external, 'esbuild'],
+})
+
+// tailwindDev middleware — lazy-loads @tailwindcss/node at runtime
+await esbuild.build({
+  entryPoints: [join(srcDir, 'middleware/tailwind-dev.ts')],
+  outfile: join(distDir, 'middleware/tailwind-dev.js'),
+  format: 'esm',
+  platform: 'node',
+  bundle: true,
+  external: [...external, '@tailwindcss/node'],
 })
 
 console.log('Build complete.')

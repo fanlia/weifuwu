@@ -13,7 +13,7 @@
  *   npm install && node server.ts
  */
 
-import { serve, Router, logger, trace, esbuildDev } from 'weifuwu'
+import { serve, Router, logger, trace, esbuildDev, tailwindDev } from 'weifuwu'
 import { react, Link } from 'weifuwu/react'
 import { createElement as h } from 'react'
 import {
@@ -41,28 +41,18 @@ function RootLayout({ children }: { children: unknown }) {
       h('meta', { charSet: 'utf-8' }),
       h('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
       h('title', null, 'weifuwu'),
+      h('link', { rel: 'stylesheet', href: '/assets/tailwind.css' }),
       h('script', { type: 'importmap', dangerouslySetInnerHTML: { __html: JSON.stringify({
         imports: { react: '/assets/vendor.js', 'react-dom/client': '/assets/vendor.js' },
       }) } }),
-      h('style', null, `
-        body { font-family: system-ui; max-width: 800px; margin: 0 auto; padding: 2rem; }
-        nav { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 1rem; }
-        nav a { color: #333; text-decoration: none; }
-        nav a:hover { text-decoration: underline; }
-        .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
-        .user-link { display: block; padding: 0.5rem 0; color: #0066cc; text-decoration: none; }
-        .user-link:hover { text-decoration: underline; }
-        .back-link { display: inline-block; margin-top: 1rem; color: #0066cc; text-decoration: none; }
-        .back-link:hover { text-decoration: underline; }
-      `),
       h('script', { type: 'module', src: '/assets/client.js' }),
     ),
-    h('body', null,
-      h('nav', null,
-        h(Link, { href: '/' }, 'Home'),
-        h(Link, { href: '/users' }, 'Users'),
-        h(Link, { href: '/admin/dashboard' }, 'Dashboard'),
-        h(Link, { href: '/api/hello' }, 'API'),
+    h('body', { className: 'font-sans max-w-3xl mx-auto p-8' },
+      h('nav', { className: 'flex gap-4 mb-8 border-b border-gray-200 pb-4' },
+        h(Link, { href: '/', className: 'text-gray-700 no-underline hover:underline' }, 'Home'),
+        h(Link, { href: '/users', className: 'text-gray-700 no-underline hover:underline' }, 'Users'),
+        h(Link, { href: '/admin/dashboard', className: 'text-gray-700 no-underline hover:underline' }, 'Dashboard'),
+        h(Link, { href: '/api/hello', className: 'text-gray-700 no-underline hover:underline' }, 'API'),
       ),
       h('div', { id: 'root' }, children),
     ),
@@ -77,6 +67,13 @@ const app = new Router()
 
 app.use(trace())
 app.use(logger())
+
+// Auto-compile CSS on-the-fly (Tailwind v4)
+app.use(tailwindDev({
+  entries: {
+    '/assets/tailwind.css': { entry: './styles/input.css' },
+  },
+}))
 
 // Auto-compile client bundles on-the-fly (no build step needed)
 app.use(esbuildDev({
