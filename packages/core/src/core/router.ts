@@ -562,6 +562,12 @@ export class Router<T extends Context = Context> {
           params['*'] = segments.slice(wildcardIdx).join('/')
           return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params }
         }
+        // Mount-point middleware: pathMws were collected from parent nodes,
+        // return them so they can run (e.g. app.use('/_ui', handler) should
+        // intercept all /_ui/* requests, not just ones that match a route).
+        if (pathMws.length > 0) {
+          return { handler: undefined, middlewares: [], pathMws, params }
+        }
         return null
       }
       node = next
@@ -592,6 +598,12 @@ export class Router<T extends Context = Context> {
         params,
         allowedMethods: [...node.handlers.keys()].filter((k) => k !== '*'),
       }
+    }
+
+    // Traversal completed at a node with pathMws but no handlers.
+    // Let pathMws run with a 404 fallback.
+    if (pathMws.length > 0) {
+      return { handler: undefined, middlewares: [], pathMws, params }
     }
 
     return null
@@ -629,6 +641,25 @@ export class Router<T extends Context = Context> {
         const mws = this.mergeMws(this.mergeMws(this.globalMws, pathMws), routeMws)
         try {
           return await this.runChain(mws, handler, req, ctx)
+        } catch (e) {
+          return this.handleError(e, req, ctx)
+        }
+      }
+
+      // Mount-point middleware match (no handler, only pathMws).
+      // Run the pathMws chain; if no middleware short-circuits, return 404.
+      if (match.pathMws.length > 0) {
+        const mws = this.mergeMws(this.globalMws, match.pathMws)
+        try {
+          return await this.runChain(mws, () => {
+            if (!isProd()) {
+              return Response.json(
+                { error: 'Not Found', path: '/' + segments.join('/'), method: req.method },
+                { status: 404 },
+              )
+            }
+            return new Response('Not Found', { status: 404 })
+          }, req, ctx)
         } catch (e) {
           return this.handleError(e, req, ctx)
         }
