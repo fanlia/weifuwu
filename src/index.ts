@@ -2,7 +2,6 @@ export type { Context, Handler, Middleware, ErrorHandler, WsContext, WebSocket }
 export { HttpError } from './types.ts'
 export { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from './core/trace.ts'
 export type { TraceContext, TraceInjected, TraceOptions } from './core/trace.ts'
-export { loadEnv, isDev, isProd, isBundled, getPublicEnv, env } from './core/env.ts'
 export { serve, DEFAULT_MAX_BODY } from './core/serve.ts'
 export type { ServeOptions, Server } from './core/serve.ts'
 export { Router } from './core/router.ts'

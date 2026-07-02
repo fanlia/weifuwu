@@ -1,8 +1,6 @@
-/* eslint-disable no-console */
 import { WebSocketServer } from 'ws'
 import type { Context, Handler, Middleware, MiddlewareMeta, ErrorHandler } from '../types.ts'
 import { createHub, type Hub } from '../hub.ts'
-import { isProd } from './env.ts'
 import {
   type WebSocketHandler,
   type WsUpgradeHandler,
@@ -100,6 +98,7 @@ function matchChild<T extends TrieNodeBase<T>>(
 }
 
 // ── Router ──────────────────────────────────────────────────────
+
 export class Router<T extends Context = Context> {
   private root = createTrieNode()
   private wsRoot = createWsNode()
@@ -227,9 +226,6 @@ export class Router<T extends Context = Context> {
     for (const segment of this.splitPath(path)) {
       if (segment === '*') {
         this._hasWildcard = true
-        if (this.splitPath(path).indexOf('*') < this.splitPath(path).length - 1) {
-          console.warn(`Route "${path}": segments after "*" are ignored`)
-        }
         node.wildcard = true
         node.handlers.set(method, handler)
         if (mws.length > 0) node.middlewares.set(method, mws)
@@ -238,8 +234,8 @@ export class Router<T extends Context = Context> {
       node = getOrCreateChild(node, segment, createTrieNode, false)
     }
 
-    if (!isProd() && node.handlers.has(method)) {
-      console.warn(`[router] route conflict: ${method} ${path} overwrites existing handler`)
+    if (node.handlers.has(method)) {
+      throw new Error(`[router] route conflict: ${method} ${path} already registered`)
     }
     node.handlers.set(method, handler)
     if (mws.length > 0) node.middlewares.set(method, mws)
@@ -260,14 +256,12 @@ export class Router<T extends Context = Context> {
       ? [mountMw]
       : [mountMw, ...extraMws, ...sub.globalMws]
 
-    // Collect and register HTTP routes
     const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
     this._collect(sub.root, '', routes)
     for (const { method, path, handler, middlewares } of routes) {
       this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
     }
 
-    // Collect and register WS routes
     const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
     this._collectWs(sub.wsRoot, '', wsRoutes)
     for (const { path, handler, middlewares } of wsRoutes) {
@@ -303,7 +297,6 @@ export class Router<T extends Context = Context> {
 
   private splitPath(path: string): string[] { return path.split('/').filter(Boolean) }
 
-  // Pretty-print route listing (for debugging)
   private _collectRoutes(node: TrieNode, prefix: string, result: string[]): void {
     for (const [method] of node.handlers) {
       const m = method === '*' ? 'ANY' : method
@@ -330,25 +323,19 @@ export class Router<T extends Context = Context> {
     }
   }
 
-  /** Two-pass trie matching: exact first, then wildcard fallback. */
   private matchTrie(method: string, segments: string[]): {
     kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
   } | null {
-    // Pass 1: exact + param matching
     let node = this.root
     const params: Record<string, string> = {}
     for (const seg of segments) {
       const next = matchChild(node, seg, params, false)
-      if (!next) {
-        // Try wildcard fallback
-        return this._wildcardMatch(method, segments)
-      }
+      if (!next) return this._wildcardMatch(method, segments)
       node = next
     }
     return this._resolveMatch(node, method, params, segments.length)
   }
 
-  /** Fallback: search for a wildcard ancestor. */
   private _wildcardMatch(method: string, segments: string[]): {
     kind: 'route'; handler: Handler; mws: Middleware[]; params: Record<string, string>
   } | null {
@@ -370,7 +357,6 @@ export class Router<T extends Context = Context> {
     return null
   }
 
-  /** Resolve a matched trie node → handler or 405. */
   private _resolveMatch(node: TrieNode, method: string, params: Record<string, string>, _segLen: number): {
     kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
   } | null {
@@ -415,7 +401,7 @@ export class Router<T extends Context = Context> {
         try { return await this.runChain([...this.globalMws, ...match.mws], match.handler, req, ctx) }
         catch (e) { return this.handleError(e, req, ctx) }
       }
-      // 405 — run global middleware, then return Method Not Allowed
+      // 405
       if (this.globalMws.length > 0) {
         try {
           return await this.runChain(this.globalMws, () => new Response('Method Not Allowed', {
@@ -428,22 +414,16 @@ export class Router<T extends Context = Context> {
     }
 
     // 404
+    const nf = () => Response.json({ error: 'Not Found', path: '/' + segments.join('/'), method: req.method }, { status: 404 })
     if (this.globalMws.length > 0) {
-      try { return await this.runChain(this.globalMws, () => this._notFound(req, segments), req, ctx) }
+      try { return await this.runChain(this.globalMws, nf, req, ctx) }
       catch (e) { return this.handleError(e, req, ctx) }
     }
-    return this._notFound(req, segments)
-  }
-
-  private _notFound(_req: Request, segments: string[]): Response {
-    return isProd()
-      ? new Response('Not Found', { status: 404 })
-      : Response.json({ error: 'Not Found', path: '/' + segments.join('/'), method: _req.method }, { status: 404 })
+    return nf()
   }
 
   private async handleError(e: unknown, req: Request, ctx: Context): Promise<Response> {
     const err = e instanceof Error ? e : new Error(String(e))
-    console.error(err)
     return this.errorHandler ? this.errorHandler(err, req, ctx as T) : new Response('Internal Server Error', { status: 500 })
   }
 
@@ -459,7 +439,7 @@ export class Router<T extends Context = Context> {
       const mw = mws[i++]
       let called = false
       const next: Handler = (r2, c2) => {
-        if (called) { console.warn('[router] next() called more than once — ignoring'); return Promise.resolve(new Response('', { status: 499 })) }
+        if (called) throw new Error('[router] next() called more than once in middleware')
         called = true
         return dispatch(r2, c2)
       }
@@ -478,11 +458,9 @@ export class Router<T extends Context = Context> {
     if (!meta) return
     for (const dep of meta.depends) {
       if (!this._ctxFields.has(dep)) {
-        console.warn(
-          `[weifuwu] Middleware at "${location}" depends on ctx.${dep} but it hasn't been registered yet.\n` +
-          `  Register the provider before this middleware:\n` +
-          `    app.use(${dep}())  // add before this middleware\n` +
-          `  Current ctx fields: [${[...this._ctxFields].join(', ')}]`)
+        throw new Error(
+          `[weifuwu] Middleware at "${location}" depends on ctx.${dep} but it hasn't been registered.\n` +
+          `  Register the provider before this middleware: app.use(${dep}())`)
       }
     }
     for (const field of meta.injects) this._ctxFields.add(field)
