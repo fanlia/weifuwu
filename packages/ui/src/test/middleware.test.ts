@@ -14,15 +14,15 @@ const distDir = join(__dirname, '..', '..', 'dist')
 import { weifuwuiAssets } from '../index.ts'
 
 describe('weifuwuiAssets()', () => {
-  it('should return a handler function', () => {
-    const handler = weifuwuiAssets()
-    assert.equal(typeof handler, 'function')
+  it('should return a Router', () => {
+    const router = weifuwuiAssets()
+    assert.ok(typeof router.handler === 'function', 'should have a handler() method')
   })
 
   it('should serve weifuwu-ui.js', async () => {
-    const handler = weifuwuiAssets()
-    const req = new Request('http://localhost/_ui/weifuwu-ui.js')
-    const res = await handler(req)
+    const h = weifuwuiAssets().handler()
+    const req = new Request('http://localhost/weifuwu-ui.js')
+    const res = await h(req, { params: {}, query: {} })
     assert.equal(res.status, 200)
     assert.equal(res.headers.get('content-type'), 'application/javascript')
     const body = await res.text()
@@ -30,9 +30,9 @@ describe('weifuwuiAssets()', () => {
   })
 
   it('should serve weifuwu-ui.css', async () => {
-    const handler = weifuwuiAssets()
-    const req = new Request('http://localhost/_ui/weifuwu-ui.css')
-    const res = await handler(req)
+    const h = weifuwuiAssets().handler()
+    const req = new Request('http://localhost/weifuwu-ui.css')
+    const res = await h(req, { params: {}, query: {} })
     assert.equal(res.status, 200)
     assert.equal(res.headers.get('content-type'), 'text/css')
     const body = await res.text()
@@ -40,25 +40,25 @@ describe('weifuwuiAssets()', () => {
   })
 
   it('should return 404 for unknown paths', async () => {
-    const handler = weifuwuiAssets()
-    const req = new Request('http://localhost/_ui/nonexistent.js')
-    const res = await handler(req)
+    const h = weifuwuiAssets().handler()
+    const req = new Request('http://localhost/nonexistent.js')
+    const res = await h(req, { params: {}, query: {} })
     assert.equal(res.status, 404)
   })
 
   it('should set cache headers', async () => {
-    const handler = weifuwuiAssets()
-    const req = new Request('http://localhost/_ui/weifuwu-ui.js')
-    const res = await handler(req)
+    const h = weifuwuiAssets().handler()
+    const req = new Request('http://localhost/weifuwu-ui.js')
+    const res = await h(req, { params: {}, query: {} })
     const cache = res.headers.get('cache-control')
     assert.ok(cache?.includes('public'))
     assert.ok(cache?.includes('max-age'))
   })
 
   it('should serve JS bundle that contains core API exports', async () => {
-    const handler = weifuwuiAssets()
-    const req = new Request('http://localhost/_ui/weifuwu-ui.js')
-    const res = await handler(req)
+    const h = weifuwuiAssets().handler()
+    const req = new Request('http://localhost/weifuwu-ui.js')
+    const res = await h(req, { params: {}, query: {} })
     const body = await res.text()
     // The IIFE bundle should contain the core APIs
     assert.ok(body.includes('ref') || body.includes('html') || body.includes('render'))

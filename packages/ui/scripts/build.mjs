@@ -19,7 +19,12 @@ await esbuild.build({
   format: 'esm',
   platform: 'node',
   bundle: true,
-  external: [],           // no runtime deps to externalize
+  external: [
+    '@weifuwujs/core',     // peer dependency
+    'node:fs/promises',
+    'node:path',
+    'node:url',
+  ],
 })
 
 // ── Client runtime (for browser, IIFE) ──
