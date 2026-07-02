@@ -11,13 +11,14 @@
  */
 
 import { hydrate, createClientRouter, defineRoute } from 'weifuwu/react/client'
-import { HomePage, UsersPage, UserDetailPage, ErrorDemoPage } from './components/pages.ts'
+import { HomePage, UsersPage, UserDetailPage, ErrorDemoPage, DashboardPage } from './components/pages.ts'
 
 // Type-safe route definitions — loader return types captured as $data
-const homeRoute   = defineRoute({ path: '/',             component: HomePage,         loader: () => Promise.resolve({}) })
-const usersRoute  = defineRoute({ path: '/users',        component: UsersPage,        loader: () => fetch('/users?_data').then(r => r.json()) })
-const userRoute   = defineRoute({ path: '/users/:id',    component: UserDetailPage,   loader: (p) => fetch(`/users/${p.id}?_data`).then(r => r.json()) })
-const errorRoute  = defineRoute({ path: '/error',        component: ErrorDemoPage,    loader: () => Promise.resolve({}) })
+const homeRoute      = defineRoute({ path: '/',                   component: HomePage,         loader: () => Promise.resolve({}) })
+const usersRoute     = defineRoute({ path: '/users',              component: UsersPage,        loader: () => fetch('/users?_data').then(r => r.json()) })
+const userRoute      = defineRoute({ path: '/users/:id',          component: UserDetailPage,   loader: (p) => fetch(`/users/${p.id}?_data`).then(r => r.json()) })
+const errorRoute     = defineRoute({ path: '/error',              component: ErrorDemoPage,    loader: () => Promise.resolve({}) })
+const dashboardRoute = defineRoute({ path: '/admin/dashboard',   component: DashboardPage,    loader: () => Promise.resolve({}) })
 
 // In components: useServerData<typeof usersRoute.$data>() → full auto-complete
 const router = createClientRouter([
@@ -25,6 +26,7 @@ const router = createClientRouter([
   usersRoute,
   userRoute,
   errorRoute,
+  dashboardRoute,
 ])
 
 hydrate(router.App)
