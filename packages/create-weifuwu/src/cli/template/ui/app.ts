@@ -78,7 +78,7 @@ app.get('/', (req, ctx) => {
 
     <script>
       document.addEventListener('DOMContentLoaded', () => {
-        const { ref, h, render, component, signal, bind, reactiveRender, weifuwu } = weifuwu
+        const w = weifuwu
 
         // ── Counter demo ──
         const count = ref(0)

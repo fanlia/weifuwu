@@ -149,7 +149,7 @@ async function generateUi(
 
   await writePackageJson(targetDir, name, version, typesNodeVersion, {
     dependencies: {
-      '@weifuwu/ui': '^0.28.0',
+      '@weifuwujs/ui': '^0.28.0',
     },
   })
 

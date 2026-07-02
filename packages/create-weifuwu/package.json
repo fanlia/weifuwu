@@ -1,8 +1,8 @@
 {
   "name": "create-weifuwu",
   "type": "module",
-  "version": "0.28.6",
-  "description": "Create a new weifuwu project — npm create weifuwu | npx create-weifuwu",
+  "version": "0.28.7",
+  "description": "Create a new weifuwu project \u2014 npm create weifuwu | npx create-weifuwu",
   "bin": {
     "create-weifuwu": "./dist/cli.js"
   },

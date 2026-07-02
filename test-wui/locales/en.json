@@ -1,0 +1,14 @@
+{
+  "welcome": "Welcome",
+  "title": "weifuwu UI",
+  "subtitle": "h() + Signal + CSS — no build step, full-stack reactive",
+  "home": "Home",
+  "about": "About",
+  "showcase": "CSS",
+  "aboutText": "weifuwu UI is built with h() + Signal — a minimal reactive UI layer for weifuwu. No build tools, no compilation. Runs directly in the browser.",
+  "theme": "Theme",
+  "locale": "Locale",
+  "lang": "中文",
+  "todoTitle": "Todo",
+  "todoPlaceholder": "Add a todo..."
+}
