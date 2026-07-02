@@ -232,9 +232,7 @@ export class TestApp {
         'No WebSocket routes registered. Use app.ws(path, handler) before calling wsReq().',
       )
     }
-    this.wsServer = serve(this.router.handler(), {
-      websocket: wsHandler,
-    })
+    this.wsServer = serve(this.router)
     await this.wsServer.ready
     return `http://localhost:${this.wsServer.port}`
   }

@@ -117,7 +117,7 @@ describe('serveStatic', () => {
 
   it('works with serve() end-to-end', async () => {
     const r = new Router().get('/static/*', serveStatic(tmpDir))
-    const server = serve(r.handler(), { port: 0 })
+    const server = serve(r, { port: 0 })
     await server.ready
     const res = await fetch(`http://localhost:${server.port}/static/hello.txt`)
     assert.equal(res.status, 200)

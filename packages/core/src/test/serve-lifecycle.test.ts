@@ -1,11 +1,16 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createTestServer } from '../core/serve.ts'
+import { Router } from '../core/router.ts'
+
+function r(handler: (req: Request, ctx: any) => Response | Promise<Response>) {
+  return new Router().all('/*', handler)
+}
 
 void describe('serve lifecycle', () => {
   void describe('createTestServer', () => {
     it('creates a test server and responds', async () => {
-      const { server, url } = await createTestServer(() => new Response('hello'))
+      const { server, url } = await createTestServer(r(() => new Response('hello')))
       assert.ok(url)
       assert.ok(server.port > 0)
 
@@ -17,7 +22,7 @@ void describe('serve lifecycle', () => {
     })
 
     it('supports port 0 for random port', async () => {
-      const { server } = await createTestServer(() => new Response('ok'), { port: 0 })
+      const { server } = await createTestServer(r(() => new Response('ok')), { port: 0 })
       assert.ok(server.port > 0)
       await server.stop()
     })
@@ -25,7 +30,7 @@ void describe('serve lifecycle', () => {
 
   void describe('server.stop()', () => {
     it('is idempotent — calling stop() twice does not error', async () => {
-      const { server } = await createTestServer(() => new Response('ok'))
+      const { server } = await createTestServer(r(() => new Response('ok')))
       await server.stop()
       await server.stop()
     })
@@ -34,10 +39,10 @@ void describe('serve lifecycle', () => {
   void describe('server options', () => {
     it('respects maxBodySize and parses body', async () => {
       const { server, url } = await createTestServer(
-        async (req) => {
+        r(async (req) => {
           const text = await req.text()
           return new Response(`got ${text.length} bytes`)
-        },
+        }),
         { maxBodySize: 100 },
       )
 
@@ -53,7 +58,7 @@ void describe('serve lifecycle', () => {
     })
 
     it('rejects oversized body with 413', async () => {
-      const { server, url } = await createTestServer(async () => new Response('ok'), {
+      const { server, url } = await createTestServer(r(async () => new Response('ok')), {
         maxBodySize: 10,
       })
 

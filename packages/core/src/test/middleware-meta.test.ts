@@ -50,7 +50,7 @@ describe('middleware __meta dependency checking', () => {
     }
   })
 
-  it('should warn for path-scoped middleware with missing dependency', () => {
+  it('should warn for global middleware with missing dependency', () => {
     const app = new Router()
     const warnings: string[] = []
 
@@ -63,7 +63,7 @@ describe('middleware __meta dependency checking', () => {
       const mw = ((req: Request, ctx: Context, next: any) => next(req, ctx)) as any
       mw.__meta = { injects: [], depends: ['sql'] }
 
-      app.use('/admin', mw)
+      app.use(mw)
 
       assert.ok(warnings.length > 0, 'should have warned about missing sql dependency')
     } finally {

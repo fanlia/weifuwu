@@ -1,6 +1,5 @@
 /* eslint-disable no-console */
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
-import type { Duplex } from 'node:stream'
 import { HttpError, type Context, type Handler } from '../types.ts'
 import { runWithTrace, currentTraceId } from './trace.ts'
 import { Router } from './router.ts'
@@ -9,7 +8,6 @@ export interface ServeOptions {
   port?: number
   hostname?: string
   signal?: AbortSignal
-  websocket?: (req: IncomingMessage, socket: Duplex, head: Buffer) => void
   /** Max request body size in bytes. Default: 10MB. Set to 0 for unlimited. */
   maxBodySize?: number
   /** Socket timeout in ms (inactivity). Default: 30_000. */
@@ -125,28 +123,17 @@ export async function sendResponse(
 }
 
 export async function createTestServer(
-  handler: Handler,
+  router: Router,
   options?: ServeOptions,
 ): Promise<{ server: Server; url: string }> {
-  const server = serve(handler, { ...options, port: options?.port ?? 0, shutdown: false })
+  const server = serve(router, { ...options, port: options?.port ?? 0, shutdown: false })
   await server.ready
   return { server, url: `http://localhost:${server.port}` }
 }
 
-export function serve(handler: Handler, options?: ServeOptions): Server
-export function serve(router: Router, options?: ServeOptions): Server
-export function serve(
-  handlerOrRouter: Handler | Router,
-  options?: ServeOptions,
-): Server {
-  // If given a Router, auto-connect both HTTP and WebSocket handlers
-  if (handlerOrRouter instanceof Router) {
-    const router = handlerOrRouter
-    const ws = options?.websocket ?? router.websocketHandler()
-    return serve(router.handler(), { ...options, websocket: ws })
-  }
-
-  const handler = handlerOrRouter
+export function serve(router: Router, options?: ServeOptions): Server {
+  const ws = router.websocketHandler()
+  const handler = router.handler()
   const port = options?.port ?? 0
   const hostname = options?.hostname ?? '0.0.0.0'
 
@@ -182,9 +169,7 @@ export function serve(
   server.keepAliveTimeout = options?.keepAliveTimeout ?? 5_000
   server.headersTimeout = options?.headersTimeout ?? 6_000
 
-  if (options?.websocket) {
-    server.on('upgrade', options.websocket)
-  }
+  server.on('upgrade', ws)
 
   let resolveReady!: () => void
   const ready = new Promise<void>((r) => {

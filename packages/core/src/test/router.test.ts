@@ -762,7 +762,7 @@ describe('Router sub-router', () => {
 describe('Router.ws', () => {
   it('echos messages', async () => {
     const router = new Router().ws('/echo', wsEcho('echo:'))
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/echo`)
@@ -783,7 +783,7 @@ describe('Router.ws', () => {
         ws.send(ctx.params.room!)
       },
     })
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/chat/lobby`)
@@ -811,7 +811,7 @@ describe('Router.ws', () => {
         },
       },
     )
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/secure`)
@@ -834,7 +834,7 @@ describe('Router.ws', () => {
         ws.send('wildcard')
       },
     })
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/chat/room123`)
@@ -851,7 +851,7 @@ describe('Router.ws', () => {
   it('sub-router ws route works after merge', async () => {
     const sub = new Router().ws('/echo', wsEcho('sub:'))
     const main = new Router().mount('/ws', sub)
-    const server = serve(main.handler(), { port: 0, websocket: main.websocketHandler() })
+    const server = serve(main, { port: 0 })
     await server.ready
     const ws = new WebSocket(`ws://localhost:${server.port}/ws/echo`)
     const msg = await new Promise<string>((resolve) => {
@@ -876,7 +876,7 @@ describe('Router.ws', () => {
         },
       })
 
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/chat`)
@@ -893,7 +893,7 @@ describe('Router.ws', () => {
   it('global middleware can reject WS upgrade', async () => {
     const router = new Router().use(() => new Response(null, { status: 403 })).ws('/chat', wsEcho())
 
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/chat`)
@@ -922,7 +922,7 @@ describe('Router.ws', () => {
       },
     )
     const main = new Router().mount('/sub', sub)
-    const server = serve(main.handler(), { port: 0, websocket: main.websocketHandler() })
+    const server = serve(main, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/sub/chat`)
@@ -941,7 +941,7 @@ describe('Router.ws', () => {
       .ws('/chat', () => new Response(null, { status: 403 }), wsEcho('auth:'))
       .ws('/chat', wsEcho('open:'))
 
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/chat`)
@@ -969,7 +969,7 @@ describe('Router.ws', () => {
         },
       })
 
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/chat`)
@@ -998,7 +998,7 @@ describe('Router.ws', () => {
       })
 
     const main = new Router().mount('/sub', sub)
-    const server = serve(main.handler(), { port: 0, websocket: main.websocketHandler() })
+    const server = serve(main, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/sub/chat`)
@@ -1014,7 +1014,7 @@ describe('Router.ws', () => {
 
   it('ws unmatched path destroys socket', async () => {
     const router = new Router().ws('/chat', { message() {} })
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/nonexistent`)
@@ -1041,7 +1041,7 @@ describe('Router.ws', () => {
         closeReason = 'client-gone'
       },
     })
-    const server = serve(router.handler(), { port: 0, websocket: router.websocketHandler() })
+    const server = serve(router, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://localhost:${server.port}/chat`)
@@ -1075,7 +1075,7 @@ describe('Router.ws', () => {
         erred = true
       },
     })
-    const server = serve(r.handler(), { port: 0, websocket: r.websocketHandler() })
+    const server = serve(r, { port: 0 })
     await server.ready
 
     const ws = new WebSocket(`ws://127.0.0.1:${server.port}/chat`)

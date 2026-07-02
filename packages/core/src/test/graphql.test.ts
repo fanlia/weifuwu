@@ -169,9 +169,9 @@ describe('graphql http', () => {
   it('handles GET query via HTTP', async () => {
     const r = new Router()
     const m = graphql(gqlHandler())
-    r.use('/graphql', m)
+    r.mount('/graphql', m)
 
-    const { server, url } = await createTestServer(r.handler())
+    const { server, url } = await createTestServer(r)
     const res = await fetch(`${url}/graphql?query={hello}`)
     assert.equal(res.status, 200)
     const data = (await res.json()) as Record<string, unknown>
@@ -182,9 +182,9 @@ describe('graphql http', () => {
   it('handles POST query via HTTP', async () => {
     const r = new Router()
     const m = graphql(gqlHandler())
-    r.use('/graphql', m)
+    r.mount('/graphql', m)
 
-    const { server, url } = await createTestServer(r.handler())
+    const { server, url } = await createTestServer(r)
     const res = await fetch(`${url}/graphql`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -199,9 +199,9 @@ describe('graphql http', () => {
   it('returns GraphiQL HTML on GET without query via HTTP', async () => {
     const r = new Router()
     const m = graphql(gqlHandler({ graphiql: true }))
-    r.use('/graphql', m)
+    r.mount('/graphql', m)
 
-    const { server, url } = await createTestServer(r.handler())
+    const { server, url } = await createTestServer(r)
     const res = await fetch(`${url}/graphql`)
     assert.equal(res.status, 200)
     const text = await res.text()
