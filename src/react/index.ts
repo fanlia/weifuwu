@@ -1,7 +1,7 @@
 import { Fragment, createElement, type ReactElement, type ComponentType, type ReactNode } from 'react'
 import type { Context } from '../types.ts'
 import type { ReactOptions, RenderOptions, ReactMiddleware } from './types.ts'
-import { render, renderStream } from './render.ts'
+import { render as renderImpl } from './render.ts'
 import { loadTsxComponent } from './compile.ts'
 
 const LAYOUTS_KEY = Symbol.for('weifuwu:react:layouts')
@@ -47,7 +47,7 @@ async function resolveElement(
 /**
  * React SSR middleware.
  *
- * Injects ctx.render() and ctx.renderStream() for server-side rendering.
+ * Injects ctx.render() for server-side rendering.
  * Both accept ReactElements or file paths to .tsx/.ts components.
  *
  * Layouts accumulate: each react() call via Router.mount() adds one layout.
@@ -74,27 +74,20 @@ export function react(opts: ReactOptions = {}): ReactMiddleware {
     b[LAYOUTS_KEY] = specs
     specs.push(layoutSpec)
 
-    // Set up ctx.render / ctx.renderStream once (first react() call wins)
+    // Set up ctx.render once (first react() call wins)
     if (!b[SETUP_KEY]) {
       b[SETUP_KEY] = true
 
-      ctx.render = async (element: ReactElement | string, renderOpts?: RenderOptions) => {
+      const doRender = async (element: ReactElement | string, renderOpts?: RenderOptions) => {
         if (renderOpts?.data && isDataRequest(req)) {
           return Response.json(renderOpts.data)
         }
         const el = await resolveElement(element, renderOpts?.props)
         const layouts = await Promise.all(specs.map(resolveLayout))
-        return render(el, layouts, renderOpts)
+        return renderImpl(el, layouts, renderOpts)
       }
 
-      ctx.renderStream = async (element: ReactElement | string, renderOpts?: RenderOptions) => {
-        if (renderOpts?.data && isDataRequest(req)) {
-          return Response.json(renderOpts.data)
-        }
-        const el = await resolveElement(element, renderOpts?.props)
-        const layouts = await Promise.all(specs.map(resolveLayout))
-        return renderStream(el, layouts, renderOpts)
-      }
+      ctx.render = doRender
     }
 
     return next(req, ctx)

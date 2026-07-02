@@ -1,6 +1,10 @@
 import { Link } from 'weifuwu/react/navigation'
+import { useServerData } from 'weifuwu/react'
 
 export function RootLayout({ children }: { children: React.ReactNode }) {
+  const data = useServerData()
+  const hasData = Object.keys(data).length > 0
+
   return (
     <html lang="zh">
       <head>
@@ -38,6 +42,13 @@ export function RootLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </nav>
         <div id="root">{children}</div>
+        {hasData && (
+          <script
+            id="__WEIFUWU_DATA__"
+            type="application/json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, '\\u003c') }}
+          />
+        )}
       </body>
     </html>
   )

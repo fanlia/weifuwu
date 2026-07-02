@@ -58,21 +58,19 @@ app.use(react({ layout: './components/Layout.tsx' }))
 
 // ── Routes ─────────────────────────────────────────────────
 
-app.get('/', (_req, ctx) => ctx.render('./components/HomePage.tsx', {
-  head: { title: 'weifuwu React SSR', meta: { description: 'Full-stack framework with React SSR' } },
-}))
+app.get('/', (_req, ctx) => ctx.render('./components/HomePage.tsx'))
 
 app.post('/users', async (req, ctx) => {
   const formData = await req.formData()
-  const name = formData.get('name') as string
-  const email = formData.get('email') as string
+  const name = String(formData.get('name') ?? '')
+  const email = String(formData.get('email') ?? '')
   const id = MOCK_USERS.length + 1
   MOCK_USERS.push({ id, name, email, bio: '' })
   return new Response(null, { status: 302, headers: { Location: '/users' } })
 })
 
 app.get('/users', async (_req, ctx) => {
-  return ctx.render('./components/UsersPage.tsx', { head: { title: 'Users' }, data: { users: MOCK_USERS } })
+  return ctx.render('./components/UsersPage.tsx', { data: { users: MOCK_USERS } })
 })
 
 app.get('/users/:id', async (req, ctx) => {
@@ -83,18 +81,16 @@ app.get('/users/:id', async (req, ctx) => {
       props: { path: `/users/${ctx.params.id}` },
     })
   }
-  return ctx.render('./components/UserDetailPage.tsx', { head: { title: `${user.name} - Users` }, data: { user } })
+  return ctx.render('./components/UserDetailPage.tsx', { data: { user } })
 })
 
-app.get('/error', (_req, ctx) => ctx.render('./components/ErrorDemoPage.tsx', {
-  head: { title: 'ErrorBoundary Demo' },
-}))
+app.get('/error', (_req, ctx) => ctx.render('./components/ErrorDemoPage.tsx'))
 
 // ── Admin area (nested layout via mount) ───────────────────
 
 const admin = new Router()
 admin.get('/dashboard', async (_req, ctx) => {
-  return ctx.renderStream('./components/DashboardPage.tsx')
+  return ctx.render('./components/DashboardPage.tsx')
 })
 app.mount('/admin', admin)
 
