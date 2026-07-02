@@ -98,19 +98,12 @@ app.get('/', (_req, ctx) => ctx.render(h(HomePage), {
   head: { title: 'weifuwu React SSR', meta: { description: 'Full-stack framework with React SSR' } },
 }))
 
-app.get('/users', async (req, ctx) => {
-  if (new URL(req.url).searchParams.has('_data')) {
-    return Response.json({ users: MOCK_USERS })
-  }
+app.get('/users', async (_req, ctx) => {
   return ctx.render(h(UsersPage), { head: { title: 'Users' }, data: { users: MOCK_USERS } })
 })
 
 app.get('/users/:id', async (req, ctx) => {
   const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
-  if (new URL(req.url).searchParams.has('_data')) {
-    if (!user) return Response.json({ error: 'Not found' }, { status: 404 })
-    return Response.json({ user })
-  }
   if (!user) {
     return ctx.render(h(NotFoundPage, { path: `/users/${ctx.params.id}` }), { status: 404 })
   }

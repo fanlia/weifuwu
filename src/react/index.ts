@@ -5,12 +5,22 @@ import { render, renderStream } from './render.ts'
 
 const LAYOUTS_KEY = Symbol.for('weifuwu:react:layouts')
 const SETUP_KEY = Symbol.for('weifuwu:react:setup')
+const REQ_KEY = Symbol.for('weifuwu:react:req')
 
 /** Internal property bag stored on ctx via Symbol keys. */
 type InternalBag = Record<string | symbol, unknown>
 
 function bag(ctx: Context): InternalBag {
   return ctx as unknown as InternalBag
+}
+
+/** Check if the request is a client-side data fetch (?_data query param). */
+function isDataRequest(req: Request): boolean {
+  try {
+    return new URL(req.url).searchParams.has('_data')
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -48,11 +58,20 @@ export function react(opts: ReactOptions = {}): ReactMiddleware {
     if (!b[SETUP_KEY]) {
       b[SETUP_KEY] = true
 
-      ctx.render = (element: ReactElement, renderOpts?: RenderOptions) =>
-        Promise.resolve(render(element, layouts, renderOpts))
+      ctx.render = (element: ReactElement, renderOpts?: RenderOptions) => {
+        // Auto ?_data: return JSON instead of HTML for SPA navigation
+        if (renderOpts?.data && isDataRequest(req)) {
+          return Promise.resolve(Response.json(renderOpts.data))
+        }
+        return Promise.resolve(render(element, layouts, renderOpts))
+      }
 
-      ctx.renderStream = (element: ReactElement, renderOpts?: RenderOptions) =>
-        renderStream(element, layouts, renderOpts)
+      ctx.renderStream = (element: ReactElement, renderOpts?: RenderOptions) => {
+        if (renderOpts?.data && isDataRequest(req)) {
+          return Promise.resolve(Response.json(renderOpts.data))
+        }
+        return renderStream(element, layouts, renderOpts)
+      }
     }
 
     return next(req, ctx)
