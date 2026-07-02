@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: demo
+  redis:
+    image: redis
+    ports:
+      - '6379:6379'
