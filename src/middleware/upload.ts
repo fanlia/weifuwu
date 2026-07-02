@@ -102,7 +102,7 @@ export function upload(
     if (!ct.includes('multipart/form-data')) return next(req, ctx)
     try {
       if (saveDir) await mkdir(saveDir, { recursive: true })
-    } catch (e) {
+    } catch {
       return Response.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
