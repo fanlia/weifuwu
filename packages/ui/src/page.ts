@@ -18,6 +18,7 @@ import { serialize, type VNode } from './vnode.ts'
 
 export interface PageContext {
   [key: string]: unknown
+  head?: Record<string, string>
 }
 
 export function page(
@@ -28,12 +29,27 @@ export function page(
     const bodyHtml = serialize(tree)
     const dataBridge = extractDataBridge(tree)
 
+    // Store for shell middleware
+    ctx._wuiBody = bodyHtml
+    ctx._wuiBridge = dataBridge
+    ctx._wuiHead = (ctx as Record<string, unknown>).head || ctx._wuiHead || {}
+
+    // If shell middleware is active, return minimal content
+    if (ctx._wuiShell) {
+      return new Response(bodyHtml, {
+        headers: { 'content-type': 'text/plain' },
+      })
+    }
+
+    const head = ctx._wuiHead as Record<string, string> || {}
+    const title = head.title || 'weifuwu'
+
     const pageHtml = `<!DOCTYPE html>
 <html lang="en" data-theme="system">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>weifuwu</title>
+  <title>${escapeHtml(title)}</title>
   <link rel="stylesheet" href="/_ui/weifuwu-ui.css"/>
   <script id="__wui-data" type="application/json">${JSON.stringify(dataBridge)}</script>
 </head>
@@ -47,6 +63,10 @@ export function page(
       headers: { 'content-type': 'text/html; charset=utf-8' },
     })
   }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 interface DataBridge {
