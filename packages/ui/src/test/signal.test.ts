@@ -159,7 +159,7 @@ describe('effect', () => {
     const r = ref(0)
     const cleanups: string[] = []
     effect(() => {
-      r.value // track
+      void r.value // track
       return () => cleanups.push('cleanup')
     })
     assert.equal(cleanups.length, 0)
