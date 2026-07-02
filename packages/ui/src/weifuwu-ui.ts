@@ -10,7 +10,8 @@
  */
 
 import { ref, computed, effect, Signal, Computed } from './signal.ts'
-import { h } from './h.ts'
+import { h, text, fragment, triggerMount } from './h.ts'
+import { bind } from './bind.ts'
 import { render, reactiveRender } from './render.ts'
 
 // ── Server data bridge ──
@@ -110,7 +111,8 @@ export const modal = {
 
 // Export all
 export { ref, computed, effect, Signal, Computed }
-export { h }
+export { h, text, fragment, triggerMount }
+export { bind }
 export { render, reactiveRender }
 
 // Auto-apply theme on load

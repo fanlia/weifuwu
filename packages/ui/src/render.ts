@@ -2,47 +2,50 @@
  * render() — mount reactive templates to the DOM.
  *
  * Usage:
- *   render(document.getElementById('app'), () => html`<h1>${title}</h1>`)
+ *   render(document.getElementById('app'), () => h('h1', null, title))
+ *   reactiveRender(document.getElementById('app'), () => h('span', null, count))
  */
 
 import { effect } from './signal.ts'
+import { triggerMount } from './h.ts'
 
 /**
- * Render a reactive template into a container.
+ * Render a template function into a container (one-shot).
+ * Invokes onmount callbacks after DOM insertion.
  *
  * @param container - DOM element to render into
- * @param template - Function returning html() Node or Node[]
+ * @param template - Function returning a Node (h() result)
+ * @returns Cleanup function that empties the container
  */
 export function render(
   container: HTMLElement,
-  template: () => Node | Node[],
+  template: () => Node,
 ): () => void {
-  // Initial render
   const result = template()
 
+  container.innerHTML = ''
   if (result instanceof Node) {
-    container.innerHTML = ''
     container.appendChild(result)
-  } else if (Array.isArray(result)) {
-    container.innerHTML = ''
-    for (const node of result) {
-      container.appendChild(node)
-    }
   }
 
-  // Return cleanup
+  // Trigger onmount callbacks
+  if (result instanceof HTMLElement || result instanceof DocumentFragment) {
+    triggerMount(result)
+  }
+
   return () => {
     container.innerHTML = ''
   }
 }
 
 /**
- * Reactive render — re-renders when signals change.
- * Returns a cleanup function.
+ * Reactive render — re-renders the template when any Signal/Computed
+ * inside the template function changes. Invokes onmount after each render.
+ * Returns a cleanup function that stops updates.
  */
 export function reactiveRender(
   container: HTMLElement,
-  template: () => Node | Node[],
+  template: () => Node,
 ): () => void {
   const dispose = effect(() => {
     const result = template()
@@ -50,10 +53,10 @@ export function reactiveRender(
     container.innerHTML = ''
     if (result instanceof Node) {
       container.appendChild(result)
-    } else if (Array.isArray(result)) {
-      for (const node of result) {
-        container.appendChild(node)
-      }
+    }
+
+    if (result instanceof HTMLElement || result instanceof DocumentFragment) {
+      triggerMount(result)
     }
   })
 

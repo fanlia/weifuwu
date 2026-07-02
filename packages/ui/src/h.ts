@@ -15,6 +15,9 @@
  */
 import { Signal, Computed } from './signal.ts'
 
+// Lifecycle: mount callbacks registered via h(el, { onmount: fn })
+const mountCallbacks = new WeakMap<HTMLElement, (el: HTMLElement) => void>()
+
 export interface HAttrs {
   [key: string]: unknown
 }
@@ -26,6 +29,7 @@ export type HChild = Node | string | number | boolean | null | undefined | Signa
  *
  * Attribute conventions:
  * - `onclick`, `oninput`, etc. → addEventListener
+ * - `onmount` → lifecycle callback (called after DOM insertion)
  * - `class` or `className` → setAttribute('class', ...)
  * - boolean values → setAttribute / removeAttribute
  * - Signal/Computed values → reactive binding
@@ -48,7 +52,13 @@ export function h(
     for (const [key, value] of Object.entries(attrs)) {
       if (value == null) continue
 
-      // Event listeners: onclick, oninput, onkeydown, etc.
+      // Lifecycle: onmount — not an event listener, stored for later invocation
+      if (key === 'onmount' && typeof value === 'function') {
+        mountCallbacks.set(el, value as (el: HTMLElement) => void)
+        continue
+      }
+
+      // Event listeners: onclick, oninput, onkeydown, onchange, etc.
       if (key.startsWith('on') && typeof value === 'function') {
         el.addEventListener(key.slice(2).toLowerCase(), value as EventListener)
         continue
@@ -148,4 +158,19 @@ export function fragment(...children: HChild[]): DocumentFragment {
     appendChild(frag as unknown as HTMLElement, child)
   }
   return frag
+}
+
+/**
+ * Walk the tree and invoke onmount callbacks registered via h(el, { onmount: fn }).
+ * Called by render() / reactiveRender() after DOM insertion.
+ */
+export function triggerMount(el: HTMLElement | DocumentFragment): void {
+  const cb = mountCallbacks.get(el as HTMLElement)
+  if (cb) cb(el as HTMLElement)
+  for (let i = 0; i < el.childNodes.length; i++) {
+    const child = el.childNodes[i]
+    if (child instanceof HTMLElement || child instanceof DocumentFragment) {
+      triggerMount(child)
+    }
+  }
 }

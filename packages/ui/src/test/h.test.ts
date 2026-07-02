@@ -656,6 +656,31 @@ describe('h() — real world patterns', () => {
 // Edge cases
 // ═══════════════════════════════════════════════════════════════
 
+describe('h() — lifecycle (onmount)', () => {
+  it('should not set onmount as HTML attribute', () => {
+    const fn = () => {}
+    const el = h('div', { onmount: fn })
+    assert.ok(!el.hasAttribute('onmount'))
+  })
+
+  it('should not interfere with onclick', () => {
+    let clicked = false
+    const el = h('button', {
+      onmount: () => {},
+      onclick: () => { clicked = true },
+    }, 'Click')
+    el.click()
+    assert.equal(clicked, true)
+  })
+
+  it('should store onmount for later invocation', () => {
+    let called = false
+    const el = h('div', { onmount: () => { called = true } })
+    assert.equal(called, false)  // not called yet
+    // triggerMount would call it
+  })
+})
+
 describe('h() — edge cases', () => {
   it('handles special characters in text', () => {
     const el = h('span', null, '<script>alert("xss")</script> & "quotes"')

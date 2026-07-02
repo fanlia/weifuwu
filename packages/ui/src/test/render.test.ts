@@ -85,4 +85,39 @@ describe('reactiveRender()', () => {
     container.querySelector('button')!.click()
     assert.equal(container.textContent.trim(), '1')
   })
+
+  it('should invoke onmount after render', () => {
+    const container = dom.window.document.createElement('div')
+    let mounted = false
+    render(container, () =>
+      h('div', { onmount: () => { mounted = true } }, 'content')
+    )
+    assert.equal(mounted, true)
+  })
+
+  it('should invoke onmount on nested elements', () => {
+    const container = dom.window.document.createElement('div')
+    const calls: string[] = []
+    render(container, () =>
+      h('div', null,
+        h('span', { onmount: () => calls.push('span') }, 'a'),
+        h('p', { onmount: () => calls.push('p') }, 'b'),
+      )
+    )
+    assert.deepEqual(calls, ['span', 'p'])
+  })
+
+  it('should invoke onmount on each reactiveRender', () => {
+    const container = dom.window.document.createElement('div')
+    let mountCount = 0
+    const show = ref(true)
+    reactiveRender(container, () =>
+      h('div', { onmount: () => mountCount++ },
+        show.value ? 'visible' : 'hidden'
+      )
+    )
+    assert.equal(mountCount, 1)
+    show.value = false
+    assert.equal(mountCount, 2)  // re-rendered, onmount called again
+  })
 })
