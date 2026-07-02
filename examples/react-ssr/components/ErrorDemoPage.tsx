@@ -21,9 +21,10 @@ export function ErrorDemoPage() {
           When UserProfile throws (client-side), ErrorFallback renders instead.
         </p>
         <p className="mt-2 text-gray-700">
-          <strong>SSR:</strong> React server renderers propagate errors upward. Use{' '}
-          <code className="bg-gray-100 px-1 rounded">app.onError()</code> for server-side error
-          pages, ErrorBoundary for client-side isolation.
+          <strong>SSR:</strong>
+          {' React server renderers propagate errors upward. Use '}
+          <code className="bg-gray-100 px-1 rounded">app.onError()</code>
+          {' for server-side error pages, ErrorBoundary for client-side isolation.'}
         </p>
       </div>
 

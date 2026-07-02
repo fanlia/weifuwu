@@ -53,7 +53,7 @@ export function UsersPage() {
         ) : (
           users.map(u => (
             <Link key={u.id} href={`/users/${u.id}`} className="block py-1 text-blue-600 no-underline hover:underline">
-              {u.name} — {u.email}
+              {`${u.name} — ${u.email}`}
             </Link>
           ))
         )}

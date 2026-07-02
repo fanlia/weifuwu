@@ -3,10 +3,16 @@ import type { Context, Middleware } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {
-    /** Server-render a React element to HTML (renderToString). */
-    render(element: ReactElement, opts?: RenderOptions): Promise<Response>
-    /** Streaming server-render a React element to HTML (renderToReadableStream). */
-    renderStream(element: ReactElement, opts?: RenderOptions): Promise<Response>
+    /**
+     * Server-render a React component to HTML.
+     * Accepts either a ReactElement or a path to a .tsx/.ts component file.
+     */
+    render(element: ReactElement | string, opts?: RenderOptions): Promise<Response>
+    /**
+     * Streaming server-render a React component to HTML.
+     * Accepts either a ReactElement or a path to a .tsx/.ts component file.
+     */
+    renderStream(element: ReactElement | string, opts?: RenderOptions): Promise<Response>
   }
 }
 
@@ -24,6 +30,8 @@ export interface HeadOptions {
 export interface RenderOptions {
   /** Data serialized to client — available via useServerData(). */
   data?: Record<string, unknown>
+  /** Props passed to the component (only used when render() receives a string path). */
+  props?: Record<string, unknown>
   /** Head tags to inject into <head>. Supported in render() and renderStream(). */
   head?: HeadOptions
   status?: number
@@ -31,13 +39,17 @@ export interface RenderOptions {
 }
 
 export interface ReactOptions {
-  /** Layout component wrapping rendered content. Multiple react() calls via mount accumulate layouts from inner → outer. */
-  layout?: ComponentType<{ children: ReactNode }>
+  /**
+   * Layout component wrapping rendered content.
+   * Accepts a React component or a path to a .tsx/.ts file.
+   * Multiple react() calls via mount accumulate layouts from inner → outer.
+   */
+  layout?: ComponentType<{ children: ReactNode }> | string
 }
 
 export interface ReactInjected {
-  render: (element: ReactElement, opts?: RenderOptions) => Promise<Response>
-  renderStream: (element: ReactElement, opts?: RenderOptions) => Promise<Response>
+  render: (element: ReactElement | string, opts?: RenderOptions) => Promise<Response>
+  renderStream: (element: ReactElement | string, opts?: RenderOptions) => Promise<Response>
 }
 
 export type ReactMiddleware = Middleware<Context, Context & ReactInjected>

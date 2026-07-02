@@ -23,7 +23,7 @@ import {
   type ComponentType,
   type ReactElement,
 } from 'react'
-import { hydrateRoot } from 'react-dom/client'
+import { hydrateRoot, createRoot } from 'react-dom/client'
 import { ServerDataContext } from './context.ts'
 import {
   RouterContext,
@@ -45,7 +45,8 @@ export interface HydrateOptions {
 
 export interface ClientRoute {
   path: string
-  component: ComponentType
+  /** Component function or a file path string (resolved via componentRegistry). */
+  component: ComponentType | string
   loader?: (params: Record<string, string>) => Promise<Record<string, unknown>>
 }
 
@@ -62,6 +63,26 @@ export type { LinkProps, FormProps, NavigationState } from './navigation.ts'
 export { ErrorBoundary } from './error-boundary.ts'
 export type { ErrorBoundaryProps } from './error-boundary.ts'
 export { defineRoute } from './route-utils.ts'
+
+// ═══════════════════════════════════════════════════════════════
+// Component registry — maps string paths to component functions
+// ═══════════════════════════════════════════════════════════════
+
+const registry = new Map<string, ComponentType>()
+
+/** Register a component for string-based route resolution. */
+export function registerComponent(path: string, component: ComponentType): void {
+  registry.set(path, component)
+}
+
+function resolveComponent(spec: ComponentType | string): ComponentType {
+  if (typeof spec === 'string') {
+    const c = registry.get(spec)
+    if (!c) throw new Error(`Component not registered: "${spec}". Use registerComponent() first.`)
+    return c
+  }
+  return spec
+}
 
 // ═══════════════════════════════════════════════════════════════
 // Read server-injected data
@@ -197,8 +218,9 @@ export function createClientRouter(routes: ClientRoute[]): ClientRouter {
       state: navState,
     }
 
-    const content = match
-      ? createElement(match.route.component)
+    const component = match ? resolveComponent(match.route.component) : null
+    const content = component
+      ? createElement(component)
       : createElement('div', null, 'Page not found')
 
     return createElement(
@@ -240,6 +262,30 @@ export function hydrate(App: ComponentType, opts?: HydrateOptions) {
 
   hydrateRoot(
     container,
+    createElement(
+      ServerDataContext.Provider,
+      { value: serverData },
+      createElement(App),
+    ),
+  )
+}
+
+/**
+ * Client-side render (no hydration).
+ * Replaces the server-rendered content with a fresh React render.
+ * Use this if you prefer SPA-style rendering over SSR hydration.
+ */
+export function mount(App: ComponentType, opts?: HydrateOptions) {
+  const container = opts?.container ?? document.getElementById('root')
+  if (!container) {
+    throw new Error(
+      'weifuwu/react: mount() — no container element found.',
+    )
+  }
+
+  const serverData = readInitialData()
+  const root = createRoot(container)
+  root.render(
     createElement(
       ServerDataContext.Provider,
       { value: serverData },

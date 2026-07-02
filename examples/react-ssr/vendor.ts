@@ -11,4 +11,4 @@ export {
   Fragment,
 } from 'react'
 export { jsx, jsxs } from 'react/jsx-runtime'
-export { hydrateRoot } from 'react-dom/client'
+export { hydrateRoot, createRoot } from 'react-dom/client'

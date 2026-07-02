@@ -1,11 +1,11 @@
-import { Fragment, type ReactElement, type ComponentType, type ReactNode } from 'react'
+import { Fragment, createElement, type ReactElement, type ComponentType, type ReactNode } from 'react'
 import type { Context } from '../types.ts'
 import type { ReactOptions, RenderOptions, ReactMiddleware } from './types.ts'
 import { render, renderStream } from './render.ts'
+import { loadTsxComponent } from './compile.ts'
 
 const LAYOUTS_KEY = Symbol.for('weifuwu:react:layouts')
 const SETUP_KEY = Symbol.for('weifuwu:react:setup')
-const REQ_KEY = Symbol.for('weifuwu:react:req')
 
 /** Internal property bag stored on ctx via Symbol keys. */
 type InternalBag = Record<string | symbol, unknown>
@@ -23,54 +23,77 @@ function isDataRequest(req: Request): boolean {
   }
 }
 
+type LayoutSpec = ComponentType<{ children: ReactNode }> | string
+
+async function resolveLayout(spec: LayoutSpec): Promise<ComponentType<{ children: ReactNode }>> {
+  if (typeof spec === 'string') return loadTsxComponent(spec)
+  return spec
+}
+
+async function resolveElement(
+  value: ReactElement | string,
+  props?: Record<string, unknown>,
+): Promise<ReactElement> {
+  if (typeof value === 'string') {
+    const component = await loadTsxComponent(value)
+    if (props && Object.keys(props).length > 0) {
+      return createElement(component, props)
+    }
+    return createElement(component)
+  }
+  return value
+}
+
 /**
  * React SSR middleware.
  *
- * Injects ctx.render() and ctx.renderStream() for server-side rendering
- * React components to HTML. Supports layout composition via mount nesting.
+ * Injects ctx.render() and ctx.renderStream() for server-side rendering.
+ * Both accept ReactElements or file paths to .tsx/.ts components.
+ *
+ * Layouts accumulate: each react() call via Router.mount() adds one layout.
  *
  * @example
  * ```ts
- * app.use(react({
- *   layout: ({ children }) => (
- *     <html><body><div id="root">{children}</div></body></html>
- *   ),
- * }))
+ * app.use(react({ layout: './components/Layout.tsx' }))
  *
  * app.get('/', async (req, ctx) => {
- *   return ctx.render(<Home />, { data: { title: 'Home' } })
+ *   return ctx.render('./components/HomePage.tsx', {
+ *     data: { title: 'Home' },
+ *   })
  * })
  * ```
  */
 export function react(opts: ReactOptions = {}): ReactMiddleware {
-  const layout: ComponentType<{ children: ReactNode }> = opts.layout ?? Fragment
+  const layoutSpec: LayoutSpec = opts.layout ?? Fragment
 
   const mw: ReactMiddleware = (req, ctx, next) => {
     const b = bag(ctx)
 
-    // Accumulate layouts for each nesting level
-    const layouts: ComponentType<{ children: ReactNode }>[] =
-      (b[LAYOUTS_KEY] as ComponentType<{ children: ReactNode }>[]) ?? []
-    b[LAYOUTS_KEY] = layouts
-    layouts.push(layout)
+    // Accumulate layout specs for each nesting level
+    const specs: LayoutSpec[] = (b[LAYOUTS_KEY] as LayoutSpec[]) ?? []
+    b[LAYOUTS_KEY] = specs
+    specs.push(layoutSpec)
 
     // Set up ctx.render / ctx.renderStream once (first react() call wins)
     if (!b[SETUP_KEY]) {
       b[SETUP_KEY] = true
 
-      ctx.render = (element: ReactElement, renderOpts?: RenderOptions) => {
-        // Auto ?_data: return JSON instead of HTML for SPA navigation
+      ctx.render = async (element: ReactElement | string, renderOpts?: RenderOptions) => {
         if (renderOpts?.data && isDataRequest(req)) {
-          return Promise.resolve(Response.json(renderOpts.data))
+          return Response.json(renderOpts.data)
         }
-        return Promise.resolve(render(element, layouts, renderOpts))
+        const el = await resolveElement(element, renderOpts?.props)
+        const layouts = await Promise.all(specs.map(resolveLayout))
+        return render(el, layouts, renderOpts)
       }
 
-      ctx.renderStream = (element: ReactElement, renderOpts?: RenderOptions) => {
+      ctx.renderStream = async (element: ReactElement | string, renderOpts?: RenderOptions) => {
         if (renderOpts?.data && isDataRequest(req)) {
-          return Promise.resolve(Response.json(renderOpts.data))
+          return Response.json(renderOpts.data)
         }
-        return renderStream(element, layouts, renderOpts)
+        const el = await resolveElement(element, renderOpts?.props)
+        const layouts = await Promise.all(specs.map(resolveLayout))
+        return renderStream(el, layouts, renderOpts)
       }
     }
 

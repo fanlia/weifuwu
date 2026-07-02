@@ -11,8 +11,8 @@ function UserProfile({ user }: { user: User }) {
   return (
     <div className="rounded-lg border border-gray-200 p-6">
       <h1 className="text-3xl font-bold mb-3">{user.name}</h1>
-      <p className="mb-1"><strong>Email:</strong> {user.email}</p>
-      <p className="mb-1"><strong>ID:</strong> {user.id}</p>
+      <p className="mb-1">{`Email: ${user.email}`}</p>
+      <p className="mb-1">{`ID: ${user.id}`}</p>
       {user.bio && <p className="italic text-gray-600 mt-2">{user.bio}</p>}
       <Link href="/users" className="inline-block mt-4 text-blue-600 no-underline hover:underline">
         ← Back to users

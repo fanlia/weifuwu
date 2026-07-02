@@ -1,5 +1,5 @@
 /**
- * weifuwu + React SSR — full SPA navigation example.
+ * weifuwu + React SSR — file-based component rendering.
  *
  * Routes:
  *   GET /                  — Home
@@ -12,20 +12,12 @@
  * Run:
  *   npm install && node server.ts
  *
- * Note: server.ts uses createElement for JSX (Node.js .ts limitation).
- * Components in components/ use native JSX (.tsx) — same on server & client.
+ * Components live in ./components/ — loaded by the framework via esbuild.
+ * No tsx, no ts-node, no JSX imports in server.ts.
  */
 
 import { serve, Router, logger, trace, esbuildDev, tailwindDev } from 'weifuwu'
-import { react, Link } from 'weifuwu/react'
-import { createElement as h } from 'react'
-import { RootLayout } from './components/Layout.tsx'
-import { HomePage } from './components/HomePage.tsx'
-import { UsersPage } from './components/UsersPage.tsx'
-import { UserDetailPage } from './components/UserDetailPage.tsx'
-import { DashboardPage } from './components/DashboardPage.tsx'
-import { ErrorDemoPage } from './components/ErrorDemoPage.tsx'
-import { NotFoundPage } from './components/NotFoundPage.tsx'
+import { react } from 'weifuwu/react'
 
 // ════════════════════════════════════════════════════════════
 // Mock data
@@ -61,12 +53,12 @@ app.use(esbuildDev({
   },
 }))
 
-// React SSR (root layout)
-app.use(react({ layout: RootLayout }))
+// React SSR (root layout — loaded from file by the framework)
+app.use(react({ layout: './components/Layout.tsx' }))
 
 // ── Routes ─────────────────────────────────────────────────
 
-app.get('/', (_req, ctx) => ctx.render(h(HomePage), {
+app.get('/', (_req, ctx) => ctx.render('./components/HomePage.tsx', {
   head: { title: 'weifuwu React SSR', meta: { description: 'Full-stack framework with React SSR' } },
 }))
 
@@ -80,18 +72,21 @@ app.post('/users', async (req, ctx) => {
 })
 
 app.get('/users', async (_req, ctx) => {
-  return ctx.render(h(UsersPage), { head: { title: 'Users' }, data: { users: MOCK_USERS } })
+  return ctx.render('./components/UsersPage.tsx', { head: { title: 'Users' }, data: { users: MOCK_USERS } })
 })
 
 app.get('/users/:id', async (req, ctx) => {
   const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
   if (!user) {
-    return ctx.render(h(NotFoundPage, { path: `/users/${ctx.params.id}` }), { status: 404 })
+    return ctx.render('./components/NotFoundPage.tsx', {
+      status: 404,
+      props: { path: `/users/${ctx.params.id}` },
+    })
   }
-  return ctx.render(h(UserDetailPage), { head: { title: `${user.name} - Users` }, data: { user } })
+  return ctx.render('./components/UserDetailPage.tsx', { head: { title: `${user.name} - Users` }, data: { user } })
 })
 
-app.get('/error', (_req, ctx) => ctx.render(h(ErrorDemoPage), {
+app.get('/error', (_req, ctx) => ctx.render('./components/ErrorDemoPage.tsx', {
   head: { title: 'ErrorBoundary Demo' },
 }))
 
@@ -99,7 +94,7 @@ app.get('/error', (_req, ctx) => ctx.render(h(ErrorDemoPage), {
 
 const admin = new Router()
 admin.get('/dashboard', async (_req, ctx) => {
-  return ctx.renderStream(h(DashboardPage))
+  return ctx.renderStream('./components/DashboardPage.tsx')
 })
 app.mount('/admin', admin)
 
@@ -118,13 +113,10 @@ app.get('/api/hello', () => {
 app.onError((err, _req, ctx) => {
   console.error('Unhandled error:', err)
   if (ctx.render) {
-    return ctx.render(
-      h('div', { style: { color: 'red', padding: '2rem' } },
-        h('h1', null, '500 — Server Error'),
-        h('pre', null, err.message),
-      ),
-      { status: 500 },
-    )
+    return ctx.render('./components/NotFoundPage.tsx', {
+      status: 500,
+      props: { path: 'server error' },
+    })
   }
   return new Response('Internal Server Error', { status: 500 })
 })

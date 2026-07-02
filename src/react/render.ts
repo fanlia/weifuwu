@@ -1,11 +1,10 @@
 import {
   createElement,
-  Fragment,
   type ReactElement,
   type ComponentType,
   type ReactNode,
 } from 'react'
-import { renderToString, renderToReadableStream } from 'react-dom/server'
+import { renderToReadableStream } from 'react-dom/server'
 import { ServerDataContext } from './context.ts'
 import type { RenderOptions, HeadOptions } from './types.ts'
 
@@ -45,21 +44,55 @@ function buildHeadTags(head?: HeadOptions): string {
   return tags.join('')
 }
 
-function injectHeadIntoHtml(html: string, headTags: string): string {
-  if (!headTags) return html
-  // Replace existing <title> if present, then inject remaining tags before </head>
-  let result = html
-  if (headTags.includes('<title>')) {
-    const titleMatch = headTags.match(/<title>[^<]*<\/title>/)
-    if (titleMatch) {
-      result = result.replace(/<title>[^<]*<\/title>/, titleMatch[0])
-      headTags = headTags.replace(titleMatch[0], '')
-    }
-  }
-  if (headTags) {
-    result = result.replace('</head>', headTags + '</head>')
-  }
-  return result
+/**
+ * Inject content before a closing tag in a streaming response.
+ * Splits on the first occurrence of `beforeTag` and inserts `content` before it.
+ */
+function injectBeforeTag(
+  sourceStream: ReadableStream<Uint8Array>,
+  beforeTag: string,
+  content: string,
+): ReadableStream<Uint8Array> {
+  if (!content) return sourceStream
+
+  let injected = false
+
+  return new ReadableStream({
+    async start(controller) {
+      const reader = sourceStream.getReader()
+      let buffer = ''
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+
+          if (!injected) {
+            const idx = buffer.indexOf(beforeTag)
+            if (idx !== -1) {
+              controller.enqueue(
+                encoder.encode(buffer.slice(0, idx) + content + buffer.slice(idx)),
+              )
+              buffer = ''
+              injected = true
+              continue
+            }
+          }
+
+          if (injected && buffer) {
+            controller.enqueue(encoder.encode(buffer))
+            buffer = ''
+          }
+        }
+
+        if (buffer) controller.enqueue(encoder.encode(buffer))
+        controller.close()
+      } catch (err) {
+        controller.error(err)
+      }
+    },
+  })
 }
 
 /** Inject head tags into a streaming response by patching the stream. */
@@ -69,7 +102,6 @@ function injectHeadIntoStream(
 ): ReadableStream<Uint8Array> {
   if (!headTags) return sourceStream
 
-  // Separate title tag from the rest
   let titleTag = ''
   let rest = headTags
   const titleMatch = headTags.match(/<title>[^<]*<\/title>/)
@@ -92,7 +124,6 @@ function injectHeadIntoStream(
 
           buffer += decoder.decode(value, { stream: true })
 
-          // Inject title (replace existing <title>...</title>)
           if (!titleInjected) {
             const idx = buffer.indexOf('<title>')
             const endIdx = buffer.indexOf('</title>', idx)
@@ -106,7 +137,6 @@ function injectHeadIntoStream(
             }
           }
 
-          // Inject remaining head tags before </head>
           if (!headInjected) {
             const idx = buffer.indexOf('</head>')
             if (idx !== -1) {
@@ -119,14 +149,12 @@ function injectHeadIntoStream(
             }
           }
 
-          // Everything injected, pass through
           if (titleInjected && headInjected && buffer) {
             controller.enqueue(encoder.encode(buffer))
             buffer = ''
           }
         }
 
-        // Flush remaining
         if (buffer) controller.enqueue(encoder.encode(buffer))
         controller.close()
       } catch (err) {
@@ -163,31 +191,64 @@ function wrapElement(
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Read a stream fully into a string
+// ═══════════════════════════════════════════════════════════════
+
+async function streamToString(stream: ReadableStream<Uint8Array>): Promise<string> {
+  const reader = stream.getReader()
+  const chunks: string[] = []
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(decoder.decode(value, { stream: true }))
+  }
+  return chunks.join('')
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Public render functions
 // ═══════════════════════════════════════════════════════════════
 
-export function render(
+/**
+ * Render a React element to an HTML Response.
+ * Uses renderToReadableStream (React 18+ hydration-safe SSR).
+ */
+export async function render(
   element: ReactElement,
   layouts: ComponentType<{ children: ReactNode }>[],
   options: RenderOptions = {},
-): Response {
+): Promise<Response> {
   const data = options.data ?? {}
   const wrapped = wrapElement(element, layouts, data)
-  let html = renderToString(wrapped)
+
+  // renderToReadableStream produces text identical to client-side render,
+  // avoiding hydration mismatches.
+  const reactStream: any = await renderToReadableStream(wrapped)
+  // Wait for all chunks (suspense boundaries, etc.)
+  await (reactStream as any).allReady
+
+  let stream = reactStream as ReadableStream<Uint8Array>
 
   // Inject head tags
   const headTags = buildHeadTags(options.head)
-  html = injectHeadIntoHtml(html, headTags)
+  stream = injectHeadIntoStream(stream, headTags)
 
-  // Inject data script before </body> (not inside React tree — avoids hydration mismatch)
-  const dataScript = buildDataScript(data)
-  if (html.includes('</body>')) {
-    html = html.replace('</body>', dataScript + '</body>')
-  } else {
-    html += dataScript
+  let html = await streamToString(stream)
+
+  // Inject data script before </body> (not inside React tree)
+  if (Object.keys(data).length > 0) {
+    const dataScript = buildDataScript(data)
+    if (html.includes('</body>')) {
+      html = html.replace('</body>', dataScript + '</body>')
+    } else {
+      html += dataScript
+    }
   }
 
-  return new Response('<!DOCTYPE html>\n' + html, {
+  // renderToReadableStream auto-prepends <!DOCTYPE html> when root is <html>
+  const hasDoctype = html.startsWith('<!DOCTYPE')
+
+  return new Response((hasDoctype ? '' : '<!DOCTYPE html>\n') + html, {
     status: options.status ?? 200,
     headers: {
       'content-type': 'text/html; charset=utf-8',
@@ -196,6 +257,10 @@ export function render(
   })
 }
 
+/**
+ * Streaming render — returns a Response with chunked transfer encoding.
+ * Uses renderToReadableStream for hydration-safe output.
+ */
 export async function renderStream(
   element: ReactElement,
   layouts: ComponentType<{ children: ReactNode }>[],
@@ -207,19 +272,36 @@ export async function renderStream(
 
   let stream: ReadableStream<Uint8Array> = await renderToReadableStream(wrapped) as unknown as ReadableStream<Uint8Array>
 
-  // Inject head tags into the stream
+  // Inject head tags
   stream = injectHeadIntoStream(stream, headTags)
 
-  // Prepend doctype
-  const doctype = encoder.encode('<!DOCTYPE html>\n')
+  // Inject data script before </body>
+  if (Object.keys(data).length > 0) {
+    stream = injectBeforeTag(stream, '</body>', buildDataScript(data))
+  }
+
+  // renderToReadableStream auto-prepends <!DOCTYPE html> when root is <html>.
+  // Detect the first chunk and prepend doctype only when React didn't.
+  let doctypeDetected = false
+  const doctypeBytes = encoder.encode('<!DOCTYPE html>\n')
+
   const combined = new ReadableStream({
     async start(controller) {
-      controller.enqueue(doctype)
       try {
         const reader = stream.getReader()
+        let first = true
         while (true) {
           const { done, value } = await reader.read()
           if (done) { controller.close(); break }
+
+          if (first) {
+            first = false
+            const text = decoder.decode(value.slice(0, Math.min(value.length, 20)))
+            if (!text.startsWith('<!DOCTYPE')) {
+              controller.enqueue(doctypeBytes)
+            }
+          }
+
           controller.enqueue(value)
         }
       } catch (err) {

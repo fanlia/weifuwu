@@ -13,23 +13,26 @@ export function HomePage() {
         <h2 className="text-xl font-semibold mb-3">Core</h2>
         <ul className="list-disc pl-5 space-y-1 text-gray-700">
           <li>
-            <code className="bg-gray-100 px-1 rounded">ctx.render()</code> /{' '}
-            <code className="bg-gray-100 px-1 rounded">ctx.renderStream()</code> — render React to
-            HTML
+            <code className="bg-gray-100 px-1 rounded">ctx.render()</code>
+            {' / '}
+            <code className="bg-gray-100 px-1 rounded">ctx.renderStream()</code>
+            {' — render React to HTML'}
           </li>
           <li>
-            <code className="bg-gray-100 px-1 rounded">useServerData()</code> — typed data,
-            identical on server &amp; client
+            <code className="bg-gray-100 px-1 rounded">useServerData()</code>
+            {' — typed data, identical on server & client'}
           </li>
           <li>
-            <code className="bg-gray-100 px-1 rounded">head: {'{'} title, meta {'}'}</code> —
-            dynamic head tags
+            <code className="bg-gray-100 px-1 rounded">{'head: { title, meta }'}</code>
+            {' — dynamic head tags'}
           </li>
           <li>
-            Layout nesting via <code className="bg-gray-100 px-1 rounded">Router.mount()</code>
+            {'Layout nesting via '}
+            <code className="bg-gray-100 px-1 rounded">Router.mount()</code>
           </li>
           <li>
-            <code className="bg-gray-100 px-1 rounded">ErrorBoundary</code> — catches render errors
+            <code className="bg-gray-100 px-1 rounded">ErrorBoundary</code>
+            {' — catches render errors'}
           </li>
         </ul>
       </div>
@@ -38,18 +41,22 @@ export function HomePage() {
         <h2 className="text-xl font-semibold mb-3">SPA Navigation</h2>
         <ul className="list-disc pl-5 space-y-1 text-gray-700">
           <li>
-            <code className="bg-gray-100 px-1 rounded">Link</code> — SPA links, no page reload
+            <code className="bg-gray-100 px-1 rounded">Link</code>
+            {' — SPA links, no page reload'}
           </li>
           <li>
-            <code className="bg-gray-100 px-1 rounded">Form</code> — SPA form submit + revalidate
+            <code className="bg-gray-100 px-1 rounded">Form</code>
+            {' — SPA form submit + revalidate'}
           </li>
           <li>
-            <code className="bg-gray-100 px-1 rounded">useNavigation()</code> — loading state (
-            {'{'} state: &quot;loading&quot; {'}'})
+            <code className="bg-gray-100 px-1 rounded">useNavigation()</code>
+            {' — loading state ({ state: "loading" })'}
           </li>
           <li>
-            <code className="bg-gray-100 px-1 rounded">useParams()</code> /{' '}
-            <code className="bg-gray-100 px-1 rounded">useNavigate()</code> /{' '}
+            <code className="bg-gray-100 px-1 rounded">useParams()</code>
+            {' / '}
+            <code className="bg-gray-100 px-1 rounded">useNavigate()</code>
+            {' / '}
             <code className="bg-gray-100 px-1 rounded">useRevalidate()</code>
           </li>
         </ul>
@@ -59,20 +66,24 @@ export function HomePage() {
         <h2 className="text-xl font-semibold mb-3">DX</h2>
         <ul className="list-disc pl-5 space-y-1 text-gray-700">
           <li>
-            Auto <code className="bg-gray-100 px-1 rounded">?_data</code> —{' '}
-            <code className="bg-gray-100 px-1 rounded">ctx.render()</code> auto-returns JSON
+            {'Auto '}
+            <code className="bg-gray-100 px-1 rounded">?_data</code>
+            {' — '}
+            <code className="bg-gray-100 px-1 rounded">ctx.render()</code>
+            {' auto-returns JSON'}
           </li>
           <li>
-            <code className="bg-gray-100 px-1 rounded">defineRoute()</code> — type-safe route
-            config (captures loader return type)
+            <code className="bg-gray-100 px-1 rounded">defineRoute()</code>
+            {' — type-safe route config (captures loader return type)'}
           </li>
           <li>
-            <code className="bg-gray-100 px-1 rounded">weifuwu/react/navigation</code> — shared
-            primitives, safe for server &amp; client
+            <code className="bg-gray-100 px-1 rounded">weifuwu/react/navigation</code>
+            {' — shared primitives, safe for server & client'}
           </li>
           <li>
-            Coexists with plain <code className="bg-gray-100 px-1 rounded">Response.json()</code>{' '}
-            routes
+            {'Coexists with plain '}
+            <code className="bg-gray-100 px-1 rounded">Response.json()</code>
+            {' routes'}
           </li>
         </ul>
       </div>
@@ -81,16 +92,20 @@ export function HomePage() {
         <h2 className="text-xl font-semibold mb-3">Try it out</h2>
         <ol className="list-decimal pl-5 space-y-1 text-gray-700">
           <li>
-            <Link href="/users">Users</Link> — SPA nav + Form submit + loading state
+            <Link href="/users">Users</Link>
+            {' — SPA nav + Form submit + loading state'}
           </li>
           <li>
-            <Link href="/admin/dashboard">Dashboard</Link> — streaming SSR + nested layout
+            <Link href="/admin/dashboard">Dashboard</Link>
+            {' — streaming SSR + nested layout'}
           </li>
           <li>
-            <Link href="/error">ErrorBoundary</Link> — error handling demo
+            <Link href="/error">ErrorBoundary</Link>
+            {' — error handling demo'}
           </li>
           <li>
-            <Link href="/api/hello">API</Link> — non-React JSON route
+            <Link href="/api/hello">API</Link>
+            {' — non-React JSON route'}
           </li>
         </ol>
       </div>
