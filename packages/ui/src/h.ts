@@ -62,7 +62,7 @@ export function h(
           if (currentVal) el.setAttribute(key, '')
           else el.removeAttribute(key)
         } else if (key in el) {
-          ;(el as any)[key] = currentVal
+          ;(el as unknown as Record<string, unknown>)[key] = currentVal
         } else {
           el.setAttribute(key, String(currentVal))
         }
@@ -73,7 +73,7 @@ export function h(
             if (newVal) el.setAttribute(key, '')
             else el.removeAttribute(key)
           } else if (key in el) {
-            ;(el as any)[key] = newVal
+            ;(el as unknown as Record<string, unknown>)[key] = newVal
           } else {
             el.setAttribute(key, String(newVal))
           }
