@@ -53,7 +53,8 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   ...children: HChild[]
 ): HTMLElementTagNameMap[K]
 export function h(
-  tag: string | ((attrs?: any, ...children: any[]) => HTMLElement),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tag: string | ((attrs: any, ...children: any[]) => HTMLElement),
   attrs: HAttrs | null,
   ...children: HChild[]
 ): HTMLElement {

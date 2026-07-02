@@ -8,8 +8,7 @@
  * route.value = '/about'     // → URL 更新，视图切换
  * ```
  */
-import { ref, effect } from './signal.ts'
-import type { Signal } from './signal.ts'
+import { ref, effect, type Signal } from './signal.ts'
 
 export interface SyncRefOptions {
   /** URL 查询参数名。不传则绑定到 pathname */
@@ -20,7 +19,7 @@ export interface SyncRefOptions {
 
 interface Browser {
   location: { pathname: string; href: string; search: string }
-  history: { pushState: (d: any, t: string, url: string) => void; replaceState: (d: any, t: string, url: string) => void }
+  history: { pushState: (data: unknown, title: string, url: string) => void; replaceState: (data: unknown, title: string, url: string) => void }
   addEventListener: (e: string, fn: () => void) => void
 }
 

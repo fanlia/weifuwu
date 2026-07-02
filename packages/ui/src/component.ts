@@ -22,7 +22,7 @@
  * ```
  */
 import { ref, type Signal } from './signal.ts'
-import { h, type HChild, type HAttrs } from './h.ts'
+import { type HChild, type HAttrs } from './h.ts'
 
 // ── Scoped signal ────────────────────────────────────────────
 
