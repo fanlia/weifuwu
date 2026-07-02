@@ -22,34 +22,28 @@ export interface PageContext {
 
 export function page(
   factory: (ctx: PageContext) => VNode,
-  options?: { layout?: (content: string, ctx: PageContext) => string },
 ): Handler {
-  const defaultLayout = (content: string) => `<!DOCTYPE html>
+  return async (req, ctx) => {
+    const tree = factory(ctx)
+    const bodyHtml = serialize(tree)
+    const dataBridge = extractDataBridge(tree)
+
+    const pageHtml = `<!DOCTYPE html>
 <html lang="en" data-theme="system">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>weifuwu</title>
   <link rel="stylesheet" href="/_ui/weifuwu-ui.css"/>
+  <script id="__wui-data" type="application/json">${JSON.stringify(dataBridge)}</script>
 </head>
 <body>
-  <div id="app">${content}</div>
+  <div id="app">${bodyHtml}</div>
   <script defer src="/_ui/weifuwu-ui.js"></script>
 </body>
 </html>`
 
-  return async (req, ctx) => {
-    const tree = factory(ctx)
-    const bodyHtml = serialize(tree)
-    const dataBridge = extractDataBridge(tree)
-
-    const layout = options?.layout ?? defaultLayout
-    const pageHtml = layout(bodyHtml, ctx)
-
-    const bridgeScript = `<script id="__wui-data" type="application/json">${JSON.stringify(dataBridge)}</script>`
-    const finalHtml = pageHtml.replace('</body>', `${bridgeScript}\n</body>`)
-
-    return new Response(finalHtml, {
+    return new Response(pageHtml, {
       headers: { 'content-type': 'text/html; charset=utf-8' },
     })
   }

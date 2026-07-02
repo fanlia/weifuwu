@@ -1,27 +1,6 @@
 import { Router } from '@weifuwujs/core'
 import { page, h, ref, computed } from '@weifuwujs/ui'
 
-const layout = (content: string) => `<!DOCTYPE html>
-<html lang="en" data-theme="system">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>weifuwu UI</title>
-  <link rel="stylesheet" href="/_ui/weifuwu-ui.css"/>
-</head>
-<body>
-  <nav class="wui-nav">
-    <a href="/" class="wui-nav-brand">weifuwu</a>
-    <a href="/" class="wui-nav-item">Home</a>
-    <a href="/api/ping" class="wui-nav-item">API</a>
-  </nav>
-  <main class="wui-max-w-lg" style="margin:24px auto;padding:0 16px">
-    ${content}
-  </main>
-  <script defer src="/_ui/weifuwu-ui.js"></script>
-</body>
-</html>`
-
 const home = page(() => {
   const count = ref(0)
   const doubled = computed(() => count.value * 2)
@@ -40,7 +19,7 @@ const home = page(() => {
       'Doubled: ', doubled,
     ),
   )
-}, { layout })
+})
 
 export const app = new Router()
   .get('/', home)
