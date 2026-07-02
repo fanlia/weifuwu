@@ -14,7 +14,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "prepublishOnly": "npm run build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test 'src/test/**/*.test.ts'"
   },
   "files": [
     "dist/index.js",
@@ -27,7 +28,8 @@
   },
   "devDependencies": {
     "@types/node": "^25",
-    "esbuild": "^0.28"
+    "esbuild": "^0.28",
+    "jsdom": "^25"
   },
   "license": "MIT"
 }

@@ -12,26 +12,14 @@ import { Signal, Computed } from './signal.ts'
 
 type HtmlValue = string | number | boolean | null | undefined | HtmlValue[] | Node | Node[] | Signal | Computed
 
-// ── Event directive pattern ──
-// @click → on:click
-// @input → on:input
-// @keydown → on:keydown
-const EVENT_RE = /^@(\w+)$/
-
-// ── Bind directive pattern ──
-// :value → bind:value
-// :class → bind:class
-// ?checked → bool:checked
-const BIND_RE = /^:(\w+)$/
-const BOOL_RE = /^\?(\w+)$/
-
 /**
  * Create live DOM from a tagged template literal.
  *
- * Internally:
- * 1. Build HTML string with markers
+ * Strategy:
+ * 1. Build HTML string, replacing @click, :value, ?checked with markers
  * 2. Parse into DOM via <template>
- * 3. Walk DOM, bind events and signals from registry
+ * 3. Collect markers in pass 1 (no DOM mutation)
+ * 4. Apply bindings in pass 2-3
  */
 export function html(
   strings: TemplateStringsArray,
@@ -44,85 +32,97 @@ export function html(
     attrName?: string
   }> = []
 
+  const mutableStrings = [...strings]
   let result = ''
 
-  for (let i = 0; i < strings.length; i++) {
-    result += strings[i]
+  for (let i = 0; i < mutableStrings.length; i++) {
+    let chunk = mutableStrings[i]
+    const v = values[i]
+    const idx = registry.length
+
     if (i < values.length) {
-      const v = values[i]
-      const idx = registry.length
-
-      // Handle Signal / Computed
+      // ── Signal / Computed ──
       if (v instanceof Signal || v instanceof Computed) {
-        // Check if this value is inside an attribute (event or bind)
-        const prev = strings[i]
-        const eventMatch = prev.match(EVENT_RE)
-        const bindMatch = prev.match(BIND_RE)
-        const boolMatch = prev.match(BOOL_RE)
+        const eventIdx = chunk.lastIndexOf('@')
+        const bindIdx = chunk.lastIndexOf(':')
+        const boolIdx = chunk.lastIndexOf('?')
 
-        if (eventMatch) {
-          // @click with a ref — bind event
-          const eventName = eventMatch[1]
-          registry.push({ type: 'event', data: v, eventName })
-          // Remove the @click="..." from the string
-          // Actually, we've already added the attribute in the string.
-          // We'll clean up during DOM processing.
-          result += `__wui_ev_${idx}`
-        } else if (bindMatch) {
-          const attrName = bindMatch[1]
-          registry.push({ type: 'attr', data: v, attrName })
-          result += `__wui_bind_${idx}`
-        } else if (boolMatch) {
-          const attrName = boolMatch[1]
-          registry.push({ type: 'bool', data: v, attrName })
-          result += `__wui_bool_${idx}`
-        } else {
-          // Text content binding
-          registry.push({ type: 'ref', data: v })
-          result += `<!--__wui_ref_${idx}-->`
+        if (eventIdx >= 0) {
+          const rest = chunk.slice(eventIdx + 1).replace(/="?$/, '').trim()
+          if (rest) {
+            registry.push({ type: 'event', data: v, eventName: rest })
+            chunk = chunk.slice(0, eventIdx)
+            result += chunk + ` __wui_ev_${idx}="`
+            continue
+          }
         }
+
+        if (bindIdx >= 0) {
+          const rest = chunk.slice(bindIdx + 1).replace(/="?$/, '').trim()
+          if (rest) {
+            registry.push({ type: 'attr', data: v, attrName: rest })
+            chunk = chunk.slice(0, bindIdx)
+            result += chunk + ` __wui_bind_${idx}="`
+            continue
+          }
+        }
+
+        if (boolIdx >= 0) {
+          const rest = chunk.slice(boolIdx + 1).replace(/="?$/, '').trim()
+          if (rest) {
+            registry.push({ type: 'bool', data: v, attrName: rest })
+            chunk = chunk.slice(0, boolIdx)
+            result += chunk + ` __wui_bool_${idx}`
+            if (mutableStrings[i + 1]?.startsWith('"')) mutableStrings[i + 1] = mutableStrings[i + 1].slice(1)
+            continue
+          }
+        }
+
+        registry.push({ type: 'ref', data: v })
+        result += chunk + `<!--__wui_ref_${idx}-->`
         continue
       }
 
-      // Handle function (event handler)
+      // ── Function (event handler) ──
       if (typeof v === 'function') {
-        const prev = strings[i]
-        const eventMatch = prev.match(EVENT_RE)
-        if (eventMatch) {
-          const eventName = eventMatch[1]
-          registry.push({ type: 'event', data: v, eventName })
-          result += `__wui_ev_${idx}`
-          continue
+        const eventIdx = chunk.lastIndexOf('@')
+        if (eventIdx >= 0) {
+          const rest = chunk.slice(eventIdx + 1).replace(/="?$/, '').trim()
+          if (rest) {
+            registry.push({ type: 'event', data: v, eventName: rest })
+            chunk = chunk.slice(0, eventIdx)
+            result += chunk + ` __wui_ev_${idx}="`
+            continue
+          }
         }
       }
 
-      // Handle Node (nested html() result or raw node)
+      // ── Node (nested html() call) ──
       if (v instanceof Node) {
         registry.push({ type: 'node', data: v })
-        result += `<!--__wui_node_${idx}-->`
+        result += chunk + `<!--__wui_node_${idx}-->`
         continue
       }
 
+      // ── Array of nodes ──
       if (Array.isArray(v)) {
-        // Array of nodes or html results
         const items: Node[] = []
         for (const item of v) {
           if (item instanceof Node) items.push(item)
         }
         registry.push({ type: 'node', data: items })
-        result += `<!--__wui_node_${idx}-->`
+        result += chunk + `<!--__wui_node_${idx}-->`
         continue
       }
 
-      // Plain value (string, number, boolean, null)
-      if (v == null || v === false) {
-        registry.push({ type: 'text', data: '' })
-        result += `<!--__wui_text_${idx}-->`
-      } else {
-        registry.push({ type: 'text', data: String(v) })
-        result += `<!--__wui_text_${idx}-->`
-      }
+      // ── Plain value ──
+      const textContent = v == null || v === false ? '' : String(v)
+      registry.push({ type: 'text', data: textContent })
+      result += chunk + textContent
+      continue
     }
+
+    result += chunk
   }
 
   // ── Parse into DOM ──
@@ -130,164 +130,143 @@ export function html(
   template.innerHTML = result
   const root = template.content
 
-  // ── Walk DOM and apply registrations ──
+  // ── Walker ──
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, null)
 
   const refTargets: Array<{
     signal: Signal | Computed
-    el: Text
+    el: Text | HTMLElement
     getValue: () => string
   }> = []
 
-  const nodes: Node[] = []
+  // ── Pass 1: Collect markers (no DOM mutation) ──
+  const commentActions: Array<{ comment: Comment; idx: number }> = []
+  const attrActions: Array<{ el: HTMLElement; idx: number; kind: 'ev' | 'bind' | 'bool' }> = []
 
   while (walker.nextNode()) {
     const node = walker.currentNode
 
-    // ── Comment nodes: text/content placeholders ──
     if (node.nodeType === Node.COMMENT_NODE) {
       const text = (node as Comment).data
-      const textMatch = text.match(/^__wui_text_(\d+)$/)
       const refMatch = text.match(/^__wui_ref_(\d+)$/)
       const nodeMatch = text.match(/^__wui_node_(\d+)$/)
-
-      if (textMatch || refMatch) {
-        const idx = parseInt(textMatch?.[1] ?? refMatch![1])
-        const entry = registry[idx]
-        const textNode = document.createTextNode('')
-        node.parentNode?.replaceChild(textNode, node)
-        if (refMatch && (entry.data instanceof Signal || entry.data instanceof Computed)) {
-          refTargets.push({
-            signal: entry.data as Signal | Computed,
-            el: textNode,
-            getValue: () => String((entry.data as Signal | Computed).value),
-          })
-        }
-        continue
-      }
-
-      if (nodeMatch) {
+      if (refMatch) {
+        commentActions.push({ comment: node as Comment, idx: parseInt(refMatch[1]) })
+      } else if (nodeMatch) {
         const idx = parseInt(nodeMatch[1])
-        const entry = registry[idx]
-        const data = entry.data
+        const data = registry[idx]?.data
         if (data instanceof Node) {
           node.parentNode?.replaceChild(data, node)
-          nodes.push(data)
         } else if (Array.isArray(data)) {
           const frag = document.createDocumentFragment()
-          for (const n of data) {
-            frag.appendChild(n)
-          }
+          for (const n of data) frag.appendChild(n)
           node.parentNode?.replaceChild(frag, node)
-          nodes.push(...data)
         }
-        continue
       }
     }
 
-    // ── Element nodes: event/attribute bindings ──
     if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement
-
-      // Process attributes
-      const attrsToRemove: string[] = []
       for (let a = 0; a < el.attributes.length; a++) {
         const attr = el.attributes[a]
         const evMatch = attr.name.match(/^__wui_ev_(\d+)$/)
         const bindMatch = attr.name.match(/^__wui_bind_(\d+)$/)
         const boolMatch = attr.name.match(/^__wui_bool_(\d+)$/)
-
-        if (evMatch) {
-          const idx = parseInt(evMatch[1])
-          const entry = registry[idx]
-          if (entry.type === 'event' && entry.eventName) {
-            const handler = entry.data as (e: Event) => void
-            el.addEventListener(entry.eventName, handler)
-          }
-          attrsToRemove.push(attr.name)
-        }
-
-        if (bindMatch) {
-          const idx = parseInt(bindMatch[1])
-          const entry = registry[idx]
-          if (entry.type === 'attr' && entry.attrName && (entry.data instanceof Signal || entry.data instanceof Computed)) {
-            const sig = entry.data as Signal | Computed
-            ;(el as Record<string, unknown>)[entry.attrName] = sig.value
-            refTargets.push({
-              signal: sig,
-              el: el as unknown as Text,
-              getValue: () => {
-                (el as Record<string, unknown>)[entry.attrName!] = sig.value
-                return ''
-              },
-            })
-          }
-          attrsToRemove.push(attr.name)
-        }
-
-        if (boolMatch) {
-          const idx = parseInt(boolMatch[1])
-          const entry = registry[idx]
-          if (entry.type === 'bool' && entry.attrName && (entry.data instanceof Signal || entry.data instanceof Computed)) {
-            const signal = entry.data as Signal | Computed
-            // Set initial value
-            if (signal.value) el.setAttribute(entry.attrName, '')
-            else el.removeAttribute(entry.attrName)
-            // Create effect
-            refTargets.push({
-              signal,
-              el: el as unknown as Text,
-              getValue: () => {
-                if (signal.value) el.setAttribute(entry.attrName, '')
-                else el.removeAttribute(entry.attrName)
-                return ''
-              },
-            })
-          }
-          attrsToRemove.push(attr.name)
-        }
-      }
-
-      // Clean up marker attributes
-      for (const name of attrsToRemove) {
-        el.removeAttribute(name)
+        if (evMatch) attrActions.push({ el, idx: parseInt(evMatch[1]), kind: 'ev' })
+        if (bindMatch) attrActions.push({ el, idx: parseInt(bindMatch[1]), kind: 'bind' })
+        if (boolMatch) attrActions.push({ el, idx: parseInt(boolMatch[1]), kind: 'bool' })
       }
     }
   }
 
-  // ── Set up reactive bindings (one effect per signal to batch updates) ──
+  // ── Pass 2: Apply ref comments (replace with text node containing initial signal value) ──
+  for (const { comment, idx } of commentActions) {
+    const entry = registry[idx]
+    if (entry?.data instanceof Signal || entry?.data instanceof Computed) {
+      const sig = entry.data
+      const initialVal = sig.value
+      const textNode = document.createTextNode(initialVal == null ? '' : String(initialVal))
+      comment.parentNode?.replaceChild(textNode, comment)
+      refTargets.push({
+        signal: sig,
+        el: textNode,
+        getValue: () => String(sig.value),
+      })
+    }
+  }
+
+  // ── Pass 3: Apply attribute actions ──
+  const attrsToRemove: Map<HTMLElement, string[]> = new Map()
+  for (const { el, idx, kind } of attrActions) {
+    const entry = registry[idx]
+    if (kind === 'ev' && entry?.type === 'event' && entry.eventName) {
+      el.addEventListener(entry.eventName, entry.data as (e: Event) => void)
+      const list = attrsToRemove.get(el) || []
+      list.push(`__wui_ev_${idx}`)
+      attrsToRemove.set(el, list)
+    }
+    if (kind === 'bind' && entry?.type === 'attr' && entry.attrName && (entry.data instanceof Signal || entry.data instanceof Computed)) {
+      const sig = entry.data
+      ;(el as unknown as Record<string, unknown>)[entry.attrName] = sig.value
+      refTargets.push({
+        signal: sig,
+        el: el as unknown as Text,
+        getValue: () => { (el as unknown as Record<string, unknown>)[entry.attrName!] = sig.value; return '' },
+      })
+      const list = attrsToRemove.get(el) || []
+      list.push(`__wui_bind_${idx}`)
+      attrsToRemove.set(el, list)
+    }
+    if (kind === 'bool' && entry?.type === 'bool' && entry.attrName && (entry.data instanceof Signal || entry.data instanceof Computed)) {
+      const sig = entry.data
+      if (sig.value) el.setAttribute(entry.attrName, '')
+      else el.removeAttribute(entry.attrName)
+      refTargets.push({
+        signal: sig,
+        el: el as unknown as Text,
+        getValue: () => {
+          if (sig.value) el.setAttribute(entry.attrName!, '')
+          else el.removeAttribute(entry.attrName!)
+          return ''
+        },
+      })
+      const list = attrsToRemove.get(el) || []
+      list.push(`__wui_bool_${idx}`)
+      attrsToRemove.set(el, list)
+    }
+  }
+
+  for (const [el, names] of attrsToRemove) {
+    for (const name of names) {
+      el.removeAttribute(name)
+    }
+  }
+
+  // ── Set up reactive bindings ──
   if (refTargets.length > 0) {
-    // Group by signal to avoid duplicate effects
-    const signalMap = new Map<Signal | Computed, Array<{ el: Text; getValue: () => string }>>()
+    const signalMap = new Map<Signal | Computed, Array<{ el: Text | HTMLElement; getValue: () => string }>>()
     for (const t of refTargets) {
       if (!signalMap.has(t.signal)) signalMap.set(t.signal, [])
       signalMap.get(t.signal)!.push(t)
     }
 
-    // We need to create effects without importing the effect system directly
-    // to avoid circular dependencies. We'll use a simple subscription approach.
     for (const [sig, targets] of signalMap) {
       const updater = () => {
         for (const t of targets) {
-          t.getValue() // side effect happens inside getValue for attrs/bools
-          // For text nodes, update the text content
+          t.getValue()
           if (t.el.nodeType === Node.TEXT_NODE) {
             const val = (sig as Signal).value
             t.el.textContent = val == null ? '' : String(val)
           }
         }
       }
-      // Subscribe directly
       if (sig instanceof Signal) {
         sig._addSub(updater)
       }
-      // For Computed, we need to track — simplified for now
     }
   }
 
-  // Return single child if possible
   if (root.childNodes.length === 1) return root.childNodes[0]
   if (root.childNodes.length === 0) return document.createTextNode('')
-  // Return DocumentFragment
   return root
 }
