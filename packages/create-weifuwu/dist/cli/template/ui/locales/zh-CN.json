@@ -1,0 +1,14 @@
+{
+  "welcome": "欢迎",
+  "title": "weifuwu UI",
+  "subtitle": "h() + Signal + CSS — 零构建",
+  "home": "首页",
+  "about": "关于",
+  "aboutText": "weifuwu UI 是基于 h() + Signal 构建的轻量响应式 UI 层。",
+  "theme": "主题",
+  "locale": "语言",
+  "lang": "EN",
+  "cta": "开始使用",
+  "docs": "文档",
+  "demo": "一个简单的交互演示"
+}

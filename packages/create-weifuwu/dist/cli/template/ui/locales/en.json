@@ -1,0 +1,14 @@
+{
+  "welcome": "Welcome",
+  "title": "weifuwu UI",
+  "subtitle": "h() + Signal + CSS — no build step",
+  "home": "Home",
+  "about": "About",
+  "aboutText": "weifuwu UI is built with h() + Signal — a minimal reactive UI layer for weifuwu.",
+  "theme": "Theme",
+  "locale": "Locale",
+  "lang": "中文",
+  "cta": "Get Started",
+  "docs": "Docs",
+  "demo": "A simple interactive demo"
+}

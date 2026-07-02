@@ -24,7 +24,7 @@ async function cmdVersion() {
   console.log(pkg.version)
 }
 
-async function cmdInit(name: string, opts: { skipInstall?: boolean; ssr?: boolean }) {
+async function cmdInit(name: string, opts: { skipInstall?: boolean; ssr?: boolean; ui?: boolean }) {
   const targetDir = resolve(process.cwd(), name)
 
   if (existsSync(targetDir)) {
@@ -37,6 +37,8 @@ async function cmdInit(name: string, opts: { skipInstall?: boolean; ssr?: boolea
 
   if (opts.ssr) {
     await generateReactSsr(targetDir, name, pkg.version, typesNodeVersion, opts.skipInstall)
+  } else if (opts.ui) {
+    await generateUi(targetDir, name, pkg.version, typesNodeVersion, opts.skipInstall)
   } else {
     await generateMinimal(targetDir, name, pkg.version, typesNodeVersion, opts.skipInstall)
   }
@@ -132,6 +134,28 @@ async function copyRecursive(src: string, dest: string) {
   }
 }
 
+// ── UI (h() + Signal) project ───────────────────────────────────────────
+
+async function generateUi(
+  targetDir: string,
+  name: string,
+  version: string,
+  typesNodeVersion: string,
+  skipInstall?: boolean,
+) {
+  await mkdir(targetDir, { recursive: true })
+  const templateDir = join(__dirname, 'cli', 'template', 'ui')
+  await copyRecursive(templateDir, targetDir)
+
+  await writePackageJson(targetDir, name, version, typesNodeVersion, {
+    dependencies: {
+      '@weifuwu/ui': '^0.28.0',
+    },
+  })
+
+  await finishInit(targetDir, skipInstall)
+}
+
 // ── Shared helpers ─────────────────────────────────────────────────────
 
 async function writePackageJson(
@@ -194,6 +218,7 @@ weifuwu — Web-standard HTTP microframework for Node.js
 
 Usage:
   npm create weifuwu <name>              Create a new API project
+  npm create weifuwu <name> --ui         Create a h() + Signal UI project
   npm create weifuwu <name> --ssr        Create a React SSR project
   npm create weifuwu <name> --skip-install  Skip npm install
   npx create-weifuwu version             Print version
@@ -212,18 +237,20 @@ if (cmd === 'version' || cmd === '-v' || cmd === '--version') {
       'skip-install': { type: 'boolean' },
       'ssr': { type: 'boolean' },
       'react': { type: 'boolean' },
+      'ui': { type: 'boolean' },
     },
     strict: false,
     allowPositionals: true,
   })
   const name = positionals.find(a => !a.startsWith('-'))
   if (!name) {
-    console.error('Usage: npx create-weifuwu <name> [--ssr] [--skip-install]')
+    console.error('Usage: npx create-weifuwu <name> [--ui|--ssr] [--skip-install]')
     process.exit(1)
   }
   cmdInit(name, {
     skipInstall: !!values['skip-install'],
     ssr: !!(values['ssr'] || values['react']),
+    ui: !!values['ui'],
   }).catch(
     console.error,
   )

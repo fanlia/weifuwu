@@ -1,15 +1,29 @@
 # @weifuwu/ui
 
-**Client-side runtime + CSS components for weifuwu** — `ref()`, `html()`, `render()`.
+**Reactive UI for weifuwu** — `h()`, `ref()`, `render()`.
 
-Extends `html()` from server to browser with reactive state management and UI components.
-Same `html()` API on both sides — no JSX, no VDOM, no build step.
+A minimal, zero-build frontend runtime. Same philosophy as `@weifuwujs/core`:
+standard Web APIs, no compilation, no virtual DOM.
 
 ```
 npm install @weifuwu/ui
 ```
 
-## Usage
+## Core API
+
+| Function | Purpose |
+|---|---|
+| `h(tag, attrs, ...children)` | Create DOM element (like `document.createElement`) |
+| `ref(initial)` | Reactive state container |
+| `computed(fn)` | Derived reactive value |
+| `effect(fn)` | Auto-tracking side effect |
+| `render(container, fn)` | Mount template once |
+| `reactiveRender(container, fn)` | Mount with reactive updates |
+| `bind(signal)` | Two-way form binding |
+| `text(content)` | Create text node |
+| `fragment(...children)` | Create DocumentFragment |
+
+## Quick start
 
 ### Server
 
@@ -18,70 +32,156 @@ import { weifuwuiAssets } from '@weifuwu/ui'
 
 app.use('/_ui', weifuwuiAssets())
 // Serves:
+//   /_ui/weifuwu-ui.js   — Runtime (h, ref, render, stores)
 //   /_ui/weifuwu-ui.css  — CSS components
-//   /_ui/weifuwu-ui.js   — Client runtime
 ```
 
 ### Browser
 
 ```html
-<!DOCTYPE html>
-<html data-theme="${ctx.theme.value}">
-  <head>
-    <link rel="stylesheet" href="/_ui/weifuwu-ui.css" />
-    <script defer src="/_ui/weifuwu-ui.js"></script>
-    <script id="__wui-data" type="application/json">
-      {"theme": "light", "locale": "en", "messages": {}}
-    </script>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script>
-      const { ref, html, render } = weifuwu
+<link rel="stylesheet" href="/_ui/weifuwu-ui.css" />
+<script defer src="/_ui/weifuwu-ui.js"></script>
+<script id="__wui-data" type="application/json">
+  {"theme":"light","locale":"en","messages":{}}
+</script>
+<div id="app"></div>
+<script>
+  const { ref, h, render } = weifuwu
 
-      const count = ref(0)
-      render(document.getElementById('app'), () => html`
-        <button class="wui-btn wui-btn--primary"
-                @click="${() => count.value++}">
-          Count: ${count.value}
-        </button>
-      `)
-    </script>
-  </body>
-</html>
+  const count = ref(0)
+  render(document.getElementById('app'), () =>
+    h('button', {
+      class: 'wui-btn wui-btn--primary',
+      onclick: () => { count.value++ },
+    }, 'Count: ', count)
+  )
+</script>
 ```
 
-## API
+## h() — DOM element factory
 
-| Function | Purpose |
-|---|---|
-| `ref(initial)` | Reactive state container |
-| `computed(fn)` | Derived reactive value |
-| `effect(fn)` | Auto-tracking side effect |
-| `html\`\`` | Tagged template → live DOM (same API as server) |
-| `render(el, fn)` | Mount reactive template |
+```ts
+// Basic element
+h('h1', null, 'Hello')
 
-### Event bindings
+// With attributes
+h('input', {
+  type: 'text',
+  placeholder: 'Enter name',
+  value: name,       // Signal → reactive binding
+  oninput: (e) => { name.value = e.target.value },
+})
 
-```js
-html`<button @click="${handler}">Click</button>`
-html`<input @input="${(e) => ...}" />`
-html`<div @keydown="${(e) => ...}"></div>`
+// With CSS classes
+h('div', { class: 'wui-card wui-card--active' },
+  h('h2', null, 'Title'),
+  h('p', null, 'Content'),
+)
+
+// Boolean attributes
+h('input', { type: 'checkbox', checked: true })
+
+// Events
+h('button', { onclick: () => save() }, 'Save')
+h('input', { oninput: (e) => handleInput(e) })
+h('form', { onsubmit: (e) => { e.preventDefault(); submit() } })
 ```
 
-### Attribute bindings
+### Reactive bindings
 
-```js
-html`<input :value="${signal}" />`     // one-way bind
-html`<input ?checked="${signal}" />`    // boolean attribute
+Pass a `ref()` or `computed()` as an attribute value:
+
+```ts
+const name = ref('')
+h('input', { value: name })           // value stays in sync
+h('span', null, name)                 // text content updates
+h('input', { disabled: isDisabled })  // boolean attribute toggles
 ```
 
-### Stores (server data bridge)
+## ref() / computed() / effect()
+
+```ts
+import { ref, computed, effect } from '@weifuwu/ui'
+
+const name = ref('World')
+const greeting = computed(() => `Hello ${name.value}!`)
+
+effect(() => {
+  console.log(greeting.value)  // logs whenever name changes
+})
+
+name.value = 'weifuwu'  // triggers effect and any bound DOM
+```
+
+## bind() — Form binding
+
+```ts
+import { bind } from '@weifuwu/ui'
+
+const name = ref('')
+const agreed = ref(false)
+const age = ref(0)
+
+// Text input
+h('input', bind(name))
+
+// Checkbox
+h('input', { type: 'checkbox', ...bind(agreed) })
+
+// Number input
+h('input', { type: 'number', ...bind(age, { number: true }) })
+
+// Textarea
+h('textarea', bind(message))
+```
+
+## render() / reactiveRender()
+
+```ts
+import { render, reactiveRender } from '@weifuwu/ui'
+
+// One-shot render
+render(document.getElementById('root'), () =>
+  h('h1', null, 'Hello')
+)
+
+// Reactive render (updates when signals change)
+const count = ref(0)
+reactiveRender(document.getElementById('root'), () =>
+  h('button', { onclick: () => count.value++ }, count)
+)
+```
+
+## Error Boundary
+
+```ts
+import { errorBoundary, reactiveRender } from '@weifuwu/ui'
+
+reactiveRender(container, () =>
+  errorBoundary(
+    () => MyComponent(),
+    (err) => h('p', { class: 'wui-alert wui-alert--danger' }, err.message)
+  )
+)
+```
+
+## Lifecycle (onmount)
+
+```ts
+h('div', {
+  onmount: (el) => {
+    // el is now in the DOM
+    initChart(el, data)
+  }
+})
+```
+
+## Stores (server data bridge)
 
 ```js
-weifuwu.theme         // { value, resolved, toggle(), set() }
-weifuwu.i18n          // { locale, messages, t(key), set(locale) }
-weifuwu.toast         // { show(msg, type), success(), error(), dismiss() }
+weifuwu.theme         // { value, toggle(), set() }
+weifuwu.i18n          // { locale, t(key), set(locale) }
+weifuwu.toast         // { show(msg, type), success(), error() }
 weifuwu.modal         // { open, show(id), hide() }
 ```
 
@@ -89,23 +189,35 @@ weifuwu.modal         // { open, show(id), hide() }
 
 ```html
 <button class="wui-btn wui-btn--primary">Primary</button>
-<button class="wui-btn wui-btn--danger wui-btn--sm">Small Danger</button>
-
-<div class="wui-card">
-  <div class="wui-card__header">Title</div>
-  <p>Content</p>
-</div>
-
+<div class="wui-card"><div class="wui-card__header">Title</div></div>
 <span class="wui-badge wui-badge--success">Active</span>
-
-<div class="wui-alert wui-alert--info">Info message</div>
-
+<div class="wui-alert wui-alert--info">Info</div>
 <table class="wui-table">...</table>
+```
 
-<div class="wui-tabs">
-  <button class="wui-tab wui-tab--active">Tab 1</button>
-  <button class="wui-tab">Tab 2</button>
-</div>
+### Available components
+
+- `.wui-btn` — buttons with `--primary`, `--success`, `--danger`, `--ghost`, `--sm`, `--lg`
+- `.wui-card` — card with `__header` and `__footer`
+- `.wui-input`, `.wui-select`, `.wui-textarea`, `.wui-label`, `.wui-checkbox` — form controls
+- `.wui-badge` — badges with `--success`, `--warning`, `--danger`, `--info`
+- `.wui-alert` — alerts with same variants
+- `.wui-toast` / `.wui-toast-container` — toast notifications
+- `.wui-modal-overlay` / `.wui-modal-body` — modal dialogs
+- `.wui-nav` / `.wui-nav-item` — navigation
+- `.wui-table` — data tables
+- `.wui-tabs` / `.wui-tab` — tab navigation
+- `.wui-dropdown` / `.wui-dropdown-menu` — dropdowns
+- `.wui-spinner` — loading indicator
+
+All components support `[data-theme="dark"]` automatically.
+
+## Scaffold a project
+
+```bash
+npx create-weifuwu my-app --ui
+cd my-app
+npm run dev
 ```
 
 ## License
