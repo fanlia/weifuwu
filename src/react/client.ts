@@ -61,6 +61,7 @@ export { Link, useParams, useNavigate, useRevalidate, Form, useNavigation } from
 export type { LinkProps, FormProps, NavigationState } from './navigation.ts'
 export { ErrorBoundary } from './error-boundary.ts'
 export type { ErrorBoundaryProps } from './error-boundary.ts'
+export { defineRoute } from './route-utils.ts'
 
 // ═══════════════════════════════════════════════════════════════
 // Read server-injected data

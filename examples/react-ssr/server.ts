@@ -170,4 +170,13 @@ app.onError((err, _req, ctx) => {
 
 const server = serve(app, { port: 3456 })
 await server.ready
-console.log(`\n  🚀 weifuwu React SSR + SPA → http://localhost:${server.port}\n`)
+console.log('\n  🚀  weifuwu React SSR + SPA  →  http://localhost:' + server.port)
+console.log('  ─────────────────────────────────────────────')
+console.log('  /                   Home — feature overview')
+console.log('  /users              Users — SPA nav + Form submit + loading')
+console.log('  /users/:id          User detail — ErrorBoundary + dynamic title')
+console.log('  /admin/dashboard    Dashboard — streaming SSR + nested layout')
+console.log('  /error              ErrorBoundary usage reference')
+console.log('  /api/hello          Non-React JSON API')
+console.log('  /assets/client.js   Client bundle (~5KB)')
+console.log('  ─────────────────────────────────────────────\n')

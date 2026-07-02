@@ -1,31 +1,30 @@
 /**
- * Client-side entry for hydration + SPA navigation.
+ * Client-side entry — hydration + SPA navigation with type-safe routes.
  *
- * Imports the SAME page components as server.ts — they use useServerData()
- * which reads from ServerDataContext. The context is populated by:
- *   - createClientRouter (via loader) on SPA navigation
- *   - __WEIFUWU_DATA__ script on initial page load
+ * Shared components (components/pages.ts) use useServerData() —
+ * same code runs on server and client. Data flows via:
+ *   Server: ctx.render(<Page />, { data })
+ *   Client: createClientRouter([{ component: Page, loader }])
  *
  * Build:  node build.mjs
  * Start:  node server.ts
  */
 
-import { hydrate, createClientRouter } from 'weifuwu/react/client'
+import { hydrate, createClientRouter, defineRoute } from 'weifuwu/react/client'
 import { HomePage, UsersPage, UserDetailPage, ErrorDemoPage } from './components/pages.ts'
 
+// Type-safe route definitions — loader return types captured as $data
+const homeRoute   = defineRoute({ path: '/',             component: HomePage,         loader: () => Promise.resolve({}) })
+const usersRoute  = defineRoute({ path: '/users',        component: UsersPage,        loader: () => fetch('/users?_data').then(r => r.json()) })
+const userRoute   = defineRoute({ path: '/users/:id',    component: UserDetailPage,   loader: (p) => fetch(`/users/${p.id}?_data`).then(r => r.json()) })
+const errorRoute  = defineRoute({ path: '/error',        component: ErrorDemoPage,    loader: () => Promise.resolve({}) })
+
+// In components: useServerData<typeof usersRoute.$data>() → full auto-complete
 const router = createClientRouter([
-  { path: '/', component: HomePage },
-  {
-    path: '/users',
-    component: UsersPage,
-    loader: () => fetch('/users?_data').then(r => r.json()),
-  },
-  {
-    path: '/users/:id',
-    component: UserDetailPage,
-    loader: (params) => fetch(`/users/${params.id}?_data`).then(r => r.json()),
-  },
-  { path: '/error', component: ErrorDemoPage },
+  homeRoute,
+  usersRoute,
+  userRoute,
+  errorRoute,
 ])
 
 hydrate(router.App)
