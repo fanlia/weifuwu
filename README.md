@@ -169,6 +169,121 @@ const gql = graphql((req, ctx) => ({
 app.mount('/graphql', gql)
 ```
 
+### React SSR
+
+> Requires `react >= 19`, `react-dom >= 19` (optional peerDependencies).
+
+```bash
+npm install react react-dom
+```
+
+```ts
+import { react, Link, useServerData, ErrorBoundary } from 'weifuwu'
+import { createElement as h } from 'react'
+
+// ── Server ──────────────────────────────────────────────
+
+app.use(react({
+  layout: ({ children }) =>
+    h('html', null,
+      h('head', null, h('title', null, 'My App')),
+      h('body', null, h('div', { id: 'root' }, children)),
+    ),
+}))
+
+// Render React components to HTML
+app.get('/', (_req, ctx) =>
+  ctx.render(h('h1', null, 'Hello SSR'), {
+    head: { title: 'Home' },
+    data: { greeting: 'Hello' },
+  })
+)
+
+// Streaming SSR
+app.get('/dashboard', (_req, ctx) =>
+  ctx.renderStream(h(Dashboard))
+)
+
+// Layout nesting via mount
+const admin = new Router()
+admin.use(react({ layout: AdminLayout }))
+admin.get('/dashboard', (_req, ctx) => ctx.render(h(AdminDashboard)))
+app.mount('/admin', admin)
+
+// ── Shared components ──────────────────────────────────
+
+// Use the same component on server and client
+function Page() {
+  const { greeting } = useServerData<{ greeting: string }>()
+  return h('h1', null, greeting)
+}
+
+// Link works on both sides: <a> on server, SPA <a> on client
+function Nav() {
+  return h('nav', null,
+    h(Link, { href: '/' }, 'Home'),
+    h(Link, { href: '/users' }, 'Users'),
+  )
+}
+
+// ErrorBoundary catches client-side render errors
+function SafeUserProfile() {
+  return h(ErrorBoundary, { fallback: h('div', null, 'Error') },
+    h(UserProfile),
+  )
+}
+
+// ── Client (SPA navigation) ────────────────────────────
+
+// client.ts — bundled separately with esbuild
+import { hydrate, createClientRouter, defineRoute } from 'weifuwu/react/client'
+
+const userRoute = defineRoute({
+  path: '/users/:id',
+  component: UserPage,
+  loader: (params) => fetch(`/users/${params.id}?_data`).then(r => r.json()),
+})
+
+const router = createClientRouter([
+  { path: '/', component: HomePage },
+  userRoute,
+])
+
+hydrate(router.App)
+```
+
+**Key concepts:**
+
+| Feature | Description |
+|---|---|
+| `ctx.render(el, opts)` | Render React to HTML. Auto-detects `?_data` → returns JSON. |
+| `ctx.renderStream(el)` | Streaming SSR via `renderToReadableStream`. |
+| `useServerData<T>()` | Access data on both server (via `ctx.render({ data })`) and client (via `loader`). |
+| `Link` | Shared component — `<a>` on server, SPA `<a>` on client. |
+| `Form` | Shared — `<form>` on server, `fetch` + revalidate on client. |
+| `ErrorBoundary` | Catches render errors on client (SSR uses `onError`). |
+| `useNavigation()` | `{ state: 'idle' \| 'loading' }` for progress indicators. |
+| `useParams()` / `useNavigate()` / `useRevalidate()` | Router hooks. |
+| `defineRoute()` | Type-safe route config — captures loader return type. |
+| `createClientRouter()` | Client-side SPA router with loader-based data fetching. |
+| `hydrate(App)` | Hydrate server-rendered HTML on the client. |
+| `head: { title, meta }` | Inject dynamic `<title>` and `<meta>` tags. |
+
+**Import paths:**
+
+```ts
+// Server-side
+import { react, Link, Form, ErrorBoundary, useServerData } from 'weifuwu'
+
+// Client-side (for browser bundles)
+import { hydrate, createClientRouter, defineRoute, Link } from 'weifuwu/react/client'
+
+// Shared primitives (safe for both, pure React — no react-dom import)
+import { Link, Form, useServerData, useParams, useNavigation } from 'weifuwu/react/navigation'
+```
+
+See [examples/react-ssr/](examples/react-ssr/) for a complete demo.
+
 ### Types
 
 | Export | Description |
@@ -290,10 +405,13 @@ weifuwu/
 │   ├── middleware/          ← cors, helmet, compress, rate-limit, static, upload
 │   ├── postgres/
 │   ├── redis/
+│   ├── react/              ← react SSR (render, navigation, client)
 │   ├── queue/              ← cron, index, types
 │   ├── graphql.ts
 │   ├── hub.ts
-│   └── test/               ← 122 tests (18 files)
+│   └── test/               ← 131 tests (18 files)
+├── examples/
+│   └── react-ssr/          ← full SPA demo
 └── dist/
 ```
 
@@ -302,5 +420,5 @@ weifuwu/
 ```bash
 npm run build          # esbuild → dist/index.js
 npm run typecheck      # tsc --noEmit
-npm test              # 122 tests (requires docker compose)
+npm test              # 131 tests (requires docker compose)
 ```

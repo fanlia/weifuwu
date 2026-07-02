@@ -1,7 +1,7 @@
 {
   "name": "weifuwu",
   "type": "module",
-  "version": "0.30.2",
+  "version": "0.31.0",
   "description": "Web-standard HTTP microframework for Node.js — (req, ctx) => Response",
   "exports": {
     ".": {
