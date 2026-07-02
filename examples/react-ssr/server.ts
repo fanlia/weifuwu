@@ -1,20 +1,31 @@
 /**
- * weifuwu + React SSR example
+ * weifuwu + React SSR — full SPA navigation example.
  *
- * Demo:
- *   GET /              — React SSR home page
- *   GET /users         — React SSR list
- *   GET /users/:id     — React SSR detail with data loading
- *   GET /dashboard     — React SSR streaming
- *   GET /api/hello     — Non-React JSON API
+ * Routes:
+ *   GET /                  — React SSR home page
+ *   GET /users             — React SSR user list (+ ?_data)
+ *   GET /users/:id         — React SSR user detail (+ ?_data)
+ *   GET /admin/dashboard   — Streaming SSR with nested layout
+ *   GET /api/hello         — Non-React JSON API
+ *   GET /assets/*          — Static client bundle
  *
  * Run:
- *   npm install && npm start
+ *   npm install && npm run build:client && node server.ts
  */
 
-import { serve, Router, logger, trace } from 'weifuwu'
+import { serve, Router, logger, trace, serveStatic } from 'weifuwu'
 import { react } from 'weifuwu/react'
 import { createElement as h } from 'react'
+
+// ════════════════════════════════════════════════════════════
+// Mock data
+// ════════════════════════════════════════════════════════════
+
+const MOCK_USERS = [
+  { id: 1, name: 'Alice', email: 'alice@example.com', bio: 'Full-stack developer' },
+  { id: 2, name: 'Bob', email: 'bob@example.com', bio: 'Designer & artist' },
+  { id: 3, name: 'Charlie', email: 'charlie@example.com', bio: 'DevOps engineer' },
+]
 
 // ════════════════════════════════════════════════════════════
 // Layouts
@@ -32,8 +43,12 @@ function RootLayout({ children }: { children: unknown }) {
         nav a { color: #333; text-decoration: none; }
         nav a:hover { text-decoration: underline; }
         .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
-        .user-link { display: block; padding: 0.5rem 0; }
+        .user-link { display: block; padding: 0.5rem 0; color: #0066cc; text-decoration: none; }
+        .user-link:hover { text-decoration: underline; }
+        .back-link { display: inline-block; margin-top: 1rem; color: #0066cc; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
       `),
+      h('script', { type: 'module', src: '/assets/client.js' }),
     ),
     h('body', null,
       h('nav', null,
@@ -55,7 +70,7 @@ function AdminLayout({ children }: { children: unknown }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Pages
+// Shared components (rendered identically on server & client)
 // ════════════════════════════════════════════════════════════
 
 function HomePage() {
@@ -70,6 +85,15 @@ function HomePage() {
         h('li', null, 'Layout composition via mount nesting'),
         h('li', null, 'useServerData() — typed data loading'),
         h('li', null, 'Coexists with non-React API routes'),
+        h('li', null, h('strong', null, 'NEW: '), 'Client-side SPA navigation with <Link>'),
+      ),
+    ),
+    h('div', { className: 'card', style: { background: '#f0f7ff' } },
+      h('h2', null, 'Try it out'),
+      h('ol', null,
+        h('li', null, h('a', { href: '/users' }, 'Browse users') + ' — click any user to navigate without page reload'),
+        h('li', null, h('a', { href: '/admin/dashboard' }, 'Dashboard') + ' — streaming SSR with nested Admin layout'),
+        h('li', null, h('a', { href: '/api/hello' }, 'API') + ' — non-React JSON route cöexisting with React SSR'),
       ),
     ),
   )
@@ -78,12 +102,15 @@ function HomePage() {
 function UsersPage({ users }: { users: Array<{ id: number; name: string; email: string }> }) {
   return h('div', null,
     h('h1', null, 'Users'),
+    h('p', null, `Click a user to navigate without page reload (SPA navigation).`),
     h('div', { className: 'card' },
-      users.map(u =>
-        h('a', { key: u.id, className: 'user-link', href: `/users/${u.id}` },
-          `${u.name} (${u.email})`,
-        ),
-      ),
+      users.length === 0
+        ? h('p', null, 'No users found.')
+        : users.map(u =>
+            h('a', { key: u.id, className: 'user-link', href: `/users/${u.id}` },
+              `${u.name} — ${u.email}`,
+            ),
+          ),
     ),
   )
 }
@@ -93,35 +120,33 @@ function UserDetailPage({ user }: { user: { id: number; name: string; email: str
     h('h1', null, user.name),
     h('p', null, h('strong', null, 'Email: '), user.email),
     h('p', null, h('strong', null, 'ID: '), String(user.id)),
-    user.bio && h('p', null, h('em', null, user.bio)),
-    h('a', { href: '/users' }, '← Back to users'),
+    user.bio ? h('p', null, h('em', null, user.bio)) : null,
+    h('a', { className: 'back-link', href: '/users' }, '← Back to users'),
   )
 }
 
 function DashboardPage() {
   return h('div', null,
-    h('h1', null, 'Dashboard (Streaming SSR)'),
+    h('h1', null, 'Dashboard'),
+    h('p', null, 'This page uses renderStream() — the browser receives chunks progressively.'),
     h('div', { className: 'card' },
-      h('h2', null, 'Stats'),
+      h('h2', null, 'Streaming SSR Stats'),
       h('ul', null,
         h('li', null, 'Users: 42'),
         h('li', null, 'Posts: 128'),
         h('li', null, 'Comments: 512'),
       ),
     ),
-    h('p', null, 'This page uses renderStream() — the browser receives chunks progressively.'),
   )
 }
 
-// ════════════════════════════════════════════════════════════
-// Mock data
-// ════════════════════════════════════════════════════════════
-
-const MOCK_USERS = [
-  { id: 1, name: 'Alice', email: 'alice@example.com', bio: 'Full-stack developer' },
-  { id: 2, name: 'Bob', email: 'bob@example.com', bio: 'Designer & artist' },
-  { id: 3, name: 'Charlie', email: 'charlie@example.com', bio: 'DevOps engineer' },
-]
+function NotFoundPage({ path }: { path: string }) {
+  return h('div', { className: 'card', style: { borderColor: '#e74c3c' } },
+    h('h1', null, '404 — Page Not Found'),
+    h('p', null, `No route matches "${path}".`),
+    h('a', { className: 'back-link', href: '/' }, '← Go home'),
+  )
+}
 
 // ════════════════════════════════════════════════════════════
 // App setup
@@ -129,27 +154,36 @@ const MOCK_USERS = [
 
 const app = new Router()
 
-// Global middleware
 app.use(trace())
 app.use(logger())
+
+// Static assets (client bundle)
+app.get('/assets/*', serveStatic('./public'))
 
 // React SSR (root layout)
 app.use(react({ layout: RootLayout }))
 
-// ── Public routes ──────────────────────────────────────────
+// ── Routes ─────────────────────────────────────────────────
 
 app.get('/', async (_req, ctx) => {
   return ctx.render(h(HomePage))
 })
 
-app.get('/users', async (_req, ctx) => {
-  return ctx.render(h(UsersPage, { users: MOCK_USERS }))
+app.get('/users', async (req, ctx) => {
+  if (new URL(req.url).searchParams.has('_data')) {
+    return Response.json({ users: MOCK_USERS })
+  }
+  return ctx.render(h(UsersPage, { users: MOCK_USERS }), { data: { users: MOCK_USERS } })
 })
 
 app.get('/users/:id', async (req, ctx) => {
   const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
+  if (new URL(req.url).searchParams.has('_data')) {
+    if (!user) return Response.json({ error: 'Not found' }, { status: 404 })
+    return Response.json({ user })
+  }
   if (!user) {
-    return ctx.render(h('h1', null, '404 — User Not Found'), { status: 404 })
+    return ctx.render(h(NotFoundPage, { path: `/users/${ctx.params.id}` }), { status: 404 })
   }
   return ctx.render(h(UserDetailPage, { user }), { data: { user } })
 })
@@ -160,14 +194,13 @@ const admin = new Router()
 admin.use(react({ layout: AdminLayout }))
 
 admin.get('/dashboard', async (_req, ctx) => {
-  // Use streaming for the dashboard
   return ctx.renderStream(h(DashboardPage))
 })
 
 app.mount('/admin', admin)
 
 // ════════════════════════════════════════════════════════════
-// Non-React API route (coexists with React routes)
+// Non-React API
 // ════════════════════════════════════════════════════════════
 
 app.get('/api/hello', () => {
@@ -182,7 +215,7 @@ app.onError((err, req, ctx) => {
   console.error('Unhandled error:', err)
   if (ctx.render) {
     return ctx.render(
-      h('div', { style: 'color: red' },
+      h('div', { style: { color: 'red', padding: '2rem' } },
         h('h1', null, '500 — Server Error'),
         h('pre', null, err.message),
       ),
@@ -198,10 +231,4 @@ app.onError((err, req, ctx) => {
 
 const server = serve(app, { port: 3456 })
 await server.ready
-console.log(`\n  🚀 weifuwu React SSR example running at http://localhost:${server.port}`)
-console.log(`  Routes:`)
-console.log(`    /              — React SSR home page`)
-console.log(`    /users         — React SSR user list`)
-console.log(`    /users/:id     — React SSR user detail`)
-console.log(`    /dashboard     — React SSR (admin area + streaming)`)
-console.log(`    /api/hello     — Non-React JSON API\n`)
+console.log(`\n  🚀 weifuwu React SSR + SPA → http://localhost:${server.port}\n`)
