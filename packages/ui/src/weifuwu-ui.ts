@@ -10,7 +10,7 @@
  */
 
 import { ref, computed, effect, batch, Signal, Computed } from './signal.ts'
-import { h, text, fragment, triggerMount } from './h.ts'
+import { h, text, fragment, triggerMount, when, each } from './h.ts'
 import { bind } from './bind.ts'
 import { render, reactiveRender } from './render.ts'
 
@@ -113,7 +113,7 @@ export const modal = {
 export { ref, computed, effect, batch, Signal, Computed }
 export { component, signal } from './component.ts'
 export { syncRef } from './sync-ref.ts'
-export { h, text, fragment, triggerMount }
+export { h, text, fragment, triggerMount, when, each }
 export { bind }
 export { render, reactiveRender }
 export { errorBoundary, onRenderError } from './error-boundary.ts'

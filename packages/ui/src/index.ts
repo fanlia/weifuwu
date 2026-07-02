@@ -7,6 +7,8 @@
  */
 
 export { h, serialize } from './vnode.ts'
+
+export { when, each } from './control-flow.ts'
 export type { VNode, VChild, VAttrs } from './vnode.ts'
 
 export { page } from './page.ts'

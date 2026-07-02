@@ -8,6 +8,7 @@
  */
 
 import { Signal, Computed } from './signal.ts'
+import type { ShowNode, EachNode } from './control-flow.ts'
 
 // ── VNode types ────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ export interface VNode {
   children: VChild[]
 }
 
-export type VChild = VNode | string | number | boolean | null | undefined | Signal | Computed | VChild[]
+export type VChild = VNode | string | number | boolean | null | undefined | Signal | Computed | ShowNode | EachNode | VChild[]
 
 // ── h() — server version ───────────────────────────────────────
 
@@ -109,6 +110,29 @@ function serializeNode(node: VNode | VChild, parts: string[]): void {
   if (node instanceof Signal || node instanceof Computed) {
     const val = node.value
     parts.push(escapeHtml(val == null ? '' : String(val)))
+    return
+  }
+
+  // ShowNode — evaluate condition and render
+  if ('_type' in node && node._type === 'show') {
+    const show = node as ShowNode
+    if (show.signal.peek()) {
+      const result = show.factory()
+      if (result) serializeNode(result, parts)
+    }
+    return
+  }
+
+  // EachNode — map array and render each
+  if ('_type' in node && node._type === 'each') {
+    const eachNode = node as EachNode
+    const arr = eachNode.signal.peek()
+    if (Array.isArray(arr)) {
+      for (let i = 0; i < arr.length; i++) {
+        const item = eachNode.factory(arr[i], i)
+        serializeNode(item, parts)
+      }
+    }
     return
   }
 

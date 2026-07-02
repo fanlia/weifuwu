@@ -71,7 +71,29 @@ function extractDataBridge(node: VNode | unknown): DataBridge {
       return
     }
 
-    if ('tag' in (n as Record<string, unknown>) && 'attrs' in (n as Record<string, unknown>)) {
+    // ShowNode / EachNode — walk the signal and factory result
+    const nObj = n as Record<string, unknown>
+    if (nObj._type === 'show') {
+      const show = n as { signal: unknown; factory: () => unknown }
+      walk(show.signal)
+      const branch = show.factory()
+      if (branch) walk(branch)
+      return
+    }
+    if (nObj._type === 'each') {
+      const eachNode = n as { signal: unknown; factory: (item: unknown, i: number) => unknown }
+      walk(eachNode.signal)
+      const arr = (eachNode.signal as { peek(): unknown[] }).peek()
+      if (Array.isArray(arr)) {
+        for (let i = 0; i < arr.length; i++) {
+          const item = eachNode.factory(arr[i], i)
+          if (item) walk(item)
+        }
+      }
+      return
+    }
+
+    if ('tag' in nObj && 'attrs' in nObj) {
       const node = n as VNode
       if (node.attrs) {
         for (const [key, value] of Object.entries(node.attrs)) {

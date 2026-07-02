@@ -159,6 +159,56 @@ function appendChild(el: HTMLElement, child: HChild): void {
 }
 
 /**
+ * Conditional rendering — works inside reactiveRender.
+ *
+ * Server: evaluates condition via peek() during SSR
+ * Client: subscribes to signal via effect, re-evaluates on change
+ *
+ * ```ts
+ * const show = ref(false)
+ * reactiveRender(app, () =>
+ *   h('div', null,
+ *     when(show, () => h('p', null, 'shown when truthy')),
+ *   )
+ * )
+ * ```
+ */
+export function when(
+  condition: Signal | Computed | unknown,
+  factory: () => HChild,
+): HChild {
+  if (condition instanceof Signal || condition instanceof Computed) {
+    return condition.value ? factory() : null
+  }
+  return condition ? factory() : null
+}
+
+/**
+ * List rendering — works inside reactiveRender.
+ *
+ * Server: maps over peek() array during SSR
+ * Client: subscribes to signal via effect, re-maps on change
+ *
+ * ```ts
+ * const items = ref(['a', 'b', 'c'])
+ * reactiveRender(app, () =>
+ *   h('ul', null,
+ *     each(items, (item, i) => h('li', null, item)),
+ *   )
+ * )
+ * ```
+ */
+export function each<T = unknown>(
+  items: Signal<T[]> | Computed<T[]> | T[],
+  factory: (item: T, index: number) => HChild,
+): HChild[] {
+  const arr = items instanceof Signal || items instanceof Computed
+    ? items.value
+    : items
+  return arr.map((item, i) => factory(item, i))
+}
+
+/**
  * Convenience: create a text node.
  */
 export function text(content: string | number | boolean | null | undefined): Text {
