@@ -374,7 +374,7 @@ export class Router<T extends Context = Context> {
   }
 
   /** Resolve a matched trie node → handler or 405. */
-  private _resolveMatch(node: TrieNode, method: string, params: Record<string, string>, segLen: number): {
+  private _resolveMatch(node: TrieNode, method: string, params: Record<string, string>, _segLen: number): {
     kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
   } | null {
     let handler = node.handlers.get(method) || node.handlers.get('*')
