@@ -1,0 +1,33 @@
+{
+  "name": "@weifuwu/ui",
+  "type": "module",
+  "version": "0.28.5",
+  "description": "CSS + Alpine.js components for weifuwu — buttons, cards, modals, toasts, and more",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./css": "./dist/weifuwu-ui.css",
+    "./js": "./dist/weifuwu-ui.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "dist/index.js",
+    "dist/index.d.ts",
+    "dist/weifuwu-ui.js",
+    "dist/weifuwu-ui.css"
+  ],
+  "peerDependencies": {
+    "@weifuwujs/core": "^0.28.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25",
+    "esbuild": "^0.28"
+  },
+  "license": "MIT"
+}

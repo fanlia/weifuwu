@@ -3104,7 +3104,7 @@ function html(strings, ...values) {
       if (v == null || v === false) continue;
       if (Array.isArray(v)) {
         result += v.join("");
-      } else if (typeof v === "object" && v?._raw) {
+      } else if (typeof v === "object" && v !== null && "_raw" in v) {
         result += v._raw;
       } else {
         result += esc(String(v));
