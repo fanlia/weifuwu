@@ -116,12 +116,27 @@ function matchChild<T extends TrieNodeBase<T>>(
   if (node.children.has(segment)) return node.children.get(segment)!
   if (node.children.has(':')) {
     const child = node.children.get(':')!
-    if (child.param) params[child.param] = segment
+    if (child.param) params[child.param] = decodeURIComponent(segment)
     return child
   }
   if (allowWildcard && node.wildcard) return node
   return null
 }
+
+type RouteMatch = {
+  kind: 'route'
+  handler: Handler
+  mws: Middleware[]
+  params: Record<string, string>
+}
+
+type NotAllowedMatch = {
+  kind: 'not-allowed'
+  methods: string[]
+  params: Record<string, string>
+}
+
+type MatchResult = RouteMatch | NotAllowedMatch | null
 
 type WsMatchResult = {
   handler: WebSocketHandler
@@ -407,7 +422,8 @@ export class Router<T extends Context = Context> {
             sendHttpResponseOnSocket(socket, result)
           }
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error('[router] WS middleware chain error:', err)
           socket.destroy()
         })
     }
@@ -494,12 +510,7 @@ export class Router<T extends Context = Context> {
   private matchTrie(
     method: string,
     segments: string[],
-  ): {
-    handler?: Handler
-    middlewares: Middleware[]
-    params: Record<string, string>
-    allowedMethods?: string[]
-  } | null {
+  ): MatchResult {
     let node = this.root
     const params: Record<string, string> = {}
     let wildcardHandler: Handler | null = null
@@ -508,7 +519,10 @@ export class Router<T extends Context = Context> {
 
     for (let i = 0; i < segments.length; i++) {
       if (this._hasWildcard && node.wildcard) {
-        const h = node.handlers.get('*') || node.handlers.get(method)
+        let h = node.handlers.get('*') || node.handlers.get(method)
+        if (!h && method === 'HEAD') {
+          h = node.handlers.get('GET')
+        }
         if (h) {
           wildcardHandler = h
           wildcardMws = node.middlewares.get(method) || node.middlewares.get('*') || []
@@ -522,33 +536,38 @@ export class Router<T extends Context = Context> {
       if (!next) {
         if (wildcardHandler) {
           params['*'] = segments.slice(wildcardIdx).join('/')
-          return { handler: wildcardHandler, middlewares: wildcardMws, params }
+          return { kind: 'route', handler: wildcardHandler, mws: wildcardMws, params }
         }
         return null
       }
       node = next
     }
 
-    const handler = node.handlers.get(method) || node.handlers.get('*')
+    let handler = node.handlers.get(method) || node.handlers.get('*')
+    // HEAD requests fall back to GET if no explicit HEAD handler
+    if (!handler && method === 'HEAD') {
+      handler = node.handlers.get('GET')
+    }
     if (handler) {
       if (node.wildcard) params['*'] = segments.slice(segments.length).join('/')
       return {
+        kind: 'route',
         handler,
-        middlewares: node.middlewares.get(method) || node.middlewares.get('*') || [],
+        mws: node.middlewares.get(method) || node.middlewares.get('*') || [],
         params,
       }
     }
 
     if (wildcardHandler) {
       params['*'] = segments.slice(wildcardIdx).join('/')
-      return { handler: wildcardHandler, middlewares: wildcardMws, params }
+      return { kind: 'route', handler: wildcardHandler, mws: wildcardMws, params }
     }
 
     if (node.handlers.size > 0) {
       return {
-        middlewares: [],
+        kind: 'not-allowed',
+        methods: [...node.handlers.keys()].filter((k) => k !== '*'),
         params,
-        allowedMethods: [...node.handlers.keys()].filter((k) => k !== '*'),
       }
     }
 
@@ -576,43 +595,53 @@ export class Router<T extends Context = Context> {
       : new Response('Internal Server Error', { status: 500 })
   }
 
+  private _notFoundResponse(method: string, segments: string[]): Response {
+    if (!isProd()) {
+      return Response.json(
+        { error: 'Not Found', path: '/' + segments.join('/'), method },
+        { status: 404 },
+      )
+    }
+    return new Response('Not Found', { status: 404 })
+  }
+
   private async handle(req: Request, ctx: Context, segments: string[]): Promise<Response> {
     const match = this.matchTrie(req.method, segments)
 
     if (match) {
       Object.assign(ctx.params, match.params)
 
-      if (match.handler) {
-        const { handler, middlewares: routeMws } = match
-        const mws = [...this.globalMws, ...routeMws]
-        try {
-          return await this.runChain(mws, handler, req, ctx)
-        } catch (e) {
-          return this.handleError(e, req, ctx)
-        }
-      }
-
-      if (match.allowedMethods && match.allowedMethods.length > 0) {
-        if (this.globalMws.length > 0) {
+      switch (match.kind) {
+        case 'route': {
+          const mws = [...this.globalMws, ...match.mws]
           try {
-            return await this.runChain(
-              this.globalMws,
-              () =>
-                new Response('Method Not Allowed', {
-                  status: 405,
-                  headers: { Allow: match.allowedMethods!.join(', ') },
-                }),
-              req,
-              ctx,
-            )
+            return await this.runChain(mws, match.handler, req, ctx)
           } catch (e) {
             return this.handleError(e, req, ctx)
           }
         }
-        return new Response('Method Not Allowed', {
-          status: 405,
-          headers: { Allow: match.allowedMethods.join(', ') },
-        })
+        case 'not-allowed': {
+          if (this.globalMws.length > 0) {
+            try {
+              return await this.runChain(
+                this.globalMws,
+                () =>
+                  new Response('Method Not Allowed', {
+                    status: 405,
+                    headers: { Allow: match.methods.join(', ') },
+                  }),
+                req,
+                ctx,
+              )
+            } catch (e) {
+              return this.handleError(e, req, ctx)
+            }
+          }
+          return new Response('Method Not Allowed', {
+            status: 405,
+            headers: { Allow: match.methods.join(', ') },
+          })
+        }
       }
     }
 
@@ -620,15 +649,7 @@ export class Router<T extends Context = Context> {
       try {
         return await this.runChain(
           this.globalMws,
-          () => {
-            if (!isProd()) {
-              return Response.json(
-                { error: 'Not Found', path: '/' + segments.join('/'), method: req.method },
-                { status: 404 },
-              )
-            }
-            return new Response('Not Found', { status: 404 })
-          },
+          () => this._notFoundResponse(req.method, segments),
           req,
           ctx,
         )
@@ -637,17 +658,7 @@ export class Router<T extends Context = Context> {
       }
     }
 
-    if (!isProd()) {
-      return Response.json(
-        {
-          error: 'Not Found',
-          path: '/' + segments.join('/'),
-          method: req.method,
-        },
-        { status: 404 },
-      )
-    }
-    return new Response('Not Found', { status: 404 })
+    return this._notFoundResponse(req.method, segments)
   }
 
   private async runChain(
@@ -676,7 +687,7 @@ function runChainLoop(
         console.warn(
           '[router] next() called more than once in middleware — ignoring duplicate call',
         )
-        return Promise.resolve(new Response('Internal Server Error', { status: 500 }))
+        return Promise.resolve(new Response('', { status: 499 }))
       }
       called = true
       return runChainLoop(middlewares, index + 1, finalHandler, r, c)

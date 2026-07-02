@@ -245,10 +245,10 @@ describe('Router path matching', () => {
     assert.throws(() => r.ws('/chat/:channel', { message() {} }), /Param name conflict/)
   })
 
-  it('encoded path segments are matched as-is', async () => {
+  it('encoded path segments are decoded in params', async () => {
     const r = new Router().get('/search/:query', (req, ctx) => new Response(ctx.params.query))
     const res = await r.handler()(new Request('http://localhost/search/hello%20world'), mkCtx())
-    assert.equal(await res.text(), 'hello%20world')
+    assert.equal(await res.text(), 'hello world')
   })
 
   it('matches prefixed param paths correctly', async () => {
@@ -1225,6 +1225,6 @@ describe('Router edge cases', () => {
   it('param value contains special characters', async () => {
     const r = new Router().get('/search/:query', (req, ctx) => new Response(ctx.params.query))
     const res = await r.handler()(new Request('http://localhost/search/c++%20dart'), mkCtx())
-    assert.equal(await res.text(), 'c++%20dart')
+    assert.equal(await res.text(), 'c++ dart')
   })
 })
