@@ -2,10 +2,10 @@
  * weifuwu + React SSR — full SPA navigation example.
  *
  * Routes:
- *   GET /                  — React SSR home page
- *   GET /users             — React SSR user list (+ ?_data)
- *   GET /users/:id         — React SSR user detail (+ ?_data)
- *   GET /admin/dashboard   — Streaming SSR with nested layout
+ *   GET /                  — Home
+ *   GET /users             — User list (+ ?_data for SPA)
+ *   GET /users/:id         — User detail (+ ?_data for SPA)
+ *   GET /admin/dashboard   — Streaming SSR + nested layout
  *   GET /api/hello         — Non-React JSON API
  *   GET /assets/*          — Static client bundle
  *
@@ -16,6 +16,10 @@
 import { serve, Router, logger, trace, serveStatic } from 'weifuwu'
 import { react, Link } from 'weifuwu/react'
 import { createElement as h } from 'react'
+import {
+  HomePage, UsersPage, UserDetailPage,
+  DashboardPage, NotFoundPage,
+} from './components/pages.ts'
 
 // ════════════════════════════════════════════════════════════
 // Mock data
@@ -52,10 +56,10 @@ function RootLayout({ children }: { children: unknown }) {
     ),
     h('body', null,
       h('nav', null,
-        h('a', { href: '/' }, 'Home'),
-        h('a', { href: '/users' }, 'Users'),
-        h('a', { href: '/admin/dashboard' }, 'Dashboard'),
-        h('a', { href: '/api/hello' }, 'API'),
+        h(Link, { href: '/' }, 'Home'),
+        h(Link, { href: '/users' }, 'Users'),
+        h(Link, { href: '/admin/dashboard' }, 'Dashboard'),
+        h(Link, { href: '/api/hello' }, 'API'),
       ),
       h('div', { id: 'root' }, children),
     ),
@@ -66,85 +70,6 @@ function AdminLayout({ children }: { children: unknown }) {
   return h('div', { style: { border: '2px solid #e74c3c', borderRadius: '8px', padding: '1rem' } },
     h('div', { style: { color: '#e74c3c', fontWeight: 'bold', marginBottom: '1rem' } }, '🔒 Admin Area'),
     children,
-  )
-}
-
-// ════════════════════════════════════════════════════════════
-// Shared components (rendered identically on server & client)
-// ════════════════════════════════════════════════════════════
-
-function HomePage() {
-  return h('div', null,
-    h('h1', null, 'weifuwu React SSR'),
-    h('p', null, 'A web-standard HTTP framework with React server-side rendering.'),
-    h('div', { className: 'card' },
-      h('h2', null, 'Features'),
-      h('ul', null,
-        h('li', null, 'ctx.render() — render React to HTML'),
-        h('li', null, 'ctx.renderStream() — streaming SSR'),
-        h('li', null, 'Layout composition via mount nesting'),
-        h('li', null, 'useServerData() — typed data loading'),
-        h('li', null, 'Coexists with non-React API routes'),
-        h('li', null, h('strong', null, 'NEW: '), 'Client-side SPA navigation with <Link>'),
-      ),
-    ),
-    h('div', { className: 'card', style: { background: '#f0f7ff' } },
-      h('h2', null, 'Try it out'),
-      h('ol', null,
-        h('li', null, h(Link, { href: '/users' }, 'Browse users'), ' — click any user to navigate without page reload'),
-        h('li', null, h(Link, { href: '/admin/dashboard' }, 'Dashboard'), ' — streaming SSR with nested Admin layout'),
-        h('li', null, h(Link, { href: '/api/hello' }, 'API'), ' — non-React JSON route coexisting with React SSR'),
-      ),
-    ),
-  )
-}
-
-function UsersPage({ users }: { users: Array<{ id: number; name: string; email: string }> }) {
-  return h('div', null,
-    h('h1', null, 'Users'),
-    h('p', null, `Click a user to navigate without page reload (SPA navigation).`),
-    h('div', { className: 'card' },
-      users.length === 0
-        ? h('p', null, 'No users found.')
-        : users.map(u =>
-            h(Link, { key: u.id, className: 'user-link', href: `/users/${u.id}` },
-              `${u.name} — ${u.email}`,
-            ),
-          ),
-    ),
-  )
-}
-
-function UserDetailPage({ user }: { user: { id: number; name: string; email: string; bio?: string } }) {
-  return h('div', { className: 'card' },
-    h('h1', null, user.name),
-    h('p', null, h('strong', null, 'Email: '), user.email),
-    h('p', null, h('strong', null, 'ID: '), String(user.id)),
-    user.bio ? h('p', null, h('em', null, user.bio)) : null,
-    h(Link, { className: 'back-link', href: '/users' }, '← Back to users'),
-  )
-}
-
-function DashboardPage() {
-  return h('div', null,
-    h('h1', null, 'Dashboard'),
-    h('p', null, 'This page uses renderStream() — the browser receives chunks progressively.'),
-    h('div', { className: 'card' },
-      h('h2', null, 'Streaming SSR Stats'),
-      h('ul', null,
-        h('li', null, 'Users: 42'),
-        h('li', null, 'Posts: 128'),
-        h('li', null, 'Comments: 512'),
-      ),
-    ),
-  )
-}
-
-function NotFoundPage({ path }: { path: string }) {
-  return h('div', { className: 'card', style: { borderColor: '#e74c3c' } },
-    h('h1', null, '404 — Page Not Found'),
-    h('p', null, `No route matches "${path}".`),
-    h(Link, { className: 'back-link', href: '/' }, '← Go home'),
   )
 }
 
@@ -164,16 +89,18 @@ app.get('/assets/*', serveStatic('./public'))
 app.use(react({ layout: RootLayout }))
 
 // ── Routes ─────────────────────────────────────────────────
+//
+// Pattern: if ?_data → return JSON (for client-side SPA navigation)
+//          else      → ctx.render(<Page />, { data }) (SSR with hydration)
+//
 
-app.get('/', async (_req, ctx) => {
-  return ctx.render(h(HomePage))
-})
+app.get('/', (_req, ctx) => ctx.render(h(HomePage)))
 
 app.get('/users', async (req, ctx) => {
   if (new URL(req.url).searchParams.has('_data')) {
     return Response.json({ users: MOCK_USERS })
   }
-  return ctx.render(h(UsersPage, { users: MOCK_USERS }), { data: { users: MOCK_USERS } })
+  return ctx.render(h(UsersPage), { data: { users: MOCK_USERS } })
 })
 
 app.get('/users/:id', async (req, ctx) => {
@@ -185,10 +112,10 @@ app.get('/users/:id', async (req, ctx) => {
   if (!user) {
     return ctx.render(h(NotFoundPage, { path: `/users/${ctx.params.id}` }), { status: 404 })
   }
-  return ctx.render(h(UserDetailPage, { user }), { data: { user } })
+  return ctx.render(h(UserDetailPage), { data: { user } })
 })
 
-// ── Admin area (nested layout) ─────────────────────────────
+// ── Admin area (nested layout via mount) ───────────────────
 
 const admin = new Router()
 admin.use(react({ layout: AdminLayout }))
@@ -211,7 +138,7 @@ app.get('/api/hello', () => {
 // Error handler
 // ════════════════════════════════════════════════════════════
 
-app.onError((err, req, ctx) => {
+app.onError((err, _req, ctx) => {
   console.error('Unhandled error:', err)
   if (ctx.render) {
     return ctx.render(
