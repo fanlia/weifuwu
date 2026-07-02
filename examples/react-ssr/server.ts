@@ -41,6 +41,12 @@ function RootLayout({ children }: { children: unknown }) {
       h('meta', { charSet: 'utf-8' }),
       h('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
       h('title', null, 'weifuwu'),
+      h('script', { type: 'importmap', dangerouslySetInnerHTML: { __html: JSON.stringify({
+        imports: {
+          'react': 'https://esm.sh/react@19',
+          'react-dom/client': 'https://esm.sh/react-dom@19/client',
+        },
+      }) } }),
       h('style', null, `
         body { font-family: system-ui; max-width: 800px; margin: 0 auto; padding: 2rem; }
         nav { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 1rem; }
