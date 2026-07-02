@@ -18,7 +18,7 @@ import { react, Link } from 'weifuwu/react'
 import { createElement as h } from 'react'
 import {
   HomePage, UsersPage, UserDetailPage,
-  DashboardPage, NotFoundPage,
+  DashboardPage, NotFoundPage, ErrorDemoPage,
 } from './components/pages.ts'
 
 // ════════════════════════════════════════════════════════════
@@ -122,6 +122,10 @@ app.get('/users/:id', async (req, ctx) => {
   }
   return ctx.render(h(UserDetailPage), { head: { title: `${user.name} - Users` }, data: { user } })
 })
+
+app.get('/error', (_req, ctx) => ctx.render(h(ErrorDemoPage), {
+  head: { title: 'ErrorBoundary Demo' },
+}))
 
 // ── Admin area (nested layout via mount) ───────────────────
 

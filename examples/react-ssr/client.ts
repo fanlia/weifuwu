@@ -11,7 +11,7 @@
  */
 
 import { hydrate, createClientRouter } from 'weifuwu/react/client'
-import { HomePage, UsersPage, UserDetailPage } from './components/pages.ts'
+import { HomePage, UsersPage, UserDetailPage, ErrorDemoPage } from './components/pages.ts'
 
 const router = createClientRouter([
   { path: '/', component: HomePage },
@@ -25,6 +25,7 @@ const router = createClientRouter([
     component: UserDetailPage,
     loader: (params) => fetch(`/users/${params.id}?_data`).then(r => r.json()),
   },
+  { path: '/error', component: ErrorDemoPage },
 ])
 
 hydrate(router.App)

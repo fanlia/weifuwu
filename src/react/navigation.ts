@@ -190,3 +190,5 @@ export function matchPath(
 // Re-export data primitives for convenience (both safe for server & client)
 export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'
+export { ErrorBoundary } from './error-boundary.ts'
+export type { ErrorBoundaryProps } from './error-boundary.ts'
