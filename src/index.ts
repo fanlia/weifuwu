@@ -24,8 +24,6 @@ export { compress } from './middleware/compress.ts'
 export type { CompressOptions } from './middleware/compress.ts'
 export { helmet } from './middleware/helmet.ts'
 export type { HelmetOptions } from './middleware/helmet.ts'
-export { requestId } from './middleware/request-id.ts'
-export type { RequestIdOptions, RequestIdModule } from './middleware/request-id.ts'
 export { createSSEStream, formatSSE, formatSSEData } from './core/sse.ts'
 export type { SSEEvent } from './core/sse.ts'
 export { graphql } from './graphql.ts'
@@ -43,14 +41,4 @@ export type { HealthOptions } from './middleware/health.ts'
 
 // ── HTML rendering ──────────────────────────────────────────────────
 export { html, raw } from './core/html.ts'
-
-// ── UI middleware ────────────────────────────────────────────────────
-export { theme } from './middleware/theme.ts'
-export type { ThemeOptions, ThemeInjected, ThemeModule } from './middleware/theme.ts'
-export { i18n } from './middleware/i18n.ts'
-export type { I18nOptions, I18nInjected, I18nModule } from './middleware/i18n.ts'
-export { flash } from './middleware/flash.ts'
-export type { FlashOptions, FlashInjected, FlashModule } from './middleware/flash.ts'
-export { csrf } from './middleware/csrf.ts'
-export type { CsrfOptions, CsrfInjected, CsrfModule } from './middleware/csrf.ts'
 
