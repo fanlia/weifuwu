@@ -13,6 +13,29 @@ let activeEffect: EffectFn | null = null
 // Track which signals each effect subscribes to (for cleanup)
 const effectSubs = new WeakMap<EffectFn, Set<Signal | Computed>>()
 
+// ── Batch updates ──
+// Collect signal change notifications within a batch,
+// then flush once at the end to avoid redundant renders.
+let batchDepth = 0
+let pendingEffects: Set<EffectFn> | null = null
+
+function notify(fn: EffectFn) {
+  if (batchDepth > 0) {
+    if (!pendingEffects) pendingEffects = new Set()
+    pendingEffects.add(fn)
+  } else {
+    fn()
+  }
+}
+
+function flushBatch(): void {
+  if (pendingEffects) {
+    const effects = pendingEffects
+    pendingEffects = null
+    for (const fn of effects) fn()
+  }
+}
+
 export class Signal<T = unknown> {
   #value: T
   #subs = new Set<EffectFn>()
@@ -39,7 +62,7 @@ export class Signal<T = unknown> {
     if (Object.is(newVal, this.#value)) return
     this.#value = newVal
     const subs = [...this.#subs]
-    for (const fn of subs) fn()
+    for (const fn of subs) notify(fn)
   }
 
   peek(): T {
@@ -64,12 +87,12 @@ export class Computed<T = unknown> {
 
   constructor(fn: () => T) {
     this.#fn = fn
-    const notify = () => {
+    const notifyFn = () => {
       this.#dirty = true
       const subs = [...this.#subs]
-      for (const fn of subs) fn()
+      for (const fn of subs) notify(fn)
     }
-    this.#effect = notify
+    this.#effect = notifyFn
   }
 
   get value(): T {
@@ -106,6 +129,33 @@ export class Computed<T = unknown> {
 
   _removeSub(fn: EffectFn) {
     this.#subs.delete(fn)
+  }
+}
+
+
+/**
+ * Batch multiple signal changes into a single update cycle.
+ *
+ * Useful when changing multiple signals at once to avoid
+ * intermediate re-renders.
+ *
+ * ```ts
+ * batch(() => {
+ *   firstName.value = 'Jane'
+ *   lastName.value = 'Smith'
+ * })
+ * // DOM updates only once, with both changes applied
+ * ```
+ */
+export function batch(fn: () => void): void {
+  batchDepth++
+  try {
+    fn()
+  } finally {
+    batchDepth--
+    if (batchDepth === 0) {
+      flushBatch()
+    }
   }
 }
 

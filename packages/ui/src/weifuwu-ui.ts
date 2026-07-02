@@ -9,7 +9,7 @@
  *   </script>
  */
 
-import { ref, computed, effect, Signal, Computed } from './signal.ts'
+import { ref, computed, effect, batch, Signal, Computed } from './signal.ts'
 import { h, text, fragment, triggerMount } from './h.ts'
 import { bind } from './bind.ts'
 import { render, reactiveRender } from './render.ts'
@@ -110,7 +110,7 @@ export const modal = {
 }
 
 // Export all
-export { ref, computed, effect, Signal, Computed }
+export { ref, computed, effect, batch, Signal, Computed }
 export { h, text, fragment, triggerMount }
 export { bind }
 export { render, reactiveRender }

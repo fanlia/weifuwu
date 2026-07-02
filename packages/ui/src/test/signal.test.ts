@@ -3,7 +3,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { ref, computed, effect, Signal } from '../signal.ts'
+import { ref, computed, effect, batch, Signal } from '../signal.ts'
 
 // ── ref() ───────────────────────────────────────────────────────────
 
@@ -214,6 +214,51 @@ describe('effect', () => {
     assert.equal(count, 3)
     b.value = 2
     assert.equal(count, 3)
+  })
+
+  it('should batch multiple changes into one effect run', () => {
+    const a = ref(1)
+    const b = ref(2)
+    let callCount = 0
+    let sum = 0
+    effect(() => { sum = a.value + b.value; callCount++ })
+    assert.equal(sum, 3)
+    assert.equal(callCount, 1)
+
+    batch(() => {
+      a.value = 10
+      b.value = 20
+    })
+    // Only one effect run, with both changes applied
+    assert.equal(sum, 30)
+    assert.equal(callCount, 2)
+  })
+
+  it('should not batch outside batch() call', () => {
+    const r = ref(0)
+    let count = 0
+    effect(() => { void r.value; count++ })
+    assert.equal(count, 1)
+    r.value = 1
+    assert.equal(count, 2)
+    r.value = 2
+    assert.equal(count, 3)
+  })
+
+  it('should support nested batch calls', () => {
+    const a = ref(1)
+    const b = ref(2)
+    let sum = 0
+    effect(() => { sum = a.value + b.value })
+    assert.equal(sum, 3)
+
+    batch(() => {
+      a.value = 10
+      batch(() => {
+        b.value = 20
+      })
+    })
+    assert.equal(sum, 30)
   })
 
   it('should not leak subscriptions on re-run', () => {
