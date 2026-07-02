@@ -41,16 +41,26 @@ export type HChild = Node | string | number | boolean | null | undefined | Signa
  * - null/undefined/false → skip
  * - Array → flatten recursively
  */
+/**
+ * Create a DOM element or invoke a component function.
+ *
+ * When `tag` is a string, creates an HTML element (like createElement).
+ * When `tag` is a function (component), calls it with attrs and children.
+ */
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs: HAttrs | null,
   ...children: HChild[]
 ): HTMLElementTagNameMap[K]
 export function h(
-  tag: string,
+  tag: string | ((attrs?: any, ...children: any[]) => HTMLElement),
   attrs: HAttrs | null,
   ...children: HChild[]
 ): HTMLElement {
+  // Component function — call it with attrs
+  if (typeof tag === 'function') {
+    return tag(attrs, ...children)
+  }
   const el = document.createElement(tag)
 
   if (attrs) {
