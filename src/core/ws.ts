@@ -116,8 +116,7 @@ export function createWsUpgradeHandler(
 
     void runChainFn(mws, finalHandler, webReq, ctx).then((result) => {
       if (result.status >= 400) sendHttpResponseOnSocket(socket, result)
-    }).catch((err) => {
-      console.error('[router] WS middleware chain error:', err)
+    }).catch(() => {
       socket.destroy()
     })
   }

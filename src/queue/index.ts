@@ -57,14 +57,13 @@ export function queue(opts?: QueueOptions): Queue {
     try { await handler(job); _processed++ }
     catch (e) {
       _failed++
-      console.error('[queue] handler error:', (e as Error).message)
       await insert(job, (e as Error).message)
     } finally { inflight-- }
 
     if (job.schedule) {
       try {
         await insert({ ...job, id: crypto.randomUUID(), runAt: cronNext(job.schedule), createdAt: Date.now() })
-      } catch (e) { console.error('[queue] cron re-queue failed:', (e as Error).message) }
+      } catch { /* cron re-queue failed, job already executed */ }
     }
   }
 
@@ -77,7 +76,7 @@ export function queue(opts?: QueueOptions): Queue {
         const handler = handlers.get(job.type)
         if (handler) execute(job, handler)
       }
-    } catch (e) { console.error('[queue] poll error:', (e as Error).message) }
+    } catch { /* poll error, retry on next interval */ }
     if (running) pollTimer = setTimeout(pollLoop, pollInterval)
   }
 

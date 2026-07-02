@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import { HttpError, type Context } from '../types.ts'
 import { runWithTrace, currentTraceId } from './trace.ts'
@@ -145,9 +144,6 @@ export function serve(router: Router, options?: ServeOptions): Server {
           res.end('Request Body Too Large')
           return
         }
-        const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[${currentTraceId()}] unhandled error: ${msg}`)
-        if (err instanceof Error && err.stack) console.error(err.stack)
         res.writeHead(500, { 'Content-Type': 'text/plain' })
         res.end('Internal Server Error')
       }
@@ -220,7 +216,7 @@ export function serve(router: Router, options?: ServeOptions): Server {
   }
 
   server.on('error', (err) => {
-    console.error('Failed to start server:', err.message)
+    throw err
     server.close()
     _cachedPort = 0
     resolveReady()
@@ -236,6 +232,7 @@ export function serve(router: Router, options?: ServeOptions): Server {
 
     // Startup message — automatic in all environments
     const displayHost = _cachedHostname === '0.0.0.0' ? 'localhost' : _cachedHostname || 'localhost'
+    // eslint-disable-next-line no-console
     console.log(`weifuwu listening on http://${displayHost}:${_cachedPort}`)
   })
 

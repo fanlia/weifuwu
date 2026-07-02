@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   buildSchema,
   graphql as executeGraphQL,
@@ -74,7 +74,6 @@ function buildSchemaFromOptions(options: GraphQLOptions): GraphQLSchema {
     return options.schema
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[graphql] schema build failed: ${msg}`)
     throw err
   }
 }
@@ -159,7 +158,6 @@ async function executeQuery(
     return Response.json(result, { status: result.errors ? 400 : 200 })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error(`[${currentTraceId()}] graphql execution failed: ${msg}`)
     return Response.json({ errors: [{ message: msg }] }, { status: 500 })
   }
 }

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { Redis as IORedis } from 'ioredis'
 import type { Context, Handler } from '../types.ts'
 import type { RedisOptions, RedisClient } from './types.ts'
@@ -8,8 +7,8 @@ export function redis(opts?: string | RedisOptions): RedisClient {
 
   const url = options.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
   const client = new IORedis(url, options)
+  client.on('error', () => { /* Redis errors are handled by the caller via try/catch */ })
 
-  client.on('error', (err: Error) => console.error('[redis]', err.message))
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
     ctx.redis = client

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { writeFile, mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join, extname } from 'node:path'
@@ -104,7 +103,6 @@ export function upload(
     try {
       if (saveDir) await mkdir(saveDir, { recursive: true })
     } catch (e) {
-      console.error('upload: failed to create directory', saveDir, e)
       return Response.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
