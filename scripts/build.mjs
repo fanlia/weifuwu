@@ -21,6 +21,10 @@ const external = [
   'ioredis',
   'postgres',
   'ws',
+  'react',
+  'react-dom',
+  'react-dom/server',
+  'react-dom/client',
 ]
 
 await esbuild.build({
@@ -30,6 +34,26 @@ await esbuild.build({
   platform: 'node',
   bundle: true,
   external,
+})
+
+// React SSR module — separate entry point
+await esbuild.build({
+  entryPoints: [join(srcDir, 'react/index.ts')],
+  outfile: join(distDir, 'react/index.js'),
+  format: 'esm',
+  platform: 'node',
+  bundle: true,
+  external,
+})
+
+// React client — separate entry point (for browser bundles)
+await esbuild.build({
+  entryPoints: [join(srcDir, 'react/client.ts')],
+  outfile: join(distDir, 'react/client.js'),
+  format: 'esm',
+  platform: 'browser',
+  bundle: true,
+  external: ['react', 'react-dom', 'react-dom/client'],
 })
 
 console.log('Build complete.')

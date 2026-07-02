@@ -1,0 +1,20 @@
+{
+  "name": "weifuwu-react-ssr-example",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node server.ts",
+    "build:client": "node build.mjs",
+    "start": "npm run build:client && node server.ts"
+  },
+  "dependencies": {
+    "weifuwu": "file:../..",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "esbuild": "^0.28"
+  }
+}

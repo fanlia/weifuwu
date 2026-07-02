@@ -32,3 +32,8 @@ export type { Hub, HubOptions } from './hub.ts'
 export { queue } from './queue/index.ts'
 export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types.ts'
 
+export { react } from './react/index.ts'
+export type { ReactOptions, RenderOptions, ReactInjected } from './react/types.ts'
+export { useServerData } from './react/hooks.ts'
+export { ServerDataContext } from './react/context.ts'
+
