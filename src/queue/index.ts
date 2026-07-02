@@ -13,7 +13,7 @@ import crypto from 'node:crypto'
 import { Redis as IORedis } from 'ioredis'
 import type { Context, Handler } from '../types.ts'
 import { Router } from '../core/router.ts'
-import type { Queue, QueueOptions, QueueJob, QueueJobWithError } from './types.ts'
+import type { Queue, QueueOptions, QueueJob } from './types.ts'
 import { cronNext, parsePattern, matches } from './cron.ts'
 
 // ── Factory ─────────────────────────────────────────────────────────

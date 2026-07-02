@@ -100,9 +100,6 @@ function matchChild<T extends TrieNodeBase<T>>(
 }
 
 // ── Router ──────────────────────────────────────────────────────
-
-const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const
-
 export class Router<T extends Context = Context> {
   private root = createTrieNode()
   private wsRoot = createWsNode()
