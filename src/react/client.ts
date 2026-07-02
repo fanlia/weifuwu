@@ -58,6 +58,8 @@ export interface ClientRouter {
 // Re-export shared primitives for convenience
 export { Link, useParams, useNavigate, useRevalidate, Form } from './navigation.ts'
 export type { LinkProps, FormProps } from './navigation.ts'
+export { ErrorBoundary } from './error-boundary.ts'
+export type { ErrorBoundaryProps } from './error-boundary.ts'
 
 // ═══════════════════════════════════════════════════════════════
 // Read server-injected data
