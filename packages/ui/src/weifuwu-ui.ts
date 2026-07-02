@@ -111,7 +111,7 @@ export const modal = {
 
 // Export all
 export { ref, computed, effect, batch, Signal, Computed }
-export { component, signal as scopedSignal } from './component.ts'
+export { component, signal } from './component.ts'
 export { syncRef } from './sync-ref.ts'
 export { h, text, fragment, triggerMount }
 export { bind }

@@ -1,14 +1,14 @@
 {
   "welcome": "欢迎",
   "title": "weifuwu UI",
-  "subtitle": "h() + Signal + CSS — 零构建",
+  "subtitle": "h() + Signal + CSS — 零构建，全栈响应式",
   "home": "首页",
   "about": "关于",
-  "aboutText": "weifuwu UI 是基于 h() + Signal 构建的轻量响应式 UI 层。",
+  "showcase": "CSS 组件",
+  "aboutText": "weifuwu UI 是基于 h() + Signal 构建的轻量响应式 UI 层。无需构建工具，无需编译，直接在浏览器运行。",
   "theme": "主题",
   "locale": "语言",
   "lang": "EN",
-  "cta": "开始使用",
-  "docs": "文档",
-  "demo": "一个简单的交互演示"
+  "todoTitle": "待办事项",
+  "todoPlaceholder": "添加待办..."
 }
