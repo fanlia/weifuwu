@@ -3,6 +3,7 @@ import http, { type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { HttpError, type Context, type Handler } from '../types.ts'
 import { runWithTrace, currentTraceId } from './trace.ts'
+import { Router } from './router.ts'
 
 export interface ServeOptions {
   port?: number
@@ -132,7 +133,20 @@ export async function createTestServer(
   return { server, url: `http://localhost:${server.port}` }
 }
 
-export function serve(handler: Handler, options?: ServeOptions): Server {
+export function serve(handler: Handler, options?: ServeOptions): Server
+export function serve(router: Router, options?: ServeOptions): Server
+export function serve(
+  handlerOrRouter: Handler | Router,
+  options?: ServeOptions,
+): Server {
+  // If given a Router, auto-connect both HTTP and WebSocket handlers
+  if (handlerOrRouter instanceof Router) {
+    const router = handlerOrRouter
+    const ws = options?.websocket ?? router.websocketHandler()
+    return serve(router.handler(), { ...options, websocket: ws })
+  }
+
+  const handler = handlerOrRouter
   const port = options?.port ?? 0
   const hostname = options?.hostname ?? '0.0.0.0'
 

@@ -76,7 +76,7 @@ async function generateMinimal(
       ``,
       `loadEnv()`,
       `const port = Number(process.env.PORT) || 3000`,
-      `serve(app.handler(), { port })`,
+      `serve(app, { port })`,
       ``,
     ].join('\n'),
   )

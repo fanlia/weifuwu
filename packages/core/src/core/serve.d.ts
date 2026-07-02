@@ -1,6 +1,7 @@
 import { type IncomingMessage, type ServerResponse } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { type Handler } from '../types.ts';
+import { Router } from './router.ts';
 export interface ServeOptions {
     port?: number;
     hostname?: string;
@@ -36,3 +37,4 @@ export declare function createTestServer(handler: Handler, options?: ServeOption
     url: string;
 }>;
 export declare function serve(handler: Handler, options?: ServeOptions): Server;
+export declare function serve(router: Router, options?: ServeOptions): Server;
