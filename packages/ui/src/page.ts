@@ -14,7 +14,7 @@
  */
 
 import type { Handler } from '@weifuwujs/core'
-import { h, serialize, type VNode } from './vnode.ts'
+import { serialize, type VNode } from './vnode.ts'
 
 export interface PageContext {
   /** Injected middleware fields (theme, i18n, etc.) */
@@ -22,36 +22,74 @@ export interface PageContext {
 }
 
 /**
- * Define a page component that supports SSR + client hydration.
- *
- * @param factory - Function that receives context and returns a VNode tree.
- * @returns A standard Handler for use with Router.get().
+ * Layout function: wraps page content in a full HTML document.
+ * Override via setDefaultLayout() or page(fn, { layout }).
  */
-export function page(
-  factory: (ctx: PageContext) => VNode,
-): Handler {
-  return async (req, ctx) => {
-    const tree = factory(ctx)
-    const html = serialize(tree)
-    const dataBridge = extractDataBridge(tree)
+export type LayoutFunction = (content: string, ctx: PageContext) => string
 
-    // Build the full page HTML
-    const pageHtml = `<!DOCTYPE html>
-<html lang="zh-CN" data-theme="${(ctx as Record<string, unknown>).theme as string || 'system'}">
+let defaultLayout: LayoutFunction = (content, ctx) => `<!DOCTYPE html>
+<html lang="zh-CN" data-theme="${(ctx.theme as string) || 'system'}">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>${escapeTitle(html)}</title>
+  <title>weifuwu</title>
   <link rel="stylesheet" href="/_ui/weifuwu-ui.css"/>
-  <script id="__wui-data" type="application/json">${JSON.stringify(dataBridge)}</script>
 </head>
 <body>
-  <div id="app">${html}</div>
+  <div id="app">${content}</div>
   <script defer src="/_ui/weifuwu-ui.js"></script>
 </body>
 </html>`
 
-    return new Response(pageHtml, {
+/**
+ * Override the default layout used by all pages.
+ *
+ * ```ts
+ * import { setDefaultLayout } from '@weifuwujs/ui'
+ *
+ * setDefaultLayout((content, ctx) => html\`
+ *   <!DOCTYPE html>
+ *   <html>
+ *     <head>
+ *       <title>\${ctx.title || 'App'}</title>
+ *       <link rel="stylesheet" href="/_ui/weifuwu-ui.css"/>
+ *     </head>
+ *     <body>
+ *       <nav>...global nav...</nav>
+ *       <main>\${content}</main>
+ *     </body>
+ *   </html>
+ * \`)
+ * ```
+ */
+export function setDefaultLayout(layout: LayoutFunction): void {
+  defaultLayout = layout
+}
+
+/**
+ * Define a page component that supports SSR + client hydration.
+ *
+ * @param factory - Function that receives context and returns a VNode tree.
+ * @param options - Optional layout override for this page.
+ * @returns A standard Handler for use with Router.get().
+ */
+export function page(
+  factory: (ctx: PageContext) => VNode,
+  options?: { layout?: LayoutFunction },
+): Handler {
+  return async (req, ctx) => {
+    const tree = factory(ctx)
+    const bodyHtml = serialize(tree)
+    const dataBridge = extractDataBridge(tree)
+
+    const layout = options?.layout ?? defaultLayout
+    const pageHtml = layout(bodyHtml, ctx)
+
+    // Inject __wui-data bridge before </body> (or at end)
+    const bridgeScript = `<script id="__wui-data" type="application/json">${JSON.stringify(dataBridge)}</script>`
+    const finalHtml = pageHtml.replace('</body>', `${bridgeScript}\n</body>`)
+
+    return new Response(finalHtml, {
       headers: { 'content-type': 'text/html; charset=utf-8' },
     })
   }
@@ -74,7 +112,6 @@ function extractDataBridge(node: VNode | unknown): DataBridge {
   function walk(n: unknown): void {
     if (!n || typeof n !== 'object') return
 
-    // Signal/Computed
     if (typeof (n as Record<string, unknown>).peek === 'function') {
       const s = n as { peek(): unknown; value: unknown }
       const key = `s${signalCounter++}`
@@ -82,7 +119,6 @@ function extractDataBridge(node: VNode | unknown): DataBridge {
       return
     }
 
-    // VNode
     if ('tag' in (n as Record<string, unknown>) && 'attrs' in (n as Record<string, unknown>)) {
       const node = n as VNode
       if (node.attrs) {
@@ -100,7 +136,6 @@ function extractDataBridge(node: VNode | unknown): DataBridge {
       return
     }
 
-    // Array
     if (Array.isArray(n)) {
       for (const item of n) {
         walk(item)
@@ -110,10 +145,4 @@ function extractDataBridge(node: VNode | unknown): DataBridge {
 
   walk(node)
   return { signals, events }
-}
-
-function escapeTitle(html: string): string {
-  // Simple title extraction from first <title> tag
-  const m = html.match(/<title>([^<]*)<\/title>/)
-  return m ? m[1] : 'weifuwu'
 }
