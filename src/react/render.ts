@@ -140,6 +140,11 @@ function injectHeadIntoStream(
 // Element wrapping
 // ═══════════════════════════════════════════════════════════════
 
+function buildDataScript(data: Record<string, unknown>): string {
+  const json = JSON.stringify(data).replace(/</g, '\\u003c')
+  return `<script id="__WEIFUWU_DATA__" type="application/json">${json}</script>`
+}
+
 function wrapElement(
   element: ReactElement,
   layouts: ComponentType<{ children: ReactNode }>[],
@@ -150,17 +155,10 @@ function wrapElement(
     wrapped = createElement(layouts[i], null, wrapped)
   }
 
-  const json = JSON.stringify(data).replace(/</g, '\\u003c')
-  const dataScript = createElement('script', {
-    id: '__WEIFUWU_DATA__',
-    type: 'application/json',
-    dangerouslySetInnerHTML: { __html: json },
-  })
-
   return createElement(
     ServerDataContext.Provider,
     { value: data },
-    createElement(Fragment, null, wrapped, dataScript),
+    wrapped,
   )
 }
 
@@ -180,6 +178,14 @@ export function render(
   // Inject head tags
   const headTags = buildHeadTags(options.head)
   html = injectHeadIntoHtml(html, headTags)
+
+  // Inject data script before </body> (not inside React tree — avoids hydration mismatch)
+  const dataScript = buildDataScript(data)
+  if (html.includes('</body>')) {
+    html = html.replace('</body>', dataScript + '</body>')
+  } else {
+    html += dataScript
+  }
 
   return new Response('<!DOCTYPE html>\n' + html, {
     status: options.status ?? 200,

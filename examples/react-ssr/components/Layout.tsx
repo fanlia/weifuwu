@@ -14,6 +14,7 @@ export function RootLayout({ children }: { children: React.ReactNode }) {
             __html: JSON.stringify({
               imports: {
                 react: '/assets/vendor.js',
+                'react/jsx-runtime': '/assets/vendor.js',
                 'react-dom/client': '/assets/vendor.js',
               },
             }),
