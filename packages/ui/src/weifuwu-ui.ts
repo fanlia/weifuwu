@@ -114,6 +114,7 @@ export { ref, computed, effect, Signal, Computed }
 export { h, text, fragment, triggerMount }
 export { bind }
 export { render, reactiveRender }
+export { errorBoundary, onRenderError } from './error-boundary.ts'
 
 // Auto-apply theme on load
 if (serverData?.theme) {

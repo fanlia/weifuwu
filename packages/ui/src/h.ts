@@ -41,6 +41,11 @@ export type HChild = Node | string | number | boolean | null | undefined | Signa
  * - null/undefined/false → skip
  * - Array → flatten recursively
  */
+export function h<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  attrs: HAttrs | null,
+  ...children: HChild[]
+): HTMLElementTagNameMap[K]
 export function h(
   tag: string,
   attrs: HAttrs | null,

@@ -8,6 +8,7 @@
 
 import { effect } from './signal.ts'
 import { triggerMount } from './h.ts'
+import { wrapWithErrorBoundary } from './error-boundary.ts'
 
 /**
  * Render a template function into a container (one-shot).
@@ -21,14 +22,14 @@ export function render(
   container: HTMLElement,
   template: () => Node,
 ): () => void {
-  const result = template()
+  const safeTemplate = wrapWithErrorBoundary(template)
+  const result = safeTemplate()
 
   container.innerHTML = ''
   if (result instanceof Node) {
     container.appendChild(result)
   }
 
-  // Trigger onmount callbacks
   if (result instanceof HTMLElement || result instanceof DocumentFragment) {
     triggerMount(result)
   }
@@ -46,9 +47,12 @@ export function render(
 export function reactiveRender(
   container: HTMLElement,
   template: () => Node,
+  fallback?: (error: Error) => Node,
 ): () => void {
+  const safeTemplate = wrapWithErrorBoundary(template, fallback)
+
   const dispose = effect(() => {
-    const result = template()
+    const result = safeTemplate()
 
     container.innerHTML = ''
     if (result instanceof Node) {
