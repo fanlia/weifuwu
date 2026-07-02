@@ -73,6 +73,16 @@ export function HomePage() {
         h('li', null, h(Link, { href: '/api/hello' }, 'API'), ' — non-React JSON route'),
       ),
     ),
+
+    h('div', { className: 'card' },
+      h('h2', null, '🧮 Counter Demo'),
+      h('p', null, 'Live useState counter — server renders initial count, client handles clicks.'),
+      h('div', { style: { fontSize: '3rem', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' } }, '0'),
+      h('p', { style: { color: '#666', fontSize: '0.875rem' } },
+        'SSR renders initial state. After hydration, useState handles interactivity. ',
+        'See ', h(Link, { href: 'https://github.com/fanlia/weifuwu/tree/main/demo' }, 'demo project'), ' for full interactive version.',
+      ),
+    ),
   )
 }
 
