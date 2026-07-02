@@ -12,7 +12,7 @@
  */
 
 import { createElement as h } from 'react'
-import { Link, useServerData } from 'weifuwu/react/navigation'
+import { Link, useServerData, Form } from 'weifuwu/react/navigation'
 
 // ════════════════════════════════════════════════════════════
 
@@ -58,6 +58,12 @@ export function UsersPage() {
     h('h1', null, 'Users'),
     h('p', null, 'Click a user to navigate without page reload.'),
     h('div', { className: 'card' },
+      h(Form, { method: 'post', action: '/users', style: { marginBottom: '1rem' } },
+        h('input', { name: 'name', placeholder: 'Name', required: true, style: { marginRight: '0.5rem' } }),
+        h('input', { name: 'email', placeholder: 'Email', type: 'email', required: true, style: { marginRight: '0.5rem' } }),
+        h('button', { type: 'submit' }, 'Add User'),
+      ),
+      h('hr', null),
       !users || users.length === 0
         ? h('p', null, 'No users found.')
         : users.map(u =>

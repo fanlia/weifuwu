@@ -21,6 +21,7 @@ import {
 export interface RouterContextValue {
   params: Record<string, string>
   navigate: (url: string) => Promise<void>
+  revalidate: () => Promise<void>
   loading: boolean
 }
 
@@ -79,6 +80,81 @@ export function Link({ href, children, ...props }: LinkProps): ReactElement {
   }
 
   return createElement('a', { href, onClick: handleClick, ...props }, children) as ReactElement
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Form component
+// ═══════════════════════════════════════════════════════════════
+
+export interface FormProps {
+  method?: 'get' | 'post' | 'put' | 'delete' | 'patch'
+  action?: string
+  children: ReactNode
+  [key: string]: unknown
+}
+
+/** Revalidate the current route's data. */
+export function useRevalidate(): () => Promise<void> {
+  const ctx = useContext(RouterContext)
+  if (!ctx) throw new Error('useRevalidate() must be used within a client router')
+  return ctx.revalidate
+}
+
+/**
+ * SPA form — submits via fetch instead of full page reload.
+ *
+ * On submit:
+ * 1. Serializes form data via FormData
+ * 2. fetch(action, { method, body })
+ * 3. On redirect (3xx): SPA-navigates to the Location header
+ * 4. On success: revalidates the current route's loader
+ *
+ * On the server (no RouterContext): renders a plain <form>.
+ */
+export function Form({ method = 'post', action, children, ...props }: FormProps): ReactElement {
+  const router = useContext(RouterContext)
+
+  if (!router) {
+    return createElement('form', { method, action, ...props }, children) as ReactElement
+  }
+
+  const handleSubmit = async (e: Event) => {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+    const url = action || window.location.pathname
+
+    const fetchMethod =
+      method === 'get' ? 'GET' : method.toUpperCase()
+
+    try {
+      const res = await fetch(url, {
+        method: fetchMethod,
+        body: fetchMethod === 'GET' ? undefined : formData,
+        redirect: 'manual',
+      })
+
+      // Handle redirect
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('Location')
+        if (loc) {
+          router.navigate(loc)
+          return
+        }
+      }
+
+      // Revalidate current route
+      await router.revalidate()
+    } catch (err) {
+      console.error('[weifuwu/react] Form submit failed:', err)
+    }
+  }
+
+  return createElement(
+    'form',
+    { method, action, ...props, onSubmit: handleSubmit as unknown as (e: React.FormEvent) => void },
+    children,
+  ) as ReactElement
 }
 
 // ═══════════════════════════════════════════════════════════════

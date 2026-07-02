@@ -56,8 +56,8 @@ export interface ClientRouter {
 }
 
 // Re-export shared primitives for convenience
-export { Link, useParams, useNavigate } from './navigation.ts'
-export type { LinkProps } from './navigation.ts'
+export { Link, useParams, useNavigate, useRevalidate, Form } from './navigation.ts'
+export type { LinkProps, FormProps } from './navigation.ts'
 
 // ═══════════════════════════════════════════════════════════════
 // Read server-injected data
@@ -169,9 +169,23 @@ export function createClientRouter(routes: ClientRoute[]): ClientRouter {
       [],
     )
 
+    const ctxRevalidate = useCallback(async () => {
+      const currentMatch = findRoute(window.location.pathname)
+      if (currentMatch?.route.loader) {
+        try {
+          const newData = await currentMatch.route.loader(currentMatch.params)
+          state = { ...state, data: newData }
+          emit()
+        } catch (err) {
+          console.error('[weifuwu/react] revalidate failed:', err)
+        }
+      }
+    }, [])
+
     const ctxValue: RouterContextValue = {
       params: match?.params ?? {},
       navigate: ctxNavigate,
+      revalidate: ctxRevalidate,
       loading,
     }
 

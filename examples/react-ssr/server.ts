@@ -98,6 +98,19 @@ app.get('/', (_req, ctx) => ctx.render(h(HomePage), {
   head: { title: 'weifuwu React SSR', meta: { description: 'Full-stack framework with React SSR' } },
 }))
 
+app.post('/users', async (req, ctx) => {
+  const formData = await req.formData()
+  const name = formData.get('name') as string
+  const email = formData.get('email') as string
+  const id = MOCK_USERS.length + 1
+  MOCK_USERS.push({ id, name, email, bio: '' })
+  // Redirect back to users list after creation
+  return new Response(null, {
+    status: 302,
+    headers: { Location: '/users' },
+  })
+})
+
 app.get('/users', async (_req, ctx) => {
   return ctx.render(h(UsersPage), { head: { title: 'Users' }, data: { users: MOCK_USERS } })
 })
