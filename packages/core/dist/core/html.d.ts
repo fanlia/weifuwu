@@ -14,7 +14,10 @@
  * html`<div>${html`<span>nested</span>`}</div>`           // nested (safe)
  * ```
  */
-export type HtmlValue = string | number | boolean | null | undefined | HtmlValue[];
+interface RawHtml {
+    _raw: string;
+}
+export type HtmlValue = string | number | boolean | null | undefined | HtmlValue[] | RawHtml;
 /**
  * Tagged template literal for safe HTML.
  *
@@ -28,3 +31,4 @@ export declare function html(strings: TemplateStringsArray, ...values: HtmlValue
  * Can be used standalone or inside {@link html} tagged templates.
  */
 export declare function raw(content: string): HtmlValue;
+export {};
