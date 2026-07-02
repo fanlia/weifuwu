@@ -64,17 +64,12 @@ async function parseParamsFromPost(req: Request): Promise<GraphQLParams | null> 
 }
 
 function buildSchemaFromOptions(options: GraphQLOptions): GraphQLSchema {
-  try {
-    if (typeof options.schema === 'string') {
-      return options.resolvers
-        ? makeExecutableSchema({ typeDefs: options.schema, resolvers: options.resolvers })
-        : buildSchema(options.schema)
-    }
-    return options.schema
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    throw err
+  if (typeof options.schema === 'string') {
+    return options.resolvers
+      ? makeExecutableSchema({ typeDefs: options.schema, resolvers: options.resolvers })
+      : buildSchema(options.schema)
   }
+  return options.schema
 }
 
 /** Count max nesting depth of a GraphQL query. */
