@@ -1,21 +1,41 @@
 {
-  "name": "weifuwu-monorepo",
+  "name": "weifuwu",
   "type": "module",
-  "private": true,
-  "workspaces": [
-    "packages/*"
+  "version": "0.29.0",
+  "description": "Web-standard HTTP microframework for Node.js — (req, ctx) => Response",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
   ],
   "scripts": {
-    "build": "npm run build -w packages/core && npm run build -w packages/react",
-    "typecheck": "npm run typecheck -w packages/core && npm run typecheck -w packages/react && npm run typecheck -w packages/create-weifuwu && npm run typecheck -w packages/ui",
-    "test": "node --test 'packages/core/src/test/**/*.test.ts'",
+    "build": "node scripts/build.mjs",
+    "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test 'src/test/**/*.test.ts'",
+    "test:coverage": "node --experimental-test-coverage --test 'src/test/**/*.test.ts'",
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run"
   },
-  "version": "0.28.6",
+  "dependencies": {
+    "@graphql-tools/schema": "^10",
+    "graphql": "^16",
+    "ioredis": "^5.11.0",
+    "postgres": "^3.4.9",
+    "ws": "^8",
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
+    "@types/node": "^25",
+    "@types/ws": "^8",
     "@eslint/js": "^10.0.1",
     "globals": "^17.7.0",
     "typescript-eslint": "^8.62.1"
-  }
+  },
+  "sideEffects": false
 }
