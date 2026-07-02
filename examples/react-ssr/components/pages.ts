@@ -8,7 +8,7 @@
  * useServerData<T>() reads from ServerDataContext — works identically on both.
  */
 
-import { createElement as h } from 'react'
+import { createElement as h, useState } from 'react'
 import {
   Link, useServerData, Form, ErrorBoundary, useNavigation,
 } from 'weifuwu/react/navigation'
@@ -22,6 +22,37 @@ interface User {
   name: string
   email: string
   bio?: string
+}
+
+// ════════════════════════════════════════════════════════════
+// Counter — interactive useState component (SSR + hydration)
+// ════════════════════════════════════════════════════════════
+
+export function Counter() {
+  const [count, setCount] = useState(0)
+
+  return h('div', { className: 'card', style: { background: '#f0f7ff' } },
+    h('h2', null, '🧮 Counter Demo'),
+    h('p', null, 'Live useState counter — server renders initial count (0), client handles clicks.'),
+    h('div', { style: { fontSize: '4rem', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0', fontVariantNumeric: 'tabular-nums' } }, String(count)),
+    h('div', { style: { display: 'flex', gap: '0.5rem', justifyContent: 'center' } },
+      h('button', {
+        onClick: () => setCount(c => c - 1),
+        style: { padding: '0.5rem 1.5rem', fontSize: '1.25rem', cursor: 'pointer', borderRadius: '6px', border: '1px solid #ccc', background: '#fff' },
+      }, '−'),
+      h('button', {
+        onClick: () => setCount(0),
+        style: { padding: '0.5rem 1.5rem', fontSize: '1rem', cursor: 'pointer', borderRadius: '6px', border: '1px solid #ccc', background: '#fff' },
+      }, 'Reset'),
+      h('button', {
+        onClick: () => setCount(c => c + 1),
+        style: { padding: '0.5rem 1.5rem', fontSize: '1.25rem', cursor: 'pointer', borderRadius: '6px', border: '1px solid #ccc', background: '#007aff', color: '#fff' },
+      }, '+'),
+    ),
+    h('p', { style: { color: '#666', fontSize: '0.875rem', marginTop: '1rem' } },
+      'SSR renders the initial count. After hydration, clicks update state on the client.',
+    ),
+  )
 }
 
 // ════════════════════════════════════════════════════════════
@@ -74,15 +105,7 @@ export function HomePage() {
       ),
     ),
 
-    h('div', { className: 'card' },
-      h('h2', null, '🧮 Counter Demo'),
-      h('p', null, 'Live useState counter — server renders initial count, client handles clicks.'),
-      h('div', { style: { fontSize: '3rem', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' } }, '0'),
-      h('p', { style: { color: '#666', fontSize: '0.875rem' } },
-        'SSR renders initial state. After hydration, useState handles interactivity. ',
-        'See ', h(Link, { href: 'https://github.com/fanlia/weifuwu/tree/main/demo' }, 'demo project'), ' for full interactive version.',
-      ),
-    ),
+    h(Counter),
   )
 }
 
