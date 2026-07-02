@@ -1,5 +1,5 @@
 /**
- * @weifuwu/ui — Browser entry
+ * @weifuwujs/ui — Browser entry
  *
  * Exposed as `weifuwu` global (IIFE).
  * Usage:

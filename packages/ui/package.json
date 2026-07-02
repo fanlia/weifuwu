@@ -1,7 +1,7 @@
 {
-  "name": "@weifuwu/ui",
+  "name": "@weifuwujs/ui",
   "type": "module",
-  "version": "0.28.5",
+  "version": "0.28.6",
   "description": "CSS + Alpine.js components for weifuwu — buttons, cards, modals, toasts, and more",
   "exports": {
     ".": {

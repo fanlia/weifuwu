@@ -29,7 +29,7 @@ const PUBLISH_ORDER = [
   { dir: 'core', name: '@weifuwujs/core', public: true },
   { dir: 'react', name: '@weifuwujs/react', public: true },
   { dir: 'create-weifuwu', name: 'create-weifuwu', public: true },
-  { dir: 'ui', name: '@weifuwu/ui', public: true },
+  { dir: 'ui', name: '@weifuwujs/ui', public: true },
 ]
 
 function run(cmd, opts = {}) {

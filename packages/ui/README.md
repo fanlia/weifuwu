@@ -1,4 +1,4 @@
-# @weifuwu/ui
+# @weifuwujs/ui
 
 **Reactive UI for weifuwu** — `h()`, `ref()`, `render()`.
 
@@ -6,7 +6,7 @@ A minimal, zero-build frontend runtime. Same philosophy as `@weifuwujs/core`:
 standard Web APIs, no compilation, no virtual DOM.
 
 ```
-npm install @weifuwu/ui
+npm install @weifuwujs/ui
 ```
 
 ## Core API
@@ -28,7 +28,7 @@ npm install @weifuwu/ui
 ### Server
 
 ```ts
-import { weifuwuiAssets } from '@weifuwu/ui'
+import { weifuwuiAssets } from '@weifuwujs/ui'
 
 app.use('/_ui', weifuwuiAssets())
 // Serves:
@@ -101,7 +101,7 @@ h('input', { disabled: isDisabled })  // boolean attribute toggles
 ## ref() / computed() / effect()
 
 ```ts
-import { ref, computed, effect } from '@weifuwu/ui'
+import { ref, computed, effect } from '@weifuwujs/ui'
 
 const name = ref('World')
 const greeting = computed(() => `Hello ${name.value}!`)
@@ -116,7 +116,7 @@ name.value = 'weifuwu'  // triggers effect and any bound DOM
 ## bind() — Form binding
 
 ```ts
-import { bind } from '@weifuwu/ui'
+import { bind } from '@weifuwujs/ui'
 
 const name = ref('')
 const agreed = ref(false)
@@ -138,7 +138,7 @@ h('textarea', bind(message))
 ## render() / reactiveRender()
 
 ```ts
-import { render, reactiveRender } from '@weifuwu/ui'
+import { render, reactiveRender } from '@weifuwujs/ui'
 
 // One-shot render
 render(document.getElementById('root'), () =>
@@ -155,7 +155,7 @@ reactiveRender(document.getElementById('root'), () =>
 ## Error Boundary
 
 ```ts
-import { errorBoundary, reactiveRender } from '@weifuwu/ui'
+import { errorBoundary, reactiveRender } from '@weifuwujs/ui'
 
 reactiveRender(container, () =>
   errorBoundary(

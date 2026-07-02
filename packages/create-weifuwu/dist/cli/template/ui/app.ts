@@ -1,5 +1,5 @@
 import { Router, html, raw, theme, i18n, flash, csrf } from '@weifuwujs/core'
-import { weifuwuiAssets } from '@weifuwu/ui'
+import { weifuwuiAssets } from '@weifuwujs/ui'
 
 export const app = new Router()
 
