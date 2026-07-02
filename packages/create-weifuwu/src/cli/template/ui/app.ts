@@ -1,7 +1,7 @@
-import { Router, page, h, ref, computed, setDefaultLayout } from '@weifuwujs/ui'
+import { Router } from '@weifuwujs/core'
+import { page, h, ref, computed } from '@weifuwujs/ui'
 
-// ── Global layout nav ──────────────────────────────────────────
-setDefaultLayout((content, ctx) => `<!DOCTYPE html>
+const layout = (content: string) => `<!DOCTYPE html>
 <html lang="en" data-theme="system">
 <head>
   <meta charset="utf-8"/>
@@ -20,9 +20,7 @@ setDefaultLayout((content, ctx) => `<!DOCTYPE html>
   </main>
   <script defer src="/_ui/weifuwu-ui.js"></script>
 </body>
-</html>`)
-
-// ── Pages ──────────────────────────────────────────────────────
+</html>`
 
 const home = page(() => {
   const count = ref(0)
@@ -42,9 +40,7 @@ const home = page(() => {
       'Doubled: ', doubled,
     ),
   )
-})
-
-// ── Routes ──────────────────────────────────────────────────────
+}, { layout })
 
 export const app = new Router()
   .get('/', home)

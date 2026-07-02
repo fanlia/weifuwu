@@ -17,18 +17,15 @@ import type { Handler } from '@weifuwujs/core'
 import { serialize, type VNode } from './vnode.ts'
 
 export interface PageContext {
-  /** Injected middleware fields (theme, i18n, etc.) */
   [key: string]: unknown
 }
 
-/**
- * Layout function: wraps page content in a full HTML document.
- * Override via setDefaultLayout() or page(fn, { layout }).
- */
-export type LayoutFunction = (content: string, ctx: PageContext) => string
-
-let defaultLayout: LayoutFunction = (content, ctx) => `<!DOCTYPE html>
-<html lang="zh-CN" data-theme="${(ctx.theme as string) || 'system'}">
+export function page(
+  factory: (ctx: PageContext) => VNode,
+  options?: { layout?: (content: string, ctx: PageContext) => string },
+): Handler {
+  const defaultLayout = (content: string) => `<!DOCTYPE html>
+<html lang="en" data-theme="system">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -41,42 +38,6 @@ let defaultLayout: LayoutFunction = (content, ctx) => `<!DOCTYPE html>
 </body>
 </html>`
 
-/**
- * Override the default layout used by all pages.
- *
- * ```ts
- * import { setDefaultLayout } from '@weifuwujs/ui'
- *
- * setDefaultLayout((content, ctx) => html\`
- *   <!DOCTYPE html>
- *   <html>
- *     <head>
- *       <title>\${ctx.title || 'App'}</title>
- *       <link rel="stylesheet" href="/_ui/weifuwu-ui.css"/>
- *     </head>
- *     <body>
- *       <nav>...global nav...</nav>
- *       <main>\${content}</main>
- *     </body>
- *   </html>
- * \`)
- * ```
- */
-export function setDefaultLayout(layout: LayoutFunction): void {
-  defaultLayout = layout
-}
-
-/**
- * Define a page component that supports SSR + client hydration.
- *
- * @param factory - Function that receives context and returns a VNode tree.
- * @param options - Optional layout override for this page.
- * @returns A standard Handler for use with Router.get().
- */
-export function page(
-  factory: (ctx: PageContext) => VNode,
-  options?: { layout?: LayoutFunction },
-): Handler {
   return async (req, ctx) => {
     const tree = factory(ctx)
     const bodyHtml = serialize(tree)
@@ -85,7 +46,6 @@ export function page(
     const layout = options?.layout ?? defaultLayout
     const pageHtml = layout(bodyHtml, ctx)
 
-    // Inject __wui-data bridge before </body> (or at end)
     const bridgeScript = `<script id="__wui-data" type="application/json">${JSON.stringify(dataBridge)}</script>`
     const finalHtml = pageHtml.replace('</body>', `${bridgeScript}\n</body>`)
 
@@ -94,8 +54,6 @@ export function page(
     })
   }
 }
-
-// ── Data bridge extraction ─────────────────────────────────────
 
 interface DataBridge {
   signals: Record<string, unknown>

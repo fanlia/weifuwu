@@ -1,4 +1,4 @@
-import { loadEnv, serve } from '@weifuwujs/ui'
+import { loadEnv, serve } from '@weifuwujs/core'
 import { app } from './app.ts'
 
 loadEnv()
