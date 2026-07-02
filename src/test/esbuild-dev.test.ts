@@ -107,6 +107,7 @@ describe('esbuildDev', () => {
     const body = await res.text()
     assert.ok(body.includes('importmap'), 'should contain importmap')
     assert.ok(body.includes('react'), 'should map react')
+    assert.ok(body.includes('react/jsx-runtime'), 'should map react/jsx-runtime')
     assert.ok(body.includes('/assets/vendor.js'), 'should map to vendor')
   })
 

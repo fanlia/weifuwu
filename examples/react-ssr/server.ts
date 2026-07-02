@@ -57,7 +57,7 @@ app.use(tailwindDev({
 app.use(esbuildDev({
   entries: {
     '/assets/vendor.js': { entry: './vendor.ts', bundle: true, minify: false },
-    '/assets/client.js': { entry: './client.ts', bundle: true, external: ['react', 'react-dom/client'], minify: false },
+    '/assets/client.js': { entry: './client.ts', bundle: true, external: ['react', 'react-dom/client', 'react/jsx-runtime'], minify: false },
   },
 }))
 

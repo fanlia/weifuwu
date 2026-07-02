@@ -38,7 +38,7 @@ await esbuild.build({
   format: 'esm',
   platform: 'browser',
   bundle: true,
-  external: ['react', 'react-dom/client'],
+  external: ['react', 'react-dom/client', 'react/jsx-runtime'],
   minify: true,
 })
 

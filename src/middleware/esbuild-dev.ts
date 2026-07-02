@@ -215,6 +215,7 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       ) {
         // This looks like a vendor bundle — map react/react-dom to it
         if (!mappings['react']) mappings['react'] = path
+        if (!mappings['react/jsx-runtime']) mappings['react/jsx-runtime'] = path
         if (!mappings['react-dom/client']) mappings['react-dom/client'] = path
         if (!mappings['react-dom']) mappings['react-dom'] = path
       }
