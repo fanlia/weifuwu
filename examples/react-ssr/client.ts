@@ -33,9 +33,9 @@ function HomePage() {
     h('div', { className: 'card', style: { background: '#f0f7ff' } },
       h('h2', null, 'Try it out'),
       h('ol', null,
-        h('li', null, h(Link, { href: '/users' }, 'Browse users'), ' — click any user to navigate without page reload'),
-        h('li', null, h(Link, { href: '/admin/dashboard' }, 'Dashboard'), ' — streaming SSR with nested Admin layout'),
-        h('li', null, h(Link, { href: '/api/hello' }, 'API'), ' — non-React JSON route cöexisting with React SSR'),
+        h('li', null, h('a', { href: '/users' }, 'Browse users'), ' — click any user to navigate without page reload'),
+        h('li', null, h('a', { href: '/admin/dashboard' }, 'Dashboard'), ' — streaming SSR with nested Admin layout'),
+        h('li', null, h('a', { href: '/api/hello' }, 'API'), ' — non-React JSON route coexisting with React SSR'),
       ),
     ),
   )
@@ -51,7 +51,7 @@ function UsersPage() {
       !users || users.length === 0
         ? h('p', null, 'No users found.')
         : users.map(u =>
-            h(Link, { key: u.id, className: 'user-link', href: `/users/${u.id}` },
+            h('a', { key: u.id, className: 'user-link', href: `/users/${u.id}` },
               `${u.name} — ${u.email}`,
             ),
           ),
