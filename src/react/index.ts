@@ -63,4 +63,6 @@ export function react(opts: ReactOptions = {}): ReactMiddleware {
 
 export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'
+export { Link, useParams, useNavigate } from './navigation.ts'
+export type { LinkProps } from './navigation.ts'
 export type { ReactOptions, RenderOptions, ReactInjected } from './types.ts'

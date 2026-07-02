@@ -34,6 +34,7 @@ export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types
 
 export { react } from './react/index.ts'
 export type { ReactOptions, RenderOptions, ReactInjected } from './react/types.ts'
-export { useServerData } from './react/hooks.ts'
-export { ServerDataContext } from './react/context.ts'
+export { useServerData, ServerDataContext } from './react/index.ts'
+export { Link, useParams, useNavigate } from './react/index.ts'
+export type { LinkProps } from './react/index.ts'
 

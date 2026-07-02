@@ -14,7 +14,7 @@
  */
 
 import { serve, Router, logger, trace, serveStatic } from 'weifuwu'
-import { react } from 'weifuwu/react'
+import { react, Link } from 'weifuwu/react'
 import { createElement as h } from 'react'
 
 // ════════════════════════════════════════════════════════════
@@ -91,9 +91,9 @@ function HomePage() {
     h('div', { className: 'card', style: { background: '#f0f7ff' } },
       h('h2', null, 'Try it out'),
       h('ol', null,
-        h('li', null, h('a', { href: '/users' }, 'Browse users'), ' — click any user to navigate without page reload'),
-        h('li', null, h('a', { href: '/admin/dashboard' }, 'Dashboard'), ' — streaming SSR with nested Admin layout'),
-        h('li', null, h('a', { href: '/api/hello' }, 'API'), ' — non-React JSON route coexisting with React SSR'),
+        h('li', null, h(Link, { href: '/users' }, 'Browse users'), ' — click any user to navigate without page reload'),
+        h('li', null, h(Link, { href: '/admin/dashboard' }, 'Dashboard'), ' — streaming SSR with nested Admin layout'),
+        h('li', null, h(Link, { href: '/api/hello' }, 'API'), ' — non-React JSON route coexisting with React SSR'),
       ),
     ),
   )
@@ -107,7 +107,7 @@ function UsersPage({ users }: { users: Array<{ id: number; name: string; email: 
       users.length === 0
         ? h('p', null, 'No users found.')
         : users.map(u =>
-            h('a', { key: u.id, className: 'user-link', href: `/users/${u.id}` },
+            h(Link, { key: u.id, className: 'user-link', href: `/users/${u.id}` },
               `${u.name} — ${u.email}`,
             ),
           ),
@@ -121,7 +121,7 @@ function UserDetailPage({ user }: { user: { id: number; name: string; email: str
     h('p', null, h('strong', null, 'Email: '), user.email),
     h('p', null, h('strong', null, 'ID: '), String(user.id)),
     user.bio ? h('p', null, h('em', null, user.bio)) : null,
-    h('a', { className: 'back-link', href: '/users' }, '← Back to users'),
+    h(Link, { className: 'back-link', href: '/users' }, '← Back to users'),
   )
 }
 
@@ -144,7 +144,7 @@ function NotFoundPage({ path }: { path: string }) {
   return h('div', { className: 'card', style: { borderColor: '#e74c3c' } },
     h('h1', null, '404 — Page Not Found'),
     h('p', null, `No route matches "${path}".`),
-    h('a', { className: 'back-link', href: '/' }, '← Go home'),
+    h(Link, { className: 'back-link', href: '/' }, '← Go home'),
   )
 }
 

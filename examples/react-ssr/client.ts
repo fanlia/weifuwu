@@ -1,9 +1,6 @@
 /**
  * Client-side entry for hydration + SPA navigation.
  *
- * The page components MUST render the same DOM structure as the server
- * for React hydration to succeed. Data comes from useServerData().
- *
  * Build:  node build.mjs
  * Start:  node server.ts
  */
@@ -12,7 +9,7 @@ import { hydrate, createClientRouter, useServerData, Link } from 'weifuwu/react/
 import { createElement as h } from 'react'
 
 // ════════════════════════════════════════════════════════════
-// Page components (must match server-side structure)
+// Page components (must match server-side DOM structure)
 // ════════════════════════════════════════════════════════════
 
 function HomePage() {
@@ -27,15 +24,15 @@ function HomePage() {
         h('li', null, 'Layout composition via mount nesting'),
         h('li', null, 'useServerData() — typed data loading'),
         h('li', null, 'Coexists with non-React API routes'),
-        h('li', null, h('strong', null, 'NEW: '), 'Client-side SPA navigation with <Link>'),
+        h('li', null, h('strong', null, 'NEW: '), 'Client-side SPA navigation'),
       ),
     ),
     h('div', { className: 'card', style: { background: '#f0f7ff' } },
       h('h2', null, 'Try it out'),
       h('ol', null,
-        h('li', null, h('a', { href: '/users' }, 'Browse users'), ' — click any user to navigate without page reload'),
-        h('li', null, h('a', { href: '/admin/dashboard' }, 'Dashboard'), ' — streaming SSR with nested Admin layout'),
-        h('li', null, h('a', { href: '/api/hello' }, 'API'), ' — non-React JSON route coexisting with React SSR'),
+        h('li', null, h(Link, { href: '/users' }, 'Browse users'), ' — SPA navigation without page reload'),
+        h('li', null, h(Link, { href: '/admin/dashboard' }, 'Dashboard'), ' — streaming SSR with nested Admin layout'),
+        h('li', null, h(Link, { href: '/api/hello' }, 'API'), ' — non-React JSON route coexisting with React SSR'),
       ),
     ),
   )
@@ -46,12 +43,12 @@ function UsersPage() {
 
   return h('div', null,
     h('h1', null, 'Users'),
-    h('p', null, 'Click a user to navigate without page reload (SPA navigation).'),
+    h('p', null, 'Click a user to navigate without page reload.'),
     h('div', { className: 'card' },
       !users || users.length === 0
         ? h('p', null, 'No users found.')
         : users.map(u =>
-            h('a', { key: u.id, className: 'user-link', href: `/users/${u.id}` },
+            h(Link, { key: u.id, className: 'user-link', href: `/users/${u.id}` },
               `${u.name} — ${u.email}`,
             ),
           ),
@@ -96,6 +93,4 @@ const router = createClientRouter([
   },
 ])
 
-// Hydrate — RouterApp reads __DATA__ for initial data,
-// then loads data via ?_data for subsequent SPA navigations.
 hydrate(router.App)
