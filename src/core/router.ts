@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { WebSocketServer } from 'ws'
-import type { WebSocket, Context, Handler, Middleware, MiddlewareMeta, ErrorHandler } from '../types.ts'
+import type { Context, Handler, Middleware, MiddlewareMeta, ErrorHandler } from '../types.ts'
 import { createHub, type Hub } from '../hub.ts'
 import { isProd } from './env.ts'
 import {

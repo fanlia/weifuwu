@@ -121,16 +121,6 @@ export async function sendResponse(
 
   res.end()
 }
-
-export async function createTestServer(
-  router: Router,
-  options?: ServeOptions,
-): Promise<{ server: Server; url: string }> {
-  const server = serve(router, { ...options, port: options?.port ?? 0, shutdown: false })
-  await server.ready
-  return { server, url: `http://localhost:${server.port}` }
-}
-
 export function serve(router: Router, options?: ServeOptions): Server {
   const ws = router.websocketHandler()
   const handler = router.handler()
