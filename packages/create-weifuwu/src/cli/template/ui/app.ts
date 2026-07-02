@@ -40,11 +40,10 @@ const home = page((ctx) => {
   )
 })
 
-const showCounter = ref(false)
-
 const counter = page(() => {
   const count = ref(0)
   const doubled = computed(() => count.value * 2)
+  const showCounter = ref(false)
 
   return h('div', { class: 'wui-card', style: 'padding:32px;margin-top:40px' },
     h('h2', null, 'Reactive counter'),
