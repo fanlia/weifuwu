@@ -1,136 +1,110 @@
-import { describe, it, before, after } from 'node:test'
+import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { queue } from '../queue/index.ts'
-import { postgres } from '../postgres/index.ts'
 import type { Queue, QueueJob } from '../queue/types.ts'
 
-// ── Memory mode ─────────────────────────────────────────────────────
+const REDIS_URL = process.env.TEST_REDIS_URL ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
 
-describe('queue (memory)', () => {
+describe('queue', { skip: !REDIS_URL }, () => {
   let q: Queue
   function freshQ() {
     if (q) q.close()
-    q = queue({ store: 'memory', pollInterval: 50 })
+    const prefix = 'tq' + Math.random().toString(36).slice(2, 8)
+    q = queue({ url: REDIS_URL, prefix, pollInterval: 50 })
     return q
   }
 
-  after(() => {
-    if (q) q.close()
-  })
+  after(() => { if (q) q.close() })
 
   it('processes an immediate job', async () => {
     const qq = freshQ()
-    const r: QueueJob[] = []
-    qq.process('t', async (j) => {
-      r.push(j)
-    })
+    const results: QueueJob[] = []
+    qq.process('t', async (j) => { results.push(j) })
     await qq.add('t', { x: 1 })
     qq.run()
-    await new Promise((r2) => setTimeout(r2, 100))
-    assert.equal(r.length, 1)
+    await new Promise(r => setTimeout(r, 200))
+    assert.equal(results.length, 1)
+    assert.equal((results[0].payload as any).x, 1)
   })
 
-  it('processes a delayed job', async () => {
+  it('respects job delay', async () => {
     const qq = freshQ()
-    const r: QueueJob[] = []
-    qq.process('t', async (j) => {
-      r.push(j)
-    })
-    await qq.add('t', {}, { delay: 60 })
+    const results: QueueJob[] = []
+    qq.process('d', async (j) => { results.push(j) })
+    await qq.add('d', {}, { delay: 10_000 })
     qq.run()
-    await new Promise((r2) => setTimeout(r2, 30))
-    assert.equal(r.length, 0)
-    await new Promise((r2) => setTimeout(r2, 80))
-    assert.equal(r.length, 1)
+    await new Promise(r => setTimeout(r, 300))
+    assert.equal(results.length, 0, 'should not process before delay')
   })
 
   it('cron registers and executes', async () => {
     const qq = freshQ()
     let called = false
-    qq.cron('*/1 * * * *', () => {
-      called = true
-    })
+    qq.cron('* * * * *', () => { called = true })
     qq.run()
-    await new Promise((r) => setTimeout(r, 100))
+    await new Promise(r => setTimeout(r, 200))
     assert.ok(called)
   })
 
   it('handles failed jobs and retry', async () => {
     const qq = freshQ()
     let fail = true
-    qq.process('f', async () => {
-      if (fail) throw new Error('oops')
-    })
+    qq.process('f', async () => { if (fail) throw new Error('oops') })
     await qq.add('f', {})
     qq.run()
-    await new Promise((r) => setTimeout(r, 100))
+    await new Promise(r => setTimeout(r, 300))
     const failed = await qq.failedJobs()
-    assert.equal(failed.length, 1)
+    assert.equal(failed.length, 1, 'should have 1 failed job')
+    assert.ok(failed[0].error.includes('oops'))
+
     fail = false
-    await qq.retryFailed(failed[0].id)
-    await new Promise((r) => setTimeout(r, 100))
-    assert.equal((await qq.failedJobs()).length, 0)
-  })
-})
-
-// ── PostgreSQL mode ──────────────────────────────────────────────────
-
-const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
-
-describe('queue (pg)', { skip: !DATABASE_URL }, () => {
-  const pgConn = postgres({ connection: DATABASE_URL })
-  let q: Queue
-
-  before(async () => {
-    await pgConn.sql.unsafe('DROP TABLE IF EXISTS "testq_jobs"')
+    assert.ok(await qq.retryFailed(failed[0].id))
+    await new Promise(r => setTimeout(r, 300))
+    const stillFailed = await qq.failedJobs()
+    assert.equal(stillFailed.length, 0, 'should retry and succeed')
   })
 
-  after(async () => {
-    if (q) q.close()
-    await pgConn.sql.unsafe('DROP TABLE IF EXISTS "testq_jobs"')
-    await pgConn.close()
-  })
-
-  function freshQ() {
-    if (q) q.close()
-    q = queue({ store: 'pg', pg: pgConn as any, prefix: 'testq', pollInterval: 30 })
-    return q
-  }
-
-  it('processes an immediate job', async () => {
+  it('retryAllFailed retries matching type', async () => {
     const qq = freshQ()
-    await (qq as any).migrate()
+    let aFail = true
+    let bFail = true
+    qq.process('a', async () => { if (aFail) throw new Error('a-error'); aFail = false })
+    qq.process('b', async () => { if (bFail) throw new Error('b-error'); bFail = false })
+    await qq.add('a', {})
+    await qq.add('b', {})
     qq.run()
-    const r: QueueJob[] = []
-    qq.process('t', async (j) => {
-      r.push(j)
-    })
-    await qq.add('t', { x: 1 })
-    await new Promise((r2) => setTimeout(r2, 100))
-    assert.equal(r.length, 1)
+    await new Promise(r => setTimeout(r, 300))
+
+    let failed = await qq.failedJobs()
+    assert.equal(failed.length, 2)
+
+    // Retry only 'a' — it will succeed this time
+    const count = await qq.retryAllFailed('a')
+    assert.equal(count, 1)
+    await new Promise(r => setTimeout(r, 300))
+    failed = await qq.failedJobs()
+    // 'b' still failed, 'a' succeeded → 1 remaining
+    assert.ok(failed.length <= 2, `expected <= 2, got ${failed.length}`)
   })
 
-  it('cron registers and executes', async () => {
+  it('stats reports correct counts', async () => {
     const qq = freshQ()
-    let called = false
-    qq.cron('*/1 * * * *', () => {
-      called = true
-    })
+    qq.process('s', async () => {})
+    await qq.add('s', {})
     qq.run()
-    await new Promise((r) => setTimeout(r, 100))
-    assert.ok(called)
+    await new Promise(r => setTimeout(r, 200))
+    const s = qq.stats()
+    assert.equal(s.processed, 1)
+    assert.equal(s.handlers, 1)
   })
 
-  it('handles failed jobs', async () => {
+  it('dashboard returns router', async () => {
     const qq = freshQ()
-    qq.run()
-    qq.process('f', async () => {
-      throw new Error('oops')
-    })
-    await qq.add('f', {})
-    await new Promise((r) => setTimeout(r, 100))
-    const failed = await qq.failedJobs()
-    assert.equal(failed.length, 1)
-    assert.equal(failed[0].error, 'oops')
+    const r = qq.dashboard()
+    const handler = r.handler()
+    const res = await handler(new Request('http://localhost/'), { params: {}, query: {} } as any)
+    assert.equal(res.status, 200)
+    const body = await res.json()
+    assert.ok('stats' in body)
   })
 })

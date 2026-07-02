@@ -1,43 +1,28 @@
 /* eslint-disable no-console */
 import { WebSocketServer } from 'ws'
-import type {
-  WebSocket,
-  Context,
-  Handler,
-  Middleware,
-  MiddlewareMeta,
-  ErrorHandler,
-} from '../types.ts'
-import http, { type IncomingMessage } from 'node:http'
-import type { Duplex } from 'node:stream'
+import type { WebSocket, Context, Handler, Middleware, MiddlewareMeta, ErrorHandler } from '../types.ts'
 import { createHub, type Hub } from '../hub.ts'
-
 import { isProd } from './env.ts'
+import {
+  type WebSocketHandler,
+  type WsUpgradeHandler,
+  createWsUpgradeHandler,
+} from './ws.ts'
 
 // Augment Context with WebSocket helpers
 declare module '../types.ts' {
   interface Context {
     ws: {
-      /** Per-connection state object */
       state: Record<string, unknown>
-      /** Send JSON to this connection */
       json(data: unknown): void
-      /** Join a room */
       join(room: string): void
-      /** Leave a room */
       leave(room: string): void
-      /** Broadcast to a room */
       sendRoom(room: string, data: unknown): void
     }
   }
 }
 
-export type WebSocketHandler = {
-  open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
-  message?: (ws: WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>
-  close?: (ws: WebSocket, ctx: Context) => void | Promise<void>
-  error?: (ws: WebSocket, ctx: Context, error: Error) => void | Promise<void>
-}
+// ── Trie types ──────────────────────────────────────────────────
 
 type TrieNode = {
   children: Map<string, TrieNode>
@@ -66,6 +51,8 @@ const createWsNode = (): WsTrieNode => ({
   middlewares: [],
 })
 
+// ── Trie helpers (generic) ──────────────────────────────────────
+
 interface TrieNodeBase<T> {
   children: Map<string, T>
   param?: string
@@ -73,9 +60,7 @@ interface TrieNodeBase<T> {
 }
 
 function createParamChild<T extends TrieNodeBase<T>>(
-  node: T,
-  segment: string,
-  createNode: () => T,
+  node: T, segment: string, createNode: () => T,
 ): T {
   const paramName = segment.slice(1)
   if (!node.children.has(':')) {
@@ -93,25 +78,16 @@ function createParamChild<T extends TrieNodeBase<T>>(
 }
 
 function getOrCreateChild<T extends TrieNodeBase<T>>(
-  node: T,
-  segment: string,
-  createNode: () => T,
-  allowWildcard: boolean,
+  node: T, segment: string, createNode: () => T, allowWildcard: boolean,
 ): T {
-  if (allowWildcard && segment === '*') {
-    node.wildcard = true
-    return node
-  }
+  if (allowWildcard && segment === '*') { node.wildcard = true; return node }
   if (segment.startsWith(':')) return createParamChild(node, segment, createNode)
   if (!node.children.has(segment)) node.children.set(segment, createNode())
   return node.children.get(segment)!
 }
 
 function matchChild<T extends TrieNodeBase<T>>(
-  node: T,
-  segment: string,
-  params: Record<string, string>,
-  allowWildcard = false,
+  node: T, segment: string, params: Record<string, string>, allowWildcard = false,
 ): T | null {
   if (node.children.has(segment)) return node.children.get(segment)!
   if (node.children.has(':')) {
@@ -123,41 +99,20 @@ function matchChild<T extends TrieNodeBase<T>>(
   return null
 }
 
-type RouteMatch = {
-  kind: 'route'
-  handler: Handler
-  mws: Middleware[]
-  params: Record<string, string>
-}
+// ── Router ──────────────────────────────────────────────────────
 
-type NotAllowedMatch = {
-  kind: 'not-allowed'
-  methods: string[]
-  params: Record<string, string>
-}
+const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const
 
-type MatchResult = RouteMatch | NotAllowedMatch | null
-
-type WsMatchResult = {
-  handler: WebSocketHandler
-  middlewares: Middleware[]
-  params: Record<string, string>
-} | null
-
-type WsUpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => void
-
-// Router<T> — T accumulates types from global middleware calls via use(mw).
-// Route-level middleware does not change the Router's type parameter.
 export class Router<T extends Context = Context> {
-  private root: TrieNode = createTrieNode()
-  private wsRoot: WsTrieNode = createWsNode()
+  private root = createTrieNode()
+  private wsRoot = createWsNode()
   private globalMws: Middleware[] = []
   private errorHandler?: ErrorHandler<T>
   private _hasWildcard = false
   private _hub?: Hub
   private _wss?: WebSocketServer
-  /** Track which ctx fields have been injected so far (for dependency checking). */
   private _ctxFields = new Set<string>()
+
   private get wss(): WebSocketServer {
     if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
     return this._wss
@@ -168,116 +123,99 @@ export class Router<T extends Context = Context> {
     return this._hub
   }
 
-  /** Inject a custom hub (e.g. with Redis for cross-process broadcast). */
-  wsHub(hub: Hub): this {
-    this._hub = hub
+  wsHub(hub: Hub): this { this._hub = hub; return this }
+
+  // ── Middleware & mounting ─────────────────────────────────
+
+  use(mw: Middleware<Context, Context>): Router<T> {
+    this.globalMws.push(mw as Middleware)
+    this._checkMiddlewareMeta(mw, 'global')
     return this
   }
 
-  /** Global middleware — accumulates types into Router<T>. */
-  use<Out extends Context>(mw: Middleware<Context, Out>): Router<T & Out>
-  use(arg1: Middleware<Context, Context>): Router<T> {
-    this.globalMws.push(arg1 as unknown as Middleware)
-    this._checkMiddlewareMeta(arg1, 'global')
-    return this
-  }
-
-  /**
-   * Mount a sub-router at the given path prefix.
-   * All routes from the sub-router are registered with the prefix.
-   *
-   * ```ts
-   * const admin = new Router()
-   * admin.get('/dashboard', handler)
-   * app.mount('/admin', admin)  // → GET /admin/dashboard
-   * ```
-   */
   mount(path: string, router: Router<Context>): Router<T> {
     this._mountRouter(path, router)
     return this
   }
 
-  /**
-   * Check a middleware's dependency metadata and emit warnings if
-   * required fields haven't been injected yet.
-   * Attach __meta to a middleware function:
-   *
-   * ```ts
-   * mw.__meta = { injects: ['sql'], depends: ['session'] }
-   * ```
-   */
-  private _checkMiddlewareMeta(mw: unknown, location: string): void {
-    const meta: MiddlewareMeta | undefined =
-      (mw as Middleware).__meta ??
-      (typeof mw === 'object' && mw && 'middleware' in mw
-        ? (mw as { middleware(): Middleware }).middleware().__meta
-        : undefined)
-    if (!meta) return
-
-    for (const dep of meta.depends) {
-      if (!this._ctxFields.has(dep)) {
-        console.warn(
-          `[weifuwu] Middleware at "${location}" depends on ctx.${dep} but it hasn't been registered yet.` +
-            `\n  Register the provider before this middleware:` +
-            `\n    app.use(${dep}())  // add before this middleware` +
-            `\n  Current ctx fields: [${[...this._ctxFields].join(', ')}]`,
-        )
-      }
-    }
-
-    for (const field of meta.injects) {
-      this._ctxFields.add(field)
-    }
-  }
-
-  // Route registration — returns Router<T> unchanged.
-  // Route-level middleware and handlers get Context<T>.
-  get(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
-    return this._route('GET', path, ...args)
-  }
-
-  post(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
-    return this._route('POST', path, ...args)
-  }
-
-  put(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
-    return this._route('PUT', path, ...args)
-  }
-
-  delete(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
-    return this._route('DELETE', path, ...args)
-  }
-
-  patch(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
-    return this._route('PATCH', path, ...args)
-  }
-
-  head(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
-    return this._route('HEAD', path, ...args)
-  }
-
-  options(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
-    return this._route('OPTIONS', path, ...args)
-  }
-
-  all(path: string, ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]): Router<T> {
-    return this._route('*', path, ...args)
-  }
-
   onError(handler: ErrorHandler<T>): Router<T> {
-    this.errorHandler = handler
+    this.errorHandler = handler; return this
+  }
+
+  // ── Route registration ────────────────────────────────────
+
+  get(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    return this._route('GET', path, ...rest)
+  }
+  post(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    return this._route('POST', path, ...rest)
+  }
+  put(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    return this._route('PUT', path, ...rest)
+  }
+  delete(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    return this._route('DELETE', path, ...rest)
+  }
+  patch(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    return this._route('PATCH', path, ...rest)
+  }
+  head(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    return this._route('HEAD', path, ...rest)
+  }
+  options(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    return this._route('OPTIONS', path, ...rest)
+  }
+  all(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    return this._route('*', path, ...rest)
+  }
+
+  ws(path: string, ...args: [...Middleware[], WebSocketHandler]): Router<T> {
+    const handler = args.pop()! as WebSocketHandler
+    const mws = args as Middleware[]
+    let node = this.wsRoot
+    for (const segment of this.splitPath(path)) {
+      node = getOrCreateChild(node, segment, createWsNode, true)
+    }
+    node.handler = handler
+    node.middlewares = mws
     return this
   }
 
-  private _route(
-    method: string,
-    path: string,
-    ...args: [...Middleware<T, T>[], Handler<T> | Router<Context>]
-  ): Router<T> {
-    return this._routeImpl(method, path, args)
+  // ── Handler compilation ────────────────────────────────────
+
+  handler(): Handler<T> {
+    return (req, ctx) => {
+      const url = new URL(req.url)
+      return this.handle(req, ctx, this.splitPath(url.pathname))
+    }
   }
 
-  /** Internal route registration — no type constraints (used by _mountRouter). */
+  websocketHandler(): WsUpgradeHandler {
+    return createWsUpgradeHandler(
+      this.wss, this.hub,
+      (segments) => this.matchWsTrie(this.wsRoot, segments),
+      this.globalMws,
+      (mws, h, req, ctx) => this.runChain(mws, h, req, ctx),
+    )
+  }
+
+  // ── Debug ──────────────────────────────────────────────────
+
+  routes(): string[] {
+    const result: string[] = []
+    if (this.globalMws.length > 0) result.push(`MIDDLEWARE  [${this.globalMws.length} global]`)
+    this._collectRoutes(this.root, '', result)
+    this._collectWsRoutes(this.wsRoot, '', result)
+    return result
+  }
+
+  // ── Private: Route impl ────────────────────────────────────
+
+  private _route(method: string, path: string, ...args: [...Middleware[], Handler | Router<Context>]): Router<T> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return this._routeImpl(method, path, args as any[])
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _routeImpl(method: string, path: string, args: any[]): Router<T> {
     const last = args[args.length - 1]
@@ -286,20 +224,18 @@ export class Router<T extends Context = Context> {
       return this
     }
     const handler = args.pop()
-    const middlewares: Middleware[] = args
-    const segments = this.splitPath(path)
+    const mws: Middleware[] = args
     let node = this.root
 
-    for (const segment of segments) {
+    for (const segment of this.splitPath(path)) {
       if (segment === '*') {
         this._hasWildcard = true
-        const remaining = segments.indexOf('*') < segments.length - 1
-        if (remaining) {
+        if (this.splitPath(path).indexOf('*') < this.splitPath(path).length - 1) {
           console.warn(`Route "${path}": segments after "*" are ignored`)
         }
         node.wildcard = true
         node.handlers.set(method, handler)
-        if (middlewares.length > 0) node.middlewares.set(method, middlewares)
+        if (mws.length > 0) node.middlewares.set(method, mws)
         return this
       }
       node = getOrCreateChild(node, segment, createTrieNode, false)
@@ -309,43 +245,68 @@ export class Router<T extends Context = Context> {
       console.warn(`[router] route conflict: ${method} ${path} overwrites existing handler`)
     }
     node.handlers.set(method, handler)
-    if (middlewares.length > 0) node.middlewares.set(method, middlewares)
+    if (mws.length > 0) node.middlewares.set(method, mws)
     return this
   }
 
-  ws(path: string, ...args: [...Middleware<T, T>[], WebSocketHandler]): Router<T> {
-    const handler = args.pop()! as WebSocketHandler
-    const middlewares = args as unknown as Middleware[]
-    const segments = this.splitPath(path)
-    let node = this.wsRoot
+  // ── Private: Mount ─────────────────────────────────────────
 
-    for (const segment of segments) {
-      node = getOrCreateChild(node, segment, createWsNode, true)
+  private _mountRouter(prefix: string, sub: Router<Context>, extraMws: Middleware[] = []): void {
+    const base = prefix === '/' ? '' : prefix.replace(/\/$/, '')
+
+    const mountMw: Middleware = (req, ctx, next) => {
+      ctx.mountPath = (ctx.mountPath || '') + base
+      return next(req, ctx)
     }
 
-    node.handler = handler
-    node.middlewares = middlewares
-    return this
-  }
+    const allExtra = extraMws.length === 0 && sub.globalMws.length === 0
+      ? [mountMw]
+      : [mountMw, ...extraMws, ...sub.globalMws]
 
-  handler(): Handler<T> {
-    return (req, ctx) => {
-      const url = new URL(req.url)
-      return this.handle(req, ctx as Context, this.splitPath(url.pathname))
+    // Collect and register HTTP routes
+    const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
+    this._collect(sub.root, '', routes)
+    for (const { method, path, handler, middlewares } of routes) {
+      this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
+    }
+
+    // Collect and register WS routes
+    const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
+    this._collectWs(sub.wsRoot, '', wsRoutes)
+    for (const { path, handler, middlewares } of wsRoutes) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.ws(base + path, ...allExtra as any[], ...middlewares, handler)
     }
   }
 
-  /** Returns a human-readable list of all registered routes. Useful for debugging. */
-  routes(): string[] {
-    const result: string[] = []
-    if (this.globalMws.length > 0) {
-      result.push(`MIDDLEWARE  [${this.globalMws.length} global]`)
+  private _collect(node: TrieNode, prefix: string, result: Array<{
+    method: string; path: string; handler: Handler; middlewares: Middleware[]
+  }>): void {
+    for (const [method, handler] of node.handlers) {
+      const rmws = node.middlewares.get(method) || []
+      const suffix = node.wildcard ? '/*' : ''
+      result.push({ method, path: (prefix || '/') + suffix, handler, middlewares: [...rmws] })
     }
-    this._collectRoutes(this.root, '', result)
-    this._collectWsRoutes(this.wsRoot, '', result)
-    return result
+    for (const [seg, child] of node.children) {
+      this._collect(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg), result)
+    }
   }
 
+  private _collectWs(node: WsTrieNode, prefix: string, result: Array<{
+    path: string; handler: WebSocketHandler; middlewares: Middleware[]
+  }>, mwsAcc: Middleware[] = []): void {
+    const mws = [...mwsAcc, ...node.middlewares]
+    if (node.handler) result.push({ path: prefix || '/', handler: node.handler, middlewares: mws })
+    for (const [seg, child] of node.children) {
+      this._collectWs(child, prefix + '/' + (seg === ':' ? `:${child.param}` : seg), result, mws)
+    }
+  }
+
+  // ── Private: Matching ──────────────────────────────────────
+
+  private splitPath(path: string): string[] { return path.split('/').filter(Boolean) }
+
+  // Pretty-print route listing (for debugging)
   private _collectRoutes(node: TrieNode, prefix: string, result: string[]): void {
     for (const [method] of node.handlers) {
       const m = method === '*' ? 'ANY' : method
@@ -372,411 +333,161 @@ export class Router<T extends Context = Context> {
     }
   }
 
-  websocketHandler(): WsUpgradeHandler {
-    const wsRoot = this.wsRoot
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const router = this
-
-    return (req, socket, head) => {
-      const url = new URL(req.url ?? '/', 'http://localhost')
-      const segments = url.pathname.split('/').filter(Boolean)
-
-      const match = router.matchWsTrie(wsRoot, segments)
-      if (!match) {
-        socket.destroy()
-        return
-      }
-
-      const query = Object.fromEntries(url.searchParams)
-      const ctx = { params: match.params, query } as Context
-
-      const allMws =
-        router.globalMws.length === 0 && match.middlewares.length === 0
-          ? ([] as Middleware[])
-          : [...router.globalMws, ...match.middlewares]
-
-      if (allMws.length === 0) {
-        upgradeSocket(router.wss, req, socket, head, match.handler, ctx, router.hub)
-        return
-      }
-
-      const finalHandler: Handler = () => {
-        try {
-          upgradeSocket(router.wss, req, socket, head, match.handler, ctx, router.hub)
-        } catch {
-          socket.destroy()
-          return new Response('WebSocket upgrade failed', { status: 500 })
-        }
-        return new Response(null, { status: 200 })
-      }
-
-      const webReq = new Request(url.href, {
-        method: req.method ?? 'GET',
-        headers: nodeReqHeadersToRecord(req.headers),
-      })
-
-      void router
-        .runChain(allMws, finalHandler, webReq, ctx)
-        .then((result) => {
-          if (result.status >= 400) {
-            sendHttpResponseOnSocket(socket, result)
-          }
-        })
-        .catch((err) => {
-          console.error('[router] WS middleware chain error:', err)
-          socket.destroy()
-        })
-    }
-  }
-
-  private _mountRouter(prefix: string, sub: Router<Context>, extraMws: Middleware[] = []): void {
-    const base = prefix === '/' ? '' : prefix.replace(/\/$/, '')
-
-    const mountMw: Middleware = (req, ctx, next) => {
-      ctx.mountPath = (ctx.mountPath || '') + base
-      return next(req, ctx)
-    }
-
-    const allExtra =
-      extraMws.length === 0 && sub.globalMws.length === 0
-        ? [mountMw]
-        : [mountMw, ...extraMws, ...sub.globalMws]
-
-    const routes: Array<{
-      method: string
-      path: string
-      handler: Handler
-      middlewares: Middleware[]
-    }> = []
-    this._collect(sub.root, '', routes)
-    for (const { method, path, handler, middlewares } of routes) {
-      this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
-    }
-
-    const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> =
-      []
-    this._collectWs(sub.wsRoot, '', wsRoutes)
-    for (const { path, handler, middlewares } of wsRoutes) {
-      this.ws(
-        base + path,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(allExtra as Middleware<any, any>[]),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(middlewares as Middleware<any, any>[]),
-        handler,
-      )
-    }
-  }
-
-  private _collect(
-    node: TrieNode,
-    prefix: string,
-    result: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }>,
-  ): void {
-    for (const [method, handler] of node.handlers) {
-      const rmws = node.middlewares.get(method) || []
-      const suffix = node.wildcard ? '/*' : ''
-      result.push({
-        method,
-        path: (prefix || '/') + suffix,
-        handler,
-        middlewares: [...rmws],
-      })
-    }
-    for (const [seg, child] of node.children) {
-      const next = seg === ':' ? `/:${child.param}` : `/${seg}`
-      this._collect(child, prefix + next, result)
-    }
-  }
-
-  private _collectWs(
-    node: WsTrieNode,
-    prefix: string,
-    result: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }>,
-    mwsAcc: Middleware[] = [],
-  ): void {
-    const mws = [...mwsAcc, ...node.middlewares]
-    if (node.handler) result.push({ path: prefix || '/', handler: node.handler, middlewares: mws })
-    for (const [seg, child] of node.children) {
-      const next = seg === ':' ? `/:${child.param}` : `/${seg}`
-      this._collectWs(child, prefix + next, result, mws)
-    }
-  }
-
-  private splitPath(path: string): string[] {
-    return path.split('/').filter(Boolean)
-  }
-
-  private matchTrie(
-    method: string,
-    segments: string[],
-  ): MatchResult {
+  /** Two-pass trie matching: exact first, then wildcard fallback. */
+  private matchTrie(method: string, segments: string[]): {
+    kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
+  } | null {
+    // Pass 1: exact + param matching
     let node = this.root
     const params: Record<string, string> = {}
-    let wildcardHandler: Handler | null = null
-    let wildcardMws: Middleware[] = []
-    let wildcardIdx = -1
-
-    for (let i = 0; i < segments.length; i++) {
-      if (this._hasWildcard && node.wildcard) {
-        let h = node.handlers.get('*') || node.handlers.get(method)
-        if (!h && method === 'HEAD') {
-          h = node.handlers.get('GET')
-        }
-        if (h) {
-          wildcardHandler = h
-          wildcardMws = node.middlewares.get(method) || node.middlewares.get('*') || []
-          wildcardIdx = i
-        }
-      }
-
-      const segment = segments[i]
-
-      const next = matchChild(node, segment, params, false)
+    for (const seg of segments) {
+      const next = matchChild(node, seg, params, false)
       if (!next) {
-        if (wildcardHandler) {
-          params['*'] = segments.slice(wildcardIdx).join('/')
-          return { kind: 'route', handler: wildcardHandler, mws: wildcardMws, params }
-        }
-        return null
+        // Try wildcard fallback
+        return this._wildcardMatch(method, segments)
       }
       node = next
     }
-
-    let handler = node.handlers.get(method) || node.handlers.get('*')
-    // HEAD requests fall back to GET if no explicit HEAD handler
-    if (!handler && method === 'HEAD') {
-      handler = node.handlers.get('GET')
-    }
-    if (handler) {
-      if (node.wildcard) params['*'] = segments.slice(segments.length).join('/')
-      return {
-        kind: 'route',
-        handler,
-        mws: node.middlewares.get(method) || node.middlewares.get('*') || [],
-        params,
-      }
-    }
-
-    if (wildcardHandler) {
-      params['*'] = segments.slice(wildcardIdx).join('/')
-      return { kind: 'route', handler: wildcardHandler, mws: wildcardMws, params }
-    }
-
-    if (node.handlers.size > 0) {
-      return {
-        kind: 'not-allowed',
-        methods: [...node.handlers.keys()].filter((k) => k !== '*'),
-        params,
-      }
-    }
-
-    return null
+    return this._resolveMatch(node, method, params, segments.length)
   }
 
-  private matchWsTrie(root: WsTrieNode, segments: string[]): WsMatchResult {
-    let node = root
+  /** Fallback: search for a wildcard ancestor. */
+  private _wildcardMatch(method: string, segments: string[]): {
+    kind: 'route'; handler: Handler; mws: Middleware[]; params: Record<string, string>
+  } | null {
+    if (!this._hasWildcard) return null
+    let node = this.root
     const params: Record<string, string> = {}
-
-    for (const segment of segments) {
-      const next = matchChild(node, segment, params, true)
+    for (let i = 0; i < segments.length; i++) {
+      if (node.wildcard) {
+        const h = node.handlers.get('*') || node.handlers.get(method) || (method === 'HEAD' ? node.handlers.get('GET') : undefined)
+        if (h) {
+          params['*'] = segments.slice(i).join('/')
+          return { kind: 'route', handler: h, mws: node.middlewares.get(method) || node.middlewares.get('*') || [], params }
+        }
+      }
+      const next = matchChild(node, segments[i], params, false)
       if (!next) return null
       node = next
     }
+    return null
+  }
 
+  /** Resolve a matched trie node → handler or 405. */
+  private _resolveMatch(node: TrieNode, method: string, params: Record<string, string>, segLen: number): {
+    kind: 'route' | 'not-allowed'; handler: Handler; mws: Middleware[]; params: Record<string, string>; methods?: string[]
+  } | null {
+    let handler = node.handlers.get(method) || node.handlers.get('*')
+    if (!handler && method === 'HEAD') handler = node.handlers.get('GET')
+    if (node.wildcard) params['*'] = ''
+    if (handler) {
+      return { kind: 'route', handler, mws: node.middlewares.get(method) || node.middlewares.get('*') || [], params }
+    }
+    if (node.handlers.size > 0) {
+      return {
+        kind: 'not-allowed',
+        handler: () => new Response('', { status: 405 }),
+        mws: [],
+        params,
+        methods: [...node.handlers.keys()].filter((k: string) => k !== '*'),
+      }
+    }
+    return null
+  }
+
+  private matchWsTrie(root: WsTrieNode, segments: string[]): {
+    handler: WebSocketHandler; middlewares: Middleware[]; params: Record<string, string>
+  } | null {
+    let node: WsTrieNode = root
+    const params: Record<string, string> = {}
+    for (const seg of segments) {
+      const next = matchChild(node, seg, params, true)
+      if (!next) return null
+      node = next
+    }
     return node.handler ? { handler: node.handler, middlewares: node.middlewares, params } : null
+  }
+
+  // ── Private: Request handling ──────────────────────────────
+
+  private async handle(req: Request, ctx: Context, segments: string[]): Promise<Response> {
+    const match = this.matchTrie(req.method, segments)
+    if (match) {
+      Object.assign(ctx.params, match.params)
+      if (match.kind === 'route') {
+        try { return await this.runChain([...this.globalMws, ...match.mws], match.handler, req, ctx) }
+        catch (e) { return this.handleError(e, req, ctx) }
+      }
+      // 405 — run global middleware, then return Method Not Allowed
+      if (this.globalMws.length > 0) {
+        try {
+          return await this.runChain(this.globalMws, () => new Response('Method Not Allowed', {
+            status: 405,
+            headers: { Allow: (match.methods || []).join(', ') },
+          }), req, ctx)
+        } catch (e) { return this.handleError(e, req, ctx) }
+      }
+      return new Response('Method Not Allowed', { status: 405, headers: { Allow: (match.methods || []).join(', ') } })
+    }
+
+    // 404
+    if (this.globalMws.length > 0) {
+      try { return await this.runChain(this.globalMws, () => this._notFound(req, segments), req, ctx) }
+      catch (e) { return this.handleError(e, req, ctx) }
+    }
+    return this._notFound(req, segments)
+  }
+
+  private _notFound(_req: Request, segments: string[]): Response {
+    return isProd()
+      ? new Response('Not Found', { status: 404 })
+      : Response.json({ error: 'Not Found', path: '/' + segments.join('/'), method: _req.method }, { status: 404 })
   }
 
   private async handleError(e: unknown, req: Request, ctx: Context): Promise<Response> {
     const err = e instanceof Error ? e : new Error(String(e))
     console.error(err)
-    return this.errorHandler
-      ? await this.errorHandler(err, req, ctx as T)
-      : new Response('Internal Server Error', { status: 500 })
+    return this.errorHandler ? this.errorHandler(err, req, ctx as T) : new Response('Internal Server Error', { status: 500 })
   }
 
-  private _notFoundResponse(method: string, segments: string[]): Response {
-    if (!isProd()) {
-      return Response.json(
-        { error: 'Not Found', path: '/' + segments.join('/'), method },
-        { status: 404 },
-      )
-    }
-    return new Response('Not Found', { status: 404 })
-  }
-
-  private async handle(req: Request, ctx: Context, segments: string[]): Promise<Response> {
-    const match = this.matchTrie(req.method, segments)
-
-    if (match) {
-      Object.assign(ctx.params, match.params)
-
-      switch (match.kind) {
-        case 'route': {
-          const mws = [...this.globalMws, ...match.mws]
-          try {
-            return await this.runChain(mws, match.handler, req, ctx)
-          } catch (e) {
-            return this.handleError(e, req, ctx)
-          }
-        }
-        case 'not-allowed': {
-          if (this.globalMws.length > 0) {
-            try {
-              return await this.runChain(
-                this.globalMws,
-                () =>
-                  new Response('Method Not Allowed', {
-                    status: 405,
-                    headers: { Allow: match.methods.join(', ') },
-                  }),
-                req,
-                ctx,
-              )
-            } catch (e) {
-              return this.handleError(e, req, ctx)
-            }
-          }
-          return new Response('Method Not Allowed', {
-            status: 405,
-            headers: { Allow: match.methods.join(', ') },
-          })
-        }
-      }
-    }
-
-    if (this.globalMws.length > 0) {
-      try {
-        return await this.runChain(
-          this.globalMws,
-          () => this._notFoundResponse(req.method, segments),
-          req,
-          ctx,
-        )
-      } catch (e) {
-        return this.handleError(e, req, ctx)
-      }
-    }
-
-    return this._notFoundResponse(req.method, segments)
-  }
+  // ── Private: Middleware chain ───────────────────────────────
 
   private async runChain(
-    middlewares: Middleware[],
-    finalHandler: Handler,
-    req: Request,
-    ctx: Context,
+    mws: Middleware[], finalHandler: Handler, req: Request, ctx: Context,
   ): Promise<Response> {
-    if (middlewares.length === 0) return await finalHandler(req, ctx)
-    return await runChainLoop(middlewares, 0, finalHandler, req, ctx)
-  }
-}
-
-function runChainLoop(
-  middlewares: Middleware[],
-  index: number,
-  finalHandler: Handler,
-  req: Request,
-  ctx: Context,
-): Promise<Response> {
-  if (index < middlewares.length) {
-    const mw = middlewares[index]
-    let called = false
+    if (mws.length === 0) return finalHandler(req, ctx)
+    let i = 0
     const dispatch: Handler = (r, c) => {
-      if (called) {
-        console.warn(
-          '[router] next() called more than once in middleware — ignoring duplicate call',
-        )
-        return Promise.resolve(new Response('', { status: 499 }))
+      if (i >= mws.length) return Promise.resolve(finalHandler(r, c))
+      const mw = mws[i++]
+      let called = false
+      const next: Handler = (r2, c2) => {
+        if (called) { console.warn('[router] next() called more than once — ignoring'); return Promise.resolve(new Response('', { status: 499 })) }
+        called = true
+        return dispatch(r2, c2)
       }
-      called = true
-      return runChainLoop(middlewares, index + 1, finalHandler, r, c)
+      return Promise.resolve(mw(r, c, next as Parameters<typeof mw>[2]))
     }
-    return Promise.resolve(mw(req, ctx, dispatch as unknown as Parameters<typeof mw>[2]))
+    return dispatch(req, ctx)
   }
-  return Promise.resolve(finalHandler(req, ctx))
-}
 
-function upgradeSocket(
-  wss: WebSocketServer,
-  req: IncomingMessage,
-  socket: Duplex,
-  head: Buffer,
-  handler: WebSocketHandler,
-  ctx: Context,
-  hub: Hub,
-): void {
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    // ── Per-connection ctx — cloned from upgrade ctx ─────────
-    // Each connection gets its own ctx, inheriting params/query/user/etc.
-    const connCtx: Context = { ...ctx, params: { ...ctx.params }, query: { ...ctx.query } }
+  // ── Private: Meta checking ──────────────────────────────────
 
-    // ── ctx.ws — per-connection WS helpers ───────────────────
-    const wsState: Record<string, unknown> = {}
-    connCtx.ws = {
-      get state() {
-        return wsState
-      },
-      json(data: unknown) {
-        ws.send(JSON.stringify(data))
-      },
-      join(room: string) {
-        hub.join(room, ws)
-      },
-      leave(_room: string) {
-        hub.leave(ws)
-      },
-      sendRoom(room: string, data: unknown) {
-        hub.broadcast(room, data)
-      },
+  private _checkMiddlewareMeta(mw: unknown, location: string): void {
+    const meta: MiddlewareMeta | undefined =
+      (mw as Middleware).__meta ??
+      (typeof mw === 'object' && mw && 'middleware' in mw
+        ? (mw as { middleware(): Middleware }).middleware().__meta : undefined)
+    if (!meta) return
+    for (const dep of meta.depends) {
+      if (!this._ctxFields.has(dep)) {
+        console.warn(
+          `[weifuwu] Middleware at "${location}" depends on ctx.${dep} but it hasn't been registered yet.\n` +
+          `  Register the provider before this middleware:\n` +
+          `    app.use(${dep}())  // add before this middleware\n` +
+          `  Current ctx fields: [${[...this._ctxFields].join(', ')}]`)
+      }
     }
-
-    if (handler.open) {
-      handler.open(ws, connCtx)
-    }
-
-    ws.on('message', (data) => {
-      handler.message?.(ws, connCtx, data as string | Buffer)
-    })
-
-    ws.on('close', () => {
-      hub.leave(ws)
-      handler.close?.(ws, connCtx)
-    })
-
-    ws.on('error', (err) => {
-      handler.error?.(ws, connCtx, err)
-    })
-  })
-}
-
-function nodeReqHeadersToRecord(headers: http.IncomingHttpHeaders): Record<string, string> {
-  const result: Record<string, string> = {}
-  for (const [k, v] of Object.entries(headers)) {
-    if (v !== undefined) result[k] = Array.isArray(v) ? v.join(', ') : v
+    for (const field of meta.injects) this._ctxFields.add(field)
   }
-  return result
-}
-
-function sendHttpResponseOnSocket(socket: Duplex, response: Response): void {
-  const statusLine = `HTTP/1.1 ${response.status} ${response.statusText}`
-  const headerLines: string[] = [statusLine]
-  response.headers.forEach((value, key) => {
-    headerLines.push(`${key}: ${value}`)
-  })
-  headerLines.push('Connection: close')
-  headerLines.push('')
-  const headerStr = headerLines.join('\r\n')
-
-  response
-    .arrayBuffer()
-    .then((buf) => {
-      socket.write(headerStr + '\r\n')
-      if (buf.byteLength > 0) socket.write(Buffer.from(buf))
-      socket.end()
-    })
-    .catch(() => {
-      socket.write(headerStr + '\r\n')
-      socket.end()
-    })
 }

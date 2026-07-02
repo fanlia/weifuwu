@@ -17,6 +17,7 @@
     "build": "node scripts/build.mjs",
     "prepublishOnly": "npm run build && tsc --emitDeclarationOnly --outdir dist",
     "typecheck": "tsc --noEmit",
+    "pretest": "docker compose up -d --wait 2>/dev/null; sleep 1",
     "test": "node --test 'src/test/**/*.test.ts'",
     "test:coverage": "node --experimental-test-coverage --test 'src/test/**/*.test.ts'",
     "release": "node scripts/release.mjs",

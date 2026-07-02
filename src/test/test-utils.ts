@@ -137,7 +137,7 @@ export class TestApp {
   /**
    * Register a WebSocket handler.
    */
-  ws(path: string, handler: import('../core/router.ts').WebSocketHandler): this {
+  ws(path: string, handler: import('../core/ws.ts').WebSocketHandler): this {
     this.router.ws(path, handler)
     return this
   }

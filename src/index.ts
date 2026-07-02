@@ -6,7 +6,7 @@ export { loadEnv, isDev, isProd, isBundled, getPublicEnv, env } from './core/env
 export { serve, createTestServer, DEFAULT_MAX_BODY } from './core/serve.ts'
 export type { ServeOptions, Server } from './core/serve.ts'
 export { Router } from './core/router.ts'
-export type { WebSocketHandler } from './core/router.ts'
+export type { WebSocketHandler } from './core/ws.ts'
 export { logger } from './core/logger.ts'
 export type { LoggerOptions } from './core/logger.ts'
 export { cors } from './middleware/cors.ts'

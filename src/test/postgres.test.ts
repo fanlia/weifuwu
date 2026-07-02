@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { postgres } from '../postgres/index.ts'
 import type { PostgresClient } from '../postgres/types.ts'
 
-const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL
+const DATABASE_URL = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo'
 
 describe('postgres', { skip: !DATABASE_URL }, () => {
   let pg: PostgresClient

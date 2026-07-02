@@ -2,3 +2,4 @@ node_modules/
 .weifuwu/
 .sessions/
 /dist/
+.env

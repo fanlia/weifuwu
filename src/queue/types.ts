@@ -16,14 +16,14 @@ export interface QueueJob<T = unknown> {
 }
 
 export interface QueueOptions {
-  /** Backend store. Default: 'memory'. */
-  store?: 'memory' | 'pg' | 'redis'
+  /** Redis client instance (auto-created if not provided). */
   redis?: Redis
+  /** Redis URL (default: REDIS_URL env or redis://localhost:6379). */
   url?: string
+  /** Key prefix (default: 'queue'). */
   prefix?: string
+  /** Poll interval in ms (default: 200). */
   pollInterval?: number
-  /** PostgreSQL client (required when store: 'pg'). */
-  pg?: { sql: import('../types.ts').SqlClient }
 }
 
 export interface QueueInjected {
@@ -36,25 +36,16 @@ export interface QueueJobWithError<T = unknown> extends QueueJob<T> {
 }
 
 export interface Queue extends Middleware<Context, Context & QueueInjected>, Closeable {
-  /** Register a cron job. Uses queue's backend (memory/pg/redis) for execution. */
+  /** Register a cron job. */
   cron(pattern: string, handler: () => void | Promise<void>): { stop: () => void }
   add<T>(type: string, payload: T, opts?: { delay?: number; schedule?: string }): Promise<string>
   process<T>(type: string, handler: (job: QueueJob<T>) => Promise<void>): void
   run(): Promise<void>
-  stats(): {
-    running: boolean
-    inflight: number
-    processed: number
-    failed: number
-    handlers: number
-    maxConcurrent: number
-  }
+  stats(): { running: boolean; inflight: number; processed: number; failed: number; handlers: number; maxConcurrent: number }
   jobs(limit?: number): Promise<QueueJob[]>
   failedJobs(limit?: number): Promise<QueueJobWithError[]>
   retryFailed(jobId: string): Promise<boolean>
   retryAllFailed(type?: string): Promise<number>
   dashboard(): import('../core/router.ts').Router
-  /** Create the jobs table (PG mode only; safe to call multiple times). */
-  migrate?(): Promise<void>
   close(): Promise<void>
 }
