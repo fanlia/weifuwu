@@ -133,7 +133,6 @@ export function html(
   // ── Walk DOM and apply registrations ──
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, null)
 
-  let commentIdx = 0
   const refTargets: Array<{
     signal: Signal | Computed
     el: Text
@@ -202,7 +201,7 @@ export function html(
           const idx = parseInt(evMatch[1])
           const entry = registry[idx]
           if (entry.type === 'event' && entry.eventName) {
-            const handler = entry.data as EventListener
+            const handler = entry.data as (e: Event) => void
             el.addEventListener(entry.eventName, handler)
           }
           attrsToRemove.push(attr.name)
@@ -212,15 +211,13 @@ export function html(
           const idx = parseInt(bindMatch[1])
           const entry = registry[idx]
           if (entry.type === 'attr' && entry.attrName && (entry.data instanceof Signal || entry.data instanceof Computed)) {
-            const signal = entry.data as Signal | Computed
-            // Set initial value
-            ;(el as any)[entry.attrName] = signal.value
-            // Create effect to keep in sync
+            const sig = entry.data as Signal | Computed
+            ;(el as Record<string, unknown>)[entry.attrName] = sig.value
             refTargets.push({
-              signal,
+              signal: sig,
               el: el as unknown as Text,
               getValue: () => {
-                (el as any)[entry.attrName] = signal.value
+                (el as Record<string, unknown>)[entry.attrName!] = sig.value
                 return ''
               },
             })

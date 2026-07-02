@@ -63,7 +63,7 @@ export const i18n = {
   messages: messagesSignal,
   t(key: string, params?: Record<string, string>): string {
     const msgs = messagesSignal.value as Record<string, unknown>
-    const msg = key.split('.').reduce((o: any, k: string) => o?.[k], msgs)
+    const msg = key.split('.').reduce((o: unknown, k: string) => (o as Record<string, unknown> | undefined)?.[k], msgs)
     if (msg == null) return key
     let result = String(msg)
     if (params) {

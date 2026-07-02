@@ -10,7 +10,6 @@
 type EffectFn = () => void
 
 let activeEffect: EffectFn | null = null
-const effectStack: EffectFn[] = []
 
 export class Signal<T = unknown> {
   #value: T
