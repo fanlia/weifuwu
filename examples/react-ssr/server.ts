@@ -69,13 +69,6 @@ function RootLayout({ children }: { children: unknown }) {
   )
 }
 
-function AdminLayout({ children }: { children: unknown }) {
-  return h('div', { style: { border: '2px solid #e74c3c', borderRadius: '8px', padding: '1rem' } },
-    h('div', { style: { color: '#e74c3c', fontWeight: 'bold', marginBottom: '1rem' } }, '🔒 Admin Area'),
-    children,
-  )
-}
-
 // ════════════════════════════════════════════════════════════
 // App setup
 // ════════════════════════════════════════════════════════════
@@ -133,8 +126,7 @@ app.get('/error', (_req, ctx) => ctx.render(h(ErrorDemoPage), {
 // ── Admin area (nested layout via mount) ───────────────────
 
 const admin = new Router()
-admin.use(react({ layout: AdminLayout }))
-
+// mount nesting demo — DashboardPage includes its own admin UI
 admin.get('/dashboard', async (_req, ctx) => {
   return ctx.renderStream(h(DashboardPage))
 })
