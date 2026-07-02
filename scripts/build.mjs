@@ -66,4 +66,14 @@ await esbuild.build({
   external: ['react', 'react-dom', 'react-dom/client'],
 })
 
+// esbuildDev middleware — lazy-loads esbuild at runtime
+await esbuild.build({
+  entryPoints: [join(srcDir, 'middleware/esbuild-dev.ts')],
+  outfile: join(distDir, 'middleware/esbuild-dev.js'),
+  format: 'esm',
+  platform: 'node',
+  bundle: true,
+  external: [...external, 'esbuild'],
+})
+
 console.log('Build complete.')

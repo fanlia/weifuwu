@@ -42,10 +42,14 @@
     "ws": "^8"
   },
   "peerDependencies": {
+    "esbuild": "^0.28",
     "react": "19",
     "react-dom": "19"
   },
   "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
