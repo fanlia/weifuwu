@@ -1,15 +1,17 @@
 /**
  * Signal system — ref, computed, effect
  *
- * Minimal reactive primitives based on the "signal" pattern.
  * ref = reactive value container
- * computed = derived value (readonly ref)
- * effect = auto-tracking side effect
+ * computed = derived value (readonly ref, subscribable)
+ * effect = auto-tracking side effect with proper cleanup
  */
 
 type EffectFn = () => void
 
 let activeEffect: EffectFn | null = null
+
+// Track which signals each effect subscribes to (for cleanup)
+const effectSubs = new WeakMap<EffectFn, Set<Signal | Computed>>()
 
 export class Signal<T = unknown> {
   #value: T
@@ -20,30 +22,34 @@ export class Signal<T = unknown> {
   }
 
   get value(): T {
-    // Track dependency if called inside an effect
-    if (activeEffect) this.#subs.add(activeEffect)
+    if (activeEffect) {
+      this.#subs.add(activeEffect)
+      // Track subscription for effect cleanup
+      let subs = effectSubs.get(activeEffect)
+      if (!subs) {
+        subs = new Set()
+        effectSubs.set(activeEffect, subs)
+      }
+      subs.add(this)
+    }
     return this.#value
   }
 
   set value(newVal: T) {
     if (Object.is(newVal, this.#value)) return
     this.#value = newVal
-    // Notify subscribers (run in batch via microtask)
     const subs = [...this.#subs]
     for (const fn of subs) fn()
   }
 
-  /** Internal: peek value without tracking */
   peek(): T {
     return this.#value
   }
 
-  /** Internal: subscribe directly */
   _addSub(fn: EffectFn) {
     this.#subs.add(fn)
   }
 
-  /** Internal: unsubscribe */
   _removeSub(fn: EffectFn) {
     this.#subs.delete(fn)
   }
@@ -58,20 +64,26 @@ export class Computed<T = unknown> {
 
   constructor(fn: () => T) {
     this.#fn = fn
-    // Create internal effect to track deps and mark dirty
-    const compute = () => {
+    const notify = () => {
       this.#dirty = true
       const subs = [...this.#subs]
       for (const fn of subs) fn()
     }
-    this.#effect = compute
+    this.#effect = notify
   }
 
   get value(): T {
-    if (activeEffect) this.#subs.add(activeEffect)
+    if (activeEffect) {
+      this.#subs.add(activeEffect)
+      let subs = effectSubs.get(activeEffect)
+      if (!subs) {
+        subs = new Set()
+        effectSubs.set(activeEffect, subs)
+      }
+      subs.add(this)
+    }
     if (this.#dirty) {
       this.#dirty = false
-      // Run fn with dependency tracking
       const prev = activeEffect
       activeEffect = this.#effect
       this.#cache = this.#fn()
@@ -87,6 +99,14 @@ export class Computed<T = unknown> {
     }
     return this.#cache
   }
+
+  _addSub(fn: EffectFn) {
+    this.#subs.add(fn)
+  }
+
+  _removeSub(fn: EffectFn) {
+    this.#subs.delete(fn)
+  }
 }
 
 /**
@@ -99,6 +119,7 @@ export function ref<T>(initial: T): Signal<T> {
 /**
  * Create a derived reactive value.
  * Re-evaluates when any dependency changes.
+ * Supports _addSub / _removeSub for direct subscription.
  */
 export function computed<T>(fn: () => T): Computed<T> {
   return new Computed(fn)
@@ -106,25 +127,50 @@ export function computed<T>(fn: () => T): Computed<T> {
 
 /**
  * Run a function and automatically re-run when any Signal read inside it changes.
- * Returns a cleanup function.
+ *
+ * Tracks all Signal/Computed dependencies and unsubscribes on cleanup.
+ * Returns a dispose function that:
+ * 1. Runs the effect's cleanup callback
+ * 2. Unsubscribes from all tracked Signal/Computed dependencies
  */
 export function effect(fn: () => (() => void) | void): () => void {
   let cleanup: (() => void) | void
+  let oldSubs = new Set<Signal | Computed>()
 
   const run: EffectFn = () => {
     // Run previous cleanup
     if (cleanup) cleanup()
 
+    // Unsubscribe from old tracked signals
+    for (const sig of oldSubs) {
+      sig._removeSub(run)
+    }
+    oldSubs.clear()
+
+    // Clear previous effect tracking
+    effectSubs.delete(run)
+
+    // Run with dependency tracking
     const prev = activeEffect
     activeEffect = run
     cleanup = fn()
     activeEffect = prev
+
+    // Capture new subscriptions
+    const newSubs = effectSubs.get(run)
+    if (newSubs) {
+      oldSubs = newSubs
+    }
   }
 
   run()
+
   return () => {
     if (cleanup) cleanup()
-    // Can't easily unsubscribe from all signals without tracking them
-    // For now, we just run cleanup
+    // Unsubscribe from all tracked signals
+    for (const sig of oldSubs) {
+      sig._removeSub(run)
+    }
+    effectSubs.delete(run)
   }
 }

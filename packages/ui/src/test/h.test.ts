@@ -414,6 +414,39 @@ describe('h() — reactive children (Signal)', () => {
     assert.equal(el.textContent, '3')
   })
 
+  it('updates computed child when dependencies change', () => {
+    const a = ref(1)
+    const b = ref(2)
+    const sum = computed(() => a.value + b.value)
+    const el = h('span', null, sum)
+    assert.equal(el.textContent, '3')
+    a.value = 10
+    assert.equal(el.textContent, '12')
+    b.value = 5
+    assert.equal(el.textContent, '15')
+  })
+
+  it('updates computed child with string value', () => {
+    const name = ref('World')
+    const greeting = computed(() => `Hello ${name.value}!`)
+    const el = h('p', null, greeting)
+    assert.equal(el.textContent, 'Hello World!')
+    name.value = 'Jane'
+    assert.equal(el.textContent, 'Hello Jane!')
+  })
+
+  it('updates computed child nested in elements', () => {
+    const count = ref(0)
+    const double = computed(() => count.value * 2)
+    const el = h('div', null,
+      h('span', null, 'Value: '),
+      h('strong', null, double),
+    )
+    assert.equal(el.textContent, 'Value: 0')
+    count.value = 5
+    assert.equal(el.textContent, 'Value: 10')
+  })
+
   it('renders signal child inside nested elements', () => {
     const name = ref('World')
     const el = h('div', { class: 'greeting' },

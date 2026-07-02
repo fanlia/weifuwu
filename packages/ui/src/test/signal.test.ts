@@ -185,6 +185,61 @@ describe('effect', () => {
     let ran = false
     effect(() => { ran = true })
     assert.equal(ran, true)
-    // just verifying it doesn't crash
+  })
+
+  it('should unsubscribe from signals after dispose', () => {
+    const r = ref(0)
+    let count = 0
+    const dispose = effect(() => { void r.value; count++ })
+    assert.equal(count, 1)  // initial run
+    r.value = 1
+    assert.equal(count, 2)  // triggered by change
+    dispose()
+    r.value = 2
+    assert.equal(count, 2)  // NOT triggered (unsubscribed)
+  })
+
+  it('should unsubscribe from multiple signals after dispose', () => {
+    const a = ref(0)
+    const b = ref(0)
+    let count = 0
+    const dispose = effect(() => { void a.value; void b.value; count++ })
+    assert.equal(count, 1)
+    a.value = 1
+    assert.equal(count, 2)
+    b.value = 1
+    assert.equal(count, 3)
+    dispose()
+    a.value = 2
+    assert.equal(count, 3)
+    b.value = 2
+    assert.equal(count, 3)
+  })
+
+  it('should not leak subscriptions on re-run', () => {
+    const show = ref(true)
+    const a = ref(0)
+    const b = ref(0)
+    let count = 0
+
+    effect(() => {
+      count++
+      if (show.value) {
+        void a.value  // only track 'a' when show is true
+      } else {
+        void b.value  // track 'b' when show is false
+      }
+    })
+
+    assert.equal(count, 1)
+    a.value = 1
+    assert.equal(count, 2)  // tracked 'a'
+
+    show.value = false
+    assert.equal(count, 3)
+    a.value = 2
+    assert.equal(count, 3)  // no longer tracking 'a'
+    b.value = 1
+    assert.equal(count, 4)  // now tracking 'b'
   })
 })
