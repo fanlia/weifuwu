@@ -18,11 +18,13 @@ import {
 // Router context
 // ═══════════════════════════════════════════════════════════════
 
+export type NavigationState = 'idle' | 'loading'
+
 export interface RouterContextValue {
   params: Record<string, string>
   navigate: (url: string) => Promise<void>
   revalidate: () => Promise<void>
-  loading: boolean
+  state: NavigationState
 }
 
 export const RouterContext = createContext<RouterContextValue | null>(null)
@@ -38,6 +40,12 @@ export function useNavigate(): (url: string) => Promise<void> {
   const ctx = useContext(RouterContext)
   if (!ctx) throw new Error('useNavigate() must be used within a client router')
   return ctx.navigate
+}
+
+/** Navigation state — 'idle' or 'loading'. Use for progress bars / disabled states. */
+export function useNavigation(): { state: NavigationState } {
+  const ctx = useContext(RouterContext)
+  return { state: ctx?.state ?? 'idle' }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -192,3 +200,4 @@ export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'
 export { ErrorBoundary } from './error-boundary.ts'
 export type { ErrorBoundaryProps } from './error-boundary.ts'
+export { defineRoute } from './route-utils.ts'

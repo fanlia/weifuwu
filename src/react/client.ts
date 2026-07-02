@@ -32,6 +32,7 @@ import {
   matchPath,
   type RouterContextValue,
   type LinkProps,
+  type NavigationState,
 } from './navigation.ts'
 
 // ═══════════════════════════════════════════════════════════════
@@ -56,8 +57,8 @@ export interface ClientRouter {
 }
 
 // Re-export shared primitives for convenience
-export { Link, useParams, useNavigate, useRevalidate, Form } from './navigation.ts'
-export type { LinkProps, FormProps } from './navigation.ts'
+export { Link, useParams, useNavigate, useRevalidate, Form, useNavigation } from './navigation.ts'
+export type { LinkProps, FormProps, NavigationState } from './navigation.ts'
 export { ErrorBoundary } from './error-boundary.ts'
 export type { ErrorBoundaryProps } from './error-boundary.ts'
 
@@ -86,7 +87,7 @@ interface StoreState {
   location: string
   data: Record<string, unknown>
   navId: number
-  loading: boolean
+  state: NavigationState
 }
 
 export function createClientRouter(routes: ClientRoute[]): ClientRouter {
@@ -103,7 +104,7 @@ export function createClientRouter(routes: ClientRoute[]): ClientRouter {
       typeof window !== 'undefined' ? window.location.pathname : '/',
     data: readInitialData(),
     navId: 0,
-    loading: false,
+    state: 'idle',
   }
 
   const listeners = new Set<() => void>()
@@ -131,29 +132,29 @@ export function createClientRouter(routes: ClientRoute[]): ClientRouter {
     }
 
     const id = state.navId + 1
-    state = { ...state, navId: id, loading: !!match.route.loader }
+    state = { ...state, navId: id, state: match.route.loader ? 'loading' as NavigationState : 'idle' as NavigationState }
     emit()
 
     if (match.route.loader) {
       try {
         const newData = await match.route.loader(match.params)
         if (id < state.navId) return
-        state = { ...state, data: newData, loading: false }
+        state = { ...state, data: newData, state: 'idle' as NavigationState }
       } catch (err) {
         console.error('[weifuwu/react] loader failed:', err)
-        state = { ...state, loading: false }
+        state = { ...state, state: 'idle' as NavigationState }
         emit()
         return
       }
     }
 
     if (push) history.pushState({ weifuwu: true }, '', url)
-    state = { ...state, location: url }
+    state = { ...state, location: url, state: 'idle' as NavigationState }
     emit()
   }
 
   function RouterApp(): ReactElement {
-    const { location, data, loading } = useSyncExternalStore(
+    const { location, data, state: navState } = useSyncExternalStore(
       subscribe,
       getSnapshot,
     )
@@ -174,12 +175,16 @@ export function createClientRouter(routes: ClientRoute[]): ClientRouter {
     const ctxRevalidate = useCallback(async () => {
       const currentMatch = findRoute(window.location.pathname)
       if (currentMatch?.route.loader) {
+        state = { ...state, state: 'loading' as NavigationState }
+        emit()
         try {
           const newData = await currentMatch.route.loader(currentMatch.params)
-          state = { ...state, data: newData }
+          state = { ...state, data: newData, state: 'idle' as NavigationState }
           emit()
         } catch (err) {
           console.error('[weifuwu/react] revalidate failed:', err)
+          state = { ...state, state: 'idle' as NavigationState }
+          emit()
         }
       }
     }, [])
@@ -188,7 +193,7 @@ export function createClientRouter(routes: ClientRoute[]): ClientRouter {
       params: match?.params ?? {},
       navigate: ctxNavigate,
       revalidate: ctxRevalidate,
-      loading,
+      state: navState,
     }
 
     const content = match

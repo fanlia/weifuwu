@@ -82,8 +82,8 @@ export function react(opts: ReactOptions = {}): ReactMiddleware {
 
 export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'
-export { Link, useParams, useNavigate, useRevalidate, Form } from './navigation.ts'
-export type { LinkProps, FormProps } from './navigation.ts'
+export { Link, useParams, useNavigate, useRevalidate, Form, useNavigation } from './navigation.ts'
+export type { LinkProps, FormProps, NavigationState } from './navigation.ts'
 export { ErrorBoundary } from './error-boundary.ts'
 export type { ErrorBoundaryProps } from './error-boundary.ts'
 export type { ReactOptions, RenderOptions, ReactInjected } from './types.ts'

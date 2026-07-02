@@ -35,8 +35,8 @@ export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types
 export { react } from './react/index.ts'
 export type { ReactOptions, RenderOptions, ReactInjected } from './react/types.ts'
 export { useServerData, ServerDataContext } from './react/index.ts'
-export { Link, useParams, useNavigate, useRevalidate, Form } from './react/index.ts'
-export type { LinkProps, FormProps } from './react/index.ts'
+export { Link, useParams, useNavigate, useRevalidate, Form, useNavigation } from './react/index.ts'
+export type { LinkProps, FormProps, NavigationState } from './react/index.ts'
 export { ErrorBoundary } from './react/index.ts'
 export type { ErrorBoundaryProps } from './react/index.ts'
 

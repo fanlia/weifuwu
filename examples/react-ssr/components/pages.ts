@@ -9,7 +9,7 @@
  */
 
 import { createElement as h } from 'react'
-import { Link, useServerData, Form, ErrorBoundary } from 'weifuwu/react/navigation'
+import { Link, useServerData, Form, ErrorBoundary, useNavigation } from 'weifuwu/react/navigation'
 
 // ════════════════════════════════════════════════════════════
 // Types
@@ -62,15 +62,18 @@ export function HomePage() {
 
 export function UsersPage() {
   const { users } = useServerData<{ users: User[] }>()
+  const { state } = useNavigation()
+  const busy = state === 'loading'
 
   return h('div', null,
     h('h1', null, 'Users'),
+    busy && h('div', { style: { background: '#3498db', color: '#fff', padding: '0.5rem 1rem', borderRadius: '4px', marginBottom: '1rem' } }, '⏳ Loading...'),
     h('p', null, 'Click a user to SPA-navigate. Use the form to add one (redirects + revalidates).'),
     h('div', { className: 'card' },
       h(Form, { method: 'post', action: '/users', style: { marginBottom: '1rem' } },
-        h('input', { name: 'name', placeholder: 'Name', required: true, style: { marginRight: '0.5rem' } }),
-        h('input', { name: 'email', placeholder: 'Email', type: 'email', required: true, style: { marginRight: '0.5rem' } }),
-        h('button', { type: 'submit' }, 'Add User'),
+        h('input', { name: 'name', placeholder: 'Name', required: true, disabled: busy, style: { marginRight: '0.5rem' } }),
+        h('input', { name: 'email', placeholder: 'Email', type: 'email', required: true, disabled: busy, style: { marginRight: '0.5rem' } }),
+        h('button', { type: 'submit', disabled: busy }, busy ? 'Saving...' : 'Add User'),
       ),
       h('hr', null),
       !users || users.length === 0
