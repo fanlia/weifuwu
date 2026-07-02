@@ -5,12 +5,12 @@
  * Usage:
  *   <script src="/_ui/weifuwu-ui.js"></script>
  *   <script>
- *     const { ref, html, render } = weifuwu
+ *     const { ref, h, render } = weifuwu
  *   </script>
  */
 
 import { ref, computed, effect, Signal, Computed } from './signal.ts'
-import { html } from './html.ts'
+import { h } from './h.ts'
 import { render, reactiveRender } from './render.ts'
 
 // ── Server data bridge ──
@@ -110,7 +110,7 @@ export const modal = {
 
 // Export all
 export { ref, computed, effect, Signal, Computed }
-export { html }
+export { h }
 export { render, reactiveRender }
 
 // Auto-apply theme on load
