@@ -7,13 +7,13 @@
  *   GET /users/:id         — User detail (+ ?_data for SPA)
  *   GET /admin/dashboard   — Streaming SSR + nested layout
  *   GET /api/hello         — Non-React JSON API
- *   GET /assets/*          — Static client bundle
+ *   GET /assets/*          — Auto-compiled client bundle (esbuildDev)
  *
  * Run:
- *   npm install && npm run build:client && node server.ts
+ *   npm install && node server.ts
  */
 
-import { serve, Router, logger, trace, serveStatic } from 'weifuwu'
+import { serve, Router, logger, trace, esbuildDev } from 'weifuwu'
 import { react, Link } from 'weifuwu/react'
 import { createElement as h } from 'react'
 import {
@@ -78,8 +78,13 @@ const app = new Router()
 app.use(trace())
 app.use(logger())
 
-// Static assets (client bundle)
-app.get('/assets/*', serveStatic('./public'))
+// Auto-compile client bundles on-the-fly (no build step needed)
+app.use(esbuildDev({
+  entries: {
+    '/assets/vendor.js': { entry: './vendor.ts', bundle: true, minify: false },
+    '/assets/client.js': { entry: './client.ts', bundle: true, external: ['react', 'react-dom/client'], minify: false },
+  },
+}))
 
 // React SSR (root layout)
 app.use(react({ layout: RootLayout }))

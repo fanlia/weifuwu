@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node server.ts",
     "build:client": "node build.mjs",
-    "start": "npm run build:client && node server.ts"
+    "start": "node server.ts"
   },
   "dependencies": {
     "weifuwu": "file:../..",

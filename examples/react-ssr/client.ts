@@ -6,8 +6,8 @@
  *   Server: ctx.render(<Page />, { data })
  *   Client: createClientRouter([{ component: Page, loader }])
  *
- * Build:  node build.mjs
- * Start:  node server.ts
+ * Auto-compiled by esbuildDev middleware in server.ts — no build step needed.
+ * For production, use node build.mjs to pre-build static files.
  */
 
 import { hydrate, createClientRouter, defineRoute } from 'weifuwu/react/client'

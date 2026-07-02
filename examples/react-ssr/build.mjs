@@ -1,8 +1,11 @@
 /**
- * Build client-side bundles.
+ * Build client-side bundles for production.
  *
  * vendor.js — react + react-dom (rarely changes, browser-cached)
  * client.js — app code only (changes frequently, small)
+ *
+ * For development, esbuildDev middleware in server.ts handles auto-compilation.
+ * Use this for production pre-build: node build.mjs → output to public/
  *
  * Usage: node build.mjs
  * Output: public/vendor.js, public/client.js

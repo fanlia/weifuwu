@@ -25,6 +25,7 @@ const external = [
   'react-dom',
   'react-dom/server',
   'react-dom/client',
+  'esbuild',  // dynamic import in esbuildDev — must be external for native binary
 ]
 
 await esbuild.build({
