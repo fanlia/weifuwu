@@ -202,6 +202,25 @@ function serializeNode(node, parts) {
     parts.push(escapeHtml(val == null ? "" : String(val)));
     return;
   }
+  if ("_type" in node && node._type === "show") {
+    const show = node;
+    if (show.signal.peek()) {
+      const result = show.factory();
+      if (result) serializeNode(result, parts);
+    }
+    return;
+  }
+  if ("_type" in node && node._type === "each") {
+    const eachNode = node;
+    const arr = eachNode.signal.peek();
+    if (Array.isArray(arr)) {
+      for (let i = 0; i < arr.length; i++) {
+        const item = eachNode.factory(arr[i], i);
+        serializeNode(item, parts);
+      }
+    }
+    return;
+  }
   if (Array.isArray(node)) {
     for (const child of node) {
       serializeNode(child, parts);
@@ -264,23 +283,62 @@ function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// src/control-flow.ts
+function when(signal, factory) {
+  return { _type: "show", signal, factory };
+}
+function each(signal, factory) {
+  return { _type: "each", signal, factory };
+}
+
+// src/shell.ts
+function shell(layout) {
+  return async (req, ctx, next) => {
+    ctx._wuiShell = true;
+    const res = await next(req, ctx);
+    if (ctx._wuiBody !== void 0) {
+      const head = ctx._wuiHead || {};
+      const content = ctx._wuiBody;
+      const bridge = ctx._wuiBridge || {
+        signals: {},
+        events: []
+      };
+      const html = layout({ head, content, bridge });
+      return new Response(html, {
+        headers: { "content-type": "text/html; charset=utf-8" }
+      });
+    }
+    return res;
+  };
+}
+
 // src/page.ts
 function page(factory) {
   return async (req, ctx) => {
     const tree = factory(ctx);
-    const html = serialize(tree);
+    const bodyHtml = serialize(tree);
     const dataBridge = extractDataBridge(tree);
+    ctx._wuiBody = bodyHtml;
+    ctx._wuiBridge = dataBridge;
+    ctx._wuiHead = ctx.head || ctx._wuiHead || {};
+    if (ctx._wuiShell) {
+      return new Response(bodyHtml, {
+        headers: { "content-type": "text/plain" }
+      });
+    }
+    const head = ctx._wuiHead || {};
+    const title = head.title || "weifuwu";
     const pageHtml = `<!DOCTYPE html>
-<html lang="zh-CN" data-theme="${ctx.theme || "system"}">
+<html lang="en" data-theme="system">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>${escapeTitle(html)}</title>
+  <title>${escapeHtml2(title)}</title>
   <link rel="stylesheet" href="/_ui/weifuwu-ui.css"/>
   <script id="__wui-data" type="application/json">${JSON.stringify(dataBridge)}</script>
 </head>
 <body>
-  <div id="app">${html}</div>
+  <div id="app">${bodyHtml}</div>
   <script defer src="/_ui/weifuwu-ui.js"></script>
 </body>
 </html>`;
@@ -288,6 +346,9 @@ function page(factory) {
       headers: { "content-type": "text/html; charset=utf-8" }
     });
   };
+}
+function escapeHtml2(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 var signalCounter = 0;
 function extractDataBridge(node) {
@@ -302,7 +363,27 @@ function extractDataBridge(node) {
       signals[key] = s.peek();
       return;
     }
-    if ("tag" in n && "attrs" in n) {
+    const nObj = n;
+    if (nObj._type === "show") {
+      const show = n;
+      walk(show.signal);
+      const branch = show.factory();
+      if (branch) walk(branch);
+      return;
+    }
+    if (nObj._type === "each") {
+      const eachNode = n;
+      walk(eachNode.signal);
+      const arr = eachNode.signal.peek();
+      if (Array.isArray(arr)) {
+        for (let i = 0; i < arr.length; i++) {
+          const item = eachNode.factory(arr[i], i);
+          if (item) walk(item);
+        }
+      }
+      return;
+    }
+    if ("tag" in nObj && "attrs" in nObj) {
       const node2 = n;
       if (node2.attrs) {
         for (const [key, value] of Object.entries(node2.attrs)) {
@@ -326,10 +407,6 @@ function extractDataBridge(node) {
   }
   walk(node);
   return { signals, events };
-}
-function escapeTitle(html) {
-  const m = html.match(/<title>([^<]*)<\/title>/);
-  return m ? m[1] : "weifuwu";
 }
 
 // src/assets.ts
@@ -385,10 +462,13 @@ export {
   Signal,
   batch,
   computed,
+  each,
   effect,
   h,
   page,
   ref,
   serialize,
-  weifuwuiAssets
+  shell,
+  weifuwuiAssets,
+  when
 };

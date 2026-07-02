@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import esbuild from 'esbuild'
+import { execSync } from 'node:child_process'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { cp, mkdir } from 'node:fs/promises'
@@ -36,6 +37,12 @@ await esbuild.build({
   platform: 'browser',
   bundle: true,
   minify: true,
+})
+
+// ── Type declarations ──
+execSync('npx tsc --project tsconfig.json --outDir dist', {
+  cwd: root,
+  stdio: 'inherit',
 })
 
 // ── Copy CSS (if exists) ──

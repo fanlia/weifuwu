@@ -1250,7 +1250,7 @@ function ssr(opts) {
   const dir = resolve6(opts.dir);
   const routeCache = /* @__PURE__ */ new Map();
   const wfwRoot = resolve6(import.meta.dirname ?? __dirname);
-  r.use("/", moduleServer({ root: [dir, wfwRoot] }));
+  r.mount("/", moduleServer({ root: [dir, wfwRoot] }));
   compileVendorBundle().catch(() => {
   });
   r.get("/__wfw/v/bundle", async () => {
@@ -1260,11 +1260,11 @@ function ssr(opts) {
     });
   });
   if (existsSync6(join4(dir, "app", "globals.css"))) {
-    r.use("/", tailwindRouter(dir));
+    r.mount("/", tailwindRouter(dir));
   }
   let devWatcher;
   if (isDev2) {
-    r.use("/", liveRouter(dir));
+    r.mount("/", liveRouter(dir));
     r.ws("/__weifuwu/livereload", liveWs());
     devWatcher = liveWatcher(dir);
   }

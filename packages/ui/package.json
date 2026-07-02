@@ -20,6 +20,7 @@
   "files": [
     "dist/index.js",
     "dist/index.d.ts",
+    "dist/*.d.ts",
     "dist/weifuwu-ui.js",
     "dist/weifuwu-ui.css"
   ],

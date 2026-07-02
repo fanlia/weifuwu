@@ -180,12 +180,14 @@ async function sendResponse(res, response, opts) {
   }
   res.end();
 }
-async function createTestServer(handler, options) {
-  const server = serve(handler, { ...options, port: options?.port ?? 0, shutdown: false });
+async function createTestServer(router, options) {
+  const server = serve(router, { ...options, port: options?.port ?? 0, shutdown: false });
   await server.ready;
   return { server, url: `http://localhost:${server.port}` };
 }
-function serve(handler, options) {
+function serve(router, options) {
+  const ws = router.websocketHandler();
+  const handler = router.handler();
   const port = options?.port ?? 0;
   const hostname = options?.hostname ?? "0.0.0.0";
   const server = http.createServer(async (req, res) => {
@@ -213,9 +215,7 @@ function serve(handler, options) {
   server.timeout = options?.timeout ?? 3e4;
   server.keepAliveTimeout = options?.keepAliveTimeout ?? 5e3;
   server.headersTimeout = options?.headersTimeout ?? 6e3;
-  if (options?.websocket) {
-    server.on("upgrade", options.websocket);
-  }
+  server.on("upgrade", ws);
   let resolveReady;
   const ready = new Promise((r) => {
     resolveReady = r;
@@ -414,8 +414,7 @@ function createHub(opts) {
 var createTrieNode = () => ({
   children: /* @__PURE__ */ new Map(),
   handlers: /* @__PURE__ */ new Map(),
-  middlewares: /* @__PURE__ */ new Map(),
-  pathMws: []
+  middlewares: /* @__PURE__ */ new Map()
 });
 var createWsNode = () => ({
   children: /* @__PURE__ */ new Map(),
@@ -449,7 +448,7 @@ function matchChild(node, segment, params, allowWildcard = false) {
   if (node.children.has(segment)) return node.children.get(segment);
   if (node.children.has(":")) {
     const child = node.children.get(":");
-    if (child.param) params[child.param] = segment;
+    if (child.param) params[child.param] = decodeURIComponent(segment);
     return child;
   }
   if (allowWildcard && node.wildcard) return node;
@@ -478,29 +477,23 @@ var Router = class _Router {
     this._hub = hub;
     return this;
   }
-  use(arg1, arg2) {
-    if (typeof arg1 === "string") {
-      if (arg2 instanceof _Router) {
-        this._mountRouter(arg1, arg2);
-      } else if (typeof arg2 === "function") {
-        let node = this.root;
-        for (const segment of this.splitPath(arg1)) {
-          node = getOrCreateChild(node, segment, createTrieNode, false);
-        }
-        node.pathMws.push(arg2);
-        this._checkMiddlewareMeta(arg2, `${arg1}`);
-      }
-    } else if (typeof arg1 === "function") {
-      this.globalMws.push(arg1);
-      this._checkMiddlewareMeta(arg1, "global");
-    } else if (typeof arg1 === "object" && arg1 !== null && "middleware" in arg1 && // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    typeof arg1.middleware === "function" && arg1 instanceof _Router) {
-      const mod = arg1;
-      const mw = mod.middleware();
-      this.globalMws.push(mw);
-      this._checkMiddlewareMeta(mw, "global (auto-registered)");
-      this._mountRouter("/", mod);
-    }
+  use(arg1) {
+    this.globalMws.push(arg1);
+    this._checkMiddlewareMeta(arg1, "global");
+    return this;
+  }
+  /**
+   * Mount a sub-router at the given path prefix.
+   * All routes from the sub-router are registered with the prefix.
+   *
+   * ```ts
+   * const admin = new Router()
+   * admin.get('/dashboard', handler)
+   * app.mount('/admin', admin)  // → GET /admin/dashboard
+   * ```
+   */
+  mount(path, router) {
+    this._mountRouter(path, router);
     return this;
   }
   /**
@@ -682,7 +675,8 @@ var Router = class _Router {
         if (result.status >= 400) {
           sendHttpResponseOnSocket(socket, result);
         }
-      }).catch(() => {
+      }).catch((err) => {
+        console.error("[router] WS middleware chain error:", err);
         socket.destroy();
       });
     };
@@ -695,7 +689,7 @@ var Router = class _Router {
     };
     const allExtra = extraMws.length === 0 && sub.globalMws.length === 0 ? [mountMw] : [mountMw, ...extraMws, ...sub.globalMws];
     const routes = [];
-    this._collect(sub.root, "", routes, []);
+    this._collect(sub.root, "", routes);
     for (const { method, path, handler, middlewares } of routes) {
       this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler]);
     }
@@ -710,13 +704,7 @@ var Router = class _Router {
       );
     }
   }
-  mergeMws(base, extra) {
-    if (base.length === 0) return extra.length === 0 ? base : extra;
-    if (extra.length === 0) return base;
-    return [...base, ...extra];
-  }
-  _collect(node, prefix, result, pathMwsAcc) {
-    const mws = this.mergeMws(pathMwsAcc, node.pathMws);
+  _collect(node, prefix, result) {
     for (const [method, handler] of node.handlers) {
       const rmws = node.middlewares.get(method) || [];
       const suffix = node.wildcard ? "/*" : "";
@@ -724,16 +712,16 @@ var Router = class _Router {
         method,
         path: (prefix || "/") + suffix,
         handler,
-        middlewares: this.mergeMws(mws, rmws)
+        middlewares: [...rmws]
       });
     }
     for (const [seg, child] of node.children) {
       const next = seg === ":" ? `/:${child.param}` : `/${seg}`;
-      this._collect(child, prefix + next, result, mws);
+      this._collect(child, prefix + next, result);
     }
   }
-  _collectWs(node, prefix, result, pathMwsAcc = []) {
-    const mws = this.mergeMws(pathMwsAcc, node.middlewares);
+  _collectWs(node, prefix, result, mwsAcc = []) {
+    const mws = [...mwsAcc, ...node.middlewares];
     if (node.handler) result.push({ path: prefix || "/", handler: node.handler, middlewares: mws });
     for (const [seg, child] of node.children) {
       const next = seg === ":" ? `/:${child.param}` : `/${seg}`;
@@ -746,14 +734,15 @@ var Router = class _Router {
   matchTrie(method, segments) {
     let node = this.root;
     const params = {};
-    const pathMws = [];
     let wildcardHandler = null;
     let wildcardMws = [];
     let wildcardIdx = -1;
     for (let i = 0; i < segments.length; i++) {
-      pathMws.push(...node.pathMws);
       if (this._hasWildcard && node.wildcard) {
-        const h = node.handlers.get("*") || node.handlers.get(method);
+        let h = node.handlers.get("*") || node.handlers.get(method);
+        if (!h && method === "HEAD") {
+          h = node.handlers.get("GET");
+        }
         if (h) {
           wildcardHandler = h;
           wildcardMws = node.middlewares.get(method) || node.middlewares.get("*") || [];
@@ -765,33 +754,34 @@ var Router = class _Router {
       if (!next) {
         if (wildcardHandler) {
           params["*"] = segments.slice(wildcardIdx).join("/");
-          return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params };
+          return { kind: "route", handler: wildcardHandler, mws: wildcardMws, params };
         }
         return null;
       }
       node = next;
     }
-    pathMws.push(...node.pathMws);
-    const handler = node.handlers.get(method) || node.handlers.get("*");
+    let handler = node.handlers.get(method) || node.handlers.get("*");
+    if (!handler && method === "HEAD") {
+      handler = node.handlers.get("GET");
+    }
     if (handler) {
       if (node.wildcard) params["*"] = segments.slice(segments.length).join("/");
       return {
+        kind: "route",
         handler,
-        middlewares: node.middlewares.get(method) || node.middlewares.get("*") || [],
-        pathMws,
+        mws: node.middlewares.get(method) || node.middlewares.get("*") || [],
         params
       };
     }
     if (wildcardHandler) {
       params["*"] = segments.slice(wildcardIdx).join("/");
-      return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params };
+      return { kind: "route", handler: wildcardHandler, mws: wildcardMws, params };
     }
     if (node.handlers.size > 0) {
       return {
-        middlewares: [],
-        pathMws,
-        params,
-        allowedMethods: [...node.handlers.keys()].filter((k) => k !== "*")
+        kind: "not-allowed",
+        methods: [...node.handlers.keys()].filter((k) => k !== "*"),
+        params
       };
     }
     return null;
@@ -811,54 +801,56 @@ var Router = class _Router {
     console.error(err);
     return this.errorHandler ? await this.errorHandler(err, req, ctx) : new Response("Internal Server Error", { status: 500 });
   }
+  _notFoundResponse(method, segments) {
+    if (!isProd()) {
+      return Response.json(
+        { error: "Not Found", path: "/" + segments.join("/"), method },
+        { status: 404 }
+      );
+    }
+    return new Response("Not Found", { status: 404 });
+  }
   async handle(req, ctx, segments) {
     const match = this.matchTrie(req.method, segments);
     if (match) {
       Object.assign(ctx.params, match.params);
-      if (match.handler) {
-        const { handler, middlewares: routeMws, pathMws } = match;
-        const mws = this.mergeMws(this.mergeMws(this.globalMws, pathMws), routeMws);
-        try {
-          return await this.runChain(mws, handler, req, ctx);
-        } catch (e) {
-          return this.handleError(e, req, ctx);
-        }
-      }
-      if (match.allowedMethods && match.allowedMethods.length > 0) {
-        if (this.globalMws.length > 0) {
+      switch (match.kind) {
+        case "route": {
+          const mws = [...this.globalMws, ...match.mws];
           try {
-            return await this.runChain(
-              this.globalMws,
-              () => new Response("Method Not Allowed", {
-                status: 405,
-                headers: { Allow: match.allowedMethods.join(", ") }
-              }),
-              req,
-              ctx
-            );
+            return await this.runChain(mws, match.handler, req, ctx);
           } catch (e) {
             return this.handleError(e, req, ctx);
           }
         }
-        return new Response("Method Not Allowed", {
-          status: 405,
-          headers: { Allow: match.allowedMethods.join(", ") }
-        });
+        case "not-allowed": {
+          if (this.globalMws.length > 0) {
+            try {
+              return await this.runChain(
+                this.globalMws,
+                () => new Response("Method Not Allowed", {
+                  status: 405,
+                  headers: { Allow: match.methods.join(", ") }
+                }),
+                req,
+                ctx
+              );
+            } catch (e) {
+              return this.handleError(e, req, ctx);
+            }
+          }
+          return new Response("Method Not Allowed", {
+            status: 405,
+            headers: { Allow: match.methods.join(", ") }
+          });
+        }
       }
     }
     if (this.globalMws.length > 0) {
       try {
         return await this.runChain(
           this.globalMws,
-          () => {
-            if (!isProd()) {
-              return Response.json(
-                { error: "Not Found", path: "/" + segments.join("/"), method: req.method },
-                { status: 404 }
-              );
-            }
-            return new Response("Not Found", { status: 404 });
-          },
+          () => this._notFoundResponse(req.method, segments),
           req,
           ctx
         );
@@ -866,17 +858,7 @@ var Router = class _Router {
         return this.handleError(e, req, ctx);
       }
     }
-    if (!isProd()) {
-      return Response.json(
-        {
-          error: "Not Found",
-          path: "/" + segments.join("/"),
-          method: req.method
-        },
-        { status: 404 }
-      );
-    }
-    return new Response("Not Found", { status: 404 });
+    return this._notFoundResponse(req.method, segments);
   }
   async runChain(middlewares, finalHandler, req, ctx) {
     if (middlewares.length === 0) return await finalHandler(req, ctx);
@@ -892,7 +874,7 @@ function runChainLoop(middlewares, index, finalHandler, req, ctx) {
         console.warn(
           "[router] next() called more than once in middleware \u2014 ignoring duplicate call"
         );
-        return Promise.resolve(new Response("Internal Server Error", { status: 500 }));
+        return Promise.resolve(new Response("", { status: 499 }));
       }
       called = true;
       return runChainLoop(middlewares, index + 1, finalHandler, r, c);
@@ -1909,9 +1891,7 @@ var TestApp = class {
         "No WebSocket routes registered. Use app.ws(path, handler) before calling wsReq()."
       );
     }
-    this.wsServer = serve(this.router.handler(), {
-      websocket: wsHandler
-    });
+    this.wsServer = serve(this.router);
     await this.wsServer.ready;
     return `http://localhost:${this.wsServer.port}`;
   }
