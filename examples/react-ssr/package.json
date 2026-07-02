@@ -3,20 +3,21 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node server.ts",
+    "dev": "tsx server.ts",
     "build:client": "node build.mjs",
-    "start": "node server.ts"
+    "start": "tsx server.ts"
   },
   "dependencies": {
-    "weifuwu": "file:../..",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "weifuwu": "file:../.."
   },
   "devDependencies": {
     "@tailwindcss/node": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "esbuild": "^0.28",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "tsx": "^4.22.5"
   }
 }

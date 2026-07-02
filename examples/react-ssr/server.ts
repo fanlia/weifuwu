@@ -7,19 +7,25 @@
  *   GET /users/:id         — User detail (+ ?_data for SPA)
  *   GET /admin/dashboard   — Streaming SSR + nested layout
  *   GET /api/hello         — Non-React JSON API
- *   GET /assets/*          — Auto-compiled client bundle (esbuildDev)
+ *   GET /assets/*          — Auto-compiled client bundles (esbuildDev + tailwindDev)
  *
  * Run:
  *   npm install && node server.ts
+ *
+ * Note: server.ts uses createElement for JSX (Node.js .ts limitation).
+ * Components in components/ use native JSX (.tsx) — same on server & client.
  */
 
 import { serve, Router, logger, trace, esbuildDev, tailwindDev } from 'weifuwu'
 import { react, Link } from 'weifuwu/react'
 import { createElement as h } from 'react'
-import {
-  HomePage, UsersPage, UserDetailPage,
-  DashboardPage, NotFoundPage, ErrorDemoPage,
-} from './components/pages.ts'
+import { RootLayout } from './components/Layout.tsx'
+import { HomePage } from './components/HomePage.tsx'
+import { UsersPage } from './components/UsersPage.tsx'
+import { UserDetailPage } from './components/UserDetailPage.tsx'
+import { DashboardPage } from './components/DashboardPage.tsx'
+import { ErrorDemoPage } from './components/ErrorDemoPage.tsx'
+import { NotFoundPage } from './components/NotFoundPage.tsx'
 
 // ════════════════════════════════════════════════════════════
 // Mock data
@@ -30,34 +36,6 @@ const MOCK_USERS = [
   { id: 2, name: 'Bob', email: 'bob@example.com', bio: 'Designer & artist' },
   { id: 3, name: 'Charlie', email: 'charlie@example.com', bio: 'DevOps engineer' },
 ]
-
-// ════════════════════════════════════════════════════════════
-// Layouts
-// ════════════════════════════════════════════════════════════
-
-function RootLayout({ children }: { children: unknown }) {
-  return h('html', { lang: 'zh' },
-    h('head', null,
-      h('meta', { charSet: 'utf-8' }),
-      h('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
-      h('title', null, 'weifuwu'),
-      h('link', { rel: 'stylesheet', href: '/assets/tailwind.css' }),
-      h('script', { type: 'importmap', dangerouslySetInnerHTML: { __html: JSON.stringify({
-        imports: { react: '/assets/vendor.js', 'react-dom/client': '/assets/vendor.js' },
-      }) } }),
-      h('script', { type: 'module', src: '/assets/client.js' }),
-    ),
-    h('body', { className: 'font-sans max-w-3xl mx-auto p-8' },
-      h('nav', { className: 'flex gap-4 mb-8 border-b border-gray-200 pb-4' },
-        h(Link, { href: '/', className: 'text-gray-700 no-underline hover:underline' }, 'Home'),
-        h(Link, { href: '/users', className: 'text-gray-700 no-underline hover:underline' }, 'Users'),
-        h(Link, { href: '/admin/dashboard', className: 'text-gray-700 no-underline hover:underline' }, 'Dashboard'),
-        h(Link, { href: '/api/hello', className: 'text-gray-700 no-underline hover:underline' }, 'API'),
-      ),
-      h('div', { id: 'root' }, children),
-    ),
-  )
-}
 
 // ════════════════════════════════════════════════════════════
 // App setup
@@ -87,10 +65,6 @@ app.use(esbuildDev({
 app.use(react({ layout: RootLayout }))
 
 // ── Routes ─────────────────────────────────────────────────
-//
-// Pattern: if ?_data → return JSON (for client-side SPA navigation)
-//          else      → ctx.render(<Page />, { data }) (SSR with hydration)
-//
 
 app.get('/', (_req, ctx) => ctx.render(h(HomePage), {
   head: { title: 'weifuwu React SSR', meta: { description: 'Full-stack framework with React SSR' } },
@@ -102,11 +76,7 @@ app.post('/users', async (req, ctx) => {
   const email = formData.get('email') as string
   const id = MOCK_USERS.length + 1
   MOCK_USERS.push({ id, name, email, bio: '' })
-  // Redirect back to users list after creation
-  return new Response(null, {
-    status: 302,
-    headers: { Location: '/users' },
-  })
+  return new Response(null, { status: 302, headers: { Location: '/users' } })
 })
 
 app.get('/users', async (_req, ctx) => {
@@ -128,11 +98,9 @@ app.get('/error', (_req, ctx) => ctx.render(h(ErrorDemoPage), {
 // ── Admin area (nested layout via mount) ───────────────────
 
 const admin = new Router()
-// mount nesting demo — DashboardPage includes its own admin UI
 admin.get('/dashboard', async (_req, ctx) => {
   return ctx.renderStream(h(DashboardPage))
 })
-
 app.mount('/admin', admin)
 
 // ════════════════════════════════════════════════════════════
