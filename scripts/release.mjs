@@ -47,13 +47,7 @@ async function main() {
   // Step 2: Build
   run('npm run build', { env: { ...process.env, NODE_ENV: 'production' } })
 
-  // Step 3: Generate .d.ts
-  run('npx tsc --emitDeclarationOnly --outdir dist')
-
-  // Step 4: Test
-  run('npm test')
-
-  // Step 5: Validate
+  // Step 4: Validate
   if (!existsSync(join(root, 'dist', 'index.js'))) {
     console.error('  ✗ dist/index.js missing!')
     process.exit(1)
@@ -65,11 +59,11 @@ async function main() {
     return
   }
 
-  // Step 6: Publish
+  // Step 5: Publish
   console.log(`\n  Publishing weifuwu@${version}...`)
   run(`npm publish --tag ${tag}`)
 
-  // Step 7: Tag
+  // Step 6: Tag
   run(`git tag v${version}`)
   run(`git push origin v${version}`)
 

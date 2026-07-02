@@ -211,15 +211,6 @@ app.ws('/chat', {
 | `HttpError` | class | `new HttpError(message, status)`. Throw to return that status. |
 | `app.onError(handler)` | Router method | Global error handler: `(error, req, ctx) => Response`. |
 
-### Testing
-
-| Export | Kind | Description |
-|---|---|---|
-| `testApp(app)` | function | Create a test client for a Router. Returns `{ get, post, put, delete, patch }` for `(path, opts?)`. |
-| `createTestServer(app, opts?)` | function | Start a test server on a random port. Returns `{ server, url }`. |
-| `createTestDb()` | function | Create an ephemeral Postgres test database. |
-| `withTestDb(fn)` | function | Run `fn(sql)` with a temp database, auto-cleanup. |
-
 ### Types
 
 | Export | Description |
@@ -381,7 +372,6 @@ weifuwu/
 │   ├── queue/                ← job queue, cron
 │   ├── graphql.ts            ← schema-first GraphQL handler
 │   ├── hub.ts                ← pub/sub hub (WebSocket rooms)
-│   └── test/                 ← 324 tests
 └── dist/
 ```
 
@@ -390,5 +380,4 @@ weifuwu/
 ```bash
 npm run build          # esbuild bundle → dist/index.js
 npm run typecheck      # tsc --noEmit
-npm test              # node --test (324 tests, 0 failures)
 ```
