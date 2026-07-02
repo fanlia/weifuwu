@@ -1,2 +1,2 @@
 npm run typecheck
-npx eslint packages/
+npx eslint src/

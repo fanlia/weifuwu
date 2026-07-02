@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
-import { HttpError, type Context, type Handler } from '../types.ts'
+import { HttpError, type Context } from '../types.ts'
 import { runWithTrace, currentTraceId } from './trace.ts'
 import { Router } from './router.ts'
 
