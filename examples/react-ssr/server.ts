@@ -40,7 +40,7 @@ function RootLayout({ children }: { children: unknown }) {
     h('head', null,
       h('meta', { charSet: 'utf-8' }),
       h('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }),
-      h('title', null, 'weifuwu React SSR'),
+      h('title', null, 'weifuwu'),
       h('style', null, `
         body { font-family: system-ui; max-width: 800px; margin: 0 auto; padding: 2rem; }
         nav { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 1rem; }
@@ -94,13 +94,15 @@ app.use(react({ layout: RootLayout }))
 //          else      → ctx.render(<Page />, { data }) (SSR with hydration)
 //
 
-app.get('/', (_req, ctx) => ctx.render(h(HomePage)))
+app.get('/', (_req, ctx) => ctx.render(h(HomePage), {
+  head: { title: 'weifuwu React SSR', meta: { description: 'Full-stack framework with React SSR' } },
+}))
 
 app.get('/users', async (req, ctx) => {
   if (new URL(req.url).searchParams.has('_data')) {
     return Response.json({ users: MOCK_USERS })
   }
-  return ctx.render(h(UsersPage), { data: { users: MOCK_USERS } })
+  return ctx.render(h(UsersPage), { head: { title: 'Users' }, data: { users: MOCK_USERS } })
 })
 
 app.get('/users/:id', async (req, ctx) => {
@@ -112,7 +114,7 @@ app.get('/users/:id', async (req, ctx) => {
   if (!user) {
     return ctx.render(h(NotFoundPage, { path: `/users/${ctx.params.id}` }), { status: 404 })
   }
-  return ctx.render(h(UserDetailPage), { data: { user } })
+  return ctx.render(h(UserDetailPage), { head: { title: `${user.name} - Users` }, data: { user } })
 })
 
 // ── Admin area (nested layout via mount) ───────────────────
