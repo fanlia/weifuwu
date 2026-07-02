@@ -101,7 +101,7 @@ async function generateReactSsr(
 
   await writePackageJson(targetDir, name, version, typesNodeVersion, {
     dependencies: {
-      '@weifuwujs/react': '^0.28.0',
+      '@weifuwujs/react': '^0.29.0',
       react: '^19',
       'react-dom': '^19',
       '@tailwindcss/postcss': '^4',
@@ -149,7 +149,7 @@ async function generateUi(
 
   await writePackageJson(targetDir, name, version, typesNodeVersion, {
     dependencies: {
-      '@weifuwujs/ui': '^0.28.0',
+      '@weifuwujs/ui': '^0.29.0',
     },
   })
 
