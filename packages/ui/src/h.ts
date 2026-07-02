@@ -119,12 +119,12 @@ function appendChild(el: HTMLElement, child: HChild): void {
     }
   } else if (typeof child === 'object' && child !== null && 'value' in child) {
     // Reactive child (Signal/Computed)
-    const sig = child as unknown as Signal
-    const textNode = document.createTextNode(sig.value == null ? '' : String(sig.value))
+    const reactive = child as unknown as { value: unknown; _addSub?: (fn: () => void) => void }
+    const textNode = document.createTextNode(reactive.value == null ? '' : String(reactive.value))
     el.appendChild(textNode)
-    if (sig._addSub) {
-      sig._addSub(() => {
-        textNode.textContent = sig.value == null ? '' : String(sig.value)
+    if (typeof reactive._addSub === 'function') {
+      reactive._addSub(() => {
+        textNode.textContent = reactive.value == null ? '' : String(reactive.value)
       })
     }
   } else {
