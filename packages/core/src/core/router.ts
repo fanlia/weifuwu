@@ -45,7 +45,6 @@ type TrieNode = {
   middlewares: Map<string, Middleware[]>
   param?: string
   wildcard?: boolean
-  pathMws: Middleware[]
 }
 
 type WsTrieNode = {
@@ -60,7 +59,6 @@ const createTrieNode = (): TrieNode => ({
   children: new Map(),
   handlers: new Map(),
   middlewares: new Map(),
-  pathMws: [],
 })
 
 const createWsNode = (): WsTrieNode => ({
@@ -161,50 +159,26 @@ export class Router<T extends Context = Context> {
     return this
   }
 
-  // Global middleware — accumulates types into Router<T>.
-  // The middleware's In type is Context (base); Out is what it injects.
-  // Router accumulates via intersection: Router<T & Out>
+  /** Global middleware — accumulates types into Router<T>. */
   use<Out extends Context>(mw: Middleware<Context, Out>): Router<T & Out>
-  // Path-scoped middleware — does not accumulate
-  use(path: string, mw: Middleware<T, T>): Router<T>
-  // Mount sub-router — flattens into parent, does not accumulate
-  use(path: string, router: Router<Context>): Router<T>
-  // Module with .middleware() — auto-register middleware + mount at /
-  use(mod: Router & { middleware: () => Middleware }): Router<T>
-  use(
-    arg1: string | Middleware<Context, Context> | (Router & { middleware: () => Middleware }),
-    arg2?: Router<Context> | Middleware<T, T>,
-  ): Router<T> {
-    if (typeof arg1 === 'string') {
-      if (arg2 instanceof Router) {
-        this._mountRouter(arg1, arg2)
-      } else if (typeof arg2 === 'function') {
-        let node = this.root
-        for (const segment of this.splitPath(arg1)) {
-          node = getOrCreateChild(node, segment, createTrieNode, false)
-        }
-        node.pathMws.push(arg2 as unknown as Middleware)
-        this._checkMiddlewareMeta(arg2, `${arg1}`)
-      }
-    } else if (typeof arg1 === 'function') {
-      this.globalMws.push(arg1 as unknown as Middleware)
-      this._checkMiddlewareMeta(arg1, 'global')
-    } else if (
-      typeof arg1 === 'object' &&
-      arg1 !== null &&
-      'middleware' in arg1 &&
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      typeof (arg1 as any).middleware === 'function' &&
-      arg1 instanceof Router
-    ) {
-      // Auto-register modules with .middleware() — e.g. theme(), i18n(), analytics()
-      // Registers both the middleware and mounts routes at /
-      const mod = arg1 as Router & { middleware: () => Middleware }
-      const mw = mod.middleware()
-      this.globalMws.push(mw as unknown as Middleware)
-      this._checkMiddlewareMeta(mw, 'global (auto-registered)')
-      this._mountRouter('/', mod as Router)
-    }
+  use(arg1: Middleware<Context, Context>): Router<T> {
+    this.globalMws.push(arg1 as unknown as Middleware)
+    this._checkMiddlewareMeta(arg1, 'global')
+    return this
+  }
+
+  /**
+   * Mount a sub-router at the given path prefix.
+   * All routes from the sub-router are registered with the prefix.
+   *
+   * ```ts
+   * const admin = new Router()
+   * admin.get('/dashboard', handler)
+   * app.mount('/admin', admin)  // → GET /admin/dashboard
+   * ```
+   */
+  mount(path: string, router: Router<Context>): Router<T> {
+    this._mountRouter(path, router)
     return this
   }
 
@@ -458,7 +432,7 @@ export class Router<T extends Context = Context> {
       handler: Handler
       middlewares: Middleware[]
     }> = []
-    this._collect(sub.root, '', routes, [])
+    this._collect(sub.root, '', routes)
     for (const { method, path, handler, middlewares } of routes) {
       this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
     }
@@ -478,19 +452,11 @@ export class Router<T extends Context = Context> {
     }
   }
 
-  private mergeMws(base: Middleware[], extra: Middleware[]): Middleware[] {
-    if (base.length === 0) return extra.length === 0 ? base : extra
-    if (extra.length === 0) return base
-    return [...base, ...extra]
-  }
-
   private _collect(
     node: TrieNode,
     prefix: string,
     result: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }>,
-    pathMwsAcc: Middleware[],
   ): void {
-    const mws = this.mergeMws(pathMwsAcc, node.pathMws)
     for (const [method, handler] of node.handlers) {
       const rmws = node.middlewares.get(method) || []
       const suffix = node.wildcard ? '/*' : ''
@@ -498,12 +464,12 @@ export class Router<T extends Context = Context> {
         method,
         path: (prefix || '/') + suffix,
         handler,
-        middlewares: this.mergeMws(mws, rmws),
+        middlewares: [...rmws],
       })
     }
     for (const [seg, child] of node.children) {
       const next = seg === ':' ? `/:${child.param}` : `/${seg}`
-      this._collect(child, prefix + next, result, mws)
+      this._collect(child, prefix + next, result)
     }
   }
 
@@ -511,9 +477,9 @@ export class Router<T extends Context = Context> {
     node: WsTrieNode,
     prefix: string,
     result: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }>,
-    pathMwsAcc: Middleware[] = [],
+    mwsAcc: Middleware[] = [],
   ): void {
-    const mws = this.mergeMws(pathMwsAcc, node.middlewares)
+    const mws = [...mwsAcc, ...node.middlewares]
     if (node.handler) result.push({ path: prefix || '/', handler: node.handler, middlewares: mws })
     for (const [seg, child] of node.children) {
       const next = seg === ':' ? `/:${child.param}` : `/${seg}`
@@ -531,20 +497,16 @@ export class Router<T extends Context = Context> {
   ): {
     handler?: Handler
     middlewares: Middleware[]
-    pathMws: Middleware[]
     params: Record<string, string>
     allowedMethods?: string[]
   } | null {
     let node = this.root
     const params: Record<string, string> = {}
-    const pathMws: Middleware[] = []
     let wildcardHandler: Handler | null = null
     let wildcardMws: Middleware[] = []
     let wildcardIdx = -1
 
     for (let i = 0; i < segments.length; i++) {
-      pathMws.push(...node.pathMws)
-
       if (this._hasWildcard && node.wildcard) {
         const h = node.handlers.get('*') || node.handlers.get(method)
         if (h) {
@@ -560,20 +522,12 @@ export class Router<T extends Context = Context> {
       if (!next) {
         if (wildcardHandler) {
           params['*'] = segments.slice(wildcardIdx).join('/')
-          return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params }
-        }
-        // Mount-point middleware: pathMws were collected from parent nodes,
-        // return them so they can run (e.g. app.use('/_ui', handler) should
-        // intercept all /_ui/* requests, not just ones that match a route).
-        if (pathMws.length > 0) {
-          return { handler: undefined, middlewares: [], pathMws, params }
+          return { handler: wildcardHandler, middlewares: wildcardMws, params }
         }
         return null
       }
       node = next
     }
-
-    pathMws.push(...node.pathMws)
 
     const handler = node.handlers.get(method) || node.handlers.get('*')
     if (handler) {
@@ -581,29 +535,21 @@ export class Router<T extends Context = Context> {
       return {
         handler,
         middlewares: node.middlewares.get(method) || node.middlewares.get('*') || [],
-        pathMws,
         params,
       }
     }
 
     if (wildcardHandler) {
       params['*'] = segments.slice(wildcardIdx).join('/')
-      return { handler: wildcardHandler, middlewares: wildcardMws, pathMws, params }
+      return { handler: wildcardHandler, middlewares: wildcardMws, params }
     }
 
     if (node.handlers.size > 0) {
       return {
         middlewares: [],
-        pathMws,
         params,
         allowedMethods: [...node.handlers.keys()].filter((k) => k !== '*'),
       }
-    }
-
-    // Traversal completed at a node with pathMws but no handlers.
-    // Let pathMws run with a 404 fallback.
-    if (pathMws.length > 0) {
-      return { handler: undefined, middlewares: [], pathMws, params }
     }
 
     return null
@@ -637,29 +583,10 @@ export class Router<T extends Context = Context> {
       Object.assign(ctx.params, match.params)
 
       if (match.handler) {
-        const { handler, middlewares: routeMws, pathMws } = match
-        const mws = this.mergeMws(this.mergeMws(this.globalMws, pathMws), routeMws)
+        const { handler, middlewares: routeMws } = match
+        const mws = [...this.globalMws, ...routeMws]
         try {
           return await this.runChain(mws, handler, req, ctx)
-        } catch (e) {
-          return this.handleError(e, req, ctx)
-        }
-      }
-
-      // Mount-point middleware match (no handler, only pathMws).
-      // Run the pathMws chain; if no middleware short-circuits, return 404.
-      if (match.pathMws.length > 0) {
-        const mws = this.mergeMws(this.globalMws, match.pathMws)
-        try {
-          return await this.runChain(mws, () => {
-            if (!isProd()) {
-              return Response.json(
-                { error: 'Not Found', path: '/' + segments.join('/'), method: req.method },
-                { status: 404 },
-              )
-            }
-            return new Response('Not Found', { status: 404 })
-          }, req, ctx)
         } catch (e) {
           return this.handleError(e, req, ctx)
         }

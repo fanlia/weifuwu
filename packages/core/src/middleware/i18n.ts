@@ -59,7 +59,7 @@ function translate(
  * ```ts
  * const l = i18n({ dir: './locales' })
  * app.use(l.middleware())  // → ctx.i18n = { locale, t, set }
- * app.use('/', l)          // → GET /__lang/:locale (switch route)
+ * app.mount('/', l)          // → GET /__lang/:locale (switch route)
  * ```
  */
 export interface I18nModule extends Router {

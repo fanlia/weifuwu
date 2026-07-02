@@ -1,16 +1,17 @@
 /**
- * @weifuwu/ui — Server middleware
+ * @weifuwu/ui — Server assets
  *
  * Provides weifuwuiAssets() to serve the client runtime.
  *
  * Usage:
  *   import { weifuwuiAssets } from '@weifuwu/ui'
- *   app.use('/_ui', weifuwuiAssets())
+ *   app.mount('/_ui', weifuwuiAssets())
  */
 
 import { readFile } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Router } from '@weifuwujs/core'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '..', 'dist')
@@ -38,41 +39,40 @@ async function loadAssets() {
 const _promise = loadAssets()
 
 /**
- * Serve @weifuwu/ui static assets (CSS + JS).
+ * Serve @weifuwu/ui static assets (CSS + JS) as a sub-router.
  *
  * Routes:
- *   /_ui/weifuwu-ui.css  — CSS framework
- *   /_ui/weifuwu-ui.js   — Client runtime (ref, html, render + stores)
+ *   /weifuwu-ui.css  — CSS framework
+ *   /weifuwu-ui.js   — Client runtime (ref, html, render + stores)
  *
  * Usage:
  *   import { weifuwuiAssets } from '@weifuwu/ui'
- *   app.use('/_ui', weifuwuiAssets())
+ *   app.mount('/_ui', weifuwuiAssets())
  */
-export function weifuwuiAssets() {
-  return async (_req: Request) => {
-    const url = new URL(_req.url)
-    const path = url.pathname
+export function weifuwuiAssets(): Router {
+  const r = new Router()
 
+  const serveCss = async () => {
     await _promise
-
-    if (path.endsWith('/weifuwu-ui.css') && cssContent) {
-      return new Response(cssContent, {
-        headers: {
-          'content-type': 'text/css',
-          'cache-control': 'public, max-age=86400',
-        },
-      })
-    }
-
-    if (path.endsWith('/weifuwu-ui.js') && jsContent) {
-      return new Response(jsContent, {
-        headers: {
-          'content-type': 'application/javascript',
-          'cache-control': 'public, max-age=86400',
-        },
-      })
-    }
-
-    return new Response('Not found', { status: 404 })
+    return new Response(cssContent, {
+      headers: {
+        'content-type': 'text/css',
+        'cache-control': 'public, max-age=86400',
+      },
+    })
   }
+
+  const serveJs = async () => {
+    await _promise
+    return new Response(jsContent, {
+      headers: {
+        'content-type': 'application/javascript',
+        'cache-control': 'public, max-age=86400',
+      },
+    })
+  }
+
+  r.get('/weifuwu-ui.css', serveCss)
+  r.get('/weifuwu-ui.js', serveJs)
+  return r
 }

@@ -383,7 +383,7 @@ export function ssr(opts: { dir: string }): SsrModule {
   const routeCache = new Map<string, ResolvedRoute | null>()
 
   const wfwRoot = resolve(import.meta.dirname ?? __dirname)
-  r.use('/', moduleServer({ root: [dir, wfwRoot] }))
+  r.mount('/', moduleServer({ root: [dir, wfwRoot] }))
 
   compileVendorBundle().catch(() => {})
 
@@ -395,12 +395,12 @@ export function ssr(opts: { dir: string }): SsrModule {
   })
 
   if (existsSync(join(dir, 'app', 'globals.css'))) {
-    r.use('/', tailwindRouter(dir))
+    r.mount('/', tailwindRouter(dir))
   }
 
   let devWatcher: { close: () => void } | undefined
   if (isDev) {
-    r.use('/', liveRouter(dir))
+    r.mount('/', liveRouter(dir))
     r.ws('/__weifuwu/livereload', liveWs())
     devWatcher = liveWatcher(dir)
   }

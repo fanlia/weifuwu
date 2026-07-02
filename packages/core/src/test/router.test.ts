@@ -374,19 +374,15 @@ describe('Router status codes', () => {
 // ── Middleware ─────────────────────────────────────────────────────────────
 
 describe('Router middleware', () => {
-  it('order: global → path → route', async () => {
+  it('order: global → sub-router → route', async () => {
     const order: number[] = []
-    const r = new Router()
+    const scoped = new Router()
       .use((_req, _ctx, next) => {
-        order.push(1)
-        return next(_req, _ctx)
-      })
-      .use('/scoped', (_req, _ctx, next) => {
         order.push(2)
         return next(_req, _ctx)
       })
       .get(
-        '/scoped/route',
+        '/route',
         (_req, _ctx, next) => {
           order.push(3)
           return next(_req, _ctx)
@@ -396,6 +392,12 @@ describe('Router middleware', () => {
           return Response.json(order)
         },
       )
+    const r = new Router()
+      .use((_req, _ctx, next) => {
+        order.push(1)
+        return next(_req, _ctx)
+      })
+      .mount('/scoped', scoped)
     await r.handler()(new Request('http://localhost/scoped/route'), mkCtx())
     assert.deepEqual(order, [1, 2, 3, 4])
   })
@@ -530,13 +532,16 @@ describe('Router error handling', () => {
     restore()
   })
 
-  it('error handler catches errors from path-scoped middleware', async () => {
-    const r = new Router()
-      .onError((err) => new Response(`path-err: ${err.message}`, { status: 500 }))
-      .use('/scoped', () => {
+  it('error handler catches errors from sub-router middleware', async () => {
+    const scoped = new Router()
+      .use(() => {
         throw new Error('scoped-fail')
       })
-      .get('/scoped/route', () => new Response('ok'))
+      .get('/route', () => new Response('ok'))
+
+    const r = new Router()
+      .onError((err) => new Response(`path-err: ${err.message}`, { status: 500 }))
+      .mount('/scoped', scoped)
 
     const restore = suppressErrorLog()
     const res = await r.handler()(new Request('http://localhost/scoped/route'), mkCtx())
@@ -551,14 +556,14 @@ describe('Router error handling', () => {
 describe('Router sub-router', () => {
   it('mounts sub-router at path prefix', async () => {
     const sub = new Router().get('/nested', () => new Response('sub'))
-    const main = new Router().use('/api', sub)
+    const main = new Router().mount('/api', sub)
     const res = await main.handler()(new Request('http://localhost/api/nested'), mkCtx())
     assert.equal(await res.text(), 'sub')
   })
 
   it('mounts sub-router at root without path', async () => {
     const sub = new Router().get('/rooted', () => new Response('sub-root'))
-    const main = new Router().use('/', sub)
+    const main = new Router().mount('/', sub)
     const res = await main.handler()(new Request('http://localhost/rooted'), mkCtx())
     assert.equal(await res.text(), 'sub-root')
   })
@@ -567,7 +572,7 @@ describe('Router sub-router', () => {
     const sub = new Router().get('/:userId', (req, ctx) =>
       Response.json({ userId: ctx.params.userId }),
     )
-    const main = new Router().use('/orgs/:orgId', sub)
+    const main = new Router().mount('/orgs/:orgId', sub)
     const res = await main.handler()(new Request('http://localhost/orgs/acme/john'), mkCtx())
     const data = (await res.json()) as Record<string, string>
     assert.equal(data.userId, 'john')
@@ -581,7 +586,7 @@ describe('Router sub-router', () => {
         return next(_req, _ctx)
       })
       .get('/data', () => new Response('ok'))
-    const main = new Router().use('/api', sub)
+    const main = new Router().mount('/api', sub)
     await main.handler()(new Request('http://localhost/api/data'), mkCtx())
     assert.equal(called, true)
   })
@@ -595,7 +600,7 @@ describe('Router sub-router', () => {
       })
       .get('/dashboard', () => new Response('dash'))
 
-    const main = new Router().use('/admin', sub).get('/login', () => new Response('login'))
+    const main = new Router().mount('/admin', sub).get('/login', () => new Response('login'))
 
     const h = main.handler()
 
@@ -617,7 +622,7 @@ describe('Router sub-router', () => {
       .use(() => new Response('unauthorized', { status: 401 }))
       .get('/dashboard', () => new Response('dash'))
 
-    const main = new Router().use('/admin', admin).get('/public', () => new Response('public'))
+    const main = new Router().mount('/admin', admin).get('/public', () => new Response('public'))
 
     const h = main.handler()
 
@@ -637,7 +642,7 @@ describe('Router sub-router', () => {
         return next(_req, _ctx)
       })
       .get('/x', () => new Response('ok'))
-    const main = new Router().use('/api', sub)
+    const main = new Router().mount('/api', sub)
     await main.handler()(new Request('http://localhost/api/x'), mkCtx())
     assert.equal(count, 1, 'sub-router global middleware should run exactly once')
   })
@@ -645,7 +650,7 @@ describe('Router sub-router', () => {
   it('multiple routers at same path prefix', async () => {
     const a = new Router().get('/a', () => new Response('mod-a'))
     const b = new Router().get('/b', () => new Response('mod-b'))
-    const main = new Router().use('/mod', a).use('/mod', b)
+    const main = new Router().mount('/mod', a).mount('/mod', b)
     assert.equal(
       await (await main.handler()(new Request('http://localhost/mod/a'), mkCtx())).text(),
       'mod-a',
@@ -656,15 +661,15 @@ describe('Router sub-router', () => {
     )
   })
 
-  it('route-level path middleware on sub-router parent', async () => {
+  it('route-level middleware on sub-router via use()', async () => {
     let mwCalled = false
-    const sub = new Router().get('/data', () => new Response('ok'))
-    const main = new Router()
-      .use('/api', (req, ctx, next) => {
+    const sub = new Router()
+      .use((req, ctx, next) => {
         mwCalled = true
         return next(req, ctx)
       })
-      .use('/api', sub)
+      .get('/data', () => new Response('ok'))
+    const main = new Router().mount('/api', sub)
 
     const res = await main.handler()(new Request('http://localhost/api/data'), mkCtx())
     assert.equal(res.status, 200)
@@ -677,8 +682,8 @@ describe('Router sub-router', () => {
       capturedMountPath = ctx.mountPath ?? ''
       return new Response('ok')
     })
-    const middle = new Router().use('/middle', leaf)
-    const root = new Router().use('/root', middle)
+    const middle = new Router().mount('/middle', leaf)
+    const root = new Router().mount('/root', middle)
 
     await root.handler()(new Request('http://localhost/root/middle/action'), mkCtx())
     assert.equal(capturedMountPath, '/root/middle')
@@ -730,10 +735,10 @@ describe('Router sub-router', () => {
         midMw.push(true)
         return next(_req, _ctx)
       })
-      .use('/leaf', leaf)
+      .mount('/leaf', leaf)
       .get('/mid-route', () => new Response('mid'))
 
-    const main = new Router().use('/a', mid).get('/public', () => new Response('public'))
+    const main = new Router().mount('/a', mid).get('/public', () => new Response('public'))
 
     const h = main.handler()
 
@@ -845,7 +850,7 @@ describe('Router.ws', () => {
 
   it('sub-router ws route works after merge', async () => {
     const sub = new Router().ws('/echo', wsEcho('sub:'))
-    const main = new Router().use('/ws', sub)
+    const main = new Router().mount('/ws', sub)
     const server = serve(main.handler(), { port: 0, websocket: main.websocketHandler() })
     await server.ready
     const ws = new WebSocket(`ws://localhost:${server.port}/ws/echo`)
@@ -916,7 +921,7 @@ describe('Router.ws', () => {
         },
       },
     )
-    const main = new Router().use('/sub', sub)
+    const main = new Router().mount('/sub', sub)
     const server = serve(main.handler(), { port: 0, websocket: main.websocketHandler() })
     await server.ready
 
@@ -992,7 +997,7 @@ describe('Router.ws', () => {
         },
       })
 
-    const main = new Router().use('/sub', sub)
+    const main = new Router().mount('/sub', sub)
     const server = serve(main.handler(), { port: 0, websocket: main.websocketHandler() })
     await server.ready
 
@@ -1159,7 +1164,7 @@ describe('Router edge cases', () => {
 
   it('wildcard in sub-router path works', async () => {
     const sub = new Router().all('/*', (req, ctx) => Response.json({ rest: ctx.params['*'] }))
-    const main = new Router().use('/files', sub)
+    const main = new Router().mount('/files', sub)
     const res = await main.handler()(
       new Request('http://localhost/files/path/to/file.txt'),
       mkCtx(),
@@ -1170,7 +1175,7 @@ describe('Router edge cases', () => {
 
   it('mounting at / behaves same as root', async () => {
     const sub = new Router().get('/hello', () => new Response('sub-hello'))
-    const main = new Router().use('/', sub)
+    const main = new Router().mount('/', sub)
     const res = await main.handler()(new Request('http://localhost/hello'), mkCtx())
     assert.equal(await res.text(), 'sub-hello')
   })

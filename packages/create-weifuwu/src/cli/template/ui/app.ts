@@ -8,9 +8,9 @@ app.use(theme().middleware())
 app.use(i18n({ dir: './locales' }).middleware())
 app.use(flash())
 app.use(csrf())
-app.use('/_ui', weifuwuiAssets())
-app.use('/', theme())
-app.use('/', i18n())
+app.mount('/_ui', weifuwuiAssets())
+app.mount('/', theme())
+app.mount('/', i18n())
 
 // ── Layout ─────────────────────────────────────────────────────
 function Layout(body: string, ctx: any) {
