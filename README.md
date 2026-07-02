@@ -75,7 +75,6 @@ app.get('/users/:id', (req, ctx) => {
 | `rateLimit(opts?)` | middleware | Sliding-window rate limiter. `windowMs`, `max`, `keyGenerator`. |
 | `requestId(opts?)` | middleware | Generates `X-Request-ID` header. `header`, `generator`. |
 | `logger(opts?)` | middleware | Structured request logging. `format`, `level`, `stream`. |
-| `validate(schemas?)` | middleware | Zod-based request validation. `{ body?, query?, params?, headers? }`. |
 | `upload(opts?)` | middleware | Multipart file upload. `maxSize`, `dest`, `preservePath`. |
 | `health(opts?)` | function→Router | Health check router. Mount at `/_health` or custom path. |
 | `env()` | middleware | Injects `WEIFUWU_PUBLIC_*` env vars into `ctx.env`. |

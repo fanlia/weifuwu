@@ -14,8 +14,6 @@ export type { CORSOptions } from './middleware/cors.ts'
 
 export { serveStatic } from './middleware/static.ts'
 export type { ServeStaticOptions } from './middleware/static.ts'
-export { validate } from './middleware/validate.ts'
-export type { ValidationSchemas, ValidateModule } from './middleware/validate.ts'
 export { getCookies, setCookie, deleteCookie } from './core/cookie.ts'
 export type { CookieOptions } from './core/cookie.ts'
 export { upload } from './middleware/upload.ts'

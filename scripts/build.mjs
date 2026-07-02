@@ -21,7 +21,6 @@ const external = [
   'ioredis',
   'postgres',
   'ws',
-  'zod',
 ]
 
 await esbuild.build({
