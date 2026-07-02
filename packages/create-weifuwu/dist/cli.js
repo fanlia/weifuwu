@@ -59,7 +59,7 @@ async function generateMinimal(targetDir, name, version, typesNodeVersion, skipI
       ``,
       `loadEnv()`,
       `const port = Number(process.env.PORT) || 3000`,
-      `serve(app.handler(), { port })`,
+      `serve(app, { port })`,
       ``
     ].join("\n")
   );
@@ -73,7 +73,7 @@ async function generateReactSsr(targetDir, name, version, typesNodeVersion, skip
   await copyRecursive(templateDir, targetDir);
   await writePackageJson(targetDir, name, version, typesNodeVersion, {
     dependencies: {
-      "@weifuwujs/react": "^0.28.0",
+      "@weifuwujs/react": "^0.29.0",
       react: "^19",
       "react-dom": "^19",
       "@tailwindcss/postcss": "^4",
@@ -109,7 +109,7 @@ async function generateUi(targetDir, name, version, typesNodeVersion, skipInstal
   await copyRecursive(templateDir, targetDir);
   await writePackageJson(targetDir, name, version, typesNodeVersion, {
     dependencies: {
-      "@weifuwujs/ui": "^0.28.0"
+      "@weifuwujs/ui": "^0.29.0"
     }
   });
   await finishInit(targetDir, skipInstall);

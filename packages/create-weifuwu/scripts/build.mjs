@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 
-import { cp } from 'node:fs/promises'
+import { cp, rm } from 'node:fs/promises'
+
+// Clean dist first to avoid stale files
+await rm(join(root, 'dist'), { recursive: true, force: true })
 
 await esbuild.build({
   entryPoints: [join(root, 'src', 'cli.ts')],

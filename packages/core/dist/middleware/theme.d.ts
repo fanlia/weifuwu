@@ -21,7 +21,7 @@ export interface ThemeOptions {
  * ```ts
  * const t = theme()
  * app.use(t.middleware())  // → ctx.theme = { value, set }
- * app.use('/', t)          // → GET /__theme/dark (switch route)
+ * app.mount('/', t)          // → GET /__theme/dark (switch route)
  * ```
  */
 export interface ThemeModule extends Router {

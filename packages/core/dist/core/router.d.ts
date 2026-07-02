@@ -39,12 +39,19 @@ export declare class Router<T extends Context = Context> {
     private get hub();
     /** Inject a custom hub (e.g. with Redis for cross-process broadcast). */
     wsHub(hub: Hub): this;
+    /** Global middleware — accumulates types into Router<T>. */
     use<Out extends Context>(mw: Middleware<Context, Out>): Router<T & Out>;
-    use(path: string, mw: Middleware<T, T>): Router<T>;
-    use(path: string, router: Router<Context>): Router<T>;
-    use(mod: Router & {
-        middleware: () => Middleware;
-    }): Router<T>;
+    /**
+     * Mount a sub-router at the given path prefix.
+     * All routes from the sub-router are registered with the prefix.
+     *
+     * ```ts
+     * const admin = new Router()
+     * admin.get('/dashboard', handler)
+     * app.mount('/admin', admin)  // → GET /admin/dashboard
+     * ```
+     */
+    mount(path: string, router: Router<Context>): Router<T>;
     /**
      * Check a middleware's dependency metadata and emit warnings if
      * required fields haven't been injected yet.
@@ -75,13 +82,13 @@ export declare class Router<T extends Context = Context> {
     private _collectWsRoutes;
     websocketHandler(): WsUpgradeHandler;
     private _mountRouter;
-    private mergeMws;
     private _collect;
     private _collectWs;
     private splitPath;
     private matchTrie;
     private matchWsTrie;
     private handleError;
+    private _notFoundResponse;
     private handle;
     private runChain;
 }

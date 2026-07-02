@@ -12,12 +12,12 @@ app.use(flash())
 app.use(csrf())
 
 // ── SSR route switches (handle /__theme/dark, /__lang/zh-CN) ───
-app.use('/', theme())
-app.use('/', i18n())
+app.mount('/', theme())
+app.mount('/', i18n())
 
 // ── React SSR (filesystem routing from ./ui/app/…) ──────────────
 //   app/page.tsx → /, app/blog/[slug]/page.tsx → /blog/:slug
-app.use('/', ssr({ dir: './ui' }))
+app.mount('/', ssr({ dir: './ui' }))
 
 // ── API ───────────────────────────────────────────────────────────
 app.get('/api/ping', () => Response.json({ pong: true, time: new Date().toISOString() }))
