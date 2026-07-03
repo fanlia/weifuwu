@@ -168,12 +168,15 @@ export async function compileForBrowser(entryPath: string): Promise<{ code: stri
  * Load a component from a .tsx file.
  * Uses default export if present, otherwise first function export.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function loadTsxComponent(entryPath: string): Promise<ComponentType<any>> {
   const mod = await loadTsxModule(entryPath)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (mod.default) return mod.default as ComponentType<any>
 
   for (const [, val] of Object.entries(mod)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof val === 'function') return val as ComponentType<any>
   }
 

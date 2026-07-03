@@ -25,8 +25,7 @@
  */
 
 import { resolve } from 'node:path'
-import { stat, readFile, realpath } from 'node:fs/promises'
-import { glob } from 'node:fs/promises'
+import { stat, readFile, glob } from 'node:fs/promises'
 import type { Middleware, Context } from '../types.ts'
 
 // ═══════════════════════════════════════════════════════════════
@@ -204,7 +203,7 @@ export function tailwindDev(opts: TailwindDevOptions): Middleware<Context, Conte
       return compileFn
     } catch (err) {
       loadError = `@tailwindcss/node is not installed. Run: npm install -D tailwindcss @tailwindcss/node\n\n${String(err)}`
-      throw new Error(loadError)
+      throw new Error(loadError, { cause: err })
     }
   }
 

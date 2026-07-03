@@ -191,7 +191,7 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       return esbuild_
     } catch (err) {
       esbuildLoadError = `esbuild is not installed. Run: npm install -D esbuild\n\n${String(err)}`
-      throw new Error(esbuildLoadError)
+      throw new Error(esbuildLoadError, { cause: err })
     }
   }
 
@@ -265,6 +265,7 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
 
     // Log warnings to stderr
     if (msgs.length > 0) {
+      // eslint-disable-next-line no-console
       console.error('[esbuildDev]', msgs.join('\n'))
     }
 
@@ -284,8 +285,7 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
     ).then(results => results.every(Boolean))
   }
 
-  // Collect all route paths for matching
-  const routePaths = entries.map(e => e.path)
+
 
   return async (req, ctx, next) => {
     const url = new URL(req.url)
