@@ -203,7 +203,6 @@ export function agent(opts: AgentOptions): Middleware {
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result: any = await (generateText as any)({
           model: opts.model,
           messages,

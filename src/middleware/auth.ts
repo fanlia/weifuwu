@@ -30,7 +30,6 @@ export interface AuthOptions {
     /** Cookie name (default: 'session'). */
     cookie?: string
     /** Load user from session data. */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     loadUser: (data: Record<string, unknown>) => Promise<User | null> | User | null
   }
   /**
@@ -55,10 +54,6 @@ export interface AuthOptions {
 
 function base64urlDecode(str: string): string {
   return Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8')
-}
-
-function base64url(str: string): string {
-  return Buffer.from(str).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 function sign(payload: string, secret: string): string {

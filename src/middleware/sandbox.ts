@@ -68,7 +68,7 @@ export function sandbox(opts: SandboxOptions = {}): Middleware {
 
   return async (req, ctx, next) => {
     // Resolve session ID for workspace isolation
-    let sessionId = 'default'
+    let sessionId: string
     if (opts.isolateBy === 'user' && ctx.user) {
       sessionId = (ctx.user as Record<string, unknown>).id as string ?? 'default'
     } else {
