@@ -1,5 +1,5 @@
 import { serve, HttpError } from '../../src/index.ts'
-import { createApp } from '../../src/react/index.ts'
+import { createApp } from '../../src/react/create-app.ts'
 
 const MOCK_USERS = [
   { id: 1, name: 'Alice', email: 'alice@example.com', bio: 'Full-stack developer' },
@@ -7,7 +7,7 @@ const MOCK_USERS = [
   { id: 3, name: 'Charlie', email: 'charlie@example.com', bio: 'DevOps engineer' },
 ]
 
-const app = await createApp({
+const app = createApp({
   pages: {
     '/':              './components/HomePage.tsx',
     '/users':         './components/UsersPage.tsx',
