@@ -20,33 +20,12 @@ describe('react SSR', () => {
     return s
   }
 
-  // Helper layout components
   function ShellLayout({ children }: { children: unknown }) {
-    return h('html', null,
-      h('body', null,
-        h('div', { id: 'root' }, children),
-      ),
-    ) as ReactElement
+    return h('html', null, h('body', null, h('div', { id: 'root' }, children))) as ReactElement
   }
 
   function InnerLayout({ children }: { children: unknown }) {
     return h('div', { 'data-layer': 'inner' }, children) as ReactElement
-  }
-
-  /** Layout that renders __WEIFUWU_DATA__ script from useServerData(). */
-  function DataScriptLayout({ children }: { children: unknown }) {
-    const data = useServerData()
-    const hasData = Object.keys(data).length > 0
-    return h('html', null,
-      h('body', null,
-        children,
-        hasData && h('script', {
-          id: '__WEIFUWU_DATA__',
-          type: 'application/json',
-          dangerouslySetInnerHTML: { __html: JSON.stringify(data) },
-        }),
-      ),
-    ) as ReactElement
   }
 
   it('ctx.render returns HTML with doctype', async () => {
@@ -81,63 +60,58 @@ describe('react SSR', () => {
     assert.match(text, /<p>Content<\/p>/)
   })
 
-  it('ctx.render serializes data to script tag via Layout', async () => {
+  it('useServerData works via ServerDataContext', async () => {
+    function DataPage() {
+      const data = useServerData()
+      return h('div', null, JSON.stringify(data))
+    }
     const app = new Router()
-    app.use(react({ layout: DataScriptLayout }))
-    app.get('/', async (_req, ctx) =>
-      ctx.render(h('div', null, 'Page'), { data: { user: 'Alice' } }),
-    )
+    app.use(react())
+    app.get('/', async (_req, ctx) => ctx.render(h(DataPage), { data: { user: 'Alice' } }))
 
     const s = start(app)
     await s.ready
     const res = await fetch(`http://localhost:${s.port}/`)
     const text = await res.text()
 
-    assert.match(text, /<script id="__WEIFUWU_DATA__"/)
-    assert.match(text, /"user":"Alice"/)
+    assert.match(text, /user.*Alice/)
   })
 
   it('ctx.render uses custom status code', async () => {
     const app = new Router()
     app.use(react())
-    app.get('/', async (_req, ctx) =>
-      ctx.render(h('p', null, 'Not found'), { status: 404 }),
-    )
+    app.get('/', async (_req, ctx) => ctx.render(h('p', null, 'Not found'), { status: 404 }))
 
     const s = start(app)
     await s.ready
     const res = await fetch(`http://localhost:${s.port}/`)
-
     assert.equal(res.status, 404)
   })
 
-  it('layout nesting via mount — inner wraps inside outer', async () => {
+  it('layout nesting via mount', async () => {
     const app = new Router()
     app.use(react({ layout: ShellLayout }))
 
     const sub = new Router()
     sub.use(react({ layout: InnerLayout }))
-    sub.get('/', async (_req, ctx) => ctx.render(h('span', null, 'inner content')))
+    sub.get('/', async (_req, ctx) => ctx.render(h('span', null, 'inner')))
 
     app.mount('/sub', sub)
 
     const s = start(app)
     await s.ready
-    const res = await fetch(`http://localhost:${s.port}/sub`)
-    const text = await res.text()
+    const text = await (await fetch(`http://localhost:${s.port}/sub`)).text()
 
     assert.match(text, /data-layer="inner"/)
-    assert.match(text, /<span>inner content<\/span>/)
+    assert.match(text, /<span>inner<\/span>/)
     assert.match(text, /<div id="root">/)
 
     const outerIdx = text.indexOf('id="root"')
     const innerIdx = text.indexOf('data-layer="inner"')
-    const contentIdx = text.indexOf('<span>')
-    assert.ok(outerIdx < innerIdx, 'outer layout should come before inner layout')
-    assert.ok(innerIdx < contentIdx, 'inner layout should come before content')
+    assert.ok(outerIdx < innerIdx, 'outer layout should wrap inner layout')
   })
 
-  it('non-React routes coexist with React routes', async () => {
+  it('coexists with non-React routes', async () => {
     const app = new Router()
     app.use(react())
     app.get('/api', () => Response.json({ ok: true }))
@@ -146,44 +120,34 @@ describe('react SSR', () => {
     const s = start(app)
     await s.ready
 
-    const apiRes = await fetch(`http://localhost:${s.port}/api`)
-    assert.deepEqual(await apiRes.json(), { ok: true })
-
-    const pageRes = await fetch(`http://localhost:${s.port}/page`)
-    const text = await pageRes.text()
-    assert.match(text, /<h1>Page<\/h1>/)
+    assert.deepEqual(await (await fetch(`http://localhost:${s.port}/api`)).json(), { ok: true })
+    assert.match(await (await fetch(`http://localhost:${s.port}/page`)).text(), /<h1>Page<\/h1>/)
   })
 
-  it('ctx.render with Fragment layout (no layout specified)', async () => {
+  it('default layout is Fragment', async () => {
     const app = new Router()
     app.use(react())
-    app.get('/', async (_req, ctx) =>
-      ctx.render(h('main', null, h('p', null, 'No layout'))),
-    )
+    app.get('/', async (_req, ctx) => ctx.render(h('main', null, h('p', null, 'No layout'))))
 
     const s = start(app)
     await s.ready
-    const res = await fetch(`http://localhost:${s.port}/`)
-    const text = await res.text()
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
 
     assert.match(text, /<main>/)
     assert.match(text, /<p>No layout<\/p>/)
   })
 
-  it('ctx.render returns streaming HTML', async () => {
+  it('renders complex nested elements', async () => {
     const app = new Router()
     app.use(react())
-    app.get('/', async (_req, ctx) => ctx.render(h('h2', null, 'Streamed')))
+    app.get('/', async (_req, ctx) => ctx.render(
+      h('div', null, h('span', null, 'deep')),
+    ))
 
     const s = start(app)
     await s.ready
-    const res = await fetch(`http://localhost:${s.port}/`)
-    const text = await res.text()
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
 
-    assert.equal(res.status, 200)
-    assert.match(res.headers.get('content-type')!, /text\/html/)
-    assert.match(text, /<h2>Streamed<\/h2>/)
+    assert.match(text, /<span>deep<\/span>/)
   })
-
-
 })

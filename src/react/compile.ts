@@ -137,6 +137,34 @@ export async function loadTsxModule(entryPath: string): Promise<Record<string, u
 }
 
 /**
+ * Compile a .tsx file for browser consumption.
+ * Externalizes react/react-dom/weifuwu (resolved via importmap),
+ * bundles local imports. Returns compiled code + content hash.
+ */
+export async function compileForBrowser(entryPath: string): Promise<{ code: string; hash: string }> {
+  const abs = resolve(entryPath)
+  const esbuild = await import('esbuild')
+
+  const result = await esbuild.build({
+    entryPoints: [abs],
+    bundle: true,
+    write: false,
+    format: 'esm',
+    platform: 'browser',
+    external: [
+      'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client',
+      'weifuwu', 'weifuwu/react', 'weifuwu/react/navigation', 'weifuwu/react/client',
+    ],
+    logLevel: 'silent',
+  })
+
+  const code = result.outputFiles[0]?.text ?? ''
+  if (!code) throw new Error(`esbuild produced empty output for ${entryPath}`)
+  const hash = createHash('sha256').update(code).digest('hex').slice(0, 12)
+  return { code, hash }
+}
+
+/**
  * Load a component from a .tsx file.
  * Uses default export if present, otherwise first function export.
  */

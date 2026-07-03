@@ -28,18 +28,10 @@ export function RootLayout({ children }: { children: React.ReactNode }) {
       </head>
       <body className="font-sans max-w-3xl mx-auto p-8">
         <nav className="flex gap-4 mb-8 border-b border-gray-200 pb-4">
-          <Link href="/" className="text-gray-700 no-underline hover:underline">
-            Home
-          </Link>
-          <Link href="/users" className="text-gray-700 no-underline hover:underline">
-            Users
-          </Link>
-          <Link href="/admin/dashboard" className="text-gray-700 no-underline hover:underline">
-            Dashboard
-          </Link>
-          <Link href="/api/hello" className="text-gray-700 no-underline hover:underline">
-            API
-          </Link>
+          <Link href="/" className="text-gray-700 no-underline hover:underline">Home</Link>
+          <Link href="/users" className="text-gray-700 no-underline hover:underline">Users</Link>
+          <Link href="/admin/dashboard" className="text-gray-700 no-underline hover:underline">Dashboard</Link>
+          <Link href="/api/hello" className="text-gray-700 no-underline hover:underline">API</Link>
         </nav>
         <div id="root">{children}</div>
         {hasData && (
