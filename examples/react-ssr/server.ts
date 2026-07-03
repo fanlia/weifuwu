@@ -18,7 +18,7 @@ app.use(esbuildDev({
 }))
 app.use(react({ layout: './components/PageShell.tsx' }))
 
-const ROPTS = { stylesheets: ['/assets/tailwind.css'], bootstrapModules: ['/assets/client.js'] } as const
+const ROPTS = { stylesheets: ['/assets/tailwind.css'] as string[], bootstrapModules: ['/assets/client.js'] as string[] }
 
 app.get('/', (_req, ctx) => ctx.render('./components/HomePage.tsx', ROPTS))
 app.get('/users', (_req, ctx) => ctx.render('./components/UsersPage.tsx', {
