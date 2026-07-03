@@ -9,3 +9,4 @@
 - **中间件模式** — 返回 `Middleware<Context, Context & NewFields>`，通过 module augmentation 扩展 Context
 - **ctx 注入** — middleware 通过 `ctx.field = value` 注入，下游 handler 可通过 `ctx.field` 访问
 - **Closeable 接口** — 所有有状态的模块（postgres, redis, queue, rateLimit）实现 `close(): Promise<void>`
+- react(), ctx.render 相关功能必须使用agent-browser skill 测试 ./examples/react-ssr/
