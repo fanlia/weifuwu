@@ -90,4 +90,17 @@ export interface RenderOptions {
   stream?: boolean
 }
 
-export type ReactMiddleware = Middleware
+/** Options for the reactRouter() helper. */
+export interface ReactRouterOptions extends Omit<RenderOptions, 'component' | 'loader'> {
+  /**
+   * Shared layout component path (relative to cwd).
+   * Same as react()'s layout option.
+   */
+  layout?: string
+  /**
+   * Per-route loaders. Keys must match paths in the routes config.
+   * Each loader receives ctx and returns data merged into useServerData().
+   * Throw HttpError for non-200 status codes.
+   */
+  loaders?: Record<string, (ctx: Context) => Promise<Record<string, unknown>>>
+}

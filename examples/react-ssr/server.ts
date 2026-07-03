@@ -1,5 +1,6 @@
 import { serve, Router, logger, trace, esbuildDev, tailwindDev, HttpError } from '../../src/index.ts'
-import { react } from '../../src/react/index.ts'
+import { react, reactRouter } from '../../src/react/index.ts'
+import { routes } from './routes.ts'
 
 const MOCK_USERS = [
   { id: 1, name: 'Alice', email: 'alice@example.com', bio: 'Full-stack developer' },
@@ -20,27 +21,17 @@ app.use(react({ layout: './components/PageShell.tsx' }))
 
 const ROPTS = { stylesheets: ['/assets/tailwind.css'] as string[], bootstrapModules: ['/assets/client.js'] as string[] }
 
-app.get('/', (_req, ctx) => ctx.render('./components/HomePage.tsx', ROPTS))
-app.get('/users', (_req, ctx) => ctx.render('./components/UsersPage.tsx', {
+reactRouter(app, routes, {
   ...ROPTS,
-  loader: async () => ({ users: MOCK_USERS }),
-}))
-app.get('/users/:id', (_req, ctx) =>
-  ctx.render('./components/UserDetailPage.tsx', {
-    ...ROPTS,
-    loader: async (ctx) => {
+  loaders: {
+    '/users': async () => ({ users: MOCK_USERS }),
+    '/users/:id': async (ctx) => {
       const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
       if (!user) throw new HttpError('Not found', 404)
       return { user }
     },
-  }),
-)
-app.get('/error', (_req, ctx) => ctx.render('./components/ErrorDemoPage.tsx', ROPTS))
-app.get('/streaming', (_req, ctx) => ctx.render('./components/StreamingDemoPage.tsx', ROPTS))
-
-const admin = new Router()
-admin.get('/dashboard', (_req, ctx) => ctx.render('./components/DashboardPage.tsx', ROPTS))
-app.mount('/admin', admin)
+  },
+})
 
 app.post('/users', async (req) => {
   const formData = await req.formData()

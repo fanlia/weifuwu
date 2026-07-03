@@ -4,7 +4,8 @@ import { writeFile, mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { serve } from '../core/serve.ts'
 import { Router } from '../core/router.ts'
-import { react } from '../react/index.ts'
+import { react, reactRouter } from '../react/index.ts'
+import { HttpError } from '../types.ts'
 import type { Server } from '../core/serve.ts'
 
 const TEST_DIR = resolve(process.cwd(), 'src/test/.react-test-pages')
@@ -553,5 +554,86 @@ describe('react SSR', () => {
     const text = await (await fetch(`http://localhost:${s.port}/`)).text()
     assert.match(text, /user.*Merged/)
     assert.match(text, /kind.*static/)
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // reactRouter — shared route config
+  // ═══════════════════════════════════════════════════════════════
+
+  it('reactRouter registers routes from shared config', async () => {
+    const app = new Router()
+    app.use(react())
+    reactRouter(app, {
+      '/': () => import('src/test/.react-test-pages/Check.tsx'),
+      '/hello': () => import('src/test/.react-test-pages/Hello.tsx'),
+    })
+
+    const s = start(app)
+    await s.ready
+
+    const r1 = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(r1, /<main>hi<\/main>/)
+
+    const r2 = await (await fetch(`http://localhost:${s.port}/hello`)).text()
+    assert.match(r2, /<h1>Hello<\/h1>/)
+  })
+
+  it('reactRouter with loaders injects data', async () => {
+    const app = new Router()
+    app.use(react())
+    reactRouter(app, {
+      '/': () => import('src/test/.react-test-pages/DataPage.tsx'),
+    }, {
+      loaders: {
+        '/': async () => ({ user: 'RouterAlice', kind: 'loaded' }),
+      },
+    })
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(text, /user.*RouterAlice/)
+    assert.match(text, /kind.*loaded/)
+  })
+
+  it('reactRouter with layout wraps pages', async () => {
+    const app = new Router()
+    app.use(react())
+    reactRouter(app, {
+      '/': () => import('src/test/.react-test-pages/Hello.tsx'),
+    }, {
+      layout: 'src/test/.react-test-layouts/Root.tsx',
+    })
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(text, /<header>Site Header<\/header>/)
+    assert.match(text, /<h1>Hello<\/h1>/)
+  })
+
+  it('reactRouter loader throws HttpError → 404', async () => {
+    const app = new Router()
+    app.use(react())
+    app.onError((err, _req, ctx) => {
+      if (ctx.render) {
+        return ctx.render('src/test/.react-test-pages/Check.tsx', {
+          status: err instanceof HttpError ? err.status : 500,
+        })
+      }
+      return new Response('Error', { status: 500 })
+    })
+    reactRouter(app, {
+      '/': () => import('src/test/.react-test-pages/Check.tsx'),
+    }, {
+      loaders: {
+        '/': async () => { throw new HttpError('Not found', 404) },
+      },
+    })
+
+    const s = start(app)
+    await s.ready
+    const res = await fetch(`http://localhost:${s.port}/`)
+    assert.equal(res.status, 404)
   })
 })

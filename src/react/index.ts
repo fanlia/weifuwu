@@ -2,7 +2,8 @@ import { createElement, type ReactElement, type ComponentType } from 'react'
 import { renderToReadableStream, type ReactDOMServerReadableStream } from 'react-dom/server'
 import type { Middleware } from '../types.ts'
 import { HttpError } from '../types.ts'
-import type { ReactOptions, RenderOptions } from './types.ts'
+import type { Router } from '../core/router.ts'
+import type { ReactOptions, RenderOptions, ReactRouterOptions } from './types.ts'
 import { loadTsxComponent, setReactCacheDir } from './compile.ts'
 import { ServerDataContext } from './context.ts'
 
@@ -60,10 +61,46 @@ function HtmlShell({ children, importMap, stylesheets, data }: {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Layout cache
+// Shared render pipeline
 // ═══════════════════════════════════════════════════════════════
-// react() middleware
-// ═══════════════════════════════════════════════════════════════
+
+async function renderComponent(
+  Component: ComponentType,
+  data: Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  layout: ComponentType<any> | null,
+  renderOpts: RenderOptions,
+): Promise<Response> {
+  let element: ReactElement = createElement(Component, renderOpts.props ?? {})
+
+  if (layout) {
+    element = createElement(layout, { children: element })
+  }
+
+  // Wrap in ServerDataContext (always, for client hydration to match)
+  element = createElement(ServerDataContext.Provider, { value: data }, element)
+
+  const page = createElement(HtmlShell, {
+    children: element,
+    importMap: renderOpts.importMap,
+    stylesheets: renderOpts.stylesheets,
+    data: Object.keys(data).length > 0 ? data : undefined,
+  })
+
+  const rstream: ReactDOMServerReadableStream = await renderToReadableStream(page, {
+    bootstrapScripts: renderOpts.bootstrapScripts,
+    bootstrapModules: renderOpts.bootstrapModules,
+  })
+
+  if (renderOpts.stream === false) {
+    await rstream.allReady
+  }
+
+  return new Response(rstream as unknown as ReadableStream<Uint8Array>, {
+    status: renderOpts.status ?? 200,
+    headers: { 'content-type': 'text/html; charset=utf-8', ...renderOpts.headers },
+  })
+}
 
 /**
  * React SSR middleware — injects `ctx.render(path, opts?)`.
@@ -116,57 +153,125 @@ export function react(opts?: ReactOptions): Middleware {
     ctx.render = async (path: string, renderOpts?: RenderOptions) => {
       // Run loader if provided — merges into data
       let data = renderOpts?.data ?? {}
-      let status = renderOpts?.status
       if (renderOpts?.loader) {
         try {
           const loaderData = await renderOpts.loader(ctx)
           data = { ...data, ...loaderData }
         } catch (err) {
           // If loader throws HttpError, use its status
-          if (err instanceof HttpError && !status) {
-            status = (err as HttpError).status
+          if (err instanceof HttpError && !renderOpts?.status) {
+            renderOpts = { ...renderOpts, status: (err as HttpError).status }
           }
           throw err
         }
       }
 
       const Component = await loadTsxComponent(path)
-      let element: ReactElement = createElement(Component, renderOpts?.props ?? {})
+      const layout = await getLayout()
+      return renderComponent(Component, data, layout, renderOpts ?? {})
+    }
+    return next(_req, ctx)
+  }
+}
 
-      // Wrap in layout if configured
-      if (opts?.layout) {
-        const Layout = await getLayout()
-        if (Layout) {
-          element = createElement(Layout, { children: element })
+// ═══════════════════════════════════════════════════════════════
+// reactRouter — auto-register routes from a shared config
+// ═══════════════════════════════════════════════════════════════
+
+/** Extract the import path from a dynamic import function. */
+function extractImportPath(fn: () => Promise<unknown>): string {
+  const src = fn.toString()
+  const m = src.match(/import\s*\(\s*['"]([^'"]+)['"]\s*\)/)
+  if (!m) throw new Error(`Cannot extract import path from: ${src}`)
+  return m[1]
+}
+
+/**
+ * Auto-register routes from a shared route config.
+ *
+ * Use a single routes file shared between server and client to eliminate duplication.
+ * Routes with data dependencies use the `loaders` option — request ctx is passed
+ * to the loader, which can throw `HttpError` for non-200 status codes.
+ *
+ * @example
+ * ```ts
+ * // routes.ts — shared by server and client
+ * export const routes = {
+ *   '/':        () => import('./pages/Home.tsx'),
+ *   '/users':   () => import('./pages/Users.tsx'),
+ *   '/users/:id': () => import('./pages/UserDetail.tsx'),
+ * }
+ *
+ * // server.ts
+ * import { reactRouter } from 'weifuwu/react'
+ * import { routes } from './routes.ts'
+ *
+ * reactRouter(app, routes, {
+ *   layout: './layouts/Root.tsx',
+ *   stylesheets: ['/assets/tailwind.css'],
+ *   bootstrapModules: ['/assets/client.js'],
+ *   loaders: {
+ *     '/users': async (ctx) => ({ users: await db.listUsers() }),
+ *     '/users/:id': async (ctx) => {
+ *       const user = await db.findUser(ctx.params.id)
+ *       if (!user) throw new HttpError('Not found', 404)
+ *       return { user }
+ *     },
+ *   },
+ * })
+ *
+ * // client.ts — same routes config, no loaders
+ * import { createBrowserRouter } from 'weifuwu/react/client'
+ * import { routes } from './routes.ts'
+ *
+ * createBrowserRouter({ layout: Root, routes })
+ * ```
+ */
+export function reactRouter(
+  app: Router,
+  routes: Record<string, () => Promise<{ default: ComponentType }>>,
+  opts: ReactRouterOptions = {},
+): void {
+  // Pre-load layout
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let LayoutComponent: ComponentType<any> | null = null
+  let layoutPromise: Promise<ComponentType<any> | null> | null = null
+
+  async function getLayout(): Promise<ComponentType<any> | null> {
+    if (!opts.layout) return null
+    if (LayoutComponent) return LayoutComponent
+    if (!layoutPromise) {
+      layoutPromise = loadTsxComponent(opts.layout).then(c => {
+        LayoutComponent = c
+        return c
+      })
+    }
+    return layoutPromise
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const [path, importer] of Object.entries(routes)) {
+    // eslint-disable-next-line @typescript-eslint/no-loop-func
+    app.get(path, async (_req, ctx) => {
+      const cmpPath = extractImportPath(importer)
+      const Component = await loadTsxComponent(cmpPath)
+      const layout = await getLayout()
+
+      // Execute per-route loader if present
+      let data: Record<string, unknown> = {}
+      const loader = opts.loaders?.[path]
+      if (loader) {
+        try {
+          data = await loader(ctx)
+        } catch (err) {
+          // Preserve HttpError status
+          const status = err instanceof HttpError ? (err as HttpError).status : 500
+          throw err
         }
       }
 
-      // Wrap in ServerDataContext (always, for client hydration to match)
-      element = createElement(ServerDataContext.Provider, { value: data }, element)
-
-      const page = createElement(HtmlShell, {
-        children: element,
-        importMap: renderOpts?.importMap,
-        stylesheets: renderOpts?.stylesheets,
-        data: Object.keys(data).length > 0 ? data : undefined,
-      })
-
-      const rstream: ReactDOMServerReadableStream = await renderToReadableStream(page, {
-        bootstrapScripts: renderOpts?.bootstrapScripts,
-        bootstrapModules: renderOpts?.bootstrapModules,
-      })
-
-      // When streaming is disabled, wait for all Suspense boundaries to resolve
-      if (renderOpts?.stream === false) {
-        await rstream.allReady
-      }
-
-      return new Response(rstream as unknown as ReadableStream<Uint8Array>, {
-        status: renderOpts?.status ?? 200,
-        headers: { 'content-type': 'text/html; charset=utf-8', ...renderOpts?.headers },
-      })
-    }
-    return next(_req, ctx)
+      return renderComponent(Component, data, layout, opts as RenderOptions)
+    })
   }
 }
 
@@ -190,4 +295,4 @@ export { ErrorBoundary } from './error-boundary.ts'
 
 export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'
-export type { ReactOptions, RenderOptions } from './types.ts'
+export type { ReactOptions, RenderOptions, ReactRouterOptions } from './types.ts'
