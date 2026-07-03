@@ -1,5 +1,5 @@
 import type { Middleware } from '../types.ts'
-import type { AiOptions, GenerateTextParams, Ai } from './types.ts'
+import type { AiOptions, GenerateTextParams } from './types.ts'
 
 export type { AiOptions, Ai } from './types.ts'
 

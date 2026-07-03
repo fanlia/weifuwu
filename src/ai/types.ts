@@ -1,5 +1,3 @@
-import type { Context } from '../types.ts'
-
 declare module '../types.ts' {
   interface Context {
     /** AI / LLM integration. Injected by the `ai()` middleware. */
