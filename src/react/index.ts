@@ -1,8 +1,9 @@
 import { createElement, type ReactElement, type ComponentType } from 'react'
-import { renderToReadableStream } from 'react-dom/server'
+import { renderToReadableStream, type ReactDOMServerReadableStream } from 'react-dom/server'
 import type { Middleware } from '../types.ts'
+import { HttpError } from '../types.ts'
 import type { ReactOptions, RenderOptions } from './types.ts'
-import { loadTsxComponent } from './compile.ts'
+import { loadTsxComponent, setReactCacheDir } from './compile.ts'
 import { ServerDataContext } from './context.ts'
 
 // ═══════════════════════════════════════════════════════════════
@@ -85,6 +86,9 @@ function HtmlShell({ children, importMap, stylesheets, data }: {
  * ```
  */
 export function react(opts?: ReactOptions): Middleware {
+  // Configure compilation cache directory
+  if (opts?.cacheDir) setReactCacheDir(opts.cacheDir)
+
   // Pre-load layout component once at startup (it's shared across all routes)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let LayoutComponent: ComponentType<any> | null = null
@@ -110,6 +114,22 @@ export function react(opts?: ReactOptions): Middleware {
 
   return async (_req, ctx, next) => {
     ctx.render = async (path: string, renderOpts?: RenderOptions) => {
+      // Run loader if provided — merges into data
+      let data = renderOpts?.data ?? {}
+      let status = renderOpts?.status
+      if (renderOpts?.loader) {
+        try {
+          const loaderData = await renderOpts.loader(ctx)
+          data = { ...data, ...loaderData }
+        } catch (err) {
+          // If loader throws HttpError, use its status
+          if (err instanceof HttpError && !status) {
+            status = (err as HttpError).status
+          }
+          throw err
+        }
+      }
+
       const Component = await loadTsxComponent(path)
       let element: ReactElement = createElement(Component, renderOpts?.props ?? {})
 
@@ -121,24 +141,27 @@ export function react(opts?: ReactOptions): Middleware {
         }
       }
 
-      // Wrap in ServerDataContext if data is provided
-      if (renderOpts?.data) {
-        element = createElement(ServerDataContext.Provider, { value: renderOpts.data }, element)
-      }
+      // Wrap in ServerDataContext (always, for client hydration to match)
+      element = createElement(ServerDataContext.Provider, { value: data }, element)
 
       const page = createElement(HtmlShell, {
         children: element,
         importMap: renderOpts?.importMap,
         stylesheets: renderOpts?.stylesheets,
-        data: renderOpts?.data,
+        data: Object.keys(data).length > 0 ? data : undefined,
       })
 
-      const stream = await renderToReadableStream(page, {
+      const rstream: ReactDOMServerReadableStream = await renderToReadableStream(page, {
         bootstrapScripts: renderOpts?.bootstrapScripts,
         bootstrapModules: renderOpts?.bootstrapModules,
-      }) as unknown as ReadableStream<Uint8Array>
+      })
 
-      return new Response(stream, {
+      // When streaming is disabled, wait for all Suspense boundaries to resolve
+      if (renderOpts?.stream === false) {
+        await rstream.allReady
+      }
+
+      return new Response(rstream as unknown as ReadableStream<Uint8Array>, {
         status: renderOpts?.status ?? 200,
         headers: { 'content-type': 'text/html; charset=utf-8', ...renderOpts?.headers },
       })
@@ -146,6 +169,24 @@ export function react(opts?: ReactOptions): Middleware {
     return next(_req, ctx)
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Link — client-side navigation component
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Client-side navigation link. Renders as `<a>` on the server.
+ * On the client, intercepted by `createBrowserRouter` for SPA navigation.
+ */
+export function Link({ href, children, ...props }: {
+  href: string
+  children: React.ReactNode
+  [key: string]: unknown
+}): ReactElement {
+  return createElement('a', { href, ...props }, children) as unknown as ReactElement
+}
+
+export { ErrorBoundary } from './error-boundary.ts'
 
 export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'

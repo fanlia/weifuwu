@@ -1,4 +1,4 @@
-import type { Middleware } from '../types.ts'
+import type { Middleware, Context } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -30,6 +30,12 @@ export interface ReactOptions {
    * ```
    */
   layout?: string
+  /**
+   * Directory for compiled .tsx module cache.
+   * Default: node_modules/.weifuwu/react
+   * Persisted across restarts — source changes trigger recompilation.
+   */
+  cacheDir?: string
 }
 
 export interface BootstrapScriptDescriptor {
@@ -43,6 +49,23 @@ export interface RenderOptions {
   props?: Record<string, unknown>
   /** Data passed to useServerData() in the component tree. */
   data?: Record<string, unknown>
+  /**
+   * Async loader that runs before render.
+   * Receives ctx (with params, query) and returns data merged into useServerData().
+   * Throw HttpError for non-200 status codes.
+   *
+   * @example
+   * ```ts
+   * app.get('/users/:id', (_req, ctx) => ctx.render('./UserPage.tsx', {
+   *   loader: async (ctx) => {
+   *     const user = await db.findUser(ctx.params.id)
+   *     if (!user) throw new HttpError('Not found', 404)
+   *     return { user }
+   *   },
+   * }))
+   * ```
+   */
+  loader?: (ctx: Context) => Promise<Record<string, unknown>>
   /** HTTP status code (default 200). */
   status?: number
   /** Extra response headers. */
@@ -58,6 +81,13 @@ export interface RenderOptions {
   importMap?: { imports?: Record<string, string> }
   /** Stylesheet URLs injected as <link rel="stylesheet"> in <head>. */
   stylesheets?: string[]
+  /**
+   * Enable streaming SSR (default: true).
+   * When true, the response starts sending immediately and Suspense
+   * boundaries are streamed as they resolve.
+   * When false, waits for all Suspense boundaries before sending.
+   */
+  stream?: boolean
 }
 
 export type ReactMiddleware = Middleware

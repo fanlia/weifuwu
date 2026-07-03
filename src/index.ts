@@ -38,6 +38,6 @@ export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types
 
 export { react } from './react/index.ts'
 export type { ReactOptions, RenderOptions } from './react/types.ts'
-export { useServerData, ServerDataContext } from './react/index.ts'
+export { useServerData, ServerDataContext, Link, ErrorBoundary } from './react/index.ts'
 
 

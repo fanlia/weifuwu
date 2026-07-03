@@ -1,13 +1,15 @@
 /**
  * On-the-fly TSX compilation for ctx.render().
  *
- * Compiles .tsx files with esbuild, caches by mtime.
+ * Compiles .tsx files with esbuild, caches by source-content hash.
  * Externalizes react/react-dom — the framework's own instance is used.
+ * Persisted to disk for fast restarts.
  */
 
-import { stat, mkdir, writeFile } from 'node:fs/promises'
-import { resolve, join } from 'node:path'
+import { stat, mkdir, writeFile, readFile } from 'node:fs/promises'
+import { resolve, join, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import type { ComponentType } from 'react'
 
 const EXTERNAL_PKGS = [
@@ -31,11 +33,12 @@ const FRAMEWORK_IMPORTS = [
 ]
 
 interface CacheEntry {
-  mtime: number
+  /** SHA256 of source content (for cache validation). */
+  sourceHash: string
   mod: Record<string, unknown>
 }
 
-const cache = new Map<string, CacheEntry>()
+const memCache = new Map<string, CacheEntry>()
 
 function buildResolveMap(): Record<string, string> {
   const map: Record<string, string> = {}
@@ -65,15 +68,58 @@ function rewriteImports(code: string): string {
   return result
 }
 
+/** Cache directory (overridable via react options). */
+let _cacheDir: string | null = null
+
+export function setReactCacheDir(dir: string) {
+  _cacheDir = dir
+}
+
+function getCacheDir(): string {
+  if (_cacheDir) return _cacheDir
+  _cacheDir = join(process.cwd(), 'node_modules', '.weifuwu', 'react')
+  return _cacheDir
+}
+
+/**
+ * Load a .tsx/.ts module, compiling on-the-fly with esbuild.
+ * Results are:
+ *  1. Cached in memory by source-content hash
+ *  2. Persisted to disk ({cacheDir}/{sourceHash}.mjs) for instant restarts
+ */
 export async function loadTsxModule(entryPath: string): Promise<Record<string, unknown>> {
   const abs = resolve(entryPath)
 
+  // 1. Read source and compute hash
+  let source: string
   try {
-    const s = await stat(abs)
-    const cached = cache.get(abs)
-    if (cached && cached.mtime === s.mtimeMs) return cached.mod
-  } catch { /* file doesn't exist — esbuild will report */ }
+    source = await readFile(abs, 'utf-8')
+  } catch {
+    throw new Error(`Cannot read file: ${entryPath}`)
+  }
+  const sourceHash = createHash('sha256').update(source).digest('hex').slice(0, 16)
 
+  // 2. Check memory cache
+  const memCached = memCache.get(abs)
+  if (memCached && memCached.sourceHash === sourceHash) {
+    return memCached.mod
+  }
+
+  const tmpDir = getCacheDir()
+  const tmpFile = join(tmpDir, `${sourceHash}.mjs`)
+
+  // 3. Try disk cache — import existing compiled file
+  if (existsSync(tmpFile)) {
+    try {
+      const mod = await import(tmpFile + '?' + sourceHash)
+      memCache.set(abs, { sourceHash, mod: mod as Record<string, unknown> })
+      return mod as Record<string, unknown>
+    } catch {
+      // Disk cache corrupted or stale — recompile
+    }
+  }
+
+  // 4. Compile with esbuild
   const esbuild = await import('esbuild')
   const result = await esbuild.build({
     entryPoints: [abs],
@@ -90,15 +136,12 @@ export async function loadTsxModule(entryPath: string): Promise<Record<string, u
   if (!code) throw new Error(`esbuild produced empty output for ${entryPath}`)
   code = rewriteImports(code)
 
-  const hash = createHash('sha256').update(code).digest('hex').slice(0, 12)
-  const tmpDir = join(process.cwd(), 'node_modules', '.weifuwu', 'react')
-  await mkdir(tmpDir, { recursive: true })
-  const tmpFile = join(tmpDir, `${hash}.mjs`)
+  // 5. Write to disk cache & import
+  await mkdir(dirname(tmpFile), { recursive: true })
   await writeFile(tmpFile, code)
 
-  const mod = await import(tmpFile + '?' + hash)
-  const s = await stat(abs)
-  cache.set(abs, { mtime: s.mtimeMs, mod: mod as Record<string, unknown> })
+  const mod = await import(tmpFile + '?' + sourceHash)
+  memCache.set(abs, { sourceHash, mod: mod as Record<string, unknown> })
   return mod as Record<string, unknown>
 }
 

@@ -1,4 +1,4 @@
-import { useServerData } from '../lib/weifuwu.ts'
+import { useServerData } from '../../../src/react/hooks.ts'
 
 export function UsersPage() {
   const data = useServerData<{ users: Array<{ id: number; name: string; email: string; bio: string }> }>()
@@ -6,6 +6,7 @@ export function UsersPage() {
 
   return (
     <div>
+      <title>Users — weifuwu</title>
       <h1 className="text-3xl font-bold mb-4">Users</h1>
       <div className="space-y-3">
         {users.map(u => (

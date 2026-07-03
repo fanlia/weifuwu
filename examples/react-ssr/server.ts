@@ -1,5 +1,5 @@
-import { serve, Router, logger, trace, esbuildDev, tailwindDev } from 'weifuwu'
-import { react } from 'weifuwu/react'
+import { serve, Router, logger, trace, esbuildDev, tailwindDev, HttpError } from '../../src/index.ts'
+import { react } from '../../src/react/index.ts'
 
 const MOCK_USERS = [
   { id: 1, name: 'Alice', email: 'alice@example.com', bio: 'Full-stack developer' },
@@ -21,13 +21,22 @@ app.use(react({ layout: './components/PageShell.tsx' }))
 const ROPTS = { stylesheets: ['/assets/tailwind.css'], bootstrapModules: ['/assets/client.js'] } as const
 
 app.get('/', (_req, ctx) => ctx.render('./components/HomePage.tsx', ROPTS))
-app.get('/users', (_req, ctx) => ctx.render('./components/UsersPage.tsx', { ...ROPTS, data: { users: MOCK_USERS } }))
-app.get('/users/:id', (_req, ctx) => {
-  const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
-  if (!user) return ctx.render('./components/NotFoundPage.tsx', { ...ROPTS, status: 404 })
-  return ctx.render('./components/UserDetailPage.tsx', { ...ROPTS, data: { user } })
-})
+app.get('/users', (_req, ctx) => ctx.render('./components/UsersPage.tsx', {
+  ...ROPTS,
+  loader: async () => ({ users: MOCK_USERS }),
+}))
+app.get('/users/:id', (_req, ctx) =>
+  ctx.render('./components/UserDetailPage.tsx', {
+    ...ROPTS,
+    loader: async (ctx) => {
+      const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
+      if (!user) throw new HttpError('Not found', 404)
+      return { user }
+    },
+  }),
+)
 app.get('/error', (_req, ctx) => ctx.render('./components/ErrorDemoPage.tsx', ROPTS))
+app.get('/streaming', (_req, ctx) => ctx.render('./components/StreamingDemoPage.tsx', ROPTS))
 
 const admin = new Router()
 admin.get('/dashboard', (_req, ctx) => ctx.render('./components/DashboardPage.tsx', ROPTS))
@@ -41,8 +50,9 @@ app.post('/users', async (req) => {
 app.get('/api/hello', () => Response.json({ message: 'Hello from weifuwu API!', time: new Date().toISOString() }))
 app.onError((err, _req, ctx) => {
   console.error('Unhandled error:', err)
-  if (ctx.render) return ctx.render('./components/NotFoundPage.tsx', { ...ROPTS, status: 500 })
-  return new Response('Internal Server Error', { status: 500 })
+  const status = err instanceof HttpError ? err.status : 500
+  if (ctx.render) return ctx.render('./components/NotFoundPage.tsx', { ...ROPTS, status })
+  return new Response('Internal Server Error', { status })
 })
 
 const server = serve(app, { port: 3456 })

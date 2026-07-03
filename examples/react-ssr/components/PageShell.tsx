@@ -10,6 +10,7 @@ export function PageShell({ children }: { children: React.ReactNode }) {
         <a href="/" className="text-gray-700 no-underline hover:underline">Home</a>
         <a href="/users" className="text-gray-700 no-underline hover:underline">Users</a>
         <a href="/admin/dashboard" className="text-gray-700 no-underline hover:underline">Dashboard</a>
+        <a href="/streaming" className="text-gray-700 no-underline hover:underline">Streaming</a>
         <a href="/api/hello" className="text-gray-700 no-underline hover:underline">API</a>
       </nav>
       {children}

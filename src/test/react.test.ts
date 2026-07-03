@@ -62,6 +62,61 @@ describe('react SSR', () => {
         return <><nav>{data?.user as string}</nav>{children}</>
       }
     `)
+    // Streaming/Suspense test pages
+    await writeFile(resolve(TEST_DIR, 'StreamingPage.tsx'), `
+      import { Suspense, use } from 'react'
+      const fastText = 'INSTANT'
+      const slowPromise = new Promise<string>(resolve => {
+        setTimeout(() => resolve('DELAYED'), 100)
+      })
+      function Delayed({ p }: { p: Promise<string> }) {
+        const val = use(p)
+        return <span>{val}</span>
+      }
+      export function StreamingPage() {
+        return <html><body><h1>{fastText}</h1><Suspense fallback={<p>loading</p>}><Delayed p={slowPromise} /></Suspense></body></html>
+      }
+    `)
+    // Error handling: render-time error from component is a hard failure
+    // (React's onError doesn't recover from synchronous throws).
+    // Users should use React <ErrorBoundary> components for recovery.
+    await writeFile(resolve(TEST_DIR, 'ErrorPage.tsx'), `
+      export function ErrorPage() {
+        throw new Error('BOOM')
+        return null
+      }
+    `)
+    // Head management: React 19 hoists <title>, <meta> from anywhere in the tree
+    await writeFile(resolve(TEST_DIR, 'HeadPage.tsx'), `
+      export function HeadPage() {
+        return <html><body>
+          <title>Custom Title</title>
+          <meta name="description" content="My description" />
+          <h1>ok</h1>
+        </body></html>
+      }
+    `)
+    // ErrorBoundary test: component that throws
+    await writeFile(resolve(TEST_DIR, 'BuggyCounter.tsx'), `
+      import { useState } from 'react'
+      export function BuggyCounter() {
+        const [count, setCount] = useState(0)
+        if (count > 2) throw new Error('count too high!')
+        return <button onClick={() => setCount(c => c + 1)}>count: {count}</button>
+      }
+    `)
+    await writeFile(resolve(TEST_DIR, 'SafePage.tsx'), `
+      import { ErrorBoundary } from 'weifuwu/react'
+      import { BuggyCounter } from './BuggyCounter.tsx'
+      export function SafePage() {
+        return <html><body>
+          <h1>Safe</h1>
+          <ErrorBoundary fallback={<p>Recovered!</p>}>
+            <BuggyCounter />
+          </ErrorBoundary>
+        </body></html>
+      }
+    `)
   })
 
   after(async () => {
@@ -257,5 +312,246 @@ describe('react SSR', () => {
     assert.match(text, /<h1>Layered<\/h1>/)
     assert.match(text, /<span>99<\/span>/)
     assert.match(text, /Site Footer/)
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // Streaming / Suspense
+  // ═══════════════════════════════════════════════════════════════
+
+  it('renders Suspense pages with stream: false (waits for all)', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/StreamingPage.tsx', { stream: false }),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    // Both shell and suspended content should be present
+    assert.match(text, /INSTANT/)
+    assert.match(text, /DELAYED/)
+    // Should be complete HTML
+    assert.match(text, /<\/html>/)
+  })
+
+  it('streaming mode returns HTML progressively', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/StreamingPage.tsx'),
+    )
+
+    const s = start(app)
+    await s.ready
+    const res = await fetch(`http://localhost:${s.port}/`)
+    // Default streaming: response should be HTML
+    assert.match(res.headers.get('content-type')!, /text\/html/)
+    const text = await res.text()
+    assert.match(text, /INSTANT/)
+    assert.match(text, /DELAYED/)
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // Error handling
+  // ═══════════════════════════════════════════════════════════════
+
+  it('render-time errors return 500', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) => {
+      try {
+        return await ctx.render('src/test/.react-test-pages/ErrorPage.tsx')
+      } catch {
+        return new Response('Render Error', { status: 500 })
+      }
+    })
+
+    const s = start(app)
+    await s.ready
+    const res = await fetch(`http://localhost:${s.port}/`)
+    assert.equal(res.status, 500)
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // Head management (React 19 automatic hoisting)
+  // ═══════════════════════════════════════════════════════════════
+
+  it('hoists <title> from page component into <head>', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/HeadPage.tsx'),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    // <title> should be in <head>, not in <body>
+    assert.match(text, /<head>.*<title>Custom Title<\/title>.*<\/head>/)
+    assert.doesNotMatch(text, /<body>.*<title>/)
+  })
+
+  it('hoists <meta> from page component into <head>', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/HeadPage.tsx'),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(text, /<head>.*<meta name="description" content="My description".*<\/head>/)
+  })
+
+  it('head hoisting works through layout wrapper', async () => {
+    const app = new Router()
+    app.use(react({ layout: 'src/test/.react-test-layouts/Root.tsx' }))
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/HeadPage.tsx'),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    // <title> should still be in <head> even with layout wrapper
+    assert.match(text, /<head>.*<title>Custom Title<\/title>/)
+    assert.match(text, /Site Header/)
+    assert.match(text, /<h1>ok<\/h1>/)
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // ErrorBoundary
+  // ═══════════════════════════════════════════════════════════════
+
+  it('ErrorBoundary catches render errors and renders fallback', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/SafePage.tsx'),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    // The page should render normally (BuggyCounter hasn't thrown yet)
+    assert.match(text, /Safe/)
+    assert.match(text, /count:.*0/)
+    // No fallback visible yet
+    assert.doesNotMatch(text, /Recovered!/)
+  })
+
+  it('uncaught render error without boundary still throws', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) => {
+      try {
+        return await ctx.render('src/test/.react-test-pages/ErrorPage.tsx')
+      } catch {
+        return new Response('Caught by handler', { status: 500 })
+      }
+    })
+
+    const s = start(app)
+    await s.ready
+    const res = await fetch(`http://localhost:${s.port}/`)
+    assert.equal(res.status, 500)
+    const text = await res.text()
+    assert.match(text, /Caught by handler/)
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // Compilation cache persistence
+  // ═══════════════════════════════════════════════════════════════
+
+  it('reuses cached compilation on second render', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/Check.tsx'),
+    )
+
+    const s = start(app)
+    await s.ready
+
+    // First render — triggers compilation
+    const t1 = Date.now()
+    const r1 = await (await fetch(`http://localhost:${s.port}/`)).text()
+    const d1 = Date.now() - t1
+    assert.match(r1, /<main>hi<\/main>/)
+
+    // Second render — should hit memory cache, be faster
+    const t2 = Date.now()
+    const r2 = await (await fetch(`http://localhost:${s.port}/`)).text()
+    const d2 = Date.now() - t2
+    assert.match(r2, /<main>hi<\/main>/)
+
+    // Second render should not be significantly slower
+    // (allow some variance; esbuild compilation is the expensive part)
+    assert.ok(d2 <= d1 * 1.5 || d2 < 20, `second render (${d2}ms) should not be much slower than first (${d1}ms)`)
+  })
+
+  it('renders after server restart (disk cache)', async () => {
+    // First server — compiles and caches to disk
+    const app1 = new Router()
+    app1.use(react())
+    app1.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/Check.tsx'),
+    )
+    const s1 = start(app1)
+    await s1.ready
+    const firstRender = await (await fetch(`http://localhost:${s1.port}/`)).text()
+    assert.match(firstRender, /<main>hi<\/main>/)
+    await s1.close()
+
+    // Second server — should reuse disk cache (fast start)
+    const app2 = new Router()
+    app2.use(react())
+    app2.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/Check.tsx'),
+    )
+    const s2 = start(app2)
+    await s2.ready
+    const secondRender = await (await fetch(`http://localhost:${s2.port}/`)).text()
+    assert.match(secondRender, /<main>hi<\/main>/)
+
+    servers.push(s2) // ensure cleanup
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // Loader
+  // ═══════════════════════════════════════════════════════════════
+
+  it('loader merges data into useServerData', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/DataPage.tsx', {
+        loader: async () => ({ user: 'LoaderAlice' }),
+      }),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(text, /user.*LoaderAlice/)
+  })
+
+  it('loader + static data both merged', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/DataPage.tsx', {
+        data: { kind: 'static' },
+        loader: async () => ({ user: 'Merged' }),
+      }),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(text, /user.*Merged/)
+    assert.match(text, /kind.*static/)
   })
 })

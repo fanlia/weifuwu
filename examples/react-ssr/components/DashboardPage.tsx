@@ -1,6 +1,7 @@
 export function DashboardPage() {
   return (
     <div>
+      <title>Dashboard — weifuwu</title>
       <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-gray-200 p-6">

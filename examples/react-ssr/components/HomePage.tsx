@@ -3,6 +3,8 @@ import { Counter } from './Counter.tsx'
 export function HomePage() {
   return (
     <div>
+      <title>weifuwu — React SSR</title>
+      <meta name="description" content="Web-standard HTTP framework with React server-side rendering" />
       <h1 className="text-3xl font-bold mb-2">weifuwu React SSR</h1>
       <p className="text-gray-600 mb-8">Web-standard HTTP framework with React server-side rendering.</p>
       <div className="rounded-lg border border-gray-200 p-6 mb-4">
