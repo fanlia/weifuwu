@@ -27,8 +27,22 @@ import type { Middleware, Context } from '../types.ts'
 // ═══════════════════════════════════════════════════════════════
 
 export interface EsbuildDevEntry {
-  /** Source entry point relative to cwd or absolute. */
-  entry: string
+  /** Source entry point relative to cwd or absolute. Ignored when `clientRouter` is set. */
+  entry?: string
+  /**
+   * Auto-generate a client entry from route config — eliminates client.ts.
+   * The generated entry imports routes + layout, calls createBrowserRouter().
+   */
+  clientRouter?: {
+    /** Path to the shared routes file (relative to cwd). */
+    routes: string
+    /** Layout component import path (relative to cwd). */
+    layout: string
+    /** Named export to use for layout (default: 'default'). */
+    layoutExport?: string
+    /** Fallback 404 component import path (relative to cwd). */
+    fallback?: string
+  }
   /** Bundle all dependencies (default: true). */
   bundle?: boolean
   /** Packages to leave external (not bundled). */
@@ -233,23 +247,87 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
   async function compile(entry: EsbuildDevEntry): Promise<{ code: string; etag: string; chunks?: Map<string, { code: string; etag: string }> }> {
     const esbuild = await getEsbuild()
 
-    const entryAbs = resolve(entry.entry)
+    const isClientRouter = !!entry.clientRouter
+    let entryAbs: string
+    let buildOpts: Parameters<typeof esbuild.build>[0]
 
-    const result = await esbuild.build({
-      entryPoints: [entryAbs],
-      bundle: entry.bundle ?? true,
-      external: entry.external ?? [],
-      minify: entry.minify ?? true,
-      platform: entry.platform ?? 'browser',
-      format: entry.format ?? 'esm',
-      sourcemap: entry.sourcemap ?? false,
-      splitting: entry.splitting ?? false,
-      ...(entry.splitting ? { outdir: dirname(entryAbs) } : {}),
-      define: entry.define,
-      loader: entry.loader as Record<string, import('esbuild').Loader> | undefined,
-      write: false,
-      logLevel: 'silent', // we handle errors ourselves
-    })
+    if (isClientRouter) {
+      // Generate virtual client entry that imports routes + layout
+      const cr = entry.clientRouter!
+      const virtualModule = 'weifuwu:client-entry'
+      entryAbs = virtualModule
+
+      const layoutImport = cr.layoutExport
+        ? `import { ${cr.layoutExport} as Layout } from '${cr.layout}'`
+        : `import Layout from '${cr.layout}'`
+
+      const fallbackLine = cr.fallback
+        ? `const fallback = () => import('${cr.fallback}')`
+        : ''
+      const fallbackOpt = cr.fallback ? '  fallback,' : ''
+
+      const generatedCode = [
+        `import { createBrowserRouter } from 'weifuwu/react/client'`,
+        layoutImport,
+        `import { routes } from '${cr.routes}'`,
+        fallbackLine,
+        '',
+        'createBrowserRouter({',
+        '  layout: Layout,',
+        '  routes,',
+        fallbackOpt,
+        '})',
+      ].filter(Boolean).join('\n')
+
+      buildOpts = {
+        entryPoints: [virtualModule],
+        bundle: entry.bundle ?? true,
+        external: entry.external ?? [],
+        minify: entry.minify ?? true,
+        platform: entry.platform ?? 'browser',
+        format: entry.format ?? 'esm',
+        sourcemap: entry.sourcemap ?? false,
+        splitting: entry.splitting ?? false,
+        ...(entry.splitting ? { outdir: resolve('.weifuwu-esbuild-out') } : {}),
+        define: entry.define,
+        loader: entry.loader as Record<string, import('esbuild').Loader> | undefined,
+        write: false,
+        logLevel: 'silent',
+        plugins: [{
+          name: 'weifuwu-client-router',
+          setup(build: import('esbuild').PluginBuild) {
+            build.onResolve({ filter: new RegExp(`^${virtualModule.replace(/:/g, '\\:')}$`) }, () => ({
+              path: virtualModule,
+              namespace: 'weifuwu-client',
+            }))
+            build.onLoad({ filter: /.*/, namespace: 'weifuwu-client' }, () => ({
+              contents: generatedCode,
+              loader: 'ts',
+              resolveDir: process.cwd(),
+            }))
+          },
+        }],
+      }
+    } else {
+      entryAbs = resolve(entry.entry!)
+      buildOpts = {
+        entryPoints: [entryAbs],
+        bundle: entry.bundle ?? true,
+        external: entry.external ?? [],
+        minify: entry.minify ?? true,
+        platform: entry.platform ?? 'browser',
+        format: entry.format ?? 'esm',
+        sourcemap: entry.sourcemap ?? false,
+        splitting: entry.splitting ?? false,
+        ...(entry.splitting ? { outdir: dirname(entryAbs) } : {}),
+        define: entry.define,
+        loader: entry.loader as Record<string, import('esbuild').Loader> | undefined,
+        write: false,
+        logLevel: 'silent',
+      }
+    }
+
+    const result = await esbuild.build(buildOpts)
 
     // Accumulate warnings and errors
     const msgs: string[] = []
@@ -268,14 +346,15 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
 
     // With splitting, esbuild produces multiple output files.
     // The first one is the entry, the rest are chunks.
-    const entryFile = result.outputFiles.find(f => f.path === entryAbs)
-      ?? result.outputFiles[0]
+    const outputFiles = result.outputFiles!
+    const entryFile = outputFiles.find(f => f.path === entryAbs)
+      ?? outputFiles[0]
     const code = entryFile?.text ?? ''
 
     let chunks: Map<string, { code: string; etag: string }> | undefined
-    if (result.outputFiles.length > 1) {
+    if (outputFiles.length > 1) {
       chunks = new Map()
-      for (const f of result.outputFiles) {
+      for (const f of outputFiles) {
         if (f === entryFile) continue
         const chunkName = f.path.split('/').pop() ?? f.path
         chunks.set(chunkName, { code: f.text, etag: `"esbuild-${hashCode(f.text)}"` })
@@ -380,7 +459,7 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       const { code, etag, chunks } = await compile(config)
 
       // Collect dependency files for cache invalidation
-      const deps = await collectDeps(resolve(config.entry))
+      const deps = await collectDeps(resolve(config.clientRouter?.routes ?? config.entry!))
 
       // Store cache (including chunks)
       if (cache === 'memory') {

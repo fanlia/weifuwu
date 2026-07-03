@@ -14,7 +14,17 @@ app.use(logger())
 app.use(tailwindDev({ entries: { '/assets/tailwind.css': { entry: './styles/input.css' } } }))
 app.use(esbuildDev({
   entries: {
-    '/assets/client.js': { entry: './client.ts', bundle: true, splitting: true, minify: false },
+    '/assets/client.js': {
+      clientRouter: {
+        routes: './routes.ts',
+        layout: './components/PageShell.tsx',
+        layoutExport: 'PageShell',
+        fallback: './components/NotFoundPage.tsx',
+      },
+      bundle: true,
+      splitting: true,
+      minify: false,
+    },
   },
 }))
 app.use(react({ layout: './components/PageShell.tsx' }))
