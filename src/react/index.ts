@@ -358,9 +358,12 @@ export function reactRouter(
   opts: ReactRouterOptions = {},
 ): void {
   // Pre-load layout
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let LayoutComponent: ComponentType<any> | null = null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let layoutPromise: Promise<ComponentType<any> | null> | null = null
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function getLayout(): Promise<ComponentType<any> | null> {
     if (!opts.layout) return null
     if (LayoutComponent) return LayoutComponent
