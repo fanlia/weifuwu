@@ -370,13 +370,15 @@ app.post('/api/chat', async (req, ctx) => {
 
 ### Auth
 
+JWT extraction priority: `cookie` → `Authorization: Bearer` → `?access_token=`. All callbacks receive `ctx` so `ctx.sql` is directly available.
+
 ```ts
 import { auth } from 'weifuwu'
 
-// JWT
+// JWT — cookie, header, or ?access_token=
 app.use(auth({ jwt: { secret: process.env.JWT_SECRET } }))
 
-// Session cookie
+// Session cookie — loadUser gets ctx
 app.use(auth({
   session: {
     secret: '...',
@@ -384,8 +386,11 @@ app.use(auth({
   },
 }))
 
-// API key
-app.use(auth({ apiKey: { validate: async (key, ctx) => ctx.sql`SELECT * FROM users WHERE api_key = ${key}` } }))
+// API key — header or ?api_key=
+app.use(auth({ apiKey: {
+  query: 'api_key',
+  validate: async (key, ctx) => ctx.sql`SELECT * FROM users WHERE api_key = ${key}`,
+} }))
 
 // ctx.user is now available
 app.get('/me', (req, ctx) => {
