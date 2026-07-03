@@ -113,8 +113,6 @@ export interface ReactAppOptions {
   loaders?: Record<string, (ctx: Context) => Promise<Record<string, unknown>>>
   /** Shared layout component path (relative to cwd). */
   layout: string
-  /** Named export for layout (default: 'default'). */
-  layoutExport?: string
   /** 404 fallback component path (relative to cwd). */
   notFound?: string
   /** Stylesheet URLs injected in <head>. */

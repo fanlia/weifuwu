@@ -1,6 +1,6 @@
 import { createElement, type ReactElement, type ComponentType } from 'react'
 import { renderToReadableStream, type ReactDOMServerReadableStream } from 'react-dom/server'
-import type { Middleware } from '../types.ts'
+import type { Middleware, Context } from '../types.ts'
 import { HttpError } from '../types.ts'
 import type { Router } from '../core/router.ts'
 import type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './types.ts'
@@ -208,6 +208,14 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   // 2. SSR middleware (layout + ctx.render)
   app.use(react({ layout: opts.layout, cacheDir: opts.cacheDir }))
 
+  // Pre-load layout module to detect exported loader (shared data)
+  let layoutLoader: ((ctx: Context) => Promise<Record<string, unknown>>) | null = null
+  loadTsxModule(opts.layout).then(mod => {
+    if (typeof mod.loader === 'function') {
+      layoutLoader = mod.loader as typeof layoutLoader
+    }
+  })
+
   // 3. Page routes
   const clientPath = opts.client?.path ?? '/assets/client.js'
   const bootstrapModules = [...(opts.bootstrapModules ?? [])]
@@ -224,18 +232,22 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   for (const [path, component] of Object.entries(opts.pages)) {
     // eslint-disable-next-line @typescript-eslint/no-loop-func
     app.get(path, async (_req, ctx) => {
+      // 1. Layout loader (shared across all pages)
       let data: Record<string, unknown> = {}
+      if (layoutLoader) {
+        try { data = { ...data, ...await layoutLoader(ctx) } } catch (err) { throw err }
+      }
 
-      // Explicit loader from opts.loaders takes priority
+      // 2. Page loader (explicit or auto-detected)
       const loader = opts.loaders?.[path]
       if (loader) {
-        try { data = await loader(ctx) } catch (err) { throw err }
+        try { data = { ...data, ...await loader(ctx) } } catch (err) { throw err }
       } else {
-        // Auto-detect loader from page module exports
         const mod = await loadTsxModule(component)
         if (typeof mod.loader === 'function') {
           try {
-            data = await (mod.loader as (c: typeof ctx) => Promise<Record<string, unknown>>)(ctx)
+            const pageData = await (mod.loader as (c: Context) => Promise<Record<string, unknown>>)(ctx)
+            data = { ...data, ...pageData }
           } catch (err) { throw err }
         }
       }
@@ -267,7 +279,6 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
           clientRouter: {
             pages: opts.pages,
             layout: opts.layout,
-            layoutExport: opts.layoutExport,
             fallback: opts.notFound,
           },
           bundle: true,

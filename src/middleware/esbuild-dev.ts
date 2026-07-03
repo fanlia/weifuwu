@@ -40,8 +40,6 @@ export interface EsbuildDevEntry {
     pages?: Record<string, string>
     /** Layout component import path (relative to cwd). */
     layout: string
-    /** Named export to use for layout (default: 'default'). */
-    layoutExport?: string
     /** Fallback 404 component import path (relative to cwd). */
     fallback?: string
   }
@@ -259,9 +257,10 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       const virtualModule = 'weifuwu:client-entry'
       entryAbs = virtualModule
 
-      const layoutImport = cr.layoutExport
-        ? `import { ${cr.layoutExport} as Layout } from '${cr.layout}'`
-        : `import Layout from '${cr.layout}'`
+      // Auto-detect layout export (matches server-side behavior)
+      const layoutImport = `import * as _layout from '${cr.layout}'
+const _lx = Object.entries(_layout).filter(([,v]) => typeof v === 'function')
+const Layout = _layout.default || (_lx[0]?.[1])`
 
       // Routes: inline from pages, or import from file
       let routesCode: string

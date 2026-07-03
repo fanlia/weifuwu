@@ -15,7 +15,6 @@ const app = new Router()
       '/streaming':     './components/StreamingDemoPage.tsx',
     },
     layout:        './components/PageShell.tsx',
-    layoutExport:  'PageShell',
     notFound:      './components/NotFoundPage.tsx',
     tailwind:      { entry: './styles/input.css' },
   }))
