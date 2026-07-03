@@ -34,8 +34,10 @@ export interface EsbuildDevEntry {
    * The generated entry imports routes + layout, calls createBrowserRouter().
    */
   clientRouter?: {
-    /** Path to the shared routes file (relative to cwd). */
-    routes: string
+    /** Path to the shared routes file (relative to cwd). Overridden by `pages`. */
+    routes?: string
+    /** Inline page definitions — alternative to a separate routes.ts file. */
+    pages?: Record<string, string>
     /** Layout component import path (relative to cwd). */
     layout: string
     /** Named export to use for layout (default: 'default'). */
@@ -261,6 +263,19 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
         ? `import { ${cr.layoutExport} as Layout } from '${cr.layout}'`
         : `import Layout from '${cr.layout}'`
 
+      // Routes: inline from pages, or import from file
+      let routesCode: string
+      if (cr.pages) {
+        const entries = Object.entries(cr.pages).map(([path, component]) =>
+          `  '${path}': () => import('${component}'),`,
+        )
+        routesCode = `const routes = {\n${entries.join('\n')}\n}`
+      } else if (cr.routes) {
+        routesCode = `import { routes } from '${cr.routes}'`
+      } else {
+        routesCode = 'const routes = {}'
+      }
+
       const fallbackLine = cr.fallback
         ? `const fallback = () => import('${cr.fallback}')`
         : ''
@@ -269,7 +284,7 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       const generatedCode = [
         `import { createBrowserRouter } from 'weifuwu/react/client'`,
         layoutImport,
-        `import { routes } from '${cr.routes}'`,
+        routesCode,
         fallbackLine,
         '',
         'createBrowserRouter({',
@@ -459,7 +474,10 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       const { code, etag, chunks } = await compile(config)
 
       // Collect dependency files for cache invalidation
-      const deps = await collectDeps(resolve(config.clientRouter?.routes ?? config.entry!))
+      const depEntry = config.clientRouter?.routes
+        ?? (config.clientRouter?.pages ? Object.values(config.clientRouter.pages)[0] : undefined)
+        ?? config.entry!
+      const deps = await collectDeps(resolve(depEntry))
 
       // Store cache (including chunks)
       if (cache === 'memory') {

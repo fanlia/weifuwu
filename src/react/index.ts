@@ -3,7 +3,7 @@ import { renderToReadableStream, type ReactDOMServerReadableStream } from 'react
 import type { Middleware } from '../types.ts'
 import { HttpError } from '../types.ts'
 import type { Router } from '../core/router.ts'
-import type { ReactOptions, RenderOptions, ReactRouterOptions } from './types.ts'
+import type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './types.ts'
 import { loadTsxComponent, setReactCacheDir } from './compile.ts'
 import { ServerDataContext } from './context.ts'
 
@@ -272,6 +272,94 @@ export function reactRouter(
 
       return renderComponent(Component, data, layout, opts as RenderOptions)
     })
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// createReactApp — unified React app setup
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Create a React SSR app in one call — replaces react(), reactRouter(),
+ * and manual esbuildDev configuration.
+ *
+ * @example
+ * ```ts
+ * const app = new Router()
+ * createReactApp(app, {
+ *   pages: {
+ *     '/':        './pages/Home.tsx',
+ *     '/users':   './pages/Users.tsx',
+ *   },
+ *   layout:  './layouts/Root.tsx',
+ *   notFound: './pages/NotFound.tsx',
+ *   loaders: {
+ *     '/users': async (ctx) => ({ users: await db.list() }),
+ *   },
+ *   stylesheets: ['/assets/tailwind.css'],
+ *   client: { minify: false },
+ * })
+ * serve(app, { port: 3000 })
+ * ```
+ */
+export async function createReactApp(app: Router, opts: ReactAppOptions): Promise<void> {
+  // 1. SSR middleware (layout + ctx.render)
+  app.use(react({ layout: opts.layout, cacheDir: opts.cacheDir }))
+
+  // 2. Register page routes
+  const renderOpts: RenderOptions = {
+    stylesheets: opts.stylesheets,
+    bootstrapModules: opts.bootstrapModules,
+    stream: opts.stream,
+  }
+
+  for (const [path, component] of Object.entries(opts.pages)) {
+    const loader = opts.loaders?.[path]
+    // eslint-disable-next-line @typescript-eslint/no-loop-func
+    app.get(path, async (_req, ctx) => {
+      let data: Record<string, unknown> = {}
+      if (loader) {
+        try {
+          data = await loader(ctx)
+        } catch (err) {
+          // Let the global onError handler render the notFound page
+          throw err
+        }
+      }
+      return ctx.render(component, { ...renderOpts, data })
+    })
+  }
+
+  // 3. Error handler with notFound page
+  if (opts.notFound) {
+    const notFoundPath = opts.notFound
+    app.onError((err, _req, ctx) => {
+      const status = err instanceof HttpError ? err.status : 500
+      if (ctx.render) {
+        return ctx.render(notFoundPath, { ...renderOpts, status, data: {} })
+      }
+      return new Response('Internal Server Error', { status })
+    })
+  }
+
+  // 4. Client bundle (optional)
+  if (opts.client !== undefined) {
+    const { esbuildDev } = await import('../middleware/esbuild-dev.ts')
+    app.use(esbuildDev({
+      entries: {
+        [opts.client?.path ?? '/assets/client.js']: {
+          clientRouter: {
+            pages: opts.pages,
+            layout: opts.layout,
+            layoutExport: opts.layoutExport,
+            fallback: opts.notFound,
+          },
+          bundle: true,
+          splitting: opts.client?.splitting ?? true,
+          minify: opts.client?.minify ?? false,
+        },
+      },
+    }))
   }
 }
 

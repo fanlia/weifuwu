@@ -104,3 +104,37 @@ export interface ReactRouterOptions extends Omit<RenderOptions, 'component' | 'l
    */
   loaders?: Record<string, (ctx: Context) => Promise<Record<string, unknown>>>
 }
+
+/** Options for createReactApp — one call to set up SSR routing + client bundle. */
+export interface ReactAppOptions {
+  /** Page route → component path mapping for both server and client. */
+  pages: Record<string, string>
+  /** Per-route data loaders. Keys match page route paths. */
+  loaders?: Record<string, (ctx: Context) => Promise<Record<string, unknown>>>
+  /** Shared layout component path (relative to cwd). */
+  layout: string
+  /** Named export for layout (default: 'default'). */
+  layoutExport?: string
+  /** 404 fallback component path (relative to cwd). */
+  notFound?: string
+  /** Stylesheet URLs injected in <head>. */
+  stylesheets?: string[]
+  /** ES module bootstrap scripts. */
+  bootstrapModules?: Array<string | BootstrapScriptDescriptor>
+  /**
+   * Client bundle config.
+   * Omit to skip client-side JS entirely (static SSR only).
+   */
+  client?: {
+    /** URL path for the client bundle (default: '/assets/client.js'). */
+    path?: string
+    /** Minify output (default: false). */
+    minify?: boolean
+    /** Code splitting (default: true). */
+    splitting?: boolean
+  }
+  /** Compilation cache directory. */
+  cacheDir?: string
+  /** Enable streaming SSR (default: true). */
+  stream?: boolean
+}

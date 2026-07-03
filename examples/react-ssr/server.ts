@@ -1,6 +1,5 @@
-import { serve, Router, logger, trace, esbuildDev, tailwindDev, HttpError } from '../../src/index.ts'
-import { react, reactRouter } from '../../src/react/index.ts'
-import { routes } from './routes.ts'
+import { serve, Router, logger, trace, tailwindDev, HttpError } from '../../src/index.ts'
+import { createReactApp } from '../../src/react/index.ts'
 
 const MOCK_USERS = [
   { id: 1, name: 'Alice', email: 'alice@example.com', bio: 'Full-stack developer' },
@@ -12,27 +11,20 @@ const app = new Router()
 app.use(trace())
 app.use(logger())
 app.use(tailwindDev({ entries: { '/assets/tailwind.css': { entry: './styles/input.css' } } }))
-app.use(esbuildDev({
-  entries: {
-    '/assets/client.js': {
-      clientRouter: {
-        routes: './routes.ts',
-        layout: './components/PageShell.tsx',
-        layoutExport: 'PageShell',
-        fallback: './components/NotFoundPage.tsx',
-      },
-      bundle: true,
-      splitting: true,
-      minify: false,
-    },
+
+await createReactApp(app, {
+  pages: {
+    '/':              './components/HomePage.tsx',
+    '/users':         './components/UsersPage.tsx',
+    '/users/:id':     './components/UserDetailPage.tsx',
+    '/admin/dashboard': './components/DashboardPage.tsx',
+    '/error':         './components/ErrorDemoPage.tsx',
+    '/streaming':     './components/StreamingDemoPage.tsx',
   },
-}))
-app.use(react({ layout: './components/PageShell.tsx' }))
-
-const ROPTS = { stylesheets: ['/assets/tailwind.css'] as string[], bootstrapModules: ['/assets/client.js'] as string[] }
-
-reactRouter(app, routes, {
-  ...ROPTS,
+  layout:        './components/PageShell.tsx',
+  layoutExport:  'PageShell',
+  notFound:      './components/NotFoundPage.tsx',
+  stylesheets:   ['/assets/tailwind.css'],
   loaders: {
     '/users': async () => ({ users: MOCK_USERS }),
     '/users/:id': async (ctx) => {
@@ -41,6 +33,7 @@ reactRouter(app, routes, {
       return { user }
     },
   },
+  client: { minify: false },
 })
 
 app.post('/users', async (req) => {
@@ -49,12 +42,6 @@ app.post('/users', async (req) => {
   return new Response(null, { status: 302, headers: { Location: '/users' } })
 })
 app.get('/api/hello', () => Response.json({ message: 'Hello from weifuwu API!', time: new Date().toISOString() }))
-app.onError((err, _req, ctx) => {
-  console.error('Unhandled error:', err)
-  const status = err instanceof HttpError ? err.status : 500
-  if (ctx.render) return ctx.render('./components/NotFoundPage.tsx', { ...ROPTS, status })
-  return new Response('Internal Server Error', { status })
-})
 
 const server = serve(app, { port: 3456 })
 await server.ready
