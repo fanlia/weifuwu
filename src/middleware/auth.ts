@@ -43,6 +43,8 @@ export interface AuthOptions {
     header?: string
     /** Prefix to strip (default: 'Bearer '). */
     prefix?: string
+    /** Query parameter name (e.g. 'api_key'). */
+    query?: string
     /** Validate an API key → User or null. `ctx` has `ctx.sql`, `ctx.redis`, etc. */
     validate: (key: string, ctx: Context) => Promise<User | null> | User | null
   }
@@ -104,6 +106,7 @@ export function auth(opts: AuthOptions): Middleware {
       const cookie = opts.jwt.cookie ?? 'token'
       const token = parseCookie(req.headers.get('cookie'), cookie)
         ?? req.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+        ?? ctx.query.access_token
 
       if (token) {
         try {
@@ -157,7 +160,13 @@ export function auth(opts: AuthOptions): Middleware {
     if (opts.apiKey && !ctx.user) {
       const header = opts.apiKey.header ?? 'authorization'
       const prefix = opts.apiKey.prefix ?? 'Bearer '
-      const raw = req.headers.get(header)
+      let raw = req.headers.get(header)
+
+      // Fallback to query parameter (e.g. ?api_key=sk-xxx)
+      if (!raw && opts.apiKey.query) {
+        raw = ctx.query[opts.apiKey.query]
+        if (raw) raw = prefix + raw  // so the prefix stripping works
+      }
 
       if (raw?.startsWith(prefix)) {
         const key = raw.slice(prefix.length)
