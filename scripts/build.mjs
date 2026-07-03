@@ -28,6 +28,7 @@ const external = [
   '@tailwindcss/node',  // dynamic import in tailwindDev
   'esbuild',  // dynamic import in esbuildDev — must be external for native binary
   'tailwindcss',  // dependency of @tailwindcss/node
+  'ai',  // dynamic import in ai middleware
 ]
 
 await esbuild.build({

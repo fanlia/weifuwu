@@ -40,4 +40,7 @@ export { react, reactRouter } from './react/index.ts'
 export type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './react/types.ts'
 export { useServerData, ServerDataContext, Link, ErrorBoundary } from './react/index.ts'
 
+export { ai } from './ai/index.ts'
+export type { AiOptions, Ai } from './ai/index.ts'
+
 
