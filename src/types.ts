@@ -22,6 +22,14 @@ export interface WebSocket {
 }
 export type { Redis, RedisOptions } from 'ioredis'
 
+/** User injected by auth() middleware. */
+export interface User {
+  id: string
+  role?: string
+  tenant?: string
+  [key: string]: unknown
+}
+
 // Context — extensible via module augmentation.
 // Built-in middleware modules declare additional properties here.
 // e.g. postgres/types.ts → `declare module '../types.ts' { interface Context { sql: SqlClient } }`

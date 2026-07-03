@@ -1,5 +1,6 @@
 export type { Context, Handler, Middleware, ErrorHandler, WsContext, WebSocket } from './types.ts'
 export { HttpError } from './types.ts'
+export type { User } from './types.ts'
 export { currentTraceId, currentTrace, runWithTrace, traceElapsed, trace } from './core/trace.ts'
 export type { TraceContext, TraceInjected, TraceOptions } from './core/trace.ts'
 export { serve, DEFAULT_MAX_BODY } from './core/serve.ts'
@@ -10,11 +11,15 @@ export { logger } from './core/logger.ts'
 export type { LoggerOptions } from './core/logger.ts'
 export { cors } from './middleware/cors.ts'
 export type { CORSOptions } from './middleware/cors.ts'
+export { auth } from './middleware/auth.ts'
+export type { AuthOptions } from './middleware/auth.ts'
 
 export { serveStatic } from './middleware/static.ts'
 export type { ServeStaticOptions } from './middleware/static.ts'
 export { upload } from './middleware/upload.ts'
 export type { UploadOptions, UploadedFile, UploadModule } from './middleware/upload.ts'
+export { sandbox } from './middleware/sandbox.ts'
+export type { SandboxOptions, Sandbox } from './middleware/sandbox.ts'
 export { esbuildDev } from './middleware/esbuild-dev.ts'
 export type { EsbuildDevEntry, EsbuildDevOptions } from './middleware/esbuild-dev.ts'
 export { tailwindDev } from './middleware/tailwind-dev.ts'
@@ -42,5 +47,7 @@ export { useServerData, ServerDataContext, Link, ErrorBoundary } from './react/i
 
 export { ai } from './ai/index.ts'
 export type { AiOptions, Ai } from './ai/index.ts'
+export { agent } from './ai/agent.ts'
+export type { AgentOptions, Agent } from './ai/agent.ts'
 
 
