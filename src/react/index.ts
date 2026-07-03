@@ -303,12 +303,24 @@ export function reactRouter(
  * ```
  */
 export async function createReactApp(app: Router, opts: ReactAppOptions): Promise<void> {
-  // 1. SSR middleware (layout + ctx.render)
+  // 1. Tailwind CSS (before SSR, so stylesheet path is ready)
+  const stylesheets = [...(opts.stylesheets ?? [])]
+  if (opts.tailwind) {
+    const twPath = opts.tailwind.path ?? '/assets/tailwind.css'
+    const twEntry = opts.tailwind.entry ?? './styles/input.css'
+    const { tailwindDev } = await import('../middleware/tailwind-dev.ts')
+    app.use(tailwindDev({ entries: { [twPath]: { entry: twEntry } } }))
+    if (!stylesheets.includes(twPath)) {
+      stylesheets.push(twPath)
+    }
+  }
+
+  // 2. SSR middleware (layout + ctx.render)
   app.use(react({ layout: opts.layout, cacheDir: opts.cacheDir }))
 
-  // 2. Register page routes
+  // 3. Register page routes
   const renderOpts: RenderOptions = {
-    stylesheets: opts.stylesheets,
+    stylesheets: stylesheets.length > 0 ? stylesheets : undefined,
     bootstrapModules: opts.bootstrapModules,
     stream: opts.stream,
   }

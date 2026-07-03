@@ -133,6 +133,16 @@ export interface ReactAppOptions {
     /** Code splitting (default: true). */
     splitting?: boolean
   }
+  /**
+   * Tailwind CSS config. When provided, tailwindDev middleware is set up
+   * and the output path is automatically added to stylesheets.
+   */
+  tailwind?: {
+    /** URL path for the compiled CSS (default: '/assets/tailwind.css'). */
+    path?: string
+    /** Source CSS entry point (default: './styles/input.css'). */
+    entry?: string
+  }
   /** Compilation cache directory. */
   cacheDir?: string
   /** Enable streaming SSR (default: true). */

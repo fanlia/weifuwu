@@ -1,4 +1,4 @@
-import { serve, Router, logger, trace, tailwindDev, HttpError } from '../../src/index.ts'
+import { serve, Router, logger, trace, HttpError } from '../../src/index.ts'
 import { createReactApp } from '../../src/react/index.ts'
 
 const MOCK_USERS = [
@@ -10,7 +10,6 @@ const MOCK_USERS = [
 const app = new Router()
 app.use(trace())
 app.use(logger())
-app.use(tailwindDev({ entries: { '/assets/tailwind.css': { entry: './styles/input.css' } } }))
 
 await createReactApp(app, {
   pages: {
@@ -24,7 +23,7 @@ await createReactApp(app, {
   layout:        './components/PageShell.tsx',
   layoutExport:  'PageShell',
   notFound:      './components/NotFoundPage.tsx',
-  stylesheets:   ['/assets/tailwind.css'],
+  tailwind:      { entry: './styles/input.css' },
   loaders: {
     '/users': async () => ({ users: MOCK_USERS }),
     '/users/:id': async (ctx) => {
