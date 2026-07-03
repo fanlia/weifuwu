@@ -192,6 +192,37 @@ export function react(
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Shared loader resolution
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Load a compiled module and extract its exported `loader` function, if any.
+ * The result is cached by the compilation layer — repeated calls are instant.
+ */
+type Loader = (ctx: Context) => Promise<Record<string, unknown>>
+
+async function resolveLoader(modulePath: string): Promise<Loader | null> {
+  const mod = await loadTsxModule(modulePath)
+  return typeof mod.loader === 'function' ? mod.loader as Loader : null
+}
+
+/** Safely call a loader, merging its result into `data`. */
+async function callLoader(
+  loader: Loader | null,
+  ctx: Context,
+  data: Record<string, unknown>,
+  rethrow = true,
+): Promise<Record<string, unknown>> {
+  if (!loader) return data
+  try {
+    return { ...data, ...await loader(ctx) }
+  } catch (err) {
+    if (rethrow) throw err
+    return data
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Full-mode react() — routing + tailwind + client + error handling
 // ═══════════════════════════════════════════════════════════════
 
@@ -208,13 +239,9 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   // 2. SSR middleware (layout + ctx.render)
   app.use(react({ layout: opts.layout, cacheDir: opts.cacheDir }))
 
-  // Pre-load layout module to detect exported loader (shared data)
-  let layoutLoader: ((ctx: Context) => Promise<Record<string, unknown>>) | null = null
-  loadTsxModule(opts.layout).then(mod => {
-    if (typeof mod.loader === 'function') {
-      layoutLoader = mod.loader as typeof layoutLoader
-    }
-  })
+  // Pre-load shared loaders (layout, notFound) — resolved once, cached
+  const layoutLoaderP = resolveLoader(opts.layout)
+  const notFoundLoaderP = opts.notFound ? resolveLoader(opts.notFound) : Promise.resolve<Loader | null>(null)
 
   // 3. Page routes
   const clientPath = opts.client?.path ?? '/assets/client.js'
@@ -232,50 +259,28 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   for (const [path, component] of Object.entries(opts.pages)) {
     // eslint-disable-next-line @typescript-eslint/no-loop-func
     app.get(path, async (_req, ctx) => {
-      // 1. Layout loader (shared across all pages)
       let data: Record<string, unknown> = {}
-      if (layoutLoader) {
-        try { data = { ...data, ...await layoutLoader(ctx) } } catch (err) { throw err }
-      }
 
-      // 2. Page loader (explicit or auto-detected)
-      const loader = opts.loaders?.[path]
-      if (loader) {
-        try { data = { ...data, ...await loader(ctx) } } catch (err) { throw err }
-      } else {
-        const mod = await loadTsxModule(component)
-        if (typeof mod.loader === 'function') {
-          try {
-            const pageData = await (mod.loader as (c: Context) => Promise<Record<string, unknown>>)(ctx)
-            data = { ...data, ...pageData }
-          } catch (err) { throw err }
-        }
-      }
+      // Layout → Page (page overrides same keys)
+      data = await callLoader(await layoutLoaderP, ctx, data)
+      const pageLoader = opts.loaders?.[path] ?? await resolveLoader(component)
+      data = await callLoader(pageLoader, ctx, data)
 
       return ctx.render(component, { ...renderOpts, data })
     })
   }
 
-  // 4. Error handler
+  // 4. Error handler — uses layout + notFound loaders
   if (opts.notFound) {
     const notFoundPath = opts.notFound
-    // Pre-load notFound module to detect exported loader
-    let notFoundLoader: ((ctx: Context) => Promise<Record<string, unknown>>) | null = null
-    loadTsxModule(notFoundPath).then(mod => {
-      if (typeof mod.loader === 'function') {
-        notFoundLoader = mod.loader as typeof notFoundLoader
-      }
-    })
-
     app.onError(async (err, _req, ctx) => {
       const status = (typeof err === 'object' && err !== null && 'status' in err)
         ? (err as { status: number }).status
         : 500
       if (ctx.render) {
         let data: Record<string, unknown> = { error: String(err) }
-        if (notFoundLoader) {
-          try { data = { ...data, ...await notFoundLoader(ctx) } } catch { /* ignore */ }
-        }
+        data = await callLoader(await layoutLoaderP, ctx, data, false)
+        data = await callLoader(await notFoundLoaderP, ctx, data, false)
         return ctx.render(notFoundPath, { ...renderOpts, status, data })
       }
       return new Response('Internal Server Error', { status })
