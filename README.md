@@ -21,7 +21,7 @@ serve(app, { port: 3000 })
 | Export | Description |
 |---|---|
 | `serve(app, opts?)` | Start HTTP server. Returns `Server` with `port`, `hostname`, `ready`, `close()`. |
-| `Router` | Trie-based HTTP router with WebSocket support. |
+| `Router` | Trie-based HTTP router with WebSocket support and `plugin()` method. |
 | `HttpError` | `new HttpError(message, status)`. Throw to return that status code. |
 | `DEFAULT_MAX_BODY` | `10 * 1024 * 1024` (10MB). |
 
@@ -42,6 +42,7 @@ app.ws(path, ...middlewares, handler)
 // Middleware & mounting
 app.use(middleware)           // global middleware
 app.mount(prefix, router)     // sub-router at prefix
+app.plugin(fn)                // extension: (app) => { app.get(), app.use(), ... }
 app.onError(handler)          // error handler: (error, req, ctx) => Response
 app.routes()                  // debug: list all registered routes
 
@@ -178,111 +179,139 @@ npm install react react-dom
 ```
 
 ```ts
-import { react, Link, useServerData, ErrorBoundary } from 'weifuwu'
-import { createElement as h } from 'react'
+// server.ts — the only file you need
+import { serve, Router } from 'weifuwu'
+import { react } from 'weifuwu/react'
 
-// ── Server ──────────────────────────────────────────────
+const app = new Router()
+  .use(trace())
+  .use(logger())
+  .plugin(react({
+    pages: {
+      '/':          './pages/Home.tsx',
+      '/users':     './pages/Users.tsx',
+      '/users/:id': './pages/UserDetail.tsx',
+    },
+    layout:   './layouts/Root.tsx',
+    notFound: './pages/NotFound.tsx',
+    tailwind: { entry: './styles/input.css' },
+  }))
 
-app.use(react({
-  layout: ({ children }) =>
-    h('html', null,
-      h('head', null, h('title', null, 'My App')),
-      h('body', null, h('div', { id: 'root' }, children)),
-    ),
-}))
-
-// Render React components to HTML
-app.get('/', (_req, ctx) =>
-  ctx.render(h('h1', null, 'Hello SSR'), {
-    head: { title: 'Home' },
-    data: { greeting: 'Hello' },
-  })
-)
-
-// Streaming SSR
-app.get('/dashboard', (_req, ctx) =>
-  ctx.renderStream(h(Dashboard))
-)
-
-// Layout nesting via mount
-const admin = new Router()
-admin.use(react({ layout: AdminLayout }))
-admin.get('/dashboard', (_req, ctx) => ctx.render(h(AdminDashboard)))
-app.mount('/admin', admin)
-
-// ── Shared components ──────────────────────────────────
-
-// Use the same component on server and client
-function Page() {
-  const { greeting } = useServerData<{ greeting: string }>()
-  return h('h1', null, greeting)
-}
-
-// Link works on both sides: <a> on server, SPA <a> on client
-function Nav() {
-  return h('nav', null,
-    h(Link, { href: '/' }, 'Home'),
-    h(Link, { href: '/users' }, 'Users'),
-  )
-}
-
-// ErrorBoundary catches client-side render errors
-function SafeUserProfile() {
-  return h(ErrorBoundary, { fallback: h('div', null, 'Error') },
-    h(UserProfile),
-  )
-}
-
-// ── Client (SPA navigation) ────────────────────────────
-
-// client.ts — bundled separately with esbuild
-import { hydrate, createClientRouter, defineRoute } from 'weifuwu/react/client'
-
-const userRoute = defineRoute({
-  path: '/users/:id',
-  component: UserPage,
-  loader: (params) => fetch(`/users/${params.id}?_data`).then(r => r.json()),
-})
-
-const router = createClientRouter([
-  { path: '/', component: HomePage },
-  userRoute,
-])
-
-hydrate(router.App)
+app.get('/api/hello', () => Response.json({ message: 'hi' }))
+serve(app, { port: 3000 })
 ```
 
-**Key concepts:**
+**One `react()` call handles:** SSR rendering, routing, data loading, Tailwind CSS, client bundle auto-generation, and error pages. No `client.ts`, `routes.ts`, or manual middleware setup needed.
+
+#### Page components
+
+```tsx
+// pages/UserDetail.tsx
+import type { Context } from 'weifuwu'
+import { HttpError } from 'weifuwu'
+import { useServerData } from 'weifuwu/react'
+
+export async function loader(ctx: Context) {
+  const user = await db.find(ctx.params.id)
+  if (!user) throw new HttpError('Not found', 404)
+  return { user }
+}
+
+export default function UserDetailPage() {
+  const { user } = useServerData<{ user: User }>()
+  return (
+    <div>
+      <title>{`${user.name} — My App`}</title>
+      <h1>{user.name}</h1>
+      <p>{user.email}</p>
+    </div>
+  )
+}
+```
+
+- `export async function loader(ctx)` — runs on the server, returns data for `useServerData()`
+- `throw new HttpError('Not found', 404)` — renders the NotFound page with correct status
+- `<title>` auto-hoists to `<head>` via React 19
+- `export default` is auto-detected; named exports work too
+
+#### Layout with shared data
+
+```tsx
+// layouts/Root.tsx
+export async function loader(ctx: Context) {
+  return { currentUser: await getCurrentUser(ctx) }
+}
+
+export function Root({ children }: { children: ReactNode }) {
+  const { currentUser } = useServerData()
+  return (
+    <>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/users">Users</a>
+        <span>{currentUser?.name}</span>
+      </nav>
+      <main>{children}</main>
+    </>
+  )
+}
+```
+
+Layout `loader` data merges with page data. Page loader overrides same keys.
+
+#### Data flow
+
+```
+layout loader  ──┐
+                  ├──→  merge → useServerData()  ──→  Layout + Page
+page loader   ───┘
+```
+
+#### Client-side SPA
+
+Every page is automatically code-split into a separate chunk. On first visit the server renders HTML and the client hydrates. Subsequent navigations intercept `<a>` clicks, `import()` the page chunk, and fetch fresh server data — all automatic, zero config.
+
+#### Streaming SSR
+
+```tsx
+import { Suspense, use } from 'react'
+
+export default function StreamingPage() {
+  return (
+    <div>
+      <h1>Instant shell</h1>
+      <Suspense fallback={<Spinner />}>
+        <SlowData promise={fetchSlowData()} />
+      </Suspense>
+    </div>
+  )
+}
+```
+
+`<Suspense>` boundaries stream to the browser as data resolves.
 
 | Feature | Description |
 |---|---|
-| `ctx.render(el, opts)` | Render React to HTML. Auto-detects `?_data` → returns JSON. |
-| `ctx.renderStream(el)` | Streaming SSR via `renderToReadableStream`. |
-| `useServerData<T>()` | Access data on both server (via `ctx.render({ data })`) and client (via `loader`). |
-| `Link` | Shared component — `<a>` on server, SPA `<a>` on client. |
-| `Form` | Shared — `<form>` on server, `fetch` + revalidate on client. |
-| `ErrorBoundary` | Catches render errors on client (SSR uses `onError`). |
-| `useNavigation()` | `{ state: 'idle' \| 'loading' }` for progress indicators. |
-| `useParams()` / `useNavigate()` / `useRevalidate()` | Router hooks. |
-| `defineRoute()` | Type-safe route config — captures loader return type. |
-| `createClientRouter()` | Client-side SPA router with loader-based data fetching. |
-| `hydrate(App)` | Hydrate server-rendered HTML on the client. |
-| `head: { title, meta }` | Inject dynamic `<title>` and `<meta>` tags. |
+| `react({ pages, layout, notFound, tailwind })` | One call: SSR + routing + client bundle + error handling |
+| `export async function loader(ctx)` | Server-side data loading, auto-detected by the framework |
+| `useServerData<T>()` | Type-safe access to loader data in any component |
+| `Link` | `<a>` that does SPA navigation on the client |
+| `ErrorBoundary` | Catches render errors on server and client |
+| `<title>`, `<meta>` | Auto-hoisted to `<head>` via React 19 |
+| `<Suspense>` | Streaming SSR, works out of the box |
+| `client: false` | Disable client JS for static SSR only |
 
 **Import paths:**
 
 ```ts
 // Server-side
-import { react, Link, Form, ErrorBoundary, useServerData } from 'weifuwu'
+import { react, Link, ErrorBoundary, useServerData } from 'weifuwu'
 
-// Client-side (for browser bundles)
-import { hydrate, createClientRouter, defineRoute, Link } from 'weifuwu/react/client'
-
-// Shared primitives (safe for both, pure React — no react-dom import)
-import { Link, Form, useServerData, useParams, useNavigation } from 'weifuwu/react/navigation'
+// Client-side (for custom advanced setups)
+import { createBrowserRouter, hydrate, navigate } from 'weifuwu/react/client'
 ```
 
-See [examples/react-ssr/](examples/react-ssr/) for a complete demo.
+See [examples/react-ssr/](examples/react-ssr/) for the full demo.
 
 ### Types
 
