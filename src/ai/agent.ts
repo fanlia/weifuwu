@@ -184,6 +184,7 @@ export function agent(opts: AgentOptions): Middleware {
         const messages: any[] = [...(chatOpts.messages ?? [])]
 
         if (system) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const hasSystem = messages.some((m: any) => m.role === 'system')
           if (!hasSystem) {
             messages.unshift({
@@ -192,12 +193,14 @@ export function agent(opts: AgentOptions): Middleware {
             })
           } else if (knowledgeContext) {
             // Append knowledge to existing system message
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sysMsg = messages.find((m: any) => m.role === 'system')
             if (sysMsg) sysMsg.content += knowledgeContext
           }
         }
 
         // If no messages with user role, add prompt as user message
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (prompt && !messages.some((m: any) => m.role === 'user')) {
           messages.push({ role: 'user', content: prompt })
         }
