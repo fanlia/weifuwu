@@ -1,7 +1,7 @@
 import { createElement, type ReactElement, type ComponentType } from 'react'
 import { renderToReadableStream, type ReactDOMServerReadableStream } from 'react-dom/server'
-import type { Middleware, Context } from '../types.ts'
-import { HttpError } from '../types.ts'
+import { type Middleware, type Context } from '../types.ts'
+
 import type { Router } from '../core/router.ts'
 import type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './types.ts'
 import { loadTsxComponent, loadTsxModule, setReactCacheDir } from './compile.ts'
@@ -172,15 +172,8 @@ export function react(
     ctx.render = async (path: string, renderOpts?: RenderOptions) => {
       let data = renderOpts?.data ?? {}
       if (renderOpts?.loader) {
-        try {
-          const loaderData = await renderOpts.loader(ctx)
-          data = { ...data, ...loaderData }
-        } catch (err) {
-          if (err instanceof HttpError && !renderOpts?.status) {
-            renderOpts = { ...renderOpts, status: (err as HttpError).status }
-          }
-          throw err
-        }
+        const loaderData = await renderOpts.loader(ctx)
+        data = { ...data, ...loaderData }
       }
 
       const Component = await loadTsxComponent(path)
@@ -257,7 +250,6 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   }
 
   for (const [path, component] of Object.entries(opts.pages)) {
-    // eslint-disable-next-line @typescript-eslint/no-loop-func
     app.get(path, async (_req, ctx) => {
       let data: Record<string, unknown> = {}
 
@@ -365,7 +357,6 @@ export function reactRouter(
   opts: ReactRouterOptions = {},
 ): void {
   // Pre-load layout
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let LayoutComponent: ComponentType<any> | null = null
   let layoutPromise: Promise<ComponentType<any> | null> | null = null
 
@@ -381,9 +372,7 @@ export function reactRouter(
     return layoutPromise
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const [path, importer] of Object.entries(routes)) {
-    // eslint-disable-next-line @typescript-eslint/no-loop-func
     app.get(path, async (_req, ctx) => {
       const cmpPath = extractImportPath(importer)
       const Component = await loadTsxComponent(cmpPath)
@@ -393,13 +382,7 @@ export function reactRouter(
       let data: Record<string, unknown> = {}
       const loader = opts.loaders?.[path]
       if (loader) {
-        try {
-          data = await loader(ctx)
-        } catch (err) {
-          // Preserve HttpError status
-          const status = err instanceof HttpError ? (err as HttpError).status : 500
-          throw err
-        }
+        data = await loader(ctx)
       }
 
       return renderComponent(Component, data, layout, opts as RenderOptions)

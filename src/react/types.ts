@@ -1,4 +1,4 @@
-import type { Middleware, Context } from '../types.ts'
+import type { Context } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {

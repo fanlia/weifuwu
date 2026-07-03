@@ -218,6 +218,7 @@ export function createBrowserRouter(opts: ClientRouterOptions) {
       const pageData = data ?? (isInitial ? readInitialData() : await fetchPageData(pathname))
       renderPage(container, layout, Component, pageData, isInitial)
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('[weifuwu] router error:', err)
       if (fallback && route !== fallback) {
         try {

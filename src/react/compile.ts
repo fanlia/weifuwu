@@ -6,7 +6,7 @@
  * Persisted to disk for fast restarts.
  */
 
-import { stat, mkdir, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import { resolve, join, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
