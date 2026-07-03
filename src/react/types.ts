@@ -121,9 +121,11 @@ export interface ReactAppOptions {
   bootstrapModules?: Array<string | BootstrapScriptDescriptor>
   /**
    * Client bundle config.
-   * Omit to skip client-side JS entirely (static SSR only).
+   * - `false` to disable client-side JS (static SSR only)
+   * - `true` or omitted for defaults
+   * - `{ ... }` to customize
    */
-  client?: {
+  client?: boolean | {
     /** URL path for the client bundle (default: '/assets/client.js'). */
     path?: string
     /** Minify output (default: false). */

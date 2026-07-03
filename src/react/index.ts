@@ -237,9 +237,10 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   const notFoundLoaderP = opts.notFound ? resolveLoader(opts.notFound) : Promise.resolve<Loader | null>(null)
 
   // 3. Page routes
-  const clientPath = opts.client?.path ?? '/assets/client.js'
+  const clientCfg = typeof opts.client === 'object' ? opts.client : {}
+  const clientPath = clientCfg.path ?? '/assets/client.js'
   const bootstrapModules = [...(opts.bootstrapModules ?? [])]
-  if (opts.client !== undefined && !bootstrapModules.includes(clientPath)) {
+  if (opts.client !== false && !bootstrapModules.includes(clientPath)) {
     bootstrapModules.push(clientPath)
   }
 
@@ -279,8 +280,8 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
     })
   }
 
-  // 5. Client bundle
-  if (opts.client !== undefined) {
+  // 5. Client bundle (enabled by default, disable with client: false)
+  if (opts.client !== false) {
     app.use(esbuildDev({
       entries: {
         [clientPath]: {
@@ -290,8 +291,8 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
             fallback: opts.notFound,
           },
           bundle: true,
-          splitting: opts.client?.splitting ?? true,
-          minify: opts.client?.minify ?? false,
+          splitting: clientCfg.splitting ?? true,
+          minify: clientCfg.minify ?? false,
         },
       },
     }))
