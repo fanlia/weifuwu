@@ -2,7 +2,7 @@ import { createElement, type ReactElement, type ComponentType } from 'react'
 import { renderToReadableStream, type ReactDOMServerReadableStream } from 'react-dom/server'
 import type { Middleware } from '../types.ts'
 import { HttpError } from '../types.ts'
-import type { Router } from '../core/router.ts'
+import { Router } from '../core/router.ts'
 import type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './types.ts'
 import { loadTsxComponent, setReactCacheDir } from './compile.ts'
 import { ServerDataContext } from './context.ts'
@@ -373,6 +373,48 @@ export async function createReactApp(app: Router, opts: ReactAppOptions): Promis
       },
     }))
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// createApp — one function to create a fully configured Router
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Create a React SSR app in one call.
+ * Returns a pre-configured Router with SSR, routing, error handling,
+ * Tailwind CSS, and client bundle generation all set up.
+ *
+ * @example
+ * ```ts
+ * import { createApp, serve } from 'weifuwu'
+ *
+ * const app = await createApp({
+ *   pages: {
+ *     '/':      './pages/Home.tsx',
+ *     '/users': './pages/Users.tsx',
+ *   },
+ *   layout:  './layouts/Root.tsx',
+ *   notFound: './pages/NotFound.tsx',
+ *   tailwind: { entry: './styles/input.css' },
+ *   loaders: {
+ *     '/users': async (ctx) => ({ users: await db.list() }),
+ *   },
+ * })
+ *
+ * app.get('/api/hello', () => Response.json({ message: 'hi' }))
+ * serve(app, { port: 3000 })
+ * ```
+ */
+export async function createApp(opts: ReactAppOptions): Promise<Router> {
+  const app = new Router()
+  // Set up basic middleware (users can add more with app.use() later)
+  const { trace } = await import('../core/trace.ts')
+  const { logger } = await import('../core/logger.ts')
+  app.use(trace())
+  app.use(logger())
+
+  await createReactApp(app, opts)
+  return app
 }
 
 // ═══════════════════════════════════════════════════════════════
