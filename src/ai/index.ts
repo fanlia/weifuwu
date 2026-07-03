@@ -47,7 +47,7 @@ export function ai(opts: AiOptions): Middleware {
         const system = params.system ?? opts.system
 
         if (system) {
-          const hasSystem = messages.some((m: any) => m.role === 'system')
+          const hasSystem = messages.some(m => m.role === 'system')
           if (!hasSystem) {
             messages.unshift({ role: 'system', content: system })
           }
