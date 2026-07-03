@@ -31,7 +31,7 @@ const EXTERNAL_PKGS = [
   'react-dom/client',
   'weifuwu',
   'weifuwu/react',
-  'weifuwu/react/navigation',
+
   'weifuwu/react/client',
 ]
 
@@ -153,7 +153,7 @@ export async function compileForBrowser(entryPath: string): Promise<{ code: stri
     platform: 'browser',
     external: [
       'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client',
-      'weifuwu', 'weifuwu/react', 'weifuwu/react/navigation', 'weifuwu/react/client',
+      'weifuwu', 'weifuwu/react', 'weifuwu/react/client',
     ],
     logLevel: 'silent',
   })

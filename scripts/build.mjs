@@ -49,16 +49,6 @@ await esbuild.build({
   external,
 })
 
-// React navigation — shared primitives (safe for server & client)
-await esbuild.build({
-  entryPoints: [join(srcDir, 'react/navigation.ts')],
-  outfile: join(distDir, 'react/navigation.js'),
-  format: 'esm',
-  platform: 'neutral',
-  bundle: true,
-  external: ['react'],
-})
-
 // React client — separate entry point (for browser bundles)
 await esbuild.build({
   entryPoints: [join(srcDir, 'react/client.ts')],

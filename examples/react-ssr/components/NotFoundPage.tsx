@@ -1,4 +1,4 @@
-import { Link } from 'weifuwu/react/navigation'
+
 
 export function NotFoundPage({ path }: { path: string }) {
   return (
@@ -7,9 +7,9 @@ export function NotFoundPage({ path }: { path: string }) {
       <p className="text-gray-600 mb-4">
         No route matches &quot;{path}&quot;.
       </p>
-      <Link href="/" className="text-blue-600 no-underline hover:underline">
+      <a href="/" className="text-blue-600 no-underline hover:underline">
         ← Go home
-      </Link>
+      </a>
     </div>
   )
 }

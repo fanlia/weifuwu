@@ -20,13 +20,6 @@ function wrapElement(
   return createElement(ServerDataContext.Provider, { value: data }, wrapped)
 }
 
-/**
- * Server-render a React element to a streaming HTML Response.
- *
- * Wraps with layouts + ServerDataContext, then delegates to React's
- * renderToReadableStream. The Layout is responsible for <html>, <head>,
- * <title>, <meta>, and the __WEIFUWU_DATA__ script tag.
- */
 export async function render(
   element: ReactElement,
   layouts: ComponentType<{ children: ReactNode }>[],
@@ -34,14 +27,9 @@ export async function render(
 ): Promise<Response> {
   const data = options.data ?? {}
   const wrapped = wrapElement(element, layouts, data)
-
   const stream = (await renderToReadableStream(wrapped)) as unknown as ReadableStream<Uint8Array>
-
   return new Response(stream, {
     status: options.status ?? 200,
-    headers: {
-      'content-type': 'text/html; charset=utf-8',
-      ...options.headers,
-    },
+    headers: { 'content-type': 'text/html; charset=utf-8', ...options.headers },
   })
 }

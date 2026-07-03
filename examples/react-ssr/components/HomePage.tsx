@@ -1,4 +1,4 @@
-import { Link } from 'weifuwu/react/navigation'
+
 import { Counter } from './Counter.tsx'
 
 export function HomePage() {
@@ -92,19 +92,19 @@ export function HomePage() {
         <h2 className="text-xl font-semibold mb-3">Try it out</h2>
         <ol className="list-decimal pl-5 space-y-1 text-gray-700">
           <li>
-            <Link href="/users">Users</Link>
+            <a href="/users">Users</a>
             {' — SPA nav + Form submit + loading state'}
           </li>
           <li>
-            <Link href="/admin/dashboard">Dashboard</Link>
+            <a href="/admin/dashboard">Dashboard</a>
             {' — streaming SSR + nested layout'}
           </li>
           <li>
-            <Link href="/error">ErrorBoundary</Link>
+            <a href="/error">ErrorBoundary</a>
             {' — error handling demo'}
           </li>
           <li>
-            <Link href="/api/hello">API</Link>
+            <a href="/api/hello">API</a>
             {' — non-React JSON route'}
           </li>
         </ol>

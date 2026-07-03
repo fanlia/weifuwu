@@ -15,10 +15,6 @@
     "./react/client": {
       "types": "./dist/react/client.d.ts",
       "default": "./dist/react/client.js"
-    },
-    "./react/navigation": {
-      "types": "./dist/react/navigation.d.ts",
-      "default": "./dist/react/navigation.js"
     }
   },
   "files": [

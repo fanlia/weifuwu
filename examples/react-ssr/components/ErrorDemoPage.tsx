@@ -1,4 +1,4 @@
-import { Link } from 'weifuwu/react/navigation'
+
 
 export function ErrorDemoPage() {
   return (
@@ -29,12 +29,12 @@ export function ErrorDemoPage() {
       </div>
 
       <p className="text-gray-700 mb-4">
-        The <Link href="/users/1">User Detail page</Link> is wrapped in ErrorBoundary — if user
+        The <a href="/users/1">User Detail page</a> is wrapped in ErrorBoundary — if user
         data causes a render error, the fallback shows.
       </p>
-      <Link href="/" className="text-blue-600 no-underline hover:underline">
+      <a href="/" className="text-blue-600 no-underline hover:underline">
         ← Go home
-      </Link>
+      </a>
     </div>
   )
 }
