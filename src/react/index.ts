@@ -4,7 +4,7 @@ import type { Middleware } from '../types.ts'
 import { HttpError } from '../types.ts'
 import type { Router } from '../core/router.ts'
 import type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './types.ts'
-import { loadTsxComponent, setReactCacheDir } from './compile.ts'
+import { loadTsxComponent, loadTsxModule, setReactCacheDir } from './compile.ts'
 import { ServerDataContext } from './context.ts'
 import { tailwindDev } from '../middleware/tailwind-dev.ts'
 import { esbuildDev } from '../middleware/esbuild-dev.ts'
@@ -222,13 +222,24 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   }
 
   for (const [path, component] of Object.entries(opts.pages)) {
-    const loader = opts.loaders?.[path]
     // eslint-disable-next-line @typescript-eslint/no-loop-func
     app.get(path, async (_req, ctx) => {
       let data: Record<string, unknown> = {}
+
+      // Explicit loader from opts.loaders takes priority
+      const loader = opts.loaders?.[path]
       if (loader) {
         try { data = await loader(ctx) } catch (err) { throw err }
+      } else {
+        // Auto-detect loader from page module exports
+        const mod = await loadTsxModule(component)
+        if (typeof mod.loader === 'function') {
+          try {
+            data = await (mod.loader as (c: typeof ctx) => Promise<Record<string, unknown>>)(ctx)
+          } catch (err) { throw err }
+        }
       }
+
       return ctx.render(component, { ...renderOpts, data })
     })
   }
@@ -237,7 +248,10 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   if (opts.notFound) {
     const notFoundPath = opts.notFound
     app.onError((err, _req, ctx) => {
-      const status = err instanceof HttpError ? err.status : 500
+      // Duck-type: instanceof fails across compiled module boundaries
+      const status = (typeof err === 'object' && err !== null && 'status' in err)
+        ? (err as { status: number }).status
+        : 500
       if (ctx.render) {
         return ctx.render(notFoundPath, { ...renderOpts, status, data: {} })
       }

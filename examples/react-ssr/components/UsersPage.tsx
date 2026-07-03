@@ -1,4 +1,10 @@
+import type { Context } from '../../../src/types.ts'
+import { MOCK_USERS } from '../data.ts'
 import { useServerData } from '../../../src/react/hooks.ts'
+
+export async function loader(_ctx: Context) {
+  return { users: MOCK_USERS }
+}
 
 export function UsersPage() {
   const data = useServerData<{ users: Array<{ id: number; name: string; email: string; bio: string }> }>()

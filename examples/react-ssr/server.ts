@@ -1,11 +1,6 @@
-import { serve, Router, logger, trace, HttpError } from '../../src/index.ts'
+import { serve, Router, logger, trace } from '../../src/index.ts'
 import { react } from '../../src/react/index.ts'
-
-const MOCK_USERS = [
-  { id: 1, name: 'Alice', email: 'alice@example.com', bio: 'Full-stack developer' },
-  { id: 2, name: 'Bob', email: 'bob@example.com', bio: 'Designer & artist' },
-  { id: 3, name: 'Charlie', email: 'charlie@example.com', bio: 'DevOps engineer' },
-]
+import { MOCK_USERS } from './data.ts'
 
 const app = new Router()
   .use(trace())
@@ -23,15 +18,6 @@ const app = new Router()
     layoutExport:  'PageShell',
     notFound:      './components/NotFoundPage.tsx',
     tailwind:      { entry: './styles/input.css' },
-    loaders: {
-      '/users': async () => ({ users: MOCK_USERS }),
-      '/users/:id': async (ctx) => {
-        const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
-        if (!user) throw new HttpError('Not found', 404)
-        return { user }
-      },
-    },
-    client: { minify: false },
   }))
 
 app.post('/users', async (req) => {
