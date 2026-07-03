@@ -129,6 +129,21 @@ export class Router<T extends Context = Context> {
     return this
   }
 
+  /**
+   * Install a plugin — a function that configures the Router with
+   * routes, middleware, and error handlers. Use when `.use()` isn't
+   * enough because you need to call `app.get()`, `app.onError()`, etc.
+   *
+   * @example
+   * ```ts
+   * app.plugin(app => createReactApp(app, { pages: {...}, layout: '...', tailwind: {...} }))
+   * ```
+   */
+  plugin(fn: (app: this) => void): this {
+    fn(this)
+    return this
+  }
+
   mount(path: string, router: Router<Context>): Router<T> {
     this._mountRouter(path, router)
     return this
