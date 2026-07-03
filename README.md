@@ -64,7 +64,8 @@ app.get('/users/:id', (req, ctx) => {
 | `logger(opts?)` | Request logging. `format: 'short' | 'combined' | 'json'`. |
 | `upload(opts?)` | Multipart file upload via `req.formData()`. Injects `ctx.parsed`. |
 | `serveStatic(root, opts?)` | Static file handler. `cacheControl`, `index`. |
-| `trace(opts?)` | Injects `ctx.trace = { requestId, traceId, elapsed(), startTime }`. |
+| `sandbox(opts?)` | Filesystem isolation for agent operations. `baseDir`, `timeout`, `isolateBy`. |
+| `auth(opts?)` | Authentication: JWT, session cookies, API keys. Injects `ctx.user`. |
 
 ### Tracing
 
@@ -313,6 +314,108 @@ import { createBrowserRouter, hydrate, navigate } from 'weifuwu/react/client'
 
 See [examples/react-ssr/](examples/react-ssr/) for the full demo.
 
+### AI Agent
+
+> Requires `ai` (Vercel AI SDK). Install with a model provider:
+> ```bash
+> npm install ai @ai-sdk/openai
+> ```
+
+```ts
+import { agent } from 'weifuwu'
+import { openai } from '@ai-sdk/openai'
+import { tool } from 'ai'
+import { z } from 'zod'
+
+app.use(agent({
+  model: openai('gpt-4o'),
+  system: 'You are a helpful assistant.',
+  knowledge: {
+    // RAG — search a knowledge base before each response
+    search: async (query, ctx) => {
+      const { embeddings } = await embedModel.doEmbed({ values: [query] })
+      return ctx.sql`
+        SELECT content, 1 - (embedding <=> ${embeddings[0]}::vector) AS score
+        FROM docs ORDER BY embedding <=> ${embeddings[0]}::vector LIMIT 3
+      `
+    },
+  },
+  tools: {
+    getWeather: tool({
+      description: 'Get weather for a city',
+      parameters: z.object({ city: z.string() }),
+      execute: async ({ city }) => ({ temp: 22, unit: 'C' }),
+    }),
+  },
+  maxSteps: 5,
+}))
+
+app.post('/api/chat', async (req, ctx) => {
+  const { messages } = await req.json()
+  return ctx.agent.chatStreamResponse({ messages })
+})
+```
+
+**`agent()` handles:** multi-turn conversations, automatic tool-calling loops (maxSteps), knowledge retrieval (RAG) injected into the system prompt, and SSE streaming compatible with `useChat` from `@ai-sdk/react`.
+
+| Feature | Description |
+|---|---|
+| `ctx.agent.chat(prompt, opts?)` | Non-streaming chat with tool calling and RAG |
+| `ctx.agent.chatStreamResponse({ messages })` | SSE streaming response (useChat-compatible) |
+| `knowledge.search` | User-defined RAG callback — query any data source via `ctx` |
+| `tools` | Tool definitions (from `ai` package). Executed in automatic loops |
+| `agents` | Named sub-agents with different models/tools |
+| `sandbox: true` | Auto-integrate with `ctx.sandbox` for file operations |
+| `store` | Session persistence (save/load conversation history) |
+
+### Auth
+
+```ts
+import { auth } from 'weifuwu'
+
+// JWT
+app.use(auth({ jwt: { secret: process.env.JWT_SECRET } }))
+
+// Session cookie
+app.use(auth({
+  session: {
+    secret: '...',
+    loadUser: async (data) => db.findUser(data.userId),
+  },
+}))
+
+// API key
+app.use(auth({ apiKey: { validate: async (key) => db.findByApiKey(key) } }))
+
+// ctx.user is now available
+app.get('/me', (req, ctx) => {
+  if (!ctx.user) return new Response('Unauthorized', { status: 401 })
+  return Response.json(ctx.user)
+})
+```
+
+Supports JWT (HS256 via cookie or Authorization header), signed session cookies with `loadUser` callback, and API key validation. All are optional — requests proceed without a user identity unless handlers enforce it.
+
+### Sandbox
+
+```ts
+import { sandbox } from 'weifuwu'
+
+app.use(sandbox({
+  baseDir: '/tmp/workspaces',
+  timeout: 30000,
+  isolateBy: 'user',  // one directory per ctx.user.id
+}))
+
+// ctx.sandbox provides isolated file + exec operations
+await ctx.sandbox.writeFile('hello.txt', 'world')
+const content = await ctx.sandbox.readFile('hello.txt')
+const { stdout } = await ctx.sandbox.exec('ls -la')
+await ctx.sandbox.destroy()  // clean up workspace
+```
+
+All file paths are validated — escapes (`../`) are rejected. `exec()` enforces timeout and sets `HOME` to the workspace directory. When `isolateBy: 'user'` is set, each user gets their own directory under `baseDir`.
+
 ### Types
 
 | Export | Description |
@@ -368,50 +471,35 @@ app.onError((err, req, ctx) => {
 ## Complete example
 
 ```ts
-import { serve, Router, cors, helmet, compress, logger, trace, rateLimit, postgres, redis, queue, HttpError } from 'weifuwu'
+import { serve, Router, cors, helmet, compress, logger, trace, rateLimit, postgres, redis, auth, sandbox, HttpError } from 'weifuwu'
+import { agent } from 'weifuwu/agent'
+import { react } from 'weifuwu/react'
+import { openai } from '@ai-sdk/openai'
 
 const app = new Router()
+  .use(trace())
+  .use(logger())
+  .use(cors())
+  .use(helmet())
+  .use(compress())
+  .use(postgres())
+  .use(redis())
+  .use(auth({ jwt: { secret: process.env.JWT_SECRET! } }))
+  .use(sandbox({ isolateBy: 'user' }))
+  .use(agent({
+    model: openai('gpt-4o'),
+    system: 'You are a helpful assistant.',
+    knowledge: {
+      search: async (q, ctx) => ctx.sql`...`,
+    },
+    sandbox: true,
+  }))
+  .plugin(react({ pages: { '/': './Chat.tsx' }, layout: './Layout.tsx', tailwind: {} }))
 
-// Global middleware
-app.use(trace())
-app.use(logger())
-app.use(cors())
-app.use(helmet())
-app.use(compress())
-app.use(rateLimit({ windowMs: 60_000, max: 100 }))
-
-// Database
-const sql = postgres()
-app.use(sql)
-
-// Routes
-app.get('/api/users', async (req, ctx) => {
-  const users = await ctx.sql`SELECT id, name FROM users ORDER BY id`
-  return Response.json(users)
-})
-
-app.post('/api/users', async (req, ctx) => {
-  const { name, email } = await req.json()
-  const [user] = await ctx.sql`INSERT INTO users (name,email) VALUES (${name},${email}) RETURNING *`
-  return Response.json(user, { status: 201 })
-})
-
-app.get('/api/users/:id', async (req, ctx) => {
-  const [user] = await ctx.sql`SELECT * FROM users WHERE id = ${ctx.params.id}`
-  if (!user) throw new HttpError('Not found', 404)
-  return Response.json(user)
-})
-
-// WebSocket
-app.ws('/chat', {
-  open(ws, ctx) { ctx.ws.join('lobby') },
-  message(ws, ctx, data) { ctx.ws.sendRoom('lobby', { text: data.toString() }) },
-})
-
-// Error handling
-app.onError((err) => {
-  if (err instanceof HttpError) return Response.json({ error: err.message }, { status: err.status })
-  return Response.json({ error: 'Internal error' }, { status: 500 })
+app.post('/api/chat', async (req, ctx) => {
+  if (!ctx.user) return new Response('Unauthorized', { status: 401 })
+  const { messages } = await req.json()
+  return ctx.agent.chatStreamResponse({ messages })
 })
 
 serve(app, { port: 3000 })
@@ -432,6 +520,7 @@ weifuwu/
 │   ├── types.ts
 │   ├── core/               ← serve, router, ws, trace, logger
 │   ├── middleware/          ← cors, helmet, compress, rate-limit, static, upload
+│   ├── ai/                  ← AI + agent middleware
 │   ├── postgres/
 │   ├── redis/
 │   ├── react/              ← react SSR (render, navigation, client)
