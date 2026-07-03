@@ -259,13 +259,24 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   // 4. Error handler
   if (opts.notFound) {
     const notFoundPath = opts.notFound
-    app.onError((err, _req, ctx) => {
-      // Duck-type: instanceof fails across compiled module boundaries
+    // Pre-load notFound module to detect exported loader
+    let notFoundLoader: ((ctx: Context) => Promise<Record<string, unknown>>) | null = null
+    loadTsxModule(notFoundPath).then(mod => {
+      if (typeof mod.loader === 'function') {
+        notFoundLoader = mod.loader as typeof notFoundLoader
+      }
+    })
+
+    app.onError(async (err, _req, ctx) => {
       const status = (typeof err === 'object' && err !== null && 'status' in err)
         ? (err as { status: number }).status
         : 500
       if (ctx.render) {
-        return ctx.render(notFoundPath, { ...renderOpts, status, data: {} })
+        let data: Record<string, unknown> = { error: String(err) }
+        if (notFoundLoader) {
+          try { data = { ...data, ...await notFoundLoader(ctx) } } catch { /* ignore */ }
+        }
+        return ctx.render(notFoundPath, { ...renderOpts, status, data })
       }
       return new Response('Internal Server Error', { status })
     })
