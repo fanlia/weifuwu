@@ -209,9 +209,15 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   app.use(react({ layout: opts.layout, cacheDir: opts.cacheDir }))
 
   // 3. Page routes
+  const clientPath = opts.client?.path ?? '/assets/client.js'
+  const bootstrapModules = [...(opts.bootstrapModules ?? [])]
+  if (opts.client !== undefined && !bootstrapModules.includes(clientPath)) {
+    bootstrapModules.push(clientPath)
+  }
+
   const renderOpts: RenderOptions = {
     stylesheets: stylesheets.length > 0 ? stylesheets : undefined,
-    bootstrapModules: opts.bootstrapModules,
+    bootstrapModules: bootstrapModules.length > 0 ? bootstrapModules : undefined,
     stream: opts.stream,
   }
 
@@ -243,7 +249,7 @@ function createFullReactApp(app: Router, opts: ReactAppOptions): void {
   if (opts.client !== undefined) {
     app.use(esbuildDev({
       entries: {
-        [opts.client?.path ?? '/assets/client.js']: {
+        [clientPath]: {
           clientRouter: {
             pages: opts.pages,
             layout: opts.layout,
