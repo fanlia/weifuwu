@@ -1,4 +1,5 @@
 import { mount } from './lib/weifuwu.ts'
+import { PageShell } from './components/PageShell.tsx'
 
 const pathname = window.location.pathname
 
@@ -20,5 +21,5 @@ if (pathname === '/') {
 
 loader.then(mod => {
   const Component = mod.default || Object.values(mod).find(v => typeof v === 'function')
-  if (Component) mount(Component)
+  if (Component) mount(Component, PageShell)
 })

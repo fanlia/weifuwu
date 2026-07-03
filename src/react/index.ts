@@ -1,7 +1,7 @@
-import { createElement, type ReactElement } from 'react'
+import { createElement, type ReactElement, type ComponentType } from 'react'
 import { renderToReadableStream } from 'react-dom/server'
 import type { Middleware } from '../types.ts'
-import type { RenderOptions } from './types.ts'
+import type { ReactOptions, RenderOptions } from './types.ts'
 import { loadTsxComponent } from './compile.ts'
 import { ServerDataContext } from './context.ts'
 
@@ -84,12 +84,42 @@ function HtmlShell({ children, importMap, stylesheets, data }: {
  * }))
  * ```
  */
-export function react(): Middleware {
+export function react(opts?: ReactOptions): Middleware {
+  // Pre-load layout component once at startup (it's shared across all routes)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let LayoutComponent: ComponentType<any> | null = null
+  let layoutLoaded = false
+  let layoutLoadError: Error | null = null
+
+  async function getLayout() {
+    if (!opts?.layout) return null
+    if (layoutLoaded) {
+      if (layoutLoadError) throw layoutLoadError
+      return LayoutComponent
+    }
+    try {
+      LayoutComponent = await loadTsxComponent(opts.layout)
+      layoutLoaded = true
+      return LayoutComponent
+    } catch (err) {
+      layoutLoadError = err instanceof Error ? err : new Error(String(err))
+      layoutLoaded = true
+      throw layoutLoadError
+    }
+  }
 
   return async (_req, ctx, next) => {
     ctx.render = async (path: string, renderOpts?: RenderOptions) => {
       const Component = await loadTsxComponent(path)
-      let element: ReactElement = createElement(Component, {})
+      let element: ReactElement = createElement(Component, renderOpts?.props ?? {})
+
+      // Wrap in layout if configured
+      if (opts?.layout) {
+        const Layout = await getLayout()
+        if (Layout) {
+          element = createElement(Layout, { children: element })
+        }
+      }
 
       // Wrap in ServerDataContext if data is provided
       if (renderOpts?.data) {
@@ -119,4 +149,4 @@ export function react(): Middleware {
 
 export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'
-export type { RenderOptions } from './types.ts'
+export type { ReactOptions, RenderOptions } from './types.ts'

@@ -16,7 +16,7 @@ app.use(esbuildDev({
     '/assets/client.js': { entry: './client.ts', bundle: true, splitting: true, minify: false },
   },
 }))
-app.use(react())
+app.use(react({ layout: './components/PageShell.tsx' }))
 
 const ROPTS = { stylesheets: ['/assets/tailwind.css'], bootstrapModules: ['/assets/client.js'] } as const
 

@@ -1,5 +1,5 @@
-import { createElement } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createElement, type ComponentType, type ReactNode } from 'react'
+import { hydrateRoot } from 'react-dom/client'
 import { createContext, useContext } from 'react'
 
 const CTX_KEY = Symbol.for('weifuwu.react.ServerDataContext')
@@ -13,6 +13,10 @@ export function useServerData<T = Record<string, unknown>>(): T {
   return {} as T
 }
 
-export function mount(App: any) {
-  createRoot(document.getElementById('root')!).render(createElement(App))
+export function mount(App: ComponentType, layout?: ComponentType<{ children: ReactNode }>) {
+  let element = createElement(App)
+  if (layout) {
+    element = createElement(layout, { children: element })
+  }
+  hydrateRoot(document.getElementById('root')!, element)
 }

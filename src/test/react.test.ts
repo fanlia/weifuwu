@@ -8,6 +8,7 @@ import { react } from '../react/index.ts'
 import type { Server } from '../core/serve.ts'
 
 const TEST_DIR = resolve(process.cwd(), 'src/test/.react-test-pages')
+const LAYOUT_DIR = resolve(process.cwd(), 'src/test/.react-test-layouts')
 
 describe('react SSR', () => {
   let servers: Server[] = []
@@ -19,6 +20,7 @@ describe('react SSR', () => {
 
   before(async () => {
     await mkdir(TEST_DIR, { recursive: true })
+    await mkdir(LAYOUT_DIR, { recursive: true })
     await writeFile(resolve(TEST_DIR, 'Hello.tsx'), `
       import { useServerData } from 'weifuwu/react'
       export function Hello() {
@@ -38,10 +40,33 @@ describe('react SSR', () => {
         return <html><body><div>{JSON.stringify(data)}</div></body></html>
       }
     `)
+    await writeFile(resolve(TEST_DIR, 'PropsPage.tsx'), `
+      export default function PropsPage({ title, count }: { title: string; count: number }) {
+        return <html><body><h1>{title}</h1><span>{count}</span></body></html>
+      }
+    `)
+    await writeFile(resolve(TEST_DIR, 'BodyContent.tsx'), `
+      export default function BodyContent() {
+        return <section>inner content</section>
+      }
+    `)
+    await writeFile(resolve(LAYOUT_DIR, 'Root.tsx'), `
+      export default function Root({ children }: { children: any }) {
+        return <><header>Site Header</header>{children}<footer>Site Footer</footer></>
+      }
+    `)
+    await writeFile(resolve(LAYOUT_DIR, 'DataLayout.tsx'), `
+      import { useServerData } from 'weifuwu/react'
+      export default function DataLayout({ children }: { children: any }) {
+        const data = useServerData()
+        return <><nav>{data?.user as string}</nav>{children}</>
+      }
+    `)
   })
 
   after(async () => {
     await rm(TEST_DIR, { recursive: true, force: true })
+    await rm(LAYOUT_DIR, { recursive: true, force: true })
   })
 
   function start(app: Router): Server {
@@ -138,5 +163,99 @@ describe('react SSR', () => {
 
     assert.deepEqual(await (await fetch(`http://localhost:${s.port}/api`)).json(), { ok: true })
     assert.match(await (await fetch(`http://localhost:${s.port}/page`)).text(), /<main>hi<\/main>/)
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // Props passthrough
+  // ═══════════════════════════════════════════════════════════════
+
+  it('passes props to the page component', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/PropsPage.tsx', {
+        props: { title: 'My Page', count: 42 },
+      }),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(text, /<h1>My Page<\/h1>/)
+    assert.match(text, /<span>42<\/span>/)
+  })
+
+  it('props do not leak into useServerData', async () => {
+    const app = new Router()
+    app.use(react())
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/DataPage.tsx', {
+        props: { notData: 'should not appear' },
+        data: { user: 'Bob' },
+      }),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    // Props are not in data context — only data is
+    assert.match(text, /user.*Bob/)
+    assert.doesNotMatch(text, /should not appear/)
+  })
+
+  // ═══════════════════════════════════════════════════════════════
+  // Layout wrapping
+  // ═══════════════════════════════════════════════════════════════
+
+  it('wraps page with layout component', async () => {
+    const app = new Router()
+    app.use(react({ layout: 'src/test/.react-test-layouts/Root.tsx' }))
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/BodyContent.tsx'),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    // Layout header and footer should appear
+    assert.match(text, /Site Header/)
+    assert.match(text, /Site Footer/)
+    // Page content should be between them
+    assert.match(text, /inner content/)
+    // Layout is wrapped in HtmlShell (has doctype, html, body)
+    assert.match(text, /^<!DOCTYPE html>/)
+  })
+
+  it('layout can access useServerData', async () => {
+    const app = new Router()
+    app.use(react({ layout: 'src/test/.react-test-layouts/DataLayout.tsx' }))
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/Check.tsx', {
+        data: { user: 'Carol' },
+      }),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(text, /<nav>Carol<\/nav>/)
+  })
+
+  it('layout + props both work together', async () => {
+    const app = new Router()
+    app.use(react({ layout: 'src/test/.react-test-layouts/Root.tsx' }))
+    app.get('/', async (_req, ctx) =>
+      ctx.render('src/test/.react-test-pages/PropsPage.tsx', {
+        props: { title: 'Layered', count: 99 },
+      }),
+    )
+
+    const s = start(app)
+    await s.ready
+    const text = await (await fetch(`http://localhost:${s.port}/`)).text()
+    assert.match(text, /Site Header/)
+    assert.match(text, /<h1>Layered<\/h1>/)
+    assert.match(text, /<span>99<\/span>/)
+    assert.match(text, /Site Footer/)
   })
 })

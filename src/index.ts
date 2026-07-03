@@ -37,7 +37,7 @@ export { queue } from './queue/index.ts'
 export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types.ts'
 
 export { react } from './react/index.ts'
-export type { RenderOptions } from './react/types.ts'
+export type { ReactOptions, RenderOptions } from './react/types.ts'
 export { useServerData, ServerDataContext } from './react/index.ts'
 
 

@@ -10,6 +10,28 @@ declare module '../types.ts' {
   }
 }
 
+/** Options for the react() middleware. */
+export interface ReactOptions {
+  /**
+   * Path to a shared layout component (relative to cwd or absolute).
+   * The layout wraps every rendered page as its `children`.
+   * Layout + page are wrapped in HtmlShell for <html>/<head>/<body> structure.
+   *
+   * The layout component receives `{ children: ReactNode }`.
+   * Both layout and page can use `useServerData()`.
+   *
+   * @example
+   * ```tsx
+   * // layouts/Root.tsx
+   * export default function Root({ children }: { children: ReactNode }) {
+   *   const { user } = useServerData()
+   *   return <><Nav user={user} /><main>{children}</main><Footer /></>
+   * }
+   * ```
+   */
+  layout?: string
+}
+
 export interface BootstrapScriptDescriptor {
   src: string
   crossOrigin?: string
@@ -17,6 +39,8 @@ export interface BootstrapScriptDescriptor {
 }
 
 export interface RenderOptions {
+  /** Props passed directly to the page component. */
+  props?: Record<string, unknown>
   /** Data passed to useServerData() in the component tree. */
   data?: Record<string, unknown>
   /** HTTP status code (default 200). */
