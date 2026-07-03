@@ -1,4 +1,4 @@
-import type { Middleware, User } from '../types.ts'
+import type { Middleware, User, Context } from '../types.ts'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 // ═══════════════════════════════════════════════════════════════
@@ -29,8 +29,8 @@ export interface AuthOptions {
     secret: string
     /** Cookie name (default: 'session'). */
     cookie?: string
-    /** Load user from session data. */
-    loadUser: (data: Record<string, unknown>) => Promise<User | null> | User | null
+    /** Load user from session data. `ctx` has `ctx.sql`, `ctx.redis`, etc. */
+    loadUser: (data: Record<string, unknown>, ctx: Context) => Promise<User | null> | User | null
   }
   /**
    * API key authentication via header.
@@ -43,8 +43,8 @@ export interface AuthOptions {
     header?: string
     /** Prefix to strip (default: 'Bearer '). */
     prefix?: string
-    /** Validate an API key → User or null. */
-    validate: (key: string) => Promise<User | null> | User | null
+    /** Validate an API key → User or null. `ctx` has `ctx.sql`, `ctx.redis`, etc. */
+    validate: (key: string, ctx: Context) => Promise<User | null> | User | null
   }
 }
 
@@ -89,12 +89,12 @@ function parseCookie(cookieHeader: string | null, name: string): string | null {
  * app.use(auth({
  *   session: {
  *     secret: '...',
- *     loadUser: async (data) => db.findUser(data.userId),
+ *     loadUser: async (data, ctx) => ctx.sql`SELECT * FROM users WHERE id = ${data.userId}`,
  *   },
  * }))
  *
  * // API key
- * app.use(auth({ apiKey: { validate: async (key) => db.findByApiKey(key) } }))
+ * app.use(auth({ apiKey: { validate: async (key, ctx) => ctx.sql`...` } }))
  * ```
  */
 export function auth(opts: AuthOptions): Middleware {
@@ -144,7 +144,7 @@ export function auth(opts: AuthOptions): Middleware {
           if (sigBuf.length === expectedBuf.length &&
               timingSafeEqual(sigBuf, expectedBuf)) {
             const data = JSON.parse(base64urlDecode(dataB64))
-            const user = await opts.session.loadUser(data)
+            const user = await opts.session.loadUser(data, ctx)
             if (user) ctx.user = user
           }
         } catch {
@@ -161,7 +161,7 @@ export function auth(opts: AuthOptions): Middleware {
 
       if (raw?.startsWith(prefix)) {
         const key = raw.slice(prefix.length)
-        const user = await opts.apiKey.validate(key)
+        const user = await opts.apiKey.validate(key, ctx)
         if (user) ctx.user = user
       }
     }

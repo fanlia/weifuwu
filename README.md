@@ -380,12 +380,12 @@ app.use(auth({ jwt: { secret: process.env.JWT_SECRET } }))
 app.use(auth({
   session: {
     secret: '...',
-    loadUser: async (data) => db.findUser(data.userId),
+    loadUser: async (data, ctx) => ctx.sql`SELECT * FROM users WHERE id = ${data.userId}`,
   },
 }))
 
 // API key
-app.use(auth({ apiKey: { validate: async (key) => db.findByApiKey(key) } }))
+app.use(auth({ apiKey: { validate: async (key, ctx) => ctx.sql`SELECT * FROM users WHERE api_key = ${key}` } }))
 
 // ctx.user is now available
 app.get('/me', (req, ctx) => {
