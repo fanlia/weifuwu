@@ -41,6 +41,8 @@ export interface EsbuildDevEntry {
   format?: 'esm' | 'iife'
   /** Generate sourcemaps (default: false). */
   sourcemap?: boolean | 'inline' | 'external' | 'linked'
+  /** Enable code splitting for dynamic import() (default: false). */
+  splitting?: boolean
   /** Compile-time constant substitution. */
   define?: Record<string, string>
   /** Custom loaders per file extension. */
@@ -66,6 +68,7 @@ interface CacheEntry {
   code: string
   etag: string
   files: Map<string, number> // file path → mtimeMs
+  chunks?: Map<string, { code: string; etag: string }>
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -177,8 +180,10 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
     return { path, config }
   })
 
-  // In-memory cache
+  // In-memory cache (path → entry; also stores chunks keyed by chunk name)
   const cacheStore = new Map<string, CacheEntry>()
+  // Chunk paths know which entry they belong to
+  const chunkMap = new Map<string, string>() // chunkName → entryPath
 
   // esbuild instance (lazy-loaded)
   let esbuild_: Esbuild | null = null
@@ -225,7 +230,7 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
     return `<script type="importmap">${json}</script>`
   }
 
-  async function compile(entry: EsbuildDevEntry): Promise<{ code: string; etag: string }> {
+  async function compile(entry: EsbuildDevEntry): Promise<{ code: string; etag: string; chunks?: Map<string, { code: string; etag: string }> }> {
     const esbuild = await getEsbuild()
 
     const entryAbs = resolve(entry.entry)
@@ -238,6 +243,8 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       platform: entry.platform ?? 'browser',
       format: entry.format ?? 'esm',
       sourcemap: entry.sourcemap ?? false,
+      splitting: entry.splitting ?? false,
+      ...(entry.splitting ? { outdir: dirname(entryAbs) } : {}),
       define: entry.define,
       loader: entry.loader as Record<string, import('esbuild').Loader> | undefined,
       write: false,
@@ -259,8 +266,22 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       throw new Error(msgs.join('\n'))
     }
 
-    const code = result.outputFiles[0]?.text ?? ''
-    // Simple hash-based ETag
+    // With splitting, esbuild produces multiple output files.
+    // The first one is the entry, the rest are chunks.
+    const entryFile = result.outputFiles.find(f => f.path === entryAbs)
+      ?? result.outputFiles[0]
+    const code = entryFile?.text ?? ''
+
+    let chunks: Map<string, { code: string; etag: string }> | undefined
+    if (result.outputFiles.length > 1) {
+      chunks = new Map()
+      for (const f of result.outputFiles) {
+        if (f === entryFile) continue
+        const chunkName = f.path.split('/').pop() ?? f.path
+        chunks.set(chunkName, { code: f.text, etag: `"esbuild-${hashCode(f.text)}"` })
+      }
+    }
+
     const etag = `"esbuild-${hashCode(code)}"`
 
     // Log warnings to stderr
@@ -269,7 +290,7 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       console.error('[esbuildDev]', msgs.join('\n'))
     }
 
-    return { code, etag }
+    return { code, etag, chunks }
   }
 
   function isCacheValid(cached: CacheEntry): Promise<boolean> {
@@ -302,11 +323,33 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
       })
     }
 
-    // Match entry
+    // Match entry or chunk
     const matched = entries.find(e => e.path === pathname)
-    if (!matched) return next(req, ctx)
+    const chunkName = pathname.split('/').pop() ?? ''
+    const chunkOwner = chunkMap.get(chunkName)
 
-    const { config } = matched
+    if (!matched && !chunkOwner) return next(req, ctx)
+
+    // Serve a cached chunk
+    if (!matched && chunkOwner) {
+      const ownerCache = cacheStore.get(chunkOwner)
+      const chunk = ownerCache?.chunks?.get(chunkName)
+      if (chunk) {
+        if (req.headers.get('if-none-match') === chunk.etag) {
+          return new Response(null, { status: 304 })
+        }
+        return new Response(chunk.code, {
+          headers: {
+            'Content-Type': 'text/javascript; charset=utf-8',
+            ETag: chunk.etag,
+            'Cache-Control': 'no-cache',
+          },
+        })
+      }
+      return next(req, ctx)
+    }
+
+    const { config } = matched!
 
     try {
       // Check cache
@@ -327,20 +370,24 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
               },
             })
           }
-          // Cache invalidated — drop it
+          // Cache invalidated — drop it and its chunks
+          for (const [cn] of cached.chunks ?? []) chunkMap.delete(cn)
           cacheStore.delete(pathname)
         }
       }
 
       // Compile
-      const { code, etag } = await compile(config)
+      const { code, etag, chunks } = await compile(config)
 
       // Collect dependency files for cache invalidation
       const deps = await collectDeps(resolve(config.entry))
 
-      // Store cache
+      // Store cache (including chunks)
       if (cache === 'memory') {
-        cacheStore.set(pathname, { code, etag, files: deps })
+        cacheStore.set(pathname, { code, etag, files: deps, chunks })
+        if (chunks) {
+          for (const [cn] of chunks) chunkMap.set(cn, pathname)
+        }
       }
 
       return new Response(code, {

@@ -1,4 +1,5 @@
 // Re-export react and react-dom/client for vendor bundle
+// Using unbundled approach — esbuild copies each import, preserving React's internal module structure
 export {
   createElement,
   useState,

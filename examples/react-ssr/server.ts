@@ -13,27 +13,27 @@ app.use(logger())
 app.use(tailwindDev({ entries: { '/assets/tailwind.css': { entry: './styles/input.css' } } }))
 app.use(esbuildDev({
   entries: {
-    '/assets/vendor.js': { entry: './vendor.ts', bundle: true, minify: false },
-    '/assets/client.js': { entry: './client.ts', bundle: true, external: ['react', 'react-dom/client', 'react/jsx-runtime'], minify: false },
+    '/assets/client.js': { entry: './client.ts', bundle: true, splitting: true, minify: false },
   },
 }))
+app.use(react())
 
-app.use(react({ layout: './components/Layout.tsx' }))
+const ROPTS = { stylesheets: ['/assets/tailwind.css'], bootstrapModules: ['/assets/client.js'] } as const
 
-app.get('/', (_req, ctx) => ctx.render('./components/HomePage.tsx'))
-app.get('/users', (_req, ctx) => ctx.render('./components/UsersPage.tsx', { data: { users: MOCK_USERS } }))
-app.get('/users/:id', async (req, ctx) => {
+app.get('/', (_req, ctx) => ctx.render('./components/HomePage.tsx', ROPTS))
+app.get('/users', (_req, ctx) => ctx.render('./components/UsersPage.tsx', { ...ROPTS, data: { users: MOCK_USERS } }))
+app.get('/users/:id', (_req, ctx) => {
   const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
-  if (!user) return ctx.render('./components/NotFoundPage.tsx', { status: 404, props: { path: `/users/${ctx.params.id}` } })
-  return ctx.render('./components/UserDetailPage.tsx', { data: { user } })
+  if (!user) return ctx.render('./components/NotFoundPage.tsx', { ...ROPTS, status: 404 })
+  return ctx.render('./components/UserDetailPage.tsx', { ...ROPTS, data: { user } })
 })
-app.get('/error', (_req, ctx) => ctx.render('./components/ErrorDemoPage.tsx'))
+app.get('/error', (_req, ctx) => ctx.render('./components/ErrorDemoPage.tsx', ROPTS))
 
 const admin = new Router()
-admin.get('/dashboard', (_req, ctx) => ctx.render('./components/DashboardPage.tsx'))
+admin.get('/dashboard', (_req, ctx) => ctx.render('./components/DashboardPage.tsx', ROPTS))
 app.mount('/admin', admin)
 
-app.post('/users', async (req, ctx) => {
+app.post('/users', async (req) => {
   const formData = await req.formData()
   MOCK_USERS.push({ id: MOCK_USERS.length + 1, name: String(formData.get('name') ?? ''), email: String(formData.get('email') ?? ''), bio: '' })
   return new Response(null, { status: 302, headers: { Location: '/users' } })
@@ -41,7 +41,7 @@ app.post('/users', async (req, ctx) => {
 app.get('/api/hello', () => Response.json({ message: 'Hello from weifuwu API!', time: new Date().toISOString() }))
 app.onError((err, _req, ctx) => {
   console.error('Unhandled error:', err)
-  if (ctx.render) return ctx.render('./components/NotFoundPage.tsx', { status: 500, props: { path: 'server error' } })
+  if (ctx.render) return ctx.render('./components/NotFoundPage.tsx', { ...ROPTS, status: 500 })
   return new Response('Internal Server Error', { status: 500 })
 })
 

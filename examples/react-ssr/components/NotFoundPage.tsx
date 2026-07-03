@@ -1,15 +1,13 @@
+import { PageShell } from './PageShell.tsx'
 
-
-export function NotFoundPage({ path }: { path: string }) {
+export function NotFoundPage() {
   return (
-    <div className="rounded-lg border-2 border-red-500 p-6">
-      <h1 className="text-2xl font-bold mb-2">404 — Page Not Found</h1>
-      <p className="text-gray-600 mb-4">
-        No route matches &quot;{path}&quot;.
-      </p>
-      <a href="/" className="text-blue-600 no-underline hover:underline">
-        ← Go home
-      </a>
-    </div>
+    <PageShell>
+      <div className="text-center py-16">
+        <h1 className="text-6xl font-bold text-gray-300 mb-4">404</h1>
+        <p className="text-gray-600 text-lg mb-8">Page not found</p>
+        <a href="/" className="text-blue-600 hover:underline">Go Home</a>
+      </div>
+    </PageShell>
   )
 }

@@ -27,10 +27,12 @@ export interface HydrateOptions {
   container?: HTMLElement
 }
 
-/** Hydrate a component into #root, reusing server-rendered DOM. */
+/**
+ * Hydrate a full-page component. Default container is document.documentElement
+ * since the server renders <html> as root.
+ */
 export function hydrate(App: ComponentType, opts?: HydrateOptions) {
-  const container = opts?.container ?? document.getElementById('root')
-  if (!container) throw new Error('weifuwu/react: hydrate() — no #root element found.')
+  const container = opts?.container ?? document.documentElement
   const data = readInitialData()
   hydrateRoot(
     container,

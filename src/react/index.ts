@@ -1,61 +1,122 @@
-import { Fragment, createElement, type ReactElement, type ComponentType, type ReactNode } from 'react'
-import type { Context, Middleware } from '../types.ts'
-import type { ReactOptions, RenderOptions } from './types.ts'
-import { render as renderImpl } from './render.ts'
+import { createElement, type ReactElement } from 'react'
+import { renderToReadableStream } from 'react-dom/server'
+import type { Middleware } from '../types.ts'
+import type { RenderOptions } from './types.ts'
 import { loadTsxComponent } from './compile.ts'
+import { ServerDataContext } from './context.ts'
 
-const LAYOUTS_KEY = Symbol.for('weifuwu:react:layouts')
-const SETUP_KEY = Symbol.for('weifuwu:react:setup')
+// ═══════════════════════════════════════════════════════════════
+// HtmlShell
+// ═══════════════════════════════════════════════════════════════
 
-type InternalBag = Record<string | symbol, unknown>
-function bag(ctx: Context): InternalBag { return ctx as unknown as InternalBag }
-
-function isDataRequest(req: Request): boolean {
-  try { return new URL(req.url).searchParams.has('_data') } catch { return false }
-}
-
-type LayoutSpec = ComponentType<{ children: ReactNode }> | string
-
-async function resolveLayout(spec: LayoutSpec): Promise<ComponentType<{ children: ReactNode }>> {
-  if (typeof spec === 'string') return loadTsxComponent(spec)
-  return spec
-}
-
-async function resolveElement(
-  value: ReactElement | string,
-  props?: Record<string, unknown>,
-): Promise<ReactElement> {
-  if (typeof value === 'string') {
-    const component = await loadTsxComponent(value)
-    return createElement(component, props && Object.keys(props).length > 0 ? props : {})
-  }
-  return value
-}
-
-export function react(opts: ReactOptions = {}): Middleware {
-  const layoutSpec: LayoutSpec = opts.layout ?? Fragment
-
-  return (req, ctx, next) => {
-    const b = bag(ctx)
-    const specs: LayoutSpec[] = (b[LAYOUTS_KEY] as LayoutSpec[]) ?? []
-    b[LAYOUTS_KEY] = specs
-    specs.push(layoutSpec)
-
-    if (!b[SETUP_KEY]) {
-      b[SETUP_KEY] = true
-      ctx.render = async (element: ReactElement | string, renderOpts?: RenderOptions) => {
-        if (renderOpts?.data && isDataRequest(req)) {
-          return Response.json(renderOpts.data)
-        }
-        const el = await resolveElement(element, renderOpts?.props)
-        const layouts = await Promise.all(specs.map(resolveLayout))
-        return renderImpl(el, layouts, renderOpts)
-      }
+function HtmlShell({ children, importMap, stylesheets, data }: {
+  children: ReactElement
+  importMap?: { imports?: Record<string, string> }
+  stylesheets?: string[]
+  data?: Record<string, unknown>
+}): ReactElement {
+  const headChildren: ReactElement[] = [
+    createElement('meta', { charSet: 'utf-8', key: 'charset' }) as unknown as ReactElement,
+    createElement('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1', key: 'viewport' }) as unknown as ReactElement,
+  ]
+  if (stylesheets) {
+    for (const href of stylesheets) {
+      headChildren.push(
+        createElement('link', { rel: 'stylesheet', href, key: `css-${href}` }) as unknown as ReactElement,
+      )
     }
-    return next(req, ctx)
+  }
+  if (importMap) {
+    headChildren.push(
+      createElement('script', {
+        type: 'importmap',
+        key: 'importmap',
+        dangerouslySetInnerHTML: { __html: JSON.stringify(importMap) },
+      }) as unknown as ReactElement,
+    )
+  }
+
+  const bodyChildren: ReactElement[] = [
+    createElement('div', { id: 'root', key: 'root' }, children),
+  ]
+
+  // Inject server data for client-side useServerData()
+  if (data && Object.keys(data).length > 0) {
+    bodyChildren.push(
+      createElement('script', {
+        id: '__WEIFUWU_DATA__',
+        type: 'application/json',
+        key: 'weifuwu-data',
+        dangerouslySetInnerHTML: { __html: JSON.stringify(data).replace(/</g, '\\u003c') },
+      }) as unknown as ReactElement,
+    )
+  }
+
+  return createElement('html', { lang: 'en' },
+    createElement('head', null, ...headChildren),
+    createElement('body', null, ...bodyChildren),
+  ) as unknown as ReactElement
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Layout cache
+// ═══════════════════════════════════════════════════════════════
+// react() middleware
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * React SSR middleware — injects `ctx.render(path, opts?)`.
+ *
+ * Options:
+ * - `layout`: Wrap every page in a shared layout component (nav, footer, etc.)
+ *
+ * For Tailwind CSS: use `tailwindDev` middleware.
+ * For client bundles: use `esbuildDev` middleware.
+ *
+ * @example
+ * ```ts
+ * app.use(tailwindDev({ '/assets/tailwind.css': { entry: './styles/input.css' } }))
+ * app.use(esbuildDev({ '/assets/client.js': { entry: './client.ts', ... } }))
+ * app.use(react({ layout: './components/PageShell.tsx' }))
+ * app.get('/', (_req, ctx) => ctx.render('./pages/HomePage.tsx', {
+ *   stylesheets: ['/assets/tailwind.css'],
+ *   bootstrapModules: ['/assets/client.js'],
+ * }))
+ * ```
+ */
+export function react(): Middleware {
+
+  return async (_req, ctx, next) => {
+    ctx.render = async (path: string, renderOpts?: RenderOptions) => {
+      const Component = await loadTsxComponent(path)
+      let element: ReactElement = createElement(Component, {})
+
+      // Wrap in ServerDataContext if data is provided
+      if (renderOpts?.data) {
+        element = createElement(ServerDataContext.Provider, { value: renderOpts.data }, element)
+      }
+
+      const page = createElement(HtmlShell, {
+        children: element,
+        importMap: renderOpts?.importMap,
+        stylesheets: renderOpts?.stylesheets,
+        data: renderOpts?.data,
+      })
+
+      const stream = await renderToReadableStream(page, {
+        bootstrapScripts: renderOpts?.bootstrapScripts,
+        bootstrapModules: renderOpts?.bootstrapModules,
+      }) as unknown as ReadableStream<Uint8Array>
+
+      return new Response(stream, {
+        status: renderOpts?.status ?? 200,
+        headers: { 'content-type': 'text/html; charset=utf-8', ...renderOpts?.headers },
+      })
+    }
+    return next(_req, ctx)
   }
 }
 
 export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'
-export type { ReactOptions, RenderOptions } from './types.ts'
+export type { RenderOptions } from './types.ts'
