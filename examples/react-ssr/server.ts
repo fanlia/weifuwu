@@ -1,5 +1,5 @@
 import { serve, Router, logger, trace, HttpError } from '../../src/index.ts'
-import { createReactApp } from '../../src/react/create-app.ts'
+import { react } from '../../src/react/index.ts'
 
 const MOCK_USERS = [
   { id: 1, name: 'Alice', email: 'alice@example.com', bio: 'Full-stack developer' },
@@ -10,7 +10,7 @@ const MOCK_USERS = [
 const app = new Router()
   .use(trace())
   .use(logger())
-  .plugin(app => createReactApp(app, {
+  .plugin(react({
     pages: {
       '/':              './components/HomePage.tsx',
       '/users':         './components/UsersPage.tsx',

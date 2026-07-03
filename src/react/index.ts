@@ -3,9 +3,11 @@ import { renderToReadableStream, type ReactDOMServerReadableStream } from 'react
 import type { Middleware } from '../types.ts'
 import { HttpError } from '../types.ts'
 import type { Router } from '../core/router.ts'
-import type { ReactOptions, RenderOptions, ReactRouterOptions } from './types.ts'
+import type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './types.ts'
 import { loadTsxComponent, setReactCacheDir } from './compile.ts'
 import { ServerDataContext } from './context.ts'
+import { tailwindDev } from '../middleware/tailwind-dev.ts'
+import { esbuildDev } from '../middleware/esbuild-dev.ts'
 
 // ═══════════════════════════════════════════════════════════════
 // HtmlShell
@@ -122,11 +124,28 @@ async function renderComponent(
  * }))
  * ```
  */
-export function react(opts?: ReactOptions): Middleware {
-  // Configure compilation cache directory
+/**
+ * React SSR middleware — injects `ctx.render(path, opts?)`.
+ *
+ * **Lightweight mode** (no `pages`): returns middleware for `app.use()`.
+ * Use with manual `app.get()` + `ctx.render()`.
+ *
+ * **Full mode** (has `pages`): returns a plugin for `app.plugin()`.
+ * Handles routing, data loading, Tailwind, client bundle, and error pages.
+ */
+export function react(opts?: ReactOptions): Middleware
+export function react(opts: ReactAppOptions): (app: Router) => void
+export function react(
+  opts?: ReactOptions | ReactAppOptions,
+): Middleware | ((app: Router) => void) {
+  // Full mode: pages → plugin
+  if (opts && 'pages' in opts) {
+    return (app: Router) => createFullReactApp(app, opts)
+  }
+
+  // Lightweight mode: middleware
   if (opts?.cacheDir) setReactCacheDir(opts.cacheDir)
 
-  // Pre-load layout component once at startup (it's shared across all routes)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let LayoutComponent: ComponentType<any> | null = null
   let layoutLoaded = false
@@ -151,14 +170,12 @@ export function react(opts?: ReactOptions): Middleware {
 
   return async (_req, ctx, next) => {
     ctx.render = async (path: string, renderOpts?: RenderOptions) => {
-      // Run loader if provided — merges into data
       let data = renderOpts?.data ?? {}
       if (renderOpts?.loader) {
         try {
           const loaderData = await renderOpts.loader(ctx)
           data = { ...data, ...loaderData }
         } catch (err) {
-          // If loader throws HttpError, use its status
           if (err instanceof HttpError && !renderOpts?.status) {
             renderOpts = { ...renderOpts, status: (err as HttpError).status }
           }
@@ -171,6 +188,74 @@ export function react(opts?: ReactOptions): Middleware {
       return renderComponent(Component, data, layout, renderOpts ?? {})
     }
     return next(_req, ctx)
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Full-mode react() — routing + tailwind + client + error handling
+// ═══════════════════════════════════════════════════════════════
+
+function createFullReactApp(app: Router, opts: ReactAppOptions): void {
+  // 1. Tailwind CSS
+  const stylesheets = [...(opts.stylesheets ?? [])]
+  if (opts.tailwind) {
+    const twPath = opts.tailwind.path ?? '/assets/tailwind.css'
+    const twEntry = opts.tailwind.entry ?? './styles/input.css'
+    app.use(tailwindDev({ entries: { [twPath]: { entry: twEntry } } }))
+    if (!stylesheets.includes(twPath)) stylesheets.push(twPath)
+  }
+
+  // 2. SSR middleware (layout + ctx.render)
+  app.use(react({ layout: opts.layout, cacheDir: opts.cacheDir }))
+
+  // 3. Page routes
+  const renderOpts: RenderOptions = {
+    stylesheets: stylesheets.length > 0 ? stylesheets : undefined,
+    bootstrapModules: opts.bootstrapModules,
+    stream: opts.stream,
+  }
+
+  for (const [path, component] of Object.entries(opts.pages)) {
+    const loader = opts.loaders?.[path]
+    // eslint-disable-next-line @typescript-eslint/no-loop-func
+    app.get(path, async (_req, ctx) => {
+      let data: Record<string, unknown> = {}
+      if (loader) {
+        try { data = await loader(ctx) } catch (err) { throw err }
+      }
+      return ctx.render(component, { ...renderOpts, data })
+    })
+  }
+
+  // 4. Error handler
+  if (opts.notFound) {
+    const notFoundPath = opts.notFound
+    app.onError((err, _req, ctx) => {
+      const status = err instanceof HttpError ? err.status : 500
+      if (ctx.render) {
+        return ctx.render(notFoundPath, { ...renderOpts, status, data: {} })
+      }
+      return new Response('Internal Server Error', { status })
+    })
+  }
+
+  // 5. Client bundle
+  if (opts.client !== undefined) {
+    app.use(esbuildDev({
+      entries: {
+        [opts.client?.path ?? '/assets/client.js']: {
+          clientRouter: {
+            pages: opts.pages,
+            layout: opts.layout,
+            layoutExport: opts.layoutExport,
+            fallback: opts.notFound,
+          },
+          bundle: true,
+          splitting: opts.client?.splitting ?? true,
+          minify: opts.client?.minify ?? false,
+        },
+      },
+    }))
   }
 }
 
@@ -295,4 +380,4 @@ export { ErrorBoundary } from './error-boundary.ts'
 
 export { useServerData } from './hooks.ts'
 export { ServerDataContext } from './context.ts'
-export type { ReactOptions, RenderOptions, ReactRouterOptions } from './types.ts'
+export type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './types.ts'

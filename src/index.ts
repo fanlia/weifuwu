@@ -37,7 +37,6 @@ export { queue } from './queue/index.ts'
 export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types.ts'
 
 export { react, reactRouter } from './react/index.ts'
-export { createApp, createReactApp } from './react/create-app.ts'
 export type { ReactOptions, RenderOptions, ReactRouterOptions, ReactAppOptions } from './react/types.ts'
 export { useServerData, ServerDataContext, Link, ErrorBoundary } from './react/index.ts'
 
