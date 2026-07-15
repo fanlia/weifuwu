@@ -29,6 +29,7 @@
     "src/user/*.ts",
     "src/messager/*.ts",
     "src/cms/*.ts",
+    "src/kb/*.ts",
     "src/base/*.ts",
     "src/ai/*.ts"
   ]

@@ -83,6 +83,17 @@ export type {
   UpdateContentInput,
   ListContentOptions,
 } from './cms/types.ts'
+
+export { kb, KB } from './kb/index.ts'
+export type {
+  KBAPI,
+  KBOptions,
+  Document,
+  Chunk,
+  SearchResult,
+  ImportOptions,
+  SearchOptions,
+} from './kb/types.ts'
 export type {
   BaseAPI,
   BaseDef,
