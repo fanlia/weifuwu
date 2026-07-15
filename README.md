@@ -127,6 +127,50 @@ const user = await ctx.userModule.getUserById(id)
 const ok = await ctx.userModule.changePassword(id, oldPw, newPw)
 ```
 
+### CMS
+
+```ts
+import { cms } from 'weifuwu'
+
+app.use(postgres())
+app.use(user())
+app.use(cms())
+
+// Public: list published posts
+app.get('/api/posts', async (req, ctx) => {
+  return Response.json(await ctx.cms.list({ type: 'post', status: 'published' }))
+})
+
+// Public: get single post by slug
+app.get('/api/posts/:slug', async (req, ctx) => {
+  const post = await ctx.cms.get(ctx.params.slug)
+  if (!post) return new Response('Not found', { status: 404 })
+  return Response.json(post)
+})
+
+// Admin: create post
+app.post('/api/admin/posts', requireRole('admin'), async (req, ctx) => {
+  const post = await ctx.cms.create(await req.json())
+  return Response.json(post, { status: 201 })
+})
+
+// Tags
+app.get('/api/tags', async (req, ctx) => {
+  return Response.json(await ctx.cms.listTags())
+})
+```
+
+**Features:**
+- 多类型内容（post / page / doc / changelog），自动建表迁移
+- Markdown 内容 + 摘要 + 封面图
+- 发布 / 草稿 / 归档状态
+- Slug 唯一性（同类型内），自动生成 + 冲突加后缀
+- 标签系统（多对多），自动创建标签
+- 游标分页，按时间倒序
+- 树形结构 — 通过 `parent_id` 支持层级
+- 非管理员只能看到已发布的内容
+- 写操作（create / update / delete / publish）需要 admin 角色
+
 ### Messager
 
 ```ts
@@ -609,9 +653,10 @@ weifuwu/
 │   ├── queue/              ← cron, index, types
 │   ├── user/               ← user system (CRUD, auth, JWT, requireRole)
 │   ├── messager/           ← instant messaging (single/group chat, unread, WS push)
+│   ├── cms/                ← content management (posts, pages, docs, tags, publish)
 │   ├── graphql.ts
 │   ├── hub.ts
-│   └── test/               ← 226 tests (34 files)
+│   └── test/               ← 253 tests (35 files)
 ├── examples/
 │   └── react-ssr/          ← full SPA demo
 └── dist/

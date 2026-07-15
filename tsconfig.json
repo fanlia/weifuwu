@@ -28,6 +28,7 @@
     "src/react/*.ts",
     "src/user/*.ts",
     "src/messager/*.ts",
+    "src/cms/*.ts",
     "src/ai/*.ts"
   ]
 }
