@@ -1,37 +1,37 @@
-# weifuwu — AI SaaS 框架
+# weifuwu — AI SaaS Framework
 
-**目标：让 AI SaaS 项目从 0 到上线只需要一个 `npm init`。**
+**Goal: From zero to a production-ready AI SaaS project with a single `npm init`.**
 
-我们不是通用 Web 框架，而是专为 AI 原生 SaaS 产品设计的框架。每一个内置模块都对应一个 AI SaaS 基础设施需求：用户系统、即时消息、内容管理、RAG 知识库、AI Agent、动态数据存储。
+We are not a general-purpose web framework. We are purpose-built for AI-native SaaS products. Every built-in module solves a specific AI SaaS infrastructure need: user system, instant messaging, content management, RAG knowledge base, AI Agent, dynamic data storage.
 
-## 原则
+## Principles
 
-- **AI 原生** — `kb` + `ai/agent` + `messager` 三个模块配合，直接提供 LLM 对话 + RAG 知识库 + 实时交互的完整链路。不需要自己拼。
-- **每一个内置模块都有存在理由** — 它解决了一个具体的 AI SaaS 问题（身份、对话、知识库、Agent），不是为了"有而存在"。
-- **开箱即用，但可替换** — 默认方案覆盖 80% 场景（Postgres + pgvector + DashScope/DeepSeek），但你随时可以换成自己的。
-- **生产就绪，零配置** — `postgres()` 读 `DATABASE_URL`，`redis()` 读 `REDIS_URL`，`user()` 读 `JWT_SECRET`，`kb()` 读 `DASHSCOPE_API_KEY`。环境变量配好就能跑。
+- **AI-native** — `kb` + `ai/agent` + `messager` work together, providing a complete pipeline from LLM conversation to RAG knowledge retrieval to real-time interaction. No manual integration needed.
+- **Every module earns its place** — each one solves a concrete AI SaaS problem (identity, conversation, knowledge, Agent). No bloat.
+- **Batteries included, but swappable** — defaults cover 80% of scenarios (Postgres + pgvector + DashScope/DeepSeek), but you can always replace them.
+- **Production-ready, zero config** — `postgres()` reads `DATABASE_URL`, `redis()` reads `REDIS_URL`, `user()` reads `JWT_SECRET`, `kb()` reads `DASHSCOPE_API_KEY`. Set env vars and go.
 
 ## README 规范
 
-README 是 LLM 理解项目的主要入口，必须保持 **LLM 友好**：
+README is the main entry point for LLMs to understand the project. Keep it **LLM-friendly**:
 
-- **模块概览表** — 顶部放表格列出所有模块、用途、依赖关系，方便 LLM 快速定位
-- **一致的章节结构** — 每个模块遵循：一句话描述 → 代码示例 → API 表格 → 注意事项
-- **简短可扫描** — 避免大段文字，用表格和列表代替
-- **清晰的依赖链** — 每个模块标注依赖哪些其他模块和中间件
-- **环境变量集中列出** — 方便 LLM 一次性理解所有配置
-- **每个 export 都提到** — 不遗漏任何公开 API
+- **Module overview table** — top of the README, listing all modules, their purpose, and dependencies
+- **Consistent section format** — each module follows: one-line description → code example → API table → notes
+- **Short and scannable** — avoid long paragraphs, use tables and lists
+- **Clear dependency chain** — each module documents what other modules and middleware it depends on
+- **Environment variables listed together** — one table for all config, easy for LLM to find
+- **Every export mentioned** — no public API left undocumented
 
-## 开发约束
+## Development Constraints
 
-- **ESM only** — 无 CommonJS 兼容
+- **ESM only** — no CommonJS support
 - **TypeScript strict** — `noImplicitAny: false`
-- **Web 标准优先** — 所有 handler 使用 `(req: Request, ctx: Context) => Response`
-- **测试用 `node --test`** — 不引入 Jest/Mocha
-- **构建用 esbuild** — `scripts/build.mjs`，外部依赖全部 external
-- **发布用 `node scripts/release.mjs <version>`** — 构建 + 声明文件 + 发布 + git tag
-- **中间件模式** — 返回 `Middleware<Context, Context & NewFields>`，通过 module augmentation 扩展 Context
-- **ctx 注入** — middleware 通过 `ctx.field = value` 注入，下游 handler 可通过 `ctx.field` 访问
-- **Closeable 接口** — 所有有状态的模块（postgres, redis, queue, rateLimit）实现 `close(): Promise<void>`
-- react(), ctx.render 相关功能必须使用 agent-browser skill 测试 `./examples/react-ssr/`
-- 运行测试之前必须先 `docker compose up -d`
+- **Web standards first** — all handlers use `(req: Request, ctx: Context) => Response`
+- **Testing with `node --test`** — no Jest/Mocha
+- **Build with esbuild** — `scripts/build.mjs`, all external deps are external
+- **Release with `node scripts/release.mjs <version>`** — build + declarations + publish + git tag
+- **Middleware pattern** — returns `Middleware<Context, Context & NewFields>`, extends Context via module augmentation
+- **ctx injection** — middleware sets `ctx.field = value`, downstream handlers access via `ctx.field`
+- **Closeable interface** — all stateful modules (postgres, redis, queue, rateLimit) implement `close(): Promise<void>`
+- `react()`, `ctx.render` features must be tested with the `agent-browser` skill using `./examples/react-ssr/`
+- Run `docker compose up -d` before running tests

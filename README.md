@@ -1,12 +1,12 @@
 # weifuwu
 
-**AI SaaS 框架** — `(req, ctx) => Response`
+**AI SaaS framework** — `(req, ctx) => Response`
 
 ```bash
 npm install weifuwu
 ```
 
-用户系统、即时消息、RAG 知识库、AI Agent、内容管理、动态数据存储。配好环境变量就能跑。
+User system, instant messaging, RAG knowledge base, AI Agent, CMS, dynamic data storage. Configure environment variables and go.
 
 ---
 
@@ -34,7 +34,7 @@ app.post('/api/chat', async (req, ctx) => {
 serve(app, { port: 3000 })
 ```
 
-### 环境变量
+### Environment Variables
 
 | Variable | Default | Used by |
 |----------|---------|---------|
@@ -51,12 +51,12 @@ serve(app, { port: 3000 })
 
 | Module | Import | Dependency | Purpose |
 |--------|--------|-----------|---------|
-| User | `user()` | `postgres()` | 注册、登录、JWT、角色 |
-| Messager | `messager()` | `postgres()`, `user()` | 即时消息、AI 对话交互层 |
-| KB | `kb()` | `postgres()` | RAG 知识库、分片、向量搜索 |
-| Agent | `agent()` | — | LLM 对话、工具调用、流式输出 |
-| CMS | `cms()` | `postgres()`, `user()` | 博客、文档、公告 |
-| Base | `base()` | `postgres()`, `user()` | 动态数据存储引擎 |
+| User | `user()` | `postgres()` | Auth, JWT, roles |
+| Messager | `messager()` | `postgres()`, `user()` | IM + AI conversation layer |
+| KB | `kb()` | `postgres()` | RAG knowledge base |
+| Agent | `agent()` | — | LLM chat, tool calling, streaming |
+| CMS | `cms()` | `postgres()`, `user()` | Blog, docs, changelog |
+| Base | `base()` | `postgres()`, `user()` | Dynamic data engine |
 | React SSR | `react()` | — | SSR + SPA + Tailwind |
 
 ### Middleware
@@ -84,7 +84,7 @@ serve(app, { port: 3000 })
 | `redis()` | Redis client (`ctx.redis`) |
 | `queue()` | Job queue + cron |
 | `createHub()` | WebSocket pub/sub |
-| `react()` | React SSR + SPA（从 `weifuwu/react` 导入） |
+| `react()` | React SSR + SPA (from `weifuwu/react`) |
 
 ### Utilities
 
@@ -96,7 +96,7 @@ serve(app, { port: 3000 })
 
 ## user
 
-身份认证、注册登录、JWT、密码管理。
+Auth, registration, JWT, password management, roles.
 
 ```ts
 import { user, requireRole } from 'weifuwu'
@@ -104,24 +104,24 @@ import { user, requireRole } from 'weifuwu'
 app.use(postgres())
 app.use(user({ secret: process.env.JWT_SECRET }))
 
-// 注册
+// Register
 app.post('/api/register', async (req, ctx) => {
   const result = await ctx.userModule.register(await req.json())
   return Response.json(result)
 })
-// 登录
+// Login
 app.post('/api/login', async (req, ctx) => {
   const { email, password } = await req.json()
   const result = await ctx.userModule.login(email, password)
   if (!result) return new Response('Unauthorized', { status: 401 })
   return Response.json(result)
 })
-// 当前用户
+// Current user
 app.get('/api/me', async (req, ctx) => {
   if (!ctx.user) return new Response('Unauthorized', { status: 401 })
   return Response.json(ctx.user)
 })
-// 仅管理员
+// Admin only
 app.get('/api/admin/users', requireRole('admin'), async (req, ctx) => {
   return Response.json(await ctx.userModule.listUsers())
 })
@@ -131,28 +131,28 @@ app.get('/api/admin/users', requireRole('admin'), async (req, ctx) => {
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `register(input)` | `{ user, token }` | 注册 |
-| `login(email, pw)` | `{ user, token } \| null` | 登录 |
-| `getUserById(id)` | `UserRecord \| null` | 查用户 |
-| `getUserByEmail(email)` | `UserRecord \| null` | 查邮箱 |
-| `updateUser(id, input)` | `UserRecord \| null` | 更新 |
-| `changePassword(id, oldPw, newPw)` | `boolean` | 改密码 |
-| `deleteUser(id)` | `boolean` | 软删除 |
-| `listUsers(inactive?)` | `UserRecord[]` | 用户列表 |
-| `generateToken(user)` | `string` | 签发 JWT |
-| `verifyToken(token)` | `TokenPayload \| null` | 验证 JWT |
-| `refreshToken(token)` | `string \| null` | 刷新 JWT |
+| `register(input)` | `{ user, token }` | Register |
+| `login(email, pw)` | `{ user, token } \| null` | Login |
+| `getUserById(id)` | `UserRecord \| null` | Get by ID |
+| `getUserByEmail(email)` | `UserRecord \| null` | Get by email |
+| `updateUser(id, input)` | `UserRecord \| null` | Update |
+| `changePassword(id, oldPw, newPw)` | `boolean` | Change password |
+| `deleteUser(id)` | `boolean` | Soft delete |
+| `listUsers(inactive?)` | `UserRecord[]` | List users |
+| `generateToken(user)` | `string` | Issue JWT |
+| `verifyToken(token)` | `TokenPayload \| null` | Verify JWT |
+| `refreshToken(token)` | `string \| null` | Refresh JWT |
 
 ### ctx.user
 
-由中间件自动从 `Authorization: Bearer` 或 `token` cookie 解析。
+Auto-resolved from `Authorization: Bearer` or `token` cookie.
 
 ```ts
 interface User {
   id: string
   name: string
   email: string
-  role: string      // 'user' | 'admin' | ...
+  role: string
   [key: string]: unknown
 }
 ```
@@ -161,19 +161,19 @@ interface User {
 
 ```ts
 app.get('/admin', requireRole('admin'), handler)
-// 未登录 → 401，角色不匹配 → 403
+// No auth → 401, wrong role → 403
 ```
 
-### 安全
+### Security
 
-- 密码：scrypt + 随机 32 字节盐
-- 令牌：HMAC SHA-256，7 天过期
+- Password: scrypt + 32-byte random salt
+- Token: HMAC SHA-256, 7 day expiry
 
 ---
 
 ## messager
 
-即时消息 + AI 对话交互层。单聊、群聊、消息持久化、WebSocket 实时推送。
+Instant messaging + AI conversation layer. Direct/group chat, message persistence, WebSocket push.
 
 ```ts
 import { messager } from 'weifuwu'
@@ -182,7 +182,7 @@ app.use(postgres())
 app.use(user())
 app.use(messager())
 
-// WebSocket — 自动加入用户的所有会话
+// WebSocket — auto-join all user conversations
 app.ws('/ws', {
   async open(ws, ctx) {
     for (const c of await ctx.messager.getConversations()) {
@@ -211,32 +211,32 @@ app.get('/api/conversations/:id/messages', async (req, ctx) => {
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `createDirectConversation(userId)` | `Conversation` | 创建/复用私聊 |
-| `createGroupConversation(title, userIds)` | `Conversation` | 建群 |
-| `sendMessage(convId, body)` | `Message` | 发消息，自动广播到 `conversation:{id}` 房间 |
-| `getMessages(convId, opts?)` | `Message[]` | 游标分页 |
-| `editMessage(msgId, body)` | `Message \| null` | 编辑（24h 内） |
-| `deleteMessage(msgId)` | `boolean` | 软删除 |
-| `getConversations()` | `Conversation[]` | 会话列表（含未读、最后消息预览） |
-| `getConversation(id)` | `Conversation \| null` | 会话详情 |
-| `markRead(convId)` | `void` | 标记已读 |
-| `getUnreadCount()` | `{ total, byConversation }` | 未读统计 |
-| `addParticipants(convId, userIds)` | `void` | 加人 |
-| `removeParticipant(convId, userId?)` | `boolean` | 退出/踢出 |
+| `createDirectConversation(userId)` | `Conversation` | Create/reuse DM |
+| `createGroupConversation(title, userIds)` | `Conversation` | Create group |
+| `sendMessage(convId, body)` | `Message` | Send, auto-broadcast to `conversation:{id}` room |
+| `getMessages(convId, opts?)` | `Message[]` | Cursor pagination |
+| `editMessage(msgId, body)` | `Message \| null` | Edit (24h window) |
+| `deleteMessage(msgId)` | `boolean` | Soft delete |
+| `getConversations()` | `Conversation[]` | List with unread + last message |
+| `getConversation(id)` | `Conversation \| null` | Get detail |
+| `markRead(convId)` | `void` | Mark as read |
+| `getUnreadCount()` | `{ total, byConversation }` | Unread stats |
+| `addParticipants(convId, userIds)` | `void` | Add members |
+| `removeParticipant(convId, userId?)` | `boolean` | Leave / kick |
 
-### 存储
+### Storage
 
-3 张表：`conversations` / `participants` / `messages`。自动建表迁移。
+3 tables: `conversations` / `participants` / `messages`. Auto-migration.
 
-### AI 对话
+### AI Conversations
 
-messager + agent 两个模块组合 = ChatGPT 基础架构。messager 管会话和推送，agent 管 LLM 生成。
+messager + agent = ChatGPT foundation. Messager handles sessions + push, agent handles LLM generation.
 
 ---
 
 ## kb
 
-RAG 知识库。文档导入 → 自动分片 → DashScope embedding → pgvector 存储 → 语义搜索。
+RAG knowledge base. Import docs → auto-chunk → DashScope embedding → pgvector storage → semantic search.
 
 ```ts
 import { kb } from 'weifuwu'
@@ -244,14 +244,14 @@ import { kb } from 'weifuwu'
 app.use(postgres())
 app.use(kb())
 
-// 导入
+// Import
 app.post('/api/kb/import', async (req, ctx) => {
   const { title, content } = await req.json()
   const result = await ctx.kb.importText(title, content)
   return Response.json(result, { status: 201 })
 })
 
-// 搜索
+// Search
 app.post('/api/kb/search', async (req, ctx) => {
   const { query } = await req.json()
   return Response.json(await ctx.kb.search(query, { limit: 5 }))
@@ -262,30 +262,30 @@ app.post('/api/kb/search', async (req, ctx) => {
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `importText(title, text, opts?)` | `{ document, chunks }` | 导入 → 分片 → embedding → 存储 |
-| `importDocuments(docs)` | `Document[]` | 批量导入 |
-| `search(query, opts?)` | `SearchResult[]` | 语义搜索（cosine 相似度） |
-| `list()` | `Document[]` | 文档列表 |
-| `get(id)` | `Document \| null` | 文档详情 |
-| `getChunks(documentId)` | `Chunk[]` | 分片列表 |
-| `delete(id)` | `boolean` | 删除文档 + 级联删除分片 |
+| `importText(title, text, opts?)` | `{ document, chunks }` | Import → chunk → embed → store |
+| `importDocuments(docs)` | `Document[]` | Batch import |
+| `search(query, opts?)` | `SearchResult[]` | Semantic search (cosine) |
+| `list()` | `Document[]` | List documents |
+| `get(id)` | `Document \| null` | Get document |
+| `getChunks(documentId)` | `Chunk[]` | Get chunks |
+| `delete(id)` | `boolean` | Delete + cascade chunks |
 
-### 配置
+### Configuration
 
 ```ts
-// 默认：DashScope text-embedding-v4（环境变量 DASHSCOPE_API_KEY）
+// Default: DashScope text-embedding-v4 (env: DASHSCOPE_API_KEY)
 app.use(kb())
 
-// 自定义 embedding
+// Custom embedding
 app.use(kb({
-  embed: async (text) => { /* 返回 number[] */ },
+  embed: async (text) => { /* return number[] */ },
   dimensions: 1536,
-  chunkSize: 512,    // 默认分片大小（tokens）
-  chunkOverlap: 64,  // 分片重叠
+  chunkSize: 512,    // tokens
+  chunkOverlap: 64,
 }))
 ```
 
-### 与 Agent 配合
+### Integration with Agent
 
 ```ts
 app.use(agent({
@@ -296,16 +296,16 @@ app.use(agent({
 }))
 ```
 
-### 存储
+### Storage
 
-- `kb_documents` — 原始文档元数据
-- `kb_chunks` — 分片内容 + VECTOR(1536) + TSVECTOR GIN 索引
+- `kb_documents` — document metadata
+- `kb_chunks` — chunk content + VECTOR(1536) + TSVECTOR GIN index
 
 ---
 
 ## agent
 
-AI Agent — LLM 对话、工具调用、RAG、流式输出。
+AI Agent — LLM chat, tool calling, RAG, streaming.
 
 ```ts
 import { agent } from 'weifuwu'
@@ -329,13 +329,13 @@ app.use(agent({
   maxSteps: 5,
 }))
 
-// 流式对话
+// Streaming
 app.post('/api/chat', async (req, ctx) => {
   const { messages } = await req.json()
   return ctx.agent.chatStreamResponse({ messages })
 })
 
-// 非流式对话
+// Non-streaming
 app.post('/api/chat/sync', async (req, ctx) => {
   const { prompt } = await req.json()
   const text = await ctx.agent.chat(prompt)
@@ -347,30 +347,30 @@ app.post('/api/chat/sync', async (req, ctx) => {
 
 | Method | Description |
 |--------|-------------|
-| `chat(prompt, opts?)` | 非流式对话，返回文本 |
-| `chatStreamResponse({ messages })` | SSE 流式回复（兼容 `useChat`） |
+| `chat(prompt, opts?)` | Non-streaming, returns text |
+| `chatStreamResponse({ messages })` | SSE stream (compatible with `useChat`) |
 
-### 默认模型
+### Default Model
 
-- LLM: DeepSeek-V4-Flash（`@ai-sdk/openai` + `baseURL: 'https://api.deepseek.com/v1'`）
-- 环境变量 `DEEPSEEK_MODEL` 可覆盖模型名称
-- 环境变量 `DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY` 为 API 密钥
+- LLM: DeepSeek-V4-Flash (via `@ai-sdk/openai` + `baseURL: 'https://api.deepseek.com/v1'`)
+- Override with `DEEPSEEK_MODEL` env
+- API key via `DEEPSEEK_API_KEY` or `OPENAI_API_KEY` env
 
 ### Features
 
 | Feature | Description |
 |---------|-------------|
-| `knowledge.search` | RAG 回调，自动注入 system prompt |
-| `tools` | 工具定义，自动循环调用（maxSteps） |
-| `sandbox: true` | 与 `ctx.sandbox` 集成（文件读写） |
-| `store` | 对话持久化（save/load） |
-| `agents` | 多 Agent 编排 |
+| `knowledge.search` | RAG callback, auto-injected into system prompt |
+| `tools` | Tool definitions, auto-loop (maxSteps) |
+| `sandbox: true` | Integrates with `ctx.sandbox` |
+| `store` | Session persistence (save/load) |
+| `agents` | Multi-agent orchestration |
 
 ---
 
 ## cms
 
-内容管理 — 博客、文档、公告、更新日志。
+Content management — blog, docs, changelog.
 
 ```ts
 import { cms, requireRole } from 'weifuwu'
@@ -379,7 +379,7 @@ app.use(postgres())
 app.use(user())
 app.use(cms())
 
-// 公开：已发布的文章
+// Public
 app.get('/api/posts', async (req, ctx) => {
   return Response.json(await ctx.cms.list({ type: 'post', status: 'published' }))
 })
@@ -389,7 +389,7 @@ app.get('/api/posts/:slug', async (req, ctx) => {
   return Response.json(post)
 })
 
-// 管理端
+// Admin
 app.post('/api/admin/posts', requireRole('admin'), async (req, ctx) => {
   const post = await ctx.cms.create(await req.json())
   return Response.json(post, { status: 201 })
@@ -405,31 +405,31 @@ app.patch('/api/admin/posts/:id', requireRole('admin'), async (req, ctx) => {
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `create(input)` | `Content` | 创建（admin） |
-| `get(slug)` | `Content \| null` | 按 slug 获取 |
-| `getById(id)` | `Content \| null` | 按 id 获取 |
-| `update(id, input)` | `Content \| null` | 更新（admin） |
-| `delete(id)` | `boolean` | 删除（admin） |
-| `list(opts?)` | `Content[]` | 列表（游标分页） |
-| `publish(id)` | `Content \| null` | 发布（admin） |
-| `unpublish(id)` | `Content \| null` | 下线（admin） |
-| `listTags()` | `TagWithCount[]` | 标签列表 |
-| `createTag(name)` | `Tag` | 创建标签 |
+| `create(input)` | `Content` | Create (admin) |
+| `get(slug)` | `Content \| null` | Get by slug |
+| `getById(id)` | `Content \| null` | Get by ID |
+| `update(id, input)` | `Content \| null` | Update (admin) |
+| `delete(id)` | `boolean` | Delete (admin) |
+| `list(opts?)` | `Content[]` | List with cursor |
+| `publish(id)` | `Content \| null` | Publish (admin) |
+| `unpublish(id)` | `Content \| null` | Unpublish (admin) |
+| `listTags()` | `TagWithCount[]` | List tags |
+| `createTag(name)` | `Tag` | Create tag |
 
 ### Features
 
-- 内容类型：post / page / doc / changelog（任意字符串）
-- 状态：draft / published / archived
-- Slug：自动生成，同类型唯一
-- 标签：多对多，自动创建
-- 树形：parent_id 支持层级
-- 鉴权：非管理员只能读已发布
+- Types: post / page / doc / changelog (any string)
+- Status: draft / published / archived
+- Slug: auto-generated, unique per type
+- Tags: many-to-many, auto-created
+- Tree: parent_id for hierarchy
+- Auth: non-admin users see published only
 
 ---
 
 ## base
 
-动态数据存储引擎 — 让用户自定义数据结构（类似 Airtable）。
+Dynamic data storage engine — let users define their own data structures (like Airtable).
 
 ```ts
 import { base } from 'weifuwu'
@@ -438,13 +438,13 @@ app.use(postgres())
 app.use(user())
 app.use(base())
 
-// 定义数据结构
+// Define schema
 app.post('/api/bases', async (req, ctx) => {
   const b = await ctx.base.create(await req.json())
   return Response.json(b, { status: 201 })
 })
 
-// 增删改查
+// CRUD
 app.post('/api/bases/:id/:table', async (req, ctx) => {
   const row = await ctx.base.insert(ctx.params.id, ctx.params.table, await req.json())
   return Response.json(row, { status: 201 })
@@ -463,43 +463,43 @@ app.get('/api/bases/:id/:table', async (req, ctx) => {
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `create({ name, tables })` | `BaseDef` | 创建数据库 |
-| `defineTable(baseId, schema)` | `BaseDef` | 加表 |
-| `updateTable(baseId, name, schema)` | `BaseDef \| null` | 改表 |
-| `removeTable(baseId, name)` | `BaseDef \| null` | 删表 |
-| `insert(baseId, table, data)` | `Row` | 插入行 |
-| `getRow(baseId, table, id)` | `Row \| null` | 查行 |
-| `updateRow(baseId, table, id, data)` | `Row \| null` | 改行 |
-| `deleteRow(baseId, table, id)` | `boolean` | 删行 |
-| `query(baseId, table, opts?)` | `Row[]` | 查询（filter/sort/limit/offset） |
-| `search(baseId, table, field, query)` | `Row[]` | 全文搜索 |
-| `similaritySearch(baseId, table, field, vector)` | `Row[]` | 向量搜索 |
-| `list()` / `get(id)` / `getBySlug(slug)` / `delete(id)` | — | 数据库管理 |
+| `create({ name, tables })` | `BaseDef` | Create database |
+| `defineTable(baseId, schema)` | `BaseDef` | Add table |
+| `updateTable(baseId, name, schema)` | `BaseDef \| null` | Update table |
+| `removeTable(baseId, name)` | `BaseDef \| null` | Remove table |
+| `insert(baseId, table, data)` | `Row` | Insert row |
+| `getRow(baseId, table, id)` | `Row \| null` | Get row |
+| `updateRow(baseId, table, id, data)` | `Row \| null` | Update row |
+| `deleteRow(baseId, table, id)` | `boolean` | Delete row |
+| `query(baseId, table, opts?)` | `Row[]` | Query (filter/sort/limit/offset) |
+| `search(baseId, table, field, query)` | `Row[]` | Full-text search |
+| `similaritySearch(baseId, table, field, vector)` | `Row[]` | Vector search |
+| `list()` / `get(id)` / `getBySlug(slug)` / `delete(id)` | — | Manage databases |
 
-### 架构
+### Architecture
 
-Fixed Slot：一张 `base_data` 表，预分配 ~120 个物理列：
+Fixed Slot: a single `base_data` table with ~120 physical columns:
 
-| 类型 | 列数 | PG 类型 |
-|------|:----:|:--------:|
+| Type | Count | PG Type |
+|------|:-----:|:--------:|
 | text001..064 | 64 | TEXT |
 | number001..032 | 32 | DOUBLE PRECISION |
 | date001..008 | 8 | TIMESTAMPTZ |
 | vector001..004 | 4 | VECTOR(1536) |
 | search001..004 | 4 | TEXT |
-| ext | 1 | JSONB（溢出兜底） |
+| ext | 1 | JSONB (overflow) |
 
-字段名 → 物理列号 的映射存储在 `base_column_map` 表。超出物理列的字段自动溢出到 ext JSONB。
+Field name → physical column mapping stored in `base_column_map`. Fields beyond the physical columns overflow to ext JSONB.
 
-pgvector 自动检测：docker 镜像默认支持。
+pgvector auto-detected (included in docker image).
 
 ---
 
 ## React SSR
 
-服务端渲染 + 客户端 SPA + Tailwind CSS。一个 `react()` 调用处理所有：SSR 渲染、路由、数据加载、Tailwind、客户端 bundle 自动生成、错误页面。
+Server-side rendering + SPA + Tailwind CSS. A single `react()` call handles SSR, routing, data loading, Tailwind, client bundle generation, and error pages.
 
-> 需要 `react >= 19`、`react-dom >= 19`（optional peerDependencies）。
+> Requires `react >= 19`, `react-dom >= 19` (optional peerDependencies).
 
 ```ts
 import { serve, Router } from 'weifuwu'
@@ -520,7 +520,7 @@ const app = new Router()
 serve(app, { port: 3000 })
 ```
 
-### 页面组件
+### Page Component
 
 ```tsx
 // pages/UserDetail.tsx
@@ -548,13 +548,13 @@ export default function Page() {
 
 | Feature | Description |
 |---------|-------------|
-| `react({ pages, layout, notFound, tailwind })` | 一行调用：SSR + 路由 + 客户端 + Tailwind |
-| `export async function loader(ctx)` | 服务端数据加载，自动检测 |
-| `useServerData<T>()` | 类型安全的 loader 数据访问 |
-| `Link` | `<a>` 客户端 SPA 导航 |
-| `ErrorBoundary` | 服务端 + 客户端错误捕获 |
-| `<Suspense>` | 流式 SSR |
-| `<title>`、`<meta>` | 自动提升到 `<head>` |
+| `react({ pages, layout, notFound, tailwind })` | One call: SSR + routing + client + Tailwind |
+| `export async function loader(ctx)` | Server data loading, auto-detected |
+| `useServerData<T>()` | Type-safe loader data |
+| `Link` | SPA navigation |
+| `ErrorBoundary` | Error catching on server + client |
+| `<Suspense>` | Streaming SSR |
+| `<title>`, `<meta>` | Auto-hoisted to `<head>` |
 
 ---
 
@@ -572,12 +572,12 @@ app.all(path, ...handlers)
 app.ws(path, ...middlewares, handler)
 // handler: { open?, message?, close?, error? }
 
-// 中间件 & 挂载
+// Middleware & mounting
 app.use(middleware)
 app.mount(prefix, router)
 app.plugin(fn)
 app.onError(handler)
-app.routes()  // 调试：列出所有路由
+app.routes()  // debug: list all routes
 ```
 
 ---
@@ -611,7 +611,7 @@ await sql.sql`SELECT * FROM users WHERE id = ${id}`
 await sql.sql.begin(async (sql) => { /* transaction */ })
 ```
 
-`DATABASE_URL` 环境变量。支持迁移、事务、连接池统计。
+Reads `DATABASE_URL` env. Supports migrations, transactions, connection pool stats.
 
 ---
 
@@ -625,7 +625,7 @@ app.use(r)  // → ctx.redis
 await r.redis.set('key', 'value')
 ```
 
-`REDIS_URL` 环境变量，默认 `redis://localhost:6379`。
+Reads `REDIS_URL` env (default: `redis://localhost:6379`).
 
 ---
 
@@ -650,21 +650,20 @@ q.run()
 
 ```
 src/
-├── index.ts             ← 入口，导出所有模块
-├── types.ts             ← Context, Handler, Middleware 定义
+├── index.ts             ← Entry, exports all modules
+├── types.ts             ← Context, Handler, Middleware types
 ├── core/                ← serve, router, ws, trace, logger
 ├── middleware/           ← cors, helmet, compress, rate-limit, upload, static, sandbox
-├── user/                ← 用户系统（CRUD、JWT、requireRole）
-├── messager/            ← 即时消息 + AI 对话交互层
-├── kb/                  ← RAG 知识库（分片、embedding、向量搜索）
-├── ai/                  ← AI Agent（LLM、tools、RAG）
+├── user/                ← User system (CRUD, JWT, requireRole)
+├── messager/            ← IM + AI conversation layer
+├── kb/                  ← RAG knowledge base (chunking, embedding, vector search)
+├── ai/                  ← AI Agent (LLM, tools, RAG)
 ├── react/               ← React SSR + SPA + Tailwind
-├── cms/                 ← 内容管理（博客、文档、公告）
-├── base/                ← 动态数据存储引擎（Fixed Slot）
-├── postgres/            ← PostgreSQL 客户端
-├── redis/               ← Redis 客户端
-├── queue/               ← 任务队列 + cron
-├── react/               ← React SSR
+├── cms/                 ← Content management (blog, docs, changelog)
+├── base/                ← Dynamic data engine (Fixed Slot)
+├── postgres/            ← PostgreSQL client
+├── redis/               ← Redis client
+├── queue/               ← Job queue + cron
 ├── graphql.ts           ← GraphQL
 ├── hub.ts               ← WebSocket hub
 └── test/                ← 281 tests
@@ -677,7 +676,7 @@ docker-compose.yml       ← postgres (pgvector) + redis
 ## Development
 
 ```bash
-docker compose up -d         # 启动 postgres + redis
+docker compose up -d         # Start postgres + redis
 npm run build                # esbuild → dist/
 npm run typecheck            # tsc --noEmit
 npm test                     # 281 tests
