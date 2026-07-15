@@ -1,7 +1,6 @@
-import type { Context } from '../../../src/types.ts'
-import { HttpError } from '../../../src/types.ts'
-import { MOCK_USERS } from '../data.ts'
-import { useServerData } from '../../../src/react/hooks.ts'
+import { useServerData, HttpError } from 'weifuwu'
+import type { Context } from 'weifuwu'
+import { MOCK_USERS } from '../../../data.ts'
 
 export async function loader(ctx: Context) {
   const user = MOCK_USERS.find(u => u.id === Number(ctx.params.id))
@@ -9,10 +8,9 @@ export async function loader(ctx: Context) {
   return { user }
 }
 
-export function UserDetailPage() {
+export default function UserDetail() {
   const data = useServerData<{ user: { name: string; email: string; bio: string } }>()
   const user = data.user
-
   if (!user) return <p>Not found</p>
 
   return (

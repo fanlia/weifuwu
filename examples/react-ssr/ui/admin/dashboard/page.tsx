@@ -1,4 +1,4 @@
-export function DashboardPage() {
+export default function Dashboard() {
   return (
     <div>
       <title>Dashboard — weifuwu</title>

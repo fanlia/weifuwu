@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "node --watch server.ts",
-    "build:client": "node build.mjs",
     "start": "node server.ts"
   },
   "dependencies": {

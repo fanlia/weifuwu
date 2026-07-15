@@ -1,4 +1,4 @@
-export function NotFoundPage() {
+export default function NotFound() {
   return (
     <div className="text-center py-16">
       <title>404 — weifuwu</title>

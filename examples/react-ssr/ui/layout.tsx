@@ -1,13 +1,12 @@
-import type { Context } from '../../../src/types.ts'
-import { useServerData } from '../../../src/react/hooks.ts'
+import { useServerData } from 'weifuwu/react'
+import type { Context } from 'weifuwu'
 
 export async function loader(_ctx: Context) {
-  return { appName: 'weifuwu', navItems: ['Home', 'Users', 'Dashboard', 'Streaming', 'API'] }
+  return { appName: 'weifuwu' }
 }
 
-export function PageShell({ children }: { children: React.ReactNode }) {
+export default function PageShell({ children }: { children: React.ReactNode }) {
   const { appName } = useServerData<{ appName: string }>()
-
   return (
     <>
       <nav className="flex gap-4 mb-8 border-b border-gray-200 pb-4">
