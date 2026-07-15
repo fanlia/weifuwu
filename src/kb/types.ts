@@ -1,5 +1,3 @@
-import type { Middleware } from '../types.ts'
-
 declare module '../types.ts' {
   interface Context {
     /** KB — RAG knowledge base module. */

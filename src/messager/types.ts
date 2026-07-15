@@ -1,5 +1,3 @@
-import type { Middleware } from '../types.ts'
-
 declare module '../types.ts' {
   interface Context {
     /** Messager instance for conversations and messages. */

@@ -27,9 +27,6 @@ import type {
   KBOptions,
   Document,
   Chunk,
-  SearchResult,
-  ImportOptions,
-  SearchOptions,
 } from './types.ts'
 
 // ═══════════════════════════════════════════════════════════════

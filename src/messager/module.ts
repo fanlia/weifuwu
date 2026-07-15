@@ -33,11 +33,8 @@ import type {
   MessagerOptions,
   Conversation,
   ConversationType,
-  Participant,
-  ParticipantUser,
   Message,
   MessagePreview,
-  CreateGroupInput,
   GetMessagesOptions,
 } from './types.ts'
 
@@ -81,19 +78,7 @@ function toMessage(row: Record<string, unknown>): Message {
   }
 }
 
-function toParticipantUser(row: Record<string, unknown>): ParticipantUser {
-  return {
-    conversation_id: row.conversation_id as string,
-    user_id: row.user_id as string,
-    role: row.role as 'member' | 'admin',
-    last_read_at: row.last_read_at as Date | null,
-    joined_at: row.joined_at as Date,
-    is_active: row.is_active as boolean,
-    user_name: row.user_name as string,
-    user_email: row.user_email as string,
-    user_avatar: row.user_avatar as string | undefined,
-  }
-}
+
 
 function getSql(ctx: Context): SqlClient {
   const sql = (ctx as Record<string, unknown>).sql as SqlClient | undefined
@@ -228,7 +213,7 @@ export class Messager {
 
       async createDirectConversation(otherUserId: string) {
         const me = currentUserId()
-        const [meId, otherId] = me < otherUserId ? [me, otherUserId] : [otherUserId, me]
+        const [, otherId] = me < otherUserId ? [me, otherUserId] : [otherUserId, me]
 
         await self.ensureMigrated(sql)
 

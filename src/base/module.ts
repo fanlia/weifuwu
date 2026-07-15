@@ -27,12 +27,10 @@ import type {
   BaseDef,
   BaseOptions,
   TableSchema,
-  FieldSchema,
   FieldType,
   ColumnMap,
   CreateBaseInput,
   UpdateBaseInput,
-  QueryOptions,
 } from './types.ts'
 
 // ═══════════════════════════════════════════════════════════════
@@ -100,9 +98,6 @@ function currentUserId(ctx: Context): string {
   return u.id as string
 }
 
-function now(): Date {
-  return new Date()
-}
 
 function normalizeValue(val: unknown): unknown {
   if (val === undefined) return null
@@ -310,7 +305,7 @@ export class Base {
 
   // ── Physical column type ───────────────────────────────────
 
-  private physicalType(slotName: string, fieldType: string): string {
+  private physicalType(slotName: string, _fieldType: string): string {
     if (slotName.startsWith('text') || slotName.startsWith('search')) {
       // search fields store text content + TSVECTOR is in companion
       return 'text'
@@ -579,7 +574,6 @@ export class Base {
 
         const existing = tables[idx]
         const existingFields = Object.keys(existing.fields)
-        const newFields = Object.keys(schema.fields)
 
         // Add new fields
         for (const [fieldName, fieldSchema] of Object.entries(schema.fields)) {
@@ -638,7 +632,6 @@ export class Base {
         // Build column list and values
         const cols: string[] = ['base_id', 'table_name']
         const vals: unknown[] = [baseId, table]
-        let idx = 3
 
         for (const [phys, val] of Object.entries(slotValues)) {
           cols.push(q(phys))
