@@ -21,9 +21,8 @@ const external = [
   'ioredis',
   'postgres',
   'ws',
-  '@tailwindcss/node',  // dynamic import in tailwindDev
-  'esbuild',  // dynamic import in esbuildDev — must be external for native binary
-  'tailwindcss',  // dependency of @tailwindcss/node
+  'esbuild',
+  'tailwindcss',
   'ai',  // dynamic import in ai middleware
 ]
 
@@ -34,26 +33,6 @@ await esbuild.build({
   platform: 'node',
   bundle: true,
   external,
-})
-
-// esbuildDev middleware — lazy-loads esbuild at runtime
-await esbuild.build({
-  entryPoints: [join(srcDir, 'middleware/esbuild-dev.ts')],
-  outfile: join(distDir, 'middleware/esbuild-dev.js'),
-  format: 'esm',
-  platform: 'node',
-  bundle: true,
-  external: [...external, 'esbuild'],
-})
-
-// tailwindDev middleware — lazy-loads @tailwindcss/node at runtime
-await esbuild.build({
-  entryPoints: [join(srcDir, 'middleware/tailwind-dev.ts')],
-  outfile: join(distDir, 'middleware/tailwind-dev.js'),
-  format: 'esm',
-  platform: 'node',
-  bundle: true,
-  external: [...external, '@tailwindcss/node'],
 })
 
 console.log('Build complete.')
