@@ -195,7 +195,8 @@ export class Base {
       `number${String(i + 1).padStart(3, '0')} DOUBLE PRECISION`)
     const dateCols = Array.from({ length: SLOTS.date.count }, (_, i) =>
       `date${String(i + 1).padStart(3, '0')} TIMESTAMPTZ`)
-    // Vector columns - check if pgvector is available
+    // Vector columns — auto-enable pgvector if available in docker image
+    await sql.unsafe(`CREATE EXTENSION IF NOT EXISTS vector`)
     let hasVector = false
     try {
       const extRows = await sql.unsafe(`SELECT 1 FROM pg_extension WHERE extname = 'vector'`) as unknown as Record<string, unknown>[]
@@ -401,18 +402,19 @@ export class Base {
 
   // ── Build WHERE clause from filter ─────────────────────────
 
-  private buildFilter(colMap: ColumnMap[], filter: Record<string, unknown>): {
+  private buildFilter(colMap: ColumnMap[], filter: Record<string, unknown>, startAt = 1): {
     conditions: string[]
     values: unknown[]
   } {
     const conditions: string[] = []
     const values: unknown[] = []
-    let idx = 1
+    let idx = startAt
 
     for (const [key, val] of Object.entries(filter)) {
+      if (val === undefined || val === null) continue
       const mapping = colMap.find(m => m.field_name === key)
       if (mapping && mapping.physical !== 'ext') {
-        conditions.push(`${q(mapping.physical)} = $${idx++}`)
+        conditions.push(`${q(mapping.physical)}::text = $${idx++}`)
         values.push(val)
       } else {
         conditions.push(`ext @> $${idx++}::jsonb`)
@@ -456,8 +458,8 @@ export class Base {
         const tables = input.tables || []
         const [baseRow] = await sql.unsafe(`
           INSERT INTO ${self.ms('base_bases')} (name, slug, description, tables, created_by)
-          VALUES ($1, $2, $3, $4::jsonb, $5) RETURNING *
-        `, [input.name, slug, input.description ?? null, JSON.stringify(tables), userId],
+          VALUES ($1, $2, $3, $4, $5) RETURNING *
+        `, [input.name, slug, input.description ?? null, tables, userId],
         ) as unknown as Record<string, unknown>[]
 
         // Create column maps for each table
@@ -466,8 +468,8 @@ export class Base {
             const physical = await self.allocateSlot(sql, baseRow.id as string, table.name, fieldSchema.type)
             await sql.unsafe(`
               INSERT INTO ${self.ms('base_column_map')} (base_id, table_name, field_name, field_type, physical, config)
-              VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-            `, [baseRow.id, table.name, fieldName, fieldSchema.type, physical, JSON.stringify(fieldSchema)])
+              VALUES ($1, $2, $3, $4, $5, $6)
+            `, [baseRow.id, table.name, fieldName, fieldSchema.type, physical, fieldSchema])
           }
         }
 
@@ -552,15 +554,15 @@ export class Base {
           const physical = await self.allocateSlot(sql, baseId, schema.name, fieldSchema.type)
           await sql.unsafe(`
             INSERT INTO ${self.ms('base_column_map')} (base_id, table_name, field_name, field_type, physical, config)
-            VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-          `, [baseId, schema.name, fieldName, fieldSchema.type, physical, JSON.stringify(fieldSchema)])
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `, [baseId, schema.name, fieldName, fieldSchema.type, physical, fieldSchema])
         }
 
         // Update base metadata
         const newTables = [...tables, schema]
         const [row] = await sql.unsafe(
-          `UPDATE ${self.ms('base_bases')} SET tables = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING *`,
-          [JSON.stringify(newTables), baseId],
+          `UPDATE ${self.ms('base_bases')} SET tables = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+          [newTables, baseId],
         ) as unknown as Record<string, unknown>[]
 
         return toBaseDef(row)
@@ -585,9 +587,9 @@ export class Base {
             const physical = await self.allocateSlot(sql, baseId, tableName, fieldSchema.type)
             await sql.unsafe(`
               INSERT INTO ${self.ms('base_column_map')} (base_id, table_name, field_name, field_type, physical, config)
-              VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-              ON CONFLICT (base_id, table_name, field_name) DO UPDATE SET field_type = $4, config = $6::jsonb
-            `, [baseId, tableName, fieldName, fieldSchema.type, physical, JSON.stringify(fieldSchema)])
+              VALUES ($1, $2, $3, $4, $5, $6)
+              ON CONFLICT (base_id, table_name, field_name) DO UPDATE SET field_type = $4, config = $6
+            `, [baseId, tableName, fieldName, fieldSchema.type, physical, fieldSchema])
           }
         }
 
@@ -595,8 +597,8 @@ export class Base {
         const newTables = [...tables]
         newTables[idx] = schema
         const [row] = await sql.unsafe(
-          `UPDATE ${self.ms('base_bases')} SET tables = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING *`,
-          [JSON.stringify(newTables), baseId],
+          `UPDATE ${self.ms('base_bases')} SET tables = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+          [newTables, baseId],
         ) as unknown as Record<string, unknown>[]
 
         return toBaseDef(row)
@@ -618,8 +620,8 @@ export class Base {
 
         const newTables = tables.filter(t => t.name !== tableName)
         const [row] = await sql.unsafe(
-          `UPDATE ${self.ms('base_bases')} SET tables = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING *`,
-          [JSON.stringify(newTables), baseId],
+          `UPDATE ${self.ms('base_bases')} SET tables = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+          [newTables, baseId],
         ) as unknown as Record<string, unknown>[]
 
         return toBaseDef(row)
@@ -724,7 +726,7 @@ export class Base {
           UPDATE ${self.ms('base_data')} SET ${sets.join(', ')}
           WHERE base_id = $${idx} AND table_name = $${idx + 1} AND id = $${idx + 2}
           RETURNING *
-        `, [...vals, baseId, table, id]) as unknown as Record<string, unknown>[]
+        `, vals) as unknown as Record<string, unknown>[]
 
         if (!row) return null
         return self.reconstructRow(colMap, row) as Record<string, unknown> & { id: string }
@@ -758,7 +760,7 @@ export class Base {
         const values: unknown[] = [baseId, table]
 
         if (opts?.filter) {
-          const { conditions: fc, values: fv } = self.buildFilter(colMap, opts.filter)
+          const { conditions: fc, values: fv } = self.buildFilter(colMap, opts.filter, values.length + 1)
           conditions.push(...fc)
           values.push(...fv)
         }

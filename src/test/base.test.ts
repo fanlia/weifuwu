@@ -122,10 +122,9 @@ describe('base module', () => {
 
   it('defines a new table', async () => {
     const { api } = await withCtx()
-    const crm = await api.getBySlug('crm')
-    assert.ok(crm)
+    const cid = await ensureCrmId(api)
 
-    const updated = await api.defineTable(crm!.id, {
+    const updated = await api.defineTable(cid, {
       name: 'products',
       fields: {
         title: { type: 'string' },
@@ -151,10 +150,9 @@ describe('base module', () => {
 
   it('removes a table', async () => {
     const { api } = await withCtx()
-    const crm = await api.getBySlug('crm')
-    assert.ok(crm)
+    const cid = await ensureCrmId(api)
 
-    const updated = await api.removeTable(crm!.id, 'products')
+    const updated = await api.removeTable(cid, 'products')
     assert.ok(updated)
     assert.equal(updated!.tables.length, 2)
   })
@@ -285,26 +283,26 @@ describe('base module', () => {
   it('performs vector similarity search', async () => {
     const { api } = await withCtx()
     const cid = await ensureCrmId(api)
-    // Insert a row with vector (stored in ext since pgvector may not be installed)
-    const row1 = await api.insert(cid, 'contacts', {
+    // Generate 1536-dim vectors
+    const makeVec = (base: number) => Array.from({ length: 1536 }, (_, i) => base + Math.sin(i * 0.01) * 0.01)
+    const aliceVec = makeVec(0.1)
+    const bobVec = makeVec(0.9)
+    const queryVec = makeVec(0.11)
+
+    await api.insert(cid, 'contacts', {
       name: 'Vector Alice',
       email: 'valice@test.com',
-      avatar: [0.1, 0.2],
+      avatar: aliceVec,
     })
     await api.insert(cid, 'contacts', {
       name: 'Vector Bob',
       email: 'vbob@test.com',
-      avatar: [0.9, 0.8],
+      avatar: bobVec,
     })
 
-    // If pgvector is not installed, similaritySearch will throw
-    try {
-      const results = await api.similaritySearch(cid, 'contacts', 'avatar', [0.11, 0.21])
-      assert.ok(results.length >= 1)
-    } catch (e) {
-      // pgvector not available — skip assertion
-      assert.ok((e as Error).message.includes('pgvector extension'))
-    }
+    const results = await api.similaritySearch(cid, 'contacts', 'avatar', queryVec)
+    assert.ok(results.length >= 1)
+    assert.equal(results[0].name, 'Vector Alice')
   })
 
   // ═══════════════════════════════════════════════════════════
