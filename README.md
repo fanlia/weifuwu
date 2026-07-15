@@ -1,6 +1,6 @@
 # weifuwu
 
-SaaS 开箱即用框架 for Node.js — `(req, ctx) => Response`.
+AI SaaS 框架 for Node.js — `(req, ctx) => Response`.
 
 ```bash
 npm install weifuwu
@@ -22,7 +22,7 @@ app.get('/api/me', async (req, ctx) => {
 serve(app, { port: 3000 })
 ```
 
-每个内置模块解决一个 SaaS 基础设施问题：用户系统、数据库、缓存、队列、限流、文件上传、AI Agent。配好环境变量就能跑。
+每个内置模块解决一个 AI SaaS 基础设施问题：用户系统、即时消息、内容管理、RAG 知识库、AI Agent、动态数据存储。配好环境变量就能跑。
 
 ## Exports
 
