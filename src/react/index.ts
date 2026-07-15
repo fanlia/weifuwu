@@ -596,20 +596,20 @@ export function react(): Middleware {
       return new Response('Not found', { status: 404 })
     }
 
-    // Serve code-split chunks
+    // Serve code-split chunks — read from outdir directly to avoid cache issues
     if (pathname.startsWith('/__weifuwu/') && pathname !== '/__weifuwu/client' && pathname !== '/__weifuwu/react' && pathname !== '/__weifuwu/react-client' && !pathname.startsWith('/__weifuwu/vendor/')) {
       const chunkName = pathname.slice('/__weifuwu/'.length)
-      const dir = lastClientDir
-      if (!dir) return new Response('No client bundle', { status: 404 })
-      const table = await getDirRouteTable(dir)
-      const bundle = await compileClientBundle(dir, table)
-      const chunk = bundle?.chunks.get(chunkName)
-      if (chunk) {
-        return new Response(chunk, {
+      try {
+        const rootDir = process.cwd()
+        const outdir = join(rootDir, 'node_modules', '.weifuwu', 'esbuild-out')
+        const filePath = join(outdir, chunkName)
+        const content = await readFile(filePath, 'utf-8')
+        return new Response(content, {
           headers: { 'content-type': 'application/javascript; charset=utf-8' },
         })
+      } catch {
+        return new Response('Not found', { status: 404 })
       }
-      return new Response('Not found', { status: 404 })
     }
 
     // Serve weifuwu react modules for importmap
