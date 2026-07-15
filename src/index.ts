@@ -69,19 +69,19 @@ export type {
   MessagePreview,
 } from './messager/types.ts'
 
-export { cms, CMS } from './cms/index.ts'
+export { base, Base } from './base/index.ts'
 export type {
-  CMSAPI,
-  CMSOptions,
-  Content,
-  ContentStatus,
-  ContentType,
-  Tag,
-  TagWithCount,
-  CreateContentInput,
-  UpdateContentInput,
-  ListContentOptions,
-} from './cms/types.ts'
+  BaseAPI,
+  BaseDef,
+  BaseOptions,
+  TableSchema,
+  FieldSchema,
+  FieldType,
+  ColumnMap,
+  CreateBaseInput,
+  UpdateBaseInput,
+  QueryOptions,
+} from './base/types.ts'
 
 export { requireRole } from './user/types.ts'
 
