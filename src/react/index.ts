@@ -31,10 +31,10 @@ function HtmlShell({ children, data, inlineCSS, clientBundlePath }: {
       dangerouslySetInnerHTML: {
         __html: JSON.stringify({
           imports: {
-            'react': 'https://esm.sh/react@19',
-            'react-dom': 'https://esm.sh/react-dom@19',
-            'react-dom/client': 'https://esm.sh/react-dom@19/client',
-            'react/jsx-runtime': 'https://esm.sh/react@19/jsx-runtime',
+            'react': '/__weifuwu/vendor/react.js',
+            'react-dom': '/__weifuwu/vendor/react.js',
+            'react-dom/client': '/__weifuwu/vendor/react.js',
+            'react/jsx-runtime': '/__weifuwu/vendor/react.js',
             'weifuwu': '/__weifuwu/react',
             'weifuwu/react': '/__weifuwu/react',
             'weifuwu/react/client': '/__weifuwu/react-client',
@@ -373,6 +373,7 @@ interface ClientBundle {
   chunks: Map<string, string>
 }
 
+const vendorBundleCache = new Map<string, string>()
 const clientCache = new Map<string, { bundle: ClientBundle; mtime: number }>()
 
 async function compileClientBundle(dir: string, table: DirRouteTable): Promise<ClientBundle | undefined> {
@@ -557,8 +558,44 @@ export function react(): Middleware {
       return new Response('Not found', { status: 404 })
     }
 
-    // Serve code-split chunks (imported as ./chunk-xxx.js from entry at /__weifuwu/client)
-    if (pathname.startsWith('/__weifuwu/') && pathname !== '/__weifuwu/client' && pathname !== '/__weifuwu/react' && pathname !== '/__weifuwu/react-client') {
+    // Serve vendor react bundle — all react deps in one ESM file
+    if (pathname === '/__weifuwu/vendor/react.js') {
+      try {
+        const cached = vendorBundleCache.get('react')
+        if (cached) return new Response(cached, { headers: { 'content-type': 'application/javascript; charset=utf-8' } })
+
+        const esbuild = await import('esbuild')
+        const src = [
+          `import * as React from 'react'`,
+          `import * as ReactDOM from 'react-dom'`,
+          `import * as ReactDOMClient from 'react-dom/client'`,
+          `import * as JSXRuntime from 'react/jsx-runtime'`,
+          `export default React`,
+          `export const { createElement, useState, useEffect, useCallback, useMemo, useRef, useContext, createContext, Component, Fragment, use } = React`,
+          `export const { createPortal, flushSync } = ReactDOM`,
+          `export const { createRoot, hydrateRoot } = ReactDOMClient`,
+          `export const { jsx, jsxs, jsxDEV } = JSXRuntime`,
+        ].join('\n')
+        const result = await esbuild.build({
+          stdin: { contents: src, loader: 'js', resolveDir: process.cwd() },
+          bundle: true,
+          format: 'esm',
+          platform: 'browser',
+          write: false,
+          logLevel: 'silent',
+          external: [],
+        })
+        const code = result.outputFiles[0]?.text ?? ''
+        if (code) {
+          vendorBundleCache.set('react', code)
+          return new Response(code, { headers: { 'content-type': 'application/javascript; charset=utf-8' } })
+        }
+      } catch { /* fallthrough */ }
+      return new Response('Not found', { status: 404 })
+    }
+
+    // Serve code-split chunks
+    if (pathname.startsWith('/__weifuwu/') && pathname !== '/__weifuwu/client' && pathname !== '/__weifuwu/react' && pathname !== '/__weifuwu/react-client' && !pathname.startsWith('/__weifuwu/vendor/')) {
       const chunkName = pathname.slice('/__weifuwu/'.length)
       const dir = lastClientDir
       if (!dir) return new Response('No client bundle', { status: 404 })
