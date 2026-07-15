@@ -7,26 +7,60 @@ npm install weifuwu
 ```
 
 ```ts
-import { serve, Router, postgres, redis, user } from 'weifuwu'
+import { serve, Router, postgres, user, kb, agent, messager } from 'weifuwu'
+import { openai } from '@ai-sdk/openai'
 
 const app = new Router()
 app.use(postgres())
-app.use(redis())
 app.use(user())
+app.use(kb())
+app.use(messager())
+app.use(agent({
+  model: openai('deepseek-v4-flash', { baseURL: 'https://api.deepseek.com/v1' }),
+  knowledge: {
+    search: async (query, ctx) => ctx.kb.search(query),
+  },
+}))
 
-app.get('/api/me', async (req, ctx) => {
-  if (!ctx.user) return new Response('Unauthorized', { status: 401 })
-  return Response.json(ctx.user)
+// AI 对话 — 自动 RAG + 流式回复
+app.post('/api/chat', async (req, ctx) => {
+  const { messages } = await req.json()
+  return ctx.agent.chatStreamResponse({ messages })
 })
 
 serve(app, { port: 3000 })
 ```
 
-每个内置模块解决一个 AI SaaS 基础设施问题：用户系统、即时消息、内容管理、RAG 知识库、AI Agent、动态数据存储。配好环境变量就能跑。
+每个内置模块解决一个 AI SaaS 基础设施问题：用户系统、即时消息、RAG 知识库、AI Agent、内容管理、动态数据存储。配好环境变量就能跑。
 
-## Exports
+---
 
-### Core
+## 目录
+
+- [Core API](#core)
+- [Router](#router)
+- [User System](#user-system)
+- [Messager (AI 对话)](#messager)
+- [KB (RAG 知识库)](#kb)
+- [AI Agent](#ai-agent)
+- [CMS (内容管理)](#cms)
+- [Base (动态数据存储)](#base)
+- [Middleware](#middleware)
+- [Postgres](#postgres)
+- [Redis](#redis)
+- [Queue & Cron](#queue--cron)
+
+---
+
+## Core
+
+```ts
+import { serve, Router } from 'weifuwu'
+
+const app = new Router()
+app.get('/', () => new Response('Hello'))
+serve(app, { port: 3000 })
+```
 
 | Export | Description |
 |---|---|
@@ -34,8 +68,11 @@ serve(app, { port: 3000 })
 | `Router` | Trie-based HTTP router with WebSocket support and `plugin()` method. |
 | `HttpError` | `new HttpError(message, status)`. Throw to return that status code. |
 | `DEFAULT_MAX_BODY` | `10 * 1024 * 1024` (10MB). |
+| `currentTraceId()` / `currentTrace()` | Request tracing via AsyncLocalStorage. |
+| `trace()` | Middleware that injects `ctx.trace`. |
+| `logger()` | Request logging. `format: 'short' \| 'combined' \| 'json'`. |
 
-### Router API
+## Router
 
 ```ts
 const app = new Router()
@@ -43,40 +80,30 @@ const app = new Router()
 // HTTP methods
 app.get(path, ...handlers)
 app.post / put / delete / patch / head / options(path, ...handlers)
-app.all(path, ...handlers)    // any method
+app.all(path, ...handlers)
 
 // WebSocket
 app.ws(path, ...middlewares, handler)
-// handler: { open?, message?, close?, error? }
 
 // Middleware & mounting
 app.use(middleware)           // global middleware
-app.mount(prefix, router)     // sub-router at prefix
-app.plugin(fn)                // extension: (app) => { app.get(), app.use(), ... }
-app.onError(handler)          // error handler: (error, req, ctx) => Response
+app.mount(prefix, router)     // sub-router
+app.plugin(fn)                // plugin(app) => { app.get(), app.use(), ... }
+app.onError(handler)          // (error, req, ctx) => Response
 app.routes()                  // debug: list all registered routes
 
 // Path params
 app.get('/users/:id', (req, ctx) => {
-  ctx.params.id   // string
+  ctx.params.id
   ctx.query.search // from ?search=...
 })
 ```
 
-### Middleware
+---
 
-| Export | Description |
-|---|---|
-| `cors(opts?)` | CORS headers. `origin`, `methods`, `headers`, `credentials`, `maxAge`. |
-| `helmet(opts?)` | Security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc. |
-| `compress(opts?)` | gzip / brotli / deflate response compression. |
-| `rateLimit(opts?)` | Sliding-window rate limiter. `windowMs`, `max`, `keyGenerator`, Redis backend. |
-| `logger(opts?)` | Request logging. `format: 'short' \| 'combined' \| 'json'`. |
-| `upload(opts?)` | Multipart file upload via `req.formData()`. Injects `ctx.parsed`. |
-| `serveStatic(root, opts?)` | Static file handler. `cacheControl`, `index`. |
-| `sandbox(opts?)` | Filesystem isolation for agent operations. `baseDir`, `timeout`, `isolateBy`. |
+## User System
 
-### User System
+身份认证、注册登录、角色管理。
 
 ```ts
 import { user, requireRole } from 'weifuwu'
@@ -84,13 +111,11 @@ import { user, requireRole } from 'weifuwu'
 app.use(postgres())
 app.use(user({ secret: process.env.JWT_SECRET }))
 
-// Register
+// 注册 / 登录
 app.post('/api/register', async (req, ctx) => {
   const result = await ctx.userModule.register(await req.json())
   return Response.json(result)
 })
-
-// Login
 app.post('/api/login', async (req, ctx) => {
   const { email, password } = await req.json()
   const result = await ctx.userModule.login(email, password)
@@ -98,80 +123,36 @@ app.post('/api/login', async (req, ctx) => {
   return Response.json(result)
 })
 
-// Protected — any authenticated user
+// 当前用户
 app.get('/api/me', async (req, ctx) => {
   if (!ctx.user) return new Response('Unauthorized', { status: 401 })
   return Response.json(ctx.user)
 })
 
-// Protected — admin only
+// 仅管理员
 app.get('/api/admin/users', requireRole('admin'), async (req, ctx) => {
-  const users = await ctx.userModule.listUsers()
-  return Response.json(users)
+  return Response.json(await ctx.userModule.listUsers())
 })
 ```
 
-**Features:**
-- 注册 / 登录 / 密码修改 — scrypt 加盐哈希
-- JWT 令牌签发、验证、刷新（HMAC HS256）
-- 用户 CRUD + 软删除
-- 自动从 `Authorization: Bearer` 或 `token` cookie 解析 `ctx.user`
-- `requireRole('admin', 'moderator')` 中间件工厂
-- 自动建表迁移
+| Feature | Description |
+|---------|-------------|
+| `ctx.userModule.register(input)` | 注册，返回 `{ user, token }` |
+| `ctx.userModule.login(email, pw)` | 登录，返回 `{ user, token }` 或 null |
+| `ctx.userModule.getUserById(id)` | 查用户 |
+| `ctx.userModule.updateUser(id, input)` | 更新用户 |
+| `ctx.userModule.changePassword(id, oldPw, newPw)` | 改密码 |
+| `ctx.userModule.deleteUser(id)` | 软删除 |
+| `requireRole('admin', 'moderator')` | 中间件，检查 `ctx.user.role` |
+| 自动从 `Authorization: Bearer` 或 `token` cookie 解析 `ctx.user` | JWT |
 
-**上下文传递：** 所有 API 方法已绑定到请求的 SQL 上下文，调用时无需传 `ctx`。每个请求独立闭包，并发安全。
+密码使用 scrypt + 随机盐，令牌使用 HMAC HS256。
 
-```ts
-// 不需要传 ctx
-const user = await ctx.userModule.getUserById(id)
-const ok = await ctx.userModule.changePassword(id, oldPw, newPw)
-```
+---
 
-### CMS
+## Messager
 
-```ts
-import { cms } from 'weifuwu'
-
-app.use(postgres())
-app.use(user())
-app.use(cms())
-
-// Public: list published posts
-app.get('/api/posts', async (req, ctx) => {
-  return Response.json(await ctx.cms.list({ type: 'post', status: 'published' }))
-})
-
-// Public: get single post by slug
-app.get('/api/posts/:slug', async (req, ctx) => {
-  const post = await ctx.cms.get(ctx.params.slug)
-  if (!post) return new Response('Not found', { status: 404 })
-  return Response.json(post)
-})
-
-// Admin: create post
-app.post('/api/admin/posts', requireRole('admin'), async (req, ctx) => {
-  const post = await ctx.cms.create(await req.json())
-  return Response.json(post, { status: 201 })
-})
-
-// Tags
-app.get('/api/tags', async (req, ctx) => {
-  return Response.json(await ctx.cms.listTags())
-})
-```
-
-**Features:**
-- 多类型内容（post / page / doc / changelog），自动建表迁移
-- Markdown 内容 + 摘要 + 封面图
-- 发布 / 草稿 / 归档状态
-- Slug 唯一性（同类型内），自动生成 + 冲突加后缀
-- 标签系统（多对多），自动创建标签
-- 游标分页，按时间倒序
-- 树形结构 — 通过 `parent_id` 支持层级
-- 非管理员只能看到已发布的内容
-- 写操作（create / update / delete / publish）需要 admin 角色
-
-### Messager
+即时消息模块，也是 AI 对话的交互层。
 
 ```ts
 import { messager } from 'weifuwu'
@@ -180,7 +161,7 @@ app.use(postgres())
 app.use(user())
 app.use(messager())
 
-// WebSocket — auto-join all conversations
+// WebSocket — 自动加入所有会话房间
 app.ws('/ws', {
   async open(ws, ctx) {
     for (const c of await ctx.messager.getConversations()) {
@@ -189,286 +170,94 @@ app.ws('/ws', {
   },
 })
 
-// Send a message
+// 发消息
 app.post('/api/messages', async (req, ctx) => {
   const { conversationId, body } = await req.json()
   const msg = await ctx.messager.sendMessage(conversationId, body)
   return Response.json(msg, { status: 201 })
 })
+```
 
-// Get messages with cursor pagination
-app.get('/api/conversations/:id/messages', async (req, ctx) => {
-  const url = new URL(req.url)
-  return Response.json(await ctx.messager.getMessages(ctx.params.id, {
-    before: url.searchParams.get('before') || undefined,
-    limit: parseInt(url.searchParams.get('limit') || '50'),
-  }))
+| API | Description |
+|-----|-------------|
+| `createDirectConversation(userId)` | 创建/复用私聊 |
+| `createGroupConversation(title, userIds)` | 创建群聊 |
+| `sendMessage(convId, body)` | 发消息，自动 WS 广播 |
+| `getMessages(convId, { before?, limit? })` | 游标分页 |
+| `editMessage(msgId, body)` | 编辑（24h 内） |
+| `deleteMessage(msgId)` | 软删除 |
+| `getConversations()` | 会话列表（含未读数） |
+| `markRead(convId)` | 标记已读 |
+| `getUnreadCount()` | 未读统计 |
+| `addParticipants(convId, userIds)` | 加人 |
+| `removeParticipant(convId, userId?)` | 退出/踢出 |
+
+**与 AI Agent 配合：** messager 提供会话管理和实时推送，ai/agent 提供 LLM 生成能力。两个模块组合就是 ChatGPT 的基础架构。
+
+---
+
+## KB
+
+RAG 知识库 — 文档导入、自动分片、向量化、语义搜索。
+
+```ts
+import { kb } from 'weifuwu'
+
+app.use(postgres())
+app.use(kb())
+
+// 导入文档
+app.post('/api/kb/import', async (req, ctx) => {
+  const { title, content } = await req.json()
+  const result = await ctx.kb.importText(title, content)
+  return Response.json(result, { status: 201 })
+})
+
+// 语义搜索
+app.post('/api/kb/search', async (req, ctx) => {
+  const { query } = await req.json()
+  const results = await ctx.kb.search(query, { limit: 5 })
+  return Response.json(results)
 })
 ```
 
-**Features:**
-- 单聊 / 群聊，自动建表迁移
-- 游标分页，按时间倒序
-- 发送消息后自动广播到 WebSocket 房间 `conversation:${id}`
-- 消息编辑（24h 内）和软删除
-- 未读计数 / 已读标记
-- 参与者管理（添加 / 退出 / 踢出）
-- 非参与者鉴权自动拦截
-- 三人会话不重复创建
+| API | Description |
+|-----|-------------|
+| `importText(title, text, opts?)` | 导入文本 → 分片 → embed → 存储 |
+| `importDocuments(docs)` | 批量导入 |
+| `search(query, opts?)` | 语义搜索，返回 `{ content, score, title }` |
+| `list()` | 文档列表 |
+| `getChunks(documentId)` | 查看分片 |
+| `delete(id)` | 删除文档（级联删除分片） |
 
-### Tracing
-
-| Export | Description |
-|---|---|
-| `currentTraceId()` | Current request's trace ID (AsyncLocalStorage). |
-| `currentTrace()` | Current trace context `{ traceId, startTime }`. |
-| `runWithTrace(id, fn)` | Run `fn` in a trace context. Auto-generates UUID if id is null. |
-| `traceElapsed()` | Milliseconds since trace start. |
-| `trace(opts?)` | Middleware that injects `ctx.trace`. |
-
-### Postgres
+**默认 Embedding 模型：** DashScope `text-embedding-v4`，通过 `DASHSCOPE_API_KEY` 环境变量配置。
 
 ```ts
-import { postgres, MIGRATIONS_TABLE } from 'weifuwu'
-
-const sql = postgres({ url: process.env.DATABASE_URL })
-app.use(sql)  // injects ctx.sql
-
-const rows = await sql.sql`SELECT * FROM users WHERE id = ${id}`
-
-// Migrations
-await sql.migrate({
-  '001_init': async (s) => await s`CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT)`,
-})
-```
-
-### Redis
-
-```ts
-import { redis } from 'weifuwu'
-
-const r = redis({ url: process.env.REDIS_URL })
-app.use(r)  // injects ctx.redis
-await r.redis.set('key', 'value')
-```
-
-### Queue & Cron
-
-```ts
-import { queue } from 'weifuwu'
-
-const q = queue()
-app.use(q)  // injects ctx.queue
-
-q.process('email', async (job) => {
-  await sendEmail(job.payload.to)
-})
-
-q.cron('cleanup', '0 3 * * *', async () => {
-  await cleanupOldSessions()
-})
-
-await q.add('email', { to: 'user@example.com' })
-await q.add('remind', {}, { delay: 60_000 })
-await q.add('report', {}, { schedule: '0 9 * * 1' })
-
-q.run()  // start processing
-```
-
-### WebSocket Hub
-
-```ts
-import { createHub } from 'weifuwu'
-
-const hub = createHub()
-app.ws('/chat', {
-  open(ws, ctx) {
-    ctx.ws.join('lobby')
-    ctx.ws.json({ type: 'join' })
+// 自定义 embedding
+app.use(kb({
+  embed: async (text) => {
+    const res = await fetch('https://your-embedding-api.com', { ... })
+    return res.embedding
   },
-  message(ws, ctx, data) {
-    ctx.ws.sendRoom('lobby', { text: data.toString() })
-  },
-})
-```
-
-### GraphQL
-
-```ts
-import { graphql } from 'weifuwu'
-
-const gql = graphql((req, ctx) => ({
-  schema: `
-    type Query {
-      hello: String
-      user(id: ID!): User
-    }
-    type User {
-      id: ID
-      name: String
-    }
-  `,
-  resolvers: {
-    Query: {
-      hello: () => 'world',
-      user: (_, { id }) => ctx.sql`SELECT * FROM users WHERE id = ${id}`.then(r => r[0]),
-    },
-  },
-  graphiql: true,
 }))
-
-app.mount('/graphql', gql)
 ```
 
-### React SSR
-
-> Requires `react >= 19`, `react-dom >= 19` (optional peerDependencies).
-
-```bash
-npm install react react-dom
-```
+**与 AI Agent 配合：** kb 作为 RAG 数据源，直接在 `agent()` 中配置：
 
 ```ts
-// server.ts — the only file you need
-import { serve, Router } from 'weifuwu'
-import { react } from 'weifuwu/react'
-
-const app = new Router()
-  .use(trace())
-  .use(logger())
-  .plugin(react({
-    pages: {
-      '/':          './pages/Home.tsx',
-      '/users':     './pages/Users.tsx',
-      '/users/:id': './pages/UserDetail.tsx',
-    },
-    layout:   './layouts/Root.tsx',
-    notFound: './pages/NotFound.tsx',
-    tailwind: { entry: './styles/input.css' },
-  }))
-
-app.get('/api/hello', () => Response.json({ message: 'hi' }))
-serve(app, { port: 3000 })
+app.use(agent({
+  model: openai('deepseek-v4-flash', { baseURL: 'https://api.deepseek.com/v1' }),
+  knowledge: {
+    search: async (query, ctx) => ctx.kb.search(query),
+  },
+}))
 ```
 
-**One `react()` call handles:** SSR rendering, routing, data loading, Tailwind CSS, client bundle auto-generation, and error pages. No `client.ts`, `routes.ts`, or manual middleware setup needed.
+---
 
-#### Page components
+## AI Agent
 
-```tsx
-// pages/UserDetail.tsx
-import type { Context } from 'weifuwu'
-import { HttpError } from 'weifuwu'
-import { useServerData } from 'weifuwu/react'
-
-export async function loader(ctx: Context) {
-  const user = await db.find(ctx.params.id)
-  if (!user) throw new HttpError('Not found', 404)
-  return { user }
-}
-
-export default function UserDetailPage() {
-  const { user } = useServerData<{ user: User }>()
-  return (
-    <div>
-      <title>{`${user.name} — My App`}</title>
-      <h1>{user.name}</h1>
-      <p>{user.email}</p>
-    </div>
-  )
-}
-```
-
-- `export async function loader(ctx)` — runs on the server, returns data for `useServerData()`
-- `throw new HttpError('Not found', 404)` — renders the NotFound page with correct status
-- `<title>` auto-hoists to `<head>` via React 19
-- `export default` is auto-detected; named exports work too
-
-#### Layout with shared data
-
-```tsx
-// layouts/Root.tsx
-export async function loader(ctx: Context) {
-  return { currentUser: await getCurrentUser(ctx) }
-}
-
-export function Root({ children }: { children: ReactNode }) {
-  const { currentUser } = useServerData()
-  return (
-    <>
-      <nav>
-        <a href="/">Home</a>
-        <a href="/users">Users</a>
-        <span>{currentUser?.name}</span>
-      </nav>
-      <main>{children}</main>
-    </>
-  )
-}
-```
-
-Layout `loader` data merges with page data. Page loader overrides same keys.
-
-#### Data flow
-
-```
-layout loader  ──┐
-                  ├──→  merge → useServerData()  ──→  Layout + Page
-page loader   ───┘
-```
-
-#### Client-side SPA
-
-Every page is automatically code-split into a separate chunk. On first visit the server renders HTML and the client hydrates. Subsequent navigations intercept `<a>` clicks, `import()` the page chunk, and fetch fresh server data — all automatic, zero config.
-
-#### Streaming SSR
-
-```tsx
-import { Suspense, use } from 'react'
-
-export default function StreamingPage() {
-  return (
-    <div>
-      <h1>Instant shell</h1>
-      <Suspense fallback={<Spinner />}>
-        <SlowData promise={fetchSlowData()} />
-      </Suspense>
-    </div>
-  )
-}
-```
-
-`<Suspense>` boundaries stream to the browser as data resolves.
-
-| Feature | Description |
-|---|---|
-| `react({ pages, layout, notFound, tailwind })` | One call: SSR + routing + client bundle + error handling |
-| `export async function loader(ctx)` | Server-side data loading, auto-detected by the framework |
-| `useServerData<T>()` | Type-safe access to loader data in any component |
-| `Link` | `<a>` that does SPA navigation on the client |
-| `ErrorBoundary` | Catches render errors on server and client |
-| `<title>`, `<meta>` | Auto-hoisted to `<head>` via React 19 |
-| `<Suspense>` | Streaming SSR, works out of the box |
-| `client: false` | Disable client JS for static SSR only |
-
-**Import paths:**
-
-```ts
-// Server-side
-import { react, Link, ErrorBoundary, useServerData } from 'weifuwu'
-
-// Client-side (for custom advanced setups)
-import { createBrowserRouter, hydrate, navigate } from 'weifuwu/react/client'
-```
-
-See [examples/react-ssr/](examples/react-ssr/) for the full demo.
-
-### AI Agent
-
-> Requires `ai` (Vercel AI SDK). Install with a model provider:
-> ```bash
-> npm install ai @ai-sdk/openai
-> ```
+LLM 对话、工具调用、RAG、流式输出。
 
 ```ts
 import { agent } from 'weifuwu'
@@ -477,21 +266,16 @@ import { tool } from 'ai'
 import { z } from 'zod'
 
 app.use(agent({
-  model: openai('gpt-4o'),
+  model: openai('deepseek-v4-flash', {
+    baseURL: 'https://api.deepseek.com/v1',
+  }),
   system: 'You are a helpful assistant.',
   knowledge: {
-    // RAG — search a knowledge base before each response
-    search: async (query, ctx) => {
-      const { embeddings } = await embedModel.doEmbed({ values: [query] })
-      return ctx.sql`
-        SELECT content, 1 - (embedding <=> ${embeddings[0]}::vector) AS score
-        FROM docs ORDER BY embedding <=> ${embeddings[0]}::vector LIMIT 3
-      `
-    },
+    search: async (query, ctx) => ctx.kb.search(query),
   },
   tools: {
     getWeather: tool({
-      description: 'Get weather for a city',
+      description: 'Get weather',
       parameters: z.object({ city: z.string() }),
       execute: async ({ city }) => ({ temp: 22, unit: 'C' }),
     }),
@@ -499,173 +283,200 @@ app.use(agent({
   maxSteps: 5,
 }))
 
+// 流式对话（兼容 useChat）
 app.post('/api/chat', async (req, ctx) => {
   const { messages } = await req.json()
   return ctx.agent.chatStreamResponse({ messages })
 })
 ```
-
-**`agent()` handles:** multi-turn conversations, automatic tool-calling loops (maxSteps), knowledge retrieval (RAG) injected into the system prompt, and SSE streaming compatible with `useChat` from `@ai-sdk/react`.
 
 | Feature | Description |
-|---|---|
-| `ctx.agent.chat(prompt, opts?)` | Non-streaming chat with tool calling and RAG |
-| `ctx.agent.chatStreamResponse({ messages })` | SSE streaming response (useChat-compatible) |
-| `knowledge.search` | User-defined RAG callback — query any data source via `ctx` |
-| `tools` | Tool definitions (from `ai` package). Executed in automatic loops |
-| `agents` | Named sub-agents with different models/tools |
-| `sandbox: true` | Auto-integrate with `ctx.sandbox` for file operations |
-| `store` | Session persistence (save/load conversation history) |
+|---------|-------------|
+| `ctx.agent.chat(prompt, opts?)` | 非流式对话 |
+| `ctx.agent.chatStreamResponse({ messages })` | SSE 流式回复 |
+| `knowledge.search` | RAG 回调函数 |
+| `tools` | 工具定义，自动循环调用 |
+| `sandbox: true` | 与 `ctx.sandbox` 集成 |
+| `store` | 对话持久化 |
 
-### Sandbox
+**默认 LLM 模型：** DeepSeek-V4-Flash（兼容 OpenAI API），通过 `DASHSCOPE_API_KEY` 或 `OPENAI_API_KEY` 环境变量配置。
+
+---
+
+## CMS
+
+内容管理 — 博客、文档、公告、更新日志。
 
 ```ts
-import { sandbox } from 'weifuwu'
+import { cms } from 'weifuwu'
 
-app.use(sandbox({
-  baseDir: '/tmp/workspaces',
-  timeout: 30000,
-  isolateBy: 'user',  // one directory per ctx.user.id
-}))
+app.use(postgres())
+app.use(user())
+app.use(cms())
 
-// ctx.sandbox provides isolated file + exec operations
-await ctx.sandbox.writeFile('hello.txt', 'world')
-const content = await ctx.sandbox.readFile('hello.txt')
-const { stdout } = await ctx.sandbox.exec('ls -la')
-await ctx.sandbox.destroy()  // clean up workspace
+// 公开
+app.get('/api/posts', async (req, ctx) => {
+  return Response.json(await ctx.cms.list({ type: 'post', status: 'published' }))
+})
+app.get('/api/posts/:slug', async (req, ctx) => {
+  const post = await ctx.cms.get(ctx.params.slug)
+  if (!post) return new Response('Not found', { status: 404 })
+  return Response.json(post)
+})
+
+// 管理端（需要 admin 角色）
+app.post('/api/admin/posts', requireRole('admin'), async (req, ctx) => {
+  const post = await ctx.cms.create(await req.json())
+  return Response.json(post, { status: 201 })
+})
 ```
 
-All file paths are validated — escapes (`../`) are rejected. `exec()` enforces timeout and sets `HOME` to the workspace directory. When `isolateBy: 'user'` is set, each user gets their own directory under `baseDir`.
+| Feature | Description |
+|---------|-------------|
+| 多类型内容 | post / page / doc / changelog |
+| 发布状态 | draft / published / archived |
+| Slug | 自动生成，同类型唯一 |
+| 标签 | 多对多，自动创建 |
+| 树形 | parent_id 支持层级 |
+| 游标分页 | `list({ before, limit })` |
+| 自动鉴权 | 非管理员只能读已发布 |
 
-### Types
+---
+
+## Base
+
+动态数据存储引擎 — 让用户自定义数据结构。
+
+```ts
+import { base } from 'weifuwu'
+
+app.use(postgres())
+app.use(user())
+app.use(base())
+
+// 创建数据库
+app.post('/api/bases', async (req, ctx) => {
+  const b = await ctx.base.create(await req.json())
+  return Response.json(b, { status: 201 })
+})
+
+// 查询数据
+app.get('/api/bases/:id/:table', async (req, ctx) => {
+  const url = new URL(req.url)
+  return Response.json(await ctx.base.query(ctx.params.id, ctx.params.table, {
+    filter: url.searchParams.get('filter') ? JSON.parse(url.searchParams.get('filter')!) : undefined,
+    limit: parseInt(url.searchParams.get('limit') || '50'),
+  }))
+})
+```
+
+| API | Description |
+|-----|-------------|
+| `create({ name, tables })` | 创建数据库（含表定义） |
+| `defineTable(baseId, schema)` | 加表 |
+| `insert(baseId, table, data)` | 插入行 |
+| `query(baseId, table, { filter?, sort?, limit?, offset? })` | 查询 |
+| `updateRow(baseId, table, id, data)` | 更新行 |
+| `deleteRow(baseId, table, id)` | 删除行 |
+| `search(baseId, table, field, query)` | 全文搜索 |
+| `similaritySearch(baseId, table, field, vector)` | 向量搜索 |
+
+**架构：** Fixed Slot — text001..064 / number001..032 / date001..008 / search001..004 固定列，ext JSONB 溢出。字段名通过 `base_column_map` 映射到物理列号。支持 B-tree 索引、唯一约束、全文搜索、向量搜索。
+
+---
+
+## Middleware
 
 | Export | Description |
-|---|---|
-| `Context` | `{ params, query, mountPath?, [key: string] }` |
-| `Handler<T>` | `(req: Request, ctx: T) => Response \| Promise<Response>` |
-| `Middleware` | `(req, ctx, next) => Response \| Promise<Response>` |
-| `WebSocketHandler` | `{ open?, message?, close?, error? }` |
-| `HttpError` | `Error` subclass with `.status: number` |
-| `Closeable` | `{ close(): Promise<void> }` |
-| `Server` | `{ close, port, hostname, ready }` |
-| `ServeOptions` | `{ port, hostname, signal, maxBodySize, timeout, keepAliveTimeout, headersTimeout, shutdown }` |
+|--------|-------------|
+| `cors(opts?)` | CORS headers |
+| `helmet(opts?)` | Security headers |
+| `compress(opts?)` | gzip / brotli / deflate |
+| `rateLimit(opts?)` | Sliding-window rate limiter |
+| `upload(opts?)` | Multipart file upload |
+| `serveStatic(root, opts?)` | Static files |
+| `sandbox(opts?)` | Filesystem isolation |
 
-## Handler / Middleware patterns
+---
 
-```ts
-// Handler — standard Web API
-app.get('/api/data', (req, ctx) => {
-  const q = ctx.query.q
-  return Response.json({ q })
-})
-
-// Async
-app.get('/db/users', async (req, ctx) => {
-  const rows = await ctx.sql`SELECT * FROM users`
-  return Response.json(rows)
-})
-
-// Throwing HttpError
-app.get('/item/:id', (req, ctx) => {
-  const item = db.get(ctx.params.id)
-  if (!item) throw new HttpError('Not found', 404)
-  return Response.json(item)
-})
-
-// Middleware
-app.use(async (req, ctx, next) => {
-  const start = Date.now()
-  const res = await next(req, ctx)
-  console.log(`${req.method} ${req.url} ${Date.now() - start}ms`)
-  return res
-})
-
-// Error handler
-app.onError((err, req, ctx) => {
-  if (err instanceof HttpError) {
-    return Response.json({ error: err.message }, { status: err.status })
-  }
-  return new Response('Internal error', { status: 500 })
-})
-```
-
-## Complete SaaS example
+## Postgres
 
 ```ts
-import { serve, Router, cors, helmet, compress, logger, trace, rateLimit, postgres, redis, user, requireRole, sandbox, HttpError } from 'weifuwu'
-import { agent } from 'weifuwu/agent'
-import { react } from 'weifuwu/react'
-import { openai } from '@ai-sdk/openai'
+import { postgres } from 'weifuwu'
 
-const app = new Router()
-  .use(trace())
-  .use(logger())
-  .use(cors())
-  .use(helmet())
-  .use(compress())
-  .use(rateLimit({ max: 100 }))
-  .use(postgres())
-  .use(redis())
-  .use(user())
-  .use(sandbox({ isolateBy: 'user' }))
-  .use(agent({
-    model: openai('gpt-4o'),
-    system: 'You are a helpful assistant.',
-    sandbox: true,
-  }))
-  .plugin(react({ pages: { '/': './Chat.tsx' }, layout: './Layout.tsx', tailwind: {} }))
+const sql = postgres()
+app.use(sql)  // injects ctx.sql
 
-// Auth handled by user() — ctx.user is available everywhere
-app.post('/api/chat', async (req, ctx) => {
-  if (!ctx.user) return new Response('Unauthorized', { status: 401 })
-  const { messages } = await req.json()
-  return ctx.agent.chatStreamResponse({ messages })
-})
-
-// Admin-only endpoint
-app.get('/api/admin/stats', requireRole('admin'), async (req, ctx) => {
-  const users = await ctx.userModule.listUsers()
-  return Response.json({ totalUsers: users.length })
-})
-
-serve(app, { port: 3000 })
+await sql.sql`SELECT * FROM users WHERE id = ${id}`
 ```
+
+Reads `DATABASE_URL` env. Supports transactions, migrations, pool stats.
+
+---
+
+## Redis
+
+```ts
+import { redis } from 'weifuwu'
+
+const r = redis()
+app.use(r)  // injects ctx.redis
+await r.redis.set('key', 'value')
+```
+
+Reads `REDIS_URL` env (default: `redis://localhost:6379`).
+
+---
+
+## Queue & Cron
+
+```ts
+import { queue } from 'weifuwu'
+
+const q = queue()
+app.use(q)
+
+q.process('email', async (job) => { await sendEmail(job.payload) })
+q.cron('cleanup', '0 3 * * *', () => cleanup())
+await q.add('email', { to: 'user@example.com' })
+q.run()
+```
+
+---
 
 ## Project Structure
 
 ```
 weifuwu/
-├── package.json
-├── tsconfig.json
-├── docker-compose.yml      ← postgres + redis for tests
-├── scripts/
-│   ├── build.mjs
-│   └── release.mjs
 ├── src/
 │   ├── index.ts
 │   ├── types.ts
-│   ├── core/               ← serve, router, ws, trace, logger
-│   ├── middleware/          ← cors, helmet, compress, rate-limit, static, upload, sandbox
-│   ├── ai/                  ← AI + agent middleware
+│   ├── core/           ← serve, router, ws, trace, logger
+│   ├── middleware/      ← cors, helmet, compress, rate-limit, upload, static, sandbox
+│   ├── user/           ← 用户系统（CRUD、JWT、requireRole）
+│   ├── messager/       ← 即时消息 + AI 对话交互层
+│   ├── kb/             ← RAG 知识库（分片、embedding、向量搜索）
+│   ├── ai/             ← AI Agent（LLM、tools、RAG）
+│   ├── cms/            ← 内容管理（博客、文档、公告）
+│   ├── base/           ← 动态数据存储引擎（Fixed Slot）
 │   ├── postgres/
 │   ├── redis/
-│   ├── react/              ← react SSR (render, navigation, client)
-│   ├── queue/              ← cron, index, types
-│   ├── user/               ← user system (CRUD, auth, JWT, requireRole)
-│   ├── messager/           ← instant messaging (single/group chat, unread, WS push)
-│   ├── cms/                ← content management (posts, pages, docs, tags, publish)
+│   ├── queue/
+│   ├── react/
 │   ├── graphql.ts
 │   ├── hub.ts
-│   └── test/               ← 253 tests (35 files)
-├── examples/
-│   └── react-ssr/          ← full SPA demo
-└── dist/
+│   └── test/           ← 281 tests
+├── docker-compose.yml   ← postgres (pgvector) + redis
+├── scripts/
+│   ├── build.mjs
+│   └── release.mjs
+└── README.md
 ```
 
 ## Development
 
 ```bash
-npm run build          # esbuild → dist/index.js
+npm run build          # esbuild → dist/
 npm run typecheck      # tsc --noEmit
-npm test               # 198 tests (requires docker compose)
+npm test              # 281 tests (requires docker compose)
 ```
