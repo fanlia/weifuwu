@@ -52,7 +52,6 @@ export interface Context {
   mountPath?: string
   /** Currently authenticated user (set by user() or custom auth middleware). */
   user?: unknown
-  /** Server-side data loaded for the current page (React SSR). */
   loaderData?: Record<string, unknown>
   /** Public environment variables. */
   env?: Record<string, string>

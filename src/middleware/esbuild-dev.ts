@@ -27,22 +27,8 @@ import type { Middleware, Context } from '../types.ts'
 // ═══════════════════════════════════════════════════════════════
 
 export interface EsbuildDevEntry {
-  /** Source entry point relative to cwd or absolute. Ignored when `clientRouter` is set. */
+  /** Source entry point relative to cwd or absolute. */
   entry?: string
-  /**
-   * Auto-generate a client entry from route config — eliminates client.ts.
-   * The generated entry imports routes + layout, calls createBrowserRouter().
-   */
-  clientRouter?: {
-    /** Path to the shared routes file (relative to cwd). Overridden by `pages`. */
-    routes?: string
-    /** Inline page definitions — alternative to a separate routes.ts file. */
-    pages?: Record<string, string>
-    /** Layout component import path (relative to cwd). */
-    layout: string
-    /** Fallback 404 component import path (relative to cwd). */
-    fallback?: string
-  }
   /** Bundle all dependencies (default: true). */
   bundle?: boolean
   /** Packages to leave external (not bundled). */
@@ -247,98 +233,21 @@ export function esbuildDev(opts: EsbuildDevOptions): Middleware<Context, Context
   async function compile(entry: EsbuildDevEntry): Promise<{ code: string; etag: string; chunks?: Map<string, { code: string; etag: string }> }> {
     const esbuild = await getEsbuild()
 
-    const isClientRouter = !!entry.clientRouter
-    let entryAbs: string
-    let buildOpts: Parameters<typeof esbuild.build>[0]
-
-    if (isClientRouter) {
-      // Generate virtual client entry that imports routes + layout
-      const cr = entry.clientRouter!
-      const virtualModule = 'weifuwu:client-entry'
-      entryAbs = virtualModule
-
-      // Auto-detect layout export (matches server-side behavior)
-      const layoutImport = `import * as _layout from '${cr.layout}'
-const _lx = Object.entries(_layout).filter(([,v]) => typeof v === 'function')
-const Layout = _layout.default || (_lx[0]?.[1])`
-
-      // Routes: inline from pages, or import from file
-      let routesCode: string
-      if (cr.pages) {
-        const entries = Object.entries(cr.pages).map(([path, component]) =>
-          `  '${path}': () => import('${component}'),`,
-        )
-        routesCode = `const routes = {\n${entries.join('\n')}\n}`
-      } else if (cr.routes) {
-        routesCode = `import { routes } from '${cr.routes}'`
-      } else {
-        routesCode = 'const routes = {}'
-      }
-
-      const fallbackLine = cr.fallback
-        ? `const fallback = () => import('${cr.fallback}')`
-        : ''
-      const fallbackOpt = cr.fallback ? '  fallback,' : ''
-
-      const generatedCode = [
-        `import { createBrowserRouter } from 'weifuwu/react/client'`,
-        layoutImport,
-        routesCode,
-        fallbackLine,
-        '',
-        'createBrowserRouter({',
-        '  layout: Layout,',
-        '  routes,',
-        fallbackOpt,
-        '})',
-      ].filter(Boolean).join('\n')
-
-      buildOpts = {
-        entryPoints: [virtualModule],
-        bundle: entry.bundle ?? true,
-        external: entry.external ?? [],
-        minify: entry.minify ?? true,
-        platform: entry.platform ?? 'browser',
-        format: entry.format ?? 'esm',
-        sourcemap: entry.sourcemap ?? false,
-        splitting: entry.splitting ?? false,
-        ...(entry.splitting ? { outdir: resolve('.weifuwu-esbuild-out') } : {}),
-        define: entry.define,
-        loader: entry.loader as Record<string, import('esbuild').Loader> | undefined,
-        write: false,
-        logLevel: 'silent',
-        plugins: [{
-          name: 'weifuwu-client-router',
-          setup(build: import('esbuild').PluginBuild) {
-            build.onResolve({ filter: new RegExp(`^${virtualModule.replace(/:/g, '\\:')}$`) }, () => ({
-              path: virtualModule,
-              namespace: 'weifuwu-client',
-            }))
-            build.onLoad({ filter: /.*/, namespace: 'weifuwu-client' }, () => ({
-              contents: generatedCode,
-              loader: 'ts',
-              resolveDir: process.cwd(),
-            }))
-          },
-        }],
-      }
-    } else {
-      entryAbs = resolve(entry.entry!)
-      buildOpts = {
-        entryPoints: [entryAbs],
-        bundle: entry.bundle ?? true,
-        external: entry.external ?? [],
-        minify: entry.minify ?? true,
-        platform: entry.platform ?? 'browser',
-        format: entry.format ?? 'esm',
-        sourcemap: entry.sourcemap ?? false,
-        splitting: entry.splitting ?? false,
-        ...(entry.splitting ? { outdir: dirname(entryAbs) } : {}),
-        define: entry.define,
-        loader: entry.loader as Record<string, import('esbuild').Loader> | undefined,
-        write: false,
-        logLevel: 'silent',
-      }
+    const entryAbs = resolve(entry.entry!)
+    const buildOpts: Parameters<typeof esbuild.build>[0] = {
+      entryPoints: [entryAbs],
+      bundle: entry.bundle ?? true,
+      external: entry.external ?? [],
+      minify: entry.minify ?? true,
+      platform: entry.platform ?? 'browser',
+      format: entry.format ?? 'esm',
+      sourcemap: entry.sourcemap ?? false,
+      splitting: entry.splitting ?? false,
+      ...(entry.splitting ? { outdir: dirname(entryAbs) } : {}),
+      define: entry.define,
+      loader: entry.loader as Record<string, import('esbuild').Loader> | undefined,
+      write: false,
+      logLevel: 'silent',
     }
 
     const result = await esbuild.build(buildOpts)
@@ -473,10 +382,7 @@ const Layout = _layout.default || (_lx[0]?.[1])`
       const { code, etag, chunks } = await compile(config)
 
       // Collect dependency files for cache invalidation
-      const depEntry = config.clientRouter?.routes
-        ?? (config.clientRouter?.pages ? Object.values(config.clientRouter.pages)[0] : undefined)
-        ?? config.entry!
-      const deps = await collectDeps(resolve(depEntry))
+      const deps = await collectDeps(resolve(config.entry!))
 
       // Store cache (including chunks)
       if (cache === 'memory') {

@@ -39,9 +39,6 @@ export type { Hub, HubOptions } from './hub.ts'
 export { queue } from './queue/index.ts'
 export type { QueueOptions, QueueJob, Queue, QueueInjected } from './queue/types.ts'
 
-export { react } from './react/index.ts'
-export { useServerData, ServerDataContext, Link, ErrorBoundary } from './react/index.ts'
-
 export { ai } from './ai/index.ts'
 export type { AiOptions, Ai } from './ai/index.ts'
 export { agent } from './ai/agent.ts'

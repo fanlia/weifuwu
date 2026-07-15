@@ -25,7 +25,6 @@
     "src/graphql.ts",
     "src/hub.ts",
     "src/types.ts",
-    "src/react/*.ts",
     "src/user/*.ts",
     "src/messager/*.ts",
     "src/cms/*.ts",

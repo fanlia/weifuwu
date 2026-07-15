@@ -21,10 +21,6 @@ const external = [
   'ioredis',
   'postgres',
   'ws',
-  'react',
-  'react-dom',
-  'react-dom/server',
-  'react-dom/client',
   '@tailwindcss/node',  // dynamic import in tailwindDev
   'esbuild',  // dynamic import in esbuildDev — must be external for native binary
   'tailwindcss',  // dependency of @tailwindcss/node
@@ -38,26 +34,6 @@ await esbuild.build({
   platform: 'node',
   bundle: true,
   external,
-})
-
-// React SSR module — separate entry point
-await esbuild.build({
-  entryPoints: [join(srcDir, 'react/index.ts')],
-  outfile: join(distDir, 'react/index.js'),
-  format: 'esm',
-  platform: 'node',
-  bundle: true,
-  external,
-})
-
-// React client — separate entry point (for browser bundles)
-await esbuild.build({
-  entryPoints: [join(srcDir, 'react/client.ts')],
-  outfile: join(distDir, 'react/client.js'),
-  format: 'esm',
-  platform: 'browser',
-  bundle: true,
-  external: ['react', 'react-dom', 'react-dom/client'],
 })
 
 // esbuildDev middleware — lazy-loads esbuild at runtime
