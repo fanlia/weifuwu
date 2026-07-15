@@ -1,18 +1,28 @@
 # weifuwu
 
-Web-standard HTTP microframework for Node.js — `(req, ctx) => Response`.
+SaaS 开箱即用框架 for Node.js — `(req, ctx) => Response`.
 
 ```bash
 npm install weifuwu
 ```
 
 ```ts
-import { serve, Router } from 'weifuwu'
+import { serve, Router, postgres, redis, user } from 'weifuwu'
 
 const app = new Router()
-app.get('/', () => new Response('Hello'))
+app.use(postgres())
+app.use(redis())
+app.use(user())
+
+app.get('/api/me', async (req, ctx) => {
+  if (!ctx.user) return new Response('Unauthorized', { status: 401 })
+  return Response.json(ctx.user)
+})
+
 serve(app, { port: 3000 })
 ```
+
+每个内置模块解决一个 SaaS 基础设施问题：用户系统、数据库、缓存、队列、限流、文件上传、AI Agent。配好环境变量就能跑。
 
 ## Exports
 
@@ -61,11 +71,61 @@ app.get('/users/:id', (req, ctx) => {
 | `helmet(opts?)` | Security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc. |
 | `compress(opts?)` | gzip / brotli / deflate response compression. |
 | `rateLimit(opts?)` | Sliding-window rate limiter. `windowMs`, `max`, `keyGenerator`, Redis backend. |
-| `logger(opts?)` | Request logging. `format: 'short' | 'combined' | 'json'`. |
+| `logger(opts?)` | Request logging. `format: 'short' \| 'combined' \| 'json'`. |
 | `upload(opts?)` | Multipart file upload via `req.formData()`. Injects `ctx.parsed`. |
 | `serveStatic(root, opts?)` | Static file handler. `cacheControl`, `index`. |
 | `sandbox(opts?)` | Filesystem isolation for agent operations. `baseDir`, `timeout`, `isolateBy`. |
-| `auth(opts?)` | Authentication: JWT, session cookies, API keys. Injects `ctx.user`. |
+
+### User System
+
+```ts
+import { user, requireRole } from 'weifuwu'
+
+app.use(postgres())
+app.use(user({ secret: process.env.JWT_SECRET }))
+
+// Register
+app.post('/api/register', async (req, ctx) => {
+  const result = await ctx.userModule.register(await req.json())
+  return Response.json(result)
+})
+
+// Login
+app.post('/api/login', async (req, ctx) => {
+  const { email, password } = await req.json()
+  const result = await ctx.userModule.login(email, password)
+  if (!result) return new Response('Unauthorized', { status: 401 })
+  return Response.json(result)
+})
+
+// Protected — any authenticated user
+app.get('/api/me', async (req, ctx) => {
+  if (!ctx.user) return new Response('Unauthorized', { status: 401 })
+  return Response.json(ctx.user)
+})
+
+// Protected — admin only
+app.get('/api/admin/users', requireRole('admin'), async (req, ctx) => {
+  const users = await ctx.userModule.listUsers()
+  return Response.json(users)
+})
+```
+
+**Features:**
+- 注册 / 登录 / 密码修改 — scrypt 加盐哈希
+- JWT 令牌签发、验证、刷新（HMAC HS256）
+- 用户 CRUD + 软删除
+- 自动从 `Authorization: Bearer` 或 `token` cookie 解析 `ctx.user`
+- `requireRole('admin', 'moderator')` 中间件工厂
+- 自动建表迁移
+
+**上下文传递：** 所有 API 方法已绑定到请求的 SQL 上下文，调用时无需传 `ctx`。每个请求独立闭包，并发安全。
+
+```ts
+// 不需要传 ctx
+const user = await ctx.userModule.getUserById(id)
+const ok = await ctx.userModule.changePassword(id, oldPw, newPw)
+```
 
 ### Tracing
 
@@ -368,39 +428,6 @@ app.post('/api/chat', async (req, ctx) => {
 | `sandbox: true` | Auto-integrate with `ctx.sandbox` for file operations |
 | `store` | Session persistence (save/load conversation history) |
 
-### Auth
-
-JWT extraction priority: `cookie` → `Authorization: Bearer` → `?access_token=`. All callbacks receive `ctx` so `ctx.sql` is directly available.
-
-```ts
-import { auth } from 'weifuwu'
-
-// JWT — cookie, header, or ?access_token=
-app.use(auth({ jwt: { secret: process.env.JWT_SECRET } }))
-
-// Session cookie — loadUser gets ctx
-app.use(auth({
-  session: {
-    secret: '...',
-    loadUser: async (data, ctx) => ctx.sql`SELECT * FROM users WHERE id = ${data.userId}`,
-  },
-}))
-
-// API key — header or ?api_key=
-app.use(auth({ apiKey: {
-  query: 'api_key',
-  validate: async (key, ctx) => ctx.sql`SELECT * FROM users WHERE api_key = ${key}`,
-} }))
-
-// ctx.user is now available
-app.get('/me', (req, ctx) => {
-  if (!ctx.user) return new Response('Unauthorized', { status: 401 })
-  return Response.json(ctx.user)
-})
-```
-
-Supports JWT (HS256 via cookie or Authorization header), signed session cookies with `loadUser` callback, and API key validation. All are optional — requests proceed without a user identity unless handlers enforce it.
-
 ### Sandbox
 
 ```ts
@@ -473,10 +500,10 @@ app.onError((err, req, ctx) => {
 })
 ```
 
-## Complete example
+## Complete SaaS example
 
 ```ts
-import { serve, Router, cors, helmet, compress, logger, trace, rateLimit, postgres, redis, auth, sandbox, HttpError } from 'weifuwu'
+import { serve, Router, cors, helmet, compress, logger, trace, rateLimit, postgres, redis, user, requireRole, sandbox, HttpError } from 'weifuwu'
 import { agent } from 'weifuwu/agent'
 import { react } from 'weifuwu/react'
 import { openai } from '@ai-sdk/openai'
@@ -487,24 +514,29 @@ const app = new Router()
   .use(cors())
   .use(helmet())
   .use(compress())
+  .use(rateLimit({ max: 100 }))
   .use(postgres())
   .use(redis())
-  .use(auth({ jwt: { secret: process.env.JWT_SECRET! } }))
+  .use(user())
   .use(sandbox({ isolateBy: 'user' }))
   .use(agent({
     model: openai('gpt-4o'),
     system: 'You are a helpful assistant.',
-    knowledge: {
-      search: async (q, ctx) => ctx.sql`...`,
-    },
     sandbox: true,
   }))
   .plugin(react({ pages: { '/': './Chat.tsx' }, layout: './Layout.tsx', tailwind: {} }))
 
+// Auth handled by user() — ctx.user is available everywhere
 app.post('/api/chat', async (req, ctx) => {
   if (!ctx.user) return new Response('Unauthorized', { status: 401 })
   const { messages } = await req.json()
   return ctx.agent.chatStreamResponse({ messages })
+})
+
+// Admin-only endpoint
+app.get('/api/admin/stats', requireRole('admin'), async (req, ctx) => {
+  const users = await ctx.userModule.listUsers()
+  return Response.json({ totalUsers: users.length })
 })
 
 serve(app, { port: 3000 })
@@ -524,15 +556,16 @@ weifuwu/
 │   ├── index.ts
 │   ├── types.ts
 │   ├── core/               ← serve, router, ws, trace, logger
-│   ├── middleware/          ← cors, helmet, compress, rate-limit, static, upload
+│   ├── middleware/          ← cors, helmet, compress, rate-limit, static, upload, sandbox
 │   ├── ai/                  ← AI + agent middleware
 │   ├── postgres/
 │   ├── redis/
 │   ├── react/              ← react SSR (render, navigation, client)
 │   ├── queue/              ← cron, index, types
+│   ├── user/               ← user system (CRUD, auth, JWT, requireRole)
 │   ├── graphql.ts
 │   ├── hub.ts
-│   └── test/               ← 131 tests (18 files)
+│   └── test/               ← 198 tests (33 files)
 ├── examples/
 │   └── react-ssr/          ← full SPA demo
 └── dist/
@@ -543,5 +576,5 @@ weifuwu/
 ```bash
 npm run build          # esbuild → dist/index.js
 npm run typecheck      # tsc --noEmit
-npm test              # 131 tests (requires docker compose)
+npm test               # 198 tests (requires docker compose)
 ```

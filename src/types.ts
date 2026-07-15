@@ -22,7 +22,7 @@ export interface WebSocket {
 }
 export type { Redis, RedisOptions } from 'ioredis'
 
-/** User injected by auth() middleware. */
+/** User injected by user() or custom auth middleware. */
 export interface User {
   id: string
   role?: string
@@ -50,7 +50,7 @@ export interface Context {
   params: Record<string, string>
   query: Record<string, string>
   mountPath?: string
-  /** Currently authenticated user (set by user/auth middleware). */
+  /** Currently authenticated user (set by user() or custom auth middleware). */
   user?: unknown
   /** Server-side data loaded for the current page (React SSR). */
   loaderData?: Record<string, unknown>

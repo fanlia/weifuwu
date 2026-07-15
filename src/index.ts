@@ -11,8 +11,6 @@ export { logger } from './core/logger.ts'
 export type { LoggerOptions } from './core/logger.ts'
 export { cors } from './middleware/cors.ts'
 export type { CORSOptions } from './middleware/cors.ts'
-export { auth } from './middleware/auth.ts'
-export type { AuthOptions } from './middleware/auth.ts'
 
 export { serveStatic } from './middleware/static.ts'
 export type { ServeStaticOptions } from './middleware/static.ts'
@@ -49,5 +47,14 @@ export { ai } from './ai/index.ts'
 export type { AiOptions, Ai } from './ai/index.ts'
 export { agent } from './ai/agent.ts'
 export type { AgentOptions, Agent } from './ai/agent.ts'
+
+export { user, UserModule } from './user/index.ts'
+export type {
+  UserModuleOptions,
+  UserRecord,
+  CreateUserInput,
+  UpdateUserInput,
+  TokenPayload,
+} from './user/types.ts'
 
 
