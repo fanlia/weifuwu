@@ -42,7 +42,6 @@ export function ai(opts: AiOptions): Middleware {
       async generateText(params: GenerateTextParams) {
         const { generateText } = await getAi()
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const messages: any[] = [...(params.messages ?? [])]
         const system = params.system ?? opts.system
 
@@ -53,7 +52,6 @@ export function ai(opts: AiOptions): Middleware {
           }
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const baseOpts: any = {
           model: model,
           tools: opts.tools,
@@ -69,7 +67,6 @@ export function ai(opts: AiOptions): Middleware {
           baseOpts.prompt = params.prompt
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return generateText(baseOpts as any)
       },
     }

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import type { Middleware, Context } from '../types.ts'
 import { currentTraceId } from './trace.ts'
 

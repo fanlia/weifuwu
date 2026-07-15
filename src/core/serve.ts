@@ -232,7 +232,6 @@ export function serve(router: Router, options?: ServeOptions): Server {
 
     // Startup message — automatic in all environments
     const displayHost = _cachedHostname === '0.0.0.0' ? 'localhost' : _cachedHostname || 'localhost'
-    // eslint-disable-next-line no-console
     console.log(`weifuwu listening on http://${displayHost}:${_cachedPort}`)
   })
 

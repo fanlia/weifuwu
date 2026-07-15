@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { SqlClient, Context, Middleware, Closeable } from '../types.ts'
 
 declare module '../types.ts' {

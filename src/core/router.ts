@@ -223,11 +223,9 @@ export class Router<T extends Context = Context> {
   // ── Private: Route impl ────────────────────────────────────
 
   private _route(method: string, path: string, ...args: [...Middleware[], Handler | Router<Context>]): Router<T> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this._routeImpl(method, path, args as any[])
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _routeImpl(method: string, path: string, args: any[]): Router<T> {
     const last = args[args.length - 1]
     if (last instanceof Router) {
@@ -280,7 +278,6 @@ export class Router<T extends Context = Context> {
     const wsRoutes: Array<{ path: string; handler: WebSocketHandler; middlewares: Middleware[] }> = []
     this._collectWs(sub.wsRoot, '', wsRoutes)
     for (const { path, handler, middlewares } of wsRoutes) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.ws(base + path, ...allExtra as any[], ...middlewares, handler)
     }
   }

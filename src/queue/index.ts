@@ -187,7 +187,6 @@ export function queue(opts?: QueueOptions): Queue {
   }
 
   // Cron
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(q as any).cron = function (pattern: string, handler: () => void | Promise<void>) {
     const id = '__cron_' + pattern.replace(/[^a-zA-Z0-9]/g, '_') + '_' + crypto.randomUUID().slice(0, 8)
     q.process(id, async () => { await handler() })

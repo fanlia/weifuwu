@@ -27,7 +27,6 @@ export interface Ai {
   system: string | undefined
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AiGenerateTextResult = Awaited<ReturnType<typeof import('ai').generateText<any, any, any>>>
 
 // ═══════════════════════════════════════════════════════════════
@@ -48,7 +47,6 @@ export interface AiOptions {
   system?: string
 
   /** Tools available for tool calling. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tools?: any
 
   /** Maximum agent steps for tool-calling loops (default: 1). */
@@ -71,7 +69,6 @@ export interface GenerateTextParams {
   /** System prompt override. */
   system?: string
   /** Chat history messages. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   messages?: Array<{ role: string; content: string } & Record<string, any>>
   /** Override temperature. */
   temperature?: number

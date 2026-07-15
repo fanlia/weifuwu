@@ -22,7 +22,6 @@ const external = [
   'postgres',
   'ws',
   'esbuild',
-  'tailwindcss',
   'ai',  // dynamic import in ai middleware
 ]
 

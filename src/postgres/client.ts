@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import postgresFactory from 'postgres'
 import type { Context, Handler } from '../types.ts'
 import type { PostgresOptions, PostgresClient } from './types.ts'
