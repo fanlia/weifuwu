@@ -57,7 +57,6 @@ serve(app, { port: 3000 })
 | Agent | `agent()` | — | LLM chat, tool calling, streaming |
 | CMS | `cms()` | `postgres()`, `user()` | Blog, docs, changelog |
 | Base | `base()` | `postgres()`, `user()` | Dynamic data engine |
-| React SSR | `react()` | — | SSR + SPA + Tailwind |
 
 ### Middleware
 
@@ -84,7 +83,6 @@ serve(app, { port: 3000 })
 | `redis()` | Redis client (`ctx.redis`) |
 | `queue()` | Job queue + cron |
 | `createHub()` | WebSocket pub/sub |
-| `react()` | React SSR + SPA (from `weifuwu/react`) |
 
 ### Utilities
 
@@ -495,67 +493,6 @@ pgvector auto-detected (included in docker image).
 
 ---
 
-## React SSR
-
-Server-side rendering + SPA + Tailwind CSS. A single `react()` call handles SSR, routing, data loading, Tailwind, client bundle generation, and error pages.
-
-> Requires `react >= 19`, `react-dom >= 19` (optional peerDependencies).
-
-```ts
-import { serve, Router } from 'weifuwu'
-import { react } from 'weifuwu/react'
-
-const app = new Router()
-  .plugin(react({
-    pages: {
-      '/':          './pages/Home.tsx',
-      '/users':     './pages/Users.tsx',
-      '/users/:id': './pages/UserDetail.tsx',
-    },
-    layout:   './layouts/Root.tsx',
-    notFound: './pages/NotFound.tsx',
-    tailwind: { entry: './styles/input.css' },
-  }))
-
-serve(app, { port: 3000 })
-```
-
-### Page Component
-
-```tsx
-// pages/UserDetail.tsx
-import { HttpError, useServerData } from 'weifuwu'
-import type { Context } from 'weifuwu'
-
-export async function loader(ctx: Context) {
-  const user = await db.find(ctx.params.id)
-  if (!user) throw new HttpError('Not found', 404)
-  return { user }
-}
-
-export default function Page() {
-  const { user } = useServerData<{ user: User }>()
-  return (
-    <div>
-      <title>{user.name}</title>
-      <h1>{user.name}</h1>
-    </div>
-  )
-}
-```
-
-### Features
-
-| Feature | Description |
-|---------|-------------|
-| `react({ pages, layout, notFound, tailwind })` | One call: SSR + routing + client + Tailwind |
-| `export async function loader(ctx)` | Server data loading, auto-detected |
-| `useServerData<T>()` | Type-safe loader data |
-| `Link` | SPA navigation |
-| `ErrorBoundary` | Error catching on server + client |
-| `<Suspense>` | Streaming SSR |
-| `<title>`, `<meta>` | Auto-hoisted to `<head>` |
-
 ---
 
 ## Router
@@ -658,7 +595,6 @@ src/
 ├── messager/            ← IM + AI conversation layer
 ├── kb/                  ← RAG knowledge base (chunking, embedding, vector search)
 ├── ai/                  ← AI Agent (LLM, tools, RAG)
-├── react/               ← React SSR + SPA + Tailwind
 ├── cms/                 ← Content management (blog, docs, changelog)
 ├── base/                ← Dynamic data engine (Fixed Slot)
 ├── postgres/            ← PostgreSQL client

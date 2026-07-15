@@ -33,5 +33,4 @@ README is the main entry point for LLMs to understand the project. Keep it **LLM
 - **Middleware pattern** — returns `Middleware<Context, Context & NewFields>`, extends Context via module augmentation
 - **ctx injection** — middleware sets `ctx.field = value`, downstream handlers access via `ctx.field`
 - **Closeable interface** — all stateful modules (postgres, redis, queue, rateLimit) implement `close(): Promise<void>`
-- `react()`, `ctx.render` features must be tested with the `agent-browser` skill using `./examples/react-ssr/`
 - Run `docker compose up -d` before running tests
