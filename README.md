@@ -127,6 +127,51 @@ const user = await ctx.userModule.getUserById(id)
 const ok = await ctx.userModule.changePassword(id, oldPw, newPw)
 ```
 
+### Messager
+
+```ts
+import { messager } from 'weifuwu'
+
+app.use(postgres())
+app.use(user())
+app.use(messager())
+
+// WebSocket — auto-join all conversations
+app.ws('/ws', {
+  async open(ws, ctx) {
+    for (const c of await ctx.messager.getConversations()) {
+      ctx.ws.join(`conversation:${c.id}`)
+    }
+  },
+})
+
+// Send a message
+app.post('/api/messages', async (req, ctx) => {
+  const { conversationId, body } = await req.json()
+  const msg = await ctx.messager.sendMessage(conversationId, body)
+  return Response.json(msg, { status: 201 })
+})
+
+// Get messages with cursor pagination
+app.get('/api/conversations/:id/messages', async (req, ctx) => {
+  const url = new URL(req.url)
+  return Response.json(await ctx.messager.getMessages(ctx.params.id, {
+    before: url.searchParams.get('before') || undefined,
+    limit: parseInt(url.searchParams.get('limit') || '50'),
+  }))
+})
+```
+
+**Features:**
+- 单聊 / 群聊，自动建表迁移
+- 游标分页，按时间倒序
+- 发送消息后自动广播到 WebSocket 房间 `conversation:${id}`
+- 消息编辑（24h 内）和软删除
+- 未读计数 / 已读标记
+- 参与者管理（添加 / 退出 / 踢出）
+- 非参与者鉴权自动拦截
+- 三人会话不重复创建
+
 ### Tracing
 
 | Export | Description |
@@ -563,9 +608,10 @@ weifuwu/
 │   ├── react/              ← react SSR (render, navigation, client)
 │   ├── queue/              ← cron, index, types
 │   ├── user/               ← user system (CRUD, auth, JWT, requireRole)
+│   ├── messager/           ← instant messaging (single/group chat, unread, WS push)
 │   ├── graphql.ts
 │   ├── hub.ts
-│   └── test/               ← 198 tests (33 files)
+│   └── test/               ← 226 tests (34 files)
 ├── examples/
 │   └── react-ssr/          ← full SPA demo
 └── dist/

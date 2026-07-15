@@ -57,4 +57,17 @@ export type {
   TokenPayload,
 } from './user/types.ts'
 
+export { messager, Messager } from './messager/index.ts'
+export type {
+  MessagerAPI,
+  MessagerOptions,
+  Conversation,
+  ConversationType,
+  Participant,
+  ParticipantUser,
+  Message,
+  MessagePreview,
+} from './messager/types.ts'
+export { requireRole } from './user/types.ts'
+
 
