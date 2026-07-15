@@ -45,6 +45,13 @@ export default tseslint.config(
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
+  // ── Module files use `const self = this` pattern for closures ──
+  {
+    files: ['**/src/*/module.ts'],
+    rules: {
+      '@typescript-eslint/no-this-alias': 'off',
+    },
+  },
   // ── Test files get looser rules ──────────────────────────────
   {
     files: ['**/src/test/**/*.test.ts', '**/test/**/*.test.ts'],
