@@ -57,6 +57,7 @@ serve(app, { port: 3000 })
 | Agent | `agent()` | — | LLM 对话、工具调用、流式输出 |
 | CMS | `cms()` | `postgres()`, `user()` | 博客、文档、公告 |
 | Base | `base()` | `postgres()`, `user()` | 动态数据存储引擎 |
+| React SSR | `react()` | — | SSR + SPA + Tailwind |
 
 ### Middleware
 
@@ -83,6 +84,7 @@ serve(app, { port: 3000 })
 | `redis()` | Redis client (`ctx.redis`) |
 | `queue()` | Job queue + cron |
 | `createHub()` | WebSocket pub/sub |
+| `react()` | React SSR + SPA（从 `weifuwu/react` 导入） |
 
 ### Utilities
 
@@ -493,6 +495,69 @@ pgvector 自动检测：docker 镜像默认支持。
 
 ---
 
+## React SSR
+
+服务端渲染 + 客户端 SPA + Tailwind CSS。一个 `react()` 调用处理所有：SSR 渲染、路由、数据加载、Tailwind、客户端 bundle 自动生成、错误页面。
+
+> 需要 `react >= 19`、`react-dom >= 19`（optional peerDependencies）。
+
+```ts
+import { serve, Router } from 'weifuwu'
+import { react } from 'weifuwu/react'
+
+const app = new Router()
+  .plugin(react({
+    pages: {
+      '/':          './pages/Home.tsx',
+      '/users':     './pages/Users.tsx',
+      '/users/:id': './pages/UserDetail.tsx',
+    },
+    layout:   './layouts/Root.tsx',
+    notFound: './pages/NotFound.tsx',
+    tailwind: { entry: './styles/input.css' },
+  }))
+
+serve(app, { port: 3000 })
+```
+
+### 页面组件
+
+```tsx
+// pages/UserDetail.tsx
+import { HttpError, useServerData } from 'weifuwu'
+import type { Context } from 'weifuwu'
+
+export async function loader(ctx: Context) {
+  const user = await db.find(ctx.params.id)
+  if (!user) throw new HttpError('Not found', 404)
+  return { user }
+}
+
+export default function Page() {
+  const { user } = useServerData<{ user: User }>()
+  return (
+    <div>
+      <title>{user.name}</title>
+      <h1>{user.name}</h1>
+    </div>
+  )
+}
+```
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| `react({ pages, layout, notFound, tailwind })` | 一行调用：SSR + 路由 + 客户端 + Tailwind |
+| `export async function loader(ctx)` | 服务端数据加载，自动检测 |
+| `useServerData<T>()` | 类型安全的 loader 数据访问 |
+| `Link` | `<a>` 客户端 SPA 导航 |
+| `ErrorBoundary` | 服务端 + 客户端错误捕获 |
+| `<Suspense>` | 流式 SSR |
+| `<title>`、`<meta>` | 自动提升到 `<head>` |
+
+---
+
 ## Router
 
 ```ts
@@ -593,6 +658,7 @@ src/
 ├── messager/            ← 即时消息 + AI 对话交互层
 ├── kb/                  ← RAG 知识库（分片、embedding、向量搜索）
 ├── ai/                  ← AI Agent（LLM、tools、RAG）
+├── react/               ← React SSR + SPA + Tailwind
 ├── cms/                 ← 内容管理（博客、文档、公告）
 ├── base/                ← 动态数据存储引擎（Fixed Slot）
 ├── postgres/            ← PostgreSQL 客户端
