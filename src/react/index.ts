@@ -1,6 +1,6 @@
 import { createElement, type ReactElement, type ComponentType } from 'react'
 import { renderToReadableStream, type ReactDOMServerReadableStream } from 'react-dom/server'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, readFile, stat, rm } from 'node:fs/promises'
 import { resolve, join, extname, relative } from 'node:path'
 import { glob } from 'node:fs/promises'
 import { type Middleware, type Context } from '../types.ts'
@@ -433,6 +433,8 @@ async function compileClientBundle(dir: string, table: DirRouteTable): Promise<C
   try {
     const esbuild = await import('esbuild')
     const outdir = join(rootDir, 'node_modules', '.weifuwu', 'esbuild-out')
+    // Clean stale files from previous compilations
+    await rm(outdir, { recursive: true, force: true })
 
     await esbuild.build({
       stdin: {
