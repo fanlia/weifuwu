@@ -70,6 +70,19 @@ export type {
 } from './messager/types.ts'
 
 export { base, Base } from './base/index.ts'
+export { cms, CMS } from './cms/index.ts'
+export type {
+  CMSAPI,
+  CMSOptions,
+  Content,
+  ContentStatus,
+  ContentType,
+  Tag,
+  TagWithCount,
+  CreateContentInput,
+  UpdateContentInput,
+  ListContentOptions,
+} from './cms/types.ts'
 export type {
   BaseAPI,
   BaseDef,
