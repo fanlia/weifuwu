@@ -2,7 +2,7 @@
  * 演示 wefu 路由 + signal + (props, ctx) + Show/For
  */
 
-import { signal, computed, Show, For, createApp, api, auth, router, RouteView } from 'weifuwu/client'
+import { signal, computed, Show, For, createApp, api, auth, ws, router, RouteView } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
 
 // ═══════════════════════════════════════════════════════════
@@ -137,6 +137,62 @@ function AboutPage(_props: {}, ctx: WfuiContext) {
 // ═══════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════
+// WebSocket 实时页面
+// ═══════════════════════════════════════════════════════════
+
+function RealtimePage(_props: {}, ctx: WfuiContext) {
+  const messages = signal<Array<{ type: string; body: string; ts?: number }>>([])
+  const input = signal('')
+
+  // 监听 WS 消息
+  ctx.ws.onMessage((data: any) => {
+    messages.value = [...messages.value, data]
+  })
+
+  const send = () => {
+    const text = input.value.trim()
+    if (!text) return
+    ctx.ws.send({ body: text })
+    input.value = ''
+  }
+
+  return (
+    <div class="todo-app">
+      <h1>WebSocket 实时通信</h1>
+      <p style="margin-bottom:12px">
+        连接状态：
+        <Show when={ctx.ws.isConnected} fallback={<span style="color:red">未连接</span>}>
+          <span style="color:green">已连接</span>
+        </Show>
+      </p>
+      <div class="todo-list" style="max-height:300px;overflow-y:auto;border:1px solid #eee;border-radius:6px;padding:8px;margin-bottom:12px">
+        <For each={messages}>
+          {(msg) => (
+            <div style={{
+              padding: '6px 8px',
+              margin: '4px 0',
+              borderRadius: '6px',
+              background: msg.type === 'system' ? '#e8f4e8' : msg.type === 'echo' ? '#e8f0ff' : '#f5f5f5',
+              fontSize: '14px',
+            }}>
+              <strong>{msg.type === 'system' ? '系统' : msg.type === 'echo' ? '回显' : '消息'}:</strong>{' '}
+              {msg.body}
+              {msg.ts ? <span style="color:#999;font-size:12px;margin-left:8px">{new Date(msg.ts).toLocaleTimeString()}</span> : null}
+            </div>
+          )}
+        </For>
+      </div>
+      <div class="input-row">
+        <input value={input} onInput={(e: any) => input.value = e.target.value}
+          onKeyDown={(e: any) => e.key === 'Enter' && send()}
+          placeholder="输入消息，回车发送..." />
+        <button onClick={send}>发送</button>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
 // 用户页面（演示路由参数）
 // ═══════════════════════════════════════════════════════════
 
@@ -179,6 +235,7 @@ function AppShell(_props: {}, ctx: WfuiContext) {
           <a onClick={() => ctx.app.navigate('/todo')}>Todo</a>
           <a onClick={() => ctx.app.navigate('/about')}>关于</a>
           <a onClick={() => ctx.app.navigate('/user/wefu')}>用户</a>
+          <a onClick={() => ctx.app.navigate('/ws')}>实时</a>
         </div>
       </nav>
       <main>
@@ -195,6 +252,7 @@ const routes: RouteDef[] = [
   { path: '/todo', component: TodoPage, title: 'Todo' },
   { path: '/about', component: AboutPage, title: '关于' },
   { path: '/user/:name', component: UserPage, title: '用户' },
+  { path: '/ws', component: RealtimePage, title: 'WebSocket' },
 ]
 
 // ── 启动 ──
@@ -202,5 +260,6 @@ const routes: RouteDef[] = [
 const app = createApp()
 app.use(api())
 app.use(auth())
+app.use(ws())
 app.use(router({ routes, notFound: NotFound, mode: 'hash' }))
 app.mount('#root', AppShell)
