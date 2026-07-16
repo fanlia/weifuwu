@@ -1,10 +1,5 @@
 /**
  * demo server — weifuwu 后端 serve 前端 SPA
- *
- * ```bash
- * node apps/demo/server.ts
- * open http://localhost:3000
- * ```
  */
 
 import { resolve, dirname } from 'node:path'
@@ -17,17 +12,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = new Router()
 app.use(cors())
 app.use(logger())
-
-// 注入 ctx.ui.html / ctx.ui.js
-app.use(ui({ script: '/static/app.js' }))
+app.use(ui())
 
 // 客户端 JS bundle — 动态编译
-app.get('/static/app.js', async (req, ctx) => {
-  const js = await ctx.ui.js(resolve(__dirname, 'src', 'main.tsx'))
-  return new Response(js, {
-    headers: { 'Content-Type': 'application/javascript' },
-  })
-})
+app.get('/static/app.js', async (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
 // WebSocket 演示
 const wsHandler: WebSocketHandler = {
@@ -50,26 +38,50 @@ const blogPost = {
   published_at: new Date('2025-07-16'),
 }
 
-app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => {
-  return ctx.ui.html({ title: blogPost.title, props: { post: blogPost } })`
-    <article class="blog-post" style="background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,0.08);max-width:600px;margin:0 auto">
-      <h1 style="font-size:24px;margin-bottom:8px">${blogPost.title}</h1>
-      <div class="meta" style="color:#999;font-size:14px;margin-bottom:20px">
-        ${blogPost.author_name} · ${blogPost.published_at.toLocaleDateString()}
-      </div>
-      <div class="body" style="line-height:1.8;font-size:16px">
-        ${ctx.ui.html.unsafe(blogPost.body)}
-      </div>
-      <div data-hydrate="like" style="margin-top:24px;padding-top:20px;border-top:1px solid #eee">
-        <p style="color:#666;font-size:14px;margin-bottom:8px">这个对你有帮助吗？</p>
-      </div>
-    </article>
-  `
-})
+app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
+  <!DOCTYPE html>
+  <html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${blogPost.title}</title>
+  </head>
+  <body>
+    <div id="root">
+      <article style="max-width:600px;margin:0 auto;padding:32px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+        <h1 style="font-size:24px;margin-bottom:8px">${blogPost.title}</h1>
+        <div style="color:#999;font-size:14px;margin-bottom:20px">
+          ${blogPost.author_name} · ${blogPost.published_at.toLocaleDateString()}
+        </div>
+        <div style="line-height:1.8;font-size:16px">${ctx.ui.html.unsafe(blogPost.body)}</div>
+        <div data-hydrate="like" style="margin-top:24px;padding-top:20px;border-top:1px solid #eee">
+          <p style="color:#666;font-size:14px;margin-bottom:8px">这个对你有帮助吗？</p>
+        </div>
+      </article>
+    </div>
+    <script>window.__WFUI_PROPS__=${ctx.ui.html.unsafe(JSON.stringify({ post: blogPost }))}</script>
+    <script src="/static/app.js"></script>
+  </body>
+  </html>
+`)
 
 // SPA 入口页面
 for (const p of ['/', '/todo', '/about', '/user/:name', '/ws']) {
-  app.get(p, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html``)
+  app.get(p, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>weifuwu demo</title>
+
+    </head>
+    <body>
+      <div id="root"></div>
+      <script src="/static/app.js"></script>
+    </body>
+    </html>
+  `)
 }
 
 serve(app, { port: 3000 })

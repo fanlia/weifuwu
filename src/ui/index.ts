@@ -2,26 +2,27 @@
  * ui 中间件 — 注入 ctx.ui.html / ctx.ui.js
  *
  * ctx.ui.html 是 tagged template，返回完整 HTML Response。
- * ctx.ui.js 编译 TSX 入口，返回客户端 JS bundle。
+ * ctx.ui.js  编译 TSX 入口，返回 JS bundle Response。
+ *
+ * 不注入额外模板或骨架 — tagged template 的内容就是完整的响应体。
  *
  * ```ts
- * import { ui, serve } from 'weifuwu'
+ * import { ui } from 'weifuwu'
  *
- * app.use(ui({ title: 'My App', script: '/static/app.js' }))
+ * app.use(ui())
  *
- * // SSR 页面 — tagged template 直接返回 Response
- * app.get('/blog/:slug', async (req, ctx) => ctx.ui.html({ title: post.title })`
- *   <article>
- *     <h1>${post.title}</h1>
- *     <div class="body">${html.unsafe(post.body)}</div>
- *   </article>
+ * app.get('/blog/:slug', async (req, ctx) => ctx.ui.html`
+ *   <!DOCTYPE html>
+ *   <html>
+ *   <head><title>${post.title}</title></head>
+ *   <body>
+ *     <div id="root"><article>...</article></div>
+ *     <script src="/static/app.js"></script>
+ *   </body>
+ *   </html>
  * `)
  *
- * // 客户端 bundle — 动态编译
  * app.get('/static/app.js', async (req, ctx) => ctx.ui.js('./src/main.tsx'))
- *
- * // SPA 页面 — 空内容
- * app.get('*', async (req, ctx) => ctx.ui.html())
  * ```
  */
 
@@ -33,28 +34,17 @@ import type { Middleware, Context } from '../types.ts'
 declare module '../types.ts' {
   interface Context {
     ui: {
-      /** Tagged template — 返回完整 HTML Response */
-      html: UiHtmlFn
-      /** 编译 TSX 入口，返回客户端 JS bundle */
-      js: (entryPath: string) => Promise<string>
+      /** Tagged template → HTML Response */
+      html: UiHtmlTag
+      /** 编译 TSX → JS bundle Response */
+      js: (entryPath: string) => Promise<Response>
     }
   }
 }
 
-/** @internal */
-type UiTagged = (strings: TemplateStringsArray, ...values: unknown[]) => Response
-
-/** ctx.ui.html 的类型（双形态：tagged template / factory） */
-export interface UiHtmlFn {
+interface UiHtmlTag {
   (strings: TemplateStringsArray, ...values: unknown[]): Response
-  (opts: UiHtmlOptions): UiTagged
   unsafe: (s: string) => string
-}
-
-export interface UiHtmlOptions {
-  title?: string
-  script?: string
-  props?: Record<string, unknown>
 }
 
 // ── HtmlSafe — 标记不转义的 HTML ──────────────────────────
@@ -75,34 +65,8 @@ function stringify(v: unknown): string {
   return escape(String(v))
 }
 
-/** 标记一段 HTML 不转义 */
-function unsafe(s: string): HtmlSafe {
-  return new HtmlSafe(s)
-}
-
-// ── 页面骨架 ──────────────────────────────────────────────
-
-const DEFAULT_TEMPLATE = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>{{title}}</title>\n</head>\n<body>\n  <div id="root">{{ssr}}</div>\n  {{props}}\n  <script src="{{script}}"></script>\n</body>\n</html>'
-
-function renderPage(
-  body: string,
-  opts: UiHtmlOptions,
-): Response {
-  const title = opts.title ?? 'weifuwu'
-  const script = opts.script ?? '/static/app.js'
-  const propsTag = opts.props
-    ? `<script>window.__WFUI_PROPS__=${escape(JSON.stringify(opts.props))}</script>`
-    : ''
-
-  const doc = DEFAULT_TEMPLATE
-    .replace('{{title}}', escape(title))
-    .replace('{{ssr}}', body)
-    .replace('{{props}}', propsTag)
-    .replace('{{script}}', escape(script))
-
-  return new Response(doc, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
-  })
+function unsafe(s: string): string {
+  return new HtmlSafe(s) as unknown as string
 }
 
 // ── JS 编译缓存 ───────────────────────────────────────────
@@ -111,41 +75,30 @@ const jsCache = new Map<string, { code: string }>()
 
 // ── 中间件 ────────────────────────────────────────────────
 
-export function ui(opts?: UiHtmlOptions): Middleware {
-  const defaults = opts ?? {}
-
+export function ui(): Middleware {
   return async (_req, ctx, next) => {
-    // ctx.ui.html 双形态：tagged template / opt factory
-    function htmlEntry(this: any, ...args: any[]): any {
-      // ctx.ui.html`...` → 第一个参数是 TemplateStringsArray（有 raw 属性）
-      if (args[0] && typeof args[0] === 'object' && 'raw' in args[0]) {
-        const [strings, ...values] = args as [TemplateStringsArray, ...unknown[]]
-        let body = ''
-        for (let i = 0; i < strings.length; i++) {
-          body += strings[i]
-          if (i < values.length) body += stringify(values[i])
-        }
-        return renderPage(body, defaults)
+    function htmlTag(strings: TemplateStringsArray, ...values: unknown[]): Response {
+      let body = ''
+      for (let i = 0; i < strings.length; i++) {
+        body += strings[i]
+        if (i < values.length) body += stringify(values[i])
       }
-      // ctx.ui.html({ opts }) → 返回 tagged template
-      const opts = args[0] as UiHtmlOptions | undefined
-      const merged = opts ? { ...defaults, ...opts } : defaults
-      return (strings: TemplateStringsArray, ...values: unknown[]) => {
-        let body = ''
-        for (let i = 0; i < strings.length; i++) {
-          body += strings[i]
-          if (i < values.length) body += stringify(values[i])
-        }
-        return renderPage(body, merged)
-      }
+      return new Response(body, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      })
     }
 
     ctx.ui = {
-      html: Object.assign(htmlEntry, { unsafe }) as any,
-      async js(entryPath: string): Promise<string> {
+      html: Object.assign(htmlTag, { unsafe }) as any,
+
+      async js(entryPath: string): Promise<Response> {
         const absPath = resolve(entryPath)
         const cached = jsCache.get(absPath)
-        if (cached) return cached.code
+        if (cached) {
+          return new Response(cached.code, {
+            headers: { 'Content-Type': 'application/javascript' },
+          })
+        }
 
         const result = await build({
           entryPoints: [absPath],
@@ -159,7 +112,10 @@ export function ui(opts?: UiHtmlOptions): Middleware {
 
         const code = result.outputFiles[0].text
         jsCache.set(absPath, { code })
-        return code
+
+        return new Response(code, {
+          headers: { 'Content-Type': 'application/javascript' },
+        })
       },
     }
 
