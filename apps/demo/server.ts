@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { WebSocketHandler } from 'weifuwu'
+import type { WebSocketHandler, WebSocket, Context, Handler } from 'weifuwu'
 import { serve, Router, ui, serveStatic, cors, logger } from 'weifuwu'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -33,11 +33,11 @@ app.use(ui({
 app.get('/static/*', serveStatic(resolve(__dirname, 'dist')))
 
 // WebSocket 演示 — 回显服务器
-app.ws('/ws', {
-  open(ws) {
+const wsHandler: WebSocketHandler = {
+  open(ws: WebSocket) {
     ws.send(JSON.stringify({ type: 'system', body: '🟢 已连接 WebSocket' }))
   },
-  message(ws, _ctx, data) {
+  message(ws: WebSocket, _ctx: Context, data: string | Buffer) {
     const msg = JSON.parse(data.toString())
     ws.send(JSON.stringify({
       type: 'echo',
@@ -45,12 +45,13 @@ app.ws('/ws', {
       ts: Date.now(),
     }))
   },
-} as WebSocketHandler)
+}
+app.ws('/ws', wsHandler)
 
 // SPA 入口页面 — 这些路径返回 HTML shell
 const spaPaths = ['/', '/todo', '/about', '/user/:name', '/ws']
 for (const p of spaPaths) {
-  app.get(p, async (req, ctx) => ctx.ui.html())
+  app.get(p, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html())
 }
 
 serve(app, { port: 3000 })
