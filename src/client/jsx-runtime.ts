@@ -578,6 +578,54 @@ export function domMount(root: string | Element, app: Node): void {
 
 // ── 控制流组件 ──────────────────────────────────────────────
 
+/**
+ * ErrorBoundary — 捕获子组件渲染时的异常。
+ *
+ * children 必须是 thunk（函数），延迟执行以便捕获错误。
+ *
+ * ```tsx
+ * <ErrorBoundary fallback={(e) => <p>出错了: {e.message}</p>}>
+ *   {() => <Dashboard />}
+ * </ErrorBoundary>
+ * ```
+ */
+export function ErrorBoundary({ fallback, children }: {
+  fallback: (error: Error) => Node
+  children: () => Node
+}, _ctx: WfuiContext): Node {
+  try {
+    return children()
+  } catch (e) {
+    return fallback(e as Error)
+  }
+}
+
+/**
+ * Portal — 将组件渲染到父容器之外的 DOM 位置。
+ *
+ * 适用于 Modal、Dropdown、Tooltip 等需要突破 overflow / z-index 的场景。
+ *
+ * ```tsx
+ * import { createPortal } from 'weifuwu/client'
+ *
+ * function Modal({ show, children }) {
+ *   return <Show when={show}>
+ *     {createPortal(
+ *       <div class="fixed inset-0 bg-black/50 flex items-center justify-center">
+ *         {children}
+ *       </div>,
+ *       document.body
+ *     )}
+ *   </Show>
+ * }
+ * ```
+ */
+export function createPortal(node: Node, target: Element): Node {
+  target.appendChild(node)
+  // 返回空 fragment 占位，实际节点挂在 target 下
+  return document.createDocumentFragment()
+}
+
 function toNode(v: unknown): Node {
   if (v instanceof Node) return v
   if (typeof v === 'function') return toNode(v())
