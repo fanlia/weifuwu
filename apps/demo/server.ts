@@ -1,12 +1,19 @@
 /**
  * demo server — weifuwu 后端 serve 前端 SPA
+ *
+ * ```bash
+ * cd weifuwu && node apps/demo/server.ts
+ * open http://localhost:3000
+ * ```
+ *
+ * 客户端 bundle 由 ctx.ui.render() 编译，无需单独构建步骤。
  */
 
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { WebSocketHandler, WebSocket, Context } from 'weifuwu'
-import { serve, Router, serveStatic, cors, logger } from 'weifuwu'
+import { serve, Router, serveStatic, cors, logger, ui } from 'weifuwu'
 import { html } from 'weifuwu/server'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -15,8 +22,28 @@ const app = new Router()
 app.use(cors())
 app.use(logger())
 
-// 静态资源（client bundle）
-app.get('/static/*', serveStatic(resolve(__dirname, 'dist')))
+// 注入 ctx.ui.render() 动态编译客户端 TSX
+app.use(ui())
+
+// 客户端 JS bundle — 动态编译，无需单独构建
+app.get('/static/app.js', async (req, ctx) => {
+  const js = await ctx.ui.render(resolve(__dirname, 'src', 'main.tsx'))
+  return new Response(js, {
+    headers: { 'Content-Type': 'application/javascript' },
+  })
+})
+
+// WebSocket 演示
+const wsHandler: WebSocketHandler = {
+  open(ws: WebSocket) {
+    ws.send(JSON.stringify({ type: 'system', body: '🟢 已连接 WebSocket' }))
+  },
+  message(ws: WebSocket, _ctx: Context, data: string | Buffer) {
+    const msg = JSON.parse(data.toString())
+    ws.send(JSON.stringify({ type: 'echo', body: msg.body, ts: Date.now() }))
+  },
+}
+app.ws('/ws', wsHandler)
 
 // HTML 页面骨架
 const skeleton = readFileSync(resolve(__dirname, 'public', 'index.html'), 'utf-8')
@@ -38,18 +65,6 @@ function page(body: string, opts: { title?: string; script?: string; props?: Rec
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   })
 }
-
-// WebSocket 演示
-const wsHandler: WebSocketHandler = {
-  open(ws: WebSocket) {
-    ws.send(JSON.stringify({ type: 'system', body: '🟢 已连接 WebSocket' }))
-  },
-  message(ws: WebSocket, _ctx: Context, data: string | Buffer) {
-    const msg = JSON.parse(data.toString())
-    ws.send(JSON.stringify({ type: 'echo', body: msg.body, ts: Date.now() }))
-  },
-}
-app.ws('/ws', wsHandler)
 
 // SSR 博客页面
 const blogPost = {
