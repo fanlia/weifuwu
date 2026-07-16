@@ -2,7 +2,7 @@
  * 演示 wefu 路由 + signal + (props, ctx) + Show/For
  */
 
-import { signal, computed, Show, For, createApp, api, auth, ws, router, RouteView } from 'weifuwu/client'
+import { signal, computed, Show, For, createApp, api, auth, router, RouteView } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
 
 // ═══════════════════════════════════════════════════════════
@@ -202,6 +202,5 @@ const routes: RouteDef[] = [
 const app = createApp()
 app.use(api())
 app.use(auth())
-app.use(ws())
 app.use(router({ routes, notFound: NotFound, mode: 'hash' }))
 app.mount('#root', AppShell)
