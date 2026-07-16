@@ -17,6 +17,9 @@ app.use(ui())
 // 客户端 JS bundle — 动态编译
 app.get('/static/app.js', async (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
+// 客户端 CSS
+app.get('/static/style.css', async (req, ctx) => ctx.ui.css(resolve(__dirname, 'public', 'style.css')))
+
 // WebSocket 演示
 const wsHandler: WebSocketHandler = {
   open(ws: WebSocket) {
@@ -44,6 +47,7 @@ app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => 
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
     <title>${blogPost.title}</title>
   </head>
   <body>
@@ -73,6 +77,7 @@ for (const p of ['/', '/todo', '/about', '/user/:name', '/ws']) {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="stylesheet" href="/static/style.css">
       <title>weifuwu demo</title>
 
     </head>

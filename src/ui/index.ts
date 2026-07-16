@@ -1,10 +1,9 @@
 /**
- * ui 中间件 — 注入 ctx.ui.html / ctx.ui.js
+ * ui 中间件 — 注入 ctx.ui.html / ctx.ui.js / ctx.ui.css
  *
- * ctx.ui.html 是 tagged template，返回完整 HTML Response。
- * ctx.ui.js  编译 TSX 入口，返回 JS bundle Response。
- *
- * 不注入额外模板或骨架 — tagged template 的内容就是完整的响应体。
+ * ctx.ui.html  是 tagged template，返回完整 HTML Response。
+ * ctx.ui.js    编译 TSX 入口，返回 JS bundle Response。
+ * ctx.ui.css   读取/编译 CSS 入口，返回 CSS Response。
  *
  * ```ts
  * import { ui } from 'weifuwu'
@@ -23,12 +22,13 @@
  * `)
  *
  * app.get('/static/app.js', async (req, ctx) => ctx.ui.js('./src/main.tsx'))
+ * app.get('/static/style.css', async (req, ctx) => ctx.ui.css('./public/style.css'))
  * ```
  */
 
 import { build } from 'esbuild'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import type { Middleware, Context } from '../types.ts'
 
 declare module '../types.ts' {
@@ -38,6 +38,8 @@ declare module '../types.ts' {
       html: UiHtmlTag
       /** 编译 TSX → JS bundle Response */
       js: (entryPath: string) => Promise<Response>
+      /** 读取/编译 CSS → CSS Response */
+      css: (entryPath: string) => Promise<Response>
     }
   }
 }
@@ -72,6 +74,7 @@ function unsafe(s: string): string {
 // ── JS 编译缓存 ───────────────────────────────────────────
 
 const jsCache = new Map<string, { code: string }>()
+const cssCache = new Map<string, { code: string; mtime: number }>()
 
 // ── 中间件 ────────────────────────────────────────────────
 
@@ -115,6 +118,26 @@ export function ui(): Middleware {
 
         return new Response(code, {
           headers: { 'Content-Type': 'application/javascript' },
+        })
+      },
+
+      async css(entryPath: string): Promise<Response> {
+        const absPath = resolve(entryPath)
+
+        // 带 mtime 的缓存失效（开发时编辑 CSS 自动更新）
+        const stat = await import('node:fs').then(fs => fs.promises.stat(absPath))
+        const cached = cssCache.get(absPath)
+        if (cached && cached.mtime === stat.mtimeMs) {
+          return new Response(cached.code, {
+            headers: { 'Content-Type': 'text/css; charset=utf-8' },
+          })
+        }
+
+        const code = await readFile(absPath, 'utf-8')
+        cssCache.set(absPath, { code, mtime: stat.mtimeMs })
+
+        return new Response(code, {
+          headers: { 'Content-Type': 'text/css; charset=utf-8' },
         })
       },
     }
