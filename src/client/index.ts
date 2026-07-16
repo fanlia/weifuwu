@@ -25,3 +25,7 @@ export { api, ApiClient, ApiError } from './middleware/api.ts'
 export { auth } from './middleware/auth.ts'
 export type { UserRecord } from './middleware/auth.ts'
 export { ws } from './middleware/ws.ts'
+
+// ── 预置组件 ──
+export { LoginForm } from './components/LoginForm.ts'
+export { Chat } from './components/Chat.ts'
