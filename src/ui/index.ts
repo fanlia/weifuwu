@@ -133,7 +133,20 @@ export function ui(): Middleware {
           })
         }
 
-        const code = await readFile(absPath, 'utf-8')
+        let code = await readFile(absPath, 'utf-8')
+
+        // 如果安装了 postcss + @tailwindcss/postcss，自动编译 Tailwind CSS
+        try {
+          const postcss: any = await import('postcss')
+          const tw: any = await import('@tailwindcss/postcss')
+          const plugin = tw.default || tw
+          const instance = typeof plugin === 'function' ? plugin() : plugin
+          const result = await postcss.default([instance]).process(code, { from: absPath })
+          code = result.css
+        } catch {
+          // postcss 或 tailwindcss 未安装，直接返回原始 CSS
+        }
+
         cssCache.set(absPath, { code, mtime: stat.mtimeMs })
 
         return new Response(code, {
