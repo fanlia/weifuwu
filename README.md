@@ -66,7 +66,8 @@ app.mount('#root', AppShell)
 ```
 
 ```js
-// build.mjs — 可选，也可用 ctx.ui.js() 服务端动态编译
+// build.mjs — 传统构建方式（可选）
+// 推荐：使用 ctx.ui.js() 服务端动态编译，无需独立构建脚本
 esbuild.build({
   entryPoints: ['src/main.tsx'],
   jsx: 'automatic',
@@ -75,9 +76,10 @@ esbuild.build({
 })
 ```
 
-或用服务端动态编译（无需独立构建脚本）：
+或用服务端动态编译——一行代码，无需构建步骤、无需 watch 模式：
 ```ts
 app.get('/static/app.js', async (req, ctx) => ctx.ui.js('./src/main.tsx'))
+app.get('/static/style.css', async (req, ctx) => ctx.ui.css('./src/style.css'))
 ```
 
 ### Environment Variables
@@ -151,6 +153,10 @@ app.get('/static/app.js', async (req, ctx) => ctx.ui.js('./src/main.tsx'))
 | `LoginForm` | Login/register form component |
 | `Chat` | Real-time messaging component |
 | `domMount()` | Direct DOM mounting |
+| `wrap()` | Third-party library integration |
+| `useForm()` | Form state management (validation, submit, reset) |
+| `createPortal()` | Render outside parent DOM hierarchy |
+| `<ErrorBoundary>` | Catch render errors, show fallback |
 
 ### Utilities
 
@@ -228,6 +234,29 @@ function AppShell(_, ctx) {
 ctx.route.path     // "/chat/123"
 ctx.route.params   // { id: "123" }
 ctx.route.query    // { tab: "settings" }
+
+#### Route Loader — 数据预取
+
+```tsx
+const routes: RouteDef[] = [
+  {
+    path: '/post/:id',
+    component: PostPage,
+    loader: async (ctx) => ({
+      post: await ctx.api.get(`/api/posts/${ctx.route.params.id}`),
+    }),
+  },
+]
+
+// In component:
+function PostPage(_, ctx) {
+  const post = ctx.route.data.post
+  if (!post) return <p class="text-gray-400">加载中...</p>
+  return <h1 class="text-2xl font-bold">{post.title}</h1>
+}
+```
+
+组件先渲染（显示 loading），loader 完成后自动重渲染。
 
 ### Middleware: api / auth / ws
 
@@ -328,6 +357,79 @@ const PieChart = wrap('div', (el, props: { data: any[] }, ctx) => {
 <Dashboard>
   <PieChart data={salesData} />
 </Dashboard>
+```
+
+### useForm() — 表单状态管理
+
+```tsx
+import { useForm } from 'weifuwu/client'
+
+const form = useForm({
+  initial: { email: '', password: '' },
+  validate: {
+    email: (v) => !v.includes('@') && '请输入有效邮箱',
+    password: (v) => v.length < 6 && '至少 6 位',
+  },
+})
+
+// 绑定到 input：{...form.field('name')} 自动设置 value + onInput
+<input {...form.field('email')} placeholder="邮箱" />
+{form.errors.email && <span class="text-red-500">{form.errors.email}</span>}
+
+// 提交时自动验证所有字段
+<button onClick={() => form.submit((data) => ctx.login(data.email, data.password))}>
+  登录
+</button>
+
+// 重置
+<button onClick={form.reset}>重置</button>
+
+// 编程设置
+form.setValue('email', 'a@b.com')
+form.setValues({ email: 'a@b.com', password: '123' })
+```
+
+### createPortal() — 渲染到父容器外
+
+适用于 Modal、Dropdown、Tooltip 等需突破 `overflow: hidden` 或 z-index 层级的情况。
+
+```tsx
+import { createPortal, Show } from 'weifuwu/client'
+
+function Modal({ show, title, children }) {
+  return <Show when={show}>
+    {createPortal(
+      <div class="fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div class="bg-white rounded-xl p-6 min-w-[400px]">
+          <h2 class="text-lg font-bold mb-4">{title}</h2>
+          {children}
+        </div>
+      </div>,
+      document.body
+    )}
+  </Show>
+}
+```
+
+### ErrorBoundary — 错误边界
+
+子组件渲染异常时捕获，显示 fallback 而非白屏。children 必须是 thunk（延迟执行）。
+
+```tsx
+import { ErrorBoundary } from 'weifuwu/client'
+
+function AppShell(_, ctx) {
+  return (
+    <div>
+      <nav>...</nav>
+      <main>
+        <ErrorBoundary fallback={(e) => <p>出错了: {e.message}</p>}>
+          {() => <RouteView />}
+        </ErrorBoundary>
+      </main>
+    </div>
+  )
+}
 ```
 
 ### Show / For
@@ -858,12 +960,14 @@ src/
 ├── hub.ts               ← WebSocket hub
 ├── ui/                  ← ctx.ui.html / ctx.ui.js / ctx.ui.css
 ├── client/              ← Frontend framework
-│   ├── index.ts         ← Entry (exports signal, wrap, createApp, ...)
+│   ├── index.ts         ← Entry (exports signal, useForm, wrap, createApp, ...)
 │   ├── signal.ts        ← Signal / effect / computed
-│   ├── jsx-runtime.ts   ← JSX → DOM / Show / For / wrap / onMount
+│   ├── jsx-runtime.ts   ← JSX → DOM / Show / For / wrap / ErrorBoundary / createPortal
 │   ├── app.ts           ← createApp / hydrate / middleware chain
-│   ├── router.ts        ← Route matching / RouteView
+│   ├── router.ts        ← Route matching / RouteView / loader
 │   ├── types.ts         ← WfuiContext / RouteDef
+│   ├── lib/
+│   │   └── form.ts     ← useForm
 │   ├── middleware/
 │   │   ├── api.ts       ← HTTP client
 │   │   ├── auth.ts      ← Login / logout / token
