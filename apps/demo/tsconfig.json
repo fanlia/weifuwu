@@ -13,7 +13,6 @@
       "weifuwu": ["../../src/index.ts"],
       "weifuwu/client": ["../../src/client/index.ts"],
       "weifuwu/client/jsx-runtime": ["../../src/client/index.ts"],
-      "weifuwu/server": ["../../src/server/index.ts"]
     }
   },
   "include": ["src/**/*.tsx", "server.ts"]

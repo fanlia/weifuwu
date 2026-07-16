@@ -15,7 +15,7 @@ const distDir = join(root, 'dist')
 await rm(distDir, { recursive: true, force: true })
 await mkdir(distDir, { recursive: true })
 await mkdir(join(distDir, 'client'), { recursive: true })
-await mkdir(join(distDir, 'server'), { recursive: true })
+
 
 const external = [
   '@graphql-tools/schema',
@@ -45,16 +45,6 @@ await esbuild.build({
   platform: 'browser',
   bundle: true,
   external: [],
-})
-
-// server bundle（服务端渲染，纯 Node.js）
-await esbuild.build({
-  entryPoints: [join(srcDir, 'server', 'index.ts')],
-  outfile: join(distDir, 'server', 'index.js'),
-  format: 'esm',
-  platform: 'node',
-  bundle: true,
-  external,
 })
 
 // 前端 jsx-runtime（指向同一个文件）

@@ -33,7 +33,6 @@
     "src/ai/*.ts",
     "src/client/*.ts",
     "src/client/components/*.ts",
-    "src/ui/*.ts",
-    "src/server/*.ts"
+    "src/ui/*.ts"
   ]
 }
