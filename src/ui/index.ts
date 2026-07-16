@@ -84,7 +84,7 @@ export function ui(opts: UiOptions = {}): Middleware {
           ? template
               .replace(/\{\{title\}\}/g, escapeHtml(title))
               .replace(/\{\{script\}\}/g, escapeHtml(script))
-              .replace(/\{\{props\}\}/g, propsJson)
+              .replace(/\{\{props\}\}/g, propsJson ? `<script>window.__WFUI_PROPS__=${propsJson}</script>` : '')
               .replace(/\{\{ssr\}\}/g, ssr)
           : defaultTemplate(title, script, propsJson, ssr)
 
