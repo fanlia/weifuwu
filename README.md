@@ -39,25 +39,24 @@ serve(app, { port: 3000 })
 ### Frontend
 
 ```tsx
-import { signal, Show, For, createApp, router, RouteView } from 'weifuwu/client'
+import { signal, createApp, api, auth, ws, router, RouteView, LoginForm } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 
-function HomePage(_props: {}, ctx: WfuiContext) {
+function AppShell(_props: {}, ctx: WfuiContext) {
+  if (!ctx.isAuthenticated) return <LoginForm />
   return (
     <div>
-      <h1>Hello weifuwu</h1>
-      <p>当前路径: {ctx.route.path}</p>
+      <nav><a onClick={() => ctx.app.navigate('/chat')}>聊天</a></nav>
+      <main><RouteView /></main>
     </div>
   )
 }
 
 const app = createApp()
-app.use(router({
-  routes: [
-    { path: '/', component: HomePage, title: '首页' },
-    { path: '/chat/:id', component: ChatPage, title: '聊天' },
-  ],
-}))
+app.use(api())              // ← ctx.api.get/post
+app.use(auth())             // ← ctx.user / ctx.login / ctx.logout
+app.use(ws())               // ← ctx.ws.send / onMessage
+app.use(router({ routes })) // ← ctx.route / 路由
 app.mount('#root', AppShell)
 ```
 
@@ -127,6 +126,7 @@ esbuild.build({
 | `redis()` | Redis client (`ctx.redis`) |
 | `queue()` | Job queue + cron |
 | `createHub()` | WebSocket pub/sub |
+| `ui()` | SPA HTML shell (`ctx.ui.html()`) |
 
 ### Frontend (weifuwu/client)
 
@@ -140,6 +140,11 @@ esbuild.build({
 | `<RouteView>` | Route outlet |
 | `createApp()` | App instance with middleware chain |
 | `router()` | Hash/history router with params + query |
+| `api()` | HTTP client (`ctx.api.get/post`) |
+| `auth()` | Auth state (`ctx.user/login/logout`) |
+| `ws()` | WebSocket (`ctx.ws.send/onMessage`) |
+| `LoginForm` | Login/register form component |
+| `Chat` | Real-time messaging component |
 | `domMount()` | Direct DOM mounting |
 
 ### Utilities
@@ -218,6 +223,51 @@ function AppShell(_, ctx) {
 ctx.route.path     // "/chat/123"
 ctx.route.params   // { id: "123" }
 ctx.route.query    // { tab: "settings" }
+
+### Middleware: api / auth / ws
+
+```tsx
+import { api, auth, ws } from 'weifuwu/client'
+
+app.use(api())    // ctx.api.get/post/put/patch/delete
+app.use(auth())   // ctx.user / ctx.login / ctx.logout / ctx.register
+app.use(ws())     // ctx.ws.send / onMessage / join / leave
+```
+
+`api()` creates a fetch client with automatic token injection.
+`auth()` persists sessions to localStorage, validates tokens on startup.
+`ws()` manages WebSocket connections with auto-reconnect.
+
+### Pre-built Components
+
+```tsx
+import { LoginForm, Chat } from 'weifuwu/client'
+
+// Login / Register form
+function LoginPage(_, ctx) {
+  if (ctx.isAuthenticated) return ctx.app.navigate('/')
+  return <LoginForm />
+}
+
+// Real-time chat
+function ChatPage(_, ctx) {
+  return <Chat conversationId="123" />
+}
+```
+
+### Backend: ctx.ui.html()
+
+```ts
+import { ui, serveStatic } from 'weifuwu'
+
+app.use(ui({ title: 'My App', script: '/static/app.js' }))
+app.get('/static/*', serveStatic('./dist/client'))
+
+// SPA route
+app.get('/', async (req, ctx) => ctx.ui.html())
+
+// With initial props (accessible via window.__WFUI_PROPS__):
+app.get('/', async (req, ctx) => ctx.ui.html({ title: 'Custom', props: { user: userData } }))
 ```
 
 ### Show / For
@@ -746,17 +796,26 @@ src/
 ├── queue/               ← Job queue + cron
 ├── graphql.ts           ← GraphQL
 ├── hub.ts               ← WebSocket hub
-├── client/              ← Frontend framework (signal, JSX, router)
-│   ├── index.ts
-│   ├── signal.ts
-│   ├── jsx-runtime.ts
-│   ├── app.ts
-│   ├── router.ts
-│   └── types.ts
+├── ui/                  ← SPA HTML shell (`ctx.ui.html()`)
+├── client/              ← Frontend framework (~600 lines)
+│   ├── index.ts         ← Entry
+│   ├── signal.ts        ← Signal / effect / computed
+│   ├── jsx-runtime.ts   ← JSX → DOM / Show / For
+│   ├── app.ts           ← createApp / middleware chain
+│   ├── router.ts        ← Route matching / RouteView
+│   ├── types.ts         ← WfuiContext / RouteDef
+│   ├── middleware/
+│   │   ├── api.ts       ← HTTP client
+│   │   ├── auth.ts      ← Login / logout / token
+│   │   └── ws.ts        ← WebSocket
+│   └── components/
+│       ├── LoginForm.ts ← Login / register form
+│       └── Chat.ts      ← Real-time messaging
 └── test/                ← 281 tests
 
 apps/demo/               ← Full-stack demo
-├── src/main.tsx
+├── src/main.tsx          ← SPA demo pages
+├── server.ts             ← weifuwu server
 ├── public/index.html
 ├── tsconfig.json
 └── scripts/build.mjs
