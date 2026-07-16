@@ -66,13 +66,18 @@ app.mount('#root', AppShell)
 ```
 
 ```js
-// build.mjs
+// build.mjs — 可选，也可用 ctx.ui.js() 服务端动态编译
 esbuild.build({
   entryPoints: ['src/main.tsx'],
   jsx: 'automatic',
   jsxImportSource: 'weifuwu/client',
   bundle: true,
 })
+```
+
+或用服务端动态编译（无需独立构建脚本）：
+```ts
+app.get('/static/app.js', async (req, ctx) => ctx.ui.js('./src/main.tsx'))
 ```
 
 ### Environment Variables
@@ -126,7 +131,7 @@ esbuild.build({
 | `redis()` | Redis client (`ctx.redis`) |
 | `queue()` | Job queue + cron |
 | `createHub()` | WebSocket pub/sub |
-| `ui()` | SPA HTML shell (`ctx.ui.html()`) |
+| `ui()` | SSR + SPA rendering (`ctx.ui.html`, `ctx.ui.js`, `ctx.ui.css`) |
 
 ### Frontend (weifuwu/client)
 
@@ -255,19 +260,74 @@ function ChatPage(_, ctx) {
 }
 ```
 
-### Backend: ctx.ui.html()
+### SSR & SPA (ctx.ui.html / ctx.ui.js / ctx.ui.css)
 
 ```ts
-import { ui, serveStatic } from 'weifuwu'
+import { ui } from 'weifuwu'
 
-app.use(ui({ title: 'My App', script: '/static/app.js' }))
-app.get('/static/*', serveStatic('./dist/client'))
+app.use(ui())
 
-// SPA route
-app.get('/', async (req, ctx) => ctx.ui.html())
+// SSR page — ctx.ui.html`` returns complete HTML Response
+app.get('/blog/:slug', async (req, ctx) => ctx.ui.html`
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>${post.title}</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <div id="root">
+      <h1>${post.title}</h1>
+      <div>${ctx.ui.html.unsafe(post.body)}</div>
+      <div data-hydrate="like"></div>
+    </div>
+    <script>window.__WFUI_PROPS__=${ctx.ui.html.unsafe(JSON.stringify({ post }))}</script>
+    <script src="/static/app.js"></script>
+  </body>
+  </html>
+`)
 
-// With initial props (accessible via window.__WFUI_PROPS__):
-app.get('/', async (req, ctx) => ctx.ui.html({ title: 'Custom', props: { user: userData } }))
+// Dynamic JS compilation — ctx.ui.js() compiles TSX on demand
+app.get('/static/app.js', async (req, ctx) => ctx.ui.js('./src/main.tsx'))
+
+// Dynamic CSS serving — ctx.ui.css() reads and serves CSS
+app.get('/static/style.css', async (req, ctx) => ctx.ui.css('./src/style.css'))
+
+// Client hydrates interactive sections, skips SSR content
+const app = createApp()
+app.use(api())
+
+const root = document.getElementById('root')
+if (root && root.children.length > 0) {
+  // SSR page — hydrate only interactive areas
+  app.hydrate('[data-hydrate="like"]', LikeButton)
+} else {
+  // SPA page — full mount
+  app.mount('#root', AppShell)
+}
+```
+
+### wrap() — Third-party Library Integration
+
+```tsx
+import { wrap, effect } from 'weifuwu/client'
+import * as echarts from 'echarts'
+
+// wrap(tagName, setup) creates a component:
+// - Creates a <div> container
+// - Calls setup(el, props, ctx) when element enters the document
+// - Runs cleanup when element is removed
+const PieChart = wrap('div', (el, props: { data: any[] }, ctx) => {
+  const chart = echarts.init(el)
+  chart.setOption({ series: [{ type: 'pie', data: props.data }] })
+  effect(() => chart.setOption({ series: [{ type: 'pie', data: props.data }] }))
+  return () => chart.dispose()
+})
+
+// Use in JSX like any component
+<Dashboard>
+  <PieChart data={salesData} />
+</Dashboard>
 ```
 
 ### Show / For
@@ -796,12 +856,12 @@ src/
 ├── queue/               ← Job queue + cron
 ├── graphql.ts           ← GraphQL
 ├── hub.ts               ← WebSocket hub
-├── ui/                  ← SPA HTML shell (`ctx.ui.html()`)
-├── client/              ← Frontend framework (~600 lines)
-│   ├── index.ts         ← Entry
+├── ui/                  ← ctx.ui.html / ctx.ui.js / ctx.ui.css
+├── client/              ← Frontend framework
+│   ├── index.ts         ← Entry (exports signal, wrap, createApp, ...)
 │   ├── signal.ts        ← Signal / effect / computed
-│   ├── jsx-runtime.ts   ← JSX → DOM / Show / For
-│   ├── app.ts           ← createApp / middleware chain
+│   ├── jsx-runtime.ts   ← JSX → DOM / Show / For / wrap / onMount
+│   ├── app.ts           ← createApp / hydrate / middleware chain
 │   ├── router.ts        ← Route matching / RouteView
 │   ├── types.ts         ← WfuiContext / RouteDef
 │   ├── middleware/
@@ -811,14 +871,15 @@ src/
 │   └── components/
 │       ├── LoginForm.ts ← Login / register form
 │       └── Chat.ts      ← Real-time messaging
-└── test/                ← 281 tests
+└── test/                ← Tests
 
 apps/demo/               ← Full-stack demo
-├── src/main.tsx          ← SPA demo pages
+├── src/main.tsx          ← SPA + SSR hydrate demo pages
 ├── server.ts             ← weifuwu server
-├── public/index.html
-├── tsconfig.json
-└── scripts/build.mjs
+├── public/
+│   ├── index.html        ← HTML skeleton with placeholders
+│   └── style.css         ← Demo styles
+└── tsconfig.json
 
 docker-compose.yml       ← postgres (pgvector) + redis
 ```
