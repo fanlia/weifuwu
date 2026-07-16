@@ -12,12 +12,349 @@
 import { type Signal, isSignal, effect } from './signal.ts'
 import type { WfuiContext } from './types.ts'
 
-// JSX 全局类型 — 使 <div /> <span /> 等通过类型检查
+// JSX 全局类型 — 使 <div /> <input /> 等通过类型检查并有属性提示
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      [tag: string]: any
+      // 常用块级元素
+      div: HtmlDiv
+      span: HtmlSpan
+      p: HtmlP
+      h1: HtmlH1
+      h2: HtmlH2
+      h3: HtmlH3
+      h4: HtmlH4
+      h5: HtmlH5
+      h6: HtmlH6
+      header: HtmlHeader
+      footer: HtmlFooter
+      nav: HtmlNav
+      main: HtmlMain
+      section: HtmlSection
+      article: HtmlArticle
+      aside: HtmlAside
+      pre: HtmlPre
+      blockquote: HtmlBlockquote
+      figure: HtmlFigure
+      address: HtmlAddress
+
+      // 列表
+      ul: HtmlUl
+      ol: HtmlOl
+      li: HtmlLi
+      dl: HtmlDl
+      dt: HtmlDt
+      dd: HtmlDd
+
+      // 表格
+      table: HtmlTable
+      thead: HtmlThead
+      tbody: HtmlTbody
+      tr: HtmlTr
+      th: HtmlTh
+      td: HtmlTd
+
+      // 表单
+      form: HtmlForm
+      input: HtmlInput
+      button: HtmlButton
+      select: HtmlSelect
+      option: HtmlOption
+      textarea: HtmlTextarea
+      label: HtmlLabel
+      fieldset: HtmlFieldset
+      legend: HtmlLegend
+
+      // 媒体
+      img: HtmlImg
+      video: HtmlVideo
+      audio: HtmlAudio
+      canvas: HtmlCanvas
+      svg: HtmlSvg
+
+      // 链接
+      a: HtmlA
+      link: HtmlLink
+
+      // 内联
+      strong: HtmlStrong
+      em: HtmlEm
+      b: HtmlB
+      i: HtmlI
+      u: HtmlU
+      s: HtmlS
+      mark: HtmlMark
+      code: HtmlCode
+      small: HtmlSmall
+      sub: HtmlSub
+      sup: HtmlSup
+      abbr: HtmlAbbr
+      time: HtmlTime
+      br: HtmlBr
+      hr: HtmlHr
+      wbr: HtmlWbr
+
+      // 其他
+      style: HtmlStyle
+      script: HtmlScript
+      template: HtmlTemplate
+      slot: HtmlSlot
+      details: HtmlDetails
+      summary: HtmlSummary
+      dialog: HtmlDialog
+      iframe: HtmlIframe
     }
+
+    // ── 基础属性 ──
+
+    interface WfuiAttributes<T> {
+      class?: string | Signal<string>
+      className?: string | Signal<string>
+      id?: string
+      style?: Record<string, string | undefined>
+      title?: string
+      lang?: string
+      dir?: string
+      hidden?: boolean | Signal<boolean>
+      tabindex?: number
+      accesskey?: string
+      draggable?: boolean
+      contenteditable?: boolean
+      slot?: string
+      spellcheck?: boolean
+      ref?: (el: T) => void
+
+      // 事件
+      onClick?: (e: MouseEvent) => void
+      onDblClick?: (e: MouseEvent) => void
+      onMouseDown?: (e: MouseEvent) => void
+      onMouseUp?: (e: MouseEvent) => void
+      onMouseMove?: (e: MouseEvent) => void
+      onMouseEnter?: (e: MouseEvent) => void
+      onMouseLeave?: (e: MouseEvent) => void
+      onKeyDown?: (e: KeyboardEvent) => void
+      onKeyUp?: (e: KeyboardEvent) => void
+      onKeyPress?: (e: KeyboardEvent) => void
+      onFocus?: (e: FocusEvent) => void
+      onBlur?: (e: FocusEvent) => void
+      onInput?: (e: Event) => void
+      onChange?: (e: Event) => void
+      onSubmit?: (e: Event) => void
+      onScroll?: (e: Event) => void
+      onWheel?: (e: WheelEvent) => void
+      onTouchStart?: (e: TouchEvent) => void
+      onTouchEnd?: (e: TouchEvent) => void
+      onTouchMove?: (e: TouchEvent) => void
+      onLoad?: (e: Event) => void
+      onError?: (e: Event) => void
+      onAnimationEnd?: (e: AnimationEvent) => void
+      onTransitionEnd?: (e: TransitionEvent) => void
+
+      // data-* 属性：使用 dataset 对象或 (props as any).data-x
+      [data: string]: unknown
+    }
+
+    // ── 标签特定属性 ──
+
+    type HtmlDiv = WfuiAttributes<HTMLDivElement>
+    type HtmlSpan = WfuiAttributes<HTMLSpanElement>
+    type HtmlP = WfuiAttributes<HTMLParagraphElement>
+    type HtmlH1 = WfuiAttributes<HTMLHeadingElement>
+    type HtmlH2 = WfuiAttributes<HTMLHeadingElement>
+    type HtmlH3 = WfuiAttributes<HTMLHeadingElement>
+    type HtmlH4 = WfuiAttributes<HTMLHeadingElement>
+    type HtmlH5 = WfuiAttributes<HTMLHeadingElement>
+    type HtmlH6 = WfuiAttributes<HTMLHeadingElement>
+    type HtmlHeader = WfuiAttributes<HTMLElement>
+    type HtmlFooter = WfuiAttributes<HTMLElement>
+    type HtmlNav = WfuiAttributes<HTMLElement>
+    type HtmlMain = WfuiAttributes<HTMLElement>
+    type HtmlSection = WfuiAttributes<HTMLElement>
+    type HtmlArticle = WfuiAttributes<HTMLElement>
+    type HtmlAside = WfuiAttributes<HTMLElement>
+    type HtmlPre = WfuiAttributes<HTMLPreElement>
+    type HtmlBlockquote = WfuiAttributes<HTMLQuoteElement>
+    type HtmlFigure = WfuiAttributes<HTMLElement>
+    type HtmlAddress = WfuiAttributes<HTMLElement>
+
+    type HtmlUl = WfuiAttributes<HTMLUListElement>
+    type HtmlOl = WfuiAttributes<HTMLOListElement>
+    type HtmlLi = WfuiAttributes<HTMLLIElement>
+    type HtmlDl = WfuiAttributes<HTMLDListElement>
+    type HtmlDt = WfuiAttributes<HTMLElement>
+    type HtmlDd = WfuiAttributes<HTMLElement>
+
+    type HtmlTable = WfuiAttributes<HTMLTableElement>
+    type HtmlThead = WfuiAttributes<HTMLTableSectionElement>
+    type HtmlTbody = WfuiAttributes<HTMLTableSectionElement>
+    type HtmlTr = WfuiAttributes<HTMLTableRowElement>
+    type HtmlTh = WfuiAttributes<HTMLTableCellElement>
+    type HtmlTd = WfuiAttributes<HTMLTableCellElement>
+
+    interface HtmlForm extends WfuiAttributes<HTMLFormElement> {
+      action?: string
+      method?: string
+      enctype?: string
+      novalidate?: boolean
+      target?: string
+    }
+
+    interface HtmlInput extends WfuiAttributes<HTMLInputElement> {
+      type?: string
+      value?: string | Signal<string>
+      placeholder?: string
+      checked?: boolean | Signal<boolean>
+      disabled?: boolean | Signal<boolean>
+      readonly?: boolean
+      required?: boolean
+      autofocus?: boolean
+      autocomplete?: string
+      name?: string
+      min?: string | number
+      max?: string | number
+      step?: number
+      pattern?: string
+      accept?: string
+      multiple?: boolean
+      src?: string
+      alt?: string
+    }
+
+    interface HtmlButton extends WfuiAttributes<HTMLButtonElement> {
+      type?: 'button' | 'submit' | 'reset'
+      disabled?: boolean | Signal<boolean>
+      name?: string
+      value?: string
+    }
+
+    interface HtmlSelect extends WfuiAttributes<HTMLSelectElement> {
+      value?: string | Signal<string>
+      disabled?: boolean
+      name?: string
+      required?: boolean
+      multiple?: boolean
+    }
+
+    interface HtmlOption extends WfuiAttributes<HTMLOptionElement> {
+      value?: string
+      selected?: boolean
+      disabled?: boolean
+      label?: string
+    }
+
+    interface HtmlTextarea extends WfuiAttributes<HTMLTextAreaElement> {
+      value?: string | Signal<string>
+      placeholder?: string
+      disabled?: boolean
+      readonly?: boolean
+      required?: boolean
+      rows?: number
+      cols?: number
+      autofocus?: boolean
+      name?: string
+    }
+
+    interface HtmlLabel extends WfuiAttributes<HTMLLabelElement> {
+      htmlFor?: string
+    }
+
+    interface HtmlFieldset extends WfuiAttributes<HTMLFieldSetElement> {
+      disabled?: boolean
+      name?: string
+    }
+    type HtmlLegend = WfuiAttributes<HTMLLegendElement>
+
+    interface HtmlA extends WfuiAttributes<HTMLAnchorElement> {
+      href?: string
+      target?: string
+      rel?: string
+      download?: string
+    }
+
+    interface HtmlImg extends WfuiAttributes<HTMLImageElement> {
+      src?: string | Signal<string>
+      alt?: string
+      width?: number | string
+      height?: number | string
+      loading?: 'lazy' | 'eager'
+      srcset?: string
+      sizes?: string
+    }
+
+    interface HtmlVideo extends WfuiAttributes<HTMLVideoElement> {
+      src?: string
+      controls?: boolean
+      autoplay?: boolean
+      loop?: boolean
+      muted?: boolean
+      poster?: string
+      width?: number | string
+      height?: number | string
+    }
+
+    interface HtmlAudio extends WfuiAttributes<HTMLAudioElement> {
+      src?: string
+      controls?: boolean
+      autoplay?: boolean
+      loop?: boolean
+      muted?: boolean
+    }
+
+    type HtmlCanvas = WfuiAttributes<HTMLCanvasElement> & {
+      width?: number
+      height?: number
+    }
+
+    type HtmlSvg = WfuiAttributes<SVGSVGElement> & {
+      viewBox?: string
+      xmlns?: string
+      fill?: string
+      width?: string | number
+      height?: string | number
+    }
+
+    interface HtmlLink extends WfuiAttributes<HTMLLinkElement> {
+      rel?: string
+      href?: string
+      type?: string
+      media?: string
+    }
+
+    interface HtmlStyle extends WfuiAttributes<HTMLStyleElement> {
+      scoped?: boolean
+      media?: string
+    }
+
+    interface HtmlScript extends WfuiAttributes<HTMLScriptElement> {
+      src?: string
+      type?: string
+      async?: boolean
+      defer?: boolean
+    }
+
+    type HtmlStrong = WfuiAttributes<HTMLElement>
+    type HtmlEm = WfuiAttributes<HTMLElement>
+    type HtmlB = WfuiAttributes<HTMLElement>
+    type HtmlI = WfuiAttributes<HTMLElement>
+    type HtmlU = WfuiAttributes<HTMLElement>
+    type HtmlS = WfuiAttributes<HTMLElement>
+    type HtmlMark = WfuiAttributes<HTMLElement>
+    type HtmlCode = WfuiAttributes<HTMLElement>
+    type HtmlSmall = WfuiAttributes<HTMLElement>
+    type HtmlSub = WfuiAttributes<HTMLElement>
+    type HtmlSup = WfuiAttributes<HTMLElement>
+    type HtmlAbbr = WfuiAttributes<HTMLElement>
+    type HtmlTime = WfuiAttributes<HTMLElement> & { datetime?: string }
+    type HtmlBr = WfuiAttributes<HTMLBRElement>
+    type HtmlHr = WfuiAttributes<HTMLHRElement>
+    type HtmlWbr = WfuiAttributes<HTMLElement>
+
+    type HtmlTemplate = WfuiAttributes<HTMLTemplateElement>
+    type HtmlSlot = WfuiAttributes<HTMLSlotElement>
+    type HtmlDetails = WfuiAttributes<HTMLDetailsElement>
+    type HtmlSummary = WfuiAttributes<HTMLElement>
+    type HtmlDialog = WfuiAttributes<HTMLDialogElement>
+    type HtmlIframe = WfuiAttributes<HTMLIFrameElement> & { src?: string; name?: string; width?: string; height?: string }
   }
 }
 
