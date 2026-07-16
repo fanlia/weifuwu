@@ -26,6 +26,8 @@ export interface WfuiContext {
     component: Component | null
     title?: string
     auth?: boolean
+    /** 路由 loader 返回的数据 */
+    data: Record<string, unknown>
   }
   app: {
     navigate: (path: string) => void
@@ -74,4 +76,6 @@ export interface RouteDef {
   component: Component
   auth?: boolean
   title?: string
+  /** 页面加载器 — 切换路由时自动调用，结果注入 ctx.route.data */
+  loader?: (ctx: WfuiContext) => Promise<Record<string, unknown>>
 }

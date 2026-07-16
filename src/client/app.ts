@@ -51,6 +51,7 @@ export function createApp(): {
       query: Object.fromEntries(new URLSearchParams(window.location.search)),
       hash: window.location.hash,
       component: null,
+      data: {},
     },
     app: {
       navigate(path: string) {
