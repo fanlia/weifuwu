@@ -10,9 +10,10 @@ import type { Component } from './jsx-runtime.ts'
  *
  * ```tsx
  * function MyPage(props, ctx: WfuiContext) {
- *   ctx.app.navigate('/chat')
- *   ctx.provide('key', value)
- *   const val = ctx.inject('key')
+ *   ctx.user              // 当前登录用户
+ *   ctx.login(email, pw)  // 登录
+ *   ctx.api.get('/users') // API 请求
+ *   ctx.ws.send(data)     // WebSocket
  * }
  * ```
  */
@@ -22,18 +23,44 @@ export interface WfuiContext {
     params: Record<string, string>
     query: Record<string, string>
     hash: string
-    /** 当前匹配的路由组件（由 router 中间件注入） */
     component: Component | null
-    /** 当前匹配的路由配置 */
     title?: string
     auth?: boolean
   }
   app: {
     navigate: (path: string) => void
   }
-  /** 跨组件共享数据（类似 React Context / Vue provide/inject） */
+
+  // ── auth() 注入 ──
+  user: { id: string; email: string; name: string; role: string; avatar?: string } | null
+  token: string | null
+  isAuthenticated: boolean
+  login: (email: string, password: string) => Promise<void>
+  logout: () => void
+  register: (input: { email: string; name: string; password: string }) => Promise<void>
+
+  // ── api() 注入 ──
+  api: {
+    get<T>(path: string): Promise<T>
+    post<T>(path: string, body?: unknown): Promise<T>
+    put<T>(path: string, body?: unknown): Promise<T>
+    patch<T>(path: string, body?: unknown): Promise<T>
+    delete<T>(path: string): Promise<T>
+  }
+
+  // ── ws() 注入 ──
+  ws: {
+    send: (data: unknown) => void
+    onMessage: (handler: (data: unknown) => void) => () => void
+    join: (room: string) => void
+    leave: (room: string) => void
+    isConnected: Signal<boolean>
+  }
+
+  /** 跨组件共享数据 */
   provide: <T>(key: string, value: T) => void
   inject: <T>(key: string) => T | null
+
   /** 中间件注入扩展 */
   [key: string]: unknown
 }

@@ -2,13 +2,14 @@
  * weifuwu/client — 响应式前端框架，TSX + Signal
  *
  * ```tsx
- * import { signal, computed, Show, For, createApp, router, RouteView } from 'weifuwu/client'
+ * import { signal, createdApp, api, auth, ws, router, RouteView, Show, For } from 'weifuwu/client'
  * import type { WfuiContext } from 'weifuwu/client'
  *
  * const app = createApp()
- * app.use(router({ routes: [
- *   { path: '/', component: HomePage },
- * ]}))
+ * app.use(api())
+ * app.use(auth())
+ * app.use(ws())
+ * app.use(router({ routes }))
  * app.mount('#root', AppShell)
  * ```
  */
@@ -20,3 +21,7 @@ export type { Component } from './jsx-runtime.ts'
 export type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 export { createApp } from './app.ts'
 export { router, RouteView } from './router.ts'
+export { api, ApiClient, ApiError } from './middleware/api.ts'
+export { auth } from './middleware/auth.ts'
+export type { UserRecord } from './middleware/auth.ts'
+export { ws } from './middleware/ws.ts'
