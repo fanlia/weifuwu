@@ -27,10 +27,6 @@ const external = [
   'ai',
   'postcss',
   '@tailwindcss/postcss',
-  '@tailwindcss/oxide',
-  '@tailwindcss/oxide-*',
-  'lightningcss',
-  'lightningcss-*',
 ]
 
 // 后端 bundle
