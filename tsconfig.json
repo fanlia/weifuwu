@@ -32,6 +32,7 @@
     "src/base/*.ts",
     "src/ai/*.ts",
     "src/client/*.ts",
+    "src/client/**/*.ts",
     "src/client/components/*.ts",
     "src/ui/*.ts"
   ]

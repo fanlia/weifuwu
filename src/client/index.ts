@@ -26,6 +26,9 @@ export { auth } from './middleware/auth.ts'
 export type { UserRecord } from './middleware/auth.ts'
 export { ws } from './middleware/ws.ts'
 
+// ── 工具 ──
+export { useForm } from './lib/form.ts'
+
 // ── 预置组件 ──
 export { LoginForm } from './components/LoginForm.ts'
 export { Chat } from './components/Chat.ts'
