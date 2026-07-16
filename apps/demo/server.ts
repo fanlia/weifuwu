@@ -7,7 +7,11 @@
  * ```
  */
 
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { serve, Router, ui, serveStatic, cors, logger } from 'weifuwu'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const app = new Router()
 app.use(cors())
@@ -20,7 +24,7 @@ app.use(ui({
 }))
 
 // 静态资源（client bundle）
-app.get('/static/*', serveStatic('./apps/demo/dist'))
+app.get('/static/*', serveStatic(resolve(__dirname, 'dist')))
 
 // SPA 入口页面 — 这些路径返回 HTML shell
 const spaPaths = ['/', '/todo', '/about', '/user/:name']
