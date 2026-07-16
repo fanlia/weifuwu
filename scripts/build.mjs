@@ -26,6 +26,7 @@ const external = [
   'esbuild',
   'ai',
   'postcss',
+  'tailwindcss',
   '@tailwindcss/postcss',
 ]
 
