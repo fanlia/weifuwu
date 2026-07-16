@@ -99,9 +99,6 @@ export type {
   QueryOptions,
 } from './base/types.ts'
 
-export { ui } from './ui/index.ts'
-export type { UiRenderOptions } from './ui/index.ts'
-
 export { requireRole } from './user/types.ts'
 
 
