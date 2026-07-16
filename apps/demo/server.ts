@@ -50,16 +50,16 @@ app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => 
     <link rel="stylesheet" href="/static/style.css">
     <title>${blogPost.title}</title>
   </head>
-  <body>
-    <div id="root">
-      <article style="max-width:600px;margin:0 auto;padding:32px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-        <h1 style="font-size:24px;margin-bottom:8px">${blogPost.title}</h1>
-        <div style="color:#999;font-size:14px;margin-bottom:20px">
+  <body class="bg-gray-100 text-gray-800">
+    <div id="root" class="max-w-[600px] mx-auto px-4">
+      <article class="bg-white rounded-xl p-8 shadow-md">
+        <h1 class="text-2xl font-bold mb-2">${blogPost.title}</h1>
+        <div class="text-gray-400 text-sm mb-5">
           ${blogPost.author_name} · ${blogPost.published_at.toLocaleDateString()}
         </div>
-        <div style="line-height:1.8;font-size:16px">${ctx.ui.html.unsafe(blogPost.body)}</div>
-        <div data-hydrate="like" style="margin-top:24px;padding-top:20px;border-top:1px solid #eee">
-          <p style="color:#666;font-size:14px;margin-bottom:8px">这个对你有帮助吗？</p>
+        <div class="leading-relaxed">${ctx.ui.html.unsafe(blogPost.body)}</div>
+        <div data-hydrate="like" class="mt-6 pt-5 border-t border-gray-100">
+          <p class="text-gray-500 text-sm mb-2">这个对你有帮助吗？</p>
         </div>
       </article>
     </div>
@@ -81,7 +81,7 @@ for (const p of ['/', '/todo', '/about', '/user/:name', '/ws']) {
       <title>weifuwu demo</title>
 
     </head>
-    <body>
+    <body class="bg-gray-100">
       <div id="root"></div>
       <script src="/static/app.js"></script>
     </body>

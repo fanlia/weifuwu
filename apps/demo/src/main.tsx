@@ -44,9 +44,9 @@ function clearDone() {
 
 function TodoItem({ todo }: { todo: Todo }, _ctx: WfuiContext) {
   return (
-    <div class={`todo-item ${todo.done ? 'done' : ''}`}>
-      <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} />
-      <span>{todo.text}</span>
+    <div class={`flex items-center gap-2 py-2 border-b border-gray-50 ${todo.done ? 'opacity-50' : ''}`}>
+      <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} class="cursor-pointer" />
+      <span class={todo.done ? 'line-through text-gray-400' : ''}>{todo.text}</span>
     </div>
   )
 }
@@ -57,25 +57,31 @@ function TodoPage(_props: {}, ctx: WfuiContext) {
   ]
 
   return (
-    <div class="todo-app">
-      <h1>Todo（{remaining}）</h1>
-      <div class="input-row">
-        <input value={input} onInput={(e: any) => input.value = e.target.value}
+    <div class="bg-white rounded-xl p-6 shadow-md">
+      <h1 class="text-xl font-bold mb-4">Todo（{remaining}）</h1>
+      <div class="flex gap-2 mb-4">
+        <input class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
+          value={input} onInput={(e: any) => input.value = e.target.value}
           onKeyDown={(e: any) => e.key === 'Enter' && addTodo()} placeholder="添加待办..." />
-        <button onClick={addTodo}>添加</button>
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={addTodo}>添加</button>
       </div>
-      <div class="filters">
+      <div class="flex gap-2 mb-4">
         {filters.map(f => (
-          <button class={computed(() => filter.value === f.key ? 'active' : '')}
+          <button class={computed(() => {
+            const base = 'px-3 py-1 border rounded-full text-sm cursor-pointer'
+            return filter.value === f.key
+              ? base + ' bg-blue-500 text-white border-blue-500'
+              : base + ' bg-white text-gray-600 border-gray-300'
+          })}
             onClick={() => filter.value = f.key}>{f.label}</button>
         ))}
       </div>
-      <div class="todo-list">
+      <div class="mb-4">
         <Show when={isEmpty} fallback={<For each={filteredTodos}>{(todo) => <TodoItem todo={todo} />}</For>}>
-          <p class="empty">暂无待办</p>
+          <p class="text-gray-400 text-center py-5 text-sm">暂无待办</p>
         </Show>
       </div>
-      <Show when={hasDone}><button class="clear" onClick={clearDone}>清除已完成</button></Show>
+      <Show when={hasDone}><button class="px-4 py-1.5 bg-red-500 text-white rounded-md text-sm cursor-pointer" onClick={clearDone}>清除已完成</button></Show>
     </div>
   )
 }
@@ -86,21 +92,21 @@ function TodoPage(_props: {}, ctx: WfuiContext) {
 
 function HomePage(_props: {}, ctx: WfuiContext) {
   return (
-    <div class="home-page">
-      <h1>wefu demo</h1>
-      <p>欢迎！当前路径: {ctx.route.path}</p>
-      <div class="nav-cards">
-        <div class="card" onClick={() => ctx.app.navigate('/todo')}>
-          <h3>Todo 应用</h3>
-          <p>演示 signal + Show/For + 响应式列表</p>
+    <div>
+      <h1 class="text-2xl font-bold mb-2">wefu demo</h1>
+      <p class="text-gray-500 mb-5">欢迎！当前路径: {ctx.route.path}</p>
+      <div class="flex gap-3">
+        <div class="flex-1 bg-white rounded-lg p-4 cursor-pointer shadow-sm hover:shadow-md" onClick={() => ctx.app.navigate('/todo')}>
+          <h3 class="text-base font-semibold mb-1">Todo 应用</h3>
+          <p class="text-sm text-gray-400">演示 signal + Show/For + 响应式列表</p>
         </div>
-        <div class="card" onClick={() => ctx.app.navigate('/about')}>
-          <h3>关于</h3>
-          <p>演示路由和参数传递</p>
+        <div class="flex-1 bg-white rounded-lg p-4 cursor-pointer shadow-sm hover:shadow-md" onClick={() => ctx.app.navigate('/about')}>
+          <h3 class="text-base font-semibold mb-1">关于</h3>
+          <p class="text-sm text-gray-400">演示路由和参数传递</p>
         </div>
-        <div class="card" onClick={() => ctx.app.navigate('/user/wefu')}>
-          <h3>用户</h3>
-          <p>演示路由参数 /user/:name</p>
+        <div class="flex-1 bg-white rounded-lg p-4 cursor-pointer shadow-sm hover:shadow-md" onClick={() => ctx.app.navigate('/user/wefu')}>
+          <h3 class="text-base font-semibold mb-1">用户</h3>
+          <p class="text-sm text-gray-400">演示路由参数 /user/:name</p>
         </div>
       </div>
     </div>
@@ -113,20 +119,20 @@ function HomePage(_props: {}, ctx: WfuiContext) {
 
 function AboutPage(_props: {}, ctx: WfuiContext) {
   return (
-    <div class="about-page">
-      <h1>关于 wefu</h1>
-      <ul>
-        <li>核心: signal + TSX + (props, ctx)</li>
-        <li>无 VDOM，无 hooks 规则</li>
-        <li>与 weifuwu 后端共享 ctx 理念</li>
-        <li>零上游依赖，核心 ~200 行</li>
+    <div class="bg-white rounded-xl p-6 shadow-md">
+      <h1 class="text-xl font-bold mb-3">关于 wefu</h1>
+      <ul class="pl-5 mb-3 text-gray-600">
+        <li class="mb-1">核心: signal + TSX + (props, ctx)</li>
+        <li class="mb-1">无 VDOM，无 hooks 规则</li>
+        <li class="mb-1">与 weifuwu 后端共享 ctx 理念</li>
+        <li class="mb-1">零上游依赖，核心 ~200 行</li>
       </ul>
       <p><strong>路由参数:</strong> {JSON.stringify(ctx.route.params)}</p>
       <p><strong>查询参数:</strong> {JSON.stringify(ctx.route.query)}</p>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-        <button onClick={() => ctx.app.navigate('/about?tab=intro')}>?tab=intro</button>
-        <button onClick={() => ctx.app.navigate('/about?tab=api&version=1')}>?tab=api&version=1</button>
-        <button onClick={() => ctx.app.navigate('/todo')}>去 Todo</button>
+      <div class="mt-3 flex gap-2 flex-wrap">
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={() => ctx.app.navigate('/about?tab=intro')}>?tab=intro</button>
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={() => ctx.app.navigate('/about?tab=api&version=1')}>?tab=api&version=1</button>
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={() => ctx.app.navigate('/todo')}>去 Todo</button>
       </div>
     </div>
   )
@@ -144,7 +150,6 @@ function RealtimePage(_props: {}, ctx: WfuiContext) {
   const messages = signal<Array<{ type: string; body: string; ts?: number }>>([])
   const input = signal('')
 
-  // 监听 WS 消息
   ctx.ws.onMessage((data: any) => {
     messages.value = [...messages.value, data]
   })
@@ -157,36 +162,33 @@ function RealtimePage(_props: {}, ctx: WfuiContext) {
   }
 
   return (
-    <div class="todo-app">
-      <h1>WebSocket 实时通信</h1>
-      <p style="margin-bottom:12px">
+    <div class="bg-white rounded-xl p-6 shadow-md">
+      <h1 class="text-xl font-bold mb-3">WebSocket 实时通信</h1>
+      <p class="mb-3">
         连接状态：
-        <Show when={ctx.ws.isConnected} fallback={<span style="color:red">未连接</span>}>
-          <span style="color:green">已连接</span>
+        <Show when={ctx.ws.isConnected} fallback={<span class="text-red-500">未连接</span>}>
+          <span class="text-green-600">已连接</span>
         </Show>
       </p>
-      <div class="todo-list" style="max-height:300px;overflow-y:auto;border:1px solid #eee;border-radius:6px;padding:8px;margin-bottom:12px">
+      <div class="max-h-72 overflow-y-auto border border-gray-200 rounded-md p-2 mb-3">
         <For each={messages}>
           {(msg) => (
-            <div style={{
-              padding: '6px 8px',
-              margin: '4px 0',
-              borderRadius: '6px',
-              background: msg.type === 'system' ? '#e8f4e8' : msg.type === 'echo' ? '#e8f0ff' : '#f5f5f5',
-              fontSize: '14px',
-            }}>
+            <div class={`p-1.5 my-1 rounded-md text-sm ${
+              msg.type === 'system' ? 'bg-green-50' : msg.type === 'echo' ? 'bg-blue-50' : 'bg-gray-50'
+            }`}>
               <strong>{msg.type === 'system' ? '系统' : msg.type === 'echo' ? '回显' : '消息'}:</strong>{' '}
               {msg.body}
-              {msg.ts ? <span style="color:#999;font-size:12px;margin-left:8px">{new Date(msg.ts).toLocaleTimeString()}</span> : null}
+              {msg.ts ? <span class="text-gray-400 text-xs ml-2">{new Date(msg.ts).toLocaleTimeString()}</span> : null}
             </div>
           )}
         </For>
       </div>
-      <div class="input-row">
-        <input value={input} onInput={(e: any) => input.value = e.target.value}
+      <div class="flex gap-2">
+        <input class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
+          value={input} onInput={(e: any) => input.value = e.target.value}
           onKeyDown={(e: any) => e.key === 'Enter' && send()}
           placeholder="输入消息，回车发送..." />
-        <button onClick={send}>发送</button>
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={send}>发送</button>
       </div>
     </div>
   )
@@ -198,14 +200,14 @@ function RealtimePage(_props: {}, ctx: WfuiContext) {
 
 function UserPage(_props: {}, ctx: WfuiContext) {
   return (
-    <div class="about-page">
-      <h1>用户: {ctx.route.params.name}</h1>
-      <p>路径: {ctx.route.path}</p>
-      <p>所有参数: {JSON.stringify(ctx.route.params)}</p>
-      <div style="margin-top:12px;display:flex;gap:8px">
-        <button onClick={() => ctx.app.navigate('/user/alice')}>alice</button>
-        <button onClick={() => ctx.app.navigate('/user/bob')}>bob</button>
-        <button onClick={() => ctx.app.navigate('/user/张三')}>张三</button>
+    <div class="bg-white rounded-xl p-6 shadow-md">
+      <h1 class="text-xl font-bold mb-3">用户: {ctx.route.params.name}</h1>
+      <p class="mb-1">路径: {ctx.route.path}</p>
+      <p class="mb-3">所有参数: {JSON.stringify(ctx.route.params)}</p>
+      <div class="flex gap-2">
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={() => ctx.app.navigate('/user/alice')}>alice</button>
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={() => ctx.app.navigate('/user/bob')}>bob</button>
+        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={() => ctx.app.navigate('/user/张三')}>张三</button>
       </div>
     </div>
   )
@@ -213,10 +215,10 @@ function UserPage(_props: {}, ctx: WfuiContext) {
 
 function NotFound(_props: {}, ctx: WfuiContext) {
   return (
-    <div class="not-found">
-      <h1>404</h1>
-      <p>路径 {ctx.route.path} 未找到</p>
-      <button onClick={() => ctx.app.navigate('/')}>回首页</button>
+    <div class="text-center py-16">
+      <h1 class="text-5xl text-gray-300">404</h1>
+      <p class="my-3 text-gray-400">路径 {ctx.route.path} 未找到</p>
+      <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600" onClick={() => ctx.app.navigate('/')}>回首页</button>
     </div>
   )
 }
@@ -227,20 +229,20 @@ function NotFound(_props: {}, ctx: WfuiContext) {
 
 function AppShell(_props: {}, ctx: WfuiContext) {
   return (
-    <div class="app-shell">
-      <nav class="nav-bar">
-        <span class="logo" onClick={() => ctx.app.navigate('/')}>wefu</span>
-        <div class="nav-links">
-          <a onClick={() => ctx.app.navigate('/')}>首页</a>
-          <a onClick={() => ctx.app.navigate('/todo')}>Todo</a>
-          <a onClick={() => ctx.app.navigate('/about')}>关于</a>
-          <a onClick={() => ctx.app.navigate('/user/wefu')}>用户</a>
-          <a onClick={() => ctx.app.navigate('/ws')}>实时</a>
-          <a onClick={() => window.location.href = '/blog/hello-ssr'}>博客</a>
+    <div>
+      <nav class="flex items-center gap-6 py-3 border-b border-gray-200 mb-5">
+        <span class="font-bold text-lg cursor-pointer text-blue-500" onClick={() => ctx.app.navigate('/')}>wefu</span>
+        <div class="flex gap-4">
+          <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/')}>首页</a>
+          <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/todo')}>Todo</a>
+          <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/about')}>关于</a>
+          <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/user/wefu')}>用户</a>
+          <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/ws')}>实时</a>
+          <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => window.location.href = '/blog/hello-ssr'}>博客</a>
         </div>
       </nav>
       <main>
-        <RouteView />  {/* ← 路由组件在此渲染 */}
+        <RouteView />
       </main>
     </div>
   )
@@ -261,14 +263,7 @@ const routes: RouteDef[] = [
 function LikeButton(_props: {}, _ctx: WfuiContext): Node {
   const count = signal(0)
   return (
-    <button onClick={() => count.value++} style={{
-      padding: '8px 20px',
-      border: '1px solid #ddd',
-      borderRadius: '6px',
-      background: '#fff',
-      cursor: 'pointer',
-      fontSize: '16px',
-    }}>
+    <button onClick={() => count.value++} class="px-5 py-2 border border-gray-300 rounded-md bg-white cursor-pointer text-base hover:bg-gray-50">
       ❤️ {count}
     </button>
   )
