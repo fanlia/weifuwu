@@ -14,6 +14,7 @@ const distDir = join(root, 'dist')
 // Clean stale dist
 await rm(distDir, { recursive: true, force: true })
 await mkdir(distDir, { recursive: true })
+await mkdir(join(distDir, 'client'), { recursive: true })
 
 const external = [
   '@graphql-tools/schema',
@@ -22,9 +23,10 @@ const external = [
   'postgres',
   'ws',
   'esbuild',
-  'ai',  // dynamic import in ai middleware
+  'ai',
 ]
 
+// 后端 bundle
 await esbuild.build({
   entryPoints: [join(srcDir, 'index.ts')],
   outfile: join(distDir, 'index.js'),
@@ -32,6 +34,26 @@ await esbuild.build({
   platform: 'node',
   bundle: true,
   external,
+})
+
+// 前端 bundle
+await esbuild.build({
+  entryPoints: [join(srcDir, 'client', 'index.ts')],
+  outfile: join(distDir, 'client', 'index.js'),
+  format: 'esm',
+  platform: 'browser',
+  bundle: true,
+  external: [],
+})
+
+// 前端 jsx-runtime（指向同一个文件）
+await esbuild.build({
+  entryPoints: [join(srcDir, 'client', 'index.ts')],
+  outfile: join(distDir, 'client', 'jsx-runtime.js'),
+  format: 'esm',
+  platform: 'browser',
+  bundle: true,
+  external: [],
 })
 
 console.log('Build complete.')

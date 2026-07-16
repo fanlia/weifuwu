@@ -30,6 +30,7 @@
     "src/cms/*.ts",
     "src/kb/*.ts",
     "src/base/*.ts",
-    "src/ai/*.ts"
+    "src/ai/*.ts",
+    "src/client/*.ts"
   ]
 }

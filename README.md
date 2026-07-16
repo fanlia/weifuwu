@@ -1,16 +1,18 @@
 # weifuwu
 
-**AI SaaS framework** — `(req, ctx) => Response`
+**AI SaaS full-stack framework** — `(req, ctx) => Response` + `(props, ctx) => JSX`
 
 ```bash
 npm install weifuwu
 ```
 
-User system, instant messaging, RAG knowledge base, AI Agent, CMS, dynamic data storage. Configure environment variables and go.
+One package. Backend + frontend. User system, instant messaging, RAG knowledge base, AI Agent, CMS, dynamic data storage, and a reactive frontend framework. Configure environment variables and go.
 
 ---
 
 ## Quick Start
+
+### Backend
 
 ```ts
 import { serve, Router, postgres, user, kb, agent, messager } from 'weifuwu'
@@ -34,6 +36,46 @@ app.post('/api/chat', async (req, ctx) => {
 serve(app, { port: 3000 })
 ```
 
+### Frontend
+
+```tsx
+import { signal, Show, For, createApp, router, RouteView } from 'weifuwu/client'
+import type { WfuiContext } from 'weifuwu/client'
+
+function HomePage(_props: {}, ctx: WfuiContext) {
+  return (
+    <div>
+      <h1>Hello weifuwu</h1>
+      <p>当前路径: {ctx.route.path}</p>
+    </div>
+  )
+}
+
+const app = createApp()
+app.use(router({
+  routes: [
+    { path: '/', component: HomePage, title: '首页' },
+    { path: '/chat/:id', component: ChatPage, title: '聊天' },
+  ],
+}))
+app.mount('#root', AppShell)
+```
+
+```json
+// tsconfig.json
+{ "jsx": "react-jsx", "jsxImportSource": "weifuwu/client" }
+```
+
+```js
+// build.mjs
+esbuild.build({
+  entryPoints: ['src/main.tsx'],
+  jsx: 'automatic',
+  jsxImportSource: 'weifuwu/client',
+  bundle: true,
+})
+```
+
 ### Environment Variables
 
 | Variable | Default | Used by |
@@ -48,6 +90,8 @@ serve(app, { port: 3000 })
 ---
 
 ## Modules
+
+### Backend
 
 | Module | Import | Dependency | Purpose |
 |--------|--------|-----------|---------|
@@ -84,11 +128,111 @@ serve(app, { port: 3000 })
 | `queue()` | Job queue + cron |
 | `createHub()` | WebSocket pub/sub |
 
+### Frontend (weifuwu/client)
+
+| Import | Purpose |
+|--------|---------|
+| `signal()` | Reactive state |
+| `computed()` | Derived signals |
+| `effect()` | Auto-tracked side effects |
+| `<Show>` | Conditional rendering |
+| `<For>` | List rendering |
+| `<RouteView>` | Route outlet |
+| `createApp()` | App instance with middleware chain |
+| `router()` | Hash/history router with params + query |
+| `domMount()` | Direct DOM mounting |
+
 ### Utilities
 
 | Import | Purpose |
 |--------|---------|
 | `requireRole('admin')` | Middleware: check `ctx.user.role` |
+
+---
+
+## Frontend (weifuwu/client)
+
+**weifuwu/client** is a reactive frontend framework built on Signal + TSX. Zero virtual DOM, zero dependencies, ~600 lines total.
+
+### Concepts
+
+```ts
+// 1. Signal — reactive data
+const count = signal(0)
+count.value = count.value + 1  // DOM updates automatically
+
+// 2. Computed — derived signals
+const doubled = computed(() => count.value * 2)
+
+// 3. Effect — auto-tracked side effects
+effect(() => console.log('count:', count.value))
+
+// 4. Component — (props, ctx) => JSX
+function MyComponent({ name }: { name: string }, ctx: WfuiContext) {
+  return <div>Hello {name}</div>
+}
+```
+
+### createApp + Middleware
+
+```tsx
+import { createApp, router, RouteView } from 'weifuwu/client'
+import type { WfuiContext, RouteDef } from 'weifuwu/client'
+
+const app = createApp()
+app.use(router({ routes, mode: 'hash' }))
+app.mount('#root', AppShell)
+```
+
+### Router
+
+```tsx
+const routes: RouteDef[] = [
+  { path: '/', component: HomePage, title: '首页' },
+  { path: '/chat/:id', component: ChatPage, title: '聊天' },
+  { path: '/user/:name', component: UserPage, title: '用户' },
+]
+
+app.use(router({
+  routes,
+  notFound: NotFound,
+  mode: 'hash', // or 'history'
+}))
+
+// In layout:
+function AppShell(_, ctx) {
+  return (
+    <div>
+      <nav>
+        <a onClick={() => ctx.app.navigate('/')}>首页</a>
+        <a onClick={() => ctx.app.navigate('/chat/123')}>聊天</a>
+      </nav>
+      <main>
+        <RouteView />  {/* ← renders matched route */}
+      </main>
+    </div>
+  )
+}
+
+// Route params and query:
+ctx.route.path     // "/chat/123"
+ctx.route.params   // { id: "123" }
+ctx.route.query    // { tab: "settings" }
+```
+
+### Show / For
+
+```tsx
+// Conditional rendering (supports Signal)
+<Show when={isLoggedIn} fallback={<LoginPage />}>
+  <Dashboard />
+</Show>
+
+// List rendering (supports Signal)
+<For each={filteredItems}>
+  {(item) => <div>{item.name}</div>}
+</For>
+```
 
 ---
 
@@ -344,7 +488,7 @@ app.post('/api/chat/sync', async (req, ctx) => {
 ### ctx.agent API
 
 | Method | Description |
-|--------|-------------|
+|-------------|-------------|
 | `chat(prompt, opts?)` | Non-streaming, returns text |
 | `chatStreamResponse({ messages })` | SSE stream (compatible with `useChat`) |
 
@@ -602,7 +746,20 @@ src/
 ├── queue/               ← Job queue + cron
 ├── graphql.ts           ← GraphQL
 ├── hub.ts               ← WebSocket hub
+├── client/              ← Frontend framework (signal, JSX, router)
+│   ├── index.ts
+│   ├── signal.ts
+│   ├── jsx-runtime.ts
+│   ├── app.ts
+│   ├── router.ts
+│   └── types.ts
 └── test/                ← 281 tests
+
+apps/demo/               ← Full-stack demo
+├── src/main.tsx
+├── public/index.html
+├── tsconfig.json
+└── scripts/build.mjs
 
 docker-compose.yml       ← postgres (pgvector) + redis
 ```

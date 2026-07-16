@@ -1,0 +1,74 @@
+/**
+ * weifuwu/client 应用 — 创建 ctx + 中间件链 + 挂载组件
+ *
+ * ```tsx
+ * import { createApp, router } from 'weifuwu/client'
+ *
+ * const app = createApp()
+ * app.use(router({ routes: [...] }))
+ * app.mount('#root', AppShell)
+ * ```
+ */
+
+import type { WfuiContext, AppMiddleware } from './types.ts'
+import type { Component } from './jsx-runtime.ts'
+import { setCtx, jsx, domMount } from './jsx-runtime.ts'
+
+/**
+ * 创建 weifuwu/client 应用
+ */
+export function createApp(): {
+  ctx: WfuiContext
+  use: (mw: AppMiddleware) => any
+  mount: (rootSelector: string, RootComponent: Component) => void
+} {
+  const middlewares: AppMiddleware[] = []
+  const provides = new Map<string, unknown>()
+
+  let ctx: WfuiContext = {
+    route: {
+      path: window.location.pathname,
+      params: {},
+      query: Object.fromEntries(new URLSearchParams(window.location.search)),
+      hash: window.location.hash,
+      component: null,
+    },
+    app: {
+      navigate(path: string) {
+        window.history.pushState({}, '', path)
+        ctx.route.path = path
+        ctx.route.query = Object.fromEntries(new URLSearchParams(window.location.search))
+        ctx.route.hash = window.location.hash
+        window.dispatchEvent(new CustomEvent('wefu:navigate', { detail: { path } }))
+      },
+    },
+    provide<T>(key: string, value: T) {
+      provides.set(key, value)
+    },
+    inject<T>(key: string): T | null {
+      return (provides.get(key) as T) ?? null
+    },
+  }
+
+  return {
+    get ctx() { return ctx },
+
+    use(mw: AppMiddleware) {
+      middlewares.push(mw)
+      return this
+    },
+
+    mount(rootSelector: string, RootComponent: Component) {
+      // 运行中间件链
+      for (const mw of middlewares) {
+        ctx = mw(ctx) as WfuiContext
+      }
+
+      // 渲染组件树
+      setCtx(ctx)
+      const app = jsx(RootComponent, {})
+      domMount(rootSelector, app)
+      setCtx(null)
+    },
+  }
+}

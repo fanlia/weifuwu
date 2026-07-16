@@ -2,11 +2,20 @@
   "name": "weifuwu",
   "type": "module",
   "version": "0.33.1",
-  "description": "Web-standard HTTP microframework for Node.js — (req, ctx) => Response",
+  "private": true,
+  "description": "AI SaaS framework — (req, ctx) => Response",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
+    "./client/jsx-runtime": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
     }
   },
   "files": [
