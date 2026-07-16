@@ -37,9 +37,11 @@ export interface UiRenderOptions {
   script?: string
   /** 内嵌到页面的初始数据（通过 window.__WFUI_PROPS__ 访问） */
   props?: Record<string, unknown>
+  /** 预渲染的 HTML 内容，嵌入 #root 内 */
+  ssr?: string
 }
 
-function defaultTemplate(title: string, script: string, propsJson: string): string {
+function defaultTemplate(title: string, script: string, propsJson: string, ssr: string): string {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -48,7 +50,7 @@ function defaultTemplate(title: string, script: string, propsJson: string): stri
   <title>${escapeHtml(title)}</title>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">${ssr}</div>
   ${propsJson ? `<script>window.__WFUI_PROPS__=${propsJson}</script>` : ''}
   <script src="${escapeHtml(script)}"></script>
 </body>
@@ -76,12 +78,15 @@ export function ui(opts: UiOptions = {}): Middleware {
           } catch { /* 不可序列化的 props 忽略 */ }
         }
 
+        const ssr = renderOpts.ssr ?? ''
+
         const body = template
           ? template
               .replace(/\{\{title\}\}/g, escapeHtml(title))
               .replace(/\{\{script\}\}/g, escapeHtml(script))
               .replace(/\{\{props\}\}/g, propsJson)
-          : defaultTemplate(title, script, propsJson)
+              .replace(/\{\{ssr\}\}/g, ssr)
+          : defaultTemplate(title, script, propsJson, ssr)
 
         return new Response(body, {
           headers: { 'Content-Type': 'text/html; charset=utf-8' },

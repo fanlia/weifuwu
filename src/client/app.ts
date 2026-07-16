@@ -24,6 +24,22 @@ export function createApp(): {
   ctx: WfuiContext
   use: (mw: AppMiddleware) => any
   mount: (rootSelector: string, RootComponent: Component) => Promise<void>
+  /**
+   * Hydrate 一个已由 SSR 渲染的区域。
+   * 不清除目标容器内的内容，只附加组件输出。
+   *
+   * ```ts
+   * const app = createApp()
+   * app.use(api())
+   * app.use(auth())
+   * app.hydrate('#comments', CommentSection, { postId: '123' })
+   * ```
+   */
+  hydrate: (
+    selector: string,
+    Component: Component,
+    props?: Record<string, unknown>,
+  ) => void
 } {
   const middlewares: AppMiddleware[] = []
   const provides = new Map<string, unknown>()
@@ -79,6 +95,20 @@ export function createApp(): {
       setCtx(ctx)
       const app = jsx(RootComponent, {})
       domMount(rootSelector, app)
+      setCtx(null)
+    },
+
+    hydrate(selector: string, Component: Component, props?: Record<string, unknown>) {
+      const root = document.querySelector(selector)
+      if (!root) {
+        console.warn(`hydrate target not found: ${selector}`)
+        return
+      }
+
+      const mergedProps = props ?? (window as any).__WFUI_PROPS__ ?? {}
+      setCtx(ctx)
+      const vnode = jsx(Component, mergedProps)
+      root.appendChild(vnode)
       setCtx(null)
     },
   }

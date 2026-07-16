@@ -236,6 +236,7 @@ function AppShell(_props: {}, ctx: WfuiContext) {
           <a onClick={() => ctx.app.navigate('/about')}>关于</a>
           <a onClick={() => ctx.app.navigate('/user/wefu')}>用户</a>
           <a onClick={() => ctx.app.navigate('/ws')}>实时</a>
+          <a onClick={() => window.location.href = '/blog/hello-ssr'}>博客</a>
         </div>
       </nav>
       <main>
@@ -255,6 +256,24 @@ const routes: RouteDef[] = [
   { path: '/ws', component: RealtimePage, title: 'WebSocket' },
 ]
 
+// ── SSR Like Button 组件 ──
+
+function LikeButton(_props: {}, _ctx: WfuiContext): Node {
+  const count = signal(0)
+  return (
+    <button onClick={() => count.value++} style={{
+      padding: '8px 20px',
+      border: '1px solid #ddd',
+      borderRadius: '6px',
+      background: '#fff',
+      cursor: 'pointer',
+      fontSize: '16px',
+    }}>
+      ❤️ {count}
+    </button>
+  )
+}
+
 // ── 启动 ──
 
 const app = createApp()
@@ -262,4 +281,15 @@ app.use(api())
 app.use(auth())
 app.use(ws())
 app.use(router({ routes, notFound: NotFound, mode: 'hash' }))
-app.mount('#root', AppShell)
+
+// 检测 SSR 页面：如果 #root 已有内容，只 hydrate 交互区域
+const root = document.getElementById('root')
+const hasSsr = root && root.children.length > 0
+
+if (hasSsr) {
+  // SSR 页面：不挂载 SPA，只 hydrate 标记的区域
+  const likeTarget = document.querySelector('[data-hydrate="like"]')
+  if (likeTarget) app.hydrate('[data-hydrate="like"]', LikeButton)
+} else {
+  app.mount('#root', AppShell)
+}
