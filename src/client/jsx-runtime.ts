@@ -39,6 +39,106 @@ export type Component<P = {}> = (props: P, ctx: WfuiContext) => Node
 
 // ── 工具 ─────────────────────────────────────────────────────
 
+interface _Entry {
+  mounted: boolean
+  observer: MutationObserver | null
+  mountFns: (() => (() => void) | void)[]
+  disposeFns: (() => void)[]
+}
+
+const _entries = new Map<Element, _Entry>()
+
+function _ensure(el: Element): _Entry {
+  let entry = _entries.get(el)
+  if (entry) return entry
+
+  entry = {
+    mounted: document.contains(el),
+    observer: null,
+    mountFns: [],
+    disposeFns: [],
+  }
+  _entries.set(el, entry)
+
+  const obs = new MutationObserver(() => {
+    const now = document.contains(el)
+    if (now && !entry!.mounted) {
+      // 元素进入文档 → 执行所有挂起和新增的 mount 回调
+      entry!.mounted = true
+      const fns = entry!.mountFns.slice()
+      entry!.mountFns = []
+      for (const fn of fns) {
+        const dispose = fn()
+        if (typeof dispose === 'function') {
+          entry!.disposeFns.push(dispose)
+        }
+      }
+    } else if (!now && entry!.mounted) {
+      // 元素离开文档 → 执行所有清理函数
+      entry!.mounted = false
+      for (const fn of entry!.disposeFns) fn()
+      entry!.disposeFns = []
+      entry!.mountFns = []
+      obs.disconnect()
+      _entries.delete(el)
+    }
+  })
+  obs.observe(document.body, { childList: true, subtree: true })
+  entry.observer = obs
+
+  return entry
+}
+
+/** @internal 元素进入文档时执行回调，返回函数在元素离开时自动清理 */
+function onMount(el: Element, fn: () => (() => void) | void): void {
+  const entry = _ensure(el)
+  if (entry.mounted) {
+    const dispose = fn()
+    if (typeof dispose === 'function') {
+      entry.disposeFns.push(dispose)
+    }
+  } else {
+    entry.mountFns.push(fn)
+  }
+}
+
+/**
+ * 包装第三方库为组件 — 元素挂载后执行 setup，返回函数在元素移除时自动清理。
+ *
+ * 自动创建容器元素 + 自动管理生命周期。
+ * 返回标准的 (props, ctx) => Node 组件。
+ *
+ * ```tsx
+ * const PieChart = wrap('div', (el, props: { data: any }, ctx) => {
+ *   el.style.cssText = 'width:100%;height:300px'
+ *   const chart = echarts.init(el)
+ *   chart.setOption(props.data)
+ *   effect(() => chart.setOption(props.data))
+ *   return () => chart.dispose()
+ * })
+ *
+ * const CanvasChart = wrap('canvas', (el, props, ctx) => {
+ *   const chart = new Chart(el, { type: 'line', data: props.data })
+ *   return () => chart.destroy()
+ * })
+ *
+ * // 在 JSX 中使用
+ * function Dashboard() {
+ *   return <div><PieChart data={salesData} /><CanvasChart data={trendData} /></div>
+ * }
+ * ```
+ */
+export function wrap<P = {}>(
+  tagName: string,
+  setup: (el: HTMLElement, props: P, ctx: WfuiContext) => (() => void) | void,
+): Component<P> {
+  return (props: P, ctx: WfuiContext): Node => {
+    const el = document.createElement(tagName)
+    onMount(el, () => setup(el, props, ctx))
+    return el
+  }
+}
+
 function setProp(el: Element, key: string, value: unknown) {
   if (key === 'class' || key === 'className') {
     if (isSignal(value)) {

@@ -16,7 +16,7 @@
 
 export { signal, computed, effect, isSignal } from './signal.ts'
 export type { Signal } from './signal.ts'
-export { jsx, jsxs, jsxDEV, Fragment, Show, For, domMount } from './jsx-runtime.ts'
+export { jsx, jsxs, jsxDEV, Fragment, Show, For, domMount, wrap } from './jsx-runtime.ts'
 export type { Component } from './jsx-runtime.ts'
 export type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 export { createApp } from './app.ts'
