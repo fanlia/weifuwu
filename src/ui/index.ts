@@ -1,14 +1,23 @@
 /**
- * ui 中间件 — 注入 ctx.ui.html()
+ * ui 中间件 — 注入 ctx.ui
  *
- * 返回 SPA HTML shell，加载前端 client bundle。
+ * 不持有配置，每个路由调用时传入完整参数。
  *
  * ```ts
  * import { ui, serveStatic } from 'weifuwu'
  *
- * app.use(ui({ title: 'My App', script: '/static/app.js' }))
- * app.get('/static/*', serveStatic('./dist/client'))
- * app.get('*', async (req, ctx) => ctx.ui.html())
+ * app.use(ui())
+ *
+ * app.get('*', async (req, ctx) => ctx.ui.html({
+ *   title: 'My App',
+ *   script: '/static/app.js',
+ * }))
+ *
+ * app.get('/blog/:slug', async (req, ctx) => ctx.ui.html({
+ *   title: post.title,
+ *   ssr: String(content),
+ *   props: { post },
+ * }))
  * ```
  */
 
@@ -17,31 +26,26 @@ import type { Middleware, Context } from '../types.ts'
 declare module '../types.ts' {
   interface Context {
     ui: {
-      /** 返回 SPA HTML 页面 */
+      /** 返回完整的 SPA HTML 页面 */
       html: (opts?: UiRenderOptions) => Response
     }
   }
 }
 
-export interface UiOptions {
+export interface UiRenderOptions {
   /** 页面标题，默认 'weifuwu' */
   title?: string
   /** Client bundle JS 路径，默认 '/static/app.js' */
   script?: string
-  /** 自定义 HTML 模板，覆盖默认 */
+  /** 自定义 HTML 模板，覆盖默认模板 */
   template?: string
-}
-
-export interface UiRenderOptions {
-  title?: string
-  script?: string
   /** 内嵌到页面的初始数据（通过 window.__WFUI_PROPS__ 访问） */
   props?: Record<string, unknown>
   /** 预渲染的 HTML 内容，嵌入 #root 内 */
   ssr?: string
 }
 
-function defaultTemplate(title: string, script: string, propsJson: string, ssr: string): string {
+function defaultTemplate(title: string, script: string, propsTag: string, ssr: string): string {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -51,7 +55,7 @@ function defaultTemplate(title: string, script: string, propsJson: string, ssr: 
 </head>
 <body>
   <div id="root">${ssr}</div>
-  ${propsJson ? `<script>window.__WFUI_PROPS__=${propsJson}</script>` : ''}
+  ${propsTag}
   <script src="${escapeHtml(script)}"></script>
 </body>
 </html>`
@@ -61,38 +65,39 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-export function ui(opts: UiOptions = {}): Middleware {
-  const defaultTitle = opts.title ?? 'weifuwu'
-  const defaultScript = opts.script ?? '/static/app.js'
-  const template = opts.template
+function makePropsTag(propsJson: string): string {
+  return propsJson ? `<script>window.__WFUI_PROPS__=${propsJson}</script>` : ''
+}
 
-  return async (req, ctx, next) => {
+export function ui(): Middleware {
+  return async (_req, ctx, next) => {
     ctx.ui = {
       html(renderOpts: UiRenderOptions = {}): Response {
-        const title = renderOpts.title ?? defaultTitle
-        const script = renderOpts.script ?? defaultScript
+        const title = renderOpts.title ?? 'weifuwu'
+        const script = renderOpts.script ?? '/static/app.js'
+
         let propsJson = ''
         if (renderOpts.props) {
-          try {
-            propsJson = JSON.stringify(renderOpts.props)
-          } catch { /* 不可序列化的 props 忽略 */ }
+          try { propsJson = JSON.stringify(renderOpts.props) }
+          catch { /* 不可序列化的 props 忽略 */ }
         }
 
+        const propsTag = makePropsTag(propsJson)
         const ssr = renderOpts.ssr ?? ''
 
-        const body = template
-          ? template
+        const body = renderOpts.template
+          ? renderOpts.template
               .replace(/\{\{title\}\}/g, escapeHtml(title))
               .replace(/\{\{script\}\}/g, escapeHtml(script))
-              .replace(/\{\{props\}\}/g, propsJson ? `<script>window.__WFUI_PROPS__=${propsJson}</script>` : '')
+              .replace(/\{\{props\}\}/g, propsTag)
               .replace(/\{\{ssr\}\}/g, ssr)
-          : defaultTemplate(title, script, propsJson, ssr)
+          : defaultTemplate(title, script, propsTag, ssr)
 
         return new Response(body, {
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         })
       },
     }
-    return next(req, ctx)
+    return next(_req, ctx)
   }
 }

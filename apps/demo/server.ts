@@ -16,19 +16,12 @@ import { html } from 'weifuwu/server'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-// 用 public/index.html 作为 HTML 模板（内联样式 + 占位符）
-const template = readFileSync(resolve(__dirname, 'public', 'index.html'), 'utf-8')
-
 const app = new Router()
 app.use(cors())
 app.use(logger())
 
-// 前端 SPA 中间件
-app.use(ui({
-  title: 'weifuwu demo',
-  script: '/static/app.js',
-  template,
-}))
+// 前端 SPA 中间件（不持有配置，路由调用时传入）
+app.use(ui())
 
 // 静态资源（client bundle）
 app.get('/static/*', serveStatic(resolve(__dirname, 'dist')))
@@ -48,6 +41,9 @@ const wsHandler: WebSocketHandler = {
   },
 }
 app.ws('/ws', wsHandler)
+
+// 公共模板（含样式）
+const htmlTemplate = readFileSync(resolve(__dirname, 'public', 'index.html'), 'utf-8')
 
 // SSR 博客页面 — 服务端直出 HTML
 const blogPost = {
@@ -70,12 +66,14 @@ app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => 
       </div>
       <div data-hydrate="like" style="margin-top:24px;padding-top:20px;border-top:1px solid #eee">
         <p style="color:#666;font-size:14px;margin-bottom:8px">这个对你有帮助吗？</p>
-        <!-- hydrate 在此注入点赞按钮 -->
       </div>
     </article>
   `
 
   return ctx.ui.html({
+    template: htmlTemplate,
+    title: blogPost.title,
+    script: '/static/app.js',
     ssr: String(content),
     props: { post: blogPost },
   })
@@ -84,7 +82,13 @@ app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => 
 // SPA 入口页面 — 这些路径返回 HTML shell
 const spaPaths = ['/', '/todo', '/about', '/user/:name', '/ws']
 for (const p of spaPaths) {
-  app.get(p, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html())
+  app.get(p, async (req: Request, ctx: Context): Promise<Response> =>
+    ctx.ui.html({
+      template: htmlTemplate,
+      title: 'weifuwu demo',
+      script: '/static/app.js',
+    })
+  )
 }
 
 serve(app, { port: 3000 })
