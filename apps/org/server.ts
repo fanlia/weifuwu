@@ -55,15 +55,25 @@ app.ws('/ws', wsHandler)
 // ── 认证 ──
 
 app.post('/api/register', async (req, ctx) => {
-  const result = await ctx.userModule.register(await req.json())
-  return Response.json(result, { status: 201 })
+  try {
+    const result = await ctx.userModule.register(await req.json())
+    return Response.json(result, { status: 201 })
+  } catch (e: any) {
+    console.error('REGISTER ERROR:', e.message)
+    return Response.json({ error: e.message }, { status: 400 })
+  }
 })
 
 app.post('/api/login', async (req, ctx) => {
-  const { email, password } = await req.json()
-  const result = await ctx.userModule.login(email, password)
-  if (!result) return new Response('Unauthorized', { status: 401 })
-  return Response.json(result)
+  try {
+    const { email, password } = await req.json()
+    const result = await ctx.userModule.login(email, password)
+    if (!result) return new Response('Unauthorized', { status: 401 })
+    return Response.json(result)
+  } catch (e: any) {
+    console.error('LOGIN ERROR:', e.message)
+    return Response.json({ error: e.message }, { status: 400 })
+  }
 })
 
 app.get('/api/me', async (req, ctx) => {
