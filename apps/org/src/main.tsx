@@ -349,10 +349,8 @@ function DepartmentChat({ conversationId, agents }: { conversationId: string; ag
     container: 'flex flex-col h-full',
     msgList: 'flex-1 overflow-y-auto px-4 py-3 space-y-2',
     msgRow: 'flex',
-    msgBubble: 'max-w-[70%] px-3 py-2 rounded-lg text-sm leading-relaxed',
-    msgMine: 'ml-auto bg-blue-500 text-white rounded-br-sm',
-    msgOther: 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm',
-    msgAI: 'bg-blue-50 text-gray-800 border border-blue-100 rounded-bl-sm',
+    timeDivider: 'text-center text-xs text-gray-300 my-4 relative before:absolute before:inset-x-0 before:top-1/2 before:h-px before:bg-gray-100',
+    timeText: 'relative z-10 bg-gray-50 px-2 text-gray-400',
     msgName: 'text-xs text-gray-400 mb-0.5',
     inputArea: 'px-4 py-3 border-t border-gray-200 bg-white',
     inputRow: 'flex gap-2',
@@ -373,17 +371,29 @@ function DepartmentChat({ conversationId, agents }: { conversationId: string; ag
         </Show>
 
         <For each={messages}>
-          {(msg: ChatMessage) => {
+          {(msg: ChatMessage, i: number) => {
             const isMine = msg.sender_id === ctx.user?.id
             const isAI = msg.is_ai || msg.sender_name?.startsWith('**')
+            const prev = messages.value[i - 1]
+            const showTimeDivider = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString()
+            const senderChanged = !prev || prev.sender_id !== msg.sender_id || showTimeDivider
+            const timeLabel = new Date(msg.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) === new Date().toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+              ? '今天'
+              : new Date(msg.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
             return (
-              <div class={`${s.msgRow} ${isMine ? 'justify-end' : 'justify-start'}`}>
-                <div>
-                  <Show when={!isMine}>
-                    <p class={s.msgName}>{msg.sender_name?.replace(/\*\*/g, '') || '未知'}</p>
-                  </Show>
-                  <div class={`${s.msgBubble} ${isMine ? s.msgMine : (isAI ? s.msgAI : s.msgOther)}`}>
-                    {msg.body === '...' && isAI ? <span class="italic">思考中...</span> : msg.body}
+              <div>
+                {/* 时间分隔线 */}
+                <Show when={showTimeDivider}>
+                  <div class={s.timeDivider}><span class={s.timeText}>{timeLabel}</span></div>
+                </Show>
+                <div class={`flex ${isMine ? 'justify-end' : 'justify-start'} mb-2 anim-slide-in`}>
+                  <div class="max-w-[70%]">
+                    <Show when={senderChanged && !isMine}>
+                      <p class={s.msgName}>{msg.sender_name?.replace(/\*\*/g, '') || '未知'}</p>
+                    </Show>
+                    <div class={`msg-bubble ${isMine ? 'mine' : (isAI ? 'ai' : 'other')}`}>
+                      {msg.body === '...' && isAI ? <span class="italic text-gray-400">思考中...</span> : msg.body}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -393,12 +403,11 @@ function DepartmentChat({ conversationId, agents }: { conversationId: string; ag
 
         {/* AI 流式输出 */}
         <Show when={aiStreaming && streamingText.value}>
-          <div class={s.msgRow}>
-            <div>
+          <div class="flex mb-2 anim-slide-in">
+            <div class="max-w-[70%]">
               <p class={s.msgName}>{streamingAgentName.value}</p>
-              <div class={`${s.msgBubble} ${s.msgAI}`}>
-                {streamingText.value}
-                <span class="inline-block w-1.5 h-4 bg-blue-500 ml-1 animate-pulse" style="animation: blink 0.8s infinite" />
+              <div class="msg-bubble ai">
+                {streamingText.value}<span class="anim-blink ml-0.5 text-blue-500">▍</span>
               </div>
             </div>
           </div>
