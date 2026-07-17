@@ -25,6 +25,91 @@ interface ChatMessage { id: string; sender_id: string; sender_name?: string; bod
 function formatDate(d: string) { return new Date(d).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) }
 
 // ═══════════════════════════════════════════════════════════════
+// 设计系统 — 通用组件
+// ═══════════════════════════════════════════════════════════════
+
+// ── Button ──
+
+function Button({ onClick, children, variant = 'primary', size = 'md', disabled, className }: {
+  onClick?: () => void
+  children: any
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  size?: 'sm' | 'md'
+  disabled?: boolean
+  className?: string
+}) {
+  const base = 'inline-flex items-center justify-center font-medium rounded-lg cursor-pointer transition-colors select-none'
+  const variants: Record<string, string> = {
+    primary: 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700',
+    secondary: 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300',
+    danger: 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700',
+    ghost: 'text-gray-500 hover:bg-gray-100 active:bg-gray-200',
+  }
+  const sizes: Record<string, string> = {
+    sm: 'px-2.5 py-1 text-xs',
+    md: 'px-4 py-2 text-sm',
+  }
+  const disabledStyle = disabled ? 'opacity-50 cursor-not-allowed' : ''
+  return (
+    <button class={`${base} ${variants[variant]} ${sizes[size]} ${disabledStyle} ${className || ''}`}
+      onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  )
+}
+
+// ── Input ──
+
+function Input(props: { value: any; onInput?: (e: any) => void; placeholder?: string; type?: string; className?: string; onKeyDown?: (e: any) => void }) {
+  return (
+    <input class={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all ${props.className || ''}`}
+      value={props.value} onInput={props.onInput} placeholder={props.placeholder}
+      type={props.type || 'text'} onKeyDown={props.onKeyDown} />
+  )
+}
+
+// ── Card ──
+
+function Card({ children, onClick, className }: { children: any; onClick?: () => void; className?: string }) {
+  return (
+    <div class={`bg-white rounded-xl shadow-sm border border-gray-100 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''} ${className || ''}`}
+      onClick={onClick}>
+      {children}
+    </div>
+  )
+}
+
+// ── Modal ──
+
+function Modal({ show, onClose, title, children }: { show: boolean; onClose: () => void; title: string; children: any }) {
+  return (
+    <Show when={show}>
+      <div class="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+        <div class="fixed inset-0 bg-black/30 anim-fade-in" />
+        <div class="relative bg-white rounded-xl shadow-modal p-6 w-full max-w-md mx-4 anim-slide-in" onClick={e => e.stopPropagation()}>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold">{title}</h2>
+            <button class="text-gray-400 hover:text-gray-600 text-lg cursor-pointer" onClick={onClose}>✕</button>
+          </div>
+          {children}
+        </div>
+      </div>
+    </Show>
+  )
+}
+
+// ── Badge ──
+
+function Badge({ count, className }: { count: number; className?: string }) {
+  if (count <= 0) return null
+  return (
+    <span class={`bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 font-medium ${className || ''}`}>
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
 // LoginPage — 登录/注册
 // ═══════════════════════════════════════════════════════════════
 
