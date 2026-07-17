@@ -22,9 +22,15 @@
  * | `signal()` | function | 响应式数据容器 |
  * | `computed()` | function | 衍生信号 |
  * | `effect()` | function | 自动追踪依赖的副作用 |
+ * | `batch()` | function | 批量更新（合并多次写入为一次通知）|
+ * | `untrack()` | function | 不追踪依赖地读取信号 |
  * | `onMount()` | function | 组件挂载回调 |
  * | `onCleanup()` | function | 组件卸载回调 |
  * | `createApp()` | function | 应用实例（中间件链 + 挂载） |
+ * | `createResource()` | function | 异步数据资源（loading/error/data）|
+ * | `createStyles()` | function | 组件级作用域 CSS |
+ * | `createContext()` | function | 类型安全上下文 |
+ * | `enableDevtools()` | function | 开发警告 + 浏览器检查器 |
  */
 
 // ── 信号系统 ───────────────────────────────────────────────
@@ -260,6 +266,20 @@ export { createResource } from './lib/resource.ts'
  * ```
  */
 export { createStyles } from './lib/css.ts'
+
+// ── 开发者工具 ─────────────────────────────────────────────
+
+/**
+ * 启用开发者工具 — 开发警告 + 浏览器控制台 signal 检查器。
+ *
+ * ```ts
+ * import { enableDevtools } from 'weifuwu/client'
+ * if (import.meta.env.DEV) { enableDevtools() }
+ *
+ * // 在浏览器控制台： __wefu__.inspect()
+ * ```
+ */
+export { enableDevtools } from './lib/dev.ts'
 
 // ── 预置组件 ───────────────────────────────────────────────
 
