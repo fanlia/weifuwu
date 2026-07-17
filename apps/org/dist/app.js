@@ -782,8 +782,7 @@ function ws(opts = {}) {
       send({ type: "leave", room });
     }
     connect();
-    return {
-      ...ctx2,
+    return Object.assign(Object.create(ctx2), {
       ws: {
         send,
         onMessage: (handler) => {
@@ -796,7 +795,7 @@ function ws(opts = {}) {
           return isConnected;
         }
       }
-    };
+    });
   };
 }
 
@@ -831,74 +830,155 @@ function createStyles(styles) {
 function formatDate(d) {
   return new Date(d).toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
 }
+function Button({ onClick, children, variant = "primary", size = "md", disabled, className }) {
+  const base = "inline-flex items-center justify-center font-medium rounded-lg cursor-pointer transition-colors select-none";
+  const variants = {
+    primary: "bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700",
+    secondary: "bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300",
+    danger: "bg-red-500 text-white hover:bg-red-600 active:bg-red-700",
+    ghost: "text-gray-500 hover:bg-gray-100 active:bg-gray-200"
+  };
+  const sizes = {
+    sm: "px-2.5 py-1 text-xs",
+    md: "px-4 py-2 text-sm"
+  };
+  const disabledStyle = disabled ? "opacity-50 cursor-not-allowed" : "";
+  return /* @__PURE__ */ jsx(
+    "button",
+    {
+      class: `${base} ${variants[variant]} ${sizes[size]} ${disabledStyle} ${className || ""}`,
+      onClick,
+      disabled,
+      children
+    }
+  );
+}
+function Modal({ show, onClose, title, children }) {
+  return /* @__PURE__ */ jsx(Show, { when: show, children: /* @__PURE__ */ jsxs("div", { class: "fixed inset-0 z-50 flex items-center justify-center", onClick: onClose, children: [
+    /* @__PURE__ */ jsx("div", { class: "fixed inset-0 bg-black/30 anim-fade-in" }),
+    /* @__PURE__ */ jsxs("div", { class: "relative bg-white rounded-xl shadow-modal p-6 w-full max-w-md mx-4 anim-slide-in", onClick: (e) => e.stopPropagation(), children: [
+      /* @__PURE__ */ jsxs("div", { class: "flex items-center justify-between mb-4", children: [
+        /* @__PURE__ */ jsx("h2", { class: "text-lg font-semibold", children: title }),
+        /* @__PURE__ */ jsx("button", { class: "text-gray-400 hover:text-gray-600 text-lg cursor-pointer", onClick: onClose, children: "\u2715" })
+      ] }),
+      children
+    ] })
+  ] }) });
+}
 function LoginPage(_props, ctx2) {
   const email = signal("");
   const password = signal("");
   const name = signal("");
   const isRegister = signal(false);
   const error = signal("");
+  const loading = signal(false);
+  const emailError = signal("");
+  const passwordError = signal("");
+  const validate = () => {
+    emailError.value = "";
+    passwordError.value = "";
+    if (!email.value.trim()) {
+      emailError.value = "\u8BF7\u8F93\u5165\u90AE\u7BB1";
+      return false;
+    }
+    if (!email.value.includes("@")) {
+      emailError.value = "\u90AE\u7BB1\u683C\u5F0F\u4E0D\u6B63\u786E";
+      return false;
+    }
+    if (password.value.length < 3) {
+      passwordError.value = "\u5BC6\u7801\u81F3\u5C11 3 \u4E2A\u5B57\u7B26";
+      return false;
+    }
+    return true;
+  };
   const submit = async () => {
+    if (!validate()) return;
     error.value = "";
+    loading.value = true;
     try {
-      if (isRegister.value) await ctx2.auth.register?.(email.value, password.value, name.value);
-      else await ctx2.auth.login?.(email.value, password.value);
+      if (isRegister.value) {
+        if (!name.value.trim()) {
+          error.value = "\u8BF7\u8F93\u5165\u6635\u79F0";
+          loading.value = false;
+          return;
+        }
+        await ctx2.register?.({ email: email.value.trim(), name: name.value.trim(), password: password.value });
+      } else {
+        await ctx2.login?.(email.value.trim(), password.value);
+      }
     } catch (e) {
       error.value = e?.message || "\u64CD\u4F5C\u5931\u8D25";
+    } finally {
+      loading.value = false;
     }
   };
-  return /* @__PURE__ */ jsx("div", { class: "flex items-center justify-center min-h-screen bg-gray-50", children: /* @__PURE__ */ jsxs("div", { class: "bg-white rounded-xl p-8 shadow-md w-full max-w-sm", children: [
-    /* @__PURE__ */ jsx("h1", { class: "text-2xl font-bold text-center mb-2", children: "Org" }),
-    /* @__PURE__ */ jsx("p", { class: "text-gray-400 text-sm text-center mb-6", children: "Enterprise AI Collaboration" }),
-    /* @__PURE__ */ jsx(Show, { when: isRegister, children: /* @__PURE__ */ jsx(
-      "input",
-      {
-        class: "w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:border-blue-500",
-        value: name,
-        onInput: (e) => name.value = e.target.value,
-        placeholder: "\u6635\u79F0"
-      }
-    ) }),
+  const s = createStyles({
+    page: "flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100",
+    card: "bg-white rounded-xl p-8 shadow-elevated w-full max-w-sm anim-slide-in",
+    logo: "text-3xl text-center mb-1",
+    title: "text-2xl font-bold text-center mb-1",
+    subtitle: "text-gray-400 text-sm text-center mb-6",
+    input: "w-full px-3 py-2.5 border rounded-lg text-sm mb-3 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all",
+    inputError: "w-full px-3 py-2.5 border rounded-lg text-sm mb-1 focus:outline-none border-red-400 focus:border-red-500 focus:ring-red-100",
+    fieldError: "text-red-500 text-xs mb-2 ml-1",
+    errorBox: "bg-red-50 text-red-600 text-xs rounded-lg p-3 mb-3 anim-slide-in",
+    btn: "w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed",
+    switchLink: "text-center text-xs text-gray-400 cursor-pointer hover:text-blue-500 transition-colors",
+    footer: "text-center text-xs text-gray-300 mt-6"
+  });
+  return /* @__PURE__ */ jsx("div", { class: s.page, children: /* @__PURE__ */ jsxs("div", { class: s.card, children: [
+    /* @__PURE__ */ jsx("div", { class: s.logo, children: "\u{1F3E2}" }),
+    /* @__PURE__ */ jsx("h1", { class: s.title, children: "Org" }),
+    /* @__PURE__ */ jsx("p", { class: s.subtitle, children: "Enterprise AI Collaboration Platform" }),
+    /* @__PURE__ */ jsx(Show, { when: isRegister, children: /* @__PURE__ */ jsx("input", { class: s.input, value: name, onInput: (e) => name.value = e.target.value, placeholder: "\u6635\u79F0" }) }),
     /* @__PURE__ */ jsx(
       "input",
       {
-        class: "w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:border-blue-500",
+        class: emailError.value ? s.inputError : s.input,
         value: email,
-        onInput: (e) => email.value = e.target.value,
+        onInput: (e) => {
+          email.value = e.target.value;
+          emailError.value = "";
+        },
         placeholder: "\u90AE\u7BB1",
         type: "email"
       }
     ),
+    /* @__PURE__ */ jsx(Show, { when: emailError.value, children: /* @__PURE__ */ jsx("p", { class: s.fieldError, children: emailError.value }) }),
     /* @__PURE__ */ jsx(
       "input",
       {
-        class: "w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-4 focus:outline-none focus:border-blue-500",
+        class: passwordError.value ? s.inputError : s.input,
         value: password,
-        onInput: (e) => password.value = e.target.value,
+        onInput: (e) => {
+          password.value = e.target.value;
+          passwordError.value = "";
+        },
         placeholder: "\u5BC6\u7801",
         type: "password",
         onKeyDown: (e) => e.key === "Enter" && submit()
       }
     ),
-    /* @__PURE__ */ jsx(Show, { when: error, children: /* @__PURE__ */ jsx("p", { class: "text-red-500 text-xs mb-3", children: error }) }),
-    /* @__PURE__ */ jsx(
-      "button",
-      {
-        class: "w-full py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600 mb-3",
-        onClick: submit,
-        children: computed(() => isRegister.value ? "\u6CE8\u518C" : "\u767B\u5F55")
-      }
-    ),
+    /* @__PURE__ */ jsx(Show, { when: passwordError.value, children: /* @__PURE__ */ jsx("p", { class: s.fieldError, children: passwordError.value }) }),
+    /* @__PURE__ */ jsx(Show, { when: error.value, children: /* @__PURE__ */ jsxs("div", { class: s.errorBox, children: [
+      "\u26A0 ",
+      error.value
+    ] }) }),
+    /* @__PURE__ */ jsx("button", { class: s.btn, onClick: submit, disabled: loading.value, children: loading.value ? "\u23F3 \u5904\u7406\u4E2D..." : isRegister.value ? "\u6CE8\u518C" : "\u767B\u5F55" }),
     /* @__PURE__ */ jsx(
       "p",
       {
-        class: "text-center text-xs text-gray-400 cursor-pointer hover:text-blue-500",
+        class: s.switchLink,
         onClick: () => {
           isRegister.value = !isRegister.value;
           error.value = "";
+          emailError.value = "";
+          passwordError.value = "";
         },
-        children: computed(() => isRegister.value ? "\u5DF2\u6709\u8D26\u53F7\uFF1F\u767B\u5F55" : "\u6CA1\u6709\u8D26\u53F7\uFF1F\u6CE8\u518C")
+        children: computed(() => isRegister.value ? "\u5DF2\u6709\u8D26\u53F7\uFF1F\u767B\u5F55 \u2192" : "\u6CA1\u6709\u8D26\u53F7\uFF1F\u6CE8\u518C \u2192")
       }
-    )
+    ),
+    /* @__PURE__ */ jsx("p", { class: s.footer, children: "Powered by weifuwu" })
   ] }) });
 }
 function DepartmentChat({ conversationId, agents }, ctx2) {
@@ -911,7 +991,7 @@ function DepartmentChat({ conversationId, agents }, ctx2) {
   const streamingText = signal("");
   const streamingAgentName = signal("");
   onMount(() => {
-    ctx2.api.get(`/api/conversations/${conversationId}/messages`).then((msgs) => {
+    ctx2.api.get(`/conversations/${conversationId}/messages`).then((msgs) => {
       messages.value = Array.isArray(msgs) ? msgs.slice().reverse() : [];
       loading.value = false;
     }).catch(() => loading.value = false);
@@ -951,7 +1031,7 @@ function DepartmentChat({ conversationId, agents }, ctx2) {
     if (!text || aiStreaming.value) return;
     input.value = "";
     showAgentPicker.value = false;
-    const msg = await ctx2.api.post("/api/messages", { conversationId, body: text });
+    const msg = await ctx2.api.post("/messages", { conversationId, body: text });
     messages.value = [...messages.value, msg];
     const matchedAgent = aiAgents.find((a) => text.includes(`@${a.name}`));
     if (matchedAgent) {
@@ -1019,10 +1099,8 @@ function DepartmentChat({ conversationId, agents }, ctx2) {
     container: "flex flex-col h-full",
     msgList: "flex-1 overflow-y-auto px-4 py-3 space-y-2",
     msgRow: "flex",
-    msgBubble: "max-w-[70%] px-3 py-2 rounded-lg text-sm leading-relaxed",
-    msgMine: "ml-auto bg-blue-500 text-white rounded-br-sm",
-    msgOther: "bg-white text-gray-800 border border-gray-100 rounded-bl-sm",
-    msgAI: "bg-blue-50 text-gray-800 border border-blue-100 rounded-bl-sm",
+    timeDivider: "text-center text-xs text-gray-300 my-4 relative before:absolute before:inset-x-0 before:top-1/2 before:h-px before:bg-gray-100",
+    timeText: "relative z-10 bg-gray-50 px-2 text-gray-400",
     msgName: "text-xs text-gray-400 mb-0.5",
     inputArea: "px-4 py-3 border-t border-gray-200 bg-white",
     inputRow: "flex gap-2",
@@ -1036,19 +1114,26 @@ function DepartmentChat({ conversationId, agents }, ctx2) {
   return /* @__PURE__ */ jsxs("div", { class: s.container, children: [
     /* @__PURE__ */ jsxs("div", { class: s.msgList, children: [
       /* @__PURE__ */ jsx(Show, { when: loading, children: /* @__PURE__ */ jsx("p", { class: "text-center text-gray-400 text-sm py-10", children: "\u52A0\u8F7D\u4E2D..." }) }),
-      /* @__PURE__ */ jsx(For, { each: messages, children: (msg) => {
+      /* @__PURE__ */ jsx(For, { each: messages, children: (msg, i) => {
         const isMine = msg.sender_id === ctx2.user?.id;
         const isAI = msg.is_ai || msg.sender_name?.startsWith("**");
-        return /* @__PURE__ */ jsx("div", { class: `${s.msgRow} ${isMine ? "justify-end" : "justify-start"}`, children: /* @__PURE__ */ jsxs("div", { children: [
-          /* @__PURE__ */ jsx(Show, { when: !isMine, children: /* @__PURE__ */ jsx("p", { class: s.msgName, children: msg.sender_name?.replace(/\*\*/g, "") || "\u672A\u77E5" }) }),
-          /* @__PURE__ */ jsx("div", { class: `${s.msgBubble} ${isMine ? s.msgMine : isAI ? s.msgAI : s.msgOther}`, children: msg.body === "..." && isAI ? /* @__PURE__ */ jsx("span", { class: "italic", children: "\u601D\u8003\u4E2D..." }) : msg.body })
-        ] }) });
+        const prev = messages.value[i - 1];
+        const showTimeDivider = !prev || new Date(msg.created_at).toDateString() !== new Date(prev.created_at).toDateString();
+        const senderChanged = !prev || prev.sender_id !== msg.sender_id || showTimeDivider;
+        const timeLabel = new Date(msg.created_at).toLocaleDateString("zh-CN", { month: "short", day: "numeric" }) === (/* @__PURE__ */ new Date()).toLocaleDateString("zh-CN", { month: "short", day: "numeric" }) ? "\u4ECA\u5929" : new Date(msg.created_at).toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+        return /* @__PURE__ */ jsxs("div", { children: [
+          /* @__PURE__ */ jsx(Show, { when: showTimeDivider, children: /* @__PURE__ */ jsx("div", { class: s.timeDivider, children: /* @__PURE__ */ jsx("span", { class: s.timeText, children: timeLabel }) }) }),
+          /* @__PURE__ */ jsx("div", { class: `flex ${isMine ? "justify-end" : "justify-start"} mb-2 anim-slide-in`, children: /* @__PURE__ */ jsxs("div", { class: "max-w-[70%]", children: [
+            /* @__PURE__ */ jsx(Show, { when: senderChanged && !isMine, children: /* @__PURE__ */ jsx("p", { class: s.msgName, children: msg.sender_name?.replace(/\*\*/g, "") || "\u672A\u77E5" }) }),
+            /* @__PURE__ */ jsx("div", { class: `msg-bubble ${isMine ? "mine" : isAI ? "ai" : "other"}`, children: msg.body === "..." && isAI ? /* @__PURE__ */ jsx("span", { class: "italic text-gray-400", children: "\u601D\u8003\u4E2D..." }) : msg.body })
+          ] }) })
+        ] });
       } }),
-      /* @__PURE__ */ jsx(Show, { when: aiStreaming && streamingText.value, children: /* @__PURE__ */ jsx("div", { class: s.msgRow, children: /* @__PURE__ */ jsxs("div", { children: [
+      /* @__PURE__ */ jsx(Show, { when: aiStreaming && streamingText.value, children: /* @__PURE__ */ jsx("div", { class: "flex mb-2 anim-slide-in", children: /* @__PURE__ */ jsxs("div", { class: "max-w-[70%]", children: [
         /* @__PURE__ */ jsx("p", { class: s.msgName, children: streamingAgentName.value }),
-        /* @__PURE__ */ jsxs("div", { class: `${s.msgBubble} ${s.msgAI}`, children: [
+        /* @__PURE__ */ jsxs("div", { class: "msg-bubble ai", children: [
           streamingText.value,
-          /* @__PURE__ */ jsx("span", { class: "inline-block w-1.5 h-4 bg-blue-500 ml-1 animate-pulse", style: "animation: blink 0.8s infinite" })
+          /* @__PURE__ */ jsx("span", { class: "anim-blink ml-0.5 text-blue-500", children: "\u258D" })
         ] })
       ] }) }) })
     ] }),
@@ -1081,21 +1166,59 @@ function Skeleton({ lines = 3 }) {
   const arr = Array.from({ length: lines });
   return /* @__PURE__ */ jsx("div", { class: "space-y-3 p-4", children: /* @__PURE__ */ jsx(For, { each: arr, children: () => /* @__PURE__ */ jsx("div", { class: "h-4 bg-gray-200 rounded-md animate-pulse", style: { width: `${60 + Math.random() * 30}%` } }) }) });
 }
+var TOAST_ICONS = {
+  success: "\u2713",
+  error: "\u2715",
+  info: "i",
+  warning: "\u26A0"
+};
+var TOAST_COLORS = {
+  success: "bg-green-500",
+  error: "bg-red-500",
+  info: "bg-blue-500",
+  warning: "bg-orange-500"
+};
+var TOAST_DURATION = 3500;
 var toasts = signal([]);
 var toastId = 0;
 function showToast(msg, type = "info") {
   const id = ++toastId;
-  toasts.value = [...toasts.value, { id, msg, type }];
+  const item = { id, msg, type, startTime: Date.now() };
+  toasts.value = [...toasts.value, item];
   setTimeout(() => {
     toasts.value = toasts.value.filter((t) => t.id !== id);
-  }, 3e3);
+  }, TOAST_DURATION);
 }
 function ToastContainer() {
   const s = createStyles({
-    container: "fixed top-4 right-4 z-50 space-y-2",
-    toast: "px-4 py-2.5 rounded-lg shadow-lg text-sm text-white transition-all duration-300"
+    container: "fixed top-4 right-4 z-50 space-y-2 pointer-events-none",
+    toast: "pointer-events-auto rounded-lg shadow-modal text-sm text-white overflow-hidden anim-slide-in cursor-pointer",
+    body: "flex items-center gap-2.5 px-4 py-3",
+    icon: "w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold shrink-0",
+    msg: "flex-1",
+    progress: "h-1 bg-white/30",
+    progressBar: "h-full bg-white/60 transition-all"
   });
-  return /* @__PURE__ */ jsx("div", { class: s.container, children: /* @__PURE__ */ jsx(For, { each: toasts, children: (t) => /* @__PURE__ */ jsx("div", { class: `${s.toast} ${t.type === "success" ? "bg-green-500" : t.type === "error" ? "bg-red-500" : "bg-blue-500"}`, children: t.msg }) }) });
+  return /* @__PURE__ */ jsx("div", { class: s.container, children: /* @__PURE__ */ jsx(For, { each: toasts, children: (t) => {
+    const elapsed = Date.now() - t.startTime;
+    const remaining = Math.max(0, 1 - elapsed / TOAST_DURATION);
+    return /* @__PURE__ */ jsxs(
+      "div",
+      {
+        class: `${s.toast} ${TOAST_COLORS[t.type]}`,
+        onClick: () => {
+          toasts.value = toasts.value.filter((x) => x.id !== t.id);
+        },
+        children: [
+          /* @__PURE__ */ jsxs("div", { class: s.body, children: [
+            /* @__PURE__ */ jsx("span", { class: s.icon, children: TOAST_ICONS[t.type] }),
+            /* @__PURE__ */ jsx("span", { class: s.msg, children: t.msg })
+          ] }),
+          /* @__PURE__ */ jsx("div", { class: s.progress, children: /* @__PURE__ */ jsx("div", { class: s.progressBar, style: { width: `${remaining * 100}%` } }) })
+        ]
+      }
+    );
+  } }) });
 }
 function OnboardingWizard({ onDone }, _ctx) {
   const step = signal(1);
@@ -1116,7 +1239,7 @@ function OnboardingWizard({ onDone }, _ctx) {
   const createAndGo = async () => {
     creating.value = true;
     try {
-      const t = await ctx.api.post("/api/tenants", { name: newName.value || "\u6211\u7684\u56E2\u961F", slug: newSlug.value || "my-team" });
+      const t = await ctx.api.post("/tenants", { name: newName.value || "\u6211\u7684\u56E2\u961F", slug: newSlug.value || "my-team" });
       showToast("\u{1F389} \u79DF\u6237\u521B\u5EFA\u6210\u529F\uFF01", "success");
       onDone();
       setTimeout(() => ctx.app.navigate(`/tenant/${t.id}`), 300);
@@ -1157,16 +1280,20 @@ function HomePage(_props, ctx2) {
   const newName = signal("");
   const newSlug = signal("");
   const showOnboarding = signal(false);
+  const loadError = signal("");
   onMount(() => {
-    ctx2.api.get("/api/tenants").then((list) => {
+    ctx2.api.get("/tenants").then((list) => {
       tenants.value = list;
       loading.value = false;
       if (list.length === 0) showOnboarding.value = true;
-    }).catch(() => loading.value = false);
+    }).catch((e) => {
+      loading.value = false;
+      loadError.value = e?.message || "\u52A0\u8F7D\u5931\u8D25";
+    });
   });
   const createTenant = async () => {
     try {
-      const t = await ctx2.api.post("/api/tenants", { name: newName.value, slug: newSlug.value });
+      const t = await ctx2.api.post("/tenants", { name: newName.value, slug: newSlug.value });
       tenants.value = [...tenants.value, t];
       showCreate.value = false;
       newName.value = "";
@@ -1176,86 +1303,99 @@ function HomePage(_props, ctx2) {
       showToast("\u521B\u5EFA\u5931\u8D25: " + (e?.message || "\u672A\u77E5\u9519\u8BEF"), "error");
     }
   };
-  if (showOnboarding.value) {
-    return /* @__PURE__ */ jsx(OnboardingWizard, { onDone: () => {
+  const s = createStyles({
+    page: "p-8",
+    header: "flex items-center justify-between mb-6",
+    title: "text-2xl font-bold",
+    subtitle: "text-gray-500 text-sm",
+    card: "bg-white rounded-xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
+  });
+  return /* @__PURE__ */ jsxs("div", { class: s.page, children: [
+    /* @__PURE__ */ jsx(Show, { when: showOnboarding, children: /* @__PURE__ */ jsx(OnboardingWizard, { onDone: () => {
       showOnboarding.value = false;
-      loading.value = false;
-    }, ctx: ctx2 });
-  }
-  return /* @__PURE__ */ jsxs("div", { class: "p-8", children: [
-    /* @__PURE__ */ jsxs("div", { class: "flex items-center justify-between mb-6", children: [
-      /* @__PURE__ */ jsxs("div", { children: [
-        /* @__PURE__ */ jsx("h1", { class: "text-2xl font-bold", children: "Org" }),
-        /* @__PURE__ */ jsx("p", { class: "text-gray-500 text-sm", children: "Enterprise AI Collaboration Platform" })
+    }, ctx: ctx2 }) }),
+    /* @__PURE__ */ jsxs(Show, { when: computed(() => !showOnboarding.value), children: [
+      /* @__PURE__ */ jsxs("div", { class: s.header, children: [
+        /* @__PURE__ */ jsxs("div", { children: [
+          /* @__PURE__ */ jsx("h1", { class: s.title, children: "Org" }),
+          /* @__PURE__ */ jsx("p", { class: s.subtitle, children: "Enterprise AI Collaboration Platform" })
+        ] }),
+        /* @__PURE__ */ jsx(
+          "button",
+          {
+            class: "px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600",
+            onClick: () => showCreate.value = true,
+            children: "+ \u521B\u5EFA\u79DF\u6237"
+          }
+        )
       ] }),
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          class: "px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600",
-          onClick: () => showCreate.value = true,
-          children: "+ \u521B\u5EFA\u79DF\u6237"
-        }
-      )
-    ] }),
-    /* @__PURE__ */ jsx(Show, { when: loading, children: /* @__PURE__ */ jsx(Skeleton, { lines: 4 }) }),
-    /* @__PURE__ */ jsx(Show, { when: showCreate, children: /* @__PURE__ */ jsxs("div", { class: "bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex gap-3 items-end", children: [
-      /* @__PURE__ */ jsxs("div", { class: "flex-1", children: [
+      /* @__PURE__ */ jsx(Show, { when: loading, children: /* @__PURE__ */ jsx(Skeleton, { lines: 4 }) }),
+      /* @__PURE__ */ jsx(Show, { when: loadError, children: /* @__PURE__ */ jsxs("div", { class: "bg-red-50 text-red-600 rounded-xl p-4 mb-4 text-sm", children: [
+        "\u52A0\u8F7D\u5931\u8D25: ",
+        loadError,
+        /* @__PURE__ */ jsx("button", { class: "ml-2 underline cursor-pointer", onClick: () => {
+          loading.value = true;
+          loadError.value = "";
+          ctx2.api.get("/tenants").then((l) => {
+            tenants.value = l;
+            loading.value = false;
+            if (l.length === 0) showOnboarding.value = true;
+          }).catch((e) => {
+            loading.value = false;
+            loadError.value = e.message;
+          });
+        }, children: "\u91CD\u8BD5" })
+      ] }) }),
+      /* @__PURE__ */ jsxs(Modal, { show: showCreate.value, onClose: () => showCreate.value = false, title: "\u521B\u5EFA\u79DF\u6237", children: [
         /* @__PURE__ */ jsx("label", { class: "text-xs text-gray-500 block mb-1", children: "\u540D\u79F0" }),
         /* @__PURE__ */ jsx(
           "input",
           {
-            class: "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500",
+            class: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:border-blue-500",
             value: newName,
             onInput: (e) => newName.value = e.target.value,
             placeholder: "\u4F8B\u5982: \u6211\u7684\u516C\u53F8"
           }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs("div", { class: "flex-1", children: [
+        ),
         /* @__PURE__ */ jsx("label", { class: "text-xs text-gray-500 block mb-1", children: "\u6807\u8BC6\uFF08slug\uFF09" }),
         /* @__PURE__ */ jsx(
           "input",
           {
-            class: "w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500",
+            class: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4 focus:outline-none focus:border-blue-500",
             value: newSlug,
             onInput: (e) => newSlug.value = e.target.value,
             placeholder: "\u4F8B\u5982: my-company"
           }
-        )
+        ),
+        /* @__PURE__ */ jsxs("div", { class: "flex gap-2 justify-end", children: [
+          /* @__PURE__ */ jsx(Button, { variant: "secondary", onClick: () => showCreate.value = false, children: "\u53D6\u6D88" }),
+          /* @__PURE__ */ jsx(Button, { onClick: createTenant, children: "\u521B\u5EFA" })
+        ] })
       ] }),
-      /* @__PURE__ */ jsx("button", { class: "px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600", onClick: createTenant, children: "\u521B\u5EFA" }),
-      /* @__PURE__ */ jsx("button", { class: "px-4 py-2 bg-gray-200 text-gray-600 rounded-md text-sm cursor-pointer hover:bg-gray-300", onClick: () => showCreate.value = false, children: "\u53D6\u6D88" })
-    ] }) }),
-    /* @__PURE__ */ jsx("div", { class: "grid gap-4", children: /* @__PURE__ */ jsx(For, { each: tenants, children: (t) => /* @__PURE__ */ jsxs(
-      "div",
-      {
-        class: "bg-white rounded-xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow",
-        onClick: () => ctx2.app.navigate(`/tenant/${t.id}`),
-        children: [
-          /* @__PURE__ */ jsx("h3", { class: "font-semibold text-lg", children: t.name }),
-          /* @__PURE__ */ jsxs("p", { class: "text-gray-400 text-sm mt-1", children: [
-            "/",
-            t.slug
-          ] }),
-          /* @__PURE__ */ jsxs("p", { class: "text-gray-300 text-xs mt-2", children: [
-            "\u521B\u5EFA\u4E8E ",
-            formatDate(t.created_at)
-          ] })
-        ]
-      }
-    ) }) }),
-    /* @__PURE__ */ jsx(Show, { when: !loading && tenants.value.length === 0 && !showOnboarding.value, children: /* @__PURE__ */ jsxs("div", { class: "text-center py-16 text-gray-400", children: [
-      /* @__PURE__ */ jsx("p", { class: "text-5xl mb-3", children: "\u{1F3E2}" }),
-      /* @__PURE__ */ jsx("p", { class: "mb-4", children: "\u8FD8\u6CA1\u6709\u79DF\u6237\uFF0C\u5F00\u59CB\u521B\u5EFA\u7B2C\u4E00\u4E2A" }),
-      /* @__PURE__ */ jsx(
-        "button",
-        {
-          class: "px-5 py-2 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600",
-          onClick: () => showOnboarding.value = true,
-          children: "\u{1F4D6} \u5F00\u59CB\u5F15\u5BFC"
-        }
-      )
-    ] }) })
+      /* @__PURE__ */ jsx("div", { class: "grid gap-4", children: /* @__PURE__ */ jsx(For, { each: tenants, children: (t) => /* @__PURE__ */ jsxs("div", { class: s.card, onClick: () => ctx2.app.navigate(`/tenant/${t.id}`), children: [
+        /* @__PURE__ */ jsx("h3", { class: "font-semibold text-lg", children: t.name }),
+        /* @__PURE__ */ jsxs("p", { class: "text-gray-400 text-sm mt-1", children: [
+          "/",
+          t.slug
+        ] }),
+        /* @__PURE__ */ jsxs("p", { class: "text-gray-300 text-xs mt-2", children: [
+          "\u521B\u5EFA\u4E8E ",
+          formatDate(t.created_at)
+        ] })
+      ] }) }) }),
+      /* @__PURE__ */ jsx(Show, { when: computed(() => !loading.value && tenants.value.length === 0), children: /* @__PURE__ */ jsxs("div", { class: "text-center py-16 text-gray-400", children: [
+        /* @__PURE__ */ jsx("p", { class: "text-5xl mb-3", children: "\u{1F3E2}" }),
+        /* @__PURE__ */ jsx("p", { class: "mb-4", children: "\u8FD8\u6CA1\u6709\u79DF\u6237\uFF0C\u5F00\u59CB\u521B\u5EFA\u7B2C\u4E00\u4E2A" }),
+        /* @__PURE__ */ jsx(
+          "button",
+          {
+            class: "px-5 py-2 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600",
+            onClick: () => showCreate.value = true,
+            children: "+ \u521B\u5EFA\u79DF\u6237"
+          }
+        )
+      ] }) })
+    ] })
   ] });
 }
 function TenantPage(_props, ctx2) {
@@ -1267,13 +1407,13 @@ function TenantPage(_props, ctx2) {
   const newName = signal("");
   onMount(() => {
     Promise.all([
-      ctx2.api.get(`/api/tenants/${tenantId}`).then((t) => tenant.value = t),
-      ctx2.api.get(`/api/tenants/${tenantId}/companies`).then((list) => companies.value = list)
+      ctx2.api.get(`/tenants/${tenantId}`).then((t) => tenant.value = t),
+      ctx2.api.get(`/tenants/${tenantId}/companies`).then((list) => companies.value = list)
     ]).finally(() => loading.value = false);
   });
   const createCompany = async () => {
     try {
-      const c = await ctx2.api.post(`/api/tenants/${tenantId}/companies`, { name: newName.value });
+      const c = await ctx2.api.post(`/tenants/${tenantId}/companies`, { name: newName.value });
       companies.value = [...companies.value, c];
       showCreate.value = false;
       newName.value = "";
@@ -1298,22 +1438,22 @@ function TenantPage(_props, ctx2) {
       ] })
     ] }),
     /* @__PURE__ */ jsx(Show, { when: loading, children: /* @__PURE__ */ jsx("p", { class: "text-gray-400 text-center py-10", children: "\u52A0\u8F7D\u4E2D..." }) }),
-    /* @__PURE__ */ jsx(Show, { when: showCreate, children: /* @__PURE__ */ jsxs("div", { class: "bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex gap-3 items-end", children: [
-      /* @__PURE__ */ jsxs("div", { class: "flex-1", children: [
-        /* @__PURE__ */ jsx("label", { class: "text-xs text-gray-500 block mb-1", children: "\u516C\u53F8\u540D\u79F0" }),
-        /* @__PURE__ */ jsx(
-          "input",
-          {
-            class: "w-full px-3 py-2 border border-gray-300 rounded-md text-sm",
-            value: newName,
-            onInput: (e) => newName.value = e.target.value,
-            placeholder: "\u4F8B\u5982: Engineering"
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsx("button", { class: "px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600", onClick: createCompany, children: "\u521B\u5EFA" }),
-      /* @__PURE__ */ jsx("button", { class: "px-4 py-2 bg-gray-200 text-gray-600 rounded-md text-sm cursor-pointer hover:bg-gray-300", onClick: () => showCreate.value = false, children: "\u53D6\u6D88" })
-    ] }) }),
+    /* @__PURE__ */ jsxs(Modal, { show: showCreate.value, onClose: () => showCreate.value = false, title: "\u521B\u5EFA\u516C\u53F8", children: [
+      /* @__PURE__ */ jsx("label", { class: "text-xs text-gray-500 block mb-1", children: "\u516C\u53F8\u540D\u79F0" }),
+      /* @__PURE__ */ jsx(
+        "input",
+        {
+          class: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4",
+          value: newName,
+          onInput: (e) => newName.value = e.target.value,
+          placeholder: "\u4F8B\u5982: Engineering"
+        }
+      ),
+      /* @__PURE__ */ jsxs("div", { class: "flex gap-2 justify-end", children: [
+        /* @__PURE__ */ jsx(Button, { variant: "secondary", onClick: () => showCreate.value = false, children: "\u53D6\u6D88" }),
+        /* @__PURE__ */ jsx(Button, { onClick: createCompany, children: "\u521B\u5EFA" })
+      ] })
+    ] }),
     /* @__PURE__ */ jsx(For, { each: companies, children: (c) => /* @__PURE__ */ jsx(
       "div",
       {
@@ -1338,13 +1478,13 @@ function CompanyPage(_props, ctx2) {
   const newDesc = signal("");
   onMount(() => {
     Promise.all([
-      ctx2.api.get(`/api/companies/${companyId}`).then((c) => company.value = c),
-      ctx2.api.get(`/api/companies/${companyId}/departments`).then((list) => departments.value = list)
+      ctx2.api.get(`/companies/${companyId}`).then((c) => company.value = c),
+      ctx2.api.get(`/companies/${companyId}/departments`).then((list) => departments.value = list)
     ]).finally(() => loading.value = false);
   });
   const createDepartment = async () => {
     try {
-      const d = await ctx2.api.post(`/api/companies/${companyId}/departments`, { name: newName.value, description: newDesc.value || void 0 });
+      const d = await ctx2.api.post(`/companies/${companyId}/departments`, { name: newName.value, description: newDesc.value || void 0 });
       departments.value = [...departments.value, d];
       showCreate.value = false;
       newName.value = "";
@@ -1370,34 +1510,32 @@ function CompanyPage(_props, ctx2) {
       ] })
     ] }),
     /* @__PURE__ */ jsx(Show, { when: loading, children: /* @__PURE__ */ jsx("p", { class: "text-gray-400 text-center py-10", children: "\u52A0\u8F7D\u4E2D..." }) }),
-    /* @__PURE__ */ jsx(Show, { when: showCreate, children: /* @__PURE__ */ jsxs("div", { class: "bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex gap-3 items-end", children: [
-      /* @__PURE__ */ jsxs("div", { class: "flex-1", children: [
-        /* @__PURE__ */ jsx("label", { class: "text-xs text-gray-500 block mb-1", children: "\u90E8\u95E8\u540D\u79F0" }),
-        /* @__PURE__ */ jsx(
-          "input",
-          {
-            class: "w-full px-3 py-2 border border-gray-300 rounded-md text-sm",
-            value: newName,
-            onInput: (e) => newName.value = e.target.value,
-            placeholder: "\u4F8B\u5982: AI Team"
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs("div", { class: "flex-1", children: [
-        /* @__PURE__ */ jsx("label", { class: "text-xs text-gray-500 block mb-1", children: "\u63CF\u8FF0\uFF08\u53EF\u9009\uFF09" }),
-        /* @__PURE__ */ jsx(
-          "input",
-          {
-            class: "w-full px-3 py-2 border border-gray-300 rounded-md text-sm",
-            value: newDesc,
-            onInput: (e) => newDesc.value = e.target.value,
-            placeholder: "\u90E8\u95E8\u7684\u804C\u8D23"
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsx("button", { class: "px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600", onClick: createDepartment, children: "\u521B\u5EFA" }),
-      /* @__PURE__ */ jsx("button", { class: "px-4 py-2 bg-gray-200 text-gray-600 rounded-md text-sm cursor-pointer hover:bg-gray-300", onClick: () => showCreate.value = false, children: "\u53D6\u6D88" })
-    ] }) }),
+    /* @__PURE__ */ jsxs(Modal, { show: showCreate.value, onClose: () => showCreate.value = false, title: "\u521B\u5EFA\u90E8\u95E8", children: [
+      /* @__PURE__ */ jsx("label", { class: "text-xs text-gray-500 block mb-1", children: "\u90E8\u95E8\u540D\u79F0" }),
+      /* @__PURE__ */ jsx(
+        "input",
+        {
+          class: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3",
+          value: newName,
+          onInput: (e) => newName.value = e.target.value,
+          placeholder: "\u4F8B\u5982: AI Team"
+        }
+      ),
+      /* @__PURE__ */ jsx("label", { class: "text-xs text-gray-500 block mb-1", children: "\u63CF\u8FF0\uFF08\u53EF\u9009\uFF09" }),
+      /* @__PURE__ */ jsx(
+        "input",
+        {
+          class: "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4",
+          value: newDesc,
+          onInput: (e) => newDesc.value = e.target.value,
+          placeholder: "\u90E8\u95E8\u7684\u804C\u8D23"
+        }
+      ),
+      /* @__PURE__ */ jsxs("div", { class: "flex gap-2 justify-end", children: [
+        /* @__PURE__ */ jsx(Button, { variant: "secondary", onClick: () => showCreate.value = false, children: "\u53D6\u6D88" }),
+        /* @__PURE__ */ jsx(Button, { onClick: createDepartment, children: "\u521B\u5EFA" })
+      ] })
+    ] }),
     /* @__PURE__ */ jsx(For, { each: departments, children: (d) => /* @__PURE__ */ jsx(
       "div",
       {
@@ -1425,8 +1563,7 @@ function DepartmentPage(_props, ctx2) {
   const { tenantId, companyId, deptId } = ctx2.route.params;
   const dept = signal(null);
   const agents = signal([]);
-  const showAgents = signal(false);
-  const showKB = signal(false);
+  const activeTab = signal(null);
   const showAddAgent = signal(false);
   const allAgents = signal([]);
   const selectedAgentId = signal("");
@@ -1439,21 +1576,21 @@ function DepartmentPage(_props, ctx2) {
   const searchResults = signal([]);
   onMount(async () => {
     const [d, ag] = await Promise.all([
-      ctx2.api.get(`/api/departments/${deptId}`),
-      ctx2.api.get(`/api/departments/${deptId}/agents`)
+      ctx2.api.get(`/departments/${deptId}`),
+      ctx2.api.get(`/departments/${deptId}/agents`)
     ]);
     dept.value = d;
     agents.value = ag;
   });
   const openAddAgent = async () => {
     showAddAgent.value = true;
-    allAgents.value = await ctx2.api.get("/api/agents");
+    allAgents.value = await ctx2.api.get("/agents");
   };
   const addAgent = async () => {
     if (!selectedAgentId.value) return;
     try {
-      await ctx2.api.post(`/api/departments/${deptId}/agents`, { agentId: selectedAgentId.value, role: "member" });
-      agents.value = await ctx2.api.get(`/api/departments/${deptId}/agents`);
+      await ctx2.api.post(`/departments/${deptId}/agents`, { agentId: selectedAgentId.value, role: "member" });
+      agents.value = await ctx2.api.get(`/departments/${deptId}/agents`);
       showAddAgent.value = false;
       selectedAgentId.value = "";
       showToast("Agent \u5DF2\u52A0\u5165\u90E8\u95E8", "success");
@@ -1461,20 +1598,15 @@ function DepartmentPage(_props, ctx2) {
       showToast("\u6DFB\u52A0\u5931\u8D25: " + (e?.message || "\u672A\u77E5\u9519\u8BEF"), "error");
     }
   };
-  const agentIcon = (k) => k === "ai" ? "\u{1F916}" : k === "user" ? "\u{1F464}" : k === "webhook" ? "\u{1F517}" : "\u{1F4DA}";
   const loadKBDocs = async () => {
     kbLoading.value = true;
-    kbDocs.value = await ctx2.api.get(`/api/departments/${deptId}/kb/documents`);
+    kbDocs.value = await ctx2.api.get(`/departments/${deptId}/kb/documents`);
     kbLoading.value = false;
-  };
-  const openKB = () => {
-    showKB.value = !showKB.value;
-    if (showKB.value) loadKBDocs();
   };
   const importDoc = async () => {
     if (!importTitle.value || !importContent.value) return;
     try {
-      await ctx2.api.post(`/api/departments/${deptId}/kb/import`, {
+      await ctx2.api.post(`/departments/${deptId}/kb/import`, {
         title: importTitle.value,
         content: importContent.value,
         source: importSource.value || void 0
@@ -1490,23 +1622,35 @@ function DepartmentPage(_props, ctx2) {
   };
   const searchKB = async () => {
     if (!searchQuery.value) return;
-    searchResults.value = await ctx2.api.post(`/api/departments/${deptId}/kb/search`, { query: searchQuery.value });
+    searchResults.value = await ctx2.api.post(`/departments/${deptId}/kb/search`, { query: searchQuery.value });
   };
+  const setTab = (tab) => {
+    activeTab.value = activeTab.value === tab ? null : tab;
+    if (tab === "kb" && kbDocs.value.length === 0) loadKBDocs();
+  };
+  const tabs = [
+    { key: "members", label: `\u6210\u5458 (${agents.value.length})`, icon: "\u{1F465}" },
+    { key: "kb", label: "\u77E5\u8BC6\u5E93", icon: "\u{1F4DA}" }
+  ];
   const s = createStyles({
     container: "flex flex-col h-full",
     header: "px-5 py-3 border-b border-gray-200 flex items-center justify-between bg-white shrink-0",
-    headerBtns: "flex gap-2",
     body: "flex-1 flex overflow-hidden",
-    sidePanel: "w-72 border-l border-gray-200 bg-gray-50 overflow-y-auto shrink-0",
+    panel: "w-72 border-l border-gray-200 bg-gray-50 overflow-y-auto shrink-0 flex flex-col",
+    tabBar: "flex border-b border-gray-200 shrink-0",
+    tab: "flex-1 px-3 py-2 text-xs font-medium text-gray-500 cursor-pointer text-center hover:bg-gray-100 transition-colors",
+    tabActive: "flex-1 px-3 py-2 text-xs font-medium text-blue-600 cursor-pointer text-center bg-white border-b-2 border-blue-500 transition-colors",
+    panelBody: "flex-1 overflow-y-auto",
     panelSection: "p-3 border-b border-gray-200",
     panelTitle: "text-xs font-semibold text-gray-500 uppercase mb-2",
-    agentItem: "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-200 cursor-pointer",
-    kbItem: "px-2 py-2 border-b border-gray-100 text-sm",
-    input: "w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2 focus:outline-none focus:border-blue-500",
-    textarea: "w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2 h-16 focus:outline-none focus:border-blue-500",
-    btn: "px-3 py-1.5 rounded text-xs cursor-pointer",
-    btnPrimary: "px-3 py-1.5 bg-blue-500 text-white rounded text-xs cursor-pointer hover:bg-blue-600",
-    searchResult: "px-2 py-2 border-b border-blue-100 text-xs text-gray-600"
+    agentItem: "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer",
+    kbItem: "px-3 py-2.5 border-b border-gray-100 text-sm hover:bg-blue-50 transition-colors cursor-default",
+    kbChip: "inline-block text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5 mr-1",
+    input: "w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs mb-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all",
+    textarea: "w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs mb-2 h-16 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all resize-none",
+    btnPrimary: "px-3 py-1.5 bg-blue-500 text-white rounded-md text-xs cursor-pointer hover:bg-blue-600 transition-colors",
+    searchResult: "px-3 py-2 border-b border-blue-50 text-xs text-gray-600 hover:bg-blue-50 transition-colors",
+    score: "text-blue-500 font-medium"
   });
   return /* @__PURE__ */ jsxs("div", { class: s.container, children: [
     /* @__PURE__ */ jsxs("div", { class: s.header, children: [
@@ -1521,107 +1665,121 @@ function DepartmentPage(_props, ctx2) {
         ),
         /* @__PURE__ */ jsx("h1", { class: "font-semibold text-base", children: computed(() => dept.value?.name || "\u52A0\u8F7D\u4E2D...") })
       ] }),
-      /* @__PURE__ */ jsxs("div", { class: s.headerBtns, children: [
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            class: "px-3 py-1.5 bg-green-50 text-green-700 rounded-md text-xs cursor-pointer hover:bg-green-100",
-            onClick: openKB,
-            children: computed(() => showKB.value ? "\u5173\u95ED\u77E5\u8BC6\u5E93" : "\u{1F4DA} \u77E5\u8BC6\u5E93")
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            class: "px-3 py-1.5 bg-gray-100 text-gray-600 rounded-md text-xs cursor-pointer hover:bg-gray-200",
-            onClick: () => showAgents.value = !showAgents.value,
-            children: computed(() => showAgents.value ? "\u9690\u85CF\u6210\u5458" : `\u6210\u5458 (${agents.value.length})`)
-          }
-        )
-      ] })
+      /* @__PURE__ */ jsx("div", { class: "flex gap-1", children: /* @__PURE__ */ jsx(For, { each: tabs, children: (tab) => /* @__PURE__ */ jsxs(
+        "button",
+        {
+          class: activeTab.value === tab.key ? s.tabActive : s.tab,
+          onClick: () => setTab(tab.key),
+          children: [
+            tab.icon,
+            " ",
+            tab.label
+          ]
+        }
+      ) }) })
     ] }),
     /* @__PURE__ */ jsxs("div", { class: s.body, children: [
       /* @__PURE__ */ jsx("div", { class: "flex-1 flex flex-col min-w-0", children: /* @__PURE__ */ jsx(Show, { when: dept.value?.conversation_id, fallback: /* @__PURE__ */ jsx("div", { class: "flex-1 flex items-center justify-center text-gray-400 text-sm", children: "\u90E8\u95E8\u8FD8\u6CA1\u6709\u804A\u5929\u4F1A\u8BDD" }), children: /* @__PURE__ */ jsx(DepartmentChat, { conversationId: dept.value.conversation_id, agents: agents.value }) }) }),
-      /* @__PURE__ */ jsx(Show, { when: showKB, children: /* @__PURE__ */ jsxs("div", { class: s.sidePanel, children: [
-        /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
-          /* @__PURE__ */ jsx("h3", { class: s.panelTitle, children: "\u5BFC\u5165\u77E5\u8BC6" }),
-          /* @__PURE__ */ jsx("input", { class: s.input, value: importTitle, onInput: (e) => importTitle.value = e.target.value, placeholder: "\u6807\u9898" }),
-          /* @__PURE__ */ jsx("textarea", { class: s.textarea, value: importContent, onInput: (e) => importContent.value = e.target.value, placeholder: "\u7C98\u8D34\u6587\u6863\u5185\u5BB9..." }),
-          /* @__PURE__ */ jsx("input", { class: s.input, value: importSource, onInput: (e) => importSource.value = e.target.value, placeholder: "\u6765\u6E90\uFF08\u53EF\u9009\uFF09" }),
-          /* @__PURE__ */ jsx("button", { class: s.btnPrimary, onClick: importDoc, children: "\u5BFC\u5165" })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
-          /* @__PURE__ */ jsx("h3", { class: s.panelTitle, children: "\u68C0\u7D22\u6D4B\u8BD5" }),
-          /* @__PURE__ */ jsxs("div", { class: "flex gap-1 mb-2", children: [
-            /* @__PURE__ */ jsx(
-              "input",
+      /* @__PURE__ */ jsx(Show, { when: activeTab.value, children: /* @__PURE__ */ jsxs("div", { class: s.panel, children: [
+        /* @__PURE__ */ jsx("div", { class: s.tabBar, children: /* @__PURE__ */ jsx(For, { each: tabs, children: (tab) => /* @__PURE__ */ jsxs(
+          "div",
+          {
+            class: activeTab.value === tab.key ? s.tabActive : s.tab,
+            onClick: () => setTab(tab.key),
+            children: [
+              tab.icon,
+              " ",
+              tab.label
+            ]
+          }
+        ) }) }),
+        /* @__PURE__ */ jsx(Show, { when: activeTab.value === "members", children: /* @__PURE__ */ jsxs("div", { class: s.panelBody, children: [
+          /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
+            /* @__PURE__ */ jsxs("div", { class: "flex items-center justify-between mb-3", children: [
+              /* @__PURE__ */ jsx("h3", { class: s.panelTitle, children: "\u90E8\u95E8\u6210\u5458" }),
+              /* @__PURE__ */ jsx("button", { class: "text-xs text-blue-500 cursor-pointer hover:text-blue-700", onClick: openAddAgent, children: "+ \u6DFB\u52A0" })
+            ] }),
+            /* @__PURE__ */ jsx(For, { each: agents, children: (a) => /* @__PURE__ */ jsxs("div", { class: s.agentItem, children: [
+              /* @__PURE__ */ jsx("span", { children: a.kind === "ai" ? "\u{1F916}" : a.kind === "user" ? "\u{1F464}" : a.kind === "webhook" ? "\u{1F517}" : "\u{1F4DA}" }),
+              /* @__PURE__ */ jsx("span", { children: a.name }),
+              /* @__PURE__ */ jsx("span", { class: "text-xs text-gray-400 ml-auto", children: a.kind })
+            ] }) }),
+            /* @__PURE__ */ jsx(Show, { when: agents.value.length === 0, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-4", children: "\u6682\u65E0\u6210\u5458" }) })
+          ] }),
+          /* @__PURE__ */ jsx(Show, { when: showAddAgent, children: /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
+            /* @__PURE__ */ jsxs(
+              "select",
               {
-                class: "flex-1 px-2 py-1.5 border border-gray-300 rounded text-xs",
-                value: searchQuery,
-                onInput: (e) => searchQuery.value = e.target.value,
-                placeholder: "\u8F93\u5165\u67E5\u8BE2...",
-                onKeyDown: (e) => e.key === "Enter" && searchKB()
+                class: "w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2",
+                value: selectedAgentId,
+                onChange: (e) => selectedAgentId.value = e.target.value,
+                children: [
+                  /* @__PURE__ */ jsx("option", { value: "", children: "\u9009\u62E9 Agent..." }),
+                  /* @__PURE__ */ jsx(For, { each: allAgents, children: (a) => /* @__PURE__ */ jsxs("option", { value: a.id, children: [
+                    a.name,
+                    " (",
+                    a.kind,
+                    ")"
+                  ] }) })
+                ]
               }
             ),
-            /* @__PURE__ */ jsx("button", { class: s.btnPrimary, onClick: searchKB, children: "\u641C\u7D22" })
-          ] }),
-          /* @__PURE__ */ jsx(For, { each: searchResults, children: (r) => /* @__PURE__ */ jsxs("div", { class: s.searchResult, children: [
-            /* @__PURE__ */ jsx("strong", { children: r.title || "\u7247\u6BB5" }),
-            " (",
-            Math.round(r.score * 100),
-            "%): ",
-            r.content.slice(0, 100),
-            "..."
-          ] }) })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
-          /* @__PURE__ */ jsx("h3", { class: s.panelTitle, children: computed(() => `\u6587\u6863 (${kbDocs.value.length})`) }),
-          /* @__PURE__ */ jsx(Show, { when: kbLoading, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-2", children: "\u52A0\u8F7D\u4E2D..." }) }),
-          /* @__PURE__ */ jsx(For, { each: kbDocs, children: (doc) => /* @__PURE__ */ jsxs("div", { class: s.kbItem, children: [
-            /* @__PURE__ */ jsx("p", { class: "font-medium", children: doc.title }),
-            /* @__PURE__ */ jsxs("p", { class: "text-gray-400", children: [
-              doc.chunk_count,
-              " \u6BB5 \xB7 ",
-              doc.source || "\u65E0\u6765\u6E90"
+            /* @__PURE__ */ jsxs("div", { class: "flex gap-2", children: [
+              /* @__PURE__ */ jsx("button", { class: "flex-1 px-2 py-1 bg-blue-500 text-white rounded text-xs cursor-pointer hover:bg-blue-600", onClick: addAgent, children: "\u6DFB\u52A0" }),
+              /* @__PURE__ */ jsx("button", { class: "px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs cursor-pointer", onClick: () => showAddAgent.value = false, children: "\u53D6\u6D88" })
             ] })
-          ] }) }),
-          /* @__PURE__ */ jsx(Show, { when: !kbLoading && kbDocs.value.length === 0, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-2", children: "\u6682\u65E0\u6587\u6863" }) })
-        ] })
-      ] }) }),
-      /* @__PURE__ */ jsx(Show, { when: showAgents && !showKB, children: /* @__PURE__ */ jsxs("div", { class: s.sidePanel, children: [
-        /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
-          /* @__PURE__ */ jsxs("div", { class: "flex items-center justify-between mb-3", children: [
-            /* @__PURE__ */ jsx("h3", { class: s.panelTitle, children: "\u6210\u5458" }),
-            /* @__PURE__ */ jsx("button", { class: "text-xs text-blue-500 cursor-pointer hover:text-blue-700", onClick: openAddAgent, children: "+ \u6DFB\u52A0" })
+          ] }) })
+        ] }) }),
+        /* @__PURE__ */ jsx(Show, { when: activeTab.value === "kb", children: /* @__PURE__ */ jsxs("div", { class: s.panelBody, children: [
+          /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
+            /* @__PURE__ */ jsx("h3", { class: s.panelTitle, children: "\u5BFC\u5165\u77E5\u8BC6" }),
+            /* @__PURE__ */ jsx("input", { class: s.input, value: importTitle, onInput: (e) => importTitle.value = e.target.value, placeholder: "\u6807\u9898" }),
+            /* @__PURE__ */ jsx("textarea", { class: s.textarea, value: importContent, onInput: (e) => importContent.value = e.target.value, placeholder: "\u7C98\u8D34\u6587\u6863\u5185\u5BB9..." }),
+            /* @__PURE__ */ jsx("input", { class: s.input, value: importSource, onInput: (e) => importSource.value = e.target.value, placeholder: "\u6765\u6E90\uFF08\u53EF\u9009\uFF09" }),
+            /* @__PURE__ */ jsx("button", { class: s.btnPrimary, onClick: importDoc, children: "\u5BFC\u5165" })
           ] }),
-          /* @__PURE__ */ jsx(For, { each: agents, children: (a) => /* @__PURE__ */ jsxs("div", { class: s.agentItem, children: [
-            /* @__PURE__ */ jsx("span", { children: agentIcon(a.kind) }),
-            /* @__PURE__ */ jsx("span", { children: a.name }),
-            /* @__PURE__ */ jsx("span", { class: "text-xs text-gray-400 ml-auto", children: a.kind })
-          ] }) }),
-          /* @__PURE__ */ jsx(Show, { when: agents.value.length === 0, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-4", children: "\u6682\u65E0\u6210\u5458" }) })
-        ] }),
-        /* @__PURE__ */ jsx(Show, { when: showAddAgent, children: /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
-          /* @__PURE__ */ jsxs(
-            "select",
-            {
-              class: "w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2",
-              value: selectedAgentId,
-              onChange: (e) => selectedAgentId.value = e.target.value,
-              children: [
-                /* @__PURE__ */ jsx("option", { value: "", children: "\u9009\u62E9 Agent..." }),
-                /* @__PURE__ */ jsx(For, { each: allAgents, children: (a) => /* @__PURE__ */ jsxs("option", { value: a.id, children: [
-                  a.name,
-                  " (",
-                  a.kind,
-                  ")"
-                ] }) })
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxs("div", { class: "flex gap-2", children: [
-            /* @__PURE__ */ jsx("button", { class: "flex-1 px-2 py-1 bg-blue-500 text-white rounded text-xs cursor-pointer hover:bg-blue-600", onClick: addAgent, children: "\u6DFB\u52A0" }),
-            /* @__PURE__ */ jsx("button", { class: "px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs cursor-pointer", onClick: () => showAddAgent.value = false, children: "\u53D6\u6D88" })
+          /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
+            /* @__PURE__ */ jsx("h3", { class: s.panelTitle, children: "\u68C0\u7D22\u6D4B\u8BD5" }),
+            /* @__PURE__ */ jsxs("div", { class: "flex gap-1 mb-2", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  class: "flex-1 px-2 py-1.5 border border-gray-300 rounded text-xs",
+                  value: searchQuery,
+                  onInput: (e) => searchQuery.value = e.target.value,
+                  placeholder: "\u8F93\u5165\u67E5\u8BE2...",
+                  onKeyDown: (e) => e.key === "Enter" && searchKB()
+                }
+              ),
+              /* @__PURE__ */ jsx("button", { class: s.btnPrimary, onClick: searchKB, children: "\u641C\u7D22" })
+            ] }),
+            /* @__PURE__ */ jsx(For, { each: searchResults, children: (r) => /* @__PURE__ */ jsxs("div", { class: s.searchResult, children: [
+              /* @__PURE__ */ jsx("strong", { children: r.title || "\u7247\u6BB5" }),
+              " ",
+              /* @__PURE__ */ jsxs("span", { class: s.score, children: [
+                Math.round(r.score * 100),
+                "%"
+              ] }),
+              /* @__PURE__ */ jsx("br", {}),
+              r.content.slice(0, 100),
+              "..."
+            ] }) })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { class: s.panelSection, children: [
+            /* @__PURE__ */ jsx("h3", { class: s.panelTitle, children: computed(() => `\u6587\u6863 (${kbDocs.value.length})`) }),
+            /* @__PURE__ */ jsx(Show, { when: kbLoading, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-2", children: "\u52A0\u8F7D\u4E2D..." }) }),
+            /* @__PURE__ */ jsx(For, { each: kbDocs, children: (doc) => /* @__PURE__ */ jsxs("div", { class: s.kbItem, children: [
+              /* @__PURE__ */ jsx("p", { class: "font-medium", children: doc.title }),
+              /* @__PURE__ */ jsxs("p", { children: [
+                /* @__PURE__ */ jsxs("span", { class: s.kbChip, children: [
+                  doc.chunk_count,
+                  " \u6BB5"
+                ] }),
+                " ",
+                doc.source || "\u65E0\u6765\u6E90"
+              ] })
+            ] }) }),
+            /* @__PURE__ */ jsx(Show, { when: !kbLoading && kbDocs.value.length === 0, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-2", children: "\u6682\u65E0\u6587\u6863" }) })
           ] })
         ] }) })
       ] }) })
@@ -1641,22 +1799,28 @@ function OrgTree(_props, ctx2) {
   const companiesMap = signal({});
   const departmentsMap = signal({});
   const loading = signal(true);
+  const error = signal("");
   onMount(async () => {
-    const list = await ctx2.api.get("/api/tenants");
-    tenants.value = list;
-    loading.value = false;
-    if (list.length > 0) {
-      expanded.value = { ...expanded.value, [list[0].id]: true };
-      await loadCompanies(list[0].id);
+    try {
+      const list = await ctx2.api.get("/tenants");
+      tenants.value = list;
+      loading.value = false;
+      if (list.length > 0) {
+        expanded.value = { ...expanded.value, [list[0].id]: true };
+        await loadCompanies(list[0].id);
+      }
+    } catch (e) {
+      loading.value = false;
+      error.value = e?.message || "\u52A0\u8F7D\u5931\u8D25";
     }
   });
   const loadCompanies = async (id) => {
     if (companiesMap.value[id]) return;
-    companiesMap.value = { ...companiesMap.value, [id]: await ctx2.api.get(`/api/tenants/${id}/companies`) };
+    companiesMap.value = { ...companiesMap.value, [id]: await ctx2.api.get(`/tenants/${id}/companies`) };
   };
   const loadDepartments = async (id) => {
     if (departmentsMap.value[id]) return;
-    departmentsMap.value = { ...departmentsMap.value, [id]: await ctx2.api.get(`/api/companies/${id}/departments`) };
+    departmentsMap.value = { ...departmentsMap.value, [id]: await ctx2.api.get(`/companies/${id}/departments`) };
   };
   const toggleTenant = async (id) => {
     expanded.value = { ...expanded.value, [id]: !expanded.value[id] };
@@ -1670,16 +1834,17 @@ function OrgTree(_props, ctx2) {
   };
   const active = (p) => window.location.hash.includes(p);
   const s = createStyles({
-    tree: "flex-1 overflow-y-auto p-2",
-    th: "flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm font-medium cursor-pointer",
-    thA: "flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm font-medium text-blue-600 cursor-pointer bg-blue-50",
-    ci: "flex items-center gap-1.5 px-2 py-1 ml-4 rounded-md text-sm text-gray-600 cursor-pointer hover:bg-gray-200",
-    ciA: "flex items-center gap-1.5 px-2 py-1 ml-4 rounded-md text-sm text-blue-600 cursor-pointer bg-blue-50",
-    di: "flex items-center gap-1.5 px-2 py-1 ml-8 rounded-md text-sm text-gray-500 cursor-pointer hover:bg-gray-200",
-    diA: "flex items-center gap-1.5 px-2 py-1 ml-8 rounded-md text-sm text-blue-500 cursor-pointer bg-blue-50"
+    tree: "flex-1 overflow-y-auto px-1 py-2",
+    th: "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-gray-200",
+    thA: "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium cursor-pointer bg-blue-50 text-blue-700 transition-all",
+    ci: "flex items-center gap-1.5 px-2.5 py-1.5 ml-4 rounded-md text-sm text-gray-600 cursor-pointer transition-all hover:bg-gray-200",
+    ciA: "flex items-center gap-1.5 px-2.5 py-1.5 ml-4 rounded-md text-sm text-blue-600 cursor-pointer bg-blue-50 border-l-[3px] border-blue-500 rounded-l-none transition-all",
+    di: "flex items-center gap-1.5 px-2.5 py-1.5 ml-8 rounded-md text-sm text-gray-500 cursor-pointer transition-all hover:bg-gray-200",
+    diA: "flex items-center gap-1.5 px-2.5 py-1.5 ml-8 rounded-md text-sm text-blue-600 cursor-pointer bg-blue-50 border-l-[3px] border-blue-500 rounded-l-none transition-all"
   });
   return /* @__PURE__ */ jsxs("div", { class: s.tree, children: [
     /* @__PURE__ */ jsx(Show, { when: loading, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-4", children: "\u52A0\u8F7D\u4E2D..." }) }),
+    /* @__PURE__ */ jsx(Show, { when: error, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-red-400 text-center py-4", children: error }) }),
     /* @__PURE__ */ jsx(For, { each: tenants, children: (t) => /* @__PURE__ */ jsxs("div", { class: "mb-2", children: [
       /* @__PURE__ */ jsxs(
         "div",
@@ -1725,32 +1890,148 @@ function OrgTree(_props, ctx2) {
     /* @__PURE__ */ jsx(Show, { when: !loading && tenants.value.length === 0, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-4", children: "\u8FD8\u6CA1\u6709\u79DF\u6237" }) })
   ] });
 }
-function AppShell(_props, ctx2) {
-  if (!ctx2.user) return /* @__PURE__ */ jsx(LoginPage, { _props: {}, ctx: ctx2 });
-  const s = createStyles({
-    layout: "flex h-screen overflow-hidden bg-gray-50",
-    sidebar: "w-[260px] border-r border-gray-200 bg-[#fafafa] flex flex-col overflow-hidden shrink-0",
-    header: "px-4 py-3 border-b border-gray-200 flex items-center justify-between",
-    title: "font-bold text-base text-blue-600 cursor-pointer",
-    user: "text-xs text-gray-400",
-    main: "flex-1 flex flex-col overflow-hidden min-w-0",
-    status: "px-4 py-2 border-t border-gray-200 text-xs text-gray-400 flex items-center justify-between"
+function Sidebar({ collapsed, onToggle }, ctx2) {
+  const searchQuery = signal("");
+  const recentConvs = signal([]);
+  const showOrgTree = signal(true);
+  onMount(() => {
+    ctx2.api.get("/conversations").then((list) => {
+      recentConvs.value = list.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
+    }).catch(() => {
+    });
   });
-  return /* @__PURE__ */ jsxs("div", { class: s.layout, children: [
-    /* @__PURE__ */ jsx(ToastContainer, {}),
-    /* @__PURE__ */ jsxs("div", { class: s.sidebar, children: [
-      /* @__PURE__ */ jsxs("div", { class: s.header, children: [
-        /* @__PURE__ */ jsx("span", { class: s.title, onClick: () => ctx2.app.navigate("/"), children: "Org" }),
-        /* @__PURE__ */ jsx("span", { class: s.user, children: ctx2.user.name })
-      ] }),
-      /* @__PURE__ */ jsx(OrgTree, { _props: {}, ctx: ctx2 }),
-      /* @__PURE__ */ jsx("div", { class: "flex-1" }),
-      /* @__PURE__ */ jsxs("div", { class: s.status, children: [
-        /* @__PURE__ */ jsx("span", { children: "v0.1" }),
-        /* @__PURE__ */ jsx("span", { class: "cursor-pointer hover:text-red-500", onClick: () => ctx2.auth.logout?.(), children: "\u9000\u51FA" })
-      ] })
+  const s = createStyles({
+    wrap: `${collapsed ? "w-0 md:w-[220px] overflow-hidden" : "w-[220px]"} border-r border-gray-200 bg-[#fafafa] flex flex-col overflow-hidden shrink-0 transition-all duration-300`,
+    header: "px-3 py-2.5 border-b border-gray-200 flex items-center justify-between shrink-0",
+    title: "font-bold text-sm text-blue-600 cursor-pointer",
+    userName: "text-xs text-gray-400 max-w-[100px] truncate",
+    searchBox: "mx-2 my-2 px-2.5 py-1.5 bg-gray-100 rounded-md text-xs text-gray-400 cursor-text focus:outline-none focus:bg-white focus:border focus:border-blue-300",
+    section: "mb-1",
+    sectionHeader: "px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center justify-between cursor-pointer hover:text-gray-700",
+    recentItem: "flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-md mx-2 cursor-pointer truncate",
+    recentItemActive: "flex items-center gap-2 px-3 py-1.5 text-sm text-blue-700 bg-blue-50 rounded-md mx-2 cursor-pointer truncate",
+    recentBadge: "ml-auto bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 text-[10px]",
+    status: "px-3 py-2 border-t border-gray-200 text-xs text-gray-400 flex items-center justify-between shrink-0",
+    logout: "cursor-pointer hover:text-red-500"
+  });
+  return /* @__PURE__ */ jsxs("div", { class: s.wrap, children: [
+    /* @__PURE__ */ jsxs("div", { class: s.header, children: [
+      /* @__PURE__ */ jsx("span", { class: s.title, onClick: () => ctx2.app.navigate("/"), children: "Org" }),
+      /* @__PURE__ */ jsx("span", { class: s.userName, children: computed(() => ctx2.user?.name || "") })
     ] }),
-    /* @__PURE__ */ jsx("div", { class: s.main, children: /* @__PURE__ */ jsx(RouteView, {}) })
+    /* @__PURE__ */ jsx("div", { class: s.searchBox, onClick: () => {
+    }, children: "\u{1F50D} \u641C\u7D22\u79DF\u6237/\u90E8\u95E8/\u6D88\u606F..." }),
+    /* @__PURE__ */ jsx(Show, { when: recentConvs.value.length > 0, children: /* @__PURE__ */ jsxs("div", { class: s.section, children: [
+      /* @__PURE__ */ jsx("div", { class: s.sectionHeader, children: /* @__PURE__ */ jsx("span", { children: "\u6700\u8FD1" }) }),
+      /* @__PURE__ */ jsx(For, { each: recentConvs, children: (c) => {
+        const isActive = ctx2.route.path.includes(c.department?.id || "");
+        return /* @__PURE__ */ jsxs(
+          "div",
+          {
+            class: isActive ? s.recentItemActive : s.recentItem,
+            onClick: () => {
+              if (c.department) {
+                ctx2.app.navigate(`/tenant/${ctx2.route.params.tenantId || ""}/company/${ctx2.route.params.companyId || ""}/dept/${c.department.id}`);
+              }
+            },
+            children: [
+              /* @__PURE__ */ jsx("span", { children: c.unread > 0 ? "\u{1F4AC}" : "\u{1F4AD}" }),
+              /* @__PURE__ */ jsx("span", { class: "flex-1 truncate", children: c.department?.name || c.title }),
+              /* @__PURE__ */ jsx(Show, { when: c.unread > 0, children: /* @__PURE__ */ jsx("span", { class: s.recentBadge, children: c.unread > 99 ? "99+" : c.unread }) })
+            ]
+          }
+        );
+      } })
+    ] }) }),
+    /* @__PURE__ */ jsxs("div", { class: s.section, children: [
+      /* @__PURE__ */ jsx("div", { class: s.sectionHeader, onClick: () => showOrgTree.value = !showOrgTree.value, children: /* @__PURE__ */ jsxs("span", { children: [
+        showOrgTree.value ? "\u25BC" : "\u25B6",
+        " \u7EC4\u7EC7"
+      ] }) }),
+      /* @__PURE__ */ jsx(Show, { when: showOrgTree, children: /* @__PURE__ */ jsx(OrgTree, { _props: {}, ctx: ctx2 }) })
+    ] }),
+    /* @__PURE__ */ jsx("div", { class: "flex-1" }),
+    /* @__PURE__ */ jsxs("div", { class: s.status, children: [
+      /* @__PURE__ */ jsx("span", { children: "v0.1" }),
+      /* @__PURE__ */ jsx("span", { class: s.logout, onClick: () => ctx2.logout(), children: "\u9000\u51FA" })
+    ] })
+  ] });
+}
+function BrowseLayout(_props, ctx2) {
+  const sidebarCollapsed = signal(false);
+  return /* @__PURE__ */ jsxs("div", { class: "flex h-screen overflow-hidden bg-gray-50", children: [
+    /* @__PURE__ */ jsx(Sidebar, { collapsed: sidebarCollapsed.value, onToggle: () => sidebarCollapsed.value = !sidebarCollapsed.value, ctx: ctx2 }),
+    /* @__PURE__ */ jsx("div", { class: "flex-1 flex flex-col overflow-hidden min-w-0", children: /* @__PURE__ */ jsx(RouteView, {}) })
+  ] });
+}
+function ConversationList(_props, ctx2) {
+  const convs = signal([]);
+  const loading = signal(true);
+  const currentDeptId = computed(() => ctx2.route.params.deptId || "");
+  onMount(() => {
+    ctx2.api.get("/conversations").then((list) => {
+      convs.value = list.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+      loading.value = false;
+    }).catch(() => loading.value = false);
+  });
+  const s = createStyles({
+    wrap: "w-[240px] border-r border-gray-200 bg-white flex flex-col overflow-hidden shrink-0",
+    header: "px-4 py-3 border-b border-gray-100 shrink-0",
+    title: "text-xs font-semibold text-gray-500 uppercase",
+    list: "flex-1 overflow-y-auto",
+    item: "flex items-center gap-2 px-4 py-2.5 cursor-pointer border-b border-gray-50 hover:bg-gray-50 transition-colors",
+    itemActive: "flex items-center gap-2 px-4 py-2.5 cursor-pointer border-b border-gray-50 bg-blue-50 border-l-2 border-l-blue-500 transition-colors",
+    deptName: "text-sm font-medium truncate",
+    deptNameActive: "text-sm font-medium truncate text-blue-700",
+    preview: "text-xs text-gray-400 truncate mt-0.5",
+    badge: "ml-auto bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1",
+    time: "text-xs text-gray-300 ml-auto",
+    icon: "text-base shrink-0"
+  });
+  return /* @__PURE__ */ jsxs("div", { class: s.wrap, children: [
+    /* @__PURE__ */ jsx("div", { class: s.header, children: /* @__PURE__ */ jsx("h2", { class: s.title, children: "\u90E8\u95E8\u804A\u5929" }) }),
+    /* @__PURE__ */ jsxs("div", { class: s.list, children: [
+      /* @__PURE__ */ jsx(Show, { when: loading, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-8", children: "\u52A0\u8F7D\u4E2D..." }) }),
+      /* @__PURE__ */ jsx(For, { each: convs, children: (c) => {
+        const isActive = c.department?.id === currentDeptId.value;
+        return /* @__PURE__ */ jsxs(
+          "div",
+          {
+            class: isActive ? s.itemActive : s.item,
+            onClick: () => c.department && ctx2.app.navigate(`/tenant/${ctx2.route.params.tenantId || ""}/company/${ctx2.route.params.companyId || ""}/dept/${c.department.id}`),
+            children: [
+              /* @__PURE__ */ jsx("span", { class: s.icon, children: c.unread > 0 ? "\u{1F4AC}" : "\u{1F4AD}" }),
+              /* @__PURE__ */ jsxs("div", { class: "flex-1 min-w-0", children: [
+                /* @__PURE__ */ jsxs("div", { class: "flex items-center justify-between", children: [
+                  /* @__PURE__ */ jsx("span", { class: isActive ? s.deptNameActive : s.deptName, children: c.department?.name || c.title || "\u672A\u77E5" }),
+                  /* @__PURE__ */ jsx("span", { class: s.time, children: c.last_message ? new Date(c.last_message.created_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "" })
+                ] }),
+                /* @__PURE__ */ jsx("p", { class: s.preview, children: c.last_message?.body?.slice(0, 40) || "\u6682\u65E0\u6D88\u606F" })
+              ] }),
+              /* @__PURE__ */ jsx(Show, { when: c.unread > 0, children: /* @__PURE__ */ jsx("span", { class: s.badge, children: c.unread > 99 ? "99+" : c.unread }) })
+            ]
+          }
+        );
+      } }),
+      /* @__PURE__ */ jsx(Show, { when: !loading && convs.value.length === 0, children: /* @__PURE__ */ jsx("p", { class: "text-xs text-gray-400 text-center py-8", children: "\u6682\u65E0\u4F1A\u8BDD" }) })
+    ] })
+  ] });
+}
+function ChatLayout(_props, ctx2) {
+  const sidebarCollapsed = signal(false);
+  return /* @__PURE__ */ jsxs("div", { class: "flex h-screen overflow-hidden bg-gray-50", children: [
+    /* @__PURE__ */ jsx(Sidebar, { collapsed: sidebarCollapsed.value, onToggle: () => sidebarCollapsed.value = !sidebarCollapsed.value, ctx: ctx2 }),
+    /* @__PURE__ */ jsx(ConversationList, { _props: {}, ctx: ctx2 }),
+    /* @__PURE__ */ jsx("div", { class: "flex-1 flex flex-col overflow-hidden min-w-0", children: /* @__PURE__ */ jsx(RouteView, {}) })
+  ] });
+}
+function AppShell(_props, ctx2) {
+  const user = computed(() => ctx2.user);
+  const isLoggedIn = computed(() => !!user.value);
+  const isChat = computed(() => ctx2.route.path.includes("/dept/"));
+  return /* @__PURE__ */ jsxs("div", { children: [
+    /* @__PURE__ */ jsx(ToastContainer, {}),
+    !isLoggedIn.value ? /* @__PURE__ */ jsx(LoginPage, { _props: {}, ctx: ctx2 }) : !isChat.value ? /* @__PURE__ */ jsx(BrowseLayout, { _props: {}, ctx: ctx2 }) : /* @__PURE__ */ jsx(ChatLayout, { _props: {}, ctx: ctx2 })
   ] });
 }
 var routes = [
@@ -1761,7 +2042,7 @@ var routes = [
 ];
 var app = createApp();
 app.use(api());
-app.use(auth());
+app.use(auth({ loginPath: "/login", registerPath: "/register", mePath: "/me" }));
 app.use(ws());
 app.use(router({ routes, notFound: NotFound, mode: "hash", transition: "page" }));
 app.mount("#root", AppShell);

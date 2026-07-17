@@ -1396,11 +1396,9 @@ function AppShell(_props: {}, ctx: WfuiContext) {
   return (
     <div>
       <ToastContainer />
-      <Show when={isLoggedIn} fallback={<LoginPage _props={{}} ctx={ctx} />}>
-        <Show when={isChat} fallback={<BrowseLayout _props={{}} ctx={ctx} />}>
-          <ChatLayout _props={{}} ctx={ctx} />
-        </Show>
-      </Show>
+      {!isLoggedIn.value ? <LoginPage _props={{}} ctx={ctx} /> :
+        !isChat.value ? <BrowseLayout _props={{}} ctx={ctx} /> :
+          <ChatLayout _props={{}} ctx={ctx} />}
     </div>
   )
 }
