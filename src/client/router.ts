@@ -134,30 +134,35 @@ export function router(opts: RouterOptions): AppMiddleware {
  * RouteView — 渲染当前路由匹配的组件
  *
  * 智能切换逻辑：
- * - 同一路径重复触发（如 loader 完成后的二次 emit）→ 跳过，保留已有 DOM
+ * - 同一组件 + 同一路径 + 同一 query → 跳过（避免 loader 二次 emit）
+ * - query 变化 → 重新渲染（ctx.route.query 已更新）
  * - 路径/组件变化 → 替换 DOM（正常路由切换）
  */
 export function RouteView(_props: {}, ctx: WfuiContext): Node {
   const el = document.createElement('div')
   let currentPath = ''
+  let currentQuery = ''
   let currentComponent: Component | null = null
 
   function render() {
     const Component = ctx.route.component
     const path = ctx.route.path
+    const queryStr = JSON.stringify(ctx.route.query)
 
     if (!Component) {
       if (el.children.length > 0) el.textContent = ''
       currentPath = ''
+      currentQuery = ''
       currentComponent = null
       return
     }
 
-    // 同一组件 + 同一路径 → 跳过（避免 loader 二次 emit 导致 DOM 重建）
-    if (Component === currentComponent && path === currentPath) return
+    // 同一组件 + 同一路径 + 同一 query → 跳过（避免 loader 二次 emit）
+    if (Component === currentComponent && path === currentPath && queryStr === currentQuery) return
 
-    // 路径或组件发生变化 → 替换 DOM
+    // 路径/组件/query 任一发生变化 → 替换 DOM
     currentPath = path
+    currentQuery = queryStr
     currentComponent = Component
     el.textContent = ''
     setCtx(ctx)
