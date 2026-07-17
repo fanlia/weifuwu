@@ -431,13 +431,17 @@ function OnboardingWizard({ onDone }: { onDone: () => void }, _ctx: WfuiContext)
 function HomePage(_props: {}, ctx: WfuiContext) {
   const tenants = signal<Tenant[]>([]); const loading = signal(true); const showCreate = signal(false)
   const newName = signal(''); const newSlug = signal(''); const showOnboarding = signal(false)
+  const loadError = signal('')
 
   onMount(() => {
     ctx.api.get<Tenant[]>('/api/tenants').then(list => {
       tenants.value = list
       loading.value = false
       if (list.length === 0) showOnboarding.value = true
-    }).catch(() => loading.value = false)
+    }).catch((e: any) => {
+      loading.value = false
+      loadError.value = e?.message || '加载失败'
+    })
   })
 
   const createTenant = async () => {
@@ -450,54 +454,79 @@ function HomePage(_props: {}, ctx: WfuiContext) {
     }
   }
 
-  // 新手引导模式（没有租户时自动显示）
-  if (showOnboarding.value) {
-    return <OnboardingWizard onDone={() => { showOnboarding.value = false; loading.value = false }} ctx={ctx} />
-  }
+  const s = createStyles({
+    page: 'p-8',
+    header: 'flex items-center justify-between mb-6',
+    title: 'text-2xl font-bold',
+    subtitle: 'text-gray-500 text-sm',
+    card: 'bg-white rounded-xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow',
+  })
 
   return (
-    <div class="p-8">
-      <div class="flex items-center justify-between mb-6">
-        <div><h1 class="text-2xl font-bold">Org</h1><p class="text-gray-500 text-sm">Enterprise AI Collaboration Platform</p></div>
-        <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600"
-          onClick={() => showCreate.value = true}>+ 创建租户</button>
-      </div>
-
-      <Show when={loading}><Skeleton lines={4} /></Show>
-
-      <Show when={showCreate}>
-        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex gap-3 items-end">
-          <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">名称</label>
-            <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
-              value={newName} onInput={(e: any) => newName.value = e.target.value} placeholder="例如: 我的公司" /></div>
-          <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">标识（slug）</label>
-            <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
-              value={newSlug} onInput={(e: any) => newSlug.value = e.target.value} placeholder="例如: my-company" /></div>
-          <button class="px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600" onClick={createTenant}>创建</button>
-          <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded-md text-sm cursor-pointer hover:bg-gray-300" onClick={() => showCreate.value = false}>取消</button>
-        </div>
+    <div class={s.page}>
+      {/* 新手引导 — 用 Show 响应式切换 */}
+      <Show when={showOnboarding}>
+        <OnboardingWizard onDone={() => { showOnboarding.value = false }} ctx={ctx} />
       </Show>
 
-      <div class="grid gap-4">
-        <For each={tenants}>
-          {(t: Tenant) => (
-            <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => ctx.app.navigate(`/tenant/${t.id}`)}>
-              <h3 class="font-semibold text-lg">{t.name}</h3>
-              <p class="text-gray-400 text-sm mt-1">/{t.slug}</p>
-              <p class="text-gray-300 text-xs mt-2">创建于 {formatDate(t.created_at)}</p>
-            </div>
-          )}
-        </For>
-      </div>
-
-      <Show when={!loading && tenants.value.length === 0 && !showOnboarding.value}>
-        <div class="text-center py-16 text-gray-400">
-          <p class="text-5xl mb-3">🏢</p>
-          <p class="mb-4">还没有租户，开始创建第一个</p>
-          <button class="px-5 py-2 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600"
-            onClick={() => showOnboarding.value = true}>📖 开始引导</button>
+      {/* 主视图 — 当不在引导模式时显示 */}
+      <Show when={computed(() => !showOnboarding.value)}>
+        <div class={s.header}>
+          <div>
+            <h1 class={s.title}>Org</h1>
+            <p class={s.subtitle}>Enterprise AI Collaboration Platform</p>
+          </div>
+          <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600"
+            onClick={() => showCreate.value = true}>+ 创建租户</button>
         </div>
+
+        {/* 加载态 */}
+        <Show when={loading}><Skeleton lines={4} /></Show>
+
+        {/* 错误提示 */}
+        <Show when={loadError}>
+          <div class="bg-red-50 text-red-600 rounded-xl p-4 mb-4 text-sm">
+            加载失败: {loadError}
+            <button class="ml-2 underline cursor-pointer" onClick={() => { loading.value = true; loadError.value = ''; ctx.api.get('/api/tenants').then(l => { tenants.value = l; loading.value = false; if (l.length === 0) showOnboarding.value = true }).catch(e => { loading.value = false; loadError.value = e.message }) }}>重试</button>
+          </div>
+        </Show>
+
+        {/* 创建表单 */}
+        <Show when={showCreate}>
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex gap-3 items-end">
+            <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">名称</label>
+              <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
+                value={newName} onInput={(e: any) => newName.value = e.target.value} placeholder="例如: 我的公司" /></div>
+            <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">标识（slug）</label>
+              <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
+                value={newSlug} onInput={(e: any) => newSlug.value = e.target.value} placeholder="例如: my-company" /></div>
+            <button class="px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600" onClick={createTenant}>创建</button>
+            <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded-md text-sm cursor-pointer hover:bg-gray-300" onClick={() => showCreate.value = false}>取消</button>
+          </div>
+        </Show>
+
+        {/* 租户列表 */}
+        <div class="grid gap-4">
+          <For each={tenants}>
+            {(t: Tenant) => (
+              <div class={s.card} onClick={() => ctx.app.navigate(`/tenant/${t.id}`)}>
+                <h3 class="font-semibold text-lg">{t.name}</h3>
+                <p class="text-gray-400 text-sm mt-1">/{t.slug}</p>
+                <p class="text-gray-300 text-xs mt-2">创建于 {formatDate(t.created_at)}</p>
+              </div>
+            )}
+          </For>
+        </div>
+
+        {/* 空态 */}
+        <Show when={computed(() => !loading.value && tenants.value.length === 0)}>
+          <div class="text-center py-16 text-gray-400">
+            <p class="text-5xl mb-3">🏢</p>
+            <p class="mb-4">还没有租户，开始创建第一个</p>
+            <button class="px-5 py-2 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600"
+              onClick={() => showCreate.value = true}>+ 创建租户</button>
+          </div>
+        </Show>
       </Show>
     </div>
   )
@@ -854,11 +883,17 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
   const tenants = signal<Tenant[]>([]); const expanded = signal<Record<string, boolean>>({})
   const companiesMap = signal<Record<string, Company[]>>({}); const departmentsMap = signal<Record<string, Department[]>>({})
   const loading = signal(true)
+  const error = signal('')
 
   onMount(async () => {
-    const list = await ctx.api.get<Tenant[]>('/api/tenants')
-    tenants.value = list; loading.value = false
-    if (list.length > 0) { expanded.value = { ...expanded.value, [list[0].id]: true }; await loadCompanies(list[0].id) }
+    try {
+      const list = await ctx.api.get<Tenant[]>('/api/tenants')
+      tenants.value = list; loading.value = false
+      if (list.length > 0) { expanded.value = { ...expanded.value, [list[0].id]: true }; await loadCompanies(list[0].id) }
+    } catch (e: any) {
+      loading.value = false
+      error.value = e?.message || '加载失败'
+    }
   })
 
   const loadCompanies = async (id: string) => {
@@ -895,6 +930,7 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
   return (
     <div class={s.tree}>
       <Show when={loading}><p class="text-xs text-gray-400 text-center py-4">加载中...</p></Show>
+      <Show when={error}><p class="text-xs text-red-400 text-center py-4">{error}</p></Show>
       <For each={tenants}>
         {(t: Tenant) => (
           <div class="mb-2">
