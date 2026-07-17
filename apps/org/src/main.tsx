@@ -115,38 +115,89 @@ function Badge({ count, className }: { count: number; className?: string }) {
 
 function LoginPage(_props: {}, ctx: WfuiContext) {
   const email = signal(''); const password = signal(''); const name = signal('')
-  const isRegister = signal(false); const error = signal('')
+  const isRegister = signal(false); const error = signal(''); const loading = signal(false)
+  const emailError = signal(''); const passwordError = signal('')
 
-  const submit = async () => {
-    error.value = ''
-    try {
-      if (isRegister.value) await ctx.register?.({ email: email.value, name: name.value, password: password.value })
-      else await ctx.login?.(email.value, password.value)
-    } catch (e: any) { error.value = e?.message || '操作失败' }
+  const validate = (): boolean => {
+    emailError.value = ''
+    passwordError.value = ''
+    if (!email.value.trim()) { emailError.value = '请输入邮箱'; return false }
+    if (!email.value.includes('@')) { emailError.value = '邮箱格式不正确'; return false }
+    if (password.value.length < 3) { passwordError.value = '密码至少 3 个字符'; return false }
+    return true
   }
 
+  const submit = async () => {
+    if (!validate()) return
+    error.value = ''
+    loading.value = true
+    try {
+      if (isRegister.value) {
+        if (!name.value.trim()) { error.value = '请输入昵称'; loading.value = false; return }
+        await ctx.register?.({ email: email.value.trim(), name: name.value.trim(), password: password.value })
+      } else {
+        await ctx.login?.(email.value.trim(), password.value)
+      }
+    } catch (e: any) { error.value = e?.message || '操作失败' }
+    finally { loading.value = false }
+  }
+
+  const s = createStyles({
+    page: 'flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100',
+    card: 'bg-white rounded-xl p-8 shadow-elevated w-full max-w-sm anim-slide-in',
+    logo: 'text-3xl text-center mb-1',
+    title: 'text-2xl font-bold text-center mb-1',
+    subtitle: 'text-gray-400 text-sm text-center mb-6',
+    input: 'w-full px-3 py-2.5 border rounded-lg text-sm mb-3 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all',
+    inputError: 'w-full px-3 py-2.5 border rounded-lg text-sm mb-1 focus:outline-none border-red-400 focus:border-red-500 focus:ring-red-100',
+    fieldError: 'text-red-500 text-xs mb-2 ml-1',
+    errorBox: 'bg-red-50 text-red-600 text-xs rounded-lg p-3 mb-3 anim-slide-in',
+    btn: 'w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed',
+    switchLink: 'text-center text-xs text-gray-400 cursor-pointer hover:text-blue-500 transition-colors',
+    footer: 'text-center text-xs text-gray-300 mt-6',
+  })
+
   return (
-    <div class="flex items-center justify-center min-h-screen bg-gray-50">
-      <div class="bg-white rounded-xl p-8 shadow-md w-full max-w-sm">
-        <h1 class="text-2xl font-bold text-center mb-2">Org</h1>
-        <p class="text-gray-400 text-sm text-center mb-6">Enterprise AI Collaboration</p>
+    <div class={s.page}>
+      <div class={s.card}>
+        <div class={s.logo}>🏢</div>
+        <h1 class={s.title}>Org</h1>
+        <p class={s.subtitle}>Enterprise AI Collaboration Platform</p>
 
+        {/* 昵称（注册时显示）*/}
         <Show when={isRegister}>
-          <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:border-blue-500"
-            value={name} onInput={(e: any) => name.value = e.target.value} placeholder="昵称" />
+          <input class={s.input} value={name} onInput={(e: any) => name.value = e.target.value} placeholder="昵称" />
         </Show>
-        <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:border-blue-500"
-          value={email} onInput={(e: any) => email.value = e.target.value} placeholder="邮箱" type="email" />
-        <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-4 focus:outline-none focus:border-blue-500"
-          value={password} onInput={(e: any) => password.value = e.target.value}
-          placeholder="密码" type="password" onKeyDown={(e: any) => e.key === 'Enter' && submit()} />
 
-        <Show when={error}><p class="text-red-500 text-xs mb-3">{error}</p></Show>
-        <button class="w-full py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600 mb-3"
-          onClick={submit}>{computed(() => isRegister.value ? '注册' : '登录')}</button>
-        <p class="text-center text-xs text-gray-400 cursor-pointer hover:text-blue-500"
-          onClick={() => { isRegister.value = !isRegister.value; error.value = '' }}>
-          {computed(() => isRegister.value ? '已有账号？登录' : '没有账号？注册')}</p>
+        {/* 邮箱 */}
+        <input class={emailError.value ? s.inputError : s.input}
+          value={email} onInput={(e: any) => { email.value = e.target.value; emailError.value = '' }}
+          placeholder="邮箱" type="email" />
+        <Show when={emailError.value}><p class={s.fieldError}>{emailError.value}</p></Show>
+
+        {/* 密码 */}
+        <input class={passwordError.value ? s.inputError : s.input}
+          value={password} onInput={(e: any) => { password.value = e.target.value; passwordError.value = '' }}
+          placeholder="密码" type="password" onKeyDown={(e: any) => e.key === 'Enter' && submit()} />
+        <Show when={passwordError.value}><p class={s.fieldError}>{passwordError.value}</p></Show>
+
+        {/* 错误提示 */}
+        <Show when={error.value}>
+          <div class={s.errorBox}>⚠ {error.value}</div>
+        </Show>
+
+        {/* 提交按钮 */}
+        <button class={s.btn} onClick={submit} disabled={loading.value}>
+          {loading.value ? '⏳ 处理中...' : (isRegister.value ? '注册' : '登录')}
+        </button>
+
+        {/* 切换登录/注册 */}
+        <p class={s.switchLink}
+          onClick={() => { isRegister.value = !isRegister.value; error.value = ''; emailError.value = ''; passwordError.value = '' }}>
+          {computed(() => isRegister.value ? '已有账号？登录 →' : '没有账号？注册 →')}
+        </p>
+
+        <p class={s.footer}>Powered by weifuwu</p>
       </div>
     </div>
   )
@@ -576,19 +627,19 @@ function HomePage(_props: {}, ctx: WfuiContext) {
           </div>
         </Show>
 
-        {/* 创建表单 */}
-        <Show when={showCreate}>
-          <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex gap-3 items-end">
-            <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">名称</label>
-              <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
-                value={newName} onInput={(e: any) => newName.value = e.target.value} placeholder="例如: 我的公司" /></div>
-            <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">标识（slug）</label>
-              <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
-                value={newSlug} onInput={(e: any) => newSlug.value = e.target.value} placeholder="例如: my-company" /></div>
-            <button class="px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600" onClick={createTenant}>创建</button>
-            <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded-md text-sm cursor-pointer hover:bg-gray-300" onClick={() => showCreate.value = false}>取消</button>
+        {/* 创建租户弹窗 */}
+        <Modal show={showCreate.value} onClose={() => showCreate.value = false} title="创建租户">
+          <label class="text-xs text-gray-500 block mb-1">名称</label>
+          <input class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:border-blue-500"
+            value={newName} onInput={(e: any) => newName.value = e.target.value} placeholder="例如: 我的公司" />
+          <label class="text-xs text-gray-500 block mb-1">标识（slug）</label>
+          <input class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4 focus:outline-none focus:border-blue-500"
+            value={newSlug} onInput={(e: any) => newSlug.value = e.target.value} placeholder="例如: my-company" />
+          <div class="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => showCreate.value = false}>取消</Button>
+            <Button onClick={createTenant}>创建</Button>
           </div>
-        </Show>
+        </Modal>
 
         {/* 租户列表 */}
         <div class="grid gap-4">
@@ -652,15 +703,16 @@ function TenantPage(_props: {}, ctx: WfuiContext) {
         </div>
       </div>
       <Show when={loading}><p class="text-gray-400 text-center py-10">加载中...</p></Show>
-      <Show when={showCreate}>
-        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex gap-3 items-end">
-          <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">公司名称</label>
-            <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" value={newName}
-              onInput={(e: any) => newName.value = e.target.value} placeholder="例如: Engineering" /></div>
-          <button class="px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600" onClick={createCompany}>创建</button>
-          <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded-md text-sm cursor-pointer hover:bg-gray-300" onClick={() => showCreate.value = false}>取消</button>
+      {/* 创建公司弹窗 */}
+      <Modal show={showCreate.value} onClose={() => showCreate.value = false} title="创建公司">
+        <label class="text-xs text-gray-500 block mb-1">公司名称</label>
+        <input class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4" value={newName}
+          onInput={(e: any) => newName.value = e.target.value} placeholder="例如: Engineering" />
+        <div class="flex gap-2 justify-end">
+          <Button variant="secondary" onClick={() => showCreate.value = false}>取消</Button>
+          <Button onClick={createCompany}>创建</Button>
         </div>
-      </Show>
+      </Modal>
       <For each={companies}>
         {(c: Company) => (
           <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow mb-4"
@@ -711,18 +763,19 @@ function CompanyPage(_props: {}, ctx: WfuiContext) {
         </div>
       </div>
       <Show when={loading}><p class="text-gray-400 text-center py-10">加载中...</p></Show>
-      <Show when={showCreate}>
-        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4 flex gap-3 items-end">
-          <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">部门名称</label>
-            <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" value={newName}
-              onInput={(e: any) => newName.value = e.target.value} placeholder="例如: AI Team" /></div>
-          <div class="flex-1"><label class="text-xs text-gray-500 block mb-1">描述（可选）</label>
-            <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" value={newDesc}
-              onInput={(e: any) => newDesc.value = e.target.value} placeholder="部门的职责" /></div>
-          <button class="px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600" onClick={createDepartment}>创建</button>
-          <button class="px-4 py-2 bg-gray-200 text-gray-600 rounded-md text-sm cursor-pointer hover:bg-gray-300" onClick={() => showCreate.value = false}>取消</button>
+      {/* 创建部门弹窗 */}
+      <Modal show={showCreate.value} onClose={() => showCreate.value = false} title="创建部门">
+        <label class="text-xs text-gray-500 block mb-1">部门名称</label>
+        <input class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3" value={newName}
+          onInput={(e: any) => newName.value = e.target.value} placeholder="例如: AI Team" />
+        <label class="text-xs text-gray-500 block mb-1">描述（可选）</label>
+        <input class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4" value={newDesc}
+          onInput={(e: any) => newDesc.value = e.target.value} placeholder="部门的职责" />
+        <div class="flex gap-2 justify-end">
+          <Button variant="secondary" onClick={() => showCreate.value = false}>取消</Button>
+          <Button onClick={createDepartment}>创建</Button>
         </div>
-      </Show>
+      </Modal>
       <For each={departments}>
         {(d: Department) => (
           <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow mb-4"
