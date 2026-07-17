@@ -49,6 +49,27 @@ export class Signal<T = unknown> {
   _removeListener(fn: Listener) {
     this.#listeners.delete(fn)
   }
+
+  /**
+   * 可变更新 — 原地修改信号值并触发通知。
+   *
+   * 适用于数组/对象等引用类型：无需创建新引用即可触发更新。
+   *
+   * ```ts
+   * const items = signal([1, 2, 3])
+   * items.mutate(arr => arr.push(4))  // 数组原地修改
+   * // items.value === [1, 2, 3, 4]
+   * ```
+   */
+  mutate(fn: (value: T) => void): void {
+    fn(this.#value)
+    if (_batchDepth > 0) {
+      for (const fn of this.#listeners) _pendingBatch.add(fn)
+    } else {
+      const fns = [...this.#listeners]
+      for (const fn of fns) fn()
+    }
+  }
 }
 
 export function signal<T>(initial: T): Signal<T> {
@@ -122,5 +143,33 @@ export function batch(fn: () => void): void {
       _pendingBatch.clear()
       for (const fn of fns) fn()
     }
+  }
+}
+
+/**
+ * 不追踪依赖地读取信号值。
+ *
+ * 在 effect 中调用 untrack() 读取的信号变化不会触发 effect 重跑。
+ * 适用于读取「一次性」或「不关心变化」的信号。
+ *
+ * ```ts
+ * effect(() => {
+ *   console.log(count.value)          // 追踪 count
+ *   console.log(untrack(() => theme.value))  // 不追踪 theme
+ * })
+ * // count 变化 → effect 重跑
+ * // theme 变化 → 不触发
+ * ```
+ */
+export function untrack<T>(fn: () => T): T {
+  const prevEffect = currentEffect
+  const prevDeps = currentDeps
+  currentEffect = null
+  currentDeps = null
+  try {
+    return fn()
+  } finally {
+    currentEffect = prevEffect
+    currentDeps = prevDeps
   }
 }

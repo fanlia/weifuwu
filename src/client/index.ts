@@ -49,6 +49,17 @@ export { isSignal } from './signal.ts'
  * ```
  */
 export { batch } from './signal.ts'
+/**
+ * 不追踪依赖地读取信号值。在 effect 中使用时，读取的信号变化不会触发重跑。
+ *
+ * ```ts
+ * effect(() => {
+ *   console.log(count.value)                    // 追踪
+ *   console.log(untrack(() => theme.value))     // 不追踪
+ * })
+ * ```
+ */
+export { untrack } from './signal.ts'
 /** Signal 类型。 */
 export type { Signal } from './signal.ts'
 
@@ -225,6 +236,17 @@ export { ws } from './middleware/ws.ts'
  * ```
  */
 export { useForm } from './lib/form.ts'
+
+/**
+ * 异步数据资源管理 — 自动管理 loading / error / data 三态。
+ *
+ * ```tsx
+ * const [data, { loading, error }] = createResource(() => ctx.api.get('/api/posts'))
+ * <Show when={loading}><Skeleton /></Show>
+ * <For each={data}>{(post) => ...}</For>
+ * ```
+ */
+export { createResource } from './lib/resource.ts'
 
 /**
  * 组件级作用域 CSS — 从 CSS-in-JS 对象生成唯一类名，样式自动注入 <head>。

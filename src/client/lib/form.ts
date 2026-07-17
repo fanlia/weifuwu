@@ -32,6 +32,8 @@ export type ValidationRule<T> = {
 export interface UseFormOptions<T extends Record<string, unknown>> {
   initial: T
   validate?: ValidationRule<T>
+  /** 创建时立即运行全部验证，默认 false */
+  validateOnInit?: boolean
 }
 
 export interface UseFormResult<T extends Record<string, unknown>> {
@@ -73,6 +75,11 @@ export function useForm<T extends Record<string, unknown>>(
 
   const valid = signal(true)
   const values = signal<T>({ ...opts.initial })
+
+  // 创建时立即运行全部验证
+  if (opts.validateOnInit && opts.validate) {
+    validateAll()
+  }
 
   // 更新 values 快照
   function snapshot() {

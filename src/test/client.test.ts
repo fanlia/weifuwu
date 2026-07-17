@@ -38,9 +38,10 @@ before(() => {
 
 // ── 导入被测模块 ────────────────────────────────────────────
 
-const { signal, computed, effect, isSignal, batch } = await import('../client/signal.ts')
+const { signal, computed, effect, isSignal, batch, untrack } = await import('../client/signal.ts')
 const { jsx, Show, For, onMount, onCleanup } = await import('../client/jsx-runtime.ts')
 const { useForm } = await import('../client/lib/form.ts')
+const { createResource } = await import('../client/lib/resource.ts')
 
 // ═════════════════════════════════════════════════════════════
 // 信号系统
@@ -171,6 +172,56 @@ describe('effect', () => {
     inner.value = 'i2'
     assert.equal(innerCalls, 2)
     assert.equal(outerCalls, 1) // 外层不触发
+  })
+})
+
+describe('untrack', () => {
+  it('读取信号但不建立依赖', () => {
+    const a = signal(1)
+    const b = signal(10)
+    let lastA = 0
+    let lastUntracked = 0
+
+    effect(() => {
+      lastA = a.value
+      lastUntracked = untrack(() => b.value)
+    })
+    assert.equal(lastA, 1)
+    assert.equal(lastUntracked, 10)
+
+    // b 变化不触发 effect
+    let effectCallsBefore = 0
+    const dispose = effect(() => { effectCallsBefore++; a.value })
+    dispose()
+
+    b.value = 20
+    // lastA 不变（effect 未重跑）
+    assert.equal(lastA, 1)
+  })
+})
+
+describe('signal.mutate', () => {
+  it('原地修改数组并触发通知', () => {
+    const items = signal([1, 2, 3])
+    let lastLen = 0
+    effect(() => { lastLen = items.value.length })
+    assert.equal(lastLen, 3)
+
+    // 使用 mutate 修改数组
+    items.mutate(arr => arr.push(4, 5))
+    assert.equal(items.value.length, 5)
+    assert.equal(lastLen, 5)
+  })
+
+  it('原地修改对象并触发通知', () => {
+    const user = signal({ name: 'Alice', age: 25 })
+    let lastAge = 0
+    effect(() => { lastAge = user.value.age })
+    assert.equal(lastAge, 25)
+
+    user.mutate(obj => { obj.age = 30 })
+    assert.equal(user.value.age, 30)
+    assert.equal(lastAge, 30)
   })
 })
 
@@ -384,6 +435,41 @@ describe('For', () => {
 // useForm
 // ═════════════════════════════════════════════════════════════
 
+describe('createResource', () => {
+  it('初始状态 loading=true', () => {
+    const { loading } = createResource(async () => 'data')
+    assert.equal(loading.value, true)
+  })
+
+  it('加载完成后 data 有值, loading=false', async () => {
+    const res = createResource(async () => 'hello')
+    // 等待微任务队列处理 Promise
+    await new Promise(r => setTimeout(r, 0))
+    assert.equal(res.loading.value, false)
+    assert.equal(res.data.value, 'hello')
+    assert.equal(res.error.value, null)
+  })
+
+  it('加载失败时 error 有值', async () => {
+    const res = createResource(async () => { throw new Error('fail') })
+    await new Promise(r => setTimeout(r, 0))
+    assert.equal(res.loading.value, false)
+    assert.equal(res.data.value, undefined)
+    assert.equal(res.error.value?.message, 'fail')
+  })
+
+  it('refetch 重新加载', async () => {
+    let count = 0
+    const res = createResource(async () => { count++; return `data-${count}` })
+    await new Promise(r => setTimeout(r, 0))
+    assert.equal(res.data.value, 'data-1')
+
+    res.refetch()
+    await new Promise(r => setTimeout(r, 0))
+    assert.equal(res.data.value, 'data-2')
+  })
+})
+
 describe('useForm', () => {
   it('初始化字段值', () => {
     const form = useForm({ initial: { email: '', password: '' } })
@@ -457,5 +543,24 @@ describe('useForm', () => {
     const field = form.field('email')
     field.onInput({ target: { value: 'a', type: 'text' } } as any)
     assert.equal(form.touched.email, true)
+  })
+
+  it('validateOnInit 创建时即运行验证', () => {
+    const form = useForm({
+      initial: { email: '' },
+      validate: { email: (v) => !v && '必填' },
+      validateOnInit: true,
+    })
+    assert.equal(form.errors.email, '必填')
+    assert.equal(form.valid.value, false)
+  })
+
+  it('validateOnInit=false 不初始化验证', () => {
+    const form = useForm({
+      initial: { email: '' },
+      validate: { email: (v) => !v && '必填' },
+    })
+    assert.equal(form.errors.email, null)
+    assert.equal(form.valid.value, true)
   })
 })
