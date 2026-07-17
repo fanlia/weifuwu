@@ -83,7 +83,7 @@ function DepartmentChat({ conversationId, agents }: { conversationId: string; ag
 
   // 加载消息
   onMount(() => {
-    ctx.api.get<ChatMessage[]>(`/api/conversations/${conversationId}/messages`).then((msgs) => {
+    ctx.api.get<ChatMessage[]>(`/conversations/${conversationId}/messages`).then((msgs) => {
       messages.value = Array.isArray(msgs) ? msgs.slice().reverse() : []
       loading.value = false
     }).catch(() => loading.value = false)
@@ -135,7 +135,7 @@ function DepartmentChat({ conversationId, agents }: { conversationId: string; ag
     showAgentPicker.value = false
 
     // 发送消息（服务端会通过 WebSocket 广播给所有在线成员）
-    const msg = await ctx.api.post<ChatMessage>('/api/messages', { conversationId, body: text })
+    const msg = await ctx.api.post<ChatMessage>('/messages', { conversationId, body: text })
     messages.value = [...messages.value, msg]
 
     // 检测 @AI Agent
@@ -382,7 +382,7 @@ function OnboardingWizard({ onDone }: { onDone: () => void }, _ctx: WfuiContext)
   const createAndGo = async () => {
     creating.value = true
     try {
-      const t = await ctx.api.post<any>('/api/tenants', { name: newName.value || '我的团队', slug: newSlug.value || 'my-team' })
+      const t = await ctx.api.post<any>('/tenants', { name: newName.value || '我的团队', slug: newSlug.value || 'my-team' })
       showToast('🎉 租户创建成功！', 'success')
       onDone()
       setTimeout(() => ctx.app.navigate(`/tenant/${t.id}`), 300)
@@ -434,7 +434,7 @@ function HomePage(_props: {}, ctx: WfuiContext) {
   const loadError = signal('')
 
   onMount(() => {
-    ctx.api.get<Tenant[]>('/api/tenants').then(list => {
+    ctx.api.get<Tenant[]>('/tenants').then(list => {
       tenants.value = list
       loading.value = false
       if (list.length === 0) showOnboarding.value = true
@@ -446,7 +446,7 @@ function HomePage(_props: {}, ctx: WfuiContext) {
 
   const createTenant = async () => {
     try {
-      const t = await ctx.api.post<Tenant>('/api/tenants', { name: newName.value, slug: newSlug.value })
+      const t = await ctx.api.post<Tenant>('/tenants', { name: newName.value, slug: newSlug.value })
       tenants.value = [...tenants.value, t]; showCreate.value = false; newName.value = ''; newSlug.value = ''
       showToast('租户创建成功！', 'success')
     } catch (e: any) {
@@ -487,7 +487,7 @@ function HomePage(_props: {}, ctx: WfuiContext) {
         <Show when={loadError}>
           <div class="bg-red-50 text-red-600 rounded-xl p-4 mb-4 text-sm">
             加载失败: {loadError}
-            <button class="ml-2 underline cursor-pointer" onClick={() => { loading.value = true; loadError.value = ''; ctx.api.get('/api/tenants').then(l => { tenants.value = l; loading.value = false; if (l.length === 0) showOnboarding.value = true }).catch(e => { loading.value = false; loadError.value = e.message }) }}>重试</button>
+            <button class="ml-2 underline cursor-pointer" onClick={() => { loading.value = true; loadError.value = ''; ctx.api.get('/tenants').then(l => { tenants.value = l; loading.value = false; if (l.length === 0) showOnboarding.value = true }).catch(e => { loading.value = false; loadError.value = e.message }) }}>重试</button>
           </div>
         </Show>
 
@@ -543,14 +543,14 @@ function TenantPage(_props: {}, ctx: WfuiContext) {
 
   onMount(() => {
     Promise.all([
-      ctx.api.get<Tenant>(`/api/tenants/${tenantId}`).then(t => tenant.value = t),
-      ctx.api.get<Company[]>(`/api/tenants/${tenantId}/companies`).then(list => companies.value = list),
+      ctx.api.get<Tenant>(`/tenants/${tenantId}`).then(t => tenant.value = t),
+      ctx.api.get<Company[]>(`/tenants/${tenantId}/companies`).then(list => companies.value = list),
     ]).finally(() => loading.value = false)
   })
 
   const createCompany = async () => {
     try {
-      const c = await ctx.api.post<Company>(`/api/tenants/${tenantId}/companies`, { name: newName.value })
+      const c = await ctx.api.post<Company>(`/tenants/${tenantId}/companies`, { name: newName.value })
       companies.value = [...companies.value, c]; showCreate.value = false; newName.value = ''
       showToast('公司创建成功！', 'success')
     } catch (e: any) { showToast('创建失败: ' + (e?.message || '未知错误'), 'error') }
@@ -602,14 +602,14 @@ function CompanyPage(_props: {}, ctx: WfuiContext) {
 
   onMount(() => {
     Promise.all([
-      ctx.api.get<Company>(`/api/companies/${companyId}`).then(c => company.value = c),
-      ctx.api.get<Department[]>(`/api/companies/${companyId}/departments`).then(list => departments.value = list),
+      ctx.api.get<Company>(`/companies/${companyId}`).then(c => company.value = c),
+      ctx.api.get<Department[]>(`/companies/${companyId}/departments`).then(list => departments.value = list),
     ]).finally(() => loading.value = false)
   })
 
   const createDepartment = async () => {
     try {
-      const d = await ctx.api.post<Department>(`/api/companies/${companyId}/departments`, { name: newName.value, description: newDesc.value || undefined })
+      const d = await ctx.api.post<Department>(`/companies/${companyId}/departments`, { name: newName.value, description: newDesc.value || undefined })
       departments.value = [...departments.value, d]; showCreate.value = false; newName.value = ''; newDesc.value = ''
       showToast('部门创建成功！已自动创建聊天会话。', 'success')
     } catch (e: any) { showToast('创建失败: ' + (e?.message || '未知错误'), 'error') }
@@ -676,8 +676,8 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
 
   onMount(async () => {
     const [d, ag] = await Promise.all([
-      ctx.api.get<Department>(`/api/departments/${deptId}`),
-      ctx.api.get<Agent[]>(`/api/departments/${deptId}/agents`),
+      ctx.api.get<Department>(`/departments/${deptId}`),
+      ctx.api.get<Agent[]>(`/departments/${deptId}/agents`),
     ])
     dept.value = d; agents.value = ag
   })
@@ -686,14 +686,14 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
 
   const openAddAgent = async () => {
     showAddAgent.value = true
-    allAgents.value = await ctx.api.get<Agent[]>('/api/agents')
+    allAgents.value = await ctx.api.get<Agent[]>('/agents')
   }
 
   const addAgent = async () => {
     if (!selectedAgentId.value) return
     try {
-      await ctx.api.post(`/api/departments/${deptId}/agents`, { agentId: selectedAgentId.value, role: 'member' })
-      agents.value = await ctx.api.get<Agent[]>(`/api/departments/${deptId}/agents`)
+      await ctx.api.post(`/departments/${deptId}/agents`, { agentId: selectedAgentId.value, role: 'member' })
+      agents.value = await ctx.api.get<Agent[]>(`/departments/${deptId}/agents`)
       showAddAgent.value = false; selectedAgentId.value = ''
       showToast('Agent 已加入部门', 'success')
     } catch (e: any) { showToast('添加失败: ' + (e?.message || '未知错误'), 'error') }
@@ -705,7 +705,7 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
 
   const loadKBDocs = async () => {
     kbLoading.value = true
-    kbDocs.value = await ctx.api.get<KBDoc[]>(`/api/departments/${deptId}/kb/documents`)
+    kbDocs.value = await ctx.api.get<KBDoc[]>(`/departments/${deptId}/kb/documents`)
     kbLoading.value = false
   }
 
@@ -717,7 +717,7 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
   const importDoc = async () => {
     if (!importTitle.value || !importContent.value) return
     try {
-      await ctx.api.post(`/api/departments/${deptId}/kb/import`, {
+      await ctx.api.post(`/departments/${deptId}/kb/import`, {
         title: importTitle.value,
         content: importContent.value,
         source: importSource.value || undefined,
@@ -730,7 +730,7 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
 
   const searchKB = async () => {
     if (!searchQuery.value) return
-    searchResults.value = await ctx.api.post<any[]>(`/api/departments/${deptId}/kb/search`, { query: searchQuery.value })
+    searchResults.value = await ctx.api.post<any[]>(`/departments/${deptId}/kb/search`, { query: searchQuery.value })
   }
 
   const s = createStyles({
@@ -887,7 +887,7 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
 
   onMount(async () => {
     try {
-      const list = await ctx.api.get<Tenant[]>('/api/tenants')
+      const list = await ctx.api.get<Tenant[]>('/tenants')
       tenants.value = list; loading.value = false
       if (list.length > 0) { expanded.value = { ...expanded.value, [list[0].id]: true }; await loadCompanies(list[0].id) }
     } catch (e: any) {
@@ -898,11 +898,11 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
 
   const loadCompanies = async (id: string) => {
     if (companiesMap.value[id]) return
-    companiesMap.value = { ...companiesMap.value, [id]: await ctx.api.get<Company[]>(`/api/tenants/${id}/companies`) }
+    companiesMap.value = { ...companiesMap.value, [id]: await ctx.api.get<Company[]>(`/tenants/${id}/companies`) }
   }
   const loadDepartments = async (id: string) => {
     if (departmentsMap.value[id]) return
-    departmentsMap.value = { ...departmentsMap.value, [id]: await ctx.api.get<Department[]>(`/api/companies/${id}/departments`) }
+    departmentsMap.value = { ...departmentsMap.value, [id]: await ctx.api.get<Department[]>(`/companies/${id}/departments`) }
   }
 
   const toggleTenant = async (id: string) => {
