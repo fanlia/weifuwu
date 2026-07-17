@@ -37,8 +37,8 @@ export const LoginForm: Component<{}> = (_props, ctx: WfuiContext) => {
       } else {
         await ctx.register({ email: email.value, name: name.value, password: password.value })
       }
-    } catch (e: any) {
-      error.value = e.message ?? '操作失败'
+    } catch (e) {
+      error.value = (e as Error).message ?? '操作失败'
     } finally {
       loading.value = false
     }
@@ -54,22 +54,22 @@ export const LoginForm: Component<{}> = (_props, ctx: WfuiContext) => {
           <button class={mode.value === 'register' ? 'active' : ''} onClick={() => mode.value = 'register'}>注册</button>
         </div>
 
-        <form onSubmit={(e: any) => { e.preventDefault(); submit() }}>
+        <form onSubmit={(e: Event) => { e.preventDefault(); submit() }}>
           <Show when={isRegister}>
             <div class="wefu-field">
               <label>昵称</label>
-              <input value={name} onInput={(e: any) => name.value = e.target.value} placeholder="你的昵称" />
+              <input value={name} onInput={(e: Event) => name.value = (e.target as HTMLInputElement).value} placeholder="你的昵称" />
             </div>
           </Show>
 
           <div class="wefu-field">
             <label>邮箱</label>
-            <input type="email" value={email} onInput={(e: any) => email.value = e.target.value} placeholder="邮箱" />
+            <input type="email" value={email} onInput={(e: Event) => email.value = (e.target as HTMLInputElement).value} placeholder="邮箱" />
           </div>
 
           <div class="wefu-field">
             <label>密码</label>
-            <input type="password" value={password} onInput={(e: any) => password.value = e.target.value} placeholder="密码" />
+            <input type="password" value={password} onInput={(e: Event) => password.value = (e.target as HTMLInputElement).value} placeholder="密码" />
           </div>
 
           <Show when={hasError}>

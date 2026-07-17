@@ -26,7 +26,7 @@ function isModifiedEvent(e: MouseEvent): boolean {
   return e.metaKey || e.altKey || e.ctrlKey || e.shiftKey || e.button === 1
 }
 
-export const Link: Component<{ to: string; class?: string; children?: any }> = (props, ctx: WfuiContext) => {
+export const Link: Component<{ to: string; class?: string; children?: Node | string | (Node | string)[] }> = (props, ctx: WfuiContext) => {
   const { to, class: cls, children } = props
 
   const anchor = document.createElement('a')

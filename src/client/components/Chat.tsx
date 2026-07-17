@@ -33,8 +33,8 @@ export const Chat: Component<{ conversationId: string }> = ({ conversationId }, 
   const isEmpty = signal(false)
 
   // 加载消息
-  ctx.api.get(`/api/conversations/${conversationId}/messages`).then((msgs: any) => {
-    messages.value = Array.isArray(msgs) ? msgs.reverse() : []
+  ctx.api.get<ChatMessage[]>(`/api/conversations/${conversationId}/messages`).then((msgs) => {
+    messages.value = Array.isArray(msgs) ? msgs.slice().reverse() : []
     loading.value = false
     isEmpty.value = messages.value.length === 0
   }).catch(() => {
@@ -43,7 +43,8 @@ export const Chat: Component<{ conversationId: string }> = ({ conversationId }, 
   })
 
   // WebSocket 实时消息 — 组件卸载时自动取消订阅
-  const unsub = ctx.ws.onMessage((data: any) => {
+  const unsub = ctx.ws.onMessage((raw: unknown) => {
+    const data = raw as ChatMessage & { conversation_id?: string }
     if (data.conversation_id === conversationId) {
       messages.value = [...messages.value, data]
       isEmpty.value = false
@@ -87,8 +88,8 @@ export const Chat: Component<{ conversationId: string }> = ({ conversationId }, 
       <div class="wefu-chat-input">
         <input
           value={input}
-          onInput={(e: any) => input.value = e.target.value}
-          onKeyDown={(e: any) => { if (e.key === 'Enter') send() }}
+          onInput={(e: Event) => input.value = (e.target as HTMLInputElement).value}
+          onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Enter') send() }}
           placeholder="输入消息..."
         />
         <button class="wefu-btn" onClick={send}>发送</button>

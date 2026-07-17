@@ -34,7 +34,7 @@ export interface TransitionProps {
   name?: string
   /** 动画超时回退（毫秒），默认 300 */
   duration?: number
-  children: any
+  children: Node | (() => Node)
 }
 
 /**

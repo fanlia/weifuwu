@@ -1,0 +1,102 @@
+{
+	"Signal": {
+		"prefix": ["signal", "sig"],
+		"body": ["const ${1:name} = signal(${2:initial})$0"],
+		"description": "Create a reactive signal"
+	},
+	"Computed": {
+		"prefix": ["computed", "comp"],
+		"body": ["const ${1:name} = computed(() => ${0})"],
+		"description": "Create a derived signal"
+	},
+	"Effect": {
+		"prefix": ["effect", "eff"],
+		"body": ["effect(() => {", "\t${0}", "})"],
+		"description": "Create an auto-tracked side effect"
+	},
+	"Batch": {
+		"prefix": ["batch"],
+		"body": ["batch(() => {", "\t${0}", "})"],
+		"description": "Batch multiple signal writes into one notification"
+	},
+	"OnMount": {
+		"prefix": ["onMount", "mount"],
+		"body": ["onMount(() => {", "\t${0}", "})"],
+		"description": "Register a mount callback"
+	},
+	"OnCleanup": {
+		"prefix": ["onCleanup", "cleanup"],
+		"body": ["onCleanup(() => {", "\t${0}", "})"],
+		"description": "Register a cleanup callback"
+	},
+	"Show": {
+		"prefix": ["Show"],
+		"body": ["<Show when={${1}}>", "\t${2}", "</Show>$0"],
+		"description": "Conditional rendering with Show"
+	},
+	"Show with fallback": {
+		"prefix": ["Show-fallback"],
+		"body": ["<Show when={${1}} fallback={<${2}>}>", "\t${3}", "</Show>$0"],
+		"description": "Conditional rendering with fallback"
+	},
+	"For": {
+		"prefix": ["For"],
+		"body": ["<For each={${1}}>", "\t{(${2:item}) => (", "\t\t${0}", "\t)}", "</For>"],
+		"description": "List rendering with For"
+	},
+	"For with key": {
+		"prefix": ["For-key", "For-keyBy"],
+		"body": ["<For each={${1}} keyBy=\"${2:id}\">", "\t{(${3:item}) => (", "\t\t${0}", "\t)}", "</For>"],
+		"description": "Keyed list rendering"
+	},
+	"Component": {
+		"prefix": ["component", "comp-fn"],
+		"body": ["function ${1:MyComponent}(_props: {}, ctx: WfuiContext) {", "\treturn (", "\t\t${0}", "\t)", "}"],
+		"description": "Create a weifuwu/client component"
+	},
+	"Link": {
+		"prefix": ["Link"],
+		"body": ["<Link to=\"${1}\">${0}</Link>"],
+		"description": "SPA navigation Link"
+	},
+	"CreateResource": {
+		"prefix": ["createResource", "resource"],
+		"body": ["const [${1:data}, { loading, error }] = createResource(async () => {", "\t${0}", "})"],
+		"description": "Create an async resource with loading/error states"
+	},
+	"Transition": {
+		"prefix": ["Transition", "trans"],
+		"body": ["<Transition show={${1}} name=\"${2:fade}\">", "\t${3}", "</Transition>$0"],
+		"description": "Animated enter/leave Transition"
+	},
+	"UseForm": {
+		"prefix": ["useForm", "form"],
+		"body": ["const form = useForm({", "\tinitial: { ${0} },", "\tvalidate: {", "\t\t${1}: (v) => !v && '${2:必填}',", "\t},", "})"],
+		"description": "Form state management"
+	},
+	"CreateStyles": {
+		"prefix": ["createStyles", "styles"],
+		"body": ["const s = createStyles({", "\t${1:container}: '${0}',", "})"],
+		"description": "Scoped CSS styles"
+	},
+	"UseModel": {
+		"prefix": ["useModel", "model"],
+		"body": ["<input {...useModel(${1:signal})} placeholder=\"${0}\" />"],
+		"description": "Two-way form binding"
+	},
+	"ReactiveArray": {
+		"prefix": ["reactiveArray", "rarr"],
+		"body": ["const ${1:items} = reactiveArray([${0}])"],
+		"description": "Create a reactive array with mutable methods"
+	},
+	"ErrorBoundary": {
+		"prefix": ["ErrorBoundary", "error-boundary"],
+		"body": ["<ErrorBoundary fallback={(${1:e}) => <p>${2:Error}</p>}>", "\t{() => ${0}}", "</ErrorBoundary>"],
+		"description": "Error boundary for catching render errors"
+	},
+	"CreateContext": {
+		"prefix": ["createContext", "ctx-factory"],
+		"body": ["const ${1:Theme}Ctx = createContext<${2:string}>('${3}')"],
+		"description": "Type-safe context factory"
+	}
+}
