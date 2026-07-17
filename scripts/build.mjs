@@ -46,18 +46,22 @@ await esbuild.build({
   outfile: join(distDir, 'client', 'index.js'),
   format: 'esm',
   platform: 'browser',
+  jsx: 'automatic',
+  jsxImportSource: 'weifuwu/client',
   bundle: true,
-  external: [],
+  external: ['weifuwu/client/jsx-runtime'],
 })
 
-// 前端 jsx-runtime（指向同一个文件）
+// 前端 jsx-runtime（指向同一个文件，外部引用到此为止）
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'index.ts')],
   outfile: join(distDir, 'client', 'jsx-runtime.js'),
   format: 'esm',
   platform: 'browser',
+  jsx: 'automatic',
+  jsxImportSource: 'weifuwu/client',
   bundle: true,
-  external: [],
+  external: ['weifuwu/client/jsx-runtime'],
 })
 
 console.log('Build complete.')

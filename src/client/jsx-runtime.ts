@@ -105,9 +105,15 @@ declare global {
       iframe: HtmlIframe
     }
 
+    // ── children 类型 ──
+
+    /** JSX 子节点类型 — 支持文本、节点、Signal、数组、函数 */
+    type Children = Node | string | number | boolean | null | undefined | Signal<any> | Children[] | (() => Children)
+
     // ── 基础属性 ──
 
     interface WfuiAttributes<T> {
+      children?: Children
       class?: string | Signal<string>
       className?: string | Signal<string>
       id?: string
@@ -370,11 +376,53 @@ export function getCtx(): WfuiContext | null {
   return currentCtx
 }
 
+// ── 生命周期 ─────────────────────────────────────────────────
+
+/**
+ * onMount — 组件挂载到 DOM 后执行的回调。
+ *
+ * 在组件函数中调用，注册一个函数，当组件的根元素进入文档时执行。
+ * 返回函数在组件卸载时自动清理。
+ *
+ * ```tsx
+ * function Chart() {
+ *   onMount(() => {
+ *     const chart = echarts.init(document.getElementById('chart')!)
+ *     return () => chart.dispose()
+ *   })
+ *   return <div id="chart" style="width:100%;height:400px" />
+ * }
+ * ```
+ */
+export function onMount(fn: () => (() => void) | void): void {
+  if (_pendingMountQueue) _pendingMountQueue.push(fn)
+}
+
+/**
+ * onCleanup — 组件卸载时执行的回调。
+ *
+ * ```tsx
+ * function Timer() {
+ *   const id = setInterval(() => console.log('tick'), 1000)
+ *   onCleanup(() => clearInterval(id))
+ *   return <div>Timer running</div>
+ * }
+ * ```
+ */
+export function onCleanup(fn: () => void): void {
+  if (_pendingCleanupQueue) _pendingCleanupQueue.push(fn)
+}
+
 // ── 类型 ────────────────────────────────────────────────────
 
 export type Component<P = {}> = (props: P, ctx: WfuiContext) => Node
 
 // ── 工具 ─────────────────────────────────────────────────────
+
+/** 当前组件渲染中积攒的 onMount 回调 */
+let _pendingMountQueue: (() => (() => void) | void)[] | null = null
+/** 当前组件渲染中积攒的 onCleanup 回调 */
+let _pendingCleanupQueue: (() => void)[] | null = null
 
 interface _Entry {
   mounted: boolean
@@ -427,7 +475,7 @@ function _ensure(el: Element): _Entry {
 }
 
 /** @internal 元素进入文档时执行回调，返回函数在元素离开时自动清理 */
-function onMount(el: Element, fn: () => (() => void) | void): void {
+function _onMountElement(el: Element, fn: () => (() => void) | void): void {
   const entry = _ensure(el)
   if (entry.mounted) {
     const dispose = fn()
@@ -471,7 +519,7 @@ export function wrap<P = {}>(
 ): Component<P> {
   return (props: P, ctx: WfuiContext): Node => {
     const el = document.createElement(tagName)
-    onMount(el, () => setup(el, props, ctx))
+    _onMountElement(el, () => setup(el, props, ctx))
     return el
   }
 }
@@ -524,7 +572,49 @@ export function jsx(
 ): Node {
   if (typeof type === 'function') {
     const merged = children.length > 0 ? { ...props, children } : props
-    return (type as any)(merged, currentCtx) ?? document.createDocumentFragment()
+
+    // ── 组件生命周期管理 ──
+    // 每层组件调用维护独立的 mount/cleanup 队列
+    const prevMount = _pendingMountQueue
+    const prevCleanup = _pendingCleanupQueue
+    _pendingMountQueue = []
+    _pendingCleanupQueue = []
+
+    let result: Node = document.createDocumentFragment()
+    try {
+      result = (type as any)(merged, currentCtx) ?? document.createDocumentFragment()
+    } finally {
+      // 将本层组件的生命周期回调关联到返回的根元素
+      if (_pendingMountQueue.length > 0 || _pendingCleanupQueue.length > 0) {
+        let targetEl: Element | null = null
+        if (result instanceof Element) {
+          targetEl = result
+        } else if (result instanceof DocumentFragment && result.firstElementChild) {
+          targetEl = result.firstElementChild
+        }
+
+        if (targetEl) {
+          const entry = _ensure(targetEl)
+          for (const fn of _pendingMountQueue) {
+            if (entry.mounted) {
+              const dispose = fn()
+              if (typeof dispose === 'function') entry.disposeFns.push(dispose)
+            } else {
+              entry.mountFns.push(fn)
+            }
+          }
+          for (const fn of _pendingCleanupQueue) {
+            entry.disposeFns.push(fn)
+          }
+        }
+      }
+
+      // 恢复上层组件的队列
+      _pendingMountQueue = prevMount
+      _pendingCleanupQueue = prevCleanup
+    }
+
+    return result
   }
 
   const el = document.createElement(type)
@@ -646,10 +736,11 @@ export function Show({ when, children, fallback }: {
   children?: Node | (() => Node)
   fallback?: Node | (() => Node)
 }): Node {
-  const el = document.createElement('div')
+  const el = document.createDocumentFragment()
 
   function render(show: boolean) {
-    el.textContent = ''
+    // 清空子节点（DocumentFragment 不支持 textContent）
+    while (el.lastChild) el.lastChild.remove()
     if (show && children != null) {
       el.appendChild(toNode(children))
     } else if (!show && fallback != null) {
@@ -668,22 +759,86 @@ export function Show({ when, children, fallback }: {
 /**
  * 列表渲染 — each 为 Signal 时响应式更新
  *
+ * 支持 keyBy 属性实现 keyed 渲染：已有 key 的节点复用，新增/删除节点最小化 DOM 操作。
+ *
  * ```tsx
- * <For each={items}>
+ * <For each={items} keyBy="id">
  *   {(item) => <div>{item.name}</div>}
  * </For>
  * ```
  */
-export function For<T>({ each, children }: {
+export function For<T>({ each, children, keyBy }: {
   each: T[] | Signal<T[]>
   children: (item: T, index: number) => Node
+  /**
+   * key 提取方式：字段名（如 'id'）或 (item) => string 函数。
+   * 省略时退化为全量重建（原行为）。
+   */
+  keyBy?: keyof T | ((item: T) => string)
 }): Node {
-  const el = document.createElement('div')
+  const el = document.createDocumentFragment()
+
+  function getKey(item: T, index: number): string {
+    if (typeof keyBy === 'function') return keyBy(item)
+    if (typeof keyBy === 'string') return String(item[keyBy] ?? index)
+    return String(index)
+  }
 
   function render(list: T[]) {
-    el.textContent = ''
+    if (!keyBy) {
+      // 无 key：全量重建（原行为）
+      while (el.lastChild) el.lastChild.remove()
+      for (let i = 0; i < list.length; i++) {
+        el.appendChild(children(list[i], i))
+      }
+      return
+    }
+
+    // Keyed 渲染：复用已有 DOM 节点
+    const oldNodes = Array.from(el.childNodes).filter((n): n is Element => n instanceof Element)
+    const oldKeyMap = new Map<string, Element>()
+    for (const node of oldNodes) {
+      const k = node.getAttribute('data-key')
+      if (k !== null) oldKeyMap.set(k, node)
+    }
+
+    // 构建新 key 列表
+    const newKeys: string[] = []
+    const newItems: T[] = []
     for (let i = 0; i < list.length; i++) {
-      el.appendChild(children(list[i], i))
+      newKeys.push(getKey(list[i], i))
+      newItems.push(list[i])
+    }
+
+    // 收集需要移除的 key（旧有但新没有）
+    const removedKeys = new Set(oldKeyMap.keys())
+    for (const k of newKeys) removedKeys.delete(k)
+
+    // 移除消失的节点
+    for (const k of removedKeys) {
+      const node = oldKeyMap.get(k)!
+      node.remove()
+      oldKeyMap.delete(k)
+    }
+
+    // 按正确顺序排列节点
+    let insertBefore: Node | null = el.firstChild
+    for (let i = list.length - 1; i >= 0; i--) {
+      const key = newKeys[i]
+      const existing = oldKeyMap.get(key)
+      if (existing) {
+        // 已存在：移动到正确位置
+        el.insertBefore(existing, insertBefore)
+        insertBefore = existing
+      } else {
+        // 新节点：创建并插入
+        const node = children(newItems[i], i)
+        if (node instanceof Element) {
+          node.setAttribute('data-key', key)
+        }
+        el.insertBefore(node, insertBefore)
+        insertBefore = node
+      }
     }
   }
 

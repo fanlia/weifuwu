@@ -499,6 +499,95 @@ Tailwind CSS v4 support: add `@import 'tailwindcss'` to your CSS entry file. `ct
 
 ---
 
+## Quick Start (Frontend Only)
+
+You can use `weifuwu/client` standalone — just build with esbuild:
+
+```bash
+npm install weifuwu esbuild
+```
+
+**src/main.tsx:**
+```tsx
+import { signal, computed, Show, For, createStyles, domMount } from 'weifuwu/client'
+
+const todos = signal([
+  { id: 1, text: 'Learn weifuwu', done: false },
+  { id: 2, text: 'Build an app', done: false },
+])
+const input = signal('')
+const filter = signal<'all' | 'active' | 'done'>('all')
+
+const filtered = computed(() => {
+  const f = filter.value
+  return todos.value.filter(t => f === 'all' ? true : f === 'active' ? !t.done : t.done)
+})
+
+const s = createStyles({
+  container: 'max-width: 400px; margin: 40px auto; font-family: system-ui;',
+  input: 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;',
+  item: 'display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid #eee;',
+  done: 'text-decoration: line-through; color: #999;',
+  btn: 'padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer;',
+  btnActive: 'padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; background: #0066ff; color: white;',
+})
+
+function App() {
+  return (
+    <div class={s.container}>
+      <h1>Todo</h1>
+      <div style="display: flex; gap: 4px; margin-bottom: 12px;">
+        {(['all', 'active', 'done'] as const).map(f => (
+          <button class={filter.value === f ? s.btnActive : s.btn}
+            onClick={() => filter.value = f}>{f}</button>
+        ))}
+      </div>
+      <div style="display: flex; gap: 4px;">
+        <input class={s.input} value={input}
+          onInput={(e: any) => input.value = e.target.value}
+          onKeyDown={(e: any) => e.key === 'Enter' && addTodo()}
+          placeholder="Add todo..." />
+        <button class={s.btn} onClick={addTodo}>+</button>
+      </div>
+      <For each={filtered}>
+        {(todo: any) => (
+          <div class={s.item}>
+            <input type="checkbox" checked={todo.done}
+              onChange={() => toggleTodo(todo.id)} />
+            <span class={todo.done ? s.done : ''}>{todo.text}</span>
+          </div>
+        )}
+      </For>
+    </div>
+  )
+}
+
+function addTodo() {
+  const text = input.value.trim()
+  if (!text) return
+  todos.value = [...todos.value, { id: Date.now(), text, done: false }]
+  input.value = ''
+}
+function toggleTodo(id: number) {
+  todos.value = todos.value.map(t => t.id === id ? { ...t, done: !t.done } : t)
+}
+
+domMount('#root', <App />)
+```
+
+**Build & run:**
+```bash
+npx esbuild src/main.tsx --jsx=automatic --jsxImportSource=weifuwu/client --bundle --outfile=dist/app.js
+```
+
+Create `index.html` and open in browser:
+```html
+<!DOCTYPE html><html><body><div id="root"></div>
+<script src="dist/app.js"></script></body></html>
+```
+
+---
+
 ## Frontend — weifuwu/client
 
 Reactive frontend framework. Zero virtual DOM, zero external dependencies. Component model: `(props, ctx) => Node`.
@@ -708,6 +797,75 @@ apps/demo/              ← Full-stack demo
 
 docker-compose.yml      ← postgres (pgvector) + redis
 ```
+
+---
+
+## From React to weifuwu/client
+
+If you know React, you already know most of weifuwu/client. Here's a direct mapping:
+
+### State
+
+| React | weifuwu/client |
+|-------|----------------|
+| `useState(0)` | `signal(0)` |
+| `useMemo(() => a * 2, [a])` | `computed(() => a.value * 2)` |
+| `useEffect(() => {...}, [])` | `effect(() => {...})` + `onCleanup(() => {...})` |
+| `useRef(null)` | `signal(null)` |
+| `useCallback(fn, [])` | Plain function — no memo needed |
+
+### Rendering
+
+| React | weifuwu/client |
+|-------|----------------|
+| `props.children` | `props.children` |
+| `{condition && <X/>}` | `<Show when={condition}><X/></Show>` |
+| `{items.map(i => <X/>)}` | `<For each={items}>{(i) => <X/>}</For>` |
+| `<React.Fragment>` | `<></>` (same) |
+| `onClick={handler}` | `onClick={handler}` (same) |
+| `className={...}` | `class={...}` |
+| `dangerouslySetInnerHTML` | N/A — use `innerHTML` via `ref` |
+
+### Component Model
+
+```tsx
+// React
+function Card({ title, children }: { title: string; children: ReactNode }) {
+  return <div className="card"><h2>{title}</h2>{children}</div>
+}
+
+// weifuwu/client — same shape, different types
+function Card({ title, children }: { title: string; children: any }, ctx: WfuiContext) {
+  return <div class="card"><h2>{title}</h2>{children}</div>
+}
+```
+
+### What you DON'T need
+
+- **No hooks rules** — no `use` prefix, no rules-of-hooks. Signal is just a function.
+- **No virtual DOM** — JSX creates real DOM nodes directly. No diffing, no reconciliation.
+- **No `useEffect` dependency arrays** — `effect()` auto-tracks signal dependencies.
+- **No `useMemo` / `useCallback`** — `computed()` for derived values, plain functions for callbacks.
+- **No `useRef`** — use `signal()` or `ref` callback.
+- **No Context Provider component** — `ctx.provide(key, val)` / `ctx.inject(key)` or typed `createContext()`.
+- **No class components** — only functions.
+- **No state management library** — signal is the state management.
+
+### Key difference: `ctx`
+
+In React, data flows through props and Context. In weifuwu/client, the second argument `ctx` carries all environment:
+
+```tsx
+function Page(props: {}, ctx: WfuiContext) {
+  ctx.route.path       // current route
+  ctx.api.get(...)     // HTTP client
+  ctx.ws.send(...)     // WebSocket
+  ctx.user             // current user (if auth middleware used)
+  ctx.provide(key, v)  // provide to descendants
+}
+```
+
+No need to import Router hooks, HTTP clients, or auth helpers — they're all in `ctx`.
 
 ---
 

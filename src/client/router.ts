@@ -79,18 +79,24 @@ export function router(opts: RouterOptions): AppMiddleware {
         return
       }
 
-      // 先触发渲染（组件内部显示 loading）
-      emit(ctx.route.path)
-
-      // 异步加载数据
+      // 有 loader：先设 loading=true 触发渲染，再异步加载
       if (routeDef?.loader) {
+        ctx.route.loading = true
+        emit(ctx.route.path)
+
         routeDef.loader(ctx).then(data => {
           ctx.route.data = data
+          ctx.route.loading = false
           emit(ctx.route.path)
         }).catch(() => {
           ctx.route.data = {}
+          ctx.route.loading = false
           emit(ctx.route.path)
         })
+      } else {
+        // 无 loader：直接渲染，loading=false
+        ctx.route.loading = false
+        emit(ctx.route.path)
       }
     }
 
@@ -126,13 +132,33 @@ export function router(opts: RouterOptions): AppMiddleware {
 
 /**
  * RouteView — 渲染当前路由匹配的组件
+ *
+ * 智能切换逻辑：
+ * - 同一路径重复触发（如 loader 完成后的二次 emit）→ 跳过，保留已有 DOM
+ * - 路径/组件变化 → 替换 DOM（正常路由切换）
  */
 export function RouteView(_props: {}, ctx: WfuiContext): Node {
   const el = document.createElement('div')
+  let currentPath = ''
+  let currentComponent: Component | null = null
 
   function render() {
     const Component = ctx.route.component
-    if (!Component) { el.textContent = ''; return }
+    const path = ctx.route.path
+
+    if (!Component) {
+      if (el.children.length > 0) el.textContent = ''
+      currentPath = ''
+      currentComponent = null
+      return
+    }
+
+    // 同一组件 + 同一路径 → 跳过（避免 loader 二次 emit 导致 DOM 重建）
+    if (Component === currentComponent && path === currentPath) return
+
+    // 路径或组件发生变化 → 替换 DOM
+    currentPath = path
+    currentComponent = Component
     el.textContent = ''
     setCtx(ctx)
     const page = jsx(Component, {})

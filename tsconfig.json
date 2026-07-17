@@ -9,6 +9,8 @@
     "emitDeclarationOnly": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "weifuwu/client",
     "types": [
       "node"
     ],
@@ -33,7 +35,9 @@
     "src/ai/*.ts",
     "src/client/*.ts",
     "src/client/**/*.ts",
+    "src/client/**/*.tsx",
     "src/client/components/*.ts",
+    "src/client/components/*.tsx",
     "src/ui/*.ts"
   ]
 }

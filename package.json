@@ -44,7 +44,8 @@
   "devDependencies": {
     "@types/node": "^25",
     "@types/ws": "^8",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "jsdom": "^29.1.1"
   },
   "sideEffects": false
 }

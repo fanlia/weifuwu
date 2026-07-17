@@ -28,6 +28,8 @@ export interface WfuiContext {
     auth?: boolean
     /** 路由 loader 返回的数据 */
     data: Record<string, unknown>
+    /** 路由 loader 是否正在加载 */
+    loading: boolean
   }
   app: {
     navigate: (path: string) => void
@@ -65,6 +67,33 @@ export interface WfuiContext {
 
   /** 中间件注入扩展 */
   [key: string]: unknown
+}
+
+/**
+ * 类型安全的上下文工厂 — 创建 provide/inject 对。
+ *
+ * 相比 ctx.provide('key', value) / ctx.inject('key') 的字符串 key 方式，
+ * createContext 返回类型化的 provide/inject 函数，拼写错误在编译时即被捕获。
+ *
+ * ```tsx
+ * // 创建
+ * const ThemeCtx = createContext<string>('theme')
+ *
+ * // 在根组件注入
+ * ThemeCtx.provide(ctx, 'dark')
+ *
+ * // 在子组件读取（类型安全，返回 string | null）
+ * const theme = ThemeCtx.inject(ctx)  // 'dark' | null
+ * ```
+ */
+export function createContext<T>(key: string): {
+  provide: (ctx: WfuiContext, value: T) => void
+  inject: (ctx: WfuiContext) => T | null
+} {
+  return {
+    provide: (ctx: WfuiContext, value: T) => ctx.provide(key, value),
+    inject: (ctx: WfuiContext): T | null => ctx.inject(key) as T | null,
+  }
 }
 
 /** 中间件签名 */

@@ -1,0 +1,381 @@
+/**
+ * weifuwu/client 核心单元测试
+ *
+ * 信号系统 + JSX runtime + 控制流组件 + useForm。
+ * 使用 jsdom 提供浏览器全局环境，node --test 运行。
+ */
+
+import { describe, it, before } from 'node:test'
+import assert from 'node:assert/strict'
+import { JSDOM } from 'jsdom'
+
+// ── 浏览器全局环境设置 ───────────────────────────────────────
+
+before(() => {
+  if (typeof document !== 'undefined') return
+
+  const dom = new JSDOM('<!DOCTYPE html><html><body><div id="root"></div></body></html>', {
+    url: 'http://localhost',
+    pretendToBeVisual: true,
+  })
+
+  const win = dom.window as any
+  const g = globalThis as any
+  for (const key of Object.getOwnPropertyNames(win)) {
+    if (key === 'Object' || key === 'Array' || key === 'Function' ||
+        key === 'String' || key === 'Number' || key === 'Boolean' ||
+        key === 'Symbol' || key === 'Map' || key === 'Set' ||
+        key === 'RegExp' || key === 'Promise' || key === 'Error' ||
+        key === 'Date' || key === 'Math' || key === 'JSON' ||
+        key === 'parseInt' || key === 'parseFloat' ||
+        key === 'isNaN' || key === 'isFinite' ||
+        key === 'undefined' || key === 'NaN' || key === 'Infinity') continue
+    if (typeof g[key] === 'undefined') {
+      try { g[key] = win[key] } catch { /* read-only, skip */ }
+    }
+  }
+})
+
+// ── 导入被测模块 ────────────────────────────────────────────
+
+const { signal, computed, effect, isSignal } = await import('../client/signal.ts')
+const { jsx, Show, For, onMount, onCleanup } = await import('../client/jsx-runtime.ts')
+const { useForm } = await import('../client/lib/form.ts')
+
+// ═════════════════════════════════════════════════════════════
+// 信号系统
+// ═════════════════════════════════════════════════════════════
+
+describe('signal', () => {
+  it('创建并读取信号', () => {
+    const s = signal(42)
+    assert.equal(s.value, 42)
+  })
+
+  it('写入信号并读取新值', () => {
+    const s = signal(0)
+    s.value = 1
+    assert.equal(s.value, 1)
+  })
+
+  it('isSignal 正确识别', () => {
+    assert.equal(isSignal(signal(1)), true)
+    assert.equal(isSignal(42), false)
+    assert.equal(isSignal(null), false)
+    assert.equal(isSignal({}), false)
+  })
+
+  it('signal 接受不同类型', () => {
+    assert.equal(signal('hello').value, 'hello')
+    assert.equal(signal(true).value, true)
+    assert.deepEqual(signal([1, 2, 3]).value, [1, 2, 3])
+    assert.deepEqual(signal({ a: 1 }).value, { a: 1 })
+  })
+})
+
+describe('effect', () => {
+  it('effect 立即执行一次', () => {
+    let called = 0
+    effect(() => { called++ })
+    assert.equal(called, 1)
+  })
+
+  it('effect 响应信号变化', () => {
+    const s = signal(0)
+    let result = 0
+    effect(() => { result = s.value * 2 })
+    assert.equal(result, 0)
+
+    s.value = 5
+    assert.equal(result, 10)
+
+    s.value = 10
+    assert.equal(result, 20)
+  })
+
+  it('effect 追踪多个信号', () => {
+    const a = signal(1)
+    const b = signal(2)
+    let sum = 0
+    effect(() => { sum = a.value + b.value })
+    assert.equal(sum, 3)
+
+    a.value = 10
+    assert.equal(sum, 12)
+
+    b.value = 20
+    assert.equal(sum, 30)
+  })
+
+  it('effect dispose 停止追踪', () => {
+    const s = signal(0)
+    let calls = 0
+    const dispose = effect(() => { calls++; s.value })
+    assert.equal(calls, 1)
+
+    dispose()
+    s.value = 1
+    assert.equal(calls, 1) // dispose 后不再响应
+  })
+
+  it('effect 动态依赖追踪', () => {
+    const toggle = signal(true)
+    const a = signal(1)
+    const b = signal(2)
+    let lastValue = 0
+
+    effect(() => {
+      lastValue = toggle.value ? a.value : b.value
+    })
+    assert.equal(lastValue, 1)
+
+    a.value = 10
+    assert.equal(lastValue, 10)
+
+    toggle.value = false
+    assert.equal(lastValue, 2) // 切换到 b
+
+    a.value = 100 // a 不再是依赖
+    assert.equal(lastValue, 2) // 不应变化
+
+    b.value = 20
+    assert.equal(lastValue, 20)
+  })
+
+  it('多次 dispose 安全', () => {
+    const s = signal(0)
+    let calls = 0
+    const dispose = effect(() => { calls++; s.value })
+    dispose()
+    dispose() // 重复调用不应报错
+    assert.equal(calls, 1)
+  })
+
+  it('嵌套 effect 各自追踪独立', () => {
+    const outer = signal('o')
+    const inner = signal('i')
+    let outerCalls = 0
+    let innerCalls = 0
+
+    effect(() => {
+      outerCalls++
+      outer.value
+      effect(() => {
+        innerCalls++
+        inner.value
+      })
+    })
+    assert.equal(outerCalls, 1)
+    assert.equal(innerCalls, 1)
+
+    inner.value = 'i2'
+    assert.equal(innerCalls, 2)
+    assert.equal(outerCalls, 1) // 外层不触发
+  })
+})
+
+describe('computed', () => {
+  it('computed 返回衍生值', () => {
+    const a = signal(3)
+    const b = computed(() => a.value * 2)
+    assert.equal(b.value, 6)
+
+    a.value = 5
+    assert.equal(b.value, 10)
+  })
+
+  it('computed 链式依赖', () => {
+    const a = signal(2)
+    const b = computed(() => a.value * 3)
+    const c = computed(() => b.value + 1)
+    assert.equal(c.value, 7)
+
+    a.value = 4
+    assert.equal(b.value, 12)
+    assert.equal(c.value, 13)
+  })
+
+  it('computed 动态依赖', () => {
+    const toggle = signal(true)
+    const a = signal(10)
+    const b = signal(20)
+    const c = computed(() => toggle.value ? a.value : b.value)
+
+    assert.equal(c.value, 10)
+
+    toggle.value = false
+    assert.equal(c.value, 20)
+
+    a.value = 100 // a 不再是依赖，c 不应变化
+    assert.equal(c.value, 20)
+
+    b.value = 200
+    assert.equal(c.value, 200)
+  })
+})
+
+// ═════════════════════════════════════════════════════════════
+// JSX Runtime
+// ═════════════════════════════════════════════════════════════
+
+describe('jsx', () => {
+  it('创建 DOM 元素', () => {
+    const el = jsx('div', { class: 'foo' })
+    assert(el instanceof HTMLDivElement)
+    assert.equal(el.className, 'foo')
+  })
+
+  it('设置属性', () => {
+    const el = jsx('input', { type: 'text', placeholder: 'hello' }) as HTMLInputElement
+    assert.equal(el.type, 'text')
+    assert.equal(el.placeholder, 'hello')
+  })
+
+  it('绑定事件', () => {
+    let clicked = false
+    const el = jsx('button', { onClick: () => { clicked = true } })
+    el.click()
+    assert.equal(clicked, true)
+  })
+
+  it('文本子节点', () => {
+    const el = jsx('div', null, 'Hello', ' ', 'World')
+    assert.equal(el.textContent, 'Hello World')
+  })
+
+  it('嵌套子节点', () => {
+    const inner = jsx('span', { class: 'inner' }, 'text')
+    const outer = jsx('div', { class: 'outer' }, inner)
+    assert.equal(outer.children.length, 1)
+    assert.equal((outer.firstElementChild as HTMLElement).className, 'inner')
+  })
+
+  it('多个子节点', () => {
+    const el = jsx('div', null, jsx('span', null, 'a'), jsx('span', null, 'b'))
+    assert.equal(el.childNodes.length, 2)
+  })
+})
+
+describe('Show', () => {
+  it('when=true 渲染 children', () => {
+    const node = Show({ when: true, children: jsx('div', null, 'shown') })
+    assert(node instanceof DocumentFragment)
+    const divs = node.querySelectorAll('div')
+    assert.equal(divs.length, 1)
+    assert.equal(divs[0].textContent, 'shown')
+  })
+
+  it('when=false 渲染 fallback', () => {
+    const node = Show({ when: false, fallback: jsx('div', null, 'fallback') })
+    const divs = node.querySelectorAll('div')
+    assert.equal(divs.length, 1)
+    assert.equal(divs[0].textContent, 'fallback')
+  })
+
+  it('when=false 无 fallback 渲染空', () => {
+    const node = Show({ when: false })
+    assert.equal(node.childNodes.length, 0)
+  })
+})
+
+describe('For', () => {
+  it('渲染列表', () => {
+    const items = ['a', 'b', 'c']
+    const node = For({ each: items, children: (item) => jsx('div', null, item) })
+    const divs = node.querySelectorAll('div')
+    assert.equal(divs.length, 3)
+    assert.equal(divs[0].textContent, 'a')
+    assert.equal(divs[1].textContent, 'b')
+    assert.equal(divs[2].textContent, 'c')
+  })
+
+  it('Signal 列表响应式更新', () => {
+    const items = signal(['a', 'b'])
+    const node = For({ each: items, children: (item) => jsx('div', null, item) })
+    assert.equal(node.querySelectorAll('div').length, 2)
+
+    items.value = ['x', 'y', 'z']
+    assert.equal(node.querySelectorAll('div').length, 3)
+    assert.equal((node.querySelectorAll('div')[0] as HTMLElement).textContent, 'x')
+  })
+})
+
+// ═════════════════════════════════════════════════════════════
+// useForm
+// ═════════════════════════════════════════════════════════════
+
+describe('useForm', () => {
+  it('初始化字段值', () => {
+    const form = useForm({ initial: { email: '', password: '' } })
+    assert.equal(form.field('email').value.value, '')
+    assert.equal(form.field('password').value.value, '')
+  })
+
+  it('验证通过', () => {
+    const form = useForm({
+      initial: { email: '' },
+      validate: { email: (v) => !v && 'required' },
+    })
+    form.setValue('email', 'a@b.com')
+    assert.equal(form.errors.email, null)
+    assert.equal(form.valid.value, true)
+  })
+
+  it('验证失败', () => {
+    const form = useForm({
+      initial: { email: '' },
+      validate: { email: (v) => !v && 'required' },
+    })
+    // useForm 初始化时不运行验证，字段交互时触发单字段验证
+    assert.equal(form.errors.email, null)
+    assert.equal(form.valid.value, true)
+
+    form.setValue('email', '')
+    assert.equal(form.errors.email, 'required')
+    // setValue 只验证单个字段，valid 在 submit 时全量计算
+    // 因此 valid 可能在交互后仍为 true
+  })
+
+  it('submit 校验通过后调用 handler', async () => {
+    const form = useForm({
+      initial: { email: 'a@b.com', name: 'test' },
+      validate: { email: (v) => !v && 'required' },
+    })
+    let submitted: any = null
+    await form.submit((data) => { submitted = data })
+    assert.deepEqual(submitted, { email: 'a@b.com', name: 'test' })
+  })
+
+  it('submit 校验失败不调用 handler', async () => {
+    const form = useForm({
+      initial: { email: '' },
+      validate: { email: (v) => !v && 'required' },
+    })
+    let called = false
+    await form.submit(() => { called = true })
+    assert.equal(called, false)
+  })
+
+  it('reset 恢复初始值', () => {
+    const form = useForm({ initial: { x: 1 } })
+    form.setValue('x', 999)
+    form.reset()
+    assert.equal(form.field('x').value.value, 1)
+  })
+
+  it('setValues 批量更新', () => {
+    const form = useForm({ initial: { a: 1, b: 2 } })
+    form.setValues({ a: 10, b: 20 })
+    assert.equal(form.field('a').value.value, 10)
+    assert.equal(form.field('b').value.value, 20)
+  })
+
+  it('touched 追踪字段交互', () => {
+    const form = useForm({ initial: { email: '' } })
+    assert.equal(form.touched.email, false)
+
+    const field = form.field('email')
+    field.onInput({ target: { value: 'a', type: 'text' } } as any)
+    assert.equal(form.touched.email, true)
+  })
+})

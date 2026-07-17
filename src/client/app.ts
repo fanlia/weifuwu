@@ -52,6 +52,7 @@ export function createApp(): {
       hash: window.location.hash,
       component: null,
       data: {},
+      loading: false,
     },
     app: {
       navigate(path: string) {
