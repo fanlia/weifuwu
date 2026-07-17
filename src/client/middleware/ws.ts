@@ -96,8 +96,8 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
     // 初始连接
     connect()
 
-    return {
-      ...ctx,
+    // 用 Object.create 避免 ...ctx 展开丢失 auth getter
+    return Object.assign(Object.create(ctx), {
       ws: {
         send,
         onMessage: (handler: (data: unknown) => void): (() => void) => {
@@ -108,6 +108,6 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
         leave,
         get isConnected() { return isConnected },
       },
-    }
+    })
   }
 }
