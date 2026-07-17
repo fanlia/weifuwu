@@ -35,8 +35,8 @@ function LoginPage(_props: {}, ctx: WfuiContext) {
   const submit = async () => {
     error.value = ''
     try {
-      if (isRegister.value) await ctx.auth.register?.(email.value, password.value, name.value)
-      else await ctx.auth.login?.(email.value, password.value)
+      if (isRegister.value) await ctx.register?.({ email: email.value, name: name.value, password: password.value })
+      else await ctx.login?.(email.value, password.value)
     } catch (e: any) { error.value = e?.message || '操作失败' }
   }
 
@@ -966,7 +966,7 @@ function AppShell(_props: {}, ctx: WfuiContext) {
             <div class="flex-1" />
             <div class={s.status}>
               <span>v0.1</span>
-              <span class="cursor-pointer hover:text-red-500" onClick={() => ctx.auth.logout?.()}>退出</span>
+              <span class="cursor-pointer hover:text-red-500" onClick={() => ctx.logout()}>退出</span>
             </div>
           </div>
           <div class={s.main}>
