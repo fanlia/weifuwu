@@ -974,41 +974,77 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
 // AppShell — 全局布局
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// Layout — 布局组件
+// ═══════════════════════════════════════════════════════════════
+
+// ── Sidebar — 通用左侧面板 ──
+
+function Sidebar(_props: {}, ctx: WfuiContext) {
+  const s = createStyles({
+    wrap: 'w-[220px] border-r border-gray-200 bg-[#fafafa] flex flex-col overflow-hidden shrink-0',
+    header: 'px-3 py-2.5 border-b border-gray-200 flex items-center justify-between shrink-0',
+    title: 'font-bold text-sm text-blue-600 cursor-pointer',
+    userName: 'text-xs text-gray-400 max-w-[100px] truncate',
+    status: 'px-3 py-2 border-t border-gray-200 text-xs text-gray-400 flex items-center justify-between shrink-0',
+    logout: 'cursor-pointer hover:text-red-500',
+  })
+  return (
+    <div class={s.wrap}>
+      <div class={s.header}>
+        <span class={s.title} onClick={() => ctx.app.navigate('/')}>Org</span>
+        <span class={s.userName}>{computed(() => ctx.user?.name || '')}</span>
+      </div>
+      <OrgTree _props={{}} ctx={ctx} />
+      <div class="flex-1" />
+      <div class={s.status}>
+        <span>v0.1</span>
+        <span class={s.logout} onClick={() => ctx.logout()}>退出</span>
+      </div>
+    </div>
+  )
+}
+
+// ── BrowseLayout — 侧栏 + 内容 ──
+
+function BrowseLayout(_props: {}, ctx: WfuiContext) {
+  return (
+    <div class="flex h-screen overflow-hidden bg-gray-50">
+      <Sidebar _props={{}} ctx={ctx} />
+      <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+        <RouteView />
+      </div>
+    </div>
+  )
+}
+
+// ── ChatLayout — 侧栏 + 会话列表 + 聊天内容 ──
+
+function ChatLayout(_props: {}, ctx: WfuiContext) {
+  return (
+    <div class="flex h-screen overflow-hidden bg-gray-50">
+      <Sidebar _props={{}} ctx={ctx} />
+      <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+        <RouteView />
+      </div>
+    </div>
+  )
+}
+
+// ── AppShell — 登录态 + 布局选择器 ──
+
 function AppShell(_props: {}, ctx: WfuiContext) {
   const user = computed(() => ctx.user)
   const isLoggedIn = computed(() => !!user.value)
-
-  const s = createStyles({
-    layout: 'flex h-screen overflow-hidden bg-gray-50',
-    sidebar: 'w-[260px] border-r border-gray-200 bg-[#fafafa] flex flex-col overflow-hidden shrink-0',
-    header: 'px-4 py-3 border-b border-gray-200 flex items-center justify-between',
-    title: 'font-bold text-base text-blue-600 cursor-pointer',
-    user: 'text-xs text-gray-400',
-    main: 'flex-1 flex flex-col overflow-hidden min-w-0',
-    status: 'px-4 py-2 border-t border-gray-200 text-xs text-gray-400 flex items-center justify-between',
-  })
+  const isChat = computed(() => ctx.route.path.includes('/dept/'))
 
   return (
     <div>
+      <ToastContainer />
       <Show when={isLoggedIn} fallback={<LoginPage _props={{}} ctx={ctx} />}>
-        <div class={s.layout}>
-          <ToastContainer />
-          <div class={s.sidebar}>
-            <div class={s.header}>
-              <span class={s.title} onClick={() => ctx.app.navigate('/')}>Org</span>
-              <span class={s.user}>{computed(() => ctx.user?.name || '')}</span>
-            </div>
-            <OrgTree _props={{}} ctx={ctx} />
-            <div class="flex-1" />
-            <div class={s.status}>
-              <span>v0.1</span>
-              <span class="cursor-pointer hover:text-red-500" onClick={() => ctx.logout()}>退出</span>
-            </div>
-          </div>
-          <div class={s.main}>
-            <RouteView />
-          </div>
-        </div>
+        <Show when={isChat} fallback={<BrowseLayout _props={{}} ctx={ctx} />}>
+          <ChatLayout _props={{}} ctx={ctx} />
+        </Show>
       </Show>
     </div>
   )
