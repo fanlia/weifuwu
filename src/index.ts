@@ -87,6 +87,25 @@ export type {
   ImportOptions,
   SearchOptions,
 } from './kb/types.ts'
+
+export { org, OrgModule } from './org/index.ts'
+export type {
+  OrgAPI,
+  OrgOptions,
+  Tenant,
+  Company,
+  Department,
+  DepartmentAgent,
+  AgentKind,
+  CreateTenantInput,
+  UpdateTenantInput,
+  CreateCompanyInput,
+  UpdateCompanyInput,
+  CreateDepartmentInput,
+  UpdateDepartmentInput,
+  CreateAgentInput,
+  UpdateAgentInput,
+} from './org/types.ts'
 export type {
   BaseAPI,
   BaseDef,
