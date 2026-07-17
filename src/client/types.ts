@@ -30,6 +30,8 @@ export interface WfuiContext {
     data: Record<string, unknown>
     /** 路由 loader 是否正在加载 */
     loading: boolean
+    /** 页面切换过渡动画名 */
+    transition?: string
   }
   app: {
     navigate: (path: string) => void
@@ -107,4 +109,6 @@ export interface RouteDef {
   title?: string
   /** 页面加载器 — 切换路由时自动调用，结果注入 ctx.route.data */
   loader?: (ctx: WfuiContext) => Promise<Record<string, unknown>>
+  /** 页面切换过渡动画名，对应 CSS class 前缀 */
+  transition?: string
 }

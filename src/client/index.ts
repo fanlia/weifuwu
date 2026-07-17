@@ -296,3 +296,20 @@ export { Chat } from './components/Chat.tsx'
  * ```
  */
 export { Link } from './components/Link.tsx'
+/**
+ * Transition — 动画过渡组件。
+ *
+ * ```css
+ * .fade-enter { opacity: 0; }
+ * .fade-enter-active { opacity: 1; transition: opacity 0.3s; }
+ * .fade-leave { opacity: 1; }
+ * .fade-leave-active { opacity: 0; transition: opacity 0.2s; }
+ * ```
+ *
+ * ```tsx
+ * <Transition show={isOpen} name="fade">
+ *   <Modal />
+ * </Transition>
+ * ```
+ */
+export { Transition } from './components/Transition.tsx'

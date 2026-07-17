@@ -2,7 +2,7 @@
  * 演示 wefu 路由 + signal + (props, ctx) + Show/For
  */
 
-import { signal, computed, Show, For, createApp, api, auth, ws, router, RouteView } from 'weifuwu/client'
+import { signal, computed, Show, For, createApp, api, auth, ws, router, RouteView, Transition, createStyles } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
 
 // ═══════════════════════════════════════════════════════════
@@ -213,6 +213,47 @@ function UserPage(_props: {}, ctx: WfuiContext) {
   )
 }
 
+// ═══════════════════════════════════════════════════════════
+// 动画演示页面
+// ═══════════════════════════════════════════════════════════
+
+function TransitionDemo(_props: {}, _ctx: WfuiContext) {
+  const show = signal(false)
+  const anim = signal<'fade' | 'slide-up' | 'scale'>('fade')
+
+  const s = createStyles({
+    btn: 'px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer hover:bg-blue-600 mr-2',
+    btnActive: 'px-4 py-2 bg-blue-500 text-white rounded-md text-sm cursor-pointer ring-2 ring-blue-300 mr-2',
+    box: 'mt-4 p-6 bg-white rounded-xl shadow-md text-center text-lg',
+  })
+
+  const animations = ['fade', 'slide-up', 'scale'] as const
+
+  return (
+    <div>
+      <h1 class="text-xl font-bold mb-4">Transition 动画演示</h1>
+
+      <div class="mb-3">
+        {animations.map(a => (
+          <button class={anim.value === a ? s.btnActive : s.btn}
+            onClick={() => anim.value = a}>{a}</button>
+        ))}
+      </div>
+
+      <button class="px-4 py-2 bg-green-500 text-white rounded-md text-sm cursor-pointer hover:bg-green-600"
+        onClick={() => show.value = !show.value}>
+        {show.value ? '隐藏' : '显示'}
+      </button>
+
+      <Transition show={show} name={anim.value}>
+        <div class={s.box}>
+          🎉 动画内容
+        </div>
+      </Transition>
+    </div>
+  )
+}
+
 function NotFound(_props: {}, ctx: WfuiContext) {
   return (
     <div class="text-center py-16">
@@ -238,6 +279,7 @@ function AppShell(_props: {}, ctx: WfuiContext) {
           <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/about')}>关于</a>
           <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/user/wefu')}>用户</a>
           <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/ws')}>实时</a>
+          <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/transition')}>动画</a>
           <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => window.location.href = '/blog/hello-ssr'}>博客</a>
         </div>
       </nav>
@@ -256,6 +298,7 @@ const routes: RouteDef[] = [
   { path: '/about', component: AboutPage, title: '关于' },
   { path: '/user/:name', component: UserPage, title: '用户' },
   { path: '/ws', component: RealtimePage, title: 'WebSocket' },
+  { path: '/transition', component: TransitionDemo, title: '动画' },
 ]
 
 // ── SSR Like Button 组件 ──
@@ -275,7 +318,7 @@ const app = createApp()
 app.use(api())
 app.use(auth())
 app.use(ws())
-app.use(router({ routes, notFound: NotFound, mode: 'hash' }))
+app.use(router({ routes, notFound: NotFound, mode: 'hash', transition: 'page' }))
 
 // 检测 SSR 页面：如果 #root 已有内容，只 hydrate 交互区域
 const root = document.getElementById('root')
