@@ -896,12 +896,14 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
     panelBody: 'flex-1 overflow-y-auto',
     panelSection: 'p-3 border-b border-gray-200',
     panelTitle: 'text-xs font-semibold text-gray-500 uppercase mb-2',
-    agentItem: 'flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-200 cursor-pointer',
-    kbItem: 'px-2 py-2 border-b border-gray-100 text-sm',
-    input: 'w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2 focus:outline-none focus:border-blue-500',
-    textarea: 'w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2 h-16 focus:outline-none focus:border-blue-500',
-    btnPrimary: 'px-3 py-1.5 bg-blue-500 text-white rounded text-xs cursor-pointer hover:bg-blue-600',
-    searchResult: 'px-2 py-2 border-b border-blue-100 text-xs text-gray-600',
+    agentItem: 'flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer',
+    kbItem: 'px-3 py-2.5 border-b border-gray-100 text-sm hover:bg-blue-50 transition-colors cursor-default',
+    kbChip: 'inline-block text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5 mr-1',
+    input: 'w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs mb-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all',
+    textarea: 'w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs mb-2 h-16 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all resize-none',
+    btnPrimary: 'px-3 py-1.5 bg-blue-500 text-white rounded-md text-xs cursor-pointer hover:bg-blue-600 transition-colors',
+    searchResult: 'px-3 py-2 border-b border-blue-50 text-xs text-gray-600 hover:bg-blue-50 transition-colors',
+    score: 'text-blue-500 font-medium',
   })
 
   return (
@@ -1004,7 +1006,7 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
                     <button class={s.btnPrimary} onClick={searchKB}>搜索</button>
                   </div>
                   <For each={searchResults}>
-                    {(r: any) => <div class={s.searchResult}><strong>{r.title || '片段'}</strong> ({Math.round(r.score * 100)}%): {r.content.slice(0, 80)}...</div>}
+                    {(r: any) => <div class={s.searchResult}><strong>{r.title || '片段'}</strong> <span class={s.score}>{Math.round(r.score * 100)}%</span><br/>{r.content.slice(0, 100)}...</div>}
                   </For>
                 </div>
                 <div class={s.panelSection}>
@@ -1014,7 +1016,7 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
                     {(doc: KBDoc) => (
                       <div class={s.kbItem}>
                         <p class="font-medium">{doc.title}</p>
-                        <p class="text-gray-400">{doc.chunk_count} 段 · {doc.source || '无来源'}</p>
+                        <p><span class={s.kbChip}>{doc.chunk_count} 段</span> {doc.source || '无来源'}</p>
                       </div>
                     )}
                   </For>
@@ -1088,13 +1090,13 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
   const active = (p: string) => window.location.hash.includes(p)
 
   const s = createStyles({
-    tree: 'flex-1 overflow-y-auto p-2',
-    th: 'flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm font-medium cursor-pointer',
-    thA: 'flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm font-medium text-blue-600 cursor-pointer bg-blue-50',
-    ci: 'flex items-center gap-1.5 px-2 py-1 ml-4 rounded-md text-sm text-gray-600 cursor-pointer hover:bg-gray-200',
-    ciA: 'flex items-center gap-1.5 px-2 py-1 ml-4 rounded-md text-sm text-blue-600 cursor-pointer bg-blue-50',
-    di: 'flex items-center gap-1.5 px-2 py-1 ml-8 rounded-md text-sm text-gray-500 cursor-pointer hover:bg-gray-200',
-    diA: 'flex items-center gap-1.5 px-2 py-1 ml-8 rounded-md text-sm text-blue-500 cursor-pointer bg-blue-50',
+    tree: 'flex-1 overflow-y-auto px-1 py-2',
+    th: 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-gray-200',
+    thA: 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium cursor-pointer bg-blue-50 text-blue-700 transition-all',
+    ci: 'flex items-center gap-1.5 px-2.5 py-1.5 ml-4 rounded-md text-sm text-gray-600 cursor-pointer transition-all hover:bg-gray-200',
+    ciA: 'flex items-center gap-1.5 px-2.5 py-1.5 ml-4 rounded-md text-sm text-blue-600 cursor-pointer bg-blue-50 border-l-[3px] border-blue-500 rounded-l-none transition-all',
+    di: 'flex items-center gap-1.5 px-2.5 py-1.5 ml-8 rounded-md text-sm text-gray-500 cursor-pointer transition-all hover:bg-gray-200',
+    diA: 'flex items-center gap-1.5 px-2.5 py-1.5 ml-8 rounded-md text-sm text-blue-600 cursor-pointer bg-blue-50 border-l-[3px] border-blue-500 rounded-l-none transition-all',
   })
 
   return (
