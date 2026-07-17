@@ -981,21 +981,83 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
 // ── Sidebar — 通用左侧面板 ──
 
 function Sidebar(_props: {}, ctx: WfuiContext) {
+  const searchQuery = signal('')
+  const recentConvs = signal<EnrichedConversation[]>([])
+  const showOrgTree = signal(true)
+
+  onMount(() => {
+    ctx.api.get<EnrichedConversation[]>('/conversations').then(list => {
+      recentConvs.value = list.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5)
+    }).catch(() => {})
+  })
+
   const s = createStyles({
     wrap: 'w-[220px] border-r border-gray-200 bg-[#fafafa] flex flex-col overflow-hidden shrink-0',
     header: 'px-3 py-2.5 border-b border-gray-200 flex items-center justify-between shrink-0',
     title: 'font-bold text-sm text-blue-600 cursor-pointer',
     userName: 'text-xs text-gray-400 max-w-[100px] truncate',
+    searchBox: 'mx-2 my-2 px-2.5 py-1.5 bg-gray-100 rounded-md text-xs text-gray-400 cursor-text focus:outline-none focus:bg-white focus:border focus:border-blue-300',
+    section: 'mb-1',
+    sectionHeader: 'px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center justify-between cursor-pointer hover:text-gray-700',
+    recentItem: 'flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-md mx-2 cursor-pointer truncate',
+    recentItemActive: 'flex items-center gap-2 px-3 py-1.5 text-sm text-blue-700 bg-blue-50 rounded-md mx-2 cursor-pointer truncate',
+    recentBadge: 'ml-auto bg-red-500 text-white text-xs rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 text-[10px]',
     status: 'px-3 py-2 border-t border-gray-200 text-xs text-gray-400 flex items-center justify-between shrink-0',
     logout: 'cursor-pointer hover:text-red-500',
   })
+
   return (
     <div class={s.wrap}>
+      {/* 头部 */}
       <div class={s.header}>
         <span class={s.title} onClick={() => ctx.app.navigate('/')}>Org</span>
         <span class={s.userName}>{computed(() => ctx.user?.name || '')}</span>
       </div>
-      <OrgTree _props={{}} ctx={ctx} />
+
+      {/* 搜索框 */}
+      <div class={s.searchBox} onClick={() => {/* 后续实现搜索 */}}>
+        🔍 搜索租户/部门/消息...
+      </div>
+
+      {/* 最近会话 */}
+      <Show when={recentConvs.value.length > 0}>
+        <div class={s.section}>
+          <div class={s.sectionHeader}>
+            <span>最近</span>
+          </div>
+          <For each={recentConvs}>
+            {(c: EnrichedConversation) => {
+              const isActive = ctx.route.path.includes(c.department?.id || '')
+              return (
+                <div class={isActive ? s.recentItemActive : s.recentItem}
+                  onClick={() => {
+                    if (c.department) {
+                      // 找到对应的 tenant 和 company
+                      ctx.app.navigate(`/tenant/${ctx.route.params.tenantId || ''}/company/${ctx.route.params.companyId || ''}/dept/${c.department.id}`)
+                    }
+                  }}>
+                  <span>{c.unread > 0 ? '💬' : '💭'}</span>
+                  <span class="flex-1 truncate">{c.department?.name || c.title}</span>
+                  <Show when={c.unread > 0}>
+                    <span class={s.recentBadge}>{c.unread > 99 ? '99+' : c.unread}</span>
+                  </Show>
+                </div>
+              )
+            }}
+          </For>
+        </div>
+      </Show>
+
+      {/* 组织树（可折叠）*/}
+      <div class={s.section}>
+        <div class={s.sectionHeader} onClick={() => showOrgTree.value = !showOrgTree.value}>
+          <span>{showOrgTree.value ? '▼' : '▶'} 组织</span>
+        </div>
+        <Show when={showOrgTree}>
+          <OrgTree _props={{}} ctx={ctx} />
+        </Show>
+      </div>
+
       <div class="flex-1" />
       <div class={s.status}>
         <span>v0.1</span>
