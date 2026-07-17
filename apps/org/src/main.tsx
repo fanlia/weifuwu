@@ -663,10 +663,12 @@ function CompanyPage(_props: {}, ctx: WfuiContext) {
 
 interface KBDoc { id: string; title: string; source: string | null; chunk_count: number; created_at: string }
 
+type SideTab = 'members' | 'kb' | null
+
 function DepartmentPage(_props: {}, ctx: WfuiContext) {
   const { tenantId, companyId, deptId } = ctx.route.params
   const dept = signal<Department | null>(null); const agents = signal<Agent[]>([])
-  const showAgents = signal(false); const showKB = signal(false); const showAddAgent = signal(false)
+  const activeTab = signal<SideTab>(null); const showAddAgent = signal(false)
   const allAgents = signal<Agent[]>([]); const selectedAgentId = signal('')
 
   // 知识库状态
@@ -699,19 +701,12 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
     } catch (e: any) { showToast('添加失败: ' + (e?.message || '未知错误'), 'error') }
   }
 
-  const agentIcon = (k: string) => k === 'ai' ? '🤖' : k === 'user' ? '👤' : k === 'webhook' ? '🔗' : '📚'
-
   // ── 知识库 ──
 
   const loadKBDocs = async () => {
     kbLoading.value = true
     kbDocs.value = await ctx.api.get<KBDoc[]>(`/departments/${deptId}/kb/documents`)
     kbLoading.value = false
-  }
-
-  const openKB = () => {
-    showKB.value = !showKB.value
-    if (showKB.value) loadKBDocs()
   }
 
   const importDoc = async () => {
@@ -733,19 +728,31 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
     searchResults.value = await ctx.api.post<any[]>(`/departments/${deptId}/kb/search`, { query: searchQuery.value })
   }
 
+  const setTab = (tab: SideTab) => {
+    activeTab.value = activeTab.value === tab ? null : tab
+    if (tab === 'kb' && kbDocs.value.length === 0) loadKBDocs()
+  }
+
+  const tabs: Array<{ key: SideTab; label: string; icon: string }> = [
+    { key: 'members', label: `成员 (${agents.value.length})`, icon: '👥' },
+    { key: 'kb', label: '知识库', icon: '📚' },
+  ]
+
   const s = createStyles({
     container: 'flex flex-col h-full',
     header: 'px-5 py-3 border-b border-gray-200 flex items-center justify-between bg-white shrink-0',
-    headerBtns: 'flex gap-2',
     body: 'flex-1 flex overflow-hidden',
-    sidePanel: 'w-72 border-l border-gray-200 bg-gray-50 overflow-y-auto shrink-0',
+    panel: 'w-72 border-l border-gray-200 bg-gray-50 overflow-y-auto shrink-0 flex flex-col',
+    tabBar: 'flex border-b border-gray-200 shrink-0',
+    tab: 'flex-1 px-3 py-2 text-xs font-medium text-gray-500 cursor-pointer text-center hover:bg-gray-100 transition-colors',
+    tabActive: 'flex-1 px-3 py-2 text-xs font-medium text-blue-600 cursor-pointer text-center bg-white border-b-2 border-blue-500 transition-colors',
+    panelBody: 'flex-1 overflow-y-auto',
     panelSection: 'p-3 border-b border-gray-200',
     panelTitle: 'text-xs font-semibold text-gray-500 uppercase mb-2',
     agentItem: 'flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-600 hover:bg-gray-200 cursor-pointer',
     kbItem: 'px-2 py-2 border-b border-gray-100 text-sm',
     input: 'w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2 focus:outline-none focus:border-blue-500',
     textarea: 'w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2 h-16 focus:outline-none focus:border-blue-500',
-    btn: 'px-3 py-1.5 rounded text-xs cursor-pointer',
     btnPrimary: 'px-3 py-1.5 bg-blue-500 text-white rounded text-xs cursor-pointer hover:bg-blue-600',
     searchResult: 'px-2 py-2 border-b border-blue-100 text-xs text-gray-600',
   })
@@ -759,15 +766,15 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
             onClick={() => ctx.app.navigate(`/tenant/${tenantId}/company/${companyId}`)}>← 返回公司</p>
           <h1 class="font-semibold text-base">{computed(() => dept.value?.name || '加载中...')}</h1>
         </div>
-        <div class={s.headerBtns}>
-          <button class="px-3 py-1.5 bg-green-50 text-green-700 rounded-md text-xs cursor-pointer hover:bg-green-100"
-            onClick={openKB}>
-            {computed(() => showKB.value ? '关闭知识库' : '📚 知识库')}
-          </button>
-          <button class="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-md text-xs cursor-pointer hover:bg-gray-200"
-            onClick={() => showAgents.value = !showAgents.value}>
-            {computed(() => showAgents.value ? '隐藏成员' : `成员 (${agents.value.length})`)}
-          </button>
+        <div class="flex gap-1">
+          <For each={tabs}>
+            {(tab: typeof tabs[0]) => (
+              <button class={activeTab.value === tab.key ? s.tabActive : s.tab}
+                onClick={() => setTab(tab.key)}>
+                {tab.icon} {tab.label}
+              </button>
+            )}
+          </For>
         </div>
       </div>
 
@@ -781,76 +788,92 @@ function DepartmentPage(_props: {}, ctx: WfuiContext) {
           </Show>
         </div>
 
-        {/* 知识库面板 */}
-        <Show when={showKB}>
-          <div class={s.sidePanel}>
-            {/* 导入文档 */}
-            <div class={s.panelSection}>
-              <h3 class={s.panelTitle}>导入知识</h3>
-              <input class={s.input} value={importTitle} onInput={(e: any) => importTitle.value = e.target.value} placeholder="标题" />
-              <textarea class={s.textarea} value={importContent} onInput={(e: any) => importContent.value = e.target.value} placeholder="粘贴文档内容..." />
-              <input class={s.input} value={importSource} onInput={(e: any) => importSource.value = e.target.value} placeholder="来源（可选）" />
-              <button class={s.btnPrimary} onClick={importDoc}>导入</button>
-            </div>
-
-            {/* 检索测试 */}
-            <div class={s.panelSection}>
-              <h3 class={s.panelTitle}>检索测试</h3>
-              <div class="flex gap-1 mb-2">
-                <input class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-xs"
-                  value={searchQuery} onInput={(e: any) => searchQuery.value = e.target.value}
-                  placeholder="输入查询..." onKeyDown={(e: any) => e.key === 'Enter' && searchKB()} />
-                <button class={s.btnPrimary} onClick={searchKB}>搜索</button>
-              </div>
-              <For each={searchResults}>
-                {(r: any) => <div class={s.searchResult}><strong>{r.title || '片段'}</strong> ({Math.round(r.score * 100)}%): {r.content.slice(0, 100)}...</div>}
-              </For>
-            </div>
-
-            {/* 文档列表 */}
-            <div class={s.panelSection}>
-              <h3 class={s.panelTitle}>{computed(() => `文档 (${kbDocs.value.length})`)}</h3>
-              <Show when={kbLoading}><p class="text-xs text-gray-400 text-center py-2">加载中...</p></Show>
-              <For each={kbDocs}>
-                {(doc: KBDoc) => (
-                  <div class={s.kbItem}>
-                    <p class="font-medium">{doc.title}</p>
-                    <p class="text-gray-400">{doc.chunk_count} 段 · {doc.source || '无来源'}</p>
+        {/* 右侧面板（Tab 切换）*/}
+        <Show when={activeTab.value}>
+          <div class={s.panel}>
+            {/* Tab 栏 */}
+            <div class={s.tabBar}>
+              <For each={tabs}>
+                {(tab: typeof tabs[0]) => (
+                  <div class={activeTab.value === tab.key ? s.tabActive : s.tab}
+                    onClick={() => setTab(tab.key)}>
+                    {tab.icon} {tab.label}
                   </div>
                 )}
               </For>
-              <Show when={!kbLoading && kbDocs.value.length === 0}>
-                <p class="text-xs text-gray-400 text-center py-2">暂无文档</p>
-              </Show>
             </div>
-          </div>
-        </Show>
 
-        {/* 成员面板 */}
-        <Show when={showAgents && !showKB}>
-          <div class={s.sidePanel}>
-            <div class={s.panelSection}>
-              <div class="flex items-center justify-between mb-3">
-                <h3 class={s.panelTitle}>成员</h3>
-                <button class="text-xs text-blue-500 cursor-pointer hover:text-blue-700" onClick={openAddAgent}>+ 添加</button>
+            {/* Tab: 成员 */}
+            <Show when={activeTab.value === 'members'}>
+              <div class={s.panelBody}>
+                <div class={s.panelSection}>
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 class={s.panelTitle}>部门成员</h3>
+                    <button class="text-xs text-blue-500 cursor-pointer hover:text-blue-700" onClick={openAddAgent}>+ 添加</button>
+                  </div>
+                  <For each={agents}>
+                    {(a: Agent) => (
+                      <div class={s.agentItem}>
+                        <span>{a.kind === 'ai' ? '🤖' : a.kind === 'user' ? '👤' : a.kind === 'webhook' ? '🔗' : '📚'}</span>
+                        <span>{a.name}</span>
+                        <span class="text-xs text-gray-400 ml-auto">{a.kind}</span>
+                      </div>
+                    )}
+                  </For>
+                  <Show when={agents.value.length === 0}><p class="text-xs text-gray-400 text-center py-4">暂无成员</p></Show>
+                </div>
+                <Show when={showAddAgent}>
+                  <div class={s.panelSection}>
+                    <select class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2"
+                      value={selectedAgentId} onChange={(e: any) => selectedAgentId.value = e.target.value}>
+                      <option value="">选择 Agent...</option>
+                      <For each={allAgents}>{(a: Agent) => <option value={a.id}>{a.name} ({a.kind})</option>}</For>
+                    </select>
+                    <div class="flex gap-2">
+                      <button class="flex-1 px-2 py-1 bg-blue-500 text-white rounded text-xs cursor-pointer hover:bg-blue-600" onClick={addAgent}>添加</button>
+                      <button class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs cursor-pointer" onClick={() => showAddAgent.value = false}>取消</button>
+                    </div>
+                  </div>
+                </Show>
               </div>
-              <For each={agents}>
-                {(a: Agent) => (
-                  <div class={s.agentItem}><span>{agentIcon(a.kind)}</span><span>{a.name}</span><span class="text-xs text-gray-400 ml-auto">{a.kind}</span></div>
-                )}
-              </For>
-              <Show when={agents.value.length === 0}><p class="text-xs text-gray-400 text-center py-4">暂无成员</p></Show>
-            </div>
-            <Show when={showAddAgent}>
-              <div class={s.panelSection}>
-                <select class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2"
-                  value={selectedAgentId} onChange={(e: any) => selectedAgentId.value = e.target.value}>
-                  <option value="">选择 Agent...</option>
-                  <For each={allAgents}>{(a: Agent) => <option value={a.id}>{a.name} ({a.kind})</option>}</For>
-                </select>
-                <div class="flex gap-2">
-                  <button class="flex-1 px-2 py-1 bg-blue-500 text-white rounded text-xs cursor-pointer hover:bg-blue-600" onClick={addAgent}>添加</button>
-                  <button class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs cursor-pointer" onClick={() => showAddAgent.value = false}>取消</button>
+            </Show>
+
+            {/* Tab: 知识库 */}
+            <Show when={activeTab.value === 'kb'}>
+              <div class={s.panelBody}>
+                <div class={s.panelSection}>
+                  <h3 class={s.panelTitle}>导入知识</h3>
+                  <input class={s.input} value={importTitle} onInput={(e: any) => importTitle.value = e.target.value} placeholder="标题" />
+                  <textarea class={s.textarea} value={importContent} onInput={(e: any) => importContent.value = e.target.value} placeholder="粘贴文档内容..." />
+                  <input class={s.input} value={importSource} onInput={(e: any) => importSource.value = e.target.value} placeholder="来源（可选）" />
+                  <button class={s.btnPrimary} onClick={importDoc}>导入</button>
+                </div>
+                <div class={s.panelSection}>
+                  <h3 class={s.panelTitle}>检索测试</h3>
+                  <div class="flex gap-1 mb-2">
+                    <input class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-xs"
+                      value={searchQuery} onInput={(e: any) => searchQuery.value = e.target.value}
+                      placeholder="输入查询..." onKeyDown={(e: any) => e.key === 'Enter' && searchKB()} />
+                    <button class={s.btnPrimary} onClick={searchKB}>搜索</button>
+                  </div>
+                  <For each={searchResults}>
+                    {(r: any) => <div class={s.searchResult}><strong>{r.title || '片段'}</strong> ({Math.round(r.score * 100)}%): {r.content.slice(0, 80)}...</div>}
+                  </For>
+                </div>
+                <div class={s.panelSection}>
+                  <h3 class={s.panelTitle}>{computed(() => `文档 (${kbDocs.value.length})`)}</h3>
+                  <Show when={kbLoading}><p class="text-xs text-gray-400 text-center py-2">加载中...</p></Show>
+                  <For each={kbDocs}>
+                    {(doc: KBDoc) => (
+                      <div class={s.kbItem}>
+                        <p class="font-medium">{doc.title}</p>
+                        <p class="text-gray-400">{doc.chunk_count} 段 · {doc.source || '无来源'}</p>
+                      </div>
+                    )}
+                  </For>
+                  <Show when={!kbLoading && kbDocs.value.length === 0}>
+                    <p class="text-xs text-gray-400 text-center py-2">暂无文档</p>
+                  </Show>
                 </div>
               </div>
             </Show>
