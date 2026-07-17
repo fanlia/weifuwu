@@ -1018,12 +1018,89 @@ function BrowseLayout(_props: {}, ctx: WfuiContext) {
   )
 }
 
+// ── ConversationList — 中间会话列表栏 ──
+
+interface EnrichedConversation {
+  id: string
+  title: string | null
+  department: { id: string; name: string } | null
+  last_message?: { body: string; created_at: string } | null
+  unread: number
+  updated_at: string
+}
+
+function ConversationList(_props: {}, ctx: WfuiContext) {
+  const convs = signal<EnrichedConversation[]>([])
+  const loading = signal(true)
+  const currentDeptId = computed(() => ctx.route.params.deptId || '')
+
+  onMount(() => {
+    ctx.api.get<EnrichedConversation[]>('/conversations').then(list => {
+      convs.value = list.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      loading.value = false
+    }).catch(() => loading.value = false)
+  })
+
+  const s = createStyles({
+    wrap: 'w-[240px] border-r border-gray-200 bg-white flex flex-col overflow-hidden shrink-0',
+    header: 'px-4 py-3 border-b border-gray-100 shrink-0',
+    title: 'text-xs font-semibold text-gray-500 uppercase',
+    list: 'flex-1 overflow-y-auto',
+    item: 'flex items-center gap-2 px-4 py-2.5 cursor-pointer border-b border-gray-50 hover:bg-gray-50 transition-colors',
+    itemActive: 'flex items-center gap-2 px-4 py-2.5 cursor-pointer border-b border-gray-50 bg-blue-50 border-l-2 border-l-blue-500 transition-colors',
+    deptName: 'text-sm font-medium truncate',
+    deptNameActive: 'text-sm font-medium truncate text-blue-700',
+    preview: 'text-xs text-gray-400 truncate mt-0.5',
+    badge: 'ml-auto bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1',
+    time: 'text-xs text-gray-300 ml-auto',
+    icon: 'text-base shrink-0',
+  })
+
+  return (
+    <div class={s.wrap}>
+      <div class={s.header}>
+        <h2 class={s.title}>部门聊天</h2>
+      </div>
+      <div class={s.list}>
+        <Show when={loading}>
+          <p class="text-xs text-gray-400 text-center py-8">加载中...</p>
+        </Show>
+        <For each={convs}>
+          {(c: EnrichedConversation) => {
+            const isActive = c.department?.id === currentDeptId.value
+            return (
+              <div class={isActive ? s.itemActive : s.item}
+                onClick={() => c.department && ctx.app.navigate(`/tenant/${ctx.route.params.tenantId || ''}/company/${ctx.route.params.companyId || ''}/dept/${c.department.id}`)}>
+                <span class={s.icon}>{c.unread > 0 ? '💬' : '💭'}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between">
+                    <span class={isActive ? s.deptNameActive : s.deptName}>{c.department?.name || c.title || '未知'}</span>
+                    <span class={s.time}>{c.last_message ? new Date(c.last_message.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                  </div>
+                  <p class={s.preview}>{c.last_message?.body?.slice(0, 40) || '暂无消息'}</p>
+                </div>
+                <Show when={c.unread > 0}>
+                  <span class={s.badge}>{c.unread > 99 ? '99+' : c.unread}</span>
+                </Show>
+              </div>
+            )
+          }}
+        </For>
+        <Show when={!loading && convs.value.length === 0}>
+          <p class="text-xs text-gray-400 text-center py-8">暂无会话</p>
+        </Show>
+      </div>
+    </div>
+  )
+}
+
 // ── ChatLayout — 侧栏 + 会话列表 + 聊天内容 ──
 
 function ChatLayout(_props: {}, ctx: WfuiContext) {
   return (
     <div class="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar _props={{}} ctx={ctx} />
+      <ConversationList _props={{}} ctx={ctx} />
       <div class="flex-1 flex flex-col overflow-hidden min-w-0">
         <RouteView />
       </div>

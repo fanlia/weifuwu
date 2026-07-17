@@ -83,6 +83,32 @@ app.get('/api/me', async (req, ctx) => {
 
 // ── 消息 API（Chat 组件依赖）──
 
+// 获取当前用户的会话列表（含未读计数和部门信息）
+app.get('/api/conversations', async (req: Request, ctx: Context) => {
+  const conversations = await ctx.messager.getConversations()
+  const unread = await ctx.messager.getUnreadCount()
+
+  // 查找每个 conversation 对应的部门信息
+  const enriched = await Promise.all(conversations.map(async (c: any) => {
+    let department = null
+    try {
+      const sql = (ctx as any).sql
+      const [dept] = await sql.unsafe(
+        'SELECT id, name FROM departments WHERE conversation_id = $1',
+        [c.id],
+      )
+      if (dept) department = { id: dept.id, name: dept.name }
+    } catch {}
+    return {
+      ...c,
+      department,
+      unread: unread.byConversation[c.id] || 0,
+    }
+  }))
+
+  return Response.json(enriched)
+})
+
 app.post('/api/messages', async (req: Request, ctx: Context) => {
   const { conversationId, body } = await req.json()
   if (!conversationId || !body) return new Response('Missing fields', { status: 400 })
