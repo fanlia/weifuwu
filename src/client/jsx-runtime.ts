@@ -524,10 +524,18 @@ export function wrap<P = {}>(
   }
 }
 
+/** @internal 将 effect dispose 注册到元素生命周期。
+ * 元素离开 DOM 时自动调用 dispose，无论元素当前是否挂载。
+ */
+function _trackEffect(el: Element, dispose: () => void) {
+  const entry = _ensure(el)
+  entry.disposeFns.push(dispose)
+}
+
 function setProp(el: Element, key: string, value: unknown) {
   if (key === 'class' || key === 'className') {
     if (isSignal(value)) {
-      effect(() => { el.className = String(value.value) })
+      _trackEffect(el, effect(() => { el.className = String(value.value) }))
     } else {
       el.className = String(value ?? '')
     }
@@ -538,12 +546,12 @@ function setProp(el: Element, key: string, value: unknown) {
   } else if (key === 'ref' && typeof value === 'function') {
     value(el)
   } else if (isSignal(value)) {
-    effect(() => {
+    _trackEffect(el, effect(() => {
       const v = value.value
       if (v == null || v === false) el.removeAttribute(key)
       else if (v === true) el.setAttribute(key, '')
       else el.setAttribute(key, String(v))
-    })
+    }))
   } else if (value != null && value !== false) {
     if (value === true) el.setAttribute(key, '')
     else el.setAttribute(key, String(value))
@@ -556,7 +564,11 @@ function appendChild(parent: Node, child: unknown) {
   if (child instanceof Node) { parent.appendChild(child); return }
   if (isSignal(child)) {
     const text = document.createTextNode('')
-    effect(() => { text.textContent = String(child.value) })
+    if (parent instanceof Element) {
+      _trackEffect(parent, effect(() => { text.textContent = String(child.value) }))
+    } else {
+      effect(() => { text.textContent = String(child.value) })
+    }
     parent.appendChild(text)
     return
   }
@@ -736,11 +748,13 @@ export function Show({ when, children, fallback }: {
   children?: Node | (() => Node)
   fallback?: Node | (() => Node)
 }): Node {
-  const el = document.createDocumentFragment()
+  // 用 display: contents 避免多余包装盒，同时保有持久 DOM 锚点
+  const el = document.createElement('div')
+  el.style.display = 'contents'
 
   function render(show: boolean) {
-    // 清空子节点（DocumentFragment 不支持 textContent）
-    while (el.lastChild) el.lastChild.remove()
+    // 清空所有子节点，同时触发旧子节点的 MutationObserver 清理
+    while (el.lastChild) el.removeChild(el.lastChild)
     if (show && children != null) {
       el.appendChild(toNode(children))
     } else if (!show && fallback != null) {
@@ -749,7 +763,9 @@ export function Show({ when, children, fallback }: {
   }
 
   if (isSignal(when)) {
-    effect(() => render(Boolean(when.value)))
+    const dispose = effect(() => render(Boolean(when.value)))
+    // Show 自身的 effect 绑定到 el 生命周期
+    _trackEffect(el, dispose)
   } else {
     render(Boolean(when))
   }
@@ -776,7 +792,9 @@ export function For<T>({ each, children, keyBy }: {
    */
   keyBy?: keyof T | ((item: T) => string)
 }): Node {
-  const el = document.createDocumentFragment()
+  // 用 display: contents 避免多余包装盒，同时保有持久 DOM 锚点
+  const el = document.createElement('div')
+  el.style.display = 'contents'
 
   function getKey(item: T, index: number): string {
     if (typeof keyBy === 'function') return keyBy(item)
@@ -787,7 +805,7 @@ export function For<T>({ each, children, keyBy }: {
   function render(list: T[]) {
     if (!keyBy) {
       // 无 key：全量重建（原行为）
-      while (el.lastChild) el.lastChild.remove()
+      while (el.lastChild) el.removeChild(el.lastChild)
       for (let i = 0; i < list.length; i++) {
         el.appendChild(children(list[i], i))
       }
@@ -795,7 +813,7 @@ export function For<T>({ each, children, keyBy }: {
     }
 
     // Keyed 渲染：复用已有 DOM 节点
-    const oldNodes = Array.from(el.childNodes).filter((n): n is Element => n instanceof Element)
+    const oldNodes = Array.from(el.children).filter((n): n is Element => n instanceof Element)
     const oldKeyMap = new Map<string, Element>()
     for (const node of oldNodes) {
       const k = node.getAttribute('data-key')
@@ -814,7 +832,7 @@ export function For<T>({ each, children, keyBy }: {
     const removedKeys = new Set(oldKeyMap.keys())
     for (const k of newKeys) removedKeys.delete(k)
 
-    // 移除消失的节点
+    // 移除消失的节点（触发 MutationObserver 清理 effect）
     for (const k of removedKeys) {
       const node = oldKeyMap.get(k)!
       node.remove()
@@ -843,7 +861,8 @@ export function For<T>({ each, children, keyBy }: {
   }
 
   if (isSignal(each)) {
-    effect(() => render(each.value))
+    const dispose = effect(() => render(each.value))
+    _trackEffect(el, dispose)
   } else {
     render(each)
   }

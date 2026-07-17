@@ -37,6 +37,18 @@ export { computed } from './signal.ts'
 export { effect } from './signal.ts'
 /** 检查一个值是否为 Signal 实例。 */
 export { isSignal } from './signal.ts'
+/**
+ * 批量更新 — 将多个信号写入合并为一次通知。
+ *
+ * ```ts
+ * batch(() => {
+ *   a.value = 1
+ *   b.value = 2
+ * })
+ * // 只触发一次 effect，而非两次
+ * ```
+ */
+export { batch } from './signal.ts'
 /** Signal 类型。 */
 export type { Signal } from './signal.ts'
 

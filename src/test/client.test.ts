@@ -38,7 +38,7 @@ before(() => {
 
 // ── 导入被测模块 ────────────────────────────────────────────
 
-const { signal, computed, effect, isSignal } = await import('../client/signal.ts')
+const { signal, computed, effect, isSignal, batch } = await import('../client/signal.ts')
 const { jsx, Show, For, onMount, onCleanup } = await import('../client/jsx-runtime.ts')
 const { useForm } = await import('../client/lib/form.ts')
 
@@ -174,6 +174,60 @@ describe('effect', () => {
   })
 })
 
+describe('batch', () => {
+  it('合并多个信号写入为一次通知', () => {
+    const a = signal(1)
+    const b = signal(2)
+    let effectCalls = 0
+    let sum = 0
+
+    effect(() => {
+      effectCalls++
+      sum = a.value + b.value
+    })
+    assert.equal(effectCalls, 1) // 初始调用
+    assert.equal(sum, 3)
+
+    batch(() => {
+      a.value = 10
+      b.value = 20
+    })
+    // 两次写入合并为一次 effect 调用
+    assert.equal(effectCalls, 2)
+    assert.equal(sum, 30)
+  })
+
+  it('batch 不改变最终结果', () => {
+    const a = signal(1)
+    const b = signal(2)
+    let sum = 0
+    effect(() => { sum = a.value + b.value })
+
+    batch(() => {
+      a.value = 100
+      b.value = 200
+    })
+    assert.equal(sum, 300)
+  })
+
+  it('嵌套 batch 正常', () => {
+    const a = signal(0)
+    let calls = 0
+    effect(() => { calls++; a.value })
+
+    calls = 0 // 重置计数器
+    batch(() => {
+      a.value = 1
+      batch(() => {
+        a.value = 2
+      })
+      a.value = 3
+    })
+    assert.equal(calls, 1) // 只触发一次
+    assert.equal(a.value, 3)
+  })
+})
+
 describe('computed', () => {
   it('computed 返回衍生值', () => {
     const a = signal(3)
@@ -259,7 +313,8 @@ describe('jsx', () => {
 describe('Show', () => {
   it('when=true 渲染 children', () => {
     const node = Show({ when: true, children: jsx('div', null, 'shown') })
-    assert(node instanceof DocumentFragment)
+    assert(node instanceof HTMLDivElement)
+    assert.equal(node.style.display, 'contents')
     const divs = node.querySelectorAll('div')
     assert.equal(divs.length, 1)
     assert.equal(divs[0].textContent, 'shown')
@@ -274,7 +329,21 @@ describe('Show', () => {
 
   it('when=false 无 fallback 渲染空', () => {
     const node = Show({ when: false })
-    assert.equal(node.childNodes.length, 0)
+    assert.equal(node.children.length, 0)
+  })
+
+  it('响应式切换', () => {
+    const show = signal(false)
+    const node = Show({ when: show, children: jsx('div', null, 'shown'), fallback: jsx('span', null, 'fallback') })
+    // 初始：false → 显示 fallback
+    assert.equal(node.querySelectorAll('span').length, 1)
+    assert.equal(node.querySelectorAll('div').length, 0)
+
+    // 切换为 true → 显示 children
+    show.value = true
+    assert.equal(node.querySelectorAll('span').length, 0)
+    assert.equal(node.querySelectorAll('div').length, 1)
+    assert.equal(node.querySelectorAll('div')[0].textContent, 'shown')
   })
 })
 
@@ -282,6 +351,8 @@ describe('For', () => {
   it('渲染列表', () => {
     const items = ['a', 'b', 'c']
     const node = For({ each: items, children: (item) => jsx('div', null, item) })
+    assert(node instanceof HTMLDivElement)
+    assert.equal(node.style.display, 'contents')
     const divs = node.querySelectorAll('div')
     assert.equal(divs.length, 3)
     assert.equal(divs[0].textContent, 'a')
@@ -297,6 +368,15 @@ describe('For', () => {
     items.value = ['x', 'y', 'z']
     assert.equal(node.querySelectorAll('div').length, 3)
     assert.equal((node.querySelectorAll('div')[0] as HTMLElement).textContent, 'x')
+  })
+
+  it('Signal 列表响应式清空', () => {
+    const items = signal(['a', 'b', 'c'])
+    const node = For({ each: items, children: (item) => jsx('div', null, item) })
+    assert.equal(node.querySelectorAll('div').length, 3)
+
+    items.value = []
+    assert.equal(node.querySelectorAll('div').length, 0)
   })
 })
 
