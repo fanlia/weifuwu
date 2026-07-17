@@ -378,7 +378,7 @@ for (const p of ['/', '/tenant/:tenantId', '/tenant/:tenantId/company/:companyId
     </head>
     <body class="bg-gray-50">
       <div id="root"></div>
-      <script src="/static/app.js"></script>
+      <script type="module" src="/static/app.js"></script>
     </body>
     </html>
   `)

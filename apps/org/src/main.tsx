@@ -939,7 +939,8 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
 // ═══════════════════════════════════════════════════════════════
 
 function AppShell(_props: {}, ctx: WfuiContext) {
-  if (!ctx.user) return <LoginPage _props={{}} ctx={ctx} />
+  const user = computed(() => ctx.user)
+  const isLoggedIn = computed(() => !!user.value)
 
   const s = createStyles({
     layout: 'flex h-screen overflow-hidden bg-gray-50',
@@ -952,23 +953,27 @@ function AppShell(_props: {}, ctx: WfuiContext) {
   })
 
   return (
-    <div class={s.layout}>
-      <ToastContainer />
-      <div class={s.sidebar}>
-        <div class={s.header}>
-          <span class={s.title} onClick={() => ctx.app.navigate('/')}>Org</span>
-          <span class={s.user}>{ctx.user.name}</span>
+    <div>
+      <Show when={isLoggedIn} fallback={<LoginPage _props={{}} ctx={ctx} />}>
+        <div class={s.layout}>
+          <ToastContainer />
+          <div class={s.sidebar}>
+            <div class={s.header}>
+              <span class={s.title} onClick={() => ctx.app.navigate('/')}>Org</span>
+              <span class={s.user}>{computed(() => ctx.user?.name || '')}</span>
+            </div>
+            <OrgTree _props={{}} ctx={ctx} />
+            <div class="flex-1" />
+            <div class={s.status}>
+              <span>v0.1</span>
+              <span class="cursor-pointer hover:text-red-500" onClick={() => ctx.auth.logout?.()}>退出</span>
+            </div>
+          </div>
+          <div class={s.main}>
+            <RouteView />
+          </div>
         </div>
-        <OrgTree _props={{}} ctx={ctx} />
-        <div class="flex-1" />
-        <div class={s.status}>
-          <span>v0.1</span>
-          <span class="cursor-pointer hover:text-red-500" onClick={() => ctx.auth.logout?.()}>退出</span>
-        </div>
-      </div>
-      <div class={s.main}>
-        <RouteView />
-      </div>
+      </Show>
     </div>
   )
 }
@@ -986,7 +991,7 @@ const routes: RouteDef[] = [
 
 const app = createApp()
 app.use(api())
-app.use(auth())
+app.use(auth({ loginPath: '/login', registerPath: '/register', mePath: '/me' }))
 app.use(ws())
 app.use(router({ routes, notFound: NotFound, mode: 'hash', transition: 'page' }))
 
