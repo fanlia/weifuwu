@@ -38,9 +38,10 @@ before(() => {
 
 // ── 导入被测模块 ────────────────────────────────────────────
 
-const { signal, computed, effect, isSignal, batch, untrack } = await import('../client/signal.ts')
+const { signal, computed, effect, isSignal, batch, untrack, reactiveArray } = await import('../client/signal.ts')
 const { jsx, Show, For, onMount, onCleanup } = await import('../client/jsx-runtime.ts')
 const { useForm } = await import('../client/lib/form.ts')
+const { useModel } = await import('../client/lib/model.ts')
 const { createResource } = await import('../client/lib/resource.ts')
 
 // ═════════════════════════════════════════════════════════════
@@ -207,7 +208,6 @@ describe('signal.mutate', () => {
     effect(() => { lastLen = items.value.length })
     assert.equal(lastLen, 3)
 
-    // 使用 mutate 修改数组
     items.mutate(arr => arr.push(4, 5))
     assert.equal(items.value.length, 5)
     assert.equal(lastLen, 5)
@@ -222,6 +222,96 @@ describe('signal.mutate', () => {
     user.mutate(obj => { obj.age = 30 })
     assert.equal(user.value.age, 30)
     assert.equal(lastAge, 30)
+  })
+})
+
+describe('reactiveArray', () => {
+  it('push 追加元素并触发通知', () => {
+    const items = reactiveArray([1, 2])
+    let lastLen = 0
+    effect(() => { lastLen = items.value.length })
+
+    items.push(3, 4)
+    assert.deepEqual(items.value, [1, 2, 3, 4])
+    assert.equal(lastLen, 4)
+  })
+
+  it('pop 移除末尾', () => {
+    const items = reactiveArray([1, 2, 3])
+    items.pop()
+    assert.deepEqual(items.value, [1, 2])
+  })
+
+  it('shift 移除开头', () => {
+    const items = reactiveArray([1, 2, 3])
+    items.shift()
+    assert.deepEqual(items.value, [2, 3])
+  })
+
+  it('unshift 插入开头', () => {
+    const items = reactiveArray([2, 3])
+    items.unshift(0, 1)
+    assert.deepEqual(items.value, [0, 1, 2, 3])
+  })
+
+  it('remove 按索引移除', () => {
+    const items = reactiveArray(['a', 'b', 'c'])
+    items.remove(1)
+    assert.deepEqual(items.value, ['a', 'c'])
+  })
+
+  it('replace 全量替换', () => {
+    const items = reactiveArray([1, 2, 3])
+    items.replace([10, 20])
+    assert.deepEqual(items.value, [10, 20])
+  })
+
+  it('clear 清空', () => {
+    const items = reactiveArray([1, 2, 3])
+    items.clear()
+    assert.deepEqual(items.value, [])
+  })
+
+  it('sort 排序', () => {
+    const items = reactiveArray([3, 1, 2])
+    items.sort()
+    assert.deepEqual(items.value, [1, 2, 3])
+  })
+
+  it('reverse 反转', () => {
+    const items = reactiveArray([1, 2, 3])
+    items.reverse()
+    assert.deepEqual(items.value, [3, 2, 1])
+  })
+
+  it('空数组初始化', () => {
+    const items = reactiveArray()
+    assert.deepEqual(items.value, [])
+  })
+})
+
+describe('useModel', () => {
+  it('返回 value 和 onInput', () => {
+    const name = signal('hello')
+    const model = useModel(name)
+    assert.equal(model.value, name)
+    assert.equal(typeof model.onInput, 'function')
+  })
+
+  it('onInput 更新信号值', () => {
+    const name = signal('')
+    const model = useModel(name)
+
+    model.onInput({ target: { value: 'world', type: 'text' } } as any)
+    assert.equal(name.value, 'world')
+  })
+
+  it('checkbox 类型更新 checked', () => {
+    const agreed = signal(false)
+    const model = useModel(agreed)
+
+    model.onInput({ target: { type: 'checkbox', checked: true } } as any)
+    assert.equal(agreed.value, true)
   })
 })
 

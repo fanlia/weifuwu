@@ -66,6 +66,19 @@ export { batch } from './signal.ts'
  * ```
  */
 export { untrack } from './signal.ts'
+/**
+ * 响应式数组 — 提供便捷的可变数组方法。
+ *
+ * ```ts
+ * const items = reactiveArray([1, 2, 3])
+ * items.push(4)
+ * items.remove(0)
+ * items.clear()
+ * ```
+ */
+export { reactiveArray } from './signal.ts'
+/** ReactiveArray 类型 */
+export type { ReactiveArray } from './signal.ts'
 /** Signal 类型。 */
 export type { Signal } from './signal.ts'
 
@@ -253,6 +266,16 @@ export { useForm } from './lib/form.ts'
  * ```
  */
 export { createResource } from './lib/resource.ts'
+
+/**
+ * 表单双向绑定 — 一行代码绑定 signal 到 input。
+ *
+ * ```tsx
+ * const name = signal('')
+ * <input {...useModel(name)} placeholder="姓名" />
+ * ```
+ */
+export { useModel } from './lib/model.ts'
 
 /**
  * 组件级作用域 CSS — 从 CSS-in-JS 对象生成唯一类名，样式自动注入 <head>。

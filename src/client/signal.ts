@@ -173,3 +173,57 @@ export function untrack<T>(fn: () => T): T {
     currentDeps = prevDeps
   }
 }
+
+// ── 响应式数组 ──────────────────────────────────────────────
+
+/**
+ * 响应式数组 — 提供便捷的可变数组方法。
+ *
+ * 所有方法内部调用 mutate() 在修改后触发通知。
+ *
+ * ```ts
+ * const items = reactiveArray([1, 2, 3])
+ *
+ * items.push(4)        // [1, 2, 3, 4]
+ * items.pop()          // [1, 2, 3]
+ * items.unshift(0)     // [0, 1, 2, 3]
+ * items.remove(1)      // [0, 2, 3]
+ * items.sort()         // [0, 2, 3]
+ * items.clear()        // []
+ * items.replace([7,8]) // [7, 8]
+ * ```
+ */
+export type ReactiveArray<T> = Signal<T[]> & {
+  push(...items: T[]): void
+  pop(): void
+  shift(): void
+  unshift(...items: T[]): void
+  /** 按索引移除元素 */
+  remove(index: number): void
+  /** 全量替换 */
+  replace(items: T[]): void
+  /** 清空 */
+  clear(): void
+  sort(compareFn?: (a: T, b: T) => number): void
+  reverse(): void
+}
+
+/**
+ * 创建响应式数组。
+ * 返回的 ReactiveArray 拥有便捷的可变方法。
+ */
+export function reactiveArray<T>(initial: T[] = []): ReactiveArray<T> {
+  const sig = new Signal(initial)
+  const methods = {
+    push(...items: T[]) { sig.mutate(arr => arr.push(...items)) },
+    pop() { sig.mutate(arr => arr.pop()) },
+    shift() { sig.mutate(arr => arr.shift()) },
+    unshift(...items: T[]) { sig.mutate(arr => arr.unshift(...items)) },
+    remove(index: number) { sig.mutate(arr => { if (index >= 0 && index < arr.length) arr.splice(index, 1) }) },
+    replace(items: T[]) { sig.mutate(arr => { arr.length = 0; arr.push(...items) }) },
+    clear() { sig.mutate(arr => arr.length = 0) },
+    sort(compareFn?: (a: T, b: T) => number) { sig.mutate(arr => arr.sort(compareFn)) },
+    reverse() { sig.mutate(arr => arr.reverse()) },
+  }
+  return Object.assign(sig, methods) as ReactiveArray<T>
+}
