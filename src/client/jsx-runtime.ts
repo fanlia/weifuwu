@@ -686,19 +686,32 @@ export function domMount(root: string | Element, app: Node): void {
  * children 必须是 thunk（函数），延迟执行以便捕获错误。
  *
  * ```tsx
+ * // 基本用法
  * <ErrorBoundary fallback={(e) => <p>出错了: {e.message}</p>}>
+ *   {() => <Dashboard />}
+ * </ErrorBoundary>
+ *
+ * // 带错误日志回调
+ * <ErrorBoundary
+ *   fallback={(e) => <ErrorPage error={e} />}
+ *   onError={(e, info) => console.error(e, info)}
+ * >
  *   {() => <Dashboard />}
  * </ErrorBoundary>
  * ```
  */
-export function ErrorBoundary({ fallback, children }: {
+export function ErrorBoundary({ fallback, children, onError }: {
   fallback: (error: Error) => Node
   children: () => Node
+  /** 错误发生时回调（用于日志上报） */
+  onError?: (error: Error) => void
 }, _ctx: WfuiContext): Node {
   try {
     return children()
   } catch (e) {
-    return fallback(e as Error)
+    const err = e as Error
+    if (onError) onError(err)
+    return fallback(err)
   }
 }
 

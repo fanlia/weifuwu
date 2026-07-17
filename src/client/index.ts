@@ -266,6 +266,7 @@ export { useForm } from './lib/form.ts'
  * ```
  */
 export { createResource } from './lib/resource.ts'
+export type { ResourceOptions } from './lib/resource.ts'
 
 /**
  * 表单双向绑定 — 一行代码绑定 signal 到 input。

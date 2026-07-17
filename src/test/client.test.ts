@@ -39,7 +39,7 @@ before(() => {
 // ── 导入被测模块 ────────────────────────────────────────────
 
 const { signal, computed, effect, isSignal, batch, untrack, reactiveArray } = await import('../client/signal.ts')
-const { jsx, Show, For, onMount, onCleanup } = await import('../client/jsx-runtime.ts')
+const { jsx, Show, For, ErrorBoundary, onMount, onCleanup } = await import('../client/jsx-runtime.ts')
 const { useForm } = await import('../client/lib/form.ts')
 const { useModel } = await import('../client/lib/model.ts')
 const { createResource } = await import('../client/lib/resource.ts')
@@ -533,7 +533,6 @@ describe('createResource', () => {
 
   it('加载完成后 data 有值, loading=false', async () => {
     const res = createResource(async () => 'hello')
-    // 等待微任务队列处理 Promise
     await new Promise(r => setTimeout(r, 0))
     assert.equal(res.loading.value, false)
     assert.equal(res.data.value, 'hello')
@@ -557,6 +556,77 @@ describe('createResource', () => {
     res.refetch()
     await new Promise(r => setTimeout(r, 0))
     assert.equal(res.data.value, 'data-2')
+  })
+
+  it('retry=1 时失败后自动重试一次', async () => {
+    let attempts = 0
+    const res = createResource(async () => {
+      attempts++
+      if (attempts < 2) throw new Error('try again')
+      return 'success'
+    }, { retry: 1, retryDelay: 10 })
+
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(res.data.value, 'success')
+    assert.equal(res.loading.value, false)
+    assert.equal(res.error.value, null)
+    assert.equal(attempts, 2)
+  })
+
+  it('retry 耗尽后 error 为最后一次错误', async () => {
+    let attempts = 0
+    const res = createResource(async () => {
+      attempts++
+      throw new Error(`attempt-${attempts}`)
+    }, { retry: 2, retryDelay: 10 })
+
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(res.data.value, undefined)
+    assert.equal(res.loading.value, false)
+    assert.equal(res.error.value?.message, 'attempt-3')
+    assert.equal(attempts, 3)
+  })
+
+  it('timeout 超时后报错', async () => {
+    const res = createResource(async () => {
+      await new Promise(r => setTimeout(r, 100))
+      return 'too late'
+    }, { timeout: 20 })
+
+    await new Promise(r => setTimeout(r, 50))
+    assert.equal(res.loading.value, false)
+    assert.equal(res.data.value, undefined)
+    assert.ok(res.error.value?.message.includes('超时'))
+  })
+})
+
+describe('ErrorBoundary', () => {
+  it('捕获渲染异常并显示 fallback', () => {
+    const node = ErrorBoundary({
+      fallback: (e) => jsx('div', null, 'Error: ', e.message),
+      children: () => { throw new Error('boom') },
+    }, {} as any)
+    assert.equal((node as HTMLElement).textContent, 'Error: boom')
+  })
+
+  it('正常渲染时不触发 fallback', () => {
+    const node = ErrorBoundary({
+      fallback: (e) => jsx('div', null, 'Error: ', e.message),
+      children: () => jsx('div', null, 'ok'),
+    }, {} as any)
+    assert.equal((node as HTMLElement).textContent, 'ok')
+  })
+
+  it('onError 回调被调用', () => {
+    let called = false
+    let errorMsg = ''
+    ErrorBoundary({
+      fallback: (e) => jsx('div', null, e.message),
+      children: () => { throw new Error('test-error') },
+      onError: (e) => { called = true; errorMsg = e.message },
+    }, {} as any)
+    assert.equal(called, true)
+    assert.equal(errorMsg, 'test-error')
   })
 })
 
