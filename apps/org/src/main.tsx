@@ -473,31 +473,71 @@ function Skeleton({ lines = 3 }: { lines?: number }) {
 // Toast — 全局通知
 // ═══════════════════════════════════════════════════════════════
 
-const toasts = signal<Array<{ id: number; msg: string; type: 'success' | 'error' | 'info' }>>([])
+const TOAST_ICONS: Record<string, string> = {
+  success: '✓',
+  error: '✕',
+  info: 'i',
+  warning: '⚠',
+}
+
+const TOAST_COLORS: Record<string, string> = {
+  success: 'bg-green-500',
+  error: 'bg-red-500',
+  info: 'bg-blue-500',
+  warning: 'bg-orange-500',
+}
+
+const TOAST_DURATION = 3500
+
+interface ToastItem {
+  id: number
+  msg: string
+  type: 'success' | 'error' | 'info' | 'warning'
+  startTime: number
+}
+
+const toasts = signal<ToastItem[]>([])
 let toastId = 0
 
-function showToast(msg: string, type: 'success' | 'error' | 'info' = 'info') {
+function showToast(msg: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') {
   const id = ++toastId
-  toasts.value = [...toasts.value, { id, msg, type }]
+  const item: ToastItem = { id, msg, type, startTime: Date.now() }
+  toasts.value = [...toasts.value, item]
   setTimeout(() => {
     toasts.value = toasts.value.filter(t => t.id !== id)
-  }, 3000)
+  }, TOAST_DURATION)
 }
 
 function ToastContainer() {
   const s = createStyles({
-    container: 'fixed top-4 right-4 z-50 space-y-2',
-    toast: 'px-4 py-2.5 rounded-lg shadow-lg text-sm text-white transition-all duration-300',
+    container: 'fixed top-4 right-4 z-50 space-y-2 pointer-events-none',
+    toast: 'pointer-events-auto rounded-lg shadow-modal text-sm text-white overflow-hidden anim-slide-in cursor-pointer',
+    body: 'flex items-center gap-2.5 px-4 py-3',
+    icon: 'w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold shrink-0',
+    msg: 'flex-1',
+    progress: 'h-1 bg-white/30',
+    progressBar: 'h-full bg-white/60 transition-all',
   })
+
   return (
     <div class={s.container}>
       <For each={toasts}>
-        {(t: any) => (
-          <div class={`${s.toast} ${
-            t.type === 'success' ? 'bg-green-500' :
-            t.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-          }`}>{t.msg}</div>
-        )}
+        {(t: ToastItem) => {
+          const elapsed = Date.now() - t.startTime
+          const remaining = Math.max(0, 1 - elapsed / TOAST_DURATION)
+          return (
+            <div class={`${s.toast} ${TOAST_COLORS[t.type]}`}
+              onClick={() => { toasts.value = toasts.value.filter(x => x.id !== t.id) }}>
+              <div class={s.body}>
+                <span class={s.icon}>{TOAST_ICONS[t.type]}</span>
+                <span class={s.msg}>{t.msg}</span>
+              </div>
+              <div class={s.progress}>
+                <div class={s.progressBar} style={{ width: `${remaining * 100}%` }} />
+              </div>
+            </div>
+          )
+        }}
       </For>
     </div>
   )
@@ -1152,7 +1192,7 @@ function OrgTree(_props: {}, ctx: WfuiContext) {
 
 // ── Sidebar — 通用左侧面板 ──
 
-function Sidebar(_props: {}, ctx: WfuiContext) {
+function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }, ctx: WfuiContext) {
   const searchQuery = signal('')
   const recentConvs = signal<EnrichedConversation[]>([])
   const showOrgTree = signal(true)
@@ -1164,7 +1204,9 @@ function Sidebar(_props: {}, ctx: WfuiContext) {
   })
 
   const s = createStyles({
-    wrap: 'w-[220px] border-r border-gray-200 bg-[#fafafa] flex flex-col overflow-hidden shrink-0',
+    wrap: `${
+      collapsed ? 'w-0 md:w-[220px] overflow-hidden' : 'w-[220px]'
+    } border-r border-gray-200 bg-[#fafafa] flex flex-col overflow-hidden shrink-0 transition-all duration-300`,
     header: 'px-3 py-2.5 border-b border-gray-200 flex items-center justify-between shrink-0',
     title: 'font-bold text-sm text-blue-600 cursor-pointer',
     userName: 'text-xs text-gray-400 max-w-[100px] truncate',
@@ -1242,9 +1284,10 @@ function Sidebar(_props: {}, ctx: WfuiContext) {
 // ── BrowseLayout — 侧栏 + 内容 ──
 
 function BrowseLayout(_props: {}, ctx: WfuiContext) {
+  const sidebarCollapsed = signal(false)
   return (
     <div class="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar _props={{}} ctx={ctx} />
+      <Sidebar collapsed={sidebarCollapsed.value} onToggle={() => sidebarCollapsed.value = !sidebarCollapsed.value} ctx={ctx} />
       <div class="flex-1 flex flex-col overflow-hidden min-w-0">
         <RouteView />
       </div>
@@ -1331,9 +1374,10 @@ function ConversationList(_props: {}, ctx: WfuiContext) {
 // ── ChatLayout — 侧栏 + 会话列表 + 聊天内容 ──
 
 function ChatLayout(_props: {}, ctx: WfuiContext) {
+  const sidebarCollapsed = signal(false)
   return (
     <div class="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar _props={{}} ctx={ctx} />
+      <Sidebar collapsed={sidebarCollapsed.value} onToggle={() => sidebarCollapsed.value = !sidebarCollapsed.value} ctx={ctx} />
       <ConversationList _props={{}} ctx={ctx} />
       <div class="flex-1 flex flex-col overflow-hidden min-w-0">
         <RouteView />

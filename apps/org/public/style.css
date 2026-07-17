@@ -145,6 +145,42 @@ body {
 .page-leave-active { opacity: 0; transform: translateX(-20px); transition: all 0.15s ease; }
 
 /* ══════════════════════════════════════════════════
+   Responsive
+   ══════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 0px;
+    --convlist-width: 0px;
+    --panel-width: 100%;
+  }
+
+  .mobile-sidebar-toggle {
+    display: flex !important;
+  }
+
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .full-width-mobile {
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-sidebar-toggle {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .hide-tablet {
+    display: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════
    Scrollbar
    ══════════════════════════════════════════════════ */
 
