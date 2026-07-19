@@ -2,7 +2,7 @@
  * 演示 wefu 路由 + signal + (props, ctx) + Show/For
  */
 
-import { signal, computed, Show, For, createApp, router, RouteView } from 'weifuwu/client'
+import { signal, computed, Show, For, createApp, ws, router, RouteView } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
 
 // ═══════════════════════════════════════════════════════════
@@ -240,7 +240,6 @@ function AppShell(_props: {}, ctx: WfuiContext) {
           <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/about')}>关于</a>
           <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/user/wefu')}>用户</a>
           <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/ws')}>实时</a>
-          <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => ctx.app.navigate('/transition')}>动画</a>
           <a class="cursor-pointer text-gray-500 text-sm hover:text-blue-500" onClick={() => window.location.href = '/blog/hello-ssr'}>博客</a>
         </div>
       </nav>
@@ -275,6 +274,7 @@ function LikeButton(_props: {}, _ctx: WfuiContext): Node {
 // ── 启动 ──
 
 const app = createApp()
+app.use(ws())
 app.use(router({ routes, notFound: NotFound, mode: 'hash', transition: 'page' }))
 
 // 检测 SSR 页面：如果 #root 已有内容，只 hydrate 交互区域
