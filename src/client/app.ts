@@ -2,12 +2,9 @@
  * weifuwu/client 应用 — 创建 ctx + 中间件链 + 挂载组件
  *
  * ```tsx
- * import { createApp, api, auth, ws, router } from 'weifuwu/client'
+ * import { createApp, router } from 'weifuwu/client'
  *
  * const app = createApp()
- * app.use(api())
- * app.use(auth())
- * app.use(ws())
  * app.use(router({ routes }))
  * app.mount('#root', AppShell)
  * ```
@@ -64,14 +61,7 @@ export function createApp(): {
         window.dispatchEvent(new Ctor('wefu:navigate', { detail: { path } }))
       },
     },
-    user: null,
-    token: null,
-    isAuthenticated: false,
-    login: async () => {},
-    logout: () => {},
-    register: async () => {},
-    api: null as any,
-    ws: null as any,
+
     provide<T>(key: string, value: T) {
       provides.set(key, value)
     },

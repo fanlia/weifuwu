@@ -2,7 +2,6 @@
  * wefu 类型定义
  */
 
-import type { Signal } from './signal.ts'
 import type { Component } from './jsx-runtime.ts'
 
 /**
@@ -10,10 +9,9 @@ import type { Component } from './jsx-runtime.ts'
  *
  * ```tsx
  * function MyPage(props, ctx: WfuiContext) {
- *   ctx.user              // 当前登录用户
- *   ctx.login(email, pw)  // 登录
- *   ctx.api.get('/users') // API 请求
- *   ctx.ws.send(data)     // WebSocket
+ *   ctx.route.path        // 当前路由路径
+ *   ctx.route.params      // 路由参数
+ *   ctx.app.navigate('/') // 页面导航
  * }
  * ```
  */
@@ -35,23 +33,6 @@ export interface WfuiContext {
   }
   app: {
     navigate: (path: string) => void
-  }
-
-  // ── auth() 注入 ──
-  user: { id: string; email: string; name: string; role: string; avatar?: string } | null
-  token: string | null
-  isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-  register: (input: { email: string; name: string; password: string }) => Promise<void>
-
-  // ── api() 注入 ──
-  api: {
-    get<T>(path: string): Promise<T>
-    post<T>(path: string, body?: unknown): Promise<T>
-    put<T>(path: string, body?: unknown): Promise<T>
-    patch<T>(path: string, body?: unknown): Promise<T>
-    delete<T>(path: string): Promise<T>
   }
 
   /** 跨组件共享数据 */
@@ -95,10 +76,9 @@ export function createContext<T>(key: string): {
  * 中间件返回 ctx 有两种模式：
  *
  * 1. **新增字段**：用 `extendCtx(ctx, { field: value })`，保留原 ctx 的 getter。
- *    适用于 ws()、api() 等只添加不覆盖的场景。
  *
  * 2. **覆盖字段**：用 `{ ...ctx, get field() { ... }, ... }`，用 getter 覆盖原字段。
- *    适用于 auth() 等需要用信号 getter 替换静态 null 值的场景。
+ *    适用于需要用信号 getter 替换静态 null 值的场景。
  *
  * 注意：不要用 `Object.assign(ctx, { field })`，它会把 getter 求值为快照值。
  */

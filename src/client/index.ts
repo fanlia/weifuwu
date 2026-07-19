@@ -152,15 +152,6 @@ export { RouteView } from './router.ts'
 
 // ── 中间件 ──────────────────────────────────────────────────
 
-/** HTTP 客户端中间件 — 注入 ctx.api（get / post / put / patch / delete）。 */
-export { api } from './middleware/api.ts'
-/**
- * 身份认证中间件 — 注入 ctx.user / ctx.login / ctx.logout / ctx.register。
- * 自动管理 localStorage 持久化和 token 验证。
- */
-export { auth } from './middleware/auth.ts'
-/** 用户记录类型 */
-export type { UserRecord } from './middleware/auth.ts'
 
 
 // ── 工具 ────────────────────────────────────────────────────

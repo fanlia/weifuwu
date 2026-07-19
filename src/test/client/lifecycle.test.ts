@@ -43,9 +43,6 @@ import type { WfuiContext } from '../../client/types.ts'
 const mockCtx = {
   route: { path: '/', params: {}, query: {}, hash: '', component: null, data: {}, loading: false },
   app: { navigate: () => {} },
-  user: null, token: null, isAuthenticated: false,
-  login: async () => {}, logout: () => {}, register: async () => {},
-  api: null as any, ws: null as any,
   provide: () => {}, inject: () => null,
 }
 

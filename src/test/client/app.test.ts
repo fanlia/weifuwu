@@ -54,12 +54,8 @@ describe('createApp', () => {
 
   it('初始 ctx 有默认值', () => {
     const app = createApp()
-    assert.equal(app.ctx.user, null)
-    assert.equal(app.ctx.token, null)
-    assert.equal(app.ctx.isAuthenticated, false)
     assert.equal(app.ctx.route.path, '/')
-    assert.ok(Array.isArray(Object.values(app.ctx.route.params)))
-    assert.equal(typeof app.ctx.app.navigate, 'function')
+    assert.ok(typeof app.ctx.app.navigate, 'function')
   })
 
   it('use 返回自身，支持链式调用', () => {

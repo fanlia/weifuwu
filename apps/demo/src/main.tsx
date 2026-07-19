@@ -2,7 +2,7 @@
  * 演示 wefu 路由 + signal + (props, ctx) + Show/For
  */
 
-import { signal, computed, Show, For, createApp, api, auth, ws, router, RouteView, createStyles } from 'weifuwu/client'
+import { signal, computed, Show, For, createApp, router, RouteView } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
 
 // ═══════════════════════════════════════════════════════════
@@ -275,9 +275,6 @@ function LikeButton(_props: {}, _ctx: WfuiContext): Node {
 // ── 启动 ──
 
 const app = createApp()
-app.use(api())
-app.use(auth())
-app.use(ws())
 app.use(router({ routes, notFound: NotFound, mode: 'hash', transition: 'page' }))
 
 // 检测 SSR 页面：如果 #root 已有内容，只 hydrate 交互区域

@@ -79,12 +79,6 @@ export function router(opts: RouterOptions): AppMiddleware {
     function navigateAndLoad(path: string) {
       const { routeDef } = resolve(path)
 
-      // 鉴权守卫
-      if (ctx.route.auth && !ctx.user) {
-        setTimeout(() => ctx.app.navigate('/login'), 0)
-        return
-      }
-
       // 有 loader：先设 loading=true 触发渲染，再异步加载
       if (routeDef?.loader) {
         ctx.route.loading = true
