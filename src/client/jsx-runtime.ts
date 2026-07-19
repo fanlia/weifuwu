@@ -558,16 +558,43 @@ function setProp(el: Element, key: string, value: unknown) {
   }
 }
 
+/**
+ * 找到最近的 Element 祖先（从 node 开始向上查找，用于生命周期绑定）。
+ */
+function _closestElement(node: Node): Element | null {
+  if (node instanceof Element) return node
+  // DocumentFragment 或其子节点 — 找到宿主元素
+  if (node instanceof DocumentFragment) {
+    // Fragment 没有 parentNode，但我们可以遍历它的宿主
+    // 在它被 append 到某个 Element 之前，我们无法找到 Element
+    return null
+  }
+  // 文本节点等 — 向上遍历
+  let parent = node.parentNode
+  while (parent) {
+    if (parent instanceof Element) return parent
+    parent = parent.parentNode
+  }
+  return null
+}
+
 function appendChild(parent: Node, child: unknown) {
   if (child == null || child === false || child === true) return
   if (Array.isArray(child)) { child.forEach(c => appendChild(parent, c)); return }
   if (child instanceof Node) { parent.appendChild(child); return }
   if (isSignal(child)) {
     const text = document.createTextNode('')
-    if (parent instanceof Element) {
-      _trackEffect(parent, effect(() => { text.textContent = String(child.value) }))
+    const parentEl = parent instanceof Element ? parent : _closestElement(parent)
+    if (parentEl) {
+      _trackEffect(parentEl, effect(() => { text.textContent = String(child.value) }))
     } else {
-      effect(() => { text.textContent = String(child.value) })
+      // 没有 Element 锚点时，创建一个 display:contents div 作为锚点并追加到 parent
+      const anchor = document.createElement('div')
+      anchor.style.display = 'contents'
+      _trackEffect(anchor, effect(() => { text.textContent = String(child.value) }))
+      anchor.appendChild(text)
+      parent.appendChild(anchor)
+      return
     }
     parent.appendChild(text)
     return
@@ -660,10 +687,27 @@ export function jsxDEV(
   return jsx(type, props, ...(props?.children ? [props.children] : []))
 }
 
-export function Fragment(props: Record<string, unknown> | null, ...children: unknown[]): Node {
-  const frag = document.createDocumentFragment()
-  for (const child of children) appendChild(frag, child)
-  return frag
+/**
+ * Fragment — 不产生包装元素的组件。
+ *
+ * 使用 `<div style="display:contents">` 而非 `DocumentFragment`，
+ * 这样 Fragment 内的 Signal children 能绑定到 Element 生命周期，
+ * 在 Fragment 被移除 DOM 时自动清理 effect。
+ *
+ * visual 上 `display: contents` 使 div 本身不参与渲染，
+ * 效果与 DocumentFragment 一致。
+ */
+export function Fragment(props: Record<string, unknown> | null, ..._rest: unknown[]): Node {
+  // jsx 工厂将 children 放在 props.children 中（type 为函数时）
+  // _rest 包含 ctx 等参数，不是 children
+  const childList = props?.children != null
+    ? (Array.isArray(props.children) ? props.children : [props.children])
+    : []
+
+  const el = document.createElement('div')
+  el.style.display = 'contents'
+  for (const child of childList) appendChild(el, child)
+  return el
 }
 
 // ── 挂载 ─────────────────────────────────────────────────────

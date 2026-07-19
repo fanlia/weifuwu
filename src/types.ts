@@ -31,20 +31,6 @@ export interface User {
 }
 
 // Context — extensible via module augmentation.
-// Built-in middleware modules declare additional properties here.
-// e.g. postgres/types.ts → `declare module '../types.ts' { interface Context { sql: SqlClient } }`
-export interface WsContext {
-  /** Per-connection state object */
-  state: Record<string, unknown>
-  /** Send JSON to this connection */
-  json(data: unknown): void
-  /** Join a room */
-  join(room: string): void
-  /** Leave a room */
-  leave(room: string): void
-  /** Broadcast to a room */
-  sendRoom(room: string, data: unknown): void
-}
 
 export interface Context {
   params: Record<string, string>
@@ -94,6 +80,7 @@ export type ErrorHandler<T extends Context = Context> = (
  * Interface for resources that require explicit cleanup (connections, pools, timers).
  * All stateful modules implement this.
  */
+
 export interface Closeable {
   /** Release all resources. Call once when shutting down. */
   close(): Promise<void>

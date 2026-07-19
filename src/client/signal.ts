@@ -35,13 +35,7 @@ export class Signal<T = unknown> {
   set value(v: T) {
     if (v !== this.#value) {
       this.#value = v
-      if (_batchDepth > 0) {
-        // 批量模式：积攒通知，不立即执行
-        for (const fn of this.#listeners) _pendingBatch.add(fn)
-      } else {
-        const fns = [...this.#listeners]
-        for (const fn of fns) fn()
-      }
+      this.#notify()
     }
   }
 
@@ -63,6 +57,11 @@ export class Signal<T = unknown> {
    */
   mutate(fn: (value: T) => void): void {
     fn(this.#value)
+    this.#notify()
+  }
+
+  /** 通知所有监听器 — 批量模式时积攒，否则立即执行 */
+  #notify(): void {
     if (_batchDepth > 0) {
       for (const fn of this.#listeners) _pendingBatch.add(fn)
     } else {
@@ -110,9 +109,9 @@ export function effect(fn: Listener): () => void {
 }
 
 export function computed<T>(fn: () => T): Signal<T> {
-  // 先计算初始值（不追踪依赖），Signal 创建时就有正确类型
-  const s = signal(fn())
-  // effect 追踪后续依赖变化
+  // 用 undefined 占位，effect 同步执行后立即填入正确值
+  const s = signal(undefined as unknown as T)
+  // effect 在首次同步执行时建立依赖追踪，避免 fn() 跑两次
   effect(() => { s.value = fn() })
   return s
 }
@@ -174,56 +173,4 @@ export function untrack<T>(fn: () => T): T {
   }
 }
 
-// ── 响应式数组 ──────────────────────────────────────────────
 
-/**
- * 响应式数组 — 提供便捷的可变数组方法。
- *
- * 所有方法内部调用 mutate() 在修改后触发通知。
- *
- * ```ts
- * const items = reactiveArray([1, 2, 3])
- *
- * items.push(4)        // [1, 2, 3, 4]
- * items.pop()          // [1, 2, 3]
- * items.unshift(0)     // [0, 1, 2, 3]
- * items.remove(1)      // [0, 2, 3]
- * items.sort()         // [0, 2, 3]
- * items.clear()        // []
- * items.replace([7,8]) // [7, 8]
- * ```
- */
-export type ReactiveArray<T> = Signal<T[]> & {
-  push(...items: T[]): void
-  pop(): void
-  shift(): void
-  unshift(...items: T[]): void
-  /** 按索引移除元素 */
-  remove(index: number): void
-  /** 全量替换 */
-  replace(items: T[]): void
-  /** 清空 */
-  clear(): void
-  sort(compareFn?: (a: T, b: T) => number): void
-  reverse(): void
-}
-
-/**
- * 创建响应式数组。
- * 返回的 ReactiveArray 拥有便捷的可变方法。
- */
-export function reactiveArray<T>(initial: T[] = []): ReactiveArray<T> {
-  const sig = new Signal(initial)
-  const methods = {
-    push(...items: T[]) { sig.mutate(arr => arr.push(...items)) },
-    pop() { sig.mutate(arr => arr.pop()) },
-    shift() { sig.mutate(arr => arr.shift()) },
-    unshift(...items: T[]) { sig.mutate(arr => arr.unshift(...items)) },
-    remove(index: number) { sig.mutate(arr => { if (index >= 0 && index < arr.length) arr.splice(index, 1) }) },
-    replace(items: T[]) { sig.mutate(arr => { arr.length = 0; arr.push(...items) }) },
-    clear() { sig.mutate(arr => arr.length = 0) },
-    sort(compareFn?: (a: T, b: T) => number) { sig.mutate(arr => arr.sort(compareFn)) },
-    reverse() { sig.mutate(arr => arr.reverse()) },
-  }
-  return Object.assign(sig, methods) as ReactiveArray<T>
-}

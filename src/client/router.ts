@@ -4,8 +4,7 @@
 
 import type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 import type { Component } from './jsx-runtime.ts'
-import { jsx, setCtx } from './jsx-runtime.ts'
-import { Transition } from './components/Transition.tsx'
+import { jsx, setCtx, onCleanup } from './jsx-runtime.ts'
 
 export interface RouterOptions {
   mode?: 'hash' | 'history'
@@ -47,7 +46,9 @@ export function router(opts: RouterOptions): AppMiddleware {
 
   return (ctx: WfuiContext): WfuiContext => {
     function emit(path: string) {
-      window.dispatchEvent(new CustomEvent('wefu:route', { detail: { path } }))
+      // 用 window.CustomEvent 而非全局 CustomEvent，确保 JSDOM 下 dispatchEvent 能识别
+      const Ctor = (window as any).CustomEvent || CustomEvent
+      window.dispatchEvent(new Ctor('wefu:route', { detail: { path } }))
     }
 
     function resolve(path: string): { component: Component | null; routeDef: RouteDef | undefined } {
@@ -136,6 +137,41 @@ export function router(opts: RouterOptions): AppMiddleware {
 }
 
 /**
+ * 从 CSS transition-duration / animation-duration 中读取最大时长（ms）。
+ * transition 优先于 animation，取两者中的最大值。
+ */
+function _getMaxDuration(el: Element): number {
+  const style = getComputedStyle(el)
+  let maxMs = 0
+
+  // 解析 transition-duration
+  const td = style.transitionDuration
+  if (td && td !== '0s') {
+    for (const val of td.split(',')) {
+      const ms = _parseCssDuration(val.trim())
+      if (ms > maxMs) maxMs = ms
+    }
+  }
+
+  // 解析 animation-duration
+  const ad = style.animationDuration
+  if (ad && ad !== '0s') {
+    for (const val of ad.split(',')) {
+      const ms = _parseCssDuration(val.trim())
+      if (ms > maxMs) maxMs = ms
+    }
+  }
+
+  return maxMs || 300 // 最少 300ms 保证动画完成
+}
+
+function _parseCssDuration(s: string): number {
+  if (s.endsWith('ms')) return parseFloat(s) || 0
+  if (s.endsWith('s')) return (parseFloat(s) || 0) * 1000
+  return 0
+}
+
+/**
  * RouteView — 渲染当前路由匹配的组件
  *
  * 智能切换逻辑：
@@ -145,6 +181,7 @@ export function router(opts: RouterOptions): AppMiddleware {
  *
  * 当 ctx.route.transition 设置了动画名时，页面切换带动画过渡。
  * 旧页面执行 leave 动画后移除，新页面执行 enter 动画后展示。
+ * 动画时长从元素的 CSS transition-duration / animation-duration 自动读取。
  */
 export function RouteView(_props: {}, ctx: WfuiContext): Node {
   const el = document.createElement('div')
@@ -198,8 +235,9 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
         }
         prev.addEventListener('transitionend', onLeaveEnd)
         prev.addEventListener('animationend', onLeaveEnd)
-        // 超时回退
-        setTimeout(onLeaveEnd, 400)
+        // 超时回退：从实际 CSS 读取动画时长
+        const leaveDuration = _getMaxDuration(prev)
+        setTimeout(onLeaveEnd, leaveDuration)
       }
 
       // 2. 创建新页面并添加 enter 动画
@@ -232,7 +270,8 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
             }
             page.addEventListener('transitionend', onEnterEnd)
             page.addEventListener('animationend', onEnterEnd)
-            setTimeout(onEnterEnd, 400)
+            const enterDuration = _getMaxDuration(page)
+            setTimeout(onEnterEnd, enterDuration)
           })
         })
       } else {
@@ -251,5 +290,6 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
 
   render()
   window.addEventListener('wefu:route', render)
+  onCleanup(() => window.removeEventListener('wefu:route', render))
   return el
 }

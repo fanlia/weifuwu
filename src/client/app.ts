@@ -60,7 +60,8 @@ export function createApp(): {
         ctx.route.path = path
         ctx.route.query = Object.fromEntries(new URLSearchParams(window.location.search))
         ctx.route.hash = window.location.hash
-        window.dispatchEvent(new CustomEvent('wefu:navigate', { detail: { path } }))
+        const Ctor = (window as any).CustomEvent || CustomEvent
+        window.dispatchEvent(new Ctor('wefu:navigate', { detail: { path } }))
       },
     },
     user: null,

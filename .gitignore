@@ -1,6 +1,5 @@
 node_modules/
 .weifuwu/
 .sessions/
-/dist/
+dist/
 .env
-apps/demo/dist/

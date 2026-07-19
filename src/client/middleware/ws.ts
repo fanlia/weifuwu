@@ -14,6 +14,7 @@
  */
 
 import type { WfuiContext, AppMiddleware } from '../types.ts'
+import { extendCtx } from '../types.ts'
 import { signal } from '../signal.ts'
 import { getToken } from './api.ts'
 
@@ -96,8 +97,8 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
     // 初始连接
     connect()
 
-    // 用 Object.create 避免 ...ctx 展开丢失 auth getter
-    return Object.assign(Object.create(ctx), {
+    // 用 extendCtx 保留上游中间件的 response getter（如 auth 的 ctx.user）
+    return extendCtx(ctx, {
       ws: {
         send,
         onMessage: (handler: (data: unknown) => void): (() => void) => {

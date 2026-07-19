@@ -98,8 +98,40 @@ export function createContext<T>(key: string): {
   }
 }
 
-/** 中间件签名 */
+/**
+ * 中间件签名 — 返回新的或扩展后的 ctx。
+ *
+ * 中间件返回 ctx 有两种模式：
+ *
+ * 1. **新增字段**：用 `extendCtx(ctx, { field: value })`，保留原 ctx 的 getter。
+ *    适用于 ws()、api() 等只添加不覆盖的场景。
+ *
+ * 2. **覆盖字段**：用 `{ ...ctx, get field() { ... }, ... }`，用 getter 覆盖原字段。
+ *    适用于 auth() 等需要用信号 getter 替换静态 null 值的场景。
+ *
+ * 注意：不要用 `Object.assign(ctx, { field })`，它会把 getter 求值为快照值。
+ */
 export type AppMiddleware = (ctx: WfuiContext) => WfuiContext | Promise<WfuiContext>
+
+/**
+ * 扩展 ctx — 创建新对象，原 ctx 的 getter 通过原型链继承。
+ *
+ * 用于中间件向 ctx 添加新字段，而不破坏已有字段的响应式 getter。
+ *
+ * ```ts
+ * function myMiddleware(): AppMiddleware {
+ *   return (ctx) => extendCtx(ctx, {
+ *     myField: { hello: 'world' },
+ *   })
+ * }
+ * ```
+ */
+export function extendCtx<T extends Record<string, unknown>>(
+  ctx: WfuiContext,
+  fields: T,
+): WfuiContext & T {
+  return Object.assign(Object.create(ctx), fields) as WfuiContext & T
+}
 
 /** 路由定义 */
 export interface RouteDef {

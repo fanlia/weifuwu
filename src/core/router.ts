@@ -1,23 +1,19 @@
 import { WebSocketServer } from 'ws'
-import type { Context, Handler, Middleware, MiddlewareMeta, ErrorHandler } from '../types.ts'
-import { createHub, type Hub } from '../hub.ts'
+import type { Context, Handler, Middleware, MiddlewareMeta, ErrorHandler, WebSocket } from '../types.ts'
 import {
   type WebSocketHandler,
   type WsUpgradeHandler,
   createWsUpgradeHandler,
 } from './ws.ts'
+import type { GraphQLHandler } from '../graphql.ts'
+import { createGraphqlRouter } from '../graphql.ts'
 
-// Augment Context with WebSocket helpers
-declare module '../types.ts' {
-  interface Context {
-    ws: {
-      state: Record<string, unknown>
-      json(data: unknown): void
-      join(room: string): void
-      leave(room: string): void
-      sendRoom(room: string, data: unknown): void
-    }
-  }
+/** In-memory pub/sub hub for WebSocket rooms. */
+interface Hub {
+  join(key: string, ws: import('ws').WebSocket): void
+  leave(ws: import('ws').WebSocket): void
+  send(key: string, message: string): void
+  close(): Promise<void>
 }
 
 // ── Trie types ──────────────────────────────────────────────────
@@ -115,7 +111,7 @@ export class Router<T extends Context = Context> {
   }
 
   private get hub(): Hub {
-    if (!this._hub) this._hub = createHub()
+    if (!this._hub) this._hub = createInMemoryHub()
     return this._hub
   }
 
@@ -192,6 +188,26 @@ export class Router<T extends Context = Context> {
     return this
   }
 
+  /**
+   * Add GraphQL endpoint.
+   * Mounts a sub-router with GET (for queries + GraphiQL) and POST (for mutations).
+   *
+   * ```ts
+   * // At root
+   * app.graphql(async (req, ctx) => ({ schema: 'type Query { hello: String }' }))
+   *
+   * // Or at a custom path
+   * app.graphql('/graphql', async (req, ctx) => ({ schema: '...' }))
+   * ```
+   */
+  graphql(pathOrHandler: string | GraphQLHandler, maybeHandler?: GraphQLHandler): this {
+    const path = typeof pathOrHandler === 'string' ? pathOrHandler : '/'
+    const handler = typeof pathOrHandler === 'string' ? maybeHandler! : pathOrHandler
+    const sub = createGraphqlRouter(handler)
+    this.mount(path, sub)
+    return this
+  }
+
   // ── Handler compilation ────────────────────────────────────
 
   handler(): Handler<T> {
@@ -203,7 +219,7 @@ export class Router<T extends Context = Context> {
 
   websocketHandler(): WsUpgradeHandler {
     return createWsUpgradeHandler(
-      this.wss, this.hub,
+      this.wss,
       (segments) => this.matchWsTrie(this.wsRoot, segments),
       this.globalMws,
       (mws, h, req, ctx) => this.runChain(mws, h, req, ctx),
@@ -476,5 +492,45 @@ export class Router<T extends Context = Context> {
       }
     }
     for (const field of meta.injects) this._ctxFields.add(field)
+  }
+}
+
+/**
+ * 创建内存 Hub — WebSocket 房间的简单发布/订阅实现。
+ * 每个房间是一个字符串 key，WebSocket 通过 `join`/`leave` 管理订阅。
+ */
+function createInMemoryHub(): Hub {
+  const rooms = new Map<string, Set<WebSocket>>()
+  const wsRooms = new Map<WebSocket, Set<string>>()
+
+  return {
+    join(key: string, ws: WebSocket) {
+      let members = rooms.get(key)
+      if (!members) { members = new Set(); rooms.set(key, members) }
+      members.add(ws)
+      let keys = wsRooms.get(ws)
+      if (!keys) { keys = new Set(); wsRooms.set(ws, keys) }
+      keys.add(key)
+    },
+    leave(ws: WebSocket) {
+      const keys = wsRooms.get(ws)
+      if (!keys) return
+      for (const key of keys) {
+        const members = rooms.get(key)
+        if (members) { members.delete(ws); if (members.size === 0) rooms.delete(key) }
+      }
+      wsRooms.delete(ws)
+    },
+    send(key: string, message: string) {
+      const members = rooms.get(key)
+      if (!members) return
+      for (const ws of members) {
+        try { ws.send(message) } catch { /* ignore disconnected */ }
+      }
+    },
+    async close() {
+      rooms.clear()
+      wsRooms.clear()
+    },
   }
 }

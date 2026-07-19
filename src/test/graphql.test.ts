@@ -1,10 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { graphql } from '../graphql.ts'
+import { Router } from '../core/router.ts'
+import { createGraphqlRouter } from '../graphql.ts'
 
 describe('graphql', () => {
   it('returns a Router', () => {
-    const r = graphql(() => ({
+    const r = createGraphqlRouter(() => ({
       schema: 'type Query { hello: String }',
       resolvers: { Query: { hello: () => 'world' } },
     }))
@@ -12,7 +13,7 @@ describe('graphql', () => {
   })
 
   it('serves a POST query', async () => {
-    const r = graphql(() => ({
+    const r = createGraphqlRouter(() => ({
       schema: 'type Query { hello: String }',
       resolvers: { Query: { hello: () => 'world' } },
     }))
@@ -30,7 +31,7 @@ describe('graphql', () => {
   })
 
   it('serves GraphiQL on GET', async () => {
-    const r = graphql(() => ({
+    const r = createGraphqlRouter(() => ({
       schema: 'type Query { hello: String }',
       graphiql: true,
     }))

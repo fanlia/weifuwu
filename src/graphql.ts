@@ -205,7 +205,10 @@ function graphiqlHTML(endpoint: string): string {
 </html>`
 }
 
-export function graphql(handler: GraphQLHandler): Router {
+
+
+/** @internal */
+export function createGraphqlRouter(handler: GraphQLHandler): Router {
   const r = new Router()
   let cachedOptions: GraphQLOptions | null = null
   let cachedSchema: GraphQLSchema | null = null
@@ -215,8 +218,6 @@ export function graphql(handler: GraphQLHandler): Router {
     ctx: Context,
   ): Promise<{ options: GraphQLOptions; schema: GraphQLSchema }> {
     const options = await handler(req, ctx)
-    // Cache schema — handler must return the same schema reference for cache to work.
-    // If schema changes (e.g. hot-reload), return a different object reference.
     if (cachedSchema && cachedOptions === options) {
       return { options, schema: cachedSchema }
     }

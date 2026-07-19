@@ -1,6 +1,6 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http'
+import crypto from 'node:crypto'
 import { HttpError, type Context } from '../types.ts'
-import { runWithTrace, currentTraceId } from './trace.ts'
 import { Router } from './router.ts'
 
 export interface ServeOptions {
@@ -91,7 +91,7 @@ export async function sendResponse(
     }
   })
 
-  // Inject trace header — zero allocation, no Response re-wrapping
+  // Inject trace header
   if (opts?.traceId && !headers['x-trace-id']) {
     headers['x-trace-id'] = opts.traceId
   }
@@ -127,27 +127,25 @@ export function serve(router: Router, options?: ServeOptions): Server {
   const hostname = options?.hostname ?? '0.0.0.0'
 
   const server = http.createServer(async (req, res) => {
-    const incomingTrace =
+    const traceId =
       (req.headers['x-trace-id'] as string) ||
       (req.headers['traceparent'] as string)?.split('-')[1] ||
-      null
+      crypto.randomUUID()
 
-    await runWithTrace(incomingTrace, async () => {
-      try {
-        const body = await readBody(req, options?.maxBodySize)
-        const [request, query] = createRequest(req, body)
-        const response = await handler(request, { params: {}, query } as Context)
-        await sendResponse(res, response, { traceId: currentTraceId() })
-      } catch (err) {
-        if (err instanceof HttpError && err.status === 413) {
-          res.writeHead(413, { 'Content-Type': 'text/plain' })
-          res.end('Request Body Too Large')
-          return
-        }
-        res.writeHead(500, { 'Content-Type': 'text/plain' })
-        res.end('Internal Server Error')
+    try {
+      const body = await readBody(req, options?.maxBodySize)
+      const [request, query] = createRequest(req, body)
+      const response = await handler(request, { params: {}, query } as Context)
+      await sendResponse(res, response, { traceId })
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 413) {
+        res.writeHead(413, { 'Content-Type': 'text/plain' })
+        res.end('Request Body Too Large')
+        return
       }
-    })
+      res.writeHead(500, { 'Content-Type': 'text/plain' })
+      res.end('Internal Server Error')
+    }
   })
 
   // Connection timeouts — prevent slowloris and idle connection leaks

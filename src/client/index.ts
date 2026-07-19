@@ -28,9 +28,8 @@
  * | `onCleanup()` | function | 组件卸载回调 |
  * | `createApp()` | function | 应用实例（中间件链 + 挂载） |
  * | `createResource()` | function | 异步数据资源（loading/error/data）|
+ * | `useForm()` | function | 表单状态管理（字段绑定/验证/提交）|
  * | `createStyles()` | function | 组件级作用域 CSS |
- * | `createContext()` | function | 类型安全上下文 |
- * | `enableDevtools()` | function | 开发警告 + 浏览器检查器 |
  */
 
 // ── 信号系统 ───────────────────────────────────────────────
@@ -66,19 +65,6 @@ export { batch } from './signal.ts'
  * ```
  */
 export { untrack } from './signal.ts'
-/**
- * 响应式数组 — 提供便捷的可变数组方法。
- *
- * ```ts
- * const items = reactiveArray([1, 2, 3])
- * items.push(4)
- * items.remove(0)
- * items.clear()
- * ```
- */
-export { reactiveArray } from './signal.ts'
-/** ReactiveArray 类型 */
-export type { ReactiveArray } from './signal.ts'
 /** Signal 类型。 */
 export type { Signal } from './signal.ts'
 
@@ -108,39 +94,7 @@ export { Show } from './jsx-runtime.ts'
  * ```
  */
 export { For } from './jsx-runtime.ts'
-/** 直接挂载 DOM（低层 API，一般用 createApp().mount()）。 */
-export { domMount } from './jsx-runtime.ts'
-/**
- * 包装第三方库为组件 — 自动管理挂载/卸载生命周期。
- *
- * ```tsx
- * const PieChart = wrap('div', (el, props, ctx) => {
- *   const chart = echarts.init(el)
- *   return () => chart.dispose()
- * })
- * ```
- */
-export { wrap } from './jsx-runtime.ts'
-/**
- * Portal — 将节点渲染到目标 DOM 位置（Modal、Dropdown、Tooltip）。
- *
- * ```tsx
- * <Show when={showModal}>
- *   {createPortal(<div class="fixed inset-0 ...">...</div>, document.body)}
- * </Show>
- * ```
- */
-export { createPortal } from './jsx-runtime.ts'
-/**
- * ErrorBoundary — 捕获子组件渲染时的异常。children 必须是 thunk。
- *
- * ```tsx
- * <ErrorBoundary fallback={(e) => <p>出错: {e.message}</p>}>
- *   {() => <Dashboard />}
- * </ErrorBoundary>
- * ```
- */
-export { ErrorBoundary } from './jsx-runtime.ts'
+
 /**
  * onMount — 组件根元素挂载到 DOM 后执行的回调。
  * 返回函数在组件卸载时自动清理。
@@ -179,17 +133,7 @@ export type { WfuiContext } from './types.ts'
 export type { AppMiddleware } from './types.ts'
 /** 路由定义：path / component / auth / title / loader */
 export type { RouteDef } from './types.ts'
-/**
- * 类型安全的上下文工厂 — 相比 ctx.provide('key', value) 的字符串 key 方式，
- * createContext 返回类型化的 provide/inject，拼写错误编译时即被捕获。
- *
- * ```tsx
- * const ThemeCtx = createContext<string>('theme')
- * ThemeCtx.provide(ctx, 'dark')
- * const theme = ThemeCtx.inject(ctx)  // string | null
- * ```
- */
-export { createContext } from './types.ts'
+
 
 // ── 应用 ────────────────────────────────────────────────────
 
@@ -223,10 +167,6 @@ export { RouteView } from './router.ts'
 
 /** HTTP 客户端中间件 — 注入 ctx.api（get / post / put / patch / delete）。 */
 export { api } from './middleware/api.ts'
-/** ApiClient 类 — 独立于 ctx 的 HTTP 客户端。 */
-export { ApiClient } from './middleware/api.ts'
-/** ApiError — API 请求失败时抛出的错误，包含 status 字段。 */
-export { ApiError } from './middleware/api.ts'
 /**
  * 身份认证中间件 — 注入 ctx.user / ctx.login / ctx.logout / ctx.register。
  * 自动管理 localStorage 持久化和 token 验证。
@@ -268,15 +208,7 @@ export { useForm } from './lib/form.ts'
 export { createResource } from './lib/resource.ts'
 export type { ResourceOptions } from './lib/resource.ts'
 
-/**
- * 表单双向绑定 — 一行代码绑定 signal 到 input。
- *
- * ```tsx
- * const name = signal('')
- * <input {...useModel(name)} placeholder="姓名" />
- * ```
- */
-export { useModel } from './lib/model.ts'
+
 
 /**
  * 组件级作用域 CSS — 从 CSS-in-JS 对象生成唯一类名，样式自动注入 <head>。
@@ -291,49 +223,7 @@ export { useModel } from './lib/model.ts'
  */
 export { createStyles } from './lib/css.ts'
 
-// ── 开发者工具 ─────────────────────────────────────────────
 
-/**
- * 启用开发者工具 — 开发警告 + 浏览器控制台 signal 检查器。
- *
- * ```ts
- * import { enableDevtools } from 'weifuwu/client'
- * if (import.meta.env.DEV) { enableDevtools() }
- *
- * // 在浏览器控制台： __wefu__.inspect()
- * ```
- */
-export { enableDevtools } from './lib/dev.ts'
 
-// ── 预置组件 ───────────────────────────────────────────────
 
-/** 登录/注册表单组件。自动切换登录/注册模式。 */
-export { LoginForm } from './components/LoginForm.tsx'
-/** 实时消息聊天组件。对接后端 messager + agent 模块。 */
-export { Chat } from './components/Chat.tsx'
-/**
- * 客户端路由导航 Link 组件。
- * 替代原生 <a>，拦截点击走 SPA 路由，支持右键新标签页。
- *
- * ```tsx
- * <Link to="/about">关于</Link>
- * ```
- */
-export { Link } from './components/Link.tsx'
-/**
- * Transition — 动画过渡组件。
- *
- * ```css
- * .fade-enter { opacity: 0; }
- * .fade-enter-active { opacity: 1; transition: opacity 0.3s; }
- * .fade-leave { opacity: 1; }
- * .fade-leave-active { opacity: 0; transition: opacity 0.2s; }
- * ```
- *
- * ```tsx
- * <Transition show={isOpen} name="fade">
- *   <Modal />
- * </Transition>
- * ```
- */
-export { Transition } from './components/Transition.tsx'
+
