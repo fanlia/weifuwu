@@ -5,13 +5,12 @@
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { WebSocketHandler, WebSocket, Context } from 'weifuwu'
-import { serve, Router, serveStatic, cors, logger, ui } from 'weifuwu'
+import { serve, Router, serveStatic, cors, ui } from 'weifuwu'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const app = new Router()
 app.use(cors())
-app.use(logger())
 app.use(ui())
 
 // 客户端 JS bundle — 动态编译
