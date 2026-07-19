@@ -221,8 +221,6 @@ export class Router<T extends Context = Context> {
     return createWsUpgradeHandler(
       this.wss,
       (segments) => this.matchWsTrie(this.wsRoot, segments),
-      this.globalMws,
-      (mws, h, req, ctx) => this.runChain(mws, h, req, ctx),
     )
   }
 

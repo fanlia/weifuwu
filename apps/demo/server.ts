@@ -69,7 +69,7 @@ app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => 
 `)
 
 // SPA 入口页面
-for (const p of ['/', '/todo', '/about', '/user/:name', '/ws', '/transition']) {
+for (const p of ['/', '/todo', '/about', '/user/:name', '/ws']) {
   app.get(p, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
     <!DOCTYPE html>
     <html lang="zh-CN">
