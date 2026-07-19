@@ -2,6 +2,7 @@
  * wefu 类型定义
  */
 
+import type { Signal } from './signal.ts'
 import type { Component } from './jsx-runtime.ts'
 
 /**
@@ -33,6 +34,15 @@ export interface WfuiContext {
   }
   app: {
     navigate: (path: string) => void
+  }
+
+  // ── ws() 注入 ──
+  ws: {
+    send: (data: unknown) => void
+    onMessage: (handler: (data: unknown) => void) => () => void
+    join: (room: string) => void
+    leave: (room: string) => void
+    isConnected: Signal<boolean>
   }
 
   /** 跨组件共享数据 */

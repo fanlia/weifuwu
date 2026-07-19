@@ -57,7 +57,7 @@ function createMockCtx(overrides: Partial<WfuiContext> = {}): WfuiContext {
       loading: false,
     },
     app: { navigate },
-    provide: () => {},
+    provide: () => {}, ws: null as any,
     inject: () => null,
     ...overrides,
   }

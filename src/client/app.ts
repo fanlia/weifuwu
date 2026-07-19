@@ -2,9 +2,10 @@
  * weifuwu/client 应用 — 创建 ctx + 中间件链 + 挂载组件
  *
  * ```tsx
- * import { createApp, router } from 'weifuwu/client'
+ * import { createApp, ws, router } from 'weifuwu/client'
  *
  * const app = createApp()
+ * app.use(ws())
  * app.use(router({ routes }))
  * app.mount('#root', AppShell)
  * ```
@@ -68,6 +69,7 @@ export function createApp(): {
     inject<T>(key: string): T | null {
       return (provides.get(key) as T) ?? null
     },
+    ws: null as any,
   }
 
   return {

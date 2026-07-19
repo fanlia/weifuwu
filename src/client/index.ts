@@ -152,6 +152,12 @@ export { RouteView } from './router.ts'
 
 // ── 中间件 ──────────────────────────────────────────────────
 
+/**
+ * WebSocket 中间件 — 注入 ctx.ws（send / onMessage / join / leave）。
+ * 自动重连，支持房间。
+ */
+export { ws } from './middleware/ws.ts'
+
 
 
 // ── 工具 ────────────────────────────────────────────────────
