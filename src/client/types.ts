@@ -54,15 +54,6 @@ export interface WfuiContext {
     delete<T>(path: string): Promise<T>
   }
 
-  // ── ws() 注入 ──
-  ws: {
-    send: (data: unknown) => void
-    onMessage: (handler: (data: unknown) => void) => () => void
-    join: (room: string) => void
-    leave: (room: string) => void
-    isConnected: Signal<boolean>
-  }
-
   /** 跨组件共享数据 */
   provide: <T>(key: string, value: T) => void
   inject: <T>(key: string) => T | null

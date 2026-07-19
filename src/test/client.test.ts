@@ -38,10 +38,8 @@ before(() => {
 
 // ── 导入被测模块 ────────────────────────────────────────────
 
-const { signal, computed, effect, isSignal, batch, untrack } = await import('../client/signal.ts')
+const { signal, computed, effect, batch } = await import('../client/signal.ts')
 const { jsx, Show, For, ErrorBoundary, onMount, onCleanup } = await import('../client/jsx-runtime.ts')
-const { useForm } = await import('../client/lib/form.ts')
-const { createResource } = await import('../client/lib/resource.ts')
 
 // ═════════════════════════════════════════════════════════════
 // 信号系统
@@ -57,13 +55,6 @@ describe('signal', () => {
     const s = signal(0)
     s.value = 1
     assert.equal(s.value, 1)
-  })
-
-  it('isSignal 正确识别', () => {
-    assert.equal(isSignal(signal(1)), true)
-    assert.equal(isSignal(42), false)
-    assert.equal(isSignal(null), false)
-    assert.equal(isSignal({}), false)
   })
 
   it('signal 接受不同类型', () => {
@@ -172,31 +163,6 @@ describe('effect', () => {
     inner.value = 'i2'
     assert.equal(innerCalls, 2)
     assert.equal(outerCalls, 1) // 外层不触发
-  })
-})
-
-describe('untrack', () => {
-  it('读取信号但不建立依赖', () => {
-    const a = signal(1)
-    const b = signal(10)
-    let lastA = 0
-    let lastUntracked = 0
-
-    effect(() => {
-      lastA = a.value
-      lastUntracked = untrack(() => b.value)
-    })
-    assert.equal(lastA, 1)
-    assert.equal(lastUntracked, 10)
-
-    // b 变化不触发 effect
-    let effectCallsBefore = 0
-    const dispose = effect(() => { effectCallsBefore++; a.value })
-    dispose()
-
-    b.value = 20
-    // lastA 不变（effect 未重跑）
-    assert.equal(lastA, 1)
   })
 })
 
@@ -434,81 +400,6 @@ describe('For', () => {
 // useForm
 // ═════════════════════════════════════════════════════════════
 
-describe('createResource', () => {
-  it('初始状态 loading=true', () => {
-    const { loading } = createResource(async () => 'data')
-    assert.equal(loading.value, true)
-  })
-
-  it('加载完成后 data 有值, loading=false', async () => {
-    const res = createResource(async () => 'hello')
-    await new Promise(r => setTimeout(r, 0))
-    assert.equal(res.loading.value, false)
-    assert.equal(res.data.value, 'hello')
-    assert.equal(res.error.value, null)
-  })
-
-  it('加载失败时 error 有值', async () => {
-    const res = createResource(async () => { throw new Error('fail') })
-    await new Promise(r => setTimeout(r, 0))
-    assert.equal(res.loading.value, false)
-    assert.equal(res.data.value, undefined)
-    assert.equal(res.error.value?.message, 'fail')
-  })
-
-  it('refetch 重新加载', async () => {
-    let count = 0
-    const res = createResource(async () => { count++; return `data-${count}` })
-    await new Promise(r => setTimeout(r, 0))
-    assert.equal(res.data.value, 'data-1')
-
-    res.refetch()
-    await new Promise(r => setTimeout(r, 0))
-    assert.equal(res.data.value, 'data-2')
-  })
-
-  it('retry=1 时失败后自动重试一次', async () => {
-    let attempts = 0
-    const res = createResource(async () => {
-      attempts++
-      if (attempts < 2) throw new Error('try again')
-      return 'success'
-    }, { retry: 1, retryDelay: 10 })
-
-    await new Promise(r => setTimeout(r, 50))
-    assert.equal(res.data.value, 'success')
-    assert.equal(res.loading.value, false)
-    assert.equal(res.error.value, null)
-    assert.equal(attempts, 2)
-  })
-
-  it('retry 耗尽后 error 为最后一次错误', async () => {
-    let attempts = 0
-    const res = createResource(async () => {
-      attempts++
-      throw new Error(`attempt-${attempts}`)
-    }, { retry: 2, retryDelay: 10 })
-
-    await new Promise(r => setTimeout(r, 50))
-    assert.equal(res.data.value, undefined)
-    assert.equal(res.loading.value, false)
-    assert.equal(res.error.value?.message, 'attempt-3')
-    assert.equal(attempts, 3)
-  })
-
-  it('timeout 超时后报错', async () => {
-    const res = createResource(async () => {
-      await new Promise(r => setTimeout(r, 100))
-      return 'too late'
-    }, { timeout: 20 })
-
-    await new Promise(r => setTimeout(r, 50))
-    assert.equal(res.loading.value, false)
-    assert.equal(res.data.value, undefined)
-    assert.ok(res.error.value?.message.includes('超时'))
-  })
-})
-
 describe('ErrorBoundary', () => {
   it('捕获渲染异常并显示 fallback', () => {
     const node = ErrorBoundary({
@@ -539,97 +430,4 @@ describe('ErrorBoundary', () => {
   })
 })
 
-describe('useForm', () => {
-  it('初始化字段值', () => {
-    const form = useForm({ initial: { email: '', password: '' } })
-    assert.equal(form.field('email').value.value, '')
-    assert.equal(form.field('password').value.value, '')
-  })
 
-  it('验证通过', () => {
-    const form = useForm({
-      initial: { email: '' },
-      validate: { email: (v) => !v && 'required' },
-    })
-    form.setValue('email', 'a@b.com')
-    assert.equal(form.errors.email, null)
-    assert.equal(form.valid.value, true)
-  })
-
-  it('验证失败', () => {
-    const form = useForm({
-      initial: { email: '' },
-      validate: { email: (v) => !v && 'required' },
-    })
-    // useForm 初始化时不运行验证，字段交互时触发单字段验证
-    assert.equal(form.errors.email, null)
-    assert.equal(form.valid.value, true)
-
-    form.setValue('email', '')
-    assert.equal(form.errors.email, 'required')
-    // setValue 只验证单个字段，valid 在 submit 时全量计算
-    // 因此 valid 可能在交互后仍为 true
-  })
-
-  it('submit 校验通过后调用 handler', async () => {
-    const form = useForm({
-      initial: { email: 'a@b.com', name: 'test' },
-      validate: { email: (v) => !v && 'required' },
-    })
-    let submitted: any = null
-    await form.submit((data) => { submitted = data })
-    assert.deepEqual(submitted, { email: 'a@b.com', name: 'test' })
-  })
-
-  it('submit 校验失败不调用 handler', async () => {
-    const form = useForm({
-      initial: { email: '' },
-      validate: { email: (v) => !v && 'required' },
-    })
-    let called = false
-    await form.submit(() => { called = true })
-    assert.equal(called, false)
-  })
-
-  it('reset 恢复初始值', () => {
-    const form = useForm({ initial: { x: 1 } })
-    form.setValue('x', 999)
-    form.reset()
-    assert.equal(form.field('x').value.value, 1)
-  })
-
-  it('setValues 批量更新', () => {
-    const form = useForm({ initial: { a: 1, b: 2 } })
-    form.setValues({ a: 10, b: 20 })
-    assert.equal(form.field('a').value.value, 10)
-    assert.equal(form.field('b').value.value, 20)
-  })
-
-  it('touched 追踪字段交互', () => {
-    const form = useForm({ initial: { email: '' } })
-    assert.equal(form.touched.email, false)
-
-    const field = form.field('email')
-    field.onInput({ target: { value: 'a', type: 'text' } } as any)
-    assert.equal(form.touched.email, true)
-  })
-
-  it('validateOnInit 创建时即运行验证', () => {
-    const form = useForm({
-      initial: { email: '' },
-      validate: { email: (v) => !v && '必填' },
-      validateOnInit: true,
-    })
-    assert.equal(form.errors.email, '必填')
-    assert.equal(form.valid.value, false)
-  })
-
-  it('validateOnInit=false 不初始化验证', () => {
-    const form = useForm({
-      initial: { email: '' },
-      validate: { email: (v) => !v && '必填' },
-    })
-    assert.equal(form.errors.email, null)
-    assert.equal(form.valid.value, true)
-  })
-})

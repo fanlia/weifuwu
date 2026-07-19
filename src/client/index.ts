@@ -40,8 +40,6 @@ export { signal } from './signal.ts'
 export { computed } from './signal.ts'
 /** 自动追踪 signal 依赖，变化时重跑回调。返回 dispose 函数。 */
 export { effect } from './signal.ts'
-/** 检查一个值是否为 Signal 实例。 */
-export { isSignal } from './signal.ts'
 /**
  * 批量更新 — 将多个信号写入合并为一次通知。
  *
@@ -54,17 +52,6 @@ export { isSignal } from './signal.ts'
  * ```
  */
 export { batch } from './signal.ts'
-/**
- * 不追踪依赖地读取信号值。在 effect 中使用时，读取的信号变化不会触发重跑。
- *
- * ```ts
- * effect(() => {
- *   console.log(count.value)                    // 追踪
- *   console.log(untrack(() => theme.value))     // 不追踪
- * })
- * ```
- */
-export { untrack } from './signal.ts'
 /** Signal 类型。 */
 export type { Signal } from './signal.ts'
 
@@ -174,54 +161,11 @@ export { api } from './middleware/api.ts'
 export { auth } from './middleware/auth.ts'
 /** 用户记录类型 */
 export type { UserRecord } from './middleware/auth.ts'
-/**
- * WebSocket 中间件 — 注入 ctx.ws（send / onMessage / join / leave）。
- * 自动重连，支持房间。
- */
-export { ws } from './middleware/ws.ts'
+
 
 // ── 工具 ────────────────────────────────────────────────────
 
-/**
- * 表单状态管理 — 绑定字段信号、验证、提交。
- *
- * ```tsx
- * const form = useForm({
- *   initial: { email: '', password: '' },
- *   validate: { email: (v) => !v.includes('@') && '邮箱格式错误' },
- * })
- * <input {...form.field('email')} placeholder="邮箱" />
- * <button onClick={() => form.submit(data => ctx.login(data))}>登录</button>
- * ```
- */
-export { useForm } from './lib/form.ts'
 
-/**
- * 异步数据资源管理 — 自动管理 loading / error / data 三态。
- *
- * ```tsx
- * const [data, { loading, error }] = createResource(() => ctx.api.get('/api/posts'))
- * <Show when={loading}><Skeleton /></Show>
- * <For each={data}>{(post) => ...}</For>
- * ```
- */
-export { createResource } from './lib/resource.ts'
-export type { ResourceOptions } from './lib/resource.ts'
-
-
-
-/**
- * 组件级作用域 CSS — 从 CSS-in-JS 对象生成唯一类名，样式自动注入 <head>。
- *
- * ```tsx
- * const s = createStyles({
- *   card: 'background: white; border-radius: 8px;',
- *   title: 'font-size: 18px; color: #333;',
- * })
- * // <div class={s.card}><h2 class={s.title}>...</h2></div>
- * ```
- */
-export { createStyles } from './lib/css.ts'
 
 
 
