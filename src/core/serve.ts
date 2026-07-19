@@ -167,16 +167,10 @@ export function serve(router: Router, options?: ServeOptions): Server {
     const shutdown = () => {
       if (shuttingDown) return
       shuttingDown = true
+      // Force-close WebSocket/keep-alive connections so server.close() fires immediately
+      server.closeAllConnections()
       server.close()
-      // Give in-flight requests a chance to complete
-      const timer = setTimeout(() => {
-        server.closeAllConnections()
-        process.exit(0)
-      }, 10_000)
-      server.on('close', () => {
-        clearTimeout(timer)
-        process.exit(0)
-      })
+      process.exit(0)
     }
     shutdownHandler = shutdown
     process.on('SIGTERM', shutdown)
@@ -233,7 +227,7 @@ export function serve(router: Router, options?: ServeOptions): Server {
     console.log(`weifuwu listening on http://${displayHost}:${_cachedPort}`)
   })
 
-  async function stop(timeoutMs = 10_000): Promise<void> {
+  async function stop(timeoutMs = 2_000): Promise<void> {
     if (shutdownHandler) {
       process.off('SIGTERM', shutdownHandler)
       process.off('SIGINT', shutdownHandler)
@@ -241,24 +235,9 @@ export function serve(router: Router, options?: ServeOptions): Server {
     }
     if (!server.listening) return
 
-    // 1. Stop accepting new connections
+    // Force-close WebSocket/keep-alive connections so server.close() fires immediately
+    server.closeAllConnections()
     server.close()
-
-    // 2. Close idle keep-alive connections
-    server.closeIdleConnections()
-
-    // 3. Wait for in-flight requests to finish, or force-close after timeout
-    return new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        server.closeAllConnections()
-        resolve()
-      }, timeoutMs)
-
-      server.on('close', () => {
-        clearTimeout(timer)
-        resolve()
-      })
-    })
   }
 
   return {
