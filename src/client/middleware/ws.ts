@@ -7,9 +7,9 @@
  * app.use(ws({ url: '/ws' }))
  *
  * // In component:
- * ctx.ws.onMessage((data) => ...)
- * ctx.ws.join('conversation:123')
+ * const unsub = ctx.ws.onMessage((data) => ...)
  * ctx.ws.send({ type: 'ping' })
+ * onCleanup(() => unsub())
  * ```
  */
 
@@ -84,14 +84,6 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
       }
     }
 
-    function join(room: string) {
-      send({ type: 'join', room })
-    }
-
-    function leave(room: string) {
-      send({ type: 'leave', room })
-    }
-
     // 初始连接
     connect()
 
@@ -102,8 +94,6 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
           messageHandlers.add(handler)
           return () => messageHandlers.delete(handler)
         },
-        join,
-        leave,
         get isConnected() { return isConnected },
       },
     })

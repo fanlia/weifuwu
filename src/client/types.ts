@@ -40,8 +40,6 @@ export interface WfuiContext {
   ws: {
     send: (data: unknown) => void
     onMessage: (handler: (data: unknown) => void) => () => void
-    join: (room: string) => void
-    leave: (room: string) => void
     isConnected: Signal<boolean>
   }
 
