@@ -275,7 +275,7 @@ function LikeButton(_props: {}, _ctx: WfuiContext): Node {
 
 const app = createApp()
 app.use(ws())
-app.use(router({ routes, notFound: NotFound, mode: 'hash', transition: 'page' }))
+app.use(router({ routes, notFound: NotFound, mode: 'hash' }))
 
 // 检测 SSR 页面：如果 #root 已有内容，只 hydrate 交互区域
 const root = document.getElementById('root')
