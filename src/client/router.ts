@@ -306,10 +306,4 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
   return el
 }
 
-/**
- * Outlet — RouteView 的别名
- *
- * 为了减少学习成本，推荐统一使用 RouteView。
- * Outlet 保留作为别名，向后兼容。
- */
-export const Outlet = RouteView
+

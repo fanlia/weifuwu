@@ -197,22 +197,7 @@ export { router } from './router.ts'
  * 用 `<RouteView />` 放在布局中作为路由出口。
  */
 export { RouteView } from './router.ts'
-/**
- * Outlet — 嵌套路由出口。
- * 在 layout 组件中使用，渲染当前路由的子路由组件。
- *
- * ```tsx
- * function DashboardLayout(_props: {}, ctx: WfuiContext) {
- *   return (
- *     <div class="flex">
- *       <Sidebar />
- *       <main><Outlet /></main>
- *     </div>
- *   )
- * }
- * ```
- */
-export { Outlet } from './router.ts'
+
 
 // ── 懒加载 ──────────────────────────────────────────────────
 
