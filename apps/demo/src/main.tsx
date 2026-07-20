@@ -258,9 +258,10 @@ function fetchPosts() {
 }
 
 function DataPage(_props: {}, _ctx: WfuiContext) {
-  // createResource 自动管理 loading/error/data
-  // createResource 初始 data=undefined，用 ?? [] 确保 For 收到数组
   const [posts, { loading, error, refetch }] = createResource(fetchPosts, { initialValue: [] })
+  // 响应式条件：loading 完成且无错误时显示列表
+  // 必须用 computed 包裹，因为 !loading.value && !error.value 是静态布尔
+  const ready = computed(() => !loading.value && !error.value)
 
   return (
     <div>
@@ -298,7 +299,7 @@ function DataPage(_props: {}, _ctx: WfuiContext) {
         {() => (
           <>
             {/* 数据就绪 */}
-            <Show when={!loading && !error.value}>
+            <Show when={ready}>
               <div class="space-y-3">
                 <For each={posts}>
                   {(post: any) => (
