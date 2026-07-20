@@ -1,0 +1,6 @@
+export { createFocusTrap } from './focus-trap.ts'
+export { createClickAway } from './click-away.ts'
+export { scrollLock } from './scroll-lock.ts'
+export { rovingTabIndex } from './roving-tab-index.ts'
+export { createFloating } from './floating.ts'
+export type { Placement, FloatingOptions } from './floating.ts'
