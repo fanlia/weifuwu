@@ -384,7 +384,8 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
     currentQuery = queryStr
 
     // 重置 Outlet depth
-    ;(ctx.route as any)[DEPTH_KEY] = 0
+    // RouteView 已渲染顶层 layout → Outlet 从 chain[1] 开始读取子路由
+    ;(ctx.route as any)[DEPTH_KEY] = topItem?.layout ? 1 : 0
 
     if (trans) {
       const prev = currentComponent ? el.lastElementChild : null
