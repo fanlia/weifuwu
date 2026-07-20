@@ -860,6 +860,9 @@ export function For<T>({ each, children, keyBy }: {
   }
 
   function render(list: T[]) {
+    // 防御：null/undefined 视为空数组
+    if (list == null) list = [] as T[]
+
     if (!keyBy) {
       // 无 key：全量重建（原行为）
       while (el.lastChild) el.removeChild(el.lastChild)

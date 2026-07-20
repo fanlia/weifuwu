@@ -169,10 +169,6 @@ function FormPage(_props: {}, _ctx: WfuiContext) {
 
       <Show when={submitted} fallback={
         <form onSubmit={(e: Event) => {
-          // 包装 handleSubmit 以显示成功消息
-          const prevOnSubmit = form.handleSubmit
-          // 我们重写 onSubmit 来演示提交成功状态
-          const origSubmit = form.handleSubmit
           e.preventDefault()
           if (form.submitting.value) return
           // 标记所有字段已触碰
@@ -263,7 +259,8 @@ function fetchPosts() {
 
 function DataPage(_props: {}, _ctx: WfuiContext) {
   // createResource 自动管理 loading/error/data
-  const [posts, { loading, error, refetch }] = createResource(fetchPosts)
+  // createResource 初始 data=undefined，用 ?? [] 确保 For 收到数组
+  const [posts, { loading, error, refetch }] = createResource(fetchPosts, { initialValue: [] })
 
   return (
     <div>
@@ -328,8 +325,8 @@ function DataPage(_props: {}, _ctx: WfuiContext) {
 // 直接导入（可用于实际代码分割：
 //   const Overview = lazy(() => import('./pages/DashboardOverview'))
 // 配合 esbuild splitting:true + outdir 使用）
-import DashboardOverview from './pages/DashboardOverview.tsx'
-import DashboardSettings from './pages/DashboardSettings.tsx'
+import DashboardOverview from './pages/DashboardOverview'
+import DashboardSettings from './pages/DashboardSettings'
 
 function DashboardLayout(_props: {}, ctx: WfuiContext) {
   const tab = computed(() => ctx.route.path.includes('settings') ? 'settings' : 'overview')
