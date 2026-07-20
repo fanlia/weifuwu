@@ -4,14 +4,14 @@
  * 展示 weifuwu/client 全部核心能力：
  *   signal / computed / effect / batch
  *   Show / For / ErrorBoundary / createPortal / wrap
- *   router / RouteView / Outlet（嵌套布局）
+ *   router / RouteView（根层级 + 嵌套布局统一出口）
  *   ws / api / auth（通信 + 认证）
  *   useForm / createResource（表单 + 异步数据）
  */
 
 import {
   signal, computed, Show, For, ErrorBoundary, createPortal, wrap,
-  createApp, router, RouteView, Outlet,
+  createApp, router, RouteView,
   ws, api, auth, useForm, createResource,
 } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
@@ -353,7 +353,7 @@ function DashboardLayout(_props: {}, ctx: WfuiContext) {
       </div>
       {/* 内容区 — 只替换 Outlet 区域 */}
       <div class="flex-1">
-        <Outlet />
+        <RouteView />
       </div>
     </div>
   )

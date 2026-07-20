@@ -1,7 +1,10 @@
 /**
- * weifuwu/client router — 路由中间件 + RouteView + Outlet 组件
+ * weifuwu/client router — 路由中间件 + RouteView 组件
  *
- * 支持嵌套布局：RouteDef.layout + RouteDef.children + <Outlet/>。
+ * RouteView 是所有层级的统一出口：
+ * - 顶层（AppShell 中）→ 渲染 layout 或组件
+ * - 嵌套层（layout 中）→ 渲染子路由组件
+ * - 每个 RouteView 独立监听路由变化，只在其层级的组件变化时才重渲染
  *
  * ```tsx
  * const routes = [
@@ -9,7 +12,7 @@
  *     path: '/dashboard',
  *     layout: DashboardLayout,   // 持久化布局
  *     children: [
- *       { path: '/overview', component: OverviewPage },  // 只替换 <Outlet/> 区域
+ *       { path: '/overview', component: OverviewPage },
  *       { path: '/reports', component: ReportsPage },
  *     ],
  *   },
@@ -20,7 +23,7 @@
  *   return (
  *     <div class="dashboard">
  *       <Sidebar />
- *       <main><Outlet /></main>
+ *       <main><RouteView /></main>   (嵌套出口，和根层级用同一组件)
  *     </div>
  *   )
  * }
@@ -29,7 +32,7 @@
 
 import type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 import type { Component } from './jsx-runtime.ts'
-import { jsx, setCtx, onCleanup, getCtx } from './jsx-runtime.ts'
+import { jsx, setCtx, onCleanup } from './jsx-runtime.ts'
 
 export interface RouterOptions {
   mode?: 'hash' | 'history'
@@ -41,7 +44,7 @@ export interface RouterOptions {
   scrollRestoration?: boolean
 }
 
-// ── 内部类型：扁平化后的匹配项 ──────────────────────────────
+// ── 内部类型 ──────────────────────────────────────────────
 
 interface FlatRoute {
   re: RegExp
@@ -58,7 +61,6 @@ interface ChainItem {
   depth: number
 }
 
-// Symbol 用于在 ctx.route 上存储内部链数据（不暴露给用户）
 const CHAIN_KEY = Symbol('routeChain')
 const DEPTH_KEY = Symbol('routeDepth')
 
@@ -68,7 +70,6 @@ const DEPTH_KEY = Symbol('routeDepth')
 export function router(opts: RouterOptions): AppMiddleware {
   const mode = opts.mode ?? 'hash'
 
-  // 递归扁平化路由树 → 一维 matcher 数组
   const flatRoutes = flattenRoutes(opts.routes)
 
   function matchRoute(path: string): { chain: ChainItem[]; leafRoute: RouteDef } | null {
@@ -76,8 +77,6 @@ export function router(opts: RouterOptions): AppMiddleware {
       const result = path.match(fr.re)
       if (!result) continue
 
-      // 构建完整链，注入实际参数
-      // 只有叶子节点才需要从正则提取参数
       const isLeaf = (idx: number) => idx === fr.chain.length - 1
       const matchedChain: ChainItem[] = fr.chain.map((item, idx) => {
         const params: Record<string, string> = {}
@@ -102,7 +101,6 @@ export function router(opts: RouterOptions): AppMiddleware {
       ctx2.route.component = opts.notFound ?? null
       ctx2.route.data = {}
       ctx2.route.transition = opts.transition
-      // 清空链
       ;(ctx2.route as any)[CHAIN_KEY] = []
       return
     }
@@ -115,7 +113,6 @@ export function router(opts: RouterOptions): AppMiddleware {
     ctx2.route.transition = matched.leafRoute.transition ?? opts.transition
     if (matched.leafRoute.title) document.title = matched.leafRoute.title
 
-    // 存储链用于 Outlet
     ;(ctx2.route as any)[CHAIN_KEY] = matched.chain
     ;(ctx2.route as any)[DEPTH_KEY] = 0
   }
@@ -128,7 +125,6 @@ export function router(opts: RouterOptions): AppMiddleware {
 
     function navigateAndLoad(path: string) {
       resolve(ctx, path)
-      const routeDef = ctx.route.component ? undefined : undefined
       const leafChain = (ctx.route as any)[CHAIN_KEY] as ChainItem[] | undefined
       const leafLoader = leafChain?.[leafChain.length - 1]?.routeDef?.loader
 
@@ -160,7 +156,6 @@ export function router(opts: RouterOptions): AppMiddleware {
         navigateAndLoad(window.location.hash.slice(1) || '/')
       })
     } else {
-      // 滚动位置缓存（用于 scrollRestoration）
       const scrollPositions = new Map<string, number>()
 
       ctx.app.navigate = (path: string) => {
@@ -172,7 +167,6 @@ export function router(opts: RouterOptions): AppMiddleware {
       }
 
       window.addEventListener('popstate', () => {
-        // 恢复滚动位置
         if (opts.scrollRestoration !== false) {
           const savedY = scrollPositions.get(window.location.pathname)
           if (savedY !== undefined) {
@@ -183,7 +177,6 @@ export function router(opts: RouterOptions): AppMiddleware {
       })
     }
 
-    // 初始渲染
     const initialPath = mode === 'hash'
       ? window.location.hash.slice(1) || '/'
       : window.location.pathname + window.location.search
@@ -208,9 +201,7 @@ function flattenRoutes(routes: RouteDef[], parentPath = ''): FlatRoute[] {
       return p
     }).join('/') + '$'
 
-    // 有 children → 递归展开，同时收集 chain
     if (route.children && route.children.length > 0) {
-      // 为每个子路由构建 chain
       for (const child of route.children) {
         const childPath = fullPath + child.path
         const childParts = childPath.split('/').filter(Boolean)
@@ -233,7 +224,6 @@ function flattenRoutes(routes: RouteDef[], parentPath = ''): FlatRoute[] {
         })
       }
     } else {
-      // 无 children → 普通路由，chain 只有自身
       const chain: ChainItem[] = [
         { component: route.component, params: {}, routeDef: route, depth: 0 },
       ]
@@ -251,204 +241,63 @@ function flattenRoutes(routes: RouteDef[], parentPath = ''): FlatRoute[] {
 }
 
 /**
- * Outlet — 嵌套路由出口
+ * RouteView — 统一路由出口
  *
- * 在 layout 组件中使用，渲染当前路由的子路由组件。
+ * 同时支持根层级和嵌套层级。每个 RouteView 独立监听路由变化：
+ * - 若其层级的组件/layout 未变化 → 跳过重渲染（保持状态）
+ * - 若其层级的组件/layout 变化 → 替换 DOM
  *
  * ```tsx
- * function DashboardLayout(_props: {}, ctx: WfuiContext) {
- *   return (
- *     <div class="flex">
- *       <Sidebar />
- *       <main><Outlet /></main>
- *     </div>
- *   )
- * }
+ * // 根层级（AppShell）
+ * <main><RouteView /></main>
+ *
+ * // 嵌套层级（DashboardLayout）
+ * <main><RouteView /></main>     // 同一组件，无需 Outlet
  * ```
- */
-export function Outlet(_props: {}, ctx: WfuiContext): Node {
-  const chain = (ctx.route as any)[CHAIN_KEY] as ChainItem[] | undefined
-  let depth = (ctx.route as any)[DEPTH_KEY] as number | undefined
-  if (depth === undefined) depth = 0
-
-  if (!chain || depth >= chain.length) {
-    // 没有更多子路由 → 空
-    return document.createComment(' no outlet ')
-  }
-
-  const item = chain[depth]
-
-  // 递增 depth 供下游 Outlet 使用
-  ;(ctx.route as any)[DEPTH_KEY] = depth + 1
-
-  if (item.layout) {
-    // 有 layout → 递归渲染 layout，其内部的 Outlet 会渲染下一级
-    setCtx(ctx)
-    const node = jsx(item.layout, {})
-    setCtx(null)
-    return node
-  }
-
-  if (item.component) {
-    // 叶子节点 → 渲染组件
-    setCtx(ctx)
-    const node = jsx(item.component, {})
-    setCtx(null)
-    // 渲染完成后复位 depth（供下次路由切换使用）
-    setTimeout(() => { (ctx.route as any)[DEPTH_KEY] = 0 }, 0)
-    return node
-  }
-
-  return document.createComment(' no component ')
-}
-
-/**
- * 从 CSS transition-duration / animation-duration 中读取最大时长（ms）。
- * transition 优先于 animation，取两者中的最大值。
- */
-function _getMaxDuration(el: Element): number {
-  const style = getComputedStyle(el)
-  let maxMs = 0
-
-  const td = style.transitionDuration
-  if (td && td !== '0s') {
-    for (const val of td.split(',')) {
-      const ms = _parseCssDuration(val.trim())
-      if (ms > maxMs) maxMs = ms
-    }
-  }
-
-  const ad = style.animationDuration
-  if (ad && ad !== '0s') {
-    for (const val of ad.split(',')) {
-      const ms = _parseCssDuration(val.trim())
-      if (ms > maxMs) maxMs = ms
-    }
-  }
-
-  return maxMs || 300
-}
-
-function _parseCssDuration(s: string): number {
-  if (s.endsWith('ms')) return parseFloat(s) || 0
-  if (s.endsWith('s')) return (parseFloat(s) || 0) * 1000
-  return 0
-}
-
-/**
- * RouteView — 渲染当前路由匹配的组件
- *
- * 智能切换逻辑：
- * - 同一组件 + 同一路径 + 同一 query → 跳过
- * - query 变化 → 重新渲染
- * - 路径/组件变化 → 替换 DOM
- *
- * 支持嵌套布局：如果路由有 layout，RouteView 渲染最外层 layout，
- * layout 内部的 <Outlet/> 递归渲染子路由。
  */
 export function RouteView(_props: {}, ctx: WfuiContext): Node {
   const el = document.createElement('div')
-  el.style.position = 'relative'
-  let currentPath = ''
-  let currentQuery = ''
-  let currentComponent: Component | null = null
-  let leavingPage: HTMLElement | null = null
+  let currentItem: ChainItem | null = null
 
-  function removeLeaving() {
-    if (leavingPage && el.contains(leavingPage)) {
-      el.removeChild(leavingPage)
-    }
-    leavingPage = null
+  function getCurrentDepth(): number {
+    return (ctx.route as any)[DEPTH_KEY] ?? 0
   }
 
   function render() {
-    // 从 chain 取顶层组件
     const chain = (ctx.route as any)[CHAIN_KEY] as ChainItem[] | undefined
-    const topItem = chain?.[0]
-    const Component = topItem?.layout ?? ctx.route.component
-    const path = ctx.route.path
-    const queryStr = JSON.stringify(ctx.route.query)
-    const trans = ctx.route.transition
+    let depth = getCurrentDepth()
 
-    if (!Component) {
+    // 没有更多层级 → 清空
+    if (!chain || depth >= chain.length) {
       if (el.children.length > 0) el.textContent = ''
-      currentPath = ''
-      currentQuery = ''
-      currentComponent = null
+      currentItem = null
       return
     }
 
-    if (Component === currentComponent && path === currentPath && queryStr === currentQuery) return
+    const item = chain[depth]
 
-    currentPath = path
-    currentQuery = queryStr
-
-    // 重置 Outlet depth
-    // RouteView 已渲染顶层 layout → Outlet 从 chain[1] 开始读取子路由
-    ;(ctx.route as any)[DEPTH_KEY] = topItem?.layout ? 1 : 0
-
-    if (trans) {
-      const prev = currentComponent ? el.lastElementChild : null
-      if (prev instanceof HTMLElement) {
-        prev.classList.add(`${trans}-leave`, `${trans}-leave-active`)
-        leavingPage = prev
-
-        const onLeaveEnd = () => {
-          prev.classList.remove(`${trans}-leave`, `${trans}-leave-active`)
-          removeLeaving()
-          prev.removeEventListener('transitionend', onLeaveEnd)
-          prev.removeEventListener('animationend', onLeaveEnd)
-        }
-        prev.addEventListener('transitionend', onLeaveEnd)
-        prev.addEventListener('animationend', onLeaveEnd)
-        const leaveDuration = _getMaxDuration(prev)
-        setTimeout(onLeaveEnd, leaveDuration)
+    // 同一层级同一组件 → 跳过（持久化 layout/组件状态）
+    if (currentItem && currentItem.depth === item.depth) {
+      const sameComp = (a?: Component, b?: Component) => a === b
+      if (sameComp(currentItem.layout, item.layout) && sameComp(currentItem.component, item.component)) {
+        return
       }
-
-      currentComponent = Component
-      setCtx(ctx)
-      const page = jsx(Component, {})
-      setCtx(null)
-
-      if (page instanceof HTMLElement) {
-        page.style.position = 'absolute'
-        page.style.top = '0'
-        page.style.left = '0'
-        page.style.width = '100%'
-        page.classList.add(`${trans}-enter`)
-        el.appendChild(page)
-
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            page.classList.add(`${trans}-enter-active`)
-            page.classList.remove(`${trans}-enter`)
-
-            const onEnterEnd = () => {
-              page.style.position = ''
-              page.style.top = ''
-              page.style.left = ''
-              page.style.width = ''
-              page.classList.remove(`${trans}-enter-active`)
-              page.removeEventListener('transitionend', onEnterEnd)
-              page.removeEventListener('animationend', onEnterEnd)
-            }
-            page.addEventListener('transitionend', onEnterEnd)
-            page.addEventListener('animationend', onEnterEnd)
-            const enterDuration = _getMaxDuration(page)
-            setTimeout(onEnterEnd, enterDuration)
-          })
-        })
-      } else {
-        el.appendChild(page)
-      }
-    } else {
-      currentComponent = Component
-      el.textContent = ''
-      setCtx(ctx)
-      const page = jsx(Component, {})
-      el.appendChild(page)
-      setCtx(null)
     }
+
+    currentItem = item
+
+    // 递增 depth 供下游 RouteView 使用
+    ;(ctx.route as any)[DEPTH_KEY] = depth + 1
+
+    // 渲染当前层级的组件
+    const Comp = item.layout ?? item.component
+    if (!Comp) return
+
+    el.textContent = ''
+    setCtx(ctx)
+    const page = jsx(Comp, {})
+    el.appendChild(page)
+    setCtx(null)
   }
 
   render()
@@ -456,3 +305,11 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
   onCleanup(() => window.removeEventListener('wefu:route', render))
   return el
 }
+
+/**
+ * Outlet — RouteView 的别名
+ *
+ * 为了减少学习成本，推荐统一使用 RouteView。
+ * Outlet 保留作为别名，向后兼容。
+ */
+export const Outlet = RouteView
