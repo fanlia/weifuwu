@@ -27,26 +27,26 @@ export interface ResourceOptions<T> {
   initialValue?: T
 }
 
-export interface ResourceReturn<T> {
-  /** 返回数据信号 */
-  data: Signal<T | undefined>
+/** createResource 返回的元组第二项：状态对象 */
+export interface ResourceState<T> {
   /** 是否正在加载 */
   loading: Signal<boolean>
   /** 错误信号（加载失败时） */
   error: Signal<Error | undefined>
   /** 手动重新 fetch */
   refetch: () => void
+  /** 数据信号（与元组第一项相同） */
+  data: Signal<T | undefined>
 }
 
 /**
  * 创建异步数据资源 — 自动管理 loading/error/data 信号。
  *
- * fetcher 中的 signal 依赖会被自动追踪，依赖变化时自动 refetch。
- *
+ * 返回 [data, state] 元组，支持 SolidJS 风格解构：
  * ```ts
  * const userId = signal(1)
- * const [user, { loading }] = createResource(
- *   () => fetch(`/api/users/${userId.value}`).then(r => r.json())
+ * const [user, { loading, error, refetch }] = createResource(
+ *   () => fetch('/api/users/' + userId.value).then(r => r.json())
  * )
  * // userId 变化时自动重新 fetch
  * ```
@@ -54,7 +54,7 @@ export interface ResourceReturn<T> {
 export function createResource<T>(
   fetcher: () => Promise<T>,
   options?: ResourceOptions<T>,
-): ResourceReturn<T> {
+): [Signal<T | undefined>, ResourceState<T>] {
   const data = signal<T | undefined>(options?.initialValue)
   const loading = signal<boolean>(true)
   const error = signal<Error | undefined>(undefined)
@@ -68,7 +68,6 @@ export function createResource<T>(
 
     try {
       const result = await fetcher()
-      // 防止过时请求覆盖最新数据
       if (id === fetchId) {
         data.value = result
         loading.value = false
@@ -81,13 +80,14 @@ export function createResource<T>(
     }
   }
 
-  // 首次加载
   load()
 
-  return {
+  const state: ResourceState<T> = {
     data,
     loading,
     error,
     refetch: () => { load() },
   }
+
+  return [data, state]
 }

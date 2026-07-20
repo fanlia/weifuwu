@@ -270,7 +270,7 @@ export type { AuthClient, AuthUser, AuthOptions } from './middleware/auth.ts'
  * ```
  */
 export { createResource } from './resource.ts'
-export type { ResourceOptions, ResourceReturn } from './resource.ts'
+export type { ResourceOptions, ResourceState } from './resource.ts'
 
 /**
  * 表单状态管理 — 字段绑定、验证、提交、重置。
