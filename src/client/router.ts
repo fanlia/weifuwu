@@ -257,43 +257,40 @@ function flattenRoutes(routes: RouteDef[], parentPath = ''): FlatRoute[] {
  */
 export function RouteView(_props: {}, ctx: WfuiContext): Node {
   const el = document.createElement('div')
-  let currentItem: ChainItem | null = null
-
-  function getCurrentDepth(): number {
-    return (ctx.route as any)[DEPTH_KEY] ?? 0
-  }
+  // 当前 RouteView 在 chain 中的层级索引
+  // 0 = 根层级，1 = 第一层嵌套，以此类推
+  // 在首次渲染时根据父级已设置的 DEPTH_KEY 自动确定
+  let myDepth: number | null = null
+  let cachedComp: Component | null = null
 
   function render() {
     const chain = (ctx.route as any)[CHAIN_KEY] as ChainItem[] | undefined
-    let depth = getCurrentDepth()
 
-    // 没有更多层级 → 清空
+    // 首次渲染时确定自己的层级
+    if (myDepth === null) {
+      const d = (ctx.route as any)[DEPTH_KEY] ?? 0
+      myDepth = d as number
+      // 递增 depth，供下一级 RouteView 确定自己的层级
+      ;(ctx.route as any)[DEPTH_KEY] = (myDepth as number) + 1
+    }
+
+    const depth = myDepth as number
+
     if (!chain || depth >= chain.length) {
       if (el.children.length > 0) el.textContent = ''
-      currentItem = null
+      cachedComp = null
       return
     }
 
     const item = chain[depth]
-
-    // 同一层级同一组件 → 跳过重渲染
-    // 但仍需递增 depth，否则下游 RouteView 读到错误层级
-    if (currentItem && currentItem.depth === item.depth) {
-      const sameComp = (a?: Component, b?: Component) => a === b
-      if (sameComp(currentItem.layout, item.layout) && sameComp(currentItem.component, item.component)) {
-        ;(ctx.route as any)[DEPTH_KEY] = depth + 1
-        return
-      }
-    }
-
-    currentItem = item
-
-    // 递增 depth 供下游 RouteView 使用
-    ;(ctx.route as any)[DEPTH_KEY] = depth + 1
-
-    // 渲染当前层级的组件
     const Comp = item.layout ?? item.component
+
     if (!Comp) return
+
+    // 同一组件 → 跳过重渲染（持久化 layout/组件状态）
+    if (cachedComp === Comp) return
+
+    cachedComp = Comp
 
     el.textContent = ''
     setCtx(ctx)
@@ -302,7 +299,10 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
     setCtx(null)
   }
 
+  // 初始渲染
   render()
+
+  // 监听路由变化
   window.addEventListener('wefu:route', render)
   onCleanup(() => window.removeEventListener('wefu:route', render))
   return el
