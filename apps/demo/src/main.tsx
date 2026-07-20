@@ -434,6 +434,8 @@ function AuthPage(_props: {}, ctx: WfuiContext) {
 function RealtimePage(_props: {}, ctx: WfuiContext) {
   const messages = signal<Array<{ type: string; body: string; ts?: number }>>([])
   const wsInput = signal('')
+  // 响应式条件：有消息时显示列表（messages.value.length > 0 是静态布尔）
+  const hasMessages = computed(() => messages.value.length > 0)
 
   ctx.ws.onMessage((data: any) => {
     messages.value = [...messages.value, data]
@@ -459,7 +461,7 @@ function RealtimePage(_props: {}, ctx: WfuiContext) {
         </p>
 
         <div class="max-h-72 overflow-y-auto border border-gray-200 rounded-lg p-3 mb-4 bg-gray-50">
-          <Show when={messages.value.length > 0} fallback={
+          <Show when={hasMessages} fallback={
             <p class="text-gray-400 text-center py-8 text-sm">暂无消息，发送一条试试</p>
           }>
             <For each={messages}>
