@@ -276,10 +276,12 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
 
     const item = chain[depth]
 
-    // 同一层级同一组件 → 跳过（持久化 layout/组件状态）
+    // 同一层级同一组件 → 跳过重渲染
+    // 但仍需递增 depth，否则下游 RouteView 读到错误层级
     if (currentItem && currentItem.depth === item.depth) {
       const sameComp = (a?: Component, b?: Component) => a === b
       if (sameComp(currentItem.layout, item.layout) && sameComp(currentItem.component, item.component)) {
+        ;(ctx.route as any)[DEPTH_KEY] = depth + 1
         return
       }
     }
