@@ -115,7 +115,12 @@ export function extendCtx<T extends Record<string, unknown>>(
 /** 路由定义 */
 export interface RouteDef {
   path: string
-  component: Component
+  /** 路由组件（叶子节点） */
+  component?: Component
+  /** 布局组件（非叶子节点，渲染 <Outlet/> 显示子路由） */
+  layout?: Component
+  /** 子路由（嵌套路由 / 布局路由） */
+  children?: RouteDef[]
   auth?: boolean
   title?: string
   /** 页面加载器 — 切换路由时自动调用，结果注入 ctx.route.data */

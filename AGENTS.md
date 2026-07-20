@@ -51,6 +51,11 @@ README is the main entry point for LLMs to understand the project. Keep it **LLM
 - **Build** — esbuild with `jsxImportSource: 'weifuwu/client'`. No Vite, no webpack.
 - **Testing** — components are plain functions, test by calling `MyComponent(props, mockCtx)` and asserting on returned Node
 - **No built-in UI components** — `weifuwu/client` ships **only primitives**: signals, JSX runtime, control flow, middleware, routing, and utilities. There are no pre-built components. UI is application-specific and opinionated—shipping it in the core would create false expectations and maintenance burden. Users build their own UI from the primitives, following patterns shown in `apps/` and `examples/`.
-- **Minimal public API** — `weifuwu/client` exports **29 symbols** (15 runtime + 14 types). Every export earns its place: no syntax sugar (`reactiveArray`, `domMount`, `wrap`, `createPortal`, `ErrorBoundary`, `createContext`, `ApiClient`, `ApiError`, `useModel`), no dev-only tools (`enableDevtools`). If a feature can be built from primitives in under 30 lines of user code, it doesn't belong in the framework.
-  - **What belongs in core**: signal system, JSX factory, `Show`/`For`/`Fragment`, lifecycle hooks (`onMount`/`onCleanup`), middleware (`api`/`auth`/`ws`/`router`), utilities (`useForm`/`createResource`/`createStyles`).
+- **Minimal public API** — `weifuwu/client` exports **47 symbols** (28 runtime + 19 types). Every export earns its place.
+  - **Core primitives**: `signal`, `computed`, `effect`, `batch`, `untrack`, `isSignal`, `jsx/jsxs/jsxDEV`, `Fragment`, `Show`, `For`, `onMount`, `onCleanup`, `createApp`
+  - **Lifecycle & DOM**: `ErrorBoundary`, `createPortal`, `wrap`, `domMount`
+  - **Context**: `createContext`, `extendCtx`
+  - **Router**: `router`, `RouteView`, `Outlet` (嵌套布局), `lazy` (代码分割)
+  - **Middleware**: `ws`, `api` (HTTP 客户端), `auth` (认证状态管理)
+  - **Utilities**: `useForm`, `createResource`
   - **What does NOT belong in core**: any component with visual output, application-specific logic, syntax sugar replaceable with primitives, or dev-only tooling. These are either removed entirely or available as patterns in `apps/`.
