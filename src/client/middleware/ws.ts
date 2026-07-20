@@ -81,6 +81,8 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
     function send(data: unknown) {
       if (socket?.readyState === WebSocket.OPEN) {
         socket.send(typeof data === 'string' ? data : JSON.stringify(data))
+      } else {
+        console.warn('ws.send: WebSocket not open, readyState:', socket?.readyState)
       }
     }
 

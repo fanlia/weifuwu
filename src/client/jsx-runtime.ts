@@ -548,12 +548,20 @@ function setProp(el: Element, key: string, value: unknown) {
   } else if (isSignal(value)) {
     _trackEffect(el, effect(() => {
       const v = value.value
-      if (v == null || v === false) el.removeAttribute(key)
-      else if (v === true) el.setAttribute(key, '')
-      else el.setAttribute(key, String(v))
+      // input value/checked 必须通过 DOM property 设置，setAttribute 无效
+      if (key === 'value' || key === 'checked') {
+        (el as any)[key] = v
+      } else if (v == null || v === false) {
+        el.removeAttribute(key)
+      } else if (v === true) {
+        el.setAttribute(key, '')
+      } else {
+        el.setAttribute(key, String(v))
+      }
     }))
   } else if (value != null && value !== false) {
     if (value === true) el.setAttribute(key, '')
+    else if (key === 'value' || key === 'checked') (el as any)[key] = value
     else el.setAttribute(key, String(value))
   }
 }
