@@ -1,6 +1,6 @@
 {
   "name": "@weifuwujs/components",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "UI components for weifuwu — 32 composable components built on weifuwu/client primitives",
   "main": "./dist/index.js",
@@ -11,7 +11,10 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
@@ -25,6 +28,12 @@
     "typescript": ">=5.0.0",
     "weifuwu": ">=0.33.0"
   },
-  "keywords": ["weifuwu", "ui", "components", "signals", "jsx"],
+  "keywords": [
+    "weifuwu",
+    "ui",
+    "components",
+    "signals",
+    "jsx"
+  ],
   "license": "MIT"
 }
