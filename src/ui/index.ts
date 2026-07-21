@@ -27,7 +27,7 @@
  */
 
 import { build } from 'esbuild'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { Middleware, Context } from '../types.ts'
 
@@ -73,7 +73,20 @@ function unsafe(s: string): string {
 
 // ── JS 编译缓存 ───────────────────────────────────────────
 
-const jsCache = new Map<string, { code: string }>()
+const jsCache = new Map<string, { code: string; inputs: Record<string, number> }>()
+
+/** 检查缓存的所有输入文件 mtime — 任一变化则失效（开发模式改 TSX 免重启） */
+async function jsCacheFresh(inputs: Record<string, number>): Promise<boolean> {
+  for (const [file, mtime] of Object.entries(inputs)) {
+    try {
+      const st = await stat(file)
+      if (st.mtimeMs !== mtime) return false
+    } catch {
+      return false
+    }
+  }
+  return true
+}
 const cssCache = new Map<string, { code: string; mtime: number }>()
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -97,7 +110,7 @@ export function ui(): Middleware {
       async js(entryPath: string): Promise<Response> {
         const absPath = resolve(entryPath)
         const cached = jsCache.get(absPath)
-        if (cached) {
+        if (cached && (await jsCacheFresh(cached.inputs))) {
           return new Response(cached.code, {
             headers: { 'Content-Type': 'application/javascript' },
           })
@@ -111,10 +124,20 @@ export function ui(): Middleware {
           jsx: 'automatic',
           jsxImportSource: 'weifuwu/client',
           write: false,
+          metafile: true,
         })
 
         const code = result.outputFiles[0].text
-        jsCache.set(absPath, { code })
+
+        // 记录所有输入文件及其 mtime，用于缓存失效检测
+        const inputs: Record<string, number> = {}
+        for (const file of Object.keys(result.metafile?.inputs ?? {})) {
+          const abs = resolve(file)
+          try {
+            inputs[abs] = (await stat(abs)).mtimeMs
+          } catch { /* 文件可能已删除 */ }
+        }
+        jsCache.set(absPath, { code, inputs })
 
         return new Response(code, {
           headers: { 'Content-Type': 'application/javascript' },

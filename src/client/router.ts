@@ -62,7 +62,8 @@ interface ChainItem {
 }
 
 const CHAIN_KEY = Symbol('routeChain')
-const DEPTH_KEY = Symbol('routeDepth')
+/** RouteView 渲染栈 — 渲染子树时压入自身深度，嵌套 RouteView 从栈顶推导自身深度 */
+const RV_STACK_KEY = Symbol('routeRvStack')
 
 /**
  * 路由中间件 — 注入 ctx.route + 改写 ctx.app.navigate
@@ -114,7 +115,6 @@ export function router(opts: RouterOptions): AppMiddleware {
     if (matched.leafRoute.title) document.title = matched.leafRoute.title
 
     ;(ctx2.route as any)[CHAIN_KEY] = matched.chain
-    ;(ctx2.route as any)[DEPTH_KEY] = 0
   }
 
   return (ctx: WfuiContext): WfuiContext => {
@@ -259,19 +259,18 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
   const el = document.createElement('div')
   // 当前 RouteView 在 chain 中的层级索引
   // 0 = 根层级，1 = 第一层嵌套，以此类推
-  // 在首次渲染时根据父级已设置的 DEPTH_KEY 自动确定
+  // 首次渲染时从父 RouteView 的渲染栈推导（与导航重置无关，天然正确）
   let myDepth: number | null = null
   let cachedComp: Component | null = null
 
   function render() {
     const chain = (ctx.route as any)[CHAIN_KEY] as ChainItem[] | undefined
 
-    // 首次渲染时确定自己的层级
+    // 首次渲染时确定自己的层级：父 RouteView 渲染子树时会把自身深度压栈，
+    // 因此栈顶 + 1 即当前 RouteView 的深度；栈为空则为根层级 0。
     if (myDepth === null) {
-      const d = (ctx.route as any)[DEPTH_KEY] ?? 0
-      myDepth = d as number
-      // 递增 depth，供下一级 RouteView 确定自己的层级
-      ;(ctx.route as any)[DEPTH_KEY] = (myDepth as number) + 1
+      const stack = (ctx.route as any)[RV_STACK_KEY] as number[] | undefined
+      myDepth = stack && stack.length > 0 ? stack[stack.length - 1] + 1 : 0
     }
 
     const depth = myDepth as number
@@ -294,9 +293,20 @@ export function RouteView(_props: {}, ctx: WfuiContext): Node {
 
     el.textContent = ''
     setCtx(ctx)
-    const page = jsx(Comp, {})
-    el.appendChild(page)
-    setCtx(null)
+    // 压栈：子树中同步创建的嵌套 RouteView 依此推导深度
+    let stack = (ctx.route as any)[RV_STACK_KEY] as number[] | undefined
+    if (!stack) {
+      stack = []
+      ;(ctx.route as any)[RV_STACK_KEY] = stack
+    }
+    stack.push(depth)
+    try {
+      const page = jsx(Comp, {})
+      el.appendChild(page)
+    } finally {
+      stack.pop()
+      setCtx(null)
+    }
   }
 
   // 初始渲染

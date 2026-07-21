@@ -34,6 +34,8 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
     let socket: WebSocket | null = null
     let reconnectCount = 0
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    /** 连接未就绪时暂存的消息队列 */
+    const sendQueue: unknown[] = []
 
     function connect() {
       if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) return
@@ -50,6 +52,11 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
       socket.onopen = () => {
         isConnected.value = true
         reconnectCount = 0
+        // 连接就绪后发送积压消息
+        while (sendQueue.length > 0) {
+          const msg = sendQueue.shift()
+          try { socket!.send(typeof msg === 'string' ? msg : JSON.stringify(msg)) } catch {}
+        }
       }
 
       socket.onmessage = (event: MessageEvent) => {
@@ -82,7 +89,8 @@ export function ws(opts: WsOptions = {}): AppMiddleware {
       if (socket?.readyState === WebSocket.OPEN) {
         socket.send(typeof data === 'string' ? data : JSON.stringify(data))
       } else {
-        console.warn('ws.send: WebSocket not open, readyState:', socket?.readyState)
+        // 连接未就绪（CONNECTING 或 CLOSED）— 暂存到队列等待 open 后发送
+        sendQueue.push(data)
       }
     }
 

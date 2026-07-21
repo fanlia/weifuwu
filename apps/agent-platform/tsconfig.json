@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "weifuwu/client",
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "paths": {
+      "weifuwu": ["../../src/index.ts"],
+      "weifuwu/client": ["../../src/client/index.ts"],
+      "weifuwu/client/jsx-runtime": ["../../src/client/index.ts"],
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "server.ts"]
+}
