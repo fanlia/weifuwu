@@ -137,6 +137,37 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     }
   }
 
+  // ── HITL 审批 ──
+  const approving = signal<string | null>(null)
+
+  async function approveDraft(msgId: string) {
+    approving.value = msgId
+    try {
+      await fetch(`/api/messages/${msgId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ approved: true }),
+      })
+      await refetch()
+    } finally {
+      approving.value = null
+    }
+  }
+
+  async function rejectDraft(msgId: string) {
+    approving.value = msgId
+    try {
+      await fetch(`/api/messages/${msgId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ approved: false }),
+      })
+      await refetch()
+    } finally {
+      approving.value = null
+    }
+  }
+
   function fmtTime(iso: string): string {
     try {
       const d = new Date(iso)
@@ -224,7 +255,40 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                 </Show>
 
                 {msg.ai_draft && msg.ai_approved === null && (
-                  <span class="draft-flag">⏳ AI 草稿待审批</span>
+                  <div style={{ marginTop: '6px' }}>
+                    <div style={{
+                      padding: '8px 12px', borderRadius: '8px', fontSize: '13px',
+                      background: '#fffbeb', border: '1px solid #fde68a',
+                      color: '#92400e', marginBottom: '6px',
+                    }}>
+                      <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '11px', color: '#b45309' }}>
+                        ⏳ AI 草稿待审批
+                      </div>
+                      {msg.ai_draft}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        class="btn btn-sm"
+                        style={{
+                          background: '#10b981', color: '#fff', border: 'none',
+                        }}
+                        disabled={computed(() => approving.value === msg.id)}
+                        onClick={() => approveDraft(msg.id)}
+                      >
+                        {computed(() => approving.value === msg.id ? '处理中...' : '✓ 批准')}
+                      </button>
+                      <button
+                        class="btn btn-sm"
+                        style={{
+                          background: '#ef4444', color: '#fff', border: 'none',
+                        }}
+                        disabled={computed(() => approving.value === msg.id)}
+                        onClick={() => rejectDraft(msg.id)}
+                      >
+                        ✕ 拒绝
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
