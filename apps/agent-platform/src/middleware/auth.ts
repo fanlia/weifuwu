@@ -95,6 +95,36 @@ export function auth(opts?: { secret?: string }): Middleware<Context, Context & 
 }
 
 /**
+ * 解码 JWT payload（不验证签名）
+ */
+export function decodeToken(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    return JSON.parse(base64UrlDecode(parts[1]))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 验证 JWT 签名并返回 payload
+ */
+export function verifyToken(token: string, secret: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const expectedSig = base64UrlEncode(`${parts[0]}.${parts[1]}.${secret}`)
+    if (parts[2] !== expectedSig) return null
+    const payload = JSON.parse(base64UrlDecode(parts[1]))
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null
+    return payload
+  } catch {
+    return null
+  }
+}
+
+/**
  * 生成简单 JWT（用于登录接口）
  * 生产环境建议用正式的 JWT 库
  */

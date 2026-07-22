@@ -104,6 +104,90 @@ export function registerMessageRoutes(app: Router): void {
     return Response.json({ message }, { status: 201 })
   })
 
+  // ── 编辑消息（5 分钟内可编辑） ───────────────────────────
+
+  app.put('/api/messages/:id', async (req: Request, ctx: Context): Promise<Response> => {
+    const { sql, tenantId, auth, params } = ctx
+    const body = await req.json() as { content: string }
+
+    if (!body.content?.trim()) {
+      return Response.json({ error: 'content 不能为空' }, { status: 400 })
+    }
+
+    // 查找消息，验证属于同一租户
+    const [msg] = await sql`
+      SELECT m.id, m.sender_id, m.created_at, m.department_id, a.user_id as owner_user_id, a.tenant_id
+      FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE m.id = ${params.id} AND a.tenant_id = ${tenantId}
+    `
+    if (!msg) {
+      return Response.json({ error: '消息不存在' }, { status: 404 })
+    }
+
+    // 仅消息发送者可编辑
+    if (msg.owner_user_id !== auth!.userId) {
+      return Response.json({ error: '只能编辑自己的消息' }, { status: 403 })
+    }
+
+    // 5 分钟内可编辑
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+    if (new Date(msg.created_at) < fiveMinutesAgo) {
+      return Response.json({ error: '消息已超过 5 分钟，无法编辑' }, { status: 400 })
+    }
+
+    await sql`
+      UPDATE messages SET content = ${body.content.trim()}
+      WHERE id = ${params.id}
+    `
+
+    // WS 推送编辑事件
+    wsHub.broadcast(msg.department_id, {
+      type: 'message_edited',
+      messageId: params.id,
+      content: body.content.trim(),
+    })
+
+    return Response.json({ success: true })
+  })
+
+  // ── 删除消息（撤回） ───────────────────────────────────────
+
+  app.delete('/api/messages/:id', async (req: Request, ctx: Context): Promise<Response> => {
+    const { sql, tenantId, auth, params } = ctx
+
+    const [msg] = await sql`
+      SELECT m.id, m.sender_id, m.created_at, a.user_id as owner_user_id, m.department_id
+      FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE m.id = ${params.id} AND a.tenant_id = ${tenantId}
+    `
+    if (!msg) {
+      return Response.json({ error: '消息不存在' }, { status: 404 })
+    }
+
+    // 仅消息发送者可撤回
+    if (msg.owner_user_id !== auth!.userId) {
+      return Response.json({ error: '只能撤回自己的消息' }, { status: 403 })
+    }
+
+    // 5 分钟内可撤回
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+    if (new Date(msg.created_at) < fiveMinutesAgo) {
+      return Response.json({ error: '消息已超过 5 分钟，无法撤回' }, { status: 400 })
+    }
+
+    await sql`DELETE FROM messages WHERE id = ${params.id}`
+
+    // WS 推送删除事件
+    wsHub.broadcast(msg.department_id, {
+      type: 'message_deleted',
+      messageId: params.id,
+    })
+
+    return Response.json({ success: true })
+  })
+
   // ── 审批 AI 回复（Human-in-the-Loop） ────────────────────
 
   app.post('/api/messages/:id/approve', async (req: Request, ctx: Context): Promise<Response> => {

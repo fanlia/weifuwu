@@ -2,7 +2,8 @@
  * UI 路由 — 提供 SPA 入口和静态资源
  */
 
-import { resolve } from 'node:path'
+import { resolve, join } from 'node:path'
+import { readFileSync, existsSync } from 'node:fs'
 import type { Router, Context } from 'weifuwu'
 
 /** 全局设计系统 CSS — 设计令牌 + 布局 + 组件类 */
@@ -353,43 +354,106 @@ input, select, textarea { font-family: inherit; }
 .grow { flex: 1; min-width: 0; }
 `
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'
+
+/** 生产模式：预构建的 dist 目录路径 */
+function distDir(baseDir: string): string {
+  return resolve(baseDir, 'dist')
+}
+
 export function registerUiRoutes(app: Router, baseDir: string): void {
-  // 客户端 JS bundle — 动态编译（开发模式）
-  app.get('/static/app.js', async (req: Request, ctx: Context): Promise<Response> =>
-    ctx.ui.js(resolve(baseDir, 'ui', 'main.tsx'))
-  )
+  // ── 客户端 JS bundle ─────────────────────────────────
+  if (IS_PRODUCTION) {
+    const dist = distDir(baseDir)
+    // 生产模式：服务预构建的静态文件
+    app.get('/static/app.js', async (_req: Request, _ctx: Context): Promise<Response> => {
+      const jsPath = join(dist, 'app.js')
+      if (!existsSync(jsPath)) {
+        return new Response('/* app.js not built */', {
+          status: 200,
+          headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+        })
+      }
+      const js = readFileSync(jsPath, 'utf-8')
+      return new Response(js, {
+        headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+      })
+    })
+  } else {
+    // 开发模式：动态编译
+    app.get('/static/app.js', async (req: Request, ctx: Context): Promise<Response> =>
+      ctx.ui.js(resolve(baseDir, 'ui', 'main.tsx'))
+    )
+  }
 
-  // SPA 入口页面
-  const spaPaths = [
-    '/',
-    '/login',
-    '/register',
-    '/dashboard',
-    '/agents',
-    '/agents/new',
-    '/agents/:id',
-    '/departments',
-    '/departments/new',
-    '/departments/:id',
-    '/chat/new',
-    '/chat/:id',
-  ]
+  // ── SPA 入口页面 ───────────────────────────────────
+  if (IS_PRODUCTION) {
+    const dist = distDir(baseDir)
+    const htmlPath = join(dist, 'index.html')
+    let htmlTemplate = ''
+    if (existsSync(htmlPath)) {
+      htmlTemplate = readFileSync(htmlPath, 'utf-8')
+        .replace('{{script}}', '/static/app.js')
+    }
 
-  for (const path of spaPaths) {
-    app.get(path, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
-      <!DOCTYPE html>
-      <html lang="zh-CN">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Agent Platform</title>
-        <style>${ctx.ui.html.unsafe(GLOBAL_CSS)}</style>
-      </head>
-      <body>
-        <div id="root"><div class="boot-loading"><div class="spinner"></div>加载中...</div></div>
-        <script src="/static/app.js"></script>
-      </body>
-      </html>
-    `)
+    const spaPaths = [
+      '/', '/login', '/register', '/dashboard',
+      '/agents', '/agents/new', '/agents/:id',
+      '/companies', '/companies/new',
+      '/departments', '/departments/new', '/departments/:id',
+      '/chat/new', '/chat/:id',
+      '/settings',
+    ]
+
+    for (const path of spaPaths) {
+      app.get(path, async (): Promise<Response> => {
+        if (htmlTemplate) {
+          return new Response(htmlTemplate, {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          })
+        }
+        return new Response(`
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Platform</title>
+  <style>${GLOBAL_CSS}</style>
+</head>
+<body>
+  <div id="root"><div class="boot-loading"><div class="spinner"></div>加载中...</div></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+      })
+    }
+  } else {
+    const spaPaths = [
+      '/', '/login', '/register', '/dashboard',
+      '/agents', '/agents/new', '/agents/:id',
+      '/companies', '/companies/new',
+      '/departments', '/departments/new', '/departments/:id',
+      '/chat/new', '/chat/:id',
+      '/settings',
+    ]
+
+    for (const path of spaPaths) {
+      app.get(path, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Agent Platform</title>
+          <style>${ctx.ui.html.unsafe(GLOBAL_CSS)}</style>
+        </head>
+        <body>
+          <div id="root"><div class="boot-loading"><div class="spinner"></div>加载中...</div></div>
+          <script src="/static/app.js"></script>
+        </body>
+        </html>
+      `)
+    }
   }
 }

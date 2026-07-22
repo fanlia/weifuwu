@@ -9,13 +9,6 @@ import type { Context } from 'weifuwu'
 import { runAgent } from './agent-runner.ts'
 import { wsHub } from './ws-hub.ts'
 
-export interface ChatServiceOptions {
-  /** WebSocket hub 用于推送消息到前端 */
-  wsHub?: {
-    send(key: string, message: string): void
-  }
-}
-
 /**
  * 处理新消息 — 被消息路由创建后调用
  *
@@ -30,7 +23,6 @@ export async function handleNewMessage(
   departmentId: string,
   senderId: string,
   messageContent: string,
-  opts?: ChatServiceOptions,
 ): Promise<void> {
   const { sql } = ctx
 

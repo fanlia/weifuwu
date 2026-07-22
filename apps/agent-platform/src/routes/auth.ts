@@ -4,6 +4,8 @@
 
 import type { Router, Context } from 'weifuwu'
 import { signToken } from '../middleware/auth.ts'
+import { hashPassword, verifyPassword } from '../services/password.ts'
+import { checkRateLimit, rateLimitKey } from '../services/rate-limit.ts'
 
 export function registerAuthRoutes(app: Router): void {
   const secret = process.env.JWT_SECRET ?? 'default-secret'
@@ -11,6 +13,10 @@ export function registerAuthRoutes(app: Router): void {
   // ── 注册 ─────────────────────────────────────────────────
 
   app.post('/api/auth/register', async (req: Request, ctx: Context): Promise<Response> => {
+    // 限流：每 IP 每分钟 5 次注册请求
+    if (!checkRateLimit(rateLimitKey(req), { windowMs: 60_000, max: 5 })) {
+      return Response.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 })
+    }
     const body = await req.json() as {
       email: string
       password: string
@@ -45,10 +51,11 @@ export function registerAuthRoutes(app: Router): void {
       return Response.json({ error: '该邮箱已注册' }, { status: 409 })
     }
 
-    // 创建用户（明文密码 — 生产环境应 hash）
+    // 创建用户（scrypt 哈希存储）
+    const passwordHash = await hashPassword(body.password)
     const [user] = await sql`
       INSERT INTO users (tenant_id, email, name, password_hash, role)
-      VALUES (${tenant.id}, ${body.email}, ${body.name}, ${body.password}, 'member')
+      VALUES (${tenant.id}, ${body.email}, ${body.name}, ${passwordHash}, 'member')
       RETURNING id, email, name, role
     `
 
@@ -59,14 +66,14 @@ export function registerAuthRoutes(app: Router): void {
       ON CONFLICT DO NOTHING
     `
 
-    // 生成 token
-    const token = signToken(
-      { sub: user.id, tenantId: tenant.id, email: user.email, name: user.name, role: user.role },
-      secret,
-    )
+    // 生成 access_token（15 分钟） + refresh_token（7 天）
+    const tokenPayload = { sub: user.id, tenantId: tenant.id, email: user.email, name: user.name, role: user.role }
+    const accessToken = signToken(tokenPayload, secret, '15m')
+    const refreshToken = signToken({ ...tokenPayload, type: 'refresh' }, secret, '7d')
 
     return Response.json({
-      token,
+      token: accessToken,
+      refreshToken,
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
     })
   })
@@ -74,6 +81,10 @@ export function registerAuthRoutes(app: Router): void {
   // ── 登录 ─────────────────────────────────────────────────
 
   app.post('/api/auth/login', async (req: Request, ctx: Context): Promise<Response> => {
+    // 限流：每 IP 每分钟 10 次登录请求
+    if (!checkRateLimit(rateLimitKey(req), { windowMs: 60_000, max: 10 })) {
+      return Response.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 })
+    }
     const body = await req.json() as { email: string; password: string }
 
     if (!body.email || !body.password) {
@@ -93,24 +104,26 @@ export function registerAuthRoutes(app: Router): void {
       return Response.json({ error: '用户不存在' }, { status: 401 })
     }
 
-    // 验证密码（明文 — 生产环境用 bcrypt）
-    if (user.password_hash !== body.password) {
+    // 验证密码（scrypt 安全比较）
+    const valid = await verifyPassword(body.password, user.password_hash)
+    if (!valid) {
       return Response.json({ error: '密码错误' }, { status: 401 })
     }
 
-    const token = signToken(
-      {
-        sub: user.id,
-        tenantId: user.tenant_id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-      secret,
-    )
+    // 生成 access_token（15 分钟） + refresh_token（7 天）
+    const tokenPayload = {
+      sub: user.id,
+      tenantId: user.tenant_id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }
+    const accessToken = signToken(tokenPayload, secret, '15m')
+    const refreshToken = signToken({ ...tokenPayload, type: 'refresh' }, secret, '7d')
 
     return Response.json({
-      token,
+      token: accessToken,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email,

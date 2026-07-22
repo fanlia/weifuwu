@@ -17,6 +17,9 @@ import { NewDepartment } from './pages/NewDepartment'
 import { DepartmentDetail } from './pages/DepartmentDetail'
 import { NewChat } from './pages/NewChat'
 import { Chat } from './pages/Chat'
+import { Companies } from './pages/Companies'
+import { NewCompany } from './pages/NewCompany'
+import { Settings } from './pages/Settings'
 
 // ── 应用 ─────────────────────────────────────────────────
 
@@ -47,11 +50,14 @@ app.use(router({
         { path: 'agents', component: Agents, title: 'Agent — Agent Platform' },
         { path: 'agents/new', component: NewAgent, title: '创建 Agent' },
         { path: 'agents/:id', component: AgentDetail, title: '编辑 Agent' },
+        { path: 'companies', component: Companies, title: '公司 — Agent Platform' },
+        { path: 'companies/new', component: NewCompany, title: '创建公司' },
         { path: 'departments', component: Departments, title: '部门 — Agent Platform' },
         { path: 'departments/new', component: NewDepartment, title: '创建部门' },
         { path: 'departments/:id', component: DepartmentDetail, title: '部门详情' },
         { path: 'chat/new', component: NewChat, title: '发起聊天' },
         { path: 'chat/:id', component: Chat, title: '聊天' },
+        { path: 'settings', component: Settings, title: '设置 — Agent Platform' },
       ],
     },
   ],

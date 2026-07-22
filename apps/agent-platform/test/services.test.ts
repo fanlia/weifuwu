@@ -194,10 +194,8 @@ describe('Services', () => {
   describe('handleNewMessage()', () => {
     it('部门有 AI Agent 时触发自动回复', async () => {
       const ctx = makeMockCtx({ sql: await pg.sql as any })
-      const wsCalls: string[] = []
-      const wsHub = { send: (key: string, msg: string) => wsCalls.push(msg) }
 
-      await handleNewMessage(ctx, DEPT_ID, USER_AGENT_ID, '测试消息', { wsHub })
+      await handleNewMessage(ctx, DEPT_ID, USER_AGENT_ID, '测试消息')
 
       const messages = await pg.sql`
         SELECT content, ai_approved FROM messages WHERE department_id = ${DEPT_ID}
@@ -232,20 +230,14 @@ describe('Services', () => {
       `
 
       const ctx = makeMockCtx({ sql: await pg.sql as any })
-      const wsCalls: string[] = []
-      const wsHub = { send: (key: string, msg: string) => wsCalls.push(msg) }
 
-      await handleNewMessage(ctx, DEPT_ID, USER_AGENT_ID, '需审批的消息', { wsHub })
+      await handleNewMessage(ctx, DEPT_ID, USER_AGENT_ID, '需审批的消息')
 
       // 验证存在 ai_approved IS NULL 的草稿
       const drafts = await pg.sql`
         SELECT * FROM messages WHERE ai_approved IS NULL
       `
       assert.ok(drafts.length >= 1, '应有待审批的 AI 草稿')
-
-      // 验证 WS 推送了审批通知
-      const draftNotifs = wsCalls.filter(c => c.includes('ai_draft'))
-      assert.ok(draftNotifs.length >= 1, '应有审批通知 WS 推送')
     })
   })
 

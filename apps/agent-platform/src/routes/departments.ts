@@ -11,6 +11,8 @@ export function registerDepartmentRoutes(app: Router): void {
     const { sql, tenantId } = ctx
     const url = new URL(req.url)
     const companyId = url.searchParams.get('company_id')
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
 
     const departments = await sql`
       SELECT d.id, d.company_id, d.name, d.is_dm, d.created_at,
@@ -20,9 +22,18 @@ export function registerDepartmentRoutes(app: Router): void {
       WHERE c.tenant_id = ${tenantId}
       ${companyId ? sql`AND d.company_id = ${companyId}` : sql``}
       ORDER BY d.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `
 
-    return Response.json({ departments })
+    const [countResult] = await sql`
+      SELECT COUNT(*)::int as total
+      FROM departments d
+      JOIN companies c ON c.id = d.company_id
+      WHERE c.tenant_id = ${tenantId}
+      ${companyId ? sql`AND d.company_id = ${companyId}` : sql``}
+    `
+
+    return Response.json({ departments, total: countResult.total })
   })
 
   // ── 创建部门 ─────────────────────────────────────────────

@@ -11,6 +11,8 @@ export function registerAgentRoutes(app: Router): void {
     const { sql, tenantId } = ctx
     const url = new URL(req.url)
     const type = url.searchParams.get('type')
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
 
     const agents = await sql`
       SELECT
@@ -22,9 +24,16 @@ export function registerAgentRoutes(app: Router): void {
       WHERE tenant_id = ${tenantId}
       ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
       ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `
 
-    return Response.json({ agents })
+    const [countResult] = await sql`
+      SELECT COUNT(*)::int as total FROM agents
+      WHERE tenant_id = ${tenantId}
+      ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
+    `
+
+    return Response.json({ agents, total: countResult.total })
   })
 
   // ── 创建 Agent ───────────────────────────────────────────

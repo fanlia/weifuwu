@@ -4,6 +4,7 @@
 
 import { signal, computed, Show } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
+import { setRefreshToken } from '../lib/api'
 
 export function Login(_props: {}, ctx: WfuiContext) {
   const email = signal('')
@@ -34,6 +35,7 @@ export function Login(_props: {}, ctx: WfuiContext) {
         return
       }
       ctx.auth.login(data.token, data.user)
+      setRefreshToken(data.refreshToken ?? null)
       ctx.app.navigate('/')
     } catch {
       error.value = '网络错误，请稍后重试'

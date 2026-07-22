@@ -9,13 +9,23 @@ export function registerCompanyRoutes(app: Router): void {
 
   app.get('/api/companies', async (req: Request, ctx: Context): Promise<Response> => {
     const { sql, tenantId } = ctx
+    const url = new URL(req.url)
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
+
     const companies = await sql`
       SELECT id, name, created_at, updated_at
       FROM companies
       WHERE tenant_id = ${tenantId}
       ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `
-    return Response.json({ companies })
+
+    const [countResult] = await sql`
+      SELECT COUNT(*)::int as total FROM companies WHERE tenant_id = ${tenantId}
+    `
+
+    return Response.json({ companies, total: countResult.total })
   })
 
   // ── 创建公司 ─────────────────────────────────────────────

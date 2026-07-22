@@ -19,6 +19,7 @@ interface NavDef {
 const NAV: NavDef[] = [
   { path: '/', icon: '📊', label: '概览', match: p => p === '/' || p === '/dashboard' },
   { path: '/agents', icon: '🤖', label: 'Agent', match: p => p.startsWith('/agents') },
+  { path: '/companies', icon: '🏢', label: '公司', match: p => p.startsWith('/companies') },
   { path: '/departments', icon: '👥', label: '部门', match: p => p.startsWith('/departments') },
   { path: '/chat/new', icon: '💬', label: '聊天', match: p => p.startsWith('/chat') },
 ]
@@ -87,6 +88,7 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
               <div class="user-name">{userName}</div>
               <div class="user-mail">{userMail}</div>
             </div>
+            <button class="btn-logout" title="设置" onClick={() => ctx.app.navigate('/settings')}>⚙</button>
             <button class="btn-logout" title="退出登录" onClick={logout}>⏻</button>
           </div>
         </div>
