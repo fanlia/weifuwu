@@ -103,3 +103,44 @@ export class HttpError extends Error {
     this.status = status
   }
 }
+
+/**
+ * 类型安全的中间件工厂 — 减少中间件样板代码。
+ *
+ * 自动生成 `__meta`，自动类型推导注入字段。
+ * 开发者仍需用 `declare module` 扩展 Context 接口以获得编译时类型检查。
+ *
+ * ```ts
+ * declare module 'weifuwu' {
+ *   interface Context { myField: string }
+ * }
+ *
+ * const myMw = createMiddleware({
+ *   injects: ['myField'],
+ *   depends: ['sql'],
+ *   setup: async (ctx) => {
+ *     const result = await ctx.sql`SELECT ...`
+ *     return { myField: result }
+ *   },
+ * })
+ * ```
+ */
+export function createMiddleware<C extends Record<string, unknown>>(config: {
+  /** 此中间件注入的字段名列表（用于 __meta） */
+  injects: (keyof C)[]
+  /** 此中间件依赖的字段名列表（必须已被前面的中间件注入） */
+  depends?: string[]
+  /** 初始化逻辑，返回要注入到 ctx 的值 */
+  setup: (ctx: Context) => C | Promise<C>
+}): Middleware<Context, Context & C> {
+  const mw: Middleware = async (req, ctx, next) => {
+    const injected = await config.setup(ctx)
+    Object.assign(ctx, injected)
+    return next(req, ctx)
+  }
+  mw.__meta = {
+    injects: config.injects as unknown as string[],
+    depends: config.depends ?? [],
+  }
+  return mw as Middleware<Context, Context & C>
+}
