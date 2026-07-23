@@ -39,7 +39,11 @@ CREATE TABLE IF NOT EXISTS companies (
 
 -- ── Agent — 四种类型单表继承 ─────────────────────────────
 
-CREATE TYPE agent_type AS ENUM ('ai', 'user', 'webhook', 'knowledge_base');
+DO $$ BEGIN
+  CREATE TYPE agent_type AS ENUM ('ai', 'user', 'webhook', 'knowledge_base');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 CREATE TABLE IF NOT EXISTS agents (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

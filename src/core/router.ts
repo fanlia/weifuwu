@@ -469,6 +469,8 @@ export class Router<T extends Context = Context> {
 
   private async handleError(e: unknown, req: Request, ctx: Context): Promise<Response> {
     const err = e instanceof Error ? e : new Error(String(e))
+    // Log unexpected errors so developers can debug
+    console.error(`[router] ${req.method} ${new URL(req.url).pathname}:`, err.stack || err.message || err)
     return this.errorHandler ? this.errorHandler(err, req, ctx as T) : new Response('Internal Server Error', { status: 500 })
   }
 

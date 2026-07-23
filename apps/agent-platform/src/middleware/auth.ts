@@ -35,11 +35,11 @@ export function auth(opts?: { secret?: string }): Middleware<Context, Context & 
   const secret = opts?.secret ?? process.env.JWT_SECRET ?? 'default-secret'
 
   function base64UrlDecode(s: string): string {
-    return atob(s.replace(/-/g, '+').replace(/_/g, '/'))
+    return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
   }
 
   function base64UrlEncode(data: string): string {
-    return btoa(data).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    return Buffer.from(data).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
   }
 
   function verifySignature(token: string, key: string): boolean {
@@ -140,7 +140,7 @@ export function signToken(payload: Record<string, unknown>, secret: string, expi
   const fullPayload = { ...payload, exp, iat: Math.floor(Date.now() / 1000) }
 
   function b64url(data: string): string {
-    return btoa(data).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    return Buffer.from(data).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
   }
 
   const headerB64 = b64url(JSON.stringify(header))

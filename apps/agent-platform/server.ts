@@ -48,43 +48,25 @@ async function main() {
   const pg = postgres()
   app.use(pg)
 
-  // 运行迁移
+  // ── Schema 迁移 ───────────────────────────────────────
+  // 使用 CREATE IF NOT EXISTS 安全地确保表存在，绝不 DROP 数据
   const schemaPath = resolve(__dirname, 'src', 'db', 'schema.sql')
   const schema = readFileSync(schemaPath, 'utf-8')
   await pg.migrate()
   if (!(await pg.isMigrated('agent-platform'))) {
-    // 开发环境：先清理旧表再重新创建
-    const existingTables = await pg.sql`
-      SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name IN ('agents','departments','messages','kb_chunks','kb_documents','department_members','companies','users','tenants')
-    `
-    if (existingTables.length > 0) {
-      await pg.sql.unsafe(`
-        DROP TABLE IF EXISTS kb_chunks CASCADE;
-        DROP TABLE IF EXISTS kb_documents CASCADE;
-        DROP TABLE IF EXISTS messages CASCADE;
-        DROP TABLE IF EXISTS department_members CASCADE;
-        DROP TABLE IF EXISTS departments CASCADE;
-        DROP TABLE IF EXISTS agents CASCADE;
-        DROP TABLE IF EXISTS companies CASCADE;
-        DROP TABLE IF EXISTS users CASCADE;
-        DROP TABLE IF EXISTS tenants CASCADE;
-        DROP TYPE IF EXISTS agent_type CASCADE;
-      `)
-    }
     await pg.sql.unsafe(schema)
     await pg.markMigrated('agent-platform')
-    console.log('[agent-platform] DB 迁移完成')
-  } else {
-    // 迁移已标记，但检查核心表是否存在（测试可能 DROP 了）
-    const [check] = await pg.sql`
-      SELECT COUNT(*)::int as count FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'agents'
-    ` as any[]
-    if (check.count === 0) {
-      console.log('[agent-platform] 检测到表已丢失，重新创建...')
-      await pg.sql.unsafe(schema)
-    }
+    console.log('[agent-platform] DB schema 已初始化')
+  }
+  // 检查核心表是否存在
+  const [check] = await pg.sql`
+    SELECT COUNT(*)::int as count FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'agents'
+  ` as any[]
+  if (check.count === 0) {
+    await pg.sql.unsafe(schema)
+    await pg.markMigrated('agent-platform')
+    console.log('[agent-platform] 检测到表丢失，已重新创建')
   }
 
   // ── Redis ───────────────────────────────────────────────

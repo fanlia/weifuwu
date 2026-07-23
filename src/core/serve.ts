@@ -143,6 +143,12 @@ export function serve(router: Router, options?: ServeOptions): Server {
         res.end('Request Body Too Large')
         return
       }
+      // Log unexpected errors so developers can debug
+      if (!(err instanceof HttpError) || err.status >= 500) {
+        const url = req.url ?? '/'
+        const method = req.method ?? 'GET'
+        console.error(`[serve] ${method} ${url}:`, err instanceof Error ? err.stack || err.message : err)
+      }
       res.writeHead(500, { 'Content-Type': 'text/plain' })
       res.end('Internal Server Error')
     }

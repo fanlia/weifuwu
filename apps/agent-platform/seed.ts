@@ -25,6 +25,9 @@ async function main() {
   await sql.unsafe(schema)
   console.log('  ✓ schema 已应用')
 
+  // 标记迁移已完成，防止 server.ts 启动时清空数据
+  await pg.markMigrated('agent-platform')
+
   // ── 检查是否已有数据 ────────────────────────────────
   const [existingTenants] = await sql`SELECT COUNT(*)::int as count FROM tenants`
   if (existingTenants.count > 0) {
@@ -105,20 +108,14 @@ async function main() {
   console.log('  ✓ 部门: 技术部（3 名成员）')
 
   // ── 演示消息 ────────────────────────────────────────
+  const codeExample = '```javascript\nconst http = require("http");\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "text/plain" });\n  res.end("Hello World\\n");\n});\nserver.listen(3000);\n```'
   await sql`
     INSERT INTO messages (department_id, sender_id, content, msg_type, created_at)
     VALUES
       (${generalDept.id}, ${userAgent.id}, '你好！小悟在吗？', 'text', NOW() - INTERVAL '10 minutes'),
       (${generalDept.id}, ${aiAgent.id}, '在的！有什么可以帮助你的？', 'text', NOW() - INTERVAL '9 minutes'),
       (${generalDept.id}, ${userAgent.id}, '帮我写一个简单的 Node.js HTTP 服务器', 'text', NOW() - INTERVAL '8 minutes'),
-      (${generalDept.id}, ${aiAgent.id}, '''javascript
-const http = require("http");
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Hello World\\n");
-});
-server.listen(3000);
-```', 'text', NOW() - INTERVAL '7 minutes')
+      (${generalDept.id}, ${aiAgent.id}, ${codeExample}, 'text', NOW() - INTERVAL '7 minutes')
   `
   console.log('  ✓ 演示消息: 4 条')
 
