@@ -59,3 +59,88 @@ README is the main entry point for LLMs to understand the project. Keep it **LLM
   - **Middleware**: `ws`, `api` (HTTP 客户端), `auth` (认证状态管理)
   - **Utilities**: `useForm`, `createResource`
   - **What does NOT belong in core**: any component with visual output, application-specific logic, syntax sugar replaceable with primitives, or dev-only tooling. These are either removed entirely or available as patterns in `apps/`.
+
+Every weifuwu module and script must pass these checks. Use them as a review checklist for PRs and refactoring.
+
+### CS — Code Standards
+
+| ID | Rule | Rationale |
+|----|------|-----------|
+| CS-01 | **No dead code after `throw` / `return`** — statements after unconditional `throw` or `return` must be removed or guarded | Dead code misleads readers and breaks cleanup paths |
+| CS-02 | **Every Promise must be awaited or caught** — no floating `.then()` without error handling. Top-level fire-and-forget is allowed only with explicit `catch()` | Unhandled rejections crash Node.js in future versions |
+| CS-03 | **Event handler errors must propagate to a handler, not `throw`** — inside event listeners (`server.on`, `ws.on`), use `emit('error')` or `console.error` instead of `throw` | `throw` inside event emitter cannot be caught by try-catch |
+| CS-04 | **No fake/stub public APIs** — exported functions must do what they claim. No `poolStats()` that always returns 0 | Users depend on documented behavior |
+| CS-05 | **All type branches must be handled** — if a parameter accepts `string \| Record`, both branches must work correctly, not just the first | Avoid silent failures on valid inputs |
+| CS-06 | **Mutable state initialization must be correct** — `const` variables used as stats counters must be updated, not left at initial value | Constants that are supposed to change are bugs |
+| CS-07 | **No reference-equality cache where value-equality is expected** — `===` cache of fresh objects is a no-op; use content hashing or accept the cost | False caching wastes reader's time |
+
+### MS — Module Standards
+
+| ID | Rule | Rationale |
+|----|------|-----------|
+| MS-01 | **Every export must be documented in README** — no public API undocumented. Use the module overview table and per-module sections | README is LLM entry point |
+| MS-02 | **Stateful modules implement `Closeable`** — `close(): Promise<void>` for releasing connections, timers, pools | Graceful shutdown requires cleanup |
+| MS-03 | **Middleware exports `__meta` metadata** — `{ injects: string[], depends: string[] }` on the returned middleware function | Enables runtime dependency validation and tooling |
+| MS-04 | **Module augments `Context` via `declare module`** — middleware-injected fields declared in a `declare module 'weifuwu' { interface Context { field: Type } }` block | TypeScript consumers see injected fields |
+| MS-05 | **Exported types prefixed with module name** — e.g., `PostgresOptions`, `RedisClient`, `CORSOptions` | Avoid name collisions in user imports |
+| MS-06 | **No unused imports or type references in `tsconfig.json` `include`** — every glob pattern must match existing files | Stale config entries mislead new contributors |
+| MS-07 | **No circular dependencies** — `A.ts` must not import `B.ts` that (directly or transitively) imports `A.ts` | Causes runtime errors in ESM |
+
+### TS — Testing Standards
+
+| ID | Rule | Rationale |
+|----|------|-----------|
+| TS-01 | **Every public API has at least one test** — smoke test for happy path | Prevent regressions on refactor |
+| TS-02 | **Error paths have tests** — 404, 500, 401, timeout, invalid input | Edge cases are where bugs hide |
+| TS-03 | **Table-driven tests for value variations** — multiple inputs in a single `it()`, not one `it()` per input | Keep test files scannable |
+| TS-04 | **`node --test` only** — no Jest/Mocha/Vitest | Consistent with project constraint |
+| TS-05 | **Test names describe behavior, not implementation** — `'returns 400 for empty name'` not `'validates required field'` | Tests document requirements |
+| TS-06 | **No test depends on another test** — each test sets up its own state, `afterEach` cleans up | Isolation prevents ordering bugs |
+
+### BS — Build & Script Standards
+
+| ID | Rule | Rationale |
+|----|------|-----------|
+| BS-01 | **Build output is deterministic** — same source always produces same `dist/` (modulo version strings) | Reproducible CI |
+| BS-02 | **No redundant builds** — the build script must not produce identical output at different paths | Faster CI, less confusion |
+| BS-03 | **Release commits version bump** — `package.json` version change is committed before `git tag` | `git log` reflects release history |
+| BS-04 | **`external` config in esbuild build must match actual imports** — externalizing a path the bundle never imports is dead config | Avoid misleading maintenance |
+| BS-05 | **Build script runs clean before output** — `rm -rf dist` before writing | No stale artifacts from deleted source files |
+
+### FS — Frontend Standards (`weifuwu/client`)
+
+| ID | Rule | Rationale |
+|----|------|-----------|
+| FS-01 | **Components are pure functions of `(props, ctx) => Node`** — no classes, no hooks, no `this` | Consistent with component model |
+| FS-02 | **Lifecycle effects bound to DOM element, not global** — `onMount`/`onCleanup` must be triggered by element entering/leaving the document, not by global state | Correct cleanup on conditional rendering |
+| FS-03 | **Signals drive re-renders, not manual DOM manipulation** — use `<Show>`/`<For>` or `effect()` that writes to DOM nodes, not `innerHTML` | Consistency with reactivity model |
+| FS-04 | **Lazy components must self-trigger on load** — lazy-loaded module must cause its parent view to re-render when the import completes, via a signal or event that the view subscribes to | First-visit lazy loading must work |
+| FS-05 | **No `eval()` or `new Function()`** — prevent XSS vectors | Security baseline |
+| FS-06 | **Zero upstream runtime dependencies** — `weifuwu/client` must not `import` from any npm package at runtime | Core constraint |
+
+### PS — Performance Standards
+
+| ID | Rule | Rationale |
+|----|------|-----------|
+| PS-01 | **No synchronous I/O in request path** — `readFileSync`, `execSync`, `accessSync` must not appear in handler/middleware code | Blocks event loop |
+| PS-02 | **Middleware chains avoid unnecessary object spread** — `{ ...ctx, ...fields }` replaces getters with snapshots; use `Object.assign` or `extendCtx` for signal-rich ctx | Preserve reactivity in frontend, reduce GC pressure in backend |
+| PS-03 | **Route matching is O(path_segments)** — no regex-based matching that backtracks | Trie-based matching already guaranteed by Router
+
+### Review Checklist
+
+Before merging any PR, verify:
+
+```
+[ ] All new public exports are documented in README (MS-01)
+[ ] Stateful modules implement close(): Promise<void> (MS-02)
+[ ] Middleware has __meta with injects/depends (MS-03)
+[ ] Context augmentation via declare module (MS-04)
+[ ] Tests cover happy path + 2+ edge cases (TS-01, TS-02)
+[ ] No dead code after throw/return (CS-01)
+[ ] No floating promises (CS-02)
+[ ] Event handler errors propagate correctly (CS-03)
+[ ] tsconfig include paths are accurate (MS-06)
+[ ] Build script has no redundant outputs (BS-02)
+[ ] Lazy components trigger self-re-render (FS-04)
+[ ] No synchronous I/O in request handlers (PS-01)
+```

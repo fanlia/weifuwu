@@ -131,12 +131,12 @@ describe('Signal 属性绑定', () => {
     const val = signal('initial')
     const el = jsx('input', { value: val }) as HTMLInputElement
 
-    // 当前实现中 value 属性通过 setAttribute 设置，input 的 value 属性不会被同步
-    // 验证 setAttribute 效果
-    assert.equal(el.getAttribute('value'), 'initial')
+    // Signal value 通过 DOM property .value 设置（非 setAttribute），
+    // 所以断言 el.value 而非 getAttribute('value')
+    assert.equal(el.value, 'initial')
 
     val.value = 'updated'
-    assert.equal(el.getAttribute('value'), 'updated')
+    assert.equal(el.value, 'updated')
   })
 
   it('混合 Signal 和静态属性', () => {

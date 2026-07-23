@@ -210,20 +210,13 @@ function graphiqlHTML(endpoint: string): string {
 /** @internal */
 export function createGraphqlRouter(handler: GraphQLHandler): Router {
   const r = new Router()
-  let cachedOptions: GraphQLOptions | null = null
-  let cachedSchema: GraphQLSchema | null = null
 
   async function getSchema(
     req: Request,
     ctx: Context,
   ): Promise<{ options: GraphQLOptions; schema: GraphQLSchema }> {
     const options = await handler(req, ctx)
-    if (cachedSchema && cachedOptions === options) {
-      return { options, schema: cachedSchema }
-    }
     const schema = buildSchemaFromOptions(options)
-    cachedOptions = options
-    cachedSchema = schema
     return { options, schema }
   }
 

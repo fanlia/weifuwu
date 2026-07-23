@@ -164,12 +164,16 @@ export function serve(router: Router, options?: ServeOptions): Server {
 
   if (options?.shutdown !== false) {
     let shuttingDown = false
-    const shutdown = () => {
+    const shutdown = async () => {
       if (shuttingDown) return
       shuttingDown = true
-      // Force-close WebSocket/keep-alive connections so server.close() fires immediately
+      console.log('weifuwu shutting down...')
+      // 1. Stop accepting new connections
+      // 2. Close stateful modules (postgres, redis, etc.) via router.close()
+      // 3. Exit
       server.closeAllConnections()
       server.close()
+      await router.close().catch(() => {})
       process.exit(0)
     }
     shutdownHandler = shutdown
@@ -208,7 +212,10 @@ export function serve(router: Router, options?: ServeOptions): Server {
   }
 
   server.on('error', (err) => {
-    throw err
+    // Event emitter errors cannot be caught by try-catch.
+    // Log, clean up, and resolve ready so the caller can detect failure
+    // by checking server.port === 0 after ready.
+    console.error('weifuwu server error:', err.message || err)
     server.close()
     _cachedPort = 0
     resolveReady()

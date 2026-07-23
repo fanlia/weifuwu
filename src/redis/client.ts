@@ -7,7 +7,12 @@ export function redis(opts?: string | RedisOptions): RedisClient {
 
   const url = options.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
   const client = new IORedis(url, options)
-  client.on('error', () => { /* Redis errors are handled by the caller via try/catch */ })
+  // Log async Redis errors (connection drops, reconnection failures, etc.)
+  // that can't be caught by request-level try/catch.
+  // Request-level errors are still thrown by the ioredis client and caught by the caller.
+  client.on('error', (err: Error) => {
+    console.error('[redis]', err.message)
+  })
 
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {

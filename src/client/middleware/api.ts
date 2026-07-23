@@ -29,6 +29,8 @@ export interface ApiOptions {
   onRequest?: (req: { url: string; init: RequestInit }) => { url: string; init: RequestInit }
   /** 响应拦截器 */
   onResponse?: <T>(res: Response) => Promise<T>
+  /** 请求超时(ms), 默认 0 = 无超时 */
+  timeout?: number
 }
 
 export interface ApiClient {
@@ -67,6 +69,8 @@ export function api(options?: ApiOptions): AppMiddleware {
   const onRequest = options?.onRequest
   const onResponse = options?.onResponse
 
+  const timeoutMs = options?.timeout ?? 0
+
   async function request<T>(
     method: string,
     url: string,
@@ -77,7 +81,25 @@ export function api(options?: ApiOptions): AppMiddleware {
     const init: RequestInit = {
       method,
       headers: { ...opts.headers, ...reqOpts?.headers },
-      signal: reqOpts?.signal,
+    }
+
+    // 超时合并：如果设置了 timeout 或有用户 signal，创建合并的 AbortController
+    const hasTimeout = timeoutMs > 0
+    const hasUserSignal = !!reqOpts?.signal
+    let abortController: AbortController | null = null
+    let timer: ReturnType<typeof setTimeout> | null = null
+
+    if (hasTimeout || hasUserSignal) {
+      abortController = new AbortController()
+      init.signal = abortController.signal
+
+      if (hasTimeout) {
+        timer = setTimeout(() => abortController!.abort(new Error('Request timed out')), timeoutMs)
+      }
+
+      if (hasUserSignal) {
+        reqOpts!.signal!.addEventListener('abort', () => abortController!.abort())
+      }
     }
 
     if (body !== undefined && method !== 'GET' && method !== 'HEAD') {
@@ -90,25 +112,29 @@ export function api(options?: ApiOptions): AppMiddleware {
       finalReq = onRequest(finalReq)
     }
 
-    const res = await fetch(finalReq.url, finalReq.init)
+    try {
+      const res = await fetch(finalReq.url, finalReq.init)
 
-    // 响应拦截器
-    if (onResponse) {
-      return onResponse<T>(res)
+      // 响应拦截器
+      if (onResponse) {
+        return onResponse<T>(res)
+      }
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new ApiError(res.status, text || res.statusText)
+      }
+
+      // 204 No Content 等无 body 的响应
+      const contentLength = res.headers.get('content-length')
+      if (res.status === 204 || contentLength === '0') {
+        return undefined as T
+      }
+
+      return res.json() as Promise<T>
+    } finally {
+      if (timer) clearTimeout(timer)
     }
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new ApiError(res.status, text || res.statusText)
-    }
-
-    // 204 No Content 等无 body 的响应
-    const contentLength = res.headers.get('content-length')
-    if (res.status === 204 || contentLength === '0') {
-      return undefined as T
-    }
-
-    return res.json() as Promise<T>
   }
 
   return (ctx) => {

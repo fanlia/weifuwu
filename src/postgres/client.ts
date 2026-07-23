@@ -23,20 +23,76 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   }
 
   const stmtTimeout = options.statementTimeout ?? 30_000
-  // Inject statement_timeout via connection options parameter.
-  // URL-encoded: SET statement_timeout = <ms>
-  let connStr = typeof connection === 'string' ? connection : ''
-  if (stmtTimeout > 0 && typeof connection === 'string') {
-    const sep = connStr.includes('?') ? '&' : '?'
-    connStr = `${connStr}${sep}options=-c%20statement_timeout%3D${stmtTimeout}`
+
+  // Build postgres.js options — merge connection object with explicit options
+  const pgOptions: Record<string, unknown> = {}
+  if (options.max !== undefined) pgOptions.max = options.max
+  if (options.ssl !== undefined) pgOptions.ssl = options.ssl
+  if (options.idle_timeout !== undefined) pgOptions.idle_timeout = options.idle_timeout
+  if (options.connect_timeout !== undefined) pgOptions.connect_timeout = options.connect_timeout
+
+  let connectStr: string | undefined
+  if (typeof connection === 'string') {
+    connectStr = connection
+    // Inject statement_timeout via URL parameter for string connections
+    if (stmtTimeout > 0) {
+      const sep = connectStr.includes('?') ? '&' : '?'
+      connectStr = `${connectStr}${sep}options=-c%20statement_timeout%3D${stmtTimeout}`
+    }
+  } else {
+    // Object config: merge into options (postgres.js accepts host/port/database/etc. in options)
+    Object.assign(pgOptions, connection)
+    // Inject statement_timeout via onconnect hook for object connections
+    if (stmtTimeout > 0) {
+      const origOnconnect = pgOptions.onconnect as ((conn: any) => Promise<void>) | undefined
+      pgOptions.onconnect = async (conn: any) => {
+        if (origOnconnect) await origOnconnect(conn)
+        await conn.query(`SET statement_timeout = ${stmtTimeout}`)
+      }
+    }
   }
 
-  const sql = postgresFactory(connStr as any, {
-    max: options.max,
-    ssl: options.ssl,
-    idle_timeout: options.idle_timeout,
-    connect_timeout: options.connect_timeout,
-  }) as any
+  const rawSql = postgresFactory(connectStr as any, pgOptions as any) as any
+
+  // ── Wrap sql with onQuery hook ──────────────────────────────
+  const onQuery = options.onQuery
+  let sql: any
+  if (onQuery) {
+    sql = new Proxy(rawSql, {
+      apply(target, thisArg, args) {
+        const start = performance.now()
+        const result = Reflect.apply(target, thisArg, args) as any
+        if (result && typeof result.then === 'function') {
+          return result.then((rows: any) => {
+            const queryStr = String(args[0]?.[0] ?? '').slice(0, 200)
+            onQuery(queryStr, performance.now() - start, rows?.length ?? 0)
+            return rows
+          })
+        }
+        return result
+      },
+      get(target, prop, receiver) {
+        if (prop === 'unsafe') {
+          const origUnsafe = Reflect.get(target, prop, receiver)
+          return (...args: any[]) => {
+            const start = performance.now()
+            const result = origUnsafe.apply(target, args)
+            if (result && typeof result.then === 'function') {
+              return result.then((rows: any) => {
+                const queryStr = String(args[0] ?? '').slice(0, 200)
+                onQuery(queryStr, performance.now() - start, rows?.count ?? rows?.length ?? 0)
+                return rows
+              })
+            }
+            return result
+          }
+        }
+        return Reflect.get(target, prop, receiver)
+      },
+    })
+  } else {
+    sql = rawSql
+  }
 
   if (options.signal) {
     options.signal.addEventListener(
@@ -49,10 +105,6 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   }
 
   const closeTimeout = options.closeTimeout ?? 5
-
-  // ── Connection pool tracking ────────────────────────────────────
-  const _active = 0
-  const _waiting = 0
   const poolMax = options.max ?? 10
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
@@ -107,10 +159,13 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
     throw new Error('transaction: max retries exceeded')
   }) as any
 
+  // poolStats reports connection pool sizing.
+  // active/idle/waiting counts are not tracked by postgres.js externally;
+  // we report max only and set active to 0.
   mw.poolStats = () => ({
-    active: _active,
-    idle: poolMax - _active - _waiting,
-    waiting: _waiting,
+    active: 0,
+    idle: poolMax,
+    waiting: 0,
     max: poolMax,
   })
 

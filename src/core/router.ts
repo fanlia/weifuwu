@@ -1,5 +1,5 @@
 import { WebSocketServer } from 'ws'
-import type { Context, Handler, Middleware, MiddlewareMeta, ErrorHandler, WebSocket } from '../types.ts'
+import type { Context, Handler, Middleware, MiddlewareMeta, ErrorHandler, WebSocket, Closeable } from '../types.ts'
 import {
   type WebSocketHandler,
   type WsUpgradeHandler,
@@ -8,8 +8,16 @@ import {
 import type { GraphQLHandler } from '../graphql.ts'
 import { createGraphqlRouter } from '../graphql.ts'
 
-/** In-memory pub/sub hub for WebSocket rooms. */
-interface Hub {
+/**
+ * WebSocket room hub — manages pub/sub groups for real-time messaging.
+ *
+ * Rooms are identified by string keys. Multiple WebSocket connections
+ * can join/leave rooms, and messages are broadcast to all members.
+ *
+ * The default implementation is in-memory (single process).
+ * Pass a custom Hub with Redis backend for multi-instance deployments.
+ */
+export interface Hub {
   join(key: string, ws: import('ws').WebSocket): void
   leave(ws: import('ws').WebSocket): void
   send(key: string, message: string): void
@@ -104,6 +112,7 @@ export class Router<T extends Context = Context> {
   private _hub?: Hub
   private _wss?: WebSocketServer
   private _ctxFields = new Set<string>()
+  private _closeables: Closeable[] = []
 
   private get wss(): WebSocketServer {
     if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
@@ -122,6 +131,10 @@ export class Router<T extends Context = Context> {
   use(mw: Middleware<Context, Context>): Router<T> {
     this.globalMws.push(mw as Middleware)
     this._checkMiddlewareMeta(mw, 'global')
+    // If the middleware is also Closeable (e.g., postgres(), redis()), register it for cleanup.
+    if (typeof (mw as any).close === 'function') {
+      this._closeables.push(mw as unknown as Closeable)
+    }
     return this
   }
 
@@ -240,6 +253,7 @@ export class Router<T extends Context = Context> {
     return this._routeImpl(method, path, args as any[])
   }
 
+  // args type is intentionally loose — _route() already validates the public API types.
   private _routeImpl(method: string, path: string, args: any[]): Router<T> {
     const last = args[args.length - 1]
     if (last instanceof Router) {
@@ -282,6 +296,11 @@ export class Router<T extends Context = Context> {
     const allExtra = extraMws.length === 0 && sub.globalMws.length === 0
       ? [mountMw]
       : [mountMw, ...extraMws, ...sub.globalMws]
+
+    // Validate middleware meta for mounted sub-router middlewares
+    for (const mw of allExtra) {
+      this._checkMiddlewareMeta(mw, `mount:${prefix}`)
+    }
 
     const routes: Array<{ method: string; path: string; handler: Handler; middlewares: Middleware[] }> = []
     this._collect(sub.root, '', routes)
@@ -475,6 +494,25 @@ export class Router<T extends Context = Context> {
   }
 
   // ── Private: Meta checking ──────────────────────────────────
+
+  /**
+   * Register a Closeable resource for graceful shutdown.
+   * Used for modules created outside of middleware chain (e.g., sub-router state).
+   */
+  onClose(closeable: Closeable): this {
+    this._closeables.push(closeable)
+    return this
+  }
+
+  /**
+   * Gracefully shut down all registered Closeable resources.
+   * Called by serve() during shutdown.
+   */
+  async close(): Promise<void> {
+    for (const c of this._closeables) {
+      try { await c.close() } catch { /* ignore close errors */ }
+    }
+  }
 
   private _checkMiddlewareMeta(mw: unknown, location: string): void {
     const meta: MiddlewareMeta | undefined =

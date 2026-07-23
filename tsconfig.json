@@ -22,22 +22,11 @@
     "src/core/*.ts",
     "src/middleware/*.ts",
     "src/postgres/*.ts",
-    "src/queue/*.ts",
     "src/redis/*.ts",
     "src/graphql.ts",
-    "src/hub.ts",
     "src/types.ts",
-    "src/user/*.ts",
-    "src/messager/*.ts",
-    "src/cms/*.ts",
-    "src/kb/*.ts",
-    "src/base/*.ts",
-    "src/ai/*.ts",
     "src/client/*.ts",
     "src/client/**/*.ts",
-    "src/client/**/*.tsx",
-    "src/client/components/*.ts",
-    "src/client/components/*.tsx",
     "src/ui/*.ts"
   ]
 }

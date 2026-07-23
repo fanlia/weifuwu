@@ -33,7 +33,11 @@ export interface PostgresClient extends Middleware<Context, Context & PostgresIn
   /** Check whether a module has already been migrated. */
   isMigrated: (moduleName: string) => Promise<boolean>
   transaction: <T>(fn: (sql: any) => Promise<T>, retryOpts?: { maxRetries?: number }) => Promise<T>
-  /** Snapshot of connection pool state: active, idle, waiting, max connections. */
+  /**
+   * Connection pool configuration summary.
+   * Returns max pool size; active/idle/waiting are not tracked by postgres.js
+   * and are always 0. Use an external pg_stat_activity query for real-time stats.
+   */
   poolStats: () => { active: number; idle: number; waiting: number; max: number }
   close: () => Promise<void>
 }

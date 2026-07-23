@@ -47,7 +47,7 @@ async function main() {
   // Step 2: Build
   run('npm run build', { env: { ...process.env, NODE_ENV: 'production' } })
 
-  // Step 4: Validate
+  // Step 3: Validate
   if (!existsSync(join(root, 'dist', 'index.js'))) {
     console.error('  ✗ dist/index.js missing!')
     process.exit(1)
@@ -59,13 +59,18 @@ async function main() {
     return
   }
 
+  // Step 4: Commit version bump
+  run('git add package.json')
+  run(`git commit -m "release: v${version}"`)
+
   // Step 5: Publish
   console.log(`\n  Publishing weifuwu@${version}...`)
   run(`npm publish --tag ${tag}`)
 
-  // Step 6: Tag
+  // Step 6: Tag + push
   run(`git tag v${version}`)
   run(`git push origin v${version}`)
+  run('git push origin')
 
   console.log(`\n  ✅ weifuwu v${version} released`)
 }

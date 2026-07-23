@@ -49,19 +49,8 @@ await esbuild.build({
   jsx: 'automatic',
   jsxImportSource: 'weifuwu/client',
   bundle: true,
-  external: ['weifuwu/client/jsx-runtime'],
 })
 
-// 前端 jsx-runtime（指向同一个文件，外部引用到此为止）
-await esbuild.build({
-  entryPoints: [join(srcDir, 'client', 'index.ts')],
-  outfile: join(distDir, 'client', 'jsx-runtime.js'),
-  format: 'esm',
-  platform: 'browser',
-  jsx: 'automatic',
-  jsxImportSource: 'weifuwu/client',
-  bundle: true,
-  external: ['weifuwu/client/jsx-runtime'],
-})
+// jsx-runtime re-exports from client/index.js via package.json exports
 
 console.log('Build complete.')

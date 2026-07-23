@@ -526,8 +526,9 @@ export function wrap<P = {}>(
 
 /** @internal 将 effect dispose 注册到元素生命周期。
  * 元素离开 DOM 时自动调用 dispose，无论元素当前是否挂载。
+ * 被 Show/For/lazy 等内置控制流组件使用。
  */
-function _trackEffect(el: Element, dispose: () => void) {
+export function _trackEffect(el: Element, dispose: () => void) {
   const entry = _ensure(el)
   entry.disposeFns.push(dispose)
 }
