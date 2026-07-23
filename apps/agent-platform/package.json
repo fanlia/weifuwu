@@ -1,0 +1,14 @@
+{
+  "name": "agent-platform",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant AI Agent Platform — built on weifuwu",
+  "scripts": {
+    "dev": "node --env-file=.env --watch server.ts",
+    "start": "node --env-file=.env server.ts",
+    "seed": "node --env-file=.env seed.ts",
+    "build": "esbuild ui/main.tsx --bundle --format=esm --outfile=dist/app.js --jsx=automatic --jsxImportSource=weifuwu/client",
+    "test": "node --env-file=.env --test 'test/**/*.test.ts'"
+  }
+}
