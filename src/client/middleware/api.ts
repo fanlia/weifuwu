@@ -19,6 +19,7 @@
  */
 
 import type { AppMiddleware } from '../types.ts'
+import { extendCtx } from '../types.ts'
 
 export interface ApiOptions {
   /** API 基础路径 */
@@ -146,8 +147,7 @@ export function api(options?: ApiOptions): AppMiddleware {
       delete: <T>(url: string, reqOpts?: ApiRequestOptions) => request<T>('DELETE', url, undefined, reqOpts),
     }
 
-    ;(ctx as any).api = client
-    return ctx
+    return extendCtx(ctx, { api: client })
   }
 }
 

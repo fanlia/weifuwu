@@ -1,7 +1,7 @@
 import { open, realpath, type FileHandle } from 'node:fs/promises'
 import { extname, resolve, normalize, sep } from 'node:path'
 import { Readable } from 'node:stream'
-import type { Handler } from '../types.ts'
+import type { Middleware } from '../types.ts'
 
 /** Options for {@link serveStatic}. */
 export interface ServeStaticOptions {
@@ -22,15 +22,20 @@ export interface ServeStaticOptions {
  * ```ts
  * import { serveStatic, Router } from 'weifuwu'
  * const app = new Router()
- * app.get('/static/*', serveStatic('./public'))
+ *
+ * // 作为全局中间件（推荐）：未匹配到文件时自动 404
+ * app.use(serveStatic('./public'))
+ *
+ * // 或挂载到特定路径前缀：
+ * app.get('/assets/*', serveStatic('./public'))
  * ```
  */
-export function serveStatic(root: string, options?: ServeStaticOptions): Handler {
+export function serveStatic(root: string, options?: ServeStaticOptions): Middleware {
   const rootDir = resolve(root)
 
   const opts = options ?? {}
 
-  return async (req, ctx) => {
+  return async (req, ctx, next) => {
     const relativePath = ctx.params['*'] ?? new URL(req.url).pathname.slice(1)
     const decoded = decodeURIComponent(relativePath)
 
@@ -104,7 +109,9 @@ export function serveStatic(root: string, options?: ServeStaticOptions): Handler
     } catch (err) {
       if (fileHandle) await fileHandle.close().catch(() => {})
       if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
-        return new Response('Not Found', { status: 404 })
+        // 作为中间件使用时（app.use），404 交给下一个中间件
+        // 作为 handler 使用时（app.get），next 不存在，返回 404
+        return next ? next(req, ctx) : new Response('Not Found', { status: 404 })
       }
       return new Response('Internal Server Error', { status: 500 })
     }

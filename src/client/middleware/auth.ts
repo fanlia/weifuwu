@@ -24,6 +24,7 @@
 
 import { signal, computed, type Signal } from '../signal.ts'
 import type { AppMiddleware } from '../types.ts'
+import { extendCtx } from '../types.ts'
 
 /** 用户信息类型（由用户定义，这里仅作基础结构） */
 export interface AuthUser {
@@ -121,7 +122,6 @@ export function auth(options?: AuthOptions): AppMiddleware {
       },
     }
 
-    ;(ctx as any).auth = authClient
-    return ctx
+    return extendCtx(ctx, { auth: authClient })
   }
 }

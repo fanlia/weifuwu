@@ -27,12 +27,12 @@ export interface WsOptions {
   pingTimeout?: number
 }
 
-export function ws(opts: WsOptions = {}): AppMiddleware {
-  const wsUrl = opts.url ?? '/ws'
-  const reconnectInterval = opts.reconnectInterval ?? 3000
-  const maxReconnect = opts.maxReconnect ?? 10
-  const pingIntervalMs = opts.pingInterval ?? 30_000
-  const pingTimeoutMs = opts.pingTimeout ?? 10_000
+export function ws(options: WsOptions = {}): AppMiddleware {
+  const wsUrl = options.url ?? '/ws'
+  const reconnectInterval = options.reconnectInterval ?? 3000
+  const maxReconnect = options.maxReconnect ?? 10
+  const pingIntervalMs = options.pingInterval ?? 30_000
+  const pingTimeoutMs = options.pingTimeout ?? 10_000
 
   return (ctx: WfuiContext): WfuiContext => {
     const isConnected = signal(false)

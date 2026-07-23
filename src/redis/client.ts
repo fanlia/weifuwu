@@ -2,11 +2,11 @@ import { Redis as IORedis } from 'ioredis'
 import type { Context, Handler } from '../types.ts'
 import type { RedisOptions, RedisClient } from './types.ts'
 
-export function redis(opts?: string | RedisOptions): RedisClient {
-  const options: RedisOptions = typeof opts === 'string' ? { url: opts } : (opts ?? {})
+export function redis(options?: string | RedisOptions): RedisClient {
+  const opts: RedisOptions = typeof options === 'string' ? { url: options } : (options ?? {})
 
-  const url = options.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
-  const client = new IORedis(url, options)
+  const url = opts.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
+  const client = new IORedis(url, opts)
   // Log async Redis errors (connection drops, reconnection failures, etc.)
   // that can't be caught by request-level try/catch.
   // Request-level errors are still thrown by the ioredis client and caught by the caller.

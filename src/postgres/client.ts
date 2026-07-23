@@ -12,24 +12,24 @@ function isRetryable(err: unknown): boolean {
   return err instanceof Error && 'code' in err && RETRYABLE_CODES.has((err as any).code)
 }
 
-export function postgres(opts?: string | PostgresOptions): PostgresClient {
-  const options: PostgresOptions = typeof opts === 'string' ? { connection: opts } : (opts ?? {})
+export function postgres(options?: string | PostgresOptions): PostgresClient {
+  const opts: PostgresOptions = typeof options === 'string' ? { connection: options } : (options ?? {})
 
-  const connection = options.connection ?? process.env.DATABASE_URL
+  const connection = opts.connection ?? process.env.DATABASE_URL
   if (!connection) {
     throw new Error(
       'postgres: DATABASE_URL is not set. Pass a connection string or set the DATABASE_URL environment variable.',
     )
   }
 
-  const stmtTimeout = options.statementTimeout ?? 30_000
+  const stmtTimeout = opts.statementTimeout ?? 30_000
 
   // Build postgres.js options — merge connection object with explicit options
   const pgOptions: Record<string, unknown> = {}
-  if (options.max !== undefined) pgOptions.max = options.max
-  if (options.ssl !== undefined) pgOptions.ssl = options.ssl
-  if (options.idle_timeout !== undefined) pgOptions.idle_timeout = options.idle_timeout
-  if (options.connect_timeout !== undefined) pgOptions.connect_timeout = options.connect_timeout
+  if (opts.max !== undefined) pgOptions.max = opts.max
+  if (opts.ssl !== undefined) pgOptions.ssl = opts.ssl
+  if (opts.idle_timeout !== undefined) pgOptions.idle_timeout = opts.idle_timeout
+  if (opts.connect_timeout !== undefined) pgOptions.connect_timeout = opts.connect_timeout
 
   let connectStr: string | undefined
   if (typeof connection === 'string') {
@@ -55,7 +55,7 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
   const rawSql = postgresFactory(connectStr as any, pgOptions as any) as any
 
   // ── Wrap sql with onQuery hook ──────────────────────────────
-  const onQuery = options.onQuery
+  const onQuery = opts.onQuery
   let sql: any
   if (onQuery) {
     sql = new Proxy(rawSql, {
@@ -94,8 +94,8 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
     sql = rawSql
   }
 
-  if (options.signal) {
-    options.signal.addEventListener(
+  if (opts.signal) {
+    opts.signal.addEventListener(
       'abort',
       () => {
         sql.end()
@@ -104,8 +104,8 @@ export function postgres(opts?: string | PostgresOptions): PostgresClient {
     )
   }
 
-  const closeTimeout = options.closeTimeout ?? 5
-  const poolMax = options.max ?? 10
+  const closeTimeout = opts.closeTimeout ?? 5
+  const poolMax = opts.max ?? 10
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
     ctx.sql = sql
