@@ -24,7 +24,6 @@ const external = [
   'postgres',
   'ws',
   'esbuild',
-  'ai',
   'postcss',
   'tailwindcss',
   '@tailwindcss/postcss',

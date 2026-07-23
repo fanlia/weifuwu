@@ -31,7 +31,6 @@
     "release:dry": "node scripts/release.mjs --dry-run"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.15",
     "@graphql-tools/schema": "^10",
     "@tailwindcss/postcss": "^4.3.3",
     "graphql": "^16",
