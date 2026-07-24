@@ -349,6 +349,19 @@ input, select, textarea { font-family: inherit; }
 /* ── 其它 ─────────────────────────────────── */
 .boot-loading { display: flex; align-items: center; justify-content: center; height: 100vh; color: var(--text-3); gap: 10px; }
 .muted { color: var(--text-3); }
+
+/* ── 拖拽上传区 ────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border-2); border-radius: 10px; padding: 32px 24px;
+  text-align: center; background: var(--surface);
+  transition: border-color .15s, background .15s; cursor: pointer; margin-bottom: 16px;
+}
+.drop-zone.drop-over {
+  border-color: var(--primary); background: var(--primary-50);
+}
+.drop-zone:hover { border-color: var(--border); }
+summary { font-size: 13px; }
+summary:hover { color: var(--primary); }
 .mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; } .mt-24 { margin-top: 24px; }
 .flex { display: flex; align-items: center; gap: 10px; }
 .grow { flex: 1; min-width: 0; }

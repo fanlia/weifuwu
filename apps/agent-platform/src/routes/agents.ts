@@ -4,7 +4,42 @@
 
 import type { Router, Context } from 'weifuwu'
 
+/** 内置工具定义（与 builtin.ts 同步） */
+const BUILTIN_TOOL_DEFS = [
+  {
+    type: 'function',
+    function: {
+      name: 'search_knowledge_base',
+      description: '从 Agent 绑定的知识库中检索相关信息。当用户问题涉及文档、产品手册、FAQ 等内容时使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '搜索关键词或问题描述' },
+          top_k: { type: 'number', description: '返回结果数量，默认 5' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_current_time',
+      description: '获取当前日期和时间，当用户询问时间时使用',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+]
+
+/** 内置工具名称列表 */
+const BUILTIN_TOOL_NAMES = BUILTIN_TOOL_DEFS.map(t => t.function.name)
+
 export function registerAgentRoutes(app: Router): void {
+  // ── 获取内置工具列表 ──────────────────────────────────────
+
+  app.get('/api/agents/builtin-tools', async (_req: Request, _ctx: Context): Promise<Response> => {
+    return Response.json({ tools: BUILTIN_TOOL_DEFS })
+  })
   // ── 获取 Agent 列表 ──────────────────────────────────────
 
   app.get('/api/agents', async (req: Request, ctx: Context): Promise<Response> => {
@@ -33,7 +68,26 @@ export function registerAgentRoutes(app: Router): void {
       ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
     `
 
-    return Response.json({ agents, total: countResult.total })
+    // 为每个 AI Agent 附加最近的 token 用量统计
+    const agentsWithStats = []
+    for (const a of agents) {
+      if (a.type === 'ai') {
+        const [tokenSum] = await sql`
+          SELECT
+            COALESCE(SUM(tokens_total), 0)::int as total_tokens,
+            COALESCE(SUM(tokens_prompt), 0)::int as total_prompt,
+            COALESCE(SUM(tokens_completion), 0)::int as total_completion,
+            COUNT(*)::int as run_count
+          FROM agent_logs
+          WHERE agent_id = ${a.id}
+        `
+        agentsWithStats.push({ ...a, token_usage: tokenSum })
+      } else {
+        agentsWithStats.push(a)
+      }
+    }
+
+    return Response.json({ agents: agentsWithStats, total: countResult.total })
   })
 
   // ── 创建 Agent ───────────────────────────────────────────
@@ -56,6 +110,8 @@ export function registerAgentRoutes(app: Router): void {
       user_id?: string
       // Webhook
       webhook_url?: string
+      webhook_secret?: string
+      webhook_retry_count?: number
       // Knowledge Base
       chunk_size?: number
       chunk_overlap?: number
@@ -73,11 +129,11 @@ export function registerAgentRoutes(app: Router): void {
       INSERT INTO agents (
         tenant_id, type, name, avatar_url, description,
         model, system_prompt, temperature, max_tokens, human_in_the_loop,
-        user_id, webhook_url, chunk_size, chunk_overlap, tools
+        user_id, webhook_url, webhook_secret, webhook_retry_count, chunk_size, chunk_overlap, tools
       ) VALUES (
         ${tenantId}, ${body.type}, ${body.name}, ${body.avatar_url ?? null}, ${body.description ?? null},
         ${body.model ?? null}, ${body.system_prompt ?? null}, ${body.temperature ?? 0.7}, ${body.max_tokens ?? 2048}, ${body.human_in_the_loop ?? false},
-        ${body.user_id ?? null}, ${body.webhook_url ?? null}, ${body.chunk_size ?? 500}, ${body.chunk_overlap ?? 50},
+        ${body.user_id ?? null}, ${body.webhook_url ?? null}, ${body.webhook_secret ?? null}, ${body.webhook_retry_count ?? 3}, ${body.chunk_size ?? 500}, ${body.chunk_overlap ?? 50},
         ${body.tools ? JSON.stringify(body.tools) : '[]'}
       )
       RETURNING id, type, name, created_at
@@ -110,7 +166,7 @@ export function registerAgentRoutes(app: Router): void {
     const allowedFields = [
       'name', 'avatar_url', 'description',
       'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
-      'webhook_url', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
+      'webhook_url', 'webhook_secret', 'webhook_retry_count', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
     ]
 
     const sets: string[] = []

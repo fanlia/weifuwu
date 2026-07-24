@@ -51,6 +51,17 @@ export function Agents(_props: {}, ctx: WfuiContext) {
                 <TypeBadge type={a.type} />
               </div>
               <div class="item-desc">{a.description || a.system_prompt || '暂无描述'}</div>
+              <div class="item-meta" style={{ marginBottom: '10px', fontSize: '12px', gap: '12px' }}>
+                <Show when={a.type === 'ai' && a.model}>
+                  <span>🧠 {a.model === 'deepseek-reasoner' ? 'Reasoner' : a.model === 'deepseek-v4-flash' ? 'V4 Flash' : a.model || '默认模型'}</span>
+                </Show>
+                <Show when={a.type === 'ai' && a.human_in_the_loop}>
+                  <span style={{ color: '#b45309' }}>🛑 需审批</span>
+                </Show>
+                <Show when={a.token_usage?.run_count > 0}>
+                  <span>⚡ {((a.token_usage?.total_tokens ?? 0) / 1000).toFixed(1)}k tokens</span>
+                </Show>
+              </div>
               <div class="item-foot">
                 <StatusDot on={a.is_active !== false} />
                 <div class="item-acts">

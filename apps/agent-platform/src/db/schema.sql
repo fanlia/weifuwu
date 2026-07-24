@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS agents (
 
   -- Webhook 配置 (type='webhook')
   webhook_url TEXT,
+  webhook_secret TEXT,               -- HMAC 签名密钥
+  webhook_retry_count INT DEFAULT 3,  -- 失败重试次数
 
   -- 知识库配置 (type='knowledge_base')
   chunk_size  INT DEFAULT 500,
@@ -135,6 +137,42 @@ CREATE TABLE IF NOT EXISTS kb_documents (
 );
 
 CREATE INDEX idx_kb_agent ON kb_documents(agent_id);
+
+-- ── Agent 执行日志 ───────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS agent_logs (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id        UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  department_id   UUID REFERENCES departments(id) ON DELETE SET NULL,
+  messages_count  INT NOT NULL DEFAULT 0,
+  steps_count     INT NOT NULL DEFAULT 0,
+  tokens_prompt   INT NOT NULL DEFAULT 0,
+  tokens_completion INT NOT NULL DEFAULT 0,
+  tokens_total    INT NOT NULL DEFAULT 0,
+  elapsed_ms      INT NOT NULL DEFAULT 0,
+  success         BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_logs_tenant ON agent_logs(tenant_id, created_at DESC);
+
+-- ── Webhook 调用日志 ─────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS webhook_logs (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id        UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  request_body    TEXT,
+  response_body   TEXT,
+  response_status INT,
+  elapsed_ms      INT NOT NULL DEFAULT 0,
+  success         BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_agent ON webhook_logs(agent_id, created_at DESC);
 
 -- ── 文档块（带向量） ─────────────────────────────────────
 

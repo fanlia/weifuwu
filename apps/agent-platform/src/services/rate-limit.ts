@@ -12,13 +12,14 @@ interface WindowEntry {
 
 const windows = new Map<string, WindowEntry>()
 
-// 每分钟清理过期条目
-setInterval(() => {
+// 每分钟清理过期条目（unref 确保不阻止进程退出）
+const cleanupTimer = setInterval(() => {
   const now = Date.now()
   for (const [key, entry] of windows) {
     if (now >= entry.resetAt) windows.delete(key)
   }
 }, 60_000)
+cleanupTimer.unref()
 
 export interface RateLimitOptions {
   /** 时间窗口（毫秒），默认 60s */

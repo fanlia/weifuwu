@@ -38,6 +38,13 @@ export async function handleNewMessage(
 
   if (aiAgents.length === 0) return // 没有 AI Agent，无需自动回复
 
+  // 如果 API key 为占位符或未配置，跳过 AI 回复
+  const apiKey = process.env.DEEPSEEK_API_KEY
+  if (!apiKey || apiKey === '' || apiKey === 'sk-your-deepseek-api-key') {
+    console.warn('[chat] DEEPSEEK_API_KEY 未配置，跳过 AI 自动回复')
+    return
+  }
+
   // 获取最近消息历史（逆序还原为正序）
   const recentMessages = await sql`
     SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type

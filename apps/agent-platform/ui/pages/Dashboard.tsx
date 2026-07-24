@@ -18,20 +18,20 @@ export function Dashboard(_props: {}, ctx: WfuiContext) {
   const token = ctx.auth?.token?.value ?? ctx.auth?.token
   const headers = { Authorization: `Bearer ${token}` }
 
-  const [agents] = createResource<any[]>(
-    () => fetch('/api/agents', { headers }).then(r => r.json()).then(d => d.agents ?? []),
-    { initialValue: [] },
-  )
-  const [depts] = createResource<any[]>(
-    () => fetch('/api/departments', { headers }).then(r => r.json()).then(d => d.departments ?? []),
-    { initialValue: [] },
+  // 使用统一统计端点
+  const [stats] = createResource<any>(
+    () => fetch('/api/stats', { headers }).then(r => r.json()),
+    { initialValue: {} },
   )
 
   const user = ctx.auth?.user
   const userName = computed(() => (user?.value ?? user)?.name ?? '用户')
-  const agentCount = computed(() => (agents.value ?? []).length)
-  const deptCount = computed(() => (depts.value ?? []).length)
-  const aiCount = computed(() => (agents.value ?? []).filter((a: any) => a.type === 'ai').length)
+
+  const agentStats = computed(() => stats.value?.agents ?? { total: 0, ai_count: 0, webhook_count: 0, kb_count: 0, user_count: 0 })
+  const deptTotal = computed(() => stats.value?.departments?.total ?? 0)
+  const msgTotal = computed(() => stats.value?.messages?.total ?? 0)
+  const tokenTotal = computed(() => stats.value?.tokens?.total_tokens ?? 0)
+  const trend = computed(() => stats.value?.trend ?? [])
 
   function go(to: string) {
     ctx.app.navigate(to)
@@ -47,18 +47,33 @@ export function Dashboard(_props: {}, ctx: WfuiContext) {
       <div class="stat-grid">
         <div class="stat-card" onClick={() => go('/agents')}>
           <div class="stat-ico" style={{ background: '#ede9fe' }}>🤖</div>
-          <div class="stat-num">{agentCount}</div>
+          <div class="stat-num">{computed(() => agentStats.value.total)}</div>
           <div class="stat-label">Agent 总数</div>
         </div>
         <div class="stat-card" onClick={() => go('/agents')}>
           <div class="stat-ico" style={{ background: '#e0f2fe' }}>✨</div>
-          <div class="stat-num">{aiCount}</div>
+          <div class="stat-num">{computed(() => agentStats.value.ai_count)}</div>
           <div class="stat-label">AI 机器人</div>
         </div>
         <div class="stat-card" onClick={() => go('/departments')}>
           <div class="stat-ico" style={{ background: '#d1fae5' }}>👥</div>
-          <div class="stat-num">{deptCount}</div>
+          <div class="stat-num">{deptTotal}</div>
           <div class="stat-label">部门群组</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-ico" style={{ background: '#fef3c7' }}>💬</div>
+          <div class="stat-num">{msgTotal}</div>
+          <div class="stat-label">总消息数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-ico" style={{ background: '#ecfdf5' }}>⚡</div>
+          <div class="stat-num">{computed(() => (tokenTotal.value / 1000).toFixed(1))}k</div>
+          <div class="stat-label">Token 消耗</div>
+        </div>
+        <div class="stat-card" onClick={() => go('/departments')}>
+          <div class="stat-ico" style={{ background: '#e0f2fe' }}>📊</div>
+          <div class="stat-num">{computed(() => trend.value.length)}天</div>
+          <div class="stat-label">消息趋势</div>
         </div>
       </div>
 

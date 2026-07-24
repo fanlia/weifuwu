@@ -34,7 +34,7 @@ DashScope → POST {baseUrl}/embeddings
 
 ```
 apps/agent-platform/
-├── server.ts                    # 应用入口 + 路由注册
+├── server.ts                    # 应用入口 + 路由注册（含 /api/stats）
 ├── tsconfig.json                # paths 引用父项目 src/
 ├── PLAN.md                      # 本文件
 │
@@ -44,7 +44,7 @@ apps/agent-platform/
 │   │   ├── deepseek.ts          # DeepSeek Chat Completions 客户端
 │   │   ├── dashscope.ts         # DashScope Embedding 客户端
 │   │   ├── stream.ts            # SSE 流解析器
-│   │   └── agent.ts             # Tool Loop 引擎
+│   │   └── agent.ts             # Tool Loop 引擎 + 全局工具注册表
 │   │
 │   ├── middleware/
 │   │   ├── ai.ts                # ctx.ai 注入（核心中间件）
@@ -52,39 +52,60 @@ apps/agent-platform/
 │   │   └── tenant.ts            # 从 token 提取 tenant_id
 │   │
 │   ├── db/
-│   │   └── schema.sql           # 完整 DDL
+│   │   └── schema.sql           # 完整 DDL（含 agent_logs, webhook_logs）
 │   │
 │   ├── routes/
-│   │   ├── auth.ts              # 登录/注册
-│   │   ├── agents.ts            # CRUD agent（4 种类型）
+│   │   ├── auth.ts              # 登录/注册（scrypt 哈希 + 限流）
+│   │   ├── agents.ts            # CRUD agent（4 种类型 + 内置工具列表 + token 用量统计）
 │   │   ├── departments.ts       # CRUD 部门 + 成员管理
-│   │   ├── messages.ts          # 发送/获取消息
+│   │   ├── messages.ts          # 发送/获取/编辑/撤回/审批
 │   │   ├── companies.ts         # CRUD 公司
 │   │   └── knowledge.ts         # 知识库上传/检索
 │   │
 │   └── services/
-│       ├── agent-runner.ts      # Agent 执行编排（调用 ctx.ai.agent）
-│       ├── chat.ts              # 消息路由 + 推送
-│       ├── webhook.ts           # Webhook 消息收发
-│       └── embedding.ts         # 文档分块 + 向量化 + pgvector 检索
+│       ├── agent-runner.ts      # Agent 执行编排（token 统计 + 上下文截断 + 日志记录）
+│       ├── chat.ts              # 消息路由 + AI 自动回复 + HITL 审批推送
+│       ├── webhook.ts           # Webhook 消息收发（签名验证 + 重试 + 日志）
+│       ├── embedding.ts         # 文档分块 + 向量化 + pgvector 检索
+│       ├── password.ts          # scrypt 密码哈希
+│       ├── rate-limit.ts        # 内存滑动窗口限流
+│       └── ws-hub.ts            # WebSocket 房间管理 + Redis Pub/Sub
 │
 ├── ui/
-│   ├── main.tsx                 # 前端入口
+│   ├── main.tsx                 # 前端入口（router + auth + ws）
+│   ├── lib/api.ts               # 自动 token 刷新
+│   ├── components/
+│   │   ├── AppLayout.tsx        # 侧边栏布局 + 认证守卫
+│   │   └── ui.tsx               # PageHeader / TypeBadge / Ava / EmptyState / Loading
 │   ├── pages/
 │   │   ├── Login.tsx
-│   │   ├── Dashboard.tsx
-│   │   ├── Agents.tsx
+│   │   ├── Register.tsx
+│   │   ├── Dashboard.tsx        # 多维度统计（agent/消息/token/趋势）
+│   │   ├── Agents.tsx           # 列表 + 模型/用量显示
+│   │   ├── NewAgent.tsx         # 四种类型创建（含 AI 模型/温度/HITL/Token 配置）
+│   │   ├── AgentDetail.tsx      # 完整编辑（AI 配置 + 工具勾选 + 执行历史/Webhook 日志/知识库 QA）
+│   │   ├── Companies.tsx
+│   │   ├── NewCompany.tsx
 │   │   ├── Departments.tsx
-│   │   └── Chat.tsx
-│   └── components/
-│       ├── MessageList.tsx
-│       └── AgentAvatar.tsx
+│   │   ├── DepartmentDetail.tsx
+│   │   ├── NewDepartment.tsx
+│   │   ├── NewChat.tsx
+│   │   ├── Chat.tsx             # 消息气泡 + 编辑/撤回 + HITL 审批
+│   │   └── Settings.tsx
+│
+├── test/
+│   ├── ai.test.ts               # AI 核心模块（17 tests）
+│   ├── middleware.test.ts        # 中间件链（17 tests）
+│   ├── services.test.ts         # 服务层（依赖 DB）
+│   └── routes.test.ts           # 路由端点（依赖 DB）
 │
 ├── scripts/
 │   └── build.mjs                # esbuild 构建
 │
-└── public/
-    └── index.html
+├── seed.ts                      # 演示数据初始化
+├── public/
+│   └── index.html
+└── .env.example
 ```
 
 ---
@@ -92,14 +113,14 @@ apps/agent-platform/
 ## 4. 环境变量
 
 ```env
-# === 已有（在父项目 .env 中） ===
+# === 数据库 ===
 DATABASE_URL=postgres://root:123456@localhost:5432/demo
-REDIS_URL=redis://localhost:6379
+# REDIS_URL=redis://localhost:6377
 
 # === DeepSeek LLM ===
 DEEPSEEK_API_KEY=sk-xxx                                  # 必需
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1             # 默认
-DEEPSEEK_MODEL=deepseek-v4-flash                          # 默认
+DEEPSEEK_MODEL=deepseek-chat                              # 默认
 
 # === DashScope Embedding ===
 DASHSCOPE_API_KEY=sk-xxx                                  # 必需
@@ -107,66 +128,63 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1  # 默认
 DASHSCOPE_EMBEDDING_MODEL=text-embedding-v4               # 默认
 
 # === JWT ===
-JWT_SECRET=org-dev-secret-key-2024
+JWT_SECRET=change-this-to-a-random-secret-in-production
+
+# === 模式 ===
+# NODE_ENV=production
 ```
 
 ---
 
-## 5. ctx.ai 接口设计
+## 5. Agent 四种类型的实现状态
 
-```ts
-interface AiClient {
-  // ── LLM 对话（DeepSeek） ──
-  chat(params: ChatParams): Promise<ChatResponse>
-  chatStream(params: ChatParams & { onChunk, onToolCall?, onFinish? }): Promise<void>
-
-  // ── Agent Tool Loop ──
-  agent(config: AgentConfig): {
-    run(messages): Promise<AgentRunResult>
-    stream(messages, callbacks): Promise<AgentRunResult>
-  }
-
-  // ── Embedding（DashScope） ──
-  embed(text: string): Promise<number[]>
-  embedMany(texts: string[]): Promise<number[][]>
-}
-```
+| 类型 | 后端 | 前端 | 完成度 |
+|------|------|------|--------|
+| **AI Robot** (`ai`) | Tool Loop / Stream / HITL / Token 统计 / 上下文截断 / 执行日志 | 模型选择 / 温度滑块 / max_tokens / HITL 开关 / 工具勾选 / 执行历史面板 | **95%** |
+| **Real User** (`user`) | 注册自动创建 / 消息发送 / 编辑 / 撤回 | 详情显示绑定用户 | **100%** |
+| **Webhook Bot** (`webhook`) | HMAC-SHA256 签名验证 / 指数退避重试 / 调用日志 | URL / Secret / 重试次数配置 + 测试 + 请求日志面板 | **95%** |
+| **Knowledge Base** (`knowledge_base`) | 文档分块 / DashScope Embedding / pgvector 检索 | 文档列表 / 上传 / 删除 / QA 检索测试 | **85%** |
 
 ---
 
-## 6. 数据模型
+## 6. 待办项
 
-```
-Tenant (租户) 1──N Company (公司)
-Tenant 1──N User (用户)
-Company 1──N Department (部门/群组)
-Department N──M Agent (成员，多态)
-Agent ──? User (若 type='user')
+### P0 — 当前已实现
 
-Agent 四种类型（单表继承）：
-  ai              — DeepSeek LLM 驱动
-  user            — 绑定真实用户
-  webhook         — HTTP Webhook 收发
-  knowledge_base  — PGVector 文档语义检索
+- [x] AI Robot: 模型选择 / 温度 / max_tokens / HITL 配置
+- [x] AI Robot: 工具勾选（从内置工具列表选择）
+- [x] AI Robot: 执行历史面板（次数 / token 统计）
+- [x] AI Robot: token 用量统计 + 上下文截断
+- [x] Webhook: Secret / 重试次数配置
+- [x] Webhook: 签名验证（HMAC-SHA256）+ 指数退避重试
+- [x] Webhook: 请求日志记录与展示
+- [x] Dashboard: 按类型 agent 统计 / 消息数 / token 消耗 / 趋势
+- [x] Agent 列表: 显示模型名 / token 用量
 
-Message → Department
-KbDocument → Agent (type='knowledge_base')
-```
+### P1 — 当前已实现
+
+- [x] KB: 文件上传（拖拽 + 文件选择 .txt/.md/.csv/.json）
+- [x] KB: 文档展开预览（content + chunks）
+- [x] KB: 批量上传（批量 JSON 粘贴 + 多文件选择）
+- [x] KB: QA 检索测试面板
+
+### P2 — 后续改进
+
+- [ ] Agent: 类型特定字段校验（webhook 必填 URL，KB 不需要 system_prompt）
+- [ ] Agent: 统计面板（按类型、活跃度）
+- [ ] 统一前端 toast 错误提示
+
+### P2 — 长期规划
+
+- [ ] Agent 版本管理（prompt 历史）
+- [ ] Agent 模板市场
+- [ ] 自定义工具注册 UI
+- [ ] 多模型供应商切换
+- [ ] Agent 对话导出
 
 ---
 
-## 7. Agent 四种类型的实现要点
-
-| 类型 | 实现 |
-|------|------|
-| **AI Robot** | `ctx.ai.agent({ tools, systemPrompt, maxSteps })` → Tool Loop |
-| **Real User** | 纯 DB 操作，通过 WS 收发消息 |
-| **Webhook Bot** | `POST /webhook/:agentId` → `ctx.ai.chat()` → 返回响应 |
-| **Knowledge Base** | 文档入库 `ctx.ai.embed()` → 存 pgvector → 检索 `ctx.ai.embed()` + `ORDER BY embedding <=>` |
-
----
-
-## 8. Human-in-the-Loop
+## 7. Human-in-the-Loop
 
 ```
 用户发消息 → 部门
@@ -186,40 +204,12 @@ agent.run(messages, ctx)  // 内部在 onStepEnd 中 await approval
 
 ---
 
-## 9. 实现优先级
+## 8. 测试覆盖
 
-| 阶段 | 文件 | 估算行数 |
-|------|------|---------|
-| **P0 核心** | `src/ai/types.ts` | 80 |
-| | `src/ai/deepseek.ts` | 120 |
-| | `src/ai/dashscope.ts` | 80 |
-| | `src/ai/stream.ts` | 50 |
-| | `src/ai/agent.ts` | 200 |
-| | `src/middleware/ai.ts` | 100 |
-| | `server.ts` (基础路由) | 100 |
-| | `tsconfig.json` | 10 |
-| **P1 数据层** | `src/db/schema.sql` | 120 |
-| | `server.ts` (补充 DB 迁移) | 30 |
-| **P2 业务路由** | `src/routes/auth.ts` | 80 |
-| | `src/routes/agents.ts` | 100 |
-| | `src/routes/departments.ts` | 80 |
-| | `src/routes/messages.ts` | 80 |
-| | `src/routes/companies.ts` | 60 |
-| | `src/routes/knowledge.ts` | 80 |
-| **P3 服务层** | `src/services/agent-runner.ts` | 100 |
-| | `src/services/chat.ts` | 80 |
-| | `src/services/webhook.ts` | 60 |
-| | `src/services/embedding.ts` | 80 |
-| **P4 前端** | `ui/` 所有文件 | ~500 |
-| **P5 基建** | `scripts/build.mjs` | 20 |
-| | `public/index.html` | 20 |
-| | **总计** | **~1700 行** |
-
----
-
-## 10. 待确认决策
-
-1. **数据库** — 用 `ctx.sql`（postgres.js）直接写 SQL，还是需要 ORM / query builder？
-2. **WebSocket 消息推送** — 用 weifuwu 的 `app.ws()` + Redis Pub/Sub，还是简单轮询？
-3. **前端** — 用 weifuwu/client SPA（类似 demo），还是先只提供 REST API + 命令行测试工具？
-4. **前后端分离**——后端以 /dev 模式还是 build 后→serve static 模式提供 SPA 服务？
+| 测试文件 | 测试数 | 覆盖 |
+|----------|--------|------|
+| `test/01-auth.test.ts` | 9 | 注册/登录/me/限流/错误处理 |
+| `test/ai.test.ts` | 17 | SSE / DeepSeek / DashScope / Agent Tool Loop |
+| `test/middleware.test.ts` | 17 | auth / tenant / ai / 链式调用 |
+| `test/services.test.ts` | 16 | agent-runner / chat / webhook / embedding (真实DB) |
+| **总计** | **59** | **全通过（`node --env-file=.env --test --test-concurrency=1 'test/**/*.test.ts'`）** |

@@ -90,9 +90,13 @@ export function registerMessageRoutes(app: Router): void {
     `
 
     // 触发 Agent 自动回复（异步，不阻塞响应）
-    handleNewMessage(ctx, params.id, sender.id, body.content).catch((err) =>
-      console.error('[messages] handleNewMessage error:', err),
-    )
+    // 检查 API key 是否可用，避免测试环境中的死连接
+    const deepseekKey = process.env.DEEPSEEK_API_KEY
+    if (deepseekKey && deepseekKey !== 'sk-your-deepseek-api-key' && !deepseekKey.startsWith('sk-your-')) {
+      handleNewMessage(ctx, params.id, sender.id, body.content).catch((err) =>
+        console.error('[messages] handleNewMessage error:', err),
+      )
+    }
 
     // WebSocket 实时推送新消息
     wsHub.broadcast(params.id, {

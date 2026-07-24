@@ -126,7 +126,13 @@ Every weifuwu module and script must pass these checks. Use them as a review che
 | PS-02 | **Middleware chains avoid unnecessary object spread** — `{ ...ctx, ...fields }` replaces getters with snapshots; use `Object.assign` or `extendCtx` for signal-rich ctx | Preserve reactivity in frontend, reduce GC pressure in backend |
 | PS-03 | **Route matching is O(path_segments)** — no regex-based matching that backtracks | Trie-based matching already guaranteed by Router
 
-### Review Checklist
+### QA — Quality Assurance Standards (`apps/agent-platform/`)
+
+| ID | Rule | Rationale |
+|----|------|-----------|
+| QA-01 | **Every `apps/agent-platform/` code change must be tested with `agent-browser`** — before merging, open the app, login, navigate to the modified feature, take a snapshot, and verify interactive elements render and function correctly | UI bugs (e.g., `Show` wrapping, signal bindings, layout) are invisible to unit tests. Browser-level testing catches rendering failures, missing fields, and broken interactions that `node --test` cannot detect |
+| QA-02 | **Use `agent-browser snapshot -i -c` to inspect interactive elements** — rely on accessibility tree refs (`@e1`, …) for clicking and filling, not CSS selectors | Snapshot refs are stable per-page-load and cheaper to produce than full HTML; they also catch accessibility gaps early |
+| QA-03 | **Re-snapshot after every page-changing interaction** — refs become stale after navigation, form submit, or dynamic render. Always call `snapshot -i -c` before the next click/fill | Prevents stale ref errors and ensures the agent sees the current page state |
 
 Before merging any PR, verify:
 
@@ -143,4 +149,5 @@ Before merging any PR, verify:
 [ ] Build script has no redundant outputs (BS-02)
 [ ] Lazy components trigger self-re-render (FS-04)
 [ ] No synchronous I/O in request handlers (PS-01)
+[ ] apps/agent-platform/ 改动已通过 agent-browser 浏览器测试 (QA-01)
 ```

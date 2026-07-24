@@ -195,6 +195,91 @@ async function main() {
     return Response.json({ success: true })
   })
 
+  // ── 完整统计数据 ───────────────────────────────────────
+  protectedRoutes.get('/api/stats', async (req: Request, ctx: Context): Promise<Response> => {
+    const { sql, tenantId } = ctx
+
+    const [agentStats] = await sql`
+      SELECT
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE type = 'ai')::int as ai_count,
+        COUNT(*) FILTER (WHERE type = 'webhook')::int as webhook_count,
+        COUNT(*) FILTER (WHERE type = 'knowledge_base')::int as kb_count,
+        COUNT(*) FILTER (WHERE type = 'user')::int as user_count
+      FROM agents WHERE tenant_id = ${tenantId}
+    `
+
+    const [deptStats] = await sql`
+      SELECT COUNT(*)::int as total FROM departments d
+      JOIN companies c ON c.id = d.company_id
+      WHERE c.tenant_id = ${tenantId}
+    `
+
+    const [msgStats] = await sql`
+      SELECT COUNT(*)::int as total FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE a.tenant_id = ${tenantId}
+    `
+
+    const [tokenStats] = await sql`
+      SELECT
+        COALESCE(SUM(tokens_prompt), 0)::int as total_prompt,
+        COALESCE(SUM(tokens_completion), 0)::int as total_completion,
+        COALESCE(SUM(tokens_total), 0)::int as total_tokens
+      FROM agent_logs WHERE tenant_id = ${tenantId}
+    `
+
+    // 近 7 天消息趋势
+    const trend = await sql`
+      SELECT
+        DATE(m.created_at) as day,
+        COUNT(*)::int as count
+      FROM messages m
+      JOIN agents a ON a.id = m.sender_id
+      WHERE a.tenant_id = ${tenantId}
+        AND m.created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY DATE(m.created_at)
+      ORDER BY day
+    `
+
+    return Response.json({
+      agents: agentStats,
+      departments: deptStats,
+      messages: msgStats,
+      tokens: tokenStats,
+      trend,
+    })
+  })
+
+  // ── Agent 执行日志 ───────────────────────────────────────
+  protectedRoutes.get('/api/stats/agents/:agentId/logs', async (req: Request, ctx: Context): Promise<Response> => {
+    const { sql, tenantId, params } = ctx
+    const logs = await sql`
+      SELECT id, messages_count, steps_count,
+        tokens_prompt, tokens_completion, tokens_total,
+        elapsed_ms, success, created_at
+      FROM agent_logs
+      WHERE agent_id = ${params.agentId} AND tenant_id = ${tenantId}
+      ORDER BY created_at DESC
+      LIMIT 50
+    `
+    return Response.json({ logs })
+  })
+
+  // ── Webhook 调用日志 ─────────────────────────────────────
+  protectedRoutes.get('/api/stats/agents/:agentId/webhook-logs', async (req: Request, ctx: Context): Promise<Response> => {
+    const { sql, tenantId, params } = ctx
+    const logs = await sql`
+      SELECT id, request_body, response_body, response_status,
+        elapsed_ms, success, created_at
+      FROM webhook_logs
+      WHERE agent_id = ${params.agentId} AND tenant_id = ${tenantId}
+      ORDER BY created_at DESC
+      LIMIT 30
+    `
+    return Response.json({ logs })
+  })
+
   // 挂载受保护路由
   app.mount('/', protectedRoutes)
 
@@ -211,11 +296,13 @@ async function main() {
   app.post('/api/webhook/:agentId', async (req: Request, ctx: Context): Promise<Response> => {
     try {
       const body = await req.json()
-      const result = await handleWebhookMessage(ctx, ctx.params.agentId, body)
+      const signature = req.headers.get('x-signature') ?? undefined
+      const result = await handleWebhookMessage(ctx, ctx.params.agentId, body, undefined, signature)
       return Response.json(result)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      return Response.json({ error: message }, { status: 400 })
+      const status = message.includes('signature') || message.includes('Missing') ? 401 : 400
+      return Response.json({ error: message }, { status })
     }
   })
 

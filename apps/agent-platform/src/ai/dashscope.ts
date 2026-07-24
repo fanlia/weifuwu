@@ -44,14 +44,24 @@ export class DashScopeClient {
       input: texts,
     }
 
-    const res = await fetch(`${this.baseUrl}/embeddings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
-    })
+    // 设置 3 秒超时，防止不可达的 API 长时间阻塞
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 3000)
+
+    let res: Response
+    try {
+      res = await fetch(`${this.baseUrl}/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timer)
+    }
 
     if (!res.ok) {
       const errBody = await res.text()
