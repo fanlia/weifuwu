@@ -513,29 +513,31 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
 
           {/* ── Webhook 配置 ── */}
           <Show when={isWebhook}>
-            <div class="field">
-              <label class="field-label">Webhook URL</label>
-              <input class="input" type="url" value={webhookUrl} onInput={(e: any) => { webhookUrl.value = e.target.value }} />
-              <div class="field-hint">消息将以 POST JSON 推送到该地址</div>
-            </div>
-            <div class="form-row">
+            <div>
               <div class="field">
-                <label class="field-label">Webhook Secret</label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input class="input" type={secretVisible.value ? 'text' : 'password'} placeholder="留空不验证签名" value={webhookSecret}
-                    onInput={(e: any) => { webhookSecret.value = e.target.value }} />
-                  <button type="button" class="btn btn-ghost btn-sm" onClick={() => { secretVisible.value = !secretVisible.value }}
-                    style={{ flex: 'none', padding: '9px 12px' }}>
-                    {computed(() => secretVisible.value ? '🙈' : '👁')}
-                  </button>
-                </div>
-                <div class="field-hint">设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头</div>
+                <label class="field-label">Webhook URL</label>
+                <input class="input" type="url" value={webhookUrl} onInput={(e: any) => { webhookUrl.value = e.target.value }} />
+                <div class="field-hint">消息将以 POST JSON 推送到该地址</div>
               </div>
-              <div class="field">
-                <label class="field-label">重试次数</label>
-                <input class="input" type="number" min="0" max="5" value={webhookRetryCount}
-                  onInput={(e: any) => { webhookRetryCount.value = e.target.value }} />
-                <div class="field-hint">失败后指数退避重试（默认 3 次）</div>
+              <div class="form-row">
+                <div class="field">
+                  <label class="field-label">Webhook Secret</label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input class="input" type={secretVisible.value ? 'text' : 'password'} placeholder="留空不验证签名" value={webhookSecret}
+                      onInput={(e: any) => { webhookSecret.value = e.target.value }} />
+                    <button type="button" class="btn btn-ghost btn-sm" onClick={() => { secretVisible.value = !secretVisible.value }}
+                      style={{ flex: 'none', padding: '9px 12px' }}>
+                      {computed(() => secretVisible.value ? '🙈' : '👁')}
+                    </button>
+                  </div>
+                  <div class="field-hint">设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头</div>
+                </div>
+                <div class="field">
+                  <label class="field-label">重试次数</label>
+                  <input class="input" type="number" min="0" max="5" value={webhookRetryCount}
+                    onInput={(e: any) => { webhookRetryCount.value = e.target.value }} />
+                  <div class="field-hint">失败后指数退避重试（默认 3 次）</div>
+                </div>
               </div>
             </div>
           </Show>
@@ -620,60 +622,62 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
 
         {/* ═══ Webhook 测试 ═══ */}
         <Show when={isWebhook}>
-          <div class="card card-pad mt-24">
-            <div class="sect-title" style={{ marginBottom: '16px' }}>🔗 Webhook 测试</div>
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '12px' }}>
-              向此 Webhook 发送一条测试消息，验证配置是否正确。
-            </p>
-            <button class="btn btn-primary" onClick={testWebhook} disabled={testWebhookLoading}>
-              {computed(() => testWebhookLoading.value ? '发送中...' : '发送测试消息')}
-            </button>
-            <Show when={computed(() => testWebhookResult.value !== '')}>
-              <div class="mt-8" style={{
-                padding: '10px 14px', borderRadius: '8px', fontSize: '13px',
-                background: testWebhookResult.value.startsWith('✅') ? '#ecfdf5' : '#fef2f2',
-                border: `1px solid ${testWebhookResult.value.startsWith('✅') ? '#a7f3d0' : '#fecaca'}`,
-                color: testWebhookResult.value.startsWith('✅') ? '#047857' : '#b91c1c',
-              }}>{testWebhookResult}</div>
-            </Show>
-          </div>
+          <div>
+            <div class="card card-pad mt-24">
+              <div class="sect-title" style={{ marginBottom: '16px' }}>🔗 Webhook 测试</div>
+              <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '12px' }}>
+                向此 Webhook 发送一条测试消息，验证配置是否正确。
+              </p>
+              <button class="btn btn-primary" onClick={testWebhook} disabled={testWebhookLoading}>
+                {computed(() => testWebhookLoading.value ? '发送中...' : '发送测试消息')}
+              </button>
+              <Show when={computed(() => testWebhookResult.value !== '')}>
+                <div class="mt-8" style={{
+                  padding: '10px 14px', borderRadius: '8px', fontSize: '13px',
+                  background: testWebhookResult.value.startsWith('✅') ? '#ecfdf5' : '#fef2f2',
+                  border: `1px solid ${testWebhookResult.value.startsWith('✅') ? '#a7f3d0' : '#fecaca'}`,
+                  color: testWebhookResult.value.startsWith('✅') ? '#047857' : '#b91c1c',
+                }}>{testWebhookResult}</div>
+              </Show>
+            </div>
 
-          {/* ── Webhook 请求日志 ── */}
-          <div class="card card-pad mt-24">
-            <div class="sect-title" style={{ marginBottom: '12px' }}>📋 Webhook 请求日志</div>
+            <div class="card card-pad mt-24">
+              <div class="sect-title" style={{ marginBottom: '12px' }}>📋 Webhook 请求日志</div>
 
-            <Show when={whLogsLoading}><Loading /></Show>
+              <Show when={whLogsLoading}><Loading /></Show>
 
-            <Show when={computed(() => !whLogsLoading.value && !hasWebhookLogs.value)}>
-              <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '24px' }}>
-                暂无请求记录
-              </div>
-            </Show>
+              <Show when={computed(() => !whLogsLoading.value && !hasWebhookLogs.value)}>
+                <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '24px' }}>
+                  暂无请求记录
+                </div>
+              </Show>
 
-            <Show when={hasWebhookLogs}>
-              <div class="check-list" style={{ maxHeight: '300px' }}>
-                <For each={webhookLogs} keyBy="id">{(log: any) => (
-                  <div class="check-item" style={{ flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600 }}>
-                        {log.success ? '✅' : '❌'} HTTP {log.response_status ?? '?'}
+              <Show when={hasWebhookLogs}>
+                <div class="check-list" style={{ maxHeight: '300px' }}>
+                  <For each={webhookLogs} keyBy="id">{(log: any) => (
+                    <div class="check-item" style={{ flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                          {log.success ? '✅' : '❌'} HTTP {log.response_status ?? '?'}
+                        </div>
+                        <div class="muted" style={{ fontSize: '11px' }}>
+                          {fmtTime(log.created_at)} · {log.elapsed_ms}ms
+                        </div>
                       </div>
-                      <div class="muted" style={{ fontSize: '11px' }}>
-                        {fmtTime(log.created_at)} · {log.elapsed_ms}ms
+                      <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--text-2)' }}>
+                        {log.response_body ? (log.response_body.length > 80 ? log.response_body.slice(0, 80) + '...' : log.response_body) : '无响应'}
                       </div>
                     </div>
-                    <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--text-2)' }}>
-                      {log.response_body ? (log.response_body.length > 80 ? log.response_body.slice(0, 80) + '...' : log.response_body) : '无响应'}
-                    </div>
-                  </div>
-                )}</For>
-              </div>
-            </Show>
+                  )}</For>
+                </div>
+              </Show>
+            </div>
           </div>
         </Show>
 
         {/* ═══ 知识库文档管理 ═══ */}
         <Show when={isKB}>
+          <div>
           <div class="card card-pad mt-24">
             <div class="sect-title" style={{ marginBottom: '16px' }}>
               📚 知识库文档
@@ -761,6 +765,7 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
 
             {/* ── 文件上传 + 批量导入 ── */}
             <Show when={showBatch}>
+              <div>
               {/* 拖拽上传 */}
               <div
                 onDragEnter={onDragEnter}
@@ -802,6 +807,7 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
                   </button>
                 </form>
               </details>
+            </div>
             </Show>
           </div>
 
@@ -837,6 +843,7 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
                 )}</For>
               </div>
             </Show>
+          </div>
           </div>
         </Show>
 
