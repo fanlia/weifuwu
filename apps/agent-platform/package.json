@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node --env-file=.env --watch server.ts",
     "start": "node --env-file=.env server.ts",
-    "seed": "node --env-file=.env seed.ts",
+    "seed": "node --env-file=.env scripts/seed.mjs",
     "build": "esbuild ui/main.tsx --bundle --format=esm --outfile=dist/app.js --jsx=automatic --jsxImportSource=weifuwu/client",
     "test": "node --env-file=.env --test --test-concurrency=1 'test/**/*.test.ts'"
   }

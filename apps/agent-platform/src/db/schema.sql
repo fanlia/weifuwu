@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS agents (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_agents_tenant ON agents(tenant_id);
-CREATE INDEX idx_agents_type ON agents(type);
+CREATE INDEX IF NOT EXISTS idx_agents_tenant ON agents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_agents_type ON agents(type);
 
 -- ── 部门/群组 ─────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS department_members (
   PRIMARY KEY (department_id, agent_id)
 );
 
-CREATE INDEX idx_dm_agent ON department_members(agent_id);
+CREATE INDEX IF NOT EXISTS idx_dm_agent ON department_members(agent_id);
 
 -- ── 消息 ───────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_messages_department ON messages(department_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_department ON messages(department_id, created_at);
 
 -- ── 知识库文档 ───────────────────────────────────────────
 
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS kb_documents (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_kb_agent ON kb_documents(agent_id);
+CREATE INDEX IF NOT EXISTS idx_kb_agent ON kb_documents(agent_id);
 
 -- ── Agent 执行日志 ───────────────────────────────────────
 
@@ -186,5 +186,5 @@ CREATE TABLE IF NOT EXISTS kb_chunks (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_kb_chunks_agent ON kb_chunks(agent_id);
-CREATE INDEX idx_kb_chunks_embedding ON kb_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+CREATE INDEX IF NOT EXISTS idx_kb_chunks_agent ON kb_chunks(agent_id);
+CREATE INDEX IF NOT EXISTS idx_kb_chunks_embedding ON kb_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
