@@ -62,6 +62,8 @@ export { effect } from './signal.ts'
 export { batch } from './signal.ts'
 /** Signal 类型。 */
 export type { Signal } from './signal.ts'
+/** Computed 类型。 */
+export type { Computed } from './signal.ts'
 /** 不追踪依赖地读取信号值。 */
 export { untrack } from './signal.ts'
 /** 判断值是否为 Signal 实例。 */
