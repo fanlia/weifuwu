@@ -257,17 +257,28 @@ export async function handleNewMessageStream(
     `
     const msgId = replyMsg.id
 
-    // WS 推送：流式开始
+    // ── AI 状态机事件 ─────────────────────────────────
+    // 完整反映 AI Agent 内部状态：
+    //   ai:status { status: "thinking" }       → LLM 调用开始
+    //   ai:status { status: "generating" }     → 流式输出文本
+    //   ai:token  { text }                      → 文本片段
+    //   ai:tool   { phase: "call", name, args } → 工具调用
+    //   ai:tool   { phase: "result", name }     → 工具返回
+    //   ai:status { status: "complete" }        → 生成完成
+    //   ai:status { status: "error", error }    → 生成失败
+
+    // 1) thinking — LLM 开始思考
     wsHub.broadcast(departmentId, {
       type: 'ai:status',
       messageId: msgId,
       agentId: agent.id,
       agentName: agent.name,
-      status: 'streaming',
+      status: 'thinking',
     })
 
     let accumulatedContent = ''
     let streamFailed = false
+    let hasEmittedGenerating = false
 
     try {
       await streamAgent(ctx, {
@@ -286,31 +297,51 @@ export async function handleNewMessageStream(
         onChunk: async (text: string) => {
           accumulatedContent += text
           await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
+
+          // 首个文本 chunk 时切换为 generating
+          if (!hasEmittedGenerating && text) {
+            hasEmittedGenerating = true
+            wsHub.broadcast(departmentId, {
+              type: 'ai:status',
+              messageId: msgId,
+              status: 'generating',
+            })
+          }
+
           wsHub.broadcast(departmentId, {
-            type: 'ai:chunk',
+            type: 'ai:token',
             messageId: msgId,
             text,
           })
         },
         onToolCall: (toolCall: { name: string; args: string }) => {
           wsHub.broadcast(departmentId, {
-            type: 'ai:tool:start',
+            type: 'ai:tool',
             messageId: msgId,
+            phase: 'call',
             name: toolCall.name,
             args: toolCall.args,
           })
         },
         onToolResult: (result: { name: string; result: string }) => {
+          // 工具执行完后又回到 thinking（LLM 继续）
+          hasEmittedGenerating = false
           wsHub.broadcast(departmentId, {
-            type: 'ai:tool:done',
+            type: 'ai:tool',
             messageId: msgId,
+            phase: 'result',
             name: result.name,
             result: result.result,
           })
+          wsHub.broadcast(departmentId, {
+            type: 'ai:status',
+            messageId: msgId,
+            status: 'thinking',
+          })
         },
         onFinish: () => {
-          // streamAgent 内部的 onFinish 在每个流式步骤结束时触发
-          // 我们不在这里发 ai:done，等 streamAgent 整体完成后再发
+          // streamAgent 内部每个流式步骤结束时触发
+          // 不在此处发 complete，等全部完成后统一发
         },
       })
     } catch (err) {
@@ -318,18 +349,25 @@ export async function handleNewMessageStream(
       console.error(`[chat] streamAgent ${agent.id} error:`, err)
     }
 
-    // streamAgent 完成（或失败）后才发 ai:done
-    // 不能在每个 onFinish 里发——工具调用时第一个步骤就会触发 onFinish，
-    // 导致 ai:done 过早发送，后续步骤的内容前端收不到
-    if (streamFailed || !accumulatedContent) {
-      await sql`DELETE FROM messages WHERE id = ${msgId} AND content = ''`
+    // 全部完成 → complete 或 error
+    if (streamFailed) {
+      if (!accumulatedContent) {
+        await sql`DELETE FROM messages WHERE id = ${msgId} AND content = ''`
+      }
+      wsHub.broadcast(departmentId, {
+        type: 'ai:status',
+        messageId: msgId,
+        status: 'error',
+        error: 'AI 回复失败',
+      })
+    } else {
+      wsHub.broadcast(departmentId, {
+        type: 'ai:status',
+        messageId: msgId,
+        status: 'complete',
+        content: accumulatedContent,
+      })
     }
-    wsHub.broadcast(departmentId, {
-      type: 'ai:done',
-      messageId: msgId,
-      content: accumulatedContent,
-      error: streamFailed ? 'AI 回复失败' : undefined,
-    })
   }
 }
 

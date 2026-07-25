@@ -117,13 +117,17 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   // ── WebSocket 事件处理 ──
   const wsVersion = signal(0)
 
-  // 流式超时保护：30 秒后自动清除所有卡住的 "生成中..."
+  // 流式超时保护：30 秒后自动清除所有卡住的状态
   const streamTimeout = setInterval(() => {
     let changed = false
+    const now = Date.now()
     const updated = messages.value.map(m => {
-      if (m.streaming) {
-        changed = true
-        return { ...m, streaming: false }
+      if ((m.status === 'thinking' || m.status === 'generating') && m.created_at) {
+        const age = now - new Date(m.created_at).getTime()
+        if (age > 60000) { // 超过 60 秒强制完成
+          changed = true
+          return { ...m, status: 'complete' }
+        }
       }
       return m
     })
@@ -139,7 +143,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
 
     switch (type) {
       case 'new_message': {
-        // 新消息（用户发的）
         const m = event.message
         messages.value = [...messages.value, {
           id: m.id,
@@ -149,16 +152,24 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           content: m.content,
           msg_type: 'text',
           created_at: m.created_at ?? new Date().toISOString(),
-          streaming: false,
+          status: 'idle',
           tools: [],
         }]
         wsVersion.value++
         break
       }
+
+      // ── AI 状态机事件 ────────────────────────────────
+      // status: thinking   → LLM 调用中
+      // status: generating → 正在输出文本
+      // status: complete   → 生成完成
+      // status: error      → 生成失败
       case 'ai:status': {
-        // 流式开始：添加空消息占位
+        const s = event.status
         const existing = messages.value.findIndex(m => m.id === event.messageId)
-        if (existing === -1) {
+
+        if (s === 'thinking' && existing === -1) {
+          // 新建 AI 消息占位
           messages.value = [...messages.value, {
             id: event.messageId,
             sender_id: event.agentId,
@@ -167,77 +178,69 @@ export function Chat(_props: {}, ctx: WfuiContext) {
             content: '',
             msg_type: 'text',
             created_at: new Date().toISOString(),
-            streaming: true,
+            status: 'thinking',
             tools: [],
           }]
+        } else if (existing !== -1) {
+          const updated = [...messages.value]
+          if (s === 'complete' || s === 'error') {
+            // 完成/失败：移除空消息，或保留内容
+            const content = updated[existing].content || ''
+            if (!content && s === 'error') {
+              updated[existing] = { ...updated[existing], status: 'error', content: '⚠️ AI 回复失败' }
+            } else if (!content) {
+              messages.value = updated.filter(m => m.id !== event.messageId)
+              wsVersion.value++
+              break
+            }
+            updated[existing] = { ...updated[existing], status: s }
+          } else {
+            updated[existing] = { ...updated[existing], status: s }
+          }
+          messages.value = updated
         }
         wsVersion.value++
         break
       }
-      case 'ai:chunk': {
-        // 流式文本块：追加到已有消息
+
+      case 'ai:token': {
+        // 流式文本片段
         const idx = messages.value.findIndex(m => m.id === event.messageId)
         if (idx !== -1) {
           const updated = [...messages.value]
-          updated[idx] = { ...updated[idx], streaming: true, content: updated[idx].content + event.text }
+          updated[idx] = { ...updated[idx], content: updated[idx].content + event.text }
           messages.value = updated
           wsVersion.value++
         }
         break
       }
-      case 'ai:tool:start': {
-        // 工具调用开始
+
+      case 'ai:tool': {
+        // 工具调用 / 工具返回
         const idx = messages.value.findIndex(m => m.id === event.messageId)
-        if (idx !== -1) {
-          const updated = [...messages.value]
+        if (idx === -1) break
+
+        const updated = [...messages.value]
+        if (event.phase === 'call') {
           const tools = [...(updated[idx].tools ?? []), {
             name: event.name,
             args: event.args,
             status: 'running' as const,
           }]
           updated[idx] = { ...updated[idx], tools }
-          messages.value = updated
-          wsVersion.value++
-        }
-        break
-      }
-      case 'ai:tool:done': {
-        // 工具调用完成
-        const idx = messages.value.findIndex(m => m.id === event.messageId)
-        if (idx !== -1) {
-          const updated = [...messages.value]
+        } else if (event.phase === 'result') {
           const tools = (updated[idx].tools ?? []).map(t =>
             t.name === event.name && t.status === 'running'
               ? { ...t, status: 'done' as const, result: event.result }
               : t
           )
           updated[idx] = { ...updated[idx], tools }
-          messages.value = updated
-          wsVersion.value++
         }
+        messages.value = updated
+        wsVersion.value++
         break
       }
-      case 'ai:done': {
-        // 流式完成或失败
-        const idx = messages.value.findIndex(m => m.id === event.messageId)
-        if (idx !== -1) {
-          const updated = [...messages.value]
-          const hadError = !!event.error
-          updated[idx] = {
-            ...updated[idx],
-            streaming: false,
-            content: updated[idx].content || (hadError ? '⚠️ AI 回复失败' : ''),
-          }
-          // 如果内容为空且没有错误，移除这条空消息
-          if (!updated[idx].content && !hadError) {
-            messages.value = updated.filter(m => m.id !== event.messageId)
-          } else {
-            messages.value = updated
-          }
-          wsVersion.value++
-        }
-        break
-      }
+
       case 'ai_draft': {
         // HITL 草稿（保持原有格式）
         const draft = event.message
@@ -421,7 +424,15 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                 }
                 const own = isOwn(msg)
                 const beingEdited = computed(() => editingId.value === msg.id)
-                const isStreaming = msg.streaming
+                const st = msg.status
+                const isActive = st === 'thinking' || st === 'generating'
+
+                function statusLabel(): string {
+                  if (st === 'thinking') return '🧠 思考中...'
+                  if (st === 'generating') return '⏳ 生成中...'
+                  if (st === 'error') return '⚠️ 出错了'
+                  return ''
+                }
 
                 return (
                   <div class={`msg-row${own ? ' own' : ''}`}>
@@ -430,8 +441,9 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                       <div class="msg-meta">
                         <span>{msg.sender_name ?? '未知'}</span>
                         <span>{fmtTime(msg.created_at)}</span>
-                        {isStreaming && <span style={{ color: 'var(--primary)', fontSize: '11px' }}>⏳ 生成中...</span>}
-                        {canEdit(msg) && !isEditing.value && !msg.streaming && (
+                        {isActive && <span style={{ color: 'var(--primary)', fontSize: '11px' }}>{statusLabel()}</span>}
+                        {st === 'error' && <span style={{ color: 'var(--danger)', fontSize: '11px' }}>{statusLabel()}</span>}
+                        {canEdit(msg) && !isEditing.value && !isActive && (
                           <span style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
                             <button
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '11px', padding: '0 2px' }}
@@ -445,8 +457,8 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                         )}
                       </div>
 
-                      {/* 工具调用指示器 */}
-                      <Show when={computed(() => (msg.tools ?? []).length > 0)}>
+                      {/* 工具调用 -- 仅 AI 消息且非 idle 时显示 */}
+                      <Show when={computed(() => msg.sender_type === 'ai' && msg.status !== 'idle' && (msg.tools ?? []).length > 0)}>
                         {() => (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '4px' }}>
                             {(msg.tools ?? []).map((t, i) => (
@@ -466,8 +478,8 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                       </Show>
 
                       <Show when={computed(() => !beingEdited.value)}>
-                        <div class={`bubble${isStreaming ? ' streaming' : ''}`}>
-                          {msg.content || (isStreaming ? '▊' : '')}
+                        <div class={`bubble${isActive ? ' active' : ''}${st === 'error' ? ' error' : ''}`}>
+                          {msg.content || (isActive ? '▊' : '')}
                         </div>
                       </Show>
 
