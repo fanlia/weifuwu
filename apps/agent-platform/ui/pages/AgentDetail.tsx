@@ -545,27 +545,25 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* ── 工作空间配置 ── */}
-            <div class="sect-title" style={{ marginTop: '20px', marginBottom: '10px' }}>📁 工作空间</div>
-            <div class="field">
-              <label class="field-label">工作路径</label>
-              <input class="input" type="text" placeholder="如 /data/projects/my-app" value={workspacePath}
-                onInput={(e: any) => { workspacePath.value = e.target.value }} />
-              <div class="field-hint">设置后 Agent 可以读写该目录下的文件</div>
-            </div>
-            <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                <input type="checkbox" checked={allowFileTools}
-                  onChange={(e: any) => { allowFileTools.value = e.target.checked }} />
-                <span>📄 启用文件工具 (read/write/edit/grep)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                <input type="checkbox" checked={allowCommandExec}
-                  onChange={(e: any) => { allowCommandExec.value = e.target.checked }} />
-                <span>⚡ 启用命令执行 (bash)</span>
-              </label>
+              <div class="sect-title" style={{ marginTop: '20px', marginBottom: '10px' }}>📁 工作空间</div>
+              <div class="field">
+                <label class="field-label">工作路径</label>
+                <input class="input" type="text" placeholder="如 /data/projects/my-app" value={workspacePath}
+                  onInput={(e: any) => { workspacePath.value = e.target.value }} />
+                <div class="field-hint">设置后 Agent 可以读写该目录下的文件</div>
+              </div>
+              <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                  <input type="checkbox" checked={allowFileTools}
+                    onChange={(e: any) => { allowFileTools.value = e.target.checked }} />
+                  <span>📄 启用文件工具 (read/write/edit/grep)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                  <input type="checkbox" checked={allowCommandExec}
+                    onChange={(e: any) => { allowCommandExec.value = e.target.checked }} />
+                  <span>⚡ 启用命令执行 (bash)</span>
+                </label>
+              </div>
             </div>
           </Show>
 
