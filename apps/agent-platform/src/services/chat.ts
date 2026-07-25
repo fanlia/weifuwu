@@ -167,6 +167,13 @@ export async function handleNewMessageStream(
 ): Promise<void> {
   const { sql } = ctx
 
+  // 检查 API key 是否可用
+  const apiKey = process.env.DEEPSEEK_API_KEY
+  if (!apiKey || apiKey === '' || apiKey === 'sk-your-deepseek-api-key' || apiKey.startsWith('sk-your-')) {
+    console.warn('[chat] DEEPSEEK_API_KEY 未配置，跳过 AI 自动回复')
+    return
+  }
+
   // 查找部门中所有 AI Agent
   const aiAgents = await sql`
     SELECT a.id, a.name, a.system_prompt, a.model, a.tools, a.human_in_the_loop, a.max_tokens,

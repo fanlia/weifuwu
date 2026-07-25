@@ -178,6 +178,7 @@ export function createWorkspaceHandlers(
       }
       try {
         const content = await readFile(absPath, 'utf-8')
+        if (content.length === 0) return '(空文件)'
         const maxLen = 50000
         if (content.length > maxLen) {
           return content.slice(0, maxLen) + `\n\n... (文件过长，截断至 ${maxLen} 字符，总长 ${content.length})`

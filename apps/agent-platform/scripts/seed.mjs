@@ -19,7 +19,7 @@
 import { postgres } from 'weifuwu'
 import { hashPassword } from '../src/services/password.ts'
 import { readFileSync, existsSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -464,6 +464,46 @@ Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建�
       (${webhookAgent.id}, ${tenant.id}, '{"event":"deploy","status":"failed"}', '{"reply":"部署失败通知已收到"}', 200, 1500, true, NOW() - INTERVAL '15 minutes')
   `
   console.log('  ✓ Webhook 调用日志: 3 条')
+
+  // ════════════════════════════════════════════════════
+  // 10. 创建工作空间演示文件
+  // ════════════════════════════════════════════════════
+
+  // 为有文件工具的 Agent 创建演示目录和文件
+  const workspaceRoot = process.env.AGENT_WORKSPACE_ROOT
+    ? resolve(process.env.AGENT_WORKSPACE_ROOT)
+    : resolve(__dirname, '..', 'data', 'workspaces')
+
+  const mkdir = (await import('node:fs/promises')).mkdir
+  const writeFile = (await import('node:fs/promises')).writeFile
+
+  for (const agentRow of [devAgent, opsAgent]) {
+    const dir = join(workspaceRoot, agentRow.id)
+    await mkdir(dir, { recursive: true })
+  }
+
+  // 开发助手的工作空间：写一个 demo 文件
+  const devWorkspace = join(workspaceRoot, devAgent.id)
+  await writeFile(join(devWorkspace, 'README.md'), `# Demo Project
+
+这是一个演示项目，用于测试 AI Agent 的文件操作能力。
+
+## 目录结构
+
+- \`src/\` — 源代码
+- \`tests/\` — 测试文件
+- \`README.md\` — 本文件
+`)
+  await mkdir(join(devWorkspace, 'src'), { recursive: true })
+  await writeFile(join(devWorkspace, 'src', 'index.ts'), `// 入口文件
+console.log("Hello, Agent!")
+`)
+  await writeFile(join(devWorkspace, 'src', 'utils.ts'), `// 工具函数
+export function add(a: number, b: number): number {
+  return a + b
+}
+`)
+  console.log('  ✓ 工作空间演示文件已创建')
 
   await pg.close()
 
