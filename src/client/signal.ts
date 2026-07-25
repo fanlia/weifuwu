@@ -121,7 +121,7 @@ export function signal<T>(initial: T): Signal<T> {
 /**
  * 判断值是否为 Signal 实例。
  */
-export function isSignal(value: unknown): value is (Signal | Computed) {
+export function isSignal(value: unknown): value is (Signal | Computed<any>) {
   return value instanceof Signal || value instanceof Computed
 }
 
