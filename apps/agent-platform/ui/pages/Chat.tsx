@@ -476,6 +476,15 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   function toolLabel(name: string): string {
     return toolLabels[name] ?? name.replace(/_/g, ' ')
   }
+  /** 提取工具参数中的路径用于显示 */
+  function fmtToolArg(args: string): string {
+    try {
+      const parsed = JSON.parse(args)
+      return parsed.path || parsed.name || parsed.command || ''
+    } catch {
+      return args.slice(0, 30)
+    }
+  }
 
   function fmtTime(iso: string): string {
     try {
@@ -628,6 +637,8 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                                   : <span>✅</span>
                                 }
                                 <span style={{ fontWeight: 500, color: '#555' }}>{toolLabel(t.name)}</span>
+                                {/* 显示工具参数摘要（如文件路径）用于区分同工具的不同调用 */}
+                                {t.args && <span style={{ color: 'var(--text-3)', fontSize: '10px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmtToolArg(t.args)}</span>}
                               </div>
                             ))}
                           </div>
