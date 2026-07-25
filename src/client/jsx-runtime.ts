@@ -920,19 +920,18 @@ export function For<T>({ each, children, keyBy }: {
     for (let i = list.length - 1; i >= 0; i--) {
       const key = newKeys[i]
       const existing = oldKeyMap.get(key)
-      if (existing) {
-        // 已存在：移动到正确位置
-        el.insertBefore(existing, insertBefore)
-        insertBefore = existing
-      } else {
-        // 新节点：创建并插入
-        const node = children(newItems[i], i)
-        if (node instanceof Element) {
-          node.setAttribute('data-key', key)
-        }
-        el.insertBefore(node, insertBefore)
-        insertBefore = node
+      const node = children(newItems[i], i)
+      if (node instanceof Element) {
+        node.setAttribute('data-key', key)
       }
+      if (existing) {
+        // 即使 key 存在也需替换——数据可能已变化（如流式文本更新）
+        // 仅移动 insertBefore 不会更新子节点的文本内容
+        el.replaceChild(node, existing)
+      } else {
+        el.insertBefore(node, insertBefore)
+      }
+      insertBefore = node
     }
   }
 
