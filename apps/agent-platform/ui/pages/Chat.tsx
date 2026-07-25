@@ -1,78 +1,230 @@
 /**
- * 聊天页面 — 气泡式消息 + 编辑/撤回 + WebSocket 实时推送
+ * 聊天页面 — 气泡式消息 + 流式输出 + WebSocket 实时推送
+ *
+ * 流式 AI 回复：
+ *   后端逐 chunk 推送 WS 事件，前端原地更新气泡内容。
+ *   无需等待完整回复，用户即时看到 AI 生成过程。
  */
 
-import { signal, computed, createResource, Show, For, effect, onCleanup } from 'weifuwu/client'
+import { signal, computed, Show, For, effect, onCleanup } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
+
+interface ChatMsg {
+  id: string
+  sender_id: string
+  sender_name: string
+  sender_type: string
+  content: string
+  msg_type: string
+  created_at: string
+  ai_draft?: string
+  ai_approved?: boolean | null
+  /** 是否正在流式输出 */
+  streaming?: boolean
+  /** 工具调用记录 */
+  tools?: Array<{ name: string; args: string; result?: string; status: 'running' | 'done' | 'error' }>
+}
 
 export function Chat(_props: {}, ctx: WfuiContext) {
   const departmentId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token?.value ?? ctx.auth?.token
   const headers = { Authorization: `Bearer ${token}` }
 
+  // ── 状态 ──
   const inputValue = signal('')
   const sending = signal(false)
+  const messages = signal<ChatMsg[]>([])
   const loaded = signal(false)
-  const prevCount = signal(0)
+  const loading = signal(true)
   let bodyEl: HTMLElement | null = null
 
   // 编辑状态
   const editingId = signal('')
   const editValue = signal('')
 
-  const [messagesRes, { loading, refetch }] = createResource<any[]>(
-    () => fetch(`/api/departments/${departmentId}/messages`, { headers })
-      .then(r => r.json())
-      .then(d => (d.messages ?? []).reverse()),
-    { initialValue: [] },
-  )
-  const [dept] = createResource<any>(
-    () => fetch(`/api/departments/${departmentId}`, { headers }).then(r => r.json()),
-  )
+  // 当前用户绑定的 agent ID
+  const userAgentId = signal('')
 
-  // 获取当前用户的 user agent ID（用于判断消息归属）
-  const [userAgentId] = createResource<string>(
-    () => fetch('/api/agents?type=user', { headers })
-      .then(r => r.json())
-      .then(d => {
-        const agents = d.agents ?? []
-        const mine = agents.find((a: any) => a.user_id === (ctx.auth?.user?.value ?? ctx.auth?.user)?.id)
-        return mine?.id ?? ''
-      }),
-    { initialValue: '' },
-  )
+  // 部门信息
+  const deptName = signal('聊天')
+  const deptMemberCount = signal(0)
 
-  const messages = computed(() => messagesRes.value ?? [])
-  const showLoading = computed(() => loading.value && !loaded.value)
-  const showEmpty = computed(() => !loading.value && messages.value.length === 0)
-  const deptName = computed(() => dept.value?.department?.name ?? dept.value?.name ?? '聊天')
-  const memberCount = computed(() => (dept.value?.members ?? []).length)
-  const canSend = computed(() => inputValue.value.trim().length > 0 && !sending.value)
+  // ── 数据加载 ──
+  async function loadMessages() {
+    try {
+      const [msgRes, deptRes, agentRes] = await Promise.all([
+        fetch(`/api/departments/${departmentId}/messages`, { headers }).then(r => r.json()),
+        fetch(`/api/departments/${departmentId}`, { headers }).then(r => r.json()),
+        fetch('/api/agents?type=user', { headers }).then(r => r.json()),
+      ])
 
-  // 判断消息是否可编辑/撤回：是本人发送且在 5 分钟内
-  function isOwn(msg: any): boolean {
-    return userAgentId.value !== '' && msg.sender_id === userAgentId.value
-  }
-  function canEdit(msg: any): boolean {
-    if (!isOwn(msg)) return false
-    const fiveMin = Date.now() - 5 * 60 * 1000
-    return new Date(msg.created_at).getTime() > fiveMin
-  }
+      const msgs = (msgRes.messages ?? []).reverse().map((m: any) => ({ ...m, streaming: false, tools: [] }))
+      messages.value = msgs
 
-  // ── 首屏 + 自动滚动 ──
-  effect(() => {
-    const count = messages.value.length
-    if (count > 0 && !loaded.value) loaded.value = true
-    if (bodyEl && count > prevCount.value && prevCount.value > 0) {
-      requestAnimationFrame(() => {
-        if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight
-      })
+      deptName.value = deptRes?.department?.name ?? deptRes?.name ?? '聊天'
+      deptMemberCount.value = (deptRes?.members ?? []).length
+
+      const agents = agentRes.agents ?? []
+      const user = ctx.auth?.user
+      const mine = agents.find((a: any) => a.user_id === (user?.value ?? user)?.id)
+      if (mine) userAgentId.value = mine.id
+
+      loaded.value = true
+      loading.value = false
+    } catch {
+      loading.value = false
     }
-    if (count > 0) prevCount.value = count
+  }
+
+  // 初始加载
+  loadMessages()
+
+  const isOwn = (msg: ChatMsg) => userAgentId.value !== '' && msg.sender_id === userAgentId.value
+  const canEdit = (msg: ChatMsg) => {
+    if (!isOwn(msg)) return false
+    return Date.now() - new Date(msg.created_at).getTime() < 5 * 60 * 1000
+  }
+  const showLoading = computed(() => loading.value && !loaded.value)
+  const showEmpty = computed(() => !loading.value && loaded.value && messages.value.length === 0)
+  const canSend = computed(() => inputValue.value.trim().length > 0 && !sending.value)
+  const isEditing = computed(() => editingId.value !== '')
+
+  // ── 自动滚动 ──
+  let prevLen = 0
+  effect(() => {
+    const msgs = messages.value
+    if (bodyEl && msgs.length > prevLen && prevLen > 0) {
+      requestAnimationFrame(() => { if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight })
+    }
+    if (msgs.length > 0) prevLen = msgs.length
   })
 
-  // ── WebSocket ──
-  const unsub = ctx.ws.onMessage(() => refetch())
+  // ── WebSocket 事件处理 ──
+  // 使用 signal 标记版本号，触发重渲染
+  const wsVersion = signal(0)
+
+  function handleWsEvent(event: any) {
+    const type = event.type
+
+    switch (type) {
+      case 'new_message': {
+        // 新消息（用户发的）
+        const m = event.message
+        messages.value = [...messages.value, {
+          id: m.id,
+          sender_id: m.sender_id,
+          sender_name: m.sender_name ?? '',
+          sender_type: m.sender_type ?? 'user',
+          content: m.content,
+          msg_type: 'text',
+          created_at: m.created_at ?? new Date().toISOString(),
+          streaming: false,
+          tools: [],
+        }]
+        wsVersion.value++
+        break
+      }
+      case 'ai:status': {
+        // 流式开始：添加空消息占位
+        const existing = messages.value.findIndex(m => m.id === event.messageId)
+        if (existing === -1) {
+          messages.value = [...messages.value, {
+            id: event.messageId,
+            sender_id: event.agentId,
+            sender_name: event.agentName ?? 'AI',
+            sender_type: 'ai',
+            content: '',
+            msg_type: 'text',
+            created_at: new Date().toISOString(),
+            streaming: true,
+            tools: [],
+          }]
+        }
+        wsVersion.value++
+        break
+      }
+      case 'ai:chunk': {
+        // 流式文本块：追加到已有消息
+        const idx = messages.value.findIndex(m => m.id === event.messageId)
+        if (idx !== -1) {
+          const updated = [...messages.value]
+          updated[idx] = { ...updated[idx], streaming: true, content: updated[idx].content + event.text }
+          messages.value = updated
+          wsVersion.value++
+        }
+        break
+      }
+      case 'ai:tool': {
+        // 工具调用
+        const idx = messages.value.findIndex(m => m.id === event.messageId)
+        if (idx !== -1) {
+          const updated = [...messages.value]
+          const tools = [...(updated[idx].tools ?? []), {
+            name: event.name,
+            args: event.args,
+            status: 'running' as const,
+          }]
+          updated[idx] = { ...updated[idx], tools }
+          messages.value = updated
+          wsVersion.value++
+        }
+        break
+      }
+      case 'ai:tool_result': {
+        // 工具调用结果（暂不使用，留作扩展）
+        break
+      }
+      case 'ai:done': {
+        // 流式完成
+        const idx = messages.value.findIndex(m => m.id === event.messageId)
+        if (idx !== -1) {
+          const updated = [...messages.value]
+          updated[idx] = { ...updated[idx], streaming: false }
+          messages.value = updated
+          wsVersion.value++
+        }
+        break
+      }
+      case 'ai_draft': {
+        // HITL 草稿（保持原有格式）
+        const draft = event.message
+        messages.value = [...messages.value, {
+          id: draft.id,
+          sender_id: draft.agentId,
+          sender_name: draft.agentName ?? 'AI',
+          sender_type: 'ai',
+          content: '[AI 生成中...]',
+          msg_type: 'text',
+          created_at: draft.createdAt ?? new Date().toISOString(),
+          ai_draft: draft.draft,
+          ai_approved: null,
+          streaming: false,
+          tools: [],
+        }]
+        wsVersion.value++
+        break
+      }
+      case 'message_edited': {
+        // 消息编辑
+        const idx = messages.value.findIndex(m => m.id === event.messageId)
+        if (idx !== -1) {
+          const updated = [...messages.value]
+          updated[idx] = { ...updated[idx], content: event.content }
+          messages.value = updated
+          wsVersion.value++
+        }
+        break
+      }
+      case 'message_deleted': {
+        // 消息撤回
+        messages.value = messages.value.filter(m => m.id !== event.messageId)
+        wsVersion.value++
+        break
+      }
+    }
+  }
+
+  const unsub = ctx.ws.onMessage(handleWsEvent)
   onCleanup(() => unsub())
   ctx.ws.send({ type: 'subscribe', departmentId })
 
@@ -85,19 +237,19 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     inputValue.value = ''
 
     try {
-      const res = await fetch(`/api/departments/${departmentId}/messages`, {
+      await fetch(`/api/departments/${departmentId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ content }),
       })
-      if (res.ok) await refetch()
+      // WS 事件会推送 new_message，不用手动 refetch
     } finally {
       sending.value = false
     }
   }
 
   // ── 编辑消息 ──
-  function startEdit(msg: any) {
+  function startEdit(msg: ChatMsg) {
     editingId.value = msg.id
     editValue.value = msg.content
   }
@@ -119,7 +271,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     })
     if (res.ok) {
       cancelEdit()
-      await refetch()
     } else {
       const data = await res.json()
       alert(data.error || '编辑失败')
@@ -127,11 +278,10 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   }
 
   // ── 删除消息 ──
-  async function deleteMsg(msg: any) {
+  async function deleteMsg(msg: ChatMsg) {
     if (!confirm('确定撤回这条消息？')) return
     const res = await fetch(`/api/messages/${msg.id}`, { method: 'DELETE', headers })
-    if (res.ok) await refetch()
-    else {
+    if (!res.ok) {
       const data = await res.json()
       alert(data.error || '撤回失败')
     }
@@ -148,7 +298,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ approved: true }),
       })
-      await refetch()
     } finally {
       approving.value = null
     }
@@ -162,7 +311,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ approved: false }),
       })
-      await refetch()
     } finally {
       approving.value = null
     }
@@ -181,7 +329,8 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     }
   }
 
-  const isEditing = computed(() => editingId.value !== '')
+  // 渲染消息列表时依赖 wsVersion 触发重渲染
+  const renderVersion = computed(() => wsVersion.value)
 
   return (
     <div class="chat-shell">
@@ -190,7 +339,7 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           onClick={(e: any) => { e.preventDefault(); ctx.app.navigate('/chat/new') }}>←</a>
         <div class="chat-head-info">
           <div class="chat-head-name">{deptName}</div>
-          <div class="chat-head-sub">{computed(() => `${memberCount.value} 位成员`)}</div>
+          <div class="chat-head-sub">{computed(() => `${deptMemberCount.value} 位成员`)}</div>
         </div>
         <button class="btn btn-ghost btn-sm" onClick={() => ctx.app.navigate(`/departments/${departmentId}`)}>部门详情</button>
       </div>
@@ -208,92 +357,119 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           </div>
         </Show>
 
-        <For each={messages} keyBy="id">{(msg: any) => {
-          if (msg.msg_type === 'system') {
-            return <div class="sys-pill">{msg.content}</div>
-          }
-          const own = isOwn(msg)
-          const beingEdited = computed(() => editingId.value === msg.id)
+        <Show when={computed(() => messages.value.length > 0)}>
+          {() => {
+            // 用 renderVersion 触发重渲染
+            void renderVersion.value
+            return (
+              <For each={messages} keyBy="id">{(msg: ChatMsg) => {
+                if (msg.msg_type === 'system') {
+                  return <div class="sys-pill">{msg.content}</div>
+                }
+                const own = isOwn(msg)
+                const beingEdited = computed(() => editingId.value === msg.id)
+                const isStreaming = msg.streaming
 
-          return (
-            <div class={`msg-row${own ? ' own' : ''}`}>
-              <div class={`ava ava-sm ava-${msg.sender_type ?? 'user'}`}>{(msg.sender_name ?? '?')[0]}</div>
-              <div class="msg-col">
-                <div class="msg-meta">
-                  <span>{msg.sender_name ?? '未知'}</span>
-                  <span>{fmtTime(msg.created_at)}</span>
-                  {canEdit(msg) && !isEditing.value && (
-                    <span style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
-                      <button
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '11px', padding: '0 2px' }}
-                        onClick={() => startEdit(msg)}
-                      >编辑</button>
-                      <button
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: '11px', padding: '0 2px' }}
-                        onClick={() => deleteMsg(msg)}
-                      >撤回</button>
-                    </span>
-                  )}
-                </div>
-
-                <Show when={computed(() => !beingEdited.value)}>
-                  <div class="bubble">{msg.content}</div>
-                </Show>
-
-                <Show when={computed(() => beingEdited.value)}>
-                  <form onSubmit={saveEdit} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                    <input
-                      class="chat-input"
-                      style={{ borderRadius: '14px', padding: '8px 14px', fontSize: '14px' }}
-                      value={editValue}
-                      onInput={(e: any) => { editValue.value = e.target.value }}
-                      autoFocus
-                    />
-                    <button type="submit" class="chat-send" style={{ width: '36px', height: '36px', fontSize: '14px' }}>✓</button>
-                    <button type="button" class="chat-send" style={{ width: '36px', height: '36px', fontSize: '14px', background: '#6b7280' }} onClick={cancelEdit}>✕</button>
-                  </form>
-                </Show>
-
-                {msg.ai_draft && msg.ai_approved === null && (
-                  <div style={{ marginTop: '6px' }}>
-                    <div style={{
-                      padding: '8px 12px', borderRadius: '8px', fontSize: '13px',
-                      background: '#fffbeb', border: '1px solid #fde68a',
-                      color: '#92400e', marginBottom: '6px',
-                    }}>
-                      <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '11px', color: '#b45309' }}>
-                        ⏳ AI 草稿待审批
+                return (
+                  <div class={`msg-row${own ? ' own' : ''}`}>
+                    <div class={`ava ava-sm ava-${msg.sender_type ?? 'user'}`}>{(msg.sender_name ?? '?')[0]}</div>
+                    <div class="msg-col">
+                      <div class="msg-meta">
+                        <span>{msg.sender_name ?? '未知'}</span>
+                        <span>{fmtTime(msg.created_at)}</span>
+                        {isStreaming && <span style={{ color: 'var(--primary)', fontSize: '11px' }}>⏳ 生成中...</span>}
+                        {canEdit(msg) && !isEditing.value && !msg.streaming && (
+                          <span style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
+                            <button
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '11px', padding: '0 2px' }}
+                              onClick={() => startEdit(msg)}
+                            >编辑</button>
+                            <button
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: '11px', padding: '0 2px' }}
+                              onClick={() => deleteMsg(msg)}
+                            >撤回</button>
+                          </span>
+                        )}
                       </div>
-                      {msg.ai_draft}
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        class="btn btn-sm"
-                        style={{
-                          background: '#10b981', color: '#fff', border: 'none',
-                        }}
-                        disabled={computed(() => approving.value === msg.id)}
-                        onClick={() => approveDraft(msg.id)}
-                      >
-                        {computed(() => approving.value === msg.id ? '处理中...' : '✓ 批准')}
-                      </button>
-                      <button
-                        class="btn btn-sm"
-                        style={{
-                          background: '#ef4444', color: '#fff', border: 'none',
-                        }}
-                        disabled={computed(() => approving.value === msg.id)}
-                        onClick={() => rejectDraft(msg.id)}
-                      >
-                        ✕ 拒绝
-                      </button>
+
+                      {/* 工具调用指示器 */}
+                      <Show when={computed(() => (msg.tools ?? []).length > 0)}>
+                        {() => (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '4px' }}>
+                            {(msg.tools ?? []).map((t, i) => (
+                              <div key={i} style={{
+                                fontSize: '11px', color: 'var(--text-3)',
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                                padding: '2px 8px', borderRadius: '4px',
+                                background: '#f3f4f6', width: 'fit-content',
+                              }}>
+                                <span>{t.status === 'running' ? '⏳' : '✅'}</span>
+                                <span style={{ fontWeight: 500 }}>{t.name}</span>
+                                <span style={{ color: 'var(--text-3)' }}>···</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </Show>
+
+                      <Show when={computed(() => !beingEdited.value)}>
+                        <div class={`bubble${isStreaming ? ' streaming' : ''}`}>{msg.content}</div>
+                      </Show>
+
+                      <Show when={computed(() => beingEdited.value)}>
+                        <form onSubmit={saveEdit} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                          <input
+                            class="chat-input"
+                            style={{ borderRadius: '14px', padding: '8px 14px', fontSize: '14px' }}
+                            value={editValue}
+                            onInput={(e: any) => { editValue.value = e.target.value }}
+                            autoFocus
+                          />
+                          <button type="submit" class="chat-send" style={{ width: '36px', height: '36px', fontSize: '14px' }}>✓</button>
+                          <button type="button" class="chat-send" style={{ width: '36px', height: '36px', fontSize: '14px', background: '#6b7280' }} onClick={cancelEdit}>✕</button>
+                        </form>
+                      </Show>
+
+                      {/* HITL 审批 */}
+                      {msg.ai_draft && msg.ai_approved === null && (
+                        <div style={{ marginTop: '6px' }}>
+                          <div style={{
+                            padding: '8px 12px', borderRadius: '8px', fontSize: '13px',
+                            background: '#fffbeb', border: '1px solid #fde68a',
+                            color: '#92400e', marginBottom: '6px',
+                          }}>
+                            <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '11px', color: '#b45309' }}>
+                              ⏳ AI 草稿待审批
+                            </div>
+                            {msg.ai_draft}
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              class="btn btn-sm"
+                              style={{ background: '#10b981', color: '#fff', border: 'none' }}
+                              disabled={computed(() => approving.value === msg.id)}
+                              onClick={() => approveDraft(msg.id)}
+                            >
+                              {computed(() => approving.value === msg.id ? '处理中...' : '✓ 批准')}
+                            </button>
+                            <button
+                              class="btn btn-sm"
+                              style={{ background: '#ef4444', color: '#fff', border: 'none' }}
+                              disabled={computed(() => approving.value === msg.id)}
+                              onClick={() => rejectDraft(msg.id)}
+                            >
+                              ✕ 拒绝
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )
-        }}</For>
+                )
+              }}</For>
+            )
+          }}
+        </Show>
       </div>
 
       <form class="chat-bar" onSubmit={sendMessage}>
