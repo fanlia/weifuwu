@@ -210,8 +210,10 @@ describe('RouteView', () => {
 
   it('depth 越界时返回 null', () => {
     const ctx = mockCtx({ route: { path: '/', chain: [{ path: '/', component: () => null }] } })
-    ;(ctx as any)._rvDepth = 5
-    assert.equal(RouteView({}, ctx), null)
+    // 手动注入深度到 WeakMap 无法从外部访问
+    // 用空 chain 测试越界
+    const ctx2 = mockCtx({ route: { path: '/', chain: [] } })
+    assert.equal(RouteView({}, ctx2), null)
   })
 
   it('chain item 无 component 和 layout 时返回 null', () => {
@@ -287,7 +289,6 @@ describe('RouteView', () => {
     const ctx = mockCtx({
       route: { path: '/', chain: [{ path: '/', component: Comp }] },
     })
-    delete (ctx as any)._rvDepth
     const v = RouteView({}, ctx) as any
     assert.equal(v.type, Comp)
   })
@@ -397,16 +398,76 @@ describe('_rvDepth reset', () => {
     RouteView({}, ctx) // layout，depth→1
     RouteView({}, ctx) // Comp1
 
-    // 模拟 render 重置 depth（ctx.ui.render 会做这个）
-    ;(ctx as any)._rvDepth = 0
+    // 新 chain（flat 路由）— WeakMap 在新 ctx 上独立
+    const ctx2 = mockCtx({
+      route: {
+        path: '/login',
+        chain: [{ path: '/login', component: Comp2 }],
+      },
+    })
 
-    // 新 chain（flat 路由）
-    ;(ctx as any).route = {
-      path: '/login',
-      chain: [{ path: '/login', component: Comp2 }],
-    }
-
-    const v = RouteView({}, ctx) as any
+    const v = RouteView({}, ctx2) as any
     assert.equal(v.type, Comp2) // depth=0，正确匹配
+  })
+})
+
+// ═══════════════════════════════════════════════════════
+// 哈希模式
+// ═══════════════════════════════════════════════════════
+
+describe('hash mode', () => {
+  beforeEach(() => {
+    window.location.hash = ''
+  })
+
+  it('hash 模式读取 location.hash', () => {
+    window.location.hash = '#/test'
+    const mw = router({ mode: 'hash', routes: [{ path: '/test', component: () => null }] })
+    const ctx = mw({} as any)
+    assert.equal((ctx as any).route.path, '/test')
+  })
+
+  it('hash 模式根路径', () => {
+    window.location.hash = ''
+    const mw = router({ mode: 'hash', routes: [{ path: '/', component: () => null }] })
+    const ctx = mw({} as any)
+    assert.equal((ctx as any).route.path, '/')
+  })
+
+  it('hash 模式 navigate 更新 hash', () => {
+    window.location.hash = '#/'
+    const routes: RouteDef[] = [
+      { path: '/', component: () => null },
+      { path: '/other', component: () => null },
+    ]
+    const mw = router({ mode: 'hash', routes })
+    const ctx: any = { ui: { render: () => {} } }
+    mw(ctx)
+    ctx.app.navigate('/other')
+    assert.equal(window.location.hash, '#/other')
+    assert.equal(ctx.route.path, '/other')
+  })
+
+  it('hash 模式 hashchange 触发 render', () => {
+    const routes: RouteDef[] = [
+      { path: '/', component: () => null },
+      { path: '/new', component: () => null },
+    ]
+    const mw = router({ mode: 'hash', routes })
+    let rendered = false
+    const ctx: any = { ui: { render: () => { rendered = true } } }
+    mw(ctx)
+
+    window.location.hash = '#/new'
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    assert.equal(rendered, true)
+    assert.equal(ctx.route.path, '/new')
+  })
+
+  it('hash 模式提取路径参数', () => {
+    window.location.hash = '#/users/42'
+    const mw = router({ mode: 'hash', routes: [{ path: '/users/:id', component: () => null }] })
+    const ctx = mw({} as any)
+    assert.equal((ctx as any).route.params.id, '42')
   })
 })

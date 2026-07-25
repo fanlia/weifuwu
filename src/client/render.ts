@@ -71,7 +71,20 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   ;(ctx as any).ui = (ctx as any).ui ?? {}
   ;(ctx as any).ui.ready = !!prev$
 
-  const childVNode = Comp(props, ctx)
+  let childVNode
+  try {
+    childVNode = Comp(props, ctx)
+  } catch (e) {
+    // 触发 ErrorBoundary（如果存在）
+    const errHandler = (ctx as any).ui?._errorHandler
+    if (errHandler) {
+      errHandler(e)
+      childVNode = null
+    } else {
+      console.error('Component render error:', e)
+      childVNode = null
+    }
+  }
   if (childVNode == null) {
     vnode._child = null
     return document.createTextNode('')
@@ -188,13 +201,10 @@ export function patchValue(
     ;(ctx as any).ui = (ctx as any).ui ?? {}
     ;(ctx as any).ui.ready = !!newV._$
 
-    // 重用旧的子 VNode 避免重新执行组件
-    const childOld = oldV._child != null ? oldV._child : comp(oldV.props, ctx)
-    ;(ctx as any).ui.ready = !!newV._$
     const childNew = comp(newV.props, ctx)
     newV._child = childNew
 
-    return patchValue(parent, oldNode, childOld, childNew, ctx)
+    return patchValue(parent, oldNode, oldV._child, childNew, ctx)
   }
 
   // Fragment
@@ -394,6 +404,19 @@ function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[]
       insertBefore = node
     }
   }
+}
+
+/** 浅比较两个 props 对象，跳过 children/key/ref */
+function propsEqual(a: any, b: any): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  const aKeys = Object.keys(a).filter(k => k !== 'children' && k !== 'key' && k !== 'ref')
+  const bKeys = Object.keys(b).filter(k => k !== 'children' && k !== 'key' && k !== 'ref')
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (a[key] !== b[key]) return false
+  }
+  return true
 }
 
 // ── ref 回调 ───────────────────────────────────────────

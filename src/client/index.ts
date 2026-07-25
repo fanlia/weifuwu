@@ -32,3 +32,6 @@ export type { AuthClient, AuthOptions } from './middleware/auth.ts'
 
 export { extendCtx } from './types.ts'
 export type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
+
+export { ErrorBoundary } from './error-boundary.ts'
+export type { ErrorBoundaryProps } from './error-boundary.ts'

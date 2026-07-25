@@ -27,6 +27,9 @@ function flattenRoutes(routes: RouteDef[], basePath = '', chain: RouteDef[] = []
   return result
 }
 
+// WeakMap 存储 layout 深度，避免污染 ctx
+export const layoutDepth = new WeakMap<any, number>()
+
 interface FlattenedRoute {
   re: RegExp
   keys: string[]
@@ -59,6 +62,15 @@ function matchRoute(path: string, routes: FlattenedRoute[]): FlattenedRoute | nu
 
 export function router(opts: RouterOptions): AppMiddleware {
   const flatRoutes = flattenRoutes(opts.routes)
+  const mode = opts.mode || 'history'
+
+  function getPath(): string {
+    if (mode === 'hash') {
+      const hash = window.location.hash.replace(/^#/, '') || '/'
+      return hash
+    }
+    return window.location.pathname
+  }
 
   function resolve(path: string) {
     const match = matchRoute(path, flatRoutes)
@@ -81,22 +93,32 @@ export function router(opts: RouterOptions): AppMiddleware {
   }
 
   return (ctx: WfuiContext) => {
-    const resolved = resolve(window.location.pathname)
+    const resolved = resolve(getPath())
     ;(ctx as any).route = resolved
 
     if (!ctx.app) ctx.app = {} as any
     ctx.app!.navigate = (path: string) => {
-      window.history.pushState({}, '', path)
-      const resolved = resolve(path)
-      ;(ctx as any).route = resolved
+      if (mode === 'hash') {
+        window.location.hash = '#' + path
+        const resolved = resolve(path)
+        ;(ctx as any).route = resolved
+      } else {
+        window.history.pushState({}, '', path)
+        const resolved = resolve(path)
+        ;(ctx as any).route = resolved
+      }
       ctx.ui?.render()
     }
 
-    window.addEventListener('popstate', () => {
-      const resolved = resolve(window.location.pathname)
+    const onPop = () => {
+      const resolved = resolve(getPath())
       ;(ctx as any).route = resolved
       ctx.ui?.render()
-    })
+    }
+    window.addEventListener('popstate', onPop)
+    if (mode === 'hash') {
+      window.addEventListener('hashchange', onPop)
+    }
 
     return ctx
   }
@@ -107,15 +129,19 @@ export function RouteView(_props: {}, ctx: WfuiContext): any {
   if (!route?.chain?.length) return null
 
   const ctxAny = ctx as any
-  const depth = ctxAny._rvDepth ?? 0
+  // 使用 WeakMap 存 layout 深度，不污染 ctx
+  const depth = layoutDepth.get(ctxAny) ?? 0
+
   if (depth >= route.chain.length) return null
 
   const def = route.chain[depth]
   const Comp = def.layout ?? def.component
   if (!Comp) return null
 
-  // 如果是 layout，深度+1（内层 RouteView 会用新深度）
-  if (def.layout) ctxAny._rvDepth = depth + 1
+  // 如果是 layout，深度+1
+  if (def.layout) {
+    layoutDepth.set(ctxAny, depth + 1)
+  }
 
   return { type: Comp, props: {}, key: undefined }
 }

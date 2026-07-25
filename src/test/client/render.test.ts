@@ -384,7 +384,7 @@ describe('component patchValue', () => {
 
     const v2 = jsx(Cmp, {})
     patchValue(container, container.firstChild, v1, v2, ctx)
-    // patchValue 用 _child 缓存，组件只执行一次（新 props）
+    // 组件每次重新执行（因为 ctx.ui.$ 可能变了）
     assert.equal(execCount, 2)
   })
 
