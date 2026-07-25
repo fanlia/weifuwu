@@ -168,12 +168,20 @@ export function createAgent(
             if (choice.delta.content) fullContent += choice.delta.content
             if (choice.delta.tool_calls) {
               for (const tc of choice.delta.tool_calls) {
-                let existing = toolCalls.find(t => t.id === tc.id)
+                // DeepSeek 只在第一个 chunk 中带 id，后续 chunk 没有 id。
+                // 没有 id 时追加到最后一个 tool call。
+                let existing: ToolCall | undefined
+                if (tc.id) {
+                  existing = toolCalls.find(t => t.id === tc.id)
+                }
+                if (!existing && toolCalls.length > 0) {
+                  existing = toolCalls[toolCalls.length - 1]
+                }
                 if (existing) {
                   existing.function.arguments += tc.function?.arguments ?? ''
                 } else {
                   existing = {
-                    id: tc.id,
+                    id: tc.id ?? '',
                     type: 'function',
                     function: {
                       name: tc.function?.name ?? '',
