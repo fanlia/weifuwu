@@ -365,6 +365,52 @@ summary:hover { color: var(--primary); }
 .mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; } .mt-24 { margin-top: 24px; }
 .flex { display: flex; align-items: center; gap: 10px; }
 .grow { flex: 1; min-width: 0; }
+
+/* ── 聊天动画 ────────────────────────────── */
+@keyframes dotPulse {
+  0%, 20% { opacity: .3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+  80%, 100% { opacity: .3; transform: translateY(0); }
+}
+.typing-dots { display: inline-flex; gap: 3px; align-items: center; margin-left: 2px; }
+.typing-dots span {
+  display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--primary); animation: dotPulse 1.4s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: .2s; }
+.typing-dots span:nth-child(3) { animation-delay: .4s; }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.cursor-blink {
+  display: inline-block; width: 2px; height: 16px; margin-left: 1px;
+  background: var(--text); animation: blink .8s step-end infinite;
+  vertical-align: text-bottom;
+}
+.msg-row.own .cursor-blink { background: rgba(255,255,255,.7); }
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(99,102,241,.4); }
+  70% { box-shadow: 0 0 0 6px rgba(99,102,241,0); }
+  100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+}
+.tool-running {
+  animation: pulse-ring 1.8s cubic-bezier(.215,.61,.355,1) infinite;
+}
+.bubble.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px rgba(99,102,241,.15), var(--shadow-sm);
+  transition: border-color .3s, box-shadow .3s;
+}
+.bubble.error {
+  border-color: var(--danger);
+  background: #fef2f2;
+}
+.msg-row.own .bubble.error {
+  background: var(--danger);
+}
 `
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production'

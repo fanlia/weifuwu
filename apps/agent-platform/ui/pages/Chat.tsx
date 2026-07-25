@@ -427,10 +427,28 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                 const st = msg.status
                 const isActive = st === 'thinking' || st === 'generating'
 
-                function statusLabel(): string {
-                  if (st === 'thinking') return '🧠 思考中...'
-                  if (st === 'generating') return '⏳ 生成中...'
-                  if (st === 'error') return '⚠️ 出错了'
+                function statusLabel() {
+                  if (st === 'thinking') {
+                    return (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        思考中
+                        <span class="typing-dots">
+                          <span></span><span></span><span></span>
+                        </span>
+                      </span>
+                    )
+                  }
+                  if (st === 'generating') {
+                    return (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        生成中
+                        <span class="typing-dots">
+                          <span></span><span></span><span></span>
+                        </span>
+                      </span>
+                    )
+                  }
+                  if (st === 'error') return <span>⚠️ 出错了</span>
                   return ''
                 }
 
@@ -462,13 +480,18 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                         {() => (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '4px' }}>
                             {(msg.tools ?? []).map((t, i) => (
-                              <div key={i} style={{
+                              <div key={i} class={t.status === 'running' ? 'tool-running' : ''} style={{
                                 fontSize: '11px', color: 'var(--text-3)',
                                 display: 'flex', alignItems: 'center', gap: '4px',
                                 padding: '2px 8px', borderRadius: '4px',
                                 background: '#f3f4f6', width: 'fit-content',
                               }}>
-                                <span>{t.status === 'running' ? '⏳' : '✅'}</span>
+                                {t.status === 'running'
+                                  ? <span class="typing-dots" style={{ display: 'inline-flex', gap: '2px' }}>
+                                      <span></span><span></span><span></span>
+                                    </span>
+                                  : <span>✅</span>
+                                }
                                 <span style={{ fontWeight: 500 }}>{t.name}</span>
                                 <span style={{ color: 'var(--text-3)' }}>···</span>
                               </div>
@@ -479,7 +502,8 @@ export function Chat(_props: {}, ctx: WfuiContext) {
 
                       <Show when={computed(() => !beingEdited.value)}>
                         <div class={`bubble${isActive ? ' active' : ''}${st === 'error' ? ' error' : ''}`}>
-                          {msg.content || (isActive ? '▊' : '')}
+                          {msg.content || ''}
+                          {st === 'generating' && <span class="cursor-blink"></span>}
                         </div>
                         {st === 'complete' && msg.usage && (
                           <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '3px', textAlign: 'right' }}>
