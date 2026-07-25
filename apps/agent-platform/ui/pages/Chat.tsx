@@ -59,16 +59,16 @@ export function Chat(_props: {}, ctx: WfuiContext) {
         fetch('/api/agents?type=user', { headers }).then(r => r.json()),
       ])
 
+      const agents = agentRes.agents ?? []
+      const user = ctx.auth?.user
+      const mine = agents.find((a: any) => a.user_id === (user?.value ?? user)?.id)
+      if (mine) userAgentId.value = mine.id
+
       const msgs = (msgRes.messages ?? []).reverse().map((m: any) => ({ ...m, streaming: false, tools: [] }))
       messages.value = msgs
 
       deptName.value = deptRes?.department?.name ?? deptRes?.name ?? '聊天'
       deptMemberCount.value = (deptRes?.members ?? []).length
-
-      const agents = agentRes.agents ?? []
-      const user = ctx.auth?.user
-      const mine = agents.find((a: any) => a.user_id === (user?.value ?? user)?.id)
-      if (mine) userAgentId.value = mine.id
 
       loaded.value = true
       loading.value = false
