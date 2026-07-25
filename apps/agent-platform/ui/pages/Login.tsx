@@ -34,8 +34,7 @@ export function Login(_props: {}, ctx: WfuiContext) {
         loading.value = false
         return
       }
-      ctx.auth.login(data.token, data.user)
-      setRefreshToken(data.refreshToken ?? null)
+      ctx.auth.login(data.token, data.user, data.refreshToken ?? undefined)
       ctx.app.navigate('/')
     } catch {
       error.value = '网络错误，请稍后重试'

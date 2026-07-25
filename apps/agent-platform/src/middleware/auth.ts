@@ -31,16 +31,16 @@ declare module 'weifuwu' {
  * app.use(auth({ secret: process.env.JWT_SECRET }))
  * ```
  */
+function base64UrlDecode(s: string): string {
+  return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
+}
+
+function base64UrlEncode(data: string): string {
+  return Buffer.from(data).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
 export function auth(opts?: { secret?: string }): Middleware<Context, Context & { auth: AuthPayload }> {
   const secret = opts?.secret ?? process.env.JWT_SECRET ?? 'default-secret'
-
-  function base64UrlDecode(s: string): string {
-    return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
-  }
-
-  function base64UrlEncode(data: string): string {
-    return Buffer.from(data).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  }
 
   function verifySignature(token: string, key: string): boolean {
     const parts = token.split('.')

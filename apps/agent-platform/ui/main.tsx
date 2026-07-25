@@ -31,6 +31,7 @@ app.use(auth({
   storage: localStorage,
   tokenKey: 'agent_platform_token',
   userKey: 'agent_platform_user',
+  refreshTokenKey: 'agent_platform_refresh',
 }))
 app.use(ws({ url: '/ws' }))
 
