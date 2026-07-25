@@ -7,6 +7,7 @@
 
 import type { Context } from 'weifuwu'
 import { runAgent } from './agent-runner.ts'
+import { SkillRegistry, loadSkill } from './skills.ts'
 import { wsHub } from './ws-hub.ts'
 
 /**
@@ -74,6 +75,26 @@ export async function handleNewMessage(
       const systemPrompt = agent.system_prompt ?? '你是一个有帮助的 AI 助手。'
       const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
 
+      // 加载 Agent 已启用的技能
+      const preloadedSkills: import('./skills.ts').SkillContext[] = []
+      try {
+        const agentSkills = await sql`
+          SELECT ask.skill_dir, ask.skill_name
+          FROM agent_skills ask
+          WHERE ask.agent_id = ${agent.id} AND ask.enabled = TRUE
+        `
+        for (const as of agentSkills) {
+          try {
+            const skill = await loadSkill(as.skill_dir, () => ctx)
+            preloadedSkills.push(skill)
+          } catch (err) {
+            console.warn(`[chat] 加载技能 ${as.skill_name} 失败:`, err)
+          }
+        }
+      } catch {
+        // agent_skills 表可能不存在，忽略
+      }
+
       const result = await runAgent(ctx, {
         agentId: agent.id,
         tenantId: ctx.tenantId,
@@ -83,6 +104,10 @@ export async function handleNewMessage(
         tools,
         maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
         humanInTheLoop: agent.human_in_the_loop ?? false,
+        preloadedSkills,
+        workspacePath: agent.workspace_path,
+        allowFileTools: agent.allow_file_tools,
+        allowCommandExec: agent.allow_command_exec,
       }, chatMessages)
 
       // 保存回复消息

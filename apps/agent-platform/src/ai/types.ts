@@ -130,8 +130,8 @@ export interface AiClient {
   /** 流式 LLM 对话 */
   chatStream(params: ChatParams & ChatStreamCallbacks): Promise<void>
 
-  /** Agent Tool Loop */
-  agent(config: AgentConfig): {
+  /** Agent Tool Loop — 第二个参数可选传递 SkillRegistry */
+  agent(config: AgentConfig, skillRegistry?: any): {
     run(messages: ChatMessage[]): Promise<AgentRunResult>
     stream(messages: ChatMessage[], callbacks: ChatStreamCallbacks): Promise<AgentRunResult>
   }

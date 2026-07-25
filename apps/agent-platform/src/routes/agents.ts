@@ -54,7 +54,8 @@ export function registerAgentRoutes(app: Router): void {
         id, type, name, avatar_url, description,
         model, system_prompt, temperature, max_tokens, human_in_the_loop,
         user_id, webhook_url, chunk_size, chunk_overlap,
-        tools, is_active, created_at, updated_at
+        tools, is_active, created_at, updated_at,
+        workspace_path, allow_file_tools, allow_command_exec
       FROM agents
       WHERE tenant_id = ${tenantId}
       ${type && ['ai', 'user', 'webhook', 'knowledge_base'].includes(type) ? sql`AND type = ${type}` : sql``}
@@ -115,6 +116,10 @@ export function registerAgentRoutes(app: Router): void {
       // Knowledge Base
       chunk_size?: number
       chunk_overlap?: number
+      // Workspace
+      workspace_path?: string
+      allow_file_tools?: boolean
+      allow_command_exec?: boolean
     }
 
     if (!body.type || !body.name) {
@@ -129,12 +134,14 @@ export function registerAgentRoutes(app: Router): void {
       INSERT INTO agents (
         tenant_id, type, name, avatar_url, description,
         model, system_prompt, temperature, max_tokens, human_in_the_loop,
-        user_id, webhook_url, webhook_secret, webhook_retry_count, chunk_size, chunk_overlap, tools
+        user_id, webhook_url, webhook_secret, webhook_retry_count, chunk_size, chunk_overlap, tools,
+        workspace_path, allow_file_tools, allow_command_exec
       ) VALUES (
         ${tenantId}, ${body.type}, ${body.name}, ${body.avatar_url ?? null}, ${body.description ?? null},
         ${body.model ?? null}, ${body.system_prompt ?? null}, ${body.temperature ?? 0.7}, ${body.max_tokens ?? 2048}, ${body.human_in_the_loop ?? false},
         ${body.user_id ?? null}, ${body.webhook_url ?? null}, ${body.webhook_secret ?? null}, ${body.webhook_retry_count ?? 3}, ${body.chunk_size ?? 500}, ${body.chunk_overlap ?? 50},
-        ${body.tools ? JSON.stringify(body.tools) : '[]'}
+        ${body.tools ? JSON.stringify(body.tools) : '[]'},
+        ${body.workspace_path ?? null}, ${body.allow_file_tools ?? false}, ${body.allow_command_exec ?? false}
       )
       RETURNING id, type, name, created_at
     `
@@ -167,6 +174,7 @@ export function registerAgentRoutes(app: Router): void {
       'name', 'avatar_url', 'description',
       'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
       'webhook_url', 'webhook_secret', 'webhook_retry_count', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
+      'workspace_path', 'allow_file_tools', 'allow_command_exec',
     ]
 
     const sets: string[] = []

@@ -29,9 +29,11 @@ import { handleNewMessage } from './src/services/chat.ts'
 import { handleWebhookMessage } from './src/services/webhook.ts'
 import { wsHub, createWsHandler } from './src/services/ws-hub.ts'
 
-// ── 内置工具 ───────────────────────────────────────────────
+// ── 内置工具 + Skills ─────────────────────────────────────
 import { registerBuiltinTools, BUILTIN_TOOL_DEFS } from './src/tools/builtin.ts'
 import { hashPassword, verifyPassword } from './src/services/password.ts'
+import { registerSkillRoutes } from './src/routes/skills.ts'
+import { registerRoleTemplateRoutes } from './src/routes/role-templates.ts'
 
 // ── UI ────────────────────────────────────────────────────
 import { registerUiRoutes } from './src/ui/routes.ts'
@@ -92,8 +94,32 @@ async function main() {
   registerBuiltinTools(() => currentCtx)
   console.log(`[agent-platform] 已注册 ${BUILTIN_TOOL_DEFS.length} 个内置工具`)
 
-  // ── 认证路由（无需登录） ─────────────────────────────────
+  // ── 公开 API（无需登录） ───────────────────────────────
   registerAuthRoutes(app)
+
+  // 可用技能列表（公开，无租户信息）
+  app.get('/api/skills/available', async (_req: Request, _ctx: Context): Promise<Response> => {
+    const { discoverSkills } = await import('./src/services/skills.ts')
+    const { resolve, dirname } = await import('node:path')
+    const { fileURLToPath } = await import('node:url')
+    const __dirname = dirname(fileURLToPath(import.meta.url))
+    const skillsDir = resolve(__dirname, 'skills', 'builtin')
+    const skills = await discoverSkills(skillsDir)
+    return Response.json({ skills, skillsDir })
+  })
+
+  // ── 角色模板列表（公开） ───────────────────────────────
+  // 使用动态 import 访问模板数据
+  app.get('/api/role-templates', async () => {
+    const { getRoleTemplates } = await import('./src/routes/role-templates.ts')
+    return Response.json({ templates: getRoleTemplates() })
+  })
+  app.get('/api/role-templates/:slug', async (req: Request, ctx: Context): Promise<Response> => {
+    const { getRoleTemplates } = await import('./src/routes/role-templates.ts')
+    const template = getRoleTemplates().find(t => t.slug === ctx.params.slug)
+    if (!template) return Response.json({ error: '模板不存在' }, { status: 404 })
+    return Response.json({ template })
+  })
 
   // ── Token 刷新（无需登录，用 refreshToken 换新 access_token） ──
   app.post('/api/auth/refresh', async (req: Request, ctx: Context): Promise<Response> => {
@@ -139,6 +165,10 @@ async function main() {
   registerMessageRoutes(protectedRoutes)
   // 知识库
   registerKnowledgeRoutes(protectedRoutes)
+  // Skills
+  registerSkillRoutes(protectedRoutes)
+  // 角色模板
+  registerRoleTemplateRoutes(protectedRoutes)
   // 获取当前用户（需要 auth 中间件）
   protectedRoutes.get('/api/auth/me', async (req: Request, ctx: Context): Promise<Response> => {
     const { sql, auth } = ctx

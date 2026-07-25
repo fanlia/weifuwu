@@ -16,10 +16,12 @@ import type {
   ChatStreamCallbacks,
   AiClient,
 } from './types.ts'
+import type { SkillRegistry } from '../services/skills.ts'
 
 export function createAgent(
   client: AiClient,
   config: AgentConfig,
+  skillRegistry?: SkillRegistry,
 ) {
   const maxSteps = config.maxSteps ?? 10
 
@@ -80,7 +82,7 @@ export function createAgent(
         // 查找并执行 tool
         let toolResult: string
         try {
-          toolResult = await executeToolCall(toolCall, config.tools)
+          toolResult = await executeToolCall(toolCall, config.tools, skillRegistry)
         } catch (err) {
           toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`
         }
@@ -217,7 +219,7 @@ export function createAgent(
 
         let toolResult: string
         try {
-          toolResult = await executeToolCall(toolCall, config.tools)
+          toolResult = await executeToolCall(toolCall, config.tools, skillRegistry)
         } catch (err) {
           toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`
         }
@@ -271,11 +273,12 @@ export function createAgent(
 
 /**
  * 执行单个 tool call
- * 查找本地注册的 tool 并调用其 handler
+ * 查找顺序: SkillRegistry(per-agent) → global toolHandlers
  */
 async function executeToolCall(
   toolCall: ToolCall,
   tools: import('./types.ts').ToolDefinition[],
+  skillRegistry?: SkillRegistry,
 ): Promise<string> {
   const { name, arguments: argsStr } = toolCall.function
   const toolDef = tools.find(t => t.function.name === name)
@@ -284,17 +287,22 @@ async function executeToolCall(
     return `Error: tool "${name}" not found`
   }
 
-  // 查找工具 handler — 通过工具注册表
-  const handler = toolHandlers.get(name)
-  if (!handler) {
-    return `Error: tool handler for "${name}" not registered`
-  }
-
   let args: Record<string, unknown>
   try {
     args = JSON.parse(argsStr)
   } catch {
     args = {}
+  }
+
+  // 1. 优先查 SkillRegistry（per-agent）
+  if (skillRegistry?.hasTool(name)) {
+    return skillRegistry.executeTool(name, args)
+  }
+
+  // 2. Fallback 到全局 toolHandlers
+  const handler = toolHandlers.get(name)
+  if (!handler) {
+    return `Error: tool handler for "${name}" not registered`
   }
 
   try {

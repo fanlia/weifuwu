@@ -188,3 +188,49 @@ CREATE TABLE IF NOT EXISTS kb_chunks (
 
 CREATE INDEX IF NOT EXISTS idx_kb_chunks_agent ON kb_chunks(agent_id);
 CREATE INDEX IF NOT EXISTS idx_kb_chunks_embedding ON kb_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- ── Phase 1: 技能注册表 ───────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS agent_skills (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id    UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  skill_name  TEXT NOT NULL,
+  skill_dir   TEXT NOT NULL,
+  enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(agent_id, skill_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_skills_agent ON agent_skills(agent_id);
+
+-- ── Phase 2: 工作空间 ─────────────────────────────────────
+
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS workspace_path TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS allow_file_tools BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS allow_command_exec BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ── Phase 3: 角色模板 ─────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS role_templates (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT NOT NULL,
+  slug        TEXT NOT NULL UNIQUE,
+  description TEXT,
+  icon        TEXT,
+  category    TEXT NOT NULL DEFAULT 'general',
+  default_system_prompt TEXT,
+  default_model TEXT,
+  default_temperature FLOAT8 DEFAULT 0.7,
+  default_max_tokens INT DEFAULT 2048,
+  default_allow_file_tools BOOLEAN DEFAULT FALSE,
+  default_allow_command_exec BOOLEAN DEFAULT FALSE,
+  default_workspace_hint TEXT,
+  default_skills JSONB DEFAULT '[]'::JSONB,
+  sort_order INT DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Phase 5: 审批策略 ─────────────────────────────────────
+
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS approval_policy JSONB DEFAULT '{}'::JSONB;

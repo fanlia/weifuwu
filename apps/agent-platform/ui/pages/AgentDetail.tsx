@@ -81,6 +81,16 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
   const testWebhookResult = signal('')
   const testWebhookLoading = signal(false)
 
+  // ── 工作空间配置 ──
+  const workspacePath = signal('')
+  const allowFileTools = signal(false)
+  const allowCommandExec = signal(false)
+
+  // ── 技能管理 ──
+  const boundSkills = signal<any[]>([])
+  const availableSkills = signal<any[]>([])
+  const showSkillPicker = signal(false)
+
   // ── 数据加载 ──
   const [agent, { loading }] = createResource<any>(async () => {
     const d = await fetch(`/api/agents/${agentId}`, { headers }).then(r => r.json())
@@ -95,11 +105,35 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
     webhookUrl.value = a.webhook_url ?? ''
     webhookSecret.value = a.webhook_secret ?? ''
     webhookRetryCount.value = String(a.webhook_retry_count ?? 3)
+    workspacePath.value = a.workspace_path ?? ''
+    allowFileTools.value = !!a.allow_file_tools
+    allowCommandExec.value = !!a.allow_command_exec
     // 工具：从 agent.tools 中提取已启用的工具名
     const tools = typeof a.tools === 'string' ? JSON.parse(a.tools) : (a.tools ?? [])
     enabledTools.value = (Array.isArray(tools) ? tools : []).map((t: any) => t.function?.name ?? '')
     return a
   })
+
+  // ── 加载 Agent 已绑定的技能 ──
+  const [_, { refetch: refetchSkills }] = createResource<any[]>(
+    async () => {
+      if (!agentId) return []
+      const d = await fetch(`/api/agents/${agentId}/skills`, { headers }).then(r => r.json())
+      const skills = d.skills ?? []
+      boundSkills.value = skills
+      return skills
+    },
+    { initialValue: [] },
+  )
+
+  // ── 加载可用技能列表 ──
+  createResource<any[]>(
+    () => fetch('/api/skills/available').then(r => r.json()).then(d => {
+      availableSkills.value = d.skills ?? []
+      return d.skills ?? []
+    }),
+    { initialValue: [] },
+  )
 
   // ── 内置工具列表 ──
   const [builtinTools] = createResource<any[]>(
@@ -341,6 +375,9 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
       body.temperature = parseFloat(aiTemperature.value) || 0.7
       body.max_tokens = parseInt(aiMaxTokens.value) || 2048
       body.human_in_the_loop = aiHITL.value
+      body.workspace_path = workspacePath.value || undefined
+      body.allow_file_tools = allowFileTools.value
+      body.allow_command_exec = allowCommandExec.value
       // 根据勾选的工具名，从内置工具定义中构建 tools 数组
       const allTools = builtinTools.value ?? []
       const selectedDefs = allTools.filter((t: any) => enabledTools.value.includes(t.function.name))
@@ -509,6 +546,27 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
                 </div>
               </div>
             </div>
+
+            {/* ── 工作空间配置 ── */}
+            <div class="sect-title" style={{ marginTop: '20px', marginBottom: '10px' }}>📁 工作空间</div>
+            <div class="field">
+              <label class="field-label">工作路径</label>
+              <input class="input" type="text" placeholder="如 /data/projects/my-app" value={workspacePath}
+                onInput={(e: any) => { workspacePath.value = e.target.value }} />
+              <div class="field-hint">设置后 Agent 可以读写该目录下的文件</div>
+            </div>
+            <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                <input type="checkbox" checked={allowFileTools}
+                  onChange={(e: any) => { allowFileTools.value = e.target.checked }} />
+                <span>📄 启用文件工具 (read/write/edit/grep)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                <input type="checkbox" checked={allowCommandExec}
+                  onChange={(e: any) => { allowCommandExec.value = e.target.checked }} />
+                <span>⚡ 启用命令执行 (bash)</span>
+              </label>
+            </div>
           </Show>
 
           {/* ── Webhook 配置 ── */}
@@ -550,32 +608,104 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
           </div>
         </form>
 
-        {/* ═══ AI 工具配置 ═══ */}
+        {/* ═══ 技能管理 ═══ */}
         <Show when={isAI}>
           <div class="card card-pad mt-24">
-            <div class="sect-title" style={{ marginBottom: '12px' }}>🔧 工具配置</div>
+            <div class="sect-title" style={{ marginBottom: '12px' }}>🔧 技能管理</div>
             <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '16px' }}>
-              选择 AI 可使用的内置工具。工具在保存后生效。
+              已加载的技能可作为 AI Agent 的工具。每个技能需要 <code>SKILL.md</code> + <code>tools.ts</code>。
             </p>
-            <Show when={computed(() => (builtinTools.value ?? []).length === 0)}>
-              <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '12px' }}>
-                没有可用的内置工具
+
+            {/* 已绑定的技能列表 */}
+            <Show when={computed(() => boundSkills.value.length === 0)}>
+              <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '16px' }}>
+                尚未绑定任何技能。点击下方按钮从内置技能列表中选择。
               </div>
             </Show>
-            <For each={builtinTools} keyBy={(t: any) => t.function?.name ?? Math.random()}>{(tool: any) => {
-              const toolName = tool.function?.name ?? ''
-              const checked = computed(() => isToolEnabled(toolName))
-              return (
-                <label class="check-item" style={{ cursor: 'pointer', borderRadius: '8px' }}>
-                  <input type="checkbox" checked={checked}
-                    onChange={() => toggleTool(toolName)} />
+
+            <div class="check-list" style={{ marginBottom: '12px' }}>
+              <For each={boundSkills} keyBy="id">{(s: any) => (
+                <div class="check-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '13px' }}>{toolName}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>{tool.function?.description ?? ''}</div>
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>
+                      {s.enabled ? '✅' : '⏸'} {s.skill_name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-3)', wordBreak: 'break-all' }}>
+                      {s.skill_dir}
+                    </div>
                   </div>
-                </label>
-              )
-            }}</For>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      class="btn btn-sm btn-ghost"
+                      style={{ fontSize: '11px', padding: '4px 8px', minWidth: '40px' }}
+                      onClick={async () => {
+                        await fetch(`/api/agents/${agentId}/skills/${s.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json', ...headers },
+                          body: JSON.stringify({ enabled: !s.enabled }),
+                        })
+                        s.enabled = !s.enabled
+                        boundSkills.value = [...boundSkills.value]
+                      }}
+                    >{s.enabled ? '禁用' : '启用'}</button>
+                    <button
+                      class="btn btn-sm btn-danger"
+                      style={{ fontSize: '11px', padding: '4px 8px', minWidth: '40px' }}
+                      onClick={async () => {
+                        const res = await fetch(`/api/agents/${agentId}/skills/${s.id}`, { method: 'DELETE', headers })
+                        if (res.ok) refetchSkills()
+                      }}
+                    >移除</button>
+                  </div>
+                </div>
+              )}</For>
+            </div>
+
+            {/* 添加技能按钮 */}
+            <button class="btn btn-primary btn-sm" onClick={() => { showSkillPicker.value = !showSkillPicker.value }}>
+              {computed(() => showSkillPicker.value ? '收起技能列表' : '＋ 添加技能')}
+            </button>
+
+            {/* 可用技能列表 */}
+            <Show when={showSkillPicker}>
+              <div style={{ marginTop: '12px', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px' }}>可用技能</div>
+                <Show when={computed(() => availableSkills.value.length === 0)}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0' }}>没有可用的技能</div>
+                </Show>
+                <For each={availableSkills} keyBy={(s: any) => s.meta?.name ?? Math.random()}>{(s: any) => {
+                  const alreadyBound = computed(() => boundSkills.value.some((b: any) => b.skill_name === s.meta?.name))
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '13px' }}>{s.meta?.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>{s.meta?.description}</div>
+                      </div>
+                      <button
+                        class="btn btn-sm"
+                        style={{
+                          fontSize: '11px', padding: '4px 10px', minWidth: '50px',
+                          background: alreadyBound.value ? '#e5e7eb' : '#3b82f6',
+                          color: alreadyBound.value ? '#6b7280' : '#fff',
+                          border: 'none', cursor: alreadyBound.value ? 'default' : 'pointer',
+                          borderRadius: '6px',
+                        }}
+                        disabled={alreadyBound.value}
+                        onClick={async () => {
+                          if (alreadyBound.value) return
+                          const res = await fetch(`/api/agents/${agentId}/skills`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', ...headers },
+                            body: JSON.stringify({ skill_name: s.meta?.name, skill_dir: s.dir }),
+                          })
+                          if (res.ok) refetchSkills()
+                        }}
+                      >{alreadyBound.value ? '已绑定' : '绑定'}</button>
+                    </div>
+                  )
+                }}</For>
+              </div>
+            </Show>
           </div>
         </Show>
 

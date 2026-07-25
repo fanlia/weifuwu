@@ -10,7 +10,11 @@
  */
 
 import type { Context } from 'weifuwu'
-import type { ChatMessage, AgentRunResult } from '../ai/types.ts'
+import type { ChatMessage, AgentRunResult, ToolDefinition } from '../ai/types.ts'
+import { SkillRegistry } from './skills.ts'
+import type { SkillContext } from './skills.ts'
+import { loadWorkspaceInfo } from '../middleware/workspace.ts'
+import { getWorkspaceToolDefs, createWorkspaceHandlers } from '../tools/workspace.ts'
 
 export interface AgentRunnerConfig {
   agentId: string
@@ -21,6 +25,14 @@ export interface AgentRunnerConfig {
   tools: unknown[]
   maxSteps?: number
   humanInTheLoop?: boolean
+  /** 可选：预加载的技能列表 */
+  preloadedSkills?: SkillContext[]
+  /** 可选：工作空间路径（启用文件工具） */
+  workspacePath?: string
+  /** 是否允许文件工具 */
+  allowFileTools?: boolean
+  /** 是否允许命令执行 */
+  allowCommandExec?: boolean
 }
 
 interface TokenCounter {
@@ -111,15 +123,51 @@ export async function runAgent(
     8000,
   )
 
+  // 构建工具集：技能工具 + 工作空间工具
+  const allTools: ToolDefinition[] = [...(config.tools as ToolDefinition[])]
+
+  // 构建 SkillRegistry（如果有预加载技能）
+  let skillRegistry: SkillRegistry | undefined
+  if (config.preloadedSkills && config.preloadedSkills.length > 0) {
+    skillRegistry = new SkillRegistry(config.agentId)
+    for (const skill of config.preloadedSkills) {
+      skillRegistry.registerSkill(skill)
+      // 技能的工具定义也加入总工具列表
+      allTools.push(...skill.tools)
+    }
+  }
+
+  // 如果 Agent 有工作空间且启用了文件工具
+  if (config.workspacePath && config.allowFileTools) {
+    const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
+    allTools.push(...wsTools)
+
+    // 创建工作空间工具 handlers 并注册到 SkillRegistry
+    try {
+      const wsHandlers = createWorkspaceHandlers(config.workspacePath, config.allowCommandExec ?? false)
+      if (!skillRegistry) {
+        skillRegistry = new SkillRegistry(config.agentId)
+      }
+      skillRegistry.registerSkill({
+        dir: config.workspacePath,
+        meta: { name: '__workspace__', description: '工作空间文件工具' },
+        tools: wsTools,
+        handlers: wsHandlers,
+      })
+    } catch (err: any) {
+      console.warn(`[agent-runner] 工作空间初始化失败: ${err.message}`)
+    }
+  }
+
   const startTime = Date.now()
 
   const agentRunner = ai.agent({
     model: config.model,
     systemPrompt: config.systemPrompt,
-    tools: config.tools as any[],
+    tools: allTools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: config.humanInTheLoop ?? false,
-  })
+  }, skillRegistry)
 
   const result = await agentRunner.run(contextMessages.slice(1)) // 去掉 system，agent 内部会重新加
 
@@ -168,13 +216,48 @@ export async function streamAgent(
 ): Promise<void> {
   const { ai } = ctx
 
+  // 构建工具集：技能工具 + 工作空间工具
+  const allTools: ToolDefinition[] = [...(config.tools as ToolDefinition[])]
+
+  // 构建 SkillRegistry（如果有预加载技能）
+  let skillRegistry: SkillRegistry | undefined
+  if (config.preloadedSkills && config.preloadedSkills.length > 0) {
+    skillRegistry = new SkillRegistry(config.agentId)
+    for (const skill of config.preloadedSkills) {
+      skillRegistry.registerSkill(skill)
+      allTools.push(...skill.tools)
+    }
+  }
+
+  // 如果 Agent 有工作空间且启用了文件工具
+  if (config.workspacePath && config.allowFileTools) {
+    const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
+    allTools.push(...wsTools)
+
+    // 创建工作空间工具 handlers 并注册到 SkillRegistry
+    try {
+      const wsHandlers = createWorkspaceHandlers(config.workspacePath, config.allowCommandExec ?? false)
+      if (!skillRegistry) {
+        skillRegistry = new SkillRegistry(config.agentId)
+      }
+      skillRegistry.registerSkill({
+        dir: config.workspacePath,
+        meta: { name: '__workspace__', description: '工作空间文件工具' },
+        tools: wsTools,
+        handlers: wsHandlers,
+      })
+    } catch (err: any) {
+      console.warn(`[agent-runner] 工作空间初始化失败: ${err.message}`)
+    }
+  }
+
   const agentRunner = ai.agent({
     model: config.model,
     systemPrompt: config.systemPrompt,
-    tools: config.tools as any[],
+    tools: allTools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: config.humanInTheLoop ?? false,
-  })
+  }, skillRegistry)
 
   let fullContent = ''
 
