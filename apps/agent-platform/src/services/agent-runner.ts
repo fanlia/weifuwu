@@ -279,7 +279,7 @@ export async function streamAgent(
     onToolCall: (toolCall) => {
       callbacks.onToolCall?.({ name: toolCall.function.name, args: toolCall.function.arguments })
     },
-    onFinish: () => {
+    onFinish: (result) => {
       callbacks.onFinish?.({ content: fullContent })
     },
   })
