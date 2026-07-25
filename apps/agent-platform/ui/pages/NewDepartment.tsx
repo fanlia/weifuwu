@@ -1,120 +1,102 @@
-/**
- * 创建部门页面
- */
-
-import { signal, computed, createResource, Show, For } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 import { PageHeader, Loading, TypeBadge } from '../components/ui'
 
 export function NewDepartment(_props: {}, ctx: WfuiContext) {
-  const token = ctx.auth?.token?.value ?? ctx.auth?.token
-  const headers = { Authorization: `Bearer ${token}` }
+  const $ = ctx.ui.$
+  const token = ctx.auth?.token
 
-  const name = signal('')
-  const companyId = signal('')
-  const selected = signal<string[]>([])
-  const submitting = signal(false)
-  const error = signal('')
-  const hasError = computed(() => error.value !== '')
-
-  const [companies, { loading: loadingCompanies }] = createResource<any[]>(
-    () => fetch('/api/companies', { headers }).then(r => r.json()).then(d => d.companies ?? []),
-    { initialValue: [] },
-  )
-  const [agents] = createResource<any[]>(
-    () => fetch('/api/agents', { headers }).then(r => r.json()).then(d => d.agents ?? []),
-    { initialValue: [] },
-  )
-
-  const noCompany = computed(() => !loadingCompanies.value && (companies.value ?? []).length === 0)
-  const selectedCount = computed(() => selected.value.length)
+  if (!ctx.ui.ready) {
+    $.name = ''; $.companyId = ''; $.selected = []; $.submitting = false; $.error = ''
+    $.companies = []; $.agents = []; $.loading = true
+    Promise.all([
+      fetch('/api/companies', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(d => d.companies ?? []),
+      fetch('/api/agents', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(d => d.agents ?? []),
+    ]).then(([companies, agents]) => {
+      $.companies = companies; $.agents = agents; $.loading = false
+    }).catch(() => { $.loading = false })
+  }
 
   function toggle(id: string) {
-    const set = new Set(selected.value)
+    const set = new Set($.selected)
     if (set.has(id)) set.delete(id); else set.add(id)
-    selected.value = [...set]
+    $.selected = [...set]
+   
   }
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
-    if (!name.value.trim()) { error.value = '请输入部门名称'; return }
-    const cid = companyId.value || companies.value?.[0]?.id
-    if (!cid) { error.value = '请先创建公司'; return }
-    submitting.value = true
-    error.value = ''
-
+    if (!$.name.trim()) { $.error = '请输入部门名称'; return }
+    const cid = $.companyId || $.companies?.[0]?.id
+    if (!cid) { $.error = '请先创建公司'; return }
+    $.submitting = true; $.error = ''
     try {
       const res = await fetch('/api/departments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ company_id: cid, name: name.value.trim(), member_ids: selected.value }),
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ company_id: cid, name: $.name.trim(), member_ids: $.selected }),
       })
       const data = await res.json()
-      if (!res.ok) { error.value = data.error || '创建失败'; submitting.value = false; return }
-      ctx.app.navigate('/departments')
-    } catch {
-      error.value = '网络错误'
-      submitting.value = false
-    }
+      if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
+      ctx.app?.navigate('/departments')
+    } catch { $.error = '网络错误'; $.submitting = false }
   }
 
   return (
     <div class="page page-narrow">
-      <a href="/departments" class="back-link" onClick={(e: any) => { e.preventDefault(); ctx.app.navigate('/departments') }}>← 返回部门列表</a>
+      <a class="back-link" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
       <PageHeader title="创建部门" sub="选择公司并添加成员" />
 
-      <Show when={hasError}><div class="alert alert-err">{error}</div></Show>
+      {$.error && <div class="alert alert-err">{$.error}</div>}
 
-      <Show when={loadingCompanies}><Loading /></Show>
+      {$.loading && <Loading />}
 
-      <Show when={noCompany}>
+      {!$.loading && $.companies.length === 0 && (
         <div class="empty">
           <div class="empty-ico">🏢</div>
           <div class="empty-txt">还没有公司</div>
           <div class="empty-hint">部门必须挂在公司下，请先在 API 中创建公司</div>
         </div>
-      </Show>
+      )}
 
-      <Show when={computed(() => !noCompany.value && !loadingCompanies.value)}>
+      {!$.loading && $.companies.length > 0 && (
         <form class="card card-pad" onSubmit={handleSubmit}>
           <div class="field">
             <label class="field-label">部门名称 <span class="req">*</span></label>
-            <input class="input" type="text" placeholder="如：技术部、市场部" value={name}
-              onInput={(e: any) => { name.value = e.target.value }} />
+            <input class="input" type="text" placeholder="如：技术部、市场部" value={$.name}
+              onInput={(e: any) => { $.name = e.target.value }} />
           </div>
 
           <div class="field">
             <label class="field-label">所属公司</label>
-            <select class="select" value={companyId} onChange={(e: any) => { companyId.value = e.target.value }}>
-              <For each={companies}>{(c: any) => (
-                <option value={c.id}>{c.name}</option>
-              )}</For>
+            <select class="select" value={$.companyId} onChange={(e: any) => { $.companyId = e.target.value }}>
+              {$.companies.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
             </select>
           </div>
 
           <div class="field">
             <label class="field-label">
-              添加成员 <span class="muted">（已选 {selectedCount} 个，可稍后添加）</span>
+              添加成员 <span class="muted">（已选 {$.selected.length} 个，可稍后添加）</span>
             </label>
             <div class="check-list">
-              <For each={agents} keyBy="id">{(a: any) => (
-                <label class="check-item">
-                  <input type="checkbox" onChange={() => toggle(a.id)} />
+              {$.agents.map((a: any) => (
+                <label key={a.id} class="check-item">
+                  <input type="checkbox" checked={$.selected.includes(a.id)} onChange={() => toggle(a.id)} />
                   <span>{a.name}</span>
                   <TypeBadge type={a.type} />
                 </label>
-              )}</For>
+              ))}
             </div>
           </div>
 
           <div class="form-foot">
-            <button type="button" class="btn btn-ghost" onClick={() => ctx.app.navigate('/departments')}>取消</button>
-            <button type="submit" class="btn btn-primary" disabled={submitting}>
-              {computed(() => submitting.value ? '创建中...' : '创建部门')}
+            <button type="button" class="btn btn-ghost" onClick={() => ctx.app?.navigate('/departments')}>取消</button>
+            <button type="submit" class="btn btn-primary" disabled={$.submitting}>
+              {$.submitting ? '创建中...' : '创建部门'}
             </button>
           </div>
         </form>
-      </Show>
+      )}
     </div>
   )
 }

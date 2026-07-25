@@ -275,7 +275,7 @@ export async function streamAgent(
         if (choice.delta.content) {
           fullContent += choice.delta.content
           // 透传 chat.ts 的 async onChunk 结果
-          const result = callbacks.onChunk(choice.delta.content)
+          const result: any = callbacks.onChunk(choice.delta.content)
           if (result && typeof result.then === 'function') {
             return result
           }

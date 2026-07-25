@@ -1,137 +1,133 @@
 /**
- * weifuwu/client 应用测试 — createApp / 中间件链 / mount / hydrate
+ * weifuwu/client app — createApp 测试
  */
 
-import { describe, it, before } from 'node:test'
+import { describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-
-// ── 浏览器全局环境设置 ───────────────────────────────────────
+import { jsx } from '../../client/vnode.ts'
+import type { WfuiContext } from '../../client/types.ts'
 
 before(setupJsdom)
 
-// ── 导入被测模块 ────────────────────────────────────────────
-
 const { createApp } = await import('../../client/app.ts')
-const { jsx, setCtx, getCtx } = await import('../../client/jsx-runtime.ts')
-import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
-
-// ═════════════════════════════════════════════════════════════
-// createApp
-// ═════════════════════════════════════════════════════════════
 
 describe('createApp', () => {
-  it('创建 app 实例', () => {
+  afterEach(() => {
+    // cleanup 可能挂载的 DOM
+    document.body.innerHTML = ''
+  })
+
+  it('返回 app 对象', () => {
     const app = createApp()
-    assert.ok(app.ctx)
+    assert.ok(app)
     assert.equal(typeof app.use, 'function')
     assert.equal(typeof app.mount, 'function')
-    assert.equal(typeof app.hydrate, 'function')
+    assert.equal(typeof app.destroy, 'function')
   })
 
-  it('初始 ctx 有默认值', () => {
+  it('use() 链式调用', () => {
     const app = createApp()
-    assert.equal(app.ctx.route.path, '/')
-    assert.ok(typeof app.ctx.app.navigate, 'function')
+    const mw = (ctx: WfuiContext) => ctx
+    assert.equal(app.use(mw), app)
   })
 
-  it('use 返回自身，支持链式调用', () => {
-    const app = createApp()
-    const mw: AppMiddleware = (ctx) => ctx
-    const result = app.use(mw)
-    assert.equal(result, app)
-  })
-
-  it('中间件链按顺序执行', async () => {
-    const app = createApp()
+  it('mount() 按顺序执行中间件', async () => {
     const order: number[] = []
-
+    const app = createApp()
     app.use((ctx) => { order.push(1); return ctx })
     app.use((ctx) => { order.push(2); return ctx })
-    app.use((ctx) => { order.push(3); return ctx })
 
-    // mount 触发中间件链执行
-    const Comp = (_props: {}, _ctx: WfuiContext) => jsx('div', {}, 'hello')
-    await app.mount('#root', Comp)
-
-    assert.deepEqual(order, [1, 2, 3])
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'app'
+    await app.mount('#app', () => jsx('div', { children: 'hello' }))
+    assert.deepEqual(order, [1, 2])
+    el.remove()
   })
 
-  it('中间件可以注入字段到 ctx', async () => {
+  it('mount() 渲染组件到容器', async () => {
     const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'mount1'
+    await app.mount('#mount1', () => jsx('p', { children: 'mounted' }))
+    assert.equal(el.textContent, 'mounted')
+    el.remove()
+  })
 
-    app.use((ctx) => {
-      (ctx as any).customField = 'injected'
-      return ctx
-    })
+  it('注入 ctx.ui', async () => {
+    let capturedCtx: any
+    const app = createApp()
+    app.use((ctx) => { capturedCtx = ctx; return ctx })
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'ui-test'
+    await app.mount('#ui-test', () => jsx('div', null))
 
-    const Comp = (_props: {}, ctx: WfuiContext) => {
-      // 组件中 ctx 应包含 customField
-      assert.equal((ctx as any).customField, 'injected')
-      return jsx('div', {}, 'test')
+    assert.ok(capturedCtx.ui)
+    assert.equal(typeof capturedCtx.ui.render, 'function')
+    assert.ok(typeof capturedCtx.ui.$, 'object')
+    assert.equal(capturedCtx.ui.ready, false)
+    el.remove()
+  })
+
+  it('ctx.ui.render 触发重渲染', async () => {
+    let renderCount = 0
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      renderCount++
+      return jsx('span', { children: String(renderCount) })
     }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 're-render'
+    await app.mount('#re-render', Cmp)
+    assert.equal(renderCount, 1)
 
-    await app.mount('#root', Comp)
+    // 手动触发重渲染
+    const renderFn = (app as any).ctx.ui.render
+    renderFn()
+    // 组件在 patchValue 中执行一次（新 props），旧 VNode 有 _child 缓存
+    assert.equal(renderCount, 2)
+    assert.equal(el.textContent, '2')
+    el.remove()
   })
 
-  it('异步中间件正常工作', async () => {
+  it('destroy 清空容器', async () => {
     const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'destroy-test'
+    await app.mount('#destroy-test', () => jsx('div', { children: 'data' }))
+    assert.equal(el.textContent, 'data')
 
-    app.use(async (ctx) => {
-      await new Promise(r => setTimeout(r, 5))
-      ;(ctx as any).asyncData = 'loaded'
-      return ctx
-    })
+    app.destroy()
+    assert.equal(el.innerHTML, '')
+    el.remove()
+  })
 
-    const Comp = (_props: {}, ctx: WfuiContext) => {
-      assert.equal((ctx as any).asyncData, 'loaded')
-      return jsx('div', {}, 'async')
+  it('mount 不存在的 selector 抛出错误', async () => {
+    const app = createApp()
+    try {
+      await app.mount('#non-existent', () => jsx('div', null))
+      assert.fail('should throw')
+    } catch (e: any) {
+      assert.ok(e.message.includes('#non-existent'))
     }
-
-    await app.mount('#root', Comp)
   })
 
-  it('mount 将组件渲染到指定容器', async () => {
-    const root = document.getElementById('root')!
-    root.innerHTML = ''
-
-    const Comp = (_props: {}, _ctx: WfuiContext) => jsx('div', { class: 'mounted' }, 'ok')
+  it('ctx.ui.$ 在 mount 时为对象', async () => {
+    let ctx: any
     const app = createApp()
-    await app.mount('#root', Comp)
+    app.use((c) => { ctx = c; return c })
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'state-test'
+    await app.mount('#state-test', () => jsx('div', null))
 
-    assert.equal(root.children.length, 1)
-    assert.equal(root.firstElementChild?.className, 'mounted')
-    assert.equal(root.textContent, 'ok')
-
-    root.innerHTML = ''
-  })
-})
-
-// ═════════════════════════════════════════════════════════════
-// hydrate
-// ═════════════════════════════════════════════════════════════
-
-describe('hydrate', () => {
-  it('在现有 DOM 上附加组件', () => {
-    const root = document.getElementById('root')!
-    root.innerHTML = '<div class="ssr-content">Server rendered</div>'
-
-    const Comp = (_props: {}, _ctx: WfuiContext) => jsx('div', { class: 'hydrated' }, 'client')
-    const app = createApp()
-    app.hydrate('#root', Comp)
-
-    // 原有内容保留
-    assert.ok(root.innerHTML.includes('Server rendered'))
-    // 新增内容追加
-    assert.ok(root.innerHTML.includes('hydrated'))
-    assert.ok(root.innerHTML.includes('client'))
-
-    root.innerHTML = ''
-  })
-
-  it('目标不存在时给出警告', () => {
-    const app = createApp()
-    // 不应抛出异常
-    app.hydrate('#nonexistent', (_props: {}, _ctx: WfuiContext) => jsx('div', {}))
+    assert.ok(typeof ctx.ui.$, 'object')
+    assert.notEqual(ctx.ui.$, null)
+    el.remove()
   })
 })

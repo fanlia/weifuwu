@@ -15,5 +15,5 @@
       "weifuwu/client/jsx-runtime": ["../../src/client/index.ts"],
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "server.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "server.ts", "ui/**/*.tsx"]
 }

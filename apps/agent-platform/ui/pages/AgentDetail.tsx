@@ -1,1018 +1,389 @@
-/**
- * Agent 详情/编辑页面
- *
- * 支持类型: ai, webhook, knowledge_base, user
- * - AI: 编辑系统提示词 + 模型配置 + 工具选择 + 执行历史
- * - Webhook: 编辑 URL + 测试发送
- * - Knowledge Base: 文档上传与管理
- * - User: 显示绑定的用户信息
- */
-
-import { signal, computed, createResource, Show, For, effect } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 import { PageHeader, TypeBadge, Loading } from '../components/ui'
-
-// ── 可用模型列表 ────────────────────────────────────────
 
 const MODELS = [
   { value: '', label: '默认 (环境变量 DEEPSEEK_MODEL)' },
   { value: 'deepseek-v4-flash', label: 'DeepSeek Chat' },
   { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
-  { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
 ]
 
-/** 渲染文档分块列表（因 esbuild JSX 嵌套深度限制，用 DOM 方式渲染） */
-function renderChunks(chunks: any[]): Node {
-  const container = document.createElement('div')
-  container.style.display = 'flex'
-  container.style.flexDirection = 'column'
-  container.style.gap = '6px'
-  for (const ch of chunks) {
-    const el = document.createElement('div')
-    el.style.padding = '8px 10px'
-    el.style.borderRadius = '6px'
-    el.style.background = '#fff'
-    el.style.border = '1px solid #e5e7eb'
-    el.style.fontSize = '12px'
-    el.style.lineHeight = '1.6'
-    el.innerHTML = `<span style="font-size:11px;color:var(--text-3)">块 #${ch.chunk_index + 1}</span><br>${(ch.content ?? '').slice(0, 300)}`
-    container.appendChild(el)
-  }
-  return container
-}
-
 export function AgentDetail(_props: {}, ctx: WfuiContext) {
+  const $ = ctx.ui.$
   const agentId = ctx.route?.params?.id ?? ''
-  const token = ctx.auth?.token?.value ?? ctx.auth?.token
-  const headers = { Authorization: `Bearer ${token}` }
+  const token = ctx.auth?.token
 
-  // ── 表单信号 ──
-  const name = signal('')
-  const description = signal('')
-  const submitting = signal(false)
-  const error = signal('')
-  const hasError = computed(() => error.value !== '')
-  const successMsg = signal('')
-  const hasSuccess = computed(() => successMsg.value !== '')
+  if (!ctx.ui.ready) {
+    $.agent = null; $.loading = true; $.saving = false; $.notFound = false
+    $.error = ''; $.ok = ''
 
-  // AI 配置
-  const systemPrompt = signal('')
-  const aiModel = signal('')
-  const aiTemperature = signal('0.7')
-  const aiMaxTokens = signal('2048')
-  const aiHITL = signal(false)
-  const enabledTools = signal<string[]>([])
+    // 表单字段
+    $.name = ''; $.description = ''; $.systemPrompt = ''
+    $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'
+    $.aiHITL = false; $.webhookUrl = ''; $.webhookSecret = ''
+    $.webhookRetryCount = '3'; $.secretVisible = false
+    $.allowFileTools = false; $.allowCommandExec = false
 
-  // 知识库文档管理
-  const newDocFilename = signal('')
-  const newDocContent = signal('')
-  const uploading = signal(false)
-  const batchDocs = signal<string>('')  // 批量粘贴（JSON 格式）
-  const showBatch = signal(false)
-  const expandedDoc = signal<string | null>(null)  // 展开的文档 ID
-  const docChunks = signal<any[]>([])  // 展开文档的 chunks
-  const loadingChunks = signal(false)
+    // 技能管理
+    $.boundSkills = []; $.availableSkills = []; $.showSkillPicker = false
 
-  // Webhook 配置
-  const webhookUrl = signal('')
-  const webhookSecret = signal('')
-  const webhookRetryCount = signal('3')
-  const secretVisible = signal(false)
+    // 执行日志
+    $.logs = []; $.logsLoading = false
 
-  // Webhook 测试
-  const testWebhookResult = signal('')
-  const testWebhookLoading = signal(false)
+    Promise.all([
+      fetch(`/api/agents/${agentId}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch(`/api/agents/${agentId}/skills`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({ skills: [] })),
+      fetch('/api/skills/available', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({ skills: [] })),
+    ]).then(([agentRes, skillRes, availRes]) => {
+      const a = agentRes.agent ?? agentRes
+      if (!a?.id) { $.notFound = true; $.loading = false; return }
+      $.agent = a; $.name = a.name ?? ''; $.description = a.description ?? ''
+      $.systemPrompt = a.system_prompt ?? ''; $.aiModel = a.model ?? ''
+      $.aiTemperature = String(a.temperature ?? 0.7)
+      $.aiMaxTokens = String(a.max_tokens ?? 2048)
+      $.aiHITL = !!a.human_in_the_loop
+      $.webhookUrl = a.webhook_url ?? ''; $.webhookSecret = a.webhook_secret ?? ''
+      $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
+      $.allowFileTools = a.allow_file_tools ?? false
+      $.allowCommandExec = a.allow_command_exec ?? false
+      $.boundSkills = skillRes.skills ?? []
+      $.availableSkills = availRes.skills ?? []
 
-  // ── 工作空间配置 ──
-  const workspacePath = signal('')
-  const allowFileTools = signal(false)
-  const allowCommandExec = signal(false)
+      // 知识库文档
+      $.docs = []; $.docsLoading = false; $.newDocFilename = ''; $.newDocContent = ''
+      $.uploading = false; $.expandedDoc = null; $.docChunks = []; $.loadingChunks = false
+      $.showBatch = false
 
-  // ── 技能管理 ──
-  const boundSkills = signal<any[]>([])
-  const availableSkills = signal<any[]>([])
-  const showSkillPicker = signal(false)
-  const skillActionLoading = signal<string | null>(null)  // 正在操作的 skill ID
+      // Webhook 日志
+      $.whLogs = []; $.whLogsLoading = false
 
-  // ── 数据加载 ──
-  const [agent, { loading }] = createResource<any>(async () => {
-    const d = await fetch(`/api/agents/${agentId}`, { headers }).then(r => r.json())
-    const a = d.agent ?? {}
-    name.value = a.name ?? ''
-    description.value = a.description ?? ''
-    systemPrompt.value = a.system_prompt ?? ''
-    aiModel.value = a.model ?? ''
-    aiTemperature.value = String(a.temperature ?? 0.7)
-    aiMaxTokens.value = String(a.max_tokens ?? 2048)
-    aiHITL.value = !!a.human_in_the_loop
-    webhookUrl.value = a.webhook_url ?? ''
-    webhookSecret.value = a.webhook_secret ?? ''
-    webhookRetryCount.value = String(a.webhook_retry_count ?? 3)
-    workspacePath.value = a.workspace_path ?? ''
-    allowFileTools.value = !!a.allow_file_tools
-    allowCommandExec.value = !!a.allow_command_exec
-    // 工具：从 agent.tools 中提取已启用的工具名
-    const tools = typeof a.tools === 'string' ? JSON.parse(a.tools) : (a.tools ?? [])
-    enabledTools.value = (Array.isArray(tools) ? tools : []).map((t: any) => t.function?.name ?? '')
-    return a
-  })
-
-  // ── 加载 Agent 已绑定的技能 ──
-  const [_, { refetch: refetchSkills }] = createResource<any[]>(
-    async () => {
-      if (!agentId) return []
-      const d = await fetch(`/api/agents/${agentId}/skills`, { headers }).then(r => r.json())
-      const skills = d.skills ?? []
-      boundSkills.value = skills
-      return skills
-    },
-    { initialValue: [] },
-  )
-
-  // ── 加载可用技能列表 ──
-  createResource<any[]>(
-    () => fetch('/api/skills/available').then(r => r.json()).then(d => {
-      availableSkills.value = d.skills ?? []
-      return d.skills ?? []
-    }),
-    { initialValue: [] },
-  )
-
-  // ── 内置工具列表 ──
-  const [builtinTools] = createResource<any[]>(
-    () => fetch('/api/agents/builtin-tools', { headers })
-      .then(r => r.json()).then(d => d.tools ?? []),
-    { initialValue: [] },
-  )
-
-  // ── 计算信号 ──
-  const isAI = computed(() => agent.value?.type === 'ai')
-  const docChunksList = computed(() => docChunks.value)
-  const docExpanded = (id: string) => computed(() => expandedDoc.value === id)
-  const isWebhook = computed(() => agent.value?.type === 'webhook')
-  const isKB = computed(() => agent.value?.type === 'knowledge_base')
-  const isUser = computed(() => agent.value?.type === 'user')
-  const notFound = computed(() => !loading.value && !agent.value?.id)
-
-  const toolsList = computed(() => {
-    const t = agent.value?.tools
-    if (!t) return []
-    if (Array.isArray(t)) return t
-    try { return JSON.parse(t) } catch { return [] }
-  })
-  const hasTools = computed(() => toolsList.value.length > 0)
-
-  // ── 执行历史 ──
-  const [logs, { loading: logsLoading }] = createResource<any[]>(
-    () => {
-      if (!isAI.value) return []
-      return fetch(`/api/stats/agents/${agentId}/logs`, { headers })
-        .then(r => r.json()).then(d => d.logs ?? [])
-    },
-    { initialValue: [] },
-  )
-  const hasLogs = computed(() => (logs.value ?? []).length > 0)
-  const totalTokens = computed(() =>
-    (logs.value ?? []).reduce((s: number, l: any) => s + (l.tokens_total ?? 0), 0)
-  )
-
-  // ── Webhook 请求日志 ──
-  const [webhookLogs, { loading: whLogsLoading }] = createResource<any[]>(
-    () => {
-      if (!isWebhook.value) return []
-      return fetch(`/api/stats/agents/${agentId}/webhook-logs`, { headers })
-        .then(r => r.json()).then(d => d.logs ?? [])
-    },
-    { initialValue: [] },
-  )
-  const hasWebhookLogs = computed(() => (webhookLogs.value ?? []).length > 0)
-
-  // ── 知识库文档 ──
-  const [docs, { loading: docsLoading, refetch: refetchDocs }] = createResource<any[]>(
-    () => {
-      if (!isKB.value) return []
-      return fetch(`/api/agents/${agentId}/knowledge`, { headers })
-        .then(r => r.json()).then(d => d.documents ?? [])
-    },
-    { initialValue: [] },
-  )
-
-  // 知识库 QA
-  const qaQuery = signal('')
-  const qaResults = signal<any[]>([])
-  const qaSearching = signal(false)
-
-  // ── 工具勾选 ──
-  function toggleTool(name: string) {
-    const set = new Set(enabledTools.value)
-    if (set.has(name)) set.delete(name); else set.add(name)
-    enabledTools.value = [...set]
-  }
-
-  function isToolEnabled(name: string) {
-    return enabledTools.value.includes(name)
-  }
-
-  // ── 操作函数 ──
-
-  // ── 文档展开/收起 ──
-  async function toggleExpandDoc(docId: string) {
-    if (expandedDoc.value === docId) {
-      expandedDoc.value = null
-      docChunks.value = []
-      return
-    }
-    expandedDoc.value = docId
-    loadingChunks.value = true
-    try {
-      const res = await fetch(`/api/knowledge/${docId}?chunks=true`, { headers })
-      if (res.ok) {
-        const data = await res.json()
-        docChunks.value = data.chunks ?? []
+      if (a.type === 'knowledge_base') {
+        fetch(`/api/agents/${agentId}/knowledge`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.json()).then(d => { $.docs = d.documents ?? [] }).catch(() => {})
       }
-    } finally {
-      loadingChunks.value = false
+
+      $.loading = false
+    }).catch(() => { $.loading = false })
+  }
+
+  if ($.loading) return <div class="page"><Loading /></div>
+  if ($.notFound) return <div class="page"><div class="empty" style={{ paddingTop: '20vh' }}><div class="empty-ico">🧭</div><div class="empty-txt">Agent 不存在</div></div></div>
+  const a = $.agent ?? {}
+
+  async function handleSubmit(e: Event) {
+    e.preventDefault()
+    $.saving = true; $.error = ''; $.ok = ''
+    const body: Record<string, any> = { name: $.name, description: $.description }
+    if (a.type === 'ai') {
+      body.system_prompt = $.systemPrompt; body.model = $.aiModel || null
+      body.temperature = parseFloat($.aiTemperature) || 0.7
+      body.max_tokens = parseInt($.aiMaxTokens) || 2048
+      body.human_in_the_loop = $.aiHITL
+      body.allow_file_tools = $.allowFileTools
+      body.allow_command_exec = $.allowCommandExec
     }
+    if (a.type === 'webhook') {
+      body.webhook_url = $.webhookUrl; body.webhook_secret = $.webhookSecret
+      body.webhook_retry_count = parseInt($.webhookRetryCount) || 3
+    }
+    try {
+      const res = await fetch(`/api/agents/${agentId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) { $.error = data.error || '保存失败'; $.saving = false; return }
+      $.ok = '保存成功'; $.saving = false
+    } catch { $.error = '网络错误'; $.saving = false }
+  }
+
+  async function bindSkill(slug: string) {
+    await fetch(`/api/agents/${agentId}/skills`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ skill_slug: slug }),
+    })
+    const d = await fetch(`/api/agents/${agentId}/skills`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    $.boundSkills = d.skills ?? []
+  }
+
+  async function unbindSkill(slug: string) {
+    await fetch(`/api/agents/${agentId}/skills/${slug}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    const d = await fetch(`/api/agents/${agentId}/skills`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    $.boundSkills = d.skills ?? []
+  }
+
+  async function loadLogs() {
+    $.logsLoading = true
+    const d = await fetch(`/api/agents/${agentId}/logs?limit=20`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    $.logs = d.logs ?? []; $.logsLoading = false
+  }
+
+  async function loadWebhookLogs() {
+    $.whLogsLoading = true
+    const d = await fetch(`/api/stats/agents/${agentId}/webhook-logs`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    $.whLogs = d.logs ?? []; $.whLogsLoading = false
+  }
+
+  async function toggleExpandDoc(docId: string) {
+    if ($.expandedDoc === docId) { $.expandedDoc = null; $.docChunks = []; return }
+    $.expandedDoc = docId; $.loadingChunks = true
+    try {
+      const res = await fetch(`/api/knowledge/${docId}?chunks=true`, { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) { const d = await res.json(); $.docChunks = d.chunks ?? [] }
+    } catch {}
+    $.loadingChunks = false
   }
 
   async function uploadDoc(e: Event) {
     e.preventDefault()
-    if (!newDocFilename.value.trim() || !newDocContent.value.trim()) return
-    uploading.value = true
+    if (!$.newDocFilename.trim() || !$.newDocContent.trim()) return
+    $.uploading = true
     try {
       const res = await fetch(`/api/agents/${agentId}/knowledge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({
-          filename: newDocFilename.value.trim(),
-          content: newDocContent.value,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ filename: $.newDocFilename.trim(), content: $.newDocContent }),
       })
       if (res.ok) {
-        newDocFilename.value = ''
-        newDocContent.value = ''
-        refetchDocs()
+        $.newDocFilename = ''; $.newDocContent = ''
+        const d = await fetch(`/api/agents/${agentId}/knowledge`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+        $.docs = d.documents ?? []
       }
-    } finally {
-      uploading.value = false
-    }
-  }
-
-  // ── 文件上传 ──
-  async function uploadFiles(e: Event) {
-    const input = e.target as HTMLInputElement
-    const files = input.files
-    if (!files || files.length === 0) return
-
-    uploading.value = true
-    const form = new FormData()
-    for (const file of files) {
-      form.append('files', file)
-    }
-
-    try {
-      const res = await fetch(`/api/agents/${agentId}/knowledge/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },  // 让 fetch 自动设置 Content-Type: multipart/form-data
-        body: form,
-      })
-      if (res.ok || res.status === 207) {
-        refetchDocs()
-      }
-    } finally {
-      uploading.value = false
-      input.value = '' // 重置文件选择
-    }
-  }
-
-  // ── 拖拽上传 ──
-  let dropCounter = 0
-  const isDragOver = signal(false)
-
-  function onDragEnter(e: any) {
-    e.preventDefault()
-    dropCounter++
-    isDragOver.value = true
-  }
-  function onDragLeave(e: any) {
-    e.preventDefault()
-    dropCounter--
-    if (dropCounter === 0) isDragOver.value = false
-  }
-  function onDragOver(e: any) {
-    e.preventDefault()
-  }
-  async function onDrop(e: any) {
-    e.preventDefault()
-    dropCounter = 0
-    isDragOver.value = false
-    const files = e.dataTransfer?.files
-    if (!files || files.length === 0) return
-
-    uploading.value = true
-    const form = new FormData()
-    for (const file of files) {
-      form.append('files', file)
-    }
-
-    try {
-      const res = await fetch(`/api/agents/${agentId}/knowledge/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      })
-      if (res.ok || res.status === 207) {
-        refetchDocs()
-      }
-    } finally {
-      uploading.value = false
-    }
-  }
-
-  // ── 批量粘贴上传 ──
-  async function uploadBatch(e: Event) {
-    e.preventDefault()
-    let docs: Array<{ filename: string; content: string }> = []
-    try {
-      docs = JSON.parse(batchDocs.value)
-    } catch {
-      return
-    }
-    if (!Array.isArray(docs) || docs.length === 0) return
-
-    uploading.value = true
-    try {
-      const res = await fetch(`/api/agents/${agentId}/knowledge/batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ documents: docs }),
-      })
-      if (res.ok || res.status === 207) {
-        batchDocs.value = ''
-        showBatch.value = false
-        refetchDocs()
-      }
-    } finally {
-      uploading.value = false
-    }
+    } catch {}
+    $.uploading = false
   }
 
   async function deleteDoc(docId: string) {
-    if (!confirm('确定删除此文档？')) return
-    const res = await fetch(`/api/knowledge/${docId}`, { method: 'DELETE', headers })
-    if (res.ok) refetchDocs()
-  }
-
-  async function handleSubmit(e: Event) {
-    e.preventDefault()
-    submitting.value = true
-    error.value = ''
-
-    const body: Record<string, unknown> = {
-      name: name.value,
-      description: description.value || undefined,
-    }
-    if (isAI.value) {
-      body.system_prompt = systemPrompt.value || undefined
-      body.model = aiModel.value || undefined
-      body.temperature = parseFloat(aiTemperature.value) || 0.7
-      body.max_tokens = parseInt(aiMaxTokens.value) || 2048
-      body.human_in_the_loop = aiHITL.value
-      body.allow_file_tools = allowFileTools.value
-      body.allow_command_exec = allowCommandExec.value
-      // 根据勾选的工具名，从内置工具定义中构建 tools 数组
-      const allTools = builtinTools.value ?? []
-      const selectedDefs = allTools.filter((t: any) => enabledTools.value.includes(t.function.name))
-      body.tools = selectedDefs
-    }
-    if (isWebhook.value) {
-      body.webhook_url = webhookUrl.value || undefined
-      body.webhook_secret = webhookSecret.value || undefined
-      body.webhook_retry_count = parseInt(webhookRetryCount.value) || 3
-    }
-
-    try {
-      const res = await fetch(`/api/agents/${agentId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (!res.ok) { error.value = data.error || '保存失败'; submitting.value = false; return }
-      successMsg.value = '✅ 保存成功'
-      error.value = ''
-      submitting.value = false
-      // 更新 agent 数据（而非 window.location.reload）
-      agent.value = { ...agent.value, ...data.agent ?? data }
-      setTimeout(() => { successMsg.value = '' }, 3000)
-    } catch (err) {
-      error.value = '网络错误'
-      submitting.value = false
-    }
-  }
-
-  async function testWebhook() {
-    testWebhookLoading.value = true
-    testWebhookResult.value = ''
-    try {
-      const res = await fetch(`/api/webhook/${agentId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: 'Hello, this is a test message from Agent Platform.' }),
-      })
-      const data = await res.json()
-      testWebhookResult.value = res.ok
-        ? `✅ 回复: ${data.reply}`
-        : `❌ 错误: ${data.error ?? res.status}`
-    } catch (e: any) {
-      testWebhookResult.value = `❌ 请求失败: ${e.message}`
-    } finally {
-      testWebhookLoading.value = false
-    }
-  }
-
-  async function searchQA(e: Event) {
-    e.preventDefault()
-    if (!qaQuery.value.trim()) return
-    qaSearching.value = true
-    try {
-      const res = await fetch(`/api/agents/${agentId}/knowledge/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ query: qaQuery.value.trim(), top_k: 5 }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        qaResults.value = data.results ?? []
-      }
-    } finally {
-      qaSearching.value = false
-    }
-  }
-
-  function fmtTime(iso: string): string {
-    try {
-      const d = new Date(iso)
-      return d.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    } catch { return iso }
+    await fetch(`/api/knowledge/${docId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    const d = await fetch(`/api/agents/${agentId}/knowledge`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    $.docs = d.documents ?? []
   }
 
   return (
     <div class="page page-narrow">
-      <a href="/agents" class="back-link" onClick={(e: any) => { e.preventDefault(); ctx.app.navigate('/agents') }}>← 返回 Agent 列表</a>
+      <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
-      <Show when={loading}><Loading /></Show>
-
-      <Show when={notFound}>
-        <div class="empty">
-          <div class="empty-ico">🔍</div>
-          <div class="empty-txt">Agent 不存在</div>
+      <div class="card card-pad detail-hero" style={{ marginBottom: '16px' }}>
+        <div class={`ava ava-${a.type ?? 'ai'}`}>{(a.name ?? '?')[0]}</div>
+        <div class="detail-hero-info">
+          <div class="detail-hero-name">{a.name ?? '未命名'} <TypeBadge type={a.type ?? 'ai'} /></div>
+          <div class="detail-hero-sub">{a.description ?? ''} · 模型: {a.model ?? '-'}</div>
         </div>
-      </Show>
+      </div>
 
-      <Show when={computed(() => !!agent.value?.id)}>
-        {() => (
-        <div>
-        <div class="detail-hero card">
-          <div class={`ava ava-${agent.value?.type ?? 'user'}`}>{(agent.value?.name ?? '?')[0]}</div>
-          <div class="detail-hero-info">
-            <div class="detail-hero-name">
-              {computed(() => agent.value?.name ?? '')}
-              <TypeBadge type={agent.value?.type ?? ''} />
+      {$.error && <div class="alert alert-err">{$.error}</div>}
+      {$.ok && <div class="alert alert-ok">{$.ok}</div>}
+
+      <form class="card card-pad" onSubmit={handleSubmit}>
+        <div class="sect-title" style={{ marginBottom: '16px' }}>基本设置</div>
+
+        <div class="field"><label class="field-label">名称</label>
+          <input class="input" value={$.name} onInput={(e: any) => { $.name = e.target.value }} /></div>
+        <div class="field"><label class="field-label">描述</label>
+          <textarea class="textarea" value={$.description} onInput={(e: any) => { $.description = e.target.value }} /></div>
+
+        {/* AI 配置 */}
+        {a.type === 'ai' && (
+          <>
+            <div class="field"><label class="field-label">系统提示词</label>
+              <textarea class="textarea" rows={5} value={$.systemPrompt} onInput={(e: any) => { $.systemPrompt = e.target.value }} /></div>
+            <div class="form-row">
+              <div class="field"><label class="field-label">模型</label>
+                <select class="select" value={$.aiModel} onChange={(e: any) => { $.aiModel = e.target.value }}>
+                  {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select></div>
+              <div class="field"><label class="field-label">温度</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input type="range" min="0" max="2" step="0.1" value={$.aiTemperature}
+                    onInput={(e: any) => { $.aiTemperature = e.target.value }} style={{ flex: 1 }} />
+                  <span style={{ fontSize: '13px', fontWeight: 600, minWidth: '30px', textAlign: 'center' }}>{$.aiTemperature}</span>
+                </div></div>
             </div>
-            <div class="detail-hero-sub">
-              ID: {agentId}
-              {computed(() => {
-                const m = agent.value?.model
-                return m ? ` · 模型: ${m}` : ''
-              })}
-              {agent.value?.is_active === false && <span class="badge badge-gray" style={{ marginLeft: '8px' }}>已暂停</span>}
-            </div>
-          </div>
-        </div>
-
-        <Show when={hasError}><div class="alert alert-err">{error}</div></Show>
-        <Show when={hasSuccess}><div class="alert alert-ok">{successMsg}</div></Show>
-
-        {/* ═══ 基本设置 ═══ */}
-        <form class="card card-pad" onSubmit={handleSubmit}>
-          <div class="sect-title" style={{ marginBottom: '16px' }}>基本设置</div>
-
-          <div class="field">
-            <label class="field-label">名称 <span class="req">*</span></label>
-            <input class="input" type="text" value={name} onInput={(e: any) => { name.value = e.target.value }} />
-          </div>
-          <div class="field">
-            <label class="field-label">描述</label>
-            <input class="input" type="text" value={description} onInput={(e: any) => { description.value = e.target.value }} />
-          </div>
-
-          {/* ── AI 配置 ── */}
-          <Show when={isAI}>
-            <div>
-              <div class="field">
-                <label class="field-label">系统提示词（System Prompt）</label>
-                <textarea class="textarea" rows={5} value={systemPrompt} onInput={(e: any) => { systemPrompt.value = e.target.value }} />
-                <div class="field-hint">设定 AI 的角色与行为指令</div>
-              </div>
-
-              <div class="form-row">
-                <div class="field">
-                  <label class="field-label">模型</label>
-                  <select class="select" value={aiModel} onChange={(e: any) => { aiModel.value = e.target.value }}>
-                    <For each={MODELS}>{(m: any) => (
-                      <option value={m.value}>{m.label}</option>
-                    )}</For>
-                  </select>
-                </div>
-                <div class="field">
-                  <label class="field-label">温度</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input type="range" min="0" max="2" step="0.1" value={aiTemperature}
-                      onInput={(e: any) => { aiTemperature.value = e.target.value }}
-                      style={{ flex: 1 }} />
-                    <span style={{ fontSize: '13px', fontWeight: 600, minWidth: '30px', textAlign: 'center' }}>{aiTemperature}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="field">
-                  <label class="field-label">最大 Token 数</label>
-                  <input class="input" type="number" min="64" max="8192" step="64" value={aiMaxTokens}
-                    onInput={(e: any) => { aiMaxTokens.value = e.target.value }} />
-                </div>
-                <div class="field">
-                  <label class="field-label">人工审批 (HITL)</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '9px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={aiHITL}
-                        onChange={(e: any) => { aiHITL.value = e.target.checked }} />
-                      <span>开启后 AI 回复需人工批准后才发送</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              <div class="sect-title" style={{ marginTop: '20px', marginBottom: '12px' }}>📁 工作空间</div>
-              <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '12px', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px' }}>
-                Agent 专用目录: <code style={{ fontSize: '12px', background: '#fff', padding: '2px 6px', border: '1px solid var(--border)', borderRadius: '4px' }}>data/workspaces/{'{agent_id}'}/</code>
-                <span style={{ display: 'block', marginTop: '4px', fontSize: '12px', color: 'var(--text-3)' }}>首次运行时自动创建，Agent 可在此目录下读写文件</span>
-              </div>
-              <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                  <input type="checkbox" checked={allowFileTools}
-                    onChange={(e: any) => { allowFileTools.value = e.target.checked }} />
-                  <span>📄 启用文件工具 (read/write/edit/grep)</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                  <input type="checkbox" checked={allowCommandExec}
-                    onChange={(e: any) => { allowCommandExec.value = e.target.checked }} />
-                  <span>⚡ 启用命令执行 (bash)</span>
-                </label>
-              </div>
-            </div>
-          </Show>
-
-          {/* ── Webhook 配置 ── */}
-          <Show when={isWebhook}>
-            <div>
-              <div class="field">
-                <label class="field-label">Webhook URL</label>
-                <input class="input" type="url" value={webhookUrl} onInput={(e: any) => { webhookUrl.value = e.target.value }} />
-                <div class="field-hint">消息将以 POST JSON 推送到该地址</div>
-              </div>
-              <div class="form-row">
-                <div class="field">
-                  <label class="field-label">Webhook Secret</label>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <input class="input" type={secretVisible.value ? 'text' : 'password'} placeholder="留空不验证签名" value={webhookSecret}
-                      onInput={(e: any) => { webhookSecret.value = e.target.value }} />
-                    <button type="button" class="btn btn-ghost btn-sm" onClick={() => { secretVisible.value = !secretVisible.value }}
-                      style={{ flex: 'none', padding: '9px 12px' }}>
-                      {computed(() => secretVisible.value ? '🙈' : '👁')}
-                    </button>
-                  </div>
-                  <div class="field-hint">设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头</div>
-                </div>
-                <div class="field">
-                  <label class="field-label">重试次数</label>
-                  <input class="input" type="number" min="0" max="5" value={webhookRetryCount}
-                    onInput={(e: any) => { webhookRetryCount.value = e.target.value }} />
-                  <div class="field-hint">失败后指数退避重试（默认 3 次）</div>
-                </div>
-              </div>
-            </div>
-          </Show>
-
-          <div class="form-foot">
-            <button type="button" class="btn btn-ghost" onClick={() => ctx.app.navigate('/agents')}>取消</button>
-            <button type="submit" class="btn btn-primary" disabled={submitting}>
-              {computed(() => submitting.value ? '保存中...' : '保存修改')}
-            </button>
-          </div>
-        </form>
-
-        {/* ═══ 技能管理 ═══ */}
-        <Show when={isAI}>
-          <div class="card card-pad mt-24">
-            <div class="sect-title" style={{ marginBottom: '12px' }}>🔧 技能管理</div>
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '16px' }}>
-              已加载的技能可作为 AI Agent 的工具。每个技能需要 <code>SKILL.md</code> + <code>tools.ts</code>。
-            </p>
-
-            {/* 已绑定的技能列表 */}
-            <Show when={computed(() => boundSkills.value.length === 0)}>
-              <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '16px' }}>
-                尚未绑定任何技能。点击下方按钮从内置技能列表中选择。
-              </div>
-            </Show>
-
-            <div class="check-list" style={{ marginBottom: '12px' }}>
-              <For each={boundSkills} keyBy="id">{(s: any) => (
-                <div class="check-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '13px' }}>
-                      {s.enabled ? '✅' : '⏸'} {s.skill_name}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-3)', wordBreak: 'break-all' }}>
-                      {s.skill_dir}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button
-                      class="btn btn-sm btn-ghost"
-                      style={{ fontSize: '11px', padding: '4px 8px', minWidth: '50px' }}
-                      disabled={computed(() => skillActionLoading.value === s.id)}
-                      onClick={async () => {
-                        skillActionLoading.value = s.id
-                        try {
-                          await fetch(`/api/agents/${agentId}/skills/${s.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json', ...headers },
-                            body: JSON.stringify({ enabled: !s.enabled }),
-                          })
-                          s.enabled = !s.enabled
-                          boundSkills.value = [...boundSkills.value]
-                        } finally {
-                          skillActionLoading.value = null
-                        }
-                      }}
-                    >{computed(() => skillActionLoading.value === s.id ? '⋯' : (s.enabled ? '禁用' : '启用'))}</button>
-                    <button
-                      class="btn btn-sm btn-danger"
-                      style={{ fontSize: '11px', padding: '4px 8px', minWidth: '50px' }}
-                      disabled={computed(() => skillActionLoading.value === s.id)}
-                      onClick={async () => {
-                        if (!confirm('确定移除技能 ' + s.skill_name + ' 吗？')) return
-                        skillActionLoading.value = s.id
-                        try {
-                          const res = await fetch(`/api/agents/${agentId}/skills/${s.id}`, { method: 'DELETE', headers })
-                          if (res.ok) refetchSkills()
-                        } finally {
-                          skillActionLoading.value = null
-                        }
-                      }}
-                    >移除</button>
-                  </div>
-                </div>
-              )}</For>
+            <div class="form-row">
+              <div class="field"><label class="field-label">最大 Token 数</label>
+                <input class="input" type="number" min="64" max="8192" step="64" value={$.aiMaxTokens}
+                  onInput={(e: any) => { $.aiMaxTokens = e.target.value }} /></div>
+              <div class="field"><label class="field-label">人工审批 (HITL)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '9px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={$.aiHITL}
+                      onChange={(e: any) => { $.aiHITL = e.target.checked }} />
+                    <span>开启后 AI 回复需人工批准后才发送</span>
+                  </label>
+                </div></div>
             </div>
 
-            {/* 添加技能按钮 */}
-            <button class="btn btn-primary btn-sm" onClick={() => { showSkillPicker.value = !showSkillPicker.value }}>
-              {computed(() => showSkillPicker.value ? '收起技能列表' : '＋ 添加技能')}
-            </button>
-
-            {/* 可用技能列表 */}
-            <Show when={showSkillPicker}>
-              <div style={{ marginTop: '12px', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px' }}>可用技能</div>
-                <Show when={computed(() => availableSkills.value.length === 0)}>
-                  <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0' }}>没有可用的技能</div>
-                </Show>
-                <For each={availableSkills} keyBy={(s: any) => s.meta?.name ?? Math.random()}>{(s: any) => {
-                  const alreadyBound = computed(() => boundSkills.value.some((b: any) => b.skill_name === s.meta?.name))
-                  return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: '13px' }}>{s.meta?.name}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>{s.meta?.description}</div>
-                      </div>
-                      <button
-                        class="btn btn-sm"
-                        style={{
-                          fontSize: '11px', padding: '4px 10px', minWidth: '60px',
-                          background: alreadyBound.value || skillActionLoading.value === s.meta?.name ? '#e5e7eb' : '#3b82f6',
-                          color: alreadyBound.value || skillActionLoading.value === s.meta?.name ? '#6b7280' : '#fff',
-                          border: 'none', cursor: (alreadyBound.value || skillActionLoading.value === s.meta?.name) ? 'default' : 'pointer',
-                          borderRadius: '6px',
-                        }}
-                        disabled={computed(() => alreadyBound.value || skillActionLoading.value === s.meta?.name)}
-                        onClick={async () => {
-                          if (alreadyBound.value || skillActionLoading.value === s.meta?.name) return
-                          skillActionLoading.value = s.meta?.name ?? ''
-                          try {
-                            const res = await fetch(`/api/agents/${agentId}/skills`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', ...headers },
-                              body: JSON.stringify({ skill_name: s.meta?.name, skill_dir: s.dir }),
-                            })
-                            if (res.ok) refetchSkills()
-                          } finally {
-                            skillActionLoading.value = null
-                          }
-                        }}
-                      >{computed(() => skillActionLoading.value === s.meta?.name ? '绑定中...' : (alreadyBound.value ? '已绑定' : '绑定'))}</button>
-                    </div>
-                  )
-                }}</For>
-              </div>
-            </Show>
-          </div>
-        </Show>
-
-        {/* ═══ AI 执行历史 ═══ */}
-        <Show when={isAI}>
-          <div class="card card-pad mt-24">
-            <div class="sect-title" style={{ marginBottom: '8px' }}>
-              📊 执行历史
-              <span class="muted" style={{ fontWeight: 400, fontSize: '12px', marginLeft: '8px' }}>
-                累计 {computed(() => `${(logs.value ?? []).length} 次`)} · 总计 {computed(() => `${totalTokens.value.toLocaleString()} tokens`)}
-              </span>
+            <div class="sect-title" style={{ marginTop: '20px', marginBottom: '12px' }}>📁 工作空间</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '10px', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px' }}>
+              Agent 专用目录: <code style={{ fontSize: '12px', background: '#fff', padding: '2px 6px', border: '1px solid var(--border)', borderRadius: '4px' }}>data/workspaces/{'{agent_id}'}/</code>
+              <span style={{ display: 'block', marginTop: '4px', fontSize: '12px', color: 'var(--text-3)' }}>首次运行时自动创建</span>
             </div>
-
-            <Show when={logsLoading}><Loading /></Show>
-
-            <Show when={computed(() => !logsLoading.value && !hasLogs.value)}>
-              <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '24px' }}>
-                暂无执行记录。在聊天中发送消息后，AI 的调用记录会显示在这里。
-              </div>
-            </Show>
-
-            <Show when={hasLogs}>
-              <div class="check-list" style={{ maxHeight: '300px' }}>
-                <For each={logs} keyBy="id">{(log: any) => (
-                  <div class="check-item" style={{ flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600 }}>
-                        {log.success ? '✅' : '❌'} {log.steps_count} steps
-                      </div>
-                      <div class="muted" style={{ fontSize: '11px' }}>
-                        {fmtTime(log.created_at)} · {log.tokens_total} tokens · {log.elapsed_ms}ms
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: 'var(--text-2)' }}>
-                      <span>输入: {log.messages_count}条</span>
-                      <span>步骤: {log.steps_count}</span>
-                    </div>
-                  </div>
-                )}</For>
-              </div>
-            </Show>
-          </div>
-        </Show>
-
-        {/* ═══ Webhook 测试 ═══ */}
-        <Show when={isWebhook}>
-          <div>
-            <div class="card card-pad mt-24">
-              <div class="sect-title" style={{ marginBottom: '16px' }}>🔗 Webhook 测试</div>
-              <p style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '12px' }}>
-                向此 Webhook 发送一条测试消息，验证配置是否正确。
-              </p>
-              <button class="btn btn-primary" onClick={testWebhook} disabled={testWebhookLoading}>
-                {computed(() => testWebhookLoading.value ? '发送中...' : '发送测试消息')}
-              </button>
-              <Show when={computed(() => testWebhookResult.value !== '')}>
-                <div class="mt-8" style={{
-                  padding: '10px 14px', borderRadius: '8px', fontSize: '13px',
-                  background: testWebhookResult.value.startsWith('✅') ? '#ecfdf5' : '#fef2f2',
-                  border: `1px solid ${testWebhookResult.value.startsWith('✅') ? '#a7f3d0' : '#fecaca'}`,
-                  color: testWebhookResult.value.startsWith('✅') ? '#047857' : '#b91c1c',
-                }}>{testWebhookResult}</div>
-              </Show>
+            <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                <input type="checkbox" checked={$.allowFileTools}
+                  onChange={(e: any) => { $.allowFileTools = e.target.checked }} />
+                <span>📄 启用文件工具 (read/write/edit/grep)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                <input type="checkbox" checked={$.allowCommandExec}
+                  onChange={(e: any) => { $.allowCommandExec = e.target.checked }} />
+                <span>⚡ 启用命令执行 (bash)</span>
+              </label>
             </div>
-
-            <div class="card card-pad mt-24">
-              <div class="sect-title" style={{ marginBottom: '12px' }}>📋 Webhook 请求日志</div>
-
-              <Show when={whLogsLoading}><Loading /></Show>
-
-              <Show when={computed(() => !whLogsLoading.value && !hasWebhookLogs.value)}>
-                <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '24px' }}>
-                  暂无请求记录
-                </div>
-              </Show>
-
-              <Show when={hasWebhookLogs}>
-                <div class="check-list" style={{ maxHeight: '300px' }}>
-                  <For each={webhookLogs} keyBy="id">{(log: any) => (
-                    <div class="check-item" style={{ flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 600 }}>
-                          {log.success ? '✅' : '❌'} HTTP {log.response_status ?? '?'}
-                        </div>
-                        <div class="muted" style={{ fontSize: '11px' }}>
-                          {fmtTime(log.created_at)} · {log.elapsed_ms}ms
-                        </div>
-                      </div>
-                      <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--text-2)' }}>
-                        {log.response_body ? (log.response_body.length > 80 ? log.response_body.slice(0, 80) + '...' : log.response_body) : '无响应'}
-                      </div>
-                    </div>
-                  )}</For>
-                </div>
-              </Show>
-            </div>
-          </div>
-        </Show>
-
-        {/* ═══ 知识库文档管理 ═══ */}
-        <Show when={isKB}>
-          <div>
-          <div class="card card-pad mt-24">
-            <div class="sect-title" style={{ marginBottom: '16px' }}>
-              📚 知识库文档
-              <span class="muted" style={{ fontWeight: 400, fontSize: '12px', marginLeft: '8px' }}>
-                {computed(() => `${(docs.value ?? []).length} 个文档`)}
-              </span>
-            </div>
-
-            <Show when={docsLoading}><Loading /></Show>
-
-            {/* ── 文档列表（可展开） ── */}
-            <Show when={computed(() => (docs.value ?? []).length > 0)}>
-              <div class="check-list" style={{ marginBottom: '18px' }}>
-                <For each={docs} keyBy="id">{(d: any) => (
-                  <div>
-                    <div class="check-item" onClick={() => toggleExpandDoc(d.id)} style={{ cursor: 'pointer' }}>
-                      <span>{computed(() => docExpanded(d.id).value ? '📂' : '📄')}</span>
-                      <span style={{ flex: 1 }}>{d.filename}</span>
-                      <span class="muted" style={{ fontSize: '12px', marginRight: '8px' }}>{d.chunk_count} 块</span>
-                      <button
-                        class="btn btn-danger btn-sm"
-                        onClick={(e: any) => { e.stopPropagation(); deleteDoc(d.id) }}
-                      >删除</button>
-                    </div>
-                    {/* 展开后的 chunks */}
-                    <Show when={docExpanded(d.id)}>
-                      <div style={{
-                        padding: '12px 16px 12px 44px', borderTop: '1px solid #f3f4f6',
-                        background: '#fafbfc', fontSize: '13px',
-                      }}>
-                        <Show when={loadingChunks}>
-                          <div class="muted" style={{ padding: '8px 0' }}>加载中...</div>
-                        </Show>
-                        <Show when={computed(() => !loadingChunks.value && docChunks.value.length === 0)}>
-                          <div class="muted" style={{ padding: '8px 0' }}>无分块数据</div>
-                        </Show>
-                        <Show when={computed(() => docChunks.value.length > 0)}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {renderChunks(docChunks.value)}
-                          </div>
-                        </Show>
-                        {/* 内容预览 */}
-                        <div class="mt-8">
-                          <a href={`/api/knowledge/${d.id}`} target="_blank"
-                            class="btn btn-ghost btn-sm"
-                            onClick={(e: any) => { e.preventDefault(); fetch(`/api/knowledge/${d.id}`, { headers }).then(r => r.json()).then(data => { alert(data.document?.content?.slice(0, 2000) ?? '无内容') }) }}
-                            style={{ textDecoration: 'none' }}
-                          >📖 预览全文</a>
-                        </div>
-                      </div>
-                    </Show>
-                  </div>
-                )}</For>
-              </div>
-            </Show>
-
-            {/* ── 上传方式切换 ── */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-              <button class={`btn btn-sm ${!showBatch.value ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => showBatch.value = false}>✏️ 文本粘贴</button>
-              <button class={`btn btn-sm ${showBatch.value ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => showBatch.value = true}>📁 批量导入</button>
-            </div>
-
-            {/* ── 文本粘贴上传 ── */}
-            <Show when={computed(() => !showBatch.value)}>
-              <form onSubmit={uploadDoc}>
-                <div class="field">
-                  <label class="field-label">文件名</label>
-                  <input class="input" type="text" placeholder="如：产品手册.txt"
-                    value={newDocFilename}
-                    onInput={(e: any) => { newDocFilename.value = e.target.value }} />
-                </div>
-                <div class="field">
-                  <label class="field-label">文档内容</label>
-                  <textarea class="textarea" rows={5} placeholder="粘贴文档内容..."
-                    value={newDocContent}
-                    onInput={(e: any) => { newDocContent.value = e.target.value }} />
-                </div>
-                <button type="submit" class="btn btn-primary" disabled={uploading}>
-                  {computed(() => uploading.value ? '上传中...' : '上传文档')}
-                </button>
-              </form>
-            </Show>
-
-            {/* ── 文件上传 + 批量导入 ── */}
-            <Show when={showBatch}>
-              <div>
-              {/* 拖拽上传 */}
-              <div
-                onDragEnter={onDragEnter}
-                onDragLeave={onDragLeave}
-                onDragOver={onDragOver}
-                onDrop={onDrop}
-                class={computed(() => `drop-zone${isDragOver.value ? ' drop-over' : ''}`)}
-              >
-                <div style={{ fontSize: '28px', marginBottom: '6px' }}>📄</div>
-                <div style={{ fontWeight: 600, marginBottom: '4px' }}>拖拽文件到此处</div>
-                <div class="muted" style={{ fontSize: '12px', marginBottom: '12px' }}>支持 .txt .md .csv .json（单文件 ≤ 5MB）</div>
-                <label class="btn btn-primary btn-sm" style={{ cursor: 'pointer' }}>
-                  选择文件
-                  <input type="file" multiple accept=".txt,.md,.csv,.json"
-                    style={{ display: 'none' }}
-                    onChange={(e: any) => uploadFiles(e)}
-                    disabled={uploading} />
-                </label>
-                <Show when={uploading}>
-                  <div class="muted mt-8" style={{ fontSize: '12px' }}>上传中...</div>
-                </Show>
-              </div>
-
-              {/* 批量 JSON 粘贴 */}
-              <details style={{ fontSize: '13px' }}>
-                <summary style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px' }}>
-                  📋 批量粘贴（JSON 格式）
-                </summary>
-                <form onSubmit={uploadBatch}>
-                  <div class="field">
-                    <textarea class="textarea" rows={4}
-                      placeholder={'[\n  { "filename": "doc1.md", "content": "..." },\n  { "filename": "doc2.md", "content": "..." }\n]'}
-                      value={batchDocs}
-                      onInput={(e: any) => { batchDocs.value = e.target.value }} />
-                    <div class="field-hint">JSON 数组格式，每个对象包含 filename 和 content</div>
-                  </div>
-                  <button type="submit" class="btn btn-primary btn-sm" disabled={uploading}>
-                    {computed(() => uploading.value ? '上传中...' : '批量导入')}
-                  </button>
-                </form>
-              </details>
-            </div>
-            </Show>
-          </div>
-
-          {/* ── 知识库 QA ── */}
-          <div class="card card-pad mt-24">
-            <div class="sect-title" style={{ marginBottom: '16px' }}>🔍 知识库问答测试</div>
-            <form onSubmit={searchQA}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input class="input" type="text" placeholder="输入问题，测试检索效果..."
-                  value={qaQuery}
-                  onInput={(e: any) => { qaQuery.value = e.target.value }} />
-                <button type="submit" class="btn btn-primary" disabled={qaSearching}>
-                  {computed(() => qaSearching.value ? '搜索...' : '检索')}
-                </button>
-              </div>
-            </form>
-
-            <Show when={computed(() => qaResults.value.length > 0)}>
-              <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <For each={qaResults} keyBy="id">{(r: any) => (
-                  <div style={{
-                    padding: '10px 14px', borderRadius: '8px',
-                    border: '1px solid var(--border)', fontSize: '13px',
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 600 }}>📄 {r.filename}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>
-                        相似度: {(r.similarity * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                    <div style={{ color: 'var(--text-2)' }}>{r.content}</div>
-                  </div>
-                )}</For>
-              </div>
-            </Show>
-          </div>
-          </div>
-        </Show>
-
-        {/* ═══ User 信息 ═══ */}
-        <Show when={isUser}>
-          <div class="card card-pad mt-24">
-            <div class="sect-title" style={{ marginBottom: '8px' }}>👤 绑定用户</div>
-            <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
-              此 Agent 绑定到平台用户（user_id: {agent.value?.user_id ?? '无'}），
-              该用户的聊天消息由此 Agent 代为发送。
-            </div>
-          </div>
-        </Show>
-
-        </div>
+          </>
         )}
-      </Show>
+
+        {/* Webhook 配置 */}
+        {a.type === 'webhook' && (
+          <>
+            <div class="field"><label class="field-label">Webhook URL</label>
+              <input class="input" type="url" value={$.webhookUrl} onInput={(e: any) => { $.webhookUrl = e.target.value }} />
+              <div class="field-hint">消息将以 POST JSON 推送到该地址</div></div>
+            <div class="form-row">
+              <div class="field"><label class="field-label">Webhook Secret</label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input class="input" type={$.secretVisible ? 'text' : 'password'} placeholder="留空不验证签名"
+                    value={$.webhookSecret} onInput={(e: any) => { $.webhookSecret = e.target.value }} />
+                  <button type="button" class="btn btn-ghost btn-sm" onClick={() => { $.secretVisible = !$.secretVisible }}
+                    style={{ flex: 'none', padding: '9px 12px' }}>{$.secretVisible ? '🙈' : '👁'}</button>
+                </div>
+                <div class="field-hint">设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头</div></div>
+              <div class="field"><label class="field-label">重试次数</label>
+                <input class="input" type="number" min="0" max="5" value={$.webhookRetryCount}
+                  onInput={(e: any) => { $.webhookRetryCount = e.target.value }} />
+                <div class="field-hint">失败后指数退避重试（默认 3 次）</div></div>
+            </div>
+          </>
+        )}
+
+        <div class="form-foot">
+          <button type="button" class="btn btn-ghost" onClick={() => ctx.app?.navigate('/agents')}>取消</button>
+          <button type="submit" class="btn btn-primary" disabled={$.saving}>
+            {$.saving ? '保存中...' : '保存修改'}
+          </button>
+        </div>
+      </form>
+
+      {/* 技能管理 */}
+      {a.type === 'ai' && (
+        <div class="card card-pad mt-24">
+          <div class="sect-title" style={{ marginBottom: '12px' }}>🔧 技能管理</div>
+          {$.boundSkills.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-3)', padding: '12px 0' }}>暂无绑定技能</div>}
+          {$.boundSkills.map((s: any) => (
+            <div key={s.slug} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontWeight: 500, fontSize: '13px' }}>{s.name}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>{s.description ?? ''}</div>
+              </div>
+              <button class="btn btn-danger btn-sm" onClick={() => unbindSkill(s.slug)}>解绑</button>
+            </div>
+          ))}
+          {$.availableSkills.length > 0 && (
+            <button class="btn btn-ghost btn-sm" style={{ marginTop: '10px' }}
+              onClick={() => { $.showSkillPicker = !$.showSkillPicker }}>
+              {$.showSkillPicker ? '收起' : '+ 绑定技能'}
+            </button>
+          )}
+          {$.showSkillPicker && (
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {$.availableSkills.filter((as: any) => !$.boundSkills.some((bs: any) => bs.slug === as.slug)).map((s: any) => (
+                <div key={s.slug} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                  <span style={{ fontSize: '13px' }}>{s.name}</span>
+                  <button class="btn btn-primary btn-sm" onClick={() => bindSkill(s.slug)}>绑定</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 执行日志 */}
+      {a.type === 'ai' && (
+        <div class="card card-pad mt-24">
+          <div class="sect-title" style={{ marginBottom: '8px' }}>
+            📋 执行日志
+            <button class="btn btn-ghost btn-sm" style={{ marginLeft: '8px' }} onClick={loadLogs}>刷新</button>
+          </div>
+          {$.logsLoading && <Loading />}
+          {!$.logsLoading && $.logs.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-3)', padding: '12px 0' }}>暂无执行日志</div>}
+          {$.logs.map((log: any) => (
+            <div key={log.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', fontSize: '13px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span>{log.type === 'ai:response' ? '🤖 AI 回复' : log.type === 'tool:call' ? '🔧 工具调用' : '📝 ' + (log.type ?? '日志')}</span>
+                <span style={{ color: 'var(--text-3)', fontSize: '12px' }}>{log.status ?? ''}</span>
+              </div>
+              <div style={{ color: 'var(--text-2)', fontSize: '12px' }}>{log.summary ?? (log.content ?? '').slice(0, 100)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Webhook 日志 */}
+      {a.type === 'webhook' && (
+        <div class="card card-pad mt-24">
+          <div class="sect-title" style={{ marginBottom: '12px' }}>
+            📋 Webhook 请求日志
+            <button class="btn btn-ghost btn-sm" style={{ marginLeft: '8px' }} onClick={loadWebhookLogs}>刷新</button>
+          </div>
+          {$.whLogsLoading && <Loading />}
+          {!$.whLogsLoading && $.whLogs.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '24px' }}>暂无请求记录</div>}
+          {$.whLogs.map((log: any) => (
+            <div key={log.id} class="check-item" style={{ flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600 }}>{log.success ? '✅' : '❌'} HTTP {log.response_status ?? '?'}</div>
+                <div class="muted" style={{ fontSize: '11px' }}>{log.created_at ? new Date(log.created_at).toLocaleString() : ''} · {log.elapsed_ms}ms</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 知识库文档 */}
+      {a.type === 'knowledge_base' && (
+        <div class="card card-pad mt-24">
+          <div class="sect-title" style={{ marginBottom: '16px' }}>
+            📚 知识库文档
+            <span class="muted" style={{ fontWeight: 400, fontSize: '12px', marginLeft: '8px' }}>{$.docs.length} 个文档</span>
+          </div>
+
+          {$.docs.length > 0 && (
+            <div class="check-list" style={{ marginBottom: '18px' }}>
+              {$.docs.map((d: any) => (
+                <div key={d.id}>
+                  <div class="check-item" onClick={() => toggleExpandDoc(d.id)} style={{ cursor: 'pointer' }}>
+                    <span>{$.expandedDoc === d.id ? '📂' : '📄'}</span>
+                    <span style={{ flex: 1 }}>{d.filename}</span>
+                    <span class="muted" style={{ fontSize: '12px', marginRight: '8px' }}>{d.chunk_count ?? 0} 块</span>
+                    <button class="btn btn-danger btn-sm" onClick={(e: any) => { e.stopPropagation(); deleteDoc(d.id) }}>删除</button>
+                  </div>
+                  {$.expandedDoc === d.id && (
+                    <div style={{ padding: '12px 16px 12px 44px', borderTop: '1px solid #f3f4f6', background: '#fafbfc', fontSize: '13px' }}>
+                      {$.loadingChunks && <div class="muted" style={{ padding: '8px 0' }}>加载中...</div>}
+                      {!$.loadingChunks && $.docChunks.length === 0 && <div class="muted" style={{ padding: '8px 0' }}>无分块数据</div>}
+                      {$.docChunks.map((ch: any, i: number) => (
+                        <div key={i} style={{ padding: '8px 10px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e7eb', fontSize: '12px', lineHeight: '1.6', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>块 #{ch.chunk_index + 1}</span><br />
+                          {(ch.content ?? '').slice(0, 300)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={uploadDoc}>
+            <div class="field"><label class="field-label">文件名</label>
+              <input class="input" type="text" placeholder="如：产品手册.txt" value={$.newDocFilename}
+                onInput={(e: any) => { $.newDocFilename = e.target.value }} /></div>
+            <div class="field"><label class="field-label">文档内容</label>
+              <textarea class="textarea" rows={5} placeholder="粘贴文档内容..." value={$.newDocContent}
+                onInput={(e: any) => { $.newDocContent = e.target.value }} /></div>
+            <button type="submit" class="btn btn-primary" disabled={$.uploading}>
+              {$.uploading ? '上传中...' : '上传文档'}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

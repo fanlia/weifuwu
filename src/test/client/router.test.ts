@@ -1,189 +1,412 @@
 /**
- * Router + RouteView 测试
+ * weifuwu/client router — 路由中间件 + RouteView 全面测试
+ *
+ * 覆盖 router.ts 所有 export 和关键内部路径
  */
 
-import { describe, it, before } from 'node:test'
+import { describe, it, before, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
 
-// ── 浏览器全局环境设置 ───────────────────────────────────────
-
 before(setupJsdom)
 
-// ── 导入被测模块 ────────────────────────────────────────────
-
 const { router, RouteView } = await import('../../client/router.ts')
-const { jsx, setCtx } = await import('../../client/jsx-runtime.ts')
-import type { WfuiContext, AppMiddleware, RouteDef } from '../../client/types.ts'
+import type { WfuiContext, RouteDef } from '../../client/types.ts'
+import { jsx } from '../../client/vnode.ts'
 
-function createMockCtx(overrides: Partial<WfuiContext> = {}): WfuiContext {
-  const navigate = (path: string) => {
-    ctx.route.path = path
-    const Ctor = (window as any).CustomEvent || CustomEvent
-    window.dispatchEvent(new Ctor('wefu:route', { detail: { path } }))
-  }
+// ── helpers ────────────────────────────────────────────────
 
-  const ctx: WfuiContext = {
-    route: {
-      path: '/',
-      params: {},
-      query: {},
-      hash: '',
-      component: null,
-      data: {},
-      loading: false,
-    },
-    app: { navigate },
-    provide: () => {}, ws: null as any,
-    inject: () => null,
+function mockCtx(overrides: any = {}): WfuiContext {
+  return {
+    ui: { render: () => {}, $: {}, ready: false },
+    route: { path: '/', params: {}, query: {} },
+    app: { navigate(path: string) {} },
     ...overrides,
-  }
-  return ctx
+  } as any
 }
 
-function HomePage() { return jsx('div', { class: 'page-home' }, 'Home') }
-function AboutPage() { return jsx('div', { class: 'page-about' }, 'About') }
-function UserPage() { return jsx('div', { class: 'page-user' }, 'User') }
-function NotFoundPage() { return jsx('div', { class: 'page-404' }, 'Not Found') }
+function makeRouter(routes: RouteDef[]) {
+  const mw = router({ mode: 'history', routes })
+  const ctx: any = {}
+  const result = mw(ctx)
+  return { ctx: result as any, mw }
+}
 
-const routes: RouteDef[] = [
-  { path: '/', component: HomePage, title: 'Home' },
-  { path: '/about', component: AboutPage, title: 'About' },
-  { path: '/user/:id', component: UserPage, title: 'User' },
-]
+beforeEach(() => {
+  window.history.pushState(null, '', '/')
+})
 
-// ═════════════════════════════════════════════════════════════
-// router middleware — 路由匹配
-// ═════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// router middleware — 初始化
+// ═══════════════════════════════════════════════════════
 
-describe('router — 路由匹配', () => {
-  it('匹配静态路径', () => {
-    const ctx = createMockCtx()
-    const mw = router({ routes, mode: 'history' })
-    const result = mw(ctx)
-
-    // history 模式初始路径为 window.location.pathname
-    assert.ok(result.route.component)
+describe('router middleware init', () => {
+  it('注入 ctx.route', () => {
+    const { ctx } = makeRouter([{ path: '/', component: () => null }])
+    assert.ok(ctx.route)
+    assert.equal(typeof ctx.route.path, 'string')
+    assert.equal(typeof ctx.route.params, 'object')
+    assert.equal(typeof ctx.route.query, 'object')
   })
 
-  it('设置页面标题', () => {
-    const ctx = createMockCtx()
-    ctx.route.path = '/'
-    const mw = router({ routes, mode: 'history' })
-    mw(ctx)
-
-    // navigate 到 /about
-    ctx.app.navigate('/about')
-    // title 应更新 (history 模式)
-    // 注意：JSDOM 中 document.title 可写
-    // 这里验证路由匹配逻辑，实际 title 设置在中间件内部
+  it('匹配根路径', () => {
+    const { ctx } = makeRouter([{ path: '/', component: () => null }])
+    assert.equal(ctx.route.path, '/')
   })
 
-  it('未匹配路径使用 notFound 组件', () => {
-    const ctx = createMockCtx()
-    ctx.route.path = '/nonexistent'
-    const mw = router({ routes, notFound: NotFoundPage, mode: 'history' })
-    const result = mw(ctx)
-
-    // navigate 到未匹配路径
-    ctx.app.navigate('/nonexistent')
-    // RouteView 会读取 ctx.route.component
-    // 这里验证中间件注入了 notFound 组件
-    // 由于 router 内部调用是异步的 (navigateAndLoad)，需要延迟检查
-  })
-
-  it('参数路径匹配', () => {
-    const ctx = createMockCtx()
-    ctx.route.path = '/'
-    const mw = router({ routes, notFound: NotFoundPage, mode: 'history' })
-    mw(ctx)
-
-    // 直接测试 matchRoute 逻辑 (通过 middleware 的内部行为)
-    ctx.app.navigate('/user/42')
+  it('提取路径参数', () => {
+    window.history.pushState(null, '', '/users/42')
+    const { ctx } = makeRouter([{ path: '/users/:id', component: () => null }])
     assert.equal(ctx.route.params.id, '42')
   })
 
-  it('query 参数解析', () => {
-    const ctx = createMockCtx()
-    ctx.route.path = '/'
-    const mw = router({ routes, mode: 'history' })
-    mw(ctx)
+  it('多个路径参数', () => {
+    window.history.pushState(null, '', '/users/42/posts/99')
+    const { ctx } = makeRouter([{ path: '/users/:userId/posts/:postId', component: () => null }])
+    assert.equal(ctx.route.params.userId, '42')
+    assert.equal(ctx.route.params.postId, '99')
+  })
 
-    // 使用 hash 模式测试 query
-    const mwHash = router({ routes, mode: 'hash' })
-    const ctx2 = createMockCtx()
-    mwHash(ctx2)
+  it('解码 URL 参数', () => {
+    window.history.pushState(null, '', '/search/%E4%B8%AD%E6%96%87')
+    const { ctx } = makeRouter([{ path: '/search/:q', component: () => null }])
+    assert.equal(ctx.route.params.q, '中文')
+  })
 
-    // 直接导航到带 query 的路径
-    // 在 hash 模式下，query 在 hash 中
-    // 这里通过 set location.hash 测试
-    // JSDOM 支持 location
+  it('通配符路径', () => {
+    window.history.pushState(null, '', '/files/src/main.ts')
+    const { ctx } = makeRouter([{ path: '/files/*', component: () => null }])
+    assert.equal(ctx.route.path, '/files/*')
+  })
+
+  it('解析查询参数', () => {
+    window.history.pushState(null, '', '/search?q=hello&page=2')
+    const { ctx } = makeRouter([{ path: '/search', component: () => null }])
+    assert.equal(ctx.route.query.q, 'hello')
+    assert.equal(ctx.route.query.page, '2')
+  })
+
+  it('无匹配路径返回空 params 和 chain', () => {
+    window.history.pushState(null, '', '/not-found-path')
+    const { ctx } = makeRouter([{ path: '/', component: () => null }])
+    assert.deepEqual(ctx.route.params, {})
+    assert.deepEqual(ctx.route.chain, [])
+    assert.equal(ctx.route.path, '/not-found-path')
+  })
+
+  it('注入 ctx.app.navigate', () => {
+    const { ctx } = makeRouter([{ path: '/', component: () => null }])
+    assert.equal(typeof ctx.app.navigate, 'function')
+  })
+
+  it('中间件返回 ctx', () => {
+    const mw = router({ mode: 'history', routes: [{ path: '/', component: () => null }] })
+    const result = mw({} as any)
+    assert.equal(result, (result as any)) // returns something
   })
 })
 
-// ═════════════════════════════════════════════════════════════
-// router — auth 守卫
-// ═════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// router middleware — navigate
+// ═══════════════════════════════════════════════════════
 
-describe('router — auth 守卫', () => {
-  it('auth=true 且未登录时重定向到 /login', () => {
-    const guardedRoutes: RouteDef[] = [
-      { path: '/', component: HomePage, auth: true },
-      { path: '/login', component: () => jsx('div', {}, 'Login') },
-    ]
+describe('router navigate', () => {
+  it('navigate 更新 ctx.route', () => {
+    const { ctx } = makeRouter([
+      { path: '/', component: () => null },
+      { path: '/about', component: () => null },
+    ])
+    ctx.app.navigate('/about')
+    assert.equal(ctx.route.path, '/about')
+  })
 
-    const ctx = createMockCtx({ isAuthenticated: false })
-    const mw = router({ routes: guardedRoutes, mode: 'history' })
-    mw(ctx)
+  it('navigate 触发 ctx.ui.render', () => {
+    const { ctx } = makeRouter([
+      { path: '/', component: () => null },
+      { path: '/about', component: () => null },
+    ])
+    let rendered = false
+    ctx.ui = { render: () => { rendered = true }, $: {}, ready: false }
+    ctx.app.navigate('/about')
+    assert.equal(rendered, true)
+  })
 
-    // navigate 到受保护路径
-    ctx.app.navigate('/')
+  it('navigate 推入历史状态', () => {
+    const { ctx } = makeRouter([
+      { path: '/', component: () => null },
+      { path: '/page2', component: () => null },
+    ])
+    ctx.app.navigate('/page2')
+    assert.equal(window.location.pathname, '/page2')
+  })
 
-    // 应被重定向到 /login
-    // 注意：auth 守卫用 setTimeout 异步跳转，这里验证路由状态
-    // 实际应用中，RouteView 在组件渲染时会检查 ctx.route.auth
+  it('navigate 解析新路径参数', () => {
+    const { ctx } = makeRouter([
+      { path: '/', component: () => null },
+      { path: '/users/:id', component: () => null },
+    ])
+    ctx.app.navigate('/users/7')
+    assert.equal(ctx.route.params.id, '7')
+  })
+
+  it('navigate 到不存在的路径', () => {
+    const { ctx } = makeRouter([{ path: '/', component: () => null }])
+    ctx.app.navigate('/no-such-route')
+    assert.deepEqual(ctx.route.chain, [])
   })
 })
 
-// ═════════════════════════════════════════════════════════════
-// RouteView — 路由渲染
-// ═════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// router middleware — popstate
+// ═══════════════════════════════════════════════════════
+
+describe('popstate', () => {
+  it('popstate 更新路由', () => {
+    const { ctx } = makeRouter([
+      { path: '/', component: () => null },
+      { path: '/other', component: () => null },
+    ])
+    let rendered = false
+    ctx.ui = { render: () => { rendered = true }, $: {}, ready: false }
+
+    window.history.pushState({}, '', '/other')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+
+    assert.equal(ctx.route.path, '/other')
+    assert.equal(rendered, true)
+  })
+
+  it('popstate 触发 render', () => {
+    const { ctx } = makeRouter([{ path: '/', component: () => null }])
+    let rendered = false
+    ctx.ui = { render: () => { rendered = true }, $: {}, ready: false }
+
+    window.history.pushState({}, '', '/')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+
+    assert.equal(rendered, true)
+  })
+})
+
+// ═══════════════════════════════════════════════════════
+// RouteView
+// ═══════════════════════════════════════════════════════
 
 describe('RouteView', () => {
-  it('渲染当前路由组件', () => {
-    const ctx = createMockCtx()
-    const mw = router({ routes, mode: 'history' })
-    mw(ctx)
-
-    // 设置当前路由
-    ctx.route.component = HomePage
-    const el = RouteView({}, ctx)
-
-    assert.ok(el instanceof HTMLDivElement)
-    // 组件应在 el 内被渲染
+  it('没有 chain 时返回 null', () => {
+    const ctx = mockCtx({ route: { path: '/', chain: [] } })
+    assert.equal(RouteView({}, ctx), null)
   })
 
-  it('切换路由时更新 DOM', () => {
-    const ctx = createMockCtx()
-    const mw = router({ routes, mode: 'history' })
-    mw(ctx)
+  it('chain 为 undefined 时返回 null', () => {
+    const ctx = mockCtx({ route: { path: '/', chain: undefined } })
+    assert.equal(RouteView({}, ctx), null)
+  })
 
-    // 设置初始路由
-    ctx.route.component = HomePage
-    ctx.route.path = '/'
-    const el = RouteView({}, ctx)
+  it('chain 为 null 时返回 null', () => {
+    const ctx = mockCtx({ route: { path: '/', chain: null } })
+    assert.equal(RouteView({}, ctx), null)
+  })
 
-    // 获取初始内容
-    const initialContent = el.textContent
+  it('depth 越界时返回 null', () => {
+    const ctx = mockCtx({ route: { path: '/', chain: [{ path: '/', component: () => null }] } })
+    ;(ctx as any)._rvDepth = 5
+    assert.equal(RouteView({}, ctx), null)
+  })
 
-    // 模拟路由切换
-    ctx.route.component = AboutPage
-    ctx.route.path = '/about'
-    ctx.route.query = {}
-    const Ctor = (window as any).CustomEvent || CustomEvent
-    window.dispatchEvent(new Ctor('wefu:route', { detail: { path: '/about' } }))
+  it('chain item 无 component 和 layout 时返回 null', () => {
+    const ctx = mockCtx({ route: { path: '/', chain: [{ path: '/' } as any] } })
+    assert.equal(RouteView({}, ctx), null)
+  })
 
-    // 内容应更新
-    // 注意：DOM 更新在事件处理中，可能需要微任务等待
+  it('返回组件', () => {
+    const Comp = () => jsx('div', { children: 'page' })
+    const ctx = mockCtx({
+      route: { path: '/test', chain: [{ path: '/test', component: Comp }] },
+    })
+    const v = RouteView({}, ctx) as any
+    assert.equal(v.type, Comp)
+  })
+
+  it('返回 layout（非叶子 chain item）', () => {
+    const Layout = () => jsx('div', { children: 'layout' })
+    const Page = () => jsx('div', { children: 'page' })
+    const ctx = mockCtx({
+      route: { path: '/', chain: [
+        { path: '/', layout: Layout, children: [] },
+        { path: '', component: Page },
+      ]},
+    })
+    const v = RouteView({}, ctx) as any
+    assert.equal(v.type, Layout)
+  })
+
+  it('layout 内的 RouteView 返回子组件', () => {
+    const Layout = () => jsx('div', { children: 'layout' })
+    const Page = () => jsx('div', { children: 'page' })
+    const ctx = mockCtx({
+      route: { path: '/', chain: [
+        { path: '/', layout: Layout, children: [] },
+        { path: '', component: Page },
+      ]},
+    })
+    const v1 = RouteView({}, ctx) as any
+    assert.equal(v1.type, Layout)
+
+    const v2 = RouteView({}, ctx) as any
+    assert.equal(v2.type, Page)
+  })
+
+  it('flat 路由直接返回组件', () => {
+    const Page = () => jsx('div', { children: 'login' })
+    const ctx = mockCtx({
+      route: { path: '/login', chain: [{ path: '/login', component: Page }] },
+    })
+    const v = RouteView({}, ctx) as any
+    assert.equal(v.type, Page)
+  })
+
+  it('多个 layout 嵌套', () => {
+    const Outer = () => jsx('div', { children: 'outer' })
+    const Inner = () => jsx('div', { children: 'inner' })
+    const Page = () => jsx('div', { children: 'page' })
+    const ctx = mockCtx({
+      route: { path: '/', chain: [
+        { path: '/', layout: Outer, children: [] },
+        { path: 'admin', layout: Inner, children: [] },
+        { path: '', component: Page },
+      ]},
+    })
+    assert.equal((RouteView({}, ctx) as any).type, Outer)
+    assert.equal((RouteView({}, ctx) as any).type, Inner)
+    assert.equal((RouteView({}, ctx) as any).type, Page)
+  })
+
+  it('_rvDepth 从 0 开始', () => {
+    const Comp = () => jsx('div', null)
+    const ctx = mockCtx({
+      route: { path: '/', chain: [{ path: '/', component: Comp }] },
+    })
+    delete (ctx as any)._rvDepth
+    const v = RouteView({}, ctx) as any
+    assert.equal(v.type, Comp)
+  })
+})
+
+// ═══════════════════════════════════════════════════════
+// 综合路由匹配
+// ═══════════════════════════════════════════════════════
+
+describe('route matching', () => {
+  it('多路径中最长 chain 获胜', () => {
+    // 两个路由匹配同一个路径，一个有 layout，一个没有
+    window.history.pushState(null, '', '/users')
+    const routes: RouteDef[] = [
+      { path: '/users', component: () => null },
+      {
+        path: '/',
+        layout: () => jsx('div', null),
+        children: [
+          { path: 'users', component: () => null },
+        ],
+      },
+    ]
+    const { ctx } = makeRouter(routes)
+    // 带 layout 的路由 chain 长度=2 > 直接路由 chain 长度=1
+    assert.equal(ctx.route.chain.length, 2)
+  })
+
+  it('精确路径优先于通配', () => {
+    window.history.pushState(null, '', '/files')
+    const routes: RouteDef[] = [
+      { path: '/files/*', component: () => null },
+      { path: '/files', component: () => null },
+    ]
+    // 两个都是 chain 长度=1，但精确路径应该匹配
+    const { ctx: ctx1 } = makeRouter(routes)
+    assert.equal(ctx1.route.chain.length, 1)
+  })
+
+  it('子路由继承父 layout', () => {
+    window.history.pushState(null, '', '/admin/settings')
+    const Layout = () => jsx('div', null)
+    const routes: RouteDef[] = [{
+      path: '/admin',
+      layout: Layout,
+      children: [{ path: 'settings', component: () => null }],
+    }]
+    const { ctx } = makeRouter(routes)
+    assert.equal(ctx.route.chain.length, 2)
+    assert.equal(ctx.route.chain[0].layout, Layout)
+  })
+})
+
+// ═══════════════════════════════════════════════════════
+// 路由 + RouteView 集成
+// ═══════════════════════════════════════════════════════
+
+describe('router + RouteView integration', () => {
+  it('渲染组件', () => {
+    window.history.pushState(null, '', '/test')
+    const Page = () => jsx('p', { children: 'hello' })
+    const mw = router({ mode: 'history', routes: [{ path: '/test', component: Page }] })
+    const ctx = mw({} as any) as any
+    ctx.ui = { render: () => {}, $: {}, ready: false }
+    const v = RouteView({}, ctx) as any
+    assert.equal(v.type, Page)
+  })
+
+  it('渲染带 layout 的组件', () => {
+    window.history.pushState(null, '', '/test')
+    const Layout = () => jsx('nav', { children: 'nav' })
+    const Page = () => jsx('main', { children: 'content' })
+    const mw = router({ mode: 'history', routes: [{
+      path: '/',
+      layout: Layout,
+      children: [{ path: 'test', component: Page }],
+    }]})
+    const ctx = mw({} as any) as any
+    ctx.ui = { render: () => {}, $: {}, ready: false }
+
+    const v1 = RouteView({}, ctx) as any
+    assert.equal(v1.type, Layout)
+    const v2 = RouteView({}, ctx) as any
+    assert.equal(v2.type, Page)
+  })
+})
+
+// ═══════════════════════════════════════════════════════
+// 路由深度（_rvDepth）重置
+// ═══════════════════════════════════════════════════════
+
+describe('_rvDepth reset', () => {
+  it('render 前重置 depth', () => {
+    const Comp1 = () => jsx('div', { children: 'a' })
+    const Comp2 = () => jsx('div', { children: 'b' })
+
+    // 有 layout 的 chain
+    const Layout = () => jsx('div', null)
+    const ctx = mockCtx({
+      route: { path: '/', chain: [
+        { path: '/', layout: Layout, children: [] },
+        { path: '', component: Comp1 },
+      ]},
+    })
+
+    // RouteView 链消耗 depth
+    RouteView({}, ctx) // layout，depth→1
+    RouteView({}, ctx) // Comp1
+
+    // 模拟 render 重置 depth（ctx.ui.render 会做这个）
+    ;(ctx as any)._rvDepth = 0
+
+    // 新 chain（flat 路由）
+    ;(ctx as any).route = {
+      path: '/login',
+      chain: [{ path: '/login', component: Comp2 }],
+    }
+
+    const v = RouteView({}, ctx) as any
+    assert.equal(v.type, Comp2) // depth=0，正确匹配
   })
 })

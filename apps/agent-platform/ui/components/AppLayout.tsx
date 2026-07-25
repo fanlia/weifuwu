@@ -1,12 +1,4 @@
-/**
- * AppLayout — 认证页面的持久化侧边栏布局
- *
- * 作为嵌套路由的 layout 使用：
- *   { path: '/', layout: AppLayout, children: [...] }
- * 子页面渲染在 <RouteView />（嵌套出口）。
- */
-
-import { signal, computed, RouteView, onCleanup } from 'weifuwu/client'
+import { RouteView } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 
 interface NavDef {
@@ -25,35 +17,27 @@ const NAV: NavDef[] = [
 ]
 
 export function AppLayout(_props: {}, ctx: WfuiContext) {
+  const route = ctx.route?.path ?? '/'
+
   // ── 认证守卫 ──
-  const loggedIn = ctx.auth?.isLoggedIn
-  if (loggedIn && !loggedIn.value) {
-    queueMicrotask(() => ctx.app.navigate('/login'))
+  if (!ctx.auth?.isLoggedIn) {
+    queueMicrotask(() => ctx.app?.navigate('/login'))
     return <div class="boot-loading"><div class="spinner"></div></div>
   }
 
-  // ── 响应式当前路径（layout 持久化，需监听路由事件） ──
-  const path = signal(ctx.route?.path ?? '/')
-  const onRoute = () => { path.value = ctx.route?.path ?? '/' }
-  window.addEventListener('wefu:route', onRoute)
-  onCleanup(() => window.removeEventListener('wefu:route', onRoute))
-
-  const navClass = (item: NavDef) =>
-    computed(() => `nav-item${item.match(path.value) ? ' active' : ''}`)
-
   const user = ctx.auth?.user
-  const userName = computed(() => (user?.value ?? user)?.name ?? '用户')
-  const userMail = computed(() => (user?.value ?? user)?.email ?? '')
-  const avaChar = computed(() => userName.value[0]?.toUpperCase() ?? 'U')
+  const userName = user?.name ?? '用户'
+  const userMail = user?.email ?? ''
+  const avaChar = userName[0]?.toUpperCase() ?? 'U'
 
   function go(e: Event, to: string) {
     e.preventDefault()
-    ctx.app.navigate(to)
+    ctx.app?.navigate(to)
   }
 
   function logout() {
     ctx.auth?.logout?.()
-    ctx.app.navigate('/login')
+    ctx.app?.navigate('/login')
   }
 
   return (
@@ -72,7 +56,7 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
           {NAV.map(item => (
             <a
               href={item.path}
-              class={navClass(item)}
+              class={`nav-item${item.match(route) ? ' active' : ''}`}
               onClick={(e: any) => go(e, item.path)}
             >
               <span class="nav-ico">{item.icon}</span>
@@ -88,7 +72,7 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
               <div class="user-name">{userName}</div>
               <div class="user-mail">{userMail}</div>
             </div>
-            <button class="btn-logout" title="设置" onClick={() => ctx.app.navigate('/settings')}>⚙</button>
+            <button class="btn-logout" title="设置" onClick={() => ctx.app?.navigate('/settings')}>⚙</button>
             <button class="btn-logout" title="退出登录" onClick={logout}>⏻</button>
           </div>
         </div>

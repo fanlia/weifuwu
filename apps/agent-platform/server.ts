@@ -350,7 +350,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     console.log(`\n[agent-platform] 收到 ${signal}，正在优雅关闭...`)
     // 先停止 HTTP 服务
-    await new Promise<void>((resolve) => server.close(() => resolve()))
+    await new Promise<void>((resolve) => server.close().then(resolve))
     // 关闭数据库连接
     await pg.close()
     console.log('[agent-platform] 已关闭')

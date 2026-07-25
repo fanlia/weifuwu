@@ -165,7 +165,7 @@ export function createAgent(
         tools: config.tools,
         onChunk: (chunk) => {
           // onChunk 可能返回 Promise（chat.ts 中的异步处理），向上透传
-          const result = callbacks.onChunk(chunk)
+          const result: any = callbacks.onChunk(chunk)
           if (result && typeof result.then === 'function') {
             return result
           }

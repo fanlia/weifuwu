@@ -1,126 +1,109 @@
 /**
- * weifuwu/client 应用 — 创建 ctx + 中间件链 + 挂载组件
+ * weifuwu/client 应用 — createApp + ctx.ui.render
  *
- * ```tsx
- * import { createApp, ws, router } from 'weifuwu/client'
+ * createApp() → app.use(mw) → app.mount('#root', RootComponent)
  *
- * const app = createApp()
- * app.use(ws())
- * app.use(router({ routes }))
- * app.mount('#root', AppShell)
- * ```
+ * ctx.ui 在 mount 时注入：
+ *   ctx.ui.render()    触发组件重渲染
+ *   ctx.ui.$          持久化组件状态（由渲染器管理）
+ *   ctx.ui.ready       首次执行标记（由渲染器管理）
  */
 
 import type { WfuiContext, AppMiddleware } from './types.ts'
-import type { Component } from './jsx-runtime.ts'
-import { setCtx, jsx, domMount } from './jsx-runtime.ts'
+import { render, patchValue } from './render.ts'
+import type { VNode, Component } from './vnode.ts'
 
-/**
- * 创建 weifuwu/client 应用
- */
-export function createApp(): {
-  ctx: WfuiContext
-  use: (mw: AppMiddleware) => any
-  mount: (rootSelector: string, RootComponent: Component) => Promise<void>
-  /**
-   * 销毁应用，清理所有全局事件监听和中间件资源。
-   * 调用后不可再次使用。
-   */
-  destroy: () => void
-  /**
-   * Hydrate 一个已由 SSR 渲染的区域。
-   * 不清除目标容器内的内容，只附加组件输出。
-   *
-   * ```ts
-   * const app = createApp()
-   * app.use(api())
-   * app.use(auth())
-   * app.hydrate('#comments', CommentSection, { postId: '123' })
-   * ```
-   */
-  hydrate: (
-    selector: string,
-    Component: Component,
-    props?: Record<string, unknown>,
-  ) => void
-} {
+export function createApp() {
   const middlewares: AppMiddleware[] = []
-  const provides = new Map<string, unknown>()
+  let ctx: WfuiContext = {} as WfuiContext
+  let container: Element | null = null
+  let rootComponent: Component | null = null
+  let oldVNode: VNode | null = null
+  let rendered = false
 
-  let ctx: WfuiContext = {
-    route: {
-      path: window.location.pathname,
-      params: {},
-      query: Object.fromEntries(new URLSearchParams(window.location.search)),
-      hash: window.location.hash,
-      component: null,
-      data: {},
-      loading: false,
-    },
-    app: {
-      navigate(path: string) {
-        window.history.pushState({}, '', path)
-        ctx.route.path = path
-        ctx.route.query = Object.fromEntries(new URLSearchParams(window.location.search))
-        ctx.route.hash = window.location.hash
-        const Ctor = (window as any).CustomEvent || CustomEvent
-        window.dispatchEvent(new Ctor('wefu:navigate', { detail: { path } }))
-      },
-    },
-
-    provide<T>(key: string, value: T) {
-      provides.set(key, value)
-    },
-    inject<T>(key: string): T | null {
-      return (provides.get(key) as T) ?? null
-    },
-    ws: null as any,
-  }
-
-  let destroyed = false
-
-  return {
+  const app = {
     get ctx() { return ctx },
 
     use(mw: AppMiddleware) {
       middlewares.push(mw)
-      return this
+      return app
     },
 
     async mount(rootSelector: string, RootComponent: Component) {
-      // 运行中间件链（支持异步）
+      rootComponent = RootComponent
+
       for (const mw of middlewares) {
         ctx = await mw(ctx)
       }
 
-      // 渲染组件树
-      setCtx(ctx)
-      const app = jsx(RootComponent, {})
-      domMount(rootSelector, app)
-      setCtx(null)
+      const el = typeof rootSelector === 'string'
+        ? document.querySelector(rootSelector)
+        : rootSelector
+      if (!el) throw new Error(`mount target not found: ${rootSelector}`)
+      container = el as Element
+      container.innerHTML = ''
+
+      // 注入 ctx.ui
+      // $ 是 Proxy：任何属性赋值自动 dirty，无需手动调 render/dirty
+      // 嵌套对象/数组的突变（push、content+=）需显式调 dirty()
+      let _dirty = false
+      const $target: Record<string, any> = {}
+      ;(ctx as any).ui = {
+        render: () => {
+          if (!container || !rootComponent || !oldVNode) return
+          _dirty = false
+          ;(ctx as any)._rvDepth = 0
+          const newVNode = wrapComponent(rootComponent, ctx)
+          const oldNode = container.firstChild
+          if (oldNode) {
+            patchValue(container, oldNode, oldVNode, newVNode, ctx)
+          }
+          oldVNode = newVNode
+        },
+        /** 显式标记脏（用于嵌套突变如 push、arr[i].x +=） */
+        dirty: () => {
+          if (_dirty) return
+          _dirty = true
+          queueMicrotask(() => {
+            if (!_dirty) return
+            _dirty = false
+            ;(ctx as any).ui.render()
+          })
+        },
+        $: new Proxy($target, {
+          set(_target, key, val) {
+            _target[key as string] = val
+            if (!_dirty) {
+              _dirty = true
+              queueMicrotask(() => {
+                if (!_dirty) return
+                _dirty = false
+                ;(ctx as any).ui.render()
+              })
+            }
+            return true
+          },
+        }),
+        ready: false,
+      }
+
+      // 首次渲染
+      oldVNode = wrapComponent(RootComponent, ctx)
+      const node = render(oldVNode, ctx)
+      if (node instanceof Node) container.appendChild(node)
+      rendered = true
     },
 
     destroy() {
-      if (destroyed) return
-      destroyed = true
-      // 触发中间件注入的 destroy（如 router 的事件清理）
-      ctx.app.destroy?.()
-      // 重置 ctx
-      provides.clear()
-    },
-
-    hydrate(selector: string, Component: Component, props?: Record<string, unknown>) {
-      const root = document.querySelector(selector)
-      if (!root) {
-        console.warn(`hydrate target not found: ${selector}`)
-        return
-      }
-
-      const mergedProps = props ?? (window as any).__WFUI_PROPS__ ?? {}
-      setCtx(ctx)
-      const vnode = jsx(Component, mergedProps)
-      root.appendChild(vnode)
-      setCtx(null)
+      if (container) container.innerHTML = ''
+      container = null
+      ctx = {} as WfuiContext
     },
   }
+
+  return app
+}
+
+function wrapComponent(Comp: Component, _ctx: WfuiContext): VNode {
+  return { type: Comp, props: {}, key: undefined }
 }

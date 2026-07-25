@@ -1,132 +1,84 @@
 /**
- * wefu 类型定义
+ * weifuwu/client 类型定义
  */
 
-import type { Signal } from './signal.ts'
-import type { Component } from './jsx-runtime.ts'
-
-/**
- * wefu 上下文 — 组件通过第二个参数访问
- *
- * ```tsx
- * function MyPage(props, ctx: WfuiContext) {
- *   ctx.route.path        // 当前路由路径
- *   ctx.route.params      // 路由参数
- *   ctx.app.navigate('/') // 页面导航
- * }
- * ```
- */
+/** 应用上下文 */
 export interface WfuiContext {
-  route: {
+  [key: string]: unknown
+
+  /** UI 框架能力（由 createApp.mount 注入） */
+  ui: {
+    /** 触发组件重渲染 */
+    render: () => void
+    /** 标记脏状态，下个微任务批量渲染（嵌套突变后用） */
+    dirty: () => void
+    /** 当前组件持久化状态（Proxy 自动 dirty：$.x = val 自动触发渲染） */
+    $: Record<string, any>
+    /** 首次执行标记（true 表示已初始化） */
+    ready: boolean
+  }
+
+  /** 路由（由 router 中间件注入） */
+  route?: {
     path: string
     params: Record<string, string>
     query: Record<string, string>
-    hash: string
-    component: Component | null
-    title?: string
-    auth?: boolean
-    /** 路由 loader 返回的数据 */
-    data: Record<string, unknown>
-    /** 路由 loader 是否正在加载 */
-    loading: boolean
-    /** 页面切换过渡动画名 */
-    transition?: string
+    [key: string]: any
   }
-  app: {
+
+  /** 应用方法 */
+  app?: {
     navigate: (path: string) => void
-    /** 销毁应用，清理所有全局事件监听 */
-    destroy?: () => void
+    [key: string]: any
   }
 
-  // ── ws() 注入 ──
-  ws: {
-    send: (data: unknown) => void
-    onMessage: (handler: (data: unknown) => void) => () => void
-    isConnected: Signal<boolean>
+  /** WebSocket 客户端（由 ws 中间件注入） */
+  ws?: {
+    send: (msg: any) => void
+    onMessage: (fn: (msg: any) => void) => () => void
+    isConnected: boolean
+    [key: string]: any
   }
 
-  /** 跨组件共享数据 */
-  provide: <T>(key: string, value: T) => void
-  inject: <T>(key: string) => T | null
+  /** API 客户端（由 api 中间件注入） */
+  api?: {
+    get: <T = any>(url: string, opts?: any) => Promise<T>
+    post: <T = any>(url: string, body?: any, opts?: any) => Promise<T>
+    put: <T = any>(url: string, body?: any, opts?: any) => Promise<T>
+    patch: <T = any>(url: string, body?: any, opts?: any) => Promise<T>
+    delete: <T = any>(url: string, opts?: any) => Promise<T>
+    [key: string]: any
+  }
 
-  /** 中间件注入扩展 */
-  [key: string]: unknown
-}
-
-/**
- * 类型安全的上下文工厂 — 创建 provide/inject 对。
- *
- * 相比 ctx.provide('key', value) / ctx.inject('key') 的字符串 key 方式，
- * createContext 返回类型化的 provide/inject 函数，拼写错误在编译时即被捕获。
- *
- * ```tsx
- * // 创建
- * const ThemeCtx = createContext<string>('theme')
- *
- * // 在根组件注入
- * ThemeCtx.provide(ctx, 'dark')
- *
- * // 在子组件读取（类型安全，返回 string | null）
- * const theme = ThemeCtx.inject(ctx)  // 'dark' | null
- * ```
- */
-export function createContext<T>(key: string): {
-  provide: (ctx: WfuiContext, value: T) => void
-  inject: (ctx: WfuiContext) => T | null
-} {
-  return {
-    provide: (ctx: WfuiContext, value: T) => ctx.provide(key, value),
-    inject: (ctx: WfuiContext): T | null => ctx.inject(key) as T | null,
+  /** 认证状态 */
+  auth?: {
+    token: string | null
+    user: any
+    isLoggedIn: boolean
+    login: (token: string, user: any, refreshToken?: string) => void
+    logout: () => void
+    [key: string]: any
   }
 }
 
-/**
- * 中间件签名 — 返回新的或扩展后的 ctx。
- *
- * 中间件返回 ctx 有两种模式：
- *
- * 1. **新增字段**：用 `extendCtx(ctx, { field: value })`，保留原 ctx 的 getter。
- *
- * 2. **覆盖字段**：用 `{ ...ctx, get field() { ... }, ... }`，用 getter 覆盖原字段。
- *    适用于需要用信号 getter 替换静态 null 值的场景。
- *
- * 注意：不要用 `Object.assign(ctx, { field })`，它会把 getter 求值为快照值。
- */
-export type AppMiddleware = (ctx: WfuiContext) => WfuiContext | Promise<WfuiContext>
+/** 中间件签名 */
+export type AppMiddleware = (ctx: WfuiContext) => WfuiContext
 
-/**
- * 扩展 ctx — 创建新对象，原 ctx 的 getter 通过原型链继承。
- *
- * 用于中间件向 ctx 添加新字段，而不破坏已有字段的响应式 getter。
- *
- * ```ts
- * function myMiddleware(): AppMiddleware {
- *   return (ctx) => extendCtx(ctx, {
- *     myField: { hello: 'world' },
- *   })
- * }
- * ```
- */
+/** 路由定义 */
+export interface RouteDef {
+  path: string
+  component?: (props: any, ctx: WfuiContext) => any
+  layout?: (props: any, ctx: WfuiContext) => any
+  children?: RouteDef[]
+  auth?: boolean
+  title?: string
+  [key: string]: any
+}
+
+/** 扩展 ctx — 创建新对象，原 ctx 的 getter 通过原型链继承 */
 export function extendCtx<T extends Record<string, unknown>>(
   ctx: WfuiContext,
   fields: T,
 ): WfuiContext & T {
   return Object.assign(Object.create(ctx), fields) as WfuiContext & T
-}
-
-/** 路由定义 */
-export interface RouteDef {
-  path: string
-  /** 路由组件（叶子节点） */
-  component?: Component
-  /** 布局组件（非叶子节点，渲染 <Outlet/> 显示子路由） */
-  layout?: Component
-  /** 子路由（嵌套路由 / 布局路由） */
-  children?: RouteDef[]
-  auth?: boolean
-  title?: string
-  /** 页面加载器 — 切换路由时自动调用，结果注入 ctx.route.data */
-  loader?: (ctx: WfuiContext) => Promise<Record<string, unknown>>
-  /** 页面切换过渡动画名，对应 CSS class 前缀 */
-  transition?: string
 }

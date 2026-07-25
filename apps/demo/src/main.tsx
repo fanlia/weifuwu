@@ -1,254 +1,233 @@
 /**
- * weifuwu demo — 大型应用基础模板
+ * weifuwu demo — 迁移到新 VDOM + Proxy 架构
  *
- * 展示 weifuwu/client 全部核心能力：
- *   signal / computed / effect / batch
- *   Show / For / ErrorBoundary / createPortal / wrap
- *   router / RouteView（根层级 + 嵌套布局统一出口）
- *   ws / api / auth（通信 + 认证）
- *   useForm / createResource（表单 + 异步数据）
+ * 核心模式：
+ *   ctx.ui.$  →  状态（Proxy 自动 dirty）
+ *   三元 + .map()  →  条件/列表
+ *   if (!ready) { fetch }  →  异步数据
+ *   ref  →  生命周期
  */
 
-import {
-  signal, computed, Show, For, ErrorBoundary, createPortal, wrap,
-  createApp, router, RouteView,
-  ws, api, auth, useForm, createResource,
-} from 'weifuwu/client'
+import { createApp, router, RouteView, ws, api, auth } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
+import DashboardOverview from './pages/DashboardOverview'
+import DashboardSettings from './pages/DashboardSettings'
 
-/* ===========================================================
- *                           首页
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  首页
+ * ═══════════════════════════════════════════════════════ */
 
 function HomePage(_props: {}, ctx: WfuiContext) {
-  const features = signal([
-    { title: 'Todo', desc: 'signal + Show/For 响应式列表', path: '/todo' },
-    { title: '表单', desc: 'useForm 字段绑定/验证/提交', path: '/forms' },
-    { title: '数据', desc: 'createResource + ErrorBoundary', path: '/data' },
-    { title: 'Dashboard', desc: '嵌套布局 + lazy 代码分割', path: '/dashboard/overview' },
-    { title: '认证', desc: 'api() + auth() 中间件', path: '/auth' },
-    { title: '实时', desc: 'WebSocket 双向通信', path: '/ws' },
-    { title: '关于', desc: '路由参数 /query', path: '/about' },
-    { title: '用户', desc: '路由参数 /:name', path: '/user/wefu' },
-  ])
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) {
+    $.features = [
+      { title: 'Todo', desc: 'signal → ctx.ui.$ 响应式列表', path: '/todo' },
+      { title: '表单', desc: 'useForm → 手动 $ 表单', path: '/forms' },
+      { title: '数据', desc: 'createResource → if (!ready)', path: '/data' },
+      { title: 'Dashboard', desc: '嵌套布局 + 路由', path: '/dashboard/overview' },
+      { title: '认证', desc: 'api() + auth() 中间件', path: '/auth' },
+      { title: '实时', desc: 'WebSocket 双向通信', path: '/ws' },
+      { title: '关于', desc: '路由参数 /query', path: '/about' },
+      { title: '用户', desc: '路由参数 /:name', path: '/user/wefu' },
+    ]
+  }
 
   return (
     <div>
       <h1 class="text-3xl font-bold mb-2">weifuwu demo</h1>
-      <p class="text-gray-500 mb-6">当前路径: <code class="bg-gray-100 px-2 py-0.5 rounded text-sm">{ctx.route.path}</code></p>
+      <p class="text-gray-500 mb-6">当前路径: <code class="bg-gray-100 px-2 py-0.5 rounded text-sm">{ctx.route?.path}</code></p>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <For each={features}>
-          {(f) => (
-            <div class="bg-white rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-shadow border border-gray-100"
-              onClick={() => ctx.app.navigate(f.path)}>
-              <h3 class="font-semibold mb-1 text-base">{f.title}</h3>
-              <p class="text-gray-400 text-sm">{f.desc}</p>
-            </div>
-          )}
-        </For>
+        {$.features.map((f: any) => (
+          <div key={f.path} class="bg-white rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+            onClick={() => ctx.app?.navigate(f.path)}>
+            <h3 class="font-semibold mb-1 text-base">{f.title}</h3>
+            <p class="text-gray-400 text-sm">{f.desc}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-/* ===========================================================
- *                   Todo — signal Show/For 演示
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  Todo
+ * ═══════════════════════════════════════════════════════ */
 
-interface Todo { id: number; text: string; done: boolean }
+function TodoPage(_props: {}, ctx: WfuiContext) {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) {
+    $.todos = [
+      { id: 1, text: '了解 signal', done: true },
+      { id: 2, text: '写一个组件', done: true },
+      { id: 3, text: '跑通 demo', done: false },
+      { id: 4, text: '掌握 Proxy 自动 dirty', done: false },
+      { id: 5, text: '熟悉嵌套布局', done: false },
+    ]
+    $.filter = 'all'
+    $.input = ''
+  }
 
-const todos = signal<Todo[]>([
-  { id: 1, text: '了解 signal', done: true },
-  { id: 2, text: '写一个组件', done: true },
-  { id: 3, text: '跑通 demo', done: false },
-  { id: 4, text: '掌握 useForm', done: false },
-  { id: 5, text: '熟悉嵌套布局', done: false },
-])
-
-const filter = signal<'all' | 'active' | 'done'>('all')
-const input = signal('')
-
-const filteredTodos = computed(() => {
-  const f = filter.value
-  return todos.value.filter(t => f === 'all' ? true : f === 'active' ? !t.done : t.done)
-})
-const remaining = computed(() => todos.value.filter(t => !t.done).length)
-const isEmpty = computed(() => filteredTodos.value.length === 0)
-const hasDone = computed(() => todos.value.some(t => t.done))
-
-function addTodo() {
-  const text = input.value.trim()
-  if (!text) return
-  todos.value = [...todos.value, { id: Date.now(), text, done: false }]
-  input.value = ''
-}
-function toggleTodo(id: number) {
-  todos.value = todos.value.map(t => t.id === id ? { ...t, done: !t.done } : t)
-}
-function clearDone() {
-  todos.value = todos.value.filter(t => !t.done)
-}
-
-function TodoPage(_props: {}, _ctx: WfuiContext) {
-  const filters: Array<{ key: 'all' | 'active' | 'done'; label: string }> = [
-    { key: 'all', label: '全部' }, { key: 'active', label: '进行中' }, { key: 'done', label: '已完成' },
+  const todos = $.todos
+  const filter = $.filter
+  const filteredTodos = todos.filter((t: any) => filter === 'all' ? true : filter === 'active' ? !t.done : t.done)
+  const remaining = todos.filter((t: any) => !t.done).length
+  const hasDone = todos.some((t: any) => t.done)
+  const isEmpty = filteredTodos.length === 0
+  const filters = [
+    { key: 'all' as const, label: '全部' },
+    { key: 'active' as const, label: '进行中' },
+    { key: 'done' as const, label: '已完成' },
   ]
+
+  function addTodo() {
+    const text = $.input.trim()
+    if (!text) return
+    $.todos = [...todos, { id: Date.now(), text, done: false }]
+    $.input = ''
+  }
+
+  function toggleTodo(id: number) {
+    $.todos = todos.map((t: any) => t.id === id ? { ...t, done: !t.done } : t)
+  }
+
+  function clearDone() {
+    $.todos = todos.filter((t: any) => !t.done)
+  }
 
   return (
     <div>
       <h1 class="text-xl font-bold mb-4">Todo（{remaining}）</h1>
       <div class="flex gap-2 mb-4">
         <input class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          value={input} onInput={(e: any) => input.value = e.target.value}
+          value={$.input} onInput={(e: any) => { $.input = e.target.value }}
           onKeyDown={(e: any) => e.key === 'Enter' && addTodo()} placeholder="添加待办..." />
         <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600 font-medium" onClick={addTodo}>添加</button>
       </div>
       <div class="flex gap-2 mb-4">
         {filters.map(f => (
-          <button class={computed(() => {
-            const base = 'px-3 py-1 border rounded-full text-sm cursor-pointer transition-colors font-medium'
-            return filter.value === f.key
-              ? base + ' bg-blue-500 text-white border-blue-500'
-              : base + ' bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-          })}
-            onClick={() => filter.value = f.key}>{f.label}</button>
+          <button key={f.key}
+            class={`px-3 py-1 border rounded-full text-sm cursor-pointer transition-colors font-medium ${filter === f.key ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+            onClick={() => { $.filter = f.key }}>{f.label}</button>
         ))}
       </div>
       <div class="mb-4">
-        <Show when={isEmpty} fallback={
-          <For each={filteredTodos}>
-            {(todo) => (
-              <div class={`flex items-center gap-3 py-2.5 border-b border-gray-100 ${todo.done ? 'opacity-50' : ''}`}>
-                <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} class="cursor-pointer w-4 h-4 accent-blue-500" />
-                <span class={todo.done ? 'line-through text-gray-400' : 'text-gray-700'}>{todo.text}</span>
-              </div>
-            )}
-          </For>
-        }>
+        {isEmpty ? (
           <p class="text-gray-400 text-center py-8 text-sm">暂无待办 🎉</p>
-        </Show>
+        ) : (
+          filteredTodos.map((todo: any) => (
+            <div key={todo.id} class={`flex items-center gap-3 py-2.5 border-b border-gray-100 ${todo.done ? 'opacity-50' : ''}`}>
+              <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} class="cursor-pointer w-4 h-4 accent-blue-500" />
+              <span class={todo.done ? 'line-through text-gray-400' : 'text-gray-700'}>{todo.text}</span>
+            </div>
+          ))
+        )}
       </div>
-      <Show when={hasDone}>
+      {hasDone && (
         <button class="px-4 py-1.5 bg-red-500 text-white rounded-lg text-sm cursor-pointer hover:bg-red-600 font-medium" onClick={clearDone}>清除已完成</button>
-      </Show>
+      )}
     </div>
   )
 }
 
-/* ===========================================================
- *               表单 — useForm 演示
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  表单
+ * ═══════════════════════════════════════════════════════ */
 
-function FormPage(_props: {}, _ctx: WfuiContext) {
-  const form = useForm({
-    initial: { username: '', email: '', password: '', bio: '' },
-    validate: {
-      username: (v) => !v ? '请输入用户名' : v.length < 3 ? '至少 3 个字符' : null,
-      email: [
-        (v) => !v ? '请输入邮箱' : null,
-        (v) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '邮箱格式不正确' : null,
-      ],
-      password: (v) => !v ? '请输入密码' : v.length < 6 ? '至少 6 位' : null,
-    },
-    onSubmit: async (values) => {
-      // 模拟提交
-      await new Promise(r => setTimeout(r, 1000))
-      console.log('提交成功:', values)
-    },
-  })
+function FormPage(_props: {}, ctx: WfuiContext) {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) {
+    $.username = ''; $.email = ''; $.password = ''; $.bio = ''
+    $.errors = {}; $.submitted = false; $.submitting = false
+  }
 
-  const submitted = signal(false)
+  function validate(): boolean {
+    const errs: Record<string, string> = {}
+    if (!$.username) errs.username = '请输入用户名'
+    else if ($.username.length < 3) errs.username = '至少 3 个字符'
+    if (!$.email) errs.email = '请输入邮箱'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($.email)) errs.email = '邮箱格式不正确'
+    if (!$.password) errs.password = '请输入密码'
+    else if ($.password.length < 6) errs.password = '至少 6 位'
+    $.errors = errs
+    return Object.keys(errs).length === 0
+  }
 
-  // 监听提交成功
-  // 实际项目中这里会用 effect 或 createResource
+  function handleSubmit(e: Event) {
+    e.preventDefault()
+    if ($.submitting) return
+    // 标记所有字段已触碰
+    $.errors = { ...$.errors, username: $.errors.username || '', email: $.errors.email || '', password: $.errors.password || '' }
+    if (!validate()) return
+    $.submitting = true
+    setTimeout(() => {
+      $.submitting = false
+      $.submitted = true
+      setTimeout(() => { $.submitted = false }, 3000)
+    }, 1000)
+  }
 
-  return (
-    <div class="max-w-lg">
-      <h1 class="text-xl font-bold mb-1">注册表单</h1>
-      <p class="text-gray-400 text-sm mb-5">演示 useForm：字段绑定、验证、提交状态</p>
-
-      <Show when={submitted} fallback={
-        <form onSubmit={(e: Event) => {
-          e.preventDefault()
-          if (form.submitting.value) return
-          // 标记所有字段已触碰
-          const allTouched = {} as any
-          for (const k of Object.keys(form.values.value)) allTouched[k] = true
-          form.touched.value = allTouched
-          // 验证
-          if (!form.validateAll()) return
-          form.submitting.value = true
-          setTimeout(() => {
-            form.submitting.value = false
-            submitted.value = true
-            setTimeout(() => submitted.value = false, 3000)
-          }, 1000)
-        }} class="space-y-4">
-          {/* 用户名 */}
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
-            <input {...form.field('username')}
-              class={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                form.errors.value.username && form.touched.value.username ? 'border-red-400' : 'border-gray-300'}`}
-              placeholder="至少 3 个字符" />
-            <Show when={form.errors.value.username && form.touched.value.username}>
-              <p class="text-red-500 text-xs mt-1">{form.errors.value.username}</p>
-            </Show>
-          </div>
-
-          {/* 邮箱 */}
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
-            <input {...form.field('email')}
-              class={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                form.errors.value.email && form.touched.value.email ? 'border-red-400' : 'border-gray-300'}`}
-              placeholder="name@example.com" />
-            <Show when={form.errors.value.email && form.touched.value.email}>
-              <p class="text-red-500 text-xs mt-1">{form.errors.value.email}</p>
-            </Show>
-          </div>
-
-          {/* 密码 */}
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
-            <input type="password" {...form.field('password')}
-              class={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                form.errors.value.password && form.touched.value.password ? 'border-red-400' : 'border-gray-300'}`}
-              placeholder="至少 6 位" />
-            <Show when={form.errors.value.password && form.touched.value.password}>
-              <p class="text-red-500 text-xs mt-1">{form.errors.value.password}</p>
-            </Show>
-          </div>
-
-          {/* 简介 */}
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">简介（可选）</label>
-            <textarea {...form.field('bio')}
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              rows={3} placeholder="介绍一下自己..." />
-          </div>
-
-          <button type="submit" disabled={form.submitting}
-            class="w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer
-                   hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            <Show when={form.submitting} fallback={<span>提交注册</span>}>
-              <span>提交中...</span>
-            </Show>
-          </button>
-        </form>
-      }>
+  if ($.submitted) {
+    return (
+      <div class="max-w-lg">
+        <h1 class="text-xl font-bold mb-1">注册表单</h1>
+        <p class="text-gray-400 text-sm mb-5">演示手动表单：字段绑定、验证、提交状态</p>
         <div class="bg-green-50 border border-green-200 rounded-xl p-8 text-center">
           <p class="text-green-700 text-lg font-medium">✅ 注册成功！</p>
           <p class="text-green-600 text-sm mt-2">3 秒后自动关闭</p>
         </div>
-      </Show>
+      </div>
+    )
+  }
+
+  return (
+    <div class="max-w-lg">
+      <h1 class="text-xl font-bold mb-1">注册表单</h1>
+      <p class="text-gray-400 text-sm mb-5">演示手动表单：字段绑定、验证、提交状态</p>
+
+      <form onSubmit={handleSubmit} class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+          <input value={$.username} onInput={(e: any) => { $.username = e.target.value }}
+            class={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${$.errors.username ? 'border-red-400' : 'border-gray-300'}`}
+            placeholder="至少 3 个字符" />
+          {$.errors.username && <p class="text-red-500 text-xs mt-1">{$.errors.username}</p>}
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+          <input value={$.email} onInput={(e: any) => { $.email = e.target.value }}
+            class={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${$.errors.email ? 'border-red-400' : 'border-gray-300'}`}
+            placeholder="name@example.com" />
+          {$.errors.email && <p class="text-red-500 text-xs mt-1">{$.errors.email}</p>}
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+          <input type="password" value={$.password} onInput={(e: any) => { $.password = e.target.value }}
+            class={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${$.errors.password ? 'border-red-400' : 'border-gray-300'}`}
+            placeholder="至少 6 位" />
+          {$.errors.password && <p class="text-red-500 text-xs mt-1">{$.errors.password}</p>}
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">简介（可选）</label>
+          <textarea value={$.bio} onInput={(e: any) => { $.bio = e.target.value }}
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            rows={3} placeholder="介绍一下自己..." />
+        </div>
+
+        <button type="submit" disabled={$.submitting}
+          class="w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          {$.submitting ? '提交中...' : '提交注册'}
+        </button>
+      </form>
     </div>
   )
 }
 
-/* ===========================================================
- *           异步数据 — createResource + ErrorBoundary 演示
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  异步数据
+ * ═══════════════════════════════════════════════════════ */
 
 function fetchPosts() {
   return fetch('/api/posts').then(r => {
@@ -257,11 +236,25 @@ function fetchPosts() {
   })
 }
 
-function DataPage(_props: {}, _ctx: WfuiContext) {
-  const [posts, { loading, error, refetch }] = createResource(fetchPosts, { initialValue: [] })
-  // 响应式条件：loading 完成且无错误时显示列表
-  // 必须用 computed 包裹，因为 !loading.value && !error.value 是静态布尔
-  const ready = computed(() => !loading.value && !error.value)
+function DataPage(_props: {}, ctx: WfuiContext) {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) {
+    $.posts = []; $.loading = true; $.error = null
+    fetchPosts().then(data => {
+      $.posts = data; $.loading = false
+    }).catch(e => {
+      $.error = e; $.loading = false
+    })
+  }
+
+  function refetch() {
+    $.loading = true; $.error = null
+    fetchPosts().then(data => {
+      $.posts = data; $.loading = false
+    }).catch(e => {
+      $.error = e; $.loading = false
+    })
+  }
 
   return (
     <div>
@@ -270,10 +263,9 @@ function DataPage(_props: {}, _ctx: WfuiContext) {
         <button class="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm cursor-pointer hover:bg-gray-200 transition-colors"
           onClick={refetch}>刷新</button>
       </div>
-      <p class="text-gray-400 text-sm mb-4">演示 createResource：自动管理 loading/error/data 信号</p>
+      <p class="text-gray-400 text-sm mb-4">演示 if (!ready) + fetch：自动管理 loading/error/data</p>
 
-      {/* 加载状态 */}
-      <Show when={loading}>
+      {$.loading && (
         <div class="space-y-3">
           {[1, 2, 3].map(i => (
             <div key={i} class="bg-white rounded-xl p-5 shadow-sm animate-pulse">
@@ -283,58 +275,41 @@ function DataPage(_props: {}, _ctx: WfuiContext) {
             </div>
           ))}
         </div>
-      </Show>
+      )}
 
-      {/* 错误状态 — ErrorBoundary 演示 */}
-      <ErrorBoundary
-        fallback={(e) => (
-          <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-            <p class="text-red-600 font-medium">加载失败</p>
-            <p class="text-red-500 text-sm mt-1">{e.message}</p>
-            <button class="mt-3 px-4 py-2 bg-red-500 text-white rounded-lg text-sm cursor-pointer hover:bg-red-600"
-              onClick={refetch}>重试</button>
-          </div>
-        )}
-        onError={(e) => console.error('DataPage Error:', e)}>
-        {() => (
-          <>
-            {/* 数据就绪 */}
-            <Show when={ready}>
-              <div class="space-y-3">
-                <For each={posts}>
-                  {(post: any) => (
-                    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                      <h3 class="font-semibold text-base mb-1">{post.title}</h3>
-                      <p class="text-gray-500 text-sm leading-relaxed">{post.body}</p>
-                      <div class="mt-2 text-xs text-gray-400">{post.author} · {post.date}</div>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </Show>
-          </>
-        )}
-      </ErrorBoundary>
+      {$.error && (
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <p class="text-red-600 font-medium">加载失败</p>
+          <p class="text-red-500 text-sm mt-1">{$.error.message}</p>
+          <button class="mt-3 px-4 py-2 bg-red-500 text-white rounded-lg text-sm cursor-pointer hover:bg-red-600"
+            onClick={refetch}>重试</button>
+        </div>
+      )}
+
+      {!$.loading && !$.error && (
+        <div class="space-y-3">
+          {$.posts.map((post: any) => (
+            <div key={post.id} class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <h3 class="font-semibold text-base mb-1">{post.title}</h3>
+              <p class="text-gray-500 text-sm leading-relaxed">{post.body}</p>
+              <div class="mt-2 text-xs text-gray-400">{post.author} · {post.date}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-/* ===========================================================
- *         Dashboard — 嵌套布局 + 代码分割（lazy） 演示
- * =========================================================== */
-
-// 直接导入（可用于实际代码分割：
-//   const Overview = lazy(() => import('./pages/DashboardOverview'))
-// 配合 esbuild splitting:true + outdir 使用）
-import DashboardOverview from './pages/DashboardOverview'
-import DashboardSettings from './pages/DashboardSettings'
+/* ═══════════════════════════════════════════════════════
+ *  Dashboard — 嵌套布局
+ * ═══════════════════════════════════════════════════════ */
 
 function DashboardLayout(_props: {}, ctx: WfuiContext) {
-  const tab = computed(() => ctx.route.path.includes('settings') ? 'settings' : 'overview')
+  const tab = ctx.route?.path?.includes('settings') ? 'settings' : 'overview'
 
   return (
     <div class="flex gap-6">
-      {/* 侧边栏 — 路由切换时保持挂载 */}
       <div class="w-48 shrink-0">
         <h2 class="font-bold text-sm text-gray-400 uppercase tracking-wider mb-3">Dashboard</h2>
         <div class="space-y-1">
@@ -342,16 +317,14 @@ function DashboardLayout(_props: {}, ctx: WfuiContext) {
             { label: '概览', path: '/dashboard/overview' },
             { label: '设置', path: '/dashboard/settings' },
           ].map(item => (
-            <div class={`px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${
-              tab.value === (item.path.includes('settings') ? 'settings' : 'overview')
-                ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
-              onClick={() => ctx.app.navigate(item.path)}>
+            <div key={item.path}
+              class={`px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${tab === (item.path.includes('settings') ? 'settings' : 'overview') ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+              onClick={() => ctx.app?.navigate(item.path)}>
               {item.label}
             </div>
           ))}
         </div>
       </div>
-      {/* 内容区 — 只替换 Outlet 区域 */}
       <div class="flex-1">
         <RouteView />
       </div>
@@ -359,25 +332,26 @@ function DashboardLayout(_props: {}, ctx: WfuiContext) {
   )
 }
 
-/* ===========================================================
- *               认证 — api() + auth() 中间件 演示
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  认证 — api() + auth() 中间件演示
+ * ═══════════════════════════════════════════════════════ */
 
 function AuthPage(_props: {}, ctx: WfuiContext) {
-  const email = signal('')
-  const password = signal('')
-  const loginError = signal<string | null>(null)
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) {
+    $.email = ''; $.password = ''; $.loginError = null
+  }
 
-  const handleLogin = async () => {
-    loginError.value = null
+  async function handleLogin() {
+    $.loginError = null
     try {
-      const res = await ctx.api.post<{ token: string; user: { id: number; name: string; email: string } }>('/api/login', {
-        email: email.value,
-        password: password.value,
+      const res: any = await (ctx.api as any).post('/api/login', {
+        email: $.email,
+        password: $.password,
       })
-      ctx.auth.login(res.token, res.user)
+      ctx.auth?.login(res.token, res.user)
     } catch (e: any) {
-      loginError.value = e.message || '登录失败'
+      $.loginError = e.message || '登录失败'
     }
   }
 
@@ -386,66 +360,65 @@ function AuthPage(_props: {}, ctx: WfuiContext) {
       <h1 class="text-xl font-bold mb-1">认证演示</h1>
       <p class="text-gray-400 text-sm mb-5">演示 api() + auth() 中间件：登录/登出/token 管理</p>
 
-      <Show when={ctx.auth.isLoggedIn} fallback={
-        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h2 class="font-semibold mb-4">登录</h2>
-          <div class="space-y-3">
-            <input class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={email} onInput={(e: any) => email.value = e.target.value}
-              placeholder="邮箱 (任意)" />
-            <input type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={password} onInput={(e: any) => password.value = e.target.value}
-              onKeyDown={(e: any) => e.key === 'Enter' && handleLogin()}
-              placeholder="密码 (任意)" />
-            <Show when={loginError.value}>
-              <p class="text-red-500 text-sm">{loginError.value}</p>
-            </Show>
-            <button class="w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 transition-colors"
-              onClick={handleLogin}>登录</button>
-          </div>
-        </div>
-      }>
+      {ctx.auth?.isLoggedIn ? (
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-lg">
-              {ctx.auth.user.value?.name?.[0] ?? '?'}
+              {(ctx.auth?.user?.name?.[0] ?? '?').toUpperCase()}
             </div>
             <div>
-              <p class="font-semibold">{ctx.auth.user.value?.name}</p>
-              <p class="text-gray-400 text-sm">{ctx.auth.user.value?.email}</p>
+              <p class="font-semibold">{ctx.auth?.user?.name}</p>
+              <p class="text-gray-400 text-sm">{ctx.auth?.user?.email}</p>
             </div>
           </div>
           <div class="bg-gray-50 rounded-lg p-3 mb-4">
             <p class="text-xs text-gray-500 mb-1">Token</p>
-            <code class="text-xs text-gray-700 break-all">{ctx.auth.token.value?.slice(0, 40)}...</code>
+            <code class="text-xs text-gray-700 break-all">{ctx.auth?.token?.slice(0, 40)}...</code>
           </div>
           <button class="w-full py-2 bg-red-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-red-600 transition-colors"
-            onClick={() => ctx.auth.logout()}>退出登录</button>
+            onClick={() => ctx.auth?.logout()}>退出登录</button>
         </div>
-      </Show>
+      ) : (
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <h2 class="font-semibold mb-4">登录</h2>
+          <div class="space-y-3">
+            <input class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              value={$.email} onInput={(e: any) => { $.email = e.target.value }}
+              placeholder="邮箱 (任意)" />
+            <input type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              value={$.password} onInput={(e: any) => { $.password = e.target.value }}
+              onKeyDown={(e: any) => e.key === 'Enter' && handleLogin()}
+              placeholder="密码 (任意)" />
+            {$.loginError && <p class="text-red-500 text-sm">{$.loginError}</p>}
+            <button class="w-full py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-600 transition-colors"
+              onClick={handleLogin}>登录</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-/* ===========================================================
- *             WebSocket 实时通信 — ws() 中间件演示
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  WebSocket 实时通信
+ * ═══════════════════════════════════════════════════════ */
 
 function RealtimePage(_props: {}, ctx: WfuiContext) {
-  const messages = signal<Array<{ type: string; body: string; ts?: number }>>([])
-  const wsInput = signal('')
-  // 响应式条件：有消息时显示列表（messages.value.length > 0 是静态布尔）
-  const hasMessages = computed(() => messages.value.length > 0)
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) {
+    $.messages = []; $.wsInput = ''
+    ctx.ws?.onMessage((data: any) => {
+      // 系统消息：触发重渲染（更新连接状态），但不加入消息列表
+      if (data.type === 'system') { $.connected = true; return }
+      $.messages = [...$.messages, data]
+    })
+  }
 
-  ctx.ws.onMessage((data: any) => {
-    messages.value = [...messages.value, data]
-  })
-
-  const send = () => {
-    const text = wsInput.value.trim()
+  function send() {
+    const text = $.wsInput.trim()
     if (!text) return
-    ctx.ws.send({ body: text })
-    wsInput.value = ''
+    ctx.ws?.send({ body: text })
+    $.wsInput = ''
   }
 
   return (
@@ -455,34 +428,27 @@ function RealtimePage(_props: {}, ctx: WfuiContext) {
       <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
         <p class="mb-3 flex items-center gap-2">
           连接状态：
-          <Show when={ctx.ws.isConnected} fallback={<span class="text-red-500 text-sm font-medium">未连接</span>}>
+          {ctx.ws?.isConnected ? (
             <span class="text-green-600 text-sm font-medium">🟢 已连接</span>
-          </Show>
+          ) : (
+            <span class="text-red-500 text-sm font-medium">未连接</span>
+          )}
         </p>
 
         <div class="max-h-72 overflow-y-auto border border-gray-200 rounded-lg p-3 mb-4 bg-gray-50">
-          <Show when={hasMessages} fallback={
-            <p class="text-gray-400 text-center py-8 text-sm">暂无消息，发送一条试试</p>
-          }>
-            <For each={messages}>
-              {(msg) => (
-                <div class={`p-2 my-1.5 rounded-lg text-sm ${
-                  msg.type === 'system' ? 'bg-green-50 text-green-700'
-                    : msg.type === 'echo' ? 'bg-blue-50 text-blue-700'
-                    : 'bg-gray-100 text-gray-700'
-                }`}>
-                  <strong>{msg.type === 'system' ? '系统' : msg.type === 'echo' ? '回显' : '消息'}:</strong>{' '}
-                  {msg.body}
-                  {msg.ts ? <span class="text-gray-400 text-xs ml-2">{new Date(msg.ts).toLocaleTimeString()}</span> : null}
-                </div>
-              )}
-            </For>
-          </Show>
+          {$.messages.map((msg: any, i: number) => (
+            <div key={i} class={`p-2 my-1.5 rounded-lg text-sm ${msg.type === 'system' ? 'bg-green-50 text-green-700' : msg.type === 'echo' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+              <strong>{msg.type === 'system' ? '系统' : msg.type === 'echo' ? '回显' : '消息'}:</strong>{' '}
+              {msg.body}
+              {msg.ts ? <span class="text-gray-400 text-xs ml-2">{new Date(msg.ts).toLocaleTimeString()}</span> : null}
+            </div>
+          ))}
+          {$.messages.length === 0 && <p class="text-gray-400 text-center py-8 text-sm">暂无消息，发送一条试试</p>}
         </div>
 
         <div class="flex gap-2">
           <input class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            value={wsInput} onInput={(e: any) => wsInput.value = e.target.value}
+            value={$.wsInput} onInput={(e: any) => { $.wsInput = e.target.value }}
             onKeyDown={(e: any) => e.key === 'Enter' && send()}
             placeholder="输入消息，回车发送..." />
           <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600 font-medium transition-colors"
@@ -493,31 +459,31 @@ function RealtimePage(_props: {}, ctx: WfuiContext) {
   )
 }
 
-/* ===========================================================
- *              关于 + 用户 — 路由参数演示（保留原有）
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  关于 + 用户 — 路由参数演示
+ * ═══════════════════════════════════════════════════════ */
 
 function AboutPage(_props: {}, ctx: WfuiContext) {
   return (
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
       <h1 class="text-xl font-bold mb-3">关于 weifuwu</h1>
       <ul class="pl-5 mb-3 text-gray-600 space-y-1">
-        <li>核心: signal + TSX + (props, ctx)</li>
-        <li>无 VDOM，无 hooks 规则，零依赖</li>
+        <li>核心: VDOM + Proxy + (props, ctx)</li>
+        <li>无 signal，无 hooks 规则，零依赖</li>
         <li>前后端共享 ctx 理念</li>
         <li>一个 npm 包打通全栈</li>
       </ul>
       <div class="border-t border-gray-100 pt-3 mt-3">
-        <p><strong>路由参数:</strong> {JSON.stringify(ctx.route.params)}</p>
-        <p><strong>查询参数:</strong> {JSON.stringify(ctx.route.query)}</p>
+        <p><strong>路由参数:</strong> {JSON.stringify(ctx.route?.params)}</p>
+        <p><strong>查询参数:</strong> {JSON.stringify(ctx.route?.query)}</p>
       </div>
       <div class="mt-4 flex gap-2 flex-wrap">
         <button class="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600 transition-colors"
-          onClick={() => ctx.app.navigate('/about?tab=intro')}>?tab=intro</button>
+          onClick={() => ctx.app?.navigate('/about?tab=intro')}>?tab=intro</button>
         <button class="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600 transition-colors"
-          onClick={() => ctx.app.navigate('/about?tab=api&version=1')}>?tab=api&version=1</button>
+          onClick={() => ctx.app?.navigate('/about?tab=api&version=1')}>?tab=api&version=1</button>
         <button class="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm cursor-pointer hover:bg-gray-200 transition-colors"
-          onClick={() => ctx.app.navigate('/todo')}>去 Todo</button>
+          onClick={() => ctx.app?.navigate('/todo')}>去 Todo</button>
       </div>
     </div>
   )
@@ -526,39 +492,39 @@ function AboutPage(_props: {}, ctx: WfuiContext) {
 function UserPage(_props: {}, ctx: WfuiContext) {
   return (
     <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-      <h1 class="text-xl font-bold mb-3">用户: {ctx.route.params.name}</h1>
-      <p class="mb-1 text-gray-600">路径: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm">{ctx.route.path}</code></p>
-      <p class="mb-4 text-gray-600">所有参数: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm">{JSON.stringify(ctx.route.params)}</code></p>
+      <h1 class="text-xl font-bold mb-3">用户: {ctx.route?.params?.name}</h1>
+      <p class="mb-1 text-gray-600">路径: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm">{ctx.route?.path}</code></p>
+      <p class="mb-4 text-gray-600">所有参数: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm">{JSON.stringify(ctx.route?.params)}</code></p>
       <div class="flex gap-2">
         <button class="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600 transition-colors"
-          onClick={() => ctx.app.navigate('/user/alice')}>alice</button>
+          onClick={() => ctx.app?.navigate('/user/alice')}>alice</button>
         <button class="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600 transition-colors"
-          onClick={() => ctx.app.navigate('/user/bob')}>bob</button>
+          onClick={() => ctx.app?.navigate('/user/bob')}>bob</button>
         <button class="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600 transition-colors"
-          onClick={() => ctx.app.navigate('/user/张三')}>张三</button>
+          onClick={() => ctx.app?.navigate('/user/张三')}>张三</button>
       </div>
     </div>
   )
 }
 
-/* ===========================================================
- *                    404
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  404
+ * ═══════════════════════════════════════════════════════ */
 
 function NotFound(_props: {}, ctx: WfuiContext) {
   return (
     <div class="text-center py-16">
       <h1 class="text-6xl text-gray-200 font-bold">404</h1>
-      <p class="my-3 text-gray-400">路径 <code class="bg-gray-100 px-2 py-0.5 rounded">{ctx.route.path}</code> 未找到</p>
+      <p class="my-3 text-gray-400">路径 <code class="bg-gray-100 px-2 py-0.5 rounded">{ctx.route?.path}</code> 未找到</p>
       <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm cursor-pointer hover:bg-blue-600 transition-colors"
-        onClick={() => ctx.app.navigate('/')}>回首页</button>
+        onClick={() => ctx.app?.navigate('/')}>回首页</button>
     </div>
   )
 }
 
-/* ===========================================================
- *                   应用布局 + 路由
- * =========================================================== */
+/* ═══════════════════════════════════════════════════════
+ *  应用布局 + 路由
+ * ═══════════════════════════════════════════════════════ */
 
 function AppShell(_props: {}, ctx: WfuiContext) {
   const navItems = [
@@ -573,32 +539,28 @@ function AppShell(_props: {}, ctx: WfuiContext) {
 
   return (
     <div class="min-h-screen bg-gray-50">
-      {/* 顶部导航 */}
       <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div class="max-w-5xl mx-auto px-4 flex items-center justify-between h-14">
           <div class="flex items-center gap-1">
             <span class="font-bold text-lg cursor-pointer text-blue-500 hover:text-blue-600 transition-colors"
-              onClick={() => ctx.app.navigate('/')}>weifuwu</span>
+              onClick={() => ctx.app?.navigate('/')}>weifuwu</span>
             <span class="text-xs text-gray-300 ml-1">demo</span>
           </div>
           <div class="flex items-center gap-1">
-            <For each={navItems}>
-              {(item) => (
-                <span class="px-3 py-1.5 text-sm text-gray-500 hover:text-blue-500 cursor-pointer rounded-lg hover:bg-gray-50 transition-colors"
-                  onClick={() => ctx.app.navigate(item.path)}>
-                  {item.label}
-                </span>
-              )}
-            </For>
-            {/* 认证状态指示器 */}
-            <Show when={ctx.auth?.isLoggedIn}>
+            {navItems.map(item => (
+              <span key={item.path}
+                class="px-3 py-1.5 text-sm text-gray-500 hover:text-blue-500 cursor-pointer rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => ctx.app?.navigate(item.path)}>
+                {item.label}
+              </span>
+            ))}
+            {ctx.auth?.isLoggedIn && (
               <span class="ml-2 w-2 h-2 rounded-full bg-green-500" title="已登录" />
-            </Show>
+            )}
           </div>
         </div>
       </nav>
 
-      {/* 主内容区 */}
       <main class="max-w-5xl mx-auto px-4 py-6">
         <RouteView />
       </main>
@@ -606,7 +568,9 @@ function AppShell(_props: {}, ctx: WfuiContext) {
   )
 }
 
-// ── 路由配置 ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════
+ *  路由配置
+ * ═══════════════════════════════════════════════════════ */
 
 const routes: RouteDef[] = [
   { path: '/', component: HomePage, title: '首页' },
@@ -628,33 +592,13 @@ const routes: RouteDef[] = [
   { path: '/user/:name', component: UserPage, title: '用户' },
 ]
 
-// ── SSR Like Button ─────────────────────────────────────
-
-function LikeButton(_props: {}, _ctx: WfuiContext): Node {
-  const count = signal(0)
-  return (
-    <button onClick={() => count.value++}
-      class="px-5 py-2 border border-gray-300 rounded-lg bg-white cursor-pointer text-base hover:bg-gray-50 transition-colors">
-      ❤️ {count}
-    </button>
-  )
-}
-
-// ── 启动 ────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════
+ *  启动
+ * ═══════════════════════════════════════════════════════ */
 
 const app = createApp()
 app.use(api({ baseURL: '' }))
 app.use(auth())
 app.use(ws())
-app.use(router({ routes, notFound: NotFound, mode: 'hash', scrollRestoration: true }))
-
-// 检测 SSR 页面
-const root = document.getElementById('root')
-const hasSsr = root && root.children.length > 0
-
-if (hasSsr) {
-  const likeTarget = document.querySelector('[data-hydrate="like"]')
-  if (likeTarget) app.hydrate('[data-hydrate="like"]', LikeButton)
-} else {
-  app.mount('#root', AppShell)
-}
+app.use(router({ routes, notFound: NotFound, mode: 'history' }))
+app.mount('#root', AppShell)

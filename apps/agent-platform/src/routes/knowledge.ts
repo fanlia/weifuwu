@@ -93,7 +93,7 @@ export function registerKnowledgeRoutes(app: Router): void {
       return Response.json({ error: 'filename 和 content 为必填' }, { status: 400 })
     }
 
-    const result = await processDocument(ctx, params.id, agent, body.filename, body.content)
+    const result = await processDocument(ctx, params.id, agent as any, body.filename, body.content)
     return Response.json(result, { status: 201 })
   })
 
@@ -156,7 +156,7 @@ export function registerKnowledgeRoutes(app: Router): void {
     const results = []
     for (const doc of uploaded) {
       try {
-        const result = await processDocument(ctx, params.id, agent, doc.filename, doc.content)
+        const result = await processDocument(ctx, params.id, agent as any, doc.filename, doc.content)
         results.push(result)
       } catch (err) {
         errors.push({ filename: doc.filename, error: `处理失败: ${err instanceof Error ? err.message : String(err)}` })
@@ -203,7 +203,7 @@ export function registerKnowledgeRoutes(app: Router): void {
         continue
       }
       try {
-        const result = await processDocument(ctx, params.id, agent, doc.filename, doc.content)
+        const result = await processDocument(ctx, params.id, agent as any, doc.filename, doc.content)
         results.push(result)
       } catch (err) {
         errors.push({ filename: doc.filename, error: `处理失败: ${err instanceof Error ? err.message : String(err)}` })

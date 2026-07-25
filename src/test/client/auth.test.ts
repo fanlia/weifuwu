@@ -1,124 +1,110 @@
 /**
- * weifuwu/client auth middleware — 认证状态管理测试
+ * weifuwu/client auth — 认证中间件测试
  */
 
-import { describe, it, before } from 'node:test'
+import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from './setup.ts'
+import { auth } from '../../client/middleware/auth.ts'
+import type { WfuiContext } from '../../client/types.ts'
 
-before(setupJsdom)
+// localStorage mock
+let store: Record<string, string> = {}
+before(() => {
+  if (typeof globalThis.localStorage === 'undefined') {
+    const s: Record<string, string> = {}
+    ;(globalThis as any).localStorage = {
+      getItem: (k: string) => s[k] ?? null,
+      setItem: (k: string, v: string) => { s[k] = v },
+      removeItem: (k: string) => { delete s[k] },
+      clear: () => { Object.keys(s).forEach(k => delete s[k]) },
+      get length() { return Object.keys(s).length },
+      key: (i: number) => Object.keys(s)[i] ?? null,
+    }
+  }
+})
 
-const { auth } = await import('../../client/middleware/auth.ts')
-import type { AuthClient } from '../../client/middleware/auth.ts'
+beforeEach(() => {
+  store = {}
+  localStorage.clear()
+})
 
-// ── 模拟 Storage ────────────────────────────────────────────
-
-class MockStorage implements Storage {
-  private store = new Map<string, string>()
-  get length() { return this.store.size }
-  clear() { this.store.clear() }
-  getItem(k: string) { return this.store.get(k) ?? null }
-  key(i: number) { return [...this.store.keys()][i] ?? null }
-  removeItem(k: string) { this.store.delete(k) }
-  setItem(k: string, v: string) { this.store.set(k, v) }
-}
-
-function createAuth(storage?: Storage, opts?: Record<string, string>): AuthClient {
-  const options: any = { storage: storage ?? new MockStorage() }
-  if (opts?.tokenKey) options.tokenKey = opts.tokenKey
-  if (opts?.userKey) options.userKey = opts.userKey
-  const ctx = auth(options)({
-    route: {} as any,
-    app: { navigate() {} },
-    provide() {},
-    inject() { return null },
-    ws: null as any,
-  })
-  return (ctx as any).auth
+function makeAuth(opts?: any) {
+  const mw = auth({ tokenKey: 't', userKey: 'u', ...opts })
+  const ctx: WfuiContext = {} as any
+  return mw(ctx) as any
 }
 
 describe('auth', () => {
   it('初始状态: 未登录', () => {
-    const a = createAuth()
-    assert.equal(a.token.value, null)
-    assert.equal(a.user.value, null)
-    assert.equal(a.isLoggedIn.value, false)
-    assert.equal(a.authorizationHeader.value, null)
+    const res = makeAuth()
+    assert.equal(res.auth.token, null)
+    assert.equal(res.auth.user, null)
+    assert.equal(res.auth.isLoggedIn, false)
   })
 
   it('login() 设置 token 和 user', () => {
-    const a = createAuth()
-    a.login('jwt-123', { id: 1, name: 'Alice', email: 'alice@test.com' })
-    assert.equal(a.token.value, 'jwt-123')
-    assert.equal(a.user.value?.name, 'Alice')
-    assert.equal(a.isLoggedIn.value, true)
-    assert.equal(a.authorizationHeader.value, 'Bearer jwt-123')
+    const res = makeAuth()
+    res.auth.login('abc', { name: 'Alice' })
+    assert.equal(res.auth.token, 'abc')
+    assert.equal(res.auth.user.name, 'Alice')
+    assert.equal(res.auth.isLoggedIn, true)
+    assert.equal(localStorage.getItem('t'), 'abc')
   })
 
-  it('login() 持久化到 storage', () => {
-    const storage = new MockStorage()
-    const a = createAuth(storage)
-    a.login('tok', { id: 1, name: 'Bob' })
-    assert.equal(storage.getItem('weifuwu_token'), 'tok')
-    assert.ok(storage.getItem('weifuwu_user')?.includes('"name":"Bob"'))
+  it('login() 存储 user 为 JSON', () => {
+    const res = makeAuth()
+    res.auth.login('x', { name: 'Bob' })
+    const stored = localStorage.getItem('u')
+    assert.equal(JSON.parse(stored!).name, 'Bob')
   })
 
   it('logout() 清除 token 和 user', () => {
-    const storage = new MockStorage()
-    const a = createAuth(storage)
-    a.login('tok', { id: 1, name: 'Bob' })
-    a.logout()
-    assert.equal(a.token.value, null)
-    assert.equal(a.user.value, null)
-    assert.equal(a.isLoggedIn.value, false)
-    assert.equal(storage.getItem('weifuwu_token'), null)
+    const res = makeAuth()
+    res.auth.login('abc', { name: 'Alice' })
+    assert.ok(res.auth.isLoggedIn)
+    res.auth.logout()
+    assert.equal(res.auth.token, null)
+    assert.equal(res.auth.isLoggedIn, false)
+    assert.equal(localStorage.getItem('t'), null)
   })
 
-  it('setUser() 更新 user 信号和 storage', () => {
-    const storage = new MockStorage()
-    const a = createAuth(storage)
-    a.login('tok', { id: 1, name: 'Old' })
-    a.setUser({ id: 1, name: 'New' })
-    assert.equal(a.user.value?.name, 'New')
-    assert.ok(storage.getItem('weifuwu_user')?.includes('"name":"New"'))
+  it('logout() 清除 refresh token', () => {
+    const res = makeAuth({ refreshTokenKey: 'rt' })
+    res.auth.login('x', {}, 'refresh-123')
+    assert.equal(localStorage.getItem('rt'), 'refresh-123')
+    res.auth.logout()
+    assert.equal(localStorage.getItem('rt'), null)
+  })
+
+  it('setUser() 更新 user', () => {
+    const res = makeAuth()
+    res.auth.login('t', { name: 'Alice' })
+    res.auth.setUser({ name: 'Bob' })
+    assert.equal(res.auth.user.name, 'Bob')
+    assert.equal(localStorage.getItem('u'), JSON.stringify({ name: 'Bob' }))
   })
 
   it('从 storage 恢复登录状态', () => {
-    const storage = new MockStorage()
-    storage.setItem('weifuwu_token', 'saved-token')
-    storage.setItem('weifuwu_user', JSON.stringify({ id: 2, name: 'Restored' }))
-
-    const a = createAuth(storage)
-    assert.equal(a.token.value, 'saved-token')
-    assert.equal(a.user.value?.name, 'Restored')
-    assert.equal(a.isLoggedIn.value, true)
+    localStorage.setItem('t', 'saved-token')
+    localStorage.setItem('u', JSON.stringify({ name: 'Bob' }))
+    const res = makeAuth()
+    assert.equal(res.auth.token, 'saved-token')
+    assert.equal(res.auth.user.name, 'Bob')
   })
 
-  it('自定义 tokenKey / userKey', () => {
-    const storage = new MockStorage()
-    storage.setItem('my_token', 't')
-    storage.setItem('my_user', JSON.stringify({ id: 3, name: 'Custom' }))
-
-    const a = createAuth(storage as any, { tokenKey: 'my_token', userKey: 'my_user' })
-    assert.equal(a.token.value, 't')
-    assert.equal(a.user.value?.name, 'Custom')
+  it('storage 无 user 时 user 为 null', () => {
+    localStorage.setItem('t', 'token-only')
+    const res = makeAuth()
+    assert.equal(res.auth.token, 'token-only')
+    assert.equal(res.auth.user, null)
   })
 
-  it('computed: isLoggedIn = token !== null', () => {
-    const a = createAuth()
-    assert.equal(a.isLoggedIn.value, false)
-    a.login('x', { id: 1, name: 'X' })
-    assert.equal(a.isLoggedIn.value, true)
-    a.logout()
-    assert.equal(a.isLoggedIn.value, false)
-  })
-
-  it('computed: authorizationHeader = Bearer token', () => {
-    const a = createAuth()
-    assert.equal(a.authorizationHeader.value, null)
-    a.login('abc', { id: 1, name: 'X' })
-    assert.equal(a.authorizationHeader.value, 'Bearer abc')
-    a.logout()
-    assert.equal(a.authorizationHeader.value, null)
+  it('isLoggedIn 是 getter', () => {
+    const res = makeAuth()
+    assert.equal(res.auth.isLoggedIn, false)
+    res.auth.login('t', {})
+    assert.equal(res.auth.isLoggedIn, true)
+    res.auth.logout()
+    assert.equal(res.auth.isLoggedIn, false)
   })
 })

@@ -1,50 +1,45 @@
-/**
- * Agent 列表页
- */
-
-import { computed, createResource, Show, For } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 import { PageHeader, TypeBadge, Ava, EmptyState, Loading, StatusDot } from '../components/ui'
 
 export function Agents(_props: {}, ctx: WfuiContext) {
-  const token = ctx.auth?.token?.value ?? ctx.auth?.token
-  const headers = { Authorization: `Bearer ${token}` }
+  const $ = ctx.ui.$
+  const token = ctx.auth?.token
 
-  const [agents, { loading, refetch }] = createResource<any[]>(
-    () => fetch('/api/agents', { headers }).then(r => r.json()).then(d => d.agents ?? []),
-    { initialValue: [] },
-  )
-
-  const isEmpty = computed(() => !loading.value && (agents.value ?? []).length === 0)
-  const hasData = computed(() => (agents.value ?? []).length > 0)
+  if (!ctx.ui.ready) {
+    $.agents = []; $.loading = true
+    fetch('/api/agents', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => { $.agents = d.agents ?? []; $.loading = false })
+      .catch(() => { $.loading = false })
+  }
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
     if (!confirm('确定删除这个 Agent 吗？')) return
-    const res = await fetch(`/api/agents/${id}`, { method: 'DELETE', headers })
-    if (res.ok || res.status === 204) refetch()
+    const res = await fetch(`/api/agents/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok || res.status === 204) {
+      $.agents = $.agents.filter((a: any) => a.id !== id)
+     
+    }
   }
 
   return (
     <div class="page">
       <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">
-        <button class="btn btn-primary" onClick={() => ctx.app.navigate('/agents/new')}>＋ 创建 Agent</button>
+        <button class="btn btn-primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</button>
       </PageHeader>
 
-      <Show when={loading}>
-        <Loading />
-      </Show>
+      {$.loading && <Loading />}
 
-      <Show when={isEmpty}>
+      {!$.loading && $.agents.length === 0 && (
         <EmptyState icon="🤖" text="还没有 Agent" hint="创建你的第一个 AI 机器人、Webhook 或知识库">
-          <button class="btn btn-primary" onClick={() => ctx.app.navigate('/agents/new')}>＋ 创建 Agent</button>
+          <button class="btn btn-primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</button>
         </EmptyState>
-      </Show>
+      )}
 
-      <Show when={hasData}>
+      {$.agents.length > 0 && (
         <div class="grid-cards">
-          <For each={agents} keyBy="id">{(a: any) => (
-            <div class="item-card" onClick={() => ctx.app.navigate(`/agents/${a.id}`)}>
+          {$.agents.map((a: any) => (
+            <div key={a.id} class="item-card" onClick={() => ctx.app?.navigate(`/agents/${a.id}`)}>
               <div class="item-top">
                 <Ava name={a.name} type={a.type} />
                 <div class="item-name">{a.name}</div>
@@ -52,30 +47,28 @@ export function Agents(_props: {}, ctx: WfuiContext) {
               </div>
               <div class="item-desc">{a.description || a.system_prompt || '暂无描述'}</div>
               <div class="item-meta" style={{ marginBottom: '10px', fontSize: '12px', gap: '12px' }}>
-                <Show when={a.type === 'ai' && a.model}>
+                {a.type === 'ai' && a.model && (
                   <span>🧠 {a.model === 'deepseek-reasoner' ? 'Reasoner' : a.model === 'deepseek-v4-flash' ? 'V4 Flash' : a.model || '默认模型'}</span>
-                </Show>
-                <Show when={a.type === 'ai' && a.human_in_the_loop}>
+                )}
+                {a.type === 'ai' && a.human_in_the_loop && (
                   <span style={{ color: '#b45309' }}>🛑 需审批</span>
-                </Show>
-                <Show when={a.token_usage?.run_count > 0}>
+                )}
+                {a.token_usage?.run_count > 0 && (
                   <span>⚡ {((a.token_usage?.total_tokens ?? 0) / 1000).toFixed(1)}k tokens</span>
-                </Show>
+                )}
               </div>
               <div class="item-foot">
                 <StatusDot on={a.is_active !== false} />
                 <div class="item-acts">
-                  <button
-                    class="btn btn-ghost btn-sm"
-                    onClick={(e: any) => { e.stopPropagation(); ctx.app.navigate(`/agents/${a.id}`) }}
-                  >编辑</button>
+                  <button class="btn btn-ghost btn-sm"
+                    onClick={(e: any) => { e.stopPropagation(); ctx.app?.navigate(`/agents/${a.id}`) }}>编辑</button>
                   <button class="btn btn-danger btn-sm" onClick={(e: any) => remove(e, a.id)}>删除</button>
                 </div>
               </div>
             </div>
-          )}</For>
+          ))}
         </div>
-      </Show>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-/// <reference types="../../src/client/index.ts" />
+/// <reference path="../../../src/client/index.ts" />
 
 /**
  * agent-platform 前端入口
