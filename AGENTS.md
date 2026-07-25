@@ -106,6 +106,7 @@ Every weifuwu module and script must pass these checks. Use them as a review che
 | BS-03 | **Release commits version bump** — `package.json` version change is committed before `git tag` | `git log` reflects release history |
 | BS-04 | **`external` config in esbuild build must match actual imports** — externalizing a path the bundle never imports is dead config | Avoid misleading maintenance |
 | BS-05 | **Build script runs clean before output** — `rm -rf dist` before writing | No stale artifacts from deleted source files |
+| BS-06 | **All client tests finish within 10 seconds** — `node --test 'src/test/client/**/*.test.ts'` must complete in under 10s. If it times out, there is a resource leak (unclosed timer, WebSocket, handle, or event loop blocker). | Fast feedback loop; leaked resources mask real bugs and break CI |
 
 ### FS — Frontend Standards (`weifuwu/client`)
 
