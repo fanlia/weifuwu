@@ -120,7 +120,7 @@ DATABASE_URL=postgres://root:123456@localhost:5432/demo
 # === DeepSeek LLM ===
 DEEPSEEK_API_KEY=sk-xxx                                  # 必需
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1             # 默认
-DEEPSEEK_MODEL=deepseek-chat                              # 默认
+DEEPSEEK_MODEL=deepseek-v4-flash                              # 默认
 
 # === DashScope Embedding ===
 DASHSCOPE_API_KEY=sk-xxx                                  # 必需

@@ -238,30 +238,31 @@ export async function handleNewMessageStream(
     }
 
     // 非 HITL：流式输出
+    const systemPrompt = agent.system_prompt ?? '你是一个有帮助的 AI 助手。'
+    const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
+    const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
+
+    // 为该 Agent 创建一条空消息作为占位
+    const [replyMsg] = await sql`
+      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
+      VALUES (${departmentId}, ${agent.id}, '', 'text', TRUE)
+      RETURNING id, created_at
+    `
+    const msgId = replyMsg.id
+
+    // WS 推送：流式开始
+    wsHub.broadcast(departmentId, {
+      type: 'ai:status',
+      messageId: msgId,
+      agentId: agent.id,
+      agentName: agent.name,
+      status: 'streaming',
+    })
+
+    let accumulatedContent = ''
+    let streamFailed = false
+
     try {
-      const systemPrompt = agent.system_prompt ?? '你是一个有帮助的 AI 助手。'
-      const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
-      const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
-
-      // 为该 Agent 创建一条空消息作为占位
-      const [replyMsg] = await sql`
-        INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
-        VALUES (${departmentId}, ${agent.id}, '', 'text', TRUE)
-        RETURNING id, created_at
-      `
-      const msgId = replyMsg.id
-
-      // WS 推送：流式开始
-      wsHub.broadcast(departmentId, {
-        type: 'ai:status',
-        messageId: msgId,
-        agentId: agent.id,
-        agentName: agent.name,
-        status: 'streaming',
-      })
-
-      let accumulatedContent = ''
-
       await streamAgent(ctx, {
         agentId: agent.id,
         tenantId: ctx.tenantId,
@@ -277,9 +278,7 @@ export async function handleNewMessageStream(
       }, chatMessages, {
         onChunk: async (text: string) => {
           accumulatedContent += text
-          // 逐 chunk 更新 DB
           await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
-          // WS 推送
           wsHub.broadcast(departmentId, {
             type: 'ai:chunk',
             messageId: msgId,
@@ -303,7 +302,20 @@ export async function handleNewMessageStream(
         },
       })
     } catch (err) {
+      streamFailed = true
       console.error(`[chat] streamAgent ${agent.id} error:`, err)
+    }
+
+    // 确保无论如何都发送 ai:done（失败时清理空消息）
+    if (streamFailed || !accumulatedContent) {
+      // 没有生成任何内容，删除空占位消息
+      await sql`DELETE FROM messages WHERE id = ${msgId} AND content = ''`
+      wsHub.broadcast(departmentId, {
+        type: 'ai:done',
+        messageId: msgId,
+        content: '',
+        error: streamFailed ? 'AI 回复失败' : undefined,
+      })
     }
   }
 }

@@ -94,7 +94,7 @@ describe('AI Core Module', () => {
     it('chat 返回 ChatResponse', async () => {
       const mockResponse = {
         id: 'chat-1',
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-flash',
         choices: [
           { index: 0, message: { role: 'assistant', content: 'Hello!' }, finish_reason: 'stop' },
         ],

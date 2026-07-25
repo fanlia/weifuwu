@@ -175,12 +175,22 @@ export function Chat(_props: {}, ctx: WfuiContext) {
         break
       }
       case 'ai:done': {
-        // 流式完成
+        // 流式完成或失败
         const idx = messages.value.findIndex(m => m.id === event.messageId)
         if (idx !== -1) {
           const updated = [...messages.value]
-          updated[idx] = { ...updated[idx], streaming: false }
-          messages.value = updated
+          const hadError = !!event.error
+          updated[idx] = {
+            ...updated[idx],
+            streaming: false,
+            content: updated[idx].content || (hadError ? '⚠️ AI 回复失败' : ''),
+          }
+          // 如果内容为空且没有错误，移除这条空消息
+          if (!updated[idx].content && !hadError) {
+            messages.value = updated.filter(m => m.id !== event.messageId)
+          } else {
+            messages.value = updated
+          }
           wsVersion.value++
         }
         break
@@ -413,7 +423,9 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                       </Show>
 
                       <Show when={computed(() => !beingEdited.value)}>
-                        <div class={`bubble${isStreaming ? ' streaming' : ''}`}>{msg.content}</div>
+                        <div class={`bubble${isStreaming ? ' streaming' : ''}`}>
+                          {msg.content || (isStreaming ? '▊' : '')}
+                        </div>
                       </Show>
 
                       <Show when={computed(() => beingEdited.value)}>

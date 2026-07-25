@@ -154,7 +154,7 @@ async function main() {
       allow_file_tools, allow_command_exec,
       is_active, tools)
     VALUES (${tenant.id}, 'ai', '小码', '代码编写与项目重构助手',
-      'deepseek-chat',
+      'deepseek-v4-flash',
       ${devTemplate.default_system_prompt},
       ${devTemplate.default_temperature},
       ${devTemplate.default_max_tokens},
@@ -182,7 +182,7 @@ async function main() {
       system_prompt, temperature, max_tokens,
       human_in_the_loop, is_active, tools)
     VALUES (${tenant.id}, 'ai', '小应', '客户服务与 FAQ 自动回复',
-      'deepseek-chat',
+      'deepseek-v4-flash',
       ${csTemplate.default_system_prompt},
       ${csTemplate.default_temperature},
       ${csTemplate.default_max_tokens},
@@ -208,7 +208,7 @@ async function main() {
       allow_file_tools, allow_command_exec,
       human_in_the_loop, is_active, tools)
     VALUES (${tenant.id}, 'ai', '小维', '系统监控与自动化运维',
-      'deepseek-chat',
+      'deepseek-v4-flash',
       ${opsTemplate.default_system_prompt},
       ${opsTemplate.default_temperature},
       ${opsTemplate.default_max_tokens},
@@ -233,7 +233,7 @@ async function main() {
     INSERT INTO agents (tenant_id, type, name, description, model,
       system_prompt, temperature, max_tokens, is_active, tools)
     VALUES (${tenant.id}, 'ai', '小悟', '通用问答助手',
-      'deepseek-chat',
+      'deepseek-v4-flash',
       '你是一个有帮助的 AI 助手，名叫小悟。回答简洁、准确、友好。',
       0.7, 2048, true, '[]')
     RETURNING id

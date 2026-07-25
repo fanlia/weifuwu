@@ -140,7 +140,7 @@ describe('Services', () => {
         tenantId: TENANT_ID,
         departmentId: DEPT_ID,
         systemPrompt: '你是有帮助的助手',
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-flash',
         tools: [],
         maxSteps: 5,
       }, [{ role: 'user', content: '你好' }])

@@ -21,7 +21,7 @@ export class DeepSeekClient {
   constructor(opts?: DeepSeekOptions) {
     this.apiKey = opts?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? ''
     this.baseUrl = opts?.baseUrl ?? process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com/v1'
-    this.defaultModel = opts?.defaultModel ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-chat'
+    this.defaultModel = opts?.defaultModel ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash'
 
     if (!this.apiKey) {
       throw new Error('DeepSeek: DEEPSEEK_API_KEY 未设置。请设置环境变量或传入 apiKey')

@@ -16,7 +16,7 @@ import { PageHeader, TypeBadge, Loading } from '../components/ui'
 
 const MODELS = [
   { value: '', label: '默认 (环境变量 DEEPSEEK_MODEL)' },
-  { value: 'deepseek-chat', label: 'DeepSeek Chat' },
+  { value: 'deepseek-v4-flash', label: 'DeepSeek Chat' },
   { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
   { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
 ]

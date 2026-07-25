@@ -306,8 +306,8 @@ export function NewAgent(_props: {}, ctx: WfuiContext) {
             <div class="field">
               <label class="field-label">模型</label>
               <select class="select" value={aiModel} onChange={(e: any) => { aiModel.value = e.target.value }}>
-                <option value="">默认 (deepseek-chat)</option>
-                <option value="deepseek-chat">DeepSeek Chat</option>
+                <option value="">默认 (deepseek-v4-flash)</option>
+                <option value="deepseek-v4-flash">DeepSeek Chat</option>
                 <option value="deepseek-reasoner">DeepSeek Reasoner</option>
                 <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
               </select>
