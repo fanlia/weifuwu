@@ -107,17 +107,41 @@ describe('auth middleware', () => {
 // ═════════════════════════════════════════════════════════════
 
 describe('ws middleware', () => {
-  // 保存 ws ctx 引用以便在 after 中清理定时器
-  let wsCtx: any = null
+  // 保存原始 WebSocket，测试后恢复
+  let origWs: typeof globalThis.WebSocket | undefined
+
+  before(() => {
+    origWs = globalThis.WebSocket
+    // 让 WebSocket 构造函数抛出同步错误（模拟无服务器环境）
+    // 避免 Node.js 原生 WebSocket 保持连接导致进程不退出
+    // Mock WebSocket：创建即失败（连接已关闭状态）
+    // 避免 Node.js 原生 WebSocket 保持连接导致测试进程不退出
+    globalThis.WebSocket = class MockWs {
+      static readonly CONNECTING = 0 as const
+      static readonly OPEN = 1 as const
+      static readonly CLOSING = 2 as const
+      static readonly CLOSED = 3 as const
+      readonly CONNECTING = 0
+      readonly OPEN = 1
+      readonly CLOSING = 2
+      readonly CLOSED = 3
+      readyState = 3
+      onopen: ((e: any) => void) | null = null
+      onclose: ((e: any) => void) | null = null
+      onerror: ((e: any) => void) | null = null
+      onmessage: ((e: any) => void) | null = null
+      close() {}
+      send() {}
+    } as any
+  })
 
   after(() => {
-    if (wsCtx?.ws?.destroy) wsCtx.ws.destroy()
+    globalThis.WebSocket = origWs!
   })
 
   it('创建 WS 中间件', () => {
     const ctx = { provide: () => {}, inject: () => null, ws: null, app: { destroy: undefined } } as any
     const result = ws()(ctx)
-    wsCtx = result
     assert.ok(result.ws)
     assert.equal(typeof result.ws.send, 'function')
     assert.equal(typeof result.ws.onMessage, 'function')
@@ -127,7 +151,6 @@ describe('ws middleware', () => {
   it('send 不抛异常（连接未就绪时）', () => {
     const ctx = { provide: () => {}, inject: () => null, ws: null, app: { destroy: undefined } } as any
     const result = ws()(ctx)
-    wsCtx = result
     result.ws.send({ type: 'test' })
     assert(true)
   })
@@ -135,7 +158,6 @@ describe('ws middleware', () => {
   it('onMessage 注册和取消', () => {
     const ctx = { provide: () => {}, inject: () => null, ws: null, app: { destroy: undefined } } as any
     const result = ws()(ctx)
-    wsCtx = result
 
     let received: any = null
     const unsub = result.ws.onMessage((data) => { received = data })
