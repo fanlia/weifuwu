@@ -33,7 +33,7 @@ const ROLE_TEMPLATES = [
     slug: 'developer',
     name: '开发助手',
     icon: '👨‍💻',
-    default_system_prompt: '你是一个资深软件开发工程师。帮助分析代码、编写代码、调试问题。使用 read 工具了解项目结构，write/edit 工具修改代码，bash 工具运行测试。',
+    default_system_prompt: '你是一个资深软件开发工程师。帮助分析代码、编写代码、调试问题。仅在用户提出相关需求时才主动探索项目结构。回答简单问题时保持简洁，避免不必要的额外操作。',
     default_temperature: 0.7,
     default_max_tokens: 4096,
     default_allow_file_tools: true,
