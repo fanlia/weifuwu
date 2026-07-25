@@ -6,7 +6,7 @@
  */
 
 import type { Context } from 'weifuwu'
-import { runAgent } from './agent-runner.ts'
+import { runAgent, streamAgent } from './agent-runner.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
 import { wsHub } from './ws-hub.ts'
 
@@ -145,4 +145,189 @@ export async function handleNewMessage(
       console.error(`[chat] Agent ${agent.id} error:`, err)
     }
   }
+}
+
+/**
+ * 流式处理新消息 — 异步触发，不阻塞 HTTP 响应
+ *
+ * 与 handleNewMessage 的区别：
+ *   - 调用 streamAgent() 替代 runAgent()
+ *   - 先创建空消息占位，拿到 messageId
+ *   - 逐 chunk 通过 WS 推送到前端
+ *   - HITL 模式保持非流式（等审批）
+ *
+ * @param messageId 已创建的空消息 ID
+ */
+export async function handleNewMessageStream(
+  ctx: Context,
+  departmentId: string,
+  senderId: string,
+  messageContent: string,
+  messageId: string,
+): Promise<void> {
+  const { sql } = ctx
+
+  // 查找部门中所有 AI Agent
+  const aiAgents = await sql`
+    SELECT a.id, a.name, a.system_prompt, a.model, a.tools, a.human_in_the_loop, a.max_tokens,
+      a.workspace_path, a.allow_file_tools, a.allow_command_exec
+    FROM department_members dm
+    JOIN agents a ON a.id = dm.agent_id
+    WHERE dm.department_id = ${departmentId}
+      AND a.type = 'ai'
+      AND a.is_active = TRUE
+  `
+
+  if (aiAgents.length === 0) return
+
+  // 获取最近消息历史
+  const recentMessages = await sql`
+    SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type
+    FROM messages m
+    JOIN agents a ON a.id = m.sender_id
+    WHERE m.department_id = ${departmentId} AND m.ai_approved != FALSE
+    ORDER BY m.created_at DESC
+    LIMIT 20
+  `
+
+  const chatMessages: import('../ai/types.ts').ChatMessage[] = []
+  for (const msg of recentMessages.reverse()) {
+    if (msg.sender_type === 'user' || msg.sender_type === 'ai') {
+      chatMessages.push({
+        role: msg.sender_type === 'ai' ? 'assistant' : 'user',
+        content: msg.content,
+      })
+    }
+  }
+  chatMessages.push({ role: 'user', content: messageContent })
+
+  for (const agent of aiAgents) {
+    // HITL 模式：保持非流式，走现有路径
+    if (agent.human_in_the_loop) {
+      const systemPrompt = agent.system_prompt ?? '你是一个有帮助的 AI 助手。'
+      const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
+      const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
+
+      const result = await runAgent(ctx, {
+        agentId: agent.id,
+        tenantId: ctx.tenantId,
+        departmentId,
+        systemPrompt,
+        model: agent.model,
+        tools,
+        maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
+        humanInTheLoop: true,
+        preloadedSkills,
+        allowFileTools: agent.allow_file_tools,
+        allowCommandExec: agent.allow_command_exec,
+      }, chatMessages)
+
+      const content = result.content
+      if (!content) continue
+
+      const [draftMsg] = await sql`
+        INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved, ai_step)
+        VALUES (${departmentId}, ${agent.id}, '[AI 生成中...]', 'text', ${content}, NULL, ${JSON.stringify({ steps: result.steps })})
+        RETURNING id
+      `
+      wsHub.broadcast(departmentId, {
+        type: 'ai_draft',
+        message: { id: draftMsg.id, agentId: agent.id, agentName: agent.name, draft: content, departmentId, createdAt: new Date().toISOString() },
+      })
+      continue
+    }
+
+    // 非 HITL：流式输出
+    try {
+      const systemPrompt = agent.system_prompt ?? '你是一个有帮助的 AI 助手。'
+      const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
+      const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
+
+      // 为该 Agent 创建一条空消息作为占位
+      const [replyMsg] = await sql`
+        INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
+        VALUES (${departmentId}, ${agent.id}, '', 'text', TRUE)
+        RETURNING id, created_at
+      `
+      const msgId = replyMsg.id
+
+      // WS 推送：流式开始
+      wsHub.broadcast(departmentId, {
+        type: 'ai:status',
+        messageId: msgId,
+        agentId: agent.id,
+        agentName: agent.name,
+        status: 'streaming',
+      })
+
+      let accumulatedContent = ''
+
+      await streamAgent(ctx, {
+        agentId: agent.id,
+        tenantId: ctx.tenantId,
+        departmentId,
+        systemPrompt,
+        model: agent.model,
+        tools,
+        maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
+        humanInTheLoop: false,
+        preloadedSkills,
+        allowFileTools: agent.allow_file_tools,
+        allowCommandExec: agent.allow_command_exec,
+      }, chatMessages, {
+        onChunk: async (text: string) => {
+          accumulatedContent += text
+          // 逐 chunk 更新 DB
+          await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
+          // WS 推送
+          wsHub.broadcast(departmentId, {
+            type: 'ai:chunk',
+            messageId: msgId,
+            text,
+          })
+        },
+        onToolCall: (toolCall: { name: string; args: string }) => {
+          wsHub.broadcast(departmentId, {
+            type: 'ai:tool',
+            messageId: msgId,
+            name: toolCall.name,
+            args: toolCall.args,
+          })
+        },
+        onFinish: () => {
+          wsHub.broadcast(departmentId, {
+            type: 'ai:done',
+            messageId: msgId,
+            content: accumulatedContent,
+          })
+        },
+      })
+    } catch (err) {
+      console.error(`[chat] streamAgent ${agent.id} error:`, err)
+    }
+  }
+}
+
+/**
+ * 加载 Agent 的技能
+ */
+async function loadAgentSkills(sql: any, agentId: string, ctx: Context): Promise<import('./skills.ts').SkillContext[]> {
+  const preloadedSkills: import('./skills.ts').SkillContext[] = []
+  try {
+    const agentSkills = await sql`
+      SELECT skill_dir, skill_name FROM agent_skills
+      WHERE agent_id = ${agentId} AND enabled = TRUE
+    `
+    for (const as of agentSkills) {
+      try {
+        const skill = await loadSkill(as.skill_dir, () => ctx)
+        preloadedSkills.push(skill)
+      } catch (err) {
+        console.warn(`[chat] 加载技能 ${as.skill_name} 失败:`, err)
+      }
+    }
+  } catch {
+    // agent_skills 表可能不存在
+  }
+  return preloadedSkills
 }

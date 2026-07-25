@@ -3,7 +3,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
-import { handleNewMessage } from '../services/chat.ts'
+import { handleNewMessage, handleNewMessageStream } from '../services/chat.ts'
 import { wsHub } from '../services/ws-hub.ts'
 
 export function registerMessageRoutes(app: Router): void {
@@ -89,21 +89,21 @@ export function registerMessageRoutes(app: Router): void {
       RETURNING id, department_id, sender_id, content, msg_type, created_at
     `
 
-    // 触发 Agent 自动回复（异步，不阻塞响应）
-    // 检查 API key 是否可用，避免测试环境中的死连接
-    const deepseekKey = process.env.DEEPSEEK_API_KEY
-    if (deepseekKey && deepseekKey !== 'sk-your-deepseek-api-key' && !deepseekKey.startsWith('sk-your-')) {
-      handleNewMessage(ctx, params.id, sender.id, body.content).catch((err) =>
-        console.error('[messages] handleNewMessage error:', err),
-      )
-    }
-
-    // WebSocket 实时推送新消息
+    // WebSocket 推送新消息
     wsHub.broadcast(params.id, {
       type: 'new_message',
       departmentId: params.id,
       message: { id: message.id, sender_id: message.sender_id, content: message.content },
     })
+
+    // 异步触发 AI 自动回复（不阻塞 HTTP 响应）
+    const deepseekKey = process.env.DEEPSEEK_API_KEY
+    if (deepseekKey && deepseekKey !== 'sk-your-deepseek-api-key' && !deepseekKey.startsWith('sk-your-')) {
+      // 流式：先创建占位消息再触发
+      handleNewMessageStream(ctx, params.id, sender.id, body.content, message.id).catch((err) =>
+        console.error('[messages] handleNewMessageStream error:', err),
+      )
+    }
 
     return Response.json({ message }, { status: 201 })
   })
