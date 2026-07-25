@@ -52,6 +52,8 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
   const submitting = signal(false)
   const error = signal('')
   const hasError = computed(() => error.value !== '')
+  const successMsg = signal('')
+  const hasSuccess = computed(() => successMsg.value !== '')
 
   // AI 配置
   const systemPrompt = signal('')
@@ -90,6 +92,7 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
   const boundSkills = signal<any[]>([])
   const availableSkills = signal<any[]>([])
   const showSkillPicker = signal(false)
+  const skillActionLoading = signal<string | null>(null)  // 正在操作的 skill ID
 
   // ── 数据加载 ──
   const [agent, { loading }] = createResource<any>(async () => {
@@ -396,8 +399,13 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
       })
       const data = await res.json()
       if (!res.ok) { error.value = data.error || '保存失败'; submitting.value = false; return }
-      window.location.reload()
-    } catch {
+      successMsg.value = '✅ 保存成功'
+      error.value = ''
+      submitting.value = false
+      // 更新 agent 数据（而非 window.location.reload）
+      agent.value = { ...agent.value, ...data.agent ?? data }
+      setTimeout(() => { successMsg.value = '' }, 3000)
+    } catch (err) {
       error.value = '网络错误'
       submitting.value = false
     }
@@ -484,6 +492,7 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
         </div>
 
         <Show when={hasError}><div class="alert alert-err">{error}</div></Show>
+        <Show when={hasSuccess}><div class="alert alert-ok">{successMsg}</div></Show>
 
         {/* ═══ 基本设置 ═══ */}
         <form class="card card-pad" onSubmit={handleSubmit}>
@@ -632,23 +641,36 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
                   <div style={{ display: 'flex', gap: '4px' }}>
                     <button
                       class="btn btn-sm btn-ghost"
-                      style={{ fontSize: '11px', padding: '4px 8px', minWidth: '40px' }}
+                      style={{ fontSize: '11px', padding: '4px 8px', minWidth: '50px' }}
+                      disabled={computed(() => skillActionLoading.value === s.id)}
                       onClick={async () => {
-                        await fetch(`/api/agents/${agentId}/skills/${s.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json', ...headers },
-                          body: JSON.stringify({ enabled: !s.enabled }),
-                        })
-                        s.enabled = !s.enabled
-                        boundSkills.value = [...boundSkills.value]
+                        skillActionLoading.value = s.id
+                        try {
+                          await fetch(`/api/agents/${agentId}/skills/${s.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', ...headers },
+                            body: JSON.stringify({ enabled: !s.enabled }),
+                          })
+                          s.enabled = !s.enabled
+                          boundSkills.value = [...boundSkills.value]
+                        } finally {
+                          skillActionLoading.value = null
+                        }
                       }}
-                    >{s.enabled ? '禁用' : '启用'}</button>
+                    >{computed(() => skillActionLoading.value === s.id ? '⋯' : (s.enabled ? '禁用' : '启用'))}</button>
                     <button
                       class="btn btn-sm btn-danger"
-                      style={{ fontSize: '11px', padding: '4px 8px', minWidth: '40px' }}
+                      style={{ fontSize: '11px', padding: '4px 8px', minWidth: '50px' }}
+                      disabled={computed(() => skillActionLoading.value === s.id)}
                       onClick={async () => {
-                        const res = await fetch(`/api/agents/${agentId}/skills/${s.id}`, { method: 'DELETE', headers })
-                        if (res.ok) refetchSkills()
+                        if (!confirm('确定移除技能 ' + s.skill_name + ' 吗？')) return
+                        skillActionLoading.value = s.id
+                        try {
+                          const res = await fetch(`/api/agents/${agentId}/skills/${s.id}`, { method: 'DELETE', headers })
+                          if (res.ok) refetchSkills()
+                        } finally {
+                          skillActionLoading.value = null
+                        }
                       }}
                     >移除</button>
                   </div>
@@ -679,23 +701,28 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
                       <button
                         class="btn btn-sm"
                         style={{
-                          fontSize: '11px', padding: '4px 10px', minWidth: '50px',
-                          background: alreadyBound.value ? '#e5e7eb' : '#3b82f6',
-                          color: alreadyBound.value ? '#6b7280' : '#fff',
-                          border: 'none', cursor: alreadyBound.value ? 'default' : 'pointer',
+                          fontSize: '11px', padding: '4px 10px', minWidth: '60px',
+                          background: alreadyBound.value || skillActionLoading.value === s.meta?.name ? '#e5e7eb' : '#3b82f6',
+                          color: alreadyBound.value || skillActionLoading.value === s.meta?.name ? '#6b7280' : '#fff',
+                          border: 'none', cursor: (alreadyBound.value || skillActionLoading.value === s.meta?.name) ? 'default' : 'pointer',
                           borderRadius: '6px',
                         }}
-                        disabled={alreadyBound.value}
+                        disabled={computed(() => alreadyBound.value || skillActionLoading.value === s.meta?.name)}
                         onClick={async () => {
-                          if (alreadyBound.value) return
-                          const res = await fetch(`/api/agents/${agentId}/skills`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', ...headers },
-                            body: JSON.stringify({ skill_name: s.meta?.name, skill_dir: s.dir }),
-                          })
-                          if (res.ok) refetchSkills()
+                          if (alreadyBound.value || skillActionLoading.value === s.meta?.name) return
+                          skillActionLoading.value = s.meta?.name ?? ''
+                          try {
+                            const res = await fetch(`/api/agents/${agentId}/skills`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', ...headers },
+                              body: JSON.stringify({ skill_name: s.meta?.name, skill_dir: s.dir }),
+                            })
+                            if (res.ok) refetchSkills()
+                          } finally {
+                            skillActionLoading.value = null
+                          }
                         }}
-                      >{alreadyBound.value ? '已绑定' : '绑定'}</button>
+                      >{computed(() => skillActionLoading.value === s.meta?.name ? '绑定中...' : (alreadyBound.value ? '已绑定' : '绑定'))}</button>
                     </div>
                   )
                 }}</For>
