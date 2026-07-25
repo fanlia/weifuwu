@@ -464,8 +464,8 @@ function _ensure(el: Element): _Entry {
       for (const fn of entry!.disposeFns) fn()
       entry!.disposeFns = []
       entry!.mountFns = []
-      obs.disconnect()
-      _entries.delete(el)
+      // 保留 entry 和 observer，便于元素重新挂载时复用
+      // 不 disconnect observer，不 delete _entries
     }
   })
   obs.observe(document.body, { childList: true, subtree: true })
@@ -538,7 +538,7 @@ function setProp(el: Element, key: string, value: unknown) {
   if (key === 'key') return
   if (key === 'class' || key === 'className') {
     if (isSignal(value)) {
-      _trackEffect(el, effect(() => { el.className = String(value.value) }))
+      _trackEffect(el, effect(() => { el.className = value.value ?? '' }))
     } else {
       el.className = String(value ?? '')
     }
@@ -553,7 +553,7 @@ function setProp(el: Element, key: string, value: unknown) {
       const v = value.value
       // input value/checked 必须通过 DOM property 设置，setAttribute 无效
       if (key === 'value' || key === 'checked') {
-        (el as any)[key] = v
+        (el as any)[key] = v ?? ''
       } else if (v == null || v === false) {
         el.removeAttribute(key)
       } else if (v === true) {
@@ -564,7 +564,7 @@ function setProp(el: Element, key: string, value: unknown) {
     }))
   } else if (value != null && value !== false) {
     if (value === true) el.setAttribute(key, '')
-    else if (key === 'value' || key === 'checked') (el as any)[key] = value
+    else if (key === 'value' || key === 'checked') (el as any)[key] = value ?? ''
     else el.setAttribute(key, String(value))
   }
 }
@@ -648,7 +648,18 @@ export function jsx(
 
     let result: Node = document.createDocumentFragment()
     try {
-      result = (type as any)(merged, currentCtx) ?? document.createDocumentFragment()
+      const compResult = (type as any)(merged, currentCtx)
+      if (compResult instanceof Node) {
+        result = compResult
+      } else if (compResult == null || typeof compResult === 'boolean') {
+        // null / undefined / false → 空 fragment
+        result = document.createDocumentFragment()
+      } else {
+        // string / number → text node（包装在 fragment 中保持一致性）
+        const text = document.createTextNode(String(compResult))
+        result = document.createDocumentFragment()
+        result.appendChild(text)
+      }
     } catch (err) {
       console.error(`[weifuwu/client] 组件渲染错误:`, err, { type, props })
       const fallback = document.createElement('div')

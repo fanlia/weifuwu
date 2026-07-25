@@ -288,3 +288,304 @@ describe('jsxs / jsxDEV', () => {
     assert.equal(node.children.length, 1)
   })
 })
+
+// ═════════════════════════════════════════════════════════════
+// setProp — Signal className 空值保护
+// ═════════════════════════════════════════════════════════════
+
+describe('setProp className Signal 空值保护', () => {
+  it('正常字符串', () => {
+    const el = jsx('div', { class: signal('foo') }) as HTMLElement
+    assert.equal(el.className, 'foo')
+  })
+
+  it('空字符串', () => {
+    const el = jsx('div', { class: signal('') }) as HTMLElement
+    assert.equal(el.className, '')
+  })
+
+  it('undefined', () => {
+    const el = jsx('div', { class: signal(undefined) }) as HTMLElement
+    assert.equal(el.className, '')
+  })
+
+  it('null', () => {
+    const el = jsx('div', { class: signal(null) }) as HTMLElement
+    assert.equal(el.className, '')
+  })
+
+  it('Signal 从字符串变为 undefined', () => {
+    const cls = signal('foo')
+    const el = jsx('div', { class: cls }) as HTMLElement
+    assert.equal(el.className, 'foo')
+    cls.value = undefined as any
+    assert.equal(el.className, '')
+  })
+})
+
+// ═════════════════════════════════════════════════════════════
+// setProp — Signal value/checked 空值保护
+// ═════════════════════════════════════════════════════════════
+
+describe('setProp input value/checked 空值保护', () => {
+  it('正常 value', () => {
+    const el = jsx('input', { value: signal('hello') }) as HTMLInputElement
+    assert.equal(el.value, 'hello')
+  })
+
+  it('空字符串 value', () => {
+    const el = jsx('input', { value: signal('') }) as HTMLInputElement
+    assert.equal(el.value, '')
+  })
+
+  it('null value', () => {
+    const el = jsx('input', { value: signal(null) }) as HTMLInputElement
+    assert.equal(el.value, '')
+  })
+
+  it('checked true', () => {
+    const el = jsx('input', { type: 'checkbox', checked: signal(true) }) as HTMLInputElement
+    assert.equal(el.checked, true)
+  })
+
+  it('checked false', () => {
+    const el = jsx('input', { type: 'checkbox', checked: signal(false) }) as HTMLInputElement
+    assert.equal(el.checked, false)
+  })
+
+  it('checked null', () => {
+    const el = jsx('input', { type: 'checkbox', checked: signal(null) }) as HTMLInputElement
+    assert.equal(el.checked, false)
+  })
+
+  it('Signal value 从 hello 变为空', () => {
+    const val = signal('hello')
+    const el = jsx('input', { value: val }) as HTMLInputElement
+    assert.equal(el.value, 'hello')
+    val.value = ''
+    assert.equal(el.value, '')
+  })
+
+  it('非 Signal value 空值', () => {
+    const el = jsx('input', { value: null }) as HTMLInputElement
+    assert.equal(el.value, '')
+  })
+})
+
+// ═════════════════════════════════════════════════════════════
+// 组件返回值保护
+// ═════════════════════════════════════════════════════════════
+
+describe('组件返回值保护', () => {
+  it('组件返回 null', () => {
+    function Cmp() { return null }
+    const node = jsx(Cmp, {})
+    assert(node instanceof DocumentFragment || node instanceof Element)
+    assert.equal(node.childNodes.length, 0)
+  })
+
+  it('组件返回 undefined', () => {
+    function Cmp() { return undefined }
+    const node = jsx(Cmp, {})
+    assert(node instanceof DocumentFragment || node instanceof Element)
+    assert.equal(node.childNodes.length, 0)
+  })
+
+  it('组件返回 false', () => {
+    function Cmp() { return false }
+    const node = jsx(Cmp, {})
+    assert(node instanceof DocumentFragment || node instanceof Element)
+    assert.equal(node.childNodes.length, 0)
+  })
+
+  it('组件返回字符串', () => {
+    function Cmp() { return 'hello' }
+    const node = jsx(Cmp, {}) as DocumentFragment
+    assert(node instanceof DocumentFragment)
+    assert.equal(node.textContent, 'hello')
+  })
+
+  it('组件返回数字', () => {
+    function Cmp() { return 42 }
+    const node = jsx(Cmp, {}) as DocumentFragment
+    assert(node instanceof DocumentFragment)
+    assert.equal(node.textContent, '42')
+  })
+
+  it('组件返回 Node（正常路径）', () => {
+    function Cmp() { return jsx('div', null, 'ok') }
+    const node = jsx(Cmp, {}) as HTMLElement
+    assert(node instanceof HTMLElement)
+    assert.equal(node.textContent, 'ok')
+  })
+
+  it('组件 throw（ErrorBoundary 路径）', () => {
+    function Cmp() { throw new Error('crash') }
+    const node = jsx(Cmp, {}) as HTMLElement
+    assert(node instanceof HTMLElement)
+  })
+})
+
+// ═════════════════════════════════════════════════════════════
+// toNode 隐式覆盖
+// ═════════════════════════════════════════════════════════════
+
+describe('toNode 映射', () => {
+  it('Signal 作为子节点渲染', () => {
+    const msg = signal('hello')
+    const el = jsx('div', null, msg) as HTMLElement
+    assert.equal(el.textContent, 'hello')
+
+    msg.value = 'world'
+    assert.equal(el.textContent, 'world')
+  })
+
+  it('boolean 不渲染', () => {
+    const el = jsx('div', null, true, false) as HTMLElement
+    assert.equal(el.textContent, '')
+  })
+
+  it('null/undefined 不渲染', () => {
+    const el = jsx('div', null, null, undefined) as HTMLElement
+    assert.equal(el.textContent, '')
+  })
+
+  it('数字 0 渲染为 "0"', () => {
+    const el = jsx('div', null, 0) as HTMLElement
+    assert.equal(el.textContent, '0')
+  })
+
+  it('空字符串渲染为空', () => {
+    const el = jsx('div', null, '') as HTMLElement
+    assert.equal(el.textContent, '')
+  })
+
+  it('函数被跳过', () => {
+    const el = jsx('div', null, () => 'surprise') as HTMLElement
+    assert.equal(el.textContent, '')
+  })
+
+  it('数组子节点', () => {
+    const el = jsx('div', null, ['a', 'b', 'c']) as HTMLElement
+    assert.equal(el.textContent, 'abc')
+  })
+
+  it('混合子节点：文本 + 元素 + Signal', () => {
+    const s = signal('sig')
+    const el = jsx('p', null, 'text ', jsx('strong', null, 'bold'), ' ', s) as HTMLElement
+    assert.equal(el.textContent, 'text bold sig')
+
+    s.value = 'updated'
+    assert.equal(el.textContent, 'text bold updated')
+  })
+})
+
+// ═════════════════════════════════════════════════════════════
+// Fragment
+// ═════════════════════════════════════════════════════════════
+
+describe('Fragment', () => {
+  it('渲染子节点', () => {
+    const frag = Fragment({ children: [
+      jsx('span', null, 'a'),
+      jsx('span', null, 'b'),
+    ] })
+    assert(frag instanceof HTMLElement)
+    assert.equal(frag.style.display, 'contents')
+    assert.equal(frag.children.length, 2)
+    assert.equal(frag.textContent, 'ab')
+  })
+
+  it('空的 children', () => {
+    const frag = Fragment({ children: [] })
+    assert(frag instanceof HTMLElement)
+    assert.equal(frag.children.length, 0)
+  })
+
+  it('不含 children', () => {
+    const frag = Fragment({})
+    assert(frag instanceof HTMLElement)
+    assert.equal(frag.children.length, 0)
+  })
+})
+
+// ═════════════════════════════════════════════════════════════
+// jsx 边界情况
+// ═════════════════════════════════════════════════════════════
+
+describe('jsx 边界情况', () => {
+  it('空 props（null）', () => {
+    const el = jsx('div', null)
+    assert(el instanceof HTMLDivElement)
+    assert.equal(el.className, '')
+  })
+
+  it('props 无 children', () => {
+    const el = jsx('div', { class: 'test' })
+    assert.equal(el.className, 'test')
+    assert.equal(el.children.length, 0)
+  })
+
+  it('key 属性被过滤', () => {
+    const el = jsx('div', { key: '0', class: 'item' }) as HTMLElement
+    assert(!el.hasAttribute('key'))
+    assert.equal(el.className, 'item')
+  })
+
+  it('style 对象', () => {
+    const el = jsx('div', { style: { color: 'red', fontSize: '14px' } }) as HTMLElement
+    assert.equal(el.style.color, 'red')
+    assert.equal(el.style.fontSize, '14px')
+  })
+
+  it('事件绑定', () => {
+    let clicked = false
+    const el = jsx('button', { onClick: () => { clicked = true } }) as HTMLElement
+    el.click()
+    assert(clicked)
+  })
+
+  it('ref 回调', () => {
+    let refd: HTMLElement | null = null
+    const el = jsx('div', { ref: (e: HTMLElement) => { refd = e } }) as HTMLElement
+    assert.equal(refd, el)
+  })
+})
+
+// ═════════════════════════════════════════════════════════════
+// Signal 属性绑定
+// ═════════════════════════════════════════════════════════════
+
+describe('Signal 属性绑定', () => {
+  it('hidden Signal', () => {
+    const hide = signal(true)
+    const el = jsx('div', { hidden: hide }) as HTMLElement
+    assert(el.hasAttribute('hidden'))
+    hide.value = false
+    assert(!el.hasAttribute('hidden'))
+  })
+
+  it('disabled Signal', () => {
+    const disable = signal(true)
+    const el = jsx('button', { disabled: disable }) as HTMLButtonElement
+    assert(el.disabled)
+    disable.value = false
+    assert(!el.disabled)
+  })
+
+  it('class Signal 切换', () => {
+    const cls = signal('red')
+    const el = jsx('div', { class: cls }) as HTMLElement
+    assert.equal(el.className, 'red')
+    cls.value = 'blue'
+    assert.equal(el.className, 'blue')
+  })
+
+  it('value Signal 输入框', () => {
+    const val = signal('init')
+    const el = jsx('input', { value: val }) as HTMLInputElement
+    assert.equal(el.value, 'init')
+    val.value = 'updated'
+    assert.equal(el.value, 'updated')
+  })
+})
