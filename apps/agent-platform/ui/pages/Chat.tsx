@@ -128,8 +128,8 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     const msgs = messages.value
     if (!bodyEl) return
 
-    // 新消息时滚动
-    if (msgs.length > prevLen && prevLen > 0) {
+    // 首次加载或新消息时滚动到底部
+    if (msgs.length > prevLen) {
       scrollToBottom()
     }
 
