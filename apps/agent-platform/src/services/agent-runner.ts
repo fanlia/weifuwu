@@ -217,7 +217,7 @@ export async function streamAgent(
     onToolResult?: (result: { name: string; result: string }) => void
     onFinish?: (result: { content: string }) => void
   },
-): Promise<void> {
+): Promise<{ prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined> {
   const { ai } = ctx
 
   // 构建工具集：技能工具 + 工作空间工具
@@ -267,8 +267,9 @@ export async function streamAgent(
   }, skillRegistry)
 
   let fullContent = ''
+  let finalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined
 
-  await agentRunner.stream(messages, {
+  const streamResult = await agentRunner.stream(messages, {
     onChunk: (chunk) => {
       for (const choice of chunk.choices) {
         if (choice.delta.content) {
@@ -291,4 +292,11 @@ export async function streamAgent(
       callbacks.onFinish?.({ content: fullContent })
     },
   })
+
+  // 捕获流式结果中的 usage
+  if (streamResult?.usage) {
+    finalUsage = streamResult.usage
+  }
+
+  return finalUsage
 }

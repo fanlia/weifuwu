@@ -279,9 +279,10 @@ export async function handleNewMessageStream(
     let accumulatedContent = ''
     let streamFailed = false
     let hasEmittedGenerating = false
+    let finalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined
 
     try {
-      await streamAgent(ctx, {
+      finalUsage = await streamAgent(ctx, {
         agentId: agent.id,
         tenantId: ctx.tenantId,
         departmentId,
@@ -361,11 +362,26 @@ export async function handleNewMessageStream(
         error: 'AI 回复失败',
       })
     } else {
+      // 记录 token 用量
+      if (finalUsage) {
+        try {
+          await sql`
+            INSERT INTO agent_logs (agent_id, tenant_id, department_id, messages_count, steps_count,
+              tokens_prompt, tokens_completion, tokens_total, elapsed_ms, success)
+            VALUES (${agent.id}, ${ctx.tenantId}, ${departmentId},
+              ${chatMessages.length}, 1,
+              ${finalUsage.prompt_tokens}, ${finalUsage.completion_tokens}, ${finalUsage.total_tokens},
+              0, TRUE)
+          `
+        } catch { /* 日志失败不影响主流程 */ }
+      }
+
       wsHub.broadcast(departmentId, {
         type: 'ai:status',
         messageId: msgId,
         status: 'complete',
         content: accumulatedContent,
+        usage: finalUsage,
       })
     }
   }

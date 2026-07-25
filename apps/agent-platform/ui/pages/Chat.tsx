@@ -193,7 +193,7 @@ export function Chat(_props: {}, ctx: WfuiContext) {
               wsVersion.value++
               break
             }
-            updated[existing] = { ...updated[existing], status: s }
+            updated[existing] = { ...updated[existing], status: s, usage: event.usage }
           } else {
             updated[existing] = { ...updated[existing], status: s }
           }
@@ -481,6 +481,11 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                         <div class={`bubble${isActive ? ' active' : ''}${st === 'error' ? ' error' : ''}`}>
                           {msg.content || (isActive ? '▊' : '')}
                         </div>
+                        {st === 'complete' && msg.usage && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '3px', textAlign: 'right' }}>
+                            ⚡ {msg.usage.total_tokens} tokens
+                          </div>
+                        )}
                       </Show>
 
                       <Show when={computed(() => beingEdited.value)}>
