@@ -6,7 +6,7 @@
 npm install weifuwu
 ```
 
-一个包，无上游依赖。后端提供 HTTP 路由、数据库、中间件；前端提供信号驱动的无 VDOM 响应式框架。
+一个包，无上游依赖。后端提供 HTTP 路由、数据库、中间件；前端提供 VDOM + Proxy 驱动的前端框架。
 
 ---
 
@@ -22,21 +22,19 @@ npm install weifuwu
 | **redis** | `redis` | Redis 客户端 → `ctx.redis` | `Router` |
 | **ui** | `ui` | SSR 渲染 + 动态 JS 编译 → `ctx.ui.html/css/js` | `Router` |
 | **graphql** | `router.graphql()` | GraphQL 端点 | `Router` |
-| **client** | 28 个导出 | 前端响应式框架（见下方表格） | — |
+| **client** | — | 前端 VDOM + Proxy 框架 | — |
 
 **前端 `weifuwu/client` 模块总览：**
 
 | 类别 | 导出 | 用途 |
 |------|------|------|
-| **信号系统** | `signal`, `computed`, `effect`, `batch`, `untrack`, `isSignal` | 响应式状态 |
-| **JSX 运行时** | `jsx`/`jsxs`/`jsxDEV`, `Fragment` | TSX 编译目标 |
-| **控制流** | `Show`, `For` | 条件/列表渲染 |
-| **生命周期** | `onMount`, `onCleanup` | 组件挂载/卸载 |
-| **应用** | `createApp` | 中间件链 + 挂载 |
-| **路由** | `router`, `RouteView`, `lazy` | 嵌套布局 + 代码分割 + 滚动恢复 |
-| **中间件** | `ws`, `api`, `auth` | WebSocket / HTTP 客户端 / 认证状态 |
-| **工具** | `createResource`, `useForm`, `ErrorBoundary`, `createPortal`, `wrap`, `createContext`, `extendCtx`, `domMount` | 异步数据 / 表单 / 错误边界 / Portal |
-| **类型 (19)** | `Signal`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `AuthClient`, `ResourceState`, `FormReturn`, 等 | — |
+| **渲染引擎** | `VNode`, `Component` | 虚拟 DOM 节点与组件类型 | — |
+| **JSX 运行时** | `jsx`/`jsxs`/`jsxDEV`, `Fragment` | TSX 编译目标 | — |
+| **应用** | `createApp` | 中间件链 + 挂载 | — |
+| **路由** | `router`, `RouteView` | 嵌套布局路由 | — |
+| **中间件** | `ws`, `api`, `auth` | WebSocket / HTTP 客户端 / 认证状态 | — |
+| **工具** | `extendCtx` | ctx 扩展 | — |
+| **类型** | `WfuiContext`, `AppMiddleware`, `RouteDef`, `VNodeType`, `Component`, `ApiClient`, `AuthClient` | — | — |
 
 ---
 
@@ -94,12 +92,15 @@ serve(app, { port: 3000 })
 
 ```tsx
 // src/main.tsx — 前端
-import {
-  signal, computed, Show, For, ErrorBoundary, createPortal, wrap,
-  createApp, router, RouteView, lazy,
-  ws, api, auth, useForm, createResource,
-} from 'weifuwu/client'
+import { createApp, router, RouteView, ws, api, auth } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
+
+// 组件 = (props, ctx) => VNode
+function Home(_props: {}, ctx: WfuiContext) {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.items = [{ id: 1, text: 'hello' }] }
+  return <div>{$.items.map((i: any) => <div key={i.id}>{i.text}</div>)}</div>
+}
 
 const app = createApp()
 app.use(api({ baseURL: '' }))
@@ -111,9 +112,6 @@ app.use(router({
     {
       path: '/dashboard',
       layout: DashboardLayout,
-      children: [
-        { path: '/overview', component: lazy(() => import('./Overview')) },
-        { path: '/settings', component: lazy(() => import('./Settings')) },
       ],
     },
   ],
@@ -317,25 +315,28 @@ esbuild.build({
 })
 ```
 
-### 信号系统
+### 状态管理
 
 ```tsx
-const count = signal(0)                    // 创建
-const doubled = computed(() => count.value * 2)  // 衍生
-effect(() => console.log('count:', count.value))  // 副作用
-batch(() => { a.value = 1; b.value = 2 })         // 批量更新
-untrack(() => theme.value)                // 不追踪依赖
-isSignal(value)                           // 类型判断
+const $ = ctx.ui.$                         // 获取状态对象
+
+$.count = 0                                // 赋值 → 自动渲染
+$.items = [...$.items, newItem]            // 不可变更新
+$.items.push(newItem); ctx.ui.dirty()      // 可变更新需显式 dirty
+
+// 派生值 — 每次 render 重新计算
+const doubled = $.count * 2
+const completed = $.todos.filter(t => t.done)
 ```
 
-| 函数 | 签名 | 说明 |
-|------|------|------|
-| `signal` | `<T>(initial: T) => Signal<T>` | 响应式数据容器 |
-| `computed` | `<T>(fn: () => T) => Signal<T>` | 衍生值，自动缓存 |
-| `effect` | `(fn: () => void) => dispose()` | 自动追踪依赖，变化时重跑 |
-| `batch` | `(fn: () => void) => void` | 合并多次写入为一次通知 |
-| `untrack` | `<T>(fn: () => T) => T` | 读取信号但不追踪依赖 |
-| `isSignal` | `(value: unknown) => value is Signal` | 判断是否为 Signal |
+| API | 说明 |
+|------|------|
+| `ctx.ui.$` | 状态代理对象，赋值自动触发渲染 |
+| `ctx.ui.dirty()` | 显式标记脏状态（嵌套突变后用） |
+| `ctx.ui.render()` | 同步立即渲染 |
+
+**原理**：`ctx.ui.$` 是 Proxy 对象，任何属性赋值（`$.x = val`）自动调用 `queueMicrotask(render)`。\
+多次赋值在同一个微任务内合并为一次渲染。
 
 ### JSX 运行时
 
@@ -352,37 +353,46 @@ isSignal(value)                           // 类型判断
 
 **Signal 属性自动绑定：** `<input value={signalVal} />` — 信号变化时只更新对应 DOM 属性。
 
-### 控制流
+### 条件与列表
+
+使用原生 JS 表达式，不需要框架 API：
 
 ```tsx
-<Show when={isLoggedIn} fallback={<Login />}>
-  <Dashboard />
-</Show>
+// 条件
+{$.loading && <Loading />}
+{$.error ? <Error msg={$.error} /> : <Content />}
 
-<For each={items} keyBy="id">
-  {(item) => <div>{item.name}</div>}
-</For>
+// 列表
+{$.items.map(item => (
+  <div key={item.id}>{item.name}</div>
+))}
 ```
 
-| 组件 | 属性 | 说明 |
-|------|------|------|
-| `Show` | `when: boolean \| Signal<boolean>`, `fallback?`, `children?` | 条件渲染，Signal 响应式切换 |
-| `For` | `each: T[] \| Signal<T[]>`, `children: (item, index) => Node`, `keyBy?` | 列表渲染，支持 keyed 复用 |
+| 模式 | 说明 |
+|------|------|
+| `{cond && <A/>}` | 条件渲染（cond 为 true 时渲染 A） |
+| `{cond ? <A/> : <B/>}` | 二选一 |
+| `{arr.map(x => <div key={x.id}/>)}` | 列表渲染，必须加 `key` |
 
 ### 生命周期
 
+使用 `ref` 回调替代生命周期钩子：
+
 ```tsx
-onMount(() => {
-  init()
-  return () => cleanup()  // 自动清理
-})
-onCleanup(() => clearInterval(id))
+<div ref={el => {
+  if (el) {
+    // 挂载：el 是 DOM 元素
+    fetchData()
+    el.addEventListener('scroll', handler)
+  }
+  if (!el) {
+    // 卸载：el 为 null
+    cleanup()
+  }
+}} />
 ```
 
-| 函数 | 说明 |
-|------|------|
-| `onMount(fn)` | 组件挂载后执行，返回函数在卸载时自动清理 |
-| `onCleanup(fn)` | 组件卸载时执行 |
+`ref` 在挂载时传入 DOM 元素，卸载时传入 `null`。一个回调覆盖 mount/unmount 两个场景。
 
 ### 应用
 
@@ -491,12 +501,10 @@ const routes = [
 app.use(ws({ url: '/ws' }))
 
 // 组件中：
-onMount(() => {
-  const unsub = ctx.ws.onMessage((data) => { ... })
-  onCleanup(() => unsub())
-})
-ctx.ws.send({ type: 'chat', body: 'hello' })
-<Show when={ctx.ws.isConnected}>🟢 已连接</Show>
+const unsub = ctx.ws?.onMessage((data) => { ... })
+// 清理在 ref 中处理
+ctx.ws?.send({ type: 'chat', body: 'hello' })
+{ctx.ws?.isConnected && <span>🟢 已连接</span>}
 ```
 
 | `ctx.ws` | 类型 | 说明 |
@@ -547,10 +555,14 @@ await ctx.api.delete('/users/1')
 app.use(auth())
 
 // 组件中：
-<Show when={ctx.auth.isLoggedIn} fallback={<Login />}>
-  <span>{ctx.auth.user.value?.name}</span>
-  <button onClick={() => ctx.auth.logout()}>退出</button>
-</Show>
+{ctx.auth?.isLoggedIn ? (
+  <div>
+    <span>{ctx.auth?.user?.name}</span>
+    <button onClick={() => ctx.auth?.logout()}>退出</button>
+  </div>
+) : (
+  <Login />
+)}
 
 // 登录
 ctx.auth.login('jwt-token', { id: 1, name: 'Alice' })
@@ -687,26 +699,19 @@ function myMiddleware(): AppMiddleware {
 
 | React | weifuwu/client |
 |-------|----------------|
-| `useState(0)` | `signal(0)` |
-| `useMemo(() => a*2, [a])` | `computed(() => a.value * 2)` |
-| `useEffect(() => f, [])` | `onMount(f)` |
-| `useEffect(() => f, [dep])` | `effect(f)` |
-| `{cond && <X/>}` | `<Show when={cond}><X/></Show>` |
-| `{arr.map(i => <X/>)}` | `<For each={arr}>{(i) => <X/>}</For>` |
-| `Suspense` | `<Show when={!loading}>` |
-| `ErrorBoundary` | `<ErrorBoundary>` |
-| `createPortal` | `createPortal` |
-| `useNavigate()` | `ctx.app.navigate()` |
-| `useParams()` | `ctx.route.params` |
-| `useFormik()` | `useForm()` |
-| `axios.get()` | `ctx.api.get()` |
-| `useSWR()` | `createResource()` |
-| `React.lazy()` | `lazy()` |
-| `useContext()` | `createContext()` |
+| `useState(0)` | `$.count = 0` |
+| `useMemo(() => a*2, [a])` | `const doubled = a * 2`（render 时计算） |
+| `useEffect(() => f, [])` | `if (!ctx.ui.ready) { f() }` |
+| `{cond && <X/>}` | 相同 |
+| `{arr.map(i => <X/>)}` | 相同，加 `key` |
+| `Suspense` | `{$.loading && <Loading/>}` |
+| `useNavigate()` | `ctx.app?.navigate()` |
+| `useParams()` | `ctx.route?.params` |
+| `axios.get()` | `ctx.api?.get()` |
 
 ### 前端类型
 
-`Signal`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `ApiOptions`, `ApiRequestOptions`, `AuthClient`, `AuthUser`, `AuthOptions`, `ResourceOptions`, `ResourceState`, `FormOptions`, `FormReturn`, `FormFieldBindings`, `FormValidators`, `LazyComponentOptions`, `LazyStatus`
+`VNode`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `AuthClient`
 
 ---
 
@@ -781,7 +786,7 @@ node server.ts
 # http://localhost:3000
 ```
 
-Demo 包含：嵌套布局、signal 待办列表、useForm 表单、createResource 数据请求、api + auth 认证、WebSocket 实时通信。
+Demo 包含：嵌套布局、ctx.ui.$ 待办列表、手动表单、async fetch 数据请求、api + auth 认证、WebSocket 实时通信。
 
 ---
 
@@ -799,13 +804,10 @@ src/
 ├── graphql.ts           GraphQL
 ├── client/
 │   ├── index.ts         前端导出入口
-│   ├── signal.ts        响应式系统
-│   ├── jsx-runtime.ts   JSX → DOM, Show/For/ErrorBoundary/Portal
+│   ├── vnode.ts         VNode 类型 + JSX 工厂
+│   ├── render.ts        VDOM 渲染器（render + patchValue）
 │   ├── router.ts        路由中间件 + RouteView
 │   ├── app.ts           createApp 应用实例
-│   ├── resource.ts      createResource 异步数据
-│   ├── form.ts          useForm 表单
-│   ├── lazy.ts          组件懒加载
 │   ├── types.ts         前端类型
 │   └── middleware/
 │       ├── ws.ts        WebSocket 客户端
