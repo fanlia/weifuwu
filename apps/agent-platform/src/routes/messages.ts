@@ -3,7 +3,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
-import { handleNewMessage, handleNewMessageStream } from '../services/chat.ts'
+import { handleNewMessage, handleNewMessageStream, handleNewMessageStreamSSE } from '../services/chat.ts'
 import { wsHub } from '../services/ws-hub.ts'
 
 export function registerMessageRoutes(app: Router): void {
@@ -106,6 +106,99 @@ export function registerMessageRoutes(app: Router): void {
     }
 
     return Response.json({ message }, { status: 201 })
+  })
+
+  // ── SSE 流式发送消息（调试用） ────────────────────────────
+  //
+  // POST /api/departments/:id/messages/stream
+  // 与 /messages 相同但返回 SSE 流而非 JSON。
+  // 可直接用 curl 测试：
+  //   curl -N -X POST .../messages/stream \
+  //     -H 'Authorization: Bearer $TOKEN' \
+  //     -H 'Content-Type: application/json' \
+  //     -d '{"content":"现在几点"}'
+
+  app.post('/api/departments/:id/messages/stream', async (req: Request, ctx: Context): Promise<Response> => {
+    const { sql, tenantId, auth, params } = ctx
+    const body = await req.json() as { content: string }
+
+    if (!body.content) {
+      return Response.json({ error: 'content 为必填' }, { status: 400 })
+    }
+
+    // 验证发件人 agent
+    let [sender] = await sql`
+      SELECT id FROM agents
+      WHERE tenant_id = ${tenantId} AND type = 'user' AND user_id = ${auth!.userId}
+    `
+    if (!sender) {
+      const [u] = await sql`SELECT name FROM users WHERE id = ${auth!.userId}`
+      ;[sender] = await sql`
+        INSERT INTO agents (tenant_id, type, name, user_id, is_active)
+        VALUES (${tenantId}, 'user', ${u?.name ?? '用户'}, ${auth!.userId}, true)
+        RETURNING id
+      `
+    }
+
+    // 验证成员资格
+    const [membership] = await sql`
+      SELECT 1 FROM department_members dm
+      JOIN departments d ON d.id = dm.department_id
+      JOIN companies c ON c.id = d.company_id
+      WHERE dm.department_id = ${params.id}
+        AND dm.agent_id = ${sender.id}
+        AND c.tenant_id = ${tenantId}
+    `
+    if (!membership) {
+      return Response.json({ error: '你不是该部门的成员' }, { status: 403 })
+    }
+
+    // 创建消息
+    const [message] = await sql`
+      INSERT INTO messages (department_id, sender_id, content, msg_type)
+      VALUES (${params.id}, ${sender.id}, ${body.content}, 'text')
+      RETURNING id, department_id, sender_id, content, msg_type, created_at
+    `
+
+    // WS 推送新消息（让其他 WS 客户端也能看到）
+    wsHub.broadcast(params.id, {
+      type: 'new_message',
+      departmentId: params.id,
+      message: { id: message.id, sender_id: message.sender_id, content: message.content },
+    })
+
+    const deepseekKey = process.env.DEEPSEEK_API_KEY
+    const hasValidKey = deepseekKey && deepseekKey !== 'sk-your-deepseek-api-key' && !deepseekKey.startsWith('sk-your-')
+
+    if (!hasValidKey) {
+      return new Response(
+        `event: error\ndata: {"error":"DEEPSEEK_API_KEY 未配置"}\n\n`,
+        { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } },
+      )
+    }
+
+    // SSE 响应流
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder()
+        const write = (chunk: string) => controller.enqueue(encoder.encode(chunk))
+
+        // 初始消息 ID
+        write(`event: meta\ndata: {"messageId":"${message.id}"}\n\n`)
+
+        await handleNewMessageStreamSSE(ctx, params.id, body.content, write)
+
+        controller.close()
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    })
   })
 
   // ── 编辑消息（5 分钟内可编辑） ───────────────────────────
