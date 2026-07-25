@@ -4,6 +4,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 import { rm } from 'node:fs/promises'
+import { execSync } from 'node:child_process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -52,4 +53,13 @@ await esbuild.build({
 
 // jsx-runtime re-exports from client/index.js via package.json exports
 
-console.log('Build complete.')
+// 生成类型声明
+console.log('\nGenerating declarations...')
+try {
+  execSync('npx tsc --project tsconfig.json --emitDeclarationOnly --outDir dist', { stdio: 'inherit', cwd: root })
+  console.log('  ✓ declarations generated')
+} catch {
+  console.log('  ⚠ declaration generation failed (continuing)')
+}
+
+console.log('\nBuild complete.')
