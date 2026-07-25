@@ -315,28 +315,34 @@ esbuild.build({
 })
 ```
 
-### 状态管理
+### 状态管理 — 深度 Proxy
+
+`ctx.ui.$` 是**深度 Proxy**：任何属性/数组/对象层面的写入自动触发渲染，无需手动调用。
 
 ```tsx
-const $ = ctx.ui.$                         // 获取状态对象
+const $ = ctx.ui.$
 
-$.count = 0                                // 赋值 → 自动渲染
-$.items = [...$.items, newItem]            // 不可变更新
-$.items.push(newItem); ctx.ui.dirty()      // 可变更新需显式 dirty
+// 顶层属性赋值
+$.count = 0                                // → 自动渲染
+$.user = { name: 'alice' }                 // → 新值自动深度包装
 
-// 派生值 — 每次 render 重新计算
-const doubled = $.count * 2
-const completed = $.todos.filter(t => t.done)
+// 数组突变
+$.items.push(newItem)                      // → 自动渲染
+$.items.pop()                              // → 自动渲染
+$.items.splice(i, 1)                       // → 自动渲染
+
+// 对象属性突变（数组内部也支持）
+$.items[0].done = true                     // → 自动渲染
+$.msgs[idx].content += event.text          // → 自动渲染
+
+// 不可变更新（同样支持）
+$.items = [...$.items, newItem]
 ```
 
 | API | 说明 |
 |------|------|
-| `ctx.ui.$` | 状态代理对象，赋值自动触发渲染 |
-| `ctx.ui.dirty()` | 显式标记脏状态（嵌套突变后用） |
-| `ctx.ui.render()` | 同步立即渲染 |
-
-**原理**：`ctx.ui.$` 是 Proxy 对象，任何属性赋值（`$.x = val`）自动调用 `queueMicrotask(render)`。\
-多次赋值在同一个微任务内合并为一次渲染。
+| `ctx.ui.$` | 深度 Proxy 对象，所有写入自动触发渲染 |
+| `ctx.ui.dirty()` | ⚠ 极少需要 — 仅当绕过 Proxy 直接操作底层对象时 |
 
 ### JSX 运行时
 

@@ -42,7 +42,7 @@ README is the main entry point for LLMs to understand the project. Keep it **LLM
 
 - **Component model** — `(props: P, ctx: WfuiContext) => VNode`. No classes, no hooks, no lifecycle.
 - **Reactivity** — `ctx.ui.$` is a Proxy. Assignment (`$.x = val`) automatically schedules re-render. No signal, no computed, no effect.
-- **Template syntax** — TSX via esbuild `--jsx=automatic --jsxImportSource=weifuwu/client`
+- **Template syntax** — TSX via esbuild `--jsx=automatic --jsx-import-source=weifuwu/client`
 - **No upstream dependencies** — zero runtime deps
 - **Context alignment** — frontend `WfuiContext` follows the same pattern as backend `Context`: middleware injects fields, components read from `ctx`
 - **Control flow** — plain JS ternary `{cond ? <A/> : <B/>}` for conditions, `.map()` + `key` for lists
