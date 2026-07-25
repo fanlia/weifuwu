@@ -347,9 +347,9 @@ export function NewAgent(_props: {}, ctx: WfuiContext) {
           <div class="sect-title" style={{ marginTop: '16px', marginBottom: '12px' }}>📁 工作空间</div>
           <div class="field">
             <label class="field-label">工作路径（可选）</label>
-            <input class="input" type="text" placeholder="如 /data/projects/my-app" value={workspacePath}
+            <input class="input" type="text" placeholder="留空使用默认路径: data/workspaces/{agent_id}/" value={workspacePath}
               onInput={(e: any) => { workspacePath.value = e.target.value }} />
-            <div class="field-hint">设置后 Agent 可以读写该目录下的文件</div>
+            <div class="field-hint">留空则自动在 data/workspaces/ 下创建以 Agent ID 命名的目录</div>
           </div>
           <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>

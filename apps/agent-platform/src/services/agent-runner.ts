@@ -13,7 +13,7 @@ import type { Context } from 'weifuwu'
 import type { ChatMessage, AgentRunResult, ToolDefinition } from '../ai/types.ts'
 import { SkillRegistry } from './skills.ts'
 import type { SkillContext } from './skills.ts'
-import { loadWorkspaceInfo } from '../middleware/workspace.ts'
+import { resolveAgentWorkspace } from '../middleware/workspace.ts'
 import { getWorkspaceToolDefs, createWorkspaceHandlers } from '../tools/workspace.ts'
 
 export interface AgentRunnerConfig {
@@ -137,19 +137,22 @@ export async function runAgent(
     }
   }
 
-  // 如果 Agent 有工作空间且启用了文件工具
-  if (config.workspacePath && config.allowFileTools) {
+  // 解析工作空间路径（支持默认路径和自定义路径）
+  const resolvedWs = config.allowFileTools
+    ? await resolveAgentWorkspace(config.agentId, config.workspacePath, config.allowFileTools)
+    : null
+
+  if (resolvedWs) {
     const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
     allTools.push(...wsTools)
 
-    // 创建工作空间工具 handlers 并注册到 SkillRegistry
     try {
-      const wsHandlers = createWorkspaceHandlers(config.workspacePath, config.allowCommandExec ?? false)
+      const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false)
       if (!skillRegistry) {
         skillRegistry = new SkillRegistry(config.agentId)
       }
       skillRegistry.registerSkill({
-        dir: config.workspacePath,
+        dir: resolvedWs,
         meta: { name: '__workspace__', description: '工作空间文件工具' },
         tools: wsTools,
         handlers: wsHandlers,
@@ -229,19 +232,22 @@ export async function streamAgent(
     }
   }
 
-  // 如果 Agent 有工作空间且启用了文件工具
-  if (config.workspacePath && config.allowFileTools) {
+  // 解析工作空间路径（支持默认路径和自定义路径）
+  const resolvedWs = config.allowFileTools
+    ? await resolveAgentWorkspace(config.agentId, config.workspacePath, config.allowFileTools)
+    : null
+
+  if (resolvedWs) {
     const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
     allTools.push(...wsTools)
 
-    // 创建工作空间工具 handlers 并注册到 SkillRegistry
     try {
-      const wsHandlers = createWorkspaceHandlers(config.workspacePath, config.allowCommandExec ?? false)
+      const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false)
       if (!skillRegistry) {
         skillRegistry = new SkillRegistry(config.agentId)
       }
       skillRegistry.registerSkill({
-        dir: config.workspacePath,
+        dir: resolvedWs,
         meta: { name: '__workspace__', description: '工作空间文件工具' },
         tools: wsTools,
         handlers: wsHandlers,
