@@ -326,6 +326,7 @@ export function createWorkspaceHandlers(
         }
 
         items.sort()
+        if (items.length === 0) return '(空目录)'
         return items.join('\n')
       } catch (err: any) {
         return `列出目录失败: ${err.message}`
