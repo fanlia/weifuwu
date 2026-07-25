@@ -99,11 +99,13 @@ async function main() {
   // 1. 租户 + 用户
   // ════════════════════════════════════════════════════
 
-  // 使用 ON CONFLICT 保持租户 UUID 不变（token 中的 tenantId 不会失效）
+  // 使用固定 UUID 确保 re-seed 后租户 ID 永远不变
+  // token 中的 tenantId 始终有效，无需重新登录
+  const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001'
   const [tenant] = await sql`
-    INSERT INTO tenants (name, slug)
-    VALUES ('演示科技有限公司', 'demo')
-    ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+    INSERT INTO tenants (id, name, slug)
+    VALUES (${DEMO_TENANT_ID}, '演示科技有限公司', 'demo')
+    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug
     RETURNING id
   `
   console.log('  ✓ 租户: 演示科技有限公司')
