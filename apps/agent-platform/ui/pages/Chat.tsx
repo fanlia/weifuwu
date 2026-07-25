@@ -6,7 +6,7 @@
  *   无需等待完整回复，用户即时看到 AI 生成过程。
  */
 
-import { signal, computed, Show, For, effect, onCleanup } from 'weifuwu/client'
+import { signal, computed, Show, For, effect, onCleanup, onMount } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 
 interface ChatMsg {
@@ -37,6 +37,7 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   const loaded = signal(false)
   const loading = signal(true)
   let bodyEl: HTMLElement | null = null
+  let inputEl: HTMLInputElement | null = null
 
   // 编辑状态
   const editingId = signal('')
@@ -89,24 +90,50 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   const canSend = computed(() => inputValue.value.trim().length > 0 && !sending.value)
   const isEditing = computed(() => editingId.value !== '')
 
-  // ── 自动滚动 ──
+  // ── 自动聚焦输入框 ──
+  onMount(() => { inputEl?.focus() })
+
+  // 发送后自动 focus
+  effect(() => {
+    void sending.value // 依赖 sending 变化
+    if (!sending.value) {
+      requestAnimationFrame(() => { inputEl?.focus() })
+    }
+  })
+
+  // ── 自动滚动（带用户滚动检测）──
   let prevLen = 0
   let prevContentLen = 0
+  let isUserScrolledUp = false
+
+  function scrollToBottom() {
+    if (!bodyEl || isUserScrolledUp) return
+    requestAnimationFrame(() => {
+      if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight
+    })
+  }
+
+  function onBodyScroll() {
+    if (!bodyEl) return
+    const threshold = 80 // 距离底部 80px 内视为"在底部"
+    const nearBottom = bodyEl.scrollHeight - bodyEl.scrollTop - bodyEl.clientHeight < threshold
+    isUserScrolledUp = !nearBottom
+  }
+
   effect(() => {
     const msgs = messages.value
     if (!bodyEl) return
 
     // 新消息时滚动
     if (msgs.length > prevLen && prevLen > 0) {
-      requestAnimationFrame(() => { if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight })
+      scrollToBottom()
     }
 
-    // 流式输出时滚动（最后一条消息内容变化）
+    // 流式输出时滚动
     if (msgs.length > 0) {
-      const last = msgs[msgs.length - 1]
       const totalLen = msgs.reduce((s, m) => s + m.content.length, 0)
       if (totalLen > prevContentLen && prevContentLen > 0) {
-        requestAnimationFrame(() => { if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight })
+        scrollToBottom()
       }
       prevContentLen = totalLen
     }
@@ -385,8 +412,13 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     }
   }
 
+  // ── 相对时间自动刷新 ──
+  const timeVersion = signal(0)
+  const timeTimer = setInterval(() => { timeVersion.value++ }, 30000)
+  onCleanup(() => clearInterval(timeTimer))
+
   // 渲染消息列表时依赖 wsVersion 触发重渲染
-  const renderVersion = computed(() => wsVersion.value)
+  const renderVersion = computed(() => wsVersion.value + timeVersion.value)
 
   return (
     <div class="chat-shell">
@@ -400,7 +432,7 @@ export function Chat(_props: {}, ctx: WfuiContext) {
         <button class="btn btn-ghost btn-sm" onClick={() => ctx.app.navigate(`/departments/${departmentId}`)}>部门详情</button>
       </div>
 
-      <div class="chat-body" ref={(el: any) => { bodyEl = el }}>
+      <div class="chat-body" ref={(el: any) => { bodyEl = el }} onScroll={onBodyScroll}>
         <Show when={showLoading}>
           <div class="loading-wrap"><div class="spinner"></div></div>
         </Show>
@@ -506,8 +538,10 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                           {st === 'generating' && <span class="cursor-blink"></span>}
                         </div>
                         {st === 'complete' && msg.usage && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '3px', textAlign: 'right' }}>
-                            ⚡ {msg.usage.total_tokens} tokens
+                          <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                            <span class="badge badge-gray" style={{ fontSize: '10px', opacity: '.7' }}>
+                              ⚡ {msg.usage.total_tokens} tokens
+                            </span>
                           </div>
                         )}
                       </Show>
@@ -576,6 +610,7 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           value={inputValue}
           onInput={(e: any) => { inputValue.value = e.target.value }}
           disabled={isEditing}
+          ref={(el: any) => { inputEl = el }}
         />
         <button class="chat-send" type="submit" disabled={computed(() => !canSend.value)}>➤</button>
       </form>

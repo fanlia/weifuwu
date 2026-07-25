@@ -261,7 +261,7 @@ input, select, textarea { font-family: inherit; }
 .chat-head-info { flex: 1; min-width: 0; }
 .chat-head-name { font-size: 15px; font-weight: 700; }
 .chat-head-sub { font-size: 12px; color: var(--text-3); }
-.chat-body { flex: 1; overflow-y: auto; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.chat-body { flex: 1; overflow-y: auto; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
 .msg-row { display: flex; gap: 9px; max-width: 72%; }
 .msg-row.own { align-self: flex-end; flex-direction: row-reverse; }
 .msg-col { display: flex; flex-direction: column; }
