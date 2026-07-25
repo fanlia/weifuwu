@@ -185,8 +185,8 @@ export function Chat(_props: {}, ctx: WfuiContext) {
         }
         break
       }
-      case 'ai:tool': {
-        // 工具调用
+      case 'ai:tool:start': {
+        // 工具调用开始
         const idx = messages.value.findIndex(m => m.id === event.messageId)
         if (idx !== -1) {
           const updated = [...messages.value]
@@ -201,8 +201,20 @@ export function Chat(_props: {}, ctx: WfuiContext) {
         }
         break
       }
-      case 'ai:tool_result': {
-        // 工具调用结果（暂不使用，留作扩展）
+      case 'ai:tool:done': {
+        // 工具调用完成
+        const idx = messages.value.findIndex(m => m.id === event.messageId)
+        if (idx !== -1) {
+          const updated = [...messages.value]
+          const tools = (updated[idx].tools ?? []).map(t =>
+            t.name === event.name && t.status === 'running'
+              ? { ...t, status: 'done' as const, result: event.result }
+              : t
+          )
+          updated[idx] = { ...updated[idx], tools }
+          messages.value = updated
+          wsVersion.value++
+        }
         break
       }
       case 'ai:done': {

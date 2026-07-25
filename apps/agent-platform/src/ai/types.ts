@@ -90,6 +90,8 @@ export interface StreamFinishResult {
 export interface ChatStreamCallbacks {
   onChunk: (chunk: ChatChunk) => void
   onToolCall?: (toolCall: ToolCall) => void
+  /** 工具调用完成 */
+  onToolResult?: (result: { name: string; result: string }) => void
   onFinish?: (result: StreamFinishResult) => void
 }
 

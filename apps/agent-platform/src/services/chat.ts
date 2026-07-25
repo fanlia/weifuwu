@@ -294,18 +294,23 @@ export async function handleNewMessageStream(
         },
         onToolCall: (toolCall: { name: string; args: string }) => {
           wsHub.broadcast(departmentId, {
-            type: 'ai:tool',
+            type: 'ai:tool:start',
             messageId: msgId,
             name: toolCall.name,
             args: toolCall.args,
           })
         },
-        onFinish: () => {
+        onToolResult: (result: { name: string; result: string }) => {
           wsHub.broadcast(departmentId, {
-            type: 'ai:done',
+            type: 'ai:tool:done',
             messageId: msgId,
-            content: accumulatedContent,
+            name: result.name,
+            result: result.result,
           })
+        },
+        onFinish: () => {
+          // streamAgent 内部的 onFinish 在每个流式步骤结束时触发
+          // 我们不在这里发 ai:done，等 streamAgent 整体完成后再发
         },
       })
     } catch (err) {
@@ -313,17 +318,18 @@ export async function handleNewMessageStream(
       console.error(`[chat] streamAgent ${agent.id} error:`, err)
     }
 
-    // 确保无论如何都发送 ai:done（失败时清理空消息）
+    // streamAgent 完成（或失败）后才发 ai:done
+    // 不能在每个 onFinish 里发——工具调用时第一个步骤就会触发 onFinish，
+    // 导致 ai:done 过早发送，后续步骤的内容前端收不到
     if (streamFailed || !accumulatedContent) {
-      // 没有生成任何内容，删除空占位消息
       await sql`DELETE FROM messages WHERE id = ${msgId} AND content = ''`
-      wsHub.broadcast(departmentId, {
-        type: 'ai:done',
-        messageId: msgId,
-        content: '',
-        error: streamFailed ? 'AI 回复失败' : undefined,
-      })
     }
+    wsHub.broadcast(departmentId, {
+      type: 'ai:done',
+      messageId: msgId,
+      content: accumulatedContent,
+      error: streamFailed ? 'AI 回复失败' : undefined,
+    })
   }
 }
 

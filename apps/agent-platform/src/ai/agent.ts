@@ -253,6 +253,12 @@ export function createAgent(
           name: toolCall.function.name,
         })
 
+        // 通知前端：工具调用完成
+        callbacks.onToolResult?.({
+          name: toolCall.function.name,
+          result: toolResult,
+        })
+
         if (config.humanInTheLoop) {
           await new Promise<void>((resolve) => {
             const onStepEnd = (config as any).__onStepEnd

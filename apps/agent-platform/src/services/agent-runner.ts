@@ -214,6 +214,7 @@ export async function streamAgent(
   callbacks: {
     onChunk: (chunk: string) => void
     onToolCall?: (toolCall: { name: string; args: string }) => void
+    onToolResult?: (result: { name: string; result: string }) => void
     onFinish?: (result: { content: string }) => void
   },
 ): Promise<void> {
@@ -282,6 +283,9 @@ export async function streamAgent(
     },
     onToolCall: (toolCall) => {
       callbacks.onToolCall?.({ name: toolCall.function.name, args: toolCall.function.arguments })
+    },
+    onToolResult: (result) => {
+      callbacks.onToolResult?.({ name: result.name, result: result.result })
     },
     onFinish: (result) => {
       callbacks.onFinish?.({ content: fullContent })
