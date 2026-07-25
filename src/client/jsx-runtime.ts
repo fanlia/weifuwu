@@ -534,6 +534,8 @@ export function _trackEffect(el: Element, dispose: () => void) {
 }
 
 function setProp(el: Element, key: string, value: unknown) {
+  // key 是 jsx:automatic 的虚拟属性，不应出现在 DOM 中
+  if (key === 'key') return
   if (key === 'class' || key === 'className') {
     if (isSignal(value)) {
       _trackEffect(el, effect(() => { el.className = String(value.value) }))
@@ -645,6 +647,11 @@ export function jsx(
     let result: Node = document.createDocumentFragment()
     try {
       result = (type as any)(merged, currentCtx) ?? document.createDocumentFragment()
+    } catch (err) {
+      console.error(`[weifuwu/client] 组件渲染错误:`, err, { type, props })
+      const fallback = document.createElement('div')
+      fallback.style.display = 'contents'
+      result = fallback
     } finally {
       // 将本层组件的生命周期回调关联到返回的根元素
       if (_pendingMountQueue.length > 0 || _pendingCleanupQueue.length > 0) {
@@ -712,11 +719,21 @@ export function jsxs(
 export function jsxDEV(
   type: string | Component,
   props: Record<string, unknown> | null,
-  _key: string | null,
+  key: string | null,
   _isStatic: boolean,
-  _source: { fileName: string; lineNumber: number },
+  source: { fileName: string; lineNumber: number },
   _self: unknown,
 ): Node {
+  // 开发模式警告
+  if (process.env.NODE_ENV !== 'production') {
+    // 检查信号是否被直接用作 children 而非 .value
+    if (props?.children && typeof props.children === 'object' && props.children !== null && !Array.isArray(props.children) && !(props.children instanceof Node)) {
+      const maybeSignal = props.children as any
+      if (typeof maybeSignal.value !== 'undefined' && typeof maybeSignal. subscribe !== 'function') {
+        console.warn(`[weifuwu/client] ⚠️ ${source?.fileName || ''}:${source?.lineNumber || ''} — 信号直接作为 children 渲染，缺少 .value`)
+      }
+    }
+  }
   return jsx(type, props, ...(props?.children ? [props.children] : []))
 }
 
@@ -944,18 +961,24 @@ export function For<T>({ each, children, keyBy }: {
     for (let i = list.length - 1; i >= 0; i--) {
       const key = newKeys[i]
       const existing = oldKeyMap.get(key)
-      const node = children(newItems[i], i)
-      if (node instanceof Element) {
-        node.setAttribute('data-key', key)
-      }
-      if (existing) {
-        // 即使 key 存在也需替换——数据可能已变化（如流式文本更新）
-        // 仅移动 insertBefore 不会更新子节点的文本内容
-        el.replaceChild(node, existing)
+      // 通过 (el as any)._wfData 判断数据是否已变化
+      // 引用相同（===）说明数据未变，只需移动
+      if (existing && (existing as any)._wfData === newItems[i]) {
+        el.insertBefore(existing, insertBefore)
+        insertBefore = existing
       } else {
-        el.insertBefore(node, insertBefore)
+        const node = children(newItems[i], i)
+        if (node instanceof Element) {
+          node.setAttribute('data-key', key)
+          ;(node as any)._wfData = newItems[i]
+        }
+        if (existing) {
+          el.replaceChild(node, existing)
+        } else {
+          el.insertBefore(node, insertBefore)
+        }
+        insertBefore = node
       }
-      insertBefore = node
     }
   }
 
