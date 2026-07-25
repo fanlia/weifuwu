@@ -253,12 +253,20 @@ export function Chat(_props: {}, ctx: WfuiContext) {
 
         const updated = [...messages.value]
         if (event.phase === 'call') {
-          const tools = [...(updated[idx].tools ?? []), {
-            name: event.name,
-            args: event.args,
-            status: 'running' as const,
-          }]
-          updated[idx] = { ...updated[idx], tools }
+          const currentTools = updated[idx].tools ?? []
+          // 流式去重：同一工具调用可能收到多个 phase:call 事件
+          // 只有当前不存在同名 running 工具时才添加
+          const alreadyExists = currentTools.some(t => t.name === event.name && t.status === 'running')
+          if (!alreadyExists) {
+            updated[idx] = {
+              ...updated[idx],
+              tools: [...currentTools, {
+                name: event.name,
+                args: event.args,
+                status: 'running' as const,
+              }],
+            }
+          }
         } else if (event.phase === 'result') {
           const tools = (updated[idx].tools ?? []).map(t =>
             t.name === event.name && t.status === 'running'

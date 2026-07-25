@@ -133,20 +133,31 @@ export class DeepSeekClient {
         }
         if (choice.delta.tool_calls) {
           for (const tc of choice.delta.tool_calls) {
-            const existing = toolCalls.find(t => t.id === tc.id)
+            // DeepSeek 流式时 tool_calls 在后续 chunk 中可能没有 id
+            // 无 id 时追加到最后一个 tool call 的参数末尾
+            let existing: typeof toolCalls[0] | undefined
+            if (tc.id) {
+              existing = toolCalls.find(t => t.id === tc.id)
+            }
+            if (!existing && toolCalls.length > 0) {
+              existing = toolCalls[toolCalls.length - 1]
+            }
             if (existing) {
               existing.function.arguments += tc.function?.arguments ?? ''
             } else {
-              toolCalls.push({
-                id: tc.id,
+              const newTc: typeof toolCalls[0] = {
+                id: tc.id ?? '',
                 type: 'function',
                 function: {
                   name: tc.function?.name ?? '',
                   arguments: tc.function?.arguments ?? '',
                 },
-              })
+              }
+              toolCalls.push(newTc)
+              // 只在首次创建工具调用时通知前端
+              // 后续参数追加不应重复触发 onToolCall
+              params.onToolCall?.(newTc)
             }
-            params.onToolCall?.(toolCalls[toolCalls.length - 1])
           }
         }
       }
