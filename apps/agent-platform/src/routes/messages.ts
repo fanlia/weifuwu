@@ -31,7 +31,7 @@ export function registerMessageRoutes(app: Router): void {
         m.ai_draft, m.ai_approved, m.created_at,
         a.name as sender_name, a.type as sender_type, a.avatar_url as sender_avatar
       FROM messages m
-      JOIN agents a ON a.id = m.sender_id
+      LEFT JOIN agents a ON a.id = m.sender_id
       WHERE m.department_id = ${params.id}
       ${before ? sql`AND m.created_at < (SELECT created_at FROM messages WHERE id = ${before})` : sql``}
       ORDER BY m.created_at DESC

@@ -321,7 +321,20 @@ export function Chat(_props: {}, ctx: WfuiContext) {
 
   const unsub = ctx.ws.onMessage(handleWsEvent)
   onCleanup(() => unsub())
+
+  // 首次订阅
   ctx.ws.send({ type: 'subscribe', departmentId })
+
+  // WS 重连后自动重新订阅（否则收不到后续事件）
+  let prevConnected = false
+  effect(() => {
+    const connected = wsConnected.value
+    if (connected && !prevConnected) {
+      // 刚从断连恢复到连接 → 重新订阅
+      ctx.ws.send({ type: 'subscribe', departmentId })
+    }
+    prevConnected = connected
+  })
 
   // ── 重新生成 ──
   async function retryMessage(fromMsgId: string) {
