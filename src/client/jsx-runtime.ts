@@ -797,12 +797,14 @@ export function createPortal(node: Node, target: Element): Node {
 function toNode(v: unknown): Node {
   if (v instanceof Node) return v
   if (typeof v === 'function') return toNode(v())
+  // null / undefined / boolean 不渲染（兼容 {condition && <X/>} 模式）
+  if (v == null || typeof v === 'boolean') return document.createTextNode('')
   if (Array.isArray(v)) {
     const frag = document.createDocumentFragment()
     for (const child of v) frag.appendChild(toNode(child))
     return frag
   }
-  return document.createTextNode(String(v ?? ''))
+  return document.createTextNode(String(v))
 }
 
 /**
