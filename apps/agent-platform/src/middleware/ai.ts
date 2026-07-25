@@ -46,8 +46,8 @@ export function ai(): Middleware<Context, Context & { ai: AiClient }> {
     },
 
     // ── Agent Tool Loop ──
-    agent(config: AgentConfig) {
-      return createAgent(aiClient, config)
+    agent(config: AgentConfig, skillRegistry?: any) {
+      return createAgent(aiClient, config, skillRegistry)
     },
 
     // ── Embedding ──
