@@ -91,11 +91,26 @@ export function Chat(_props: {}, ctx: WfuiContext) {
 
   // ── 自动滚动 ──
   let prevLen = 0
+  let prevContentLen = 0
   effect(() => {
     const msgs = messages.value
-    if (bodyEl && msgs.length > prevLen && prevLen > 0) {
+    if (!bodyEl) return
+
+    // 新消息时滚动
+    if (msgs.length > prevLen && prevLen > 0) {
       requestAnimationFrame(() => { if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight })
     }
+
+    // 流式输出时滚动（最后一条消息内容变化）
+    if (msgs.length > 0) {
+      const last = msgs[msgs.length - 1]
+      const totalLen = msgs.reduce((s, m) => s + m.content.length, 0)
+      if (totalLen > prevContentLen && prevContentLen > 0) {
+        requestAnimationFrame(() => { if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight })
+      }
+      prevContentLen = totalLen
+    }
+
     if (msgs.length > 0) prevLen = msgs.length
   })
 
