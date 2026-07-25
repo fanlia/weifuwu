@@ -73,8 +73,8 @@ async function main() {
   const pg = postgres()
   const { sql } = pg
 
-  // ── 清空已有数据（保留 schema） ──────────────────────
-  console.log('  … 清空已有数据...')
+  // ── 清空业务数据（保留租户和用户 UUID 不变） ────────
+  console.log('  … 清空业务数据...')
   await sql.unsafe(`
     DELETE FROM webhook_logs;
     DELETE FROM agent_logs;
@@ -86,10 +86,8 @@ async function main() {
     DELETE FROM departments;
     DELETE FROM agents;
     DELETE FROM companies;
-    DELETE FROM users;
-    DELETE FROM tenants;
   `)
-  console.log('  ✓ 已清空')
+  console.log('  ✓ 已清空业务数据')
 
   // ── 确保 schema 存在 ─────────────────────────────────
   console.log('  … 确保 schema...')
@@ -101,9 +99,11 @@ async function main() {
   // 1. 租户 + 用户
   // ════════════════════════════════════════════════════
 
+  // 使用 ON CONFLICT 保持租户 UUID 不变（token 中的 tenantId 不会失效）
   const [tenant] = await sql`
     INSERT INTO tenants (name, slug)
     VALUES ('演示科技有限公司', 'demo')
+    ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
     RETURNING id
   `
   console.log('  ✓ 租户: 演示科技有限公司')
@@ -112,6 +112,7 @@ async function main() {
   const [admin] = await sql`
     INSERT INTO users (tenant_id, email, name, password_hash, role)
     VALUES (${tenant.id}, 'admin@demo.com', '张明', ${adminPassword}, 'admin')
+    ON CONFLICT (tenant_id, email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
     RETURNING id, name
   `
   console.log('  ✓ 管理员: admin@demo.com / admin123')
@@ -120,6 +121,7 @@ async function main() {
   const [user] = await sql`
     INSERT INTO users (tenant_id, email, name, password_hash, role)
     VALUES (${tenant.id}, 'user@demo.com', '李华', ${userPassword}, 'member')
+    ON CONFLICT (tenant_id, email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
     RETURNING id, name
   `
   console.log('  ✓ 用户: user@demo.com / user123')
