@@ -146,8 +146,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   })
 
   // ── WebSocket 事件处理 ──
-  const wsVersion = signal(0)
-
   // 流式超时保护：30 秒后自动清除所有卡住的状态
   const streamTimeout = setInterval(() => {
     let changed = false
@@ -164,7 +162,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     })
     if (changed) {
       messages.value = updated
-      wsVersion.value++
     }
   }, 30000)
   onCleanup(() => clearInterval(streamTimeout))
@@ -186,7 +183,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           status: 'idle',
           tools: [],
         }]
-        wsVersion.value++
         break
       }
 
@@ -221,7 +217,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
               updated[existing] = { ...updated[existing], status: 'error', content: '⚠️ AI 回复失败' }
             } else if (!content) {
               messages.value = updated.filter(m => m.id !== event.messageId)
-              wsVersion.value++
               break
             }
             updated[existing] = { ...updated[existing], status: s, usage: event.usage }
@@ -230,7 +225,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           }
           messages.value = updated
         }
-        wsVersion.value++
         break
       }
 
@@ -241,7 +235,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           const updated = [...messages.value]
           updated[idx] = { ...updated[idx], content: updated[idx].content + event.text }
           messages.value = updated
-          wsVersion.value++
         }
         break
       }
@@ -276,7 +269,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           updated[idx] = { ...updated[idx], tools }
         }
         messages.value = updated
-        wsVersion.value++
         break
       }
 
@@ -296,7 +288,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           streaming: false,
           tools: [],
         }]
-        wsVersion.value++
         break
       }
       case 'message_edited': {
@@ -306,14 +297,12 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           const updated = [...messages.value]
           updated[idx] = { ...updated[idx], content: event.content }
           messages.value = updated
-          wsVersion.value++
         }
         break
       }
       case 'message_deleted': {
         // 消息撤回
         messages.value = messages.value.filter(m => m.id !== event.messageId)
-        wsVersion.value++
         break
       }
     }
@@ -348,7 +337,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
 
     // 移除失败的 AI 消息
     messages.value = msgs.filter(m => m.id !== fromMsgId)
-    wsVersion.value++
 
     // 重新发送用户消息
     sending.value = true
@@ -513,9 +501,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     })
   }
 
-  // 渲染消息列表时依赖 wsVersion 触发重渲染
-  const renderVersion = computed(() => wsVersion.value + timeVersion.value)
-
   return (
     <div class="chat-shell">
       {/* WS 断连提示 */}
@@ -551,10 +536,7 @@ export function Chat(_props: {}, ctx: WfuiContext) {
 
         <Show when={computed(() => messages.value.length > 0)}>
           {() => {
-            // 用 renderVersion 触发重渲染
-            void renderVersion.value
-            return (
-              <For each={messages} keyBy="id">{(msg: ChatMsg) => {
+            return <For each={messages} keyBy="id">{(msg: ChatMsg) => {
                 if (msg.msg_type === 'system') {
                   return <div class="sys-pill">{msg.content}</div>
                 }
@@ -719,7 +701,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                   </div>
                 )
               }}</For>
-            )
           }}
         </Show>
       </div>
