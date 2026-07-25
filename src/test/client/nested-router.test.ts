@@ -4,23 +4,9 @@
 
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { JSDOM } from 'jsdom'
+import { setupJsdom } from './setup.ts'
 
-before(() => {
-  if (typeof document !== 'undefined') return
-  const dom = new JSDOM('<!DOCTYPE html><html><body><div id="root"></div></body></html>', {
-    url: 'http://localhost',
-    pretendToBeVisual: true,
-  })
-  const win = dom.window as any
-  const g = globalThis as any
-  for (const key of Object.getOwnPropertyNames(win)) {
-    if (['Object','Array','Function','String','Number','Boolean','Symbol','Map','Set','RegExp','Promise','Error','Date','Math','JSON','parseInt','parseFloat','isNaN','isFinite','undefined','NaN','Infinity'].includes(key)) continue
-    if (typeof g[key] === 'undefined') {
-      try { g[key] = win[key] } catch {}
-    }
-  }
-})
+before(setupJsdom)
 
 const { router, RouteView } = await import('../../client/router.ts')
 const { jsx, setCtx } = await import('../../client/jsx-runtime.ts')

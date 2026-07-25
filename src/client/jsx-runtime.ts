@@ -986,6 +986,7 @@ export function For<T>({ each, children, keyBy }: {
       const existing = oldKeyMap.get(key)
       // 通过 (el as any)._wfData 判断数据是否已变化
       // 引用相同（===）说明数据未变，只需移动
+      // 若需更新内容，用户应使用不可变更新（spread 新对象）
       if (existing && (existing as any)._wfData === newItems[i]) {
         el.insertBefore(existing, insertBefore)
         insertBefore = existing

@@ -4,34 +4,11 @@
 
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { JSDOM } from 'jsdom'
+import { setupJsdom } from './setup.ts'
 
 // ── 浏览器全局环境设置 ───────────────────────────────────────
 
-before(() => {
-  if (typeof document !== 'undefined') return
-
-  const dom = new JSDOM('<!DOCTYPE html><html><body><div id="root"></div></body></html>', {
-    url: 'http://localhost',
-    pretendToBeVisual: true,
-  })
-
-  const win = dom.window as any
-  const g = globalThis as any
-  for (const key of Object.getOwnPropertyNames(win)) {
-    if (key === 'Object' || key === 'Array' || key === 'Function' ||
-        key === 'String' || key === 'Number' || key === 'Boolean' ||
-        key === 'Symbol' || key === 'Map' || key === 'Set' ||
-        key === 'RegExp' || key === 'Promise' || key === 'Error' ||
-        key === 'Date' || key === 'Math' || key === 'JSON' ||
-        key === 'parseInt' || key === 'parseFloat' ||
-        key === 'isNaN' || key === 'isFinite' ||
-        key === 'undefined' || key === 'NaN' || key === 'Infinity') continue
-    if (typeof g[key] === 'undefined') {
-      try { g[key] = win[key] } catch { /* read-only, skip */ }
-    }
-  }
-})
+before(setupJsdom)
 
 // ── 导入被测模块 ────────────────────────────────────────────
 
