@@ -797,6 +797,11 @@ export function createPortal(node: Node, target: Element): Node {
 function toNode(v: unknown): Node {
   if (v instanceof Node) return v
   if (typeof v === 'function') return toNode(v())
+  if (Array.isArray(v)) {
+    const frag = document.createDocumentFragment()
+    for (const child of v) frag.appendChild(toNode(child))
+    return frag
+  }
   return document.createTextNode(String(v ?? ''))
 }
 
