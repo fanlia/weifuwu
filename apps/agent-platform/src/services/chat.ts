@@ -400,9 +400,8 @@ export async function handleNewMessageStream(
 ): Promise<void> {
   // WS 路径：每个 agent 共享同一个 messageId
   // createEmitter 返回 WsEmitter
-  // WS 路径：messageId 已在 runAgentStreamForAgent 中设置
-  // emitter 使用 wsHub 广播，不强制覆盖 messageId
-  await runAllAgents(ctx, departmentId, messageContent, [messageId], (agent, msgId) => ({
+  // WS 路径：让 runAgentStreamForAgent 内部创建 AI 消息（而非复用用户消息 ID）
+  await runAllAgents(ctx, departmentId, messageContent, [], (agent, msgId) => ({
     emit(event) { wsHub.broadcast(departmentId, event) },
   }))
 }
