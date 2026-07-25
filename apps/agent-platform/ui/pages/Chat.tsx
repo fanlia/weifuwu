@@ -100,8 +100,24 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   })
 
   // ── WebSocket 事件处理 ──
-  // 使用 signal 标记版本号，触发重渲染
   const wsVersion = signal(0)
+
+  // 流式超时保护：30 秒后自动清除所有卡住的 "生成中..."
+  const streamTimeout = setInterval(() => {
+    let changed = false
+    const updated = messages.value.map(m => {
+      if (m.streaming) {
+        changed = true
+        return { ...m, streaming: false }
+      }
+      return m
+    })
+    if (changed) {
+      messages.value = updated
+      wsVersion.value++
+    }
+  }, 30000)
+  onCleanup(() => clearInterval(streamTimeout))
 
   function handleWsEvent(event: any) {
     const type = event.type

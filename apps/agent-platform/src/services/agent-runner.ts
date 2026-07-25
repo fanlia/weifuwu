@@ -272,7 +272,11 @@ export async function streamAgent(
       for (const choice of chunk.choices) {
         if (choice.delta.content) {
           fullContent += choice.delta.content
-          callbacks.onChunk(choice.delta.content)
+          // 透传 chat.ts 的 async onChunk 结果
+          const result = callbacks.onChunk(choice.delta.content)
+          if (result && typeof result.then === 'function') {
+            return result
+          }
         }
       }
     },

@@ -163,7 +163,11 @@ export function createAgent(
         messages: allMessages,
         tools: config.tools,
         onChunk: (chunk) => {
-          callbacks.onChunk(chunk)
+          // onChunk 可能返回 Promise（chat.ts 中的异步处理），向上透传
+          const result = callbacks.onChunk(chunk)
+          if (result && typeof result.then === 'function') {
+            return result
+          }
           for (const choice of chunk.choices) {
             if (choice.delta.content) fullContent += choice.delta.content
             if (choice.delta.tool_calls) {

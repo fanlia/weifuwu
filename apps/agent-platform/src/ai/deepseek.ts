@@ -114,7 +114,8 @@ export class DeepSeekClient {
     let lastUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined
 
     for await (const chunk of parseSSEStream(res.body)) {
-      params.onChunk(chunk)
+      // await onChunk 确保 chunk 处理完成后再处理下一个或触发 onFinish
+      await params.onChunk(chunk)
 
       // 提取最后一个 chunk 的 usage（DeepSeek 在流结束的 chunk 中返回）
       if (chunk.usage) {
