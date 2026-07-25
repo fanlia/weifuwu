@@ -67,6 +67,22 @@ export interface ChatChunk {
     delta: { role?: string; content?: string; tool_calls?: ToolCall[] }
     finish_reason: 'stop' | 'length' | 'tool_calls' | null
   }[]
+  /** 部分供应商（如 DeepSeek）会在最后一个 chunk 中返回 usage */
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
+}
+
+export interface StreamFinishResult {
+  content: string
+  toolCalls: ToolCall[]
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
 }
 
 // ── Streaming callbacks ─────────────────────────────────────
@@ -74,7 +90,7 @@ export interface ChatChunk {
 export interface ChatStreamCallbacks {
   onChunk: (chunk: ChatChunk) => void
   onToolCall?: (toolCall: ToolCall) => void
-  onFinish?: (result: { content: string; toolCalls: ToolCall[] }) => void
+  onFinish?: (result: StreamFinishResult) => void
 }
 
 // ── Embedding (DashScope) ───────────────────────────────────

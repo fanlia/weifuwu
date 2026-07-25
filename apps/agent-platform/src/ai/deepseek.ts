@@ -111,9 +111,15 @@ export class DeepSeekClient {
 
     let fullContent = ''
     const toolCalls: import('./types.ts').ToolCall[] = []
+    let lastUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined
 
     for await (const chunk of parseSSEStream(res.body)) {
       params.onChunk(chunk)
+
+      // 提取最后一个 chunk 的 usage（DeepSeek 在流结束的 chunk 中返回）
+      if (chunk.usage) {
+        lastUsage = chunk.usage
+      }
 
       for (const choice of chunk.choices) {
         if (choice.delta.content) {
@@ -140,6 +146,6 @@ export class DeepSeekClient {
       }
     }
 
-    params.onFinish?.({ content: fullContent, toolCalls })
+    params.onFinish?.({ content: fullContent, toolCalls, usage: lastUsage })
   }
 }

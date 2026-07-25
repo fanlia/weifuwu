@@ -187,7 +187,15 @@ export function createAgent(
           }
         },
         onToolCall: callbacks.onToolCall,
-        onFinish: callbacks.onFinish,
+        onFinish: (result) => {
+          // 累加流式响应的 usage
+          if (result.usage) {
+            totalUsage.prompt_tokens += result.usage.prompt_tokens
+            totalUsage.completion_tokens += result.usage.completion_tokens
+            totalUsage.total_tokens += result.usage.total_tokens
+          }
+          callbacks.onFinish?.(result)
+        },
       })
 
       // 记录 LLM step
