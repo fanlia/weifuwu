@@ -441,6 +441,21 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     }
   }
 
+  // 工具名映射为中文可读标签
+  const toolLabels: Record<string, string> = {
+    'search-knowledge-base': '搜索知识库',
+    'get-current-time': '获取当前时间',
+    list_files: '列出文件',
+    read: '读取文件',
+    write: '写入文件',
+    edit: '编辑文件',
+    grep: '搜索文件',
+    bash: '执行命令',
+  }
+  function toolLabel(name: string): string {
+    return toolLabels[name] ?? name.replace(/_/g, ' ')
+  }
+
   function fmtTime(iso: string): string {
     try {
       const d = new Date(iso)
@@ -458,6 +473,15 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   const timeVersion = signal(0)
   const timeTimer = setInterval(() => { timeVersion.value++ }, 30000)
   onCleanup(() => clearInterval(timeTimer))
+
+  // ── 复制消息内容 ──
+  const copiedId = signal('')
+  function copyContent(msg: ChatMsg) {
+    navigator.clipboard.writeText(msg.content).then(() => {
+      copiedId.value = msg.id
+      setTimeout(() => { if (copiedId.value === msg.id) copiedId.value = '' }, 2000)
+    })
+  }
 
   // 渲染消息列表时依赖 wsVersion 触发重渲染
   const renderVersion = computed(() => wsVersion.value + timeVersion.value)
@@ -555,18 +579,26 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                             >撤回</button>
                           </span>
                         )}
+                        {/* 复制按钮 */}
+                        {st === 'complete' && msg.sender_type === 'ai' && msg.content && (
+                          <button
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedId.value === msg.id ? 'var(--success)' : 'var(--text-3)', fontSize: '11px', padding: '0 2px', marginLeft: '4px' }}
+                            onClick={() => copyContent(msg)}
+                          >{copiedId.value === msg.id ? '✅ 已复制' : '📋 复制'}</button>
+                        )}
                       </div>
 
-                      {/* 工具调用 -- 仅 AI 消息且非 idle 时显示 */}
+                      {/* 工具调用卡片 — 仅 AI 消息 */}
                       <Show when={computed(() => msg.sender_type === 'ai' && msg.status !== 'idle' && (msg.tools ?? []).length > 0)}>
                         {() => (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '4px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '6px' }}>
                             {(msg.tools ?? []).map((t, i) => (
                               <div key={i} class={t.status === 'running' ? 'tool-running' : ''} style={{
                                 fontSize: '11px', color: 'var(--text-3)',
-                                display: 'flex', alignItems: 'center', gap: '4px',
-                                padding: '2px 8px', borderRadius: '4px',
-                                background: '#f3f4f6', width: 'fit-content',
+                                display: 'flex', alignItems: 'center', gap: '5px',
+                                padding: '3px 10px', borderRadius: '6px',
+                                background: '#f0f0ff', width: 'fit-content',
+                                border: '1px solid #e4e4f0',
                               }}>
                                 {t.status === 'running'
                                   ? <span class="typing-dots" style={{ display: 'inline-flex', gap: '2px' }}>
@@ -574,8 +606,7 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                                     </span>
                                   : <span>✅</span>
                                 }
-                                <span style={{ fontWeight: 500 }}>{t.name}</span>
-                                <span style={{ color: 'var(--text-3)' }}>···</span>
+                                <span style={{ fontWeight: 500, color: '#555' }}>{toolLabel(t.name)}</span>
                               </div>
                             ))}
                           </div>
@@ -583,13 +614,13 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                       </Show>
 
                       <Show when={computed(() => !beingEdited.value)}>
-                        <div class={`bubble${isActive ? ' active' : ''}${st === 'error' ? ' error' : ''}`}>
+                        <div class={`bubble${isActive ? ' active' : ''}${st === 'error' ? ' error' : ''}${!own && msg.sender_type === 'ai' && st === 'complete' ? ' bubble-ai' : ''}`}>
                           {msg.content || ''}
                           {st === 'generating' && <span class="cursor-blink"></span>}
                         </div>
                         {st === 'complete' && msg.usage && (
-                          <div style={{ marginTop: '4px', textAlign: 'right' }}>
-                            <span class="badge badge-gray" style={{ fontSize: '10px', opacity: '.7' }}>
+                          <div style={{ marginTop: '3px', textAlign: 'right' }}>
+                            <span class="badge badge-gray" style={{ fontSize: '10px', opacity: '.6' }}>
                               ⚡ {msg.usage.total_tokens} tokens
                             </span>
                           </div>

@@ -277,6 +277,10 @@ input, select, textarea { font-family: inherit; }
   background: var(--primary); color: #fff; border-color: transparent;
   border-radius: 14px; border-bottom-right-radius: 4px; box-shadow: none;
 }
+.bubble-ai {
+  background: #f5f3ff; border-color: #e0d6f5;
+  border-bottom-left-radius: 4px;
+}
 .sys-pill {
   align-self: center; background: #eef0f4; color: var(--text-2);
   font-size: 12px; padding: 4px 14px; border-radius: 999px;
