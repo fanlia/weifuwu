@@ -44,7 +44,7 @@ export class DeepSeekClient {
     }
 
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 15000)
+    const timer = setTimeout(() => controller.abort(), 60000)
     let res
     try {
       res = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -86,7 +86,7 @@ export class DeepSeekClient {
     }
 
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 15000)
+    const timer = setTimeout(() => controller.abort(), 60000)
     let res
     try {
       res = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -110,6 +110,7 @@ export class DeepSeekClient {
     if (!res.body) throw new Error('DeepSeek: 响应体为空')
 
     let fullContent = ''
+    let reasoningContent = ''
     const toolCalls: import('./types.ts').ToolCall[] = []
     let lastUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined
 
@@ -125,6 +126,10 @@ export class DeepSeekClient {
       for (const choice of chunk.choices) {
         if (choice.delta.content) {
           fullContent += choice.delta.content
+        }
+        // DeepSeek thinking mode：捕获 reasoning_content，后续请求需回传
+        if (choice.delta.reasoning_content) {
+          reasoningContent += choice.delta.reasoning_content
         }
         if (choice.delta.tool_calls) {
           for (const tc of choice.delta.tool_calls) {
@@ -147,6 +152,6 @@ export class DeepSeekClient {
       }
     }
 
-    params.onFinish?.({ content: fullContent, toolCalls, usage: lastUsage })
+    params.onFinish?.({ content: fullContent, reasoning_content: reasoningContent || undefined, toolCalls, usage: lastUsage })
   }
 }

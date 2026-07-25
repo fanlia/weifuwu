@@ -9,6 +9,8 @@ export type MessageRole = 'system' | 'user' | 'assistant' | 'tool'
 export interface ChatMessage {
   role: MessageRole
   content: string
+  /** DeepSeek thinking mode：前一步流的 reasoning_content 必须回传 */
+  reasoning_content?: string
   tool_call_id?: string
   tool_calls?: ToolCall[]
   name?: string
@@ -49,7 +51,8 @@ export interface ChatResponse {
   model: string
   choices: {
     index: number
-    message: ChatMessage
+    /** DeepSeek 可能在 message 中返回 reasoning_content */
+    message: ChatMessage & { reasoning_content?: string }
     finish_reason: 'stop' | 'length' | 'tool_calls' | null
   }[]
   usage?: {
@@ -64,7 +67,7 @@ export interface ChatChunk {
   model: string
   choices: {
     index: number
-    delta: { role?: string; content?: string; tool_calls?: ToolCall[] }
+    delta: { role?: string; content?: string; reasoning_content?: string; tool_calls?: ToolCall[] }
     finish_reason: 'stop' | 'length' | 'tool_calls' | null
   }[]
   /** 部分供应商（如 DeepSeek）会在最后一个 chunk 中返回 usage */
@@ -77,6 +80,8 @@ export interface ChatChunk {
 
 export interface StreamFinishResult {
   content: string
+  /** DeepSeek thinking mode 的推理内容，后续请求需回传 */
+  reasoning_content?: string
   toolCalls: ToolCall[]
   usage?: {
     prompt_tokens: number

@@ -156,6 +156,7 @@ export function createAgent(
 
     for (let step = 0; step < maxSteps; step++) {
       let fullContent = ''
+      let reasoningContent = ''
       const toolCalls: ToolCall[] = []
 
       await client.chatStream({
@@ -206,6 +207,10 @@ export function createAgent(
             totalUsage.completion_tokens += result.usage.completion_tokens
             totalUsage.total_tokens += result.usage.total_tokens
           }
+          // DeepSeek thinking mode：记录 reasoning_content
+          if (result.reasoning_content) {
+            reasoningContent = result.reasoning_content
+          }
           callbacks.onFinish?.(result)
         },
       })
@@ -219,6 +224,10 @@ export function createAgent(
       const msg: ChatMessage = {
         role: 'assistant',
         content: fullContent,
+      }
+      // DeepSeek thinking mode：后续请求必须带上 reasoning_content
+      if (reasoningContent) {
+        msg.reasoning_content = reasoningContent
       }
       if (toolCalls.length > 0) msg.tool_calls = toolCalls
       allMessages.push(msg)
