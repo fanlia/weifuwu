@@ -155,7 +155,9 @@ export function createWsHandler(opts?: WsHandlerOptions): WebSocketHandler {
     message(ws: WebSocket, _ctx: any, data: string | Buffer) {
       try {
         const msg = JSON.parse(data.toString())
-        if (msg.type === 'subscribe' && msg.departmentId) {
+        if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }))
+        } else if (msg.type === 'subscribe' && msg.departmentId) {
           wsHub.join(msg.departmentId, ws)
           ws.send(JSON.stringify({ type: 'subscribed', departmentId: msg.departmentId }))
         } else if (msg.type === 'unsubscribe' && msg.departmentId) {
