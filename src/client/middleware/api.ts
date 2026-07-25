@@ -132,7 +132,12 @@ export function api(options?: ApiOptions): AppMiddleware {
         return undefined as T
       }
 
-      return res.json() as Promise<T>
+      // 优先 JSON 解析，失败则回退到 text
+      const ct = (res.headers.get('content-type') || '').toLowerCase()
+      if (ct.includes('application/json') || ct.includes('json')) {
+        return res.json() as Promise<T>
+      }
+      return res.text() as unknown as Promise<T>
     } finally {
       if (timer) clearTimeout(timer)
     }

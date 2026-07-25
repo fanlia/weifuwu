@@ -117,6 +117,8 @@ export function router(opts: RouterOptions): AppMiddleware {
     ;(ctx2.route as any)[CHAIN_KEY] = matched.chain
   }
 
+  const cleanupFns: (() => void)[] = []
+
   return (ctx: WfuiContext): WfuiContext => {
     function emit(path: string) {
       const Ctor = (window as any).CustomEvent || CustomEvent
@@ -148,13 +150,21 @@ export function router(opts: RouterOptions): AppMiddleware {
     }
 
     if (mode === 'hash') {
+      const origNavigate = ctx.app.navigate
       ctx.app.navigate = (path: string) => {
-        window.location.hash = '#' + path
+        const hash = '#' + path
+        if (window.location.hash === hash) {
+          // 相同 hash 也需要触发渲染
+          navigateAndLoad(path)
+        }
+        window.location.hash = hash
       }
 
-      window.addEventListener('hashchange', () => {
+      const hashHandler = () => {
         navigateAndLoad(window.location.hash.slice(1) || '/')
-      })
+      }
+      window.addEventListener('hashchange', hashHandler)
+      cleanupFns.push(() => window.removeEventListener('hashchange', hashHandler))
     } else {
       const scrollPositions = new Map<string, number>()
 
@@ -166,7 +176,7 @@ export function router(opts: RouterOptions): AppMiddleware {
         navigateAndLoad(path)
       }
 
-      window.addEventListener('popstate', () => {
+      const popHandler = () => {
         if (opts.scrollRestoration !== false) {
           const savedY = scrollPositions.get(window.location.pathname)
           if (savedY !== undefined) {
@@ -174,13 +184,21 @@ export function router(opts: RouterOptions): AppMiddleware {
           }
         }
         navigateAndLoad(window.location.pathname + window.location.search)
-      })
+      }
+      window.addEventListener('popstate', popHandler)
+      cleanupFns.push(() => window.removeEventListener('popstate', popHandler))
     }
 
     const initialPath = mode === 'hash'
       ? window.location.hash.slice(1) || '/'
       : window.location.pathname + window.location.search
     navigateAndLoad(initialPath)
+
+    // 注入 destroy 方法
+    ctx.app.destroy = () => {
+      for (const fn of cleanupFns) fn()
+      cleanupFns.length = 0
+    }
 
     return ctx
   }

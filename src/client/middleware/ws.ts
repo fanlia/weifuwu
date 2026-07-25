@@ -126,6 +126,23 @@ export function ws(options: WsOptions = {}): AppMiddleware {
       reconnectTimer = setTimeout(connect, reconnectInterval * reconnectCount)
     }
 
+    function destroyWs() {
+      // 清除所有定时器
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+      clearTimers()
+      // 关闭 WebSocket 连接
+      if (socket) {
+        socket.onclose = null
+        socket.onerror = null
+        socket.onmessage = null
+        socket.onopen = null
+        try { socket.close() } catch {}
+        socket = null
+      }
+      isConnected.value = false
+      sendQueue.length = 0
+    }
+
     function send(data: unknown) {
       if (socket?.readyState === WebSocket.OPEN) {
         socket.send(typeof data === 'string' ? data : JSON.stringify(data))
@@ -138,6 +155,15 @@ export function ws(options: WsOptions = {}): AppMiddleware {
     // 初始连接
     connect()
 
+    // 如果 ctx.app.destroy 可用，注册 ws 清理
+    if (typeof ctx.app?.destroy === 'function') {
+      const origDestroy = ctx.app.destroy
+      ctx.app.destroy = () => {
+        destroyWs()
+        origDestroy()
+      }
+    }
+
     return extendCtx(ctx, {
       ws: {
         send,
@@ -145,6 +171,7 @@ export function ws(options: WsOptions = {}): AppMiddleware {
           messageHandlers.add(handler)
           return () => messageHandlers.delete(handler)
         },
+        destroy: destroyWs,
         get isConnected() { return isConnected },
       },
     })

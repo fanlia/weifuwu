@@ -23,6 +23,11 @@ export function createApp(): {
   use: (mw: AppMiddleware) => any
   mount: (rootSelector: string, RootComponent: Component) => Promise<void>
   /**
+   * 销毁应用，清理所有全局事件监听和中间件资源。
+   * 调用后不可再次使用。
+   */
+  destroy: () => void
+  /**
    * Hydrate 一个已由 SSR 渲染的区域。
    * 不清除目标容器内的内容，只附加组件输出。
    *
@@ -72,6 +77,8 @@ export function createApp(): {
     ws: null as any,
   }
 
+  let destroyed = false
+
   return {
     get ctx() { return ctx },
 
@@ -91,6 +98,15 @@ export function createApp(): {
       const app = jsx(RootComponent, {})
       domMount(rootSelector, app)
       setCtx(null)
+    },
+
+    destroy() {
+      if (destroyed) return
+      destroyed = true
+      // 触发中间件注入的 destroy（如 router 的事件清理）
+      ctx.app.destroy?.()
+      // 重置 ctx
+      provides.clear()
     },
 
     hydrate(selector: string, Component: Component, props?: Record<string, unknown>) {

@@ -34,6 +34,8 @@ export interface WfuiContext {
   }
   app: {
     navigate: (path: string) => void
+    /** 销毁应用，清理所有全局事件监听 */
+    destroy?: () => void
   }
 
   // ── ws() 注入 ──
