@@ -613,13 +613,27 @@ function appendChild(parent: Node, child: unknown) {
 
 // ── JSX 工厂 ─────────────────────────────────────────────────
 
+/**
+ * jsx/jsxs/jsxDEV 工厂函数
+ *
+ * esbuild `--jsx=automatic --jsxImportSource=weifuwu/client` 生成：
+ *   jsx(type, props)           — 无 key
+ *   jsx(type, props, child)    — 单子节点
+ *   jsxs(type, props, ...args) — 多子节点，args[last] 可能是 key
+ *
+ * 关键：自动模式会传递 key 作为额外参数（jsx(type, props, key)）。
+ * 如果直接当作 children 处理，数字/字符串 key 会被渲染为文本节点。
+ * 因此需要检测并过滤 key 参数。
+ */
 export function jsx(
   type: string | Component,
   props: Record<string, unknown> | null,
-  ...children: unknown[]
+  ...args: unknown[]
 ): Node {
   if (typeof type === 'function') {
-    const merged = children.length > 0 ? { ...props, children } : props
+    // 组件调用：children 在 props 或 args 中
+    const hasPropChildren = props?.children != null
+    const merged = hasPropChildren ? props : (args.length > 0 ? { ...props, children: args } : props)
 
     // ── 组件生命周期管理 ──
     // 每层组件调用维护独立的 mount/cleanup 队列
@@ -672,17 +686,27 @@ export function jsx(
     }
   }
   // children 可能在 rest 参数里（手动调用），也可能在 props.children 里（jsx:automatic）
-  const childList = children.length > 0 ? children : (props?.children != null ? [props.children] : [])
+  // args 可能包含 key 参数（jsx 自动模式），需排除
+  const hasPropChildren = props?.children != null
+  const childList = hasPropChildren ? [props!.children] : args
   for (const child of childList) appendChild(el, child)
   return el
 }
 
+/**
+ * jsxs 与 jsx 签名不同：
+ *   jsx(type, props) / jsx(type, props, child)
+ *   jsxs(type, props, ...keys) — keys 由 esbuild 自动传递，不是 children
+ *
+ * jsxs 的 children 始终在 props.children 中（数组形式），
+ * 多余的 ...args 是 key 参数（数字/字符串），不能传给 jsx 作为 children。
+ */
 export function jsxs(
   type: string | Component,
   props: Record<string, unknown> | null,
-  ...children: unknown[]
+  ..._keys: unknown[]
 ): Node {
-  return jsx(type, props, ...children)
+  return jsx(type, props)
 }
 
 export function jsxDEV(
