@@ -591,6 +591,8 @@ function _closestElement(node: Node): Element | null {
 
 function appendChild(parent: Node, child: unknown) {
   if (child == null || child === false || child === true) return
+  // 函数不应作为子节点渲染（可能是组件误用、|| 短路等）
+  if (typeof child === 'function') return
   if (Array.isArray(child)) { child.forEach(c => appendChild(parent, c)); return }
   if (child instanceof Node) { parent.appendChild(child); return }
   if (isSignal(child)) {
@@ -726,11 +728,21 @@ export function jsxDEV(
 ): Node {
   // 开发模式警告
   if (process.env.NODE_ENV !== 'production') {
+    const loc = source ? `${source.fileName}:${source.lineNumber}` : ''
+
     // 检查信号是否被直接用作 children 而非 .value
     if (props?.children && typeof props.children === 'object' && props.children !== null && !Array.isArray(props.children) && !(props.children instanceof Node)) {
       const maybeSignal = props.children as any
-      if (typeof maybeSignal.value !== 'undefined' && typeof maybeSignal. subscribe !== 'function') {
-        console.warn(`[weifuwu/client] ⚠️ ${source?.fileName || ''}:${source?.lineNumber || ''} — 信号直接作为 children 渲染，缺少 .value`)
+      if (typeof maybeSignal.value !== 'undefined' && typeof maybeSignal.subscribe !== 'function') {
+        console.warn(`[weifuwu/client] ⚠️ ${loc} — 信号直接作为 children 渲染，缺少 .value`)
+      }
+    }
+
+    // 检查列表渲染是否缺少 keyBy
+    if (typeof type === 'function' && type.name === 'For' && props) {
+      const p = props as any
+      if (p.each && !p.keyBy && Array.isArray(p.children)) {
+        console.warn(`[weifuwu/client] ⚠️ ${loc} — <For> 缺少 keyBy，每次渲染全量重建`)
       }
     }
   }
