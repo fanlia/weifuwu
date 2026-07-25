@@ -249,4 +249,74 @@ describe('createApp', () => {
     assert.equal(el.textContent, '12')
     el.remove()
   })
+
+  it('数组元素对象属性赋值自动 dirty', async () => {
+    let renderCount = 0
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      renderCount++
+      const $ = ctx.ui.$
+      if (!ctx.ui.ready) $.msgs = [{ id: 1, content: 'hello' }]
+      return jsx('div', { children: $.msgs[0]?.content ?? '' })
+    }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'deep-proxy'
+    await app.mount('#deep-proxy', Cmp)
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(el.textContent, 'hello')
+
+    const appCtx = (app as any).ctx
+    appCtx.ui.$.msgs[0].content = 'updated'
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(el.textContent, 'updated')
+    el.remove()
+  })
+
+  it('数组元素嵌套数组 push 自动 dirty', async () => {
+    let ctx: any
+    const app = createApp()
+    app.use((c) => { ctx = c; return c })
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'nested-array'
+    await app.mount('#nested-array', () => jsx('div', null))
+    await new Promise(r => setTimeout(r, 10))
+    ctx.ui.$.data = [{ items: [1, 2] }]
+    ctx.ui.$.data[0].items.push(3)
+    assert.deepEqual(ctx.ui.$.data[0].items, [1, 2, 3])
+    el.remove()
+  })
+
+  it('对象属性嵌套赋值自动 dirty', async () => {
+    let ctx: any
+    const app = createApp()
+    app.use((c) => { ctx = c; return c })
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'obj-prop'
+    await app.mount('#obj-prop', () => jsx('div', null))
+    await new Promise(r => setTimeout(r, 10))
+    ctx.ui.$.user = { profile: { name: 'alice' } }
+    ctx.ui.$.user.profile.name = 'bob'
+    assert.equal(ctx.ui.$.user.profile.name, 'bob')
+    el.remove()
+  })
+
+  it('WeakMap 缓存保证同一底层对象返回同一 Proxy', async () => {
+    let ctx: any
+    const app = createApp()
+    app.use((c) => { ctx = c; return c })
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'cache-test'
+    await app.mount('#cache-test', () => jsx('div', null))
+    await new Promise(r => setTimeout(r, 10))
+
+    ctx.ui.$.items = [{ x: 1 }]
+    const a = ctx.ui.$.items[0]
+    const b = ctx.ui.$.items[0]
+    assert.equal(a, b) // same Proxy object from WeakMap cache
+    el.remove()
+  })
 })

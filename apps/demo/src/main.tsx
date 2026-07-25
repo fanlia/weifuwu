@@ -2,7 +2,7 @@
  * weifuwu demo — 迁移到新 VDOM + Proxy 架构
  *
  * 核心模式：
- *   ctx.ui.$  →  状态（Proxy 自动 dirty）
+ *   ctx.ui.$  →  状态（深度 Proxy：$.x=val / $.items.push / $.items[0].x=y 自动渲染）
  *   三元 + .map()  →  条件/列表
  *   if (!ready) { fetch }  →  异步数据
  *   ref  →  生命周期

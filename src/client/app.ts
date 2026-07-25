@@ -7,6 +7,13 @@
  *   ctx.ui.render()    触发组件重渲染
  *   ctx.ui.$          持久化组件状态（由渲染器管理）
  *   ctx.ui.ready       首次执行标记（由渲染器管理）
+ *
+ * ctx.ui.$ 是深度 Proxy：
+ *   $.x = val              → 自动渲染（顶层属性赋值）
+ *   $.items.push(val)      → 自动渲染（数组突变方法）
+ *   $.items[0].x = val     → 自动渲染（对象属性突变）
+ *   $.items.push({x: 1})   → 新对象自动深度包装
+ *   ctx.ui.dirty()         → 极少需要（仅当绕过 Proxy 直接操作底层对象）
  */
 
 import type { WfuiContext, AppMiddleware } from './types.ts'
@@ -15,6 +22,56 @@ import type { VNode, Component } from './vnode.ts'
 
 // 用于 RouteView 布局深度追踪
 import { layoutDepth } from './router.ts'
+
+// ── 深层 Proxy 包装 ───────────────────────────────────
+
+const mutationMethods = ['push', 'pop', 'splice', 'shift', 'unshift', 'sort', 'reverse']
+const wrappedCache = new WeakMap<object, object>()
+
+function wrapDeep(val: any, dirty: () => void): any {
+  if (val === null || typeof val !== 'object') return val
+  if (val instanceof Node) return val
+  if (wrappedCache.has(val)) return wrappedCache.get(val)
+
+  let proxy: object
+  if (Array.isArray(val)) {
+    proxy = new Proxy(val, {
+      get(target, key, receiver) {
+        const v = Reflect.get(target, key, receiver)
+        if (typeof key === 'string' && mutationMethods.includes(key) && typeof v === 'function') {
+          return function (this: any, ...args: any[]) {
+            const r = v.apply(target, args)
+            dirty()
+            return r
+          }
+        }
+        return wrapDeep(v, dirty)
+      },
+      set(target, key, val) {
+        target[key as string] = wrapDeep(val, dirty)
+        dirty()
+        return true
+      },
+    })
+  } else {
+    proxy = new Proxy(val, {
+      get(_target, key, receiver) {
+        const v = Reflect.get(_target, key, receiver)
+        return wrapDeep(v, dirty)
+      },
+      set(target, key, val) {
+        target[key as string] = wrapDeep(val, dirty)
+        dirty()
+        return true
+      },
+    })
+  }
+
+  wrappedCache.set(val, proxy)
+  return proxy
+}
+
+// ── createApp ──────────────────────────────────────────
 
 export function createApp() {
   const middlewares: AppMiddleware[] = []
@@ -47,8 +104,7 @@ export function createApp() {
       container.innerHTML = ''
 
       // 注入 ctx.ui
-      // $ 是 Proxy：任何属性赋值自动 dirty
-      // 数组自动包装为 Proxy：push/pop/splice 等自动 dirty
+      // $ 是深度 Proxy：任何属性/数组/对象赋值自动 dirty
       let _dirty = false
 
       function scheduleRender() {
@@ -58,23 +114,6 @@ export function createApp() {
           if (!_dirty) return
           _dirty = false
           ;(ctx as any).ui.render()
-        })
-      }
-
-      /** 包装数组：突变方法自动 dirty */
-      function wrapArray<T>(arr: T[]): T[] {
-        return new Proxy(arr, {
-          get(target, key, receiver) {
-            const val = Reflect.get(target, key, receiver)
-            if (typeof val === 'function' && typeof key === 'string' && ['push', 'pop', 'splice', 'shift', 'unshift', 'sort', 'reverse'].includes(key as string)) {
-              return function (...args: any[]) {
-                const result = val.apply(target, args)
-                scheduleRender()
-                return result
-              }
-            }
-            return val
-          },
         })
       }
 
@@ -92,11 +131,11 @@ export function createApp() {
           }
           oldVNode = newVNode
         },
-        /** 显式标记脏（用于对象属性突变如 arr[i].x = y） */
+        /** 极少需要：仅当绕过 Proxy 直接操作底层对象时使用 */
         dirty: () => { scheduleRender() },
         $: new Proxy($target, {
           set(_target, key, val) {
-            _target[key as string] = Array.isArray(val) ? wrapArray(val) : val
+            _target[key as string] = wrapDeep(val, scheduleRender)
             scheduleRender()
             return true
           },

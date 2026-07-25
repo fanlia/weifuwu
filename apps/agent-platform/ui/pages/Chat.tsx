@@ -31,11 +31,9 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     const unsub = ctx.ws?.onMessage((event: any) => {
       switch (event.type) {
         case 'new_message':
-          $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name ?? '', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] })
-          ctx.ui.dirty(); break
+          $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name ?? '', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] }); break
         case 'ai_draft':
-          $.msgs.push({ id: event.message.id, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'idle', tools: [], ai_draft: event.draft, ai_approved: null })
-          ctx.ui.dirty(); break
+          $.msgs.push({ id: event.message.id, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'idle', tools: [], ai_draft: event.draft, ai_approved: null }); break
         case 'ai:status': {
           const idx = $.msgs.findIndex((m: any) => m.id === event.messageId)
           if (event.status === 'thinking' && idx === -1) {
@@ -47,12 +45,12 @@ export function Chat(_props: {}, ctx: WfuiContext) {
               m.status = event.status; if (event.usage) m.usage = event.usage
             } else { $.msgs[idx].status = event.status }
           }
-          ctx.ui.dirty(); break
+          ; break
         }
         case 'ai:token': {
           const m = $.msgs.find((m: any) => m.id === event.messageId)
           if (m) m.content += event.text
-          ctx.ui.dirty(); break
+          ; break
         }
         case 'ai:tool': {
           const m = $.msgs.find((m: any) => m.id === event.messageId)
@@ -65,14 +63,14 @@ export function Chat(_props: {}, ctx: WfuiContext) {
           } else if (event.phase === 'result') {
             (m.tools ?? []).forEach((t: any) => { if (t.name === event.name && t.status === 'running') { t.status = 'done'; t.result = event.result } })
           }
-          ctx.ui.dirty(); break
+          ; break
         }
         case 'message_edited': {
           const m = $.msgs.find((m: any) => m.id === event.messageId)
-          if (m) m.content = event.content; ctx.ui.dirty(); break
+          if (m) m.content = event.content; break
         }
         case 'message_deleted': {
-          $.msgs = $.msgs.filter((m: any) => m.id !== event.messageId); ctx.ui.dirty(); break
+          $.msgs = $.msgs.filter((m: any) => m.id !== event.messageId); break
         }
       }
     })
