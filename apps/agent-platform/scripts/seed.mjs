@@ -149,14 +149,13 @@ async function main() {
   const [devAgent] = await sql`
     INSERT INTO agents (tenant_id, type, name, description, model,
       system_prompt, temperature, max_tokens,
-      workspace_path, allow_file_tools, allow_command_exec,
+      allow_file_tools, allow_command_exec,
       is_active, tools)
     VALUES (${tenant.id}, 'ai', '小码', '代码编写与项目重构助手',
       'deepseek-chat',
       ${devTemplate.default_system_prompt},
       ${devTemplate.default_temperature},
       ${devTemplate.default_max_tokens},
-      ${devTemplate.default_workspace_hint},
       ${devTemplate.default_allow_file_tools},
       ${devTemplate.default_allow_command_exec},
       true, '[]')
@@ -204,14 +203,13 @@ async function main() {
   const [opsAgent] = await sql`
     INSERT INTO agents (tenant_id, type, name, description, model,
       system_prompt, temperature, max_tokens,
-      workspace_path, allow_file_tools, allow_command_exec,
+      allow_file_tools, allow_command_exec,
       human_in_the_loop, is_active, tools)
     VALUES (${tenant.id}, 'ai', '小维', '系统监控与自动化运维',
       'deepseek-chat',
       ${opsTemplate.default_system_prompt},
       ${opsTemplate.default_temperature},
       ${opsTemplate.default_max_tokens},
-      ${opsTemplate.default_workspace_hint},
       ${opsTemplate.default_allow_file_tools},
       ${opsTemplate.default_allow_command_exec},
       true, true, '[]')

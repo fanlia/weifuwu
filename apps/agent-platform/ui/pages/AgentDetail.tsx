@@ -375,7 +375,6 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
       body.temperature = parseFloat(aiTemperature.value) || 0.7
       body.max_tokens = parseInt(aiMaxTokens.value) || 2048
       body.human_in_the_loop = aiHITL.value
-      body.workspace_path = workspacePath.value || undefined
       body.allow_file_tools = allowFileTools.value
       body.allow_command_exec = allowCommandExec.value
       // 根据勾选的工具名，从内置工具定义中构建 tools 数组
@@ -545,15 +544,10 @@ export function AgentDetail(_props: {}, ctx: WfuiContext) {
                   </div>
                 </div>
               </div>
-              <div class="sect-title" style={{ marginTop: '20px', marginBottom: '10px' }}>📁 工作空间</div>
-              <div class="field">
-                <label class="field-label">工作路径</label>
-                <input class="input" type="text" placeholder="留空使用默认路径" value={workspacePath}
-                  onInput={(e: any) => { workspacePath.value = e.target.value }} />
-                <div class="field-hint">
-                  留空则自动创建: <code style={{ fontSize: '11px', background: '#f3f4f6', padding: '1px 4px', borderRadius: '3px' }}>data/workspaces/{'{agent_id}'}/</code>
-                  {computed(() => workspacePath.value ? '' : '（首次运行时自动创建）')}
-                </div>
+              <div class="sect-title" style={{ marginTop: '20px', marginBottom: '12px' }}>📁 工作空间</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '12px', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px' }}>
+                Agent 专用目录: <code style={{ fontSize: '12px', background: '#fff', padding: '2px 6px', border: '1px solid var(--border)', borderRadius: '4px' }}>data/workspaces/{'{agent_id}'}/</code>
+                <span style={{ display: 'block', marginTop: '4px', fontSize: '12px', color: 'var(--text-3)' }}>首次运行时自动创建，Agent 可在此目录下读写文件</span>
               </div>
               <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>

@@ -137,9 +137,9 @@ export async function runAgent(
     }
   }
 
-  // 解析工作空间路径（支持默认路径和自定义路径）
+  // 解析工作空间路径（始终使用内置目录，忽略用户自定义）
   const resolvedWs = config.allowFileTools
-    ? await resolveAgentWorkspace(config.agentId, config.workspacePath, config.allowFileTools)
+    ? await resolveAgentWorkspace(config.agentId, null, config.allowFileTools)
     : null
 
   if (resolvedWs) {
@@ -232,9 +232,9 @@ export async function streamAgent(
     }
   }
 
-  // 解析工作空间路径（支持默认路径和自定义路径）
+  // 解析工作空间路径（始终使用内置目录，忽略用户自定义）
   const resolvedWs = config.allowFileTools
-    ? await resolveAgentWorkspace(config.agentId, config.workspacePath, config.allowFileTools)
+    ? await resolveAgentWorkspace(config.agentId, null, config.allowFileTools)
     : null
 
   if (resolvedWs) {
