@@ -6,7 +6,7 @@
  *   无需等待完整回复，用户即时看到 AI 生成过程。
  */
 
-import { signal, computed, Show, For, effect, onCleanup, onMount } from 'weifuwu/client'
+import { signal, computed, Show, For, effect, onCleanup, onMount, batch } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 
 interface ChatMsg {
@@ -89,6 +89,10 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   const showEmpty = computed(() => !loading.value && loaded.value && messages.value.length === 0)
   const canSend = computed(() => inputValue.value.trim().length > 0 && !sending.value)
   const isEditing = computed(() => editingId.value !== '')
+
+  // ── WebSocket 连接状态 ──
+  const wsConnected = computed(() => ctx.ws.isConnected.value)
+  const showReconnectBanner = computed(() => !wsConnected.value)
 
   // ── 自动聚焦输入框 ──
   onMount(() => { inputEl?.focus() })
@@ -311,21 +315,59 @@ export function Chat(_props: {}, ctx: WfuiContext) {
   onCleanup(() => unsub())
   ctx.ws.send({ type: 'subscribe', departmentId })
 
+  // ── 重新生成 ──
+  async function retryMessage(fromMsgId: string) {
+    // 找到该消息之前的用户消息
+    const msgs = messages.value
+    const errIdx = msgs.findIndex(m => m.id === fromMsgId)
+    if (errIdx <= 0) return
+    const userMsgs = msgs.slice(0, errIdx).filter(m => m.sender_type === 'user').reverse()
+    const lastUserMsg = userMsgs[0]
+    if (!lastUserMsg) return
+
+    // 移除失败的 AI 消息
+    messages.value = msgs.filter(m => m.id !== fromMsgId)
+    wsVersion.value++
+
+    // 重新发送用户消息
+    sending.value = true
+    try {
+      await fetch(`/api/departments/${departmentId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ content: lastUserMsg.content }),
+      })
+    } finally {
+      sending.value = false
+    }
+  }
+
   // ── 发送消息 ──
   async function sendMessage(e: Event) {
     e.preventDefault()
     const content = inputValue.value.trim()
     if (!content || sending.value) return
+    const savedInput = content // 发送失败时恢复
     sending.value = true
     inputValue.value = ''
 
     try {
-      await fetch(`/api/departments/${departmentId}/messages`, {
+      const res = await fetch(`/api/departments/${departmentId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ content }),
       })
+      if (!res.ok) {
+        // 发送失败，恢复输入
+        inputValue.value = savedInput
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || '发送失败')
+      }
       // WS 事件会推送 new_message，不用手动 refetch
+    } catch {
+      // 网络错误，恢复输入
+      inputValue.value = savedInput
+      alert('网络错误，请检查连接后重试')
     } finally {
       sending.value = false
     }
@@ -422,6 +464,14 @@ export function Chat(_props: {}, ctx: WfuiContext) {
 
   return (
     <div class="chat-shell">
+      {/* WS 断连提示 */}
+      <Show when={showReconnectBanner}>
+        <div style={{
+          padding: '6px 24px', fontSize: '12px', textAlign: 'center', flex: 'none',
+          background: '#fef3c7', color: '#b45309', borderBottom: '1px solid #fde68a',
+        }}>连接断开，正在重连...</div>
+      </Show>
+
       <div class="chat-head">
         <a href="/chat/new" class="back-link" style={{ marginBottom: '0' }}
           onClick={(e: any) => { e.preventDefault(); ctx.app.navigate('/chat/new') }}>←</a>
@@ -542,6 +592,15 @@ export function Chat(_props: {}, ctx: WfuiContext) {
                             <span class="badge badge-gray" style={{ fontSize: '10px', opacity: '.7' }}>
                               ⚡ {msg.usage.total_tokens} tokens
                             </span>
+                          </div>
+                        )}
+                        {st === 'error' && (
+                          <div style={{ marginTop: '4px' }}>
+                            <button
+                              class="btn btn-sm"
+                              style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: '12px', cursor: 'pointer', borderRadius: '6px', padding: '2px 10px' }}
+                              onClick={() => retryMessage(msg.id)}
+                            >🔄 重新生成</button>
                           </div>
                         )}
                       </Show>

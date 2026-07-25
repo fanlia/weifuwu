@@ -31,12 +31,12 @@
 - `ui/pages/Chat.tsx` — 消息渲染、状态展示
 - `src/ui/routes.ts` — CSS 样式表（全部内联在 GLOBAL_CSS）
 
-## Phase 3 — 交互细节
+## Phase 3 — 交互细节 ✅
 
-- [ ] **自动聚焦输入框**：页面加载后 / 发送后自动 focus
-- [ ] **平滑滚动**：CSS `scroll-behavior: smooth` + 用户未手动滚动时才自动滚到底部
-- [ ] **Token 用量样式**：圆角标签 `⚡ 200 tokens`，hover 显示详情
-- [ ] **消息时间戳**：自动刷新相对时间（刚刚、N 分钟前）
+- [x] **自动聚焦输入框**：页面加载后 / 发送后自动 focus
+- [x] **平滑滚动**：CSS `scroll-behavior: smooth` + 用户未手动滚动时才自动滚到底部
+- [x] **Token 用量样式**：圆角标签 `⚡ 200 tokens`，hover 显示详情
+- [x] **相对时间自动刷新**：每 30 秒自动更新
 
 ## Phase 4 — 错误与重试
 
