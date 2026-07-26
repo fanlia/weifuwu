@@ -2,7 +2,7 @@
 import esbuild from 'esbuild'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdir, cp } from 'node:fs/promises'
+import { mkdir, cp, readFile, writeFile } from 'node:fs/promises'
 import { rm } from 'node:fs/promises'
 import { execSync } from 'node:child_process'
 
@@ -52,10 +52,24 @@ await esbuild.build({
   bundle: true,
 })
 
-// 复制 layout CSS（保留 @import 引用关系）
+// 编译 layout CSS → 单文件
 const layoutSrc = join(srcDir, 'layout')
 const layoutDist = join(distDir, 'layout')
-await cp(layoutSrc, layoutDist, { recursive: true })
+const entry = await readFile(join(layoutSrc, 'weifuwu-layout.css'), 'utf-8')
+const parts = [join(layoutSrc, 'weifuwu-layout.css')]
+// 解析 @import 路径，按顺序读取
+for (const line of entry.split('\n')) {
+  const m = line.match(/@import\s+['"]([^'"]+)['"]/)
+  if (m) parts.push(join(layoutSrc, m[1]))
+}
+// 合并所有 CSS 内容
+let css = ''
+for (const p of parts) {
+  const content = await readFile(p, 'utf-8')
+  // 去掉源文件中的 @import 行
+  css += content.replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, '') + '\n'
+}
+await writeFile(join(layoutDist, 'weifuwu-layout.css'), css)
 
 // jsx-runtime re-exports from client/index.js via package.json exports
 
