@@ -33,6 +33,37 @@ button {
   line-height: inherit;
 }
 
+input,
+textarea,
+select {
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  padding: var(--wf-space-sm) var(--wf-space);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-color: var(--wf-color-primary);
+}
+
+button {
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--wf-color-primary);
+  color: var(--wf-color-primary);
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-weight: var(--wf-font-weight-semibold);
   line-height: var(--wf-line-height-tight);
