@@ -1,12 +1,16 @@
-import { Router, serve, ui } from '../../src/index.ts'
+import { serve, Router, ui } from 'weifuwu'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const router = new Router()
-router.use(ui())
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
-router.get('/style.css', async (req, ctx) => ctx.ui.css('./apps/weifuwu-demo/style.css'))
-router.get('/app.js', async (req, ctx) => ctx.ui.js('./apps/weifuwu-demo/main.tsx'))
+const app = new Router()
+app.use(ui())
 
-router.get('/', async (req, ctx) => ctx.ui.html`
+app.get('/style.css', async (req, ctx) => ctx.ui.css(resolve(__dirname, 'style.css')))
+app.get('/app.js', async (req, ctx) => ctx.ui.js(resolve(__dirname, 'main.tsx')))
+
+app.get('/', async (req, ctx) => ctx.ui.html`
   <!DOCTYPE html>
   <html lang="zh-CN">
   <head>
@@ -22,4 +26,5 @@ router.get('/', async (req, ctx) => ctx.ui.html`
   </html>
 `)
 
-serve(router, { port: 3000 })
+serve(app, { port: 3000 })
+console.log('http://localhost:3000')
