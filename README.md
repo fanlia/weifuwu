@@ -23,6 +23,7 @@ npm install weifuwu
 | **ui** | `ui` | SSR 渲染 + 动态 JS 编译 → `ctx.ui.html/css/js` | `Router` |
 | **graphql** | `router.graphql()` | GraphQL 端点 | `Router` |
 | **client** | — | 前端 VDOM + Proxy 框架 | — |
+| **layout** | — | 纯 CSS 布局原语 + 主题 Token 系统 | — |
 
 **前端 `weifuwu/client` 模块总览：**
 
@@ -718,6 +719,105 @@ function myMiddleware(): AppMiddleware {
 ### 前端类型
 
 `VNode`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `AuthClient`
+
+---
+
+## 布局 & 主题 (`weifuwu/layout`)
+
+纯 CSS 布局原语 + 主题 Token 系统，不绑定任何 JS 框架。
+
+```bash
+npm install weifuwu  # 已包含
+```
+
+```ts
+// 服务端编译 CSS
+app.get('/weifuwu.css', async (req, ctx) => ctx.ui.css('./node_modules/weifuwu/dist/layout/weifuwu-layout.css'))
+```
+
+```html
+<!-- 或直接引入 -->
+<link rel="stylesheet" href="/weifuwu.css">
+```
+
+### 33 个布局原语
+
+| 类别 | 原语 | 含义 | CSS 实现 |
+|------|------|------|---------|
+| **排列** | `wf-stack` | 纵向堆叠 | `flex-direction: column + gap` |
+| | `wf-stack-reverse` | 反向堆叠 | `flex-direction: column-reverse + gap` |
+| | `wf-row` | 横向排列 | `flex + flex-wrap + gap` |
+| | `wf-row-reverse` | 反向排列 | `flex-direction: row-reverse` |
+| | `wf-nowrap` | 不换行 | `flex-wrap: nowrap` |
+| | `wf-cluster` | 换行簇 | `flex-wrap: wrap + justify-content: center` |
+| **分布** | `wf-split` | 两端展开 | `justify-content: space-between` |
+| | `wf-center` | 居中 | `flex + center both axes` |
+| | `wf-right` | 靠右 | `justify-content: flex-end` |
+| | `wf-around` | 环绕 | `justify-content: space-around` |
+| | `wf-evenly` | 均匀 | `justify-content: space-evenly` |
+| **对齐** | `wf-top` | 顶部 | `align-items: flex-start` |
+| | `wf-bottom` | 底部 | `align-items: flex-end` |
+| | `wf-stretch` | 拉伸 | `align-items: stretch` |
+| **弹性** | `wf-fill` | 撑满 | `flex: 1 + min-width: 0` |
+| | `wf-fixed` | 固定 | `flex: none` |
+| | `wf-auto` | 按内容 | `flex: auto` |
+| | `wf-shrink` | 可收缩 | `min-width: 0 / min-height: 0` |
+| **Z轴** | `wf-cover` | 全屏覆盖 | `position: fixed + inset: 0` |
+| | `wf-pop` | 浮动层 | `position: absolute` |
+| | `wf-anchor` | 锚点容器 | `position: relative` |
+| | `wf-layer` | 层级控制 | `position: relative + z-index` |
+| | `wf-sticky` | 粘性 | `position: sticky` |
+| **容器** | `wf-surface` | 基础面 | `border-radius + box-shadow + bg` |
+| | `wf-grid` | 网格 | `display: grid + --wf-cols` |
+| | `wf-container` | 宽度约束 | `max-width + margin: auto` |
+| | `wf-scroll` | 滚动 | `overflow: auto` |
+| | `wf-clip` | 裁剪 | `overflow: hidden` |
+| **显隐** | `wf-hidden` | 隐藏 | `display: none` |
+| | `wf-block` | 块级 | `display: block` |
+| | `wf-inline` | 行内 | `display: inline` |
+| | `wf-inline-block` | 行内块 | `display: inline-block` |
+| | `wf-contents` | 容器抹除 | `display: contents` |
+
+### 72 个主题 Token
+
+| 类别 | Token 示例 | 含义 |
+|------|-----------|------|
+| 品牌色 | `--wf-color-primary`, `--wf-color-primary-bg` | 品牌色、Hover、背景 |
+| 语义色 | `--wf-color-success`, `--wf-color-warning`, `--wf-color-error`, `--wf-color-info` | 状态语义色 |
+| 中性色 | `--wf-color-text`, `--wf-color-bg`, `--wf-color-border` | 文字/背景/边框 |
+| 字体 | `--wf-font-sans`, `--wf-font-mono` | 字体族 |
+| 字号 | `--wf-font-size-xs` ~ `--wf-font-size-5xl`（9 级）| 字号层级 |
+| 字重 | `--wf-font-weight-normal` ~ `bold`（4 级）| 字重 |
+| 行高 | `--wf-line-height-tight`, `--wf-line-height`, `--wf-line-height-relaxed` | 行高 |
+| 字距 | `--wf-letter-spacing`, `--wf-letter-spacing-wide`, `--wf-letter-spacing-wider` | 字符间距 |
+| 间距 | `--wf-space-xs` ~ `--wf-space-2xl`（8 级）| margin / padding |
+| 间隔 | `--wf-gap-xs` ~ `--wf-gap-2xl`（6 级）| flex / grid gap |
+| 圆角 | `--wf-radius-sm` ~ `--wf-radius-xl`（5 级）| border-radius |
+| 阴影 | `--wf-shadow-sm` ~ `--wf-shadow-lg`（4 级）| box-shadow |
+| 边框 | `--wf-border-width` | 边框宽度 |
+| 聚焦 | `--wf-focus-ring` | 聚焦环 |
+| 动效 | `--wf-transition-duration`, `--wf-transition-timing` | 过渡时长/曲线 |
+| 表单 | `--wf-accent-color`, `--wf-caret-color` | 表单控件主题色 |
+| 透明 | `--wf-opacity-disabled`, `--wf-opacity-overlay` | 禁用态/遮罩透明度 |
+| 层级 | `--wf-pop-z`, `--wf-cover-z` | z-index |
+
+### 暗色模式
+
+切换 `html` 标签的 `data-theme` 属性即可自动切换全部主题色：
+
+```ts
+// weifuwu/client
+function toggleTheme() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark')
+}
+```
+
+### 基础元素默认样式
+
+引入 `weifuwu/layout` 后，以下 HTML 元素自动绑定主题 Token，无需额外样式：
+
+`body`, `h1`~`h6`, `p`, `a`, `label`, `small`, `input`, `textarea`, `select`, `button`, `table`, `th`, `td`, `hr`, `pre`, `code`
 
 ---
 
