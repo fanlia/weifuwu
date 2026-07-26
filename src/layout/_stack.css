@@ -1,0 +1,6 @@
+/* stack — 纵向堆叠 */
+.wf-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

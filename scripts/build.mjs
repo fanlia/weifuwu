@@ -2,7 +2,7 @@
 import esbuild from 'esbuild'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, cp } from 'node:fs/promises'
 import { rm } from 'node:fs/promises'
 import { execSync } from 'node:child_process'
 
@@ -16,6 +16,7 @@ const distDir = join(root, 'dist')
 await rm(distDir, { recursive: true, force: true })
 await mkdir(distDir, { recursive: true })
 await mkdir(join(distDir, 'client'), { recursive: true })
+await mkdir(join(distDir, 'layout'), { recursive: true })
 
 
 const external = [
@@ -50,6 +51,11 @@ await esbuild.build({
   jsxImportSource: 'weifuwu/client',
   bundle: true,
 })
+
+// 复制 layout CSS（保留 @import 引用关系）
+const layoutSrc = join(srcDir, 'layout')
+const layoutDist = join(distDir, 'layout')
+await cp(layoutSrc, layoutDist, { recursive: true })
 
 // jsx-runtime re-exports from client/index.js via package.json exports
 

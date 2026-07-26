@@ -1,0 +1,6 @@
+/* surface — 基础面 */
+.wf-surface {
+  border-radius: var(--wf-surface-radius);
+  box-shadow: var(--wf-surface-shadow);
+  background: var(--wf-surface-bg);
+}

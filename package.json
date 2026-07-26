@@ -15,7 +15,8 @@
     "./client/jsx-runtime": {
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
-    }
+    },
+    "./layout": "./dist/layout/weifuwu-layout.css"
   },
   "files": [
     "dist/",

@@ -1,0 +1,8 @@
+/* cluster — 换行簇 */
+.wf-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wf-gap, var(--wf-gap-sm));
+  justify-content: var(--wf-justify, center);
+  align-items: var(--wf-align, center);
+}

@@ -1,0 +1,14 @@
+/* weifuwu/layout — design tokens */
+:root {
+  --wf-gap-xs: 4px;
+  --wf-gap-sm: 8px;
+  --wf-gap-md: 12px;
+  --wf-gap-lg: 16px;
+  --wf-gap-xl: 24px;
+  --wf-gap-2xl: 32px;
+  --wf-surface-radius: 8px;
+  --wf-surface-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --wf-cover-z: 100;
+  --wf-pop-z: 50;
+  --wf-surface-bg: #ffffff;
+}

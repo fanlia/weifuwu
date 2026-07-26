@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>weifuwu/layout — Cheatsheet</title>
+<style>
+  /* 页面样式（仅用于 cheatsheet 展示，不是 weifuwu/layout 的一部分） */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; color: #0f172a; padding: 40px; }
+  .cheatsheet { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 8px; }
+  .subtitle { color: #64748b; margin-bottom: 40px; font-size: 15px; }
+  
+  .primitive { background: #fff; border-radius: 12px; padding: 32px; margin-bottom: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .primitive-header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 20px; }
+  .primitive-name { font-size: 24px; font-weight: 700; color: #4f6ef7; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .primitive-desc { font-size: 15px; color: #64748b; }
+  .primitive-css { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; color: #334155; margin-bottom: 20px; overflow-x: auto; white-space: pre; }
+
+  .demo-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .demo-row { display: flex; gap: 24px; }
+  .demo-col { flex: 1; }
+  
+  /* 视觉辅助：让原语的布局关系可见 */
+  .demo-box { background: #eef1ff; border: 2px dashed #4f6ef7; border-radius: 6px; padding: 12px; text-align: center; font-size: 13px; color: #4f6ef7; font-weight: 500; }
+  .demo-box-sm { padding: 6px 12px; font-size: 12px; }
+  .demo-box-alt { background: #fef2f2; border-color: #ef4444; color: #ef4444; }
+  .demo-box-green { background: #f0fdf4; border-color: #22c55e; color: #22c55e; }
+  .demo-box-amber { background: #fffbeb; border-color: #f59e0b; color: #f59e0b; }
+  .demo-box-static { background: #fff; border-style: solid; border-color: #e2e8f0; }
+  .demo-grid-box { background: #eef1ff; border: 2px dashed #4f6ef7; border-radius: 6px; padding: 24px 12px; text-align: center; font-size: 13px; color: #4f6ef7; }
+
+  .tag { display: inline-block; background: #eef1ff; color: #4f6ef7; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+
+  .divider { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
+
+  .stats-row { display: flex; gap: 24px; margin-bottom: 32px; }
+  .stat-card { background: #fff; border-radius: 12px; padding: 24px; flex: 1; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .stat-num { font-size: 32px; font-weight: 700; color: #4f6ef7; }
+  .stat-label { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+  /* 覆盖 demo 场景 */
+  .wf-cover { background: rgba(0,0,0,0.3); }
+</style>
+
+<!-- weifuwu/layout CSS -->
+<link rel="stylesheet" href="../dist/layout/weifuwu-layout.css">
+</head>
+<body>
+<div class="cheatsheet">
+  <h1>weifuwu/layout</h1>
+  <p class="subtitle">8 个空间关系原语 — 覆盖 Ant Design / MUI / Element Plus 全部组件的布局需求</p>
+
+  <!-- stats -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num">8</div><div class="stat-label">空间原语</div></div>
+    <div class="stat-card"><div class="stat-num">3</div><div class="stat-label">维度（X / Y / Z）</div></div>
+    <div class="stat-card"><div class="stat-num">3</div><div class="stat-label">适用层级</div></div>
+    <div class="stat-card"><div class="stat-num">51</div><div class="stat-label">行 CSS</div></div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- stack -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">stack</div>
+      <div class="primitive-desc">纵向堆叠 — Y 轴。子元素从上到下排列，保持间距。</div>
+    </div>
+    <div class="primitive-css">.wf-stack { display: flex; flex-direction: column; gap: var(--wf-gap, 12px); }</div>
+    <div class="demo-row">
+      <div class="demo-col">
+        <div class="demo-label">组件级 — 按钮中 icon + 文字</div>
+        <div class="demo-box wf-stack" style="--wf-gap: 4px; max-width: 100px">
+          <div>🔔</div>
+          <div>通知</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">片段级 — 表单字段</div>
+        <div class="wf-stack" style="--wf-gap: 6px; max-width: 280px">
+          <div class="demo-box-sm" style="text-align: left">邮箱</div>
+          <div class="demo-box-sm demo-box-static" style="text-align: left; color: #94a3b8">请输入邮箱...</div>
+          <div class="demo-box-sm demo-box-alt" style="text-align: left">此项必填</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">页面级 — 登录卡片内容</div>
+        <div class="wf-stack" style="--wf-gap: 12px; max-width: 280px">
+          <div class="demo-box" style="font-size: 15px">欢迎回来</div>
+          <div class="demo-box-sm demo-box-static" style="text-align: left; color: #94a3b8">请输入账号登录</div>
+          <div class="demo-box-sm demo-box-static" style="text-align: left; color: #94a3b8">password</div>
+          <div class="demo-box-sm" style="background: #4f6ef7; color: #fff; border-style: solid; border-color: #4f6ef7">登录</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- row -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">row</div>
+      <div class="primitive-desc">横向排列 — X 轴。子元素水平排列，超长自动换行。</div>
+    </div>
+    <div class="primitive-css">.wf-row { display: flex; flex-wrap: wrap; gap: var(--wf-gap, 8px); align-items: var(--wf-align, center); }</div>
+    <div class="demo-row">
+      <div class="demo-col">
+        <div class="demo-label">组件级 — 按钮组</div>
+        <div class="wf-row" style="--wf-gap: 4px">
+          <div class="demo-box-sm" style="background: #4f6ef7; color: #fff; border-style: solid; border-color: #4f6ef7">保存</div>
+          <div class="demo-box-sm demo-box-static">取消</div>
+          <div class="demo-box-sm demo-box-static">预览</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">片段级 — Tabs 标签</div>
+        <div class="wf-row" style="--wf-gap: 0">
+          <div class="demo-box-sm" style="border-radius: 6px 0 0 6px; background: #4f6ef7; color: #fff; border-style: solid; border-color: #4f6ef7">文章</div>
+          <div class="demo-box-sm" style="border-radius: 0; border-left: none; background: #4f6ef7; color: #fff; border-style: solid; border-color: #4f6ef7">页面</div>
+          <div class="demo-box-sm" style="border-radius: 0 6px 6px 0; border-left: none">分类</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">页面级 — 导航栏链接</div>
+        <div class="wf-row" style="--wf-gap: 16px">
+          <div class="tag">首页</div>
+          <div class="tag">产品</div>
+          <div class="tag">方案</div>
+          <div class="tag">案例</div>
+          <div class="tag">关于</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- split -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">split</div>
+      <div class="primitive-desc">两端展开 — X 轴。子元素分居左右，中间推空。</div>
+    </div>
+    <div class="primitive-css">.wf-split { display: flex; justify-content: space-between; align-items: var(--wf-align, center); gap: var(--wf-gap, 8px); }</div>
+    <div class="demo-row">
+      <div class="demo-col">
+        <div class="demo-label">组件级 — 列表项</div>
+        <div class="wf-split" style="max-width: 280px">
+          <div class="wf-row" style="--wf-gap: 8px">
+            <div class="demo-box-sm">📄</div>
+            <div class="demo-box-sm demo-box-static">report.pdf</div>
+          </div>
+          <div class="demo-box-sm demo-box-alt">删除</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">片段级 — Modal 头部</div>
+        <div class="wf-split" style="max-width: 320px">
+          <div style="font-weight: 600; font-size: 15px">删除确认</div>
+          <div class="demo-box-sm demo-box-static" style="cursor: pointer">✕</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">页面级 — Page Head</div>
+        <div class="wf-split">
+          <div>
+            <div style="font-weight: 600; font-size: 16px">文章管理</div>
+            <div style="font-size: 12px; color: #94a3b8">共 12 篇文章</div>
+          </div>
+          <div class="demo-box-sm" style="background: #4f6ef7; color: #fff; border-style: solid; border-color: #4f6ef7">+ 新建</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- center -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">center</div>
+      <div class="primitive-desc">居中 — X + Y 轴。子元素在容器中水平垂直居中。</div>
+    </div>
+    <div class="primitive-css">.wf-center { display: flex; flex-direction: column; align-items: center; justify-content: center; }</div>
+    <div class="demo-row">
+      <div class="demo-col">
+        <div class="demo-label">组件级 — 按钮内图标</div>
+        <div class="wf-center demo-box" style="width: 60px; height: 60px; padding: 0">
+          <div style="font-size: 24px">🐱</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">片段级 — Empty 空态</div>
+        <div class="wf-center demo-box" style="height: 120px">
+          <div style="font-size: 32px">📦</div>
+          <div style="font-size: 14px; margin-top: 8px">暂无数据</div>
+          <div class="demo-box-sm" style="margin-top: 12px; background: #4f6ef7; color: #fff; border-style: solid; border-color: #4f6ef7">开始使用</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">页面级 — 登录卡片</div>
+        <div class="wf-center demo-box" style="height: 180px">
+          <div style="font-size: 14px; font-weight: 600">🔐 登录</div>
+          <div class="demo-box-sm demo-box-static" style="margin-top: 12px; width: 200px; text-align: left; color: #94a3b8">用户名</div>
+          <div class="demo-box-sm demo-box-static" style="margin-top: 8px; width: 200px; text-align: left; color: #94a3b8">密码</div>
+          <div class="demo-box-sm" style="margin-top: 12px; width: 200px; background: #4f6ef7; color: #fff; border-style: solid; border-color: #4f6ef7">登录</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- cover -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">cover</div>
+      <div class="primitive-desc">全屏覆盖 — Z 轴。fixed 定位，填满视口，盖在一切之上。</div>
+    </div>
+    <div class="primitive-css">.wf-cover { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: var(--wf-z, 100); }</div>
+    <div class="demo-row">
+      <div class="demo-col">
+        <div class="demo-label">场景演示 — Modal 遮罩</div>
+        <div style="position: relative; height: 200px; overflow: hidden; border-radius: 8px; border: 1px solid #e2e8f0">
+          <!-- 模拟背景页面 -->
+          <div style="padding: 16px; opacity: 0.3">
+            <div class="wf-split"><span>文章管理</span><span>+ 新建</span></div>
+            <div style="height: 4px"></div>
+            <div class="demo-box-sm demo-box-static">文章列表...</div>
+          </div>
+          <!-- cover 遮罩（relative 容器内用 absolute 模拟 fixed 效果） -->
+          <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3)">
+            <div class="wf-surface" style="width: 240px; padding: 20px; text-align: center; background: #fff">
+              <div style="font-weight: 600; margin-bottom: 8px">确认删除</div>
+              <div style="font-size: 13px; color: #64748b; margin-bottom: 16px">此操作不可撤销</div>
+              <div class="wf-row" style="--wf-gap: 8px; justify-content: center">
+                <div class="demo-box-sm demo-box-static">取消</div>
+                <div class="demo-box-sm demo-box-alt">删除</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">典型应用</div>
+        <div class="wf-stack" style="--wf-gap: 8px">
+          <div class="tag">Modal / Dialog 遮罩</div>
+          <div class="tag">Drawer 背景</div>
+          <div class="tag">全屏 Loading</div>
+          <div class="tag">Toast / Notification 容器</div>
+          <div class="tag">图片预览</div>
+        </div>
+        <div style="margin-top: 12px; font-size: 13px; color: #64748b">Ant Design 3 个组件用、MUI 5 个组件用、Element Plus 5 个组件用</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- pop -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">pop</div>
+      <div class="primitive-desc">浮动层 — Z 轴。absolute 定位，浮在触发元素附近。</div>
+    </div>
+    <div class="primitive-css">.wf-pop { position: absolute; z-index: var(--wf-z, 50); }</div>
+    <div class="demo-row">
+      <div class="demo-col">
+        <div class="demo-label">场景演示 — Dropdown 下拉</div>
+        <div style="position: relative; height: 140px; border-radius: 8px; border: 1px solid #e2e8f0; padding: 16px">
+          <div class="wf-split">
+            <span style="font-size: 14px; font-weight: 500">选择分类</span>
+            <div class="demo-box-sm demo-box-static" style="cursor: pointer">▼</div>
+          </div>
+          <!-- pop 下拉菜单 -->
+          <div class="wf-pop wf-stack" style="--wf-gap: 0; top: 48px; left: 0; right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1)">
+            <div class="demo-box-sm" style="border: none; border-radius: 0; text-align: left; cursor: pointer">技术</div>
+            <div class="demo-box-sm" style="border: none; border-radius: 0; text-align: left; cursor: pointer; background: #eef1ff; color: #4f6ef7">产品</div>
+            <div class="demo-box-sm" style="border: none; border-radius: 0; text-align: left; cursor: pointer">运营</div>
+          </div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">典型应用</div>
+        <div class="wf-stack" style="--wf-gap: 8px">
+          <div class="tag">Tooltip</div>
+          <div class="tag">Popover</div>
+          <div class="tag">Dropdown Menu</div>
+          <div class="tag">Select 下拉选项</div>
+          <div class="tag">DatePicker 浮层面板</div>
+        </div>
+        <div style="margin-top: 12px; font-size: 13px; color: #64748b">Pop 层与 trigger 元素的定位关系由开发者控制（top/left/right/bottom）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- surface -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">surface</div>
+      <div class="primitive-desc">基础面 — Z 轴。内容的承载面，提供圆角 + 阴影。</div>
+    </div>
+    <div class="primitive-css">.wf-surface { border-radius: var(--wf-surface-radius); box-shadow: var(--wf-surface-shadow); background: var(--wf-surface-bg); }</div>
+    <div class="demo-row">
+      <div class="demo-col">
+        <div class="demo-label">组件级 — Card 卡片</div>
+        <div class="wf-surface wf-stack" style="--wf-gap: 8px; padding: 20px; max-width: 240px">
+          <div style="font-weight: 600">卡片标题</div>
+          <div style="font-size: 13px; color: #64748b">这是卡片内容，承载在 surface 上</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">片段级 — 统计卡片</div>
+        <div class="wf-surface" style="padding: 20px; max-width: 200px; text-align: center">
+          <div style="font-size: 28px; font-weight: 700; color: #4f6ef7">12,340</div>
+          <div style="font-size: 13px; color: #64748b; margin-top: 4px">总用户</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">典型用途</div>
+        <div class="wf-stack" style="--wf-gap: 8px">
+          <div class="tag">Card 卡片</div>
+          <div class="tag">Modal 内容面板</div>
+          <div class="tag">Form 表单容器</div>
+          <div class="tag">Table 表格容器</div>
+          <div class="tag">Popover 浮层面板</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- grid -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">grid</div>
+      <div class="primitive-desc">二维网格 — X + Y 轴。行 × 列的等分布局。</div>
+    </div>
+    <div class="primitive-css">.wf-grid { display: grid; grid-template-columns: var(--wf-cols, repeat(auto-fill, minmax(280px, 1fr))); gap: var(--wf-gap, 16px); }</div>
+    <div class="demo-row">
+      <div class="demo-col" style="flex: 2">
+        <div class="demo-label">4 列卡片网格（固定列数）</div>
+        <div class="wf-grid" style="--wf-cols: repeat(4, 1fr); --wf-gap: 12px">
+          <div class="demo-grid-box">卡片 1</div>
+          <div class="demo-grid-box">卡片 2</div>
+          <div class="demo-grid-box">卡片 3</div>
+          <div class="demo-grid-box">卡片 4</div>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">自适应网格（auto-fill）</div>
+        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(100px, 1fr)); --wf-gap: 8px">
+          <div class="demo-grid-box" style="padding: 16px">A</div>
+          <div class="demo-grid-box" style="padding: 16px">B</div>
+          <div class="demo-grid-box" style="padding: 16px">C</div>
+          <div class="demo-grid-box" style="padding: 16px">D</div>
+          <div class="demo-grid-box" style="padding: 16px">E</div>
+          <div class="demo-grid-box" style="padding: 16px">F</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- cluster -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive">
+    <div class="primitive-header">
+      <div class="primitive-name">cluster</div>
+      <div class="primitive-desc">换行簇 — X + Y 轴。横向排列，自动换行，居中。</div>
+    </div>
+    <div class="primitive-css">.wf-cluster { display: flex; flex-wrap: wrap; gap: var(--wf-gap, 8px); justify-content: var(--wf-justify, center); align-items: var(--wf-align, center); }</div>
+    <div class="demo-row">
+      <div class="demo-col" style="flex: 2">
+        <div class="demo-label">标签组 — 自动换行</div>
+        <div class="wf-cluster" style="--wf-justify: flex-start">
+          <span class="tag">JavaScript</span>
+          <span class="tag">TypeScript</span>
+          <span class="tag">React</span>
+          <span class="tag">Vue</span>
+          <span class="tag">Node.js</span>
+          <span class="tag">Python</span>
+          <span class="tag">Go</span>
+          <span class="tag">Rust</span>
+          <span class="tag">DevOps</span>
+          <span class="tag">Docker</span>
+          <span class="tag">Kubernetes</span>
+          <span class="tag">AI</span>
+        </div>
+      </div>
+      <div class="demo-col">
+        <div class="demo-label">典型应用</div>
+        <div class="wf-stack" style="--wf-gap: 8px">
+          <div class="tag">Tag / Chip 标签组</div>
+          <div class="tag">多选 Checkbox 组</div>
+          <div class="tag">筛选器选项</div>
+          <div class="tag">导航链接过多时换行</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════ -->
+  <!-- 综合示例 -->
+  <!-- ════════════════════════════════════ -->
+  <div class="primitive" style="border: 2px solid #4f6ef7">
+    <div class="primitive-header">
+      <div class="primitive-name">综合示例</div>
+      <div class="primitive-desc">8 个原语组合成一个完整的登录页面</div>
+    </div>
+    <div style="position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0">
+      <!-- cover + center：整屏居中 -->
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 400px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+        <!-- surface + stack：白底卡片 -->
+        <div class="wf-surface wf-stack" style="--wf-gap: 20px; width: 360px; padding: 32px; background: #fff;">
+          <!-- center：logo 居中 -->
+          <div class="wf-center">
+            <div style="font-size: 36px">🚀</div>
+            <div style="font-size: 20px; font-weight: 700; margin-top: 8px">WeiFuWu</div>
+            <div style="font-size: 13px; color: #64748b">登录你的账号</div>
+          </div>
+          <hr class="divider">
+          <!-- stack：表单字段 -->
+          <div class="wf-stack" style="--wf-gap: 12px">
+            <div class="wf-stack" style="--wf-gap: 4px">
+              <label style="font-size: 13px; font-weight: 500">邮箱</label>
+              <div class="demo-box-sm demo-box-static" style="text-align: left; color: #94a3b8; padding: 10px 12px">name@example.com</div>
+            </div>
+            <div class="wf-stack" style="--wf-gap: 4px">
+              <label style="font-size: 13px; font-weight: 500">密码</label>
+              <div class="demo-box-sm demo-box-static" style="text-align: left; color: #94a3b8; padding: 10px 12px">••••••••</div>
+            </div>
+            <!-- split：记住我 + 忘记密码 -->
+            <div class="wf-split">
+              <label style="font-size: 12px; color: #64748b"><input type="checkbox"> 记住我</label>
+              <a style="font-size: 12px; color: #4f6ef7; text-decoration: none">忘记密码？</a>
+            </div>
+          </div>
+          <!-- 登录按钮 -->
+          <div class="wf-center" style="background: #4f6ef7; color: #fff; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 500">登录</div>
+          <!-- cluster：第三方登录 -->
+          <div class="wf-cluster" style="--wf-justify: center">
+            <span style="font-size: 12px; color: #94a3b8">其他登录方式</span>
+            <span class="tag">微信</span>
+            <span class="tag">钉钉</span>
+            <span class="tag">GitHub</span>
+          </div>
+          <!-- split：注册引导 -->
+          <div class="wf-split">
+            <span style="font-size: 12px; color: #64748b">还没有账号？</span>
+            <a style="font-size: 12px; color: #4f6ef7; text-decoration: none; font-weight: 600">立即注册</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 16px; font-size: 13px; color: #64748b; text-align: center">
+      使用了 cover + center + surface + stack + split + row + cluster 共 7 个原语
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

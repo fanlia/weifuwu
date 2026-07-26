@@ -1,0 +1,6 @@
+/* grid — 二维网格 */
+.wf-grid {
+  display: grid;
+  grid-template-columns: var(--wf-cols, repeat(auto-fill, minmax(280px, 1fr)));
+  gap: var(--wf-gap, var(--wf-gap-lg));
+}
