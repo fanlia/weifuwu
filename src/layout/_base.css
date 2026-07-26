@@ -1,0 +1,44 @@
+/* weifuwu/theme — 基础元素默认样式 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-base);
+  line-height: var(--wf-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--wf-color-primary);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--wf-color-primary-hover);
+  text-decoration: underline;
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--wf-font-weight-semibold);
+  line-height: var(--wf-line-height-tight);
+  color: var(--wf-color-text);
+}
+
+p {
+  line-height: var(--wf-line-height-relaxed);
+}
