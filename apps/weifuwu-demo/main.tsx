@@ -65,10 +65,7 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
   }
 
   return (
-    <!-- 整个页面只用 wf-*原语 排布局，没有任何手写 flex/grid -->
     <div class="wf-stack" style="--wf-gap: var(--wf-space-xl); max-width: 1000px; margin: 0 auto; padding: var(--wf-space-xl)">
-
-      <!-- 顶栏：split 两端展开 -->
       <div class="wf-split">
         <div class="wf-row" style="--wf-gap: var(--wf-space-sm)">
           <div class="user-avatar">W</div>
@@ -90,14 +87,12 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
         </div>
       </div>
 
-      <!-- PageHead：split 标题 + 新建按钮 -->
       <PageHead title="仪表盘" sub="欢迎回来，这是今天的概览">
         <button style="padding: 8px 16px; background: var(--wf-color-primary); color: #fff;
                        border: none; border-radius: var(--wf-radius); cursor: pointer;
                        font-size: var(--wf-font-size-base); font-weight: var(--wf-font-weight-medium)">+ 新建</button>
       </PageHead>
 
-      <!-- 统计行：row + fill 等分成四列 -->
       <div class="wf-row" style="--wf-gap: var(--wf-space-md)">
         <StatCard label="总用户" value="1,234" change="↑ 12%" up={true} />
         <StatCard label="活跃用户" value="856" change="↑ 5.2%" up={true} />
@@ -105,7 +100,6 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
         <StatCard label="转化率" value="3.2%" change="↓ 0.4%" up={false} />
       </div>
 
-      <!-- 用户表格 -->
       <div class="wf-surface" style="background: var(--wf-color-bg); overflow: hidden">
         <table class="wf-stack" style="width: 100%; border-collapse: collapse; --wf-gap: 0">
           <thead>
@@ -144,7 +138,6 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
         </table>
       </div>
 
-      <!-- 底部提示 -->
       <div class="wf-center" style="padding: var(--wf-space-lg) 0">
         <span style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">
           使用 weifuwu/client + weifuwu/layout 构建 · {$.dark ? '暗色' : '亮色'}模式

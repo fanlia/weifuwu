@@ -1,13 +1,12 @@
-import { serve, ui } from '../../src/index.ts'
+import { Router, serve, ui } from '../../src/index.ts'
 
-const app = serve()
+const router = new Router()
+router.use(ui())
 
-app.use(ui())
+router.get('/style.css', async (req, ctx) => ctx.ui.css('./apps/weifuwu-demo/style.css'))
+router.get('/app.js', async (req, ctx) => ctx.ui.js('./apps/weifuwu-demo/main.tsx'))
 
-app.get('/style.css', async (req, ctx) => ctx.ui.css('./apps/weifuwu-demo/style.css'))
-app.get('/app.js', async (req, ctx) => ctx.ui.js('./apps/weifuwu-demo/main.tsx'))
-
-app.get('/', async (req, ctx) => ctx.ui.html`
+router.get('/', async (req, ctx) => ctx.ui.html`
   <!DOCTYPE html>
   <html lang="zh-CN">
   <head>
@@ -23,5 +22,4 @@ app.get('/', async (req, ctx) => ctx.ui.html`
   </html>
 `)
 
-app.listen(3000)
-console.log('http://localhost:3000')
+serve(router, { port: 3000 })
