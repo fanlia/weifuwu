@@ -33,11 +33,11 @@
 <div class="wf-container" style="--wf-max: 1000px; padding-top: 0">
 
   <h1>weifuwu/layout</h1>
-  <p class="subtitle">33 个布局原语 + 主题 Token — 完整的 CSS 系统</p>
+  <p class="subtitle">33 个布局原语 + 57 个主题 Token — 完整的 CSS 系统</p>
 
   <div class="wf-row" style="--wf-gap: 24px; margin-bottom: var(--wf-space-xl)">
     <div class="wf-fill stat-card"><div class="stat-num">33</div><div class="stat-label">布局原语</div></div>
-    <div class="wf-fill stat-card"><div class="stat-num">30+</div><div class="stat-label">主题 Token</div></div>
+    <div class="wf-fill stat-card"><div class="stat-num">57</div><div class="stat-label">主题 Token</div></div>
     <div class="wf-fill stat-card"><div class="stat-num">3</div><div class="stat-label">维度（X / Y / Z）</div></div>
     <div class="wf-fill stat-card"><div class="stat-num">0</div><div class="stat-label">硬编码色值</div></div>
   </div>
@@ -225,6 +225,85 @@
       <div class="wf-fill"><div class="demo-label">block</div><div class="wf-block demo-box-sm" style="margin-bottom: var(--wf-space-xs)">块级 1</div><div class="wf-block demo-box-sm">块级 2</div></div>
       <div class="wf-fill"><div class="demo-label">inline</div><div><span class="wf-inline demo-box-sm">行内</span><span class="wf-inline demo-box-sm">自动</span><span class="wf-inline demo-box-sm">排列</span></div></div>
       <div class="wf-fill"><div class="demo-label">inline-block</div><span class="wf-inline-block tag">可设宽高</span><span class="wf-inline-block tag">行内排列</span></div>
+    </div>
+  </div>
+
+  <!-- ══ color tokens ══ -->
+  <div class="primitive">
+    <div class="wf-row" style="--wf-gap: 16px; --wf-align: baseline; margin-bottom: var(--wf-space-lg)">
+      <div class="primitive-name">color tokens</div>
+      <div class="primitive-desc">品牌色 / 语义色 / 中性色 — --wf-color-*</div>
+    </div>
+    <div class="primitive-css wf-scroll">--wf-color-primary / --wf-color-error / --wf-color-success / --wf-color-warning / --wf-color-text / --wf-color-bg / --wf-color-border</div>
+    <div class="wf-row" style="--wf-gap: 16px; --wf-align: stretch">
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">品牌</div><div style="background: var(--wf-color-primary); height: 32px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-primary</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">主要背景</div><div style="background: var(--wf-color-primary-bg); height: 32px; border-radius: var(--wf-radius); border: 1px solid var(--wf-color-border)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-primary-bg</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">错误</div><div style="background: var(--wf-color-error); height: 32px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-error</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">错误背景</div><div style="background: var(--wf-color-error-bg); height: 32px; border-radius: var(--wf-radius); border: 1px solid var(--wf-color-border)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-error-bg</span></div>
+    </div>
+    <div class="wf-row" style="--wf-gap: 16px; --wf-align: stretch; margin-top: var(--wf-space)">
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">成功</div><div style="background: var(--wf-color-success); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-success</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">警告</div><div style="background: var(--wf-color-warning); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-warning</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">正文</div><div style="background: var(--wf-color-text); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-text</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">次要文字</div><div style="background: var(--wf-color-text-secondary); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-text-secondary</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">背景</div><div style="background: var(--wf-color-bg); height: 24px; border-radius: var(--wf-radius); border: 1px solid var(--wf-color-border)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-bg</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">边框</div><div style="background: var(--wf-color-border); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-border</span></div>
+    </div>
+  </div>
+
+  <!-- ══ font tokens ══ -->
+  <div class="primitive">
+    <div class="wf-row" style="--wf-gap: 16px; --wf-align: baseline; margin-bottom: var(--wf-space-lg)">
+      <div class="primitive-name">font tokens</div>
+      <div class="primitive-desc">字体 / 字号 — --wf-font-*</div>
+    </div>
+    <div class="primitive-css wf-scroll">--wf-font-sans / --wf-font-mono / --wf-font-size-xs / sm / base / lg / xl / 2xl / 3xl / 4xl / 5xl</div>
+    <div class="wf-row" style="--wf-gap: 24px; --wf-align: stretch">
+      <div class="wf-fill"><div class="demo-label">字体</div><div style="font-family: var(--wf-font-sans)">--wf-font-sans: 无衬线体</div><div style="font-family: var(--wf-font-mono)">--wf-font-mono: 等宽体</div></div>
+      <div class="wf-fill"><div class="demo-label">字号层级</div><div class="wf-stack" style="--wf-gap: 4px">
+        <span style="font-size: var(--wf-font-size-xs)">--wf-font-size-xs (11px)</span>
+        <span style="font-size: var(--wf-font-size-sm)">--wf-font-size-sm (12px)</span>
+        <span style="font-size: var(--wf-font-size-base)">--wf-font-size-base (13px)</span>
+        <span style="font-size: var(--wf-font-size-lg)">--wf-font-size-lg (14px)</span>
+        <span style="font-size: var(--wf-font-size-xl)">--wf-font-size-xl (15px)</span>
+      </div></div>
+      <div class="wf-fill"><div class="demo-label">大字号</div><div class="wf-stack" style="--wf-gap: 4px">
+        <span style="font-size: var(--wf-font-size-2xl)">--wf-font-size-2xl (20px)</span>
+        <span style="font-size: var(--wf-font-size-3xl)">--wf-font-size-3xl (24px)</span>
+        <span style="font-size: var(--wf-font-size-4xl)">--wf-font-size-4xl (28px)</span>
+        <span style="font-size: var(--wf-font-size-5xl)">--wf-font-size-5xl (32px)</span>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ══ space / radius / shadow tokens ══ -->
+  <div class="primitive">
+    <div class="wf-row" style="--wf-gap: 16px; --wf-align: baseline; margin-bottom: var(--wf-space-lg)">
+      <div class="primitive-name">space / radius / shadow</div>
+      <div class="primitive-desc">间距 / 圆角 / 阴影 — --wf-space-* / --wf-radius-* / --wf-shadow-*</div>
+    </div>
+    <div class="primitive-css wf-scroll">--wf-space-xs .. --wf-space-2xl / --wf-radius-sm .. --wf-radius-xl / --wf-shadow-sm .. --wf-shadow-lg</div>
+    <div class="wf-row" style="--wf-gap: 24px; --wf-align: stretch">
+      <div class="wf-fill"><div class="demo-label">间距层级</div><div class="wf-stack" style="--wf-gap: 2px">
+        <div class="wf-row" style="--wf-gap: 4px"><span class="wf-fixed" style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">xs 4</span><div style="background: var(--wf-color-primary); height: 8px; border-radius: 2px; width: var(--wf-space-xs)"></div></div>
+        <div class="wf-row" style="--wf-gap: 4px"><span class="wf-fixed" style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">sm 8</span><div style="background: var(--wf-color-primary); height: 8px; border-radius: 2px; width: var(--wf-space-sm)"></div></div>
+        <div class="wf-row" style="--wf-gap: 4px"><span class="wf-fixed" style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">md 12</span><div style="background: var(--wf-color-primary); height: 8px; border-radius: 2px; width: var(--wf-space)"></div></div>
+        <div class="wf-row" style="--wf-gap: 4px"><span class="wf-fixed" style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">lg 16</span><div style="background: var(--wf-color-primary); height: 8px; border-radius: 2px; width: var(--wf-space-md)"></div></div>
+        <div class="wf-row" style="--wf-gap: 4px"><span class="wf-fixed" style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">xl 24</span><div style="background: var(--wf-color-primary); height: 8px; border-radius: 2px; width: var(--wf-space-lg)"></div></div>
+      </div></div>
+      <div class="wf-fill"><div class="demo-label">圆角层级</div><div class="wf-stack" style="--wf-gap: 4px">
+        <div style="background: var(--wf-color-primary-bg); border: 1px solid var(--wf-color-primary); height: 24px; width: 80px; border-radius: var(--wf-radius-sm)"></div>
+        <div style="background: var(--wf-color-primary-bg); border: 1px solid var(--wf-color-primary); height: 24px; width: 80px; border-radius: var(--wf-radius)"></div>
+        <div style="background: var(--wf-color-primary-bg); border: 1px solid var(--wf-color-primary); height: 24px; width: 80px; border-radius: var(--wf-radius-md)"></div>
+        <div style="background: var(--wf-color-primary-bg); border: 1px solid var(--wf-color-primary); height: 24px; width: 80px; border-radius: var(--wf-radius-lg)"></div>
+        <div style="background: var(--wf-color-primary-bg); border: 1px solid var(--wf-color-primary); height: 24px; width: 80px; border-radius: var(--wf-radius-xl)"></div>
+      </div></div>
+      <div class="wf-fill"><div class="demo-label">阴影层级</div><div class="wf-stack" style="--wf-gap: 8px">
+        <div style="background: var(--wf-color-bg); height: 24px; border-radius: var(--wf-radius); box-shadow: var(--wf-shadow-sm)">--wf-shadow-sm</div>
+        <div style="background: var(--wf-color-bg); height: 24px; border-radius: var(--wf-radius); box-shadow: var(--wf-shadow)">--wf-shadow</div>
+        <div style="background: var(--wf-color-bg); height: 24px; border-radius: var(--wf-radius); box-shadow: var(--wf-shadow-md)">--wf-shadow-md</div>
+        <div style="background: var(--wf-color-bg); height: 24px; border-radius: var(--wf-radius); box-shadow: var(--wf-shadow-lg)">--wf-shadow-lg</div>
+      </div></div>
     </div>
   </div>
 
