@@ -244,6 +244,7 @@
     <div class="wf-row" style="--wf-gap: 16px; --wf-align: stretch; margin-top: var(--wf-space)">
       <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">成功</div><div style="background: var(--wf-color-success); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-success</span></div>
       <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">警告</div><div style="background: var(--wf-color-warning); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-warning</span></div>
+      <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">信息</div><div style="background: var(--wf-color-info); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-info</span></div>
       <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">正文</div><div style="background: var(--wf-color-text); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-text</span></div>
       <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">次要文字</div><div style="background: var(--wf-color-text-secondary); height: 24px; border-radius: var(--wf-radius)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-text-secondary</span></div>
       <div class="wf-fill wf-stack" style="--wf-gap: 4px"><div class="demo-label">背景</div><div style="background: var(--wf-color-bg); height: 24px; border-radius: var(--wf-radius); border: 1px solid var(--wf-color-border)"></div><span style="font-size: var(--wf-font-size-xs)">--wf-color-bg</span></div>
@@ -251,27 +252,49 @@
     </div>
   </div>
 
+  <!-- ══ border / focus / transition tokens ══ -->
+  <div class="primitive">
+    <div class="wf-row" style="--wf-gap: 16px; --wf-align: baseline; margin-bottom: var(--wf-space-lg)">
+      <div class="primitive-name">border / focus / transition</div>
+      <div class="primitive-desc">边框宽度 / 聚焦环 / 动效 — --wf-border-* / --wf-focus-* / --wf-transition-*</div>
+    </div>
+    <div class="primitive-css wf-scroll">--wf-border-width / --wf-focus-ring / --wf-transition-duration / --wf-transition-timing</div>
+    <div class="wf-row" style="--wf-gap: 24px; --wf-align: stretch">
+      <div class="wf-fill"><div class="demo-label">border-width</div>
+        <div style="height: 24px; border: var(--wf-border-width) solid var(--wf-color-primary); border-radius: var(--wf-radius); display: flex; align-items: center; justify-content: center; font-size: var(--wf-font-size-xs)">--wf-border-width (1px)</div></div>
+      <div class="wf-fill"><div class="demo-label">focus-ring</div>
+        <div tabindex="0" style="height: 24px; border: var(--wf-border-width) solid var(--wf-color-primary); border-radius: var(--wf-radius); display: flex; align-items: center; justify-content: center; font-size: var(--wf-font-size-xs); outline: none" onfocus="this.style.boxShadow='var(--wf-focus-ring)'" onblur="this.style.boxShadow='none'">点击获得焦点</div></div>
+      <div class="wf-fill"><div class="demo-label">transition</div>
+        <div style="height: 24px; border: var(--wf-border-width) solid var(--wf-color-border); border-radius: var(--wf-radius); display: flex; align-items: center; justify-content: center; font-size: var(--wf-font-size-xs); transition: border-color var(--wf-transition); cursor: pointer" onmouseenter="this.style.borderColor='var(--wf-color-primary)'" onmouseleave="this.style.borderColor='var(--wf-color-border)'">悬停过渡</div></div>
+    </div>
+  </div>
+
   <!-- ══ font tokens ══ -->
   <div class="primitive">
     <div class="wf-row" style="--wf-gap: 16px; --wf-align: baseline; margin-bottom: var(--wf-space-lg)">
       <div class="primitive-name">font tokens</div>
-      <div class="primitive-desc">字体 / 字号 — --wf-font-*</div>
+      <div class="primitive-desc">字体 / 字号 / 字重 / 行高 — --wf-font-* / --wf-line-height-*</div>
     </div>
-    <div class="primitive-css wf-scroll">--wf-font-sans / --wf-font-mono / --wf-font-size-xs / sm / base / lg / xl / 2xl / 3xl / 4xl / 5xl</div>
+    <div class="primitive-css wf-scroll">--wf-font-sans / --wf-font-mono / --wf-font-size-xs~5xl / --wf-font-weight-normal/medium/semibold/bold / --wf-line-height-tight/normal/relaxed</div>
     <div class="wf-row" style="--wf-gap: 24px; --wf-align: stretch">
       <div class="wf-fill"><div class="demo-label">字体</div><div style="font-family: var(--wf-font-sans)">--wf-font-sans: 无衬线体</div><div style="font-family: var(--wf-font-mono)">--wf-font-mono: 等宽体</div></div>
-      <div class="wf-fill"><div class="demo-label">字号层级</div><div class="wf-stack" style="--wf-gap: 4px">
+      <div class="wf-fill"><div class="demo-label">字号层级</div><div class="wf-stack" style="--wf-gap: 2px">
         <span style="font-size: var(--wf-font-size-xs)">--wf-font-size-xs (11px)</span>
         <span style="font-size: var(--wf-font-size-sm)">--wf-font-size-sm (12px)</span>
         <span style="font-size: var(--wf-font-size-base)">--wf-font-size-base (13px)</span>
         <span style="font-size: var(--wf-font-size-lg)">--wf-font-size-lg (14px)</span>
         <span style="font-size: var(--wf-font-size-xl)">--wf-font-size-xl (15px)</span>
-      </div></div>
-      <div class="wf-fill"><div class="demo-label">大字号</div><div class="wf-stack" style="--wf-gap: 4px">
         <span style="font-size: var(--wf-font-size-2xl)">--wf-font-size-2xl (20px)</span>
         <span style="font-size: var(--wf-font-size-3xl)">--wf-font-size-3xl (24px)</span>
-        <span style="font-size: var(--wf-font-size-4xl)">--wf-font-size-4xl (28px)</span>
-        <span style="font-size: var(--wf-font-size-5xl)">--wf-font-size-5xl (32px)</span>
+      </div></div>
+      <div class="wf-fill"><div class="demo-label">字重行高</div><div class="wf-stack" style="--wf-gap: 2px">
+        <span style="font-weight: var(--wf-font-weight-normal)">--wf-font-weight-normal (400)</span>
+        <span style="font-weight: var(--wf-font-weight-medium)">--wf-font-weight-medium (500)</span>
+        <span style="font-weight: var(--wf-font-weight-semibold)">--wf-font-weight-semibold (600)</span>
+        <span style="font-weight: var(--wf-font-weight-bold)">--wf-font-weight-bold (700)</span>
+        <span style="line-height: var(--wf-line-height-tight)">--wf-line-height-tight (1.25)</span>
+        <span style="line-height: var(--wf-line-height)">--wf-line-height (1.5)</span>
+        <span style="line-height: var(--wf-line-height-relaxed)">--wf-line-height-relaxed (1.75)</span>
       </div></div>
     </div>
   </div>
