@@ -103,4 +103,17 @@
   /* ── 色彩 — 信息（补充） ── */
   --wf-color-info: #1677ff;
   --wf-color-info-bg: #e6f4ff;
+
+  /* ── 表单控件 ── */
+  --wf-accent-color: var(--wf-color-primary);
+  --wf-caret-color: var(--wf-color-primary);
+
+  /* ── 透明度 ── */
+  --wf-opacity-disabled: 0.5;
+  --wf-opacity-overlay: 0.4;
+
+  /* ── 文字间距 ── */
+  --wf-letter-spacing: normal;
+  --wf-letter-spacing-wide: 0.5px;
+  --wf-letter-spacing-wider: 1px;
 }

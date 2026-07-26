@@ -36,6 +36,8 @@ button {
 input,
 textarea,
 select {
+  accent-color: var(--wf-accent-color);
+  caret-color: var(--wf-caret-color);
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   border: var(--wf-border-width) solid var(--wf-color-border);
@@ -51,7 +53,16 @@ select:focus {
   border-color: var(--wf-color-primary);
 }
 
+input:disabled,
+textarea:disabled,
+select:disabled,
+button:disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
 button {
+  accent-color: var(--wf-accent-color);
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   border: var(--wf-border-width) solid var(--wf-color-border);
