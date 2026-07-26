@@ -55,9 +55,10 @@ function renderValue(v: any, ctx: WfuiContext): Node {
     el.appendChild(renderValue(child, ctx))
   }
 
-  // ref 回调（挂载）
+  // ref 回调（挂载）— 支持返回清理函数
   if (vnode.props?.ref) {
-    queueMicrotask(() => vnode.props.ref(el))
+    const result = vnode.props.ref(el)
+    if (typeof result === 'function') vnode._cleanup = result
   }
 
   return el
@@ -162,7 +163,7 @@ export function patchValue(
   // 删除
   if (newInput == null) {
     if (oldNode) {
-      callRef(oldInput, null)
+      callRefCleanup(oldInput)
       ;(oldNode as ChildNode).remove()
     }
     return null
@@ -173,7 +174,7 @@ export function patchValue(
 
   // 类型不同 → 替换
   if (oldType !== newType) {
-    callRef(oldInput, null)
+    callRefCleanup(oldInput)
     const node = renderValue(newInput, ctx)
     if (oldNode?.parentNode) {
       oldNode.parentNode.replaceChild(node, oldNode)
@@ -220,7 +221,7 @@ export function patchValue(
       patchChildren(oldNode, oldV, newV, ctx)
     } else if (oldNode) {
       // oldNode 不是元素节点 → 替换
-      callRef(oldInput, null)
+      callRefCleanup(oldInput)
       const node = renderValue(newInput, ctx)
       oldNode.parentNode?.replaceChild(node, oldNode)
       return node
@@ -345,7 +346,7 @@ function patchSimpleChildren(parent: Node, oldChildren: any[], newChildren: any[
       parent.appendChild(node)
     } else if (newChild === undefined) {
       if (existingNode) {
-        callRef(oldChild, null)
+        callRefCleanup(oldChild)
         existingNode.remove()
       }
     } else {
@@ -369,7 +370,7 @@ function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[]
   for (const key of oldKeyMap.keys()) {
     if (!newKeys.includes(key)) {
       const entry = oldKeyMap.get(key)!
-      callRef(entry.vnode, null)
+      callRefCleanup(entry.vnode)
       ;(entry.node as ChildNode)?.remove()
       oldKeyMap.delete(key)
     }
@@ -380,7 +381,7 @@ function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[]
     const key = getKey(oldChildren[i])
     if (key === undefined) {
       const node = parent.childNodes[i]
-      if (node) { callRef(oldChildren[i], null); (node as ChildNode).remove() }
+      if (node) { callRefCleanup(oldChildren[i]); (node as ChildNode).remove() }
     }
   }
 
@@ -419,16 +420,32 @@ function propsEqual(a: any, b: any): boolean {
   return true
 }
 
-// ── ref 回调 ───────────────────────────────────────────
+// ── ref 回调 + 清理 ────────────────────────────────────
 
-function callRef(input: any, el: Node | null) {
-  if (input == null || typeof input !== 'object') return
-  const vnode = input as VNode
-  if (typeof vnode.props?.ref === 'function') {
-    vnode.props.ref(el)
+/** 调用 ref 回调的清理函数（保证在所有卸载路径中触发） */
+function runRefCleanup(vnode: VNode) {
+  if (vnode._cleanup) {
+    vnode._cleanup()
+    vnode._cleanup = undefined
   }
   // 递归子节点
-  forEach(vnode.props?.children, child => callRef(child, el))
+  forEach(vnode.props?.children, child => {
+    if (child && typeof child === 'object' && (child as VNode)._cleanup) {
+      runRefCleanup(child as VNode)
+    }
+  })
+}
+
+/** 卸载时通知 ref：调用清理函数 + ref(null) 向后兼容 */
+function callRefCleanup(input: any) {
+  if (input == null || typeof input !== 'object') return
+  const vnode = input as VNode
+  // 优先调用清理函数（新模式）
+  if (vnode._cleanup) runRefCleanup(vnode)
+  // 向后兼容：调用 ref(null)（旧模式）
+  if (typeof vnode.props?.ref === 'function') {
+    vnode.props.ref(null)
+  }
 }
 
 // ── 挂载到容器 ────────────────────────────────────────
