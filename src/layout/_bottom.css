@@ -1,0 +1,6 @@
+/* bottom — 底部对齐 */
+.wf-bottom {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

@@ -1,0 +1,6 @@
+/* top — 顶部对齐 */
+.wf-top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

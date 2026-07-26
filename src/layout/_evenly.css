@@ -1,0 +1,7 @@
+/* evenly — 均匀分布 */
+.wf-evenly {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: var(--wf-align, center);
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

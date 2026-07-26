@@ -1,0 +1,4 @@
+/* fixed — 固定不伸缩 */
+.wf-fixed {
+  flex: none;
+}

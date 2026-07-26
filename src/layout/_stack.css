@@ -4,3 +4,10 @@
   flex-direction: column;
   gap: var(--wf-gap, var(--wf-gap-md));
 }
+
+/* stack-reverse — 纵向反向堆叠 */
+.wf-stack-reverse {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

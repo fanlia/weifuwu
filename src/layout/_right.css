@@ -1,0 +1,7 @@
+/* right — 靠右对齐 */
+.wf-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: var(--wf-align, center);
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

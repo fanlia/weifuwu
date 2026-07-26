@@ -1,0 +1,4 @@
+/* scroll — 可滚动容器 */
+.wf-scroll {
+  overflow: auto;
+}

@@ -1,0 +1,6 @@
+/* stretch — 拉伸对齐 */
+.wf-stretch {
+  display: flex;
+  align-items: stretch;
+  gap: var(--wf-gap, var(--wf-gap-md));
+}

@@ -1,0 +1,5 @@
+/* layer — 层级控制 */
+.wf-layer {
+  position: relative;
+  z-index: var(--wf-z, 1);
+}

@@ -1,0 +1,5 @@
+/* sticky — 粘性定位 */
+.wf-sticky {
+  position: sticky;
+  top: var(--wf-offset, 0);
+}

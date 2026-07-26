@@ -1,0 +1,6 @@
+/* container — 内容宽度约束居中 */
+.wf-container {
+  max-width: var(--wf-max, 1200px);
+  margin: 0 auto;
+  padding: 0 var(--wf-gap, var(--wf-gap-lg));
+}

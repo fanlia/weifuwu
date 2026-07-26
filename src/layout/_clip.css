@@ -1,0 +1,4 @@
+/* clip — 裁剪溢出 */
+.wf-clip {
+  overflow: hidden;
+}
