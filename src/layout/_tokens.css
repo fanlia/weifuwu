@@ -78,4 +78,29 @@
   --wf-font-size-3xl: 24px;
   --wf-font-size-4xl: 28px;
   --wf-font-size-5xl: 32px;
+
+  --wf-font-weight-normal: 400;
+  --wf-font-weight-medium: 500;
+  --wf-font-weight-semibold: 600;
+  --wf-font-weight-bold: 700;
+
+  /* ── 行高 ── */
+  --wf-line-height-tight: 1.25;
+  --wf-line-height: 1.5;
+  --wf-line-height-relaxed: 1.75;
+
+  /* ── 边框宽度 ── */
+  --wf-border-width: 1px;
+
+  /* ── 聚焦环 ── */
+  --wf-focus-ring: 0 0 0 2px var(--wf-color-primary-bg);
+
+  /* ── 动效 ── */
+  --wf-transition-duration: 150ms;
+  --wf-transition-timing: ease;
+  --wf-transition: var(--wf-transition-duration) var(--wf-transition-timing);
+
+  /* ── 色彩 — 信息（补充） ── */
+  --wf-color-info: #1677ff;
+  --wf-color-info-bg: #e6f4ff;
 }
