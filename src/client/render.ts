@@ -436,16 +436,11 @@ function runRefCleanup(vnode: VNode) {
   })
 }
 
-/** 卸载时通知 ref：调用清理函数 + ref(null) 向后兼容 */
+/** 通知 ref 清理：调用 ref 回调返回的清理函数 */
 function callRefCleanup(input: any) {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode
-  // 优先调用清理函数（新模式）
   if (vnode._cleanup) runRefCleanup(vnode)
-  // 向后兼容：调用 ref(null)（旧模式）
-  if (typeof vnode.props?.ref === 'function') {
-    vnode.props.ref(null)
-  }
 }
 
 // ── 挂载到容器 ────────────────────────────────────────
