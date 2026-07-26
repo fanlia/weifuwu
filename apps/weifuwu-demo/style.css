@@ -1,0 +1,21 @@
+/* 项目专属样式 - 使用 weifuwu/layout + theme */
+@import "../../dist/layout/weifuwu-layout.css";
+
+/* 覆盖主题色 - 改这 3 行就换品牌 */
+:root {
+  --wf-color-primary: #4f6ef7;
+  --wf-color-primary-hover: #3b5ae0;
+  --wf-color-primary-bg: #eef1ff;
+}
+
+/* 业务组件样式 - 纯视觉，无布局 */
+.user-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: var(--wf-font-weight-semibold);
+}
+.stat-change { font-size: var(--wf-font-size-sm); }
+.stat-change.up { color: var(--wf-color-success); }
+.stat-change.down { color: var(--wf-color-error); }
