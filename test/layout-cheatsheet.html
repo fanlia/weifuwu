@@ -5,79 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>weifuwu/layout — Cheatsheet</title>
 <style>
-  /* ── weifuwu/theme — 品牌 Token ── */
-  :root {
-    --wf-color-primary: #4f6ef7;
-    --wf-color-primary-hover: #3b5ae0;
-    --wf-color-primary-bg: #eef1ff;
-    --wf-color-error: #ef4444;
-    --wf-color-error-bg: #fef2f2;
-    --wf-color-success: #22c55e;
-    --wf-color-success-bg: #f0fdf4;
-    --wf-color-warning: #f59e0b;
-    --wf-color-warning-bg: #fffbeb;
-    --wf-color-text: #0f172a;
-    --wf-color-text-secondary: #64748b;
-    --wf-color-text-tertiary: #94a3b8;
-    --wf-color-text-disabled: #cbd5e1;
-    --wf-color-bg: #ffffff;
-    --wf-color-bg-secondary: #f8fafc;
-    --wf-color-bg-tertiary: #f1f5f9;
-    --wf-color-border: #e2e8f0;
-
-    --wf-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --wf-font-mono: 'SF Mono', 'Fira Code', monospace;
-    --wf-font-size-xs: 11px;
-    --wf-font-size-sm: 12px;
-    --wf-font-size-base: 13px;
-    --wf-font-size-lg: 14px;
-    --wf-font-size-xl: 15px;
-    --wf-font-size-2xl: 20px;
-    --wf-font-size-3xl: 24px;
-    --wf-font-size-4xl: 28px;
-    --wf-font-size-5xl: 32px;
-
-    --wf-radius-sm: 4px;
-    --wf-radius: 6px;
-    --wf-radius-md: 8px;
-    --wf-radius-lg: 12px;
-    --wf-radius-xl: 20px;
-
-    --wf-shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-    --wf-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    --wf-shadow-md: 0 4px 12px rgba(0,0,0,0.1);
-
-    --wf-space-xs: 4px;
-    --wf-space-sm: 8px;
-    --wf-space: 12px;
-    --wf-space-md: 16px;
-    --wf-space-lg: 24px;
-    --wf-space-xl: 32px;
-    --wf-space-2xl: 40px;
-
-    font-family: var(--wf-font-sans);
-    font-size: var(--wf-font-size-base);
-    color: var(--wf-color-text);
-  }
-
-  /* ── 暗色模式 ── */
-  [data-theme="dark"] {
-    --wf-color-primary: #6b8aff;
-    --wf-color-primary-bg: #1e293b;
-    --wf-color-error: #f87171;
-    --wf-color-error-bg: #451a1a;
-    --wf-color-text: #f1f5f9;
-    --wf-color-text-secondary: #94a3b8;
-    --wf-color-text-tertiary: #64748b;
-    --wf-color-bg: #0f172a;
-    --wf-color-bg-secondary: #1e293b;
-    --wf-color-bg-tertiary: #334155;
-    --wf-color-border: #334155;
-  }
-
   /* ── 页面布局 ── */
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: var(--wf-color-bg-tertiary); padding: var(--wf-space-2xl); }
+  body { background: var(--wf-color-bg-tertiary); padding: var(--wf-space-2xl); font-family: var(--wf-font-sans); font-size: var(--wf-font-size-base); color: var(--wf-color-text); }
   h1 { font-size: var(--wf-font-size-4xl); margin-bottom: var(--wf-space-sm); }
   .subtitle { color: var(--wf-color-text-secondary); margin-bottom: var(--wf-space-2xl); font-size: var(--wf-font-size-xl); }
   .primitive { background: var(--wf-color-bg); border-radius: var(--wf-radius-lg); padding: var(--wf-space-xl); margin-bottom: var(--wf-space-xl); box-shadow: var(--wf-shadow); }
