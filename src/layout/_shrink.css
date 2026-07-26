@@ -1,5 +1,5 @@
 /* min — flex 子项可收缩约束 */
-.wf-min {
+.wf-shrink {
   min-width: 0;
   min-height: 0;
 }
