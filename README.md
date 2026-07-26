@@ -345,20 +345,27 @@ function Counter(_props: {}, ctx: WfuiContext) {
 
 ### 生命周期 —— ref 回调
 
+`ref` 回调在 mount 时触发，接收 DOM 元素。返回的清理函数在 unmount 时由框架保证调用。
+
 ```tsx
 function MyComponent(_props: {}, ctx: WfuiContext) {
-  function onRef(el: HTMLElement | null) {
-    if (el) {
-      // mount: 加事件监听等
+  return (
+    <div ref={el => {
+      // mount: el 是 DOM 元素
       el.addEventListener('scroll', handler)
-    } else {
-      // unmount: 清理
-    }
-  }
-
-  return <div ref={onRef} />
+      // 返回清理函数，unmount 时框架保证调用
+      return () => el.removeEventListener('scroll', handler)
+    }} />
+  )
 }
 ```
+
+| 场景 | 写法 |
+|------|------|
+| 事件监听 | `ref={el => { el.addEventListener(...); return () => el.removeEventListener(...) }}` |
+| 定时器 | `ref={el => { const t = setInterval(f, 1000); return () => clearInterval(t) }}` |
+| 第三方库 | `ref={el => { const c = new Chart(el); return () => c.destroy() }}` |
+| 仅 mount | `ref={el => { init(el) }}` |
 
 ### 应用 —— createApp
 
