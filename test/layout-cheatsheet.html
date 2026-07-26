@@ -258,12 +258,21 @@
       <div class="primitive-name">border / focus / transition</div>
       <div class="primitive-desc">边框宽度 / 聚焦环 / 动效 — --wf-border-* / --wf-focus-* / --wf-transition-*</div>
     </div>
-    <div class="primitive-css wf-scroll">--wf-border-width / --wf-focus-ring / --wf-transition-duration / --wf-transition-timing</div>
+    <div class="primitive-css wf-scroll">--wf-border-width / --wf-focus-ring / --wf-accent-color / --wf-caret-color / --wf-opacity-disabled / --wf-transition-*</div>
     <div class="wf-row" style="--wf-gap: 24px; --wf-align: stretch">
       <div class="wf-fill"><div class="demo-label">border-width</div>
         <div style="height: 24px; border: var(--wf-border-width) solid var(--wf-color-primary); border-radius: var(--wf-radius); display: flex; align-items: center; justify-content: center; font-size: var(--wf-font-size-xs)">--wf-border-width (1px)</div></div>
+      <div class="wf-fill"><div class="demo-label">accent-color</div>
+        <div class="wf-row" style="--wf-gap: 8px"><input type="checkbox" checked style="accent-color: var(--wf-accent-color); width: 20px; height: 20px"><input type="radio" checked style="accent-color: var(--wf-accent-color); width: 20px; height: 20px"></div>
+        <span style="font-size: var(--wf-font-size-xs)">checkbox/radio 使用 --wf-accent-color</span></div>
+      <div class="wf-fill"><div class="demo-label">caret-color</div>
+        <input type="text" value="输入光标" style="caret-color: var(--wf-caret-color); border: var(--wf-border-width) solid var(--wf-color-border); border-radius: var(--wf-radius); padding: 4px 8px; font-size: var(--wf-font-size-base); background: var(--wf-color-bg); color: var(--wf-color-text)" readonly onfocus="this.removeAttribute('readonly')"></div>
+    </div>
+    <div class="wf-row" style="--wf-gap: 24px; --wf-align: stretch; margin-top: var(--wf-space)">
       <div class="wf-fill"><div class="demo-label">focus-ring</div>
         <div tabindex="0" style="height: 24px; border: var(--wf-border-width) solid var(--wf-color-primary); border-radius: var(--wf-radius); display: flex; align-items: center; justify-content: center; font-size: var(--wf-font-size-xs); outline: none" onfocus="this.style.boxShadow='var(--wf-focus-ring)'" onblur="this.style.boxShadow='none'">点击获得焦点</div></div>
+      <div class="wf-fill"><div class="demo-label">opacity-disabled</div>
+        <button disabled style="border: var(--wf-border-width) solid var(--wf-color-border); border-radius: var(--wf-radius); padding: 6px 12px; background: var(--wf-color-bg); color: var(--wf-color-text); font-size: var(--wf-font-size-base); opacity: var(--wf-opacity-disabled); cursor: not-allowed">禁用按钮 (0.5)</button></div>
       <div class="wf-fill"><div class="demo-label">transition</div>
         <div style="height: 24px; border: var(--wf-border-width) solid var(--wf-color-border); border-radius: var(--wf-radius); display: flex; align-items: center; justify-content: center; font-size: var(--wf-font-size-xs); transition: border-color var(--wf-transition); cursor: pointer" onmouseenter="this.style.borderColor='var(--wf-color-primary)'" onmouseleave="this.style.borderColor='var(--wf-color-border)'">悬停过渡</div></div>
     </div>
@@ -295,6 +304,11 @@
         <span style="line-height: var(--wf-line-height-tight)">--wf-line-height-tight (1.25)</span>
         <span style="line-height: var(--wf-line-height)">--wf-line-height (1.5)</span>
         <span style="line-height: var(--wf-line-height-relaxed)">--wf-line-height-relaxed (1.75)</span>
+      </div></div>
+      <div class="wf-fill"><div class="demo-label">letter-spacing</div><div class="wf-stack" style="--wf-gap: 2px">
+        <span style="letter-spacing: var(--wf-letter-spacing)">--wf-letter-spacing: 正常间距</span>
+        <span style="letter-spacing: var(--wf-letter-spacing-wide)">--wf-letter-spacing-wide: 宽 0.5px</span>
+        <span style="letter-spacing: var(--wf-letter-spacing-wider); text-transform: uppercase">--wf-letter-spacing-wider: 1px (大写)</span>
       </div></div>
     </div>
   </div>
