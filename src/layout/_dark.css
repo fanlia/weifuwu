@@ -1,0 +1,34 @@
+/* weifuwu/theme — 暗色模式 */
+[data-theme="dark"] {
+  --wf-color-primary: #6b8aff;
+  --wf-color-primary-hover: #8ba3ff;
+  --wf-color-primary-bg: #1e293b;
+
+  --wf-color-success: #4ade80;
+  --wf-color-success-bg: #14532d;
+  --wf-color-warning: #fbbf24;
+  --wf-color-warning-bg: #451a03;
+  --wf-color-error: #f87171;
+  --wf-color-error-bg: #451a1a;
+
+  --wf-color-text: #f1f5f9;
+  --wf-color-text-secondary: #94a3b8;
+  --wf-color-text-tertiary: #64748b;
+  --wf-color-text-disabled: #475569;
+
+  --wf-color-bg: #0f172a;
+  --wf-color-bg-secondary: #1e293b;
+  --wf-color-bg-tertiary: #334155;
+
+  --wf-color-border: #334155;
+  --wf-color-border-light: #1e293b;
+  --wf-color-border-dark: #475569;
+
+  --wf-surface-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --wf-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --wf-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --wf-shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --wf-shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
+
+  --wf-surface-bg: var(--wf-color-bg);
+}
