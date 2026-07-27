@@ -16,6 +16,7 @@ import {
   Table, Modal, Toast, Alert, Loading, EmptyState,
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
+  Breadcrumb, Divider, FileUpload, Tooltip, Drawer,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -477,6 +478,97 @@ const DemoAccordion: Component = () => (
   </div>
 )
 
+// ── 新增组件 Demo ────────────────────────────────────
+
+const DemoBreadcrumb: Component = () => (
+  <div style="width:100%">
+    <Breadcrumb items={[
+      { label: '首页', href: '/' },
+      { label: '用户管理', href: '/users' },
+      { label: '编辑' },
+    ]} />
+  </div>
+)
+
+const DemoDivider: Component = () => (
+  <div class="wf-stack" style="gap:8px;width:100%">
+    <p>上方分割线</p>
+    <Divider />
+    <p>下方分割线</p>
+    <Divider>或</Divider>
+    <p>
+      <span>左</span>
+      <Divider vertical />
+      <span>中</span>
+      <Divider vertical />
+      <span>右</span>
+    </p>
+  </div>
+)
+
+const DemoInputNumber: Component = (_props, ctx) => {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.num = 42 }
+
+  return (
+    <div class="wf-stack" style="gap:8px;width:100%">
+      <Input label="数字" type="number" showStepper value={String($.num)}
+        onInput={e => $.num = parseInt((e.target as HTMLInputElement).value) || 0} />
+      <Input label="数字（原生样式）" type="number" value={String($.num)}
+        onInput={e => $.num = parseInt((e.target as HTMLInputElement).value) || 0} />
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">值: {$.num}</div>
+    </div>
+  )
+}
+
+const DemoFileUpload: Component = (_props, ctx) => {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.files = [] as File[] }
+
+  return (
+    <div style="width:100%">
+      <FileUpload
+        accept="image/*,.pdf"
+        multiple
+        maxSize={5 * 1024 * 1024}
+        value={$.files}
+        onChange={f => $.files = f} />
+    </div>
+  )
+}
+
+const DemoTooltip: Component = () => (
+  <div class="wf-row" style="gap:24px;padding:24px 0">
+    <Tooltip content="保存文件" position="top"><Button>上</Button></Tooltip>
+    <Tooltip content="底部提示" position="bottom"><Button>下</Button></Tooltip>
+    <Tooltip content="左侧提示" position="left"><Button>左</Button></Tooltip>
+    <Tooltip content="右侧提示" position="right"><Button>右</Button></Tooltip>
+  </div>
+)
+
+const DemoDrawer: Component = (_props, ctx) => {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.rightOpen = false; $.leftOpen = false }
+
+  return (
+    <div class="wf-row" style="gap:8px">
+      <Button variant="primary" onClick={() => $.rightOpen = true}>右侧抽屉</Button>
+      <Button onClick={() => $.leftOpen = true}>左侧抽屉</Button>
+      <Drawer open={$.rightOpen} title="编辑用户" position="right" onClose={() => $.rightOpen = false}
+        footer={<>
+          <Button variant="ghost" onClick={() => $.rightOpen = false}>取消</Button>
+          <Button variant="primary" onClick={() => $.rightOpen = false}>保存</Button>
+        </>}>
+        <Input label="姓名" placeholder="请输入姓名" />
+        <Input label="邮箱" type="email" placeholder="email@example.com" />
+      </Drawer>
+      <Drawer open={$.leftOpen} title="导航菜单" position="left" onClose={() => $.leftOpen = false}>
+        <p>左侧面板内容</p>
+      </Drawer>
+    </div>
+  )
+}
+
 // ── 代码示例字符串 ─────────────────────────────────────
 
 const CODE = {
@@ -615,6 +707,36 @@ const CODE = {
   {key:'a',title:'标题',
     content:<p>内容</p>},
 ]} />`,
+
+  breadcrumb: `<Breadcrumb items={[
+  { label: '首页', href: '/' },
+  { label: '用户管理' },
+  { label: '编辑' },
+]} />`,
+
+  divider: `<Divider />
+<Divider vertical />
+<Divider>或</Divider>`,
+
+  inputNumber: `<Input type="number" showStepper
+  value={$.num}
+  onInput={e => ...} />`,
+
+  fileUpload: `<FileUpload accept="image/*,.pdf"
+  multiple maxSize={5242880}
+  value={$.files}
+  onChange={f => $.files = f} />`,
+
+  tooltip: `<Tooltip content="保存"
+  position="top">
+  <Button>保存</Button>
+</Tooltip>`,
+
+  drawer: `<Drawer open={$.open}
+  title="编辑" position="right"
+  onClose={() => $.open = false}>
+  <p>内容</p>
+</Drawer>`,
 }
 
 // ── 主应用 ─────────────────────────────────────────────
@@ -624,10 +746,10 @@ const App: Component = (_props, ctx) => {
     <div class="wf-stack" style="gap:32px">
       <div style="text-align:center;padding:var(--wf-space-2xl) 0">
         <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">weifuwu/components</h1>
-        <p style="color:var(--wf-color-text-secondary)">28 个 HTML 原语 · 纯函数 (props, ctx) {'>'} VNode · 即插即用</p>
+        <p style="color:var(--wf-color-text-secondary)">34 个 HTML 原语 · 纯函数 (props, ctx) {'>'} VNode · 即插即用</p>
         <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
-          <Badge variant="primary">28 组件</Badge>
-          <Badge variant="success">134 测试</Badge>
+          <Badge variant="primary">34 组件</Badge>
+          <Badge variant="success">178 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
@@ -635,6 +757,7 @@ const App: Component = (_props, ctx) => {
       <Section title="表单核心">
         <DemoCard title="Button" desc="4 variants × 3 sizes + loading + block + disabled" code={CODE.button}><DemoButton /></DemoCard>
         <DemoCard title="Input" desc="text/email/password，支持 label/error/hint/required" code={CODE.input}><DemoInput /></DemoCard>
+        <DemoCard title="InputNumber" desc="数字输入，showStepper 显示自定义步进按钮" code={CODE.inputNumber}><DemoInputNumber /></DemoCard>
         <DemoCard title="Textarea" desc="多行文本，支持 rows/label/error/hint" code={CODE.textarea}><DemoTextarea /></DemoCard>
         <DemoCard title="Select" desc="下拉选择器，options/placeholder/label/error" code={CODE.select}><DemoSelect /></DemoCard>
       </Section>
@@ -649,6 +772,7 @@ const App: Component = (_props, ctx) => {
       <Section title="表单增强">
         <DemoCard title="Form" desc="自动 preventDefault，提供 onSubmit 回调" code={CODE.form}><DemoForm /></DemoCard>
         <DemoCard title="Field" desc="label+error+hint 容器" code={CODE.field}><DemoField /></DemoCard>
+        <DemoCard title="FileUpload" desc="文件上传，拖拽区 + 文件列表 + accept/maxSize" code={CODE.fileUpload}><DemoFileUpload /></DemoCard>
         <DemoCard title="SearchInput" desc="搜索输入框，带清除按钮" code={CODE.search}><DemoSearchInput /></DemoCard>
         <DemoCard title="ProgressBar" desc="进度条，支持 label/showValue" code={CODE.progress}><DemoProgress /></DemoCard>
       </Section>
@@ -664,6 +788,8 @@ const App: Component = (_props, ctx) => {
 
       <Section title="数据反馈">
         <DemoCard title="Modal" desc="弹窗，ESC + overlay 关闭" code={CODE.modal}><DemoModal /></DemoCard>
+        <DemoCard title="Drawer" desc="侧边面板，左右滑入 + ESC 关闭" code={CODE.drawer}><DemoDrawer /></DemoCard>
+        <DemoCard title="Tooltip" desc="hover 浮动提示，4 方向" code={CODE.tooltip}><DemoTooltip /></DemoCard>
         <DemoCard title="Toast" desc="提示消息 success/error/warning/info" code={CODE.toast}><DemoToast /></DemoCard>
         <DemoCard title="Alert" desc="信息提示条，4 种 variant + closable" code={CODE.alert}><DemoAlert /></DemoCard>
         <DemoCard title="Loading" desc="加载状态，支持自定义文字" code={CODE.loading}><DemoLoading /></DemoCard>
@@ -671,6 +797,7 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <Section title="导航组件">
+        <DemoCard title="Breadcrumb" desc="面包屑导航，支持 aria-current" code={CODE.breadcrumb}><DemoBreadcrumb /></DemoCard>
         <DemoCard title="Tabs" desc="标签页切换，支持 active/onChange" code={CODE.tabs}><DemoTabs /></DemoCard>
         <DemoCard title="Dropdown" desc="下拉菜单，支持 danger variant" code={CODE.dropdown}><DemoDropdown /></DemoCard>
         <DemoCard title="Pagination" desc="分页器，自动计算页码范围" code={CODE.pagination}><DemoPagination /></DemoCard>
@@ -678,8 +805,12 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Accordion" desc="折叠面板，支持多个 items" code={CODE.accordion}><DemoAccordion /></DemoCard>
       </Section>
 
+      <Section title="其他">
+        <DemoCard title="Divider" desc="分割线，支持 horizontal/vertical/带文字" code={CODE.divider}><DemoDivider /></DemoCard>
+      </Section>
+
       <div style="text-align:center;padding:var(--wf-space-xl) 0;color:var(--wf-color-text-tertiary);font-size:var(--wf-font-size-sm)">
-        weifuwu/components · 全部 28 个组件 · 打开 devtools 查看代码
+        weifuwu/components · 全部 34 个组件 · 打开 devtools 查看代码
       </div>
     </div>
   )
