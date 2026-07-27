@@ -23,7 +23,7 @@ npm install weifuwu
 | **ui** | `weifuwu` | SSR 渲染 + 动态 JS/CSS 编译 → `ctx.ui` | `Router` |
 | **graphql** | `weifuwu` | GraphQL 端点 | `Router` |
 | **client** | `weifuwu/client` | 前端 VDOM + Proxy 框架 + i18n + ErrorBoundary | — |
-| **components** | `weifuwu/components` | 34 个 HTML 原语组件（Button/Table/Modal/...） | `client` |
+| **components** | `weifuwu/components` | 36 个 HTML 原语组件（Button/Table/Modal/...） | `client` |
 | **layout** | `weifuwu/layout` | 纯 CSS 布局原语 + 主题 Token | — |
 
 ---
@@ -526,6 +526,51 @@ ctx.i18n?.setLocale('en-US')    // → 自动触发重渲染
 import { i18n, zhCN, enUS } from 'weifuwu/client'
 ```
 
+### confirm —— 确认对话框
+
+```ts
+import { createApp, confirm } from 'weifuwu/client'
+
+createApp()
+  .use(confirm())
+  .mount('#root', App)
+
+// 在组件中使用
+async function handleDelete(ctx: WfuiContext) {
+  const ok = await ctx.confirm?.('确定删除？', {
+    title: '确认',
+    confirmText: '删除',
+    cancelText: '取消',
+    variant: 'danger',  // 'default' | 'danger'
+  })
+  if (ok) { /* 执行 */ }
+}
+```
+
+- 直接 DOM 渲染（不依赖 VDOM）
+- 返回 `Promise<boolean>` — `await ctx.confirm(msg, opts?)`
+- 自动锁定背景滚动（ScrollLock）
+- ESC / 点击遮罩关闭
+
+### ScrollLock / FocusTrap 工具
+
+```ts
+import { lockScroll, unlockScroll } from 'weifuwu/client'
+import { trapFocus } from 'weifuwu/client'
+
+// 锁定/解锁滚动（支持嵌套计数）
+lockScroll()
+unlockScroll()
+
+// 焦点陷阱，返回 cleanup 函数
+const cleanup = trapFocus(containerEl)
+// 组件卸载时
+cleanup()  // 恢复焦点
+```
+
+- `lockScroll()`: 多层级可嵌套锁定，iOS Safari `position:fixed` 兼容
+- `trapFocus(el)`: Tab/Shift+Tab 在容器内循环，restore 之前焦点
+
 ### 前端类型
 
 `VNode`, `VNodeType`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `ApiOptions`, `ApiRequestOptions`, `ApiError`, `AuthClient`, `AuthOptions`, `ErrorBoundaryProps`, `I18nOptions`, `I18nState`, `LocalePackage`
@@ -645,7 +690,7 @@ document.documentElement.setAttribute('data-theme', 'dark')
 
 ## 组件库 — `weifuwu/components`
 
-29 个 **HTML 原语**，覆盖 90% 的 SaaS 页面 HTML 需求。每个组件是 `(props, ctx) => VNode` 纯函数，引用 `weifuwu/layout` 的 CSS 变量做主题。
+36 个 **HTML 原语**，覆盖 90% 的 SaaS 页面 HTML 需求。每个组件是 `(props, ctx) => VNode` 纯函数，引用 `weifuwu/layout` 的 CSS 变量做主题。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -659,8 +704,8 @@ import 'weifuwu/components/style.css'
 | **表单核心** | `Button` `Input` `Textarea` `Select` | 4 个最常用的表单元素 |
 | **表单选择** | `Checkbox` `Switch` `RadioGroup` `Slider` | 选择类输入 |
 | **表单增强** | `Form` `Field` `FileUpload` `SearchInput` `ProgressBar` | 文件上传、搜索、进度 |
-| **数据展示** | `Table` `Card` `Badge` `Tag` `Avatar` `StatCard` `PageHeader` | 数据展示与页面标题 |
-| **数据反馈** | `Modal` `Drawer` `Tooltip` `Toast` `Alert` `Loading` `EmptyState` | 弹窗、抽屉、提示 |
+| **数据展示** | `Table` `Card` `Badge` `Tag` `Avatar` `StatCard` `PageHeader` `Img` | 数据展示与页面标题 |
+| **数据反馈** | `Modal` `Drawer` `Tooltip` `Popover` `Toast` `Alert` `Loading` `EmptyState` `Skeleton` | 弹窗、抽屉、弹出层、骨架屏 |
 | **导航组件** | `Breadcrumb` `Tabs` `Dropdown` `Pagination` `Steps` `Accordion` | 面包屑、标签页、分页 |
 | **布局** | `Divider` | 分割线 (水平/垂直/带文字) |
 
