@@ -82,19 +82,22 @@ export function router(opts: RouterOptions): AppMiddleware {
           params[match.keys[i]] = decodeURIComponent(m[i + 1])
         }
       }
+      const last = match.chain[match.chain.length - 1]
       return {
         path: match.def.path,
         params,
         query: Object.fromEntries(new URLSearchParams(window.location.search)),
         chain: match.chain,
+        title: last?.title ?? '',
       }
     }
-    return { path, params: {}, query: {}, chain: [] }
+    return { path, params: {}, query: {}, chain: [], title: '' }
   }
 
   return (ctx: WfuiContext) => {
     const resolved = resolve(getPath())
     ;(ctx as any).route = resolved
+    if (resolved.title) document.title = resolved.title
 
     if (!ctx.app) ctx.app = {} as any
     ctx.app!.navigate = (path: string) => {
@@ -107,12 +110,14 @@ export function router(opts: RouterOptions): AppMiddleware {
         const resolved = resolve(path)
         ;(ctx as any).route = resolved
       }
+      if (ctx.route?.title) document.title = ctx.route.title
       ctx.ui?.render()
     }
 
     const onPop = () => {
       const resolved = resolve(getPath())
       ;(ctx as any).route = resolved
+      if (ctx.route?.title) document.title = ctx.route.title
       ctx.ui?.render()
     }
     window.addEventListener('popstate', onPop)
