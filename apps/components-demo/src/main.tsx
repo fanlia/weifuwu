@@ -16,7 +16,7 @@ import {
   Table, Modal, Toast, Alert, Loading, EmptyState,
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
-  Breadcrumb, Divider, FileUpload, Tooltip, Drawer,
+  Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -569,6 +569,25 @@ const DemoDrawer: Component = (_props, ctx) => {
   )
 }
 
+const DemoPopover: Component = (_props, ctx) => {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.showBottom = false; $.showTop = false }
+
+  return (
+    <div class="wf-row" style="gap:8px;align-items:center">
+      <Popover content={<div style="padding:4px 0"><p style="margin:0 0 8px">自定义面板内容</p><Button size="sm">操作</Button></div>}>
+        <Button variant="secondary">点击弹出</Button>
+      </Popover>
+      <Popover content={<span>顶部提示</span>} position="top">
+        <Button variant="ghost">顶部</Button>
+      </Popover>
+      <Popover trigger="hover" content={<span>悬停出现的面板</span>}>
+        <span style="color:var(--wf-color-secondary);cursor:pointer">悬停查看</span>
+      </Popover>
+    </div>
+  )
+}
+
 // ── 代码示例字符串 ─────────────────────────────────────
 
 const CODE = {
@@ -737,6 +756,18 @@ const CODE = {
   onClose={() => $.open = false}>
   <p>内容</p>
 </Drawer>`,
+
+  popover: `<Popover content={<div>面板内容</div>}>
+  <Button>点击弹出</Button>
+</Popover>
+
+<Popover position="top" content=...>
+  <Button>顶部</Button>
+</Popover>
+
+<Popover trigger="hover" content=...>
+  <span>悬停查看</span>
+</Popover>`,
 }
 
 // ── 主应用 ─────────────────────────────────────────────
@@ -796,6 +827,7 @@ const App: Component = (_props, ctx) => {
       <Section title="数据反馈">
         <DemoCard title="Modal" desc="弹窗，ESC + overlay 关闭" code={CODE.modal}><DemoModal /></DemoCard>
         <DemoCard title="Drawer" desc="侧边面板，左右滑入 + ESC 关闭" code={CODE.drawer}><DemoDrawer /></DemoCard>
+        <DemoCard title="Popover" desc="通用弹出层，click/hover 触发，4 方向" code={CODE.popover}><DemoPopover /></DemoCard>
         <DemoCard title="Tooltip" desc="hover 浮动提示，4 方向" code={CODE.tooltip}><DemoTooltip /></DemoCard>
         <DemoCard title="Toast" desc="提示消息 success/error/warning/info" code={CODE.toast}><DemoToast /></DemoCard>
         <DemoCard title="Alert" desc="信息提示条，4 种 variant + closable" code={CODE.alert}><DemoAlert /></DemoCard>
