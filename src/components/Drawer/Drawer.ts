@@ -1,6 +1,12 @@
+/**
+ * weifuwu/components — Drawer
+ */
+
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+import { lockScroll, unlockScroll } from '../../client/scroll-lock.ts'
+import { trapFocus } from '../../client/focus-trap.ts'
 
 export type DrawerPosition = 'left' | 'right'
 
@@ -15,21 +21,44 @@ export interface DrawerProps {
 
 export const Drawer: Component<DrawerProps> = (props, ctx) => {
   const { open, title, position = 'right', onClose, children, footer } = props
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.exiting = false }
 
-  if (!open) return null
+  // 退出动画触发
+  const startClose = () => { $.exiting = true }
 
+  // 退出动画播完
+  const onExitEnd = () => {
+    $.exiting = false
+    onClose?.()
+  }
+
+  // 完全关闭状态 → 不渲染
+  if (!open && !$.exiting) return null
+
+  const isClosing = $.exiting
+
+  // ESC 关闭
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && onClose) onClose()
+    if (e.key === 'Escape' && !isClosing) startClose()
+  }
+
+  // ScrollLock + FocusTrap
+  const drawerRef = (el: HTMLElement | null) => {
+    if (!el) return
+    lockScroll()
+    const cleanupFocus = trapFocus(el)
+    return () => { unlockScroll(); cleanupFocus() }
   }
 
   const overlay = h('div', {
     class: 'wf-drawer-overlay',
-    onClick: onClose,
+    onClick: isClosing ? undefined : startClose,
   })
 
   const closeBtn = h('button', {
     class: 'wf-drawer-close',
-    onClick: onClose,
+    onClick: isClosing ? undefined : startClose,
     type: 'button',
     'aria-label': '关闭',
   }, '✕')
@@ -50,11 +79,17 @@ export const Drawer: Component<DrawerProps> = (props, ctx) => {
   }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
   const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}
+  const cls = isClosing
+    ? `wf-drawer wf-drawer--${position} wf-drawer--exit`
+    : `wf-drawer wf-drawer--${position} wf-drawer--enter`
+
   return h('div', {
-    class: `wf-drawer wf-drawer--${position}`,
+    class: cls,
     role: 'dialog',
     'aria-modal': 'true',
     'aria-label': title ?? (DL.ariaLabel ?? '侧边面板'),
     onKeyDown: handleKeyDown,
+    onAnimationEnd: isClosing ? onExitEnd : undefined,
+    ref: drawerRef,
   }, [overlay, panel])
 }

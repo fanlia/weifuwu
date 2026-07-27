@@ -57,10 +57,20 @@ describe('Drawer', () => {
     assert.equal(body.props.children, '表单内容')
   })
 
-  it('handles ESC keydown', () => {
+  it('handles ESC keydown → exit animation → onClose', () => {
     let closed = false
-    const vnode = Drawer({ open: true, title: '编辑', onClose: () => { closed = true } }, mockCtx())!
+    const ctx = mockCtx()
+    // 首次渲染（open=true）
+    let vnode = Drawer({ open: true, title: '编辑', onClose: () => { closed = true } }, ctx)!
+    // ESC 触发退出
     vnode.props.onKeyDown({ key: 'Escape' } as KeyboardEvent)
+    // 退出动画播完前 onClose 不应被调
+    assert.equal(closed, false)
+    // 重渲染（状态已变，产生 exit 态 VNode）
+    vnode = Drawer({ open: true, title: '编辑', onClose: () => { closed = true } }, ctx)!
+    // 此时 onAnimationEnd 存在
+    assert.equal(typeof vnode.props.onAnimationEnd, 'function')
+    vnode.props.onAnimationEnd()
     assert.equal(closed, true)
   })
 })

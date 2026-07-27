@@ -115,8 +115,7 @@ Every weifuwu module and script must pass these checks. Use them as a review che
 
 | ID | Rule | Rationale |
 |----|------|-----------|
-| RDR-01 | **render 函数可以写 `$`，但值不变时不触发 dirty** — `$.x = y` 在值未变时跳过 `dirty()`。变化时才触发重渲染 | Proxy `set` trap 在赋值前比较新旧值，原始类型值没变时直接返回 `true`，不调 `dirty()`。此机制消除了 render 中写 `$` 导致无限循环的主要风险 |
-| RDR-02 | **优先在事件/ref 回调中写 `$`** — render 中的 `$` 写入应尽量简化为单次初始化或显式状态切换 | 虽然值比较防止了循环，render 中频繁写 `$` 仍会增加不必要的 dirty 检查和重渲染开销 |
+| RDR-01 | **render 函数不改变 `$`** — `$` 的写入只在事件回调（`onClick`/`onInput` 等）、`ref` 回调或 `if (!ctx.ui.ready)` 初始化块中进行 | Proxy `set` trap 已加入值比较防止循环，但保持 render 纯函数是最简洁的约定 |
 
 ### FS — Frontend Standards (`weifuwu/client`)
 
