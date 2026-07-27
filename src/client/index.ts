@@ -38,8 +38,5 @@ export type { ErrorBoundaryProps } from './error-boundary.ts'
 
 export { i18n } from './i18n.ts'
 export type { I18nOptions, I18nState } from './i18n.ts'
-
-export { lockScroll, unlockScroll } from './scroll-lock.ts'
-export { trapFocus } from './focus-trap.ts'
 export { zhCN } from './locale/zh_CN.ts'
 export { enUS } from './locale/en_US.ts'
