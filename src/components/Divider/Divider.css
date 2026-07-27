@@ -1,0 +1,41 @@
+/* weifuwu/components — Divider */
+
+.wf-divider {
+  border: none;
+  border-top: 1px solid var(--wf-color-border);
+  margin: var(--wf-space-md) 0;
+  height: 0;
+}
+
+.wf-divider--vertical {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  margin: 0 var(--wf-space-sm);
+  border-top: none;
+  border-left: 1px solid var(--wf-color-border);
+  vertical-align: middle;
+}
+
+.wf-divider--with-text {
+  display: flex;
+  align-items: center;
+  border: none;
+  height: auto;
+  gap: var(--wf-gap-md);
+}
+
+.wf-divider--with-text::before,
+.wf-divider--with-text::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--wf-color-border);
+}
+
+.wf-divider-text {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}

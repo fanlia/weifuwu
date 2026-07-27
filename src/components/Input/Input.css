@@ -61,3 +61,70 @@
 .wf-input--err .wf-input:focus {
   box-shadow: 0 0 0 2px var(--wf-color-error-bg);
 }
+
+/* number input — 隐藏原生步进按钮 */
+.wf-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.wf-input[type=number]::-webkit-inner-spin-button,
+.wf-input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* number input — 显示自定义步进按钮 */
+.wf-input-number-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.wf-input-number-wrap .wf-input {
+  padding-right: calc(var(--wf-space) + 1.5em);
+  -moz-appearance: none;
+}
+
+.wf-input-number-stepper {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: 1.5em;
+  border-left: 1px solid var(--wf-color-border);
+}
+
+.wf-input-number-step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--wf-color-text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: all var(--wf-transition);
+}
+
+.wf-input-number-step:hover {
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-text);
+}
+
+.wf-input-number-step:active {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-input-number-step:disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-input-number-step + .wf-input-number-step {
+  border-top: 1px solid var(--wf-color-border);
+}

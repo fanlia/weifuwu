@@ -1,0 +1,103 @@
+/* weifuwu/components — Drawer */
+
+.wf-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wf-cover-z, 1000);
+  display: flex;
+}
+
+.wf-drawer--left {
+  justify-content: flex-start;
+}
+
+.wf-drawer--right {
+  justify-content: flex-end;
+}
+
+.wf-drawer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  animation: wf-drawer-overlay-fadein 0.2s ease-out;
+}
+
+@keyframes wf-drawer-overlay-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.wf-drawer-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  max-width: 100vw;
+  height: 100%;
+  background: var(--wf-color-bg);
+  box-shadow: var(--wf-shadow-lg, 0 4px 24px rgba(0, 0, 0, 0.12));
+  animation: wf-drawer-slidein 0.25s ease-out;
+}
+
+.wf-drawer-panel--right {
+  animation-name: wf-drawer-slidein-right;
+}
+
+.wf-drawer-panel--left {
+  animation-name: wf-drawer-slidein-left;
+}
+
+@keyframes wf-drawer-slidein-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes wf-drawer-slidein-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+.wf-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--wf-space-md);
+  border-bottom: var(--wf-border-width, 1px) solid var(--wf-color-border);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-lg);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+  flex-shrink: 0;
+}
+
+.wf-drawer-close {
+  border: none;
+  background: transparent;
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  padding: var(--wf-space-xs);
+  font-size: 16px;
+  line-height: 1;
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-drawer-close:hover {
+  color: var(--wf-color-text);
+  background: var(--wf-color-bg-secondary);
+}
+
+.wf-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--wf-space-md);
+}
+
+.wf-drawer-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-md);
+  border-top: var(--wf-border-width, 1px) solid var(--wf-color-border);
+}

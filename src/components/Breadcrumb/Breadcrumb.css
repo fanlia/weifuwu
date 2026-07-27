@@ -1,0 +1,34 @@
+/* weifuwu/components — Breadcrumb */
+
+.wf-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+  line-height: var(--wf-line-height-normal);
+}
+
+.wf-breadcrumb-link {
+  color: var(--wf-color-primary);
+  text-decoration: none;
+}
+
+.wf-breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.wf-breadcrumb-current {
+  color: var(--wf-color-text);
+  font-weight: var(--wf-font-weight-medium);
+}
+
+.wf-breadcrumb-sep {
+  color: var(--wf-color-text-tertiary);
+  user-select: none;
+}
+
+.wf-breadcrumb-text {
+  color: var(--wf-color-text-secondary);
+}

@@ -1,0 +1,126 @@
+/* weifuwu/components — FileUpload */
+
+.wf-upload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm);
+}
+
+.wf-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wf-gap-xs);
+  padding: var(--wf-space-lg);
+  border: 2px dashed var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg-secondary);
+  cursor: pointer;
+  transition: all var(--wf-transition);
+  min-height: 120px;
+}
+
+.wf-upload-zone:hover {
+  border-color: var(--wf-color-primary);
+  background: var(--wf-color-bg);
+}
+
+.wf-upload-zone--disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-upload-zone--err {
+  border-color: var(--wf-color-error);
+}
+
+.wf-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-upload-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.wf-upload-text {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-upload-hint {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-upload-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-upload-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm) var(--wf-space);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+}
+
+.wf-upload-item-info {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-md);
+  min-width: 0;
+}
+
+.wf-upload-item-name {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-upload-item-size {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.wf-upload-item-remove {
+  border: none;
+  background: transparent;
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: var(--wf-radius-sm);
+  flex-shrink: 0;
+}
+
+.wf-upload-item-remove:hover {
+  color: var(--wf-color-error);
+  background: var(--wf-color-error-bg);
+}
+
+.wf-upload-err {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-error);
+}

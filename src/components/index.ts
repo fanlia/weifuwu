@@ -1,5 +1,5 @@
 /**
- * weifuwu/components — 28 个 HTML 原语
+ * weifuwu/components — HTML 原语
  *
  * 使用方式:
  *   import { Button, Input } from 'weifuwu/components'
@@ -92,3 +92,18 @@ export type { AccordionProps, AccordionItem } from './Accordion/Accordion.ts'
 
 export { PageHeader } from './PageHeader/PageHeader.ts'
 export type { PageHeaderProps } from './PageHeader/PageHeader.ts'
+
+export { Breadcrumb } from './Breadcrumb/Breadcrumb.ts'
+export type { BreadcrumbProps, BreadcrumbItem } from './Breadcrumb/Breadcrumb.ts'
+
+export { Divider } from './Divider/Divider.ts'
+export type { DividerProps } from './Divider/Divider.ts'
+
+export { FileUpload } from './FileUpload/FileUpload.ts'
+export type { FileUploadProps } from './FileUpload/FileUpload.ts'
+
+export { Tooltip } from './Tooltip/Tooltip.ts'
+export type { TooltipProps, TooltipPosition } from './Tooltip/Tooltip.ts'
+
+export { Drawer } from './Drawer/Drawer.ts'
+export type { DrawerProps, DrawerPosition } from './Drawer/Drawer.ts'
