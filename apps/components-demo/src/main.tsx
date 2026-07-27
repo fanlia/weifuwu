@@ -7,7 +7,7 @@
  * 启动: node apps/components-demo/server.ts
  */
 
-import { createApp, i18n } from 'weifuwu/client'
+import { createApp, i18n, confirm } from 'weifuwu/client'
 import type { WfuiContext, Component } from 'weifuwu/client'
 import {
   Button, Input, Textarea, Select,
@@ -16,7 +16,7 @@ import {
   Table, Modal, Toast, Alert, Loading, EmptyState,
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
-  Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton,
+  Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -591,9 +591,9 @@ const DemoPopover: Component = (_props, ctx) => {
 
 const DemoImage: Component = () => (
   <div class="wf-row" style="gap:16px;align-items:flex-start">
-    <Image src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
-    <Image src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
-    <Image src="/broken.jpg" fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='14'%3E加载失败%3C/text%3E%3C/svg%3E" alt="fallback" width={120} height={120} style={{ objectFit: 'cover', borderRadius: '8px' }} />
+    <Img src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
+    <Img src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
+    <Img src="/broken.jpg" fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='14'%3E加载失败%3C/text%3E%3C/svg%3E" alt="fallback" width={120} height={120} style={{ objectFit: 'cover', borderRadius: '8px' }} />
   </div>
 )
 
@@ -718,9 +718,9 @@ const CODE = {
 <Skeleton variant="circle" width={40} height={40} />
 <Skeleton variant="rect" width="100%" height={100} />`,
 
-  image: `<Image src="/photo.jpg" alt="照片" />
-<Image src="/photo.jpg" fallback="/placeholder.png" />
-<Image src="..." loading="lazy" width={200} />`,
+  image: `<Img src="/photo.jpg" alt="照片" />
+<Img src="/photo.jpg" fallback="/placeholder.png" />
+<Img src="..." loading="lazy" width={200} />`,
 
   confirm: `const ok = await ctx.confirm?.('确定删除？', {
   confirmText: '删除',
@@ -867,7 +867,8 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Badge" desc="状态标签 + 圆点，6 种 variant" code={CODE.badge}><DemoBadge /></DemoCard>
         <DemoCard title="Tag" desc="标签，支持 closable/onClose" code={CODE.tag}><DemoTag /></DemoCard>
         <DemoCard title="Avatar" desc="头像（首字母/图片），3 种 size" code={CODE.avatar}><DemoAvatar /></DemoCard>
-        <DemoCard title="Image" desc="图片组件，支持 fallback/loading lazy" code={CODE.image}><DemoImage /></DemoCard>
+        <DemoCard title="Img" desc="图片 \<img\> 组件，支持 fallback/loading lazy" code={CODE.image}><DemoImage /></DemoCard>
+        <DemoCard title="Confirm" desc="确认对话框，Promise 化 await 调用" code={CODE.confirm}><DemoConfirm /></DemoCard>
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
       </Section>
 
@@ -897,16 +898,17 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <div style="text-align:center;padding:var(--wf-space-xl) 0;color:var(--wf-color-text-tertiary);font-size:var(--wf-font-size-sm)">
-        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 34 个组件 · 打开 devtools 查看代码'}
+        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 37 个组件 · 打开 devtools 查看代码'}
       </div>
     </div>
   )
 }
 
 createApp()
+  .use(confirm())
   .use(i18n({ locale: 'zh-CN', messages: {
     'app.title': 'weifuwu/components',
     'app.desc': '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',
-    'app.footer': 'weifuwu/components · 全部 34 个组件 · 打开 devtools 查看代码',
+    'app.footer': 'weifuwu/components · 全部 37 个组件 · 打开 devtools 查看代码',
   } }))
   .mount('#root', App)

@@ -1,5 +1,5 @@
 /**
- * weifuwu/components — Image
+ * weifuwu/components — Img
  *
  * `<img>` 增强组件。支持 fallback、loading="lazy"。
  */
@@ -7,7 +7,7 @@
 import type { Component } from '../../client/vnode.ts'
 import { h } from '../../client/vnode.ts'
 
-export interface ImageProps {
+export interface ImgProps {
   src?: string
   alt?: string
   fallback?: string
@@ -18,7 +18,7 @@ export interface ImageProps {
   style?: Record<string, string>
 }
 
-export const Image: Component<ImageProps> = (props) => {
+export const Img: Component<ImgProps> = (props) => {
   const { src, alt = '', fallback, loading, width, height, className, style } = props
 
   const imgProps: Record<string, any> = {
