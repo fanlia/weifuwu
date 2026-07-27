@@ -657,7 +657,6 @@ import 'weifuwu/components/style.css'
 | 类别 | 组件 | 用途 |
 |------|------|------|
 | **表单核心** | `Button` `Input` `Textarea` `Select` | 4 个最常用的表单元素 |
-| **表单核心** | `InputNumber` | 数字输入，带自定义步进按钮 (`showStepper`) |
 | **表单选择** | `Checkbox` `Switch` `RadioGroup` `Slider` | 选择类输入 |
 | **表单增强** | `Form` `Field` `FileUpload` `SearchInput` `ProgressBar` | 文件上传、搜索、进度 |
 | **数据展示** | `Table` `Card` `Badge` `Tag` `Avatar` `StatCard` `PageHeader` | 数据展示与页面标题 |

@@ -17,6 +17,5 @@ export const enUS = {
     Breadcrumb: { ariaLabel: 'Breadcrumb' },
     Modal: { ariaLabel: 'Dialog' },
     Drawer: { ariaLabel: 'Panel' },
-    InputNumber: { increase: 'Increase', decrease: 'Decrease' },
   },
 }

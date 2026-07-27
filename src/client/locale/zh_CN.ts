@@ -17,6 +17,5 @@ export const zhCN = {
     Breadcrumb: { ariaLabel: '面包屑' },
     Modal: { ariaLabel: '弹窗' },
     Drawer: { ariaLabel: '侧边面板' },
-    InputNumber: { increase: '增加', decrease: '减少' },
   },
 }

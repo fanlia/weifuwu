@@ -521,21 +521,6 @@ const DemoDivider: Component = () => (
   </div>
 )
 
-const DemoInputNumber: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.num = 42 }
-
-  return (
-    <div class="wf-stack" style="gap:8px;width:100%">
-      <Input label="数字" type="number" showStepper value={String($.num)}
-        onInput={e => $.num = parseInt((e.target as HTMLInputElement).value) || 0} />
-      <Input label="数字（原生样式）" type="number" value={String($.num)}
-        onInput={e => $.num = parseInt((e.target as HTMLInputElement).value) || 0} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">值: {$.num}</div>
-    </div>
-  )
-}
-
 const DemoFileUpload: Component = (_props, ctx) => {
   const $ = ctx.ui.$
   if (!ctx.ui.ready) { $.files = [] as File[] }
@@ -757,10 +742,6 @@ const CODE = {
 <Divider vertical />
 <Divider>或</Divider>`,
 
-  inputNumber: `<Input type="number" showStepper
-  value={$.num}
-  onInput={e => ...} />`,
-
   fileUpload: `<FileUpload accept="image/*,.pdf"
   multiple maxSize={5242880}
   value={$.files}
@@ -814,8 +795,7 @@ const App: Component = (_props, ctx) => {
 
       <Section title="表单核心">
         <DemoCard title="Button" desc="4 variants × 3 sizes + loading + block + disabled" code={CODE.button}><DemoButton /></DemoCard>
-        <DemoCard title="Input" desc="text/email/password，支持 label/error/hint/required" code={CODE.input}><DemoInput /></DemoCard>
-        <DemoCard title="InputNumber" desc="数字输入，showStepper 显示自定义步进按钮" code={CODE.inputNumber}><DemoInputNumber /></DemoCard>
+        <DemoCard title="Input" desc="text/email/password/number，支持 label/error/hint/required" code={CODE.input}><DemoInput /></DemoCard>
         <DemoCard title="Textarea" desc="多行文本，支持 rows/label/error/hint" code={CODE.textarea}><DemoTextarea /></DemoCard>
         <DemoCard title="Select" desc="下拉选择器，options/placeholder/label/error" code={CODE.select}><DemoSelect /></DemoCard>
       </Section>
