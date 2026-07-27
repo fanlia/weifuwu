@@ -19,7 +19,13 @@ export interface ModalProps {
 export const Modal: Component<ModalProps> = (props, ctx) => {
   const { open, title, onClose, children, footer } = props
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.exiting = false }
+  if (!ctx.ui.ready) { $.exiting = false; $.prevOpen = open }
+
+  // 退出过程中重新打开 → 取消退出（仅在 open 从 false→true 时触发）
+  if ($.prevOpen !== open) {
+    $.prevOpen = open
+    if (open && $.exiting) $.exiting = false
+  }
 
   // 退出动画触发（事件回调，不在 render 中写 $）
   const startClose = () => { $.exiting = true }

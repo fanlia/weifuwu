@@ -60,17 +60,18 @@ describe('Drawer', () => {
   it('handles ESC keydown → exit animation → onClose', () => {
     let closed = false
     const ctx = mockCtx()
-    // 首次渲染（open=true）
+    // 首次渲染（open=true，模拟 renderComponent 设 ready=true）
     let vnode = Drawer({ open: true, title: '编辑', onClose: () => { closed = true } }, ctx)!
+    ctx.ui.ready = true  // 模拟渲染器行为
     // ESC 触发退出
     vnode.props.onKeyDown({ key: 'Escape' } as KeyboardEvent)
-    // 退出动画播完前 onClose 不应被调
     assert.equal(closed, false)
     // 重渲染（状态已变，产生 exit 态 VNode）
     vnode = Drawer({ open: true, title: '编辑', onClose: () => { closed = true } }, ctx)!
-    // 此时 onAnimationEnd 存在
-    assert.equal(typeof vnode.props.onAnimationEnd, 'function')
-    vnode.props.onAnimationEnd()
+    // onAnimationEnd 在 panel 上
+    const panel = vnode.props.children[1]
+    assert.equal(typeof panel.props.onAnimationEnd, 'function')
+    panel.props.onAnimationEnd()
     assert.equal(closed, true)
   })
 })

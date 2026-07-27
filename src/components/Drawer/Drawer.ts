@@ -22,7 +22,13 @@ export interface DrawerProps {
 export const Drawer: Component<DrawerProps> = (props, ctx) => {
   const { open, title, position = 'right', onClose, children, footer } = props
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.exiting = false }
+  if (!ctx.ui.ready) { $.exiting = false; $.prevOpen = open }
+
+  // 退出过程中重新打开 → 取消退出（仅在 open 从 false→true 时触发）
+  if ($.prevOpen !== open) {
+    $.prevOpen = open
+    if (open && $.exiting) $.exiting = false
+  }
 
   // 退出动画触发
   const startClose = () => { $.exiting = true }
@@ -76,6 +82,7 @@ export const Drawer: Component<DrawerProps> = (props, ctx) => {
   const panel = h('div', {
     class: `wf-drawer-panel wf-drawer-panel--${position}`,
     onClick: (e: Event) => e.stopPropagation(),
+    onAnimationEnd: isClosing ? onExitEnd : undefined,
   }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
   const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}
@@ -89,7 +96,6 @@ export const Drawer: Component<DrawerProps> = (props, ctx) => {
     'aria-modal': 'true',
     'aria-label': title ?? (DL.ariaLabel ?? '侧边面板'),
     onKeyDown: handleKeyDown,
-    onAnimationEnd: isClosing ? onExitEnd : undefined,
     ref: drawerRef,
   }, [overlay, panel])
 }
