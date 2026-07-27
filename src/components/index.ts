@@ -110,3 +110,6 @@ export type { DrawerProps, DrawerPosition } from './Drawer/Drawer.ts'
 
 export { Popover } from './Popover/Popover.ts'
 export type { PopoverProps, PopoverPosition } from './Popover/Popover.ts'
+
+export { Skeleton } from './Skeleton/Skeleton.ts'
+export type { SkeletonProps, SkeletonVariant } from './Skeleton/Skeleton.ts'
