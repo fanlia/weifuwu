@@ -76,6 +76,7 @@ const DemoInput: Component = (_props, ctx) => {
       <Input label="密码" type="password" placeholder="••••••••" value={$.pwd} onInput={e => $.pwd = (e.target as HTMLInputElement).value} />
       <Input label="错误状态" error="请输入有效内容" />
       <Input label="带提示" hint="只能包含字母和数字" />
+      <Input label="颜色" type="color" value="#ff6600" onInput={e => (e.target as HTMLInputElement).value} />
     </div>
   )
 }
@@ -588,6 +589,41 @@ const DemoPopover: Component = (_props, ctx) => {
   )
 }
 
+const DemoImage: Component = () => (
+  <div class="wf-row" style="gap:16px;align-items:flex-start">
+    <Image src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
+    <Image src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
+    <Image src="/broken.jpg" fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='14'%3E加载失败%3C/text%3E%3C/svg%3E" alt="fallback" width={120} height={120} style={{ objectFit: 'cover', borderRadius: '8px' }} />
+  </div>
+)
+
+const DemoConfirm: Component = (_props, ctx) => {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.result = '' }
+
+  const handleDelete = async () => {
+    const ok = await (ctx as any).confirm?.('确定要删除这条记录吗？', {
+      title: '确认删除',
+      confirmText: '删除',
+      variant: 'danger',
+    })
+    $.result = ok ? '✅ 已删除' : '已取消'
+  }
+
+  const handleSave = async () => {
+    const ok = await (ctx as any).confirm?.('保存修改？')
+    $.result = ok ? '✅ 已保存' : '已取消'
+  }
+
+  return (
+    <div class="wf-row" style="gap:8px;align-items:center">
+      <Button variant="danger" onClick={handleDelete}>删除</Button>
+      <Button onClick={handleSave}>保存</Button>
+      {$.result && <span style="font-size:12px;color:var(--wf-color-text-secondary)">{$.result}</span>}
+    </div>
+  )
+}
+
 // ── 代码示例字符串 ─────────────────────────────────────
 
 const CODE = {
@@ -681,6 +717,16 @@ const CODE = {
 <Skeleton lines={3} />
 <Skeleton variant="circle" width={40} height={40} />
 <Skeleton variant="rect" width="100%" height={100} />`,
+
+  image: `<Image src="/photo.jpg" alt="照片" />
+<Image src="/photo.jpg" fallback="/placeholder.png" />
+<Image src="..." loading="lazy" width={200} />`,
+
+  confirm: `const ok = await ctx.confirm?.('确定删除？', {
+  confirmText: '删除',
+  variant: 'danger',
+})
+if (ok) { /* 执行 */ }`,
 
   empty: `<EmptyState icon="📦"
   text="暂无数据"
