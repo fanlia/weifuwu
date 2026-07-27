@@ -23,6 +23,7 @@ const wrappedCache = new WeakMap<object, object>()
 function wrapDeep(val: any, dirty: () => void): any {
   if (val === null || typeof val !== 'object') return val
   if (val instanceof Node) return val
+  if (typeof Blob !== 'undefined' && val instanceof Blob) return val
   if (wrappedCache.has(val)) return wrappedCache.get(val)
 
   const handler: ProxyHandler<object> = Array.isArray(val) ? {
