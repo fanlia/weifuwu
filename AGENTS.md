@@ -111,6 +111,13 @@ Every weifuwu module and script must pass these checks. Use them as a review che
 | BS-05 | **Build script runs clean before output** — `rm -rf dist` before writing | No stale artifacts from deleted source files |
 | BS-06 | **All client tests finish within 10 seconds** — `node --test 'src/test/client/**/*.test.ts'` must complete in under 10s. If it times out, there is a resource leak (unclosed timer, WebSocket, handle, or event loop blocker). | Fast feedback loop; leaked resources mask real bugs and break CI |
 
+### RDR — Render 函数规则
+
+| ID | Rule | Rationale |
+|----|------|-----------|
+| RDR-01 | **render 函数只读 `$`，不写 `$`** — 所有 `ctx.ui.$` 属性写入只能在事件回调（`onClick`/`onInput` 等）、`ref` 回调或 `if (!ctx.ui.ready)` 初始化块中进行 | `$` 的 `set` trap 每次赋值触发 `dirty()` → 重渲染。在 render 函数中写 `$` 会造成 渲染→写→重渲染→写→…… 无限循环，CPU 100% |
+| RDR-02 | **`if (!ctx.ui.ready)` 是唯一允许的 render 内状态写入点** — 在该块中初始化组件状态 | `ctx.ui.ready` 首次为 `false`，后续渲染恒为 `true`，初始化块只执行一次 |
+
 ### FS — Frontend Standards (`weifuwu/client`)
 
 | ID | Rule | Rationale |
