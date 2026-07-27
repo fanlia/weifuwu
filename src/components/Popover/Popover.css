@@ -91,6 +91,7 @@
   top: 50%;
   transform: translateY(-50%);
   padding-right: 6px;
+  flex-direction: row;
 }
 
 .wf-popover--left .wf-popover-arrow {
@@ -107,6 +108,7 @@
   top: 50%;
   transform: translateY(-50%);
   padding-left: 6px;
+  flex-direction: row;
 }
 
 .wf-popover--right .wf-popover-arrow {

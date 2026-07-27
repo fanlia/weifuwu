@@ -74,6 +74,7 @@
   top: 50%;
   transform: translateY(-50%);
   padding-right: 4px;
+  flex-direction: row;
 }
 
 .wf-tooltip--left .wf-tooltip-arrow {
@@ -87,6 +88,7 @@
   top: 50%;
   transform: translateY(-50%);
   padding-left: 4px;
+  flex-direction: row;
 }
 
 .wf-tooltip--right .wf-tooltip-arrow {
