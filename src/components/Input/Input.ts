@@ -3,7 +3,7 @@ import { h } from '../../client/vnode.ts'
 
 export interface InputProps {
   label?: string
-  type?: 'text' | 'email' | 'password' | 'number' | 'url'
+  type?: 'text' | 'email' | 'password' | 'number' | 'url' | 'date' | 'tel' | 'time'
   value?: string
   placeholder?: string
   required?: boolean
