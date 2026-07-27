@@ -17,6 +17,7 @@ import {
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
+  InView,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -597,6 +598,27 @@ const DemoImage: Component = () => (
   </div>
 )
 
+const DemoInView: Component = (_props, ctx) => {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.log = [] as string[] }
+
+  return (
+    <div class="wf-stack" style="gap:8px;width:100%">
+      <p style="font-size:var(--wf-font-size-sm);color:var(--wf-color-text-secondary)">向下滚动，下方的懒加载区域将在进入视窗后渲染👇</p>
+      <div style="height:120px;display:flex;align-items:center;justify-content:center;background:var(--wf-color-bg-secondary,#f9fafb);border-radius:8px;font-size:var(--wf-font-size-sm);color:var(--wf-color-text-tertiary)">上方留白区域，需要滚动</div>
+      <InView onEnter={() => $.log = [...$.log, '已加载']}>
+        <div style="padding:24px;background:var(--wf-color-primary-light,#e0f2fe);border-radius:8px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px">🎉</div>
+          <p style="margin:0;font-weight:var(--wf-font-weight-semibold)">懒加载内容已加载！</p>
+          <p style="font-size:12px;color:var(--wf-color-text-secondary);margin:4px 0 0">用户滚动到此区域后才渲染</p>
+        </div>
+      </InView>
+      <div style="height:160px;display:flex;align-items:center;justify-content:center;background:var(--wf-color-bg-secondary,#f9fafb);border-radius:8px;font-size:var(--wf-font-size-sm);color:var(--wf-color-text-tertiary)">底部留白区域</div>
+      {$.log.length > 0 && <div style="font-size:12px;color:var(--wf-color-text-secondary)">事件: {$.log.join(', ')}</div>}
+    </div>
+  )
+}
+
 const DemoConfirm: Component = (_props, ctx) => {
   const $ = ctx.ui.$
   if (!ctx.ui.ready) { $.result = '' }
@@ -721,6 +743,15 @@ const CODE = {
   image: `<Img src="/photo.jpg" alt="照片" />
 <Img src="/photo.jpg" fallback="/placeholder.png" />
 <Img src="..." loading="lazy" width={200} />`,
+
+  inview: `<InView>
+  <ExpensiveComponent />
+</InView>
+
+<InView once={false} rootMargin="200px"
+  onEnter={() => console.log('进入')}>
+  <img src="large.jpg" />
+</InView>`,
 
   confirm: `const ok = await ctx.confirm?.('确定删除？', {
   confirmText: '删除',
@@ -868,6 +899,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Tag" desc="标签，支持 closable/onClose" code={CODE.tag}><DemoTag /></DemoCard>
         <DemoCard title="Avatar" desc="头像（首字母/图片），3 种 size" code={CODE.avatar}><DemoAvatar /></DemoCard>
         <DemoCard title="Img" desc="图片 \<img\> 组件，支持 fallback/loading lazy" code={CODE.image}><DemoImage /></DemoCard>
+        <DemoCard title="InView" desc="进入视窗后懒加载内容，支持 IntersectionObserver" code={CODE.inview}><DemoInView /></DemoCard>
         <DemoCard title="Confirm" desc="确认对话框，Promise 化 await 调用" code={CODE.confirm}><DemoConfirm /></DemoCard>
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
       </Section>

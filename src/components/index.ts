@@ -116,3 +116,6 @@ export type { SkeletonProps, SkeletonVariant } from './Skeleton/Skeleton.ts'
 
 export { Img } from './Img/Img.ts'
 export type { ImgProps } from './Img/Img.ts'
+
+export { InView } from './InView/InView.ts'
+export type { InViewProps } from './InView/InView.ts'

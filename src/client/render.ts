@@ -277,6 +277,8 @@ export function patchValue(
     if (oldNode && oldNode.nodeType === 1) {
       patchProps(oldNode as Element, oldV.props, newV.props)
       patchChildren(oldNode, oldV, newV, ctx)
+      // 传递 _cleanup 到新 VNode，确保卸载时能调用 ref 清理函数
+      if (oldV._cleanup) newV._cleanup = oldV._cleanup
     } else if (oldNode) {
       // oldNode 不是元素节点 → 替换
       callRefCleanup(oldInput)
