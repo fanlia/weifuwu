@@ -1,0 +1,63 @@
+/* weifuwu/components — Input */
+
+.wf-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-input-label {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+}
+
+.wf-input-req {
+  color: var(--wf-color-error);
+  margin-left: 2px;
+}
+
+.wf-input {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  padding: var(--wf-space-sm) var(--wf-space);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  outline: none;
+  transition: all var(--wf-transition);
+  width: 100%;
+}
+
+.wf-input:focus {
+  border-color: var(--wf-color-primary);
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-input:disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-input::placeholder {
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-input-err {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-error);
+}
+
+.wf-input-hint {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-input--err .wf-input {
+  border-color: var(--wf-color-error);
+}
+
+.wf-input--err .wf-input:focus {
+  box-shadow: 0 0 0 2px var(--wf-color-error-bg);
+}

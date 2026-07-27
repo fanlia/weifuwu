@@ -1,0 +1,39 @@
+/* weifuwu/components — Table */
+
+.wf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+}
+
+.wf-table-thead {
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+}
+
+.wf-table-th {
+  text-align: left;
+  font-weight: var(--wf-font-weight-medium);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: var(--wf-space) var(--wf-space-sm);
+  background: var(--wf-color-bg-secondary);
+  white-space: nowrap;
+}
+
+.wf-table-td {
+  padding: var(--wf-space) var(--wf-space-sm);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  color: var(--wf-color-text);
+  font-size: var(--wf-font-size-base);
+}
+
+.wf-table-tr:last-child .wf-table-td {
+  border-bottom: none;
+}
+
+.wf-table-tr:hover .wf-table-td {
+  background: var(--wf-color-bg-tertiary);
+}

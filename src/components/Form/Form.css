@@ -1,0 +1,7 @@
+/* weifuwu/components — Form */
+
+.wf-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-md);
+}

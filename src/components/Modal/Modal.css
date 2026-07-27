@@ -1,0 +1,66 @@
+/* weifuwu/components — Modal */
+
+.wf-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--wf-cover-z);
+}
+
+.wf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: -1;
+}
+
+.wf-modal-content {
+  background: var(--wf-color-bg);
+  border-radius: var(--wf-radius-md);
+  box-shadow: var(--wf-shadow-lg);
+  min-width: 400px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+.wf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--wf-space-md) var(--wf-space-lg);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  font-size: var(--wf-font-size-lg);
+  font-weight: var(--wf-font-weight-semibold);
+}
+
+.wf-modal-close {
+  background: none;
+  border: none;
+  font-size: var(--wf-font-size-lg);
+  cursor: pointer;
+  color: var(--wf-color-text-secondary);
+  padding: 4px;
+  line-height: 1;
+}
+.wf-modal-close:hover {
+  color: var(--wf-color-text);
+}
+
+.wf-modal-body {
+  padding: var(--wf-space-lg);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.wf-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-md) var(--wf-space-lg);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
+}

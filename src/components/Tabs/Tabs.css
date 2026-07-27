@@ -1,0 +1,39 @@
+/* weifuwu/components — Tabs */
+
+.wf-tabs {
+  font-family: var(--wf-font-sans);
+}
+
+.wf-tab-list {
+  display: flex;
+  gap: 0;
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+}
+
+.wf-tab {
+  padding: var(--wf-space) var(--wf-space-md);
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all var(--wf-transition);
+  white-space: nowrap;
+}
+
+.wf-tab:hover {
+  color: var(--wf-color-text);
+}
+
+.wf-tab--active {
+  color: var(--wf-color-primary);
+  border-bottom-color: var(--wf-color-primary);
+}
+
+.wf-tab-content {
+  padding-top: var(--wf-space-md);
+}

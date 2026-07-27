@@ -1,0 +1,35 @@
+/* weifuwu/components — Badge */
+
+.wf-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--wf-space-sm);
+  border-radius: 10px;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-medium);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.wf-badge--default { background: var(--wf-color-bg-tertiary); color: var(--wf-color-text-secondary); }
+.wf-badge--primary { background: var(--wf-color-primary-bg); color: var(--wf-color-primary); }
+.wf-badge--success { background: var(--wf-color-success-bg); color: var(--wf-color-success); }
+.wf-badge--warning { background: var(--wf-color-warning-bg); color: var(--wf-color-warning); }
+.wf-badge--danger { background: var(--wf-color-error-bg); color: var(--wf-color-error); }
+.wf-badge--info { background: var(--wf-color-info-bg); color: var(--wf-color-info); }
+
+/* Dot variant */
+.wf-badge-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.wf-badge-dot--default { background: var(--wf-color-text-tertiary); }
+.wf-badge-dot--primary { background: var(--wf-color-primary); }
+.wf-badge-dot--success { background: var(--wf-color-success); }
+.wf-badge-dot--warning { background: var(--wf-color-warning); }
+.wf-badge-dot--danger { background: var(--wf-color-error); }
+.wf-badge-dot--info { background: var(--wf-color-info); }

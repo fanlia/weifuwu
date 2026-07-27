@@ -1,0 +1,62 @@
+/* weifuwu/components — Switch */
+
+.wf-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  user-select: none;
+}
+
+.wf-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.wf-switch-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background: var(--wf-color-border-dark);
+  border-radius: 10px;
+  transition: background var(--wf-transition);
+  flex-shrink: 0;
+}
+
+.wf-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform var(--wf-transition);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.wf-switch-input:checked + .wf-switch-track {
+  background: var(--wf-color-primary);
+}
+
+.wf-switch-input:checked + .wf-switch-track::after {
+  transform: translateX(16px);
+}
+
+.wf-switch-input:focus-visible + .wf-switch-track {
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-switch-input:disabled ~ * {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-switch-label {
+  color: var(--wf-color-text);
+}

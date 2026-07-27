@@ -614,6 +614,62 @@ document.documentElement.setAttribute('data-theme', 'dark')
 
 ---
 
+## 组件库 — `weifuwu/components`
+
+29 个 **HTML 原语**，覆盖 90% 的 SaaS 页面 HTML 需求。每个组件是 `(props, ctx) => VNode` 纯函数，引用 `weifuwu/layout` 的 CSS 变量做主题。
+
+```ts
+import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
+import 'weifuwu/components/style.css'
+```
+
+### 模块总览
+
+| 类别 | 组件 | 用途 |
+|------|------|------|
+| **表单核心** | `Button` `Input` `Textarea` `Select` | 4 个最常用的表单元素，支持 label/error/required |
+| **表单选择** | `Checkbox` `Switch` `RadioGroup` `Slider` | 选择类输入 |
+| **表单增强** | `Form` `Field` `SearchInput` `ProgressBar` | Form 自动 `preventDefault` |
+| **数据展示** | `Table` `Card` `Badge` `Tag` `Avatar` `StatCard` `PageHeader` | 数据展示与页面标题 |
+| **数据反馈** | `Modal` `Toast` `Alert` `Loading` `EmptyState` | Modal 含 ESC/overlay 关闭 |
+| **导航组件** | `Tabs` `Dropdown` `Pagination` `Accordion` `Steps` | Tabs 支持 active 切换 |
+
+### 状态管理说明
+
+`ctx.ui.$` 是**组件级**状态——每个组件实例有独立的 Proxy，同名变量不会冲突：
+
+```tsx
+// 组件 A
+const $ = ctx.ui.$
+$.open = true  // 只影响组件 A
+
+// 组件 B（在同一页面）
+const $ = ctx.ui.$
+$.open = false // 只影响组件 B，不影响 A
+```
+
+跨组件共享状态请使用 `ctx` 直接挂载属性（延续中间件模式）：
+
+```ts
+ctx.theme = 'dark'          // 所有组件可读
+ctx.toast?.success('成功')   // 如已注入 toast 中间件
+```
+
+### 页面模板 — `docs/pages/`
+
+| 模板 | 文件 | 用途 |
+|------|------|------|
+| **列表页** | `docs/pages/list-page.md` | 搜索 + 表格 + 分页 + 加载/空/错误状态 |
+| **表单页** | `docs/pages/form-page.md` | 表单 + 字段 + 校验 + 提交 |
+| **详情页** | `docs/pages/detail-page.md` | 信息展示 + Tabs + 操作 |
+| **设置页** | `docs/pages/settings-page.md` | 分组设置 + 独立保存 |
+| **仪表盘** | `docs/pages/dashboard-page.md` | KPI 卡片 + 图表 + 列表 |
+| **认证页** | `docs/pages/auth-page.md` | 居中卡片 + 表单 + 错误提示 |
+
+每个模板标注了「改这里」——复制代码后改 API 路径、字段定义、操作按钮即可使用。
+
+---
+
 ## 环境变量
 
 | 变量 | 用途 | 默认值 |
@@ -654,6 +710,12 @@ src/
 │       ├── api.ts
 │       ├── auth.ts
 │       └── ws.ts
+├── components/            # 29 个 HTML 原语组件
+│   ├── index.ts
+│   ├── Button/            # Button.ts + .css + .test.ts
+│   ├── Input/
+│   ├── ...
+│   └── PageHeader/
 └── layout/                # 纯 CSS 布局 + 主题
     ├── weifuwu-layout.css
     ├── _tokens.css

@@ -1,0 +1,60 @@
+/* weifuwu/components — RadioGroup */
+
+.wf-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm);
+}
+
+.wf-radio-group--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.wf-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  user-select: none;
+}
+
+.wf-radio-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.wf-radio-visual {
+  width: 16px;
+  height: 16px;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--wf-transition);
+  background: var(--wf-color-bg);
+}
+
+.wf-radio-input:checked + .wf-radio-visual {
+  border-color: var(--wf-color-primary);
+  border-width: 5px;
+}
+
+.wf-radio-input:focus-visible + .wf-radio-visual {
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-radio-input:disabled ~ * {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-radio-label-text {
+  color: var(--wf-color-text);
+}

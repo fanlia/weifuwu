@@ -5,15 +5,12 @@
  *
  * ctx.ui 在 mount 时注入：
  *   ctx.ui.render()    触发组件重渲染
- *   ctx.ui.$          持久化组件状态（由渲染器管理）
+ *   ctx.ui.$          组件级状态 Proxy（由 renderComponent 创建）
  *   ctx.ui.ready       首次执行标记（由渲染器管理）
  *
- * ctx.ui.$ 是深度 Proxy：
- *   $.x = val              → 自动渲染（顶层属性赋值）
- *   $.items.push(val)      → 自动渲染（数组突变方法）
- *   $.items[0].x = val     → 自动渲染（对象属性突变）
- *   $.items.push({x: 1})   → 新对象自动深度包装
- *   ctx.ui.dirty()         → 极少需要（仅当绕过 Proxy 直接操作底层对象）
+ * ctx.ui.$ 是组件级 Proxy（组件间隔离）：
+ *   $.x = val              → 设置当前组件状态，自动触发渲染
+ *   ctx.ui.dirty()         → 标记脏状态（仅深层突变时需要）
  */
 
 import type { WfuiContext, AppMiddleware } from './types.ts'
@@ -22,54 +19,6 @@ import type { VNode, Component } from './vnode.ts'
 
 // 用于 RouteView 布局深度追踪
 import { layoutDepth } from './router.ts'
-
-// ── 深层 Proxy 包装 ───────────────────────────────────
-
-const mutationMethods = ['push', 'pop', 'splice', 'shift', 'unshift', 'sort', 'reverse']
-const wrappedCache = new WeakMap<object, object>()
-
-function wrapDeep(val: any, dirty: () => void): any {
-  if (val === null || typeof val !== 'object') return val
-  if (val instanceof Node) return val
-  if (wrappedCache.has(val)) return wrappedCache.get(val)
-
-  let proxy: object
-  if (Array.isArray(val)) {
-    proxy = new Proxy(val, {
-      get(target, key, receiver) {
-        const v = Reflect.get(target, key, receiver)
-        if (typeof key === 'string' && mutationMethods.includes(key) && typeof v === 'function') {
-          return function (this: any, ...args: any[]) {
-            const r = v.apply(target, args)
-            dirty()
-            return r
-          }
-        }
-        return wrapDeep(v, dirty)
-      },
-      set(target, key, val) {
-        target[key as string] = wrapDeep(val, dirty)
-        dirty()
-        return true
-      },
-    })
-  } else {
-    proxy = new Proxy(val, {
-      get(_target, key, receiver) {
-        const v = Reflect.get(_target, key, receiver)
-        return wrapDeep(v, dirty)
-      },
-      set(target, key, val) {
-        target[key as string] = wrapDeep(val, dirty)
-        dirty()
-        return true
-      },
-    })
-  }
-
-  wrappedCache.set(val, proxy)
-  return proxy
-}
 
 // ── createApp ──────────────────────────────────────────
 
@@ -117,7 +66,6 @@ export function createApp() {
         })
       }
 
-      const $target: Record<string, any> = {}
       ;(ctx as any).ui = {
         render: () => {
           if (!container || !rootComponent || !oldVNode) return
@@ -133,13 +81,11 @@ export function createApp() {
         },
         /** 极少需要：仅当绕过 Proxy 直接操作底层对象时使用 */
         dirty: () => { scheduleRender() },
-        $: new Proxy($target, {
-          set(_target, key, val) {
-            _target[key as string] = wrapDeep(val, scheduleRender)
-            scheduleRender()
-            return true
-          },
-        }),
+        /**
+         * 组件级 $ — 在 renderComponent 中被覆盖为每个组件独立的 Proxy。
+         * 这里保留占位，组件实际使用 ctx.ui.$ 时拿到的是 vnode._$ 上的 Proxy。
+         */
+        $: {} as Record<string, any>,
         ready: false,
       }
 

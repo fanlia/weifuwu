@@ -17,6 +17,7 @@ await rm(distDir, { recursive: true, force: true })
 await mkdir(distDir, { recursive: true })
 await mkdir(join(distDir, 'client'), { recursive: true })
 await mkdir(join(distDir, 'layout'), { recursive: true })
+await mkdir(join(distDir, 'components'), { recursive: true })
 
 
 const external = [
@@ -51,6 +52,34 @@ await esbuild.build({
   jsxImportSource: 'weifuwu/client',
   bundle: true,
 })
+
+// 编译组件 JS
+await esbuild.build({
+  entryPoints: [join(srcDir, 'components', 'index.ts')],
+  tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/client' } },
+  outfile: join(distDir, 'components', 'index.js'),
+  format: 'esm',
+  platform: 'browser',
+  jsx: 'automatic',
+  jsxImportSource: 'weifuwu/client',
+  bundle: true,
+  external: ['weifuwu/client'],
+})
+
+// 编译组件 CSS
+const componentDirs = ['Button', 'Input', 'Textarea', 'Select', 'Checkbox', 'Switch', 'RadioGroup', 'Table', 'Modal', 'Toast', 'Alert', 'Loading', 'EmptyState', 'Tabs', 'Dropdown', 'Pagination', 'Card', 'Badge', 'Avatar', 'Tag', 'StatCard', 'Steps', 'Form', 'Field', 'Slider', 'SearchInput', 'ProgressBar', 'Accordion', 'PageHeader']
+let componentCss = ''
+for (const dir of componentDirs) {
+  const cssPath = join(srcDir, 'components', dir, `${dir}.css`)
+  try {
+    componentCss += await readFile(cssPath, 'utf-8') + '\n'
+  } catch (e) {
+    // 组件 CSS 不存在时跳过
+  }
+}
+if (componentCss) {
+  await writeFile(join(distDir, 'components', 'style.css'), componentCss)
+}
 
 // 编译 layout CSS → 单文件
 const layoutSrc = join(srcDir, 'layout')

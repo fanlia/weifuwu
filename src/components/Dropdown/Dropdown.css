@@ -1,0 +1,52 @@
+/* weifuwu/components — Dropdown */
+
+.wf-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.wf-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: var(--wf-gap-xs);
+  min-width: 140px;
+  background: var(--wf-color-bg);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  box-shadow: var(--wf-shadow-md);
+  z-index: var(--wf-pop-z);
+  padding: var(--wf-space-xs) 0;
+}
+
+.wf-dropdown--open {
+  z-index: var(--wf-cover-z);
+}
+}
+
+.wf-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  border: none;
+  background: none;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.wf-dropdown-item:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-dropdown-item:disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-dropdown-item--danger {
+  color: var(--wf-color-error);
+}

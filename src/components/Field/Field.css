@@ -1,0 +1,32 @@
+/* weifuwu/components — Field */
+
+.wf-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-field-label {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+}
+
+.wf-field-req {
+  color: var(--wf-color-error);
+  margin-left: 2px;
+}
+
+.wf-field-err {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-error);
+}
+
+.wf-field-hint {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-field--err .wf-field-label {
+  color: var(--wf-color-error);
+}

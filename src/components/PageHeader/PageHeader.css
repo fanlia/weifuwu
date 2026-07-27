@@ -1,0 +1,38 @@
+/* weifuwu/components — PageHeader */
+
+.wf-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--wf-gap-md);
+  margin-bottom: var(--wf-space-md);
+}
+
+.wf-page-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-page-title {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-2xl);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+  margin: 0;
+  line-height: var(--wf-line-height-tight);
+}
+
+.wf-page-sub {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+  margin: 0;
+}
+
+.wf-page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  flex-shrink: 0;
+}

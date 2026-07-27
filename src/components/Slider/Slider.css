@@ -1,0 +1,52 @@
+/* weifuwu/components — Slider */
+
+.wf-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-slider-label {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+}
+
+.wf-slider {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-md);
+}
+
+.wf-slider-input {
+  flex: 1;
+  height: 6px;
+  appearance: none;
+  background: var(--wf-color-border);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.wf-slider-input::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--wf-color-primary);
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.wf-slider-input:focus-visible {
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-slider-value {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+  min-width: 30px;
+  text-align: center;
+}

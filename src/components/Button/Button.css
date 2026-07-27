@@ -1,0 +1,42 @@
+/* weifuwu/components — Button */
+/* 所有颜色/间距/字号引用 layout 的 --wf-* 变量，不硬编码 */
+
+.wf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wf-gap-xs);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  border-radius: var(--wf-radius);
+  border: var(--wf-border-width) solid transparent;
+  cursor: pointer;
+  transition: all var(--wf-transition);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+}
+
+.wf-btn--primary { background: var(--wf-color-primary); color: #fff; border-color: var(--wf-color-primary); }
+.wf-btn--primary:hover { background: var(--wf-color-primary-hover); }
+
+.wf-btn--secondary { background: var(--wf-color-bg); color: var(--wf-color-text); border-color: var(--wf-color-border); }
+.wf-btn--secondary:hover { border-color: var(--wf-color-primary); color: var(--wf-color-primary); }
+
+.wf-btn--ghost { background: transparent; color: var(--wf-color-primary); border-color: transparent; }
+.wf-btn--ghost:hover { background: var(--wf-color-primary-bg); }
+
+.wf-btn--danger { background: var(--wf-color-error); color: #fff; border-color: var(--wf-color-error); }
+.wf-btn--danger:hover { opacity: 0.9; }
+
+.wf-btn--sm { padding: var(--wf-space-xs) var(--wf-space-sm); font-size: var(--wf-font-size-xs); }
+.wf-btn--lg { padding: var(--wf-space) var(--wf-space-lg); font-size: var(--wf-font-size-base); }
+
+.wf-btn--block { display: flex; width: 100%; }
+
+.wf-btn--loading { opacity: 0.7; pointer-events: none; }
+
+.wf-btn:disabled { opacity: var(--wf-opacity-disabled); cursor: not-allowed; }

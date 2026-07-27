@@ -1,0 +1,45 @@
+/* weifuwu/components — StatCard */
+
+.wf-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+  padding: var(--wf-space-md);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-surface-bg);
+  box-shadow: var(--wf-surface-shadow);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-stat-icon {
+  font-size: 24px;
+  line-height: 1;
+  margin-bottom: var(--wf-gap-xs);
+}
+
+.wf-stat-value {
+  font-size: var(--wf-font-size-3xl);
+  font-weight: var(--wf-font-weight-bold);
+  color: var(--wf-color-text);
+  line-height: 1;
+}
+
+.wf-stat-label {
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-stat-trend {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  font-size: var(--wf-font-size-xs);
+  margin-top: var(--wf-gap-xs);
+}
+
+.wf-stat-trend--up { color: var(--wf-color-success); }
+.wf-stat-trend--down { color: var(--wf-color-error); }
+
+.wf-stat-trend-arrow {
+  font-weight: var(--wf-font-weight-bold);
+}

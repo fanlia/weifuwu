@@ -1,0 +1,28 @@
+/* weifuwu/components — Card */
+
+.wf-card {
+  border-radius: var(--wf-surface-radius);
+  background: var(--wf-surface-bg);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-card--default {
+  box-shadow: var(--wf-surface-shadow);
+}
+
+.wf-card--outlined {
+  border: var(--wf-border-width) solid var(--wf-color-border);
+}
+
+.wf-card--pad-sm { padding: var(--wf-space-sm); }
+.wf-card--pad-md { padding: var(--wf-space-md); }
+.wf-card--pad-lg { padding: var(--wf-space-lg); }
+
+.wf-card--clickable {
+  cursor: pointer;
+  transition: box-shadow var(--wf-transition);
+}
+
+.wf-card--clickable:hover {
+  box-shadow: var(--wf-shadow-md);
+}

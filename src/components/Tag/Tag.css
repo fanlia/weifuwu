@@ -1,0 +1,31 @@
+/* weifuwu/components — Tag */
+
+.wf-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  padding: 2px var(--wf-space-sm);
+  border-radius: var(--wf-radius-sm);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-xs);
+  line-height: 1.5;
+}
+
+.wf-tag--default { background: var(--wf-color-bg-tertiary); color: var(--wf-color-text-secondary); }
+.wf-tag--primary { background: var(--wf-color-primary-bg); color: var(--wf-color-primary); }
+.wf-tag--success { background: var(--wf-color-success-bg); color: var(--wf-color-success); }
+.wf-tag--danger { background: var(--wf-color-error-bg); color: var(--wf-color-error); }
+
+.wf-tag-text { }
+
+.wf-tag-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.6;
+  color: inherit;
+}
+.wf-tag-close:hover { opacity: 1; }

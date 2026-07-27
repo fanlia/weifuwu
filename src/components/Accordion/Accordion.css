@@ -1,0 +1,37 @@
+/* weifuwu/components — Accordion */
+
+.wf-accordion {
+  display: flex;
+  flex-direction: column;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  overflow: hidden;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-accordion-item {
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+}
+
+.wf-accordion-item:last-child {
+  border-bottom: none;
+}
+
+.wf-accordion-summary {
+  padding: var(--wf-space) var(--wf-space-md);
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.wf-accordion-summary:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-accordion-content {
+  padding: var(--wf-space) var(--wf-space-md) var(--wf-space-md);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+}

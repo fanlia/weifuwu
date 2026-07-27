@@ -1,0 +1,53 @@
+/* weifuwu/components — SearchInput */
+
+.wf-search {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm) var(--wf-space);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+  transition: all var(--wf-transition);
+}
+
+.wf-search:focus-within {
+  border-color: var(--wf-color-primary);
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-search-icon {
+  font-size: var(--wf-font-size-sm);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.wf-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  padding: 0;
+}
+
+.wf-search-input::placeholder {
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--wf-color-text-tertiary);
+  padding: 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.wf-search-clear:hover {
+  color: var(--wf-color-text);
+}

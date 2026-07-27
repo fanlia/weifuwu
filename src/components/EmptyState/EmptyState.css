@@ -1,0 +1,36 @@
+/* weifuwu/components — EmptyState */
+
+.wf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-2xl) var(--wf-space-lg);
+  text-align: center;
+}
+
+.wf-empty-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: var(--wf-gap-xs);
+}
+
+.wf-empty-text {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-base);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-empty-hint {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-tertiary);
+  max-width: 320px;
+  line-height: var(--wf-line-height);
+}
+
+.wf-empty-action {
+  margin-top: var(--wf-gap-sm);
+}

@@ -1,0 +1,47 @@
+/* weifuwu/components — Pagination */
+
+.wf-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+}
+
+.wf-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--wf-space-xs);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  transition: all var(--wf-transition);
+}
+
+.wf-page-btn:hover:not(:disabled):not(.wf-page-btn--active) {
+  border-color: var(--wf-color-primary);
+  color: var(--wf-color-primary);
+}
+
+.wf-page-btn--active {
+  background: var(--wf-color-primary);
+  border-color: var(--wf-color-primary);
+  color: #fff;
+}
+
+.wf-page-btn--disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-page-ellipsis {
+  padding: 0 var(--wf-space-xs);
+  color: var(--wf-color-text-tertiary);
+}

@@ -15,6 +15,57 @@ import { Fragment } from './vnode.ts'
 import type { VNode, Component } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 
+// ── 深层 Proxy 包装（数组突变 + 嵌套对象属性自动 dirty）──
+
+const mutationMethods = ['push', 'pop', 'splice', 'shift', 'unshift', 'sort', 'reverse']
+const wrappedCache = new WeakMap<object, object>()
+
+function wrapDeep(val: any, dirty: () => void): any {
+  if (val === null || typeof val !== 'object') return val
+  if (val instanceof Node) return val
+  if (wrappedCache.has(val)) return wrappedCache.get(val)
+
+  const handler: ProxyHandler<object> = Array.isArray(val) ? {
+    get(target, key, receiver) {
+      const v = Reflect.get(target, key, receiver)
+      if (typeof key === 'string' && mutationMethods.includes(key) && typeof v === 'function') {
+        return function (this: any, ...args: any[]) {
+          const r = v.apply(target, args)
+          dirty()
+          return r
+        }
+      }
+      return wrapDeep(v, dirty)
+    },
+    set(target, key, v) {
+      Reflect.set(target, key, wrapDeep(v, dirty))
+      dirty()
+      return true
+    },
+  } : {
+    get(_target, key, receiver) {
+      const v = Reflect.get(_target, key, receiver)
+      return wrapDeep(v, dirty)
+    },
+    set(target, key, v) {
+      Reflect.set(target, key, wrapDeep(v, dirty))
+      dirty()
+      return true
+    },
+  }
+
+  const proxy = new Proxy(val, handler)
+  wrappedCache.set(val, proxy)
+  return proxy
+}
+
+function createComponentProxy(target: Record<string, any>, dirty: () => void): Record<string, any> {
+  return new Proxy(target, {
+    set(t, k, v) { t[k as string] = wrapDeep(v, dirty); dirty(); return true },
+    get(t, k) { return wrapDeep(t[k as string], dirty) },
+  }) as Record<string, any>
+}
+
 // ── render ─────────────────────────────────────────────
 
 export function render(input: any, ctx: WfuiContext): Node {
@@ -65,12 +116,15 @@ function renderValue(v: any, ctx: WfuiContext): Node {
 }
 
 function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiContext): Node {
-  // ctx.ui.$ 始终是 Proxy（由 app.ts 管理），不替换
-  // vnode._$ 用于状态持久化跨 render 保持引用
+  // 组件级 $ — 每个组件独立状态
+  // vnode._$ 作为组件自己的状态存储
   const prev$ = vnode._$
   if (!prev$) vnode._$ = {}
   ;(ctx as any).ui = (ctx as any).ui ?? {}
   ;(ctx as any).ui.ready = !!prev$
+  // 组件级 Proxy（深层包装：数组 push/pop 自动 dirty，嵌套对象赋值自动 dirty）
+  const _target = vnode._$!
+  ;(ctx as any).ui.$ = createComponentProxy(_target, () => (ctx as any).ui?.dirty())
 
   let childVNode
   try {
@@ -193,14 +247,17 @@ export function patchValue(
   const newV = newInput as VNode
   const oldV = oldInput as VNode
 
-  // 组件 — 传递 ctx.ui.$
+  // 组件 — 组件级 $ Proxy
   if (typeof newV.type === 'function') {
     const comp = newV.type as Component
 
-    // 传递 $ 状态（ctx.ui.$ 始终是 Proxy，不替换）
+    // 保留跨 render 的状态存储
     if (oldV._$) newV._$ = oldV._$
     ;(ctx as any).ui = (ctx as any).ui ?? {}
     ;(ctx as any).ui.ready = !!newV._$
+    // 每次重渲染都设置组件级 Proxy（深层包装）
+    const _tgt = newV._$!
+    ;(ctx as any).ui.$ = createComponentProxy(_tgt, () => (ctx as any).ui?.dirty())
 
     const childNew = comp(newV.props, ctx)
     newV._child = childNew

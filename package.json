@@ -16,7 +16,12 @@
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
     },
-    "./layout": "./dist/layout/weifuwu-layout.css"
+    "./layout": "./dist/layout/weifuwu-layout.css",
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "default": "./dist/components/index.js"
+    },
+    "./components/style.css": "./dist/components/style.css"
   },
   "files": [
     "dist/",

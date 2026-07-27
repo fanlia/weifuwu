@@ -27,6 +27,12 @@
     "src/types.ts",
     "src/client/*.ts",
     "src/client/**/*.ts",
-    "src/ui/*.ts"
+    "src/ui/*.ts",
+    "src/components/*.ts",
+    "src/components/**/*.ts",
+    "src/components/**/*.tsx"
+  ],
+  "exclude": [
+    "src/components/**/*.test.ts"
   ]
 }

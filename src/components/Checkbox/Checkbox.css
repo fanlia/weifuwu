@@ -1,0 +1,56 @@
+/* weifuwu/components — Checkbox */
+
+.wf-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  user-select: none;
+}
+
+.wf-checkbox-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.wf-checkbox-visual {
+  width: 16px;
+  height: 16px;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--wf-transition);
+  background: var(--wf-color-bg);
+}
+
+.wf-checkbox-input:checked + .wf-checkbox-visual {
+  background: var(--wf-color-primary);
+  border-color: var(--wf-color-primary);
+}
+
+.wf-checkbox-input:checked + .wf-checkbox-visual::after {
+  content: '✓';
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.wf-checkbox-input:focus-visible + .wf-checkbox-visual {
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-checkbox-input:disabled ~ * {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-checkbox-label {
+  color: var(--wf-color-text);
+}
