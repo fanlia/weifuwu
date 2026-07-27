@@ -125,7 +125,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   ;(ctx as any).ui.ready = !!prev$
   // 组件级 Proxy（深层包装：数组 push/pop 自动 dirty，嵌套对象赋值自动 dirty）
   const _target = vnode._$!
-  ;(ctx as any).ui.$ = createComponentProxy(_target, () => (ctx as any).ui?.dirty())
+  ;(ctx as any).ui.$ = createComponentProxy(_target, () => (ctx as any).ui?.dirty?.())
 
   let childVNode
   try {
@@ -258,7 +258,7 @@ export function patchValue(
     ;(ctx as any).ui.ready = !!newV._$
     // 每次重渲染都设置组件级 Proxy（深层包装）
     const _tgt = newV._$!
-    ;(ctx as any).ui.$ = createComponentProxy(_tgt, () => (ctx as any).ui?.dirty())
+    ;(ctx as any).ui.$ = createComponentProxy(_tgt, () => (ctx as any).ui?.dirty?.())
 
     const childNew = comp(newV.props, ctx)
     newV._child = childNew
@@ -318,7 +318,9 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
 
   for (const key of oldKeys) {
     if (!newKeys.includes(key)) {
-      if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+      if (key.startsWith('on') && typeof oldProps[key] === 'function') {
+        el.removeEventListener(key.slice(2).toLowerCase(), oldProps[key] as EventListener)
+      } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
         ;(el as HTMLInputElement).value = ''
       } else {
         el.removeAttribute(key === 'className' ? 'class' : key)

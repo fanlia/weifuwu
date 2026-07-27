@@ -157,19 +157,15 @@ describe('patchValue', () => {
     assert.equal(container.firstChild?.textContent, 'replaced')
   })
 
-  it('替换不同类型触发 ref(null)', () => {
+  it('替换不同类型触发 ref cleanup', () => {
     const container = document.createElement('div')
-    let refs: any[] = []
-    const v1 = jsx('span', { ref: (el: any) => refs.push(el), children: 'x' })
+    let cleaned = false
+    const v1 = jsx('span', { ref: (el: any) => { el; return () => { cleaned = true } }, children: 'x' })
     mountVNode(container, v1, ctx)
-    return new Promise(resolve => setTimeout(() => {
-      assert.equal(refs[0], container.firstChild)
-      patchValue(container, container.firstChild, v1, jsx('div', { children: 'y' }), ctx)
-      setTimeout(() => {
-        assert.ok(refs.includes(null)) // ref(null) on unmount
-        resolve(undefined)
-      }, 10)
-    }, 10))
+    assert.equal(container.firstChild?.nodeName, 'SPAN')
+    patchValue(container, container.firstChild, v1, jsx('div', { children: 'y' }), ctx)
+    assert.equal(container.firstChild?.nodeName, 'DIV')
+    assert.ok(cleaned)
   })
 
   it('新增元素（oldInput=null）', () => {
@@ -187,17 +183,14 @@ describe('patchValue', () => {
     assert.equal(container.children.length, 2)
   })
 
-  it('删除元素并触发 ref(null)', () => {
+  it('删除元素触发 ref cleanup', () => {
     const container = document.createElement('div')
-    let refs: any[] = []
-    const v = jsx('div', { ref: (el: any) => refs.push(el), children: 'x' })
+    let cleaned = false
+    const v = jsx('div', { ref: () => () => { cleaned = true }, children: 'x' })
     mountVNode(container, v, ctx)
-    return new Promise(resolve => setTimeout(() => {
-      patchValue(container, container.firstChild, v, null, ctx)
-      assert.equal(container.children.length, 0)
-      assert.ok(refs.includes(null))
-      resolve(undefined)
-    }, 10))
+    patchValue(container, container.firstChild, v, null, ctx)
+    assert.equal(container.children.length, 0)
+    assert.ok(cleaned)
   })
 
   it('newInput 和 oldInput 都为 null 返回 null', () => {
@@ -570,37 +563,25 @@ describe('ref callback', () => {
     }, 10))
   })
 
-  it('卸载时调用 ref(null)', () => {
+  it('卸载时触发 ref cleanup', () => {
     const container = document.createElement('div')
-    let refs: any[] = []
-    const v1 = jsx('div', { ref: (el: any) => refs.push(el) })
+    let cleaned = false
+    const v1 = jsx('div', { ref: () => () => { cleaned = true } })
     mountVNode(container, v1, ctx)
-    return new Promise(resolve => setTimeout(() => {
-      assert.ok(refs[0] instanceof HTMLElement)
-      const v2 = jsx('span', null)
-      patchValue(container, container.firstChild, v1, v2, ctx)
-      setTimeout(() => {
-        assert.ok(refs.includes(null))
-        resolve(undefined)
-      }, 10)
-    }, 10))
+    const v2 = jsx('span', null)
+    patchValue(container, container.firstChild, v1, v2, ctx)
+    assert.ok(cleaned)
   })
 
-  it('嵌套组件触发子节点 ref(unmount)', () => {
+  it('嵌套组件触发子节点 ref cleanup', () => {
     const container = document.createElement('div')
-    let refs: any[] = []
-    const v1 = jsx('div', { ref: (el: any) => refs.push(el), children: [jsx('span', { ref: (el: any) => refs.push(el) })] })
+    let cleaned: string[] = []
+    const v1 = jsx('div', { ref: () => () => { cleaned.push('parent') }, children: [jsx('span', { ref: () => () => { cleaned.push('child') } })] })
     mountVNode(container, v1, ctx)
-    return new Promise(resolve => setTimeout(() => {
-      assert.equal(refs.length, 2)
-      patchValue(container, container.firstChild, v1, null, ctx)
-      setTimeout(() => {
-        // 两个 ref 都收到 null
-        assert.equal(refs[2], null)
-        assert.equal(refs[3], null)
-        resolve(undefined)
-      }, 10)
-    }, 10))
+    patchValue(container, container.firstChild, v1, null, ctx)
+    assert.equal(cleaned.length, 2)
+    assert.ok(cleaned.includes('parent'))
+    assert.ok(cleaned.includes('child'))
   })
 })
 

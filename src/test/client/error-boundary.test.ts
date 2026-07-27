@@ -1,11 +1,8 @@
 /**
  * ErrorBoundary 测试
  *
- * 覆盖：
- *   - 正常渲染子组件
- *   - 有错误时显示 fallback（同步：通过预置 $.error）
- *   - 错误恢复后显示正常内容
- *   - 子组件抛错时 $.error 被设置
+ * 组件级 $ 后，组件状态存在 vnode._$ 上。
+ * 预设错误状态时，直接操作 vnode._$ 而不是 ctx.ui.$。
  */
 
 import { describe, it, before, beforeEach } from 'node:test'
@@ -38,21 +35,21 @@ describe('ErrorBoundary', () => {
   })
 
   it('有错误时显示 fallback VNode', () => {
-    const errorCtx = { ui: { render: () => {}, $: { error: new Error('test') }, ready: true, dirty: () => {} } }
     const v = jsx(ErrorBoundary, {
       fallback: jsx('p', { children: '出错了' }),
       children: jsx('span', { children: 'ok' }),
     })
-    const el = render(v, errorCtx) as HTMLElement
+    v._$ = { error: new Error('test') }
+    const el = render(v, ctx) as HTMLElement
     assert.equal(el.tagName, 'P')
     assert.equal(el.textContent, '出错了')
   })
 
   it('fallback 可以是函数', () => {
-    const errorCtx = { ui: { render: () => {}, $: { error: new Error('boom') }, ready: true, dirty: () => {} } }
     const fb = (p: any) => jsx('p', { children: p.error.message })
     const v = jsx(ErrorBoundary, { fallback: fb, children: jsx('span', null) })
-    const el = render(v, errorCtx) as HTMLElement
+    v._$ = { error: new Error('boom') }
+    const el = render(v, ctx) as HTMLElement
     assert.equal(el.tagName, 'P')
     assert.equal(el.textContent, 'boom')
   })
@@ -70,49 +67,40 @@ describe('ErrorBoundary', () => {
 
   it('错误恢复后显示正常内容', () => {
     const container = document.createElement('div')
-    const $ = { error: null }
+    const v = jsx(ErrorBoundary, {
+      fallback: () => jsx('p', { children: 'error' }),
+      children: jsx('span', { children: 'ok' }),
+    })
 
     // 有错误状态 → 显示 fallback
-    $.error = new Error('test')
-    const v1 = jsx(ErrorBoundary, {
-      fallback: () => jsx('p', { children: 'error' }),
-      children: jsx('span', { children: 'ok' }),
-    })
-    mountVNode(container, v1, { ui: { render: () => {}, $, ready: true, dirty: () => {} } })
+    v._$ = { error: new Error('test') }
+    mountVNode(container, v, ctx)
     assert.equal(container.textContent, 'error')
 
-    // 清除错误 → 显示 children
-    $.error = null
-    const v2 = jsx(ErrorBoundary, {
-      fallback: () => jsx('p', { children: 'error' }),
-      children: jsx('span', { children: 'ok' }),
-    })
-    mountVNode(container, v2, { ui: { render: () => {}, $, ready: true, dirty: () => {} } })
+    // 清除错误 → 重新渲染（patchValue 复用 vnode）
+    v._$.error = null
+    mountVNode(container, v, ctx)
     assert.equal(container.textContent, 'ok')
   })
 
   it('子组件抛错时设置 $.error', () => {
-    const $ = {} as Record<string, any>
-    const testCtx = { ui: { render: () => {}, dirty: () => {}, $, ready: false } }
-
     const Throws = () => { throw new Error('boom') }
     const v = jsx(ErrorBoundary, {
       fallback: () => jsx('p', { children: 'error' }),
       children: jsx(Throws, {}),
     })
 
-    // 首次渲染 — 子组件抛错，renderComponent catch → _errorHandler → $.error 设置
     const container = document.createElement('div')
-    mountVNode(container, v, testCtx)
-    assert.ok($.error instanceof Error)
-    assert.equal($.error.message, 'boom')
+    mountVNode(container, v, ctx)
+    // 子组件抛错后，ErrorBoundary 的 vnode._$.error 被设置
+    assert.ok(v._$?.error instanceof Error)
+    assert.equal(v._$?.error?.message, 'boom')
   })
 
   it('无 fallback 时返回空', () => {
-    const $ = { error: new Error('test') }
-    const errorCtx = { ui: { render: () => {}, $, ready: true, dirty: () => {} } }
     const v = jsx(ErrorBoundary, { children: jsx('span', null) })
-    const n = render(v, errorCtx) as Text
+    v._$ = { error: new Error('test') }
+    const n = render(v, ctx) as Text
     assert.equal(n.textContent, '')
   })
 })
