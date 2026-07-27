@@ -62,7 +62,7 @@ function wrapDeep(val: any, dirty: () => void): any {
 
 function createComponentProxy(target: Record<string, any>, dirty: () => void): Record<string, any> {
   return new Proxy(target, {
-    set(t, k, v) { t[k as string] = wrapDeep(v, dirty); dirty(); return true },
+    set(t, k, v) { if (t[k as string] === v) return true; t[k as string] = wrapDeep(v, dirty); dirty(); return true },
     get(t, k) { return wrapDeep(t[k as string], dirty) },
   }) as Record<string, any>
 }
