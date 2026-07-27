@@ -16,7 +16,7 @@ import {
   Table, Modal, Toast, Alert, Loading, EmptyState,
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
-  Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover,
+  Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -318,6 +318,21 @@ const DemoLoading: Component = (_props, ctx) => {
     </div>
   )
 }
+
+const DemoSkeleton: Component = () => (
+  <div class="wf-stack" style="gap:12px">
+    <Skeleton />
+    <Skeleton lines={3} />
+    <div class="wf-row" style="gap:12px;align-items:center">
+      <Skeleton variant="circle" width={40} height={40} />
+      <div class="wf-stack" style="gap:6px;flex:1">
+        <Skeleton width="60%" />
+        <Skeleton />
+      </div>
+    </div>
+    <Skeleton variant="rect" width="100%" height={100} />
+  </div>
+)
 
 const DemoEmptyState: Component = (_props, ctx) => {
   const $ = ctx.ui.$
@@ -677,6 +692,11 @@ const CODE = {
   loading: `<Loading />
 <Loading text="提交中..." />`,
 
+  skeleton: `<Skeleton />
+<Skeleton lines={3} />
+<Skeleton variant="circle" width={40} height={40} />
+<Skeleton variant="rect" width="100%" height={100} />`,
+
   empty: `<EmptyState icon="📦"
   text="暂无数据"
   hint="提示信息" />`,
@@ -832,6 +852,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Toast" desc="提示消息 success/error/warning/info" code={CODE.toast}><DemoToast /></DemoCard>
         <DemoCard title="Alert" desc="信息提示条，4 种 variant + closable" code={CODE.alert}><DemoAlert /></DemoCard>
         <DemoCard title="Loading" desc="加载状态，支持自定义文字" code={CODE.loading}><DemoLoading /></DemoCard>
+        <DemoCard title="Skeleton" desc="骨架屏占位，支持 text/circle/rect + 多行" code={CODE.skeleton}><DemoSkeleton /></DemoCard>
         <DemoCard title="EmptyState" desc="空状态占位，支持 icon/text/hint/action" code={CODE.empty}><DemoEmptyState /></DemoCard>
       </Section>
 
