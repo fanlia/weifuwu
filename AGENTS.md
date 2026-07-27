@@ -47,16 +47,20 @@ README is the main entry point for LLMs to understand the project. Keep it **LLM
 - **Context alignment** — frontend `WfuiContext` follows the same pattern as backend `Context`: middleware injects fields, components read from `ctx`
 - **Control flow** — plain JS ternary `{cond ? <A/> : <B/>}` for conditions, `.map()` + `key` for lists
 - **Routing** — `router()` middleware injects `ctx.route.path / params / query`, `<RouteView />` renders matched component
-- **State management** — `$.xxx = val` via Proxy auto-dirty. No Redux, no Zustand.
+- **State management** — `ctx.ui.$` is a **component-level** Proxy. Each component instance has its own `vnode._$` target. Assignment (`$.x = val`) triggers re-render only for that component. No Redux, no Zustand.
 - **Build** — esbuild with `jsxImportSource: 'weifuwu/client'`. No Vite, no webpack.
-- **Testing** — components are pure functions, test by calling `MyComponent(props, mockCtx)` and asserting on returned VNode
-- **No built-in UI components** — `weifuwu/client` ships **only primitives**: VNode/JSX runtime, Proxy proxy, middleware, routing, `ref` callback. There are no pre-built components. UI is application-specific and opinionated—shipping it in the core would create false expectations and maintenance burden. Users build their own UI from the primitives, following patterns shown in `apps/` and `examples/`.
-- **Minimal public API** — `weifuwu/client` exports **~20 symbols** (~15 runtime + ~5 types). Every export earns its place.
+- **Testing** — components are pure functions, test by calling `MyComponent(props, mockCtx)` and asserting on returned VNode. For component-level `$` state, set `vnode._$.key = val` directly.
+- **Component library (`weifuwu/components`)** — 34 HTML primitive components packaged alongside the framework. Each is `(props, ctx) => VNode`, uses `--wf-*` CSS variables for theming. Import: `import { Button, Input, Table } from 'weifuwu/components'` + `import 'weifuwu/components/style.css'`. Includes core primitives (Button/Input/Select/Checkbox/Switch/RadioGroup/Slider), data display (Table/Card/Badge/Tag/Avatar/StatCard/PageHeader), feedback (Modal/Drawer/Tooltip/Toast/Alert/Loading/EmptyState), navigation (Breadcrumb/Tabs/Dropdown/Pagination/Steps/Accordion), forms (Form/Field/FileUpload/SearchInput/ProgressBar), and layout (Divider).
+- **i18n middleware** — `i18n()` injects `ctx.i18n` with `t()`, `setLocale()`, and `components` locale overrides. Runtime language switching without page refresh. Built-in `zh-CN` and `en-US` locale packages. Import: `import { i18n } from 'weifuwu/client'`.
+- **ErrorBoundary** — catches render errors from child components, displays fallback. Uses `$.error` state and `_errorHandler` mechanism. Import: `import { ErrorBoundary } from 'weifuwu/client'`.
+- **Minimal public API** — `weifuwu/client` exports **~25 symbols**. Every export earns its place.
   - **Core**: `h`, `jsx`/`jsxs`/`jsxDEV`, `Fragment`, `createApp`
   - **Router**: `router`, `RouteView`
-  - **Middleware**: `ws`, `api`, `auth`
+  - **Middleware**: `ws`, `api`, `auth`, `i18n`
+  - **Error handling**: `ErrorBoundary`
+  - **i18n locale packages**: `zhCN`, `enUS`
   - **Utils**: `extendCtx`
-  - **Types**: `VNode`, `VNodeType`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `ApiError`, `AuthClient`
+  - **Types**: `VNode`, `VNodeType`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `ApiError`, `AuthClient`, `I18nOptions`, `I18nState`
   - **What does NOT belong in core**: reactive primitives (signal/computed/effect), control flow components (Show/For), lifecycle helpers (onMount/onCleanup), form/async data helpers. These are replaced by generic JS patterns: `$` proxy / ternary / `.map()` / `ref` / `if (!ready)`.
 
 Every weifuwu module and script must pass these checks. Use them as a review checklist for PRs and refactoring.

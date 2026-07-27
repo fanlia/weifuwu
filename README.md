@@ -22,7 +22,8 @@ npm install weifuwu
 | **redis** | `weifuwu` | Redis 客户端 → `ctx.redis` | `Router` |
 | **ui** | `weifuwu` | SSR 渲染 + 动态 JS/CSS 编译 → `ctx.ui` | `Router` |
 | **graphql** | `weifuwu` | GraphQL 端点 | `Router` |
-| **client** | `weifuwu/client` | 前端 VDOM + Proxy 框架 | — |
+| **client** | `weifuwu/client` | 前端 VDOM + Proxy 框架 + i18n + ErrorBoundary | — |
+| **components** | `weifuwu/components` | 34 个 HTML 原语组件（Button/Table/Modal/...） | `client` |
 | **layout** | `weifuwu/layout` | 纯 CSS 布局原语 + 主题 Token | — |
 
 ---
@@ -39,6 +40,7 @@ npm install weifuwu
          ctx.sql                              ctx.ws
          ctx.redis                            ctx.route
          ctx.ui                               ctx.api / ctx.auth
+                                             ctx.i18n
 ```
 
 ---
@@ -71,7 +73,7 @@ serve(app, { port: 3000 })
 
 ```tsx
 // src/main.tsx —— 前端
-import { createApp, router, RouteView } from 'weifuwu/client'
+import { createApp, router, RouteView, i18n } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
 
 function Home(_props: {}, ctx: WfuiContext) {
@@ -497,9 +499,36 @@ import { ErrorBoundary } from 'weifuwu/client'
 |------|------|
 | `extendCtx(ctx, fields)` | 创建新 ctx，继承原 ctx 的 getter |
 
+### 国际化 — `ctx.i18n`
+
+`i18n()` 中间件注入 `ctx.i18n`，支持运行时语言切换：
+
+```ts
+import { createApp, i18n } from 'weifuwu/client'
+
+createApp()
+  .use(i18n({
+    locale: 'zh-CN',
+    messages: { 'users.title': '用户管理' },
+  }))
+  .mount('#root', () => <App />)
+
+// 页面中使用
+ctx.i18n?.t('users.title')      // → '用户管理'
+
+// 运行时切换
+ctx.i18n?.setLocale('en-US')    // → 自动触发重渲染
+```
+
+内置语言包：`zh-CN`（默认）、`en-US`。组件文案（Button 的 `加载中...`、FileUpload 的 `点击或拖拽上传文件`）随语言自动切换。组件通过 `ctx.i18n?.components?.ComponentName.field` 读取，支持 `props.locale` 局部覆盖。
+
+```ts
+import { i18n, zhCN, enUS } from 'weifuwu/client'
+```
+
 ### 前端类型
 
-`VNode`, `VNodeType`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `ApiOptions`, `ApiRequestOptions`, `ApiError`, `AuthClient`, `AuthOptions`, `ErrorBoundaryProps`
+`VNode`, `VNodeType`, `Component`, `WfuiContext`, `AppMiddleware`, `RouteDef`, `ApiClient`, `ApiOptions`, `ApiRequestOptions`, `ApiError`, `AuthClient`, `AuthOptions`, `ErrorBoundaryProps`, `I18nOptions`, `I18nState`, `LocalePackage`
 
 ---
 
@@ -627,16 +656,18 @@ import 'weifuwu/components/style.css'
 
 | 类别 | 组件 | 用途 |
 |------|------|------|
-| **表单核心** | `Button` `Input` `Textarea` `Select` | 4 个最常用的表单元素，支持 label/error/required |
+| **表单核心** | `Button` `Input` `Textarea` `Select` | 4 个最常用的表单元素 |
+| **表单核心** | `InputNumber` | 数字输入，带自定义步进按钮 (`showStepper`) |
 | **表单选择** | `Checkbox` `Switch` `RadioGroup` `Slider` | 选择类输入 |
-| **表单增强** | `Form` `Field` `SearchInput` `ProgressBar` | Form 自动 `preventDefault` |
+| **表单增强** | `Form` `Field` `FileUpload` `SearchInput` `ProgressBar` | 文件上传、搜索、进度 |
 | **数据展示** | `Table` `Card` `Badge` `Tag` `Avatar` `StatCard` `PageHeader` | 数据展示与页面标题 |
-| **数据反馈** | `Modal` `Toast` `Alert` `Loading` `EmptyState` | Modal 含 ESC/overlay 关闭 |
-| **导航组件** | `Tabs` `Dropdown` `Pagination` `Accordion` `Steps` | Tabs 支持 active 切换 |
+| **数据反馈** | `Modal` `Drawer` `Tooltip` `Toast` `Alert` `Loading` `EmptyState` | 弹窗、抽屉、提示 |
+| **导航组件** | `Breadcrumb` `Tabs` `Dropdown` `Pagination` `Steps` `Accordion` | 面包屑、标签页、分页 |
+| **布局** | `Divider` | 分割线 (水平/垂直/带文字) |
 
 ### 状态管理说明
 
-`ctx.ui.$` 是**组件级**状态——每个组件实例有独立的 Proxy，同名变量不会冲突：
+`ctx.ui.$` 是**组件级**状态——每个组件实例有独立的 Proxy（基于 `vnode._$`），同名变量不会冲突：
 
 ```tsx
 // 组件 A
@@ -665,8 +696,9 @@ ctx.toast?.success('成功')   // 如已注入 toast 中间件
 | **设置页** | `docs/pages/settings-page.md` | 分组设置 + 独立保存 |
 | **仪表盘** | `docs/pages/dashboard-page.md` | KPI 卡片 + 图表 + 列表 |
 | **认证页** | `docs/pages/auth-page.md` | 居中卡片 + 表单 + 错误提示 |
+| **应用壳** | `docs/pages/app-layout.md` | 侧边栏 + 导航菜单 + 认证守卫 |
 
-每个模板标注了「改这里」——复制代码后改 API 路径、字段定义、操作按钮即可使用。
+每个模板标注了「改这里」——复制代码后改 API 路径、字段定义、操作按钮、导航项即可使用。
 
 ---
 
