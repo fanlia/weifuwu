@@ -107,3 +107,6 @@ export type { TooltipProps, TooltipPosition } from './Tooltip/Tooltip.ts'
 
 export { Drawer } from './Drawer/Drawer.ts'
 export type { DrawerProps, DrawerPosition } from './Drawer/Drawer.ts'
+
+export { Popover } from './Popover/Popover.ts'
+export type { PopoverProps, PopoverPosition } from './Popover/Popover.ts'
