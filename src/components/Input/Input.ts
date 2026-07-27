@@ -16,8 +16,10 @@ export interface InputProps {
   onChange?: (e: Event) => void
 }
 
-export const Input: Component<InputProps> = (props, _ctx) => {
+export const Input: Component<InputProps> = (props, ctx) => {
   const { label, type = 'text', value, placeholder, required, disabled, error, hint, showStepper, onInput, onChange } = props
+
+  const NL = type === 'number' && showStepper ? (ctx as any)?.i18n?.components?.InputNumber ?? {} : {}
 
   const inputEl = type === 'number' && showStepper
     ? h('div', { class: 'wf-input-number-wrap' }, [
@@ -34,7 +36,7 @@ export const Input: Component<InputProps> = (props, _ctx) => {
         h('div', { class: 'wf-input-number-stepper' }, [
           h('button', {
             class: 'wf-input-number-step',
-            'aria-label': '增加',
+            'aria-label': NL.increase ?? '增加',
             disabled: disabled || undefined,
             onClick: (e: MouseEvent) => {
               const input = (e.currentTarget as HTMLElement).parentElement!.previousElementSibling as HTMLInputElement
@@ -48,7 +50,7 @@ export const Input: Component<InputProps> = (props, _ctx) => {
           }, '▲'),
           h('button', {
             class: 'wf-input-number-step',
-            'aria-label': '减少',
+            'aria-label': NL.decrease ?? '减少',
             disabled: disabled || undefined,
             onClick: (e: MouseEvent) => {
               const input = (e.currentTarget as HTMLElement).parentElement!.previousElementSibling as HTMLInputElement

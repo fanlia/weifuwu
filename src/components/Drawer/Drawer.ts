@@ -49,11 +49,12 @@ export const Drawer: Component<DrawerProps> = (props, ctx) => {
     onClick: (e: Event) => e.stopPropagation(),
   }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
+  const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}
   return h('div', {
     class: `wf-drawer wf-drawer--${position}`,
     role: 'dialog',
     'aria-modal': 'true',
-    'aria-label': title ?? '侧边面板',
+    'aria-label': title ?? (DL.ariaLabel ?? '侧边面板'),
     onKeyDown: handleKeyDown,
   }, [overlay, panel])
 }

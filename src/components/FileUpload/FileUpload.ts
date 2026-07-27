@@ -20,8 +20,9 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
-export const FileUpload: Component<FileUploadProps> = (props, _ctx) => {
+export const FileUpload: Component<FileUploadProps> = (props, ctx) => {
   const { accept, multiple, maxSize, disabled, error, hint, value, onChange, children } = props
+  const FL = (ctx as any)?.i18n?.components?.FileUpload ?? {}
   const files = value ?? []
   let dragOver = false
 
@@ -81,9 +82,9 @@ export const FileUpload: Component<FileUploadProps> = (props, _ctx) => {
     onDragLeave: handleDragLeave,
   }, children ?? h('div', { class: 'wf-upload-placeholder' }, [
     h('span', { class: 'wf-upload-icon' }, '📁'),
-    h('span', { class: 'wf-upload-text' }, `${multiple ? '点击或拖拽上传文件' : '点击或拖拽上传文件'}`),
-    accept ? h('span', { class: 'wf-upload-hint' }, `支持格式: ${accept}`) : null,
-    maxSize ? h('span', { class: 'wf-upload-hint' }, `最大 ${formatSize(maxSize)}`) : null,
+    h('span', { class: 'wf-upload-text' }, FL.placeholder ?? '点击或拖拽上传文件'),
+    accept ? h('span', { class: 'wf-upload-hint' }, `${FL.supportedFormats ?? '支持格式: '}${accept}`) : null,
+    maxSize ? h('span', { class: 'wf-upload-hint' }, `${FL.maxSize ?? '最大 '}${formatSize(maxSize)}`) : null,
   ].filter(Boolean)))
 
   const fileList = files.length > 0
@@ -96,7 +97,7 @@ export const FileUpload: Component<FileUploadProps> = (props, _ctx) => {
             ]),
             h('button', {
               class: 'wf-upload-item-remove',
-              'aria-label': `删除 ${f.name}`,
+              'aria-label': `${FL.remove ?? '删除'} ${f.name}`,
               onClick: () => handleRemove(i),
             }, '✕')
           )

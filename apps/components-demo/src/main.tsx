@@ -7,7 +7,7 @@
  * 启动: node apps/components-demo/server.ts
  */
 
-import { createApp } from 'weifuwu/client'
+import { createApp, i18n } from 'weifuwu/client'
 import type { WfuiContext, Component } from 'weifuwu/client'
 import {
   Button, Input, Textarea, Select,
@@ -742,11 +742,18 @@ const CODE = {
 // ── 主应用 ─────────────────────────────────────────────
 
 const App: Component = (_props, ctx) => {
+  const cur = (ctx as any)?.i18n?.locale ?? 'zh-CN'
+
   return (
     <div class="wf-stack" style="gap:32px">
-      <div style="text-align:center;padding:var(--wf-space-2xl) 0">
-        <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">weifuwu/components</h1>
-        <p style="color:var(--wf-color-text-secondary)">34 个 HTML 原语 · 纯函数 (props, ctx) {'>'} VNode · 即插即用</p>
+      <div style="text-align:center;padding:var(--wf-space-xl) 0">
+        {/* 语言切换 */}
+        <div style="position:absolute;top:16px;right:16px;display:flex;gap:8px">
+          <Button size="sm" variant={cur.startsWith('zh') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('zh-CN')}>中文</Button>
+          <Button size="sm" variant={cur.startsWith('en') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('en')}>EN</Button>
+        </div>
+        <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
+        <p style="color:var(--wf-color-text-secondary)">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
           <Badge variant="primary">34 组件</Badge>
           <Badge variant="success">178 测试</Badge>
@@ -810,10 +817,16 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <div style="text-align:center;padding:var(--wf-space-xl) 0;color:var(--wf-color-text-tertiary);font-size:var(--wf-font-size-sm)">
-        weifuwu/components · 全部 34 个组件 · 打开 devtools 查看代码
+        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 34 个组件 · 打开 devtools 查看代码'}
       </div>
     </div>
   )
 }
 
-createApp().mount('#root', App)
+createApp()
+  .use(i18n({ locale: 'zh-CN', messages: {
+    'app.title': 'weifuwu/components',
+    'app.desc': '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',
+    'app.footer': 'weifuwu/components · 全部 34 个组件 · 打开 devtools 查看代码',
+  } }))
+  .mount('#root', App)

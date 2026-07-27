@@ -11,7 +11,7 @@ export interface BreadcrumbProps {
   items: BreadcrumbItem[]
 }
 
-export const Breadcrumb: Component<BreadcrumbProps> = (props, _ctx) => {
+export const Breadcrumb: Component<BreadcrumbProps> = (props, ctx) => {
   const { items } = props
 
   const children = items.flatMap((item, i) => {
@@ -26,5 +26,6 @@ export const Breadcrumb: Component<BreadcrumbProps> = (props, _ctx) => {
     return [el, h('span', { class: 'wf-breadcrumb-sep', 'aria-hidden': 'true' }, '/')]
   })
 
-  return h('nav', { class: 'wf-breadcrumb', 'aria-label': '面包屑' }, children)
+  const BL = (ctx as any)?.i18n?.components?.Breadcrumb ?? {}
+  return h('nav', { class: 'wf-breadcrumb', 'aria-label': BL.ariaLabel ?? '面包屑' }, children)
 }

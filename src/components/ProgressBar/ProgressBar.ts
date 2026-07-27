@@ -9,18 +9,19 @@ export interface ProgressBarProps {
   showValue?: boolean
 }
 
-export const ProgressBar: Component<ProgressBarProps> = (props, _ctx) => {
+export const ProgressBar: Component<ProgressBarProps> = (props, ctx) => {
   const { value = 0, max = 100, label, showValue } = props
 
   const pct = Math.min(100, Math.max(0, (value / max) * 100))
 
+  const PBL = (ctx as any)?.i18n?.components?.ProgressBar ?? {}
   const bar = h('div', {
     class: 'wf-progress',
     role: 'progressbar',
     'aria-valuenow': Math.round(value),
     'aria-valuemin': 0,
     'aria-valuemax': Math.round(max),
-    'aria-label': label ?? '进度',
+    'aria-label': label ?? (PBL.ariaLabel ?? '进度'),
   }, [
     h('div', {
       class: 'wf-progress-fill',

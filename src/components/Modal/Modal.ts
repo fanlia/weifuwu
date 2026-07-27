@@ -46,11 +46,12 @@ export const Modal: Component<ModalProps> = (props, ctx) => {
     onClick: (e: Event) => e.stopPropagation(),
   }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
+  const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
   return h('div', {
     class: 'wf-modal',
     role: 'dialog',
     'aria-modal': 'true',
-    'aria-label': title ?? '弹窗',
+    'aria-label': title ?? (ML.ariaLabel ?? '弹窗'),
     onKeyDown: handleKeyDown,
   }, [overlay, content])
 }

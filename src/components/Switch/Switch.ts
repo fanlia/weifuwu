@@ -9,7 +9,7 @@ export interface SwitchProps {
   onChange?: (checked: boolean) => void
 }
 
-export const Switch: Component<SwitchProps> = (props, _ctx) => {
+export const Switch: Component<SwitchProps> = (props, ctx) => {
   const { label, checked, disabled, onChange } = props
 
   const input = h('input', {
@@ -24,7 +24,8 @@ export const Switch: Component<SwitchProps> = (props, _ctx) => {
 
   const track = h('span', { class: 'wf-switch-track' })
 
-  if (!label) return h('label', { class: 'wf-switch', 'aria-label': '切换' }, [input, track])
+  const SL = (ctx as any)?.i18n?.components?.Switch ?? {}
+  if (!label) return h('label', { class: 'wf-switch', 'aria-label': SL.ariaLabel ?? '切换' }, [input, track])
 
   return h('label', { class: 'wf-switch' }, [
     input,

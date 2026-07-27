@@ -13,7 +13,7 @@ export interface ButtonProps {
   children?: any
 }
 
-export const Button: Component<ButtonProps> = (props, _ctx) => {
+export const Button: Component<ButtonProps> = (props, ctx) => {
   const { variant = 'primary', size = 'md', block, loading, disabled, type, onClick, children } = props
   const cls = [
     'wf-btn',
@@ -23,11 +23,13 @@ export const Button: Component<ButtonProps> = (props, _ctx) => {
     loading && 'wf-btn--loading',
   ].filter(Boolean).join(' ')
 
+  const L = (ctx as any)?.i18n?.components?.Button ?? {}
+
   return h('button', {
     class: cls,
     type: type ?? 'button',
     disabled: disabled || loading || undefined,
     'aria-busy': loading || undefined,
     onClick,
-  }, loading ? '加载中...' : children)
+  }, loading ? (L.loading ?? '加载中...') : children)
 }
