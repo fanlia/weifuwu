@@ -7,6 +7,9 @@ import * as assert from 'node:assert'
 import { Popover } from './Popover.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+import { mountVNode, patchValue } from '../../client/render.ts'
+import { setupJsdom } from '../../test/client/setup.ts'
+setupJsdom()
 
 function createMockCtx(): WfuiContext {
   return {
@@ -91,5 +94,70 @@ describe('Popover', () => {
     const children = vnode.props?.children ?? []
     const trigger = children.find((c: any) => c?.props?.class === 'wf-popover-trigger')
     assert.ok(typeof trigger?.props?.onClick === 'function')
+  })
+
+  // ── 通过渲染管道测试 ──────────────────────────────
+  // VNode → mountVNode → DOM，验证遮罩层在 DOM 中存在
+
+  it('mount 后 DOM 中存在 overlay', () => {
+    const ctx = createMockCtx()
+    const container = document.createElement('div')
+    const vnode = Popover({ content: 'hello', open: true }, ctx)
+    mountVNode(container, vnode, ctx)
+
+    const wrap = container.querySelector('.wf-popover-wrap')
+    assert.ok(wrap, 'wrap 元素应存在')
+
+    const children = wrap!.children
+    const classes = Array.from(children).map(c => c.className)
+    console.log('DOM children classes:', classes)
+
+    const hasOverlay = wrap!.querySelector('.wf-popover-overlay')
+    const hasPanel = wrap!.querySelector('.wf-popover')
+    assert.ok(hasOverlay, 'mount 后 DOM 中应有 .wf-popover-overlay')
+    assert.ok(hasPanel, 'mount 后 DOM 中应有 .wf-popover')
+  })
+
+  it('点击 trigger 后 DOM 中出现 overlay', () => {
+    const ctx = createMockCtx()
+    const container = document.createElement('div')
+    const vnode = Popover({ content: 'hello' }, ctx)  // open=false
+    mountVNode(container, vnode, ctx)
+
+    // 初始状态：无 overlay
+    assert.ok(!container.querySelector('.wf-popover-overlay'))
+    assert.ok(!container.querySelector('.wf-popover'))
+
+    // 模拟点击 trigger（VNode 外直接更换 VNode 模拟状态变化）
+    const vnodeOpen = Popover({ content: 'hello', open: true }, ctx)
+    const wrap = container.querySelector('.wf-popover-wrap')!
+    patchValue(container, wrap, vnode, vnodeOpen, ctx)
+
+    const hasOverlay = container.querySelector('.wf-popover-overlay')
+    const hasPanel = container.querySelector('.wf-popover')
+    console.log('after patch: overlay=', !!hasOverlay, 'panel=', !!hasPanel)
+    assert.ok(hasOverlay, 'patch 后 DOM 中应有 .wf-popover-overlay')
+    assert.ok(hasPanel, 'patch 后 DOM 中应有 .wf-popover')
+  })
+
+  it('通过 patchValue 模拟 open → close 状态切换', () => {
+    const ctx = createMockCtx()
+    const container = document.createElement('div')
+
+    const v1 = h(Popover, { content: 'hello' })
+    mountVNode(container, v1, ctx)
+    assert.ok(!container.querySelector('.wf-popover-overlay'))
+
+    const v2 = h(Popover, { content: 'hello', open: true })
+    const wrap = container.querySelector('.wf-popover-wrap')!
+    patchValue(container, wrap, v1, v2, ctx)
+    assert.ok(container.querySelector('.wf-popover-overlay'), 'open=true → overlay 应出现')
+    assert.ok(container.querySelector('.wf-popover'), 'open=true → panel 应出现')
+
+    // 关闭
+    const v3 = h(Popover, { content: 'hello', open: false })
+    patchValue(container, wrap, v2, v3, ctx)
+    assert.ok(!container.querySelector('.wf-popover-overlay'), 'open=false → overlay 应消失')
+    assert.ok(!container.querySelector('.wf-popover'), 'open=false → panel 应消失')
   })
 })

@@ -395,6 +395,17 @@ function normalize(children: any): any[] {
 }
 
 function patchSimpleChildren(parent: Node, oldChildren: any[], newChildren: any[], ctx: WfuiContext) {
+  // Phase 1: 删除多余的旧节点（逆序，防止 childNodes 索引偏移）
+  for (let i = oldChildren.length - 1; i >= newChildren.length; i--) {
+    const oldChild = oldChildren[i]
+    const node = parent.childNodes[i]
+    if (node) {
+      callRefCleanup(oldChild)
+      node.remove()
+    }
+  }
+
+  // Phase 2: 更新/追加剩余节点
   const max = Math.max(oldChildren.length, newChildren.length)
   for (let i = 0; i < max; i++) {
     const oldChild = oldChildren[i]
@@ -404,12 +415,7 @@ function patchSimpleChildren(parent: Node, oldChildren: any[], newChildren: any[
     if (oldChild === undefined && newChild !== undefined) {
       const node = renderValue(newChild, ctx)
       parent.appendChild(node)
-    } else if (newChild === undefined) {
-      if (existingNode) {
-        callRefCleanup(oldChild)
-        existingNode.remove()
-      }
-    } else {
+    } else if (oldChild !== undefined && newChild !== undefined) {
       patchValue(parent, existingNode, oldChild, newChild, ctx)
     }
   }
