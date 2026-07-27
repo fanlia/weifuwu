@@ -113,3 +113,6 @@ export type { PopoverProps, PopoverPosition } from './Popover/Popover.ts'
 
 export { Skeleton } from './Skeleton/Skeleton.ts'
 export type { SkeletonProps, SkeletonVariant } from './Skeleton/Skeleton.ts'
+
+export { Image } from './Image/Image.ts'
+export type { ImageProps } from './Image/Image.ts'

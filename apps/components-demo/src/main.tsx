@@ -821,6 +821,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Badge" desc="状态标签 + 圆点，6 种 variant" code={CODE.badge}><DemoBadge /></DemoCard>
         <DemoCard title="Tag" desc="标签，支持 closable/onClose" code={CODE.tag}><DemoTag /></DemoCard>
         <DemoCard title="Avatar" desc="头像（首字母/图片），3 种 size" code={CODE.avatar}><DemoAvatar /></DemoCard>
+        <DemoCard title="Image" desc="图片组件，支持 fallback/loading lazy" code={CODE.image}><DemoImage /></DemoCard>
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
       </Section>
 
