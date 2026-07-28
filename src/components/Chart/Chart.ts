@@ -22,14 +22,12 @@ export interface ChartProps {
   data: DataPoint[]
   options?: ChartOptions
   title?: string
-  /** 面积图（折线图模式下） */
   area?: boolean
-  /** 甜甜圈内径比例（饼图模式下），默认 0.5 */
-  innerRadius?: number
+  className?: string
 }
 
 export const Chart: Component<ChartProps> = (props, ctx) => {
-  const { type = 'line', data, options = {}, title, area } = props
+  const { type = 'line', data, options = {}, title, area, className } = props
   const $ = ctx.ui.$
   if (!ctx.ui.ready) { $.tooltip = null as { x: number; y: number; label: string; value: number } | null }
 
@@ -206,7 +204,7 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
     h('div', { class: 'wf-chart-tooltip-value' }, String($.tooltip.value)),
   ]) : null
 
-  return h('div', { class: 'wf-chart' }, [
+  return h('div', { class: `wf-chart${className ? ' ' + className : ''}` }, [
     title ? h('div', { class: 'wf-chart-title' }, title) : null,
     chartContent,
     legend,

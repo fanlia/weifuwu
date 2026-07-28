@@ -46,6 +46,11 @@
 
 /* ── Tooltip ── */
 
+.wf-chart--center {
+  flex: none;
+  align-self: center;
+}
+
 .wf-chart-tooltip {
   position: fixed;
   z-index: var(--wf-cover-z, 1000);
