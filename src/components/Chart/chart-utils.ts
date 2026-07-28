@@ -140,8 +140,8 @@ export function donutArcs(data: DataPoint[], cx: number, cy: number, radius: num
       label: d.label,
       value: d.value,
       centroid: {
-        x: cx + Math.cos(midAngle) * (radius + innerRadius) / 2 * 0.9,
-        y: cy + Math.sin(midAngle) * (radius + innerRadius) / 2 * 0.9,
+        x: cx + Math.cos(midAngle) * radius * 0.78,
+        y: cy + Math.sin(midAngle) * radius * 0.78,
       },
     }
   })
