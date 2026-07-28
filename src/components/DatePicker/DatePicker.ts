@@ -25,7 +25,8 @@ export interface DatePickerProps {
 }
 
 export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
-  const { mode = 'date', value, onChange, placeholder = '选择日期', disabled } = props
+  const L = (ctx as any)?.i18n?.components?.DatePicker ?? {}
+  const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled } = props
   const $ = ctx.ui.$
   if (!ctx.ui.ready) {
     $.show = false
@@ -106,7 +107,7 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
   }
 
   const grid = getCalendarGrid($.viewYear, $.viewMonth)
-  const weekdays = getWeekdays()
+  const weekdays = [L.w0, L.w1, L.w2, L.w3, L.w4, L.w5, L.w6].some(v => v) ? [L.w0, L.w1, L.w2, L.w3, L.w4, L.w5, L.w6] : getWeekdays()
 
   const headerBtn = (label: string, onClick: () => void) =>
     h('button', { class: 'wf-datepicker-header-btn', type: 'button', onClick }, label)
@@ -172,7 +173,7 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
       }, [
         h('div', { class: 'wf-time-body' }, [
           h('div', { class: 'wf-time-col' }, [
-            h('div', { class: 'wf-time-col-label' }, '时'),
+            h('div', { class: 'wf-time-col-label' }, L.hour ?? '时'),
             h('div', { class: 'wf-time-opt-list' },
               hours.map(hv => h('button', {
                 class: `wf-time-opt${hv === $.hour ? ' wf-time-opt--selected' : ''}`,
@@ -181,7 +182,7 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
               }, String(hv).padStart(2, '0')))),
           ]),
           h('div', { class: 'wf-time-col' }, [
-            h('div', { class: 'wf-time-col-label' }, '分'),
+            h('div', { class: 'wf-time-col-label' }, L.minute ?? '分'),
             h('div', { class: 'wf-time-opt-list' },
               minutes.map(mv => h('button', {
                 class: `wf-time-opt${mv === $.minute ? ' wf-time-opt--selected' : ''}`,
@@ -191,8 +192,8 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
           ]),
         ]),
         h('div', { class: 'wf-time-footer' }, [
-          h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: () => setOpen(false) }, '取消'),
-          h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: confirmTime }, '确定'),
+          h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: () => setOpen(false) }, L.cancel ?? '取消'),
+          h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: confirmTime }, L.confirm ?? '确定'),
         ]),
       ])
       panel = [overlay, timePanel]
@@ -245,7 +246,7 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
       const content: any[] = [calendarPanel]
       if (mode === 'datetime') {
         content.push(h('div', { class: 'wf-datetime-time' }, [
-          h('span', { class: 'wf-datetime-time-label' }, '时间：'),
+          h('span', { class: 'wf-datetime-time-label' }, (L.time ?? '时间') + '：'),
           h('div', { class: 'wf-datetime-time-select' }, [
             h('select', {
               class: 'wf-datetime-select',
@@ -261,7 +262,7 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
           ]),
         ]))
         content.push(h('div', { class: 'wf-time-footer' }, [
-          h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: confirmDateTime }, '确定'),
+          h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: confirmDateTime }, L.confirm ?? '确定'),
         ]))
       }
       const dp = h('div', {

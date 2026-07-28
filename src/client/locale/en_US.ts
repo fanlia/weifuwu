@@ -17,5 +17,14 @@ export const enUS = {
     Breadcrumb: { ariaLabel: 'Breadcrumb' },
     Modal: { ariaLabel: 'Dialog' },
     Drawer: { ariaLabel: 'Panel' },
+    DatePicker: {
+      w0: 'Su', w1: 'Mo', w2: 'Tu', w3: 'We', w4: 'Th', w5: 'Fr', w6: 'Sa',
+      hour: 'Hour',
+      minute: 'Min',
+      time: 'Time',
+      confirm: 'OK',
+      cancel: 'Cancel',
+      placeholder: 'Pick a date',
+    },
   },
 }

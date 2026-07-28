@@ -17,5 +17,14 @@ export const zhCN = {
     Breadcrumb: { ariaLabel: '面包屑' },
     Modal: { ariaLabel: '弹窗' },
     Drawer: { ariaLabel: '侧边面板' },
+    DatePicker: {
+      w0: '日', w1: '一', w2: '二', w3: '三', w4: '四', w5: '五', w6: '六',
+      hour: '时',
+      minute: '分',
+      time: '时间',
+      confirm: '确定',
+      cancel: '取消',
+      placeholder: '选择日期',
+    },
   },
 }
