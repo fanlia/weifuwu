@@ -129,6 +129,11 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
         if (mode === 'range') {
           if (dateStr === $.rangeStart || dateStr === $.rangeEnd) classes.push('wf-datepicker-cell--range-edge')
           else if ($.rangeStart && $.rangeEnd && dateStr > $.rangeStart && dateStr < $.rangeEnd) classes.push('wf-datepicker-cell--in-range')
+        } else if (mode === 'datetime') {
+          if ($.selYear === cell.year && $.selMonth === cell.month && $.selDay === cell.day) classes.push('wf-datepicker-cell--selected')
+        } else {
+          // date 模式
+          if (dateStr === $.selectedValue) classes.push('wf-datepicker-cell--selected')
         }
         return h('button', {
           class: classes.join(' '),
