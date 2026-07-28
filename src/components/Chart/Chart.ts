@@ -99,7 +99,7 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
       }),
       // X 轴标签
       ...data.map((d, i) => {
-        const x = scaleLinear([0, Math.max(1, data.length - 1)], [0, cw])(i) + pad
+        const x = xScale(i) + pad
         return h('text', {
           key: `xlabel-${i}`,
           x, y: H - pad + 14,
