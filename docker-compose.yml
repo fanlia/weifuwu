@@ -25,23 +25,5 @@ services:
       timeout: 3s
       retries: 5
 
-  app:
-    build:
-      context: .
-      dockerfile: apps/agent-platform/Dockerfile
-    ports:
-      - '3000:3000'
-    environment:
-      DATABASE_URL: postgres://root:123456@postgres:5432/demo
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-org-dev-secret-key-2024}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
 volumes:
   pgdata:
