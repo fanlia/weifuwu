@@ -47,7 +47,8 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
   // ── 渲染函数 ──────────────────────────────────────
 
   const renderLine = () => {
-    const xScale = scaleLinear([0, Math.max(1, data.length - 1)], [0, cw])
+    const n = Math.max(1, data.length - 1)
+    const xScale = scaleLinear([-0.5, n + 0.5], [0, cw])
     const yScale = scaleLinear([minVal, maxVal], [ch, 0])
     const ticks = getYTicks(yScale)
 
@@ -112,7 +113,8 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
   }
 
   const renderBar = () => {
-    const xScale = scaleLinear([0, Math.max(1, data.length - 1)], [0, cw])
+    const n = Math.max(1, data.length - 1)
+    const xScale = scaleLinear([-0.5, n + 0.5], [0, cw])
     const yScale = scaleLinear([minVal, maxVal], [ch, 0])
     const ticks = getYTicks(yScale)
     const rects = barRects(data, xScale, yScale)
