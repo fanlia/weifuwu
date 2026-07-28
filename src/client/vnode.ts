@@ -21,6 +21,8 @@ export interface VNode {
   _child?: any
   /** ref 回调返回的清理函数，卸载时由框架调用 */
   _cleanup?: (() => void) | undefined
+  /** Portal 子容器 DOM */
+  _portalEl?: HTMLDivElement | undefined
 }
 
 export type Component<P = {}> = (props: P, ctx: WfuiContext) => VNode | null

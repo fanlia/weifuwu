@@ -11,7 +11,7 @@
  *   - ctx.ui.ready 首次执行标记
  */
 
-import { Fragment } from './vnode.ts'
+import { Fragment, Portal, isPortal } from './vnode.ts'
 import type { VNode, Component } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 
@@ -80,6 +80,11 @@ function renderValue(v: any, ctx: WfuiContext): Node {
   if (Array.isArray(v)) return renderArray(v, ctx)
 
   const vnode = v as VNode
+
+  // Portal — 渲染到 document.body#__wf_portal
+  if (vnode.type === Portal) {
+    return renderPortal(vnode, ctx)
+  }
 
   // Fragment
   if (vnode.type === Fragment) {
@@ -158,6 +163,54 @@ function renderArray(arr: any[], ctx: WfuiContext): DocumentFragment {
   const frag = document.createDocumentFragment()
   for (const item of arr) frag.appendChild(renderValue(item, ctx))
   return frag
+}
+
+// ── Portal ────────────────────────────────────────────
+
+/** 获取/创建全局 Portal 容器（document.body 下） */
+function ensurePortalContainer(): HTMLDivElement {
+  let c = document.getElementById('__wf_portal') as HTMLDivElement | null
+  if (!c) {
+    c = document.createElement('div')
+    c.id = '__wf_portal'
+    c.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999'
+    document.body.appendChild(c)
+  }
+  return c
+}
+
+/** 首次渲染 Portal：创建子容器、渲染子节点、返回占位文本节点 */
+function renderPortal(vnode: VNode, ctx: WfuiContext): Node {
+  const container = ensurePortalContainer()
+  const sub = document.createElement('div')
+  sub.style.pointerEvents = 'auto'
+  container.appendChild(sub)
+  vnode._portalEl = sub
+
+  const children = normalize(vnode.props?.children)
+  vnode._child = children
+  for (const child of children) {
+    sub.appendChild(renderValue(child, ctx))
+  }
+
+  // 占位节点（父级树中的锚点）
+  const placeholder = document.createTextNode('')
+  vnode.el = placeholder
+  return placeholder
+}
+
+/** 更新 Portal：复用子容器，patch 子节点 */
+function patchPortal(_parent: Node, oldNode: Node | null, oldV: VNode, newV: VNode, ctx: WfuiContext): Node {
+  const sub = oldV._portalEl
+  newV._portalEl = sub
+  if (!sub) return renderPortal(newV, ctx)
+
+  const newChildren = normalize(newV.props?.children)
+  const oldChildren = oldV._child || []
+  newV._child = newChildren
+
+  patchSimpleChildren(sub, oldChildren, newChildren, ctx)
+  return oldNode ?? document.createTextNode('')
 }
 
 function forEach(children: any, fn: (child: any) => void) {
@@ -297,6 +350,11 @@ export function patchValue(
     return oldNode
   }
 
+  // Portal
+  if (newV.type === Portal) {
+    return patchPortal(parent, oldNode, oldV as VNode, newV as VNode, ctx)
+  }
+
   // Array（map 结果等）
   if (Array.isArray(newInput)) {
     const oldArr = Array.isArray(oldInput) ? oldInput : []
@@ -316,6 +374,7 @@ function typeOf(input: any): string {
   const v = input as VNode
   if (typeof v.type === 'function') return `fn:${v.type.name || 'anon'}`
   if (v.type === Fragment) return 'fragment'
+  if (v.type === Portal) return 'portal'
   if (typeof v.type === 'string') return 'tag:' + v.type
   return 'unknown'
 }
@@ -512,10 +571,15 @@ function runRefCleanup(vnode: VNode) {
   })
 }
 
-/** 通知 ref 清理：调用 ref 回调返回的清理函数 */
+/** 通知 ref 清理：调用 ref 回调返回的清理函数 + Portal 子容器清理 */
 function callRefCleanup(input: any) {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode
+  // Portal 子容器移除
+  if (vnode._portalEl) {
+    vnode._portalEl.remove()
+    vnode._portalEl = undefined
+  }
   if (vnode._cleanup) runRefCleanup(vnode)
 }
 

@@ -16,7 +16,7 @@
  *   WfuiContext / AppMiddleware / RouteDef → 类型
  */
 
-export { h, jsx, jsxs, jsxDEV, Fragment } from './vnode.ts'
+export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts'
 export type { VNode, VNodeType, Component } from './vnode.ts'
 
 export { createApp } from './app.ts'
