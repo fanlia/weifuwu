@@ -8,7 +8,6 @@
 import type { Component, VNode } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
-import { computeFixedPos } from '../../client/popup.ts'
 import {
   getCalendarGrid, getWeekdays, formatDate, formatTime, formatDateTime,
   hourOptions, minuteOptions, getDaysInMonth,
@@ -42,10 +41,12 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
 
   const isOpen = $.show
   const setOpen = (v: boolean) => { $.show = v }
-  const toggle = () => {
+  const toggle = (e: Event) => {
     if (disabled) return
-    const inp = $._inputRef
-    if (inp && !$.show) $._pos = computeFixedPos(inp, 'bottom', 4, true)
+    if (!$.show) {
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      $._pos = { top: r.bottom + 4, left: r.left, width: r.width }
+    }
     setOpen(!$.show)
   }
 
@@ -260,7 +261,7 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
       readonly: true,
       disabled,
       onClick: toggle,
-      ref: (el: HTMLElement | null) => { $._inputRef = el },
+
     }),
     portalContent,
   ].filter(Boolean))
