@@ -26,13 +26,14 @@ export const Tooltip: Component<TooltipProps> = (props, ctx) => {
 
   const p = $._pos ?? { top: 0, left: 0 }
 
-  const tip = $.show && !disabled ? h('div', {
-    class: `wf-tooltip wf-tooltip--${position}`,
+  // 始终渲染 portal，通过 visibility 切换显隐，避免条件渲染的创建/销毁延迟
+  const tip = !disabled ? h('div', {
+    class: `wf-tooltip wf-tooltip--${position}${$.show ? '' : ' wf-tooltip--hidden'}`,
     style: { top: p.top, left: p.left },
     role: 'tooltip',
   }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)]) : null
 
-  const portalContent = $.show && !disabled ? createPortal(tip, 'tooltip') : null
+  const portalContent = !disabled ? createPortal(tip, 'tooltip') : null
 
   return h('div', {
     class: 'wf-tooltip-wrap',

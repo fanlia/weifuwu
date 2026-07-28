@@ -17,21 +17,20 @@ describe('Tooltip', () => {
     assert.equal(vnode.props.children[0], '按钮')
   })
 
-  it('does not show tooltip when $.show is false', () => {
+  it('tooltip hidden when $.show is false', () => {
     const vnode = Tooltip({ content: '保存', children: '按钮' }, mockCtx(false))!
-    const children = vnode.props.children
-    assert.equal(children.length, 1)
-    assert.equal(children[0], '按钮')
+    const portal = vnode.props.children[1]
+    const tip = inner(portal)
+    assert.match(tip.props.class, /wf-tooltip--hidden/)
   })
 
-  it('shows tooltip when $.show is true', () => {
+  it('tooltip visible when $.show is true', () => {
     const vnode = Tooltip({ content: '保存', children: '按钮' }, mockCtx(true))!
-    const children = vnode.props.children
-    assert.equal(children.length, 2)
-    const portal = children[1]
+    const portal = vnode.props.children[1]
     assert.equal(portal.type, Portal)
     const tip = inner(portal)
     assert.match(tip.props.class, /wf-tooltip/)
+    assert.ok(!/wf-tooltip--hidden/.test(tip.props.class))
     assert.equal(tip.props.role, 'tooltip')
     const content = tip.props.children[1]
     assert.equal(content.props.children, '保存')
@@ -46,7 +45,7 @@ describe('Tooltip', () => {
     }
   })
 
-  it('does not show when disabled even if $.show is true', () => {
+  it('does not render portal when disabled', () => {
     const vnode = Tooltip({ content: '提示', children: 'x', disabled: true }, mockCtx(true))!
     assert.equal(vnode.props.children.length, 1)
   })

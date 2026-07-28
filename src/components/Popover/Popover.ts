@@ -49,7 +49,8 @@ export const Popover: Component<PopoverProps> = (props, ctx) => {
 
   const p = $._pos ?? { top: 0, left: 0 }
 
-  const overlay = isOpen ? h('div', {
+  // overlay 只在 click 模式使用（hover 模式靠 mouseleave 关闭，overlay 会阻挡事件）
+  const overlay = isOpen && trigger === 'click' ? h('div', {
     class: 'wf-popover-overlay',
     onMouseDown: () => setOpen(false),
   }) : null
