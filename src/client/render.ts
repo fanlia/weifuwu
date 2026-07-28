@@ -240,7 +240,11 @@ function setProp(el: Element, key: string, value: any) {
   if (key === 'class' || key === 'className') {
     el.className = String(value ?? '')
   } else if (key === 'style' && typeof value === 'object' && value !== null) {
-    Object.assign((el as HTMLElement).style, value)
+    const st = (el as HTMLElement).style
+    for (const sk of Object.keys(value)) {
+      const sv = value[sk]
+      if (sv != null) st[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+    }
   } else if (key.startsWith('on') && typeof value === 'function') {
     el.addEventListener(key.slice(2).toLowerCase(), value as EventListener)
   } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
@@ -404,7 +408,11 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
       if (key === 'class' || key === 'className') {
         el.className = String(newVal ?? '')
       } else if (key === 'style' && typeof newVal === 'object') {
-        Object.assign((el as HTMLElement).style, newVal)
+        const st = (el as HTMLElement).style
+        for (const sk of Object.keys(newVal)) {
+          const sv = newVal[sk]
+          if (sv != null) st[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+        }
       } else if (key.startsWith('on') && typeof newVal === 'function') {
         const eventName = key.slice(2).toLowerCase()
         // 移除旧监听器，防止累积
