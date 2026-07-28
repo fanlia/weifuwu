@@ -65,16 +65,16 @@
   left: 100%;
   top: 50%;
   transform: translateY(-50%);
-  border-right-color: var(--wf-color-text);
-  border-left: none;
+  border-left-color: var(--wf-color-text);
+  border-right: none;
 }
 
 .wf-tooltip--right .wf-tooltip-arrow {
   left: -5px;
   top: 50%;
   transform: translateY(-50%);
-  border-left-color: var(--wf-color-text);
-  border-right: none;
+  border-right-color: var(--wf-color-text);
+  border-left: none;
 }
 
 .wf-tooltip-content {
