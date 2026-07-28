@@ -151,18 +151,10 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   const _dirtyFn = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
   ;(ctx as any).ui.$ = createComponentProxy(_target, _dirtyFn)
 
-  // ctx.ui.on — 生命周期注册
-  if (!_target._hooks) {
-    _target._hooks = { mount: [], unmount: [], update: [] }
-    ;(ctx as any).ui.on = (event: string, handler: Function) => {
-      const hooks = _target._hooks[event]
-      if (hooks) hooks.push(handler)
-    }
-  } else {
-    ;(ctx as any).ui.on = (event: string, handler: Function) => {
-      const hooks = _target._hooks[event]
-      if (hooks) hooks.push(handler)
-    }
+  // ctx.ui.on — 生命周期注册（替换模式，每个事件保留最新 handler）
+  _target._hooks = { mount: [], unmount: [], update: [] }
+  ;(ctx as any).ui.on = (event: string, handler: Function) => {
+    if (_target._hooks[event]) _target._hooks[event] = [handler]
   }
 
   let childVNode
@@ -193,7 +185,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   // mount hooks：首次渲染时触发
   if (!prev$) {
     const mh = _target._hooks?.mount
-    if (mh) for (const fn of mh) fn()
+    if (mh && mh[0]) mh[0]()
   }
 
   if (childVNode == null) {
@@ -374,14 +366,14 @@ export function patchValue(
     if (_tgt._hooks) {
       ;(ctx as any).ui.on = (event: string, handler: Function) => {
         const hooks = _tgt._hooks[event]
-        if (hooks) hooks.push(handler)
+        if (hooks) { hooks.length = 0; hooks.push(handler) }
       }
     }
 
     // update hooks：props 变化时触发
     if (oldV._$) {
       const uh = _tgt._hooks?.update
-      if (uh) for (const fn of uh) fn(oldV.props)
+      if (uh && uh[0]) uh[0](oldV.props)
     }
 
     _renderCount++
@@ -680,7 +672,7 @@ function callRefCleanup(input: any) {
   }
   // 执行组件 unmount 钩子
   if (vnode._$ && vnode._$._hooks?.unmount) {
-    for (const fn of vnode._$._hooks.unmount) fn()
+    vnode._$._hooks.unmount[0]?.()
     vnode._$._hooks.unmount = []
   }
   // Portal 子容器移除 + 子内容 ref 清理

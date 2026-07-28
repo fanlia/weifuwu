@@ -32,8 +32,9 @@ const Button = (props: { label: string }, ctx) =>
 const Toggle = (props, ctx) => {
   const $ = ctx.ui.$
   // mount 阶段初始化（两阶段模型中在外层直接写）
+  if ($.on === undefined) $.on = false
 
-  ctx.ui.on('unmount', () => cleanup())
+  ctx.ui.on('unmount', () => cleanup())  // 每次 render 替换，只保留最新
 
   return h('button', {
     onClick: () => $.on = !$.on
@@ -122,6 +123,9 @@ ctx.ui.on('unmount', () => { ... })     // 组件移除前清理
 ctx.ui.on('update', (prevProps) => {})  // props 变化时触发
 ```
 
+- 每个事件类型只保留最后一次注册的 handler（替换模式）
+  - 单函数模式：每次 render 替换，unmount 时只执行最新的清理
+  - 两阶段模式：mount 阶段注册一次，持久生效
 - `mount` 触发时 DOM 还未创建，第三方库初始化仍用 `ref`
 
 ## ref 管理第三方库
