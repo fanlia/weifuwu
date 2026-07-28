@@ -180,13 +180,16 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
           }, `${Math.round(a.value / data.reduce((s, d) => s + Math.abs(d.value), 0) * 100)}%`)]
           : []),
       ])),
-      // 中心文字（甜甜圈）
-      ...(isDonut ? [h('text', {
-        x: cx, y: cy + 4,
-        'text-anchor': 'middle', fill: '#374151',
-        'font-size': '20', 'font-weight': 'bold',
-        'font-family': 'var(--wf-font-sans)',
-      }, String(data.reduce((s, d) => s + d.value, 0)))] : []),
+      // 中心文字（甜甜圈）— 白色圆底防覆盖
+      ...(isDonut ? [
+        h('circle', { cx, cy, r: ir * 0.85, fill: '#fff' }),
+        h('text', {
+          x: cx, y: cy + 4,
+          'text-anchor': 'middle', fill: '#374151',
+          'font-size': '20', 'font-weight': 'bold',
+          'font-family': 'var(--wf-font-sans)',
+        }, String(data.reduce((s, d) => s + d.value, 0))),
+      ] : []),
     ])
   }
 
