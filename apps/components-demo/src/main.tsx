@@ -666,11 +666,8 @@ const DemoChart: Component = () => {
       <div style="width:340px">
         <Chart type="bar" data={sales} title="月销售额(柱状)" options={{width:320,height:180}} />
       </div>
-      <div style="width:220px">
+      <div style="width:100%;display:flex;justify-content:center">
         <Chart type="pie" data={pieData} options={{width:200,height:200}} />
-      </div>
-      <div style="width:220px">
-
       </div>
     </div>
   )
