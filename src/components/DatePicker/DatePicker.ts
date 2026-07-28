@@ -58,7 +58,8 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     // ── 位置追踪 ──────────────────────────────────────
     const panelRef = (el: HTMLElement | null) => {
       if (!el || typeof window === 'undefined') return
-      const onMove = () => { $.vShow = ($.vShow || 0) + 1 }
+      let _tick = false
+      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; $.vShow = ($.vShow || 0) + 1 }) } }
       window.addEventListener('scroll', onMove, true)
       window.addEventListener('resize', onMove)
       return () => {

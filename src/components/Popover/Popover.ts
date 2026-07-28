@@ -56,7 +56,8 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
     // ── scroll/resize 追踪 ──────────────────────────
     const panelRef = (el: HTMLElement | null) => {
       if (!el || typeof window === 'undefined') return
-      const onMove = () => { $.vShow = ($.vShow || 0) + 1 }
+      let _tick = false
+      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; $.vShow = ($.vShow || 0) + 1 }) } }
       window.addEventListener('scroll', onMove, true)
       window.addEventListener('resize', onMove)
       return () => {
