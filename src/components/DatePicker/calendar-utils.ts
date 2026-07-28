@@ -68,18 +68,21 @@ export function getCalendarGrid(year: number, month: number): CalendarDay[][] {
     }
   }
 
-  // 下个月的补位日期
+  // 补位到 6 行（42 格），保证日历高度一致
   const nextMonth = month === 11 ? 0 : month + 1
   const nextYear = month === 11 ? year + 1 : year
   let nextDay = 1
-  while (row.length < 7) {
-    row.push({
-      year: nextYear, month: nextMonth, day: nextDay++,
-      isOtherMonth: true,
-      isToday: nextYear === today.getFullYear() && nextMonth === today.getMonth() && (nextDay - 1) === today.getDate(),
-    })
+  while (days.length < 6) {
+    while (row.length < 7) {
+      row.push({
+        year: nextYear, month: nextMonth, day: nextDay++,
+        isOtherMonth: true,
+        isToday: nextYear === today.getFullYear() && nextMonth === today.getMonth() && (nextDay - 1) === today.getDate(),
+      })
+    }
+    days.push(row)
+    row = []
   }
-  days.push(row)
 
   return days
 }

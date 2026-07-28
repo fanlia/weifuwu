@@ -17,7 +17,7 @@ import {
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
-  InView,
+  InView, DatePicker,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -619,6 +619,26 @@ const DemoInView: Component = (_props, ctx) => {
   )
 }
 
+const DemoDatePicker: Component = (_props, ctx) => {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.result = '' }
+
+  return (
+    <div class="wf-row" style="gap:12px;flex-wrap:wrap;width:100%">
+      <div style="width:220px">
+        <DatePicker mode="date" onChange={v => $.result = v} placeholder="选择日期" />
+      </div>
+      <div style="width:220px">
+        <DatePicker mode="datetime" onChange={v => $.result = v} placeholder="日期+时间" />
+      </div>
+      <div style="width:180px">
+        <DatePicker mode="time" onChange={v => $.result = v} placeholder="选择时间" />
+      </div>
+      {$.result && <div style="font-size:12px;color:var(--wf-color-text-secondary);width:100%">已选: {$.result}</div>}
+    </div>
+  )
+}
+
 const DemoConfirm: Component = (_props, ctx) => {
   const $ = ctx.ui.$
   if (!ctx.ui.ready) { $.result = '' }
@@ -835,6 +855,11 @@ if (ok) { /* 执行 */ }`,
   <p>内容</p>
 </Drawer>`,
 
+  datepicker: `<DatePicker mode="date" placeholder="选择日期" onChange={v => ...} />
+<DatePicker mode="datetime" placeholder="日期+时间" />
+<DatePicker mode="time" placeholder="选择时间" />
+<DatePicker mode="range" placeholder="日期范围" />`,
+
   popover: `<Popover content={<div>面板内容</div>}>
   <Button>点击弹出</Button>
 </Popover>
@@ -864,7 +889,7 @@ const App: Component = (_props, ctx) => {
         <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p style="color:var(--wf-color-text-secondary)">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
-          <Badge variant="primary">34 组件</Badge>
+          <Badge variant="primary">35 组件</Badge>
           <Badge variant="success">178 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
@@ -905,6 +930,7 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <Section title="数据反馈">
+        <DemoCard title="DatePicker" desc="日期选择器，支持 date/datetime/time/range 四种模式" code={CODE.datepicker}><DemoDatePicker /></DemoCard>
         <DemoCard title="Modal" desc="弹窗，ESC + overlay 关闭" code={CODE.modal}><DemoModal /></DemoCard>
         <DemoCard title="Drawer" desc="侧边面板，左右滑入 + ESC 关闭" code={CODE.drawer}><DemoDrawer /></DemoCard>
         <DemoCard title="Popover" desc="通用弹出层，click/hover 触发，4 方向" code={CODE.popover}><DemoPopover /></DemoCard>
