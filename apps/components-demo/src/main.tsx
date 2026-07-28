@@ -251,18 +251,15 @@ const DemoProgress: Component = (_props, ctx) => {
   const $ = ctx.ui.$
   if ($.pct === undefined) $.pct = 45
 
-  ctx.ui.onmount(() => {
-    const tick = () => {
-      if ($.pct < 100) {
-        $.pct = Math.min(100, $.pct + 5)
-        setTimeout(tick, 800)
-      }
-    }
-    setTimeout(tick, 800)
-  })
-
+  let started = false
   return (_p: any) => {
-  return (
+    if (!started) {
+      started = true
+      setTimeout(() => {
+        if ($.pct < 100) $.pct = Math.min(100, $.pct + 5)
+      }, 800)
+    }
+    return (
     <div class="wf-stack" style="gap:12px;width:100%">
       <ProgressBar value={$.pct} label="模拟进度" showValue />
       <ProgressBar value={100} label="已完成" showValue />
@@ -360,12 +357,13 @@ const DemoLoading: Component = (_props, ctx) => {
   const $ = ctx.ui.$
   if ($.loading === undefined) $.loading = true
 
-  ctx.ui.onmount(() => {
-    setTimeout(() => $.loading = false, 3000)
-  })
-
+  let started = false
   return (_p: any) => {
-  return (
+    if (!started) {
+      started = true
+      setTimeout(() => $.loading = false, 3000)
+    }
+    return (
     <div class="wf-row" style="gap:16px">
       {$.loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成 ✅</Alert>}
     </div>
