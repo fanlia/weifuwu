@@ -660,8 +660,8 @@ const DemoChart: Component = () => {
 
   return (
     <div class="wf-row" style="--wf-gap:16px">
-      <div class="wf-fill" style="min-width:300px"><Chart type="line" data={sales} title="月销售额" /></div>
-      <div class="wf-fill" style="min-width:300px"><Chart type="bar" data={sales} title="月销售额(柱状)" /></div>
+      <div class="wf-fill" style="min-width:300px;text-align:center"><Chart type="line" data={sales} title="月销售额" /></div>
+      <div class="wf-fill" style="min-width:300px;text-align:center"><Chart type="bar" data={sales} title="月销售额(柱状)" /></div>
       <div class="wf-cluster" style="width:100%"><Chart type="pie" data={pieData} /></div>
     </div>
   )
