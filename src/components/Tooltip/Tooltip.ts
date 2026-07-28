@@ -33,26 +33,12 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
     }
     const hide = () => { $.show = false }
 
-    // ── scroll/resize 追踪 ─────────────────────────────
-    const tipRef = (el: HTMLElement | null) => {
-      if (!el || typeof window === 'undefined') return
-      let _tick = false
-      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; ctx.ui.dirty() }) } }
-      window.addEventListener('scroll', onMove, true)
-      window.addEventListener('resize', onMove)
-      return () => {
-        window.removeEventListener('scroll', onMove, true)
-        window.removeEventListener('resize', onMove)
-      }
-    }
-
     const p = $.pos
 
     const tip = !disabled ? h('div', {
       class: `wf-tooltip wf-tooltip--${position}${$.show ? '' : ' wf-tooltip--hidden'}`,
       style: { top: p.top, left: p.left },
       role: 'tooltip',
-      ref: tipRef,
     }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)]) : null
 
     const portalContent = !disabled ? createPortal(tip, 'tooltip') : null

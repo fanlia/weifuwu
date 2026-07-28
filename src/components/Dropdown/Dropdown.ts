@@ -37,19 +37,6 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
       return { top: r.bottom + 4, left: r.left }
     })()
 
-    // ── scroll/resize 追踪 ─────────────────────────────
-    const menuRef = (el: HTMLElement | null) => {
-      if (!el || typeof window === 'undefined') return
-      let _tick = false
-      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; ctx.ui.dirty() }) } }
-      window.addEventListener('scroll', onMove, true)
-      window.addEventListener('resize', onMove)
-      return () => {
-        window.removeEventListener('scroll', onMove, true)
-        window.removeEventListener('resize', onMove)
-      }
-    }
-
     const menuItems = items.map((item, i) =>
       h('button', {
         class: `wf-dropdown-item${item.variant === 'danger' ? ' wf-dropdown-item--danger' : ''}`,
@@ -61,7 +48,6 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     const menu = open ? h('div', {
       class: 'wf-dropdown-menu', role: 'menu',
       style: { top: pos.top, left: pos.left },
-      ref: menuRef,
     }, menuItems) : null
 
     const portalContent = open ? createPortal(menu, 'dropdown') : null

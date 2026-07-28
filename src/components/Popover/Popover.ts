@@ -53,19 +53,6 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
       hoverProps.onBlur = () => setOpen(false)
     }
 
-    // ── scroll/resize 追踪 ──────────────────────────
-    const panelRef = (el: HTMLElement | null) => {
-      if (!el || typeof window === 'undefined') return
-      let _tick = false
-      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; ctx.ui.dirty() }) } }
-      window.addEventListener('scroll', onMove, true)
-      window.addEventListener('resize', onMove)
-      return () => {
-        window.removeEventListener('scroll', onMove, true)
-        window.removeEventListener('resize', onMove)
-      }
-    }
-
     const p = $.pos
 
     // ── VNode ────────────────────────────────────────
@@ -79,7 +66,6 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
       style: { top: p.top, left: p.left },
       role: 'dialog', 'aria-modal': 'true', 'aria-label': '弹出面板',
       onMouseDown: (e: Event) => e.stopPropagation(),
-      ref: panelRef,
     }, [h('div', { class: 'wf-popover-arrow' }), h('div', { class: 'wf-popover-content' }, content)]) : null
 
     const portalContent = isOpen ? createPortal([overlay, panel], 'popover') : null

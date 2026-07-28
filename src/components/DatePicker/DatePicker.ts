@@ -55,19 +55,6 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
       setOpen(!$.show)
     }
 
-    // ── 位置追踪 ──────────────────────────────────────
-    const panelRef = (el: HTMLElement | null) => {
-      if (!el || typeof window === 'undefined') return
-      let _tick = false
-      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; ctx.ui.dirty() }) } }
-      window.addEventListener('scroll', onMove, true)
-      window.addEventListener('resize', onMove)
-      return () => {
-        window.removeEventListener('scroll', onMove, true)
-        window.removeEventListener('resize', onMove)
-      }
-    }
-
     const pos: { top: number; left: number; width?: number } = (() => {
       if (!isOpen) return { top: 0, left: 0 }
       if (!inputEl) return { top: 0, left: 0 }
@@ -177,7 +164,6 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const timePanel = h('div', {
           style: { top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-time-picker', role: 'dialog',
-          ref: panelRef,
           onKeyDown: handleKeyDown,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, [
@@ -215,7 +201,6 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const rangeWrap = h('div', {
           style: { top: pos.top, left: pos.left },
           class: 'wf-datepicker-range-wrap',
-          ref: panelRef,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, [
           h('div', { class: 'wf-datepicker-range-panel' }, [
@@ -277,7 +262,6 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const dp = h('div', {
           style: { top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-datepicker-dropdown', role: 'dialog',
-          ref: panelRef,
           onKeyDown: handleKeyDown,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, content)
