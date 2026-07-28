@@ -162,15 +162,14 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   try {
     childVNode = Comp(props, ctx)
 
-    if (typeof childVNode === 'function') {
-      // 新风格：返回 render 函数
-      vnode._render = childVNode
-      childVNode = childVNode(props)
-    } else {
-      // 兼容旧风格：返回 VNode，包装为每次重新调用组件
-      const comp = Comp
-      vnode._render = (p: any) => comp(p, ctx) as VNode | null
+    if (typeof childVNode !== 'function') {
+      throw new Error(
+        `Component ${Comp.name || 'anonymous'} must return a render function. ` +
+        `Use (init_props, ctx) => (props) => VNode pattern.`
+      )
     }
+    vnode._render = childVNode
+    childVNode = childVNode(props)
 
     // mount hooks：首次渲染时触发（在 renderCount 保护内）
     if (!prev$) {
@@ -380,12 +379,7 @@ export function patchValue(
     }
     let childNew
     try {
-      if (newV._render) {
-        // 两阶段组件：调用 render 函数
-        childNew = newV._render(newV.props)
-      } else {
-        childNew = comp(newV.props, ctx)
-      }
+      childNew = newV._render!(newV.props)
     } finally { _renderCount-- }
     newV._child = childNew
 

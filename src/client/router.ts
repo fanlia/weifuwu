@@ -129,24 +129,24 @@ export function router(opts: RouterOptions): AppMiddleware {
   }
 }
 
-export function RouteView(_props: {}, ctx: WfuiContext): any {
-  const route = (ctx as any).route
-  if (!route?.chain?.length) return null
+export function RouteView(_props: {}, ctx: WfuiContext) {
+  return (): any => {
+    const route = (ctx as any).route
+    if (!route?.chain?.length) return null
 
-  const ctxAny = ctx as any
-  // 使用 WeakMap 存 layout 深度，不污染 ctx
-  const depth = layoutDepth.get(ctxAny) ?? 0
+    const ctxAny = ctx as any
+    const depth = layoutDepth.get(ctxAny) ?? 0
 
-  if (depth >= route.chain.length) return null
+    if (depth >= route.chain.length) return null
 
-  const def = route.chain[depth]
-  const Comp = def.layout ?? def.component
-  if (!Comp) return null
+    const def = route.chain[depth]
+    const Comp = def.layout ?? def.component
+    if (!Comp) return null
 
-  // 如果是 layout，深度+1
-  if (def.layout) {
-    layoutDepth.set(ctxAny, depth + 1)
+    if (def.layout) {
+      layoutDepth.set(ctxAny, depth + 1)
+    }
+
+    return { type: Comp, props: {}, key: undefined }
   }
-
-  return { type: Comp, props: {}, key: undefined }
 }

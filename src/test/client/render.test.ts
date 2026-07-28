@@ -41,7 +41,7 @@ describe('render', () => {
   })
 
   it('渲染组件', () => {
-    const Cmp = (props: any) => jsx('p', { children: props.name })
+    const Cmp = (_: any) => (props: any) => jsx('p', { children: props.name })
     const el = render(jsx(Cmp, { name: 'Alice' }), ctx) as HTMLElement
     assert.equal(el.tagName, 'P')
     assert.equal(el.textContent, 'Alice')
@@ -111,7 +111,7 @@ describe('render', () => {
   })
 
   it('组件返回 null 渲染空文本', () => {
-    const NullCmp = () => null
+    const NullCmp = (_: any) => () => null
     const n = render(jsx(NullCmp, {}), ctx) as Text
     assert.equal(n.textContent, '')
   })
@@ -333,7 +333,7 @@ describe('component patchValue', () => {
     const Cmp = (_: any, c: WfuiContext) => {
       const $ = c.ui!.$
       if ($.val === undefined) $.val = 1
-      return jsx('span', { children: String($.val + count) })
+      return () => jsx('span', { children: String($.val + count) })
     }
 
     const v1 = jsx(Cmp, {})
@@ -348,11 +348,12 @@ describe('component patchValue', () => {
 
   it('组件重渲染更新 props', () => {
     const container = document.createElement('div')
-    const Cmp = (props: any, c: WfuiContext) => {
+    const Cmp = (_props: any, c: WfuiContext) => {
       const $ = c.ui!.$
-      // ready removed, mount initializes
-      $.sum = ($.sum || 0) + props.x
-      return jsx('span', { children: String($.sum) })
+      return (props: any) => {
+        $.sum = ($.sum || 0) + props.x
+        return jsx('span', { children: String($.sum) })
+      }
     }
 
     const v1 = jsx(Cmp, { x: 1 })
@@ -369,7 +370,7 @@ describe('component patchValue', () => {
     let execCount = 0
     const Cmp = (_: any, c: WfuiContext) => {
       execCount++
-      return jsx('span', { children: 'x' })
+      return () => jsx('span', { children: 'x' })
     }
     const v1 = jsx(Cmp, {})
     mountVNode(container, v1, ctx)
@@ -378,13 +379,13 @@ describe('component patchValue', () => {
     const v2 = jsx(Cmp, {})
     patchValue(container, container.firstChild, v1, v2, ctx)
     // 组件每次重新执行（因为 ctx.ui.$ 可能变了）
-    assert.equal(execCount, 2)
+    assert.equal(execCount, 1, 'mount 只执行一次，render 函数执行不计数')
   })
 
   it('组件第一次返回 null，第二次返回元素', () => {
     const container = document.createElement('div')
     let first = true
-    const Cmp = () => first ? null : jsx('span', { children: 'ok' })
+    const Cmp = (_: any) => () => first ? null : jsx('span', { children: 'ok' })
     const v1 = jsx(Cmp, {})
     mountVNode(container, v1, ctx)
     assert.equal(container.textContent, '') // null → 空文本
@@ -455,7 +456,7 @@ describe('Array patchValue', () => {
 describe('keyed children diff', () => {
   it('按 key 重新排序', () => {
     const container = document.createElement('div')
-    const Cmp = (props: any) => jsx('div', { children: props.label })
+    const Cmp = (_: any) => (props: any) => jsx('div', { children: props.label })
     const oldV = jsx('div', { children: [
       jsx(Cmp, { label: 'A' }, 'a'),
       jsx(Cmp, { label: 'B' }, 'b'),
@@ -663,7 +664,7 @@ describe('edge cases', () => {
     let cleaned = false
 
     // 子组件：返回带 ref 的元素
-    const Child = (_props: any) => ({
+    const Child = (_: any) => () => ({
       type: 'span' as const,
       props: {
         ref: () => () => { cleaned = true },
@@ -672,7 +673,7 @@ describe('edge cases', () => {
     })
 
     // 父组件：返回子组件 VNode
-    const Parent = (_props: any) => ({
+    const Parent = (_: any) => () => ({
       type: Child as any,
       props: {},
       key: undefined,
@@ -794,13 +795,7 @@ describe('two-phase component model', () => {
     assert.equal(renderCount, 2, 'dirty triggers re-render')
   })
 
-  it('compatible with ordinary (props, ctx) => VNode components', () => {
-    const Comp = (_props: any) => ({ type: 'span', props: { children: 'hello' }, key: undefined })
-    const v = { type: Comp as any, props: {}, key: undefined }
-    const el = render(v, ctx) as HTMLElement
-    assert.equal(el.tagName, 'SPAN')
-    assert.equal(el.textContent, 'hello')
-  })
+
 })
 
 })

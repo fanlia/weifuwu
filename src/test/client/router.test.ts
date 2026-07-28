@@ -14,6 +14,12 @@ const { router, RouteView } = await import('../../client/router.ts')
 import type { WfuiContext, RouteDef } from '../../client/types.ts'
 import { jsx } from '../../client/vnode.ts'
 
+/** Call RouteView and get VNode (two-phase compat) */
+const rv = (p: any, ctx: any) => {
+  const r = RouteView(p, ctx)
+  return typeof r === 'function' ? r() : r
+}
+
 // ── helpers ────────────────────────────────────────────────
 
 function mockCtx(overrides: any = {}): WfuiContext {
@@ -195,17 +201,17 @@ describe('popstate', () => {
 describe('RouteView', () => {
   it('没有 chain 时返回 null', () => {
     const ctx = mockCtx({ route: { path: '/', chain: [] } })
-    assert.equal(RouteView({}, ctx), null)
+    assert.equal(rv({}, ctx), null)
   })
 
   it('chain 为 undefined 时返回 null', () => {
     const ctx = mockCtx({ route: { path: '/', chain: undefined } })
-    assert.equal(RouteView({}, ctx), null)
+    assert.equal(rv({}, ctx), null)
   })
 
   it('chain 为 null 时返回 null', () => {
     const ctx = mockCtx({ route: { path: '/', chain: null } })
-    assert.equal(RouteView({}, ctx), null)
+    assert.equal(rv({}, ctx), null)
   })
 
   it('depth 越界时返回 null', () => {
@@ -213,65 +219,65 @@ describe('RouteView', () => {
     // 手动注入深度到 WeakMap 无法从外部访问
     // 用空 chain 测试越界
     const ctx2 = mockCtx({ route: { path: '/', chain: [] } })
-    assert.equal(RouteView({}, ctx2), null)
+    assert.equal(rv({}, ctx2), null)
   })
 
   it('chain item 无 component 和 layout 时返回 null', () => {
     const ctx = mockCtx({ route: { path: '/', chain: [{ path: '/' } as any] } })
-    assert.equal(RouteView({}, ctx), null)
+    assert.equal(rv({}, ctx), null)
   })
 
   it('返回组件', () => {
-    const Comp = () => jsx('div', { children: 'page' })
+    const Comp = () => () => jsx('div', { children: 'page' })
     const ctx = mockCtx({
       route: { path: '/test', chain: [{ path: '/test', component: Comp }] },
     })
-    const v = RouteView({}, ctx) as any
+    const v = rv({}, ctx) as any
     assert.equal(v.type, Comp)
   })
 
   it('返回 layout（非叶子 chain item）', () => {
-    const Layout = () => jsx('div', { children: 'layout' })
-    const Page = () => jsx('div', { children: 'page' })
+    const Layout = () => () => jsx('div', { children: 'layout' })
+    const Page = () => () => jsx('div', { children: 'page' })
     const ctx = mockCtx({
       route: { path: '/', chain: [
         { path: '/', layout: Layout, children: [] },
         { path: '', component: Page },
       ]},
     })
-    const v = RouteView({}, ctx) as any
+    const v = rv({}, ctx) as any
     assert.equal(v.type, Layout)
   })
 
   it('layout 内的 RouteView 返回子组件', () => {
-    const Layout = () => jsx('div', { children: 'layout' })
-    const Page = () => jsx('div', { children: 'page' })
+    const Layout = () => () => jsx('div', { children: 'layout' })
+    const Page = () => () => jsx('div', { children: 'page' })
     const ctx = mockCtx({
       route: { path: '/', chain: [
         { path: '/', layout: Layout, children: [] },
         { path: '', component: Page },
       ]},
     })
-    const v1 = RouteView({}, ctx) as any
+    const v1 = rv({}, ctx) as any
     assert.equal(v1.type, Layout)
 
-    const v2 = RouteView({}, ctx) as any
+    const v2 = rv({}, ctx) as any
     assert.equal(v2.type, Page)
   })
 
   it('flat 路由直接返回组件', () => {
-    const Page = () => jsx('div', { children: 'login' })
+    const Page = () => () => jsx('div', { children: 'login' })
     const ctx = mockCtx({
       route: { path: '/login', chain: [{ path: '/login', component: Page }] },
     })
-    const v = RouteView({}, ctx) as any
+    const v = rv({}, ctx) as any
     assert.equal(v.type, Page)
   })
 
   it('多个 layout 嵌套', () => {
-    const Outer = () => jsx('div', { children: 'outer' })
-    const Inner = () => jsx('div', { children: 'inner' })
-    const Page = () => jsx('div', { children: 'page' })
+    const Outer = () => () => jsx('div', { children: 'outer' })
+    const Inner = () => () => jsx('div', { children: 'inner' })
+    const Page = () => () => jsx('div', { children: 'page' })
     const ctx = mockCtx({
       route: { path: '/', chain: [
         { path: '/', layout: Outer, children: [] },
@@ -279,17 +285,17 @@ describe('RouteView', () => {
         { path: '', component: Page },
       ]},
     })
-    assert.equal((RouteView({}, ctx) as any).type, Outer)
-    assert.equal((RouteView({}, ctx) as any).type, Inner)
-    assert.equal((RouteView({}, ctx) as any).type, Page)
+    assert.equal((rv({}, ctx) as any).type, Outer)
+    assert.equal((rv({}, ctx) as any).type, Inner)
+    assert.equal((rv({}, ctx) as any).type, Page)
   })
 
   it('_rvDepth 从 0 开始', () => {
-    const Comp = () => jsx('div', null)
+    const Comp = () => () => jsx('div', null)
     const ctx = mockCtx({
       route: { path: '/', chain: [{ path: '/', component: Comp }] },
     })
-    const v = RouteView({}, ctx) as any
+    const v = rv({}, ctx) as any
     assert.equal(v.type, Comp)
   })
 })
@@ -306,7 +312,7 @@ describe('route matching', () => {
       { path: '/users', component: () => null },
       {
         path: '/',
-        layout: () => jsx('div', null),
+        layout: () => () => jsx('div', null),
         children: [
           { path: 'users', component: () => null },
         ],
@@ -330,7 +336,7 @@ describe('route matching', () => {
 
   it('子路由继承父 layout', () => {
     window.history.pushState(null, '', '/admin/settings')
-    const Layout = () => jsx('div', null)
+    const Layout = () => () => jsx('div', null)
     const routes: RouteDef[] = [{
       path: '/admin',
       layout: Layout,
@@ -349,18 +355,18 @@ describe('route matching', () => {
 describe('router + RouteView integration', () => {
   it('渲染组件', () => {
     window.history.pushState(null, '', '/test')
-    const Page = () => jsx('p', { children: 'hello' })
+    const Page = () => () => jsx('p', { children: 'hello' })
     const mw = router({ mode: 'history', routes: [{ path: '/test', component: Page }] })
     const ctx = mw({} as any) as any
     ctx.ui = { render: () => {}, $: {}, ready: false }
-    const v = RouteView({}, ctx) as any
+    const v = rv({}, ctx) as any
     assert.equal(v.type, Page)
   })
 
   it('渲染带 layout 的组件', () => {
     window.history.pushState(null, '', '/test')
-    const Layout = () => jsx('nav', { children: 'nav' })
-    const Page = () => jsx('main', { children: 'content' })
+    const Layout = () => () => jsx('nav', { children: 'nav' })
+    const Page = () => () => jsx('main', { children: 'content' })
     const mw = router({ mode: 'history', routes: [{
       path: '/',
       layout: Layout,
@@ -369,9 +375,9 @@ describe('router + RouteView integration', () => {
     const ctx = mw({} as any) as any
     ctx.ui = { render: () => {}, $: {}, ready: false }
 
-    const v1 = RouteView({}, ctx) as any
+    const v1 = rv({}, ctx) as any
     assert.equal(v1.type, Layout)
-    const v2 = RouteView({}, ctx) as any
+    const v2 = rv({}, ctx) as any
     assert.equal(v2.type, Page)
   })
 })
@@ -386,7 +392,7 @@ describe('_rvDepth reset', () => {
     const Comp2 = () => jsx('div', { children: 'b' })
 
     // 有 layout 的 chain
-    const Layout = () => jsx('div', null)
+    const Layout = () => () => jsx('div', null)
     const ctx = mockCtx({
       route: { path: '/', chain: [
         { path: '/', layout: Layout, children: [] },
@@ -395,8 +401,8 @@ describe('_rvDepth reset', () => {
     })
 
     // RouteView 链消耗 depth
-    RouteView({}, ctx) // layout，depth→1
-    RouteView({}, ctx) // Comp1
+    rv({}, ctx) // layout，depth→1
+    rv({}, ctx) // Comp1
 
     // 新 chain（flat 路由）— WeakMap 在新 ctx 上独立
     const ctx2 = mockCtx({
@@ -406,7 +412,7 @@ describe('_rvDepth reset', () => {
       },
     })
 
-    const v = RouteView({}, ctx2) as any
+    const v = rv({}, ctx2) as any
     assert.equal(v.type, Comp2) // depth=0，正确匹配
   })
 })

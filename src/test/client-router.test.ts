@@ -47,13 +47,13 @@ import type { Component } from '../client/vnode.ts'
 
 // ── 测试组件（返回 VNode）────────────────────────────────
 
-const LoginPage: Component = () => jsx('div', { class: 'login-page', children: 'login' })
-const HomePage: Component = () => jsx('div', { class: 'home-page', children: 'home' })
-const AboutPage: Component = () => jsx('div', { class: 'about-page', children: 'about' })
+const LoginPage: Component = () => () => jsx('div', { class: 'login-page', children: 'login' })
+const HomePage: Component = () => () => jsx('div', { class: 'home-page', children: 'home' })
+const AboutPage: Component = () => () => jsx('div', { class: 'about-page', children: 'about' })
 
 /** 嵌套 layout — 内含一个 RouteView 出口 */
 const TestLayout: Component = (_props, ctx) =>
-  jsx('div', { class: 'test-layout', children: jsx(RouteView, {}) })
+  () => jsx('div', { class: 'test-layout', children: jsx(RouteView, {}) })
 
 // ── 测试 ─────────────────────────────────────────────────
 
@@ -82,7 +82,7 @@ describe('client router — 嵌套 layout', () => {
       ],
     }))
 
-    await app.mount('#root', () => jsx(RouteView, {}) as any)
+    await app.mount('#root', () => () => jsx(RouteView, {}) as any)
 
     // 初始：/login（无 layout）
     assert.equal(document.querySelectorAll('.login-page').length, 1)
@@ -115,7 +115,7 @@ describe('client router — 嵌套 layout', () => {
     }))
 
     window.history.pushState({}, '', '/')
-    await app.mount('#root', () => jsx(RouteView, {}) as any)
+    await app.mount('#root', () => () => jsx(RouteView, {}) as any)
 
     assert.equal(document.querySelectorAll('.home-page').length, 1)
 
@@ -141,7 +141,7 @@ describe('client router — 嵌套 layout', () => {
     }))
 
     window.history.pushState({}, '', '/')
-    await app.mount('#root', () => jsx(RouteView, {}) as any)
+    await app.mount('#root', () => () => jsx(RouteView, {}) as any)
     assert.equal(document.querySelectorAll('.test-layout').length, 1)
 
     app.ctx.app.navigate('/login')

@@ -21,35 +21,36 @@ export interface ErrorBoundaryProps {
   children?: any
 }
 
-export function ErrorBoundary(props: ErrorBoundaryProps, ctx: WfuiContext): VNode | null {
+export function ErrorBoundary(props: ErrorBoundaryProps, ctx: WfuiContext) {
   const $ = ctx.ui.$
-  // 只在首次初始化，不覆盖已有的 $.error
   if (!('error' in $)) $.error = null
 
-  // 有错误 → 渲染 fallback
-  if ($.error) {
-    const fb = props.fallback
-    if (typeof fb === 'function') {
-      return (fb as any)({ error: $.error })
+  return (props2: ErrorBoundaryProps): VNode | null => {
+    // 有错误 → 渲染 fallback
+    if ($.error) {
+      const fb = props2.fallback
+      if (typeof fb === 'function') {
+        return (fb as any)({ error: $.error })
+      }
+      return fb ?? null
     }
-    return fb ?? null
-  }
 
-  // 注入错误处理器 → 子组件 render 出错时被捕获
-  ;(ctx as any).ui._errorHandler = (err: unknown) => {
-    $.error = err
-    ctx.ui.dirty()
-  }
-
-  try {
-    const result = props.children
-    return result ?? null
-  } catch (e) {
-    $.error = e
-    const fb = props.fallback
-    if (typeof fb === 'function') {
-      return (fb as any)({ error: e })
+    // 注入错误处理器 → 子组件 render 出错时被捕获
+    ;(ctx as any).ui._errorHandler = (err: unknown) => {
+      $.error = err
+      ctx.ui.dirty()
     }
-    return fb ?? null
+
+    const children = props2.children
+    try {
+      return children ?? null
+    } catch (e) {
+      $.error = e
+      const fb = props2.fallback
+      if (typeof fb === 'function') {
+        return (fb as any)({ error: e })
+      }
+      return fb ?? null
+    }
   }
 }

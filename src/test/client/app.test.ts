@@ -41,7 +41,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'app'
-    await app.mount('#app', () => jsx('div', { children: 'hello' }))
+    await app.mount('#app', () => () => jsx('div', { children: 'hello' }))
     assert.deepEqual(order, [1, 2])
     el.remove()
   })
@@ -51,7 +51,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'mount1'
-    await app.mount('#mount1', () => jsx('p', { children: 'mounted' }))
+    await app.mount('#mount1', () => () => jsx('p', { children: 'mounted' }))
     assert.equal(el.textContent, 'mounted')
     el.remove()
   })
@@ -63,7 +63,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'ui-test'
-    await app.mount('#ui-test', () => jsx('div', null))
+    await app.mount('#ui-test', () => () => jsx('div', null))
 
     assert.ok(capturedCtx.ui)
     assert.equal(typeof capturedCtx.ui.render, 'function')
@@ -75,8 +75,10 @@ describe('createApp', () => {
   it('ctx.ui.render 触发重渲染', async () => {
     let renderCount = 0
     const Cmp = (_: any, ctx: WfuiContext) => {
-      renderCount++
-      return jsx('span', { children: String(renderCount) })
+      return () => {
+        renderCount++
+        return jsx('span', { children: String(renderCount) })
+      }
     }
     const app = createApp()
     const el = document.createElement('div')
@@ -99,7 +101,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'destroy-test'
-    await app.mount('#destroy-test', () => jsx('div', { children: 'data' }))
+    await app.mount('#destroy-test', () => () => jsx('div', { children: 'data' }))
     assert.equal(el.textContent, 'data')
 
     app.destroy()
@@ -110,7 +112,7 @@ describe('createApp', () => {
   it('mount 不存在的 selector 抛出错误', async () => {
     const app = createApp()
     try {
-      await app.mount('#non-existent', () => jsx('div', null))
+      await app.mount('#non-existent', () => () => jsx('div', null))
       assert.fail('should throw')
     } catch (e: any) {
       assert.ok(e.message.includes('#non-existent'))
@@ -124,7 +126,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'state-test'
-    await app.mount('#state-test', () => jsx('div', null))
+    await app.mount('#state-test', () => () => jsx('div', null))
 
     assert.ok(typeof ctx.ui.$, 'object')
     assert.notEqual(ctx.ui.$, null)
@@ -137,7 +139,7 @@ describe('createApp', () => {
       renderCount++
       const $ = ctx.ui.$
       if ($.text === undefined) $.text = 'init'
-      return jsx('span', { children: $.text })
+      return () => jsx('span', { children: $.text })
     }
     const app = createApp()
     const el = document.createElement('div')
@@ -163,7 +165,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'array-proxy'
-    await app.mount('#array-proxy', () => jsx('div', null))
+    await app.mount('#array-proxy', () => () => jsx('div', null))
     ctx.ui.$.items = [1, 2, 3]
     assert.ok(Array.isArray(ctx.ui.$.items))
     assert.equal(ctx.ui.$.items.length, 3)
@@ -176,7 +178,7 @@ describe('createApp', () => {
       renderCount++
       const $ = ctx.ui.$
       if (!$.items) $.items = [{ id: 1, text: 'a' }]
-      return jsx('div', { children: $.items.length })
+      return () => jsx('div', { children: $.items.length })
     }
     const app = createApp()
     const el = document.createElement('div')
@@ -201,7 +203,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'splice-test'
-    await app.mount('#splice-test', () => jsx('div', null))
+    await app.mount('#splice-test', () => () => jsx('div', null))
     await new Promise(r => setTimeout(r, 10))
     ctx.ui.$.items = ['a', 'b', 'c']
     ctx.ui.$.items.splice(1, 1)
@@ -216,7 +218,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pop-test'
-    await app.mount('#pop-test', () => jsx('div', null))
+    await app.mount('#pop-test', () => () => jsx('div', null))
     await new Promise(r => setTimeout(r, 10))
     ctx.ui.$.items = ['a', 'b']
     const popped = ctx.ui.$.items.pop()
@@ -228,12 +230,14 @@ describe('createApp', () => {
   it('不用 dirty() 数组突变也能更新 UI', async () => {
     let renderCount = 0
     const Cmp = (_: any, ctx: WfuiContext) => {
-      renderCount++
       const $ = ctx.ui.$
       if (!$.items) $.items = [1]
-      return jsx('div', {
-        children: $.items.map((i: any, idx: number) => jsx('span', { children: String(i) }, String(idx))),
-      })
+      return () => {
+        renderCount++
+        return jsx('div', {
+          children: $.items.map((i: any, idx: number) => jsx('span', { children: String(i) }, String(idx))),
+        })
+      }
     }
     const app = createApp()
     const el = document.createElement('div')
@@ -253,10 +257,12 @@ describe('createApp', () => {
   it('数组元素对象属性赋值自动 dirty', async () => {
     let renderCount = 0
     const Cmp = (_: any, ctx: WfuiContext) => {
-      renderCount++
       const $ = ctx.ui.$
       if (!$.msgs) $.msgs = [{ id: 1, content: 'hello' }]
-      return jsx('div', { children: $.msgs[0]?.content ?? '' })
+      return () => {
+        renderCount++
+        return jsx('div', { children: $.msgs[0]?.content ?? '' })
+      }
     }
     const app = createApp()
     const el = document.createElement('div')
@@ -280,7 +286,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'nested-array'
-    await app.mount('#nested-array', () => jsx('div', null))
+    await app.mount('#nested-array', () => () => jsx('div', null))
     await new Promise(r => setTimeout(r, 10))
     ctx.ui.$.data = [{ items: [1, 2] }]
     ctx.ui.$.data[0].items.push(3)
@@ -295,7 +301,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'obj-prop'
-    await app.mount('#obj-prop', () => jsx('div', null))
+    await app.mount('#obj-prop', () => () => jsx('div', null))
     await new Promise(r => setTimeout(r, 10))
     ctx.ui.$.user = { profile: { name: 'alice' } }
     ctx.ui.$.user.profile.name = 'bob'
@@ -310,7 +316,7 @@ describe('createApp', () => {
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'cache-test'
-    await app.mount('#cache-test', () => jsx('div', null))
+    await app.mount('#cache-test', () => () => jsx('div', null))
     await new Promise(r => setTimeout(r, 10))
 
     ctx.ui.$.items = [{ x: 1 }]

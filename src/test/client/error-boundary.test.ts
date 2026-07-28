@@ -55,7 +55,7 @@ describe('ErrorBoundary', () => {
   })
 
   it('子组件不抛错时正常渲染', () => {
-    const OK = () => jsx('main', { children: 'content' })
+    const OK = () => () => jsx('main', { children: 'content' })
     const v = jsx(ErrorBoundary, {
       fallback: jsx('p', null),
       children: jsx(OK, {}),
@@ -84,7 +84,7 @@ describe('ErrorBoundary', () => {
   })
 
   it('子组件抛错时设置 $.error', () => {
-    const Throws = () => { throw new Error('boom') }
+    const Throws = () => () => { throw new Error('boom') }
     const v = jsx(ErrorBoundary, {
       fallback: () => jsx('p', { children: 'error' }),
       children: jsx(Throws, {}),
