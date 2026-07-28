@@ -1,0 +1,67 @@
+/* weifuwu/components — Chart */
+
+.wf-chart {
+  position: relative;
+  display: inline-block;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-chart-title {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+  margin-bottom: var(--wf-space-sm);
+  text-align: center;
+}
+
+.wf-chart svg {
+  display: block;
+}
+
+/* ── 图例 ── */
+
+.wf-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wf-gap-sm);
+  justify-content: center;
+  margin-top: var(--wf-space-sm);
+}
+
+.wf-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* ── Tooltip ── */
+
+.wf-chart-tooltip {
+  position: fixed;
+  z-index: var(--wf-cover-z, 1000);
+  background: var(--wf-color-text);
+  color: var(--wf-color-bg);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-xs);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+}
+
+.wf-chart-tooltip-label {
+  font-weight: var(--wf-font-weight-semibold);
+}
+
+.wf-chart-tooltip-value {
+  opacity: 0.8;
+}

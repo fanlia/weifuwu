@@ -122,3 +122,6 @@ export type { InViewProps } from './InView/InView.ts'
 
 export { DatePicker } from './DatePicker/DatePicker.ts'
 export type { DatePickerProps, DatePickerMode } from './DatePicker/DatePicker.ts'
+
+export { Chart } from './Chart/Chart.ts'
+export type { ChartProps, ChartType, DataPoint, ChartOptions } from './Chart/Chart.ts'
