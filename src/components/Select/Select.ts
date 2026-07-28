@@ -20,7 +20,8 @@ export interface SelectProps {
   children?: any
 }
 
-export const Select: Component<SelectProps> = (props, _ctx) => {
+export const Select: Component<SelectProps> = (_init, _ctx) =>
+  (props) => {
   const { label, value, options, placeholder, required, disabled, error, onChange, children } = props
 
   const optionEls: any[] = []

@@ -10,7 +10,8 @@ export interface FieldProps {
   children?: any
 }
 
-export const Field: Component<FieldProps> = (props, _ctx) => {
+export const Field: Component<FieldProps> = (_init, _ctx) =>
+  (props) => {
   const { label, required, error, hint, children } = props
 
   const parts: any[] = []

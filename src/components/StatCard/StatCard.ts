@@ -10,7 +10,8 @@ export interface StatCardProps {
   icon?: string
 }
 
-export const StatCard: Component<StatCardProps> = (props, _ctx) => {
+export const StatCard: Component<StatCardProps> = (_init, _ctx) =>
+  (props) => {
   const { label, value, trend, trendLabel, icon } = props
 
   const children: any[] = []

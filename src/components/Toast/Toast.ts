@@ -15,7 +15,8 @@ export interface ToastProps {
   onRemove?: (id: string) => void
 }
 
-export const Toast: Component<ToastProps> = (props, _ctx) => {
+export const Toast: Component<ToastProps> = (_init, ctx) =>
+  (props) => {
   const { toasts = [], onRemove } = props
 
   if (toasts.length === 0) return null
@@ -35,7 +36,8 @@ export const Toast: Component<ToastProps> = (props, _ctx) => {
     h('div', { class: 'wf-toast-container' }, items),
     'toast',
   )
-}
+
+  }
 
 function iconFor(type: ToastType): string {
   switch (type) {

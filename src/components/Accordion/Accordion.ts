@@ -13,7 +13,8 @@ export interface AccordionProps {
   multiple?: boolean
 }
 
-export const Accordion: Component<AccordionProps> = (props, _ctx) => {
+export const Accordion: Component<AccordionProps> = (_init, _ctx) =>
+  (props) => {
   const { items = [], multiple } = props
 
   if (items.length === 0) return null

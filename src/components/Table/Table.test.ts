@@ -3,8 +3,15 @@ import assert from 'node:assert'
 import { Table } from './Table.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
+/** Call component and get VNode (two-phase compat) */
+function renderVNode(Comp: any, props: any, ctx: any) {
+  const result = Comp(props, ctx)
+  return typeof result === 'function' ? result(props) : result
+}
+
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: {}
+, render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
 describe('Table', () => {
@@ -14,13 +21,13 @@ describe('Table', () => {
   ]
 
   it('renders table element', () => {
-    const vnode = Table({ columns, data: [] }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [] }, mockCtx())!
     assert.equal(vnode.type, 'table')
     assert.match(vnode.props.class, /wf-table/)
   })
 
   it('renders headers from columns', () => {
-    const vnode = Table({ columns, data: [] }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [] }, mockCtx())!
     const thead = vnode.props.children[0]
     assert.equal(thead.type, 'thead')
     const headerCells = thead.props.children.props.children
@@ -34,7 +41,7 @@ describe('Table', () => {
       { id: 1, name: '张三' },
       { id: 2, name: '李四' },
     ]
-    const vnode = Table({ columns, data }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data }, mockCtx())!
     const tbody = vnode.props.children[1]
     assert.equal(tbody.type, 'tbody')
     const rows = tbody.props.children
@@ -48,14 +55,14 @@ describe('Table', () => {
       { key: 'name', label: '名称', render: (v: string) => `★ ${v}` },
     ]
     const data = [{ name: '张三' }]
-    const vnode = Table({ columns: cols, data }, mockCtx())!
+    const vnode = renderVNode(Table, { columns: cols, data }, mockCtx())!
     const cell = vnode.props.children[1].props.children[0].props.children[0]
     // cell is a td element, its children is the rendered content
     assert.equal(cell.props.children, '★ 张三')
   })
 
   it('renders empty data', () => {
-    const vnode = Table({ columns, data: [] }, mockCtx())!
+    const vnode = renderVNode(Table, { columns, data: [] }, mockCtx())!
     const tbody = vnode.props.children[1]
     assert.equal(tbody.props.children.length, 0)
   })

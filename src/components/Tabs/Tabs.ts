@@ -14,7 +14,8 @@ export interface TabsProps {
   onChange?: (key: string) => void
 }
 
-export const Tabs: Component<TabsProps> = (props, _ctx) => {
+export const Tabs: Component<TabsProps> = (_init, _ctx) =>
+  (props) => {
   const { items = [], active, onChange } = props
 
   if (items.length === 0) return null

@@ -9,7 +9,8 @@ export interface EmptyStateProps {
   children?: any
 }
 
-export const EmptyState: Component<EmptyStateProps> = (props, _ctx) => {
+export const EmptyState: Component<EmptyStateProps> = (_init, _ctx) =>
+  (props) => {
   const { icon = '📦', text = '暂无数据', hint, children } = props
 
   const parts: any[] = [

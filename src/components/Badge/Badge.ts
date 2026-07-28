@@ -10,7 +10,8 @@ export interface BadgeProps {
   children?: any
 }
 
-export const Badge: Component<BadgeProps> = (props, _ctx) => {
+export const Badge: Component<BadgeProps> = (_init, _ctx) =>
+  (props) => {
   const { variant = 'default', dot, children } = props
 
   if (dot) {

@@ -9,7 +9,8 @@ export interface SwitchProps {
   onChange?: (checked: boolean) => void
 }
 
-export const Switch: Component<SwitchProps> = (props, ctx) => {
+export const Switch: Component<SwitchProps> = (_init, ctx) =>
+  (props) => {
   const { label, checked, disabled, onChange } = props
 
   const input = h('input', {
@@ -32,4 +33,5 @@ export const Switch: Component<SwitchProps> = (props, ctx) => {
     track,
     h('span', { class: 'wf-switch-label' }, label),
   ])
-}
+
+  }

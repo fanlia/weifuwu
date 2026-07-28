@@ -16,7 +16,8 @@ function hashColor(name: string): string {
   return COLORS[Math.abs(hash) % COLORS.length]
 }
 
-export const Avatar: Component<AvatarProps> = (props, _ctx) => {
+export const Avatar: Component<AvatarProps> = (_init, _ctx) =>
+  (props) => {
   const { name = '', src, size = 'md' } = props
   const initial = name.trim()[0]?.toUpperCase() ?? '?'
 

@@ -9,7 +9,8 @@ export interface ProgressBarProps {
   showValue?: boolean
 }
 
-export const ProgressBar: Component<ProgressBarProps> = (props, ctx) => {
+export const ProgressBar: Component<ProgressBarProps> = (_init, ctx) =>
+  (props) => {
   const { value = 0, max = 100, label, showValue } = props
 
   const pct = Math.min(100, Math.max(0, (value / max) * 100))
@@ -38,4 +39,5 @@ export const ProgressBar: Component<ProgressBarProps> = (props, ctx) => {
   if (showValue) parts.push(h('span', { class: 'wf-progress-value' }, `${Math.round(pct)}%`))
 
   return h('div', { class: 'wf-progress-wrap' }, parts)
-}
+
+  }

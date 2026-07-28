@@ -9,7 +9,8 @@ export interface TagProps {
   children?: any
 }
 
-export const Tag: Component<TagProps> = (props, _ctx) => {
+export const Tag: Component<TagProps> = (_init, _ctx) =>
+  (props) => {
   const { closable, onClose, variant = 'default', children } = props
 
   const closeBtn = closable

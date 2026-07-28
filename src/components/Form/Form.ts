@@ -7,7 +7,8 @@ export interface FormProps {
   children?: any
 }
 
-export const Form: Component<FormProps> = (props, _ctx) => {
+export const Form: Component<FormProps> = (_init, _ctx) =>
+  (props) => {
   const { onSubmit, children } = props
 
   const handleSubmit = (e: Event) => {

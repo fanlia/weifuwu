@@ -10,7 +10,8 @@ export interface CardProps {
   children?: any
 }
 
-export const Card: Component<CardProps> = (props, _ctx) => {
+export const Card: Component<CardProps> = (_init, _ctx) =>
+  (props) => {
   const { variant = 'default', padding = 'md', clickable, onClick, children } = props
 
   const cls = [

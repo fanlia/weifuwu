@@ -9,7 +9,8 @@ export interface CheckboxProps {
   onChange?: (checked: boolean) => void
 }
 
-export const Checkbox: Component<CheckboxProps> = (props, _ctx) => {
+export const Checkbox: Component<CheckboxProps> = (_init, _ctx) =>
+  (props) => {
   const { label, checked, disabled, onChange } = props
 
   const input = h('input', {

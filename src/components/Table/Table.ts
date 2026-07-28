@@ -15,7 +15,8 @@ export interface TableProps {
   onRowClick?: (row: any, index: number) => void
 }
 
-export const Table: Component<TableProps> = (props, _ctx) => {
+export const Table: Component<TableProps> = (_init, _ctx) =>
+  (props) => {
   const { data = [], columns, onRowClick } = props
 
   const headerCells = columns.map(col =>

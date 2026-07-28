@@ -6,7 +6,8 @@ export interface LoadingProps {
   text?: string
 }
 
-export const Loading: Component<LoadingProps> = (props, _ctx) => {
+export const Loading: Component<LoadingProps> = (_init, _ctx) =>
+  (props) => {
   const { text = '加载中...' } = props
 
   return h('div', { class: 'wf-loading', role: 'status', 'aria-live': 'polite' }, [

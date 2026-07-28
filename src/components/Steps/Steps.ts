@@ -14,7 +14,8 @@ export interface StepsProps {
   current?: number
 }
 
-export const Steps: Component<StepsProps> = (props, _ctx) => {
+export const Steps: Component<StepsProps> = (_init, _ctx) =>
+  (props) => {
   const { items = [], active, current = 0 } = props
 
   const activeKey = active ?? items[current]?.key

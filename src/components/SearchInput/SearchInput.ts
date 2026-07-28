@@ -9,7 +9,8 @@ export interface SearchInputProps {
   onClear?: () => void
 }
 
-export const SearchInput: Component<SearchInputProps> = (props, _ctx) => {
+export const SearchInput: Component<SearchInputProps> = (_init, _ctx) =>
+  (props) => {
   const { value = '', placeholder = '搜索...', onInput, onClear } = props
 
   const clearBtn = value && onClear

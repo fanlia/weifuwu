@@ -3,6 +3,12 @@ import assert from 'node:assert'
 import { Breadcrumb } from './Breadcrumb.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
+/** Call component and get VNode (two-phase compat) */
+function renderVNode(Comp: any, props: any, ctx: any) {
+  const result = Comp(props, ctx)
+  return typeof result === 'function' ? result(props) : result
+}
+
 function mockCtx(): WfuiContext {
   return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
 }
@@ -14,7 +20,7 @@ describe('Breadcrumb', () => {
       { label: '用户管理', href: '/users' },
       { label: '编辑' },
     ]
-    const vnode = Breadcrumb({ items }, mockCtx())!
+    const vnode = renderVNode(Breadcrumb, { items }, mockCtx())!
     // nav > [a, sep, a, sep, span]
     const children = vnode.props.children
     assert.equal(children.length, 5)
@@ -27,7 +33,7 @@ describe('Breadcrumb', () => {
   })
 
   it('renders nav with aria-label', () => {
-    const vnode = Breadcrumb({ items: [{ label: '首页' }] }, mockCtx())!
+    const vnode = renderVNode(Breadcrumb, { items: [{ label: '首页' }] }, mockCtx())!
     assert.equal(vnode.type, 'nav')
     assert.equal(vnode.props['aria-label'], '面包屑')
   })
@@ -37,13 +43,13 @@ describe('Breadcrumb', () => {
       { label: '首页', href: '/' },
       { label: '当前页' },
     ]
-    const vnode = Breadcrumb({ items }, mockCtx())!
+    const vnode = renderVNode(Breadcrumb, { items }, mockCtx())!
     const last = vnode.props.children[2]
     assert.equal(last.props['aria-current'], 'page')
   })
 
   it('renders items without href as span', () => {
-    const vnode = Breadcrumb({ items: [{ label: '首页' }, { label: '二级' }] }, mockCtx())!
+    const vnode = renderVNode(Breadcrumb, { items: [{ label: '首页' }, { label: '二级' }] }, mockCtx())!
     const first = vnode.props.children[0]
     assert.equal(first.type, 'span')
     assert.equal(first.props.children, '首页')

@@ -1,7 +1,5 @@
 /**
  * weifuwu/components — Img
- *
- * `<img>` 增强组件。支持 fallback、loading="lazy"。
  */
 
 import type { Component } from '../../client/vnode.ts'
@@ -18,27 +16,27 @@ export interface ImgProps {
   style?: Record<string, string>
 }
 
-export const Img: Component<ImgProps> = (props) => {
-  const { src, alt = '', fallback, loading, width, height, className, style } = props
+export const Img: Component<ImgProps> = (_init) =>
+  (props) => {
+    const { src, alt = '', fallback, loading, width, height, className, style } = props
 
-  const imgProps: Record<string, any> = {
-    class: ['wf-image', className].filter(Boolean).join(' '),
-    src: src ?? fallback ?? '',
-    alt,
-    loading: loading ?? 'lazy',
-  }
-
-  if (width !== undefined) imgProps.width = width
-  if (height !== undefined) imgProps.height = height
-  if (style) imgProps.style = style
-
-  // fallback: src 加载失败时替换
-  if (fallback) {
-    imgProps.onError = (e: Event) => {
-      const el = e.currentTarget as HTMLImageElement
-      if (el.src !== fallback) el.src = fallback
+    const imgProps: Record<string, any> = {
+      class: ['wf-image', className].filter(Boolean).join(' '),
+      src: src ?? fallback ?? '',
+      alt,
+      loading: loading ?? 'lazy',
     }
-  }
 
-  return h('img', imgProps)
-}
+    if (width !== undefined) imgProps.width = width
+    if (height !== undefined) imgProps.height = height
+    if (style) imgProps.style = style
+
+    if (fallback) {
+      imgProps.onError = (e: Event) => {
+        const el = e.currentTarget as HTMLImageElement
+        if (el.src !== fallback) el.src = fallback
+      }
+    }
+
+    return h('img', imgProps)
+  }

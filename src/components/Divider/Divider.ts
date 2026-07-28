@@ -7,7 +7,8 @@ export interface DividerProps {
   children?: any
 }
 
-export const Divider: Component<DividerProps> = (props, _ctx) => {
+export const Divider: Component<DividerProps> = (_init, _ctx) =>
+  (props) => {
   const { vertical, children } = props
 
   if (vertical) {

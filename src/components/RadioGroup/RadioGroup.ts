@@ -16,7 +16,8 @@ export interface RadioGroupProps {
   onChange?: (value: string) => void
 }
 
-export const RadioGroup: Component<RadioGroupProps> = (props, _ctx) => {
+export const RadioGroup: Component<RadioGroupProps> = (_init, _ctx) =>
+  (props) => {
   const { name, value, options = [], inline, onChange } = props
 
   const radios = options.map(opt => {

@@ -14,7 +14,8 @@ export interface InputProps {
   onChange?: (e: Event) => void
 }
 
-export const Input: Component<InputProps> = (props) => {
+export const Input: Component<InputProps> = (_init) =>
+  (props) => {
   const { label, type = 'text', value, placeholder, required, disabled, error, hint, onInput, onChange } = props
 
   const inputEl = h('input', {
@@ -44,4 +45,5 @@ export const Input: Component<InputProps> = (props) => {
   if (hint && !error) children.push(h('div', { class: 'wf-input-hint' }, hint))
 
   return h('div', { class: `wf-input-wrap${error ? ' wf-input--err' : ''}` }, children)
-}
+
+  }

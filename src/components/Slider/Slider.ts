@@ -11,7 +11,8 @@ export interface SliderProps {
   onChange?: (value: number) => void
 }
 
-export const Slider: Component<SliderProps> = (props, _ctx) => {
+export const Slider: Component<SliderProps> = (_init, _ctx) =>
+  (props) => {
   const { label, value = 0, min = 0, max = 100, step = 1, onChange } = props
 
   const numVal = Number(value)

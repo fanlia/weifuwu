@@ -8,7 +8,8 @@ export interface PageHeaderProps {
   children?: any
 }
 
-export const PageHeader: Component<PageHeaderProps> = (props, _ctx) => {
+export const PageHeader: Component<PageHeaderProps> = (_init, _ctx) =>
+  (props) => {
   const { title, sub, children } = props
 
   return h('div', { class: 'wf-page-head' }, [

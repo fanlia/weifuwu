@@ -14,7 +14,8 @@ export interface TextareaProps {
   onInput?: (e: Event) => void
 }
 
-export const Textarea: Component<TextareaProps> = (props, _ctx) => {
+export const Textarea: Component<TextareaProps> = (_init, _ctx) =>
+  (props) => {
   const { label, value, placeholder, required, disabled, error, hint, rows = 3, onInput } = props
 
   const textareaEl = h('textarea', {

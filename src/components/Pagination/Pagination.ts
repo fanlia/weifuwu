@@ -9,7 +9,8 @@ export interface PaginationProps {
   onChange?: (page: number) => void
 }
 
-export const Pagination: Component<PaginationProps> = (props, ctx) => {
+export const Pagination: Component<PaginationProps> = (_init, ctx) =>
+  (props) => {
   const { total, page = 1, pageSize = 20, onChange } = props
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
@@ -47,7 +48,8 @@ export const Pagination: Component<PaginationProps> = (props, ctx) => {
 
   const PL = (ctx as any)?.i18n?.components?.Pagination ?? {}
   return h('nav', { class: 'wf-pagination', 'aria-label': PL.ariaLabel ?? '分页' }, pages)
-}
+
+  }
 
 function getPageRange(current: number, total: number): (number | '...')[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)

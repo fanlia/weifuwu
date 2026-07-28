@@ -20,7 +20,7 @@ export interface DropdownProps {
   open?: boolean
 }
 
-export const Dropdown: Component<DropdownProps> = (props, ctx) => {
+export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   // ── mount（只一次）──
   const $ = ctx.ui.$
   let wrapEl: HTMLElement | undefined
