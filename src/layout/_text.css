@@ -1,0 +1,13 @@
+/* text-align 对齐原语 */
+
+.wf-text-left {
+  text-align: left;
+}
+
+.wf-text-center {
+  text-align: center;
+}
+
+.wf-text-right {
+  text-align: right;
+}
