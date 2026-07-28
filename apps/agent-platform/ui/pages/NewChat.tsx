@@ -1,17 +1,16 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, EmptyState, Loading } from '../components/ui'
 
-export function NewChat(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const NewChat: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) { $.depts = []; $.loading = true
+   $.depts = []; $.loading = true
     fetch('/api/departments', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { $.depts = d.departments ?? []; $.loading = false })
       .catch(() => { $.loading = false })
-  }
 
-  return (
+  return (props) => (
     <div class="page page-narrow">
       <PageHeader title="发起聊天" sub="选择一个部门开始对话" />
 

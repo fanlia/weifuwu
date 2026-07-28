@@ -1,16 +1,14 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader } from '../components/ui'
 
-export function Settings(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const Settings: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) {
     $.name = ctx.auth?.user?.name ?? ''
     $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     $.pwdSubmitting = false; $.pwdOk = ''; $.pwdErr = ''
-  }
 
   async function updateName(e: Event) {
     e.preventDefault()
@@ -26,7 +24,6 @@ export function Settings(_props: {}, ctx: WfuiContext) {
       else { ctx.auth?.setUser({ ...ctx.auth?.user, name: $.name.trim() }); $.nameOk = '姓名已更新' }
     } catch { $.nameErr = '网络错误' }
     finally { $.nameSubmitting = false }
-  }
 
   async function updatePassword(e: Event) {
     e.preventDefault()
@@ -47,9 +44,8 @@ export function Settings(_props: {}, ctx: WfuiContext) {
       }
     } catch { $.pwdErr = '网络错误' }
     finally { $.pwdSubmitting = false }
-  }
 
-  return (
+  return (props) => (
     <div class="page page-narrow">
       <PageHeader title="个人设置" sub="管理你的账号信息" />
 

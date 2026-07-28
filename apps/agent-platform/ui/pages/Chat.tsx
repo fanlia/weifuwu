@@ -1,11 +1,10 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 
-export function Chat(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const Chat: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const deptId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) {
     $.msgs = []; $.deptName = '聊天'; $.memberCount = 0; $.input = ''
     $.editingId = ''; $.editValue = ''; $.userAgentId = ''; $.sending = false
     $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
@@ -99,7 +98,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
       if (changed) { $.msgs = updated }
     }, 30000)
     $.streamTimer = timer
-  }
 
   // ── 自动滚动 ──
   let prevLen = 0
@@ -109,7 +107,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     const body = $.bodyEl
     if (!body || ($.isUserScrolledUp && !force)) return
     requestAnimationFrame(() => { if ($.bodyEl) $.bodyEl.scrollTop = $.bodyEl.scrollHeight })
-  }
 
   // 每次 render 后检查是否需要滚动
   const msgs = $.msgs
@@ -118,7 +115,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
     const totalLen = msgs.reduce((s: number, m: any) => s + m.content.length, 0)
     if (totalLen > prevContentLen && prevContentLen > 0) { scrollToBottom() }
     prevContentLen = totalLen
-  }
 
   function isOwn(msg: any) { return $.userAgentId && msg.sender_id === $.userAgentId }
   function canEdit(msg: any) { return isOwn(msg) && Date.now() - new Date(msg.created_at).getTime() < 5 * 60 * 1000 }
@@ -140,7 +136,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
       // WS 事件会推送 new_message，不用手动添加
     } catch { $.input = saved; alert('网络错误') }
     finally { $.sending = false }
-  }
 
   async function retryMessage(fromMsgId: string) {
     const idx = $.msgs.findIndex((m: any) => m.id === fromMsgId)
@@ -155,7 +150,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
       body: JSON.stringify({ content: lastUser.content }),
     })
     $.sending = false
-  }
 
   function startEdit(msg: any) { $.editingId = msg.id; $.editValue = msg.content }
   function cancelEdit() { $.editingId = ''; $.editValue = '' }
@@ -168,20 +162,17 @@ export function Chat(_props: {}, ctx: WfuiContext) {
       body: JSON.stringify({ content: $.editValue }),
     })
     if (res.ok) cancelEdit(); else { const d = await res.json(); alert(d.error || '编辑失败') }
-  }
 
   async function deleteMsg(msg: any) {
     if (!confirm('确定撤回这条消息？')) return
     const res = await fetch(`/api/messages/${msg.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) { const d = await res.json(); alert(d.error || '撤回失败') }
-  }
 
   function copyContent(msg: any) {
     navigator.clipboard.writeText(msg.content).then(() => {
       $.copiedId = msg.id
       setTimeout(() => { if ($.copiedId === msg.id) { $.copiedId = '' } }, 2000)
     }).catch(() => {})
-  }
 
   async function approveDraft(msgId: string) {
     $.approving = msgId
@@ -190,7 +181,6 @@ export function Chat(_props: {}, ctx: WfuiContext) {
       body: JSON.stringify({ approved: true }),
     }).catch(() => {})
     $.approving = null
-  }
 
   async function rejectDraft(msgId: string) {
     $.approving = msgId
@@ -199,24 +189,21 @@ export function Chat(_props: {}, ctx: WfuiContext) {
       body: JSON.stringify({ approved: false }),
     }).catch(() => {})
     $.approving = null
-  }
 
   function fmtTime(iso: string) {
     try { const d = new Date(iso); const diff = Date.now() - d.getTime()
       if (diff < 60000) return '刚刚'; if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
       return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     } catch { return '' }
-  }
 
   function toolLabel(name: string) {
     const labels: Record<string, string> = { 'search-knowledge-base': '搜索知识库', 'get-current-time': '获取当前时间', list_files: '列出文件', read: '读取文件', write: '写入文件', edit: '编辑文件', grep: '搜索文件', bash: '执行命令' }
     return labels[name] ?? name.replace(/_/g, ' ')
-  }
 
   const inputDisabled = $.editingId !== ''
   const canSend = $.input.trim().length > 0 && !$.sending
 
-  return (
+  return (props) => (
     <div class="chat-shell">
       <div class="chat-head">
         <a href="/chat/new" class="back-link" style={{ marginBottom: '0' }}

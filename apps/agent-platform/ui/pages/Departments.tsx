@@ -1,13 +1,12 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, EmptyState, Loading } from '../components/ui'
 
-export function Departments(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.depts = []; $.loading = true
+export const Departments: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
+   $.depts = []; $.loading = true
     fetch('/api/departments', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } })
       .then(r => r.json()).then(d => { $.depts = d.departments ?? []; $.loading = false })
       .catch(() => { $.loading = false })
-  }
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -17,9 +16,8 @@ export function Departments(_props: {}, ctx: WfuiContext) {
       $.depts = $.depts.filter((d: any) => d.id !== id)
      
     }
-  }
 
-  return (
+  return (props) => (
     <div class="page">
       <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">
         <button class="btn btn-primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</button>

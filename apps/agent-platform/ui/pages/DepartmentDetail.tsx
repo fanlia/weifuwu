@@ -1,12 +1,11 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { Loading, TypeBadge } from '../components/ui'
 
-export function DepartmentDetail(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const DepartmentDetail: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const deptId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) {
     $.dept = null; $.members = []; $.loading = true; $.notFound = false
     fetch(`/api/departments/${deptId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(data => {
@@ -16,12 +15,11 @@ export function DepartmentDetail(_props: {}, ctx: WfuiContext) {
         $.members = data.members ?? []
         $.loading = false
       }).catch(() => { $.loading = false })
-  }
 
   if ($.loading) return <div class="page"><Loading /></div>
   if ($.notFound) return <div class="page"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">部门不存在</div></div></div>
 
-  return (
+  return (props) => (
     <div class="page">
       <a class="back-link" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
 

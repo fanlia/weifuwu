@@ -1,4 +1,4 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader } from '../components/ui'
 
 interface RoleTemplate {
@@ -22,11 +22,10 @@ const CAT_LABELS: Record<string, string> = {
   management: '👔 管理决策', general: '🤖 通用',
 }
 
-export function NewAgent(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const NewAgent: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) {
     $.step = 'template'; $.selectedTemplate = null
     $.type = 'ai'; $.name = ''; $.description = ''; $.systemPrompt = ''
     $.webhookUrl = ''; $.chunkSize = '500'; $.aiModel = ''
@@ -38,7 +37,6 @@ export function NewAgent(_props: {}, ctx: WfuiContext) {
     fetch('/api/role-templates', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { $.roleTemplates = d.templates ?? []; $.loading = false })
       .catch(() => { $.loading = false })
-  }
 
   const isAI = !$.selectedTemplate && $.type === 'ai'
   const isWebhook = !$.selectedTemplate && $.type === 'webhook'
@@ -54,7 +52,6 @@ export function NewAgent(_props: {}, ctx: WfuiContext) {
       cats.get(cl)!.templates.push(t)
     }
     return [...cats.entries()]
-  }
 
   function selectTemplate(t: RoleTemplate) {
     $.selectedTemplate = t; $.name = ''; $.description = t.description ?? ''
@@ -65,14 +62,12 @@ export function NewAgent(_props: {}, ctx: WfuiContext) {
     $.allowCommandExec = t.default_allow_command_exec ?? false
     $.step = 'configure'
    
-  }
 
   function startDirect() {
     $.selectedTemplate = null; $.systemPrompt = ''; $.aiModel = ''
     $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiHITL = false
     $.allowFileTools = false; $.allowCommandExec = false
     $.step = 'direct'
-  }
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
@@ -124,12 +119,11 @@ export function NewAgent(_props: {}, ctx: WfuiContext) {
       if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
       ctx.app?.navigate(`/agents/${data.agent.id}`)
     } catch { $.error = '网络错误'; $.submitting = false }
-  }
 
   // ══════════ 步骤 1: 选择模板 ══════════
   if ($.step === 'template') {
     if ($.loading) return <div class="page page-narrow"><div class="empty"><div class="spinner"></div></div></div>
-    return (
+    return (props) => (
       <div class="page page-narrow">
         <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
         <PageHeader title="创建 Agent" sub="选择一个角色模板快速开始，或跳过自行配置" />
@@ -161,7 +155,6 @@ export function NewAgent(_props: {}, ctx: WfuiContext) {
         </div>
       </div>
     )
-  }
 
   // ══════════ 步骤 2: 配置 ══════════
   return (

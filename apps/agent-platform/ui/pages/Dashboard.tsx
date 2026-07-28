@@ -1,4 +1,4 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -10,9 +10,8 @@ function greeting(): string {
   return '晚上好'
 }
 
-export function Dashboard(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
-  if (!ctx.ui.ready) {
+export const Dashboard: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
     $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0
     Promise.all([
       fetch('/api/stats', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({})),
@@ -22,7 +21,6 @@ export function Dashboard(_props: {}, ctx: WfuiContext) {
       $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
       $.loading = false
     })
-  }
 
   const s = $.stats ?? {}
   const msgCount = s.messages?.total ?? 0
@@ -30,7 +28,7 @@ export function Dashboard(_props: {}, ctx: WfuiContext) {
   const agentCount = s.agents?.total ?? ($.agents ?? []).length
   const aiCount = s.agents?.ai_count ?? ($.agents ?? []).filter((a: any) => a.type === 'ai' || a.type === 'robot').length
 
-  return (
+  return (props) => (
     <div class="page page-narrow">
       <div class="dash-hello">
         <h1>{greeting()}，{ctx.auth?.user?.name ?? '用户'}</h1>

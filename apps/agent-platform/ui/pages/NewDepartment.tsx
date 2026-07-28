@@ -1,11 +1,10 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, Loading, TypeBadge } from '../components/ui'
 
-export function NewDepartment(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const NewDepartment: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) {
     $.name = ''; $.companyId = ''; $.selected = []; $.submitting = false; $.error = ''
     $.companies = []; $.agents = []; $.loading = true
     Promise.all([
@@ -14,14 +13,12 @@ export function NewDepartment(_props: {}, ctx: WfuiContext) {
     ]).then(([companies, agents]) => {
       $.companies = companies; $.agents = agents; $.loading = false
     }).catch(() => { $.loading = false })
-  }
 
   function toggle(id: string) {
     const set = new Set($.selected)
     if (set.has(id)) set.delete(id); else set.add(id)
     $.selected = [...set]
    
-  }
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
@@ -38,9 +35,8 @@ export function NewDepartment(_props: {}, ctx: WfuiContext) {
       if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
       ctx.app?.navigate('/departments')
     } catch { $.error = '网络错误'; $.submitting = false }
-  }
 
-  return (
+  return (props) => (
     <div class="page page-narrow">
       <a class="back-link" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
       <PageHeader title="创建部门" sub="选择公司并添加成员" />

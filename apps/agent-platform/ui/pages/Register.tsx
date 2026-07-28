@@ -1,8 +1,8 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 
-export function Register(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false }
+export const Register: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
+$.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
 
   async function handleRegister(e: Event) {
     e.preventDefault()
@@ -18,9 +18,8 @@ export function Register(_props: {}, ctx: WfuiContext) {
       ctx.auth?.login(data.token, data.user, data.refreshToken)
       ctx.app?.navigate('/')
     } catch { $.error = '网络错误'; $.loading = false }
-  }
 
-  return (
+  return (props) => (
     <div class="auth-page">
       <div class="auth-card">
         <div class="auth-logo">A</div>

@@ -709,21 +709,30 @@ app.destroy()
 ```tsx
 import type { Component, WfuiContext } from 'weifuwu/client'
 
-// 组件 = 纯函数 (props, ctx) => VNode
-const Greeting: Component<{ name: string }> = (props, ctx) => {
-  return <div>Hello, {props.name}!</div>
-}
+// 两阶段组件：mount（只一次）→ render（每次 dirty/props 变化）
+const Counter: Component = (_init, ctx) => {
+  // ── mount ──
+  let count = 0
 
-// 使用
-<Greeting name="world" />
+  ctx.ui.onmounted((el) => {
+    console.log('DOM 已创建', el)
+  })
+
+  // ── render ──
+  return (props) =>
+    h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
+}
 ```
 
 | 规则 | 说明 |
 |------|------|
-| 组件签名 | `(props: P, ctx: WfuiContext) => VNode \| null` |
+| 组件签名 | `(initProps: P, ctx: WfuiContext) => (props: P) => VNode \| null` |
+| mount 阶段 | 外层函数只执行一次，初始化状态/注册生命周期 |
+| render 阶段 | 内层函数每次 dirty/props 变化时执行，返回 VNode |
 | 无 class | 无 `this`，无实例方法 |
 | 无 hook | 无 `useState` / `useEffect` / `useMemo` |
-| 无生命周期 | 替代方案：`ref` 回调管理 mount/unmount |
+| 状态 | 闭包变量 + `ctx.ui.render()` 手动触发，或 `ctx.ui.$()` 响应式容器 |
+| 生命周期 | `ctx.ui.onmount / onmounted / onunmount / onupdate` |
 
 ### JSX 工厂
 
@@ -752,45 +761,58 @@ interface VNode {
   props: Record<string, any>
   key?: string
   el?: Node           // 对应 DOM（框架内部）
-  _$?: Record<string, any>  // 组件状态（框架内部）
+  _$?: Record<string, any>  // 组件状态 + hooks（框架内部）
   _child?: any        // 子 VNode 缓存
-  _cleanup?: (() => void)  // ref 清理函数
+  _render?: Function  // 两阶段 render 函数
+  _cleanup?: (() => void)  // onmounted 清理函数
+  _portalEl?: HTMLElement  // Portal 子容器
 }
 ```
 
 ---
 
-## 状态管理 — ctx.ui.$
+## 状态管理
 
-`ctx.ui.$` 是**组件级深度 Proxy**：
-
-- `$.x = val` → 自动标记 dirty → 下个微任务批量 VDOM patch
-- `$.arr.push(val)` → Proxy 拦截数组突变 → 自动渲染
-- `$.arr[0].x = y` → 深度拦截嵌套对象 → 自动渲染
-- 每个组件实例有独立 Proxy（`vnode._$`），同名变量不冲突
+### 闭包变量 + `ctx.ui.render()`（推荐）
 
 ```tsx
-function Counter(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
-  if (!ctx.ui.ready) $.count = 0     // 初始化（仅首次执行）
+const Counter: Component = (_init, ctx) => {
+  let count = 0
 
-  return (
-    <div>
-      <span>{$.count}</span>
-      <button onClick={() => $.count++}>+</button>
-    </div>
-  )
+  return (props) =>
+    h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
+}
+```
+
+读写明确，`ctx.ui.render()` 是显式渲染承诺。
+
+### `ctx.ui.$()` — 响应式状态容器
+
+`ctx.ui.$()` 返回浅 Proxy，赋值自动触发 `dirty()`（微任务批量渲染）：
+
+```tsx
+const FormPage: Component = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.email = ''
+  $.password = ''
+
+  return (props) =>
+    h('div', {}, [
+      h('input', { value: $.email, onInput: (e: any) => { $.email = e.target.value } }),
+      h('input', { value: $.password, onInput: (e: any) => { $.password = e.target.value } }),
+    ])
 }
 ```
 
 | API | 说明 |
 |-----|------|
-| `ctx.ui.$` | 组件级深度 Proxy |
-| `ctx.ui.ready` | `boolean`，首次执行后为 `true` |
-| `ctx.ui.dirty()` | 手动标记脏状态（仅绕过 Proxy 时使用） |
-| `ctx.ui.render()` | 手动触发渲染（框架内部使用，页面代码不用） |
+| `ctx.ui.$()` | 创建响应式状态容器（浅 Proxy，赋值自动 dirty）|
+| `ctx.ui.render()` | 立即同步渲染 |
+| `ctx.ui.dirty()` | 标记脏状态，下个微任务批量渲染 |
 
-**重要规则**：render 函数内部不写 `$`。`$` 的写入只在事件回调（onClick/onInput）、ref 回调、或 `if (!ctx.ui.ready)` 初始化块中进行。
+### 渲染保护
+
+mount/render/onmount/onupdate/onunmount 期间 `_rendering = true`，`$.x = val` **不触发渲染**。仅事件/timer/Promise.then 中生效。
 
 ---
 
@@ -811,27 +833,62 @@ function Counter(_props: {}, ctx: WfuiContext) {
 
 ---
 
-## 生命周期 — ref 回调
+## 生命周期
 
-`ref` 回调在 mount 时触发，接收 DOM 元素。返回的清理函数在 unmount 时由框架保证调用：
+框架不提供 `ref` prop。使用 `ctx.ui.onmount / onmounted / onunmount / onupdate`：
+
+| API | 触发时机 | 参数 | 返回值 |
+|-----|---------|------|--------|
+| `ctx.ui.onmount(fn)` | render 前（DOM 未创建） | `() => void` | — |
+| `ctx.ui.onmounted(fn)` | 首次 render 后（DOM 已创建） | `(el: Element) => cleanup` | `() => void`（可选 cleanup）|
+| `ctx.ui.onunmount(fn)` | 组件移除前 | `() => void` | — |
+| `ctx.ui.onupdate(fn)` | props 变化时 | `(prevProps) => void` | — |
 
 ```tsx
-function Timer(_props: {}, ctx: WfuiContext) {
-  return (
-    <div ref={el => {
-      const timer = setInterval(() => console.log('tick'), 1000)
-      return () => { clearInterval(timer); console.log('cleanup') }
-    }}>Timer</div>
-  )
+const Timer: Component = (_init, ctx) => {
+  let timer: ReturnType<typeof setInterval> | undefined
+
+  ctx.ui.onmounted((el) => {
+    timer = setInterval(() => console.log('tick'), 1000)
+    return () => clearInterval(timer)
+  })
+
+  return (props) => h('div', {}, 'Timer')
 }
 ```
 
-| 场景 | 写法 |
-|------|------|
-| 事件监听 | `ref={el => { el.addEventListener(...); return () => el.removeEventListener(...) }}` |
-| 定时器 | `ref={el => { const t = setInterval(...); return () => clearInterval(t) }}` |
-| 第三方库 | `ref={el => { const c = new Chart(el); return () => c.destroy() }}` |
-| 仅 mount | `ref={el => { init(el) }}`（无返回） |
+**注意**：`onmounted` 在首次渲染后触发，此时 DOM 已创建。**所有生命周期回调执行期间 `_rendering = true`**，`$.x = val` 不触发额外渲染。
+
+对于**内嵌元素**（非根元素），用 `el.querySelector()`：
+
+```tsx
+ctx.ui.onmounted((el) => {
+  const input = el.querySelector('input[type="text"]') as HTMLElement
+  input?.focus()
+})
+```
+
+所有钩子遵循替换模式：多次注册只保留最后一次。
+
+### 异步组件
+
+在 mount 阶段发起请求，数据通过 `$.x = val` 自动触发渲染：
+
+```tsx
+const UserProfile: Component = (initProps, ctx) => {
+  const $ = ctx.ui.$()
+  $.loading = true
+
+  fetch(`/api/user/${initProps.id}`)
+    .then(r => r.json())
+    .then(user => { $.user = user; $.loading = false })
+
+  return (props) =>
+    $.loading
+      ? h('div', {}, '加载中...')
+      : h('div', {}, $.user?.name ?? '')
+}
+```
 
 ---
 
@@ -1122,7 +1179,7 @@ import { ErrorBoundary } from 'weifuwu/client'
 <ErrorBoundary fallback={({ error }) => (
   <div>
     <p>出错了: {String(error)}</p>
-    <button onClick={() => ctx.ui.$.error = null}>重试</button>
+    <button onClick={() => location.reload()}>重试</button>
   </div>
 )}>
   <UserProfile />
@@ -1134,7 +1191,7 @@ import { ErrorBoundary } from 'weifuwu/client'
 | `fallback` | `VNode \| ((props: { error }) => VNode) \| null` | `null` | 错误时渲染的内容 |
 | `children` | `any` | — | 子组件 |
 
-捕获子组件 render 时的错误 → `$.error` → 渲染 fallback。清除 `$.error` 即可重试。
+捕获子组件 render 时的错误 → 渲染 fallback。清除 `error` 即可重试。
 
 ---
 
@@ -1148,8 +1205,7 @@ createApp()
   .mount('#root', App)
 
 // 在组件中使用
-const $ = ctx.ui.$
-async function handleDelete() {
+async function handleDelete(ctx: WfuiContext) {
   const ok = await ctx.confirm?.('确定删除这条记录？', {
     title: '确认删除',
     confirmText: '删除',
@@ -1157,7 +1213,7 @@ async function handleDelete() {
     variant: 'danger',  // 'primary' | 'danger'
   })
   if (ok) {
-    $.deleted = true
+    // 执行删除...
   }
 }
 ```
@@ -1471,7 +1527,7 @@ document.documentElement.setAttribute('data-theme', 'dark')
 |------|------|------|
 | 注入 | 中间件注入 ctx.field | 中间件注入 ctx.field |
 | 读取 | handler 读取 ctx | 组件读取 ctx |
-| 渲染 | 返回 Response | Proxy 自动触发 VDOM patch |
+| 渲染 | 返回 Response | `ctx.ui.render()` / `ctx.ui.dirty()` 触发 VDOM patch |
 
 ## Closeable 接口
 

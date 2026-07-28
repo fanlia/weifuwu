@@ -1,9 +1,9 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { setRefreshToken } from '../lib/api'
 
-export function Login(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.email = ''; $.password = ''; $.error = ''; $.loading = false }
+export const Login: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
+$.email = ''; $.password = ''; $.error = ''; $.loading = false
 
   async function handleLogin(e: Event) {
     e.preventDefault()
@@ -28,9 +28,8 @@ export function Login(_props: {}, ctx: WfuiContext) {
       $.loading = false
      
     }
-  }
 
-  return (
+  return (props) => (
     <div class="auth-page">
       <div class="auth-card">
         <div class="auth-logo">A</div>

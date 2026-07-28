@@ -1,15 +1,14 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, EmptyState, Loading } from '../components/ui'
 
-export function Companies(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const Companies: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) { $.companies = []; $.loading = true
+   $.companies = []; $.loading = true
     fetch('/api/companies', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { $.companies = d.companies ?? []; $.loading = false })
       .catch(() => { $.loading = false })
-  }
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -22,9 +21,8 @@ export function Companies(_props: {}, ctx: WfuiContext) {
         .then(r => r.json()).then(d => { $.companies = d.companies ?? []; $.loading = false })
         .catch(() => { $.loading = false })
     }
-  }
 
-  return (
+  return (props) => (
     <div class="page">
       <PageHeader title="公司" sub="管理公司及其下属部门">
         <button class="btn btn-primary" onClick={() => ctx.app?.navigate('/companies/new')}>＋ 创建公司</button>

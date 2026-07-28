@@ -1,16 +1,14 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, TypeBadge, Ava, EmptyState, Loading, StatusDot } from '../components/ui'
 
-export function Agents(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const Agents: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) {
     $.agents = []; $.loading = true
     fetch('/api/agents', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { $.agents = d.agents ?? []; $.loading = false })
       .catch(() => { $.loading = false })
-  }
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -20,9 +18,8 @@ export function Agents(_props: {}, ctx: WfuiContext) {
       $.agents = $.agents.filter((a: any) => a.id !== id)
      
     }
-  }
 
-  return (
+  return (props) => (
     <div class="page">
       <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">
         <button class="btn btn-primary" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</button>

@@ -1,11 +1,11 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader } from '../components/ui'
 
-export function NewCompany(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
+export const NewCompany: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
   const token = ctx.auth?.token
 
-  if (!ctx.ui.ready) { $.name = ''; $.error = ''; $.submitting = false }
+$.name = ''; $.error = ''; $.submitting = false
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
@@ -20,9 +20,8 @@ export function NewCompany(_props: {}, ctx: WfuiContext) {
       if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
       ctx.app?.navigate('/companies')
     } catch { $.error = '网络错误'; $.submitting = false }
-  }
 
-  return (
+  return (props) => (
     <div class="page page-narrow">
       <a class="back-link" onClick={() => ctx.app?.navigate('/companies')}>← 返回公司列表</a>
       <PageHeader title="创建公司" sub="公司是部门的顶层组织单位" />
