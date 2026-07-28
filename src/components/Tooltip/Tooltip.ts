@@ -37,7 +37,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
     const tipRef = (el: HTMLElement | null) => {
       if (!el || typeof window === 'undefined') return
       let _tick = false
-      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; $.vShow = ($.vShow || 0) + 1 }) } }
+      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; ctx.ui.dirty() }) } }
       window.addEventListener('scroll', onMove, true)
       window.addEventListener('resize', onMove)
       return () => {

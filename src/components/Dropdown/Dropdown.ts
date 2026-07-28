@@ -40,7 +40,8 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     // ── scroll/resize 追踪 ─────────────────────────────
     const menuRef = (el: HTMLElement | null) => {
       if (!el || typeof window === 'undefined') return
-      const onMove = () => { $.vShow = ($.vShow || 0) + 1 }
+      let _tick = false
+      const onMove = () => { if (!_tick) { _tick = true; requestAnimationFrame(() => { _tick = false; ctx.ui.dirty() }) } }
       window.addEventListener('scroll', onMove, true)
       window.addEventListener('resize', onMove)
       return () => {
