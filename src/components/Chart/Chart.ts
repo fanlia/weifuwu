@@ -72,7 +72,7 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
       })
     })
 
-    return h('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, [
+    return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}` }, [
       // 网格线 + Y 轴标签
       ...ticks.map((t, i) => h('g', { key: `tick-${i}` }, [
         h('line', {
@@ -119,7 +119,7 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
     const ticks = getYTicks(yScale)
     const rects = barRects(data, xScale, yScale)
 
-    return h('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, [
+    return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}` }, [
       ...ticks.map((t, i) => h('g', { key: `tick-${i}` }, [
         h('line', {
           x1: pad, y1: t.y + pad, x2: W - pad, y2: t.y + pad,
@@ -159,7 +159,7 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
     const radius = Math.min(cw, ch) / 2 - 4
     const arcs = pieArcs(data, cx, cy, radius)
 
-    return h('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, [
+    return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}` }, [
       ...arcs.map((a, i) => h('g', { key: `arc-${i}` }, [
         h('path', {
           d: a.d, fill: a.color, stroke: '#fff', 'stroke-width': 1.5,

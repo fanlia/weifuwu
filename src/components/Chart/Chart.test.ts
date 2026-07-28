@@ -18,7 +18,7 @@ describe('Chart', () => {
     const vnode = Chart({ type: 'line', data }, mockCtx())!
     const svg = vnode.props.children.find((c: any) => c?.type === 'svg')
     assert.ok(svg, 'should render svg')
-    assert.equal(svg?.props?.width, 320)
+    assert.equal(svg?.props?.style?.width, '100%')
     assert.equal(svg?.props?.height, 200)
   })
 
