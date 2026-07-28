@@ -162,12 +162,14 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   try {
     childVNode = Comp(props, ctx)
 
-    // 判断是否两阶段组件（返回函数）
     if (typeof childVNode === 'function') {
+      // 新风格：返回 render 函数
       vnode._render = childVNode
       childVNode = childVNode(props)
     } else {
-      vnode._render = undefined
+      // 兼容旧风格：返回 VNode，包装为每次重新调用组件
+      const comp = Comp
+      vnode._render = (p: any) => comp(p, ctx) as VNode | null
     }
 
     // mount hooks：首次渲染时触发（在 renderCount 保护内）

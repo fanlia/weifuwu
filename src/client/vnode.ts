@@ -27,7 +27,7 @@ export interface VNode {
   _render?: (props: any) => VNode | null
 }
 
-export type Component<P = {}> = (props: P, ctx: WfuiContext) => VNode | null | ((props: P) => VNode | null)
+export type Component<P = {}> = (initProps: P, ctx: WfuiContext) => VNode | null | ((props: P) => VNode | null)
 
 export const Fragment = Symbol('Fragment')
 
