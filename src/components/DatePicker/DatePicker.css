@@ -41,6 +41,8 @@
 /* ── 日历面板 ── */
 
 .wf-datepicker-dropdown {
+  position: fixed;
+  z-index: var(--wf-pop-z);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
@@ -146,6 +148,8 @@
 /* ── 区间模式 ── */
 
 .wf-datepicker-range-wrap {
+  position: fixed;
+  z-index: var(--wf-pop-z);
   display: flex;
   gap: var(--wf-space);
   background: var(--wf-color-bg);
@@ -163,6 +167,8 @@
 /* ── 时间选择 ── */
 
 .wf-time-picker {
+  position: fixed;
+  z-index: var(--wf-pop-z);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);

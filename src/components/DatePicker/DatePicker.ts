@@ -29,6 +29,7 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
   const $ = ctx.ui.$
   if (!ctx.ui.ready) {
     $.show = false
+    $.selectedValue = ''
     const now = new Date()
     $.viewYear = now.getFullYear()
     $.viewMonth = now.getMonth()
@@ -63,11 +64,14 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
         $.rangeEnd = formatDate(day.year, day.month, day.day)
         const ds = $.rangeStart < $.rangeEnd ? $.rangeStart : $.rangeEnd
         const de = $.rangeStart < $.rangeEnd ? $.rangeEnd : $.rangeStart
-        onChange?.(`${ds} ~ ${de}`)
+        const val = `${ds} ~ ${de}`
+        $.selectedValue = val
+        onChange?.(val)
         setOpen(false)
       }
     } else {
       const formatted = formatDate(day.year, day.month, day.day)
+      $.selectedValue = formatted
       onChange?.(formatted)
       setOpen(false)
     }
@@ -83,7 +87,9 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
   }
 
   const confirmTime = () => {
-    onChange?.(formatDateTime($.viewYear, $.viewMonth, 1, $.hour, $.minute))
+    const val = formatDateTime($.viewYear, $.viewMonth, 1, $.hour, $.minute)
+    $.selectedValue = val
+    onChange?.(val)
     setOpen(false)
   }
 
@@ -250,7 +256,7 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
 
   const portalContent = isOpen ? createPortal(panel, 'dp-calendar') : null
 
-  const displayValue = value ?? (mode === 'range' && $.rangeStart && $.rangeEnd ? `${$.rangeStart} ~ ${$.rangeEnd}` : '')
+  const displayValue = value ?? $.selectedValue ?? ''
 
   return h('div', { class: `wf-datepicker${disabled ? ' wf-datepicker--disabled' : ''}` }, [
     h('input', {
