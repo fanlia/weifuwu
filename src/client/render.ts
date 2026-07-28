@@ -15,6 +15,9 @@ import { Fragment, Portal, isPortal } from './vnode.ts'
 import type { VNode, Component } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 
+const SVG_NS = 'http://www.w3.org/2000/svg'
+const SVG_TAGS = new Set(['svg', 'path', 'circle', 'line', 'rect', 'text', 'g', 'polyline', 'polygon', 'ellipse', 'defs', 'use', 'clipPath', 'mask', 'linearGradient', 'radialGradient', 'stop', 'tspan'])
+
 // render 执行中计数器 — >0 时 dirty() 被跳过，防止 render 中写 $ 导致死循环
 let _renderCount = 0
 
@@ -98,8 +101,9 @@ function renderValue(v: any, ctx: WfuiContext): Node {
     return renderComponent(vnode.type as Component, vnode.props, vnode, ctx)
   }
 
-  // Native element
-  const el = document.createElement(vnode.type as string)
+  // Native element（SVG 元素必须用 createElementNS）
+  const tag = vnode.type as string
+  const el = SVG_TAGS.has(tag) ? document.createElementNS(SVG_NS, tag) : document.createElement(tag)
   vnode.el = el
 
   // 先设非 value 属性
@@ -250,7 +254,9 @@ function flattenChildren(children: any): any[] {
 
 function setProp(el: Element, key: string, value: any) {
   if (key === 'class' || key === 'className') {
-    el.className = String(value ?? '')
+    // SVG use setAttribute('class'), HTML use className property
+    if (el instanceof SVGElement) el.setAttribute('class', String(value ?? ''))
+    else el.className = String(value ?? '')
   } else if (key === 'style' && typeof value === 'object' && value !== null) {
     const st = (el as HTMLElement).style
     for (const sk of Object.keys(value)) {
@@ -418,7 +424,8 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
     const newVal = newProps?.[key]
     if (newVal !== oldVal) {
       if (key === 'class' || key === 'className') {
-        el.className = String(newVal ?? '')
+        if (el instanceof SVGElement) el.setAttribute('class', String(newVal ?? ''))
+        else el.className = String(newVal ?? '')
       } else if (key === 'style' && typeof newVal === 'object') {
         const st = (el as HTMLElement).style
         for (const sk of Object.keys(newVal)) {
