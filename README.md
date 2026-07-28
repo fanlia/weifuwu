@@ -32,7 +32,7 @@ npm install weifuwu
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **confirm** | Promise 化确认对话框 | createApp |
 | `weifuwu/client** | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
-| `weifuwu/components` | **38 个组件** | Button/Table/Modal/Toast/... | weifuwu/client |
+| `weifuwu/components` | **41 个组件** | Button/Table/Modal/Toast/... | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token | — |
 
 ---
@@ -1276,7 +1276,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-38 个 HTML 原语组件。每个是 `(props, ctx) => VNode` 纯函数，引用 `--wf-*` CSS 变量做主题。
+41 个 HTML 原语组件。每个是 `(props, ctx) => VNode` 纯函数，引用 `--wf-*` CSS 变量做主题。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -1351,6 +1351,14 @@ import 'weifuwu/components/style.css'
 | Pagination | `Pagination` | `total`, `page`, `pageSize`, `onChange` | 分页 |
 | Steps | `Steps` | `items: StepItem[]`, `current`, `direction`, `size` | 步骤条 |
 | Accordion | `Accordion` | `items: AccordionItem[]`, `multiple`, `defaultActive` | 手风琴 |
+
+### 图表
+
+| 组件 | 导入名 | 关键 Props | 说明 |
+|-----|--------|-----------|------|
+| Chart | `Chart` | `type: ChartType`, `data`, `options`, `title`, `area` | SVG 图表（line/bar/pie）|
+| DatePicker | `DatePicker` | `mode: DatePickerMode`, `value`, `onChange`, `placeholder` | 日期选择器（date/datetime/time/range）|
+| Editor | `Editor` | `value`, `onChange`, `toolbar`, `placeholder`, `disabled` | 富文本编辑器，零依赖 |
 
 ### 布局
 
