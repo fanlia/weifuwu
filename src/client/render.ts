@@ -15,6 +15,9 @@ import { Fragment } from './vnode.ts'
 import type { VNode, Component } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 
+// render 执行中计数器 — >0 时 dirty() 被跳过，防止 render 中写 $ 导致死循环
+let _renderCount = 0
+
 // ── 深层 Proxy 包装（数组突变 + 嵌套对象属性自动 dirty）──
 
 const mutationMethods = ['push', 'pop', 'splice', 'shift', 'unshift', 'sort', 'reverse']
@@ -125,9 +128,11 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   ;(ctx as any).ui.ready = !!prev$
   // 组件级 Proxy（深层包装：数组 push/pop 自动 dirty，嵌套对象赋值自动 dirty）
   const _target = vnode._$!
-  ;(ctx as any).ui.$ = createComponentProxy(_target, () => (ctx as any).ui?.dirty?.())
+  const _dirtyFn = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
+  ;(ctx as any).ui.$ = createComponentProxy(_target, _dirtyFn)
 
   let childVNode
+  _renderCount++
   try {
     childVNode = Comp(props, ctx)
   } catch (e) {
@@ -140,6 +145,8 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
       console.error('Component render error:', e)
       childVNode = null
     }
+  } finally {
+    _renderCount--
   }
   if (childVNode == null) {
     vnode._child = null
@@ -258,9 +265,12 @@ export function patchValue(
     ;(ctx as any).ui.ready = !!newV._$
     // 每次重渲染都设置组件级 Proxy（深层包装）
     const _tgt = newV._$!
-    ;(ctx as any).ui.$ = createComponentProxy(_tgt, () => (ctx as any).ui?.dirty?.())
+    const _dirtyFn2 = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
+    ;(ctx as any).ui.$ = createComponentProxy(_tgt, _dirtyFn2)
 
-    const childNew = comp(newV.props, ctx)
+    _renderCount++
+    let childNew
+    try { childNew = comp(newV.props, ctx) } finally { _renderCount-- }
     newV._child = childNew
 
     return patchValue(parent, oldNode, oldV._child, childNew, ctx)
