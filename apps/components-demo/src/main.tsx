@@ -634,6 +634,9 @@ const DemoDatePicker: Component = (_props, ctx) => {
       <div style="width:180px">
         <DatePicker mode="time" onChange={v => $.result = v} placeholder="选择时间" />
       </div>
+      <div style="width:220px">
+        <DatePicker mode="range" onChange={v => $.result = v} placeholder="日期范围" />
+      </div>
       {$.result && <div style="font-size:12px;color:var(--wf-color-text-secondary);width:100%">已选: {$.result}</div>}
     </div>
   )
@@ -855,10 +858,10 @@ if (ok) { /* 执行 */ }`,
   <p>内容</p>
 </Drawer>`,
 
-  datepicker: `<DatePicker mode="date" placeholder="选择日期" onChange={v => ...} />
-<DatePicker mode="datetime" placeholder="日期+时间" />
-<DatePicker mode="time" placeholder="选择时间" />
-<DatePicker mode="range" placeholder="日期范围" />`,
+  datepicker: `<DatePicker mode="date" onChange={v => ...} />
+<DatePicker mode="datetime" />
+<DatePicker mode="time" />
+<DatePicker mode="range" />`,
 
   popover: `<Popover content={<div>面板内容</div>}>
   <Button>点击弹出</Button>
@@ -930,7 +933,7 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <Section title="数据反馈">
-        <DemoCard title="DatePicker" desc="日期选择器，支持 date/datetime/time/range 四种模式" code={CODE.datepicker}><DemoDatePicker /></DemoCard>
+        <DemoCard title="DatePicker" desc="日期选择器，四种模式：date/datetime/time/range" code={CODE.datepicker}><DemoDatePicker /></DemoCard>
         <DemoCard title="Modal" desc="弹窗，ESC + overlay 关闭" code={CODE.modal}><DemoModal /></DemoCard>
         <DemoCard title="Drawer" desc="侧边面板，左右滑入 + ESC 关闭" code={CODE.drawer}><DemoDrawer /></DemoCard>
         <DemoCard title="Popover" desc="通用弹出层，click/hover 触发，4 方向" code={CODE.popover}><DemoPopover /></DemoCard>
