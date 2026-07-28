@@ -161,6 +161,20 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   _renderCount++
   try {
     childVNode = Comp(props, ctx)
+
+    // 判断是否两阶段组件（返回函数）
+    if (typeof childVNode === 'function') {
+      vnode._render = childVNode
+      childVNode = childVNode(props)
+    } else {
+      vnode._render = undefined
+    }
+
+    // mount hooks：首次渲染时触发（在 renderCount 保护内）
+    if (!prev$) {
+      const mh = _target._hooks?.mount
+      if (mh && mh[0]) mh[0]()
+    }
   } catch (e) {
     const errHandler = (ctx as any).ui?._errorHandler
     if (errHandler) {
@@ -172,20 +186,6 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
     }
   } finally {
     _renderCount--
-  }
-
-  // 判断是否两阶段组件（返回函数）
-  if (typeof childVNode === 'function') {
-    vnode._render = childVNode
-    childVNode = childVNode(props)
-  } else {
-    vnode._render = undefined
-  }
-
-  // mount hooks：首次渲染时触发
-  if (!prev$) {
-    const mh = _target._hooks?.mount
-    if (mh && mh[0]) mh[0]()
   }
 
   if (childVNode == null) {
@@ -370,13 +370,12 @@ export function patchValue(
       }
     }
 
-    // update hooks：props 变化时触发
+    _renderCount++
+    // update hooks：props 变化时触发（在 renderCount 保护内，$.x = val 不触发 dirty）
     if (oldV._$) {
       const uh = _tgt._hooks?.update
       if (uh && uh[0]) uh[0](oldV.props)
     }
-
-    _renderCount++
     let childNew
     try {
       if (newV._render) {
