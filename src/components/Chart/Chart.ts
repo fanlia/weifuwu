@@ -182,7 +182,7 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
       ])),
       // 中心文字（甜甜圈）— 白色圆底防覆盖
       ...(isDonut ? [
-        h('circle', { cx, cy, r: ir, fill: '#fff' }),
+        h('circle', { cx, cy, r: ir * 0.6, fill: '#fff' }),
         h('text', {
           x: cx, y: cy + 4,
           'text-anchor': 'middle', fill: '#374151',
