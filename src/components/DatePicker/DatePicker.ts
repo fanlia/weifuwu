@@ -35,6 +35,10 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
     $.viewMonth = now.getMonth()
     $.hour = now.getHours()
     $.minute = now.getMinutes()
+    // datetime 模式：选中日期暂存
+    $.selYear = now.getFullYear()
+    $.selMonth = now.getMonth()
+    $.selDay = now.getDate()
     // range 模式
     $.rangeStart = null as string | null
     $.rangeEnd = null as string | null
@@ -56,7 +60,11 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
   // ── 日期选择 ──────────────────────────────────────
 
   const selectDate = (day: CalendarDay) => {
-    if (mode === 'range') {
+    if (mode === 'datetime') {
+      // datetime: 只存日期不关闭，等用户点确定
+      $.selYear = day.year; $.selMonth = day.month; $.selDay = day.day
+      $.viewYear = day.year; $.viewMonth = day.month
+    } else if (mode === 'range') {
       if (!$.rangeStart || ($.rangeStart && $.rangeEnd)) {
         $.rangeStart = formatDate(day.year, day.month, day.day)
         $.rangeEnd = null
@@ -64,15 +72,13 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
         $.rangeEnd = formatDate(day.year, day.month, day.day)
         const ds = $.rangeStart < $.rangeEnd ? $.rangeStart : $.rangeEnd
         const de = $.rangeStart < $.rangeEnd ? $.rangeEnd : $.rangeStart
-        const val = `${ds} ~ ${de}`
-        $.selectedValue = val
-        onChange?.(val)
+        $.selectedValue = `${ds} ~ ${de}`
+        onChange?.($.selectedValue)
         setOpen(false)
       }
     } else {
-      const formatted = formatDate(day.year, day.month, day.day)
-      $.selectedValue = formatted
-      onChange?.(formatted)
+      $.selectedValue = formatDate(day.year, day.month, day.day)
+      onChange?.($.selectedValue)
       setOpen(false)
     }
   }
@@ -87,9 +93,14 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
   }
 
   const confirmTime = () => {
-    const val = formatDateTime($.viewYear, $.viewMonth, 1, $.hour, $.minute)
-    $.selectedValue = val
-    onChange?.(val)
+    $.selectedValue = formatTime($.hour, $.minute)
+    onChange?.($.selectedValue)
+    setOpen(false)
+  }
+
+  const confirmDateTime = () => {
+    $.selectedValue = formatDateTime($.selYear, $.selMonth, $.selDay, $.hour, $.minute)
+    onChange?.($.selectedValue)
     setOpen(false)
   }
 
@@ -242,6 +253,9 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
               onChange: (e: Event) => { $.minute = parseInt((e.target as HTMLSelectElement).value) },
             }, minuteOptions().map(mv => h('option', { value: mv, key: mv }, String(mv).padStart(2, '0')))),
           ]),
+        ]))
+        content.push(h('div', { class: 'wf-time-footer' }, [
+          h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: confirmDateTime }, '确定'),
         ]))
       }
       const dp = h('div', {
