@@ -1,6 +1,6 @@
 # weifuwu — 架构约束与编码标准
 
-全栈框架：后端 `(req, ctx) => Response` + 前端 `(init_props, ctx) => (props) => VNode` + 纯 CSS 布局。
+全栈框架：后端 `(req, ctx) => Response` + 前端 `(initProps, ctx) => (props) => VNode` + 纯 CSS 布局。
 
 ## 架构
 
@@ -11,25 +11,25 @@
 
 - **中间件注入 ctx** — `ctx.sql`, `ctx.redis`, `ctx.ui`, `ctx.route`, `ctx.api`, `ctx.auth`, `ctx.ws`, `ctx.i18n`
 - **状态驱动渲染** — `ctx.ui.$` 深度 Proxy，赋值自动触发 VDOM patch
-- **组件签名** — `(init_props, ctx) => (props) => VNode | null`，无 class/hook/this
+- **组件签名** — `(initProps, ctx) => (props) => VNode | null`
 - **两阶段模型** — 外层函数 = mount（只一次），内层返回函数 = render（每次 dirty/props 变化）
 - **生命周期** — `ctx.ui.onmount/onunmount/onupdate`
 - **VDOM 支持 innerHTML** — 直接用 `innerHTML` prop
 - **ref 管理第三方库** — `ref={el => { init; return () => cleanup }}`
 
-## 组件写法（统一两阶段）
+## 组件写法
 
 ### 无状态组件
 
 ```tsx
-const Button = (init_props, ctx) =>
-  (props) => h('button', { class: props.variant }, props.children)
+const Badge = (_init, ctx) =>
+  (props) => h('span', { class: `badge-${props.variant}` }, props.children)
 ```
 
 ### 有状态组件
 
 ```tsx
-const Toggle = (init_props, ctx) => {
+const Toggle = (_init, ctx) => {
   // ── mount（只一次）──
   const $ = ctx.ui.$
   $.on = false
@@ -47,11 +47,11 @@ const Toggle = (init_props, ctx) => {
 ### 异步组件
 
 ```tsx
-const UserProfile = async (init_props, ctx) => {
+const UserProfile = async (initProps, ctx) => {
   const $ = ctx.ui.$
   $.loading = true
 
-  const user = await fetch(`/api/user/${init_props.id}`).then(r => r.json())
+  const user = await fetch(`/api/user/${initProps.id}`).then(r => r.json())
 
   $.loading = false
   $.user = user
@@ -67,14 +67,14 @@ const UserProfile = async (init_props, ctx) => {
 
 | 参数 | 作用域 | 说明 |
 |------|--------|------|
-| `init_props` | mount 阶段 | 组件首次渲染时的 props，用于初始化 |
+| `initProps` | mount 阶段 | 组件首次渲染时的 props，用于初始化 |
 | `props` | render 阶段 | 每次 dirty/props 变化时保持最新值的 props |
 
 ```tsx
-// ✅ 正确：初始化用 init_props，渲染用 props
-const Counter = (init_props, ctx) => {
+// ✅ 正确：初始化用 initProps，渲染用 props
+const Counter = (initProps, ctx) => {
   const $ = ctx.ui.$
-  $.count = init_props.initial ?? 0
+  $.count = initProps.initial ?? 0
   return (props) =>
     h('button', { onClick: () => $.count += props.step ?? 1 }, $.count)
 }
@@ -89,8 +89,8 @@ const Bad = (props, ctx) =>
 不需要 `ctx.ui.$` 的组件：
 
 ```tsx
-const Badge = (_init_props, ctx) =>
-  (props) => h('span', { class: `badge-${props.variant}` }, props.children)
+const Button = (_init, ctx) =>
+  (props) => h('button', { class: props.variant }, props.children)
 ```
 
 `$` 可选——只有需要触发 re-render 的状态才用 `$`。
@@ -102,7 +102,7 @@ const Badge = (_init_props, ctx) =>
 | CS-01  | `throw`/`return` 后不留死代码                    | if-else 都需 return                       |
 | CS-02  | Promise 必须 await 或 catch                      | 无 `.then()` 无 catch                     |
 | CS-03  | Event listener 内用 `console.error` 不用 `throw` | `server.on('error', ...)`                 |
-| FS-01  | 组件 = `(init_props, ctx) => (props) => VNode`   | 无 class/hook/this                        |
+| FS-01  | 组件 = `(initProps, ctx) => (props) => VNode`    | 无 class/hook/this                        |
 | FS-03  | Proxy 驱动渲染                                   | `$.x = val` 而非 DOM 操作                 |
 | FS-04  | 禁止 eval/new Function                           | 安全基线                                  |
 | FS-05  | 前端无 npm 运行时依赖                            | client 包 import 无外部 dep               |
@@ -117,7 +117,7 @@ const Badge = (_init_props, ctx) =>
 | DOM 引用 | 闭包变量 + ref | `let wrapEl; ref={e => wrapEl=e}` |
 
 ```tsx
-const Popover = (init_props, ctx) => {
+const Popover = (_init, ctx) => {
   const $ = ctx.ui.$
   $.show = false
   let wrapEl: HTMLElement | undefined
@@ -146,15 +146,13 @@ ctx.ui.onupdate((prevProps) => {})    // props 变化时触发
 ```
 
 - 每个方法只保留最后一次注册的 handler（替换模式）
-  - mount 阶段注册一次，持久生效
-  - 单函数中每次 render 替换，只执行最新的
 - 所有钩子在 `_renderCount` 保护内执行，`$.x = val` 不触发额外 dirty
 - `onmount` 触发时 DOM 还未创建，第三方库初始化仍用 `ref`
 
 ## ref 管理第三方库
 
 ```tsx
-const EChart = (init_props, ctx) => {
+const EChart = (_init, ctx) => {
   let instance: echarts.ECharts | undefined
 
   return (props) =>
@@ -223,24 +221,24 @@ createApp().use(myMw)
 ## 测试
 
 - `node --test` 无 Jest/Mocha
-- 组件测试：先 mount 获取 renderFn，再调用 `renderFn(props)` 得到 VNode
+- 组件测试：调用 `renderVNode(Comp, props, ctx)` 获取 VNode
 
 ```tsx
-const result = Popover(props, mockCtx)
-const renderFn = typeof result === 'function' ? result : null
-const vnode = renderFn!(props)
-```
-
-- 帮助函数 `renderVNode`：
-
-```tsx
-function renderVNode(Comp, props, ctx) {
+function renderVNode(Comp: any, props: any, ctx: any) {
   const result = Comp(props, ctx)
   return typeof result === 'function' ? result(props) : result
 }
-```
 
-- `$` 状态：直接修改 `ctx.ui.$.xxx = val` 后调用 renderFn
+// 无状态组件
+const vnode = renderVNode(Button, { variant: 'primary' }, mockCtx)
+
+// 有状态组件
+const ctx = mockCtx()
+const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
+// 修改 state 后重新渲染
+ctx.ui.$.show = true
+const vnode2 = renderVNode(Popover, { content: 'hello' }, ctx)
+```
 
 ## 构建 & 发布
 

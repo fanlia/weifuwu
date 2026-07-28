@@ -50,14 +50,6 @@ function StatCard(props: { label: string; value: string; change?: string; up?: b
 function Dashboard(_props: {}, ctx: WfuiContext) {
   const $ = ctx.ui.$
 
-  if (!ctx.ui.ready) {
-    $.dark = document.documentElement.getAttribute('data-theme') === 'dark'
-    $.users = [
-      { id: 1, name: '张三', email: 'zhang@example.com', status: 'active', avatar: '张' },
-      { id: 2, name: '李四', email: 'li@example.com', status: 'active', avatar: '李' },
-      { id: 3, name: '王五', email: 'wang@example.com', status: 'inactive', avatar: '王' },
-    ]
-  }
 
   function toggleTheme() {
     $.dark = !$.dark

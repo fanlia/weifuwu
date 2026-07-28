@@ -19,18 +19,6 @@ import DashboardSettings from './pages/DashboardSettings'
 
 function HomePage(_props: {}, ctx: WfuiContext) {
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) {
-    $.features = [
-      { title: 'Todo', desc: 'signal → ctx.ui.$ 响应式列表', path: '/todo' },
-      { title: '表单', desc: 'useForm → 手动 $ 表单', path: '/forms' },
-      { title: '数据', desc: 'createResource → if (!ready)', path: '/data' },
-      { title: 'Dashboard', desc: '嵌套布局 + 路由', path: '/dashboard/overview' },
-      { title: '认证', desc: 'api() + auth() 中间件', path: '/auth' },
-      { title: '实时', desc: 'WebSocket 双向通信', path: '/ws' },
-      { title: '关于', desc: '路由参数 /query', path: '/about' },
-      { title: '用户', desc: '路由参数 /:name', path: '/user/wefu' },
-    ]
-  }
 
   return (
     <div>
@@ -55,17 +43,6 @@ function HomePage(_props: {}, ctx: WfuiContext) {
 
 function TodoPage(_props: {}, ctx: WfuiContext) {
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) {
-    $.todos = [
-      { id: 1, text: '了解 signal', done: true },
-      { id: 2, text: '写一个组件', done: true },
-      { id: 3, text: '跑通 demo', done: false },
-      { id: 4, text: '掌握 Proxy 自动 dirty', done: false },
-      { id: 5, text: '熟悉嵌套布局', done: false },
-    ]
-    $.filter = 'all'
-    $.input = ''
-  }
 
   const todos = $.todos
   const filter = $.filter
@@ -135,10 +112,6 @@ function TodoPage(_props: {}, ctx: WfuiContext) {
 
 function FormPage(_props: {}, ctx: WfuiContext) {
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) {
-    $.username = ''; $.email = ''; $.password = ''; $.bio = ''
-    $.errors = {}; $.submitted = false; $.submitting = false
-  }
 
   function validate(): boolean {
     const errs: Record<string, string> = {}
@@ -238,14 +211,6 @@ function fetchPosts() {
 
 function DataPage(_props: {}, ctx: WfuiContext) {
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) {
-    $.posts = []; $.loading = true; $.error = null
-    fetchPosts().then(data => {
-      $.posts = data; $.loading = false
-    }).catch(e => {
-      $.error = e; $.loading = false
-    })
-  }
 
   function refetch() {
     $.loading = true; $.error = null
@@ -338,9 +303,6 @@ function DashboardLayout(_props: {}, ctx: WfuiContext) {
 
 function AuthPage(_props: {}, ctx: WfuiContext) {
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) {
-    $.email = ''; $.password = ''; $.loginError = null
-  }
 
   async function handleLogin() {
     $.loginError = null
@@ -405,14 +367,6 @@ function AuthPage(_props: {}, ctx: WfuiContext) {
 
 function RealtimePage(_props: {}, ctx: WfuiContext) {
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) {
-    $.messages = []; $.wsInput = ''
-    ctx.ws?.onMessage((data: any) => {
-      // 系统消息：触发重渲染（更新连接状态），但不加入消息列表
-      if (data.type === 'system') { $.connected = true; return }
-      $.messages = [...$.messages, data]
-    })
-  }
 
   function send() {
     const text = $.wsInput.trim()
