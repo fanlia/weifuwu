@@ -34,7 +34,8 @@ export const DatePicker: Component<DatePickerProps> = (props, ctx) => {
     $.viewYear = now.getFullYear()
     $.viewMonth = now.getMonth()
     $.hour = now.getHours()
-    $.minute = now.getMinutes()
+    // 分钟取整到 5 分钟步长
+    $.minute = Math.round(now.getMinutes() / 5) * 5
     // datetime 模式：选中日期暂存
     $.selYear = now.getFullYear()
     $.selMonth = now.getMonth()

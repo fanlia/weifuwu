@@ -102,15 +102,27 @@ function renderValue(v: any, ctx: WfuiContext): Node {
   const el = document.createElement(vnode.type as string)
   vnode.el = el
 
+  // 先设非 value 属性
+  let selectValue: any
   for (const [key, value] of Object.entries(vnode.props ?? {})) {
-    if (key === 'children' || key === 'key' || key === 'ref') continue
+    if (key === 'children' || key === 'key' || key === 'ref' || key === 'value') continue
     setProp(el, key, value)
   }
+  if ('value' in (vnode.props ?? {}) && el instanceof HTMLSelectElement) {
+    selectValue = vnode.props!.value
+  } else if ('value' in (vnode.props ?? {})) {
+    setProp(el, 'value', vnode.props!.value)
+  }
 
-  // 展平嵌套数组：JSX 中 {arr.map(...)} 产生 [el, [a,b,c]] 结构
+  // children（select 的 options 必须先生成再设 value）
   const flatChildren = flattenChildren(vnode.props?.children)
   for (const child of flatChildren) {
     el.appendChild(renderValue(child, ctx))
+  }
+
+  // select value 在 options 生成后设置
+  if (selectValue !== undefined) {
+    ;(el as HTMLSelectElement).value = String(selectValue)
   }
 
   // ref 回调（挂载）— 支持返回清理函数
@@ -247,8 +259,8 @@ function setProp(el: Element, key: string, value: any) {
     }
   } else if (key.startsWith('on') && typeof value === 'function') {
     el.addEventListener(key.slice(2).toLowerCase(), value as EventListener)
-  } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
-    ;(el as HTMLInputElement).value = String(value ?? '')
+  } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+    ;(el as HTMLSelectElement).value = String(value ?? '')
   } else if (value === true) {
     el.setAttribute(key, '')
   } else if (value != null && value !== false) {
@@ -393,8 +405,8 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
     if (!newKeys.includes(key)) {
       if (key.startsWith('on') && typeof oldProps[key] === 'function') {
         el.removeEventListener(key.slice(2).toLowerCase(), oldProps[key] as EventListener)
-      } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
-        ;(el as HTMLInputElement).value = ''
+      } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+        ;(el as HTMLSelectElement).value = ''
       } else {
         el.removeAttribute(key === 'className' ? 'class' : key)
       }
@@ -418,15 +430,15 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
         // 移除旧监听器，防止累积
         if (typeof oldVal === 'function') el.removeEventListener(eventName, oldVal as EventListener)
         el.addEventListener(eventName, newVal as EventListener)
-      } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
-        ;(el as HTMLInputElement).value = String(newVal ?? '')
+      } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+        ;(el as HTMLSelectElement).value = String(newVal ?? '')
       } else if (newVal === true) {
         el.setAttribute(key, '')
       } else if (newVal != null && newVal !== false) {
         el.setAttribute(key, String(newVal))
       } else {
-        if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
-          ;(el as HTMLInputElement).value = ''
+        if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+          ;(el as HTMLSelectElement).value = ''
         } else {
           el.removeAttribute(key)
         }
