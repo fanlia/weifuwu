@@ -16,8 +16,6 @@
   white-space: nowrap;
   pointer-events: none;
   max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .wf-tooltip--hidden {
@@ -56,7 +54,7 @@
 }
 
 .wf-tooltip--top .wf-tooltip-arrow {
-  bottom: -10px;
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   border-top-color: var(--wf-color-text);
@@ -64,7 +62,7 @@
 }
 
 .wf-tooltip--left .wf-tooltip-arrow {
-  right: -10px;
+  left: 100%;
   top: 50%;
   transform: translateY(-50%);
   border-right-color: var(--wf-color-text);
