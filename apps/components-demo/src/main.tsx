@@ -250,10 +250,16 @@ const DemoSearchInput: Component = (_props, ctx) => {
 const DemoProgress: Component = (_props, ctx) => {
   const $ = ctx.ui.$
   if ($.pct === undefined) $.pct = 45
-  // 模拟进度推进
-  if ($.pct < 100) {
-    setTimeout(() => { $.pct = Math.min(100, $.pct + 5) }, 800)
-  }
+
+  ctx.ui.onmount(() => {
+    const tick = () => {
+      if ($.pct < 100) {
+        $.pct = Math.min(100, $.pct + 5)
+        setTimeout(tick, 800)
+      }
+    }
+    setTimeout(tick, 800)
+  })
 
   return (_p: any) => {
   return (
@@ -353,8 +359,10 @@ const DemoAlert: Component = (_props, ctx) => {
 const DemoLoading: Component = (_props, ctx) => {
   const $ = ctx.ui.$
   if ($.loading === undefined) $.loading = true
-  // 3秒后自动消失
-  if ($.loading) { setTimeout(() => $.loading = false, 3000) }
+
+  ctx.ui.onmount(() => {
+    setTimeout(() => $.loading = false, 3000)
+  })
 
   return (_p: any) => {
   return (
