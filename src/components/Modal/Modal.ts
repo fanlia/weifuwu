@@ -22,6 +22,12 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
   $.exiting = false
   let prevOpen: boolean | undefined
 
+  ctx.ui.onmounted((el) => {
+    lockScroll()
+    const cleanupFocus = trapFocus(el as HTMLElement)
+    return () => { unlockScroll(); cleanupFocus() }
+  })
+
   // ── render（每次 dirty/props 变化）──
   return (props: ModalProps) => {
     const { open, title, onClose, children, footer } = props
@@ -32,7 +38,10 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
       if (open && $.exiting) $.exiting = false
     }
 
-    const startClose = () => { $.exiting = true }
+    const startClose = () => {
+      $.exiting = true
+      setTimeout(() => { $.exiting = false; onClose?.() }, 300)
+    }
     const onExitEnd = () => { $.exiting = false; onClose?.() }
 
     if (!open && !$.exiting) return null
@@ -40,13 +49,6 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isClosing) startClose()
-    }
-
-    const modalRef = (el: HTMLElement | null) => {
-      if (!el) return
-      lockScroll()
-      const cleanupFocus = trapFocus(el)
-      return () => { unlockScroll(); cleanupFocus() }
     }
 
     const overlay = h('div', {
@@ -84,7 +86,6 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
       'aria-label': title ?? (ML.ariaLabel ?? '弹窗'),
       onKeyDown: handleKeyDown,
       onAnimationEnd: isClosing ? onExitEnd : undefined,
-      ref: modalRef,
     }, [overlay, content])
 
     return createPortal(root, 'modal')

@@ -133,12 +133,6 @@ function renderValue(v: any, ctx: WfuiContext): Node {
     ;(el as HTMLSelectElement).value = String(selectValue)
   }
 
-  // ref 回调（挂载）— 支持返回清理函数
-  if (vnode.props?.ref) {
-    const result = vnode.props.ref(el)
-    if (typeof result === 'function') vnode._cleanup = result
-  }
-
   return el
 }
 
@@ -156,6 +150,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   ;(ctx as any).ui.onmount = (fn: Function) => { _target._hooks.mount = [fn] }
   ;(ctx as any).ui.onunmount = (fn: Function) => { _target._hooks.unmount = [fn] }
   ;(ctx as any).ui.onupdate = (fn: Function) => { _target._hooks.update = [fn] }
+  ;(ctx as any).ui.onmounted = (fn: Function) => { _target._onmounted = fn }
 
   let childVNode
   _renderCount++
@@ -194,7 +189,12 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
     return document.createTextNode('')
   }
   vnode._child = childVNode
-  return renderValue(childVNode, ctx)
+  const rootNode = renderValue(childVNode, ctx)
+  if (_target._onmounted && !prev$) {
+    const cleanup = _target._onmounted(rootNode as HTMLElement)
+    if (typeof cleanup === 'function') vnode._cleanup = cleanup
+  }
+  return rootNode
 }
 
 function renderArray(arr: any[], ctx: WfuiContext): DocumentFragment {
@@ -364,12 +364,17 @@ export function patchValue(
     // 传递 _render（两阶段组件复用 render 函数）
     if (oldV._render) newV._render = oldV._render
 
-    // ctx.ui.on 恢复（_target._hooks 已持久化）
+    // 传递 _cleanup（onmounted 返回的清理函数）
+    if (oldV._cleanup) newV._cleanup = oldV._cleanup
+
+    // ctx.ui 生命周期方法恢复（_target._hooks 已持久化）
     if (_tgt._hooks) {
-      ;(ctx as any).ui.on = (event: string, handler: Function) => {
-        const hooks = _tgt._hooks[event]
-        if (hooks) { hooks.length = 0; hooks.push(handler) }
-      }
+      ;(ctx as any).ui.onmount = (fn: Function) => { _tgt._hooks.mount = [fn] }
+      ;(ctx as any).ui.onunmount = (fn: Function) => { _tgt._hooks.unmount = [fn] }
+      ;(ctx as any).ui.onupdate = (fn: Function) => { _tgt._hooks.update = [fn] }
+    }
+    if (_tgt._onmounted) {
+      ;(ctx as any).ui.onmounted = (fn: Function) => { _tgt._onmounted = fn }
     }
 
     _renderCount++
@@ -407,8 +412,6 @@ export function patchValue(
     if (oldNode && oldNode.nodeType === 1) {
       patchProps(oldNode as Element, oldV.props, newV.props)
       patchChildren(oldNode, oldV, newV, ctx)
-      // 传递 _cleanup 到新 VNode，确保卸载时能调用 ref 清理函数
-      if (oldV._cleanup) newV._cleanup = oldV._cleanup
     } else if (oldNode) {
       // oldNode 不是元素节点 → 替换
       callRefCleanup(oldInput)
@@ -633,18 +636,12 @@ function propsEqual(a: any, b: any): boolean {
 
 // ── ref 回调 + 清理 ────────────────────────────────────
 
-/** 调用 ref 回调的清理函数（保证在所有卸载路径中触发） */
+/** 执行 _cleanup 清理函数 */
 function runRefCleanup(vnode: VNode) {
   if (vnode._cleanup) {
     vnode._cleanup()
     vnode._cleanup = undefined
   }
-  // 递归子节点
-  forEach(vnode.props?.children, child => {
-    if (child && typeof child === 'object' && (child as VNode)._cleanup) {
-      runRefCleanup(child as VNode)
-    }
-  })
 }
 
 /** 递归清理 Portal 子内容的 ref */
@@ -674,6 +671,13 @@ function callRefCleanup(input: any) {
       callRefCleanup(vnode._child as VNode)
     }
     vnode._child = undefined
+  }
+  // 递归 props.children（寻找子组件 VNode）
+  if (vnode.props?.children && typeof vnode.type === 'string') {
+    const children = Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children]
+    for (const child of children) {
+      if (child && typeof child === 'object') callRefCleanup(child as VNode)
+    }
   }
   // 执行组件 unmount 钩子
   if (vnode._$ && vnode._$._hooks?.unmount) {

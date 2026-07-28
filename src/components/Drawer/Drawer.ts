@@ -35,7 +35,10 @@ export const Drawer: Component<DrawerProps> = (_props, ctx) => {
       if (open && $.exiting) $.exiting = false
     }
 
-    const startClose = () => { $.exiting = true }
+    const startClose = () => {
+      $.exiting = true
+      setTimeout(() => { $.exiting = false; onClose?.() }, 300)
+    }
     const onExitEnd = () => { $.exiting = false; onClose?.() }
 
     if (!open && !$.exiting) return null

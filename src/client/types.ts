@@ -14,8 +14,16 @@ export interface WfuiContext {
     dirty: () => void
     /** 当前组件持久化状态（Proxy 自动 dirty：$.x = val 自动触发渲染） */
     $: Record<string, any>
-    /** 首次执行标记（true 表示已初始化） */
+    /** 首次执行标记 */
     ready: boolean
+    /** 组件首次渲染后触发（DOM 未创建） */
+    onmount: (fn: () => void) => void
+    /** 组件 DOM 创建后触发，接收根元素，返回值作为 cleanup */
+    onmounted: (fn: (el: Element) => (() => void) | void) => void
+    /** 组件移除前清理 */
+    onunmount: (fn: () => void) => void
+    /** props 变化时触发，接收旧 props */
+    onupdate: (fn: (prevProps: any) => void) => void
   }
 
   /** 路由（由 router 中间件注入） */

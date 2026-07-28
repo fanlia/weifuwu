@@ -157,16 +157,6 @@ describe('patchValue', () => {
     assert.equal(container.firstChild?.textContent, 'replaced')
   })
 
-  it('替换不同类型触发 ref cleanup', () => {
-    const container = document.createElement('div')
-    let cleaned = false
-    const v1 = jsx('span', { ref: (el: any) => { el; return () => { cleaned = true } }, children: 'x' })
-    mountVNode(container, v1, ctx)
-    assert.equal(container.firstChild?.nodeName, 'SPAN')
-    patchValue(container, container.firstChild, v1, jsx('div', { children: 'y' }), ctx)
-    assert.equal(container.firstChild?.nodeName, 'DIV')
-    assert.ok(cleaned)
-  })
 
   it('新增元素（oldInput=null）', () => {
     const container = document.createElement('div')
@@ -183,15 +173,6 @@ describe('patchValue', () => {
     assert.equal(container.children.length, 2)
   })
 
-  it('删除元素触发 ref cleanup', () => {
-    const container = document.createElement('div')
-    let cleaned = false
-    const v = jsx('div', { ref: () => () => { cleaned = true }, children: 'x' })
-    mountVNode(container, v, ctx)
-    patchValue(container, container.firstChild, v, null, ctx)
-    assert.equal(container.children.length, 0)
-    assert.ok(cleaned)
-  })
 
   it('newInput 和 oldInput 都为 null 返回 null', () => {
     assert.equal(patchValue(document.createElement('div'), null, null, null, ctx), null)
@@ -505,37 +486,6 @@ describe('keyed children diff', () => {
 
 // ── ref 回调 ──────────────────────────────────────────
 
-describe('ref callback', () => {
-  it('挂载时调用 ref(el)', () => {
-    let refEl: any = null
-    render(jsx('div', { ref: (el: any) => { refEl = el } }), ctx)
-    return new Promise(resolve => setTimeout(() => {
-      assert.ok(refEl instanceof HTMLElement)
-      resolve(undefined)
-    }, 10))
-  })
-
-  it('卸载时触发 ref cleanup', () => {
-    const container = document.createElement('div')
-    let cleaned = false
-    const v1 = jsx('div', { ref: () => () => { cleaned = true } })
-    mountVNode(container, v1, ctx)
-    const v2 = jsx('span', null)
-    patchValue(container, container.firstChild, v1, v2, ctx)
-    assert.ok(cleaned)
-  })
-
-  it('嵌套组件触发子节点 ref cleanup', () => {
-    const container = document.createElement('div')
-    let cleaned: string[] = []
-    const v1 = jsx('div', { ref: () => () => { cleaned.push('parent') }, children: [jsx('span', { ref: () => () => { cleaned.push('child') } })] })
-    mountVNode(container, v1, ctx)
-    patchValue(container, container.firstChild, v1, null, ctx)
-    assert.equal(cleaned.length, 2)
-    assert.ok(cleaned.includes('parent'))
-    assert.ok(cleaned.includes('child'))
-  })
-})
 
 // ── mountVNode ────────────────────────────────────────
 
@@ -664,13 +614,16 @@ describe('edge cases', () => {
     let cleaned = false
 
     // 子组件：返回带 ref 的元素
-    const Child = (_: any) => () => ({
-      type: 'span' as const,
-      props: {
-        ref: () => () => { cleaned = true },
-      },
-      key: undefined,
-    })
+    const Child = (_: any, childCtx: any) => {
+      childCtx.ui.onmounted(() => {
+        return () => { cleaned = true }
+      })
+      return () => ({
+        type: 'span' as const,
+        props: {},
+        key: undefined,
+      })
+    }
 
     // 父组件：返回子组件 VNode
     const Parent = (_: any) => () => ({
@@ -688,12 +641,12 @@ describe('edge cases', () => {
     mountVNode(container, v, ctx)
 
     // 验证子组件已渲染，ref cleanup 尚未调用
-    assert.ok(!cleaned, 'ref cleanup 不应在挂载时调用')
+    assert.ok(!cleaned, 'cleanup 不应在挂载时调用')
 
     // 删除父组件 VNode
     patchValue(container, container.firstChild, v, null, ctx)
 
-    // 验证子组件的 ref cleanup 已被调用
+    // 验证子组件的 onmounted cleanup 已被调用
     assert.ok(cleaned, '子组件的 ref cleanup 应该通过 _child 递归被调用')
   })
 
@@ -786,13 +739,162 @@ describe('two-phase component model', () => {
     render(v, ctx)
     assert.equal(renderCount, 1)
 
-    // Simulate $ change by patching with same component
     const state = (v as any)._$
     state.count = 5
     const v2 = { type: Comp as any, props: {}, key: undefined, _$: state, _render: (v as any)._render }
     patchValue(document.body, (v as any).el, v, v2, ctx)
 
     assert.equal(renderCount, 2, 'dirty triggers re-render')
+  })
+
+  it('ctx.ui.onmount fires once on first render', () => {
+    let mountFired = 0
+    const Comp = (_: any, compCtx: any) => {
+      compCtx.ui.onmount(() => { mountFired++ })
+      return (__: any) => ({ type: 'div', props: {}, key: undefined })
+    }
+    const v = { type: Comp as any, props: {}, key: undefined }
+    render(v, ctx)
+    assert.equal(mountFired, 1, 'onmount fired once')
+
+    const v2 = { type: Comp as any, props: {}, key: undefined, _$: (v as any)._$, _render: (v as any)._render }
+    patchValue(document.body, (v as any).el, v, v2, ctx)
+    assert.equal(mountFired, 1, 'onmount should not fire on patch')
+  })
+
+  it('ctx.ui.onmounted receives root DOM element', () => {
+    let mountedEl: any = null
+    let cleanupCalled = false
+    const Comp = (_: any, compCtx: any) => {
+      compCtx.ui.onmounted((el: any) => {
+        mountedEl = el
+        return () => { cleanupCalled = true }
+      })
+      return (__: any) => ({ type: 'div', props: { id: 'test-mount' }, key: undefined })
+    }
+    const v = { type: Comp as any, props: {}, key: undefined }
+    const el = render(v, ctx) as HTMLElement
+    assert.ok(mountedEl, 'onmounted should receive element')
+    assert.equal(mountedEl?.id, 'test-mount', 'should receive component root element')
+    assert.equal(mountedEl, el, 'element should match rendered DOM')
+    assert.ok(!cleanupCalled, 'cleanup not called yet')
+
+    // Remove component → cleanup should fire
+    patchValue(document.body, el, v, null, ctx)
+    assert.ok(cleanupCalled, 'cleanup called on unmount')
+  })
+
+  it('parent unmount triggers child onunmount', () => {
+    let childUnmounted = 0
+    const Child = (_: any, childCtx: any) => {
+      childCtx.ui.onunmount(() => { childUnmounted++ })
+      return (__: any) => ({ type: 'span', props: { children: 'child' }, key: undefined })
+    }
+    const Parent = (_: any) =>
+      () => ({ type: 'div', props: { children: { type: Child as any, props: {}, key: undefined } }, key: undefined })
+
+    const v = { type: Parent as any, props: {}, key: undefined }
+    const container = document.createElement('div')
+    const el = render(v, ctx) as HTMLElement
+    assert.equal(childUnmounted, 0, 'child not unmounted yet')
+
+    // Remove parent → child should be unmounted
+    patchValue(container, el, v, null, ctx)
+    assert.equal(childUnmounted, 1, 'child onunmount called on parent removal')
+  })
+
+  it('parent re-render preserves child lifecycle', () => {
+    let childMountFired = 0
+    let childRenderCount = 0
+    let parentRenderCount = 0
+
+    const Child = (_: any, childCtx: any) => {
+      childCtx.ui.onmount(() => { childMountFired++ })
+      return (__: any) => {
+        childRenderCount++
+        return { type: 'span', props: { children: 'child' }, key: undefined }
+      }
+    }
+
+    const Parent = (_: any) =>
+      () => {
+        parentRenderCount++
+        return { type: 'div', props: { children: { type: Child as any, props: {}, key: undefined } }, key: undefined }
+      }
+
+    const v = { type: Parent as any, props: {}, key: undefined }
+    const el = render(v, ctx) as HTMLElement
+    assert.equal(childMountFired, 1, 'child mount fires once')
+    assert.equal(childRenderCount, 1, 'child renders once')
+    assert.equal(parentRenderCount, 1, 'parent renders once')
+
+    const v2 = { type: Parent as any, props: {}, key: undefined, _render: (v as any)._render }
+    patchValue(document.body, el, v, v2, ctx)
+    assert.equal(childMountFired, 1, 'child should not re-mount on parent re-render')
+    assert.equal(childRenderCount, 2, 'child should re-render on parent re-render')
+  })
+
+  it('onmount fires before onmounted', () => {
+    let order: string[] = []
+    const Comp = (_: any, compCtx: any) => {
+      compCtx.ui.onmount(() => { order.push('mount') })
+      compCtx.ui.onmounted(() => { order.push('mounted'); return undefined })
+      return (__: any) => ({ type: 'div', props: {}, key: undefined })
+    }
+    const v = { type: Comp as any, props: {}, key: undefined }
+    render(v, ctx)
+    assert.equal(order[0], 'mount', 'onmount fires first')
+    assert.equal(order[1], 'mounted', 'onmounted fires after onmount')
+  })
+
+  it('onupdate fires on child props change', () => {
+    let childUpdates: any[] = []
+    const Child = (_: any, childCtx: any) => {
+      childCtx.ui.onupdate((prev: any) => { childUpdates.push(prev) })
+      return (props: any) => ({ type: 'span', props: { children: props.label }, key: undefined })
+    }
+    const Parent = (_: any) =>
+      (props: any) => ({ type: 'div', props: { children: { type: Child as any, props: { label: props.label }, key: undefined } }, key: undefined })
+
+    const v = { type: Parent as any, props: { label: 'a' }, key: undefined }
+    const el = render(v, ctx) as HTMLElement
+    assert.equal(childUpdates.length, 0, 'no update on mount')
+
+    const v2 = { type: Parent as any, props: { label: 'b' }, key: undefined, _render: (v as any)._render }
+    patchValue(document.body, el, v, v2, ctx)
+    assert.equal(childUpdates.length, 1, 'child update fired once')
+    assert.equal(childUpdates[0]?.label, 'a', 'child update receives old props')
+  })
+
+  it('onmounted cleanup called on child unmount via parent', () => {
+    let childCleanupCalled = 0
+    const Child = (_: any, childCtx: any) => {
+      childCtx.ui.onmounted(() => {
+        return () => { childCleanupCalled++ }
+      })
+      return (__: any) => ({ type: 'span', props: {}, key: undefined })
+    }
+    const Parent = (_: any) =>
+      () => ({ type: 'div', props: { children: { type: Child as any, props: {}, key: undefined } }, key: undefined })
+
+    const v = { type: Parent as any, props: {}, key: undefined }
+    const el = render(v, ctx) as HTMLElement
+    assert.equal(childCleanupCalled, 0, 'cleanup not called yet')
+
+    patchValue(document.body, el, v, null, ctx)
+    assert.equal(childCleanupCalled, 1, 'child onmounted cleanup called on parent removal')
+  })
+
+  it('lifecycle methods available on ctx.ui in component', () => {
+    const Comp = (_: any, compCtx: any) => {
+      assert.ok(typeof compCtx.ui.onmount === 'function', 'onmount exists')
+      assert.ok(typeof compCtx.ui.onmounted === 'function', 'onmounted exists')
+      assert.ok(typeof compCtx.ui.onunmount === 'function', 'onunmount exists')
+      assert.ok(typeof compCtx.ui.onupdate === 'function', 'onupdate exists')
+      return (__: any) => ({ type: 'div', props: {}, key: undefined })
+    }
+    const v = { type: Comp as any, props: {}, key: undefined }
+    render(v, ctx)
   })
 
 
