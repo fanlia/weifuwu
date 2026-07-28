@@ -17,9 +17,6 @@ export interface ModalProps {
 }
 
 export const Modal: Component<ModalProps> = (_props, ctx) => {
-  // ── mount（只一次）──
-  const $ = ctx.ui.$
-  $.exiting = false
   let prevOpen: boolean | undefined
 
   ctx.ui.onmounted((el) => {
@@ -28,37 +25,24 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
     return () => { unlockScroll(); cleanupFocus() }
   })
 
-  // ── render（每次 dirty/props 变化）──
   return (props: ModalProps) => {
     const { open, title, onClose, children, footer } = props
     const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
 
     if (prevOpen !== open) {
       prevOpen = open
-      if (open && $.exiting) $.exiting = false
     }
 
-    const startClose = () => {
-      $.exiting = true
-      setTimeout(() => { $.exiting = false; onClose?.() }, 300)
-    }
-    const onExitEnd = () => { $.exiting = false; onClose?.() }
-
-    if (!open && !$.exiting) return null
-    const isClosing = $.exiting
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isClosing) startClose()
-    }
+    if (!open) return null
 
     const overlay = h('div', {
       class: 'wf-modal-overlay',
-      onClick: isClosing ? undefined : startClose,
+      onClick: onClose,
     })
 
     const closeBtn = h('button', {
       class: 'wf-modal-close',
-      onClick: isClosing ? undefined : startClose,
+      onClick: onClose,
       type: 'button',
     }, '✕')
 
@@ -67,7 +51,6 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
       : null
 
     const bodyEl = h('div', { class: 'wf-modal-body' }, children)
-
     const footerEl = footer
       ? h('div', { class: 'wf-modal-footer' }, footer)
       : null
@@ -77,15 +60,11 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
       onClick: (e: Event) => e.stopPropagation(),
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
-    const cls = isClosing ? 'wf-modal wf-modal--exit' : 'wf-modal wf-modal--enter'
-
     const root = h('div', {
-      class: cls,
+      class: 'wf-modal wf-modal--enter',
       role: 'dialog',
       'aria-modal': 'true',
       'aria-label': title ?? (ML.ariaLabel ?? '弹窗'),
-      onKeyDown: handleKeyDown,
-      onAnimationEnd: isClosing ? onExitEnd : undefined,
     }, [overlay, content])
 
     return createPortal(root, 'modal')

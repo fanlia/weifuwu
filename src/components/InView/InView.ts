@@ -1,5 +1,8 @@
 /**
  * weifuwu/components — InView
+ *
+ * 组件挂载后用 ctx.ui.onmounted 获取根元素，设置 IntersectionObserver。
+ * 进入视窗后替换占位符为真实内容。
  */
 
 import type { Component } from '../../client/vnode.ts'
@@ -16,45 +19,43 @@ export interface InViewProps {
 }
 
 export const InView: Component<InViewProps> = (_props, ctx) => {
-  // ── mount（只一次）──
-  const $ = ctx.ui.$
-  $.inView = false
+  let inView = false
+  let entered = false
+  let io: IntersectionObserver | undefined
 
-  // ── render（每次 dirty/props 变化）──
+  ctx.ui.onmounted((el) => {
+    const sentinel = el.querySelector('.wf-inview-pending') as HTMLElement | null
+    if (!sentinel) return
+    io = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        inView = true
+        ctx.ui.render()
+      }
+    }, { threshold: _props.threshold ?? 0, rootMargin: _props.rootMargin ?? '0px' })
+    io.observe(sentinel)
+    return () => { io?.disconnect() }
+  })
+
   return (props: InViewProps) => {
-    const { once = true, threshold = 0, rootMargin = '0px', placeholder, onEnter, children } = props
-
-    const sentinelRef = (el: HTMLElement | null) => {
-      if (!el) return
-      if ($.inView && once) return
-
-      const io = new IntersectionObserver(
-        (entries) => {
-          if (entries[0]?.isIntersecting) {
-            $.inView = true
-            onEnter?.()
-            if (once) io.disconnect()
-          } else if (!once) {
-            $.inView = false
-          }
-        },
-        { threshold, rootMargin },
-      )
-      io.observe(el)
-      return () => { io.disconnect() }
+    if (inView) {
+      if (!entered) {
+        entered = true
+        const once = props.once !== false
+        if (once) io?.disconnect()
+        props.onEnter?.()
+      }
+      return h('div', { class: 'wf-inview wf-inview--loaded' }, props.children)
     }
 
-    if ($.inView) {
-      return h('div', { class: 'wf-inview wf-inview--loaded' }, children)
-    }
-
-    const placeholderEl = placeholder !== undefined
-      ? placeholder
+    const placeholderEl = props.placeholder !== undefined
+      ? props.placeholder
       : h('div', { class: 'wf-inview-placeholder' })
 
     return h('div', {
       class: 'wf-inview wf-inview--pending',
-      ref: sentinelRef,
-    }, placeholderEl)
+    }, [
+      h('div', { class: 'wf-inview-pending', style: { width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' } }),
+      placeholderEl,
+    ])
   }
 }

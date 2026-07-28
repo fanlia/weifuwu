@@ -50,12 +50,17 @@ function StatCard(props: { label: string; value: string; change?: string; up?: b
 
 /* ── Dashboard 页面 ── */
 function Dashboard(_props: {}, ctx: WfuiContext) {
-  const $ = ctx.ui.$
-
+  let dark = false
+  const users = [
+    { avatar: 'A', name: 'Alice', email: 'alice@example.com', status: 'active' },
+    { avatar: 'B', name: 'Bob', email: 'bob@example.com', status: 'offline' },
+    { avatar: 'C', name: 'Charlie', email: 'charlie@example.com', status: 'active' },
+  ]
 
   function toggleTheme() {
-    $.dark = !$.dark
-    document.documentElement.setAttribute('data-theme', $.dark ? 'dark' : 'light')
+    dark = !dark
+    ctx.ui.render()
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
   }
 
   return (
@@ -74,10 +79,10 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
                   background: var(--wf-color-bg); border: var(--wf-border-width) solid var(--wf-color-border);
                   border-radius: var(--wf-radius); color: var(--wf-color-text); font-size: var(--wf-font-size-base)"
                   onClick={toggleTheme}>
-            <span>{$.dark ? '☀️' : '🌙'}</span>
-            <span>{$.dark ? '亮色' : '暗色'}</span>
+            <span>{dark ? '☀️' : '🌙'}</span>
+            <span>{dark ? '亮色' : '暗色'}</span>
           </button>
-          <div class="user-avatar" style="cursor: pointer">{$.dark ? '🌙' : '☀️'}</div>
+          <div class="user-avatar" style="cursor: pointer">{dark ? '🌙' : '☀️'}</div>
         </div>
       </div>
 
@@ -107,7 +112,7 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
             </tr>
           </thead>
           <tbody>
-            {$.users.map((u: any) =>
+            {users.map((u: any) =>
               <tr class="wf-row" style="--wf-gap: 0; padding: 0 var(--wf-space-md); border-bottom: var(--wf-border-width) solid var(--wf-color-border)">
                 <td class="wf-fill wf-row" style="--wf-gap: var(--wf-space-sm); padding: var(--wf-space) var(--wf-space-sm)">
                   <div class="user-avatar">{u.avatar}</div>
@@ -134,7 +139,7 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
 
       <div class="wf-center" style="padding: var(--wf-space-lg) 0">
         <span style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">
-          使用 weifuwu/client + weifuwu/layout 构建 · {$.dark ? '暗色' : '亮色'}模式
+          使用 weifuwu/client + weifuwu/layout 构建 · {dark ? '暗色' : '亮色'}模式
         </span>
       </div>
 

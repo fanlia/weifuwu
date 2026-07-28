@@ -6,8 +6,9 @@
  *
  * 支持：
  *   - key 属性（keyed diff）
- *   - ref 回调（挂载/卸载）
- *   - ctx.ui.$ 持久化状态
+ *   - ctx.ui.onmount/onmounted/onunmount/onupdate 生命周期
+ *
+ * 状态管理：组件使用闭包变量 + ctx.ui.render() 手动触发重渲染。
  */
 
 import { Fragment, Portal, isPortal } from './vnode.ts'
@@ -16,59 +17,6 @@ import type { WfuiContext } from './types.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const SVG_TAGS = new Set(['svg', 'path', 'circle', 'line', 'rect', 'text', 'g', 'polyline', 'polygon', 'ellipse', 'defs', 'use', 'clipPath', 'mask', 'linearGradient', 'radialGradient', 'stop', 'tspan'])
-
-// render 执行中计数器 — >0 时 dirty() 被跳过，防止 render 中写 $ 导致死循环
-let _renderCount = 0
-
-// ── 深层 Proxy 包装（数组突变 + 嵌套对象属性自动 dirty）──
-
-const mutationMethods = ['push', 'pop', 'splice', 'shift', 'unshift', 'sort', 'reverse']
-const wrappedCache = new WeakMap<object, object>()
-
-/** 创建响应式 Proxy handler——所有分支复用同一逻辑 */
-function makeProxyHandler(dirty: () => void): ProxyHandler<object> {
-  const isSkip = (k: PropertyKey): boolean => typeof k === 'string' && k.startsWith('_')
-
-  return {
-    get(target, key, receiver) {
-      // _ 前缀返回 raw 值，不包装
-      if (isSkip(key)) return Reflect.get(target, key, receiver)
-
-      const v = Reflect.get(target, key, receiver)
-      // 数组变异方法自动 dirty
-      if (typeof key === 'string' && mutationMethods.includes(key) && typeof v === 'function') {
-        return function (this: any, ...args: any[]) {
-          const r = v.apply(target, args)
-          dirty()
-          return r
-        }
-      }
-      return wrapDeep(v, dirty)
-    },
-    set(target, key, v) {
-      const old = Reflect.get(target, key)
-      if (old === v) return true  // 相同引用跳过 dirty
-      Reflect.set(target, key, isSkip(key) ? v : wrapDeep(v, dirty))
-      if (!isSkip(key)) dirty()
-      return true
-    },
-  }
-}
-
-function wrapDeep(val: any, dirty: () => void): any {
-  if (val === null || typeof val !== 'object') return val
-  if (val instanceof Node) return val
-  if (typeof Blob !== 'undefined' && val instanceof Blob) return val
-  if (wrappedCache.has(val)) return wrappedCache.get(val)
-
-  const proxy = new Proxy(val, makeProxyHandler(dirty))
-  wrappedCache.set(val, proxy)
-  return proxy
-}
-
-function createComponentProxy(target: Record<string, any>, dirty: () => void): Record<string, any> {
-  return new Proxy(target, makeProxyHandler(dirty)) as Record<string, any>
-}
 
 // ── render ─────────────────────────────────────────────
 
@@ -108,7 +56,7 @@ function renderValue(v: any, ctx: WfuiContext): Node {
   // 先设非 value 属性
   let selectValue: any
   for (const [key, value] of Object.entries(vnode.props ?? {})) {
-    if (key === 'children' || key === 'key' || key === 'ref' || key === 'value' || key === 'innerHTML') continue
+    if (key === 'children' || key === 'key' || key === 'value' || key === 'innerHTML') continue
     setProp(el, key, value)
   }
   if ('value' in (vnode.props ?? {}) && el instanceof HTMLSelectElement) {
@@ -137,13 +85,11 @@ function renderValue(v: any, ctx: WfuiContext): Node {
 }
 
 function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiContext): Node {
-  // 组件级 $ — 每个组件独立状态
+  // 组件级状态对象
   const prev$ = vnode._$
   if (!prev$) vnode._$ = {}
   ;(ctx as any).ui = (ctx as any).ui ?? {}
   const _target = vnode._$!
-  const _dirtyFn = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
-  ;(ctx as any).ui.$ = createComponentProxy(_target, _dirtyFn)
 
   // ctx.ui 生命周期方法
   _target._hooks = { mount: [], unmount: [], update: [] }
@@ -153,7 +99,6 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   ;(ctx as any).ui.onmounted = (fn: Function) => { _target._onmounted = fn }
 
   let childVNode
-  _renderCount++
   try {
     childVNode = Comp(props, ctx)
 
@@ -166,7 +111,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
     vnode._render = childVNode
     childVNode = childVNode(props)
 
-    // mount hooks：首次渲染时触发（在 renderCount 保护内）
+    // mount hooks：首次渲染时触发
     if (!prev$) {
       const mh = _target._hooks?.mount
       if (mh && mh[0]) mh[0]()
@@ -180,8 +125,6 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
       console.error('Component render error:', e)
       childVNode = null
     }
-  } finally {
-    _renderCount--
   }
 
   if (childVNode == null) {
@@ -350,16 +293,14 @@ export function patchValue(
   const newV = newInput as VNode
   const oldV = oldInput as VNode
 
-  // 组件 — 组件级 $ Proxy
+  // 组件
   if (typeof newV.type === 'function') {
     const comp = newV.type as Component
 
     if (oldV._$) newV._$ = oldV._$
     if (!newV._$) newV._$ = {}
     ;(ctx as any).ui = (ctx as any).ui ?? {}
-      const _tgt = newV._$!
-    const _dirtyFn2 = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
-    ;(ctx as any).ui.$ = createComponentProxy(_tgt, _dirtyFn2)
+    const _tgt = newV._$!
 
     // 传递 _render（两阶段组件复用 render 函数）
     if (oldV._render) newV._render = oldV._render
@@ -377,8 +318,7 @@ export function patchValue(
       ;(ctx as any).ui.onmounted = (fn: Function) => { _tgt._onmounted = fn }
     }
 
-    _renderCount++
-    // update hooks：props 变化时触发（在 renderCount 保护内，$.x = val 不触发 dirty）
+    // update hooks：props 变化时触发
     if (oldV._$) {
       const uh = _tgt._hooks?.update
       if (uh && uh[0]) uh[0](oldV.props)
@@ -395,10 +335,27 @@ export function patchValue(
           childNew = childNew(newV.props)
         }
       }
-    } finally { _renderCount-- }
+    } catch (e) {
+      const errHandler = (ctx as any).ui?._errorHandler
+      if (errHandler) {
+        errHandler(e)
+        childNew = null
+      } else {
+        console.error('Component render error:', e)
+        childNew = null
+      }
+    }
+    // 先捕获 oldV._child 再设置 newV._child（防止 oldV === newV 时覆盖自身）
+    const _prevChild = oldV._child
     newV._child = childNew
 
-    return patchValue(parent, oldNode, oldV._child, childNew, ctx)
+    // 组件从 VNode 变为 null → 触发 unmount 钩子
+    if (childNew == null && _tgt._hooks?.unmount?.length) {
+      _tgt._hooks.unmount[0]?.()
+      _tgt._hooks.unmount = []
+    }
+
+    return patchValue(parent, oldNode, _prevChild, childNew, ctx)
   }
 
   // Fragment
@@ -454,8 +411,8 @@ function typeOf(input: any): string {
 // ── patchProps ─────────────────────────────────────────
 
 function patchProps(el: Element, oldProps: any, newProps: any) {
-  const oldKeys = oldProps ? Object.keys(oldProps).filter(k => k !== 'children' && k !== 'key' && k !== 'ref' && k !== 'innerHTML') : []
-  const newKeys = newProps ? Object.keys(newProps).filter(k => k !== 'children' && k !== 'key' && k !== 'ref' && k !== 'innerHTML') : []
+  const oldKeys = oldProps ? Object.keys(oldProps).filter(k => k !== 'children' && k !== 'key' && k !== 'innerHTML') : []
+  const newKeys = newProps ? Object.keys(newProps).filter(k => k !== 'children' && k !== 'key' && k !== 'innerHTML') : []
 
   for (const key of oldKeys) {
     if (!newKeys.includes(key)) {
@@ -621,12 +578,12 @@ function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[]
   }
 }
 
-/** 浅比较两个 props 对象，跳过 children/key/ref */
+/** 浅比较两个 props 对象，跳过 children/key */
 function propsEqual(a: any, b: any): boolean {
   if (a === b) return true
   if (!a || !b) return false
-  const aKeys = Object.keys(a).filter(k => k !== 'children' && k !== 'key' && k !== 'ref')
-  const bKeys = Object.keys(b).filter(k => k !== 'children' && k !== 'key' && k !== 'ref')
+  const aKeys = Object.keys(a).filter(k => k !== 'children' && k !== 'key')
+  const bKeys = Object.keys(b).filter(k => k !== 'children' && k !== 'key')
   if (aKeys.length !== bKeys.length) return false
   for (const key of aKeys) {
     if (a[key] !== b[key]) return false
@@ -634,7 +591,7 @@ function propsEqual(a: any, b: any): boolean {
   return true
 }
 
-// ── ref 回调 + 清理 ────────────────────────────────────
+// ── 清理 ────────────────────────────────────────────
 
 /** 执行 _cleanup 清理函数 */
 function runRefCleanup(vnode: VNode) {
@@ -657,7 +614,7 @@ function cleanupPortalChildren(vnode: VNode) {
   }
 }
 
-/** 通知 ref 清理：调用 ref 回调返回的清理函数 + Portal 子容器清理 */
+/** 通知 ref 清理 + Portal 子容器清理 */
 function callRefCleanup(input: any) {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode

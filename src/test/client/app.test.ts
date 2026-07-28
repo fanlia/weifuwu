@@ -1,5 +1,7 @@
 /**
  * weifuwu/client app — createApp 测试
+ *
+ * ctx.ui.$() 是工厂函数，返回响应式状态容器。
  */
 
 import { describe, it, before, afterEach } from 'node:test'
@@ -14,7 +16,6 @@ const { createApp } = await import('../../client/app.ts')
 
 describe('createApp', () => {
   afterEach(() => {
-    // cleanup 可能挂载的 DOM
     document.body.innerHTML = ''
   })
 
@@ -67,8 +68,8 @@ describe('createApp', () => {
 
     assert.ok(capturedCtx.ui)
     assert.equal(typeof capturedCtx.ui.render, 'function')
-    assert.ok(typeof capturedCtx.ui.$, 'object')
-    assert.equal(capturedCtx.ui.ready, false)
+    assert.equal(typeof capturedCtx.ui.$, 'function')
+    assert.equal(typeof capturedCtx.ui.dirty, 'function')
     el.remove()
   })
 
@@ -90,7 +91,6 @@ describe('createApp', () => {
     // 手动触发重渲染
     const renderFn = (app as any).ctx.ui.render
     renderFn()
-    // 组件在 patchValue 中执行一次（新 props），旧 VNode 有 _child 缓存
     assert.equal(renderCount, 2)
     assert.equal(el.textContent, '2')
     el.remove()
@@ -119,7 +119,7 @@ describe('createApp', () => {
     }
   })
 
-  it('ctx.ui.$ 在 mount 时为对象', async () => {
+  it('ctx.ui.$() 返回响应式状态容器', async () => {
     let ctx: any
     const app = createApp()
     app.use((c) => { ctx = c; return c })
@@ -128,201 +128,86 @@ describe('createApp', () => {
     el.id = 'state-test'
     await app.mount('#state-test', () => () => jsx('div', null))
 
-    assert.ok(typeof ctx.ui.$, 'object')
-    assert.notEqual(ctx.ui.$, null)
+    const $ = ctx.ui.$()
+    assert.ok(typeof $ === 'object')
+    assert.notEqual($, null)
+
+    // 赋值触发 dirty（异步渲染）
+    $.count = 42
+    assert.equal($.count, 42)
     el.remove()
   })
 
-  it('$.xxx = val 触发重渲染', async () => {
+  it('ctx.ui.$() 赋值触发 dirty', async () => {
     let renderCount = 0
     const Cmp = (_: any, ctx: WfuiContext) => {
-      renderCount++
-      const $ = ctx.ui.$
-      if ($.text === undefined) $.text = 'init'
-      return () => jsx('span', { children: $.text })
+      const $ = ctx.ui.$()
+      $.count = 0
+      return () => {
+        renderCount++
+        return jsx('span', { children: String($.count) })
+      }
     }
     const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
-    el.id = 'proxy-test'
-    await app.mount('#proxy-test', Cmp)
+    el.id = 'dirty-test'
+    await app.mount('#dirty-test', Cmp)
+    // mount 中 $.count = 0 触发 dirty，等微任务消化
+    await new Promise(r => setTimeout(r, 20))
+    // mount 中的 $.count = 0 受 _rendering 保护，不触发渲染
+    assert.equal(renderCount, 1, 'mount only, no dirty render')
+    assert.equal(el.textContent, '0')
+
+    // 直接 render 再触发一次
+    const appCtx = (app as any).ctx
+    appCtx.ui.render()
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderCount, 2, 'manual render = 2')
+    el.remove()
+  })
+
+  it('ctx.ui.render 通过闭包变量更新状态', async () => {
+    let text = 'init'
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      return () => jsx('span', { children: text })
+    }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'closure-test'
+    await app.mount('#closure-test', Cmp)
     assert.equal(el.textContent, 'init')
+
+    text = 'updated'
+    ;(app as any).ctx.ui.render()
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(el.textContent, 'updated')
+    el.remove()
+  })
+
+  it('ctx.ui.dirty 批量渲染', async () => {
+    let renderCount = 0
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      return () => {
+        renderCount++
+        return jsx('span', { children: String(renderCount) })
+      }
+    }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'dirty-batch'
+    await app.mount('#dirty-batch', Cmp)
     assert.equal(renderCount, 1)
 
-    // 等待异步渲染完成
+    // mount 后 renderCount = 1，多次 dirty 合并成一次渲染
+    const ui = (app as any).ctx.ui
+    ui.dirty()
+    ui.dirty()
+    ui.dirty()
     await new Promise(r => setTimeout(r, 20))
-    const appCtx = (app as any).ctx
-    appCtx.ui.$.text = 'updated'
-    await new Promise(r => setTimeout(r, 20))
-    assert.equal(el.textContent, 'updated')
-    el.remove()
-  })
-
-  it('$.items = [...] 包装为 Proxy 数组', async () => {
-    let ctx: any
-    const app = createApp()
-    app.use((c) => { ctx = c; return c })
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'array-proxy'
-    await app.mount('#array-proxy', () => () => jsx('div', null))
-    ctx.ui.$.items = [1, 2, 3]
-    assert.ok(Array.isArray(ctx.ui.$.items))
-    assert.equal(ctx.ui.$.items.length, 3)
-    el.remove()
-  })
-
-  it('$.items.push 自动触发渲染', async () => {
-    let renderCount = 0
-    const Cmp = (_: any, ctx: WfuiContext) => {
-      renderCount++
-      const $ = ctx.ui.$
-      if (!$.items) $.items = [{ id: 1, text: 'a' }]
-      return () => jsx('div', { children: $.items.length })
-    }
-    const app = createApp()
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'push-test'
-    await app.mount('#push-test', Cmp)
-    await new Promise(r => setTimeout(r, 20))
-
-    const appCtx = (app as any).ctx
-    assert.equal(el.textContent, '1')
-
-    appCtx.ui.$.items.push({ id: 2, text: 'b' })
-    await new Promise(r => setTimeout(r, 20))
-    assert.equal(el.textContent, '2')
-    el.remove()
-  })
-
-  it('$.items.splice 自动触发渲染', async () => {
-    let ctx: any
-    const app = createApp()
-    app.use((c) => { ctx = c; return c })
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'splice-test'
-    await app.mount('#splice-test', () => () => jsx('div', null))
-    await new Promise(r => setTimeout(r, 10))
-    ctx.ui.$.items = ['a', 'b', 'c']
-    ctx.ui.$.items.splice(1, 1)
-    assert.deepEqual(ctx.ui.$.items, ['a', 'c'])
-    el.remove()
-  })
-
-  it('$.items.pop 自动触发渲染', async () => {
-    let ctx: any
-    const app = createApp()
-    app.use((c) => { ctx = c; return c })
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'pop-test'
-    await app.mount('#pop-test', () => () => jsx('div', null))
-    await new Promise(r => setTimeout(r, 10))
-    ctx.ui.$.items = ['a', 'b']
-    const popped = ctx.ui.$.items.pop()
-    assert.equal(popped, 'b')
-    assert.deepEqual(ctx.ui.$.items, ['a'])
-    el.remove()
-  })
-
-  it('不用 dirty() 数组突变也能更新 UI', async () => {
-    let renderCount = 0
-    const Cmp = (_: any, ctx: WfuiContext) => {
-      const $ = ctx.ui.$
-      if (!$.items) $.items = [1]
-      return () => {
-        renderCount++
-        return jsx('div', {
-          children: $.items.map((i: any, idx: number) => jsx('span', { children: String(i) }, String(idx))),
-        })
-      }
-    }
-    const app = createApp()
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'no-dirty'
-    await app.mount('#no-dirty', Cmp)
-    await new Promise(r => setTimeout(r, 20))
-    assert.equal(el.textContent, '1')
-
-    const appCtx = (app as any).ctx
-    appCtx.ui.$.items.push(2)
-    await new Promise(r => setTimeout(r, 20))
-    assert.equal(el.textContent, '12')
-    el.remove()
-  })
-
-  it('数组元素对象属性赋值自动 dirty', async () => {
-    let renderCount = 0
-    const Cmp = (_: any, ctx: WfuiContext) => {
-      const $ = ctx.ui.$
-      if (!$.msgs) $.msgs = [{ id: 1, content: 'hello' }]
-      return () => {
-        renderCount++
-        return jsx('div', { children: $.msgs[0]?.content ?? '' })
-      }
-    }
-    const app = createApp()
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'deep-proxy'
-    await app.mount('#deep-proxy', Cmp)
-    await new Promise(r => setTimeout(r, 20))
-    assert.equal(el.textContent, 'hello')
-
-    const appCtx = (app as any).ctx
-    appCtx.ui.$.msgs[0].content = 'updated'
-    await new Promise(r => setTimeout(r, 20))
-    assert.equal(el.textContent, 'updated')
-    el.remove()
-  })
-
-  it('数组元素嵌套数组 push 自动 dirty', async () => {
-    let ctx: any
-    const app = createApp()
-    app.use((c) => { ctx = c; return c })
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'nested-array'
-    await app.mount('#nested-array', () => () => jsx('div', null))
-    await new Promise(r => setTimeout(r, 10))
-    ctx.ui.$.data = [{ items: [1, 2] }]
-    ctx.ui.$.data[0].items.push(3)
-    assert.deepEqual(ctx.ui.$.data[0].items, [1, 2, 3])
-    el.remove()
-  })
-
-  it('对象属性嵌套赋值自动 dirty', async () => {
-    let ctx: any
-    const app = createApp()
-    app.use((c) => { ctx = c; return c })
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'obj-prop'
-    await app.mount('#obj-prop', () => () => jsx('div', null))
-    await new Promise(r => setTimeout(r, 10))
-    ctx.ui.$.user = { profile: { name: 'alice' } }
-    ctx.ui.$.user.profile.name = 'bob'
-    assert.equal(ctx.ui.$.user.profile.name, 'bob')
-    el.remove()
-  })
-
-  it('WeakMap 缓存保证同一底层对象返回同一 Proxy', async () => {
-    let ctx: any
-    const app = createApp()
-    app.use((c) => { ctx = c; return c })
-    const el = document.createElement('div')
-    document.body.appendChild(el)
-    el.id = 'cache-test'
-    await app.mount('#cache-test', () => () => jsx('div', null))
-    await new Promise(r => setTimeout(r, 10))
-
-    ctx.ui.$.items = [{ x: 1 }]
-    const a = ctx.ui.$.items[0]
-    const b = ctx.ui.$.items[0]
-    assert.equal(a, b) // same Proxy object from WeakMap cache
+    assert.equal(renderCount, 2, '3 dirtys should batch into 1 render')
     el.remove()
   })
 })

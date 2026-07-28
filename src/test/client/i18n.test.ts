@@ -4,7 +4,7 @@ import type { WfuiContext } from '../../client/types.ts'
 import { i18n } from '../../client/i18n.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true }, app: {} } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true }, app: {} } as any
 }
 
 describe('i18n middleware', () => {
@@ -38,7 +38,7 @@ describe('i18n middleware', () => {
 
   it('sets locale and triggers render', () => {
     let rendered = 0
-    const ctx = { ...mockCtx(), ui: { $: {}, render: () => { rendered++ }, dirty: () => {}, ready: true } }
+    const ctx = { ...mockCtx(), ui: { $: () => ({}), render: () => { rendered++ }, dirty: () => {}, ready: true } }
     i18n({ locale: 'zh-CN' })(ctx)
     ;(ctx as any).i18n.setLocale('en')
     assert.equal((ctx as any).i18n.locale, 'en-US')

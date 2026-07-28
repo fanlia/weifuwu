@@ -25,8 +25,7 @@ export interface ChartProps {
 
 export const Chart: Component<ChartProps> = (_props, ctx) => {
   // ── mount（只一次）──
-  const $ = ctx.ui.$
-  $.tooltip = null as { x: number; y: number; label: string; value: number } | null
+  let tooltip: { x: number; y: number; label: string; value: number } | null = null
 
   // ── render（每次 dirty/props 变化）──
   return (props: ChartProps) => {
@@ -63,9 +62,9 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
           style: { cursor: 'pointer' },
           onMouseEnter: (e: Event) => {
             const r = (e.target as HTMLElement).getBoundingClientRect()
-            $.tooltip = { x: r.left, y: r.top - 8, label: d.label, value: d.value }
+            tooltip = { x: r.left, y: r.top - 8, label: d.label, value: d.value }; ctx.ui.render()
           },
-          onMouseLeave: () => { $.tooltip = null },
+          onMouseLeave: () => { tooltip = null; ctx.ui.render() },
         })
       })
 
@@ -129,9 +128,9 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
           fill: r.color, rx: 2,
           onMouseEnter: (e: Event) => {
             const rect = (e.target as HTMLElement).getBoundingClientRect()
-            $.tooltip = { x: rect.left + rect.width / 2, y: rect.top - 8, label: r.label, value: r.value }
+            tooltip = { x: rect.left + rect.width / 2, y: rect.top - 8, label: r.label, value: r.value }; ctx.ui.render()
           },
-          onMouseLeave: () => { $.tooltip = null },
+          onMouseLeave: () => { tooltip = null; ctx.ui.render() },
         })),
         ...data.map((d, i) => {
           const x = xScale(i) + pad
@@ -157,9 +156,9 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
             d: a.d, fill: a.color, stroke: '#fff', 'stroke-width': 1.5,
             onMouseEnter: (e: Event) => {
               const r = (e.target as HTMLElement).getBoundingClientRect()
-              $.tooltip = { x: r.left + r.width / 2, y: r.top - 8, label: a.label, value: a.value }
+              tooltip = { x: r.left + r.width / 2, y: r.top - 8, label: a.label, value: a.value }; ctx.ui.render()
             },
-            onMouseLeave: () => { $.tooltip = null },
+            onMouseLeave: () => { tooltip = null; ctx.ui.render() },
           }),
           ...(a.value / data.reduce((s, d) => s + Math.abs(d.value), 0) > 0.05
             ? [h('text', {
@@ -185,12 +184,12 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
       ]))
     ) : null
 
-    const tip = $.tooltip ? h('div', {
+    const tip = tooltip ? h('div', {
       class: 'wf-chart-tooltip',
-      style: { left: $.tooltip.x, top: $.tooltip.y },
+      style: { left: tooltip.x, top: tooltip.y },
     }, [
-      h('div', { class: 'wf-chart-tooltip-label' }, $.tooltip.label),
-      h('div', { class: 'wf-chart-tooltip-value' }, String($.tooltip.value)),
+      h('div', { class: 'wf-chart-tooltip-label' }, tooltip.label),
+      h('div', { class: 'wf-chart-tooltip-value' }, String(tooltip.value)),
     ]) : null
 
     return h('div', { class: `wf-chart${className ? ' ' + className : ''}` }, [

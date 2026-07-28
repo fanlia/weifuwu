@@ -3,6 +3,8 @@
  *
  * 四合一日期选择器，支持 mode: date | datetime | time | range
  * 使用 createPortal + position:fixed 定位弹出层。
+ *
+ * 状态管理：闭包变量 + ctx.ui.render()
  */
 
 import type { Component, VNode } from '../../client/vnode.ts'
@@ -26,33 +28,40 @@ export interface DatePickerProps {
 
 export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
   // ── mount（只一次）──
-  const $ = ctx.ui.$
   const L = (ctx as any)?.i18n?.components?.DatePicker ?? {}
 
-  $.show = false
-  $.selectedValue = ''
+  let show = false
+  let selectedValue = ''
   const now = new Date()
-  $.viewYear = now.getFullYear()
-  $.viewMonth = now.getMonth()
-  $.hour = now.getHours()
-  $.minute = Math.round(now.getMinutes() / 5) * 5
-  $.selYear = now.getFullYear()
-  $.selMonth = now.getMonth()
-  $.selDay = now.getDate()
-  $.rangeStart = null as string | null
-  $.rangeEnd = null as string | null
+  let viewYear = now.getFullYear()
+  let viewMonth = now.getMonth()
+  let hour = now.getHours()
+  let minute = Math.round(now.getMinutes() / 5) * 5
+  let selYear = now.getFullYear()
+  let selMonth = now.getMonth()
+  let selDay = now.getDate()
+  let rangeStart: string | null = null
+  let rangeEnd: string | null = null
 
   let inputEl: HTMLElement | undefined
+
+  ctx.ui.onmounted((el) => {
+    inputEl = el.querySelector('.wf-datepicker-input') as HTMLElement
+  })
 
   // ── render（每次 dirty/props 变化）──
   return (props: DatePickerProps) => {
     const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled } = props
 
-    const isOpen = $.show
-    const setOpen = (v: boolean) => { $.show = v }
+    const isOpen = show
+    const setOpen = (v: boolean) => {
+      show = v
+      ctx.ui.render()
+    }
+
     const toggle = (e: Event) => {
       if (disabled) return
-      setOpen(!$.show)
+      setOpen(!show)
     }
 
     const pos: { top: number; left: number; width?: number } = (() => {
@@ -65,49 +74,54 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     // ── 日期选择 ──────────────────────────────────────
     const selectDate = (day: CalendarDay) => {
       if (mode === 'datetime') {
-        $.selYear = day.year; $.selMonth = day.month; $.selDay = day.day
-        $.viewYear = day.year; $.viewMonth = day.month
+        selYear = day.year; selMonth = day.month; selDay = day.day
+        viewYear = day.year; viewMonth = day.month
+        ctx.ui.render()
       } else if (mode === 'range') {
-        if (!$.rangeStart || ($.rangeStart && $.rangeEnd)) {
-          $.rangeStart = formatDate(day.year, day.month, day.day)
-          $.rangeEnd = null
+        if (!rangeStart || (rangeStart && rangeEnd)) {
+          rangeStart = formatDate(day.year, day.month, day.day)
+          rangeEnd = null
+          ctx.ui.render()
         } else {
-          $.rangeEnd = formatDate(day.year, day.month, day.day)
-          const ds = $.rangeStart < $.rangeEnd ? $.rangeStart : $.rangeEnd
-          const de = $.rangeStart < $.rangeEnd ? $.rangeEnd : $.rangeStart
-          $.selectedValue = `${ds} ~ ${de}`
-          onChange?.($.selectedValue)
+          rangeEnd = formatDate(day.year, day.month, day.day)
+          const ds = rangeStart < rangeEnd ? rangeStart : rangeEnd
+          const de = rangeStart < rangeEnd ? rangeEnd : rangeStart
+          selectedValue = `${ds} ~ ${de}`
+          onChange?.(selectedValue)
           setOpen(false)
         }
       } else {
-        $.selectedValue = formatDate(day.year, day.month, day.day)
-        onChange?.($.selectedValue)
+        selectedValue = formatDate(day.year, day.month, day.day)
+        onChange?.(selectedValue)
         setOpen(false)
       }
     }
 
     const prevMonth = () => {
-      if ($.viewMonth === 0) { $.viewYear--; $.viewMonth = 11 }
-      else $.viewMonth--
+      if (viewMonth === 0) { viewYear--; viewMonth = 11 }
+      else viewMonth--
+      ctx.ui.render()
     }
+
     const nextMonth = () => {
-      if ($.viewMonth === 11) { $.viewYear++; $.viewMonth = 0 }
-      else $.viewMonth++
+      if (viewMonth === 11) { viewYear++; viewMonth = 0 }
+      else viewMonth++
+      ctx.ui.render()
     }
 
     const confirmTime = () => {
-      $.selectedValue = formatTime($.hour, $.minute)
-      onChange?.($.selectedValue)
+      selectedValue = formatTime(hour, minute)
+      onChange?.(selectedValue)
       setOpen(false)
     }
 
     const confirmDateTime = () => {
-      $.selectedValue = formatDateTime($.selYear, $.selMonth, $.selDay, $.hour, $.minute)
-      onChange?.($.selectedValue)
+      selectedValue = formatDateTime(selYear, selMonth, selDay, hour, minute)
+      onChange?.(selectedValue)
       setOpen(false)
     }
 
-    const grid = getCalendarGrid($.viewYear, $.viewMonth)
+    const grid = getCalendarGrid(viewYear, viewMonth)
     const weekdays = [L.w0, L.w1, L.w2, L.w3, L.w4, L.w5, L.w6].some(v => v) ? [L.w0, L.w1, L.w2, L.w3, L.w4, L.w5, L.w6] : getWeekdays()
 
     const headerBtn = (label: string, onClick: () => void) =>
@@ -115,7 +129,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
 
     const header = h('div', { class: 'wf-datepicker-header' }, [
       headerBtn('‹', prevMonth),
-      h('span', { class: 'wf-datepicker-header-title' }, `${$.viewYear}年${$.viewMonth + 1}月`),
+      h('span', { class: 'wf-datepicker-header-title' }, `${viewYear}年${viewMonth + 1}月`),
       headerBtn('›', nextMonth),
     ])
 
@@ -130,12 +144,12 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
           if (cell.isToday) classes.push('wf-datepicker-cell--today')
           const dateStr = formatDate(cell.year, cell.month, cell.day)
           if (mode === 'range') {
-            if (dateStr === $.rangeStart || dateStr === $.rangeEnd) classes.push('wf-datepicker-cell--range-edge')
-            else if ($.rangeStart && $.rangeEnd && dateStr > $.rangeStart && dateStr < $.rangeEnd) classes.push('wf-datepicker-cell--in-range')
+            if (dateStr === rangeStart || dateStr === rangeEnd) classes.push('wf-datepicker-cell--range-edge')
+            else if (rangeStart && rangeEnd && dateStr > rangeStart && dateStr < rangeEnd) classes.push('wf-datepicker-cell--in-range')
           } else if (mode === 'datetime') {
-            if ($.selYear === cell.year && $.selMonth === cell.month && $.selDay === cell.day) classes.push('wf-datepicker-cell--selected')
+            if (selYear === cell.year && selMonth === cell.month && selDay === cell.day) classes.push('wf-datepicker-cell--selected')
           } else {
-            if (dateStr === $.selectedValue) classes.push('wf-datepicker-cell--selected')
+            if (dateStr === selectedValue) classes.push('wf-datepicker-cell--selected')
           }
           return h('button', {
             class: classes.join(' '),
@@ -172,18 +186,18 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
               h('div', { class: 'wf-time-col-label' }, L.hour ?? '时'),
               h('div', { class: 'wf-time-opt-list' },
                 hours.map(hv => h('button', {
-                  class: `wf-time-opt${hv === $.hour ? ' wf-time-opt--selected' : ''}`,
+                  class: `wf-time-opt${hv === hour ? ' wf-time-opt--selected' : ''}`,
                   type: 'button', key: hv,
-                  onClick: () => { $.hour = hv },
+                  onClick: () => { hour = hv; ctx.ui.render() },
                 }, String(hv).padStart(2, '0')))),
             ]),
             h('div', { class: 'wf-time-col' }, [
               h('div', { class: 'wf-time-col-label' }, L.minute ?? '分'),
               h('div', { class: 'wf-time-opt-list' },
                 minutes.map(mv => h('button', {
-                  class: `wf-time-opt${mv === $.minute ? ' wf-time-opt--selected' : ''}`,
+                  class: `wf-time-opt${mv === minute ? ' wf-time-opt--selected' : ''}`,
                   type: 'button', key: mv,
-                  onClick: () => { $.minute = mv },
+                  onClick: () => { minute = mv; ctx.ui.render() },
                 }, String(mv).padStart(2, '0')))),
             ]),
           ]),
@@ -194,8 +208,8 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         ])
         panel = [overlay, timePanel]
       } else if (mode === 'range') {
-        const nextM = $.viewMonth === 11 ? 0 : $.viewMonth + 1
-        const nextY = $.viewMonth === 11 ? $.viewYear + 1 : $.viewYear
+        const nextM = viewMonth === 11 ? 0 : viewMonth + 1
+        const nextY = viewMonth === 11 ? viewYear + 1 : viewYear
         const nextGrid = getCalendarGrid(nextY, nextM)
 
         const rangeWrap = h('div', {
@@ -206,7 +220,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
           h('div', { class: 'wf-datepicker-range-panel' }, [
             h('div', { class: 'wf-datepicker-header' }, [
               headerBtn('‹', prevMonth),
-              h('span', { class: 'wf-datepicker-header-title' }, `${$.viewYear}年${$.viewMonth + 1}月`),
+              h('span', { class: 'wf-datepicker-header-title' }, `${viewYear}年${viewMonth + 1}月`),
               h('span', { class: 'wf-datepicker-header-title' }),
             ]),
             weekdayRow,
@@ -226,8 +240,8 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
                   const cls = ['wf-datepicker-cell']
                   if (cell.isOtherMonth) cls.push('wf-datepicker-cell--other-month')
                   if (cell.isToday) cls.push('wf-datepicker-cell--today')
-                  if (dateStr === $.rangeStart || dateStr === $.rangeEnd) cls.push('wf-datepicker-cell--range-edge')
-                  else if ($.rangeStart && $.rangeEnd && dateStr > $.rangeStart && dateStr < $.rangeEnd) cls.push('wf-datepicker-cell--in-range')
+                  if (dateStr === rangeStart || dateStr === rangeEnd) cls.push('wf-datepicker-cell--range-edge')
+                  else if (rangeStart && rangeEnd && dateStr > rangeStart && dateStr < rangeEnd) cls.push('wf-datepicker-cell--in-range')
                   return h('button', {
                     class: cls.join(' '), key: dateStr, type: 'button',
                     onClick: () => selectDate(cell),
@@ -244,14 +258,14 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
             h('div', { class: 'wf-datetime-time-select' }, [
               h('select', {
                 class: 'wf-datetime-select',
-                value: $.hour,
-                onChange: (e: Event) => { $.hour = parseInt((e.target as HTMLSelectElement).value) },
+                value: hour,
+                onChange: (e: Event) => { hour = parseInt((e.target as HTMLSelectElement).value); ctx.ui.render() },
               }, hourOptions().map(hv => h('option', { value: hv, key: hv }, String(hv).padStart(2, '0')))),
               h('span', { class: 'wf-datetime-sep' }, ':'),
               h('select', {
                 class: 'wf-datetime-select',
-                value: $.minute,
-                onChange: (e: Event) => { $.minute = parseInt((e.target as HTMLSelectElement).value) },
+                value: minute,
+                onChange: (e: Event) => { minute = parseInt((e.target as HTMLSelectElement).value); ctx.ui.render() },
               }, minuteOptions().map(mv => h('option', { value: mv, key: mv }, String(mv).padStart(2, '0')))),
             ]),
           ]))
@@ -270,7 +284,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     }
 
     const portalContent = isOpen ? createPortal(panel, 'dp-calendar') : null
-    const displayValue = value ?? $.selectedValue ?? ''
+    const displayValue = value ?? selectedValue ?? ''
 
     return h('div', { class: `wf-datepicker${disabled ? ' wf-datepicker--disabled' : ''}` }, [
       h('input', {
@@ -281,7 +295,6 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         readonly: true,
         disabled,
         onClick: toggle,
-        ref: (el: HTMLElement | null) => { if (el) inputEl = el },
       }),
       portalContent,
     ].filter(Boolean))

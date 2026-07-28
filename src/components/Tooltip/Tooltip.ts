@@ -19,24 +19,27 @@ export interface TooltipProps {
 
 export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
   // ── mount（只一次）──
-  const $ = ctx.ui.$
-  $.show = false
-  $.pos = { top: 0, left: 0 }
+  let show = false
+  let pos = { top: 0, left: 0 }
 
   // ── render（每次 dirty/props 变化）──
   return (props: TooltipProps) => {
     const { content, position = 'top', children, disabled } = props
 
-    const show = (e: Event) => {
-      $.pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
-      $.show = true
+    const showe = (e: Event) => {
+      pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
+      show = true
+      ctx.ui.render()
     }
-    const hide = () => { $.show = false }
+    const hide = () => {
+      show = false
+      ctx.ui.render()
+    }
 
-    const p = $.pos
+    const p = pos
 
     const tip = !disabled ? h('div', {
-      class: `wf-tooltip wf-tooltip--${position}${$.show ? '' : ' wf-tooltip--hidden'}`,
+      class: `wf-tooltip wf-tooltip--${position}${show ? '' : ' wf-tooltip--hidden'}`,
       style: { top: p.top, left: p.left },
       role: 'tooltip',
     }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)]) : null
@@ -45,8 +48,8 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
 
     return h('div', {
       class: 'wf-tooltip-wrap',
-      onMouseEnter: show, onMouseLeave: hide,
-      onFocus: show, onBlur: hide,
+      onMouseEnter: showe, onMouseLeave: hide,
+      onFocus: showe, onBlur: hide,
     }, [children, portalContent].filter(Boolean))
   }
 }

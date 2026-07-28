@@ -22,22 +22,25 @@ export interface PopoverProps {
 
 export const Popover: Component<PopoverProps> = (_props, ctx) => {
   // ── mount（只一次）──
-  const $ = ctx.ui.$
-  $.show = false
-  $.pos = { top: 0, left: 0 }
+  let show = false
+  let pos = { top: 0, left: 0 }
 
   // ── render（每次 dirty/props 变化）──
   return (props: PopoverProps) => {
     const { content, trigger = 'click', position = 'bottom', open, onOpenChange, disabled, children } = props
-    const isOpen = open !== undefined ? open : $.show
+    const isOpen = open !== undefined ? open : show
     const setOpen = (v: boolean) => {
-      if (open === undefined) $.show = v
+      if (open === undefined) {
+        show = v
+        ctx.ui.render()
+      }
       onOpenChange?.(v)
     }
 
     // ── 位置更新（在事件中触发）──
     const updatePos = (e: Event) => {
-      $.pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
+      pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
+      ctx.ui.render()
     }
 
     // ── 事件处理 ────────────────────────────────────
@@ -53,26 +56,29 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
       hoverProps.onBlur = () => setOpen(false)
     }
 
-    const p = $.pos
+    const p = pos
 
     // ── VNode ────────────────────────────────────────
     const overlay = isOpen && trigger === 'click' ? h('div', {
       class: 'wf-popover-overlay',
-      onMouseDown: () => setOpen(false),
+      onMouseDown: (e: Event) => { e.stopPropagation(); setOpen(false) },
     }) : null
 
-    const panel = isOpen ? h('div', {
-      class: `wf-popover wf-popover--${position}`,
+    const popover = isOpen ? h('div', {
+      class: 'wf-popover wf-popover--enter',
       style: { top: p.top, left: p.left },
-      role: 'dialog', 'aria-modal': 'true', 'aria-label': '弹出面板',
-      onMouseDown: (e: Event) => e.stopPropagation(),
-    }, [h('div', { class: 'wf-popover-arrow' }), h('div', { class: 'wf-popover-content' }, content)]) : null
+      role: 'tooltip',
+    }, [
+      h('div', { class: 'wf-popover-arrow' }),
+      h('div', { class: 'wf-popover-content' }, content),
+    ]) : null
 
-    const portalContent = isOpen ? createPortal([overlay, panel], 'popover') : null
+    const portalContent = isOpen ? createPortal([overlay, popover].filter(Boolean), 'popover') : null
 
     return h('div', {
       class: `wf-popover-wrap${isOpen ? ' wf-popover-wrap--open' : ''}`,
       ...hoverProps,
-    }, [h('div', { class: 'wf-popover-trigger', onClick }, children), portalContent].filter(Boolean))
+      onClick,
+    }, [children, portalContent].filter(Boolean))
   }
 }

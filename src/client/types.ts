@@ -10,12 +10,10 @@ export interface WfuiContext {
   ui: {
     /** 触发组件重渲染 */
     render: () => void
-    /** 标记脏状态，下个微任务批量渲染（嵌套突变后用） */
+    /** 标记脏状态，下一个微任务批量渲染 */
     dirty: () => void
-    /** 当前组件持久化状态（Proxy 自动 dirty：$.x = val 自动触发渲染） */
-    $: Record<string, any>
-    /** 首次执行标记 */
-    ready: boolean
+    /** 创建响应式状态容器：$.x = val 自动触发 dirty()（微任务批量渲染） */
+    $: () => Record<string, any>
     /** 组件首次渲染后触发（DOM 未创建） */
     onmount: (fn: () => void) => void
     /** 组件 DOM 创建后触发，接收根元素，返回值作为 cleanup */

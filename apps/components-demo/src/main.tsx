@@ -1,8 +1,8 @@
 /**
  * weifuwu/components cheatsheet
  *
- * 每个 demo 组件都是 (props, ctx) => VNode，
- * 使用 ctx.ui.$ 做交互状态管理。
+ * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
+ * 使用闭包变量 + ctx.ui.render() 管理交互状态。
  *
  * 启动: node apps/components-demo/server.ts
  */
@@ -41,15 +41,12 @@ function DemoCard(props: { title: string; desc: string; code: string; children: 
 // ── 交互型 Demo 组件 ──────────────────────────────────
 
 const DemoButton: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.loading === undefined) $.loading = false
-  if ($.count === undefined) $.count = 0
-
-  return (_p: any) => {
-  return (
+  let loading = false
+  let count = 0
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px">
       <div class="wf-row">
-        <Button variant="primary" onClick={() => $.count++}>点击 {$.count} 次</Button>
+        <Button variant="primary" onClick={() => { count++; ctx.ui.render() }}>点击 {count} 次</Button>
         <Button variant="secondary">Secondary</Button>
         <Button variant="ghost">Ghost</Button>
         <Button variant="danger">Danger</Button>
@@ -60,114 +57,90 @@ const DemoButton: Component = (_props, ctx) => {
         <Button size="lg">Large</Button>
       </div>
       <div class="wf-row">
-        <Button loading={$.loading} onClick={() => { $.loading = true; setTimeout(() => $.loading = false, 1500) }}>点我 Loading</Button>
+        <Button loading={loading} onClick={() => { loading = true; ctx.ui.render(); setTimeout(() => { loading = false; ctx.ui.render() }, 1500) }}>点我 Loading</Button>
         <Button disabled>Disabled</Button>
         <Button variant="primary" block>Block</Button>
       </div>
     </div>
   )
-  }
 }
 
 const DemoInput: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.text === undefined) $.text = '可编辑'
-  if ($.email === undefined) $.email = ''
-  if ($.pwd === undefined) $.pwd = ''
-
-  return (_p: any) => {
-  return (
+  let text = '可编辑'
+  let email = ''
+  let pwd = ''
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      <Input label="文本" value={$.text} onInput={e => $.text = (e.target as HTMLInputElement).value} />
-      <Input label="邮箱" type="email" placeholder="name@example.com" required value={$.email} onInput={e => $.email = (e.target as HTMLInputElement).value} />
-      <Input label="密码" type="password" placeholder="••••••••" value={$.pwd} onInput={e => $.pwd = (e.target as HTMLInputElement).value} />
+      <Input label="文本" value={text} onInput={e => { text = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+      <Input label="邮箱" type="email" placeholder="name@example.com" required value={email} onInput={e => { email = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+      <Input label="密码" type="password" placeholder="••••••••" value={pwd} onInput={e => { pwd = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
       <Input label="错误状态" error="请输入有效内容" />
       <Input label="带提示" hint="只能包含字母和数字" />
       <Input label="颜色" type="color" value="#ff6600" onInput={e => (e.target as HTMLInputElement).value} />
     </div>
   )
-  }
 }
 
 const DemoTextarea: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.bio === undefined) $.bio = '可编辑文本'
-
-  return (_p: any) => {
-  return (
+  let bio = '可编辑文本'
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      <Textarea label="简介" value={$.bio} onInput={e => $.bio = (e.target as HTMLTextAreaElement).value} rows={3} />
+      <Textarea label="简介" value={bio} onInput={e => { bio = (e.target as HTMLTextAreaElement).value; ctx.ui.render() }} rows={3} />
       <Textarea label="错误状态" error="内容不能为空" rows={2} />
       <Textarea label="带提示" hint="最多 500 字" rows={2} />
     </div>
   )
-  }
 }
 
 const DemoSelect: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.role === undefined) $.role = ''
-
-  return (_p: any) => {
-  return (
+  let role = ''
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
       <Select label="角色" placeholder="请选择（试试切换）"
-        value={$.role}
-        onChange={e => $.role = (e.target as HTMLSelectElement).value}
+        value={role}
+        onChange={e => { role = (e.target as HTMLSelectElement).value; ctx.ui.render() }}
         options={[
           { value: 'admin', label: '管理员' },
           { value: 'user', label: '普通用户' },
           { value: 'guest', label: '访客' },
         ]} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">当前值: {$.role || '(未选择)'}</div>
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">当前值: {role || '(未选择)'}</div>
       <Select label="带错误" error="请选择角色" options={[{ value: 'a', label: '选项 A' }]} />
     </div>
   )
-  }
 }
 
 const DemoCheckbox: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.agree === undefined) $.agree = false
-  if ($.remember === undefined) $.remember = true
-
-  return (_p: any) => {
-  return (
+  let agree = false
+  let remember = true
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px">
-      <Checkbox label="已阅读并同意协议" checked={$.agree} onChange={v => $.agree = v} />
-      <Checkbox label="记住登录状态" checked={$.remember} onChange={v => $.remember = v} />
+      <Checkbox label="已阅读并同意协议" checked={agree} onChange={v => { agree = v; ctx.ui.render() }} />
+      <Checkbox label="记住登录状态" checked={remember} onChange={v => { remember = v; ctx.ui.render() }} />
       <Checkbox label="不可选 (disabled)" disabled />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">同意: {String($.agree)}, 记住: {String($.remember)}</div>
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">同意: {String(agree)}, 记住: {String(remember)}</div>
     </div>
   )
-  }
 }
 
 const DemoSwitch: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.notify === undefined) $.notify = true
-  if ($.auto === undefined) $.auto = false
-
-  return (_p: any) => {
-  return (
+  let notify = true
+  let auto = false
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px">
-      <Switch label="启用通知" checked={$.notify} onChange={v => $.notify = v} />
-      <Switch label="自动更新" checked={$.auto} onChange={v => $.auto = v} />
+      <Switch label="启用通知" checked={notify} onChange={v => { notify = v; ctx.ui.render() }} />
+      <Switch label="自动更新" checked={auto} onChange={v => { auto = v; ctx.ui.render() }} />
       <Switch label="已禁用 (disabled)" disabled checked />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">通知: {$.notify ? '开' : '关'}, 自动更新: {$.auto ? '开' : '关'}</div>
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">通知: {notify ? '开' : '关'}, 自动更新: {auto ? '开' : '关'}</div>
     </div>
   )
-  }
 }
 
 const DemoRadio: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.gender === undefined) $.gender = 'male'
-
-  return (_p: any) => {
-  return (
+  let gender = 'male'
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      <RadioGroup name="gender" value={$.gender} onChange={v => $.gender = v}
+      <RadioGroup name="gender" value={gender} onChange={v => { gender = v; ctx.ui.render() }}
         options={[
           { value: 'male', label: '男' },
           { value: 'female', label: '女' },
@@ -178,90 +151,71 @@ const DemoRadio: Component = (_props, ctx) => {
           { value: 'a', label: '选项 A' },
           { value: 'b', label: '选项 B' },
         ]} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">选择: {$.gender}</div>
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">选择: {gender}</div>
     </div>
   )
-  }
 }
 
 const DemoSlider: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.volume === undefined) $.volume = 60
-  if ($.brightness === undefined) $.brightness = 30
-
-  return (_p: any) => {
-  return (
+  let volume = 60
+  let brightness = 30
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      <Slider label="音量" value={$.volume} onChange={v => $.volume = v} />
-      <Slider label="亮度" value={$.brightness} min={0} max={100} onChange={v => $.brightness = v} />
+      <Slider label="音量" value={volume} onChange={v => { volume = v; ctx.ui.render() }} />
+      <Slider label="亮度" value={brightness} min={0} max={100} onChange={v => { brightness = v; ctx.ui.render() }} />
     </div>
   )
-  }
 }
 
 const DemoForm: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.uname === undefined) $.uname = ''
-  if ($.umail === undefined) $.umail = ''
-  if ($.submitted === undefined) $.submitted = false
-
-  return (_p: any) => {
-  return (
-    <Form onSubmit={() => { $.submitted = true; setTimeout(() => $.submitted = false, 2000) }}>
-      <Input label="用户名" required placeholder="输入用户名" value={$.uname} onInput={e => $.uname = (e.target as HTMLInputElement).value} />
-      <Input label="邮箱" type="email" required placeholder="email@example.com" value={$.umail} onInput={e => $.umail = (e.target as HTMLInputElement).value} />
-      {$.submitted && <Alert variant="success">表单已提交！</Alert>}
+  let uname = ''
+  let umail = ''
+  let submitted = false
+  return (_p: any) => (
+    <Form onSubmit={() => { submitted = true; ctx.ui.render(); setTimeout(() => { submitted = false; ctx.ui.render() }, 2000) }}>
+      <Input label="用户名" required placeholder="输入用户名" value={uname} onInput={e => { uname = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+      <Input label="邮箱" type="email" required placeholder="email@example.com" value={umail} onInput={e => { umail = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
+      {submitted && <Alert variant="success">表单已提交！</Alert>}
       <Button type="submit" variant="primary">提交表单</Button>
     </Form>
   )
-  }
 }
 
 const DemoField: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.name === undefined) $.name = ''
-  if ($.mail === undefined) $.mail = 'bad-input'
-
-  return (_p: any) => {
-  return (
+  let name = ''
+  let mail = 'bad-input'
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      <Field label="姓名" required><Input placeholder="输入姓名" value={$.name} onInput={e => $.name = (e.target as HTMLInputElement).value} /></Field>
-      <Field label="邮箱" error="邮箱格式不正确"><Input type="email" value={$.mail} /></Field>
+      <Field label="姓名" required><Input placeholder="输入姓名" value={name} onInput={e => { name = (e.target as HTMLInputElement).value; ctx.ui.render() }} /></Field>
+      <Field label="邮箱" error="邮箱格式不正确"><Input type="email" value={mail} /></Field>
       <Field label="密码" hint="至少 6 位"><Input type="password" /></Field>
     </div>
   )
-  }
 }
 
 const DemoSearchInput: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.query === undefined) $.query = ''
-
-  return (_p: any) => {
-  return (
+  let query = ''
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      <SearchInput placeholder="搜索用户..." value={$.query} onInput={e => $.query = (e.target as HTMLInputElement).value} onClear={() => $.query = ''} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">搜索词: {$.query || '(空)'}</div>
+      <SearchInput placeholder="搜索用户..." value={query} onInput={e => { query = (e.target as HTMLInputElement).value; ctx.ui.render() }} onClear={() => { query = ''; ctx.ui.render() }} />
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">搜索词: {query || '(空)'}</div>
     </div>
   )
-  }
 }
 
 const DemoProgress: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.pct === undefined) $.pct = 45
-
+  let pct = 45
   let started = false
   return (_p: any) => {
     if (!started) {
       started = true
       setTimeout(() => {
-        if ($.pct < 100) $.pct = Math.min(100, $.pct + 5)
+        if (pct < 100) { pct = Math.min(100, pct + 5); ctx.ui.render() }
       }, 800)
     }
     return (
     <div class="wf-stack" style="gap:12px;width:100%">
-      <ProgressBar value={$.pct} label="模拟进度" showValue />
+      <ProgressBar value={pct} label="模拟进度" showValue />
       <ProgressBar value={100} label="已完成" showValue />
     </div>
   )
@@ -269,17 +223,13 @@ const DemoProgress: Component = (_props, ctx) => {
 }
 
 const DemoTable: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.selected === undefined) $.selected = null
-
+  let selected: any = null
   const data = [
     { id: 1, name: '张三', role: '管理员', status: '活跃' },
     { id: 2, name: '李四', role: '编辑', status: '离线' },
     { id: 3, name: '王五', role: '访客', status: '活跃' },
   ]
-
-  return (_p: any) => {
-  return (
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
       <Table data={data} columns={[
         { key: 'id', label: 'ID', width: 60 },
@@ -287,42 +237,34 @@ const DemoTable: Component = (_props, ctx) => {
         { key: 'role', label: '角色' },
         { key: 'status', label: '状态', render: v => <Badge variant={v === '活跃' ? 'success' : 'default'}>{v}</Badge> },
       ]} />
-      {$.selected && <div style="font-size:12px;color:var(--wf-color-text-secondary)">已选: {$.selected}</div>}
+      {selected && <div style="font-size:12px;color:var(--wf-color-text-secondary)">已选: {selected}</div>}
     </div>
   )
-  }
 }
 
 const DemoModal: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.open === undefined) $.open = false
-
-  return (_p: any) => {
-  return (
+  let open = false
+  return (_p: any) => (
     <div class="wf-row">
-      <Button variant="primary" onClick={() => $.open = true}>打开弹窗</Button>
-      <Modal open={$.open} title="确认操作" onClose={() => $.open = false}
-        footer={<Button variant="primary" onClick={() => $.open = false}>确定</Button>}>
-        <p>这是弹窗内容。点击遮罩、ESC 键或"确定"关闭。</p>
+      <Button variant="primary" onClick={() => { open = true; ctx.ui.render() }}>打开弹窗</Button>
+      <Modal open={open} title="确认操作" onClose={() => { open = false; ctx.ui.render() }}
+        footer={<Button variant="primary" onClick={() => { open = false; ctx.ui.render() }}>确定</Button>}>
+        <p>这是弹窗内容。点击遮罩、ESC 键或" 确定"关闭。</p>
       </Modal>
     </div>
   )
-  }
 }
 
 const DemoToast: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.toasts === undefined) $.toasts = [] as ToastItem[]
-
+  let toasts: ToastItem[] = []
   function add(type: ToastType) {
     const id = String(Date.now())
     const msgs: Record<ToastType, string> = { success: '操作成功完成', error: '发生了一个错误', warning: '请注意：此操作不可撤销', info: '这是一条提示信息' }
-    $.toasts = [...$.toasts, { id, type, message: msgs[type] }]
-    setTimeout(() => { $.toasts = $.toasts.filter(t => t.id !== id) }, 3000)
+    toasts = [...toasts, { id, type, message: msgs[type] }]
+    ctx.ui.render()
+    setTimeout(() => { toasts = toasts.filter(t => t.id !== id); ctx.ui.render() }, 3000)
   }
-
-  return (_p: any) => {
-  return (
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px">
       <div class="wf-row">
         <Button variant="primary" onClick={() => add('success')}>成功</Button>
@@ -330,48 +272,41 @@ const DemoToast: Component = (_props, ctx) => {
         <Button variant="secondary" onClick={() => add('warning')}>警告</Button>
         <Button variant="ghost" onClick={() => add('info')}>信息</Button>
       </div>
-      <Toast toasts={$.toasts} onRemove={id => $.toasts = $.toasts.filter(t => t.id !== id)} />
+      <Toast toasts={toasts} onRemove={id => { toasts = toasts.filter(t => t.id !== id); ctx.ui.render() }} />
     </div>
   )
-  }
 }
 
 const DemoAlert: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.showErr === undefined) $.showErr = true
-  if ($.showInfo === undefined) $.showInfo = true
-
-  return (_p: any) => {
-  return (
+  let showErr = true
+  let showInfo = true
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      {$.showInfo && <Alert variant="info" closable onClose={() => $.showInfo = false}>这是一条提示信息（可关闭）</Alert>}
+      {showInfo && <Alert variant="info" closable onClose={() => { showInfo = false; ctx.ui.render() }}>这是一条提示信息（可关闭）</Alert>}
       <Alert variant="success">操作成功完成</Alert>
       <Alert variant="warning">请注意：此操作不可撤销</Alert>
-      {$.showErr && <Alert variant="error" closable onClose={() => $.showErr = false}>发生了一个错误（可关闭）</Alert>}
+      {showErr && <Alert variant="error" closable onClose={() => { showErr = false; ctx.ui.render() }}>发生了一个错误（可关闭）</Alert>}
     </div>
   )
-  }
 }
 
 const DemoLoading: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.loading === undefined) $.loading = true
-
+  let loading = true
   let started = false
   return (_p: any) => {
     if (!started) {
       started = true
-      setTimeout(() => $.loading = false, 3000)
+      setTimeout(() => { loading = false; ctx.ui.render() }, 3000)
     }
     return (
     <div class="wf-row" style="gap:16px">
-      {$.loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成 ✅</Alert>}
+      {loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成 ✅</Alert>}
     </div>
   )
   }
 }
 
-const DemoSkeleton: Component = () => () => () => (
+const DemoSkeleton: Component = () => () => (
   <div class="wf-stack" style="gap:12px">
     <Skeleton />
     <Skeleton lines={3} />
@@ -387,39 +322,31 @@ const DemoSkeleton: Component = () => () => () => (
 )
 
 const DemoEmptyState: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.hasData === undefined) $.hasData = false
-
-  return (_p: any) => {
-  return (
+  let hasData = false
+  return (_p: any) => (
     <div style="width:100%">
-      {$.hasData
+      {hasData
         ? <div class="wf-stack" style="gap:8px;text-align:center;padding:24px">
             <p>✅ 数据已添加</p>
-            <Button variant="ghost" onClick={() => $.hasData = false}>清空</Button>
+            <Button variant="ghost" onClick={() => { hasData = false; ctx.ui.render() }}>清空</Button>
           </div>
         : <EmptyState icon="📦" text="暂无数据" hint="点击按钮创建第一个项目">
-            <Button variant="primary" onClick={() => $.hasData = true}>创建项目</Button>
+            <Button variant="primary" onClick={() => { hasData = true; ctx.ui.render() }}>创建项目</Button>
           </EmptyState>}
     </div>
   )
-  }
 }
 
 const DemoCardShowcase: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.clicked === undefined) $.clicked = false
-
-  return (_p: any) => {
-  return (
+  let clicked = false
+  return (_p: any) => (
     <div class="wf-row" style="gap:12px;flex-wrap:wrap">
       <Card>默认卡片</Card>
       <Card variant="outlined">线框卡片</Card>
-      <Card clickable onClick={() => $.clicked = true}>可点击卡片</Card>
-      {$.clicked && <div style="font-size:12px;width:100%;color:var(--wf-color-text-secondary)">卡片被点击了 ✅</div>}
+      <Card clickable onClick={() => { clicked = true; ctx.ui.render() }}>可点击卡片</Card>
+      {clicked && <div style="font-size:12px;width:100%;color:var(--wf-color-text-secondary)">卡片被点击了 ✅</div>}
     </div>
   )
-  }
 }
 
 const DemoBadge: Component = () => () => (
@@ -436,22 +363,18 @@ const DemoBadge: Component = () => () => (
 )
 
 const DemoTag: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.tags === undefined) $.tags = ['可关闭标签', '删除我']
-
-  return (_p: any) => {
-  return (
+  let tags = ['可关闭标签', '删除我']
+  return (_p: any) => (
     <div class="wf-row" style="gap:8px;flex-wrap:wrap">
       <Tag>默认标签</Tag>
       <Tag variant="primary">主要标签</Tag>
       <Tag variant="success">完成</Tag>
       <Tag variant="danger">错误</Tag>
-      {$.tags.map((t: string, i: number) => (
-        <Tag key={t} closable onClose={() => $.tags = $.tags.filter((_: any, j: number) => j !== i)}>{t}</Tag>
+      {tags.map((t: string, i: number) => (
+        <Tag key={t} closable onClose={() => { tags = tags.filter((_: any, j: number) => j !== i); ctx.ui.render() }}>{t}</Tag>
       ))}
     </div>
   )
-  }
 }
 
 const DemoAvatar: Component = () => () => (
@@ -472,81 +395,66 @@ const DemoStatCard: Component = () => () => (
 )
 
 const DemoSteps: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.step === undefined) $.step = 'info'
-
-  return (_p: any) => {
-  return (
+  let step = 'info'
+  return (_p: any) => (
     <div style="width:100%">
       <Steps items={[
         { key: 'info', label: '填写信息' },
         { key: 'pay', label: '支付' },
         { key: 'done', label: '完成' },
-      ]} active={$.step} />
+      ]} active={step} />
       <div class="wf-row" style="margin-top:8px;gap:8px;justify-content:center">
-        <Button size="sm" onClick={() => $.step = 'info'}>第一步</Button>
-        <Button size="sm" onClick={() => $.step = 'pay'}>第二步</Button>
-        <Button size="sm" onClick={() => $.step = 'done'}>第三步</Button>
+        <Button size="sm" onClick={() => { step = 'info'; ctx.ui.render() }}>第一步</Button>
+        <Button size="sm" onClick={() => { step = 'pay'; ctx.ui.render() }}>第二步</Button>
+        <Button size="sm" onClick={() => { step = 'done'; ctx.ui.render() }}>第三步</Button>
       </div>
     </div>
   )
-  }
 }
 
 const DemoTabs: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.tab === undefined) $.tab = 'a'
-
-  return (_p: any) => {
-  return (
+  let tab = 'a'
+  return (_p: any) => (
     <div style="width:100%">
       <Tabs items={[
         { key: 'a', label: '详情', content: <p style="margin:0">这是详情内容。点击其他标签切换。</p> },
         { key: 'b', label: '设置', content: <p style="margin:0">这是设置内容。可以在这里修改配置。</p> },
         { key: 'c', label: '日志', content: <p style="margin:0">这是日志内容。显示操作记录。</p> },
-      ]} active={$.tab} onChange={v => $.tab = v} />
+      ]} active={tab} onChange={v => { tab = v; ctx.ui.render() }} />
     </div>
   )
-  }
 }
 
 const DemoDropdown: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.open === undefined) $.open = false; $.lastAction = ''
-
-  return (_p: any) => {
-  return (
+  let open = false
+  let lastAction = ''
+  return (_p: any) => (
     <div class="wf-row" style="gap:12px;min-height:120px">
       <Dropdown
         trigger={
-          <Button variant="ghost" onClick={() => $.open = !$.open}>
+          <Button variant="ghost" onClick={() => { open = !open; ctx.ui.render() }}>
             操作 ▾（点击切换）
           </Button>
         }
-        open={$.open}
+        open={open}
         items={[
-          { label: '编辑', onClick: () => { $.lastAction = '编辑'; $.open = false } },
-          { label: '复制', onClick: () => { $.lastAction = '复制'; $.open = false } },
-          { label: '删除', variant: 'danger', onClick: () => { $.lastAction = '删除'; $.open = false } },
+          { label: '编辑', onClick: () => { lastAction = '编辑'; open = false; ctx.ui.render() } },
+          { label: '复制', onClick: () => { lastAction = '复制'; open = false; ctx.ui.render() } },
+          { label: '删除', variant: 'danger', onClick: () => { lastAction = '删除'; open = false; ctx.ui.render() } },
         ]} />
-      {$.lastAction && <span style="font-size:12px;color:var(--wf-color-text-secondary)">上次: {$.lastAction}</span>}
+      {lastAction && <span style="font-size:12px;color:var(--wf-color-text-secondary)">上次: {lastAction}</span>}
     </div>
   )
-  }
 }
 
 const DemoPagination: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.page === undefined) $.page = 3
-
-  return (_p: any) => {
-  return (
+  let page = 3
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;align-items:center">
-      <Pagination total={200} page={$.page} onChange={p => $.page = p} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">当前页: {$.page}</div>
+      <Pagination total={200} page={page} onChange={p => { page = p; ctx.ui.render() }} />
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">当前页: {page}</div>
     </div>
   )
-  }
 }
 
 const DemoAccordion: Component = () => () => (
@@ -588,21 +496,17 @@ const DemoDivider: Component = () => () => (
 )
 
 const DemoFileUpload: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.files === undefined) $.files = [] as File[]
-
-  return (_p: any) => {
-  return (
+  let files: File[] = []
+  return (_p: any) => (
     <div style="width:100%">
       <FileUpload
         accept="image/*,.pdf"
         multiple
         maxSize={5 * 1024 * 1024}
-        value={$.files}
-        onChange={f => $.files = f} />
+        value={files}
+        onChange={f => { files = f; ctx.ui.render() }} />
     </div>
   )
-  }
 }
 
 const DemoTooltip: Component = () => () => (
@@ -615,38 +519,31 @@ const DemoTooltip: Component = () => () => (
 )
 
 const DemoDrawer: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.rightOpen === undefined) $.rightOpen = false
-  if ($.leftOpen === undefined) $.leftOpen = false
-
-  return (_p: any) => {
-  return (
+  let rightOpen = false
+  let leftOpen = false
+  return (_p: any) => (
     <div class="wf-row" style="gap:8px">
-      <Button variant="primary" onClick={() => $.rightOpen = true}>右侧抽屉</Button>
-      <Button onClick={() => $.leftOpen = true}>左侧抽屉</Button>
-      <Drawer open={$.rightOpen} title="编辑用户" position="right" onClose={() => $.rightOpen = false}
+      <Button variant="primary" onClick={() => { rightOpen = true; ctx.ui.render() }}>右侧抽屉</Button>
+      <Button onClick={() => { leftOpen = true; ctx.ui.render() }}>左侧抽屉</Button>
+      <Drawer open={rightOpen} title="编辑用户" position="right" onClose={() => { rightOpen = false; ctx.ui.render() }}
         footer={<>
-          <Button variant="ghost" onClick={() => $.rightOpen = false}>取消</Button>
-          <Button variant="primary" onClick={() => $.rightOpen = false}>保存</Button>
+          <Button variant="ghost" onClick={() => { rightOpen = false; ctx.ui.render() }}>取消</Button>
+          <Button variant="primary" onClick={() => { rightOpen = false; ctx.ui.render() }}>保存</Button>
         </>}>
         <Input label="姓名" placeholder="请输入姓名" />
         <Input label="邮箱" type="email" placeholder="email@example.com" />
       </Drawer>
-      <Drawer open={$.leftOpen} title="导航菜单" position="left" onClose={() => $.leftOpen = false}>
+      <Drawer open={leftOpen} title="导航菜单" position="left" onClose={() => { leftOpen = false; ctx.ui.render() }}>
         <p>左侧面板内容</p>
       </Drawer>
     </div>
   )
-  }
 }
 
 const DemoPopover: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.showBottom === undefined) $.showBottom = false
-  if ($.showTop === undefined) $.showTop = false
-
-  return (_p: any) => {
-  return (
+  let showBottom = false
+  let showTop = false
+  return (_p: any) => (
     <div class="wf-row" style="gap:8px;align-items:center">
       <Popover content={<div style="padding:4px 0"><p style="margin:0 0 8px">自定义面板内容</p><Button size="sm">操作</Button></div>}>
         <Button variant="secondary">点击弹出</Button>
@@ -659,7 +556,6 @@ const DemoPopover: Component = (_props, ctx) => {
       </Popover>
     </div>
   )
-  }
 }
 
 const DemoImage: Component = () => () => (
@@ -671,15 +567,12 @@ const DemoImage: Component = () => () => (
 )
 
 const DemoInView: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.log === undefined) $.log = [] as string[]
-
-  return (_p: any) => {
-  return (
+  let log: string[] = []
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
       <p style="font-size:var(--wf-font-size-sm);color:var(--wf-color-text-secondary)">向下滚动，下方的懒加载区域将在进入视窗后渲染👇</p>
       <div style="height:120px;display:flex;align-items:center;justify-content:center;background:var(--wf-color-bg-secondary,#f9fafb);border-radius:8px;font-size:var(--wf-font-size-sm);color:var(--wf-color-text-tertiary)">上方留白区域，需要滚动</div>
-      <InView onEnter={() => $.log = [...$.log, '已加载']}>
+      <InView onEnter={() => { log = [...log, '已加载']; ctx.ui.render() }}>
         <div style="padding:24px;background:var(--wf-color-primary-light,#e0f2fe);border-radius:8px;text-align:center">
           <div style="font-size:24px;margin-bottom:8px">🎉</div>
           <p style="margin:0;font-weight:var(--wf-font-weight-semibold)">懒加载内容已加载！</p>
@@ -687,51 +580,43 @@ const DemoInView: Component = (_props, ctx) => {
         </div>
       </InView>
       <div style="height:160px;display:flex;align-items:center;justify-content:center;background:var(--wf-color-bg-secondary,#f9fafb);border-radius:8px;font-size:var(--wf-font-size-sm);color:var(--wf-color-text-tertiary)">底部留白区域</div>
-      {$.log.length > 0 && <div style="font-size:12px;color:var(--wf-color-text-secondary)">事件: {$.log.join(', ')}</div>}
+      {log.length > 0 && <div style="font-size:12px;color:var(--wf-color-text-secondary)">事件: {log.join(', ')}</div>}
     </div>
   )
-  }
 }
 
 const DemoDatePicker: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.result === undefined) $.result = ''
-
-  return (_p: any) => {
-  return (
+  let result = ''
+  return (_p: any) => (
     <div class="wf-row" style="gap:12px;flex-wrap:wrap;width:100%">
       <div style="width:220px">
-        <DatePicker mode="date" onChange={v => $.result = v} placeholder="选择日期" />
+        <DatePicker mode="date" onChange={v => { result = v; ctx.ui.render() }} placeholder="选择日期" />
       </div>
       <div style="width:220px">
-        <DatePicker mode="datetime" onChange={v => $.result = v} placeholder="日期+时间" />
+        <DatePicker mode="datetime" onChange={v => { result = v; ctx.ui.render() }} placeholder="日期+时间" />
       </div>
       <div style="width:180px">
-        <DatePicker mode="time" onChange={v => $.result = v} placeholder="选择时间" />
+        <DatePicker mode="time" onChange={v => { result = v; ctx.ui.render() }} placeholder="选择时间" />
       </div>
       <div style="width:220px">
-        <DatePicker mode="range" onChange={v => $.result = v} placeholder="日期范围" />
+        <DatePicker mode="range" onChange={v => { result = v; ctx.ui.render() }} placeholder="日期范围" />
       </div>
-      {$.result && <div style="font-size:12px;color:var(--wf-color-text-secondary);width:100%">已选: {$.result}</div>}
+      {result && <div style="font-size:12px;color:var(--wf-color-text-secondary);width:100%">已选: {result}</div>}
     </div>
   )
-  }
 }
 
-const DemoEditor: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.html === undefined) $.html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p style="text-align:center">居中文字</p>'
 
-  return (_p: any) => {
-  return (
+const DemoEditor: Component = (_props, ctx) => {
+  let html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p style="text-align:center">居中文字</p>'
+  return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      <Editor value={$.html} onChange={v => $.html = v} placeholder="输入内容..." />
+      <Editor value={html} onChange={v => { html = v; ctx.ui.render() }} placeholder="输入内容..." />
       <div style="font-size:12px;color:var(--wf-color-text-secondary);padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">
-        HTML 输出: {$.html?.substring(0, 150) || '(空)'}
+        HTML 输出: {html?.substring(0, 150) || '(空)'}
       </div>
     </div>
   )
-  }
 }
 
 const DemoChart: Component = () => () => {
@@ -749,7 +634,6 @@ const DemoChart: Component = () => () => {
     { label: '邮件', value: 20, color: '#f59e0b' },
     { label: '其他', value: 20, color: '#8b5cf6' },
   ]
-
   return (
     <div class="wf-row" style="--wf-gap:16px">
       <div class="wf-fill wf-text-center" style="min-width:300px"><Chart type="line" data={sales} title="月销售额" /></div>
@@ -760,32 +644,28 @@ const DemoChart: Component = () => () => {
 }
 
 const DemoConfirm: Component = (_props, ctx) => {
-  const $ = ctx.ui.$
-  if ($.result === undefined) $.result = ''
-
+  let result = ''
   const handleDelete = async () => {
     const ok = await (ctx as any).confirm?.('确定要删除这条记录吗？', {
       title: '确认删除',
       confirmText: '删除',
       variant: 'danger',
     })
-    $.result = ok ? '✅ 已删除' : '已取消'
+    result = ok ? '✅ 已删除' : '已取消'
+    ctx.ui.render()
   }
-
   const handleSave = async () => {
     const ok = await (ctx as any).confirm?.('保存修改？')
-    $.result = ok ? '✅ 已保存' : '已取消'
+    result = ok ? '✅ 已保存' : '已取消'
+    ctx.ui.render()
   }
-
-  return (_p: any) => {
-  return (
+  return (_p: any) => (
     <div class="wf-row" style="gap:8px;align-items:center">
       <Button variant="danger" onClick={handleDelete}>删除</Button>
       <Button onClick={handleSave}>保存</Button>
-      {$.result && <span style="font-size:12px;color:var(--wf-color-text-secondary)">{$.result}</span>}
+      {result && <span style="font-size:12px;color:var(--wf-color-text-secondary)">{result}</span>}
     </div>
   )
-  }
 }
 
 // ── 代码示例字符串 ─────────────────────────────────────
@@ -800,40 +680,40 @@ const CODE = {
 <Button disabled />
 <Button block />`,
 
-  input: `<Input label="文本" value={$.text}
-  onInput={e => $.text = e.target.value} />
+  input: `<Input label="文本" value={text}
+  onInput={e => text = e.target.value} />
 <Input label="邮箱" type="email" required />
 <Input error="错误提示" />
 <Input hint="辅助文字" />`,
 
   textarea: `<Textarea label="简介" rows={3}
-  value={$.bio}
-  onInput={e => $.bio = e.target.value} />
+  value={bio}
+  onInput={e => bio = e.target.value} />
 <Textarea error="错误" />`,
 
-  select: `<Select label="角色" value={$.role}
-  onChange={e => $.role = e.target.value}
+  select: `<Select label="角色" value={role}
+  onChange={e => role = e.target.value}
   options={[
     {value:'admin',label:'管理员'},
   ]} />`,
 
   checkbox: `<Checkbox label="同意"
-  checked={$.agree}
-  onChange={v => $.agree = v} />`,
+  checked={agree}
+  onChange={v => agree = v} />`,
 
   switch: `<Switch label="启用"
-  checked={$.notify}
-  onChange={v => $.notify = v} />`,
+  checked={notify}
+  onChange={v => notify = v} />`,
 
   radio: `<RadioGroup name="gender"
-  value={$.gender}
-  onChange={v => $.gender = v}
+  value={gender}
+  onChange={v => gender = v}
   options={[
     {value:'male',label:'男'},
   ]} />`,
 
-  slider: `<Slider label="音量" value={$.volume}
-  onChange={v => $.volume = v} />`,
+  slider: `<Slider label="音量" value={volume}
+  onChange={v => volume = v} />`,
 
   form: `<Form onSubmit={handleSubmit}>
   <Input label="用户名" required />
@@ -847,9 +727,9 @@ const CODE = {
   <Input />
 </Field>`,
 
-  search: `<SearchInput value={$.query}
-  onInput={e => $.query = e.target.value}
-  onClear={() => $.query = ''} />`,
+  search: `<SearchInput value={query}
+  onInput={e => query = e.target.value}
+  onClear={() => query = ''} />`,
 
   progress: `<ProgressBar value={75} label="进度" showValue />`,
 
@@ -859,14 +739,14 @@ const CODE = {
     render: v => <Badge>{v}</Badge>},
 ]} />`,
 
-  modal: `<Modal open={$.open}
+  modal: `<Modal open={open}
   title="标题"
-  onClose={() => $.open = false}>
+  onClose={() => open = false}>
   <p>内容</p>
 </Modal>`,
 
   toast: `// toasts: [{id, type, message}]
-<Toast toasts={$.toasts}
+<Toast toasts={toasts}
   onRemove={id => ...} />`,
 
   alert: `<Alert variant="info">提示</Alert>
@@ -937,14 +817,14 @@ if (ok) { /* 执行 */ }`,
 ]} active="a" onChange={fn} />`,
 
   dropdown: `<Dropdown trigger={<Button>菜单</Button>}
-  open={$.open}
+  open={open}
   items={[
     {label:'编辑', onClick},
     {label:'删除', variant:'danger'},
   ]} />`,
 
   pagination: `<Pagination total={200}
-  page={$.page} onChange={fn} />`,
+  page={page} onChange={fn} />`,
 
   accordion: `<Accordion items={[
   {key:'a',title:'标题',
@@ -963,17 +843,17 @@ if (ok) { /* 执行 */ }`,
 
   fileUpload: `<FileUpload accept="image/*,.pdf"
   multiple maxSize={5242880}
-  value={$.files}
-  onChange={f => $.files = f} />`,
+  value={files}
+  onChange={f => files = f} />`,
 
   tooltip: `<Tooltip content="保存"
   position="top">
   <Button>保存</Button>
 </Tooltip>`,
 
-  drawer: `<Drawer open={$.open}
+  drawer: `<Drawer open={open}
   title="编辑" position="right"
-  onClose={() => $.open = false}>
+  onClose={() => open = false}>
   <p>内容</p>
 </Drawer>`,
 
@@ -987,7 +867,7 @@ if (ok) { /* 执行 */ }`,
 <Chart type="pie" data={data} />
 `,
 
-  editor: `<Editor value={$.html} onChange={v => $.html = v}
+  editor: `<Editor value={html} onChange={v => html = v}
   placeholder="输入内容..." />
 
 <Editor toolbar={['bold','italic']}
@@ -1013,7 +893,6 @@ if (ok) { /* 执行 */ }`,
 
 const App: Component = (_props, ctx) => {
   const cur = (ctx as any)?.i18n?.locale ?? 'zh-CN'
-
   return (_p: any) => (
     <div class="wf-stack" style="gap:32px">
       <div style="text-align:center;padding:var(--wf-space-xl) 0">

@@ -22,8 +22,11 @@ export interface DropdownProps {
 
 export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   // ── mount（只一次）──
-  const $ = ctx.ui.$
   let wrapEl: HTMLElement | undefined
+
+  ctx.ui.onmounted((el) => {
+    wrapEl = el as HTMLElement
+  })
 
   // ── render（每次 dirty/props 变化）──
   return (props: DropdownProps) => {
@@ -54,7 +57,6 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
 
     return h('div', {
       class: `wf-dropdown${open ? ' wf-dropdown--open' : ''}`,
-      ref: (el: HTMLElement | null) => { if (el) wrapEl = el },
     }, [trigger, portalContent].filter(Boolean))
   }
 }

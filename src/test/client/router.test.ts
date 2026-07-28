@@ -24,7 +24,7 @@ const rv = (p: any, ctx: any) => {
 
 function mockCtx(overrides: any = {}): WfuiContext {
   return {
-    ui: { render: () => {}, $: {}, ready: false },
+    ui: { render: () => {}, $: () => ({}), ready: false },
     route: { path: '/', params: {}, query: {} },
     app: { navigate(path: string) {} },
     ...overrides,
@@ -132,7 +132,7 @@ describe('router navigate', () => {
       { path: '/about', component: () => null },
     ])
     let rendered = false
-    ctx.ui = { render: () => { rendered = true }, $: {}, ready: false }
+    ctx.ui = { render: () => { rendered = true }, $: () => ({}), ready: false }
     ctx.app.navigate('/about')
     assert.equal(rendered, true)
   })
@@ -173,7 +173,7 @@ describe('popstate', () => {
       { path: '/other', component: () => null },
     ])
     let rendered = false
-    ctx.ui = { render: () => { rendered = true }, $: {}, ready: false }
+    ctx.ui = { render: () => { rendered = true }, $: () => ({}), ready: false }
 
     window.history.pushState({}, '', '/other')
     window.dispatchEvent(new PopStateEvent('popstate'))
@@ -185,7 +185,7 @@ describe('popstate', () => {
   it('popstate 触发 render', () => {
     const { ctx } = makeRouter([{ path: '/', component: () => null }])
     let rendered = false
-    ctx.ui = { render: () => { rendered = true }, $: {}, ready: false }
+    ctx.ui = { render: () => { rendered = true }, $: () => ({}), ready: false }
 
     window.history.pushState({}, '', '/')
     window.dispatchEvent(new PopStateEvent('popstate'))
@@ -358,7 +358,7 @@ describe('router + RouteView integration', () => {
     const Page = () => () => jsx('p', { children: 'hello' })
     const mw = router({ mode: 'history', routes: [{ path: '/test', component: Page }] })
     const ctx = mw({} as any) as any
-    ctx.ui = { render: () => {}, $: {}, ready: false }
+    ctx.ui = { render: () => {}, $: () => ({}), ready: false }
     const v = rv({}, ctx) as any
     assert.equal(v.type, Page)
   })
@@ -373,7 +373,7 @@ describe('router + RouteView integration', () => {
       children: [{ path: 'test', component: Page }],
     }]})
     const ctx = mw({} as any) as any
-    ctx.ui = { render: () => {}, $: {}, ready: false }
+    ctx.ui = { render: () => {}, $: () => ({}), ready: false }
 
     const v1 = rv({}, ctx) as any
     assert.equal(v1.type, Layout)

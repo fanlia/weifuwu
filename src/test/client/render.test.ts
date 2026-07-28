@@ -17,7 +17,7 @@ let ctx: WfuiContext
 before(setupJsdom)
 
 beforeEach(() => {
-  ctx = { ui: { render: () => {}, $: {} } }
+  ctx = { ui: { render: () => {}, $: () => ({}) } }
 })
 
 // ═══════════════════════════════════════════════════════

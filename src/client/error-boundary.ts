@@ -10,7 +10,7 @@
  * ```
  *
  * 基于 ctx.ui._errorHandler 机制：在渲染子组件前注入错误处理器，
- * 子组件 render 抛错时设置 $.error → 重新渲染 fallback。
+ * 子组件 render 抛错时设置 error → 重新渲染 fallback。
  */
 
 import type { WfuiContext } from './types.ts'
@@ -22,30 +22,29 @@ export interface ErrorBoundaryProps {
 }
 
 export function ErrorBoundary(props: ErrorBoundaryProps, ctx: WfuiContext) {
-  const $ = ctx.ui.$
-  if (!('error' in $)) $.error = null
+  let error: unknown = null
 
   return (props2: ErrorBoundaryProps): VNode | null => {
     // 有错误 → 渲染 fallback
-    if ($.error) {
+    if (error) {
       const fb = props2.fallback
       if (typeof fb === 'function') {
-        return (fb as any)({ error: $.error })
+        return (fb as any)({ error })
       }
       return fb ?? null
     }
 
     // 注入错误处理器 → 子组件 render 出错时被捕获
     ;(ctx as any).ui._errorHandler = (err: unknown) => {
-      $.error = err
-      ctx.ui.dirty()
+      error = err
+      ctx.ui.render()
     }
 
     const children = props2.children
     try {
       return children ?? null
     } catch (e) {
-      $.error = e
+      error = e
       const fb = props2.fallback
       if (typeof fb === 'function') {
         return (fb as any)({ error: e })
