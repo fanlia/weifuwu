@@ -29,7 +29,8 @@ function PageHead(props: { title: string; sub?: string; children?: any }, _ctx: 
       {props.children &&
         <div class="wf-row" style="--wf-gap: var(--wf-space-sm)">{props.children}</div>}
     </div>
-  )
+    )
+  }
 }
 
 /* ── 统计卡片 ── */
@@ -43,7 +44,8 @@ function StatCard(props: { label: string; value: string; change?: string; up?: b
                    color: var(--wf-color-text)">{props.value}</span>
       {props.change && <span class={`stat-change ${props.up ? 'up' : 'down'}`}>{props.change}</span>}
     </div>
-  )
+    )
+  }
 }
 
 /* ── Dashboard 页面 ── */
@@ -137,7 +139,8 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
       </div>
 
     </div>
-  )
+    )
+  }
 }
 
 /* ── 启动 ── */

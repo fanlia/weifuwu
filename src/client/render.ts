@@ -355,6 +355,7 @@ export function patchValue(
     const comp = newV.type as Component
 
     if (oldV._$) newV._$ = oldV._$
+    if (!newV._$) newV._$ = {}
     ;(ctx as any).ui = (ctx as any).ui ?? {}
       const _tgt = newV._$!
     const _dirtyFn2 = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
@@ -379,7 +380,16 @@ export function patchValue(
     }
     let childNew
     try {
-      childNew = newV._render!(newV.props)
+      if (typeof newV._render === 'function') {
+        childNew = newV._render(newV.props)
+      } else {
+        // fallback: call component directly (_render not transferred)
+        childNew = comp(newV.props, ctx)
+        if (typeof childNew === 'function') {
+          newV._render = childNew
+          childNew = childNew(newV.props)
+        }
+      }
     } finally { _renderCount-- }
     newV._child = childNew
 
