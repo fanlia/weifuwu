@@ -660,9 +660,9 @@ const DemoChart: Component = () => {
 
   return (
     <div class="wf-row" style="--wf-gap:16px">
-      <Chart type="line" data={sales} title="月销售额" />
-      <Chart type="bar" data={sales} title="月销售额(柱状)" />
-      <Chart type="pie" data={pieData} className="wf-chart--center" />
+      <div style="min-width:300px;flex:1"><Chart type="line" data={sales} title="月销售额" /></div>
+      <div style="min-width:300px;flex:1"><Chart type="bar" data={sales} title="月销售额(柱状)" /></div>
+      <div style="display:flex;justify-content:center;width:100%"><Chart type="pie" data={pieData} /></div>
     </div>
   )
 }

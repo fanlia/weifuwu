@@ -2,8 +2,7 @@
 
 .wf-chart {
   position: relative;
-  flex: 1;
-  min-width: 280px;
+  display: inline-block;
   font-family: var(--wf-font-sans);
 }
 
@@ -45,11 +44,6 @@
 }
 
 /* ── Tooltip ── */
-
-.wf-chart--center {
-  flex: none;
-  align-self: center;
-}
 
 .wf-chart-tooltip {
   position: fixed;
