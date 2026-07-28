@@ -136,7 +136,7 @@ describe('createApp', () => {
     const Cmp = (_: any, ctx: WfuiContext) => {
       renderCount++
       const $ = ctx.ui.$
-      if (!ctx.ui.ready) $.text = 'init'
+      if ($.text === undefined) $.text = 'init'
       return jsx('span', { children: $.text })
     }
     const app = createApp()
@@ -175,7 +175,7 @@ describe('createApp', () => {
     const Cmp = (_: any, ctx: WfuiContext) => {
       renderCount++
       const $ = ctx.ui.$
-      if (!ctx.ui.ready) $.items = [{ id: 1, text: 'a' }]
+      if (!$.items) $.items = [{ id: 1, text: 'a' }]
       return jsx('div', { children: $.items.length })
     }
     const app = createApp()
@@ -230,7 +230,7 @@ describe('createApp', () => {
     const Cmp = (_: any, ctx: WfuiContext) => {
       renderCount++
       const $ = ctx.ui.$
-      if (!ctx.ui.ready) $.items = [1]
+      if (!$.items) $.items = [1]
       return jsx('div', {
         children: $.items.map((i: any, idx: number) => jsx('span', { children: String(i) }, String(idx))),
       })
@@ -255,7 +255,7 @@ describe('createApp', () => {
     const Cmp = (_: any, ctx: WfuiContext) => {
       renderCount++
       const $ = ctx.ui.$
-      if (!ctx.ui.ready) $.msgs = [{ id: 1, content: 'hello' }]
+      if (!$.msgs) $.msgs = [{ id: 1, content: 'hello' }]
       return jsx('div', { children: $.msgs[0]?.content ?? '' })
     }
     const app = createApp()

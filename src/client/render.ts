@@ -8,7 +8,6 @@
  *   - key 属性（keyed diff）
  *   - ref 回调（挂载/卸载）
  *   - ctx.ui.$ 持久化状态
- *   - ctx.ui.ready 首次执行标记
  */
 
 import { Fragment, Portal, isPortal } from './vnode.ts'
@@ -148,7 +147,6 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   const prev$ = vnode._$
   if (!prev$) vnode._$ = {}
   ;(ctx as any).ui = (ctx as any).ui ?? {}
-  ;(ctx as any).ui.ready = !!prev$
   const _target = vnode._$!
   const _dirtyFn = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
   ;(ctx as any).ui.$ = createComponentProxy(_target, _dirtyFn)
@@ -365,8 +363,7 @@ export function patchValue(
 
     if (oldV._$) newV._$ = oldV._$
     ;(ctx as any).ui = (ctx as any).ui ?? {}
-    ;(ctx as any).ui.ready = !!newV._$
-    const _tgt = newV._$!
+      const _tgt = newV._$!
     const _dirtyFn2 = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
     ;(ctx as any).ui.$ = createComponentProxy(_tgt, _dirtyFn2)
 

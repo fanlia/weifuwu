@@ -17,7 +17,7 @@ let ctx: WfuiContext
 before(setupJsdom)
 
 beforeEach(() => {
-  ctx = { ui: { render: () => {}, $: {}, ready: false } }
+  ctx = { ui: { render: () => {}, $: {} } }
 })
 
 // ═══════════════════════════════════════════════════════
@@ -332,7 +332,7 @@ describe('component patchValue', () => {
     let count = 0
     const Cmp = (_: any, c: WfuiContext) => {
       const $ = c.ui!.$
-      if (!c.ui!.ready) $.val = 1
+      if ($.val === undefined) $.val = 1
       return jsx('span', { children: String($.val + count) })
     }
 
@@ -350,7 +350,7 @@ describe('component patchValue', () => {
     const container = document.createElement('div')
     const Cmp = (props: any, c: WfuiContext) => {
       const $ = c.ui!.$
-      if (!c.ui!.ready) $.sum = 0
+      // ready removed, mount initializes
       $.sum = ($.sum || 0) + props.x
       return jsx('span', { children: String($.sum) })
     }
@@ -447,55 +447,6 @@ describe('Array patchValue', () => {
     mountVNode(container, oldV, ctx)
     patchValue(container, container.firstChild, oldV, newV, ctx)
     assert.equal(container.textContent, 'b')
-  })
-})
-
-// ── ctx.ui.ready ──────────────────────────────────────
-
-describe('ctx.ui.ready', () => {
-  it('首次渲染为 false', () => {
-    let ready: boolean | undefined
-    const Cmp = (_: any, c: WfuiContext) => {
-      ready = c.ui!.ready
-      return jsx('span', null)
-    }
-    render(jsx(Cmp, {}), { ui: { render: () => {}, $: {}, ready: false } })
-    assert.equal(ready, false)
-  })
-
-  it('patchValue 重渲染时为 true', () => {
-    const container = document.createElement('div')
-    let readys: boolean[] = []
-    const Cmp = (_: any, c: WfuiContext) => {
-      readys.push(c.ui!.ready)
-      return jsx('span', null)
-    }
-
-    const v1 = jsx(Cmp, {})
-    mountVNode(container, v1, ctx)
-    assert.equal(readys[0], false)
-
-    const v2 = jsx(Cmp, {})
-    patchValue(container, container.firstChild, v1, v2, ctx)
-    assert.equal(readys[1], true)
-  })
-
-  it('新组件实例 ready=false', () => {
-    const container = document.createElement('div')
-    let readys: boolean[] = []
-    const Cmp = (_: any, c: WfuiContext) => {
-      readys.push(c.ui!.ready)
-      return jsx('span', null)
-    }
-
-    const v = jsx(Cmp, {})
-    mountVNode(container, v, ctx)
-    // 用全新的 VNode（无 _child）模拟新组件
-    const v2 = jsx(Cmp, {})
-    // 清空 _$ 模拟新实例
-    delete (v2 as any)._
-    patchValue(container, container.firstChild, v, v2, ctx)
-    assert.equal(readys[1], true) // 从旧 VNode 继承 _$ → ready=true
   })
 })
 
