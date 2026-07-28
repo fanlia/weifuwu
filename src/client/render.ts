@@ -151,11 +151,11 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   const _dirtyFn = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
   ;(ctx as any).ui.$ = createComponentProxy(_target, _dirtyFn)
 
-  // ctx.ui.on — 生命周期注册（替换模式，每个事件保留最新 handler）
+  // ctx.ui 生命周期方法
   _target._hooks = { mount: [], unmount: [], update: [] }
-  ;(ctx as any).ui.on = (event: string, handler: Function) => {
-    if (_target._hooks[event]) _target._hooks[event] = [handler]
-  }
+  ;(ctx as any).ui.onmount = (fn: Function) => { _target._hooks.mount = [fn] }
+  ;(ctx as any).ui.onunmount = (fn: Function) => { _target._hooks.unmount = [fn] }
+  ;(ctx as any).ui.onupdate = (fn: Function) => { _target._hooks.update = [fn] }
 
   let childVNode
   _renderCount++

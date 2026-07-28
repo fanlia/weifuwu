@@ -13,7 +13,7 @@
 - **状态驱动渲染** — `ctx.ui.$` 深度 Proxy，赋值自动触发 VDOM patch
 - **组件 = 纯函数** — `(props, ctx) => VNode | null | (props) => VNode`，无 class/hook/this
 - **两阶段模型（可选）** — 外层函数 = mount（只一次），内层返回函数 = render（每次 dirty/props 变化）
-- **生命周期** — `ctx.ui.on('mount'|'unmount'|'update')` 显式注册
+- **生命周期** — `ctx.ui.onmount/onunmount/onupdate` 显式注册
 - **VDOM 支持 innerHTML** — 直接用 `innerHTML` prop 设置 HTML 内容（替代手动 `el.innerHTML`）
 - **ref 管理第三方库生命周期** — `ref={el => { init; return () => cleanup }}`，卸载时框架保证调用
 
@@ -34,7 +34,7 @@ const Toggle = (props, ctx) => {
   // mount 阶段初始化（两阶段模型中在外层直接写）
   if ($.on === undefined) $.on = false
 
-  ctx.ui.on('unmount', () => cleanup())  // 每次 render 替换，只保留最新
+  ctx.ui.onunmount(() => cleanup())  // 每次 render 替换，只保留最新
 
   return h('button', {
     onClick: () => $.on = !$.on
@@ -50,7 +50,7 @@ const Toggle = (props, ctx) => {
   const $ = ctx.ui.$
   $.on = false
 
-  ctx.ui.on('unmount', () => { timer?.clear() })
+  ctx.ui.onunmount(() => { timer?.clear() })
 
   // ── render（每次 dirty/props 变化）──
   return (props) =>
@@ -118,9 +118,9 @@ const Popover = (props, ctx) => {
 ## ctx.ui 生命周期
 
 ```tsx
-ctx.ui.on('mount', () => { ... })       // 组件首次渲染后（DOM 未创建）
-ctx.ui.on('unmount', () => { ... })     // 组件移除前清理
-ctx.ui.on('update', (prevProps) => {})  // props 变化时触发
+ctx.ui.onmount(() => { ... })       // 组件首次渲染后（DOM 未创建）
+ctx.ui.onunmount(() => { ... })     // 组件移除前清理
+ctx.ui.onupdate((prevProps) => {})  // props 变化时触发
 ```
 
 - 每个事件类型只保留最后一次注册的 handler（替换模式）

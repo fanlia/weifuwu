@@ -705,7 +705,7 @@ describe('two-phase component model', () => {
       mountCount++
       const $ = compCtx.ui.$
 
-      ctx.ui.on('unmount', () => { mountCount = -999 })  // verify not called yet
+      ctx.ui.onunmount(() => { mountCount = -999 })  // verify not called yet
 
       return (_props2: any) => {
         renderCount++
@@ -732,7 +732,7 @@ describe('two-phase component model', () => {
     let renderArgs: any[] = []
 
     const Comp = (_props: any, compCtx: any) => {
-      ctx.ui.on('update', (prev: any) => { oldProps = prev })
+      ctx.ui.onupdate((prev: any) => { oldProps = prev })
 
       return (props: any) => {
         renderArgs.push(props)
@@ -755,7 +755,7 @@ describe('two-phase component model', () => {
     let unmounted = false
 
     const Comp = (_props: any, compCtx: any) => {
-      ctx.ui.on('unmount', () => { unmounted = true })
+      ctx.ui.onunmount(() => { unmounted = true })
       return () => ({ type: 'div', props: {}, key: undefined })
     }
 
