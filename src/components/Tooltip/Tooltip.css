@@ -46,7 +46,7 @@
 }
 
 .wf-tooltip--bottom .wf-tooltip-arrow {
-  top: -10px;
+  top: -5px;
   left: 50%;
   transform: translateX(-50%);
   border-bottom-color: var(--wf-color-text);
@@ -70,7 +70,7 @@
 }
 
 .wf-tooltip--right .wf-tooltip-arrow {
-  left: -10px;
+  left: -5px;
   top: 50%;
   transform: translateY(-50%);
   border-left-color: var(--wf-color-text);
