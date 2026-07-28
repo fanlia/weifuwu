@@ -17,7 +17,7 @@ import {
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
-  InView, DatePicker,
+  InView, DatePicker, Chart,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -642,6 +642,40 @@ const DemoDatePicker: Component = (_props, ctx) => {
   )
 }
 
+const DemoChart: Component = () => {
+  const sales = [
+    { label: '1月', value: 120 },
+    { label: '2月', value: 200 },
+    { label: '3月', value: 150 },
+    { label: '4月', value: 80 },
+    { label: '5月', value: 70 },
+    { label: '6月', value: 110 },
+  ]
+  const pieData = [
+    { label: '直接', value: 35, color: '#3b82f6' },
+    { label: '社交', value: 25, color: '#22c55e' },
+    { label: '邮件', value: 20, color: '#f59e0b' },
+    { label: '其他', value: 20, color: '#8b5cf6' },
+  ]
+
+  return (
+    <div class="wf-row" style="gap:16px;flex-wrap:wrap;width:100%">
+      <div style="width:340px">
+        <Chart type="line" data={sales} title="月销售额" options={{width:320,height:180}} />
+      </div>
+      <div style="width:340px">
+        <Chart type="bar" data={sales} title="月销售额(柱状)" options={{width:320,height:180}} />
+      </div>
+      <div style="width:220px">
+        <Chart type="pie" data={pieData} options={{width:200,height:200}} />
+      </div>
+      <div style="width:220px">
+        <Chart type="donut" data={pieData} options={{width:200,height:200}} />
+      </div>
+    </div>
+  )
+}
+
 const DemoConfirm: Component = (_props, ctx) => {
   const $ = ctx.ui.$
   if (!ctx.ui.ready) { $.result = '' }
@@ -863,6 +897,11 @@ if (ok) { /* 执行 */ }`,
 <DatePicker mode="time" />
 <DatePicker mode="range" />`,
 
+  chart: `<Chart type="line" data={data} title="标题" />
+<Chart type="bar" data={data} />
+<Chart type="pie" data={data} />
+<Chart type="donut" data={data} />`,
+
   popover: `<Popover content={<div>面板内容</div>}>
   <Button>点击弹出</Button>
 </Popover>
@@ -892,7 +931,7 @@ const App: Component = (_props, ctx) => {
         <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p style="color:var(--wf-color-text-secondary)">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
-          <Badge variant="primary">35 组件</Badge>
+          <Badge variant="primary">36 组件</Badge>
           <Badge variant="success">178 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
@@ -930,6 +969,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="InView" desc="进入视窗后懒加载内容，支持 IntersectionObserver" code={CODE.inview}><DemoInView /></DemoCard>
         <DemoCard title="Confirm" desc="确认对话框，Promise 化 await 调用" code={CODE.confirm}><DemoConfirm /></DemoCard>
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
+        <DemoCard title="Chart" desc="SVG 图表：line/bar/pie/donut" code={CODE.chart}><DemoChart /></DemoCard>
       </Section>
 
       <Section title="数据反馈">
