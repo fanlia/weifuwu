@@ -23,9 +23,11 @@ export interface VNode {
   _cleanup?: (() => void) | undefined
   /** Portal 子容器 DOM */
   _portalEl?: HTMLDivElement | undefined
+  /** 两阶段组件的 render 函数（mount 返回的函数） */
+  _render?: (props: any) => VNode | null
 }
 
-export type Component<P = {}> = (props: P, ctx: WfuiContext) => VNode | null
+export type Component<P = {}> = (props: P, ctx: WfuiContext) => VNode | null | ((props: P) => VNode | null)
 
 export const Fragment = Symbol('Fragment')
 

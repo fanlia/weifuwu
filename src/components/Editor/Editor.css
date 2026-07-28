@@ -1,0 +1,311 @@
+/* weifuwu/components — Editor */
+
+.wf-editor { position: relative; 
+  display: flex;
+  flex-direction: column;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+  overflow: hidden;
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition);
+}
+
+.wf-editor:focus-within {
+  border-color: var(--wf-color-primary);
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-editor--disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+  background: var(--wf-color-bg-secondary, #f9fafb);
+}
+
+/* ── 工具栏 ────────────────────────────────────────── */
+
+.wf-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  background: var(--wf-color-bg-secondary, #f9fafb);
+  flex-wrap: wrap;
+  user-select: none;
+}
+
+.wf-editor-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--wf-space-xs);
+  border: none;
+  border-radius: var(--wf-radius-sm, 4px);
+  background: transparent;
+  color: var(--wf-color-text);
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-semibold, 600);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.wf-editor-tb-btn:hover {
+  background: var(--wf-color-bg-tertiary, #e5e7eb);
+}
+
+.wf-editor-tb-btn--active {
+  background: var(--wf-color-primary-light, #e0f2fe);
+  color: var(--wf-color-primary);
+}
+
+.wf-editor-tb-btn--active:hover {
+  background: var(--wf-color-primary-lighter, #bae6fd);
+}
+
+.wf-editor-tb-btn--link {
+  font-size: 14px;
+}
+
+.wf-editor-tb-sep {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--wf-color-border);
+}
+
+/* ── 编辑区 ────────────────────────────────────────── */
+
+.wf-editor-content {
+  padding: var(--wf-space-sm) var(--wf-space);
+  min-height: 200px;
+  outline: none;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: var(--wf-line-height);
+  color: var(--wf-color-text);
+  overflow-y: auto;
+}
+
+.wf-editor-content--disabled {
+  pointer-events: none;
+}
+
+.wf-editor-content--has-placeholder:empty::before {
+  content: attr(data-placeholder);
+  color: var(--wf-color-text-tertiary);
+  pointer-events: none;
+}
+
+/* 编辑区内部元素样式 */
+.wf-editor-content h1 {
+  font-size: var(--wf-font-size-2xl, 1.5rem);
+  font-weight: var(--wf-font-weight-bold, 700);
+  margin: 0.5em 0 0.25em;
+  line-height: 1.3;
+}
+
+.wf-editor-content h2 {
+  font-size: var(--wf-font-size-xl, 1.25rem);
+  font-weight: var(--wf-font-weight-bold, 700);
+  margin: 0.5em 0 0.25em;
+  line-height: 1.3;
+}
+
+.wf-editor-content h3 {
+  font-size: var(--wf-font-size-lg, 1.125rem);
+  font-weight: var(--wf-font-weight-semibold, 600);
+  margin: 0.4em 0 0.2em;
+  line-height: 1.3;
+}
+
+.wf-editor-content ul,
+.wf-editor-content ol {
+  padding-left: 1.5em;
+  margin: 0.25em 0;
+}
+
+.wf-editor-content li {
+  margin: 0.15em 0;
+}
+
+.wf-editor-content a {
+  color: var(--wf-color-primary);
+  text-decoration: underline;
+}
+
+.wf-editor-content blockquote {
+  margin: 0.5em 0;
+  padding: var(--wf-space-xs) var(--wf-space);
+  border-left: 3px solid var(--wf-color-primary);
+  background: var(--wf-color-bg-secondary, #f9fafb);
+  color: var(--wf-color-text-secondary);
+  font-style: italic;
+}
+
+.wf-editor-content hr {
+  border: none;
+  border-top: 1px solid var(--wf-color-border);
+  margin: 0.75em 0;
+}
+
+.wf-editor-content[style*="text-align: center"] {
+  text-align: center;
+}
+
+.wf-editor-content[style*="text-align: right"] {
+  text-align: right;
+}
+
+/* ── 源码模式 ──────────────────────────────────────── */
+
+.wf-editor-source {
+  display: block;
+  width: 100%;
+  min-height: 200px;
+  padding: var(--wf-space-sm) var(--wf-space);
+  border: none;
+  outline: none;
+  font-family: var(--wf-font-mono, 'SF Mono', 'Fira Code', 'Consolas', monospace);
+  font-size: var(--wf-font-size-sm);
+  line-height: 1.6;
+  color: var(--wf-color-text);
+  background: var(--wf-color-bg-secondary, #f9fafb);
+  resize: vertical;
+  tab-size: 2;
+}
+
+.wf-editor-source:focus {
+  background: var(--wf-color-bg);
+}
+
+/* ── 弹窗内输入框 ──────────────────────────────────── */
+
+.wf-editor-link-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  padding: var(--wf-space-sm) var(--wf-space);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  outline: none;
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+}
+
+.wf-editor-link-input:focus {
+  border-color: var(--wf-color-primary);
+  box-shadow: var(--wf-focus-ring);
+}
+
+/* ── 图片上传区域 ──────────────────────────────────── */
+
+.wf-editor-img-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--wf-space-lg) var(--wf-space);
+  cursor: pointer;
+  text-align: center;
+}
+
+.wf-editor-img-zone-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.wf-editor-img-zone-text {
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-editor-img-or {
+  display: block;
+  text-align: center;
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-sm);
+}
+
+/* 编辑区内图片 */
+.wf-editor-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--wf-radius-sm, 4px);
+  margin: 0.5em 0;
+}
+
+/* ── 编辑区内表格 ──────────────────────────────────── */
+
+.wf-editor-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  font-size: var(--wf-font-size-sm);
+}
+
+.wf-editor-table th,
+.wf-editor-table td {
+  border: 1px solid var(--wf-color-border);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  vertical-align: top;
+  min-width: 40px;
+}
+
+.wf-editor-table tbody tr:nth-child(even) {
+  background: var(--wf-color-bg-secondary, #f9fafb);
+}
+
+/* ── 表格选择网格 ──────────────────────────────────── */
+
+.wf-editor-table-picker {
+  
+  z-index: 100;
+  background: var(--wf-color-bg);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  padding: var(--wf-space-sm);
+  box-shadow: var(--wf-shadow-lg, 0 4px 12px rgba(0,0,0,0.12));
+  /* 定位在工具栏下方 */
+}
+
+.wf-editor-table-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wf-editor-table-grid-row {
+  display: flex;
+  gap: 2px;
+}
+
+.wf-editor-table-grid-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--wf-color-border);
+  border-radius: 2px;
+  cursor: pointer;
+  background: var(--wf-color-bg);
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.wf-editor-table-grid-cell:hover,
+.wf-editor-table-grid-cell--active {
+  background: var(--wf-color-primary-light, #e0f2fe);
+  border-color: var(--wf-color-primary);
+}
+
+.wf-editor-table-picker-label {
+  text-align: center;
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-secondary);
+  margin-top: var(--wf-space-xs);
+  padding-top: var(--wf-space-xs);
+  border-top: 1px solid var(--wf-color-border);
+}

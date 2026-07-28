@@ -8,24 +8,35 @@ function mockCtx(): WfuiContext {
   return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
+/** 两阶段组件：mount 后调用 renderFn(props) */
+function renderInView(props: any, ctx: WfuiContext) {
+  const result = InView(props, ctx)
+  if (typeof result === 'function') return result(props)
+  return result
+}
+
 describe('InView', () => {
   it('renders placeholder when not in view', () => {
-    const vnode = InView({ children: h('p', null, '内容') }, mockCtx())!
+    const vnode = renderInView({ children: h('p', null, '内容') }, mockCtx())!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-inview--pending/)
   })
 
   it('renders children when in view', () => {
     const ctx = mockCtx()
+    // mount
+    const result = InView({ children: h('p', null, '内容') }, ctx)
+    const renderFn = typeof result === 'function' ? result : null
+    // set in view state
     ctx.ui.$.inView = true
-    const vnode = InView({ children: h('p', null, '内容') }, ctx)!
+    const vnode = renderFn!({ children: h('p', null, '内容') })!
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-inview--loaded/)
   })
 
   it('accepts custom placeholder', () => {
     const placeholder = h('span', { class: 'custom-placeholder' }, '加载中...')
-    const vnode = InView({ placeholder }, mockCtx())!
+    const vnode = renderInView({ placeholder }, mockCtx())!
     const child = vnode.props.children
     assert.equal(child.type, 'span')
     assert.equal(child.props.class, 'custom-placeholder')
@@ -33,32 +44,29 @@ describe('InView', () => {
   })
 
   it('onEnter is available as callback prop', () => {
-    // onEnter 作为 prop 传入，由 IntersectionObserver 回调调用
-    // 此处验证 prop 可正常传递（运行时由 ref 触发）
     const ctx = mockCtx()
     const onEnter = () => {}
-    const vnode = InView({ children: '内容', onEnter }, ctx)
-    // 未进入视窗时 onEnter 不会被调用
+    const vnode = renderInView({ children: '内容', onEnter }, ctx)
     assert.match(vnode!.props.class, /pending/)
   })
 
   it('default placeholder is a div with wf-inview-placeholder class', () => {
-    const vnode = InView({ children: '内容' }, mockCtx())!
+    const vnode = renderInView({ children: '内容' }, mockCtx())!
     const child = vnode.props.children
     assert.equal(child.type, 'div')
     assert.equal(child.props.class, 'wf-inview-placeholder')
   })
 
   it('sets once default to true', () => {
-    // 默认 once=true，一旦 inView 就不回退
     const ctx1 = mockCtx()
+    const result1 = InView({ children: '内容' }, ctx1)
+    const renderFn1 = typeof result1 === 'function' ? result1 : null
     ctx1.ui.$.inView = true
-    const vnode1 = InView({ children: '内容' }, ctx1)
-    assert.match(vnode1!.props.class, /loaded/)
+    const vnode1 = renderFn1!({ children: '内容' })!
+    assert.match(vnode1.props.class, /loaded/)
 
     const ctx2 = mockCtx()
-    // once=false 的场景：状态由 ref 管理，此处只验证 once 传参
-    const vnode2 = InView({ once: false, children: '内容' }, ctx2)
-    assert.match(vnode2!.props.class, /pending/)
+    const vnode2 = renderInView({ once: false, children: '内容' }, ctx2)!
+    assert.match(vnode2.props.class, /pending/)
   })
 })

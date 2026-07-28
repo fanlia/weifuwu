@@ -16,71 +16,77 @@ export interface ModalProps {
   footer?: any
 }
 
-export const Modal: Component<ModalProps> = (props, ctx) => {
-  const { open, title, onClose, children, footer } = props
+export const Modal: Component<ModalProps> = (_props, ctx) => {
+  // ── mount（只一次）──
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.exiting = false; $.prevOpen = open }
+  $.exiting = false
+  let prevOpen: boolean | undefined
 
-  if ($.prevOpen !== open) {
-    $.prevOpen = open
-    if (open && $.exiting) $.exiting = false
+  // ── render（每次 dirty/props 变化）──
+  return (props: ModalProps) => {
+    const { open, title, onClose, children, footer } = props
+    const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
+
+    if (prevOpen !== open) {
+      prevOpen = open
+      if (open && $.exiting) $.exiting = false
+    }
+
+    const startClose = () => { $.exiting = true }
+    const onExitEnd = () => { $.exiting = false; onClose?.() }
+
+    if (!open && !$.exiting) return null
+    const isClosing = $.exiting
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isClosing) startClose()
+    }
+
+    const modalRef = (el: HTMLElement | null) => {
+      if (!el) return
+      lockScroll()
+      const cleanupFocus = trapFocus(el)
+      return () => { unlockScroll(); cleanupFocus() }
+    }
+
+    const overlay = h('div', {
+      class: 'wf-modal-overlay',
+      onClick: isClosing ? undefined : startClose,
+    })
+
+    const closeBtn = h('button', {
+      class: 'wf-modal-close',
+      onClick: isClosing ? undefined : startClose,
+      type: 'button',
+    }, '✕')
+
+    const titleEl = title
+      ? h('div', { class: 'wf-modal-header' }, [title, closeBtn])
+      : null
+
+    const bodyEl = h('div', { class: 'wf-modal-body' }, children)
+
+    const footerEl = footer
+      ? h('div', { class: 'wf-modal-footer' }, footer)
+      : null
+
+    const content = h('div', {
+      class: 'wf-modal-content',
+      onClick: (e: Event) => e.stopPropagation(),
+    }, [titleEl, bodyEl, footerEl].filter(Boolean))
+
+    const cls = isClosing ? 'wf-modal wf-modal--exit' : 'wf-modal wf-modal--enter'
+
+    const root = h('div', {
+      class: cls,
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': title ?? (ML.ariaLabel ?? '弹窗'),
+      onKeyDown: handleKeyDown,
+      onAnimationEnd: isClosing ? onExitEnd : undefined,
+      ref: modalRef,
+    }, [overlay, content])
+
+    return createPortal(root, 'modal')
   }
-
-  const startClose = () => { $.exiting = true }
-  const onExitEnd = () => { $.exiting = false; onClose?.() }
-
-  if (!open && !$.exiting) return null
-  const isClosing = $.exiting
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && !isClosing) startClose()
-  }
-
-  const modalRef = (el: HTMLElement | null) => {
-    if (!el) return
-    lockScroll()
-    const cleanupFocus = trapFocus(el)
-    return () => { unlockScroll(); cleanupFocus() }
-  }
-
-  const overlay = h('div', {
-    class: 'wf-modal-overlay',
-    onClick: isClosing ? undefined : startClose,
-  })
-
-  const closeBtn = h('button', {
-    class: 'wf-modal-close',
-    onClick: isClosing ? undefined : startClose,
-    type: 'button',
-  }, '✕')
-
-  const titleEl = title
-    ? h('div', { class: 'wf-modal-header' }, [title, closeBtn])
-    : null
-
-  const bodyEl = h('div', { class: 'wf-modal-body' }, children)
-
-  const footerEl = footer
-    ? h('div', { class: 'wf-modal-footer' }, footer)
-    : null
-
-  const content = h('div', {
-    class: 'wf-modal-content',
-    onClick: (e: Event) => e.stopPropagation(),
-  }, [titleEl, bodyEl, footerEl].filter(Boolean))
-
-  const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
-  const cls = isClosing ? 'wf-modal wf-modal--exit' : 'wf-modal wf-modal--enter'
-
-  const root = h('div', {
-    class: cls,
-    role: 'dialog',
-    'aria-modal': 'true',
-    'aria-label': title ?? (ML.ariaLabel ?? '弹窗'),
-    onKeyDown: handleKeyDown,
-    onAnimationEnd: isClosing ? onExitEnd : undefined,
-    ref: modalRef,
-  }, [overlay, content])
-
-  return createPortal(root, 'modal')
 }

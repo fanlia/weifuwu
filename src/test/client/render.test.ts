@@ -706,4 +706,150 @@ describe('edge cases', () => {
     assert.equal(div.childNodes.length, 1, '应有且仅有 1 个子节点')
     assert.equal(div.childNodes[0].textContent, '1')
   })
+
+  it('组件 VNode 删除时递归清理 _child 的 ref', () => {
+    const container = document.createElement('div')
+    let cleaned = false
+
+    // 子组件：返回带 ref 的元素
+    const Child = (_props: any) => ({
+      type: 'span' as const,
+      props: {
+        ref: () => () => { cleaned = true },
+      },
+      key: undefined,
+    })
+
+    // 父组件：返回子组件 VNode
+    const Parent = (_props: any) => ({
+      type: Child as any,
+      props: {},
+      key: undefined,
+    })
+
+    const v = {
+      type: Parent as any,
+      props: {},
+      key: undefined,
+    }
+
+    mountVNode(container, v, ctx)
+
+    // 验证子组件已渲染，ref cleanup 尚未调用
+    assert.ok(!cleaned, 'ref cleanup 不应在挂载时调用')
+
+    // 删除父组件 VNode
+    patchValue(container, container.firstChild, v, null, ctx)
+
+    // 验证子组件的 ref cleanup 已被调用
+    assert.ok(cleaned, '子组件的 ref cleanup 应该通过 _child 递归被调用')
+  })
+
+describe('two-phase component model', () => {
+  it('mount runs once, render runs each time', () => {
+    let mountCount = 0
+    let renderCount = 0
+
+    const Comp = (_props: any, compCtx: any) => {
+      mountCount++
+      const $ = compCtx.ui.$
+
+      ctx.ui.on('unmount', () => { mountCount = -999 })  // verify not called yet
+
+      return (_props2: any) => {
+        renderCount++
+        return { type: 'div', props: { children: String($.count ?? 0) }, key: undefined }
+      }
+    }
+
+    const v = { type: Comp as any, props: {}, key: undefined }
+    const el = render(v, ctx) as HTMLElement
+
+    assert.equal(mountCount, 1, 'mount ran once')
+    assert.equal(renderCount, 1, 'render ran once')
+
+    // patch with same type → render should run again, mount should not
+    const v2 = { type: Comp as any, props: {}, key: undefined, _$: (v as any)._$ }
+    patchValue(document.body, el, v, v2, ctx)
+
+    assert.equal(mountCount, 1, 'mount should not run again')
+    assert.equal(renderCount, 2, 'render should run again on patch')
+  })
+
+  it('ctx.ui.on(\'update\') receives old props', () => {
+    let oldProps: any = null
+    let renderArgs: any[] = []
+
+    const Comp = (_props: any, compCtx: any) => {
+      ctx.ui.on('update', (prev: any) => { oldProps = prev })
+
+      return (props: any) => {
+        renderArgs.push(props)
+        return { type: 'div', props: { children: props.label }, key: undefined }
+      }
+    }
+
+    const v = { type: Comp as any, props: { label: 'a' }, key: undefined }
+    render(v, ctx)
+
+    assert.equal(oldProps, null, 'no update hook on mount')
+
+    const v2 = { type: Comp as any, props: { label: 'b' }, key: undefined, _$: (v as any)._$ }
+    patchValue(document.body, (v as any).el, v, v2, ctx)
+
+    assert.equal(oldProps?.label, 'a', 'update hook received old props')
+  })
+
+  it('ctx.ui.on(\'unmount\') is called on component removal', () => {
+    let unmounted = false
+
+    const Comp = (_props: any, compCtx: any) => {
+      ctx.ui.on('unmount', () => { unmounted = true })
+      return () => ({ type: 'div', props: {}, key: undefined })
+    }
+
+    const v = { type: Comp as any, props: {}, key: undefined }
+    const el = render(v, ctx)
+
+    assert.ok(!unmounted, 'not unmounted yet')
+
+    patchValue(document.body, el, v, null, ctx)
+
+    assert.ok(unmounted, 'unmount hook called on removal')
+  })
+
+  it('$ auto-dirty triggers re-render via patchValue', () => {
+    let renderCount = 0
+    const Comp = (_props: any, compCtx: any) => {
+      const $ = compCtx.ui.$
+      $.count = 0
+
+      return (_props2: any) => {
+        renderCount++
+        return { type: 'div', props: { children: String($.count) }, key: undefined }
+      }
+    }
+
+    const v = { type: Comp as any, props: {}, key: undefined }
+    render(v, ctx)
+    assert.equal(renderCount, 1)
+
+    // Simulate $ change by patching with same component
+    const state = (v as any)._$
+    state.count = 5
+    const v2 = { type: Comp as any, props: {}, key: undefined, _$: state, _render: (v as any)._render }
+    patchValue(document.body, (v as any).el, v, v2, ctx)
+
+    assert.equal(renderCount, 2, 'dirty triggers re-render')
+  })
+
+  it('compatible with ordinary (props, ctx) => VNode components', () => {
+    const Comp = (_props: any) => ({ type: 'span', props: { children: 'hello' }, key: undefined })
+    const v = { type: Comp as any, props: {}, key: undefined }
+    const el = render(v, ctx) as HTMLElement
+    assert.equal(el.tagName, 'SPAN')
+    assert.equal(el.textContent, 'hello')
+  })
+})
+
 })

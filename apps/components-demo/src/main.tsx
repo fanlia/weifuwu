@@ -17,7 +17,7 @@ import {
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
-  InView, DatePicker, Chart,
+  InView, DatePicker, Chart, Editor,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -642,6 +642,20 @@ const DemoDatePicker: Component = (_props, ctx) => {
   )
 }
 
+const DemoEditor: Component = (_props, ctx) => {
+  const $ = ctx.ui.$
+  if (!ctx.ui.ready) { $.html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p style="text-align:center">居中文字</p>' }
+
+  return (
+    <div class="wf-stack" style="gap:8px;width:100%">
+      <Editor value={$.html} onChange={v => $.html = v} placeholder="输入内容..." />
+      <div style="font-size:12px;color:var(--wf-color-text-secondary);padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">
+        HTML 输出: {$.html?.substring(0, 150) || '(空)'}
+      </div>
+    </div>
+  )
+}
+
 const DemoChart: Component = () => {
   const sales = [
     { label: '1月', value: 120 },
@@ -893,6 +907,15 @@ if (ok) { /* 执行 */ }`,
 <Chart type="pie" data={data} />
 `,
 
+  editor: `<Editor value={$.html} onChange={v => $.html = v}
+  placeholder="输入内容..." />
+
+<Editor toolbar={['bold','italic']}
+  minHeight="150px" />
+
+<Editor disabled value="只读" />
+`,
+
   popover: `<Popover content={<div>面板内容</div>}>
   <Button>点击弹出</Button>
 </Popover>
@@ -922,7 +945,7 @@ const App: Component = (_props, ctx) => {
         <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p style="color:var(--wf-color-text-secondary)">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
-          <Badge variant="primary">36 组件</Badge>
+          <Badge variant="primary">37 组件</Badge>
           <Badge variant="success">178 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
@@ -961,6 +984,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Confirm" desc="确认对话框，Promise 化 await 调用" code={CODE.confirm}><DemoConfirm /></DemoCard>
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
         <DemoCard title="Chart" desc="SVG 图表：line/bar/pie" code={CODE.chart}><DemoChart /></DemoCard>
+        <DemoCard title="Editor" desc="富文本编辑器，contentEditable + toolbar，零依赖" code={CODE.editor}><DemoEditor /></DemoCard>
       </Section>
 
       <Section title="数据反馈">

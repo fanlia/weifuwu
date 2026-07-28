@@ -125,3 +125,6 @@ export type { DatePickerProps, DatePickerMode } from './DatePicker/DatePicker.ts
 
 export { Chart } from './Chart/Chart.ts'
 export type { ChartProps, ChartType, DataPoint, ChartOptions } from './Chart/Chart.ts'
+
+export { Editor } from './Editor/Editor.ts'
+export type { EditorProps, ToolbarItem } from './Editor/Editor.ts'

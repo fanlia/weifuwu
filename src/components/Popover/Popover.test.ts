@@ -15,18 +15,24 @@ function createMockCtx(): WfuiContext {
   return { ui: { render: () => {}, $: {}, ready: false, dirty: () => {} } } as any
 }
 
+/** Call component and get VNode (compatible with two-phase model) */
+function renderVNode(Comp: any, props: any, ctx: WfuiContext) {
+  const result = Comp(props, ctx)
+  return typeof result === 'function' ? result(props) : result
+}
+
 const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
 describe('Popover', () => {
   it('render children', () => {
     const ctx = createMockCtx()
-    const el = Popover({}, ctx)
+    const el = renderVNode(Popover, {}, ctx)
     assert.ok(el)
   })
 
   it('默认不显示内容', () => {
     const ctx = createMockCtx()
-    const vnode = Popover({ content: 'hello' }, ctx) as any
+    const vnode = renderVNode(Popover, { content: 'hello' }, ctx) as any
     assert.equal(vnode.props?.class, 'wf-popover-wrap')
     // open=false 时 children 只有 trigger，无 portalContent
     assert.equal(vnode.props?.children?.length, 1)
@@ -34,7 +40,7 @@ describe('Popover', () => {
 
   it('受控模式: open=true 显示内容', () => {
     const ctx = createMockCtx()
-    const vnode = Popover({ content: 'hello', open: true }, ctx) as any
+    const vnode = renderVNode(Popover, { content: 'hello', open: true }, ctx) as any
     assert.equal(vnode.props?.class, 'wf-popover-wrap wf-popover-wrap--open')
     const children = vnode.props?.children ?? []
     // children: [trigger, portalVNode]
@@ -49,14 +55,14 @@ describe('Popover', () => {
 
   it('受控模式: open=false 隐藏内容', () => {
     const ctx = createMockCtx()
-    const vnode = Popover({ content: 'hello', open: false }, ctx) as any
+    const vnode = renderVNode(Popover, { content: 'hello', open: false }, ctx) as any
     assert.equal(vnode.props?.class, 'wf-popover-wrap')
   })
 
   it('支持 position 属性', () => {
     const ctx = createMockCtx()
     for (const pos of ['top', 'bottom', 'left', 'right'] as const) {
-      const vnode = Popover({ content: 'x', open: true, position: pos }, ctx) as any
+      const vnode = renderVNode(Popover, { content: 'x', open: true, position: pos }, ctx) as any
       const portal = vnode.props?.children?.find((c: any) => c?.type === Portal)
       const panel = portal?.props?.children?.find((c: any) => c?.props?.class?.startsWith('wf-popover wf-popover--'))
       assert.ok(panel?.props?.class?.includes(`wf-popover--${pos}`), `position=${pos} 应有对应 class`)
@@ -65,7 +71,7 @@ describe('Popover', () => {
 
   it('disabled 时不触发', () => {
     const ctx = createMockCtx()
-    const vnode = Popover({ content: 'x', disabled: true }, ctx) as any
+    const vnode = renderVNode(Popover, { content: 'x', disabled: true }, ctx) as any
     const children = vnode.props?.children ?? []
     const trigger = children.find((c: any) => c?.props?.class === 'wf-popover-trigger')
     assert.equal(trigger?.props?.onClick, undefined)
@@ -73,14 +79,14 @@ describe('Popover', () => {
 
   it('trigger=hover 使用悬停事件', () => {
     const ctx = createMockCtx()
-    const vnode = Popover({ content: 'x', trigger: 'hover' }, ctx) as any
+    const vnode = renderVNode(Popover, { content: 'x', trigger: 'hover' }, ctx) as any
     assert.ok(typeof vnode.props?.onMouseEnter === 'function')
     assert.ok(typeof vnode.props?.onMouseLeave === 'function')
   })
 
   it('trigger=click 使用点击事件', () => {
     const ctx = createMockCtx()
-    const vnode = Popover({ content: 'x', trigger: 'click' }, ctx) as any
+    const vnode = renderVNode(Popover, { content: 'x', trigger: 'click' }, ctx) as any
     const children = vnode.props?.children ?? []
     const trigger = children.find((c: any) => c?.props?.class === 'wf-popover-trigger')
     assert.ok(typeof trigger?.props?.onClick === 'function')
@@ -96,7 +102,7 @@ describe('Popover', () => {
     cleanPortal()
     const ctx = createMockCtx()
     const container = document.createElement('div')
-    const vnode = Popover({ content: 'hello', open: true }, ctx)
+    const vnode = renderVNode(Popover, { content: 'hello', open: true }, ctx)
     mountVNode(container, vnode, ctx)
 
     const wrap = container.querySelector('.wf-popover-wrap')
@@ -112,13 +118,13 @@ describe('Popover', () => {
     cleanPortal()
     const ctx = createMockCtx()
     const container = document.createElement('div')
-    const vnode = Popover({ content: 'hello' }, ctx)
+    const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
     mountVNode(container, vnode, ctx)
 
     let portal = document.getElementById('__wf_portal')
     assert.ok(!portal?.querySelector('.wf-popover-overlay'))
 
-    const vnodeOpen = Popover({ content: 'hello', open: true }, ctx)
+    const vnodeOpen = renderVNode(Popover, { content: 'hello', open: true }, ctx)
     const wrap = container.querySelector('.wf-popover-wrap')!
     patchValue(container, wrap, vnode, vnodeOpen, ctx)
 

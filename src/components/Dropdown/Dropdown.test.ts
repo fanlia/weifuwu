@@ -8,13 +8,19 @@ function mockCtx(): WfuiContext {
   return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
+/** Call component and get VNode (compatible with two-phase model) */
+function renderVNode(Comp: any, props: any, ctx: WfuiContext) {
+  const result = Comp(props, ctx)
+  return typeof result === 'function' ? result(props) : result
+}
+
 const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
 describe('Dropdown', () => {
   const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
 
   it('renders trigger', () => {
-    const vnode = Dropdown({ trigger }, mockCtx())!
+    const vnode = renderVNode(Dropdown, { trigger }, mockCtx())!
     assert.equal(vnode.type, 'div')
     const firstChild = vnode.props.children[0]
     assert.equal(firstChild.props.children, '菜单')
@@ -25,7 +31,7 @@ describe('Dropdown', () => {
       { label: '编辑', onClick: () => {} },
       { label: '删除', onClick: () => {} },
     ]
-    const vnode = Dropdown({ trigger, items, open: true }, mockCtx())!
+    const vnode = renderVNode(Dropdown, { trigger, items, open: true }, mockCtx())!
     // children: [trigger, portalVNode]
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
     assert.ok(portal, '应有 Portal VNode')
@@ -36,7 +42,7 @@ describe('Dropdown', () => {
   })
 
   it('does not render menu when not open', () => {
-    const vnode = Dropdown({ trigger, items: [{ label: '编辑', onClick: () => {} }] }, mockCtx())!
+    const vnode = renderVNode(Dropdown, { trigger, items: [{ label: '编辑', onClick: () => {} }] }, mockCtx())!
     assert.equal(vnode.props.children.length, 1) // only trigger, no portal
   })
 
@@ -44,7 +50,7 @@ describe('Dropdown', () => {
     const items = [
       { label: '删除', variant: 'danger' as const, onClick: () => {} },
     ]
-    const vnode = Dropdown({ trigger, items, open: true }, mockCtx())!
+    const vnode = renderVNode(Dropdown, { trigger, items, open: true }, mockCtx())!
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
     const menu = inner(portal)
     const btn = menu.props.children[0]
@@ -57,7 +63,7 @@ describe('Dropdown', () => {
       { label: '编辑', onClick: () => {} },
       { label: '删除', variant: 'danger' as const, onClick: () => {} },
     ]
-    const vnode = Dropdown({ trigger, items, open: true }, mockCtx())!
+    const vnode = renderVNode(Dropdown, { trigger, items, open: true }, mockCtx())!
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
     const menu = inner(portal)
     assert.equal(menu.props.role, 'menu')
@@ -67,7 +73,7 @@ describe('Dropdown', () => {
 
   it('adds open class when open', () => {
     const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
-    const vnode = Dropdown({ trigger, open: true }, mockCtx())!
+    const vnode = renderVNode(Dropdown, { trigger, open: true }, mockCtx())!
     assert.match(vnode.props.class, /wf-dropdown--open/)
   })
 })

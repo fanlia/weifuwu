@@ -1,3 +1,7 @@
+/**
+ * weifuwu/components — Tooltip
+ */
+
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
@@ -13,31 +17,49 @@ export interface TooltipProps {
   disabled?: boolean
 }
 
-export const Tooltip: Component<TooltipProps> = (props, ctx) => {
-  const { content, position = 'top', children, disabled } = props
+export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
+  // ── mount（只一次）──
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.show = false }
+  $.show = false
+  $.pos = { top: 0, left: 0 }
 
-  const show = (e: Event) => {
-    $._pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
-    $.show = true
+  // ── render（每次 dirty/props 变化）──
+  return (props: TooltipProps) => {
+    const { content, position = 'top', children, disabled } = props
+
+    const show = (e: Event) => {
+      $.pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
+      $.show = true
+    }
+    const hide = () => { $.show = false }
+
+    // ── scroll/resize 追踪 ─────────────────────────────
+    const tipRef = (el: HTMLElement | null) => {
+      if (!el || typeof window === 'undefined') return
+      const onMove = () => { $.vShow = ($.vShow || 0) + 1 }
+      window.addEventListener('scroll', onMove, true)
+      window.addEventListener('resize', onMove)
+      return () => {
+        window.removeEventListener('scroll', onMove, true)
+        window.removeEventListener('resize', onMove)
+      }
+    }
+
+    const p = $.pos
+
+    const tip = !disabled ? h('div', {
+      class: `wf-tooltip wf-tooltip--${position}${$.show ? '' : ' wf-tooltip--hidden'}`,
+      style: { top: p.top, left: p.left },
+      role: 'tooltip',
+      ref: tipRef,
+    }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)]) : null
+
+    const portalContent = !disabled ? createPortal(tip, 'tooltip') : null
+
+    return h('div', {
+      class: 'wf-tooltip-wrap',
+      onMouseEnter: show, onMouseLeave: hide,
+      onFocus: show, onBlur: hide,
+    }, [children, portalContent].filter(Boolean))
   }
-  const hide = () => { $.show = false }
-
-  const p = $._pos ?? { top: 0, left: 0 }
-
-  // 始终渲染 portal，通过 visibility 切换显隐，避免条件渲染的创建/销毁延迟
-  const tip = !disabled ? h('div', {
-    class: `wf-tooltip wf-tooltip--${position}${$.show ? '' : ' wf-tooltip--hidden'}`,
-    style: { top: p.top, left: p.left },
-    role: 'tooltip',
-  }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)]) : null
-
-  const portalContent = !disabled ? createPortal(tip, 'tooltip') : null
-
-  return h('div', {
-    class: 'wf-tooltip-wrap',
-    onMouseEnter: show, onMouseLeave: hide,
-    onFocus: show, onBlur: hide,
-  }, [children, portalContent].filter(Boolean))
 }

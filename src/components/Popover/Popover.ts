@@ -20,52 +20,72 @@ export interface PopoverProps {
   children?: any
 }
 
-export const Popover: Component<PopoverProps> = (props, ctx) => {
-  const { content, trigger = 'click', position = 'bottom', open, onOpenChange, disabled, children } = props
+export const Popover: Component<PopoverProps> = (_props, ctx) => {
+  // ── mount（只一次）──
   const $ = ctx.ui.$
-  if (!ctx.ui.ready) { $.show = false }
+  $.show = false
+  $.pos = { top: 0, left: 0 }
 
-  const isOpen = open !== undefined ? open : $.show
-  const setOpen = (v: boolean) => {
-    if (open === undefined) $.show = v
-    onOpenChange?.(v)
+  // ── render（每次 dirty/props 变化）──
+  return (props: PopoverProps) => {
+    const { content, trigger = 'click', position = 'bottom', open, onOpenChange, disabled, children } = props
+    const isOpen = open !== undefined ? open : $.show
+    const setOpen = (v: boolean) => {
+      if (open === undefined) $.show = v
+      onOpenChange?.(v)
+    }
+
+    // ── 位置更新（在事件中触发）──
+    const updatePos = (e: Event) => {
+      $.pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
+    }
+
+    // ── 事件处理 ────────────────────────────────────
+    const onClick = trigger === 'click' && !disabled
+      ? (e: Event) => { updatePos(e); setOpen(!isOpen) }
+      : undefined
+
+    const hoverProps: Record<string, any> = {}
+    if (trigger === 'hover' && !disabled) {
+      hoverProps.onMouseEnter = (e: Event) => { updatePos(e); setOpen(true) }
+      hoverProps.onMouseLeave = () => setOpen(false)
+      hoverProps.onFocus = (e: Event) => { updatePos(e); setOpen(true) }
+      hoverProps.onBlur = () => setOpen(false)
+    }
+
+    // ── scroll/resize 追踪 ──────────────────────────
+    const panelRef = (el: HTMLElement | null) => {
+      if (!el || typeof window === 'undefined') return
+      const onMove = () => { $.vShow = ($.vShow || 0) + 1 }
+      window.addEventListener('scroll', onMove, true)
+      window.addEventListener('resize', onMove)
+      return () => {
+        window.removeEventListener('scroll', onMove, true)
+        window.removeEventListener('resize', onMove)
+      }
+    }
+
+    const p = $.pos
+
+    // ── VNode ────────────────────────────────────────
+    const overlay = isOpen && trigger === 'click' ? h('div', {
+      class: 'wf-popover-overlay',
+      onMouseDown: () => setOpen(false),
+    }) : null
+
+    const panel = isOpen ? h('div', {
+      class: `wf-popover wf-popover--${position}`,
+      style: { top: p.top, left: p.left },
+      role: 'dialog', 'aria-modal': 'true', 'aria-label': '弹出面板',
+      onMouseDown: (e: Event) => e.stopPropagation(),
+      ref: panelRef,
+    }, [h('div', { class: 'wf-popover-arrow' }), h('div', { class: 'wf-popover-content' }, content)]) : null
+
+    const portalContent = isOpen ? createPortal([overlay, panel], 'popover') : null
+
+    return h('div', {
+      class: `wf-popover-wrap${isOpen ? ' wf-popover-wrap--open' : ''}`,
+      ...hoverProps,
+    }, [h('div', { class: 'wf-popover-trigger', onClick }, children), portalContent].filter(Boolean))
   }
-
-  const updatePos = (e: Event) => {
-    $._pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
-  }
-
-  const onClick = trigger === 'click' && !disabled
-    ? (e: Event) => { updatePos(e); setOpen(!isOpen) }
-    : undefined
-
-  const hoverProps: Record<string, any> = {}
-  if (trigger === 'hover' && !disabled) {
-    hoverProps.onMouseEnter = (e: Event) => { updatePos(e); setOpen(true) }
-    hoverProps.onMouseLeave = () => setOpen(false)
-    hoverProps.onFocus = (e: Event) => { updatePos(e); setOpen(true) }
-    hoverProps.onBlur = () => setOpen(false)
-  }
-
-  const p = $._pos ?? { top: 0, left: 0 }
-
-  // overlay 只在 click 模式使用（hover 模式靠 mouseleave 关闭，overlay 会阻挡事件）
-  const overlay = isOpen && trigger === 'click' ? h('div', {
-    class: 'wf-popover-overlay',
-    onMouseDown: () => setOpen(false),
-  }) : null
-
-  const panel = isOpen ? h('div', {
-    class: `wf-popover wf-popover--${position}`,
-    style: { top: p.top, left: p.left },
-    role: 'dialog', 'aria-modal': 'true', 'aria-label': '弹出面板',
-    onMouseDown: (e: Event) => e.stopPropagation(),
-  }, [h('div', { class: 'wf-popover-arrow' }), h('div', { class: 'wf-popover-content' }, content)]) : null
-
-  const portalContent = isOpen ? createPortal([overlay, panel], 'popover') : null
-
-  return h('div', {
-    class: `wf-popover-wrap${isOpen ? ' wf-popover-wrap--open' : ''}`,
-    ...hoverProps,
-  }, [h('div', { class: 'wf-popover-trigger', onClick }, children), portalContent].filter(Boolean))
 }

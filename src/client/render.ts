@@ -109,7 +109,7 @@ function renderValue(v: any, ctx: WfuiContext): Node {
   // 先设非 value 属性
   let selectValue: any
   for (const [key, value] of Object.entries(vnode.props ?? {})) {
-    if (key === 'children' || key === 'key' || key === 'ref' || key === 'value') continue
+    if (key === 'children' || key === 'key' || key === 'ref' || key === 'value' || key === 'innerHTML') continue
     setProp(el, key, value)
   }
   if ('value' in (vnode.props ?? {}) && el instanceof HTMLSelectElement) {
@@ -118,10 +118,15 @@ function renderValue(v: any, ctx: WfuiContext): Node {
     setProp(el, 'value', vnode.props!.value)
   }
 
-  // children（select 的 options 必须先生成再设 value）
-  const flatChildren = flattenChildren(vnode.props?.children)
-  for (const child of flatChildren) {
-    el.appendChild(renderValue(child, ctx))
+  // innerHTML 优先：跳过 children 渲染
+  if ('innerHTML' in (vnode.props ?? {})) {
+    el.innerHTML = String(vnode.props!.innerHTML ?? '')
+  } else {
+    // children（select 的 options 必须先生成再设 value）
+    const flatChildren = flattenChildren(vnode.props?.children)
+    for (const child of flatChildren) {
+      el.appendChild(renderValue(child, ctx))
+    }
   }
 
   // select value 在 options 生成后设置
@@ -140,22 +145,33 @@ function renderValue(v: any, ctx: WfuiContext): Node {
 
 function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiContext): Node {
   // 组件级 $ — 每个组件独立状态
-  // vnode._$ 作为组件自己的状态存储
   const prev$ = vnode._$
   if (!prev$) vnode._$ = {}
   ;(ctx as any).ui = (ctx as any).ui ?? {}
   ;(ctx as any).ui.ready = !!prev$
-  // 组件级 Proxy（深层包装：数组 push/pop 自动 dirty，嵌套对象赋值自动 dirty）
   const _target = vnode._$!
   const _dirtyFn = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
   ;(ctx as any).ui.$ = createComponentProxy(_target, _dirtyFn)
+
+  // ctx.ui.on — 生命周期注册
+  if (!_target._hooks) {
+    _target._hooks = { mount: [], unmount: [], update: [] }
+    ;(ctx as any).ui.on = (event: string, handler: Function) => {
+      const hooks = _target._hooks[event]
+      if (hooks) hooks.push(handler)
+    }
+  } else {
+    ;(ctx as any).ui.on = (event: string, handler: Function) => {
+      const hooks = _target._hooks[event]
+      if (hooks) hooks.push(handler)
+    }
+  }
 
   let childVNode
   _renderCount++
   try {
     childVNode = Comp(props, ctx)
   } catch (e) {
-    // 触发 ErrorBoundary（如果存在）
     const errHandler = (ctx as any).ui?._errorHandler
     if (errHandler) {
       errHandler(e)
@@ -167,6 +183,21 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   } finally {
     _renderCount--
   }
+
+  // 判断是否两阶段组件（返回函数）
+  if (typeof childVNode === 'function') {
+    vnode._render = childVNode
+    childVNode = childVNode(props)
+  } else {
+    vnode._render = undefined
+  }
+
+  // mount hooks：首次渲染时触发
+  if (!prev$) {
+    const mh = _target._hooks?.mount
+    if (mh) for (const fn of mh) fn()
+  }
+
   if (childVNode == null) {
     vnode._child = null
     return document.createTextNode('')
@@ -332,18 +363,40 @@ export function patchValue(
   if (typeof newV.type === 'function') {
     const comp = newV.type as Component
 
-    // 保留跨 render 的状态存储
     if (oldV._$) newV._$ = oldV._$
     ;(ctx as any).ui = (ctx as any).ui ?? {}
     ;(ctx as any).ui.ready = !!newV._$
-    // 每次重渲染都设置组件级 Proxy（深层包装）
     const _tgt = newV._$!
     const _dirtyFn2 = () => { if (_renderCount > 0) return; (ctx as any).ui?.dirty?.() }
     ;(ctx as any).ui.$ = createComponentProxy(_tgt, _dirtyFn2)
 
+    // 传递 _render（两阶段组件复用 render 函数）
+    if (oldV._render) newV._render = oldV._render
+
+    // ctx.ui.on 恢复（_target._hooks 已持久化）
+    if (_tgt._hooks) {
+      ;(ctx as any).ui.on = (event: string, handler: Function) => {
+        const hooks = _tgt._hooks[event]
+        if (hooks) hooks.push(handler)
+      }
+    }
+
+    // update hooks：props 变化时触发
+    if (oldV._$) {
+      const uh = _tgt._hooks?.update
+      if (uh) for (const fn of uh) fn(oldV.props)
+    }
+
     _renderCount++
     let childNew
-    try { childNew = comp(newV.props, ctx) } finally { _renderCount-- }
+    try {
+      if (newV._render) {
+        // 两阶段组件：调用 render 函数
+        childNew = newV._render(newV.props)
+      } else {
+        childNew = comp(newV.props, ctx)
+      }
+    } finally { _renderCount-- }
     newV._child = childNew
 
     return patchValue(parent, oldNode, oldV._child, childNew, ctx)
@@ -404,8 +457,8 @@ function typeOf(input: any): string {
 // ── patchProps ─────────────────────────────────────────
 
 function patchProps(el: Element, oldProps: any, newProps: any) {
-  const oldKeys = oldProps ? Object.keys(oldProps).filter(k => k !== 'children' && k !== 'key' && k !== 'ref') : []
-  const newKeys = newProps ? Object.keys(newProps).filter(k => k !== 'children' && k !== 'key' && k !== 'ref') : []
+  const oldKeys = oldProps ? Object.keys(oldProps).filter(k => k !== 'children' && k !== 'key' && k !== 'ref' && k !== 'innerHTML') : []
+  const newKeys = newProps ? Object.keys(newProps).filter(k => k !== 'children' && k !== 'key' && k !== 'ref' && k !== 'innerHTML') : []
 
   for (const key of oldKeys) {
     if (!newKeys.includes(key)) {
@@ -422,7 +475,9 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
   for (const key of newKeys) {
     const oldVal = oldProps?.[key]
     const newVal = newProps?.[key]
-    if (newVal !== oldVal) {
+    if (key === 'innerHTML') {
+      if (newVal !== oldVal) (el as HTMLElement).innerHTML = String(newVal ?? '')
+    } else if (newVal !== oldVal) {
       if (key === 'class' || key === 'className') {
         if (el instanceof SVGElement) el.setAttribute('class', String(newVal ?? ''))
         else el.className = String(newVal ?? '')
@@ -615,6 +670,22 @@ function cleanupPortalChildren(vnode: VNode) {
 function callRefCleanup(input: any) {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode
+  // 先递归清理 _child（支持数组——Portal 的 _child 是 `[root, ...]`）
+  if (vnode._child != null) {
+    if (Array.isArray(vnode._child)) {
+      for (const child of vnode._child) {
+        if (child && typeof child === 'object') callRefCleanup(child as VNode)
+      }
+    } else {
+      callRefCleanup(vnode._child as VNode)
+    }
+    vnode._child = undefined
+  }
+  // 执行组件 unmount 钩子
+  if (vnode._$ && vnode._$._hooks?.unmount) {
+    for (const fn of vnode._$._hooks.unmount) fn()
+    vnode._$._hooks.unmount = []
+  }
   // Portal 子容器移除 + 子内容 ref 清理
   if (vnode._portalEl) {
     cleanupPortalChildren(vnode)

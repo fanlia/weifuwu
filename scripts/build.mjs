@@ -67,7 +67,7 @@ await esbuild.build({
 })
 
 // 编译组件 CSS
-const componentDirs = ['Button', 'Input', 'Textarea', 'Select', 'Checkbox', 'Switch', 'RadioGroup', 'Table', 'Modal', 'Toast', 'Alert', 'Loading', 'EmptyState', 'Tabs', 'Dropdown', 'Pagination', 'Card', 'Badge', 'Avatar', 'Tag', 'StatCard', 'Steps', 'Form', 'Field', 'Slider', 'SearchInput', 'ProgressBar', 'Accordion', 'PageHeader', 'Breadcrumb', 'Divider', 'FileUpload', 'Tooltip', 'Drawer', 'Popover', 'Skeleton', 'Img', 'InView', 'DatePicker', 'Chart']
+const componentDirs = ['Button', 'Input', 'Textarea', 'Select', 'Checkbox', 'Switch', 'RadioGroup', 'Table', 'Modal', 'Toast', 'Alert', 'Loading', 'EmptyState', 'Tabs', 'Dropdown', 'Pagination', 'Card', 'Badge', 'Avatar', 'Tag', 'StatCard', 'Steps', 'Form', 'Field', 'Slider', 'SearchInput', 'ProgressBar', 'Accordion', 'PageHeader', 'Breadcrumb', 'Divider', 'FileUpload', 'Tooltip', 'Drawer', 'Popover', 'Skeleton', 'Img', 'InView', 'DatePicker', 'Chart', 'Editor']
 let componentCss = ''
 for (const dir of componentDirs) {
   const cssPath = join(srcDir, 'components', dir, `${dir}.css`)
