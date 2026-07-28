@@ -119,3 +119,6 @@ export type { ImgProps } from './Img/Img.ts'
 
 export { InView } from './InView/InView.ts'
 export type { InViewProps } from './InView/InView.ts'
+
+export { DatePicker } from './DatePicker/DatePicker.ts'
+export type { DatePickerProps, DatePickerMode } from './DatePicker/DatePicker.ts'
