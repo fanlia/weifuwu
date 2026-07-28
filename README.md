@@ -753,22 +753,6 @@ h('div', { class: 'x' }, child1, child2)
 | `jsx` / `jsxs` / `jsxDEV` | JSX 编译目标 |
 | `Fragment` | 片段 |
 
-### VNode 结构
-
-```ts
-interface VNode {
-  type: string | Component | typeof Fragment
-  props: Record<string, any>
-  key?: string
-  el?: Node           // 对应 DOM（框架内部）
-  _$?: Record<string, any>  // 组件状态 + hooks（框架内部）
-  _child?: any        // 子 VNode 缓存
-  _render?: Function  // 两阶段 render 函数
-  _cleanup?: (() => void)  // onmounted 清理函数
-  _portalEl?: HTMLElement  // Portal 子容器
-}
-```
-
 ---
 
 ## 状态管理
@@ -778,41 +762,31 @@ interface VNode {
 ```tsx
 const Counter: Component = (_init, ctx) => {
   let count = 0
-
   return (props) =>
     h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
 }
 ```
 
-读写明确，`ctx.ui.render()` 是显式渲染承诺。
-
 ### `ctx.ui.$()` — 响应式状态容器
 
-`ctx.ui.$()` 返回浅 Proxy，赋值自动触发 `dirty()`（微任务批量渲染）：
+`ctx.ui.$()` 返回浅 Proxy，赋值自动触发渲染（微任务批量合并）：
 
 ```tsx
 const FormPage: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.email = ''
-  $.password = ''
-
   return (props) =>
-    h('div', {}, [
-      h('input', { value: $.email, onInput: (e: any) => { $.email = e.target.value } }),
-      h('input', { value: $.password, onInput: (e: any) => { $.password = e.target.value } }),
-    ])
+    h('input', { value: $.email, onInput: (e: any) => { $.email = e.target.value } })
 }
 ```
 
+**注意**：mount/render/生命周期回调中 `$.x = val` 不触发渲染。仅事件/timer/Promise.then 中生效。
+
 | API | 说明 |
 |-----|------|
-| `ctx.ui.$()` | 创建响应式状态容器（浅 Proxy，赋值自动 dirty）|
+| `ctx.ui.$()` | 创建响应式状态容器 |
 | `ctx.ui.render()` | 立即同步渲染 |
 | `ctx.ui.dirty()` | 标记脏状态，下个微任务批量渲染 |
-
-### 渲染保护
-
-mount/render/onmount/onupdate/onunmount 期间 `_rendering = true`，`$.x = val` **不触发渲染**。仅事件/timer/Promise.then 中生效。
 
 ---
 
@@ -857,7 +831,7 @@ const Timer: Component = (_init, ctx) => {
 }
 ```
 
-**注意**：`onmounted` 在首次渲染后触发，此时 DOM 已创建。**所有生命周期回调执行期间 `_rendering = true`**，`$.x = val` 不触发额外渲染。
+**注意**：`onmounted` 在首次渲染后触发，此时 DOM 已创建。生命周期回调中 `$.x = val` 不触发渲染（仅事件/timer 中生效）。
 
 对于**内嵌元素**（非根元素），用 `el.querySelector()`：
 
@@ -1284,9 +1258,9 @@ import type { RouterOptions } from 'weifuwu/client'
 
 | 类型 | 说明 |
 |------|------|
-| `VNode` | `{ type, props, key?, el?, _$?, _child?, _cleanup? }` |
+| `VNode` | `{ type, props, key? }` |
 | `VNodeType` | `string \| Component \| typeof Fragment` |
-| `Component<P>` | `(props: P, ctx: WfuiContext) => VNode \| null` |
+| `Component<P>` | `(initProps: P, ctx: WfuiContext) => (props: P) => VNode \| null` |
 | `WfuiContext` | `{ ui, route?, app?, ws?, api?, auth?, i18n?, confirm?, [key]: unknown }` |
 | `AppMiddleware` | `(ctx: WfuiContext) => WfuiContext` |
 | `RouteDef` | `{ path, component?, layout?, children?, auth?, title? }` |
