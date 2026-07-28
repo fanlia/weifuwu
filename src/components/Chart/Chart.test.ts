@@ -34,12 +34,6 @@ describe('Chart', () => {
     assert.ok(svg, 'should render svg')
   })
 
-  it('renders SVG for donut chart', () => {
-    const vnode = Chart({ type: 'donut', data }, mockCtx())!
-    const svg = vnode.props.children.find((c: any) => c?.type === 'svg')
-    assert.ok(svg, 'should render svg')
-  })
-
   it('renders title when provided', () => {
     const vnode = Chart({ type: 'line', data, title: '月收入' }, mockCtx())!
     const title = vnode.props.children.find((c: any) => c?.props?.class === 'wf-chart-title')

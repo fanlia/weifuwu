@@ -670,7 +670,7 @@ const DemoChart: Component = () => {
         <Chart type="pie" data={pieData} options={{width:200,height:200}} />
       </div>
       <div style="width:220px">
-        <Chart type="donut" data={pieData} options={{width:200,height:200}} />
+
       </div>
     </div>
   )
@@ -900,7 +900,7 @@ if (ok) { /* 执行 */ }`,
   chart: `<Chart type="line" data={data} title="标题" />
 <Chart type="bar" data={data} />
 <Chart type="pie" data={data} />
-<Chart type="donut" data={data} />`,
+`,
 
   popover: `<Popover content={<div>面板内容</div>}>
   <Button>点击弹出</Button>
@@ -969,7 +969,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="InView" desc="进入视窗后懒加载内容，支持 IntersectionObserver" code={CODE.inview}><DemoInView /></DemoCard>
         <DemoCard title="Confirm" desc="确认对话框，Promise 化 await 调用" code={CODE.confirm}><DemoConfirm /></DemoCard>
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
-        <DemoCard title="Chart" desc="SVG 图表：line/bar/pie/donut" code={CODE.chart}><DemoChart /></DemoCard>
+        <DemoCard title="Chart" desc="SVG 图表：line/bar/pie" code={CODE.chart}><DemoChart /></DemoCard>
       </Section>
 
       <Section title="数据反馈">

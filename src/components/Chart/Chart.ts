@@ -10,7 +10,7 @@ import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
 import {
-  scaleLinear, linePath, areaPath, barRects, pieArcs, donutArcs,
+  scaleLinear, linePath, areaPath, barRects, pieArcs,
   getYTicks, getDefaultColor,
 } from './chart-utils.ts'
 import type { DataPoint, ChartType, ChartOptions } from './chart-utils.ts'
@@ -29,7 +29,7 @@ export interface ChartProps {
 }
 
 export const Chart: Component<ChartProps> = (props, ctx) => {
-  const { type = 'line', data, options = {}, title, area, innerRadius = 0.5 } = props
+  const { type = 'line', data, options = {}, title, area } = props
   const $ = ctx.ui.$
   if (!ctx.ui.ready) { $.tooltip = null as { x: number; y: number; label: string; value: number } | null }
 
@@ -153,12 +153,11 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
     ])
   }
 
-  const renderPie = (isDonut: boolean) => {
+  const renderPie = () => {
     const cx = W / 2
     const cy = H / 2
     const radius = Math.min(cw, ch) / 2 - 4
-    const ir = isDonut ? radius * innerRadius : 0
-    const arcs = isDonut ? donutArcs(data, cx, cy, radius, ir) : pieArcs(data, cx, cy, radius)
+    const arcs = pieArcs(data, cx, cy, radius)
 
     return h('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, [
       ...arcs.map((a, i) => h('g', { key: `arc-${i}` }, [
@@ -180,16 +179,6 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
           }, `${Math.round(a.value / data.reduce((s, d) => s + Math.abs(d.value), 0) * 100)}%`)]
           : []),
       ])),
-      // 中心文字（甜甜圈）— 白色圆底防覆盖
-      ...(isDonut ? [
-        h('circle', { cx, cy, r: ir * 0.6, fill: '#fff' }),
-        h('text', {
-          x: cx, y: cy + 4,
-          'text-anchor': 'middle', fill: '#374151',
-          'font-size': '20', 'font-weight': 'bold',
-          'font-family': 'var(--wf-font-sans)',
-        }, String(data.reduce((s, d) => s + d.value, 0))),
-      ] : []),
     ])
   }
 
@@ -197,8 +186,7 @@ export const Chart: Component<ChartProps> = (props, ctx) => {
 
   let chartContent: any
   if (type === 'bar') chartContent = renderBar()
-  else if (type === 'pie') chartContent = renderPie(false)
-  else if (type === 'donut') chartContent = renderPie(true)
+  else if (type === 'pie') chartContent = renderPie()
   else chartContent = renderLine()
 
   // 图例

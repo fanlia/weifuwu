@@ -4,7 +4,7 @@
  * 无 DOM 依赖，可测试。
  */
 
-export type ChartType = 'line' | 'bar' | 'pie' | 'donut'
+export type ChartType = 'line' | 'bar' | 'pie'
 
 export interface DataPoint {
   label: string
@@ -124,28 +124,7 @@ export function pieArcs(data: DataPoint[], cx: number, cy: number, radius: numbe
   })
 }
 
-export function donutArcs(data: DataPoint[], cx: number, cy: number, radius: number, innerRadius: number): Arc[] {
-  const total = data.reduce((s, d) => s + Math.abs(d.value), 0)
-  if (total === 0) return []
-  let startAngle = -Math.PI / 2
-  return data.map((d, i) => {
-    const angle = (Math.abs(d.value) / total) * Math.PI * 2
-    const endAngle = startAngle + angle
-    const arc = createDonutArc(cx, cy, radius, innerRadius, startAngle, endAngle)
-    const midAngle = startAngle + angle / 2
-    startAngle = endAngle
-    return {
-      d: arc,
-      color: d.color ?? getDefaultColor(i),
-      label: d.label,
-      value: d.value,
-      centroid: {
-        x: cx + Math.cos(midAngle) * radius * 0.72,
-        y: cy + Math.sin(midAngle) * radius * 0.72,
-      },
-    }
-  })
-}
+
 
 // ── SVG 弧线路径 ────────────────────────────────────
 
@@ -158,18 +137,7 @@ function createArc(cx: number, cy: number, r: number, start: number, end: number
   return `M${cx},${cy}L${x1},${y1}A${r},${r} 0 ${large} 1 ${x2},${y2}Z`
 }
 
-function createDonutArc(cx: number, cy: number, r: number, ir: number, start: number, end: number): string {
-  const x1 = cx + r * Math.cos(start)
-  const y1 = cy + r * Math.sin(start)
-  const x2 = cx + r * Math.cos(end)
-  const y2 = cy + r * Math.sin(end)
-  const ix1 = cx + ir * Math.cos(end)
-  const iy1 = cy + ir * Math.sin(end)
-  const ix2 = cx + ir * Math.cos(start)
-  const iy2 = cy + ir * Math.sin(start)
-  const large = end - start > Math.PI ? 1 : 0
-  return `M${x1},${y1}A${r},${r} 0 ${large} 1 ${x2},${y2}L${ix1},${iy1}A${ir},${ir} 0 ${large} 0 ${ix2},${iy2}Z`
-}
+
 
 // ── 默认色板 ────────────────────────────────────────
 
