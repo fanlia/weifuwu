@@ -1,97 +1,45 @@
 /* weifuwu/components — Tooltip */
 
 .wf-tooltip-wrap {
-  position: relative;
   display: inline-flex;
 }
 
 .wf-tooltip {
-  position: absolute;
+  position: fixed;
   z-index: var(--wf-cover-z, 1000);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-  animation: wf-tooltip-fadein 0.15s ease-out;
-}
-
-@keyframes wf-tooltip-fadein {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-.wf-tooltip-content {
+  background: var(--wf-color-text);
+  color: var(--wf-color-bg);
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-bg);
-  background: var(--wf-color-text);
   padding: var(--wf-space-xs) var(--wf-space-sm);
   border-radius: var(--wf-radius-sm);
   white-space: nowrap;
+  pointer-events: none;
   max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: var(--wf-line-height-tight);
+}
+
+.wf-tooltip--bottom {
+  transform: translateX(-50%);
+}
+
+.wf-tooltip--top {
+  transform: translateX(-50%) translateY(-100%);
+}
+
+.wf-tooltip--left {
+  transform: translateY(-50%) translateX(-100%);
+}
+
+.wf-tooltip--right {
+  transform: translateY(-50%);
 }
 
 .wf-tooltip-arrow {
-  width: 6px;
-  height: 6px;
-  background: var(--wf-color-text);
-  transform: rotate(45deg);
-  border-radius: 1px;
+  display: none;
 }
 
-/* 位置: top (默认) */
-.wf-tooltip--top {
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding-bottom: 4px;
-}
-
-.wf-tooltip--top .wf-tooltip-arrow {
-  order: 1;
-  margin-top: -3px;
-}
-
-/* 位置: bottom */
-.wf-tooltip--bottom {
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding-top: 4px;
-}
-
-.wf-tooltip--bottom .wf-tooltip-arrow {
-  order: -1;
-  margin-bottom: -3px;
-}
-
-/* 位置: left */
-.wf-tooltip--left {
-  right: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  padding-right: 4px;
-  flex-direction: row;
-}
-
-.wf-tooltip--left .wf-tooltip-arrow {
-  order: 1;
-  margin-left: -3px;
-}
-
-/* 位置: right */
-.wf-tooltip--right {
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  padding-left: 4px;
-  flex-direction: row;
-}
-
-.wf-tooltip--right .wf-tooltip-arrow {
-  order: -1;
-  margin-right: -3px;
+.wf-tooltip-content {
+  line-height: 1.4;
 }

@@ -4,7 +4,7 @@
 
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import { h, createPortal } from '../../client/vnode.ts'
 import { lockScroll, unlockScroll } from '../../client/scroll-lock.ts'
 import { trapFocus } from '../../client/focus-trap.ts'
 
@@ -24,32 +24,21 @@ export const Drawer: Component<DrawerProps> = (props, ctx) => {
   const $ = ctx.ui.$
   if (!ctx.ui.ready) { $.exiting = false; $.prevOpen = open }
 
-  // 退出过程中重新打开 → 取消退出（仅在 open 从 false→true 时触发）
   if ($.prevOpen !== open) {
     $.prevOpen = open
     if (open && $.exiting) $.exiting = false
   }
 
-  // 退出动画触发
   const startClose = () => { $.exiting = true }
+  const onExitEnd = () => { $.exiting = false; onClose?.() }
 
-  // 退出动画播完
-  const onExitEnd = () => {
-    $.exiting = false
-    onClose?.()
-  }
-
-  // 完全关闭状态 → 不渲染
   if (!open && !$.exiting) return null
-
   const isClosing = $.exiting
 
-  // ESC 关闭
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape' && !isClosing) startClose()
   }
 
-  // ScrollLock + FocusTrap
   const drawerRef = (el: HTMLElement | null) => {
     if (!el) return
     lockScroll()
@@ -90,7 +79,7 @@ export const Drawer: Component<DrawerProps> = (props, ctx) => {
     ? `wf-drawer wf-drawer--${position} wf-drawer--exit`
     : `wf-drawer wf-drawer--${position} wf-drawer--enter`
 
-  return h('div', {
+  const root = h('div', {
     class: cls,
     role: 'dialog',
     'aria-modal': 'true',
@@ -98,4 +87,6 @@ export const Drawer: Component<DrawerProps> = (props, ctx) => {
     onKeyDown: handleKeyDown,
     ref: drawerRef,
   }, [overlay, panel])
+
+  return createPortal(root, 'drawer')
 }

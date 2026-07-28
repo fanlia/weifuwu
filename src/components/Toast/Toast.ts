@@ -1,6 +1,6 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import { h, createPortal } from '../../client/vnode.ts'
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
 
@@ -31,7 +31,10 @@ export const Toast: Component<ToastProps> = (props, _ctx) => {
     ])
   )
 
-  return h('div', { class: 'wf-toast-container' }, items)
+  return createPortal(
+    h('div', { class: 'wf-toast-container' }, items),
+    'toast',
+  )
 }
 
 function iconFor(type: ToastType): string {

@@ -1,8 +1,10 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import { h, createPortal } from '../../client/vnode.ts'
+import { computeFixedPos } from '../../client/popup.ts'
+import type { Placement } from '../../client/popup.ts'
 
-export type TooltipPosition = 'top' | 'bottom' | 'left' | 'right'
+export type TooltipPosition = Placement
 
 export interface TooltipProps {
   content: string
@@ -16,24 +18,25 @@ export const Tooltip: Component<TooltipProps> = (props, ctx) => {
   const $ = ctx.ui.$
   if (!ctx.ui.ready) { $.show = false }
 
-  const show = () => { $.show = true }
+  const show = (e: Event) => {
+    $._pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
+    $.show = true
+  }
   const hide = () => { $.show = false }
 
-  const tip = $.show && !disabled
-    ? h('div', {
-        class: `wf-tooltip wf-tooltip--${position}`,
-        role: 'tooltip',
-      }, [
-        h('div', { class: 'wf-tooltip-arrow' }),
-        h('div', { class: 'wf-tooltip-content' }, content),
-      ])
-    : null
+  const p = $._pos ?? { top: 0, left: 0 }
+
+  const tip = $.show && !disabled ? h('div', {
+    class: `wf-tooltip wf-tooltip--${position}`,
+    style: { top: p.top, left: p.left },
+    role: 'tooltip',
+  }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)]) : null
+
+  const portalContent = $.show && !disabled ? createPortal(tip, 'tooltip') : null
 
   return h('div', {
     class: 'wf-tooltip-wrap',
-    onMouseEnter: show,
-    onMouseLeave: hide,
-    onFocus: show,
-    onBlur: hide,
-  }, [children, tip].filter(Boolean))
+    onMouseEnter: show, onMouseLeave: hide,
+    onFocus: show, onBlur: hide,
+  }, [children, portalContent].filter(Boolean))
 }

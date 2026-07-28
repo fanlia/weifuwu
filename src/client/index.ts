@@ -42,6 +42,9 @@ export type { I18nOptions, I18nState } from './i18n.ts'
 export { lockScroll, unlockScroll } from './scroll-lock.ts'
 export { trapFocus } from './focus-trap.ts'
 
+export { computeFixedPos } from './popup.ts'
+export type { FixedPos, Placement } from './popup.ts'
+
 export { confirm } from './confirm.ts'
 export type { ConfirmOptions, ConfirmState } from './confirm.ts'
 export { zhCN } from './locale/zh_CN.ts'
