@@ -9,7 +9,7 @@
 
 import type { WfuiContext } from './types.ts'
 
-export type VNodeType = string | Component | typeof Fragment
+export type VNodeType = string | Component | typeof Fragment | typeof Portal
 
 export interface VNode {
   type: VNodeType
@@ -26,6 +26,9 @@ export interface VNode {
 export type Component<P = {}> = (props: P, ctx: WfuiContext) => VNode | null
 
 export const Fragment = Symbol('Fragment')
+
+/** Portal — 将子 VNode 渲染到 document.body 下的独立容器 */
+export const Portal = Symbol('Portal')
 
 /** JSX 类型声明 — 使 TypeScript 理解自定义 JSX 运行时 */
 declare global {
@@ -81,4 +84,17 @@ export function isComponent(vnode: VNode): boolean {
 
 export function isFragment(vnode: VNode): boolean {
   return vnode.type === Fragment
+}
+
+export function isPortal(vnode: VNode): boolean {
+  return vnode.type === Portal
+}
+
+/** Portal VNode — 子节点渲染到 document.body#__wf_portal 中 */
+export function createPortal(children: any, portalKey?: string): VNode {
+  return {
+    type: Portal,
+    props: { children, portalKey },
+    key: portalKey ?? undefined,
+  }
 }

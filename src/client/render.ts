@@ -25,8 +25,13 @@ const wrappedCache = new WeakMap<object, object>()
 
 /** 创建响应式 Proxy handler——所有分支复用同一逻辑 */
 function makeProxyHandler(dirty: () => void): ProxyHandler<object> {
+  const isSkip = (k: PropertyKey): boolean => typeof k === 'string' && k.startsWith('_')
+
   return {
     get(target, key, receiver) {
+      // _ 前缀返回 raw 值，不包装
+      if (isSkip(key)) return Reflect.get(target, key, receiver)
+
       const v = Reflect.get(target, key, receiver)
       // 数组变异方法自动 dirty
       if (typeof key === 'string' && mutationMethods.includes(key) && typeof v === 'function') {
@@ -41,8 +46,8 @@ function makeProxyHandler(dirty: () => void): ProxyHandler<object> {
     set(target, key, v) {
       const old = Reflect.get(target, key)
       if (old === v) return true  // 相同引用跳过 dirty
-      Reflect.set(target, key, wrapDeep(v, dirty))
-      dirty()
+      Reflect.set(target, key, isSkip(key) ? v : wrapDeep(v, dirty))
+      if (!isSkip(key)) dirty()
       return true
     },
   }
