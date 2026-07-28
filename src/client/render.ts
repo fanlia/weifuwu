@@ -23,15 +23,12 @@ let _renderCount = 0
 const mutationMethods = ['push', 'pop', 'splice', 'shift', 'unshift', 'sort', 'reverse']
 const wrappedCache = new WeakMap<object, object>()
 
-function wrapDeep(val: any, dirty: () => void): any {
-  if (val === null || typeof val !== 'object') return val
-  if (val instanceof Node) return val
-  if (typeof Blob !== 'undefined' && val instanceof Blob) return val
-  if (wrappedCache.has(val)) return wrappedCache.get(val)
-
-  const handler: ProxyHandler<object> = Array.isArray(val) ? {
+/** 创建响应式 Proxy handler——所有分支复用同一逻辑 */
+function makeProxyHandler(dirty: () => void): ProxyHandler<object> {
+  return {
     get(target, key, receiver) {
       const v = Reflect.get(target, key, receiver)
+      // 数组变异方法自动 dirty
       if (typeof key === 'string' && mutationMethods.includes(key) && typeof v === 'function') {
         return function (this: any, ...args: any[]) {
           const r = v.apply(target, args)
@@ -42,32 +39,28 @@ function wrapDeep(val: any, dirty: () => void): any {
       return wrapDeep(v, dirty)
     },
     set(target, key, v) {
-      Reflect.set(target, key, wrapDeep(v, dirty))
-      dirty()
-      return true
-    },
-  } : {
-    get(_target, key, receiver) {
-      const v = Reflect.get(_target, key, receiver)
-      return wrapDeep(v, dirty)
-    },
-    set(target, key, v) {
+      const old = Reflect.get(target, key)
+      if (old === v) return true  // 相同引用跳过 dirty
       Reflect.set(target, key, wrapDeep(v, dirty))
       dirty()
       return true
     },
   }
+}
 
-  const proxy = new Proxy(val, handler)
+function wrapDeep(val: any, dirty: () => void): any {
+  if (val === null || typeof val !== 'object') return val
+  if (val instanceof Node) return val
+  if (typeof Blob !== 'undefined' && val instanceof Blob) return val
+  if (wrappedCache.has(val)) return wrappedCache.get(val)
+
+  const proxy = new Proxy(val, makeProxyHandler(dirty))
   wrappedCache.set(val, proxy)
   return proxy
 }
 
 function createComponentProxy(target: Record<string, any>, dirty: () => void): Record<string, any> {
-  return new Proxy(target, {
-    set(t, k, v) { if (t[k as string] === v) return true; t[k as string] = wrapDeep(v, dirty); dirty(); return true },
-    get(t, k) { return wrapDeep(t[k as string], dirty) },
-  }) as Record<string, any>
+  return new Proxy(target, makeProxyHandler(dirty)) as Record<string, any>
 }
 
 // ── render ─────────────────────────────────────────────
