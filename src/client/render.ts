@@ -571,12 +571,26 @@ function runRefCleanup(vnode: VNode) {
   })
 }
 
+/** 递归清理 Portal 子内容的 ref */
+function cleanupPortalChildren(vnode: VNode) {
+  const child = vnode._child
+  if (child == null) return
+  if (Array.isArray(child)) {
+    for (const c of child) {
+      if (c && typeof c === 'object') callRefCleanup(c as VNode)
+    }
+  } else if (typeof child === 'object') {
+    callRefCleanup(child as VNode)
+  }
+}
+
 /** 通知 ref 清理：调用 ref 回调返回的清理函数 + Portal 子容器清理 */
 function callRefCleanup(input: any) {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode
-  // Portal 子容器移除
+  // Portal 子容器移除 + 子内容 ref 清理
   if (vnode._portalEl) {
+    cleanupPortalChildren(vnode)
     vnode._portalEl.remove()
     vnode._portalEl = undefined
   }
