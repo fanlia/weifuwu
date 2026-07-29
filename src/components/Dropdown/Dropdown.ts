@@ -22,8 +22,7 @@ export interface DropdownProps {
 
 export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   // ── mount（只一次）──
-  const getWrapEl = (): HTMLElement | null =>
-    document.querySelector('.wf-dropdown')
+  let wrapEl: HTMLElement | null = null
 
   // ── render（每次 dirty/props 变化）──
   return (props: DropdownProps) => {
@@ -32,9 +31,8 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     // ── 位置计算 ──────────────────────────────────────
     const pos = (() => {
       if (!open) return { top: 0, left: 0 }
-      const wrap = getWrapEl()
-      if (!wrap) return { top: 0, left: 0 }
-      const r = wrap.getBoundingClientRect()
+      if (!wrapEl) return { top: 0, left: 0 }
+      const r = wrapEl.getBoundingClientRect()
       return { top: r.bottom + 4, left: r.left }
     })()
 
@@ -55,6 +53,7 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
 
     return h('div', {
       class: `wf-dropdown${open ? ' wf-dropdown--open' : ''}`,
+      ref: (el) => { wrapEl = el as HTMLElement },
     }, [trigger, portalContent].filter(Boolean))
   }
 }

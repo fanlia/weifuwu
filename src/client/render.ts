@@ -81,6 +81,13 @@ function renderValue(v: any, ctx: WfuiContext): Node {
     ;(el as HTMLSelectElement).value = String(selectValue)
   }
 
+  // ref 回调
+  const ref = vnode.props?.ref
+  if (typeof ref === 'function') {
+    const cleanup = ref(el)
+    if (typeof cleanup === 'function') vnode._refCleanup = cleanup
+  }
+
   return el
 }
 
@@ -134,7 +141,12 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   vnode._child = childVNode
   const rootNode = renderValue(childVNode, ctx)
   if (_target._onmounted && !prev$) {
-    const cleanup = _target._onmounted(rootNode as HTMLElement)
+    // Portal 组件的根节点是文本占位符，传实际 Portal 容器给 onmounted
+    const portalVNode = childVNode as VNode
+    const mountEl = portalVNode.type === Portal && portalVNode._portalEl
+      ? portalVNode._portalEl
+      : rootNode
+    const cleanup = _target._onmounted(mountEl as HTMLElement)
     if (typeof cleanup === 'function') vnode._cleanup = cleanup
   }
   return rootNode
@@ -367,6 +379,16 @@ export function patchValue(
   // Native element
   if (typeof newV.type === 'string') {
     if (oldNode && oldNode.nodeType === 1) {
+      // ref 变化处理
+      const oldRef = oldV.props?.ref
+      const newRef = newV.props?.ref
+      if (oldRef !== newRef) {
+        if (typeof oldRef === 'function') { oldRef(null); oldV._refCleanup = undefined }
+        if (typeof newRef === 'function') {
+          const cleanup = newRef(oldNode)
+          if (typeof cleanup === 'function') newV._refCleanup = cleanup
+        }
+      }
       patchProps(oldNode as Element, oldV.props, newV.props)
       patchChildren(oldNode, oldV, newV, ctx)
     } else if (oldNode) {
@@ -416,6 +438,7 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
 
   for (const key of oldKeys) {
     if (!newKeys.includes(key)) {
+      if (key === 'ref') continue
       if (key.startsWith('on') && typeof oldProps[key] === 'function') {
         el.removeEventListener(key.slice(2).toLowerCase(), oldProps[key] as EventListener)
       } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
@@ -427,6 +450,7 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
   }
 
   for (const key of newKeys) {
+    if (key === 'ref') continue
     const oldVal = oldProps?.[key]
     const newVal = newProps?.[key]
     if (key === 'innerHTML') {
@@ -641,6 +665,14 @@ function callRefCleanup(input: any) {
     for (const child of children) {
       if (child && typeof child === 'object') callRefCleanup(child as VNode)
     }
+  }
+  // 执行 ref 清理
+  if (typeof vnode.props?.ref === 'function') {
+    vnode.props.ref(null)
+  }
+  if (vnode._refCleanup) {
+    vnode._refCleanup()
+    vnode._refCleanup = undefined
   }
   // 执行组件 unmount 钩子
   if (vnode._$ && vnode._$._hooks?.unmount) {

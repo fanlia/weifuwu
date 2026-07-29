@@ -43,8 +43,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
   let rangeStart: string | null = null
   let rangeEnd: string | null = null
 
-  const getInputEl = (): HTMLElement | null =>
-    document.querySelector('.wf-datepicker-input')
+  let inputEl: HTMLElement | null = null
 
   // ── render（每次 dirty/props 变化）──
   return (props: DatePickerProps) => {
@@ -63,9 +62,8 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
 
     const pos: { top: number; left: number; width?: number } = (() => {
       if (!isOpen) return { top: 0, left: 0 }
-      const input = getInputEl()
-      if (!input) return { top: 0, left: 0 }
-      const r = input.getBoundingClientRect()
+      if (!inputEl) return { top: 0, left: 0 }
+      const r = inputEl.getBoundingClientRect()
       return { top: r.bottom + 4, left: r.left, width: r.width }
     })()
 
@@ -290,6 +288,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         type: 'text',
         placeholder,
         value: displayValue || '',
+        ref: (el) => { inputEl = el as HTMLElement },
         readonly: true,
         disabled,
         onClick: toggle,

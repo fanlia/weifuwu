@@ -23,11 +23,9 @@ export interface ModalProps {
 export const Modal: Component<ModalProps> = (_props, ctx) => {
   let prevOpen: boolean | undefined
 
-  ctx.ui.onmounted(() => {
+  ctx.ui.onmounted((el) => {
     lockScroll()
-    // Portal 组件根节点是文本占位符，用选择器找实际 DOM
-    const modalEl = document.querySelector('.wf-modal') as HTMLElement
-    if (!modalEl) return
+    const modalEl = el.querySelector('.wf-modal') as HTMLElement ?? el
     const cleanupFocus = trapFocus(modalEl)
     return () => { unlockScroll(); cleanupFocus() }
   })
