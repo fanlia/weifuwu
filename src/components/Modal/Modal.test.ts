@@ -5,7 +5,7 @@ import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true, onmount: () => {}, onmounted: () => () => {}, onunmount: () => {}, onupdate: () => {} } } as any
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) 获取 VNode */
@@ -51,5 +51,29 @@ describe('Modal', () => {
     const overlay = vnode.props.children[0]
     assert.equal(overlay.props.class, 'wf-modal-overlay')
     assert.equal(typeof overlay.props.onClick, 'function')
+  })
+
+  it('accepts custom width', () => {
+    const vnode = inner(renderModal({ open: true, children: '内容', width: '600px' }, mockCtx())!)
+    const content = vnode.props.children[1]
+    assert.equal(content.props.class, 'wf-modal-content')
+    assert.equal(content.props.style.minWidth, '600px')
+  })
+
+  it('hides close button when closable=false', () => {
+    const vnode = inner(renderModal({ open: true, title: '标题', children: '内容', closable: false }, mockCtx())!)
+    const content = vnode.props.children[1]
+    const header = content.props.children[0]
+    // no close button in header children
+    const closeBtn = (Array.isArray(header.props.children) ? header.props.children : [header.props.children]).find((c: any) => c?.props?.class === 'wf-modal-close')
+    assert.equal(closeBtn, undefined)
+  })
+
+  it('shows close button by default', () => {
+    const vnode = inner(renderModal({ open: true, title: '标题', children: '内容' }, mockCtx())!)
+    const content = vnode.props.children[1]
+    const header = content.props.children[0]
+    const closeBtn = (Array.isArray(header.props.children) ? header.props.children : [header.props.children]).find((c: any) => c?.props?.class === 'wf-modal-close')
+    assert.ok(closeBtn)
   })
 })

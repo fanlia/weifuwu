@@ -14,6 +14,10 @@ export interface ModalProps {
   onClose?: () => void
   children?: any
   footer?: any
+  /** 自定义宽度，如 '500px'、'80%'，默认 400px */
+  width?: string
+  /** 是否显示关闭按钮，默认 true */
+  closable?: boolean
 }
 
 export const Modal: Component<ModalProps> = (_props, ctx) => {
@@ -26,7 +30,7 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
   })
 
   return (props: ModalProps) => {
-    const { open, title, onClose, children, footer } = props
+    const { open, title, onClose, children, footer, width, closable = true } = props
     const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
 
     if (prevOpen !== open) {
@@ -40,14 +44,14 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
       onClick: onClose,
     })
 
-    const closeBtn = h('button', {
+    const closeBtn = closable ? h('button', {
       class: 'wf-modal-close',
       onClick: onClose,
       type: 'button',
-    }, '✕')
+    }, '✕') : null
 
     const titleEl = title
-      ? h('div', { class: 'wf-modal-header' }, [title, closeBtn])
+      ? h('div', { class: 'wf-modal-header' }, [title, closeBtn].filter(Boolean))
       : null
 
     const bodyEl = h('div', { class: 'wf-modal-body' }, children)
@@ -58,6 +62,7 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
     const content = h('div', {
       class: 'wf-modal-content',
       onClick: (e: Event) => e.stopPropagation(),
+      style: width ? { minWidth: width, maxWidth: width } : undefined,
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
