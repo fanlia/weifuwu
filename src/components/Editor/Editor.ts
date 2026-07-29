@@ -38,6 +38,25 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   const getEditorEl = (): HTMLElement | null =>
     document.querySelector('.wf-editor-content')
 
+  // ── 选区保存/恢复 ──────────────────────────────
+  let savedRange: Range | null = null
+
+  const saveSelection = () => {
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0) savedRange = sel.getRangeAt(0)
+  }
+
+  const restoreSelection = () => {
+    const el = getEditorEl()
+    if (!el || !savedRange) return
+    el.focus()
+    const sel = window.getSelection()
+    if (sel) {
+      sel.removeAllRanges()
+      sel.addRange(savedRange)
+    }
+  }
+
   // ── render（每次 dirty/props 变化）──
   return (props: EditorProps) => {
     const { value = '', onChange, onUpload, placeholder = '', disabled = false, minHeight = '200px' } = props
@@ -76,6 +95,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       }
 
       if (item === 'link') {
+        saveSelection()
         const sel = window.getSelection()
         if (!sel || sel.isCollapsed) {
           showLinkInput = true
@@ -224,6 +244,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     // ── 键盘 ────────────────────────────────────────────
     const handleKeyUp = (e: KeyboardEvent) => {
       if (disabled || !isRichMode) return
+      saveSelection()
       const isFormatShortcut = (e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())
       if (isFormatShortcut) {
         activeFormats = queryFormats()
@@ -235,6 +256,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
 
     const handleMouseUp = () => {
       if (!isRichMode) return
+      saveSelection()
       activeFormats = queryFormats()
       ctx.ui.render()
     }
