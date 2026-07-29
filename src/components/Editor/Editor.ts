@@ -360,9 +360,9 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       class: `wf-editor${disabled ? ' wf-editor--disabled' : ''}`,
     }, [
       !disabled && toolbarItems.length > 0 ? renderToolbar(toolbarItems, activeFormats, !isRichMode, handleToolbarItem, customRender) : null,
+      editorBody,
       linkModal,
       imageModal,
-      editorBody,
       h('input', { type: 'hidden', value, 'aria-hidden': 'true' }),
     ])
   }

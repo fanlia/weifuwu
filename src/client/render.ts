@@ -512,14 +512,20 @@ function patchSimpleChildren(parent: Node, oldChildren: any[], newChildren: any[
 
   // Phase 2: 更新/追加剩余节点
   const max = Math.max(oldChildren.length, newChildren.length)
+  // 预先捕获旧 DOM 节点，防止 insertBefore 导致 childNodes 索引漂移
+  const oldNodes: (Node | null)[] = []
+  for (let i = 0; i < max; i++) {
+    oldNodes.push(parent.childNodes[i] || null)
+  }
   for (let i = 0; i < max; i++) {
     const oldChild = oldChildren[i]
     const newChild = newChildren[i]
-    const existingNode = parent.childNodes[i] || null
+    const existingNode = oldNodes[i]
 
     if (oldChild === undefined && newChild !== undefined) {
       const node = renderValue(newChild, ctx)
-      parent.appendChild(node)
+      // 插入到正确位置（oldNodes[i] 是此位置的 DOM 节点）
+      parent.insertBefore(node, oldNodes[i + 1] ?? null)
     } else if (oldChild !== undefined && newChild !== undefined) {
       patchValue(parent, existingNode, oldChild, newChild, ctx)
     }
