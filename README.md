@@ -1453,6 +1453,90 @@ import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
 import 'weifuwu/components/style.css'   // 包含 Token + 35 布局原语 + 组件样式，一次性引入
 ```
 
+### 使用示例
+
+```tsx
+// ├─ 按钮
+<Button variant="primary" onClick={() => alert('提交')}>提交</Button>
+<Button variant="ghost" loading>加载中</Button>
+<Button variant="danger" size="lg" block>删除</Button>
+
+// ├─ 输入框
+<Input placeholder="请输入邮箱" />
+<Input label="用户名" required error="必填" />
+<Input type="password" hint="至少6位" prefix="🔒" />
+
+// ├─ 选择器
+<Select options={[{ value: 'a', label: '选项A' }]} placeholder="请选择" />
+<Select searchable options={options} onChange={v => setVal(v)} />
+
+// ├─ 复选框 / 开关 / 单选
+<Checkbox checked={agree} onChange={setAgree} label="同意协议" />
+<Switch checked={enabled} onChange={setEnabled} />
+<RadioGroup options={[{ value: '1', label: '男' }, { value: '2', label: '女' }]} value={gender} />
+
+// ├─ 表格
+<Table columns={[{ key: 'id', label: 'ID', sortable: true }, { key: 'name', label: '名称' }]}
+       data={rows} sortKey="id" sortOrder="asc" onSort={(k, o) => setSort(k, o)} />
+
+// ├─ 模态框 / 抽屉
+<Modal open={show} title="提示" onClose={() => setShow(false)} width="500px" closable>
+  <p>确认删除？</p>
+</Modal>
+<Drawer open={open} title="详情" onClose={() => setOpen(false)} position="right">内容</Drawer>
+
+// ├─ 消息提示
+<Toast toasts={items} position="top-right" max={5} onRemove={id => remove(id)} />
+<Alert variant="warning" closable>注意：磁盘空间不足</Alert>
+
+// ├─ 标签 / 徽标 / 头像
+<Badge count={5}>消息</Badge>
+<Badge variant="success">通过</Badge>
+<Tag variant="blue" closable onClose={() => {}}>标签</Tag>
+<Avatar name="张三" size="lg" />
+
+// ├─ 卡片 / 统计卡片
+<Card title="卡片标题" extra={<a href="#">更多</a>}>卡片内容</Card>
+<StatCard title="总用户" value="1,234" trend={12.5} variant="primary" />
+
+// ├─ 标签页 / 下拉菜单
+<Tabs items={[{ key: 'a', label: '标签A' }, { key: 'b', label: '标签B' }]} activeKey="a" onChange={setTab} />
+<Dropdown items={[{ label: '编辑', onClick: () => {} }, { label: '删除', danger: true }]}>操作</Dropdown>
+
+// ├─ 分页 / 步骤条
+<Pagination total={100} page={1} pageSize={10} onChange={setPage} />
+<Steps items={[{ title: '第一步' }, { title: '第二步' }]} current={1} />
+
+// ├─ 滑块 / 进度条
+<Slider min={0} max={100} value={50} onChange={setValue} />
+<ProgressBar value={75} variant="success" label="75%" />
+
+// ├─ 面包屑 / 分割线
+<Breadcrumb items={[{ label: '首页' }, { label: '用户管理' }]} />
+<Divider />
+<Divider orientation="left">分割文字</Divider>
+
+// ├─ 加载 / 空状态 / 骨架屏
+<Loading text="加载中..." />
+<EmptyState title="暂无数据" description="请先创建一条记录" action={<Button>新建</Button>} />
+<Skeleton variant="text" lines={3} />
+<Skeleton variant="table" lines={5} cols={4} />
+<Skeleton variant="avatar" />
+<Skeleton variant="image" />
+
+// ├─ 表单验证
+<Form validation={{ email: [{ required: true, message: '请输入邮箱' }] }}
+      onSubmit={values => api.post('/login', values)}
+      onError={errors => setErrors(errors)}>
+  <Field label="邮箱" error={errors.email}>
+    <Input name="email" />
+  </Field>
+  <Button type="submit">登录</Button>
+</Form>
+```
+
+> 所有组件引用 `--wf-*` CSS 变量做主题，详见下文的「样式定制指南」。
+
 ## 组件列表
 
 ### 表单核心
@@ -1663,6 +1747,190 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 document.documentElement.setAttribute('data-theme', 'dark')
 // 所有 var(--wf-*) 自动切换
 ```
+
+---
+
+# 样式定制指南
+
+## 全局主题变量
+
+所有组件引用 `--wf-*` CSS 变量。在根元素覆盖即可定制主题：
+
+```css
+:root {
+  --wf-color-primary: #6366f1;
+  --wf-color-primary-hover: #4f46e5;
+  --wf-radius: 8px;
+  --wf-font-sans: 'Inter', system-ui, sans-serif;
+}
+```
+
+## 暗色模式
+
+```ts
+document.documentElement.setAttribute('data-theme', 'dark')
+```
+
+所有 `--wf-*` 变量在 `[data-theme="dark"]` 下自动切换。可自定义暗色变量：
+
+```css
+[data-theme="dark"] {
+  --wf-color-bg: #1a1a2e;
+  --wf-color-text: #e0e0e0;
+  --wf-color-border: #2a2a4a;
+}
+```
+
+## 组件级覆盖
+
+```css
+/* 覆盖 Button 主色 */
+.wf-btn--primary {
+  background: #06b6d4;
+  border-color: #06b6d4;
+}
+
+/* 覆盖 Modal 圆角 */
+.wf-modal-content {
+  border-radius: 16px;
+}
+```
+
+## 作用域主题
+
+```html
+<div style="--wf-color-primary: #f59e0b;">
+  <!-- 此区域内组件使用金色主题，外部不受影响 -->
+  <button class="wf-btn wf-btn--primary">金色按钮</button>
+</div>
+```
+
+CSS 变量会沿 DOM 树继承，利用这一点可实现多主题共存。
+
+---
+
+# 组合场景示例
+
+## 登录表单
+
+```tsx
+const LoginPage = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.errors = {}
+  $.submitting = false
+
+  return (props) =>
+    h('div', { class: 'wf-stack', style: { maxWidth: 400, margin: '40px auto' } },
+      h(Card, { shadow: 'md' },
+        h('div', { class: 'wf-stack', style: { gap: 'var(--wf-space-md)' } },
+          h('h2', {}, '登录'),
+          h(Form, {
+            validation: {
+              email: [{ required: true, pattern: /@/, message: '请输入有效邮箱' }],
+              password: [{ required: true, minLength: 6, message: '密码至少6位' }],
+            },
+            onSubmit: async (values) => {
+              $.submitting = true
+              await api.post('/login', values)
+              $.submitting = false
+            },
+            onError: (errors) => { $.errors = errors },
+          }, [
+            h(Field, { label: '邮箱', error: $.errors.email },
+              h(Input, { name: 'email', type: 'email', placeholder: 'name@example.com' })),
+            h(Field, { label: '密码', error: $.errors.password },
+              h(Input, { name: 'password', type: 'password' })),
+            h(Button, { type: 'submit', loading: $.submitting, block: true }, '登录'),
+          ])
+        )
+      )
+    )
+}
+```
+
+## 数据列表 + 搜索
+
+```tsx
+const UserList = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.keyword = ''
+  $.sortKey = 'name'
+  $.sortOrder = 'asc'
+  const users = [
+    { id: 1, name: '张三', email: 'zhang@example.com', role: '管理员' },
+    { id: 2, name: '李四', email: 'li@example.com', role: '编辑' },
+  ]
+
+  const filtered = users.filter(u =>
+    !$.keyword || u.name.includes($.keyword) || u.email.includes($.keyword)
+  )
+
+  return (props) =>
+    h('div', { class: 'wf-stack', style: { gap: 'var(--wf-space-md)' } },
+      h('div', { class: 'wf-row', style: { justifyContent: 'space-between', alignItems: 'center' } },
+        h(SearchInput, { placeholder: '搜索用户...', value: $.keyword, onSearch: (v: string) => { $.keyword = v } }),
+        h(Button, { variant: 'primary' }, '新建用户'),
+      ),
+      h(Table, {
+        columns: [
+          { key: 'id', label: 'ID', width: 60 },
+          { key: 'name', label: '姓名', sortable: true },
+          { key: 'email', label: '邮箱', sortable: true },
+          { key: 'role', label: '角色' },
+        ],
+        data: filtered,
+        sortKey: $.sortKey,
+        sortOrder: $.sortOrder,
+        onSort: (key, order) => { $.sortKey = key; $.sortOrder = order },
+        emptyText: '无匹配用户',
+      }),
+      h(Pagination, { total: filtered.length, page: 1, pageSize: 10, onChange: (p: number) => {} }),
+    )
+}
+```
+
+## 消息提示
+
+```tsx
+// 在任意组件中调用
+let toastId = 0
+
+function showToast(ctx: WfuiContext, type: ToastType, message: string) {
+  // 通过 ctx 管理 Toast 列表
+  const $ = ctx.ui.$()
+  $.toasts = $.toasts ?? []
+  const id = String(++toastId)
+  $.toasts = [...$.toasts, { id, type, message }]
+
+  // 自动消失
+  if (type !== 'error') {
+    setTimeout(() => {
+      $.toasts = $.toasts.filter((t: any) => t.id !== id)
+    }, 3000)
+  }
+}
+
+// 页面中使用
+const App = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.toasts = []
+
+  return (props) =>
+    h('div', {}, [
+      h(Button, {
+        onClick: () => showToast(ctx, 'success', '操作成功'),
+      }, '显示提示'),
+      h(Toast, {
+        toasts: $.toasts,
+        position: 'top-right',
+        max: 3,
+        onRemove: (id) => { $.toasts = $.toasts.filter((t: any) => t.id !== id) },
+      }),
+    ])
+}
+```
+
+---
 
 # 环境变量
 
