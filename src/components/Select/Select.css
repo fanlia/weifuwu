@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--wf-gap-xs);
+  position: relative;
 }
 
 .wf-select-label {
@@ -16,6 +17,8 @@
   color: var(--wf-color-error);
   margin-left: 2px;
 }
+
+/* ── 原生 select ── */
 
 .wf-select {
   font-family: var(--wf-font-sans);
@@ -49,4 +52,86 @@
 
 .wf-select--err .wf-select {
   border-color: var(--wf-color-error);
+}
+
+/* ── searchable select ── */
+
+.wf-select-search {
+  position: relative;
+}
+
+.wf-select-search-trigger {
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+  cursor: pointer;
+  transition: all var(--wf-transition);
+}
+.wf-select-search-trigger:focus-within {
+  border-color: var(--wf-color-primary);
+  box-shadow: var(--wf-focus-ring);
+}
+.wf-select-search--disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+.wf-select--err .wf-select-search-trigger {
+  border-color: var(--wf-color-error);
+}
+
+.wf-select-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  padding: var(--wf-space-sm) var(--wf-space);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.wf-select-search-input:read-only {
+  cursor: pointer;
+}
+
+.wf-select-search-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 2px;
+  background: var(--wf-color-bg);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  box-shadow: var(--wf-shadow-md);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: var(--wf-pop-z, 100);
+}
+
+.wf-select-search-opt {
+  padding: var(--wf-space-sm) var(--wf-space);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.wf-select-search-opt:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+.wf-select-search-opt--sel {
+  color: var(--wf-color-primary);
+  font-weight: var(--wf-font-weight-medium);
+}
+.wf-select-search-opt--dis {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-select-search-empty {
+  padding: var(--wf-space) var(--wf-space);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-tertiary);
+  text-align: center;
 }
