@@ -10,6 +10,20 @@ npm install weifuwu
 
 ---
 
+## 设计理念
+
+**零运行时依赖** — 前端无 npm 运行时依赖，不引入 Virtual DOM 库、rxjs、immer 等重型依赖。esbuild 编译 TSX 的结果即可直接运行。
+
+**两阶段组件模型** — 组件 = `(initProps, ctx) => (props) => VNode`。外层函数只执行一次（mount），内层函数每次状态/props 变化时执行（render）。无 class、无 `this`、无 Hook。
+
+**Proxy 驱动渲染** — `ctx.ui.$()` 返回深度 Proxy，`$.x = val` 自动触发 VDOM patch。无需手动调用 `useState`/`useEffect`。
+
+**中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` 等），Handler/组件从 `ctx` 读取。
+
+**SSR + 动态编译** — 后端 `ctx.ui.js()` 用 esbuild 实时编译 TSX，开发时改代码即刷即用，零构建步骤。
+
+---
+
 ## 模块总览
 
 | 导入路径 | 模块 | 用途 | 依赖 |
@@ -31,7 +45,7 @@ npm install weifuwu
 | `weifuwu/client` | **i18n** | 国际化中间件（运行时切换语言） | createApp |
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **confirm** | Promise 化确认对话框 | createApp |
-| `weifuwu/client** | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
+| `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/components` | **41 个组件** | Button/Table/Modal/Toast/... | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token | — |
 
@@ -75,6 +89,37 @@ createApp()
   .use(router({ routes: [{ path: '/', component: Home }] }))
   .mount('#root', () => <RouteView />)
 ```
+
+---
+
+## 核心概念
+
+### 中间件模式（前后端一致）
+
+```
+后端:  app.use(cors())
+       app.use(postgres())
+       app.get('/users', (req, ctx) => { ctx.sql`SELECT *` })
+       // ctx 已注入 ctx.sql
+
+前端:  createApp()
+         .use(api({ baseURL: '/api' }))
+         .use(auth())
+         .mount('#root', App)
+       // ctx 已注入 ctx.api, ctx.auth
+```
+
+### 状态管理
+
+| 模式 | 后端 | 前端 |
+|------|------|------|
+| 注入 | 中间件注入 ctx.field | 中间件注入 ctx.field |
+| 读取 | handler 读取 ctx | 组件读取 ctx |
+| 渲染 | 返回 Response | `ctx.ui.render()` / `ctx.ui.dirty()` 触发 VDOM patch |
+
+### Closeable 接口
+
+所有有状态模块（postgres、redis）实现 `close(): Promise<void>`，serve 关闭时自动调用。
 
 ---
 
@@ -417,7 +462,7 @@ app.use(ui())
 | `ctx.ui.html` | `` (strings, ...values) => Response `` | HTML 模板 (转义防 XSS) |
 | `ctx.ui.html.unsafe(str)` | `(string) => string` | 插入原始 HTML |
 | `ctx.ui.js(entryPath)` | `(string) => Promise<Response>` | esbuild 编译 TSX → JS bundle |
-| `ctx.ui.css(entryPath)` | `(string) => Promise<Response>` | 读取/编译 CSS（自动 PostCSS + Tailwind） |
+| `ctx.ui.css(entryPath)` | `(string) => Promise<Response>` | 读取 CSS 文件 → CSS Response（如安装 postcss + @tailwindcss/postcss 则自动编译） |
 
 ### ctx.ui.html — HTML 模板
 
@@ -447,9 +492,9 @@ app.get('/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))
 app.get('/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))
 ```
 
-- 纯 CSS 文件直接返回
-- 检测到 `postcss` + `@tailwindcss/postcss` 时自动编译 Tailwind CSS
-- 带 mtime 缓存验证
+- 无编译工具时直接返回原始 CSS
+- 检测到已安装 `postcss` + `@tailwindcss/postcss` 时自动编译 Tailwind CSS
+- 带 mtime 缓存验证（开发时编辑文件后自动失效）
 
 ---
 
@@ -659,7 +704,7 @@ import type { GraphQLOptions, GraphQLHandler } from 'weifuwu'
 
 # 前端 API (`weifuwu/client`)
 
-零外部 npm 运行时依赖。组件模型：纯函数 `(props, ctx) => VNode`。
+零外部 npm 运行时依赖。组件签名：`(initProps, ctx) => (props) => VNode`（两阶段模型，外层 mount 只一次，内层 render 每次变化时执行）。无状态组件可简写为 `(_init, ctx) => (props) => VNode`。
 
 构建配置（esbuild）：
 
@@ -876,6 +921,39 @@ ctx.ui.render()          // DOM 立刻更新
 **性能说明**：
 - `$.x = val` 和 `dirty()` 都是微任务批量合并：同一 tick 内 N 次赋值 → 1 次渲染
 - `render()` 每次调用都触发一次完整 diff/patch，频繁调用可能影响性能
+
+### 实践建议：日常开发 vs 组件分享
+
+**日常组件内**：优先用 `$.x = val`，无脑、自动、批量。
+
+**制作可分享组件**（组件库、npm 包、跨项目复用）时，推荐用 `ctx.ui.dirty()` 或 `ctx.ui.render()` 精确控制刷新时机：
+
+```tsx
+// 可分享的 Toast 组件：主动控制渲染，避免消费方上下文干扰
+const Toast = (_init, ctx) => {
+  let items: ToastItem[] = []
+
+  return {
+    add(item: ToastItem) {
+      items = [...items, item]
+      ctx.ui.render()       // 显式同步渲染，确保 DOM 立即可见
+    },
+    remove(id: string) {
+      items = items.filter(i => i.id !== id)
+      ctx.ui.dirty()        // 显式标记脏，下个微任务批量渲染
+    },
+    render: (props) =>
+      h('div', { class: 'toast-container' },
+        items.map(item => h('div', { key: item.id }, item.msg))
+      ),
+  }
+}
+```
+
+理由：
+- 分享出去的组件可能被用在各种上下文，`$` 的隐式自动刷新可能不可控
+- 暴露 `add/remove` 等命令式 API 时，`render()` / `dirty()` 让刷新时机**显式、可预测**
+- 消费方不需要知道组件内部用 `$` 还是闭包，只需调用 API
 
 ---
 
@@ -1369,7 +1447,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
-import 'weifuwu/components/style.css'
+import 'weifuwu/components/style.css'   // 包含 Token + 35 布局原语 + 组件样式，一次性引入
 ```
 
 ## 组件列表
@@ -1460,6 +1538,9 @@ import 'weifuwu/components/style.css'
 # 布局系统 (`weifuwu/layout`)
 
 纯 CSS 布局原语 + 72 个主题 Token。不绑定任何 JS 框架。
+
+> 如果你已经在用 `weifuwu/components/style.css`，布局系统已经包含在内，无需单独引入。
+> 本页仅适用于**非 weifuwu 项目**或**只需 CSS 布局**的场景。
 
 ```html
 <link rel="stylesheet" href="/node_modules/weifuwu/dist/layout/weifuwu-layout.css">
@@ -1572,39 +1653,6 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('./node_modules/weifuwu/dist/lay
 document.documentElement.setAttribute('data-theme', 'dark')
 // 所有 var(--wf-*) 自动切换
 ```
-
----
-
-# 核心概念
-
-## 中间件模式（前后端一致）
-
-```
-后端:  app.use(cors())
-       app.use(postgres())
-       app.get('/users', (req, ctx) => { ctx.sql`SELECT *` })
-       // ctx 已注入 ctx.sql
-
-前端:  createApp()
-         .use(api({ baseURL: '/api' }))
-         .use(auth())
-         .mount('#root', App)
-       // ctx 已注入 ctx.api, ctx.auth
-```
-
-## 状态管理
-
-| 模式 | 后端 | 前端 |
-|------|------|------|
-| 注入 | 中间件注入 ctx.field | 中间件注入 ctx.field |
-| 读取 | handler 读取 ctx | 组件读取 ctx |
-| 渲染 | 返回 Response | `ctx.ui.render()` / `ctx.ui.dirty()` 触发 VDOM patch |
-
-## Closeable 接口
-
-所有有状态模块（postgres、redis）实现 `close(): Promise<void>`，serve 关闭时自动调用。
-
----
 
 # 环境变量
 

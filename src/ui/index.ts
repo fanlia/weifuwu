@@ -3,7 +3,7 @@
  *
  * ctx.ui.html  是 tagged template，返回完整 HTML Response。
  * ctx.ui.js    编译 TSX 入口，返回 JS bundle Response。
- * ctx.ui.css   读取/编译 CSS 入口，返回 CSS Response。
+ * ctx.ui.css   读取 CSS 文件（如安装 postcss + @tailwindcss/postcss 则自动编译），返回 CSS Response。
  *
  * ```ts
  * import { ui } from 'weifuwu'
@@ -38,7 +38,7 @@ declare module '../types.ts' {
       html: UiHtmlTag
       /** 编译 TSX → JS bundle Response */
       js: (entryPath: string) => Promise<Response>
-      /** 读取/编译 CSS → CSS Response */
+      /** 读取 CSS 文件 → CSS Response（带 mtime 缓存） */
       css: (entryPath: string) => Promise<Response>
     }
   }
@@ -88,6 +88,20 @@ async function jsCacheFresh(inputs: Record<string, number>): Promise<boolean> {
   return true
 }
 const cssCache = new Map<string, { code: string; mtime: number }>()
+
+/** 检测 postcss + tailwindcss 是否可用（只检测一次） */
+let postcssAvailable: boolean | undefined
+async function checkPostcss(): Promise<boolean> {
+  if (postcssAvailable !== undefined) return postcssAvailable
+  try {
+    await import('postcss')
+    await import('@tailwindcss/postcss')
+    postcssAvailable = true
+  } catch {
+    postcssAvailable = false
+  }
+  return postcssAvailable
+}
 
 // ── 中间件 ────────────────────────────────────────────────
 
@@ -148,9 +162,9 @@ export function ui(): Middleware {
         const absPath = resolve(entryPath)
 
         // 带 mtime 的缓存失效（开发时编辑 CSS 自动更新）
-        const stat = await import('node:fs').then(fs => fs.promises.stat(absPath))
+        const st = await import('node:fs').then(fs => fs.promises.stat(absPath))
         const cached = cssCache.get(absPath)
-        if (cached && cached.mtime === stat.mtimeMs) {
+        if (cached && cached.mtime === st.mtimeMs) {
           return new Response(cached.code, {
             headers: { 'Content-Type': 'text/css; charset=utf-8' },
           })
@@ -159,18 +173,20 @@ export function ui(): Middleware {
         let code = await readFile(absPath, 'utf-8')
 
         // 如果安装了 postcss + @tailwindcss/postcss，自动编译 Tailwind CSS
-        try {
-          const postcss: any = await import('postcss')
-          const tw: any = await import('@tailwindcss/postcss')
-          const plugin = tw.default || tw
-          const instance = typeof plugin === 'function' ? plugin() : plugin
-          const result = await postcss.default([instance]).process(code, { from: absPath })
-          code = result.css
-        } catch {
-          // postcss 或 tailwindcss 未安装，直接返回原始 CSS
+        if (await checkPostcss()) {
+          try {
+            const postcss: any = await import('postcss')
+            const tw: any = await import('@tailwindcss/postcss')
+            const plugin = tw.default || tw
+            const instance = typeof plugin === 'function' ? plugin() : plugin
+            const result = await postcss.default([instance]).process(code, { from: absPath })
+            code = result.css
+          } catch (e: any) {
+            throw new Error(`PostCSS 编译失败 (${absPath}): ${e.message}`, { cause: e })
+          }
         }
 
-        cssCache.set(absPath, { code, mtime: stat.mtimeMs })
+        cssCache.set(absPath, { code, mtime: st.mtimeMs })
 
         return new Response(code, {
           headers: { 'Content-Type': 'text/css; charset=utf-8' },

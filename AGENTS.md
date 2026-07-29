@@ -243,6 +243,39 @@ measure(el)         // 读取最新 DOM
 - `$.x = val` 和 `dirty()` 都是微任务批量合并：同一 tick 内 N 次赋值 → 1 次渲染
 - `render()` 每次调用都触发一次完整 diff/patch，频繁调用可能影响性能
 
+### 实践建议：日常开发 vs 组件分享
+
+**日常组件内**：优先用 `$.x = val`，无脑、自动、批量。
+
+**制作可分享组件**（组件库、npm 包、跨项目复用）时，推荐用 `ctx.ui.dirty()` 或 `ctx.ui.render()` 精确控制刷新时机：
+
+```tsx
+// 可分享的 Toast 组件：主动控制渲染，避免消费方上下文干扰
+const Toast = (_init, ctx) => {
+  let items: ToastItem[] = []
+
+  return {
+    add(item: ToastItem) {
+      items = [...items, item]
+      ctx.ui.render()       // 显式同步渲染，确保 DOM 立即可见
+    },
+    remove(id: string) {
+      items = items.filter(i => i.id !== id)
+      ctx.ui.dirty()        // 显式标记脏，下个微任务批量渲染
+    },
+    render: (props) =>
+      h('div', { class: 'toast-container' },
+        items.map(item => h('div', { key: item.id }, item.msg))
+      ),
+  }
+}
+```
+
+理由：
+- 分享出去的组件可能被用在各种上下文，`$` 的隐式自动刷新可能不可控
+- 暴露 `add/remove` 等命令式 API 时，`render()` / `dirty()` 让刷新时机**显式、可预测**
+- 消费方不需要知道组件内部用 `$` 还是闭包，只需调用 API
+
 ## ctx.ui 生命周期
 
 ```tsx

@@ -66,9 +66,30 @@ await esbuild.build({
   external: ['weifuwu/client'],
 })
 
-// 编译组件 CSS
+// 编译 layout CSS → 单文件
+const layoutSrc = join(srcDir, 'layout')
+const layoutDist = join(distDir, 'layout')
+
+function mergeLayoutCss() {
+  const entryFile = join(layoutSrc, 'weifuwu-layout.css')
+  return readFile(entryFile, 'utf-8').then(entry => {
+    const parts = [entryFile]
+    for (const line of entry.split('\n')) {
+      const m = line.match(/@import\s+['"]([^'"]+)['"]/)
+      if (m) parts.push(join(layoutSrc, m[1]))
+    }
+    return Promise.all(parts.map(p =>
+      readFile(p, 'utf-8').then(c => c.replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, ''))
+    )).then(chunks => chunks.join('\n'))
+  })
+}
+
+const layoutCss = await mergeLayoutCss()
+await writeFile(join(layoutDist, 'weifuwu-layout.css'), layoutCss)
+
+// 编译组件 CSS = layout 全部 CSS（Token + 暗色 + 基础 + 35 布局原语）+ 各组件 CSS
 const componentDirs = ['Button', 'Input', 'Textarea', 'Select', 'Checkbox', 'Switch', 'RadioGroup', 'Table', 'Modal', 'Toast', 'Alert', 'Loading', 'EmptyState', 'Tabs', 'Dropdown', 'Pagination', 'Card', 'Badge', 'Avatar', 'Tag', 'StatCard', 'Steps', 'Form', 'Field', 'Slider', 'SearchInput', 'ProgressBar', 'Accordion', 'PageHeader', 'Breadcrumb', 'Divider', 'FileUpload', 'Tooltip', 'Drawer', 'Popover', 'Skeleton', 'Img', 'InView', 'DatePicker', 'Chart', 'Editor']
-let componentCss = ''
+let componentCss = layoutCss + '\n'
 for (const dir of componentDirs) {
   const cssPath = join(srcDir, 'components', dir, `${dir}.css`)
   try {
@@ -77,28 +98,7 @@ for (const dir of componentDirs) {
     // 组件 CSS 不存在时跳过
   }
 }
-if (componentCss) {
-  await writeFile(join(distDir, 'components', 'style.css'), componentCss)
-}
-
-// 编译 layout CSS → 单文件
-const layoutSrc = join(srcDir, 'layout')
-const layoutDist = join(distDir, 'layout')
-const entry = await readFile(join(layoutSrc, 'weifuwu-layout.css'), 'utf-8')
-const parts = [join(layoutSrc, 'weifuwu-layout.css')]
-// 解析 @import 路径，按顺序读取
-for (const line of entry.split('\n')) {
-  const m = line.match(/@import\s+['"]([^'"]+)['"]/)
-  if (m) parts.push(join(layoutSrc, m[1]))
-}
-// 合并所有 CSS 内容
-let css = ''
-for (const p of parts) {
-  const content = await readFile(p, 'utf-8')
-  // 去掉源文件中的 @import 行
-  css += content.replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, '') + '\n'
-}
-await writeFile(join(layoutDist, 'weifuwu-layout.css'), css)
+await writeFile(join(distDir, 'components', 'style.css'), componentCss)
 
 // jsx-runtime re-exports from client/index.js via package.json exports
 
