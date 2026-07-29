@@ -1,5 +1,71 @@
 # Changelog
 
+## 0.51.0 (组件级范围渲染)
+
+### ✨ New APIs
+
+- `ctx.ui.selfId(name)`：组件注册自定义 ID，同名冲突抛错
+- `ctx.ui.render(['id'])`：按 ID 精准刷新指定组件
+- `ctx.ui.dirty(['id'])`：异步版本同上
+
+### 🔧 Breaking Changes
+
+- `ctx.ui.render()` 默认从「刷新整个 VDOM」改为「刷新当前组件」
+- `ctx.ui.dirty()` 同理，作用域缩为当前组件
+- `ctx.ui.$().x = val` 只触发所属组件渲染，不波及兄弟
+
+### 🚀 Features
+
+- 组件级范围渲染：每个组件实例唯一 `_id`，通过 `idRegistry` 全局注册表可查找
+- `render()` / `dirty()` / `$` 三套 API 统一 scope 机制
+- 首次渲染后自动设置子组件 DOM 锚点（`_parentNode` / `_refNode`）
+- 手动/自动同层共存：组件库手动优先，业务层自动优先
+- 全部 472 个测试通过，42 个 components 零修改
+
+## 0.50.0 (VDOM 引擎 + 组件优化)
+
+### ✨ New APIs
+
+- `ref` prop：原生元素 DOM 引用，`ref(el)` 初始化 / `ref(null)` 清理
+
+### 🔧 Breaking Changes
+
+- 移除 `ctx.ui.onmount/onmounted/onunmount/onupdate`：
+  - `onmount` → mount 外层函数直接写
+  - `onmounted` → `ref` 的 `if (el)` 分支
+  - `onunmount` → `ref` 的 `else` 分支
+  - `onupdate` → render 内层函数收新 props
+- `ref` 不再接受返回值，清理统一走 `ref(null)`
+- 移除 VNode `_$` 和 `_cleanup` 内部字段
+
+### 🚀 Features
+
+- Form 验证规则：required / pattern / minLength / maxLength / validator
+- Table 排序：sortable / sorter / sortKey / sortOrder / onSort + emptyText
+- Toast 位置（5 方向）/ duration / max 数量限制
+- Select searchable 搜索过滤 + onSearch 异步搜索
+- Modal width / closable 控制
+- Skeleton 新增 image / avatar / table 变体
+- Tooltip / Popover / Dropdown 入场动画（fade / scale / slide）
+
+### 🐛 Bug Fixes
+
+- Editor 图片按钮导致内容重复（children 索引漂移修复）
+- Editor 图片/表格/链接不跟随光标（选区保存恢复机制）
+- Editor ref 无效（VDOM ref prop 实现）
+- DatePicker/Dropdown 弹出框位置跳跃（DOM 引用过期）
+- Popover 弹窗位置偏移（缺少 position CSS class）
+- Modal/Drawer trapFocus 因 Portal 文本占位符崩溃
+- Drawer 缺少 ESC 键盘关闭
+- Portal 组件 onmounted 收到 TextNode 而非实际 DOM
+
+### 🧹 Chores
+
+- 前端 API 从 7 个精简到 3 个：render / dirty / $
+- VNode 内部字段从 9 个精简到 6 个
+- 测试 473 → 466（移除生命周期测试，新增 ref 测试）
+- render.ts 从 ~680 行精简到 ~620 行
+
 ## 0.33.8 (Sprint 1-11 — weifuwu/client DX overhaul)
 
 ### ✨ New APIs
