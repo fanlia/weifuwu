@@ -288,6 +288,35 @@ ctx.ui.onupdate((prevProps) => {})    // props 变化时触发
 - 所有钩子在 `_renderCount` 保护内执行，`$.x = val` 不触发额外 dirty
 - `onmount` 触发时 DOM 还未创建，第三方库初始化仍用 `ref`
 
+### ctx.ui.el — 组件根元素
+
+框架自动追踪组件的根 DOM 元素，通过 `ctx.ui.el` 访问（无需写 `ref`）：
+
+```tsx
+const AutoHeight = (_init, ctx) => {
+  // render 阶段 ctx.ui.el 指向当前根 DOM
+  return (props) => {
+    const height = ctx.ui.el?.clientHeight ?? 0
+    return h('div', { style: { minHeight: '100px' } }, `高度: ${height}px`)
+  }
+}
+
+const EChart = (_init, ctx) => {
+  let instance: echarts.ECharts | undefined
+
+  // onmounted 阶段 ctx.ui.el 可用
+  ctx.ui.onmounted(() => {
+    instance = echarts.init(ctx.ui.el!)
+    return () => instance?.dispose()
+  })
+
+  return (props) =>
+    h('div', { style: { width: '100%', height: '400px' } })
+}
+```
+
+> `ctx.ui.el` 在首次渲染的 mount 阶段为 `null`，首次 render 后及后续 render 中始终指向当前根 DOM。
+
 ## ref 管理第三方库
 
 ```tsx

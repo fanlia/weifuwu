@@ -105,6 +105,9 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   ;(ctx as any).ui.onupdate = (fn: Function) => { _target._hooks.update = [fn] }
   ;(ctx as any).ui.onmounted = (fn: Function) => { _target._onmounted = fn }
 
+  // 将当前根元素暴露给组件（render 阶段可用 ctx.ui.el）
+  ;(ctx as any).ui.el = _target._rootEl ?? null
+
   let childVNode
   try {
     childVNode = Comp(props, ctx)
@@ -140,6 +143,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   }
   vnode._child = childVNode
   const rootNode = renderValue(childVNode, ctx)
+  _target._rootEl = rootNode
   if (_target._onmounted && !prev$) {
     // Portal 组件的根节点是文本占位符，传实际 Portal 容器给 onmounted
     const portalVNode = childVNode as VNode
@@ -330,6 +334,9 @@ export function patchValue(
       ;(ctx as any).ui.onmounted = (fn: Function) => { _tgt._onmounted = fn }
     }
 
+    // 更新 ctx.ui.el 为当前根元素（patch 时组件 render 函数可用）
+    ;(ctx as any).ui.el = _tgt._rootEl ?? null
+
     // update hooks：props 变化时触发
     if (oldV._$) {
       const uh = _tgt._hooks?.update
@@ -367,7 +374,10 @@ export function patchValue(
       _tgt._hooks.unmount = []
     }
 
-    return patchValue(parent, oldNode, _prevChild, childNew, ctx)
+    const patchedNode = patchValue(parent, oldNode, _prevChild, childNew, ctx)
+    // 更新根元素引用（patch 可能替换了 DOM 节点）
+    if (patchedNode) _tgt._rootEl = patchedNode
+    return patchedNode
   }
 
   // Fragment

@@ -22,6 +22,8 @@ export interface WfuiContext {
     onunmount: (fn: () => void) => void
     /** props 变化时触发，接收旧 props */
     onupdate: (fn: (prevProps: any) => void) => void
+    /** 当前组件的根 DOM 元素（render 阶段可用，首次渲染时为 null） */
+    el: Element | null
   }
 
   /** 路由（由 router 中间件注入） */
