@@ -149,6 +149,23 @@ export function createApp() {
             if (selfId) (ctx as any).ui.dirty([selfId])
           })
         },
+
+        /** 注册组件实例的自定义 ID（用于跨组件精准刷新） */
+        selfId: function (name: string) {
+          if (typeof name !== 'string' || !name) {
+            throw new Error(`[weifuwu] selfId requires a non-empty string, got ${typeof name}`)
+          }
+          if (idRegistry.has(name)) {
+            throw new Error(
+              `[weifuwu] Duplicate component ID: "${name}". ` +
+              `Each component must have a unique custom ID.`
+            )
+          }
+          const vnode = (this as any)._selfVNode
+          if (!vnode) return
+          vnode._customId = name
+          idRegistry.set(name, vnode)
+        },
       }
 
       // ── 首次渲染 ──────────────────────────────────────

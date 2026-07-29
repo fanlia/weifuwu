@@ -14,8 +14,12 @@ export interface WfuiContext {
     dirty: (ids?: string[]) => void
     /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
     $: () => Record<string, any>
+    /** 注册组件实例的自定义语义 ID，同名冲突抛错 */
+    selfId: (name: string) => void
     /** 当前组件实例 ID（仅供内部使用，通过 ctx 扩展注入） */
     _selfId?: string
+    /** 当前组件 VNode 引用（仅供内部使用，通过 ctx 扩展注入） */
+    _selfVNode?: any
   }
 
   /** 路由（由 router 中间件注入） */

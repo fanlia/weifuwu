@@ -110,10 +110,11 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
     idRegistry.set(vnode._id, vnode)
   }
 
-  // 扩展 ctx：每个组件有自己的 _selfId
+  // 扩展 ctx：每个组件有自己的 _selfId 和 VNode 引用
   const childCtx = Object.create(ctx) as WfuiContext
   childCtx.ui = Object.create(ctx.ui as any) as any
   childCtx.ui._selfId = vnode._id
+  childCtx.ui._selfVNode = vnode
 
   let childVNode
   try {
@@ -314,10 +315,11 @@ export function patchValue(
     newV._parentNode = parent
     newV._refNode = oldNode
 
-    // 扩展 ctx：注入 _selfId
+    // 扩展 ctx：注入 _selfId 和 VNode 引用
     const childCtx = Object.create(ctx) as WfuiContext
     childCtx.ui = Object.create(ctx.ui as any) as any
     childCtx.ui._selfId = newV._id
+    childCtx.ui._selfVNode = newV
 
     let childNew
     try {

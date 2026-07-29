@@ -207,4 +207,81 @@ describe('scoped render', () => {
     assert.equal(renderCount, 3)
     el.remove()
   })
+
+  it('selfId 注册自定义 ID 可精准刷新', async () => {
+    let renderCustom = 0
+
+    const Custom = (_: any, ctx: any) => {
+      ctx.ui.selfId('my-custom')
+      return () => {
+        renderCustom++
+        return { type: 'span', props: { children: 'custom' }, key: undefined }
+      }
+    }
+
+    const Root = () => () => ({
+      type: 'div',
+      props: { children: { type: Custom, props: {}, key: undefined } },
+      key: undefined,
+    })
+
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 's9'
+    await app.mount('#s9', Root)
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderCustom, 1)
+
+    // 通过自定义 ID 精准刷新
+    ;(app as any).ctx.ui.render(['my-custom'])
+    assert.equal(renderCustom, 2)
+    el.remove()
+  })
+
+  it('selfId 同名冲突抛错', async () => {
+    const A = (_: any, ctx: any) => {
+      ctx.ui.selfId('dup')
+      return () => ({ type: 'span', props: {}, key: undefined })
+    }
+    const B = (_: any, ctx: any) => {
+      ctx.ui.selfId('dup')
+      return () => ({ type: 'span', props: {}, key: undefined })
+    }
+    const Root = () => () => ({
+      type: 'div',
+      props: { children: [{ type: A, props: {}, key: undefined }, { type: B, props: {}, key: undefined }] },
+      key: undefined,
+    })
+
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 's10'
+    try {
+      await app.mount('#s10', Root)
+      assert.fail('should throw on duplicate selfId')
+    } catch (e: any) {
+      assert.ok(e.message.includes('dup'), 'error mentions duplicate name')
+    }
+    el.remove()
+  })
+
+  it('selfId 空字符串抛错', async () => {
+    const Comp = (_: any, ctx: any) => {
+      try {
+        ctx.ui.selfId('')
+      } catch (e: any) {
+        ctx.__caught = e
+      }
+      return () => ({ type: 'span', props: {}, key: undefined })
+    }
+
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 's11'
+    await app.mount('#s11', () => () => ({ type: 'div', props: { children: { type: Comp, props: {}, key: undefined } }, key: undefined }))
+    el.remove()
+  })
 })
