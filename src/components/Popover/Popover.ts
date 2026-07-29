@@ -40,7 +40,6 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
     // ── 位置更新（在事件中触发）──
     const updatePos = (e: Event) => {
       pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
-      ctx.ui.render()
     }
 
     // ── 事件处理 ────────────────────────────────────
@@ -65,7 +64,7 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
     }) : null
 
     const popover = isOpen ? h('div', {
-      class: 'wf-popover wf-popover--enter',
+      class: `wf-popover wf-popover--${position} wf-popover--enter`,
       style: { top: p.top, left: p.left },
       role: 'tooltip',
     }, [
