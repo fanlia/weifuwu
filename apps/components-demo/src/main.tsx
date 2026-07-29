@@ -96,9 +96,9 @@ const DemoSelect: Component = (_props, ctx) => {
   let role = ''
   return (_p: any) => (
     <div class="wf-stack" style="gap:8px;width:100%">
-      <Select label="角色" placeholder="请选择（试试切换）"
+      <Select label="原生 select" placeholder="请选择"
         value={role}
-        onChange={e => { role = (e.target as HTMLSelectElement).value; ctx.ui.render() }}
+        onChange={v => { role = v; ctx.ui.render() }}
         options={[
           { value: 'admin', label: '管理员' },
           { value: 'user', label: '普通用户' },
@@ -168,14 +168,25 @@ const DemoSlider: Component = (_props, ctx) => {
 }
 
 const DemoForm: Component = (_props, ctx) => {
-  let uname = ''
-  let umail = ''
-  let submitted = false
+  const $ = ctx.ui.$()
+  $.errors = {}
+  $.submitted = false
+
   return (_p: any) => (
-    <Form onSubmit={() => { submitted = true; ctx.ui.render(); setTimeout(() => { submitted = false; ctx.ui.render() }, 2000) }}>
-      <Input label="用户名" required placeholder="输入用户名" value={uname} onInput={e => { uname = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
-      <Input label="邮箱" type="email" required placeholder="email@example.com" value={umail} onInput={e => { umail = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
-      {submitted && <Alert variant="success">表单已提交！</Alert>}
+    <Form
+      validation={{
+        username: [{ required: true, message: '请输入用户名' }],
+        email: [{ required: true, pattern: /@/, message: '请输入有效邮箱' }],
+      }}
+      onSubmit={() => { $.submitted = true }}
+      onError={(errors) => { $.errors = errors }}>
+      <Field label="用户名" error={$.errors.username}>
+        <Input name="username" placeholder="输入用户名" />
+      </Field>
+      <Field label="邮箱" error={$.errors.email}>
+        <Input name="email" type="email" placeholder="email@example.com" />
+      </Field>
+      {$.submitted && <Alert variant="success">表单已提交！</Alert>}
       <Button type="submit" variant="primary">提交表单</Button>
     </Form>
   )
@@ -223,7 +234,9 @@ const DemoProgress: Component = (_props, ctx) => {
 }
 
 const DemoTable: Component = (_props, ctx) => {
-  let selected: any = null
+  const $ = ctx.ui.$()
+  $.sortKey = 'name'
+  $.sortOrder = 'asc'
   const data = [
     { id: 1, name: '张三', role: '管理员', status: '活跃' },
     { id: 2, name: '李四', role: '编辑', status: '离线' },
@@ -233,36 +246,54 @@ const DemoTable: Component = (_props, ctx) => {
     <div class="wf-stack" style="gap:8px;width:100%">
       <Table data={data} columns={[
         { key: 'id', label: 'ID', width: 60 },
-        { key: 'name', label: '姓名' },
-        { key: 'role', label: '角色' },
+        { key: 'name', label: '姓名', sortable: true },
+        { key: 'role', label: '角色', sortable: true },
         { key: 'status', label: '状态', render: v => <Badge variant={v === '活跃' ? 'success' : 'default'}>{v}</Badge> },
-      ]} />
-      {selected && <div style="font-size:12px;color:var(--wf-color-text-secondary)">已选: {selected}</div>}
+      ]}
+        sortKey={$.sortKey} sortOrder={$.sortOrder}
+        onSort={(key, order) => { $.sortKey = key; $.sortOrder = order }} />
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">点击列头排序（姓名 / 角色）</div>
     </div>
   )
 }
 
 const DemoModal: Component = (_props, ctx) => {
-  let open = false
+  const $ = ctx.ui.$()
+  $.open = false
+  $.width = '420px'
+  $.closable = true
   return (_p: any) => (
-    <div class="wf-row">
-      <Button variant="primary" onClick={() => { open = true; ctx.ui.render() }}>打开弹窗</Button>
-      <Modal open={open} title="确认操作" onClose={() => { open = false; ctx.ui.render() }}
-        footer={<Button variant="primary" onClick={() => { open = false; ctx.ui.render() }}>确定</Button>}>
-        <p>这是弹窗内容。点击遮罩、ESC 键或" 确定"关闭。</p>
+    <div class="wf-stack" style="gap:8px">
+      <div class="wf-row" style="gap:8px;align-items:center">
+        <Button variant="primary" onClick={() => { $.open = true }}>打开弹窗</Button>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+          <input type="checkbox" checked={$.closable} onChange={(e: any) => { $.closable = e.target.checked }} />
+          显示关闭按钮
+        </label>
+        <select value={$.width} onChange={(e: any) => { $.width = e.target.value }} style="font-size:12px;padding:2px 4px">
+          <option value="360px">窄 (360px)</option>
+          <option value="420px">中 (420px)</option>
+          <option value="600px">宽 (600px)</option>
+        </select>
+      </div>
+      <Modal open={$.open} title="确认操作" width={$.width} closable={$.closable}
+        onClose={() => { $.open = false }}
+        footer={<Button variant="primary" onClick={() => { $.open = false }}>确定</Button>}>
+        <p>这是弹窗内容。试试切换右上角的设置。</p>
       </Modal>
     </div>
   )
 }
 
 const DemoToast: Component = (_props, ctx) => {
-  let toasts: ToastItem[] = []
+  const $ = ctx.ui.$()
+  $.toasts = [] as ToastItem[]
+  $.position = 'top-right'
   function add(type: ToastType) {
     const id = String(Date.now())
     const msgs: Record<ToastType, string> = { success: '操作成功完成', error: '发生了一个错误', warning: '请注意：此操作不可撤销', info: '这是一条提示信息' }
-    toasts = [...toasts, { id, type, message: msgs[type] }]
-    ctx.ui.render()
-    setTimeout(() => { toasts = toasts.filter(t => t.id !== id); ctx.ui.render() }, 3000)
+    $.toasts = [...$.toasts, { id, type, message: msgs[type] }]
+    setTimeout(() => { $.toasts = $.toasts.filter((t: any) => t.id !== id) }, 3000)
   }
   return (_p: any) => (
     <div class="wf-stack" style="gap:8px">
@@ -272,7 +303,18 @@ const DemoToast: Component = (_props, ctx) => {
         <Button variant="secondary" onClick={() => add('warning')}>警告</Button>
         <Button variant="ghost" onClick={() => add('info')}>信息</Button>
       </div>
-      <Toast toasts={toasts} onRemove={id => { toasts = toasts.filter(t => t.id !== id); ctx.ui.render() }} />
+      <div class="wf-row" style="gap:4px;font-size:12px;color:var(--wf-color-text-secondary);align-items:center">
+        <span>位置:</span>
+        <select value={$.position} onChange={(e: any) => { $.position = e.target.value }}>
+          <option value="top-right">右上</option>
+          <option value="top-left">左上</option>
+          <option value="bottom-right">右下</option>
+          <option value="bottom-left">左下</option>
+          <option value="top-center">顶部居中</option>
+        </select>
+      </div>
+      <Toast toasts={$.toasts} position={$.position} max={3}
+        onRemove={id => { $.toasts = $.toasts.filter((t: any) => t.id !== id) }} />
     </div>
   )
 }
@@ -308,16 +350,18 @@ const DemoLoading: Component = (_props, ctx) => {
 
 const DemoSkeleton: Component = () => () => (
   <div class="wf-stack" style="gap:12px">
-    <Skeleton />
-    <Skeleton lines={3} />
     <div class="wf-row" style="gap:12px;align-items:center">
-      <Skeleton variant="circle" width={40} height={40} />
+      <Skeleton variant="avatar" />
       <div class="wf-stack" style="gap:6px;flex:1">
         <Skeleton width="60%" />
         <Skeleton />
       </div>
     </div>
-    <Skeleton variant="rect" width="100%" height={100} />
+    <Skeleton variant="image" />
+    <Skeleton variant="table" lines={3} cols={4} />
+    <Skeleton variant="rect" width="100%" height={80} />
+    <Skeleton variant="circle" width={40} height={40} />
+    <Skeleton lines={3} />
   </div>
 )
 
@@ -466,6 +510,27 @@ const DemoAccordion: Component = () => () => (
     ]} />
   </div>
 )
+
+const DemoSearchableSelect: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
+  $.value = ''
+  const options = [
+    { value: 'zhang', label: '张三 (zhang@example.com)' },
+    { value: 'li', label: '李四 (li@example.com)' },
+    { value: 'wang', label: '王五 (wang@example.com)' },
+    { value: 'zhao', label: '赵六 (zhao@example.com)' },
+    { value: 'qian', label: '钱七 (qian@example.com)' },
+  ]
+  return (_p: any) => (
+    <div class="wf-stack" style="gap:8px;width:100%">
+      <Select searchable label="搜索选择用户" placeholder="输入姓名或邮箱搜索..."
+        value={$.value}
+        onChange={v => { $.value = v }}
+        options={options} />
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">已选: {options.find(o => o.value === $.value)?.label || '(未选择)'}</div>
+    </div>
+  )
+}
 
 // ── 新增组件 Demo ────────────────────────────────────
 
@@ -692,10 +757,14 @@ const CODE = {
 <Textarea error="错误" />`,
 
   select: `<Select label="角色" value={role}
-  onChange={e => role = e.target.value}
+  onChange={v => role = v}
   options={[
     {value:'admin',label:'管理员'},
-  ]} />`,
+  ]} />
+{/* searchable 搜索过滤 */}
+<Select searchable
+  options={options}
+  onChange={v => setVal(v)} />`,
 
   checkbox: `<Checkbox label="同意"
   checked={agree}
@@ -715,8 +784,15 @@ const CODE = {
   slider: `<Slider label="音量" value={volume}
   onChange={v => volume = v} />`,
 
-  form: `<Form onSubmit={handleSubmit}>
-  <Input label="用户名" required />
+  form: `<Form
+  validation={{
+    email: {required: true, message: '必填'},
+  }}
+  onSubmit={values => ...}
+  onError={errors => ...}>
+  <Field label="邮箱" error={errors.email}>
+    <Input name="email" />
+  </Field>
   <Button type="submit">提交</Button>
 </Form>`,
 
@@ -735,18 +811,25 @@ const CODE = {
 
   table: `<Table data={items} columns={[
   {key:'id', label:'ID'},
+  {key:'name', label:'姓名', sortable: true},
   {key:'status', label:'状态',
     render: v => <Badge>{v}</Badge>},
-]} />`,
+]}
+  sortKey="name" sortOrder="asc"
+  onSort={(k,o) => setSort(k,o)} />`,
 
   modal: `<Modal open={open}
   title="标题"
+  width="500px"
+  closable={false}
   onClose={() => open = false}>
   <p>内容</p>
 </Modal>`,
 
   toast: `// toasts: [{id, type, message}]
 <Toast toasts={toasts}
+  position="top-right"
+  max={3}
   onRemove={id => ...} />`,
 
   alert: `<Alert variant="info">提示</Alert>
@@ -759,6 +842,9 @@ const CODE = {
 
   skeleton: `<Skeleton />
 <Skeleton lines={3} />
+<Skeleton variant="avatar" />
+<Skeleton variant="image" />
+<Skeleton variant="table" lines={3} cols={4} />
 <Skeleton variant="circle" width={40} height={40} />
 <Skeleton variant="rect" width="100%" height={100} />`,
 
@@ -904,7 +990,7 @@ const App: Component = (_props, ctx) => {
         <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p style="color:var(--wf-color-text-secondary)">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
-          <Badge variant="primary">37 组件</Badge>
+          <Badge variant="primary">41 组件</Badge>
           <Badge variant="success">178 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
@@ -914,7 +1000,8 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Button" desc="4 variants × 3 sizes + loading + block + disabled" code={CODE.button}><DemoButton /></DemoCard>
         <DemoCard title="Input" desc="text/email/password/number，支持 label/error/hint/required" code={CODE.input}><DemoInput /></DemoCard>
         <DemoCard title="Textarea" desc="多行文本，支持 rows/label/error/hint" code={CODE.textarea}><DemoTextarea /></DemoCard>
-        <DemoCard title="Select" desc="下拉选择器，options/placeholder/label/error" code={CODE.select}><DemoSelect /></DemoCard>
+        <DemoCard title="Select" desc="原生下拉选择器" code={CODE.select}><DemoSelect /></DemoCard>
+        <DemoCard title="Select (searchable)" desc="搜索过滤下拉，输入即搜" code={CODE.select}><DemoSearchableSelect /></DemoCard>
       </Section>
 
       <Section title="表单选择">
@@ -925,7 +1012,7 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <Section title="表单增强">
-        <DemoCard title="Form" desc="自动 preventDefault，提供 onSubmit 回调" code={CODE.form}><DemoForm /></DemoCard>
+        <DemoCard title="Form" desc="内置验证规则：required/pattern/minLength/自定义" code={CODE.form}><DemoForm /></DemoCard>
         <DemoCard title="Field" desc="label+error+hint 容器" code={CODE.field}><DemoField /></DemoCard>
         <DemoCard title="FileUpload" desc="文件上传，拖拽区 + 文件列表 + accept/maxSize" code={CODE.fileUpload}><DemoFileUpload /></DemoCard>
         <DemoCard title="SearchInput" desc="搜索输入框，带清除按钮" code={CODE.search}><DemoSearchInput /></DemoCard>
@@ -933,7 +1020,7 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <Section title="数据展示">
-        <DemoCard title="Table" desc="动态表格，columns 支持 render 自定义" code={CODE.table}><DemoTable /></DemoCard>
+        <DemoCard title="Table" desc="可排序 + 自定义 render + 空状态" code={CODE.table}><DemoTable /></DemoCard>
         <DemoCard title="Card" desc="容器，支持 default/outlined/clickable" code={CODE.card}><DemoCardShowcase /></DemoCard>
         <DemoCard title="Badge" desc="状态标签 + 圆点，6 种 variant" code={CODE.badge}><DemoBadge /></DemoCard>
         <DemoCard title="Tag" desc="标签，支持 closable/onClose" code={CODE.tag}><DemoTag /></DemoCard>
@@ -948,14 +1035,14 @@ const App: Component = (_props, ctx) => {
 
       <Section title="数据反馈">
         <DemoCard title="DatePicker" desc="日期选择器，四种模式：date/datetime/time/range" code={CODE.datepicker}><DemoDatePicker /></DemoCard>
-        <DemoCard title="Modal" desc="弹窗，ESC + overlay 关闭" code={CODE.modal}><DemoModal /></DemoCard>
+        <DemoCard title="Modal" desc="自定义宽度 + closable 控制关闭按钮" code={CODE.modal}><DemoModal /></DemoCard>
         <DemoCard title="Drawer" desc="侧边面板，左右滑入 + ESC 关闭" code={CODE.drawer}><DemoDrawer /></DemoCard>
         <DemoCard title="Popover" desc="通用弹出层，click/hover 触发，4 方向" code={CODE.popover}><DemoPopover /></DemoCard>
         <DemoCard title="Tooltip" desc="hover 浮动提示，4 方向" code={CODE.tooltip}><DemoTooltip /></DemoCard>
-        <DemoCard title="Toast" desc="提示消息 success/error/warning/info" code={CODE.toast}><DemoToast /></DemoCard>
+        <DemoCard title="Toast" desc="5 种位置 + 自动消失 + 数量限制" code={CODE.toast}><DemoToast /></DemoCard>
         <DemoCard title="Alert" desc="信息提示条，4 种 variant + closable" code={CODE.alert}><DemoAlert /></DemoCard>
         <DemoCard title="Loading" desc="加载状态，支持自定义文字" code={CODE.loading}><DemoLoading /></DemoCard>
-        <DemoCard title="Skeleton" desc="骨架屏占位，支持 text/circle/rect + 多行" code={CODE.skeleton}><DemoSkeleton /></DemoCard>
+        <DemoCard title="Skeleton" desc="text/circle/rect/image/avatar/table 六种变体" code={CODE.skeleton}><DemoSkeleton /></DemoCard>
         <DemoCard title="EmptyState" desc="空状态占位，支持 icon/text/hint/action" code={CODE.empty}><DemoEmptyState /></DemoCard>
       </Section>
 
@@ -973,7 +1060,7 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <div style="text-align:center;padding:var(--wf-space-xl) 0;color:var(--wf-color-text-tertiary);font-size:var(--wf-font-size-sm)">
-        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 37 个组件 · 打开 devtools 查看代码'}
+        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 41 个组件 · 打开 devtools 查看代码'}
       </div>
     </div>
   )
@@ -983,7 +1070,7 @@ createApp()
   .use(confirm())
   .use(i18n({ locale: 'zh-CN', messages: {
     'app.title': 'weifuwu/components',
-    'app.desc': '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',
+    'app.desc': '41 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',
     'app.footer': 'weifuwu/components · 全部 37 个组件 · 打开 devtools 查看代码',
   } }))
   .mount('#root', App)
