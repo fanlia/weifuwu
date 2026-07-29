@@ -107,10 +107,15 @@ function wrapComponent(Comp: Component, _ctx: WfuiContext): VNode {
 
 /** 创建响应式状态容器：深度 Proxy，任意层级属性赋值自动触发 render */
 function createReactiveState(dirty: () => void): Record<string, any> {
+  const proxyCache = new WeakMap()
+
   const reactive = (target: any): any => {
     if (target === null || typeof target !== 'object') return target
 
-    return new Proxy(target, {
+    // 相同底层对象返回同一 Proxy 实例，保证引用稳定、减少 GC
+    if (proxyCache.has(target)) return proxyCache.get(target)
+
+    const proxy = new Proxy(target, {
       set(target, key, value) {
         const old = Reflect.get(target, key)
         if (old === value) return true
@@ -132,6 +137,9 @@ function createReactiveState(dirty: () => void): Record<string, any> {
         return true
       },
     })
+
+    proxyCache.set(target, proxy)
+    return proxy
   }
 
   return reactive({})
