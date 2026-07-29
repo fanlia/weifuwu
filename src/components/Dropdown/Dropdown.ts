@@ -22,11 +22,8 @@ export interface DropdownProps {
 
 export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   // ── mount（只一次）──
-  let wrapEl: HTMLElement | undefined
-
-  ctx.ui.onmounted((el) => {
-    wrapEl = el as HTMLElement
-  })
+  const getWrapEl = (): HTMLElement | null =>
+    document.querySelector('.wf-dropdown')
 
   // ── render（每次 dirty/props 变化）──
   return (props: DropdownProps) => {
@@ -35,8 +32,9 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     // ── 位置计算 ──────────────────────────────────────
     const pos = (() => {
       if (!open) return { top: 0, left: 0 }
-      if (!wrapEl) return { top: 0, left: 0 }
-      const r = wrapEl.getBoundingClientRect()
+      const wrap = getWrapEl()
+      if (!wrap) return { top: 0, left: 0 }
+      const r = wrap.getBoundingClientRect()
       return { top: r.bottom + 4, left: r.left }
     })()
 

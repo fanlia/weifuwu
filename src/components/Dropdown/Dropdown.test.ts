@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
+import { setupJsdom } from '../../test/client/setup.ts'
+setupJsdom()
 import { Dropdown } from './Dropdown.ts'
 import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
