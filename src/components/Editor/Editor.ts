@@ -191,9 +191,9 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       tableHoverRow = -1
       tableHoverCol = -1
       ctx.ui.render()
-      const el = getEditorEl()
-      el?.focus()
+      restoreSelection()
       insertTable(rows, cols)
+      const el = getEditorEl()
       if (el && onChange) emitChange(el.innerHTML)
     }
 
