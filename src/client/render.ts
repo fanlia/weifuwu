@@ -281,16 +281,12 @@ export function patchValue(
   if (typeof newV.type === 'function') {
     const comp = newV.type as Component
 
-    if (oldV._$) newV._$ = oldV._$
-    if (!newV._$) newV._$ = {}
     ;(ctx as any).ui = (ctx as any).ui ?? {}
-    const _tgt = newV._$!
 
     // 传递 _render（两阶段组件复用 render 函数）
     if (oldV._render) newV._render = oldV._render
 
-    // 传递 _cleanup（ref 返回的清理函数）
-    if (oldV._cleanup) newV._cleanup = oldV._cleanup
+
     let childNew
     try {
       if (typeof newV._render === 'function') {
@@ -573,14 +569,6 @@ function propsEqual(a: any, b: any): boolean {
 
 // ── 清理 ────────────────────────────────────────────
 
-/** 执行 _cleanup 清理函数 */
-function runRefCleanup(vnode: VNode) {
-  if (vnode._cleanup) {
-    vnode._cleanup()
-    vnode._cleanup = undefined
-  }
-}
-
 /** 递归清理 Portal 子内容的 ref */
 function cleanupPortalChildren(vnode: VNode) {
   const child = vnode._child
@@ -631,7 +619,6 @@ function callRefCleanup(input: any) {
     vnode._portalEl.remove()
     vnode._portalEl = undefined
   }
-  if (vnode._cleanup) runRefCleanup(vnode)
 }
 
 // ── 挂载到容器 ────────────────────────────────────────
