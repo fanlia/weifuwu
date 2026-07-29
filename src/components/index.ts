@@ -73,7 +73,7 @@ export { Steps } from './Steps/Steps.ts'
 export type { StepsProps, StepItem } from './Steps/Steps.ts'
 
 export { Form } from './Form/Form.ts'
-export type { FormProps } from './Form/Form.ts'
+export type { FormProps, ValidationRule } from './Form/Form.ts'
 
 export { Field } from './Field/Field.ts'
 export type { FieldProps } from './Field/Field.ts'
