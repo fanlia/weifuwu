@@ -1,6 +1,9 @@
-# weifuwu — 架构约束与编码标准
+# weifuwu — 开发者指南
 
-全栈框架：后端 `(req, ctx) => Response` + 前端 `(initProps, ctx) => (props) => VNode` + 纯 CSS 布局。
+> 本文档面向 weifuwu **框架开发者/贡献者**，描述架构约束、编码标准和内部机制。
+> **框架使用者**请查阅 [README.md](./README.md) 了解设计理念和 API 用法。
+
+---
 
 ## 架构
 
@@ -15,6 +18,19 @@
 - **两阶段模型** — 外层函数 = mount（只一次），内层返回函数 = render（每次 dirty/props 变化）
 - **VDOM 支持 innerHTML** — 直接用 `innerHTML` prop
 - **ref 管理 DOM** — `ref={el => { if (el) init; else cleanup }}`
+
+## 核心标准速查
+
+| ID     | 规则                                             | 代码中的体现                              |
+| ------ | ------------------------------------------------ | ----------------------------------------- |
+| CS-01  | `throw`/`return` 后不留死代码                    | if-else 都需 return                       |
+| CS-02  | Promise 必须 await 或 catch                      | 无 `.then()` 无 catch                     |
+| CS-03  | Event listener 内用 `console.error` 不用 `throw` | `server.on('error', ...)`                 |
+| FS-01  | 组件 = `(initProps, ctx) => (props) => VNode`    | 无 class/hook/this                        |
+| FS-03  | Proxy 驱动渲染                                   | `$.x = val` 而非 DOM 操作                 |
+| FS-04  | 禁止 eval/new Function                           | 安全基线                                  |
+| FS-05  | 前端无 npm 运行时依赖                            | client 包 import 无外部 dep               |
+| PS-01  | 请求路径无同步 I/O                               | 无 readFileSync/execSync                  |
 
 ## 组件写法
 
@@ -92,19 +108,6 @@ const Button = (_init, ctx) =>
 
 `$` 可选——只有需要触发 re-render 的状态才用 `$`。
 
-## 核心标准速查
-
-| ID     | 规则                                             | 代码中的体现                              |
-| ------ | ------------------------------------------------ | ----------------------------------------- |
-| CS-01  | `throw`/`return` 后不留死代码                    | if-else 都需 return                       |
-| CS-02  | Promise 必须 await 或 catch                      | 无 `.then()` 无 catch                     |
-| CS-03  | Event listener 内用 `console.error` 不用 `throw` | `server.on('error', ...)`                 |
-| FS-01  | 组件 = `(initProps, ctx) => (props) => VNode`    | 无 class/hook/this                        |
-| FS-03  | Proxy 驱动渲染                                   | `$.x = val` 而非 DOM 操作                 |
-| FS-04  | 禁止 eval/new Function                           | 安全基线                                  |
-| FS-05  | 前端无 npm 运行时依赖                            | client 包 import 无外部 dep               |
-| PS-01  | 请求路径无同步 I/O                               | 无 readFileSync/execSync                  |
-
 ## 内部状态管理
 
 | 状态类型 | 存放位置 | 例子 |
@@ -127,152 +130,33 @@ const Popover = (_init, ctx) => {
 }
 ```
 
-### `$` 深度 Proxy 行为
-
-`ctx.ui.$()` 返回**深度 Proxy**，任意层级赋值自动触发渲染：
-
-- `$.x = val` → 自动排队重渲染
-- `$.obj.a = 1` → 自动 dirty（深度递归包装，嵌套对象也是 Proxy）
-- `$.arr.push(val)` / `$.arr[0].x = y` → 自动 dirty（数组变异方法内部的 `[[Set]]` 被拦截）
-- `delete $.x` → 自动 dirty
-- 每个组件实例独立 Proxy，同名变量不冲突
-
 ## Render 机制
 
 | API | 触发时机 | 渲染方式 | 使用场景 |
 |------|---------|---------|---------|
 | `$.x = val` | 赋值后自动 | 微任务批量（异步） | **日常 UI 状态** — 表单输入、切换开关、异步数据加载等绝大多数场景 |
-| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | **绕过 Proxy 后手动标记** — 批量修改深层次对象、第三方库直接修改了 `$` 内部数据 |
-| `ctx.ui.render()` | 主动调用 | 立即同步 | **需要立即拿到最新 DOM** — DOM 测量、动画触发、第三方库在事件中同步读取 DOM |
+| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | **绕过 Proxy 后手动标记** |
+| `ctx.ui.render()` | 主动调用 | 立即同步 | **需要立即拿到最新 DOM** — DOM 测量、动画触发 |
 
-### `ctx.ui.$()` — 响应式 Proxy（推荐首选）
+### `$` Proxy 行为
 
-`const $ = ctx.ui.$()` 返回一个**深度 Proxy** 对象。任意层级赋值操作自动触发渲染：
+`ctx.ui.$()` 返回深度 Proxy，由 `createReactiveState()` 创建：
 
-```tsx
-const $ = ctx.ui.$()
-$.count = 0            // → 自动触发渲染（微任务批量）
-$.user.name = 'Alice'  // → 自动触发渲染（深度拦截嵌套对象）
-$.arr.push('x')        // → 自动触发渲染（数组变异拦截）
-$.items[0].done = true // → 自动触发渲染（嵌套属性拦截）
-delete $.tmp           // → 自动触发渲染（删除拦截）
-```
+- `$.x = val` → `set` trap → `dirty()`（微任务合并）
+- `$.obj.a = 1` → 递归 Proxy 包装 → `set` trap
+- `$.arr.push(val)` → 内部 `[[Set]]` → `set` trap
+- `delete $.x` → `deleteProperty` trap
+- 每个组件实例独立 Proxy，WeakMap 缓存复用
 
-**何时使用**：所有需要触发 UI 重新渲染的状态。90% 以上的场景用 `$` 就够。
+### `ctx.ui.dirty()` — 手动标记脏
 
-**何时不用**：
-- 不需要触发渲染的内部缓存（用闭包变量 `let`）
-- 需要在 mount/render/生命周期回调中设置初始值但不触发额外渲染（`$` 在这些阶段自动静默）
-
-### `ctx.ui.dirty()` — 手动标记脏状态
-
-当你需要绕过 Proxy 直接操作底层数据时，操作完后调用 `dirty()` 通知框架在下个微任务批量重渲染：
-
-```tsx
-// 场景：从 API 拿到原始数据后批量更新
-const raw = await fetchData()                    // 原始 JS 对象
-raw.items.forEach(item => { item.processed = true })
-$.data = raw                                     // 赋值给 $ → 自动触发渲染 ✓
-```
-
-```tsx
-// 真正需要 dirty() 的场景：在 render 保护期内修改了底层对象
-// 且无法通过 $.x = val 赋值触发
-// mount 期间 $.x = val 自动静默（不触发渲染）
-$.initialized = true
-// 如果非要在这里触发渲染，需要手动：
-ctx.ui.dirty()
-```
-
-**实际上，绝大多数情况下你不需要 `dirty()`。** `$` 的深度 Proxy 已经拦截了深层属性赋值、数组变异方法、属性删除。先赋值给 `$` 永远是更清晰的做法。
+绕过 Proxy 直接操作底层数据后标记重渲染。实际生产中极少需要——深度 Proxy 已拦截几乎所有变异操作。
 
 ### `ctx.ui.render()` — 同步强制渲染
 
-与 `dirty()` 的微任务批量不同，`render()` 是**同步执行**的。调用后立即执行 VDOM diff + patch，DOM 立刻更新。
+与 `dirty()` 的微任务批量不同，`render()` 同步执行 VDOM diff + patch。用于 DOM 测量、动画、第三方库同步读取等场景。
 
-**何时必须用 `render()` 而不是 `$` / `dirty()`**：
-
-```tsx
-// 1. DOM 测量（用 ref 获取 DOM）
-ref: (el) => {
-  if (!el) return
-  el.style.height = 'auto'
-  ctx.ui.render()               // 同步渲染，确保 layout 已更新
-  const h = el.offsetHeight     // 读取最新 DOM 尺寸
-  el.style.height = h + 'px'
-}
-
-// 2. 动画触发（需要确保上一帧 DOM 已提交）
-function startAnimation() {
-  $.animating = true
-  ctx.ui.render()                // 同步刷新 DOM
-  el.startViewTransition(...)    // 拿到最新 DOM 启动动画
-}
-
-// 3. 第三方库需要在事件回调中读取最新 DOM
-onClick: () => {
-  $.selected = !$.selected
-  ctx.ui.render()                // 确保 DOM 已更新
-  thirdPartyLib.measure(el)      // 读取最新状态
-}
-```
-
-**规则**：能用 `$` 就用 `$`。只有当你**必须同步拿到最新 DOM 状态**时才用 `render()`。
-
-### 三种方式速查
-
-```tsx
-// ✅ 推荐：$.x = val — 自动、批量、无脑
-const $ = ctx.ui.$
-$.count++
-$.name = 'hello'   // 微任务合并，只渲染一次
-
-// ✅ 特殊：ctx.ui.render() — 同步渲染，DOM 立即可见
-$.count++
-ctx.ui.render()     // DOM 立刻更新
-measure(el)         // 读取最新 DOM
-
-// ⚠️ 罕见：ctx.ui.dirty() — 绕过 Proxy 后手动标记
-```
-
-**性能说明**：
-- `$.x = val` 和 `dirty()` 都是微任务批量合并：同一 tick 内 N 次赋值 → 1 次渲染
-- `render()` 每次调用都触发一次完整 diff/patch，频繁调用可能影响性能
-
-### 实践建议：日常开发 vs 组件分享
-
-**日常组件内**：优先用 `$.x = val`，无脑、自动、批量。
-
-**制作可分享组件**（组件库、npm 包、跨项目复用）时，推荐用 `ctx.ui.dirty()` 或 `ctx.ui.render()` 精确控制刷新时机：
-
-```tsx
-// 可分享的 Toast 组件：主动控制渲染，避免消费方上下文干扰
-const Toast = (_init, ctx) => {
-  let items: ToastItem[] = []
-
-  return {
-    add(item: ToastItem) {
-      items = [...items, item]
-      ctx.ui.render()       // 显式同步渲染，确保 DOM 立即可见
-    },
-    remove(id: string) {
-      items = items.filter(i => i.id !== id)
-      ctx.ui.dirty()        // 显式标记脏，下个微任务批量渲染
-    },
-    render: (props) =>
-      h('div', { class: 'toast-container' },
-        items.map(item => h('div', { key: item.id }, item.msg))
-      ),
-  }
-}
-```
-
-理由：
-- 分享出去的组件可能被用在各种上下文，`$` 的隐式自动刷新可能不可控
-- 暴露 `add/remove` 等命令式 API 时，`render()` / `dirty()` 让刷新时机**显式、可预测**
-- 消费方不需要知道组件内部用 `$` 还是闭包，只需调用 API
-
-## ref 管理 DOM
+## ref 管理第三方库
 
 ```tsx
 const EChart = (_init, ctx) => {
@@ -289,91 +173,16 @@ const EChart = (_init, ctx) => {
           instance = undefined
         }
       },
-      style: { width: '100%', height: '400px' },
+      style: { width: '100%', height: '400px' }
     })
 }
 ```
 
-### 生命周期映射
+## $ Proxy 实现要点
 
-组件没有生命周期函数。每个阶段对应到代码的明确位置：
-
-```
-mount ──────────────────────────────────────────
-  const Counter = (_init, ctx) => {       ← mount（只一次）
-    let count = 0                           ← 初始化状态
-    return (props) => {                     ← render 函数
-      // ...                                 ← 每次 dirty/props 变化执行
-    }
-  }
-
-ref ────────────────────────────────────────────
-  h('div', {
-    ref: (el) => {
-      if (el) { /* 元素已创建 */ }           ← 相当于 onmounted
-      else     { /* 元素已移除 */ }           ← 相当于 onunmount
-    }
-  })
-
-props 变化 ─────────────────────────────────────
-  return (props) => {
-    // 每次 render 都收到最新 props           ← 相当于 onupdate
-    if (props.value !== prevValue) { ... }
-  }
-```
-
-| 旧概念 | 新写法 |
-|--------|--------|
-| `onmount` | mount 外层函数直接写 |
-| `onmounted` | `ref` 的 `if (el)` 分支 |
-| `onunmount` | `ref` 的 `else` 分支 |
-| `onupdate` | render 内层函数收新 props 自行比较 |
-
-## 后端中间件模式
-
-```ts
-import { createMiddleware } from 'weifuwu'
-declare module 'weifuwu' {
-  interface Context {
-    myField: string
-  }
-}
-
-const myMw = createMiddleware({
-  injects: ['myField'],
-  depends: ['sql'],
-  setup: async (ctx) => ({ myField: await ctx.sql`SELECT val` }),
-})
-app.use(myMw)
-```
-
-## 前端中间件模式
-
-```ts
-import { extendCtx } from 'weifuwu/client'
-
-function myMw(ctx: WfuiContext): WfuiContext {
-  return extendCtx(ctx, { myField: 'value' })
-}
-createApp().use(myMw)
-```
-
-## Control Flow
-
-```tsx
-// 条件
-{
-  cond ? <A /> : <B />
-}
-{
-  cond && <A />
-}
-
-// 列表 - 必须有 key
-{
-  items.map((item) => <div key={item.id}>{item.name}</div>)
-}
-```
+- `createReactiveState(dirty)` → 递归 Proxy + WeakMap 缓存
+- mount/render 阶段 `$.x = val` 不触发渲染（`dirty` 在 `_rendering` 保护期内调用被忽略）
+- 仅事件/timer/Promise.then 中的赋值生效
 
 ## 测试
 
@@ -392,7 +201,6 @@ const vnode = renderVNode(Button, { variant: 'primary' }, mockCtx)
 // 有状态组件
 const ctx = mockCtx()
 const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
-// 修改 state 后重新渲染
 ctx.ui.$.show = true
 const vnode2 = renderVNode(Popover, { content: 'hello' }, ctx)
 ```
