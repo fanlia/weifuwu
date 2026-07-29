@@ -82,8 +82,10 @@ serve(app, { port: 3000 })
 ```tsx
 // src/main.tsx
 import { createApp, router, RouteView } from 'weifuwu/client'
+import type { Component } from 'weifuwu/client'
 
-function Home() { return <h1>Hello weifuwu</h1> }
+const Home: Component = (_init, ctx) =>
+  (props) => <h1>Hello weifuwu</h1>
 
 createApp()
   .use(router({ routes: [{ path: '/', component: Home }] }))
