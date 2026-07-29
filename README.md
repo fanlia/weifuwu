@@ -24,33 +24,6 @@ npm install weifuwu
 
 ---
 
-## 模块总览
-
-| 导入路径 | 模块 | 用途 | 依赖 |
-|---------|------|------|------|
-| `weifuwu` | **Router** | Trie 路由 + 中间件链 + WebSocket + GraphQL | — |
-| `weifuwu` | **serve** | HTTP 服务器 | Router |
-| `weifuwu` | **cors** | CORS 跨域中间件 | Router |
-| `weifuwu` | **serveStatic** | 静态文件服务（ETag/304/目录索引） | Router |
-| `weifuwu` | **postgres** | PostgreSQL 连接池 → `ctx.sql` | Router, DATABASE_URL |
-| `weifuwu` | **redis** | Redis 客户端 → `ctx.redis` | Router, REDIS_URL |
-| `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
-| `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
-| `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
-| `weifuwu` | **response** | HTTP 响应辅助函数（ok/badRequest/...） | — |
-| `weifuwu` | **parseBody** | JSON 请求体安全解析 | — |
-| `weifuwu/client` | **createApp** | 应用引导 + VDOM 渲染引擎 | — |
-| `weifuwu/client` | **router / RouteView** | 前端路由（history/hash 模式） | createApp |
-| `weifuwu/client` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | createApp |
-| `weifuwu/client` | **i18n** | 国际化中间件（运行时切换语言） | createApp |
-| `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
-| `weifuwu/client` | **confirm** | Promise 化确认对话框 | createApp |
-| `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
-| `weifuwu/components` | **41 个组件** | Button/Table/Modal/Toast/... | weifuwu/client |
-| `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
-
----
-
 ## 快速开始
 
 ```ts
@@ -93,6 +66,33 @@ createApp()
 
 ---
 
+## 模块总览
+
+| 导入路径 | 模块 | 用途 | 依赖 |
+|---------|------|------|------|
+| `weifuwu` | **Router** | Trie 路由 + 中间件链 + WebSocket + GraphQL | — |
+| `weifuwu` | **serve** | HTTP 服务器 | Router |
+| `weifuwu` | **cors** | CORS 跨域中间件 | Router |
+| `weifuwu` | **serveStatic** | 静态文件服务（ETag/304/目录索引） | Router |
+| `weifuwu` | **postgres** | PostgreSQL 连接池 → `ctx.sql` | Router, DATABASE_URL |
+| `weifuwu` | **redis** | Redis 客户端 → `ctx.redis` | Router, REDIS_URL |
+| `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
+| `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
+| `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
+| `weifuwu` | **response** | HTTP 响应辅助函数（ok/badRequest/...） | — |
+| `weifuwu` | **parseBody** | JSON 请求体安全解析 | — |
+| `weifuwu/client` | **createApp** | 应用引导 + VDOM 渲染引擎 | — |
+| `weifuwu/client` | **router / RouteView** | 前端路由（history/hash 模式） | createApp |
+| `weifuwu/client` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | createApp |
+| `weifuwu/client` | **i18n** | 国际化中间件（运行时切换语言） | createApp |
+| `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
+| `weifuwu/client` | **confirm** | Promise 化确认对话框 | createApp |
+| `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
+| `weifuwu/components` | **41 个组件** | Button/Table/Modal/Toast/... | weifuwu/client |
+| `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+
+---
+
 ## 核心概念
 
 ### 中间件模式（前后端一致）
@@ -125,6 +125,8 @@ createApp()
 ---
 
 # 后端 API (`weifuwu`)
+
+> 以下为完整 API 参考，按需查阅。新手建议先阅读上文的「核心概念」和「快速开始」。
 
 ## Router
 
@@ -707,6 +709,8 @@ import type { GraphQLOptions, GraphQLHandler } from 'weifuwu'
 ---
 
 # 前端 API (`weifuwu/client`)
+
+> 以下为完整 API 参考，按需查阅。新手建议先阅读上文的「组件模型」和「状态管理」。
 
 零外部 npm 运行时依赖。组件签名：`(initProps, ctx) => (props) => VNode`（两阶段模型，外层 mount 只一次，内层 render 每次变化时执行）。无状态组件可简写为 `() => () => VNode`。
 
