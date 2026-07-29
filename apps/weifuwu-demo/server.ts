@@ -1,14 +1,10 @@
 import { serve, Router, ui } from 'weifuwu'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const app = new Router()
 app.use(ui())
 
-app.get('/style.css', async (req, ctx) => ctx.ui.css(resolve(__dirname, 'style.css')))
-app.get('/app.js', async (req, ctx) => ctx.ui.js(resolve(__dirname, 'main.tsx')))
+app.get('/style.css', (req, ctx) => ctx.ui.css('./style.css'))
+app.get('/app.js', (req, ctx) => ctx.ui.js('./main.tsx'))
 
 app.get('/', async (req, ctx) => ctx.ui.html`
   <!DOCTYPE html>

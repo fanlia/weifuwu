@@ -1,21 +1,13 @@
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { serve, Router, ui } from 'weifuwu'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const app = new Router()
 app.use(ui())
 
-app.get('/app.js', async (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
-app.get('/style.css', async (req, ctx) => ctx.ui.css(resolve(__dirname, 'public', 'style.css')))
+app.get('/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))
+app.get('/style.css', (req, ctx) => ctx.ui.css('./public/style.css'))
 
-// 组件库 CSS
-app.get('/components.css', async (req, ctx) => {
-  const { readFile } = await import('node:fs/promises')
-  const css = await readFile(resolve(__dirname, '../../dist/components/style.css'), 'utf-8')
-  return new Response(css, { headers: { 'Content-Type': 'text/css' } })
-})
+// 组件库 CSS（含 Token + 35 布局原语 + 41 组件样式）
+app.get('/components.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))
 
 app.get('/*', async (req, ctx) => ctx.ui.html`
 <!DOCTYPE html>

@@ -29,6 +29,7 @@
 import { build } from 'esbuild'
 import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 
 declare module '../types.ts' {
@@ -36,9 +37,9 @@ declare module '../types.ts' {
     ui: {
       /** Tagged template → HTML Response */
       html: UiHtmlTag
-      /** 编译 TSX → JS bundle Response */
+      /** 编译 TSX → JS bundle Response（支持包名 weifuwu/client 或文件路径） */
       js: (entryPath: string) => Promise<Response>
-      /** 读取 CSS 文件 → CSS Response（带 mtime 缓存） */
+      /** 读取 CSS → CSS Response（支持包名 weifuwu/layout、weifuwu/components/style.css 或文件路径） */
       css: (entryPath: string) => Promise<Response>
     }
   }
@@ -103,6 +104,21 @@ async function checkPostcss(): Promise<boolean> {
   return postcssAvailable
 }
 
+/** 解析入口路径：包名（weifuwu/layout）→ imports map，相对/绝对路径 → path.resolve */
+function resolveEntry(entryPath: string): string {
+  // 相对/绝对路径：相对于 CWD 解析（不走 import.meta.resolve，避免相对框架文件位置）
+  if (entryPath.startsWith('.') || entryPath.startsWith('/')) {
+    return resolve(entryPath)
+  }
+  // 包名：通过 import.meta.resolve 解析 exports map
+  try {
+    return fileURLToPath(import.meta.resolve(entryPath))
+  } catch {
+    return resolve(entryPath)
+  }
+}
+
+
 // ── 中间件 ────────────────────────────────────────────────
 
 export function ui(): Middleware {
@@ -122,7 +138,7 @@ export function ui(): Middleware {
       html: Object.assign(htmlTag, { unsafe }) as any,
 
       async js(entryPath: string): Promise<Response> {
-        const absPath = resolve(entryPath)
+        const absPath = resolveEntry(entryPath)
         const cached = jsCache.get(absPath)
         if (cached && (await jsCacheFresh(cached.inputs))) {
           return new Response(cached.code, {
@@ -159,7 +175,7 @@ export function ui(): Middleware {
       },
 
       async css(entryPath: string): Promise<Response> {
-        const absPath = resolve(entryPath)
+        const absPath = resolveEntry(entryPath)
 
         // 带 mtime 的缓存失效（开发时编辑 CSS 自动更新）
         const st = await import('node:fs').then(fs => fs.promises.stat(absPath))

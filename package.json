@@ -17,6 +17,7 @@
       "default": "./dist/client/index.js"
     },
     "./layout": "./dist/layout/weifuwu-layout.css",
+    "./layout/style.css": "./dist/layout/weifuwu-layout.css",
     "./components": {
       "types": "./dist/components/index.d.ts",
       "default": "./dist/components/index.js"

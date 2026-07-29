@@ -2,12 +2,8 @@
  * demo server — weifuwu 后端 serve 前端 SPA + 演示 API
  */
 
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import type { WebSocketHandler, WebSocket, Context } from 'weifuwu'
 import { serve, Router, cors, ui } from 'weifuwu'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const app = new Router()
 app.use(cors())
@@ -16,10 +12,10 @@ app.use(ui())
 // ── 静态资源 ─────────────────────────────────────────────
 
 // 客户端 JS bundle — 动态编译（开发模式，无需构建步骤）
-app.get('/static/app.js', async (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
+app.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))
 
 // 客户端 CSS
-app.get('/static/style.css', async (req, ctx) => ctx.ui.css(resolve(__dirname, 'public', 'style.css')))
+app.get('/static/style.css', (req, ctx) => ctx.ui.css('./public/style.css'))
 
 // ── 演示 API ─────────────────────────────────────────────
 

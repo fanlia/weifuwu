@@ -47,7 +47,7 @@ npm install weifuwu
 | `weifuwu/client` | **confirm** | Promise 化确认对话框 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/components` | **41 个组件** | Button/Table/Modal/Toast/... | weifuwu/client |
-| `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token | — |
+| `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -478,7 +478,8 @@ app.get('/page', (req, ctx) => ctx.ui.html`
 ### ctx.ui.js — 编译 TSX → JS
 
 ```ts
-app.get('/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))
+app.get('/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))   // 相对路径
+app.get('/app.js', (req, ctx) => ctx.ui.js('weifuwu/client'))   // 或包名
 ```
 
 使用 esbuild 编译：
@@ -489,11 +490,13 @@ app.get('/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))
 ### ctx.ui.css — CSS 编译
 
 ```ts
-app.get('/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))
+app.get('/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))               // 相对路径
+app.get('/style.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))   // 或包名
 ```
 
 - 无编译工具时直接返回原始 CSS
 - 检测到已安装 `postcss` + `@tailwindcss/postcss` 时自动编译 Tailwind CSS
+- 支持包名（`weifuwu/layout/style.css`, `weifuwu/components/style.css`）或文件路径
 - 带 mtime 缓存验证（开发时编辑文件后自动失效）
 
 ---
@@ -1539,17 +1542,24 @@ import 'weifuwu/components/style.css'   // 包含 Token + 35 布局原语 + 组�
 
 纯 CSS 布局原语 + 72 个主题 Token。不绑定任何 JS 框架。
 
-> 如果你已经在用 `weifuwu/components/style.css`，布局系统已经包含在内，无需单独引入。
+> **全栈 weifuwu 项目**：`weifuwu/components/style.css` 已包含布局系统，一条 import 就够了，无需单独引用本页。
 > 本页仅适用于**非 weifuwu 项目**或**只需 CSS 布局**的场景。
 
 ```html
-<link rel="stylesheet" href="/node_modules/weifuwu/dist/layout/weifuwu-layout.css">
+<link rel="stylesheet" href="/node_modules/weifuwu/layout">
 ```
 
-或通过 `ctx.ui.css` 服务：
+或在 weifuwu 服务端通过 `ctx.ui.css` 直接引用包名（`ctx.ui.css` 自动解析 exports map）：
 
 ```ts
-app.get('/layout.css', (req, ctx) => ctx.ui.css('./node_modules/weifuwu/dist/layout/weifuwu-layout.css'))
+// 方案 A：组件 + 布局全部搞定（推荐）
+app.get('/style.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))
+
+// 方案 B：只用布局
+app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
+```
+
+也支持相对路径：`ctx.ui.css('./src/style.css')`。
 ```
 
 ## 35 个布局原语
