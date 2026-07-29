@@ -69,6 +69,8 @@ export const Drawer: Component<DrawerProps> = (_props, ctx) => {
       role: 'dialog',
       'aria-modal': 'true',
       'aria-label': title ?? (DL.ariaLabel ?? '侧边面板'),
+      tabIndex: -1,
+      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') onClose?.() },
     }, [overlay, panel])
 
     return createPortal(root, 'drawer')

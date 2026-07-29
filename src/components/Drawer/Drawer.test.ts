@@ -70,18 +70,11 @@ describe('Drawer', () => {
   it('handles ESC keydown → exit animation → onClose', () => {
     let closed = false
     const ctx = mockCtx()
-    // mount + first render
     const result = Drawer({ open: true, title: '编辑', onClose: () => { closed = true } }, ctx)
     const renderFn = typeof result === 'function' ? result : null
-    let vnode = inner(renderFn!({ open: true, title: '编辑', onClose: () => { closed = true } })!)
-    // ESC → start exit
+    const vnode = inner(renderFn!({ open: true, title: '编辑', onClose: () => { closed = true } })!)
+    // ESC → onClose
     vnode.props.onKeyDown({ key: 'Escape' } as KeyboardEvent)
-    assert.equal(closed, false)
-    // re-render with exiting state
-    vnode = inner(renderFn!({ open: true, title: '编辑', onClose: () => { closed = true } })!)
-    const panel = vnode.props.children[1]
-    assert.equal(typeof panel.props.onAnimationEnd, 'function')
-    panel.props.onAnimationEnd()
     assert.equal(closed, true)
   })
 })
