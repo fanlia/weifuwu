@@ -6,7 +6,7 @@
  *
  * 支持：
  *   - key 属性（keyed diff）
- *   - ctx.ui.onmount/onmounted/onunmount/onupdate 生命周期
+ *   - ref / keyed diff
  *
  * 状态管理：组件使用闭包变量 + ctx.ui.render() 手动触发重渲染。
  */
@@ -92,19 +92,7 @@ function renderValue(v: any, ctx: WfuiContext): Node {
 }
 
 function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiContext): Node {
-  // 组件级状态对象
-  const prev$ = vnode._$
-  if (!prev$) vnode._$ = {}
   ;(ctx as any).ui = (ctx as any).ui ?? {}
-  const _target = vnode._$!
-
-  // ctx.ui 生命周期方法
-  _target._hooks = { mount: [], unmount: [], update: [] }
-  ;(ctx as any).ui.onmount = (fn: Function) => { _target._hooks.mount = [fn] }
-  ;(ctx as any).ui.onunmount = (fn: Function) => { _target._hooks.unmount = [fn] }
-  ;(ctx as any).ui.onupdate = (fn: Function) => { _target._hooks.update = [fn] }
-  ;(ctx as any).ui.onmounted = (fn: Function) => { _target._onmounted = fn }
-
   let childVNode
   try {
     childVNode = Comp(props, ctx)
@@ -117,12 +105,6 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
     }
     vnode._render = childVNode
     childVNode = childVNode(props)
-
-    // mount hooks：首次渲染时触发
-    if (!prev$) {
-      const mh = _target._hooks?.mount
-      if (mh && mh[0]) mh[0]()
-    }
   } catch (e) {
     const errHandler = (ctx as any).ui?._errorHandler
     if (errHandler) {
@@ -139,17 +121,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
     return document.createTextNode('')
   }
   vnode._child = childVNode
-  const rootNode = renderValue(childVNode, ctx)
-  if (_target._onmounted && !prev$) {
-    // Portal 组件的根节点是文本占位符，传实际 Portal 容器给 onmounted
-    const portalVNode = childVNode as VNode
-    const mountEl = portalVNode.type === Portal && portalVNode._portalEl
-      ? portalVNode._portalEl
-      : rootNode
-    const cleanup = _target._onmounted(mountEl as HTMLElement)
-    if (typeof cleanup === 'function') vnode._cleanup = cleanup
-  }
-  return rootNode
+  return renderValue(childVNode, ctx)
 }
 
 function renderArray(arr: any[], ctx: WfuiContext): DocumentFragment {
@@ -317,24 +289,8 @@ export function patchValue(
     // 传递 _render（两阶段组件复用 render 函数）
     if (oldV._render) newV._render = oldV._render
 
-    // 传递 _cleanup（onmounted 返回的清理函数）
+    // 传递 _cleanup（ref 返回的清理函数）
     if (oldV._cleanup) newV._cleanup = oldV._cleanup
-
-    // ctx.ui 生命周期方法恢复（_target._hooks 已持久化）
-    if (_tgt._hooks) {
-      ;(ctx as any).ui.onmount = (fn: Function) => { _tgt._hooks.mount = [fn] }
-      ;(ctx as any).ui.onunmount = (fn: Function) => { _tgt._hooks.unmount = [fn] }
-      ;(ctx as any).ui.onupdate = (fn: Function) => { _tgt._hooks.update = [fn] }
-    }
-    if (_tgt._onmounted) {
-      ;(ctx as any).ui.onmounted = (fn: Function) => { _tgt._onmounted = fn }
-    }
-
-    // update hooks：props 变化时触发
-    if (oldV._$) {
-      const uh = _tgt._hooks?.update
-      if (uh && uh[0]) uh[0](oldV.props)
-    }
     let childNew
     try {
       if (typeof newV._render === 'function') {
@@ -360,12 +316,6 @@ export function patchValue(
     // 先捕获 oldV._child 再设置 newV._child（防止 oldV === newV 时覆盖自身）
     const _prevChild = oldV._child
     newV._child = childNew
-
-    // 组件从 VNode 变为 null → 触发 unmount 钩子
-    if (childNew == null && _tgt._hooks?.unmount?.length) {
-      _tgt._hooks.unmount[0]?.()
-      _tgt._hooks.unmount = []
-    }
 
     return patchValue(parent, oldNode, _prevChild, childNew, ctx)
   }
@@ -674,11 +624,7 @@ function callRefCleanup(input: any) {
     vnode._refCleanup()
     vnode._refCleanup = undefined
   }
-  // 执行组件 unmount 钩子
-  if (vnode._$ && vnode._$._hooks?.unmount) {
-    vnode._$._hooks.unmount[0]?.()
-    vnode._$._hooks.unmount = []
-  }
+
   // Portal 子容器移除 + 子内容 ref 清理
   if (vnode._portalEl) {
     cleanupPortalChildren(vnode)

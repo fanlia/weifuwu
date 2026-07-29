@@ -23,18 +23,19 @@ export const InView: Component<InViewProps> = (_props, ctx) => {
   let entered = false
   let io: IntersectionObserver | undefined
 
-  ctx.ui.onmounted((el) => {
-    const sentinel = el.querySelector('.wf-inview-pending') as HTMLElement | null
-    if (!sentinel) return
-    io = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) {
-        inView = true
-        ctx.ui.render()
-      }
-    }, { threshold: _props.threshold ?? 0, rootMargin: _props.rootMargin ?? '0px' })
-    io.observe(sentinel)
-    return () => { io?.disconnect() }
-  })
+  const sentinelRef = (el: HTMLElement | null) => {
+    if (el) {
+      io = new IntersectionObserver((entries) => {
+        if (entries[0]?.isIntersecting) {
+          inView = true
+          ctx.ui.render()
+        }
+      }, { threshold: _props.threshold ?? 0, rootMargin: _props.rootMargin ?? '0px' })
+      io.observe(el)
+    } else {
+      io?.disconnect()
+    }
+  }
 
   return (props: InViewProps) => {
     if (inView) {
@@ -54,7 +55,11 @@ export const InView: Component<InViewProps> = (_props, ctx) => {
     return h('div', {
       class: 'wf-inview wf-inview--pending',
     }, [
-      h('div', { class: 'wf-inview-pending', style: { width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' } }),
+      h('div', {
+        class: 'wf-inview-pending',
+        style: { width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' },
+        ref: sentinelRef,
+      }),
       placeholderEl,
     ])
   }

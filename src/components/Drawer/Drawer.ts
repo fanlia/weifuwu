@@ -21,12 +21,18 @@ export interface DrawerProps {
 
 export const Drawer: Component<DrawerProps> = (_props, ctx) => {
   let prevOpen: boolean | undefined
+  let focusCleanup: (() => void) | undefined
 
-  ctx.ui.onmounted((el) => {
-    lockScroll()
-    const cleanupFocus = trapFocus(el as HTMLElement)
-    return () => { unlockScroll(); cleanupFocus() }
-  })
+  const rootRef = (el: any) => {
+    if (el) {
+      lockScroll()
+      const panelEl = el.querySelector('.wf-drawer') ?? el
+      focusCleanup = trapFocus(panelEl as HTMLElement)
+    } else {
+      unlockScroll()
+      focusCleanup?.()
+    }
+  }
 
   return (props: DrawerProps) => {
     const { open, title, position = 'right', onClose, children, footer } = props
@@ -65,6 +71,7 @@ export const Drawer: Component<DrawerProps> = (_props, ctx) => {
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
+      ref: rootRef,
       class: `wf-drawer wf-drawer--${position} wf-drawer--enter`,
       role: 'dialog',
       'aria-modal': 'true',

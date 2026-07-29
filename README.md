@@ -762,10 +762,6 @@ const Counter: Component = (_init, ctx) => {
   // ── mount ──
   let count = 0
 
-  ctx.ui.onmounted((el) => {
-    console.log('DOM 已创建', el)
-  })
-
   // ── render ──
   return (props) =>
     h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
@@ -775,12 +771,12 @@ const Counter: Component = (_init, ctx) => {
 | 规则 | 说明 |
 |------|------|
 | 组件签名 | `(initProps: P, ctx: WfuiContext) => (props: P) => VNode \| null` |
-| mount 阶段 | 外层函数只执行一次，初始化状态/注册生命周期 |
+| mount 阶段 | 外层函数只执行一次，初始化状态 |
 | render 阶段 | 内层函数每次 dirty/props 变化时执行，返回 VNode |
 | 无 class | 无 `this`，无实例方法 |
 | 无 hook | 无 `useState` / `useEffect` / `useMemo` |
 | 状态 | 闭包变量 + `ctx.ui.render()` 手动触发，或 `ctx.ui.$()` 响应式容器 |
-| 生命周期 | `ctx.ui.onmount / onmounted / onunmount / onupdate` |
+| ref 引用 | `ref={el => { init; return () => cleanup }}` 获取 DOM |
 
 ### JSX 工厂
 
@@ -849,7 +845,7 @@ const FormPage: Component = (_init, ctx) => {
 - `delete $.x` → 自动 dirty
 - 每个组件实例独立 Proxy，同名变量不冲突
 
-**注意**：mount/render/生命周期回调中 `$.x = val` **不触发渲染**，仅事件/timer/Promise.then 中生效。这是有意设计——初始化和生命周期内设置状态不应触发额外渲染。
+**注意**：mount/render 中 `$.x = val` **不触发渲染**，仅事件/timer/Promise.then 中生效。这是有意设计——初始化和 mount 阶段设置状态不应触发额外渲染。
 
 **何时用 `$`**：所有需要触发 UI 重新渲染的状态。90% 以上的场景用 `$` 就够。
 
@@ -862,13 +858,11 @@ const FormPage: Component = (_init, ctx) => {
 当你绕过 Proxy 直接操作底层数据后，调用 `dirty()` 通知框架在下个微任务批量重渲染：
 
 ```tsx
-// 实际场景：在生命周期回调中需要手动触发渲染
-ctx.ui.onmount(() => {
-  // onmount 期间 $.x = val 自动静默（不触发渲染）
-  $.initialized = true
-  // 如果非要在这里触发渲染，需要手动调用 dirty()：
-  ctx.ui.dirty()
-})
+// 实际场景：在 mount 阶段需要手动触发渲染
+// mount 期间 $.x = val 自动静默（不触发渲染）
+$.initialized = true
+// 如果非要在这里触发渲染，需要手动调用 dirty()：
+ctx.ui.dirty()
 ```
 
 **但实际上，绝大多数情况下你不需要 `dirty()`。** 深度 Proxy 已经拦截了所有常见的变更新为方式（深层属性赋值、数组 push/splice、delete 等）。先赋值给 `$` 永远是更清晰的做法。
@@ -881,12 +875,14 @@ ctx.ui.onmount(() => {
 
 ```tsx
 // 1. DOM 测量（读取 offsetHeight/scrollWidth 等）
-ctx.ui.onmounted((el) => {
+// 用 ref 在 DOM 创建后操作
+ref: (el) => {
+  if (!el) return
   el.style.height = 'auto'
-  ctx.ui.render()               // 同步渲染，确保 layout 已更新
-  const h = el.offsetHeight     // 读取最新 DOM 尺寸
+  ctx.ui.render()
+  const h = el.offsetHeight
   el.style.height = h + 'px'
-})
+}
 
 // 2. 动画触发（需要确保上一帧 DOM 已提交）
 function startAnimation() {
@@ -977,42 +973,40 @@ const Toast = (_init, ctx) => {
 
 ---
 
-## 生命周期
+## ref 管理 DOM
 
-框架不提供 `ref` prop。使用 `ctx.ui.onmount / onmounted / onunmount / onupdate`：
-
-| API | 触发时机 | 参数 | 返回值 |
-|-----|---------|------|--------|
-| `ctx.ui.onmount(fn)` | render 前（DOM 未创建） | `() => void` | — |
-| `ctx.ui.onmounted(fn)` | 首次 render 后（DOM 已创建） | `(el: Element) => cleanup` | `() => void`（可选 cleanup）|
-| `ctx.ui.onunmount(fn)` | 组件移除前 | `() => void` | — |
-| `ctx.ui.onupdate(fn)` | props 变化时 | `(prevProps) => void` | — |
+使用 `ref` prop 获取元素引用，适合管理第三方库或读取 DOM：
 
 ```tsx
 const Timer: Component = (_init, ctx) => {
   let timer: ReturnType<typeof setInterval> | undefined
 
-  ctx.ui.onmounted((el) => {
-    timer = setInterval(() => console.log('tick'), 1000)
-    return () => clearInterval(timer)
-  })
-
-  return (props) => h('div', {}, 'Timer')
+  return (props) =>
+    h('div', {
+      ref: (el) => {
+        if (el) {
+          timer = setInterval(() => console.log('tick'), 1000)
+        } else {
+          clearInterval(timer)
+        }
+      },
+    }, 'Timer')
 }
 ```
 
-**注意**：`onmounted` 在首次渲染后触发，此时 DOM 已创建。生命周期回调中 `$.x = val` 不触发渲染（仅事件/timer 中生效）。
+`ref` 在元素创建时调用 `ref(el)`，元素移除时调用 `ref(null)`。
+返回的函数作为 cleanup 在卸载时执行。
 
-对于**内嵌元素**（非根元素），用 `el.querySelector()`：
+对于**内嵌元素**（非根元素），直接在目标元素上放 `ref`：
 
 ```tsx
-ctx.ui.onmounted((el) => {
-  const input = el.querySelector('input[type="text"]') as HTMLElement
-  input?.focus()
-})
+return h('div', {},
+  h('input', {
+    type: 'text',
+    ref: (el) => el?.focus(),
+  })
+)
 ```
-
-所有钩子遵循替换模式：多次注册只保留最后一次。
 
 ### 异步组件
 

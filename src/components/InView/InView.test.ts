@@ -7,7 +7,7 @@ import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, onmount: () => {}, onmounted: () => () => {}, onunmount: () => {}, onupdate: () => {} } } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {},  } } as any
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) */
@@ -29,8 +29,7 @@ describe('InView', () => {
     // 手动触发 inView 状态
     const result = InView({ children: h('p', null, '内容') }, ctx)
     const renderFn = typeof result === 'function' ? result : null
-    // 通过 onmounted 的 cleanup 机制：先挂载但 inView=false，再模拟进入视窗
-    // 直接修改 InView 内部状态不可行（闭包），改为通过完整的 onmounted → observer 流程
+    // 通过 ref 获取 sentinel 元素并触发 IntersectionObserver
     // 这里简化：直接验证首次不渲染 children，而是渲染占位
     const vnode = renderFn!({ children: h('p', null, '内容') })!
     const pendingEl = vnode.props.children?.find?.((c: any) => c?.props?.class === 'wf-inview-pending')

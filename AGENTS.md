@@ -13,9 +13,8 @@
 - **状态驱动渲染** — `ctx.ui.$` 深度 Proxy，赋值自动触发 VDOM patch
 - **组件签名** — `(initProps, ctx) => (props) => VNode | null`
 - **两阶段模型** — 外层函数 = mount（只一次），内层返回函数 = render（每次 dirty/props 变化）
-- **生命周期** — `ctx.ui.onmount/onunmount/onupdate`
 - **VDOM 支持 innerHTML** — 直接用 `innerHTML` prop
-- **ref 管理第三方库** — `ref={el => { init; return () => cleanup }}`
+- **ref 管理 DOM** — `ref={el => { init; return () => cleanup }}`
 
 ## 组件写法
 
@@ -276,19 +275,31 @@ const Toast = (_init, ctx) => {
 - 暴露 `add/remove` 等命令式 API 时，`render()` / `dirty()` 让刷新时机**显式、可预测**
 - 消费方不需要知道组件内部用 `$` 还是闭包，只需调用 API
 
-## ctx.ui 生命周期
+## ref 管理 DOM
 
 ```tsx
-ctx.ui.onmount(() => { ... })         // 组件首次渲染后（DOM 未创建）
-ctx.ui.onunmount(() => { ... })       // 组件移除前清理
-ctx.ui.onupdate((prevProps) => {})    // props 变化时触发
+const EChart = (_init, ctx) => {
+  let instance: echarts.ECharts | undefined
+
+  return (props) =>
+    h('div', {
+      ref: (el) => {
+        if (!el) {
+          instance?.dispose()
+          instance = undefined
+          return
+        }
+        instance = echarts.init(el)
+        instance.setOption(props.option)
+        return () => instance?.dispose()
+      },
+      style: { width: '100%', height: '400px' },
+    })
+}
 ```
 
-- 每个方法只保留最后一次注册的 handler（替换模式）
-- 所有钩子在 `_renderCount` 保护内执行，`$.x = val` 不触发额外 dirty
-- `onmount` 触发时 DOM 还未创建，第三方库初始化仍用 `ref`
-
-## ref 管理第三方库
+`ref` 在元素创建/更新时调用 `ref(el)`，元素移除时调用 `ref(null)`。
+返回的函数作为 cleanup 在卸载时执行。
 
 ```tsx
 const EChart = (_init, ctx) => {

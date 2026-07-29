@@ -22,13 +22,18 @@ export interface ModalProps {
 
 export const Modal: Component<ModalProps> = (_props, ctx) => {
   let prevOpen: boolean | undefined
+  let focusCleanup: (() => void) | undefined
 
-  ctx.ui.onmounted((el) => {
-    lockScroll()
-    const modalEl = el.querySelector('.wf-modal') as HTMLElement ?? el
-    const cleanupFocus = trapFocus(modalEl)
-    return () => { unlockScroll(); cleanupFocus() }
-  })
+  const rootRef = (el: any) => {
+    if (el) {
+      lockScroll()
+      const modalEl = el.querySelector('.wf-modal') ?? el
+      focusCleanup = trapFocus(modalEl as HTMLElement)
+    } else {
+      unlockScroll()
+      focusCleanup?.()
+    }
+  }
 
   return (props: ModalProps) => {
     const { open, title, onClose, children, footer, width, closable = true } = props
@@ -67,6 +72,7 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
+      ref: rootRef,
       class: 'wf-modal wf-modal--enter',
       role: 'dialog',
       'aria-modal': 'true',
