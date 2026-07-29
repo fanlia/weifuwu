@@ -1,11 +1,13 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
+import { setupJsdom } from '../../test/client/setup.ts'
+setupJsdom()
 import { DatePicker } from './DatePicker.ts'
 import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: false } } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, onmount: () => {}, onmounted: () => () => {}, onunmount: () => {}, onupdate: () => {} } } as any
 }
 
 /** 两阶段组件：先 mount 获取 renderFn，再修改状态后调用 renderFn(props) */

@@ -1,11 +1,13 @@
 import { describe, it, mock } from 'node:test'
 import assert from 'node:assert'
+import { setupJsdom } from '../../test/client/setup.ts'
+setupJsdom()
 import { InView } from './InView.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, onmount: () => {}, onmounted: () => () => {}, onunmount: () => {}, onupdate: () => {} } } as any
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) */

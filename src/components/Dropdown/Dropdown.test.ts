@@ -5,7 +5,7 @@ import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, onmount: () => {}, onmounted: () => () => {}, onunmount: () => {}, onupdate: () => {} } } as any
 }
 
 /** Call component and get VNode (compatible with two-phase model) */
