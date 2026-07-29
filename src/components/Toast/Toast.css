@@ -2,14 +2,19 @@
 
 .wf-toast-container {
   position: fixed;
-  top: var(--wf-space-lg);
-  right: var(--wf-space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--wf-gap-sm);
   z-index: var(--wf-cover-z, 100);
   pointer-events: none;
 }
+
+/* ── 位置变体 ── */
+.wf-toast--tr { top: var(--wf-space-lg); right: var(--wf-space-lg); align-items: flex-end; }
+.wf-toast--tl { top: var(--wf-space-lg); left: var(--wf-space-lg); align-items: flex-start; }
+.wf-toast--br { bottom: var(--wf-space-lg); right: var(--wf-space-lg); align-items: flex-end; flex-direction: column-reverse; }
+.wf-toast--bl { bottom: var(--wf-space-lg); left: var(--wf-space-lg); align-items: flex-start; flex-direction: column-reverse; }
+.wf-toast--tc { top: var(--wf-space-lg); left: 50%; transform: translateX(-50%); align-items: center; }
 
 .wf-toast {
   display: flex;
@@ -30,6 +35,25 @@
 @keyframes wf-toast-in {
   from { opacity: 0; transform: translateX(20px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+.wf-toast--tl .wf-toast,
+.wf-toast--bl .wf-toast {
+  animation-name: wf-toast-in-left;
+}
+
+@keyframes wf-toast-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.wf-toast--tc .wf-toast {
+  animation-name: wf-toast-in-top;
+}
+
+@keyframes wf-toast-in-top {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .wf-toast--success { background: var(--wf-color-success-bg); color: var(--wf-color-success); }
