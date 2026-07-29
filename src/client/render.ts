@@ -81,12 +81,8 @@ function renderValue(v: any, ctx: WfuiContext): Node {
     ;(el as HTMLSelectElement).value = String(selectValue)
   }
 
-  // ref 回调
-  const ref = vnode.props?.ref
-  if (typeof ref === 'function') {
-    const cleanup = ref(el)
-    if (typeof cleanup === 'function') vnode._refCleanup = cleanup
-  }
+  // ref 回调：ref(el) 初始化，元素移除时 ref(null) 清理
+  if (typeof vnode.props?.ref === 'function') vnode.props.ref(el)
 
   return el
 }
@@ -325,15 +321,12 @@ export function patchValue(
   // Native element
   if (typeof newV.type === 'string') {
     if (oldNode && oldNode.nodeType === 1) {
-      // ref 变化处理
+      // ref 变化处理：旧 ref(null) 清理，新 ref(el) 初始化
       const oldRef = oldV.props?.ref
       const newRef = newV.props?.ref
       if (oldRef !== newRef) {
-        if (typeof oldRef === 'function') { oldRef(null); oldV._refCleanup = undefined }
-        if (typeof newRef === 'function') {
-          const cleanup = newRef(oldNode)
-          if (typeof cleanup === 'function') newV._refCleanup = cleanup
-        }
+        if (typeof oldRef === 'function') oldRef(null)
+        if (typeof newRef === 'function') newRef(oldNode)
       }
       patchProps(oldNode as Element, oldV.props, newV.props)
       patchChildren(oldNode, oldV, newV, ctx)
@@ -605,13 +598,7 @@ function callRefCleanup(input: any) {
     }
   }
   // 执行 ref 清理
-  if (typeof vnode.props?.ref === 'function') {
-    vnode.props.ref(null)
-  }
-  if (vnode._refCleanup) {
-    vnode._refCleanup()
-    vnode._refCleanup = undefined
-  }
+  if (typeof vnode.props?.ref === 'function') vnode.props.ref(null)
 
   // Portal 子容器移除 + 子内容 ref 清理
   if (vnode._portalEl) {

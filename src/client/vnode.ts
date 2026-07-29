@@ -18,8 +18,6 @@ export interface VNode {
   el?: Node
   /** 子 VNode 缓存（用于 patchValue diff，避免重复执行组件） */
   _child?: any
-  /** ref 回调返回的清理函数，卸载时由框架调用 */
-  _refCleanup?: (() => void) | undefined
   /** Portal 子容器 DOM */
   _portalEl?: HTMLDivElement | undefined
   /** 两阶段组件的 render 函数（mount 返回的函数） */
