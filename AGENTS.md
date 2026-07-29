@@ -21,7 +21,7 @@
 ### 无状态组件
 
 ```tsx
-const Badge = (_init, ctx) =>
+const Badge: Component = () =>
   (props) => h('span', { class: `badge-${props.variant}` }, props.children)
 ```
 
@@ -32,8 +32,6 @@ const Toggle = (_init, ctx) => {
   // ── mount（只一次）──
   const $ = ctx.ui.$
   $.on = false
-
-  ctx.ui.onunmount(() => cleanup())
 
   // ── render（每次 dirty/props 变化）──
   return (props) =>
@@ -178,14 +176,12 @@ $.data = raw                                     // 赋值给 $ → 自动触发
 ```
 
 ```tsx
-// 真正需要 dirty() 的场景：在 _renderCount 保护期内修改了底层对象
+// 真正需要 dirty() 的场景：在 render 保护期内修改了底层对象
 // 且无法通过 $.x = val 赋值触发
-ctx.ui.onmount(() => {
-  // onmount 期间 $.x = val 自动静默（不触发渲染）
-  $.initialized = true
-  // 如果非要在这里触发渲染，需要手动：
-  ctx.ui.dirty()
-})
+// mount 期间 $.x = val 自动静默（不触发渲染）
+$.initialized = true
+// 如果非要在这里触发渲染，需要手动：
+ctx.ui.dirty()
 ```
 
 **实际上，绝大多数情况下你不需要 `dirty()`。** `$` 的深度 Proxy 已经拦截了深层属性赋值、数组变异方法、属性删除。先赋值给 `$` 永远是更清晰的做法。
@@ -197,13 +193,14 @@ ctx.ui.onmount(() => {
 **何时必须用 `render()` 而不是 `$` / `dirty()`**：
 
 ```tsx
-// 1. DOM 测量
-ctx.ui.onmounted((el) => {
+// 1. DOM 测量（用 ref 获取 DOM）
+ref: (el) => {
+  if (!el) return
   el.style.height = 'auto'
   ctx.ui.render()               // 同步渲染，确保 layout 已更新
   const h = el.offsetHeight     // 读取最新 DOM 尺寸
   el.style.height = h + 'px'
-})
+}
 
 // 2. 动画触发（需要确保上一帧 DOM 已提交）
 function startAnimation() {

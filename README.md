@@ -84,8 +84,7 @@ serve(app, { port: 3000 })
 import { createApp, router, RouteView } from 'weifuwu/client'
 import type { Component } from 'weifuwu/client'
 
-const Home: Component = (_init, ctx) =>
-  (props) => <h1>Hello weifuwu</h1>
+const Home: Component = () => () => <h1>Hello weifuwu</h1>
 
 createApp()
   .use(router({ routes: [{ path: '/', component: Home }] }))
@@ -709,7 +708,7 @@ import type { GraphQLOptions, GraphQLHandler } from 'weifuwu'
 
 # 前端 API (`weifuwu/client`)
 
-零外部 npm 运行时依赖。组件签名：`(initProps, ctx) => (props) => VNode`（两阶段模型，外层 mount 只一次，内层 render 每次变化时执行）。无状态组件可简写为 `(_init, ctx) => (props) => VNode`。
+零外部 npm 运行时依赖。组件签名：`(initProps, ctx) => (props) => VNode`（两阶段模型，外层 mount 只一次，内层 render 每次变化时执行）。无状态组件可简写为 `() => () => VNode`。
 
 构建配置（esbuild）：
 
@@ -768,6 +767,10 @@ const Counter: Component = (_init, ctx) => {
   return (props) =>
     h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
 }
+
+// 无状态组件：只有 render
+const Badge: Component = () =>
+  (props) => h('span', { class: `badge-${props.variant}` }, props.children)
 ```
 
 | 规则 | 说明 |
