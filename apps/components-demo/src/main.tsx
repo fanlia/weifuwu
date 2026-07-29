@@ -980,7 +980,7 @@ if (ok) { /* 执行 */ }`,
 const App: Component = (_props, ctx) => {
   const cur = (ctx as any)?.i18n?.locale ?? 'zh-CN'
   return (_p: any) => (
-    <div class="wf-stack" style="gap:32px">
+    <div class="wf-container wf-stack" style="--wf-max:960px;gap:32px">
       <div style="text-align:center;padding:var(--wf-space-xl) 0">
         {/* 语言切换 */}
         <div style="position:absolute;top:16px;right:16px;display:flex;gap:8px">

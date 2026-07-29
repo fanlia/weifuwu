@@ -35,7 +35,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   let tableHoverCol = -1
   let sourceText = ''
 
-  let editorEl: HTMLElement | undefined
+  const getEditorEl = (): HTMLElement | null =>
+    document.querySelector('.wf-editor-content')
 
   // ── render（每次 dirty/props 变化）──
   return (props: EditorProps) => {
@@ -53,7 +54,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
 
       if (item === 'source') {
         if (isRichMode) {
-          sourceText = editorEl?.innerHTML ?? value
+          sourceText = getEditorEl()?.innerHTML ?? value
           mode = 'source'
           ctx.ui.render()
         } else {
@@ -98,7 +99,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       execFormat(item)
       activeFormats = queryFormats()
       ctx.ui.render()
-      if (editorEl && onChange) emitChange(editorEl.innerHTML)
+      const el = getEditorEl()
+      if (el && onChange) emitChange(el.innerHTML)
     }
 
     // ── 链接 ────────────────────────────────────────────
@@ -106,10 +108,11 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       showLinkInput = false
       ctx.ui.render()
       if (!url) return
-      if (editorEl) editorEl.focus()
+      getEditorEl()?.focus()
       exec('createLink', url)
       activeFormats = queryFormats()
-      if (editorEl && onChange) emitChange(editorEl.innerHTML)
+      const el = getEditorEl()
+      if (el && onChange) emitChange(el.innerHTML)
     }
 
     const cancelLink = () => {
@@ -123,7 +126,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       if (!url) return
       exec('insertImage', url)
       activeFormats = queryFormats()
-      if (editorEl && onChange) emitChange(editorEl.innerHTML)
+      const el = getEditorEl()
+      if (el && onChange) emitChange(el.innerHTML)
     }
 
     const handleImageFile = async (files: File[]) => {
@@ -148,7 +152,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       showImageInput = false
       imageUrl = ''
       ctx.ui.render()
-      if (editorEl) editorEl.focus()
+      getEditorEl()?.focus()
       insertImageFn(url)
     }
 
@@ -159,14 +163,18 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     }
 
     // ── 表格 ────────────────────────────────────────────
+    const getEditorEl = (): HTMLElement | null =>
+      document.querySelector('.wf-editor-content')
+
     const handleTableSelect = (rows: number, cols: number) => {
       showTableGrid = false
       tableHoverRow = -1
       tableHoverCol = -1
       ctx.ui.render()
-      if (editorEl) editorEl.focus()
+      const el = getEditorEl()
+      el?.focus()
       insertTable(rows, cols)
-      if (editorEl && onChange) emitChange(editorEl.innerHTML)
+      if (el && onChange) emitChange(el.innerHTML)
     }
 
     const handleTableHover = (row: number, col: number) => {
@@ -213,12 +221,6 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       onChange?.(val)
     }
 
-    // ── ref ──────────────────────────────────────────
-    const editorRef = (el: HTMLElement | null) => {
-      if (el) editorEl = el
-      return () => { editorEl = undefined }
-    }
-
     // ── 键盘 ────────────────────────────────────────────
     const handleKeyUp = (e: KeyboardEvent) => {
       if (disabled || !isRichMode) return
@@ -226,7 +228,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       if (isFormatShortcut) {
         activeFormats = queryFormats()
         ctx.ui.render()
-        if (editorEl && onChange) emitChange(editorEl.innerHTML)
+        const el = getEditorEl()
+        if (el && onChange) emitChange(el.innerHTML)
       }
     }
 
@@ -338,7 +341,6 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         onKeyUp: handleKeyUp,
         onMouseUp: handleMouseUp,
         onMouseDown: handleMouseDown,
-        ref: editorRef,
       })
     } else {
       editorBody = h('textarea', {

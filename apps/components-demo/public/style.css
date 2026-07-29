@@ -1,11 +1,5 @@
 /* weifuwu/components cheatsheet styles */
-@import '../../../src/layout/weifuwu-layout.css';
-
-body {
-  padding: var(--wf-space-lg);
-  max-width: 960px;
-  margin: 0 auto;
-}
+/* layout 由 /components.css 加载，无需在此 @import */
 
 .cheat-section {
   margin-bottom: var(--wf-space-2xl);
