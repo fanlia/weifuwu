@@ -297,26 +297,40 @@ const EChart = (_init, ctx) => {
 }
 ```
 
+### 生命周期映射
 
-```tsx
-const EChart = (_init, ctx) => {
-  let instance: echarts.ECharts | undefined
+组件没有生命周期函数。每个阶段对应到代码的明确位置：
 
-  return (props) =>
-    h('div', {
-      ref: (el) => {
-        if (el) {
-          instance = echarts.init(el)
-          instance.setOption(props.option)
-        } else {
-          instance?.dispose()
-          instance = undefined
-        }
-      },
-      style: { width: '100%', height: '400px' },
-    })
-}
 ```
+mount ──────────────────────────────────────────
+  const Counter = (_init, ctx) => {       ← mount（只一次）
+    let count = 0                           ← 初始化状态
+    return (props) => {                     ← render 函数
+      // ...                                 ← 每次 dirty/props 变化执行
+    }
+  }
+
+ref ────────────────────────────────────────────
+  h('div', {
+    ref: (el) => {
+      if (el) { /* 元素已创建 */ }           ← 相当于 onmounted
+      else     { /* 元素已移除 */ }           ← 相当于 onunmount
+    }
+  })
+
+props 变化 ─────────────────────────────────────
+  return (props) => {
+    // 每次 render 都收到最新 props           ← 相当于 onupdate
+    if (props.value !== prevValue) { ... }
+  }
+```
+
+| 旧概念 | 新写法 |
+|--------|--------|
+| `onmount` | mount 外层函数直接写 |
+| `onmounted` | `ref` 的 `if (el)` 分支 |
+| `onunmount` | `ref` 的 `else` 分支 |
+| `onupdate` | render 内层函数收新 props 自行比较 |
 
 ## 后端中间件模式
 
