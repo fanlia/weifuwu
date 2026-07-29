@@ -14,7 +14,7 @@
 - **组件签名** — `(initProps, ctx) => (props) => VNode | null`
 - **两阶段模型** — 外层函数 = mount（只一次），内层返回函数 = render（每次 dirty/props 变化）
 - **VDOM 支持 innerHTML** — 直接用 `innerHTML` prop
-- **ref 管理 DOM** — `ref={el => { init; return () => cleanup }}`
+- **ref 管理 DOM** — `ref={el => { if (el) init; else cleanup }}`
 
 ## 组件写法
 
@@ -284,22 +284,19 @@ const EChart = (_init, ctx) => {
   return (props) =>
     h('div', {
       ref: (el) => {
-        if (!el) {
+        if (el) {
+          instance = echarts.init(el)
+          instance.setOption(props.option)
+        } else {
           instance?.dispose()
           instance = undefined
-          return
         }
-        instance = echarts.init(el)
-        instance.setOption(props.option)
-        return () => instance?.dispose()
       },
       style: { width: '100%', height: '400px' },
     })
 }
 ```
 
-`ref` 在元素创建/更新时调用 `ref(el)`，元素移除时调用 `ref(null)`。
-返回的函数作为 cleanup 在卸载时执行。
 
 ```tsx
 const EChart = (_init, ctx) => {
@@ -308,16 +305,15 @@ const EChart = (_init, ctx) => {
   return (props) =>
     h('div', {
       ref: (el) => {
-        if (!el) {
+        if (el) {
+          instance = echarts.init(el)
+          instance.setOption(props.option)
+        } else {
           instance?.dispose()
           instance = undefined
-          return
         }
-        instance = echarts.init(el)
-        instance.setOption(props.option)
-        return () => instance?.dispose()
       },
-      style: { width: '100%', height: '400px' }
+      style: { width: '100%', height: '400px' },
     })
 }
 ```

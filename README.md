@@ -776,7 +776,7 @@ const Counter: Component = (_init, ctx) => {
 | 无 class | 无 `this`，无实例方法 |
 | 无 hook | 无 `useState` / `useEffect` / `useMemo` |
 | 状态 | 闭包变量 + `ctx.ui.render()` 手动触发，或 `ctx.ui.$()` 响应式容器 |
-| ref 引用 | `ref={el => { init; return () => cleanup }}` 获取 DOM |
+| ref 引用 | `ref={el => { if (el) init; else cleanup }}` 获取 DOM |
 
 ### JSX 工厂
 
@@ -995,7 +995,7 @@ const Timer: Component = (_init, ctx) => {
 ```
 
 `ref` 在元素创建时调用 `ref(el)`，元素移除时调用 `ref(null)`。
-返回的函数作为 cleanup 在卸载时执行。
+`ref` 不接受返回值，清理逻辑直接在 `else` 分支处理。
 
 对于**内嵌元素**（非根元素），直接在目标元素上放 `ref`：
 
