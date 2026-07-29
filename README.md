@@ -16,7 +16,7 @@ npm install weifuwu
 
 **两阶段组件模型** — 组件 = `(initProps, ctx) => (props) => VNode`。外层函数只执行一次（mount），内层函数每次状态/props 变化时执行（render）。无 class、无 `this`、无 Hook。
 
-**Proxy 驱动渲染** — `ctx.ui.$()` 返回深度 Proxy，`$.x = val` 自动触发 VDOM patch。无需手动调用 `useState`/`useEffect`。
+**Proxy 驱动渲染** — `ctx.ui.$()` 返回深度 Proxy，`$.x = val` 自动触发当前组件的 VDOM patch。也支持手动 `ctx.ui.render()` 精确控制渲染时机。无需手动调用 `useState`/`useEffect`。
 
 **中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` 等），Handler/组件从 `ctx` 读取。
 
@@ -116,7 +116,7 @@ createApp()
 |------|------|------|
 | 注入 | 中间件注入 ctx.field | 中间件注入 ctx.field |
 | 读取 | handler 读取 ctx | 组件读取 ctx |
-| 渲染 | 返回 Response | `ctx.ui.render()` / `ctx.ui.dirty()` 触发 VDOM patch |
+| 渲染 | 返回 Response | `ctx.ui.render()` / `ctx.ui.dirty()` / `$.x = val` 触发局部 VDOM patch |
 
 ### Closeable 接口
 
@@ -812,11 +812,14 @@ h('div', { class: 'x' }, child1, child2)
 
 ### Render 机制总览
 
-| API | 触发时机 | 渲染方式 | 使用场景 |
-|------|---------|---------|---------|
-| `$.x = val` | 赋值后自动 | 微任务批量（异步） | **日常 UI 状态** — 表单输入、切换开关、异步数据加载等绝大多数场景 |
-| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | **绕过 Proxy 后手动标记** — 批量修改深层次对象、第三方库直接修改了 `$` 内部数据 |
-| `ctx.ui.render()` | 主动调用 | 立即同步 | **需要立即拿到最新 DOM** — DOM 测量、动画触发、第三方库在事件中同步读取 DOM |
+| API | 触发时机 | 渲染方式 | 作用域 | 使用场景 |
+|------|---------|---------|--------|---------|
+| `$.x = val` | 赋值后自动 | 微任务批量（异步） | 当前组件 | **日常 UI 状态** — 表单输入、切换开关、异步数据加载等 |
+| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | 当前/指定 | **绕过 Proxy 后手动标记** |
+| `ctx.ui.render()` | 主动调用 | 立即同步 | 当前/指定 | **需要立即拿到最新 DOM** — DOM 测量、动画触发 |
+| `ctx.ui.render(['id'])` | 主动调用 | 立即同步 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
+
+`render()` 和 `dirty()` 无参 = 当前组件，传参 = 指定组件列表。三套 API 同一 scope 机制。
 
 ### 闭包变量 + `ctx.ui.render()`（简单场景）
 
@@ -862,23 +865,13 @@ const FormPage: Component = (_init, ctx) => {
 - 不需要触发渲染的内部缓存（用闭包变量 `let`）
 - 简单组件只有一两个状态变量（闭包变量 + `render()` 更轻量）
 
-### `ctx.ui.dirty()` — 手动标记脏状态
+### `ctx.ui.dirty()` — 异步标记脏
 
-当你绕过 Proxy 直接操作底层数据后，调用 `dirty()` 通知框架在下个微任务批量重渲染：
-
-```tsx
-// 实际场景：在 mount 阶段需要手动触发渲染
-// mount 期间 $.x = val 自动静默（不触发渲染）
-$.initialized = true
-// 如果非要在这里触发渲染，需要手动调用 dirty()：
-ctx.ui.dirty()
-```
-
-**但实际上，绝大多数情况下你不需要 `dirty()`。** 深度 Proxy 已经拦截了所有常见的变更新为方式（深层属性赋值、数组 push/splice、delete 等）。先赋值给 `$` 永远是更清晰的做法。
+异步版本，无参 = 当前组件，传参 = 指定组件列表。多次调用合并为一次微任务渲染。`$` 内部就是调 `dirty()`。
 
 ### `ctx.ui.render()` — 同步强制渲染
 
-与 `dirty()` 的微任务批量不同，`render()` 是**同步执行**的。调用后立即执行 VDOM diff + patch，DOM 立刻更新。
+与 `dirty()` 的微任务批量不同，`render()` 是**同步执行**的。调用后立即执行 VDOM diff + patch，DOM 立刻更新。无参时只刷新当前组件，传参时可精准刷新指定组件。
 
 **何时必须用 `render()`**：
 
@@ -913,55 +906,57 @@ onClick: () => {
 ### 三种方式速查
 
 ```tsx
-// ✅ 推荐：ctx.ui.$() + $.x = val — 自动、批量、无脑
+// 自动：$.x = val — 微任务批量，绑定当前组件
 const $ = ctx.ui.$()
 $.count++
-$.name = 'hello'         // 微任务合并，只渲染一次
+$.name = 'hello'         // 多次赋值合并为一次渲染
 
-// ✅ 简单场景：闭包变量 + ctx.ui.render() — 轻量同步
+// 手动：ctx.ui.render() — 同步，无参=当前，传参=指定
 let count = 0
 count++
 ctx.ui.render()          // DOM 立刻更新
+ctx.ui.render(['stats']) // 精准刷新指定组件
 
-// ⚠️ 罕见：ctx.ui.dirty() — 绕过 Proxy 后手动标记
+// 异步：ctx.ui.dirty() — 微任务批量，同 render() 作用域
+ctx.ui.dirty()
+ctx.ui.dirty(['stats'])  // 批处理合并
 ```
 
 **性能说明**：
-- `$.x = val` 和 `dirty()` 都是微任务批量合并：同一 tick 内 N 次赋值 → 1 次渲染
-- `render()` 每次调用都触发一次完整 diff/patch，频繁调用可能影响性能
+- `$.x = val` 和 `dirty()` 都是微任务批量合并
+- `render()` 每次调用都触发一次完整 diff/patch
+- 三个入口同一套 scope 机制，不想要的渲染不触发
 
-### 实践建议：日常开发 vs 组件分享
+### 实践建议
 
-**日常组件内**：优先用 `$.x = val`，无脑、自动、批量。
-
-**制作可分享组件**（组件库、npm 包、跨项目复用）时，推荐用 `ctx.ui.dirty()` 或 `ctx.ui.render()` 精确控制刷新时机：
+**组件库**（可分享组件）推荐手动模式：
 
 ```tsx
-// 可分享的 Toast 组件：主动控制渲染，避免消费方上下文干扰
-const Toast = (_init, ctx) => {
-  let items: ToastItem[] = []
-
-  return {
-    add(item: ToastItem) {
-      items = [...items, item]
-      ctx.ui.render()       // 显式同步渲染，确保 DOM 立即可见
-    },
-    remove(id: string) {
-      items = items.filter(i => i.id !== id)
-      ctx.ui.dirty()        // 显式标记脏，下个微任务批量渲染
-    },
-    render: (props) =>
-      h('div', { class: 'toast-container' },
-        items.map(item => h('div', { key: item.id }, item.msg))
-      ),
-  }
+const DatePicker = (_init, ctx) => {
+  let show = false             // let 不触发渲染
+  return (props) =>
+    h('input', {
+      onClick: () => { show = true; ctx.ui.render() }
+    })
 }
 ```
 
-理由：
-- 分享出去的组件可能被用在各种上下文，`$` 的隐式自动刷新可能不可控
-- 暴露 `add/remove` 等命令式 API 时，`render()` / `dirty()` 让刷新时机**显式、可预测**
-- 消费方不需要知道组件内部用 `$` 还是闭包，只需调用 API
+行为只由 `render()` 显式控制，不依赖 `$`，测试中 `render()` 直接 mock 为空函数。
+
+**业务层**推荐自动模式：
+
+```tsx
+const OrderPage = (_init, ctx) => {
+  const $ = ctx.ui.$
+  $.orders = []                // $ 赋值自动触发渲染
+  $.loading = false
+  return (props) => h('div', {}, $.loading ? h(Spinner) : h(OrderList, { orders: $.orders }))
+}
+```
+
+省事、安全、`$` 绑定所属组件不波及兄弟。
+
+同一个组件内可以按变量混用两种模式：需要渲染的用 `$`，不需要的用 `let`。
 
 ---
 
@@ -1282,7 +1277,7 @@ createApp()
 
 // 运行时切换语言
 ctx.i18n?.setLocale('en-US')
-// → 自动触发全应用重渲染
+// → 自动触发根组件重渲染（所有组件使用新语言文案）
 ```
 
 | I18nOptions | 类型 | 默认值 | 说明 |
@@ -1574,6 +1569,9 @@ props 变化 ──────────────────────�
 | `onmounted` | `ref` 的 `if (el)` 分支 |
 | `onunmount` | `ref` 的 `else` 分支 |
 | `onupdate` | render 内层函数收新 props 自行比较 |
+| `全局刷新` | `ctx.ui.render(['_wf_root'])` |
+| `局部刷新` | `ctx.ui.render()` 或 `$.x = val` |
+| `跨组件刷新` | `ctx.ui.selfId('name')` + `render(['name'])` |
 
 ## 组件列表
 
