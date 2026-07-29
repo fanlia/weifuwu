@@ -110,11 +110,12 @@ const Button = (_init, ctx) =>
 
 ## 内部状态管理
 
-| 状态类型 | 存放位置 | 例子 |
-|---------|---------|------|
-| UI 状态（触发渲染） | `$.xxx` | `$.show`, `$.count` |
-| 内部缓存（不触发渲染） | 闭包变量 | `let el`, `let timerId` |
-| DOM 引用 | 闭包变量 + ref | `let wrapEl; ref={e => wrapEl=e}` |
+| 状态类型 | 存放位置 | 触发渲染 | 例子 |
+|---------|---------|---------|------|
+| 自动 UI 状态 | `$.xxx` | 赋值自动 | `$.show`, `$.count` |
+| 手动 UI 状态 | 闭包变量 `let` | 需调 `render()` | `let count; render()` |
+| 内部缓存（不触发渲染） | 闭包变量 `let` | 不触发 | `let el`, `let timerId` |
+| DOM 引用 | 闭包变量 + ref | 不触发 | `let wrapEl; ref={e => wrapEl=e}` |
 
 ```tsx
 const Popover = (_init, ctx) => {
@@ -132,11 +133,125 @@ const Popover = (_init, ctx) => {
 
 ## Render 机制
 
-| API | 触发时机 | 渲染方式 | 使用场景 |
-|------|---------|---------|---------|
-| `$.x = val` | 赋值后自动 | 微任务批量（异步） | **日常 UI 状态** — 表单输入、切换开关、异步数据加载等绝大多数场景 |
-| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | **绕过 Proxy 后手动标记** |
-| `ctx.ui.render()` | 主动调用 | 立即同步 | **需要立即拿到最新 DOM** — DOM 测量、动画触发 |
+| API | 触发时机 | 渲染方式 | 作用域 | 使用场景 |
+|------|---------|---------|--------|---------|
+| `$.x = val` | 赋值后自动 | 微任务批量（异步） | 当前组件 | **日常 UI 状态** — 表单输入、切换开关、异步数据加载等 |
+| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | 当前/指定 | **绕过 Proxy 后手动标记** |
+| `ctx.ui.render()` | 主动调用 | 立即同步 | 当前/指定 | **需要立即拿到最新 DOM** — DOM 测量、动画触发 |
+| `ctx.ui.render(['id'])` | 主动调用 | 立即同步 | 指定组件 | **跨组件精准刷新** — 全局事件、兄弟组件协调 |
+
+`render()` 无参 = 当前组件，传参 = 指定组件列表。三个入口同一套 scope 机制。
+
+## 最佳实践：手动 vs 自动
+
+weifuwu 是唯一一个手动/自动同层共存的框架。推荐按角色分层：
+
+```
+手动组件（components）                 自动业务层（app）
+                              ┌──────────────────────┐
+                              │  OrderPage           │
+                              │  $.orders = data     │ ← $ 自动
+                              │  $.loading = true    │
+                              └──────┬───────────────┘
+                                     │ props 传递
+                                     ↓
+┌─────────────────────────────────────────────┐
+│  Table（手动）                               │
+│  let sortKey / ctx.ui.render()              │ ← props 变化驱动
+│  return (props) => h('table', ...)          │ ← 内部 UI 状态手动
+│    └─ Badge（无状态，只用 props）              │
+│         return (props) => h('span', ...)    │
+└─────────────────────────────────────────────┘
+```
+
+### 组件库：手动优先
+
+```tsx
+// ✅ 组件库中用 let + render()，行为可预测
+const DatePicker = (_init, ctx) => {
+  let show = false
+  let selectedValue = ''
+  return (props) =>
+    h('input', {
+      onClick: () => { show = true; ctx.ui.render() }
+    })
+}
+```
+
+- **let 赋值不触发渲染**——组件行为只由 `render()` 显式控制
+- **不依赖 `$`**——纯函数 + 闭包，测试中 `render()` 直接 mock 为空
+- **测试简单**——VNode 断言，不需要关心渲染管线
+
+### 业务层：自动优先
+
+```tsx
+// ✅ 业务代码中用 $，少写样板、不易遗漏
+const OrderPage = (_init, ctx) => {
+  const $ = ctx.ui.$
+  $.orders = []
+  $.loading = false
+  $.activeTab = 'all'
+
+  return (props) =>
+    h('div', {},
+      $.loading ? h(Spinner) : h(OrderList, { orders: $.orders }),
+    )
+}
+```
+
+- **省事**——`$.orders = data` 自动触发渲染
+- **安全**——不会忘记调 `render()`
+- **精准**——`$` 绑定所属组件，不波及兄弟
+
+### 灵活混用
+
+同一个组件里可以按变量选模式：
+
+```tsx
+const Panel = (_init, ctx) => {
+  const $ = ctx.ui.$
+  let cached: Data[]       // 手动：不触发渲染
+  $.visible = true         // 自动：频繁变化
+
+  return (props) =>
+    h('button', {
+      onClick: async () => {
+        cached = await fetch('/api/data')
+        ctx.ui.render()    // 手动：数据回来后统一刷新
+      }
+    })
+}
+```
+
+### `ctx.ui.selfId()` — 跨组件精准刷新
+
+用于全局事件通知、Portal 远程控制、兄弟组件协调等场景：
+
+```tsx
+// 组件 A 注册自定义 ID
+const StatsPanel = (_init, ctx) => {
+  ctx.ui.selfId('stats')
+  const $ = ctx.ui.$
+  $.data = []
+  return (props) => h('div', {}, ...)
+}
+
+// 组件 B（或其他地方）用 ID 精准刷新
+ctx.ui.render(['stats'])
+// 或：ctx.ui.dirty(['stats']) 异步批处理版本
+```
+
+同名冲突抛错，每个自定义 ID 必须全局唯一。
+
+### 选择指南
+
+```
+需要渲染                       不需要渲染
+─────────────────              ─────────────────
+$.xxx = val（自动）            let x = val（手动）
+ctx.ui.render()（手动）        
+ctx.ui.render(['id'])（跨组件）
+```
 
 ### `$` Proxy 行为
 
@@ -155,6 +270,20 @@ const Popover = (_init, ctx) => {
 ### `ctx.ui.render()` — 同步强制渲染
 
 与 `dirty()` 的微任务批量不同，`render()` 同步执行 VDOM diff + patch。用于 DOM 测量、动画、第三方库同步读取等场景。
+
+### `ctx.ui.selfId()` — 自定义组件 ID
+
+用于跨组件精准刷新。在 mount 阶段注册，同名直接抛错：
+
+```tsx
+const StatsPanel = (_init, ctx) => {
+  ctx.ui.selfId('stats')  // 注册语义化 ID
+  // ...
+}
+// 其他地方：ctx.ui.render(['stats'])
+```
+
+注册后可通过 `ctx.ui.render(['id'])`、`ctx.ui.dirty(['id'])` 精准定位组件，绕过多层 props 传递。
 
 ## ref 管理第三方库
 
