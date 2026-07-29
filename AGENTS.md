@@ -130,12 +130,118 @@ const Popover = (_init, ctx) => {
 }
 ```
 
-### `$` Proxy 行为
+### `$` 深度 Proxy 行为
+
+`ctx.ui.$()` 返回**深度 Proxy**，任意层级赋值自动触发渲染：
 
 - `$.x = val` → 自动排队重渲染
-- `$.arr.push(val)` / `$.arr[0].x = y` → 自动 dirty（Proxy 深度拦截）
-- `ctx.ui.dirty()` → 绕过 Proxy 直接操作底层对象后手动触发
+- `$.obj.a = 1` → 自动 dirty（深度递归包装，嵌套对象也是 Proxy）
+- `$.arr.push(val)` / `$.arr[0].x = y` → 自动 dirty（数组变异方法内部的 `[[Set]]` 被拦截）
+- `delete $.x` → 自动 dirty
 - 每个组件实例独立 Proxy，同名变量不冲突
+
+## Render 机制
+
+| API | 触发时机 | 渲染方式 | 使用场景 |
+|------|---------|---------|---------|
+| `$.x = val` | 赋值后自动 | 微任务批量（异步） | **日常 UI 状态** — 表单输入、切换开关、异步数据加载等绝大多数场景 |
+| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | **绕过 Proxy 后手动标记** — 批量修改深层次对象、第三方库直接修改了 `$` 内部数据 |
+| `ctx.ui.render()` | 主动调用 | 立即同步 | **需要立即拿到最新 DOM** — DOM 测量、动画触发、第三方库在事件中同步读取 DOM |
+
+### `ctx.ui.$()` — 响应式 Proxy（推荐首选）
+
+`const $ = ctx.ui.$()` 返回一个**深度 Proxy** 对象。任意层级赋值操作自动触发渲染：
+
+```tsx
+const $ = ctx.ui.$()
+$.count = 0            // → 自动触发渲染（微任务批量）
+$.user.name = 'Alice'  // → 自动触发渲染（深度拦截嵌套对象）
+$.arr.push('x')        // → 自动触发渲染（数组变异拦截）
+$.items[0].done = true // → 自动触发渲染（嵌套属性拦截）
+delete $.tmp           // → 自动触发渲染（删除拦截）
+```
+
+**何时使用**：所有需要触发 UI 重新渲染的状态。90% 以上的场景用 `$` 就够。
+
+**何时不用**：
+- 不需要触发渲染的内部缓存（用闭包变量 `let`）
+- 需要在 mount/render/生命周期回调中设置初始值但不触发额外渲染（`$` 在这些阶段自动静默）
+
+### `ctx.ui.dirty()` — 手动标记脏状态
+
+当你需要绕过 Proxy 直接操作底层数据时，操作完后调用 `dirty()` 通知框架在下个微任务批量重渲染：
+
+```tsx
+// 场景：从 API 拿到原始数据后批量更新
+const raw = await fetchData()                    // 原始 JS 对象
+raw.items.forEach(item => { item.processed = true })
+$.data = raw                                     // 赋值给 $ → 自动触发渲染 ✓
+```
+
+```tsx
+// 真正需要 dirty() 的场景：在 _renderCount 保护期内修改了底层对象
+// 且无法通过 $.x = val 赋值触发
+ctx.ui.onmount(() => {
+  // onmount 期间 $.x = val 自动静默（不触发渲染）
+  $.initialized = true
+  // 如果非要在这里触发渲染，需要手动：
+  ctx.ui.dirty()
+})
+```
+
+**实际上，绝大多数情况下你不需要 `dirty()`。** `$` 的深度 Proxy 已经拦截了深层属性赋值、数组变异方法、属性删除。先赋值给 `$` 永远是更清晰的做法。
+
+### `ctx.ui.render()` — 同步强制渲染
+
+与 `dirty()` 的微任务批量不同，`render()` 是**同步执行**的。调用后立即执行 VDOM diff + patch，DOM 立刻更新。
+
+**何时必须用 `render()` 而不是 `$` / `dirty()`**：
+
+```tsx
+// 1. DOM 测量
+ctx.ui.onmounted((el) => {
+  el.style.height = 'auto'
+  ctx.ui.render()               // 同步渲染，确保 layout 已更新
+  const h = el.offsetHeight     // 读取最新 DOM 尺寸
+  el.style.height = h + 'px'
+})
+
+// 2. 动画触发（需要确保上一帧 DOM 已提交）
+function startAnimation() {
+  $.animating = true
+  ctx.ui.render()                // 同步刷新 DOM
+  el.startViewTransition(...)    // 拿到最新 DOM 启动动画
+}
+
+// 3. 第三方库需要在事件回调中读取最新 DOM
+onClick: () => {
+  $.selected = !$.selected
+  ctx.ui.render()                // 确保 DOM 已更新
+  thirdPartyLib.measure(el)      // 读取最新状态
+}
+```
+
+**规则**：能用 `$` 就用 `$`。只有当你**必须同步拿到最新 DOM 状态**时才用 `render()`。
+
+### 三种方式速查
+
+```tsx
+// ✅ 推荐：$.x = val — 自动、批量、无脑
+const $ = ctx.ui.$
+$.count++
+$.name = 'hello'   // 微任务合并，只渲染一次
+
+// ✅ 特殊：ctx.ui.render() — 同步渲染，DOM 立即可见
+$.count++
+ctx.ui.render()     // DOM 立刻更新
+measure(el)         // 读取最新 DOM
+
+// ⚠️ 罕见：ctx.ui.dirty() — 绕过 Proxy 后手动标记
+```
+
+**性能说明**：
+- `$.x = val` 和 `dirty()` 都是微任务批量合并：同一 tick 内 N 次赋值 → 1 次渲染
+- `render()` 每次调用都触发一次完整 diff/patch，频繁调用可能影响性能
 
 ## ctx.ui 生命周期
 

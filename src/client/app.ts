@@ -105,18 +105,34 @@ function wrapComponent(Comp: Component, _ctx: WfuiContext): VNode {
   return { type: Comp, props: {}, key: undefined }
 }
 
-/** 创建响应式状态容器：属性赋值自动触发 render（浅 Proxy，不包装深层对象） */
+/** 创建响应式状态容器：深度 Proxy，任意层级属性赋值自动触发 render */
 function createReactiveState(dirty: () => void): Record<string, any> {
-  return new Proxy({} as Record<string, any>, {
-    set(target, key, value) {
-      const old = Reflect.get(target, key)
-      if (old === value) return true
-      Reflect.set(target, key, value)
-      dirty()
-      return true
-    },
-    get(target, key) {
-      return Reflect.get(target, key)
-    },
-  })
+  const reactive = (target: any): any => {
+    if (target === null || typeof target !== 'object') return target
+
+    return new Proxy(target, {
+      set(target, key, value) {
+        const old = Reflect.get(target, key)
+        if (old === value) return true
+        Reflect.set(target, key, value)
+        dirty()
+        return true
+      },
+      get(target, key) {
+        const value = Reflect.get(target, key)
+        // 返回深度包装的 Proxy，确保深层赋值也能触发 dirty
+        if (typeof value === 'object' && value !== null) return reactive(value)
+        return value
+      },
+      deleteProperty(target, key) {
+        if (Reflect.has(target, key)) {
+          Reflect.deleteProperty(target, key)
+          dirty()
+        }
+        return true
+      },
+    })
+  }
+
+  return reactive({})
 }
