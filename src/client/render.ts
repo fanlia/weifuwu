@@ -18,6 +18,11 @@ import type { WfuiContext } from './types.ts'
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const SVG_TAGS = new Set(['svg', 'path', 'circle', 'line', 'rect', 'text', 'g', 'polyline', 'polygon', 'ellipse', 'defs', 'use', 'clipPath', 'mask', 'linearGradient', 'radialGradient', 'stop', 'tspan'])
 
+// ── 组件实例 ID 注册表 ────────────────────────────
+
+let _idCounter = 0
+export const idRegistry = new Map<string, VNode>()
+
 // ── render ─────────────────────────────────────────────
 
 export function render(input: any, ctx: WfuiContext): Node {
@@ -72,7 +77,16 @@ function renderValue(v: any, ctx: WfuiContext): Node {
     // children（select 的 options 必须先生成再设 value）
     const flatChildren = flattenChildren(vnode.props?.children)
     for (const child of flatChildren) {
-      el.appendChild(renderValue(child, ctx))
+      const childNode = renderValue(child, ctx)
+      el.appendChild(childNode)
+      // 首次渲染后为子组件 VNode 设置 DOM 锚点（供 scope render 使用）
+      if (child && typeof child === 'object' && typeof (child as VNode).type === 'function') {
+        const childVNode = child as VNode
+        if (!childVNode._parentNode) {
+          childVNode._parentNode = el
+          childVNode._refNode = childNode
+        }
+      }
     }
   }
 
@@ -89,9 +103,21 @@ function renderValue(v: any, ctx: WfuiContext): Node {
 
 function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiContext): Node {
   ;(ctx as any).ui = (ctx as any).ui ?? {}
+
+  // 生成组件实例 ID
+  if (!vnode._id) {
+    vnode._id = `_wf_${_idCounter++}`
+    idRegistry.set(vnode._id, vnode)
+  }
+
+  // 扩展 ctx：每个组件有自己的 _selfId
+  const childCtx = Object.create(ctx) as WfuiContext
+  childCtx.ui = Object.create(ctx.ui as any) as any
+  childCtx.ui._selfId = vnode._id
+
   let childVNode
   try {
-    childVNode = Comp(props, ctx)
+    childVNode = Comp(props, childCtx)
 
     if (typeof childVNode !== 'function') {
       throw new Error(
@@ -277,11 +303,21 @@ export function patchValue(
   if (typeof newV.type === 'function') {
     const comp = newV.type as Component
 
-    ;(ctx as any).ui = (ctx as any).ui ?? {}
+    // 传递 _render（两阶段组件复用 render 函数）+ 保持实例 ID
+    if (oldV._render) {
+      newV._render = oldV._render
+      newV._id = oldV._id
+      if (newV._id) idRegistry.set(newV._id, newV)
+    }
 
-    // 传递 _render（两阶段组件复用 render 函数）
-    if (oldV._render) newV._render = oldV._render
+    // 存 DOM 锚点（供 ctx.ui.render() scope 使用）
+    newV._parentNode = parent
+    newV._refNode = oldNode
 
+    // 扩展 ctx：注入 _selfId
+    const childCtx = Object.create(ctx) as WfuiContext
+    childCtx.ui = Object.create(ctx.ui as any) as any
+    childCtx.ui._selfId = newV._id
 
     let childNew
     try {
@@ -289,7 +325,7 @@ export function patchValue(
         childNew = newV._render(newV.props)
       } else {
         // fallback: call component directly (_render not transferred)
-        childNew = comp(newV.props, ctx)
+        childNew = comp(newV.props, childCtx)
         if (typeof childNew === 'function') {
           newV._render = childNew
           childNew = childNew(newV.props)

@@ -8,12 +8,14 @@ export interface WfuiContext {
 
   /** UI 框架能力（由 createApp.mount 注入） */
   ui: {
-    /** 触发组件重渲染 */
-    render: () => void
-    /** 标记脏状态，下一个微任务批量渲染 */
-    dirty: () => void
-    /** 创建响应式状态容器：$.x = val 自动触发 dirty()（微任务批量渲染） */
+    /** 触发组件重渲染（同步，无参 = 当前组件） */
+    render: (ids?: string[]) => void
+    /** 异步触发组件重渲染（微任务批处理，无参 = 当前组件） */
+    dirty: (ids?: string[]) => void
+    /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
     $: () => Record<string, any>
+    /** 当前组件实例 ID（仅供内部使用，通过 ctx 扩展注入） */
+    _selfId?: string
   }
 
   /** 路由（由 router 中间件注入） */

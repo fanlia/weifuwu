@@ -22,6 +22,13 @@ export interface VNode {
   _portalEl?: HTMLDivElement | undefined
   /** 两阶段组件的 render 函数（mount 返回的函数） */
   _render?: (props: any) => VNode | null
+
+  /** 组件实例 ID（如 '_wf_0'） */
+  _id?: string
+  /** 组件输出的 DOM 父节点 */
+  _parentNode?: Node
+  /** 组件输出的第一个 DOM 节点 */
+  _refNode?: Node | null
 }
 
 export type Component<P = {}> = (initProps: P, ctx: WfuiContext) => ((props: P) => VNode | null) | null
