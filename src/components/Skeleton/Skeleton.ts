@@ -5,7 +5,7 @@
 import type { Component } from '../../client/vnode.ts'
 import { h, Fragment } from '../../client/vnode.ts'
 
-export type SkeletonVariant = 'text' | 'circle' | 'rect'
+export type SkeletonVariant = 'text' | 'circle' | 'rect' | 'image' | 'avatar' | 'table'
 
 export interface SkeletonProps {
   variant?: SkeletonVariant
@@ -28,6 +28,21 @@ export const Skeleton: Component<SkeletonProps> = (_init) =>
       `wf-skeleton--${variant}`,
       className,
     ].filter(Boolean).join(' ')
+
+    if (variant === 'table') {
+      const cols = (props as any).cols ?? 3
+      const rows = Array.from({ length: lines }, (_, r) => {
+        const cells = Array.from({ length: cols }, (_, c) => {
+          const cellW = r === lines - 1 && c === cols - 1 ? '40%' : undefined
+          return h('div', {
+            class: 'wf-skeleton wf-skeleton--text',
+            style: cellW ? { width: cellW } : undefined,
+          })
+        })
+        return h('div', { class: 'wf-skeleton-row' }, cells)
+      })
+      return h('div', { class: 'wf-skeleton-table' }, rows)
+    }
 
     if (lines <= 1) {
       return h('div', { class: cls, style: Object.keys(style).length ? style : undefined })
