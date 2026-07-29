@@ -267,10 +267,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', onClick: cancelLink }, '取消'),
         h('button', {
           class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
-          onClick: () => {
-            const input = document.querySelector('[data-editor-link-input]') as HTMLInputElement
-            confirmLink(input?.value ?? '')
-          },
+          onClick: () => confirmLink(linkUrl),
         }, '确定'),
       ],
     },
@@ -322,10 +319,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         h('button', {
           class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
           disabled: imageUploading || undefined,
-          onClick: () => {
-            const input = document.querySelector('[data-image-input]') as HTMLInputElement
-            confirmImageUrl(input?.value ?? '')
-          },
+          onClick: () => confirmImageUrl(imageUrl),
         }, onUpload ? '插入' : '确定'),
       ],
     },

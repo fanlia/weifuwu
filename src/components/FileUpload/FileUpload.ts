@@ -75,6 +75,8 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
       onChange?.(updated)
     }
 
+    let fileInput: HTMLInputElement | null = null
+
     const inputEl = h('input', {
       type: 'file',
       class: 'wf-upload-input',
@@ -83,14 +85,12 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
       disabled: disabled || undefined,
       onChange: handleChange,
       style: { display: 'none' },
+      ref: (el) => { fileInput = el as HTMLInputElement },
     })
 
     const dropZone = h('div', {
       class: `wf-upload-zone${disabled ? ' wf-upload-zone--disabled' : ''}${error ? ' wf-upload-zone--err' : ''}`,
-      onClick: disabled ? undefined : () => {
-        const input = document.querySelector('.wf-upload-input') as HTMLInputElement
-        input?.click()
-      },
+      onClick: disabled ? undefined : () => fileInput?.click(),
       ref: dragRef,
     }, children ?? h('div', { class: 'wf-upload-placeholder' }, [
       h('span', { class: 'wf-upload-icon' }, '📁'),
