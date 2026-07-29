@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
+import { setupJsdom } from '../../test/client/setup.ts'
+setupJsdom()
 import { Editor } from './Editor.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { FileUpload } from '../FileUpload/FileUpload.ts'
@@ -115,9 +117,7 @@ describe('Editor', () => {
     assert.equal(hidden.props.value, '<p>Hello</p>')
   })
 
-  it('renders Modal when showLinkInput is true via toolbar click', {
-    skip: '需要浏览器环境 (window.getSelection)',
-  }, () => {
+  it('renders Modal when showLinkInput is true via toolbar click', () => {
     const ctx = mockCtx()
     const ed = makeEditor({}, ctx)
     let vnode = ed.render()
@@ -161,9 +161,7 @@ describe('Editor', () => {
     assert.equal(boldBtn.props['aria-label'], '加粗 (Ctrl+B)')
   })
 
-  it('renders textarea in source mode via toolbar click', {
-    skip: '需要浏览器环境 (document.querySelector)',
-  }, () => {
+  it('renders textarea in source mode via toolbar click', () => {
     const ctx = mockCtx()
     const ed = makeEditor({ value: '<p>source</p>' }, ctx)
     let vnode = ed.render({ value: '<p>source</p>' })
@@ -178,9 +176,7 @@ describe('Editor', () => {
     assert.equal(textarea.props.value, '<p>source</p>')
   })
 
-  it('calls onChange when source textarea input fires', {
-    skip: '需要浏览器环境 (document.querySelector)',
-  }, () => {
+  it('calls onChange when source textarea input fires', () => {
     const calls: string[] = []
     const ctx = mockCtx()
     const ed = makeEditor({ value: '', onChange: (v) => calls.push(v) }, ctx)
@@ -255,22 +251,27 @@ describe('Editor', () => {
     assert.equal(tblBtn.props['aria-label'], '插入表格')
   })
 
-  it('renders table grid inside Popover when table button clicked', {
-    skip: '需要浏览器环境 (Popover 内部事件处理)',
-  }, () => {
+  it('renders table grid inside Popover when table button clicked', () => {
     const ctx = mockCtx()
     const ed = makeEditor({}, ctx)
     let vnode = ed.render()
-    const allButtons = findAllButtons(vnode)
-    const tblBtn = allButtons.find((b: any) => b.props['data-item'] === 'table')
-    assert.ok(tblBtn, 'table button should exist')
-    tblBtn.props.onClick()
-    vnode = ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     assert.ok(toolbar, 'toolbar should exist')
-    const popover = toolbar.props.children.find((c: any) => c?.props?.content)
+    // 按 type.name 找到 Popover（content 初始为 null，需先触发打开）
+    const popover = toolbar.props.children.find((c: any) =>
+      typeof c?.type === 'function' && c.type.name === 'Popover'
+    )
     assert.ok(popover, 'Popover should exist in toolbar')
-    assert.ok(popover.props.content, 'Popover should have content')
+    popover.props.onOpenChange(true)
+    vnode = ed.render()
+    // 重新 render 后 content 应有 table picker
+    const toolbar2 = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
+    const popover2 = toolbar2.props.children.find((c: any) =>
+      typeof c?.type === 'function' && c.type.name === 'Popover'
+    )
+    assert.ok(popover2.props.content, 'Popover should have content when open')
+    const picker = popover2.props.content
+    assert.ok(picker.props?.class?.includes('wf-editor-table-picker'), 'Content should be table picker')
   })
 
   it('renders Modal when image button clicked', () => {
@@ -305,9 +306,7 @@ describe('Editor', () => {
     assert.ok(hasFU, 'should contain FileUpload inside image Modal')
   })
 
-  it('switches to source mode via toolbar', {
-    skip: '需要浏览器环境 (document.querySelector)',
-  }, () => {
+  it('switches to source mode via toolbar', () => {
     const ctx = mockCtx()
     const ed = makeEditor({}, ctx)
     let vnode = ed.render()
