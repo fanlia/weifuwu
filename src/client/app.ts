@@ -57,9 +57,13 @@ export function createApp() {
           vnode._refNode ?? null,
           oldChild, newChild, ctx,
         )
-        // patch 后更新 _refNode（可能被替换）
+        // patch 后更新 _refNode（可能被替换或移除）
         if (newNode && newNode !== vnode._refNode) {
           vnode._refNode = newNode
+        } else if (!newNode) {
+          // 组件输出变为 null，_refNode 指向已移除的节点
+          // 置 null 避免下次 render 使用已脱离 DOM 的引用
+          ;(vnode as any)._refNode = null
         }
       }
     }

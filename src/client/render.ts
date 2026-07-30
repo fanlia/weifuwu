@@ -355,7 +355,11 @@ export function patchValue(
     const _prevChild = oldV._child
     newV._child = childNew
 
-    return patchValue(parent, oldNode, _prevChild, childNew, childCtx)
+    const returnedNode = patchValue(parent, oldNode, _prevChild, childNew, childCtx)
+    // patchValue 返回 null（组件输出为 null），_refNode 指向已移除的节点
+    // 置 null 避免下次 render 使用已脱离 DOM 的引用
+    if (!returnedNode) newV._refNode = null
+    return returnedNode
   }
 
   // Fragment
