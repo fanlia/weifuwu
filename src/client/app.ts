@@ -147,10 +147,11 @@ export function createApp() {
 
         /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
         $: function () {
-          const selfId = getSelfId(this)
-          return createReactiveState(() => {
-            if (selfId) (ctx as any).ui.dirty([selfId])
-          })
+          if (!this._$cache) {
+            const selfId = getSelfId(this)
+            this._$cache = createReactiveState(() => (ctx as any).ui.dirty([selfId]))
+          }
+          return this._$cache
         },
 
         /**
