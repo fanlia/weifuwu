@@ -4,78 +4,67 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Weifuwu 计数器 - CDN 示例</title>
+
+    <!-- weifuwu/components 样式（CDN） -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/weifuwu@0.51.0/dist/components/style.css"
+    />
+
     <style>
-      /* 一些基础的样式，让界面更美观 */
       body {
-        font-family:
-          system-ui,
-          -apple-system,
-          sans-serif;
+        font-family: system-ui, -apple-system, sans-serif;
         display: flex;
         justify-content: center;
         align-items: center;
         min-height: 100vh;
         margin: 0;
         background-color: #f7f9fc;
+        padding: 2rem;
       }
-      .counter-container {
-        background: white;
-        padding: 3rem 4rem;
-        border-radius: 1.5rem;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-        text-align: center;
+
+      /* 全局设计 Token 覆盖（可选） */
+      :root {
+        --wf-color-primary: #4f6ef7;
+        --wf-color-primary-hover: #3b5ae0;
+        --wf-color-primary-bg: #eef1ff;
       }
-      .counter-value {
-        font-size: 5rem;
+
+      .demo-title {
+        font-size: 1.6rem;
+        font-weight: 300;
+        color: #4a5568;
+        margin: 0 0 0.25rem 0;
+      }
+
+      .demo-value {
+        font-size: 4rem;
         font-weight: 600;
         color: #1a202c;
         line-height: 1.2;
-        margin: 0.5rem 0 1.5rem 0;
+        text-align: center;
+        margin: 0.25rem 0 0.75rem 0;
       }
-      .button-group {
+
+      .demo-row {
         display: flex;
-        gap: 0.75rem;
+        gap: 0.5rem;
         justify-content: center;
         flex-wrap: wrap;
+        margin-top: 0.75rem;
       }
-      .btn {
-        font-size: 1.25rem;
-        font-weight: 500;
-        padding: 0.6rem 1.8rem;
-        border: none;
-        border-radius: 2rem;
-        background-color: #edf2f7;
-        color: #2d3748;
-        cursor: pointer;
-        transition:
-          background-color 0.15s,
-          transform 0.1s;
-        min-width: 80px;
-      }
-      .btn:hover {
-        background-color: #e2e8f0;
-      }
-      .btn:active {
-        transform: scale(0.95);
-      }
-      .btn-primary {
-        background-color: #4299e1;
-        color: white;
-      }
-      .btn-primary:hover {
-        background-color: #3182ce;
-      }
-      .btn-danger {
-        background-color: #fc8181;
-        color: white;
-      }
-      .btn-danger:hover {
-        background-color: #f56565;
-      }
-      .status-text {
-        margin-top: 1.5rem;
+
+      .demo-status {
+        text-align: center;
+        margin-top: 1rem;
+        font-size: 0.95rem;
         color: #718096;
-        font-size: 1rem;
+      }
+
+      .demo-divider {
+        margin: 1rem 0;
+        border: none;
+        border-top: 1px solid #e2e8f0;
       }
     </style>
   </head>
@@ -83,103 +72,89 @@
     <!-- 应用挂载点 -->
     <div id="root"></div>
 
-    <!-- 1. 配置 Import Map，将 'weifuwu/client' 映射到 CDN 地址 -->
+    <!--
+      1. Import Map — 将 weifuwu/client 和 weifuwu/components
+          映射到 CDN 地址（unpkg）
+    -->
     <script type="importmap">
       {
         "imports": {
-          "weifuwu/client": "../../dist/client/index.js"
+          "weifuwu/client": "https://unpkg.com/weifuwu@0.51.0/dist/client/index.js",
+          "weifuwu/components": "https://unpkg.com/weifuwu@0.51.0/dist/components/index.js"
         }
       }
     </script>
 
-    <!-- 2. 主要的应用代码，使用 type="module" -->
+    <!--
+      2. 主应用代码
+    -->
     <script type="module">
-      // 从 CDN 导入我们需要的功能
-      // jsx 函数是创建 VNode 的核心，在这里我们将其重命名为 h
+      // ── 从 CDN 导入核心 API ──
       import { createApp, h } from 'weifuwu/client'
 
-      // --- 定义 Counter 组件 ---
-      // 组件签名: (props, ctx) => VNode
+      // ── 从 CDN 导入组件库 ──
+      import { Card, Button, Badge } from 'weifuwu/components'
+
+      // ── 定义 Counter 组件 ──
+      // 外层函数 = mount（只执行一次），内层函数 = render（每次 dirty/props 变化）
       function Counter(_props, ctx) {
-        // 获取响应式状态容器
-        const $ = ctx.ui.$
+        const $ = ctx.ui.$()
 
-        // 初始化状态（仅在组件首次渲染时执行）
-        // ctx.ui.ready 在首次渲染时为 false，之后为 true
-        if (!ctx.ui.ready) {
-          $.count = 0
-          // 可以在这里添加一些日志来观察初始化时机
-          console.log('Counter 组件初始化，count 设为 0')
-        }
+        // mount 阶段初始化（外层直接赋值，挂载期间 _rendering=true 不会触发渲染）
+        $.count = 0
+        console.log('[Counter] 挂载，初始值 = 0')
 
-        // 定义业务逻辑：直接修改 $.count，UI 会自动更新
-        const increment = () => {
-          $.count++
-        }
-        const decrement = () => {
-          $.count--
-        }
-        const reset = () => {
-          $.count = 0
-        }
+        const increment = () => { $.count++ }
+        const decrement = () => { $.count-- }
+        const reset = () => { $.count = 0 }
 
-        // 使用 h(tag, props, ...children) 创建 VNode
-        // 这等价于 JSX 的 <div className="counter-container">...</div>
-        return h(
-          'div',
-          { className: 'counter-container' },
-          // 标题
-          h(
-            'h1',
-            {
-              style: {
-                fontSize: '1.8rem',
-                fontWeight: '300',
-                color: '#4a5568',
-                marginBottom: '0.5rem',
-              },
-            },
-            '⚡ Weifuwu 计数器',
-          ),
-          // 显示计数值
-          h(
-            'div',
-            { className: 'counter-value' },
-            String($.count), // 注意：需要显式转为字符串
-          ),
-          // 操作按钮组
-          h(
-            'div',
-            { className: 'button-group' },
-            h('button', { className: 'btn', onClick: decrement }, '➖ 减 1'),
+        // ── render ──
+        return () =>
+          h(Card, { variant: 'default', padding: 'lg' },
+            // 标题
             h(
-              'button',
-              { className: 'btn btn-danger', onClick: reset },
-              '↺ 重置',
+              'p',
+              { className: 'demo-title' },
+              '⚡ Weifuwu 计数器 (CDN)',
             ),
-            h(
-              'button',
-              { className: 'btn btn-primary', onClick: increment },
-              '➕ 加 1',
+
+            // 计数值
+            h('div', { className: 'demo-value' }, String($.count)),
+
+            // 奇偶 Badge
+            h('div', { className: 'demo-status' },
+              h(Badge, {
+                variant: $.count % 2 === 0 ? 'success' : 'warning'
+              }, $.count % 2 === 0 ? '偶数' : '奇数'),
             ),
-          ),
-          // 显示奇偶状态（派生状态的示例）
-          h(
-            'p',
-            { className: 'status-text' },
-            `当前计数是 ${$.count % 2 === 0 ? '偶数 🟢' : '奇数 🟠'}`,
-          ),
-        )
+
+            h('hr', { className: 'demo-divider' }),
+
+            // 按钮组 — 使用 weifuwu Button 组件
+            h('div', { className: 'demo-row' },
+              h(Button, {
+                variant: 'secondary',
+                onClick: decrement
+              }, '➖ 减 1'),
+
+              h(Button, {
+                variant: 'danger',
+                onClick: reset
+              }, '↺ 重置'),
+
+              h(Button, {
+                variant: 'primary',
+                onClick: increment
+              }, '➕ 加 1'),
+            ),
+          )
       }
 
-      // --- 创建并挂载应用 ---
-      console.log('正在创建 weifuwu 应用...')
+      // ── 创建并挂载 ──
+      console.log('[App] 创建应用...')
       const app = createApp()
-
-      // 挂载到 #root 元素，并传入根组件 Counter
       app.mount('#root', Counter)
-
-      console.log('应用已挂载，开始交互吧！')
+      console.log('[App] 已挂载，开始交互！')
     </script>
   </body>
 </html>

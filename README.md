@@ -66,6 +66,86 @@ createApp()
 
 ---
 
+## CDN 快速原型（零构建、纯 HTML）
+
+不需要 Node.js 或构建工具，直接在浏览器中用 CDN 使用 weifuwu。创建一个 `.html` 文件即可开始，适合快速原型、Codepen、简单的演示页面。
+
+```html
+<!-- cdn-counter.html -->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weifuwu CDN 示例</title>
+
+  <!-- 组件样式（可选，如只用 weifuwu/client 则不需要） -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/weifuwu@0.51.0/dist/components/style.css"
+  />
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Import Map — 将 weifuwu 包名映射到 CDN 地址 -->
+  <script type="importmap">
+    {
+      "imports": {
+        "weifuwu/client": "https://unpkg.com/weifuwu@0.51.0/dist/client/index.js",
+        "weifuwu/components": "https://unpkg.com/weifuwu@0.51.0/dist/components/index.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import { createApp, h } from 'weifuwu/client'
+    import { Card, Button, Badge } from 'weifuwu/components'
+
+    // 组件 = (initProps, ctx) => (props) => VNode
+    const Counter = (_props, ctx) => {
+      const $ = ctx.ui.$()
+      $.count = 0 // mount 初始化
+
+      return () =>
+        h(Card, { variant: 'default', padding: 'lg' },
+          h('h2', { style: { textAlign: 'center', margin: 0 } }, '⚡ Weifuwu'),
+          h('div', { style: { fontSize: '4rem', fontWeight: 600, textAlign: 'center' } },
+            String($.count)),
+          h('div', { style: { textAlign: 'center', marginTop: '1rem' } },
+            h(Badge, {
+              variant: $.count % 2 === 0 ? 'success' : 'warning'
+            }, $.count % 2 === 0 ? '偶数' : '奇数')),
+          h('hr', { style: { margin: '1rem 0', border: 'none', borderTop: '1px solid #eee' } }),
+          h('div', { style: { display: 'flex', gap: '0.5rem', justifyContent: 'center' } },
+            h(Button, { variant: 'secondary', onClick: () => $.count-- }, '➖ 减 1'),
+            h(Button, { variant: 'danger', onClick: () => $.count = 0 }, '↺ 重置'),
+            h(Button, { variant: 'primary', onClick: () => $.count++ }, '➕ 加 1'),
+          ),
+        )
+    }
+
+    createApp().mount('#root', Counter)
+  </script>
+</body>
+</html>
+```
+
+将此 HTML 保存到本地用浏览器打开即可运行。完整的 CDN 示例见 [`apps/html/test.html`](./apps/html/test.html)。
+
+### CDN 资源地址说明
+
+| 资源 | CDN 地址 | 说明 |
+|------|---------|------|
+| `weifuwu/client` | `https://unpkg.com/weifuwu@0.51.0/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@0.51.0/dist/components/index.js` | 41 个 UI 组件（Button, Card, Table, Modal 等） |
+| 组件样式 | `https://unpkg.com/weifuwu@0.51.0/dist/components/style.css` | 组件 CSS + 72 个主题 Token + 35 个布局原语 |
+| 独立布局系统 | `https://unpkg.com/weifuwu@0.51.0/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
+
+> 提示：将 `@0.51.0` 替换为 `@latest` 始终使用最新版，或固定版本避免意外变更。
+
+---
+
 ## 模块总览
 
 | 导入路径 | 模块 | 用途 | 依赖 |
