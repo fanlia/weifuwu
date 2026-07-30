@@ -38,12 +38,9 @@ export const NewAgent: Component = (_props, ctx) => {
     .then(r => r.json()).then(d => { $.roleTemplates = d.templates ?? []; $.loading = false })
     .catch(() => { $.loading = false })
 
-  const isAI = !$.selectedTemplate && $.type === 'ai'
-  const isWebhook = !$.selectedTemplate && $.type === 'webhook'
-  const isKB = !$.selectedTemplate && $.type === 'knowledge_base'
-  const hasAIConfig = isAI || $.selectedTemplate !== null
-
   // 模板按类别分组
+  // 注意：isAI/isWebhook/isKB/hasAIConfig 需在 render 函数内计算
+  // 它们在 mount 阶段捕获会因 $ 响应式更新而过时
   function buildCategories() {
     const cats = new Map<string, { label: string; templates: RoleTemplate[] }>()
     for (const t of $.roleTemplates) {
@@ -161,7 +158,13 @@ export const NewAgent: Component = (_props, ctx) => {
   }
 
   // ══════════ 步骤 2: 配置 ══════════
-  return (props: {}) => (
+  return (props: {}) => {
+    const isAI = !$.selectedTemplate && $.type === 'ai'
+    const isWebhook = !$.selectedTemplate && $.type === 'webhook'
+    const isKB = !$.selectedTemplate && $.type === 'knowledge_base'
+    const hasAIConfig = isAI || $.selectedTemplate !== null
+
+    return (
     <div class="page page-narrow">
       <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
@@ -289,5 +292,6 @@ export const NewAgent: Component = (_props, ctx) => {
         </div>
       </form>
     </div>
-  )
+    )
+  }
 }

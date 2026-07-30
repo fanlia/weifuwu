@@ -209,10 +209,11 @@ export const Chat: Component = (_props, ctx) => {
     prevContentLen = totalLen
   }
 
-  const inputDisabled = $.editingId !== ''
-  const canSend = $.input.trim().length > 0 && !$.sending
+  return (props: {}) => {
+    const inputDisabled = $.editingId !== ''
+    const canSend = $.input.trim().length > 0 && !$.sending
 
-  return (props: {}) => (
+    return (
     <div class="chat-shell">
       <div class="chat-head">
         <a href="/chat/new" class="back-link" style={{ marginBottom: '0' }}
@@ -349,5 +350,6 @@ export const Chat: Component = (_props, ctx) => {
         <button class="chat-send" type="submit" disabled={!canSend}>➤</button>
       </form>
     </div>
-  )
+    )
+  }
 }
