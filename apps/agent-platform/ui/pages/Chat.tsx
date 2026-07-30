@@ -121,7 +121,26 @@ export const Chat: Component = (_props, ctx) => {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ content }),
       })
-      if (!res.ok) { $.input = saved; const d = await res.json().catch(() => ({})); alert(d.error || '发送失败') }
+      if (res.ok) {
+        // 服务端可能不向发送者广播 WS new_message 事件
+        // 收到成功响应后直接将消息加入列表
+        const data = await res.json().catch(() => ({}))
+        if (data.message) {
+          $.msgs.push({
+            id: data.message.id,
+            sender_id: data.message.sender_id ?? '',
+            sender_name: data.message.sender_name ?? '我',
+            sender_type: 'user',
+            content: data.message.content ?? content,
+            msg_type: 'text',
+            created_at: data.message.created_at ?? new Date().toISOString(),
+            status: 'idle',
+            tools: [],
+          })
+        }
+      } else {
+        $.input = saved; const d = await res.json().catch(() => ({})); alert(d.error || '发送失败')
+      }
     } catch { $.input = saved; alert('网络错误') }
     finally { $.sending = false }
   }
