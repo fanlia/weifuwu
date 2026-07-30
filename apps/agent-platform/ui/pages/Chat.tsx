@@ -29,7 +29,11 @@ export const Chat: Component = (_props, ctx) => {
   const unsub = ctx.ws?.onMessage((event: any) => {
     switch (event.type) {
       case 'new_message':
-        $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name ?? '', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] }); break
+        // POST 响应已 push，WS 广播可能重复 — 去重
+        if (!$.msgs.some((m: any) => m.id === event.message.id)) {
+          $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name ?? '', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] })
+        }
+        ; break
       case 'ai_draft':
         $.msgs.push({ id: event.message.id, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'idle', tools: [], ai_draft: event.draft, ai_approved: null }); break
       case 'ai:status': {
