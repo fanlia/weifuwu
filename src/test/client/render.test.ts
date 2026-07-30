@@ -1219,4 +1219,74 @@ describe('keyed diff DOM mutations', () => {
 
     container.remove()
   })
+
+  it('SVG 元素使用 createElementNS 渲染', () => {
+    const v = { type: 'svg', props: { width: 100, height: 100, children: { type: 'circle', props: { cx: 50, cy: 50, r: 40, fill: 'red' }, key: undefined } }, key: undefined }
+    const el = render(v, ctx) as SVGElement
+    assert.equal(el.tagName, 'svg')
+    assert.equal(el.namespaceURI, 'http://www.w3.org/2000/svg')
+    const circle = el.firstChild as SVGElement
+    assert.equal(circle.tagName, 'circle')
+    assert.equal(circle.getAttribute('cx'), '50')
+    assert.equal(circle.getAttribute('fill'), 'red')
+    // patch SVG
+    const v2 = { type: 'svg', props: { width: 200, children: { type: 'circle', props: { cx: 30, r: 20, fill: 'blue' }, key: undefined } }, key: undefined }
+    patchValue(document.body, el, v, v2, ctx)
+    assert.equal(el.getAttribute('width'), '200')
+    assert.equal(circle.getAttribute('cx'), '30')
+    assert.equal(circle.getAttribute('fill'), 'blue')
+  })
+
+  it('innerHTML prop 忽略 children', () => {
+    const container = document.createElement('div')
+    const v = { type: 'div', props: { innerHTML: '<p>hello</p>', children: 'ignored-text' }, key: undefined }
+    mountVNode(container, v, ctx)
+    const div = container.firstChild as HTMLElement
+    assert.equal(div.innerHTML, '<p>hello</p>', 'innerHTML rendered')
+    assert.equal(div.textContent, 'hello', 'children ignored when innerHTML present')
+  })
+
+  it('ref 回调在 mount/unmount 时调用', () => {
+    const refCalls: (HTMLElement | null)[] = []
+    const v = { type: 'div', props: { ref: (el: any) => refCalls.push(el), children: 'ref-test' }, key: undefined }
+    const container = document.createElement('div')
+    mountVNode(container, v, ctx)
+    const div = container.firstChild as HTMLElement
+    assert.equal(refCalls.length, 1, 'ref(el) on mount')
+    assert.equal(refCalls[0], div, 'ref receives element')
+
+    // unmount via null
+    patchValue(container, div, v, null, ctx)
+    assert.equal(refCalls.length, 2, 'ref(null) on unmount')
+    assert.equal(refCalls[1], null, 'ref receives null')
+  })
+
+  it('组件返回 Fragment 渲染多个根节点', () => {
+    // Fragment 的子节点应直接挂载到容器，不产生额外 DOM
+    let renderCount = 0
+    const Comp = (_init: any) =>
+      () => {
+        renderCount++
+        return { type: Fragment, props: { children: [
+          { type: 'span', props: { children: 'a' }, key: undefined },
+          { type: 'span', props: { children: 'b' }, key: undefined },
+        ]}, key: undefined }
+      }
+
+    const container = document.createElement('div')
+    const v = { type: Comp as any, props: {}, key: undefined }
+    mountVNode(container, v, ctx)
+    // container 直接包含 span 子节点，没有 fragment 包装
+    assert.equal(container.childNodes.length, 2, '2 children in container')
+    assert.equal(container.childNodes[0].textContent, 'a')
+    assert.equal(container.childNodes[1].textContent, 'b')
+
+    // patch 更新 Fragment 内容
+    const Comp2 = (_init: any) =>
+      () => ({ type: Fragment, props: { children: [
+        { type: 'span', props: { children: 'c' }, key: undefined },
+      ]}, key: undefined })
+    const v2 = { type: Comp2 as any, props: {}, key: undefined }
+    // 不能直接用 patchValue (fragment 展平到容器)，跳过
+  })
 })

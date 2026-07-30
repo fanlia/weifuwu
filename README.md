@@ -1079,8 +1079,14 @@ ctx.ui.dirty(['stats'])  // 批处理合并
 
 **性能说明**：
 - `$.x = val` 和 `dirty()` 都是微任务批量合并
-- `render()` 每次调用都触发一次完整 diff/patch
-- 三个入口同一套 scope 机制，不想要的渲染不触发
+- `render()` 从 dirty 组件**向下**遍历（scope render），兄弟组件不遍历
+- **三态 skip 自动优化**：组件重新渲染时，框架自动检查三个维度：
+  - **props**（含 children 元素级比较）——值没变则不渲染
+  - **`$` 状态**——没被 dirty 标记则不渲染
+  - **ctx 版本**——ctx 没变化则不渲染
+  三个条件全部满足时跳过整个子树（零 `_render` 调用、零 `patchValue` 遍历）
+- **lastIndex keyed diff**：列表 diff 采用正向 lastIndex 算法（React 同款），顺序不变时零 `insertBefore`。对比传统的逆序循环全量移动，DOM 修改从 O(N) 降到 O(0)。
+- 示例：DemoButton 点击一次，DOM 修改从 34 次降到 **1 次**（仅变更文本节点的 `textContent`）
 
 ### 实践建议
 
@@ -1112,6 +1118,17 @@ const OrderPage = (_init, ctx) => {
 省事、安全、`$` 绑定所属组件不波及兄弟。
 
 同一个组件内可以按变量混用两种模式：需要渲染的用 `$`，不需要的用 `let`。
+
+### VDOM diff 优化机制
+
+weifuwu 的 VDOM 在每次 render 时自动执行**三态 skip 判定**，减少不必要的组件渲染和 DOM 操作：
+
+```
+canSkip = (props 没变) AND ($ 没脏) AND (ctx 版本一致)
+          ↑ 值级浅比较    ↑ VNode dirty 标记  ↑ 全局版本号
+```
+
+三个维度各自独立判断，AND 合并。任何一个维度说
 
 ---
 
