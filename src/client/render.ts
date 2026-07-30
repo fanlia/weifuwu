@@ -559,10 +559,11 @@ function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[]
     if (oldEntry && oldEntry.node) {
       // 同 key → 移动 DOM 节点
       parent.insertBefore(oldEntry.node, insertBefore)
-      // patch 内容，patchValue 可能替换 DOM 节点（类型不同时 replaceChild）
-      // 用返回值更新 insertBefore，确保引用有效
+      // patch 内容，patchValue 可能替换或移除 DOM 节点
+      // 替换（类型不同 replaceChild）：用返回值
+      // 移除（newInput=null）：返回 null，insertBefore 保持原值
       const newNode = patchValue(parent, oldEntry.node, oldEntry.vnode, newChild, ctx)
-      insertBefore = newNode ?? oldEntry.node
+      if (newNode) insertBefore = newNode
     } else {
       // 新 key → 插入
       const node = renderValue(newChild, ctx)
