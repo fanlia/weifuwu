@@ -564,10 +564,14 @@ function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[]
       // 同 key → 移动 DOM 节点
       parent.insertBefore(oldEntry.node, insertBefore)
       // patch 内容，patchValue 可能替换或移除 DOM 节点
-      // 替换（类型不同 replaceChild）：用返回值
-      // 移除（newInput=null）：返回 null，insertBefore 保持原值
       const newNode = patchValue(parent, oldEntry.node, oldEntry.vnode, newChild, ctx)
-      if (newNode) insertBefore = newNode
+      if (newNode) {
+        insertBefore = newNode
+      } else {
+        // patchValue 返回 null（子节点被移除），oldEntry.node 已脱离 DOM
+        // 不能用它做 insertBefore，退回到 parent.firstChild
+        insertBefore = parent.firstChild
+      }
     } else {
       // 新 key → 插入
       const node = renderValue(newChild, ctx)
