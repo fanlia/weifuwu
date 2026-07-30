@@ -898,6 +898,8 @@ h('div', { class: 'x' }, child1, child2)
 | `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | 当前/指定 | **绕过 Proxy 后手动标记** |
 | `ctx.ui.render()` | 主动调用 | 立即同步 | 当前/指定 | **需要立即拿到最新 DOM** — DOM 测量、动画触发 |
 | `ctx.ui.render(['id'])` | 主动调用 | 立即同步 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
+| `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动 dirty |
+| `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
 
 `render()` 和 `dirty()` 无参 = 当前组件，传参 = 指定组件列表。三套 API 同一 scope 机制。
 
@@ -944,6 +946,79 @@ const FormPage: Component = (_init, ctx) => {
 **何时不用**：
 - 不需要触发渲染的内部缓存（用闭包变量 `let`）
 - 简单组件只有一两个状态变量（闭包变量 + `render()` 更轻量）
+
+### 响应式自适应组件
+
+#### `ctx.ui.useMedia(query, callback)` — 响应式媒体查询
+
+注册媒体查询监听，值变化时自动调用 callback（callback 内赋值 `$` 触发 dirty）：
+
+```tsx
+const Card = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.isMobile = false
+  // 立即回调一次（取当前值），之后变化时自动重新回调
+  ctx.ui.useMedia('(max-width: 640px)', (v) => { $.isMobile = v })
+
+  return (props) => (
+    <div class={$.isMobile ? 'wf-stack' : 'wf-row'}>
+      {!$.isMobile && <Sidebar />}
+      <Content />
+    </div>
+  )
+}
+```
+
+`callback` 在 mount 时立即执行一次，之后断点变化时再次执行。赋值给 `$` 的属性自动触发渲染。
+
+#### `ctx.ui.useBreakpoint(callback)` — 命名断点
+
+预设三个断点名称：`mobile`（<640px）、`tablet`（640-1023px）、`desktop`（≥1024px）：
+
+```tsx
+const Layout = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  ctx.ui.useBreakpoint((vp) => { $.vp = vp })
+
+  return (props) =>
+    <div class={`sidebar-${$.vp}`}>
+      {$.vp === 'mobile' ? <BottomNav /> : <SideNav />}
+      {$.vp === 'mobile' ? <MobileContent /> : <Content />}
+    </div>
+}
+```
+
+也支持自定义断点：
+
+```tsx
+ctx.ui.useBreakpoint(
+  { narrow: '(max-width: 480px)', wide: '(min-width: 1200px)' },
+  (vp) => { $.size = vp },
+)
+```
+
+#### CSS 层响应式（不碰 JS）
+
+配合 `weifuwu/layout` 的断点变体，纯 CSS 实现布局方向切换：
+
+```html
+<!-- 小屏堆叠，桌面并排 -->
+<div class="wf-stack wf-stack@md"></div>
+
+<!-- 小屏隐藏侧栏 -->
+<aside class="wf-hidden wf-block@md"></aside>
+```
+
+可用断点变体：
+
+| 原语 | 变体 | 效果 |
+|------|------|------|
+| `wf-stack` | `@sm` `@md` `@lg` | 断点以上改为横向排列 |
+| `wf-row` | `@sm` `@md` `@lg` | 断点以上保持横向 |
+| `wf-hidden` | `@sm` `@md` `@lg` | 断点以上隐藏 |
+| `wf-block` | `@sm` `@md` `@lg` | 断点以上显示 |
+
+断点尺寸：`--wf-bp-sm: 640px` / `--wf-bp-md: 768px` / `--wf-bp-lg: 1024px` / `--wf-bp-xl: 1280px`
 
 ### `ctx.ui.dirty()` — 异步标记脏
 
@@ -1766,10 +1841,10 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 
 | 类别 | 原语 | 效果 |
 |------|------|------|
-| **排列** | `wf-stack` | 纵向 flex + gap |
-| | `wf-stack-reverse` | 纵向反向 |
-| | `wf-row` | 横向 flex + wrap + gap |
-| | `wf-row-reverse` | 横向反向 |
+| **排列** | `wf-stack` `wf-stack@sm/md/lg` | 纵向 flex + gap（断点变体→横向） |
+| | `wf-stack-reverse` `@sm/md/lg` | 纵向反向 |
+| | `wf-row` `wf-row@sm/md/lg` | 横向 flex + wrap + gap |
+| | `wf-row-reverse` `@sm/md/lg` | 横向反向 |
 | | `wf-nowrap` | flex-wrap: nowrap |
 | | `wf-cluster` | 换行居中簇 |
 | **分布** | `wf-split` | justify-content: space-between |
@@ -1794,8 +1869,8 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | | `wf-container` | max-width + margin: auto |
 | | `wf-scroll` | overflow: auto |
 | | `wf-clip` | overflow: hidden |
-| **显隐** | `wf-hidden` | display: none |
-| | `wf-block` | display: block |
+| **显隐** | `wf-hidden` `wf-hidden@sm/md/lg` | display: none |
+| | `wf-block` `wf-block@sm/md/lg` | display: block |
 | | `wf-inline` | display: inline |
 | | `wf-inline-block` | display: inline-block |
 | | `wf-contents` | display: contents |
