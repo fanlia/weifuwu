@@ -1,8 +1,8 @@
 {
   "name": "weifuwu",
   "type": "module",
-  "version": "0.52.0",
-  "description": "AI SaaS framework \u2014 (req, ctx) => Response",
+  "version": "0.53.0",
+  "description": "AI SaaS framework — (req, ctx) => Response",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
