@@ -220,9 +220,13 @@ const DemoProgress: Component = (_props, ctx) => {
   return (_p: any) => {
     if (!started) {
       started = true
-      setTimeout(() => {
-        if (pct < 100) { pct = Math.min(100, pct + 5); ctx.ui.render() }
-      }, 800)
+      const tick = () => {
+        if (pct >= 100) return
+        pct = Math.min(100, pct + 5)
+        ctx.ui.render()
+        if (pct < 100) setTimeout(tick, 800)
+      }
+      setTimeout(tick, 800)
     }
     return (
     <div class="wf-stack" style="gap:12px;width:100%">
