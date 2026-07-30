@@ -144,7 +144,14 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
     return document.createTextNode('')
   }
   vnode._child = childVNode
-  return renderValue(childVNode, childCtx)
+  const domNode = renderValue(childVNode, childCtx)
+  // 为组件 VNode 设置 DOM 锚点，供 scope render 使用
+  // 如果组件被原生元素包裹，原生元素路径会覆盖 _parentNode
+  // 如果组件被另一个组件返回（如 RouteView → Dashboard），这里确保锚点可用
+  if (!(vnode as any)._refNode) {
+    ;(vnode as any)._refNode = domNode
+  }
+  return domNode
 }
 
 function renderArray(arr: any[], ctx: WfuiContext): DocumentFragment {

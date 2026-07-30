@@ -44,6 +44,10 @@ export function createApp() {
       const oldChild = vnode._child
       const newChild = vnode._render(vnode.props)
       vnode._child = newChild
+      // 如果 _parentNode 未设置（组件未被原生元素包裹渲染），从 _refNode 推导
+      if (!vnode._parentNode && vnode._refNode) {
+        ;(vnode as any)._parentNode = vnode._refNode.parentNode
+      }
       if (vnode._parentNode) {
         const newNode = patchValue(
           vnode._parentNode,
