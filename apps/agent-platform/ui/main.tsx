@@ -62,7 +62,7 @@ app.use(router({
       ],
     },
   ],
-  notFound: () => (
+  notFound: () => () => (
     <div class="empty" style={{ paddingTop: '30vh' }}>
       <div class="empty-ico">🧭</div>
       <div class="empty-txt">404 — 页面不存在</div>

@@ -22,7 +22,7 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
   // ── 认证守卫 ──
   if (!ctx.auth?.isLoggedIn) {
     queueMicrotask(() => ctx.app?.navigate('/login'))
-    return <div class="boot-loading"><div class="spinner"></div></div>
+    return (__props: {}) => <div class="boot-loading"><div class="spinner"></div></div>
   }
 
   const user = ctx.auth?.user
@@ -40,7 +40,7 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
     ctx.app?.navigate('/login')
   }
 
-  return (
+  return (__props: {}) => (
     <div class="app-shell">
       <aside class="sidebar">
         <div class="side-brand">
