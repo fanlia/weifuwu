@@ -978,8 +978,9 @@ if (ok) { /* 执行 */ }`,
 // ── 主应用 ─────────────────────────────────────────────
 
 const App: Component = (_props, ctx) => {
-  const cur = (ctx as any)?.i18n?.locale ?? 'zh-CN'
-  return (_p: any) => (
+  return (_p: any) => {
+    const cur = (ctx as any)?.i18n?.locale ?? 'zh-CN'
+    return (
     <div class="wf-container wf-stack" style="--wf-max:960px;gap:32px">
       <div style="text-align:center;padding:var(--wf-space-xl) 0">
         {/* 语言切换 */}
@@ -1063,7 +1064,8 @@ const App: Component = (_props, ctx) => {
         {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 41 个组件 · 打开 devtools 查看代码'}
       </div>
     </div>
-  )
+    )
+  }
 }
 
 createApp()
