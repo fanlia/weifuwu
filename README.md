@@ -82,7 +82,7 @@ createApp()
   <!-- 组件样式（可选，如只用 weifuwu/client 则不需要） -->
   <link
     rel="stylesheet"
-    href="https://unpkg.com/weifuwu@0.51.0/dist/components/style.css"
+    href="https://unpkg.com/weifuwu@0.52.0/dist/components/style.css"
   />
 </head>
 <body>
@@ -92,8 +92,8 @@ createApp()
   <script type="importmap">
     {
       "imports": {
-        "weifuwu/client": "https://unpkg.com/weifuwu@0.51.0/dist/client/index.js",
-        "weifuwu/components": "https://unpkg.com/weifuwu@0.51.0/dist/components/index.js"
+        "weifuwu/client": "https://unpkg.com/weifuwu@0.52.0/dist/client/index.js",
+        "weifuwu/components": "https://unpkg.com/weifuwu@0.52.0/dist/components/index.js"
       }
     }
   </script>
@@ -137,12 +137,12 @@ createApp()
 
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
-| `weifuwu/client` | `https://unpkg.com/weifuwu@0.51.0/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@0.51.0/dist/components/index.js` | 41 个 UI 组件（Button, Card, Table, Modal 等） |
-| 组件样式 | `https://unpkg.com/weifuwu@0.51.0/dist/components/style.css` | 组件 CSS + 72 个主题 Token + 35 个布局原语 |
-| 独立布局系统 | `https://unpkg.com/weifuwu@0.51.0/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
+| `weifuwu/client` | `https://unpkg.com/weifuwu@0.52.0/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@0.52.0/dist/components/index.js` | 41 个 UI 组件（Button, Card, Table, Modal 等） |
+| 组件样式 | `https://unpkg.com/weifuwu@0.52.0/dist/components/style.css` | 组件 CSS + 72 个主题 Token + 35 个布局原语 |
+| 独立布局系统 | `https://unpkg.com/weifuwu@0.52.0/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
-> 提示：将 `@0.51.0` 替换为 `@latest` 始终使用最新版，或固定版本避免意外变更。
+> 提示：将 `@0.52.0` 替换为 `@latest` 始终使用最新版，或固定版本避免意外变更。
 
 ---
 

@@ -996,7 +996,7 @@ const App: Component = (_props, ctx) => {
         <p style="color:var(--wf-color-text-secondary)">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
           <Badge variant="primary">41 组件</Badge>
-          <Badge variant="success">178 测试</Badge>
+          <Badge variant="success">580 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
@@ -1076,7 +1076,7 @@ createApp()
   .use(confirm())
   .use(i18n({ locale: 'zh-CN', messages: {
     'app.title': 'weifuwu/components',
-    'app.desc': '41 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',
-    'app.footer': 'weifuwu/components · 全部 37 个组件 · 打开 devtools 查看代码',
+    'app.desc': '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',
+    'app.footer': 'weifuwu/components · 全部 41 个组件 · 打开 devtools 查看代码',
   } }))
   .mount('#root', App)

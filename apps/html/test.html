@@ -8,12 +8,15 @@
     <!-- weifuwu/components 样式（CDN） -->
     <link
       rel="stylesheet"
-      href="https://unpkg.com/weifuwu@0.51.0/dist/components/style.css"
+      href="https://unpkg.com/weifuwu@latest/dist/components/style.css"
     />
 
     <style>
       body {
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -104,48 +107,72 @@
         $.count = 0
         console.log('[Counter] 挂载，初始值 = 0')
 
-        const increment = () => { $.count++ }
-        const decrement = () => { $.count-- }
-        const reset = () => { $.count = 0 }
+        const increment = () => {
+          $.count++
+        }
+        const decrement = () => {
+          $.count--
+        }
+        const reset = () => {
+          $.count = 0
+        }
 
         // ── render ──
         return () =>
-          h(Card, { variant: 'default', padding: 'lg' },
+          h(
+            Card,
+            { variant: 'default', padding: 'lg' },
             // 标题
-            h(
-              'p',
-              { className: 'demo-title' },
-              '⚡ Weifuwu 计数器 (CDN)',
-            ),
+            h('p', { className: 'demo-title' }, '⚡ Weifuwu 计数器 (CDN)'),
 
             // 计数值
             h('div', { className: 'demo-value' }, String($.count)),
 
             // 奇偶 Badge
-            h('div', { className: 'demo-status' },
-              h(Badge, {
-                variant: $.count % 2 === 0 ? 'success' : 'warning'
-              }, $.count % 2 === 0 ? '偶数' : '奇数'),
+            h(
+              'div',
+              { className: 'demo-status' },
+              h(
+                Badge,
+                {
+                  variant: $.count % 2 === 0 ? 'success' : 'warning',
+                },
+                $.count % 2 === 0 ? '偶数' : '奇数',
+              ),
             ),
 
             h('hr', { className: 'demo-divider' }),
 
             // 按钮组 — 使用 weifuwu Button 组件
-            h('div', { className: 'demo-row' },
-              h(Button, {
-                variant: 'secondary',
-                onClick: decrement
-              }, '➖ 减 1'),
+            h(
+              'div',
+              { className: 'demo-row' },
+              h(
+                Button,
+                {
+                  variant: 'secondary',
+                  onClick: decrement,
+                },
+                '➖ 减 1',
+              ),
 
-              h(Button, {
-                variant: 'danger',
-                onClick: reset
-              }, '↺ 重置'),
+              h(
+                Button,
+                {
+                  variant: 'danger',
+                  onClick: reset,
+                },
+                '↺ 重置',
+              ),
 
-              h(Button, {
-                variant: 'primary',
-                onClick: increment
-              }, '➕ 加 1'),
+              h(
+                Button,
+                {
+                  variant: 'primary',
+                  onClick: increment,
+                },
+                '➕ 加 1',
+              ),
             ),
           )
       }
