@@ -16,10 +16,10 @@ export const DepartmentDetail: Component = (_props, ctx) => {
         $.loading = false
       }).catch(() => { $.loading = false })
 
-  if ($.loading) return <div class="page"><Loading /></div>
-  if ($.notFound) return <div class="page"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">部门不存在</div></div></div>
-
-  return (props) => (
+  return (props) => {
+    if ($.loading) return <div class="page"><Loading /></div>
+    if ($.notFound) return <div class="page"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">部门不存在</div></div></div>
+    return (
     <div class="page">
       <a class="back-link" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
 
@@ -62,5 +62,6 @@ export const DepartmentDetail: Component = (_props, ctx) => {
         )}
       </div>
     </div>
-  )
+    )
+  }
 }
