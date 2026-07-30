@@ -72,4 +72,4 @@ app.use(router({
 
 // ── 挂载 ─────────────────────────────────────────────────
 
-app.mount('#root', () => <RouteView />)
+app.mount('#root', () => () => <RouteView />)
