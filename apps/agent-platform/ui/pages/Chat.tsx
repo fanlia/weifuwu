@@ -225,16 +225,16 @@ export const Chat: Component = (_props, ctx) => {
     return labels[name] ?? name.replace(/_/g, ' ')
   }
 
-  // 每次 render 后检查是否需要滚动
-  const msgs = $.msgs
-  if (msgs.length > prevLen) { scrollToBottom(); prevLen = msgs.length }
-  if (msgs.length > 0) {
-    const totalLen = msgs.reduce((s: number, m: any) => s + m.content.length, 0)
-    if (totalLen > prevContentLen && prevContentLen > 0) { scrollToBottom() }
-    prevContentLen = totalLen
-  }
-
   return (props: {}) => {
+    // ── 每次 render 检查是否需要滚动 ──
+    const msgsLen = $.msgs.length
+    if (msgsLen > prevLen) { scrollToBottom(); prevLen = msgsLen }
+    if (msgsLen > 0) {
+      const totalLen = $.msgs.reduce((s: number, m: any) => s + m.content.length, 0)
+      if (totalLen > prevContentLen && prevContentLen > 0) { scrollToBottom() }
+      prevContentLen = totalLen
+    }
+
     const inputDisabled = $.editingId !== ''
     const canSend = $.input.trim().length > 0 && !$.sending
 

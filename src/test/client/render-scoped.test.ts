@@ -284,4 +284,62 @@ describe('scoped render', () => {
     await app.mount('#s11', () => () => ({ type: 'div', props: { children: { type: Comp, props: {}, key: undefined } }, key: undefined }))
     el.remove()
   })
+
+  it('稳定 ref 在 scope re-render 后不被 cleanup', async () => {
+    let refCalls: Array<boolean | null> = []
+    let renderCount = 0
+    let cleanupCount = 0
+
+    // 模拟一个&quot;外部订阅&quot;（类似 Chat 的 WS onMessage）
+    let externalSubActive = true
+    const unsub = () => { externalSubActive = false; cleanupCount++ }
+
+    // 稳定的 ref 函数（mount 闭包中定义一次）
+    const stableRef = (el: any) => {
+      refCalls.push(!!el)
+    }
+
+    const App = (_: any, ctx: any) => {
+      const $ = ctx.ui.$()
+      $.items = [1]
+      $.trigger = 0
+
+      return () => {
+        renderCount++
+        return h('div', {}, [
+          h('ul', { ref: stableRef },
+            $.items.map((n: number) => h('li', {}, String(n)))
+          ),
+        ])
+      }
+    }
+
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 's12'
+    await app.mount('#s12', App)
+
+    // 初始 mount
+    assert.equal(renderCount, 1)
+    assert.equal(refCalls.length, 1)
+    assert.equal(refCalls[0], true)
+    assert.equal(externalSubActive, true)
+
+    // scope re-render: 通过 App 的 $ 修改状态触发 dirty
+    // 用 app.ctx.ui.render() 触发 App 组件的 re-render（与 $ 绑定同一 selfId）
+    ;(app as any).ctx.ui.render()
+    await new Promise(r => setTimeout(r, 20))
+
+    // 验证：re-render 后 ref cleanup 不应触发
+    assert.equal(renderCount, 2, 're-render 执行')
+    assert.equal(
+      refCalls.length,
+      1,
+      'ref 不应被再次调用（稳定引用，VDOM 检测到 oldRef === newRef，不卸载/重新挂载）',
+    )
+    assert.equal(cleanupCount, 0, '外部订阅不应被误注销')
+
+    el.remove()
+  })
 })
