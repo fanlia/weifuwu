@@ -122,8 +122,9 @@ export const NewAgent: Component = (_props, ctx) => {
 
   // ══════════ 步骤 1: 选择模板 ══════════
   if ($.step === 'template') {
-    if ($.loading) return (__props: {}) => <div class="page page-narrow"><div class="empty"><div class="spinner"></div></div></div>
-    return (props: {}) => (
+    return (props: {}) => {
+      if ($.loading) return <div class="page page-narrow"><div class="empty"><div class="spinner"></div></div></div>
+      return (
       <div class="page page-narrow">
         <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
         <PageHeader title="创建 Agent" sub="选择一个角色模板快速开始，或跳过自行配置" />
@@ -154,7 +155,8 @@ export const NewAgent: Component = (_props, ctx) => {
           <button class="btn btn-ghost" onClick={startDirect}>跳过模板，直接创建 →</button>
         </div>
       </div>
-    )
+      )
+    }
   }
 
   // ══════════ 步骤 2: 配置 ══════════
