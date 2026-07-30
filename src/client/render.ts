@@ -106,7 +106,7 @@ function renderValue(v: any, ctx: WfuiContext): Node | null {
   return el
 }
 
-function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiContext): Node {
+function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiContext): Node | null {
   ;(ctx as any).ui = (ctx as any).ui ?? {}
 
   // 生成组件实例 ID
@@ -164,7 +164,10 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
 
 function renderArray(arr: any[], ctx: WfuiContext): DocumentFragment {
   const frag = document.createDocumentFragment()
-  for (const item of arr) frag.appendChild(renderValue(item, ctx))
+  for (const item of arr) {
+    const node = renderValue(item, ctx)
+    if (node != null) frag.appendChild(node)
+  }
   return frag
 }
 
@@ -270,6 +273,7 @@ export function patchValue(
   if (oldInput == null) {
     if (newInput == null) return null
     const node = renderValue(newInput, ctx)
+    if (node == null) return null
     if (oldNode && oldNode.parentNode) {
       oldNode.parentNode.insertBefore(node, oldNode)
     } else {
@@ -294,6 +298,7 @@ export function patchValue(
   if (oldType !== newType) {
     callRefCleanup(oldInput)
     const node = renderValue(newInput, ctx)
+    if (node == null) return null
     if (oldNode?.parentNode) {
       oldNode.parentNode.replaceChild(node, oldNode)
     }
@@ -405,6 +410,7 @@ export function patchValue(
       // oldNode 不是元素节点 → 替换
       callRefCleanup(oldInput)
       const node = renderValue(newInput, ctx)
+      if (node == null) return null
       oldNode.parentNode?.replaceChild(node, oldNode)
       return node
     }
@@ -413,7 +419,8 @@ export function patchValue(
 
   // Portal
   if (newV.type === Portal) {
-    return patchPortal(parent, oldNode, oldV as VNode, newV as VNode, ctx)
+    patchPortal(oldV as VNode | null, newV as VNode, ctx)
+    return null
   }
 
   // Array（map 结果等）
