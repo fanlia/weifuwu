@@ -200,6 +200,16 @@ export const Chat: Component = (_props, ctx) => {
     $.approving = null
   }
 
+  // 稳定的 ref 函数（避免每次 render 创建新函数导致 VDOM diff 触发 cleanup）
+  const chatBodyRef = (el: any) => {
+    if (el) { $.bodyEl = el; scrollToBottom(true) }
+    if (!el && $.bodyEl) {
+      $.bodyEl = null
+      if ($.unsubWs) { try { $.unsubWs() } catch {}; $.unsubWs = null }
+      if ($.streamTimer) { clearInterval($.streamTimer); $.streamTimer = null }
+    }
+  }
+
   function fmtTime(iso: string) {
     try {
       const d = new Date(iso)
@@ -241,14 +251,7 @@ export const Chat: Component = (_props, ctx) => {
         <button class="btn btn-ghost btn-sm" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</button>
       </div>
 
-      <div class="chat-body" ref={(el: any) => {
-        if (el) { $.bodyEl = el; scrollToBottom(true) }
-        if (!el && $.bodyEl) {
-          $.bodyEl = null
-          if ($.unsubWs) { try { $.unsubWs() } catch {}; $.unsubWs = null }
-          if ($.streamTimer) { clearInterval($.streamTimer); $.streamTimer = null }
-        }
-      }}
+      <div class="chat-body" ref={chatBodyRef}
         onScroll={() => {
           if (!$.bodyEl) return
           const threshold = 80
