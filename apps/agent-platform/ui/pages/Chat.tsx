@@ -125,7 +125,7 @@ export const Chat: Component = (_props, ctx) => {
       })
       if (res.ok) {
         const data = await res.json().catch(() => ({}))
-        if (data.message) {
+        if (data.message && !$.msgs.some((m: any) => m.id === data.message.id)) {
           $.msgs.push({
             id: data.message.id,
             sender_id: data.message.sender_id ?? '',
