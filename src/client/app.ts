@@ -33,6 +33,9 @@ export function createApp() {
   let _dirtyBatch = new Set<string>()
   let _dirtyScheduled = false
 
+  // ── 响应式媒体查询注册表（组件级，避免重复注册 listener） ──
+  const _mediaRegistry = new Map<string, { mql: MediaQueryList; handler: (e: MediaQueryListEvent) => void }>()
+
   // ── 核心：按 ID 列表渲染组件 ───────────────────────
   function renderByIds(ids: string[]) {
     if (_rendering) return
@@ -79,7 +82,7 @@ export function createApp() {
     }
   }
 
-  /** 获取调用者（组件）的 selfId — 优先从 this，其次从 app 层 ctx */
+    /** 获取调用者（组件）的 selfId — 优先从 this，其次从 app 层 ctx */
   function getSelfId(uiObj: any): string | undefined {
     return uiObj?._selfId ?? (ctx as any).ui?._selfId
   }
@@ -148,6 +151,77 @@ export function createApp() {
           return createReactiveState(() => {
             if (selfId) (ctx as any).ui.dirty([selfId])
           })
+        },
+
+        /**
+         * 响应式媒体查询：注册监听，值变化时自动 dirty
+         *
+         * 用法：
+         *   const $ = ctx.ui.$()
+         *   ctx.ui.useMedia('(max-width: 640px)', (v) => { $.isMobile = v })
+         *
+         * callback 会立即执行一次（取当前值），之后在变化时再次执行
+         */
+        useMedia: function (query: string, callback: (matches: boolean) => void) {
+          const selfId = getSelfId(this)
+          const key = `media:${selfId}:${query}`
+          if (!_mediaRegistry.has(key)) {
+            const mql = window.matchMedia(query)
+            // 立即回调当前值
+            callback(mql.matches)
+            // 注册变化监听
+            const handler = (e: MediaQueryListEvent) => callback(e.matches)
+            mql.addEventListener('change', handler)
+            _mediaRegistry.set(key, { mql, handler })
+          }
+        },
+
+        /**
+         * 响应式断点：注册命名断点监听，值变化时自动 dirty
+         *
+         * 用法：
+         *   const $ = ctx.ui.$()
+         *   ctx.ui.useBreakpoint((vp) => { $.vp = vp })
+         *   // vp: 'mobile' | 'tablet' | 'desktop'
+         *
+         * 自定义断点：
+         *   ctx.ui.useBreakpoint(
+         *     { narrow: '(max-width: 480px)', wide: '(min-width: 1200px)' },
+         *     (vp) => { $.size = vp }
+         *   )
+         */
+        useBreakpoint: function (
+          bpsOrCallback: Record<string, string> | ((vp: string) => void),
+          callback?: (vp: string) => void,
+        ) {
+          const bps: Record<string, string> =
+            typeof bpsOrCallback === 'function'
+              ? { mobile: '(max-width: 639px)', tablet: '(min-width: 640px) and (max-width: 1023px)', desktop: '(min-width: 1024px)' }
+              : bpsOrCallback
+          const cb = typeof bpsOrCallback === 'function' ? bpsOrCallback : callback!
+          const selfId = getSelfId(this)
+          const key = `bp:${selfId}`
+
+          function evaluate(): string {
+            for (const [name, query] of Object.entries(bps)) {
+              if (window.matchMedia(query).matches) return name
+            }
+            return Object.keys(bps)[0] ?? ''
+          }
+
+          if (!_mediaRegistry.has(key)) {
+            // 立即回调当前值
+            cb(evaluate())
+            // 为每个断点注册 change 监听，变化时重新求值
+            const handlers: Array<() => void> = []
+            for (const query of Object.values(bps)) {
+              const mql = window.matchMedia(query)
+              const handler = () => cb(evaluate())
+              mql.addEventListener('change', handler)
+              handlers.push(() => mql.removeEventListener('change', handler))
+            }
+            _mediaRegistry.set(key, { mql: null as any, handler: null as any })
+          }
         },
 
         /** 注册组件实例的自定义 ID（用于跨组件精准刷新） */

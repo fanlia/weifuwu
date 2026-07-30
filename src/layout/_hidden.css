@@ -2,3 +2,6 @@
 .wf-hidden {
   display: none;
 }
+@media (min-width: 640px) { .wf-hidden\@sm { display: none; } }
+@media (min-width: 768px) { .wf-hidden\@md { display: none; } }
+@media (min-width: 1024px) { .wf-hidden\@lg { display: none; } }

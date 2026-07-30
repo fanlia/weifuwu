@@ -42,4 +42,18 @@ export function setupJsdom(): void {
       try { g[key] = win[key] } catch { /* read-only property, skip */ }
     }
   }
+
+  // JSDOM 不实现 matchMedia，提供简易 mock
+  const mockMatchMedia = (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: (_type: string, _handler: any) => {},
+    removeEventListener: (_type: string, _handler: any) => {},
+    dispatchEvent: () => false,
+  })
+  if (!g.matchMedia) g.matchMedia = mockMatchMedia
+  if (!win.matchMedia) win.matchMedia = mockMatchMedia
 }

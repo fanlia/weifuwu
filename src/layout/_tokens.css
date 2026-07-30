@@ -108,6 +108,12 @@
   --wf-accent-color: var(--wf-color-primary);
   --wf-caret-color: var(--wf-color-primary);
 
+  /* ── 断点 ── */
+  --wf-bp-sm: 640px;
+  --wf-bp-md: 768px;
+  --wf-bp-lg: 1024px;
+  --wf-bp-xl: 1280px;
+
   /* ── 透明度 ── */
   --wf-opacity-disabled: 0.5;
   --wf-opacity-overlay: 0.4;

@@ -4,6 +4,9 @@
   flex-direction: column;
   gap: var(--wf-gap, var(--wf-gap-md));
 }
+@media (min-width: 640px) { .wf-stack\@sm { flex-direction: row; align-items: var(--wf-align, center); } }
+@media (min-width: 768px) { .wf-stack\@md { flex-direction: row; align-items: var(--wf-align, center); } }
+@media (min-width: 1024px) { .wf-stack\@lg { flex-direction: row; align-items: var(--wf-align, center); } }
 
 /* stack-reverse — 纵向反向堆叠 */
 .wf-stack-reverse {
@@ -11,3 +14,6 @@
   flex-direction: column-reverse;
   gap: var(--wf-gap, var(--wf-gap-md));
 }
+@media (min-width: 640px) { .wf-stack-reverse\@sm { flex-direction: row-reverse; align-items: var(--wf-align, center); } }
+@media (min-width: 768px) { .wf-stack-reverse\@md { flex-direction: row-reverse; align-items: var(--wf-align, center); } }
+@media (min-width: 1024px) { .wf-stack-reverse\@lg { flex-direction: row-reverse; align-items: var(--wf-align, center); } }

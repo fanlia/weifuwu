@@ -186,6 +186,64 @@ describe('createApp', () => {
     el.remove()
   })
 
+  it('ctx.ui.useMedia 注册响应式媒体查询', async () => {
+    let mediaValue = false
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      ctx.ui.useMedia('(max-width: 640px)', (v) => { mediaValue = v })
+      return () => jsx('span', { children: String(mediaValue) })
+    }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'use-media'
+    await app.mount('#use-media', Cmp)
+
+    // useMedia 立即回调当前值（mock 返回 false）
+    assert.equal(mediaValue, false)
+    el.remove()
+  })
+
+  it('ctx.ui.useMedia 配合 $ 触发 dirty', async () => {
+    let renderValue = ''
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      const $ = ctx.ui.$()
+      $.label = 'init'
+      $.isMobile = false
+      // useMedia 立即回调一次
+      ctx.ui.useMedia('(max-width: 640px)', (v) => { $.isMobile = v })
+      return () => {
+        renderValue = $.label + ':' + $.isMobile
+        return jsx('span', { children: renderValue })
+      }
+    }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'use-media-2'
+    await app.mount('#use-media-2', Cmp)
+
+    // mount 后 useMedia 立即回调，$.isMobile = false（mock 返回 false）
+    assert.equal(renderValue, 'init:false')
+    el.remove()
+  })
+
+  it('ctx.ui.useBreakpoint 返回正确断点', async () => {
+    let vp = ''
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      ctx.ui.useBreakpoint((val) => { vp = val })
+      return () => jsx('span', { children: vp })
+    }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'use-bp'
+    await app.mount('#use-bp', Cmp)
+
+    // mock 全 false，fallback 到第一个断点 'mobile'
+    assert.equal(vp, 'mobile')
+    el.remove()
+  })
+
   it('ctx.ui.dirty 批量渲染', async () => {
     let renderCount = 0
     const Cmp = (_: any, ctx: WfuiContext) => {
