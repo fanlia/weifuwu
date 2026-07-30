@@ -63,10 +63,6 @@ export const AgentDetail: Component = (_props, ctx) => {
       $.loading = false
     }).catch(() => { $.loading = false })
 
-  if ($.loading) return <div class="page"><Loading /></div>
-  if ($.notFound) return <div class="page"><div class="empty" style={{ paddingTop: '20vh' }}><div class="empty-ico">🧭</div><div class="empty-txt">Agent 不存在</div></div></div>
-  const a = $.agent ?? {}
-
   async function handleSubmit(e: Event) {
     e.preventDefault()
     $.saving = true; $.error = ''; $.ok = ''
@@ -92,6 +88,7 @@ export const AgentDetail: Component = (_props, ctx) => {
       if (!res.ok) { $.error = data.error || '保存失败'; $.saving = false; return }
       $.ok = '保存成功'; $.saving = false
     } catch { $.error = '网络错误'; $.saving = false }
+  }
 
   async function bindSkill(slug: string) {
     await fetch(`/api/agents/${agentId}/skills`, {
@@ -100,21 +97,25 @@ export const AgentDetail: Component = (_props, ctx) => {
     })
     const d = await fetch(`/api/agents/${agentId}/skills`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
     $.boundSkills = d.skills ?? []
+  }
 
   async function unbindSkill(slug: string) {
     await fetch(`/api/agents/${agentId}/skills/${slug}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     const d = await fetch(`/api/agents/${agentId}/skills`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
     $.boundSkills = d.skills ?? []
+  }
 
   async function loadLogs() {
     $.logsLoading = true
     const d = await fetch(`/api/agents/${agentId}/logs?limit=20`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
     $.logs = d.logs ?? []; $.logsLoading = false
+  }
 
   async function loadWebhookLogs() {
     $.whLogsLoading = true
     const d = await fetch(`/api/stats/agents/${agentId}/webhook-logs`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
     $.whLogs = d.logs ?? []; $.whLogsLoading = false
+  }
 
   async function toggleExpandDoc(docId: string) {
     if ($.expandedDoc === docId) { $.expandedDoc = null; $.docChunks = []; return }
@@ -124,6 +125,7 @@ export const AgentDetail: Component = (_props, ctx) => {
       if (res.ok) { const d = await res.json(); $.docChunks = d.chunks ?? [] }
     } catch {}
     $.loadingChunks = false
+  }
 
   async function uploadDoc(e: Event) {
     e.preventDefault()
@@ -141,21 +143,21 @@ export const AgentDetail: Component = (_props, ctx) => {
       }
     } catch {}
     $.uploading = false
+  }
 
   async function deleteDoc(docId: string) {
     await fetch(`/api/knowledge/${docId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     const d = await fetch(`/api/agents/${agentId}/knowledge`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
     $.docs = d.documents ?? []
+  }
 
-  }
-  }
-  }
-  }
-  }
-  }
-  }
-  }
-  return (props) => (
+  return (props) => {
+    if ($.loading) return <div class="page"><Loading /></div>
+    if ($.notFound) return <div class="page"><div class="empty" style={{ paddingTop: '20vh' }}><div class="empty-ico">🧭</div><div class="empty-txt">Agent 不存在</div></div></div>
+
+    const a = $.agent ?? {}
+
+    return (
     <div class="page page-narrow">
       <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
@@ -383,5 +385,6 @@ export const AgentDetail: Component = (_props, ctx) => {
         </div>
       )}
     </div>
-  )
+    )
+  }
 }
