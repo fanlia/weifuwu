@@ -287,6 +287,9 @@ export function patchValue(
     if (oldNode) {
       callRefCleanup(oldInput)
       ;(oldNode as ChildNode).remove()
+    } else {
+      // oldNode 为 null（remote 组件的 _refNode 为 null），但仍需清理 remote 容器
+      callRefCleanup(oldInput)
     }
     return null
   }

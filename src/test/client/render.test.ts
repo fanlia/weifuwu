@@ -1003,3 +1003,103 @@ describe('two-phase component model', () => {
 })
 
 })
+
+// ── keyed diff DOM 修改次数 ───────────────────────────
+
+describe('keyed diff DOM mutations', () => {
+  // 辅助：统计一次 patchValue 后的 DOM 变更次数
+  function domMutationCount(parent: Node, oldV: any, newV: any, skipCtx: any): number {
+    const mo = new MutationObserver(() => {})
+    mo.observe(parent, { childList: true, subtree: true, characterData: true })
+    const el = parent.firstChild as HTMLElement
+    patchValue(parent, el, oldV, newV, skipCtx)
+    let total = 0
+    for (const m of mo.takeRecords()) {
+      total += m.type === 'childList' ? m.addedNodes.length + m.removedNodes.length : 1
+    }
+    mo.disconnect()
+    return total
+  }
+
+  const skipCtx: any = { ui: { _ctxVersion: 1, _dirtySet: new Set<string>() } }
+
+  function span(text: string, key: string): any {
+    return { type: 'span', props: { children: text }, key }
+  }
+
+  it('顺序不变: 0 DOM 修改', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c')] }, key: undefined }
+    const newV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c')] }, key: undefined }
+    mountVNode(container, oldV, skipCtx)
+    const n = domMutationCount(container, oldV, newV, skipCtx)
+    assert.equal(n, 0, 'no DOM changes when order unchanged')
+    container.remove()
+  })
+
+  it('新增 1 项: 仅新增节点产生 DOM 修改', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c')] }, key: undefined }
+    const newV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d')] }, key: undefined }
+    mountVNode(container, oldV, skipCtx)
+    const n = domMutationCount(container, oldV, newV, skipCtx)
+    // 新增 D: 1 appendChild/insertBefore = 1 (addedNodes)
+    assert.equal(n, 1, 'add 1 item: 1 DOM op (insertBefore)')
+    container.remove()
+  })
+
+  it('删除 1 项: 仅删除节点产生 DOM 修改', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d')] }, key: undefined }
+    const newV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c')] }, key: undefined }
+    mountVNode(container, oldV, skipCtx)
+    const n = domMutationCount(container, oldV, newV, skipCtx)
+    // Step 3 removeChild(D) = 1
+    assert.equal(n, 1, 'remove 1 item: 1 DOM op (removeChild)')
+    container.remove()
+  })
+
+  it('部分重排: 只移需要后移的节点', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d'), span('E','e')] }, key: undefined }
+    const newV = { type: 'div', props: { children: [span('A','a'), span('C','c'), span('B','b'), span('D','d'), span('E','e')] }, key: undefined }
+    mountVNode(container, oldV, skipCtx)
+    const n = domMutationCount(container, oldV, newV, skipCtx)
+    // lastIndex: A(0)✓, C(2)✓, B(1<2)→MOVE, D(3)✓, E(4)✓
+    // 1 insertBefore = 2
+    assert.equal(n, 2, 'partial reorder: 2 DOM ops (1 insertBefore)')
+    container.remove()
+  })
+
+  it('完全反转: 移 N-1 个节点', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d')] }, key: undefined }
+    const newV = { type: 'div', props: { children: [span('D','d'), span('C','c'), span('B','b'), span('A','a')] }, key: undefined }
+    mountVNode(container, oldV, skipCtx)
+    const n = domMutationCount(container, oldV, newV, skipCtx)
+    // lastIndex: D(3)✓, C(2<3)→MOVE, B(1<3)→MOVE, A(0<3)→MOVE
+    // 3 insertBefore = 6
+    assert.equal(n, 6, 'reverse: 6 DOM ops (3 insertBefore)')
+    container.remove()
+  })
+
+  it('新增 + 删除混合: 1 insertBefore + 1 removeChild', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d')] }, key: undefined }
+    const newV = { type: 'div', props: { children: [span('A','a'), span('C','c'), span('E','e')] }, key: undefined }
+    mountVNode(container, oldV, skipCtx)
+    const n = domMutationCount(container, oldV, newV, skipCtx)
+    // Step 3: 移 D(key d)和B(key b)→2 removeChild
+    // Step 4: lastIndex: A(0)✓, C(2)✓ → 无需移动
+    //         E 新节点 → 1 insertBefore
+    // 总计: 2 removeChild + 1 insertBefore = 3
+    assert.equal(n, 3, 'add+remove: 3 DOM ops (2 remove + 1 add)')
+    container.remove()
+  })
+})
