@@ -17,8 +17,9 @@ import type { WfuiContext, RouteDef } from 'weifuwu/client'
  * ═══════════════════════════════════════ */
 
 /* ── 页面头组件 ── */
-function PageHead(props: { title: string; sub?: string; children?: any }, _ctx: WfuiContext) {
-  return (
+function PageHead(_props: { title: string; sub?: string; children?: any }, _ctx: WfuiContext) {
+  return (props: { title: string; sub?: string; children?: any }) =>
+    (
     <div class="wf-split" style="margin-bottom: var(--wf-space-lg)">
       <div class="wf-stack" style="--wf-gap: 4px">
         <h2 style="font-size: var(--wf-font-size-2xl); font-weight: var(--wf-font-weight-semibold);
@@ -30,12 +31,12 @@ function PageHead(props: { title: string; sub?: string; children?: any }, _ctx: 
         <div class="wf-row" style="--wf-gap: var(--wf-space-sm)">{props.children}</div>}
     </div>
     )
-  }
 }
 
 /* ── 统计卡片 ── */
-function StatCard(props: { label: string; value: string; change?: string; up?: boolean }, _ctx: WfuiContext) {
-  return (
+function StatCard(_props: { label: string; value: string; change?: string; up?: boolean }, _ctx: WfuiContext) {
+  return (props: { label: string; value: string; change?: string; up?: boolean }) =>
+    (
     <div class="wf-surface wf-stack"
          style="padding: var(--wf-space-lg); background: var(--wf-color-bg); text-align: center; --wf-gap: 4px">
       <span style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-secondary); text-transform: uppercase;
@@ -45,7 +46,6 @@ function StatCard(props: { label: string; value: string; change?: string; up?: b
       {props.change && <span class={`stat-change ${props.up ? 'up' : 'down'}`}>{props.change}</span>}
     </div>
     )
-  }
 }
 
 /* ── Dashboard 页面 ── */
@@ -63,7 +63,13 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
   }
 
-  return (
+  const statusColor = (status: string) =>
+    status === 'active' ? 'var(--wf-color-success)' : 'var(--wf-color-text-tertiary)'
+  const dotColor = (status: string) =>
+    status === 'active' ? 'var(--wf-color-success)' : 'var(--wf-color-text-disabled)'
+
+  return (__props: {}) =>
+    (
     <div class="wf-stack" style="--wf-gap: var(--wf-space-xl); max-width: 1000px; margin: 0 auto; padding: var(--wf-space-xl)">
       <div class="wf-split">
         <div class="wf-row" style="--wf-gap: var(--wf-space-sm)">
@@ -120,10 +126,8 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
                 </td>
                 <td class="wf-fill" style="padding: var(--wf-space) var(--wf-space-sm); font-size: var(--wf-font-size-base); color: var(--wf-color-text-secondary)">{u.email}</td>
                 <td class="wf-fill" style="padding: var(--wf-space) var(--wf-space-sm)">
-                  <span class="wf-row" style="--wf-gap: 4px; font-size: var(--wf-font-size-sm);
-                        color: {u.status === 'active' ? 'var(--wf-color-success)' : 'var(--wf-color-text-tertiary)'}">
-                    <span style="width: 6px; height: 6px; border-radius: 50%;
-                         background: {u.status === 'active' ? 'var(--wf-color-success)' : 'var(--wf-color-text-disabled)'}"></span>
+                  <span class="wf-row" style={{"--wf-gap": "4px", fontSize: "var(--wf-font-size-sm)", color: statusColor(u.status)}}>
+                    <span style={{"width": "6px", height: "6px", borderRadius: "50%", background: dotColor(u.status)}} />
                     {u.status === 'active' ? '在线' : '离线'}
                   </span>
                 </td>
@@ -145,10 +149,9 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
 
     </div>
     )
-  }
 }
 
 /* ── 启动 ── */
 createApp()
   .use(router({ routes: [{ path: '/', component: Dashboard }], mode: 'hash' }))
-  .mount('#root', () => <Dashboard />)
+  .mount('#root', Dashboard)

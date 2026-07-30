@@ -1,14 +1,13 @@
-/* 项目专属样式 - 使用 weifuwu/layout + theme */
-@import "../../dist/layout/weifuwu-layout.css";
+/* 项目专属样式 — weifuwu/layout 布局和主题 Token 已通过 HTML <link> 引入 */
 
-/* 覆盖主题色 - 改这 3 行就换品牌 */
+/* 覆盖主题色 */
 :root {
   --wf-color-primary: #4f6ef7;
   --wf-color-primary-hover: #3b5ae0;
   --wf-color-primary-bg: #eef1ff;
 }
 
-/* 业务组件样式 - 纯视觉，无布局 */
+/* 业务组件样式 — 纯视觉，无布局 */
 .user-avatar {
   width: 40px; height: 40px; border-radius: 50%;
   background: var(--wf-color-primary-bg);
