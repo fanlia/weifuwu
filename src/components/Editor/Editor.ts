@@ -21,9 +21,20 @@ import { insertTable, renderTableGrid } from './tools/table.ts'
 
 export type { EditorProps, ToolbarItem } from './tools/types.ts'
 
+function shallowEqual(a: Record<string, boolean>, b: Record<string, boolean>): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  const keys = Object.keys(a)
+  if (keys.length !== Object.keys(b).length) return false
+  for (const k of keys) {
+    if (a[k] !== b[k]) return false
+  }
+  return true
+}
+
 export const Editor: Component<EditorProps> = (_props, ctx) => {
   // ── mount（只一次）──
-  let activeFormats: FormatState = {}
+  let activeFormats: FormatState | null = null  // null = 未初始化，首次 mouseUp 只存不 render
   let showLinkInput = false
   let linkUrl = ''
   let mode: 'rich' | 'source' = 'rich'
@@ -182,9 +193,13 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       showTableGrid = false
       tableHoverRow = -1
       tableHoverCol = -1
-      ctx.ui.render()
+      // 先恢复选区 + 插入表格（DOM 还未被 render 移动）
+      console.log('[ED] table sel','editorEl=',!!editorEl,'savedRange=',!!savedRange)
       restoreSelection()
+      console.log('[ED] table after restore','rc=',window.getSelection()?.rangeCount,'focused=',document.activeElement?.className?.includes('wf-editor-content'))
       insertTable(rows, cols)
+      // 再 render 关闭弹出层
+      ctx.ui.render()
       if (editorEl && onChange) emitChange(editorEl.innerHTML)
     }
 
@@ -217,7 +232,11 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     const tablePopover = h(Popover, {
       key: 'table',
       open: isRichMode && !!showTableGrid,
-      onOpenChange: (v: boolean) => { showTableGrid = v; ctx.ui.render() },
+      onOpenChange: (v: boolean) => {
+        showTableGrid = v
+        if (v) saveSelection()  // 在 render 前保存选区（render 可能移动 DOM）
+        ctx.ui.render()
+      },
       content: tableGrid,
     }, tableButton)
 
@@ -247,11 +266,20 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     const handleMouseUp = () => {
       if (!isRichMode) return
       saveSelection()
-      activeFormats = queryFormats()
-      ctx.ui.render()
+      const newFormats = queryFormats()
+      if (activeFormats === null) {
+        activeFormats = newFormats
+        return
+      }
+      if (!shallowEqual(activeFormats, newFormats)) {
+        activeFormats = newFormats
+        ctx.ui.render()
+      }
     }
 
     const handleMouseDown = () => {
+      // 在焦点移出编辑器前保存选区（供 table/link/image 弹出层使用）
+      saveSelection()
       let needsRender = false
       if (showLinkInput) { showLinkInput = false; needsRender = true }
       if (showImageInput) { showImageInput = false; needsRender = true }
@@ -366,7 +394,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     return h('div', {
       class: `wf-editor${disabled ? ' wf-editor--disabled' : ''}`,
     }, [
-      !disabled && toolbarItems.length > 0 ? renderToolbar(toolbarItems, activeFormats, !isRichMode, handleToolbarItem, customRender) : null,
+      !disabled && toolbarItems.length > 0 ? renderToolbar(toolbarItems, activeFormats ?? {}, !isRichMode, handleToolbarItem, customRender) : null,
       editorBody,
       linkModal,
       imageModal,

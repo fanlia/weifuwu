@@ -16,7 +16,7 @@
  */
 
 import type { WfuiContext, AppMiddleware } from './types.ts'
-import { render, patchValue, idRegistry } from './render.ts'
+import { render, patchValue, patchPortal, renderPortal, callRefCleanup, idRegistry } from './render.ts'
 import type { VNode, Component } from './vnode.ts'
 
 // ── createApp ──────────────────────────────────────────
@@ -44,10 +44,25 @@ export function createApp() {
     for (const id of ids) {
       const vnode = idRegistry.get(id)
       if (!vnode || !vnode._render) continue
+      // 入口组件（dirty 源）先消费 dirty 标记，但自身仍要 render（它是变化源）
+      ;(ctx as any).ui._dirtySet?.delete(id)
       const oldChild = vnode._child
       const newChild = vnode._render(vnode.props)
       vnode._child = newChild
-      // 如果 _parentNode 未设置（组件未被原生元素包裹渲染），从 _refNode 推导
+
+      // 组件输出为 remote（Portal）：委托到 patchPortal，不操作父 DOM
+      if ((oldChild && oldChild._placement === 'remote') || (newChild && newChild._placement === 'remote')) {
+        if (oldChild && newChild) {
+          patchPortal(oldChild, newChild, ctx)
+        } else if (newChild) {
+          renderPortal(newChild, ctx)
+        } else if (oldChild) {
+          callRefCleanup(oldChild)
+        }
+        continue
+      }
+
+      // local 组件：用 _parentNode / _refNode 找 DOM 容器
       if (!vnode._parentNode && vnode._refNode) {
         ;(vnode as any)._parentNode = vnode._refNode.parentNode
       }
@@ -57,12 +72,9 @@ export function createApp() {
           vnode._refNode ?? null,
           oldChild, newChild, ctx,
         )
-        // patch 后更新 _refNode（可能被替换或移除）
         if (newNode && newNode !== vnode._refNode) {
           vnode._refNode = newNode
         } else if (!newNode) {
-          // 组件输出变为 null，_refNode 指向已移除的节点
-          // 置 null 避免下次 render 使用已脱离 DOM 的引用
           ;(vnode as any)._refNode = null
         }
       }
@@ -117,6 +129,11 @@ export function createApp() {
       ;(ctx as any).ui = {
         _selfId: '_wf_root',
 
+        // ── ctx 版本号（供三态 skip 判定） ──
+        _ctxVersion: 0,
+        _dirtySet: new Set<string>(),
+        bumpCtxVersion: function () { this._ctxVersion++ },
+
         /** 同步刷新（无参 = 当前组件，传参 = 指定组件列表） */
         render: function (ids?: string[]) {
           if (!ids || ids.length === 0) {
@@ -136,7 +153,10 @@ export function createApp() {
             else return
           }
           for (const id of ids) {
-            if (id) _dirtyBatch.add(id)
+            if (id) {
+              _dirtyBatch.add(id)
+              ;(ctx as any).ui._dirtySet!.add(id)
+            }
           }
           if (!_dirtyScheduled) {
             _dirtyScheduled = true

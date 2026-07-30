@@ -108,6 +108,8 @@ export function router(opts: RouterOptions): AppMiddleware {
         ;(ctx as any).route = resolved
       }
       if (ctx.route?.title) document.title = ctx.route.title
+      // 路由变化是 ctx 变化：bump 版本使 RouteView 等 ctx 消费者跳过 skip
+      ;(ctx as any).ui?.bumpCtxVersion?.()
       ctx.ui?.render()
     }
 
@@ -115,6 +117,7 @@ export function router(opts: RouterOptions): AppMiddleware {
       const resolved = resolve(getPath())
       ;(ctx as any).route = resolved
       if (ctx.route?.title) document.title = ctx.route.title
+      ;(ctx as any).ui?.bumpCtxVersion?.()
       ctx.ui?.render()
     }
     window.addEventListener('popstate', onPop)

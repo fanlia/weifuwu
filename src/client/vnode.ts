@@ -18,8 +18,10 @@ export interface VNode {
   el?: Node
   /** 子 VNode 缓存（用于 patchValue diff，避免重复执行组件） */
   _child?: any
-  /** Portal 子容器 DOM */
-  _portalEl?: HTMLDivElement | undefined
+  /** 远程 DOM 容器（Portal 等 remote VNode 的 DOM 所在处） */
+  _remoteEl?: HTMLElement | undefined
+  /** VNode 的 DOM 归属：'local' 在父 DOM 树下，'remote' 在别处 */
+  _placement?: 'local' | 'remote'
   /** 两阶段组件的 render 函数（mount 返回的函数） */
   _render?: (props: any) => VNode | null
 
@@ -29,6 +31,8 @@ export interface VNode {
   _parentNode?: Node
   /** 组件输出的第一个 DOM 节点 */
   _refNode?: Node | null
+  /** 组件 mount/render 时的 ctx 版本号（供三态 skip 判定） */
+  _ctxVersion?: number
 }
 
 export type Component<P = {}> = (initProps: P, ctx: WfuiContext) => ((props: P) => VNode | null) | null
@@ -104,5 +108,6 @@ export function createPortal(children: any, portalKey?: string): VNode {
     type: Portal,
     props: { children, portalKey },
     key: portalKey ?? undefined,
+    _placement: 'remote',
   }
 }

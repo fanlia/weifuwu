@@ -9,16 +9,40 @@ const MAX = 6
 
 /** 在光标处插入表格 HTML */
 export function insertTable(rows: number, cols: number): void {
-  const tds = Array.from({ length: cols }, (_, ci) =>
-    `<td${ci === 0 ? ' style="font-weight:var(--wf-font-weight-semibold,600)"' : ''}>&nbsp;</td>`
-  ).join('')
+  const sel = window.getSelection()
+  if (!sel || !sel.rangeCount) return
+  const range = sel.getRangeAt(0)
+  if (!range) return
 
-  const rowsHtml = Array.from({ length: rows }, (_, ri) =>
-    `<tr>${ri === 0 ? tds : tds.replace(/ style="[^"]*"/, '')}</tr>`
-  ).join('')
+  const table = document.createElement('table')
+  table.className = 'wf-editor-table'
+  const tbody = document.createElement('tbody')
 
-  const html = `<div><table class="wf-editor-table"><tbody>${rowsHtml}</tbody></table></div>`
-  try { document.execCommand('insertHTML', false, html) } catch { /* 安全忽略 */ }
+  for (let ri = 0; ri < rows; ri++) {
+    const tr = document.createElement('tr')
+    for (let ci = 0; ci < cols; ci++) {
+      const td = document.createElement('td')
+      if (ri === 0) {
+        td.style.fontWeight = 'var(--wf-font-weight-semibold,600)'
+      }
+      td.innerHTML = '&nbsp;'
+      tr.appendChild(td)
+    }
+    tbody.appendChild(tr)
+  }
+
+  table.appendChild(tbody)
+
+  const wrapper = document.createElement('div')
+  wrapper.appendChild(table)
+
+  range.deleteContents()
+  range.insertNode(wrapper)
+
+  range.setStartAfter(wrapper)
+  range.collapse(true)
+  sel.removeAllRanges()
+  sel.addRange(range)
 }
 
 /** 渲染 6×6 表格选择网格 */

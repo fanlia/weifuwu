@@ -67,6 +67,8 @@ export function i18n(opts: I18nOptions = {}): AppMiddleware {
       merged = mergeLocales(pkg, messages, components)
       state.locale = lang
       state.components = merged.components
+      // 通知三态 skip：ctx 版本变了，所有组件必须重新 render
+      ;(ctx as any)?.ui?.bumpCtxVersion?.()
       ;(ctx as any)?.ui?.render()
     }
 

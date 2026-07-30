@@ -20,6 +20,15 @@ beforeEach(() => {
   ctx = { ui: { render: () => {}, $: () => ({}) } }
 })
 
+/** 遍历 root 下所有 TextNode */
+function getAllTextNodes(root: Node): Text[] {
+  const result: Text[] = []
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let n: Text | null
+  while ((n = walk.nextNode() as Text | null)) result.push(n)
+  return result
+}
+
 // ═══════════════════════════════════════════════════════
 // render
 // ═══════════════════════════════════════════════════════
@@ -54,11 +63,11 @@ describe('render', () => {
     assert.equal(frag.childNodes[0].textContent, 'a')
   })
 
-  it('渲染 null/undefined/boolean 为空文本', () => {
-    assert.equal(render(null, ctx).textContent, '')
-    assert.equal(render(undefined, ctx).textContent, '')
-    assert.equal(render(false, ctx).textContent, '')
-    assert.equal(render(true, ctx).textContent, '')
+  it('渲染 null/undefined/boolean 返回 null', () => {
+    assert.equal(render(null, ctx), null)
+    assert.equal(render(undefined, ctx), null)
+    assert.equal(render(false, ctx), null)
+    assert.equal(render(true, ctx), null)
   })
 
   it('渲染数字', () => {
@@ -110,16 +119,15 @@ describe('render', () => {
     assert.equal(el.className, 'bar')
   })
 
-  it('组件返回 null 渲染空文本', () => {
+  it('组件返回 null 返回 null', () => {
     const NullCmp = (_: any) => () => null
-    const n = render(jsx(NullCmp, {}), ctx) as Text
-    assert.equal(n.textContent, '')
+    assert.equal(render(jsx(NullCmp, {}), ctx), null)
   })
 
-  it('组件返回布尔值', () => {
-    const BoolCmp = () => false as any
-    const n = render(jsx(BoolCmp, {}), ctx) as Text
-    assert.equal(n.textContent, '')
+  it('组件返回非函数值返回 null', () => {
+    // 框架 catch 错误后返回 null
+    const BadCmp = () => false as any
+    assert.equal(render(jsx(BadCmp, {}), ctx), null)
   })
 
   it('直接渲染数组', () => {
@@ -860,6 +868,138 @@ describe('two-phase component model', () => {
     assert.equal(childMountCount, 1, 'child should not re-mount on parent re-render')
     assert.equal(childRenderCount, 2, 'child should re-render on parent re-render')
   })
+
+  it('three-state skip: DemoButton 结构，静态子组件跳过 render', () => {
+    // 模拟真实 DemoButton 三层嵌套结构：
+    // div.wf-stack → div.wf-row × 3 → Button × 10
+    // 只有 BtnA（"点击 {count} 次"）是动态的，其余 9 个静态
+    let parentRenderCount = 0
+    let count = 0
+
+    // 每个按钮的 render 计数器
+    const renderCounts: Record<string, number> = {}
+    for (const k of ['A','B','C','D','E','F','G','H','I','J']) renderCounts[k] = 0
+
+    const skipCtx: any = {
+      ui: {
+        _ctxVersion: 1,
+        _dirtySet: new Set<string>(),
+      },
+    }
+
+    // Button 工厂：渲染为 button 元素
+    // 与真实 DemoButton 一致：BtnA/BtnH 有内联 onClick（每轮新引用）
+    function makeBtn(id: string, text: string | ((c: number) => any)) {
+      return (_init: any) =>
+        (props: any) => {
+          renderCounts[id]++
+          const t = typeof text === 'function' ? text(props.count ?? 0) : text
+          return { type: 'button', props: { children: t }, key: undefined }
+        }
+    }
+
+    const BtnA = makeBtn('A', (c: number) => ['点击 ', c, ' 次'])
+    const BtnB = makeBtn('B', 'Secondary')
+    const BtnC = makeBtn('C', 'Ghost')
+    const BtnD = makeBtn('D', 'Danger')
+    const BtnE = makeBtn('E', 'Small')
+    const BtnF = makeBtn('F', 'Medium')
+    const BtnG = makeBtn('G', 'Large')
+    const BtnH = makeBtn('H', '点我 Loading')
+    const BtnI = makeBtn('I', 'Disabled')
+    const BtnJ = makeBtn('J', 'Block')
+
+    const Parent = (_init: any) =>
+      () => {
+        parentRenderCount++
+        return {
+          type: 'div',
+          props: {
+            children: [
+              { type: 'div', props: { children: [
+                // BtnA: count 变化 + 内联 onClick → 不 skip（同真实页面）
+                { type: BtnA, props: { count, onClick: () => {} }, key: 'a' },
+                { type: BtnB, props: {}, key: 'b' },
+                { type: BtnC, props: {}, key: 'c' },
+                { type: BtnD, props: {}, key: 'd' },
+              ]}, key: 'r0' },
+              { type: 'div', props: { children: [
+                { type: BtnE, props: {}, key: 'e' },
+                { type: BtnF, props: {}, key: 'f' },
+                { type: BtnG, props: {}, key: 'g' },
+              ]}, key: 'r1' },
+              { type: 'div', props: { children: [
+                // BtnH: 内联 onClick → 不 skip（同真实页面 "点我 Loading"）
+                { type: BtnH, props: { loading: false, onClick: () => {} }, key: 'h' },
+                { type: BtnI, props: {}, key: 'i' },
+                { type: BtnJ, props: {}, key: 'j' },
+              ]}, key: 'r2' },
+            ],
+          },
+          key: undefined,
+        }
+      }
+
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const v = { type: Parent as any, props: {}, key: undefined }
+    mountVNode(container, v, skipCtx)
+
+    assert.equal(parentRenderCount, 1, 'mount: parent once')
+    for (const k of ['A','B','C','D','E','F','G','H','I','J']) {
+      assert.equal(renderCounts[k], 1, `mount: Btn${k} once`)
+    }
+    assert.equal(container.textContent, '点击 0 次SecondaryGhostDangerSmallMediumLarge点我 LoadingDisabledBlock')
+
+    // ── MutationObserver 统计全部 DOM 修改 ──
+    let _records: MutationRecord[] = []
+    const mo = new MutationObserver(() => {})
+    mo.observe(container, { childList: true, subtree: true, characterData: true })
+
+    // simulate click: count++ then re-render
+    count = 1
+    const parentId = (v as any)._id
+    skipCtx.ui._dirtySet.add(parentId)
+
+    const v2 = { type: Parent as any, props: {}, key: undefined }
+    const el = container.firstChild as HTMLElement
+    patchValue(container, el, v, v2, skipCtx)
+
+    _records = mo.takeRecords()
+    const domMutationCount = _records.reduce((t, m) => t + (m.type === 'childList' ? m.addedNodes.length + m.removedNodes.length : 1), 0)
+    mo.disconnect()
+
+    // Parent 是 dirty entry → 正常 render
+    assert.equal(parentRenderCount, 2, 're-render: parent renders again')
+
+    // BtnA: count 变化 + 内联 onClick → 不 skip
+    assert.equal(renderCounts.A, 2, 're-render: BtnA renders (children + onClick changed)')
+
+    // BtnB-G: 无 onClick、无变化 → skip
+    for (const k of ['B','C','D','E','F','G']) {
+      assert.equal(renderCounts[k], 1, `re-render: Btn${k} skipped (static)`)
+    }
+
+    // BtnH（"点我 Loading"）: 内联 onClick 每轮新引用 → 不 skip（同真实页面）
+    assert.equal(renderCounts.H, 2, 're-render: BtnH renders (inline onClick, not skipped)')
+
+    // BtnI-J: 无 onClick、无变化 → skip
+    for (const k of ['I','J']) {
+      assert.equal(renderCounts[k], 1, `re-render: Btn${k} skipped (static)`)
+    }
+
+    assert.equal(container.textContent,
+      '点击 1 次SecondaryGhostDangerSmallMediumLarge点我 LoadingDisabledBlock')
+
+    // DOM 修改次数 = 全部 insertBefore(×2)
+    // 与浏览器实测一致：stack(6) + row0(8) + row1(6) + row2(6) + BtnA(6) + BtnH(2) = 34
+    assert.equal(domMutationCount, 1,
+      '1 DOM op: only BtnA textContent (0→1), 0 insertBefore')
+
+    // cleanup
+    container.remove()
+  })
+
 })
 
 })

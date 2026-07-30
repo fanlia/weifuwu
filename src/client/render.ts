@@ -25,12 +25,12 @@ export const idRegistry = new Map<string, VNode>()
 
 // ── render ─────────────────────────────────────────────
 
-export function render(input: any, ctx: WfuiContext): Node {
+export function render(input: any, ctx: WfuiContext): Node | null {
   return renderValue(input, ctx)
 }
 
-function renderValue(v: any, ctx: WfuiContext): Node {
-  if (v == null || typeof v === 'boolean') return document.createTextNode('')
+function renderValue(v: any, ctx: WfuiContext): Node | null {
+  if (v == null || typeof v === 'boolean') return null
   if (typeof v === 'string' || typeof v === 'number') return document.createTextNode(String(v))
   if (Array.isArray(v)) return renderArray(v, ctx)
 
@@ -38,13 +38,17 @@ function renderValue(v: any, ctx: WfuiContext): Node {
 
   // Portal — 渲染到 document.body#__wf_portal
   if (vnode.type === Portal) {
-    return renderPortal(vnode, ctx)
+    renderPortal(vnode, ctx)
+    return null
   }
 
   // Fragment
   if (vnode.type === Fragment) {
     const frag = document.createDocumentFragment()
-    forEach(vnode.props?.children, child => frag.appendChild(renderValue(child, ctx)))
+    forEach(vnode.props?.children, child => {
+      const node = renderValue(child, ctx)
+      if (node != null) frag.appendChild(node)
+    })
     return frag
   }
 
@@ -78,6 +82,7 @@ function renderValue(v: any, ctx: WfuiContext): Node {
     const flatChildren = flattenChildren(vnode.props?.children)
     for (const child of flatChildren) {
       const childNode = renderValue(child, ctx)
+      if (childNode == null) continue
       el.appendChild(childNode)
       // 首次渲染后为子组件 VNode 设置 DOM 锚点（供 scope render 使用）
       if (child && typeof child === 'object' && typeof (child as VNode).type === 'function') {
@@ -116,6 +121,9 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
   childCtx.ui._selfId = vnode._id
   childCtx.ui._selfVNode = vnode
 
+  // 首次渲染记录当前 ctx 版本（供后续三态 skip 使用）
+  vnode._ctxVersion = (childCtx.ui as any)._ctxVersion ?? 0
+
   let childVNode
   try {
     childVNode = Comp(props, childCtx)
@@ -141,7 +149,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
 
   if (childVNode == null) {
     vnode._child = null
-    return document.createTextNode('')
+    return null
   }
   vnode._child = childVNode
   const domNode = renderValue(childVNode, childCtx)
@@ -174,31 +182,27 @@ function ensurePortalContainer(): HTMLDivElement {
   return c
 }
 
-/** 首次渲染 Portal：创建子容器、渲染子节点、返回占位文本节点 */
-function renderPortal(vnode: VNode, ctx: WfuiContext): Node {
+/** 首次渲染 Portal：创建远程容器、渲染子节点（不返回占位节点） */
+export function renderPortal(vnode: VNode, ctx: WfuiContext): void {
   const container = ensurePortalContainer()
   const sub = document.createElement('div')
   sub.style.pointerEvents = 'auto'
   container.appendChild(sub)
-  vnode._portalEl = sub
+  vnode._remoteEl = sub
 
   const children = normalize(vnode.props?.children)
   vnode._child = children
   for (const child of children) {
-    sub.appendChild(renderValue(child, ctx))
+    const node = renderValue(child, ctx)
+    if (node != null) sub.appendChild(node)
   }
-
-  // 占位节点（父级树中的锚点）
-  const placeholder = document.createTextNode('')
-  vnode.el = placeholder
-  return placeholder
 }
 
-/** 更新 Portal：复用子容器，patch 子节点 */
-function patchPortal(_parent: Node, oldNode: Node | null, oldV: VNode, newV: VNode, ctx: WfuiContext): Node {
-  const sub = oldV._portalEl
-  newV._portalEl = sub
-  if (!sub) return renderPortal(newV, ctx)
+/** 更新 Portal：复用远程容器，patch 子节点（不操作父 DOM） */
+export function patchPortal(oldV: VNode | null, newV: VNode, ctx: WfuiContext): void {
+  const sub = oldV?._remoteEl
+  newV._remoteEl = sub
+  if (!sub) { renderPortal(newV, ctx); return }
 
   const newChildren = normalize(newV.props?.children)
   const oldChildren = oldV._child || []
@@ -206,7 +210,6 @@ function patchPortal(_parent: Node, oldNode: Node | null, oldV: VNode, newV: VNo
 
   ensureKeys(oldChildren, newChildren)
   patchKeyedChildren(sub, oldChildren, newChildren, ctx)
-  return oldNode ?? document.createTextNode('')
 }
 
 function forEach(children: any, fn: (child: any) => void) {
@@ -328,6 +331,24 @@ export function patchValue(
     childCtx.ui = Object.create(ctx.ui as any) as any
     childCtx.ui._selfId = newV._id
     childCtx.ui._selfVNode = newV
+
+    // ── 传递 ctx 版本号 ──
+    newV._ctxVersion = oldV._ctxVersion ?? (childCtx.ui as any)._ctxVersion ?? 0
+
+    // ── 三态 skip：props 没变 + $ 没脏 + ctx 版本一致 → 复用旧输出 ──
+    if (
+      oldV._render &&
+      componentPropsEqual(oldV.props, newV.props) &&
+      !(childCtx.ui as any)._dirtySet?.has(oldV._id) &&
+      newV._ctxVersion === (childCtx.ui as any)._ctxVersion
+    ) {
+      // 复用旧 _child（DOM 未变，不需要重新 render）
+      newV._child = oldV._child
+      return oldNode
+    }
+
+    // 消费 dirty 标记（使后续 flushDirtyBatch 不会重复处理）
+    ;(childCtx.ui as any)._dirtySet?.delete(oldV._id)
 
     let childNew
     try {
@@ -524,61 +545,152 @@ function normalize(children: any): any[] {
 }
 
 function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[], ctx: WfuiContext) {
-  // Build old key map
-  const oldKeyMap = new Map<string, { vnode: any; node: Node | null }>()
+  const allUnkeyed = !newChildren.some(c => c && typeof c === 'object' && c.key !== undefined)
+
+  if (allUnkeyed) {
+    // 全无 key：按位置匹配，不移动 DOM
+    const len = Math.max(oldChildren.length, newChildren.length)
+    for (let i = 0; i < len; i++) {
+      const oldC = i < oldChildren.length ? oldChildren[i] : null
+      const newC = i < newChildren.length ? newChildren[i] : null
+      if (newC == null) {
+        if (oldC != null) {
+          callRefCleanup(oldC)
+          const node = parent.childNodes[i]
+          if (node) (node as ChildNode).remove()
+        }
+      } else if (oldC == null) {
+        const node = renderValue(newC, ctx)
+        if (node != null) parent.appendChild(node)
+      } else {
+        const oldNode = parent.childNodes[i] || null
+        patchValue(parent, oldNode, oldC, newC, ctx)
+      }
+    }
+    return
+  }
+
+  // 以下为 keyed 子节点路径
+  // Step 1: 移除无 key 的旧子节点
+  let rmIdx = 0
   for (let i = 0; i < oldChildren.length; i++) {
-    const key = getKey(oldChildren[i])
-    if (key !== undefined) {
-      oldKeyMap.set(key, { vnode: oldChildren[i], node: parent.childNodes[i] || null })
+    const child = oldChildren[i]
+    if (child == null || typeof child === 'boolean') continue
+    const key = getKey(child)
+    if (key === undefined) {
+      const node = parent.childNodes[rmIdx]
+      if (node) (node as ChildNode).remove()
+    } else {
+      const isRemote = child && typeof child === 'object' && (child as VNode)._placement === 'remote'
+      if (!isRemote) rmIdx++
     }
   }
 
-  // Remove vanished keys
+  // Step 2: Build old key map
+  const oldKeyMap = new Map<string, { vnode: any; node: Node | null; remote: boolean; index: number }>()
+  let domIdx = 0
+  for (let i = 0; i < oldChildren.length; i++) {
+    const key = getKey(oldChildren[i])
+    if (key !== undefined) {
+      const child = oldChildren[i]
+      const isRemote = child && typeof child === 'object' && (child as VNode)._placement === 'remote'
+      oldKeyMap.set(key, {
+        vnode: child,
+        node: isRemote ? null : (parent.childNodes[domIdx] || null),
+        remote: !!isRemote,
+        index: domIdx,
+      })
+      if (!isRemote) domIdx++
+    }
+  }
+
+  // Step 3: Remove vanished keys
   const newKeys = newChildren.map(c => getKey(c))
   for (const key of oldKeyMap.keys()) {
     if (!newKeys.includes(key)) {
       const entry = oldKeyMap.get(key)!
       callRefCleanup(entry.vnode)
-      ;(entry.node as ChildNode)?.remove()
+      if (entry.node) (entry.node as ChildNode)?.remove()
       oldKeyMap.delete(key)
     }
   }
 
-  // 移除无 key 的旧子节点（从有 key 切换过来时）
-  for (let i = oldChildren.length - 1; i >= 0; i--) {
-    const key = getKey(oldChildren[i])
-    if (key === undefined) {
-      const node = parent.childNodes[i]
-      if (node) { callRefCleanup(oldChildren[i]); (node as ChildNode).remove() }
-    }
-  }
-
-  // Reorder / insert / replace
-  let insertBefore: Node | null = parent.firstChild
-  for (let i = newChildren.length - 1; i >= 0; i--) {
+  // Step 4: Forward patch + move（React-style lastIndex 算法）
+  let lastIndex = -1
+  let nextRef: Node | null = parent.firstChild
+  for (let i = 0; i < newChildren.length; i++) {
     const key = newKeys[i]
     const newChild = newChildren[i]
     const oldEntry = key !== undefined ? oldKeyMap.get(key) : undefined
+    const isRemote = newChild && typeof newChild === 'object' && (newChild as VNode)._placement === 'remote'
 
-    if (oldEntry && oldEntry.node) {
-      // 同 key → 移动 DOM 节点
-      parent.insertBefore(oldEntry.node, insertBefore)
-      // patch 内容，patchValue 可能替换或移除 DOM 节点
-      const newNode = patchValue(parent, oldEntry.node, oldEntry.vnode, newChild, ctx)
-      if (newNode) {
-        insertBefore = newNode
+    if (oldEntry) {
+      if (oldEntry.node) {
+        if (oldEntry.index < lastIndex) {
+          parent.insertBefore(oldEntry.node, nextRef)
+        }
+        lastIndex = Math.max(lastIndex, oldEntry.index)
+        patchValue(parent, oldEntry.node, oldEntry.vnode, newChild, ctx)
+        nextRef = (oldEntry.node.parentNode === parent ? oldEntry.node : parent.firstChild)?.nextSibling ?? null
+      } else if (oldEntry.remote) {
+        patchPortal(oldEntry.vnode, newChild, ctx)
       } else {
-        // patchValue 返回 null（子节点被移除），oldEntry.node 已脱离 DOM
-        // 不能用它做 insertBefore，退回到 parent.firstChild
-        insertBefore = parent.firstChild
+        const newNode = patchValue(parent, null, oldEntry.vnode, newChild, ctx)
+        if (newNode != null) {
+          parent.insertBefore(newNode, nextRef)
+          nextRef = newNode.nextSibling
+        }
       }
+    } else if (isRemote) {
+      renderPortal(newChild, ctx)
     } else {
-      // 新 key → 插入
       const node = renderValue(newChild, ctx)
-      parent.insertBefore(node, insertBefore)
-      insertBefore = node
+      if (node != null) {
+        parent.insertBefore(node, nextRef)
+        nextRef = node.nextSibling
+      }
     }
   }
+}
+
+/**
+ * 子节点逐元素浅比较（用于 componentPropsEqual 的 children 维度）
+ *
+ * 对 string/number 做值比较，VNode 做引用比较。
+ * 只做一层，不递归（JSX 编译的 flat children 是一维数组）。
+ */
+function childrenEqual(a: any, b: any): boolean {
+  if (a === b) return true
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false
+    }
+    return true
+  }
+  return a === b
+}
+
+/**
+ * 组件级 props 浅比较——包含 children 的元素级比较
+ *
+ * 与 props 不同，组件的 children 是 render 函数的输入之一。
+ * children 为 ['点击 ', count, ' 次'] 时，count 值变必须触发 render。
+ * 但数组引用不同而内容相同的情况（每次 JSX 新数组），用 childrenEqual 避免误判。
+ */
+function componentPropsEqual(a: any, b: any): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  for (const key of keys) {
+    if (key === 'key') continue
+    if (key === 'children') {
+      if (!childrenEqual(a[key], b[key])) return false
+    } else if (a[key] !== b[key]) {
+      return false
+    }
+  }
+  return true
 }
 
 /** 浅比较两个 props 对象，跳过 children/key */
@@ -610,7 +722,7 @@ function cleanupPortalChildren(vnode: VNode) {
 }
 
 /** 通知 ref 清理 + Portal 子容器清理 */
-function callRefCleanup(input: any) {
+export function callRefCleanup(input: any) {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode
   // 先递归清理 _child（支持数组——Portal 的 _child 是 `[root, ...]`）
@@ -635,10 +747,10 @@ function callRefCleanup(input: any) {
   if (typeof vnode.props?.ref === 'function') vnode.props.ref(null)
 
   // Portal 子容器移除 + 子内容 ref 清理
-  if (vnode._portalEl) {
+  if (vnode._remoteEl) {
     cleanupPortalChildren(vnode)
-    vnode._portalEl.remove()
-    vnode._portalEl = undefined
+    vnode._remoteEl.remove()
+    vnode._remoteEl = undefined
   }
 }
 

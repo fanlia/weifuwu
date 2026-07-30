@@ -25,10 +25,10 @@ describe('ErrorBoundary', () => {
     assert.equal(el.textContent, 'ok')
   })
 
-  it('无 children 返回空', () => {
+  it('无 children 返回 null', () => {
     const v = jsx(ErrorBoundary, {})
-    const n = render(v, ctx) as Text
-    assert.equal(n.textContent, '')
+    const n = render(v, ctx)
+    assert.equal(n, null)
   })
 
   it('子组件不抛错时正常渲染', () => {
@@ -42,10 +42,11 @@ describe('ErrorBoundary', () => {
     assert.equal(el.textContent, 'content')
   })
 
-  it('无 fallback 时返回空', () => {
-    const v = jsx(ErrorBoundary, { children: jsx('span', null) })
-    v._$ = { error: new Error('test') }
-    const n = render(v, ctx) as Text
-    assert.equal(n.textContent, '')
+  it('无 fallback 时返回 null', () => {
+    // 子组件 render 抛错时 ErrorBoundary 应返回 null（无 fallback）
+    const ThrowCmp = (_init: any, _compCtx: any) =>
+      (props: any) => { throw new Error('test') }
+    const v = jsx(ErrorBoundary, { children: jsx(ThrowCmp, {}) })
+    assert.equal(render(v, ctx), null)
   })
 })
