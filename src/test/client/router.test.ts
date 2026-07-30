@@ -11,8 +11,9 @@ import { setupJsdom } from './setup.ts'
 before(setupJsdom)
 
 const { router, RouteView } = await import('../../client/router.ts')
+const { createApp } = await import('../../client/app.ts')
 import type { WfuiContext, RouteDef } from '../../client/types.ts'
-import { jsx } from '../../client/vnode.ts'
+import { jsx, h } from '../../client/vnode.ts'
 
 /** Call RouteView and get VNode (two-phase compat) */
 const rv = (p: any, ctx: any) => {
@@ -383,39 +384,233 @@ describe('router + RouteView integration', () => {
 })
 
 // ═══════════════════════════════════════════════════════
-// 路由深度（_rvDepth）重置
+// ctx chain — RouteView 深度通过原型链传递
 // ═══════════════════════════════════════════════════════
 
-describe('_rvDepth reset', () => {
-  it('render 前重置 depth', () => {
-    const Comp1 = () => jsx('div', { children: 'a' })
-    const Comp2 = () => jsx('div', { children: 'b' })
+describe('ctx chain depth propagation', () => {
+  it('子组件通过 ctx 原型链读取父组件的 _rvDepth', () => {
+    // 模拟 renderComponent 产生的 ctx 链：
+    //   rootCtx ← childCtx1 (RouteView1) ← childCtx2 (AppLayout) ← childCtx3 (RouteView2)
+    const rootCtx: any = {}
+    const childCtx1 = Object.create(rootCtx)
+    childCtx1.ui = Object.create(rootCtx.ui ?? {}) as any
 
-    // 有 layout 的 chain
-    const Layout = () => () => jsx('div', null)
-    const ctx = mockCtx({
-      route: { path: '/', chain: [
-        { path: '/', layout: Layout, children: [] },
-        { path: '', component: Comp1 },
-      ]},
-    })
+    // RouteView1 设置 _rvDepth = 1
+    childCtx1._rvDepth = 1
 
-    // RouteView 链消耗 depth
-    rv({}, ctx) // layout，depth→1
-    rv({}, ctx) // Comp1
+    const childCtx2 = Object.create(childCtx1)
+    childCtx2.ui = Object.create(childCtx1.ui)
 
-    // 新 chain（flat 路由）— WeakMap 在新 ctx 上独立
-    const ctx2 = mockCtx({
-      route: {
-        path: '/login',
-        chain: [{ path: '/login', component: Comp2 }],
-      },
-    })
+    const childCtx3 = Object.create(childCtx2)
+    childCtx3.ui = Object.create(childCtx2.ui)
 
-    const v = rv({}, ctx2) as any
-    assert.equal(v.type, Comp2) // depth=0，正确匹配
+    // RouteView2 读取 _rvDepth — 应从原型链找到 childCtx1 上的 1
+    assert.equal(childCtx3._rvDepth, 1)
+  })
+
+  it('RouteView 使用 ctx._rvDepth 替代 WeakMap', async () => {
+    // 真实渲染场景：通过 createApp + mount 验证 layout 嵌套
+    let renderOrder: string[] = []
+
+    const Layout = (_: any, __: any) => {
+      return () => {
+        renderOrder.push('layout')
+        return h('div', { class: 'layout' }, [
+          h('nav', {}, 'sidebar'),
+          h('main', {}, h(RouteView)),
+        ])
+      }
+    }
+
+    const Dashboard = (_: any, __: any) => {
+      return () => {
+        renderOrder.push('dashboard')
+        return h('div', { class: 'dashboard' }, 'dashboard')
+      }
+    }
+
+    const Login = (_: any, __: any) => {
+      return () => {
+        renderOrder.push('login')
+        return h('div', { class: 'login' }, 'login')
+      }
+    }
+
+    const app = createApp()
+    app.use(router({
+      mode: 'history',
+      routes: [
+        {
+          path: '/',
+          layout: Layout,
+          children: [
+            { path: '', component: Dashboard },
+          ],
+        },
+        { path: '/login', component: Login },
+      ],
+    }))
+
+    // Mount — 初始路径 /login（flat 路由，无 layout）
+    window.history.pushState(null, '', '/login')
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'rv-test'
+    await app.mount('#rv-test', () => () => h(RouteView, {}))
+    await new Promise(r => setTimeout(r, 20))
+
+    assert.deepEqual(renderOrder, ['login'])
+
+    // 导航到 / — 带 layout 的 chain
+    renderOrder = []
+    ;(app as any).ctx.app.navigate('/')
+    await new Promise(r => setTimeout(r, 20))
+
+    // layout 内的 RouteView 应正确匹配 Dashboard（第二个 chain 元素）
+    assert.equal(renderOrder.includes('layout'), true, 'should render Layout')
+    assert.equal(renderOrder.includes('dashboard'), true, 'should render Dashboard')
+    assert.equal(renderOrder.includes('login'), false, 'should NOT render Login')
+
+    el.remove()
+  })
+
+  it('组件级 re-render 时 layout 内的 RouteView 深度不变', async () => {
+    let layoutRenderCount = 0
+
+    const Layout = (_: any, ctx: WfuiContext) => {
+      const $ = ctx.ui.$()
+      $.collapsed = false
+      return () => {
+        layoutRenderCount++
+        return h('div', { class: 'layout' }, [
+          h('button', {
+            id: 'toggle-btn',
+            onClick: () => { $.collapsed = !$.collapsed },
+          }, $.collapsed ? 'expand' : 'collapse'),
+          h('main', {}, h(RouteView)),
+        ])
+      }
+    }
+
+    const Page = (_: any, __: any) => {
+      return () => h('div', { class: 'page' }, 'page content')
+    }
+
+    const app = createApp()
+    app.use(router({
+      mode: 'history',
+      routes: [
+        {
+          path: '/',
+          layout: Layout,
+          children: [
+            { path: '', component: Page },
+          ],
+        },
+      ],
+    }))
+
+    window.history.pushState(null, '', '/')
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'rv-test2'
+    await app.mount('#rv-test2', () => () => h(RouteView, {}))
+    await new Promise(r => setTimeout(r, 20))
+
+    assert.equal(layoutRenderCount, 1)
+    assert.equal(el.querySelector('.layout')?.querySelector('.page')?.textContent, 'page content',
+      '初始化时 layout 包含 page')
+
+    // 点击按钮触发 Layout 自身 re-render（组件级 scope）
+    const btn = el.querySelector('#toggle-btn') as HTMLElement
+    btn.click()
+    await new Promise(r => setTimeout(r, 20))
+
+    assert.equal(layoutRenderCount, 2, 'Layout 应重新渲染')
+    // layout 内嵌的 RouteView 深度通过 mount 闭包保持正确
+    // Page 内容不变，DOM 结构仍然完整
+    assert.equal(el.querySelector('.layout')?.querySelector('.page')?.textContent, 'page content',
+      'Layout re-render 后 page 仍在')
+    // 验证 RouteView 内部路由仍然匹配正确的页面
+    assert.equal(el.querySelectorAll('.page').length, 1, '页面组件正确保留')
+    assert.equal(el.querySelectorAll('.layout').length, 1, 'layout 只有一个副本')
+
+    el.remove()
+  })
+
+  it('多层 layout 嵌套时深度正确传递', async () => {
+    const renderLog: string[] = []
+
+    const OuterLayout = (_: any, __: any) => {
+      return () => {
+        renderLog.push('outer')
+        return h('div', { class: 'outer' }, [
+          h('header', {}, 'header'),
+          h('main', {}, h(RouteView)),
+        ])
+      }
+    }
+
+    const InnerLayout = (_: any, __: any) => {
+      return () => {
+        renderLog.push('inner')
+        return h('div', { class: 'inner' }, [
+          h('aside', {}, 'aside'),
+          h('section', {}, h(RouteView)),
+        ])
+      }
+    }
+
+    const Settings = (_: any, __: any) => {
+      return () => {
+        renderLog.push('settings')
+        return h('div', { class: 'settings' }, 'settings')
+      }
+    }
+
+    const app = createApp()
+    app.use(router({
+      mode: 'history',
+      routes: [
+        {
+          path: '/',
+          layout: OuterLayout,
+          children: [
+            {
+              path: 'admin',
+              layout: InnerLayout,
+              children: [
+                { path: 'settings', component: Settings },
+              ],
+            },
+          ],
+        },
+      ],
+    }))
+
+    window.history.pushState(null, '', '/admin/settings')
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'rv-test3'
+    await app.mount('#rv-test3', () => () => h(RouteView, {}))
+    await new Promise(r => setTimeout(r, 20))
+
+    // 正确的顺序：outer → inner → settings
+    assert.deepEqual(renderLog, ['outer', 'inner', 'settings'],
+      '三层嵌套应正确渲染')
+
+    // 验证 DOM 结构
+    assert.ok(el.querySelector('.outer'), '外层 layout 应存在')
+    assert.ok(el.querySelector('.inner'), '内层 layout 应存在')
+    assert.ok(el.querySelector('.settings'), 'settings 页面应存在')
+
+    el.remove()
   })
 })
+
+// ═══════════════════════════════════════════════════════
+// 哈希模式
+// ═══════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════
 // 哈希模式

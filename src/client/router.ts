@@ -27,9 +27,6 @@ function flattenRoutes(routes: RouteDef[], basePath = '', chain: RouteDef[] = []
   return result
 }
 
-// WeakMap 存储 layout 深度，避免污染 ctx
-export const layoutDepth = new WeakMap<any, number>()
-
 interface FlattenedRoute {
   re: RegExp
   keys: string[]
@@ -130,21 +127,21 @@ export function router(opts: RouterOptions): AppMiddleware {
 }
 
 export function RouteView(_props: {}, ctx: WfuiContext) {
+  // mount 时从 route._rvDepth 读取深度（由父 RouteView 的 render 设置）
+  // route 对象是所有 RouteView 共享的（通过 ctx 原型链访问），
+  // 且 mount 在 render 的同一次同步执行流中发生，值一定正确
+  const _depth = ((ctx as any).route?._rvDepth as number) ?? 0
+
   return (): any => {
     const route = (ctx as any).route
-    if (!route?.chain?.length) return null
+    if (!route?.chain?.length || _depth >= route.chain.length) return null
 
-    const ctxAny = ctx as any
-    const depth = layoutDepth.get(ctxAny) ?? 0
-
-    if (depth >= route.chain.length) return null
-
-    const def = route.chain[depth]
+    const def = route.chain[_depth]
     const Comp = def.layout ?? def.component
     if (!Comp) return null
 
     if (def.layout) {
-      layoutDepth.set(ctxAny, depth + 1)
+      route._rvDepth = _depth + 1
     }
 
     return { type: Comp, props: {}, key: undefined }

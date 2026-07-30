@@ -19,9 +19,6 @@ import type { WfuiContext, AppMiddleware } from './types.ts'
 import { render, patchValue, idRegistry } from './render.ts'
 import type { VNode, Component } from './vnode.ts'
 
-// 用于 RouteView 布局深度追踪
-import { layoutDepth } from './router.ts'
-
 // ── createApp ──────────────────────────────────────────
 
 export function createApp() {
@@ -40,7 +37,6 @@ export function createApp() {
   function renderByIds(ids: string[]) {
     if (_rendering) return
     _rendering = true
-    layoutDepth.delete(ctx)
 
     for (const id of ids) {
       const vnode = idRegistry.get(id)

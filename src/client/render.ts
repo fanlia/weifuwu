@@ -144,7 +144,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
     return document.createTextNode('')
   }
   vnode._child = childVNode
-  return renderValue(childVNode, ctx)
+  return renderValue(childVNode, childCtx)
 }
 
 function renderArray(arr: any[], ctx: WfuiContext): DocumentFragment {
@@ -347,7 +347,7 @@ export function patchValue(
     const _prevChild = oldV._child
     newV._child = childNew
 
-    return patchValue(parent, oldNode, _prevChild, childNew, ctx)
+    return patchValue(parent, oldNode, _prevChild, childNew, childCtx)
   }
 
   // Fragment
