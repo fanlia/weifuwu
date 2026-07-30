@@ -35,7 +35,10 @@ export const Chat: Component = (_props, ctx) => {
         }
         ; break
       case 'ai_draft':
-        $.msgs.push({ id: event.message.id, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'idle', tools: [], ai_draft: event.draft, ai_approved: null }); break
+        if (!$.msgs.some((m: any) => m.id === event.message.id)) {
+          $.msgs.push({ id: event.message.id, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'idle', tools: [], ai_draft: event.draft, ai_approved: null })
+        }
+        ; break
       case 'ai:status': {
         const idx = $.msgs.findIndex((m: any) => m.id === event.messageId)
         if (event.status === 'thinking' && idx === -1) {
