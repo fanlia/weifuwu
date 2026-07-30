@@ -515,6 +515,64 @@ describe('keyed children diff', () => {
     assert.equal((div.childNodes[1] as HTMLElement).tagName.toLowerCase(), 'div')
     assert.equal(div.childNodes[2].textContent, 'C')
   })
+
+  it('组件输出从元素变为 null 再恢复', () => {
+    // Drawer open/close 模式：open→render div→close→null→open→div
+    const container = document.createElement('div')
+
+    let show = true
+    const Comp = (_: any, _ctx: any) => {
+      return () => show
+        ? jsx('div', { children: [jsx('span', { children: 'on' }), jsx('span', { children: 'off' }, 'k')] })
+        : null
+    }
+
+    const v1 = { type: Comp, props: {}, key: undefined } as any
+    mountVNode(container, v1, ctx)
+    assert.equal(container.textContent, 'onoff')
+
+    show = false
+    const v2 = { type: Comp, props: {}, key: undefined } as any
+    patchValue(container, container.firstChild, v1, v2, ctx)
+    assert.equal(container.textContent, '', '关闭后清空')
+
+    show = true
+    const v3 = { type: Comp, props: {}, key: undefined } as any
+    patchValue(container, container.firstChild, v2, v3, ctx)
+    assert.equal(container.textContent, 'onoff', '重新打开后恢复')
+  })
+
+  it('patchValue 对组件输出 null 返回 null 不使 insertBefore 失效', () => {
+    // 验证 patchValue 对组件输出 null 时返回 null 的行为
+    // 不导致 patchKeyedChildren 的 insertBefore 引用失效
+    const container = document.createElement('div')
+
+    let showB = true
+    const A = (_: any, _ctx: any) => () => jsx('span', { children: 'A' }, 'a')
+    const B = (_: any, _ctx: any) => () => showB ? jsx('b', { children: 'B' }, 'b') : null
+    const C = (_: any, _ctx: any) => () => jsx('span', { children: 'C' }, 'c')
+
+    const oldV = jsx('div', { children: [
+      { type: A, props: {}, key: 'a' },
+      { type: B, props: {}, key: 'b' },
+      { type: C, props: {}, key: 'c' },
+    ]})
+    mountVNode(container, oldV, ctx)
+    const div = container.firstChild as HTMLElement
+    assert.equal(div.childNodes.length, 3)
+    assert.equal(div.textContent, 'ABC')
+
+    // B → null（不应抛 DOMException）
+    showB = false
+    const newV = jsx('div', { children: [
+      { type: A, props: {}, key: 'a' },
+      { type: B, props: {}, key: 'b' },
+      { type: C, props: {}, key: 'c' },
+    ]})
+    patchValue(container, container.firstChild, oldV, newV, ctx)
+    // B 的 DOM <b>B</b> 被移除，剩余 A 和 C
+    assert.equal(div.textContent, 'AC', 'B 移除后应只显示 A 和 C')
+  })
 })
 
 // ── ref 回调 ──────────────────────────────────────────
