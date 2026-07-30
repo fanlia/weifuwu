@@ -26,17 +26,17 @@ export const NewAgent: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
   const token = ctx.auth?.token
 
-    $.step = 'template'; $.selectedTemplate = null
-    $.type = 'ai'; $.name = ''; $.description = ''; $.systemPrompt = ''
-    $.webhookUrl = ''; $.chunkSize = '500'; $.aiModel = ''
-    $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiHITL = false
-    $.allowFileTools = false; $.allowCommandExec = false
-    $.submitting = false; $.error = ''
-    $.roleTemplates = []; $.loading = true
+  $.step = 'template'; $.selectedTemplate = null
+  $.type = 'ai'; $.name = ''; $.description = ''; $.systemPrompt = ''
+  $.webhookUrl = ''; $.chunkSize = '500'; $.aiModel = ''
+  $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiHITL = false
+  $.allowFileTools = false; $.allowCommandExec = false
+  $.submitting = false; $.error = ''
+  $.roleTemplates = []; $.loading = true
 
-    fetch('/api/role-templates', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => { $.roleTemplates = d.templates ?? []; $.loading = false })
-      .catch(() => { $.loading = false })
+  fetch('/api/role-templates', { headers: { Authorization: `Bearer ${token}` } })
+    .then(r => r.json()).then(d => { $.roleTemplates = d.templates ?? []; $.loading = false })
+    .catch(() => { $.loading = false })
 
   const isAI = !$.selectedTemplate && $.type === 'ai'
   const isWebhook = !$.selectedTemplate && $.type === 'webhook'
@@ -52,6 +52,7 @@ export const NewAgent: Component = (_props, ctx) => {
       cats.get(cl)!.templates.push(t)
     }
     return [...cats.entries()]
+  }
 
   function selectTemplate(t: RoleTemplate) {
     $.selectedTemplate = t; $.name = ''; $.description = t.description ?? ''
@@ -61,13 +62,14 @@ export const NewAgent: Component = (_props, ctx) => {
     $.allowFileTools = t.default_allow_file_tools ?? false
     $.allowCommandExec = t.default_allow_command_exec ?? false
     $.step = 'configure'
-   
+  }
 
   function startDirect() {
     $.selectedTemplate = null; $.systemPrompt = ''; $.aiModel = ''
     $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiHITL = false
     $.allowFileTools = false; $.allowCommandExec = false
     $.step = 'direct'
+  }
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
@@ -119,16 +121,12 @@ export const NewAgent: Component = (_props, ctx) => {
       if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
       ctx.app?.navigate(`/agents/${data.agent.id}`)
     } catch { $.error = '网络错误'; $.submitting = false }
+  }
 
   // ══════════ 步骤 1: 选择模板 ══════════
   if ($.step === 'template') {
-    if ($.loading) return <div class="page page-narrow"><div class="empty"><div class="spinner"></div></div></div>
-  }
-  }
-  }
-  }
-  }
-    return (props) => (
+    if ($.loading) return (__props: {}) => <div class="page page-narrow"><div class="empty"><div class="spinner"></div></div></div>
+    return (props: {}) => (
       <div class="page page-narrow">
         <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
         <PageHeader title="创建 Agent" sub="选择一个角色模板快速开始，或跳过自行配置" />
@@ -160,9 +158,10 @@ export const NewAgent: Component = (_props, ctx) => {
         </div>
       </div>
     )
+  }
 
   // ══════════ 步骤 2: 配置 ══════════
-  return (
+  return (props: {}) => (
     <div class="page page-narrow">
       <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
