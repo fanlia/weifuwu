@@ -75,9 +75,7 @@ export const Chat: Component = (_props, ctx) => {
   $.unsubWs = unsub
 
   // WS 订阅
-  if (ctx.ws?.isConnected) {
-    ctx.ws?.send({ type: 'subscribe', departmentId: deptId })
-  }
+  ctx.ws?.send({ type: 'subscribe', departmentId: deptId })
 
   // 流式超时保护 + 相对时间刷新
   const timer = setInterval(() => {
@@ -122,8 +120,6 @@ export const Chat: Component = (_props, ctx) => {
         body: JSON.stringify({ content }),
       })
       if (res.ok) {
-        // 服务端可能不向发送者广播 WS new_message 事件
-        // 收到成功响应后直接将消息加入列表
         const data = await res.json().catch(() => ({}))
         if (data.message) {
           $.msgs.push({
@@ -138,35 +134,6 @@ export const Chat: Component = (_props, ctx) => {
             tools: [],
           })
         }
-        // 兜底：WS 流式响应未到达时，延迟轮询获取 AI 回复
-        const pollToken = token
-        const doPoll = () => {
-          // 最多轮询 3 次，间隔递增
-          let attempts = 0
-          const poll = () => {
-            attempts++
-            if (attempts > 3) return
-            fetch(`/api/departments/${deptId}/messages`, {
-              headers: { Authorization: `Bearer ${pollToken}` }
-            }).then(r => r.json()).then(d => {
-              const allMsgs = d.messages ?? []
-              // 检查是否有新消息（AI 回复）
-              if (allMsgs.length > $.msgs.length) {
-                // 有增量，只追加 WS 未送达的新消息
-                for (let i = $.msgs.length; i < allMsgs.length; i++) {
-                  const m = allMsgs[i]
-                  if (!$.msgs.some((existing: any) => existing.id === m.id)) {
-                    $.msgs.push({ ...m })
-                  }
-                }
-              } else if (attempts < 3) {
-                setTimeout(poll, 2000 * attempts)
-              }
-            }).catch(() => {})
-          }
-          setTimeout(poll, 2000)
-        }
-        doPoll()
       } else {
         $.input = saved; const d = await res.json().catch(() => ({})); alert(d.error || '发送失败')
       }
