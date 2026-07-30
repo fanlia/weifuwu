@@ -19,6 +19,7 @@ $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
       ctx.app?.navigate('/')
     } catch { $.error = '网络错误'; $.loading = false }
 
+  }
   return (props) => (
     <div class="auth-page">
       <div class="auth-card">

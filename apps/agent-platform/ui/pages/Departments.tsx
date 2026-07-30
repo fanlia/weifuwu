@@ -17,6 +17,7 @@ export const Departments: Component = (_props, ctx) => {
      
     }
 
+  }
   return (props) => (
     <div class="page">
       <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">

@@ -45,6 +45,8 @@ export const Settings: Component = (_props, ctx) => {
     } catch { $.pwdErr = '网络错误' }
     finally { $.pwdSubmitting = false }
 
+  }
+  }
   return (props) => (
     <div class="page page-narrow">
       <PageHeader title="个人设置" sub="管理你的账号信息" />

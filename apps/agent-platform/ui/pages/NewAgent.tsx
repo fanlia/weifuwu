@@ -123,6 +123,11 @@ export const NewAgent: Component = (_props, ctx) => {
   // ══════════ 步骤 1: 选择模板 ══════════
   if ($.step === 'template') {
     if ($.loading) return <div class="page page-narrow"><div class="empty"><div class="spinner"></div></div></div>
+  }
+  }
+  }
+  }
+  }
     return (props) => (
       <div class="page page-narrow">
         <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>

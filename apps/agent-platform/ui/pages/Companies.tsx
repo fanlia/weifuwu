@@ -22,6 +22,7 @@ export const Companies: Component = (_props, ctx) => {
         .catch(() => { $.loading = false })
     }
 
+  }
   return (props) => (
     <div class="page">
       <PageHeader title="公司" sub="管理公司及其下属部门">

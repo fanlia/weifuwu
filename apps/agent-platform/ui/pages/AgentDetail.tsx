@@ -147,6 +147,14 @@ export const AgentDetail: Component = (_props, ctx) => {
     const d = await fetch(`/api/agents/${agentId}/knowledge`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
     $.docs = d.documents ?? []
 
+  }
+  }
+  }
+  }
+  }
+  }
+  }
+  }
   return (props) => (
     <div class="page page-narrow">
       <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>

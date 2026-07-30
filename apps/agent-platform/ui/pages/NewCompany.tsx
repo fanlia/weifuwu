@@ -21,6 +21,7 @@ $.name = ''; $.error = ''; $.submitting = false
       ctx.app?.navigate('/companies')
     } catch { $.error = '网络错误'; $.submitting = false }
 
+  }
   return (props) => (
     <div class="page page-narrow">
       <a class="back-link" onClick={() => ctx.app?.navigate('/companies')}>← 返回公司列表</a>

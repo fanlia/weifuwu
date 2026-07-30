@@ -19,6 +19,7 @@ export const Agents: Component = (_props, ctx) => {
      
     }
 
+  }
   return (props) => (
     <div class="page">
       <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">

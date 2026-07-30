@@ -29,6 +29,7 @@ $.email = ''; $.password = ''; $.error = ''; $.loading = false
      
     }
 
+  }
   return (props) => (
     <div class="auth-page">
       <div class="auth-card">

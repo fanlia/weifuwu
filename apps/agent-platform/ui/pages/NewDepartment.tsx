@@ -36,6 +36,8 @@ export const NewDepartment: Component = (_props, ctx) => {
       ctx.app?.navigate('/departments')
     } catch { $.error = '网络错误'; $.submitting = false }
 
+  }
+  }
   return (props) => (
     <div class="page page-narrow">
       <a class="back-link" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>

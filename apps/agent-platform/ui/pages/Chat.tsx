@@ -203,6 +203,17 @@ export const Chat: Component = (_props, ctx) => {
   const inputDisabled = $.editingId !== ''
   const canSend = $.input.trim().length > 0 && !$.sending
 
+  }
+  }
+  }
+  }
+  }
+  }
+  }
+  }
+  }
+  }
+  }
   return (props) => (
     <div class="chat-shell">
       <div class="chat-head">
