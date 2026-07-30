@@ -204,7 +204,8 @@ function patchPortal(_parent: Node, oldNode: Node | null, oldV: VNode, newV: VNo
   const oldChildren = oldV._child || []
   newV._child = newChildren
 
-  patchSimpleChildren(sub, oldChildren, newChildren, ctx)
+  ensureKeys(oldChildren, newChildren)
+  patchKeyedChildren(sub, oldChildren, newChildren, ctx)
   return oldNode ?? document.createTextNode('')
 }
 
@@ -393,7 +394,8 @@ export function patchValue(
   // Array（map 结果等）
   if (Array.isArray(newInput)) {
     const oldArr = Array.isArray(oldInput) ? oldInput : []
-    patchSimpleChildren(parent, oldArr, newInput, ctx)
+    ensureKeys(oldArr, newInput)
+    patchKeyedChildren(parent, oldArr, newInput, ctx)
     return oldNode
   }
 
@@ -478,18 +480,28 @@ function getKey(input: any): string | undefined {
   return (input as VNode).key
 }
 
+/** 为无 key 的子节点自动分配位置 key，确保 keyed diff 正确性 */
+function ensureKeys(oldChildren: any[], newChildren: any[]) {
+  const hasKey = newChildren.some(c => c && typeof c === 'object' && c.key !== undefined)
+  if (!hasKey) {
+    for (let i = 0; i < newChildren.length; i++) {
+      const c = newChildren[i]
+      if (c && typeof c === 'object') c.key = i
+    }
+    for (let i = 0; i < oldChildren.length; i++) {
+      const c = oldChildren[i]
+      if (c && typeof c === 'object') c.key = i
+    }
+  }
+}
+
 function patchChildren(parent: Node, oldVNode: VNode, newVNode: VNode, ctx: WfuiContext) {
   const oldChildren = normalize(oldVNode.props?.children)
   const newChildren = normalize(newVNode.props?.children)
 
-  // 检查是否有 key
-  const hasKey = newChildren.some(c => getKey(c) !== undefined)
-
-  if (hasKey) {
-    patchKeyedChildren(parent, oldChildren, newChildren, ctx)
-  } else {
-    patchSimpleChildren(parent, oldChildren, newChildren, ctx)
-  }
+  // 始终使用 keyed diff，无 key 时自动分配位置 key
+  ensureKeys(oldChildren, newChildren)
+  patchKeyedChildren(parent, oldChildren, newChildren, ctx)
 }
 
 function normalize(children: any): any[] {
@@ -505,39 +517,6 @@ function normalize(children: any): any[] {
     }
   }
   return result
-}
-
-function patchSimpleChildren(parent: Node, oldChildren: any[], newChildren: any[], ctx: WfuiContext) {
-  // Phase 1: 删除多余的旧节点（逆序，防止 childNodes 索引偏移）
-  for (let i = oldChildren.length - 1; i >= newChildren.length; i--) {
-    const oldChild = oldChildren[i]
-    const node = parent.childNodes[i]
-    if (node) {
-      callRefCleanup(oldChild)
-      node.remove()
-    }
-  }
-
-  // Phase 2: 更新/追加剩余节点
-  const max = Math.max(oldChildren.length, newChildren.length)
-  // 预先捕获旧 DOM 节点，防止 insertBefore 导致 childNodes 索引漂移
-  const oldNodes: (Node | null)[] = []
-  for (let i = 0; i < max; i++) {
-    oldNodes.push(parent.childNodes[i] || null)
-  }
-  for (let i = 0; i < max; i++) {
-    const oldChild = oldChildren[i]
-    const newChild = newChildren[i]
-    const existingNode = oldNodes[i]
-
-    if (oldChild === undefined && newChild !== undefined) {
-      const node = renderValue(newChild, ctx)
-      // 插入到正确位置（oldNodes[i] 是此位置的 DOM 节点）
-      parent.insertBefore(node, oldNodes[i + 1] ?? null)
-    } else if (oldChild !== undefined && newChild !== undefined) {
-      patchValue(parent, existingNode, oldChild, newChild, ctx)
-    }
-  }
 }
 
 function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[], ctx: WfuiContext) {
