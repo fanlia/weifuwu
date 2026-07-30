@@ -12,23 +12,24 @@ function greeting(): string {
 
 export const Dashboard: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
-    $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0
-    Promise.all([
-      fetch('/api/stats', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({})),
-      fetch('/api/agents', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({ agents: [] })),
-      fetch('/api/departments', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({ departments: [] })),
-    ]).then(([stats, agents, depts]) => {
-      $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
-      $.loading = false
-    })
+  $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0
+  Promise.all([
+    fetch('/api/stats', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({})),
+    fetch('/api/agents', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({ agents: [] })),
+    fetch('/api/departments', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({ departments: [] })),
+  ]).then(([stats, agents, depts]) => {
+    $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
+    $.loading = false
+  })
 
-  const s = $.stats ?? {}
-  const msgCount = s.messages?.total ?? 0
-  const totalTokens = s.tokens?.total_tokens ?? 0
-  const agentCount = s.agents?.total ?? ($.agents ?? []).length
-  const aiCount = s.agents?.ai_count ?? ($.agents ?? []).filter((a: any) => a.type === 'ai' || a.type === 'robot').length
+  return (props) => {
+    const s = $.stats ?? {}
+    const msgCount = s.messages?.total ?? 0
+    const totalTokens = s.tokens?.total_tokens ?? 0
+    const agentCount = s.agents?.total ?? ($.agents ?? []).length
+    const aiCount = s.agents?.ai_count ?? ($.agents ?? []).filter((a: any) => a.type === 'ai' || a.type === 'robot').length
 
-  return (props) => (
+    return (
     <div class="page page-narrow">
       <div class="dash-hello">
         <h1>{greeting()}，{ctx.auth?.user?.name ?? '用户'}</h1>
@@ -87,5 +88,6 @@ export const Dashboard: Component = (_props, ctx) => {
         </div>
       </div>
     </div>
-  )
+    )
+  }
 }
