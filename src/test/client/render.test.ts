@@ -8,7 +8,7 @@
 import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-import { jsx, Fragment } from '../../client/vnode.ts'
+import { jsx, Fragment, createPortal } from '../../client/vnode.ts'
 import type { VNode } from '../../client/vnode.ts'
 import { render, patchValue, mountVNode } from '../../client/render.ts'
 import type { WfuiContext } from '../../client/types.ts'
@@ -1100,6 +1100,123 @@ describe('keyed diff DOM mutations', () => {
     //         E 新节点 → 1 insertBefore
     // 总计: 2 removeChild + 1 insertBefore = 3
     assert.equal(n, 3, 'add+remove: 3 DOM ops (2 remove + 1 add)')
+    container.remove()
+  })
+
+  it('Portal: null→开→关 正确清理 remoteEl', () => {
+    // 模拟 Modal: open=false → null, open=true → Portal
+    let isOpen = false
+
+    const Comp = (_init: any, _compCtx: any) =>
+      () => {
+        if (!isOpen) return null
+        return createPortal('portal-content', 'test-modal')
+      }
+
+    const skipCtx: any = { ui: { _ctxVersion: 1, _dirtySet: new Set<string>() } }
+
+    // 首次挂载（closed）
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    let v = { type: Comp as any, props: {}, key: undefined }
+    mountVNode(container, v, skipCtx)
+
+    const compId = (v as any)._id
+    assert.equal(container.textContent, '')
+
+    // 打开（open=true）
+    let mo = new MutationObserver(() => {})
+    mo.observe(container, { childList: true, subtree: true, characterData: true })
+    isOpen = true
+    skipCtx.ui._dirtySet.add(compId)
+    const v2 = { type: Comp as any, props: {}, key: undefined }
+    patchValue(container, container.firstChild, v, v2, skipCtx)
+    let total = 0
+    for (const m of mo.takeRecords()) total += m.type === 'childList' ? m.addedNodes.length + m.removedNodes.length : 1
+    mo.disconnect()
+    // Portal 不占父 DOM 位置，container 内无子节点
+    assert.equal(total, 0, 'open: 0 DOM ops on parent (Portal remote)')
+    // Portal 内容在 #__wf_portal 下
+    const portal = document.getElementById('__wf_portal')
+    assert.ok(portal, '__wf_portal exists')
+    assert.equal(portal!.textContent, 'portal-content', 'portal rendered')
+
+    // 关闭（open=false）
+    mo = new MutationObserver(() => {})
+    mo.observe(container, { childList: true, subtree: true, characterData: true })
+    isOpen = false
+    skipCtx.ui._dirtySet.add(compId)
+    const v3 = { type: Comp as any, props: {}, key: undefined }
+    patchValue(container, container.firstChild, v2, v3, skipCtx)
+    total = 0
+    for (const m of mo.takeRecords()) total += m.type === 'childList' ? m.addedNodes.length + m.removedNodes.length : 1
+    mo.disconnect()
+    assert.equal(total, 0, 'close: 0 DOM ops on parent (remote cleanup)')
+    // Portal 内容应被清理
+    assert.equal(portal!.textContent, '', 'portal content cleaned')
+
+    container.remove()
+  })
+
+  it('Portal: 组件输出 null↔Portal 切换（模拟 Modal/Drawer）', () => {
+    // 真实 Modal: open=true → Portal, open=false → null
+    // open 作为 prop 传递 → componentPropsEqual 检测到变化 → 不 skip
+    let renderCount = 0
+
+    const Modal = (_init: any) =>
+      (props: any) => {
+        renderCount++
+        if (!props.open) return null
+        return createPortal('content-' + props.id, 'modal-' + props.id)
+      }
+
+    const Btn = (_init: any) =>
+      () => ({ type: 'button', props: { children: 'btn' }, key: undefined })
+
+    const skipCtx: any = { ui: { _ctxVersion: 1, _dirtySet: new Set<string>() } }
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+
+    // 首次挂载（open=false）
+    let open = false
+    const Parent = (_init: any) =>
+      () => ({
+        type: 'div',
+        props: { children: [
+          { type: Btn as any, props: {}, key: 'b1' },
+          { type: Btn as any, props: {}, key: 'b2' },
+          { type: Modal as any, props: { open, id: 'm1' }, key: 'm1' },
+        ]},
+        key: undefined,
+      })
+
+    let v = { type: Parent as any, props: {}, key: undefined }
+    mountVNode(container, v, skipCtx)
+    const parentId = (v as any)._id
+    const div = container.firstChild as HTMLElement
+    assert.equal(div.childNodes.length, 2, 'mount: 2 buttons, no modal')
+    assert.equal(div.textContent, 'btnbtn')
+    assert.equal(renderCount, 1, 'mount: Modal renders once')
+
+    // 打开（open=true）→ Modal 输出 Portal
+    open = true
+    skipCtx.ui._dirtySet.add(parentId)
+    const v2 = { type: Parent as any, props: {}, key: undefined }
+    patchValue(container, div, v, v2, skipCtx)
+    assert.equal(div.childNodes.length, 2, 'open: 2 buttons remain (portal remote)')
+    assert.equal(renderCount, 2, 'open: Modal renders (open prop changed)')
+    let portal = document.getElementById('__wf_portal')
+    assert.ok(portal?.textContent?.includes('content-m1'), 'open: portal rendered')
+
+    // 关闭（open=false）→ Modal 输出 null
+    open = false
+    skipCtx.ui._dirtySet.add(parentId)
+    const v3 = { type: Parent as any, props: {}, key: undefined }
+    patchValue(container, div, v2, v3, skipCtx)
+    assert.equal(div.childNodes.length, 2, 'close: 2 buttons remain')
+    assert.equal(renderCount, 3, 'close: Modal renders (open prop changed)')
+    assert.equal(portal!.textContent, '', 'close: portal content cleaned')
+
     container.remove()
   })
 })
