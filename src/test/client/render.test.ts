@@ -482,6 +482,39 @@ describe('keyed children diff', () => {
     patchValue(container, container.firstChild, oldV, newV, ctx)
     assert.equal(container.textContent, 'b')
   })
+
+  it('同 key 节点类型变化时 insertBefore 不失效', () => {
+    // 场景：patchKeyedChildren 处理 [A(key=a), B(key=b), C(key=c)]
+    // 逆序遍历：i=2(C) → i=1(B) → i=0(A)
+    // 如果 B 的类型变化（span→div），patchValue 会 replaceChild
+    // B 的旧 DOM 脱离 parent，但 insertBefore 仍指向它
+    // 下一轮 (i=0) parent.insertBefore(A, B_detached) → DOMException
+    const container = document.createElement('div')
+
+    const oldV = jsx('div', { children: [
+      jsx('span', { children: 'A' }, 'a'),
+      jsx('span', { children: 'B' }, 'b'),
+      jsx('span', { children: 'C' }, 'c'),
+    ]})
+
+    const newV = jsx('div', { children: [
+      jsx('span', { children: 'A' }, 'a'),
+      jsx('div',  { children: 'B' }, 'b'),  // span → div，类型变化
+      jsx('span', { children: 'C' }, 'c'),
+    ]})
+
+    mountVNode(container, oldV, ctx)
+
+    // 不应抛 DOMException
+    patchValue(container, container.firstChild, oldV, newV, ctx)
+
+    const div = container.firstChild as HTMLElement
+    assert.equal(div.childNodes.length, 3)
+    assert.equal(div.childNodes[0].textContent, 'A')
+    assert.equal(div.childNodes[1].textContent, 'B')
+    assert.equal((div.childNodes[1] as HTMLElement).tagName.toLowerCase(), 'div')
+    assert.equal(div.childNodes[2].textContent, 'C')
+  })
 })
 
 // ── ref 回调 ──────────────────────────────────────────
