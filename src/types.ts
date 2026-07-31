@@ -20,7 +20,7 @@ export interface WebSocket {
   addEventListener(event: string, handler: (...args: unknown[]) => void): void
   removeEventListener(event: string, handler: (...args: unknown[]) => void): void
 }
-export type { Redis, RedisOptions } from 'ioredis'
+export type { Redis, RedisOptions } from './redis/types.ts'
 
 /** User injected by user() or custom auth middleware. */
 export interface User {

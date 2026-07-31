@@ -21,6 +21,8 @@ export interface RedisConnectionOptions {
   retryDelayMs?: number
   /** 最大重连尝试次数。默认 10。0 = 无限。 */
   maxRetries?: number
+  /** 未连接时命令是否入队等待（ioredis enableOfflineQueue 语义）。默认 true。 */
+  enableOfflineQueue?: boolean
 }
 
 interface Pending {
@@ -35,6 +37,7 @@ export class RedisConnection {
   private socket: Socket | null = null
   private parser = new RespParser()
   private pending: Pending[] = []
+  private offlineQueue: { name: string; args: (string | number)[]; resolve: (v: RespValue) => void; reject: (e: unknown) => void }[] = []
   private status: 'idle' | 'connecting' | 'ready' | 'closed' = 'idle'
   private retries = 0
   private reconnectTimer: NodeJS.Timeout | null = null
@@ -47,6 +50,7 @@ export class RedisConnection {
       port: options.port ?? 6379,
       retryDelayMs: options.retryDelayMs ?? 100,
       maxRetries: options.maxRetries ?? 10,
+      enableOfflineQueue: options.enableOfflineQueue ?? true,
     }
   }
 
@@ -54,7 +58,7 @@ export class RedisConnection {
   connect(): Promise<void> {
     if (this.connectPromise) return this.connectPromise
     this.closed = false
-    this.connectPromise = new Promise((resolve, reject) => {
+    this.connectPromise = new Promise<void>((resolve, reject) => {
       this.openSocket()
       this.onceReady = () => resolve()
       this.onceFailed = (err) => reject(err)
@@ -77,10 +81,11 @@ export class RedisConnection {
     sock.on('connect', () => {
       this.status = 'ready'
       this.retries = 0
+      this.flushOffline()
       this.onceReady?.()
     })
 
-    sock.on('data', (chunk) => this.onData(chunk))
+    sock.on('data', (chunk: Buffer) => this.onData(new Uint8Array(chunk)))
 
     sock.on('error', (err) => {
       if (this.status === 'connecting') {
@@ -146,14 +151,59 @@ export class RedisConnection {
     }
   }
 
-  /** 发送命令并等待响应（单连接严格有序） */
+  /** 发送命令并等待响应（单连接严格有序）。未 ready 时入离线队列（enableOfflineQueue）或拒绝。 */
   command(name: string, ...args: (string | number)[]): Promise<RespValue> {
+    if (this.status === 'ready' && this.socket) {
+      return this.sendNow(name, args)
+    }
+    if (this.closed || this.status === 'closed' || !this.opts.enableOfflineQueue) {
+      return Promise.reject(new ConnectionError('redis: not connected'))
+    }
+    // 离线队列：连接建立后按序 flush
+    return new Promise((resolve, reject) => {
+      this.offlineQueue.push({ name, args, resolve, reject })
+    })
+  }
+
+  private sendNow(name: string, args: (string | number)[]): Promise<RespValue> {
+    return new Promise((resolve, reject) => {
+      this.pending.push({ resolve, reject })
+      this.socket!.write(Buffer.from(encodeCommand([name, ...args])))
+    })
+  }
+
+  private flushOffline() {
+    const queue = this.offlineQueue
+    this.offlineQueue = []
+    for (const q of queue) {
+      this.sendNow(q.name, q.args).then(q.resolve, q.reject)
+    }
+  }
+
+  /** 批量执行：一次 write 发送所有命令字节，响应按序路由（管道） */
+  batch(payload: Uint8Array, count: number): Promise<RespValue[]> {
     if (this.status !== 'ready' || !this.socket) {
       return Promise.reject(new ConnectionError('redis: not connected'))
     }
     return new Promise((resolve, reject) => {
-      this.pending.push({ resolve, reject })
-      this.socket!.write(Buffer.from(encodeCommand([name, ...args])))
+      const results: RespValue[] = []
+      const maybeResolve = () => {
+        if (results.length === count) resolve(results)
+      }
+      for (let i = 0; i < count; i++) {
+        this.pending.push({
+          // 正常响应与错误响应（RespError）都作为结果值收集——管道语义
+          resolve: (v) => {
+            results.push(v)
+            maybeResolve()
+          },
+          reject: (e) => {
+            results.push(e as RespValue)
+            maybeResolve()
+          },
+        })
+      }
+      this.socket!.write(Buffer.from(payload))
     })
   }
 

@@ -12,23 +12,50 @@ import { ConnectionError } from '../errors.ts'
 export interface RedisPoolOptions extends RedisClientOptions {
   /** 池大小（连接数）。默认 5。 */
   poolSize?: number
+  /** 所有 key 自动加前缀（多应用共享 Redis 时隔离命名空间） */
+  keyPrefix?: string
 }
 
 export class RedisPool {
   private clients: RedisClient[] = []
   private rr = 0
   private closed = false
+  private keyPrefix: string
+  private opts: RedisPoolOptions
+  private initPromise: Promise<void> | null = null
 
-  private constructor() {}
+  /** 懒连接模式：构造不连接，首命令时初始化（中间件注入场景） */
+  constructor(opts: RedisPoolOptions = {}) {
+    this.keyPrefix = opts.keyPrefix ?? ''
+    this.opts = opts
+  }
 
-  /** 建立池：创建 poolSize 个连接 */
+  /** 建立池：创建 poolSize 个连接（eager） */
   static async create(options: RedisPoolOptions = {}): Promise<RedisPool> {
-    const poolSize = options.poolSize ?? 5
-    const pool = new RedisPool()
-    pool.clients = await Promise.all(
-      Array.from({ length: poolSize }, () => RedisClient.connect(options)),
-    )
+    const pool = new RedisPool(options)
+    await pool.ensure()
     return pool
+  }
+
+  /** 懒连接：首次使用时初始化连接（中间件场景：构造即注入，首命令才连） */
+  private ensure(): Promise<void> {
+    if (this.clients.length > 0) return Promise.resolve()
+    if (!this.initPromise) {
+      this.initPromise = this.init()
+    }
+    return this.initPromise
+  }
+
+  private async init(): Promise<void> {
+    const poolSize = this.opts.poolSize ?? 5
+    this.clients = await Promise.all(
+      Array.from({ length: poolSize }, () => RedisClient.connect(this.opts)),
+    )
+  }
+
+  /** 应用 key 前缀（command 透传不加） */
+  private k(key: string): string {
+    return this.keyPrefix + key
   }
 
   /** round-robin 选择连接 */
@@ -44,43 +71,60 @@ export class RedisPool {
   // ── 与 RedisClient 相同的方法面（代理到轮询连接） ──
 
   async command(name: string, ...args: (string | number)[]): Promise<RespValue> {
+    await this.ensure()
     return this.next().command(name, ...args)
   }
 
   async get(key: string): Promise<string | null> {
-    return this.next().get(key)
+    await this.ensure()
+    return this.next().get(this.k(key))
   }
 
   async set(key: string, value: string | number, ttl?: number): Promise<'OK'> {
-    return this.next().set(key, value, ttl)
+    await this.ensure()
+    return this.next().set(this.k(key), value, ttl)
   }
 
   async del(...keys: string[]): Promise<number> {
-    return this.next().del(...keys)
+    await this.ensure()
+    return this.next().del(...keys.map((k) => this.k(k)))
   }
 
   async incr(key: string): Promise<number> {
-    return this.next().incr(key)
+    await this.ensure()
+    return this.next().incr(this.k(key))
   }
 
   async expire(key: string, seconds: number): Promise<number> {
-    return this.next().expire(key, seconds)
+    await this.ensure()
+    return this.next().expire(this.k(key), seconds)
   }
 
   async ttl(key: string): Promise<number> {
-    return this.next().ttl(key)
+    await this.ensure()
+    return this.next().ttl(this.k(key))
   }
 
   async jsonGet(key: string): Promise<unknown | null> {
-    return this.next().jsonGet(key)
+    await this.ensure()
+    return this.next().jsonGet(this.k(key))
   }
 
   async jsonSet(key: string, value: unknown, ttl?: number): Promise<'OK'> {
-    return this.next().jsonSet(key, value, ttl)
+    await this.ensure()
+    return this.next().jsonSet(this.k(key), value, ttl)
   }
 
   async cache<T>(key: string, fn: () => Promise<T | null>, ttl: number): Promise<T | null> {
-    return this.next().cache(key, fn, ttl)
+    await this.ensure()
+    return this.next().cache(this.k(key), fn, ttl)
+  }
+
+  /** 清空当前库（测试/重置场景） */
+  async flushdb(): Promise<'OK'> {
+    await this.ensure()
+    const v = await this.next().command('FLUSHDB')
+    return String(v) as 'OK'
   }
 
   /** 关闭所有池内连接 */

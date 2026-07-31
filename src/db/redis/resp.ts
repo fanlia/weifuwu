@@ -9,7 +9,7 @@
 
 import { DbError } from '../errors.ts'
 
-export type RespValue = string | number | null | RespValue[]
+export type RespValue = string | number | null | RespError | RespValue[]
 
 /** 服务器错误响应（-ERR ...） */
 export class RespError extends DbError {

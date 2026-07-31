@@ -64,3 +64,48 @@ describe('redis pool (real database)', () => {
     await assert.rejects(() => p.get('x'))
   })
 })
+
+describe('redis pool key prefix (real database)', () => {
+  const KEY = `wf_pref:${process.pid}:`
+  let pool: RedisPool
+
+  before(async () => {
+    pool = await RedisPool.create({ port, poolSize: 2, keyPrefix: KEY })
+  })
+
+  after(async () => {
+    // 带前缀清理
+    const keys = await pool.command('KEYS', `${KEY}*`)
+    if (Array.isArray(keys)) for (const k of keys) await pool.command('DEL', String(k))
+    await pool.close()
+  })
+
+  it('automatically prefixes keys on set/get', async () => {
+    await pool.set('user:1', 'alice')
+    // 实际存储的 key 带前缀
+    assert.equal(await pool.get('user:1'), 'alice')
+  })
+
+  it('raw command sees the prefixed key', async () => {
+    await pool.set('user:2', 'bob')
+    // command 透传不加前缀——检查真实存储位置
+    assert.equal(await pool.command('GET', `${KEY}user:2`), 'bob')
+  })
+
+  it('json operations are prefixed too', async () => {
+    await pool.jsonSet('doc:1', { a: 1 })
+    assert.deepEqual(await pool.jsonGet('doc:1'), { a: 1 })
+    // raw command 不加前缀——验证真实存储位置带前缀
+    const raw = await pool.command('GET', `${KEY}doc:1`)
+    assert.deepEqual(JSON.parse(String(raw)), { a: 1 })
+  })
+
+  it('del/expire/ttl/incr apply prefix', async () => {
+    await pool.set('n:1', '5')
+    assert.equal(await pool.incr('n:1'), 6)
+    assert.equal(await pool.expire('n:1', 100), 1)
+    const ttl = await pool.ttl('n:1')
+    assert.ok(ttl > 0)
+    assert.equal(await pool.del('n:1'), 1)
+  })
+})
