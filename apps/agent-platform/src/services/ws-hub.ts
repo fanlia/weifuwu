@@ -45,28 +45,21 @@ class WebSocketHub {
     this.redisInitialized = true
     this.redisClient = redis
 
-    // 创建独立的 subscriber 连接（ioredis 需要单独的连接做 subscribe）
-    // 如果 redis 是 ioredis 实例
-    if (redis.duplicate) {
-      this.redisSubscriber = redis.duplicate()
-    } else {
-      this.redisSubscriber = redis
-    }
+    // 自研客户端：独立订阅连接 + 回调式 psubscribe
+    this.redisSubscriber = redis.createSubscriber()
+    this.redisSubscriber.connect().then(() => {
+      this.redisSubscriber.psubscribe(REDIS_PATTERN, (channel: string, message: string) => {
+        const roomId = channel.slice(REDIS_CHANNEL_PREFIX.length)
+        if (!roomId) return
 
-    // 订阅所有广播通道
-    this.redisSubscriber.on('pmessage', (_pattern: string, channel: string, message: string) => {
-      const roomId = channel.slice(REDIS_CHANNEL_PREFIX.length)
-      if (!roomId) return
+        // 解析消息
+        let payload: WsMsg
+        try { payload = JSON.parse(message) } catch { return }
 
-      // 解析消息
-      let payload: WsMsg
-      try { payload = JSON.parse(message) } catch { return }
-
-      // 只广播到本地 WebSocket 连接
-      this.broadcastLocal(roomId, payload)
+        // 只广播到本地 WebSocket 连接
+        this.broadcastLocal(roomId, payload)
+      })
     })
-
-    this.redisSubscriber.psubscribe(REDIS_PATTERN)
     console.log('[ws-hub] Redis Pub/Sub 已初始化')
   }
 

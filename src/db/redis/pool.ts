@@ -6,6 +6,7 @@
  */
 
 import { RedisClient, type RedisClientOptions } from './client.ts'
+import { RedisSubscriber } from './subscriber.ts'
 import type { RespValue } from './resp.ts'
 import { ConnectionError } from '../errors.ts'
 
@@ -118,6 +119,17 @@ export class RedisPool {
   async cache<T>(key: string, fn: () => Promise<T | null>, ttl: number): Promise<T | null> {
     await this.ensure()
     return this.next().cache(this.k(key), fn, ttl)
+  }
+
+  /** PUBLISH 消息到频道，返回收到消息的订阅者数 */
+  async publish(channel: string, message: string | number): Promise<number> {
+    await this.ensure()
+    return Number(await this.next().command('PUBLISH', channel, message))
+  }
+
+  /** 创建独立订阅者连接（Pub/Sub 场景） */
+  createSubscriber(): RedisSubscriber {
+    return new RedisSubscriber({ ...this.opts })
   }
 
   /** 清空当前库（测试/重置场景） */

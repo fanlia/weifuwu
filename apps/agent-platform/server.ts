@@ -8,7 +8,7 @@
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
-import { serve, Router, cors, postgres, ui } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, ui } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -71,14 +71,12 @@ async function main() {
     console.log('[agent-platform] 检测到表丢失，已重新创建')
   }
 
-  // ── Redis ───────────────────────────────────────────────
+  // ── Redis（框架自研客户端）────────────────────────────
   const hasRedis = !!(process.env.REDIS_URL)
   let redisClient: any = null
   if (hasRedis) {
-    const { Redis } = await import('ioredis')
-    redisClient = new Redis(process.env.REDIS_URL!)
-    redisClient.on('error', (err: any) => console.error('[redis]', err.message))
-    console.log('[agent-platform] Redis 已连接')
+    redisClient = redis()
+    console.log('[agent-platform] Redis 已连接（自研客户端）')
   }
 
   // ── AI 中间件 ───────────────────────────────────────────
@@ -316,7 +314,7 @@ async function main() {
   // ── WebSocket ───────────────────────────────────────────
   // 如果 Redis 可用，初始化 WS 跨实例广播
   if (hasRedis && redisClient) {
-    wsHub.initRedis(redisClient)
+    wsHub.initRedis(redisClient.redis)
     console.log('[agent-platform] WS Hub Redis Pub/Sub 已启用')
   }
   app.ws('/ws', createWsHandler())

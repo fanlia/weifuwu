@@ -14,6 +14,9 @@ import type { Socket } from 'node:net'
 import { encodeCommand, RespParser, RespError, type RespValue } from './resp.ts'
 import { ConnectionError } from '../errors.ts'
 
+/** 订阅旁路消息类型（subscribe 确认 / message / pmessage 等） */
+const PUSH_TYPES = new Set(['message', 'pmessage'])
+
 export interface RedisConnectionOptions {
   host?: string
   port?: number
@@ -38,6 +41,8 @@ export class RedisConnection {
   private parser = new RespParser()
   private pending: Pending[] = []
   private offlineQueue: { name: string; args: (string | number)[]; resolve: (v: RespValue) => void; reject: (e: unknown) => void }[] = []
+  private subs = new Map<string, (channel: string, message: string) => void>()
+  private psubs = new Map<string, (channel: string, message: string) => void>()
   private status: 'idle' | 'connecting' | 'ready' | 'closed' = 'idle'
   private retries = 0
   private reconnectTimer: NodeJS.Timeout | null = null
@@ -133,9 +138,14 @@ export class RedisConnection {
 
   private onData(chunk: Uint8Array) {
     try {
-      // 一次 data 事件可能包含多个回复（并发命令的响应合并在一个 TCP chunk）
+            // 一次 data 事件可能包含多个回复（并发命令的响应合并在一个 TCP chunk）
       const values = this.parser.pushAll(chunk)
-      for (const value of values) {
+            for (const value of values) {
+        // 订阅推送（message/pmessage）旁路到回调——不消费 pending
+        if (Array.isArray(value) && typeof value[0] === 'string' && PUSH_TYPES.has(value[0])) {
+          this.dispatchSubscribe(value as string[])
+          continue
+        }
         const p = this.pending.shift()
         if (!p) break
         // 错误响应（-ERR）是正常协议消息——reject 该命令，连接保持可用
@@ -206,6 +216,31 @@ export class RedisConnection {
       this.socket!.write(Buffer.from(payload))
     })
   }
+
+/** 订阅频道：回调式（channel, message） */
+async subscribe(channel: string, fn: (channel: string, message: string) => void): Promise<void> {
+  this.subs.set(channel, fn)
+  await this.command('SUBSCRIBE', channel)
+}
+
+/** 订阅模式：回调式（channel, message） */
+async psubscribe(pattern: string, fn: (channel: string, message: string) => void): Promise<void> {
+  this.psubs.set(pattern, fn)
+  await this.command('PSUBSCRIBE', pattern)
+}
+
+/** 旁路分发订阅消息（RESP 数组路由到回调） */
+private dispatchSubscribe(value: string[]) {
+  const [type, a, b] = value
+  if (type === 'message') {
+    const fn = this.subs.get(a)
+    fn?.(a, b)
+  } else if (type === 'pmessage') {
+    // pmessage: [pattern, channel, message]
+    const fn = this.psubs.get(a)
+    fn?.(b, value[3] ?? '')
+  }
+}
 
   /** 主动关闭——不再重连 */
   async close(): Promise<void> {
