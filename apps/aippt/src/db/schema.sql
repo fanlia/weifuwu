@@ -21,3 +21,7 @@ CREATE TABLE IF NOT EXISTS themes (
   logo TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 分享 token（只读预览）
+ALTER TABLE decks ADD COLUMN IF NOT EXISTS share_token TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS decks_share_token_idx ON decks (share_token) WHERE share_token IS NOT NULL;

@@ -9,6 +9,7 @@ import { Home } from './pages/Home'
 import { Outline } from './pages/Outline'
 import { Deck } from './pages/Deck'
 import { History } from './pages/History'
+import { Share } from './pages/Share'
 
 const app = createApp()
 
@@ -21,6 +22,7 @@ app.use(router({
     { path: '/history', component: History, title: '我的演示文稿 — aippt' },
     { path: '/decks/:id/outline', component: Outline, title: '大纲确认 — aippt' },
     { path: '/decks/:id', component: Deck, title: '预览 — aippt' },
+    { path: '/share/:token', component: Share, title: '分享预览 — aippt' },
   ],
   notFound: () => () => (
     <div class="empty">

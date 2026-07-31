@@ -88,6 +88,20 @@ export const Deck = (_init: any, ctx: any) => {
     reader.readAsDataURL(file)
   }
 
+  const shareDeck = async () => {
+    $.error = ''
+    try {
+      const res = await fetch(`/api/decks/${id}/share`, { method: 'POST' }).then((r) => r.json())
+      if (res.error) throw new Error(res.error)
+      const url = `${location.origin}${res.url}`
+      await navigator.clipboard.writeText(url)
+      $.error = ''
+      alert('分享链接已复制：' + url)
+    } catch (err: any) {
+      $.error = err?.message ?? String(err)
+    }
+  }
+
   const postEdit = async (n: number, path: string, body: Record<string, string>) => {
     if ($.busy !== null) return
     $.busy = n
@@ -134,6 +148,7 @@ export const Deck = (_init: any, ctx: any) => {
           download: `${($.deck?.title ?? 'deck').replace(/\s+/g, '-')}.pptx`,
         }, '下载 .pptx'),
         h('button', { class: 'btn ghost', onClick: () => window.print() }, '导出 PDF'),
+        h('button', { class: 'btn ghost', onClick: shareDeck }, '分享'),
       ),
       $.loading
         ? h('div', { class: 'loading' }, '加载中…')

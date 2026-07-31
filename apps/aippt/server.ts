@@ -24,8 +24,9 @@ import { rewriteSlide, relayoutSlide } from './src/services/edit.ts'
 import { deckToPptx, type DeckData } from './src/pptx/components/layouts.ts'
 import {
   createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateThemeAndDeck,
-  createCustomTheme, listCustomThemes, getCustomTheme,
+  createCustomTheme, listCustomThemes, getCustomTheme, setShareToken, clearShareToken, getDeckByShareToken,
 } from './src/db.ts'
+import { randomBytes } from 'node:crypto'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -64,6 +65,9 @@ async function main() {
   }
 
   const sql = pg.sql
+  // share_token 列幂等迁移（schema 已标记过，不会重跑）
+  await sql.unsafe('ALTER TABLE decks ADD COLUMN IF NOT EXISTS share_token TEXT')
+  await sql.unsafe('CREATE UNIQUE INDEX IF NOT EXISTS decks_share_token_idx ON decks (share_token) WHERE share_token IS NOT NULL')
   let seq = 0
   const nextId = (prefix: string) => `${prefix}${Date.now().toString(36)}${(seq++).toString(36)}`
 
@@ -352,6 +356,29 @@ async function main() {
     const ok = await deleteDeck(sql, ctx.params.id)
     if (!ok) return Response.json({ error: 'deck 不存在' }, { status: 404 })
     return Response.json({ ok: true })
+  })
+
+  // ── 分享（只读预览）───────────────────────────────────
+  app.post('/api/decks/:id/share', async (req: Request, ctx: any): Promise<Response> => {
+    const row = await getDeckRow(sql, ctx.params.id)
+    if (!row?.deck_json) return Response.json({ error: 'deck 不存在或未完成' }, { status: 404 })
+    if (!row.share_token) {
+      const token = randomBytes(12).toString('hex')
+      await setShareToken(sql, ctx.params.id, token)
+      row.share_token = token
+    }
+    return Response.json({ url: `/share/${row.share_token}` })
+  })
+
+  app.delete('/api/decks/:id/share', async (req: Request, ctx: any): Promise<Response> => {
+    await clearShareToken(sql, ctx.params.id)
+    return Response.json({ ok: true })
+  })
+
+  app.get('/api/share/:token', async (req: Request, ctx: any): Promise<Response> => {
+    const row = await getDeckByShareToken(sql, ctx.params.token)
+    if (!row?.deck_json) return Response.json({ error: '分享链接不存在或已撤销' }, { status: 404 })
+    return Response.json({ deck: row.deck_json })
   })
 
   app.get('/api/health', async () => {

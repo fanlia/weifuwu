@@ -6,7 +6,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { postgres } from 'weifuwu'
-import { createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateThemeAndDeck, createCustomTheme, listCustomThemes, getCustomTheme } from './db.ts'
+import { createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateThemeAndDeck, createCustomTheme, listCustomThemes, getCustomTheme, setShareToken, clearShareToken, getDeckByShareToken } from './db.ts'
 import type { Outline } from './services/outline.ts'
 import type { DeckData } from './pptx/components/layouts.ts'
 
@@ -33,8 +33,19 @@ before(async () => {
       deck_json JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS decks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      theme TEXT NOT NULL DEFAULT 'corporate',
+      status TEXT NOT NULL DEFAULT 'ready' CHECK (status IN ('outline', 'ready')),
+      outline_json JSONB,
+      deck_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `)
+  await sql.unsafe('ALTER TABLE decks ADD COLUMN IF NOT EXISTS share_token TEXT')
 })
 
 after(async () => {
@@ -132,4 +143,16 @@ test('db: 自定义主题 CRUD', async () => {
   await deleteDeck(sql, id) // themes 表无独立删除，用 decks 清理逻辑不适用——直接删 themes
   await sql`DELETE FROM themes WHERE id = ${id}`
   assert.equal(await getCustomTheme(sql, id), null)
+})
+
+test('db: 分享 token 设置/查询/清除', async () => {
+  const id = `t${Date.now()}share`
+  await createOutline(sql, { id, title: outline.title, theme: outline.theme, outline })
+  await completeDeckRow(sql, { id, title: deck.title, theme: deck.theme, deck })
+  await setShareToken(sql, id, 'tok123')
+  const byTok = await getDeckByShareToken(sql, 'tok123')
+  assert.equal(byTok!.id, id)
+  assert.equal(byTok!.deck_json!.title, 'DB 测试')
+  await clearShareToken(sql, id)
+  assert.equal(await getDeckByShareToken(sql, 'tok123'), null)
 })

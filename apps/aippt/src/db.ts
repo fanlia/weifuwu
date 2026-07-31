@@ -122,3 +122,18 @@ export async function getCustomTheme(sql: Sql, id: string): Promise<CustomThemeR
   if (!r) return null
   return { ...r, colors: typeof r.colors === 'string' ? JSON.parse(r.colors) : r.colors }
 }
+
+// ── 分享（只读预览）───────────────────────────────────
+
+export async function setShareToken(sql: Sql, id: string, token: string): Promise<void> {
+  await sql`UPDATE decks SET share_token = ${token} WHERE id = ${id}`
+}
+
+export async function clearShareToken(sql: Sql, id: string): Promise<void> {
+  await sql`UPDATE decks SET share_token = NULL WHERE id = ${id}`
+}
+
+export async function getDeckByShareToken(sql: Sql, token: string): Promise<DeckRow | null> {
+  const rows = await sql`SELECT * FROM decks WHERE share_token = ${token}`
+  return parseRow(rows[0])
+}
