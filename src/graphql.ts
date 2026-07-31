@@ -6,7 +6,7 @@ import {
   parse,
   type DocumentNode,
 } from 'graphql'
-import { makeExecutableSchema } from '@graphql-tools/schema'
+import { makeExecutableSchema } from './make-executable-schema.ts'
 import type { Context } from './types.ts'
 import { Router } from './core/router.ts'
 

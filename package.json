@@ -38,7 +38,6 @@
     "release:dry": "node scripts/release.mjs --dry-run"
   },
   "dependencies": {
-    "@graphql-tools/schema": "^10",
     "graphql": "^16",
     "ws": "^8"
   },
