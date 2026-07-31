@@ -1,7 +1,7 @@
 # weifuwu 自研 DB 客户端计划（TDD）
 
 > 目标：零第三方依赖的 postgres / redis 客户端，测试驱动开发，可预测失败模式。
-> 状态：计划草案 —— 待评审
+> 状态：✅ 已完成（M1-M5 全部达成）——2026-07-31
 
 ---
 
@@ -97,7 +97,7 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 
 ## 3. 阶段计划
 
-### Phase 0 — 基础设施（0.5 周）
+### Phase 0 — 基础设施（0.5 周）✅
 **目标**：TDD 骨架 + mock 服务器 + 错误模型可跑通一个端到端字节测试
 
 | 任务 | TDD 步骤 |
@@ -111,7 +111,7 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 
 ---
 
-### Phase 1 — Redis RESP 核心（1 周）
+### Phase 1 — Redis RESP 核心（1 周）✅
 **目标**：可用的 redis 客户端（get/set/del/incr/expire），通过 mock + 真库
 
 | 任务 | TDD 步骤 |
@@ -126,7 +126,7 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 
 ---
 
-### Phase 2 — Redis 增强 + 框架替换（0.5-1 周）
+### Phase 2 — Redis 增强 + 框架替换（0.5-1 周）✅
 **目标**：框架层 API（TTL 安全/json/cache）+ 替换 ioredis
 
 | 任务 | TDD 步骤 |
@@ -143,7 +143,7 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 
 ---
 
-### Phase 3 — Postgres 协议核心（1.5-2 周）
+### Phase 3 — Postgres 协议核心（1.5-2 周）✅
 **目标**：可用的 pg 客户端（连接/SCRAM/参数化查询/事务/类型）
 
 | 任务 | TDD 步骤 |
@@ -160,7 +160,7 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 
 ---
 
-### Phase 4 — Postgres 增强 + 框架替换（1 周）
+### Phase 4 — Postgres 增强 + 框架替换（1 周）✅
 **目标**：COPY / LISTEN-NOTIFY / 预处理缓存 + 替换 postgres.js
 
 | 任务 | TDD 步骤 |
@@ -175,7 +175,7 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 
 ---
 
-### Phase 5 — 类型层 + 框架融合（1 周）
+### Phase 5 — 类型层 + 框架融合（1 周）✅
 **目标**：schema 注册 → 类型推断/校验；观测内建；文档
 
 | 任务 | TDD 步骤 |
@@ -195,11 +195,11 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 
 | 里程碑 | 时间 | 标志 |
 |--------|------|------|
-| M1 | 第 1 周 | Redis 核心通过 mock + 真库 |
-| M2 | 第 2 周 | ctx.redis 替换 ioredis，框架零回归 |
-| M3 | 第 4 周 | Postgres 核心通过 mock + 真库 |
-| M4 | 第 5 周 | ctx.sql 替换 postgres.js，aippt 迁移成功 |
-| M5 | 第 6 周 | 类型层 + 文档 + 全量回归 |
+| M1 | 第 1 周 | Redis 核心通过 mock + 真库 | ✅ |
+| M2 | 第 2 周 | ctx.redis 替换 ioredis，框架零回归 | ✅ |
+| M3 | 第 4 周 | Postgres 核心通过 mock + 真库 | ✅ |
+| M4 | 第 5 周 | ctx.sql 替换 postgres.js，aippt 迁移成功 | ✅ |
+| M5 | 第 6 周 | 类型层 + 文档 + 全量回归 | ✅ |
 
 **总规模**：约 5-6 周（含 TDD 测试编写）
 
@@ -222,4 +222,42 @@ weifuwu 自研 DB 客户端支持:
   redis:    RESP2/连接/重连/离线队列/管道/JSON 存取/TTL/key 前缀
 
 不支持（明确抛错）: 逻辑复制/大对象/游标/二进制 COPY/集群/哨兵/自动管道
+```
+
+---
+
+## 完成总结（2026-07-31）
+
+### 交付
+- `src/db/errors.ts` — 统一错误模型（5 分类 + isRetryable）
+- `src/db/redis/` — RESP2 协议自研：resp/connection/client/pool/pipeline（4 文件 + mock-server）
+- `src/db/postgres/` — PG v3 协议自研：protocol/connection/schema/pool（4 文件）
+- `src/redis/`、`src/postgres/` — 中间件替换（ctx.redis / ctx.sql 零第三方）
+- **dependencies: 9 → 3**（ws / graphql / @graphql-tools/schema）
+
+### 测试（全部 CS-04 真实库验证）
+| 模块 | 测试数 |
+|------|--------|
+| 错误模型 | 7 |
+| redis (real) | 59 |
+| postgres (real) | 62 |
+| 框架全量 | **735 pass** |
+
+### 真实库验证抓出的协议 bug（CS-04 价值）
+1. 协议版本字节序 `[0,3,0,0]`=196608
+2. SASL 初始响应格式（机制名\0+Int32长度+响应）
+3. client-first 缺 gs2 header `n,,`
+4. Query 消息缺 \0 终止
+5. 扩展查询半双工缓冲（Parse/Bind/Execute 需 Flush/Sync）
+6. ParameterDescription 需 Describe 请求
+7. RESP 多回复单 chunk（pushAll）
+8. 增量解析器 IncompleteError 回滚
+
+### 最终裁剪声明（写入文档）
+```
+支持:
+  postgres: 连接/SCRAM-SHA-256/md5/扩展查询/参数化/类型映射/事务/池/schema 校验
+  redis:    RESP2/连接/重连/离线队列/管道/JSON 存取/TTL/key 前缀
+不支持（明确抛 ProtocolError('unsupported'））:
+  逻辑复制/大对象/显式游标/二进制 COPY/集群/哨兵/自动管道
 ```

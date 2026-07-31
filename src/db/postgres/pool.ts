@@ -10,11 +10,14 @@
  */
 
 import { PgConnection, type PgConnectionOptions, type Row } from './connection.ts'
-import { ConnectionError } from '../errors.ts'
+import { ConnectionError, ValidationError } from '../errors.ts'
+import { validateRow, type Schema } from './schema.ts'
 
 export interface PgPoolOptions extends PgConnectionOptions {
   /** 池大小（连接数）。默认 5。 */
   poolSize?: number
+  /** 查询观测钩子（慢查询日志/审计） */
+  onQuery?: (sql: string, durationMs: number, rowCount: number) => void
 }
 
 type QueryParams = (string | number | boolean | object | null)[]
@@ -26,6 +29,7 @@ export class PgPool {
   private closed = false
   private opts: PgPoolOptions
   private initPromise: Promise<void> | null = null
+  private schemas = new Map<string, Schema>()
 
   /** 懒连接：构造不连接，ensure() 首次初始化（中间件注入场景） */
   constructor(options: PgPoolOptions = {}) {
@@ -81,14 +85,36 @@ export class PgPool {
     }
   }
 
-  async query(sql: string, params?: QueryParams): Promise<Row[]> {
+  async query<T = Row>(sql: string, params?: QueryParams): Promise<T[]> {
     await this.ensure()
     const conn = await this.acquire()
+    const start = performance.now()
     try {
-      return await conn.query(sql, params)
+      const rows = await conn.query(sql, params)
+      this.opts.onQuery?.(sql, performance.now() - start, rows.length)
+      return rows as T[]
     } finally {
       this.release(conn)
     }
+  }
+
+  /** 注册表结构（元数据闭环：校验/类型推断的起点） */
+  register(table: string, schema: Schema): void {
+    this.schemas.set(table, schema)
+  }
+
+  /** 写前校验 + 参数化插入（schema 驱动，脏数据源头拦截） */
+  async insert<T = Row>(table: string, row: Record<string, unknown>): Promise<T[]> {
+    const schema = this.schemas.get(table)
+    if (!schema) {
+      throw new ValidationError(`schema: table '${table}' not registered—call register() first`)
+    }
+    validateRow(schema, row)
+    const cols = Object.keys(row)
+    if (cols.length === 0) throw new ValidationError('schema: insert requires at least one column')
+    const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ')
+    const sql = `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders})`
+    return this.query<T>(sql, cols.map((c) => row[c]) as QueryParams)
   }
 
   /**
