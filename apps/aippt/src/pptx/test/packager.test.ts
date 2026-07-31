@@ -5,7 +5,7 @@ import { h } from '../vnode.ts'
 import { buildPptx } from '../packager.ts'
 import { unzip, assertWellFormedXml } from './helpers.ts'
 
-function sampleDeck(): string[] {
+function sampleDeck() {
   return [
     renderSlide(
       h('slide', { bg: '#0F172A' },

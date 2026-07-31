@@ -8,6 +8,8 @@
 export interface Theme {
   id: string
   name: string
+  /** 自定义主题的品牌 logo（base64 png，渲染到每页固定位置） */
+  logo?: string
   colors: {
     /** 页面背景 */
     bg: string
@@ -149,6 +151,27 @@ export const themes: Record<string, Theme> = { corporate, minimal, tech, academi
 
 export function getTheme(id?: string): Theme {
   return themes[id ?? 'corporate'] ?? corporate
+}
+
+/**
+ * 从预设主题衍生自定义主题（覆盖部分颜色 + 可选 logo）。
+ * @param baseId 基础预设主题（默认 corporate）
+ */
+export function buildCustomTheme(
+  id: string,
+  name: string,
+  colors: Partial<Theme['colors']>,
+  logo?: string,
+  baseId = 'corporate',
+): Theme {
+  const base = themes[baseId] ?? corporate
+  return {
+    ...base,
+    id,
+    name,
+    colors: { ...base.colors, ...colors },
+    logo,
+  }
 }
 
 /** 解析颜色：token 名 → 主题色值；否则视为 #RRGGBB 原样返回 */

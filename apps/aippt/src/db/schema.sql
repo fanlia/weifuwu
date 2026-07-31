@@ -12,3 +12,12 @@ CREATE TABLE IF NOT EXISTS decks (
 );
 
 CREATE INDEX IF NOT EXISTS decks_created_at_idx ON decks (created_at DESC);
+
+-- 自定义主题（品牌模板）
+CREATE TABLE IF NOT EXISTS themes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  colors JSONB NOT NULL,
+  logo TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

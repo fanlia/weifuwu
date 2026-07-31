@@ -38,7 +38,7 @@ export interface DeckData {
 }
 
 /** 语义 JSON 校验（LLM 输出的守卫） */
-export function validateDeck(deck: unknown): asserts deck is DeckData {
+export function validateDeck(deck: unknown, opts: { allowCustomTheme?: boolean } = {}): asserts deck is DeckData {
   if (typeof deck !== 'object' || deck === null) throw new Error('validateDeck: deck 必须是对象')
   const d = deck as Record<string, any>
   if (!Array.isArray(d.slides) || d.slides.length === 0) throw new Error('validateDeck: slides 必须是非空数组')
@@ -72,7 +72,9 @@ export function validateDeck(deck: unknown): asserts deck is DeckData {
       }
     }
   }
-  if (typeof d.theme !== 'string' || !(d.theme in themes)) throw new Error(`validateDeck: 未知主题 ${d.theme}`)
+  if (typeof d.theme !== 'string' || (!(d.theme in themes) && !opts.allowCustomTheme)) {
+    throw new Error(`validateDeck: 未知主题 ${d.theme}`)
+  }
 }
 
 // ── 版式组件（每个返回 slide VNode）───────────────────────
@@ -162,16 +164,34 @@ function withFooter(slide: PptxVNode, opts: { title?: string; page: number }, th
   return { ...slide, props: { ...slide.props, children: [...kids, ...Footer({ title: opts.title, page: opts.page }, theme)] } }
 }
 
+/** 品牌 logo 注入（右上角固定位） */
+function withLogo(slide: PptxVNode, logo: string): PptxVNode {
+  const children = slide.props.children
+  const kids: any[] = Array.isArray(children) ? children : [children]
+  return {
+    ...slide,
+    props: {
+      ...slide.props,
+      children: [...kids, h('image', { x: 11.9, y: 0.25, w: 1.0, h: 0.6, src: logo })],
+    },
+  }
+}
+
 /**
  * 语义 JSON → .pptx Buffer（LLM 输出直接喂这里）
+ * @param opts.customTheme 自定义主题（品牌模板：覆盖色值 + logo）
  */
-export function deckToPptx(deck: DeckData): Buffer {
-  validateDeck(deck)
-  const theme = getTheme(deck.theme)
+export function deckToPptx(deck: DeckData, opts: { customTheme?: Theme } = {}): Buffer {
+  validateDeck(deck, { allowCustomTheme: !!opts.customTheme })
+  const theme = opts.customTheme ?? getTheme(deck.theme)
+  let imgCount = 0
   const slides = deck.slides.map((s, i) => {
     let slide = renderLayout(s, theme)
     if (WITH_FOOTER.has(s.layout)) slide = withFooter(slide, { title: deck.title, page: i + 1 }, theme)
-    return renderSlide(slide)
+    if (theme.logo) slide = withLogo(slide, theme.logo)
+    const out = renderSlide(slide, imgCount)
+    imgCount += out.images.length
+    return out
   })
   return buildPptx(slides, deck.title ? { title: deck.title } : {})
 }

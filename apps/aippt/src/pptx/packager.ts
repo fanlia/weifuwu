@@ -14,6 +14,13 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { zipEntries, type ZipEntry } from './zip.ts'
+import type { SlideImage } from './renderXml.ts'
+
+/** 单个 slide 的渲染产物 */
+export interface SlideOut {
+  xml: string
+  images: SlideImage[]
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const TEMPLATE_DIR = resolve(__dirname, 'template')
@@ -44,12 +51,16 @@ for (const name of [
 export const SLIDE_W = 12192000
 export const SLIDE_H = 6858000
 
-function slideRels(): string {
+function slideRels(images: SlideImage[]): string {
+  const rels = [
+    `<Relationship Id="rId1" Type="${OFFICE_REL}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>`,
+  ]
+  for (const img of images) {
+    rels.push(`<Relationship Id="${img.relId}" Type="${OFFICE_REL}/image" Target="../media/${img.name}"/>`)
+  }
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
-    `<Relationships xmlns="${RELS_NS}">` +
-    `<Relationship Id="rId1" Type="${OFFICE_REL}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>` +
-    `</Relationships>`
+    `<Relationships xmlns="${RELS_NS}">${rels.join('')}</Relationships>`
   )
 }
 
@@ -89,14 +100,15 @@ function buildPresentationRels(n: number): string {
 }
 
 /** 动态生成 [Content_Types].xml */
-function buildContentTypes(n: number): string {
+function buildContentTypes(n: number, hasImages: boolean): string {
   const base = TEMPLATE.get('[Content_Types].xml')!
   const slideOverrides = Array.from(
     { length: n },
     (_, i) =>
       `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`,
   ).join('')
-  return base.replace('</Types>', slideOverrides + '</Types>')
+  const pngDefault = hasImages ? `<Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/>` : ''
+  return base.replace('</Types>', pngDefault + slideOverrides + '</Types>')
 }
 
 export interface DeckOptions {
@@ -107,12 +119,20 @@ export interface DeckOptions {
  * 构建完整 .pptx Buffer。
  * @param slides renderSlide() 的输出数组（每项一页）
  */
-export function buildPptx(slides: string[], opts: DeckOptions = {}): Buffer {
+export function buildPptx(slides: SlideOut[], opts: DeckOptions = {}): Buffer {
   const n = slides.length
   if (n === 0) throw new Error('buildPptx: 至少需要 1 页')
 
+  // 汇总所有图片
+  const allImages: SlideImage[] = slides.flatMap((s) => s.images)
+  const mediaEntries: ZipEntry[] = allImages.map((img) => ({
+    name: `ppt/media/${img.name}`,
+    data: Buffer.from(img.data),
+    method: 0 as const, // 图片已压缩，STORE 更快
+  }))
+
   const entries: ZipEntry[] = [
-    { name: '[Content_Types].xml', data: Buffer.from(buildContentTypes(n), 'utf-8') },
+    { name: '[Content_Types].xml', data: Buffer.from(buildContentTypes(n, allImages.length > 0), 'utf-8') },
     { name: '_rels/.rels', data: Buffer.from(TEMPLATE.get('_rels/.rels')!, 'utf-8') },
     { name: 'docProps/app.xml', data: Buffer.from(TEMPLATE.get('docProps/app.xml')!, 'utf-8') },
     { name: 'docProps/core.xml', data: Buffer.from(TEMPLATE.get('docProps/core.xml')!, 'utf-8') },
@@ -126,11 +146,12 @@ export function buildPptx(slides: string[], opts: DeckOptions = {}): Buffer {
     { name: 'ppt/presProps.xml', data: Buffer.from(TEMPLATE.get('ppt/presProps.xml')!, 'utf-8') },
     { name: 'ppt/viewProps.xml', data: Buffer.from(TEMPLATE.get('ppt/viewProps.xml')!, 'utf-8') },
     { name: 'ppt/tableStyles.xml', data: Buffer.from(TEMPLATE.get('ppt/tableStyles.xml')!, 'utf-8') },
+    ...mediaEntries,
   ]
 
   for (let i = 1; i <= n; i++) {
-    entries.push({ name: `ppt/slides/slide${i}.xml`, data: Buffer.from(slides[i - 1], 'utf-8') })
-    entries.push({ name: `ppt/slides/_rels/slide${i}.xml.rels`, data: Buffer.from(slideRels(), 'utf-8') })
+    entries.push({ name: `ppt/slides/slide${i}.xml`, data: Buffer.from(slides[i - 1].xml, 'utf-8') })
+    entries.push({ name: `ppt/slides/_rels/slide${i}.xml.rels`, data: Buffer.from(slideRels(slides[i - 1].images), 'utf-8') })
   }
 
   if (opts.title) {

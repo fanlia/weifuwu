@@ -23,7 +23,8 @@ import { generateDeck, generateOutline, generateOutlineFromDoc, completeDeck, va
 import { rewriteSlide, relayoutSlide } from './src/services/edit.ts'
 import { deckToPptx, type DeckData } from './src/pptx/components/layouts.ts'
 import {
-  createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateTheme,
+  createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateThemeAndDeck,
+  createCustomTheme, listCustomThemes, getCustomTheme,
 } from './src/db.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -70,6 +71,26 @@ async function main() {
   app.get('/api/templates', async (): Promise<Response> => {
     const { getTemplates } = await import('./src/services/templates.ts')
     return Response.json({ templates: getTemplates() })
+  })
+
+  // ── 自定义主题（品牌模板）──────────────────────────────
+  app.get('/api/themes', async (): Promise<Response> => {
+    const { themes } = await import('./src/pptx/theme.ts')
+    const presets = Object.entries(themes).map(([id, t]) => ({ id, name: t.name, preset: true, colors: t.colors }))
+    const customs = await listCustomThemes(sql)
+    return Response.json({ themes: [...presets, ...customs.map((c) => ({ ...c, preset: false }))] })
+  })
+
+  app.post('/api/themes/custom', async (req: Request): Promise<Response> => {
+    const body = await req.json().catch(() => null) as Record<string, any> | null
+    const name = body?.name
+    const colors = body?.colors
+    if (typeof name !== 'string' || name.trim() === '') return Response.json({ error: 'name 为必填' }, { status: 400 })
+    if (typeof colors !== 'object' || colors === null) return Response.json({ error: 'colors 为必填' }, { status: 400 })
+    const id = nextId('c')
+    const rec = { id, name: name.trim(), colors, logo: typeof body?.logo === 'string' ? body.logo : undefined }
+    await createCustomTheme(sql, rec)
+    return Response.json({ theme: { ...rec, preset: false } })
   })
 
   // ── 阶段 1：大纲 ──────────────────────────────────────
@@ -261,7 +282,14 @@ async function main() {
   app.get('/api/decks/:id/export', async (req: Request, ctx: any): Promise<Response> => {
     const row = await getDeckRow(sql, ctx.params.id)
     if (!row?.deck_json) return Response.json({ error: 'deck 不存在或未完成' }, { status: 404 })
-    const buf = deckToPptx(row.deck_json)
+    // 自定义主题解析（品牌模板）
+    const { themes, buildCustomTheme } = await import('./src/pptx/theme.ts')
+    let customTheme
+    if (!(row.deck_json.theme in themes)) {
+      const rec = await getCustomTheme(sql, row.deck_json.theme)
+      if (rec) customTheme = buildCustomTheme(rec.id, rec.name, rec.colors, rec.logo)
+    }
+    const buf = deckToPptx(row.deck_json, customTheme ? { customTheme } : {})
     const name = encodeURIComponent((row.title ?? 'deck').replace(/\s+/g, '-'))
     return new Response(new Uint8Array(buf), {
       headers: {
@@ -278,11 +306,13 @@ async function main() {
     const body = await req.json().catch(() => null) as Record<string, any> | null
     const theme = body?.theme
     const { themes } = await import('./src/pptx/theme.ts')
-    if (typeof theme !== 'string' || !(theme in themes)) {
+    const validPreset = typeof theme === 'string' && theme in themes
+    const validCustom = typeof theme === 'string' && !validPreset && (await getCustomTheme(sql, theme)) !== null
+    if (!validPreset && !validCustom) {
       return Response.json({ error: '未知主题' }, { status: 400 })
     }
-    await updateTheme(sql, ctx.params.id, theme)
     const deck: DeckData = { ...row.deck_json, theme }
+    await updateThemeAndDeck(sql, ctx.params.id, deck)
     return Response.json({ deck })
   })
 

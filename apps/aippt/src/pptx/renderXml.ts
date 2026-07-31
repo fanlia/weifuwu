@@ -35,6 +35,22 @@ export function colorVal(c: string): string {
   return c.replace(/^#/, '').toUpperCase()
 }
 
+/** base64 data URL / base64 字符串 → 字节 */
+export function base64ToBytes(src: string): Uint8Array {
+  const b64 = src.includes(',') ? src.slice(src.indexOf(',') + 1) : src
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
+
+/** slide 引用的图片（打包时写入 media + rels） */
+export interface SlideImage {
+  relId: string
+  name: string
+  data: Uint8Array
+}
+
 /** 默认西文/中文/复杂文种字体 */
 const LATIN_FONT = 'Arial'
 const EA_FONT = 'Microsoft YaHei'
@@ -162,8 +178,35 @@ function lineElement(id: number, props: Record<string, any>): string {
   )
 }
 
+// ── 图片（p:pic）────────────────────────────────────────
+function imageElement(
+  id: number,
+  props: Record<string, any>,
+  images: SlideImage[],
+  startIndex: number,
+): string {
+  const x = emu(props.x ?? 0)
+  const y = emu(props.y ?? 0)
+  const w = emu(props.w ?? 1)
+  const h = emu(props.h ?? 1)
+  const idx = images.length + startIndex // 全局唯一（跨 slide）
+  const relId = `rId${idx + 2}` // rId1 预留给 slideLayout
+  const mime = props.src.match(/^data:([^;]+);/)?.[1] ?? 'image/png'
+  const ext = mime === 'image/jpeg' ? 'jpg' : 'png'
+  const name = `image${idx + 1}.${ext}`
+  images.push({ relId, name, data: base64ToBytes(props.src) })
+  return (
+    `<p:pic>` +
+    `<p:nvPicPr><p:cNvPr id="${id}" name="Picture ${id}"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>` +
+    `<p:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
+    `<p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${w}" cy="${h}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>` +
+    `</p:pic>`
+  )
+}
+
 // ── 元素分发（intrinsic 标签 → XML）─────────────────────
-function renderElement(vnode: PptxVNode, idGen: () => number): string {
+function renderElement(vnode: PptxVNode, idGen: () => number, images: SlideImage[], startIndex: number): string {
   const { type, props } = vnode
   const id = idGen()
   const children = props.children
@@ -198,46 +241,49 @@ function renderElement(vnode: PptxVNode, idGen: () => number): string {
     }
     case 'line':
       return lineElement(id, props)
+    case 'image':
+      return imageElement(id, props, images, startIndex)
     default:
       throw new Error(`pptx-vdom: 未知元素 <${String(type)}>（引擎只支持受控 intrinsic 子集）`)
   }
 }
 
 /** 递归展开组件 + children，产出 shape XML 片段 */
-function renderTree(node: any, idGen: () => number): string {
+function renderTree(node: any, idGen: () => number, images: SlideImage[], startIndex: number): string {
   if (node == null || node === false) return ''
   if (typeof node === 'string' || typeof node === 'number') {
     // 裸文本：默认按 text 元素渲染（无定位 → 左上角）
-    return renderElement({ type: 'text', props: { children: String(node) } }, idGen)
+    return renderElement({ type: 'text', props: { children: String(node) } }, idGen, images, startIndex)
   }
   if (Array.isArray(node)) {
-    return node.map((n) => renderTree(n, idGen)).join('')
+    return node.map((n) => renderTree(n, idGen, images, startIndex)).join('')
   }
   if (typeof node.type === 'function') {
     const out = node.type(node.props)
-    return renderTree(out, idGen)
+    return renderTree(out, idGen, images, startIndex)
   }
   if (typeof node.type === 'string') {
-    return renderElement(node as PptxVNode, idGen)
+    return renderElement(node as PptxVNode, idGen, images, startIndex)
   }
   throw new Error('pptx-vdom: 非法节点')
 }
 
 /**
- * 渲染完整 slide XML。
+ * 渲染完整 slide XML + 引用的图片。
  * @param root  slide 根 VNode（type: 'slide'）
  */
-export function renderSlide(root: PptxVNode): string {
+export function renderSlide(root: PptxVNode, startImageIndex = 0): { xml: string; images: SlideImage[] } {
   if (root.type !== 'slide') {
     throw new Error('pptx-vdom: renderSlide 需要 <slide> 根节点')
   }
   const { props } = root
   let id = 1
   const idGen = () => ++id
-  const shapes = renderTree(props.children, idGen)
+  const images: SlideImage[] = []
+  const shapes = renderTree(props.children, idGen, images, startImageIndex)
   const bg = props.bg ? `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${colorVal(props.bg)}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>` : ''
 
-  return (
+  const xml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
     `<p:sld xmlns:a="${NS.a}" xmlns:r="${NS.r}" xmlns:p="${NS.p}">` +
     `<p:cSld>${bg}` +
@@ -248,5 +294,5 @@ export function renderSlide(root: PptxVNode): string {
     `</p:spTree></p:cSld>` +
     `<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>` +
     `</p:sld>`
-  )
+  return { xml, images }
 }

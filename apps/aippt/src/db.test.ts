@@ -6,7 +6,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { postgres } from 'weifuwu'
-import { createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateTheme } from './db.ts'
+import { createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateThemeAndDeck, createCustomTheme, listCustomThemes, getCustomTheme } from './db.ts'
 import type { Outline } from './services/outline.ts'
 import type { DeckData } from './pptx/components/layouts.ts'
 
@@ -17,6 +17,13 @@ before(async () => {
   pg = postgres()
   sql = pg.sql
   await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS themes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      colors JSONB NOT NULL,
+      logo TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS decks (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -75,11 +82,11 @@ test('db: complete 更新同 id 为 ready', async () => {
   assert.equal(row!.deck_json!.slides[0].layout, 'cover')
 })
 
-test('db: updateTheme / updateDeckJson 生效', async () => {
+test('db: updateThemeAndDeck / updateDeckJson 生效', async () => {
   const id = `t${Date.now()}${Math.floor(Math.random() * 1000)}`
   await createOutline(sql, { id, title: outline.title, theme: outline.theme, outline })
   await completeDeckRow(sql, { id, title: deck.title, theme: deck.theme, deck })
-  await updateTheme(sql, id, 'tech')
+  await updateThemeAndDeck(sql, id, { ...deck, theme: 'tech' })
   let row = await getDeckRow(sql, id)
   assert.equal(row!.theme, 'tech')
   const changed: DeckData = { ...deck, theme: 'tech', slides: deck.slides.slice(0, 2) }
@@ -111,4 +118,18 @@ test('db: listDecks 排序与 deleteDeck', async () => {
   assert.equal(ok, true)
   assert.equal(await getDeckRow(sql, a), null)
   assert.equal(await deleteDeck(sql, a), false)
+})
+
+test('db: 自定义主题 CRUD', async () => {
+  const id = `t${Date.now()}theme`
+  await createCustomTheme(sql, { id, name: '测试品牌', colors: { primary: '#FF0000', text: '#111111' }, logo: 'data:image/png;base64,xxx' })
+  const rec = await getCustomTheme(sql, id)
+  assert.equal(rec!.name, '测试品牌')
+  assert.equal(rec!.colors.primary, '#FF0000')
+  assert.equal(rec!.logo, 'data:image/png;base64,xxx')
+  const list = await listCustomThemes(sql)
+  assert.ok(list.some((t) => t.id === id))
+  await deleteDeck(sql, id) // themes 表无独立删除，用 decks 清理逻辑不适用——直接删 themes
+  await sql`DELETE FROM themes WHERE id = ${id}`
+  assert.equal(await getCustomTheme(sql, id), null)
 })

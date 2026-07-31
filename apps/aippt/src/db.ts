@@ -25,7 +25,7 @@ export interface DeckRow {
 export async function createOutline(sql: Sql, rec: { id: string; title: string; theme: string; outline: Outline }): Promise<void> {
   await sql`
     INSERT INTO decks (id, title, theme, status, outline_json)
-    VALUES (${rec.id}, ${rec.title}, ${rec.theme}, 'outline', ${JSON.stringify(rec.outline)}::jsonb)
+    VALUES (${rec.id}, ${rec.title}, ${rec.theme}, 'outline', ${rec.outline}::jsonb)
   `
 }
 
@@ -35,7 +35,7 @@ export async function createDeck(
 ): Promise<void> {
   await sql`
     INSERT INTO decks (id, title, theme, status, deck_json)
-    VALUES (${rec.id}, ${rec.title}, ${rec.theme}, 'ready', ${JSON.stringify(rec.deck)}::jsonb)
+    VALUES (${rec.id}, ${rec.title}, ${rec.theme}, 'ready', ${rec.deck}::jsonb)
   `
 }
 
@@ -45,7 +45,7 @@ export async function completeDeckRow(
 ): Promise<void> {
   await sql`
     UPDATE decks
-    SET title = ${rec.title}, theme = ${rec.theme}, status = 'ready', deck_json = ${JSON.stringify(rec.deck)}::jsonb,
+    SET title = ${rec.title}, theme = ${rec.theme}, status = 'ready', deck_json = ${rec.deck}::jsonb,
         updated_at = NOW()
     WHERE id = ${rec.id}
   `
@@ -81,12 +81,44 @@ export async function deleteDeck(sql: Sql, id: string): Promise<boolean> {
 
 export async function updateDeckJson(sql: Sql, id: string, deck: DeckData): Promise<void> {
   await sql`
-    UPDATE decks SET deck_json = ${JSON.stringify(deck)}::jsonb, updated_at = NOW() WHERE id = ${id}
+    UPDATE decks SET deck_json = ${deck}::jsonb, updated_at = NOW() WHERE id = ${id}
   `
 }
 
-export async function updateTheme(sql: Sql, id: string, theme: string): Promise<void> {
+/** 换主题：theme 列 + deck_json 内 theme 同步更新 */
+export async function updateThemeAndDeck(sql: Sql, id: string, deck: DeckData): Promise<void> {
   await sql`
-    UPDATE decks SET theme = ${theme}, updated_at = NOW() WHERE id = ${id}
+    UPDATE decks SET theme = ${deck.theme}, deck_json = ${deck}::jsonb, updated_at = NOW() WHERE id = ${id}
   `
+}
+
+// ── 自定义主题（品牌模板）─────────────────────────────
+
+export interface CustomThemeRecord {
+  id: string
+  name: string
+  colors: Record<string, string>
+  logo?: string
+}
+
+export async function createCustomTheme(sql: Sql, rec: CustomThemeRecord): Promise<void> {
+  await sql`
+    INSERT INTO themes (id, name, colors, logo)
+    VALUES (${rec.id}, ${rec.name}, ${rec.colors}::jsonb, ${rec.logo ?? null})
+  `
+}
+
+export async function listCustomThemes(sql: Sql): Promise<CustomThemeRecord[]> {
+  const rows = await sql`SELECT id, name, colors, logo FROM themes ORDER BY created_at DESC`
+  return rows.map((r: any) => ({
+    ...r,
+    colors: typeof r.colors === 'string' ? JSON.parse(r.colors) : r.colors,
+  }))
+}
+
+export async function getCustomTheme(sql: Sql, id: string): Promise<CustomThemeRecord | null> {
+  const rows = await sql`SELECT id, name, colors, logo FROM themes WHERE id = ${id}`
+  const r = rows[0]
+  if (!r) return null
+  return { ...r, colors: typeof r.colors === 'string' ? JSON.parse(r.colors) : r.colors }
 }

@@ -6,12 +6,12 @@
  */
 
 import { h } from 'weifuwu/client'
-import { getTheme } from '../../src/pptx/theme.ts'
+import { getTheme, type Theme } from '../../src/pptx/theme.ts'
 import type { SlideData } from '../../src/pptx/components/layouts.ts'
 
 /** 480×270 卡片内的版式渲染（字号已按 1/27.8 比例折算） */
-export const SlidePreview = (_init: any, _ctx: any) => (props: { slide: SlideData; themeId: string; index: number }) => {
-  const t = getTheme(props.themeId).colors
+export const SlidePreview = (_init: any, _ctx: any) => (props: { slide: SlideData; themeId: string; index: number; customTheme?: Theme }) => {
+  const t = (props.customTheme ?? getTheme(props.themeId)).colors
   const s = props.slide
 
   const common = {
