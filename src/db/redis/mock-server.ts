@@ -24,6 +24,8 @@ export interface MockRedisOptions {
 export interface MockRedis {
   listen(port: number): Promise<number>
   close(): Promise<void>
+  /** 强制断开所有客户端连接（模拟服务器重启/宕机） */
+  hardClose(): void
   /** 统计：收到命令次数 */
   commandCount: () => number
   /** 最后一次收到的命令 */
@@ -36,7 +38,6 @@ export function createMockRedis(options: MockRedisOptions = {}): MockRedis {
 
   const server = net.createServer((socket) => {
     const parser = new RespParser()
-
     socket.on('data', (chunk) => {
       try {
         const { value, incomplete } = parser.push(new Uint8Array(chunk))
@@ -78,6 +79,12 @@ export function createMockRedis(options: MockRedisOptions = {}): MockRedis {
     socket.write(Buffer.from(`-${message}\r\n`))
   }
 
+  const sockets = new Set<net.Socket>()
+  server.on('connection', (s) => {
+    sockets.add(s)
+    s.on('close', () => sockets.delete(s))
+  })
+
   return {
     listen: (port) =>
       new Promise((resolve, reject) => {
@@ -89,6 +96,9 @@ export function createMockRedis(options: MockRedisOptions = {}): MockRedis {
         })
       }),
     close: () => new Promise((resolve) => server.close(() => resolve())),
+    hardClose: () => {
+      for (const s of sockets) s.destroy()
+    },
     commandCount: () => count,
     lastCommand: () => last,
   }

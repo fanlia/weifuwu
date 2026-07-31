@@ -71,8 +71,9 @@ export class RespParser {
         return line
       }
       case '-': {
+        // 错误响应是 RESP 的正常消息（业务错误），连接保持可用——返回值而非抛出
         const line = this.readLine()
-        throw new RespError(line)
+        return new RespError(line)
       }
       case ':': {
         const line = this.readLine()

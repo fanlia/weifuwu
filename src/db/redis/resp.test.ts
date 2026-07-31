@@ -52,10 +52,10 @@ describe('resp decode', () => {
     assert.deepEqual(parseReply(buf('*2\r\n*1\r\n:1\r\n*2\r\n$1\r\na\r\n$1\r\nb\r\n')), [[1], ['a', 'b']])
   })
 
-  it('throws RespError on error reply', () => {
-    assert.throws(() => parseReply(buf('-ERR wrong type\r\n')), (e: unknown) => {
-      return e instanceof RespError && e.message === 'ERR wrong type'
-    })
+  it('returns RespError value on error reply (connection stays alive)', () => {
+    const v = parseReply(buf('-ERR wrong type\r\n'))
+    assert.ok(v instanceof RespError)
+    assert.equal((v as RespError).message, 'ERR wrong type')
   })
 
   it('throws on truncated data (streaming boundary)', () => {
