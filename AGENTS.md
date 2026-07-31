@@ -26,6 +26,7 @@
 | CS-01  | `throw`/`return` 后不留死代码                    | if-else 都需 return                       |
 | CS-02  | Promise 必须 await 或 catch                      | 无 `.then()` 无 catch                     |
 | CS-03  | Event listener 内用 `console.error` 不用 `throw` | `server.on('error', ...)`                 |
+| CS-04  | **DB 客户端集成测试必须连真实库**               | redis/postgres 测试双轨：mock 协议级 + docker 真库集成 |
 | FS-01  | 组件 = `(initProps, ctx) => (props) => VNode`    | 无 class/hook/this                        |
 | FS-03  | Proxy 驱动渲染                                   | `$.x = val` 而非 DOM 操作                 |
 | FS-04  | 禁止 eval/new Function                           | 安全基线                                  |
@@ -319,6 +320,13 @@ const EChart = (_init, ctx) => {
 ## 测试
 
 - `node --test` 无 Jest/Mocha
+- **CS-04 — DB 客户端（redis/postgres）测试双轨制**：
+  - **mock 服务器**（`src/db/redis/mock-server.ts` 等）：协议级单元测试——确定性、快、故障注入
+  - **docker-compose.yml 真实数据库**：集成测试——**必须**连真实库验证兼容性，不可只用 mock
+    - redis: `localhost:6379`（`REDIS_URL`）
+    - postgres: `localhost:5432`（`DATABASE_URL`，root/123456/demo）
+  - 新增客户端能力时：mock 测试 + 真实库集成测试两者都要（先 mock 后真库）
+  - 测试命令 `npm test` 的 pretest 已自动 `docker compose up -d`
 - 组件测试：调用 `renderVNode(Comp, props, ctx)` 获取 VNode
 
 ```tsx
