@@ -3,6 +3,7 @@ import { h } from '../../client/vnode.ts'
 
 export interface InputProps {
   label?: string
+  name?: string
   type?: 'text' | 'email' | 'password' | 'number' | 'url' | 'date' | 'tel' | 'time' | 'color'
   value?: string
   placeholder?: string
@@ -16,10 +17,11 @@ export interface InputProps {
 
 export const Input: Component<InputProps> = (_init) =>
   (props) => {
-  const { label, type = 'text', value, placeholder, required, disabled, error, hint, onInput, onChange } = props
+  const { label, name, type = 'text', value, placeholder, required, disabled, error, hint, onInput, onChange } = props
 
   const inputEl = h('input', {
     class: 'wf-input',
+    name: name || undefined,
     type,
     value: value ?? '',
     placeholder,

@@ -47,6 +47,9 @@ declare global {
   namespace JSX {
     type Element = VNode | null
     type ElementType = string | Component<any>
+    interface IntrinsicAttributes {
+      key?: string | number
+    }
     interface IntrinsicElements {
       [tag: string]: any
     }

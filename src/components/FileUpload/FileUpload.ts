@@ -85,7 +85,7 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
       disabled: disabled || undefined,
       onChange: handleChange,
       style: { display: 'none' },
-      ref: (el) => { fileInput = el as HTMLInputElement },
+      ref: (el: HTMLInputElement | null) => { if (el) fileInput = el },
     })
 
     const dropZone = h('div', {

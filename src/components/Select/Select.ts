@@ -125,7 +125,7 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
       : filtered
 
     const menuChildren = displayOptions.length > 0
-      ? displayOptions.map(opt =>
+      ? displayOptions.map((opt: SelectOption) =>
           h('div', {
             class: `wf-select-search-opt${opt.value === value ? ' wf-select-search-opt--sel' : ''}${opt.disabled ? ' wf-select-search-opt--dis' : ''}`,
             key: opt.value,

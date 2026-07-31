@@ -375,7 +375,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         onKeyUp: handleKeyUp,
         onMouseUp: handleMouseUp,
         onMouseDown: handleMouseDown,
-        ref: (el) => { editorEl = el as HTMLElement },
+        ref: (el: HTMLElement | null) => { if (el) editorEl = el },
       })
     } else {
       editorBody = h('textarea', {

@@ -10,6 +10,7 @@ export type SkeletonVariant = 'text' | 'circle' | 'rect' | 'image' | 'avatar' | 
 export interface SkeletonProps {
   variant?: SkeletonVariant
   lines?: number
+  cols?: number
   width?: number | string
   height?: number | string
   className?: string
@@ -17,7 +18,7 @@ export interface SkeletonProps {
 
 export const Skeleton: Component<SkeletonProps> = (_init) =>
   (props) => {
-    const { variant = 'text', lines = 1, width, height, className } = props
+    const { variant = 'text', lines = 1, cols = 3, width, height, className } = props
 
     const style: Record<string, string> = {}
     if (width !== undefined) style.width = typeof width === 'number' ? `${width}px` : width
@@ -30,7 +31,6 @@ export const Skeleton: Component<SkeletonProps> = (_init) =>
     ].filter(Boolean).join(' ')
 
     if (variant === 'table') {
-      const cols = (props as any).cols ?? 3
       const rows = Array.from({ length: lines }, (_, r) => {
         const cells = Array.from({ length: cols }, (_, c) => {
           const cellW = r === lines - 1 && c === cols - 1 ? '40%' : undefined

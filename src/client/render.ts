@@ -247,7 +247,7 @@ function setProp(el: Element, key: string, value: any) {
     const st = (el as HTMLElement).style
     for (const sk of Object.keys(value)) {
       const sv = value[sk]
-      if (sv != null) st[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+      if (sv != null) (st as any)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
     }
   } else if (key.startsWith('on') && typeof value === 'function') {
     el.addEventListener(key.slice(2).toLowerCase(), value as EventListener)
@@ -484,7 +484,7 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
         const st = (el as HTMLElement).style
         for (const sk of Object.keys(newVal)) {
           const sv = newVal[sk]
-          if (sv != null) st[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+          if (sv != null) (st as any)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
         }
       } else if (key.startsWith('on') && typeof newVal === 'function') {
         const eventName = key.slice(2).toLowerCase()
