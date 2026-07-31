@@ -23,18 +23,24 @@ export interface DropdownProps {
 export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let wrapEl: HTMLElement | null = null
+  let latestOpen = false
+  let prevOpen = false
+
+  // 滚动/resize 时自动重算坐标（弹层跟随触发元素）
+  const pos = ctx.ui.usePopupPosition({
+    el: () => wrapEl,
+    isOpen: () => latestOpen,
+    compute: (r) => ({ top: r.bottom + 4, left: r.left }),
+  })
 
   // ── render（每次 dirty/props 变化）──
   return (props: DropdownProps) => {
     const { trigger, items = [], open } = props
+    latestOpen = !!open
 
-    // ── 位置计算 ──────────────────────────────────────
-    const pos = (() => {
-      if (!open) return { top: 0, left: 0 }
-      if (!wrapEl) return { top: 0, left: 0 }
-      const r = wrapEl.getBoundingClientRect()
-      return { top: r.bottom + 4, left: r.left }
-    })()
+    // ── 打开瞬间算一次初始坐标（受控 open）──
+    if (latestOpen && !prevOpen) pos.refresh()
+    prevOpen = latestOpen
 
     const menuItems = items.map((item, i) =>
       h('button', {
@@ -53,7 +59,7 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
 
     return h('div', {
       class: `wf-dropdown${open ? ' wf-dropdown--open' : ''}`,
-      ref: (el) => { wrapEl = el as HTMLElement },
+      ref: (el: HTMLElement | null) => { wrapEl = el },
     }, [trigger, portalContent].filter(Boolean))
   }
 }

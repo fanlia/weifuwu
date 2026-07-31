@@ -12,7 +12,7 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 
 function createMockCtx(): WfuiContext {
-  return { ui: { render: () => {}, $: () => ({}), dirty: () => {},  } } as any
+  return { ui: { render: () => {}, $: () => ({}), dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),  } } as any
 }
 
 /** Call component and get VNode (compatible with two-phase model) */

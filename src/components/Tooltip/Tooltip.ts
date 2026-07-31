@@ -5,7 +5,7 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
-import { computeFixedPos } from '../../client/popup.ts'
+import { computeFixedPosRect } from '../../client/popup.ts'
 import type { Placement } from '../../client/popup.ts'
 
 export type TooltipPosition = Placement
@@ -20,14 +20,23 @@ export interface TooltipProps {
 export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let show = false
-  let pos = { top: 0, left: 0 }
+  let wrapEl: HTMLElement | null = null
+  let latestPosition: TooltipPosition = 'top'
+  let prevOpen = false
+
+  // 滚动/resize 时自动重算坐标（弹层跟随触发元素）
+  const pos = ctx.ui.usePopupPosition({
+    el: () => wrapEl,
+    isOpen: () => show,
+    compute: (r) => computeFixedPosRect(r, latestPosition, 6, true),
+  })
 
   // ── render（每次 dirty/props 变化）──
   return (props: TooltipProps) => {
     const { content, position = 'top', children, disabled } = props
+    latestPosition = position
 
-    const showe = (e: Event) => {
-      pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
+    const showe = () => {
       show = true
       ctx.ui.render()
     }
@@ -35,6 +44,10 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
       show = false
       ctx.ui.render()
     }
+
+    // ── 打开瞬间算一次初始坐标 ──
+    if (show && !prevOpen) pos.refresh()
+    prevOpen = show
 
     const p = pos
 
@@ -48,6 +61,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
 
     return h('div', {
       class: 'wf-tooltip-wrap',
+      ref: (el: HTMLElement | null) => { if (el) wrapEl = el },
       onMouseEnter: showe, onMouseLeave: hide,
       onFocus: showe, onBlur: hide,
     }, [children, portalContent].filter(Boolean))

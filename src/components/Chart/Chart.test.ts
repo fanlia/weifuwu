@@ -11,7 +11,7 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 
 function mockCtx(): WfuiContext {
   return { ui: { $: {}
-, render: () => {}, dirty: () => {}, ready: false } } as any
+, render: () => {}, dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }), ready: false } } as any
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) */

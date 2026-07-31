@@ -42,6 +42,14 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
   let rangeEnd: string | null = null
 
   let inputEl: HTMLElement | null = null
+  let prevOpen = false
+
+  // 滚动/resize 时自动重算坐标（弹层跟随输入框）
+  const pos = ctx.ui.usePopupPosition({
+    el: () => inputEl,
+    isOpen: () => show,
+    compute: (r) => ({ top: r.bottom + 4, left: r.left, width: r.width }),
+  })
 
   // ── render（每次 dirty/props 变化）──
   return (props: DatePickerProps) => {
@@ -54,17 +62,14 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
       ctx.ui.render()
     }
 
+    // ── 打开瞬间算一次初始坐标 ──
+    if (show && !prevOpen) pos.refresh()
+    prevOpen = show
+
     const toggle = (e: Event) => {
       if (disabled) return
       setOpen(!show)
     }
-
-    const pos: { top: number; left: number; width?: number } = (() => {
-      if (!isOpen) return { top: 0, left: 0 }
-      if (!inputEl) return { top: 0, left: 0 }
-      const r = inputEl.getBoundingClientRect()
-      return { top: r.bottom + 4, left: r.left, width: r.width }
-    })()
 
     // ── 日期选择 ──────────────────────────────────────
     const selectDate = (day: CalendarDay) => {
@@ -287,7 +292,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         type: 'text',
         placeholder,
         value: displayValue || '',
-        ref: (el) => { inputEl = el as HTMLElement },
+        ref: (el: HTMLElement | null) => { inputEl = el },
         readonly: true,
         disabled,
         onClick: toggle,

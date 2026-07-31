@@ -2,6 +2,25 @@
  * weifuwu/client 类型定义
  */
 
+/** 弹层位置跟踪配置 — 供 ctx.ui.usePopupPosition 使用 */
+export interface PopupPositionOptions {
+  /** 锚定元素 getter（通常是 ref 保存的触发元素） */
+  el: () => HTMLElement | null
+  /** 弹层是否显示（getter，闭包读取最新状态） */
+  isOpen: () => boolean
+  /** rect → fixed 坐标（可返回 width 等附加属性） */
+  compute: (rect: DOMRect) => { top: number; left: number; width?: number }
+}
+
+/** 弹层位置跟踪器 — usePopupPosition 的返回值 */
+export interface PopupPosition {
+  top: number
+  left: number
+  width?: number
+  /** 立即重算一次坐标（不触发渲染，调用方负责 render） */
+  refresh: () => void
+}
+
 /** 应用上下文 */
 export interface WfuiContext {
   [key: string]: unknown
@@ -14,6 +33,8 @@ export interface WfuiContext {
     dirty: (ids?: string[]) => void
     /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
     $: () => Record<string, any>
+    /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标 */
+    usePopupPosition: (options: PopupPositionOptions) => PopupPosition
     /** 注册组件实例的自定义语义 ID，同名冲突抛错 */
     selfId: (name: string) => void
     /** 当前组件实例 ID（仅供内部使用，通过 ctx 扩展注入） */

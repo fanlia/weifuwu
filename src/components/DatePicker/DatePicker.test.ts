@@ -7,7 +7,7 @@ import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {},  } } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),  } } as any
 }
 
 /** 两阶段组件：mount → 获取 renderFn，后续反复调用 renderFn(props) 获取 VNode */

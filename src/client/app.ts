@@ -15,7 +15,7 @@
  *   render() 无参时从 this._selfId 取当前组件 ID
  */
 
-import type { WfuiContext, AppMiddleware } from './types.ts'
+import type { WfuiContext, AppMiddleware, PopupPositionOptions, PopupPosition } from './types.ts'
 import { render, patchValue, patchPortal, renderPortal, callRefCleanup, idRegistry } from './render.ts'
 import type { VNode, Component } from './vnode.ts'
 
@@ -35,6 +35,34 @@ export function createApp() {
 
   // ── 响应式媒体查询注册表（组件级，避免重复注册 listener） ──
   const _mediaRegistry = new Map<string, { mql: MediaQueryList; handler: (e: MediaQueryListEvent) => void }>()
+
+  // ── 弹层位置跟踪注册表（scroll/resize 时重算 fixed 坐标） ──
+  const _popupTrackers = new Map<string, {
+    pos: PopupPosition
+    getEl: () => HTMLElement | null
+    isOpen: () => boolean
+    compute: (rect: DOMRect) => { top: number; left: number; width?: number }
+  }>()
+  let _popupListenersReady = false
+  let _popupRaf = 0
+
+  /** rAF 节流：滚动/resize 时重算所有开着的弹层坐标，然后精准刷新 */
+  function schedulePopupRecompute() {
+    if (_popupRaf) return
+    _popupRaf = requestAnimationFrame(() => {
+      _popupRaf = 0
+      const ids: string[] = []
+      for (const [id, t] of _popupTrackers) {
+        if (!t.isOpen()) continue
+        const el = t.getEl()
+        if (!el) continue
+        const p = t.compute(el.getBoundingClientRect())
+        Object.assign(t.pos, p)
+        ids.push(id)
+      }
+      if (ids.length > 0) (ctx as any).ui.render(ids)
+    })
+  }
 
   // ── 核心：按 ID 列表渲染组件 ───────────────────────
   function renderByIds(ids: string[]) {
@@ -249,6 +277,49 @@ export function createApp() {
           }
         },
 
+        /**
+         * 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标
+         *
+         * 用法（mount 阶段）：
+         *   const pos = ctx.ui.usePopupPosition({
+         *     el: () => inputEl,                    // ref 保存的锚定元素
+         *     isOpen: () => show,                   // 弹层是否显示
+         *     compute: (r) => ({ top: r.bottom + 4, left: r.left }),
+         *   })
+         *
+         * pos 是稳定对象，render 闭包直接读取 top/left；
+         * 滚动/resize 时自动重算并定向刷新；打开弹层瞬间调用 pos.refresh()。
+         */
+        usePopupPosition: function (options: PopupPositionOptions): PopupPosition {
+          const selfId = getSelfId(this)
+          const pos: PopupPosition = { top: 0, left: 0, refresh: () => {} }
+          if (!selfId) return pos
+
+          const tracker = {
+            pos,
+            getEl: options.el,
+            isOpen: options.isOpen,
+            compute: options.compute,
+          }
+          _popupTrackers.set(selfId, tracker)
+
+          // 惰性挂载全局单例监听（第一个组件注册时）
+          if (!_popupListenersReady) {
+            _popupListenersReady = true
+            // capture 捕获所有嵌套容器的 scroll（scroll 不冒泡）
+            window.addEventListener('scroll', schedulePopupRecompute, { capture: true, passive: true })
+            window.addEventListener('resize', schedulePopupRecompute)
+          }
+
+          // 手动重算：只更新坐标，不触发渲染（调用方负责 render）
+          pos.refresh = () => {
+            const el = tracker.getEl()
+            if (!el) return
+            Object.assign(pos, tracker.compute(el.getBoundingClientRect()))
+          }
+          return pos
+        },
+
         /** 注册组件实例的自定义 ID（用于跨组件精准刷新） */
         selfId: function (name: string) {
           if (typeof name !== 'string' || !name) {
@@ -291,6 +362,14 @@ export function createApp() {
       if (container) container.innerHTML = ''
       container = null
       ctx = {} as WfuiContext
+
+      // 清理弹层位置跟踪的全局监听（scroll/resize）+ 注册表
+      if (_popupListenersReady) {
+        window.removeEventListener('scroll', schedulePopupRecompute, { capture: true } as any)
+        window.removeEventListener('resize', schedulePopupRecompute)
+        _popupListenersReady = false
+        _popupTrackers.clear()
+      }
     },
   }
 

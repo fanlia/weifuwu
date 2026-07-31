@@ -5,7 +5,7 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
-import { computeFixedPos } from '../../client/popup.ts'
+import { computeFixedPosRect } from '../../client/popup.ts'
 import type { Placement } from '../../client/popup.ts'
 
 export type PopoverPosition = Placement
@@ -23,12 +23,24 @@ export interface PopoverProps {
 export const Popover: Component<PopoverProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let show = false
-  let pos = { top: 0, left: 0 }
+  let wrapEl: HTMLElement | null = null
+  let latestOpen = false
+  let latestPosition: PopoverPosition = 'bottom'
+  let prevOpen = false
+
+  // 滚动/resize 时自动重算坐标（弹层跟随触发元素）
+  const pos = ctx.ui.usePopupPosition({
+    el: () => wrapEl,
+    isOpen: () => latestOpen,
+    compute: (r) => computeFixedPosRect(r, latestPosition, 6, true),
+  })
 
   // ── render（每次 dirty/props 变化）──
   return (props: PopoverProps) => {
     const { content, trigger = 'click', position = 'bottom', open, onOpenChange, disabled, children } = props
     const isOpen = open !== undefined ? open : show
+    latestOpen = isOpen
+    latestPosition = position
     const setOpen = (v: boolean) => {
       if (open === undefined) {
         show = v
@@ -37,21 +49,20 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
       onOpenChange?.(v)
     }
 
-    // ── 位置更新（在事件中触发）──
-    const updatePos = (e: Event) => {
-      pos = computeFixedPos(e.currentTarget as HTMLElement, position, 6, true)
-    }
+    // ── 打开瞬间算一次初始坐标（受控/非受控统一覆盖）──
+    if (isOpen && !prevOpen) pos.refresh()
+    prevOpen = isOpen
 
     // ── 事件处理 ────────────────────────────────────
     const onClick = trigger === 'click' && !disabled
-      ? (e: Event) => { updatePos(e); setOpen(!isOpen) }
+      ? () => setOpen(!isOpen)
       : undefined
 
     const hoverProps: Record<string, any> = {}
     if (trigger === 'hover' && !disabled) {
-      hoverProps.onMouseEnter = (e: Event) => { updatePos(e); setOpen(true) }
+      hoverProps.onMouseEnter = () => setOpen(true)
       hoverProps.onMouseLeave = () => setOpen(false)
-      hoverProps.onFocus = (e: Event) => { updatePos(e); setOpen(true) }
+      hoverProps.onFocus = () => setOpen(true)
       hoverProps.onBlur = () => setOpen(false)
     }
 
@@ -76,6 +87,7 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
 
     return h('div', {
       class: `wf-popover-wrap${isOpen ? ' wf-popover-wrap--open' : ''}`,
+      ref: (el: HTMLElement | null) => { if (el) wrapEl = el },
       ...hoverProps,
       onClick,
     }, [children, portalContent].filter(Boolean))
