@@ -1,7 +1,8 @@
-import { h } from 'weifuwu/client'
+import { h, type Component } from 'weifuwu/client'
+import type { RouteInjected } from 'weifuwu/client'
 
 /** 大纲确认页 — 编辑确认后流式生成完整 deck */
-export const Outline = (_init: any, ctx: any) => {
+export const Outline: Component<{}, RouteInjected> = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.title = ''
   $.theme = ''

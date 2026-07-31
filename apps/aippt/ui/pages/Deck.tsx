@@ -1,9 +1,10 @@
-import { h } from 'weifuwu/client'
+import { h, type Component } from 'weifuwu/client'
+import type { RouteInjected } from 'weifuwu/client'
 import { SlidePreview } from '../components/SlidePreview'
 import { buildCustomTheme } from '../../src/pptx/theme.ts'
 
 /** 预览页 — 生成结果预览 + 编辑（换主题/自定义品牌/AI 重写/换版式）+ 下载 */
-export const Deck = (_init: any, ctx: any) => {
+export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.deck = null
   $.themes = [] // 预设 + 自定义

@@ -43,7 +43,12 @@ function resolveLang(locale: string): string {
   return match ?? 'zh-CN'
 }
 
-export function i18n(opts: I18nOptions = {}): AppMiddleware {
+/** i18n 中间件注入到 ctx 的字段 */
+export interface I18nInjected {
+  i18n: I18nState
+}
+
+export function i18n(opts: I18nOptions = {}): AppMiddleware<{}, I18nInjected> {
   const { locale: raw = 'zh-CN', messages = {}, components = {} } = opts
   const lang = resolveLang(raw)
   const pkg = LOCALE_PACKAGES[lang]
@@ -72,7 +77,7 @@ export function i18n(opts: I18nOptions = {}): AppMiddleware {
       ;(ctx as any)?.ui?.render()
     }
 
-    return ctx
+    return ctx as WfuiContext & I18nInjected
   }
 }
 

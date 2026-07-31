@@ -41,7 +41,12 @@ function isTokenExpired(token: string): boolean {
   return (payload.exp as number) * 1000 - 30000 < Date.now()
 }
 
-export function auth(options?: AuthOptions): AppMiddleware {
+/** auth 中间件注入到 ctx 的字段 */
+export interface AuthInjected {
+  auth: AuthClient
+}
+
+export function auth(options?: AuthOptions): AppMiddleware<{}, AuthInjected> {
   const storage = options?.storage ?? localStorage
   const tokenKey = options?.tokenKey ?? 'weifuwu_token'
   const userKey = options?.userKey ?? 'weifuwu_user'

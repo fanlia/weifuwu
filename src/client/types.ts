@@ -87,7 +87,14 @@ export interface WfuiContext {
 }
 
 /** 中间件签名 */
-export type AppMiddleware = (ctx: WfuiContext) => WfuiContext
+/**
+ * 前端中间件：输入 ctx 需要 I，输出 ctx 注入 O（链式累积，createApp().use() 类型自动合并）
+ *   api()   → AppMiddleware<{}, ApiInjected>   注入 ctx.api
+ *   router()→ AppMiddleware<{}, RouteInjected> 注入 ctx.route / ctx.app
+ */
+export type AppMiddleware<I extends object = {}, O extends object = I> = (
+  ctx: WfuiContext & I,
+) => (WfuiContext & O) | Promise<WfuiContext & O>
 
 /** 路由定义 */
 export interface RouteDef {

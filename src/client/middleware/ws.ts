@@ -16,14 +16,26 @@ export interface WsOptions {
   pingTimeout?: number
 }
 
-export function ws(options: WsOptions = {}): AppMiddleware {
+/** ws 中间件注入到 ctx 的字段 */
+/** ws 中间件注入的客户端形状（与 WfuiContext.ws 一致） */
+export interface WsClient {
+  send: (msg: unknown) => void
+  onMessage: (fn: (data: unknown) => void) => () => void
+  isConnected: boolean
+}
+
+export interface WsInjected {
+  ws: WsClient
+}
+
+export function ws(options: WsOptions = {}): AppMiddleware<{}, WsInjected> {
   const wsUrl = options.url ?? '/ws'
   const reconnectInterval = options.reconnectInterval ?? 3000
   const maxReconnect = options.maxReconnect ?? 10
   const pingIntervalMs = options.pingInterval ?? 30_000
   const pingTimeoutMs = options.pingTimeout ?? 10_000
 
-  return (ctx: WfuiContext): WfuiContext => {
+  return (ctx: WfuiContext) => {
     const messageHandlers = new Set<(data: unknown) => void>()
     let socket: WebSocket | null = null
     let reconnectAttempts = 0

@@ -61,7 +61,12 @@ export interface ApiRequestOptions {
  * await ctx.api.delete('/users/1')
  * ```
  */
-export function api(options?: ApiOptions): AppMiddleware {
+/** api 中间件注入到 ctx 的字段 */
+export interface ApiInjected {
+  api: ApiClient
+}
+
+export function api(options?: ApiOptions): AppMiddleware<{}, ApiInjected> {
   const opts: Required<Pick<ApiOptions, 'baseURL' | 'headers'>> = {
     baseURL: options?.baseURL ?? '',
     headers: { 'Content-Type': 'application/json', ...options?.headers },

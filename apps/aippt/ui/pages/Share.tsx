@@ -1,8 +1,8 @@
-import { h } from 'weifuwu/client'
+import { h, type Component } from 'weifuwu/client'
 import { SlidePreview } from '../components/SlidePreview'
 
 /** 分享只读预览页（无登录可看，无编辑能力） */
-export const Share = (_init: any, ctx: any) => {
+export const Share: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.deck = null
   $.loading = true

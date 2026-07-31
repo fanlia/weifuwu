@@ -1,8 +1,9 @@
-import { h } from 'weifuwu/client'
+import { h, type Component } from 'weifuwu/client'
+import type { RouteInjected } from 'weifuwu/client'
 import { themes } from '../../src/pptx/theme.ts'
 
 /** 历史列表 — 我的演示文稿 */
-export const History = (_init: any, ctx: any) => {
+export const History: Component<{}, RouteInjected> = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.decks = []
   $.loading = true

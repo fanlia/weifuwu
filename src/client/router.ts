@@ -57,7 +57,21 @@ function matchRoute(path: string, routes: FlattenedRoute[]): FlattenedRoute | nu
   return best
 }
 
-export function router(opts: RouterOptions): AppMiddleware {
+/** router 中间件注入到 ctx 的字段 */
+export interface RouteInjected {
+  route: {
+    path: string
+    params: Record<string, string>
+    query: Record<string, string>
+    title?: string
+  }
+  /** 编程式导航 */
+  app: {
+    navigate: (path: string) => void
+  }
+}
+
+export function router(opts: RouterOptions): AppMiddleware<{}, RouteInjected> {
   const flatRoutes = flattenRoutes(opts.routes)
   const mode = opts.mode || 'history'
 
@@ -125,7 +139,7 @@ export function router(opts: RouterOptions): AppMiddleware {
       window.addEventListener('hashchange', onPop)
     }
 
-    return ctx
+    return ctx as WfuiContext & RouteInjected
   }
 }
 

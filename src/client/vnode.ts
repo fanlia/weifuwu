@@ -35,7 +35,14 @@ export interface VNode {
   _ctxVersion?: number
 }
 
-export type Component<P = {}> = (initProps: P, ctx: WfuiContext) => ((props: P) => VNode | null) | null
+/**
+ * 两阶段组件：外层 = mount（一次），内层 = render（每次 dirty/props 变化）。
+ * P = props 类型（JSX 自动推断），C = 组件依赖的 ctx 注入（如 ApiInjected & RouteInjected）
+ */
+export type Component<P = {}, C extends object = {}> = (
+  initProps: P,
+  ctx: WfuiContext & C,
+) => ((props: P) => VNode | null) | null
 
 export const Fragment = Symbol('Fragment')
 

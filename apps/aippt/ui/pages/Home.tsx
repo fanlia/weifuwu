@@ -1,7 +1,9 @@
-import { h } from 'weifuwu/client'
+import { h, type Component } from 'weifuwu/client'
+import type { ApiInjected } from 'weifuwu/client'
+import type { RouteInjected } from 'weifuwu/client'
 
 /** 创建页 — 一句话 / 从文档生成 PPT */
-export const Home = (_init: any, ctx: any) => {
+export const Home: Component<{}, ApiInjected & RouteInjected> = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.mode = 'topic'
   $.topic = ''

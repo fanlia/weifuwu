@@ -21,11 +21,17 @@ import type { VNode, Component } from './vnode.ts'
 
 // ── createApp ──────────────────────────────────────────
 
-export function createApp() {
-  const middlewares: AppMiddleware[] = []
+/** 应用句柄：use() 链式累积中间件注入的 ctx 类型，mount() 时组件拿到完整注入 */
+export interface App<C extends object = {}> {
+  use<I extends object, O extends object>(mw: AppMiddleware<I, O>): App<C & O>
+  mount(rootSelector: string, root: Component<any, C>): Promise<void>
+}
+
+export function createApp<C extends object = {}>(): App<C> {
+  const middlewares: AppMiddleware<any, any>[] = []
   let ctx: WfuiContext = {} as WfuiContext
   let container: Element | null = null
-  let rootComponent: Component | null = null
+  let rootComponent: Component<any, any> | null = null
   let oldVNode: VNode | null = null
   let _rendering = false
 
@@ -134,12 +140,12 @@ export function createApp() {
   const app = {
     get ctx() { return ctx },
 
-    use(mw: AppMiddleware) {
-      middlewares.push(mw)
-      return app
+    use<I extends object, O extends object>(mw: AppMiddleware<I, O>) {
+      middlewares.push(mw as AppMiddleware<any, any>)
+      return app as unknown as App<C & O>
     },
 
-    async mount(rootSelector: string, RootComponent: Component) {
+    async mount(rootSelector: string, RootComponent: Component<any, C>) {
       rootComponent = RootComponent
 
       for (const mw of middlewares) {
@@ -376,7 +382,7 @@ export function createApp() {
   return app
 }
 
-function wrapComponent(Comp: Component, _ctx: WfuiContext): VNode {
+function wrapComponent(Comp: Component<any, any>, _ctx: WfuiContext): VNode {
   return { type: Comp, props: {}, key: undefined }
 }
 

@@ -20,15 +20,18 @@ export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts
 export type { VNode, VNodeType, Component } from './vnode.ts'
 
 export { createApp } from './app.ts'
+export type { App } from './app.ts'
 
 export { router, RouteView } from './router.ts'
+export type { RouteInjected } from './router.ts'
 
 export { ws } from './middleware/ws.ts'
+export type { WsClient, WsInjected } from './middleware/ws.ts'
 export { api } from './middleware/api.ts'
 export { auth } from './middleware/auth.ts'
-export type { ApiClient, ApiOptions, ApiRequestOptions } from './middleware/api.ts'
+export type { ApiClient, ApiOptions, ApiRequestOptions, ApiInjected } from './middleware/api.ts'
 export { ApiError } from './middleware/api.ts'
-export type { AuthClient, AuthOptions } from './middleware/auth.ts'
+export type { AuthClient, AuthOptions, AuthInjected } from './middleware/auth.ts'
 
 export { extendCtx } from './types.ts'
 export type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
@@ -37,7 +40,7 @@ export { ErrorBoundary } from './error-boundary.ts'
 export type { ErrorBoundaryProps } from './error-boundary.ts'
 
 export { i18n } from './i18n.ts'
-export type { I18nOptions, I18nState } from './i18n.ts'
+export type { I18nOptions, I18nState, I18nInjected } from './i18n.ts'
 
 export { lockScroll, unlockScroll } from './scroll-lock.ts'
 export { trapFocus } from './focus-trap.ts'
