@@ -40,8 +40,6 @@
   "dependencies": {
     "@graphql-tools/schema": "^10",
     "graphql": "^16",
-    "ioredis": "^5.11.0",
-    "postgres": "^3.4.9",
     "ws": "^8"
   },
   "peerDependencies": {
