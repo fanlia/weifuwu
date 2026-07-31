@@ -116,13 +116,76 @@ T8/T9 独立可并行
 ## 执行顺序建议
 
 ```
-Sprint 1: T1 + T2（两步管线 + SSE，后端骨架）
-Sprint 2: T3 + T4（大纲页 + 预览编辑，前端主战场）
+Sprint 1: ✅ T1 + T2（两步管线 + SSE，后端骨架）
+Sprint 2: ✅ T3 + T4（大纲页 + 预览编辑，前端主战场）
 Sprint 3: ✅ T5（持久化 + 历史）
 Sprint 4: ✅ T6 + T7（黄金文件 + 批量 API）   ← 定位落地
 Sprint 5: ✅ T8 PDF 导出（print CSS）+ ⚠️ T9 docker 已跳过（代码就绪待验证）
 Sprint 6: T10（用户系统）⏳ 待定（按需）
 ```
+
+---
+
+## v0.3 — 从「可用的单机产品」到「可交付的私有化基础设施」
+
+**目标**：扩大输入与场景覆盖（文档生成/模板），兑现定位场景 1（品牌模板），补 docker 验收。
+**明确不做**：T10 用户系统（与私有化定位张力，出现明确多用户需求再做）。
+
+### Sprint 1: 从文档生成 ⭐
+| 项 | 内容 |
+|----|------|
+| 后端 | `POST /api/decks/outline-from-doc` `{content}` → LLM 提炼大纲（复用 generateOutline 管线，prompt 变体：文档要点 → 大纲） |
+| 前端 | 创建页输入方式切换：一句话 vs 粘贴文档（大 textarea + 字数提示） |
+| 验收 | 粘贴 500-2000 字文档 → 大纲质量可用；超长截断保护；mock 测试 |
+
+### Sprint 2: 大纲模板与预设模板库
+| 项 | 内容 |
+|----|------|
+| 后端 | 模板定义（JSON 大纲骨架）：market-analysis / product-launch / teaching / weekly-report / roadmap |
+| 后端 | `GET /api/templates`；模板 → outline 时注入 prompt（骨架 + 主题） |
+| 前端 | 创建页模板选择卡片（点击填充主题/页数/风格预设） |
+| 验收 | 选模板后生成的大纲遵循模板结构（章节布局匹配）；mock 测试 |
+
+### Sprint 3: 品牌模板（定位场景 1 兑现）
+| 项 | 内容 |
+|----|------|
+| 引擎 | 新增 image 元素（p:pic）支持 —— logo 位基础 |
+| 后端 | 自定义主题 API：`POST /api/themes/custom` `{name, colors}` → 存 DB，decks.theme 可引用自定义主题 |
+| 后端 | `GET /api/themes`（预设 + 自定义列表） |
+| 前端 | 主题选择器加「自定义」入口（色板编辑 + logo 上传） |
+| 验收 | 自定义主题生成 pptx 全页生效（含 logo 出现在固定位置）；黄金文件不受影响（fixture 用预设主题） |
+
+### Sprint 4: 分享链接（只读预览）
+| 项 | 内容 |
+|----|------|
+| 后端 | decks 表加 `share_token`；`POST /api/decks/:id/share` 生成 token；`GET /share/:token` 只读视图 |
+| 前端 | 预览页「复制分享链接」按钮；/share/:token 渲染只读预览（无编辑/无导出下载按钮可保留下载） |
+| 验收 | 无登录直接打开分享链接可看；撤销分享（DELETE share） |
+
+### Sprint 5: docker 私有化验收（补 T9）+ 收尾
+| 项 | 内容 |
+|----|------|
+| 验收 | `docker compose up --build` 起服务 → 生成一份真实 pptx → 下载验证 |
+| 收尾 | README 部署章节 + PLAN/IDEA 进度 + 端到端回归 |
+| 备选 | 若 docker 环境不可用，改为「部署脚本 + 裸机启动文档」 |
+
+### 依赖关系
+```
+Sprint 1 文档生成（独立）→ 依赖 outline 管线（已有）
+Sprint 2 模板库（独立，复用 outline）
+Sprint 3 品牌模板（依赖引擎 image 元素 + theme 扩展）
+Sprint 4 分享（依赖 decks 表扩展）
+Sprint 5 独立（补 T9）
+```
+
+### 风险
+| 风险 | 对策 |
+|------|------|
+| 文档输入长/乱 | 截断保护 + 提示词引导提炼要点；LLM 输出仍走 validateOutline 守卫 |
+| 自定义主题与预设主题并存复杂度 | 统一 Theme 结构（id 允许自定义），引擎无感 |
+| image 元素兼容性 | 复用模板骨架的 p:pic 结构 + 黄金文件不覆盖自定义主题 + LibreOffice 验证 |
+| share token 泄露 | 随机 token + 可撤销 + 只读（无编辑 API） |
+| docker 环境不可用 | 备选部署脚本方案 |
 
 ## 风险
 
