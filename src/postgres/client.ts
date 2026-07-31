@@ -12,6 +12,7 @@
 import { PgPool } from '../db/postgres/pool.ts'
 import type { Row } from '../db/postgres/connection.ts'
 import type { Context, Handler } from '../types.ts'
+import { HttpError } from '../types.ts'
 import type { PostgresOptions, PostgresClient, SqlClient } from './types.ts'
 
 export const MIGRATIONS_TABLE = '_weifuwu_migrations'
@@ -114,11 +115,11 @@ class TaggedQuery<T> {
 function makeSql(pool: PgPool): SqlClient {
   const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
     const { sql: text, params } = parseTaggedFromPool(strings, values)
-    return new TaggedQuery(text, params, (s, p) => pool.query(s, p as any))
+    return new TaggedQuery(text, params, (s, p) => wrapError(pool.query(s, p as any)))
   }) as unknown as SqlClient
 
-  sql.unsafe = (query: string, params?: unknown[]) => pool.unsafe(query, params as any)
-  sql.query = (query: string, params?: unknown[]) => pool.query(query, params as any)
+  sql.unsafe = (query: string, params?: unknown[]) => wrapError(pool.unsafe(query, params as any))
+  sql.query = (query: string, params?: unknown[]) => wrapError(pool.query(query, params as any))
   sql.begin = (fn: any) => pool.begin(fn)
   sql.transaction = (fn: any) => pool.transaction(fn)
   sql.close = () => pool.close()
@@ -145,4 +146,25 @@ function parseTaggedFromPool(strings: TemplateStringsArray, values: unknown[]): 
     }
   }
   return { sql, params }
+}
+
+/** PG 错误码 → HttpError 映射（框架默认，业务无需手写 catch） */
+const PG_ERROR_MAP: Record<string, number> = {
+  '23505': 409, // unique_violation
+  '23503': 400, // foreign_key_violation
+  '23502': 400, // not_null_violation
+  '23514': 400, // check_violation
+  '22P02': 400, // invalid_text_representation
+  '22003': 400, // numeric_value_out_of_range
+}
+
+/** 包装查询 promise：错误码映射为 HttpError（未映射的透传） */
+function wrapError<T>(promise: Promise<T>): Promise<T> {
+  return promise.catch((err: unknown) => {
+    const code = (err as { code?: string } | null)?.code
+    if (code && PG_ERROR_MAP[code]) {
+      throw new HttpError(`数据库错误: ${(err as Error).message}`, PG_ERROR_MAP[code])
+    }
+    throw err
+  })
 }

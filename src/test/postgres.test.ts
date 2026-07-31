@@ -1,6 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { postgres } from '../postgres/index.ts'
+import { HttpError } from '../types.ts'
 
 describe('postgres', () => {
   const pg = postgres()
@@ -86,5 +87,44 @@ describe('postgres ctx.sql nested fragments (agent-platform pattern)', () => {
       ${type ? pg2.sql`AND type = ${type}` : pg2.sql``}
     `
     assert.deepEqual(rows.map((r: any) => r.id), [3])
+  })
+})
+
+describe('postgres error mapping to HttpError (ctx.sql)', () => {
+  const pg3 = postgres()
+
+  before(async () => {
+    await pg3.sql`DROP TABLE IF EXISTS wf_uniq_a`
+    await pg3.sql`CREATE TABLE wf_uniq_a (email text PRIMARY KEY)`
+  })
+
+  after(async () => {
+    await pg3.sql`DROP TABLE IF EXISTS wf_fk_a`
+    await pg3.sql`DROP TABLE IF EXISTS wf_uniq_a`
+    await pg3.close()
+  })
+
+  it('unique violation → HttpError 409', async () => {
+    await pg3.sql`INSERT INTO wf_uniq_a VALUES (${'dup@x.com'})`
+    await assert.rejects(
+      () => pg3.sql`INSERT INTO wf_uniq_a VALUES (${'dup@x.com'})`,
+      (e: unknown) => e instanceof HttpError && (e as HttpError).status === 409,
+    )
+  })
+
+  it('foreign key violation → HttpError 400', async () => {
+    await pg3.sql`DROP TABLE IF EXISTS wf_fk_a`
+    await pg3.sql`CREATE TABLE wf_fk_a (email text REFERENCES wf_uniq_a(email))`
+    await assert.rejects(
+      () => pg3.sql`INSERT INTO wf_fk_a VALUES (${'nonexistent@x.com'})`,
+      (e: unknown) => e instanceof HttpError && (e as HttpError).status === 400,
+    )
+  })
+
+  it('non-mapped errors pass through unchanged', async () => {
+    await assert.rejects(
+      () => pg3.sql`SELECT * FROM wf_no_such_table_xyz`,
+      (e: unknown) => e instanceof Error && (e as any).code === '42P01',
+    )
   })
 })

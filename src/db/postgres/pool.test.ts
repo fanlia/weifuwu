@@ -1,6 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { PgPool } from './pool.ts'
+import { TimeoutError } from '../errors.ts'
 
 // CS-04: 真实 postgres
 const DB_URL = process.env.DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo'
@@ -206,5 +207,34 @@ describe('postgres nested fragments (agent-platform pattern)', () => {
       ORDER BY id
     `
     assert.deepEqual(rows.map((r) => r.id), [2])
+  })
+})
+
+describe('postgres pool acquire timeout (anti-starvation)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let pool: PgPool
+
+  before(async () => {
+    pool = await PgPool.create({ ...cfg, poolSize: 1, acquireTimeoutMs: 500 })
+  })
+
+  after(async () => {
+    await pool.close()
+  })
+
+  it('rejects with TimeoutError when pool is exhausted', async () => {
+    // 占用唯一连接（事务内 sleep）
+    const busy = pool.transaction(async (tx) => {
+      await tx.query('SELECT pg_sleep(2)')
+      return 'done'
+    })
+    await new Promise((r) => setTimeout(r, 100)) // 确保连接被占用
+    const t0 = Date.now()
+    await assert.rejects(
+      () => pool.query('SELECT 1'),
+      (e: unknown) => e instanceof TimeoutError,
+    )
+    assert.ok(Date.now() - t0 < 1500, `应在 ~500ms 超时, 实际 ${Date.now() - t0}ms`)
+    await busy // 等事务完成，干净关闭
   })
 })

@@ -10,12 +10,14 @@
  */
 
 import { PgConnection, type PgConnectionOptions, type Row } from './connection.ts'
-import { ConnectionError, ValidationError } from '../errors.ts'
+import { ConnectionError, TimeoutError, ValidationError } from '../errors.ts'
 import { validateRow, type Schema } from './schema.ts'
 
 export interface PgPoolOptions extends PgConnectionOptions {
   /** 池大小（连接数）。默认 5。 */
   poolSize?: number
+  /** acquire 超时 ms（池全忙时等待上限，防饿死）。默认 30_000。0 = 无限。 */
+  acquireTimeoutMs?: number
   /** 查询观测钩子（慢查询日志/审计） */
   onQuery?: (sql: string, durationMs: number, rowCount: number) => void
 }
@@ -25,7 +27,11 @@ type QueryParams = (string | number | boolean | object | null)[]
 export class PgPool {
   private all: PgConnection[] = []
   private available: PgConnection[] = []
-  private waiters: { resolve: (conn: PgConnection) => void; reject: (e: unknown) => void }[] = []
+  private waiters: {
+    resolve: (conn: PgConnection) => void
+    reject: (e: unknown) => void
+    timer?: NodeJS.Timeout
+  }[] = []
   private closed = false
   private opts: PgPoolOptions
   private initPromise: Promise<void> | null = null
@@ -73,7 +79,21 @@ export class PgPool {
     if (this.available.length > 0) {
       return Promise.resolve(this.available.pop()!)
     }
-    return new Promise((resolve, reject) => this.waiters.push({ resolve, reject }))
+    const timeoutMs = this.opts.acquireTimeoutMs ?? 30_000
+    return new Promise((resolve, reject) => {
+      const waiter: { resolve: (conn: PgConnection) => void; reject: (e: unknown) => void; timer?: NodeJS.Timeout } = {
+        resolve,
+        reject,
+      }
+      if (timeoutMs > 0) {
+        waiter.timer = setTimeout(() => {
+          const idx = this.waiters.indexOf(waiter)
+          if (idx >= 0) this.waiters.splice(idx, 1)
+          reject(new TimeoutError('postgres: pool acquire', timeoutMs))
+        }, timeoutMs)
+      }
+      this.waiters.push(waiter)
+    })
   }
 
   private release(conn: PgConnection) {
@@ -83,6 +103,7 @@ export class PgPool {
     }
     const waiter = this.waiters.shift()
     if (waiter) {
+      if (waiter.timer) clearTimeout(waiter.timer)
       waiter.resolve(conn) // 直接交给等待者，无需回池
     } else {
       this.available.push(conn)
@@ -191,7 +212,10 @@ export class PgPool {
     // 拒绝所有等待者
     const ws = this.waiters
     this.waiters = []
-    for (const w of ws) w.reject(new ConnectionError('postgres: pool is closed'))
+    for (const w of ws) {
+      if (w.timer) clearTimeout(w.timer)
+      w.reject(new ConnectionError('postgres: pool is closed'))
+    }
   }
 
   get size(): number {

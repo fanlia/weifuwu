@@ -43,6 +43,8 @@ export interface PgConnectionOptions {
   database?: string
   /** 连接超时 ms。默认 10_000。 */
   connectTimeoutMs?: number
+  /** 语句超时 ms（慢查询保护，会话级 SET statement_timeout）。默认 0 = 禁用。 */
+  statementTimeoutMs?: number
   /** SSL 模式（暂不支持） */
 }
 
@@ -51,9 +53,13 @@ export interface Row {
 }
 
 export class PgConnection {
-  private opts: Required<Pick<PgConnectionOptions, 'host' | 'port' | 'user' | 'database' | 'connectTimeoutMs'>> & {
+  private opts: Required<
+    Pick<PgConnectionOptions, 'host' | 'port' | 'user' | 'database' | 'connectTimeoutMs' | 'statementTimeoutMs'>
+  > & {
     password?: string
   }
+  private timeoutSet = false
+  private awaitingReady = false
   private socket: Socket | null = null
   private stream = new MessageStream()
   private status: 'idle' | 'connecting' | 'ready' | 'closed' = 'idle'
@@ -66,6 +72,7 @@ export class PgConnection {
       user: options.user ?? 'postgres',
       database: options.database ?? 'postgres',
       connectTimeoutMs: options.connectTimeoutMs ?? 10_000,
+      statementTimeoutMs: options.statementTimeoutMs ?? 0,
       password: options.password,
     }
   }
@@ -219,8 +226,16 @@ export class PgConnection {
         return
       }
       if (msg.type === 'Z') {
-        // ReadyForQuery——连接就绪
         this.expectingAuth = false
+        // statement_timeout：认证后设置会话级超时（慢查询保护），等其完成再 ready
+        if (this.opts.statementTimeoutMs > 0 && !this.timeoutSet) {
+          this.timeoutSet = true
+          this.awaitingReady = true
+          this.socket?.write(
+            Buffer.from(queryMessage(`SET statement_timeout = ${this.opts.statementTimeoutMs}`)),
+          )
+          return
+        }
         this.onReady?.()
         return
       }
@@ -269,6 +284,11 @@ export class PgConnection {
         const q = this.currentQuery
         this.currentQuery = null
         if (q) q.resolve(q.rows)
+        // statement_timeout 设置完成——连接真正就绪
+        if (this.awaitingReady) {
+          this.awaitingReady = false
+          this.onReady?.()
+        }
         this.notifyIdle()
         break
       }
@@ -480,11 +500,18 @@ function convertValue(oid: number, value: string | null): unknown {
     case 3802:
       // json / jsonb——自动 JSON.parse（消灭业务 parseRow 样板）
       return JSON.parse(value)
-    case 20:
+    case 20: {
+      // int8——超安全整数范围返回 string（防静默精度丢失，金额/ID 场景关键）
+      const n = BigInt(value)
+      if (n > BigInt(Number.MAX_SAFE_INTEGER) || n < BigInt(-Number.MAX_SAFE_INTEGER)) {
+        return value
+      }
+      return Number(n)
+    }
     case 21:
     case 23:
     case 26:
-      // int8 / int2 / int4 / int8
+      // int2 / int4 / int8
       return Number(value)
     case 700:
     case 701:

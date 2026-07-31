@@ -278,3 +278,104 @@ describe('postgres transactions (real database)', () => {
     await conn.query(`DROP TABLE ${tbl}`)
   })
 })
+
+describe('postgres precision boundaries (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let conn: PgConnection
+
+  before(async () => {
+    conn = new PgConnection(cfg)
+    await conn.connect()
+  })
+
+  after(async () => {
+    await conn.close()
+  })
+
+  it('bigint within safe range returns number', async () => {
+    const rows = await conn.query('SELECT 42::bigint AS n, 9007199254740991::bigint AS maxsafe')
+    assert.equal(rows[0].n, 42)
+    assert.equal(rows[0].maxsafe, 9007199254740991) // MAX_SAFE_INTEGER 仍 number
+  })
+
+  it('bigint beyond safe range returns string (no silent precision loss)', async () => {
+    const rows = await conn.query('SELECT 9007199254740993::bigint AS big')
+    assert.equal(rows[0].big, '9007199254740993') // string，不丢精度
+  })
+
+  it('negative bigint beyond safe range returns string', async () => {
+    const rows = await conn.query('SELECT (-9007199254740993)::bigint AS n')
+    assert.equal(rows[0].n, '-9007199254740993')
+  })
+
+  it('int4 always number (safe by construction)', async () => {
+    const rows = await conn.query('SELECT 2147483647::int AS n')
+    assert.equal(rows[0].n, 2147483647)
+  })
+})
+
+describe('postgres statement_timeout (real database)', () => {
+  it('kills slow queries after timeout', async () => {
+    const cfg2 = parseDbUrl(DB_URL)
+    const conn = new PgConnection({ ...cfg2, statementTimeoutMs: 200 })
+    await conn.connect()
+    const t0 = Date.now()
+    await assert.rejects(
+      () => conn.query('SELECT pg_sleep(2)'),
+      (e: unknown) => {
+        return e instanceof Error && (e as any).code === '57014' // query_canceled
+      },
+    )
+    assert.ok(Date.now() - t0 < 1500, `应在 ~200ms 超时, 实际 ${Date.now() - t0}ms`)
+    await conn.close()
+  })
+
+  it('fast queries unaffected', async () => {
+    const cfg2 = parseDbUrl(DB_URL)
+    const conn = new PgConnection({ ...cfg2, statementTimeoutMs: 200 })
+    await conn.connect()
+    const rows = await conn.query('SELECT 1::int AS one')
+    assert.equal(rows[0].one, 1)
+    await conn.close()
+  })
+
+  it('connection usable after timeout kill', async () => {
+    const cfg2 = parseDbUrl(DB_URL)
+    const conn = new PgConnection({ ...cfg2, statementTimeoutMs: 200 })
+    await conn.connect()
+    await assert.rejects(() => conn.query('SELECT pg_sleep(2)'))
+    const rows = await conn.query('SELECT 2::int AS two') // 超时后连接仍可用
+    assert.equal(rows[0].two, 2)
+    await conn.close()
+  })
+})
+
+describe('postgres prepare cache DDL recovery (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let conn: PgConnection
+
+  before(async () => {
+    conn = new PgConnection(cfg)
+    await conn.connect()
+  })
+
+  after(async () => {
+    await conn.close()
+  })
+
+  it('re-prepares after DROP + CREATE (cached statement invalidation)', async () => {
+    const tbl = `wf_prep_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int, v text)`)
+    // 首次执行 → prepare 缓存
+    const r1 = await conn.query(`SELECT v FROM ${tbl} WHERE id = $1`, [1])
+    assert.deepEqual(r1, [])
+    // DROP + CREATE（statement 服务器端失效）
+    await conn.query(`DROP TABLE ${tbl}`)
+    await conn.query(`CREATE TABLE ${tbl} (id int, v text)`)
+    await conn.query(`INSERT INTO ${tbl} VALUES (1, 'ok')`)
+    // 同 SQL 再执行——应自动重准备（而非报 cached plan 错误）
+    const r2 = await conn.query(`SELECT v FROM ${tbl} WHERE id = $1`, [1])
+    assert.equal(r2[0].v, 'ok')
+    await conn.query(`DROP TABLE ${tbl}`)
+  })
+})
