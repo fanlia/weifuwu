@@ -196,3 +196,31 @@ test('completeDeck: 批次 layout 与大纲不一致时报错', async () => {
 test('completeDeck: 非法大纲直接拒绝', async () => {
   await assert.rejects(() => completeDeck({ title: 'x', theme: 'tech', slides: [] } as any, batchMockClient()), /slides 必须是非空数组/)
 })
+
+// ── 模板注入 ──────────────────────────────────────────
+
+test('generateDeck/generateOutline: 模板骨架注入 prompt', async () => {
+  const calls: any[] = []
+  const client = {
+    chat: async (params: any): Promise<ChatResponse> => {
+      calls.push(params)
+      return { id: 'm', model: 'm', choices: [{ index: 0, message: { role: 'assistant', content: validDeck }, finish_reason: 'stop' }] }
+    },
+  }
+  await generateDeck({ topic: 'x', template: 'product-launch' }, client)
+  const prompt = calls[0].messages[1].content as string
+  assert.ok(prompt.includes('模板结构（严格遵循）'), 'prompt 应包含模板结构')
+  assert.ok(prompt.includes('产品发布') || prompt.includes('cover 封面'), 'prompt 应包含模板骨架内容')
+})
+
+test('generateDeck: 无模板不注入', async () => {
+  const calls: any[] = []
+  const client = {
+    chat: async (params: any): Promise<ChatResponse> => {
+      calls.push(params)
+      return { id: 'm', model: 'm', choices: [{ index: 0, message: { role: 'assistant', content: validDeck }, finish_reason: 'stop' }] }
+    },
+  }
+  await generateDeck({ topic: 'x' }, client)
+  assert.ok(!(calls[0].messages[1].content as string).includes('模板结构'))
+})

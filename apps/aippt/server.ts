@@ -66,6 +66,12 @@ async function main() {
   let seq = 0
   const nextId = (prefix: string) => `${prefix}${Date.now().toString(36)}${(seq++).toString(36)}`
 
+  // ── 模板列表 ──────────────────────────────────────────
+  app.get('/api/templates', async (): Promise<Response> => {
+    const { getTemplates } = await import('./src/services/templates.ts')
+    return Response.json({ templates: getTemplates() })
+  })
+
   // ── 阶段 1：大纲 ──────────────────────────────────────
   app.post('/api/decks/outline', async (req: Request): Promise<Response> => {
     if (!client) return Response.json({ error: 'AI 客户端未配置（缺少 DEEPSEEK_API_KEY）' }, { status: 500 })
@@ -81,6 +87,7 @@ async function main() {
           pages: Number(body?.pages) || undefined,
           style: typeof body?.style === 'string' ? body.style : undefined,
           audience: typeof body?.audience === 'string' ? body.audience : undefined,
+          template: typeof body?.template === 'string' ? body.template : undefined,
         },
         client,
       )

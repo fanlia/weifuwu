@@ -9,8 +9,25 @@ export const Home = (_init: any, ctx: any) => {
   $.pages = 8
   $.style = 'corporate'
   $.audience = ''
+  $.template = ''
+  $.templates = []
   $.loading = false
   $.error = ''
+
+  // 加载模板列表
+  ;(async () => {
+    try {
+      const res = await fetch('/api/templates').then((r) => r.json())
+      $.templates = res.templates ?? []
+    } catch { /* 模板加载失败不阻塞 */ }
+  })()
+
+  const pickTemplate = (t: any) => {
+    $.template = $.template === t.id ? '' : t.id
+    if (t.defaultStyle) $.style = t.defaultStyle
+    if (t.defaultPages) $.pages = t.defaultPages
+    $.error = ''
+  }
 
   const submit = async () => {
     if ($.loading) return
@@ -20,7 +37,7 @@ export const Home = (_init: any, ctx: any) => {
     $.error = ''
     try {
       const body = $.mode === 'topic'
-        ? { topic: $.topic.trim(), pages: $.pages, style: $.style, audience: $.audience.trim() || undefined }
+        ? { topic: $.topic.trim(), pages: $.pages, style: $.style, audience: $.audience.trim() || undefined, template: $.template || undefined }
         : { content: $.doc.trim(), pages: $.pages, style: $.style, audience: $.audience.trim() || undefined }
       const res = await ctx.api.post($.mode === 'topic' ? '/api/decks/outline' : '/api/decks/outline-from-doc', body)
       ctx.app.navigate(`/decks/${res.id}/outline`)
@@ -82,6 +99,21 @@ export const Home = (_init: any, ctx: any) => {
             ),
           ),
         ),
+        $.templates.length > 0
+          ? h('div', { class: 'template-row' },
+              h('label', { class: 'lbl' }, '模板（可选，决定大纲结构）'),
+              h('div', { class: 'template-list' },
+                $.templates.map((t: any) =>
+                  h('button', {
+                    class: `template-chip${$.template === t.id ? ' active' : ''}`,
+                    key: t.id,
+                    onClick: () => pickTemplate(t),
+                    title: t.description,
+                  }, `${t.icon} ${t.name}`),
+                ),
+              ),
+            )
+          : null,
         h('label', { class: 'lbl' }, '受众（可选）'),
         h('input', {
           class: 'input',

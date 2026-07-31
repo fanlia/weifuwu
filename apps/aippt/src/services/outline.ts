@@ -10,6 +10,7 @@
 import type { ChatMessage } from '../ai/types.ts'
 import type { DeepSeekClient } from '../ai/deepseek.ts'
 import { validateDeck, type DeckData, type SlideData } from '../pptx/components/layouts.ts'
+import { templateSkeleton } from './templates.ts'
 
 export interface GenerateOptions {
   topic: string
@@ -17,6 +18,8 @@ export interface GenerateOptions {
   style?: string
   language?: 'zh' | 'en'
   audience?: string
+  /** 预设模板 id（注入结构骨架到 prompt） */
+  template?: string
 }
 
 // ── 大纲数据结构 ─────────────────────────────────────────
@@ -76,12 +79,14 @@ function buildUserPrompt(opts: GenerateOptions, extra?: string): string {
   const pages = Math.min(Math.max(opts.pages ?? 8, 5), 15)
   const style = opts.style ?? 'corporate'
   const lang = opts.language ?? 'zh'
+  const skeleton = templateSkeleton(opts.template)
   return [
     `主题：${opts.topic}`,
     `页数：${pages} 页`,
     `风格：${STYLE_NAMES[style] ?? style}（theme 字段填 "${style}"）`,
     `语言：${lang === 'zh' ? '中文' : 'English'}`,
     opts.audience ? `受众：${opts.audience}` : null,
+    skeleton ? `模板结构（严格遵循）：\n${skeleton}` : null,
     extra ? `补充要求：${extra}` : null,
     '',
     '请输出演示文稿内容 JSON。',
@@ -131,7 +136,7 @@ export async function generateOutlineFromDoc(
         { role: 'user', content: '上次输出不符合大纲 schema（slides 每项必须含 layout 字段）。请重新严格按 schema 只输出 JSON 对象。' },
       )
     }
-    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 2048, response_format: { type: 'json_object' } })
+    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 4096, response_format: { type: 'json_object' } })
     const out = res.choices[0]?.message?.content ?? ''
     const outline = JSON.parse(extractJson(out)) as unknown
     validateOutline(outline)
@@ -208,7 +213,7 @@ export async function generateOutline(opts: GenerateOptions, client: DeepSeekCli
         { role: 'user', content: '上次输出不合法（不是严格 JSON 或不符合大纲 schema）。请重新只输出合法的 JSON 对象。' },
       )
     }
-    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 2048, response_format: { type: 'json_object' } })
+    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 4096, response_format: { type: 'json_object' } })
     const content = res.choices[0]?.message?.content ?? ''
     const outline = JSON.parse(extractJson(content)) as unknown
     validateOutline(outline)
@@ -274,7 +279,7 @@ async function generateBatch(
         ].filter(Boolean).join('\n'),
       },
     ]
-    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 2048, response_format: { type: 'json_object' } })
+    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 4096, response_format: { type: 'json_object' } })
     const content = res.choices[0]?.message?.content ?? ''
     // 数组输出：直接取 [ ] 边界（extractJson 是对象版，会截断数组）
     const arrStart = content.indexOf('[')
