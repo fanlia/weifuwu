@@ -42,8 +42,11 @@ export class PgPool {
     return pool
   }
 
+  private readyPromise: Promise<void> | null = null
+
   private ensure(): Promise<void> {
-    if (this.all.length > 0) return Promise.resolve()
+    // 已就绪：返回缓存的 resolved promise（零分配）
+    if (this.readyPromise) return this.readyPromise
     if (!this.initPromise) {
       this.initPromise = this.init()
     }
@@ -61,6 +64,7 @@ export class PgPool {
     )
     this.all = conns
     this.available = [...conns]
+    this.readyPromise = Promise.resolve()
   }
 
   /** 获取一个空闲连接（全忙则排队等待） */
@@ -179,6 +183,7 @@ export class PgPool {
 
   async close(): Promise<void> {
     this.closed = true
+    this.readyPromise = null
     this.available = []
     // 关闭所有连接（含被借出的）——借贷池关闭不留泄漏
     await Promise.all(this.all.map((c) => c.close()))

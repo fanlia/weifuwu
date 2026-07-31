@@ -39,8 +39,11 @@ export class RedisPool {
   }
 
   /** 懒连接：首次使用时初始化连接（中间件场景：构造即注入，首命令才连） */
+  private readyPromise: Promise<void> | null = null
+
   private ensure(): Promise<void> {
-    if (this.clients.length > 0) return Promise.resolve()
+    // 已就绪：返回缓存的 resolved promise（零分配）
+    if (this.readyPromise) return this.readyPromise
     if (!this.initPromise) {
       this.initPromise = this.init()
     }
@@ -52,6 +55,7 @@ export class RedisPool {
     this.clients = await Promise.all(
       Array.from({ length: poolSize }, () => RedisClient.connect(this.opts)),
     )
+    this.readyPromise = Promise.resolve()
   }
 
   /** 应用 key 前缀（command 透传不加） */
@@ -142,6 +146,7 @@ export class RedisPool {
   /** 关闭所有池内连接 */
   async close(): Promise<void> {
     this.closed = true
+    this.readyPromise = null
     await Promise.all(this.clients.map((c) => c.close()))
     this.clients = []
   }
