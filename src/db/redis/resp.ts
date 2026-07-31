@@ -34,7 +34,7 @@ export function encodeCommand(args: (string | number | Buffer)[]): Uint8Array {
     const s = typeof arg === 'string' ? arg : arg instanceof Buffer ? arg.toString() : String(arg)
     parts.push(`$${Buffer.byteLength(s)}\r\n${s}\r\n`)
   }
-  return new TextEncoder().encode(parts.join(''))
+  return _encoder.encode(parts.join(''))
 }
 
 /** 从完整 buffer 解析单个 RESP 值（非增量——单消息场景） */
@@ -47,6 +47,7 @@ export function parseReply(data: Uint8Array): RespValue {
 
 /** 增量 RESP 解析器：零拷贝（buffer + offset 指针），喂入任意分片 */
 const _decoder = new TextDecoder()
+const _encoder = new TextEncoder()
 
 export class RespParser {
   private buf: Uint8Array = new Uint8Array(0)

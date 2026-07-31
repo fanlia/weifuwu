@@ -179,7 +179,7 @@ export class RedisConnection {
   private sendNow(name: string, args: (string | number)[]): Promise<RespValue> {
     return new Promise((resolve, reject) => {
       this.pending.push({ resolve, reject })
-      this.socket!.write(Buffer.from(encodeCommand([name, ...args])))
+      this.socket!.write(encodeCommand([name, ...args])) // Uint8Array 直接写，免 Buffer 拷贝
     })
   }
 
@@ -214,7 +214,7 @@ export class RedisConnection {
           },
         })
       }
-      this.socket!.write(Buffer.from(payload))
+      this.socket!.write(payload)
     })
   }
 
