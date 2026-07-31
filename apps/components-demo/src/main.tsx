@@ -7,7 +7,8 @@
  * 启动: node apps/components-demo/server.ts
  */
 
-import { createApp, i18n, confirm } from 'weifuwu/client'
+import { createApp, i18n } from 'weifuwu/client'
+import { confirm, toast } from 'weifuwu/components'
 import type { WfuiContext, Component } from 'weifuwu/client'
 import {
   Button, Input, Textarea, Select,
@@ -1074,6 +1075,7 @@ const App: Component = (_props, ctx) => {
 
 createApp()
   .use(confirm())
+  .use(toast())
   .use(i18n({ locale: 'zh-CN', messages: {
     'app.title': 'weifuwu/components',
     'app.desc': '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',

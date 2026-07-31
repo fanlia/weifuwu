@@ -16,6 +16,7 @@ export const enUS = {
     Switch: { ariaLabel: 'Toggle' },
     Breadcrumb: { ariaLabel: 'Breadcrumb' },
     Modal: { ariaLabel: 'Dialog' },
+    Confirm: { confirmText: 'OK', cancelText: 'Cancel' },
     Drawer: { ariaLabel: 'Panel' },
     DatePicker: {
       w0: 'Su', w1: 'Mo', w2: 'Tu', w3: 'We', w4: 'Th', w5: 'Fr', w6: 'Sa',

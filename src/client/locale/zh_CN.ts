@@ -16,6 +16,7 @@ export const zhCN = {
     Switch: { ariaLabel: '切换' },
     Breadcrumb: { ariaLabel: '面包屑' },
     Modal: { ariaLabel: '弹窗' },
+    Confirm: { confirmText: '确定', cancelText: '取消' },
     Drawer: { ariaLabel: '侧边面板' },
     DatePicker: {
       w0: '日', w1: '一', w2: '二', w3: '三', w4: '四', w5: '五', w6: '六',

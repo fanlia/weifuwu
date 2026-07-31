@@ -174,10 +174,9 @@ createApp()
 | `weifuwu/client` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | createApp |
 | `weifuwu/client` | **i18n** | 国际化中间件（运行时切换语言） | createApp |
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
-| `weifuwu/client` | **confirm** | Promise 化确认对话框 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
-| `weifuwu/components` | **41 个组件** | Button/Table/Modal/Toast/... | weifuwu/client |
+| `weifuwu/components` | **42 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
@@ -1606,14 +1605,19 @@ import { ErrorBoundary } from 'weifuwu/client'
 
 ## confirm — 确认对话框
 
+两种用法，共享同一视觉与行为（基于 Modal 封装）：
+
+**① 命令式 `ctx.confirm()`（推荐，操作前询问）**
+
 ```tsx
-import { createApp, confirm } from 'weifuwu/client'
+import { createApp } from 'weifuwu/client'
+import { confirm } from 'weifuwu/components'
 
 createApp()
   .use(confirm())
   .mount('#root', App)
 
-// 在组件中使用
+// 任意代码中（组件事件、async 逻辑）
 async function handleDelete(ctx: WfuiContext) {
   const ok = await ctx.confirm?.('确定删除这条记录？', {
     title: '确认删除',
@@ -1627,17 +1631,63 @@ async function handleDelete(ctx: WfuiContext) {
 }
 ```
 
+**② 声明式 `<Confirm>`（需要受控状态时）**
+
+```tsx
+import { Confirm } from 'weifuwu/components'
+
+<Confirm
+  open={confirming}
+  title="确认删除"
+  message="确定删除这条记录？"
+  confirmText="删除"
+  variant="danger"
+  onConfirm={() => doDelete()}
+  onCancel={() => setConfirming(false)}
+/>
+```
+
 | ConfirmOptions | 类型 | 默认值 | 说明 |
 |----------------|------|--------|------|
 | `title` | `string` | `'确认操作'` | 对话框标题 |
 | `confirmText` | `string` | `'确定'` | 确认按钮文字 |
 | `cancelText` | `string` | `'取消'` | 取消按钮文字 |
 | `variant` | `'primary' \| 'danger'` | `'primary'` | 按钮样式变体 |
+| `width` | `string` | Modal 默认 | 对话框宽度 |
 
-- 直接 DOM 渲染（不经过 VDOM）
-- 返回 `Promise<boolean>`
-- ESC / 点击遮罩 → resolve(false)
-- 自动锁定背景滚动
+- `ctx.confirm()` 返回 `Promise<boolean>`，ESC / 点击遮罩 / 取消 → resolve(false)
+- 组件化渲染（Modal + portal），自动锁定滚动 + 焦点陷阱，i18n 文案可配置
+- 多次调用各自独立渲染（叠放语义），互不干扰
+
+---
+
+## toast — 命令式消息提示
+
+`ctx.toast()` 是 `<Toast>` 组件的全局命令式封装：任意代码中一行调用，自动消失、自动清理，无需宿主状态。
+
+```tsx
+import { createApp } from 'weifuwu/client'
+import { toast } from 'weifuwu/components'
+
+createApp()
+  .use(toast({ position: 'top-right', duration: 3000, max: 3 }))
+  .mount('#root', App)
+
+// 任意代码中（组件事件、api 拦截器、WS 回调、定时器）
+ctx.toast?.('保存成功', 'success')
+ctx.toast?.('请求失败', 'error')
+ctx.toast?.('普通消息')          // 默认 type = 'info'
+```
+
+| ToastOptions | 类型 | 默认值 | 说明 |
+|-------------|------|--------|------|
+| `position` | `ToastPosition` | `'top-right'` | 容器位置 |
+| `duration` | `number` | `3000` | 默认自动消失时间（ms），0 = 不消失 |
+| `max` | `number` | `3` | 最大显示条数，超出移除最早 |
+
+单条可覆盖自动消失时间：`ctx.toast('慢一点消失', 'info', 5000)`。
+
+与声明式 `<Toast toasts={...}/>` 共存：声明式用于局部列表（合并消息、自定义布局），命令式用于全局一次性反馈。
 
 ---
 
@@ -1687,8 +1737,9 @@ import type { ApiClient, ApiOptions, ApiRequestOptions, ApiError } from 'weifuwu
 import type { AuthClient, AuthOptions } from 'weifuwu/client'
 import type { ErrorBoundaryProps } from 'weifuwu/client'
 import type { I18nOptions, I18nState, LocalePackage } from 'weifuwu/client'
-import type { ConfirmOptions, ConfirmState } from 'weifuwu/client'
 import type { PopupPositionOptions, PopupPosition } from 'weifuwu/client'
+import type { ConfirmProps, ConfirmOptions } from 'weifuwu/components'
+import type { ToastOptions, ToastPosition } from 'weifuwu/components'
 import type { RouterOptions } from 'weifuwu/client'
 ```
 
@@ -1697,7 +1748,7 @@ import type { RouterOptions } from 'weifuwu/client'
 | `VNode` | `{ type, props, key? }` |
 | `VNodeType` | `string \| Component \| typeof Fragment` |
 | `Component<P>` | `(initProps: P, ctx: WfuiContext) => (props: P) => VNode \| null` |
-| `WfuiContext` | `{ ui, route?, app?, ws?, api?, auth?, i18n?, confirm?, [key]: unknown }` |
+| `WfuiContext` | `{ ui, route?, app?, ws?, api?, auth?, i18n?, confirm?, toast?, [key]: unknown }` |
 | `AppMiddleware` | `(ctx: WfuiContext) => WfuiContext` |
 | `RouteDef` | `{ path, component?, layout?, children?, auth?, title? }` |
 | `ApiClient` | `{ get, post, put, patch, delete }` |
@@ -1706,7 +1757,9 @@ import type { RouterOptions } from 'weifuwu/client'
 | `I18nOptions` | `{ locale?, messages?, components? }` |
 | `I18nState` | `{ locale, t, setLocale, components }` |
 | `ErrorBoundaryProps` | `{ fallback?, children? }` |
-| `ConfirmOptions` | `{ title?, confirmText?, cancelText?, variant? }` |
+| `ConfirmProps` | `{ open?, title?, message?, confirmText?, cancelText?, variant?, width?, onConfirm?, onCancel? }` |
+| `ConfirmOptions` | `{ title?, confirmText?, cancelText?, variant?, width? }` — 命令式 ctx.confirm 选项 |
+| `ToastOptions` | `{ position?, duration?, max? }` — 命令式 ctx.toast 配置 |
 | `PopupPositionOptions` | `{ el, isOpen, compute }` — 弹层位置跟踪配置（见 usePopupPosition） |
 | `PopupPosition` | `{ top, left, width?, refresh }` — 弹层位置跟踪器 |
 
@@ -1714,7 +1767,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-41 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。
+42 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -1748,10 +1801,12 @@ import 'weifuwu/components/style.css'   // 包含 Token + 35 布局原语 + 组�
 <Table columns={[{ key: 'id', label: 'ID', sortable: true }, { key: 'name', label: '名称' }]}
        data={rows} sortKey="id" sortOrder="asc" onSort={(k, o) => setSort(k, o)} />
 
-// ├─ 模态框 / 抽屉
+// ├─ 模态框 / 确认框 / 抽屉
 <Modal open={show} title="提示" onClose={() => setShow(false)} width="500px" closable>
   <p>确认删除？</p>
 </Modal>
+<Confirm open={confirming} message="确定删除？" variant="danger" onConfirm={doDelete} onCancel={() => setConfirming(false)} />
+// 命令式：await ctx.confirm?.('确定删除？') —— 组件里直接调用
 <Drawer open={open} title="详情" onClose={() => setOpen(false)} position="right">内容</Drawer>
 
 // ├─ 消息提示
@@ -1893,6 +1948,7 @@ props 变化 ──────────────────────�
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | Modal | `Modal` | `open`, `title`, `onClose`, `width`, `footer`, `closable` | 模态框 |
+| Confirm | `Confirm` | `open`, `message`, `confirmText`, `cancelText`, `variant`, `onConfirm`, `onCancel` | 确认对话框（同 `ctx.confirm()` 命令式） |
 | Drawer | `Drawer` | `open`, `title`, `onClose`, `position: DrawerPosition`, `width` | 抽屉 |
 | Tooltip | `Tooltip` | `content`, `position: TooltipPosition`, `disabled` | 工具提示（hover/focus 触发） |
 | Popover | `Popover` | `content`, `position: PopoverPosition`, `trigger`, `open`, `onOpenChange`, `disabled` | 弹出层 |
