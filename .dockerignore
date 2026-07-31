@@ -1,0 +1,8 @@
+# docker build context 排除项（context = 仓库根）
+node_modules/
+.git/
+.env
+*.pptx
+apps/*/dist/
+apps/*/node_modules/
+/tmp/

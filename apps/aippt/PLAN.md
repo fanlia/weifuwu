@@ -78,10 +78,11 @@
 | 方案 | 前端 print CSS（预览页打印为 PDF，零后端依赖）——先做；服务端 LibreOffice 后置 |
 | 验收 | 浏览器打印导出 PDF 版式正确 |
 
-### T9 docker 私有化打包（可部署）
+### T9 docker 私有化打包（可部署）⚠️ 已跳过（部署验证待后续）
 | 项 | 内容 |
 |----|------|
 | 交付 | Dockerfile（服务）+ docker-compose（+ postgres）+ 启动脚本 |
+| 状态 | 代码已就绪（Dockerfile/docker-compose/.dockerignore），镜像构建验证**跳过**，待后续环境就绪时执行 |
 | 验收 | `docker compose up` 一键起服务，生成可用 |
 
 ### T10 用户系统（复用 agent-platform auth）
