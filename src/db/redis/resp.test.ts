@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { encodeCommand, parseReply, RespError } from './resp.ts'
+import { encodeCommand, parseReply, RespError, RespParser } from './resp.ts'
 
 function buf(s: string): Uint8Array {
   return new TextEncoder().encode(s)
@@ -64,5 +64,36 @@ describe('resp decode', () => {
 
   it('throws on unknown type byte', () => {
     assert.throws(() => parseReply(buf('?foo\r\n')), /unknown/i)
+  })
+})
+
+describe('resp parser pushAll (multi-reply chunk)', () => {
+  it('parses all replies in a single chunk', () => {
+    const p = new RespParser()
+    const values = p.pushAll(buf('+OK\r\n+OK\r\n+OK\r\n'))
+    assert.deepEqual(values, ['OK', 'OK', 'OK'])
+  })
+
+  it('parses mixed reply types in one chunk', () => {
+    const p = new RespParser()
+    const values = p.pushAll(buf(':1\r\n$3\r\nfoo\r\n*2\r\n:1\r\n:2\r\n'))
+    assert.deepEqual(values, [1, 'foo', [1, 2]])
+  })
+
+  it('accumulates across chunks (streaming boundary)', () => {
+    const p = new RespParser()
+    // bulk 响应跨两个 chunk，随后是独立的 +OK 响应
+    const first = p.pushAll(buf('$3\r\nfo'))
+    assert.deepEqual(first, [])
+    const rest = p.pushAll(buf('o\r\n+OK\r\n'))
+    assert.deepEqual(rest, ['foo', 'OK'])
+  })
+
+  it('handles error replies as values in stream', () => {
+    const p = new RespParser()
+    const values = p.pushAll(buf('+OK\r\n-ERR boom\r\n+OK\r\n'))
+    assert.equal(values[0], 'OK')
+    assert.ok(values[1] instanceof RespError)
+    assert.equal(values[2], 'OK')
   })
 })

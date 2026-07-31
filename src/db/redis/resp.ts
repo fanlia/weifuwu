@@ -52,13 +52,37 @@ export class RespParser {
   /** 喂入数据分片。返回 { value, incomplete }；incomplete=true 时需继续喂。 */
   push(chunk: Uint8Array): { value: RespValue; incomplete: boolean } {
     this.buf = concat(this.buf, chunk)
+    const start = this.buf
     try {
       const value = this.parseValue()
       return { value, incomplete: false }
     } catch (e) {
-      if (e instanceof IncompleteError) return { value: null, incomplete: true }
+      // 不完整时回滚到解析前状态（增量解析：下次 push 从安全点继续）
+      if (e instanceof IncompleteError) {
+        this.buf = start
+        return { value: null, incomplete: true }
+      }
       throw e
     }
+  }
+
+  /** 喂入分片并解析 buffer 中所有完整响应（连接层：一次 data 事件可能含多个回复） */
+  pushAll(chunk: Uint8Array): RespValue[] {
+    this.buf = concat(this.buf, chunk)
+    const out: RespValue[] = []
+    while (true) {
+      const start = this.buf
+      try {
+        out.push(this.parseValue())
+      } catch (e) {
+        if (e instanceof IncompleteError) {
+          this.buf = start
+          break
+        }
+        throw e
+      }
+    }
+    return out
   }
 
   private parseValue(): RespValue {

@@ -128,13 +128,15 @@ export class RedisConnection {
 
   private onData(chunk: Uint8Array) {
     try {
-      const { value, incomplete } = this.parser.push(chunk)
-      if (incomplete) return
-      const p = this.pending.shift()
-      if (!p) return
-      // 错误响应（-ERR）是正常协议消息——reject 该命令，连接保持可用
-      if (value instanceof RespError) p.reject(value)
-      else p.resolve(value)
+      // 一次 data 事件可能包含多个回复（并发命令的响应合并在一个 TCP chunk）
+      const values = this.parser.pushAll(chunk)
+      for (const value of values) {
+        const p = this.pending.shift()
+        if (!p) break
+        // 错误响应（-ERR）是正常协议消息——reject 该命令，连接保持可用
+        if (value instanceof RespError) p.reject(value)
+        else p.resolve(value)
+      }
     } catch (e) {
       // 仅真正的协议解析崩溃（非 RespError）才拒绝全部并断开
       const queue = this.pending
