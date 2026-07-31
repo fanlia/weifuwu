@@ -48,6 +48,7 @@ export class RedisConnection {
   private reconnectTimer: NodeJS.Timeout | null = null
   private connectPromise: Promise<void> | null = null
   private closed = false
+  private connectedOnce = false
 
   constructor(options: RedisConnectionOptions = {}) {
     this.opts = {
@@ -89,6 +90,12 @@ export class RedisConnection {
       this.retries = 0
       this.flushOffline()
       this.onceReady?.()
+      // 重连后恢复订阅（首次连接跳过——subscribe() 已发过）
+      if (this.connectedOnce) {
+        for (const ch of this.subs.keys()) this.sendNow('SUBSCRIBE', [ch])
+        for (const pat of this.psubs.keys()) this.sendNow('PSUBSCRIBE', [pat])
+      }
+      this.connectedOnce = true
     })
 
     sock.on('data', (chunk: Buffer) => this.onData(new Uint8Array(chunk)))
@@ -104,7 +111,7 @@ export class RedisConnection {
     sock.on('close', () => {
       this.socket = null
       if (this.status !== 'closed' && this.status !== 'idle') {
-        this.handleDisconnect(new Error('socket closed'))
+        this.handleDisconnect(new ConnectionError('redis: socket closed'))
       }
     })
   }

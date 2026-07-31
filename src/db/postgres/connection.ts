@@ -116,6 +116,10 @@ export class PgConnection {
         this.socket = null
         if (this.status !== 'closed') {
           this.status = 'closed'
+          // 进行中的查询永远等不到响应——reject（连接已死），而非挂起
+          const q = this.currentQuery
+          this.currentQuery = null
+          if (q) q.reject(new ConnectionError('postgres: connection closed'))
         }
       })
 

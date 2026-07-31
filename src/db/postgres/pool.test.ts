@@ -238,3 +238,50 @@ describe('postgres pool acquire timeout (anti-starvation)', () => {
     await busy // 等事务完成，干净关闭
   })
 })
+
+describe('postgres pool connection recovery (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+
+  it('kills its own connection mid-transaction and recovers', async () => {
+    const pool = await PgPool.create({ ...cfg, poolSize: 1 })
+    try {
+      // 事务固定唯一连接——事务内杀自己，后续查询 reject
+      await assert.rejects(
+        pool.transaction(async (tx) => {
+          const r = await tx.query('SELECT pg_backend_pid() AS pid')
+          await tx.query('SELECT pg_terminate_backend($1)', [r[0].pid])
+          await tx.query('SELECT 1') // 连接已断——应 reject
+        }),
+      )
+      // 池应剔除坏连接、重建，并恢复服务
+      const ok = await pool.query('SELECT 1 AS ok')
+      assert.equal(ok[0].ok, 1)
+    } finally {
+      await pool.close()
+    }
+  })
+
+  it('kills a pooled connection while another query is in flight', async () => {
+    const pool = await PgPool.create({ ...cfg, poolSize: 2 })
+    try {
+      // 拿连接 A 的 pid，占用连接 B（事务），再杀 A
+      const killer = await pool.query('SELECT pg_backend_pid() AS pid')
+      const killedPid = killer[0].pid
+      // 事务占用另一连接，事务内杀 A
+      await pool
+        .transaction(async (tx) => {
+          const r = await tx.query('SELECT pg_backend_pid() AS pid')
+          if (r[0].pid !== killedPid) {
+            await tx.query('SELECT pg_terminate_backend($1)', [killedPid])
+          }
+          await tx.query('SELECT 1')
+        })
+        .catch(() => {})
+      // 恢复服务
+      const ok = await pool.query('SELECT 1 AS ok')
+      assert.equal(ok[0].ok, 1)
+    } finally {
+      await pool.close()
+    }
+  })
+})

@@ -101,6 +101,17 @@ export class PgPool {
       conn.close()
       return
     }
+    if (!conn.connected) {
+      // 坏连接（断线/被杀）——剔除并异步重建，防池容量萎缩
+      conn.close()
+      this.replenish()
+      return
+    }
+    this.dispatchAvailable(conn)
+  }
+
+  /** 连接可用事件统一入口：优先唤醒等待者，否则回空闲池（release 与 replenish 共用） */
+  private dispatchAvailable(conn: PgConnection) {
     const waiter = this.waiters.shift()
     if (waiter) {
       if (waiter.timer) clearTimeout(waiter.timer)
@@ -108,6 +119,25 @@ export class PgPool {
     } else {
       this.available.push(conn)
     }
+  }
+
+  /** 坏连接剔除后异步重建（池容量保持）——就绪后走统一分发（唤醒 waiter） */
+  private replenish(): void {
+    if (this.closed) return
+    const c = new PgConnection(this.opts)
+    c.connect()
+      .then(() => {
+        if (this.closed) {
+          c.close()
+          return
+        }
+        this.all.push(c)
+        this.dispatchAvailable(c)
+      })
+      .catch(() => {
+        // 重建失败（DB 短暂不可达）：延迟重试，防池永久空
+        setTimeout(() => this.replenish(), 500)
+      })
   }
 
   async query<T = Row>(sql: string, params?: QueryParams): Promise<T[]> {
