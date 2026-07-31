@@ -77,11 +77,45 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
   return mw
 }
 
+/** 惰性查询：await 时执行；作为插值时是片段（postgres.js 语义） */
+class TaggedQuery<T> {
+  text: string
+  params: unknown[]
+  private executor: (sql: string, params: unknown[]) => Promise<T[]>
+
+  constructor(text: string, params: unknown[], executor: (sql: string, params: unknown[]) => Promise<T[]>) {
+    this.text = text
+    this.params = params
+    this.executor = executor
+  }
+
+  then<R1 = T[], R2 = never>(
+    resolve?: ((value: T[]) => R1 | PromiseLike<R1>) | null,
+    reject?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+  ): Promise<R1 | R2> {
+    return this.executor(this.text, this.params).then(resolve, reject)
+  }
+
+  catch<R>(reject?: ((reason: unknown) => R | PromiseLike<R>) | null): Promise<T[] | R> {
+    return this.executor(this.text, this.params).catch(reject)
+  }
+
+  finally(fn: () => void): Promise<T[]> {
+    return this.executor(this.text, this.params).finally(fn)
+  }
+
+  /** 嵌套片段（agent-platform 条件过滤模式） */
+  get __fragment(): { sql: string; params: unknown[] } {
+    return { sql: this.text, params: this.params }
+  }
+}
+
 /** 将 PgPool 包装为 callable tagged template sql（postgres.js 兼容面） */
 function makeSql(pool: PgPool): SqlClient {
-  const sql = ((strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]> => {
-    return pool.tag(strings, ...values)
-  }) as SqlClient
+  const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
+    const { sql: text, params } = parseTaggedFromPool(strings, values)
+    return new TaggedQuery(text, params, (s, p) => pool.query(s, p as any))
+  }) as unknown as SqlClient
 
   sql.unsafe = (query: string, params?: unknown[]) => pool.unsafe(query, params as any)
   sql.query = (query: string, params?: unknown[]) => pool.query(query, params as any)
@@ -90,4 +124,25 @@ function makeSql(pool: PgPool): SqlClient {
   sql.close = () => pool.close()
 
   return sql
+}
+
+
+/** tagged template → 参数化 SQL（插值=参数；插值是 TaggedQuery/片段 → 内联重编号） */
+function parseTaggedFromPool(strings: TemplateStringsArray, values: unknown[]): { sql: string; params: unknown[] } {
+  let sql = strings[0]
+  const params: unknown[] = []
+  for (let i = 0; i < values.length; i++) {
+    const frag = (values[i] as { __fragment?: { sql: string; params: unknown[] } } | undefined)?.__fragment
+    if (frag) {
+      const renumbered = frag.sql.replace(/\$(\d+)/g, (_m, idx: string) => {
+        params.push(frag.params[parseInt(idx, 10) - 1])
+        return `$${params.length}`
+      })
+      sql += renumbered + strings[i + 1]
+    } else {
+      params.push(values[i])
+      sql += `$${params.length}` + strings[i + 1]
+    }
+  }
+  return { sql, params }
 }

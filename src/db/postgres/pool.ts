@@ -128,9 +128,8 @@ export class PgPool {
   }
 
   /** postgres.js 兼容事务 API: begin(fn)——fn 收到 tagged template 事务 sql */
-    async begin<T>(fn: (txSql: TaggedSql) => Promise<T>): Promise<T> {
+  async begin<T>(fn: (txSql: TaggedSql) => Promise<T>): Promise<T> {
     await this.ensure()
-    
     return this.transaction(async (tx) => {
       const txSql: TaggedSql = (strings: TemplateStringsArray, ...values: unknown[]) => {
         const { sql, params } = parseTagged(strings, values)
@@ -138,6 +137,12 @@ export class PgPool {
       }
       return fn(txSql)
     })
+  }
+
+  /** 片段：可嵌套的 SQL 片段（postgres.js fragment 语义，条件过滤模式） */
+  frag(strings: TemplateStringsArray, ...values: unknown[]): SqlFragment {
+    const { sql, params } = parseTagged(strings, values)
+    return { __fragment: { sql, params } }
   }
 
   /** 原生 SQL（DDL / 动态表名场景）；$1 占位符 + 参数数组 */
@@ -189,13 +194,33 @@ export class PgPool {
   }
 }
 
-/** tagged template → 参数化 SQL（插值 = 参数） */
+/** 片段对象：嵌套 SQL 片段（内部含已解析的 sql + params） */
+export interface SqlFragment {
+  __fragment: { sql: string; params: QueryParams }
+}
+
+/**
+ * tagged template → 参数化 SQL。
+ * 插值 = 参数；插值是片段（SqlFragment）→ 内联其 SQL 并重编号参数。
+ */
 function parseTagged(strings: TemplateStringsArray, values: unknown[]): { sql: string; params: QueryParams } {
-  const sql = strings.reduce(
-    (acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''),
-    '',
-  )
-  return { sql, params: values as QueryParams }
+  let sql = strings[0]
+  const params: QueryParams = []
+  for (let i = 0; i < values.length; i++) {
+    const frag = (values[i] as SqlFragment | undefined)?.__fragment
+    if (frag) {
+      // 片段内联：$N 重编号为当前参数序号
+      const renumbered = frag.sql.replace(/\$(\d+)/g, (_m, idx: string) => {
+        params.push(frag.params[parseInt(idx, 10) - 1] as never)
+        return `$${params.length}`
+      })
+      sql += renumbered + strings[i + 1]
+    } else {
+      params.push(values[i] as never)
+      sql += `$${params.length}` + strings[i + 1]
+    }
+  }
+  return { sql, params }
 }
 
 /** tagged template 事务 sql（begin 回调参数） */

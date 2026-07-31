@@ -161,3 +161,47 @@ describe('postgres begin (postgres.js compatible tx API)', () => {
     assert.equal(rows[0].n, 0)
   })
 })
+
+describe('postgres nested fragments (agent-platform pattern)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let pool: PgPool
+
+  before(async () => {
+    pool = await PgPool.create({ ...cfg, poolSize: 2 })
+    await pool.query('DROP TABLE IF EXISTS wf_frag_a')
+    await pool.query(`CREATE TABLE wf_frag_a (id int PRIMARY KEY, tenant int, type text)`)
+    await pool.query(`INSERT INTO wf_frag_a VALUES (1, 10, 'ai'), (2, 10, 'user'), (3, 20, 'ai')`)
+  })
+
+  after(async () => {
+    await pool.query('DROP TABLE IF EXISTS wf_frag_a')
+    await pool.close()
+  })
+
+  it('conditional fragment inlining (sql`AND type = ${x}` as interpolation)', async () => {
+    const type = 'ai'
+    const rows = await pool.tag`
+      SELECT id FROM wf_frag_a WHERE tenant = ${10}
+      ${type ? pool.frag`AND type = ${type}` : pool.frag``}
+    `
+    assert.deepEqual(rows.map((r) => r.id), [1]) // tenant=10 AND type=ai → 只有 id=1
+  })
+
+  it('empty fragment inlines nothing', async () => {
+    const type = null
+    const rows = await pool.tag`
+      SELECT id FROM wf_frag_a WHERE tenant = ${20}
+      ${type ? pool.frag`AND type = ${type}` : pool.frag``}
+    `
+    assert.deepEqual(rows.map((r) => r.id), [3]) // 无类型过滤
+  })
+
+  it('fragment with multiple params renumbers correctly', async () => {
+    const rows = await pool.tag`
+      SELECT id FROM wf_frag_a WHERE tenant = ${10}
+      ${pool.frag`AND type = ${'user'} AND id > ${0}`}
+      ORDER BY id
+    `
+    assert.deepEqual(rows.map((r) => r.id), [2])
+  })
+})

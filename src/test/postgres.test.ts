@@ -55,3 +55,36 @@ describe('postgres', () => {
     assert.equal(rows.length, 0)
   })
 })
+
+describe('postgres ctx.sql nested fragments (agent-platform pattern)', () => {
+  const pg2 = postgres()
+
+  before(async () => {
+    await pg2.sql`DROP TABLE IF EXISTS wf_cfrag_a`
+    await pg2.sql`CREATE TABLE wf_cfrag_a (id int PRIMARY KEY, tenant int, type text)`
+    await pg2.sql`INSERT INTO wf_cfrag_a VALUES (1, 10, 'ai'), (2, 10, 'user'), (3, 20, 'ai')`
+  })
+
+  after(async () => {
+    await pg2.sql`DROP TABLE IF EXISTS wf_cfrag_a`
+    await pg2.close()
+  })
+
+  it('nested conditional fragment via ctx.sql', async () => {
+    const type = 'ai'
+    const rows = await pg2.sql`
+      SELECT id FROM wf_cfrag_a WHERE tenant = ${10}
+      ${type ? pg2.sql`AND type = ${type}` : pg2.sql``}
+    `
+    assert.deepEqual(rows.map((r: any) => r.id), [1])
+  })
+
+  it('empty nested fragment (no filter)', async () => {
+    const type = null
+    const rows = await pg2.sql`
+      SELECT id FROM wf_cfrag_a WHERE tenant = ${20}
+      ${type ? pg2.sql`AND type = ${type}` : pg2.sql``}
+    `
+    assert.deepEqual(rows.map((r: any) => r.id), [3])
+  })
+})
