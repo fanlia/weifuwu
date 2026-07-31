@@ -342,4 +342,63 @@ describe('scoped render', () => {
 
     el.remove()
   })
+
+  it('dirty(["id"]) 精准刷新指定组件，不波及兄弟', async () => {
+    let renderA = 0
+    let renderB = 0
+
+    const A = (_: any, ctx: any) => {
+      ctx.ui.selfId('dirty-target-a')
+      return () => {
+        renderA++
+        return { type: 'span', props: { children: 'A' }, key: undefined }
+      }
+    }
+    const B = (_: any, ctx: any) => {
+      ctx.ui.selfId('dirty-target-b')
+      return () => {
+        renderB++
+        return { type: 'span', props: { children: 'B' }, key: undefined }
+      }
+    }
+
+    const Root = () => () => ({
+      type: 'div',
+      props: {
+        children: [
+          { type: A, props: {}, key: undefined },
+          { type: B, props: {}, key: undefined },
+        ],
+      },
+      key: undefined,
+    })
+
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'dirty-scoped'
+    await app.mount('#dirty-scoped', Root)
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderA, 1)
+    assert.equal(renderB, 1)
+
+    // 只 dirty A
+    ;(app as any).ctx.ui.dirty(['dirty-target-a'])
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderA, 2, 'A 被异步刷新')
+    assert.equal(renderB, 1, 'B 不受影响')
+
+    // 只 dirty B
+    ;(app as any).ctx.ui.dirty(['dirty-target-b'])
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderA, 2, 'A 不受影响')
+    assert.equal(renderB, 2, 'B 被异步刷新')
+
+    // 同时 dirty 两个
+    ;(app as any).ctx.ui.dirty(['dirty-target-a', 'dirty-target-b'])
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderA, 3)
+    assert.equal(renderB, 3)
+    el.remove()
+  })
 })

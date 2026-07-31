@@ -167,6 +167,7 @@ createApp()
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **confirm** | Promise 化确认对话框 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
+| `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
 | `weifuwu/components` | **41 个组件** | Button/Table/Modal/Toast/... | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
@@ -889,6 +890,20 @@ h('div', { class: 'x' }, child1, child2)
 
 ## 状态管理
 
+### ctx.ui 方法速查
+
+| 方法 | 签名 | 一句话说明 |
+|------|------|-----------|
+| `$()` | `$(): Record<string, any>` | 深度 Proxy 响应式状态容器，赋值自动触发渲染（**推荐首选**） |
+| `render()` | `render(ids?: string[])` | 同步强制渲染；无参 = 当前组件，传参 = 指定组件列表 |
+| `dirty()` | `dirty(ids?: string[])` | 异步渲染（微任务批处理合并）；`$` 内部就是调它 |
+| `selfId()` | `selfId(name: string)` | 注册组件自定义 ID，配合 `render(['id'])` 跨组件精准刷新 |
+| `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
+| `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
+| `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |
+
+> 每个方法的完整说明见下文对应章节。
+
 ### Render 机制总览
 
 | API | 触发时机 | 渲染方式 | 作用域 | 使用场景 |
@@ -899,6 +914,7 @@ h('div', { class: 'x' }, child1, child2)
 | `ctx.ui.render(['id'])` | 主动调用 | 立即同步 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
 | `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动 dirty |
 | `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
+| `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
 
 `render()` 和 `dirty()` 无参 = 当前组件，传参 = 指定组件列表。三套 API 同一 scope 机制。
 
@@ -996,6 +1012,73 @@ ctx.ui.useBreakpoint(
 )
 ```
 
+#### `ctx.ui.usePopupPosition(options)` — 弹层坐标跟随
+
+解决弹出层（Popover / Tooltip / Dropdown / DatePicker 等）在 **页面滚动 / 窗口缩放后不跟随触发元素** 的问题。基于 `position: fixed` + `getBoundingClientRect()`（视口坐标）的弹层，滚动后坐标需要重算——本 API 用全局 scroll/resize 监听（rAF 节流）自动重算并精准刷新当前组件。
+
+```tsx
+const DatePicker = (_init, ctx) => {
+  let show = false
+  let inputEl: HTMLElement | null = null
+  let prevOpen = false
+
+  // mount 阶段注册：scroll/resize 时自动重算 pos
+  const pos = ctx.ui.usePopupPosition({
+    el: () => inputEl,                  // 锚定元素（ref 保存）
+    isOpen: () => show,                 // 弹层是否显示
+    compute: (r) => ({ top: r.bottom + 4, left: r.left }),  // rect → 坐标
+  })
+
+  return (props) => {
+    const isOpen = show
+    // 打开瞬间算一次初始坐标（受控/非受控统一覆盖）
+    if (isOpen && !prevOpen) pos.refresh()
+    prevOpen = isOpen
+
+    return h('div', {}, [
+      h('input', {
+        ref: (el) => { inputEl = el as HTMLElement },
+        onClick: () => { show = !show; ctx.ui.render() },
+      }),
+      isOpen ? h('div', { style: { top: pos.top, left: pos.left } }) : null,
+    ].filter(Boolean))
+  }
+}
+```
+
+要点：
+
+- `pos` 是稳定对象，render 闭包直接读取 `top/left/width`，滚动重算原地更新，无需重新绑定
+- `pos.refresh()` 只重算不渲染——配合打开路径上已有的 `render()`，避免重复渲染
+- 监听是**全局单例**（capture 捕获所有嵌套滚动容器 + rAF 节流），按组件 selfId 注册，组件多时开销 O(1)
+- `compute` 是纯函数（rect → 坐标），可单独单测
+
+已内置接入的组件：**Popover / Tooltip / Dropdown / DatePicker / Chart**（tooltip）——它们的弹出层在页面滚动、嵌套容器滚动、窗口缩放时都会自动跟随触发元素，无需额外配置。
+
+#### `ctx.ui.selfId(name)` — 跨组件精准刷新
+
+用于全局事件通知、Portal 远程控制、兄弟组件协调等场景——绕过多层 props 传递，直接按 ID 刷新目标组件：
+
+```tsx
+// 组件 A：mount 阶段注册自定义 ID
+const StatsPanel = (_init, ctx) => {
+  ctx.ui.selfId('stats')
+  const $ = ctx.ui.$()
+  $.data = []
+  return (props) => h('div', {}, String($.data.length))
+}
+
+// 组件 B（或其他任何地方）用 ID 精准刷新
+ctx.ui.render(['stats'])        // 同步刷新
+// 或：ctx.ui.dirty(['stats'])   // 异步批处理版本
+```
+
+**语义**：
+
+- 必须在 **mount 阶段**调用（组件初始化时），注册后组件即可被 `render(['id'])` / `dirty(['id'])` 精准定位
+- **同名冲突直接抛错**，每个自定义 ID 必须全局唯一
+- 配合 `selfId` 注册的组件在跨组件场景下无需把刷新逻辑层层传 props
+
 #### CSS 层响应式（不碰 JS）
 
 配合 `weifuwu/layout` 的断点变体，纯 CSS 实现布局方向切换：
@@ -1022,6 +1105,8 @@ ctx.ui.useBreakpoint(
 ### `ctx.ui.dirty()` — 异步标记脏
 
 异步版本，无参 = 当前组件，传参 = 指定组件列表。多次调用合并为一次微任务渲染。`$` 内部就是调 `dirty()`。
+
+与 `render()` 的区别：`dirty()` 是**异步**（微任务批量合并，同帧多次调用只渲染一次），`render()` 是**同步**（立即执行 VDOM diff + patch）。日常 UI 状态用 `$` 或 `dirty()`，需要立即拿到最新 DOM（测量/动画/第三方库）时用 `render()`。
 
 ### `ctx.ui.render()` — 同步强制渲染
 
@@ -1592,6 +1677,7 @@ import type { AuthClient, AuthOptions } from 'weifuwu/client'
 import type { ErrorBoundaryProps } from 'weifuwu/client'
 import type { I18nOptions, I18nState, LocalePackage } from 'weifuwu/client'
 import type { ConfirmOptions, ConfirmState } from 'weifuwu/client'
+import type { PopupPositionOptions, PopupPosition } from 'weifuwu/client'
 import type { RouterOptions } from 'weifuwu/client'
 ```
 
@@ -1610,6 +1696,8 @@ import type { RouterOptions } from 'weifuwu/client'
 | `I18nState` | `{ locale, t, setLocale, components }` |
 | `ErrorBoundaryProps` | `{ fallback?, children? }` |
 | `ConfirmOptions` | `{ title?, confirmText?, cancelText?, variant? }` |
+| `PopupPositionOptions` | `{ el, isOpen, compute }` — 弹层位置跟踪配置（见 usePopupPosition） |
+| `PopupPosition` | `{ top, left, width?, refresh }` — 弹层位置跟踪器 |
 
 ---
 
@@ -1632,8 +1720,9 @@ import 'weifuwu/components/style.css'   // 包含 Token + 35 布局原语 + 组�
 
 // ├─ 输入框
 <Input placeholder="请输入邮箱" />
-<Input label="用户名" required error="必填" />
-<Input type="password" hint="至少6位" prefix="🔒" />
+<Input label="用户名" name="username" required error="必填" />
+<Input type="password" hint="至少6位" />
+<Input name="email" type="email" disabled placeholder="name@example.com" />
 
 // ├─ 选择器
 <Select options={[{ value: 'a', label: '选项A' }]} placeholder="请选择" />
@@ -1751,7 +1840,7 @@ props 变化 ──────────────────────�
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | Button | `Button` | `variant`, `size`, `loading`, `disabled`, `block`, `type` | 按钮 |
-| Input | `Input` | `variant`, `size`, `placeholder`, `disabled`, `error`, `prefix`, `suffix` | 输入框 |
+| Input | `Input` | `label`, `name`, `type`, `value`, `placeholder`, `required`, `disabled`, `error`, `hint`, `onInput`, `onChange` | 输入框 |
 | Textarea | `Textarea` | `rows`, `resize`, `maxLength`, `error` | 文本域 |
 | Select | `Select` | `options: SelectOption[]`, `placeholder`, `searchable` | 下拉选择 |
 
@@ -1794,13 +1883,13 @@ props 变化 ──────────────────────�
 |-----|--------|-----------|------|
 | Modal | `Modal` | `open`, `title`, `onClose`, `width`, `footer`, `closable` | 模态框 |
 | Drawer | `Drawer` | `open`, `title`, `onClose`, `position: DrawerPosition`, `width` | 抽屉 |
-| Tooltip | `Tooltip` | `content`, `position: TooltipPosition`, `trigger` | 工具提示 |
-| Popover | `Popover` | `content`, `position: PopoverPosition`, `trigger` | 弹出层 |
+| Tooltip | `Tooltip` | `content`, `position: TooltipPosition`, `disabled` | 工具提示（hover/focus 触发） |
+| Popover | `Popover` | `content`, `position: PopoverPosition`, `trigger`, `open`, `onOpenChange`, `disabled` | 弹出层 |
 | Toast | `Toast` | `items: ToastItem[]`, `position`, `max` | 消息提示 |
 | Alert | `Alert` | `variant: AlertVariant`, `title`, `closable`, `icon` | 警告提示 |
 | Loading | `Loading` | `size`, `text`, `fullscreen` | 加载中 |
 | EmptyState | `EmptyState` | `title`, `description`, `action`, `icon` | 空状态 |
-| Skeleton | `Skeleton` | `variant: SkeletonVariant`, `rows`, `width`, `height` | 骨架屏 |
+| Skeleton | `Skeleton` | `variant: SkeletonVariant`, `lines`, `cols`, `width`, `height` | 骨架屏 |
 
 ### 导航组件
 
@@ -1808,7 +1897,7 @@ props 变化 ──────────────────────�
 |-----|--------|-----------|------|
 | Breadcrumb | `Breadcrumb` | `items: BreadcrumbItem[]` | 面包屑 |
 | Tabs | `Tabs` | `items: TabItem[]`, `activeKey`, `onChange`, `type` | 标签页 |
-| Dropdown | `Dropdown` | `items: DropdownItem[]`, `trigger`, `placement` | 下拉菜单 |
+| Dropdown | `Dropdown` | `trigger`, `items: DropdownItem[]`, `open` | 下拉菜单 |
 | Pagination | `Pagination` | `total`, `page`, `pageSize`, `onChange` | 分页 |
 | Steps | `Steps` | `items: StepItem[]`, `current`, `direction`, `size` | 步骤条 |
 | Accordion | `Accordion` | `items: AccordionItem[]`, `multiple`, `defaultActive` | 手风琴 |
@@ -1818,7 +1907,7 @@ props 变化 ──────────────────────�
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | Chart | `Chart` | `type: ChartType`, `data`, `options`, `title`, `area` | SVG 图表（line/bar/pie）|
-| DatePicker | `DatePicker` | `mode: DatePickerMode`, `value`, `onChange`, `placeholder` | 日期选择器（date/datetime/time/range）|
+| DatePicker | `DatePicker` | `mode: DatePickerMode`, `value`, `onChange`, `placeholder`, `disabled` | 日期选择器（date/datetime/time/range）|
 | Editor | `Editor` | `value`, `onChange`, `toolbar`, `placeholder`, `disabled` | 富文本编辑器，零依赖 |
 
 ### 布局

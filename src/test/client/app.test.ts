@@ -268,4 +268,54 @@ describe('createApp', () => {
     assert.equal(renderCount, 2, '3 dirtys should batch into 1 render')
     el.remove()
   })
+
+  it('ctx.ui.$() 深度 Proxy：嵌套赋值/数组 push/delete 触发渲染，相同值不触发', async () => {
+    let renderCount = 0
+    let renderText = ''
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      const $ = ctx.ui.$()
+      $.obj = { a: 1 }
+      $.arr = [1]
+      const btn = (id: string, fn: () => void) => jsx('button', { id, onClick: fn, children: id })
+      return () => {
+        renderCount++
+        renderText = `a=${$.obj.a}:len=${$.arr.length}`
+        return jsx('div', { children: [
+          btn('dp-set', () => { $.obj.a = 99 }),
+          btn('dp-push', () => { $.arr.push(2) }),
+          btn('dp-del', () => { delete $.obj.a }),
+          btn('dp-same', () => { $.obj.a = 99 }),
+        ]})
+      }
+    }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'deep-proxy'
+    await app.mount('#deep-proxy', Cmp)
+    assert.equal(renderCount, 1, 'mount 保护期内不触发')
+
+    const click = (id: string) =>
+      (el.querySelector(`#${id}`) as HTMLElement).dispatchEvent(new (window as any).MouseEvent('click'))
+
+    click('dp-set')
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderCount, 2, '嵌套对象赋值触发渲染')
+    assert.equal(renderText, 'a=99:len=1')
+
+    click('dp-same')
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderCount, 2, '相同值不触发渲染（set trap 短路）')
+
+    click('dp-push')
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderCount, 3, '数组 push 触发渲染')
+    assert.equal(renderText, 'a=99:len=2')
+
+    click('dp-del')
+    await new Promise(r => setTimeout(r, 20))
+    assert.equal(renderCount, 4, 'delete 属性触发渲染')
+    assert.equal(renderText, 'a=undefined:len=2')
+    el.remove()
+  })
 })
