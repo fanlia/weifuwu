@@ -150,7 +150,7 @@ createApp()
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 41 个 UI 组件（Button, Card, Table, Modal 等） |
-| 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 72 个主题 Token + 35 个布局原语 |
+| 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 82 个主题 Token + 35 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -179,7 +179,7 @@ createApp()
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
 | `weifuwu/components` | **42 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
-| `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 72 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+| `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 82 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -2127,7 +2127,7 @@ props 变化 ──────────────────────�
 
 # 布局系统 (`weifuwu/layout`)
 
-纯 CSS 布局原语 + 72 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 布局原语 + 82 个主题 Token。不绑定任何 JS 框架。
 
 > **全栈 weifuwu 项目**：`weifuwu/components/style.css` 已包含布局系统，一条 import 就够了，无需单独引用本页。
 > 本页仅适用于**非 weifuwu 项目**或**只需 CSS 布局**的场景。
@@ -2187,7 +2187,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | | `wf-inline-block` | display: inline-block |
 | | `wf-contents` | display: contents |
 
-## 72 个主题 Token
+## 82 个主题 Token
 
 ```css
 /* 品牌色 */
