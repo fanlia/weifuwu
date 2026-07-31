@@ -43,6 +43,7 @@ export const Home = (_init: any, ctx: any) => {
         h('div', { class: 'logo' }, '⛰'),
         h('h1', {}, 'aippt'),
         h('p', {}, 'AI PPT 生成引擎 — 一句话生成专业演示文稿'),
+        h('a', { class: 'history-link', href: '/history' }, '我的演示文稿 →'),
       ),
       h('div', { class: 'home-card' },
         h('label', { class: 'lbl' }, '主题 *'),

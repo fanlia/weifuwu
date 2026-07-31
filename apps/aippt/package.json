@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node --env-file=../.env --watch server.ts",
     "start": "node --env-file=../.env server.ts",
-    "test": "node --test 'src/pptx/test/**/*.test.ts'",
+    "test": "node --env-file=../../.env --test 'src/pptx/test/**/*.test.ts' 'src/services/*.test.ts' src/db.test.ts",
     "gen:template": "node scripts/gen-template.mjs"
   }
 }

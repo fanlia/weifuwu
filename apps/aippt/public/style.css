@@ -37,6 +37,24 @@ body {
 .btn.ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; font-weight: 500; }
 .error { color: #dc2626; font-size: 13px; background: #fef2f2; border-radius: 8px; padding: 8px 12px; }
 .hint { color: #9ca3af; font-size: 12px; text-align: center; }
+.history-link { display: inline-block; margin-top: 10px; font-size: 13px; color: #6366f1; text-decoration: none; }
+.history-link:hover { text-decoration: underline; }
+
+/* ── 历史页 ── */
+.history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.history-card {
+  position: relative; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 16px; cursor: pointer; transition: box-shadow .15s, transform .15s;
+}
+.history-card:hover { box-shadow: 0 6px 20px rgba(16,24,40,.1); transform: translateY(-2px); }
+.history-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.status-badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; }
+.status-badge.ready { background: #ecfdf5; color: #059669; }
+.status-badge.outline { background: #fef3c7; color: #b45309; }
+.history-theme { font-size: 11px; color: #6b7280; }
+.history-title { font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 10px; }
+.history-meta { display: flex; gap: 12px; font-size: 12px; color: #9ca3af; }
+.history-del { position: absolute; top: 14px; right: 12px; }
 
 /* ── 预览页 ── */
 .deck { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }

@@ -8,6 +8,7 @@ import { createApp, router, RouteView, api } from 'weifuwu/client'
 import { Home } from './pages/Home'
 import { Outline } from './pages/Outline'
 import { Deck } from './pages/Deck'
+import { History } from './pages/History'
 
 const app = createApp()
 
@@ -17,6 +18,7 @@ app.use(router({
   mode: 'history',
   routes: [
     { path: '/', component: Home, title: 'aippt — AI PPT 生成' },
+    { path: '/history', component: History, title: '我的演示文稿 — aippt' },
     { path: '/decks/:id/outline', component: Outline, title: '大纲确认 — aippt' },
     { path: '/decks/:id', component: Deck, title: '预览 — aippt' },
   ],

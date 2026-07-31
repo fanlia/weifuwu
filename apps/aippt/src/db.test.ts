@@ -1,0 +1,104 @@
+/**
+ * db 集成测试 — 需要本地 postgres（docker compose up -d postgres）
+ * 运行: node --env-file=../../.env --test src/db.test.ts
+ */
+
+import { test, before, after } from 'node:test'
+import assert from 'node:assert/strict'
+import { postgres } from 'weifuwu'
+import { createOutline, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateTheme } from './db.ts'
+import type { Outline } from './services/outline.ts'
+import type { DeckData } from './pptx/components/layouts.ts'
+
+let pg: any
+let sql: any
+
+before(async () => {
+  pg = postgres()
+  sql = pg.sql
+  await sql.unsafe(`
+    CREATE TABLE IF NOT EXISTS decks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      theme TEXT NOT NULL DEFAULT 'corporate',
+      status TEXT NOT NULL DEFAULT 'ready' CHECK (status IN ('outline', 'ready')),
+      outline_json JSONB,
+      deck_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
+})
+
+after(async () => {
+  await pg.close()
+})
+
+const outline: Outline = {
+  title: 'DB 测试',
+  theme: 'corporate',
+  slides: [
+    { layout: 'cover', title: '标题' },
+    { layout: 'bullets', title: '要点', points: ['一'] },
+  ],
+}
+
+const deck: DeckData = {
+  title: 'DB 测试',
+  theme: 'corporate',
+  slides: [
+    { layout: 'cover', title: '标题', subtitle: '副标题' },
+    { layout: 'bullets', title: '要点', points: ['一', '二', '三'] },
+    { layout: 'thanks', title: '谢谢观看' },
+  ],
+}
+
+test('db: outline 创建与读取 round-trip', async () => {
+  const id = `t${Date.now()}${Math.floor(Math.random() * 1000)}`
+  await createOutline(sql, { id, title: outline.title, theme: outline.theme, outline })
+  const row = await getDeckRow(sql, id)
+  assert.ok(row)
+  assert.equal(row!.status, 'outline')
+  assert.equal(row!.outline_json!.slides.length, 2)
+  assert.equal(row!.outline_json!.slides[1].layout, 'bullets')
+})
+
+test('db: complete 更新同 id 为 ready', async () => {
+  const id = `t${Date.now()}${Math.floor(Math.random() * 1000)}`
+  await createOutline(sql, { id, title: outline.title, theme: outline.theme, outline })
+  await completeDeckRow(sql, { id, title: deck.title, theme: deck.theme, deck })
+  const row = await getDeckRow(sql, id)
+  assert.equal(row!.status, 'ready')
+  assert.equal(row!.deck_json!.slides.length, 3)
+  assert.equal(row!.deck_json!.slides[0].layout, 'cover')
+})
+
+test('db: updateTheme / updateDeckJson 生效', async () => {
+  const id = `t${Date.now()}${Math.floor(Math.random() * 1000)}`
+  await createOutline(sql, { id, title: outline.title, theme: outline.theme, outline })
+  await completeDeckRow(sql, { id, title: deck.title, theme: deck.theme, deck })
+  await updateTheme(sql, id, 'tech')
+  let row = await getDeckRow(sql, id)
+  assert.equal(row!.theme, 'tech')
+  const changed: DeckData = { ...deck, theme: 'tech', slides: deck.slides.slice(0, 2) }
+  await updateDeckJson(sql, id, changed)
+  row = await getDeckRow(sql, id)
+  assert.equal(row!.deck_json!.slides.length, 2)
+})
+
+test('db: listDecks 排序与 deleteDeck', async () => {
+  const a = `t${Date.now()}a`
+  const b = `t${Date.now()}b`
+  await createOutline(sql, { id: a, title: 'A', theme: 'corporate', outline })
+  await createOutline(sql, { id: b, title: 'B', theme: 'corporate', outline })
+  const rows = await listDecks(sql)
+  const found = rows.filter((r: any) => r.id === a || r.id === b)
+  assert.equal(found.length, 2)
+  // 最新的在前
+  assert.equal(found[0].id, b)
+
+  const ok = await deleteDeck(sql, a)
+  assert.equal(ok, true)
+  assert.equal(await getDeckRow(sql, a), null)
+  assert.equal(await deleteDeck(sql, a), false)
+})
