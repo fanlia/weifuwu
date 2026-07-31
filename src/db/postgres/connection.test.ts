@@ -44,14 +44,14 @@ describe('postgres connection (real database)', () => {
 
   it('simple query SELECT 1', async () => {
     const rows = await conn.query('SELECT 1 AS one')
-    assert.deepEqual(rows, [{ one: '1' }])
+    assert.deepEqual(rows, [{ one: 1 }])
   })
 
   it('query returns multiple rows and columns', async () => {
     const rows = await conn.query('SELECT 1 AS a, 2 AS b UNION ALL SELECT 3, 4')
     assert.deepEqual(rows, [
-      { a: '1', b: '2' },
-      { a: '3', b: '4' },
+      { a: 1, b: 2 },
+      { a: 3, b: 4 },
     ])
   })
 
@@ -110,12 +110,12 @@ describe('postgres parameterized queries (real database)', () => {
 
   it('parameterized SELECT with $1', async () => {
     const rows = await conn.query('SELECT $1::int AS v', [42])
-    assert.deepEqual(rows, [{ v: '42' }])
+    assert.deepEqual(rows, [{ v: 42 }])
   })
 
   it('multiple parameters', async () => {
     const rows = await conn.query('SELECT $1::int + $2::int AS sum', [2, 3])
-    assert.equal(rows[0].sum, '5')
+    assert.equal(rows[0].sum, 5)
   })
 
   it('text parameter with quotes is safe (no injection)', async () => {
@@ -130,7 +130,7 @@ describe('postgres parameterized queries (real database)', () => {
 
   it('object parameter serializes to JSON (jsonb)', async () => {
     const rows = await conn.query('SELECT $1::jsonb AS j', [{ a: 1, b: [2, 3] }])
-    assert.equal(rows[0].j, '{"a": 1, "b": [2, 3]}')
+    assert.deepEqual(rows[0].j, { a: 1, b: [2, 3] })
   })
 
   it('parameterized INSERT/UPDATE on real table', async () => {
@@ -149,5 +149,132 @@ describe('postgres parameterized queries (real database)', () => {
       () => conn.query('SELECT $1::int, $2::int', [1]),
       (e: unknown) => e instanceof Error && (e as any).code === '08P01',
     )
+  })
+})
+
+describe('postgres type mapping (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let conn: PgConnection
+
+  before(async () => {
+    conn = new PgConnection(cfg)
+    await conn.connect()
+  })
+
+  after(async () => {
+    await conn.close()
+  })
+
+  it('jsonb column returns JS object (auto-parsed)', async () => {
+    const rows = await conn.query(`SELECT '{"a": 1, "b": [2, 3]}'::jsonb AS j`)
+    assert.deepEqual(rows[0].j, { a: 1, b: [2, 3] })
+  })
+
+  it('jsonb via parameterized round-trip', async () => {
+    const tbl = `wf_typ_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int, data jsonb)`)
+    await conn.query(`INSERT INTO ${tbl} VALUES ($1, $2)`, [1, { title: 'Deck', slides: [1, 2] }])
+    const rows = await conn.query(`SELECT data FROM ${tbl} WHERE id = $1`, [1])
+    assert.deepEqual(rows[0].data, { title: 'Deck', slides: [1, 2] })
+    await conn.query(`DROP TABLE ${tbl}`)
+  })
+
+  it('int columns return JS number', async () => {
+    const rows = await conn.query('SELECT 42::int AS n, 7::bigint AS b')
+    assert.equal(rows[0].n, 42)
+    assert.equal(rows[0].b, 7)
+  })
+
+  it('boolean columns return JS boolean', async () => {
+    const rows = await conn.query('SELECT true::boolean AS t, false::boolean AS f')
+    assert.equal(rows[0].t, true)
+    assert.equal(rows[0].f, false)
+  })
+
+  it('text/varchar stay as string', async () => {
+    const rows = await conn.query("SELECT 'hello'::text AS s, 'x'::varchar AS v")
+    assert.equal(rows[0].s, 'hello')
+    assert.equal(rows[0].v, 'x')
+  })
+
+  it('float/numeric return number', async () => {
+    const rows = await conn.query('SELECT 3.14::float8 AS f, 1.5::numeric AS n')
+    assert.equal(rows[0].f, 3.14)
+    assert.equal(Number(rows[0].n), 1.5)
+  })
+
+  it('null stays null', async () => {
+    const rows = await conn.query('SELECT NULL::text AS x')
+    assert.equal(rows[0].x, null)
+  })
+
+  it('uuid returns string', async () => {
+    const rows = await conn.query(`SELECT '550e8400-e29b-41d4-a716-446655440000'::uuid AS u`)
+    assert.equal(rows[0].u, '550e8400-e29b-41d4-a716-446655440000')
+  })
+})
+
+describe('postgres transactions (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let conn: PgConnection
+
+  before(async () => {
+    conn = new PgConnection(cfg)
+    await conn.connect()
+  })
+
+  after(async () => {
+    await conn.close()
+  })
+
+  it('commits on success', async () => {
+    const tbl = `wf_tx1_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, v text)`)
+    await conn.transaction(async (tx) => {
+      await tx.query(`INSERT INTO ${tbl} VALUES ($1, $2)`, [1, 'committed'])
+    })
+    const rows = await conn.query(`SELECT v FROM ${tbl} WHERE id = 1`)
+    assert.equal(rows[0].v, 'committed')
+    await conn.query(`DROP TABLE ${tbl}`)
+  })
+
+  it('rolls back on error', async () => {
+    const tbl = `wf_tx2_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, v text)`)
+    await assert.rejects(
+      () =>
+        conn.transaction(async (tx) => {
+          await tx.query(`INSERT INTO ${tbl} VALUES ($1, $2)`, [1, 'will-rollback'])
+          throw new Error('boom')
+        }),
+      /boom/,
+    )
+    const rows = await conn.query(`SELECT count(*)::int AS n FROM ${tbl}`)
+    assert.equal(rows[0].n, 0) // 回滚后无数据
+    await conn.query(`DROP TABLE ${tbl}`)
+  })
+
+  it('sees own writes inside transaction', async () => {
+    const tbl = `wf_tx3_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, v text)`)
+    await conn.transaction(async (tx) => {
+      await tx.query(`INSERT INTO ${tbl} VALUES ($1, $2)`, [1, 'a'])
+      const rows = await tx.query(`SELECT v FROM ${tbl} WHERE id = 1`)
+      assert.equal(rows[0].v, 'a') // 事务内可见
+    })
+    await conn.query(`DROP TABLE ${tbl}`)
+  })
+
+  it('runs consecutive transactions', async () => {
+    const tbl = `wf_tx4_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, v text)`)
+    for (let i = 0; i < 3; i++) {
+      await conn.transaction(async (tx) => {
+        await tx.query(`INSERT INTO ${tbl} VALUES ($1, $2)`, [i, `v${i}`])
+      })
+    }
+    const rows = await conn.query(`SELECT count(*)::int AS n FROM ${tbl}`)
+    assert.equal(rows[0].n, 3)
+    await conn.query(`DROP TABLE ${tbl}`)
   })
 })

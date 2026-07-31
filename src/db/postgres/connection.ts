@@ -47,7 +47,7 @@ export interface PgConnectionOptions {
 }
 
 interface Row {
-  [col: string]: string | null
+  [col: string]: unknown
 }
 
 export class PgConnection {
@@ -236,7 +236,7 @@ export class PgConnection {
         if (this.currentQuery && this.currentQuery.columns) {
           const row: Row = {}
           this.currentQuery.columns.forEach((col, i) => {
-            row[col.name] = values[i] ?? null
+            row[col.name] = convertValue(col.typeOid, values[i] ?? null)
           })
           this.currentQuery.rows.push(row)
         }
@@ -318,6 +318,19 @@ export class PgConnection {
     const clientFinalWithoutProof = `c=biws,r=${nonce}`
     const authMessage = `${ctx.clientFirstBare},${ctx.serverFirst},${clientFinalWithoutProof}`
     return Buffer.from(hmac(serverKey, authMessage)).toString('base64')
+  }
+
+  /** 事务：BEGIN → fn(tx) → COMMIT；fn 抛错 → ROLLBACK（回滚失败吞掉，保留原始错误） */
+  async transaction<T>(fn: (tx: { query: typeof this.query }) => Promise<T>): Promise<T> {
+    await this.query('BEGIN')
+    try {
+      const result = await fn({ query: (sql, params) => this.query(sql, params) })
+      await this.query('COMMIT')
+      return result
+    } catch (e) {
+      await this.query('ROLLBACK').catch(() => {})
+      throw e
+    }
   }
 
   /** 查询：无参数走简单协议（Q），有参数走扩展查询（Parse/Bind/Execute/Sync） */
@@ -422,4 +435,32 @@ function encodeParams(
     if (typeof p === 'object') return JSON.stringify(p)
     return String(p)
   })
+}
+
+/** 按列类型 OID 将文本值转换为 JS 类型（类型映射层） */
+function convertValue(oid: number, value: string | null): unknown {
+  if (value === null) return null
+  switch (oid) {
+    case 114:
+    case 3802:
+      // json / jsonb——自动 JSON.parse（消灭业务 parseRow 样板）
+      return JSON.parse(value)
+    case 20:
+    case 21:
+    case 23:
+    case 26:
+      // int8 / int2 / int4 / int8
+      return Number(value)
+    case 700:
+    case 701:
+    case 1700:
+      // float4 / float8 / numeric
+      return parseFloat(value)
+    case 16:
+      // boolean
+      return value === 't'
+    default:
+      // text / varchar / uuid / date / timestamp 等保持字符串
+      return value
+  }
 }
