@@ -2,7 +2,6 @@ import type { SqlClient } from "./postgres/types.ts"
 export type { SqlClient }
 
 /** Re-export for downstream usage. */
-export type { Sql } from 'postgres'
 /** Lightweight WebSocket interface for WS handler types (avoids external dep resolution). */
 export interface WebSocket {
   send(data: string | Buffer): void
