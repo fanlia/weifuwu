@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { generateDeck, generateOutline, completeDeck, extractJson, validateOutline, type Outline } from './outline.ts'
+import { generateDeck, generateOutline, generateOutlineFromDoc, completeDeck, extractJson, validateOutline, MAX_DOC_CHARS, type Outline } from './outline.ts'
 import type { ChatResponse } from '../ai/types.ts'
 
 /** 构造 mock DeepSeek 客户端（不调真实 API） */
@@ -92,6 +92,40 @@ test('generateOutline: 正常生成', async () => {
 
 test('generateOutline: 非法输出重试', async () => {
   const outline = await generateOutline({ topic: 'x' }, mockClient(['不是JSON', validOutline]))
+  assert.equal(outline.title, '大纲主题')
+})
+
+// ── 从文档生成 ──────────────────────────────────────────
+
+test('generateOutlineFromDoc: 正常提炼', async () => {
+  const outline = await generateOutlineFromDoc(
+    '这是一份关于新能源市场的调研文档，其中提到市场规模持续扩大，主要增长动力来自政策支持和技术进步，竞争格局正在变化。',
+    { pages: 5 },
+    mockClient([validOutline]),
+  )
+  assert.equal(outline.title, '大纲主题')
+  assert.equal(outline.slides.length, 3)
+})
+
+test('generateOutlineFromDoc: 超长内容截断保护', async () => {
+  const long = '文档内容 '.repeat(1000) // 6000+ 字符
+  assert.ok(long.length > MAX_DOC_CHARS)
+  const calls: any[] = []
+  const client = {
+    chat: async (params: any): Promise<ChatResponse> => {
+      calls.push(params)
+      return { id: 'm', model: 'm', choices: [{ index: 0, message: { role: 'assistant', content: validOutline }, finish_reason: 'stop' }] }
+    },
+  }
+  const outline = await generateOutlineFromDoc(long, {}, client)
+  assert.equal(outline.title, '大纲主题')
+  const prompt = calls[0].messages[1].content as string
+  assert.ok(prompt.includes('已截断'), 'prompt 应包含截断提示')
+  assert.ok(prompt.length < long.length, 'prompt 应短于原文')
+})
+
+test('generateOutlineFromDoc: 非法输出重试', async () => {
+  const outline = await generateOutlineFromDoc('足够长的文档内容 '.repeat(30), {}, mockClient(['垃圾', validOutline]))
   assert.equal(outline.title, '大纲主题')
 })
 

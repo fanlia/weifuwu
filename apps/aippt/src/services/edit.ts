@@ -53,7 +53,7 @@ function checkSlide(s: SlideData, expectedLayout: string, label: string): void {
 }
 
 async function attempt(msgs: ChatMessage[], client: DeepSeekClient): Promise<SlideData> {
-  const res = await client.chat({ messages: msgs, temperature: 0.7, max_tokens: 1024 })
+  const res = await client.chat({ messages: msgs, temperature: 0.7, max_tokens: 1024, response_format: { type: 'json_object' } })
   const content = res.choices[0]?.message?.content ?? ''
   return JSON.parse(extractObject(content)) as SlideData
 }

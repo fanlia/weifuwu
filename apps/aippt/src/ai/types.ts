@@ -40,6 +40,8 @@ export interface ChatParams {
   stream?: boolean
   tools?: ToolDefinition[]
   tool_choice?: 'auto' | 'none' | 'required'
+  /** 结构化输出：json_object（模型 JSON mode，保证合法 JSON 对象） */
+  response_format?: { type: 'json_object' }
   stop?: string[]
 }
 

@@ -90,6 +90,89 @@ function buildUserPrompt(opts: GenerateOptions, extra?: string): string {
 
 // ── 阶段 1：大纲生成 ─────────────────────────────────────
 
+/** 文档模式截断上限（字符） */
+export const MAX_DOC_CHARS = 4000
+
+/** 从文档提炼大纲（复用 OUTLINE_SYSTEM schema，仅 user prompt 不同） */
+export async function generateOutlineFromDoc(
+  content: string,
+  opts: GenerateOptions,
+  client: DeepSeekClient,
+): Promise<Outline> {
+  const pages = Math.min(Math.max(opts.pages ?? 8, 5), 15)
+  const style = opts.style ?? 'corporate'
+  const lang = opts.language ?? 'zh'
+  const trimmed =
+    content.length > MAX_DOC_CHARS
+      ? content.slice(0, MAX_DOC_CHARS) + '\n\n…（内容过长已截断，仅基于前 4000 字提炼）'
+      : content
+
+  const userPrompt = [
+    `请根据以下文档内容提炼 PPT 大纲（保留核心论点与结构，忽略冗长细节）：`,
+    `---`,
+    trimmed,
+    `---`,
+    `页数：${pages} 页`,
+    `风格：${STYLE_NAMES[style] ?? style}（theme 字段填 "${style}"）`,
+    `语言：${lang === 'zh' ? '中文' : 'English'}`,
+    opts.audience ? `受众：${opts.audience}` : null,
+    '',
+    '输出大纲 JSON。',
+  ].filter(Boolean).join('\n')
+
+  const attempt = async (hint?: string): Promise<Outline> => {
+    const messages: ChatMessage[] = [
+      { role: 'system', content: DOC_OUTLINE_SYSTEM },
+      { role: 'user', content: userPrompt },
+    ]
+    if (hint) {
+      messages.push(
+        { role: 'assistant', content: hint },
+        { role: 'user', content: '上次输出不符合大纲 schema（slides 每项必须含 layout 字段）。请重新严格按 schema 只输出 JSON 对象。' },
+      )
+    }
+    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 2048, response_format: { type: 'json_object' } })
+    const out = res.choices[0]?.message?.content ?? ''
+    const outline = JSON.parse(extractJson(out)) as unknown
+    validateOutline(outline)
+    return outline
+  }
+  try {
+    return await attempt()
+  } catch (err) {
+    const hint = err instanceof Error ? err.message : String(err)
+    try {
+      return await attempt(hint)
+    } catch (err2) {
+      throw new Error(`文档大纲生成失败: ${err2 instanceof Error ? err2.message : err2}`)
+    }
+  }
+}
+
+/** 文档模式专用 system：强 schema 约束（LLM 对文档输入容易跑偏回 title/bullets 结构） */
+const DOC_OUTLINE_SYSTEM = `你是专业的演示文稿策划师。根据用户提供的文档内容提炼 PPT 大纲，只输出 JSON，不要任何其他文字。
+
+JSON schema（严格遵循，slides 每项**必须**有 layout 字段）:
+{
+  "title": "演示文稿标题",
+  "theme": "corporate | minimal | tech | academic | vibrant",
+  "slides": [
+    { "layout": "cover", "title": "主标题", "subtitle": "副标题一句话" },
+    { "layout": "section", "number": 1, "title": "章节标题", "subtitle": "章节说明" },
+    { "layout": "bullets", "title": "页面标题", "points": ["要点摘要1", "要点摘要2"] },
+    { "layout": "twoColumn", "title": "页面标题", "points": ["左栏方向", "右栏方向"] },
+    { "layout": "data", "title": "页面标题" },
+    { "layout": "thanks", "title": "谢谢观看" }
+  ]
+}
+
+规则：
+1. 从文档提炼核心论点组织页面；第 1 页 cover，最后一页 thanks，每 3-5 页插一个 section。
+2. layout 只能取 cover/section/bullets/twoColumn/data/thanks 之一，不能使用其他字段名（如 bullets/title 单独出现是非法的）。
+3. 每页 title 不超过 14 字；points 只写方向摘要（2-3 条、每条 ≤ 10 字）。
+4. theme 字段必须与用户指定的风格一致。
+5. 忽略文档的冗长细节，保留结构性观点；不要编造文档中没有的数据。`
+
 const OUTLINE_SYSTEM = `你是专业的演示文稿策划师。根据用户主题先生成 PPT 大纲（结构 + 每页标题 + 要点摘要），只输出 JSON，不要任何其他文字。
 
 JSON schema（严格遵循）:
@@ -125,7 +208,7 @@ export async function generateOutline(opts: GenerateOptions, client: DeepSeekCli
         { role: 'user', content: '上次输出不合法（不是严格 JSON 或不符合大纲 schema）。请重新只输出合法的 JSON 对象。' },
       )
     }
-    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 2048 })
+    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 2048, response_format: { type: 'json_object' } })
     const content = res.choices[0]?.message?.content ?? ''
     const outline = JSON.parse(extractJson(content)) as unknown
     validateOutline(outline)
@@ -191,7 +274,7 @@ async function generateBatch(
         ].filter(Boolean).join('\n'),
       },
     ]
-    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 2048 })
+    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 2048, response_format: { type: 'json_object' } })
     const content = res.choices[0]?.message?.content ?? ''
     // 数组输出：直接取 [ ] 边界（extractJson 是对象版，会截断数组）
     const arrStart = content.indexOf('[')
@@ -287,7 +370,7 @@ export async function generateDeck(opts: GenerateOptions, client: DeepSeekClient
         { role: 'user', content: '上次输出不合法（不是严格 JSON 或不符合 schema）。请重新只输出合法的 JSON 对象，不要任何解释。' },
       )
     }
-    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 4096 })
+    const res = await client.chat({ messages, temperature: 0.7, max_tokens: 4096, response_format: { type: 'json_object' } })
     const content = res.choices[0]?.message?.content ?? ''
     const deck = JSON.parse(extractJson(content)) as unknown
     validateDeck(deck)

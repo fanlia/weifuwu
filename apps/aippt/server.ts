@@ -19,7 +19,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFileSync, existsSync } from 'node:fs'
 import type { DeepSeekClient } from './src/ai/deepseek.ts'
-import { generateDeck, generateOutline, completeDeck, validateOutline, type Outline } from './src/services/outline.ts'
+import { generateDeck, generateOutline, generateOutlineFromDoc, completeDeck, validateOutline, type Outline } from './src/services/outline.ts'
 import { rewriteSlide, relayoutSlide } from './src/services/edit.ts'
 import { deckToPptx, type DeckData } from './src/pptx/components/layouts.ts'
 import {
@@ -187,6 +187,33 @@ async function main() {
       const id = nextId('d')
       await createDeck(sql, { id, title: deck.title, theme: deck.theme, deck })
       return Response.json({ id, deck })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return Response.json({ error: msg }, { status: 502 })
+    }
+  })
+
+  // ── 从文档生成大纲 ─────────────────────────────────────
+  app.post('/api/decks/outline-from-doc', async (req: Request): Promise<Response> => {
+    if (!client) return Response.json({ error: 'AI 客户端未配置（缺少 DEEPSEEK_API_KEY）' }, { status: 500 })
+    try {
+      const body = await req.json().catch(() => null) as Record<string, any> | null
+      const content = body?.content
+      if (typeof content !== 'string' || content.trim().length < 50) {
+        return Response.json({ error: 'content 至少 50 字' }, { status: 400 })
+      }
+      const outline = await generateOutlineFromDoc(
+        content.trim(),
+        {
+          pages: Number(body?.pages) || undefined,
+          style: typeof body?.style === 'string' ? body.style : undefined,
+          audience: typeof body?.audience === 'string' ? body.audience : undefined,
+        },
+        client,
+      )
+      const id = nextId('d')
+      await createOutline(sql, { id, title: outline.title, theme: outline.theme, outline })
+      return Response.json({ id, outline })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return Response.json({ error: msg }, { status: 502 })

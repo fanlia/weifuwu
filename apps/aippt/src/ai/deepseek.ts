@@ -38,6 +38,7 @@ export class DeepSeekClient {
       temperature: params.temperature,
       max_tokens: params.max_tokens,
       stream: false,
+      response_format: params.response_format,
       tools: params.tools?.length ? params.tools : undefined,
       tool_choice: params.tool_choice,
       stop: params.stop,

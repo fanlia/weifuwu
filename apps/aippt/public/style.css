@@ -21,6 +21,16 @@ body {
   display: flex; flex-direction: column; gap: 12px;
 }
 .lbl { font-size: 12px; font-weight: 600; color: #374151; }
+
+/* 输入方式切换 */
+.mode-tabs { display: flex; gap: 8px; }
+.mode-tab {
+  padding: 7px 14px; border: 1px solid #d1d5db; border-radius: 8px;
+  background: #fff; color: #374151; font-size: 13px; cursor: pointer;
+}
+.mode-tab.active { background: #eef2ff; border-color: #6366f1; color: #4f46e5; font-weight: 600; }
+.doc-area { resize: vertical; font-family: inherit; }
+.doc-count { font-size: 11px; color: #9ca3af; text-align: right; }
 .input {
   width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px;
   font-size: 14px; font-family: inherit; background: #fff;
