@@ -991,6 +991,35 @@ const Badge: Component = () =>
   (props) => h('span', { class: `badge-${props.variant}` }, props.children)
 ```
 
+### 类型流（props 泛型 + ctx 注入）
+
+```tsx
+import type { Component } from 'weifuwu/client'
+import type { ApiInjected, RouteInjected } from 'weifuwu/client'
+
+// ① props 泛型：JSX 使用时自动类型检查（传错类型编译期报错）
+interface DeckCardProps { title: string; pages: number }
+const DeckCard: Component<DeckCardProps> = (_init, ctx) =>
+  (props) => <div>{props.title} / {props.pages} 页</div>
+// <DeckCard title="x" pages={8} />     ✓
+// <DeckCard title="x" pages="8" />     ✗ 编译期报错
+
+// ② ctx 注入声明：use(api()).use(router()) 后组件声明依赖，ctx 直接访问
+const Home: Component<{}, ApiInjected & RouteInjected> = (_init, ctx) => {
+  ctx.api.get('/users')   // ✓ 有类型
+  ctx.app.navigate('/x')  // ✓ 有类型
+  return () => <h1>Home</h1>
+}
+// 未声明的注入字段编译期报错——注入从"文档约定"变成"类型保证"
+
+createApp()
+  .use(api())                    // 注入 ctx.api
+  .use(router({ routes }))       // 注入 ctx.route / ctx.app
+  .mount('#root', Home)          // mount 时类型累积完整
+```
+
+> 各中间件的注入接口：`api()` → `ApiInjected`、`auth()` → `AuthInjected`、`ws()` → `WsInjected`、`i18n()` → `I18nInjected`、`router()` → `RouteInjected`（均可从 `weifuwu/client` 导入）。
+
 | 规则 | 说明 |
 |------|------|
 | 组件签名 | `(initProps: P, ctx: WfuiContext) => (props: P) => VNode \| null` |
