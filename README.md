@@ -8,6 +8,11 @@ npm install weifuwu
 
 一个包 = 后端 (`weifuwu`) + 前端 (`weifuwu/client`) + 组件库 (`weifuwu/components`) + 布局系统 (`weifuwu/layout`)。
 
+> ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
+> - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）
+> - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useMedia()` / `useBreakpoint()` / `usePopupPosition()`（浏览器事件监听）
+> 后端的是「把页面和代码交给浏览器」，前端的是「在浏览器里驱动 UI」。
+
 ---
 
 ## 设计理念
@@ -61,8 +66,12 @@ const Home: Component = () => () => <h1>Hello weifuwu</h1>
 
 createApp()
   .use(router({ routes: [{ path: '/', component: Home }] }))
-  .mount('#root', () => <RouteView />)
+  .mount('#root', () => () => <RouteView />)  // 根组件也要两阶段：外层返回 render 函数
 ```
+
+运行 `node server.ts`，访问 `http://localhost:3000` 即可看到页面。后端 `ctx.ui.js()` 会实时编译 `src/main.tsx`，改代码刷新即生效，无需任何构建步骤。
+
+> 想**零后端、零构建**最快跑起来？直接跳到下面的「CDN 快速原型」。
 
 ---
 
@@ -1192,7 +1201,7 @@ const DatePicker = (_init, ctx) => {
 
 ```tsx
 const OrderPage = (_init, ctx) => {
-  const $ = ctx.ui.$
+  const $ = ctx.ui.$()
   $.orders = []                // $ 赋值自动触发渲染
   $.loading = false
   return (props) => h('div', {}, $.loading ? h(Spinner) : h(OrderList, { orders: $.orders }))
@@ -1308,7 +1317,7 @@ createApp()
     mode: 'history',  // 或 'hash'
     notFound: NotFoundPage,
   }))
-  .mount('#root', () => <RouteView />)
+  .mount('#root', () => () => <RouteView />)  // 根组件也要两阶段：外层返回 render 函数
 ```
 
 ### 嵌套布局
@@ -1326,7 +1335,7 @@ const routes = [
 ]
 
 function DashboardLayout(_props: {}, ctx: WfuiContext) {
-  return (
+  return (props) => (
     <div style="display:flex">
       <aside>导航菜单</aside>
       <main><RouteView /></main>  {/* 渲染子路由 */}
@@ -1433,8 +1442,10 @@ createApp()
 
 // 在组件中
 function Profile(_props: {}, ctx: WfuiContext) {
-  if (!ctx.auth?.isLoggedIn) return <p>请登录</p>
-  return <p>欢迎, {ctx.auth?.user?.name}</p>
+  return (props) => {
+    if (!ctx.auth?.isLoggedIn) return <p>请登录</p>
+    return <p>欢迎, {ctx.auth?.user?.name}</p>
+  }
 }
 
 // 登录
@@ -1703,7 +1714,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-41 个 HTML 原语组件。每个是 `(props, ctx) => VNode` 纯函数，引用 `--wf-*` CSS 变量做主题。
+41 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -1784,7 +1795,7 @@ import 'weifuwu/components/style.css'   // 包含 Token + 35 布局原语 + 组�
 
 // ├─ 表单验证
 <Form validation={{ email: [{ required: true, message: '请输入邮箱' }] }}
-      onSubmit={values => api.post('/login', values)}
+      onSubmit={values => ctx.api?.post('/login', values)}   // ctx.api 由中间件注入
       onError={errors => setErrors(errors)}>
   <Field label="邮箱" error={errors.email}>
     <Input name="email" />
@@ -2127,7 +2138,7 @@ const LoginPage = (_init, ctx) => {
             },
             onSubmit: async (values) => {
               $.submitting = true
-              await api.post('/login', values)
+              await ctx.api?.post('/login', values)   // api 客户端由中间件注入 ctx.api
               $.submitting = false
             },
             onError: (errors) => { $.errors = errors },
@@ -2157,12 +2168,13 @@ const UserList = (_init, ctx) => {
     { id: 2, name: '李四', email: 'li@example.com', role: '编辑' },
   ]
 
-  const filtered = users.filter(u =>
-    !$.keyword || u.name.includes($.keyword) || u.email.includes($.keyword)
-  )
+  return (props) => {
+    // 派生数据必须在 render 内计算（每次 render 读最新 $.keyword）
+    const filtered = users.filter(u =>
+      !$.keyword || u.name.includes($.keyword) || u.email.includes($.keyword)
+    )
 
-  return (props) =>
-    h('div', { class: 'wf-stack', style: { gap: 'var(--wf-space-md)' } },
+    return h('div', { class: 'wf-stack', style: { gap: 'var(--wf-space-md)' } },
       h('div', { class: 'wf-row', style: { justifyContent: 'space-between', alignItems: 'center' } },
         h(SearchInput, { placeholder: '搜索用户...', value: $.keyword, onSearch: (v: string) => { $.keyword = v } }),
         h(Button, { variant: 'primary' }, '新建用户'),
@@ -2182,6 +2194,7 @@ const UserList = (_init, ctx) => {
       }),
       h(Pagination, { total: filtered.length, page: 1, pageSize: 10, onChange: (p: number) => {} }),
     )
+  }
 }
 ```
 
