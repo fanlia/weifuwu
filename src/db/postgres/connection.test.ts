@@ -94,3 +94,60 @@ describe('postgres connection (real database)', () => {
     assert.equal(c2.connected, false)
   })
 })
+
+describe('postgres parameterized queries (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let conn: PgConnection
+
+  before(async () => {
+    conn = new PgConnection(cfg)
+    await conn.connect()
+  })
+
+  after(async () => {
+    await conn.close()
+  })
+
+  it('parameterized SELECT with $1', async () => {
+    const rows = await conn.query('SELECT $1::int AS v', [42])
+    assert.deepEqual(rows, [{ v: '42' }])
+  })
+
+  it('multiple parameters', async () => {
+    const rows = await conn.query('SELECT $1::int + $2::int AS sum', [2, 3])
+    assert.equal(rows[0].sum, '5')
+  })
+
+  it('text parameter with quotes is safe (no injection)', async () => {
+    const rows = await conn.query("SELECT $1 AS v", ["it's a 'quoted' value; DROP TABLE x"])
+    assert.equal(rows[0].v, "it's a 'quoted' value; DROP TABLE x")
+  })
+
+  it('null parameter', async () => {
+    const rows = await conn.query('SELECT $1::text AS v', [null])
+    assert.equal(rows[0].v, null)
+  })
+
+  it('object parameter serializes to JSON (jsonb)', async () => {
+    const rows = await conn.query('SELECT $1::jsonb AS j', [{ a: 1, b: [2, 3] }])
+    assert.equal(rows[0].j, '{"a": 1, "b": [2, 3]}')
+  })
+
+  it('parameterized INSERT/UPDATE on real table', async () => {
+    const tbl = `wf_pgp_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, title text)`)
+    await conn.query(`INSERT INTO ${tbl} (id, title) VALUES ($1, $2)`, [1, 'hello'])
+    await conn.query(`UPDATE ${tbl} SET title = $1 WHERE id = $2`, ['world', 1])
+    const rows = await conn.query(`SELECT title FROM ${tbl} WHERE id = $1`, [1])
+    assert.equal(rows[0].title, 'world')
+    await conn.query(`DROP TABLE ${tbl}`)
+  })
+
+  it('parameter count mismatch rejects', async () => {
+    // SQL 用 $2 但只传 1 个参数 → Bind 阶段协议错误 08P01
+    await assert.rejects(
+      () => conn.query('SELECT $1::int, $2::int', [1]),
+      (e: unknown) => e instanceof Error && (e as any).code === '08P01',
+    )
+  })
+})

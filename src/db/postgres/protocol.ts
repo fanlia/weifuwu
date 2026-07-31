@@ -102,19 +102,30 @@ export function bindMessage(
 
 /** Execute: E + portal\0 + maxRows(4) */
 export function executeMessage(portal = '', maxRows = 0): Uint8Array {
-  const body = new Uint8Array(1 + 4 + 4)
+  const body = new Uint8Array(portal.length + 1 + 4)
   body.set(utf8(portal), 0)
   body[portal.length] = 0
-  body[portal.length + 1] = (maxRows >> 24) & 0xff
-  body[portal.length + 2] = (maxRows >> 16) & 0xff
-  body[portal.length + 3] = (maxRows >> 8) & 0xff
-  body[portal.length + 4] = maxRows & 0xff
+  const off = portal.length + 1
+  body[off] = (maxRows >> 24) & 0xff
+  body[off + 1] = (maxRows >> 16) & 0xff
+  body[off + 2] = (maxRows >> 8) & 0xff
+  body[off + 3] = maxRows & 0xff
   return encodeMessage('E', body)
 }
 
 /** Sync / Terminate / PasswordMessage */
 export function syncMessage(): Uint8Array {
   return encodeMessage('S', new Uint8Array(0))
+}
+
+/** Flush: 强制服务器处理已缓冲的扩展查询消息（Parse/Bind/Execute 需 Flush 或 Sync 才执行） */
+export function flushMessage(): Uint8Array {
+  return encodeMessage('H', new Uint8Array(0))
+}
+
+/** Describe: D + 目标类型(S/P) + name\0——服务器返回 ParameterDescription(t) / RowDescription(T) */
+export function describeMessage(kind: 'S' | 'P', name = ''): Uint8Array {
+  return encodeMessage('D', concat(utf8(kind), utf8(name), new Uint8Array([0])))
 }
 
 export function terminateMessage(): Uint8Array {
@@ -275,9 +286,14 @@ function utf8(s: string): Uint8Array {
   return new TextEncoder().encode(s)
 }
 
-function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
-  const out = new Uint8Array(a.length + b.length)
-  out.set(a, 0)
-  out.set(b, a.length)
+function concat(...parts: Uint8Array[]): Uint8Array {
+  let total = 0
+  for (const p of parts) total += p.length
+  const out = new Uint8Array(total)
+  let off = 0
+  for (const p of parts) {
+    out.set(p, off)
+    off += p.length
+  }
   return out
 }

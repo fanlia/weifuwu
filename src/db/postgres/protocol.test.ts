@@ -4,6 +4,9 @@ import {
   encodeMessage,
   startupMessage,
   queryMessage,
+  parseMessage,
+  bindMessage,
+  executeMessage,
   parseMessageStream,
   MessageStream,
   type Message,
@@ -175,3 +178,43 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   out.set(b, a.length)
   return out
 }
+
+describe('pg extended query encode', () => {
+  it('encodes Parse message', () => {
+    // P + name\0 + sql\0 + Int16 count + Int32 OIDs
+    const out = parseMessage('', 'SELECT $1::int', [0])
+    // 'SELECT $1::int' = 14 字节: name(1) + sql(14) + \0(1) + count(2) + OID(4) = 22 payload
+    const expected = new Uint8Array([
+      0x50,
+      0, 0, 0, 26, // len = 4 + 22 = 26
+      0, // name empty
+      ...buf('SELECT $1::int'), 0,
+      0, 1, // count = 1
+      0, 0, 0, 0, // OID 0
+    ])
+    assert.deepEqual(out, expected)
+  })
+
+  it('encodes Bind message with text params', () => {
+    // B + portal\0 + statement\0 + fmtCount(2) + paramCount(2) + len(4)+val ...
+    const out = bindMessage('', ['42'])
+    // payload: portal(1) + stmt(1) + fmtCount(2) + count(2) + len(4)+val(2) + resultFmt(2) = 14
+    const expected = new Uint8Array([
+      0x42,
+      0, 0, 0, 18, // len = 4 + 14 = 18
+      0, // portal
+      0, // statement
+      0, 0, // fmtCount 0
+      0, 1, // paramCount 1
+      0, 0, 0, 2, 0x34, 0x32, // len=2 + "42"
+      0, 0, // resultFmtCount 0
+    ])
+    assert.deepEqual(out, expected)
+  })
+
+  it('encodes Execute message', () => {
+    const out = executeMessage()
+    // E + len + portal\0 + maxRows(4)
+    assert.deepEqual(out, new Uint8Array([0x45, 0, 0, 0, 9, 0, 0, 0, 0, 0]))
+  })
+})

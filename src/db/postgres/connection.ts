@@ -17,6 +17,12 @@ import crypto from 'node:crypto'
 import {
   startupMessage,
   queryMessage,
+  parseMessage,
+  bindMessage,
+  executeMessage,
+  syncMessage,
+  flushMessage,
+  describeMessage,
   passwordMessage,
   terminateMessage,
   MessageStream,
@@ -126,6 +132,9 @@ export class PgConnection {
     rows: Row[]
     resolve: (rows: Row[]) => void
     reject: (e: unknown) => void
+    sql?: string
+    params?: (string | null)[]
+    awaitingDescribe?: boolean
   } | null = null
 
   private onData(chunk: Buffer) {
@@ -235,6 +244,16 @@ export class PgConnection {
       }
       case 'C':
         break // CommandComplete——忽略 tag
+      case 't': {
+        // ParameterDescription——收到后发 Bind + Execute + Sync（扩展查询流程）
+        if (this.currentQuery?.awaitingDescribe && this.currentQuery.sql !== undefined) {
+          this.currentQuery.awaitingDescribe = false
+          this.send(bindMessage('', this.currentQuery.params ?? []))
+          this.send(executeMessage())
+          this.send(syncMessage())
+        }
+        break
+      }
       case 'Z': {
         const q = this.currentQuery
         this.currentQuery = null
@@ -301,8 +320,8 @@ export class PgConnection {
     return Buffer.from(hmac(serverKey, authMessage)).toString('base64')
   }
 
-  /** 简单查询：Q + 结果收集 */
-  query(sql: string): Promise<Row[]> {
+  /** 查询：无参数走简单协议（Q），有参数走扩展查询（Parse/Bind/Execute/Sync） */
+  query(sql: string, params?: (string | number | boolean | object | null)[]): Promise<Row[]> {
     return new Promise((resolve, reject) => {
       if (this.status !== 'ready' || !this.socket) {
         reject(new ConnectionError('postgres: not connected'))
@@ -312,13 +331,31 @@ export class PgConnection {
         reject(new ConnectionError('postgres: query already in progress'))
         return
       }
-      this.currentQuery = {
-        columns: [],
-        rows: [],
-        resolve,
-        reject,
+      if (!params || params.length === 0) {
+        // 简单查询（Q）
+        this.currentQuery = {
+          columns: [],
+          rows: [],
+          resolve,
+          reject,
+        }
+        this.socket.write(Buffer.from(queryMessage(sql)))
+      } else {
+        // 扩展查询：Parse → (服务器回 ParameterDescription) → Bind + Execute + Sync
+        this.currentQuery = {
+          columns: [],
+          rows: [],
+          resolve,
+          reject,
+          sql,
+          params: encodeParams(params),
+          awaitingDescribe: true,
+        }
+        // Parse + Describe + Flush：服务器回 ParseComplete(1) + ParameterDescription(t)
+        this.socket.write(Buffer.from(parseMessage('', sql, params.map(() => 0))))
+        this.socket.write(Buffer.from(describeMessage('S', '')))
+        this.socket.write(Buffer.from(flushMessage()))
       }
-      this.socket.write(Buffer.from(queryMessage(sql)))
     })
   }
 
@@ -374,4 +411,15 @@ function xor(a: Uint8Array, b: Uint8Array): Uint8Array {
   const out = new Uint8Array(a.length)
   for (let i = 0; i < a.length; i++) out[i] = a[i] ^ b[i]
   return out
+}
+
+/** 参数编码：null 保留，object → JSON 字符串（jsonb），其余 → String */
+function encodeParams(
+  params: (string | number | boolean | object | null)[],
+): (string | null)[] {
+  return params.map((p) => {
+    if (p === null || p === undefined) return null
+    if (typeof p === 'object') return JSON.stringify(p)
+    return String(p)
+  })
 }
