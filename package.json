@@ -39,19 +39,35 @@
   },
   "dependencies": {
     "@graphql-tools/schema": "^10",
-    "@tailwindcss/postcss": "^4.3.3",
     "graphql": "^16",
     "ioredis": "^5.11.0",
-    "postcss": "^8.5.19",
     "postgres": "^3.4.9",
-    "tailwindcss": "^4.3.3",
     "ws": "^8"
   },
+  "peerDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "postcss": "^8.5.19",
+    "tailwindcss": "^4.3.3"
+  },
+  "peerDependenciesMeta": {
+    "@tailwindcss/postcss": {
+      "optional": true
+    },
+    "postcss": {
+      "optional": true
+    },
+    "tailwindcss": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^25",
     "@types/ws": "^8",
     "esbuild": "^0.28.1",
-    "jsdom": "^29.1.1"
+    "jsdom": "^29.1.1",
+    "postcss": "^8.5.19",
+    "tailwindcss": "^4.3.3"
   },
   "sideEffects": false
 }
