@@ -15,13 +15,13 @@ export const Home = (_init: any, ctx: any) => {
     $.loading = true
     $.error = ''
     try {
-      const res = await ctx.api.post('/api/decks/generate', {
+      const res = await ctx.api.post('/api/decks/outline', {
         topic: $.topic.trim(),
         pages: $.pages,
         style: $.style,
         audience: $.audience.trim() || undefined,
       })
-      ctx.app.navigate(`/decks/${res.id}`)
+      ctx.app.navigate(`/decks/${res.id}/outline`)
     } catch (err: any) {
       $.error = err?.message ?? String(err)
     } finally {
@@ -76,7 +76,7 @@ export const Home = (_init: any, ctx: any) => {
         }),
         $.error ? h('div', { class: 'error' }, $.error) : null,
         h('button', { class: 'btn', disabled: $.loading, onClick: submit }, $.loading ? '生成中…' : '生成 PPT'),
-        h('div', { class: 'hint' }, '生成约需 10-30 秒，AI 将产出大纲并渲染为演示文稿'),
+        h('div', { class: 'hint' }, '第一步生成大纲（约 10 秒），确认后可逐页生成完整内容'),
       ),
     )
 }
