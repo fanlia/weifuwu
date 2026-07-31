@@ -13,7 +13,7 @@
 ```
 
 - **中间件注入 ctx** — `ctx.sql`, `ctx.redis`, `ctx.ui`, `ctx.route`, `ctx.api`, `ctx.auth`, `ctx.ws`, `ctx.i18n`
-- **状态驱动渲染** — `ctx.ui.$` 深度 Proxy，赋值自动触发 VDOM patch
+- **状态驱动渲染** — `ctx.ui.$()` 深度 Proxy，赋值自动触发 VDOM patch
 - **组件签名** — `(initProps, ctx) => (props) => VNode | null`
 - **两阶段模型** — 外层函数 = mount（只一次），内层返回函数 = render（每次 dirty/props 变化）
 - **VDOM 支持 innerHTML** — 直接用 `innerHTML` prop
@@ -46,7 +46,7 @@ const Badge: Component = () =>
 ```tsx
 const Toggle = (_init, ctx) => {
   // ── mount（只一次）──
-  const $ = ctx.ui.$
+  const $ = ctx.ui.$()
   $.on = false
 
   // ── render（每次 dirty/props 变化）──
@@ -61,7 +61,7 @@ const Toggle = (_init, ctx) => {
 
 ```tsx
 const UserProfile = async (initProps, ctx) => {
-  const $ = ctx.ui.$
+  const $ = ctx.ui.$()
   $.loading = true
 
   const user = await fetch(`/api/user/${initProps.id}`).then(r => r.json())
@@ -86,7 +86,7 @@ const UserProfile = async (initProps, ctx) => {
 ```tsx
 // ✅ 正确：初始化用 initProps，渲染用 props
 const Counter = (initProps, ctx) => {
-  const $ = ctx.ui.$
+  const $ = ctx.ui.$()
   $.count = initProps.initial ?? 0
   return (props) =>
     h('button', { onClick: () => $.count += props.step ?? 1 }, $.count)
@@ -99,7 +99,7 @@ const Bad = (props, ctx) =>
 
 ### 无 $ 状态组件
 
-不需要 `ctx.ui.$` 的组件：
+不需要 `ctx.ui.$()` 的组件：
 
 ```tsx
 const Button = (_init, ctx) =>
@@ -119,7 +119,7 @@ const Button = (_init, ctx) =>
 
 ```tsx
 const Popover = (_init, ctx) => {
-  const $ = ctx.ui.$
+  const $ = ctx.ui.$()
   $.show = false
   let wrapEl: HTMLElement | undefined
 
@@ -190,7 +190,7 @@ const DatePicker = (_init, ctx) => {
 ```tsx
 // ✅ 业务代码中用 $，少写样板、不易遗漏
 const OrderPage = (_init, ctx) => {
-  const $ = ctx.ui.$
+  const $ = ctx.ui.$()
   $.orders = []
   $.loading = false
   $.activeTab = 'all'
@@ -212,7 +212,7 @@ const OrderPage = (_init, ctx) => {
 
 ```tsx
 const Panel = (_init, ctx) => {
-  const $ = ctx.ui.$
+  const $ = ctx.ui.$()
   let cached: Data[]       // 手动：不触发渲染
   $.visible = true         // 自动：频繁变化
 
@@ -234,7 +234,7 @@ const Panel = (_init, ctx) => {
 // 组件 A 注册自定义 ID
 const StatsPanel = (_init, ctx) => {
   ctx.ui.selfId('stats')
-  const $ = ctx.ui.$
+  const $ = ctx.ui.$()
   $.data = []
   return (props) => h('div', {}, ...)
 }
@@ -333,7 +333,7 @@ const vnode = renderVNode(Button, { variant: 'primary' }, mockCtx)
 // 有状态组件
 const ctx = mockCtx()
 const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
-ctx.ui.$.show = true
+ctx.ui.$().show = true
 const vnode2 = renderVNode(Popover, { content: 'hello' }, ctx)
 ```
 
