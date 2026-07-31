@@ -27,7 +27,7 @@ describe('postgres pool (real database)', () => {
   })
 
   after(async () => {
-    await pool.query(`DROP TABLE IF EXISTS ${tbl}`)
+    await pool.query(`DROP TABLE IF EXISTS wf_tag_a`)
     await pool.close()
   })
 
@@ -77,5 +77,51 @@ describe('postgres pool (real database)', () => {
     const p = await PgPool.create({ ...cfg, poolSize: 2 })
     await p.close()
     await assert.rejects(() => p.query('SELECT 1'))
+  })
+})
+
+describe('postgres tagged template + unsafe (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  const tbl = `wf_tag_${process.pid}`
+  let pool: PgPool
+
+  before(async () => {
+    pool = await PgPool.create({ ...cfg, poolSize: 2 })
+    await pool.query(`CREATE TABLE IF NOT EXISTS wf_tag_a (id int PRIMARY KEY, title text, meta jsonb)`)
+  })
+
+  after(async () => {
+    await pool.query(`DROP TABLE IF EXISTS wf_tag_a`)
+    await pool.close()
+  })
+
+  it('tagged template with interpolated values becomes parameterized', async () => {
+    await pool.tag`INSERT INTO wf_tag_a (id, title) VALUES (${1}, ${'hello'})`
+    const rows = await pool.tag`SELECT title FROM wf_tag_a WHERE id = ${1}`
+    assert.equal(rows[0].title, 'hello')
+  })
+
+  it('tagged template with object → jsonb (no double-encoding)', async () => {
+    await pool.tag`INSERT INTO wf_tag_a (id, title, meta) VALUES (${2}, ${'x'}, ${{ a: 1, b: [2] }})`
+    const rows = await pool.tag`SELECT meta FROM wf_tag_a WHERE id = ${2}`
+    assert.deepEqual(rows[0].meta, { a: 1, b: [2] }) // 对象进出——双重编码根除
+  })
+
+  it('tagged template is injection-safe', async () => {
+    const evil = "'; DROP TABLE wf_tag_a; --"
+    await pool.tag`INSERT INTO wf_tag_a (id, title) VALUES (${3}, ${evil})`
+    const rows = await pool.tag`SELECT title FROM wf_tag_a WHERE id = ${3}`
+    assert.equal(rows[0].title, evil) // 原样存储，未注入
+  })
+
+  it('unsafe runs raw SQL with $1 params', async () => {
+    await pool.unsafe(`INSERT INTO wf_tag_a (id, title) VALUES ($1, $2)`, [4, 'raw'])
+    const rows = await pool.unsafe(`SELECT title FROM wf_tag_a WHERE id = $1`, [4])
+    assert.equal(rows[0].title, 'raw')
+  })
+
+  it('unsafe without params', async () => {
+    const rows = await pool.unsafe('SELECT 1::int AS one')
+    assert.equal(rows[0].one, 1)
   })
 })

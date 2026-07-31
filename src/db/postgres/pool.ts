@@ -20,6 +20,7 @@ export interface PgPoolOptions extends PgConnectionOptions {
 type QueryParams = (string | number | boolean | object | null)[]
 
 export class PgPool {
+  private all: PgConnection[] = []
   private available: PgConnection[] = []
   private waiters: { resolve: (conn: PgConnection) => void; reject: (e: unknown) => void }[] = []
   private closed = false
@@ -29,13 +30,15 @@ export class PgPool {
   static async create(options: PgPoolOptions = {}): Promise<PgPool> {
     const poolSize = options.poolSize ?? 5
     const pool = new PgPool()
-    pool.available = await Promise.all(
+    const conns = await Promise.all(
       Array.from({ length: poolSize }, async () => {
         const c = new PgConnection(options)
         await c.connect()
         return c
       }),
     )
+    pool.all = conns
+    pool.available = [...conns]
     return pool
   }
 
@@ -70,6 +73,29 @@ export class PgPool {
     }
   }
 
+  /**
+   * tagged template: sql\`SELECT * FROM t WHERE id = \${id}\`
+   * 插值 = 参数（postgres.js 语义，防注入）；表名必须硬编码（插值会被当参数）。
+   * 对象插值自动 JSON.stringify → jsonb。
+   */
+  tag(strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]> {
+    const sql = strings.reduce(
+      (acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''),
+      '',
+    )
+    return this.query(sql, values as QueryParams)
+  }
+
+  /** 原生 SQL（DDL / 动态表名场景）；$1 占位符 + 参数数组 */
+  async unsafe(sql: string, params?: QueryParams): Promise<Row[]> {
+    const conn = await this.acquire()
+    try {
+      return await conn.query(sql, params)
+    } finally {
+      this.release(conn)
+    }
+  }
+
   /** 事务：固定在单个连接上执行整个 BEGIN→fn→COMMIT/ROLLBACK */
   async transaction<T>(
     fn: (tx: { query: (sql: string, params?: QueryParams) => Promise<Row[]> }) => Promise<T>,
@@ -92,9 +118,10 @@ export class PgPool {
 
   async close(): Promise<void> {
     this.closed = true
-    const pending = this.available
     this.available = []
-    await Promise.all(pending.map((c) => c.close()))
+    // 关闭所有连接（含被借出的）——借贷池关闭不留泄漏
+    await Promise.all(this.all.map((c) => c.close()))
+    this.all = []
     // 拒绝所有等待者
     const ws = this.waiters
     this.waiters = []
