@@ -333,7 +333,8 @@ const vnode = renderVNode(Button, { variant: 'primary' }, mockCtx)
 // 有状态组件
 const ctx = mockCtx()
 const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
-ctx.ui.$().show = true
+const $ = ctx.ui.$()
+$.show = true
 const vnode2 = renderVNode(Popover, { content: 'hello' }, ctx)
 ```
 
