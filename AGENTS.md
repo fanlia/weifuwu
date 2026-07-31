@@ -26,9 +26,10 @@
 | CS-01  | `throw`/`return` 后不留死代码                    | if-else 都需 return                       |
 | CS-02  | Promise 必须 await 或 catch                      | 无 `.then()` 无 catch                     |
 | CS-03  | Event listener 内用 `console.error` 不用 `throw` | `server.on('error', ...)`                 |
-| CS-04  | **DB 客户端集成测试必须连真实库**               | redis/postgres 测试双轨：mock 协议级 + docker 真库集成 |
+| CS-04  | **DB 客户端测试必须连 docker 真实库**           | 禁 mock 网络层（已删）；故障注入用 CLIENT KILL / pg_terminate_backend |
 | CS-05  | **协议层改动：TDD 先行 + 诚实裁剪**             | 新能力先写测试（红→绿）；不支持能力抛 `ProtocolError('unsupported')` |
-| FS-01  | 组件 = `(initProps, ctx) => (props) => VNode`    | 无 class/hook/this                        |
+| FS-01  | 组件 = `Component<P, C>`：`(initProps: P, ctx) => (props: P) => VNode` | 无 class/hook/this；P=props（JSX 自动推断），C=ctx 注入依赖 |
+| FS-02  | 组件必须类型化：`Component<P, C>`，ctx 注入声明 C | 禁止 `_init: any`；`ctx.api` 等由 C 泛型编译期保证 |
 | FS-03  | Proxy 驱动渲染                                   | `$.x = val` 而非 DOM 操作                 |
 | FS-04  | 禁止 eval/new Function                           | 安全基线                                  |
 | FS-05  | 前端无 npm 运行时依赖                            | client 包 import 无外部 dep               |
@@ -39,14 +40,14 @@
 ### 无状态组件
 
 ```tsx
-const Badge: Component = () =>
+const Badge: Component<{ variant: 'primary' | 'muted' }> = () =>
   (props) => h('span', { class: `badge-${props.variant}` }, props.children)
 ```
 
 ### 有状态组件
 
 ```tsx
-const Toggle = (_init, ctx) => {
+const Toggle: Component = (_init, ctx) => {
   // ── mount（只一次）──
   const $ = ctx.ui.$()
   $.on = false
@@ -321,14 +322,15 @@ const EChart = (_init, ctx) => {
 ## 测试
 
 - `node --test` 无 Jest/Mocha
-- **CS-04 — DB 客户端（redis/postgres）测试双轨制**：
-  - **mock 服务器**（`src/db/redis/mock-server.ts` 等）：协议级单元测试——确定性、快、故障注入
-  - **docker-compose.yml 真实数据库**：集成测试——**必须**连真实库验证兼容性，不可只用 mock
-    - redis: `localhost:6379`（`REDIS_URL`）
-    - postgres: `localhost:5432`（`DATABASE_URL`，root/123456/demo）
-  - 新增客户端能力时：mock 测试 + 真实库集成测试两者都要（先 mock 后真库）
+- **CS-04 — DB 客户端（redis/postgres）测试必须连 docker 真实库**：
+  - **禁止 mock 网络层**（`mock-server.ts` 已删除）——故障注入用真实机制：
+    - Redis 断线/重连：`CLIENT KILL ID <id>`（杀真实连接）+ BLPOP 阻塞（制造确定性 pending）+ 未占用端口（不可达）
+    - PG 连接被杀：`pg_terminate_backend(pid)`（杀真实后端进程）
+  - redis: `localhost:6379`（`REDIS_URL`）；postgres: `localhost:5432`（`DATABASE_URL`，root/123456/demo）
+  - 新增能力时：真库测试必须覆盖协议正确性 + 故障恢复（重连/订阅重放/池重建）
   - 测试命令 `npm test` 的 pretest 已自动 `docker compose up -d`
 - 组件测试：调用 `renderVNode(Comp, props, ctx)` 获取 VNode
+- **类型流测试**（`src/client/type-flow.test.ts`）：编译期断言（`@ts-expect-error` 负例）——props 泛型传错、未注入 ctx 字段必须编译期报错
 
 ```tsx
 function renderVNode(Comp: any, props: any, ctx: any) {
