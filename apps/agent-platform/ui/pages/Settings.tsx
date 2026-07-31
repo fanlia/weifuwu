@@ -24,6 +24,7 @@ export const Settings: Component = (_props, ctx) => {
       else { ctx.auth?.setUser({ ...ctx.auth?.user, name: $.name.trim() }); $.nameOk = '姓名已更新' }
     } catch { $.nameErr = '网络错误' }
     finally { $.nameSubmitting = false }
+  }
 
   async function updatePassword(e: Event) {
     e.preventDefault()
@@ -44,8 +45,6 @@ export const Settings: Component = (_props, ctx) => {
       }
     } catch { $.pwdErr = '网络错误' }
     finally { $.pwdSubmitting = false }
-
-  }
   }
   return (props) => (
     <div class="page page-narrow">

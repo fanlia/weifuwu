@@ -67,7 +67,7 @@ export const AgentDetail: Component = (_props, ctx) => {
     e.preventDefault()
     $.saving = true; $.error = ''; $.ok = ''
     const body: Record<string, any> = { name: $.name, description: $.description }
-    if (a.type === 'ai') {
+    if ($.agent?.type === 'ai') {
       body.system_prompt = $.systemPrompt; body.model = $.aiModel || null
       body.temperature = parseFloat($.aiTemperature) || 0.7
       body.max_tokens = parseInt($.aiMaxTokens) || 2048
@@ -75,7 +75,7 @@ export const AgentDetail: Component = (_props, ctx) => {
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
     }
-    if (a.type === 'webhook') {
+    if ($.agent?.type === 'webhook') {
       body.webhook_url = $.webhookUrl; body.webhook_secret = $.webhookSecret
       body.webhook_retry_count = parseInt($.webhookRetryCount) || 3
     }

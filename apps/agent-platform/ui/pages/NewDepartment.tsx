@@ -18,7 +18,7 @@ export const NewDepartment: Component = (_props, ctx) => {
     const set = new Set($.selected)
     if (set.has(id)) set.delete(id); else set.add(id)
     $.selected = [...set]
-   
+  }
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
@@ -35,8 +35,6 @@ export const NewDepartment: Component = (_props, ctx) => {
       if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
       ctx.app?.navigate('/departments')
     } catch { $.error = '网络错误'; $.submitting = false }
-
-  }
   }
   return (props) => (
     <div class="page page-narrow">
