@@ -9,7 +9,7 @@ export interface ServeOptions {
   signal?: AbortSignal
   /** Max request body size in bytes. Default: 10MB. Set to 0 for unlimited. */
   maxBodySize?: number
-  /** Socket timeout in ms (inactivity). Default: 30_000. */
+  /** Socket timeout in ms (inactivity). Default: 120_000（2 分钟，适配 LLM 生成等长任务）. */
   timeout?: number
   /** Keep-Alive idle timeout in ms. Default: 5_000. */
   keepAliveTimeout?: number
@@ -155,7 +155,7 @@ export function serve(router: Router, options?: ServeOptions): Server {
   })
 
   // Connection timeouts — prevent slowloris and idle connection leaks
-  server.timeout = options?.timeout ?? 30_000
+  server.timeout = options?.timeout ?? 120_000
   server.keepAliveTimeout = options?.keepAliveTimeout ?? 5_000
   server.headersTimeout = options?.headersTimeout ?? 6_000
 
