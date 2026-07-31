@@ -125,3 +125,39 @@ describe('postgres tagged template + unsafe (real database)', () => {
     assert.equal(rows[0].one, 1)
   })
 })
+
+describe('postgres begin (postgres.js compatible tx API)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let pool: PgPool
+
+  before(async () => {
+    pool = await PgPool.create({ ...cfg, poolSize: 2 })
+    await pool.query('CREATE TABLE IF NOT EXISTS wf_begin_a (id int PRIMARY KEY, v text)')
+  })
+
+  after(async () => {
+    await pool.query('DROP TABLE IF EXISTS wf_begin_a')
+    await pool.close()
+  })
+
+  it('begin commits on success (inner sql is tagged)', async () => {
+    await pool.begin(async (tx) => {
+      await tx`INSERT INTO wf_begin_a VALUES (${1}, ${'ok'})`
+    })
+    const rows = await pool.query('SELECT v FROM wf_begin_a WHERE id = 1')
+    assert.equal(rows[0].v, 'ok')
+  })
+
+  it('begin rolls back on error', async () => {
+    await assert.rejects(
+      () =>
+        pool.begin(async (tx) => {
+          await tx`INSERT INTO wf_begin_a VALUES (${2}, ${'rb'})`
+          throw new Error('abort')
+        }),
+      /abort/,
+    )
+    const rows = await pool.query('SELECT count(*)::int AS n FROM wf_begin_a WHERE id = 2')
+    assert.equal(rows[0].n, 0)
+  })
+})

@@ -46,7 +46,7 @@ export interface PgConnectionOptions {
   /** SSL 模式（暂不支持） */
 }
 
-interface Row {
+export interface Row {
   [col: string]: unknown
 }
 
@@ -321,7 +321,9 @@ export class PgConnection {
   }
 
   /** 事务：BEGIN → fn(tx) → COMMIT；fn 抛错 → ROLLBACK（回滚失败吞掉，保留原始错误） */
-  async transaction<T>(fn: (tx: { query: typeof this.query }) => Promise<T>): Promise<T> {
+  async transaction<T>(
+    fn: (tx: { query: (sql: string, params?: (string | number | boolean | object | null)[]) => Promise<Row[]> }) => Promise<T>,
+  ): Promise<T> {
     await this.query('BEGIN')
     try {
       const result = await fn({ query: (sql, params) => this.query(sql, params) })

@@ -1,4 +1,5 @@
-import type { SqlClient, Context, Middleware, Closeable } from '../types.ts'
+import type { Row } from '../db/postgres/connection.ts'
+import type { Context, Middleware, Closeable } from '../types.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -6,21 +7,36 @@ declare module '../types.ts' {
   }
 }
 
+/** callable tagged template sql（postgres.js 兼容面） */
+export interface SqlClient {
+  (strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]>
+  /** 原生 SQL（DDL / 动态表名）；$1 占位符 + 参数 */
+  unsafe(sql: string, params?: unknown[]): Promise<Row[]>
+  /** 参数化查询 */
+  query(sql: string, params?: unknown[]): Promise<Row[]>
+  /** 事务（postgres.js 兼容）：回调收到 tagged template 事务 sql */
+  begin<T>(fn: (sql: SqlClient) => Promise<T>): Promise<T>
+  /** 事务（框架式）：回调收到 { query } */
+  transaction<T>(fn: (tx: { query: (sql: string, params?: unknown[]) => Promise<Row[]> }) => Promise<T>): Promise<T>
+  close(): Promise<void>
+}
+
 export interface PostgresInjected {
   sql: SqlClient
 }
 
 export interface PostgresOptions {
-  connection?: string | Record<string, unknown>
+  connection?: string
   signal?: AbortSignal
   closeTimeout?: number
+  /** 池大小（连接数）。默认 10。 */
   max?: number
   ssl?: boolean | Record<string, unknown>
   idle_timeout?: number
   connect_timeout?: number
-  /** Per-statement timeout in ms. Set to 0 to disable. Default: 30_000. */
+  /** 兼容保留（自研客户端暂以连接池替代 statement_timeout 注入） */
   statementTimeout?: number
-  /** Called after every query completes. Receives query text, duration in ms, and row count. */
+  /** Called after every query completes. */
   onQuery?: (query: string, durationMs: number, rowCount: number) => void
 }
 
@@ -32,12 +48,8 @@ export interface PostgresClient extends Middleware<Context, Context & PostgresIn
   markMigrated: (moduleName: string) => Promise<void>
   /** Check whether a module has already been migrated. */
   isMigrated: (moduleName: string) => Promise<boolean>
-  transaction: <T>(fn: (sql: any) => Promise<T>, retryOpts?: { maxRetries?: number }) => Promise<T>
-  /**
-   * Connection pool configuration summary.
-   * Returns max pool size; active/idle/waiting are not tracked by postgres.js
-   * and are always 0. Use an external pg_stat_activity query for real-time stats.
-   */
+  transaction: <T>(fn: (sql: SqlClient) => Promise<T>, retryOpts?: { maxRetries?: number }) => Promise<T>
+  /** Connection pool configuration summary. */
   poolStats: () => { active: number; idle: number; waiting: number; max: number }
   close: () => Promise<void>
 }

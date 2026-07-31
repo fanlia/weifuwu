@@ -24,22 +24,39 @@ export class PgPool {
   private available: PgConnection[] = []
   private waiters: { resolve: (conn: PgConnection) => void; reject: (e: unknown) => void }[] = []
   private closed = false
+  private opts: PgPoolOptions
+  private initPromise: Promise<void> | null = null
 
-  private constructor() {}
+  /** 懒连接：构造不连接，ensure() 首次初始化（中间件注入场景） */
+  constructor(options: PgPoolOptions = {}) {
+    this.opts = options
+  }
 
   static async create(options: PgPoolOptions = {}): Promise<PgPool> {
-    const poolSize = options.poolSize ?? 5
-    const pool = new PgPool()
+    const pool = new PgPool(options)
+    await pool.ensure()
+    return pool
+  }
+
+  private ensure(): Promise<void> {
+    if (this.all.length > 0) return Promise.resolve()
+    if (!this.initPromise) {
+      this.initPromise = this.init()
+    }
+    return this.initPromise
+  }
+
+  private async init(): Promise<void> {
+    const poolSize = this.opts.poolSize ?? 5
     const conns = await Promise.all(
       Array.from({ length: poolSize }, async () => {
-        const c = new PgConnection(options)
+        const c = new PgConnection(this.opts)
         await c.connect()
         return c
       }),
     )
-    pool.all = conns
-    pool.available = [...conns]
-    return pool
+    this.all = conns
+    this.available = [...conns]
   }
 
   /** 获取一个空闲连接（全忙则排队等待） */
@@ -65,6 +82,7 @@ export class PgPool {
   }
 
   async query(sql: string, params?: QueryParams): Promise<Row[]> {
+    await this.ensure()
     const conn = await this.acquire()
     try {
       return await conn.query(sql, params)
@@ -79,15 +97,26 @@ export class PgPool {
    * 对象插值自动 JSON.stringify → jsonb。
    */
   tag(strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]> {
-    const sql = strings.reduce(
-      (acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''),
-      '',
-    )
-    return this.query(sql, values as QueryParams)
+    const { sql, params } = parseTagged(strings, values)
+    return this.query(sql, params)
+  }
+
+  /** postgres.js 兼容事务 API: begin(fn)——fn 收到 tagged template 事务 sql */
+    async begin<T>(fn: (txSql: TaggedSql) => Promise<T>): Promise<T> {
+    await this.ensure()
+    
+    return this.transaction(async (tx) => {
+      const txSql: TaggedSql = (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const { sql, params } = parseTagged(strings, values)
+        return tx.query(sql, params)
+      }
+      return fn(txSql)
+    })
   }
 
   /** 原生 SQL（DDL / 动态表名场景）；$1 占位符 + 参数数组 */
   async unsafe(sql: string, params?: QueryParams): Promise<Row[]> {
+    await this.ensure()
     const conn = await this.acquire()
     try {
       return await conn.query(sql, params)
@@ -100,6 +129,7 @@ export class PgPool {
   async transaction<T>(
     fn: (tx: { query: (sql: string, params?: QueryParams) => Promise<Row[]> }) => Promise<T>,
   ): Promise<T> {
+    await this.ensure()
     const conn = await this.acquire()
     try {
       await conn.query('BEGIN')
@@ -132,3 +162,15 @@ export class PgPool {
     return this.available.length + this.waiters.length
   }
 }
+
+/** tagged template → 参数化 SQL（插值 = 参数） */
+function parseTagged(strings: TemplateStringsArray, values: unknown[]): { sql: string; params: QueryParams } {
+  const sql = strings.reduce(
+    (acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''),
+    '',
+  )
+  return { sql, params: values as QueryParams }
+}
+
+/** tagged template 事务 sql（begin 回调参数） */
+export type TaggedSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Row[]>

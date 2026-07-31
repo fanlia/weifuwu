@@ -138,7 +138,7 @@ export function passwordMessage(password: string): Uint8Array {
 
 /** 增量消息流解析：喂入任意分片，返回所有完整消息 */
 export class MessageStream {
-  private buf = new Uint8Array(0)
+  private buf: Uint8Array<ArrayBuffer> = new Uint8Array(0)
 
   push(chunk: Uint8Array): Message[] {
     this.buf = concat(this.buf, chunk)
@@ -286,7 +286,7 @@ function utf8(s: string): Uint8Array {
   return new TextEncoder().encode(s)
 }
 
-function concat(...parts: Uint8Array[]): Uint8Array {
+function concat(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
   let total = 0
   for (const p of parts) total += p.length
   const out = new Uint8Array(total)

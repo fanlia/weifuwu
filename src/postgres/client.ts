@@ -1,16 +1,20 @@
-import postgresFactory from 'postgres'
+/**
+ * weifuwu/postgres — PostgreSQL 中间件（自研客户端）
+ *
+ * 注入 ctx.sql（callable tagged template + 方法面）。
+ * 零第三方依赖——PG v3 协议自研。
+ *
+ *   ctx.sql`SELECT * FROM t WHERE id = ${id}`   ← tagged template → 参数化
+ *   ctx.sql.unsafe(sql, params?)                 ← 原生 SQL（DDL/动态表名）
+ *   ctx.sql.begin(fn)                            ← 事务（postgres.js 兼容）
+ */
+
+import { PgPool } from '../db/postgres/pool.ts'
+import type { Row } from '../db/postgres/connection.ts'
 import type { Context, Handler } from '../types.ts'
-import type { PostgresOptions, PostgresClient } from './types.ts'
+import type { PostgresOptions, PostgresClient, SqlClient } from './types.ts'
 
-/** Migration tracking table name. Created automatically on first migrate(). */
 export const MIGRATIONS_TABLE = '_weifuwu_migrations'
-
-/** PostgreSQL error codes that are safe to retry. */
-const RETRYABLE_CODES = new Set(['40P01', '40001'])
-
-function isRetryable(err: unknown): boolean {
-  return err instanceof Error && 'code' in err && RETRYABLE_CODES.has((err as any).code)
-}
 
 export function postgres(options?: string | PostgresOptions): PostgresClient {
   const opts: PostgresOptions = typeof options === 'string' ? { connection: options } : (options ?? {})
@@ -22,90 +26,17 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
     )
   }
 
-  const stmtTimeout = opts.statementTimeout ?? 30_000
+  const u = new URL(connection)
+  const pool = new PgPool({
+    host: u.hostname,
+    port: Number(u.port || 5432),
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    database: u.pathname.replace(/^\//, ''),
+    poolSize: opts.max ?? 10,
+  })
 
-  // Build postgres.js options — merge connection object with explicit options
-  const pgOptions: Record<string, unknown> = {}
-  if (opts.max !== undefined) pgOptions.max = opts.max
-  if (opts.ssl !== undefined) pgOptions.ssl = opts.ssl
-  if (opts.idle_timeout !== undefined) pgOptions.idle_timeout = opts.idle_timeout
-  if (opts.connect_timeout !== undefined) pgOptions.connect_timeout = opts.connect_timeout
-
-  let connectStr: string | undefined
-  if (typeof connection === 'string') {
-    connectStr = connection
-    // Inject statement_timeout via URL parameter for string connections
-    if (stmtTimeout > 0) {
-      const sep = connectStr.includes('?') ? '&' : '?'
-      connectStr = `${connectStr}${sep}options=-c%20statement_timeout%3D${stmtTimeout}`
-    }
-  } else {
-    // Object config: merge into options (postgres.js accepts host/port/database/etc. in options)
-    Object.assign(pgOptions, connection)
-    // Inject statement_timeout via onconnect hook for object connections
-    if (stmtTimeout > 0) {
-      const origOnconnect = pgOptions.onconnect as ((conn: any) => Promise<void>) | undefined
-      pgOptions.onconnect = async (conn: any) => {
-        if (origOnconnect) await origOnconnect(conn)
-        await conn.query(`SET statement_timeout = ${stmtTimeout}`)
-      }
-    }
-  }
-
-  const rawSql = postgresFactory(connectStr as any, pgOptions as any) as any
-
-  // ── Wrap sql with onQuery hook ──────────────────────────────
-  const onQuery = opts.onQuery
-  let sql: any
-  if (onQuery) {
-    sql = new Proxy(rawSql, {
-      apply(target, thisArg, args) {
-        const start = performance.now()
-        const result = Reflect.apply(target, thisArg, args) as any
-        if (result && typeof result.then === 'function') {
-          return result.then((rows: any) => {
-            const queryStr = String(args[0]?.[0] ?? '').slice(0, 200)
-            onQuery(queryStr, performance.now() - start, rows?.length ?? 0)
-            return rows
-          })
-        }
-        return result
-      },
-      get(target, prop, receiver) {
-        if (prop === 'unsafe') {
-          const origUnsafe = Reflect.get(target, prop, receiver)
-          return (...args: any[]) => {
-            const start = performance.now()
-            const result = origUnsafe.apply(target, args)
-            if (result && typeof result.then === 'function') {
-              return result.then((rows: any) => {
-                const queryStr = String(args[0] ?? '').slice(0, 200)
-                onQuery(queryStr, performance.now() - start, rows?.count ?? rows?.length ?? 0)
-                return rows
-              })
-            }
-            return result
-          }
-        }
-        return Reflect.get(target, prop, receiver)
-      },
-    })
-  } else {
-    sql = rawSql
-  }
-
-  if (opts.signal) {
-    opts.signal.addEventListener(
-      'abort',
-      () => {
-        sql.end()
-      },
-      { once: true },
-    )
-  }
-
-  const closeTimeout = opts.closeTimeout ?? 5
-  const poolMax = opts.max ?? 10
+  const sql = makeSql(pool)
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
     ctx.sql = sql
@@ -117,7 +48,7 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
 
   mw.migrate = async () => {
     await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS "${MIGRATIONS_TABLE}" (
+      CREATE TABLE IF NOT EXISTS "_weifuwu_migrations" (
         name TEXT PRIMARY KEY,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
@@ -125,51 +56,38 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
   }
 
   mw.markMigrated = async (moduleName: string) => {
-    await sql.unsafe(
-      `INSERT INTO "${MIGRATIONS_TABLE}" (name) VALUES ($1) ON CONFLICT DO NOTHING`,
-      [moduleName],
-    )
+    await sql.unsafe(`INSERT INTO "_weifuwu_migrations" (name) VALUES ($1) ON CONFLICT DO NOTHING`, [
+      moduleName,
+    ])
   }
 
   mw.isMigrated = async (moduleName: string): Promise<boolean> => {
-    const [row] = (await sql.unsafe(`SELECT 1 FROM "${MIGRATIONS_TABLE}" WHERE name = $1`, [
-      moduleName,
-    ])) as any[]
-    return !!row
+    const rows = await sql.unsafe(`SELECT 1 FROM "_weifuwu_migrations" WHERE name = $1`, [moduleName])
+    return rows.length > 0
   }
 
-  // ── Transaction with retry ──────────────────────────────────────
-  mw.transaction = (async (fn: any, retryOpts?: { maxRetries?: number }) => {
-    const maxRetries = retryOpts?.maxRetries ?? 3
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const result = await sql.begin(fn)
-        return result
-      } catch (err) {
-        if (attempt < maxRetries && isRetryable(err)) {
-          const delay = Math.min(100 * Math.pow(2, attempt - 1), 1000)
-          await new Promise((r) => setTimeout(r, delay))
-          continue
-        }
-        throw err
-      }
-    }
-    // Unreachable — last attempt throws above
-    throw new Error('transaction: max retries exceeded')
+  mw.transaction = (async (fn: any) => {
+    return sql.transaction(fn)
   }) as any
 
-  // poolStats reports connection pool sizing.
-  // active/idle/waiting counts are not tracked by postgres.js externally;
-  // we report max only and set active to 0.
-  mw.poolStats = () => ({
-    active: 0,
-    idle: poolMax,
-    waiting: 0,
-    max: poolMax,
-  })
+  mw.poolStats = () => ({ active: 0, idle: pool.size, waiting: 0, max: pool.size })
 
-  mw.close = () => sql.end({ timeout: closeTimeout })
+  mw.close = () => pool.close()
 
   return mw
+}
+
+/** 将 PgPool 包装为 callable tagged template sql（postgres.js 兼容面） */
+function makeSql(pool: PgPool): SqlClient {
+  const sql = ((strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]> => {
+    return pool.tag(strings, ...values)
+  }) as SqlClient
+
+  sql.unsafe = (query: string, params?: unknown[]) => pool.unsafe(query, params as any)
+  sql.query = (query: string, params?: unknown[]) => pool.query(query, params as any)
+  sql.begin = (fn: any) => pool.begin(fn)
+  sql.transaction = (fn: any) => pool.transaction(fn)
+  sql.close = () => pool.close()
+
+  return sql
 }

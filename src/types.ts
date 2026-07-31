@@ -1,7 +1,5 @@
-import type postgres from 'postgres'
-
-/** Untyped postgres.js SQL client. Use typed `Sql<{ table: { col: type } }>` for schemas. */
-export type SqlClient = postgres.Sql<Record<string, unknown>>
+import type { SqlClient } from "./postgres/types.ts"
+export type { SqlClient }
 
 /** Re-export for downstream usage. */
 export type { Sql } from 'postgres'
