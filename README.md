@@ -465,7 +465,7 @@ app.get('/assets/*', serveStatic('./assets', {
 
 ## postgres — PostgreSQL 客户端（自研）
 
-> **自研 PG v3 协议**（零第三方依赖）——支持 SCRAM-SHA-256 认证、扩展查询（参数化）、类型映射、事务、连接池、schema 写前校验。
+> **自研 PG v3 协议**（零第三方依赖）——支持 SCRAM-SHA-256 认证、扩展查询（参数化）、类型映射（int8 超范围自动 string 防丢精度）、事务、连接池（acquire 超时防饿死）、schema 写前校验、statement_timeout 慢查询保护。
 
 ```ts
 import { postgres } from 'weifuwu'
@@ -534,7 +534,19 @@ await ctx.sql.insert('decks', { title: 'x', status: 'INVALID' }) // → Validati
 | `ctx.sql.transaction(fn)` | 事务（回调收到 `{ query }`） |
 | `ctx.sql.register(table, schema)` | 注册表结构（写前校验） |
 | `ctx.sql.insert(table, row)` | schema 校验 + 参数化插入 |
+| `ctx.sql\`...\` 内嵌片段` | 条件 SQL 片段（嵌套过滤，参数自动重编号） |
 | `ctx.sql.close()` | 关闭连接池 |
+
+### 条件片段（嵌套过滤）
+
+```ts
+const status = req.query.status // 可能为空
+const rows = await ctx.sql`
+  SELECT * FROM orders WHERE amount > ${100}
+    ${status ? ctx.sql`AND status = ${status}` : ctx.sql``}
+`
+// 空片段内联为空，参数自动重编号——同一 SQL 无论条件多少都安全参数化
+```
 
 ### 选项
 
@@ -562,7 +574,7 @@ await ctx.sql.insert('decks', { title: 'x', status: 'INVALID' }) // → Validati
 
 ## redis — Redis 客户端（自研）
 
-> **自研 RESP2 协议**（零第三方依赖）——连接/重连/离线队列/管道/Pub-Sub + 消除 ioredis 高频痛点（TTL 参数顺序、JSON 手动序列化、缓存样板）。
+> **自研 RESP2 协议**（零第三方依赖）——连接/重连（断线 pending 拒绝、指数退避）/离线队列/管道/Pub-Sub（订阅断线自动重放）+ 消除 ioredis 高频痛点（TTL 参数顺序、JSON 手动序列化、缓存样板）。
 
 ```ts
 import { redis } from 'weifuwu'
@@ -588,6 +600,26 @@ app.get('/llm/:id', async (req, ctx) => {
   }, 3600)
   return Response.json(result)
 })
+
+// ④ Pub/Sub —— 发布用 ctx.redis，订阅用独立连接（回调式，断线自动重连恢复订阅）
+app.post('/events', async (req, ctx) => {
+  await ctx.redis.publish('events', JSON.stringify({ type: 'deck.created' }))
+})
+
+const sub = ctx.redis.createSubscriber()
+await sub.connect()
+await sub.subscribe('events', (channel, message) => {
+  // 收到实时消息
+})
+await sub.psubscribe('jobs:*', (channel, message) => {
+  // 模式匹配订阅
+})
+
+// ⑤ 任意命令透传 + keyPrefix 隔离
+await ctx.redis.command('LRANGE', 'list', '0', '-1')
+
+app.use(redis({ keyPrefix: 'api:' }))  // 之后所有 key 自动加前缀
+await ctx.redis.set('user', 1)         // 实际写入 'api:user'
 ```
 
 ### 方法面
