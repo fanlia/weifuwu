@@ -136,30 +136,62 @@ export function passwordMessage(password: string): Uint8Array {
   return encodeMessage('p', utf8(password))
 }
 
-/** 增量消息流解析：喂入任意分片，返回所有完整消息 */
+/** 增量消息流解析：零拷贝（buffer + offset 指针），喂入任意分片 */
 export class MessageStream {
-  private buf: Uint8Array<ArrayBuffer> = new Uint8Array(0)
+  private buf: Uint8Array = new Uint8Array(0)
+  private off = 0
 
   push(chunk: Uint8Array): Message[] {
-    this.buf = concat(this.buf, chunk)
+    this.append(chunk)
     const out: Message[] = []
     while (true) {
+      const saved = this.off
       const msg = this.tryRead()
-      if (!msg) break
+      if (!msg) {
+        this.off = saved
+        break
+      }
       out.push(msg)
     }
+    if (out.length > 0) this.compact()
     return out
+  }
+
+  /** 追加分片：已消费部分先行压缩（一次拷贝），避免 O(n²) 累积 */
+  private append(chunk: Uint8Array) {
+    if (chunk.length === 0) return
+    const rest = this.buf.length - this.off
+    if (rest === 0) {
+      this.buf = chunk
+      this.off = 0
+      return
+    }
+    const merged = new Uint8Array(rest + chunk.length)
+    merged.set(this.buf.subarray(this.off), 0)
+    merged.set(chunk, rest)
+    this.buf = merged
+    this.off = 0
+  }
+
+  private compact() {
+    if (this.off === this.buf.length) {
+      this.buf = new Uint8Array(0)
+      this.off = 0
+    } else if (this.off > 0) {
+      this.buf = this.buf.subarray(this.off)
+      this.off = 0
+    }
   }
 
   /** 尝试读一条完整消息；不完整返回 null（不消费） */
   private tryRead(): Message | null {
-    if (this.buf.length < 5) return null
+    if (this.buf.length - this.off < 5) return null
     const len =
-      (this.buf[1] << 24) | (this.buf[2] << 16) | (this.buf[3] << 8) | this.buf[4]
-    if (this.buf.length < 1 + len) return null
-    const type = String.fromCharCode(this.buf[0])
-    const payload = this.buf.subarray(5, 1 + len)
-    this.buf = this.buf.subarray(1 + len)
+      (this.buf[this.off + 1] << 24) | (this.buf[this.off + 2] << 16) | (this.buf[this.off + 3] << 8) | this.buf[this.off + 4]
+    if (this.buf.length - this.off < 1 + len) return null
+    const type = String.fromCharCode(this.buf[this.off])
+    const payload = this.buf.subarray(this.off + 5, this.off + 1 + len)
+    this.off += 1 + len
     return { type, payload }
   }
 }
