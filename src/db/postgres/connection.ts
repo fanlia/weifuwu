@@ -60,6 +60,7 @@ export class PgConnection {
   }
   private timeoutSet = false
   private awaitingReady = false
+  private pendingErrorZ = false
   private socket: Socket | null = null
   private stream = new MessageStream()
   private status: 'idle' | 'connecting' | 'ready' | 'closed' = 'idle'
@@ -145,6 +146,8 @@ export class PgConnection {
     sql?: string
     params?: (string | null)[]
     awaitingDescribe?: boolean
+    prepKey?: string
+    prepName?: string
   } | null = null
 
   private onData(chunk: Buffer) {
@@ -270,17 +273,28 @@ export class PgConnection {
       case 'C':
         break // CommandComplete——忽略 tag
       case 't': {
-        // ParameterDescription——收到后发 Bind + Execute + Sync（首次准备路径）
+        // ParameterDescription——Parse 成功确认，缓存 statement 后发 Bind + Execute + Sync
         if (this.currentQuery?.awaitingDescribe && this.currentQuery.sql !== undefined) {
           this.currentQuery.awaitingDescribe = false
-          const stmt = this.prepared.get(`${this.currentQuery.sql}|${this.currentQuery.params?.length ?? 0}`)?.name ?? ''
-          this.send(bindMessage(stmt, this.currentQuery.params ?? []))
+          // 仅在 Parse 成功后缓存（错误 Parse 不污染缓存——下次可重新准备）
+          if (this.currentQuery.prepKey && this.currentQuery.prepName) {
+            this.prepared.set(this.currentQuery.prepKey, {
+              name: this.currentQuery.prepName,
+              columns: this.currentQuery.columns,
+            })
+          }
+          this.send(bindMessage(this.currentQuery.prepName ?? '', this.currentQuery.params ?? []))
           this.send(executeMessage())
           this.send(syncMessage())
         }
         break
       }
       case 'Z': {
+        // 错误后的复位 Z：仅消费（不 resolve 任何查询）
+        if (this.pendingErrorZ) {
+          this.pendingErrorZ = false
+          break
+        }
         const q = this.currentQuery
         this.currentQuery = null
         if (q) q.resolve(q.rows)
@@ -297,6 +311,10 @@ export class PgConnection {
         const q = this.currentQuery
         this.currentQuery = null
         if (q) {
+          // 错误后：连接等待 Sync 的 ReadyForQuery 复位——下一个 Z 仅消费，不 resolve
+          this.pendingErrorZ = true
+          // prepare 阶段错误：发 Sync 复位连接（PG 错误后需 Sync 恢复，否则后续查询被忽略）
+          if (q.awaitingDescribe) this.send(syncMessage())
           const err = new Error(fields.message ?? 'postgres query error') as Error & { code?: string }
           err.code = fields.code
           q.reject(err)
@@ -393,8 +411,6 @@ export class PgConnection {
         const encoded = encodeParams(params)
         if (!stmtEntry) {
           const name = `wf_s${++this.stmtSeq}`
-          stmtEntry = { name, columns: [] }
-          this.prepared.set(sig, stmtEntry)
           this.currentQuery = {
             columns: [],
             rows: [],
@@ -403,6 +419,8 @@ export class PgConnection {
             sql,
             params: encoded,
             awaitingDescribe: true,
+            prepKey: sig,
+            prepName: name,
           }
           // Parse + Describe + Flush：服务器回 ParseComplete(1) + ParameterDescription(t)
           this.socket.write(Buffer.from(parseMessage(name, sql, params.map(() => 0))))
