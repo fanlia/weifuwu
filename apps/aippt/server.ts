@@ -23,7 +23,7 @@ import { generateDeck, generateOutline, completeDeck, validateOutline, type Outl
 import { rewriteSlide, relayoutSlide } from './src/services/edit.ts'
 import { deckToPptx, type DeckData } from './src/pptx/components/layouts.ts'
 import {
-  createOutline, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateTheme,
+  createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateTheme,
 } from './src/db.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -136,6 +136,36 @@ async function main() {
     })
   })
 
+  // ── 批量生成（串行，单份失败不影响其他）───────────────
+  app.post('/api/decks/generate-batch', async (req: Request): Promise<Response> => {
+    if (!client) return Response.json({ error: 'AI 客户端未配置（缺少 DEEPSEEK_API_KEY）' }, { status: 500 })
+    const body = await req.json().catch(() => null) as Record<string, any> | null
+    const items = body?.items
+    if (!Array.isArray(items) || items.length === 0 || items.length > 10) {
+      return Response.json({ error: 'items 必须是非空数组（最多 10 份）' }, { status: 400 })
+    }
+    const results: any[] = []
+    for (const [i, item] of items.entries()) {
+      try {
+        const deck = await generateDeck(
+          {
+            topic: String(item?.topic ?? '').trim(),
+            pages: Number(item?.pages) || undefined,
+            style: typeof item?.style === 'string' ? item.style : undefined,
+            audience: typeof item?.audience === 'string' ? item.audience : undefined,
+          },
+          client,
+        )
+        const id = nextId('d')
+        await createDeck(sql, { id, title: deck.title, theme: deck.theme, deck })
+        results.push({ index: i, status: 'ok', id, title: deck.title, slides: deck.slides.length })
+      } catch (err) {
+        results.push({ index: i, status: 'error', error: err instanceof Error ? err.message : String(err) })
+      }
+    }
+    return Response.json({ results })
+  })
+
   // ── 一键快速路径 ──────────────────────────────────────
   app.post('/api/decks/generate', async (req: Request): Promise<Response> => {
     if (!client) return Response.json({ error: 'AI 客户端未配置（缺少 DEEPSEEK_API_KEY）' }, { status: 500 })
@@ -155,7 +185,7 @@ async function main() {
         client,
       )
       const id = nextId('d')
-      await completeDeckRow(sql, { id, title: deck.title, theme: deck.theme, deck })
+      await createDeck(sql, { id, title: deck.title, theme: deck.theme, deck })
       return Response.json({ id, deck })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -287,7 +317,7 @@ async function main() {
 `,
   )
 
-  serve(app, { port: 3001 })
+  serve(app, { port: 3001, timeout: 300_000, keepAliveTimeout: 10_000 }) // 长超时支持批量生成
   console.log('[aippt] http://localhost:3001 (postgres 持久化)')
 }
 

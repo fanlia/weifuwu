@@ -6,7 +6,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { postgres } from 'weifuwu'
-import { createOutline, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateTheme } from './db.ts'
+import { createOutline, createDeck, completeDeckRow, getDeckRow, listDecks, deleteDeck, updateDeckJson, updateTheme } from './db.ts'
 import type { Outline } from './services/outline.ts'
 import type { DeckData } from './pptx/components/layouts.ts'
 
@@ -84,6 +84,14 @@ test('db: updateTheme / updateDeckJson 生效', async () => {
   await updateDeckJson(sql, id, changed)
   row = await getDeckRow(sql, id)
   assert.equal(row!.deck_json!.slides.length, 2)
+})
+
+test('db: createDeck 直接插入 ready 记录（一键/批量路径）', async () => {
+  const id = `t${Date.now()}${Math.floor(Math.random() * 1000)}`
+  await createDeck(sql, { id, title: deck.title, theme: deck.theme, deck })
+  const row = await getDeckRow(sql, id)
+  assert.equal(row!.status, 'ready')
+  assert.equal(row!.deck_json!.slides.length, 3)
 })
 
 test('db: listDecks 排序与 deleteDeck', async () => {

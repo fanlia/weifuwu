@@ -29,6 +29,16 @@ export async function createOutline(sql: Sql, rec: { id: string; title: string; 
   `
 }
 
+export async function createDeck(
+  sql: Sql,
+  rec: { id: string; title: string; theme: string; deck: DeckData },
+): Promise<void> {
+  await sql`
+    INSERT INTO decks (id, title, theme, status, deck_json)
+    VALUES (${rec.id}, ${rec.title}, ${rec.theme}, 'ready', ${JSON.stringify(rec.deck)}::jsonb)
+  `
+}
+
 export async function completeDeckRow(
   sql: Sql,
   rec: { id: string; title: string; theme: string; deck: DeckData },
