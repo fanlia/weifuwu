@@ -500,7 +500,9 @@ app.post('/transfer', async (req, ctx) => {
 | 数据库类型 | 返回 JS 类型 |
 |-----------|-------------|
 | json / jsonb | `object`（自动 JSON.parse） |
-| int / bigint / float / numeric | `number` |
+| int2 / int4 / int8（安全范围内） | `number` |
+| **int8（超出安全范围）** | **`string`**（防静默丢精度，金额/ID 关键） |
+| float / numeric | `number` |
 | boolean | `boolean` |
 | text / varchar / uuid / date | `string` |
 | NULL | `null` |
@@ -533,6 +535,26 @@ await ctx.sql.insert('decks', { title: 'x', status: 'INVALID' }) // → Validati
 | `ctx.sql.register(table, schema)` | 注册表结构（写前校验） |
 | `ctx.sql.insert(table, row)` | schema 校验 + 参数化插入 |
 | `ctx.sql.close()` | 关闭连接池 |
+
+### 选项
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `poolSize` | `number` | `10` | 连接池大小 |
+| `acquireTimeoutMs` | `number` | `30000` | 池全忙时 acquire 超时（防饿死，0=无限） |
+| `statementTimeoutMs` | `number` | `0` | 语句超时（慢查询保护，0=禁用） |
+
+### 错误映射（自动）
+
+`ctx.sql` 查询错误自动映射为 `HttpError`，业务无需手写 catch：
+
+| 错误码 | 含义 | HTTP |
+|--------|------|------|
+| `23505` | 唯一约束冲突 | **409** |
+| `23503` / `23502` / `23514` | 外键 / 非空 / 检查约束 | **400** |
+| `22P02` / `22003` | 类型 / 数值错误 | **400** |
+
+> 未映射的错误码原样抛出（带 `code` 属性，如 `42P01` 表不存在）。
 
 > **裁剪声明**：逻辑复制 / 大对象 / 显式游标 / 二进制 COPY 不支持（明确抛 `ProtocolError('unsupported')`，而非静默出错）。
 
