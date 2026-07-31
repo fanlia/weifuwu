@@ -58,6 +58,7 @@
     }
   },
   "devDependencies": {
+    "@graphql-tools/schema": "^10.0.38",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^25",
     "@types/ws": "^8",
