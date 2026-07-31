@@ -128,3 +128,54 @@ describe('postgres error mapping to HttpError (ctx.sql)', () => {
     )
   })
 })
+
+describe('postgres middleware option passthrough (real database)', () => {
+  it('statementTimeoutMs kills slow query via ctx.sql', async () => {
+    const pg = postgres({ connection: process.env.DATABASE_URL, max: 1, statementTimeoutMs: 200 })
+    const { sql } = pg
+    try {
+      await assert.rejects(
+        sql`SELECT pg_sleep(2)`,
+        (e) => (e as { code?: string }).code === '57014', // query_canceled
+      )
+      // 超时后连接仍可用
+      const ok = await sql`SELECT 1 AS ok`
+      assert.equal(ok[0].ok, 1)
+    } finally {
+      await sql.close()
+    }
+  })
+
+  it('onQuery hook receives query telemetry', async () => {
+    const calls: string[] = []
+    const pg = postgres({
+      connection: process.env.DATABASE_URL,
+      max: 1,
+      onQuery: (q, dur, rows) => calls.push(`${q.slice(0, 12)}|${dur >= 0}|${rows}`),
+    })
+    const { sql } = pg
+    try {
+      await sql`SELECT 1 AS ok`
+      assert.ok(calls.length >= 1)
+      assert.match(calls[0], /SELECT 1|ok/)
+    } finally {
+      await sql.close()
+    }
+  })
+
+  it('acquireTimeoutMs rejects when pool exhausted', async () => {
+    const pg = postgres({ connection: process.env.DATABASE_URL, max: 1, acquireTimeoutMs: 300 })
+    const { sql } = pg
+    try {
+      // 事务占用唯一连接
+      const tx = sql.transaction(async (tx) => {
+        await tx.query('SELECT pg_sleep(1)')
+      })
+      await new Promise((r) => setTimeout(r, 50))
+      await assert.rejects(sql`SELECT 1`)
+      await tx
+    } finally {
+      await sql.close()
+    }
+  })
+})

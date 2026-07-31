@@ -34,7 +34,10 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
     user: decodeURIComponent(u.username),
     password: decodeURIComponent(u.password),
     database: u.pathname.replace(/^\//, ''),
-    poolSize: opts.max ?? 10,
+    poolSize: opts.max ?? opts.poolSize ?? 10,
+    acquireTimeoutMs: opts.acquireTimeoutMs,
+    statementTimeoutMs: opts.statementTimeoutMs ?? opts.statementTimeout,
+    onQuery: opts.onQuery,
   })
 
   const sql = makeSql(pool)

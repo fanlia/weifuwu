@@ -552,9 +552,29 @@ const rows = await ctx.sql`
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `poolSize` | `number` | `10` | 连接池大小 |
+| `connection` | `string` | `DATABASE_URL` | 连接字符串 |
+| `max`（或 `poolSize`） | `number` | `10` | 连接池大小 |
 | `acquireTimeoutMs` | `number` | `30000` | 池全忙时 acquire 超时（防饿死，0=无限） |
-| `statementTimeoutMs` | `number` | `0` | 语句超时（慢查询保护，0=禁用） |
+| `statementTimeoutMs`（或 `statementTimeout`） | `number` | `0` | 语句超时（慢查询保护，0=禁用） |
+| `onQuery` | `(sql, durationMs, rowCount) => void` | — | 查询观测钩子（慢查询日志/审计） |
+
+### 幂等迁移（内置）
+
+`postgres()` 返回的中间件自带迁移跟踪（`_weifuwu_migrations` 表），模块启动时检查-执行-记录三步幂等：
+
+```ts
+const db = postgres()
+await db.migrate()        // ① 建迁移跟踪表（幂等）
+
+if (!(await db.isMigrated('users'))) {       // ② 检查是否已迁移
+  await db.sql.unsafe(`CREATE TABLE users (...)`)
+  await db.markMigrated('users')             // ③ 记录（幂等，重复调用无害）
+}
+
+app.use(db)
+```
+
+> 多副本部署时天然安全：`markMigrated` 用 `ON CONFLICT DO NOTHING`，两个实例同时迁移也不会重复执行。
 
 ### 错误映射（自动）
 
@@ -999,6 +1019,20 @@ h('div', { class: 'x' }, child1, child2)
 | `h(type, props, ...children)` | hyperscript |
 | `jsx` / `jsxs` / `jsxDEV` | JSX 编译目标 |
 | `Fragment` | 片段 |
+| `Portal` / `createPortal(children, portalKey?)` | 渲染到 `document.body#__wf_portal` 独立容器（弹层/对话框，脱离父级 overflow 裁剪） |
+
+```tsx
+import { createPortal } from 'weifuwu/client'
+
+// 内容渲染到 body 下的独立容器（不在父组件的 DOM 树内）
+const Tooltip = (_init, ctx) =>
+  (props) => createPortal(
+    <div class="tooltip">{props.text}</div>
+  )
+
+// 配合 ctx.ui.selfId('name') 可从任何地方精准刷新 portal 内容
+ctx.ui.render(['name'])
+```
 
 ---
 

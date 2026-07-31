@@ -26,18 +26,26 @@ export interface PostgresInjected {
 }
 
 export interface PostgresOptions {
+  /** 连接字符串（默认 DATABASE_URL） */
   connection?: string
-  signal?: AbortSignal
-  closeTimeout?: number
   /** 池大小（连接数）。默认 10。 */
   max?: number
+  /** 池全忙时 acquire 超时 ms（防饿死）。默认 30_000。0 = 无限。 */
+  acquireTimeoutMs?: number
+  /** 语句超时 ms（慢查询保护，会话级 SET statement_timeout）。默认 0 = 禁用。 */
+  statementTimeoutMs?: number
+  /** 查询观测钩子（慢查询日志/审计） */
+  onQuery?: (query: string, durationMs: number, rowCount: number) => void
+  /** postgres.js 兼容名（= max） */
+  poolSize?: number
+  /** postgres.js 兼容名（= statementTimeoutMs） */
+  statementTimeout?: number
+  /** 连接超时 ms。默认 10_000。 */
+  connect_timeout?: number
+  signal?: AbortSignal
+  closeTimeout?: number
   ssl?: boolean | Record<string, unknown>
   idle_timeout?: number
-  connect_timeout?: number
-  /** 兼容保留（自研客户端暂以连接池替代 statement_timeout 注入） */
-  statementTimeout?: number
-  /** Called after every query completes. */
-  onQuery?: (query: string, durationMs: number, rowCount: number) => void
 }
 
 export interface PostgresClient extends Middleware<Context, Context & PostgresInjected>, Closeable {
