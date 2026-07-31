@@ -16,6 +16,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DeepSeekClient } from './src/ai/deepseek.ts'
 import { generateDeck, generateOutline, completeDeck, validateOutline, type Outline } from './src/services/outline.ts'
+import { rewriteSlide, relayoutSlide } from './src/services/edit.ts'
 import { deckToPptx, type DeckData } from './src/pptx/components/layouts.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -81,6 +82,61 @@ app.get('/api/decks/:id', (req: Request, ctx: any): Response => {
   const rec = decks.get(ctx.params.id)
   if (!rec) return Response.json({ error: 'deck 不存在或已过期' }, { status: 404 })
   return Response.json({ deck: rec.deck })
+})
+
+// ── 预览页编辑 ─────────────────────────────────────────────
+// 换主题（仅更新 deck.theme，JSON 不变）
+app.patch('/api/decks/:id/theme', async (req: Request, ctx: any): Promise<Response> => {
+  const rec = decks.get(ctx.params.id)
+  if (!rec) return Response.json({ error: 'deck 不存在或已过期' }, { status: 404 })
+  const body = await req.json().catch(() => null) as Record<string, any> | null
+  const theme = body?.theme
+  const { themes } = await import('./src/pptx/theme.ts')
+  if (typeof theme !== 'string' || !(theme in themes)) {
+    return Response.json({ error: '未知主题' }, { status: 400 })
+  }
+  rec.deck = { ...rec.deck, theme }
+  return Response.json({ deck: rec.deck })
+})
+
+// AI 重写单页（expand / condense / rephrase）
+app.post('/api/decks/:id/slides/:n/rewrite', async (req: Request, ctx: any): Promise<Response> => {
+  if (!client) return Response.json({ error: 'AI 客户端未配置' }, { status: 500 })
+  const rec = decks.get(ctx.params.id)
+  if (!rec) return Response.json({ error: 'deck 不存在或已过期' }, { status: 404 })
+  const n = Number(ctx.params.n) - 1
+  if (!rec.deck.slides[n]) return Response.json({ error: '页面不存在' }, { status: 404 })
+  const body = await req.json().catch(() => null) as Record<string, any> | null
+  const mode = body?.mode
+  if (!['expand', 'condense', 'rephrase'].includes(mode)) {
+    return Response.json({ error: 'mode 必须为 expand/condense/rephrase' }, { status: 400 })
+  }
+  try {
+    const newSlide = await rewriteSlide(rec.deck.slides[n], mode, client)
+    rec.deck.slides[n] = newSlide
+    return Response.json({ slide: newSlide })
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 502 })
+  }
+})
+
+// AI 单页换版式
+app.post('/api/decks/:id/slides/:n/relayout', async (req: Request, ctx: any): Promise<Response> => {
+  if (!client) return Response.json({ error: 'AI 客户端未配置' }, { status: 500 })
+  const rec = decks.get(ctx.params.id)
+  if (!rec) return Response.json({ error: 'deck 不存在或已过期' }, { status: 404 })
+  const n = Number(ctx.params.n) - 1
+  if (!rec.deck.slides[n]) return Response.json({ error: '页面不存在' }, { status: 404 })
+  const body = await req.json().catch(() => null) as Record<string, any> | null
+  const layout = body?.layout
+  try {
+    const newSlide = await relayoutSlide(rec.deck.slides[n], layout, client)
+    rec.deck.slides[n] = newSlide
+    return Response.json({ slide: newSlide })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return Response.json({ error: msg }, { status: 400 })
+  }
 })
 
 app.get('/api/decks/:id/export', (req: Request, ctx: any): Response => {

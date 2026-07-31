@@ -49,6 +49,22 @@ body {
 .slide-card { transition: transform .15s; }
 .slide-card:hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
 .loading { padding: 60px; text-align: center; color: #6b7280; }
+
+/* ── 预览页编辑 ── */
+.theme-switcher { display: flex; gap: 6px; align-items: center; }
+.theme-dot {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #d1d5db; cursor: pointer; font-size: 10px; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.theme-dot.active { box-shadow: 0 0 0 2px #6366f1; }
+.slide-wrap { display: flex; flex-direction: column; gap: 6px; }
+.slide-ops { display: flex; gap: 6px; align-items: center; }
+.ops-select {
+  padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 12px; background: #fff; color: #374151; cursor: pointer;
+}
+.ops-busy { font-size: 12px; color: #9ca3af; }
 .empty { padding: 100px 20px; text-align: center; color: #6b7280; }
 .empty h2 { margin-bottom: 12px; }
 
