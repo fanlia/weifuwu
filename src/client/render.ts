@@ -142,7 +142,10 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
       errHandler(e)
       childVNode = null
     } else {
-      console.error('Component render error:', e)
+      console.error(
+        `[weifuwu] Component render error in <${Comp.name || 'anonymous'}> (id: ${vnode._id ?? '?'}, phase: mount)`,
+        e,
+      )
       childVNode = null
     }
   }
@@ -376,7 +379,10 @@ export function patchValue(
         errHandler(e)
         childNew = null
       } else {
-        console.error('Component render error:', e)
+        console.error(
+          `[weifuwu] Component render error in <${comp?.name || 'anonymous'}> (id: ${oldV._id ?? '?'}, phase: update)`,
+          e,
+        )
         childNew = null
       }
     }
