@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.54.0 (弹层坐标跟随 + 全局反馈中间件)
+
+### ✨ New APIs
+
+- `ctx.ui.usePopupPosition(opts)`：弹层坐标跟随——Popover/Tooltip/Dropdown/DatePicker/Chart 的弹出层在页面滚动、嵌套容器滚动、窗口缩放后自动重算 fixed 坐标。全局单例 scroll(capture)/resize 监听 + rAF 节流，按组件 selfId 精准刷新
+- `ctx.confirm()`（移入 components）：命令式确认对话框，返回 `Promise<boolean>`，组件化渲染（Modal + portal + 焦点陷阱 + i18n），多次调用叠放互不干扰
+- `<Confirm>` 声明式组件：基于 Modal 封装，footer 自带取消/确定
+- `ctx.toast()`：命令式消息提示，任意代码可调（组件/拦截器/WS/定时器），自动消失 / 单条 duration 覆盖 / max 限制
+
+### 🔧 Breaking Changes
+
+- `confirm` 从 `weifuwu/client` 移到 `weifuwu/components`：`import { confirm } from 'weifuwu/components'`
+
+### 🚀 Features
+
+- Confirm 由「直接 DOM + 内联样式」改为组件化渲染，主题可定制（`.wf-modal` 系列），与 Modal 视觉/行为统一
+- Toast/Confirm 归位组件库，`weifuwu/components` 共 42 个组件 + 2 个命令式中间件
+
+### 🐛 Fixes
+
+- 修复 mountVNode 路径组件首次渲染 null 时 `_refNode` 为空导致 scope render 无法定位
+- demo apps 源码修复（apps/demo 误提交压缩产物恢复、agent-platform 括号作用域错位）
+- 严格模式 9 个 TypeScript 类型错误（JSX `key`/Input `name`/Skeleton `cols`/ref 类型）
+
+### ✅ 测试
+
+- 611 个测试全过（新增 usePopupPosition 10 + Confirm 13 + toast 9 + $ 深度 Proxy 等）
+
+## 0.53.0 (VDOM 三态 skip + keyed diff)
+
+### 🚀 Features
+
+- 三态 skip：props 没变 + `$` 没脏 + ctx 版本一致 → 跳过整个子树渲染（零 `_render` 调用、零 `patchValue` 遍历）
+- lastIndex keyed diff（React 同款），顺序不变时零 `insertBefore`，DemoButton 点击 DOM 修改 34 → 1
+- Portal null ↔ 内容切换的 DOM 清理修复；`ctx.ui.$()` 单例缓存（同组件实例返回同一 Proxy）
+
+## 0.52.0 (响应式自适应组件)
+
+### ✨ New APIs
+
+- `ctx.ui.useMedia(query, cb)`：响应式媒体查询，断点变化自动回调
+- `ctx.ui.useBreakpoint(cb \| bps, cb?)`：命名断点 mobile/tablet/desktop + 自定义断点
+- VDOM 子节点 diff 始终 keyed 模式，无 key 自动分配位置 key
+
 ## 0.51.0 (组件级范围渲染)
 
 ### ✨ New APIs
