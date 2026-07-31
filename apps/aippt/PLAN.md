@@ -162,12 +162,11 @@ Sprint 6: T10（用户系统）⏳ 待定（按需）
 | 前端 | 预览页「复制分享链接」按钮；/share/:token 渲染只读预览（无编辑/无导出下载按钮可保留下载） |
 | 验收 | 无登录直接打开分享链接可看；撤销分享（DELETE share） |
 
-### Sprint 5: docker 私有化验收（补 T9）+ 收尾
+### 收尾（v0.3 最后一个动作）
 | 项 | 内容 |
 |----|------|
-| 验收 | `docker compose up --build` 起服务 → 生成一份真实 pptx → 下载验证 |
-| 收尾 | README 部署章节 + PLAN/IDEA 进度 + 端到端回归 |
-| 备选 | 若 docker 环境不可用，改为「部署脚本 + 裸机启动文档」 |
+| 交付 | README 更新 + PLAN/IDEA 进度 + 端到端回归 |
+| 部署 | docker 部署**暂不列入计划**（T9 保持跳过标记，环境/需求明确后再评估） |
 
 ### 依赖关系
 ```
@@ -175,7 +174,6 @@ Sprint 1 文档生成（独立）→ 依赖 outline 管线（已有）
 Sprint 2 模板库（独立，复用 outline）
 Sprint 3 品牌模板（依赖引擎 image 元素 + theme 扩展）
 Sprint 4 分享（依赖 decks 表扩展）
-Sprint 5 独立（补 T9）
 ```
 
 ### 风险
@@ -185,7 +183,6 @@ Sprint 5 独立（补 T9）
 | 自定义主题与预设主题并存复杂度 | 统一 Theme 结构（id 允许自定义），引擎无感 |
 | image 元素兼容性 | 复用模板骨架的 p:pic 结构 + 黄金文件不覆盖自定义主题 + LibreOffice 验证 |
 | share token 泄露 | 随机 token + 可撤销 + 只读（无编辑 API） |
-| docker 环境不可用 | 备选部署脚本方案 |
 
 ## 风险
 
