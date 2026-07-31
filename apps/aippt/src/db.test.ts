@@ -31,6 +31,8 @@ before(async () => {
 })
 
 after(async () => {
+  // 清理测试数据，避免污染真实 DB
+  await sql`DELETE FROM decks WHERE id LIKE 't%'`
   await pg.close()
 })
 

@@ -119,9 +119,9 @@ T8/T9 独立可并行
 Sprint 1: T1 + T2（两步管线 + SSE，后端骨架）
 Sprint 2: T3 + T4（大纲页 + 预览编辑，前端主战场）
 Sprint 3: ✅ T5（持久化 + 历史）
-Sprint 4: T6 + T7（黄金文件 + 批量 API）   ← 定位落地
-Sprint 5: T8 + T9（PDF + docker）
-Sprint 6: T10（用户系统）
+Sprint 4: ✅ T6 + T7（黄金文件 + 批量 API）   ← 定位落地
+Sprint 5: ✅ T8 PDF 导出（print CSS）+ ⚠️ T9 docker 已跳过（代码就绪待验证）
+Sprint 6: T10（用户系统）⏳ 待定（按需）
 ```
 
 ## 风险

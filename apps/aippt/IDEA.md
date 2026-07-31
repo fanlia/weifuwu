@@ -154,6 +154,7 @@ v0.1  ✅ 引擎最小闭环（vnode + renderXml + zip + packager）
      ✅ 组件层（primitives/widgets/layouts + 5 主题）
      ✅ 语义 JSON 契约 + validateDeck（LLM 守卫）
      ✅ 主流程打通（server.ts + DeepSeek + 前端 SPA）
+     ✅ v0.2: 两步管线 + SSE + 大纲页 + 预览编辑 + 持久化 + 批量 + 黄金文件 + PDF
      ✅ 31 测试 + LibreOffice 兼容性验证 + 浏览器端到端验证
      ⏳ 内存存储 → postgres（v0.3）
 v0.2  编辑 + 单页重写 + SSE 进度 + widgets 扩充 + API/批量接口 + 品牌模板

@@ -93,6 +93,7 @@ export const Deck = (_init: any, ctx: any) => {
           href: `/api/decks/${id}/export`,
           download: `${($.deck?.title ?? 'deck').replace(/\s+/g, '-')}.pptx`,
         }, '下载 .pptx'),
+        h('button', { class: 'btn ghost', onClick: () => window.print() }, '导出 PDF'),
       ),
       $.loading
         ? h('div', { class: 'loading' }, '加载中…')
