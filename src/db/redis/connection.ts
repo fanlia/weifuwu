@@ -84,6 +84,7 @@ export class RedisConnection {
     this.socket = sock
 
     sock.on('connect', () => {
+      sock.setNoDelay(true) // 禁用 Nagle
       this.status = 'ready'
       this.retries = 0
       this.flushOffline()

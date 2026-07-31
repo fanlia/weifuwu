@@ -86,6 +86,7 @@ export class PgConnection {
       }, this.opts.connectTimeoutMs)
 
       sock.once('connect', () => {
+        sock.setNoDelay(true) // 禁用 Nagle——避免 loopback delayed-ACK 40ms 惩罚
         sock.write(
           Buffer.from(
             startupMessage({ user: this.opts.user, database: this.opts.database }),
@@ -127,6 +128,8 @@ export class PgConnection {
   private expectingAuth = true
   private authStage: 'start' | 'sasl-initial' | 'sasl-final' = 'start'
   private authCtx: { clientNonce: string; clientFirstBare: string; serverFirst: string } | null = null
+  private prepared = new Map<string, { name: string; columns: ReturnType<typeof parseRowDescription> }>() // sig → stmt + 列缓存
+  private stmtSeq = 0
   private currentQuery: {
     columns: ReturnType<typeof parseRowDescription>
     rows: Row[]
@@ -228,7 +231,14 @@ export class PgConnection {
     // 查询阶段
     switch (msg.type) {
       case 'T': {
-        if (this.currentQuery) this.currentQuery.columns = parseRowDescription(msg.payload)
+        if (this.currentQuery) {
+          this.currentQuery.columns = parseRowDescription(msg.payload)
+          // prepare 首次：缓存列信息供后续复用（Describe 只回一次 T）
+          const entry = this.prepared.get(
+            `${this.currentQuery.sql}|${this.currentQuery.params?.length ?? 0}`,
+          )
+          if (entry) entry.columns = this.currentQuery.columns
+        }
         break
       }
       case 'D': {
@@ -245,10 +255,11 @@ export class PgConnection {
       case 'C':
         break // CommandComplete——忽略 tag
       case 't': {
-        // ParameterDescription——收到后发 Bind + Execute + Sync（扩展查询流程）
+        // ParameterDescription——收到后发 Bind + Execute + Sync（首次准备路径）
         if (this.currentQuery?.awaitingDescribe && this.currentQuery.sql !== undefined) {
           this.currentQuery.awaitingDescribe = false
-          this.send(bindMessage('', this.currentQuery.params ?? []))
+          const stmt = this.prepared.get(`${this.currentQuery.sql}|${this.currentQuery.params?.length ?? 0}`)?.name ?? ''
+          this.send(bindMessage(stmt, this.currentQuery.params ?? []))
           this.send(executeMessage())
           this.send(syncMessage())
         }
@@ -356,20 +367,42 @@ export class PgConnection {
         }
         this.socket.write(Buffer.from(queryMessage(sql)))
       } else {
-        // 扩展查询：Parse → (服务器回 ParameterDescription) → Bind + Execute + Sync
-        this.currentQuery = {
-          columns: [],
-          rows: [],
-          resolve,
-          reject,
-          sql,
-          params: encodeParams(params),
-          awaitingDescribe: true,
+        // 扩展查询：预处理语句缓存（首次 Parse+Describe，后续直接 Bind+Execute）
+        const sig = `${sql}|${params.length}`
+        let stmtEntry = this.prepared.get(sig)
+        const encoded = encodeParams(params)
+        if (!stmtEntry) {
+          const name = `wf_s${++this.stmtSeq}`
+          stmtEntry = { name, columns: [] }
+          this.prepared.set(sig, stmtEntry)
+          this.currentQuery = {
+            columns: [],
+            rows: [],
+            resolve,
+            reject,
+            sql,
+            params: encoded,
+            awaitingDescribe: true,
+          }
+          // Parse + Describe + Flush：服务器回 ParseComplete(1) + ParameterDescription(t)
+          this.socket.write(Buffer.from(parseMessage(name, sql, params.map(() => 0))))
+          this.socket.write(Buffer.from(describeMessage('S', name)))
+          this.socket.write(Buffer.from(flushMessage()))
+        } else {
+          // 已备 statement：直接 Bind(命名) + Execute + Sync——无 T（Describe 只回一次）
+          this.currentQuery = {
+            columns: [...stmtEntry.columns],
+            rows: [],
+            resolve,
+            reject,
+            sql,
+            params: encoded,
+            awaitingDescribe: false,
+          }
+          this.socket.write(Buffer.from(bindMessage(stmtEntry.name, encoded)))
+          this.socket.write(Buffer.from(executeMessage()))
+          this.socket.write(Buffer.from(syncMessage()))
         }
-        // Parse + Describe + Flush：服务器回 ParseComplete(1) + ParameterDescription(t)
-        this.socket.write(Buffer.from(parseMessage('', sql, params.map(() => 0))))
-        this.socket.write(Buffer.from(describeMessage('S', '')))
-        this.socket.write(Buffer.from(flushMessage()))
       }
     })
   }

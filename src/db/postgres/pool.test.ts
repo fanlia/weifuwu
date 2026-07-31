@@ -23,7 +23,8 @@ describe('postgres pool (real database)', () => {
 
   before(async () => {
     pool = await PgPool.create({ ...cfg, poolSize: 3 })
-    await pool.query(`CREATE TABLE IF NOT EXISTS ${tbl} (id int PRIMARY KEY, v text)`)
+    await pool.query(`DROP TABLE IF EXISTS ${tbl}`)
+    await pool.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, v text)`)
   })
 
   after(async () => {
@@ -87,7 +88,8 @@ describe('postgres tagged template + unsafe (real database)', () => {
 
   before(async () => {
     pool = await PgPool.create({ ...cfg, poolSize: 2 })
-    await pool.query(`CREATE TABLE IF NOT EXISTS wf_tag_a (id int PRIMARY KEY, title text, meta jsonb)`)
+    await pool.query('DROP TABLE IF EXISTS wf_tag_a')
+    await pool.query(`CREATE TABLE wf_tag_a (id int PRIMARY KEY, title text, meta jsonb)`)
   })
 
   after(async () => {
@@ -132,7 +134,8 @@ describe('postgres begin (postgres.js compatible tx API)', () => {
 
   before(async () => {
     pool = await PgPool.create({ ...cfg, poolSize: 2 })
-    await pool.query('CREATE TABLE IF NOT EXISTS wf_begin_a (id int PRIMARY KEY, v text)')
+    await pool.query('DROP TABLE IF EXISTS wf_begin_a')
+    await pool.query('CREATE TABLE wf_begin_a (id int PRIMARY KEY, v text)')
   })
 
   after(async () => {
