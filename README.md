@@ -17,13 +17,15 @@ npm install weifuwu
 
 ## 设计理念
 
-**零运行时依赖** — 前端无 npm 运行时依赖，不引入 Virtual DOM 库、rxjs、immer 等重型依赖。esbuild 编译 TSX 的结果即可直接运行。
+**零运行时依赖** — 前端无 npm 运行时依赖（自研 VDOM，不引入 Virtual DOM 库、rxjs、immer 等）。后端仅依赖 `graphql` + `ws`（语言/协议本身）——**数据库客户端（PostgreSQL/Redis 协议）、GraphQL schema 工具全部自研**。esbuild 编译 TSX 的结果即可直接运行。
 
 **两阶段组件模型** — 组件 = `(initProps, ctx) => (props) => VNode`。外层函数只执行一次（mount），内层函数每次状态/props 变化时执行（render）。无 class、无 `this`、无 Hook。
 
 **Proxy 驱动渲染** — `ctx.ui.$()` 返回深度 Proxy，`$.x = val` 自动触发当前组件的 VDOM patch。也支持手动 `ctx.ui.render()` 精确控制渲染时机。无需手动调用 `useState`/`useEffect`。
 
 **中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` 等），Handler/组件从 `ctx` 读取。
+
+**自研数据层** — `ctx.sql`（PG v3 协议）与 `ctx.redis`（RESP2 协议）为**自研客户端**：确定性输出、行为可预测、统一错误模型。jsonb 自动解码、TTL 安全 API、schema 写前校验——高频痛点（双重编码/parseRow 样板/`'EX'` 参数顺序）从根上消除。
 
 **SSR + 动态编译** — 后端 `ctx.ui.js()` 用 esbuild 实时编译 TSX，开发时改代码即刷即用，零构建步骤。
 
@@ -162,8 +164,8 @@ createApp()
 | `weifuwu` | **serve** | HTTP 服务器 | Router |
 | `weifuwu` | **cors** | CORS 跨域中间件 | Router |
 | `weifuwu` | **serveStatic** | 静态文件服务（ETag/304/目录索引） | Router |
-| `weifuwu` | **postgres** | PostgreSQL 连接池 → `ctx.sql` | Router, DATABASE_URL |
-| `weifuwu` | **redis** | Redis 客户端 → `ctx.redis` | Router, REDIS_URL |
+| `weifuwu` | **postgres** | PostgreSQL 客户端（自研 PG v3 协议）→ `ctx.sql` | Router, DATABASE_URL |
+| `weifuwu` | **redis** | Redis 客户端（自研 RESP2 协议）→ `ctx.redis` | Router, REDIS_URL |
 | `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
 | `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
 | `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
@@ -461,82 +463,130 @@ app.get('/assets/*', serveStatic('./assets', {
 
 ---
 
-## postgres — PostgreSQL 客户端
+## postgres — PostgreSQL 客户端（自研）
+
+> **自研 PG v3 协议**（零第三方依赖）——支持 SCRAM-SHA-256 认证、扩展查询（参数化）、类型映射、事务、连接池、schema 写前校验。
 
 ```ts
-import { postgres, MIGRATIONS_TABLE } from 'weifuwu'
+import { postgres } from 'weifuwu'
 
-// 注入 ctx.sql — postgres.js 客户端
+// 注入 ctx.sql（懒连接池）
 app.use(postgres())
 
-// 使用 ctx.sql
+// ① tagged template —— 插值自动参数化（防注入）
 app.get('/users', async (req, ctx) => {
-  const users = await ctx.sql`SELECT * FROM users WHERE active = ${true}`
+  const users = await ctx.sql`SELECT * FROM users WHERE id = ${ctx.params.id}`
   return Response.json(users)
 })
 
-// 事务
+// ② jsonb 对象直传——自动序列化，不再有双重编码/parseRow 样板
+app.post('/decks', async (req, ctx) => {
+  const deck = await req.json()
+  await ctx.sql`INSERT INTO decks (title, deck_json) VALUES (${deck.title}, ${deck})`
+  // 读回来自动是对象：rows[0].deck_json === { slides: [...] }（不是字符串）
+})
+
+// ③ 事务（postgres.js 兼容 begin）
 app.post('/transfer', async (req, ctx) => {
-  const result = await ctx.sql.begin(async sql => {
+  await ctx.sql.begin(async sql => {
     await sql`UPDATE accounts SET balance = balance - 100 WHERE id = 1`
     await sql`UPDATE accounts SET balance = balance + 100 WHERE id = 2`
   })
-  return Response.json({ ok: true })
 })
 ```
 
-| 选项 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `url` | `string` | `DATABASE_URL` 环境变量 | 连接字符串 |
-| `max` | `number` | `10` | 连接池大小 |
-| `idleTimeout` | `number` | `30` | 空闲连接超时（秒）|
-| `maxLifetime` | `number` | `3600` | 连接最大生存时间（秒）|
+### 类型映射（自动）
 
-| ctx 注入 | 类型 | 说明 |
-|----------|------|------|
-| `ctx.sql` | `postgres.Sql` | postgres.js 客户端（模板标签）|
-| `ctx.sql.close()` | `() => Promise<void>` | 关闭连接池 |
+| 数据库类型 | 返回 JS 类型 |
+|-----------|-------------|
+| json / jsonb | `object`（自动 JSON.parse） |
+| int / bigint / float / numeric | `number` |
+| boolean | `boolean` |
+| text / varchar / uuid / date | `string` |
+| NULL | `null` |
+
+### 类型层（查询泛型 + schema 写前校验）
 
 ```ts
-// 关闭
-const pg = postgres()
-app.use(pg)
-// 关闭时框架自动调用 pg.close()
+// ① 查询结果泛型（编译期类型，无需手写 interface + 断言）
+interface Deck { id: number; title: string; deck_json: { slides: unknown[] } }
+const decks = await ctx.sql.query<Deck>('SELECT id, title, deck_json FROM decks')
+
+// ② schema 注册 → insert 写前校验（脏数据源头拦截）
+ctx.sql.register('decks', {
+  title: { type: 'text', required: true },
+  status: { type: 'enum', values: ['outline', 'ready'] },
+  deck_json: { type: 'jsonb' },
+})
+await ctx.sql.insert('decks', { title: 'x', status: 'INVALID' }) // → ValidationError
 ```
+
+### 方法面
+
+| 方法 | 说明 |
+|------|------|
+| `ctx.sql\`...\`` | tagged template → 参数化查询（插值=参数，表名需硬编码） |
+| `ctx.sql.query<T>(sql, params?)` | 参数化查询 + 泛型 |
+| `ctx.sql.unsafe(sql, params?)` | 原生 SQL（DDL / 动态表名） |
+| `ctx.sql.begin(fn)` | 事务（回调收到 tagged template sql） |
+| `ctx.sql.transaction(fn)` | 事务（回调收到 `{ query }`） |
+| `ctx.sql.register(table, schema)` | 注册表结构（写前校验） |
+| `ctx.sql.insert(table, row)` | schema 校验 + 参数化插入 |
+| `ctx.sql.close()` | 关闭连接池 |
+
+> **裁剪声明**：逻辑复制 / 大对象 / 显式游标 / 二进制 COPY 不支持（明确抛 `ProtocolError('unsupported')`，而非静默出错）。
 
 ---
 
-## redis — Redis 客户端
+## redis — Redis 客户端（自研）
+
+> **自研 RESP2 协议**（零第三方依赖）——连接/重连/离线队列/管道/Pub-Sub + 消除 ioredis 高频痛点（TTL 参数顺序、JSON 手动序列化、缓存样板）。
 
 ```ts
 import { redis } from 'weifuwu'
 
 app.use(redis())
 
-app.get('/cache/:key', async (req, ctx) => {
-  const val = await ctx.redis.get(ctx.params.key)
-  if (!val) return Response.json({ miss: true })
-  return Response.json({ value: val })
-})
-
+// ① TTL 安全 —— 直接传秒，不会写错
 app.post('/cache/:key', async (req, ctx) => {
   const { value } = await req.json()
-  await ctx.redis.set(ctx.params.key, JSON.stringify(value), 'EX', 3600)
-  return Response.json({ ok: true })
+  await ctx.redis.set(ctx.params.key, value, 3600)  // ioredis 要 set(k, v, 'EX', 3600)
+})
+
+// ② JSON 零样板 —— 自动序列化（AI 缓存场景）
+app.get('/cache/:key', async (req, ctx) => {
+  const val = await ctx.redis.jsonGet(ctx.params.key)  // 自动 JSON.parse
+  return Response.json(val ?? { miss: true })
+})
+
+// ③ 缓存便捷 —— 读-算-写一体，null 不缓存（防穿透）
+app.get('/llm/:id', async (req, ctx) => {
+  const result = await ctx.redis.cache(`llm:${ctx.params.id}`, async () => {
+    return await generateLLM(ctx.params.id)  // miss 才执行
+  }, 3600)
+  return Response.json(result)
 })
 ```
+
+### 方法面
+
+| 方法 | 说明 |
+|------|------|
+| `get / set(key, val, ttl?) / del / incr / expire / ttl` | 基础命令（set 直接传秒） |
+| `jsonGet / jsonSet(key, val, ttl?)` | JSON 自动序列化 |
+| `cache(key, fn, ttl)` | 缓存读-算-写（null 不缓存防穿透） |
+| `publish(channel, msg)` | Pub-Sub 发布 |
+| `createSubscriber()` | 独立订阅连接（`subscribe`/`psubscribe` 回调式） |
+| `command(name, ...args)` | 底层命令透传 |
+| `close()` | 关闭连接池 |
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `url` | `string` | `REDIS_URL` 环境变量 | 连接字符串 |
-| `options` | `RedisOptions` | — | ioredis 配置选项 |
+| `poolSize` | `number` | `5` | 连接池大小 |
+| `keyPrefix` | `string` | `''` | 所有 key 自动加前缀（多应用隔离） |
 
-| ctx 注入 | 类型 | 说明 |
-|----------|------|------|
-| `ctx.redis` | `ioredis.Redis` | ioredis 实例 |
-| `ctx.redis.close()` | `() => Promise<void>` | 关闭连接 |
-
-支持全部 ioredis API：`get`, `set`, `del`, `hget`, `hset`, `lpush`, `publish` 等。
+> **裁剪声明**：集群（MOVED 路由）/ 哨兵 / 自动管道不支持（standalone 优先）。
 
 ---
 
@@ -593,6 +643,8 @@ app.get('/style.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css')) 
 ---
 
 ## graphql — GraphQL 端点
+
+> **SDL + resolvers 绑定为自研实现**（`makeExecutableSchema`，56 行替代 @graphql-tools/schema）——支持根类型与嵌套类型字段 resolver、默认属性查找。
 
 ```ts
 import type { GraphQLHandler } from 'weifuwu'

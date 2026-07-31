@@ -27,6 +27,7 @@
 | CS-02  | Promise 必须 await 或 catch                      | 无 `.then()` 无 catch                     |
 | CS-03  | Event listener 内用 `console.error` 不用 `throw` | `server.on('error', ...)`                 |
 | CS-04  | **DB 客户端集成测试必须连真实库**               | redis/postgres 测试双轨：mock 协议级 + docker 真库集成 |
+| CS-05  | **协议层改动：TDD 先行 + 诚实裁剪**             | 新能力先写测试（红→绿）；不支持能力抛 `ProtocolError('unsupported')` |
 | FS-01  | 组件 = `(initProps, ctx) => (props) => VNode`    | 无 class/hook/this                        |
 | FS-03  | Proxy 驱动渲染                                   | `$.x = val` 而非 DOM 操作                 |
 | FS-04  | 禁止 eval/new Function                           | 安全基线                                  |
@@ -359,3 +360,33 @@ const vnode2 = renderVNode(Popover, { content: 'hello' }, ctx)
 - 路径参数 `:id`，通配符 `*`
 - `app.ws(path, handler)` WebSocket
 - `app.graphql(handler)` GraphQL 端点
+
+## 自研协议层开发原则（CS-05 细则）
+
+weifuwu 的 DB 客户端（`src/db/redis/`、`src/db/postgres/`）与 schema 工具（`src/make-executable-schema.ts`）为自研实现，改动遵循：
+
+### 1. TDD 先行
+- 每个协议能力：**先写失败测试**（红）→ 最小实现（绿）→ 重构
+- 测试用真实库（CS-04）验证协议行为——真实库能抓出文档外细节（如 SCRAM 格式、半双工缓冲、Describe 只回一次 T）
+
+### 2. 诚实裁剪（可预测失败）
+- **不支持的能力明确抛 `ProtocolError('unsupported')`**，绝不静默降级或"尽量支持"
+- 已裁剪清单：逻辑复制/大对象/游标/二进制 COPY（PG）；集群/哨兵/自动管道（Redis）
+- 新增裁剪项：在 `docs/db-clients-plan.md` 裁剪声明中登记
+
+### 3. 协议语义优先（真实库验证过的坑，不可回归）
+- 错误响应是正常协议消息（`-ERR` → 连接保持，RespError 作为值）
+- 扩展查询消息是半双工缓冲（Parse/Bind/Execute 需 Flush/Sync 才执行）
+- Describe 只回一次 RowDescription——prepare 复用须缓存列信息
+- socket 必须 `setNoDelay(true)`（禁用 Nagle，避免 loopback 40ms 惩罚）
+- 类型映射：jsonb→object、int→number、boolean→bool（DataRow 按列 OID 转换）
+
+### 4. 性能基线
+- 自研客户端性能须与原版（postgres.js/ioredis，devDependencies）同一量级
+- 回归对比：`node bench/db-bench.ts`（改动编解码/连接层后必跑）
+- 编解码零拷贝：buffer + offset 指针，避免 concat 累积 O(n²)
+
+### 5. makeExecutableSchema
+- 核心：SDL + resolvers map → 字段 resolve 绑定（`buildSchema` + 遍历 `getFields`）
+- 裁剪：类型合并/extends、指令绑定（graphql 原生无等价，不自行实现）
+- 新能力先补 `src/make-executable-schema.test.ts`
