@@ -9,7 +9,8 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
   font-weight: var(--wf-font-weight-medium);
-  padding: var(--wf-space-sm) var(--wf-space-md);
+  padding: var(--wf-control-pad-y) var(--wf-space-md);
+  min-height: var(--wf-control-height);
   border-radius: var(--wf-radius);
   border: var(--wf-border-width) solid transparent;
   cursor: pointer;
@@ -32,8 +33,8 @@
 .wf-btn--danger { background: var(--wf-color-error); color: #fff; border-color: var(--wf-color-error); }
 .wf-btn--danger:hover { opacity: 0.9; }
 
-.wf-btn--sm { padding: var(--wf-space-xs) var(--wf-space-sm); font-size: var(--wf-font-size-xs); }
-.wf-btn--lg { padding: var(--wf-space) var(--wf-space-lg); font-size: var(--wf-font-size-base); }
+.wf-btn--sm { padding: var(--wf-space-xs) var(--wf-space-sm); font-size: var(--wf-font-size-xs); min-height: 28px; }
+.wf-btn--lg { padding: var(--wf-space) var(--wf-space-lg); font-size: var(--wf-font-size-base); min-height: 40px; }
 
 .wf-btn--block { display: flex; width: 100%; }
 

@@ -73,7 +73,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--wf-gap-sm);
-  padding: var(--wf-space-sm) var(--wf-space);
+  padding: var(--wf-control-pad-y) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg);

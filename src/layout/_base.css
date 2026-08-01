@@ -47,7 +47,7 @@ select {
   color: var(--wf-color-text);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
-  padding: var(--wf-space-sm) var(--wf-space);
+  padding: var(--wf-control-pad-y) var(--wf-space);
 }
 
 input:focus,
@@ -72,7 +72,8 @@ button {
   color: var(--wf-color-text);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
-  padding: var(--wf-space-sm) var(--wf-space-md);
+  padding: var(--wf-control-pad-y) var(--wf-space-md);
+  min-height: var(--wf-control-height);
   cursor: pointer;
 }
 button:hover {
@@ -85,6 +86,24 @@ button:focus-visible,
 [tabindex]:focus-visible {
   outline: none;
   box-shadow: var(--wf-focus-ring);
+}
+
+/* 触屏设备（coarse pointer）：交互目标提升到 44px（Apple HIG / WCAG 2.5.8） */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  input,
+  textarea,
+  select,
+  .wf-card--clickable,
+  .wf-table-th--sortable,
+  .wf-accordion-summary,
+  .wf-tag-close,
+  .wf-checkbox,
+  .wf-switch,
+  .wf-radio {
+    min-height: 44px;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {

@@ -23,7 +23,7 @@
 .wf-select {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
-  padding: var(--wf-space-sm) var(--wf-space);
+  padding: var(--wf-control-pad-y) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg);
@@ -87,7 +87,7 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);
-  padding: var(--wf-space-sm) var(--wf-space);
+  padding: var(--wf-control-pad-y) var(--wf-space);
   cursor: pointer;
   box-sizing: border-box;
 }
@@ -111,7 +111,7 @@
 }
 
 .wf-select-search-opt {
-  padding: var(--wf-space-sm) var(--wf-space);
+  padding: var(--wf-control-pad-y) var(--wf-space);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);
   cursor: pointer;

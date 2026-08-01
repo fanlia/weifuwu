@@ -79,7 +79,7 @@
 /* ── 编辑区 ────────────────────────────────────────── */
 
 .wf-editor-content {
-  padding: var(--wf-space-sm) var(--wf-space);
+  padding: var(--wf-control-pad-y) var(--wf-space);
   min-height: 200px;
   outline: none;
   font-family: var(--wf-font-sans);
@@ -165,7 +165,7 @@
   display: block;
   width: 100%;
   min-height: 200px;
-  padding: var(--wf-space-sm) var(--wf-space);
+  padding: var(--wf-control-pad-y) var(--wf-space);
   border: none;
   outline: none;
   font-family: var(--wf-font-mono, 'SF Mono', 'Fira Code', 'Consolas', monospace);
@@ -189,7 +189,7 @@
   box-sizing: border-box;
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
-  padding: var(--wf-space-sm) var(--wf-space);
+  padding: var(--wf-control-pad-y) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   outline: none;
