@@ -1,5 +1,5 @@
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
-export { HttpError } from './types.ts'
+export { HttpError, createMiddleware } from './types.ts'
 export type { User } from './types.ts'
 export { serve, DEFAULT_MAX_BODY } from './core/serve.ts'
 export type { ServeOptions, Server } from './core/serve.ts'

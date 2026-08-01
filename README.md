@@ -169,8 +169,9 @@ createApp()
 | `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
 | `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
 | `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
-| `weifuwu` | **response** | HTTP 响应辅助函数（ok/badRequest/...） | — |
+| `weifuwu` | **ok / badRequest / …** | HTTP 响应辅助函数（ok/badRequest/... 等 12 个） | — |
 | `weifuwu` | **parseBody** | JSON 请求体安全解析 | — |
+| Router 方法 | **app.graphql()** | GraphQL 端点（支持 GraphiQL），Router 实例方法（无需单独 import） | Router |
 | `weifuwu/client` | **createApp** | 应用引导 + VDOM 渲染引擎 | — |
 | `weifuwu/client` | **router / RouteView** | 前端路由（history/hash 模式） | createApp |
 | `weifuwu/client` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | createApp |
