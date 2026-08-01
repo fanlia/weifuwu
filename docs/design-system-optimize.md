@@ -80,4 +80,4 @@ P0 z-index → P1.1 reduced-motion → P1.2 focus → P1.3 暗色 → P2 字号
 → P3.1 排版原语 → P3.2 响应式 → P4 审计测试
 ```
 
-每阶段独立提交；提交后跑 `npm test` + agent-browser cheatsheet 走查。
+全部完成 ✅ 提交记录：P0(842c19e) P1(feb2cd1) P2(9deb5fd) P3(e74f7dc) P4(末次)。全量 779 测试通过，agent-browser 走查通过。
