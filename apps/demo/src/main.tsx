@@ -355,6 +355,8 @@ function AuthPage(_props: {}, ctx: WfuiContext) {
         password: $.password,
       })
       ctx.auth?.login(res.token, res.user)
+      // auth 状态是普通对象：登录后重新渲染整棵树（AuthPage 用户卡片 + 导航栏已登录圆点）
+      ctx.app?.navigate(ctx.route?.path ?? '/auth')
     } catch (e: any) {
       $.loginError = e.message || '登录失败'
     }
@@ -382,7 +384,11 @@ function AuthPage(_props: {}, ctx: WfuiContext) {
             <code class="text-xs text-gray-700 break-all">{ctx.auth?.token?.slice(0, 40)}...</code>
           </div>
           <button class="w-full py-2 bg-red-500 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-red-600 transition-colors"
-            onClick={() => ctx.auth?.logout()}>退出登录</button>
+            onClick={() => {
+              ctx.auth?.logout()
+              // 登出后重新渲染整棵树（恢复登录表单 + 移除导航栏圆点）
+              ctx.app?.navigate(ctx.route?.path ?? '/auth')
+            }}>退出登录</button>
         </div>
       ) : (
         <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

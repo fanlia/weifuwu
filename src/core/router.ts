@@ -378,7 +378,11 @@ export class Router<T extends Context = Context> {
       if (!next) return this._wildcardMatch(method, segments)
       node = next
     }
-    return this._resolveMatch(node, method, params, segments.length)
+    const resolved = this._resolveMatch(node, method, params, segments.length)
+    if (resolved) return resolved
+    // 终端节点是纯前缀（如 /dashboard 只有 /dashboard/overview 子路由）：
+    // 无 handler 时回退到通配符（SPA catch-all 场景）
+    return this._wildcardMatch(method, segments)
   }
 
   private _wildcardMatch(method: string, segments: string[]): {

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
 import { jsx, Fragment, createPortal } from '../../client/vnode.ts'
 import type { VNode } from '../../client/vnode.ts'
-import { render, patchValue, mountVNode } from '../../client/render.ts'
+import { render, patchValue, mountVNode, idRegistry } from '../../client/render.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 let ctx: WfuiContext
@@ -1288,5 +1288,137 @@ describe('keyed diff DOM mutations', () => {
       ]}, key: undefined })
     const v2 = { type: Comp2 as any, props: {}, key: undefined }
     // 不能直接用 patchValue (fragment 展平到容器)，跳过
+  })
+})
+
+// ── 组件卸载注销（idRegistry 清理）────────────────────
+// 回归：卸载后的组件若仍留在 idRegistry 且保留 _render/_parentNode/_refNode，
+// 残留异步回调（setTimeout/Promise/WS 消息）触发 ctx.ui.dirty() 时
+// 会重渲染死组件并把 DOM 重新插回当前页面（FormPage 3s 自动关闭泄漏）
+
+describe('unmount 注销 — 死组件不可被陈旧回调重渲染', () => {
+  it('patchValue 删除分支：卸载后从 idRegistry 注销并清除渲染状态', () => {
+    const container = document.createElement('div')
+    let renderCount = 0
+    const Comp = (_: any) =>
+      () => {
+        renderCount++
+        return { type: 'div' as const, props: { class: 'comp' }, key: undefined }
+      }
+
+    const v = { type: Comp as any, props: {}, key: undefined }
+    mountVNode(container, v, ctx)
+    const id = v._id as string
+    assert.ok(id, 'mount 后应有组件 id')
+    assert.ok(idRegistry.has(id), 'mount 后应在 idRegistry 中')
+    assert.equal(typeof v._render, 'function', 'mount 后应有 _render')
+
+    // 卸载（删除分支）
+    patchValue(container, container.firstChild, v, null, ctx)
+    assert.equal(container.childNodes.length, 0, 'DOM 应被移除')
+    assert.ok(!idRegistry.has(id), '卸载后应从 idRegistry 注销')
+    assert.equal(v._render, undefined, '卸载后 _render 应清除')
+    assert.equal(v._parentNode, undefined, '卸载后 _parentNode 应清除')
+    assert.equal(v._refNode, undefined, '卸载后 _refNode 应清除')
+    assert.equal(v._id, undefined, '卸载后 _id 应清除')
+  })
+
+  it('patchValue 类型替换分支：旧组件注销，新组件独立注册', () => {
+    const container = document.createElement('div')
+    const CompA = (_: any) => () => ({ type: 'div' as const, props: { class: 'a' }, key: undefined })
+    const CompB = (_: any) => () => ({ type: 'div' as const, props: { class: 'b' }, key: undefined })
+
+    const vA = { type: CompA as any, props: {}, key: undefined }
+    mountVNode(container, vA, ctx)
+    const idA = vA._id as string
+    assert.ok(idRegistry.has(idA))
+
+    // A → B 类型替换
+    const vB = { type: CompB as any, props: {}, key: undefined }
+    patchValue(container, container.firstChild, vA, vB, ctx)
+    const idB = vB._id as string
+
+    assert.ok(!idRegistry.has(idA), '旧组件 A 应注销')
+    assert.ok(idRegistry.has(idB), '新组件 B 应注册')
+    assert.notEqual(idA, idB, 'A/B 应是独立实例（不同 id）')
+    assert.equal(vA._render, undefined, 'A 的 _render 应清除')
+    assert.equal(container.firstChild?.textContent, '', 'B 已替换 A 渲染在容器中')
+  })
+
+  it('keyed 列表删除：被删子组件注销，保留子组件不受影响', () => {
+    const container = document.createElement('div')
+    const Item = (_: any) => (props: any) =>
+      ({ type: 'span' as const, props: { children: props.label }, key: undefined })
+
+    const listV = (items: any[]) => ({
+      type: 'div' as const,
+      props: {
+        children: items.map((it: any) =>
+          ({ type: Item as any, props: { label: it.label }, key: it.key })),
+      },
+      key: undefined,
+    })
+
+    const oldItems = [
+      { key: 'a', label: 'A' },
+      { key: 'b', label: 'B' },
+      { key: 'c', label: 'C' },
+    ]
+    const oldV = listV(oldItems)
+    mountVNode(container, oldV, ctx)
+
+    // 捕获各 Item 实例的 id
+    const ids = new Map<string, string>()
+    const oldChildren = (oldV.props.children as any[])
+    for (const child of oldChildren) {
+      ids.set(child.key as string, child._id as string)
+    }
+    assert.equal(ids.size, 3)
+    for (const id of ids.values()) assert.ok(idRegistry.has(id), '所有 Item 已注册')
+
+    // 删除 b
+    const newV = listV([
+      { key: 'a', label: 'A' },
+      { key: 'c', label: 'C' },
+    ])
+    patchValue(container, container.firstChild, oldV, newV, ctx)
+
+    assert.ok(!idRegistry.has(ids.get('b')!), '被删除的 b 应注销')
+    assert.ok(idRegistry.has(ids.get('a')!), '保留的 a 不受影响')
+    assert.ok(idRegistry.has(ids.get('c')!), '保留的 c 不受影响')
+  })
+
+  it('注销后陈旧 dirty 触发 renderByIds 直接跳过（不重插 DOM）', async () => {
+    const { createApp } = await import('../../client/app.ts')
+
+    // 组件 C：60ms 后写 $.n（在 C 被 40ms 卸载之后触发）
+    const C = (_: any, cctx: any) => {
+      const $ = cctx.ui.$()
+      $.n = 0
+      setTimeout(() => { $.n = 99 }, 60)
+      return () => ({ type: 'div' as const, props: { id: 'comp-c', children: String($.n) }, key: undefined })
+    }
+    const D = (_: any) => () => ({ type: 'div' as const, props: { id: 'comp-d', children: 'D' }, key: undefined })
+    const Root = (_: any, rctx: any) => {
+      const $ = rctx.ui.$()
+      $.showC = true
+      setTimeout(() => { $.showC = false }, 40)
+      return () => ({ type: 'div' as const, props: { id: 'root-box', children: $.showC ? { type: C as any, props: {}, key: undefined } : { type: D as any, props: {}, key: undefined } }, key: undefined })
+    }
+
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'unmount-registry-e2e'
+    await app.mount('#unmount-registry-e2e', Root)
+
+    await new Promise(r => setTimeout(r, 50))
+    assert.ok(el.querySelector('#comp-d'), 'D 已渲染（C 已卸载）')
+
+    // C 的 60ms 回调此刻应已触发：注册表已无 C → renderByIds 跳过 → 不重插 DOM
+    await new Promise(r => setTimeout(r, 100))
+    assert.equal(el.querySelectorAll('#comp-c').length, 0, '死组件 C 的 DOM 不得重新出现')
+    assert.equal(el.querySelector('#root-box')?.childNodes.length, 1, 'root 无泄漏')
+    el.remove()
   })
 })

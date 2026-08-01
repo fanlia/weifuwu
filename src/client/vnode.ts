@@ -27,6 +27,8 @@ export interface VNode {
 
   /** 组件实例 ID（如 '_wf_0'） */
   _id?: string
+  /** 自定义组件 ID（ctx.ui.selfId() 注册，跨组件精准刷新） */
+  _customId?: string
   /** 组件输出的 DOM 父节点 */
   _parentNode?: Node
   /** 组件输出的第一个 DOM 节点 */

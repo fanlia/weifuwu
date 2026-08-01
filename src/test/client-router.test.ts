@@ -50,6 +50,7 @@ import type { Component } from '../client/vnode.ts'
 const LoginPage: Component = () => () => jsx('div', { class: 'login-page', children: 'login' })
 const HomePage: Component = () => () => jsx('div', { class: 'home-page', children: 'home' })
 const AboutPage: Component = () => () => jsx('div', { class: 'about-page', children: 'about' })
+const NotFoundPage: Component = () => () => jsx('div', { class: 'not-found-page', children: 'not found' })
 
 /** 嵌套 layout — 内含一个 RouteView 出口 */
 const TestLayout: Component = (_props, ctx) =>
@@ -148,5 +149,46 @@ describe('client router — 嵌套 layout', () => {
     // effect 同步执行，navigate 返回时 DOM 已更新
     assert.equal(document.querySelectorAll('.test-layout').length, 0)
     assert.equal(document.querySelectorAll('.login-page').length, 1)
+  })
+
+  it('未匹配路由渲染 notFound 组件（navigate + 直载）', async () => {
+    resetRoot()
+    window.history.pushState({}, '', '/')
+    const app = createApp()
+    app.use(router({
+      mode: 'history',
+      notFound: NotFoundPage,
+      routes: [
+        { path: '/', component: HomePage },
+        { path: '/about', component: AboutPage },
+      ],
+    }))
+
+    await app.mount('#root', () => () => jsx(RouteView, {}) as any)
+    assert.equal(document.querySelectorAll('.home-page').length, 1)
+
+    // 客户端 navigate 到未匹配路径 → notFound
+    app.ctx.app.navigate('/no/such/route')
+    assert.equal(document.querySelectorAll('.not-found-page').length, 1,
+      '未匹配路径应渲染 notFound 组件')
+    assert.equal(document.querySelectorAll('.home-page').length, 0)
+
+    // 从 404 导航回已知路由 → 正常渲染
+    app.ctx.app.navigate('/about')
+    assert.equal(document.querySelectorAll('.about-page').length, 1)
+    assert.equal(document.querySelectorAll('.not-found-page').length, 0)
+
+    // 未配置 notFound 时：未匹配路径渲染空白（不崩溃）
+    const app2 = createApp()
+    app2.use(router({
+      mode: 'history',
+      routes: [{ path: '/', component: HomePage }],
+    }))
+    resetRoot()
+    window.history.pushState({}, '', '/')
+    await app2.mount('#root', () => () => jsx(RouteView, {}) as any)
+    app2.ctx.app.navigate('/missing')
+    assert.equal(document.querySelectorAll('.home-page').length, 0)
+    assert.equal(document.querySelectorAll('.not-found-page').length, 0)
   })
 })

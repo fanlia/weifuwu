@@ -4,6 +4,11 @@
 
 import type { WebSocketHandler, WebSocket, Context } from 'weifuwu'
 import { serve, Router, cors, ui } from 'weifuwu'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// 以 server.ts 自身位置为基准解析路径（不受启动时 CWD 影响）
+const demoRoot = dirname(fileURLToPath(import.meta.url))
 
 const app = new Router()
 app.use(cors())
@@ -12,10 +17,10 @@ app.use(ui())
 // ── 静态资源 ─────────────────────────────────────────────
 
 // 客户端 JS bundle — 动态编译（开发模式，无需构建步骤）
-app.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))
+app.get('/static/app.js', (req, ctx) => ctx.ui.js(join(demoRoot, 'src/main.tsx')))
 
 // 客户端 CSS
-app.get('/static/style.css', (req, ctx) => ctx.ui.css('./public/style.css'))
+app.get('/static/style.css', (req, ctx) => ctx.ui.css(join(demoRoot, 'public/style.css')))
 
 // ── 演示 API ─────────────────────────────────────────────
 
@@ -97,7 +102,7 @@ app.ws('/ws', wsHandler)
 const blogPost = {
   slug: 'hello-ssr',
   title: 'SSR 与 weifuwu',
-  body: '<p>这是服务端渲染的段落。</p><blockquote>搜索引擎可以看到这段内容。</blockquote><p>而 <strong>点赞按钮</strong> 由客户端 hydrate 接管。</p>',
+  body: '<p>这是服务端渲染的段落。</p><blockquote>搜索引擎可以看到这段内容。</blockquote><p>页面由服务端直接输出完整 HTML，无需客户端渲染。</p>',
   author_name: 'weifuwu 团队',
   published_at: new Date('2025-07-16'),
 }
@@ -119,13 +124,8 @@ app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => 
           ${blogPost.author_name} · ${blogPost.published_at.toLocaleDateString()}
         </div>
         <div class="leading-relaxed">${ctx.ui.html.unsafe(blogPost.body)}</div>
-        <div data-hydrate="like" class="mt-6 pt-5 border-t border-gray-100">
-          <p class="text-gray-500 text-sm mb-2">这个对你有帮助吗？</p>
-        </div>
       </article>
     </div>
-    <script>window.__WFUI_PROPS__=${ctx.ui.html.unsafe(JSON.stringify({ post: blogPost }))}</script>
-    <script src="/static/app.js"></script>
   </body>
   </html>
 `)
@@ -138,23 +138,29 @@ const spaPaths = [
   '/auth', '/ws', '/about', '/user/:name',
 ]
 
+// SPA 外壳 — 客户端路由接管渲染（含未匹配路径，由客户端 404 页处理）
+const spaShell = async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
+  <!DOCTYPE html>
+  <html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <title>weifuwu demo</title>
+  </head>
+  <body class="bg-gray-100">
+    <div id="root"></div>
+    <script src="/static/app.js"></script>
+  </body>
+  </html>
+`
+
 for (const p of spaPaths) {
-  app.get(p, async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
-    <!DOCTYPE html>
-    <html lang="zh-CN">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link rel="stylesheet" href="/static/style.css">
-      <title>weifuwu demo</title>
-    </head>
-    <body class="bg-gray-100">
-      <div id="root"></div>
-      <script src="/static/app.js"></script>
-    </body>
-    </html>
-  `)
+  app.get(p, spaShell)
 }
+
+// SPA 回退：未匹配的 GET 路径同样返回外壳，深链接/刷新时由客户端路由展示 404 页
+app.get('*', spaShell)
 
 serve(app, { port: 3000 })
 console.log('http://localhost:3000')

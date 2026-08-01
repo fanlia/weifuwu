@@ -102,7 +102,14 @@ export function router(opts: RouterOptions): AppMiddleware<{}, RouteInjected> {
         title: last?.title ?? '',
       }
     }
-    return { path, params: {}, query: {}, chain: [], title: '' }
+    // 未匹配：链上挂 notFound 组件（RouteView 渲染），无 notFound 则空白
+    return {
+      path,
+      params: {},
+      query: Object.fromEntries(new URLSearchParams(window.location.search)),
+      chain: opts.notFound ? [{ component: opts.notFound, title: 'Not Found' }] : [],
+      title: '',
+    }
   }
 
   return (ctx: WfuiContext) => {

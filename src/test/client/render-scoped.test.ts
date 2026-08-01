@@ -343,6 +343,65 @@ describe('scoped render', () => {
     el.remove()
   })
 
+  it('卸载后陈旧异步回调触发 dirty 不再重渲染/重插 DOM', async () => {
+    // 模拟：组件 A 有 setTimeout 回调写 $.x（如 FormPage 的 3s 自动关闭），
+    // 卸载（路由切换）后回调触发 — 不得把 DOM 重新插回当前页面
+    const A = (_: any, ctx: any) => {
+      const $ = ctx.ui.$()
+      $.phase = 'form'
+      setTimeout(() => { $.phase = 'submitted' }, 10)
+      return () => h('div', { id: 'comp-a', children: $.phase })
+    }
+    const B = (_: any) => () => h('div', { id: 'comp-b', children: 'B' })
+    const Root = (_: any, ctx: any) => {
+      const $ = ctx.ui.$()
+      $.showA = true
+      // 30ms 后切换到 B（卸载 A）
+      setTimeout(() => { $.showA = false }, 30)
+      return () => h('div', { id: 'root-box', children: $.showA ? h(A, {}) : h(B, {}) })
+    }
+
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'unmount-stale'
+    await app.mount('#unmount-stale', Root)
+    // 等 Root 的 30ms 切换完成
+    await new Promise(r => setTimeout(r, 50))
+    assert.ok(el.querySelector('#comp-b'), 'B 应渲染')
+    assert.equal(el.querySelectorAll('#comp-a').length, 0, 'A 的 DOM 不得重新出现')
+    assert.equal(el.querySelector('#root-box')?.childNodes.length, 1, 'root 只有一个子节点，无泄漏')
+
+    // 独立场景：回调在卸载之后才触发
+    const C = (_: any, ctx: any) => {
+      const $ = ctx.ui.$()
+      $.n = 0
+      setTimeout(() => { $.n = 99 }, 60) // 在 C 卸载（40ms）之后触发
+      return () => h('div', { id: 'comp-c', children: String($.n) })
+    }
+    const D = (_: any) => () => h('div', { id: 'comp-d', children: 'D' })
+    const Root2 = (_: any, ctx: any) => {
+      const $ = ctx.ui.$()
+      $.showC = true
+      setTimeout(() => { $.showC = false }, 40) // 40ms 后卸载 C
+      return () => h('div', { id: 'root2-box', children: $.showC ? h(C, {}) : h(D, {}) })
+    }
+
+    const el2 = document.createElement('div')
+    document.body.appendChild(el2)
+    el2.id = 'unmount-stale2'
+    const app2 = createApp()
+    await app2.mount('#unmount-stale2', Root2)
+    await new Promise(r => setTimeout(r, 50))
+    assert.ok(el2.querySelector('#comp-d'), 'D 应渲染')
+    // C 的 60ms 回调在 C 卸载后触发 — 必须被忽略，不得重插 DOM
+    await new Promise(r => setTimeout(r, 80))
+    assert.equal(el2.querySelectorAll('#comp-c').length, 0, '卸载后回调不得重插 C 的 DOM')
+    assert.equal(el2.querySelector('#root2-box')?.childNodes.length, 1, 'root2 只有一个子节点，无泄漏')
+    el.remove()
+    el2.remove()
+  })
+
   it('dirty(["id"]) 精准刷新指定组件，不波及兄弟', async () => {
     let renderA = 0
     let renderB = 0

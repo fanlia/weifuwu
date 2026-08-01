@@ -68,6 +68,25 @@ describe('Router', () => {
       const res = await r.handler()(new Request('http://localhost/static/js/app.js'), mkCtx())
       assert.equal(await res.text(), 'js/app.js')
     })
+
+    it('falls back to catch-all when path is a prefix of registered routes', async () => {
+      // /dashboard 是 /dashboard/overview 的纯前缀节点：应回退到通配符
+      const r = new Router()
+        .get('/dashboard/overview', () => new Response('overview'))
+        .get('*', () => new Response('spa-shell'))
+      const res = await r.handler()(new Request('http://localhost/dashboard'), mkCtx())
+      assert.equal(res.status, 200)
+      assert.equal(await res.text(), 'spa-shell')
+    })
+
+    it('does NOT fall back to catch-all when path has a handler but wrong method (405)', async () => {
+      const r = new Router()
+        .post('/items', () => new Response('created'))
+        .get('*', () => new Response('spa-shell'))
+      const res = await r.handler()(new Request('http://localhost/items'), mkCtx())
+      assert.equal(res.status, 405)
+      assert.ok((res.headers.get('Allow') ?? '').includes('POST'))
+    })
   })
 
   describe('status codes', () => {

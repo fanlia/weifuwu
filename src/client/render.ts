@@ -741,6 +741,20 @@ function cleanupPortalChildren(vnode: VNode) {
 export function callRefCleanup(input: any) {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode
+
+  // ── 组件卸载：从 idRegistry 注销并清除渲染状态 ──
+  // 防止卸载后残留的异步回调（setTimeout/Promise/WS 消息等）通过
+  // ctx.ui.dirty()/render() 触发死组件重渲染，把 DOM 重新插回当前页面
+  if (vnode._id) {
+    if (vnode._customId) idRegistry.delete(vnode._customId)
+    idRegistry.delete(vnode._id)
+    vnode._id = undefined
+    vnode._customId = undefined
+    vnode._render = undefined
+    vnode._parentNode = undefined
+    vnode._refNode = undefined
+  }
+
   // 先递归清理 _child（支持数组——Portal 的 _child 是 `[root, ...]`）
   if (vnode._child != null) {
     if (Array.isArray(vnode._child)) {
