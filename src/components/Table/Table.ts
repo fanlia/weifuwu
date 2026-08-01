@@ -26,6 +26,8 @@ export interface TableProps {
   onSort?: (key: string, order: 'asc' | 'desc') => void
   /** 数据为空时显示的文本 */
   emptyText?: string
+  /** 表格最小宽度（窄屏横向滚动，如 '720px'） */
+  minWidth?: string
 }
 
 function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrder?: string): any[] {
@@ -100,5 +102,11 @@ export const Table: Component<TableProps> = (_init, _ctx) =>
 
   const tbody = h('tbody', { class: 'wf-table-tbody' }, bodyRows)
 
-  return h('table', { class: 'wf-table' }, [thead, tbody])
+  const table = h('table', {
+    class: 'wf-table',
+    style: props.minWidth ? { minWidth: props.minWidth } : undefined,
+  }, [thead, tbody])
+
+  // 响应式：窄屏下横向滚动（可用 props.minWidth 设置表格最小宽度）
+  return h('div', { class: 'wf-table-wrap' }, table)
 }

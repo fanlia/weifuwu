@@ -1,5 +1,10 @@
 /* weifuwu/components — Table */
 
+.wf-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .wf-table {
   width: 100%;
   border-collapse: collapse;

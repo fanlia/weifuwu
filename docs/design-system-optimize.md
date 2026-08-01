@@ -10,7 +10,7 @@
 | P0 | z-index 层级体系 | S | 低 | ✅ 已完成 |
 | P1 | 无障碍三件套（reduced-motion / focus-visible / 自动暗色） | S | 低 | ✅ 已完成 |
 | P2 | 视觉基调上调（字号 + 触控尺寸） | S | 中 | ✅ 已完成 |
-| P3 | 能力补全（排版原语 / 组件响应式） | M | 低 | ⬜ |
+| P3 | 能力补全（排版原语 / 组件响应式） | M | 低 | ✅ 已完成 |
 | P4 | 质量基建（样式审计测试） | M | 低 | ⬜ |
 
 ## P0 — z-index 层级体系
@@ -54,7 +54,7 @@
 ## P3 — 能力补全
 
 - `_text.css` 扩展：字号/色阶/字重/`wf-truncate`/`wf-line-clamp-2/-3`
-- Table 加 `--wf-table-min-width`；StatCard `@media (max-width:768px)` 2 列
+- Table 加 `minWidth` prop + 滚动容器；StatCard 网格由 `wf-grid`（auto-fill minmax）默认覆盖，无需改
 
 ## P4 — 质量基建
 
