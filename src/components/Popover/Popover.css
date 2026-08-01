@@ -7,12 +7,12 @@
 .wf-popover-overlay {
   position: fixed;
   inset: 0;
-  z-index: 998;
+  z-index: calc(var(--wf-z-popover) - 1);
 }
 
 .wf-popover {
   position: fixed;
-  z-index: 999;
+  z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);

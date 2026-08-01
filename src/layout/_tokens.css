@@ -33,8 +33,20 @@
   --wf-shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
 
   /* ── 层级 ── */
-  --wf-pop-z: 50;
-  --wf-cover-z: 100;
+  /* 浮层全部 createPortal 到 body，全局参与堆叠。
+     顺序：sticky < overlay < modal/drawer < 弹出面板族 < toast < tooltip。
+     modal 与 drawer 互斥出现；面板族同级（dropdown/select/datepicker/popover）用 DOM 顺序裁决。 */
+  --wf-z-sticky: 40;
+  --wf-z-overlay: 80;
+  --wf-z-modal: 100;
+  --wf-z-popover: 120; /* dropdown/select/datepicker 面板与 popover 同层 */
+  --wf-z-toast: 140;
+  --wf-z-tooltip: 160;
+  --wf-z-dropdown: var(--wf-z-popover); /* 语义别名：下拉菜单属弹出面板族 */
+
+  /* ── 兼容别名（旧 token 名，语义近似映射） ── */
+  --wf-pop-z: var(--wf-z-popover);
+  --wf-cover-z: var(--wf-z-modal);
 
   /* ── 色彩 — 品牌 ── */
   --wf-color-primary: #4f6ef7;

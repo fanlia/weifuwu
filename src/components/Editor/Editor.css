@@ -265,7 +265,7 @@
 
 .wf-editor-table-picker {
   
-  z-index: 100;
+  z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);

@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--wf-cover-z);
+  z-index: var(--wf-z-modal);
 }
 
 .wf-modal--enter {

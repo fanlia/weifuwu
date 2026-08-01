@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--wf-gap-sm);
-  z-index: var(--wf-cover-z, 100);
+  z-index: var(--wf-z-toast);
   pointer-events: none;
 }
 

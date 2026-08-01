@@ -6,7 +6,7 @@
 
 .wf-tooltip {
   position: fixed;
-  z-index: var(--wf-cover-z, 1000);
+  z-index: var(--wf-z-tooltip);
   background: var(--wf-color-text);
   color: var(--wf-color-bg);
   font-family: var(--wf-font-sans);

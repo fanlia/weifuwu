@@ -35,14 +35,14 @@
 .wf-datepicker-overlay {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--wf-pop-z) - 1);
+  z-index: calc(var(--wf-z-popover) - 1);
 }
 
 /* ── 日历面板 ── */
 
 .wf-datepicker-dropdown {
   position: fixed;
-  z-index: var(--wf-pop-z);
+  z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
@@ -149,7 +149,7 @@
 
 .wf-datepicker-range-wrap {
   position: fixed;
-  z-index: var(--wf-pop-z);
+  z-index: var(--wf-z-popover);
   display: flex;
   gap: var(--wf-space);
   background: var(--wf-color-bg);
@@ -168,7 +168,7 @@
 
 .wf-time-picker {
   position: fixed;
-  z-index: var(--wf-pop-z);
+  z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);

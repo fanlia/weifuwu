@@ -107,7 +107,7 @@
   box-shadow: var(--wf-shadow-md);
   max-height: 240px;
   overflow-y: auto;
-  z-index: var(--wf-pop-z, 100);
+  z-index: var(--wf-z-dropdown);
 }
 
 .wf-select-search-opt {

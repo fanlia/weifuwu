@@ -11,12 +11,12 @@
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   box-shadow: var(--wf-shadow-md);
-  z-index: var(--wf-pop-z);
+  z-index: var(--wf-z-dropdown);
   padding: var(--wf-space-xs) 0;
 }
 
 .wf-dropdown--open {
-  z-index: var(--wf-cover-z);
+  z-index: var(--wf-z-dropdown);
 }
 
 .wf-dropdown-item {
