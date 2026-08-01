@@ -149,7 +149,7 @@ createApp()
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 41 个 UI 组件（Button, Card, Table, Modal 等） |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 43 个 UI 组件（Button, Card, Table, Modal 等） |
 | 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 91 个主题 Token + 35 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
@@ -1936,7 +1936,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-42 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+43 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -2151,6 +2151,12 @@ props 变化 ──────────────────────�
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | Divider | `Divider` | `orientation`, `plain` | 分割线（水平/垂直/带文字） |
+
+### 全局工具
+
+| 组件 | 导入名 | 关键 Props | 说明 |
+|-----|--------|-----------|------|
+| ThemeSwitch | `ThemeSwitch` | `mode: 'auto'\|'light'\|'dark'`, `onChange`, `storageKey` | 主题切换（auto/light/dark，localStorage 持久化）；另有 `applyTheme()` / `getTheme()` 命令式工具 |
 
 ---
 
