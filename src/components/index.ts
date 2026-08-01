@@ -131,3 +131,7 @@ export type { ChartProps, ChartType, DataPoint, ChartOptions } from './Chart/Cha
 
 export { Editor } from './Editor/Editor.ts'
 export type { EditorProps, ToolbarItem } from './Editor/Editor.ts'
+
+export { ThemeSwitch } from './ThemeSwitch/ThemeSwitch.ts'
+export type { ThemeSwitchProps, ThemeMode } from './ThemeSwitch/ThemeSwitch.ts'
+export { applyTheme, getTheme } from './ThemeSwitch/ThemeSwitch.ts'

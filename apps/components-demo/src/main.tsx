@@ -18,7 +18,7 @@ import {
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
-  InView, DatePicker, Chart, Editor,
+  InView, DatePicker, Chart, Editor, ThemeSwitch,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -689,6 +689,21 @@ const DemoEditor: Component = (_props, ctx) => {
   )
 }
 
+const DemoThemeSwitch: Component = (_props, ctx) => {
+  const $ = ctx.ui.$()
+  $.mode = 'auto'
+  return (_p: any) => (
+    <div class="wf-stack" style="gap:8px;width:100%">
+      <div class="wf-row" style="gap:8px">
+        <ThemeSwitch onChange={(m) => { $.mode = m }} />
+      </div>
+      <div style="font-size:12px;color:var(--wf-color-text-secondary)">
+        当前模式: <code>{$.mode}</code> · 已持久化到 localStorage · 右上角也有一个可直接用
+      </div>
+    </div>
+  )
+}
+
 const DemoChart: Component = () => () => {
   const sales = [
     { label: '1月', value: 120 },
@@ -967,6 +982,17 @@ if (ok) { /* 执行 */ }`,
 <Editor disabled value="只读" />
 `,
 
+  themeSwitch: `<ThemeSwitch />
+
+<ThemeSwitch onChange={mode =>
+  console.log(mode)} />  // auto | light | dark
+
+// 命令式
+import { applyTheme, getTheme } from 'weifuwu/components'
+applyTheme('dark')
+getTheme()  // 'auto' | 'light' | 'dark'
+`,
+
   popover: `<Popover content={<div>面板内容</div>}>
   <Button>点击弹出</Button>
 </Popover>
@@ -988,15 +1014,16 @@ const App: Component = (_props, ctx) => {
     return (
     <div class="wf-container wf-stack" style="--wf-max:960px;gap:32px">
       <div style="text-align:center;padding:var(--wf-space-xl) 0">
-        {/* 语言切换 */}
-        <div style="position:absolute;top:16px;right:16px;display:flex;gap:8px">
+        {/* 语言切换 + 主题切换 */}
+        <div style="position:absolute;top:16px;right:16px;display:flex;gap:8px;align-items:center">
+          <ThemeSwitch />
           <Button size="sm" variant={cur.startsWith('zh') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('zh-CN')}>中文</Button>
           <Button size="sm" variant={cur.startsWith('en') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('en')}>EN</Button>
         </div>
         <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p style="color:var(--wf-color-text-secondary)">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
-          <Badge variant="primary">41 组件</Badge>
+          <Badge variant="primary">43 组件</Badge>
           <Badge variant="success">580 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
@@ -1037,6 +1064,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
         <DemoCard title="Chart" desc="SVG 图表：line/bar/pie" code={CODE.chart}><DemoChart /></DemoCard>
         <DemoCard title="Editor" desc="富文本编辑器，contentEditable + toolbar，零依赖" code={CODE.editor}><DemoEditor /></DemoCard>
+        <DemoCard title="ThemeSwitch" desc="主题切换：auto/light/dark，localStorage 持久化" code={CODE.themeSwitch}><DemoThemeSwitch /></DemoCard>
       </Section>
 
       <Section title="数据反馈">

@@ -9,7 +9,8 @@
  */
 
 /* ── 激活方式一：手动 data-theme="dark" ── */
-[data-theme="dark"] {
+/* color-scheme 用 :root[data-theme] 提升优先级，压过 _base.css 的 :root 定义（导入顺序在后者） */
+:root[data-theme="dark"] {
   color-scheme: dark;
 
   --wf-color-primary: #6b8aff;

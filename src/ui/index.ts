@@ -142,7 +142,7 @@ export function ui(): Middleware {
         const cached = jsCache.get(absPath)
         if (cached && (await jsCacheFresh(cached.inputs))) {
           return new Response(cached.code, {
-            headers: { 'Content-Type': 'application/javascript' },
+            headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' },
           })
         }
 
@@ -170,7 +170,7 @@ export function ui(): Middleware {
         jsCache.set(absPath, { code, inputs })
 
         return new Response(code, {
-          headers: { 'Content-Type': 'application/javascript' },
+          headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' },
         })
       },
 
@@ -182,7 +182,7 @@ export function ui(): Middleware {
         const cached = cssCache.get(absPath)
         if (cached && cached.mtime === st.mtimeMs) {
           return new Response(cached.code, {
-            headers: { 'Content-Type': 'text/css; charset=utf-8' },
+            headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-cache' },
           })
         }
 
@@ -205,7 +205,7 @@ export function ui(): Middleware {
         cssCache.set(absPath, { code, mtime: st.mtimeMs })
 
         return new Response(code, {
-          headers: { 'Content-Type': 'text/css; charset=utf-8' },
+          headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-cache' },
         })
       },
     }

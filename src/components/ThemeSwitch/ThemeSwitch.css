@@ -1,0 +1,53 @@
+/* weifuwu/components — ThemeSwitch 主题切换器 */
+
+.wf-theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-color-bg-secondary);
+  font-family: var(--wf-font-sans);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.wf-theme-seg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  min-height: 26px;
+  border: none;
+  background: none;
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-sm);
+  line-height: 1;
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all var(--wf-transition);
+}
+
+.wf-theme-seg:hover {
+  color: var(--wf-color-text);
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-theme-seg--active {
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  font-weight: var(--wf-font-weight-medium);
+  box-shadow: var(--wf-shadow-sm);
+}
+
+.wf-theme-seg:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-theme-seg:disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
