@@ -37,6 +37,11 @@
 .wf-table-th--sortable:hover {
   color: var(--wf-color-primary);
 }
+.wf-table-th--sortable:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  color: var(--wf-color-primary);
+}
 .wf-table-th--sorted {
   color: var(--wf-color-primary);
 }

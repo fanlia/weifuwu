@@ -5,6 +5,11 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* 原生控件/滚动条跟随主题；暗色激活时在 _dark.css 中切为 dark */
+  color-scheme: light;
+}
+
 body {
   margin: 0;
   background: var(--wf-color-bg);
@@ -73,6 +78,13 @@ button {
 button:hover {
   border-color: var(--wf-color-primary);
   color: var(--wf-color-primary);
+}
+
+/* 键盘焦点：button 与 [tabindex] 统一 focus ring（仅键盘触发，鼠标点击不闪） */
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -144,4 +156,16 @@ code {
   background: var(--wf-color-bg-secondary);
   padding: 2px 6px;
   border-radius: var(--wf-radius-sm);
+}
+
+/* ── 无障碍：尊重系统减弱动效偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

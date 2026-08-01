@@ -64,6 +64,7 @@ export const Table: Component<TableProps> = (_init, _ctx) =>
     return h('th', {
       class: `wf-table-th${col.sortable ? ' wf-table-th--sortable' : ''}${isSorted ? ' wf-table-th--sorted' : ''}`,
       scope: 'col',
+      tabindex: col.sortable ? 0 : undefined,
       style: col.width ? { width: col.width } : undefined,
       onClick: col.sortable && onSort
         ? () => onSort(col.key, isSorted && isAsc ? 'desc' : 'asc')

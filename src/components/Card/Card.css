@@ -26,3 +26,8 @@
 .wf-card--clickable:hover {
   box-shadow: var(--wf-shadow-md);
 }
+
+.wf-card--clickable:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-shadow-md), var(--wf-focus-ring);
+}

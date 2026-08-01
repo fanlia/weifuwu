@@ -2275,9 +2275,15 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 
 ### 暗色模式
 
+两种激活方式（显式 `data-theme` 优先级更高）：
+
 ```ts
-document.documentElement.setAttribute('data-theme', 'dark')
-// 所有 var(--wf-*) 自动切换
+// 1. 手动切换
+// document.documentElement.setAttribute('data-theme', 'dark')
+// document.documentElement.setAttribute('data-theme', 'light') // 强制亮色
+
+// 2. 自动：系统暗色偏好（无需任何代码）
+// 系统为暗色时自动生效；加 data-theme="light" 可强制亮色
 ```
 
 ---
@@ -2299,17 +2305,34 @@ document.documentElement.setAttribute('data-theme', 'dark')
 
 ## 暗色模式
 
+两种激活方式（显式 `data-theme` 优先级高于系统偏好）：
+
 ```ts
+// 手动切换
 document.documentElement.setAttribute('data-theme', 'dark')
+
+// 强制亮色（系统为暗色时也保持亮色）
+document.documentElement.setAttribute('data-theme', 'light')
 ```
 
-所有 `--wf-*` 变量在 `[data-theme="dark"]` 下自动切换。可自定义暗色变量：
+未设置 `data-theme` 时，自动跟随系统偏好：`@media (prefers-color-scheme: dark)` 下自动切换暗色。
+
+所有 `--wf-*` 变量在暗色下自动切换。可自定义暗色变量：
 
 ```css
 [data-theme="dark"] {
   --wf-color-bg: #1a1a2e;
   --wf-color-text: #e0e0e0;
   --wf-color-border: #2a2a4a;
+}
+
+/* 自定义系统自动暗色的变量（需与上面同步） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --wf-color-bg: #1a1a2e;
+    --wf-color-text: #e0e0e0;
+    --wf-color-border: #2a2a4a;
+  }
 }
 ```
 

@@ -30,6 +30,12 @@
   background: var(--wf-color-bg-tertiary);
 }
 
+.wf-accordion-summary:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-radius: var(--wf-radius-sm);
+}
+
 .wf-accordion-content {
   padding: var(--wf-space) var(--wf-space-md) var(--wf-space-md);
   font-size: var(--wf-font-size-sm);
