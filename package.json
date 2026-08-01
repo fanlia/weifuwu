@@ -38,6 +38,7 @@
     "release:dry": "node scripts/release.mjs --dry-run"
   },
   "dependencies": {
+    "esbuild": "^0.28.1",
     "graphql": "^16",
     "ws": "^8"
   },
@@ -62,7 +63,6 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^25",
     "@types/ws": "^8",
-    "esbuild": "^0.28.1",
     "ioredis": "^5.11.1",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.19",
