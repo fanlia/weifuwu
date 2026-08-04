@@ -12,7 +12,7 @@
 前端: createApp → [AppMiddleware → ctx.field] → Component → VNode → DOM
 ```
 
-- **中间件注入 ctx** — `ctx.sql`, `ctx.redis`, `ctx.ui`, `ctx.route`, `ctx.api`, `ctx.auth`, `ctx.ws`, `ctx.i18n`
+- **中间件注入 ctx** — `ctx.sql`, `ctx.redis`, `ctx.ui`, `ctx.route`, `ctx.api`, `ctx.auth`, `ctx.ws`, `ctx.i18n`, `ctx.user`/`ctx.auth`（userSystem）, `ctx.limit`（rateLimit）, `ctx.email`（email）, `ctx.queue`（queue）
 - **状态驱动渲染** — `ctx.ui.$()` 深度 Proxy，赋值自动触发 VDOM patch
 - **组件签名** — `(initProps, ctx) => (props) => VNode | null`
 - **两阶段模型** — 外层函数 = mount（只一次），内层返回函数 = render（每次 dirty/props 变化）
@@ -369,6 +369,7 @@ const EChart = (_init, ctx) => {
 ## 测试
 
 - `node --test` 无 Jest/Mocha
+- **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（≤30 秒），并优先加 `--test-timeout`——真库/集成测试卡住时能快速定位而非无限等待；卡住时用更短 timeout 复跑缩小范围
 - **CS-04 — DB 客户端（redis/postgres）测试必须连 docker 真实库**：
   - **禁止 mock 网络层**（`mock-server.ts` 已删除）——故障注入用真实机制：
     - Redis 断线/重连：`CLIENT KILL ID <id>`（杀真实连接）+ BLPOP 阻塞（制造确定性 pending）+ 未占用端口（不可达）

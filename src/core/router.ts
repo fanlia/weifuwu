@@ -1,5 +1,5 @@
 import { WebSocketServer } from 'ws'
-import type { Context, Handler, Middleware, MiddlewareMeta, ErrorHandler, WebSocket, Closeable } from '../types.ts'
+import { HttpError, type Context, type Handler, type Middleware, type MiddlewareMeta, type ErrorHandler, type WebSocket, type Closeable } from '../types.ts'
 import {
   type WebSocketHandler,
   type WsUpgradeHandler,
@@ -473,9 +473,18 @@ export class Router<T extends Context = Context> {
 
   private async handleError(e: unknown, req: Request, ctx: Context): Promise<Response> {
     const err = e instanceof Error ? e : new Error(String(e))
+    // 自定义 onError 优先（可覆盖一切，含 HttpError）
+    if (this.errorHandler) return this.errorHandler(err, req, ctx as T)
+    // HttpError → 对应状态码（README 承诺：serve 自动返回对应状态码）
+    if (err instanceof HttpError) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: err.status,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
     // Log unexpected errors so developers can debug
     console.error(`[router] ${req.method} ${new URL(req.url).pathname}:`, err.stack || err.message || err)
-    return this.errorHandler ? this.errorHandler(err, req, ctx as T) : new Response('Internal Server Error', { status: 500 })
+    return new Response('Internal Server Error', { status: 500 })
   }
 
   // ── Private: Middleware chain ───────────────────────────────

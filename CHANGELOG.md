@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.57.0 (SaaS 地基四模块：限流 + 邮件 + 用户系统 + 队列)
+
+> 零新增运行时依赖——四个模块全部建在自研 redis/postgres 客户端 + node 标准库之上。
+> 一个 `npm install weifuwu` 即得"基本 SaaS 底座"：认证 + 异步任务 + 限流 + 邮件。
+
+### ✨ New APIs
+
+- **rateLimit**：限流中间件（`src/middleware/rate-limit.ts`）——fixed（INCR+EXPIRE 原子）/ sliding（ZSET）算法、redis（多实例共享计数）/ memory store、全局限流 + `ctx.limit` 手动限流、`RateLimit-Limit/Remaining/Reset` + `Retry-After` 标准头、自定义 key（登录防爆破组合键）
+- **email**：统一 `ctx.email.send`（`src/email/`）——`resend` 适配器（一个 POST，独立开发者首选）/ **自研 SMTP 客户端**（node:net+tls：EHLO/STARTTLS/AUTH PLAIN/DATA/dot-stuffing，非 ASCII subject 自动 RFC2047 encoded-word）/ 自定义适配器函数
+- **userSystem**：用户系统（`src/user/`）——scrypt 密码哈希（per-user salt + timing-safe，异步不阻塞）、HMAC-SHA256 JWT access（与 `weifuwu/client` auth() 天然配对）+ DB refresh 轮换可撤销、`/api/auth/*` 路由（register/login/logout/me/refresh）、`ctx.user`/`ctx.auth` 注入、登录失败统一 401 防枚举、`createToken`/`setPassword` 底层 API（邮箱验证/密码重置自接）、tenant-ready（`tenant` 字段 + claim 预留）
+- **queue**：可靠任务队列（`src/queue/`）——Redis Streams 消费组、at-least-once、失败 ZSET 延迟重试（间隔 = visibilityTimeout）、attempts 用尽 → DLQ（`q:{name}:dead`）、XAUTOCLAIM 崩溃 worker 接管、多 worker 实例消费组隔离、`ctx.queue.add` + `q.worker(name, handler)` 独立进程可跑
+
+### 🐛 Fixes
+
+- **HttpError 状态码**：serve/router 仅处理 413，其余 `HttpError`（如 401/409/429）全部落为 500——README 承诺的"自动返回对应状态码"以修复（`router.handleError` + `serve` catch 统一转状态码 JSON 响应）
+
+### 🧪 Tests
+
+- 861 → **902**：rateLimit 14（真库 redis）/ email 15（协议 mock）+ 2（真实 GreenMail）/ userSystem 16（真库 postgres）/ queue 8（真库 redis）
+- docker-compose 新增 **GreenMail** smtp 服务（SMTP 真实服务器兼容性背书）
+- redis.test.ts `flushdb` → 只清自身 key（CS-04 真库并行纪律：flushdb 会清掉并行测试的计数）
+
 ## 0.56.1 (DB 客户端性能 + 二进制安全)
 
 ### 🐛 Fixes

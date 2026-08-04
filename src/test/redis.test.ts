@@ -7,7 +7,8 @@ describe('redis', () => {
   const c = r.redis
 
   after(async () => {
-    await c.flushdb()
+    // 只清理本文件用过的 key（CS-04 真库并行纪律：flushdb 会清掉并行测试的计数）
+    await c.del('test:key', 'test:del', 'test:counter')
     await r.close()
   })
 

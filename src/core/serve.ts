@@ -138,17 +138,17 @@ export function serve(router: Router, options?: ServeOptions): Server {
       const response = await handler(request, { params: {}, query } as Context)
       await sendResponse(res, response, { traceId })
     } catch (err) {
-      if (err instanceof HttpError && err.status === 413) {
-        res.writeHead(413, { 'Content-Type': 'text/plain' })
-        res.end('Request Body Too Large')
+      const e = err instanceof Error ? err : new Error(String(err))
+      // HttpError → 对应状态码（README 承诺：serve 自动返回对应状态码）
+      if (e instanceof HttpError) {
+        res.writeHead(e.status, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: e.message }))
         return
       }
       // Log unexpected errors so developers can debug
-      if (!(err instanceof HttpError) || err.status >= 500) {
-        const url = req.url ?? '/'
-        const method = req.method ?? 'GET'
-        console.error(`[serve] ${method} ${url}:`, err instanceof Error ? err.stack || err.message : err)
-      }
+      const url = req.url ?? '/'
+      const method = req.method ?? 'GET'
+      console.error(`[serve] ${method} ${url}:`, e.stack || e.message)
       res.writeHead(500, { 'Content-Type': 'text/plain' })
       res.end('Internal Server Error')
     }

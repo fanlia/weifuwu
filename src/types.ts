@@ -33,8 +33,8 @@ export interface Context {
   params: Record<string, string>
   query: Record<string, string>
   mountPath?: string
-  /** Currently authenticated user (set by user() or custom auth middleware). */
-  user?: unknown
+  /** Currently authenticated user (set by user() or userSystem()). */
+  user?: User | null
   loaderData?: Record<string, unknown>
   /** Public environment variables. */
   env?: Record<string, string>

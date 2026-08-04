@@ -230,6 +230,10 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu` | **redis** | Redis 客户端（自研 RESP2 协议）→ `ctx.redis` | Router, REDIS_URL |
 | `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
 | `weifuwu` | **uiSsr** | 路由级 SSR：匹配 routes → 自动完整 HTML + `__DATA__` + bundle | Router, ui |
+| `weifuwu` | **rateLimit** | 限流中间件（fixed/sliding，redis 多实例原子）→ `ctx.limit` | Router, redis |
+| `weifuwu` | **email** | 邮件发送（Resend/SMTP 自研/自定义适配器）→ `ctx.email` | Router |
+| `weifuwu` | **userSystem** | 用户系统（scrypt 密码哈希 + 混合会话）→ `ctx.user` / `ctx.auth` + `/api/auth/*` | Router, postgres |
+| `weifuwu` | **queue** | 可靠任务队列（Redis Streams，at-least-once + DLQ）→ `ctx.queue` | Router, redis |
 | `weifuwu/dev` | **dev loader** | Node loader：服务端直接跑 `.ts/.tsx`（`--import weifuwu/dev`） | esbuild |
 | `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
 | `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
@@ -1018,6 +1022,8 @@ app.get('/secure', () => {
 ---
 
 ## 响应辅助函数
+
+> 以下为完整 API 参考，按需查阅。四个 SaaS 地基模块（rateLimit / email / userSystem / queue）见文末「SaaS 地基模块」章节。
 
 消除 `Response.json(...)` 重复模式：
 
@@ -2721,4 +2727,125 @@ node scripts/release.mjs <version>   # 发布
 ```bash
 # 测试前启动依赖服务
 docker compose up -d
+```
+
+---
+
+# SaaS 地基模块（rateLimit / email / userSystem / queue）
+
+四个内建模块组成一个"基本 SaaS 底座"：认证、异步任务、限流、邮件——零新增依赖
+（只依赖已自研的 redis / postgres 客户端与 node 标准库）。
+
+## rateLimit — 限流
+
+```ts
+import { rateLimit } from 'weifuwu'
+
+app.use(redis())                                        // 依赖 ctx.redis
+app.use(rateLimit({ windowMs: 60_000, max: 100 }))      // 全局限流（默认固定窗口）
+
+app.get('/api/search', async (req, ctx) => {
+  await ctx.limit('search', { max: 30, windowMs: 60_000 })  // 手动限流，超限抛 429
+})
+
+// 登录防爆破（配合 userSystem）：组合键 ip:email
+app.use(rateLimit({ key: (req) => `login:${req.ip}:${req.email}`, max: 5, windowMs: 15 * 60_000 }))
+```
+
+| 选项 | 默认 | 说明 |
+|------|------|------|
+| `windowMs` | `60000` | 时间窗口 |
+| `max` | `100` | 窗口内最大请求 |
+| `key` | X-Forwarded-For | 限流键（生产环境配置反向代理注入） |
+| `algorithm` | `fixed` | `fixed`（INCR+EXPIRE，原子）\| `sliding`（ZSET，仅 redis） |
+| `store` | `redis` | `redis`（多实例一致）\| `memory`（仅单实例/开发） |
+
+- 响应自动带 `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` / `Retry-After`
+- 多实例共享计数：计数在 redis，水平扩展天然一致
+
+## email — 邮件发送
+
+```ts
+import { email } from 'weifuwu'
+
+app.use(email({ from: 'no-reply@your.app', adapter: 'resend', resend: { apiKey: process.env.RESEND_API_KEY } }))
+// 或 adapter: 'smtp' + smtp: { host, port, user, pass }（自研 SMTP 客户端，零依赖）
+
+app.post('/api/notify', async (req, ctx) => {
+  await ctx.email.send({ to: 'user@x.com', subject: '通知', html: '<h1>hi</h1>' })
+})
+```
+
+- 适配器：`resend`（默认，一个 POST）/ `smtp`（自研 node:net + node:tls：EHLO/STARTTLS/AUTH PLAIN/DATA/dot-stuffing，非 ASCII subject 自动 RFC2047 编码）/ 自定义函数
+- 裁剪：附件、退信/送达率（服务商职责）、批量营销不支持
+
+## userSystem — 用户系统
+
+```ts
+import { userSystem } from 'weifuwu'
+
+const db = postgres()
+await db.migrate()
+const users = userSystem({ sql: db.sql, secret: process.env.AUTH_SECRET })
+await users.migrate()          // 幂等建表（users + sessions）
+app.use(db)
+app.use(users)                 // 注入 ctx.user / ctx.auth
+users.routes(app)              // POST /api/auth/register|login|logout|refresh + GET /api/auth/me
+
+app.get('/me', (req, ctx) => ok(ctx.user))        // 已注入
+app.post('/secure', (req, ctx) => { ctx.auth.requireAuth(); ... })
+```
+
+- **安全基线**：scrypt 密码哈希（per-user salt + timing-safe，异步不阻塞）；access token = HMAC-SHA256 JWT（与 `weifuwu/client` 的 `auth()` 天然配对）；refresh token = 不透明随机串，DB 只存哈希，logout/轮换即撤销
+- **防枚举**：登录失败统一 401（不泄露邮箱是否存在）
+- **`ctx.auth` 方法面**：`register` / `login` / `logout` / `requireAuth` / `setPassword(userId, newPwd)` / `createToken(type, payload, { ttlSeconds })`（邮箱验证/密码重置自接）
+- **裁剪**：OAuth、邮箱验证邮件（给底层 API 自接）、多因素、RBAC 权限引擎（只留 `role` 字段）、多租户语义（tenant-ready：`tenant` 字段 + token claim 已预留）
+
+## queue — 可靠任务队列
+
+```ts
+import { queue } from 'weifuwu'
+
+const q = queue()              // 默认 REDIS_URL
+app.use(q)                     // 注入 ctx.queue
+
+app.post('/api/generate', async (req, ctx) => {
+  await ctx.queue.add('llm.batch', { prompt: '...' }, { attempts: 3 })
+  return new Response(null, { status: 202 })  // 立即 202，任务后台执行
+})
+
+// 消费者（独立进程或同进程均可，多开安全）
+const worker = q.worker('llm.batch', async (job) => {
+  await runLLM(job.data)       // 失败自动重试 → 用尽进 DLQ（q:llm.batch:dead）
+}, { concurrency: 5, visibilityTimeout: 30_000 })
+await worker.start()
+await worker.stop()            // 优雅停止
+```
+
+- **语义**：at-least-once（handler 可能重复执行——幂等由业务保证）；Redis Streams 消费组，多 worker 实例不重复消费
+- **可靠性**：失败 → 延迟重试（间隔 = `visibilityTimeout`，ZSET 延迟队列）→ attempts 用尽 → DLQ；worker 崩溃 → pending 由其他实例 `XAUTOCLAIM` 接管
+- 裁剪：延迟调度（除重试外）、cron、优先级、指数退避、速率限制不支持
+
+## 组合示例：注册 → 验证邮件 → 欢迎任务 → 登录防爆破
+
+```ts
+app.use(redis())
+app.use(rateLimit({ key: (req) => `login:${req.ip}`, max: 5, windowMs: 60_000 }))  // 防爆破
+app.use(email({ from: 'no-reply@x.com', adapter: 'resend', resend: { apiKey } }))
+app.use(db)
+app.use(users)
+users.routes(app)
+
+// 注册：限流守卫 → 用户系统 → 验证邮件 → 欢迎任务入队
+app.post('/api/auth/register', async (req, ctx) => {
+  await ctx.limit(`register:${req.ip}`, { max: 10, windowMs: 60_000 })
+  const result = await ctx.auth.register(await req.json())
+  const token = ctx.auth.createToken('verify', { sub: result.user.id }, { ttlSeconds: 86400 })
+  await ctx.email.send({ to: result.user.email, subject: '验证邮箱', html: `...?token=${token}` })
+  await ctx.queue.add('welcome.flow', { userId: result.user.id })
+  return created(result)
+})
+
+const worker = q.worker('welcome.flow', async (job) => { /* 欢迎流程 */ })
+await worker.start()
 ```
