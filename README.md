@@ -9,7 +9,7 @@ npm install weifuwu
 一个包 = 后端 (`weifuwu`) + 前端 (`weifuwu/client`) + 组件库 (`weifuwu/components`) + 布局系统 (`weifuwu/layout`)。
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
-> - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）
+> - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）、`ctx.ui.ssr`（组件 SSR）、`ctx.ui.ssrData`（数据序列化）
 > - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useMedia()` / `useBreakpoint()` / `usePopupPosition()`（浏览器事件监听）
 > 后端的是「把页面和代码交给浏览器」，前端的是「在浏览器里驱动 UI」。
 
@@ -29,49 +29,62 @@ npm install weifuwu
 
 **SSR + 动态编译** — 后端 `ctx.ui.js()` 用 esbuild 实时编译 TSX，开发时改代码即刷即用，零构建步骤。
 
+**async 工厂组件** — `async (ctx) => (initProps, ctx) => (props) => VNode`：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`$`）、render 输出视图。异步只在工厂边界，mount/render 保持同步；数据经闭包注入，写数据像写同步代码。
+
+**SPA/SSR/Hydration 统一透明** — 同一份路由定义（`routes`）一个组件形态三场景自动适配：后端 `uiSsr({ routes })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `router({ routes })` + `RouteView` + `mount(..., { hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
+
 ---
 
 ## 快速开始
 
+一个 `.tsx` 组件 + 一份共享路由，SPA、SSR、Hydration 全部自动：
+
+```tsx
+// routes.tsx —— 页面声明（前后端共用）
+import type { RouteDef } from 'weifuwu/client'
+import { asyncComponent } from 'weifuwu/client'
+
+const Home = asyncComponent(async (ctx) => {
+  const msg = await ctx.data.get('/api/hello')
+  return () => () => <h1>{msg.msg}</h1>
+})
+
+export const routes: RouteDef[] = [{ path: '/', component: Home }]
+```
+
 ```ts
-// server.ts
-import { serve, Router, ui, cors, serveStatic } from 'weifuwu'
+// server.ts —— 一个中间件 = SSR 页面 + 动态编译资源
+import { serve, Router, ui, uiSsr, cors } from 'weifuwu'
+import { routes } from './routes.tsx'
 
 const app = new Router()
 app.use(cors())
-app.use(ui())
-
-// SPA 入口
-app.get('/', (req, ctx) => ctx.ui.html`
-  <!doctype html><html><body>
-    <div id="root"></div>
-    <script src="/app.js"></script>
-  </body></html>
-`)
-
-// 动态编译前端 TSX（零构建步骤）
-app.get('/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))
-app.get('/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))
-
-// API
+app.use(ui())                                      // 能力：ctx.ui.html/js/css/ssr
+app.use(uiSsr({ routes, bundle: '/static/app.js', styles: ['/static/style.css'] }))
+app.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
+app.get('/static/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))
 app.get('/api/hello', () => Response.json({ msg: 'world' }))
 
 serve(app, { port: 3000 })
 ```
 
-```tsx
-// src/main.tsx
+```ts
+// src/client.ts —— 客户端（模板代码，一次写好）：路由同源 + hydration 收养
 import { createApp, router, RouteView } from 'weifuwu/client'
-import type { Component } from 'weifuwu/client'
+import { routes } from './routes.tsx'
 
-const Home: Component = () => () => <h1>Hello weifuwu</h1>
-
-createApp()
-  .use(router({ routes: [{ path: '/', component: Home }] }))
-  .mount('#root', () => () => <RouteView />)  // 根组件也要两阶段：外层返回 render 函数
+createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 ```
 
-运行 `node server.ts`，访问 `http://localhost:3000` 即可看到页面。后端 `ctx.ui.js()` 会实时编译 `src/main.tsx`，改代码刷新即生效，无需任何构建步骤。
+```json
+// package.json —— 服务端直接跑 .tsx（零构建）
+{ "scripts": { "dev": "node --import weifuwu/dev server.ts" } }
+```
+
+运行 `node --import weifuwu/dev server.ts`，访问 `http://localhost:3000`：
+- 直接访问 → 服务端渲染完整 HTML（SEO 可见）
+- 客户端 → 收养现有 DOM（无闪跳）+ 事件接线 + 交互
+- 改组件刷新即生效，无需任何构建步骤
 
 > 想**零后端、零构建**最快跑起来？直接跳到下面的「CDN 快速原型」。
 
@@ -167,6 +180,8 @@ createApp()
 | `weifuwu` | **postgres** | PostgreSQL 客户端（自研 PG v3 协议）→ `ctx.sql` | Router, DATABASE_URL |
 | `weifuwu` | **redis** | Redis 客户端（自研 RESP2 协议）→ `ctx.redis` | Router, REDIS_URL |
 | `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
+| `weifuwu` | **uiSsr** | 路由级 SSR：匹配 routes → 自动完整 HTML + `__DATA__` + bundle | Router, ui |
+| `weifuwu/dev` | **dev loader** | Node loader：服务端直接跑 `.ts/.tsx`（`--import weifuwu/dev`） | esbuild |
 | `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
 | `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
 | `weifuwu` | **ok / badRequest / …** | HTTP 响应辅助函数（ok/badRequest/... 等 12 个） | — |
@@ -174,6 +189,8 @@ createApp()
 | Router 方法 | **app.graphql()** | GraphQL 端点（支持 GraphiQL），Router 实例方法（无需单独 import） | Router |
 | `weifuwu/client` | **createApp** | 应用引导 + VDOM 渲染引擎 | — |
 | `weifuwu/client` | **router / RouteView** | 前端路由（history/hash 模式） | createApp |
+| `weifuwu/client` | **asyncComponent** | async 工厂组件（形态 C）：工厂层声明数据，mount/render 同步 | — |
+| `weifuwu/client` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | createApp |
 | `weifuwu/client` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | createApp |
 | `weifuwu/client` | **i18n** | 国际化中间件（运行时切换语言） | createApp |
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |

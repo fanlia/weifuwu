@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.56.0 (async 工厂组件 + SSR/Hydration 统一透明)
+
+### ✨ New APIs
+
+- `asyncComponent(async (ctx) => (initProps, ctx) => (props) => VNode)`：**async 工厂组件（形态 C）**——工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`$`）、render 输出视图；异步只在工厂边界，mount/render 保持同步，数据经闭包注入
+- `ctx.data.get(key, fetcher)`：**数据管道**——SSR 预取 / hydration 命中（`window.__DATA__` 同步命中，不重复请求）/ SPA 触发 fetch；同 key 并发合并；key 即 URL
+- `ctx.ui.ssr(Comp, props, { data })`：服务端渲染组件 → HTML 片段（HtmlSafe 自动内联不二次转义）；`ctx.ui.ssrData(data)` → `__DATA__` 序列化（`<` 转义防 XSS）
+- `uiSsr({ routes, bundle, styles })`：**路由级 SSR**——GET 匹配共享路由 → 注入 `ctx.route.params` → await 组件工厂 → 完整 HTML + `__DATA__` + bundle/styles；未匹配/非 GET → next()
+- `weifuwu/dev`：**Node loader**（`node --import weifuwu/dev server.ts`）——服务端直接跑 `.ts/.tsx`（JSX → 与客户端同一运行时），零构建
+- `app.mount('#root', Root, { hydrate: true })`：**Hydration**——游标收养服务端 HTML（不重建、无闪跳），只接线事件/ref/$；mismatch 就地修 + 残留清理
+- `clearAsyncComponentCache()`：路由导航/登录登出时工厂缓存失效（以新 ctx 重新执行）
+
+### 🚀 Features
+
+- **SPA/SSR/Hydration 统一透明**：同一份 `routes` + 同一组件形态三场景自动适配——后端 `uiSsr` 自动 SSR，前端 `router + RouteView + hydrate` 按 URL 同源匹配收养（`route-match.ts` 前后端共用）
+- 服务端 ctx shim：`$`（dirty no-op）、`ctx.data` 预取去重、`selfId` 请求级隔离
+- `patchProps` 支持 class 对象（与 SSR 序列化对齐）
+- `createReactiveState` / `HtmlSafe` 抽独立模块（前后端共用）
+
+### 🧪 Tests
+
+- 653 → 693：async 组件 7 / ctx.data 6 / ssr 16 / hydration 9 / uiSsr 9（含 type-flow 编译期断言）
+
+---
+
 ## 0.54.0 (弹层坐标跟随 + 全局反馈中间件)
 
 ### ✨ New APIs
