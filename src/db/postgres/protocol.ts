@@ -72,32 +72,80 @@ export function parseMessage(name: string, sql: string, paramTypes: number[] = [
   return encodeMessage('P', concat(body, types))
 }
 
-/** Bind: B + portal\0 + statement\0 + fmtCount + formats + paramCount + params + resultFmtCount */
+/**
+ * Bind: B + portal\0 + statement\0 + fmtCount + formats + paramCount + params + resultFmtCount
+ * 两遍法：先算 payload 总长 → 预分配一次写入（buffer + offset 指针，避免 number[] 累积 O(n²)）。
+ */
 export function bindMessage(
   statement: string,
   params: (string | Uint8Array | null)[],
   paramFormats: number[] = [],
 ): Uint8Array {
-  const body: number[] = [...utf8(''), 0, ...utf8(statement), 0]
-  // 参数格式（全部 text=0 或指定）
-  body.push(0, paramFormats.length)
-  for (const f of paramFormats) {
-    body.push((f >> 8) & 0xff, f & 0xff)
-  }
-  // 参数数量
-  body.push(0, params.length)
-  for (const p of params) {
-    if (p === null) {
-      body.push(255, 255, 255, 255)
-    } else {
-      const bytes = typeof p === 'string' ? utf8(p) : p
-      body.push((bytes.length >> 24) & 0xff, (bytes.length >> 16) & 0xff, (bytes.length >> 8) & 0xff, bytes.length & 0xff)
-      for (const b of bytes) body.push(b)
+  const stmtBytes = utf8(statement)
+  // 第一遍：算各参数字节长
+  const lens: number[] = new Array(params.length)
+  let total = 1 + stmtBytes.length + 1 // portal\0 + statement + \0
+  total += 2 + paramFormats.length * 2 // fmtCount + formats
+  total += 2 // paramCount
+  for (let i = 0; i < params.length; i++) {
+    const p = params[i]
+    total += 4 // len
+    if (p !== null) {
+      const len = typeof p === 'string' ? utf8Len(p) : p.length
+      lens[i] = len
+      total += len
     }
   }
-  // 结果格式（text）
-  body.push(0, 0)
-  return encodeMessage('B', new Uint8Array(body))
+  total += 2 // resultFmtCount
+
+  const body = new Uint8Array(total)
+  let off = 0
+  // portal（空）\0
+  body[off++] = 0
+  // statement + \0
+  body.set(stmtBytes, off)
+  off += stmtBytes.length
+  body[off++] = 0
+  // fmtCount + formats
+  body[off] = (paramFormats.length >> 8) & 0xff
+  body[off + 1] = paramFormats.length & 0xff
+  off += 2
+  for (const f of paramFormats) {
+    body[off] = (f >> 8) & 0xff
+    body[off + 1] = f & 0xff
+    off += 2
+  }
+  // paramCount
+  body[off] = (params.length >> 8) & 0xff
+  body[off + 1] = params.length & 0xff
+  off += 2
+  // params：null → Int32 -1；否则 len(4) + 字节
+  for (let i = 0; i < params.length; i++) {
+    const p = params[i]
+    if (p === null) {
+      body[off] = body[off + 1] = body[off + 2] = body[off + 3] = 0xff
+      off += 4
+    } else {
+      const len = lens[i]
+      body[off] = (len >> 24) & 0xff
+      body[off + 1] = (len >> 16) & 0xff
+      body[off + 2] = (len >> 8) & 0xff
+      body[off + 3] = len & 0xff
+      off += 4
+      if (typeof p === 'string') body.set(utf8(p), off)
+      else body.set(p, off)
+      off += len
+    }
+  }
+  // resultFmtCount（text）
+  body[off] = 0
+  body[off + 1] = 0
+  return encodeMessage('B', body)
+}
+
+/** utf8 字节长（不含分配）——两遍法的长度预算 */
+function utf8Len(s: string): number {
+  return Buffer.byteLength(s)
 }
 
 /** Execute: E + portal\0 + maxRows(4) */
@@ -226,7 +274,7 @@ export function parseRowDescription(payload: Uint8Array): ColumnInfo[] {
     // name\0
     let j = i
     while (payload[j] !== 0) j++
-    const name = new TextDecoder().decode(payload.subarray(i, j))
+    const name = _decoder.decode(payload.subarray(i, j))
     i = j + 1
     // tableOID(4) + attrNum(2)
     i += 6
@@ -256,7 +304,7 @@ export function parseDataRow(payload: Uint8Array): (string | null)[] {
     if (len === -1) {
       values.push(null)
     } else {
-      values.push(new TextDecoder().decode(payload.subarray(i, i + len)))
+      values.push(_decoder.decode(payload.subarray(i, i + len)))
       i += len
     }
   }
@@ -286,7 +334,7 @@ export function parseErrorFields(payload: Uint8Array): ErrorFields {
     const type = String.fromCharCode(payload[i])
     let j = i + 1
     while (j < payload.length && payload[j] !== 0) j++
-    const value = new TextDecoder().decode(payload.subarray(i + 1, j))
+    const value = _decoder.decode(payload.subarray(i + 1, j))
     switch (type) {
       case 'S':
         out.severity = value
@@ -312,10 +360,13 @@ export function parseErrorFields(payload: Uint8Array): ErrorFields {
   return out
 }
 
+const _decoder = new TextDecoder()
+const _encoder = new TextEncoder()
+
 // ── 工具 ──────────────────────────────────────
 
 function utf8(s: string): Uint8Array {
-  return new TextEncoder().encode(s)
+  return _encoder.encode(s)
 }
 
 function concat(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {

@@ -110,6 +110,14 @@ describe('postgres tagged template + unsafe (real database)', () => {
     assert.deepEqual(rows[0].meta, { a: 1, b: [2] }) // 对象进出——双重编码根除
   })
 
+  it('256KB jsonb param round-trips (large Bind path)', async () => {
+    const big = { payload: 'x'.repeat(256 * 1024) }
+    await pool.tag`INSERT INTO wf_tag_a (id, title, meta) VALUES (${99}, ${'big'}, ${big})`
+    const rows = await pool.tag`SELECT length(meta::text) AS len FROM wf_tag_a WHERE id = ${99}`
+    // JSON.stringify 后长度 = 原串 + 固定包围（{"payload":""} = 15 字符）
+    assert.equal(rows[0].len, 256 * 1024 + 15)
+  })
+
   it('tagged template is injection-safe', async () => {
     const evil = "'; DROP TABLE wf_tag_a; --"
     await pool.tag`INSERT INTO wf_tag_a (id, title) VALUES (${3}, ${evil})`

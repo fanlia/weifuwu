@@ -212,6 +212,36 @@ describe('pg extended query encode', () => {
     assert.deepEqual(out, expected)
   })
 
+  it('encodes Bind with 256KB param byte-exact (no O(n²) number[] accumulation)', () => {
+    const big = 'x'.repeat(256 * 1024)
+    const out = bindMessage('', [big])
+    // payload: portal\0 + stmt\0 + fmtCount(2) + paramCount(2) + len(4) + content + resultFmt(2)
+    const payload = out.subarray(5)
+    const paramLen =
+      (payload[6] << 24) | (payload[7] << 16) | (payload[8] << 8) | payload[9]
+    assert.equal(paramLen, big.length)
+    assert.equal(new TextDecoder().decode(payload.subarray(10, 10 + paramLen)), big)
+  })
+
+  it('encodes Bind with null params preserved', () => {
+    const out = bindMessage('', ['a', null, 'b'])
+    // 中间 null 参数：len = -1 (0xffffffff)
+    const payload = out.subarray(5)
+    // paramCount 在 fmtCount(2) + count(2) 后: payload[2..5]
+    assert.equal((payload[4] << 8) | payload[5], 3)
+    // 第一个参数 len=1 'a'：payload[6..9]=len, [10]='a'
+    assert.equal((payload[6] << 24) | (payload[7] << 16) | (payload[8] << 8) | payload[9], 1)
+    assert.equal(payload[10], 0x61)
+    // null：4 字节 0xff
+    assert.equal(payload[11], 0xff)
+    assert.equal(payload[12], 0xff)
+    assert.equal(payload[13], 0xff)
+    assert.equal(payload[14], 0xff)
+    // 'b'
+    assert.equal((payload[15] << 24) | (payload[16] << 16) | (payload[17] << 8) | payload[18], 1)
+    assert.equal(payload[19], 0x62)
+  })
+
   it('encodes Execute message', () => {
     const out = executeMessage()
     // E + len + portal\0 + maxRows(4)
