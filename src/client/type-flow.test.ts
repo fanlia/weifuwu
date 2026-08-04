@@ -12,6 +12,8 @@ import assert from 'node:assert/strict'
 
 import { createApp } from '../client/app.ts'
 import type { Component } from '../client/vnode.ts'
+import { asyncComponent, isAsyncComponent } from '../client/vnode.ts'
+import type { AsyncComponent } from '../client/vnode.ts'
 import { api, type ApiInjected } from '../client/middleware/api.ts'
 import { router, type RouteInjected } from '../client/router.ts'
 import type { AppMiddleware } from '../client/types.ts'
@@ -47,7 +49,30 @@ const app = createApp().use(api()).use(router({ routes: [] }))
 // 类型断言验证（不执行——mount 需要 DOM）
 const mountWithInjectedCtx: (sel: string, root: Component<any, ApiInjected & RouteInjected>) => Promise<void> = app.mount
 
+// ⑥ AsyncComponent：工厂返回 Component，可类型化 props 与 ctx 依赖
+const AsyncProfile: AsyncComponent<ApiInjected & { data: any }, { id: string }> = async (ctx) => {
+  ctx.api.get('/x')
+  const user = await ctx.data.get('/api/user', async () => ({ name: 'a' }))
+  return (_init: { id: string }, c: any) => (props: { id: string }) => null
+}
+
+// asyncComponent() 包装保留类型
+const Wrapped = asyncComponent(async (ctx: any) => {
+  return (_init: any) => (props: any) => null
+})
+const wrappedDef: AsyncComponent = Wrapped
+const wrappedIsAsync = isAsyncComponent(Wrapped)
+
+// ⑦ 负例：async 工厂返回非 Component → 类型错误
+// @ts-expect-error 工厂必须返回 Component（两阶段函数），返回 number 应报错
+const badAsync: AsyncComponent = async () => 42
+
 describe('client type flow (compile-time)', () => {
+  it('asyncComponent wraps and isAsyncComponent narrows', () => {
+    assert.equal(typeof asyncComponent, 'function')
+    assert.equal(typeof isAsyncComponent, 'function')
+    assert.ok(wrappedIsAsync)
+  })
   it('createApp().use() chains without throwing at runtime', () => {
     // 链式调用本身在运行时就是 push + return this——这里验证不抛
     const a = createApp()

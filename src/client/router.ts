@@ -6,6 +6,7 @@
 
 import type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 import type { VNode } from './vnode.ts'
+import { clearAsyncComponentCache } from './render.ts'
 
 export interface RouterOptions {
   mode?: 'hash' | 'history'
@@ -119,6 +120,8 @@ export function router(opts: RouterOptions): AppMiddleware<{}, RouteInjected> {
 
     if (!ctx.app) ctx.app = {} as any
     ctx.app!.navigate = (path: string) => {
+      // 页面上下文切换：async 工厂缓存失效（工厂内 ctx.data 的 key 依赖旧 ctx）
+      clearAsyncComponentCache()
       if (mode === 'hash') {
         window.location.hash = '#' + path
         const resolved = resolve(path)
@@ -135,6 +138,7 @@ export function router(opts: RouterOptions): AppMiddleware<{}, RouteInjected> {
     }
 
     const onPop = () => {
+      clearAsyncComponentCache()
       const resolved = resolve(getPath())
       ;(ctx as any).route = resolved
       if (ctx.route?.title) document.title = ctx.route.title

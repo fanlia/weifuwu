@@ -17,7 +17,8 @@
  */
 
 export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts'
-export type { VNode, VNodeType, Component } from './vnode.ts'
+export type { VNode, VNodeType, Component, AsyncComponent } from './vnode.ts'
+export { asyncComponent, isAsyncComponent } from './vnode.ts'
 
 export { createApp } from './app.ts'
 export type { App } from './app.ts'

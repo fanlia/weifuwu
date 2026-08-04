@@ -60,24 +60,63 @@ const Toggle: Component = (_init, ctx) => {
 }
 ```
 
-### 异步组件
+### 异步组件（asyncComponent 工厂，形态 C）
+
+> `async (ctx) => (initProps, ctx) => (props) => VNode` — 工厂层（async，只执行一次并缓存）做数据声明/代码分割，mount/render 保持同步。必须用 `asyncComponent()` 包装。
 
 ```tsx
-const UserProfile = async (initProps, ctx) => {
-  const $ = ctx.ui.$()
-  $.loading = true
+const UserProfile = asyncComponent(async (ctx) => {
+  // ── 工厂层：数据声明（异步只在工厂边界）──
+  const user = await ctx.data.get(`/api/user/${ctx.params.id}`)
 
-  const user = await fetch(`/api/user/${initProps.id}`).then(r => r.json())
+  return (initProps, ctx) => {
+    // ── mount：客户端状态（hydration 后交互）──
+    const $ = ctx.ui.$()
+    $.liked = false
 
-  $.loading = false
-  $.user = user
-
-  return (props) =>
-    $.loading
-      ? h('div', {}, 'Loading...')
-      : h('div', {}, $.user.name)
-}
+    return (props) =>
+      h('div', {},
+        user.name,                                    // 服务端状态（闭包，SSR 进 HTML）
+        h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'),
+      )
+  }
+})
 ```
+
+关键规则：
+- 工厂**只执行一次**（WeakMap 缓存），数据经闭包注入组件
+- 客户端首次渲染：未解析 → **占位**，resolve 后整树重渲染补全；服务端遍历器直接 await（SSR 无占位）
+- 工厂拿 `ctx`（数据/路由参数），不拿 props
+- 会变的数据：初始值 seed 自服务端数据（`$.count = data.count`），交互改 `$`
+- 初始状态必须确定性（禁止 `window.innerWidth` 之类直接初始化 → mismatch）
+
+### ctx.data — 数据管道（工厂层取数）
+
+| API | 语义 |
+|-----|------|
+| `ctx.data.get(key, fetcher?)` | 缓存命中 → 直接返回；未命中 → 调 fetcher 并缓存；同 key 并发合并 |
+| `ctx.data.set(key, value)` | 写缓存（如手动失效/预置） |
+| `ctx.data.has(key)` | 是否存在缓存 |
+
+- **key 约定即 URL**（`/api/posts/1`），天然唯一；key 必须包含数据维度（route params、userId）
+- **三场景自动适配**：SSR（服务端真 fetch，结果序列化进 `__DATA__`）/ hydration（`window.__DATA__` 种子同步命中，不重跑请求）/ SPA（未命中触发 fetcher）
+- **失效**：工厂缓存绑定页面上下文——路由导航/登录登出时 `clearAsyncComponentCache()` 自动失效，工厂以新 ctx 重新执行（数据 key 变化时拿新数据）
+- **个性化数据不进 ctx.data**：SSR 会把工厂取数结果序列化给所有客户端，会话/用户相关数据会污染索引且泄露给他人——留在客户端 `$` + fetch
+
+### ctx.ui.ssr — 服务端渲染（后端）
+
+`ctx.ui.ssr(Comp, props, { data })` → HtmlSafe HTML 片段；`ctx.ui.ssrData(data)` → `__DATA__` 脚本：
+
+```ts
+const data = new Map()
+const html = await ctx.ui.ssr(BlogPage, {}, { data })
+return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
+```
+
+- 遍历器：await 工厂（数据进 HTML）、事件/ref 剥离、文本转义、class/style 序列化、Fragment/Portal 内联
+- 服务端 ctx shim：`$` dirty no-op、`ctx.data` 预取去重、`selfId` 请求级隔离
+- **诚实裁剪**（CS-05）：渲染期非确定性（Date/Math.random/locale）会导致 SSR/hydration mismatch——dev 检测，文档红线；个性化数据不上 SSR
+- 后续演进：hydration 游标模式（客户端 await 工厂 + 收养服务端 DOM）、流式渲染（工厂 await 点 = 流式边界）
 
 ### 核心规则
 

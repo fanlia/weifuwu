@@ -16,15 +16,16 @@
  */
 
 import type { WfuiContext, AppMiddleware, PopupPositionOptions, PopupPosition } from './types.ts'
-import { render, patchValue, patchPortal, renderPortal, callRefCleanup, idRegistry } from './render.ts'
+import { render, patchValue, patchPortal, renderPortal, callRefCleanup, idRegistry, hydrateVNode } from './render.ts'
 import type { VNode, Component } from './vnode.ts'
+import { createReactiveState } from './reactive.ts'
 
 // ── createApp ──────────────────────────────────────────
 
 /** 应用句柄：use() 链式累积中间件注入的 ctx 类型，mount() 时组件拿到完整注入 */
 export interface App<C extends object = {}> {
   use<I extends object, O extends object>(mw: AppMiddleware<I, O>): App<C & O>
-  mount(rootSelector: string, root: Component<any, C>): Promise<void>
+  mount(rootSelector: string, root: Component<any, C>, options?: { hydrate?: boolean }): Promise<void>
 }
 
 export function createApp<C extends object = {}>(): App<C> {
@@ -145,7 +146,7 @@ export function createApp<C extends object = {}>(): App<C> {
       return app as unknown as App<C & O>
     },
 
-    async mount(rootSelector: string, RootComponent: Component<any, C>) {
+    async mount(rootSelector: string, RootComponent: Component<any, C>, options?: { hydrate?: boolean }) {
       rootComponent = RootComponent
 
       for (const mw of middlewares) {
@@ -157,7 +158,42 @@ export function createApp<C extends object = {}>(): App<C> {
         : rootSelector
       if (!el) throw new Error(`mount target not found: ${rootSelector}`)
       container = el as Element
-      container.innerHTML = ''
+      const hydrating = !!options?.hydrate
+      if (!hydrating) container.innerHTML = ''
+
+      // ── 注入 ctx.data（数据管道）────────────────────
+      // 缓存 + in-flight 合并；hydration 场景从 window.__DATA__（SSR 序列化）预置种子
+      const dataCache = new Map<string, { value?: unknown; promise?: Promise<unknown> }>()
+      const hydratedData = (globalThis as any).__DATA__
+      if (hydratedData && typeof hydratedData === 'object') {
+        for (const [k, v] of Object.entries(hydratedData)) {
+          dataCache.set(k, { value: v })
+        }
+      }
+      ;(ctx as any).data = {
+        async get<T = any>(key: string, fetcher?: () => Promise<T>): Promise<T> {
+          const entry = dataCache.get(key)
+          // 缓存命中（含 __DATA__ 种子）——hydration 场景不重跑 fetcher
+          if (entry && 'value' in entry) return entry.value as T
+          // in-flight 合并：同 key 并发请求复用同一个 promise
+          if (entry?.promise) return entry.promise as Promise<T>
+          if (!fetcher) return undefined as T
+          const promise = Promise.resolve()
+            .then(() => fetcher())
+            .then((val) => {
+              dataCache.set(key, { value: val })
+              return val
+            })
+          dataCache.set(key, { promise })
+          return promise
+        },
+        set(key: string, value: unknown) {
+          dataCache.set(key, { value })
+        },
+        has(key: string) {
+          return dataCache.has(key)
+        },
+      }
 
       // ── 注入 ctx.ui ──────────────────────────────────
       ;(ctx as any).ui = {
@@ -349,11 +385,16 @@ export function createApp<C extends object = {}>(): App<C> {
       oldVNode = wrapComponent(RootComponent, ctx)
       oldVNode._id = '_wf_root'
       oldVNode._parentNode = container
-      oldVNode._refNode = null
+      oldVNode._refNode = hydrating ? container.firstChild : null
       idRegistry.set('_wf_root', oldVNode)
 
-      const node = render(oldVNode, ctx)
-      if (node instanceof Node) container.appendChild(node)
+      if (hydrating) {
+        // Hydration：收养服务端 HTML（不重建 DOM，只接线事件/ref/$）
+        await hydrateVNode(container, oldVNode, ctx)
+      } else {
+        const node = render(oldVNode, ctx)
+        if (node instanceof Node) container.appendChild(node)
+      }
 
       // 更新根节点 _refNode 为首个 DOM 节点
       oldVNode._refNode = container.firstChild
@@ -384,44 +425,4 @@ export function createApp<C extends object = {}>(): App<C> {
 
 function wrapComponent(Comp: Component<any, any>, _ctx: WfuiContext): VNode {
   return { type: Comp, props: {}, key: undefined }
-}
-
-/** 创建响应式状态容器：深度 Proxy，任意层级属性赋值自动触发 render */
-function createReactiveState(dirty: () => void): Record<string, any> {
-  const proxyCache = new WeakMap()
-
-  const reactive = (target: any): any => {
-    if (target === null || typeof target !== 'object') return target
-
-    // 相同底层对象返回同一 Proxy 实例，保证引用稳定、减少 GC
-    if (proxyCache.has(target)) return proxyCache.get(target)
-
-    const proxy = new Proxy(target, {
-      set(target, key, value) {
-        const old = Reflect.get(target, key)
-        if (old === value) return true
-        Reflect.set(target, key, value)
-        dirty()
-        return true
-      },
-      get(target, key) {
-        const value = Reflect.get(target, key)
-        // 返回深度包装的 Proxy，确保深层赋值也能触发 dirty
-        if (typeof value === 'object' && value !== null) return reactive(value)
-        return value
-      },
-      deleteProperty(target, key) {
-        if (Reflect.has(target, key)) {
-          Reflect.deleteProperty(target, key)
-          dirty()
-        }
-        return true
-      },
-    })
-
-    proxyCache.set(target, proxy)
-    return proxy
-  }
-
-  return reactive({})
 }

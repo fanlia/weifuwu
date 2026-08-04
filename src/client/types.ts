@@ -75,6 +75,24 @@ export interface WfuiContext {
     [key: string]: any
   }
 
+  /** 数据管道（由 createApp 注入）：ctx.data.get(key, fetcher) */
+  data?: {
+    /**
+     * 获取数据：
+     *   - SSR：服务端真 fetch，结果序列化进 __DATA__
+     *   - hydration：从 __DATA__ 缓存同步命中（工厂 await 微任务即 resolve）
+     *   - SPA：未命中则触发 fetcher，同 key 并发请求合并
+     *
+     * key 约定即 URL（`/api/posts/1`），天然唯一。
+     */
+    get: <T = any>(key: string, fetcher?: () => Promise<T>) => Promise<T>
+    /** 向缓存写入值（如 hydration 种子） */
+    set: (key: string, value: unknown) => void
+    /** 是否存在缓存（未触发 fetch） */
+    has: (key: string) => boolean
+    [key: string]: any
+  }
+
   /** 认证状态 */
   auth?: {
     token: string | null

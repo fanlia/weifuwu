@@ -715,6 +715,55 @@ app.get('/style.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css')) 
 - 支持包名（`weifuwu/layout/style.css`, `weifuwu/components/style.css`）或文件路径
 - 带 mtime 缓存验证（开发时编辑文件后自动失效）
 
+### ctx.ui.ssr — SSR 渲染组件 → HTML
+
+将组件（含 async 工厂组件）在服务端渲染为完整 HTML 片段，数据经 `ctx.data` 预取并序列化进 `window.__DATA__`（客户端 hydration 时同步命中，不重跑请求）：
+
+```ts
+const BlogPage = asyncComponent(async (ctx) => {
+  const post = await ctx.data.get(`/api/posts/${ctx.params.slug}`, fetchPost)
+  return (_init, ctx) => () =>
+    h('article', {},
+      h('h1', {}, post.title),
+      h('div', { innerHTML: post.body }),
+    )
+})
+
+app.get('/blog/:slug', async (req, ctx) => {
+  const data = new Map()
+  const html = await ctx.ui.ssr(BlogPage, {}, { data })   // HtmlSafe：模板内联不二次转义
+  return ctx.ui.html`
+    <!DOCTYPE html>
+    <html><body>
+      <div id="root">${html}</div>
+      ${ctx.ui.ssrData(data)}
+      <script src="/static/app.js"></script>
+    </body></html>
+  `
+})
+```
+
+- 事件处理器/ref 剥离，文本自动转义（XSS），`class`/`style` 对象序列化，`innerHTML` 原样输出
+- Fragment/Portal 子节点就地内联
+- `ctx.ui.ssrData(data)` 输出 `<script>window.__DATA__=...</script>`（JSON `<` 转义防 XSS）
+- 服务端 ctx shim：`$`（dirty no-op）、`ctx.data` 预取去重、`selfId` 请求级隔离
+
+### Hydration — 客户端收养服务端 HTML
+
+服务端 HTML + `window.__DATA__`（ctx.data 种子）到达客户端后，`mount(..., { hydrate: true })` **收养现有 DOM**（不重建、不闪跳），只接线事件/ref/$：
+
+```ts
+import { createApp } from 'weifuwu/client'
+
+createApp()
+  .mount('#root', BlogPage, { hydrate: true })   // 容器已有服务端 HTML
+```
+
+- **游标收养**：元素/文本按位置匹配现有 DOM；tag 不匹配 → 局部替换；文本不一致 → 就地修正；服务端多余节点 → 收尾清理
+- **async 工厂 hydration**：工厂 `ctx.data.get` 从 `__DATA__` 同步命中（不重跑请求）→ 渲染与服务端一致 → 收养
+- hydration 后 `$`/dirty/事件全量可用（与纯 SPA 无差别）
+- 诚实裁剪：Portal 内容就地收养（不移动到 `#__wf_portal`）；渲染期非确定性（Date/random）会导致 mismatch（dev 警告）
+
 ---
 
 ## graphql — GraphQL 端点
@@ -1465,6 +1514,32 @@ const UserProfile: Component = (initProps, ctx) => {
       : h('div', {}, $.user?.name ?? '')
 }
 ```
+
+### asyncComponent 工厂（形态 C）— 同步式数据声明
+
+`async (ctx) => (initProps, ctx) => (props) => VNode` — 工厂层（async，只执行一次并缓存）声明数据/加载代码，mount/render 保持同步。数据经闭包注入组件，渲染无 loading 分支：
+
+```tsx
+import { asyncComponent } from 'weifuwu/client'
+
+const UserProfile = asyncComponent(async (ctx) => {
+  const user = await ctx.data.get(`/api/user/${ctx.params.id}`)
+  return (_init, ctx) => {
+    const $ = ctx.ui.$()
+    $.liked = false                        // 客户端状态（交互后变化）
+    return (props) =>
+      h('div', {},
+        h('p', {}, user.name),             // 服务端状态（闭包，SSR 进 HTML）
+        h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'),
+      )
+  }
+})
+```
+
+- **客户端**：首次渲染占位 → 工厂 resolve 后整树重渲染补全（SPA）；数据经 `ctx.data` 缓存（hydration 时从 `__DATA__` 同步命中，不重跑请求）
+- **服务端**：`ctx.ui.ssr()` 直接 await 工厂 → 数据进 HTML（无占位）
+- 工厂缓存绑定页面上下文：路由导航/登录登出时自动失效，工厂以新 ctx 重新执行
+- 会变的数据：初始值 seed 自服务端数据（`$.count = data.count`），交互改 `$`；初始状态必须确定性（禁止 `window.innerWidth` 直接初始化 → SSR/hydration mismatch）
 
 ---
 

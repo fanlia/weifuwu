@@ -31,6 +31,9 @@ import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
+import { HtmlSafe } from './html-safe.ts'
+import { ssrToString, serializeData } from './ssr.ts'
+import type { Component, AsyncComponent } from '../client/vnode.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -41,6 +44,14 @@ declare module '../types.ts' {
       js: (entryPath: string) => Promise<Response>
       /** 读取 CSS → CSS Response（支持包名 weifuwu/layout、weifuwu/components/style.css 或文件路径） */
       css: (entryPath: string) => Promise<Response>
+      /**
+       * SSR 渲染组件 → HTML 片段（HtmlSafe，可直接内联进 ctx.ui.html 模板）
+       * 支持 async 工厂组件：await 工厂 → 数据进 HTML。
+       * opts.data（Map）收集 ctx.data 预取结果，用 ctx.ui.ssrData(data) 序列化进 __DATA__。
+       */
+      ssr: (Comp: Component | AsyncComponent, props?: Record<string, any>, opts?: { data?: Map<string, unknown> }) => Promise<string>
+      /** 序列化 SSR 数据存储 → <script>window.__DATA__=...</script>（HtmlSafe） */
+      ssrData: (data: Map<string, unknown>) => string
     }
   }
 }
@@ -51,11 +62,6 @@ interface UiHtmlTag {
 }
 
 // ── HtmlSafe — 标记不转义的 HTML ──────────────────────────
-
-class HtmlSafe {
-  constructor(public value: string) {}
-  toString() { return this.value }
-}
 
 function escape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -136,6 +142,17 @@ export function ui(): Middleware {
 
     ctx.ui = {
       html: Object.assign(htmlTag, { unsafe }) as any,
+
+      /** SSR 渲染组件 → HTML 片段（HtmlSafe：内联进 ctx.ui.html 不二次转义） */
+      async ssr(Comp: Component | AsyncComponent, props?: Record<string, any>, opts?: { data?: Map<string, unknown> }): Promise<string> {
+        const safe = await ssrToString(Comp, props ?? {}, ctx, opts)
+        return safe as unknown as string
+      },
+
+      /** 序列化 SSR 数据存储 → window.__DATA__ 脚本（HtmlSafe） */
+      ssrData(data: Map<string, unknown>): string {
+        return new HtmlSafe(serializeData(data)) as unknown as string
+      },
 
       async js(entryPath: string): Promise<Response> {
         const absPath = resolveEntry(entryPath)

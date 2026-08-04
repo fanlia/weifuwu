@@ -9,7 +9,7 @@
 
 import type { WfuiContext } from './types.ts'
 
-export type VNodeType = string | Component | typeof Fragment | typeof Portal
+export type VNodeType = string | Component | AsyncComponent | typeof Fragment | typeof Portal
 
 export interface VNode {
   type: VNodeType
@@ -45,6 +45,50 @@ export type Component<P = {}, C extends object = {}> = (
   initProps: P,
   ctx: WfuiContext & C,
 ) => ((props: P) => VNode | null) | null
+
+/**
+ * 异步组件工厂（形态 C）：async (ctx) => (initProps, ctx) => (props) => VNode
+ *
+ * 工厂层（async，只执行一次并缓存）：
+ *   - 数据声明：const data = await ctx.data.get(key, fetcher)
+ *   - 代码分割：const { default: def } = await import('./view.tsx')
+ *   - 异步初始化：模块加载、共享资源
+ *
+ * 返回标准的 Component——mount/render 保持同步，异步只发生在工厂边界。
+ * 服务端遍历器与客户端渲染器都 await 工厂；更新路径（_render 缓存）不碰工厂。
+ *
+ * 必须用 asyncComponent() 包装以标记（渲染器据此区分调用约定）：
+ *   Component       → Comp(initProps, ctx)
+ *   AsyncComponent  → await Comp(ctx) → Component
+ */
+export type AsyncComponent<C extends object = {}, P = {}> = (
+  ctx: WfuiContext & C,
+) => Promise<Component<P, C>>
+
+const ASYNC_MARK = '__wfAsyncComponent'
+
+/**
+ * 包装异步组件工厂。
+ *
+ * ```tsx
+ * const UserProfile = asyncComponent(async (ctx) => {
+ *   const user = await ctx.data.get(`/api/user/${ctx.params.id}`)
+ *   return (initProps, ctx) => (props) => h('div', {}, user.name)
+ * })
+ * ```
+ */
+export function asyncComponent<C extends object = {}, P = {}>(
+  factory: AsyncComponent<C, P>,
+): AsyncComponent<C, P> {
+  const fn = factory as AsyncComponent<C, P> & { [ASYNC_MARK]: true }
+  fn[ASYNC_MARK] = true
+  return fn as AsyncComponent<C, P>
+}
+
+/** 判定一个组件类型是否为 async 工厂（asyncComponent 包装过） */
+export function isAsyncComponent(type: any): type is AsyncComponent {
+  return typeof type === 'function' && (type as any)?.[ASYNC_MARK] === true
+}
 
 export const Fragment = Symbol('Fragment')
 

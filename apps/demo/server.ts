@@ -4,6 +4,7 @@
 
 import type { WebSocketHandler, WebSocket, Context } from 'weifuwu'
 import { serve, Router, cors, ui } from 'weifuwu'
+import { h, asyncComponent } from 'weifuwu/client'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -97,17 +98,35 @@ const wsHandler: WebSocketHandler = {
 }
 app.ws('/ws', wsHandler)
 
-// ── SSR 博客页面 ─────────────────────────────────────────
+// ── SSR 博客页面（async 工厂组件 + ctx.ui.ssr）──────────────────
 
 const blogPost = {
   slug: 'hello-ssr',
   title: 'SSR 与 weifuwu',
-  body: '<p>这是服务端渲染的段落。</p><blockquote>搜索引擎可以看到这段内容。</blockquote><p>页面由服务端直接输出完整 HTML，无需客户端渲染。</p>',
+  body: '<p>这是服务端渲染的段落。</p><blockquote>搜索引擎可以看到这段内容。</blockquote><p>页面由 async 工厂组件 + ctx.ui.ssr 直接输出完整 HTML。</p>',
   author_name: 'weifuwu 团队',
   published_at: new Date('2025-07-16'),
 }
 
-app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => ctx.ui.html`
+/** async 工厂：工厂层声明数据（ctx.data 预取），mount/render 同步 */
+const BlogPage = asyncComponent(async (ctx: Context & { data?: any }) => {
+  const post = await ctx.data.get(`/api/posts/${ctx.params.slug}`, async () => {
+    await new Promise(r => setTimeout(r, 20))
+    return blogPost
+  })
+  return (_init: any) => () =>
+    h('article', { class: 'bg-white rounded-xl p-8 shadow-md' },
+      h('h1', { class: 'text-2xl font-bold mb-2' }, post.title),
+      h('div', { class: 'text-gray-400 text-sm mb-5' },
+        post.author_name, ' · ', post.published_at.toLocaleDateString()),
+      h('div', { class: 'leading-relaxed', innerHTML: post.body }),
+    )
+})
+
+app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => {
+  const data = new Map<string, unknown>()
+  const html = await ctx.ui.ssr(BlogPage, {}, { data })
+  return ctx.ui.html`
   <!DOCTYPE html>
   <html lang="zh-CN">
   <head>
@@ -117,18 +136,12 @@ app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => 
     <title>${blogPost.title}</title>
   </head>
   <body class="bg-gray-100 text-gray-800">
-    <div id="root" class="max-w-[600px] mx-auto px-4">
-      <article class="bg-white rounded-xl p-8 shadow-md">
-        <h1 class="text-2xl font-bold mb-2">${blogPost.title}</h1>
-        <div class="text-gray-400 text-sm mb-5">
-          ${blogPost.author_name} · ${blogPost.published_at.toLocaleDateString()}
-        </div>
-        <div class="leading-relaxed">${ctx.ui.html.unsafe(blogPost.body)}</div>
-      </article>
-    </div>
+    <div id="root" class="max-w-[600px] mx-auto px-4">${html}</div>
+    ${ctx.ui.ssrData(data)}
   </body>
   </html>
-`)
+`
+})
 
 // ── SPA 入口页面 ─────────────────────────────────────────
 

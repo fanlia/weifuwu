@@ -11,8 +11,8 @@
  * 状态管理：组件使用闭包变量 + ctx.ui.render() 手动触发重渲染。
  */
 
-import { Fragment, Portal, isPortal } from './vnode.ts'
-import type { VNode, Component } from './vnode.ts'
+import { Fragment, Portal, isPortal, isAsyncComponent } from './vnode.ts'
+import type { VNode, Component, AsyncComponent } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
@@ -45,16 +45,17 @@ function renderValue(v: any, ctx: WfuiContext): Node | null {
   // Fragment
   if (vnode.type === Fragment) {
     const frag = document.createDocumentFragment()
-    forEach(vnode.props?.children, child => {
+    const children = vnode.props?.children == null ? [] : (Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children])
+    for (const child of children) {
       const node = renderValue(child, ctx)
       if (node != null) frag.appendChild(node)
-    })
+    }
     return frag
   }
 
-  // Component
+  // Component（同步组件或 async 工厂）
   if (typeof vnode.type === 'function') {
-    return renderComponent(vnode.type as Component, vnode.props, vnode, ctx)
+    return renderComponent(vnode.type as Component | AsyncComponent, vnode.props, vnode, ctx)
   }
 
   // Native element（SVG 元素必须用 createElementNS）
@@ -74,7 +75,7 @@ function renderValue(v: any, ctx: WfuiContext): Node | null {
     setProp(el, 'value', vnode.props!.value)
   }
 
-  // innerHTML 优先：跳过 children 渲染
+    // innerHTML 优先：跳过 children 渲染
   if ('innerHTML' in (vnode.props ?? {})) {
     el.innerHTML = String(vnode.props!.innerHTML ?? '')
   } else {
@@ -106,7 +107,109 @@ function renderValue(v: any, ctx: WfuiContext): Node | null {
   return el
 }
 
-function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiContext): Node | null {
+/**
+ * 异步组件工厂缓存：同一工厂只执行一次，多实例/多渲染共享。
+ * resolved 记录已解析的定义（同步快速路径用）。
+ */
+interface FactoryEntry {
+  promise: Promise<Component<any, any>>
+  resolved?: Component<any, any>
+}
+let asyncFactoryCache = new WeakMap<AsyncComponent<any, any>, FactoryEntry>()
+
+/**
+ * 清空 async 工厂缓存。
+ * 页面上下文切换时调用（路由导航/登录登出）——工厂内 ctx.data.get 的 key 依赖 ctx（如 route.params），
+ * 上下文变化后旧缓存定义的数据已失效，需要让工厂以新 ctx 重新执行。
+ */
+export function clearAsyncComponentCache(): void {
+  asyncFactoryCache = new WeakMap()
+}
+
+/** 启动 async 工厂（幂等，缓存）：返回 entry，promise resolve 后 resolved 可用 */
+function startAsyncFactory(Comp: AsyncComponent, ctx: WfuiContext): FactoryEntry {
+  const existing = asyncFactoryCache.get(Comp)
+  if (existing) return existing
+
+  const entry: FactoryEntry = { promise: null as unknown as Promise<Component<any, any>> }
+  entry.promise = Promise.resolve()
+    .then(() => Comp(ctx))
+    .then((def) => {
+      if (typeof def !== 'function') {
+        throw new Error(
+          `asyncComponent factory <${Comp.name || 'anonymous'}> must return a Component ` +
+            `(initProps, ctx) => (props) => VNode.`
+        )
+      }
+      entry.resolved = def as Component
+      return def as Component
+    })
+  asyncFactoryCache.set(Comp, entry)
+  return entry
+}
+
+/** async 模式：await 工厂定义（初次渲染/服务端遍历/未来 hydration） */
+async function resolveAsyncFactory(Comp: AsyncComponent, ctx: WfuiContext): Promise<Component> {
+  return startAsyncFactory(Comp, ctx).promise
+}
+
+/** sync 模式：工厂已解析 → 定义；未解析 → undefined（占位 + 完成后整树重渲染） */
+function resolveAsyncFactorySync(Comp: AsyncComponent): Component | undefined {
+  return asyncFactoryCache.get(Comp)?.resolved
+}
+
+/** 占位完成后整树重渲染（async 工厂已解析，diff 收敛到目标位置） */
+function scheduleFullReRender(ctx: WfuiContext) {
+  const ui = (ctx as any).ui
+  if (ui && typeof ui.render === 'function') ui.render(['_wf_root'])
+}
+
+/**
+ * 同步 mount 组件（async 工厂占位策略）：
+ *   - 同步组件 → def(props, ctx) → render fn → 输出 VNode
+ *   - async 工厂已解析 → 同同步组件
+ *   - async 工厂未解析 → 占位（返回 null）+ 启动工厂 + 完成后整树重渲染
+ */
+function mountComponent(
+  Comp: Component | AsyncComponent,
+  props: any,
+  vnode: VNode,
+  ctx: WfuiContext,
+): VNode | null {
+  let def: Component | undefined
+  if (isAsyncComponent(Comp)) {
+    def = resolveAsyncFactorySync(Comp)
+    if (!def) {
+      // 占位：启动工厂；resolve 后整树重渲染（此时已解析 → 同步渲染）
+      void startAsyncFactory(Comp, ctx).promise.then(
+        () => scheduleFullReRender(ctx),
+        () => {
+          // 工厂失败：保持占位（错误保留在缓存 Promise，不产生 unhandled rejection）
+        },
+      )
+      return null
+    }
+  } else {
+    def = Comp as Component
+  }
+
+  let childVNode: any = def(props, ctx)
+  if (typeof childVNode !== 'function') {
+    throw new Error(
+      `Component ${Comp.name || 'anonymous'} must return a render function. ` +
+      `Use (init_props, ctx) => (props) => VNode pattern.`
+    )
+  }
+  vnode._render = childVNode
+  return childVNode(props)
+}
+
+function renderComponent(
+  Comp: Component | AsyncComponent,
+  props: any,
+  vnode: VNode,
+  ctx: WfuiContext,
+): Node | null {
   ;(ctx as any).ui = (ctx as any).ui ?? {}
 
   // 生成组件实例 ID
@@ -126,16 +229,7 @@ function renderComponent(Comp: Component, props: any, vnode: VNode, ctx: WfuiCon
 
   let childVNode
   try {
-    childVNode = Comp(props, childCtx)
-
-    if (typeof childVNode !== 'function') {
-      throw new Error(
-        `Component ${Comp.name || 'anonymous'} must return a render function. ` +
-        `Use (init_props, ctx) => (props) => VNode pattern.`
-      )
-    }
-    vnode._render = childVNode
-    childVNode = childVNode(props)
+    childVNode = mountComponent(Comp, props, vnode, childCtx)
   } catch (e) {
     const errHandler = (ctx as any).ui?._errorHandler
     if (errHandler) {
@@ -324,7 +418,7 @@ export function patchValue(
 
   // 组件
   if (typeof newV.type === 'function') {
-    const comp = newV.type as Component
+    const comp = newV.type as Component | AsyncComponent
 
     // 传递 _render（两阶段组件复用 render 函数）+ 保持实例 ID
     if (oldV._render) {
@@ -366,12 +460,8 @@ export function patchValue(
       if (typeof newV._render === 'function') {
         childNew = newV._render(newV.props)
       } else {
-        // fallback: call component directly (_render not transferred)
-        childNew = comp(newV.props, childCtx)
-        if (typeof childNew === 'function') {
-          newV._render = childNew
-          childNew = childNew(newV.props)
-        }
+        // fallback: 首次挂载（_render 未传递）——支持 async 工厂（未解析 → 占位 + 完成后重渲染）
+        childNew = mountComponent(comp, newV.props, newV, childCtx)
       }
     } catch (e) {
       const errHandler = (ctx as any).ui?._errorHandler
@@ -483,9 +573,9 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
     if (key === 'innerHTML') {
       if (newVal !== oldVal) (el as HTMLElement).innerHTML = String(newVal ?? '')
     } else if (newVal !== oldVal) {
-      if (key === 'class' || key === 'className') {
-        if (el instanceof SVGElement) el.setAttribute('class', String(newVal ?? ''))
-        else el.className = String(newVal ?? '')
+    if (key === 'class' || key === 'className') {
+        if (el instanceof SVGElement) el.setAttribute('class', classToString(newVal))
+        else el.className = classToString(newVal)
       } else if (key === 'style' && typeof newVal === 'object') {
         const st = (el as HTMLElement).style
         for (const sk of Object.keys(newVal)) {
@@ -512,6 +602,15 @@ function patchProps(el: Element, oldProps: any, newProps: any) {
       }
     }
   }
+}
+
+function classToString(v: any): string {
+  if (typeof v === 'string') return v
+  if (Array.isArray(v)) return v.filter(Boolean).join(' ')
+  if (v && typeof v === 'object') {
+    return Object.entries(v).filter(([, b]) => b).map(([k]) => k).join(' ')
+  }
+  return ''
 }
 
 // ── patchChildren ──────────────────────────────────────
@@ -791,4 +890,204 @@ export function mountVNode(container: Element, vnode: VNode, ctx: WfuiContext) {
   const node = renderValue(vnode, ctx)
   if (node instanceof Node) container.appendChild(node)
   else if (Array.isArray(node)) (node as any[]).forEach(n => container.appendChild(n))
+}
+
+// ── Hydration（游标收养）──────────────────────────────
+
+/**
+ * 游标：当前遍历位置对应的 DOM 节点。
+ * 不变量：元素/文本 VNode 恰好消耗一个游标节点；组件/Fragment/数组透明；null 消耗零；
+ * 创建时 insertBefore(游标) 且游标不动；收养/替换时游标前进。
+ */
+interface HydrationCursor {
+  parent: Node
+  node: Node | null
+}
+
+function cursorAdvance(c: HydrationCursor) {
+  c.node = c.node ? c.node.nextSibling : null
+}
+
+/** 创建节点：插到游标前（或父末尾），游标不动 */
+function cursorInsert(c: HydrationCursor, n: Node) {
+  if (c.node && c.node.parentNode) c.node.parentNode.insertBefore(n, c.node)
+  else c.parent.appendChild(n)
+}
+
+/** 替换游标节点（tag 不匹配）：消耗游标（前进到原节点下一个兄弟） */
+function cursorReplace(c: HydrationCursor, n: Node) {
+  if (c.node && c.node.parentNode) {
+    c.node.parentNode.replaceChild(n, c.node)
+    cursorAdvance(c)
+  } else {
+    c.parent.appendChild(n)
+  }
+}
+
+/**
+ * Hydration 渲染：收养现有 DOM（不重建），只接线事件/属性/ref。
+ * async：await 工厂（hydration 时 __DATA__ 同步命中，微任务即 resolve）。
+ */
+async function renderValueHydrating(v: any, ctx: WfuiContext, c: HydrationCursor): Promise<Node | null> {
+  if (v == null || typeof v === 'boolean') return null
+  if (typeof v === 'string' || typeof v === 'number') {
+    const text = String(v)
+    if (c.node && c.node.nodeType === 3) {
+      if (c.node.textContent !== text) c.node.textContent = text
+      cursorAdvance(c)
+      return c.node
+    }
+    const tn = document.createTextNode(text)
+    cursorInsert(c, tn)
+    return tn
+  }
+  if (Array.isArray(v)) {
+    let first: Node | null = null
+    for (const item of v) {
+      const n = await renderValueHydrating(item, ctx, c)
+      if (n != null && !first) first = n
+    }
+    return first
+  }
+  const vnode = v as VNode
+
+  // Portal/Fragment：就地内联收养（v1 裁剪：portal 内容不移动到 __wf_portal）
+  if (vnode.type === Portal || vnode.type === Fragment) {
+    const children = vnode.props?.children
+    const arr = children == null ? [] : (Array.isArray(children) ? children : [children])
+    let first: Node | null = null
+    for (const child of arr) {
+      const n = await renderValueHydrating(child, ctx, c)
+      if (n != null && !first) first = n
+    }
+    return first
+  }
+
+  // 组件（同步或 async 工厂）
+  if (typeof vnode.type === 'function') {
+    return renderComponentHydrating(vnode, ctx, c)
+  }
+
+  // 原生元素：收养（tag 匹配）或替换（mismatch 恢复）
+  const tag = vnode.type as string
+  const props = vnode.props ?? {}
+  let el: Element
+  if (c.node && c.node.nodeType === 1 && (c.node as Element).tagName.toLowerCase() === tag.toLowerCase()) {
+    el = c.node as Element
+    cursorAdvance(c)
+  } else {
+    el = SVG_TAGS.has(tag) ? document.createElementNS(SVG_NS, tag) : document.createElement(tag)
+    cursorReplace(c, el)
+  }
+  vnode.el = el
+
+  // 属性 + 事件接线（oldProps 为 null → 全量设置）
+  patchProps(el, null, props)
+
+  if ('innerHTML' in props) {
+    // 服务端已输出 innerHTML 内容——收养不动
+  } else {
+    const childCursor: HydrationCursor = { parent: el, node: el.firstChild }
+    const children = flattenChildren(props.children)
+    for (const child of children) {
+      const n = await renderValueHydrating(child, ctx, childCursor)
+      if (n != null && n.parentNode !== el) el.appendChild(n)
+      // 为子组件 VNode 设置 DOM 锚点（供 ctx.ui.render() scope 使用）
+      if (child && typeof child === 'object' && typeof (child as VNode).type === 'function') {
+        const childVNode = child as VNode
+        if (!childVNode._parentNode) {
+          childVNode._parentNode = el
+          childVNode._refNode = n
+        }
+      }
+    }
+    // 收尾：删除服务端有、客户端没有的多余子节点
+    while (childCursor.node) {
+      const n = childCursor.node
+      childCursor.node = n.nextSibling
+      n.parentNode?.removeChild(n)
+    }
+  }
+
+  // select value（options 生成后设置）
+  if ('value' in props && el instanceof HTMLSelectElement) {
+    ;(el as HTMLSelectElement).value = String(props.value ?? '')
+  }
+  // ref 回调：收养的 DOM 立即接线
+  if (typeof props.ref === 'function') props.ref(el)
+
+  return el
+}
+
+/** Hydration 组件：await 工厂（或同步 mount）→ render → 递归收养；填充实例簿记 */
+async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: HydrationCursor): Promise<Node | null> {
+  ;(ctx as any).ui = (ctx as any).ui ?? {}
+
+  if (!vnode._id) {
+    vnode._id = `_wf_${_idCounter++}`
+    idRegistry.set(vnode._id, vnode)
+  }
+  const childCtx = Object.create(ctx) as WfuiContext
+  childCtx.ui = Object.create(ctx.ui as any) as any
+  childCtx.ui._selfId = vnode._id
+  childCtx.ui._selfVNode = vnode
+  vnode._ctxVersion = (childCtx.ui as any)._ctxVersion ?? 0
+
+  const Comp = vnode.type as Component | AsyncComponent
+  let childVNode: any
+  try {
+    let def: Component
+    if (isAsyncComponent(Comp)) {
+      def = await resolveAsyncFactory(Comp, childCtx)
+    } else {
+      def = Comp as Component
+    }
+    const renderFn = def(vnode.props ?? {}, childCtx)
+    if (typeof renderFn !== 'function') {
+      throw new Error(
+        `Component ${Comp.name || 'anonymous'} must return a render function. ` +
+        `Use (init_props, ctx) => (props) => VNode pattern.`
+      )
+    }
+    vnode._render = renderFn
+    childVNode = renderFn(vnode.props ?? {})
+  } catch (e) {
+    const errHandler = (ctx as any).ui?._errorHandler
+    if (errHandler) {
+      errHandler(e)
+      childVNode = null
+    } else {
+      console.error(
+        `[weifuwu] Component hydration error in <${Comp.name || 'anonymous'}> (id: ${vnode._id ?? '?'})`,
+        e,
+      )
+      childVNode = null
+    }
+  }
+
+  if (childVNode == null) {
+    vnode._child = null
+    return null
+  }
+  vnode._child = childVNode
+  const domNode = await renderValueHydrating(childVNode, childCtx, c)
+  if (!(vnode as any)._refNode) {
+    ;(vnode as any)._refNode = domNode
+  }
+  return domNode
+}
+
+/**
+ * Hydration 挂载入口：收养 container 内现有服务端 HTML。
+ * 渲染完收尾：删除服务端有、客户端没有的残留 DOM。
+ */
+export async function hydrateVNode(container: Element, vnode: VNode, ctx: WfuiContext): Promise<void> {
+  const cursor: HydrationCursor = { parent: container, node: container.firstChild }
+  await renderValueHydrating(vnode, ctx, cursor)
+  // 收尾：清理残留
+  while (cursor.node) {
+    const n = cursor.node
+    cursor.node = n.nextSibling
+    n.parentNode?.removeChild(n)
+  }
 }
