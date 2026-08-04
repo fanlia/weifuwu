@@ -105,6 +105,45 @@ app.post('/api/chat', async (req: Request, ctx: Context): Promise<Response> => {
   })
 })
 
+// ── AI agent（工具循环 + HITL 审批）────────────────────────
+const weatherTool = {
+  name: 'query_weather',
+  description: '查询城市天气',
+  parameters: {
+    type: 'object',
+    properties: { city: { type: 'string', description: '城市名' } },
+    required: ['city'],
+  },
+  run: async (args: Record<string, unknown>, tool: { emit: (n: string, d: unknown) => void }) => {
+    const city = String(args.city ?? '')
+    tool.emit('wf:tool_progress', { toolCallId: 'x', step: 1, total: 2, message: `查询 ${city}…`, status: 'running' })
+    await new Promise((r) => setTimeout(r, 300))  // 模拟耗时
+    const temps: Record<string, number> = { 北京: 25, 上海: 28, 深圳: 30, 广州: 31 }
+    return { city, temp: temps[city] ?? 22, desc: '晴' }
+  },
+}
+
+app.post('/api/agent', async (req: Request, ctx: Context): Promise<Response> => {
+  const { messages } = await req.json()
+  const agent = ctx.ai!.agent({
+    systemPrompt: '你是助手。查询天气时调用 query_weather 工具。',
+    tools: [weatherTool],
+    humanInTheLoop: true,                                  // 每个工具执行前要审批
+  })
+  return agent.run(messages, {
+    signal: req.signal,
+    traceId: req.headers.get('x-trace-id') ?? undefined,
+  })
+})
+
+// HITL 审批响应（协议 §4.5：POST 上行，ctx.user 审计由 app 中间件负责）
+app.post('/api/approve', async (req: Request, ctx: Context): Promise<Response> => {
+  const body = await req.json()
+  const accepted = ctx.ai!.approve(body)
+  if (!accepted) return Response.json({ error: '审批不存在或已过期' }, { status: 404 })
+  return Response.json({ ok: true })
+})
+
 // ── WebSocket ────────────────────────────────────────────
 
 const wsHandler: WebSocketHandler = {

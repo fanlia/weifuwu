@@ -16,7 +16,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { sseResponse, type WfEmitter } from './sse.ts'
-import type { ChatMessage, ChatParams, ToolCall, WfErrorCode } from './types.ts'
+import type { ChatMessage, ChatParams, ToolCall, WfApprovalResponse, WfErrorCode } from './types.ts'
 
 // ── 类型 ─────────────────────────────────────────────────
 
@@ -63,6 +63,15 @@ export interface AiClientOptions {
   defaultModel: string
 }
 
+/** 单轮 LLM 流式调用的聚合结果（agent 循环用） */
+export interface StreamFinishResult {
+  content: string
+  /** DeepSeek thinking 模式：必须随 assistant 消息回传（协议陷阱清单 #4） */
+  reasoning_content?: string
+  toolCalls: ToolCall[]
+  usage?: ChatResponse['usage']
+}
+
 export interface AiClient {
   /** 非流式对话（worker/后台场景） */
   chat(params: ChatParams, options?: { signal?: AbortSignal }): Promise<ChatResponse>
@@ -70,6 +79,19 @@ export interface AiClient {
   stream(params: ChatParams, options?: { signal?: AbortSignal; traceId?: string }): Response
   /** 低层：app 完全控制事件序列（自定义 x:* 事件、HITL 等） */
   sse(run: (emit: WfEmitter) => Promise<void> | void, options?: { signal?: AbortSignal }): Response
+  /** 内部：单轮 LLM 流式 → emit 事件 + onFinish 聚合结果（agent 引擎用） */
+  streamStep(
+    params: ChatParams,
+    opts: { emit: WfEmitter; signal?: AbortSignal; onFinish?: (r: StreamFinishResult) => void; emitUsage?: boolean },
+  ): Promise<void>
+  /** 响应一个挂起的 HITL 审批（协议 §4.5，app 的 POST /approve 路由调用） */
+  approve(response: WfApprovalResponse): boolean
+  /** 内部：agent 循环挂起等待审批 */
+  waitApproval(
+    req: { id: string; toolCallId: string; name: string; args: Record<string, unknown> },
+    emit: WfEmitter,
+    timeoutMs?: number,
+  ): Promise<WfApprovalResponse>
 }
 
 // ── SSE 解析（provider 线协议）────────────────────────────
@@ -130,6 +152,38 @@ export function createAiClient(opts: AiClientOptions): AiClient {
   const endpoint = `${opts.baseUrl.replace(/\/$/, '')}/chat/completions`
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${opts.apiKey}` }
 
+  // ── HITL 审批注册表（协议 §4.5）：agent run 挂起 → app 的 POST /approve 响应 ──
+  const approvals = new Map<string, (resp: WfApprovalResponse) => void>()
+
+  function approve(response: WfApprovalResponse): boolean {
+    const resolve = approvals.get(response.id)
+    if (!resolve) return false
+    approvals.delete(response.id)
+    resolve(response)
+    return true
+  }
+
+  /** 内部：agent 循环挂起等待审批（emit approval_request，直到 approve 响应或超时） */
+  async function waitApproval(
+    req: { id: string; toolCallId: string; name: string; args: Record<string, unknown> },
+    emit: WfEmitter,
+    timeoutMs = DEFAULT_APPROVAL_TIMEOUT,
+  ): Promise<WfApprovalResponse> {
+    const expiresAt = Date.now() + timeoutMs
+    emit('wf:approval_request', { ...req, expiresAt })
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        if (approvals.has(req.id)) {
+          approvals.delete(req.id)
+          resolve({ id: req.id, decision: 'rejected' }) // 超时 → 按拒绝处理（协议 §4.5）
+        }
+      }, timeoutMs)
+      approvals.set(req.id, (resp) => {
+        clearTimeout(timer)
+        resolve(resp)
+      })
+    })
+  }
   /** 聚合 provider 流式 tool_calls：id 只在首 chunk，arguments 分片拼接 */
   function aggregateToolCalls(chunks: ChatChunk[]): ToolCall[] {
     const calls: ToolCall[] = []
@@ -165,7 +219,6 @@ export function createAiClient(opts: AiClientOptions): AiClient {
 
   function stream(params: ChatParams, options?: { signal?: AbortSignal; traceId?: string }): Response {
     const controller = new AbortController()
-    // 外部 signal（req.signal）转发到内部 controller
     const external = options?.signal
     if (external) {
       if (external.aborted) controller.abort()
@@ -175,62 +228,77 @@ export function createAiClient(opts: AiClientOptions): AiClient {
     return sseResponse(
       async (emit) => {
         emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
-
-        let res: Response
-        try {
-          res = await fetch(endpoint, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ ...params, model: params.model ?? opts.defaultModel, stream: true }),
-            signal: controller.signal,
-          })
-        } catch (err) {
-          if (controller.signal.aborted) return // 断开/取消：静默收尾
-          emit('wf:error', { code: 'provider_error', message: err instanceof Error ? err.message : String(err) })
-          return
-        }
-
-        if (!res.ok) {
-          const { code, message } = await providerError(res)
-          emit('wf:error', { code, message })
-          return
-        }
-
-        // 逐 chunk：token 增量直发；tool_calls 聚合后发；usage 有即发
-        let content = ''
-        const chunks: ChatChunk[] = []
-        let usage: ChatResponse['usage']
-        try {
-          for await (const chunk of parseProviderSse(res.body!)) {
-            if (controller.signal.aborted) return // 断开：静默收尾
-            const delta = chunk.choices[0]?.delta
-            if (delta?.content) {
-              content += delta.content
-              emit('wf:token', { text: delta.content })
-            }
-            if (delta?.tool_calls) chunks.push(chunk)
-            if (chunk.usage) usage = chunk.usage
-          }
-        } catch (err) {
-          if (controller.signal.aborted) return // 断开：静默收尾（不报错）
-          emit('wf:error', { code: 'provider_error', message: err instanceof Error ? err.message : String(err) })
-          return
-        }
-
-        const toolCalls = aggregateToolCalls(chunks)
-        for (const tc of toolCalls) {
-          emit('wf:tool_call', {
-            id: tc.id,
-            name: tc.function?.name ?? '',
-            args: safeParseArgs(tc.function?.arguments ?? ''),
-          })
-        }
-
-        if (usage) emit('wf:usage', usage)
-        emit('wf:done', { content, usage })
+        await streamStep(params, {
+          emit,
+          signal: controller.signal,
+          onFinish: (r) => emit('wf:done', { content: r.content, usage: r.usage }),
+        })
       },
       { onAbort: () => controller.abort() },
     )
+  }
+
+  /** 单轮 LLM 流式调用 → emit wf: 事件 + onFinish 聚合结果（agent 循环复用） */
+  async function streamStep(
+    params: ChatParams,
+    stepOpts: { emit: WfEmitter; signal?: AbortSignal; onFinish?: (r: StreamFinishResult) => void; emitUsage?: boolean },
+  ): Promise<void> {
+    const { emit, signal } = stepOpts
+
+    let res: Response
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ...params, model: params.model ?? opts.defaultModel, stream: true }),
+        signal,
+      })
+    } catch (err) {
+      if (signal?.aborted) return // 断开/取消：静默收尾
+      emit('wf:error', { code: 'provider_error', message: err instanceof Error ? err.message : String(err) })
+      return
+    }
+
+    if (!res.ok) {
+      const { code, message } = await providerError(res)
+      emit('wf:error', { code, message })
+      return
+    }
+
+    // 逐 chunk：token 增量直发；tool_calls 聚合后发；usage 有即发
+    let content = ''
+    let reasoning = ''
+    const chunks: ChatChunk[] = []
+    let usage: ChatResponse['usage']
+    try {
+      for await (const chunk of parseProviderSse(res.body!)) {
+        if (signal?.aborted) return // 断开：静默收尾
+        const delta = chunk.choices[0]?.delta
+        if (delta?.content) {
+          content += delta.content
+          emit('wf:token', { text: delta.content })
+        }
+        if (delta?.reasoning_content) reasoning += delta.reasoning_content
+        if (delta?.tool_calls) chunks.push(chunk)
+        if (chunk.usage) usage = chunk.usage
+      }
+    } catch (err) {
+      if (signal?.aborted) return // 断开：静默收尾（不报错）
+      emit('wf:error', { code: 'provider_error', message: err instanceof Error ? err.message : String(err) })
+      return
+    }
+
+    const toolCalls = aggregateToolCalls(chunks)
+    for (const tc of toolCalls) {
+      emit('wf:tool_call', {
+        id: tc.id,
+        name: tc.function?.name ?? '',
+        args: safeParseArgs(tc.function?.arguments ?? ''),
+      })
+    }
+
+    if (usage && stepOpts.emitUsage !== false) emit('wf:usage', usage)
+    stepOpts.onFinish?.({ content, reasoning_content: reasoning || undefined, toolCalls, usage })
   }
 
   function sse(run: (emit: WfEmitter) => Promise<void> | void, options?: { signal?: AbortSignal }): Response {
@@ -243,11 +311,14 @@ export function createAiClient(opts: AiClientOptions): AiClient {
     return sseResponse(run, { onAbort: () => controller.abort() })
   }
 
-  return { chat, stream, sse }
+  return { chat, stream, sse, streamStep, waitApproval, approve }
 }
 
+/** 审批默认超时：5 分钟 */
+export const DEFAULT_APPROVAL_TIMEOUT = 5 * 60_000
+
 /** 工具参数可能是 JSON 字符串；解析失败给空对象（不抛错） */
-function safeParseArgs(raw: string): Record<string, unknown> {
+export function safeParseArgs(raw: string): Record<string, unknown> {
   if (!raw) return {}
   try {
     return JSON.parse(raw) as Record<string, unknown>

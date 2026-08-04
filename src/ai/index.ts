@@ -29,6 +29,7 @@
 
 import type { Context, Middleware } from '../types.ts'
 import { createAiClient, type AiClient, type AiClientOptions } from './client.ts'
+import { createAgent, type AgentConfig, type AgentRunner } from './agent.ts'
 import type { ChatParams } from './types.ts'
 
 export interface AiOptions extends Partial<AiClientOptions> {}
@@ -37,15 +38,18 @@ export interface AiInjected {
   ai: AiClient
 }
 
-declare module '../types.ts' {
-  interface Context {
-    ai?: AiClient
-  }
-}
-
 /** 模块 = 中间件 + 客户端（queue 式混合：app.use(a) + worker 直接 a.chat()） */
 export interface AiClientModule extends Middleware<Context, Context & AiInjected>, AiClient {
+  /** agent 引擎（工具循环 + HITL 审批） */
+  agent: (config: AgentConfig) => AgentRunner
   close: () => Promise<void>
+}
+
+declare module '../types.ts' {
+  interface Context {
+    /** 注入模块本身（含 agent / approve），worker 场景直接 a.chat() */
+    ai?: AiClientModule
+  }
 }
 
 export function ai(options?: AiOptions): AiClientModule {
@@ -60,7 +64,7 @@ export function ai(options?: AiOptions): AiClientModule {
   const client = createAiClient({ apiKey, baseUrl, defaultModel })
 
   const mw: Middleware = (req, ctx, next) => {
-    ctx.ai = client
+    ctx.ai = module
     return next(req, ctx)
   }
   mw.__meta = { injects: ['ai'], depends: [] }
@@ -69,6 +73,10 @@ export function ai(options?: AiOptions): AiClientModule {
   module.chat = client.chat
   module.stream = client.stream
   module.sse = client.sse
+  module.streamStep = client.streamStep
+  module.waitApproval = client.waitApproval
+  module.approve = client.approve
+  module.agent = (config: AgentConfig) => createAgent(client, config)
   module.close = async () => {}
 
   return module
@@ -101,3 +109,4 @@ export type {
 export type { WfEmitter } from './sse.ts'
 export { AiError } from './client.ts'
 export type { AiClient, ChatResponse } from './client.ts'
+export type { AgentConfig, AgentTool, AgentRunner, ToolContext } from './agent.ts'

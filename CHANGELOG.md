@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.58.1 (AI 模块补全：agent 引擎 + HITL 审批)
+
+### ✨ New APIs
+
+- **agent 引擎**（`src/ai/agent.ts`）：`a.agent({ systemPrompt, tools, maxSteps, humanInTheLoop })` 工具循环——LLM 流式 → tool_call → 执行工具 → 结果回喂 → 重复（协议 §5 实现）；`wf:step` 事件（llm/tool 步骤可视化）
+- **工具执行上下文**：`run(args, { emit, signal })`——emit `wf:tool_progress` / `x:*` 自定义事件；signal 接收用户取消
+- **HITL 审批**（协议 §4.5 实现）：`humanInTheLoop` 时每个工具执行前发 `wf:approval_request` 挂起，`ctx.ai.approve({ id, decision: approved|rejected|modified, modifiedArgs?, note? })` 响应；**拒绝 ≠ 终止**（agent 换方案）、modified 按改后参数执行、超时按拒绝
+- **streamStep 重构**：流式核心从 stream() 抽出复用（agent 循环与 SSE 路由共用）；reasoning_content 聚合回传（DeepSeek thinking 模式硬性要求）
+- **解码器 onStep 回调**：`wf:step` 事件分发
+
+### 🐛 Fixes
+
+- **agent 多轮消息序列**：带 tool_calls 的 assistant 消息必须入上下文（provider 要求 tool 消息跟在 tool_calls 后）+ reasoning_content 必须回传——真实 DeepSeek 抓出的两个 bug（wire-fake 测不出，真库测出）
+
+### 🧪 Tests
+
+- 921 → **928**：ai-agent 7（wire-fake 多轮脚本：工具循环 / progress emit / HITL approved·rejected·超时 / 工具不存在 / maxSteps 截断）
+
+---
+
 ## 0.58.0 (AI 模块：自研 LLM 协议 + 零依赖客户端)
 
 > AI 是 weifuwu 的一等公民：自研 `wf:` 协议（docs/ai-contract.md）+ 零依赖 OpenAI 兼容客户端 + 前端解码器，不用 ai-sdk。

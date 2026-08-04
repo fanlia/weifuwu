@@ -32,6 +32,8 @@ export interface AiStreamCallbacks {
   onToolResult?: (result: WfToolResult) => void
   /** wf:tool_progress — 长任务进度 */
   onToolProgress?: (p: WfToolProgress) => void
+  /** wf:step — 步骤可视化（agent 扩展） */
+  onStep?: (s: { type: 'llm' | 'tool'; content?: string; toolCallId?: string; name?: string }) => void
   /** wf:approval_request — 渲染审批卡片 */
   onApproval?: (req: WfApprovalRequest) => void
   /** wf:usage — token 计数 */
@@ -134,6 +136,7 @@ function dispatch(name: string, data: unknown, o: AiStreamOptions): void {
     case 'wf:tool_call': return o.onToolCall?.(data as WfToolCall)
     case 'wf:tool_result': return o.onToolResult?.(data as WfToolResult)
     case 'wf:tool_progress': return o.onToolProgress?.(data as WfToolProgress)
+    case 'wf:step': return o.onStep?.(data as { type: 'llm' | 'tool'; content?: string; toolCallId?: string; name?: string })
     case 'wf:approval_request': return o.onApproval?.(data as WfApprovalRequest)
     case 'wf:usage': return o.onUsage?.(data as WfUsage)
     case 'wf:done': return o.onDone?.(data as WfDone)

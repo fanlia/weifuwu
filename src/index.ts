@@ -28,6 +28,10 @@ export type {
   AiClient,
   AiClientModule,
   ChatResponse,
+  AgentConfig,
+  AgentTool,
+  AgentRunner,
+  ToolContext,
 } from './ai/index.ts'
 export type {
   WfStreamEvent,

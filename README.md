@@ -2846,6 +2846,32 @@ app.post('/api/chat', async (req, ctx) => {
 
 // 非流式（worker/后台）：
 const res = await a.chat({ messages: [{ role: 'user', content: 'hi' }] })
+
+// agent 引擎：工具循环 + 人工审批（HITL）
+const agent = a.agent({
+  systemPrompt: '你是助手。查询天气时调用 query_weather 工具。',
+  tools: [{
+    name: 'query_weather',
+    description: '查询城市天气',
+    parameters: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+    run: async (args, { emit }) => {
+      emit('wf:tool_progress', { toolCallId: 'x', step: 1, total: 2, message: '查询中…', status: 'running' })
+      return { city: args.city, temp: 25 }
+    },
+  }],
+  humanInTheLoop: true,   // 每个工具执行前等人工审批
+})
+
+app.post('/api/agent', async (req, ctx) => {
+  const { messages } = await req.json()
+  return agent.run(messages, { signal: req.signal, traceId: req.headers.get('x-trace-id') ?? undefined })
+})
+
+// HITL 审批响应（前端点"允许/拒绝" → POST 到这里）
+app.post('/api/approve', async (req, ctx) => {
+  ctx.ai.approve(await req.json())   // { id, decision, modifiedArgs?, note? }
+  return new Response(null, { status: 200 })
+})
 ```
 
 前端解码（`weifuwu/client`）：
@@ -2863,7 +2889,8 @@ const handle = aiStream('/api/chat', { messages }, {
 handle.abort()  // 用户停止/组件卸载/导航跳走
 ```
 
-- **协议**：`wf:` 命名空间（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件（详见 [docs/ai-contract.md](./docs/ai-contract.md)）
+- **协议**：`wf:` 命名空间（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 step/approval_request），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件（详见 [docs/ai-contract.md](./docs/ai-contract.md)）
+- **agent 引擎**：`a.agent({ systemPrompt, tools, humanInTheLoop })` 工具循环（LLM → tool_call → 执行 → 回喂 → 重复）；工具可 `emit` 进度/自定义事件、接收 `signal` 取消；HITL 审批（`ctx.ai.approve` 响应，拒绝≠终止、modified 改参、超时兜底）
 - **零依赖**：自研 OpenAI 兼容客户端（fetch + SSE 解析），默认 DeepSeek，`baseUrl` 可换任意 OpenAI 兼容端点（Ollama/vLLM/Moonshot…）
 - **追踪**：前端自动生成 `X-Trace-Id` → 后端以之作为 `message_start.id` → 工具内请求继承同一 traceId，整个 agent run 一次搜完
 - **裁剪**：embeddings、Anthropic 原生协议、agent 引擎、审批持久化暂不支持；agent 审批事件（approval_request/response）schema 先行，实现按信号
