@@ -2893,7 +2893,7 @@ handle.abort()  // 用户停止/组件卸载/导航跳走
 - **agent 引擎**：`a.agent({ systemPrompt, tools, humanInTheLoop })` 工具循环（LLM → tool_call → 执行 → 回喂 → 重复）；工具可 `emit` 进度/自定义事件、接收 `signal` 取消；HITL 审批（`ctx.ai.approve` 响应，拒绝≠终止、modified 改参、超时兜底）
 - **零依赖**：自研 OpenAI 兼容客户端（fetch + SSE 解析），默认 DeepSeek，`baseUrl` 可换任意 OpenAI 兼容端点（Ollama/vLLM/Moonshot…）
 - **追踪**：前端自动生成 `X-Trace-Id` → 后端以之作为 `message_start.id` → 工具内请求继承同一 traceId，整个 agent run 一次搜完
-- **裁剪**：embeddings、Anthropic 原生协议、agent 引擎、审批持久化暂不支持；agent 审批事件（approval_request/response）schema 先行，实现按信号
+- **裁剪**：embeddings、Anthropic 原生协议、审批持久化（连接断=会话亡）暂不支持；多 agent 编排不承诺（子 agent = 工具已支持）
 
 ## 组合示例：注册 → 验证邮件 → 欢迎任务 → 登录防爆破
 

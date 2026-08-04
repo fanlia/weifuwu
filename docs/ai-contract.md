@@ -68,9 +68,9 @@ Content-Type: application/json
 | `wf:tool_call` | 工具 | 下行 | 渲染工具卡片 | ✅ 实现 |
 | `wf:tool_result` | 工具 | 下行 | 卡片 → 结果态 | ✅ 实现 |
 | `wf:tool_progress` | 工具 | 下行 | 卡片 → 进度态 | ✅ 实现 |
-| `wf:step` | agent | 下行 | 步骤可视化 | ⏸ schema 先行 |
-| `wf:approval_request` | agent | 下行 | 渲染审批卡片（待批态） | ⏸ schema 先行 |
-| `wf:approval_response` | agent | **上行 POST** | 用户决策回传 | ⏸ schema 先行 |
+| `wf:step` | agent | 下行 | 步骤可视化 | ✅ 实现（agent 引擎） |
+| `wf:approval_request` | agent | 下行 | 渲染审批卡片（待批态） | ✅ 实现（agent 引擎） |
+| `wf:approval_response` | agent | **上行 POST** | 用户决策回传 | ✅ 实现（ctx.ai.approve） |
 | `x:*` | 自定义 | 双向 | **透传不解释** | ✅ 规则生效 |
 
 **层规则**：只要 chat 的 app 永远不接触工具/agent 事件；前端解码器按层订阅，未订阅的事件跳过不报错。
@@ -249,7 +249,7 @@ tools: [{
 
 ---
 
-## 5. agent 扩展事件（schema 先行，实现按信号）
+## 5. agent 扩展事件（已实现：src/ai/agent.ts）
 
 ### 5.1 `wf:step`
 
@@ -259,11 +259,20 @@ tools: [{
 ```
 
 - 供前端做步骤可视化（思考中/工具执行中/完成）。
-- 实现由 agent 引擎下沉时提供（当前 app 可用 `x:*` 实现同等效果）。
+- 由 agent 引擎（`a.agent()`）在每个 LLM 轮次前与每个工具执行前发出。
 
-### 5.2 子 agent = 工具
+### 5.2 agent 引擎（`a.agent({ systemPrompt, tools, humanInTheLoop })`）
 
-多 agent 沟通不新增协议事件：子 agent 通过 `delegate` 工具承载，其最终输出 = 该工具的 `tool_result`。编排逻辑（委派给谁、何时、如何聚合）是 app 在工具 handler 里的业务。
+工具循环：LLM 流式（emit `wf:token`）→ tool_calls → 执行工具 → 结果回喂 → 重复，直到无工具调用或 maxSteps 耗尽。
+
+- 事件序列：`message_start → (step:llm → token* → tool_call → step:tool → [approval_request → approve] → tool_result)* → usage → done`
+- **工具执行上下文**：`run(args, { emit, signal })`——emit `wf:tool_progress` / `x:*` 自定义事件；signal 接收用户取消
+- **HITL 审批**：`humanInTheLoop` 时每个工具执行前挂起等 `ctx.ai.approve()` 响应（见 §4.5）
+- **多轮消息纪律**（真实 DeepSeek 验证）：带 tool_calls 的 assistant 消息必须入上下文；thinking 模式 `reasoning_content` 必须回传（陷阱清单 #4）
+
+### 5.3 子 agent = 工具
+
+多 agent 沟通不新增协议事件：子 agent 通过 `delegate` 工具承载（工具 run 内调 `a.chat()` 或另一个 agent 的循环），其最终输出 = 该工具的 `tool_result`。编排逻辑（委派给谁、何时、如何聚合）是 app 在工具 handler 里的业务。
 
 ---
 
@@ -382,7 +391,7 @@ export interface ToolCall { id: string; type: 'function'; function: { name: stri
 |---|---|
 | chat / stream / tools / progress / error 模型 | ✅ v1 实现 |
 | `x:*` 透传、未知事件/字段兼容 | ✅ v1 规则生效 |
-| agent 引擎、`wf:step`、审批事件 | ⏸ schema 先行，实现按信号 |
+| agent 引擎（`a.agent()`）、`wf:step`、审批事件 | ✅ 已实现 |
 | embeddings | ❌ 不做（DeepSeek 无此 API） |
 | Anthropic/OpenAI 原生协议 | ❌ 不做（OpenAI 兼容已覆盖，baseUrl 可换） |
 | 多 agent 编排 | ❌ 不承诺（子 agent = 工具已覆盖） |
