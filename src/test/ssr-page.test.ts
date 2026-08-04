@@ -24,7 +24,11 @@ function call(mw: ReturnType<typeof uiSsr>, path: string, method = 'GET', ctx: a
 describe('uiSsr 路由级 SSR', () => {
   it('GET 匹配路由 → 自动 SSR 页面（组件 + __DATA__ + bundle + 模板）', async () => {
     const Page = (_init: any) => () => h('div', { id: 'page' }, 'hello page')
-    const mw = uiSsr({ routes: [{ path: '/about', component: Page, title: '关于' }], bundle: '/static/app.js' })
+    const mw = uiSsr({
+      routes: [{ path: '/about', component: Page, title: '关于' }],
+      bundle: '/static/app.js',
+      styles: ['/static/style.css'],
+    })
     const res = await call(mw, '/about')
     const html = await res.text()
     assert.equal(res.headers.get('Content-Type'), 'text/html; charset=utf-8')
@@ -32,6 +36,7 @@ describe('uiSsr 路由级 SSR', () => {
     assert.ok(html.includes('<title>关于</title>'), '路由 title 进模板')
     assert.ok(html.includes('window.__DATA__={}'), '__DATA__ 序列化')
     assert.ok(html.includes('<script src="/static/app.js"></script>'), 'bundle 注入')
+    assert.ok(html.includes('<link rel="stylesheet" href="/static/style.css">'), 'styles 注入')
   })
 
   it('未匹配 → next() 交还后续', async () => {

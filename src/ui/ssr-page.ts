@@ -20,14 +20,17 @@ export interface UiSsrOptions {
   routes: RouteDef[]
   /** 客户端 bundle 路径（自动注入 <script src>，如 '/static/app.js'） */
   bundle?: string
+  /** CSS 路径数组（自动注入 <link rel="stylesheet">，如 ['/static/style.css']） */
+  styles?: string[]
   /** 自定义 title（默认取路由定义 title 或 'weifuwu'） */
   title?: (ctx: { params: Record<string, string>; def: RouteDef }) => string
-  /** 自定义页面模板：返回完整 HTML（默认内置，含 head/root/__DATA__/bundle） */
+  /** 自定义页面模板：返回完整 HTML（默认内置，含 head/root/__DATA__/styles/bundle） */
   template?: (parts: {
     html: string
     dataScript: string
     title: string
     bundle?: string
+    styles?: string[]
   }) => string
 }
 
@@ -36,12 +39,14 @@ const DEFAULT_TEMPLATE = (p: {
   dataScript: string
   title: string
   bundle?: string
+  styles?: string[]
 }): string => `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(p.title)}</title>
+  ${(p.styles ?? []).map(s => `<link rel="stylesheet" href="${escapeHtml(s)}">`).join('\n  ')}
 </head>
 <body>
   <div id="root">${p.html}</div>
@@ -91,7 +96,7 @@ export function uiSsr(opts: UiSsrOptions): Middleware {
       : (def.title as string) || 'weifuwu'
     const dataScript = new HtmlSafe(serializeData(data)).toString()
 
-    const body = template({ html: html.toString(), dataScript, title, bundle: opts.bundle })
+    const body = template({ html: html.toString(), dataScript, title, bundle: opts.bundle, styles: opts.styles })
     return new Response(body, {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     })

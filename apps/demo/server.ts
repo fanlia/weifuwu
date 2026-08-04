@@ -107,7 +107,7 @@ app.ws('/ws', wsHandler)
 // ── SSR 页面（路由级自动渲染）────────────────────────────────
 // uiSsr({ routes })：GET 匹配 routes → 注入 ctx.route.params → await 组件工厂
 // → 完整 HTML + __DATA__ + bundle——手写 handler/模板/序列化的碎片全部消除
-app.use(uiSsr({ routes, bundle: '/static/blog.js' }))
+app.use(uiSsr({ routes, bundle: '/static/blog.js', styles: ['/static/style.css'] }))
 
 // ── SPA 入口页面 ─────────────────────────────────────────
 
