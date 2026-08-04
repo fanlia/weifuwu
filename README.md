@@ -234,6 +234,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu` | **email** | 邮件发送（Resend/SMTP 自研/自定义适配器）→ `ctx.email` | Router |
 | `weifuwu` | **userSystem** | 用户系统（scrypt 密码哈希 + 混合会话）→ `ctx.user` / `ctx.auth` + `/api/auth/*` | Router, postgres |
 | `weifuwu` | **queue** | 可靠任务队列（Redis Streams，at-least-once + DLQ）→ `ctx.queue` | Router, redis |
+| `weifuwu` | **ai** | LLM 对话（自研 OpenAI 兼容协议 + 自研 SSE 解码，默认 DeepSeek）→ `ctx.ai` + `aiStream` | Router |
 | `weifuwu/dev` | **dev loader** | Node loader：服务端直接跑 `.ts/.tsx`（`--import weifuwu/dev`） | esbuild |
 | `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
 | `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
@@ -2825,6 +2826,47 @@ await worker.stop()            // 优雅停止
 - **语义**：at-least-once（handler 可能重复执行——幂等由业务保证）；Redis Streams 消费组，多 worker 实例不重复消费
 - **可靠性**：失败 → 延迟重试（间隔 = `visibilityTimeout`，ZSET 延迟队列）→ attempts 用尽 → DLQ；worker 崩溃 → pending 由其他实例 `XAUTOCLAIM` 接管
 - 裁剪：延迟调度（除重试外）、cron、优先级、指数退避、速率限制不支持
+
+## ai — LLM 对话（自研协议 + 零依赖客户端）
+
+```ts
+import { ai } from 'weifuwu'
+
+const a = ai()          // DEEPSEEK_API_KEY / BASE_URL / MODEL 自动读 env，默认 deepseek-v4-flash
+app.use(a)              // 注入 ctx.ai（worker/非请求场景也可直接 a.chat()）
+
+// 流式对话：路由一行返回 SSE（wf: 协议，详见 docs/ai-contract.md）
+app.post('/api/chat', async (req, ctx) => {
+  const { messages } = await req.json()
+  return ctx.ai.stream({ messages }, {
+    signal: req.signal,                                    // 断开即取消 provider 请求
+    traceId: req.headers.get('x-trace-id') ?? undefined,   // 追踪关联（协议 §7）
+  })
+})
+
+// 非流式（worker/后台）：
+const res = await a.chat({ messages: [{ role: 'user', content: 'hi' }] })
+```
+
+前端解码（`weifuwu/client`）：
+
+```ts
+import { aiStream } from 'weifuwu/client'
+
+const handle = aiStream('/api/chat', { messages }, {
+  onToken: (text) => { /* 增量 append 到消息 */ },
+  onToolCall: (call) => { /* 渲染工具卡片 */ },
+  onDone: () => { /* 收尾 */ },
+  onError: (e) => { /* 按 e.code 降级 */ },
+  onEvent: (name, data) => { /* x:* 自定义事件透传 */ },
+})
+handle.abort()  // 用户停止/组件卸载/导航跳走
+```
+
+- **协议**：`wf:` 命名空间（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件（详见 [docs/ai-contract.md](./docs/ai-contract.md)）
+- **零依赖**：自研 OpenAI 兼容客户端（fetch + SSE 解析），默认 DeepSeek，`baseUrl` 可换任意 OpenAI 兼容端点（Ollama/vLLM/Moonshot…）
+- **追踪**：前端自动生成 `X-Trace-Id` → 后端以之作为 `message_start.id` → 工具内请求继承同一 traceId，整个 agent run 一次搜完
+- **裁剪**：embeddings、Anthropic 原生协议、agent 引擎、审批持久化暂不支持；agent 审批事件（approval_request/response）schema 先行，实现按信号
 
 ## 组合示例：注册 → 验证邮件 → 欢迎任务 → 登录防爆破
 

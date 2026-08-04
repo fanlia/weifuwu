@@ -21,6 +21,35 @@ export { userSystem } from './user/index.ts'
 export type { UserSystemOptions, UserInjected, AuthApi, RegisterInput } from './user/index.ts'
 export { queue } from './queue/index.ts'
 export type { QueueOptions, QueueClient, QueueInjected, QueueWorker, WorkerOptions, AddOptions, Job } from './queue/index.ts'
+export { ai } from './ai/index.ts'
+export type {
+  AiOptions,
+  AiInjected,
+  AiClient,
+  AiClientModule,
+  ChatResponse,
+} from './ai/index.ts'
+export type {
+  WfStreamEvent,
+  WfMessageStart,
+  WfToken,
+  WfUsage,
+  WfDone,
+  WfError,
+  WfErrorCode,
+  WfToolCall,
+  WfToolResult,
+  WfToolProgress,
+  WfStep,
+  WfApprovalRequest,
+  WfApprovalResponse,
+  WfApprovalDecision,
+  ChatMessage,
+  ChatParams,
+  MessageRole,
+  ToolCall,
+  ToolDefinition,
+} from './ai/types.ts'
 export { ui } from './ui/index.ts'
 export { uiSsr } from './ui/ssr-page.ts'
 export type { UiSsrOptions } from './ui/ssr-page.ts'

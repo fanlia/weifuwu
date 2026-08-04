@@ -37,6 +37,30 @@ export type { AuthClient, AuthOptions, AuthInjected } from './middleware/auth.ts
 export { extendCtx } from './types.ts'
 export type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 
+export { aiStream } from './ai.ts'
+export type { AiStreamCallbacks, AiStreamOptions, AiStreamHandle } from './ai.ts'
+export type {
+  WfStreamEvent,
+  WfMessageStart,
+  WfToken,
+  WfUsage,
+  WfDone,
+  WfError,
+  WfErrorCode,
+  WfToolCall,
+  WfToolResult,
+  WfToolProgress,
+  WfStep,
+  WfApprovalRequest,
+  WfApprovalResponse,
+  WfApprovalDecision,
+  ChatMessage,
+  ChatParams,
+  MessageRole,
+  ToolCall,
+  ToolDefinition,
+} from '../ai/types.ts'
+
 export { ErrorBoundary } from './error-boundary.ts'
 export type { ErrorBoundaryProps } from './error-boundary.ts'
 

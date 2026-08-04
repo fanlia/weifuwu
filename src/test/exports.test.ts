@@ -43,7 +43,7 @@ describe('weifuwu 后端入口导出（src/index.ts）', () => {
 
   it('README 模块总览声明的后端 API 全部导出', () => {
     // graphql：Router 实例方法 app.graphql()；response：导出为 ok/badRequest/... 各函数（非 response 命名导出）
-    for (const name of ['serve', 'Router', 'cors', 'serveStatic', 'postgres', 'redis', 'ui', 'createMiddleware', 'parseBody', 'HttpError', 'ok', 'badRequest', 'redirect', 'rateLimit', 'email', 'userSystem', 'queue', 'sendSmtp']) {
+    for (const name of ['serve', 'Router', 'cors', 'serveStatic', 'postgres', 'redis', 'ui', 'createMiddleware', 'parseBody', 'HttpError', 'ok', 'badRequest', 'redirect', 'rateLimit', 'email', 'userSystem', 'queue', 'sendSmtp', 'ai']) {
       assert.ok(exp.has(name), `src/index.ts 缺失导出: ${name}`)
     }
   })
@@ -58,7 +58,7 @@ describe('weifuwu/client 入口导出（src/client/index.ts）', () => {
   })
 
   it('README 声称的 client API 全部导出', () => {
-    for (const name of ['createApp', 'h', 'router', 'RouteView', 'api', 'auth', 'ws', 'i18n', 'ErrorBoundary', 'lockScroll', 'trapFocus']) {
+    for (const name of ['createApp', 'h', 'router', 'RouteView', 'api', 'auth', 'ws', 'i18n', 'ErrorBoundary', 'lockScroll', 'trapFocus', 'aiStream']) {
       assert.ok(exp.has(name), `src/client/index.ts 缺失导出: ${name}`)
     }
   })

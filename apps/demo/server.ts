@@ -3,11 +3,12 @@
  */
 
 import type { WebSocketHandler, WebSocket, Context } from 'weifuwu'
-import { serve, Router, cors, ui } from 'weifuwu'
+import { serve, Router, cors, ui, ai } from 'weifuwu'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { uiSsr } from 'weifuwu'
 import { routes } from './src/routes.tsx'
+import { demoAi } from './src/ai-demo.ts'
 
 // 以 server.ts 自身位置为基准解析路径（不受启动时 CWD 影响）
 const demoRoot = dirname(fileURLToPath(import.meta.url))
@@ -15,6 +16,10 @@ const demoRoot = dirname(fileURLToPath(import.meta.url))
 const app = new Router()
 app.use(cors())
 app.use(ui())
+
+// ── AI：有 DEEPSEEK_API_KEY 用真实 DeepSeek，否则内置确定性 wire-fake ──
+const aiModule = await demoAi()
+app.use(aiModule)
 
 // ── 静态资源 ─────────────────────────────────────────────
 
@@ -88,6 +93,15 @@ app.get('/api/user', async (req: Request, ctx: Context): Promise<Response> => {
     id: 1,
     name: 'Demo User',
     email: 'demo@example.com',
+  })
+})
+
+// ── AI 对话（wf: 协议：ctx.ai.stream → SSE → 前端 aiStream）────
+app.post('/api/chat', async (req: Request, ctx: Context): Promise<Response> => {
+  const { messages } = await req.json()
+  return ctx.ai!.stream({ messages }, {
+    signal: req.signal,                                    // 断开即取消 provider 请求
+    traceId: req.headers.get('x-trace-id') ?? undefined,   // 追踪关联：message_start.id
   })
 })
 

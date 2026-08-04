@@ -12,6 +12,7 @@ import { createApp, router, RouteView, ws, api, auth } from 'weifuwu/client'
 import type { WfuiContext, RouteDef } from 'weifuwu/client'
 import DashboardOverview from './pages/DashboardOverview'
 import DashboardSettings from './pages/DashboardSettings'
+import ChatPage from './pages/ChatPage'
 
 /* ═══════════════════════════════════════════════════════
  *  首页
@@ -27,6 +28,7 @@ function HomePage(_props: {}, ctx: WfuiContext) {
     { title: 'Dashboard', desc: '嵌套布局 + 路由', path: '/dashboard/overview' },
     { title: '认证', desc: 'api() + auth() 中间件', path: '/auth' },
     { title: '实时', desc: 'WebSocket 双向通信', path: '/ws' },
+    { title: 'AI 对话', desc: 'wf: 协议流式聊天', path: '/ai' },
     { title: '关于', desc: '路由参数 /query', path: '/about' },
     { title: '用户', desc: '路由参数 /:name', path: '/user/wefu' },
   ]
@@ -547,6 +549,7 @@ function AppShell(_props: {}, ctx: WfuiContext) {
     { label: 'Dashboard', path: '/dashboard/overview' },
     { label: '认证', path: '/auth' },
     { label: '实时', path: '/ws' },
+    { label: 'AI 对话', path: '/ai' },
   ]
 
   return () => (
@@ -600,6 +603,7 @@ const routes: RouteDef[] = [
   },
   { path: '/auth', component: AuthPage, title: '认证' },
   { path: '/ws', component: RealtimePage, title: '实时' },
+  { path: '/ai', component: ChatPage, title: 'AI 对话' },
   { path: '/about', component: AboutPage, title: '关于' },
   { path: '/user/:name', component: UserPage, title: '用户' },
 ]

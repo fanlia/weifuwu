@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.58.0 (AI 模块：自研 LLM 协议 + 零依赖客户端)
+
+> AI 是 weifuwu 的一等公民：自研 `wf:` 协议（docs/ai-contract.md）+ 零依赖 OpenAI 兼容客户端 + 前端解码器，不用 ai-sdk。
+> 一个 `npm install weifuwu` 即得流式对话 + 工具调用 + 错误即值 + 全链路追踪。
+
+### ✨ New APIs
+
+- **ai**：LLM 对话模块（`src/ai/`）——`ai()` 工厂（queue 式混合：`app.use(a)` 注入 `ctx.ai`，worker 直接 `a.chat()`）；自研 OpenAI 兼容客户端（fetch + SSE，零依赖，默认 DeepSeek `deepseek-v4-flash`，`baseUrl` 可换 Ollama/vLLM/Moonshot）；`ctx.ai.stream()` 路由一行返回 SSE；`ctx.ai.sse(emit)` 低层自定义事件通道
+- **wf: 协议**（`docs/ai-contract.md`）：`wf:` 命名空间事件（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 schema），错误即值、未知事件透传、`x:*` 自定义事件、工具进度 emit、HITL 审批事件（schema 先行）、错误码表
+- **aiStream**（`weifuwu/client`）：前端解码器——事件分发（onToken/onToolCall/onApproval/onError…）、`x:*` 透传兜底、事件录制（可导出测试 fixture）、abort、**trace 桥（自动生成 X-Trace-Id → 后端 message_start.id 关联）**
+- **追踪关联**：`X-Trace-Id` 请求头 → `wf:message_start.id` → 工具内请求继承同一 traceId（serve.ts 已有 traceId 机制，响应头回显）
+
+### 🧪 Tests
+
+- 902 → **921**：ai 8（wire-fake 真 HTTP+SSE：事件序列 / tool_calls 聚合 / 错误映射 / abort 传播 / trace 桥）+ aiStream 6（端到端：后端编码 → 前端解码 / 未知事件透传 / 录制 / trace / 错误即值 / abort）
+- wire-fake：LLM 真 API 付费且不确定，故起真实 HTTP + SSE loopback 服务器保证 CI 确定性（CS-04 精神：不 mock fetch，不 mock 网络层）
+
+---
+
 ## 0.57.0 (SaaS 地基四模块：限流 + 邮件 + 用户系统 + 队列)
 
 > 零新增运行时依赖——四个模块全部建在自研 redis/postgres 客户端 + node 标准库之上。
