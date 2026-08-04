@@ -4,9 +4,9 @@
 
 import type { WebSocketHandler, WebSocket, Context } from 'weifuwu'
 import { serve, Router, cors, ui } from 'weifuwu'
-import { h, asyncComponent } from 'weifuwu/client'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { BlogPage } from './src/blog-page.ts'
 
 // 以 server.ts 自身位置为基准解析路径（不受启动时 CWD 影响）
 const demoRoot = dirname(fileURLToPath(import.meta.url))
@@ -18,7 +18,12 @@ app.use(ui())
 // ── 静态资源 ─────────────────────────────────────────────
 
 // 客户端 JS bundle — 动态编译（开发模式，无需构建步骤）
+
+// SPA 入口
 app.get('/static/app.js', (req, ctx) => ctx.ui.js(join(demoRoot, 'src/main.tsx')))
+
+// 博客页 hydration 入口（SSR HTML + __DATA__ → 客户端收养接管交互）
+app.get('/static/blog.js', (req, ctx) => ctx.ui.js(join(demoRoot, 'src/blog-hydrate.ts')))
 
 // 客户端 CSS
 app.get('/static/style.css', (req, ctx) => ctx.ui.css(join(demoRoot, 'public/style.css')))
@@ -98,30 +103,12 @@ const wsHandler: WebSocketHandler = {
 }
 app.ws('/ws', wsHandler)
 
-// ── SSR 博客页面（async 工厂组件 + ctx.ui.ssr）──────────────────
+// ── SSR 博客页面（async 工厂组件 + ctx.ui.ssr + 客户端 hydration）──
 
-const blogPost = {
-  slug: 'hello-ssr',
-  title: 'SSR 与 weifuwu',
-  body: '<p>这是服务端渲染的段落。</p><blockquote>搜索引擎可以看到这段内容。</blockquote><p>页面由 async 工厂组件 + ctx.ui.ssr 直接输出完整 HTML。</p>',
-  author_name: 'weifuwu 团队',
-  published_at: new Date('2025-07-16'),
-}
-
-/** async 工厂：工厂层声明数据（ctx.data 预取），mount/render 同步 */
-const BlogPage = asyncComponent(async (ctx: Context & { data?: any }) => {
-  const post = await ctx.data.get(`/api/posts/${ctx.params.slug}`, async () => {
-    await new Promise(r => setTimeout(r, 20))
-    return blogPost
-  })
-  return (_init: any) => () =>
-    h('article', { class: 'bg-white rounded-xl p-8 shadow-md' },
-      h('h1', { class: 'text-2xl font-bold mb-2' }, post.title),
-      h('div', { class: 'text-gray-400 text-sm mb-5' },
-        post.author_name, ' · ', post.published_at.toLocaleDateString()),
-      h('div', { class: 'leading-relaxed', innerHTML: post.body }),
-    )
-})
+// 共享组件见 src/blog-page.ts：
+//   服务端 await 工厂 → ctx.data 预取 → 完整 HTML + __DATA__
+//   客户端 /static/blog.js → mount(..., { hydrate: true }) 收养 DOM（无闪跳）
+//   点赞/折叠是客户端状态（$），正文是服务端数据（闭包）
 
 app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => {
   const data = new Map<string, unknown>()
@@ -133,11 +120,12 @@ app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/static/style.css">
-    <title>${blogPost.title}</title>
+    <title>SSR + Hydration 演示</title>
   </head>
   <body class="bg-gray-100 text-gray-800">
-    <div id="root" class="max-w-[600px] mx-auto px-4">${html}</div>
+    <div id="root" class="max-w-[600px] mx-auto px-4 py-8">${html}</div>
     ${ctx.ui.ssrData(data)}
+    <script src="/static/blog.js"></script>
   </body>
   </html>
 `
