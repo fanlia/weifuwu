@@ -103,6 +103,14 @@ const UserProfile = asyncComponent(async (ctx) => {
 - **失效**：工厂缓存绑定页面上下文——路由导航/登录登出时 `clearAsyncComponentCache()` 自动失效，工厂以新 ctx 重新执行（数据 key 变化时拿新数据）
 - **个性化数据不进 ctx.data**：SSR 会把工厂取数结果序列化给所有客户端，会话/用户相关数据会污染索引且泄露给他人——留在客户端 `$` + fetch
 
+### uiSsr + weifuwu/dev — 路由级统一渲染（SPA/SSR 透明）
+
+- **`uiSsr({ routes, bundle })`**（`src/ui/ssr-page.ts`）：GET 匹配共享路由 → 注入 `ctx.route.params` → await 组件工厂 → 完整 HTML + `__DATA__` + bundle；未匹配/非 GET → next()
+- **共享路由**（`src/client/route-match.ts`）：`flattenRoutes/compilePath/matchRoute/extractParams` 纯函数，router 与 uiSsr 共用——**组件工厂读 `ctx.route.params`，两端同源**
+- **`weifuwu/dev`**（`src/dev/index.ts`）：Node `registerHooks` + esbuild 同步编译 `.ts/.tsx`（JSX → `weifuwu/client`），服务端直接跑 `.tsx`——与 `ctx.ui.js` 前端动态编译对称，两端同一 JSX 运行时
+- **体验原则**：SSR/hydration 对开发者零决策——routes 即声明，渲染是默认属性；组件只写业务（数据 `ctx.data.get`、交互 `$`）
+- 诚实边界：渲染期确定性纪律（dev 检测）；`uiSsr` 默认模板可自定义 title/template
+
 ### ctx.ui.ssr — 服务端渲染（后端）
 
 `ctx.ui.ssr(Comp, props, { data })` → HtmlSafe HTML 片段；`ctx.ui.ssrData(data)` → `__DATA__` 脚本：

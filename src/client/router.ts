@@ -7,55 +7,13 @@
 import type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 import type { VNode } from './vnode.ts'
 import { clearAsyncComponentCache } from './render.ts'
+import { flattenRoutes, matchRoute, extractParams } from './route-match.ts'
+import type { FlattenedRoute } from './route-match.ts'
 
 export interface RouterOptions {
   mode?: 'hash' | 'history'
   routes: RouteDef[]
   notFound?: (props: any, ctx: WfuiContext) => any
-}
-
-function flattenRoutes(routes: RouteDef[], basePath = '', chain: RouteDef[] = []): FlattenedRoute[] {
-  const result: FlattenedRoute[] = []
-  for (const route of routes) {
-    const fullPath = joinPaths(basePath, route.path)
-    const { re, keys } = compilePath(fullPath)
-    const fullChain = [...chain, route]
-    result.push({ re, keys, def: route, chain: fullChain })
-    if (route.children) {
-      result.push(...flattenRoutes(route.children, fullPath, fullChain))
-    }
-  }
-  return result
-}
-
-interface FlattenedRoute {
-  re: RegExp
-  keys: string[]
-  def: RouteDef
-  chain: RouteDef[]
-}
-
-function joinPaths(a: string, b: string): string {
-  if (!b || b === '/') return a || '/'
-  const left = a.endsWith('/') ? a.slice(0, -1) : a
-  const right = b.startsWith('/') ? b : '/' + b
-  return left + right
-}
-
-function compilePath(path: string): { re: RegExp; keys: string[] } {
-  const keys: string[] = []
-  const reStr = path.replace(/:(\w+)/g, (_, key) => { keys.push(key); return '([^/]+)' }).replace(/\*/g, '.*')
-  return { re: new RegExp(`^${reStr}$`), keys }
-}
-
-function matchRoute(path: string, routes: FlattenedRoute[]): FlattenedRoute | null {
-  let best: FlattenedRoute | null = null
-  for (const fr of routes) {
-    if (path.match(fr.re)) {
-      if (!best || fr.chain.length > best.chain.length) best = fr
-    }
-  }
-  return best
 }
 
 /** router 中间件注入到 ctx 的字段 */
@@ -87,17 +45,10 @@ export function router(opts: RouterOptions): AppMiddleware<{}, RouteInjected> {
   function resolve(path: string) {
     const match = matchRoute(path, flatRoutes)
     if (match) {
-      const params: Record<string, string> = {}
-      const m = path.match(match.re)
-      if (m) {
-        for (let i = 0; i < match.keys.length; i++) {
-          params[match.keys[i]] = decodeURIComponent(m[i + 1])
-        }
-      }
       const last = match.chain[match.chain.length - 1]
       return {
         path: match.def.path,
-        params,
+        params: extractParams(path, match),
         query: Object.fromEntries(new URLSearchParams(window.location.search)),
         chain: match.chain,
         title: last?.title ?? '',

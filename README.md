@@ -764,6 +764,49 @@ createApp()
 - hydration 后 `$`/dirty/事件全量可用（与纯 SPA 无差别）
 - 诚实裁剪：Portal 内容就地收养（不移动到 `#__wf_portal`）；渲染期非确定性（Date/random）会导致 mismatch（dev 警告）
 
+### uiSsr — 路由级 SSR（声明即渲染）
+
+共享路由定义，前后端同一份声明——后端匹配即自动 SSR，无需手写 handler/模板/序列化：
+
+```tsx
+// routes.tsx —— 前后端共用
+import type { RouteDef } from 'weifuwu/client'
+import { BlogPage } from './pages/BlogPage.tsx'
+
+export const routes: RouteDef[] = [
+  { path: '/blog/:slug', component: BlogPage, title: '博客' },
+]
+
+// server.ts —— 一行中间件：GET 匹配 → 注入 ctx.route.params → await 组件工厂 → 完整 HTML + __DATA__ + bundle
+import { uiSsr } from 'weifuwu'
+app.use(uiSsr({ routes, bundle: '/static/blog.js' }))
+
+// blog-hydrate.ts —— 客户端：同一份 routes，router() 注入 ctx.route.params（两端同源）
+createApp()
+  .use(router({ routes }))
+  .mount('#root', routes[0].component, { hydrate: true })
+```
+
+- 组件工厂读 `ctx.route.params`（`/blog/:slug` → `ctx.route.params.slug`）——后端 uiSsr / 前端 router **同源注入**
+- 未匹配 → next()（交给 API/静态/404）；非 GET → next()
+- 可自定义 `title` / `template`
+
+### weifuwu/dev — 服务端直接跑 .tsx
+
+Node 原生 TS 只剥离类型（不支持 JSX）。`weifuwu/dev` 注册 esbuild loader，服务端直接跑 `.tsx`（零构建）：
+
+```json
+{
+  "scripts": {
+    "dev": "node --import weifuwu/dev server.ts",
+    "start": "node --import weifuwu/dev server.ts"
+  }
+}
+```
+
+- 前后端同一 JSX 运行时（`jsxImportSource: weifuwu/client`）→ 两端 VNode 一致 → hydration 可靠
+- 与 `ctx.ui.js` 前端动态编译同一理念：无构建、无产物、改代码即生效
+
 ---
 
 ## graphql — GraphQL 端点

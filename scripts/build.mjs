@@ -42,6 +42,16 @@ await esbuild.build({
   external,
 })
 
+// weifuwu/dev — Node loader（--import weifuwu/dev 启动时运行）
+await esbuild.build({
+  entryPoints: [join(srcDir, 'dev', 'index.ts')],
+  outfile: join(distDir, 'dev', 'index.js'),
+  format: 'esm',
+  platform: 'node',
+  bundle: true,
+  external,
+})
+
 // 前端 bundle
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'index.ts')],

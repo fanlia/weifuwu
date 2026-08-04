@@ -6,7 +6,8 @@ import type { WebSocketHandler, WebSocket, Context } from 'weifuwu'
 import { serve, Router, cors, ui } from 'weifuwu'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { BlogPage } from './src/blog-page.ts'
+import { uiSsr } from 'weifuwu'
+import { routes } from './src/routes.tsx'
 
 // 以 server.ts 自身位置为基准解析路径（不受启动时 CWD 影响）
 const demoRoot = dirname(fileURLToPath(import.meta.url))
@@ -103,33 +104,10 @@ const wsHandler: WebSocketHandler = {
 }
 app.ws('/ws', wsHandler)
 
-// ── SSR 博客页面（async 工厂组件 + ctx.ui.ssr + 客户端 hydration）──
-
-// 共享组件见 src/blog-page.ts：
-//   服务端 await 工厂 → ctx.data 预取 → 完整 HTML + __DATA__
-//   客户端 /static/blog.js → mount(..., { hydrate: true }) 收养 DOM（无闪跳）
-//   点赞/折叠是客户端状态（$），正文是服务端数据（闭包）
-
-app.get('/blog/:slug', async (req: Request, ctx: Context): Promise<Response> => {
-  const data = new Map<string, unknown>()
-  const html = await ctx.ui.ssr(BlogPage, {}, { data })
-  return ctx.ui.html`
-  <!DOCTYPE html>
-  <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/style.css">
-    <title>SSR + Hydration 演示</title>
-  </head>
-  <body class="bg-gray-100 text-gray-800">
-    <div id="root" class="max-w-[600px] mx-auto px-4 py-8">${html}</div>
-    ${ctx.ui.ssrData(data)}
-    <script src="/static/blog.js"></script>
-  </body>
-  </html>
-`
-})
+// ── SSR 页面（路由级自动渲染）────────────────────────────────
+// uiSsr({ routes })：GET 匹配 routes → 注入 ctx.route.params → await 组件工厂
+// → 完整 HTML + __DATA__ + bundle——手写 handler/模板/序列化的碎片全部消除
+app.use(uiSsr({ routes, bundle: '/static/blog.js' }))
 
 // ── SPA 入口页面 ─────────────────────────────────────────
 
