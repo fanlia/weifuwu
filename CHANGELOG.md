@@ -1,53 +1,29 @@
 # Changelog
 
-## 0.58.2 (AI 交互原语：ToolCallCard + ApprovalCard 进组件库)
+## 0.58.0 (AI 模块：自研 wf: 协议 + 零依赖客户端 + agent 引擎 + 交互原语)
 
-### ✨ New APIs
-
-- **ToolCallCard**（`weifuwu/components`）：工具调用卡片——running（进度条，消费 `wf:tool_progress`）/ ok / error 三态，`renderArgs` 自定义参数渲染（协议 §4 配套）
-- **ApprovalCard**（`weifuwu/components`）：人工审批卡片——待批（允许/拒绝 + 备注输入，备注进 agent 上下文）/ 已批 / 已拒 / 超时四态；纯受控组件，决策上抛 `onApprove` / `onReject`（协议 §4.5 配套）
-- 组件遵循组件库手动模式（mount 作用域 `let` + `ctx.ui.render()`，不依赖 `$`）；CSS 用 `--wf-*` 设计变量，随 `weifuwu/components/style.css` 打包（build 脚本 componentDirs 补充）
-- demo ChatPage 换用两个组件（dogfooding）：工具卡 + 审批卡替代手写 UI
-
-### 🧪 Tests
-
-- 930 → **940**：ToolCallCard 5 + ApprovalCard 5（VNode 断言：三态/进度条/回调/备注展开确认）
-
----
-
-## 0.58.1 (AI 模块补全：agent 引擎 + HITL 审批)
-
-### ✨ New APIs
-
-- **agent 引擎**（`src/ai/agent.ts`）：`a.agent({ systemPrompt, tools, maxSteps, humanInTheLoop })` 工具循环——LLM 流式 → tool_call → 执行工具 → 结果回喂 → 重复（协议 §5 实现）；`wf:step` 事件（llm/tool 步骤可视化）
-- **工具执行上下文**：`run(args, { emit, signal })`——emit `wf:tool_progress` / `x:*` 自定义事件；signal 接收用户取消
-- **HITL 审批**（协议 §4.5 实现）：`humanInTheLoop` 时每个工具执行前发 `wf:approval_request` 挂起，`ctx.ai.approve({ id, decision: approved|rejected|modified, modifiedArgs?, note? })` 响应；**拒绝 ≠ 终止**（agent 换方案）、modified 按改后参数执行、超时按拒绝
-- **streamStep 重构**：流式核心从 stream() 抽出复用（agent 循环与 SSE 路由共用）；reasoning_content 聚合回传（DeepSeek thinking 模式硬性要求）
-- **解码器 onStep 回调**：`wf:step` 事件分发
-
-### 🐛 Fixes
-
-- **agent 多轮消息序列**：带 tool_calls 的 assistant 消息必须入上下文（provider 要求 tool 消息跟在 tool_calls 后）+ reasoning_content 必须回传——真实 DeepSeek 抓出的两个 bug（wire-fake 测不出，真库测出）
-
-### 🧪 Tests
-
-- 921 → **928**：ai-agent 7（wire-fake 多轮脚本：工具循环 / progress emit / HITL approved·rejected·超时 / 工具不存在 / maxSteps 截断）
-
----
-
-## 0.58.0 (AI 模块：自研 LLM 协议 + 零依赖客户端)
-
-> AI 是 weifuwu 的一等公民：自研 `wf:` 协议（docs/ai-contract.md）+ 零依赖 OpenAI 兼容客户端 + 前端解码器，不用 ai-sdk。
-> 一个 `npm install weifuwu` 即得流式对话 + 工具调用 + 错误即值 + 全链路追踪。
+> AI 是 weifuwu 的一等公民：自研 `wf:` 协议（docs/ai-contract.md）+ 零依赖 OpenAI 兼容客户端 + 前端解码器 + agent 工具循环 + HITL 审批 + 交互原语，不用 ai-sdk。
+> 一个 `npm install weifuwu` 即得流式对话 + 工具调用 + 人工审批 + 全链路追踪。
 
 ### ✨ New APIs
 
 - **ai**：LLM 对话模块（`src/ai/`）——`ai()` 工厂（queue 式混合：`app.use(a)` 注入 `ctx.ai`，worker 直接 `a.chat()`）；自研 OpenAI 兼容客户端（fetch + SSE，零依赖，默认 DeepSeek `deepseek-v4-flash`，`baseUrl` 可换 Ollama/vLLM/Moonshot）；`ctx.ai.stream()` 路由一行返回 SSE；`ctx.ai.sse(emit)` 低层自定义事件通道
-- **wf: 协议**（`docs/ai-contract.md`）：`wf:` 命名空间事件（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 schema），错误即值、未知事件透传、`x:*` 自定义事件、工具进度 emit、HITL 审批事件（schema 先行）、错误码表
-- **aiStream**（`weifuwu/client`）：前端解码器——事件分发（onToken/onToolCall/onApproval/onError…）、`x:*` 透传兜底、事件录制（可导出测试 fixture）、abort、**trace 桥（自动生成 X-Trace-Id → 后端 message_start.id 关联）**
+- **wf: 协议**（`docs/ai-contract.md`）：`wf:` 命名空间事件（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 step/approval_request），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件、错误码表、工具进度 emit、HITL 语义（拒绝≠终止、modified 改参、超时兜底）、追踪关联
+- **aiStream**（`weifuwu/client`）：前端解码器——事件分发（onToken/onToolCall/onStep/onApproval/onError…）、`x:*` 透传兜底、事件录制（可导出测试 fixture）、abort、**trace 桥（自动生成 X-Trace-Id → 后端 message_start.id 关联）**
+- **agent 引擎**（`src/ai/agent.ts`）：`a.agent({ systemPrompt, tools, maxSteps, humanInTheLoop })` 工具循环——LLM 流式 → tool_call → 执行工具 → 结果回喂 → 重复；工具 `run(args, { emit, signal })`（emit 进度/自定义事件、signal 取消）；HITL 审批（`ctx.ai.approve` 响应，拒绝≠终止、modified 改参、超时按拒绝）
+- **交互原语**（`weifuwu/components`）：**ToolCallCard**（工具调用三态卡片：running 进度条 / ok / error，`renderArgs` 自定义渲染）+ **ApprovalCard**（审批四态卡片：待批 允许/拒绝+备注 / 已批 / 已拒 / 超时，纯受控上抛决策）
 - **追踪关联**：`X-Trace-Id` 请求头 → `wf:message_start.id` → 工具内请求继承同一 traceId（serve.ts 已有 traceId 机制，响应头回显）
 
+### 🐛 Fixes
+
+- **agent 多轮消息序列**（真实 DeepSeek 抓出，wire-fake 测不出）：带 tool_calls 的 assistant 消息必须入上下文；thinking 模式 `reasoning_content` 必须回传
+
 ### 🧪 Tests
+
+- 902 → **940**：ai 8（wire-fake 事件序列/tool_calls 聚合/错误映射/abort/trace 桥）+ aiStream 6（端到端解码/透传/录制/abort）+ ai-agent 7（工具循环/HITL approved·rejected·超时/maxSteps）+ 类型流 2 + ToolCallCard 5 + ApprovalCard 5
+- wire-fake：LLM 真 API 付费且不确定，故起真实 HTTP + SSE loopback 服务器保证 CI 确定性（CS-04 精神：不 mock fetch，不 mock 网络层）；真实 DeepSeek + agent-browser 端到端实测通过
+
+---
 
 - 902 → **921**：ai 8（wire-fake 真 HTTP+SSE：事件序列 / tool_calls 聚合 / 错误映射 / abort 传播 / trace 桥）+ aiStream 6（端到端：后端编码 → 前端解码 / 未知事件透传 / 录制 / trace / 错误即值 / abort）
 - wire-fake：LLM 真 API 付费且不确定，故起真实 HTTP + SSE loopback 服务器保证 CI 确定性（CS-04 精神：不 mock fetch，不 mock 网络层）
