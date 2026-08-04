@@ -1,0 +1,61 @@
+/* weifuwu/components — ToolCallCard */
+
+.wf-toolcall {
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  padding: var(--wf-space) var(--wf-space-md);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: var(--wf-line-height);
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-toolcall-header {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  margin-bottom: var(--wf-gap-xs);
+}
+
+.wf-toolcall-icon { font-size: var(--wf-font-size-sm); }
+
+.wf-toolcall-icon--running { color: var(--wf-color-info); }
+.wf-toolcall-icon--ok { color: var(--wf-color-success); }
+.wf-toolcall-icon--error { color: var(--wf-color-error); }
+
+.wf-toolcall-name {
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+}
+
+.wf-toolcall-args {
+  color: var(--wf-color-text-secondary);
+  font-size: var(--wf-font-size-xs);
+  word-break: break-all;
+}
+
+.wf-toolcall-msg {
+  color: var(--wf-color-text-secondary);
+  font-size: var(--wf-font-size-xs);
+  margin-top: var(--wf-gap-xs);
+}
+
+.wf-toolcall-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--wf-color-bg-tertiary);
+  overflow: hidden;
+  margin-top: var(--wf-gap-xs);
+}
+
+.wf-toolcall-bar-fill {
+  height: 100%;
+  background: var(--wf-color-info);
+  transition: width var(--wf-transition);
+}
+
+.wf-toolcall-error {
+  color: var(--wf-color-error);
+  font-size: var(--wf-font-size-xs);
+  margin-top: var(--wf-gap-xs);
+}

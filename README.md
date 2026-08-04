@@ -2364,6 +2364,13 @@ props 变化 ──────────────────────�
 |-----|--------|-----------|------|
 | Divider | `Divider` | `orientation`, `plain` | 分割线（水平/垂直/带文字） |
 
+### AI 交互原语（wf: 协议配套）
+
+| 组件 | 导入名 | 关键 Props | 说明 |
+|-----|--------|-----------|------|
+| ToolCallCard | `ToolCallCard` | `call`, `progress?`, `result?`, `renderArgs?` | 工具调用卡片：running（进度条）/ ok / error 三态（协议 §4） |
+| ApprovalCard | `ApprovalCard` | `request`, `status?`, `onApprove`, `onReject` | 人工审批卡片：待批（允许/拒绝+备注）/ 已批 / 已拒 / 超时（协议 §4.5） |
+
 ### 全局工具
 
 | 组件 | 导入名 | 关键 Props | 说明 |

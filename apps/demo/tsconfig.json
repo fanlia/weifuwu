@@ -12,6 +12,7 @@
     "paths": {
       "weifuwu": ["../../src/index.ts"],
       "weifuwu/client": ["../../src/client/index.ts"],
+      "weifuwu/components": ["../../src/components/index.ts"],
       "weifuwu/client/jsx-runtime": ["../../src/client/index.ts"],
     }
   },

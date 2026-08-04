@@ -135,3 +135,9 @@ export type { EditorProps, ToolbarItem } from './Editor/Editor.ts'
 export { ThemeSwitch } from './ThemeSwitch/ThemeSwitch.ts'
 export type { ThemeSwitchProps, ThemeMode } from './ThemeSwitch/ThemeSwitch.ts'
 export { applyTheme, getTheme } from './ThemeSwitch/ThemeSwitch.ts'
+
+export { ToolCallCard } from './ToolCallCard/ToolCallCard.ts'
+export type { ToolCallCardProps } from './ToolCallCard/ToolCallCard.ts'
+
+export { ApprovalCard } from './ApprovalCard/ApprovalCard.ts'
+export type { ApprovalCardProps, ApprovalStatus } from './ApprovalCard/ApprovalCard.ts'

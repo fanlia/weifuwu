@@ -1,0 +1,75 @@
+/* weifuwu/components — ApprovalCard */
+
+.wf-approval {
+  border: 1px solid var(--wf-color-warning);
+  border-radius: var(--wf-radius);
+  padding: var(--wf-space) var(--wf-space-md);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: var(--wf-line-height);
+  background: var(--wf-color-warning-bg);
+}
+
+.wf-approval--approved { border-color: var(--wf-color-success); background: var(--wf-color-success-bg); }
+.wf-approval--rejected { border-color: var(--wf-color-error); background: var(--wf-color-error-bg); }
+.wf-approval--timeout { border-color: var(--wf-color-border); background: var(--wf-color-bg-tertiary); }
+
+.wf-approval-header {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-warning);
+}
+
+.wf-approval--approved .wf-approval-header { color: var(--wf-color-success); }
+.wf-approval--rejected .wf-approval-header { color: var(--wf-color-error); }
+.wf-approval--timeout .wf-approval-header { color: var(--wf-color-text-secondary); }
+
+.wf-approval-detail {
+  margin-top: var(--wf-gap-xs);
+  color: var(--wf-color-text);
+}
+
+.wf-approval-name { font-weight: var(--wf-font-weight-medium); }
+
+.wf-approval-args {
+  color: var(--wf-color-text-secondary);
+  font-size: var(--wf-font-size-xs);
+  word-break: break-all;
+}
+
+.wf-approval-reason {
+  color: var(--wf-color-text-secondary);
+  font-size: var(--wf-font-size-xs);
+  margin-top: var(--wf-gap-xs);
+}
+
+.wf-approval-actions {
+  margin-top: var(--wf-gap-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-approval-btns {
+  display: flex;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-approval-note-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-xs);
+  padding: var(--wf-control-pad-y) var(--wf-space);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  color: var(--wf-color-text);
+}
+
+.wf-approval-status {
+  margin-top: var(--wf-gap-xs);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-secondary);
+}

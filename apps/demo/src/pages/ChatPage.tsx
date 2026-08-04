@@ -11,6 +11,9 @@
 import type { WfuiContext } from 'weifuwu/client'
 import { aiStream } from 'weifuwu/client'
 import type { AiStreamHandle } from 'weifuwu/client'
+import { ToolCallCard } from 'weifuwu/components'
+import { ApprovalCard } from 'weifuwu/components'
+import type { WfToolCall, WfToolProgress, WfToolResult, WfApprovalRequest } from 'weifuwu'
 
 interface ChatMsg {
   role: 'user' | 'assistant'
@@ -27,9 +30,10 @@ export default function ChatPage(_props: {}, ctx: WfuiContext) {
   $.status = ''
   $.error = ''
   $.usage = ''
-  $.approval = undefined as
-    | { id: string; name: string; args: Record<string, unknown>; reason?: string }
-    | undefined
+  $.activeTool = undefined as WfToolCall | undefined
+  $.toolProgress = undefined as WfToolProgress | undefined
+  $.toolResult = undefined as WfToolResult | undefined
+  $.approval = undefined as WfApprovalRequest | undefined
 
   let handle: AiStreamHandle | undefined
 
@@ -52,11 +56,11 @@ export default function ChatPage(_props: {}, ctx: WfuiContext) {
         if (s.type === 'llm') $.status = '🤔 思考中…'
         if (s.type === 'tool') $.status = `⚙️ 执行工具 ${s.name ?? ''}`
       },
-      onToolCall: (c) => { $.status = `⚙️ 调用工具 ${c.name}` },
-      onToolProgress: (p) => { $.status = `${p.message ?? ''} (${p.step}/${p.total})` },
+      onToolCall: (c) => { $.activeTool = c; $.status = `⚙️ 调用工具 ${c.name}` },
+      onToolProgress: (p) => { $.toolProgress = p; $.status = p.message ?? '' },
       onToolResult: (r) => {
-        if (!r.ok) $.status = `❌ 工具失败: ${r.error?.code ?? ''}`
-        else $.status = ''
+        $.toolResult = r
+        $.status = r.ok ? '' : `❌ 工具失败: ${r.error?.code ?? ''}`
       },
       onApproval: (req) => {
         $.approval = { id: req.id, name: req.name, args: req.args, reason: req.reason }
@@ -71,6 +75,12 @@ export default function ChatPage(_props: {}, ctx: WfuiContext) {
     })
     $.streaming = true
     void handle.done
+  }
+
+  function clearTool() {
+    $.activeTool = undefined
+    $.toolProgress = undefined
+    $.toolResult = undefined
   }
 
   /** HITL 审批响应（协议 §4.5：POST 上行） */
@@ -125,18 +135,19 @@ export default function ChatPage(_props: {}, ctx: WfuiContext) {
           </div>
         ))}
 
+        {$.activeTool && (
+          <div class="mb-2">
+            <ToolCallCard call={$.activeTool} progress={$.toolProgress} result={$.toolResult} renderArgs={(a) => JSON.stringify(a)} />
+          </div>
+        )}
+
         {$.approval && (
-          <div class="border border-amber-200 bg-amber-50 rounded-xl p-3 text-sm">
-            <div class="font-semibold text-amber-800 mb-1">⏸ 工具审批</div>
-            <div class="text-gray-700 mb-2">
-              调用 <code class="bg-amber-100 px-1 rounded">{$.approval.name}</code>
-              <div class="text-gray-400 text-xs mt-0.5">参数: {JSON.stringify($.approval.args)}</div>
-              {$.approval.reason && <div class="text-gray-500 text-xs mt-0.5">原因: {$.approval.reason}</div>}
-            </div>
-            <div class="flex gap-2">
-              <button class="bg-green-500 hover:bg-green-600 text-white rounded-lg px-3 py-1 text-xs" onClick={() => respond('approved')}>允许</button>
-              <button class="bg-red-400 hover:bg-red-500 text-white rounded-lg px-3 py-1 text-xs" onClick={() => respond('rejected', '用户拒绝')}>拒绝</button>
-            </div>
+          <div class="mb-2">
+            <ApprovalCard
+              request={$.approval}
+              onApprove={() => respond('approved')}
+              onReject={(note) => respond('rejected', note ?? '用户拒绝')}
+            />
           </div>
         )}
 

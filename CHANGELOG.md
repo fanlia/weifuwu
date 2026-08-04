@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.58.2 (AI 交互原语：ToolCallCard + ApprovalCard 进组件库)
+
+### ✨ New APIs
+
+- **ToolCallCard**（`weifuwu/components`）：工具调用卡片——running（进度条，消费 `wf:tool_progress`）/ ok / error 三态，`renderArgs` 自定义参数渲染（协议 §4 配套）
+- **ApprovalCard**（`weifuwu/components`）：人工审批卡片——待批（允许/拒绝 + 备注输入，备注进 agent 上下文）/ 已批 / 已拒 / 超时四态；纯受控组件，决策上抛 `onApprove` / `onReject`（协议 §4.5 配套）
+- 组件遵循组件库手动模式（mount 作用域 `let` + `ctx.ui.render()`，不依赖 `$`）；CSS 用 `--wf-*` 设计变量，随 `weifuwu/components/style.css` 打包（build 脚本 componentDirs 补充）
+- demo ChatPage 换用两个组件（dogfooding）：工具卡 + 审批卡替代手写 UI
+
+### 🧪 Tests
+
+- 930 → **940**：ToolCallCard 5 + ApprovalCard 5（VNode 断言：三态/进度条/回调/备注展开确认）
+
+---
+
 ## 0.58.1 (AI 模块补全：agent 引擎 + HITL 审批)
 
 ### ✨ New APIs

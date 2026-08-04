@@ -98,7 +98,7 @@ const layoutCss = await mergeLayoutCss()
 await writeFile(join(layoutDist, 'weifuwu-layout.css'), layoutCss)
 
 // 编译组件 CSS = layout 全部 CSS（Token + 暗色 + 基础 + 35 布局原语）+ 各组件 CSS
-const componentDirs = ['Button', 'Input', 'Textarea', 'Select', 'Checkbox', 'Switch', 'RadioGroup', 'Table', 'Modal', 'Toast', 'Alert', 'Loading', 'EmptyState', 'Tabs', 'Dropdown', 'Pagination', 'Card', 'Badge', 'Avatar', 'Tag', 'StatCard', 'Steps', 'Form', 'Field', 'Slider', 'SearchInput', 'ProgressBar', 'Accordion', 'PageHeader', 'Breadcrumb', 'Divider', 'FileUpload', 'Tooltip', 'Drawer', 'Popover', 'Skeleton', 'Img', 'InView', 'DatePicker', 'Chart', 'Editor', 'ThemeSwitch']
+const componentDirs = ['Button', 'Input', 'Textarea', 'Select', 'Checkbox', 'Switch', 'RadioGroup', 'Table', 'Modal', 'Toast', 'Alert', 'Loading', 'EmptyState', 'Tabs', 'Dropdown', 'Pagination', 'Card', 'Badge', 'Avatar', 'Tag', 'StatCard', 'Steps', 'Form', 'Field', 'Slider', 'SearchInput', 'ProgressBar', 'Accordion', 'PageHeader', 'Breadcrumb', 'Divider', 'FileUpload', 'Tooltip', 'Drawer', 'Popover', 'Skeleton', 'Img', 'InView', 'DatePicker', 'Chart', 'Editor', 'ThemeSwitch', 'ToolCallCard', 'ApprovalCard']
 let componentCss = layoutCss + '\n'
 for (const dir of componentDirs) {
   const cssPath = join(srcDir, 'components', dir, `${dir}.css`)
