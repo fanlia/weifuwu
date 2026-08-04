@@ -37,30 +37,78 @@ npm install weifuwu
 
 ## 快速开始
 
-一个 `.tsx` 组件 + 一份共享路由，SPA、SSR、Hydration 全部自动：
+两种模式，**组件和路由的写法完全一样**，差异只有后端/客户端入口两行：
+
+| 模式 | 适用场景 | 后端 | 客户端入口 |
+|------|---------|------|-----------|
+| **SPA** | 应用页（Dashboard、工具、后台） | HTML 外壳 | `mount('#root', RouteView)` |
+| **SSR + Hydration** | 内容页（博客、营销，需要 SEO/首屏） | `uiSsr` 一行 | `mount('#root', RouteView, { hydrate: true })` |
+
+### 先写共享部分（两种模式都一样）
 
 ```tsx
 // routes.tsx —— 页面声明（前后端共用）
 import type { RouteDef } from 'weifuwu/client'
 import { asyncComponent } from 'weifuwu/client'
 
+// async 工厂组件：await 数据 → 返回视图（两阶段：外层初始化，内层渲染）
 const Home = asyncComponent(async (ctx) => {
-  const msg = await ctx.data.get('/api/hello')
-  return () => () => <h1>{msg.msg}</h1>
+  const msg = await ctx.data.get('/api/hello')   // 数据管道：一个 API 三场景
+  return (_init, ctx) =>
+    (props) => <h1>{msg.msg}</h1>
 })
 
 export const routes: RouteDef[] = [{ path: '/', component: Home }]
 ```
 
+### 模式 A：纯 SPA
+
 ```ts
-// server.ts —— 一个中间件 = SSR 页面 + 动态编译资源
+// server.ts
+import { serve, Router, ui, cors } from 'weifuwu'
+
+const app = new Router()
+app.use(cors())
+app.use(ui())   // 注入 ctx.ui.html / ctx.ui.js / ctx.ui.css
+
+// SPA 外壳（空 root + 前端 bundle）
+app.get('/', (req, ctx) => ctx.ui.html`
+  <!doctype html><html><body>
+    <div id="root"></div>
+    <script src="/static/app.js"></script>
+  </body></html>
+`)
+app.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
+app.get('/api/hello', () => Response.json({ msg: 'world' }))
+
+serve(app, { port: 3000 })
+```
+
+```ts
+// src/client.ts —— 纯客户端渲染
+import { createApp, router, RouteView } from 'weifuwu/client'
+import { routes } from './routes.tsx'
+
+createApp().use(router({ routes })).mount('#root', RouteView)
+```
+
+### 模式 B：SSR + Hydration（内容页/SEO）
+
+同一份 `routes`、同一个组件，差异只在**后端加 `uiSsr` 一行、客户端加 `hydrate` 参数**：
+
+```ts
+// server.ts —— 完整版（与模式 A 的差异：uiSsr 中间件 + 一条样式路由）
 import { serve, Router, ui, uiSsr, cors } from 'weifuwu'
 import { routes } from './routes.tsx'
 
 const app = new Router()
 app.use(cors())
-app.use(ui())                                      // 能力：ctx.ui.html/js/css/ssr
+app.use(ui())
+
+// 路由级 SSR：GET 匹配 routes → 注入 ctx.route.params → await 组件工厂
+// → 完整 HTML + __DATA__ + bundle/styles 引用（无需手写页面 handler）
 app.use(uiSsr({ routes, bundle: '/static/app.js', styles: ['/static/style.css'] }))
+
 app.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
 app.get('/static/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))
 app.get('/api/hello', () => Response.json({ msg: 'world' }))
@@ -69,22 +117,23 @@ serve(app, { port: 3000 })
 ```
 
 ```ts
-// src/client.ts —— 客户端（模板代码，一次写好）：路由同源 + hydration 收养
+// src/client.ts —— 与模式 A 的唯一差异：hydrate: true（收养服务端 HTML，无闪跳）
 import { createApp, router, RouteView } from 'weifuwu/client'
 import { routes } from './routes.tsx'
 
 createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 ```
 
+### 启动（两种模式都一样）
+
 ```json
 // package.json —— 服务端直接跑 .tsx（零构建）
 { "scripts": { "dev": "node --import weifuwu/dev server.ts" } }
 ```
 
-运行 `node --import weifuwu/dev server.ts`，访问 `http://localhost:3000`：
-- 直接访问 → 服务端渲染完整 HTML（SEO 可见）
-- 客户端 → 收养现有 DOM（无闪跳）+ 事件接线 + 交互
-- 改组件刷新即生效，无需任何构建步骤
+- 访问页面：SPA 客户端渲染；SSR 页面内容直接进 HTML（`curl /` 可见，SEO）
+- 改组件刷新即生效，无需构建步骤
+- 完整可运行示例见 `apps/demo`（博客页 = SSR + Hydration，SPA 页 = 纯客户端）
 
 > 想**零后端、零构建**最快跑起来？直接跳到下面的「CDN 快速原型」。
 
@@ -202,6 +251,24 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 ---
 
 ## 核心概念
+
+### 两阶段组件（新手必读：为什么是两层）
+
+组件 = `(initProps, ctx) => (props) => VNode`——**外层 = 初始化（只执行一次），内层 = 渲染（每次状态/props 变化时执行）**。类比：外层是对象的构造函数，内层是它的 render 方法。
+
+```tsx
+const Counter = (_init, ctx) => {
+  // 外层（mount）：只跑一次——初始化状态、订阅、定时器
+  const $ = ctx.ui.$()
+  $.count = 0
+  return (props) =>
+    // 内层（render）：每次变化执行——读状态输出视图
+    <button onClick={() => $.count++}>{$.count}</button>
+}
+```
+
+> 为什么不是单层函数（React 风格）？单层函数每次渲染都执行整个函数体，需要 hooks 记忆机制来区分"初始化"和"渲染"；两阶段用**位置即语义**——外层天生只跑一次，没有 hooks 规则、没有依赖数组、没有闭包陷阱。
+> 异步数据用 `asyncComponent` 工厂（见下文）：`async (ctx) => await ctx.data.get(...)` → 返回两阶段组件，数据经闭包注入。
 
 ### 中间件模式（前后端一致）
 
@@ -696,6 +763,8 @@ app.use(ui())
 | `ctx.ui.html.unsafe(str)` | `(string) => string` | 插入原始 HTML |
 | `ctx.ui.js(entryPath)` | `(string) => Promise<Response>` | esbuild 编译 TSX → JS bundle |
 | `ctx.ui.css(entryPath)` | `(string) => Promise<Response>` | 读取 CSS 文件 → CSS Response（如安装 postcss + @tailwindcss/postcss 则自动编译） |
+| `ctx.ui.ssr(Comp, props?, { data })` | `(Component, props, opts?) => Promise<string>` | 服务端渲染组件 → HTML 片段（async 工厂自动 await；HtmlSafe 内联不二次转义） |
+| `ctx.ui.ssrData(data)` | `(Map) => string` | 序列化 SSR 数据 → `<script>window.__DATA__=...</script>`（`<` 转义防 XSS） |
 
 ### ctx.ui.html — HTML 模板
 
