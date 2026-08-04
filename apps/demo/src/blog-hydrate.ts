@@ -1,13 +1,15 @@
 /**
- * 博客页客户端入口 — hydration 模式
+ * 通用 hydration 入口 — 服务所有 SSR 页面
  *
- * 服务端已渲染完整 HTML + window.__DATA__，这里收养现有 DOM（不重建、不闪跳）。
- * router() 注入 ctx.route.params（与后端 uiSsr 同源），BlogPage 工厂从 __DATA__ 同步读数据。
+ * router() 按当前 URL 匹配 routes → 注入 ctx.route（与服务端 uiSsr 同源匹配逻辑）
+ * RouteView 渲染匹配的组件 → 与服务端 HTML 一致 → 游标收养（不重建、无闪跳）
+ *
+ * 不依赖路由数组顺序：任何匹配 routes 的 URL 都能正确 hydrate。
  */
 
-import { createApp, router } from 'weifuwu/client'
+import { createApp, router, RouteView } from 'weifuwu/client'
 import { routes } from './routes.tsx'
 
 createApp()
   .use(router({ routes }))
-  .mount('#root', routes[0].component, { hydrate: true })
+  .mount('#root', RouteView, { hydrate: true })
