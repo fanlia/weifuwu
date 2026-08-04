@@ -27,8 +27,8 @@ export class RedisClient {
     return new RedisClient(conn)
   }
 
-  /** 底层命令透传（RESP 值） */
-  command(name: string, ...args: (string | number)[]): Promise<RespValue> {
+  /** 底层命令透传（RESP 值）；Buffer 参数字节原样发送 */
+  command(name: string, ...args: (string | number | Buffer)[]): Promise<RespValue> {
     return this.conn.command(name, ...args)
   }
 
@@ -37,6 +37,16 @@ export class RedisClient {
   async get(key: string): Promise<string | null> {
     const v = await this.conn.command('GET', key)
     return v === null ? null : String(v)
+  }
+
+  /**
+   * 二进制安全读取：返回原始字节（Uint8Array），不经过字符串解码。
+   * 用于缓存二进制 payload（序列化字节、图片等）。key 不存在返回 null。
+   */
+  async getBuffer(key: string): Promise<Uint8Array | null> {
+    const v = await this.conn.command('GET', key, { asBuffer: true })
+    if (v === null) return null
+    return v instanceof Uint8Array ? v : new TextEncoder().encode(String(v))
   }
 
   /**

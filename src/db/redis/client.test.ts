@@ -29,6 +29,34 @@ describe('redis client (real database)', () => {
     assert.equal(await client.get(`${KEY}nope`), null)
   })
 
+  it('getBuffer: binary bytes round-trip byte-exact', async () => {
+    const k = `${KEY}bin`
+    const bytes = Uint8Array.from([0x00, 0xff, 0x80, 0x41, 0x00, 0x10])
+    await client.command('SET', k, Buffer.from(bytes))
+    const out = await client.getBuffer(k)
+    assert.ok(out instanceof Uint8Array)
+    assert.deepEqual(Array.from(out as Uint8Array), Array.from(bytes))
+  })
+
+  it('getBuffer: missing key → null', async () => {
+    assert.equal(await client.getBuffer(`${KEY}bin-nope`), null)
+  })
+
+  it('getBuffer and get interleave on one connection (ordered routing)', async () => {
+    const k = `${KEY}mix`
+    const bytes = Uint8Array.from([0x01, 0x02, 0x00, 0xff])
+    await client.command('SET', k, Buffer.from(bytes))
+    // 同连接上 get（string 解码）与 getBuffer（字节）交替——响应按序路由不串扰
+    const [s1, b1, s2] = await Promise.all([
+      client.get(k),
+      client.getBuffer(k),
+      client.get(k),
+    ])
+    assert.equal(s1, '\u0001\u0002\u0000\ufffd') // get 是 string 语义：0xff 非合法 utf8 → U+FFFD（有损）
+    assert.deepEqual(Array.from(b1 as Uint8Array), Array.from(bytes)) // getBuffer 字节精确（无损）
+    assert.equal(s2, '\u0001\u0002\u0000\ufffd')
+  })
+
   it('del removes keys, returns count', async () => {
     const k = `${KEY}d`
     await client.set(k, 'x')

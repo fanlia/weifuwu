@@ -85,6 +85,12 @@ export class RedisPool {
     return this.next().get(this.k(key))
   }
 
+  /** 二进制安全读取（原始字节，不解码） */
+  async getBuffer(key: string): Promise<Uint8Array | null> {
+    await this.ensure()
+    return this.next().getBuffer(this.k(key))
+  }
+
   async set(key: string, value: string | number, ttl?: number): Promise<'OK'> {
     await this.ensure()
     return this.next().set(this.k(key), value, ttl)

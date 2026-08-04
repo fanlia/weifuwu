@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { encodeCommand, parseReply, RespError, RespParser } from './resp.ts'
+import { encodeCommand, parseReply, decodeValue, RespError, RespParser } from './resp.ts'
 
 function buf(s: string): Uint8Array {
   return new TextEncoder().encode(s)
@@ -20,6 +20,18 @@ describe('resp encode', () => {
   it('encodes multi-word args (EXPIRE with ttl)', () => {
     const out = encodeCommand(['EXPIRE', 'k', '3600'])
     assert.deepEqual(out, buf('*3\r\n$6\r\nEXPIRE\r\n$1\r\nk\r\n$4\r\n3600\r\n'))
+  })
+
+  it('encodes Buffer args byte-exact (binary safe)', () => {
+    // 非 utf8 字节：toString() 会损坏（0xff → 2 字节），长度前缀也随之错误
+    const b = Buffer.from([0x00, 0xff, 0x80, 0x41, 0x00])
+    const out = encodeCommand(['SET', 'k', b])
+    const expected = Buffer.concat([
+      buf('*3\r\n$3\r\nSET\r\n$1\r\nk\r\n$5\r\n'),
+      b,
+      buf('\r\n'),
+    ])
+    assert.deepEqual(Buffer.from(out), expected)
   })
 })
 
@@ -77,7 +89,8 @@ describe('resp parser pushAll (multi-reply chunk)', () => {
   it('parses mixed reply types in one chunk', () => {
     const p = new RespParser()
     const values = p.pushAll(buf(':1\r\n$3\r\nfoo\r\n*2\r\n:1\r\n:2\r\n'))
-    assert.deepEqual(values, [1, 'foo', [1, 2]])
+    // pushAll 字节中立：bulk 为 Uint8Array，decodeValue 后即 string 语义
+    assert.deepEqual(values.map((v) => decodeValue(v, true)), [1, 'foo', [1, 2]])
   })
 
   it('accumulates across chunks (streaming boundary)', () => {
@@ -86,7 +99,7 @@ describe('resp parser pushAll (multi-reply chunk)', () => {
     const first = p.pushAll(buf('$3\r\nfo'))
     assert.deepEqual(first, [])
     const rest = p.pushAll(buf('o\r\n+OK\r\n'))
-    assert.deepEqual(rest, ['foo', 'OK'])
+    assert.deepEqual(rest.map((v) => decodeValue(v, true)), ['foo', 'OK'])
   })
 
   it('handles error replies as values in stream', () => {

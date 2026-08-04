@@ -11,7 +11,7 @@
 
 import net from 'node:net'
 import type { Socket } from 'node:net'
-import { encodeCommand, RespParser, RespError, type RespValue } from './resp.ts'
+import { encodeCommand, decodeValue, RespParser, RespError, type RespValue } from './resp.ts'
 import { ConnectionError } from '../errors.ts'
 
 /** 订阅旁路消息类型（subscribe 确认 / message / pmessage 等） */
@@ -31,6 +31,8 @@ export interface RedisConnectionOptions {
 interface Pending {
   resolve: (v: RespValue) => void
   reject: (e: unknown) => void
+  /** true：响应值保留原始字节（Uint8Array，不 decode）——二进制安全 */
+  asBuffer?: boolean
 }
 
 export class RedisConnection {
@@ -40,7 +42,15 @@ export class RedisConnection {
   private socket: Socket | null = null
   private parser = new RespParser()
   private pending: Pending[] = []
-  private offlineQueue: { name: string; args: (string | number)[]; resolve: (v: RespValue) => void; reject: (e: unknown) => void }[] = []
+  /** pending 头指针（避免 shift() O(n)——消费后定期 compact） */
+  private pendingHead = 0
+  private offlineQueue: {
+    name: string
+    args: (string | number)[]
+    resolve: (v: RespValue) => void
+    reject: (e: unknown) => void
+    asBuffer?: boolean
+  }[] = []
   private subs = new Map<string, (channel: string, message: string) => void>()
   private psubs = new Map<string, (channel: string, message: string) => void>()
   private status: 'idle' | 'connecting' | 'ready' | 'closed' = 'idle'
@@ -118,10 +128,10 @@ export class RedisConnection {
 
   private handleDisconnect(err: unknown) {
     // 拒绝当前所有 pending（连接断了，响应永远等不到）
-    const queue = this.pending
+    const queue = this.pending.slice(this.pendingHead)
     this.pending = []
-    const retryErr = err instanceof ConnectionError ? err : err
-    for (const p of queue) p.reject(retryErr)
+    this.pendingHead = 0
+    for (const p of queue) p.reject(err)
 
     if (this.closed || this.status === 'closed') return
 
@@ -146,46 +156,63 @@ export class RedisConnection {
 
   private onData(chunk: Uint8Array) {
     try {
-            // 一次 data 事件可能包含多个回复（并发命令的响应合并在一个 TCP chunk）
+      // 一次 data 事件可能包含多个回复（并发命令的响应合并在一个 TCP chunk）
       const values = this.parser.pushAll(chunk)
-            for (const value of values) {
-        // 订阅推送（message/pmessage）旁路到回调——不消费 pending
-        if (Array.isArray(value) && typeof value[0] === 'string' && PUSH_TYPES.has(value[0])) {
-          this.dispatchSubscribe(value as string[])
+      for (const raw of values) {
+        // 订阅推送（message/pmessage）旁路到回调——不消费 pending。
+        // 顶层第一个元素做非破坏性检查（字节 → string 仅用于匹配）
+        const first =
+          Array.isArray(raw) && raw.length > 0 ? decodeValue(raw[0], true) : undefined
+        if (typeof first === 'string' && PUSH_TYPES.has(first)) {
+          this.dispatchSubscribe(decodeValue(raw, true) as string[])
           continue
         }
-        const p = this.pending.shift()
+        const p = this.pending[this.pendingHead++]
         if (!p) break
         // 错误响应（-ERR）是正常协议消息——reject 该命令，连接保持可用
-        if (value instanceof RespError) p.reject(value)
-        else p.resolve(value)
+        if (raw instanceof RespError) p.reject(raw)
+        else p.resolve(decodeValue(raw, !p.asBuffer)) // 普通命令解码 string；asBuffer 保留字节
+      }
+      // 头指针摊还压缩：消费过半且超过阈值时收拢
+      if (this.pendingHead > 64 && this.pendingHead * 2 > this.pending.length) {
+        this.pending = this.pending.slice(this.pendingHead)
+        this.pendingHead = 0
       }
     } catch (e) {
       // 仅真正的协议解析崩溃（非 RespError）才拒绝全部并断开
-      const queue = this.pending
+      const queue = this.pending.slice(this.pendingHead)
       this.pending = []
+      this.pendingHead = 0
       for (const q of queue) q.reject(e)
       this.socket?.destroy()
     }
   }
 
-  /** 发送命令并等待响应（单连接严格有序）。未 ready 时入离线队列（enableOfflineQueue）或拒绝。 */
-  command(name: string, ...args: (string | number)[]): Promise<RespValue> {
+  /**
+   * 发送命令并等待响应（单连接严格有序）。未 ready 时入离线队列（enableOfflineQueue）或拒绝。
+   * opts.asBuffer=true：响应保留原始字节（Uint8Array）——getBuffer 等二进制场景。
+   */
+  command(name: string, ...args: (string | number | Buffer | { asBuffer?: boolean })[]): Promise<RespValue> {
+    const last = args[args.length - 1]
+    const opts =
+      typeof last === 'object' && last !== null && !(last instanceof Uint8Array)
+        ? (args.pop() as { asBuffer?: boolean })
+        : undefined
     if (this.status === 'ready' && this.socket) {
-      return this.sendNow(name, args)
+      return this.sendNow(name, args as (string | number)[], opts?.asBuffer)
     }
     if (this.closed || this.status === 'closed' || !this.opts.enableOfflineQueue) {
       return Promise.reject(new ConnectionError('redis: not connected'))
     }
     // 离线队列：连接建立后按序 flush
     return new Promise((resolve, reject) => {
-      this.offlineQueue.push({ name, args, resolve, reject })
+      this.offlineQueue.push({ name, args: args as (string | number)[], resolve, reject, asBuffer: opts?.asBuffer })
     })
   }
 
-  private sendNow(name: string, args: (string | number)[]): Promise<RespValue> {
+  private sendNow(name: string, args: (string | number)[], asBuffer?: boolean): Promise<RespValue> {
     return new Promise((resolve, reject) => {
-      this.pending.push({ resolve, reject })
+      this.pending.push({ resolve, reject, asBuffer })
       this.socket!.write(encodeCommand([name, ...args])) // Uint8Array 直接写，免 Buffer 拷贝
     })
   }
@@ -194,7 +221,7 @@ export class RedisConnection {
     const queue = this.offlineQueue
     this.offlineQueue = []
     for (const q of queue) {
-      this.sendNow(q.name, q.args).then(q.resolve, q.reject)
+      this.sendNow(q.name, q.args, q.asBuffer).then(q.resolve, q.reject)
     }
   }
 
@@ -258,8 +285,9 @@ private dispatchSubscribe(value: string[]) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
-    const queue = this.pending
+    const queue = this.pending.slice(this.pendingHead)
     this.pending = []
+    this.pendingHead = 0
     for (const p of queue) p.reject(new ConnectionError('redis: connection closed'))
     const sock = this.socket
     this.socket = null
