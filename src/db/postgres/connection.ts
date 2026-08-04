@@ -95,11 +95,7 @@ export class PgConnection {
 
       sock.once('connect', () => {
         sock.setNoDelay(true) // 禁用 Nagle——避免 loopback delayed-ACK 40ms 惩罚
-        sock.write(
-          Buffer.from(
-            startupMessage({ user: this.opts.user, database: this.opts.database }),
-          ),
-        )
+        sock.write(startupMessage({ user: this.opts.user, database: this.opts.database }))
       })
 
       sock.on('data', (chunk: Buffer) => this.onData(chunk))
@@ -138,9 +134,9 @@ export class PgConnection {
   private onReady: (() => void) | null = null
   private onAuthFail: ((err: unknown) => void) | null = null
   private expectingAuth = true
-  private authStage: 'start' | 'sasl-initial' | 'sasl-final' = 'start'
   private authCtx: { clientNonce: string; clientFirstBare: string; serverFirst: string } | null = null
-  private prepared = new Map<string, { name: string; columns: ReturnType<typeof parseRowDescription> }>() // sig → stmt + 列缓存
+  private prepared = new Map<string, { name: string; columns: ReturnType<typeof parseRowDescription> }>() // sig → stmt + 列缓存（LRU）
+  private static readonly PREPARED_MAX = 128
   private stmtSeq = 0
   private currentQuery: {
     columns: ReturnType<typeof parseRowDescription>
@@ -185,7 +181,6 @@ export class PgConnection {
           this.send(passwordMessage(`md5${outer}`))
         } else if (code === 10) {
           // SASL——发初始响应（机制名\0 + 响应长度(4) + client-first）
-          this.authStage = 'sasl-initial'
           const nonce = crypto.randomBytes(18).toString('base64url')
           const clientFirstBare = `n=,r=${nonce}`
           this.authCtx = { clientNonce: nonce, clientFirstBare, serverFirst: '' }
@@ -209,7 +204,6 @@ export class PgConnection {
           }
           this.authCtx.serverFirst = serverFirst
           const clientFinal = this.scramFinal(this.authCtx)
-          this.authStage = 'sasl-final'
           this.send(encodeP(utf8(clientFinal)))
         } else if (code === 12) {
           // SASLFinal——验证 server signature
@@ -238,9 +232,7 @@ export class PgConnection {
         if (this.opts.statementTimeoutMs > 0 && !this.timeoutSet) {
           this.timeoutSet = true
           this.awaitingReady = true
-          this.socket?.write(
-            Buffer.from(queryMessage(`SET statement_timeout = ${this.opts.statementTimeoutMs}`)),
-          )
+          this.socket?.write(queryMessage(`SET statement_timeout = ${this.opts.statementTimeoutMs}`))
           return
         }
         this.onReady?.()
@@ -256,9 +248,8 @@ export class PgConnection {
         if (this.currentQuery) {
           this.currentQuery.columns = parseRowDescription(msg.payload)
           // prepare 首次：缓存列信息供后续复用（Describe 只回一次 T）
-          const entry = this.prepared.get(
-            `${this.currentQuery.sql}|${this.currentQuery.params?.length ?? 0}`,
-          )
+          const sig = `${this.currentQuery.sql}|${this.currentQuery.params?.length ?? 0}`
+          const entry = this.getPrepared(sig)
           if (entry) entry.columns = this.currentQuery.columns
         }
         break
@@ -282,7 +273,7 @@ export class PgConnection {
           this.currentQuery.awaitingDescribe = false
           // 仅在 Parse 成功后缓存（错误 Parse 不污染缓存——下次可重新准备）
           if (this.currentQuery.prepKey && this.currentQuery.prepName) {
-            this.prepared.set(this.currentQuery.prepKey, {
+            this.setPrepared(this.currentQuery.prepKey, {
               name: this.currentQuery.prepName,
               columns: this.currentQuery.columns,
             })
@@ -373,6 +364,26 @@ export class PgConnection {
     return Buffer.from(hmac(serverKey, authMessage)).toString('base64')
   }
 
+  /** LRU 读取：命中移到尾部（最近使用），超限删最旧 */
+  private getPrepared(sig: string) {
+    const entry = this.prepared.get(sig)
+    if (entry) {
+      this.prepared.delete(sig)
+      this.prepared.set(sig, entry)
+    }
+    return entry
+  }
+
+  /** LRU 写入：刷新位置；超上限淘汰最旧（长运行服务防无限累积） */
+  private setPrepared(sig: string, entry: { name: string; columns: ReturnType<typeof parseRowDescription> }) {
+    this.prepared.delete(sig)
+    this.prepared.set(sig, entry)
+    if (this.prepared.size > PgConnection.PREPARED_MAX) {
+      const oldest = this.prepared.keys().next().value
+      if (oldest !== undefined) this.prepared.delete(oldest)
+    }
+  }
+
   /** 事务：BEGIN → fn(tx) → COMMIT；fn 抛错 → ROLLBACK（回滚失败吞掉，保留原始错误） */
   async transaction<T>(
     fn: (tx: { query: (sql: string, params?: (string | number | boolean | object | null)[]) => Promise<Row[]> }) => Promise<T>,
@@ -407,11 +418,11 @@ export class PgConnection {
           resolve,
           reject,
         }
-        this.socket.write(Buffer.from(queryMessage(sql)))
+        this.socket.write(queryMessage(sql))
       } else {
         // 扩展查询：预处理语句缓存（首次 Parse+Describe，后续直接 Bind+Execute）
         const sig = `${sql}|${params.length}`
-        let stmtEntry = this.prepared.get(sig)
+        let stmtEntry = this.getPrepared(sig)
         const encoded = encodeParams(params)
         if (!stmtEntry) {
           const name = `wf_s${++this.stmtSeq}`
@@ -427,9 +438,9 @@ export class PgConnection {
             prepName: name,
           }
           // Parse + Describe + Flush：服务器回 ParseComplete(1) + ParameterDescription(t)
-          this.socket.write(Buffer.from(parseMessage(name, sql, params.map(() => 0))))
-          this.socket.write(Buffer.from(describeMessage('S', name)))
-          this.socket.write(Buffer.from(flushMessage()))
+          this.socket.write(parseMessage(name, sql, params.map(() => 0)))
+          this.socket.write(describeMessage('S', name))
+          this.socket.write(flushMessage())
         } else {
           // 已备 statement：直接 Bind(命名) + Execute + Sync——无 T（Describe 只回一次）
           this.currentQuery = {
@@ -441,16 +452,16 @@ export class PgConnection {
             params: encoded,
             awaitingDescribe: false,
           }
-          this.socket.write(Buffer.from(bindMessage(stmtEntry.name, encoded)))
-          this.socket.write(Buffer.from(executeMessage()))
-          this.socket.write(Buffer.from(syncMessage()))
+          this.socket.write(bindMessage(stmtEntry.name, encoded))
+          this.socket.write(executeMessage())
+          this.socket.write(syncMessage())
         }
       }
     })
   }
 
   private send(data: Uint8Array) {
-    this.socket?.write(Buffer.from(data))
+    this.socket?.write(data)
   }
 
   private notifyIdle() {
@@ -469,7 +480,7 @@ export class PgConnection {
   async close(): Promise<void> {
     const sock = this.socket
     if (this.status === 'ready' && sock) {
-      sock.write(Buffer.from(terminateMessage()))
+      sock.write(terminateMessage())
     }
     this.status = 'closed'
     if (sock) sock.destroy()

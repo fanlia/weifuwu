@@ -26,6 +26,8 @@ export interface RedisConnectionOptions {
   maxRetries?: number
   /** 未连接时命令是否入队等待（ioredis enableOfflineQueue 语义）。默认 true。 */
   enableOfflineQueue?: boolean
+  /** 离线队列上限。默认 5000。超限命令立即 reject（防断线期间无限累积）。 */
+  maxOfflineQueue?: number
 }
 
 interface Pending {
@@ -67,6 +69,7 @@ export class RedisConnection {
       retryDelayMs: options.retryDelayMs ?? 100,
       maxRetries: options.maxRetries ?? 10,
       enableOfflineQueue: options.enableOfflineQueue ?? true,
+      maxOfflineQueue: options.maxOfflineQueue ?? 5000,
     }
   }
 
@@ -204,7 +207,10 @@ export class RedisConnection {
     if (this.closed || this.status === 'closed' || !this.opts.enableOfflineQueue) {
       return Promise.reject(new ConnectionError('redis: not connected'))
     }
-    // 离线队列：连接建立后按序 flush
+    // 离线队列：连接建立后按序 flush；超限拒绝（防断线期间无限累积）
+    if (this.offlineQueue.length >= this.opts.maxOfflineQueue) {
+      return Promise.reject(new ConnectionError(`redis: offline queue full (${this.opts.maxOfflineQueue})`))
+    }
     return new Promise((resolve, reject) => {
       this.offlineQueue.push({ name, args: args as (string | number)[], resolve, reject, asBuffer: opts?.asBuffer })
     })
@@ -289,12 +295,13 @@ private dispatchSubscribe(value: string[]) {
     this.pending = []
     this.pendingHead = 0
     for (const p of queue) p.reject(new ConnectionError('redis: connection closed'))
+    // 离线队列（未连接时入队）——关闭后永远无法 flush，一并拒绝（防 promise 挂起泄漏）
+    const oq = this.offlineQueue
+    this.offlineQueue = []
+    for (const q of oq) q.reject(new ConnectionError('redis: connection closed'))
     const sock = this.socket
     this.socket = null
-    if (sock) {
-      sock.destroy()
-      await new Promise((r) => setTimeout(r, 0))
-    }
+    sock?.destroy() // destroy 同步关闭，无需事件循环 hack
   }
 
   get connected(): boolean {

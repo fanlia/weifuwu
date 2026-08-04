@@ -123,4 +123,16 @@ describe('redis connection resilience (real database)', () => {
     await assert.rejects(dead.connect(), (e) => e instanceof ConnectionError)
     await dead.close()
   })
+
+  it('rejects commands when offline queue exceeds maxOfflineQueue', async () => {
+    // 未连接 + enableOfflineQueue：命令入队等待；超限立即 reject（防无限累积）
+    const conn = new RedisConnection({ port: 6399, maxRetries: 0, enableOfflineQueue: true, maxOfflineQueue: 2 })
+    const p1 = conn.command('PING')
+    const p2 = conn.command('PING')
+    await assert.rejects(conn.command('PING'), /offline queue full/)
+    await conn.close()
+    // 队列中未执行的命令随关闭 reject（不挂起）
+    await assert.rejects(p1, /not connected|closed/)
+    await assert.rejects(p2, /not connected|closed/)
+  })
 })

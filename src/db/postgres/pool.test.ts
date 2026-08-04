@@ -118,6 +118,14 @@ describe('postgres tagged template + unsafe (real database)', () => {
     assert.equal(rows[0].len, 256 * 1024 + 15)
   })
 
+  it('prepared cache LRU: 200 distinct SQLs all succeed (bounded cache)', async () => {
+    // 超过 PREPARED_MAX(128)：LRU 淘汰最旧，新 SQL 永远重新 prepare，不冲突不膨胀
+    for (let i = 0; i < 200; i++) {
+      const rows = await pool.query(`SELECT $1::int AS v WHERE $1 = ${i}`, [i])
+      assert.equal(rows[0].v, i)
+    }
+  })
+
   it('tagged template is injection-safe', async () => {
     const evil = "'; DROP TABLE wf_tag_a; --"
     await pool.tag`INSERT INTO wf_tag_a (id, title) VALUES (${3}, ${evil})`
