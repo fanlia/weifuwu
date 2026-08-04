@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.56.1 (DB 客户端性能 + 二进制安全)
+
+### 🐛 Fixes
+
+- **Redis 二进制损坏**：`encodeCommand` 的 Buffer 参数被 `toString()` 破坏（0xff 等非 utf8 字节）——改为字节直写
+- **Redis 离线队列泄漏**：`close()` 未拒绝离线队列——未连接时入队的命令永久挂起（promise 泄漏）
+- **PG prepared 缓存无限累积**（长运行服务内存膨胀）——LRU 上限 128
+- **PG bindMessage number[] 逐字节累积**（大 jsonb 参数内存翻倍 + 双重拷贝）——两遍法预分配 + offset 指针
+
+### ✨ New APIs
+
+- `ctx.redis.getBuffer(key)`：二进制安全读取——返回原始字节（Uint8Array），不经过字符串解码；含 0x00/0xff 的 payload 逐字节往返
+
+### 🚀 Performance
+
+- Redis 热路径：`indexOfCRLF` 原生查找 / `:$` 长度手动数字解析 / pending 头指针（bench 真库）
+- 解码单例化：PG 三处每次 `new TextDecoder()` → 模块级单例
+- socket.write 去 Buffer.from 包装（Uint8Array 直写）
+
+| 操作 | 优化前 | 优化后 | ioredis |
+|------|--------|--------|---------|
+| Redis get | 0.122ms | **0.061ms** | 0.055ms（1.11×） |
+| Redis json 往返 | 0.191ms | **0.119ms** | 0.112ms（1.06×） |
+| Redis 并发 set | 0.5ms/批 | **0.3ms/批** | 持平 |
+| PG 参数化 SELECT | 0.147ms | **0.103ms** | 0.111ms（反超） |
+| PG 事务 | 0.273ms | **0.255ms** | 0.308ms（反超） |
+
+---
+
 ## 0.56.0 (async 工厂组件 + SSR/Hydration 统一透明)
 
 ### ✨ New APIs

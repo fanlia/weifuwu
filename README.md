@@ -679,7 +679,7 @@ app.use(db)
 
 ## redis — Redis 客户端（自研）
 
-> **自研 RESP2 协议**（零第三方依赖）——连接/重连（断线 pending 拒绝、指数退避）/离线队列/管道/Pub-Sub（订阅断线自动重放）+ 消除 ioredis 高频痛点（TTL 参数顺序、JSON 手动序列化、缓存样板）。
+> **自研 RESP2 协议**（零第三方依赖）——连接/重连（断线 pending 拒绝、指数退避）/离线队列/管道/Pub-Sub（订阅断线自动重放）+ 消除 ioredis 高频痛点（TTL 参数顺序、JSON 手动序列化、缓存样板）。**二进制安全**：`getBuffer(key)` 原样返回字节（缓存序列化 payload 不损坏）。
 
 ```ts
 import { redis } from 'weifuwu'
