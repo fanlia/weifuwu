@@ -1,6 +1,6 @@
 # weifuwu
 
-**全栈框架 — 后端 HTTP 路由 + 前端 VDOM 框架 + 纯 CSS 布局系统**
+**一个包的全栈框架** — 后端 HTTP + 前端 VDOM + 组件库 + CSS 设计系统。全自研、零配置、消灭样板。
 
 ```bash
 npm install weifuwu
@@ -17,21 +17,46 @@ npm install weifuwu
 
 ## 设计理念
 
+### 一句话
+
+**weifuwu = 一个包的全栈框架：全自研、零配置、消灭样板。** 下面三条核心哲学与十条技术原则都是这句话的展开——我们不做缝合框架，每一层都自研且可预测。
+
+### 核心哲学
+
+**① 一个包，全栈一体。** 后端、前端、组件、样式装在一个 npm 包里，零配置、零构建、纯 link 可用：服务端 `--import weifuwu/dev` 直接跑 `.tsx`（Node loader + esbuild 同步编译）；浏览器 CDN import map 直接跑；CSS 一条 link 即得完整设计系统。
+
+**② 全自研，诚实裁剪。** VDOM、PG v3 / RESP2 协议、GraphQL schema、OpenAI 兼容流式协议——全部自研而非包装他人。动机不是炫技而是**确定性**：自研客户端输出确定、行为可预测、错误模型统一。配套纪律是诚实裁剪：**不支持的能力明确抛 `ProtocolError('unsupported')`，绝不静默降级或"尽量支持"**（已裁剪清单见 `docs/db-clients-plan.md`）。
+
+**③ 消灭样板。** 框架的每一层都在消灭一类样板代码：
+
+| 样板 | 消灭方式 |
+|---|---|
+| 构建样板 | 动态编译（`ctx.ui.js` / `weifuwu/dev`），改代码即刷即用，零构建步骤 |
+| 样式样板 | 语义原语 + 变量定制，零自定义 CSS 文件（`--wf-brand-500` 改一层值全站跟随） |
+| 数据样板 | `ctx.data.get` 一个 API 覆盖 SSR 预取 / hydration 命中 / SPA fetch，写数据像写同步代码 |
+| 协议样板 | 自研 PG/Redis 客户端消灭双重编码、parseRow 样板、`'EX'` 参数顺序陷阱 |
+
+### 技术原则（哲学的展开）
+
 **零运行时依赖** — 前端无 npm 运行时依赖（自研 VDOM，不引入 Virtual DOM 库、rxjs、immer 等）。后端仅依赖 `esbuild`（TSX→JS 编译）+ `graphql` + `ws`（语言/协议本身）——**数据库客户端（PostgreSQL/Redis 协议）、GraphQL schema 工具全部自研**。esbuild 作为运行时依赖随 `npm install weifuwu` 自动安装，`ctx.ui.js()` 开箱即用。
 
-**两阶段组件模型** — 组件 = `(initProps, ctx) => (props) => VNode`。外层函数只执行一次（mount），内层函数每次状态/props 变化时执行（render）。无 class、无 `this`、无 Hook。
+**两阶段组件模型** — 组件 = `(initProps, ctx) => (props) => VNode`。外层函数只执行一次（mount），内层函数每次状态/props 变化时执行（render）。无 class、无 `this`、无 Hook——**位置即语义**：外层天生只跑一次，没有 hooks 规则、没有依赖数组、没有闭包陷阱（详解见[核心概念](#核心概念)）。
 
-**Proxy 驱动渲染** — `ctx.ui.$()` 返回深度 Proxy，`$.x = val` 自动触发当前组件的 VDOM patch。也支持手动 `ctx.ui.render()` 精确控制渲染时机。无需手动调用 `useState`/`useEffect`。
+**Proxy 驱动渲染** — `ctx.ui.$()` 返回深度 Proxy，`$.x = val` 自动触发当前组件的 VDOM patch；也支持手动 `ctx.ui.render()` 精确控制渲染时机。**组件库手动优先、业务层自动优先**——同一框架内按角色选模式（详见[组件库](#组件库-weifuwucomponents)）。
 
-**中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` 等），Handler/组件从 `ctx` 读取。
+**中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` / `ctx.limit` / `ctx.email` / `ctx.queue` / `ctx.ai` 等），Handler/组件从 `ctx` 读取。
+
+**async 工厂组件** — `async (ctx) => (initProps, ctx) => (props) => VNode`：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`$`）、render 输出视图。异步只在工厂边界，mount/render 保持同步；数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
+
+**SPA/SSR/Hydration 统一透明** — 同一份路由定义（`routes`）一个组件三场景自动适配：后端 `uiSsr({ routes })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `router({ routes })` + `RouteView` + `mount(..., { hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
+
+**AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批。`ctx.ai` 一个入口：`chat()` / `stream()` / `agent()` / `approve()`，不用 ai-sdk。
+
+**SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见文末[SaaS 地基模块](#saas-地基模块ratelimit--email--usersystem--queue)）。
+
+**零自定义 CSS 设计系统** — 一个 CSS 文件 = 双层 Token + 布局原语 + 工具类 + 组件样式。业务页面不写 style.css：组件 + `wf-*` 原语写业务，品牌/组件定制改变量（`--wf-brand-500` / `--wf-btn-radius`），暗色自动（详见[布局系统](#布局系统-weifuwulayout)）。
 
 **自研数据层** — `ctx.sql`（PG v3 协议）与 `ctx.redis`（RESP2 协议）为**自研客户端**：确定性输出、行为可预测、统一错误模型。jsonb 自动解码、TTL 安全 API、schema 写前校验——高频痛点（双重编码/parseRow 样板/`'EX'` 参数顺序）从根上消除。
-
-**SSR + 动态编译** — 后端 `ctx.ui.js()` 用 esbuild 实时编译 TSX，开发时改代码即刷即用，零构建步骤。
-
-**async 工厂组件** — `async (ctx) => (initProps, ctx) => (props) => VNode`：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`$`）、render 输出视图。异步只在工厂边界，mount/render 保持同步；数据经闭包注入，写数据像写同步代码。
-
-**SPA/SSR/Hydration 统一透明** — 同一份路由定义（`routes`）一个组件形态三场景自动适配：后端 `uiSsr({ routes })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `router({ routes })` + `RouteView` + `mount(..., { hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
 
 ---
 
@@ -243,7 +268,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | Router 方法 | **app.graphql()** | GraphQL 端点（支持 GraphiQL），Router 实例方法（无需单独 import） | Router |
 | `weifuwu/client` | **createApp** | 应用引导 + VDOM 渲染引擎 | — |
 | `weifuwu/client` | **router / RouteView** | 前端路由（history/hash 模式） | createApp |
-| `weifuwu/client` | **asyncComponent** | async 工厂组件（形态 C）：工厂层声明数据，mount/render 同步 | — |
+| `weifuwu/client` | **asyncComponent** | async 工厂组件：工厂层声明数据，mount/render 同步（三条纪律见[核心概念](#核心概念)） | — |
 | `weifuwu/client` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | createApp |
 | `weifuwu/client` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | createApp |
 | `weifuwu/client` | **i18n** | 国际化中间件（运行时切换语言） | createApp |
@@ -297,6 +322,49 @@ const Counter = (_init, ctx) => {
 | 注入 | 中间件注入 ctx.field | 中间件注入 ctx.field |
 | 读取 | handler 读取 ctx | 组件读取 ctx |
 | 渲染 | 返回 Response | `ctx.ui.render()` / `ctx.ui.dirty()` / `$.x = val` 触发局部 VDOM patch |
+
+### async 组件（三条纪律）
+
+`asyncComponent` 让"拿数据渲染页面"像写同步代码——三层结构：**工厂**（async，只执行一次，声明数据）→ **mount**（初始化 `$`）→ **render**（输出视图）。异步只在工厂边界：
+
+```tsx
+const UserProfile = asyncComponent(async (ctx) => {
+  const user = await ctx.data.get(`/api/user/${ctx.params.id}`)   // ① 工厂层：声明数据
+  return (_init, ctx) => {
+    const $ = ctx.ui.$()
+    $.liked = false                                               // ② mount：客户端状态
+    return (props) =>
+      h('div', {},
+        h('p', {}, user.name),          // 服务端状态（闭包，SSR 进 HTML）
+        h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'))
+  }
+})
+```
+
+**三条纪律**（不遵守就是隐性 bug）：
+
+| 纪律 | 反例 | 正确 |
+|---|---|---|
+| ① 数据 key 必须含维度 | `ctx.data.get('/api/user')`——`/users/1 → /users/2` 导航命中旧缓存 | `ctx.data.get(\`/api/user/${ctx.params.id}\`)` |
+| ② 会变的数据放 `$` | `const count = data.count`——点击永不更新 | `$.count = data.count`（初始值 seed 自服务端数据） |
+| ③ 初始状态必须确定性 | `$.w = window.innerWidth`——SSR/hydration mismatch | 用服务端数据 seed，交互后再测 |
+
+**常见坑**：
+- 工厂**拿不到 props**——数据维度从 `ctx.params` / `ctx.data` 取
+- 闭包数据是页面加载时的**快照**——路由参数变化靠工厂重跑刷新（key 变 → 缓存 miss → 重新取数）；工厂缓存绑定页面上下文，路由导航/登录登出时自动失效
+- **个性化数据不进 `ctx.data`**——SSR 会把工厂取数结果序列化给所有客户端，会话/用户相关数据留在 `$` + fetch
+
+### 渲染策略：SPA 还是 SSR？
+
+组件与路由的写法**完全一样**，差异只有入口两行：
+
+| | SPA | SSR + Hydration |
+|---|---|---|
+| 适用 | 应用页（后台、工具、Dashboard） | 内容页（博客、营销，需要 SEO/首屏） |
+| 后端 | HTML 外壳 | `uiSsr({ routes })` 一行（自动完整 HTML + `__DATA__`） |
+| 客户端 | `mount('#root', RouteView)` | `mount('#root', RouteView, { hydrate: true })` |
+
+**怎么选**：默认 SPA；需要 SEO 或首屏即内容时用 SSR。两种模式可混合——一个 app 内 `uiSsr` 匹配共享路由，未匹配 `next()` 走普通 handler。
 
 ### Closeable 接口
 
@@ -1651,7 +1719,7 @@ const UserProfile: Component = (initProps, ctx) => {
 }
 ```
 
-### asyncComponent 工厂（形态 C）— 同步式数据声明
+### asyncComponent 工厂（async 组件）— 同步式数据声明
 
 `async (ctx) => (initProps, ctx) => (props) => VNode` — 工厂层（async，只执行一次并缓存）声明数据/加载代码，mount/render 保持同步。数据经闭包注入组件，渲染无 loading 分支：
 
@@ -2403,7 +2471,6 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 ```
 
 也支持相对路径：`ctx.ui.css('./src/style.css')`。
-```
 
 ## 67 个布局原语
 

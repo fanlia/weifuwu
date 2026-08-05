@@ -60,7 +60,7 @@ const Toggle: Component = (_init, ctx) => {
 }
 ```
 
-### 异步组件（asyncComponent 工厂，形态 C）
+### 异步组件（asyncComponent 工厂）
 
 > `async (ctx) => (initProps, ctx) => (props) => VNode` — 工厂层（async，只执行一次并缓存）做数据声明/代码分割，mount/render 保持同步。必须用 `asyncComponent()` 包装。
 
