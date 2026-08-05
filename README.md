@@ -211,7 +211,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 44 个 UI 组件（Button, Card, Table, Modal 等） |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 46 个 UI 组件（Button, Card, Table, Modal 等） |
 | 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 115 个主题 Token + 67 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
@@ -250,7 +250,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
-| `weifuwu/components` | **44 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
+| `weifuwu/components` | **46 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 115 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
@@ -2148,7 +2148,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-44 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+46 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'

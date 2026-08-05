@@ -10,7 +10,7 @@ app.use(ui())
 
 app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
-// 组件库 CSS（含 Token + 67 布局原语 + 44 组件样式）
+// 组件库 CSS（含 Token + 67 布局原语 + 46 组件样式）
 app.get('/components.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))
 
 app.get('/*', async (req, ctx) => ctx.ui.html`

@@ -1061,7 +1061,7 @@ const App: Component = (_props, ctx) => {
         <h1 class="wf-text-4xl wf-mb-sm wf-m-0">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p class="wf-text-secondary">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row wf-gap-md wf-mt-md" style="justify-content:center">
-          <Badge variant="primary">44 组件</Badge>
+          <Badge variant="primary">46 组件</Badge>
           <Badge variant="success">580 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
@@ -1133,7 +1133,7 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <div class="wf-text-center wf-py-xl wf-text-tertiary wf-text-sm">
-        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 44 个组件 · 打开 devtools 查看代码'}
+        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 46 个组件 · 打开 devtools 查看代码'}
       </div>
     </div>
     )
@@ -1146,6 +1146,6 @@ createApp()
   .use(i18n({ locale: 'zh-CN', messages: {
     'app.title': 'weifuwu/components',
     'app.desc': '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',
-    'app.footer': 'weifuwu/components · 全部 44 个组件 · 打开 devtools 查看代码',
+    'app.footer': 'weifuwu/components · 全部 46 个组件 · 打开 devtools 查看代码',
   } }))
   .mount('#root', App)
