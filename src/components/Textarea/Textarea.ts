@@ -11,12 +11,16 @@ export interface TextareaProps {
   error?: string
   hint?: string
   rows?: number
+  /** 最大字符数（同时限制输入） */
+  maxLength?: number
+  /** 显示字数统计（右下角；配合受控 value 实时更新） */
+  showCount?: boolean
   onInput?: (e: Event) => void
 }
 
 export const Textarea: Component<TextareaProps> = (_init, _ctx) =>
   (props) => {
-  const { label, value, placeholder, required, disabled, error, hint, rows = 3, onInput } = props
+  const { label, value, placeholder, required, disabled, error, hint, rows = 3, maxLength, showCount, onInput } = props
 
   const textareaEl = h('textarea', {
     class: 'wf-textarea',
@@ -25,6 +29,7 @@ export const Textarea: Component<TextareaProps> = (_init, _ctx) =>
     required: required || undefined,
     disabled: disabled || undefined,
     rows,
+    maxLength,
     onInput,
   })
 
@@ -37,6 +42,15 @@ export const Textarea: Component<TextareaProps> = (_init, _ctx) =>
   }
 
   children.push(textareaEl)
+
+  if (showCount) {
+    const len = (value ?? '').length
+    const over = maxLength != null && len > maxLength
+    children.push(h('div', {
+      class: `wf-textarea-count${over ? ' wf-textarea-count--over' : ''}`,
+      'aria-live': 'polite',
+    }, maxLength != null ? `${len}/${maxLength}` : String(len)))
+  }
 
   if (error) children.push(h('div', { class: 'wf-textarea-err' }, error))
   if (hint && !error) children.push(h('div', { class: 'wf-textarea-hint' }, hint))

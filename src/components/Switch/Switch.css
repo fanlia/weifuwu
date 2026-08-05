@@ -22,7 +22,7 @@
   width: 36px;
   height: 20px;
   background: var(--wf-color-border-dark);
-  border-radius: 10px;
+  border-radius: var(--wf-switch-radius, 10px);
   transition: background var(--wf-transition);
   flex-shrink: 0;
 }

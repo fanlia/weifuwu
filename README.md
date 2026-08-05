@@ -211,8 +211,8 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 43 个 UI 组件（Button, Card, Table, Modal 等） |
-| 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 91 个主题 Token + 35 个布局原语 |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 44 个 UI 组件（Button, Card, Table, Modal 等） |
+| 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 115 个主题 Token + 67 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -250,8 +250,8 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
-| `weifuwu/components` | **43 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
-| `weifuwu/layout` | **CSS 布局** | 35 个布局原语 + 91 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+| `weifuwu/components` | **44 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
+| `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 115 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -2148,11 +2148,11 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-43 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+44 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
-import 'weifuwu/components/style.css'   // 包含 Token + 35 布局原语 + 组件样式，一次性引入
+import 'weifuwu/components/style.css'   // 包含 Token + 67 布局原语 + 组件样式，一次性引入
 ```
 
 ### 使用示例
@@ -2381,7 +2381,9 @@ props 变化 ──────────────────────�
 
 # 布局系统 (`weifuwu/layout`)
 
-纯 CSS 布局原语 + 91 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 布局原语 + 工具类 + 115 个主题 Token。不绑定任何 JS 框架。
+
+> **学习路径与命名规范**：见 [`docs/style-guide.md`](./docs/style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
 > **全栈 weifuwu 项目**：`weifuwu/components/style.css` 已包含布局系统，一条 import 就够了，无需单独引用本页。
 > 本页仅适用于**非 weifuwu 项目**或**只需 CSS 布局**的场景。
@@ -2403,7 +2405,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 也支持相对路径：`ctx.ui.css('./src/style.css')`。
 ```
 
-## 35 个布局原语
+## 67 个布局原语
 
 | 类别 | 原语 | 效果 |
 |------|------|------|
@@ -2440,13 +2442,56 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | | `wf-inline` | display: inline |
 | | `wf-inline-block` | display: inline-block |
 | | `wf-contents` | display: contents |
+| **间距** | `wf-p-*` / `wf-px-*` / `wf-py-*`（xs~2xl） | padding：全/水平/垂直，引用 `--wf-space-*` |
+| | `wf-mt-*` / `wf-mb-*` / `wf-my-*`（xs~2xl） | margin：top/bottom/垂直 |
+| | `wf-mx-auto` / `wf-my-auto` | margin: auto 居中 |
+| | `wf-gap-*`（xs~2xl） | 为 flex/grid 原语设置 `--wf-gap` |
+| **尺寸** | `wf-w-full` / `wf-h-full` / `wf-w-auto` | 宽/高 100%、auto |
+| **边框** | `wf-border` / `wf-border-t/b/l/r` | 1px 边框（`--wf-border-width` + `--wf-color-border`） |
+| **面工具** | `wf-bg-secondary/tertiary/brand/success/warning/error/info` | 语义背景色（`--wf-color-*-bg`） |
+| | `wf-pill` | 胶囊圆角（999px，状态徽章/标签/色块） |
+| | `wf-rounded-sm` `wf-rounded` `wf-rounded-md` `wf-rounded-lg` | 圆角工具（`--wf-radius-*`） |
+| **气泡** | `wf-bubble` / `wf-bubble--own` / `wf-bubble--ai` | 聊天气泡（pre-wrap + 折行内建） |
+| **打印** | `wf-print-hidden` / `wf-print-block` | 导出 PDF 时隐藏工具区 / 恢复块级 |
+| **行高** | `wf-leading-tight` `wf-leading-base` `wf-leading-relaxed` | line-height（`--wf-line-height-*`） |
+| **指针** | `wf-pointer` / `wf-not-allowed` | cursor: pointer / not-allowed |
+| **内容排版** | `wf-prose` | 富文本正文（文章/博客/文档，一个类包 h2/p/ul/blockquote/pre…） |
+| **外壳** | `wf-app-shell` | 应用外壳：侧边栏 + 主区 grid（`--wf-sidebar-width`） |
+| | `wf-sidebar` `wf-sidebar-header` `wf-sidebar-body` `wf-sidebar-footer` | 侧边栏：品牌区/导航区/底部用户区，sticky 全高 |
+| | `wf-nav` `wf-nav-group` `wf-nav-item` `wf-nav-icon` | 导航：分组标题 + 链接项（`--active` 激活态） |
+| | `wf-main` | 主内容区（padding + min-width: 0） |
+| | `wf-text-*` 排版工具 | 见下文「排版工具」 |
 
-## 91 个主题 Token
+### 排版工具（`wf-text-*`）
+
+| 工具 | 效果 |
+|------|------|
+| `wf-text-left/center/right` | text-align |
+| `wf-text-xs…5xl` | 字号（`--wf-font-size-*`） |
+| `wf-text-secondary/tertiary/disabled/brand` | 中性色阶 |
+| `wf-text-success/warning/error/info` | 语义色文本（`--wf-color-*`） |
+| `wf-text-medium/semibold/bold` | 字重 |
+| `wf-tracking-normal/wide/wider` | letter-spacing |
+| `wf-uppercase/lowercase/capitalize` | text-transform |
+| `wf-pre-wrap` | white-space: pre-wrap + word-break（聊天气泡/代码） |
+| `wf-break-word` | overflow-wrap + word-break |
+| `wf-text-nowrap` | white-space: nowrap |
+| `wf-truncate` | 单行省略（ellipsis） |
+| `wf-line-clamp-2/3` | 多行截断 |
+
+## 115 个主题 Token
+
+**双层结构**：原始层（Primitive，色值只定义一次，品牌/暗色调校改这里）+ 语义层（Semantic，组件消费）。
 
 ```css
+/* ── 原始层 — 品牌/中性色值 + 暗色值，主题定制改这一层 ── */
+--wf-brand-500 / --wf-brand-600 / --wf-brand-50   /* 品牌主色/悬停/浅底 */
+--wf-slate-900…50 / --wf-white                     /* 中性阶 */
+--wf-dark-*                                        /* 暗色值（暗色模式经间接层引用，零硬编码） */
+
+/* ── 语义层 — 组件消费，暗色/主题切换覆盖这里 ── */
 /* 品牌色 */
 --wf-color-primary / --wf-color-primary-hover / --wf-color-primary-bg
---wf-color-secondary / --wf-color-secondary-bg
 
 /* 语义色 */
 --wf-color-success / --wf-color-success-bg
@@ -2496,6 +2541,9 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 --wf-accent-color / --wf-caret-color
 --wf-opacity-disabled / --wf-opacity-overlay
 --wf-pop-z / --wf-cover-z
+
+/* 应用外壳 */
+--wf-sidebar-width
 ```
 
 ### 暗色模式
@@ -2511,9 +2559,63 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 // 系统为暗色时自动生效；加 data-theme="light" 可强制亮色
 ```
 
+暗色值定义在原始层 `--wf-dark-*`（只写一次），`_dark.css` 两段仅做语义映射——改暗色调校只动原始层，无硬编码色值。
+
 ---
 
 # 样式定制指南
+
+## 组件定制钩子（零覆盖 CSS）
+
+关键组件视觉全部变量化——定制只需设一个变量（默认值 = 现有 token）：
+
+```html
+<style>
+  :root {
+    --wf-brand-500: #7c3aed;      /* 品牌换色：改原始层一个值，全站跟随 */
+    --wf-dark-brand-500: #a78bfa; /* 暗色品牌（可选） */
+    --wf-modal-width: 640px;      /* 组件定制：设一个变量 */
+    --wf-btn-radius: 999px;
+    --wf-field-height: 44px;
+    --wf-card-shadow: 0 8px 24px rgba(0,0,0,.12);
+  }
+</style>
+```
+
+钩子清单：`--wf-btn-*` `--wf-card-*` `--wf-field-*` `--wf-modal-*` `--wf-drawer-width` `--wf-toast-*` `--wf-alert-radius` `--wf-badge-radius` `--wf-tag-radius` `--wf-switch-radius` `--wf-popover-*` `--wf-tooltip-radius` `--wf-dropdown-min-width` `--wf-datepicker-*`。
+
+**覆盖优先级（@layer）**：`@layer tokens, base, layout, utilities, components`——你写的未分层 CSS 天然最高优先级；也可用 `@layer utilities` 精准覆盖我们。
+
+## 零自定义 CSS 模式（推荐）
+
+一个项目只需要引用**一个 CSS 文件**（`weifuwu/components/style.css`，内含 Token + 布局原语 + 组件样式），
+业务代码全部由组件 + `wf-*` 原语承担，**不需要再写 `style.css`**：
+
+```tsx
+// 组件 → 页面功能块；wf-* 原语 → 块之间的空间关系；--wf-* → 业务色值
+<PageHeader title="仪表盘" sub="欢迎回来">
+  <Button variant="primary">+ 新建</Button>
+</PageHeader>
+<div class="wf-row wf-gap-lg">
+  <StatCard label="总用户" value="1,234" trend="up" trendLabel="12%" />
+</div>
+```
+
+主题定制（品牌色/圆角/字体）不需要独立文件——**内联在 HTML 的 `<style>` 里即可**：
+
+```html
+<style>
+  :root {
+    --wf-color-primary: #6366f1;
+    --wf-radius: 8px;
+  }
+</style>
+```
+
+完整的零样式示例：`apps/weifuwu-demo`（一个页面 = 组件 + 原语，无 style.css）。
+
+诚实例外（合理场景，仍可内联 `<style>` 解决）：打印/PDF 导出规则、第三方库宿主样式、
+业务特有的一次性视觉（如色板选择器交互）。
 
 ## 全局主题变量
 

@@ -13,7 +13,7 @@ import type { WfuiContext, Component } from 'weifuwu/client'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
-  Form, Field, SearchInput, ProgressBar,
+  Form, Field, SearchInput, SegmentedControl, ProgressBar,
   Table, Modal, Toast, Alert, Loading, EmptyState,
   Card, Badge, Tag, Avatar, StatCard, Steps,
   Tabs, Dropdown, Pagination, Accordion,
@@ -25,16 +25,21 @@ import type { ToastItem, ToastType } from 'weifuwu/components'
 // ── 布局组件 ──────────────────────────────────────────
 
 function Section(props: { title: string; children: any }) {
-  return (_p: any) => <div class="cheat-section"><h2>{props.title}</h2><div class="cheat-grid">{props.children}</div></div>
+  return (_p: any) => (
+    <section class="wf-stack wf-gap-lg">
+      <h2 class="wf-text-2xl wf-m-0 wf-border-b wf-pb-sm">{props.title}</h2>
+      <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(420px, 1fr))">{props.children}</div>
+    </section>
+  )
 }
 
 function DemoCard(props: { title: string; desc: string; code: string; children: any }) {
   return (_p: any) => (
-    <div class="cheat-card">
-      <h3>{props.title}</h3>
-      <div class="cheat-demo">{props.children}</div>
-      <div class="cheat-desc">{props.desc}</div>
-      <div class="cheat-code">{props.code}</div>
+    <div class="wf-surface wf-border wf-rounded-md wf-clip">
+      <h3 class="wf-text-base wf-text-semibold wf-p-md wf-bg-secondary wf-border-b wf-m-0">{props.title}</h3>
+      <div class="wf-p-md wf-row wf-gap-sm wf-cluster wf-border-b">{props.children}</div>
+      <div class="wf-px-md wf-py-sm wf-text-xs wf-text-secondary">{props.desc}</div>
+      <pre class="wf-bg-tertiary wf-p-md wf-text-xs wf-m-0 wf-scroll">{props.code}</pre>
     </div>
   )
 }
@@ -45,7 +50,7 @@ const DemoButton: Component = (_props, ctx) => {
   let loading = false
   let count = 0
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px">
+    <div class="wf-stack wf-gap-sm">
       <div class="wf-row">
         <Button variant="primary" onClick={() => { count++; ctx.ui.render() }}>点击 {count} 次</Button>
         <Button variant="secondary">Secondary</Button>
@@ -71,7 +76,7 @@ const DemoInput: Component = (_props, ctx) => {
   let email = ''
   let pwd = ''
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <Input label="文本" value={text} onInput={e => { text = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
       <Input label="邮箱" type="email" placeholder="name@example.com" required value={email} onInput={e => { email = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
       <Input label="密码" type="password" placeholder="••••••••" value={pwd} onInput={e => { pwd = (e.target as HTMLInputElement).value; ctx.ui.render() }} />
@@ -85,7 +90,7 @@ const DemoInput: Component = (_props, ctx) => {
 const DemoTextarea: Component = (_props, ctx) => {
   let bio = '可编辑文本'
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <Textarea label="简介" value={bio} onInput={e => { bio = (e.target as HTMLTextAreaElement).value; ctx.ui.render() }} rows={3} />
       <Textarea label="错误状态" error="内容不能为空" rows={2} />
       <Textarea label="带提示" hint="最多 500 字" rows={2} />
@@ -96,7 +101,7 @@ const DemoTextarea: Component = (_props, ctx) => {
 const DemoSelect: Component = (_props, ctx) => {
   let role = ''
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <Select label="原生 select" placeholder="请选择"
         value={role}
         onChange={v => { role = v; ctx.ui.render() }}
@@ -105,7 +110,7 @@ const DemoSelect: Component = (_props, ctx) => {
           { value: 'user', label: '普通用户' },
           { value: 'guest', label: '访客' },
         ]} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">当前值: {role || '(未选择)'}</div>
+      <div class="wf-text-xs wf-text-secondary">当前值: {role || '(未选择)'}</div>
       <Select label="带错误" error="请选择角色" options={[{ value: 'a', label: '选项 A' }]} />
     </div>
   )
@@ -115,11 +120,11 @@ const DemoCheckbox: Component = (_props, ctx) => {
   let agree = false
   let remember = true
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px">
+    <div class="wf-stack wf-gap-sm">
       <Checkbox label="已阅读并同意协议" checked={agree} onChange={v => { agree = v; ctx.ui.render() }} />
       <Checkbox label="记住登录状态" checked={remember} onChange={v => { remember = v; ctx.ui.render() }} />
       <Checkbox label="不可选 (disabled)" disabled />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">同意: {String(agree)}, 记住: {String(remember)}</div>
+      <div class="wf-text-xs wf-text-secondary">同意: {String(agree)}, 记住: {String(remember)}</div>
     </div>
   )
 }
@@ -128,11 +133,11 @@ const DemoSwitch: Component = (_props, ctx) => {
   let notify = true
   let auto = false
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px">
+    <div class="wf-stack wf-gap-sm">
       <Switch label="启用通知" checked={notify} onChange={v => { notify = v; ctx.ui.render() }} />
       <Switch label="自动更新" checked={auto} onChange={v => { auto = v; ctx.ui.render() }} />
       <Switch label="已禁用 (disabled)" disabled checked />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">通知: {notify ? '开' : '关'}, 自动更新: {auto ? '开' : '关'}</div>
+      <div class="wf-text-xs wf-text-secondary">通知: {notify ? '开' : '关'}, 自动更新: {auto ? '开' : '关'}</div>
     </div>
   )
 }
@@ -140,7 +145,7 @@ const DemoSwitch: Component = (_props, ctx) => {
 const DemoRadio: Component = (_props, ctx) => {
   let gender = 'male'
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <RadioGroup name="gender" value={gender} onChange={v => { gender = v; ctx.ui.render() }}
         options={[
           { value: 'male', label: '男' },
@@ -152,7 +157,29 @@ const DemoRadio: Component = (_props, ctx) => {
           { value: 'a', label: '选项 A' },
           { value: 'b', label: '选项 B' },
         ]} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">选择: {gender}</div>
+      <div class="wf-text-xs wf-text-secondary">选择: {gender}</div>
+    </div>
+  )
+}
+
+const DemoSegmented: Component = (_props, ctx) => {
+  let mode = 'ai'
+  let size: 'sm' | 'md' = 'md'
+  return (_p: any) => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <SegmentedControl ariaLabel="生成方式"
+        value={mode}
+        onChange={v => { mode = v; ctx.ui.render() }}
+        options={[
+          { value: 'ai', label: '🤖 AI 生成' },
+          { value: 'manual', label: '手动编写' },
+          { value: 'template', label: '模板' },
+        ]} />
+      <SegmentedControl size="sm" ariaLabel="尺寸"
+        value={size}
+        onChange={v => { size = v as any; ctx.ui.render() }}
+        options={[{ value: 'sm', label: '小' }, { value: 'md', label: '中' }]} />
+      <div class="wf-text-xs wf-text-secondary">当前模式: {mode}</div>
     </div>
   )
 }
@@ -161,7 +188,7 @@ const DemoSlider: Component = (_props, ctx) => {
   let volume = 60
   let brightness = 30
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <Slider label="音量" value={volume} onChange={v => { volume = v; ctx.ui.render() }} />
       <Slider label="亮度" value={brightness} min={0} max={100} onChange={v => { brightness = v; ctx.ui.render() }} />
     </div>
@@ -197,7 +224,7 @@ const DemoField: Component = (_props, ctx) => {
   let name = ''
   let mail = 'bad-input'
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <Field label="姓名" required><Input placeholder="输入姓名" value={name} onInput={e => { name = (e.target as HTMLInputElement).value; ctx.ui.render() }} /></Field>
       <Field label="邮箱" error="邮箱格式不正确"><Input type="email" value={mail} /></Field>
       <Field label="密码" hint="至少 6 位"><Input type="password" /></Field>
@@ -208,9 +235,9 @@ const DemoField: Component = (_props, ctx) => {
 const DemoSearchInput: Component = (_props, ctx) => {
   let query = ''
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <SearchInput placeholder="搜索用户..." value={query} onInput={e => { query = (e.target as HTMLInputElement).value; ctx.ui.render() }} onClear={() => { query = ''; ctx.ui.render() }} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">搜索词: {query || '(空)'}</div>
+      <div class="wf-text-xs wf-text-secondary">搜索词: {query || '(空)'}</div>
     </div>
   )
 }
@@ -230,7 +257,7 @@ const DemoProgress: Component = (_props, ctx) => {
       setTimeout(tick, 800)
     }
     return (
-    <div class="wf-stack" style="gap:12px;width:100%">
+    <div class="wf-stack" class="wf-row wf-gap-md wf-w-full">
       <ProgressBar value={pct} label="模拟进度" showValue />
       <ProgressBar value={100} label="已完成" showValue />
     </div>
@@ -248,7 +275,7 @@ const DemoTable: Component = (_props, ctx) => {
     { id: 3, name: '王五', role: '访客', status: '活跃' },
   ]
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <Table data={data} columns={[
         { key: 'id', label: 'ID', width: 60 },
         { key: 'name', label: '姓名', sortable: true },
@@ -257,7 +284,7 @@ const DemoTable: Component = (_props, ctx) => {
       ]}
         sortKey={$.sortKey} sortOrder={$.sortOrder}
         onSort={(key, order) => { $.sortKey = key; $.sortOrder = order }} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">点击列头排序（姓名 / 角色）</div>
+      <div class="wf-text-xs wf-text-secondary">点击列头排序（姓名 / 角色）</div>
     </div>
   )
 }
@@ -268,14 +295,14 @@ const DemoModal: Component = (_props, ctx) => {
   $.width = '420px'
   $.closable = true
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px">
-      <div class="wf-row" style="gap:8px;align-items:center">
+    <div class="wf-stack wf-gap-sm">
+      <div class="wf-row wf-gap-sm">
         <Button variant="primary" onClick={() => { $.open = true }}>打开弹窗</Button>
-        <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+        <label class="wf-row wf-gap-xs wf-text-xs">
           <input type="checkbox" checked={$.closable} onChange={(e: any) => { $.closable = e.target.checked }} />
           显示关闭按钮
         </label>
-        <select value={$.width} onChange={(e: any) => { $.width = e.target.value }} style="font-size:12px;padding:2px 4px">
+        <select value={$.width} onChange={(e: any) => { $.width = e.target.value }} class="wf-text-xs" style="padding:2px 4px">
           <option value="360px">窄 (360px)</option>
           <option value="420px">中 (420px)</option>
           <option value="600px">宽 (600px)</option>
@@ -301,14 +328,14 @@ const DemoToast: Component = (_props, ctx) => {
     setTimeout(() => { $.toasts = $.toasts.filter((t: any) => t.id !== id) }, 3000)
   }
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px">
+    <div class="wf-stack wf-gap-sm">
       <div class="wf-row">
         <Button variant="primary" onClick={() => add('success')}>成功</Button>
         <Button variant="danger" onClick={() => add('error')}>错误</Button>
         <Button variant="secondary" onClick={() => add('warning')}>警告</Button>
         <Button variant="ghost" onClick={() => add('info')}>信息</Button>
       </div>
-      <div class="wf-row" style="gap:4px;font-size:12px;color:var(--wf-color-text-secondary);align-items:center">
+      <div class="wf-row" class="wf-row wf-gap-xs wf-text-xs wf-text-secondary">
         <span>位置:</span>
         <select value={$.position} onChange={(e: any) => { $.position = e.target.value }}>
           <option value="top-right">右上</option>
@@ -328,7 +355,7 @@ const DemoAlert: Component = (_props, ctx) => {
   let showErr = true
   let showInfo = true
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       {showInfo && <Alert variant="info" closable onClose={() => { showInfo = false; ctx.ui.render() }}>这是一条提示信息（可关闭）</Alert>}
       <Alert variant="success">操作成功完成</Alert>
       <Alert variant="warning">请注意：此操作不可撤销</Alert>
@@ -346,7 +373,7 @@ const DemoLoading: Component = (_props, ctx) => {
       setTimeout(() => { loading = false; ctx.ui.render() }, 3000)
     }
     return (
-    <div class="wf-row" style="gap:16px">
+    <div class="wf-row" class="wf-row wf-gap-lg">
       {loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成 ✅</Alert>}
     </div>
   )
@@ -354,10 +381,10 @@ const DemoLoading: Component = (_props, ctx) => {
 }
 
 const DemoSkeleton: Component = () => () => (
-  <div class="wf-stack" style="gap:12px">
-    <div class="wf-row" style="gap:12px;align-items:center">
+  <div class="wf-stack wf-gap-md">
+    <div class="wf-row" class="wf-row wf-gap-md">
       <Skeleton variant="avatar" />
-      <div class="wf-stack" style="gap:6px;flex:1">
+      <div class="wf-stack" class="wf-row wf-gap-xs wf-fill">
         <Skeleton width="60%" />
         <Skeleton />
       </div>
@@ -373,9 +400,9 @@ const DemoSkeleton: Component = () => () => (
 const DemoEmptyState: Component = (_props, ctx) => {
   let hasData = false
   return (_p: any) => (
-    <div style="width:100%">
+    <div class="wf-w-full">
       {hasData
-        ? <div class="wf-stack" style="gap:8px;text-align:center;padding:24px">
+        ? <div class="wf-stack" class="wf-stack wf-gap-sm wf-text-center wf-p-lg">
             <p>✅ 数据已添加</p>
             <Button variant="ghost" onClick={() => { hasData = false; ctx.ui.render() }}>清空</Button>
           </div>
@@ -389,17 +416,17 @@ const DemoEmptyState: Component = (_props, ctx) => {
 const DemoCardShowcase: Component = (_props, ctx) => {
   let clicked = false
   return (_p: any) => (
-    <div class="wf-row" style="gap:12px;flex-wrap:wrap">
+    <div class="wf-row" class="wf-row wf-gap-md wf-cluster">
       <Card>默认卡片</Card>
       <Card variant="outlined">线框卡片</Card>
       <Card clickable onClick={() => { clicked = true; ctx.ui.render() }}>可点击卡片</Card>
-      {clicked && <div style="font-size:12px;width:100%;color:var(--wf-color-text-secondary)">卡片被点击了 ✅</div>}
+      {clicked && <div class="wf-text-xs wf-w-full wf-text-secondary">卡片被点击了 ✅</div>}
     </div>
   )
 }
 
 const DemoBadge: Component = () => () => (
-  <div class="wf-row" style="gap:8px;flex-wrap:wrap">
+  <div class="wf-row" class="wf-row wf-gap-sm wf-cluster">
     <Badge>默认</Badge>
     <Badge variant="primary">主要</Badge>
     <Badge variant="success">成功</Badge>
@@ -414,7 +441,7 @@ const DemoBadge: Component = () => () => (
 const DemoTag: Component = (_props, ctx) => {
   let tags = ['可关闭标签', '删除我']
   return (_p: any) => (
-    <div class="wf-row" style="gap:8px;flex-wrap:wrap">
+    <div class="wf-row" class="wf-row wf-gap-sm wf-cluster">
       <Tag>默认标签</Tag>
       <Tag variant="primary">主要标签</Tag>
       <Tag variant="success">完成</Tag>
@@ -427,7 +454,7 @@ const DemoTag: Component = (_props, ctx) => {
 }
 
 const DemoAvatar: Component = () => () => (
-  <div class="wf-row" style="gap:12px;align-items:end">
+  <div class="wf-row" class="wf-row wf-gap-md wf-bottom">
     <Avatar name="张三" />
     <Avatar name="李四" size="sm" />
     <Avatar name="王五" size="lg" />
@@ -436,7 +463,7 @@ const DemoAvatar: Component = () => () => (
 )
 
 const DemoStatCard: Component = () => () => (
-  <div class="wf-row" style="gap:12px;flex-wrap:wrap">
+  <div class="wf-row" class="wf-row wf-gap-md wf-cluster">
     <StatCard label="总用户" value="1,234" icon="👤" trend="up" trendLabel="12%" />
     <StatCard label="收入" value="¥89,000" icon="💰" trend="up" trendLabel="8%" />
     <StatCard label="退款" value="¥1,200" icon="⚠" trend="down" trendLabel="-3%" />
@@ -446,13 +473,13 @@ const DemoStatCard: Component = () => () => (
 const DemoSteps: Component = (_props, ctx) => {
   let step = 'info'
   return (_p: any) => (
-    <div style="width:100%">
+    <div class="wf-w-full">
       <Steps items={[
         { key: 'info', label: '填写信息' },
         { key: 'pay', label: '支付' },
         { key: 'done', label: '完成' },
       ]} active={step} />
-      <div class="wf-row" style="margin-top:8px;gap:8px;justify-content:center">
+      <div class="wf-row wf-gap-sm wf-mt-sm" style="justify-content:center">
         <Button size="sm" onClick={() => { step = 'info'; ctx.ui.render() }}>第一步</Button>
         <Button size="sm" onClick={() => { step = 'pay'; ctx.ui.render() }}>第二步</Button>
         <Button size="sm" onClick={() => { step = 'done'; ctx.ui.render() }}>第三步</Button>
@@ -464,11 +491,11 @@ const DemoSteps: Component = (_props, ctx) => {
 const DemoTabs: Component = (_props, ctx) => {
   let tab = 'a'
   return (_p: any) => (
-    <div style="width:100%">
+    <div class="wf-w-full">
       <Tabs items={[
-        { key: 'a', label: '详情', content: <p style="margin:0">这是详情内容。点击其他标签切换。</p> },
-        { key: 'b', label: '设置', content: <p style="margin:0">这是设置内容。可以在这里修改配置。</p> },
-        { key: 'c', label: '日志', content: <p style="margin:0">这是日志内容。显示操作记录。</p> },
+        { key: 'a', label: '详情', content: <p class="wf-m-0">这是详情内容。点击其他标签切换。</p> },
+        { key: 'b', label: '设置', content: <p class="wf-m-0">这是设置内容。可以在这里修改配置。</p> },
+        { key: 'c', label: '日志', content: <p class="wf-m-0">这是日志内容。显示操作记录。</p> },
       ]} active={tab} onChange={v => { tab = v; ctx.ui.render() }} />
     </div>
   )
@@ -478,7 +505,7 @@ const DemoDropdown: Component = (_props, ctx) => {
   let open = false
   let lastAction = ''
   return (_p: any) => (
-    <div class="wf-row" style="gap:12px;min-height:120px">
+    <div class="wf-row wf-gap-md" style="min-height:120px">
       <Dropdown
         trigger={
           <Button variant="ghost" onClick={() => { open = !open; ctx.ui.render() }}>
@@ -491,7 +518,7 @@ const DemoDropdown: Component = (_props, ctx) => {
           { label: '复制', onClick: () => { lastAction = '复制'; open = false; ctx.ui.render() } },
           { label: '删除', variant: 'danger', onClick: () => { lastAction = '删除'; open = false; ctx.ui.render() } },
         ]} />
-      {lastAction && <span style="font-size:12px;color:var(--wf-color-text-secondary)">上次: {lastAction}</span>}
+      {lastAction && <span class="wf-text-xs wf-text-secondary">上次: {lastAction}</span>}
     </div>
   )
 }
@@ -499,19 +526,19 @@ const DemoDropdown: Component = (_props, ctx) => {
 const DemoPagination: Component = (_props, ctx) => {
   let page = 3
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;align-items:center">
+    <div class="wf-center wf-gap-sm">
       <Pagination total={200} page={page} onChange={p => { page = p; ctx.ui.render() }} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">当前页: {page}</div>
+      <div class="wf-text-xs wf-text-secondary">当前页: {page}</div>
     </div>
   )
 }
 
 const DemoAccordion: Component = () => () => (
-  <div style="width:100%">
+  <div class="wf-w-full">
     <Accordion items={[
-      { key: 'a', title: '什么是 weifuwu？', content: <p style="margin:0">weifuwu 是一个全栈框架，一个包包含后端、前端和布局系统。</p> },
-      { key: 'b', title: '如何安装？', content: <p style="margin:0">运行 <code>npm install weifuwu</code> 即可。</p> },
-      { key: 'c', title: '组件库包含什么？', content: <p style="margin:0">28 个 HTML 原语，覆盖 90% 的 SaaS 页面需求。</p> },
+      { key: 'a', title: '什么是 weifuwu？', content: <p class="wf-m-0">weifuwu 是一个全栈框架，一个包包含后端、前端和布局系统。</p> },
+      { key: 'b', title: '如何安装？', content: <p class="wf-m-0">运行 <code>npm install weifuwu</code> 即可。</p> },
+      { key: 'c', title: '组件库包含什么？', content: <p class="wf-m-0">28 个 HTML 原语，覆盖 90% 的 SaaS 页面需求。</p> },
     ]} />
   </div>
 )
@@ -527,12 +554,12 @@ const DemoSearchableSelect: Component = (_props, ctx) => {
     { value: 'qian', label: '钱七 (qian@example.com)' },
   ]
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <Select searchable label="搜索选择用户" placeholder="输入姓名或邮箱搜索..."
         value={$.value}
         onChange={v => { $.value = v }}
         options={options} />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">已选: {options.find(o => o.value === $.value)?.label || '(未选择)'}</div>
+      <div class="wf-text-xs wf-text-secondary">已选: {options.find(o => o.value === $.value)?.label || '(未选择)'}</div>
     </div>
   )
 }
@@ -540,7 +567,7 @@ const DemoSearchableSelect: Component = (_props, ctx) => {
 // ── 新增组件 Demo ────────────────────────────────────
 
 const DemoBreadcrumb: Component = () => () => (
-  <div style="width:100%">
+  <div class="wf-w-full">
     <Breadcrumb items={[
       { label: '首页', href: '/' },
       { label: '用户管理', href: '/users' },
@@ -550,7 +577,7 @@ const DemoBreadcrumb: Component = () => () => (
 )
 
 const DemoDivider: Component = () => () => (
-  <div class="wf-stack" style="gap:8px;width:100%">
+  <div class="wf-stack wf-gap-sm wf-w-full">
     <p>上方分割线</p>
     <Divider />
     <p>下方分割线</p>
@@ -568,7 +595,7 @@ const DemoDivider: Component = () => () => (
 const DemoFileUpload: Component = (_props, ctx) => {
   let files: File[] = []
   return (_p: any) => (
-    <div style="width:100%">
+    <div class="wf-w-full">
       <FileUpload
         accept="image/*,.pdf"
         multiple
@@ -580,7 +607,7 @@ const DemoFileUpload: Component = (_props, ctx) => {
 }
 
 const DemoTooltip: Component = () => () => (
-  <div class="wf-row" style="gap:24px;padding:24px 0">
+  <div class="wf-row" class="wf-row wf-gap-xl wf-py-lg">
     <Tooltip content="保存文件" position="top"><Button>上</Button></Tooltip>
     <Tooltip content="底部提示" position="bottom"><Button>下</Button></Tooltip>
     <Tooltip content="左侧提示" position="left"><Button>左</Button></Tooltip>
@@ -592,7 +619,7 @@ const DemoDrawer: Component = (_props, ctx) => {
   let rightOpen = false
   let leftOpen = false
   return (_p: any) => (
-    <div class="wf-row" style="gap:8px">
+    <div class="wf-row wf-gap-sm">
       <Button variant="primary" onClick={() => { rightOpen = true; ctx.ui.render() }}>右侧抽屉</Button>
       <Button onClick={() => { leftOpen = true; ctx.ui.render() }}>左侧抽屉</Button>
       <Drawer open={rightOpen} title="编辑用户" position="right" onClose={() => { rightOpen = false; ctx.ui.render() }}
@@ -614,22 +641,22 @@ const DemoPopover: Component = (_props, ctx) => {
   let showBottom = false
   let showTop = false
   return (_p: any) => (
-    <div class="wf-row" style="gap:8px;align-items:center">
-      <Popover content={<div style="padding:4px 0"><p style="margin:0 0 8px">自定义面板内容</p><Button size="sm">操作</Button></div>}>
+    <div class="wf-row wf-gap-sm">
+      <Popover content={<div class="wf-py-xs"><p class="wf-m-0 wf-mb-sm">自定义面板内容</p><Button size="sm">操作</Button></div>}>
         <Button variant="secondary">点击弹出</Button>
       </Popover>
       <Popover content={<span>顶部提示</span>} position="top">
         <Button variant="ghost">顶部</Button>
       </Popover>
       <Popover trigger="hover" content={<span>悬停出现的面板</span>}>
-        <span style="color:var(--wf-color-secondary);cursor:pointer">悬停查看</span>
+        <span class="wf-text-brand" style="cursor:pointer">悬停查看</span>
       </Popover>
     </div>
   )
 }
 
 const DemoImage: Component = () => () => (
-  <div class="wf-row" style="gap:16px;align-items:flex-start">
+  <div class="wf-row" class="wf-row wf-gap-lg wf-top">
     <Img src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
     <Img src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
     <Img src="/broken.jpg" fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='14'%3E加载失败%3C/text%3E%3C/svg%3E" alt="fallback" width={120} height={120} style={{ objectFit: 'cover', borderRadius: '8px' }} />
@@ -639,18 +666,18 @@ const DemoImage: Component = () => () => (
 const DemoInView: Component = (_props, ctx) => {
   let log: string[] = []
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
-      <p style="font-size:var(--wf-font-size-sm);color:var(--wf-color-text-secondary)">向下滚动，下方的懒加载区域将在进入视窗后渲染👇</p>
-      <div style="height:120px;display:flex;align-items:center;justify-content:center;background:var(--wf-color-bg-secondary,#f9fafb);border-radius:8px;font-size:var(--wf-font-size-sm);color:var(--wf-color-text-tertiary)">上方留白区域，需要滚动</div>
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <p class="wf-text-sm wf-text-secondary">向下滚动，下方的懒加载区域将在进入视窗后渲染👇</p>
+      <div class="wf-center wf-bg-secondary wf-rounded wf-text-sm wf-text-tertiary" style="height:120px">上方留白区域，需要滚动</div>
       <InView onEnter={() => { log = [...log, '已加载']; ctx.ui.render() }}>
-        <div style="padding:24px;background:var(--wf-color-primary-light,#e0f2fe);border-radius:8px;text-align:center">
-          <div style="font-size:24px;margin-bottom:8px">🎉</div>
-          <p style="margin:0;font-weight:var(--wf-font-weight-semibold)">懒加载内容已加载！</p>
-          <p style="font-size:12px;color:var(--wf-color-text-secondary);margin:4px 0 0">用户滚动到此区域后才渲染</p>
+        <div class="wf-p-lg wf-text-center wf-bg-brand wf-rounded">
+          <div class="wf-text-3xl wf-mb-sm wf-m-0">🎉</div>
+          <p class="wf-m-0 wf-text-semibold">懒加载内容已加载！</p>
+          <p class="wf-text-xs wf-text-secondary wf-mt-xs wf-m-0">用户滚动到此区域后才渲染</p>
         </div>
       </InView>
-      <div style="height:160px;display:flex;align-items:center;justify-content:center;background:var(--wf-color-bg-secondary,#f9fafb);border-radius:8px;font-size:var(--wf-font-size-sm);color:var(--wf-color-text-tertiary)">底部留白区域</div>
-      {log.length > 0 && <div style="font-size:12px;color:var(--wf-color-text-secondary)">事件: {log.join(', ')}</div>}
+      <div class="wf-center wf-bg-secondary wf-rounded wf-text-sm wf-text-tertiary" style="height:160px">底部留白区域</div>
+      {log.length > 0 && <div class="wf-text-xs wf-text-secondary">事件: {log.join(', ')}</div>}
     </div>
   )
 }
@@ -658,31 +685,31 @@ const DemoInView: Component = (_props, ctx) => {
 const DemoDatePicker: Component = (_props, ctx) => {
   let result = ''
   return (_p: any) => (
-    <div class="wf-row" style="gap:12px;flex-wrap:wrap;width:100%">
-      <div style="width:220px">
+    <div class="wf-row" class="wf-row wf-gap-md wf-cluster wf-w-full">
+      <div class="wf-w-full" style="max-width:220px">
         <DatePicker mode="date" onChange={v => { result = v; ctx.ui.render() }} placeholder="选择日期" />
       </div>
-      <div style="width:220px">
+      <div class="wf-w-full" style="max-width:220px">
         <DatePicker mode="datetime" onChange={v => { result = v; ctx.ui.render() }} placeholder="日期+时间" />
       </div>
-      <div style="width:180px">
+      <div class="wf-w-full" style="max-width:180px">
         <DatePicker mode="time" onChange={v => { result = v; ctx.ui.render() }} placeholder="选择时间" />
       </div>
-      <div style="width:220px">
+      <div class="wf-w-full" style="max-width:220px">
         <DatePicker mode="range" onChange={v => { result = v; ctx.ui.render() }} placeholder="日期范围" />
       </div>
-      {result && <div style="font-size:12px;color:var(--wf-color-text-secondary);width:100%">已选: {result}</div>}
+      {result && <div class="wf-text-xs wf-text-secondary wf-w-full">已选: {result}</div>}
     </div>
   )
 }
 
 
 const DemoEditor: Component = (_props, ctx) => {
-  let html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p style="text-align:center">居中文字</p>'
+  let html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p class="wf-text-center">居中文字</p>'
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
+    <div class="wf-stack wf-gap-sm wf-w-full">
       <Editor value={html} onChange={v => { html = v; ctx.ui.render() }} placeholder="输入内容..." />
-      <div style="font-size:12px;color:var(--wf-color-text-secondary);padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">
+      <div class="wf-text-xs wf-text-secondary wf-py-xs wf-truncate wf-w-full">
         HTML 输出: {html?.substring(0, 150) || '(空)'}
       </div>
     </div>
@@ -693,11 +720,11 @@ const DemoThemeSwitch: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
   $.mode = 'auto'
   return (_p: any) => (
-    <div class="wf-stack" style="gap:8px;width:100%">
-      <div class="wf-row" style="gap:8px">
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <div class="wf-row wf-gap-sm">
         <ThemeSwitch onChange={(m) => { $.mode = m }} />
       </div>
-      <div style="font-size:12px;color:var(--wf-color-text-secondary)">
+      <div class="wf-text-xs wf-text-secondary">
         当前模式: <code>{$.mode}</code> · 已持久化到 localStorage · 右上角也有一个可直接用
       </div>
     </div>
@@ -745,10 +772,10 @@ const DemoConfirm: Component = (_props, ctx) => {
     ctx.ui.render()
   }
   return (_p: any) => (
-    <div class="wf-row" style="gap:8px;align-items:center">
+    <div class="wf-row wf-gap-sm">
       <Button variant="danger" onClick={handleDelete}>删除</Button>
       <Button onClick={handleSave}>保存</Button>
-      {result && <span style="font-size:12px;color:var(--wf-color-text-secondary)">{result}</span>}
+      {result && <span class="wf-text-xs wf-text-secondary">{result}</span>}
     </div>
   )
 }
@@ -800,6 +827,17 @@ const CODE = {
   options={[
     {value:'male',label:'男'},
   ]} />`,
+
+  segmented: `<SegmentedControl
+  value={mode}
+  onChange={v => mode = v}
+  options={[
+    {value:'ai', label:'🤖 AI 生成'},
+    {value:'manual', label:'手动编写'},
+    {value:'template', label:'模板'},
+  ]} />
+{/* size="sm" 小尺寸 / block 等分 */}
+<SegmentedControl size="sm" block ... />`,
 
   slider: `<Slider label="音量" value={volume}
   onChange={v => volume = v} />`,
@@ -1012,18 +1050,18 @@ const App: Component = (_props, ctx) => {
   return (_p: any) => {
     const cur = (ctx as any)?.i18n?.locale ?? 'zh-CN'
     return (
-    <div class="wf-container wf-stack" style="--wf-max:960px;gap:32px">
-      <div style="text-align:center;padding:var(--wf-space-xl) 0">
+    <div class="wf-container wf-stack" style="--wf-max:960px;--wf-gap:32px">
+      <div class="wf-text-center wf-py-xl">
         {/* 语言切换 + 主题切换 */}
         <div style="position:absolute;top:16px;right:16px;display:flex;gap:8px;align-items:center">
           <ThemeSwitch />
           <Button size="sm" variant={cur.startsWith('zh') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('zh-CN')}>中文</Button>
           <Button size="sm" variant={cur.startsWith('en') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('en')}>EN</Button>
         </div>
-        <h1 style="font-size:var(--wf-font-size-4xl);margin-bottom:8px">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
-        <p style="color:var(--wf-color-text-secondary)">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
-        <div class="wf-row" style="justify-content:center;gap:12px;margin-top:16px">
-          <Badge variant="primary">43 组件</Badge>
+        <h1 class="wf-text-4xl wf-mb-sm wf-m-0">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
+        <p class="wf-text-secondary">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
+        <div class="wf-row wf-gap-md wf-mt-md" style="justify-content:center">
+          <Badge variant="primary">44 组件</Badge>
           <Badge variant="success">580 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
@@ -1041,6 +1079,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Checkbox" desc="带 label 的复选框，支持 checked/disabled" code={CODE.checkbox}><DemoCheckbox /></DemoCard>
         <DemoCard title="Switch" desc="开关切换，视觉替代 checkbox" code={CODE.switch}><DemoSwitch /></DemoCard>
         <DemoCard title="RadioGroup" desc="单选组，支持 inline/options/value" code={CODE.radio}><DemoRadio /></DemoCard>
+        <DemoCard title="SegmentedControl" desc="分段单选（模式切换/筛选/模板），支持 sm/block" code={CODE.segmented}><DemoSegmented /></DemoCard>
         <DemoCard title="Slider" desc="范围滑块，支持 min/max/step/label" code={CODE.slider}><DemoSlider /></DemoCard>
       </Section>
 
@@ -1093,8 +1132,8 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Divider" desc="分割线，支持 horizontal/vertical/带文字" code={CODE.divider}><DemoDivider /></DemoCard>
       </Section>
 
-      <div style="text-align:center;padding:var(--wf-space-xl) 0;color:var(--wf-color-text-tertiary);font-size:var(--wf-font-size-sm)">
-        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 41 个组件 · 打开 devtools 查看代码'}
+      <div class="wf-text-center wf-py-xl wf-text-tertiary wf-text-sm">
+        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 44 个组件 · 打开 devtools 查看代码'}
       </div>
     </div>
     )
@@ -1107,6 +1146,6 @@ createApp()
   .use(i18n({ locale: 'zh-CN', messages: {
     'app.title': 'weifuwu/components',
     'app.desc': '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用',
-    'app.footer': 'weifuwu/components · 全部 41 个组件 · 打开 devtools 查看代码',
+    'app.footer': 'weifuwu/components · 全部 44 个组件 · 打开 devtools 查看代码',
   } }))
   .mount('#root', App)

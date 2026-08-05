@@ -4,51 +4,46 @@
  *   1. 手动：<html data-theme="dark">（或 data-theme="light" 强制亮色）
  *   2. 自动：系统偏好 prefers-color-scheme: dark，无显式覆盖时生效
  *
- * ⚠️ 两段暗色覆盖值必须保持一致（静态 CSS 无法共享选择器列表，改动需同步）。
- * 每段末尾都设置 color-scheme: dark，让原生控件/滚动条跟随。
+ * 值全部定义在 _tokens.css 原始层的 --wf-dark-*，此处只做语义映射——
+ * 两段代码完全一致，且不含任何硬编码色值（改暗色调校只动原始层）。
  */
 
 /* ── 激活方式一：手动 data-theme="dark" ── */
-/* color-scheme 用 :root[data-theme] 提升优先级，压过 _base.css 的 :root 定义（导入顺序在后者） */
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --wf-color-primary: #6b8aff;
-  --wf-color-primary-hover: #8ba3ff;
-  --wf-color-primary-bg: #1e293b;
+  --wf-color-primary: var(--wf-dark-brand-500);
+  --wf-color-primary-hover: var(--wf-dark-brand-600);
+  --wf-color-primary-bg: var(--wf-dark-brand-50);
 
-  --wf-color-success: #4ade80;
-  --wf-color-success-bg: #14532d;
-  --wf-color-warning: #fbbf24;
-  --wf-color-warning-bg: #451a03;
-  --wf-color-error: #f87171;
-  --wf-color-error-bg: #451a1a;
+  --wf-color-success: var(--wf-dark-green-500);
+  --wf-color-success-bg: var(--wf-dark-green-50);
+  --wf-color-warning: var(--wf-dark-amber-500);
+  --wf-color-warning-bg: var(--wf-dark-amber-50);
+  --wf-color-error: var(--wf-dark-red-500);
+  --wf-color-error-bg: var(--wf-dark-red-50);
+  --wf-color-info: var(--wf-dark-sky-500);
+  --wf-color-info-bg: var(--wf-dark-sky-50);
 
-  --wf-color-info: #60a5fa;
-  --wf-color-info-bg: #172554;
+  --wf-color-text: var(--wf-dark-slate-900);
+  --wf-color-text-secondary: var(--wf-dark-slate-500);
+  --wf-color-text-tertiary: var(--wf-dark-slate-400);
+  --wf-color-text-disabled: var(--wf-dark-slate-300);
 
-  --wf-color-text: #f1f5f9;
-  --wf-color-text-secondary: #94a3b8;
-  --wf-color-text-tertiary: #64748b;
-  --wf-color-text-disabled: #475569;
+  --wf-color-bg: var(--wf-dark-bg);
+  --wf-color-bg-secondary: var(--wf-dark-slate-100);
+  --wf-color-bg-tertiary: var(--wf-dark-slate-200);
 
-  --wf-color-bg: #0f172a;
-  --wf-color-bg-secondary: #1e293b;
-  --wf-color-bg-tertiary: #334155;
-
-  --wf-color-border: #334155;
-  --wf-color-border-light: #1e293b;
-  --wf-color-border-dark: #475569;
-
-  --wf-surface-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  --wf-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
-  --wf-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  --wf-shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-  --wf-shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
-
-  --wf-focus-ring: 0 0 0 2px var(--wf-color-primary-bg);
+  --wf-color-border: var(--wf-dark-slate-200);
+  --wf-color-border-light: var(--wf-dark-slate-100);
+  --wf-color-border-dark: var(--wf-dark-slate-300);
 
   --wf-surface-bg: var(--wf-color-bg);
+  --wf-surface-shadow: var(--wf-dark-surface-shadow);
+  --wf-shadow-sm: var(--wf-dark-shadow-sm);
+  --wf-shadow: var(--wf-dark-shadow);
+  --wf-shadow-md: var(--wf-dark-shadow-md);
+  --wf-shadow-lg: var(--wf-dark-shadow-lg);
 }
 
 /* ── 激活方式二：系统暗色偏好（data-theme="light" 可强制亮色） ── */
@@ -56,41 +51,37 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --wf-color-primary: #6b8aff;
-    --wf-color-primary-hover: #8ba3ff;
-    --wf-color-primary-bg: #1e293b;
+    --wf-color-primary: var(--wf-dark-brand-500);
+    --wf-color-primary-hover: var(--wf-dark-brand-600);
+    --wf-color-primary-bg: var(--wf-dark-brand-50);
 
-    --wf-color-success: #4ade80;
-    --wf-color-success-bg: #14532d;
-    --wf-color-warning: #fbbf24;
-    --wf-color-warning-bg: #451a03;
-    --wf-color-error: #f87171;
-    --wf-color-error-bg: #451a1a;
+    --wf-color-success: var(--wf-dark-green-500);
+    --wf-color-success-bg: var(--wf-dark-green-50);
+    --wf-color-warning: var(--wf-dark-amber-500);
+    --wf-color-warning-bg: var(--wf-dark-amber-50);
+    --wf-color-error: var(--wf-dark-red-500);
+    --wf-color-error-bg: var(--wf-dark-red-50);
+    --wf-color-info: var(--wf-dark-sky-500);
+    --wf-color-info-bg: var(--wf-dark-sky-50);
 
-    --wf-color-info: #60a5fa;
-    --wf-color-info-bg: #172554;
+    --wf-color-text: var(--wf-dark-slate-900);
+    --wf-color-text-secondary: var(--wf-dark-slate-500);
+    --wf-color-text-tertiary: var(--wf-dark-slate-400);
+    --wf-color-text-disabled: var(--wf-dark-slate-300);
 
-    --wf-color-text: #f1f5f9;
-    --wf-color-text-secondary: #94a3b8;
-    --wf-color-text-tertiary: #64748b;
-    --wf-color-text-disabled: #475569;
+    --wf-color-bg: var(--wf-dark-bg);
+    --wf-color-bg-secondary: var(--wf-dark-slate-100);
+    --wf-color-bg-tertiary: var(--wf-dark-slate-200);
 
-    --wf-color-bg: #0f172a;
-    --wf-color-bg-secondary: #1e293b;
-    --wf-color-bg-tertiary: #334155;
-
-    --wf-color-border: #334155;
-    --wf-color-border-light: #1e293b;
-    --wf-color-border-dark: #475569;
-
-    --wf-surface-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    --wf-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
-    --wf-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    --wf-shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-    --wf-shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
-
-    --wf-focus-ring: 0 0 0 2px var(--wf-color-primary-bg);
+    --wf-color-border: var(--wf-dark-slate-200);
+    --wf-color-border-light: var(--wf-dark-slate-100);
+    --wf-color-border-dark: var(--wf-dark-slate-300);
 
     --wf-surface-bg: var(--wf-color-bg);
+    --wf-surface-shadow: var(--wf-dark-surface-shadow);
+    --wf-shadow-sm: var(--wf-dark-shadow-sm);
+    --wf-shadow: var(--wf-dark-shadow);
+    --wf-shadow-md: var(--wf-dark-shadow-md);
+    --wf-shadow-lg: var(--wf-dark-shadow-lg);
   }
 }

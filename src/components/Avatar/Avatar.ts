@@ -6,6 +6,8 @@ export interface AvatarProps {
   name?: string
   src?: string
   size?: 'sm' | 'md' | 'lg'
+  /** 指定背景色（覆盖按名字哈希的颜色），如按类型着色：user=蓝 / ai=紫 */
+  color?: string
 }
 
 const COLORS = ['#4f6ef7', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
@@ -18,7 +20,7 @@ function hashColor(name: string): string {
 
 export const Avatar: Component<AvatarProps> = (_init, _ctx) =>
   (props) => {
-  const { name = '', src, size = 'md' } = props
+  const { name = '', src, size = 'md', color } = props
   const initial = name.trim()[0]?.toUpperCase() ?? '?'
 
   if (src) {
@@ -31,6 +33,6 @@ export const Avatar: Component<AvatarProps> = (_init, _ctx) =>
 
   return h('div', {
     class: `wf-avatar wf-avatar--${size}`,
-    style: { background: hashColor(name) },
+    style: { background: color ?? hashColor(name) },
   }, initial)
 }

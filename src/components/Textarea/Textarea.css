@@ -20,9 +20,10 @@
 .wf-textarea {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
+  min-height: var(--wf-field-height, var(--wf-control-height));
   padding: var(--wf-control-pad-y) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
-  border-radius: var(--wf-radius);
+  border-radius: var(--wf-field-radius, var(--wf-radius));
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   outline: none;
@@ -54,6 +55,19 @@
 .wf-textarea-hint {
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-tertiary);
+}
+
+/* 字数统计 */
+.wf-textarea-count {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  text-align: right;
+  line-height: 1;
+  margin-top: -2px;
+}
+
+.wf-textarea-count--over {
+  color: var(--wf-color-error);
 }
 
 .wf-textarea--err .wf-textarea {

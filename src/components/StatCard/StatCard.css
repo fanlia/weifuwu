@@ -43,3 +43,19 @@
 .wf-stat-trend-arrow {
   font-weight: var(--wf-font-weight-bold);
 }
+
+/* 可点击指标卡 */
+.wf-stat--clickable {
+  cursor: pointer;
+  transition: box-shadow var(--wf-transition), transform var(--wf-transition);
+}
+
+.wf-stat--clickable:hover {
+  box-shadow: var(--wf-shadow-md);
+  transform: translateY(-2px);
+}
+
+.wf-stat--clickable:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-shadow-md), var(--wf-focus-ring);
+}

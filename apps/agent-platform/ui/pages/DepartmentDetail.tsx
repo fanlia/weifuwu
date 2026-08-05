@@ -1,5 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
-import { Loading, TypeBadge } from '../components/ui'
+import { Ava, Loading, TypeBadge } from '../components/ui'
+import { Badge, Button, Card, EmptyState } from 'weifuwu/components'
 
 export const DepartmentDetail: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -17,50 +18,47 @@ export const DepartmentDetail: Component = (_props, ctx) => {
       }).catch(() => { $.loading = false })
 
   return (props) => {
-    if ($.loading) return <div class="page"><Loading /></div>
-    if ($.notFound) return <div class="page"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">部门不存在</div></div></div>
+    if ($.loading) return <div class="wf-stack wf-gap-lg"><Loading /></div>
+    if ($.notFound) return <div class="wf-stack wf-gap-lg"><EmptyState icon="🔍" text="部门不存在" /></div>
     return (
-    <div class="page">
-      <a class="back-link" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
+    <div class="wf-stack wf-gap-lg">
+      <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
 
-      <div class="detail-hero card">
-        <div class={`ava ${$.dept?.is_dm ? 'ava-user' : 'ava-knowledge_base'}`}>
-          {$.dept?.is_dm ? '💬' : '👥'}
-        </div>
-        <div class="detail-hero-info">
-          <div class="detail-hero-name">
-            {$.dept?.name ?? ''}
-            {$.dept?.is_dm
-              ? <span class="badge badge-user">单聊</span>
-              : <span class="badge badge-gray">群聊</span>}
+      <Card>
+        <div class="wf-row wf-gap-md">
+          <Ava name={$.dept?.is_dm ? '💬' : '👥'} type={$.dept?.is_dm ? 'user' : 'knowledge_base'} />
+          <div class="wf-fill wf-stack wf-gap-xs">
+            <div class="wf-text-lg wf-text-semibold">
+              {$.dept?.name ?? ''}
+              {' '}
+              {$.dept?.is_dm
+                ? <Badge variant="primary">单聊</Badge>
+                : <Badge variant="default">群聊</Badge>}
+            </div>
+            <div class="wf-text-sm wf-text-secondary">
+              {$.dept?.company_name ?? '未知公司'} · {$.members.length} 位成员
+            </div>
           </div>
-          <div class="detail-hero-sub">
-            {$.dept?.company_name ?? '未知公司'} · {$.members.length} 位成员
-          </div>
+          <Button variant="primary" onClick={() => ctx.app?.navigate(`/chat/${deptId}`)}>进入聊天 →</Button>
         </div>
-        <button class="btn btn-primary" onClick={() => ctx.app?.navigate(`/chat/${deptId}`)}>进入聊天 →</button>
-      </div>
+      </Card>
 
-      <div class="card">
-        <div class="member-row" style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-2)' }}>
-          成员列表
-        </div>
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm">成员列表</div>
         {$.members.map((m: any) => (
-          <div key={m.id} class="member-row">
-            <div class={`ava ava-sm ava-${m.type ?? 'user'}`}>{(m.name ?? '?')[0]}</div>
-            <div class="member-meta">
-              <span class="member-name">{m.name}</span>
-              <span class="member-role">{m.role === 'admin' ? '管理员' : '成员'}</span>
+          <div key={m.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b">
+            <Ava name={m.name} type={m.type ?? 'user'} small />
+            <div class="wf-fill wf-stack wf-gap-none">
+              <span class="wf-text-base">{m.name}</span>
+              <span class="wf-text-xs wf-text-tertiary">{m.role === 'admin' ? '管理员' : '成员'}</span>
             </div>
             <TypeBadge type={m.type} />
           </div>
         ))}
         {$.members.length === 0 && (
-          <div class="empty" style={{ padding: '36px' }}>
-            <div class="empty-txt">暂无成员</div>
-          </div>
+          <div class="wf-py-lg"><EmptyState text="暂无成员" /></div>
         )}
-      </div>
+      </Card>
     </div>
     )
   }

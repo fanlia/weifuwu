@@ -1,5 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, TypeBadge, Loading } from '../components/ui'
+import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Input, Select, Textarea } from 'weifuwu/components'
 
 const MODELS = [
   { value: '', label: '默认 (环境变量 DEEPSEEK_MODEL)' },
@@ -15,17 +16,14 @@ export const AgentDetail: Component = (_props, ctx) => {
     $.agent = null; $.loading = true; $.saving = false; $.notFound = false
     $.error = ''; $.ok = ''
 
-    // 表单字段
     $.name = ''; $.description = ''; $.systemPrompt = ''
     $.aiModel = ''; $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'
     $.aiHITL = false; $.webhookUrl = ''; $.webhookSecret = ''
     $.webhookRetryCount = '3'; $.secretVisible = false
     $.allowFileTools = false; $.allowCommandExec = false
 
-    // 技能管理
     $.boundSkills = []; $.availableSkills = []; $.showSkillPicker = false
 
-    // 执行日志
     $.logs = []; $.logsLoading = false
 
     Promise.all([
@@ -47,12 +45,10 @@ export const AgentDetail: Component = (_props, ctx) => {
       $.boundSkills = skillRes.skills ?? []
       $.availableSkills = availRes.skills ?? []
 
-      // 知识库文档
       $.docs = []; $.docsLoading = false; $.newDocFilename = ''; $.newDocContent = ''
       $.uploading = false; $.expandedDoc = null; $.docChunks = []; $.loadingChunks = false
       $.showBatch = false
 
-      // Webhook 日志
       $.whLogs = []; $.whLogsLoading = false
 
       if (a.type === 'knowledge_base') {
@@ -152,215 +148,218 @@ export const AgentDetail: Component = (_props, ctx) => {
   }
 
   return (props) => {
-    if ($.loading) return <div class="page"><Loading /></div>
-    if ($.notFound) return <div class="page"><div class="empty" style={{ paddingTop: '20vh' }}><div class="empty-ico">🧭</div><div class="empty-txt">Agent 不存在</div></div></div>
+    if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
+    if ($.notFound) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><EmptyState icon="🧭" text="Agent 不存在" /></div>
 
     const a = $.agent ?? {}
+    const typeColor: Record<string, string> = { ai: '#8b5cf6', webhook: '#f59e0b', knowledge_base: '#22c55e', user: '#4f6ef7' }
 
     return (
-    <div class="page page-narrow">
-      <a class="back-link" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
+    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
+      <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/agents')}>← 返回 Agent 列表</a>
 
-      <div class="card card-pad detail-hero" style={{ marginBottom: '16px' }}>
-        <div class={`ava ava-${a.type ?? 'ai'}`}>{(a.name ?? '?')[0]}</div>
-        <div class="detail-hero-info">
-          <div class="detail-hero-name">{a.name ?? '未命名'} <TypeBadge type={a.type ?? 'ai'} /></div>
-          <div class="detail-hero-sub">{a.description ?? ''} · 模型: {a.model ?? '-'}</div>
+      <Card>
+        <div class="wf-row wf-gap-md">
+          <Avatar name={a.name} color={typeColor[a.type ?? 'ai'] ?? '#64748b'} />
+          <div class="wf-fill wf-stack wf-gap-xs">
+            <div class="wf-text-lg wf-text-semibold">{a.name ?? '未命名'} <TypeBadge type={a.type ?? 'ai'} /></div>
+            <div class="wf-text-sm wf-text-secondary">{a.description ?? ''} · 模型: {a.model ?? '-'}</div>
+          </div>
         </div>
-      </div>
+      </Card>
 
-      {$.error && <div class="alert alert-err">{$.error}</div>}
-      {$.ok && <div class="alert alert-ok">{$.ok}</div>}
+      <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
+      <div class="wf-mb-md">{$.ok && <Alert variant="success">{$.ok}</Alert>}</div>
 
-      <form class="card card-pad" onSubmit={handleSubmit}>
-        <div class="sect-title" style={{ marginBottom: '16px' }}>基本设置</div>
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">基本设置</div>
+        <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
+          <Field label="名称">
+            <Input value={$.name} onInput={(e: any) => { $.name = e.target.value }} />
+          </Field>
+          <Field label="描述">
+            <Textarea value={$.description} onInput={(e: any) => { $.description = e.target.value }} />
+          </Field>
 
-        <div class="field"><label class="field-label">名称</label>
-          <input class="input" value={$.name} onInput={(e: any) => { $.name = e.target.value }} /></div>
-        <div class="field"><label class="field-label">描述</label>
-          <textarea class="textarea" value={$.description} onInput={(e: any) => { $.description = e.target.value }} /></div>
-
-        {/* AI 配置 */}
-        {a.type === 'ai' && (
-          <>
-            <div class="field"><label class="field-label">系统提示词</label>
-              <textarea class="textarea" rows={5} value={$.systemPrompt} onInput={(e: any) => { $.systemPrompt = e.target.value }} /></div>
-            <div class="form-row">
-              <div class="field"><label class="field-label">模型</label>
-                <select class="select" value={$.aiModel} onChange={(e: any) => { $.aiModel = e.target.value }}>
-                  {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select></div>
-              <div class="field"><label class="field-label">温度</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <input type="range" min="0" max="2" step="0.1" value={$.aiTemperature}
-                    onInput={(e: any) => { $.aiTemperature = e.target.value }} style={{ flex: 1 }} />
-                  <span style={{ fontSize: '13px', fontWeight: 600, minWidth: '30px', textAlign: 'center' }}>{$.aiTemperature}</span>
-                </div></div>
-            </div>
-            <div class="form-row">
-              <div class="field"><label class="field-label">最大 Token 数</label>
-                <input class="input" type="number" min="64" max="8192" step="64" value={$.aiMaxTokens}
-                  onInput={(e: any) => { $.aiMaxTokens = e.target.value }} /></div>
-              <div class="field"><label class="field-label">人工审批 (HITL)</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '9px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={$.aiHITL}
-                      onChange={(e: any) => { $.aiHITL = e.target.checked }} />
-                    <span>开启后 AI 回复需人工批准后才发送</span>
-                  </label>
-                </div></div>
-            </div>
-
-            <div class="sect-title" style={{ marginTop: '20px', marginBottom: '12px' }}>📁 工作空间</div>
-            <div style={{ fontSize: '13px', color: 'var(--text-2)', marginBottom: '10px', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px' }}>
-              Agent 专用目录: <code style={{ fontSize: '12px', background: '#fff', padding: '2px 6px', border: '1px solid var(--border)', borderRadius: '4px' }}>data/workspaces/{'{agent_id}'}/</code>
-              <span style={{ display: 'block', marginTop: '4px', fontSize: '12px', color: 'var(--text-3)' }}>首次运行时自动创建</span>
-            </div>
-            <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                <input type="checkbox" checked={$.allowFileTools}
-                  onChange={(e: any) => { $.allowFileTools = e.target.checked }} />
-                <span>📄 启用文件工具 (read/write/edit/grep)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                <input type="checkbox" checked={$.allowCommandExec}
-                  onChange={(e: any) => { $.allowCommandExec = e.target.checked }} />
-                <span>⚡ 启用命令执行 (bash)</span>
-              </label>
-            </div>
-          </>
-        )}
-
-        {/* Webhook 配置 */}
-        {a.type === 'webhook' && (
-          <>
-            <div class="field"><label class="field-label">Webhook URL</label>
-              <input class="input" type="url" value={$.webhookUrl} onInput={(e: any) => { $.webhookUrl = e.target.value }} />
-              <div class="field-hint">消息将以 POST JSON 推送到该地址</div></div>
-            <div class="form-row">
-              <div class="field"><label class="field-label">Webhook Secret</label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input class="input" type={$.secretVisible ? 'text' : 'password'} placeholder="留空不验证签名"
-                    value={$.webhookSecret} onInput={(e: any) => { $.webhookSecret = e.target.value }} />
-                  <button type="button" class="btn btn-ghost btn-sm" onClick={() => { $.secretVisible = !$.secretVisible }}
-                    style={{ flex: 'none', padding: '9px 12px' }}>{$.secretVisible ? '🙈' : '👁'}</button>
+          {a.type === 'ai' && (
+            <>
+              <Field label="系统提示词">
+                <Textarea rows={5} value={$.systemPrompt} onInput={(e: any) => { $.systemPrompt = e.target.value }} />
+              </Field>
+              <div class="wf-row wf-gap-lg">
+                <div class="wf-fill">
+                  <Field label="模型">
+                    <Select value={$.aiModel} onChange={(v: string) => { $.aiModel = v }}
+                      options={MODELS.map(m => ({ value: m.value, label: m.label }))} />
+                  </Field>
                 </div>
-                <div class="field-hint">设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头</div></div>
-              <div class="field"><label class="field-label">重试次数</label>
-                <input class="input" type="number" min="0" max="5" value={$.webhookRetryCount}
-                  onInput={(e: any) => { $.webhookRetryCount = e.target.value }} />
-                <div class="field-hint">失败后指数退避重试（默认 3 次）</div></div>
-            </div>
-          </>
-        )}
-
-        <div class="form-foot">
-          <button type="button" class="btn btn-ghost" onClick={() => ctx.app?.navigate('/agents')}>取消</button>
-          <button type="submit" class="btn btn-primary" disabled={$.saving}>
-            {$.saving ? '保存中...' : '保存修改'}
-          </button>
-        </div>
-      </form>
-
-      {/* 技能管理 */}
-      {a.type === 'ai' && (
-        <div class="card card-pad mt-24">
-          <div class="sect-title" style={{ marginBottom: '12px' }}>🔧 技能管理</div>
-          {$.boundSkills.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-3)', padding: '12px 0' }}>暂无绑定技能</div>}
-          {$.boundSkills.map((s: any) => (
-            <div key={s.slug} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: '13px' }}>{s.name}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>{s.description ?? ''}</div>
+                <div class="wf-fill">
+                  <Field label="温度">
+                    <div class="wf-row wf-gap-sm">
+                      <input type="range" min="0" max="2" step="0.1" value={$.aiTemperature}
+                        onInput={(e: any) => { $.aiTemperature = e.target.value }} class="wf-fill" />
+                      <span class="wf-text-sm wf-text-semibold" style="min-width: 30px; text-align: center">{$.aiTemperature}</span>
+                    </div>
+                  </Field>
+                </div>
               </div>
-              <button class="btn btn-danger btn-sm" onClick={() => unbindSkill(s.slug)}>解绑</button>
+              <div class="wf-row wf-gap-lg">
+                <div class="wf-fill">
+                  <Field label="最大 Token 数">
+                    <Input type="number" min="64" max="8192" step="64" value={$.aiMaxTokens}
+                      onInput={(e: any) => { $.aiMaxTokens = e.target.value }} />
+                  </Field>
+                </div>
+                <div class="wf-fill">
+                  <Field label="人工审批 (HITL)">
+                    <Checkbox label="开启后 AI 回复需人工批准后才发送" checked={$.aiHITL}
+                      onChange={(v: boolean) => { $.aiHITL = v }} />
+                  </Field>
+                </div>
+              </div>
+
+              <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📁 工作空间</div>
+              <div class="wf-bg-tertiary wf-p-md wf-rounded wf-text-sm wf-text-secondary">
+                Agent 专用目录: <code>data/workspaces/{'{agent_id}'}/</code>
+                <span class="wf-block wf-text-xs wf-text-tertiary wf-mt-xs">首次运行时自动创建</span>
+              </div>
+              <div class="wf-row wf-gap-lg">
+                <Checkbox label="📄 启用文件工具 (read/write/edit/grep)" checked={$.allowFileTools}
+                  onChange={(v: boolean) => { $.allowFileTools = v }} />
+                <Checkbox label="⚡ 启用命令执行 (bash)" checked={$.allowCommandExec}
+                  onChange={(v: boolean) => { $.allowCommandExec = v }} />
+              </div>
+            </>
+          )}
+
+          {a.type === 'webhook' && (
+            <>
+              <Field label="Webhook URL" hint="消息将以 POST JSON 推送到该地址">
+                <Input type="url" value={$.webhookUrl} onInput={(e: any) => { $.webhookUrl = e.target.value }} />
+              </Field>
+              <div class="wf-row wf-gap-lg">
+                <div class="wf-fill">
+                  <Field label="Webhook Secret" hint="设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头">
+                    <div class="wf-row wf-gap-xs">
+                      <Input type={$.secretVisible ? 'text' : 'password'} placeholder="留空不验证签名"
+                        value={$.webhookSecret} onInput={(e: any) => { $.webhookSecret = e.target.value }} />
+                      <Button type="button" variant="ghost" onClick={() => { $.secretVisible = !$.secretVisible }}>
+                        {$.secretVisible ? '🙈' : '👁'}
+                      </Button>
+                    </div>
+                  </Field>
+                </div>
+                <div class="wf-fill">
+                  <Field label="重试次数" hint="失败后指数退避重试（默认 3 次）">
+                    <Input type="number" min="0" max="5" value={$.webhookRetryCount}
+                      onInput={(e: any) => { $.webhookRetryCount = e.target.value }} />
+                  </Field>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div class="wf-right wf-gap-sm">
+            <Button type="button" variant="ghost" onClick={() => ctx.app?.navigate('/agents')}>取消</Button>
+            <Button type="submit" variant="primary" disabled={$.saving}>
+              {$.saving ? '保存中...' : '保存修改'}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {a.type === 'ai' && (
+        <Card>
+          <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-sm">🔧 技能管理</div>
+          {$.boundSkills.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无绑定技能</div>}
+          {$.boundSkills.map((s: any) => (
+            <div key={s.slug} class="wf-split wf-py-sm wf-border-b">
+              <div class="wf-stack wf-gap-none">
+                <span class="wf-text-sm wf-text-medium">{s.name}</span>
+                <span class="wf-text-xs wf-text-tertiary">{s.description ?? ''}</span>
+              </div>
+              <Button size="sm" variant="danger" onClick={() => unbindSkill(s.slug)}>解绑</Button>
             </div>
           ))}
           {$.availableSkills.length > 0 && (
-            <button class="btn btn-ghost btn-sm" style={{ marginTop: '10px' }}
-              onClick={() => { $.showSkillPicker = !$.showSkillPicker }}>
+            <Button size="sm" variant="ghost" onClick={() => { $.showSkillPicker = !$.showSkillPicker }}>
               {$.showSkillPicker ? '收起' : '+ 绑定技能'}
-            </button>
+            </Button>
           )}
           {$.showSkillPicker && (
-            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div class="wf-stack wf-gap-xs wf-mt-sm">
               {$.availableSkills.filter((as: any) => !$.boundSkills.some((bs: any) => bs.slug === as.slug)).map((s: any) => (
-                <div key={s.slug} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
-                  <span style={{ fontSize: '13px' }}>{s.name}</span>
-                  <button class="btn btn-primary btn-sm" onClick={() => bindSkill(s.slug)}>绑定</button>
+                <div key={s.slug} class="wf-split wf-py-xs">
+                  <span class="wf-text-sm">{s.name}</span>
+                  <Button size="sm" variant="primary" onClick={() => bindSkill(s.slug)}>绑定</Button>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
-      {/* 执行日志 */}
       {a.type === 'ai' && (
-        <div class="card card-pad mt-24">
-          <div class="sect-title" style={{ marginBottom: '8px' }}>
-            📋 执行日志
-            <button class="btn btn-ghost btn-sm" style={{ marginLeft: '8px' }} onClick={loadLogs}>刷新</button>
+        <Card>
+          <div class="wf-split wf-mb-sm">
+            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📋 执行日志</div>
+            <Button size="sm" variant="ghost" onClick={loadLogs}>刷新</Button>
           </div>
           {$.logsLoading && <Loading />}
-          {!$.logsLoading && $.logs.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-3)', padding: '12px 0' }}>暂无执行日志</div>}
+          {!$.logsLoading && $.logs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无执行日志</div>}
           {$.logs.map((log: any) => (
-            <div key={log.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', fontSize: '13px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <div key={log.id} class="wf-py-sm wf-border-b wf-text-sm">
+              <div class="wf-split wf-mb-xs">
                 <span>{log.type === 'ai:response' ? '🤖 AI 回复' : log.type === 'tool:call' ? '🔧 工具调用' : '📝 ' + (log.type ?? '日志')}</span>
-                <span style={{ color: 'var(--text-3)', fontSize: '12px' }}>{log.status ?? ''}</span>
+                <span class="wf-text-xs wf-text-tertiary">{log.status ?? ''}</span>
               </div>
-              <div style={{ color: 'var(--text-2)', fontSize: '12px' }}>{log.summary ?? (log.content ?? '').slice(0, 100)}</div>
+              <div class="wf-text-xs wf-text-secondary">{log.summary ?? (log.content ?? '').slice(0, 100)}</div>
             </div>
           ))}
-        </div>
+        </Card>
       )}
 
-      {/* Webhook 日志 */}
       {a.type === 'webhook' && (
-        <div class="card card-pad mt-24">
-          <div class="sect-title" style={{ marginBottom: '12px' }}>
-            📋 Webhook 请求日志
-            <button class="btn btn-ghost btn-sm" style={{ marginLeft: '8px' }} onClick={loadWebhookLogs}>刷新</button>
+        <Card>
+          <div class="wf-split wf-mb-sm">
+            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📋 Webhook 请求日志</div>
+            <Button size="sm" variant="ghost" onClick={loadWebhookLogs}>刷新</Button>
           </div>
           {$.whLogsLoading && <Loading />}
-          {!$.whLogsLoading && $.whLogs.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'center', padding: '24px' }}>暂无请求记录</div>}
+          {!$.whLogsLoading && $.whLogs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-text-center wf-p-lg">暂无请求记录</div>}
           {$.whLogs.map((log: any) => (
-            <div key={log.id} class="check-item" style={{ flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>{log.success ? '✅' : '❌'} HTTP {log.response_status ?? '?'}</div>
-                <div class="muted" style={{ fontSize: '11px' }}>{log.created_at ? new Date(log.created_at).toLocaleString() : ''} · {log.elapsed_ms}ms</div>
-              </div>
+            <div key={log.id} class="wf-py-sm wf-border-b">
+              <div class="wf-text-sm wf-text-medium">{log.success ? '✅' : '❌'} HTTP {log.response_status ?? '?'}</div>
+              <div class="wf-text-xs wf-text-tertiary">{log.created_at ? new Date(log.created_at).toLocaleString() : ''} · {log.elapsed_ms}ms</div>
             </div>
           ))}
-        </div>
+        </Card>
       )}
 
-      {/* 知识库文档 */}
       {a.type === 'knowledge_base' && (
-        <div class="card card-pad mt-24">
-          <div class="sect-title" style={{ marginBottom: '16px' }}>
-            📚 知识库文档
-            <span class="muted" style={{ fontWeight: 400, fontSize: '12px', marginLeft: '8px' }}>{$.docs.length} 个文档</span>
+        <Card>
+          <div class="wf-split wf-mb-md">
+            <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">📚 知识库文档</div>
+            <span class="wf-text-xs wf-text-tertiary">{$.docs.length} 个文档</span>
           </div>
 
           {$.docs.length > 0 && (
-            <div class="check-list" style={{ marginBottom: '18px' }}>
+            <div class="wf-stack wf-gap-none wf-mb-md">
               {$.docs.map((d: any) => (
                 <div key={d.id}>
-                  <div class="check-item" onClick={() => toggleExpandDoc(d.id)} style={{ cursor: 'pointer' }}>
+                  <div class="wf-row wf-gap-sm wf-py-sm wf-border-b" style="cursor: pointer" onClick={() => toggleExpandDoc(d.id)}>
                     <span>{$.expandedDoc === d.id ? '📂' : '📄'}</span>
-                    <span style={{ flex: 1 }}>{d.filename}</span>
-                    <span class="muted" style={{ fontSize: '12px', marginRight: '8px' }}>{d.chunk_count ?? 0} 块</span>
-                    <button class="btn btn-danger btn-sm" onClick={(e: any) => { e.stopPropagation(); deleteDoc(d.id) }}>删除</button>
+                    <span class="wf-fill wf-text-sm wf-truncate">{d.filename}</span>
+                    <span class="wf-text-xs wf-text-tertiary">{d.chunk_count ?? 0} 块</span>
+                    <Button size="sm" variant="danger" onClick={(e: any) => { e.stopPropagation(); deleteDoc(d.id) }}>删除</Button>
                   </div>
                   {$.expandedDoc === d.id && (
-                    <div style={{ padding: '12px 16px 12px 44px', borderTop: '1px solid #f3f4f6', background: '#fafbfc', fontSize: '13px' }}>
-                      {$.loadingChunks && <div class="muted" style={{ padding: '8px 0' }}>加载中...</div>}
-                      {!$.loadingChunks && $.docChunks.length === 0 && <div class="muted" style={{ padding: '8px 0' }}>无分块数据</div>}
+                    <div class="wf-bg-secondary wf-p-md wf-text-sm wf-stack wf-gap-sm">
+                      {$.loadingChunks && <div class="wf-text-xs wf-text-tertiary">加载中...</div>}
+                      {!$.loadingChunks && $.docChunks.length === 0 && <div class="wf-text-xs wf-text-tertiary">无分块数据</div>}
                       {$.docChunks.map((ch: any, i: number) => (
-                        <div key={i} style={{ padding: '8px 10px', borderRadius: '6px', background: '#fff', border: '1px solid #e5e7eb', fontSize: '12px', lineHeight: '1.6', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>块 #{ch.chunk_index + 1}</span><br />
+                        <div key={i} class="wf-surface wf-p-sm wf-rounded-sm wf-text-xs" style="line-height: 1.6">
+                          <span class="wf-text-xs wf-text-tertiary">块 #{ch.chunk_index + 1}</span><br />
                           {(ch.content ?? '').slice(0, 300)}
                         </div>
                       ))}
@@ -371,18 +370,22 @@ export const AgentDetail: Component = (_props, ctx) => {
             </div>
           )}
 
-          <form onSubmit={uploadDoc}>
-            <div class="field"><label class="field-label">文件名</label>
-              <input class="input" type="text" placeholder="如：产品手册.txt" value={$.newDocFilename}
-                onInput={(e: any) => { $.newDocFilename = e.target.value }} /></div>
-            <div class="field"><label class="field-label">文档内容</label>
-              <textarea class="textarea" rows={5} placeholder="粘贴文档内容..." value={$.newDocContent}
-                onInput={(e: any) => { $.newDocContent = e.target.value }} /></div>
-            <button type="submit" class="btn btn-primary" disabled={$.uploading}>
-              {$.uploading ? '上传中...' : '上传文档'}
-            </button>
+          <form class="wf-stack wf-gap-md" onSubmit={uploadDoc}>
+            <Field label="文件名">
+              <Input type="text" placeholder="如：产品手册.txt" value={$.newDocFilename}
+                onInput={(e: any) => { $.newDocFilename = e.target.value }} />
+            </Field>
+            <Field label="文档内容">
+              <Textarea rows={5} placeholder="粘贴文档内容..." value={$.newDocContent}
+                onInput={(e: any) => { $.newDocContent = e.target.value }} />
+            </Field>
+            <div class="wf-right">
+              <Button type="submit" variant="primary" disabled={$.uploading}>
+                {$.uploading ? '上传中...' : '上传文档'}
+              </Button>
+            </div>
           </form>
-        </div>
+        </Card>
       )}
     </div>
     )

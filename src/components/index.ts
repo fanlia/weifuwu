@@ -87,6 +87,9 @@ export type { SliderProps } from './Slider/Slider.ts'
 export { SearchInput } from './SearchInput/SearchInput.ts'
 export type { SearchInputProps } from './SearchInput/SearchInput.ts'
 
+export { SegmentedControl } from './SegmentedControl/SegmentedControl.ts'
+export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl/SegmentedControl.ts'
+
 export { ProgressBar } from './ProgressBar/ProgressBar.ts'
 export type { ProgressBarProps } from './ProgressBar/ProgressBar.ts'
 

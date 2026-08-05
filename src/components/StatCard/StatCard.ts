@@ -8,11 +8,13 @@ export interface StatCardProps {
   trend?: 'up' | 'down'
   trendLabel?: string
   icon?: string
+  /** 点击跳转/交互（悬停抬升 + role=button） */
+  onClick?: () => void
 }
 
 export const StatCard: Component<StatCardProps> = (_init, _ctx) =>
   (props) => {
-  const { label, value, trend, trendLabel, icon } = props
+  const { label, value, trend, trendLabel, icon, onClick } = props
 
   const children: any[] = []
 
@@ -30,5 +32,10 @@ export const StatCard: Component<StatCardProps> = (_init, _ctx) =>
     ].filter(Boolean)))
   }
 
-  return h('div', { class: 'wf-stat' }, children)
+  return h('div', {
+    class: `wf-stat${onClick ? ' wf-stat--clickable' : ''}`,
+    onClick,
+    role: onClick ? 'button' : undefined,
+    tabindex: onClick ? 0 : undefined,
+  }, children)
 }

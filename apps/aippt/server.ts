@@ -389,7 +389,8 @@ async function main() {
   // ── UI / SPA ──────────────────────────────────────────
   app.use(ui())
   app.get('/app.js', (req: Request, ctx: any) => ctx.ui.js(resolve(__dirname, 'ui', 'main.tsx')))
-  app.get('/style.css', (req: Request, ctx: any) => ctx.ui.css(resolve(__dirname, 'public', 'style.css')))
+  // 唯一样式来源：weifuwu/components（Token + 布局原语 + 组件样式）
+  app.get('/style.css', (req: Request, ctx: any) => ctx.ui.css('weifuwu/components/style.css'))
   app.get('/*', async (req: Request, ctx: any) =>
     ctx.ui.html`
 <!DOCTYPE html>
@@ -398,6 +399,7 @@ async function main() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/style.css">
+  <style>@media print { @page { size: 10in 5.625in landscape; margin: 0; } .wf-grid { display: block !important; } .wf-grid > * { page-break-after: always; } }</style>
   <title>aippt — AI PPT 生成引擎</title>
 </head>
 <body>

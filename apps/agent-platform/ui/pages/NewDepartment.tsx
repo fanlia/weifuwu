@@ -1,5 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, Loading, TypeBadge } from '../components/ui'
+import { Alert, Button, Card, Checkbox, EmptyState, Field, Input, Select } from 'weifuwu/components'
 
 export const NewDepartment: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -37,61 +38,51 @@ export const NewDepartment: Component = (_props, ctx) => {
     } catch { $.error = '网络错误'; $.submitting = false }
   }
   return (props) => (
-    <div class="page page-narrow">
-      <a class="back-link" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
+    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
+      <a class="wf-text-sm wf-text-brand" onClick={() => ctx.app?.navigate('/departments')}>← 返回部门列表</a>
       <PageHeader title="创建部门" sub="选择公司并添加成员" />
 
-      {$.error && <div class="alert alert-err">{$.error}</div>}
+      <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
 
       {$.loading && <Loading />}
 
       {!$.loading && $.companies.length === 0 && (
-        <div class="empty">
-          <div class="empty-ico">🏢</div>
-          <div class="empty-txt">还没有公司</div>
-          <div class="empty-hint">部门必须挂在公司下，请先在 API 中创建公司</div>
-        </div>
+        <EmptyState icon="🏢" text="还没有公司" hint="部门必须挂在公司下，请先在 API 中创建公司" />
       )}
 
       {!$.loading && $.companies.length > 0 && (
-        <form class="card card-pad" onSubmit={handleSubmit}>
-          <div class="field">
-            <label class="field-label">部门名称 <span class="req">*</span></label>
-            <input class="input" type="text" placeholder="如：技术部、市场部" value={$.name}
-              onInput={(e: any) => { $.name = e.target.value }} />
-          </div>
+        <Card>
+          <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
+            <Field label="部门名称" required>
+              <Input type="text" placeholder="如：技术部、市场部" value={$.name}
+                onInput={(e: any) => { $.name = e.target.value }} />
+            </Field>
 
-          <div class="field">
-            <label class="field-label">所属公司</label>
-            <select class="select" value={$.companyId} onChange={(e: any) => { $.companyId = e.target.value }}>
-              {$.companies.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
+            <Field label="所属公司">
+              <Select value={$.companyId} onChange={(v: string) => { $.companyId = v }}
+                options={$.companies.map((c: any) => ({ value: c.id, label: c.name }))} />
+            </Field>
 
-          <div class="field">
-            <label class="field-label">
-              添加成员 <span class="muted">（已选 {$.selected.length} 个，可稍后添加）</span>
-            </label>
-            <div class="check-list">
-              {$.agents.map((a: any) => (
-                <label key={a.id} class="check-item">
-                  <input type="checkbox" checked={$.selected.includes(a.id)} onChange={() => toggle(a.id)} />
-                  <span>{a.name}</span>
-                  <TypeBadge type={a.type} />
-                </label>
-              ))}
+            <Field label={`添加成员（已选 ${$.selected.length} 个，可稍后添加）`}>
+              <div class="wf-stack wf-gap-none">
+                {$.agents.map((a: any) => (
+                  <label key={a.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b" style="cursor: pointer">
+                    <input type="checkbox" checked={$.selected.includes(a.id)} onChange={() => toggle(a.id)} />
+                    <span class="wf-text-base">{a.name}</span>
+                    <TypeBadge type={a.type} />
+                  </label>
+                ))}
+              </div>
+            </Field>
+
+            <div class="wf-right wf-gap-sm">
+              <Button type="button" variant="ghost" onClick={() => ctx.app?.navigate('/departments')}>取消</Button>
+              <Button type="submit" variant="primary" disabled={$.submitting}>
+                {$.submitting ? '创建中...' : '创建部门'}
+              </Button>
             </div>
-          </div>
-
-          <div class="form-foot">
-            <button type="button" class="btn btn-ghost" onClick={() => ctx.app?.navigate('/departments')}>取消</button>
-            <button type="submit" class="btn btn-primary" disabled={$.submitting}>
-              {$.submitting ? '创建中...' : '创建部门'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </Card>
       )}
     </div>
   )

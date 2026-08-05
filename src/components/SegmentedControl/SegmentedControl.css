@@ -1,0 +1,75 @@
+/* weifuwu/components — SegmentedControl */
+
+.wf-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg-tertiary);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-segmented--block {
+  display: flex;
+  width: 100%;
+}
+
+.wf-segmented--block .wf-segmented-option {
+  flex: 1;
+  justify-content: center;
+}
+
+.wf-segmented-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: var(--wf-space-xs) var(--wf-space-md);
+  border-radius: calc(var(--wf-radius) - 1px);
+  font-family: inherit;
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  line-height: var(--wf-line-height);
+  color: var(--wf-color-text-secondary);
+  white-space: nowrap;
+  transition: background var(--wf-transition), color var(--wf-transition), box-shadow var(--wf-transition);
+}
+
+.wf-segmented-option:hover {
+  color: var(--wf-color-text);
+}
+
+.wf-segmented-option--active {
+  background: var(--wf-surface-bg);
+  color: var(--wf-color-primary);
+  box-shadow: var(--wf-shadow-sm);
+}
+
+.wf-segmented-option--active:hover {
+  color: var(--wf-color-primary);
+}
+
+.wf-segmented-option:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-segmented-option:disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-segmented--sm .wf-segmented-option {
+  padding: 2px var(--wf-space-sm);
+  font-size: var(--wf-font-size-xs);
+}
+
+/* 触屏：44px 命中区 */
+@media (pointer: coarse) {
+  .wf-segmented-option {
+    min-height: 44px;
+  }
+}

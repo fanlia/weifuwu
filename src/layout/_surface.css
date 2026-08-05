@@ -1,6 +1,55 @@
-/* surface — 基础面 */
+/* surface — 基础面 + 面工具类（背景色/气泡/胶囊） */
+
 .wf-surface {
   border-radius: var(--wf-surface-radius);
   box-shadow: var(--wf-surface-shadow);
   background: var(--wf-surface-bg);
+}
+
+/* ── 背景色工具 — 引用语义 Token，免自定义 CSS ── */
+.wf-bg-secondary { background: var(--wf-color-bg-secondary); }
+.wf-bg-tertiary { background: var(--wf-color-bg-tertiary); }
+.wf-bg-brand { background: var(--wf-color-primary-bg); } /* 兼容别名 → wf-bg-primary */
+.wf-bg-primary { background: var(--wf-color-primary-bg); }
+.wf-bg-success { background: var(--wf-color-success-bg); }
+.wf-bg-warning { background: var(--wf-color-warning-bg); }
+.wf-bg-error { background: var(--wf-color-error-bg); }
+.wf-bg-info { background: var(--wf-color-info-bg); }
+
+/* ── 胶囊圆角（状态徽章/标签/色块） ── */
+.wf-pill { border-radius: 999px; }
+
+/* ── 圆角工具 — 引用圆角 Token ── */
+.wf-rounded-sm { border-radius: var(--wf-radius-sm); }
+.wf-rounded { border-radius: var(--wf-radius); }
+.wf-rounded-md { border-radius: var(--wf-radius-md); }
+.wf-rounded-lg { border-radius: var(--wf-radius-lg); }
+
+/* ── 聊天气泡 ──
+ * 用法：wf-bubble（对方/AI）+ wf-bubble--own（自己）
+ * 行布局用 wf-row + wf-gap/wf-mb 覆盖；文字用 wf-pre-wrap 已内建
+ */
+.wf-bubble {
+  display: inline-block;
+  max-width: 70%;
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-text);
+  font-size: var(--wf-font-size-base);
+  line-height: var(--wf-line-height);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wf-bubble--own {
+  background: var(--wf-color-primary);
+  color: #fff;
+  border-bottom-right-radius: var(--wf-radius-sm);
+}
+
+.wf-bubble--ai {
+  background: var(--wf-color-primary-bg);
+  border: var(--wf-border-width) solid var(--wf-color-border-light);
+  border-bottom-left-radius: var(--wf-radius-sm);
 }

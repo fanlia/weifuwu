@@ -4,7 +4,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px var(--wf-space-sm);
-  border-radius: 10px;
+  border-radius: var(--wf-badge-radius, 10px);
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-xs);
   font-weight: var(--wf-font-weight-medium);

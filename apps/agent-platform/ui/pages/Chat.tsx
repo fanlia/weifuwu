@@ -1,4 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
+import { Ava } from '../components/ui'
+import { Alert, Badge, Button, EmptyState, Input } from 'weifuwu/components'
 
 export const Chat: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -10,7 +12,6 @@ export const Chat: Component = (_props, ctx) => {
   $.bodyEl = null; $.isUserScrolledUp = false; $.unsubWs = null
   $.approving = null; $.copiedId = ''; $.timeVersion = 0
 
-  // 加载初始数据
   Promise.all([
     fetch(`/api/departments/${deptId}/messages`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
     fetch(`/api/departments/${deptId}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
@@ -25,11 +26,9 @@ export const Chat: Component = (_props, ctx) => {
     $.memberCount = (deptRes?.members ?? []).length
   }).catch(() => {})
 
-  // WS 事件
   const unsub = ctx.ws?.onMessage((event: any) => {
     switch (event.type) {
       case 'new_message':
-        // POST 响应已 push，WS 广播可能重复 — 去重
         if (!$.msgs.some((m: any) => m.id === event.message.id)) {
           $.msgs.push({ id: event.message.id, sender_id: event.message.sender_id, sender_name: event.message.sender_name ?? '', sender_type: event.message.sender_type ?? 'user', content: event.message.content, msg_type: 'text', created_at: event.message.created_at ?? new Date().toISOString(), status: 'idle', tools: [] })
         }
@@ -81,10 +80,8 @@ export const Chat: Component = (_props, ctx) => {
   })
   $.unsubWs = unsub
 
-  // WS 订阅
   ctx.ws?.send({ type: 'subscribe', departmentId: deptId })
 
-  // 流式超时保护 + 相对时间刷新
   const timer = setInterval(() => {
     $.timeVersion++
     let changed = false
@@ -101,7 +98,6 @@ export const Chat: Component = (_props, ctx) => {
   }, 30000)
   $.streamTimer = timer
 
-  // ── 自动滚动 ──
   let prevLen = 0
   let prevContentLen = 0
 
@@ -207,7 +203,6 @@ export const Chat: Component = (_props, ctx) => {
     $.approving = null
   }
 
-  // 稳定的 ref 函数（避免每次 render 创建新函数导致 VDOM diff 触发 cleanup）
   const chatBodyRef = (el: any) => {
     if (el) { $.bodyEl = el; scrollToBottom(true) }
     if (!el && $.bodyEl) {
@@ -233,7 +228,6 @@ export const Chat: Component = (_props, ctx) => {
   }
 
   return (props: {}) => {
-    // ── 每次 render 检查是否需要滚动 ──
     const msgsLen = $.msgs.length
     if (msgsLen > prevLen) { scrollToBottom(); prevLen = msgsLen }
     if (msgsLen > 0) {
@@ -246,30 +240,27 @@ export const Chat: Component = (_props, ctx) => {
     const canSend = $.input.trim().length > 0 && !$.sending
 
     return (
-    <div class="chat-shell">
-      <div class="chat-head">
-        <a href="/chat/new" class="back-link" style={{ marginBottom: '0' }}
+    <div class="wf-stack wf-h-full">
+      <div class="wf-row wf-gap-sm wf-p-sm wf-bg-secondary wf-border-b">
+        <a href="/chat/new" class="wf-text-brand"
           onClick={(e: any) => { e.preventDefault(); ctx.app?.navigate('/chat/new') }}>←</a>
-        <div class="chat-head-info">
-          <div class="chat-head-name">{$.deptName}</div>
-          <div class="chat-head-sub">{$.memberCount} 位成员</div>
+        <div class="wf-fill wf-stack wf-gap-none">
+          <div class="wf-text-base wf-text-semibold">{$.deptName}</div>
+          <div class="wf-text-xs wf-text-tertiary">{$.memberCount} 位成员</div>
         </div>
-        {!ctx.ws?.isConnected && <span class="badge badge-err" style={{ marginLeft: '8px' }}>⚠ 连接断开</span>}
-        <button class="btn btn-ghost btn-sm" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</button>
+        {!ctx.ws?.isConnected && <Badge variant="error">⚠ 连接断开</Badge>}
+        <Button size="sm" variant="ghost" onClick={() => ctx.app?.navigate(`/departments/${deptId}`)}>部门详情</Button>
       </div>
 
-      <div class="chat-body" ref={chatBodyRef}
+      <div class="wf-fill wf-scroll wf-stack wf-gap-md wf-p-md"
+        ref={chatBodyRef}
         onScroll={() => {
           if (!$.bodyEl) return
           const threshold = 80
           $.isUserScrolledUp = ($.bodyEl.scrollHeight - $.bodyEl.scrollTop - $.bodyEl.clientHeight) > threshold
         }}>
         {$.msgs.length === 0 && (
-          <div class="empty">
-            <div class="empty-ico">💬</div>
-            <div class="empty-txt">暂无消息</div>
-            <div class="empty-hint">发送第一条消息，@ 的 AI 成员会自动回复</div>
-          </div>
+          <EmptyState icon="💬" text="暂无消息" hint="发送第一条消息，@ 的 AI 成员会自动回复" />
         )}
 
         {$.msgs.map((msg: any) => {
@@ -280,74 +271,66 @@ export const Chat: Component = (_props, ctx) => {
           const isError = st === 'error'
           const showTools = msg.sender_type === 'ai' && (msg.tools ?? []).length > 0
 
-          if (msg.msg_type === 'system') return <div class="sys-pill">{msg.content}</div>
+          if (msg.msg_type === 'system') return <div class="wf-center"><span class="wf-pill wf-bg-tertiary wf-text-secondary wf-px-sm wf-py-xs wf-text-xs">{msg.content}</span></div>
 
           return (
-            <div class={`msg-row${own ? ' own' : ''}`}>
-              <div class={`ava ava-sm ava-${msg.sender_type ?? 'user'}`}>{(msg.sender_name ?? '?')[0]}</div>
-              <div class="msg-col">
-                <div class="msg-meta">
+            <div class={`wf-row wf-top wf-gap-sm${own ? ' wf-row-reverse' : ''}`}>
+              <Ava name={msg.sender_name} type={msg.sender_type ?? 'user'} small />
+              <div class={`wf-stack wf-gap-xs wf-shrink${own ? ' wf-bottom' : ''}`}>
+                <div class={`wf-row wf-gap-xs wf-text-xs wf-text-tertiary${own ? ' wf-row-reverse' : ''}`}>
                   <span>{msg.sender_name ?? '未知'}</span>
                   <span>{fmtTime(msg.created_at)}</span>
-                  {isActive && <span style={{ color: 'var(--primary)', fontSize: '11px' }}>{st === 'thinking' ? '思考中...' : '生成中...'}</span>}
-                  {isError && <span style={{ color: 'var(--danger)', fontSize: '11px' }}>出错了</span>}
+                  {isActive && <span class="wf-text-brand">{st === 'thinking' ? '思考中...' : '生成中...'}</span>}
+                  {isError && <span class="wf-text-error">出错了</span>}
                   {canEdit(msg) && !$.editingId && !isActive && (
-                    <span style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
-                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '11px', padding: '0 2px' }}
-                        onClick={() => startEdit(msg)}>编辑</button>
-                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: '11px', padding: '0 2px' }}
-                        onClick={() => deleteMsg(msg)}>撤回</button>
+                    <span class="wf-row wf-gap-xs">
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(msg)}>编辑</Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteMsg(msg)}>撤回</Button>
                     </span>
                   )}
                   {st === 'complete' && msg.sender_type === 'ai' && msg.content && (
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: $.copiedId === msg.id ? 'var(--success, #10b981)' : 'var(--text-3)', fontSize: '11px', padding: '0 2px', marginLeft: '4px' }}
-                      onClick={() => copyContent(msg)}>{$.copiedId === msg.id ? '✅ 已复制' : '📋 复制'}</button>
+                    <Button size="sm" variant="ghost" onClick={() => copyContent(msg)}>
+                      {$.copiedId === msg.id ? '✅ 已复制' : '📋 复制'}
+                    </Button>
                   )}
                 </div>
 
                 {showTools && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '6px' }}>
+                  <div class="wf-stack wf-gap-xs">
                     {(msg.tools ?? []).map((t: any, i: number) => (
-                      <div key={i} style={{
-                        fontSize: '11px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: '5px',
-                        padding: '3px 10px', borderRadius: '6px', background: '#f0f0ff', width: 'fit-content', border: '1px solid #e4e4f0',
-                      }}>
-                        <span>{t.status === 'running' ? '⏳' : '✅'}</span>
-                        <span style={{ fontWeight: 500, color: '#555' }}>{toolLabel(t.name)}</span>
-                      </div>
+                      <span key={i} class="wf-pill wf-bg-brand wf-px-sm wf-py-xs wf-text-xs wf-text-brand">
+                        {t.status === 'running' ? '⏳' : '✅'} {toolLabel(t.name)}
+                      </span>
                     ))}
                   </div>
                 )}
 
                 {!beingEdited && (
                   <div>
-                    <div class={`bubble${isActive ? ' active' : ''}${isError ? ' error' : ''}${!own && msg.sender_type === 'ai' && st === 'complete' ? ' bubble-ai' : ''}`}>
+                    <div class={`wf-bubble${own ? ' wf-bubble--own' : ''}${!own && msg.sender_type === 'ai' && st === 'complete' ? ' wf-bubble--ai' : ''}${isActive ? ' wf-dim' : ''}${isError ? '' : ''}`}
+                      style={isError ? { borderColor: 'var(--wf-color-error)' } : undefined}>
                       {msg.content || ''}
                     </div>
                     {st === 'complete' && msg.usage && (
-                      <div style={{ marginTop: '3px', textAlign: 'right' }}>
-                        <span class="badge badge-gray" style={{ fontSize: '10px', opacity: '.6' }}>⚡ {msg.usage.total_tokens} tokens</span>
+                      <div class="wf-text-right wf-mt-xs">
+                        <Badge variant="default">⚡ {msg.usage.total_tokens} tokens</Badge>
                       </div>
                     )}
                     {isError && (
-                      <button class="btn btn-sm" style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: '12px', cursor: 'pointer', borderRadius: '6px', padding: '2px 10px', marginTop: '4px' }}
-                        onClick={() => retryMessage(msg.id)}>🔄 重新生成</button>
+                      <Button size="sm" variant="ghost" class="wf-mt-xs" onClick={() => retryMessage(msg.id)}>🔄 重新生成</Button>
                     )}
 
-                    {/* HITL 审批 */}
                     {msg.ai_draft && msg.ai_approved === null && (
-                      <div style={{ marginTop: '6px' }}>
-                        <div style={{ padding: '8px 12px', borderRadius: '8px', fontSize: '13px', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', marginBottom: '6px' }}>
-                          <div style={{ fontWeight: 600, marginBottom: '4px', fontSize: '11px', color: '#b45309' }}>⏳ AI 草稿待审批</div>
+                      <div class="wf-mt-sm">
+                        <Alert variant="warning">
+                          <div class="wf-text-xs wf-text-semibold wf-mb-xs">⏳ AI 草稿待审批</div>
                           {msg.ai_draft}
-                        </div>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button class="btn btn-sm" style={{ background: '#10b981', color: '#fff', border: 'none' }}
-                            disabled={$.approving === msg.id}
-                            onClick={() => approveDraft(msg.id)}>{$.approving === msg.id ? '处理中...' : '✓ 批准'}</button>
-                          <button class="btn btn-sm" style={{ background: '#ef4444', color: '#fff', border: 'none' }}
-                            disabled={$.approving === msg.id}
-                            onClick={() => rejectDraft(msg.id)}>✕ 拒绝</button>
+                        </Alert>
+                        <div class="wf-row wf-gap-xs wf-mt-xs">
+                          <Button size="sm" disabled={$.approving === msg.id}
+                            onClick={() => approveDraft(msg.id)}>{$.approving === msg.id ? '处理中...' : '✓ 批准'}</Button>
+                          <Button size="sm" variant="danger" disabled={$.approving === msg.id}
+                            onClick={() => rejectDraft(msg.id)}>✕ 拒绝</Button>
                         </div>
                       </div>
                     )}
@@ -355,11 +338,12 @@ export const Chat: Component = (_props, ctx) => {
                 )}
 
                 {beingEdited && (
-                  <form onSubmit={saveEdit} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                    <input class="chat-input" style={{ borderRadius: '14px', padding: '8px 14px', fontSize: '14px' }}
-                      value={$.editValue} onInput={(e: any) => { $.editValue = e.target.value }} autoFocus />
-                    <button type="submit" class="chat-send" style={{ width: '36px', height: '36px', fontSize: '14px' }}>✓</button>
-                    <button type="button" class="chat-send" style={{ width: '36px', height: '36px', fontSize: '14px', background: '#6b7280' }} onClick={cancelEdit}>✕</button>
+                  <form onSubmit={saveEdit} class="wf-row wf-gap-xs wf-top">
+                    <div class="wf-fill">
+                      <Input value={$.editValue} onInput={(e: any) => { $.editValue = e.target.value }} />
+                    </div>
+                    <Button type="submit" size="sm">✓</Button>
+                    <Button type="button" size="sm" variant="secondary" onClick={cancelEdit}>✕</Button>
                   </form>
                 )}
               </div>
@@ -368,11 +352,13 @@ export const Chat: Component = (_props, ctx) => {
         })}
       </div>
 
-      <form class="chat-bar" onSubmit={sendMessage}>
-        <input class="chat-input" type="text" placeholder="输入消息，回车发送..."
-          value={$.input} onInput={(e: any) => { $.input = e.target.value }}
-          disabled={inputDisabled} />
-        <button class="chat-send" type="submit" disabled={!canSend}>➤</button>
+      <form class="wf-row wf-gap-sm wf-p-sm wf-border-t" onSubmit={sendMessage}>
+        <div class="wf-fill">
+          <Input type="text" placeholder="输入消息，回车发送..."
+            value={$.input} onInput={(e: any) => { $.input = e.target.value }}
+            disabled={inputDisabled} />
+        </div>
+        <Button type="submit" variant="primary" disabled={!canSend}>➤</Button>
       </form>
     </div>
     )

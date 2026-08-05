@@ -100,5 +100,5 @@ export const SlidePreview = (_init: any, _ctx: any) => (props: { slide: SlideDat
       break
   }
 
-  return h('div', { class: 'slide-card', style: common, 'data-index': props.index }, body)
+  return h('div', { style: common, 'data-index': props.index }, body)
 }

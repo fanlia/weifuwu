@@ -1,0 +1,72 @@
+/* 间距/尺寸工具类 — 全部引用 --wf-* Token，无硬编码
+ *
+ * 命名：wf-p(adding)/wf-m(argin)[x|y|t|b] + 刻度(xs sm md lg xl 2xl)
+ * 与 flex 原语协作：wf-gap-* 设置 --wf-gap 变量（stack/row/split 等读取）
+ */
+
+/* ── padding ── */
+.wf-p-xs { padding: var(--wf-space-xs); }
+.wf-p-sm { padding: var(--wf-space-sm); }
+.wf-p-md { padding: var(--wf-space-md); }
+.wf-p-lg { padding: var(--wf-space-lg); }
+.wf-p-xl { padding: var(--wf-space-xl); }
+.wf-p-2xl { padding: var(--wf-space-2xl); }
+
+/* ── padding: 水平/垂直 ── */
+.wf-px-xs { padding-left: var(--wf-space-xs); padding-right: var(--wf-space-xs); }
+.wf-px-sm { padding-left: var(--wf-space-sm); padding-right: var(--wf-space-sm); }
+.wf-px-md { padding-left: var(--wf-space-md); padding-right: var(--wf-space-md); }
+.wf-px-lg { padding-left: var(--wf-space-lg); padding-right: var(--wf-space-lg); }
+.wf-px-xl { padding-left: var(--wf-space-xl); padding-right: var(--wf-space-xl); }
+.wf-px-2xl { padding-left: var(--wf-space-2xl); padding-right: var(--wf-space-2xl); }
+
+.wf-py-xs { padding-top: var(--wf-space-xs); padding-bottom: var(--wf-space-xs); }
+.wf-py-sm { padding-top: var(--wf-space-sm); padding-bottom: var(--wf-space-sm); }
+.wf-py-md { padding-top: var(--wf-space-md); padding-bottom: var(--wf-space-md); }
+.wf-py-lg { padding-top: var(--wf-space-lg); padding-bottom: var(--wf-space-lg); }
+.wf-py-xl { padding-top: var(--wf-space-xl); padding-bottom: var(--wf-space-xl); }
+.wf-py-2xl { padding-top: var(--wf-space-2xl); padding-bottom: var(--wf-space-2xl); }
+
+/* ── margin：重置 ── */
+.wf-m-0 { margin: 0; }
+.wf-p-0 { padding: 0; }
+
+/* ── margin（高频方向：top / bottom / 垂直） ── */
+.wf-mt-xs { margin-top: var(--wf-space-xs); }
+.wf-mt-sm { margin-top: var(--wf-space-sm); }
+.wf-mt-md { margin-top: var(--wf-space-md); }
+.wf-mt-lg { margin-top: var(--wf-space-lg); }
+.wf-mt-xl { margin-top: var(--wf-space-xl); }
+.wf-mt-2xl { margin-top: var(--wf-space-2xl); }
+
+.wf-mb-xs { margin-bottom: var(--wf-space-xs); }
+.wf-mb-sm { margin-bottom: var(--wf-space-sm); }
+.wf-mb-md { margin-bottom: var(--wf-space-md); }
+.wf-mb-lg { margin-bottom: var(--wf-space-lg); }
+.wf-mb-xl { margin-bottom: var(--wf-space-xl); }
+.wf-mb-2xl { margin-bottom: var(--wf-space-2xl); }
+
+.wf-my-xs { margin-top: var(--wf-space-xs); margin-bottom: var(--wf-space-xs); }
+.wf-my-sm { margin-top: var(--wf-space-sm); margin-bottom: var(--wf-space-sm); }
+.wf-my-md { margin-top: var(--wf-space-md); margin-bottom: var(--wf-space-md); }
+.wf-my-lg { margin-top: var(--wf-space-lg); margin-bottom: var(--wf-space-lg); }
+.wf-my-xl { margin-top: var(--wf-space-xl); margin-bottom: var(--wf-space-xl); }
+.wf-my-2xl { margin-top: var(--wf-space-2xl); margin-bottom: var(--wf-space-2xl); }
+
+/* ── margin: auto（居中） ── */
+.wf-mx-auto { margin-left: auto; margin-right: auto; }
+.wf-my-auto { margin-top: auto; margin-bottom: auto; }
+
+/* ── gap：为 flex/grid 原语设置间距变量 ── */
+.wf-gap-none { --wf-gap: 0; }
+.wf-gap-xs { --wf-gap: var(--wf-gap-xs); }
+.wf-gap-sm { --wf-gap: var(--wf-gap-sm); }
+.wf-gap-md { --wf-gap: var(--wf-gap-md); }
+.wf-gap-lg { --wf-gap: var(--wf-gap-lg); }
+.wf-gap-xl { --wf-gap: var(--wf-gap-xl); }
+.wf-gap-2xl { --wf-gap: var(--wf-gap-2xl); }
+
+/* ── 尺寸 ── */
+.wf-w-full { width: 100%; }
+.wf-h-full { height: 100%; }
+.wf-w-auto { width: auto; }

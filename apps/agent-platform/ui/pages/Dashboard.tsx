@@ -1,4 +1,5 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
+import { Card, StatCard } from 'weifuwu/components'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -30,62 +31,38 @@ export const Dashboard: Component = (_props, ctx) => {
     const aiCount = s.agents?.ai_count ?? ($.agents ?? []).filter((a: any) => a.type === 'ai' || a.type === 'robot').length
 
     return (
-    <div class="page page-narrow">
-      <div class="dash-hello">
-        <h1>{greeting()}，{ctx.auth?.user?.name ?? '用户'}</h1>
-        <p>这是你的 AI 团队工作台，从这里管理 Agent、部门和对话。</p>
+    <div class="wf-stack wf-gap-lg">
+      <div class="wf-stack wf-gap-xs">
+        <h1 class="wf-text-2xl">{greeting()}，{ctx.auth?.user?.name ?? '用户'}</h1>
+        <p class="wf-text-base wf-text-secondary wf-m-0">这是你的 AI 团队工作台，从这里管理 Agent、部门和对话。</p>
       </div>
 
-      <div class="stat-grid">
-        <div class="stat-card" onClick={() => ctx.app?.navigate('/agents')}>
-          <div class="stat-ico" style="background:#ede9fe;color:#7c3aed">🤖</div>
-          <div class="stat-num">{agentCount}</div>
-          <div class="stat-label">Agent 总数</div>
-        </div>
-        <div class="stat-card" onClick={() => ctx.app?.navigate('/agents?type=ai')}>
-          <div class="stat-ico" style="background:#e0f2fe;color:#0369a1">✨</div>
-          <div class="stat-num">{aiCount}</div>
-          <div class="stat-label">AI 机器人</div>
-        </div>
-        <div class="stat-card" onClick={() => ctx.app?.navigate('/departments')}>
-          <div class="stat-ico" style="background:#d1fae5;color:#047857">👥</div>
-          <div class="stat-num">{$.deptCount ?? 0}</div>
-          <div class="stat-label">部门群组</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-ico" style="background:#fef3c7;color:#b45309">💬</div>
-          <div class="stat-num">{msgCount}</div>
-          <div class="stat-label">总消息数</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-ico" style="background:#fce7f3;color:#be185d">⚡</div>
-          <div class="stat-num">{totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens}</div>
-          <div class="stat-label">Token 消耗</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-ico" style="background:#e0e7ff;color:#4338ca">📊</div>
-          <div class="stat-num">{s.days ?? 1}天</div>
-          <div class="stat-label">消息趋势</div>
-        </div>
+      <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
+        <StatCard label="Agent 总数" value={agentCount} icon="🤖" onClick={() => ctx.app?.navigate('/agents')} />
+        <StatCard label="AI 机器人" value={aiCount} icon="✨" onClick={() => ctx.app?.navigate('/agents?type=ai')} />
+        <StatCard label="部门群组" value={$.deptCount ?? 0} icon="👥" onClick={() => ctx.app?.navigate('/departments')} />
+        <StatCard label="总消息数" value={msgCount} icon="💬" />
+        <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon="⚡" />
+        <StatCard label="消息趋势" value={`${s.days ?? 1}天`} icon="📊" />
       </div>
 
-      <div class="sect-title">快捷操作</div>
-      <div class="quick-grid">
-        <div class="quick-card" onClick={() => ctx.app?.navigate('/agents/new')}>
-          <div class="q-ico">🤖</div>
-          <div class="q-t">创建 Agent</div>
-          <div class="q-d">AI 机器人、Webhook 或知识库</div>
-        </div>
-        <div class="quick-card" onClick={() => ctx.app?.navigate('/departments/new')}>
-          <div class="q-ico">👥</div>
-          <div class="q-t">创建部门</div>
-          <div class="q-d">组建人机协作的群组</div>
-        </div>
-        <div class="quick-card" onClick={() => ctx.app?.navigate('/chat/new')}>
-          <div class="q-ico">💬</div>
-          <div class="q-t">发起聊天</div>
-          <div class="q-d">与部门里的 AI 直接对话</div>
-        </div>
+      <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary">快捷操作</div>
+      <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(220px, 1fr))">
+        <Card clickable hover onClick={() => ctx.app?.navigate('/agents/new')}>
+          <div class="wf-text-2xl wf-mb-xs">🤖</div>
+          <div class="wf-text-base wf-text-semibold">创建 Agent</div>
+          <div class="wf-text-sm wf-text-secondary">AI 机器人、Webhook 或知识库</div>
+        </Card>
+        <Card clickable hover onClick={() => ctx.app?.navigate('/departments/new')}>
+          <div class="wf-text-2xl wf-mb-xs">👥</div>
+          <div class="wf-text-base wf-text-semibold">创建部门</div>
+          <div class="wf-text-sm wf-text-secondary">组建人机协作的群组</div>
+        </Card>
+        <Card clickable hover onClick={() => ctx.app?.navigate('/chat/new')}>
+          <div class="wf-text-2xl wf-mb-xs">💬</div>
+          <div class="wf-text-base wf-text-semibold">发起聊天</div>
+          <div class="wf-text-sm wf-text-secondary">与部门里的 AI 直接对话</div>
+        </Card>
       </div>
     </div>
     )

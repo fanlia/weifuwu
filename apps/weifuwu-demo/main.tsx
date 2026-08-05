@@ -1,60 +1,30 @@
 /**
- * weifuwu/client + weifuwu/layout 开发体感
+ * weifuwu/client + weifuwu/components 开发体感 —— 零自定义 CSS
  *
  * 这个文件展示一个开发者写完一整个页面的完整代码。
- * 注意看：没有任何 flex/grid 手写，没有任何硬编码色值。
+ * 唯一的样式来源是 weifuwu/components/style.css（内含全部 Token + 布局原语 + 组件样式）。
+ * 没有 style.css，没有 style=""，没有任何手写 CSS。
  */
 
 import { createApp, router, RouteView } from 'weifuwu/client'
-import type { WfuiContext, RouteDef } from 'weifuwu/client'
+import type { WfuiContext } from 'weifuwu/client'
+import { Avatar, Badge, Button, PageHeader, StatCard, Table } from 'weifuwu/components'
 
 /* ═══════════════════════════════════════
  * 开发者只需要关心两件事：
- *   1. wf-* 原语 → 元素之间的空间关系
- *   2. var(--wf-*) → 视觉 Token
+ *   1. 组件（Button/StatCard/Table/...）→ 页面功能块
+ *   2. wf-* 原语（wf-stack/wf-row/wf-gap/...）→ 块之间的空间关系
  *
- * 不需要学 flex/grid/position，不需要查色值。
+ * 不需要 flex/grid/position，不需要查色值，不需要 CSS 文件。
  * ═══════════════════════════════════════ */
-
-/* ── 页面头组件 ── */
-function PageHead(_props: { title: string; sub?: string; children?: any }, _ctx: WfuiContext) {
-  return (props: { title: string; sub?: string; children?: any }) =>
-    (
-    <div class="wf-split" style="margin-bottom: var(--wf-space-lg)">
-      <div class="wf-stack" style="--wf-gap: 4px">
-        <h2 style="font-size: var(--wf-font-size-2xl); font-weight: var(--wf-font-weight-semibold);
-                   color: var(--wf-color-text)">{props.title}</h2>
-        {props.sub && <p style="font-size: var(--wf-font-size-base);
-                                color: var(--wf-color-text-secondary)">{props.sub}</p>}
-      </div>
-      {props.children &&
-        <div class="wf-row" style="--wf-gap: var(--wf-space-sm)">{props.children}</div>}
-    </div>
-    )
-}
-
-/* ── 统计卡片 ── */
-function StatCard(_props: { label: string; value: string; change?: string; up?: boolean }, _ctx: WfuiContext) {
-  return (props: { label: string; value: string; change?: string; up?: boolean }) =>
-    (
-    <div class="wf-surface wf-stack"
-         style="padding: var(--wf-space-lg); background: var(--wf-color-bg); text-align: center; --wf-gap: 4px">
-      <span style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-secondary); text-transform: uppercase;
-                   letter-spacing: 0.5px">{props.label}</span>
-      <span style="font-size: var(--wf-font-size-4xl); font-weight: var(--wf-font-weight-bold);
-                   color: var(--wf-color-text)">{props.value}</span>
-      {props.change && <span class={`stat-change ${props.up ? 'up' : 'down'}`}>{props.change}</span>}
-    </div>
-    )
-}
 
 /* ── Dashboard 页面 ── */
 function Dashboard(_props: {}, ctx: WfuiContext) {
   let dark = false
   const users = [
-    { avatar: 'A', name: 'Alice', email: 'alice@example.com', status: 'active' },
-    { avatar: 'B', name: 'Bob', email: 'bob@example.com', status: 'offline' },
-    { avatar: 'C', name: 'Charlie', email: 'charlie@example.com', status: 'active' },
+    { name: 'Alice', email: 'alice@example.com', status: 'active' },
+    { name: 'Bob', email: 'bob@example.com', status: 'offline' },
+    { name: 'Charlie', email: 'charlie@example.com', status: 'active' },
   ]
 
   function toggleTheme() {
@@ -63,87 +33,78 @@ function Dashboard(_props: {}, ctx: WfuiContext) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
   }
 
-  const statusColor = (status: string) =>
-    status === 'active' ? 'var(--wf-color-success)' : 'var(--wf-color-text-tertiary)'
-  const dotColor = (status: string) =>
-    status === 'active' ? 'var(--wf-color-success)' : 'var(--wf-color-text-disabled)'
-
   return (__props: {}) =>
     (
-    <div class="wf-stack" style="--wf-gap: var(--wf-space-xl); max-width: 1000px; margin: 0 auto; padding: var(--wf-space-xl)">
+    <div class="wf-container wf-stack wf-gap-2xl wf-p-xl wf-mx-auto" style="--wf-max:1000px">
+      {/* ── 顶栏 ── */}
       <div class="wf-split">
-        <div class="wf-row" style="--wf-gap: var(--wf-space-sm)">
-          <div class="user-avatar">W</div>
-          <div class="wf-stack" style="--wf-gap: 2px">
-            <span style="font-size: var(--wf-font-size-lg); font-weight: var(--wf-font-weight-semibold);
-                         color: var(--wf-color-text)">WeiFuWu</span>
-            <span style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">管理后台</span>
+        <div class="wf-row wf-gap-sm">
+          <Avatar name="W" />
+          <div class="wf-stack wf-gap-xs">
+            <span class="wf-text-lg wf-text-semibold">WeiFuWu</span>
+            <span class="wf-text-xs wf-text-tertiary">管理后台</span>
           </div>
         </div>
-        <div class="wf-row" style="--wf-gap: var(--wf-space-sm)">
-          <button class="wf-row" style="--wf-gap: 6px; padding: 6px 12px; cursor: pointer;
-                  background: var(--wf-color-bg); border: var(--wf-border-width) solid var(--wf-color-border);
-                  border-radius: var(--wf-radius); color: var(--wf-color-text); font-size: var(--wf-font-size-base)"
-                  onClick={toggleTheme}>
-            <span>{dark ? '☀️' : '🌙'}</span>
-            <span>{dark ? '亮色' : '暗色'}</span>
-          </button>
-          <div class="user-avatar" style="cursor: pointer">{dark ? '🌙' : '☀️'}</div>
+        <div class="wf-row wf-gap-sm">
+          <Button variant="secondary" size="sm" onClick={toggleTheme}>
+            {dark ? '☀️ 亮色' : '🌙 暗色'}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={toggleTheme}>{dark ? '🌙' : '☀️'}</Button>
         </div>
       </div>
 
-      <PageHead title="仪表盘" sub="欢迎回来，这是今天的概览">
-        <button style="padding: 8px 16px; background: var(--wf-color-primary); color: #fff;
-                       border: none; border-radius: var(--wf-radius); cursor: pointer;
-                       font-size: var(--wf-font-size-base); font-weight: var(--wf-font-weight-medium)">+ 新建</button>
-      </PageHead>
+      {/* ── 页头 + 主操作 ── */}
+      <PageHeader title="仪表盘" sub="欢迎回来，这是今天的概览">
+        <Button variant="primary">+ 新建</Button>
+      </PageHeader>
 
-      <div class="wf-row" style="--wf-gap: var(--wf-space-md)">
-        <StatCard label="总用户" value="1,234" change="↑ 12%" up={true} />
-        <StatCard label="活跃用户" value="856" change="↑ 5.2%" up={true} />
-        <StatCard label="新注册" value="48" change="↑ 18.7%" up={true} />
-        <StatCard label="转化率" value="3.2%" change="↓ 0.4%" up={false} />
+      {/* ── 指标卡 ── */}
+      <div class="wf-row wf-gap-lg">
+        <div class="wf-fill"><StatCard label="总用户" value="1,234" icon="👤" trend="up" trendLabel="12%" /></div>
+        <div class="wf-fill"><StatCard label="活跃用户" value="856" icon="⚡" trend="up" trendLabel="5.2%" /></div>
+        <div class="wf-fill"><StatCard label="新注册" value="48" icon="✨" trend="up" trendLabel="18.7%" /></div>
+        <div class="wf-fill"><StatCard label="转化率" value="3.2%" icon="📈" trend="down" trendLabel="0.4%" /></div>
       </div>
 
-      <div class="wf-surface" style="background: var(--wf-color-bg); overflow: hidden">
-        <table class="wf-stack" style="width: 100%; border-collapse: collapse; --wf-gap: 0">
-          <thead>
-            <tr class="wf-row" style="--wf-gap: 0; padding: 0 var(--wf-space-md); border-bottom: var(--wf-border-width) solid var(--wf-color-border);
-                      background: var(--wf-color-bg-secondary)">
-              {['姓名', '邮箱', '状态', '操作'].map(label =>
-                <th class="wf-fill" style="padding: var(--wf-space) var(--wf-space-sm); font-size: var(--wf-font-size-xs);
-                           color: var(--wf-color-text-tertiary); font-weight: var(--wf-font-weight-medium);
-                           text-align: left; text-transform: uppercase; letter-spacing: 0.5px">{label}</th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u: any) =>
-              <tr class="wf-row" style="--wf-gap: 0; padding: 0 var(--wf-space-md); border-bottom: var(--wf-border-width) solid var(--wf-color-border)">
-                <td class="wf-fill wf-row" style="--wf-gap: var(--wf-space-sm); padding: var(--wf-space) var(--wf-space-sm)">
-                  <div class="user-avatar">{u.avatar}</div>
-                  <div style="color: var(--wf-color-text); font-size: var(--wf-font-size-lg)">{u.name}</div>
-                </td>
-                <td class="wf-fill" style="padding: var(--wf-space) var(--wf-space-sm); font-size: var(--wf-font-size-base); color: var(--wf-color-text-secondary)">{u.email}</td>
-                <td class="wf-fill" style="padding: var(--wf-space) var(--wf-space-sm)">
-                  <span class="wf-row" style={{"--wf-gap": "4px", fontSize: "var(--wf-font-size-sm)", color: statusColor(u.status)}}>
-                    <span style={{"width": "6px", height: "6px", borderRadius: "50%", background: dotColor(u.status)}} />
-                    {u.status === 'active' ? '在线' : '离线'}
-                  </span>
-                </td>
-                <td class="wf-fill" style="padding: var(--wf-space) var(--wf-space-sm)">
-                  <a style="color: var(--wf-color-primary); cursor: pointer; font-size: var(--wf-font-size-base);
-                            text-decoration: none">编辑</a>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      {/* ── 用户表 ── */}
+      <div class="wf-surface wf-clip">
+        <Table
+          data={users}
+          columns={[
+            {
+              key: 'name', label: '姓名',
+              render: (v: string, row: any) => (
+                <div class="wf-row wf-gap-sm">
+                  <Avatar name={v} size="sm" />
+                  <span class="wf-text-lg">{v}</span>
+                </div>
+              ),
+            },
+            {
+              key: 'email', label: '邮箱',
+              render: (v: string) => <span class="wf-text-secondary">{v}</span>,
+            },
+            {
+              key: 'status', label: '状态',
+              render: (v: string) => (
+                <span class="wf-row wf-gap-xs wf-text-sm">
+                  <Badge dot variant={v === 'active' ? 'success' : 'default'} />
+                  <span class={v === 'active' ? 'wf-text-success' : 'wf-text-tertiary'}>{v === 'active' ? '在线' : '离线'}</span>
+                </span>
+              ),
+            },
+            {
+              key: 'actions', label: '操作',
+              render: () => <a class="wf-text-base" style="cursor: pointer; text-decoration: none">编辑</a>,
+            },
+          ]}
+        />
       </div>
 
-      <div class="wf-center" style="padding: var(--wf-space-lg) 0">
-        <span style="font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary)">
-          使用 weifuwu/client + weifuwu/layout 构建 · {dark ? '暗色' : '亮色'}模式
+      {/* ── 页脚 ── */}
+      <div class="wf-center wf-py-lg">
+        <span class="wf-text-xs wf-text-tertiary">
+          使用 weifuwu/client + weifuwu/components 构建 · {dark ? '暗色' : '亮色'}模式 · 零自定义 CSS
         </span>
       </div>
 

@@ -12,7 +12,7 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-xs);
   padding: var(--wf-space-xs) var(--wf-space-sm);
-  border-radius: var(--wf-radius-sm);
+  border-radius: var(--wf-tooltip-radius, var(--wf-radius-sm));
   white-space: nowrap;
   pointer-events: none;
   max-width: 240px;

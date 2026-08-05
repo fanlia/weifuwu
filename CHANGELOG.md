@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.59.0 (设计系统 P7：组件变量化 + Token 双层化 + @layer + prose)
+
+> 从"有一套好用的类"到"设计系统融入开发流"：定制组件 = 设一个变量（`--wf-modal-width`），定制主题 = 改一层值（`--wf-brand-500`）——零覆盖 CSS。三个真实应用（agent-platform / aippt / components-demo）已全量删除自研样式文件，纯组件 + 原语运行。
+
+### ✨ New
+
+- **组件 CSS 变量化**（shadcn 模式）：16 个定制钩子，默认值回退现有 token——`--wf-btn-radius/pad-*` `--wf-card-radius/shadow` `--wf-field-radius/height` `--wf-modal-width/radius/shadow` `--wf-drawer-width` `--wf-toast-width/radius` `--wf-alert-radius` `--wf-badge-radius` `--wf-tag-radius` `--wf-switch-radius` `--wf-popover-width/radius` `--wf-tooltip-radius` `--wf-dropdown-min-width` `--wf-datepicker-*`。浏览器实测 `--wf-btn-radius: 999px` 即生效，无 `!important`
+- **Token 双层化**：92 → **115** token（原始层 `--wf-brand-500`/`--wf-slate-*`/`--wf-dark-*` 色值只定义一次 + 语义层组件消费）。品牌换色 = 覆盖 `--wf-brand-500` 一个值全站跟随；多租户品牌两行 CSS
+- **暗色去重**：`--wf-dark-*` 间接层——`_dark.css` 两段只做语义映射，零硬编码色值（style-audit 强制），暗色调校只动原始层
+- **@layer 层叠化**：`@layer tokens, base, layout, utilities, components`——用户未分层 CSS 天然最高优先级；`@layer utilities` 可精准覆盖；build 按文件映射包层，源文件零侵入
+- **`wf-prose`**：富文本正文排版（文章/博客/文档，一个类包 h2-h4/p/ul/ol/blockquote/pre/code/table/hr/img）
+- **命名收尾**：`wf-text-primary`/`wf-bg-primary`（`brand` 保留别名）、`wf-leading-{tight,base,relaxed}`（行高）、`wf-pointer`/`wf-not-allowed`（cursor）
+- **组件新能力**：`SegmentedControl`（分段单选，aria-pressed + focus-visible）、`Card` `active`（选中态）+ `hover`（抬升）、`Avatar` `color` prop（按类型着色）、`Textarea` `showCount`/`maxLength`（字数统计）、`Input` `variant="borderless"`（可编辑标题）、`StatCard` `onClick`（可点击指标卡）
+- **layout 工具类补全**：`wf-p/m/gap-*` 间距（含 `wf-mx-auto`）、`wf-border(-t/b/l/r)`、`wf-rounded-*` + `wf-pill`、`wf-bg-*`/`wf-text-*` 语义色（6 色体系）、`wf-bubble(-own/-ai)` 聊天气泡、`wf-app-shell` 应用外壳（sidebar/nav/main）、`wf-print-hidden/block`、`wf-dim`、`wf-pre-wrap`/`wf-truncate` 排版
+- **应用零 style.css**：agent-platform（删除 `routes.ts` 内 409 行 GLOBAL_CSS + index.html 27 行）、aippt（删除 190 行 style.css）、components-demo（61 行 + 94 处内联）、weifuwu-demo（style.css 删除）——全站只引用 `weifuwu/components/style.css`，浏览器实测 0 非 `wf-*` 类
+
+### 📚 Docs
+
+- `docs/style-guide.md`：统一语法 `wf-<域>-<名>`、三档学习路径（组件 → 10 核心原语 → 速查）、场景速查、变量定制清单
+- `docs/token-layout-optimize.md`：P7 计划与验收记录；`docs/design-system-gaps.md`：P5-P6 走查与转换记录
+- README：布局原语 64 → 67、Token 92 → 115（双层结构）、组件定制钩子章节、@layer 覆盖说明、三档学习路径
+
+### 🧪 Tests
+
+- 794 → **796**：Card active/hover 2 + Input borderless 1 + SegmentedControl 5 + Textarea counter 3 + StatCard onClick + Avatar color
+- style-audit 6 → **8 项**：新增"组件关键视觉 var() 化"（radius/容器宽度禁止裸值）+ "暗色段无硬编码色值"（--wf-dark-* 间接层强制）
+- 796 全绿；三应用 UI 独立编译 + 真实服务 + agent-browser DOM 审计通过
+
+---
+
 ## 0.58.0 (AI 模块：自研 wf: 协议 + 零依赖客户端 + agent 引擎 + 交互原语)
 
 > AI 是 weifuwu 的一等公民：自研 `wf:` 协议（docs/ai-contract.md）+ 零依赖 OpenAI 兼容客户端 + 前端解码器 + agent 工具循环 + HITL 审批 + 交互原语，不用 ai-sdk。

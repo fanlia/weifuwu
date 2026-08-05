@@ -1,4 +1,44 @@
-/* weifuwu/theme — 设计 Token */
+/* weifuwu/theme — 设计 Token（Primitive + Semantic 双层）
+ *
+ * 原始层（Primitive）：色值/暗色值只定义一次。品牌换色/暗色调校只改这一层。
+ * 语义层（Semantic）：组件消费这一层。主题切换 = 覆盖语义映射（见 _dark.css）。
+ */
+
+/* ══ 原始层（Primitive）══ */
+:root {
+  /* 品牌（覆盖 --wf-brand-500 即换主题色，全站跟随） */
+  --wf-brand-500: #4f6ef7;
+  --wf-brand-600: #3b5ae0;
+  --wf-brand-50: #eef1ff;
+
+  /* 语义原始色 */
+  --wf-green-500: #22c55e;  --wf-green-50: #f0fdf4;
+  --wf-amber-500: #f59e0b;  --wf-amber-50: #fffbeb;
+  --wf-red-500: #ef4444;    --wf-red-50: #fef2f2;
+  --wf-sky-500: #1677ff;    --wf-sky-50: #e6f4ff;
+
+  /* 中性 */
+  --wf-slate-900: #0f172a;  --wf-slate-500: #64748b;  --wf-slate-400: #94a3b8;
+  --wf-slate-300: #cbd5e1;  --wf-slate-200: #e2e8f0;  --wf-slate-100: #f1f5f9;
+  --wf-slate-50: #f8fafc;   --wf-white: #ffffff;
+
+  /* 暗色值（暗色模式只做映射，值定义于此） */
+  --wf-dark-brand-500: #6b8aff;  --wf-dark-brand-600: #8ba3ff;  --wf-dark-brand-50: #1e293b;
+  --wf-dark-green-500: #4ade80;  --wf-dark-green-50: #14532d;
+  --wf-dark-amber-500: #fbbf24;  --wf-dark-amber-50: #451a03;
+  --wf-dark-red-500: #f87171;    --wf-dark-red-50: #451a1a;
+  --wf-dark-sky-500: #60a5fa;    --wf-dark-sky-50: #172554;
+  --wf-dark-slate-900: #f1f5f9;  --wf-dark-slate-500: #94a3b8;  --wf-dark-slate-400: #64748b;
+  --wf-dark-slate-300: #475569;  --wf-dark-slate-200: #334155;  --wf-dark-slate-100: #1e293b;
+  --wf-dark-slate-50: #0f172a;   --wf-dark-bg: #0f172a;
+  --wf-dark-surface-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --wf-dark-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --wf-dark-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --wf-dark-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --wf-dark-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+}
+
+/* ══ 语义层（Semantic）— 组件消费 ══ */
 :root {
   /* ── 间距 ── */
   --wf-gap-xs: 4px;
@@ -48,31 +88,31 @@
   --wf-pop-z: var(--wf-z-popover);
   --wf-cover-z: var(--wf-z-modal);
 
-  /* ── 色彩 — 品牌 ── */
-  --wf-color-primary: #4f6ef7;
-  --wf-color-primary-hover: #3b5ae0;
-  --wf-color-primary-bg: #eef1ff;
+  /* ── 色彩 — 品牌（引用原始层） ── */
+  --wf-color-primary: var(--wf-brand-500);
+  --wf-color-primary-hover: var(--wf-brand-600);
+  --wf-color-primary-bg: var(--wf-brand-50);
 
-  --wf-color-success: #22c55e;
-  --wf-color-success-bg: #f0fdf4;
-  --wf-color-warning: #f59e0b;
-  --wf-color-warning-bg: #fffbeb;
-  --wf-color-error: #ef4444;
-  --wf-color-error-bg: #fef2f2;
+  --wf-color-success: var(--wf-green-500);
+  --wf-color-success-bg: var(--wf-green-50);
+  --wf-color-warning: var(--wf-amber-500);
+  --wf-color-warning-bg: var(--wf-amber-50);
+  --wf-color-error: var(--wf-red-500);
+  --wf-color-error-bg: var(--wf-red-50);
 
-  /* ── 色彩 — 中性 ── */
-  --wf-color-text: #0f172a;
-  --wf-color-text-secondary: #64748b;
-  --wf-color-text-tertiary: #94a3b8;
-  --wf-color-text-disabled: #cbd5e1;
+  /* ── 色彩 — 中性（引用原始层） ── */
+  --wf-color-text: var(--wf-slate-900);
+  --wf-color-text-secondary: var(--wf-slate-500);
+  --wf-color-text-tertiary: var(--wf-slate-400);
+  --wf-color-text-disabled: var(--wf-slate-300);
 
-  --wf-color-bg: #ffffff;
-  --wf-color-bg-secondary: #f8fafc;
-  --wf-color-bg-tertiary: #f1f5f9;
+  --wf-color-bg: var(--wf-white);
+  --wf-color-bg-secondary: var(--wf-slate-50);
+  --wf-color-bg-tertiary: var(--wf-slate-100);
 
-  --wf-color-border: #e2e8f0;
-  --wf-color-border-light: #f1f5f9;
-  --wf-color-border-dark: #cbd5e1;
+  --wf-color-border: var(--wf-slate-200);
+  --wf-color-border-light: var(--wf-slate-100);
+  --wf-color-border-dark: var(--wf-slate-300);
 
   /* ── surface 引用色彩 ── */
   --wf-surface-bg: var(--wf-color-bg);
@@ -104,7 +144,7 @@
   /* ── 边框宽度 ── */
   --wf-border-width: 1px;
 
-  /* ── 聚焦环 ── */
+  /* ── 聚焦环（引用 primary-bg，暗色自动跟随） ── */
   --wf-focus-ring: 0 0 0 2px var(--wf-color-primary-bg);
 
   /* ── 动效 ── */
@@ -113,8 +153,8 @@
   --wf-transition: var(--wf-transition-duration) var(--wf-transition-timing);
 
   /* ── 色彩 — 信息（补充） ── */
-  --wf-color-info: #1677ff;
-  --wf-color-info-bg: #e6f4ff;
+  --wf-color-info: var(--wf-sky-500);
+  --wf-color-info-bg: var(--wf-sky-50);
 
   /* ── 表单控件 ── */
   --wf-accent-color: var(--wf-color-primary);
@@ -129,6 +169,9 @@
   --wf-bp-md: 768px;
   --wf-bp-lg: 1024px;
   --wf-bp-xl: 1280px;
+
+  /* ── 应用外壳 ── */
+  --wf-sidebar-width: 240px;
 
   /* ── 透明度 ── */
   --wf-opacity-disabled: 0.5;

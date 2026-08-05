@@ -2,23 +2,23 @@ import { h, type Component } from 'weifuwu/client'
 import type { RouteInjected } from 'weifuwu/client'
 import { SlidePreview } from '../components/SlidePreview'
 import { buildCustomTheme } from '../../src/pptx/theme.ts'
+import { Alert, Button, Input, Loading, Modal } from 'weifuwu/components'
 
 /** 预览页 — 生成结果预览 + 编辑（换主题/自定义品牌/AI 重写/换版式）+ 下载 */
 export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.deck = null
-  $.themes = [] // 预设 + 自定义
+  $.themes = []
   $.loading = true
   $.error = ''
   $.busy = null
   $.busyTheme = false
-  $.showCustom = false // 自定义主题面板
+  $.showCustom = false
   $.customName = ''
   $.customColors = { primary: '#2563EB', bg: '#FFFFFF', text: '#111827', textSecondary: '#4B5563' }
   $.customLogo = ''
   const id = (ctx as any).route?.params?.id
 
-  // 加载 deck + 主题列表
   ;(async () => {
     try {
       const [deckRes, themesRes] = await Promise.all([
@@ -35,7 +35,6 @@ export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
     }
   })()
 
-  /** 当前主题（自定义则构建 Theme 对象供预览/导出） */
   const currentTheme = () => {
     const t = $.themes.find((x: any) => x.id === $.deck?.theme)
     if (t && !t.preset) return buildCustomTheme(t.id, t.name, t.colors, t.logo)
@@ -72,7 +71,7 @@ export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
       if (res.error) throw new Error(res.error)
       $.themes = [...$.themes.filter((x: any) => x.preset), res.theme]
       $.showCustom = false
-      $.busyTheme = false // 释放锁，让 changeTheme 可执行
+      $.busyTheme = false
       await changeTheme(res.theme.id)
     } catch (err: any) {
       $.error = err?.message ?? String(err)
@@ -127,81 +126,80 @@ export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
   const LAYOUT_OPTS = [['bullets', '要点'], ['twoColumn', '双栏'], ['data', '数据']] as const
   const custom = currentTheme()
 
+  const selectOps = (path: string, opts: readonly (readonly [string, string])[], placeholder: string, i: number) =>
+    h('select', {
+      class: 'wf-input wf-w-auto wf-text-sm', value: '',
+      onChange: (e: any) => { if (e.target.value) { postEdit(i, path, e.target.value === 'rewrite' ? { mode: e.target.value } : { layout: e.target.value }); e.target.value = '' } },
+    },
+      h('option', { value: '', disabled: true }, placeholder),
+      ...opts.map(([v, l]) => h('option', { value: v }, l)),
+    )
+
   return () =>
-    h('div', { class: 'deck' },
-      h('div', { class: 'deck-top' },
-        h('button', { class: 'btn ghost', onClick: () => ctx.app.navigate('/') }, '← 新建'),
-        h('h2', { class: 'deck-title' }, $.deck?.title ?? ''),
-        h('div', { class: 'theme-switcher' },
+    h('div', { class: 'wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto', style: { '--wf-max': '1200px' } },
+      h('div', { class: 'wf-row wf-gap-md wf-p-sm wf-print-hidden', style: { position: 'sticky', top: 0, background: 'var(--wf-color-bg)', zIndex: 10, marginBottom: 8 } },
+        h(Button, { variant: 'ghost', size: 'sm', onClick: () => ctx.app.navigate('/') }, '← 新建'),
+        h('h2', { class: 'wf-text-2xl wf-m-0 wf-fill wf-truncate' }, $.deck?.title ?? ''),
+        h('div', { class: 'wf-row wf-gap-xs wf-print-hidden' },
           ($.themes as any[]).map((t) =>
             h('button', {
-              class: `theme-dot${$.deck?.theme === t.id ? ' active' : ''}`,
+              class: 'wf-pill wf-flex-none wf-center',
+              type: 'button',
               title: t.name,
-              style: { background: t.colors?.primary ?? '#6366f1' },
+              style: { background: t.colors?.primary ?? '#6366f1', width: '22px', height: '22px', border: $.deck?.theme === t.id ? '2px solid var(--wf-color-primary)' : '2px solid var(--wf-color-bg)', cursor: 'pointer', fontSize: '10px', color: '#fff', boxShadow: '0 0 0 1px var(--wf-color-border)' },
               onClick: () => changeTheme(t.id),
             }, $.deck?.theme === t.id ? '✓' : ''),
           ),
-          h('button', { class: 'theme-add', title: '自定义品牌主题', onClick: () => { $.showCustom = true; $.error = '' } }, '＋'),
+          h(Button, { size: 'sm', variant: 'ghost', title: '自定义品牌主题', onClick: () => { $.showCustom = true; $.error = '' } }, '＋'),
         ),
         h('a', {
-          class: 'btn',
+          class: 'wf-btn wf-btn--primary wf-btn--sm wf-text-center',
           href: `/api/decks/${id}/export`,
           download: `${($.deck?.title ?? 'deck').replace(/\s+/g, '-')}.pptx`,
         }, '下载 .pptx'),
-        h('button', { class: 'btn ghost', onClick: () => window.print() }, '导出 PDF'),
-        h('button', { class: 'btn ghost', onClick: shareDeck }, '分享'),
+        h(Button, { size: 'sm', variant: 'ghost', onClick: () => window.print() }, '导出 PDF'),
+        h(Button, { size: 'sm', variant: 'ghost', onClick: shareDeck }, '分享'),
       ),
       $.loading
-        ? h('div', { class: 'loading' }, '加载中…')
+        ? h(Loading, {})
         : $.error
-          ? h('div', { class: 'error' }, $.error)
-          : h('div', { class: 'slides' },
+          ? h(Alert, { variant: 'error' }, $.error)
+          : h('div', { class: 'wf-grid', style: { '--wf-cols': 'repeat(auto-fill, minmax(320px, 1fr))' } },
               ($.deck?.slides ?? []).map((s: any, i: number) =>
-                h('div', { class: 'slide-wrap', key: i },
+                h('div', { class: 'wf-stack wf-gap-xs', key: i },
                   h(SlidePreview, { slide: s, themeId: $.deck.theme, index: i, customTheme: custom }),
-                  h('div', { class: 'slide-ops' },
-                    h('select', {
-                      class: 'ops-select', value: '',
-                      onChange: (e: any) => { if (e.target.value) { postEdit(i, 'rewrite', { mode: e.target.value }); e.target.value = '' } },
-                    },
-                      h('option', { value: '', disabled: true }, '✎ AI 重写'),
-                      REWRITE_MODES.map(([v, l]) => h('option', { value: v }, l)),
-                    ),
-                    h('select', {
-                      class: 'ops-select', value: '',
-                      onChange: (e: any) => { if (e.target.value) { postEdit(i, 'relayout', { layout: e.target.value }); e.target.value = '' } },
-                    },
-                      h('option', { value: '', disabled: true }, '▣ 换版式'),
-                      LAYOUT_OPTS.filter(([v]) => v !== s.layout).map(([v, l]) => h('option', { value: v }, l)),
-                    ),
-                    $.busy === i ? h('span', { class: 'ops-busy' }, '处理中…') : null,
+                  h('div', { class: 'wf-row wf-gap-xs wf-print-hidden' },
+                    selectOps('rewrite', REWRITE_MODES, '✎ AI 重写', i),
+                    selectOps('relayout', LAYOUT_OPTS.filter(([v]) => v !== s.layout), '▣ 换版式', i),
+                    $.busy === i ? h('span', { class: 'wf-text-xs wf-text-tertiary' }, '处理中…') : null,
                   ),
                 ),
               ),
             ),
-      $.showCustom
-        ? h('div', { class: 'overlay', onClick: () => $.showCustom = false },
-            h('div', { class: 'custom-panel', onClick: (e: any) => e.stopPropagation() },
-              h('h3', {}, '自定义品牌主题'),
-              h('label', { class: 'lbl' }, '品牌名称'),
-              h('input', { class: 'input', value: $.customName, placeholder: '例如：Acme 品牌', onInput: (e: any) => $.customName = e.target.value }),
-              h('div', { class: 'color-grid' },
-                Object.entries($.customColors).map(([k, v]) =>
-                  h('div', { class: 'color-field', key: k },
-                    h('label', { class: 'lbl' }, k),
-                    h('input', { type: 'color', value: v, onInput: (e: any) => { $.customColors[k] = e.target.value; ctx.ui.render() } }),
-                  ),
-                ),
-              ),
-              h('label', { class: 'lbl' }, 'Logo（PNG，出现在每页右上角）'),
-              h('input', { type: 'file', accept: 'image/png,image/jpeg', onChange: onLogoFile }),
-              $.customLogo ? h('img', { class: 'logo-preview', src: $.customLogo }) : null,
-              h('div', { class: 'custom-actions' },
-                h('button', { class: 'btn ghost', onClick: () => $.showCustom = false }, '取消'),
-                h('button', { class: 'btn', disabled: $.busyTheme, onClick: saveCustomTheme }, $.busyTheme ? '保存中…' : '保存并应用'),
+      h(Modal, {
+        open: $.showCustom,
+        title: '自定义品牌主题',
+        onClose: () => $.showCustom = false,
+        width: '460px',
+        footer: [
+          h(Button, { variant: 'ghost', onClick: () => $.showCustom = false }, '取消'),
+          h(Button, { variant: 'primary', disabled: $.busyTheme, onClick: saveCustomTheme }, $.busyTheme ? '保存中…' : '保存并应用'),
+        ],
+      },
+        h('div', { class: 'wf-stack wf-gap-md' },
+          h(Input, { label: '品牌名称', value: $.customName, placeholder: '例如：Acme 品牌', onInput: (e: any) => $.customName = e.target.value }),
+          h('div', { class: 'wf-grid', style: { '--wf-cols': 'repeat(2, 1fr)' } },
+            Object.entries($.customColors).map(([k, v]) =>
+              h('div', { class: 'wf-row wf-gap-sm wf-split', key: k },
+                h('span', { class: 'wf-text-sm wf-text-medium wf-capitalize' }, k),
+                h('input', { type: 'color', value: v, onInput: (e: any) => { $.customColors[k] = e.target.value; ctx.ui.render() } }),
               ),
             ),
-          )
-        : null,
+          ),
+          h(Input, { label: 'Logo（PNG，出现在每页右上角）', type: 'text', placeholder: '上传 PNG 后自动填入' }),
+          h('input', { type: 'file', accept: 'image/png,image/jpeg', onChange: onLogoFile }),
+          $.customLogo ? h('img', { class: 'wf-surface wf-p-xs', src: $.customLogo, style: 'width: 64px; height: 64px; object-fit: contain' }) : null,
+        ),
+      ),
     )
 }

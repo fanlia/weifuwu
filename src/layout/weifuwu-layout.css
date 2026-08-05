@@ -33,4 +33,8 @@
 @import './_layer.css';
 @import './_nowrap.css';
 @import './_shrink.css';
+@import './_spacing.css';
+@import './_app-shell.css';
+@import './_border.css';
 @import './_text.css';
+@import './_prose.css';

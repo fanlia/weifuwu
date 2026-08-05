@@ -51,4 +51,23 @@ describe('Textarea', () => {
     assert.ok(err, 'should have error element')
     assert.equal(err.props.children, '必填')
   })
+
+  it('forwards maxLength to the textarea', () => {
+    const vnode = renderVNode(Textarea, { maxLength: 120 }, mockCtx())!
+    const ta = childrenOf(vnode).find((c: any) => c?.type === 'textarea')
+    assert.equal(ta.props.maxLength, 120)
+  })
+
+  it('shows counter with value length and max', () => {
+    const vnode = renderVNode(Textarea, { value: 'hello', maxLength: 10, showCount: true }, mockCtx())!
+    const count = childrenOf(vnode).find((c: any) => c?.props?.class === 'wf-textarea-count')
+    assert.ok(count, 'should have counter element')
+    assert.equal(count.props.children, '5/10')
+  })
+
+  it('marks counter over limit', () => {
+    const vnode = renderVNode(Textarea, { value: '超出长度', maxLength: 2, showCount: true }, mockCtx())!
+    const count = childrenOf(vnode).find((c: any) => c?.props?.class?.includes('wf-textarea-count--over'))
+    assert.ok(count, 'counter should have over class')
+  })
 })

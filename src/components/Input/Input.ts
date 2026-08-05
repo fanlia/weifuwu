@@ -11,16 +11,18 @@ export interface InputProps {
   disabled?: boolean
   error?: string
   hint?: string
+  /** 边框变体：borderless 用于可编辑标题/内联编辑（hover/focus 才显边框） */
+  variant?: 'default' | 'borderless'
   onInput?: (e: Event) => void
   onChange?: (e: Event) => void
 }
 
 export const Input: Component<InputProps> = (_init) =>
   (props) => {
-  const { label, name, type = 'text', value, placeholder, required, disabled, error, hint, onInput, onChange } = props
+  const { label, name, type = 'text', value, placeholder, required, disabled, error, hint, variant = 'default', onInput, onChange } = props
 
   const inputEl = h('input', {
-    class: 'wf-input',
+    class: `wf-input${variant === 'borderless' ? ' wf-input--borderless' : ''}`,
     name: name || undefined,
     type,
     value: value ?? '',

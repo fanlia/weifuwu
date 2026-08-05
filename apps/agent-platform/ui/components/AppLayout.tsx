@@ -1,5 +1,6 @@
 import { RouteView } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
+import { Avatar, Button } from 'weifuwu/components'
 
 interface NavDef {
   path: string
@@ -22,13 +23,12 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
   // ── 认证守卫 ──
   if (!ctx.auth?.isLoggedIn) {
     queueMicrotask(() => ctx.app?.navigate('/login'))
-    return (__props: {}) => <div class="boot-loading"><div class="spinner"></div></div>
+    return (__props: {}) => <div class="wf-center wf-h-full"><Loading /></div>
   }
 
   const user = ctx.auth?.user
   const userName = user?.name ?? '用户'
   const userMail = user?.email ?? ''
-  const avaChar = userName[0]?.toUpperCase() ?? 'U'
 
   function go(e: Event, to: string) {
     e.preventDefault()
@@ -41,44 +41,46 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
   }
 
   return (__props: {}) => (
-    <div class="app-shell">
-      <aside class="sidebar">
-        <div class="side-brand">
-          <div class="side-logo">A</div>
-          <div class="side-name">
-            Agent Platform
-            <small>MULTI-TENANT AI</small>
+    <div class="wf-app-shell">
+      <aside class="wf-sidebar">
+        <div class="wf-sidebar-header">
+          <Avatar name="A" />
+          <div class="wf-stack wf-gap-none">
+            <span class="wf-text-base wf-text-semibold">Agent Platform</span>
+            <small class="wf-uppercase wf-tracking-wide">Multi-Tenant AI</small>
           </div>
         </div>
 
-        <nav class="side-nav">
-          <div class="nav-group">工作台</div>
-          {NAV.map(item => (
-            <a
-              href={item.path}
-              class={`nav-item${item.match(route) ? ' active' : ''}`}
-              onClick={(e: any) => go(e, item.path)}
-            >
-              <span class="nav-ico">{item.icon}</span>
-              {item.label}
-            </a>
-          ))}
-        </nav>
+        <div class="wf-sidebar-body">
+          <nav class="wf-nav">
+            <div class="wf-nav-group">工作台</div>
+            {NAV.map(item => (
+              <a
+                href={item.path}
+                class={`wf-nav-item${item.match(route) ? ' wf-nav-item--active' : ''}`}
+                onClick={(e: any) => go(e, item.path)}
+              >
+                <span class="wf-nav-icon">{item.icon}</span>
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </div>
 
-        <div class="side-footer">
-          <div class="user-chip">
-            <div class="user-ava">{avaChar}</div>
-            <div class="user-meta">
-              <div class="user-name">{userName}</div>
-              <div class="user-mail">{userMail}</div>
+        <div class="wf-sidebar-footer">
+          <div class="wf-surface wf-row wf-gap-sm wf-p-sm">
+            <Avatar name={userName} size="sm" />
+            <div class="wf-fill wf-stack wf-gap-none wf-shrink">
+              <div class="wf-text-sm wf-text-semibold wf-truncate">{userName}</div>
+              <div class="wf-text-xs wf-text-tertiary wf-truncate">{userMail}</div>
             </div>
-            <button class="btn-logout" title="设置" onClick={() => ctx.app?.navigate('/settings')}>⚙</button>
-            <button class="btn-logout" title="退出登录" onClick={logout}>⏻</button>
+            <Button size="sm" variant="ghost" title="设置" onClick={() => ctx.app?.navigate('/settings')}>⚙</Button>
+            <Button size="sm" variant="ghost" title="退出登录" onClick={logout}>⏻</Button>
           </div>
         </div>
       </aside>
 
-      <main class="main">
+      <main class="wf-main">
         <RouteView />
       </main>
     </div>

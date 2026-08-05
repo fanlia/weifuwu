@@ -43,4 +43,20 @@ describe('Card', () => {
     assert.match(sm.props.class, /wf-card--pad-sm/)
     assert.match(lg.props.class, /wf-card--pad-lg/)
   })
+
+  it('applies hover lift class', () => {
+    const vnode = renderVNode(Card, { hover: true, children: '悬停' }, mockCtx())!
+    assert.match(vnode.props.class, /wf-card--hover/)
+  })
+
+  it('clickable + hover can combine', () => {
+    const vnode = renderVNode(Card, { clickable: true, hover: true, children: 'x' }, mockCtx())!
+    assert.match(vnode.props.class, /wf-card--clickable/)
+    assert.match(vnode.props.class, /wf-card--hover/)
+  })
+
+  it('applies active selected state', () => {
+    const vnode = renderVNode(Card, { active: true, children: 'x' }, mockCtx())!
+    assert.match(vnode.props.class, /wf-card--active/)
+  })
 })

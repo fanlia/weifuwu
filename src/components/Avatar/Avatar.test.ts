@@ -39,6 +39,11 @@ describe('Avatar', () => {
     assert.match(sm.props.class, /wf-avatar--sm/)
     assert.match(lg.props.class, /wf-avatar--lg/)
   })
+
+  it('color prop overrides hashed background', () => {
+    const vnode = renderVNode(Avatar, { name: '张三', color: '#4f6ef7' }, mockCtx())!
+    assert.equal(vnode.props.style.background, '#4f6ef7')
+  })
 })
 
   it('renders img with src', () => {

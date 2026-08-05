@@ -1,5 +1,6 @@
 import { h, type Component } from 'weifuwu/client'
 import { SlidePreview } from '../components/SlidePreview'
+import { Alert, Badge, Button, Loading } from 'weifuwu/components'
 
 /** 分享只读预览页（无登录可看，无编辑能力） */
 export const Share: Component = (_init, ctx) => {
@@ -22,21 +23,21 @@ export const Share: Component = (_init, ctx) => {
   })()
 
   return () =>
-    h('div', { class: 'deck' },
-      h('div', { class: 'deck-top' },
-        h('span', { class: 'share-badge' }, '🔗 分享预览'),
-        h('h2', { class: 'deck-title' }, $.deck?.title ?? ''),
+    h('div', { class: 'wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto', style: { '--wf-max': '1200px' } },
+      h('div', { class: 'wf-row wf-gap-md wf-p-sm wf-print-hidden', style: { position: 'sticky', top: 0, background: 'var(--wf-color-bg)', zIndex: 10, marginBottom: 8 } },
+        h(Badge, { variant: 'success' }, '🔗 分享预览'),
+        h('h2', { class: 'wf-text-2xl wf-m-0 wf-fill wf-truncate' }, $.deck?.title ?? ''),
         $.deck
-          ? h('button', { class: 'btn ghost', onClick: () => window.print() }, '导出 PDF')
+          ? h(Button, { size: 'sm', variant: 'ghost', onClick: () => window.print() }, '导出 PDF')
           : null,
       ),
       $.loading
-        ? h('div', { class: 'loading' }, '加载中…')
+        ? h(Loading, {})
         : $.error
-          ? h('div', { class: 'error' }, $.error)
-          : h('div', { class: 'slides' },
+          ? h(Alert, { variant: 'error' }, $.error)
+          : h('div', { class: 'wf-grid', style: { '--wf-cols': 'repeat(auto-fill, minmax(320px, 1fr))' } },
               ($.deck?.slides ?? []).map((s: any, i: number) =>
-                h('div', { class: 'slide-wrap', key: i },
+                h('div', { class: 'wf-stack wf-gap-xs', key: i },
                   h(SlidePreview, { slide: s, themeId: $.deck.theme, index: i }),
                 ),
               ),

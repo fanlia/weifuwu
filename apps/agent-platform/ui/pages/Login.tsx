@@ -1,5 +1,7 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { setRefreshToken } from '../lib/api'
+import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
+import { Avatar } from 'weifuwu/components'
 
 export const Login: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -10,7 +12,6 @@ $.email = ''; $.password = ''; $.error = ''; $.loading = false
     if (!$.email || !$.password) { $.error = '请输入邮箱和密码'; return }
     $.loading = true
     $.error = ''
-   
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -26,42 +27,38 @@ $.email = ''; $.password = ''; $.error = ''; $.loading = false
     } catch {
       $.error = '网络错误，请检查连接后重试'
       $.loading = false
-     
     }
-
   }
   return (props) => (
-    <div class="auth-page">
-      <div class="auth-card">
-        <div class="auth-logo">A</div>
-        <div class="auth-title">登录</div>
-        <div class="auth-sub">Agent Platform — 多租户 AI 平台</div>
+    <div class="wf-center wf-p-xl wf-bg-secondary" style="min-height: 100vh">
+      <Card>
+        <div class="wf-stack wf-gap-sm wf-text-center wf-mb-lg">
+          <div class="wf-center"><Avatar name="A" size="lg" /></div>
+          <div class="wf-text-2xl wf-text-semibold">登录</div>
+          <div class="wf-text-sm wf-text-secondary">Agent Platform — 多租户 AI 平台</div>
+        </div>
 
-        {$.error && <div class="alert alert-err">{$.error}</div>}
+        <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
 
-        <form onSubmit={handleLogin}>
-          <div class="field">
-            <label class="field-label">邮箱 <span class="req">*</span></label>
-            <input class="input" type="email" placeholder="you@example.com"
-              value={$.email}
+        <form class="wf-stack wf-gap-md" onSubmit={handleLogin}>
+          <Field label="邮箱" required>
+            <Input type="email" placeholder="you@example.com" value={$.email}
               onInput={(e: any) => { $.email = e.target.value }} />
-          </div>
-          <div class="field">
-            <label class="field-label">密码 <span class="req">*</span></label>
-            <input class="input" type="password" placeholder="••••••••"
-              value={$.password}
+          </Field>
+          <Field label="密码" required>
+            <Input type="password" placeholder="••••••••" value={$.password}
               onInput={(e: any) => { $.password = e.target.value }} />
-          </div>
-          <button class="btn btn-primary btn-block" type="submit" disabled={$.loading}>
+          </Field>
+          <Button variant="primary" block type="submit" disabled={$.loading}>
             {$.loading ? '登录中...' : '登 录'}
-          </button>
+          </Button>
         </form>
 
-        <div class="auth-alt">
+        <div class="wf-text-sm wf-text-secondary wf-mt-lg wf-text-center">
           还没有账号？
           <a onClick={() => ctx.app?.navigate('/register')}>立即注册</a>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

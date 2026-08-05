@@ -68,4 +68,11 @@ describe('Input', () => {
     assert.equal(vnode.type, 'input')
     assert.equal(vnode.props.type, 'email')
   })
+
+  it('applies borderless variant class', () => {
+    const vnode = renderVNode(Input, { variant: 'borderless' }, mockCtx())!
+    assert.match(vnode.props.class, /wf-input--borderless/)
+    const plain = renderVNode(Input, {}, mockCtx())!
+    assert.doesNotMatch(plain.props.class, /--borderless/)
+  })
 })

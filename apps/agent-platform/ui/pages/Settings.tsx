@@ -1,5 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader } from '../components/ui'
+import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
 
 export const Settings: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -47,53 +48,49 @@ export const Settings: Component = (_props, ctx) => {
     finally { $.pwdSubmitting = false }
   }
   return (props) => (
-    <div class="page page-narrow">
+    <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
       <PageHeader title="个人设置" sub="管理你的账号信息" />
 
-      <div class="card card-pad" style={{ marginBottom: '16px' }}>
-        <div class="sect-title" style={{ marginBottom: '16px' }}>基本资料</div>
-        {$.nameOk && <div class="alert alert-ok">{$.nameOk}</div>}
-        {$.nameErr && <div class="alert alert-err">{$.nameErr}</div>}
-        <form onSubmit={updateName}>
-          <div class="field">
-            <label class="field-label">姓名</label>
-            <input class="input" type="text" value={$.name}
-              onInput={(e: any) => { $.name = e.target.value }} />
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">基本资料</div>
+        <div class="wf-mb-md">{$.nameOk && <Alert variant="success">{$.nameOk}</Alert>}</div>
+        <div class="wf-mb-md">{$.nameErr && <Alert variant="error">{$.nameErr}</Alert>}</div>
+        <form class="wf-stack wf-gap-md" onSubmit={updateName}>
+          <Field label="姓名">
+            <Input type="text" value={$.name} onInput={(e: any) => { $.name = e.target.value }} />
+          </Field>
+          <div class="wf-right">
+            <Button type="submit" variant="primary" disabled={$.nameSubmitting}>
+              {$.nameSubmitting ? '保存中...' : '保存'}
+            </Button>
           </div>
-          <button type="submit" class="btn btn-primary" disabled={$.nameSubmitting}>
-            {$.nameSubmitting ? '保存中...' : '保存'}
-          </button>
         </form>
-      </div>
+      </Card>
 
-      <div class="card card-pad">
-        <div class="sect-title" style={{ marginBottom: '16px' }}>修改密码</div>
-        {$.pwdOk && <div class="alert alert-ok">{$.pwdOk}</div>}
-        {$.pwdErr && <div class="alert alert-err">{$.pwdErr}</div>}
-        <form onSubmit={updatePassword}>
-          <div class="field">
-            <label class="field-label">当前密码</label>
-            <input class="input" type="password" placeholder="••••••••"
-              value={$.currentPassword}
+      <Card>
+        <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">修改密码</div>
+        <div class="wf-mb-md">{$.pwdOk && <Alert variant="success">{$.pwdOk}</Alert>}</div>
+        <div class="wf-mb-md">{$.pwdErr && <Alert variant="error">{$.pwdErr}</Alert>}</div>
+        <form class="wf-stack wf-gap-md" onSubmit={updatePassword}>
+          <Field label="当前密码">
+            <Input type="password" placeholder="••••••••" value={$.currentPassword}
               onInput={(e: any) => { $.currentPassword = e.target.value }} />
-          </div>
-          <div class="field">
-            <label class="field-label">新密码</label>
-            <input class="input" type="password" placeholder="至少 6 位"
-              value={$.newPassword}
+          </Field>
+          <Field label="新密码">
+            <Input type="password" placeholder="至少 6 位" value={$.newPassword}
               onInput={(e: any) => { $.newPassword = e.target.value }} />
-          </div>
-          <div class="field">
-            <label class="field-label">确认新密码</label>
-            <input class="input" type="password" placeholder="再次输入新密码"
-              value={$.confirmPassword}
+          </Field>
+          <Field label="确认新密码">
+            <Input type="password" placeholder="再次输入新密码" value={$.confirmPassword}
               onInput={(e: any) => { $.confirmPassword = e.target.value }} />
+          </Field>
+          <div class="wf-right">
+            <Button type="submit" variant="primary" disabled={$.pwdSubmitting}>
+              {$.pwdSubmitting ? '修改中...' : '修改密码'}
+            </Button>
           </div>
-          <button type="submit" class="btn btn-primary" disabled={$.pwdSubmitting}>
-            {$.pwdSubmitting ? '修改中...' : '修改密码'}
-          </button>
         </form>
-      </div>
+      </Card>
     </div>
   )
 }

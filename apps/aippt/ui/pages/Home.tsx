@@ -1,6 +1,7 @@
 import { h, type Component } from 'weifuwu/client'
 import type { ApiInjected } from 'weifuwu/client'
 import type { RouteInjected } from 'weifuwu/client'
+import { Alert, Button, Card, Field, SegmentedControl, Select, Textarea } from 'weifuwu/components'
 
 /** 创建页 — 一句话 / 从文档生成 PPT */
 export const Home: Component<{}, ApiInjected & RouteInjected> = (_init, ctx) => {
@@ -59,73 +60,86 @@ export const Home: Component<{}, ApiInjected & RouteInjected> = (_init, ctx) => 
   ]
 
   return () =>
-    h('div', { class: 'home' },
-      h('div', { class: 'home-hero' },
-        h('div', { class: 'logo' }, '⛰'),
-        h('h1', {}, 'aippt'),
-        h('p', {}, 'AI PPT 生成引擎 — 一句话或一份文档，生成专业演示文稿'),
-        h('a', { class: 'history-link', href: '/history' }, '我的演示文稿 →'),
+    h('div', { class: 'wf-container wf-stack wf-gap-xl wf-p-xl wf-mx-auto', style: { '--wf-max': '560px' } },
+      h('div', { class: 'wf-stack wf-gap-xs wf-text-center' },
+        h('div', { class: 'wf-text-5xl' }, '⛰'),
+        h('h1', { class: 'wf-text-3xl wf-m-0' }, 'aippt'),
+        h('p', { class: 'wf-text-base wf-text-secondary wf-m-0' }, 'AI PPT 生成引擎 — 一句话或一份文档，生成专业演示文稿'),
+        h('a', { class: 'wf-text-brand wf-text-sm', href: '/history' }, '我的演示文稿 →'),
       ),
-      h('div', { class: 'home-card' },
-        h('div', { class: 'mode-tabs' },
-          h('button', { class: `mode-tab${$.mode === 'topic' ? ' active' : ''}`, onClick: () => { $.mode = 'topic'; $.error = '' } }, '一句话生成'),
-          h('button', { class: `mode-tab${$.mode === 'doc' ? ' active' : ''}`, onClick: () => { $.mode = 'doc'; $.error = '' } }, '从文档生成'),
-        ),
-        $.mode === 'topic'
-          ? h('textarea', {
-              class: 'input', rows: 3,
-              placeholder: '例如：2025 年 AI 技术趋势，面向技术团队的路演',
-              value: $.topic,
-              onInput: (e: any) => $.topic = e.target.value,
-            })
-          : h('div', { class: 'doc-input' },
-              h('textarea', {
-                class: 'input doc-area', rows: 8,
-                placeholder: '粘贴你的材料（报告 / 方案 / 讲义 / 纪要，50-4000 字）…',
-                value: $.doc,
-                onInput: (e: any) => $.doc = e.target.value,
-              }),
-              h('div', { class: 'doc-count' }, `${$.doc.length} 字${$.doc.length > 4000 ? '（已超出，将截断处理）' : ''}`),
-            ),
-        h('div', { class: 'row' },
-          h('div', { class: 'field' },
-            h('label', { class: 'lbl' }, '页数'),
-            h('select', { class: 'input', value: String($.pages), onChange: (e: any) => $.pages = Number(e.target.value) },
-              [5, 8, 10, 12, 15].map((n) => h('option', { value: String(n) }, `${n} 页`)),
-            ),
-          ),
-          h('div', { class: 'field' },
-            h('label', { class: 'lbl' }, '风格'),
-            h('select', { class: 'input', value: $.style, onChange: (e: any) => $.style = e.target.value },
-              styles.map(([v, l]) => h('option', { value: v }, l)),
-            ),
-          ),
-        ),
-        $.templates.length > 0
-          ? h('div', { class: 'template-row' },
-              h('label', { class: 'lbl' }, '模板（可选，决定大纲结构）'),
-              h('div', { class: 'template-list' },
-                $.templates.map((t: any) =>
-                  h('button', {
-                    class: `template-chip${$.template === t.id ? ' active' : ''}`,
-                    key: t.id,
-                    onClick: () => pickTemplate(t),
-                    title: t.description,
-                  }, `${t.icon} ${t.name}`),
-                ),
+      h(Card, { padding: 'lg' },
+        h('div', { class: 'wf-stack wf-gap-md' },
+          h(SegmentedControl, {
+            value: $.mode,
+            onChange: (v: string) => { $.mode = v; $.error = '' },
+            options: [
+              { value: 'topic', label: '一句话生成' },
+              { value: 'doc', label: '从文档生成' },
+            ],
+          }),
+          $.mode === 'topic'
+            ? h(Textarea, {
+                rows: 3,
+                placeholder: '例如：2025 年 AI 技术趋势，面向技术团队的路演',
+                value: $.topic,
+                onInput: (e: any) => $.topic = e.target.value,
+              })
+            : h('div', { class: 'wf-stack wf-gap-xs' },
+                h(Textarea, {
+                  rows: 8,
+                  placeholder: '粘贴你的材料（报告 / 方案 / 讲义 / 纪要，50-4000 字）…',
+                  value: $.doc,
+                  onInput: (e: any) => $.doc = e.target.value,
+                }),
+                h('div', { class: 'wf-text-xs wf-text-tertiary wf-text-right' }, `${$.doc.length} 字${$.doc.length > 4000 ? '（已超出，将截断处理）' : ''}`),
               ),
-            )
-          : null,
-        h('label', { class: 'lbl' }, '受众（可选）'),
-        h('input', {
-          class: 'input',
-          placeholder: '例如：投资人 / 学生 / 内部团队',
-          value: $.audience,
-          onInput: (e: any) => $.audience = e.target.value,
-        }),
-        $.error ? h('div', { class: 'error' }, $.error) : null,
-        h('button', { class: 'btn', disabled: $.loading, onClick: submit }, $.loading ? '生成中…' : '生成大纲 →'),
-        h('div', { class: 'hint' }, '第一步生成大纲（约 10 秒），确认后可逐页生成完整内容'),
+          h('div', { class: 'wf-row wf-gap-md' },
+            h('div', { class: 'wf-fill' },
+              h(Select, {
+                label: '页数',
+                value: String($.pages),
+                onChange: (v: string) => $.pages = Number(v),
+                options: [5, 8, 10, 12, 15].map((n) => ({ value: String(n), label: `${n} 页` })),
+              }),
+            ),
+            h('div', { class: 'wf-fill' },
+              h(Select, {
+                label: '风格',
+                value: $.style,
+                onChange: (v: string) => $.style = v,
+                options: styles.map(([v, l]) => ({ value: v, label: l })),
+              }),
+            ),
+          ),
+          $.templates.length > 0
+            ? h('div', { class: 'wf-stack wf-gap-xs' },
+                h('label', { class: 'wf-text-sm wf-text-medium' }, '模板（可选，决定大纲结构）'),
+                h('div', { class: 'wf-row wf-gap-xs wf-cluster' },
+                  $.templates.map((t: any) =>
+                    h('button', {
+                      class: `wf-pill wf-px-md wf-py-xs wf-text-sm${$.template === t.id ? ' wf-bg-brand wf-text-brand' : ' wf-bg-tertiary wf-text-secondary'}`,
+                      type: 'button',
+                      key: t.id,
+                      onClick: () => pickTemplate(t),
+                      title: t.description,
+                      style: 'cursor: pointer; border: none; font-family: inherit',
+                    }, `${t.icon} ${t.name}`),
+                  ),
+                ),
+              )
+            : null,
+          h(Field, { label: '受众（可选）' },
+            h('input', {
+              class: 'wf-input',
+              placeholder: '例如：投资人 / 学生 / 内部团队',
+              value: $.audience,
+              onInput: (e: any) => $.audience = e.target.value,
+            }),
+          ),
+          $.error ? h(Alert, { variant: 'error' }, $.error) : null,
+          h(Button, { variant: 'primary', block: true, disabled: $.loading, onClick: submit }, $.loading ? '生成中…' : '生成大纲 →'),
+          h('div', { class: 'wf-text-xs wf-text-tertiary wf-text-center' }, '第一步生成大纲（约 10 秒），确认后可逐页生成完整内容'),
+        ),
       ),
     )
 }

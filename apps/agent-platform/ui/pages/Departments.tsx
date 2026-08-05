@@ -1,5 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
-import { PageHeader, EmptyState, Loading } from '../components/ui'
+import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
+import { Badge, Button, Card } from 'weifuwu/components'
 
 export const Departments: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -14,38 +15,36 @@ export const Departments: Component = (_props, ctx) => {
     const res = await fetch(`/api/departments/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${ctx.auth?.token}` } })
     if (res.ok || res.status === 204) {
       $.depts = $.depts.filter((d: any) => d.id !== id)
-     
     }
-
   }
   return (props) => (
-    <div class="page">
+    <div class="wf-stack wf-gap-lg">
       <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">
-        <button class="btn btn-primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</button>
+        <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
       </PageHeader>
 
       {$.loading && <Loading />}
       {!$.loading && $.depts.length === 0 && <EmptyState icon="👥" text="暂无部门" hint="点击上方按钮创建第一个部门" />}
 
       {$.depts.length > 0 && (
-        <div class="grid-cards">
+        <div class="wf-grid">
           {$.depts.map((d: any) => (
-            <div key={d.id} class="item-card" onClick={() => ctx.app?.navigate(`/departments/${d.id}`)}>
-              <div class="item-top">
-                <div class={`ava ava-sm ${d.is_dm ? 'ava-user' : 'ava-knowledge_base'}`}>{d.is_dm ? '💬' : '👥'}</div>
-                <div class="item-name">{d.name ?? '未命名'}</div>
-                {d.is_dm ? <span class="badge badge-user">单聊</span> : <span class="badge badge-gray">群聊</span>}
+            <Card key={d.id} clickable hover onClick={() => ctx.app?.navigate(`/departments/${d.id}`)}>
+              <div class="wf-row wf-gap-sm">
+                <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} />
+                <div class="wf-fill wf-text-base wf-text-semibold wf-truncate">{d.name ?? '未命名'}</div>
+                <Badge variant={d.is_dm ? 'primary' : 'default'}>{d.is_dm ? '单聊' : '群聊'}</Badge>
               </div>
-              <div class="item-desc">{d.company_name ? `所属公司：${d.company_name}` : '跨部门协作群组'}</div>
-              <div class="item-foot">
-                <span class="item-meta">{d.member_count ?? 0} 位成员</span>
-                <div class="item-acts">
-                  <button class="btn btn-ghost btn-sm"
-                    onClick={(e: any) => { e.stopPropagation(); ctx.app?.navigate(`/chat/${d.id}`) }}>聊天</button>
-                  <button class="btn btn-danger btn-sm" onClick={(e: any) => remove(e, d.id)}>删除</button>
+              <div class="wf-text-sm wf-text-secondary wf-mt-sm">{d.company_name ? `所属公司：${d.company_name}` : '跨部门协作群组'}</div>
+              <div class="wf-split wf-mt-md">
+                <span class="wf-text-xs wf-text-tertiary">{d.member_count ?? 0} 位成员</span>
+                <div class="wf-row wf-gap-sm">
+                  <Button size="sm" variant="ghost"
+                    onClick={(e: any) => { e.stopPropagation(); ctx.app?.navigate(`/chat/${d.id}`) }}>聊天</Button>
+                  <Button size="sm" variant="danger" onClick={(e: any) => remove(e, d.id)}>删除</Button>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

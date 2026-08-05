@@ -1,0 +1,6 @@
+/* 边框工具类 — 全部引用 --wf-border-width / --wf-color-border */
+.wf-border { border: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-t { border-top: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-b { border-bottom: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-l { border-left: var(--wf-border-width) solid var(--wf-color-border); }
+.wf-border-r { border-right: var(--wf-border-width) solid var(--wf-color-border); }

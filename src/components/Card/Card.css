@@ -1,13 +1,13 @@
 /* weifuwu/components — Card */
 
 .wf-card {
-  border-radius: var(--wf-surface-radius);
+  border-radius: var(--wf-card-radius, var(--wf-surface-radius));
   background: var(--wf-surface-bg);
   font-family: var(--wf-font-sans);
 }
 
 .wf-card--default {
-  box-shadow: var(--wf-surface-shadow);
+  box-shadow: var(--wf-card-shadow, var(--wf-surface-shadow));
 }
 
 .wf-card--outlined {
@@ -30,4 +30,20 @@
 .wf-card--clickable:focus-visible {
   outline: none;
   box-shadow: var(--wf-shadow-md), var(--wf-focus-ring);
+}
+
+/* hover 抬升变体 — 阴影 + 上移（悬停卡片/列表卡片） */
+.wf-card--hover {
+  transition: box-shadow var(--wf-transition), transform var(--wf-transition);
+}
+
+.wf-card--hover:hover {
+  box-shadow: var(--wf-shadow-md);
+  transform: translateY(-2px);
+}
+
+/* 选中态 — 选择卡片（类型选择/模板选择） */
+.wf-card--active {
+  border: var(--wf-border-width) solid var(--wf-color-primary);
+  background: var(--wf-color-primary-bg);
 }

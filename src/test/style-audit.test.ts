@@ -95,11 +95,9 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it(':root token 数量与 README 声明同步', () => {
-    const layoutCss = readLayoutCss()
-    const rootBlock = layoutCss.match(/^:root \{([^}]*)\n\}/m)?.[1]
-    assert.ok(rootBlock, ':root token 块缺失')
-    const count = (rootBlock.match(/^ {2}--wf-/gm) || []).length
-    assert.ok(count > 80, `token 数异常: ${count}`)
+    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const count = (tokens.match(/^ {2}--wf-/gm) || []).length
+    assert.ok(count > 100, `token 数异常: ${count}`)
 
     const readme = readFileSync(join(root, 'README.md'), 'utf-8')
     assert.match(readme, new RegExp(`${count} 个主题 Token`), `README 应声明 ${count} 个主题 Token`)
@@ -126,5 +124,38 @@ describe('样式审计 — 设计约束', () => {
     const manual = extract('[data-theme="dark"]')
     const auto = extract('@media (prefers-color-scheme: dark)')
     assert.ok(manual.length > 100 && auto.length > 100)
+  })
+
+  it('组件关键视觉 var() 化（radius/容器宽度禁止裸值）', () => {
+    const css = readComponentCss()
+    const violations: string[] = []
+    // radius：裸值 > 4px 必须 var()（50% 圆形、≤4px 内部细节白名单）
+    for (const m of css.matchAll(/border-radius:\s*([^;]+);/g)) {
+      const v = m[1].trim()
+      if (v.startsWith('var(') || v === '50%' || v === '0' || v === 'inherit') continue
+      const px = parseFloat(v)
+      if (px > 4) violations.push(`border-radius: ${v}`)
+    }
+    // 容器宽度：min-width 裸值 ≥ 100px 必须 var()（Modal/Drawer/面板宽度 = 定制钩子）
+    for (const m of css.matchAll(/min-width:\s*([^;]+);/g)) {
+      const v = m[1].trim()
+      if (v.startsWith('var(')) continue
+      const px = parseFloat(v)
+      if (px >= 100) violations.push(`min-width: ${v}`)
+    }
+    assert.deepEqual(violations, [], '组件 CSS 的关键视觉（radius/容器宽度）必须 var() 化（定制钩子）')
+  })
+
+  it('暗色段无硬编码色值（值必须经 --wf-dark-* 间接层）', () => {
+    const dark = readFileSync(join(root, 'src/layout/_dark.css'), 'utf-8')
+    const raw = dark.match(/#[0-9a-fA-F]{3,8}|rgba?\(/g) ?? []
+    assert.deepEqual(raw, [], '暗色段不得出现裸色值，必须引用 --wf-dark-* 原始层')
+
+    // 原始层必须定义全部 --wf-dark-* 值
+    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const darkVars = [...dark.matchAll(/var\((--wf-dark-[\w-]+)\)/g)].map(m => m[1])
+    for (const v of new Set(darkVars)) {
+      assert.match(tokens, new RegExp(`${v}:`), `原始层缺少暗色值定义: ${v}`)
+    }
   })
 })

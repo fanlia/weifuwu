@@ -20,9 +20,10 @@
 .wf-input {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
+  min-height: var(--wf-field-height, var(--wf-control-height));
   padding: var(--wf-control-pad-y) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
-  border-radius: var(--wf-radius);
+  border-radius: var(--wf-field-radius, var(--wf-radius));
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   outline: none;
@@ -38,6 +39,25 @@
 .wf-input:disabled {
   opacity: var(--wf-opacity-disabled);
   cursor: not-allowed;
+}
+
+/* borderless — 可编辑标题/内联编辑（hover/focus 才显现边框） */
+.wf-input--borderless {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  padding-left: var(--wf-space-xs);
+  padding-right: var(--wf-space-xs);
+}
+
+.wf-input--borderless:hover {
+  border-color: var(--wf-color-border);
+  background: var(--wf-color-bg);
+}
+
+.wf-input--borderless:focus {
+  border-color: var(--wf-color-primary);
+  background: var(--wf-color-bg);
 }
 
 .wf-input::placeholder {

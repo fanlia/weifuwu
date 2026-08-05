@@ -1,0 +1,140 @@
+/* 应用外壳 — 侧边栏 + 主内容区
+ *
+ * 结构约定（应用层 AppLayout 组件使用）：
+ *   wf-app-shell > [wf-sidebar, wf-main]
+ *   wf-sidebar   > [wf-sidebar-header(品牌), wf-sidebar-body(wf-nav), wf-sidebar-footer(用户区)]
+ *   wf-nav       > wf-nav-group(分组标题) / wf-nav-item(链接，--active 激活)
+ *
+ * 移动端（<768px）降级：侧边栏堆叠到顶部、静态定位、主区占满。
+ * 交互式折叠抽屉属应用层职责（需 JS 开关），layout 只提供静态外壳。
+ */
+
+.wf-app-shell {
+  display: grid;
+  grid-template-columns: var(--wf-sidebar-width, 240px) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* ── 侧边栏 ── */
+.wf-sidebar {
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--wf-color-bg-secondary);
+  border-right: var(--wf-border-width) solid var(--wf-color-border);
+}
+
+.wf-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-md);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border-light);
+  flex-shrink: 0;
+}
+
+.wf-sidebar-body {
+  flex: 1;
+  padding: var(--wf-space-sm);
+  overflow-y: auto;
+}
+
+.wf-sidebar-footer {
+  padding: var(--wf-space-sm);
+  border-top: var(--wf-border-width) solid var(--wf-color-border-light);
+  flex-shrink: 0;
+}
+
+/* ── 导航 ── */
+.wf-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wf-nav-group {
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: var(--wf-space-md) var(--wf-space-sm) var(--wf-space-xs);
+}
+
+.wf-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm) var(--wf-space);
+  border-radius: var(--wf-radius);
+  color: var(--wf-color-text-secondary);
+  font-size: var(--wf-font-size-base);
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  transition: background var(--wf-transition), color var(--wf-transition);
+}
+
+.wf-nav-item:hover {
+  background: var(--wf-color-bg-tertiary);
+  color: var(--wf-color-text);
+  text-decoration: none;
+}
+
+.wf-nav-item:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-nav-item--active {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary);
+  font-weight: var(--wf-font-weight-medium);
+}
+
+.wf-nav-item--active:hover {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary);
+}
+
+.wf-nav-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+/* ── 主内容区 ── */
+.wf-main {
+  padding: var(--wf-space-lg);
+  min-width: 0;
+  background: var(--wf-color-bg);
+}
+
+/* ── 触屏：导航项 44px 命中区 ── */
+@media (pointer: coarse) {
+  .wf-nav-item {
+    min-height: 44px;
+  }
+}
+
+/* ── 移动端：堆叠降级 ── */
+@media (max-width: 767.98px) {
+  .wf-app-shell {
+    grid-template-columns: 1fr;
+  }
+  .wf-sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  }
+  .wf-main {
+    padding: var(--wf-space-md);
+  }
+}

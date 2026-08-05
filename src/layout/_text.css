@@ -31,13 +31,52 @@
 .wf-text-secondary { color: var(--wf-color-text-secondary); }
 .wf-text-tertiary { color: var(--wf-color-text-tertiary); }
 .wf-text-disabled { color: var(--wf-color-text-disabled); }
-.wf-text-brand { color: var(--wf-color-primary); }
+.wf-text-brand { color: var(--wf-color-primary); } /* 兼容别名 → wf-text-primary */
+.wf-text-primary { color: var(--wf-color-primary); }
+.wf-text-success { color: var(--wf-color-success); }
+.wf-text-warning { color: var(--wf-color-warning); }
+.wf-text-error { color: var(--wf-color-error); }
+.wf-text-info { color: var(--wf-color-info); }
 
 /* ── 字重 ── */
 
 .wf-text-medium { font-weight: var(--wf-font-weight-medium); }
 .wf-text-semibold { font-weight: var(--wf-font-weight-semibold); }
 .wf-text-bold { font-weight: var(--wf-font-weight-bold); }
+
+/* ── 行高 ── */
+
+.wf-leading-tight { line-height: var(--wf-line-height-tight); }
+.wf-leading-base { line-height: var(--wf-line-height); }
+.wf-leading-relaxed { line-height: var(--wf-line-height-relaxed); }
+
+/* ── 字距 ── */
+
+.wf-tracking-normal { letter-spacing: var(--wf-letter-spacing); }
+.wf-tracking-wide { letter-spacing: var(--wf-letter-spacing-wide); }
+.wf-tracking-wider { letter-spacing: var(--wf-letter-spacing-wider); }
+
+/* ── 文本变换 ── */
+
+.wf-uppercase { text-transform: uppercase; }
+.wf-lowercase { text-transform: lowercase; }
+.wf-capitalize { text-transform: capitalize; }
+
+/* ── 换行/折行 ── */
+
+.wf-pre-wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wf-break-word {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.wf-text-nowrap {
+  white-space: nowrap;
+}
 
 /* ── 截断 ── */
 

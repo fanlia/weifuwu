@@ -1,5 +1,6 @@
 import { h, type Component } from 'weifuwu/client'
 import type { RouteInjected } from 'weifuwu/client'
+import { Alert, Badge, Button, Input, Loading, ProgressBar } from 'weifuwu/components'
 
 /** 大纲确认页 — 编辑确认后流式生成完整 deck */
 export const Outline: Component<{}, RouteInjected> = (_init, ctx) => {
@@ -14,7 +15,6 @@ export const Outline: Component<{}, RouteInjected> = (_init, ctx) => {
 
   const id = (ctx as any).route?.params?.id
 
-  // 加载大纲
   ;(async () => {
     try {
       const res = await fetch(`/api/outlines/${id}`).then((r) => r.json())
@@ -29,7 +29,6 @@ export const Outline: Component<{}, RouteInjected> = (_init, ctx) => {
     }
   })()
 
-  // 解析 SSE 事件
   const parseSSE = (buf: string, handle: (event: string, data: any) => void) => {
     let idx: number
     while ((idx = buf.indexOf('\n\n')) >= 0) {
@@ -76,7 +75,6 @@ export const Outline: Component<{}, RouteInjected> = (_init, ctx) => {
     }
   }
 
-  // 编辑操作
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir
     if (j < 0 || j >= $.items.length) return
@@ -96,41 +94,42 @@ export const Outline: Component<{}, RouteInjected> = (_init, ctx) => {
   }
 
   return () =>
-    h('div', { class: 'deck' },
-      h('div', { class: 'deck-top' },
-        h('button', { class: 'btn ghost', onClick: () => ctx.app.navigate('/') }, '← 新建'),
+    h('div', { class: 'wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto', style: { '--wf-max': '960px' } },
+      h('div', { class: 'wf-row wf-gap-md wf-mb-sm' },
+        h(Button, { variant: 'ghost', size: 'sm', onClick: () => ctx.app.navigate('/') }, '← 新建'),
         h('input', {
-          class: 'outline-title', value: $.title,
+          class: 'wf-input wf-input--borderless wf-text-xl wf-text-bold wf-fill',
+          value: $.title,
           onInput: (e: any) => $.title = e.target.value,
         }),
-        h('span', { class: 'theme-tag' }, $.theme),
+        h(Badge, { variant: 'primary' }, $.theme),
       ),
       $.loading
-        ? h('div', { class: 'loading' }, '加载中…')
+        ? h(Loading, {})
         : $.error
-          ? h('div', { class: 'error' }, $.error)
-          : h('div', {},
-              h('div', { class: 'outline-list' },
+          ? h(Alert, { variant: 'error' }, $.error)
+          : h('div', { class: 'wf-stack wf-gap-md' },
+              h('div', { class: 'wf-stack wf-gap-sm' },
                 $.items.map((s: any, i: number) =>
-                  h('div', { class: 'outline-item', key: i },
-                    h('div', { class: 'outline-idx' }, String(i + 1)),
-                    h('div', { class: 'outline-main' },
-                      h('div', { class: 'outline-row' },
+                  h('div', { class: 'wf-surface wf-p-md wf-row wf-gap-md wf-top', key: i },
+                    h('div', { class: 'wf-pill wf-bg-brand wf-text-brand wf-text-sm wf-text-bold wf-flex-none wf-center', style: 'width: 28px; height: 28px' }, String(i + 1)),
+                    h('div', { class: 'wf-fill wf-stack wf-gap-sm' },
+                      h('div', { class: 'wf-row wf-gap-sm' },
                         h('select', {
-                          class: 'input outline-layout', value: s.layout,
+                          class: 'wf-input wf-w-auto', value: s.layout,
                           onChange: (e: any) => { s.layout = e.target.value; ctx.ui.render() },
                         }, Object.entries(LAYOUT_NAMES).map(([v, l]) => h('option', { value: v }, l))),
                         h('input', {
-                          class: 'input outline-item-title', value: s.title, placeholder: '页面标题',
+                          class: 'wf-input wf-fill', value: s.title, placeholder: '页面标题',
                           onInput: (e: any) => s.title = e.target.value,
                         }),
-                        h('button', { class: 'btn-ghost-sm', disabled: i === 0, onClick: () => move(i, -1) }, '↑'),
-                        h('button', { class: 'btn-ghost-sm', disabled: i === $.items.length - 1, onClick: () => move(i, 1) }, '↓'),
-                        h('button', { class: 'btn-ghost-sm danger', onClick: () => remove(i) }, '✕'),
+                        h(Button, { size: 'sm', variant: 'ghost', disabled: i === 0, onClick: () => move(i, -1) }, '↑'),
+                        h(Button, { size: 'sm', variant: 'ghost', disabled: i === $.items.length - 1, onClick: () => move(i, 1) }, '↓'),
+                        h(Button, { size: 'sm', variant: 'danger', onClick: () => remove(i) }, '✕'),
                       ),
                       (s.layout === 'bullets' || s.layout === 'twoColumn')
                         ? h('textarea', {
-                            class: 'input outline-points', rows: 2, placeholder: '每行一条要点摘要',
+                            class: 'wf-input wf-textarea', rows: 2, placeholder: '每行一条要点摘要',
                             value: (s.points ?? []).join('\n'),
                             onInput: (e: any) => s.points = e.target.value.split('\n').filter((x: string) => x.trim()),
                           })
@@ -139,15 +138,14 @@ export const Outline: Component<{}, RouteInjected> = (_init, ctx) => {
                   ),
                 ),
               ),
-              h('div', { class: 'outline-actions' },
-                h('button', { class: 'btn ghost', onClick: add }, '＋ 加页'),
+              h('div', { class: 'wf-split wf-gap-md' },
+                h(Button, { variant: 'ghost', onClick: add }, '＋ 加页'),
                 $.generating
-                  ? h('div', { class: 'generating' },
-                      h('div', { class: 'loading' }, `生成中… ${$.progress.index}/${$.progress.total} 页`),
-                      h('div', { class: 'progress-bar' },
-                        h('div', { class: 'progress-fill', style: { width: `${$.progress.total ? (100 * $.progress.index / $.progress.total) : 0}%` } })),
+                  ? h('div', { class: 'wf-fill wf-stack wf-gap-sm', style: 'min-width: 260px' },
+                      h('div', { class: 'wf-text-xs wf-text-tertiary' }, `生成中… ${$.progress.index}/${$.progress.total} 页`),
+                      h(ProgressBar, { value: $.progress.total ? (100 * $.progress.index / $.progress.total) : 0, showValue: false }),
                     )
-                  : h('button', { class: 'btn primary', onClick: confirm }, '确认并生成 PPT →'),
+                  : h(Button, { variant: 'primary', onClick: confirm }, '确认并生成 PPT →'),
               ),
             ),
     )

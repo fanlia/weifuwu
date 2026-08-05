@@ -5,6 +5,7 @@
  */
 
 import { createApp, router, RouteView, api, auth, ws } from 'weifuwu/client'
+import { EmptyState } from 'weifuwu/components'
 import { AppLayout } from './components/AppLayout'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
@@ -63,9 +64,8 @@ app.use(router({
     },
   ],
   notFound: () => () => (
-    <div class="empty" style={{ paddingTop: '30vh' }}>
-      <div class="empty-ico">🧭</div>
-      <div class="empty-txt">404 — 页面不存在</div>
+    <div class="wf-p-xl" style={{ paddingTop: '30vh' }}>
+      <EmptyState icon="🧭" text="404 — 页面不存在" />
     </div>
   ),
 }))
