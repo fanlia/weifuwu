@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.60.1 (ref 语义修复 + 内联 ref 检测 + 测试 5.2s)
+
+> 框架级修复：ref 替换不再误调旧 ref(null)，内联 ref 从"每次渲染误触发清理"到"机制上不可能"；配套内联 ref 检测警告 + 组件库 6 组件 ref 提升。附带收益：测试时长 24s → 5.2s。
+
+### 🐛 Fixes
+
+- **ref 替换不再调旧 ref(null)**：元素仍挂载时 ref(null) 只在真正卸载触发（callRefCleanup）。此前内联 ref（每次渲染新函数）会在每次重渲染误触发 null 分支清理（退订/dispose/removeEventListener）——AiChat 流式不更新的根因，现从机制上消除
+- **测试提速 24s → 5.2s**：消除内联 ref 每渲染清理连锁，979 全绿
+
+### ✨ New
+
+- **内联 ref 检测**：同一元素 ref 变化 ≥3 次 → console.warn 提示提 mount 作用域（放过单次/偶发替换）
+- **组件库 ref 规范化**：DatePicker / Dropdown / Editor / FileUpload / Popover / Tooltip 提为 mount 作用域稳定引用，组件库零内联 ref
+
+### 🧪 Tests
+
+- 979 全绿（+3：警告触发 / 稳定 ref 不警告 / ref 替换不触发清理·卸载才触发）
+
+---
+
 ## 0.60.0 (AI 一等公民落地：ctx.ui.useChat + AiChat 标准对话组件)
 
 > 从「AI 协议可用」到「AI 界面一句话」：`ctx.ui.useChat()`（会话语义层）+ `AiChat`（标准对话组件），流式 token / 工具调用卡 / HITL 审批卡 / 自动滚动 / 错误重试开箱即用，协议对页面完全透明。Agent 页面从 ~176 行胶水降到 ~47 行。
