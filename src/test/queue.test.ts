@@ -57,7 +57,7 @@ describe('queue (real redis)', () => {
       runs++
       if (runs === 1) throw new Error('transient failure')
       // 第二次成功
-    }, { visibilityTimeout: 200 })
+    }, { visibilityTimeout: 200, blockMs: 50 })
     await worker.start()
 
     await q.queue.add(name, { v: 1 }, { attempts: 3 })
@@ -74,7 +74,7 @@ describe('queue (real redis)', () => {
 
   it('attempts 用尽 → DLQ（q:{name}:dead 有 entry，主队列清除）', async () => {
     const name = qname()
-    const worker = q.queue.worker<any>(name, async () => { throw new Error('always fails') }, { visibilityTimeout: 100 })
+    const worker = q.queue.worker<any>(name, async () => { throw new Error('always fails') }, { visibilityTimeout: 100, blockMs: 50 })
     await worker.start()
 
     await q.queue.add(name, { v: 1 }, { attempts: 2 })
@@ -108,6 +108,7 @@ describe('queue (real redis)', () => {
     const results: string[] = []
     const workerB = q.queue.worker<any>(name, async () => { results.push('B') }, {
       visibilityTimeout: 150,
+      blockMs: 50,
       consumer: 'worker-B',
     })
     await workerB.start()
@@ -130,7 +131,7 @@ describe('queue (real redis)', () => {
       await sleep(100)
       active--
       done++
-    }, { concurrency: 5 })
+    }, { concurrency: 5, blockMs: 50 })
     await worker.start()
 
     for (let i = 0; i < 10; i++) await q.queue.add(name, { i })
@@ -142,8 +143,8 @@ describe('queue (real redis)', () => {
   it('多 worker 实例：消费组隔离，同一 entry 只被一个 consumer 处理', async () => {
     const name = qname()
     const seen = new Set<string>()
-    const w1 = q.queue.worker<any>(name, async (job) => { seen.add(job.id); await sleep(50) }, { consumer: 'inst-1' })
-    const w2 = q.queue.worker<any>(name, async (job) => { seen.add(job.id); await sleep(50) }, { consumer: 'inst-2' })
+    const w1 = q.queue.worker<any>(name, async (job) => { seen.add(job.id); await sleep(50) }, { consumer: 'inst-1', blockMs: 50 })
+    const w2 = q.queue.worker<any>(name, async (job) => { seen.add(job.id); await sleep(50) }, { consumer: 'inst-2', blockMs: 50 })
     await w1.start()
     await w2.start()
 
@@ -163,7 +164,7 @@ describe('queue (real redis)', () => {
     let ran = false
     const worker = q.queue.worker<any>(name, async () => { ran = true })
     await worker.start()
-    await sleep(1500) // BLOCK 空等
+    await sleep(200) // BLOCK 空等（blockMs 50，验证空等不崩溃）
     assert.equal(ran, false)
     await worker.stop()
     assert.ok(true)

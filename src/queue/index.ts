@@ -65,6 +65,10 @@ export interface WorkerOptions {
   visibilityTimeout?: number
   /** 消费组 consumer 名（多实例自动 hostname-pid，可覆盖） */
   consumer?: string
+  /** XREADGROUP 阻塞等待时长（ms）。默认 1000。
+   *  越小失败重投延迟越低（重投间隔 = max(visibilityTimeout, blockMs)），
+   *  测试用短值提速；生产保持默认。 */
+  blockMs?: number
 }
 
 export interface QueueWorker {
@@ -142,6 +146,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
       const consumer = opts?.consumer ?? `${hostname()}-${process.pid}-${Math.random().toString(36).slice(2, 6)}`
       const concurrency = opts?.concurrency ?? 1
       const visibilityTimeout = opts?.visibilityTimeout ?? 30_000
+      const blockMs = opts?.blockMs ?? 1000
       const s = stream(name)
       const dead = deadStream(name)
       const delayed = `${prefix}${name}:delayed`
@@ -262,7 +267,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
           try {
             result = await pool.command(
               'XREADGROUP', 'GROUP', GROUP, consumer,
-              'COUNT', String(concurrency), 'BLOCK', '1000',
+              'COUNT', String(concurrency), 'BLOCK', String(blockMs),
               'STREAMS', s, '>',
             )
           } catch (e) {

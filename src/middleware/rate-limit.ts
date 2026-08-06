@@ -137,9 +137,10 @@ export function rateLimit(options?: RateLimitOptions): RateLimitClient {
     // ── redis store ──
     if (opts.algorithm === 'fixed') {
       // INCR 原子；首个请求（返回 1）时设 TTL——并发重复 EXPIRE 幂等无害，无需 Lua
+      // PEXPIRE（ms 精度）：windowMs < 1s 时 EXPIRE 秒粒度会虚增 TTL（ceil(500ms)=1s）
       const count = await redisPool!.incr(PREFIX + key)
       if (count === 1) {
-        await redisPool!.expire(PREFIX + key, Math.ceil(windowMs / 1000))
+        await redisPool!.command('PEXPIRE', PREFIX + key, windowMs)
       }
       return {
         allowed: count <= max,

@@ -61,11 +61,11 @@ describe('rateLimit', () => {
     })
 
     it('窗口过期后自动重置', async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 1000, max: 1 })
+      const mw = rateLimit({ store: 'redis', windowMs: 500, max: 1 })
       const req = makeReq()
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
       assert.equal((await callMw(mw, req, pool)).res!.status, 429)
-      await sleep(1100)
+      await sleep(600)
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
     })
 
@@ -125,11 +125,11 @@ describe('rateLimit', () => {
     })
 
     it('窗口过期后重置', async () => {
-      const mw = rateLimit({ store: 'redis', algorithm: 'sliding', windowMs: 1000, max: 1 })
+      const mw = rateLimit({ store: 'redis', algorithm: 'sliding', windowMs: 500, max: 1 })
       const req = makeReq()
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
       assert.equal((await callMw(mw, req, pool)).res!.status, 429)
-      await sleep(1100)
+      await sleep(600)
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
     })
   })
@@ -167,11 +167,11 @@ describe('rateLimit', () => {
     })
 
     it('窗口重置', async () => {
-      const mw = rateLimit({ store: 'memory', windowMs: 1000, max: 1 })
+      const mw = rateLimit({ store: 'memory', windowMs: 500, max: 1 })
       const req = makeReq()
       assert.equal((await callMw(mw, req, undefined)).res!.status, 200)
       assert.equal((await callMw(mw, req, undefined)).res!.status, 429)
-      await sleep(1100)
+      await sleep(600)
       assert.equal((await callMw(mw, req, undefined)).res!.status, 200)
     })
   })
