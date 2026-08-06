@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.60.0 (AI 一等公民落地：ctx.ui.useChat + AiChat 标准对话组件)
+
+> 从「AI 协议可用」到「AI 界面一句话」：`ctx.ui.useChat()`（会话语义层）+ `AiChat`（标准对话组件），流式 token / 工具调用卡 / HITL 审批卡 / 自动滚动 / 错误重试开箱即用，协议对页面完全透明。Agent 页面从 ~176 行胶水降到 ~47 行。
+
+### ✨ New
+
+- **`ctx.ui.useChat({ url, approveUrl })`**：`$` 超集，会话语义 + 协议透明。`$.messages/input/streaming/error/usage/step` 自动渲染，`$.send()/stop()/retry()/clear()/approve()/dispose()` 内置
+- **`AiChat` 组件**：标准 AI 对话界面（气泡 / ToolCallCard 内嵌 / ApprovalCard / 思考状态 / token 计数 / 错误重试 / 输入条 / 自动滚动），`chat` handle 作 prop，`labels`/`renderMessage`/`renderToolArgs` 可定制
+- **响应式多消费者订阅**：`createReactiveState` 增加 `__watch`——共享父 `$` 的子组件（如 AiChat）自订阅驱动重渲染（三态 skip 下父 dirty 不再"丢失"子组件）
+- **queue `WorkerOptions.blockMs`**：XREADGROUP 阻塞可配置，重投延迟 = `max(visibilityTimeout, blockMs)`
+- **rateLimit PEXPIRE**：fixed window 改毫秒精度 TTL，修复 `<1s` 窗口虚增缺陷
+
+### 🐛 Fixes
+
+- **AiChat 流式不更新（浏览器实测发现）**：ref 内联闭包每次渲染引用变化 → ref-diff 调旧 ref(null) → watcher 被误退订。纪律：**带清理的 ref 必须定义在 mount 作用域**
+
+### 📚 Docs
+
+- `docs/ai-contract.md`：前端参考实现补充 `ctx.ui.useChat`（会话语义层）
+- AGENTS.md：`ctx.ui.useChat` 进 ctx.ui 家族
+
+### 🧪 Tests
+
+- 976 全绿（+26：useChat 状态机 14 / AiChat 10 / 三态 skip 回归 2 / 类型流）
+- **测试提速 31s → 24s**：queue 10.7s→2.4s（blockMs）、rateLimit 3.5s→2.0s（PEXPIRE + 短窗口）
+- 组件计数 46 → **47**（+AiChat），components-demo 徽标/页脚修正
+- 三个 tsconfig（root / demo / components-demo）0 错误（修 17 个既有 strict 错误）
+
+---
+
+# Changelog
+
 ## 0.59.1 (README 重写：理念三层化 + async 规则页 + 样式系统总览)
 
 > 文档层重构，无功能变化。理念从"8 条平铺"到"一句话 + 三层哲学 + 十条原则"；把散在 6 处的 async 组件规则集中为「三条纪律」页。
