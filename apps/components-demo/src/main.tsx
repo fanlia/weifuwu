@@ -19,6 +19,7 @@ import {
   Tabs, Dropdown, Pagination, Accordion,
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
   InView, DatePicker, Chart, Editor, ThemeSwitch,
+  AiChat, ToolCallCard, ApprovalCard,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -780,6 +781,76 @@ const DemoConfirm: Component = (_props, ctx) => {
   )
 }
 
+// ── AI 对话组件演示 ────────────────────────────────────
+
+/** ToolCallCard：running / ok / error 状态机（纯展示） */
+const DemoToolCallCard: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <ToolCallCard call={{ id: 't1', name: 'query_weather', args: { city: '北京' } }} />
+    <ToolCallCard
+      call={{ id: 't2', name: 'generate_report', args: { type: 'monthly' } }}
+      progress={{ toolCallId: 't2', step: 2, total: 5, message: '生成中…', status: 'running' }}
+    />
+    <ToolCallCard
+      call={{ id: 't3', name: 'send_email', args: { to: 'boss@example.com' } }}
+      result={{ id: 't3', ok: true, output: { sent: true } }}
+    />
+    <ToolCallCard
+      call={{ id: 't4', name: 'place_order', args: { qty: 99 } }}
+      result={{ id: 't4', ok: false, error: { code: 'rejected', message: '人工拒绝' } }}
+    />
+  </div>
+)
+
+/** ApprovalCard：pending / approved / rejected 终态 */
+const DemoApprovalCard: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <ApprovalCard
+      request={{ id: 'ap1', toolCallId: 't1', name: 'place_order', args: { qty: 2 }, reason: '单笔超限，需人工确认' }}
+      onApprove={() => {}}
+      onReject={() => {}}
+    />
+    <ApprovalCard
+      request={{ id: 'ap2', toolCallId: 't2', name: 'delete_user', args: { userId: 'u_42' } }}
+      status="approved"
+    />
+    <ApprovalCard
+      request={{ id: 'ap3', toolCallId: 't3', name: 'refund', args: { orderId: 'o_7' } }}
+      status="rejected"
+    />
+  </div>
+)
+
+/** AiChat：useChat + 标准对话界面（流式 / 工具 / 审批 / 自动滚动） */
+const DemoAiChat: Component = (_props, ctx) => {
+  const $ = ctx.ui.useChat({
+    url: '/api/chat',
+    approveUrl: '/api/approve',
+    body: (messages) => ({
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      mode: $.mode, // chat | agent
+    }),
+  })
+  $.mode = 'chat'
+
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <div class="wf-row">
+        {(['chat', 'agent'] as const).map((m) => (
+          <button
+            class={`wf-btn wf-btn--sm ${$.mode === m ? 'wf-btn--primary' : ''}`}
+            type="button"
+            onClick={() => { $.mode = m; $.clear() }}
+          >
+            {m === 'chat' ? '流式对话' : 'Agent（工具+审批）'}
+          </button>
+        ))}
+      </div>
+      <AiChat chat={$} maxHeight="300px" />
+    </div>
+  )
+}
+
 // ── 代码示例字符串 ─────────────────────────────────────
 
 const CODE = {
@@ -1042,6 +1113,25 @@ getTheme()  // 'auto' | 'light' | 'dark'
 <Popover trigger="hover" content=...>
   <span>悬停查看</span>
 </Popover>`,
+
+  aichat: `const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
+return () => <AiChat chat={$} />
+
+// 状态：$.messages / $.input / $.streaming / $.error
+// 操作：$.send() / $.stop() / $.retry() / $.approve(decision)
+// agent 消息内嵌：msg.toolCalls / msg.approval`,
+
+  toolcall: `<ToolCallCard call={{ id, name, args }} />
+<ToolCallCard call={...} progress={{ toolCallId, step, total }} />
+<ToolCallCard call={...} result={{ id, ok, output }} />
+
+// 状态机：running → ok / error`,
+
+  approval: `<ApprovalCard request={{ id, toolCallId, name, args }}
+  onApprove={() => chat.approve('approved')}
+  onReject={(note) => chat.approve('rejected', note)} />
+
+// 终态：<ApprovalCard request={...} status="approved" />`,
 }
 
 // ── 主应用 ─────────────────────────────────────────────
@@ -1061,7 +1151,7 @@ const App: Component = (_props, ctx) => {
         <h1 class="wf-text-4xl wf-mb-sm wf-m-0">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p class="wf-text-secondary">{(ctx as any)?.i18n?.t?.('app.desc') ?? '34 个 HTML 原语 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
         <div class="wf-row wf-gap-md wf-mt-md" style="justify-content:center">
-          <Badge variant="primary">46 组件</Badge>
+          <Badge variant="primary">49 组件</Badge>
           <Badge variant="success">580 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
@@ -1128,12 +1218,18 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Accordion" desc="折叠面板，支持多个 items" code={CODE.accordion}><DemoAccordion /></DemoCard>
       </Section>
 
+      <Section title="AI 对话">
+        <DemoCard title="AiChat" desc="useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明" code={CODE.aichat}><DemoAiChat /></DemoCard>
+        <DemoCard title="ToolCallCard" desc="工具调用卡片：running / ok / error 状态机（call/progress/result 三字段驱动）" code={CODE.toolcall}><DemoToolCallCard /></DemoCard>
+        <DemoCard title="ApprovalCard" desc="HITL 审批卡片：pending 可批/拒，approved/rejected/timeout 终态" code={CODE.approval}><DemoApprovalCard /></DemoCard>
+      </Section>
+
       <Section title="其他">
         <DemoCard title="Divider" desc="分割线，支持 horizontal/vertical/带文字" code={CODE.divider}><DemoDivider /></DemoCard>
       </Section>
 
       <div class="wf-text-center wf-py-xl wf-text-tertiary wf-text-sm">
-        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 46 个组件 · 打开 devtools 查看代码'}
+        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 49 个组件 · 打开 devtools 查看代码'}
       </div>
     </div>
     )

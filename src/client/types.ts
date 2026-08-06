@@ -2,6 +2,8 @@
  * weifuwu/client 类型定义
  */
 
+import type { UseChatHandle, UseChatOptions } from './use-chat.ts'
+
 /** 弹层位置跟踪配置 — 供 ctx.ui.usePopupPosition 使用 */
 export interface PopupPositionOptions {
   /** 锚定元素 getter（通常是 ref 保存的触发元素） */
@@ -33,6 +35,16 @@ export interface WfuiContext {
     dirty: (ids?: string[]) => void
     /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
     $: () => Record<string, any>
+    /**
+     * AI 对话会话：$ 超集（会话语义 + 工具调用内嵌 + HITL 审批）
+     *
+     * ```tsx
+     * const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
+     * // $.messages / $.input / $.streaming / $.error / $.usage / $.step
+     * // $.send() / $.stop() / $.retry() / $.clear() / $.approve(decision, note?)
+     * ```
+     */
+    useChat: (options: UseChatOptions) => UseChatHandle
     /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标 */
     usePopupPosition: (options: PopupPositionOptions) => PopupPosition
     /** 注册组件实例的自定义语义 ID，同名冲突抛错 */

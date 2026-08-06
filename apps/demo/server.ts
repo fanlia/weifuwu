@@ -98,7 +98,14 @@ app.get('/api/user', async (req: Request, ctx: Context): Promise<Response> => {
 
 // ── AI 对话（wf: 协议：ctx.ai.stream → SSE → 前端 aiStream）────
 app.post('/api/chat', async (req: Request, ctx: Context): Promise<Response> => {
-  const { messages } = await req.json()
+  const { messages, mode } = await req.json()
+  // 流式对话 / agent 工具循环统一入口（useChat demo：body 携带 mode）
+  if (mode === 'agent') {
+    return createDemoAgent(ctx).run(messages, {
+      signal: req.signal,
+      traceId: req.headers.get('x-trace-id') ?? undefined,
+    })
+  }
   return ctx.ai!.stream({ messages }, {
     signal: req.signal,                                    // 断开即取消 provider 请求
     traceId: req.headers.get('x-trace-id') ?? undefined,   // 追踪关联：message_start.id
@@ -123,13 +130,17 @@ const weatherTool = {
   },
 }
 
-app.post('/api/agent', async (req: Request, ctx: Context): Promise<Response> => {
-  const { messages } = await req.json()
-  const agent = ctx.ai!.agent({
+function createDemoAgent(ctx: Context) {
+  return ctx.ai!.agent({
     systemPrompt: '你是助手。查询天气时调用 query_weather 工具。',
     tools: [weatherTool],
     humanInTheLoop: true,                                  // 每个工具执行前要审批
   })
+}
+
+app.post('/api/agent', async (req: Request, ctx: Context): Promise<Response> => {
+  const { messages } = await req.json()
+  const agent = createDemoAgent(ctx)
   return agent.run(messages, {
     signal: req.signal,
     traceId: req.headers.get('x-trace-id') ?? undefined,

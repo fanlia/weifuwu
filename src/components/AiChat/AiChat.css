@@ -1,0 +1,110 @@
+/* weifuwu/components — AiChat（标准 AI 对话界面） */
+
+.wf-aichat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm, 8px);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm, 14px);
+  line-height: var(--wf-line-height);
+  color: var(--wf-color-text);
+}
+
+.wf-aichat-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm, 8px);
+  padding: var(--wf-space-sm, 8px);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+}
+
+.wf-aichat-empty {
+  margin: var(--wf-space-lg, 16px) 0;
+  text-align: center;
+  color: var(--wf-color-text-secondary);
+  font-size: var(--wf-font-size-sm, 14px);
+}
+
+.wf-aichat-msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs, 4px);
+}
+
+.wf-aichat-tools,
+.wf-aichat-approval {
+  max-width: 100%;
+}
+
+.wf-aichat-bubble {
+  display: inline-block;
+  max-width: 85%;
+  padding: var(--wf-space-sm, 8px) var(--wf-space-md, 12px);
+  border-radius: var(--wf-radius);
+  font-size: var(--wf-font-size-sm, 14px);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wf-aichat-msg--user {
+  align-items: flex-end;
+}
+
+.wf-aichat-msg--assistant {
+  align-items: flex-start;
+}
+
+.wf-aichat-bubble--user {
+  background: var(--wf-color-primary);
+  color: #fff;
+}
+
+.wf-aichat-bubble--assistant {
+  background: var(--wf-color-bg-tertiary);
+  color: var(--wf-color-text);
+}
+
+.wf-aichat-status {
+  font-size: var(--wf-font-size-xs, 12px);
+  color: var(--wf-color-info);
+}
+
+.wf-aichat-usage {
+  font-size: var(--wf-font-size-xs, 12px);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-aichat-error {
+  font-size: var(--wf-font-size-xs, 12px);
+  color: var(--wf-color-error);
+  background: var(--wf-color-error-bg);
+  border-radius: var(--wf-radius);
+  padding: var(--wf-space-sm, 8px);
+}
+
+.wf-aichat-inputbar {
+  display: flex;
+  gap: var(--wf-gap-sm, 8px);
+  align-items: center;
+}
+
+.wf-aichat-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--wf-control-height, 36px);
+  padding: var(--wf-control-pad-y, 6px) var(--wf-space-md, 12px);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm, 14px);
+  color: var(--wf-color-text);
+  background: var(--wf-color-bg);
+}
+
+.wf-aichat-input:focus {
+  outline: none;
+  border-color: var(--wf-color-primary);
+}

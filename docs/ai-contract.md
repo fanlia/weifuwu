@@ -5,6 +5,7 @@
 > - **协议是 weifuwu 自己的**（`wf:` 命名空间），不依赖任何 provider 的 wire format——前端只见 `wf:` 事件，换模型/换提供商前端零改动。
 > - **实现可换**：后端可以用自研 OpenAI 兼容客户端（`weifuwu/src/ai/`）、raw fetch 或任何库，只要输出 `wf:` 事件即可。协议不绑定实现。
 > - **错误即值**：`wf:error` 是正常协议消息，不是断流异常（对齐自研 DB 客户端 RESP `-ERR` 精神）。
+> - **前端参考实现**（`weifuwu/client`）：`aiStream()` = 传输解码（POST + SSE 解析 + trace + abort）；`ctx.ui.useChat()` = 会话语义层（消息累积、工具调用内嵌、HITL 审批、stop/retry，协议对页面透明）。
 > - **版本**：本文档为 v1。非破坏性演进（新事件）直接追加；破坏性变更升版本号，两端随 weifuwu 单包原子发布同步升级。
 
 ---

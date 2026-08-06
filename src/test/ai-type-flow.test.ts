@@ -87,6 +87,52 @@ const callbacks: AiStreamCallbacks = {
 }
 void callbacks
 
+// ⑦ ctx.ui.useChat：url 必填、返回 $ 超集（状态 + 操作）、messages 是 UiMessage[]
+// 运行时零执行（函数从不调用）；tsc 编译期完成全部类型断言
+import type { WfuiContext, UseChatHandle, UiMessage } from '../client/index.ts'
+
+declare const wfuiCtx: WfuiContext
+declare const wfuiCtx2: WfuiContext
+declare const wfuiCtx3: WfuiContext
+
+function typeFlowChat(): void {
+  const chat: UseChatHandle = wfuiCtx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
+  chat.send()
+  chat.stop()
+  chat.retry()
+  chat.clear()
+  void chat.approve('approved', '备注')
+  chat.dispose()
+  const chatMsgs: UiMessage[] = chat.messages
+  const streamingFlag: boolean = chat.streaming
+  void chatMsgs
+  void streamingFlag
+
+  // @ts-expect-error url 必填
+  wfuiCtx2.ui.useChat({})
+
+  // @ts-expect-error messages 是 UiMessage[]，不是 string
+  const bad: string = wfuiCtx3.ui.useChat({ url: '/api/chat' }).messages
+  void bad
+}
+
+// ⑧ AiChat：chat handle 必填，labels 可选
+import type { AiChatProps } from '../components/index.ts'
+import { AiChat } from '../components/index.ts'
+
+function typeFlowAiChat(): void {
+  const props: AiChatProps = {
+    chat: wfuiCtx.ui.useChat({ url: '/api/chat' }),
+    labels: { send: 'Send' },
+  }
+  void AiChat
+  void props
+
+  // @ts-expect-error chat 必填
+  const bad2: AiChatProps = {}
+  void bad2
+}
+
 // ── 运行时验证（模块接线）────────────────────────────────────
 
 describe('AI 模块类型接线', () => {

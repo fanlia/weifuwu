@@ -39,6 +39,8 @@ export type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 
 export { aiStream } from './ai.ts'
 export type { AiStreamCallbacks, AiStreamOptions, AiStreamHandle } from './ai.ts'
+export { toChatMessages } from './use-chat.ts'
+export type { UiMessage, UiToolCall, UseChatOptions, UseChatState, UseChatHandle, ChatApi } from './use-chat.ts'
 export type {
   WfStreamEvent,
   WfMessageStart,

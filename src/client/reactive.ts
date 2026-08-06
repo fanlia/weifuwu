@@ -6,6 +6,8 @@
 
 export function createReactiveState(dirty: () => void): Record<string, any> {
   const proxyCache = new WeakMap()
+  // 多消费者订阅：同一状态被父组件（$）与子组件（AiChat 等共享 handle）同时观察
+  const watchers = new Set<() => void>()
 
   const reactive = (target: any): any => {
     if (target === null || typeof target !== 'object') return target
@@ -19,6 +21,7 @@ export function createReactiveState(dirty: () => void): Record<string, any> {
         if (old === value) return true
         Reflect.set(target, key, value)
         dirty()
+        for (const w of watchers) w()
         return true
       },
       get(target, key) {
@@ -31,6 +34,7 @@ export function createReactiveState(dirty: () => void): Record<string, any> {
         if (Reflect.has(target, key)) {
           Reflect.deleteProperty(target, key)
           dirty()
+          for (const w of watchers) w()
         }
         return true
       },
@@ -40,5 +44,15 @@ export function createReactiveState(dirty: () => void): Record<string, any> {
     return proxy
   }
 
-  return reactive({})
+  const root = reactive({})
+  // 订阅状态变更（返回退订函数）。内部 API：子组件共享父 $ 时用它驱动自身重渲染
+  Object.defineProperty(root, '__watch', {
+    value: (cb: () => void) => {
+      watchers.add(cb)
+      return () => { watchers.delete(cb) }
+    },
+    writable: false,
+    enumerable: false,
+  })
+  return root
 }

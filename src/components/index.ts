@@ -144,3 +144,6 @@ export type { ToolCallCardProps } from './ToolCallCard/ToolCallCard.ts'
 
 export { ApprovalCard } from './ApprovalCard/ApprovalCard.ts'
 export type { ApprovalCardProps, ApprovalStatus } from './ApprovalCard/ApprovalCard.ts'
+
+export { AiChat } from './AiChat/AiChat.ts'
+export type { AiChatProps, AiChatLabels } from './AiChat/AiChat.ts'

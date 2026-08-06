@@ -72,6 +72,12 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
     useMedia: () => {},
     useBreakpoint: () => {},
     usePopupPosition: () => ({ top: 0, left: 0, refresh: () => {} }),
+    // SSR 确定性空态：会话不启动（无事件/无网络），仅保证挂载不崩
+    useChat: () => ({
+      messages: [], input: '', streaming: false, error: null, usage: null, step: null,
+      send: () => {}, stop: () => {}, retry: () => {}, clear: () => {},
+      approve: async () => {}, dispose: () => {},
+    }),
   }
   const ctx = Object.create(serverCtx ?? {}) as any
   ctx.ui = ui

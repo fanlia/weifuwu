@@ -19,6 +19,8 @@ import type { WfuiContext, AppMiddleware, PopupPositionOptions, PopupPosition } 
 import { render, patchValue, patchPortal, renderPortal, callRefCleanup, idRegistry, hydrateVNode } from './render.ts'
 import type { VNode, Component } from './vnode.ts'
 import { createReactiveState } from './reactive.ts'
+import { aiStream } from './ai.ts'
+import { createChatSession, type UseChatHandle, type UseChatOptions, type UseChatState } from './use-chat.ts'
 
 // ── createApp ──────────────────────────────────────────
 
@@ -246,6 +248,32 @@ export function createApp<C extends object = {}>(): App<C> {
             this._$cache = createReactiveState(() => (ctx as any).ui.dirty([selfId]))
           }
           return this._$cache
+        },
+
+        /**
+         * AI 对话会话（会话语义 + 工具调用内嵌 + HITL 审批）
+         *
+         * 用法（mount 阶段）：
+         *   const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
+         *   // 状态：$.messages / $.input / $.streaming / $.error / $.usage / $.step
+         *   // 操作：$.send() / $.stop() / $.retry() / $.clear() / $.approve('approved', note?)
+         *   // agent：msg.toolCalls（ToolCallCard 直接消费） / msg.approval（ApprovalCard）
+         *
+         * 返回组件同一个 $（WeakMap 缓存复用）：chat 状态与页面状态共处一个容器。
+         * 卸载时调用 $.dispose()（或经 ref cleanup）中止流，防泄漏。
+         */
+        useChat: function (options: UseChatOptions): UseChatHandle {
+          const state = this.$() as UseChatState
+          const api = createChatSession(state, aiStream, options)
+          Object.assign(state, {
+            send: api.send,
+            stop: api.stop,
+            retry: api.retry,
+            clear: api.clear,
+            approve: api.approve,
+            dispose: api.dispose,
+          })
+          return state as unknown as UseChatHandle
         },
 
         /**

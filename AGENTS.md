@@ -192,6 +192,7 @@ const Popover = (_init, ctx) => {
 | `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动 dirty |
 | `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
+| `ctx.ui.useChat()` | 事件驱动 | 流式事件 → `$` 赋值 | 当前组件 | **AI 对话会话** — 消息累积/工具调用内嵌/HITL 审批/stop/retry（协议对页面透明，见 docs/ai-contract.md） |
 
 `render()` 无参 = 当前组件，传参 = 指定组件列表。三个入口同一套 scope 机制。
 

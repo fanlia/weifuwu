@@ -9,7 +9,10 @@
 
 import type { WfuiContext } from './types.ts'
 
-export type VNodeType = string | Component | AsyncComponent | typeof Fragment | typeof Portal
+// VNodeType 的组件部分用 Component<any, any>：h() 的 props 是 Record<string, any>，
+// 调用点的 props 检查本来就发生在组件声明处；这里只要求「是组件」。
+// （具体泛型会因 props 逆变导致 required-prop 组件无法嵌套，如 h(ToolCallCard, {...})）
+export type VNodeType = string | Component<any, any> | AsyncComponent | typeof Fragment | typeof Portal
 
 export interface VNode {
   type: VNodeType
