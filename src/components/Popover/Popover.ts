@@ -24,6 +24,7 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let show = false
   let wrapEl: HTMLElement | null = null
+  const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
   let latestOpen = false
   let latestPosition: PopoverPosition = 'bottom'
   let prevOpen = false
@@ -87,7 +88,7 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
 
     return h('div', {
       class: `wf-popover-wrap${isOpen ? ' wf-popover-wrap--open' : ''}`,
-      ref: (el: HTMLElement | null) => { if (el) wrapEl = el },
+      ref: wrapRef,
       ...hoverProps,
       onClick,
     }, [children, portalContent].filter(Boolean))

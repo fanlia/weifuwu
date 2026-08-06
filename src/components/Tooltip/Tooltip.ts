@@ -21,6 +21,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let show = false
   let wrapEl: HTMLElement | null = null
+  const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
   let latestPosition: TooltipPosition = 'top'
   let prevOpen = false
 
@@ -61,7 +62,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
 
     return h('div', {
       class: 'wf-tooltip-wrap',
-      ref: (el: HTMLElement | null) => { if (el) wrapEl = el },
+      ref: wrapRef,
       onMouseEnter: showe, onMouseLeave: hide,
       onFocus: showe, onBlur: hide,
     }, [children, portalContent].filter(Boolean))

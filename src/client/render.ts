@@ -357,6 +357,26 @@ function setProp(el: Element, key: string, value: any) {
   }
 }
 
+// ── 内联 ref 检测 ────────────────────────────────────
+// ref-diff 在 ref 函数引用变化时调用旧 ref(null)（见 patchValue）。
+// 内联 ref（render 里写 `ref: (el) => {...}`）每次渲染都是新函数 → 每渲染触发一次
+// ref(null)+ref(el)，清理逻辑被反复执行而非仅在卸载时。同一元素变化 ≥3 次才警告
+// （放过合法的单次/偶发替换，抓住每次渲染都变的内联反模式）。
+const _refChurn = new WeakMap<Element, { count: number; warned: boolean }>()
+
+function warnRefChurn(el: Element): void {
+  const entry = _refChurn.get(el) ?? { count: 0, warned: false }
+  entry.count++
+  if (entry.count >= 3 && !entry.warned) {
+    entry.warned = true
+    console.warn(
+      '[weifuwu] ref 函数每次渲染都变化（内联 ref）——ref 回调在每次渲染后重新执行（性能损耗）。' +
+      '把 ref 定义到 mount 作用域（稳定引用）：const listRef = (el) => {...}; return h(\'div\', { ref: listRef })',
+    )
+  }
+  _refChurn.set(el, entry)
+}
+
 // ── patchValue ─────────────────────────────────────────
 
 export function patchValue(
@@ -496,12 +516,16 @@ export function patchValue(
   // Native element
   if (typeof newV.type === 'string') {
     if (oldNode && oldNode.nodeType === 1) {
-      // ref 变化处理：旧 ref(null) 清理，新 ref(el) 初始化
+      // ref 变化处理：仅新 ref(el) 初始化。
+      // 不调用旧 ref(null)——元素仍在挂载中，ref(null) 只在真正卸载时调用
+      // （callRefCleanup）。若在替换时调旧 ref(null)，内联 ref（每次渲染新函数）
+      // 会在每次重渲染误触发清理分支（退订/dispose/removeEventListener）。
       const oldRef = oldV.props?.ref
       const newRef = newV.props?.ref
       if (oldRef !== newRef) {
-        if (typeof oldRef === 'function') oldRef(null)
         if (typeof newRef === 'function') newRef(oldNode)
+        // 内联 ref 检测：新旧都是函数且同一元素反复变化 → 提示提 mount 作用域
+        if (typeof oldRef === 'function' && typeof newRef === 'function') warnRefChurn(oldNode as Element)
       }
       patchProps(oldNode as Element, oldV.props, newV.props)
       patchChildren(oldNode, oldV, newV, ctx)

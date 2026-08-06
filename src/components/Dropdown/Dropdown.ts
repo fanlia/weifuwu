@@ -23,6 +23,7 @@ export interface DropdownProps {
 export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let wrapEl: HTMLElement | null = null
+  const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
   let latestOpen = false
   let prevOpen = false
 
@@ -59,7 +60,7 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
 
     return h('div', {
       class: `wf-dropdown${open ? ' wf-dropdown--open' : ''}`,
-      ref: (el: HTMLElement | null) => { wrapEl = el },
+      ref: wrapRef,
     }, [trigger, portalContent].filter(Boolean))
   }
 }

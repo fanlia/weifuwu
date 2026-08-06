@@ -26,6 +26,8 @@ function formatSize(bytes: number): string {
 
 export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
   const FL = (ctx as any)?.i18n?.components?.FileUpload ?? {}
+  let fileInput: HTMLInputElement | null = null
+  const fileInputRef = (el: HTMLInputElement | null) => { if (el) fileInput = el }
 
   return (props: FileUploadProps) => {
     const { accept, multiple, maxSize, disabled, error, hint, value, onChange, children } = props
@@ -75,8 +77,6 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
       onChange?.(updated)
     }
 
-    let fileInput: HTMLInputElement | null = null
-
     const inputEl = h('input', {
       type: 'file',
       class: 'wf-upload-input',
@@ -85,7 +85,7 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
       disabled: disabled || undefined,
       onChange: handleChange,
       style: { display: 'none' },
-      ref: (el: HTMLInputElement | null) => { if (el) fileInput = el },
+      ref: fileInputRef,
     })
 
     const dropZone = h('div', {

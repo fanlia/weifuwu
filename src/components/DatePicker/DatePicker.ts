@@ -42,6 +42,8 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
   let rangeEnd: string | null = null
 
   let inputEl: HTMLElement | null = null
+  const inputRef = (el: HTMLElement | null) => { inputEl = el }
+  // 稳定 ref（mount 作用域）：避免内联 ref 每次渲染重建 + ref-diff 变化
   let prevOpen = false
 
   // 滚动/resize 时自动重算坐标（弹层跟随输入框）
@@ -292,7 +294,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         type: 'text',
         placeholder,
         value: displayValue || '',
-        ref: (el: HTMLElement | null) => { inputEl = el },
+        ref: inputRef,
         readonly: true,
         disabled,
         onClick: toggle,

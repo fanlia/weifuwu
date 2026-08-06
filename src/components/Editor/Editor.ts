@@ -47,6 +47,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   let sourceText = ''
 
   let editorEl: HTMLElement | null = null
+  const editorRef = (el: HTMLElement | null) => { if (el) editorEl = el }
 
   // ── 选区保存/恢复 ──────────────────────────────
   let savedRange: Range | null = null
@@ -375,7 +376,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         onKeyUp: handleKeyUp,
         onMouseUp: handleMouseUp,
         onMouseDown: handleMouseDown,
-        ref: (el: HTMLElement | null) => { if (el) editorEl = el },
+        ref: editorRef,
       })
     } else {
       editorBody = h('textarea', {

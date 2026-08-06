@@ -11,6 +11,7 @@ import { setupJsdom } from './setup.ts'
 import { jsx, Fragment, createPortal } from '../../client/vnode.ts'
 import type { VNode } from '../../client/vnode.ts'
 import { render, patchValue, mountVNode, idRegistry } from '../../client/render.ts'
+import { createApp } from '../../client/app.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 let ctx: WfuiContext
@@ -1420,5 +1421,133 @@ describe('unmount 注销 — 死组件不可被陈旧回调重渲染', () => {
     assert.equal(el.querySelectorAll('#comp-c').length, 0, '死组件 C 的 DOM 不得重新出现')
     assert.equal(el.querySelector('#root-box')?.childNodes.length, 1, 'root 无泄漏')
     el.remove()
+  })
+})
+describe('ref 内联检测', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('内联 ref（每次渲染新函数）：3 次重渲染后 console.warn 一次（提示提 mount 作用域）', async () => {
+    const warns: string[] = []
+    const origWarn = console.warn
+    console.warn = (msg: unknown) => { warns.push(String(msg)) }
+    const app = createApp()
+
+    try {
+      const Comp: any = (_init: unknown, ctx: any) => {
+        const $ = ctx.ui.$()
+        $.n = 0
+        return () => ({
+          type: 'div' as const,
+          props: {
+            // 内联 ref：每次渲染都是新函数引用
+            ref: () => { /* inline */ },
+            children: [{
+              type: 'button' as const,
+              props: {
+                id: 'inc',
+                onClick: () => { $.n++ },
+              },
+              key: undefined,
+            }],
+          },
+          key: undefined,
+        })
+      }
+
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      el.id = 'inline-ref'
+      await app.mount('#inline-ref', Comp)
+
+      const btn = document.getElementById('inc') as HTMLButtonElement
+      for (let i = 0; i < 3; i++) {
+        btn.click()
+        await new Promise((r) => setTimeout(r, 10))
+      }
+
+      const hints = warns.filter((w) => w.includes('内联 ref') && w.includes('mount 作用域'))
+      assert.equal(hints.length, 1, '同一元素只提示一次')
+      assert.match(hints[0], /ref 函数每次渲染都变化/)
+    } finally {
+      console.warn = origWarn
+      app.destroy()
+    }
+  })
+
+  it('稳定 ref（mount 作用域）：重渲染不触发警告', async () => {
+    const warns: string[] = []
+    const origWarn = console.warn
+    console.warn = (msg: unknown) => { warns.push(String(msg)) }
+    const app = createApp()
+
+    try {
+      const stableRef = () => { /* hoisted */ }
+      const Comp: any = (_init: unknown, ctx: any) => {
+        const $ = ctx.ui.$()
+        $.n = 0
+        return () => ({
+          type: 'div' as const,
+          props: {
+            ref: stableRef, // 稳定引用：oldRef === newRef → 无 ref-diff
+            children: [{
+              type: 'button' as const,
+              props: {
+                id: 'inc2',
+                onClick: () => { $.n++ },
+              },
+              key: undefined,
+            }],
+          },
+          key: undefined,
+        })
+      }
+
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      el.id = 'stable-ref'
+      await app.mount('#stable-ref', Comp)
+
+      const btn = document.getElementById('inc2') as HTMLButtonElement
+      for (let i = 0; i < 5; i++) {
+        btn.click()
+        await new Promise((r) => setTimeout(r, 10))
+      }
+
+      assert.equal(warns.filter((w) => w.includes('内联 ref')).length, 0, '稳定 ref 不警告')
+    } finally {
+      console.warn = origWarn
+      app.destroy()
+    }
+  })
+})
+
+describe('ref 替换语义（框架修复）', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('内联 ref + null 分支清理：重渲染不触发清理（ref(null) 只在真正卸载时调用）', () => {
+    // 模拟 AiChat 的 unwatch 模式：null 分支是清理逻辑
+    const ref1 = (el: any) => { if (!el) cleanupCount++ }
+    const ref2 = (el: any) => { if (!el) cleanupCount++ }
+    let cleanupCount = 0
+
+    // 首次挂载
+    const v = { type: 'div' as const, props: { ref: ref1 }, key: undefined }
+    const el = render(v, ctx) as HTMLElement
+    document.body.appendChild(el)
+    assert.equal(cleanupCount, 0, '挂载不清理')
+
+    // 重渲染：ref 函数变化（内联 ref 每次渲染都是新函数）
+    // 框架修复：不再调用旧 ref(null)——清理不得触发
+    const v2 = { type: 'div' as const, props: { ref: ref2 }, key: undefined }
+    patchValue(document.body, el, v, v2, ctx)
+    assert.equal(cleanupCount, 0, 'ref 替换（重渲染）不得触发 null 分支清理')
+
+    // 真正卸载 → ref(null) 触发清理
+    patchValue(document.body, el, v2, null, ctx)
+    assert.equal(cleanupCount, 1, '卸载触发一次清理')
   })
 })
