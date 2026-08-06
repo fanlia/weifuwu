@@ -50,7 +50,7 @@ npm install weifuwu
 
 **SPA/SSR/Hydration 统一透明** — 同一份路由定义（`routes`）一个组件三场景自动适配：后端 `uiSsr({ routes })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `router({ routes })` + `RouteView` + `mount(..., { hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
 
-**AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批。`ctx.ai` 一个入口：`chat()` / `stream()` / `agent()` / `approve()`，不用 ai-sdk。
+**AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()` / `approve()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
 
 **SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见文末[SaaS 地基模块](#saas-地基模块ratelimit--email--usersystem--queue)）。
 
@@ -259,7 +259,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu` | **email** | 邮件发送（Resend/SMTP 自研/自定义适配器）→ `ctx.email` | Router |
 | `weifuwu` | **userSystem** | 用户系统（scrypt 密码哈希 + 混合会话）→ `ctx.user` / `ctx.auth` + `/api/auth/*` | Router, postgres |
 | `weifuwu` | **queue** | 可靠任务队列（Redis Streams，at-least-once + DLQ）→ `ctx.queue` | Router, redis |
-| `weifuwu` | **ai** | LLM 对话（自研 OpenAI 兼容协议 + 自研 SSE 解码，默认 DeepSeek）→ `ctx.ai` + `aiStream` | Router |
+| `weifuwu` | **ai** | LLM 对话（自研 OpenAI 兼容协议 + 自研 SSE 解码，默认 DeepSeek）→ `ctx.ai` + `ctx.ui.useChat` + `AiChat` | Router |
 | `weifuwu/dev` | **dev loader** | Node loader：服务端直接跑 `.ts/.tsx`（`--import weifuwu/dev`） | esbuild |
 | `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
 | `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
@@ -275,7 +275,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
-| `weifuwu/components` | **46 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
+| `weifuwu/components` | **47 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 115 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
@@ -2436,6 +2436,7 @@ props 变化 ──────────────────────�
 
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
+| AiChat | `AiChat` | `chat`, `maxHeight?`, `labels?`, `renderMessage?`, `renderToolArgs?` | 标准 AI 对话界面：气泡 + 工具卡 + 审批卡 + 自动滚动 + 错误重试（接收 `ctx.ui.useChat()` handle） |
 | ToolCallCard | `ToolCallCard` | `call`, `progress?`, `result?`, `renderArgs?` | 工具调用卡片：running（进度条）/ ok / error 三态（协议 §4） |
 | ApprovalCard | `ApprovalCard` | `request`, `status?`, `onApprove`, `onReject` | 人工审批卡片：待批（允许/拒绝+备注）/ 已批 / 已拒 / 超时（协议 §4.5） |
 
@@ -3064,6 +3065,22 @@ const handle = aiStream('/api/chat', { messages }, {
 })
 handle.abort()  // 用户停止/组件卸载/导航跳走
 ```
+
+前端对话层（会话语义 + 标准界面，协议对页面透明）：
+
+```tsx
+// ctx.ui.useChat：会话语义（消息累积/工具内嵌/审批/重试），返回页面同一个 $
+const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
+// $.messages / $.input / $.streaming / $.error / $.usage / $.step
+// $.send() / $.stop() / $.retry() / $.clear() / $.approve('approved', note?)
+
+// AiChat：标准对话界面（气泡 / 工具卡 / 审批卡 / 自动滚动 / 错误重试）
+return () => <AiChat chat={$} />
+
+// agent 模式消息内嵌：msg.toolCalls（ToolCallCard 直接消费）/ msg.approval（ApprovalCard）
+```
+
+> 分层：`ctx.ai`（后端协议）→ `aiStream`（传输解码）→ `useChat`（会话语义）→ `AiChat`（标准界面）。要完全自定义 UI 的应用用 useChat + 自有渲染；要 5 分钟出界面用 AiChat。
 
 - **协议**：`wf:` 命名空间（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 step/approval_request），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件（详见 [docs/ai-contract.md](./docs/ai-contract.md)）
 - **agent 引擎**：`a.agent({ systemPrompt, tools, humanInTheLoop })` 工具循环（LLM → tool_call → 执行 → 回喂 → 重复）；工具可 `emit` 进度/自定义事件、接收 `signal` 取消；HITL 审批（`ctx.ai.approve` 响应，拒绝≠终止、modified 改参、超时兜底）
