@@ -317,6 +317,25 @@ ctx.ui.render(['id'])（跨组件）
 - `delete $.x` → `deleteProperty` trap
 - 每个组件实例独立 Proxy，WeakMap 缓存复用
 
+### `$.__watch(cb)` — 多消费者订阅（共享 $ 的子组件）
+
+`$` 默认只通知创建者（dirty → 当前组件）。当**同一响应式状态被多个组件共享**时（典型：父组件把 `ctx.ui.useChat()` 的 handle 作为 prop 传给子组件，如 `<AiChat chat={$} />`），父组件 dirty 不会驱动子组件重渲染（三态 skip：props 引用恒等 + 子组件自身未脏）。子组件在 mount 阶段自订阅：
+
+```tsx
+const AiChat = (initProps, ctx) => {
+  const unwatch = initProps.chat.__watch?.(() => ctx.ui.dirty())
+  // 任何会话状态变化 → dirty 自身 → 重渲染
+  return (props) => h('div', {
+    ref: (el) => { if (!el) unwatch?.() },  // 真正卸载时退订（见 ref 纪律）
+  })
+}
+```
+
+- 订阅在 mount 阶段注册；任何 `$.x = val`（含深层赋值/数组变异）都会通知**所有**订阅者
+- 返回退订函数；**退订必须放在真正的卸载路径**（见下方 ref 纪律——内联 ref 会导致每次渲染误退订）
+- 应用场景：共享 `$`/handle 的展示组件（AiChat）、跨组件观察同一状态、副作用跟踪
+- SSR 无害：`ctx.ui.$()` 的 shim 同样返回带 `__watch` 的容器，无订阅者即无副作用
+
 ### `ctx.ui.dirty()` — 手动标记脏
 
 绕过 Proxy 直接操作底层数据后标记重渲染。实际生产中极少需要——深度 Proxy 已拦截几乎所有变异操作。
@@ -361,9 +380,24 @@ const EChart = (_init, ctx) => {
 }
 ```
 
+### ref 纪律：带清理逻辑的 ref 必须定义在 mount 作用域
+
+weifuwu 的 ref-diff 在 **ref 函数引用变化时**调用旧 ref(null)（render.ts patch 逻辑）。若 ref 内联写在 render 里，每次重渲染都是新函数 → 旧 ref(null) 被调用 → null 分支的清理逻辑（退订 / removeEventListener / dispose）会在**每次渲染后**触发，而非仅在卸载时。
+
+```tsx
+// ❌ 内联 ref：每次渲染引用变化 → null 分支被反复触发（AiChat 流式不更新的根因之一）
+return (props) =>
+  h('div', { ref: (el) => { if (el) init(); else cleanup() } })
+
+// ✅ 稳定 ref：定义在 mount 作用域，ref(null) 只在真正卸载时调用
+const listRef = (el: any) => { if (el) init(); else cleanup() }
+return (props) => h('div', { ref: listRef })
+```
+
 ## $ Proxy 实现要点
 
 - `createReactiveState(dirty)` → 递归 Proxy + WeakMap 缓存
+- `__watch` 多消费者订阅：set/deleteProperty trap 在 `dirty()` 后通知 `watchers` 集合（每个 createReactiveState 实例一个集合）；`__watch` 以非枚举属性挂在根 Proxy 上
 - mount/render 阶段 `$.x = val` 不触发渲染（`dirty` 在 `_rendering` 保护期内调用被忽略）
 - 仅事件/timer/Promise.then 中的赋值生效
 
