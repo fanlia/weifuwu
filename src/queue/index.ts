@@ -138,7 +138,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
 
     length: async (name) => Number(await pool.command('XLEN', stream(name))),
 
-    worker<T = unknown>(name, handler, opts) {
+    worker<T = unknown>(name: string, handler: (job: Job<T>) => Promise<void>, opts?: WorkerOptions) {
       const consumer = opts?.consumer ?? `${hostname()}-${process.pid}-${Math.random().toString(36).slice(2, 6)}`
       const concurrency = opts?.concurrency ?? 1
       const visibilityTimeout = opts?.visibilityTimeout ?? 30_000

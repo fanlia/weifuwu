@@ -258,7 +258,7 @@ const DemoProgress: Component = (_props, ctx) => {
       setTimeout(tick, 800)
     }
     return (
-    <div class="wf-stack" class="wf-row wf-gap-md wf-w-full">
+    <div class="wf-stack wf-row wf-gap-md wf-w-full">
       <ProgressBar value={pct} label="模拟进度" showValue />
       <ProgressBar value={100} label="已完成" showValue />
     </div>
@@ -336,7 +336,7 @@ const DemoToast: Component = (_props, ctx) => {
         <Button variant="secondary" onClick={() => add('warning')}>警告</Button>
         <Button variant="ghost" onClick={() => add('info')}>信息</Button>
       </div>
-      <div class="wf-row" class="wf-row wf-gap-xs wf-text-xs wf-text-secondary">
+      <div class="wf-row wf-gap-xs wf-text-xs wf-text-secondary">
         <span>位置:</span>
         <select value={$.position} onChange={(e: any) => { $.position = e.target.value }}>
           <option value="top-right">右上</option>
@@ -374,7 +374,7 @@ const DemoLoading: Component = (_props, ctx) => {
       setTimeout(() => { loading = false; ctx.ui.render() }, 3000)
     }
     return (
-    <div class="wf-row" class="wf-row wf-gap-lg">
+    <div class="wf-row wf-gap-lg">
       {loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成 ✅</Alert>}
     </div>
   )
@@ -383,9 +383,9 @@ const DemoLoading: Component = (_props, ctx) => {
 
 const DemoSkeleton: Component = () => () => (
   <div class="wf-stack wf-gap-md">
-    <div class="wf-row" class="wf-row wf-gap-md">
+    <div class="wf-row wf-gap-md">
       <Skeleton variant="avatar" />
-      <div class="wf-stack" class="wf-row wf-gap-xs wf-fill">
+      <div class="wf-stack wf-row wf-gap-xs wf-fill">
         <Skeleton width="60%" />
         <Skeleton />
       </div>
@@ -403,7 +403,7 @@ const DemoEmptyState: Component = (_props, ctx) => {
   return (_p: any) => (
     <div class="wf-w-full">
       {hasData
-        ? <div class="wf-stack" class="wf-stack wf-gap-sm wf-text-center wf-p-lg">
+        ? <div class="wf-stack wf-gap-sm wf-text-center wf-p-lg">
             <p>✅ 数据已添加</p>
             <Button variant="ghost" onClick={() => { hasData = false; ctx.ui.render() }}>清空</Button>
           </div>
@@ -417,7 +417,7 @@ const DemoEmptyState: Component = (_props, ctx) => {
 const DemoCardShowcase: Component = (_props, ctx) => {
   let clicked = false
   return (_p: any) => (
-    <div class="wf-row" class="wf-row wf-gap-md wf-cluster">
+    <div class="wf-row wf-gap-md wf-cluster">
       <Card>默认卡片</Card>
       <Card variant="outlined">线框卡片</Card>
       <Card clickable onClick={() => { clicked = true; ctx.ui.render() }}>可点击卡片</Card>
@@ -427,7 +427,7 @@ const DemoCardShowcase: Component = (_props, ctx) => {
 }
 
 const DemoBadge: Component = () => () => (
-  <div class="wf-row" class="wf-row wf-gap-sm wf-cluster">
+  <div class="wf-row wf-gap-sm wf-cluster">
     <Badge>默认</Badge>
     <Badge variant="primary">主要</Badge>
     <Badge variant="success">成功</Badge>
@@ -442,7 +442,7 @@ const DemoBadge: Component = () => () => (
 const DemoTag: Component = (_props, ctx) => {
   let tags = ['可关闭标签', '删除我']
   return (_p: any) => (
-    <div class="wf-row" class="wf-row wf-gap-sm wf-cluster">
+    <div class="wf-row wf-gap-sm wf-cluster">
       <Tag>默认标签</Tag>
       <Tag variant="primary">主要标签</Tag>
       <Tag variant="success">完成</Tag>
@@ -455,7 +455,7 @@ const DemoTag: Component = (_props, ctx) => {
 }
 
 const DemoAvatar: Component = () => () => (
-  <div class="wf-row" class="wf-row wf-gap-md wf-bottom">
+  <div class="wf-row wf-gap-md wf-bottom">
     <Avatar name="张三" />
     <Avatar name="李四" size="sm" />
     <Avatar name="王五" size="lg" />
@@ -464,7 +464,7 @@ const DemoAvatar: Component = () => () => (
 )
 
 const DemoStatCard: Component = () => () => (
-  <div class="wf-row" class="wf-row wf-gap-md wf-cluster">
+  <div class="wf-row wf-gap-md wf-cluster">
     <StatCard label="总用户" value="1,234" icon="👤" trend="up" trendLabel="12%" />
     <StatCard label="收入" value="¥89,000" icon="💰" trend="up" trendLabel="8%" />
     <StatCard label="退款" value="¥1,200" icon="⚠" trend="down" trendLabel="-3%" />
@@ -608,7 +608,7 @@ const DemoFileUpload: Component = (_props, ctx) => {
 }
 
 const DemoTooltip: Component = () => () => (
-  <div class="wf-row" class="wf-row wf-gap-xl wf-py-lg">
+  <div class="wf-row wf-gap-xl wf-py-lg">
     <Tooltip content="保存文件" position="top"><Button>上</Button></Tooltip>
     <Tooltip content="底部提示" position="bottom"><Button>下</Button></Tooltip>
     <Tooltip content="左侧提示" position="left"><Button>左</Button></Tooltip>
@@ -657,7 +657,7 @@ const DemoPopover: Component = (_props, ctx) => {
 }
 
 const DemoImage: Component = () => () => (
-  <div class="wf-row" class="wf-row wf-gap-lg wf-top">
+  <div class="wf-row wf-gap-lg wf-top">
     <Img src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
     <Img src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
     <Img src="/broken.jpg" fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='14'%3E加载失败%3C/text%3E%3C/svg%3E" alt="fallback" width={120} height={120} style={{ objectFit: 'cover', borderRadius: '8px' }} />
@@ -686,7 +686,7 @@ const DemoInView: Component = (_props, ctx) => {
 const DemoDatePicker: Component = (_props, ctx) => {
   let result = ''
   return (_p: any) => (
-    <div class="wf-row" class="wf-row wf-gap-md wf-cluster wf-w-full">
+    <div class="wf-row wf-gap-md wf-cluster wf-w-full">
       <div class="wf-w-full" style="max-width:220px">
         <DatePicker mode="date" onChange={v => { result = v; ctx.ui.render() }} placeholder="选择日期" />
       </div>
