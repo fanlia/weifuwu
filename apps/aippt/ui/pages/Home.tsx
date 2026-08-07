@@ -20,7 +20,7 @@ export const Home: Component<{}, ApiInjected & RouteInjected> = (_init, ctx) => 
   // 加载模板列表
   ;(async () => {
     try {
-      const res = await fetch('/api/templates').then((r) => r.json())
+      const res = await ctx.api!.get('/api/templates')
       $.templates = res.templates ?? []
     } catch { /* 模板加载失败不阻塞 */ }
   })()

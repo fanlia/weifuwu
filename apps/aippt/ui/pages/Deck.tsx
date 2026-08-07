@@ -22,8 +22,8 @@ export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
   ;(async () => {
     try {
       const [deckRes, themesRes] = await Promise.all([
-        fetch(`/api/decks/${id}`).then((r) => r.json()),
-        fetch('/api/themes').then((r) => r.json()),
+        ctx.api!.get(`/api/decks/${id}`),
+        ctx.api!.get('/api/themes'),
       ])
       if (deckRes.error) throw new Error(deckRes.error)
       $.deck = deckRes.deck
@@ -46,12 +46,9 @@ export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
     $.busyTheme = true
     $.error = ''
     try {
-      const res = await fetch(`/api/decks/${id}/theme`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme }),
-      }).then((r) => r.json())
-      if (res.error) throw new Error(res.error)
-      $.deck = res.deck
+      const res = await ctx.api!.patch(`/api/decks/${id}/theme`, { theme })
+      if ((res as any).error) throw new Error((res as any).error)
+      $.deck = (res as any).deck
     } catch (err: any) {
       $.error = err?.message ?? String(err)
     } finally {
@@ -64,15 +61,12 @@ export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
     $.busyTheme = true
     $.error = ''
     try {
-      const res = await fetch('/api/themes/custom', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: $.customName.trim(), colors: $.customColors, logo: $.customLogo || undefined }),
-      }).then((r) => r.json())
-      if (res.error) throw new Error(res.error)
-      $.themes = [...$.themes.filter((x: any) => x.preset), res.theme]
+      const res = await ctx.api!.post('/api/themes/custom', { name: $.customName.trim(), colors: $.customColors, logo: $.customLogo || undefined })
+      if ((res as any).error) throw new Error((res as any).error)
+      $.themes = [...$.themes.filter((x: any) => x.preset), (res as any).theme]
       $.showCustom = false
       $.busyTheme = false
-      await changeTheme(res.theme.id)
+      await changeTheme((res as any).theme.id)
     } catch (err: any) {
       $.error = err?.message ?? String(err)
     } finally {
@@ -91,7 +85,7 @@ export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
   const shareDeck = async () => {
     $.error = ''
     try {
-      const res = await fetch(`/api/decks/${id}/share`, { method: 'POST' }).then((r) => r.json())
+      const res = await ctx.api!.post(`/api/decks/${id}/share`, {})
       if (res.error) throw new Error(res.error)
       const url = `${location.origin}${res.url}`
       await navigator.clipboard.writeText(url)
@@ -107,13 +101,10 @@ export const Deck: Component<{}, RouteInjected> = (_init, ctx) => {
     $.busy = n
     $.error = ''
     try {
-      const res = await fetch(`/api/decks/${id}/slides/${n + 1}/${path}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }).then((r) => r.json())
-      if (res.error) throw new Error(res.error)
+      const res = await ctx.api!.post(`/api/decks/${id}/slides/${n + 1}/${path}`, body)
+      if ((res as any).error) throw new Error((res as any).error)
       const slides = [...$.deck.slides]
-      slides[n] = res.slide
+      slides[n] = (res as any).slide
       $.deck = { ...$.deck, slides }
     } catch (err: any) {
       $.error = err?.message ?? String(err)

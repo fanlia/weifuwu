@@ -14,7 +14,7 @@ export const History: Component<{}, RouteInjected> = (_init, ctx) => {
     $.loading = true
     $.error = ''
     try {
-      const res = await fetch('/api/decks').then((r) => r.json())
+      const res = await ctx.api!.get('/api/decks')
       if (res.error) throw new Error(res.error)
       $.decks = res.decks
     } catch (err: any) {
@@ -29,7 +29,7 @@ export const History: Component<{}, RouteInjected> = (_init, ctx) => {
     e.stopPropagation()
     if (!confirm('确定删除这份演示文稿？')) return
     try {
-      const res = await fetch(`/api/decks/${id}`, { method: 'DELETE' }).then((r) => r.json())
+      const res = await ctx.api!.delete(`/api/decks/${id}`)
       if (res.error) throw new Error(res.error)
       $.decks = $.decks.filter((d: any) => d.id !== id)
     } catch (err: any) {

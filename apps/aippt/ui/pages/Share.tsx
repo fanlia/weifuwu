@@ -12,7 +12,7 @@ export const Share: Component = (_init, ctx) => {
 
   ;(async () => {
     try {
-      const res = await fetch(`/api/share/${token}`).then((r) => r.json())
+      const res = await ctx.api!.get(`/api/share/${token}`)
       if (res.error) throw new Error(res.error)
       $.deck = res.deck
     } catch (err: any) {

@@ -17,7 +17,7 @@ export const Outline: Component<{}, RouteInjected> = (_init, ctx) => {
 
   ;(async () => {
     try {
-      const res = await fetch(`/api/outlines/${id}`).then((r) => r.json())
+      const res = await ctx.api!.get(`/api/outlines/${id}`)
       if (res.error) throw new Error(res.error)
       $.title = res.outline.title
       $.theme = res.outline.theme
