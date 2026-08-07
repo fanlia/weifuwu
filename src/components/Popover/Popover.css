@@ -53,16 +53,16 @@
   display: inline-flex;
 }
 
-/* ── 入场动画 ── */
+/* ── 入场动画：fade（浮层族 popover/tooltip 保持 fade，时长 Token 驱动） ── */
 .wf-popover {
-  animation: wf-popover-in 0.15s ease-out;
+  animation: wf-popover-in var(--wf-dur-fast) var(--wf-ease-out);
 }
 @keyframes wf-popover-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 .wf-popover-overlay {
-  animation: wf-popover-overlay-in 0.15s ease-out;
+  animation: wf-popover-overlay-in var(--wf-dur-fast) var(--wf-ease-out);
 }
 @keyframes wf-popover-overlay-in {
   from { opacity: 0; }

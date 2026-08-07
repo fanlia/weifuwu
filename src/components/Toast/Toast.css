@@ -29,7 +29,7 @@
   max-width: 400px;
   cursor: pointer;
   pointer-events: auto;
-  animation: wf-toast-in 0.2s ease;
+  animation: wf-toast-in var(--wf-dur-base) var(--wf-ease-out);
 }
 
 @keyframes wf-toast-in {

@@ -46,12 +46,8 @@
   color: var(--wf-color-error-text);
 }
 
-/* ── 入场动画 ── */
+/* ── 入场动画：面板族统一 wf-panel-in（scale+fade，Token 驱动） ── */
 .wf-dropdown-menu {
-  animation: wf-dropdown-in 0.12s ease-out;
+  animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
   transform-origin: top center;
-}
-@keyframes wf-dropdown-in {
-  from { opacity: 0; transform: translateY(-4px) scaleY(0.96); }
-  to   { opacity: 1; transform: translateY(0) scaleY(1); }
 }

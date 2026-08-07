@@ -38,6 +38,17 @@
   box-shadow: var(--wf-shadow-md), var(--wf-focus-ring);
 }
 
+/* ── 面板入场：统一 scale+fade（面板族：dropdown/select/datepicker 从触发点下方弹出） ── */
+.wf-panel-in {
+  animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
+  transform-origin: top center;
+}
+
+@keyframes wf-panel-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* ── 聊天气泡 ──
  * 用法：wf-bubble（对方/AI）+ wf-bubble--own（自己）
  * 行布局用 wf-row + wf-gap/wf-mb 覆盖；文字用 wf-pre-wrap 已内建

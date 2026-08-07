@@ -110,6 +110,9 @@
   max-height: 240px;
   overflow-y: auto;
   z-index: var(--wf-z-dropdown);
+  /* 面板族统一入场：wf-panel-in（scale+fade，Token 驱动） */
+  animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
+  transform-origin: top center;
 }
 
 .wf-select-search-opt {

@@ -50,6 +50,9 @@
   padding: var(--wf-space);
   min-width: var(--wf-datepicker-width, 260px);
   user-select: none;
+  /* 面板族统一入场：wf-panel-in（scale+fade，Token 驱动） */
+  animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
+  transform-origin: top center;
 }
 
 .wf-datepicker-header {
@@ -159,6 +162,8 @@
   box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space);
   user-select: none;
+  animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
+  transform-origin: top center;
 }
 
 .wf-datepicker-range-panel {
@@ -177,6 +182,8 @@
   padding: var(--wf-space);
   min-width: var(--wf-datepicker-range-width, 200px);
   user-select: none;
+  animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
+  transform-origin: top center;
 }
 
 .wf-time-body {

@@ -274,4 +274,18 @@ describe('样式审计 — 设计约束', () => {
     }
     assert.deepEqual(violations, [], '文本字形必须替换为 Icon 组件（emoji 属文案性 labels 白名单）')
   })
+
+  it('一次性动画必须引用动效 Token（循环动画 spinner/shimmer 豁免）', () => {
+    const css = readComponentCss() + '\n' + readLayoutCss()
+    const violations: string[] = []
+    for (const m of css.matchAll(/animation:\s*([^;]+);/g)) {
+      const v = m[1]
+      if (v.includes('infinite')) continue // 循环动画（spinner/shimmer）时长是转速参数，豁免
+      if (v.includes('var(--wf-dur') && v.includes('var(--wf-ease')) continue
+      if (/\d+(ms|s)/.test(v) || /(^|[^\w-])ease(-in|-out|-in-out)?\b/.test(v)) {
+        violations.push(v.trim().slice(0, 60))
+      }
+    }
+    assert.deepEqual(violations, [], '一次性动画必须引用 --wf-dur-* / --wf-ease-* Token（防硬编码回归）')
+  })
 })

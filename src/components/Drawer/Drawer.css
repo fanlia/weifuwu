@@ -22,11 +22,11 @@
 }
 
 .wf-drawer--enter .wf-drawer-overlay {
-  animation: wf-drawer-overlay-fadein 0.2s ease-out;
+  animation: wf-drawer-overlay-fadein var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-drawer--exit .wf-drawer-overlay {
-  animation: wf-drawer-overlay-fadeout 0.2s ease-out forwards;
+  animation: wf-drawer-overlay-fadeout var(--wf-dur-fast) var(--wf-ease-in) forwards;
 }
 
 @keyframes wf-drawer-overlay-fadein {
@@ -51,7 +51,7 @@
 }
 
 .wf-drawer--enter .wf-drawer-panel {
-  animation: wf-drawer-slidein 0.25s ease-out;
+  animation: wf-drawer-slidein var(--wf-dur-base) var(--wf-ease-out);
 }
 
 .wf-drawer--enter .wf-drawer-panel--right {
@@ -63,7 +63,7 @@
 }
 
 .wf-drawer--exit .wf-drawer-panel {
-  animation: wf-drawer-slideout 0.2s ease-out forwards;
+  animation: wf-drawer-slideout var(--wf-dur-base) var(--wf-ease-in) forwards;
 }
 
 .wf-drawer--exit .wf-drawer-panel--right {

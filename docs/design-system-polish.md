@@ -329,3 +329,32 @@ P0 动效（地基，exit 机制被 P4/P6 依赖）
 - **修复命令式 confirm 测试挂起**：原 ESC 测试用 `document.dispatchEvent`（依赖已删除的 document 级监听）→ `await promise` 永不 resolve 导致进程不退出——改为从对话框内按钮冒泡触发
 - 全量 838 前端测试通过，typecheck + build 通过
 - 诚实边界：Dropdown/Popover/Tooltip 的 trigger 为不透明 VNode，ARIA 挂在包装层而非触发元素本身（文档注明，应用层可在 trigger 上加 `aria-haspopup` 补齐语义）；焦点归还触发钮仅 Modal 系实现（trapFocus），Dropdown/Popover 未做（trigger 不可寻址）——已登记
+
+---
+
+## P9 后续优化方向执行记录
+
+### 方向 A — 文档债（✅）
+
+- `docs/style-guide.md`：动效 Token 表（dur/ease/motion）、Icon 用法、Badge/Tag 二分（状态徽章 vs 可关闭标签）、浮层退场=延迟卸载语义、CJK/数字 Token、组件数 44→48、场景速查 +5 行
+- `README.md` 语义层清单补 26 个新 Token（-text 文字色、on-brand、overlay、动效、heading-case、nums、display）
+- `docs/style-system.md` 计数同步（115→141）
+
+### 方向 B — dogfooding + 浏览器走查（✅，暴露 3 个框架级 bug）
+
+agent-platform 接入 P8 特性（confirm/toast 中间件 5 处删除流、StatCard animate）+ agent-browser 走查暴露并修复：
+
+1. **客户端模块状态重复（最严重）**：`dist/components` 内联一份 client 源码（`external` 只挡 JSX 运行时包名导入）→ 命令式中间件挂载的组件注册在 components 的 `idRegistry`，但 `$` 的 dirty 走 app 的 `renderByIds`（查 app 的 registry）→ toast 永不渲染且单测全绿（node --test 单模块图掩盖）。修复双防线：① build.mjs 组件构建外部化 `src/client/*` → `weifuwu/client`（dist 消费端共享）；② apps tsconfig `paths` 补 `weifuwu/components` → src（dev 全 src 单图）。补 client 导出 `mountVNode/callRefCleanup/patchValue/animateOut`
+2. **trapFocus 初始聚焦失效**：weifuwu ref 在元素 appendChild 前触发（未连接文档 `focus()` 无效，浏览器实测 `firstIsConn=false`）→ `queueMicrotask` 延迟聚焦
+3. **AppLayout 缺 Loading import**（agent-platform 既有）
+
+浏览器验证：Confirm 遮罩不关/退场帧/焦点进出、Toast 显示+自动消失、删除流全链路。AGENTS.md 记录"客户端模块状态共享双防线"与"ref 触发时机"两课。
+
+### 方向 C — 面板级微动画统一（✅）
+
+- **layout 统一面板入场**：`.wf-panel-in`（scale 0.97 + translateY(-4px) + fade，`--wf-dur-fast` + `--wf-ease-out`，origin top center）——面板族（dropdown/select/datepicker 从触发点下方弹出）统一引用
+- **Select/DatePicker 面板补入场**（原瞬开）：`.wf-select-search-menu`、`.wf-datepicker-dropdown`/`.wf-datepicker-range-wrap`/`.wf-time-picker`
+- **浮层族保持 fade**（popover/tooltip 位置多变，scale origin 复杂——诚实裁剪）
+- **全部动画 Token 化**：Dropdown 移除自建 keyframes、Modal/Drawer/Toast 的 `0.2s ease-out` 硬编码 → `var(--wf-dur-*)` + `var(--wf-ease-*)`
+- **style-audit +1 条规则**（17 条）：一次性动画必须引用动效 Token（循环动画 spinner/shimmer 豁免——转速是独立参数）
+- 全量 854 前端测试通过，typecheck + build 通过，浏览器验证 Modal 入场/焦点/toast

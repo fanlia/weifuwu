@@ -10,11 +10,11 @@
 }
 
 .wf-modal--enter {
-  animation: wf-modal-fadein 0.2s ease-out;
+  animation: wf-modal-fadein var(--wf-dur-base) var(--wf-ease-out);
 }
 
 .wf-modal--exit {
-  animation: wf-modal-fadeout 0.2s ease-out forwards;
+  animation: wf-modal-fadeout var(--wf-dur-base) var(--wf-ease-in) forwards;
 }
 
 @keyframes wf-modal-fadein {
