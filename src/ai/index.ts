@@ -33,6 +33,7 @@ import { createAgent, type AgentConfig, type AgentRunner } from './agent.ts'
 import type { ChatParams } from './types.ts'
 
 export type { AiEmbeddingOptions } from './client.ts'
+export type { AgentRunResult, AgentStep, AgentTool, AgentConfig, AgentRunner, ToolContext } from './agent.ts'
 
 export interface AiOptions extends Partial<AiClientOptions> {}
 
@@ -113,4 +114,3 @@ export type {
 export type { WfEmitter } from './sse.ts'
 export { AiError } from './client.ts'
 export type { AiClient, ChatResponse } from './client.ts'
-export type { AgentConfig, AgentTool, AgentRunner, ToolContext } from './agent.ts'

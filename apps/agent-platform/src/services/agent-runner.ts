@@ -9,13 +9,16 @@
  * - 执行日志记录
  */
 
-import type { Context } from 'weifuwu'
+import type { Context, ChatMessage, AgentRunResult, AgentTool } from 'weifuwu'
+import type { WfToken, WfStep, WfToolResult, WfUsage, WfDone } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
-import type { ChatMessage, AgentRunResult, ToolDefinition } from '../ai/types.ts'
+import type { ToolDefinition } from '../ai/types.ts'
 import { SkillRegistry } from './skills.ts'
 import type { SkillContext } from './skills.ts'
 import { resolveAgentWorkspace } from '../middleware/workspace.ts'
 import { getWorkspaceToolDefs, createWorkspaceHandlers } from '../tools/workspace.ts'
+import { getToolHandler } from '../tools/registry.ts'
+import type { WfEmitter } from 'weifuwu'
 
 export interface AgentRunnerConfig {
   agentId: string
@@ -108,6 +111,65 @@ function truncateMessages(
  * - 上下文窗口截断（防止超长 context）
  * - 执行日志记录到数据库
  */
+/**
+ * 构建执行上下文：技能注册表 + 框架 AgentTool[]（run 分发到 skillRegistry / 全局工具注册表）
+ */
+function buildToolContext(
+  config: AgentRunnerConfig,
+): { tools: AgentTool[]; skillRegistry?: SkillRegistry } {
+  // 构建工具集：技能工具 + 工作空间工具
+  const allTools: ToolDefinition[] = [...(config.tools as ToolDefinition[])]
+
+  // 构建 SkillRegistry（如果有预加载技能）
+  let skillRegistry: SkillRegistry | undefined
+  if (config.preloadedSkills && config.preloadedSkills.length > 0) {
+    skillRegistry = new SkillRegistry(config.agentId)
+    for (const skill of config.preloadedSkills) {
+      skillRegistry.registerSkill(skill)
+      allTools.push(...skill.tools)
+    }
+  }
+
+  // 解析工作空间路径（始终使用内置目录，忽略用户自定义）
+  if (config.allowFileTools) {
+    const resolvedWs = config.workspacePath ?? null
+    if (resolvedWs) {
+      const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
+      allTools.push(...wsTools)
+      try {
+        const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false)
+        if (!skillRegistry) skillRegistry = new SkillRegistry(config.agentId)
+        skillRegistry.registerSkill({
+          dir: resolvedWs,
+          meta: { name: '__workspace__', description: '工作空间文件工具' },
+          tools: wsTools,
+          handlers: wsHandlers,
+        })
+      } catch (err: any) {
+        console.warn(`[agent-runner] 工作空间初始化失败: ${err.message}`)
+      }
+    }
+  }
+
+  // 自研 ToolDefinition（声明）→ 框架 AgentTool（run 分发到 skillRegistry → 全局 toolHandlers）
+  const tools: AgentTool[] = allTools.map(td => ({
+    name: td.function.name,
+    description: td.function.description,
+    parameters: td.function.parameters,
+    run: async (args) => {
+      if (skillRegistry?.hasTool(td.function.name)) {
+        return skillRegistry.executeTool(td.function.name, args)
+      }
+      const handler = getToolHandler(td.function.name)
+      if (!handler) return `Error: tool handler for "${td.function.name}" not registered`
+      const r = await handler(args)
+      return typeof r === 'string' ? r : JSON.stringify(r)
+    },
+  }))
+
+  return { tools, skillRegistry }
+}
+
 export async function runAgent(
   ctx: AppCtx,
   config: AgentRunnerConfig,
@@ -124,56 +186,20 @@ export async function runAgent(
     8000,
   )
 
-  // 构建工具集：技能工具 + 工作空间工具
-  const allTools: ToolDefinition[] = [...(config.tools as ToolDefinition[])]
-
-  // 构建 SkillRegistry（如果有预加载技能）
-  let skillRegistry: SkillRegistry | undefined
-  if (config.preloadedSkills && config.preloadedSkills.length > 0) {
-    skillRegistry = new SkillRegistry(config.agentId)
-    for (const skill of config.preloadedSkills) {
-      skillRegistry.registerSkill(skill)
-      // 技能的工具定义也加入总工具列表
-      allTools.push(...skill.tools)
-    }
-  }
-
-  // 解析工作空间路径（始终使用内置目录，忽略用户自定义）
-  const resolvedWs = config.allowFileTools
-    ? await resolveAgentWorkspace(config.agentId, null, config.allowFileTools)
-    : null
-
-  if (resolvedWs) {
-    const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
-    allTools.push(...wsTools)
-
-    try {
-      const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false)
-      if (!skillRegistry) {
-        skillRegistry = new SkillRegistry(config.agentId)
-      }
-      skillRegistry.registerSkill({
-        dir: resolvedWs,
-        meta: { name: '__workspace__', description: '工作空间文件工具' },
-        tools: wsTools,
-        handlers: wsHandlers,
-      })
-    } catch (err: any) {
-      console.warn(`[agent-runner] 工作空间初始化失败: ${err.message}`)
-    }
-  }
+  const { tools } = buildToolContext(config)
 
   const startTime = Date.now()
 
+  // 框架 agent 引擎：结构化结果模式（content/steps/usage）
   const agentRunner = ai.agent({
     model: config.model,
     systemPrompt: config.systemPrompt,
-    tools: allTools,
+    tools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: config.humanInTheLoop ?? false,
-  }, skillRegistry)
+  })
 
-  const result = await agentRunner.run(contextMessages.slice(1)) // 去掉 system，agent 内部会重新加
+  const result = await agentRunner.runToResult(contextMessages.slice(1)) // 去掉 system，agent 内部会重新加
 
   const elapsed = Date.now() - startTime
 
@@ -218,86 +244,46 @@ export async function streamAgent(
     onToolResult?: (result: { name: string; result: string }) => void
     onFinish?: (result: { content: string }) => void
   },
-): Promise<{ prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined> {
+): Promise<WfUsage | undefined> {
   const { ai } = ctx
-
-  // 构建工具集：技能工具 + 工作空间工具
-  const allTools: ToolDefinition[] = [...(config.tools as ToolDefinition[])]
-
-  // 构建 SkillRegistry（如果有预加载技能）
-  let skillRegistry: SkillRegistry | undefined
-  if (config.preloadedSkills && config.preloadedSkills.length > 0) {
-    skillRegistry = new SkillRegistry(config.agentId)
-    for (const skill of config.preloadedSkills) {
-      skillRegistry.registerSkill(skill)
-      allTools.push(...skill.tools)
-    }
-  }
-
-  // 解析工作空间路径（始终使用内置目录，忽略用户自定义）
-  const resolvedWs = config.allowFileTools
-    ? await resolveAgentWorkspace(config.agentId, null, config.allowFileTools)
-    : null
-
-  if (resolvedWs) {
-    const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
-    allTools.push(...wsTools)
-
-    try {
-      const wsHandlers = createWorkspaceHandlers(resolvedWs, config.allowCommandExec ?? false)
-      if (!skillRegistry) {
-        skillRegistry = new SkillRegistry(config.agentId)
-      }
-      skillRegistry.registerSkill({
-        dir: resolvedWs,
-        meta: { name: '__workspace__', description: '工作空间文件工具' },
-        tools: wsTools,
-        handlers: wsHandlers,
-      })
-    } catch (err: any) {
-      console.warn(`[agent-runner] 工作空间初始化失败: ${err.message}`)
-    }
-  }
+  const { tools } = buildToolContext(config)
 
   const agentRunner = ai.agent({
     model: config.model,
     systemPrompt: config.systemPrompt,
-    tools: allTools,
+    tools,
     maxSteps: config.maxSteps ?? 10,
     humanInTheLoop: config.humanInTheLoop ?? false,
-  }, skillRegistry)
-
-  let fullContent = ''
-  let finalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined
-
-  const streamResult = await agentRunner.stream(messages, {
-    onChunk: (chunk) => {
-      for (const choice of chunk.choices) {
-        if (choice.delta.content) {
-          fullContent += choice.delta.content
-          // 透传 chat.ts 的 async onChunk 结果
-          const result: any = callbacks.onChunk(choice.delta.content)
-          if (result && typeof result.then === 'function') {
-            return result
-          }
-        }
-      }
-    },
-    onToolCall: (toolCall) => {
-      callbacks.onToolCall?.({ name: toolCall.function.name, args: toolCall.function.arguments })
-    },
-    onToolResult: (result) => {
-      callbacks.onToolResult?.({ name: result.name, result: result.result })
-    },
-    onFinish: (result) => {
-      callbacks.onFinish?.({ content: fullContent })
-    },
   })
 
-  // 捕获流式结果中的 usage
-  if (streamResult?.usage) {
-    finalUsage = streamResult.usage
+  let fullContent = ''
+  let finalUsage: WfUsage | undefined
+  let lastToolName = ''
+
+  // 框架 agent 事件流：wf:* 事件 → 业务回调（onChunk/onToolCall/onToolResult/onFinish）
+  const emit: WfEmitter = (name, data) => {
+    if (name === 'wf:token') {
+      const text = (data as WfToken).text
+      fullContent += text
+      callbacks.onChunk(text)
+    } else if (name === 'wf:step') {
+      const s = data as WfStep
+      if (s.type === 'tool' && s.name) {
+        lastToolName = s.name
+        callbacks.onToolCall?.({ name: s.name, args: '' })
+      }
+    } else if (name === 'wf:tool_result') {
+      const r = data as WfToolResult
+      const result = r.ok ? (typeof r.output === 'string' ? r.output : JSON.stringify(r.output ?? '')) : `Error: ${r.error?.message ?? 'unknown'}`
+      callbacks.onToolResult?.({ name: lastToolName, result })
+    } else if (name === 'wf:usage') {
+      finalUsage = data as WfUsage
+    } else if (name === 'wf:done') {
+      callbacks.onFinish?.({ content: fullContent })
+    }
   }
+
+  await agentRunner.stream(messages, { emit })
 
   return finalUsage
 }

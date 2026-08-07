@@ -38,35 +38,51 @@ export const Chat: Component = (_props, ctx) => {
           $.msgs.push({ id: event.message.id, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'idle', tools: [], ai_draft: event.draft, ai_approved: null })
         }
         ; break
-      case 'ai:status': {
+      case 'wf:step': {
+        // 框架协议：stepType 'llm'（开始思考）/ 'tool'（工具调用）
         const idx = $.msgs.findIndex((m: any) => m.id === event.messageId)
-        if (event.status === 'thinking' && idx === -1) {
-          $.msgs.push({ id: event.messageId, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'thinking', tools: [] })
-        } else if (idx !== -1) {
-          if (event.status === 'complete' || event.status === 'error') {
-            const m = $.msgs[idx]
-            if (!m.content && event.status === 'error') { m.content = '⚠️ AI 回复失败' }
-            m.status = event.status; if (event.usage) m.usage = event.usage
-          } else { $.msgs[idx].status = event.status }
-        }
-        ; break
-      }
-      case 'ai:token': {
-        const m = $.msgs.find((m: any) => m.id === event.messageId)
-        if (m) m.content += event.text
-        ; break
-      }
-      case 'ai:tool': {
-        const m = $.msgs.find((m: any) => m.id === event.messageId)
-        if (!m) break
-        if (event.phase === 'call') {
-          if (!m.tools) m.tools = []
-          if (!m.tools.some((t: any) => t.name === event.name && t.status === 'running')) {
-            m.tools.push({ name: event.name, args: event.args, status: 'running' })
+        if (event.stepType === 'llm') {
+          if (idx === -1) {
+            $.msgs.push({ id: event.messageId, sender_id: event.agentId, sender_name: event.agentName ?? 'AI', sender_type: 'ai', content: '', msg_type: 'text', created_at: new Date().toISOString(), status: 'thinking', tools: [] })
+          } else if ($.msgs[idx].status !== 'complete' && $.msgs[idx].status !== 'error') {
+            $.msgs[idx].status = 'thinking'
           }
-        } else if (event.phase === 'result') {
-          (m.tools ?? []).forEach((t: any) => { if (t.name === event.name && t.status === 'running') { t.status = 'done'; t.result = event.result } })
+        } else if (event.stepType === 'tool') {
+          const m = $.msgs.find((m: any) => m.id === event.messageId)
+          if (m) {
+            if (!m.tools) m.tools = []
+            if (!m.tools.some((t: any) => t.name === event.name && t.status === 'running')) {
+              m.tools.push({ name: event.name, args: event.args, status: 'running' })
+            }
+          }
         }
+        ; break
+      }
+      case 'wf:token': {
+        const m = $.msgs.find((m: any) => m.id === event.messageId)
+        if (m) { m.content += event.text; if (m.status !== 'complete') m.status = 'generating' }
+        ; break
+      }
+      case 'wf:tool_result': {
+        const m = $.msgs.find((m: any) => m.id === event.messageId)
+        if (m) {
+          (m.tools ?? []).forEach((t: any) => { if (t.name === event.name && t.status === 'running') { t.status = 'done'; t.result = event.result } })
+          if (m.status !== 'complete') m.status = 'thinking'
+        }
+        ; break
+      }
+      case 'wf:done': {
+        const idx = $.msgs.findIndex((m: any) => m.id === event.messageId)
+        if (idx !== -1) {
+          const m = $.msgs[idx]
+          if (event.content) m.content = event.content
+          m.status = 'complete'; if (event.usage) m.usage = event.usage
+        }
+        ; break
+      }
+      case 'wf:error': {
+        const m = $.msgs.find((m: any) => m.id === event.messageId)
+        if (m) { if (!m.content) m.content = '⚠️ AI 回复失败'; m.status = 'error' }
         ; break
       }
       case 'message_edited': {

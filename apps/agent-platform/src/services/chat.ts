@@ -18,8 +18,12 @@ import { wsHub } from './ws-hub.ts'
 
 // ── 流式事件类型 ───────────────────────────────────────
 
+/**
+ * 流式事件：框架 wf:* 协议（AI 回合事件）+ 应用层元数据（messageId/agentId）。
+ * 业务事件（new_message/message_edited/message_deleted/ai_draft）仍为应用自有类型。
+ */
 export interface StreamEvent {
-  type: 'ai:status' | 'ai:token' | 'ai:tool'
+  type: 'wf:step' | 'wf:token' | 'wf:tool_result' | 'wf:done' | 'wf:error' | 'wf:usage'
   messageId: string
   [key: string]: unknown
 }
@@ -223,12 +227,12 @@ async function runAgentStreamForAgent(
   }
 
   // 1) thinking
-  emit.emit({ type: 'ai:status', messageId: msgId, agentId: agent.id, agentName: agent.name, status: 'thinking' })
+  emit.emit({ type: 'wf:step', messageId: msgId, agentId: agent.id, agentName: agent.name, stepType: 'llm' })
 
   let accumulatedContent = ''
   let streamFailed = false
   let hasEmittedGenerating = false
-  let finalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined
+  let finalUsage: import('weifuwu').WfUsage | undefined
 
   try {
     finalUsage = await streamAgent(ctx, {
@@ -248,19 +252,13 @@ async function runAgentStreamForAgent(
         accumulatedContent += text
         await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
 
-        if (!hasEmittedGenerating && text) {
-          hasEmittedGenerating = true
-          emit.emit({ type: 'ai:status', messageId: msgId, status: 'generating' })
-        }
-        emit.emit({ type: 'ai:token', messageId: msgId, text })
+        emit.emit({ type: 'wf:token', messageId: msgId, text })
       },
       onToolCall: (toolCall: { name: string; args: string }) => {
-        emit.emit({ type: 'ai:tool', messageId: msgId, phase: 'call', name: toolCall.name, args: toolCall.args })
+        emit.emit({ type: 'wf:step', messageId: msgId, stepType: 'tool', name: toolCall.name, args: toolCall.args })
       },
       onToolResult: (result: { name: string; result: string }) => {
-        hasEmittedGenerating = false
-        emit.emit({ type: 'ai:tool', messageId: msgId, phase: 'result', name: result.name, result: result.result })
-        emit.emit({ type: 'ai:status', messageId: msgId, status: 'thinking' })
+        emit.emit({ type: 'wf:tool_result', messageId: msgId, name: result.name, result: result.result })
       },
       onFinish: () => {
         // 每个流式步骤结束，不在此处发 complete
@@ -276,7 +274,7 @@ async function runAgentStreamForAgent(
     if (!accumulatedContent) {
       await sql`DELETE FROM messages WHERE id = ${msgId} AND content = ''`
     }
-    emit.emit({ type: 'ai:status', messageId: msgId, status: 'error', error: 'AI 回复失败' })
+    emit.emit({ type: 'wf:error', messageId: msgId, code: 'provider_error', message: 'AI 回复失败' })
   } else {
     if (finalUsage) {
       try {
@@ -290,7 +288,7 @@ async function runAgentStreamForAgent(
         `
       } catch { /* 日志失败不影响主流程 */ }
     }
-    emit.emit({ type: 'ai:status', messageId: msgId, status: 'complete', content: accumulatedContent, usage: finalUsage })
+    emit.emit({ type: 'wf:done', messageId: msgId, content: accumulatedContent, usage: finalUsage })
   }
 
   // SSE 路径：关闭响应流

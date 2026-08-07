@@ -5,7 +5,7 @@
  */
 
 import type { ToolDefinition } from '../ai/types.ts'
-import { registerTools } from '../ai/agent.ts'
+import { registerTools } from './registry.ts'
 import type { Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 

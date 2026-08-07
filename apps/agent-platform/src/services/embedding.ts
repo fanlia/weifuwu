@@ -3,7 +3,7 @@
  */
 
 import type { Context } from 'weifuwu'
-import type { AiContext } from '../middleware/ai.ts'
+import type { AppCtx } from '../middleware/ctx.ts'
 
 export interface ChunkResult {
   chunks: string[]
@@ -22,7 +22,7 @@ export interface SearchResult {
  * 文档分块 + 向量化
  */
 export async function chunkAndEmbed(
-  ctx: AiContext,
+  ctx: AppCtx,
   content: string,
   chunkSize = 500,
   chunkOverlap = 50,
@@ -38,7 +38,7 @@ export async function chunkAndEmbed(
  * 语义检索知识库
  */
 export async function searchKnowledgeBase(
-  ctx: AiContext,
+  ctx: AppCtx,
   agentId: string,
   query: string,
   topK = 5,
@@ -72,7 +72,7 @@ export async function searchKnowledgeBase(
  * 检索知识库并构建上下文提示
  */
 export async function buildKnowledgeContext(
-  ctx: AiContext,
+  ctx: AppCtx,
   agentId: string,
   query: string,
   topK = 5,

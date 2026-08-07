@@ -32,6 +32,9 @@ export type {
   AgentTool,
   AgentRunner,
   ToolContext,
+  AgentRunResult,
+  AgentStep,
+  WfEmitter,
 } from './ai/index.ts'
 export type {
   WfStreamEvent,

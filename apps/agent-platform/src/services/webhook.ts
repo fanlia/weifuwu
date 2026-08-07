@@ -147,7 +147,7 @@ export async function handleWebhookMessage(
   })
 
   try {
-    const result = await agentRunner.run([{ role: 'user', content: body.content }])
+    const result = await agentRunner.runToResult([{ role: 'user', content: body.content }])
 
     const elapsed = Date.now() - startTime
     await logWebhookCall(ctx, agentId, agent.tenant_id, JSON.stringify(body), result.content, 200, elapsed, true)

@@ -9,11 +9,10 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, ui, userSystem } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, ui, userSystem, ai } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
-import { ai } from './src/middleware/ai.ts'
 
 // ── 路由 ──────────────────────────────────────────────────
 import { registerAuthRoutes } from './src/routes/auth.ts'
@@ -90,8 +89,8 @@ async function main() {
   // 框架认证路由：login/logout/refresh/me（register 自定义：建租户 + 默认 agent）
   users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
 
-  // ── AI 中间件 ───────────────────────────────────────────
-  app.use(ai())
+  // ── AI 中间件（框架 ai()：chat/stream/agent/embedding——embedding 默认读 DASHSCOPE_*） ──
+  app.use(ai({ embedding: {} }))
 
   // ── 内置工具注册 ──────────────────────────────────────────
   // 提供一个获取当前 ctx 的函数，供内置工具在运行时使用
