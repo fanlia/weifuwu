@@ -19,7 +19,7 @@ npm install weifuwu
 
 ### 一句话
 
-**weifuwu = 一个包的全栈框架：全自研、零配置、消灭样板。** 下面三条核心哲学与十条技术原则都是这句话的展开——我们不做缝合框架，每一层都自研且可预测。
+**weifuwu = 一个包的全栈框架：全自研、零配置、消灭样板、SaaS 地基随包内置。** 下面四条核心哲学与十一条技术原则都是这句话的展开——我们不做缝合框架，每一层都自研且可预测。
 
 ### 核心哲学
 
@@ -35,6 +35,8 @@ npm install weifuwu
 | 样式样板 | 语义原语 + 变量定制，零自定义 CSS 文件（`--wf-brand-500` 改一层值全站跟随） |
 | 数据样板 | `ctx.data.get` 一个 API 覆盖 SSR 预取 / hydration 命中 / SPA fetch，写数据像写同步代码 |
 | 协议样板 | 自研 PG/Redis 客户端消灭双重编码、parseRow 样板、`'EX'` 参数顺序陷阱 |
+
+**④ SaaS 地基，应用必须的一等能力。** 不只是库——rateLimit / email / userSystem / messager / queue 五个中间件随包内置，且互相咬合：**身份是消息的路由，消息是身份的交互**（`sendTo(ctx.user.id)` 按身份路由、`createConversation(ctx.user.id)` 创建者即身份、成员校验自动对齐），AI 对话走同一协议。开发者从「自建基础设施」变「声明业务」——`app.use(...)` 一行接入，一个多租户 AI 平台（agent-platform）已完整消费这层地基（auth / AI / 消息 / UI / 数据管道全部框架能力）。
 
 ### 技术原则（哲学的展开）
 
@@ -52,11 +54,15 @@ npm install weifuwu
 
 **AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批 + embedding 向量化。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()`（`stream(messages, { emit })` emitter 抽象——事件可接任意通道，`runToResult()` 结构化结果）/ `approve()` / `embed()` / `embedMany()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
 
-**SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ messager（消息系统）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见文末[SaaS 地基模块](#saas-地基模块ratelimit--email--usersystem--messager--queue)）。
+**SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ messager（消息系统）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见文末[SaaS 地基模块](#saas-地基模块ratelimit--email--usersystem--messager--queue)）。互相咬合成协作基础：身份（userSystem）+ 消息（messager）的组合让「谁能跟谁说话、消息如何送达」天然对齐，不再需要第三套权限系统。
+
+**机制与策略分离** — 框架管**机制**（token 怎么签、消息怎么送达、agent 循环怎么跑），开发者管**策略**（谁能建群、租户隔离 SQL、技能注册表）。这是「诚实裁剪」的积极面：**框架不越界，应用层不被绑架**——agent-platform 迁移验证了边界：多租户隔离（`WHERE tenant_id`）、技能编排、聊天产品模型留在应用层，框架守住通用能力（auth / ai / messager / UI / 数据管道）。
 
 **零自定义 CSS 设计系统** — 一个 CSS 文件 = 双层 Token + 布局原语 + 工具类 + 组件样式。业务页面不写 style.css：组件 + `wf-*` 原语写业务，品牌/组件定制改变量（`--wf-brand-500` / `--wf-btn-radius`），暗色自动（详见[布局系统](#布局系统-weifuwulayout)）。
 
 **自研数据层** — `ctx.sql`（PG v3 协议）与 `ctx.redis`（RESP2 协议）为**自研客户端**：确定性输出、行为可预测、统一错误模型。jsonb 自动解码、TTL 安全 API、schema 写前校验——高频痛点（双重编码/parseRow 样板/`'EX'` 参数顺序）从根上消除。
+
+> **实践验证**：多租户 AI 平台（`apps/agent-platform`——14 页 + 部门聊天 + 知识库 + HITL 审批）已完全运行在框架上：auth（userSystem）/ AI 引擎（ai）/ 实时消息（messager）/ UI（48 组件）/ 数据管道（ctx.api）零自研替代。框架哲学（中间件注入、诚实裁剪、机制与策略分离）经受住了真实复杂应用的检验——这也是我们确定「哪些进框架、哪些留应用层」的依据。
 
 ---
 
