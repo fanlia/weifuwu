@@ -285,6 +285,8 @@ export function createApp<C extends object = {}>(): App<C> {
       destroyPopupListeners()
       _popupTrackers.clear()
       for (const key of [..._mediaRegistry.keys()]) unsubscribeMediaEntry(key)
+      // 全部组件失效：清 idRegistry，残留异步回调（Promise/WS/setTimeout）的 dirty 不再命中
+      idRegistry.clear()
       if (container) container.innerHTML = ''
       container = null
       ctx = {} as WfuiContext

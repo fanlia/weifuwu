@@ -3,25 +3,22 @@ import { PageHeader, EmptyState, Loading } from '../components/ui'
 import { Avatar, Button, Card } from 'weifuwu/components'
 
 export const Companies: Component = (_props, ctx) => {
-  const $ = ctx.ui.$()
-  const token = ctx.auth?.token
-
-   $.companies = []; $.loading = true
-    fetch('/api/companies', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => { $.companies = d.companies ?? []; $.loading = false })
-      .catch(() => { $.loading = false })
+  // 取数工具：loading/error 自动管理 + 自动渲染（token 由 api 中间件自动注入）
+  const companies = ctx.ui.useAsync(async () => {
+    const d = await ctx.api!.get<{ companies: any[] }>('/api/companies')
+    return d.companies ?? []
+  })
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
-    const ok = await (ctx as any).confirm('确定删除这家公司吗？所有部门将一并删除。')
+    const ok = await ctx.confirm!('确定删除这家公司吗？所有部门将一并删除。')
     if (!ok) return
-    const res = await fetch(`/api/companies/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    if (res.ok || res.status === 204) {
-      $.loading = true
-      fetch('/api/companies', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json()).then(d => { $.companies = d.companies ?? []; $.loading = false })
-        .catch(() => { $.loading = false })
-      ;(ctx as any).toast?.('公司已删除', 'success')
+    try {
+      await ctx.api!.delete(`/api/companies/${id}`)   // 非 2xx 抛 ApiError
+      companies.reload()
+      ctx.toast!('公司已删除', 'success')
+    } catch {
+      ctx.toast!('删除失败', 'error')
     }
   }
   return (props) => (
@@ -30,17 +27,17 @@ export const Companies: Component = (_props, ctx) => {
         <Button variant="primary" onClick={() => ctx.app?.navigate('/companies/new')}>＋ 创建公司</Button>
       </PageHeader>
 
-      {$.loading && <Loading />}
+      {companies.loading && <Loading />}
 
-      {!$.loading && $.companies.length === 0 && (
+      {!companies.loading && (companies.data?.length ?? 0) === 0 && (
         <EmptyState icon="🏢" text="还没有公司" hint="创建公司来组织部门与 Agent">
           <Button variant="primary" onClick={() => ctx.app?.navigate('/companies/new')}>＋ 创建公司</Button>
         </EmptyState>
       )}
 
-      {!$.loading && $.companies.length > 0 && (
+      {!companies.loading && (companies.data?.length ?? 0) > 0 && (
         <div class="wf-grid">
-          {$.companies.map((c: any) => (
+          {(companies.data ?? []).map((c: any) => (
             <Card key={c.id}>
               <div class="wf-row wf-gap-sm">
                 <Avatar name={(c.name ?? 'C')[0]} color="#8b5cf6" />

@@ -102,7 +102,12 @@ function iconFor(type: ToastType): IconName {
 // ToastHost 内部持有 $.toasts 状态（$ 赋值自动触发渲染），
 // 中间件只负责桥接 add/remove + 自动消失定时器。
 
-export function toast(opts?: ToastOptions): AppMiddleware {
+/** 命令式 ctx.toast 的注入类型（AppMiddleware<{}, ToastInjected>） */
+export interface ToastInjected {
+  toast: (message: string, type?: ToastType, duration?: number, action?: { label: string; onClick: () => void }) => void
+}
+
+export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
   const defaults = {
     position: opts?.position ?? 'top-right',
     duration: opts?.duration ?? 3000,
@@ -166,6 +171,6 @@ export function toast(opts?: ToastOptions): AppMiddleware {
         setTimeout(() => hostApi?.remove(id), t)
       }
     }
-    return ctx
+    return ctx as WfuiContext & ToastInjected
   }
 }

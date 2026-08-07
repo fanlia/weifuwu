@@ -8,7 +8,7 @@
  * 消除 app.ts 中散落的 `as any`——跨模块状态误用由编译器拦截。
  */
 
-import type { WfuiContext, PopupPositionOptions, PopupPosition } from './types.ts'
+import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle } from './types.ts'
 import type { VNode } from './vnode.ts'
 import { idRegistry } from './registry.ts'
 import { createReactiveState } from './reactive.ts'
@@ -236,6 +236,36 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         Object.assign(pos, tracker.compute(el.getBoundingClientRect()))
       }
       return pos
+    },
+
+    /**
+     * 异步取数工具（mount 阶段调用）：loading/error 自动管理 + 数据就绪自动渲染。
+     *
+     * 用法：
+     *   const list = ctx.ui.useAsync(() => ctx.api.get<User[]>('/users'))
+     *   return () => list.loading ? h(Loading) : list.data?.map(...)
+     *
+     * 返回 handle 的 data/loading/error 是响应式的（内部独立状态容器，赋值自动 dirty 当前组件）；
+     * reload() 重跑取数；组件卸载后旧 Promise resolve 不再触发渲染（idRegistry 查无此组件，安全忽略）。
+     */
+    useAsync: function <T>(fetcher: () => Promise<T>): UseAsyncHandle<T> {
+      const selfId = getSelfId(this)
+      const state = createReactiveState(() => {
+        if (!ctx.ui) return // destroy 后：静默忽略（应用已销毁）
+        ctx.ui!.dirty(selfId ? [selfId] : undefined)
+      }) as any
+      state.loading = true
+      const run = () => {
+        state.loading = true
+        state.error = null
+        Promise.resolve()
+          .then(() => fetcher())
+          .then((d) => { state.data = d; state.loading = false })
+          .catch((e) => { state.error = e; state.loading = false })
+      }
+      run()
+      state.reload = run
+      return state as UseAsyncHandle<T>
     },
 
     /** 注册组件实例的自定义 ID（用于跨组件精准刷新） */

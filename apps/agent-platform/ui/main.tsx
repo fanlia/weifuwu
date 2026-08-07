@@ -27,7 +27,11 @@ import { Settings } from './pages/Settings'
 const app = createApp()
 
 // 中间件
-app.use(api({ baseURL: '' }))
+app.use(api({
+  baseURL: '',
+  // 自动鉴权：请求自动带 Bearer token（apps 不再手写 Authorization 头）
+  token: () => localStorage.getItem('agent_platform_token'),
+}))
 app.use(auth({
   storage: localStorage,
   tokenKey: 'agent_platform_token',

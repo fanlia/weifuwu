@@ -11,14 +11,14 @@ export const Departments: Component = (_props, ctx) => {
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
-    const ok = await (ctx as any).confirm('确定删除这个部门吗？')
+    const ok = await ctx.confirm!('确定删除这个部门吗？')
     if (!ok) return
     const res = await fetch(`/api/departments/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${ctx.auth?.token}` } })
     if (res.ok || res.status === 204) {
       $.depts = $.depts.filter((d: any) => d.id !== id)
-      ;(ctx as any).toast?.('部门已删除', 'success')
+      ;ctx.toast!('部门已删除', 'success')
     } else {
-      ;(ctx as any).toast?.('删除失败', 'error')
+      ;ctx.toast!('删除失败', 'error')
     }
   }
   return (props) => (

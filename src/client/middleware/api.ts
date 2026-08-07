@@ -26,6 +26,8 @@ export interface ApiOptions {
   baseURL?: string
   /** 默认请求头 */
   headers?: Record<string, string>
+  /** 动态鉴权 token：非空时自动加 `Authorization: Bearer <token>`（请求头未显式指定时） */
+  token?: () => string | null
   /** 请求拦截器 */
   onRequest?: (req: { url: string; init: RequestInit }) => { url: string; init: RequestInit }
   /** 响应拦截器 */
@@ -87,6 +89,13 @@ export function api(options?: ApiOptions): AppMiddleware<{}, ApiInjected> {
     const init: RequestInit = {
       method,
       headers: { ...opts.headers, ...reqOpts?.headers },
+    }
+
+    // 自动鉴权：token 非空且请求头未显式指定 Authorization 时注入
+    // 用法：`api({ token: () => localStorage.getItem('token') })`——apps 不再手写 Bearer 头
+    const token = options?.token?.()
+    if (token && !(init.headers as Record<string, string>).Authorization) {
+      ;(init.headers as Record<string, string>).Authorization = `Bearer ${token}`
     }
 
     // 超时合并：如果设置了 timeout 或有用户 signal，创建合并的 AbortController

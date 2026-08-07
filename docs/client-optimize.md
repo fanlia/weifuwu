@@ -198,3 +198,29 @@ dist/client/index.js 71KB 未 minify；内部 API 导出无标注。
 - VNode 复用池/WeakMap 化 idRegistry/调度器大改/fiber：未做（无收益场景）
 - `_idCounter` 不复用（无内存问题）
 - 剩余 `as any` 34 处：VNode 内部属性访问与 ctx 扩展边界（UiInternal 已覆盖核心状态面），未逐一清理
+
+---
+
+## 后续：apps 使用优化（✅，基于实际使用痕迹）
+
+### 证据驱动的缺口
+- **63 次裸 fetch vs 1 次 ctx.api**：api 中间件无法自动鉴权（token 在 auth 中间件，两者无组合）→ apps 每页手写 `Authorization: Bearer` 头 + `.json()` + 吞错误
+- **`(ctx as any).confirm` / `(ctx as any).toast?.` 遍布 apps**：confirm/toast 中间件零类型注入
+- **取数样板**：14 页重复 `$.x = []; $.loading = true; fetch().then().catch()`，错误静默
+
+### 修复
+1. **api 中间件加 `token: () => string | null`**：非空时自动加 `Authorization: Bearer <token>`（请求头未显式指定时）
+2. **confirm/toast 类型注入**：导出 `ConfirmInjected`/`ToastInjected`；中间件返回类型改为 `AppMiddleware<{}, ConfirmInjected|ToastInjected>`；WfuiContext 基础声明补 `confirm?`/`toast?`（apps 不写 C 泛型也能用）
+3. **`ctx.ui.useAsync(fetcher)`**：普通组件取数工具——loading/error 自动管理、data/loading/error 响应式、reload() 重跑、卸载后旧 Promise resolve 安全忽略
+4. **destroy() 补 `idRegistry.clear()`**（useAsync 测试暴露：destroy 后残留异步回调的 dirty 会命中残留组件 → `ctx.ui._dirtySet` 炸）
+
+### 迁移验证（agent-platform）
+- `main.tsx`：`api({ token: () => localStorage.getItem('agent_platform_token') })`
+- `Companies.tsx` 全量迁移示范：裸 fetch + `$.loading` 三连 → `ctx.ui.useAsync` + `ctx.api!` + `ctx.confirm!`/`ctx.toast!`（0 处 `fetch(`/`$.` 残留）
+- 浏览器冒烟：列表加载（token 自动注入）→ 删除 → Confirm → toast「公司已删除」→ reload 刷新 ✓
+- 测试：862 前端全绿（+4 useAsync：成功/失败/reload/卸载后过期 resolve）
+
+### 诚实裁剪
+- 仅迁移 Companies.tsx 作为示范；其余 13 页的 fetch 迁移留待后续（模式已验证，机械替换）
+- `ctx.api` 为可选声明需 `!`（与 WfuiContext 现有 api?/auth? 一致的模式）
+- agent-platform 有 5 个既有 typecheck 错误（server.ts/middleware/ai.ts），非本次引入

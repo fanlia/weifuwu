@@ -14,6 +14,14 @@ export interface PopupPositionOptions {
   compute: (rect: DOMRect) => { top: number; left: number; width?: number }
 }
 
+/** 异步取数工具返回值 — ctx.ui.useAsync()（data/loading/error 响应式，reload 重跑） */
+export interface UseAsyncHandle<T = any> {
+  data?: T
+  loading: boolean
+  error?: unknown
+  reload: () => void
+}
+
 /** 弹层位置跟踪器 — usePopupPosition 的返回值 */
 export interface PopupPosition {
   top: number
@@ -51,6 +59,16 @@ export interface WfuiContext {
     useBreakpoint: (bpsOrCallback: Record<string, string> | ((vp: string) => void), callback?: (vp: string) => void) => void
     /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标 */
     usePopupPosition: (options: PopupPositionOptions) => PopupPosition
+    /**
+     * 异步取数工具（mount 阶段调用）：loading/error 自动管理 + 数据就绪自动渲染。
+     *
+     * ```tsx
+     * const list = ctx.ui.useAsync(() => ctx.api.get<User[]>('/users'))
+     * return () => list.loading ? h(Loading) : list.data?.map(...)
+     * ```
+     * data/loading/error 响应式；reload() 重跑；组件卸载后旧 Promise resolve 不再触发渲染。
+     */
+    useAsync: <T = any>(fetcher: () => Promise<T>) => UseAsyncHandle<T>
     /** 注册组件实例的自定义语义 ID，同名冲突抛错 */
     selfId: (name: string) => void
     /** 当前组件实例 ID（仅供内部使用，通过 ctx 扩展注入） */
@@ -118,6 +136,11 @@ export interface WfuiContext {
     logout: () => void
     [key: string]: any
   }
+
+  /** 命令式确认（由 components 的 confirm() 中间件注入）：ctx.confirm(msg) → Promise<boolean> */
+  confirm?: (message: string, options?: Record<string, any>) => Promise<boolean>
+  /** 命令式轻提示（由 components 的 toast() 中间件注入）：ctx.toast(msg, type?, duration?, action?) */
+  toast?: (message: string, type?: string, duration?: number, action?: { label: string; onClick: () => void }) => void
 }
 
 /** 中间件签名 */

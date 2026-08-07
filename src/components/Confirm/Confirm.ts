@@ -39,17 +39,22 @@ export interface ConfirmOptions {
   maskClosable?: boolean
 }
 
+/** 命令式 ctx.confirm 的注入类型（AppMiddleware<{}, ConfirmInjected>） */
+export interface ConfirmInjected {
+  confirm: (message: string, options?: ConfirmOptions) => Promise<boolean>
+}
+
 /**
  * 命令式中间件：注入 ctx.confirm()
  *
  * 每次调用挂载 Confirm 组件到独立容器（mountVNode），
  * resolve 后 callRefCleanup 清理（含 Modal 的 portal DOM）+ 移除容器。
  */
-export function confirm(): AppMiddleware {
+export function confirm(): AppMiddleware<{}, ConfirmInjected> {
   return (ctx: WfuiContext) => {
     ;(ctx as any).confirm = (message: string, options?: ConfirmOptions) =>
       createConfirm(message, options ?? {}, ctx)
-    return ctx
+    return ctx as WfuiContext & ConfirmInjected
   }
 }
 

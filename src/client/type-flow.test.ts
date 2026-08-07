@@ -14,9 +14,11 @@ import { createApp } from '../client/app.ts'
 import type { Component } from '../client/vnode.ts'
 import { asyncComponent, isAsyncComponent } from '../client/vnode.ts'
 import type { AsyncComponent } from '../client/vnode.ts'
-import { api, type ApiInjected } from '../client/middleware/api.ts'
-import { router, type RouteInjected } from '../client/router.ts'
-import type { AppMiddleware } from '../client/types.ts'
+import { api, type ApiInjected } from './middleware/api.ts'
+import { router, type RouteInjected } from './router.ts'
+import type { AppMiddleware } from './types.ts'
+import { confirm, type ConfirmInjected } from '../components/Confirm/Confirm.ts'
+import { toast, type ToastInjected } from '../components/Toast/Toast.ts'
 
 // ① 组件 props 泛型：JSX/类型检查应拒绝错误 props
 interface DeckCardProps {
@@ -34,6 +36,19 @@ const PageWithCtx: Component<{}, ApiInjected & RouteInjected> = (_init, ctx) => 
   ctx.api.get('/x')
   ctx.route.path
   ctx.app.navigate('/y')
+  return () => null
+}
+
+// ⑥ 命令式中间件注入类型：confirm/toast 的 C 泛型可访问（P1 类型注入修复验证）
+const PageWithCmd: Component<{}, ConfirmInjected & ToastInjected> = (_init, ctx) => {
+  ctx.confirm('确定？').then((ok: boolean) => { ok })
+  ctx.toast('已保存', 'success')
+  return () => null
+}
+// ⑦ 基础 WfuiContext 也有可选声明（apps 不写 C 泛型也能用）
+const PagePlain: Component = (_init, ctx) => {
+  ctx.confirm?.('确定？')
+  ctx.toast?.('hi')
   return () => null
 }
 
