@@ -44,15 +44,15 @@ npm install weifuwu
 
 **Proxy 驱动渲染** — `ctx.ui.$()` 返回深度 Proxy，`$.x = val` 自动触发当前组件的 VDOM patch；也支持手动 `ctx.ui.render()` 精确控制渲染时机。**组件库手动优先、业务层自动优先**——同一框架内按角色选模式（详见[组件库](#组件库-weifuwucomponents)）。
 
-**中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` / `ctx.limit` / `ctx.email` / `ctx.queue` / `ctx.ai` 等），Handler/组件从 `ctx` 读取。
+**中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` / `ctx.limit` / `ctx.email` / `ctx.queue` / `ctx.ai` / `ctx.msg` 等），Handler/组件从 `ctx` 读取。
 
 **async 工厂组件** — `async (ctx) => (initProps, ctx) => (props) => VNode`：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`$`）、render 输出视图。异步只在工厂边界，mount/render 保持同步；数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
 
 **SPA/SSR/Hydration 统一透明** — 同一份路由定义（`routes`）一个组件三场景自动适配：后端 `uiSsr({ routes })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `router({ routes })` + `RouteView` + `mount(..., { hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
 
-**AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()` / `approve()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
+**AI 是一等公民** — 自研 OpenAI 兼容协议（`docs/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批 + embedding 向量化。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()`（`stream(messages, { emit })` emitter 抽象——事件可接任意通道，`runToResult()` 结构化结果）/ `approve()` / `embed()` / `embedMany()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
 
-**SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见文末[SaaS 地基模块](#saas-地基模块ratelimit--email--usersystem--queue)）。
+**SaaS 地基随包内置** — rateLimit（限流）/ email（邮件）/ userSystem（用户认证）/ messager（消息系统）/ queue（可靠队列）以中间件形态随包提供，`app.use(...)` 一行接入（详见文末[SaaS 地基模块](#saas-地基模块ratelimit--email--usersystem--messager--queue)）。
 
 **零自定义 CSS 设计系统** — 一个 CSS 文件 = 双层 Token + 布局原语 + 工具类 + 组件样式。业务页面不写 style.css：组件 + `wf-*` 原语写业务，品牌/组件定制改变量（`--wf-brand-500` / `--wf-btn-radius`），暗色自动（详见[布局系统](#布局系统-weifuwulayout)）。
 
@@ -237,7 +237,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 48 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
-| 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 141 个主题 Token + 67 个布局原语 |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 141 个主题 Token + 67 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -257,9 +257,10 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu` | **uiSsr** | 路由级 SSR：匹配 routes → 自动完整 HTML + `__DATA__` + bundle | Router, ui |
 | `weifuwu` | **rateLimit** | 限流中间件（fixed/sliding，redis 多实例原子）→ `ctx.limit` | Router, redis |
 | `weifuwu` | **email** | 邮件发送（Resend/SMTP 自研/自定义适配器）→ `ctx.email` | Router |
-| `weifuwu` | **userSystem** | 用户系统（scrypt 密码哈希 + 混合会话）→ `ctx.user` / `ctx.auth` + `/api/auth/*` | Router, postgres |
+| `weifuwu` | **userSystem** | 用户系统（scrypt 密码哈希 + 混合会话 + 多租户感知）→ `ctx.user` / `ctx.auth` / `ctx.tenantId` + `/api/auth/*` | Router, postgres |
+| `weifuwu` | **messager** | 消息系统（会话/消息持久化 + WS 实时投递 + Redis 跨进程广播）→ `ctx.msg` + `/api/messages/*` | Router, postgres, (redis) |
 | `weifuwu` | **queue** | 可靠任务队列（Redis Streams，at-least-once + DLQ）→ `ctx.queue` | Router, redis |
-| `weifuwu` | **ai** | LLM 对话（自研 OpenAI 兼容协议 + 自研 SSE 解码，默认 DeepSeek）→ `ctx.ai` + `ctx.ui.useChat` + `AiChat` | Router |
+| `weifuwu` | **ai** | LLM 对话（自研 OpenAI 兼容协议 + 自研 SSE 解码，默认 DeepSeek）→ `ctx.ai` + embedding + `ctx.ui.useChat` + `AiChat` | Router |
 | `weifuwu/dev` | **dev loader** | Node loader：服务端直接跑 `.ts/.tsx`（`--import weifuwu/dev`） | esbuild |
 | `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
 | `weifuwu` | **createMiddleware** | 类型安全中间件工厂 | — |
@@ -1070,6 +1071,8 @@ app.wsHub(redisHub)
 
 WebSocket 原生 `ws.send()` 发送，`ws.on('message', cb)` WebSocket 接收。
 
+> **实时应用推荐用 `messager()`**（SaaS 地基模块）：协议内置（`connected/subscribe/ping`）+ 持久化 + 跨进程广播 + 点对点，不必自写 Hub/协议——见[消息系统章节](#messager--消息系统)。
+
 ---
 
 ## HttpError — HTTP 错误
@@ -1092,7 +1095,7 @@ app.get('/secure', () => {
 
 ## 响应辅助函数
 
-> 以下为完整 API 参考，按需查阅。四个 SaaS 地基模块（rateLimit / email / userSystem / queue）见文末「SaaS 地基模块」章节。
+> 以下为完整 API 参考，按需查阅。五个 SaaS 地基模块（rateLimit / email / userSystem / messager / queue）见文末「SaaS 地基模块」章节。
 
 消除 `Response.json(...)` 重复模式：
 
@@ -1161,6 +1164,7 @@ import type { CORSOptions } from 'weifuwu'
 import type { ServeStaticOptions } from 'weifuwu'
 import type { PostgresOptions, PostgresClient, PostgresInjected } from 'weifuwu'
 import type { RedisOptions, RedisClient, RedisInjected } from 'weifuwu'
+import type { MessagerOptions, MessagerClient, MessagerInjected } from 'weifuwu'
 import type { GraphQLOptions, GraphQLHandler } from 'weifuwu'
 ```
 
@@ -2376,6 +2380,7 @@ props 变化 ──────────────────────�
 | Field | `Field` | `label`, `error`, `required`, `help` | 字段包装 |
 | FileUpload | `FileUpload` | `accept`, `multiple`, `maxSize`, `onFiles` | 文件上传 |
 | SearchInput | `SearchInput` | `value`, `placeholder`, `onSearch`, `loading` | 搜索框 |
+| SegmentedControl | `SegmentedControl` | `options: SegmentedOption[]`, `value`, `onChange`, `size` | 分段选择器 |
 | ProgressBar | `ProgressBar` | `value`, `max`, `variant`, `size`, `label` | 进度条 |
 
 ### 数据展示
@@ -2387,6 +2392,7 @@ props 变化 ──────────────────────�
 | Badge | `Badge` | `variant: BadgeVariant`, `count`, `dot`, `max` | 徽标 |
 | Tag | `Tag` | `variant`, `closable`, `onClose` | 标签 |
 | Avatar | `Avatar` | `src`, `name`, `size`, `shape` | 头像 |
+| Icon | `Icon` | `name: IconName`, `size`, `color`, `strokeWidth` | 图标（内置 100+ 图标，stroke 风格） |
 | StatCard | `StatCard` | `title`, `value`, `trend`, `icon`, `variant` | 统计卡片 |
 | PageHeader | `PageHeader` | `title`, `subtitle`, `actions`, `onBack`, `breadcrumb` | 页面标题 |
 | Img | `Img` | `src`, `alt`, `fallback`, `lazy`, `fit` | 图片（含 fallback） |
@@ -2925,7 +2931,9 @@ docker compose up -d
 
 ---
 
-# SaaS 地基模块（rateLimit / email / userSystem / queue）
+# SaaS 地基模块（rateLimit / email / userSystem / messager / queue）
+
+五个模块（限流 / 邮件 / 用户系统 / 消息系统 / 队列）以中间件形态随包提供，`app.use(...)` 一行接入。
 
 四个内建模块组成一个"基本 SaaS 底座"：认证、异步任务、限流、邮件——零新增依赖
 （只依赖已自研的 redis / postgres 客户端与 node 标准库）。
@@ -2993,7 +3001,36 @@ app.post('/secure', (req, ctx) => { ctx.auth.requireAuth(); ... })
 - **安全基线**：scrypt 密码哈希（per-user salt + timing-safe，异步不阻塞）；access token = HMAC-SHA256 JWT（与 `weifuwu/client` 的 `auth()` 天然配对）；refresh token = 不透明随机串，DB 只存哈希，logout/轮换即撤销
 - **防枚举**：登录失败统一 401（不泄露邮箱是否存在）
 - **`ctx.auth` 方法面**：`register` / `login` / `logout` / `requireAuth` / `setPassword(userId, newPwd)` / `createToken(type, payload, { ttlSeconds })`（邮箱验证/密码重置自接）
-- **裁剪**：OAuth、邮箱验证邮件（给底层 API 自接）、多因素、RBAC 权限引擎（只留 `role` 字段）、多租户语义（tenant-ready：`tenant` 字段 + token claim 已预留）
+- **多租户感知**：`issueSession` 的 token payload 携带 `tenantId`（来自 `user.tenant`）——中间件自动注入 `ctx.tenantId`，并将会话字段（userId/tenantId/email/name/role）合并到 `ctx.auth`，多租户应用免写 token 解码/租户中间件（数据隔离 SQL 是应用职责）
+- **`routes` 支持 `exclude`**：`users.routes(app, { exclude: ['register'] })`——应用自定义注册流程（如注册时建租户）时跳过框架路由
+- **裁剪**：OAuth、邮箱验证邮件（给底层 API 自接）、多因素、RBAC 权限引擎（只留 `role` 字段）、租户隔离 SQL（框架只做感知，`WHERE tenant_id` 属应用层）
+
+## messager — 消息系统
+
+```ts
+import { messager } from 'weifuwu'
+
+const db = postgres()
+await db.migrate()
+const msg = messager({ sql: db.sql, redis: rds })   // redis 可选：跨进程广播
+await msg.migrate()            // 幂等建表（conversations + members + messages）
+app.use(db)
+app.use(msg)                   // 注入 ctx.msg
+msg.routes(app)                // /api/messages/*（会话/历史/发消息/已读）
+app.ws('/ws', ctx.msg.handler())   // 标准 WS 协议内置
+
+// 业务代码：持久化 + 鉴权 + 广播 + 未读 + 历史，一次调用
+const conv = await ctx.msg.createConversation(ctx.user.id, { type: 'group', memberIds: ['u2'] })
+await ctx.msg.sendMessage(conv.id, { senderType: 'user', senderId: ctx.user.id, content: '你好' })
+ctx.msg.broadcast(`conv:${conv.id}`, { type: 'order_chat', orderId: 'o1' })  // 任意实时事件
+ctx.msg.sendTo('u2', { type: 'mention' })       // 用户维度点对点
+```
+
+- **数据模型**：`_weifuwu_conversations` / `_weifuwu_conversation_members` / `_weifuwu_messages`（`sender_type + sender_id` 不 FK users——user/agent/system 消息天然可存）；direct 会话同对用户唯一、历史游标分页、未读数（`last_read_at`）、编辑/删除软删
+- **实时协议内置**：`handler()` 提供 `connected / subscribe→subscribed / unsubscribe / ping→pong`——前端 `ctx.ws.send({ type: 'subscribe', room })` 直接可用，两端协议由框架定义
+- **跨进程**：`redis` 选项 → Redis pub/sub 广播（psubscribe 模式），多实例部署天然一致；无 redis 优雅降级单进程
+- **与 userSystem 咬合**：`sendTo(ctx.user.id)` 按身份路由、`createConversation(ctx.user.id)` 创建者即身份、成员校验自动对齐——身份是消息的路由，消息是身份的交互
+- **裁剪**：已读回执状态机（只做未读数）、附件存储、全文搜索、消息确认/重试（可靠投递用 queue）、移动端推送
 
 ## queue — 可靠任务队列
 
@@ -3100,9 +3137,11 @@ return () => <AiChat chat={$} />
 
 - **协议**：`wf:` 命名空间（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 step/approval_request），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件（详见 [docs/ai-contract.md](./docs/ai-contract.md)）
 - **agent 引擎**：`a.agent({ systemPrompt, tools, humanInTheLoop })` 工具循环（LLM → tool_call → 执行 → 回喂 → 重复）；工具可 `emit` 进度/自定义事件、接收 `signal` 取消；HITL 审批（`ctx.ai.approve` 响应，拒绝≠终止、modified 改参、超时兜底）
+- **emitter 抽象**：`agent.stream(messages, { emit })`——`wf:*` 事件（step/token/tool_result/usage/done）可接任意通道（SSE/WS/回调），协议不焊死在传输层；`agent.runToResult(messages)` 返回结构化结果 `{ content, steps, usage }`（非流式/worker 场景）
+- **embedding**：`ctx.ai.embed(text)` / `embedMany(texts)` 向量化（默认 `DASHSCOPE_API_KEY` + `text-embedding-v4`，compatible-mode 端点）；未配置抛 `AiError('unsupported')`（惰性检查，不静默降级）——知识库/语义检索开箱即用
 - **零依赖**：自研 OpenAI 兼容客户端（fetch + SSE 解析），默认 DeepSeek，`baseUrl` 可换任意 OpenAI 兼容端点（Ollama/vLLM/Moonshot…）
 - **追踪**：前端自动生成 `X-Trace-Id` → 后端以之作为 `message_start.id` → 工具内请求继承同一 traceId，整个 agent run 一次搜完
-- **裁剪**：embeddings、Anthropic 原生协议、审批持久化（连接断=会话亡）暂不支持；多 agent 编排不承诺（子 agent = 工具已支持）
+- **裁剪**：Anthropic 原生协议、审批持久化（连接断=会话亡）暂不支持；多 agent 编排不承诺（子 agent = 工具已支持）；embedding 仅文本（图片/多模态不做）
 
 ## 组合示例：注册 → 验证邮件 → 欢迎任务 → 登录防爆破
 
