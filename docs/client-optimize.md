@@ -151,3 +151,50 @@ dist/client/index.js 71KB 未 minify；内部 API 导出无标注。
 ## 验收记录
 
 （每阶段完成后填写：测试数、bench 数值、体积表、发现的问题）
+
+---
+
+## 验收记录（P0–P4 已完成 ✅）
+
+### P0 热路径（854 测试全绿，行为等价）
+| 场景（bench/client-bench.ts，jsdom，中位数） | P0 前 | P0 后 |
+|------|------|------|
+| keyed 重排（1000 行 reverse） | 0.430 ms | 0.205 ms（**-52%**） |
+| keyed 头插 10 + 删尾 10 | 0.510 ms | 0.203 ms（**-60%**） |
+| 大列表全量更新（1000 行 class 变） | 0.200 ms | 0.198 ms（持平） |
+| 大列表初始渲染（1000 行） | 22.3 ms | 23.1 ms（噪声） |
+| 单组件 1000 次 render() | 0.58 ms | 0.64 ms（噪声级） |
+
+### P1 基准
+- `bench/client-bench.ts`：6 场景中位数 + warmup 200 次；jsdom 环境（复用 setup.ts 的 global 注入手法）；`node --experimental-strip-types bench/client-bench.ts`
+- 改动后必须跑一遍确认关键场景（重排/增删）不劣化
+
+### P2 结构拆分（854 测试零改动全绿 + typecheck + build）
+- render.ts 1117 → 334 行；app.ts 456 → 276 行；新增 diff.ts 518 / hydration.ts 211 / registry.ts 132 / ui.ts 256
+- 内部类型建模 UiInternal（_selfId/_dirtySet/_ctxVersion/_dirtyScheduled/_$cache）——typecheck 抓到 types.ts 漏声明的公开 API useMedia/useBreakpoint（已补）
+- 兼容再导出保持旧导入路径（组件/测试零改动）；render.ts ↔ diff.ts 设计环（renderValue ↔ patchKeyedChildren）无顶层互调、运行时安全
+
+### P3 生命周期（+4 测试，858 全绿）
+- registry.ts 新增 `onComponentUnmount(hook)`：callRefCleanup 注销 _id/_customId 时触发
+- app mount 注册卸载钩子：退订 `media:${id}:*` / `bp:${id}` listener + 删 popup tracker
+- useBreakpoint 原多 listener 无法退订的泄漏修复（mediaRegistry 条目存 mqls 数组）
+- destroy 走同一退订路径（unsubscribeMediaEntry）
+- 测试：onComponentUnmount 触发（含 _customId）、useMedia/useBreakpoint 卸载退订、组件树内卸载退订
+
+### P4 构建（体积表）
+| 产物 | minify 前 | minify 后 |
+|------|------|------|
+| dist/client/index.js | 71.3 KB | **34.6 KB（-51%）** |
+| dist/components/index.js | — | 60.9 KB |
+| dist/index.js（后端，未 minify） | 150.5 KB | 147.0 KB |
+| dist/components/style.css | — | 112.7 KB |
+
+- 仅前端 bundle minify（dev 动态编译不受影响，保持可读）；后端 bundle 保持可读
+- 浏览器冒烟（agent-platform，minify 产物下）：Modal 打开+焦点、Confirm→Toast、删除生效 ✓
+- 内部 API 标注：index.ts 的 mountVNode/callRefCleanup/patchValue/animateOut/hydrateVNode 注明「内部 API 非公共契约」
+
+### 诚实裁剪执行情况
+- prototype 链 ctx.ui 未动（P1 基准证实非热点：20 层组件树 render 0.005ms）
+- VNode 复用池/WeakMap 化 idRegistry/调度器大改/fiber：未做（无收益场景）
+- `_idCounter` 不复用（无内存问题）
+- 剩余 `as any` 34 处：VNode 内部属性访问与 ctx 扩展边界（UiInternal 已覆盖核心状态面），未逐一清理

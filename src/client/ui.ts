@@ -35,7 +35,11 @@ export interface UiDeps {
   getSelfId: (ui: any) => string | undefined
   dirtyBatch: Set<string>
   dirtySet: Set<string>
-  mediaRegistry: Map<string, { mql: MediaQueryList; handler: (e: MediaQueryListEvent) => void }>
+  mediaRegistry: Map<string, {
+    mql?: MediaQueryList
+    handler?: (e: MediaQueryListEvent) => void
+    mqls?: Array<{ mql: MediaQueryList; handler: () => void }>
+  }>
   popupTrackers: Map<string, {
     pos: PopupPosition
     getEl: () => HTMLElement | null
@@ -185,15 +189,15 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       if (!mediaRegistry.has(key)) {
         // 立即回调当前值
         cb(evaluate())
-        // 为每个断点注册 change 监听，变化时重新求值
-        const handlers: Array<() => void> = []
+        // 为每个断点注册 change 监听，变化时重新求值（卸载时逐个退订）
+        const mqls: Array<{ mql: MediaQueryList; handler: () => void }> = []
         for (const query of Object.values(bps)) {
           const mql = window.matchMedia(query)
           const handler = () => cb(evaluate())
           mql.addEventListener('change', handler)
-          handlers.push(() => mql.removeEventListener('change', handler))
+          mqls.push({ mql, handler })
         }
-        mediaRegistry.set(key, { mql: null as any, handler: null as any })
+        mediaRegistry.set(key, { mqls })
       }
     },
 

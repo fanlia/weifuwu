@@ -52,7 +52,7 @@ await esbuild.build({
   external,
 })
 
-// 前端 bundle
+// 前端 bundle（minify：浏览器产物安全压缩；dev 模式动态编译保持可读不受影响）
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'index.ts')],
   outfile: join(distDir, 'client', 'index.js'),
@@ -61,6 +61,7 @@ await esbuild.build({
   jsx: 'automatic',
   jsxImportSource: 'weifuwu/client',
   bundle: true,
+  minify: true,
 })
 
 // 编译组件 JS
@@ -89,6 +90,7 @@ await esbuild.build({
   jsx: 'automatic',
   jsxImportSource: 'weifuwu/client',
   bundle: true,
+  minify: true,
   external: ['weifuwu/client'],
   plugins: [externalizeClientPlugin],
 })
@@ -161,3 +163,12 @@ try {
 }
 
 console.log('\nBuild complete.')
+
+// ── 产物体积记录（P4 验收用） ──
+import { statSync } from 'node:fs'
+for (const f of ['index.js', 'client/index.js', 'components/index.js', 'components/style.css', 'layout/weifuwu-layout.css']) {
+  const p = join(distDir, f)
+  try {
+    console.log(`  dist/${f}: ${(statSync(p).size / 1024).toFixed(1)} KB`)
+  } catch {}
+}

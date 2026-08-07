@@ -20,7 +20,7 @@ import { render, patchPortal, renderPortal } from './render.ts'
 import { hydrateVNode } from './hydration.ts'
 import { createUi } from './ui.ts'
 import { patchValue } from './diff.ts'
-import { callRefCleanup, idRegistry } from './registry.ts'
+import { callRefCleanup, idRegistry, onComponentUnmount } from './registry.ts'
 import type { VNode, Component } from './vnode.ts'
 import { createReactiveState } from './reactive.ts'
 import { aiStream } from './ai.ts'
@@ -46,8 +46,22 @@ export function createApp<C extends object = {}>(): App<C> {
   let _dirtyBatch = new Set<string>()
   let _dirtyScheduled = false
 
-  // ── 响应式媒体查询注册表（组件级，避免重复注册 listener） ──
-  const _mediaRegistry = new Map<string, { mql: MediaQueryList; handler: (e: MediaQueryListEvent) => void }>()
+  // ── 响应式媒体查询注册表（组件级，避免重复注册 listener；卸载时逐个退订） ──
+  const _mediaRegistry = new Map<string, {
+    mql?: MediaQueryList
+    handler?: (e: MediaQueryListEvent) => void
+    /** breakpoint 多个断点各一个 mql+handler（useMedia 单个时为空） */
+    mqls?: Array<{ mql: MediaQueryList; handler: () => void }>
+  }>()
+
+  /** 退订一个 media/bp 条目的全部 listener（卸载钩子与 destroy 共用） */
+  function unsubscribeMediaEntry(key: string) {
+    const entry = _mediaRegistry.get(key)
+    if (!entry) return
+    if (entry.mql && entry.handler) entry.mql.removeEventListener('change', entry.handler)
+    entry.mqls?.forEach(({ mql, handler }) => mql.removeEventListener('change', handler))
+    _mediaRegistry.delete(key)
+  }
 
   // ── 弹层位置跟踪注册表（scroll/resize 时重算 fixed 坐标） ──
   const _popupTrackers = new Map<string, {
@@ -218,6 +232,14 @@ export function createApp<C extends object = {}>(): App<C> {
         },
       }
 
+      // ── 组件卸载清理（P3）：退订 media/breakpoint listener + popup tracker ──
+      onComponentUnmount((id) => {
+        for (const key of [..._mediaRegistry.keys()]) {
+          if (key.startsWith(`media:${id}:`) || key === `bp:${id}`) unsubscribeMediaEntry(key)
+        }
+        _popupTrackers.delete(id)
+      })
+
       // ── 注入 ctx.ui（工厂方法在 ui.ts，app 注入闭包依赖） ──
       ;(ctx as any).ui = createUi({
         ctx,
@@ -262,6 +284,7 @@ export function createApp<C extends object = {}>(): App<C> {
       // 清理弹层位置跟踪的全局监听（scroll/resize）+ 注册表
       destroyPopupListeners()
       _popupTrackers.clear()
+      for (const key of [..._mediaRegistry.keys()]) unsubscribeMediaEntry(key)
       if (container) container.innerHTML = ''
       container = null
       ctx = {} as WfuiContext

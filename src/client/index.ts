@@ -73,6 +73,8 @@ export { lockScroll, unlockScroll } from './scroll-lock.ts'
 export { trapFocus } from './focus-trap.ts'
 
 // 渲染/动效内部机制（components bundle 外部化后共享同一模块实例，防 idRegistry 等状态重复）
+// ⚠️ 内部 API（非公共契约）：供 components bundle 与 SSR/dev 工具使用；
+//    应用层如需命令式挂载请走 ctx.ui 或 createApp。
 export { mountVNode, callRefCleanup, clearAsyncComponentCache } from './render.ts'
 export { hydrateVNode } from './hydration.ts'
 export { patchValue } from './diff.ts'

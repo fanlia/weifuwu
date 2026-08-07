@@ -15,6 +15,16 @@ import type { WfuiContext } from './types.ts'
 let _idCounter = 0
 export const idRegistry = new Map<string, VNode>()
 
+// ── 卸载钩子（P3：app 层注册清理 media/popup 注册表） ──
+
+type UnmountHook = (id: string) => void
+let _unmountHooks: UnmountHook[] = []
+
+/** 注册组件卸载钩子（组件从 idRegistry 注销时触发，含 _customId） */
+export function onComponentUnmount(hook: UnmountHook): void {
+  _unmountHooks.push(hook)
+}
+
 // ── async 工厂缓存（同一工厂只执行一次，多实例/多渲染共享） ──
 
 interface FactoryEntry {
@@ -90,6 +100,11 @@ export function callRefCleanup(input: any) {
   if (vnode._id) {
     if (vnode._customId) idRegistry.delete(vnode._customId)
     idRegistry.delete(vnode._id)
+    // 卸载通知（app 层借此清理 media/popup 注册表条目）
+    if (_unmountHooks.length > 0) {
+      for (const h of _unmountHooks) h(vnode._id)
+      if (vnode._customId) for (const h of _unmountHooks) h(vnode._customId)
+    }
     vnode._id = undefined
     vnode._customId = undefined
     vnode._render = undefined
