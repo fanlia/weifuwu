@@ -65,14 +65,14 @@ export async function handleNewMessage(
   const { sql } = ctx
 
   // 查找部门中所有 AI Agent
-  const aiAgents = await sql`
+  const aiAgents = (await sql`
     SELECT a.id, a.name, a.system_prompt, a.model, a.tools, a.human_in_the_loop, a.max_tokens
     FROM department_members dm
     JOIN agents a ON a.id = dm.agent_id
     WHERE dm.department_id = ${departmentId}
       AND a.type = 'ai'
       AND a.is_active = TRUE
-  `
+  `) as unknown as Array<Record<string, any>>
 
   if (aiAgents.length === 0) return // 没有 AI Agent，无需自动回复
 
@@ -84,14 +84,14 @@ export async function handleNewMessage(
   }
 
   // 获取最近消息历史（逆序还原为正序）
-  const recentMessages = await sql`
+  const recentMessages = (await sql`
     SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type
     FROM messages m
     JOIN agents a ON a.id = m.sender_id
     WHERE m.department_id = ${departmentId} AND m.ai_approved != FALSE
     ORDER BY m.created_at DESC
     LIMIT 20
-  `
+  `) as unknown as Array<Record<string, any>>
 
   // 构建 ChatMessage[] — 包含历史上下文
   const chatMessages: import('../ai/types.ts').ChatMessage[] = []
@@ -115,11 +115,11 @@ export async function handleNewMessage(
       // 加载 Agent 已启用的技能
       const preloadedSkills: import('./skills.ts').SkillContext[] = []
       try {
-        const agentSkills = await sql`
+        const agentSkills = (await sql`
           SELECT ask.skill_dir, ask.skill_name
           FROM agent_skills ask
           WHERE ask.agent_id = ${agent.id} AND ask.enabled = TRUE
-        `
+        `) as unknown as Array<Record<string, any>>
         for (const as of agentSkills) {
           try {
             const skill = await loadSkill(as.skill_dir, () => ctx)
@@ -218,7 +218,7 @@ async function runAgentStreamForAgent(
       VALUES (${departmentId}, ${agent.id}, '', 'text', TRUE)
       RETURNING id
     `
-    msgId = replyMsg.id
+    msgId = String(replyMsg.id)
   }
 
   // 1) thinking
@@ -317,7 +317,7 @@ async function runAllAgents(
     return
   }
 
-  const aiAgents = await sql`
+  const aiAgents = (await sql`
     SELECT a.id, a.name, a.system_prompt, a.model, a.tools, a.human_in_the_loop, a.max_tokens,
       a.workspace_path, a.allow_file_tools, a.allow_command_exec
     FROM department_members dm
@@ -325,17 +325,17 @@ async function runAllAgents(
     WHERE dm.department_id = ${departmentId}
       AND a.type = 'ai'
       AND a.is_active = TRUE
-  `
+  `) as unknown as Array<Record<string, any>>
   if (aiAgents.length === 0) return
 
-  const recentMessages = await sql`
+  const recentMessages = (await sql`
     SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type
     FROM messages m
     JOIN agents a ON a.id = m.sender_id
     WHERE m.department_id = ${departmentId} AND m.ai_approved != FALSE
     ORDER BY m.created_at DESC
     LIMIT 20
-  `
+  `) as unknown as Array<Record<string, any>>
 
   const chatMessages: import('../ai/types.ts').ChatMessage[] = []
   for (const msg of recentMessages.reverse()) {
@@ -434,10 +434,10 @@ export async function handleNewMessageStreamSSE(
 async function loadAgentSkills(sql: any, agentId: string, ctx: Context): Promise<import('./skills.ts').SkillContext[]> {
   const preloadedSkills: import('./skills.ts').SkillContext[] = []
   try {
-    const agentSkills = await sql`
+    const agentSkills = (await sql`
       SELECT skill_dir, skill_name FROM agent_skills
       WHERE agent_id = ${agentId} AND enabled = TRUE
-    `
+    `) as unknown as Array<Record<string, any>>
     for (const as of agentSkills) {
       try {
         const skill = await loadSkill(as.skill_dir, () => ctx)

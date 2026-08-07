@@ -13,7 +13,7 @@ function distDir(baseDir: string): string {
   return resolve(baseDir, 'dist')
 }
 
-export function registerUiRoutes(app: Router, baseDir: string): void {
+export function registerUiRoutes(app: Router<any>, baseDir: string): void {
   // ── 唯一样式来源：weifuwu/components（Token + 布局原语 + 组件样式） ──
   app.get('/static/style.css', async (_req: Request, ctx: Context): Promise<Response> =>
     ctx.ui.css('weifuwu/components/style.css')

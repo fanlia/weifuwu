@@ -159,16 +159,31 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
     // 解析 Authorization: Bearer <token>
     currentUser = null
+    // payload 合并：token 携带的会话字段（tenantId/email/name/role 等）透传到 ctx.auth，
+    // 让 `ctx.auth.userId` / `ctx.auth.tenantId` 这类"当前会话数据"直接可用，不必另写解码。
+    const sessionPayload: Record<string, unknown> = {}
+    let payloadTenantId: unknown
     const authHeader = req.headers.get('authorization')
     if (authHeader?.startsWith('Bearer ')) {
       const payload = verifyToken(authHeader.slice(7), secret)
       if (payload?.sub) {
         currentUser = await findUserById(String(payload.sub))
+        for (const [k, v] of Object.entries(payload)) {
+          if (k === 'sub' || k === 'iat' || k === 'exp' || k === 'type') continue
+          sessionPayload[k] = v
+        }
+        // sub 即当前用户 id——作为 userId 暴露（兼容 ctx.auth.userId 用法）
+        sessionPayload.userId = String(payload.sub)
+        payloadTenantId = payload.tenantId
       }
     }
 
     ctx.user = currentUser
+    // 多租户注入：token payload 携带 tenantId 时直接可用（应用层不必再写 tenant 中间件）
+    if (payloadTenantId != null) (ctx as any).tenantId = String(payloadTenantId)
     ctx.auth = {
+      // ── 会话 payload 字段（来自 token，应用层签发时决定带什么） ──
+      ...sessionPayload,
       async register(input: RegisterInput) {
         if (!input.email || !input.password) throw new HttpError('email and password are required', 400)
         if (input.password.length < 8) throw new HttpError('password must be at least 8 characters', 400)

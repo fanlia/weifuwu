@@ -28,9 +28,11 @@
  */
 
 import type { Context, Middleware } from '../types.ts'
-import { createAiClient, type AiClient, type AiClientOptions } from './client.ts'
+import { createAiClient, type AiClient, type AiClientOptions, type AiEmbeddingOptions } from './client.ts'
 import { createAgent, type AgentConfig, type AgentRunner } from './agent.ts'
 import type { ChatParams } from './types.ts'
+
+export type { AiEmbeddingOptions } from './client.ts'
 
 export interface AiOptions extends Partial<AiClientOptions> {}
 
@@ -61,7 +63,7 @@ export function ai(options?: AiOptions): AiClientModule {
     throw new Error('ai: DEEPSEEK_API_KEY 未设置。请设置环境变量或传入 apiKey')
   }
 
-  const client = createAiClient({ apiKey, baseUrl, defaultModel })
+  const client = createAiClient({ apiKey, baseUrl, defaultModel, embedding: options?.embedding })
 
   const mw: Middleware = (req, ctx, next) => {
     ctx.ai = module
@@ -77,6 +79,8 @@ export function ai(options?: AiOptions): AiClientModule {
   module.waitApproval = client.waitApproval
   module.approve = client.approve
   module.agent = (config: AgentConfig) => createAgent(client, config)
+  module.embed = client.embed
+  module.embedMany = client.embedMany
   module.close = async () => {}
 
   return module

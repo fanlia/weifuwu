@@ -7,11 +7,10 @@
 
 import type { Context, Middleware } from 'weifuwu'
 
-declare module 'weifuwu' {
-  interface Context {
-    tenantId: string
-  }
+export interface TenantInjected {
+  tenantId: string
 }
+export type TenantContext = Context & TenantInjected
 
 /**
  * 租户隔离中间件
@@ -31,7 +30,7 @@ export function tenant(): Middleware<Context, Context & { tenantId: string }> {
     if (!ctx.auth) {
       return Response.json({ error: '未认证' }, { status: 401 })
     }
-    ctx.tenantId = ctx.auth.tenantId
+    ;(ctx as any).tenantId = (ctx as any).auth.tenantId
     return next(req, ctx)
   }
   mw.__meta = { injects: ['tenantId'], depends: ['auth'] }

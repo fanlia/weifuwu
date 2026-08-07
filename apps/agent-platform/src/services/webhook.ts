@@ -10,7 +10,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import type { Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 import type { ChatMessage } from '../ai/types.ts'
 
 export interface WebhookRequest {
@@ -92,7 +92,7 @@ async function fetchWithRetry(
  * 6. 返回响应
  */
 export async function handleWebhookMessage(
-  ctx: Context,
+  ctx: AppCtx,
   agentId: string,
   body: WebhookRequest,
   tenantId?: string,
@@ -168,7 +168,7 @@ export async function handleWebhookMessage(
  * 记录 Webhook 调用日志
  */
 async function logWebhookCall(
-  ctx: Context,
+  ctx: AppCtx,
   agentId: string,
   tenantId: string,
   requestBody: string,

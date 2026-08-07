@@ -3,11 +3,12 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 
-export function registerCompanyRoutes(app: Router): void {
+export function registerCompanyRoutes(app: Router<AppCtx>): void {
   // ── 获取公司列表 ─────────────────────────────────────────
 
-  app.get('/api/companies', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/companies', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId } = ctx
     const url = new URL(req.url)
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
@@ -30,7 +31,7 @@ export function registerCompanyRoutes(app: Router): void {
 
   // ── 创建公司 ─────────────────────────────────────────────
 
-  app.post('/api/companies', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/companies', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId } = ctx
     const body = await req.json() as { name: string }
 
@@ -49,7 +50,7 @@ export function registerCompanyRoutes(app: Router): void {
 
   // ── 获取单个公司 ─────────────────────────────────────────
 
-  app.get('/api/companies/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/companies/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const [company] = await sql`
       SELECT id, name, created_at, updated_at
@@ -64,7 +65,7 @@ export function registerCompanyRoutes(app: Router): void {
 
   // ── 更新公司 ─────────────────────────────────────────────
 
-  app.put('/api/companies/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.put('/api/companies/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const body = await req.json() as { name: string }
 
@@ -83,13 +84,14 @@ export function registerCompanyRoutes(app: Router): void {
 
   // ── 删除公司 ─────────────────────────────────────────────
 
-  app.delete('/api/companies/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.delete('/api/companies/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const result = await sql`
       DELETE FROM companies
       WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      RETURNING id
     `
-    if (result.count === 0) {
+    if (result.length === 0) {
       return Response.json({ error: '公司不存在' }, { status: 404 })
     }
     return Response.json({ success: true })

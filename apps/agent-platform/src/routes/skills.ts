@@ -3,10 +3,11 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 
-export function registerSkillRoutes(app: Router): void {
+export function registerSkillRoutes(app: Router<AppCtx>): void {
   // ── 获取 Agent 已绑定的技能 ─────────────────────────
-  app.get('/api/agents/:id/skills', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/agents/:id/skills', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, params, tenantId } = ctx
     const [agent] = await sql`
       SELECT id, tenant_id FROM agents WHERE id = ${params.id} AND tenant_id = ${tenantId}
@@ -23,7 +24,7 @@ export function registerSkillRoutes(app: Router): void {
   })
 
   // ── 为 Agent 绑定技能 ───────────────────────────────
-  app.post('/api/agents/:id/skills', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/agents/:id/skills', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, params, tenantId } = ctx
     const body = await req.json() as { skill_name: string; skill_dir: string }
 
@@ -52,7 +53,7 @@ export function registerSkillRoutes(app: Router): void {
   })
 
   // ── 更新技能状态 ───────────────────────────────────
-  app.put('/api/agents/:id/skills/:skillId', async (req: Request, ctx: Context): Promise<Response> => {
+  app.put('/api/agents/:id/skills/:skillId', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, params, tenantId } = ctx
     const body = await req.json() as { enabled?: boolean }
 
@@ -77,7 +78,7 @@ export function registerSkillRoutes(app: Router): void {
   })
 
   // ── 移除 Agent 技能 ─────────────────────────────────
-  app.delete('/api/agents/:id/skills/:skillId', async (req: Request, ctx: Context): Promise<Response> => {
+  app.delete('/api/agents/:id/skills/:skillId', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, params, tenantId } = ctx
 
     const [agent] = await sql`
@@ -87,8 +88,9 @@ export function registerSkillRoutes(app: Router): void {
 
     const result = await sql`
       DELETE FROM agent_skills WHERE id = ${params.skillId} AND agent_id = ${params.id}
+      RETURNING id
     `
-    if (result.count === 0) {
+    if (result.length === 0) {
       return Response.json({ error: '技能绑定不存在' }, { status: 404 })
     }
     return Response.json({ success: true })

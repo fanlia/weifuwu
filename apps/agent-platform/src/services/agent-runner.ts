@@ -10,6 +10,7 @@
  */
 
 import type { Context } from 'weifuwu'
+import type { AiContext } from '../middleware/ai.ts'
 import type { ChatMessage, AgentRunResult, ToolDefinition } from '../ai/types.ts'
 import { SkillRegistry } from './skills.ts'
 import type { SkillContext } from './skills.ts'
@@ -108,7 +109,7 @@ function truncateMessages(
  * - 执行日志记录到数据库
  */
 export async function runAgent(
-  ctx: Context,
+  ctx: AiContext,
   config: AgentRunnerConfig,
   messages: ChatMessage[],
 ): Promise<AgentRunResult> {
@@ -208,7 +209,7 @@ export async function runAgent(
  * 增加 token 用量记录
  */
 export async function streamAgent(
-  ctx: Context,
+  ctx: AiContext,
   config: AgentRunnerConfig,
   messages: ChatMessage[],
   callbacks: {

@@ -3,11 +3,12 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 
-export function registerDepartmentRoutes(app: Router): void {
+export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 获取部门列表 ─────────────────────────────────────────
 
-  app.get('/api/departments', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId } = ctx
     const url = new URL(req.url)
     const companyId = url.searchParams.get('company_id')
@@ -38,7 +39,7 @@ export function registerDepartmentRoutes(app: Router): void {
 
   // ── 创建部门 ─────────────────────────────────────────────
 
-  app.post('/api/departments', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId } = ctx
     const body = await req.json() as {
       company_id: string
@@ -94,7 +95,7 @@ export function registerDepartmentRoutes(app: Router): void {
 
   // ── 获取单个部门 ─────────────────────────────────────────
 
-  app.get('/api/departments/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const [dept] = await sql`
       SELECT d.*, c.name as company_name
@@ -119,7 +120,7 @@ export function registerDepartmentRoutes(app: Router): void {
 
   // ── 更新部门 ─────────────────────────────────────────────
 
-  app.put('/api/departments/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.put('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const body = await req.json() as { name?: string }
 
@@ -139,14 +140,15 @@ export function registerDepartmentRoutes(app: Router): void {
 
   // ── 删除部门 ─────────────────────────────────────────────
 
-  app.delete('/api/departments/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.delete('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const result = await sql`
       DELETE FROM departments d
       USING companies c
       WHERE d.id = ${params.id} AND c.id = d.company_id AND c.tenant_id = ${tenantId}
+      RETURNING d.id
     `
-    if (result.count === 0) {
+    if (result.length === 0) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
     }
     return Response.json({ success: true })
@@ -154,7 +156,7 @@ export function registerDepartmentRoutes(app: Router): void {
 
   // ── 添加成员 ─────────────────────────────────────────────
 
-  app.post('/api/departments/:id/members', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/departments/:id/members', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const body = await req.json() as { agent_id: string; role?: string }
 
@@ -190,7 +192,7 @@ export function registerDepartmentRoutes(app: Router): void {
 
   // ── 移除成员 ─────────────────────────────────────────────
 
-  app.delete('/api/departments/:id/members/:agentId', async (req: Request, ctx: Context): Promise<Response> => {
+  app.delete('/api/departments/:id/members/:agentId', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
 
     // 验证部门属于当前租户

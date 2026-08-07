@@ -3,6 +3,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 
 /** 内置工具定义（与 builtin.ts 同步） */
 const BUILTIN_TOOL_DEFS = [
@@ -34,15 +35,15 @@ const BUILTIN_TOOL_DEFS = [
 /** 内置工具名称列表 */
 const BUILTIN_TOOL_NAMES = BUILTIN_TOOL_DEFS.map(t => t.function.name)
 
-export function registerAgentRoutes(app: Router): void {
+export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 获取内置工具列表 ──────────────────────────────────────
 
-  app.get('/api/agents/builtin-tools', async (_req: Request, _ctx: Context): Promise<Response> => {
+  app.get('/api/agents/builtin-tools', async (_req: Request, _ctx: AppCtx): Promise<Response> => {
     return Response.json({ tools: BUILTIN_TOOL_DEFS })
   })
   // ── 获取 Agent 列表 ──────────────────────────────────────
 
-  app.get('/api/agents', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId } = ctx
     const url = new URL(req.url)
     const type = url.searchParams.get('type')
@@ -93,7 +94,7 @@ export function registerAgentRoutes(app: Router): void {
 
   // ── 创建 Agent ───────────────────────────────────────────
 
-  app.post('/api/agents', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId } = ctx
     const body = await req.json() as {
       type: string
@@ -151,7 +152,7 @@ export function registerAgentRoutes(app: Router): void {
 
   // ── 获取单个 Agent ───────────────────────────────────────
 
-  app.get('/api/agents/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const [agent] = await sql`
       SELECT * FROM agents
@@ -165,7 +166,7 @@ export function registerAgentRoutes(app: Router): void {
 
   // ── 更新 Agent ───────────────────────────────────────────
 
-  app.put('/api/agents/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.put('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const body = await req.json() as Record<string, unknown>
 
@@ -208,13 +209,14 @@ export function registerAgentRoutes(app: Router): void {
 
   // ── 删除 Agent ───────────────────────────────────────────
 
-  app.delete('/api/agents/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.delete('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const result = await sql`
       DELETE FROM agents
       WHERE id = ${params.id} AND tenant_id = ${tenantId}
+      RETURNING id
     `
-    if (result.count === 0) {
+    if (result.length === 0) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
     return Response.json({ success: true })

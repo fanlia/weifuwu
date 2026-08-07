@@ -15,11 +15,12 @@ export interface AuthPayload {
   role: string
 }
 
-declare module 'weifuwu' {
-  interface Context {
-    auth?: AuthPayload
-  }
+// 类型注入：不 declare module 覆盖框架 Context（框架已声明 auth?: AuthApi，语义不同会冲突）。
+// 使用方显式 `ctx: AuthContext` 即可拿到本项目的 AuthPayload（userId/tenantId/email/name/role）。
+export interface AuthInjected {
+  auth: AuthPayload
 }
+export type AuthContext = Context & AuthInjected
 
 /**
  * JWT 认证中间件
@@ -86,7 +87,7 @@ export function auth(opts?: { secret?: string }): Middleware<Context, Context & 
       return Response.json({ error: 'Token 无效或已过期' }, { status: 401 })
     }
 
-    ctx.auth = payload
+    ;(ctx as any).auth = payload
     return next(req, ctx)
   }
   mw.__meta = { injects: ['auth'], depends: [] }

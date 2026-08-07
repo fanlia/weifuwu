@@ -153,7 +153,7 @@ export class Router<T extends Context = Context> {
     return this
   }
 
-  mount(path: string, router: Router<Context>): Router<T> {
+  mount(path: string, router: Router<any>): Router<T> {
     this._mountRouter(path, router)
     return this
   }
@@ -164,28 +164,28 @@ export class Router<T extends Context = Context> {
 
   // ── Route registration ────────────────────────────────────
 
-  get(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  get(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._route('GET', path, ...rest)
   }
-  post(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  post(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._route('POST', path, ...rest)
   }
-  put(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  put(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._route('PUT', path, ...rest)
   }
-  delete(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  delete(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._route('DELETE', path, ...rest)
   }
-  patch(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  patch(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._route('PATCH', path, ...rest)
   }
-  head(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  head(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._route('HEAD', path, ...rest)
   }
-  options(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  options(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._route('OPTIONS', path, ...rest)
   }
-  all(path: string, ...rest: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  all(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._route('*', path, ...rest)
   }
 
@@ -249,7 +249,7 @@ export class Router<T extends Context = Context> {
 
   // ── Private: Route impl ────────────────────────────────────
 
-  private _route(method: string, path: string, ...args: [...Middleware[], Handler | Router<Context>]): Router<T> {
+  private _route(method: string, path: string, ...args: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
     return this._routeImpl(method, path, args as any[])
   }
 

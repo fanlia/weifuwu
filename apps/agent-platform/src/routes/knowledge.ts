@@ -10,6 +10,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 
 /** 支持的文件类型 */
 const SUPPORTED_MIME: Record<string, string> = {
@@ -19,10 +20,10 @@ const SUPPORTED_MIME: Record<string, string> = {
   'application/json': '.json',
 }
 
-export function registerKnowledgeRoutes(app: Router): void {
+export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   // ── 获取文档列表 ──────────────────────────────────────
 
-  app.get('/api/agents/:id/knowledge', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/agents/:id/knowledge', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
 
     const [agent] = await sql`
@@ -45,7 +46,7 @@ export function registerKnowledgeRoutes(app: Router): void {
 
   // ── 获取文档详情（含内容预览 + chunks） ───────────────
 
-  app.get('/api/knowledge/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/knowledge/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const url = new URL(req.url)
     const includeChunks = url.searchParams.get('chunks') === 'true'
@@ -75,7 +76,7 @@ export function registerKnowledgeRoutes(app: Router): void {
 
   // ── 文本上传文档 ─────────────────────────────────────
 
-  app.post('/api/agents/:id/knowledge', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/agents/:id/knowledge', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params, ai } = ctx
 
     const [agent] = await sql`
@@ -99,7 +100,7 @@ export function registerKnowledgeRoutes(app: Router): void {
 
   // ── 文件上传 ─────────────────────────────────────────
 
-  app.post('/api/agents/:id/knowledge/upload', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/agents/:id/knowledge/upload', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params, ai } = ctx
 
     const [agent] = await sql`
@@ -172,7 +173,7 @@ export function registerKnowledgeRoutes(app: Router): void {
 
   // ── 批量上传（JSON body: { documents: [{ filename, content }] }） ──
 
-  app.post('/api/agents/:id/knowledge/batch', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/agents/:id/knowledge/batch', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params, ai } = ctx
 
     const [agent] = await sql`
@@ -219,7 +220,7 @@ export function registerKnowledgeRoutes(app: Router): void {
 
   // ── 删除文档 ─────────────────────────────────────────
 
-  app.delete('/api/knowledge/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.delete('/api/knowledge/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
 
     const result = await sql`
@@ -228,9 +229,10 @@ export function registerKnowledgeRoutes(app: Router): void {
       WHERE d.id = ${params.id}
         AND d.agent_id = a.id
         AND a.tenant_id = ${tenantId}
+      RETURNING d.id
     `
 
-    if (result.count === 0) {
+    if (result.length === 0) {
       return Response.json({ error: '文档不存在' }, { status: 404 })
     }
     return Response.json({ success: true })
@@ -238,7 +240,7 @@ export function registerKnowledgeRoutes(app: Router): void {
 
   // ── 语义检索 ─────────────────────────────────────────
 
-  app.post('/api/agents/:id/knowledge/search', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/agents/:id/knowledge/search', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params, ai } = ctx
 
     const [agent] = await sql`
@@ -278,7 +280,7 @@ export function registerKnowledgeRoutes(app: Router): void {
  * 处理文档：分块 → 向量化 → 入库
  */
 async function processDocument(
-  ctx: Context,
+  ctx: AppCtx,
   agentId: string,
   agent: { chunk_size: number; chunk_overlap: number },
   filename: string,

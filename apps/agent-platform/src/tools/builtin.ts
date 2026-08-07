@@ -7,6 +7,7 @@
 import type { ToolDefinition } from '../ai/types.ts'
 import { registerTools } from '../ai/agent.ts'
 import type { Context } from 'weifuwu'
+import type { AiContext } from '../middleware/ai.ts'
 
 /**
  * 内置工具定义列表（用于 LLM tool_choice 配置）
@@ -49,7 +50,7 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
 /**
  * 在 server.ts 启动时调用，注册内置工具 handler
  */
-export function registerBuiltinTools(getCtx: () => Context): void {
+export function registerBuiltinTools(getCtx: () => AiContext): void {
   registerTools({
     search_knowledge_base: async (args: Record<string, unknown>) => {
       const ctx = getCtx()

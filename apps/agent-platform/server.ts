@@ -8,6 +8,7 @@
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
+import type { AppCtx } from './src/middleware/ctx.ts'
 import { serve, Router, cors, postgres, redis, ui } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
@@ -41,7 +42,7 @@ import { registerUiRoutes } from './src/ui/routes.ts'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 async function main() {
-  const app = new Router()
+  const app = new Router<AppCtx>()
 
   // ── 全局中间件 ──────────────────────────────────────────
   app.use(cors())
@@ -84,9 +85,9 @@ async function main() {
 
   // ── 内置工具注册 ──────────────────────────────────────────
   // 提供一个获取当前 ctx 的函数，供内置工具在运行时使用
-  let currentCtx: Context = null as any
+  let currentCtx: AppCtx = null as any
   app.use((req: Request, ctx: Context, next: any) => {
-    currentCtx = ctx
+    currentCtx = ctx as AppCtx
     return next(req, ctx)
   })
   registerBuiltinTools(() => currentCtx)
@@ -96,7 +97,7 @@ async function main() {
   registerAuthRoutes(app)
 
   // 可用技能列表（公开，无租户信息）
-  app.get('/api/skills/available', async (_req: Request, _ctx: Context): Promise<Response> => {
+  app.get('/api/skills/available', async (_req: Request, _ctx: AppCtx): Promise<Response> => {
     const { discoverSkills } = await import('./src/services/skills.ts')
     const { resolve, dirname } = await import('node:path')
     const { fileURLToPath } = await import('node:url')
@@ -112,7 +113,7 @@ async function main() {
     const { getRoleTemplates } = await import('./src/routes/role-templates.ts')
     return Response.json({ templates: getRoleTemplates() })
   })
-  app.get('/api/role-templates/:slug', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/role-templates/:slug', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { getRoleTemplates } = await import('./src/routes/role-templates.ts')
     const template = getRoleTemplates().find(t => t.slug === ctx.params.slug)
     if (!template) return Response.json({ error: '模板不存在' }, { status: 404 })
@@ -120,7 +121,7 @@ async function main() {
   })
 
   // ── Token 刷新（无需登录，用 refreshToken 换新 access_token） ──
-  app.post('/api/auth/refresh', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/auth/refresh', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const body = await req.json() as { refreshToken?: string }
     if (!body.refreshToken) {
       return Response.json({ error: 'refreshToken 为必填' }, { status: 400 })
@@ -149,7 +150,7 @@ async function main() {
   })
 
   // ── 需要登录 + 租户隔离的路由 ─────────────────────────
-  const protectedRoutes = new Router()
+  const protectedRoutes = new Router<AppCtx>()
   protectedRoutes.use(auth())
   protectedRoutes.use(tenant())
 
@@ -168,11 +169,11 @@ async function main() {
   // 角色模板
   registerRoleTemplateRoutes(protectedRoutes)
   // 获取当前用户（需要 auth 中间件）
-  protectedRoutes.get('/api/auth/me', async (req: Request, ctx: Context): Promise<Response> => {
+  protectedRoutes.get('/api/auth/me', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, auth } = ctx
     const [user] = await sql`
       SELECT id, email, name, role, created_at
-      FROM users WHERE id = ${auth!.userId}
+      FROM users WHERE id = ${auth!.requireAuth().id}
     `
     if (!user) return Response.json({ error: '用户不存在' }, { status: 404 })
     return Response.json({ user })
@@ -180,7 +181,7 @@ async function main() {
 
   // ── 用户设置 ─────────────────────────────────────────────
   // 更新个人资料
-  protectedRoutes.put('/api/auth/profile', async (req: Request, ctx: Context): Promise<Response> => {
+  protectedRoutes.put('/api/auth/profile', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, auth } = ctx
     const body = await req.json() as { name?: string }
     if (!body.name?.trim()) {
@@ -188,14 +189,14 @@ async function main() {
     }
     const [user] = await sql`
       UPDATE users SET name = ${body.name.trim()}, updated_at = NOW()
-      WHERE id = ${auth!.userId}
+      WHERE id = ${auth!.requireAuth().id}
       RETURNING id, email, name, role, created_at
     `
     return Response.json({ user })
   })
 
   // 修改密码
-  protectedRoutes.put('/api/auth/password', async (req: Request, ctx: Context): Promise<Response> => {
+  protectedRoutes.put('/api/auth/password', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, auth } = ctx
     const body = await req.json() as { currentPassword: string; newPassword: string }
     if (!body.currentPassword || !body.newPassword) {
@@ -206,11 +207,11 @@ async function main() {
     }
 
     const [user] = await sql`
-      SELECT password_hash FROM users WHERE id = ${auth!.userId}
+      SELECT password_hash FROM users WHERE id = ${auth!.requireAuth().id}
     `
     if (!user) return Response.json({ error: '用户不存在' }, { status: 404 })
 
-    const valid = await verifyPassword(body.currentPassword, user.password_hash)
+    const valid = await verifyPassword(body.currentPassword, user.password_hash as string)
     if (!valid) {
       return Response.json({ error: '当前密码错误' }, { status: 403 })
     }
@@ -218,13 +219,13 @@ async function main() {
     const newHash = await hashPassword(body.newPassword)
     await sql`
       UPDATE users SET password_hash = ${newHash}, updated_at = NOW()
-      WHERE id = ${auth!.userId}
+      WHERE id = ${auth!.requireAuth().id}
     `
     return Response.json({ success: true })
   })
 
   // ── 完整统计数据 ───────────────────────────────────────
-  protectedRoutes.get('/api/stats', async (req: Request, ctx: Context): Promise<Response> => {
+  protectedRoutes.get('/api/stats', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId } = ctx
 
     const [agentStats] = await sql`
@@ -280,7 +281,7 @@ async function main() {
   })
 
   // ── Agent 执行日志 ───────────────────────────────────────
-  protectedRoutes.get('/api/stats/agents/:agentId/logs', async (req: Request, ctx: Context): Promise<Response> => {
+  protectedRoutes.get('/api/stats/agents/:agentId/logs', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const logs = await sql`
       SELECT id, messages_count, steps_count,
@@ -295,7 +296,7 @@ async function main() {
   })
 
   // ── Webhook 调用日志 ─────────────────────────────────────
-  protectedRoutes.get('/api/stats/agents/:agentId/webhook-logs', async (req: Request, ctx: Context): Promise<Response> => {
+  protectedRoutes.get('/api/stats/agents/:agentId/webhook-logs', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const logs = await sql`
       SELECT id, request_body, response_body, response_status,
@@ -321,7 +322,7 @@ async function main() {
 
   // ── Webhook 入口 ───────────────────────────────────────
 
-  app.post('/api/webhook/:agentId', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/webhook/:agentId', async (req: Request, ctx: AppCtx): Promise<Response> => {
     try {
       const body = await req.json()
       const signature = req.headers.get('x-signature') ?? undefined

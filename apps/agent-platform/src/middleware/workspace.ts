@@ -23,11 +23,9 @@ export interface WorkspaceInfo {
   allowCommandExec: boolean
 }
 
-// 类型扩展 — 声明 ctx.workspace
-declare module 'weifuwu' {
-  interface Context {
-    workspace?: WorkspaceInfo
-  }
+// 类型注入：不 declare module（与框架无冲突字段，但保持一致性用显式注入）
+export interface WorkspaceInjected {
+  workspace?: WorkspaceInfo
 }
 
 /** 默认工作空间根目录 */

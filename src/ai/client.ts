@@ -61,6 +61,18 @@ export interface AiClientOptions {
   baseUrl: string
   apiKey: string
   defaultModel: string
+  /** embedding provider 配置（可选；未配时 embed/embedMany 抛 AiError('unsupported')） */
+  embedding?: AiEmbeddingOptions
+}
+
+/** embedding provider 配置——默认参数与 DashScope compatible-mode 对齐（DeepSeek 无 embedding API） */
+export interface AiEmbeddingOptions {
+  /** 默认读 DASHSCOPE_API_KEY */
+  apiKey?: string
+  /** 默认 'https://dashscope.aliyuncs.com/compatible-mode/v1' */
+  baseUrl?: string
+  /** 默认读 DASHSCOPE_EMBEDDING_MODEL，回退 'text-embedding-v4' */
+  defaultModel?: string
 }
 
 /** 单轮 LLM 流式调用的聚合结果（agent 循环用） */
@@ -92,6 +104,10 @@ export interface AiClient {
     emit: WfEmitter,
     timeoutMs?: number,
   ): Promise<WfApprovalResponse>
+  /** 单文本嵌入（知识库/语义检索；需 ai({ embedding }) 配置，未配抛 AiError） */
+  embed(text: string): Promise<number[]>
+  /** 批量文本嵌入（按输入顺序返回） */
+  embedMany(texts: string[]): Promise<number[][]>
 }
 
 // ── SSE 解析（provider 线协议）────────────────────────────
@@ -148,9 +164,70 @@ async function providerError(res: Response): Promise<{ code: WfErrorCode; messag
 
 // ── 客户端 ────────────────────────────────────────────────
 
+/**
+ * DashScope 兼容 embedding 客户端（自研，零依赖）——默认参数与 agent-platform 对齐：
+ *   model: DASHSCOPE_EMBEDDING_MODEL ?? 'text-embedding-v4'
+ *   base:  DASHSCOPE_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+ * 未配 apiKey 时抛 AiError('auth_failed')（诚实裁剪：不静默降级/随机向量）。
+ */
+function createEmbeddingClient(ebd?: AiEmbeddingOptions) {
+  const apiKey = ebd?.apiKey ?? process.env.DASHSCOPE_API_KEY ?? ''
+  const configured = !!(ebd?.apiKey || process.env.DASHSCOPE_API_KEY)
+  const baseUrl = ebd?.baseUrl ?? process.env.DASHSCOPE_BASE_URL ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+  const defaultModel = ebd?.defaultModel ?? process.env.DASHSCOPE_EMBEDDING_MODEL ?? 'text-embedding-v4'
+  const endpoint = `${baseUrl.replace(/\/$/, '')}/embeddings`
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
+
+  async function embedMany(texts: string[]): Promise<number[][]> {
+    if (!configured) {
+      // 诚实裁剪：未配置 embedding provider（显式或 DASHSCOPE_API_KEY 都没有）→ 明确抛 unsupported
+      throw new AiError('unsupported', 'ai embedding: 未配置——传 ai({ embedding }) 或设 DASHSCOPE_API_KEY（DeepSeek 无 embedding API，需独立 provider）')
+    }
+    if (!apiKey) {
+      throw new AiError('auth_failed', 'ai embedding: DASHSCOPE_API_KEY 未设置')
+    }
+    // 3 秒超时：防止不可达的 API 长时间阻塞（对齐 agent-platform 行为）
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 3000)
+    let res: Response
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ model: defaultModel, input: texts }),
+        signal: controller.signal,
+      })
+    } catch (err) {
+      if (controller.signal.aborted) throw new AiError('provider_error', 'embedding 请求超时（3s）')
+      throw new AiError('provider_error', err instanceof Error ? err.message : String(err))
+    } finally {
+      clearTimeout(timer)
+    }
+    if (!res.ok) {
+      const { code, message } = await providerError(res)
+      throw new AiError(code, message)
+    }
+    const data = (await res.json()) as {
+      data: Array<{ index: number; embedding: number[] }>
+    }
+    // 按 index 排序确保顺序与输入一致
+    data.data.sort((a, b) => a.index - b.index)
+    return data.data.map(item => item.embedding)
+  }
+
+  return {
+    async embed(text: string): Promise<number[]> {
+      const results = await embedMany([text])
+      return results[0]
+    },
+    embedMany,
+  }
+}
+
 export function createAiClient(opts: AiClientOptions): AiClient {
   const endpoint = `${opts.baseUrl.replace(/\/$/, '')}/chat/completions`
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${opts.apiKey}` }
+  const embedding = createEmbeddingClient(opts.embedding)
 
   // ── HITL 审批注册表（协议 §4.5）：agent run 挂起 → app 的 POST /approve 响应 ──
   const approvals = new Map<string, (resp: WfApprovalResponse) => void>()
@@ -311,7 +388,12 @@ export function createAiClient(opts: AiClientOptions): AiClient {
     return sseResponse(run, { onAbort: () => controller.abort() })
   }
 
-  return { chat, stream, sse, streamStep, waitApproval, approve }
+  return {
+    chat, stream, sse, streamStep, waitApproval, approve,
+    // embedding：未配置 provider 时明确抛 AiError（诚实裁剪：不静默降级）
+    embed: (text: string) => embedding.embed(text),
+    embedMany: (texts: string[]) => embedding.embedMany(texts),
+  }
 }
 
 /** 审批默认超时：5 分钟 */

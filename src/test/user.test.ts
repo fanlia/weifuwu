@@ -219,6 +219,36 @@ describe('userSystem (real postgres)', () => {
     })
   })
 
+
+  describe('会话 payload 合并 + 多租户注入', () => {
+    it('token 携带的自定义字段合并到 ctx.auth（sub → userId）', async () => {
+      const token = signToken(
+        { sub: '00000000-0000-0000-0000-000000000000', tenantId: 't-456', email: 'a@b.com', role: 'admin' },
+        'test-secret-0123456789abcdef',
+        3600,
+      )
+      const ctx = await authCtx(token)
+      assert.equal(ctx.auth.userId, '00000000-0000-0000-0000-000000000000', 'sub 映射为 userId')
+      assert.equal(ctx.auth.tenantId, 't-456', 'payload 字段透传')
+      assert.equal(ctx.auth.email, 'a@b.com')
+      assert.equal(ctx.auth.role, 'admin')
+      // 方法面不破坏
+      assert.equal(typeof ctx.auth.requireAuth, 'function')
+    })
+
+    it('ctx.tenantId 注入（payload 带 tenantId 时）', async () => {
+      const token = signToken({ sub: '00000000-0000-0000-0000-000000000000', tenantId: 't-789' }, 'test-secret-0123456789abcdef', 3600)
+      const ctx = await authCtx(token)
+      assert.equal(ctx.tenantId, 't-789')
+    })
+
+    it('无 token 时无 payload 字段且不注入 tenantId', async () => {
+      const ctx = await authCtx()
+      assert.equal(ctx.auth.userId, undefined)
+      assert.equal(ctx.tenantId, undefined)
+    })
+  })
+
   describe('迁移', () => {
     it('migrate 幂等（调用两次不抛）', async () => {
       await users.migrate()

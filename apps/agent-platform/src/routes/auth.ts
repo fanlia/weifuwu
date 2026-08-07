@@ -3,16 +3,17 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 import { signToken } from '../middleware/auth.ts'
 import { hashPassword, verifyPassword } from '../services/password.ts'
 import { checkRateLimit, rateLimitKey } from '../services/rate-limit.ts'
 
-export function registerAuthRoutes(app: Router): void {
+export function registerAuthRoutes(app: Router<AppCtx>): void {
   const secret = process.env.JWT_SECRET ?? 'default-secret'
 
   // ── 注册 ─────────────────────────────────────────────────
 
-  app.post('/api/auth/register', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/auth/register', async (req: Request, ctx: AppCtx): Promise<Response> => {
     // 限流：每 IP 每分钟 5 次注册请求
     if (!checkRateLimit(rateLimitKey(req), { windowMs: 60_000, max: 5 })) {
       return Response.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 })
@@ -80,7 +81,7 @@ export function registerAuthRoutes(app: Router): void {
 
   // ── 登录 ─────────────────────────────────────────────────
 
-  app.post('/api/auth/login', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/auth/login', async (req: Request, ctx: AppCtx): Promise<Response> => {
     // 限流：每 IP 每分钟 10 次登录请求
     if (!checkRateLimit(rateLimitKey(req), { windowMs: 60_000, max: 10 })) {
       return Response.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 })
@@ -105,7 +106,7 @@ export function registerAuthRoutes(app: Router): void {
     }
 
     // 验证密码（scrypt 安全比较）
-    const valid = await verifyPassword(body.password, user.password_hash)
+    const valid = await verifyPassword(body.password, user.password_hash as string)
     if (!valid) {
       return Response.json({ error: '密码错误' }, { status: 401 })
     }

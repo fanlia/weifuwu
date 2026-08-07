@@ -3,13 +3,14 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 import { handleNewMessage, handleNewMessageStream, handleNewMessageStreamSSE } from '../services/chat.ts'
 import { wsHub } from '../services/ws-hub.ts'
 
-export function registerMessageRoutes(app: Router): void {
+export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 获取消息列表 ─────────────────────────────────────────
 
-  app.get('/api/departments/:id/messages', async (req: Request, ctx: Context): Promise<Response> => {
+  app.get('/api/departments/:id/messages', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const url = new URL(req.url)
     const limit = parseInt(url.searchParams.get('limit') ?? '50', 10)
@@ -43,7 +44,7 @@ export function registerMessageRoutes(app: Router): void {
 
   // ── 发送消息 ─────────────────────────────────────────────
 
-  app.post('/api/departments/:id/messages', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/departments/:id/messages', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, auth, params } = ctx
     const body = await req.json() as {
       content: string
@@ -100,7 +101,7 @@ export function registerMessageRoutes(app: Router): void {
     const deepseekKey = process.env.DEEPSEEK_API_KEY
     if (deepseekKey && deepseekKey !== 'sk-your-deepseek-api-key' && !deepseekKey.startsWith('sk-your-')) {
       // 流式：先创建占位消息再触发
-      handleNewMessageStream(ctx, params.id, sender.id, body.content, message.id).catch((err) =>
+      handleNewMessageStream(ctx, params.id, String(sender.id), body.content, message.id).catch((err) =>
         console.error('[messages] handleNewMessageStream error:', err),
       )
     }
@@ -118,7 +119,7 @@ export function registerMessageRoutes(app: Router): void {
   //     -H 'Content-Type: application/json' \
   //     -d '{"content":"现在几点"}'
 
-  app.post('/api/departments/:id/messages/stream', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/departments/:id/messages/stream', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, auth, params } = ctx
     const body = await req.json() as { content: string }
 
@@ -203,7 +204,7 @@ export function registerMessageRoutes(app: Router): void {
 
   // ── 编辑消息（5 分钟内可编辑） ───────────────────────────
 
-  app.put('/api/messages/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.put('/api/messages/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, auth, params } = ctx
     const body = await req.json() as { content: string }
 
@@ -229,7 +230,7 @@ export function registerMessageRoutes(app: Router): void {
 
     // 5 分钟内可编辑
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-    if (new Date(msg.created_at) < fiveMinutesAgo) {
+    if (new Date(String(msg.created_at)) < fiveMinutesAgo) {
       return Response.json({ error: '消息已超过 5 分钟，无法编辑' }, { status: 400 })
     }
 
@@ -239,7 +240,7 @@ export function registerMessageRoutes(app: Router): void {
     `
 
     // WS 推送编辑事件
-    wsHub.broadcast(msg.department_id, {
+    wsHub.broadcast(String(msg.department_id), {
       type: 'message_edited',
       messageId: params.id,
       content: body.content.trim(),
@@ -250,7 +251,7 @@ export function registerMessageRoutes(app: Router): void {
 
   // ── 删除消息（撤回） ───────────────────────────────────────
 
-  app.delete('/api/messages/:id', async (req: Request, ctx: Context): Promise<Response> => {
+  app.delete('/api/messages/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, auth, params } = ctx
 
     const [msg] = await sql`
@@ -270,14 +271,14 @@ export function registerMessageRoutes(app: Router): void {
 
     // 5 分钟内可撤回
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-    if (new Date(msg.created_at) < fiveMinutesAgo) {
+    if (new Date(String(msg.created_at)) < fiveMinutesAgo) {
       return Response.json({ error: '消息已超过 5 分钟，无法撤回' }, { status: 400 })
     }
 
     await sql`DELETE FROM messages WHERE id = ${params.id}`
 
     // WS 推送删除事件
-    wsHub.broadcast(msg.department_id, {
+    wsHub.broadcast(String(msg.department_id), {
       type: 'message_deleted',
       messageId: params.id,
     })
@@ -287,7 +288,7 @@ export function registerMessageRoutes(app: Router): void {
 
   // ── 审批 AI 回复（Human-in-the-Loop） ────────────────────
 
-  app.post('/api/messages/:id/approve', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/messages/:id/approve', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId, params } = ctx
     const body = await req.json() as { approved: boolean; reason?: string }
 

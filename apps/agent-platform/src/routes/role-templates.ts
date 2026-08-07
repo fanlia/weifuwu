@@ -6,6 +6,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 
 export interface RoleTemplate {
   slug: string
@@ -170,9 +171,9 @@ export function getRoleTemplates(): RoleTemplate[] {
  * 注册受保护的角色模板路由
  * 在 protectedRoutes 中调用
  */
-export function registerRoleTemplateRoutes(app: Router): void {
+export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
   // ── 从模板创建 Agent ───────────────────────────────
-  app.post('/api/agents/from-template', async (req: Request, ctx: Context): Promise<Response> => {
+  app.post('/api/agents/from-template', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, tenantId } = ctx
     const body = await req.json() as {
       template_slug: string

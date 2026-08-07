@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto'
 import { sseResponse, type WfEmitter } from './sse.ts'
 import type { AiClient, StreamFinishResult } from './client.ts'
 import { safeParseArgs } from './client.ts'
-import type { ChatMessage, ToolDefinition } from './types.ts'
+import type { ChatMessage, ToolDefinition, WfStep, WfToken, WfToolResult, WfUsage } from './types.ts'
 
 // ── 类型 ─────────────────────────────────────────────────
 
@@ -53,9 +53,34 @@ export interface AgentRunOptions {
   traceId?: string
 }
 
+/** agent 执行步骤（结构化结果用，协议 wf:step/wf:tool_result 的汇总） */
+export interface AgentStep {
+  type: 'llm' | 'tool_call' | 'tool_result'
+  content?: string
+  toolCall?: { id: string; name: string; arguments: string }
+  toolResult?: string
+}
+
+/** 结构化运行结果（非流式服务编排用；流式场景走 stream/SSE 的 wf:* 事件） */
+export interface AgentRunResult {
+  content: string
+  steps: AgentStep[]
+  usage?: WfUsage
+}
+
 export interface AgentRunner {
   /** 运行 agent → SSE Response（wf: 协议事件流），路由直接 return */
   run: (messages: ChatMessage[], options?: AgentRunOptions) => Response
+  /**
+   * 事件流模式：wf:* 事件打到自定义 emitter（SSE 只是默认实现）。
+   * 应用层可把事件接到 WS/回调/自有协议（协议适配器）——不绑死传输通道。
+   */
+  stream: (
+    messages: ChatMessage[],
+    options?: { emit: WfEmitter; signal?: AbortSignal; traceId?: string },
+  ) => Promise<void>
+  /** 结构化结果模式：收集 wf:* 事件 → AgentRunResult（非流式服务编排用） */
+  runToResult: (messages: ChatMessage[], options?: AgentRunOptions) => Promise<AgentRunResult>
 }
 
 // ── 引擎 ─────────────────────────────────────────────────
@@ -67,14 +92,30 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
     function: { name: t.name, description: t.description ?? '', parameters: t.parameters ?? {} },
   }))
 
-  function run(messages: ChatMessage[], options?: AgentRunOptions): Response {
+  /** 统一控制器：外部 signal → 内部 AbortController（stream/run/runToResult 共用） */
+  function createController(external?: AbortSignal): AbortController {
     const controller = new AbortController()
-    const external = options?.signal
     if (external) {
       if (external.aborted) controller.abort()
       else external.addEventListener('abort', () => controller.abort(), { once: true })
     }
+    return controller
+  }
 
+  /** 事件流模式：wf:* 事件打到自定义 emitter（SSE 只是默认实现，应用层可接 WS/回调/自有协议） */
+  async function stream(
+    messages: ChatMessage[],
+    options?: { emit: WfEmitter; signal?: AbortSignal; traceId?: string },
+  ): Promise<void> {
+    const controller = createController(options?.signal)
+    const emit = options?.emit ?? (() => {})
+    emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
+    await loop(messages, emit, controller.signal)
+  }
+
+  /** 运行 agent → SSE Response（默认通道；路由直接 return） */
+  function run(messages: ChatMessage[], options?: AgentRunOptions): Response {
+    const controller = createController(options?.signal)
     return sseResponse(
       async (emit) => {
         emit('wf:message_start', { id: options?.traceId ?? randomUUID() })
@@ -82,6 +123,37 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
       },
       { onAbort: () => controller.abort() },
     )
+  }
+
+  /** 结构化结果模式：收集 wf:* 事件 → AgentRunResult（非流式服务编排用） */
+  async function runToResult(messages: ChatMessage[], options?: AgentRunOptions): Promise<AgentRunResult> {
+    let content = ''
+    const steps: AgentStep[] = []
+    let usage: WfUsage | undefined
+    const emit: WfEmitter = (name, data) => {
+      if (name === 'wf:token') {
+        content += (data as WfToken).text
+      } else if (name === 'wf:step') {
+        const s = data as WfStep
+        if (s.type === 'llm') steps.push({ type: 'llm', content: s.content })
+        else steps.push({ type: 'tool_call', toolCall: { id: s.toolCallId ?? '', name: s.name ?? '', arguments: '' } })
+      } else if (name === 'wf:tool_result') {
+        const r = data as WfToolResult
+        const last = steps[steps.length - 1]
+        if (last && last.type === 'tool_call') {
+          steps[steps.length - 1] = {
+            type: 'tool_result',
+            toolCall: last.toolCall,
+            toolResult: r.ok ? JSON.stringify(r.output ?? '') : `Error: ${r.error?.message ?? 'unknown'}`,
+          }
+        }
+      } else if (name === 'wf:usage') {
+        usage = data as WfUsage
+      }
+    }
+    const controller = createController(options?.signal)
+    await loop(messages, emit, controller.signal)
+    return { content, steps, usage }
   }
 
   async function loop(messages: ChatMessage[], emit: WfEmitter, signal?: AbortSignal): Promise<void> {
@@ -176,5 +248,5 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
     emit('wf:done', { content: '', usage })
   }
 
-  return { run }
+  return { run, stream, runToResult }
 }
