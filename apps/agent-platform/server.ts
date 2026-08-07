@@ -9,7 +9,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, ui, userSystem, ai } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, ui, userSystem, ai, messager } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -25,7 +25,6 @@ import { registerKnowledgeRoutes } from './src/routes/knowledge.ts'
 // ── 服务 ──────────────────────────────────────────────────
 import { handleNewMessage } from './src/services/chat.ts'
 import { handleWebhookMessage } from './src/services/webhook.ts'
-import { wsHub, createWsHandler } from './src/services/ws-hub.ts'
 
 // ── 内置工具 + Skills ─────────────────────────────────────
 import { registerBuiltinTools, BUILTIN_TOOL_DEFS } from './src/tools/builtin.ts'
@@ -85,6 +84,11 @@ async function main() {
     refreshTtlDays: 7,           // 对齐原 7d
   })
   await users.migrate()          // _weifuwu_users / _weifuwu_sessions
+  // 迁移遗留：schema.sql 已去外键（agents.user_id 指向框架 _weifuwu_users），但已存在的表结构
+  // 仍带旧约束（agents_user_id_fkey → 已删的 users 表）——幂等删除，避免注册建默认 Agent 失败
+  await pg.sql`
+    ALTER TABLE agents DROP CONSTRAINT IF EXISTS agents_user_id_fkey
+  `
   app.use(users)
   // 框架认证路由：login/logout/refresh/me（register 自定义：建租户 + 默认 agent）
   users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
@@ -283,13 +287,10 @@ async function main() {
   // 挂载受保护路由
   app.mount('/', protectedRoutes)
 
-  // ── WebSocket ───────────────────────────────────────────
-  // 如果 Redis 可用，初始化 WS 跨实例广播
-  if (hasRedis && redisClient) {
-    wsHub.initRedis(redisClient.redis)
-    console.log('[agent-platform] WS Hub Redis Pub/Sub 已启用')
-  }
-  app.ws('/ws', createWsHandler())
+  // ── WebSocket（框架 messager：房间广播 + Redis 跨进程） ──
+  const messagerSystem = messager({ sql: pg.sql, redis: redisClient })
+  app.use(messagerSystem)
+  app.ws('/ws', messagerSystem.client.handler())
 
   // ── Webhook 入口 ───────────────────────────────────────
 

@@ -5,7 +5,6 @@
 import type { Router, Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { handleNewMessage, handleNewMessageStream, handleNewMessageStreamSSE } from '../services/chat.ts'
-import { wsHub } from '../services/ws-hub.ts'
 
 export function registerMessageRoutes(app: Router<AppCtx>): void {
   // ── 获取消息列表 ─────────────────────────────────────────
@@ -91,7 +90,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     `) as unknown as Array<Record<string, any>>
 
     // WebSocket 推送新消息
-    wsHub.broadcast(params.id, {
+    ctx.msg.broadcast(String(params.id), {
       type: 'new_message',
       departmentId: params.id,
       message: { id: message.id, sender_id: message.sender_id, content: message.content },
@@ -162,7 +161,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     `
 
     // WS 推送新消息（让其他 WS 客户端也能看到）
-    wsHub.broadcast(params.id, {
+    ctx.msg.broadcast(String(params.id), {
       type: 'new_message',
       departmentId: params.id,
       message: { id: message.id, sender_id: message.sender_id, content: message.content },
@@ -240,7 +239,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     `
 
     // WS 推送编辑事件
-    wsHub.broadcast(String(msg.department_id), {
+    ctx.msg.broadcast(String(String(msg.department_id)), {
       type: 'message_edited',
       messageId: params.id,
       content: body.content.trim(),
@@ -278,7 +277,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     await sql`DELETE FROM messages WHERE id = ${params.id}`
 
     // WS 推送删除事件
-    wsHub.broadcast(String(msg.department_id), {
+    ctx.msg.broadcast(String(String(msg.department_id)), {
       type: 'message_deleted',
       messageId: params.id,
     })

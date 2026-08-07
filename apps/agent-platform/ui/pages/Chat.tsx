@@ -96,7 +96,7 @@ export const Chat: Component = (_props, ctx) => {
   })
   $.unsubWs = unsub
 
-  ctx.ws?.send({ type: 'subscribe', departmentId: deptId })
+  ctx.ws?.send({ type: 'subscribe', room: deptId })
 
   const timer = setInterval(() => {
     $.timeVersion++
@@ -132,7 +132,7 @@ export const Chat: Component = (_props, ctx) => {
     if (!content || $.sending) return
     const saved = content
     $.sending = true; $.input = ''
-    ctx.ws?.send({ type: 'subscribe', departmentId: deptId })
+    ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
       const res = await fetch(`/api/departments/${deptId}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -167,7 +167,7 @@ export const Chat: Component = (_props, ctx) => {
     if (!lastUser) return
     $.msgs = $.msgs.filter((m: any) => m.id !== fromMsgId)
     $.sending = true
-    ctx.ws?.send({ type: 'subscribe', departmentId: deptId })
+    ctx.ws?.send({ type: 'subscribe', room: deptId })
     await fetch(`/api/departments/${deptId}/messages`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ content: lastUser.content }),

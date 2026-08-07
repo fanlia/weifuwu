@@ -7,7 +7,7 @@
  * 配合框架 Router<T extends object>（放开约束后自定义上下文成为一等公民）。
  */
 import type { User, Context, AuthApi } from 'weifuwu'
-import type { AiClientModule } from 'weifuwu'
+import type { AiClientModule, MessagerClient } from 'weifuwu'
 import type { AuthPayload } from './auth-payload.ts'
 import type { WorkspaceInfo } from './workspace.ts'
 
@@ -26,6 +26,8 @@ export interface AppCtx {
   auth: AuthApi & AuthPayload
   /** 框架 ai() 注入：AiClientModule（chat/stream/sse/agent/embed/approve） */
   ai: AiClientModule
+  /** 框架 messager() 注入：消息系统（会话/消息/实时广播/WS 协议） */
+  msg: MessagerClient
   /** 租户隔离（tenant 中间件从 auth.tenantId 注入） */
   tenantId: string
   workspace?: WorkspaceInfo

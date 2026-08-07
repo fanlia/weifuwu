@@ -14,7 +14,6 @@ import type { Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
-import { wsHub } from './ws-hub.ts'
 
 // ── 流式事件类型 ───────────────────────────────────────
 
@@ -33,11 +32,11 @@ export interface StreamEmitter {
   emit(event: StreamEvent): void | Promise<void>
 }
 
-/** 创建 WS 发射器 */
-export function createWsEmitter(departmentId: string): StreamEmitter {
+/** 创建 WS 发射器（框架 messager 广播） */
+export function createWsEmitter(msg: import('weifuwu').MessagerClient, departmentId: string): StreamEmitter {
   return {
     emit(event: StreamEvent) {
-      wsHub.broadcast(departmentId, event)
+      msg.broadcast(String(departmentId), event)
     },
   }
 }
@@ -165,7 +164,7 @@ export async function handleNewMessage(
         `
 
         // WS 推送审批通知
-        wsHub.broadcast(departmentId, {
+        ctx.msg.broadcast(String(departmentId), {
           type: 'ai_draft',
           message: { id: draftMsg.id, agentId: agent.id, agentName: agent.name, draft: content, departmentId, createdAt: draftMsg.created_at },
         })
@@ -178,7 +177,7 @@ export async function handleNewMessage(
         `
 
         // WS 推送
-        wsHub.broadcast(departmentId, {
+        ctx.msg.broadcast(String(departmentId), {
           type: 'ai_reply',
           message: { id: replyMsg.id, agentId: agent.id, agentName: agent.name, content, departmentId, createdAt: replyMsg.created_at },
         })
@@ -401,7 +400,7 @@ export async function handleNewMessageStream(
   // createEmitter 返回 WsEmitter
   // WS 路径：让 runAgentStreamForAgent 内部创建 AI 消息（而非复用用户消息 ID）
   await runAllAgents(ctx, departmentId, messageContent, [], (agent, msgId) => ({
-    emit(event) { wsHub.broadcast(departmentId, event) },
+    emit(event) { ctx.msg.broadcast(String(departmentId), event) },
   }))
 }
 
