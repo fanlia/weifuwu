@@ -28,6 +28,7 @@
 | CS-03  | Event listener 内用 `console.error` 不用 `throw` | `server.on('error', ...)`                 |
 | CS-04  | **DB 客户端测试必须连 docker 真实库**           | 禁 mock 网络层（已删）；故障注入用 CLIENT KILL / pg_terminate_backend |
 | CS-05  | **协议层改动：TDD 先行 + 诚实裁剪**             | 新能力先写测试（红→绿）；不支持能力抛 `ProtocolError('unsupported')` |
+| CS-06  | **行为变更先查旧测试**：默认值/时序变更后，旧测试可能静默挂起而非失败 | `await promise` 永不 resolve = 挂起信号；`--test-timeout` 定位；挂起比失败难定位一个量级 |
 | FS-01  | 组件 = `Component<P, C>`：`(initProps: P, ctx) => (props: P) => VNode` | 无 class/hook/this；P=props（JSX 自动推断），C=ctx 注入依赖 |
 | FS-02  | 组件必须类型化：`Component<P, C>`，ctx 注入声明 C | 禁止 `_init: any`；`ctx.api` 等由 C 泛型编译期保证 |
 | FS-03  | Proxy 驱动渲染                                   | `$.x = val` 而非 DOM 操作                 |
@@ -431,6 +432,43 @@ const $ = ctx.ui.$()
 $.show = true
 const vnode2 = renderVNode(Popover, { content: 'hello' }, ctx)
 ```
+
+### UI 组件测试纪律（jsdom + VNode 断言）
+
+- **renderVNode 只渲染一层**：子组件 VNode 的 `type` 是组件函数（断言 `=== Icon`），不是 `'svg'` 等标签名
+- **DOM 事件级测试**（键盘/焦点/动画）：container 必须 `document.body.appendChild(container)`——jsdom 中未连接文档的元素 `.focus()` 无效，`document.activeElement` 不更新（Tabs 方向键/DatePicker 导航踩过）
+- **`dispatchEvent` 必须用 jsdom 的 Event**：`new (window as any).Event(...)`——node 原生 Event 与 jsdom EventTarget 不兼容，会抛 `TypeError: parameter 1 is not of type 'Event'`
+- **模拟真实 `ctx.ui.render()` 用 patchValue 而非 mountVNode**：签名 `patchValue(container, container.firstChild, prev, next, ctx)` 同树 patch（portal 正确增删）；mountVNode 全量重挂会残留 portal 脏节点
+- **退场动画 = 延迟卸载**：`open=false` 后 DOM 仍在（播 `--exit` 动画），断言"关闭后 DOM 消失"须手动 `dispatchEvent(new (window as any).Event('animationend'))`
+- **行为变更后旧测试可能静默挂起而非失败**（如 maskClosable 默认 false 后，旧测试点遮罩后 `await promise` 永不 resolve）——挂起比失败难定位一个量级，且会让整个测试文件拖住；排查用 `--test-timeout=3000` 让挂起测试报超时，再二分定位
+
+## 设计系统维护（layout/components）
+
+P8 后 `style-audit`（`src/test/style-audit.test.ts`，16 条规则）是设计约束的防护网——改 CSS/组件不得违反，违反即测试红：
+
+### 动效语言（P0）
+- 动效 Token：`--wf-dur-*`（时长阶梯）、`--wf-ease-*`（缓动曲线）、`--wf-motion-*`（位移量）——组件动效统一引用，禁止各自硬编码
+- **浮层组件 `--enter`/`--exit` 类必须成对**（audit 强制）——exit 类定义了就必须挂上，退场死代码是 CS-01 违规（Modal/Drawer 曾只定义不挂）
+- 退场实现模式：`animateOut(el, done, fallbackMs)`（`src/client/motion.ts`）——挂 exit 类 → animationend → 回调，兜底 timeout 防 animationend 丢失挂死；reduced-motion 下动画被 _base.css 降为 0.01ms，animationend 等效瞬时
+- Modal/Drawer 退场状态机：`phase: closed|open|exit`，挂载期一次性监听 animationend（enter 结束忽略，exit 结束才 `ctx.ui.render()` 卸载）
+- 命令式退场自适应：加类后查 `getComputedStyle().animationName`——真浏览器播动画，无 CSS 动画环境（jsdom）立即移除（Toast 模式）
+
+### 语义色与对比度（P2）
+- 语义文字色必须用 `-text` 变体（`--wf-color-success-text` 等 700 级），500 级仅限填充/边框/焦点——audit 强制
+- 实心填充上的文字用 `--wf-color-on-brand`（禁裸 `#fff`）；遮罩用 `--wf-overlay`（禁裸 `rgba`）
+- 新增色值由 audit 对比度计算测试把关（`-text` 对 `-50` 底 ≥ 4.5:1，亮暗双验证）
+
+### 图标（P3）
+- 组件内禁裸文本字形（✕✓⚠▲▼⇅ 等）——统一 `Icon` 组件（`src/components/Icon/`，stroke SVG、currentColor、1em 随字号、aria-hidden）
+- 文案性 emoji（labels）属白名单
+
+### CJK 感知（P5）
+- 表头/分组标题禁裸 `text-transform: uppercase`——必须 `var(--wf-heading-case)`（中文 no-op，audit 强制）
+- 数值显示用 `wf-nums`（tabular-nums）防宽度抖动
+
+### 键盘可达红线（P1）
+- **可聚焦就必须可操作**：`role="button"`/`tabindex` 的元素必须有 Enter/Space 处理；方向键导航（Tabs/DatePicker）必须焦点跟随
+- 浮层类（Modal/Drawer/Dropdown/Popover/Tooltip）Escape 关闭；Modal 系焦点 trap + 归还；Confirm 默认 `maskClosable=false`（危险操作防误触）
 
 ## 构建 & 发布
 
