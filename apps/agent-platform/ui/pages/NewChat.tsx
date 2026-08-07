@@ -7,7 +7,7 @@ export const NewChat: Component = (_props, ctx) => {
   const token = ctx.auth?.token
 
    $.depts = []; $.loading = true
-    fetch('/api/departments', { headers: { Authorization: `Bearer ${token}` } })
+    ctx.api!.get('/api/departments')
       .then(r => r.json()).then(d => { $.depts = d.departments ?? []; $.loading = false })
       .catch(() => { $.loading = false })
 

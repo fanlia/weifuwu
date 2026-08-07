@@ -15,9 +15,9 @@ export const Dashboard: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
   $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0
   Promise.all([
-    fetch('/api/stats', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({})),
-    fetch('/api/agents', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({ agents: [] })),
-    fetch('/api/departments', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } }).then(r => r.json()).catch(() => ({ departments: [] })),
+    ctx.api!.get('/api/stats').catch(() => ({})),
+    ctx.api!.get('/api/agents').catch(() => ({ agents: [] })),
+    ctx.api!.get('/api/departments').catch(() => ({ departments: [] })),
   ]).then(([stats, agents, depts]) => {
     $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
     $.loading = false

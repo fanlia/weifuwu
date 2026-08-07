@@ -13,9 +13,9 @@ export const Chat: Component = (_props, ctx) => {
   $.approving = null; $.copiedId = ''; $.timeVersion = 0
 
   Promise.all([
-    fetch(`/api/departments/${deptId}/messages`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-    fetch(`/api/departments/${deptId}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-    fetch('/api/agents?type=user', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ctx.api!.get(`/api/departments/${deptId}/messages`).catch(() => ({ messages: [] })),
+    ctx.api!.get(`/api/departments/${deptId}`).catch(() => ({})),
+    ctx.api!.get('/api/agents?type=user').catch(() => ({ agents: [] })),
   ]).then(([msgRes, deptRes, agentRes]) => {
     const agents = agentRes.agents ?? []
     const user = ctx.auth?.user
@@ -134,12 +134,8 @@ export const Chat: Component = (_props, ctx) => {
     $.sending = true; $.input = ''
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
-      const res = await fetch(`/api/departments/${deptId}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content }),
-      })
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}))
+      const data = await ctx.api!.post(`/api/departments/${deptId}/messages`, { content }).catch(() => null)
+      if (data) {
         if (data.message && !$.msgs.some((m: any) => m.id === data.message.id)) {
           $.msgs.push({
             id: data.message.id,
@@ -154,7 +150,7 @@ export const Chat: Component = (_props, ctx) => {
           })
         }
       } else {
-        $.input = saved; const d = await res.json().catch(() => ({})); alert(d.error || '发送失败')
+        $.input = saved; alert('发送失败')
       }
     } catch { $.input = saved; alert('网络错误') }
     finally { $.sending = false }
@@ -168,10 +164,7 @@ export const Chat: Component = (_props, ctx) => {
     $.msgs = $.msgs.filter((m: any) => m.id !== fromMsgId)
     $.sending = true
     ctx.ws?.send({ type: 'subscribe', room: deptId })
-    await fetch(`/api/departments/${deptId}/messages`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ content: lastUser.content }),
-    })
+    await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: lastUser.content }).catch(() => {})
     $.sending = false
   }
 
@@ -181,19 +174,13 @@ export const Chat: Component = (_props, ctx) => {
   async function saveEdit(e: Event) {
     e.preventDefault()
     if (!$.editingId || !$.editValue.trim()) return
-    const res = await fetch(`/api/messages/${$.editingId}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ content: $.editValue }),
-    })
-    if (res.ok) cancelEdit(); else { const d = await res.json(); alert(d.error || '编辑失败') }
+    await ctx.api!.put(`/api/messages/${$.editingId}`, { content: $.editValue }).then(() => cancelEdit()).catch(() => alert('编辑失败'))
   }
 
   async function deleteMsg(msg: any) {
     const ok = await ctx.confirm!('确定撤回这条消息？')
     if (!ok) return
-    const res = await fetch(`/api/messages/${msg.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) { const d = await res.json(); ctx.toast!(d.error || '撤回失败', 'error') }
-    else ctx.toast!('消息已撤回', 'success')
+    await ctx.api!.delete(`/api/messages/${msg.id}`).then(() => ctx.toast!('消息已撤回', 'success')).catch(() => ctx.toast!('撤回失败', 'error'))
   }
 
   function copyContent(msg: any) {
@@ -205,19 +192,13 @@ export const Chat: Component = (_props, ctx) => {
 
   async function approveDraft(msgId: string) {
     $.approving = msgId
-    await fetch(`/api/messages/${msgId}/approve`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ approved: true }),
-    }).catch(() => {})
+    await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved: true }).catch(() => {})
     $.approving = null
   }
 
   async function rejectDraft(msgId: string) {
     $.approving = msgId
-    await fetch(`/api/messages/${msgId}/approve`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ approved: false }),
-    }).catch(() => {})
+    await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved: false }).catch(() => {})
     $.approving = null
   }
 

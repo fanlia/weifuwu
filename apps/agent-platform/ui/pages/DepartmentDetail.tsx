@@ -8,7 +8,7 @@ export const DepartmentDetail: Component = (_props, ctx) => {
   const token = ctx.auth?.token
 
     $.dept = null; $.members = []; $.loading = true; $.notFound = false
-    fetch(`/api/departments/${deptId}`, { headers: { Authorization: `Bearer ${token}` } })
+    ctx.api!.get(`/api/departments/${deptId}`)
       .then(r => r.json()).then(data => {
         const d = data.department ?? data ?? null
         if (!d?.id) { $.notFound = true; $.loading = false; return }

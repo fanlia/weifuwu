@@ -8,6 +8,18 @@ import { Avatar, Badge, EmptyState, Loading, PageHeader } from 'weifuwu/componen
 export { PageHeader, EmptyState, Loading }
 export type { PageHeaderProps, EmptyStateProps, LoadingProps } from 'weifuwu/components'
 
+/** 从请求错误提取可读消息（ApiError.message 是响应体文本，可能含 {"error": ...} JSON） */
+export function errMsg(e: unknown, fallback: string): string {
+  if (e instanceof Error) {
+    try {
+      const j = JSON.parse(e.message)
+      if (j && j.error) return String(j.error)
+    } catch { /* 非 JSON 错误消息 */ }
+    return e.message
+  }
+  return fallback
+}
+
 /** 类型元数据 */
 export const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
   ai: { label: 'AI 机器人', icon: '🤖', color: '#8b5cf6' },

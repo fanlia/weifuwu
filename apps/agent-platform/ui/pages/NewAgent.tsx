@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
-import { PageHeader } from '../components/ui'
-import { Alert, Badge, Button, Card, Checkbox, Field, Input, Loading, Select, Textarea } from 'weifuwu/components'
+import { PageHeader, errMsg } from '../components/ui'
+import { Alert, Badge, Button, Card, Checkbox, Field, Input, Loading, Select, Slider, Textarea } from 'weifuwu/components'
 
 interface RoleTemplate {
   slug: string; name: string; icon: string; category: string; description: string
@@ -35,8 +35,8 @@ export const NewAgent: Component = (_props, ctx) => {
   $.submitting = false; $.error = ''
   $.roleTemplates = []; $.loading = true
 
-  fetch('/api/role-templates', { headers: { Authorization: `Bearer ${token}` } })
-    .then(r => r.json()).then(d => { $.roleTemplates = d.templates ?? []; $.loading = false })
+  ctx.api!.get<{ templates: any[] }>('/api/role-templates')
+    .then(d => { $.roleTemplates = d.templates ?? []; $.loading = false })
     .catch(() => { $.loading = false })
 
   function buildCategories() {
@@ -83,14 +83,9 @@ export const NewAgent: Component = (_props, ctx) => {
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
       try {
-        const res = await fetch('/api/agents/from-template', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body),
-        })
-        const data = await res.json()
-        if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
+        const data = await ctx.api!.post<{ agent: { id: string } }>('/api/agents/from-template', body)
         ctx.app?.navigate(`/agents/${data.agent.id}`)
-      } catch { $.error = '网络错误'; $.submitting = false }
+      } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
       return
     }
 
@@ -107,14 +102,9 @@ export const NewAgent: Component = (_props, ctx) => {
     if ($.type === 'knowledge_base') body.chunk_size = parseInt($.chunkSize) || 500
 
     try {
-      const res = await fetch('/api/agents', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
+      const data = await ctx.api!.post<{ agent: { id: string } }>('/api/agents', body)
       ctx.app?.navigate(`/agents/${data.agent.id}`)
-    } catch { $.error = '网络错误'; $.submitting = false }
+    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
   }
 
   // ══════════ 步骤 1: 选择模板 ══════════
@@ -234,8 +224,8 @@ export const NewAgent: Component = (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="温度">
                     <div class="wf-row wf-gap-sm">
-                      <input type="range" min="0" max="2" step="0.1" value={$.aiTemperature}
-                        onInput={(e: any) => { $.aiTemperature = e.target.value }} class="wf-fill" />
+                      <Slider min={0} max={2} step={0.1} value={$.aiTemperature}
+                        onChange={(v) => { $.aiTemperature = v }} />
                       <span class="wf-text-sm wf-text-semibold" style="min-width: 30px; text-align: center">{$.aiTemperature}</span>
                     </div>
                   </Field>

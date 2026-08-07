@@ -1,5 +1,5 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
-import { PageHeader, Loading, TypeBadge } from '../components/ui'
+import { PageHeader, Loading, TypeBadge, errMsg } from '../components/ui'
 import { Alert, Button, Card, Checkbox, EmptyState, Field, Input, Select } from 'weifuwu/components'
 
 export const NewDepartment: Component = (_props, ctx) => {
@@ -9,8 +9,8 @@ export const NewDepartment: Component = (_props, ctx) => {
     $.name = ''; $.companyId = ''; $.selected = []; $.submitting = false; $.error = ''
     $.companies = []; $.agents = []; $.loading = true
     Promise.all([
-      fetch('/api/companies', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(d => d.companies ?? []),
-      fetch('/api/agents', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(d => d.agents ?? []),
+      ctx.api!.get<{ companies: any[] }>('/api/companies').then(d => d.companies ?? []).catch(() => []),
+      ctx.api!.get<{ agents: any[] }>('/api/agents').then(d => d.agents ?? []).catch(() => []),
     ]).then(([companies, agents]) => {
       $.companies = companies; $.agents = agents; $.loading = false
     }).catch(() => { $.loading = false })
@@ -28,14 +28,9 @@ export const NewDepartment: Component = (_props, ctx) => {
     if (!cid) { $.error = '请先创建公司'; return }
     $.submitting = true; $.error = ''
     try {
-      const res = await fetch('/api/departments', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ company_id: cid, name: $.name.trim(), member_ids: $.selected }),
-      })
-      const data = await res.json()
-      if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
+      await ctx.api!.post('/api/departments', { company_id: cid, name: $.name.trim(), member_ids: $.selected })
       ctx.app?.navigate('/departments')
-    } catch { $.error = '网络错误'; $.submitting = false }
+    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
   }
   return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
@@ -67,7 +62,7 @@ export const NewDepartment: Component = (_props, ctx) => {
               <div class="wf-stack wf-gap-none">
                 {$.agents.map((a: any) => (
                   <label key={a.id} class="wf-row wf-gap-sm wf-py-sm wf-border-b" style="cursor: pointer">
-                    <input type="checkbox" checked={$.selected.includes(a.id)} onChange={() => toggle(a.id)} />
+                    <Checkbox checked={$.selected.includes(a.id)} onChange={() => toggle(a.id)} />
                     <span class="wf-text-base">{a.name}</span>
                     <TypeBadge type={a.type} />
                   </label>

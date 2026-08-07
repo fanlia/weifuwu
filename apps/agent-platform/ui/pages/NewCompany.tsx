@@ -1,5 +1,5 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
-import { PageHeader } from '../components/ui'
+import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
 
 export const NewCompany: Component = (_props, ctx) => {
@@ -13,14 +13,9 @@ $.name = ''; $.error = ''; $.submitting = false
     if (!$.name.trim()) { $.error = '请输入公司名称'; return }
     $.submitting = true; $.error = ''
     try {
-      const res = await fetch('/api/companies', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: $.name.trim() }),
-      })
-      const data = await res.json()
-      if (!res.ok) { $.error = data.error || '创建失败'; $.submitting = false; return }
+      await ctx.api!.post('/api/companies', { name: $.name.trim() })
       ctx.app?.navigate('/companies')
-    } catch { $.error = '网络错误'; $.submitting = false }
+    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
   }
   return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">

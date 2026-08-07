@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
-import { PageHeader, TypeBadge, Loading } from '../components/ui'
-import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Input, Select, Textarea } from 'weifuwu/components'
+import { PageHeader, TypeBadge, Loading, errMsg } from '../components/ui'
+import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Input, Select, Slider, Textarea } from 'weifuwu/components'
 
 const MODELS = [
   { value: '', label: '默认 (环境变量 DEEPSEEK_MODEL)' },
@@ -27,9 +27,9 @@ export const AgentDetail: Component = (_props, ctx) => {
     $.logs = []; $.logsLoading = false
 
     Promise.all([
-      fetch(`/api/agents/${agentId}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`/api/agents/${agentId}/skills`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({ skills: [] })),
-      fetch('/api/skills/available', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({ skills: [] })),
+      ctx.api!.get(`/api/agents/${agentId}`),
+      ctx.api!.get(`/api/agents/${agentId}/skills`).catch(() => ({ skills: [] })),
+      ctx.api!.get('/api/skills/available').catch(() => ({ skills: [] })),
     ]).then(([agentRes, skillRes, availRes]) => {
       const a = agentRes.agent ?? agentRes
       if (!a?.id) { $.notFound = true; $.loading = false; return }
@@ -52,8 +52,8 @@ export const AgentDetail: Component = (_props, ctx) => {
       $.whLogs = []; $.whLogsLoading = false
 
       if (a.type === 'knowledge_base') {
-        fetch(`/api/agents/${agentId}/knowledge`, { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => r.json()).then(d => { $.docs = d.documents ?? [] }).catch(() => {})
+        ctx.api!.get(`/api/agents/${agentId}/knowledge`)
+          .then(d => { $.docs = d.documents ?? [] }).catch(() => {})
       }
 
       $.loading = false
@@ -76,40 +76,32 @@ export const AgentDetail: Component = (_props, ctx) => {
       body.webhook_retry_count = parseInt($.webhookRetryCount) || 3
     }
     try {
-      const res = await fetch(`/api/agents/${agentId}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (!res.ok) { $.error = data.error || '保存失败'; $.saving = false; return }
+      await ctx.api!.put(`/api/agents/${agentId}`, body)
       $.ok = '保存成功'; $.saving = false
-    } catch { $.error = '网络错误'; $.saving = false }
+    } catch (e) { $.error = errMsg(e, '保存失败'); $.saving = false }
   }
 
   async function bindSkill(slug: string) {
-    await fetch(`/api/agents/${agentId}/skills`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ skill_slug: slug }),
-    })
-    const d = await fetch(`/api/agents/${agentId}/skills`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    await ctx.api!.post(`/api/agents/${agentId}/skills`, { skill_slug: slug })
+    const d = await ctx.api!.get(`/api/agents/${agentId}/skills`)
     $.boundSkills = d.skills ?? []
   }
 
   async function unbindSkill(slug: string) {
-    await fetch(`/api/agents/${agentId}/skills/${slug}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    const d = await fetch(`/api/agents/${agentId}/skills`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    await ctx.api!.delete(`/api/agents/${agentId}/skills/${slug}`)
+    const d = await ctx.api!.get(`/api/agents/${agentId}/skills`)
     $.boundSkills = d.skills ?? []
   }
 
   async function loadLogs() {
     $.logsLoading = true
-    const d = await fetch(`/api/agents/${agentId}/logs?limit=20`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    const d = await ctx.api!.get(`/api/agents/${agentId}/logs?limit=20`)
     $.logs = d.logs ?? []; $.logsLoading = false
   }
 
   async function loadWebhookLogs() {
     $.whLogsLoading = true
-    const d = await fetch(`/api/stats/agents/${agentId}/webhook-logs`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    const d = await ctx.api!.get(`/api/stats/agents/${agentId}/webhook-logs`)
     $.whLogs = d.logs ?? []; $.whLogsLoading = false
   }
 
@@ -117,8 +109,8 @@ export const AgentDetail: Component = (_props, ctx) => {
     if ($.expandedDoc === docId) { $.expandedDoc = null; $.docChunks = []; return }
     $.expandedDoc = docId; $.loadingChunks = true
     try {
-      const res = await fetch(`/api/knowledge/${docId}?chunks=true`, { headers: { Authorization: `Bearer ${token}` } })
-      if (res.ok) { const d = await res.json(); $.docChunks = d.chunks ?? [] }
+      const d = await ctx.api!.get(`/api/knowledge/${docId}?chunks=true`).catch(() => null)
+      if (d) $.docChunks = d.chunks ?? []
     } catch {}
     $.loadingChunks = false
   }
@@ -128,13 +120,10 @@ export const AgentDetail: Component = (_props, ctx) => {
     if (!$.newDocFilename.trim() || !$.newDocContent.trim()) return
     $.uploading = true
     try {
-      const res = await fetch(`/api/agents/${agentId}/knowledge`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ filename: $.newDocFilename.trim(), content: $.newDocContent }),
-      })
-      if (res.ok) {
+      await ctx.api!.post(`/api/agents/${agentId}/knowledge`, { filename: $.newDocFilename.trim(), content: $.newDocContent })
+      {
         $.newDocFilename = ''; $.newDocContent = ''
-        const d = await fetch(`/api/agents/${agentId}/knowledge`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+        const d = await ctx.api!.get(`/api/agents/${agentId}/knowledge`)
         $.docs = d.documents ?? []
       }
     } catch {}
@@ -142,8 +131,8 @@ export const AgentDetail: Component = (_props, ctx) => {
   }
 
   async function deleteDoc(docId: string) {
-    await fetch(`/api/knowledge/${docId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    const d = await fetch(`/api/agents/${agentId}/knowledge`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    await ctx.api!.delete(`/api/knowledge/${docId}`)
+    const d = await ctx.api!.get(`/api/agents/${agentId}/knowledge`)
     $.docs = d.documents ?? []
   }
 
@@ -196,8 +185,8 @@ export const AgentDetail: Component = (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="温度">
                     <div class="wf-row wf-gap-sm">
-                      <input type="range" min="0" max="2" step="0.1" value={$.aiTemperature}
-                        onInput={(e: any) => { $.aiTemperature = e.target.value }} class="wf-fill" />
+                      <Slider min={0} max={2} step={0.1} value={$.aiTemperature}
+                        onChange={(v) => { $.aiTemperature = v }} />
                       <span class="wf-text-sm wf-text-semibold" style="min-width: 30px; text-align: center">{$.aiTemperature}</span>
                     </div>
                   </Field>

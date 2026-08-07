@@ -1,5 +1,5 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
-import { PageHeader } from '../components/ui'
+import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
 
 export const Settings: Component = (_props, ctx) => {
@@ -16,14 +16,9 @@ export const Settings: Component = (_props, ctx) => {
     if (!$.name.trim()) { $.nameErr = '姓名不能为空'; return }
     $.nameSubmitting = true; $.nameErr = ''; $.nameOk = ''
     try {
-      const res = await fetch('/api/auth/profile', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: $.name.trim() }),
-      })
-      const data = await res.json()
-      if (!res.ok) { $.nameErr = data.error || '保存失败' }
-      else { ctx.auth?.setUser({ ...ctx.auth?.user, name: $.name.trim() }); $.nameOk = '姓名已更新' }
-    } catch { $.nameErr = '网络错误' }
+      await ctx.api!.put('/api/auth/profile', { name: $.name.trim() })
+      ctx.auth?.setUser({ ...ctx.auth?.user, name: $.name.trim() }); $.nameOk = '姓名已更新'
+    } catch (e) { $.nameErr = errMsg(e, '保存失败') }
     finally { $.nameSubmitting = false }
   }
 
@@ -34,17 +29,10 @@ export const Settings: Component = (_props, ctx) => {
     if ($.newPassword !== $.confirmPassword) { $.pwdErr = '两次密码输入不一致'; return }
     $.pwdSubmitting = true; $.pwdErr = ''; $.pwdOk = ''
     try {
-      const res = await fetch('/api/auth/password', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ currentPassword: $.currentPassword, newPassword: $.newPassword }),
-      })
-      const data = await res.json()
-      if (!res.ok) { $.pwdErr = data.error || '修改失败' }
-      else {
-        $.pwdOk = '密码已更新'
-        $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
-      }
-    } catch { $.pwdErr = '网络错误' }
+      await ctx.api!.put('/api/auth/password', { currentPassword: $.currentPassword, newPassword: $.newPassword })
+      $.pwdOk = '密码已更新'
+      $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
+    } catch (e) { $.pwdErr = errMsg(e, '修改失败') }
     finally { $.pwdSubmitting = false }
   }
   return (props) => (

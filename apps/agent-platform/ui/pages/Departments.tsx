@@ -5,7 +5,7 @@ import { Badge, Button, Card } from 'weifuwu/components'
 export const Departments: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
    $.depts = []; $.loading = true
-    fetch('/api/departments', { headers: { Authorization: `Bearer ${ctx.auth?.token}` } })
+    ctx.api!.get('/api/departments')
       .then(r => r.json()).then(d => { $.depts = d.departments ?? []; $.loading = false })
       .catch(() => { $.loading = false })
 
@@ -13,7 +13,7 @@ export const Departments: Component = (_props, ctx) => {
     e.stopPropagation()
     const ok = await ctx.confirm!('确定删除这个部门吗？')
     if (!ok) return
-    const res = await fetch(`/api/departments/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${ctx.auth?.token}` } })
+    const res = await ctx.api!.delete(`/api/departments/${id}`)
     if (res.ok || res.status === 204) {
       $.depts = $.depts.filter((d: any) => d.id !== id)
       ;ctx.toast!('部门已删除', 'success')

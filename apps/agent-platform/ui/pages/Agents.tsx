@@ -7,7 +7,7 @@ export const Agents: Component = (_props, ctx) => {
   const token = ctx.auth?.token
 
     $.agents = []; $.loading = true
-    fetch('/api/agents', { headers: { Authorization: `Bearer ${token}` } })
+    ctx.api!.get('/api/agents')
       .then(r => r.json()).then(d => { $.agents = d.agents ?? []; $.loading = false })
       .catch(() => { $.loading = false })
 
@@ -15,7 +15,7 @@ export const Agents: Component = (_props, ctx) => {
     e.stopPropagation()
     const ok = await ctx.confirm!('确定删除这个 Agent 吗？')
     if (!ok) return
-    const res = await fetch(`/api/agents/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    const res = await ctx.api!.delete(`/api/agents/${id}`)
     if (res.ok || res.status === 204) {
       $.agents = $.agents.filter((a: any) => a.id !== id)
       ;ctx.toast!('Agent 已删除', 'success')
