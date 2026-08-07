@@ -11,10 +11,10 @@
   line-height: var(--wf-line-height);
 }
 
-.wf-alert--info { background: var(--wf-color-info-bg); color: var(--wf-color-info); }
-.wf-alert--success { background: var(--wf-color-success-bg); color: var(--wf-color-success); }
-.wf-alert--warning { background: var(--wf-color-warning-bg); color: var(--wf-color-warning); }
-.wf-alert--error { background: var(--wf-color-error-bg); color: var(--wf-color-error); }
+.wf-alert--info { background: var(--wf-color-info-bg); color: var(--wf-color-info-text); }
+.wf-alert--success { background: var(--wf-color-success-bg); color: var(--wf-color-success-text); }
+.wf-alert--warning { background: var(--wf-color-warning-bg); color: var(--wf-color-warning-text); }
+.wf-alert--error { background: var(--wf-color-error-bg); color: var(--wf-color-error-text); }
 
 .wf-alert-icon {
   font-weight: var(--wf-font-weight-bold);

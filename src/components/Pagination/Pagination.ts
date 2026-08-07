@@ -1,6 +1,7 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
 
 export interface PaginationProps {
   total: number
@@ -12,6 +13,7 @@ export interface PaginationProps {
 export const Pagination: Component<PaginationProps> = (_init, ctx) =>
   (props) => {
   const { total, page = 1, pageSize = 20, onChange } = props
+  const PL = (ctx as any)?.i18n?.components?.Pagination ?? {}
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   if (totalPages <= 1) return null
@@ -22,8 +24,9 @@ export const Pagination: Component<PaginationProps> = (_init, ctx) =>
   pages.push(h('button', {
     class: `wf-page-btn${page <= 1 ? ' wf-page-btn--disabled' : ''}`,
     disabled: page <= 1,
+    'aria-label': PL.prevAria ?? '上一页',
     onClick: page > 1 && onChange ? () => onChange(page - 1) : undefined,
-  }, '‹'))
+  }, h(Icon, { name: 'chevron-left' })))
 
   // page numbers
   const range = getPageRange(page, totalPages)
@@ -43,10 +46,10 @@ export const Pagination: Component<PaginationProps> = (_init, ctx) =>
   pages.push(h('button', {
     class: `wf-page-btn${page >= totalPages ? ' wf-page-btn--disabled' : ''}`,
     disabled: page >= totalPages,
+    'aria-label': PL.nextAria ?? '下一页',
     onClick: page < totalPages && onChange ? () => onChange(page + 1) : undefined,
-  }, '›'))
+  }, h(Icon, { name: 'chevron-right' })))
 
-  const PL = (ctx as any)?.i18n?.components?.Pagination ?? {}
   return h('nav', { class: 'wf-pagination', 'aria-label': PL.ariaLabel ?? '分页' }, pages)
 
   }

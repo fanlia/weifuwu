@@ -43,7 +43,7 @@
 }
 
 .wf-dropdown-item--danger {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
 }
 
 /* ── 入场动画 ── */

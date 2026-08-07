@@ -2,6 +2,9 @@ import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
 import { mountVNode } from '../../client/render.ts'
+import { animateOut } from '../../client/motion.ts'
+import { Icon } from '../Icon/Icon.ts'
+import type { IconName } from '../Icon/Icon.ts'
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
 export type ToastPosition = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center'
@@ -12,6 +15,8 @@ export interface ToastItem {
   message: string
   /** 此条目的自动消失时间（ms），覆盖 Toast 的默认 duration */
   duration?: number
+  /** 操作按钮（如"撤销"）：点击不自动关闭，由回调自行移除 */
+  action?: { label: string; onClick: () => void }
 }
 
 export interface ToastProps {
@@ -58,12 +63,20 @@ export const Toast: Component<ToastProps> = (_init, ctx) =>
     h('div', {
       class: `wf-toast wf-toast--${t.type}`,
       key: t.id,
+      'data-id': t.id,
       'data-duration': (t.duration ?? duration) || undefined,
       onClick: onRemove ? () => onRemove(t.id) : undefined,
     }, [
-      h('span', { class: 'wf-toast-icon' }, iconFor(t.type)),
+      h('span', { class: 'wf-toast-icon' }, h(Icon, { name: iconFor(t.type) })),
       h('span', { class: 'wf-toast-msg' }, t.message),
-    ])
+      t.action
+        ? h('button', {
+            class: `wf-toast-action wf-toast-action--${t.type}`,
+            type: 'button',
+            onClick: (e: Event) => { e.stopPropagation(); t.action!.onClick() },
+          }, t.action.label)
+        : null,
+    ].filter(Boolean))
   )
 
   return createPortal(
@@ -75,12 +88,12 @@ export const Toast: Component<ToastProps> = (_init, ctx) =>
   )
   }
 
-function iconFor(type: ToastType): string {
+function iconFor(type: ToastType): IconName {
   switch (type) {
-    case 'success': return '✓'
-    case 'error': return '✕'
-    case 'warning': return '⚠'
-    case 'info': return 'ℹ'
+    case 'success': return 'check'
+    case 'error': return 'close'
+    case 'warning': return 'alert'
+    case 'info': return 'info'
   }
 }
 
@@ -107,7 +120,21 @@ export function toast(opts?: ToastOptions): AppMiddleware {
     $.toasts = []
     hostApi = {
       add: (item: ToastItem) => { $.toasts = [...$.toasts, item] },
-      remove: (id: string) => { $.toasts = $.toasts.filter((t: ToastItem) => t.id !== id) },
+      remove: (id: string) => {
+        // 退场：挂 wf-toast-out 类，有真实动画则播完再移除；无动画环境（jsdom/禁用）立即移除
+        const el = document.querySelector(`.wf-toast[data-id="${id}"]`) as HTMLElement | null
+        if (el) {
+          el.classList.add('wf-toast-out')
+          const anim = getComputedStyle(el).animationName
+          if (anim && anim !== 'none') {
+            animateOut(el, () => {
+              $.toasts = $.toasts.filter((t: ToastItem) => t.id !== id)
+            })
+            return
+          }
+        }
+        $.toasts = $.toasts.filter((t: ToastItem) => t.id !== id)
+      },
     }
     // 总是返回包装 div（非 null）——保证 _refNode 有值，scope render 能定位本组件
     return () => h('div', { class: 'wf-toast-host' }, [
@@ -130,10 +157,10 @@ export function toast(opts?: ToastOptions): AppMiddleware {
 
   return (ctx: WfuiContext) => {
     ctxRef = ctx
-    ;(ctx as any).toast = (message: string, type: ToastType = 'info', duration?: number) => {
+    ;(ctx as any).toast = (message: string, type: ToastType = 'info', duration?: number, action?: { label: string; onClick: () => void }) => {
       ensureHost()
       const id = String(++seq)
-      hostApi?.add({ id, type, message, duration })
+      hostApi?.add({ id, type, message, duration, action })
       const t = duration ?? defaults.duration
       if (t > 0) {
         setTimeout(() => hostApi?.remove(id), t)

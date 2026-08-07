@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Pagination } from './Pagination.ts'
+import { Icon } from '../Icon/Icon.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 /** Call component and get VNode (two-phase compat) */
@@ -32,8 +33,10 @@ describe('Pagination', () => {
     const children = vnode.props.children
     const first = children[0]
     const last = children[children.length - 1]
-    assert.equal(first.props.children, '‹')
-    assert.equal(last.props.children, '›')
+    // 前后页用 Icon（SVG 组件），按钮带 aria-label
+    assert.ok(first.props['aria-label'])
+    assert.equal(first.props.children.type, Icon)
+    assert.equal(last.props.children.type, Icon)
   })
 
   it('disables prev on first page', () => {

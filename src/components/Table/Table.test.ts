@@ -159,4 +159,49 @@ describe('Table', () => {
     const vnode2 = renderVNode(Table, { columns, data: [] }, mockCtx())!
     assert.equal(tableOf(vnode2).props.style, undefined)
   })
+
+  it('loading 时保留表头并渲染骨架行', () => {
+    const vnode = renderVNode(Table, { columns, data: [], loading: true }, mockCtx())!
+    const table = tableOf(vnode)
+    const thead = table.props.children[0]
+    const tbody = table.props.children[1]
+    assert.equal(thead.type, 'thead', '加载中保留表头')
+    const rows = tbody.props.children
+    assert.equal(rows.length, 3, '默认 3 行骨架')
+    const firstCell = rows[0].props.children[0]
+    assert.match(firstCell.props.children.props.class, /wf-skeleton/)
+    // 自定义骨架行数
+    const vnode2 = renderVNode(Table, { columns, data: [], loading: true, loadingRows: 5 }, mockCtx())!
+    assert.equal(tableOf(vnode2).props.children[1].props.children.length, 5)
+  })
+
+  it('可排序表头键盘 Enter/Space 触发排序（可聚焦不可操作红线）', () => {
+    const cols = [
+      { key: 'id', label: 'ID', sortable: true },
+      { key: 'name', label: '名称' },
+    ]
+    let called: [string, string] | null = null
+    // 首次渲染：无排序状态
+    const vnode = renderVNode(Table, {
+      columns: cols, data: [],
+      onSort: (k: string, o: string) => { called = [k, o] },
+    }, mockCtx())!
+    const headerCells = tableOf(vnode).props.children[0].props.children.props.children
+    const sortable = headerCells[0]
+    const plain = headerCells[1]
+    // 可排序：有键盘处理；不可排序：无
+    assert.equal(typeof sortable.props.onKeyDown, 'function')
+    assert.equal(plain.props.onKeyDown, undefined)
+    // Enter → asc（初始无排序）
+    sortable.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
+    assert.deepEqual(called, ['id', 'asc'])
+    // 模拟父组件收到 onSort 后重渲染（sortKey/sortOrder 已更新）→ 再按 Space → desc
+    const vnode2 = renderVNode(Table, {
+      columns: cols, data: [], sortKey: 'id', sortOrder: 'asc',
+      onSort: (k: string, o: string) => { called = [k, o] },
+    }, mockCtx())!
+    const sortable2 = tableOf(vnode2).props.children[0].props.children.props.children[0]
+    sortable2.props.onKeyDown({ key: ' ', preventDefault: () => {} })
+    assert.deepEqual(called, ['id', 'desc'])
+  })
 })

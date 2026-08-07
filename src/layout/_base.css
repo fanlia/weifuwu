@@ -21,7 +21,7 @@ body {
 }
 
 a {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   text-decoration: none;
 }
 a:hover {
@@ -78,7 +78,7 @@ button {
 }
 button:hover {
   border-color: var(--wf-color-primary);
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
 }
 
 /* 键盘焦点：button 与 [tabindex] 统一 focus ring（仅键盘触发，鼠标点击不闪） */
@@ -101,8 +101,10 @@ button:focus-visible,
   .wf-tag-close,
   .wf-checkbox,
   .wf-switch,
-  .wf-radio {
+  .wf-radio,
+  .wf-datepicker-cell {
     min-height: 44px;
+    min-width: 44px;
   }
 }
 
@@ -137,8 +139,8 @@ th {
   font-weight: var(--wf-font-weight-medium);
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: var(--wf-heading-case); /* CJK 默认 none，英文可覆盖 uppercase */
+  letter-spacing: var(--wf-heading-tracking);
   padding: var(--wf-space) var(--wf-space-sm);
   border-bottom: var(--wf-border-width) solid var(--wf-color-border);
   background: var(--wf-color-bg-secondary);

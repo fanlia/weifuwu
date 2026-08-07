@@ -13,13 +13,13 @@
 }
 
 .wf-field-req {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
   margin-left: 2px;
 }
 
 .wf-field-err {
   font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
 }
 
 .wf-field-hint {
@@ -28,5 +28,5 @@
 }
 
 .wf-field--err .wf-field-label {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
 }

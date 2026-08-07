@@ -159,4 +159,18 @@ describe('Popover', () => {
     assert.ok(!portal?.querySelector('.wf-popover-overlay'), 'open=false → overlay 应消失')
     assert.ok(!portal?.querySelector('.wf-popover'), 'open=false → panel 应消失')
   })
+
+  it('Escape 关闭（受控 onOpenChange(false)）', () => {
+    const ctx = createMockCtx()
+    let closed = 0
+    const vnode = renderVNode(Popover, {
+      content: 'hello', children: 'trigger', open: true,
+      onOpenChange: (v: boolean) => { if (!v) closed++ },
+    }, ctx) as any
+    assert.equal(typeof vnode.props.onKeyDown, 'function')
+    vnode.props.onKeyDown({ key: 'Escape' })
+    assert.equal(closed, 1)
+    vnode.props.onKeyDown({ key: 'Tab' })
+    assert.equal(closed, 1, '非 Escape 键不关闭')
+  })
 })

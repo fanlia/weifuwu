@@ -25,18 +25,25 @@
 .wf-text-3xl { font-size: var(--wf-font-size-3xl); }
 .wf-text-4xl { font-size: var(--wf-font-size-4xl); }
 .wf-text-5xl { font-size: var(--wf-font-size-5xl); }
+.wf-text-display { font-size: var(--wf-font-size-display); }
+
+/* ── 数字等宽（统计/表格数值防宽度抖动） ── */
+
+.wf-nums {
+  font-variant-numeric: var(--wf-nums);
+}
 
 /* ── 色阶 ── */
 
 .wf-text-secondary { color: var(--wf-color-text-secondary); }
 .wf-text-tertiary { color: var(--wf-color-text-tertiary); }
 .wf-text-disabled { color: var(--wf-color-text-disabled); }
-.wf-text-brand { color: var(--wf-color-primary); } /* 兼容别名 → wf-text-primary */
-.wf-text-primary { color: var(--wf-color-primary); }
-.wf-text-success { color: var(--wf-color-success); }
-.wf-text-warning { color: var(--wf-color-warning); }
-.wf-text-error { color: var(--wf-color-error); }
-.wf-text-info { color: var(--wf-color-info); }
+.wf-text-brand { color: var(--wf-color-primary-text); } /* 兼容别名 → wf-text-primary */
+.wf-text-primary { color: var(--wf-color-primary-text); }
+.wf-text-success { color: var(--wf-color-success-text); }
+.wf-text-warning { color: var(--wf-color-warning-text); }
+.wf-text-error { color: var(--wf-color-error-text); }
+.wf-text-info { color: var(--wf-color-info-text); }
 
 /* ── 字重 ── */
 

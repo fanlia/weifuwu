@@ -30,8 +30,13 @@
 }
 
 .wf-tab--active {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   border-bottom-color: var(--wf-color-primary);
+}
+
+/* 激活指示平滑滑动（下边框） */
+.wf-tab {
+  transition: color var(--wf-dur-fast) var(--wf-ease-out), border-color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-tab-content {

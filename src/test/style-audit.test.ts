@@ -79,7 +79,7 @@ describe('样式审计 — 设计约束', () => {
     const layoutCss = readLayoutCss()
     const all = compCss + '\n' + layoutCss
     const checks: Array<[string, RegExp]> = [
-      ['可点击卡片', /\.wf-card--clickable:focus-visible/],
+      ['可点击卡片', /\.wf-elevate:focus-visible/],
       ['排序表头', /\.wf-table-th--sortable:focus-visible/],
       ['手风琴标题', /\.wf-accordion-summary:focus-visible/],
       ['文本输入', /\.wf-input:focus/],
@@ -157,5 +157,121 @@ describe('样式审计 — 设计约束', () => {
     for (const v of new Set(darkVars)) {
       assert.match(tokens, new RegExp(`${v}:`), `原始层缺少暗色值定义: ${v}`)
     }
+  })
+
+  // ── 对比度计算（WCAG 相对亮度） ──
+  function luminance(hex: string): number {
+    const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)
+    if (!m) throw new Error(`bad hex: ${hex}`)
+    const [r, g, b] = [1, 2, 3].map(i => parseInt(m[i], 16) / 255)
+    const lin = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+  }
+  function contrast(a: string, b: string): number {
+    const [l1, l2] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+    return (l1 + 0.05) / (l2 + 0.05)
+  }
+
+  it('语义文字色对比度 ≥ 4.5（-text 对 -50 底，亮暗双验证）', () => {
+    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const get = (name: string) => {
+      const m = tokens.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`))
+      assert.ok(m, `原始层缺少色值: ${name}`)
+      return m[1]
+    }
+    // 亮色：700 级文字色 on 50 级底色
+    const light: [string, string][] = [
+      ['--wf-brand-700', '--wf-brand-50'],
+      ['--wf-green-700', '--wf-green-50'],
+      ['--wf-amber-700', '--wf-amber-50'],
+      ['--wf-red-700', '--wf-red-50'],
+      ['--wf-sky-700', '--wf-sky-50'],
+    ]
+    for (const [fg, bg] of light) {
+      const r = contrast(get(fg), get(bg))
+      assert.ok(r >= 4.5, `亮色对比度不足: ${fg} on ${bg} = ${r.toFixed(2)}:1`)
+    }
+    // 暗色：dark-500 级 on dark-50 级（暗色下 500 级即浅色文字）
+    const darkPairs: [string, string][] = [
+      ['--wf-dark-brand-500', '--wf-dark-brand-50'],
+      ['--wf-dark-green-500', '--wf-dark-green-50'],
+      ['--wf-dark-amber-500', '--wf-dark-amber-50'],
+      ['--wf-dark-red-500', '--wf-dark-red-50'],
+      ['--wf-dark-sky-500', '--wf-dark-sky-50'],
+    ]
+    for (const [fg, bg] of darkPairs) {
+      const r = contrast(get(fg), get(bg))
+      assert.ok(r >= 4.5, `暗色对比度不足: ${fg} on ${bg} = ${r.toFixed(2)}:1`)
+    }
+  })
+
+  it('组件文字色禁止 500 级语义色（必须 -text 变体）', () => {
+    const css = readComponentCss()
+    const violations = [...css.matchAll(/(?<![\-\w])color:\s*var\((--wf-color-(?:success|warning|error|info|primary))\)/g)]
+      .map(m => m[0].trim())
+    assert.deepEqual(violations, [], '文字色必须用 -text 变体（500 级仅限填充/边框/焦点）')
+  })
+
+  it('组件遮罩禁止硬编码 rgba（必须 var(--wf-overlay)）', () => {
+    const css = readComponentCss()
+    const violations = [...css.matchAll(/background(?:-color)?:\s*rgba\(/g)].map(m => m[0])
+    assert.deepEqual(violations, [], '遮罩背景必须 var(--wf-overlay)，不得硬编码 rgba')
+  })
+
+  it('组件文字禁止裸 #fff（必须 var(--wf-color-on-brand)）', () => {
+    const css = readComponentCss()
+    const violations = [...css.matchAll(/(?<![\-\w])color:\s*#fff\b/gi)].map(m => m[0])
+    assert.deepEqual(violations, [], '实心填充上的文字必须 var(--wf-color-on-brand)')
+  })
+
+  it('动效 Token 存在（时长阶梯/缓动/位移）', () => {
+    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const required = [
+      '--wf-dur-fast', '--wf-dur-base', '--wf-dur-slow',
+      '--wf-ease-out', '--wf-ease-in', '--wf-ease-snap',
+      '--wf-motion-sm', '--wf-motion-md', '--wf-motion-lg',
+    ]
+    for (const name of required) {
+      assert.match(tokens, new RegExp(`${name}:`), `缺少动效 Token: ${name}`)
+    }
+  })
+
+  it('浮层组件 --enter/--exit 类必须成对（防退场死代码回归）', () => {
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name)
+    const violations: string[] = []
+    for (const d of dirs) {
+      let css: string
+      try { css = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
+      if (!css.includes('--enter')) continue
+      if (!css.includes('--exit')) violations.push(d)
+    }
+    assert.deepEqual(violations, [], '定义了 --enter 的组件必须有 --exit 退场（死代码回归）')
+  })
+
+  it('表头/分组标题无裸 uppercase（必须 var(--wf-heading-case)，CJK 感知）', () => {
+    const base = readFileSync(join(root, 'src/layout/_base.css'), 'utf-8')
+    const shell = readFileSync(join(root, 'src/layout/_app-shell.css'), 'utf-8')
+    assert.match(base, /text-transform: var\(--wf-heading-case\)/, 'th 必须引用 heading-case token')
+    assert.match(shell, /text-transform: var\(--wf-heading-case\)/, 'nav-group 必须引用 heading-case token')
+    const text = readFileSync(join(root, 'src/layout/_text.css'), 'utf-8')
+    assert.match(text, /\.wf-nums/, 'wf-nums 工具类（tabular-nums）缺失')
+    assert.match(text, /\.wf-text-display/, 'wf-text-display 工具类缺失')
+  })
+
+  it('组件 .ts 禁止裸文本字形（统一走 Icon 组件）', () => {
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name)
+    const violations: string[] = []
+    for (const d of dirs) {
+      const ts = join(root, 'src/components', d, `${d}.ts`)
+      try {
+        const src = readFileSync(ts, 'utf-8')
+        if (/[✕✓⚠ℹ⇅▲▼‹›⏸]/.test(src)) violations.push(`${d}.ts`)
+      } catch { /* 无 .ts（如纯 CSS 目录） */ }
+    }
+    assert.deepEqual(violations, [], '文本字形必须替换为 Icon 组件（emoji 属文案性 labels 白名单）')
   })
 })

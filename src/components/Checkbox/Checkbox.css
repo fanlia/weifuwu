@@ -37,7 +37,7 @@
 
 .wf-checkbox-input:checked + .wf-checkbox-visual::after {
   content: '✓';
-  color: #fff;
+  color: var(--wf-color-on-brand);
   font-size: 11px;
   font-weight: bold;
 }

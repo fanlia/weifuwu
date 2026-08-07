@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Steps } from './Steps.ts'
+import { Icon } from '../Icon/Icon.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 /** Call component and get VNode (two-phase compat) */
@@ -35,9 +36,9 @@ describe('Steps', () => {
 
   it('marks done steps with checkmark', () => {
     const vnode = renderVNode(Steps, { items, current: 1 }, mockCtx())!
-    // step 0 should be done (has checkmark)
+    // step 0 should be done (check icon)
     const num0 = vnode.props.children[0].props.children[0]
-    assert.equal(num0.props.children, '✓')
+    assert.equal(num0.props.children.type, Icon, '完成步骤应渲染 check 图标')
   })
 
   it('marks current step', () => {

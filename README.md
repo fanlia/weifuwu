@@ -236,8 +236,8 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 46 个 UI 组件（Button, Card, Table, Modal 等） |
-| 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 115 个主题 Token + 67 个布局原语 |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 48 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
+| 组件样式 | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 141 个主题 Token + 67 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -275,8 +275,8 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
-| `weifuwu/components` | **47 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
-| `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 115 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+| `weifuwu/components` | **48 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
+| `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 141 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -2450,7 +2450,7 @@ props 变化 ──────────────────────�
 
 # 布局系统 (`weifuwu/layout`)
 
-纯 CSS 布局原语 + 工具类 + 115 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 布局原语 + 工具类 + 141 个主题 Token。不绑定任何 JS 框架。
 
 > **学习路径与命名规范**：见 [`docs/style-guide.md`](./docs/style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
@@ -2547,7 +2547,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | `wf-truncate` | 单行省略（ellipsis） |
 | `wf-line-clamp-2/3` | 多行截断 |
 
-## 115 个主题 Token
+## 141 个主题 Token
 
 **双层结构**：原始层（Primitive，色值只定义一次，品牌/暗色调校改这里）+ 语义层（Semantic，组件消费）。
 

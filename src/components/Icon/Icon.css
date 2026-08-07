@@ -1,0 +1,7 @@
+/* weifuwu/components — Icon（内联 SVG 基础样式） */
+
+.wf-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -0.125em; /* 与文字基线对齐 */
+}

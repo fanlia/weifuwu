@@ -31,13 +31,13 @@
 
 .wf-step--done .wf-step-num {
   background: var(--wf-color-primary);
-  color: #fff;
+  color: var(--wf-color-on-brand);
   font-size: 14px;
 }
 
 .wf-step--current .wf-step-num {
   background: var(--wf-color-primary);
-  color: #fff;
+  color: var(--wf-color-on-brand);
   box-shadow: 0 0 0 3px var(--wf-color-primary-bg);
 }
 
@@ -49,7 +49,7 @@
 }
 
 .wf-step--current .wf-step-label {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
 }
 
 .wf-step-desc {

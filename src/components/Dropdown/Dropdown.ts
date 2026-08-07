@@ -18,6 +18,8 @@ export interface DropdownProps {
   trigger: any
   items?: DropdownItem[]
   open?: boolean
+  /** 关闭回调（面板内 Escape） */
+  onOpenChange?: (open: boolean) => void
 }
 
 export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
@@ -36,7 +38,7 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
 
   // ── render（每次 dirty/props 变化）──
   return (props: DropdownProps) => {
-    const { trigger, items = [], open } = props
+    const { trigger, items = [], open, onOpenChange } = props
     latestOpen = !!open
 
     // ── 打开瞬间算一次初始坐标（受控 open）──
@@ -54,6 +56,8 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     const menu = open ? h('div', {
       class: 'wf-dropdown-menu', role: 'menu',
       style: { top: pos.top, left: pos.left },
+      // Escape 关闭（菜单项可聚焦，keydown 冒泡到菜单）
+      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange?.(false) },
     }, menuItems) : null
 
     const portalContent = open ? createPortal(menu, 'dropdown') : null
@@ -61,6 +65,9 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     return h('div', {
       class: `wf-dropdown${open ? ' wf-dropdown--open' : ''}`,
       ref: wrapRef,
+      // 触发区语义：菜单弹出（trigger 为不透明 VNode，ARIA 挂在包装层，文档注明）
+      'aria-haspopup': 'menu',
+      'aria-expanded': String(!!open),
     }, [trigger, portalContent].filter(Boolean))
   }
 }

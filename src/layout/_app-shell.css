@@ -59,8 +59,8 @@
   font-size: var(--wf-font-size-xs);
   font-weight: var(--wf-font-weight-medium);
   color: var(--wf-color-text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: var(--wf-heading-case); /* CJK 默认 none，英文可覆盖 uppercase */
+  letter-spacing: var(--wf-heading-tracking);
   padding: var(--wf-space-md) var(--wf-space-sm) var(--wf-space-xs);
 }
 
@@ -95,13 +95,13 @@
 
 .wf-nav-item--active {
   background: var(--wf-color-primary-bg);
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   font-weight: var(--wf-font-weight-medium);
 }
 
 .wf-nav-item--active:hover {
   background: var(--wf-color-primary-bg);
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
 }
 
 .wf-nav-icon {

@@ -128,11 +128,12 @@
 
 .wf-datepicker-cell--today {
   font-weight: var(--wf-font-weight-bold);
+  box-shadow: inset 0 0 0 1px var(--wf-color-border-dark); /* 边框高亮，不撑开布局 */
 }
 
 .wf-datepicker-cell--selected {
   background: var(--wf-color-primary);
-  color: #fff;
+  color: var(--wf-color-on-brand);
 }
 
 .wf-datepicker-cell--in-range {
@@ -142,7 +143,7 @@
 
 .wf-datepicker-cell--range-edge {
   background: var(--wf-color-primary);
-  color: #fff;
+  color: var(--wf-color-on-brand);
 }
 
 /* ── 区间模式 ── */
@@ -224,7 +225,7 @@
 
 .wf-time-opt--selected {
   background: var(--wf-color-primary);
-  color: #fff;
+  color: var(--wf-color-on-brand);
 }
 
 .wf-time-footer {

@@ -10,8 +10,8 @@
   background: var(--wf-color-warning-bg);
 }
 
-.wf-approval--approved { border-color: var(--wf-color-success); background: var(--wf-color-success-bg); }
-.wf-approval--rejected { border-color: var(--wf-color-error); background: var(--wf-color-error-bg); }
+.wf-approval--approved { border-color: var(--wf-color-success-text); background: var(--wf-color-success-bg); }
+.wf-approval--rejected { border-color: var(--wf-color-error-text); background: var(--wf-color-error-bg); }
 .wf-approval--timeout { border-color: var(--wf-color-border); background: var(--wf-color-bg-tertiary); }
 
 .wf-approval-header {
@@ -19,11 +19,11 @@
   align-items: center;
   gap: var(--wf-gap-xs);
   font-weight: var(--wf-font-weight-semibold);
-  color: var(--wf-color-warning);
+  color: var(--wf-color-warning-text);
 }
 
-.wf-approval--approved .wf-approval-header { color: var(--wf-color-success); }
-.wf-approval--rejected .wf-approval-header { color: var(--wf-color-error); }
+.wf-approval--approved .wf-approval-header { color: var(--wf-color-success-text); }
+.wf-approval--rejected .wf-approval-header { color: var(--wf-color-error-text); }
 .wf-approval--timeout .wf-approval-header { color: var(--wf-color-text-secondary); }
 
 .wf-approval-detail {

@@ -1,6 +1,7 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
 
 export interface StepItem {
   key: string
@@ -32,7 +33,7 @@ export const Steps: Component<StepsProps> = (_init, _ctx) =>
     ].filter(Boolean).join(' ')
 
     const num = isDone
-      ? h('span', { class: 'wf-step-num' }, '✓')
+      ? h('span', { class: 'wf-step-num' }, h(Icon, { name: 'check' }))
       : h('span', { class: 'wf-step-num' }, String(i + 1))
 
     const label = h('span', { class: 'wf-step-label' }, item.label)

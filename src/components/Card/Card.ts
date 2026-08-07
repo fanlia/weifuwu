@@ -25,7 +25,22 @@ export const Card: Component<CardProps> = (_init, _ctx) =>
     clickable && 'wf-card--clickable',
     hover && 'wf-card--hover',
     active && 'wf-card--active',
+    (clickable || hover) && 'wf-elevate', // hover 抬升（阴影+上移）共用原语
   ].filter(Boolean).join(' ')
 
-  return h('div', { class: cls, onClick, role: clickable ? 'button' : undefined, tabindex: clickable ? 0 : undefined }, children)
+  return h('div', {
+    class: cls,
+    onClick,
+    role: clickable ? 'button' : undefined,
+    tabindex: clickable ? 0 : undefined,
+    // 可点击卡片 = role=button，Enter/Space 必须可操作（键盘可达红线）
+    onKeyDown: clickable
+      ? (e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onClick?.()
+          }
+        }
+      : undefined,
+  }, children)
 }

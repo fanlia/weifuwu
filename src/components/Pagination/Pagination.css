@@ -27,13 +27,13 @@
 
 .wf-page-btn:hover:not(:disabled):not(.wf-page-btn--active) {
   border-color: var(--wf-color-primary);
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
 }
 
 .wf-page-btn--active {
   background: var(--wf-color-primary);
   border-color: var(--wf-color-primary);
-  color: #fff;
+  color: var(--wf-color-on-brand);
 }
 
 .wf-page-btn--disabled {

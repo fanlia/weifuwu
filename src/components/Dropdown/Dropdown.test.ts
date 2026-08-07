@@ -78,4 +78,27 @@ describe('Dropdown', () => {
     const vnode = renderVNode(Dropdown, { trigger, open: true }, mockCtx())!
     assert.match(vnode.props.class, /wf-dropdown--open/)
   })
+
+  it('包装层带 aria-haspopup / aria-expanded', () => {
+    const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
+    const closed = renderVNode(Dropdown, { trigger }, mockCtx())!
+    assert.equal(closed.props['aria-haspopup'], 'menu')
+    assert.equal(closed.props['aria-expanded'], 'false')
+    const opened = renderVNode(Dropdown, { trigger, open: true }, mockCtx())!
+    assert.equal(opened.props['aria-expanded'], 'true')
+  })
+
+  it('菜单内 Escape 触发 onOpenChange(false)', () => {
+    const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
+    const items = [{ label: '编辑' }, { label: '删除', variant: 'danger' as const }]
+    let closed = 0
+    const vnode = renderVNode(Dropdown, { trigger, items, open: true, onOpenChange: (v: boolean) => { if (!v) closed++ } }, mockCtx())!
+    const portal = vnode.props.children.find((c: any) => c?.type === Portal)
+    const menu = inner(portal)
+    assert.equal(typeof menu.props.onKeyDown, 'function')
+    menu.props.onKeyDown({ key: 'Escape' })
+    assert.equal(closed, 1)
+    menu.props.onKeyDown({ key: 'Enter' })
+    assert.equal(closed, 1, '非 Escape 键不关闭')
+  })
 })

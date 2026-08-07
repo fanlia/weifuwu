@@ -44,6 +44,14 @@
   --wf-shadow: var(--wf-dark-shadow);
   --wf-shadow-md: var(--wf-dark-shadow-md);
   --wf-shadow-lg: var(--wf-dark-shadow-lg);
+
+  --wf-color-primary-text: var(--wf-dark-brand-500);
+  --wf-color-success-text: var(--wf-dark-green-500);
+  --wf-color-warning-text: var(--wf-dark-amber-500);
+  --wf-color-error-text: var(--wf-dark-red-500);
+  --wf-color-info-text: var(--wf-dark-sky-500);
+
+  --wf-overlay: var(--wf-dark-overlay);
 }
 
 /* ── 激活方式二：系统暗色偏好（data-theme="light" 可强制亮色） ── */
@@ -83,5 +91,13 @@
     --wf-shadow: var(--wf-dark-shadow);
     --wf-shadow-md: var(--wf-dark-shadow-md);
     --wf-shadow-lg: var(--wf-dark-shadow-lg);
+
+    --wf-color-primary-text: var(--wf-dark-brand-500);
+    --wf-color-success-text: var(--wf-dark-green-500);
+    --wf-color-warning-text: var(--wf-dark-amber-500);
+    --wf-color-error-text: var(--wf-dark-red-500);
+    --wf-color-info-text: var(--wf-dark-sky-500);
+
+    --wf-overlay: var(--wf-dark-overlay);
   }
 }

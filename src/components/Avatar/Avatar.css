@@ -7,7 +7,7 @@
   border-radius: 50%;
   font-family: var(--wf-font-sans);
   font-weight: var(--wf-font-weight-semibold);
-  color: #fff;
+  color: var(--wf-color-on-brand);
   flex-shrink: 0;
   overflow: hidden;
   object-fit: cover;

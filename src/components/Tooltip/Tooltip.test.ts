@@ -57,5 +57,6 @@ describe('Tooltip', () => {
     assert.equal(typeof vnode.props.onMouseLeave, 'function')
     assert.equal(typeof vnode.props.onFocus, 'function')
     assert.equal(typeof vnode.props.onBlur, 'function')
+    assert.equal(typeof vnode.props.onKeyDown, 'function', 'Escape 关闭')
   })
 })

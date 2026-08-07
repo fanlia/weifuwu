@@ -1,5 +1,6 @@
 import type { Component } from '../../client/vnode.ts'
 import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
 import type { WfApprovalRequest } from '../../ai/types.ts'
 
 /**
@@ -85,7 +86,8 @@ export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
 
     return h('div', { class: `wf-approval wf-approval--${status}` }, [
       h('div', { class: 'wf-approval-header' }, [
-        h('span', { class: 'wf-approval-icon' }, status === 'pending' ? '⏸' : status === 'approved' ? '✓' : '✕'),
+        h('span', { class: 'wf-approval-icon' },
+          h(Icon, { name: status === 'pending' ? 'pause' : status === 'approved' ? 'check' : 'close' })),
         h('span', { class: 'wf-approval-title' }, '工具审批'),
       ]),
       h('div', { class: 'wf-approval-detail' }, detail),

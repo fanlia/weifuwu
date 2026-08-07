@@ -6,6 +6,9 @@
  *   import 'weifuwu/components/style.css'
  */
 
+export { Icon } from './Icon/Icon.ts'
+export type { IconProps, IconName } from './Icon/Icon.ts'
+
 export { Button } from './Button/Button.ts'
 export type { ButtonProps } from './Button/Button.ts'
 

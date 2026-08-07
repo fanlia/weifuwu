@@ -91,6 +91,8 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
       ref: wrapRef,
       ...hoverProps,
       onClick,
+      // Escape 关闭（焦点在触发钮/内容内时冒泡到包装层）
+      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) },
     }, [children, portalContent].filter(Boolean))
   }
 }

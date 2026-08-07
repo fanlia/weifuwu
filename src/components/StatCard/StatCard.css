@@ -22,6 +22,7 @@
   font-weight: var(--wf-font-weight-bold);
   color: var(--wf-color-text);
   line-height: 1;
+  font-variant-numeric: var(--wf-nums); /* 数字等宽：递增不抖 */
 }
 
 .wf-stat-label {
@@ -37,25 +38,14 @@
   margin-top: var(--wf-gap-xs);
 }
 
-.wf-stat-trend--up { color: var(--wf-color-success); }
-.wf-stat-trend--down { color: var(--wf-color-error); }
+.wf-stat-trend--up { color: var(--wf-color-success-text); }
+.wf-stat-trend--down { color: var(--wf-color-error-text); }
 
 .wf-stat-trend-arrow {
   font-weight: var(--wf-font-weight-bold);
 }
 
-/* 可点击指标卡 */
+/* 可点击指标卡：hover 抬升已提炼为 .wf-elevate（_surface.css） */
 .wf-stat--clickable {
   cursor: pointer;
-  transition: box-shadow var(--wf-transition), transform var(--wf-transition);
-}
-
-.wf-stat--clickable:hover {
-  box-shadow: var(--wf-shadow-md);
-  transform: translateY(-2px);
-}
-
-.wf-stat--clickable:focus-visible {
-  outline: none;
-  box-shadow: var(--wf-shadow-md), var(--wf-focus-ring);
 }

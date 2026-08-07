@@ -10,6 +10,8 @@
 import type { Component, VNode } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
+import type { IconName } from '../Icon/Icon.ts'
 import {
   getCalendarGrid, getWeekdays, formatDate, formatTime, formatDateTime,
   hourOptions, minuteOptions,
@@ -126,13 +128,13 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     const grid = getCalendarGrid(viewYear, viewMonth)
     const weekdays = [L.w0, L.w1, L.w2, L.w3, L.w4, L.w5, L.w6].some(v => v) ? [L.w0, L.w1, L.w2, L.w3, L.w4, L.w5, L.w6] : getWeekdays()
 
-    const headerBtn = (label: string, onClick: () => void) =>
-      h('button', { class: 'wf-datepicker-header-btn', type: 'button', onClick }, label)
+    const headerBtn = (name: IconName, ariaLabel: string, onClick: () => void) =>
+      h('button', { class: 'wf-datepicker-header-btn', type: 'button', 'aria-label': ariaLabel, onClick }, h(Icon, { name }))
 
     const header = h('div', { class: 'wf-datepicker-header' }, [
-      headerBtn('‹', prevMonth),
+      headerBtn('chevron-left', L.prevMonth ?? '上个月', prevMonth),
       h('span', { class: 'wf-datepicker-header-title' }, `${viewYear}年${viewMonth + 1}月`),
-      headerBtn('›', nextMonth),
+      headerBtn('chevron-right', L.nextMonth ?? '下个月', nextMonth),
     ])
 
     const weekdayRow = h('div', { class: 'wf-datepicker-weekdays' },
@@ -166,7 +168,22 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     ])
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') { setOpen(false); return }
+      // 日历网格方向键导航（time/datetime 面板无网格，跳过）
+      if (mode === 'time' || mode === 'datetime') return
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
+      const panel = e.currentTarget as HTMLElement
+      const cells = Array.from(panel.querySelectorAll<HTMLElement>('.wf-datepicker-cell'))
+      const idx = cells.indexOf(document.activeElement as HTMLElement)
+      if (idx < 0) return
+      e.preventDefault()
+      const cols = 7
+      let next = idx
+      if (e.key === 'ArrowLeft') next--
+      else if (e.key === 'ArrowRight') next++
+      else if (e.key === 'ArrowUp') next -= cols
+      else if (e.key === 'ArrowDown') next += cols
+      if (next >= 0 && next < cells.length) cells[next].focus()
     }
 
     const overlay = h('div', { class: 'wf-datepicker-overlay', onMouseDown: () => setOpen(false) })
@@ -221,7 +238,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         }, [
           h('div', { class: 'wf-datepicker-range-panel' }, [
             h('div', { class: 'wf-datepicker-header' }, [
-              headerBtn('‹', prevMonth),
+              headerBtn('chevron-left', L.prevMonth ?? '上个月', prevMonth),
               h('span', { class: 'wf-datepicker-header-title' }, `${viewYear}年${viewMonth + 1}月`),
               h('span', { class: 'wf-datepicker-header-title' }),
             ]),
@@ -232,7 +249,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
             h('div', { class: 'wf-datepicker-header' }, [
               h('span', { class: 'wf-datepicker-header-title' }),
               h('span', { class: 'wf-datepicker-header-title' }, `${nextY}年${nextM + 1}月`),
-              headerBtn('›', nextMonth),
+              headerBtn('chevron-right', L.nextMonth ?? '下个月', nextMonth),
             ]),
             h('div', { class: 'wf-datepicker-weekdays' }, weekdays.map(w => h('span', { class: 'wf-datepicker-weekday' }, w))),
             ...nextGrid.map((row, ri) =>

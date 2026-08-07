@@ -13,11 +13,11 @@
 }
 
 .wf-badge--default { background: var(--wf-color-bg-tertiary); color: var(--wf-color-text-secondary); }
-.wf-badge--primary { background: var(--wf-color-primary-bg); color: var(--wf-color-primary); }
-.wf-badge--success { background: var(--wf-color-success-bg); color: var(--wf-color-success); }
-.wf-badge--warning { background: var(--wf-color-warning-bg); color: var(--wf-color-warning); }
-.wf-badge--danger { background: var(--wf-color-error-bg); color: var(--wf-color-error); }
-.wf-badge--info { background: var(--wf-color-info-bg); color: var(--wf-color-info); }
+.wf-badge--primary { background: var(--wf-color-primary-bg); color: var(--wf-color-primary-text); }
+.wf-badge--success { background: var(--wf-color-success-bg); color: var(--wf-color-success-text); }
+.wf-badge--warning { background: var(--wf-color-warning-bg); color: var(--wf-color-warning-text); }
+.wf-badge--danger { background: var(--wf-color-error-bg); color: var(--wf-color-error-text); }
+.wf-badge--info { background: var(--wf-color-info-bg); color: var(--wf-color-info-text); }
 
 /* Dot variant */
 .wf-badge-dot {

@@ -23,6 +23,12 @@
   line-height: var(--wf-line-height-tight);
 }
 
+/* display 档：顶级页面标题，配窄字距 */
+.wf-page-title--display {
+  font-size: var(--wf-font-size-display);
+  letter-spacing: -0.5px;
+}
+
 .wf-page-sub {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);

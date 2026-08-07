@@ -77,7 +77,7 @@
 }
 
 .wf-prose a {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   text-decoration: none;
 }
 

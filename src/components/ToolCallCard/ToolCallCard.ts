@@ -1,5 +1,7 @@
 import type { Component } from '../../client/vnode.ts'
 import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
+import type { IconName } from '../Icon/Icon.ts'
 import type { WfToolCall, WfToolProgress, WfToolResult } from '../../ai/types.ts'
 
 /**
@@ -25,7 +27,7 @@ export interface ToolCallCardProps {
 
 type ToolState = 'running' | 'ok' | 'error'
 
-const stateIcon: Record<ToolState, string> = { running: '⚙', ok: '✓', error: '✕' }
+const stateIcon: Record<ToolState, IconName> = { running: 'settings', ok: 'check', error: 'close' }
 
 export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx) =>
   (props) => {

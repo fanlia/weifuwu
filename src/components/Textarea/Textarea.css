@@ -13,7 +13,7 @@
 }
 
 .wf-textarea-req {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
   margin-left: 2px;
 }
 
@@ -49,7 +49,7 @@
 
 .wf-textarea-err {
   font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
 }
 
 .wf-textarea-hint {
@@ -67,7 +67,7 @@
 }
 
 .wf-textarea-count--over {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
 }
 
 .wf-textarea--err .wf-textarea {

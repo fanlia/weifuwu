@@ -9,6 +9,7 @@ import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { mountVNode, callRefCleanup } from '../../client/render.ts'
+import { animateOut } from '../../client/motion.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { Button } from '../Button/Button.ts'
 
@@ -22,6 +23,8 @@ export interface ConfirmProps {
   variant?: 'primary' | 'danger'
   /** 对话框宽度，如 '500px'、'80%'，默认 Modal 的 400px */
   width?: string
+  /** 遮罩点击是否取消（默认 false：危险操作防误触；显式传 true 可恢复） */
+  maskClosable?: boolean
   onConfirm?: () => void
   onCancel?: () => void
 }
@@ -33,6 +36,7 @@ export interface ConfirmOptions {
   cancelText?: string
   variant?: 'primary' | 'danger'
   width?: string
+  maskClosable?: boolean
 }
 
 /**
@@ -63,6 +67,7 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
       cancelText: options.cancelText,
       variant: options.variant,
       width: options.width,
+      maskClosable: options.maskClosable, // 默认 false：遮罩不取消
       onConfirm: () => finish(true),
       onCancel: () => finish(false),
     } as ConfirmProps)
@@ -70,8 +75,18 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
     const finish = (result: boolean) => {
       if (settled) return
       settled = true
-      callRefCleanup(vnode)
-      container.remove()
+      // 播放退场动画后再清理（命令式路径：直接驱动 DOM，不依赖受控 open 流转）
+      const el = document.querySelector('.wf-modal')
+      if (el) {
+        el.classList.add('wf-modal--exit')
+        animateOut(el as HTMLElement, () => {
+          callRefCleanup(vnode)
+          container.remove()
+        })
+      } else {
+        callRefCleanup(vnode)
+        container.remove()
+      }
       resolve(result)
     }
 
@@ -79,28 +94,11 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
   })
 }
 
-export const Confirm: Component<ConfirmProps> = (_init, ctx) => {
-  // ── mount（只一次）──
-  let prevOpen = false
-  let escCleanup: (() => void) | undefined
-
+export const Confirm: Component<ConfirmProps> = (_init, _ctx) => {
   // ── render（每次 dirty/props 变化）──
   return (props: ConfirmProps) => {
-    const { open = false, title, message, confirmText, cancelText, variant = 'primary', width, onConfirm, onCancel } = props
-    const CL = (ctx as any)?.i18n?.components?.Confirm ?? {}
-
-    // ESC 关闭 = 取消（Modal 自身不处理 ESC，这里补）
-    if (open && !prevOpen) {
-      const onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') onCancel?.()
-      }
-      document.addEventListener('keydown', onKeyDown)
-      escCleanup = () => document.removeEventListener('keydown', onKeyDown)
-    } else if (!open && prevOpen) {
-      escCleanup?.()
-      escCleanup = undefined
-    }
-    prevOpen = open
+    const { open = false, title, message, confirmText, cancelText, variant = 'primary', width, maskClosable = false, onConfirm, onCancel } = props
+    const CL = (_ctx as any)?.i18n?.components?.Confirm ?? {}
 
     const footer = [
       h(Button, { variant: 'secondary', size: 'md', onClick: () => onCancel?.() },
@@ -109,13 +107,15 @@ export const Confirm: Component<ConfirmProps> = (_init, ctx) => {
         confirmText ?? CL.confirmText ?? '确定'),
     ]
 
+    // Escape 关闭由 Modal 统一处理（焦点在对话框内 → 冒泡到根节点）；遮罩点击默认禁（防误触）
     return h(Modal, {
       open,
       title,
-      onClose: onCancel,      // 遮罩点击 = 取消
+      onClose: onCancel,
+      maskClosable,
       footer,
       width,
-      closable: false,        // 确认对话框无 ✕ 关闭按钮
+      closable: false,        // 确认对话框无关闭按钮
     }, message)
   }
 }

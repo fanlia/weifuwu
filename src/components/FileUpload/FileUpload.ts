@@ -5,6 +5,7 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
 
 export interface FileUploadProps {
   accept?: string
@@ -111,7 +112,7 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
                 class: 'wf-upload-item-remove',
                 'aria-label': `${FL.remove ?? '删除'} ${f.name}`,
                 onClick: () => handleRemove(i),
-              }, '✕')
+              }, h(Icon, { name: 'trash' }))
             )
           )
         )

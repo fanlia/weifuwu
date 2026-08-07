@@ -59,4 +59,17 @@ describe('Card', () => {
     const vnode = renderVNode(Card, { active: true, children: 'x' }, mockCtx())!
     assert.match(vnode.props.class, /wf-card--active/)
   })
+
+  it('可点击卡片键盘 Enter/Space 触发 onClick（role=button 可操作红线）', () => {
+    let clicks = 0
+    const vnode = renderVNode(Card, { clickable: true, onClick: () => clicks++ }, mockCtx())!
+    assert.equal(vnode.props.role, 'button')
+    assert.equal(vnode.props.tabindex, 0)
+    vnode.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
+    vnode.props.onKeyDown({ key: ' ', preventDefault: () => {} })
+    assert.equal(clicks, 2)
+    // 不可点击卡片无键盘处理
+    const plain = renderVNode(Card, { children: 'x' }, mockCtx())!
+    assert.equal(plain.props.onKeyDown, undefined)
+  })
 })

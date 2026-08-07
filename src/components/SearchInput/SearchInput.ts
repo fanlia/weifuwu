@@ -1,6 +1,7 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
 
 export interface SearchInputProps {
   value?: string
@@ -17,11 +18,12 @@ export const SearchInput: Component<SearchInputProps> = (_init, _ctx) =>
     ? h('button', {
         class: 'wf-search-clear',
         type: 'button',
+        'aria-label': '清除',
         onClick: onClear,
-      }, '✕')
+      }, h(Icon, { name: 'close' }))
     : null
 
-  const icon = h('span', { class: 'wf-search-icon' }, '🔍')
+  const icon = h('span', { class: 'wf-search-icon' }, h(Icon, { name: 'search' }))
 
   return h('div', { class: 'wf-search' }, [
     icon,

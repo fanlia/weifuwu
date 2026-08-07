@@ -40,15 +40,27 @@
   user-select: none;
 }
 .wf-table-th--sortable:hover {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
 }
 .wf-table-th--sortable:focus-visible {
   outline: none;
   box-shadow: var(--wf-focus-ring);
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
 }
 .wf-table-th--sorted {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
+}
+
+/* 排序指示图标：随文字色，激活列高亮 */
+.wf-table-sort-icon {
+  margin-left: var(--wf-gap-xs);
+  opacity: 0.6;
+}
+.wf-table-sort-icon--active {
+  opacity: 1;
+}
+.wf-table-th:hover .wf-table-sort-icon {
+  opacity: 1;
 }
 
 .wf-table-tr:last-child .wf-table-td {

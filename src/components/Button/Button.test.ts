@@ -66,6 +66,8 @@ describe('Button', () => {
 
   it('shows loading text when loading', () => {
     const vnode = renderVNode(Button, { loading: true, children: '保存' }, mockCtx())!
-    assert.equal(vnode.props.children, '加载中...')
+    const children = vnode.props.children as any[]
+    assert.match(children[0].props.class, /wf-btn-spinner/, '加载中渲染 spinner')
+    assert.equal(children[1], '加载中...')
   })
 })

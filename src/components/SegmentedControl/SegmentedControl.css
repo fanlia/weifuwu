@@ -44,12 +44,13 @@
 
 .wf-segmented-option--active {
   background: var(--wf-surface-bg);
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   box-shadow: var(--wf-shadow-sm);
+  transition: box-shadow var(--wf-dur-fast) var(--wf-ease-snap), color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-segmented-option--active:hover {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
 }
 
 .wf-segmented-option:focus-visible {

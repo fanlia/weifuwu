@@ -11,7 +11,7 @@
 }
 
 .wf-breadcrumb-link {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   text-decoration: none;
 }
 

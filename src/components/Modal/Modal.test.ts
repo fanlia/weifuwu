@@ -1,7 +1,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
+import { setupJsdom } from '../../test/client/setup.ts'
+setupJsdom()
 import { Modal } from './Modal.ts'
 import { Portal } from '../../client/vnode.ts'
+import { mountVNode, patchValue } from '../../client/render.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
@@ -75,5 +78,52 @@ describe('Modal', () => {
     const header = content.props.children[0]
     const closeBtn = (Array.isArray(header.props.children) ? header.props.children : [header.props.children]).find((c: any) => c?.props?.class === 'wf-modal-close')
     assert.ok(closeBtn)
+  })
+
+  it('Escape 触发 onClose（根节点 onKeyDown）', () => {
+    let closed = 0
+    const vnode = inner(renderModal({ open: true, onClose: () => closed++ }, mockCtx())!)
+    assert.equal(typeof vnode.props.onKeyDown, 'function')
+    vnode.props.onKeyDown({ key: 'Escape' })
+    assert.equal(closed, 1)
+    // 非 Escape 键不触发
+    vnode.props.onKeyDown({ key: 'Tab' })
+    assert.equal(closed, 1)
+  })
+
+  it('关闭先挂 --exit 类，animationend 后才真正卸载（patch 管线）', () => {
+    let renderFn: (() => any) | null = null
+    let prev: any = null
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    let open = true
+    const ctx: any = {
+      ui: {
+        $: () => ({}), dirty: () => {},
+        render: () => {
+          const next = renderFn!()
+          patchValue(container, container.firstChild, prev, next, ctx)
+          prev = next
+        },
+      },
+    }
+    const result = (Modal as any)({}, ctx)
+    renderFn = typeof result === 'function' ? () => result({ open, children: 'x' }) : null
+    prev = renderFn!()
+    mountVNode(container, prev, ctx)
+    assert.ok(document.querySelector('.wf-modal'), 'open=true 应渲染')
+    assert.match(document.querySelector('.wf-modal')!.className, /wf-modal--enter/)
+
+    // 父组件关闭 → 退场帧（不立刻卸载）
+    open = false
+    ctx.ui.render()
+    const el = document.querySelector('.wf-modal') as HTMLElement
+    assert.ok(el, '关闭瞬间仍保留在 DOM（播退场动画）')
+    assert.match(el.className, /wf-modal--exit/, '退场帧应挂 --exit 类')
+
+    // animationend → 真正卸载
+    el.dispatchEvent(new (window as any).Event('animationend'))
+    ctx.ui.render()
+    assert.ok(!document.querySelector('.wf-modal'), 'animationend 后应卸载')
   })
 })

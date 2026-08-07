@@ -14,7 +14,7 @@
 }
 
 .wf-select-req {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
   margin-left: 2px;
 }
 
@@ -48,7 +48,7 @@
 
 .wf-select-err {
   font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
 }
 
 .wf-select--err .wf-select {
@@ -123,7 +123,7 @@
   background: var(--wf-color-bg-tertiary);
 }
 .wf-select-search-opt--sel {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   font-weight: var(--wf-font-weight-medium);
 }
 .wf-select-search-opt--dis {

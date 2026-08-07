@@ -56,10 +56,20 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.wf-toast--success { background: var(--wf-color-success-bg); color: var(--wf-color-success); }
-.wf-toast--error { background: var(--wf-color-error-bg); color: var(--wf-color-error); }
-.wf-toast--warning { background: var(--wf-color-warning-bg); color: var(--wf-color-warning); }
-.wf-toast--info { background: var(--wf-color-info-bg); color: var(--wf-color-info); }
+.wf-toast--success { background: var(--wf-color-success-bg); color: var(--wf-color-success-text); }
+.wf-toast--error { background: var(--wf-color-error-bg); color: var(--wf-color-error-text); }
+.wf-toast--warning { background: var(--wf-color-warning-bg); color: var(--wf-color-warning-text); }
+.wf-toast--info { background: var(--wf-color-info-bg); color: var(--wf-color-info-text); }
+
+/* ── 退场：向右淡出（位置变体方向未细分，诚实裁剪） ── */
+.wf-toast-out {
+  animation: wf-toast-out var(--wf-dur-base) var(--wf-ease-in) forwards;
+}
+
+@keyframes wf-toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(var(--wf-motion-md)); }
+}
 
 .wf-toast-icon {
   font-size: var(--wf-font-size-lg);
@@ -70,3 +80,27 @@
   flex: 1;
   color: var(--wf-color-text);
 }
+
+/* 操作按钮（如"撤销"）：语义色文字，点击不自动关闭 */
+.wf-toast-action {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-primary-text);
+}
+.wf-toast-action:hover {
+  text-decoration: underline;
+}
+.wf-toast-action:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-radius: var(--wf-radius-sm);
+}
+.wf-toast-action--success { color: var(--wf-color-success-text); }
+.wf-toast-action--error { color: var(--wf-color-error-text); }
+.wf-toast-action--warning { color: var(--wf-color-warning-text); }
+.wf-toast-action--info { color: var(--wf-color-primary-text); }

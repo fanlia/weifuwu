@@ -19,9 +19,9 @@
 
 .wf-toolcall-icon { font-size: var(--wf-font-size-sm); }
 
-.wf-toolcall-icon--running { color: var(--wf-color-info); }
-.wf-toolcall-icon--ok { color: var(--wf-color-success); }
-.wf-toolcall-icon--error { color: var(--wf-color-error); }
+.wf-toolcall-icon--running { color: var(--wf-color-info-text); }
+.wf-toolcall-icon--ok { color: var(--wf-color-success-text); }
+.wf-toolcall-icon--error { color: var(--wf-color-error-text); }
 
 .wf-toolcall-name {
   font-weight: var(--wf-font-weight-semibold);
@@ -55,7 +55,7 @@
 }
 
 .wf-toolcall-error {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
   font-size: var(--wf-font-size-xs);
   margin-top: var(--wf-gap-xs);
 }

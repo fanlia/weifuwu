@@ -20,26 +20,10 @@
 
 .wf-card--clickable {
   cursor: pointer;
-  transition: box-shadow var(--wf-transition);
 }
 
-.wf-card--clickable:hover {
-  box-shadow: var(--wf-shadow-md);
-}
-
-.wf-card--clickable:focus-visible {
-  outline: none;
-  box-shadow: var(--wf-shadow-md), var(--wf-focus-ring);
-}
-
-/* hover 抬升变体 — 阴影 + 上移（悬停卡片/列表卡片） */
+/* hover 抬升已提炼为 .wf-elevate（_surface.css），此处仅保留语义类 */
 .wf-card--hover {
-  transition: box-shadow var(--wf-transition), transform var(--wf-transition);
-}
-
-.wf-card--hover:hover {
-  box-shadow: var(--wf-shadow-md);
-  transform: translateY(-2px);
 }
 
 /* 选中态 — 选择卡片（类型选择/模板选择） */

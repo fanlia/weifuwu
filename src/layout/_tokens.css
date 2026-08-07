@@ -9,13 +9,18 @@
   /* 品牌（覆盖 --wf-brand-500 即换主题色，全站跟随） */
   --wf-brand-500: #4f6ef7;
   --wf-brand-600: #3b5ae0;
+  --wf-brand-700: #4338ca;  /* 品牌文字色（浅底可读，配 --wf-color-primary-text） */
   --wf-brand-50: #eef1ff;
 
   /* 语义原始色 */
   --wf-green-500: #22c55e;  --wf-green-50: #f0fdf4;
+  --wf-green-700: #15803d;  /* 语义文字色（浅底可读） */
   --wf-amber-500: #f59e0b;  --wf-amber-50: #fffbeb;
+  --wf-amber-700: #b45309;  /* 语义文字色（浅底可读） */
   --wf-red-500: #ef4444;    --wf-red-50: #fef2f2;
+  --wf-red-700: #b91c1c;    /* 语义文字色（浅底可读） */
   --wf-sky-500: #1677ff;    --wf-sky-50: #e6f4ff;
+  --wf-sky-700: #0369a1;    /* 语义文字色（浅底可读） */
 
   /* 中性 */
   --wf-slate-900: #0f172a;  --wf-slate-500: #64748b;  --wf-slate-400: #94a3b8;
@@ -31,6 +36,7 @@
   --wf-dark-slate-900: #f1f5f9;  --wf-dark-slate-500: #94a3b8;  --wf-dark-slate-400: #64748b;
   --wf-dark-slate-300: #475569;  --wf-dark-slate-200: #334155;  --wf-dark-slate-100: #1e293b;
   --wf-dark-slate-50: #0f172a;   --wf-dark-bg: #0f172a;
+  --wf-dark-overlay: rgba(0, 0, 0, 0.6); /* 暗色遮罩（比亮色更深，压住暗底内容） */
   --wf-dark-surface-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   --wf-dark-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --wf-dark-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -130,6 +136,11 @@
   --wf-font-size-3xl: 24px;
   --wf-font-size-4xl: 30px;
   --wf-font-size-5xl: 36px;
+  --wf-font-size-display: 30px; /* 顶级页面标题（PageHeader display 档，配负字距） */
+
+  /* ── 表头/分组标题：文本变换与字距 token 化（CJK 默认 none/0，英文可覆盖 uppercase/0.5px） ── */
+  --wf-heading-case: none;
+  --wf-heading-tracking: 0;
 
   --wf-font-weight-normal: 400;
   --wf-font-weight-medium: 500;
@@ -152,9 +163,35 @@
   --wf-transition-timing: ease;
   --wf-transition: var(--wf-transition-duration) var(--wf-transition-timing);
 
+  /* ── 动效语言：时长阶梯 + 缓动曲线 + 位移量（组件动效统一引用，不各自硬编码） ── */
+  --wf-dur-fast: 120ms;
+  --wf-dur-base: 200ms;
+  --wf-dur-slow: 300ms;
+
+  --wf-ease-out: cubic-bezier(0.16, 1, 0.3, 1);       /* 入场：快出缓停 */
+  --wf-ease-in: cubic-bezier(0.4, 0, 1, 1);            /* 退场：渐入加速 */
+  --wf-ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);   /* 选中/弹跳 */
+
+  --wf-motion-sm: 4px;
+  --wf-motion-md: 8px;
+  --wf-motion-lg: 24px;                                /* drawer 全幅位移 */
+
   /* ── 色彩 — 信息（补充） ── */
   --wf-color-info: var(--wf-sky-500);
   --wf-color-info-bg: var(--wf-sky-50);
+
+  /* ── 色彩 — 语义文字色（浅底/白底可读，WCAG AA ≥ 4.5:1；实心色上的文字用 on-brand） ── */
+  --wf-color-primary-text: var(--wf-brand-700);
+  --wf-color-success-text: var(--wf-green-700);
+  --wf-color-warning-text: var(--wf-amber-700);
+  --wf-color-error-text: var(--wf-red-700);
+  --wf-color-info-text: var(--wf-sky-700);
+
+  /* ── 色彩 — 实心填充上的文字/图标（primary/success 等实心底色） ── */
+  --wf-color-on-brand: #fff;
+
+  /* ── 浮层遮罩（Modal/Drawer overlay，暗色经 --wf-dark-overlay 映射） ── */
+  --wf-overlay: rgba(0, 0, 0, 0.4);
 
   /* ── 表单控件 ── */
   --wf-accent-color: var(--wf-color-primary);
@@ -181,4 +218,7 @@
   --wf-letter-spacing: normal;
   --wf-letter-spacing-wide: 0.5px;
   --wf-letter-spacing-wider: 1px;
+
+  /* ── 数字 ── */
+  --wf-nums: 'tabular-nums'; /* 数字等宽（统计/表格数值防抖动） */
 }

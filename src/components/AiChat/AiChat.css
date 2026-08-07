@@ -59,7 +59,7 @@
 
 .wf-aichat-bubble--user {
   background: var(--wf-color-primary);
-  color: #fff;
+  color: var(--wf-color-on-brand);
 }
 
 .wf-aichat-bubble--assistant {
@@ -69,7 +69,7 @@
 
 .wf-aichat-status {
   font-size: var(--wf-font-size-xs, 12px);
-  color: var(--wf-color-info);
+  color: var(--wf-color-info-text);
 }
 
 .wf-aichat-usage {
@@ -79,7 +79,7 @@
 
 .wf-aichat-error {
   font-size: var(--wf-font-size-xs, 12px);
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
   background: var(--wf-color-error-bg);
   border-radius: var(--wf-radius);
   padding: var(--wf-space-sm, 8px);

@@ -32,6 +32,8 @@ export const Button: Component<ButtonProps> = (_init, ctx) =>
     disabled: disabled || loading || undefined,
     'aria-busy': loading || undefined,
     onClick,
-  }, loading ? (L.loading ?? '加载中...') : children)
+  }, loading
+    ? [h('span', { class: 'wf-btn-spinner' }), L.loading ?? '加载中...']
+    : children)
 
   }

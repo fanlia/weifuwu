@@ -115,12 +115,12 @@
 }
 
 .wf-upload-item-remove:hover {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
   background: var(--wf-color-error-bg);
 }
 
 .wf-upload-err {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
 }

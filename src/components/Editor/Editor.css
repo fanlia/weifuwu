@@ -56,8 +56,8 @@
 }
 
 .wf-editor-tb-btn--active {
-  background: var(--wf-color-primary-light, #e0f2fe);
-  color: var(--wf-color-primary);
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary-text);
 }
 
 .wf-editor-tb-btn--active:hover {
@@ -132,7 +132,7 @@
 }
 
 .wf-editor-content a {
-  color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
   text-decoration: underline;
 }
 

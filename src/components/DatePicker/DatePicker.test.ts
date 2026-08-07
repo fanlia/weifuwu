@@ -3,7 +3,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { DatePicker } from './DatePicker.ts'
-import { Portal } from '../../client/vnode.ts'
+import { Portal, h } from '../../client/vnode.ts'
+import { mountVNode, patchValue } from '../../client/render.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
@@ -96,5 +97,47 @@ describe('DatePicker', () => {
       }
     }
     assert.ok(val.length > 0, 'onChange 应被调用并返回日期字符串')
+  })
+
+  it('日历方向键导航 + Escape 关闭（patch 管线）', () => {
+    let renderFn: (() => any) | null = null
+    let prev: any = null
+    const container = document.createElement('div')
+    document.body.appendChild(container) // jsdom：未连接文档的元素 .focus() 无效
+    const ctx: any = {
+      ui: {
+        $: () => ({}), dirty: () => {},
+        // 模拟真实 ctx.ui.render：同树 patch（含 portal 增删），避免 remount 留脏节点
+        render: () => {
+          const next = renderFn!()
+          patchValue(container, container.firstChild, prev, next, ctx)
+          prev = next
+        },
+        usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
+      },
+    }
+    const result = (DatePicker as any)({}, ctx)
+    renderFn = typeof result === 'function' ? () => result({}) : null
+    prev = renderFn!()
+    mountVNode(container, prev, ctx)
+
+    // 点击输入框打开面板（toggle）
+    const input = container.querySelector('.wf-datepicker-input') as HTMLElement
+    input.click()
+    const panel = document.querySelector('#__wf_portal .wf-datepicker-dropdown') as HTMLElement
+    assert.ok(panel, '面板应打开')
+
+    const cells = Array.from(panel.querySelectorAll<HTMLElement>('.wf-datepicker-cell'))
+    assert.ok(cells.length >= 28, `应有日历网格: ${cells.length}`)
+    // 聚焦某格，ArrowRight → 焦点右移一格
+    cells[10].focus()
+    cells[10].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    assert.equal(document.activeElement, cells[11], 'ArrowRight 焦点右移')
+    // ArrowUp → 焦点上移一行（7 格）
+    cells[11].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }))
+    assert.equal(document.activeElement, cells[4], 'ArrowUp 焦点上移一行')
+    // Escape 关闭面板
+    cells[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    assert.ok(!document.querySelector('#__wf_portal .wf-datepicker-dropdown'), 'Escape 应关闭面板')
   })
 })

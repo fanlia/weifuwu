@@ -65,6 +65,8 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
       ref: wrapRef,
       onMouseEnter: showe, onMouseLeave: hide,
       onFocus: showe, onBlur: hide,
+      // Escape 隐藏（键盘触发显示后可用 Escape 退出）
+      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') hide() },
     }, [children, portalContent].filter(Boolean))
   }
 }

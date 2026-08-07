@@ -111,6 +111,21 @@ describe('toast() 命令式中间件', () => {
     assert.equal(toasts().length, 0, '点击后移除')
   })
 
+  it('action 按钮：点击回调且不自动关闭', async () => {
+    const { ctx } = await setup({ duration: 0 })
+    let acted = 0
+    ctx.toast('文件已删除', 'info', 0, { label: '撤销', onClick: () => { acted++ } })
+    await flush()
+
+    const btn = toasts()[0].querySelector('.wf-toast-action') as HTMLButtonElement
+    assert.ok(btn, '应渲染操作按钮')
+    assert.equal(btn.textContent, '撤销')
+    btn.click()
+    await flush()
+    assert.equal(acted, 1, '回调触发')
+    assert.equal(toasts().length, 1, '点击 action 不自动关闭')
+  })
+
   it('多次调用累加显示', async () => {
     const { ctx } = await setup({ duration: 0 })
     ctx.toast('a', 'info')

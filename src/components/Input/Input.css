@@ -13,7 +13,7 @@
 }
 
 .wf-input-req {
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
   margin-left: 2px;
 }
 
@@ -66,7 +66,7 @@
 
 .wf-input-err {
   font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-error);
+  color: var(--wf-color-error-text);
 }
 
 .wf-input-hint {
