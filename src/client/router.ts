@@ -6,7 +6,7 @@
 
 import type { WfuiContext, AppMiddleware, RouteDef } from './types.ts'
 import type { VNode } from './vnode.ts'
-import { clearAsyncComponentCache } from './render.ts'
+import { clearAsyncComponentCache } from './registry.ts'
 import { flattenRoutes, matchRoute, extractParams } from './route-match.ts'
 import type { FlattenedRoute } from './route-match.ts'
 

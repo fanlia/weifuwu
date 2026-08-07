@@ -45,6 +45,10 @@ export interface WfuiContext {
      * ```
      */
     useChat: (options: UseChatOptions) => UseChatHandle
+    /** 响应式媒体查询：注册监听，值变化时自动 dirty（立即回调一次当前值） */
+    useMedia: (query: string, callback: (matches: boolean) => void) => void
+    /** 响应式断点：mobile/tablet/desktop 或自定义断点，值变化时自动 dirty */
+    useBreakpoint: (bpsOrCallback: Record<string, string> | ((vp: string) => void), callback?: (vp: string) => void) => void
     /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标 */
     usePopupPosition: (options: PopupPositionOptions) => PopupPosition
     /** 注册组件实例的自定义语义 ID，同名冲突抛错 */

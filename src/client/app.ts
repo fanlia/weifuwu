@@ -16,7 +16,11 @@
  */
 
 import type { WfuiContext, AppMiddleware, PopupPositionOptions, PopupPosition } from './types.ts'
-import { render, patchValue, patchPortal, renderPortal, callRefCleanup, idRegistry, hydrateVNode } from './render.ts'
+import { render, patchPortal, renderPortal } from './render.ts'
+import { hydrateVNode } from './hydration.ts'
+import { createUi } from './ui.ts'
+import { patchValue } from './diff.ts'
+import { callRefCleanup, idRegistry } from './registry.ts'
 import type { VNode, Component } from './vnode.ts'
 import { createReactiveState } from './reactive.ts'
 import { aiStream } from './ai.ts'
@@ -54,6 +58,22 @@ export function createApp<C extends object = {}>(): App<C> {
   }>()
   let _popupListenersReady = false
   let _popupRaf = 0
+
+  /** 惰性挂载全局 scroll/resize 监听（幂等） */
+  function ensurePopupListeners() {
+    if (_popupListenersReady) return
+    _popupListenersReady = true
+    // capture 捕获所有嵌套容器的 scroll（scroll 不冒泡）
+    window.addEventListener('scroll', schedulePopupRecompute, { capture: true, passive: true })
+    window.addEventListener('resize', schedulePopupRecompute)
+  }
+  function destroyPopupListeners() {
+    if (_popupListenersReady) {
+      window.removeEventListener('scroll', schedulePopupRecompute, { capture: true } as any)
+      window.removeEventListener('resize', schedulePopupRecompute)
+      _popupListenersReady = false
+    }
+  }
 
   /** rAF 节流：滚动/resize 时重算所有开着的弹层坐标，然后精准刷新 */
   function schedulePopupRecompute() {
@@ -124,10 +144,11 @@ export function createApp<C extends object = {}>(): App<C> {
   }
 
   function flushDirtyBatch() {
-    if (_dirtyBatch.size > 0 && !_dirtyScheduled) {
-      _dirtyScheduled = true
+    const ui = ctx.ui as any
+    if (_dirtyBatch.size > 0 && !ui._dirtyScheduled) {
+      ui._dirtyScheduled = true
       queueMicrotask(() => {
-        _dirtyScheduled = false
+        ui._dirtyScheduled = false
         const batch = [..._dirtyBatch]
         _dirtyBatch.clear()
         if (batch.length > 0) renderByIds(batch)
@@ -197,216 +218,20 @@ export function createApp<C extends object = {}>(): App<C> {
         },
       }
 
-      // ── 注入 ctx.ui ──────────────────────────────────
-      ;(ctx as any).ui = {
-        _selfId: '_wf_root',
-
-        // ── ctx 版本号（供三态 skip 判定） ──
-        _ctxVersion: 0,
-        _dirtySet: new Set<string>(),
-        bumpCtxVersion: function () { this._ctxVersion++ },
-
-        /** 同步刷新（无参 = 当前组件，传参 = 指定组件列表） */
-        render: function (ids?: string[]) {
-          if (!ids || ids.length === 0) {
-            const selfId = getSelfId(this)
-            if (selfId) ids = [selfId]
-            else return
-          }
-          renderByIds(ids)
-        },
-
-        /** 异步刷新（微任务批处理，无参 = 当前组件） */
-        dirty: function (ids?: string[]) {
-          if (_rendering) return
-          if (!ids || ids.length === 0) {
-            const selfId = getSelfId(this)
-            if (selfId) ids = [selfId]
-            else return
-          }
-          for (const id of ids) {
-            if (id) {
-              _dirtyBatch.add(id)
-              ;(ctx as any).ui._dirtySet!.add(id)
-            }
-          }
-          if (!_dirtyScheduled) {
-            _dirtyScheduled = true
-            queueMicrotask(() => {
-              _dirtyScheduled = false
-              const batch = [..._dirtyBatch]
-              _dirtyBatch.clear()
-              if (batch.length > 0) renderByIds(batch)
-            })
-          }
-        },
-
-        /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
-        $: function () {
-          if (!this._$cache) {
-            const selfId = getSelfId(this)
-            this._$cache = createReactiveState(() => (ctx as any).ui.dirty([selfId]))
-          }
-          return this._$cache
-        },
-
-        /**
-         * AI 对话会话（会话语义 + 工具调用内嵌 + HITL 审批）
-         *
-         * 用法（mount 阶段）：
-         *   const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
-         *   // 状态：$.messages / $.input / $.streaming / $.error / $.usage / $.step
-         *   // 操作：$.send() / $.stop() / $.retry() / $.clear() / $.approve('approved', note?)
-         *   // agent：msg.toolCalls（ToolCallCard 直接消费） / msg.approval（ApprovalCard）
-         *
-         * 返回组件同一个 $（WeakMap 缓存复用）：chat 状态与页面状态共处一个容器。
-         * 卸载时调用 $.dispose()（或经 ref cleanup）中止流，防泄漏。
-         */
-        useChat: function (options: UseChatOptions): UseChatHandle {
-          const state = this.$() as UseChatState
-          const api = createChatSession(state, aiStream, options)
-          Object.assign(state, {
-            send: api.send,
-            stop: api.stop,
-            retry: api.retry,
-            clear: api.clear,
-            approve: api.approve,
-            dispose: api.dispose,
-          })
-          return state as unknown as UseChatHandle
-        },
-
-        /**
-         * 响应式媒体查询：注册监听，值变化时自动 dirty
-         *
-         * 用法：
-         *   const $ = ctx.ui.$()
-         *   ctx.ui.useMedia('(max-width: 640px)', (v) => { $.isMobile = v })
-         *
-         * callback 会立即执行一次（取当前值），之后在变化时再次执行
-         */
-        useMedia: function (query: string, callback: (matches: boolean) => void) {
-          const selfId = getSelfId(this)
-          const key = `media:${selfId}:${query}`
-          if (!_mediaRegistry.has(key)) {
-            const mql = window.matchMedia(query)
-            // 立即回调当前值
-            callback(mql.matches)
-            // 注册变化监听
-            const handler = (e: MediaQueryListEvent) => callback(e.matches)
-            mql.addEventListener('change', handler)
-            _mediaRegistry.set(key, { mql, handler })
-          }
-        },
-
-        /**
-         * 响应式断点：注册命名断点监听，值变化时自动 dirty
-         *
-         * 用法：
-         *   const $ = ctx.ui.$()
-         *   ctx.ui.useBreakpoint((vp) => { $.vp = vp })
-         *   // vp: 'mobile' | 'tablet' | 'desktop'
-         *
-         * 自定义断点：
-         *   ctx.ui.useBreakpoint(
-         *     { narrow: '(max-width: 480px)', wide: '(min-width: 1200px)' },
-         *     (vp) => { $.size = vp }
-         *   )
-         */
-        useBreakpoint: function (
-          bpsOrCallback: Record<string, string> | ((vp: string) => void),
-          callback?: (vp: string) => void,
-        ) {
-          const bps: Record<string, string> =
-            typeof bpsOrCallback === 'function'
-              ? { mobile: '(max-width: 639px)', tablet: '(min-width: 640px) and (max-width: 1023px)', desktop: '(min-width: 1024px)' }
-              : bpsOrCallback
-          const cb = typeof bpsOrCallback === 'function' ? bpsOrCallback : callback!
-          const selfId = getSelfId(this)
-          const key = `bp:${selfId}`
-
-          function evaluate(): string {
-            for (const [name, query] of Object.entries(bps)) {
-              if (window.matchMedia(query).matches) return name
-            }
-            return Object.keys(bps)[0] ?? ''
-          }
-
-          if (!_mediaRegistry.has(key)) {
-            // 立即回调当前值
-            cb(evaluate())
-            // 为每个断点注册 change 监听，变化时重新求值
-            const handlers: Array<() => void> = []
-            for (const query of Object.values(bps)) {
-              const mql = window.matchMedia(query)
-              const handler = () => cb(evaluate())
-              mql.addEventListener('change', handler)
-              handlers.push(() => mql.removeEventListener('change', handler))
-            }
-            _mediaRegistry.set(key, { mql: null as any, handler: null as any })
-          }
-        },
-
-        /**
-         * 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标
-         *
-         * 用法（mount 阶段）：
-         *   const pos = ctx.ui.usePopupPosition({
-         *     el: () => inputEl,                    // ref 保存的锚定元素
-         *     isOpen: () => show,                   // 弹层是否显示
-         *     compute: (r) => ({ top: r.bottom + 4, left: r.left }),
-         *   })
-         *
-         * pos 是稳定对象，render 闭包直接读取 top/left；
-         * 滚动/resize 时自动重算并定向刷新；打开弹层瞬间调用 pos.refresh()。
-         */
-        usePopupPosition: function (options: PopupPositionOptions): PopupPosition {
-          const selfId = getSelfId(this)
-          const pos: PopupPosition = { top: 0, left: 0, refresh: () => {} }
-          if (!selfId) return pos
-
-          const tracker = {
-            pos,
-            getEl: options.el,
-            isOpen: options.isOpen,
-            compute: options.compute,
-          }
-          _popupTrackers.set(selfId, tracker)
-
-          // 惰性挂载全局单例监听（第一个组件注册时）
-          if (!_popupListenersReady) {
-            _popupListenersReady = true
-            // capture 捕获所有嵌套容器的 scroll（scroll 不冒泡）
-            window.addEventListener('scroll', schedulePopupRecompute, { capture: true, passive: true })
-            window.addEventListener('resize', schedulePopupRecompute)
-          }
-
-          // 手动重算：只更新坐标，不触发渲染（调用方负责 render）
-          pos.refresh = () => {
-            const el = tracker.getEl()
-            if (!el) return
-            Object.assign(pos, tracker.compute(el.getBoundingClientRect()))
-          }
-          return pos
-        },
-
-        /** 注册组件实例的自定义 ID（用于跨组件精准刷新） */
-        selfId: function (name: string) {
-          if (typeof name !== 'string' || !name) {
-            throw new Error(`[weifuwu] selfId requires a non-empty string, got ${typeof name}`)
-          }
-          if (idRegistry.has(name)) {
-            throw new Error(
-              `[weifuwu] Duplicate component ID: "${name}". ` +
-              `Each component must have a unique custom ID.`
-            )
-          }
-          const vnode = (this as any)._selfVNode
-          if (!vnode) return
-          vnode._customId = name
-          idRegistry.set(name, vnode)
-        },
-      }
+      // ── 注入 ctx.ui（工厂方法在 ui.ts，app 注入闭包依赖） ──
+      ;(ctx as any).ui = createUi({
+        ctx,
+        renderByIds,
+        getSelfId,
+        dirtyBatch: _dirtyBatch,
+        dirtySet: new Set<string>(),
+        mediaRegistry: _mediaRegistry,
+        popupTrackers: _popupTrackers,
+        schedulePopupRecompute,
+        ensurePopupListeners,
+        destroyPopupListeners,
+        isRendering: () => _rendering,
+      })
 
       // ── 首次渲染 ──────────────────────────────────────
       _rendering = true
@@ -434,17 +259,12 @@ export function createApp<C extends object = {}>(): App<C> {
     },
 
     destroy() {
+      // 清理弹层位置跟踪的全局监听（scroll/resize）+ 注册表
+      destroyPopupListeners()
+      _popupTrackers.clear()
       if (container) container.innerHTML = ''
       container = null
       ctx = {} as WfuiContext
-
-      // 清理弹层位置跟踪的全局监听（scroll/resize）+ 注册表
-      if (_popupListenersReady) {
-        window.removeEventListener('scroll', schedulePopupRecompute, { capture: true } as any)
-        window.removeEventListener('resize', schedulePopupRecompute)
-        _popupListenersReady = false
-        _popupTrackers.clear()
-      }
     },
   }
 

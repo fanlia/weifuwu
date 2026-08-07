@@ -73,7 +73,9 @@ export { lockScroll, unlockScroll } from './scroll-lock.ts'
 export { trapFocus } from './focus-trap.ts'
 
 // 渲染/动效内部机制（components bundle 外部化后共享同一模块实例，防 idRegistry 等状态重复）
-export { mountVNode, callRefCleanup, patchValue } from './render.ts'
+export { mountVNode, callRefCleanup, clearAsyncComponentCache } from './render.ts'
+export { hydrateVNode } from './hydration.ts'
+export { patchValue } from './diff.ts'
 export { animateOut } from './motion.ts'
 
 export { computeFixedPos, computeFixedPosRect } from './popup.ts'
