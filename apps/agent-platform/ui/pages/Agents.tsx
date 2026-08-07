@@ -13,10 +13,14 @@ export const Agents: Component = (_props, ctx) => {
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
-    if (!confirm('确定删除这个 Agent 吗？')) return
+    const ok = await (ctx as any).confirm('确定删除这个 Agent 吗？')
+    if (!ok) return
     const res = await fetch(`/api/agents/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     if (res.ok || res.status === 204) {
       $.agents = $.agents.filter((a: any) => a.id !== id)
+      ;(ctx as any).toast?.('Agent 已删除', 'success')
+    } else {
+      ;(ctx as any).toast?.('删除失败', 'error')
     }
   }
   return (props) => (

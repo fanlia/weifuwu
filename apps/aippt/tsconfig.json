@@ -11,7 +11,8 @@
     "noEmit": true,
     "paths": {
       "weifuwu": ["../../src/index.ts"],
-      "weifuwu/client": ["../../src/client/index.ts"]
+      "weifuwu/client": ["../../src/client/index.ts"],
+      "weifuwu/components": ["../../src/components/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "server.ts"]

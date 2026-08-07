@@ -23,7 +23,9 @@ export function trapFocus(container: HTMLElement): () => void {
   }
 
   const prevFocused = document.activeElement as HTMLElement | null
-  first.focus()
+  // 初始聚焦：weifuwu 的 ref 在元素 appendChild 前触发（元素未连接文档时 focus() 无效），
+  // 延迟到微任务——此时同任务内的 mount 已完成，元素已连接（浏览器实测 TRAP firstIsConn=false）
+  queueMicrotask(() => { first.focus() })
 
   container.addEventListener('keydown', handler)
   return () => {

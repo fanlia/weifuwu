@@ -5,7 +5,7 @@
  */
 
 import { createApp, router, RouteView, api, auth, ws } from 'weifuwu/client'
-import { EmptyState } from 'weifuwu/components'
+import { EmptyState, confirm, toast } from 'weifuwu/components'
 import { AppLayout } from './components/AppLayout'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
@@ -35,6 +35,10 @@ app.use(auth({
   refreshTokenKey: 'agent_platform_refresh',
 }))
 app.use(ws({ url: '/ws' }))
+
+// 命令式确认/轻提示（P8：Confirm 默认禁遮罩取消 + 退场动画；Toast 带退场）
+app.use(confirm())
+app.use(toast())
 
 app.use(router({
   mode: 'history',

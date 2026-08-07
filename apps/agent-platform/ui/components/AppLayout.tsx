@@ -1,6 +1,7 @@
 import { RouteView } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 import { Avatar, Button } from 'weifuwu/components'
+import { Loading } from './ui'
 
 interface NavDef {
   path: string

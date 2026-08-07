@@ -38,11 +38,11 @@ export const Dashboard: Component = (_props, ctx) => {
       </div>
 
       <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(180px, 1fr))">
-        <StatCard label="Agent 总数" value={agentCount} icon="🤖" onClick={() => ctx.app?.navigate('/agents')} />
-        <StatCard label="AI 机器人" value={aiCount} icon="✨" onClick={() => ctx.app?.navigate('/agents?type=ai')} />
-        <StatCard label="部门群组" value={$.deptCount ?? 0} icon="👥" onClick={() => ctx.app?.navigate('/departments')} />
-        <StatCard label="总消息数" value={msgCount} icon="💬" />
-        <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon="⚡" />
+        <StatCard label="Agent 总数" value={agentCount} icon="🤖" animate onClick={() => ctx.app?.navigate('/agents')} />
+        <StatCard label="AI 机器人" value={aiCount} icon="✨" animate onClick={() => ctx.app?.navigate('/agents?type=ai')} />
+        <StatCard label="部门群组" value={$.deptCount ?? 0} icon="👥" animate onClick={() => ctx.app?.navigate('/departments')} />
+        <StatCard label="总消息数" value={msgCount} icon="💬" animate />
+        <StatCard label="Token 消耗" value={totalTokens > 1000 ? (totalTokens / 1000).toFixed(1) + 'k' : totalTokens} icon="⚡" animate />
         <StatCard label="消息趋势" value={`${s.days ?? 1}天`} icon="📊" />
       </div>
 

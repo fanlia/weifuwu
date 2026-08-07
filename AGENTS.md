@@ -433,6 +433,18 @@ $.show = true
 const vnode2 = renderVNode(Popover, { content: 'hello' }, ctx)
 ```
 
+## 客户端模块状态共享（重要）
+
+`weifuwu/client` 与 `weifuwu/components` **必须共享同一模块实例**（`idRegistry`/`_idCounter`/`_dirtyBatch` 等状态只在 client 模块内存在一份）：
+
+- **症状**：命令式中间件（`toast()` 等）挂载的组件注册在 components 自己的 idRegistry，但 `$` 的 dirty 走 app 的 `renderByIds`（查 app 的 registry）→ 命中无关组件/漏渲染——真实 app 实测：toast 永不渲染，单测全绿（node --test 单模块图掩盖）
+- **两道防线**：① `scripts/build.mjs` 组件构建外部化 `src/client/*` 导入 → `weifuwu/client`（dist 消费端共享）；② **app 的 tsconfig `paths` 必须同时映射 `weifuwu/client` 和 `weifuwu/components` 到 src**（dev 全 src 单图）——只映射 client 不映射 components 时，app 用 src 的 client、components 用 dist 的 client，状态仍重复
+- 排查手段：浏览器探针 + 检查 bundle 内 `var _idCounter` 出现次数（>1 = 状态重复）；esbuild metafile 看 `src/client` 与 `dist/client` 是否同时被引用
+
+### ref 触发时机（focus-trap 踩过）
+
+weifuwu 的 ref 在元素 **appendChild 之前**触发（renderValue 先渲染子节点再调 ref，父层最后 append）——此时元素未连接文档，`el.focus()` 在 Chrome 无效。trapFocus 的初始聚焦用 `queueMicrotask` 延迟到挂载完成后。其他依赖连接态的 ref 初始化同理。
+
 ### UI 组件测试纪律（jsdom + VNode 断言）
 
 - **renderVNode 只渲染一层**：子组件 VNode 的 `type` 是组件函数（断言 `=== Icon`），不是 `'svg'` 等标签名

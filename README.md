@@ -2567,6 +2567,11 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 --wf-color-error / --wf-color-error-bg
 --wf-color-info / --wf-color-info-bg
 
+/* 语义文字色（P2）：浅底可读 700 级，文字用 -text、填充用 500 级 */
+--wf-color-primary-text / --wf-color-success-text / --wf-color-warning-text / --wf-color-error-text / --wf-color-info-text
+--wf-color-on-brand   /* 实心品牌/语义底上的文字与图标 */
+--wf-overlay          /* 浮层遮罩（Modal/Drawer），暗色自动加深 */
+
 /* 文字色 */
 --wf-color-text / --wf-color-text-secondary / --wf-color-text-tertiary / --wf-color-text-disabled
 
@@ -2579,7 +2584,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 /* 字体 */
 --wf-font-sans / --wf-font-mono
 
-/* 字号: xs sm base lg xl 2xl 3xl 4xl 5xl */
+/* 字号: xs sm base lg xl 2xl 3xl 4xl 5xl display */
 --wf-font-size-*
 
 /* 字重: normal medium semibold bold */
@@ -2602,6 +2607,17 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 
 /* 阴影: sm md lg */
 --wf-shadow-*
+
+/* 动效（P0）：时长阶梯/缓动曲线/位移量，全站动效统一引用 */
+--wf-dur-fast / --wf-dur-base / --wf-dur-slow
+--wf-ease-out / --wf-ease-in / --wf-ease-snap
+--wf-motion-sm / --wf-motion-md / --wf-motion-lg
+
+/* 表头/分组标题（P5）：CJK 感知，默认 none/0，英文可覆盖 */
+--wf-heading-case / --wf-heading-tracking
+
+/* 数字（P5）：tabular-nums 防宽度抖动（wf-nums 工具类） */
+--wf-nums
 
 /* 其他 */
 --wf-border-width / --wf-focus-ring

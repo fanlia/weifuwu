@@ -138,12 +138,12 @@ export function toast(opts?: ToastOptions): AppMiddleware {
     }
     // 总是返回包装 div（非 null）——保证 _refNode 有值，scope render 能定位本组件
     return () => h('div', { class: 'wf-toast-host' }, [
-      h(Toast, {
-        toasts: $.toasts,
-        position: defaults.position,
-        duration: defaults.duration,
-        max: defaults.max,
-        onRemove: (id: string) => hostApi?.remove(id),
+        h(Toast, {
+          toasts: $.toasts,
+          position: defaults.position,
+          duration: defaults.duration,
+          max: defaults.max,
+          onRemove: (id: string) => hostApi?.remove(id),
       }),
     ])
   }

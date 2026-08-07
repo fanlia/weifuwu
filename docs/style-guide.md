@@ -28,7 +28,7 @@ wf-layout-stack@md @  = 断点变体（≥768px 时横向）
 
 ### 第一档：只用组件（0 成本）
 
-44 个组件覆盖页面功能块，完全不需要 wf-*：
+48 个组件覆盖页面功能块，完全不需要 wf-*：
 
 ```tsx
 <PageHeader title="订单"><Button variant="primary">+ 新建</Button></PageHeader>
@@ -73,11 +73,16 @@ wf-rounded-md     圆角
 | 一行换行居中对齐 | `wf-layout-row wf-gap-md wf-layout-cluster` |
 | 卡片网格 | `<div class="wf-layout-grid">` |
 | 状态色文字/背景 | `wf-text-success` / `wf-bg-error` |
-| 卡片 hover 抬升 | `<Card hover>` |
+| 卡片 hover 抬升 | `<Card hover>` 或 `wf-elevate` |
 | 聊天气泡 | `wf-bubble` / `wf-bubble--own` |
 | 文章正文排版 | `<article class="wf-prose">` |
 | 隐藏元素（桌面显示/移动隐藏） | `wf-layout-hidden@sm` |
 | 按钮变胶囊 | `:root { --wf-btn-radius: 999px }` |
+| 数字防抖（统计/表格数值） | `wf-nums`（StatCard 已默认套用） |
+| 顶级页面大标题 | `<PageHeader display>` 或 `wf-text-display` |
+| 状态/计数徽章 | `<Badge variant>`（不可交互，含 dot） |
+| 可关闭标签 | `<Tag closable>`（可交互，有关闭钮） |
+| 图标 | `<Icon name="close" />`（禁止裸 emoji/字形） |
 
 ## 定制（零 CSS 文件）
 
@@ -105,6 +110,18 @@ wf-rounded-md     圆角
 
 完整钩子清单：`--wf-btn-*` `--wf-card-*` `--wf-field-*` `--wf-modal-*` `--wf-drawer-width` `--wf-toast-*` `--wf-alert-radius` `--wf-badge-radius` `--wf-tag-radius` `--wf-switch-radius` `--wf-popover-*` `--wf-tooltip-radius` `--wf-dropdown-min-width` `--wf-datepicker-*`。
 
+### 动效定制 — 时长/缓动/位移
+
+```html
+<style>
+  :root {
+    --wf-dur-base: 300ms;                     /* 默认动画时长 */
+    --wf-ease-out: cubic-bezier(0.22, 1, 0.36, 1);  /* 入场缓动 */
+    --wf-motion-lg: 32px;                     /* 抽屉全幅位移 */
+  }
+</style>
+```
+
 ### 覆盖优先级（@layer）
 
 ```
@@ -113,14 +130,53 @@ wf-rounded-md     圆角
 用户 @layer utilities 可精准盖过 weifuwu 的 utilities
 ```
 
-## 主题 Token（115 个，双层）
+## 主题 Token（141 个，双层）
 
 - **原始层**（`--wf-brand-*` `--wf-slate-*` `--wf-dark-*`）：色值只定义一次，品牌/暗色调校改这里
 - **语义层**（`--wf-color-*` `--wf-space-*` `--wf-radius-*` …）：组件消费，主题切换覆盖这里
 - 暗色模式：`--wf-dark-*` 间接层映射，两段激活（`data-theme` / 系统偏好），无硬编码
 
+### 动效 Token（P8 新增，全站动效统一引用）
+
+| Token | 默认 | 用途 |
+|---|---|---|
+| `--wf-dur-fast/base/slow` | 120/200/300ms | 动画时长阶梯 |
+| `--wf-ease-out` | `cubic-bezier(0.16,1,0.3,1)` | 入场（快出缓停） |
+| `--wf-ease-in` | `cubic-bezier(0.4,0,1,1)` | 退场（渐入加速） |
+| `--wf-ease-snap` | `cubic-bezier(0.34,1.56,0.64,1)` | 选中/弹跳（Segmented 等） |
+| `--wf-motion-sm/md/lg` | 4/8/24px | 位移量（toast 退场/抽屉） |
+
+### 语义文字色（P2 新增，浅底可读）
+
+`--wf-color-{primary,success,warning,error,info}-text`（700 级，对 50 级底对比度 ≥ 4.5:1）——**文字用 `-text` 变体，500 级只做填充/边框/焦点**。实心填充上的文字用 `--wf-color-on-brand`；遮罩用 `--wf-overlay`。
+
+### CJK / 数字（P5 新增）
+
+- `--wf-heading-case: none`（默认）——表头/分组标题文本变换，英文项目可覆盖 `uppercase`
+- `--wf-nums`——`wf-nums` 工具类的取值（tabular-nums，数字防宽度抖动）
+
+## 图标（Icon 组件）
+
+组件库内置 `Icon`（stroke SVG、`currentColor`、`1em` 随字号、`aria-hidden`），组件内部图标统一用它——**禁止裸文本字形**（✕✓⚠▲▼ 等）：
+
+```tsx
+h(Icon, { name: 'close' })          // 随上下文颜色/字号
+h(Icon, { name: 'check', size: 16 })
+```
+
+内置 25 个：方向（chevron/arrow/sort）、状态（check/close/alert/info/warning）、操作（search/send/stop/retry/upload/trash/edit/plus）等。业务图标自备（`Icon` 只做基础集）。
+
+## 浮层退场语义（P0/P4 变更，注意时序）
+
+Modal/Drawer/Confirm/Toast 关闭时**先播退场动画再卸载**：
+
+- `open=false` 后 DOM 仍存在约 200ms（播 `--exit` 动画）——时序敏感代码（测量/立即重开）需知悉
+- `prefers-reduced-motion: reduce` 下动画降为 0.01ms，等效立即卸载
+- Confirm 默认 `maskClosable=false`（遮罩点击不取消，防误触）；Escape 仍可关闭
+
 ## 边界（诚实说明）
 
 - 业务具体尺寸（`width: 220px`、`min-height: 120px`）用内联——设计系统不背业务值
 - 深度定制组件结构用覆盖 CSS（@layer 友好支持）
-- 低频 CSS（float/filter/动画）不做类——用内联或组件
+- 低频 CSS（float/filter）不做类——用内联或组件
+- 动效已统一由 Token 驱动：新增动画禁止硬编码时长/缓动（audit 把关）

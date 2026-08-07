@@ -173,9 +173,11 @@ export const Chat: Component = (_props, ctx) => {
   }
 
   async function deleteMsg(msg: any) {
-    if (!confirm('确定撤回这条消息？')) return
+    const ok = await (ctx as any).confirm('确定撤回这条消息？')
+    if (!ok) return
     const res = await fetch(`/api/messages/${msg.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) { const d = await res.json(); alert(d.error || '撤回失败') }
+    if (!res.ok) { const d = await res.json(); (ctx as any).toast?.(d.error || '撤回失败', 'error') }
+    else (ctx as any).toast?.('消息已撤回', 'success')
   }
 
   function copyContent(msg: any) {

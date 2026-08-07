@@ -13,13 +13,15 @@ export const Companies: Component = (_props, ctx) => {
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
-    if (!confirm('确定删除这家公司吗？所有部门将一并删除。')) return
+    const ok = await (ctx as any).confirm('确定删除这家公司吗？所有部门将一并删除。')
+    if (!ok) return
     const res = await fetch(`/api/companies/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     if (res.ok || res.status === 204) {
       $.loading = true
       fetch('/api/companies', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json()).then(d => { $.companies = d.companies ?? []; $.loading = false })
         .catch(() => { $.loading = false })
+      ;(ctx as any).toast?.('公司已删除', 'success')
     }
   }
   return (props) => (
