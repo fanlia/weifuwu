@@ -90,8 +90,8 @@ declare module '../types.ts' {
 export interface UserSystemClient extends Middleware<Context, Context & UserInjected> {
   /** 幂等建表（users + sessions） */
   migrate: () => Promise<void>
-  /** 注册 /api/auth/* 路由（register/login/logout/me/refresh） */
-  routes: (app: Router, opts?: { prefix?: string }) => void
+  /** 注册 /api/auth/* 路由（register/login/logout/me/refresh）；exclude 跳过个别路由（应用层自定义） */
+  routes: (app: Router<any>, opts?: { prefix?: string; exclude?: Array<'register' | 'login' | 'logout' | 'refresh' | 'me'> }) => void
 }
 
 const USERS_TABLE = '_weifuwu_users'
@@ -129,7 +129,12 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   }
 
   async function issueSession(user: User): Promise<{ token: string; refreshToken: string }> {
-    const token = signToken({ sub: user.id }, secret, accessTtlSeconds)
+    // token 携带租户（user.tenant）——中间件据此注入 ctx.tenantId + 合并到 ctx.auth（多租户感知）
+    const token = signToken(
+      { sub: user.id, ...(user.tenant ? { tenantId: user.tenant } : {}) },
+      secret,
+      accessTtlSeconds,
+    )
     const refreshToken = generateRefreshToken()
     const expiresAt = new Date(Date.now() + refreshTtlDays * 24 * 3600 * 1000)
     await sql.unsafe(
@@ -276,30 +281,31 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   }
 
   // ── 路由 ──
-  mw.routes = (app: Router, routeOpts?: { prefix?: string }) => {
+  mw.routes = (app: Router<any>, routeOpts?: { prefix?: string; exclude?: Array<'register' | 'login' | 'logout' | 'refresh' | 'me'> }) => {
     const p = routeOpts?.prefix ?? prefix
+    const excluded = new Set(routeOpts?.exclude ?? [])
 
-    app.post(`${p}/register`, async (req, ctx) => {
+    if (!excluded.has('register')) app.post(`${p}/register`, async (req, ctx) => {
       const body = (await req.json().catch(() => ({}))) as RegisterInput
       const result = await ctx.auth!.register(body)
       return created(result)
     })
 
-    app.post(`${p}/login`, async (req, ctx) => {
+    if (!excluded.has('login')) app.post(`${p}/login`, async (req, ctx) => {
       const body = (await req.json().catch(() => ({}))) as { email: string; password: string }
       if (!body.email || !body.password) return badRequest('email and password are required')
       const result = await ctx.auth!.login(body.email, body.password)
       return ok(result)
     })
 
-    app.post(`${p}/logout`, async (req, ctx) => {
+    if (!excluded.has('logout')) app.post(`${p}/logout`, async (req, ctx) => {
       const body = (await req.json().catch(() => ({}))) as { refreshToken?: string }
       if (!body.refreshToken) return badRequest('refreshToken is required')
       await ctx.auth!.logout(body.refreshToken)
       return noContent()
     })
 
-    app.post(`${p}/refresh`, async (req, ctx) => {
+    if (!excluded.has('refresh')) app.post(`${p}/refresh`, async (req, ctx) => {
       const body = (await req.json().catch(() => ({}))) as { refreshToken?: string }
       if (!body.refreshToken) throw new HttpError('refreshToken is required', 400)
       const user = await consumeRefreshToken(body.refreshToken)
@@ -309,7 +315,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       return ok({ ...session, user })
     })
 
-    app.get(`${p}/me`, async (_req, ctx) => {
+    if (!excluded.has('me')) app.get(`${p}/me`, async (_req, ctx) => {
       if (!ctx.user) throw new HttpError('Unauthorized', 401)
       return ok(ctx.user)
     })

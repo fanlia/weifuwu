@@ -15,17 +15,6 @@ CREATE TABLE IF NOT EXISTS tenants (
 
 -- ── 用户 ───────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS users (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  email       TEXT NOT NULL,
-  name        TEXT NOT NULL,
-  password_hash TEXT NOT NULL,
-  role        TEXT NOT NULL DEFAULT 'member',  -- 'admin' | 'member'
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(tenant_id, email)
-);
 
 -- ── 公司 ───────────────────────────────────────────────────
 
@@ -61,7 +50,7 @@ CREATE TABLE IF NOT EXISTS agents (
   human_in_the_loop BOOLEAN DEFAULT FALSE,
 
   -- 真实用户绑定 (type='user')
-  user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+  user_id     UUID,  -- 用户 id（框架 _weifuwu_users.id，应用层保证引用）
 
   -- Webhook 配置 (type='webhook')
   webhook_url TEXT,

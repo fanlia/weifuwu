@@ -9,13 +9,11 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, ui } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, ui, userSystem } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
 import { ai } from './src/middleware/ai.ts'
-import { auth } from './src/middleware/auth.ts'
-import { tenant } from './src/middleware/tenant.ts'
 
 // ── 路由 ──────────────────────────────────────────────────
 import { registerAuthRoutes } from './src/routes/auth.ts'
@@ -80,6 +78,18 @@ async function main() {
     console.log('[agent-platform] Redis 已连接（自研客户端）')
   }
 
+  // ── 用户系统（weifuwu user()——完全替代自研 auth）────────────────
+  const users = userSystem({
+    sql: pg.sql,
+    secret: process.env.JWT_SECRET ?? 'default-secret',
+    accessTtlSeconds: 15 * 60,   // 对齐原 15m
+    refreshTtlDays: 7,           // 对齐原 7d
+  })
+  await users.migrate()          // _weifuwu_users / _weifuwu_sessions
+  app.use(users)
+  // 框架认证路由：login/logout/refresh/me（register 自定义：建租户 + 默认 agent）
+  users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
+
   // ── AI 中间件 ───────────────────────────────────────────
   app.use(ai())
 
@@ -120,39 +130,13 @@ async function main() {
     return Response.json({ template })
   })
 
-  // ── Token 刷新（无需登录，用 refreshToken 换新 access_token） ──
-  app.post('/api/auth/refresh', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const body = await req.json() as { refreshToken?: string }
-    if (!body.refreshToken) {
-      return Response.json({ error: 'refreshToken 为必填' }, { status: 400 })
-    }
-
-    const { decodeToken, signToken } = await import('./src/middleware/auth.ts')
-    const payload = decodeToken(body.refreshToken)
-    if (!payload || payload.type !== 'refresh') {
-      return Response.json({ error: 'refreshToken 无效或已过期' }, { status: 401 })
-    }
-
-    const { sql } = ctx
-    const [user] = await sql`
-      SELECT id, email, name, role, tenant_id FROM users WHERE id = ${payload.sub}
-    `
-    if (!user) {
-      return Response.json({ error: '用户不存在' }, { status: 404 })
-    }
-
-    const secret = process.env.JWT_SECRET ?? 'default-secret'
-    const tokenPayload = { sub: user.id, tenantId: user.tenant_id, email: user.email, name: user.name, role: user.role }
-    const accessToken = signToken(tokenPayload, secret, '15m')
-    const refreshToken = signToken({ ...tokenPayload, type: 'refresh' }, secret, '7d')
-
-    return Response.json({ token: accessToken, refreshToken })
-  })
-
   // ── 需要登录 + 租户隔离的路由 ─────────────────────────
   const protectedRoutes = new Router<AppCtx>()
-  protectedRoutes.use(auth())
-  protectedRoutes.use(tenant())
+  // 登录保护（框架 ctx.auth.requireAuth：未登录抛 401）
+  protectedRoutes.use((req: Request, ctx: Context, next: any) => {
+    ;(ctx as unknown as AppCtx).auth.requireAuth()
+    return next(req, ctx)
+  })
 
   // 公司
   registerCompanyRoutes(protectedRoutes)
@@ -168,16 +152,6 @@ async function main() {
   registerSkillRoutes(protectedRoutes)
   // 角色模板
   registerRoleTemplateRoutes(protectedRoutes)
-  // 获取当前用户（需要 auth 中间件）
-  protectedRoutes.get('/api/auth/me', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, auth } = ctx
-    const [user] = await sql`
-      SELECT id, email, name, role, created_at
-      FROM users WHERE id = ${auth!.userId}
-    `
-    if (!user) return Response.json({ error: '用户不存在' }, { status: 404 })
-    return Response.json({ user })
-  })
 
   // ── 用户设置 ─────────────────────────────────────────────
   // 更新个人资料
@@ -187,8 +161,9 @@ async function main() {
     if (!body.name?.trim()) {
       return Response.json({ error: 'name 不能为空' }, { status: 400 })
     }
+    // 框架用户表（_weifuwu_users）——应用层更新扩展字段
     const [user] = await sql`
-      UPDATE users SET name = ${body.name.trim()}, updated_at = NOW()
+      UPDATE _weifuwu_users SET name = ${body.name.trim()}
       WHERE id = ${auth!.userId}
       RETURNING id, email, name, role, created_at
     `
@@ -207,7 +182,7 @@ async function main() {
     }
 
     const [user] = await sql`
-      SELECT password_hash FROM users WHERE id = ${auth!.userId}
+      SELECT password_hash FROM _weifuwu_users WHERE id = ${auth!.userId}
     `
     if (!user) return Response.json({ error: '用户不存在' }, { status: 404 })
 
@@ -216,11 +191,8 @@ async function main() {
       return Response.json({ error: '当前密码错误' }, { status: 403 })
     }
 
-    const newHash = await hashPassword(body.newPassword)
-    await sql`
-      UPDATE users SET password_hash = ${newHash}, updated_at = NOW()
-      WHERE id = ${auth!.userId}
-    `
+    // 框架 ctx.auth.setPassword（scrypt 哈希 + 更新）
+    await auth!.setPassword(auth!.userId, body.newPassword)
     return Response.json({ success: true })
   })
 

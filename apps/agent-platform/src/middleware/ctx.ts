@@ -6,9 +6,9 @@
  * 而是自包含接口：显式列出 handler 实际可用的字段（含框架 postgres 注入的 sql），
  * 配合框架 Router<T extends object>（放开约束后自定义上下文成为一等公民）。
  */
-import type { User, Context } from 'weifuwu'
+import type { User, Context, AuthApi } from 'weifuwu'
 import type { AiClient } from '../ai/types.ts'
-import type { AuthPayload } from './auth.ts'
+import type { AuthPayload } from './auth-payload.ts'
 import type { WorkspaceInfo } from './workspace.ts'
 
 export interface AppCtx {
@@ -22,8 +22,8 @@ export interface AppCtx {
   /** postgres() 中间件注入（Context['sql'] 由框架 postgres declare 提供） */
   sql: Context['sql']
   // ── 自研中间件注入 ──
-  /** JWT payload（自研 auth 中间件） */
-  auth: AuthPayload
+  /** 框架 user() 注入：AuthApi 方法面 + 会话 payload 字段（userId/tenantId/email/name/role） */
+  auth: AuthApi & AuthPayload
   /** 自研 AI 客户端（chat/agent/embedding 走框架 ctx.ai 能力，见 middleware/ai.ts） */
   ai: AiClient
   /** 租户隔离（tenant 中间件从 auth.tenantId 注入） */
