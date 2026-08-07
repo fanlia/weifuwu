@@ -3,6 +3,7 @@ import { HttpError, type Context, type Handler, type Middleware, type Middleware
 import {
   type WebSocketHandler,
   type WsUpgradeHandler,
+  type Hub,
   createWsUpgradeHandler,
 } from './ws.ts'
 import type { GraphQLHandler } from '../graphql.ts'
@@ -17,12 +18,7 @@ import { createGraphqlRouter } from '../graphql.ts'
  * The default implementation is in-memory (single process).
  * Pass a custom Hub with Redis backend for multi-instance deployments.
  */
-export interface Hub {
-  join(key: string, ws: import('ws').WebSocket): void
-  leave(ws: import('ws').WebSocket): void
-  send(key: string, message: string): void
-  close(): Promise<void>
-}
+export type { Hub } from './ws.ts'
 
 // ── Trie types ──────────────────────────────────────────────────
 
@@ -234,6 +230,7 @@ export class Router<T extends object = Context> {
     return createWsUpgradeHandler(
       this.wss,
       (segments) => this.matchWsTrie(this.wsRoot, segments),
+      this.hub,
     )
   }
 

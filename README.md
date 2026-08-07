@@ -551,7 +551,7 @@ await server.stop(2000)  // 超时毫秒
 | `hostname` | `string` | `'0.0.0.0'` | 监听地址 |
 | `signal` | `AbortSignal` | — | 通过信号停止 |
 | `maxBodySize` | `number` | `10MB` | 请求体上限（0=无限） |
-| `timeout` | `number` | `30000` | Socket 超时（ms） |
+| `timeout` | `number` | `120000` | Socket 超时（ms，2 分钟，适配 LLM 生成等长任务） |
 | `keepAliveTimeout` | `number` | `5000` | Keep-Alive 超时 |
 | `headersTimeout` | `number` | `6000` | 请求头超时 |
 | `shutdown` | `boolean` | `true` | 自动注册 SIGTERM/SIGINT |
@@ -1095,7 +1095,8 @@ app.get('/secure', () => {
 | API | 说明 |
 |-----|------|
 | `new HttpError(msg, status)` | 创建 HTTP 错误，name = 'HttpError' |
-| `DEFAULT_MAX_BODY` | `10 * 1024 * 1024` (10MB) |
+
+> 请求体上限常量 `DEFAULT_MAX_BODY`（10MB）见上方 serve 选项表 `maxBodySize`。
 
 ---
 
@@ -1991,7 +1992,7 @@ createApp()
     locale: 'zh-CN',
     messages: {
       'title': '仪表盘',
-      'welcome': '欢迎, {name}',
+      'welcome': '欢迎光临',
     },
   }))
   .mount('#root', App)
@@ -2226,7 +2227,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-46 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+48 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -2273,35 +2274,35 @@ import 'weifuwu/components/style.css'   // 包含 Token + 67 布局原语 + 组�
 <Alert variant="warning" closable>注意：磁盘空间不足</Alert>
 
 // ├─ 标签 / 徽标 / 头像
-<Badge count={5}>消息</Badge>
-<Badge variant="success">通过</Badge>
-<Tag variant="blue" closable onClose={() => {}}>标签</Tag>
+<Badge variant="primary">消息</Badge>
+<Badge variant="success" dot>通过</Badge>
+<Tag variant="primary" closable onClose={() => {}}>标签</Tag>
 <Avatar name="张三" size="lg" />
 
 // ├─ 卡片 / 统计卡片
-<Card title="卡片标题" extra={<a href="#">更多</a>}>卡片内容</Card>
-<StatCard title="总用户" value="1,234" trend={12.5} variant="primary" />
+<Card variant="outlined" padding="md">卡片内容</Card>
+<StatCard label="总用户" value="1,234" trend="up" trendLabel="12%" />
 
 // ├─ 标签页 / 下拉菜单
-<Tabs items={[{ key: 'a', label: '标签A' }, { key: 'b', label: '标签B' }]} activeKey="a" onChange={setTab} />
-<Dropdown items={[{ label: '编辑', onClick: () => {} }, { label: '删除', danger: true }]}>操作</Dropdown>
+<Tabs items={[{ key: 'a', label: '标签A' }, { key: 'b', label: '标签B' }]} active="a" onChange={setTab} />
+<Dropdown items={[{ label: '编辑', onClick: () => {} }, { label: '删除', variant: 'danger' }]}>操作</Dropdown>
 
 // ├─ 分页 / 步骤条
 <Pagination total={100} page={1} pageSize={10} onChange={setPage} />
-<Steps items={[{ title: '第一步' }, { title: '第二步' }]} current={1} />
+<Steps items={[{ key: 's1', label: '第一步' }, { key: 's2', label: '第二步' }]} current={1} />
 
 // ├─ 滑块 / 进度条
 <Slider min={0} max={100} value={50} onChange={setValue} />
-<ProgressBar value={75} variant="success" label="75%" />
+<ProgressBar value={75} label="75%" />
 
 // ├─ 面包屑 / 分割线
 <Breadcrumb items={[{ label: '首页' }, { label: '用户管理' }]} />
 <Divider />
-<Divider orientation="left">分割文字</Divider>
+<Divider>分割文字</Divider>
 
 // ├─ 加载 / 空状态 / 骨架屏
 <Loading text="加载中..." />
-<EmptyState title="暂无数据" description="请先创建一条记录" action={<Button>新建</Button>} />
+<EmptyState text="暂无数据" hint="请先创建一条记录"><Button>新建</Button></EmptyState>
 <Skeleton variant="text" lines={3} />
 <Skeleton variant="table" lines={5} cols={4} />
 <Skeleton variant="avatar" />
@@ -2366,42 +2367,42 @@ props 变化 ──────────────────────�
 |-----|--------|-----------|------|
 | Button | `Button` | `variant`, `size`, `loading`, `disabled`, `block`, `type` | 按钮 |
 | Input | `Input` | `label`, `name`, `type`, `value`, `placeholder`, `required`, `disabled`, `error`, `hint`, `onInput`, `onChange` | 输入框 |
-| Textarea | `Textarea` | `rows`, `resize`, `maxLength`, `error` | 文本域 |
+| Textarea | `Textarea` | `rows`, `maxLength`, `showCount`, `error` | 文本域 |
 | Select | `Select` | `options: SelectOption[]`, `placeholder`, `searchable` | 下拉选择 |
 
 ### 表单选择
 
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
-| Checkbox | `Checkbox` | `checked`, `label`, `indeterminate` | 复选框 |
-| Switch | `Switch` | `checked`, `size` | 开关 |
+| Checkbox | `Checkbox` | `checked`, `label`, `onChange` | 复选框 |
+| Switch | `Switch` | `checked`, `label`, `onChange` | 开关 |
 | RadioGroup | `RadioGroup` | `options: RadioOption[]`, `value`, `name` | 单选组 |
-| Slider | `Slider` | `min`, `max`, `step`, `value`, `range` | 滑块 |
+| Slider | `Slider` | `min`, `max`, `step`, `value`, `onChange` | 滑块 |
 
 ### 表单增强
 
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | Form | `Form` | `onSubmit`, `validation` | 表单容器 |
-| Field | `Field` | `label`, `error`, `required`, `help` | 字段包装 |
-| FileUpload | `FileUpload` | `accept`, `multiple`, `maxSize`, `onFiles` | 文件上传 |
-| SearchInput | `SearchInput` | `value`, `placeholder`, `onSearch`, `loading` | 搜索框 |
+| Field | `Field` | `label`, `error`, `required`, `hint` | 字段包装 |
+| FileUpload | `FileUpload` | `accept`, `multiple`, `maxSize`, `onChange` | 文件上传 |
+| SearchInput | `SearchInput` | `value`, `placeholder`, `onInput`, `onClear` | 搜索框 |
 | SegmentedControl | `SegmentedControl` | `options: SegmentedOption[]`, `value`, `onChange`, `size` | 分段选择器 |
-| ProgressBar | `ProgressBar` | `value`, `max`, `variant`, `size`, `label` | 进度条 |
+| ProgressBar | `ProgressBar` | `value`, `max`, `label`, `showValue` | 进度条 |
 
 ### 数据展示
 
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
-| Table | `Table` | `columns: TableColumn[]`, `data`, `loading`, `sortable`, `selectable` | 表格 |
-| Card | `Card` | `title`, `extra`, `shadow`, `padding` | 卡片 |
-| Badge | `Badge` | `variant: BadgeVariant`, `count`, `dot`, `max` | 徽标 |
-| Tag | `Tag` | `variant`, `closable`, `onClose` | 标签 |
-| Avatar | `Avatar` | `src`, `name`, `size`, `shape` | 头像 |
-| Icon | `Icon` | `name: IconName`, `size`, `color`, `strokeWidth` | 图标（内置 100+ 图标，stroke 风格） |
-| StatCard | `StatCard` | `title`, `value`, `trend`, `icon`, `variant` | 统计卡片 |
-| PageHeader | `PageHeader` | `title`, `subtitle`, `actions`, `onBack`, `breadcrumb` | 页面标题 |
-| Img | `Img` | `src`, `alt`, `fallback`, `lazy`, `fit` | 图片（含 fallback） |
+| Table | `Table` | `columns: TableColumn[]`, `data`, `loading`, `sortKey`, `sortOrder`, `onSort`, `onRowClick` | 表格 |
+| Card | `Card` | `variant`, `outlined`, `padding`, `clickable`, `hover`, `active`, `onClick` | 卡片 |
+| Badge | `Badge` | `variant: BadgeVariant`, `dot` | 徽标 |
+| Tag | `Tag` | `variant: 'default'\|'primary'\|'success'\|'danger'`, `closable`, `onClose` | 标签 |
+| Avatar | `Avatar` | `src`, `name`, `size`, `color` | 头像 |
+| Icon | `Icon` | `name: IconName`, `size` | 图标（内置 25 个 stroke 图标，currentColor 随字号） |
+| StatCard | `StatCard` | `label`, `value`, `trend: 'up'\|'down'`, `trendLabel`, `icon`, `animate` | 统计卡片 |
+| PageHeader | `PageHeader` | `title`, `sub`, `display` | 页面标题（actions 放 children） |
+| Img | `Img` | `src`, `alt`, `fallback`, `loading`, `width`, `height` | 图片（含 fallback） |
 | InView | `InView` | `once`, `threshold`, `rootMargin`, `placeholder`, `onEnter` | 进入视窗后懒加载内容 |
 
 ### 数据反馈
@@ -2410,13 +2411,13 @@ props 变化 ──────────────────────�
 |-----|--------|-----------|------|
 | Modal | `Modal` | `open`, `title`, `onClose`, `width`, `footer`, `closable` | 模态框 |
 | Confirm | `Confirm` | `open`, `message`, `confirmText`, `cancelText`, `variant`, `onConfirm`, `onCancel` | 确认对话框（同 `ctx.confirm()` 命令式） |
-| Drawer | `Drawer` | `open`, `title`, `onClose`, `position: DrawerPosition`, `width` | 抽屉 |
+| Drawer | `Drawer` | `open`, `title`, `position: DrawerPosition`, `onClose`, `footer` | 抽屉 |
 | Tooltip | `Tooltip` | `content`, `position: TooltipPosition`, `disabled` | 工具提示（hover/focus 触发） |
 | Popover | `Popover` | `content`, `position: PopoverPosition`, `trigger`, `open`, `onOpenChange`, `disabled` | 弹出层 |
-| Toast | `Toast` | `items: ToastItem[]`, `position`, `max` | 消息提示 |
-| Alert | `Alert` | `variant: AlertVariant`, `title`, `closable`, `icon` | 警告提示 |
-| Loading | `Loading` | `size`, `text`, `fullscreen` | 加载中 |
-| EmptyState | `EmptyState` | `title`, `description`, `action`, `icon` | 空状态 |
+| Toast | `Toast` | `toasts: ToastItem[]`, `position`, `max`, `onRemove` | 消息提示 |
+| Alert | `Alert` | `variant: AlertVariant`, `closable`, `onClose` | 警告提示（内容放 children） |
+| Loading | `Loading` | `text` | 加载中 |
+| EmptyState | `EmptyState` | `icon`, `text`, `hint` | 空状态（操作放 children） |
 | Skeleton | `Skeleton` | `variant: SkeletonVariant`, `lines`, `cols`, `width`, `height` | 骨架屏 |
 
 ### 导航组件
@@ -2424,11 +2425,11 @@ props 变化 ──────────────────────�
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | Breadcrumb | `Breadcrumb` | `items: BreadcrumbItem[]` | 面包屑 |
-| Tabs | `Tabs` | `items: TabItem[]`, `activeKey`, `onChange`, `type` | 标签页 |
-| Dropdown | `Dropdown` | `trigger`, `items: DropdownItem[]`, `open` | 下拉菜单 |
+| Tabs | `Tabs` | `items: TabItem[]`, `active`, `onChange` | 标签页 |
+| Dropdown | `Dropdown` | `trigger`, `items: DropdownItem[]`, `open`, `onOpenChange` | 下拉菜单 |
 | Pagination | `Pagination` | `total`, `page`, `pageSize`, `onChange` | 分页 |
-| Steps | `Steps` | `items: StepItem[]`, `current`, `direction`, `size` | 步骤条 |
-| Accordion | `Accordion` | `items: AccordionItem[]`, `multiple`, `defaultActive` | 手风琴 |
+| Steps | `Steps` | `items: StepItem[]`（`{ key, label }`）, `current`, `active` | 步骤条 |
+| Accordion | `Accordion` | `items: AccordionItem[]`, `multiple` | 手风琴 |
 
 ### 图表
 
@@ -2442,7 +2443,7 @@ props 变化 ──────────────────────�
 
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
-| Divider | `Divider` | `orientation`, `plain` | 分割线（水平/垂直/带文字） |
+| Divider | `Divider` | `vertical` | 分割线（水平带文字放 children，`vertical` 垂直） |
 
 ### AI 交互原语（wf: 协议配套）
 
@@ -2799,7 +2800,7 @@ const LoginPage = (_init, ctx) => {
 
   return (props) =>
     h('div', { class: 'wf-stack', style: { maxWidth: 400, margin: '40px auto' } },
-      h(Card, { shadow: 'md' },
+      h(Card, { padding: 'lg' },
         h('div', { class: 'wf-stack', style: { gap: 'var(--wf-space-md)' } },
           h('h2', {}, '登录'),
           h(Form, {
@@ -2847,7 +2848,7 @@ const UserList = (_init, ctx) => {
 
     return h('div', { class: 'wf-stack', style: { gap: 'var(--wf-space-md)' } },
       h('div', { class: 'wf-row', style: { justifyContent: 'space-between', alignItems: 'center' } },
-        h(SearchInput, { placeholder: '搜索用户...', value: $.keyword, onSearch: (v: string) => { $.keyword = v } }),
+        h(SearchInput, { placeholder: '搜索用户...', value: $.keyword, onInput: (e: Event) => { $.keyword = (e.target as HTMLInputElement).value } }),
         h(Button, { variant: 'primary' }, '新建用户'),
       ),
       h(Table, {
@@ -2956,8 +2957,8 @@ app.get('/api/search', async (req, ctx) => {
   await ctx.limit('search', { max: 30, windowMs: 60_000 })  // 手动限流，超限抛 429
 })
 
-// 登录防爆破（配合 userSystem）：组合键 ip:email
-app.use(rateLimit({ key: (req) => `login:${req.ip}:${req.email}`, max: 5, windowMs: 15 * 60_000 }))
+// 登录防爆破（配合 userSystem）：组合键 ip:email（key 接收标准 Request，取头拿 IP）
+app.use(rateLimit({ key: (req) => `login:${req.headers.get('x-forwarded-for')}:${req.headers.get('x-user-email')}`, max: 5, windowMs: 15 * 60_000 }))
 ```
 
 | 选项 | 默认 | 说明 |
@@ -3023,7 +3024,7 @@ await msg.migrate()            // 幂等建表（conversations + members + messa
 app.use(db)
 app.use(msg)                   // 注入 ctx.msg
 msg.routes(app)                // /api/messages/*（会话/历史/发消息/已读）
-app.ws('/ws', ctx.msg.handler())   // 标准 WS 协议内置
+app.ws('/ws', msg.handler())        // 标准 WS 协议内置
 
 // 业务代码：持久化 + 鉴权 + 广播 + 未读 + 历史，一次调用
 const conv = await ctx.msg.createConversation(ctx.user.id, { type: 'group', memberIds: ['u2'] })
@@ -3153,7 +3154,7 @@ return () => <AiChat chat={$} />
 
 ```ts
 app.use(redis())
-app.use(rateLimit({ key: (req) => `login:${req.ip}`, max: 5, windowMs: 60_000 }))  // 防爆破
+app.use(rateLimit({ key: (req) => `login:${req.headers.get('x-forwarded-for')}`, max: 5, windowMs: 60_000 }))  // 防爆破
 app.use(email({ from: 'no-reply@x.com', adapter: 'resend', resend: { apiKey } }))
 app.use(db)
 app.use(users)

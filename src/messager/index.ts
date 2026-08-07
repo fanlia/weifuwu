@@ -6,7 +6,7 @@
  *   app.use(db)
  *   app.use(userSystem({ sql }))          // 可选依赖：sender_id 来自 ctx.user
  *   app.use(messager({ sql, redis }))     // redis 可选：多进程广播
- *   app.ws('/ws', ctx.msg.handler())      // 实时协议（P2）
+ *   app.ws('/ws', msg.handler())          // 实时协议（P2）
  *
  * 数据模型：_weifuwu_conversations / _weifuwu_conversation_members / _weifuwu_messages
  * sender_type + sender_id（不 FK users）——user/agent/system 消息天然可存。

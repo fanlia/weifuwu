@@ -10,6 +10,22 @@ import { Duplex } from 'node:stream'
 import type { IncomingMessage } from 'node:http'
 import type { Context } from '../types.ts'
 
+/**
+ * WebSocket room hub — manages pub/sub groups for real-time messaging.
+ *
+ * Rooms are identified by string keys. Multiple WebSocket connections
+ * can join/leave rooms, and messages are broadcast to all members.
+ *
+ * The default implementation is in-memory (single process).
+ * Pass a custom Hub with Redis backend for multi-instance deployments.
+ */
+export interface Hub {
+  join(key: string, ws: import('ws').WebSocket): void
+  leave(ws: import('ws').WebSocket): void
+  send(key: string, message: string): void
+  close(): Promise<void>
+}
+
 /** WebSocket lifecycle handler. */
 export type WebSocketHandler = {
   open?: (ws: import('ws').WebSocket, ctx: Context) => void | Promise<void>
@@ -26,10 +42,14 @@ export type WsUpgradeHandler = (
   head: Buffer,
 ) => void
 
-/** Minimal context shape for WS handler execution. */
+/**
+ * Minimal context shape for WS handler execution.
+ * ctx.hub = 路由级 Hub（默认内存，可用 app.wsHub() 替换为 Redis 后端）。
+ */
 export function createWsUpgradeHandler(
   wss: WebSocketServer,
   matchWs: (segments: string[]) => WsMatch | null,
+  hub: Hub,
 ): WsUpgradeHandler {
   return (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     const segments = req.url?.split('/').filter(Boolean) ?? []
@@ -42,7 +62,7 @@ export function createWsUpgradeHandler(
 
     wss.handleUpgrade(req, socket, head, (ws) => {
       const url = new URL(req.url ?? '/', 'http://localhost')
-      const ctx = { params: match.params, query: Object.fromEntries(url.searchParams) } as Context
+      const ctx = { params: match.params, query: Object.fromEntries(url.searchParams), hub } as Context
 
       if (match.handler.open) match.handler.open(ws, ctx)
       ws.on('message', (data: string | Buffer) => {

@@ -29,6 +29,8 @@ export interface User {
 
 // Context — extensible via module augmentation.
 
+import type { Hub } from './core/ws.ts'
+
 export interface Context {
   params: Record<string, string>
   query: Record<string, string>
@@ -38,6 +40,8 @@ export interface Context {
   loaderData?: Record<string, unknown>
   /** Public environment variables. */
   env?: Record<string, string>
+  /** WebSocket 房间 Hub（仅 WS 连接 ctx 注入；HTTP 请求 ctx 为 undefined） */
+  hub?: Hub
   [key: string]: unknown // allow arbitrary middleware-injected data
 }
 
