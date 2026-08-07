@@ -102,19 +102,19 @@ export async function handleWebhookMessage(
   const startTime = Date.now()
 
   // 查找 agent — 如果有 tenantId 则验证租户隔离
-  const [agent] = tenantId
-    ? await sql`
+  const agent: Record<string, any> = tenantId
+    ? (await sql`
         SELECT id, system_prompt, model, tools, temperature, max_tokens,
                webhook_secret, webhook_retry_count, tenant_id
         FROM agents
         WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE AND tenant_id = ${tenantId}
-      `
-    : await sql`
+      `)[0] as unknown as Record<string, any>
+    : (await sql`
         SELECT id, system_prompt, model, tools, temperature, max_tokens,
                webhook_secret, webhook_retry_count, tenant_id
         FROM agents
         WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE
-      `
+      `)[0] as unknown as Record<string, any>
 
   if (!agent) {
     throw new Error('Webhook Bot not found or inactive')

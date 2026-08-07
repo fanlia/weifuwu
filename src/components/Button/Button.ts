@@ -9,6 +9,9 @@ export interface ButtonProps {
   loading?: boolean
   disabled?: boolean
   type?: 'button' | 'submit'
+  title?: string
+  /** 透传原生 class（覆盖默认 wf-btn 组合） */
+  class?: string
   onClick?: (e: MouseEvent) => void
   children?: any
 }

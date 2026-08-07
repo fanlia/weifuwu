@@ -16,6 +16,7 @@ import { readdir, access } from 'node:fs/promises'
 import { join, isAbsolute, resolve } from 'node:path'
 import type { ToolDefinition } from '../ai/types.ts'
 import type { Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 
 // ── 类型定义 ───────────────────────────────────────────────
 
@@ -132,7 +133,7 @@ export async function discoverSkills(
  */
 export async function loadSkill(
   skillDir: string,
-  ctxProvider: () => Context,
+  ctxProvider: () => AppCtx,
 ): Promise<SkillContext> {
   // 读取 SKILL.md
   const skPath = join(skillDir, 'SKILL.md')
@@ -199,7 +200,7 @@ export class SkillRegistry {
    * @param skillDir 技能目录路径
    * @param ctxProvider 上下文提供函数
    */
-  async loadSkill(skillDir: string, ctxProvider: () => Context): Promise<SkillContext> {
+  async loadSkill(skillDir: string, ctxProvider: () => AppCtx): Promise<SkillContext> {
     const skill = await loadSkill(skillDir, ctxProvider)
     this.skills.set(skill.meta.name, skill)
     return skill

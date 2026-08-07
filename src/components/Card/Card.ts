@@ -4,6 +4,8 @@ import { h } from '../../client/vnode.ts'
 
 export interface CardProps {
   variant?: 'default' | 'outlined'
+  /** 便捷：outlined = variant 'outlined' */
+  outlined?: boolean
   padding?: 'sm' | 'md' | 'lg'
   clickable?: boolean
   /** hover 抬升（阴影 + 上移），适合可点击/可悬停的卡片 */

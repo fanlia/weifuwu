@@ -120,7 +120,7 @@ export async function sendResponse(
 
   res.end()
 }
-export function serve(router: Router, options?: ServeOptions): Server {
+export function serve<T extends object>(router: Router<T>, options?: ServeOptions): Server {
   const ws = router.websocketHandler()
   const handler = router.handler()
   const port = options?.port ?? 0
@@ -135,7 +135,7 @@ export function serve(router: Router, options?: ServeOptions): Server {
     try {
       const body = await readBody(req, options?.maxBodySize)
       const [request, query] = createRequest(req, body)
-      const response = await handler(request, { params: {}, query } as Context)
+      const response = await handler(request, { params: {}, query } as T)
       await sendResponse(res, response, { traceId })
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err))

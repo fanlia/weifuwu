@@ -11,6 +11,7 @@
  */
 
 import type { Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
 import { SkillRegistry, loadSkill } from './skills.ts'
 import { wsHub } from './ws-hub.ts'
@@ -57,7 +58,7 @@ export function createSseEmitter(write: (chunk: string) => void): StreamEmitter 
  * 5. 通过 WS 推送
  */
 export async function handleNewMessage(
-  ctx: Context,
+  ctx: AppCtx,
   departmentId: string,
   senderId: string,
   messageContent: string,
@@ -196,7 +197,7 @@ export async function handleNewMessage(
  * 5. 更新 DB（消息内容 + token 日志）
  */
 async function runAgentStreamForAgent(
-  ctx: Context,
+  ctx: AppCtx,
   departmentId: string,
   agent: any,
   chatMessages: import('../ai/types.ts').ChatMessage[],
@@ -303,7 +304,7 @@ async function runAgentStreamForAgent(
  * 然后对每个 Agent 调用 runAgentStreamForAgent
  */
 async function runAllAgents(
-  ctx: Context,
+  ctx: AppCtx,
   departmentId: string,
   messageContent: string,
   initialMsgIds: string[],  // WS 路径：每个 agent 一个 msgId；SSE：[]
@@ -392,7 +393,7 @@ async function runAllAgents(
  * WS 路径：消息已由 HTTP handler 创建，传 messageId
  */
 export async function handleNewMessageStream(
-  ctx: Context,
+  ctx: AppCtx,
   departmentId: string,
   senderId: string,
   messageContent: string,
@@ -410,7 +411,7 @@ export async function handleNewMessageStream(
  * SSE 路径：HTTP 响应直接流式输出
  */
 export async function handleNewMessageStreamSSE(
-  ctx: Context,
+  ctx: AppCtx,
   departmentId: string,
   messageContent: string,
   write: (chunk: string) => void,
@@ -431,7 +432,7 @@ export async function handleNewMessageStreamSSE(
 /**
  * 加载 Agent 的技能
  */
-async function loadAgentSkills(sql: any, agentId: string, ctx: Context): Promise<import('./skills.ts').SkillContext[]> {
+async function loadAgentSkills(sql: any, agentId: string, ctx: AppCtx): Promise<import('./skills.ts').SkillContext[]> {
   const preloadedSkills: import('./skills.ts').SkillContext[] = []
   try {
     const agentSkills = (await sql`

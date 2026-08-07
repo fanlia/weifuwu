@@ -7,7 +7,7 @@
 import type { ToolDefinition } from '../ai/types.ts'
 import { registerTools } from '../ai/agent.ts'
 import type { Context } from 'weifuwu'
-import type { AiContext } from '../middleware/ai.ts'
+import type { AppCtx } from '../middleware/ctx.ts'
 
 /**
  * 内置工具定义列表（用于 LLM tool_choice 配置）
@@ -50,7 +50,7 @@ export const BUILTIN_TOOL_DEFS: ToolDefinition[] = [
 /**
  * 在 server.ts 启动时调用，注册内置工具 handler
  */
-export function registerBuiltinTools(getCtx: () => AiContext): void {
+export function registerBuiltinTools(getCtx: () => AppCtx): void {
   registerTools({
     search_knowledge_base: async (args: Record<string, unknown>) => {
       const ctx = getCtx()
@@ -87,7 +87,7 @@ export function registerBuiltinTools(getCtx: () => AiContext): void {
           ORDER BY kc.embedding <=> ${vecStr}::vector
           LIMIT 3
         `
-        for (const c of chunks) {
+        for (const c of chunks as unknown as Array<Record<string, any>>) {
           results.push({
             filename: c.filename,
             content: c.content,

@@ -103,7 +103,7 @@ function matchChild<T extends TrieNodeBase<T>>(
 
 // ── Router ──────────────────────────────────────────────────────
 
-export class Router<T extends Context = Context> {
+export class Router<T extends object = Context> {
   private root = createTrieNode()
   private wsRoot = createWsNode()
   private globalMws: Middleware[] = []
@@ -442,7 +442,7 @@ export class Router<T extends Context = Context> {
 
   // ── Private: Request handling ──────────────────────────────
 
-  private async handle(req: Request, ctx: Context, segments: string[]): Promise<Response> {
+  private async handle(req: Request, ctx: any, segments: string[]): Promise<Response> {
     const match = this.matchTrie(req.method, segments)
     if (match) {
       Object.assign(ctx.params, match.params)
@@ -471,7 +471,7 @@ export class Router<T extends Context = Context> {
     return nf()
   }
 
-  private async handleError(e: unknown, req: Request, ctx: Context): Promise<Response> {
+  private async handleError(e: unknown, req: Request, ctx: any): Promise<Response> {
     const err = e instanceof Error ? e : new Error(String(e))
     // 自定义 onError 优先（可覆盖一切，含 HttpError）
     if (this.errorHandler) return this.errorHandler(err, req, ctx as T)
@@ -490,7 +490,7 @@ export class Router<T extends Context = Context> {
   // ── Private: Middleware chain ───────────────────────────────
 
   private async runChain(
-    mws: Middleware[], finalHandler: Handler, req: Request, ctx: Context,
+    mws: Middleware[], finalHandler: Handler, req: Request, ctx: any,
   ): Promise<Response> {
     if (mws.length === 0) return finalHandler(req, ctx)
     let i = 0

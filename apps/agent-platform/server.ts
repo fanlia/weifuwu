@@ -87,7 +87,7 @@ async function main() {
   // 提供一个获取当前 ctx 的函数，供内置工具在运行时使用
   let currentCtx: AppCtx = null as any
   app.use((req: Request, ctx: Context, next: any) => {
-    currentCtx = ctx as AppCtx
+    currentCtx = ctx as unknown as AppCtx
     return next(req, ctx)
   })
   registerBuiltinTools(() => currentCtx)
@@ -173,7 +173,7 @@ async function main() {
     const { sql, auth } = ctx
     const [user] = await sql`
       SELECT id, email, name, role, created_at
-      FROM users WHERE id = ${auth!.requireAuth().id}
+      FROM users WHERE id = ${auth!.userId}
     `
     if (!user) return Response.json({ error: '用户不存在' }, { status: 404 })
     return Response.json({ user })
@@ -189,7 +189,7 @@ async function main() {
     }
     const [user] = await sql`
       UPDATE users SET name = ${body.name.trim()}, updated_at = NOW()
-      WHERE id = ${auth!.requireAuth().id}
+      WHERE id = ${auth!.userId}
       RETURNING id, email, name, role, created_at
     `
     return Response.json({ user })
@@ -207,7 +207,7 @@ async function main() {
     }
 
     const [user] = await sql`
-      SELECT password_hash FROM users WHERE id = ${auth!.requireAuth().id}
+      SELECT password_hash FROM users WHERE id = ${auth!.userId}
     `
     if (!user) return Response.json({ error: '用户不存在' }, { status: 404 })
 
@@ -219,7 +219,7 @@ async function main() {
     const newHash = await hashPassword(body.newPassword)
     await sql`
       UPDATE users SET password_hash = ${newHash}, updated_at = NOW()
-      WHERE id = ${auth!.requireAuth().id}
+      WHERE id = ${auth!.userId}
     `
     return Response.json({ success: true })
   })

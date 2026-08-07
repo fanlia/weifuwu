@@ -1,16 +1,34 @@
 /**
- * agent-platform 聚合上下文 — 全部自研中间件注入的显式交叉类型。
+ * agent-platform 聚合上下文 — 自研中间件注入的显式类型。
  *
- * 不 declare module 覆盖框架 Context（避免与框架已声明的 auth?/ai? 等类型冲突），
- * 而是用交叉类型让编译器精确知道每个 handler 可用的注入字段。
- * 使用方式：route/service handler 的 `ctx: AppCtx`。
+ * 不用 declare module 覆盖框架 Context（同名 auth?/ai? 与框架类型冲突），
+ * 也不用 Omit（Context 带 index signature，Omit 会污染字段为 unknown）。
+ * 而是自包含接口：显式列出 handler 实际可用的字段（含框架 postgres 注入的 sql），
+ * 配合框架 Router<T extends object>（放开约束后自定义上下文成为一等公民）。
  */
-import type { Context } from 'weifuwu'
-import type { AiInjected } from './ai.ts'
-import type { AuthInjected } from './auth.ts'
-import type { TenantInjected } from './tenant.ts'
-import type { WorkspaceInjected } from './workspace.ts'
+import type { User, Context } from 'weifuwu'
+import type { AiClient } from '../ai/types.ts'
+import type { AuthPayload } from './auth.ts'
+import type { WorkspaceInfo } from './workspace.ts'
 
-// Omit 掉框架 Context 的 ai?/auth?（类型与自研 AiClient/AuthPayload 冲突），
-// 用自研注入类型接管——避免交叉后方法签名取框架版（如 agent() 返回 SSE Response 而非结构化结果）。
-export type AppCtx = Omit<Context, 'ai' | 'auth'> & AiInjected & AuthInjected & TenantInjected & WorkspaceInjected
+export interface AppCtx {
+  // ── 框架核心字段 ──
+  params: Record<string, string>
+  query: Record<string, string>
+  mountPath?: string
+  user?: User | null
+  loaderData?: Record<string, unknown>
+  env?: Record<string, string>
+  /** postgres() 中间件注入（Context['sql'] 由框架 postgres declare 提供） */
+  sql: Context['sql']
+  // ── 自研中间件注入 ──
+  /** JWT payload（自研 auth 中间件） */
+  auth: AuthPayload
+  /** 自研 AI 客户端（chat/agent/embedding 走框架 ctx.ai 能力，见 middleware/ai.ts） */
+  ai: AiClient
+  /** 租户隔离（tenant 中间件从 auth.tenantId 注入） */
+  tenantId: string
+  workspace?: WorkspaceInfo
+  // ── 其他中间件注入（宽松） ──
+  [key: string]: unknown
+}

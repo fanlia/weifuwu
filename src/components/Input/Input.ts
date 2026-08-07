@@ -15,6 +15,11 @@ export interface InputProps {
   variant?: 'default' | 'borderless'
   onInput?: (e: Event) => void
   onChange?: (e: Event) => void
+  /** 原生 input 属性透传（type=number 时 min/max/step 等） */
+  min?: string | number
+  max?: string | number
+  step?: string | number
+  [key: string]: any
 }
 
 export const Input: Component<InputProps> = (_init) =>

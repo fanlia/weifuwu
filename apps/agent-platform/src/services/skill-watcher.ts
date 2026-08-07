@@ -12,13 +12,14 @@ import { join, basename, dirname } from 'node:path'
 import type { SkillRegistry } from './skills.ts'
 import { detectSkill, loadSkill } from './skills.ts'
 import type { Context } from 'weifuwu'
+import type { AppCtx } from '../middleware/ctx.ts'
 
 type SkillChangeHandler = (event: 'added' | 'removed' | 'changed', skillName: string) => void
 
 export class SkillWatcher {
   private rootDir: string
   private registry: SkillRegistry
-  private ctxProvider: () => Context
+  private ctxProvider: () => AppCtx
   private handlers: SkillChangeHandler[] = []
   private watcher: ReturnType<typeof watch> | null = null
   private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -26,7 +27,7 @@ export class SkillWatcher {
   constructor(
     rootDir: string,
     registry: SkillRegistry,
-    ctxProvider: () => Context,
+    ctxProvider: () => AppCtx,
   ) {
     this.rootDir = rootDir
     this.registry = registry

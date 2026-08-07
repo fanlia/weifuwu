@@ -84,11 +84,11 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: '你不是该部门的成员' }, { status: 403 })
     }
 
-    const [message] = await sql`
+    const [message] = (await sql`
       INSERT INTO messages (department_id, sender_id, content, msg_type, reply_to)
       VALUES (${params.id}, ${sender.id}, ${body.content}, ${body.msg_type ?? 'text'}, ${body.reply_to ?? null})
       RETURNING id, department_id, sender_id, content, msg_type, created_at
-    `
+    `) as unknown as Array<Record<string, any>>
 
     // WebSocket 推送新消息
     wsHub.broadcast(params.id, {

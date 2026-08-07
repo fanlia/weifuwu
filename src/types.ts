@@ -43,7 +43,7 @@ export interface Context {
 
 // Generic handler — T extends Context so middleware-injected properties are visible.
 // Default T = Context means no generics needed for simple cases.
-export type Handler<T extends Context = Context> = (
+export type Handler<T extends object = Context> = (
   req: Request,
   ctx: T,
 ) => Response | Promise<Response>
@@ -67,7 +67,7 @@ export type Middleware<In extends Context = Context, Out extends In = In> = {
   __meta?: MiddlewareMeta
 }
 
-export type ErrorHandler<T extends Context = Context> = (
+export type ErrorHandler<T extends object = Context> = (
   error: Error,
   req: Request,
   ctx: T,
