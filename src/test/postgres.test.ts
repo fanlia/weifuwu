@@ -1,7 +1,9 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
 import { postgres } from '../postgres/index.ts'
 import { HttpError } from '../types.ts'
+import { Router } from '../core/router.ts'
 
 describe('postgres', () => {
   const pg = postgres()
@@ -176,6 +178,76 @@ describe('postgres middleware option passthrough (real database)', () => {
       await tx
     } finally {
       await sql.close()
+    }
+  })
+})
+
+describe('postgres traceId propagation (x-trace-id → ALS → onQuery)', () => {
+  function startServer(app: Router): Promise<any> {
+    return new Promise((resolve) => {
+      const server = createServer((req, res) => {
+        app
+          .handler()(new Request(`http://localhost${req.url}`, { method: req.method, headers: req.headers as any }), { params: {}, query: {} })
+          .then((r: any) => {
+            res.writeHead(r.status, { 'content-type': 'application/json' })
+            res.end(JSON.stringify(r.body ?? ''))
+          })
+          .catch(() => {
+            res.writeHead(500)
+            res.end()
+          })
+      })
+      server.listen(0, () => resolve(server))
+    })
+  }
+
+  it('onQuery 第 4 参数收到请求级 traceId（x-trace-id 头）', async () => {
+    const calls: (string | undefined)[] = []
+    const pg = postgres({
+      connection: process.env.DATABASE_URL,
+      max: 1,
+      onQuery: (_q, _d, _r, tid) => calls.push(tid),
+    })
+    const app = new Router()
+    app.use(pg)
+    app.get('/trace', async (_req, ctx) => {
+      await ctx.sql`SELECT 1 AS ok`
+      return new Response('ok')
+    })
+    const server = await startServer(app)
+    const port = (server.address() as any).port
+    try {
+      await fetch(`http://localhost:${port}/trace`, { headers: { 'x-trace-id': 'trace-aaa' } })
+      await fetch(`http://localhost:${port}/trace`, { headers: { 'x-trace-id': 'trace-bbb' } })
+      const last2 = calls.slice(-2)
+      assert.deepEqual(last2, ['trace-aaa', 'trace-bbb'])
+    } finally {
+      server.close()
+      await pg.close()
+    }
+  })
+
+  it('无 x-trace-id 头 → onQuery 第 4 参数为 undefined（不注入空串）', async () => {
+    const calls: (string | undefined)[] = []
+    const pg = postgres({
+      connection: process.env.DATABASE_URL,
+      max: 1,
+      onQuery: (_q, _d, _r, tid) => calls.push(tid),
+    })
+    const app = new Router()
+    app.use(pg)
+    app.get('/plain', async (_req, ctx) => {
+      await ctx.sql`SELECT 1 AS ok`
+      return new Response('ok')
+    })
+    const server = await startServer(app)
+    const port = (server.address() as any).port
+    try {
+      await fetch(`http://localhost:${port}/plain`)
+      assert.equal(calls.at(-1), undefined)
+    } finally {
+      server.close()
+      await pg.close()
     }
   })
 })

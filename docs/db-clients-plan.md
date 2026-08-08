@@ -257,7 +257,21 @@ weifuwu 自研 DB 客户端支持:
 ```
 支持:
   postgres: 连接/SCRAM-SHA-256/md5/扩展查询/参数化/类型映射/事务/池/schema 校验
+            + 批量插入(insertMany)/语义化 update·delete/影响行数(affectedRows)
+            + 空闲连接回收(idleTimeoutMs)/请求级 traceId 传播(onQuery 第 4 参)
+            + DDL 失效自愈 / prepared 服务端 DEALLOCATE（LRU 淘汰不泄漏）
   redis:    RESP2/连接/重连/离线队列/管道/JSON 存取/TTL/key 前缀
 不支持（明确抛 ProtocolError('unsupported'））:
   逻辑复制/大对象/显式游标/二进制 COPY/集群/哨兵/自动管道
 ```
+
+### 后续优化（2026 会话二，全部 TDD 落地 + 真库验证）
+
+| 优化 | 问题 | 方案 | 测试 |
+|------|------|------|------|
+| statement 服务端释放 | LRU 淘汰只清客户端 map，服务端 `wf_s*` 只涨不消（plan 缓存膨胀） | 淘汰入队 → 连接空闲（Z）时批量 `DEALLOCATE`（`awaitingDeallocZ` 消费响应 Z） | 130 个不同 SQL → `pg_prepared_statements` 计数 ≤ 128 |
+| affectedRows | CommandComplete tag（`INSERT 0 N`/`UPDATE N`）被丢弃 | `C` 解析 + **非枚举**挂载到行数组（deepEqual/JSON 不受影响） | INSERT/UPDATE/DELETE 各断言；SELECT 不设 |
+| insertMany | 批量写 N 次往返 | 多行 VALUES 单次往返；所有行键必须一致（不一致抛 ValidationError） | 100 行 1 往返；键不一致拒绝；batchSize 分批；schema 校验 |
+| update/delete | 手写 `sql\`UPDATE...\`` + 拼接 | SET/WHERE 全参数化 + affectedRows + returning；WHERE 必填防全表误删 | 更新/删除影响行数；returning 回读；无匹配 → 0 |
+| idle 回收 | 池连接永不过期（PG 端可能杀空闲连接） | `idleTimeoutMs` 定时扫描 available 超时关闭；acquire 自动扩容重建 | 1.5s 后 `open` 收缩；再查询恢复；默认 0 不回收 |
+| traceId 传播 | onQuery 无法关联请求 | `x-trace-id` 头 → AsyncLocalStorage → onQuery 第 4 参（无则不注入） | 两请求不同 traceId 到达；无头 → undefined |

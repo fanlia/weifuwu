@@ -410,3 +410,71 @@ describe('postgres prepare cache DDL recovery (real database)', () => {
     await conn.query(`DROP TYPE IF EXISTS ${typ} CASCADE`)
   })
 })
+
+describe('postgres statement lifecycle + affectedRows (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let conn: PgConnection
+
+  before(async () => {
+    conn = new PgConnection(cfg)
+    await conn.connect()
+  })
+
+  after(async () => {
+    await conn.close()
+  })
+
+  it('LRU 淘汰的 prepared statement 服务端同步释放（DEALLOCATE，无泄漏）', async () => {
+    // PREPARED_MAX=128——执行 130 个不同 SQL，服务端命名 statement 应 ≤ 128
+    for (let i = 0; i < 130; i++) {
+      await conn.query(`SELECT $1::int AS v WHERE $1 = ${i}`, [i])
+    }
+    const r = await conn.query(
+      `SELECT count(*)::int AS n FROM pg_prepared_statements WHERE name LIKE 'wf_s%'`,
+    )
+    assert.ok(Number(r[0].n) <= 128, `服务端命名 statement 泄漏: ${r[0].n} 个（应 ≤ 128）`)
+  })
+
+  it('affectedRows: INSERT 返回插入行数', async () => {
+    const tbl = `wf_aff_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, v text)`)
+    try {
+      const rows = await conn.query(`INSERT INTO ${tbl} VALUES ($1, $2)`, [1, 'a'])
+      assert.equal(rows.affectedRows, 1)
+      await conn.query(`INSERT INTO ${tbl} VALUES ($1, $2), ($3, $4)`, [2, 'b', 3, 'c'])
+      const r2 = await conn.query(`SELECT count(*)::int AS n FROM ${tbl}`)
+      assert.equal(r2[0].n, 3)
+    } finally {
+      await conn.query(`DROP TABLE ${tbl}`)
+    }
+  })
+
+  it('affectedRows: UPDATE 返回实际修改行数', async () => {
+    const tbl = `wf_affu_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, v text)`)
+    try {
+      await conn.query(`INSERT INTO ${tbl} VALUES (1, 'a'), (2, 'b'), (3, 'c')`)
+      const rows = await conn.query(`UPDATE ${tbl} SET v = $1 WHERE id >= $2`, ['x', 2])
+      assert.equal(rows.affectedRows, 2)
+      // 无匹配行 → 0
+      const zero = await conn.query(`UPDATE ${tbl} SET v = $1 WHERE id = $2`, ['y', 999])
+      assert.equal(zero.affectedRows, 0)
+    } finally {
+      await conn.query(`DROP TABLE ${tbl}`)
+    }
+  })
+
+  it('affectedRows: DELETE 返回删除行数；SELECT 无 affectedRows', async () => {
+    const tbl = `wf_affd_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY)`)
+    try {
+      await conn.query(`INSERT INTO ${tbl} VALUES (1), (2), (3)`)
+      const del = await conn.query(`DELETE FROM ${tbl} WHERE id < $1`, [3])
+      assert.equal(del.affectedRows, 2)
+      const sel = await conn.query(`SELECT * FROM ${tbl}`)
+      assert.equal(sel.affectedRows, undefined) // SELECT 不产生行数 tag
+    } finally {
+      await conn.query(`DROP TABLE ${tbl}`)
+    }
+  })
+})

@@ -9,7 +9,7 @@
  * 并发查询路由到不同连接，全忙时排队等待而非 reject。
  */
 
-import { PgConnection, type PgConnectionOptions, type Row } from './connection.ts'
+import { PgConnection, type PgConnectionOptions, type Row, type QueryResult } from './connection.ts'
 import { ConnectionError, TimeoutError, ValidationError } from '../errors.ts'
 import { validateRow, type Schema } from './schema.ts'
 
@@ -18,6 +18,8 @@ export interface PgPoolOptions extends PgConnectionOptions {
   poolSize?: number
   /** acquire 超时 ms（池全忙时等待上限，防饿死）。默认 30_000。0 = 无限。 */
   acquireTimeoutMs?: number
+  /** 空闲连接回收 ms（超时未使用的连接关闭，容量收缩；下次需要时自动重建）。默认 0 = 禁用。 */
+  idleTimeoutMs?: number
   /** 查询观测钩子（慢查询日志/审计） */
   onQuery?: (sql: string, durationMs: number, rowCount: number) => void
 }
@@ -36,6 +38,7 @@ export class PgPool {
   private opts: PgPoolOptions
   private initPromise: Promise<void> | null = null
   private schemas = new Map<string, Schema>()
+  private idleTimer: NodeJS.Timeout | null = null
 
   /** 懒连接：构造不连接，ensure() 首次初始化（中间件注入场景） */
   constructor(options: PgPoolOptions = {}) {
@@ -71,13 +74,58 @@ export class PgPool {
     this.all = conns
     this.available = [...conns]
     this.readyPromise = Promise.resolve()
+    this.startIdleReaper()
   }
 
-  /** 获取一个空闲连接（全忙则排队等待） */
+  /** 空闲回收定时器（idleTimeoutMs > 0 时启动；unref 不阻塞进程退出） */
+  private startIdleReaper(): void {
+    const ms = this.opts.idleTimeoutMs ?? 0
+    if (ms <= 0 || this.idleTimer) return
+    this.idleTimer = setInterval(() => this.reapIdle(), ms)
+    this.idleTimer.unref?.()
+  }
+
+  /** 扫描空闲连接：超时未使用 → close + 从池移除（容量收缩；acquire 时自动重建） */
+  private reapIdle(): void {
+    if (this.closed) return
+    const now = Date.now()
+    const ms = this.opts.idleTimeoutMs ?? 0
+    for (let i = this.available.length - 1; i >= 0; i--) {
+      const conn = this.available[i]
+      if (conn.lastUsed > 0 && now - conn.lastUsed >= ms) {
+        this.available.splice(i, 1)
+        const idx = this.all.indexOf(conn)
+        if (idx >= 0) this.all.splice(idx, 1)
+        conn.close()
+      }
+    }
+  }
+
+  /** 当前打开的连接数（含借出；测试/观测用） */
+  get open(): number {
+    return this.all.length
+  }
+
+  /** 获取一个空闲连接（全忙则排队等待；池被空闲回收收缩时自动新建恢复容量） */
   private acquire(): Promise<PgConnection> {
     if (this.closed) return Promise.reject(new ConnectionError('postgres: pool is closed'))
     if (this.available.length > 0) {
       return Promise.resolve(this.available.pop()!)
+    }
+    // 容量被空闲回收收缩：新建连接补位（失败则排队等 replenish 重试）
+    const poolSize = this.opts.poolSize ?? 5
+    if (this.all.length < poolSize) {
+      const c = new PgConnection(this.opts)
+      return c.connect().then(
+        () => {
+          this.all.push(c)
+          return c
+        },
+        () => {
+          setTimeout(() => this.replenish(), 500)
+          throw new ConnectionError('postgres: failed to establish connection')
+        },
+      )
     }
     const timeoutMs = this.opts.acquireTimeoutMs ?? 30_000
     return new Promise((resolve, reject) => {
@@ -107,6 +155,7 @@ export class PgPool {
       this.replenish()
       return
     }
+    conn.lastUsed = Date.now()
     this.dispatchAvailable(conn)
   }
 
@@ -140,7 +189,7 @@ export class PgPool {
       })
   }
 
-  async query<T = Row>(sql: string, params?: QueryParams): Promise<T[]> {
+  async query<T = Row>(sql: string, params?: QueryParams): Promise<QueryResult<T>> {
     await this.ensure()
     const conn = await this.acquire()
     const start = performance.now()
@@ -158,8 +207,85 @@ export class PgPool {
     this.schemas.set(table, schema)
   }
 
+  /**
+   * 批量插入：多行 VALUES 单次往返（种子/批量写场景 N 往返 → 1）。
+   * 诚实裁剪：所有行必须键集合一致（否则抛 ValidationError）；batchSize 分批（默认 500）。
+   */
+  async insertMany<T = Row>(
+    table: string,
+    rows: Record<string, unknown>[],
+    opts: { batchSize?: number } = {},
+  ): Promise<QueryResult<T>> {
+    const empty = [] as QueryResult<T>
+    if (rows.length === 0) {
+      Object.defineProperty(empty, 'affectedRows', { value: 0, enumerable: false, writable: true })
+      return empty
+    }
+    const schema = this.schemas.get(table)
+    const keys = Object.keys(rows[0]).sort()
+    const batchSize = Math.max(1, opts.batchSize ?? 500)
+    let total = 0
+    let last: QueryResult<T> = empty
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize)
+      for (let r = 0; r < batch.length; r++) {
+        const row = batch[r]
+        const rowKeys = Object.keys(row).sort()
+        if (rowKeys.length !== keys.length || rowKeys.some((k, j) => k !== keys[j])) {
+          throw new ValidationError(
+            `schema: insertMany requires identical keys across rows (row ${i + r} has [${rowKeys}], expected [${keys}])`,
+          )
+        }
+        if (schema) validateRow(schema, row)
+      }
+      const vals = batch
+        .map((_, r) => `(${keys.map((_, c) => `$${r * keys.length + c + 1}`).join(', ')})`)
+        .join(', ')
+      const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES ${vals}`
+      const params = batch.flatMap((row) => keys.map((k) => row[k]))
+      const r = await this.query<T>(sql, params as QueryParams)
+      total += (r as QueryResult).affectedRows ?? batch.length
+      if (r.length > 0) last = r
+    }
+    Object.defineProperty(last, 'affectedRows', { value: total, enumerable: false, writable: true })
+    return last
+  }
+
+  /** 参数化 UPDATE：SET + WHERE 全部参数化（防注入）；返回 affectedRows；returning 可回读修改行 */
+  async update<T = Row>(
+    table: string,
+    set: Record<string, unknown>,
+    where: Record<string, unknown>,
+    opts: { returning?: string[] } = {},
+  ): Promise<QueryResult<T>> {
+    const schema = this.schemas.get(table)
+    if (schema) validateRow(schema, { ...set, ...where })
+    const setCols = Object.keys(set)
+    if (setCols.length === 0) throw new ValidationError('schema: update requires at least one SET column')
+    const whereCols = Object.keys(where)
+    if (whereCols.length === 0) {
+      throw new ValidationError('schema: update requires a WHERE clause (full-table update via unsafe)')
+    }
+    const setSql = setCols.map((c, i) => `${c} = $${i + 1}`).join(', ')
+    const whereSql = whereCols.map((c, i) => `${c} = $${setCols.length + i + 1}`).join(' AND ')
+    const returning = opts.returning?.length ? ` RETURNING ${opts.returning.join(', ')}` : ''
+    const sql = `UPDATE ${table} SET ${setSql} WHERE ${whereSql}${returning}`
+    const params = [...setCols.map((c) => set[c]), ...whereCols.map((c) => where[c])]
+    return this.query<T>(sql, params as QueryParams)
+  }
+
+  /** 参数化 DELETE：WHERE 参数化；返回 affectedRows。WHERE 必填（防全表误删） */
+  async delete<T = Row>(table: string, where: Record<string, unknown>): Promise<QueryResult<T>> {
+    const schema = this.schemas.get(table)
+    if (schema) validateRow(schema, where)
+    const whereCols = Object.keys(where)
+    if (whereCols.length === 0) throw new ValidationError('schema: delete requires a WHERE clause')
+    const sql = `DELETE FROM ${table} WHERE ${whereCols.map((c, i) => `${c} = $${i + 1}`).join(' AND ')}`
+    return this.query<T>(sql, whereCols.map((c) => where[c]) as QueryParams)
+  }
+
   /** 写前校验 + 参数化插入（schema 驱动，脏数据源头拦截） */
-  async insert<T = Row>(table: string, row: Record<string, unknown>): Promise<T[]> {
+  async insert<T = Row>(table: string, row: Record<string, unknown>): Promise<QueryResult<T>> {
     const schema = this.schemas.get(table)
     if (!schema) {
       throw new ValidationError(`schema: table '${table}' not registered—call register() first`)
@@ -177,7 +303,7 @@ export class PgPool {
    * 插值 = 参数（postgres.js 语义，防注入）；表名必须硬编码（插值会被当参数）。
    * 对象插值自动 JSON.stringify → jsonb。
    */
-  tag(strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]> {
+  tag(strings: TemplateStringsArray, ...values: unknown[]): Promise<QueryResult<Row>> {
     const { sql, params } = parseTagged(strings, values)
     return this.query(sql, params)
   }
@@ -201,7 +327,7 @@ export class PgPool {
   }
 
   /** 原生 SQL（DDL / 动态表名场景）；$1 占位符 + 参数数组 */
-  async unsafe(sql: string, params?: QueryParams): Promise<Row[]> {
+  async unsafe(sql: string, params?: QueryParams): Promise<QueryResult<Row>> {
     await this.ensure()
     const conn = await this.acquire()
     try {
@@ -213,7 +339,7 @@ export class PgPool {
 
   /** 事务：固定在单个连接上执行整个 BEGIN→fn→COMMIT/ROLLBACK */
   async transaction<T>(
-    fn: (tx: { query: (sql: string, params?: QueryParams) => Promise<Row[]> }) => Promise<T>,
+    fn: (tx: { query: (sql: string, params?: QueryParams) => Promise<QueryResult<Row>> }) => Promise<T>,
   ): Promise<T> {
     await this.ensure()
     const conn = await this.acquire()
@@ -234,6 +360,10 @@ export class PgPool {
 
   async close(): Promise<void> {
     this.closed = true
+    if (this.idleTimer) {
+      clearInterval(this.idleTimer)
+      this.idleTimer = null
+    }
     this.readyPromise = null
     this.available = []
     // 关闭所有连接（含被借出的）——借贷池关闭不留泄漏
@@ -283,4 +413,4 @@ function parseTagged(strings: TemplateStringsArray, values: unknown[]): { sql: s
 }
 
 /** tagged template 事务 sql（begin 回调参数） */
-export type TaggedSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Row[]>
+export type TaggedSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<QueryResult<Row>>

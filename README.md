@@ -699,8 +699,27 @@ await ctx.sql.insert('decks', { title: 'x', status: 'INVALID' }) // → Validati
 | `ctx.sql.transaction(fn)` | 事务（回调收到 `{ query }`） |
 | `ctx.sql.register(table, schema)` | 注册表结构（写前校验） |
 | `ctx.sql.insert(table, row)` | schema 校验 + 参数化插入 |
+| `ctx.sql.insertMany(table, rows[], { batchSize? })` | **批量插入**：多行 VALUES 单次往返（默认 500/批；所有行键必须一致） |
+| `ctx.sql.update(table, set, where, { returning? })` | **参数化 UPDATE**：SET/WHERE 全部参数化，返回 `affectedRows` |
+| `ctx.sql.delete(table, where)` | **参数化 DELETE**：WHERE 必填（防全表误删），返回 `affectedRows` |
 | `ctx.sql\`...\` 内嵌片段` | 条件 SQL 片段（嵌套过滤，参数自动重编号） |
 | `ctx.sql.close()` | 关闭连接池 |
+
+### 影响行数（affectedRows）
+
+`INSERT / UPDATE / DELETE / MERGE` 的返回行数组带**非枚举** `affectedRows` 属性（不干扰 `deepEqual`/`JSON.stringify`）：
+
+```ts
+const r = await ctx.sql`UPDATE messages SET read = true WHERE id = ${id}`
+if (r.affectedRows === 0) return new Response('not found', { status: 404 })
+```
+
+```ts
+// 批量插入：100 行 1 次往返
+await ctx.sql.insertMany('agent_logs', logs, { batchSize: 500 })
+// 语义化更新/删除：WHERE 全参数化 + 返回影响行数
+await ctx.sql.update('users', { role: 'admin' }, { id: userId })
+await ctx.sql.delete('messages', { id: msgId })
 
 ### 条件片段（嵌套过滤）
 
@@ -721,7 +740,8 @@ const rows = await ctx.sql`
 | `max`（或 `poolSize`） | `number` | `10` | 连接池大小 |
 | `acquireTimeoutMs` | `number` | `30000` | 池全忙时 acquire 超时（防饿死，0=无限） |
 | `statementTimeoutMs`（或 `statementTimeout`） | `number` | `0` | 语句超时（慢查询保护，0=禁用） |
-| `onQuery` | `(sql, durationMs, rowCount) => void` | — | 查询观测钩子（慢查询日志/审计） |
+| `idleTimeoutMs` | `number` | `0` | 空闲连接回收（超时未用关闭，容量收缩后自动重建；0=禁用） |
+| `onQuery` | `(sql, durationMs, rowCount, traceId?) => void` | — | 查询观测钩子；第 4 参数为请求级 traceId（`x-trace-id` 头经 ALS 传播） |
 
 ### 幂等迁移（内置）
 

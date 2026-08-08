@@ -301,3 +301,110 @@ describe('postgres pool connection recovery (real database)', () => {
     }
   })
 })
+
+describe('postgres insertMany + update/delete (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  const tbl = `wf_bulk_${process.pid}`
+  let pool: PgPool
+
+  before(async () => {
+    pool = await PgPool.create({ ...cfg, poolSize: 2 })
+    await pool.query(`DROP TABLE IF EXISTS ${tbl}`)
+    await pool.query(`CREATE TABLE ${tbl} (id int PRIMARY KEY, v text, n int)`)
+  })
+
+  after(async () => {
+    await pool.query(`DROP TABLE IF EXISTS ${tbl}`)
+    await pool.close()
+  })
+
+  it('insertMany: 100 行单次往返（多行 VALUES）', async () => {
+    const rows = Array.from({ length: 100 }, (_, i) => ({ id: i, v: `v${i}`, n: i * 2 }))
+    const r = await pool.insertMany(tbl, rows)
+    assert.equal(r.affectedRows, 100)
+    const cnt = await pool.query(`SELECT count(*)::int AS n FROM ${tbl}`)
+    assert.equal(cnt[0].n, 100)
+  })
+
+  it('insertMany: 行键不一致抛 ValidationError（诚实裁剪）', async () => {
+    await assert.rejects(
+      () =>
+        pool.insertMany(tbl, [
+          { id: 999, v: 'a' },
+          { id: 1000, n: 1 }, // 缺 v，多 n——键集合不一致
+        ]),
+      /ValidationError|must have the same|key/i,
+    )
+  })
+
+  it('insertMany: batchSize 分批边界（7 行 × batchSize 3 → 3 批全成功）', async () => {
+    const rows = Array.from({ length: 7 }, (_, i) => ({ id: 200 + i, v: `b${i}` }))
+    const r = await pool.insertMany(tbl, rows, { batchSize: 3 })
+    assert.equal(r.affectedRows, 7)
+    const cnt = await pool.query(`SELECT count(*)::int AS n FROM ${tbl} WHERE id >= 200`)
+    assert.equal(cnt[0].n, 7)
+  })
+
+  it('update: 参数化 SET + WHERE，返回 affectedRows', async () => {
+    const r = await pool.update(tbl, { v: 'updated' }, { id: 5 })
+    assert.equal(r.affectedRows, 1)
+    const row = await pool.query(`SELECT v FROM ${tbl} WHERE id = 5`)
+    assert.equal(row[0].v, 'updated')
+    // 无匹配 → 0
+    const zero = await pool.update(tbl, { v: 'x' }, { id: 9999 })
+    assert.equal(zero.affectedRows, 0)
+  })
+
+  it('update: returning 返回修改后的行', async () => {
+    const r = await pool.update(tbl, { n: 42 }, { id: 6 }, { returning: ['id', 'v', 'n'] })
+    assert.equal(r[0].id, 6)
+    assert.equal(r[0].n, 42)
+  })
+
+  it('delete: 返回删除行数；无匹配 → 0', async () => {
+    const del = await pool.delete(tbl, { id: 1 })
+    assert.equal(del.affectedRows, 1)
+    const zero = await pool.delete(tbl, { id: 9999 })
+    assert.equal(zero.affectedRows, 0)
+  })
+
+  it('insertMany: schema 注册后写前校验（脏数据拦截）', async () => {
+    pool.register(tbl, { id: { type: 'int', required: true }, v: { type: 'text' }, n: { type: 'int' } })
+    await assert.rejects(
+      () => pool.insertMany(tbl, [{ id: 'not-int', v: 'x' }]),
+      /must be an integer/i,
+    )
+  })
+})
+
+describe('postgres pool idle reaping (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+
+  it('idleTimeoutMs: 空闲连接超时回收，查询后自动重建恢复', async () => {
+    const pool = await PgPool.create({ ...cfg, poolSize: 3, idleTimeoutMs: 800 })
+    try {
+      const a = await pool.query('SELECT 1 AS one')
+      assert.equal(a[0].one, 1)
+      assert.equal(pool.open, 3)
+      // 等 1.5s——空闲连接被定时回收（池容量收缩）
+      await new Promise((r) => setTimeout(r, 1500))
+      assert.ok(pool.open < 3, `空闲回收后连接数应 < 3，实际 ${pool.open}`)
+      // 再查询——自动扩容重建，服务不中断
+      const b = await pool.query('SELECT 1 AS one')
+      assert.equal(b[0].one, 1)
+    } finally {
+      await pool.close()
+    }
+  })
+
+  it('idleTimeoutMs=0（默认）：空闲连接不回收', async () => {
+    const pool = await PgPool.create({ ...cfg, poolSize: 2 })
+    try {
+      await pool.query('SELECT 1 AS one')
+      await new Promise((r) => setTimeout(r, 300))
+      assert.equal(pool.open, 2)
+    } finally {
+      await pool.close()
+    }
+  })
+})

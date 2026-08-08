@@ -65,6 +65,11 @@ export interface Row {
   [col: string]: unknown
 }
 
+/** 查询结果：行数组 + 影响行数（INSERT/UPDATE/DELETE/MERGE 的 CommandComplete tag） */
+export interface QueryResult<T = Row> extends Array<T> {
+  affectedRows?: number
+}
+
 export class PgConnection {
   private opts: Required<
     Pick<PgConnectionOptions, 'host' | 'port' | 'user' | 'database' | 'connectTimeoutMs' | 'statementTimeoutMs'>
@@ -94,6 +99,9 @@ export class PgConnection {
   get connected(): boolean {
     return this.status === 'ready'
   }
+
+  /** 池空闲回收用：最近一次查询完成时间戳（pool release 时更新） */
+  lastUsed = 0
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -151,10 +159,14 @@ export class PgConnection {
   private prepared = new Map<string, { name: string; columns: ReturnType<typeof parseRowDescription> }>() // sig → stmt + 列缓存（LRU）
   private static readonly PREPARED_MAX = 128
   private stmtSeq = 0
+  /** LRU 淘汰的 statement 名——连接空闲时批量 DEALLOCATE（服务端同步释放，防 plan 缓存膨胀） */
+  private deallocQueue: string[] = []
+  /** DEALLOCATE 批量的响应 Z——仅消费（不 resolve 查询） */
+  private awaitingDeallocZ = false
   private currentQuery: {
     columns: ReturnType<typeof parseRowDescription>
     rows: Row[]
-    resolve: (rows: Row[]) => void
+    resolve: (rows: QueryResult<Row>) => void
     reject: (e: unknown) => void
     sql?: string
     params?: (string | null)[]
@@ -162,6 +174,7 @@ export class PgConnection {
     prepKey?: string
     prepName?: string
     retried?: boolean
+    affectedRows?: number
   } | null = null
 
   /** DDL 失效重试：缓存语句被 DROP 后服务器拒绝执行，Sync 复位后以新语句名重 Parse */
@@ -289,8 +302,17 @@ export class PgConnection {
         }
         break
       }
-      case 'C':
-        break // CommandComplete——忽略 tag
+      case 'C': {
+        // CommandComplete——解析影响行数（INSERT 0 N / UPDATE N / DELETE N / MERGE N）
+        const q = this.currentQuery
+        if (q) {
+          // Uint8Array 无编码 toString——必须 TextDecoder
+          const tag = new TextDecoder().decode(msg.payload).replace(/\0+$/, '')
+          const m = tag.match(/^(?:INSERT|UPDATE|DELETE|MERGE)\s+(?:\d+\s+)?(\d+)$/)
+          if (m) q.affectedRows = parseInt(m[1], 10)
+        }
+        break
+      }
       case 't': {
         // ParameterDescription——Parse 成功确认，缓存 statement 后发 Bind + Execute + Sync
         if (this.currentQuery?.awaitingDescribe && this.currentQuery.sql !== undefined) {
@@ -320,9 +342,28 @@ export class PgConnection {
           }
           break
         }
+        // DEALLOCATE 批量的响应 Z——仅消费（不触达查询；其后的查询 Z 正常处理）
+        if (this.awaitingDeallocZ) {
+          this.awaitingDeallocZ = false
+          break
+        }
         const q = this.currentQuery
         this.currentQuery = null
-        if (q) q.resolve(q.rows)
+        if (q) {
+          const rows = q.rows as QueryResult<Row>
+          // 非枚举属性：行数据语义不变（deepEqual/JSON.stringify 不受影响）
+          if (q.affectedRows !== undefined) {
+            Object.defineProperty(rows, 'affectedRows', {
+              value: q.affectedRows,
+              enumerable: false,
+              writable: true,
+              configurable: true,
+            })
+          }
+          q.resolve(rows)
+        }
+        // 连接空闲：批量释放 LRU 淘汰的 statement（写在前，后续查询一定在其后发出）
+        this.flushDealloc()
         // statement_timeout 设置完成——连接真正就绪
         if (this.awaitingReady) {
           this.awaitingReady = false
@@ -423,19 +464,33 @@ export class PgConnection {
     return entry
   }
 
-  /** LRU 写入：刷新位置；超上限淘汰最旧（长运行服务防无限累积） */
+  /** LRU 写入：刷新位置；超上限淘汰最旧（长运行服务防无限累积）——淘汰的 statement 推入 deallocQueue，连接空闲时服务端同步释放 */
   private setPrepared(sig: string, entry: { name: string; columns: ReturnType<typeof parseRowDescription> }) {
     this.prepared.delete(sig)
     this.prepared.set(sig, entry)
     if (this.prepared.size > PgConnection.PREPARED_MAX) {
       const oldest = this.prepared.keys().next().value
-      if (oldest !== undefined) this.prepared.delete(oldest)
+      if (oldest !== undefined) {
+        const evicted = this.prepared.get(oldest)
+        this.prepared.delete(oldest)
+        if (evicted) this.deallocQueue.push(evicted.name)
+      }
     }
+  }
+
+  /** 连接空闲时批量 DEALLOCATE：LRU 淘汰的 statement 不残留服务端（plan 缓存膨胀防线）。
+   * 同步 write 先于后续查询（调用点在 Z handler 的同步段内，resolve 的微任务后至）。
+   * 其响应 C+Z 在无 currentQuery 时到达——awaitingDeallocZ 消费首个 Z，后续查询 Z 正常。 */
+  private flushDealloc(): void {
+    if (this.deallocQueue.length === 0 || !this.socket) return
+    const names = this.deallocQueue.splice(0)
+    this.awaitingDeallocZ = true
+    this.socket.write(queryMessage(names.map((n) => `DEALLOCATE "${n}"`).join('; ')))
   }
 
   /** 事务：BEGIN → fn(tx) → COMMIT；fn 抛错 → ROLLBACK（回滚失败吞掉，保留原始错误） */
   async transaction<T>(
-    fn: (tx: { query: (sql: string, params?: (string | number | boolean | object | null)[]) => Promise<Row[]> }) => Promise<T>,
+    fn: (tx: { query: (sql: string, params?: (string | number | boolean | object | null)[]) => Promise<QueryResult<Row>> }) => Promise<T>,
   ): Promise<T> {
     await this.query('BEGIN')
     try {
@@ -449,7 +504,7 @@ export class PgConnection {
   }
 
   /** 查询：无参数走简单协议（Q），有参数走扩展查询（Parse/Bind/Execute/Sync） */
-  query(sql: string, params?: (string | number | boolean | object | null)[]): Promise<Row[]> {
+  query(sql: string, params?: (string | number | boolean | object | null)[]): Promise<QueryResult<Row>> {
     return new Promise((resolve, reject) => {
       if (this.status !== 'ready' || !this.socket) {
         reject(new ConnectionError('postgres: not connected'))

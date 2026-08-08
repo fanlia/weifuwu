@@ -13,9 +13,13 @@ import { PgPool } from '../db/postgres/pool.ts'
 import type { Row } from '../db/postgres/connection.ts'
 import type { Context, Handler } from '../types.ts'
 import { HttpError } from '../types.ts'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import type { PostgresOptions, PostgresClient, SqlClient } from './types.ts'
 
 export const MIGRATIONS_TABLE = '_weifuwu_migrations'
+
+/** 请求级 traceId 存储（x-trace-id 头 → ALS → onQuery 第 4 参数，慢查询日志可关联请求） */
+const traceStore = new AsyncLocalStorage<string>()
 
 export function postgres(options?: string | PostgresOptions): PostgresClient {
   const opts: PostgresOptions = typeof options === 'string' ? { connection: options } : (options ?? {})
@@ -37,14 +41,21 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
     poolSize: opts.max ?? opts.poolSize ?? 10,
     acquireTimeoutMs: opts.acquireTimeoutMs,
     statementTimeoutMs: opts.statementTimeoutMs ?? opts.statementTimeout,
-    onQuery: opts.onQuery,
+    // onQuery 包装：从 ALS 读请求级 traceId 追加到第 4 参数（后端兼容——不传时不注入）
+    onQuery: opts.onQuery
+      ? (sql, durationMs, rowCount) => {
+          const tid = traceStore.getStore()
+          opts.onQuery?.(sql, durationMs, rowCount, tid || undefined)
+        }
+      : undefined,
   })
 
   const sql = makeSql(pool)
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
     ctx.sql = sql
-    return next(req, ctx)
+    // 请求级 traceId：x-trace-id 头（无则空串——onQuery 层转 undefined）
+    return traceStore.run(req.headers.get('x-trace-id') ?? '', () => next(req, ctx))
   }) as unknown as PostgresClient
   mw.__meta = { injects: ['sql'], depends: [] }
 

@@ -35,7 +35,8 @@ export interface PostgresOptions {
   /** 语句超时 ms（慢查询保护，会话级 SET statement_timeout）。默认 0 = 禁用。 */
   statementTimeoutMs?: number
   /** 查询观测钩子（慢查询日志/审计） */
-  onQuery?: (query: string, durationMs: number, rowCount: number) => void
+  /** 查询观测钩子（慢查询日志/审计）；第 4 参数为请求级 traceId（x-trace-id 头，无则 undefined） */
+  onQuery?: (query: string, durationMs: number, rowCount: number, traceId?: string) => void
   /** postgres.js 兼容名（= max） */
   poolSize?: number
   /** postgres.js 兼容名（= statementTimeoutMs） */
