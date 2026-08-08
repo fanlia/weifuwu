@@ -71,8 +71,8 @@ const worker = ctx.queue.worker('email.send', async (job) => { ... })
 
 | # | 问题 | 方案 | 测试 |
 |---|------|------|------|
-| P0 | **改 cron 表达式双触发**：field=`name:expr`，改表达式生成新 field，旧定义残留仍触发 | field 改 **name**（一个 name 一个定义，HSET 覆盖更新） | 同 name 改表达式 → 旧定义不残留、只触发新 |
-| P1 | **无取消 API**：注册错/业务下线只能手动 DEL | `cancelCron(name)`：HDEL 定义 + 清理 ZSET pending 触发点 | cancel 后不再触发；不存在返回 false |
+| P0 ✅ | **改 cron 表达式双触发**：field=`name:expr`，改表达式生成新 field，旧定义残留仍触发 | field 改 **name**（一个 name 一个定义，HSET 覆盖更新） | 同 name 改表达式 → 旧定义不残留、只触发新 |
+| P1 ✅ | **无取消 API**：注册错/业务下线只能手动 DEL | `cancelCron(name)`：HDEL 定义 + 清理 ZSET pending 触发点 | cancel 后不再触发；不存在返回 false |
 
 ## 诚实裁剪（明确不做）
 
@@ -92,6 +92,8 @@ const worker = ctx.queue.worker('email.send', async (job) => { ... })
 - ✅ cron 集成测试加速：HSET nextRunAt 模拟到点（84s → 0.77s，符合 15s 规则）
 
 ### 落地细节
+
+- ✅ **体验完善已落地**（`7c0be2d`）：field=name 覆盖更新 + cancelCron；附带修复 tickCrons 未定义变量崩溃、测试公共注册表累积、断言转义错误
 
 - 依赖 queue（参数传入）：`scheduler({ queue })`——触发后 `queue.add`，复用消费组/重试/DLQ
 - 守护循环：独立 RedisConnection + tickMs 扫描（默认 1000ms）

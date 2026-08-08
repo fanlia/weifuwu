@@ -12,7 +12,7 @@
 前端: createApp → [AppMiddleware → ctx.field] → Component → VNode → DOM
 ```
 
-- **中间件注入 ctx** — `ctx.sql`, `ctx.redis`, `ctx.ui`, `ctx.route`, `ctx.api`, `ctx.auth`, `ctx.ws`, `ctx.i18n`, `ctx.user`/`ctx.auth`（userSystem）, `ctx.limit`（rateLimit）, `ctx.email`（email）, `ctx.queue`（queue）, `ctx.ai`（ai：chat/stream/agent/approve）
+- **中间件注入 ctx** — `ctx.sql`, `ctx.redis`, `ctx.ui`, `ctx.route`, `ctx.api`, `ctx.auth`, `ctx.ws`, `ctx.i18n`, `ctx.user`/`ctx.auth`（userSystem）, `ctx.limit`（rateLimit）, `ctx.email`（email）, `ctx.queue`（queue）, `ctx.schedule`/`ctx.cron`/`ctx.cancelCron`（scheduler）, `ctx.ai`（ai：chat/stream/agent/approve）
 - **状态驱动渲染** — `ctx.ui.$()` 深度 Proxy，赋值自动触发 VDOM patch
 - **组件签名** — `(initProps, ctx) => (props) => VNode | null`
 - **两阶段模型** — 外层函数 = mount（只一次），内层返回函数 = render（每次 dirty/props 变化）

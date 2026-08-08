@@ -266,6 +266,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu` | **userSystem** | 用户系统（scrypt 密码哈希 + 混合会话 + 多租户感知）→ `ctx.user` / `ctx.auth` / `ctx.tenantId` + `/api/auth/*` | Router, postgres |
 | `weifuwu` | **messager** | 消息系统（会话/消息持久化 + WS 实时投递 + Redis 跨进程广播）→ `ctx.msg` + `/api/messages/*` | Router, postgres, (redis) |
 | `weifuwu` | **queue** | 可靠任务队列（Redis Streams，at-least-once + DLQ）→ `ctx.queue` | Router, redis |
+| `weifuwu` | **scheduler** | 计划任务（延时 `ctx.schedule` + cron `ctx.cron`/`ctx.cancelCron`，触发后入队） | Router, redis, queue |
 | `weifuwu` | **ai** | LLM 对话（自研 OpenAI 兼容协议 + 自研 SSE 解码，默认 DeepSeek）→ `ctx.ai` + embedding + `ctx.ui.useChat` + `AiChat` | Router |
 | `weifuwu/dev` | **dev loader** | Node loader：服务端直接跑 `.ts/.tsx`（`--import weifuwu/dev`） | esbuild |
 | `weifuwu` | **graphql** | GraphQL 端点（支持 GraphiQL） | Router |
@@ -876,8 +877,12 @@ app.use(scheduler({ queue: q }))       // 依赖 ctx.queue（触发后入队）
 await ctx.schedule('email.send', { to, body }, { delayMs: 30_000 })
 await ctx.schedule('report.build', {}, { when: new Date('2026-09-01T00:00:00Z') })
 
-// cron 定时任务（重复）：每分钟触发 → 入队执行（注册在应用启动处）
+// cron 定时任务（重复）：每分钟触发 → 入队执行
 ctx.cron('* * * * *', 'heartbeat.check', { scope: 'health' })
+// 改需求 = 重新注册（同 name 覆盖更新，旧定义不残留）
+ctx.cron('*/5 * * * *', 'heartbeat.check', { scope: 'health' })
+// 停用 = cancel（删定义 + 清理 pending 触发点）
+await ctx.cancelCron('heartbeat.check')
 
 // 执行端：与 queue 完全一致
 const worker = ctx.queue.worker('email.send', async (job) => { ... })
@@ -888,8 +893,8 @@ const worker = ctx.queue.worker('email.send', async (job) => { ... })
 - **取消**：`ctx.cancelCron(name)` 删定义 + 清理 pending 触发点（停用 cron 必须 cancel——定义无 TTL 会累积）
 - **崩溃恢复**：未消费触发点留在 ZSET，重启后补扫立即触发（at-least-once，幂等由业务保证）
 - **cron 表达式**：5 字段（分 时 日 月 周），支持 `*`/步进/列表/范围；时区 = 服务器本地；非法表达式注册即抛错
-- **裁剪**：❌ cron 秒/年/别名（@daily）/特殊字符（L/W/#）、时区配置、任务取消、分布式锁（原子命令抢占替代）
-- **文档红线**：cron 注册在应用启动处（进程重启后需重新调用 `ctx.cron`）
+- **裁剪**：❌ cron 秒/年/别名（@daily）/特殊字符（L/W/#）、时区配置、单次任务取消（v2）、分布式锁（原子命令抢占替代）
+- **文档红线**：cron 定义持久化在 HASH——进程重启后守护循环恢复即继续触发（无需重新注册）；**停用必须 `cancelCron`**（定义无 TTL，不取消会永久触发）
 
 ## ui — SSR 渲染 + JS/CSS 编译
 
