@@ -64,6 +64,11 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     const expanded: string[] = isControlledExpand ? expandedKeys : $.internalExpanded
     const isExpanded = (key: string) => expanded.includes(key)
     const toggleExpand = (key: string) => {
+      // 受控（expandedKeys 已传）但无 onExpand：折叠/展开无法生效——开发期提示
+      if (isControlledExpand && !onExpand) {
+        console.warn(`[weifuwu/Tree] 受控模式（expandedKeys 已传）但未提供 onExpand，展开/折叠无法生效。\n非受控：去掉 expandedKeys；受控：传入 onExpand={(keys) => setExpanded(keys)}`)
+        return
+      }
       const next = isExpanded(key)
         ? expanded.filter(k => k !== key)
         : [...expanded, key]

@@ -1228,6 +1228,7 @@ const DemoCollapse: Component = (_props, ctx) => {
 
 const DemoToggleTree: Component = (_props, ctx) => {
   let checked = ['fe']
+  let expanded = ['root', 'tech']
   const treeData = [
     { key: 'root', label: '总部', children: [
       { key: 'tech', label: '技术部', children: [{ key: 'fe', label: '前端组' }, { key: 'be', label: '后端组' }] },
@@ -1235,7 +1236,8 @@ const DemoToggleTree: Component = (_props, ctx) => {
     ] },
   ]
   return () => (
-    <Tree data={treeData} expandedKeys={['root', 'tech']} checkable checkedKeys={checked} onCheck={(keys: string[]) => { checked = keys; ctx.ui.render() }} />
+    <Tree data={treeData} expandedKeys={expanded} onExpand={(keys: string[]) => { expanded = keys; ctx.ui.render() }}
+      checkable checkedKeys={checked} onCheck={(keys: string[]) => { checked = keys; ctx.ui.render() }} />
   )
 }
 

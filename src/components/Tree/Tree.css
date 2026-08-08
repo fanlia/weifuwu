@@ -62,8 +62,13 @@
   box-shadow: var(--wf-focus-ring);
 }
 
-.wf-tree-switcher--open {
-  transform: rotate(90deg);
+.wf-tree-switcher svg {
+  transform: rotate(-90deg); /* 收起：chevron-down 转朝右（可展开） */
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-tree-switcher--open svg {
+  transform: rotate(0deg); /* 展开：朝下（内容展开） */
 }
 
 .wf-tree-switcher-placeholder {
