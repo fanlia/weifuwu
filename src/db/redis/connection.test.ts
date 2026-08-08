@@ -144,7 +144,7 @@ describe('redis connection health (real database)', () => {
   let ctl: RedisConnection
 
   before(async () => {
-    conn = new RedisConnection({ port, maxRetries: 10, retryDelayMs: 300 })
+    conn = new RedisConnection({ port, maxRetries: 10, retryDelayMs: 150 })
     await conn.connect()
     ctl = new RedisConnection({ port })
     await ctl.connect()

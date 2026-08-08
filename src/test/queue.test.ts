@@ -239,17 +239,17 @@ describe('queue worker independent connection (real redis)', () => {
     const q = queue({ poolSize: 1 })
     try {
       const name = qname()
-      // 3 轮 start/stop——修复前 stop 不等 loop 退出，BLOCK 残留占连接
+      // 3 轮 start/stop——修复前 stop 不等 loop 退出，BLOCK 残留占连接（排队 250ms）
       for (let i = 0; i < 3; i++) {
-        const worker = q.queue.worker<any>(name, async () => {}, { blockMs: 500 })
+        const worker = q.queue.worker<any>(name, async () => {}, { blockMs: 250 })
         await worker.start()
         await sleep(60) // 让 BLOCK 真正发出
         await worker.stop()
       }
-      // 最后一轮后：add 即时（无残留 BLOCK 占连接）
+      // 最后一轮后：add 即时（无残留 BLOCK 占连接）——修复前排队 250ms > 150 红
       const t0 = Date.now()
       await q.queue.add(name, { after: true })
-      assert.ok(Date.now() - t0 < 300, `stop 后不应有残留 BLOCK 堵连接（实际 ${Date.now() - t0}ms）`)
+      assert.ok(Date.now() - t0 < 150, `stop 后不应有残留 BLOCK 堵连接（实际 ${Date.now() - t0}ms）`)
     } finally {
       await q.close()
     }
