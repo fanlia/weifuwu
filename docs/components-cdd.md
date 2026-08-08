@@ -1,6 +1,6 @@
 # weifuwu 组件驱动开发路线图（CDD）
 
-> 战略：实现 **antd + Element Plus + shadcn-ui 三库并集 ≈ 90 个组件**（全量，含此前"裁剪"项），
+> 战略：实现 **antd + Element Plus + shadcn-ui 三库并集 ≈ 92 个组件**（全量，含此前"裁剪"项），
 > 组件命名按 weifuwu 独立体系重新规划。三重目标：
 > ① **生态建设**——组件库成为完整 SaaS 地基，覆盖主流库全部能力面；
 > ② **client 验证**——每个组件定向测试 `weifuwu/client` 一项能力，难度阶梯 = 能力验证清单；
