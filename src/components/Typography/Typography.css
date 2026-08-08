@@ -58,8 +58,11 @@
 
 .wf-paragraph:last-child { margin-bottom: 0; }
 
+/* ellipsis 单行截断：nowrap 的 max-content = 整行文本（会撑开无宽度约束的 flex 容器——
+ * 使用方需容器宽度约束（block 父级或 max-width:100%），否则容器被撑宽溢出 */
 .wf-paragraph--ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%; /* block 父级下约束在容器内截断 */
 }

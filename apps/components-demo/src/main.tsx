@@ -1072,7 +1072,7 @@ const DemoRate: Component = (_props, ctx) => {
 }
 
 const DemoTypography: Component = () => () => (
-  <div class="wf-stack wf-gap-sm">
+  <div class="wf-stack wf-gap-sm" style="max-width:100%">
     <Title level={1}>一级标题</Title>
     <Title level={3}>三级标题</Title>
     <div>
