@@ -116,14 +116,18 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
       onCheck(Array.from(current))
     }
 
-    const isHalf = (node: TreeNode) => {
-      const kids = node.children ?? []
-      if (!kids.length) return false
+    // 节点勾选状态推导（递归）：叶子看 checkedKeys；父节点 = 所有子都 checked → checked，
+    // 部分 checked/half → half。半选必须向上传播（前端✓ → 技术部◐ → 总部◐）
+    const nodeState = (n: TreeNode): 'checked' | 'half' | 'unchecked' => {
+      const kids = n.children ?? []
       const checked = checkedKeys ?? []
-      const anyKid = kids.some(c => checked.includes(c.key))
-      const allKid = kids.every(c => checked.includes(c.key))
-      return anyKid && !allKid
+      if (!kids.length) return checked.includes(n.key) ? 'checked' : 'unchecked'
+      const states = kids.map(nodeState)
+      if (states.every((s) => s === 'checked')) return 'checked'
+      if (states.some((s) => s !== 'unchecked')) return 'half'
+      return 'unchecked'
     }
+    const isHalf = (node: TreeNode) => nodeState(node) === 'half'
 
     // 键盘：容器方向键移动焦点
     let flatNodes: TreeNode[] = []
@@ -138,7 +142,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
       const hasChildren = !!node.children?.length
       const open = isExpanded(node.key)
       const selected = (selectedKeys ?? []).includes(node.key)
-      const checked = (checkedKeys ?? []).includes(node.key)
+      const checked = nodeState(node) === 'checked' // 推导状态（祖先全选时即使不在 checkedKeys 也显示勾选）
 
       const switcher = hasChildren
         ? h('button', {

@@ -149,6 +149,25 @@ describe('Tree', () => {
     assert.match(checkboxOf(tech).props.class, /--half/)
   })
 
+  it('半选向上传播：子级部分选中时所有祖先都 indeterminate（前端✓→技术部◐→总部◐）', () => {
+    const vnode = renderVNode(Tree, {
+      data, expandedKeys: ['root', 'tech'], checkable: true,
+      checkedKeys: ['fe'],
+    }, mockCtx())!
+    const rs = rows(vnode)
+    const root = rs.find((r: any) => labelOf(r) === '总部')
+    assert.match(checkboxOf(root).props.class, /--half/, '总部应半选（孙代 fe 选中）')
+    // 全选子树时祖先应变为 checked（非 half）
+    const vnode2 = renderVNode(Tree, {
+      data, expandedKeys: ['root', 'tech'], checkable: true,
+      checkedKeys: ['fe', 'be', 'mkt'],
+    }, mockCtx())!
+    const rs2 = rows(vnode2)
+    const root2 = rs2.find((r: any) => labelOf(r) === '总部')
+    assert.doesNotMatch(checkboxOf(root2).props.class, /--half/, '子树全选时总部不应半选')
+    assert.match(checkboxOf(root2).props.class, /--checked/, '子树全选时总部应 checked')
+  })
+
   it('键盘: row 可聚焦（tabindex=0）', () => {
     const vnode = renderVNode(Tree, { data, expandedKeys: ['root'] }, mockCtx())!
     const rs = rows(vnode)
