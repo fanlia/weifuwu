@@ -39,13 +39,13 @@ describe('VirtualList', () => {
   })
 
   it('scrolling changes visible window', () => {
-    const { ctx, setY } = mockCtx(0)
+    const { ctx } = mockCtx(0)
     const render = mount(VirtualList, { items, height: 400, itemHeight: 40, overscan: 0, renderItem }, ctx)!
     let v = render({ items, height: 400, itemHeight: 40, overscan: 0, renderItem })
     const container = document.createElement('div')
     v.props.ref(container)
-    // 滚动到 1000px → 可见区从 item 25 开始（scrollTop 响应式驱动）
-    setY(1000)
+    // 滚动到 1000px → 可见区从 item 25 开始（render 内主动同步 el.scrollTop）
+    container.scrollTop = 1000
     v = render({ items, height: 400, itemHeight: 40, overscan: 0, renderItem })
     const list = v.props.children[1]
     const first = list.props.children[0]

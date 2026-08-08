@@ -44,6 +44,12 @@ export const VirtualList: Component<VirtualListProps> = (_init, ctx) => {
       overscan = 5, keyBy, className,
     } = props
 
+    // 浏览器刷新/前进后退恢复滚动位置（直接设 scrollTop，无 scroll 事件）→ 主动同步
+    // （scrollTop 是合成器属性，读取不强制 reflow；y 同步后本 render 即用新值）
+    if (el && el.scrollTop !== scroll.y) {
+      scroll.y = el.scrollTop
+    }
+
     const total = items.length
     const start = Math.max(0, Math.floor(scroll.y / itemHeight) - overscan)
     const end = Math.min(total, Math.ceil((scroll.y + height) / itemHeight) + overscan)
