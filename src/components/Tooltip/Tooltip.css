@@ -13,6 +13,7 @@
   font-size: var(--wf-font-size-xs);
   padding: var(--wf-space-xs) var(--wf-space-sm);
   border-radius: var(--wf-tooltip-radius, var(--wf-radius-sm));
+  box-shadow: var(--wf-shadow-md); /* 与其他弹层一致的层次阴影 */
   white-space: nowrap;
   pointer-events: none;
   max-width: 240px;

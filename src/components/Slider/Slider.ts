@@ -16,6 +16,9 @@ export const Slider: Component<SliderProps> = (_init, _ctx) =>
   const { label, value = 0, min = 0, max = 100, step = 1, onChange } = props
 
   const numVal = Number(value)
+  // 轨道进度填充：已滑过部分主色（webkit 用 background 渐变；Firefox 轨道透明由同渐变着色）
+  const pct = max > min ? ((numVal - min) / (max - min)) * 100 : 0
+  const trackBg = `linear-gradient(to right, var(--wf-color-primary) ${pct}%, var(--wf-color-border) ${pct}%)`
 
   const input = h('input', {
     type: 'range',
@@ -24,6 +27,7 @@ export const Slider: Component<SliderProps> = (_init, _ctx) =>
     min,
     max,
     step,
+    style: { background: trackBg },
     onChange: onChange ? (e: Event) => onChange(Number((e.target as HTMLInputElement).value)) : undefined,
   })
 
