@@ -24,7 +24,7 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 2; /* 高于 dots 容器（dots 曾覆盖箭头中心导致不可点） */
+  z-index: var(--wf-z-sticky); /* 高于 dots（dots 曾覆盖箭头中心导致不可点）；token 化 */
   display: inline-flex;
   align-items: center;
   justify-content: center;
