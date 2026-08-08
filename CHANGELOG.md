@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.63.1 (文档同步 92 组件 + AGENTS.md 纪律沉淀)
+
+> 发布后核对：组件实际导出 92（Typography 家族 Title/Text/Paragraph 独立计数）；全文档同步 + 框架纪律补充。
+
+### 📝 Docs
+
+- 组件计数 91 → **92**（`src/components/index.ts` 实际 92 组件级导出 + 8 命令式/工具）；README 4 处 + components-execution 终验 + migration/cdd/roadmap 战略目标同步
+- AGENTS.md：ctx.ui 能力表补 `useScrollPosition`；新增两条 CDD 沉淀纪律——「受控组件必须配回调」（受控 props 无回调时 dev warn 防护）与「小尺寸 button 固定 min/max-height」（防全局 min-height 撑高）
+
 ## 0.63.0 (组件库全量 91 + CDD 闭环 + client 滚动/可见性内置能力)
 
 > 组件库 61→91（antd/Element Plus/shadcn 三库并集全量）；client 新增 `useInView` / `useScrollPosition`；浏览器真实操作闭环修复弹窗定位/受控回调/样式体系。
