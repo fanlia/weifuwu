@@ -39,27 +39,33 @@ export interface SchedulerClient {
    */
   schedule: (name: string, data: unknown, opts?: ScheduleOptions) => Promise<{ id: string }>
   /**
-   * cron 定时任务（重复）：到点自动入队（name）。cron 注册在应用启动处
-   * （进程重启后需重新调用注册——定义持久化在 HASH，守护循环由实例驱动）。
+   * cron 定时任务（重复）：到点自动入队（name）。
+   * 同 name 重复注册 = 覆盖更新（改表达式/数据直接重新注册，旧定义不残留）。
+   * 定义持久化在 HASH——进程重启后守护循环恢复即继续触发（无需重新注册）。
    */
   cron: (expr: string, name: string, data?: unknown) => Promise<void>
+  /** 取消 cron：删除定义 + 清理 ZSET 中该 cron 的 pending 触发点（不再触发） */
+  cancelCron: (name: string) => Promise<boolean>
 }
 
 export interface SchedulerInjected {
   schedule: SchedulerClient['schedule']
   cron: SchedulerClient['cron']
+  cancelCron: SchedulerClient['cancelCron']
 }
 
 declare module '../types.ts' {
   interface Context {
     schedule?: SchedulerClient['schedule']
     cron?: SchedulerClient['cron']
+    cancelCron?: SchedulerClient['cancelCron']
   }
 }
 
 export interface SchedulerClientModule extends Middleware<Context, Context & SchedulerInjected> {
   schedule: SchedulerClient['schedule']
   cron: SchedulerClient['cron']
+  cancelCron: SchedulerClient['cancelCron']
   /** 关闭守护循环 + 连接 */
   close: () => Promise<void>
 }
@@ -155,10 +161,27 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
 
   const cron: SchedulerClient['cron'] = async (expr, name, data) => {
     const parsed = parseCron(expr) // 非法表达式立即抛错（诚实裁剪）
-    const field = `${name}:${expr}`
     const firstRun = nextRun(parsed, new Date())
+    // field = name（唯一）：同 name 重新注册 = HSET 覆盖——改表达式不残留旧定义
     const def = JSON.stringify({ expr, name, data, nextRunAt: firstRun.getTime() })
-    await conn.command('HSET', cronsKey, field, def)
+    await conn.command('HSET', cronsKey, name, def)
+  }
+
+  const cancelCron: SchedulerClient['cancelCron'] = async (name) => {
+    // 1. 删 HASH 定义
+    const removed = await conn.command('HDEL', cronsKey, name)
+    // 2. 清理 ZSET 中该 cron 的 pending 触发点（member = {"id":"cron:{name}:{ts}"...}）
+    try {
+      const pending = (await conn.command('ZRANGE', delayedKey, 0, -1)) as string[]
+      for (const member of pending) {
+        if (member.includes(`"id":"cron:${name}:`)) {
+          await conn.command('ZREM', delayedKey, member)
+        }
+      }
+    } catch {
+      // 清理失败不影响取消结果（定义已删，tick 不再生成）
+    }
+    return removed === 1
   }
 
   async function start(): Promise<void> {
@@ -186,12 +209,14 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
     ctx.schedule = schedule
     ctx.cron = cron
+    ctx.cancelCron = cancelCron
     return next(req, ctx)
   }) as unknown as SchedulerClientModule
 
-  mw.__meta = { injects: ['schedule', 'cron'], depends: ['queue'] }
+  mw.__meta = { injects: ['schedule', 'cron', 'cancelCron'], depends: ['queue'] }
   mw.schedule = schedule
   mw.cron = cron
+  mw.cancelCron = cancelCron
   mw.close = async () => {
     running = false
     if (tickTimer) {

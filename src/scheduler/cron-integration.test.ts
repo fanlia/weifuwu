@@ -4,7 +4,7 @@
  * 触发加速：注册后直接 HSET nextRunAt 为过去（模拟"到点"）——不等分钟边界
  * （nextRun 的分钟计算已由解析器测试覆盖；此处验证注册→到期→触发→入队链路）
  */
-import { describe, it, after } from 'node:test'
+import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { RedisConnection } from '../db/redis/connection.ts'
@@ -52,14 +52,13 @@ describe('scheduler cron tasks (real redis)', () => {
     await worker.start()
 
     await sched.cron('* * * * *', name, { scope: 'health' })
-    const field = `${name}:* * * * *`
-    await expireNow(field)
+    await expireNow(name) // field = name
     await waitFor(() => received.length >= 1, 5000, 'cron 到期触发')
     assert.deepEqual(received[0], { scope: 'health' })
     // nextRunAt 已推进到下一次（HASH 里不再 <= now）
     const conn = new RedisConnection({ host: 'localhost', port: 6379 })
     await conn.connect()
-    const raw = await conn.command('HGET', CRONS, field)
+    const raw = await conn.command('HGET', CRONS, name)
     const def = JSON.parse(String(raw))
     assert.ok(def.nextRunAt > Date.now(), 'nextRunAt 应推进到未来')
     await conn.close()
@@ -82,7 +81,7 @@ describe('scheduler cron tasks (real redis)', () => {
     try {
       await sched.cron('* * * * *', name, { multi: true })
       await sched2.cron('* * * * *', name, { multi: true })
-      await expireNow(`${name}:* * * * *`)
+      await expireNow(name)
       await waitFor(() => received.length >= 1, 5000, 'cron 触发')
       await sleep(500)
       assert.equal(received.length, 1, `多实例应只触发一次（实际 ${received.length}）`)
@@ -91,5 +90,89 @@ describe('scheduler cron tasks (real redis)', () => {
       await q2.close()
     }
     await worker.stop()
+  })
+})
+
+describe('scheduler cron UX fixes (real redis)', () => {
+  const q = queue()
+  const sched = scheduler({ queue: q, tickMs: 100 })
+
+  before(async () => {
+    // 清理公共 cron 注册表（历史测试残留——cron 定义无 TTL，测试环境需重置）
+    const conn = new RedisConnection({ host: 'localhost', port: 6379 })
+    await conn.connect()
+    await conn.command('DEL', CRONS)
+    await conn.close()
+  })
+
+  after(async () => {
+    await sched.close()
+    await q.close()
+  })
+
+  it('同 name 改表达式：覆盖更新，旧定义不残留（无双触发）', async () => {
+    const name = qname()
+    const received: unknown[] = []
+    const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
+    await worker.start()
+
+    // 注册 v1 表达式
+    await sched.cron('* * * * *', name, { v: 1 })
+    await expireNow(name) // field 应为 name（修复前是 name:expr）
+    await waitFor(() => received.length >= 1, 5000, 'v1 触发')
+    assert.deepEqual(received[0], { v: 1 })
+
+    // 改表达式（同 name 覆盖）
+    await sched.cron('*/2 * * * *', name, { v: 2 })
+    // HASH 里不应有旧 field 残留（field = name 唯一）
+    const conn = new RedisConnection({ host: 'localhost', port: 6379 })
+    await conn.connect()
+    const hashLen = await conn.command('HLEN', CRONS)
+    assert.equal(hashLen, 1, 'HASH 应只有 1 个 cron 定义（覆盖）')
+    const raw = await conn.command('HGET', CRONS, name)
+    const def = JSON.parse(String(raw))
+    assert.equal(def.expr, '*/2 * * * *', '定义应为新表达式')
+    await conn.close()
+
+    // 新表达式到期 → 触发新 data（旧定义不残留）
+    await expireNow(name)
+    await waitFor(() => received.some((r: any) => r.v === 2), 5000, '新表达式触发')
+    await sleep(300)
+    const v2Count = received.filter((r: any) => r.v === 2).length
+    assert.equal(v2Count, 1, `新表达式应只触发一次（实际 ${v2Count}）`)
+    await worker.stop()
+  })
+
+  it('cancelCron：删定义 + 清理 pending 触发点，不再触发', async () => {
+    const name = qname()
+    const received: unknown[] = []
+    const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
+    await worker.start()
+
+    await sched.cron('* * * * *', name, { gone: true })
+    await expireNow(name)
+    await waitFor(() => received.length >= 1, 5000, '首次触发')
+    const before = received.length
+
+    // 取消
+    const removed = await sched.cancelCron(name)
+    assert.equal(removed, true)
+    // HASH 无定义 + ZSET 无 pending 触发点
+    const conn = new RedisConnection({ host: 'localhost', port: 6379 })
+    await conn.connect()
+    assert.equal(await conn.command('HEXISTS', CRONS, name), 0, 'HASH 定义已删')
+    const pending = await conn.command('ZRANGE', 'wf:sched:delayed', 0, -1)
+    const cronPending = (pending as string[]).filter((m) => m.includes(`"id":"cron:${name}:`))
+    assert.equal(cronPending.length, 0, 'pending 触发点已清理')
+    await conn.close()
+
+    // 再模拟到点（不可能——定义已删）——直接验证 tick 不触发
+    await sleep(300)
+    assert.equal(received.length, before, 'cancel 后不应再触发')
+    await worker.stop()
+  })
+
+  it('cancelCron：不存在的 name 返回 false', async () => {
+    assert.equal(await sched.cancelCron(`nope-${qname()}`), false)
   })
 })

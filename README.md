@@ -884,7 +884,8 @@ const worker = ctx.queue.worker('email.send', async (job) => { ... })
 ```
 
 - **延时**：ZSET（score=触发时间戳）+ 守护循环（独立连接）→ 到期 `ZREM` 原子抢占（多实例不重复）→ `queue.add`
-- **cron**：HASH 注册表 + 滚动生成触发点（`ZADD NX` 幂等）→ 复用延时链路；`nextRunAt` 原子推进
+- **cron**：HASH 注册表（**field = name，同 name 重新注册 = 覆盖更新**，改表达式不残留旧定义）+ 滚动生成触发点（`ZADD NX` 幂等）→ 复用延时链路；`nextRunAt` 原子推进
+- **取消**：`ctx.cancelCron(name)` 删定义 + 清理 pending 触发点（停用 cron 必须 cancel——定义无 TTL 会累积）
 - **崩溃恢复**：未消费触发点留在 ZSET，重启后补扫立即触发（at-least-once，幂等由业务保证）
 - **cron 表达式**：5 字段（分 时 日 月 周），支持 `*`/步进/列表/范围；时区 = 服务器本地；非法表达式注册即抛错
 - **裁剪**：❌ cron 秒/年/别名（@daily）/特殊字符（L/W/#）、时区配置、任务取消、分布式锁（原子命令抢占替代）
