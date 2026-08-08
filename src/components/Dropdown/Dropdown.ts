@@ -56,8 +56,16 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     const menu = open ? h('div', {
       class: 'wf-dropdown-menu', role: 'menu',
       style: { position: 'fixed', top: pos.top, left: pos.left },
-      // Escape 关闭（菜单项可聚焦，keydown 冒泡到菜单）
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange?.(false) },
+      // Escape 关闭（菜单项可聚焦，keydown 冒泡到菜单）；受控无 onOpenChange 时提示
+      onKeyDown: (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          if (open !== undefined && !onOpenChange) {
+            console.warn(`[weifuwu/Dropdown] 受控模式（open 已传）但未提供 onOpenChange，Escape/外部点击关闭无法生效。\n非受控：去掉 open；受控：传入 onOpenChange={(o) => setOpen(o)}`)
+            return
+          }
+          onOpenChange?.(false)
+        }
+      },
     }, menuItems) : null
 
     const portalContent = open ? createPortal(menu, 'dropdown') : null

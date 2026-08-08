@@ -522,6 +522,7 @@ const DemoDropdown: Component = (_props, ctx) => {
           </Button>
         }
         open={open}
+        onOpenChange={(o: boolean) => { open = o; ctx.ui.render() }}
         items={[
           { label: '编辑', onClick: () => { lastAction = '编辑'; open = false; ctx.ui.render() } },
           { label: '复制', onClick: () => { lastAction = '复制'; open = false; ctx.ui.render() } },
