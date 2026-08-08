@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.63.0 (组件库全量 91 + CDD 闭环 + client 滚动/可见性内置能力)
+
+> 组件库 61→91（antd/Element Plus/shadcn 三库并集全量）；client 新增 `useInView` / `useScrollPosition`；浏览器真实操作闭环修复弹窗定位/受控回调/样式体系。
+
+### ✨ New
+
+- **组件库 +30（91 组件）**：Rate / Typography(Title/Text/Paragraph) / Label / AspectRatio / Toggle / ToggleGroup / CheckboxGroup / PinInput / CopyButton / ColorPicker / HoverCard / Notification / BackTop / Affix / ContextMenu / Mentions / Collapse / Tree / Cascader / Transfer / Command / Menubar / Carousel / Resizable / Calendar / Watermark / VirtualList / InfiniteScroll / QRCode（自研 GF(256) Reed-Solomon，版本 1-6）；Select 增强（键盘 + multiple）；Table rowSelection；Img preview
+- **client `ctx.ui.useInView()`**：IntersectionObserver 封装（合成器线程评估，无 scroll-linked 警告）——`isIn` 响应式 + `ready`，rootMargin/threshold 支持函数；替代组件自建 scroll 监听（Affix/BackTop/InView 统一）
+- **client `ctx.ui.useScrollPosition()`**：全局 scroll 监听 + rAF 节流——`y` 响应式（视口/内部容器通用），scroll handler 无布局访问；Affix（阈值固定）/ VirtualList（虚拟窗口）使用
+- **受控组件 dev warn 防护**：Collapse/Tree/Calendar/Cascader/Dropdown——受控 props 已传但无回调时控制台明确提示（杜绝静默不可点）
+- **docs**：components-roadmap / migration / cdd / map / execution 五份组件规划文档；README 91 组件全表 + 能力速查
+
+### 🐛 Fixes（浏览器真实操作闭环）
+
+- **弹窗定位**：usePopupPosition 时序（refresh 须在 panel VNode 创建前，首开左上角根因）+ 11 处弹层 inline `position: fixed` 兜底（CSS 缺失不退化）
+- **内联 ref 清零**：Menubar/Command/Collapse/Carousel/PinInput/Accordion 工厂模式 → mount 稳定 ref + data-idx
+- **scroll-linked 定位警告**：Affix/BackTop/VirtualList/InView 迁移内置 IO/scroll 能力，组件自建 scroll 监听清零
+- **Cascader 闭包 path 快照**（受控有 value 时从根重选路径错误）；Collapse/Tree/Calendar/Cascader/Dropdown demo 受控补回调
+- **Tree**：半选向上传播（递归状态推导）、祖先全选显示 checked、箭头方向、折叠 onExpand
+- **Carousel**：圆点正圆 + 箭头中心可点（dots 容器全宽遮挡）、autoplay 补单测 + demo
+- **VirtualList**：容器定位/宽度内联（flex 取内容宽为 0 根因）、刷新恢复滚动位置 y 不同步
+- **HoverCard 弹层叠盖**（缺 placement transform）、Typography 文字遮挡（ellipsis nowrap 撑开 flex 容器）、Slider 进度填充 + Firefox thumb
+- **小尺寸按钮被全局 button min-height 撑高**：Tree checkbox/switcher、Rate 星、分页、Tags 删除、Tag 关闭、Carousel dot（6 处）
+- **build.mjs 动态扫描组件目录**（硬编码列表静默漏 CSS 根因）
+
+### 🚀 apps
+
+- **components-demo**：全部 91 组件可交互 demo（含 autoplay Carousel、受控 Tree/Collapse/Calendar/Cascader/Dropdown）
+- **agent-platform**：Chat 复制按钮、Select onChange 类型适配、AppCtx limit 声明
+
 ## 0.62.0 (scheduler 计划任务 + 数据层优化 + queue 重写 + 组件 +13)
 
 > 新增 scheduler 中间件（延时/定时任务）；ctx.sql/ctx.redis 可靠性优化；queue 生命周期重写；rateLimit ctx.limit IP 维度；组件库 +13。
