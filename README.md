@@ -164,7 +164,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 
 - 访问页面：SPA 客户端渲染；SSR 页面内容直接进 HTML（`curl /` 可见，SEO）
 - 改组件刷新即生效，无需构建步骤
-- 完整可运行示例见 `apps/demo`（博客页 = SSR + Hydration，SPA 页 = 纯客户端）
+- 完整可运行示例见 `apps/components-demo`（组件 cheatsheet）与 `apps/agent-platform`（全栈 SaaS 应用）
 
 > 想**零后端、零构建**最快跑起来？直接跳到下面的「CDN 快速原型」。
 
@@ -235,7 +235,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 </html>
 ```
 
-将此 HTML 保存到本地用浏览器打开即可运行。完整的 CDN 示例见 [`apps/html/test.html`](./apps/html/test.html)。
+将此 HTML 保存到本地用浏览器打开即可运行。
 
 ### CDN 资源地址说明
 
@@ -2709,7 +2709,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 </style>
 ```
 
-完整的零样式示例：`apps/weifuwu-demo`（一个页面 = 组件 + 原语，无 style.css）。
+完整的零样式示例：`apps/components-demo`（组件 + 原语即插即用，无手写样式）。
 
 诚实例外（合理场景，仍可内联 `<style>` 解决）：打印/PDF 导出规则、第三方库宿主样式、
 业务特有的一次性视觉（如色板选择器交互）。

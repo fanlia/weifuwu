@@ -16,9 +16,9 @@ SaaS 应用普遍需要：侧边栏（品牌区 + 导航 + 底部用户区）+ �
 
 ### 2. 间距/尺寸工具类缺失 —— 手写频率第一
 
-`apps/weifuwu-demo/main.tsx` 中 14 处 `padding: var(--wf-space-*)`、`margin-bottom: var(--wf-space-*)`；
-aippt 的 `.row/.field/.lbl` 全是 `gap: 8px/12px` 复写；`width: 100%` 出现 6 次。
-Token 存在但没有**消费 token 的类**，开发者被迫内联。
+`apps/weifuwu-demo`/aippt 等早期示例中 14 处 `padding: var(--wf-space-*)`、`margin-bottom: var(--wf-space-*)`；
+`.row/.field/.lbl` 全是 `gap: 8px/12px` 复写；`width: 100%` 出现 6 次。
+Token 存在但没有**消费 token 的类**，开发者被迫内联。（示例应用已归档，现状以 components-demo 为验证面）
 
 ### 3. 排版工具类不全
 
@@ -82,5 +82,3 @@ README「35 布局原语 / 91 Token / 43 组件」与 demo 文案「41 组件」
 | weifuwu-demo | `style.css`（上轮已删） | 纯组件 + 原语 |
 
 框架侧顺带补齐：`StatCard onClick`（可点击指标卡）、`Card active`（选择卡选中态）、`wf-rounded-*`（圆角工具）、`wf-print-hidden/block`（打印工具）。
-
-**apps/demo（Tailwind SSR 演示）**：独立技术选型（`@import 'tailwindcss'`，1025 行 JSX / 124 个 tailwind 类），转换映射与本表相同，属可选后续任务。

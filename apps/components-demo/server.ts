@@ -9,7 +9,7 @@ const app = new Router()
 app.use(ui())
 
 // ── 确定性 wire-fake：无 API key 也能完整走 wf: 协议（AiChat 演示）──
-// 与 apps/demo 的 ai-demo 同构（CS-04 精神：真实 HTTP + SSE，不 mock 网络层）
+// 真实 HTTP + SSE，不 mock 网络层（CS-04 精神）
 app.post('/api/chat', async (req: Request): Promise<Response> => {
   const { messages, mode } = await req.json()
   const lastUser = [...(messages ?? [])].reverse().find((m: any) => m.role === 'user')?.content ?? '世界'
