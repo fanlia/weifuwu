@@ -12,7 +12,11 @@
 .wf-app-shell {
   display: grid;
   grid-template-columns: var(--wf-sidebar-width, 240px) minmax(0, 1fr);
-  min-height: 100vh;
+  /* 固定视口高度（非 min-height）：内部页面（聊天等）依赖 height: 100% 链实现
+     容器内滚动——min-height 会让壳随内容长高，聊天消息区永远无法内部滚动
+     （scrollTop 赋值无效果，页面滚动条不跟随消息到底） */
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* ── 侧边栏 ── */
@@ -113,6 +117,9 @@
 .wf-main {
   padding: var(--wf-space-lg);
   min-width: 0;
+  min-height: 0;
+  /* 内容高于视口时在主区内滚动（壳固定视口高度后的唯一滚动出口） */
+  overflow-y: auto;
   background: var(--wf-color-bg);
 }
 
@@ -127,6 +134,8 @@
 @media (max-width: 767.98px) {
   .wf-app-shell {
     grid-template-columns: 1fr;
+    height: auto;          /* 恢复文档流滚动（侧边栏堆叠在顶部） */
+    overflow: visible;
   }
   .wf-sidebar {
     position: static;
@@ -136,5 +145,6 @@
   }
   .wf-main {
     padding: var(--wf-space-md);
+    overflow: visible;
   }
 }

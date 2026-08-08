@@ -8,7 +8,7 @@ export const Agents: Component = (_props, ctx) => {
 
     $.agents = []; $.loading = true
     ctx.api!.get('/api/agents')
-      .then(r => r.json()).then(d => { $.agents = d.agents ?? []; $.loading = false })
+      .then(d => { $.agents = d.agents ?? []; $.loading = false })
       .catch(() => { $.loading = false })
 
   async function remove(e: Event, id: string) {

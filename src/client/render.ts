@@ -17,7 +17,7 @@ import type { WfuiContext } from './types.ts'
 import { idRegistry, nextComponentId, callRefCleanup, startAsyncFactory, resolveAsyncFactorySync, resolveAsyncFactory } from './registry.ts'
 // ⚠️ 与 diff.ts 的环：renderValue（本文件）↔ patchKeyedChildren（diff.ts）互相需要。
 // 安全原因：两模块顶层仅常量声明，全部函数级延迟调用（渲染运行时两模块均已加载）。
-import { patchProps, normalize, ensureKeys, patchKeyedChildren } from './diff.ts'
+import { patchProps, normalize, ensureKeys, patchKeyedChildren, mapChildDomNodes } from './diff.ts'
 
 export const SVG_NS = 'http://www.w3.org/2000/svg'
 export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'line', 'rect', 'text', 'g', 'polyline', 'polygon', 'ellipse', 'defs', 'use', 'clipPath', 'mask', 'linearGradient', 'radialGradient', 'stop', 'tspan'])
@@ -49,6 +49,9 @@ export function renderValue(v: any, ctx: WfuiContext): Node | null {
       const node = renderValue(child, ctx)
       if (node != null) frag.appendChild(node)
     }
+    // 记录 Fragment 实际产生的 DOM 节点（DocumentFragment 插入父节点后会展开成多个直属节点）
+    // diff 用 `_childNodes` 做精确范围对齐——否则父级按位置索引 `parent.childNodes[i]` 会串位
+    ;(vnode as any)._childNodes = Array.from(frag.childNodes)
     return frag
   }
 
@@ -263,7 +266,9 @@ export function patchPortal(oldV: VNode | null, newV: VNode, ctx: WfuiContext): 
   newV._child = newChildren
 
   ensureKeys(oldChildren, newChildren)
-  patchKeyedChildren(sub, oldChildren, newChildren, ctx)
+  // 节点范围映射：Portal 子项含 Fragment 时产生多个 DOM 节点，需按实际范围对齐
+  const oldNodes = mapChildDomNodes(Array.from(sub.childNodes), oldChildren)
+  patchKeyedChildren(sub, oldChildren, newChildren, ctx, oldNodes, oldNodes[0]?.[0] ?? null)
 }
 
 function forEach(children: any, fn: (child: any) => void) {

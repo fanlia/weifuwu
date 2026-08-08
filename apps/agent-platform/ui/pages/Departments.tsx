@@ -6,7 +6,7 @@ export const Departments: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
    $.depts = []; $.loading = true
     ctx.api!.get('/api/departments')
-      .then(r => r.json()).then(d => { $.depts = d.departments ?? []; $.loading = false })
+      .then(d => { $.depts = d.departments ?? []; $.loading = false })
       .catch(() => { $.loading = false })
 
   async function remove(e: Event, id: string) {

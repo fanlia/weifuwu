@@ -8,7 +8,7 @@ export const NewChat: Component = (_props, ctx) => {
 
    $.depts = []; $.loading = true
     ctx.api!.get('/api/departments')
-      .then(r => r.json()).then(d => { $.depts = d.departments ?? []; $.loading = false })
+      .then(d => { $.depts = d.departments ?? []; $.loading = false })
       .catch(() => { $.loading = false })
 
   return (props) => (

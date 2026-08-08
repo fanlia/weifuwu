@@ -72,4 +72,53 @@ describe('StatCard', () => {
     vnode.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
     assert.equal(clicks, 1)
   })
+
+  it('animate：动画步进中的 render 不重启动画（值必须收敛到目标，不冻结在低档）', () => {
+    // 回归：Dashboard 等页面实测动画冻结在 4/0/0/8（应为 8/4/4/12）——
+    // 每个 step 调 ctx.ui.render() → 组件重渲染 → 旧实现每次重渲染都重启动画
+    // （新 t0 + cancel 待调度帧），eased 进度永远只前进 ~11.5%/帧 → Math.round 平台期。
+    const rafCallbacks: Array<(t: number) => void> = []
+    const origRaf = globalThis.requestAnimationFrame
+    const origCaf = globalThis.cancelAnimationFrame
+    const origPerf = performance.now
+    let now = 0
+    globalThis.requestAnimationFrame = ((cb: any) => {
+      rafCallbacks.push(cb)
+      return rafCallbacks.length
+    }) as any
+    globalThis.cancelAnimationFrame = ((id: number) => { rafCallbacks[id - 1] = undefined as any }) as any
+    performance.now = (() => now) as any
+    try {
+      const ctx: any = { ui: { $: {}, dirty: () => {} } }
+      let renderFn: (p: any) => any
+      renderFn = StatCard({ label: 'x', value: 0, animate: true }, ctx)
+
+      // 首帧（无数据）：value=0
+      renderFn({ label: 'x', value: 0, animate: true })
+      assert.equal(rafCallbacks.length, 0, 'value=0 不启动动画')
+
+      // 数据到达：value=8 → 启动动画（调度一个 rAF）
+      now = 1000
+      renderFn({ label: 'x', value: 8, animate: true })
+      assert.equal(rafCallbacks.length, 1, '动画启动时调度一个 rAF')
+
+      // 真实链路：step 内 ctx.ui.render() 会同步重渲染组件（同 props）
+      ctx.ui.render = () => { renderFn({ label: 'x', value: 8, animate: true }) }
+
+      // 模拟 60 帧（960ms > 400ms 动画时长）
+      for (let i = 0; i < 60; i++) {
+        now += 16
+        const cb = rafCallbacks.shift()
+        if (cb) cb(now)
+      }
+
+      const vnode = renderFn({ label: 'x', value: 8, animate: true })
+      const valueEl = vnode.props.children[0]
+      assert.equal(valueEl.props.children, '8', '动画结束后值必须收敛到目标（不冻结在 4）')
+    } finally {
+      globalThis.requestAnimationFrame = origRaf
+      globalThis.cancelAnimationFrame = origCaf
+      performance.now = origPerf
+    }
+  })
 })

@@ -165,7 +165,11 @@ export function patchValue(
 
   // Fragment
   if (newV.type === Fragment) {
-    patchChildren(parent, oldV, newV, ctx)
+    // 用 oldV._childNodes 精确对齐 Fragment 的 DOM 范围（Fragment 展开成多个直属节点，
+    // 不能按父级 `parent.childNodes[i]` 位置索引——兄弟节点中间的 Fragment 会串位）
+    const oldRange = (oldV as any)._childNodes as Node[] | undefined
+    const newRange = patchChildren(parent, oldV, newV, ctx, oldRange)
+    ;(newV as any)._childNodes = newRange
     return oldNode
   }
 
@@ -206,7 +210,13 @@ export function patchValue(
   if (Array.isArray(newInput)) {
     const oldArr = Array.isArray(oldInput) ? oldInput : []
     ensureKeys(oldArr, newInput)
-    patchKeyedChildren(parent, oldArr, newInput, ctx)
+    // 数组作为组件输出时可能位于父级非零位置：从 oldNode 起映射 DOM 范围
+    const parentNodes = Array.from(parent.childNodes)
+    const fromIdx = oldNode ? parentNodes.indexOf(oldNode as ChildNode) : -1
+    const nodes = fromIdx >= 0
+      ? mapChildDomNodes(parentNodes.slice(fromIdx), oldArr)
+      : mapChildDomNodes(parentNodes, oldArr)
+    patchKeyedChildren(parent, oldArr, newInput, ctx, nodes, oldNode)
     return oldNode
   }
 
@@ -329,13 +339,65 @@ export function ensureKeys(oldChildren: any[], newChildren: any[]) {
   }
 }
 
-function patchChildren(parent: Node, oldVNode: VNode, newVNode: VNode, ctx: WfuiContext) {
+/**
+ * 将 children 映射到它们实际产生的 DOM 节点（每个 child 一个 Node[]）。
+ *
+ * 1 VNode ≠ 1 DOM 节点：Fragment 展开成多个直属节点（_childNodes），
+ * null/boolean/Portal 产生 0 个。explicitNodes 提供限定范围（Fragment 子项
+ * 用其自身 _childNodes），否则从 source（parent.childNodes 或给定快照）按计数游标分配。
+ */
+export function mapChildDomNodes(source: Node[], children: any[]): (Node[] | null)[] {
+  const out: (Node[] | null)[] = []
+  let idx = 0
+  for (const c of children) {
+    if (c == null || typeof c === 'boolean') { out.push(null); continue }
+    const v = c as VNode
+    if (v.type === Portal) { out.push(null); continue } // remote：无直属 DOM
+    if (v.type === Fragment) {
+      const fragNodes = (v as any)._childNodes as Node[] | undefined
+      if (Array.isArray(fragNodes) && fragNodes.length > 0) {
+        out.push(fragNodes.slice())
+        idx += fragNodes.length
+      } else {
+        out.push(source[idx] ? [source[idx]] : null)
+        idx += 1
+      }
+    } else {
+      if (typeof process !== 'undefined' && process.env.DBG) console.error('[map] idx=', idx, 'type=', v.type, 'sourceLen=', source.length, 'hit=', !!source[idx])
+      out.push(source[idx] ? [source[idx]] : null)
+      idx += 1
+    }
+  }
+  return out
+}
+
+/**
+ * patch 子节点；返回 newVNode 的新 DOM 范围（Fragment 场景）。
+ * oldNodesOverride：old children 的实际 DOM 节点范围（Fragment 用 _childNodes）。
+ */
+function patchChildren(
+  parent: Node,
+  oldVNode: VNode,
+  newVNode: VNode,
+  ctx: WfuiContext,
+  oldNodesOverride?: Node[],
+): Node[] {
   const oldChildren = normalize(oldVNode.props?.children)
   const newChildren = normalize(newVNode.props?.children)
 
   // 始终使用 keyed diff，无 key 时自动分配位置 key
   ensureKeys(oldChildren, newChildren)
-  patchKeyedChildren(parent, oldChildren, newChildren, ctx)
+
+  const source = oldNodesOverride ?? Array.from(parent.childNodes)
+  const oldNodes = mapChildDomNodes(source, oldChildren)
+  const newRanges = patchKeyedChildren(parent, oldChildren, newChildren, ctx, oldNodes, oldNodesOverride?.[0] ?? null)
+
+  // 新 DOM 范围（Fragment 续用）：展平各子项节点，剔除空项
+  const range: Node[] = []
+  for (const nodes of newRanges) {
+    if (nodes && nodes.length > 0) range.push(...nodes)
+  }
+  return range
 }
 
 export function normalize(children: any): any[] {
@@ -353,7 +415,24 @@ export function normalize(children: any): any[] {
   return result
 }
 
-export function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren: any[], ctx: WfuiContext) {
+function collectNodes(node: Node | null): Node[] {
+  if (node == null) return []
+  if (node instanceof DocumentFragment) return Array.from(node.childNodes)
+  return [node]
+}
+
+/**
+ * keyed 子节点 diff。返回每个 new child 的 DOM 节点范围（newNodes，可为空）。
+ * oldNodes：old children → 实际 DOM 节点（mapChildDomNodes 结果）。
+ */
+export function patchKeyedChildren(
+  parent: Node,
+  oldChildren: any[],
+  newChildren: any[],
+  ctx: WfuiContext,
+  oldNodes: (Node[] | null)[] = [],
+  rangeStart: Node | null = null,
+): (Node[] | null)[] {
   const allUnkeyed = !newChildren.some(c => c && typeof c === 'object' && c.key !== undefined)
 
   if (allUnkeyed) {
@@ -365,70 +444,55 @@ export function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren
       if (newC == null) {
         if (oldC != null) {
           callRefCleanup(oldC)
-          const node = parent.childNodes[i]
-          if (node) (node as ChildNode).remove()
+          for (const n of oldNodes[i] ?? []) (n as ChildNode).remove()
         }
       } else if (oldC == null) {
         const node = renderValue(newC, ctx)
         if (node != null) parent.appendChild(node)
       } else {
-        const oldNode = parent.childNodes[i] || null
+        const oldNode = oldNodes[i]?.[0] ?? null
         patchValue(parent, oldNode, oldC, newC, ctx)
       }
     }
-    return
+    return []
   }
 
-  // 以下为 keyed 子节点路径
-  // Step 1: 移除无 key 的旧子节点
-  let rmIdx = 0
+  // Step 1: 移除无 key 的旧子节点（用映射出的实际 DOM 节点，引用移除不受后续索引影响）
   for (let i = 0; i < oldChildren.length; i++) {
     const child = oldChildren[i]
     if (child == null || typeof child === 'boolean') continue
-    const key = getKey(child)
-    if (key === undefined) {
-      const node = parent.childNodes[rmIdx]
-      if (node) (node as ChildNode).remove()
-    } else {
-      const isRemote = child && typeof child === 'object' && (child as VNode)._placement === 'remote'
-      if (!isRemote) rmIdx++
+    if (getKey(child) === undefined) {
+      for (const n of oldNodes[i] ?? []) (n as ChildNode).remove()
     }
   }
 
-  // Step 2: Build old key map
-  const oldKeyMap = new Map<string, { vnode: any; node: Node | null; remote: boolean; index: number }>()
-  let domIdx = 0
+  // Step 2: Build old key map（nodes = 实际 DOM 节点引用，移动/删除后依然有效）
+  const oldKeyMap = new Map<string, { vnode: any; nodes: Node[]; index: number }>()
+  let domOrder = 0
   for (let i = 0; i < oldChildren.length; i++) {
     const key = getKey(oldChildren[i])
     if (key !== undefined) {
-      const child = oldChildren[i]
-      const isRemote = child && typeof child === 'object' && (child as VNode)._placement === 'remote'
-      oldKeyMap.set(key, {
-        vnode: child,
-        node: isRemote ? null : (parent.childNodes[domIdx] || null),
-        remote: !!isRemote,
-        index: domIdx,
-      })
-      if (!isRemote) domIdx++
+      oldKeyMap.set(key, { vnode: oldChildren[i], nodes: oldNodes[i] ?? [], index: domOrder++ })
     }
   }
 
   // Step 3: Remove vanished keys
   const newKeys = newChildren.map(c => getKey(c))
-  // O(n²) → O(n)：消失 key 判定用 Set 查找
   const newKeySet = new Set(newKeys)
-  for (const key of oldKeyMap.keys()) {
+  for (const key of [...oldKeyMap.keys()]) {
     if (!newKeySet.has(key)) {
       const entry = oldKeyMap.get(key)!
       callRefCleanup(entry.vnode)
-      if (entry.node) (entry.node as ChildNode)?.remove()
+      for (const n of entry.nodes) (n as ChildNode)?.remove()
       oldKeyMap.delete(key)
     }
   }
 
   // Step 4: Forward patch + move（React-style lastIndex 算法）
+  // rangeStart：patch 范围起点（Fragment 子项以其首节点为锚，而非 parent.firstChild）
+  const newNodes: (Node[] | null)[] = new Array(newChildren.length).fill(null)
   let lastIndex = -1
-  let nextRef: Node | null = parent.firstChild
+  let nextRef: Node | null = rangeStart && rangeStart.parentNode === parent ? rangeStart : parent.firstChild
   for (let i = 0; i < newChildren.length; i++) {
     const key = newKeys[i]
     const newChild = newChildren[i]
@@ -436,32 +500,41 @@ export function patchKeyedChildren(parent: Node, oldChildren: any[], newChildren
     const isRemote = newChild && typeof newChild === 'object' && (newChild as VNode)._placement === 'remote'
 
     if (oldEntry) {
-      if (oldEntry.node) {
+      if (oldEntry.nodes.length > 0) {
+        // 需要移动时整段 range 一起移（Fragment 多节点保持顺序）
         if (oldEntry.index < lastIndex) {
-          parent.insertBefore(oldEntry.node, nextRef)
+          for (const n of oldEntry.nodes) parent.insertBefore(n, nextRef)
         }
         lastIndex = Math.max(lastIndex, oldEntry.index)
-        patchValue(parent, oldEntry.node, oldEntry.vnode, newChild, ctx)
-        nextRef = (oldEntry.node.parentNode === parent ? oldEntry.node : parent.firstChild)?.nextSibling ?? null
-      } else if (oldEntry.remote) {
+        patchValue(parent, oldEntry.nodes[0], oldEntry.vnode, newChild, ctx)
+        // Fragment 子项由 patchValue 更新 _childNodes；其余沿用原节点
+        newNodes[i] = (newChild as any)._childNodes
+          ?? oldEntry.nodes.filter(n => n.parentNode === parent)
+        const lastNode = newNodes[i]![newNodes[i]!.length - 1]
+        nextRef = lastNode?.nextSibling ?? null
+      } else if (isRemote) {
         patchPortal(oldEntry.vnode, newChild, ctx)
+        newNodes[i] = []
       } else {
-        const newNode = patchValue(parent, null, oldEntry.vnode, newChild, ctx)
-        if (newNode != null) {
-          parent.insertBefore(newNode, nextRef)
-          nextRef = newNode.nextSibling
-        }
+        // 旧条目无 DOM 节点（旧输出为 null/Portal）→ 走 patchValue 完整过渡（含 Portal 清理）
+        const node = patchValue(parent, null, oldEntry.vnode, newChild, ctx)
+        newNodes[i] = collectNodes(node)
+        for (const n of newNodes[i]!) parent.insertBefore(n, nextRef)
+        const lastNode = newNodes[i]![newNodes[i]!.length - 1]
+        nextRef = lastNode?.nextSibling ?? null
       }
     } else if (isRemote) {
       renderPortal(newChild, ctx)
+      newNodes[i] = []
     } else {
       const node = renderValue(newChild, ctx)
-      if (node != null) {
-        parent.insertBefore(node, nextRef)
-        nextRef = node.nextSibling
-      }
+      newNodes[i] = collectNodes(node)
+      for (const n of newNodes[i]!) parent.insertBefore(n, nextRef)
+      const lastNode = newNodes[i]![newNodes[i]!.length - 1]
+      nextRef = lastNode?.nextSibling ?? null
     }
   }
+  return newNodes
 }
 
 /**

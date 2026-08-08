@@ -107,9 +107,11 @@ export const NewAgent: Component = (_props, ctx) => {
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
   }
 
-  // ══════════ 步骤 1: 选择模板 ══════════
-  if ($.step === 'template') {
-    return (props: {}) => {
+  // render：步骤判断必须在 render 函数内部（mount 只返回一个 render fn，
+  // 否则 $.step 变化后视图不会切换——历史 bug：mount 提前 return 导致模板/配置步骤冻结）
+  return (props: {}) => {
+    // ── 步骤 1: 选择模板 ──
+    if ($.step === 'template') {
       if ($.loading) return <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px"><Loading /></div>
       return (
       <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
@@ -144,10 +146,8 @@ export const NewAgent: Component = (_props, ctx) => {
       </div>
       )
     }
-  }
 
-  // ══════════ 步骤 2: 配置 ══════════
-  return (props: {}) => {
+    // ── 步骤 2: 配置 ──
     const isAI = !$.selectedTemplate && $.type === 'ai'
     const isWebhook = !$.selectedTemplate && $.type === 'webhook'
     const isKB = !$.selectedTemplate && $.type === 'knowledge_base'

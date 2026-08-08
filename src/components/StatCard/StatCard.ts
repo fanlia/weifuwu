@@ -17,8 +17,12 @@ export interface StatCardProps {
 
 export const StatCard: Component<StatCardProps> = (_init, ctx) => {
   // ── mount：数字动画状态（rAF 400ms ease-out；reduced-motion 直落） ──
+  // animating 守卫：step 内 ctx.ui.render() 会同步重渲染组件，若每次重渲染都重启动画
+  // （新 t0 + cancel 待调度帧），eased 进度每帧只前进 ~11.5% → Math.round 平台期冻结。
+  // 动画运行中重渲染必须复用当前循环，只有动画结束后值≠目标才重新启动。
   let shown = 0
   let rafId: number | undefined
+  let animating = false
 
   return (props: StatCardProps) => {
     const { label, value, trend, trendLabel, icon, onClick, animate } = props
@@ -29,7 +33,10 @@ export const StatCard: Component<StatCardProps> = (_init, ctx) => {
         && matchMedia('(prefers-reduced-motion: reduce)').matches
       if (reduce || shown === target) {
         shown = target
-      } else {
+        animating = false
+      } else if (!animating) {
+        // 仅当没有运行中的动画才启动新循环（重渲染不打断现有动画）
+        animating = true
         const start = shown
         const dur = 400
         const t0 = performance.now()
@@ -43,6 +50,7 @@ export const StatCard: Component<StatCardProps> = (_init, ctx) => {
             ctx.ui.render()
           } else {
             rafId = undefined
+            animating = false
             ctx.ui.render()
           }
         }
@@ -50,6 +58,7 @@ export const StatCard: Component<StatCardProps> = (_init, ctx) => {
       }
     } else {
       shown = target
+      animating = false
     }
 
   const display = typeof value === 'number' ? String(shown) : String(value)

@@ -378,4 +378,35 @@ describe('postgres prepare cache DDL recovery (real database)', () => {
     assert.equal(r2[0].v, 'ok')
     await conn.query(`DROP TABLE ${tbl}`)
   })
+
+  it('DDL 类型失效恢复：DROP TYPE 后重 Parse（cached plan / type cache 错误自愈）', async () => {
+    const tbl = `wf_t_${process.pid}`
+    const typ = `wf_e_${process.pid}`
+    // 建 enum + 表 → prepare 缓存（结果列引用 enum OID）
+    await conn.query(`DROP TABLE IF EXISTS ${tbl} CASCADE`)
+    await conn.query(`DROP TYPE IF EXISTS ${typ} CASCADE`)
+    await conn.query(`CREATE TYPE ${typ} AS ENUM ('a','b')`)
+    await conn.query(`CREATE TABLE ${tbl} (id int, v ${typ})`)
+    await conn.query(`INSERT INTO ${tbl} VALUES (1, 'a')`)
+    const r1 = await conn.query(`SELECT id, v FROM ${tbl} WHERE id = $1`, [1])
+    assert.equal(r1[0].v, 'a')
+
+    // DROP 表 + 类型（服务器缓存语句引用已删 OID → 硬错误 cached plan/type cache）
+    await conn.query(`DROP TABLE ${tbl} CASCADE`)
+    await conn.query(`DROP TYPE ${typ} CASCADE`)
+    // 重建（新 enum 获得新 OID——结果类型变化触发服务器拒绝缓存语句）
+    await conn.query(`CREATE TYPE ${typ} AS ENUM ('a','b')`)
+    await conn.query(`CREATE TABLE ${tbl} (id int, v ${typ})`)
+    await conn.query(`INSERT INTO ${tbl} VALUES (1, 'b')`)
+
+    // 同 SQL 再执行——客户端应自愈（清缓存 + 新语句名重 Parse）而非报错
+    const r2 = await conn.query(`SELECT id, v FROM ${tbl} WHERE id = $1`, [1])
+    assert.equal(r2[0].v, 'b')
+    // 连接仍可用（状态机未卡死）
+    const r3 = await conn.query(`SELECT 1::int AS one`)
+    assert.equal(r3[0].one, 1)
+
+    await conn.query(`DROP TABLE IF EXISTS ${tbl} CASCADE`)
+    await conn.query(`DROP TYPE IF EXISTS ${typ} CASCADE`)
+  })
 })

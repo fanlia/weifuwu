@@ -62,7 +62,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     `
     if (!sender) {
       // 自愈：老用户缺少绑定 agent 时自动创建
-      const [u] = await sql`SELECT name FROM users WHERE id = ${auth!.userId}`
+      const [u] = await sql`SELECT name FROM _weifuwu_users WHERE id = ${auth!.userId}`
       ;[sender] = await sql`
         INSERT INTO agents (tenant_id, type, name, user_id, is_active)
         VALUES (${tenantId}, 'user', ${u?.name ?? '用户'}, ${auth!.userId}, true)
@@ -132,7 +132,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       WHERE tenant_id = ${tenantId} AND type = 'user' AND user_id = ${auth!.userId}
     `
     if (!sender) {
-      const [u] = await sql`SELECT name FROM users WHERE id = ${auth!.userId}`
+      const [u] = await sql`SELECT name FROM _weifuwu_users WHERE id = ${auth!.userId}`
       ;[sender] = await sql`
         INSERT INTO agents (tenant_id, type, name, user_id, is_active)
         VALUES (${tenantId}, 'user', ${u?.name ?? '用户'}, ${auth!.userId}, true)

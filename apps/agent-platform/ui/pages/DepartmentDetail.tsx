@@ -9,7 +9,7 @@ export const DepartmentDetail: Component = (_props, ctx) => {
 
     $.dept = null; $.members = []; $.loading = true; $.notFound = false
     ctx.api!.get(`/api/departments/${deptId}`)
-      .then(r => r.json()).then(data => {
+      .then(data => {
         const d = data.department ?? data ?? null
         if (!d?.id) { $.notFound = true; $.loading = false; return }
         $.dept = d

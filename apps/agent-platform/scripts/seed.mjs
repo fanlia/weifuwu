@@ -110,20 +110,23 @@ async function main() {
   `
   console.log('  ✓ 租户: 演示科技有限公司')
 
+  // 注意：认证已迁移到 weifuwu 框架 user()（_weifuwu_users 表，scrypt$ 哈希格式，
+  // tenant claim 进 token）。seed 必须写入框架用户表，否则登录后 tenantId 与业务数据
+  // 不匹配（历史 bug：写旧 users 表 → 登录成功但 Dashboard 全 0）。
   const adminPassword = await hashPassword('admin123')
   const [admin] = await sql`
-    INSERT INTO users (tenant_id, email, name, password_hash, role)
-    VALUES (${tenant.id}, 'admin@demo.com', '张明', ${adminPassword}, 'admin')
-    ON CONFLICT (tenant_id, email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
+    INSERT INTO _weifuwu_users (email, name, password_hash, role, tenant)
+    VALUES ('admin@demo.com', '张明', ${adminPassword}, 'admin', ${tenant.id})
+    ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, tenant = EXCLUDED.tenant
     RETURNING id, name
   `
   console.log('  ✓ 管理员: admin@demo.com / admin123')
 
   const userPassword = await hashPassword('user123')
   const [user] = await sql`
-    INSERT INTO users (tenant_id, email, name, password_hash, role)
-    VALUES (${tenant.id}, 'user@demo.com', '李华', ${userPassword}, 'member')
-    ON CONFLICT (tenant_id, email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
+    INSERT INTO _weifuwu_users (email, name, password_hash, role, tenant)
+    VALUES ('user@demo.com', '李华', ${userPassword}, 'member', ${tenant.id})
+    ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, tenant = EXCLUDED.tenant
     RETURNING id, name
   `
   console.log('  ✓ 用户: user@demo.com / user123')

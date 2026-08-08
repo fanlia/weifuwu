@@ -35,6 +35,19 @@ import {
 } from './protocol.ts'
 import { ConnectionError } from '../errors.ts'
 
+/**
+ * DDL 失效错误检测（seed/迁移 DROP 表/类型后，服务器缓存语句引用已删 OID）：
+ *   - cached plan must not change result type  — 结果行类型因 DROP+CREATE 改变
+ *   - cache lookup failed for type NNNN        — 结果类型引用已 DROP 的 enum/类型
+ * 命中 → 清客户端语句缓存 + Sync 复位后重 Parse（新语句名 = 按当前 schema 重新解析）。
+ */
+function isCacheInvalidationError(message: string): boolean {
+  return (
+    message.includes('cached plan must not change result type') ||
+    message.includes('cache lookup failed for type')
+  )
+}
+
 export interface PgConnectionOptions {
   host?: string
   port?: number
@@ -148,6 +161,17 @@ export class PgConnection {
     awaitingDescribe?: boolean
     prepKey?: string
     prepName?: string
+    retried?: boolean
+  } | null = null
+
+  /** DDL 失效重试：缓存语句被 DROP 后服务器拒绝执行，Sync 复位后以新语句名重 Parse */
+  private pendingRetry: {
+    sql: string
+    params?: (string | null)[]
+    columns: ReturnType<typeof parseRowDescription>
+    resolve: (rows: Row[]) => void
+    reject: (e: unknown) => void
+    retried: boolean
   } | null = null
 
   private onData(chunk: Buffer) {
@@ -288,6 +312,12 @@ export class PgConnection {
         // 错误后的复位 Z：仅消费（不 resolve 任何查询）
         if (this.pendingErrorZ) {
           this.pendingErrorZ = false
+          // DDL 失效恢复：连接复位后以新语句名重 Parse（服务器按当前 schema 重新解析）
+          if (this.pendingRetry) {
+            const r = this.pendingRetry
+            this.pendingRetry = null
+            this.issueExtendedQuery(r.sql, r.params ?? [], r.resolve, r.reject, r.retried)
+          }
           break
         }
         const q = this.currentQuery
@@ -308,10 +338,29 @@ export class PgConnection {
         if (q) {
           // 错误后：连接等待 Sync 的 ReadyForQuery 复位——下一个 Z 仅消费，不 resolve
           this.pendingErrorZ = true
-          // prepare 阶段错误：发 Sync 复位连接（PG 错误后需 Sync 恢复，否则后续查询被忽略）
-          if (q.awaitingDescribe) this.send(syncMessage())
           const err = new Error(fields.message ?? 'postgres query error') as Error & { code?: string }
           err.code = fields.code
+          // ── DDL 失效恢复（seed/迁移 DROP 表/类型后，服务器缓存语句引用已删 OID）──
+          // cached plan must not change result type / cache lookup failed for type：
+          // 清空客户端语句缓存 + 保留 Promise，Sync 复位后重 Parse（新语句名 → 新 schema）
+          if (q.prepKey && isCacheInvalidationError(fields.message ?? '')) {
+            this.prepared.clear()
+            if (!q.retried) {
+              this.pendingRetry = {
+                sql: q.sql ?? '',
+                params: q.params,
+                columns: q.columns,
+                resolve: q.resolve,
+                reject: q.reject,
+                retried: true,
+              }
+              // 首次准备路径（Parse+Describe+Flush，无 Sync）需发 Sync 复位
+              if (q.awaitingDescribe) this.send(syncMessage())
+              break // 不 reject——Z 后重试
+            }
+          }
+          // prepare 阶段错误：发 Sync 复位连接（PG 错误后需 Sync 恢复，否则后续查询被忽略）
+          if (q.awaitingDescribe) this.send(syncMessage())
           q.reject(err)
         }
         break
@@ -425,22 +474,7 @@ export class PgConnection {
         let stmtEntry = this.getPrepared(sig)
         const encoded = encodeParams(params)
         if (!stmtEntry) {
-          const name = `wf_s${++this.stmtSeq}`
-          this.currentQuery = {
-            columns: [],
-            rows: [],
-            resolve,
-            reject,
-            sql,
-            params: encoded,
-            awaitingDescribe: true,
-            prepKey: sig,
-            prepName: name,
-          }
-          // Parse + Describe + Flush：服务器回 ParseComplete(1) + ParameterDescription(t)
-          this.socket.write(parseMessage(name, sql, params.map(() => 0)))
-          this.socket.write(describeMessage('S', name))
-          this.socket.write(flushMessage())
+          this.issueExtendedQuery(sql, encoded, resolve, reject)
         } else {
           // 已备 statement：直接 Bind(命名) + Execute + Sync——无 T（Describe 只回一次）
           this.currentQuery = {
@@ -451,6 +485,8 @@ export class PgConnection {
             sql,
             params: encoded,
             awaitingDescribe: false,
+            prepKey: sig,
+            prepName: stmtEntry.name,
           }
           this.socket.write(bindMessage(stmtEntry.name, encoded))
           this.socket.write(executeMessage())
@@ -458,6 +494,35 @@ export class PgConnection {
         }
       }
     })
+  }
+
+  /**
+   * 扩展查询首次准备：Parse + Describe + Flush（无 Sync——错误时由调用方发 Sync 复位）。
+   * retry 路径复用：新语句名强制服务器按当前 schema 重新解析（DDL 失效恢复）。
+   */
+  private issueExtendedQuery(
+    sql: string,
+    params: (string | null)[],
+    resolve: (rows: Row[]) => void,
+    reject: (e: unknown) => void,
+    retried?: boolean,
+  ): void {
+    const name = `wf_s${++this.stmtSeq}`
+    this.currentQuery = {
+      columns: [],
+      rows: [],
+      resolve,
+      reject,
+      sql,
+      params,
+      awaitingDescribe: true,
+      prepKey: `${sql}|${params.length}`,
+      prepName: name,
+      retried,
+    }
+    this.socket?.write(parseMessage(name, sql, params.map(() => 0)))
+    this.socket?.write(describeMessage('S', name))
+    this.socket?.write(flushMessage())
   }
 
   private send(data: Uint8Array) {

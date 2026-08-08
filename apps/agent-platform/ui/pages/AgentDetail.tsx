@@ -81,28 +81,37 @@ export const AgentDetail: Component = (_props, ctx) => {
     } catch (e) { $.error = errMsg(e, '保存失败'); $.saving = false }
   }
 
-  async function bindSkill(slug: string) {
-    await ctx.api!.post(`/api/agents/${agentId}/skills`, { skill_slug: slug })
+  async function bindSkill(skill: any) {
+    // 后端契约：POST /api/agents/:id/skills 需要 { skill_name, skill_dir }
+    const skillName = skill.meta?.name ?? skill.name ?? skill.slug
+    const skillDir = skill.dir ?? skill.skill_dir
+    if (!skillName || !skillDir) return
+    await ctx.api!.post(`/api/agents/${agentId}/skills`, { skill_name: skillName, skill_dir: skillDir })
     const d = await ctx.api!.get(`/api/agents/${agentId}/skills`)
     $.boundSkills = d.skills ?? []
   }
 
-  async function unbindSkill(slug: string) {
-    await ctx.api!.delete(`/api/agents/${agentId}/skills/${slug}`)
+  async function unbindSkill(id: string) {
+    // 后端契约：DELETE /api/agents/:id/skills/:skillId 需要 agent_skills.id（UUID）
+    await ctx.api!.delete(`/api/agents/${agentId}/skills/${id}`)
     const d = await ctx.api!.get(`/api/agents/${agentId}/skills`)
     $.boundSkills = d.skills ?? []
   }
 
   async function loadLogs() {
     $.logsLoading = true
-    const d = await ctx.api!.get(`/api/agents/${agentId}/logs?limit=20`)
-    $.logs = d.logs ?? []; $.logsLoading = false
+    try {
+      const d = await ctx.api!.get(`/api/stats/agents/${agentId}/logs`)
+      $.logs = d.logs ?? []; $.logsLoading = false
+    } catch { $.logsLoading = false }
   }
 
   async function loadWebhookLogs() {
     $.whLogsLoading = true
-    const d = await ctx.api!.get(`/api/stats/agents/${agentId}/webhook-logs`)
-    $.whLogs = d.logs ?? []; $.whLogsLoading = false
+    try {
+      const d = await ctx.api!.get(`/api/stats/agents/${agentId}/webhook-logs`)
+      $.whLogs = d.logs ?? []; $.whLogsLoading = false
+    } catch { $.whLogsLoading = false }
   }
 
   async function toggleExpandDoc(docId: string) {
@@ -267,7 +276,7 @@ export const AgentDetail: Component = (_props, ctx) => {
                 <span class="wf-text-sm wf-text-medium">{s.name}</span>
                 <span class="wf-text-xs wf-text-tertiary">{s.description ?? ''}</span>
               </div>
-              <Button size="sm" variant="danger" onClick={() => unbindSkill(s.slug)}>解绑</Button>
+              <Button size="sm" variant="danger" onClick={() => unbindSkill(s.id)}>解绑</Button>
             </div>
           ))}
           {$.availableSkills.length > 0 && (
@@ -277,10 +286,14 @@ export const AgentDetail: Component = (_props, ctx) => {
           )}
           {$.showSkillPicker && (
             <div class="wf-stack wf-gap-xs wf-mt-sm">
-              {$.availableSkills.filter((as: any) => !$.boundSkills.some((bs: any) => bs.slug === as.slug)).map((s: any) => (
-                <div key={s.slug} class="wf-split wf-py-xs">
-                  <span class="wf-text-sm">{s.name}</span>
-                  <Button size="sm" variant="primary" onClick={() => bindSkill(s.slug)}>绑定</Button>
+              {$.availableSkills.filter((as: any) => {
+                const name = as.meta?.name ?? as.name ?? as.slug
+                return !$.boundSkills.some((bs: any) => bs.skill_name === name)
+              }).map((s: any) => (
+                <div key={s.dir ?? s.slug ?? s.id} class="wf-split wf-py-xs">
+                  <span class="wf-text-sm">{s.meta?.name ?? s.name}</span>
+                  <span class="wf-text-xs wf-text-tertiary">{s.meta?.description ?? s.description ?? ''}</span>
+                  <Button size="sm" variant="primary" onClick={() => bindSkill(s)}>绑定</Button>
                 </div>
               ))}
             </div>

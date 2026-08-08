@@ -36,27 +36,22 @@ const mockAiClient = {
     params.onFinish?.({ content: 'Hello', toolCalls: [] })
   },
   agent: (config: any) => ({
-    run: async (messages: any[]) => ({
+    run: (messages: any[]) => new Response('ok'),
+    stream: async (messages: any[], opts?: any) => {
+      // 框架 wf:* 事件协议：emit(name, data)
+      opts?.emit?.('wf:token', { text: 'Streaming' })
+      opts?.emit?.('wf:usage', { totalTokens: 10 })
+      opts?.emit?.('wf:done', {})
+    },
+    runToResult: async (messages: any[]) => ({
       content: `Agent 回复: ${messages.map(m => m.content).join(', ')}`,
       messages: [
         { role: 'system', content: config.systemPrompt },
         ...messages,
         { role: 'assistant', content: 'Agent 回复内容' },
       ],
-      steps: [{ type: 'llm' as const, content: 'Agent 回复内容' }],
+      steps: [{ type: 'llm', content: 'Agent 回复内容' }],
     }),
-    stream: async (messages: any[], callbacks: any) => {
-      callbacks.onChunk({
-        id: '1', model: 'm',
-        choices: [{ index: 0, delta: { content: 'Streaming' }, finish_reason: 'stop' as const }],
-      })
-      callbacks.onFinish?.({ content: 'Streaming response' })
-      return {
-        content: 'Streaming response',
-        messages: [{ role: 'assistant', content: 'Streaming response' }],
-        steps: [{ type: 'llm' as const, content: 'Streaming' }],
-      }
-    },
   }),
   embed: async (text: string) => {
     // 返回 1024 维向量（匹配 schema vector(1024)）
@@ -301,9 +296,8 @@ describe('Services', () => {
       `
 
       const ctx = makeMockCtx({ sql: await pg.sql as any })
-      const { registerTool } = await import('../src/ai/agent.ts')
-      registerTool('get_info', async () => ({ info: 'test data' }))
-
+      // 工具由框架 agent 引擎从 agents.tools 配置解析（src/tools/ 内置工具注册），
+      // mock ai.agent 直接返回内容——验证带 tools 配置的 webhook 不崩溃且返回 reply
       const result = await handleWebhookMessage(
         ctx as Context,
         '00000000-0000-0000-0000-000000000041',

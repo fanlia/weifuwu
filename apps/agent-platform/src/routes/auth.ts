@@ -45,9 +45,9 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
       `
     }
 
-    // 检查邮箱是否已注册
+    // 检查邮箱是否已注册（框架 _weifuwu_users：email 全局唯一，登录/改密/会话都走它）
     const [existing] = await sql`
-      SELECT id FROM users WHERE email = ${body.email} AND tenant_id = ${tenant.id}
+      SELECT id FROM _weifuwu_users WHERE email = ${body.email}
     `
     if (existing) {
       return Response.json({ error: '该邮箱已注册' }, { status: 409 })
