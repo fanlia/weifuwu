@@ -103,4 +103,21 @@ describe('Carousel', () => {
     const v = render({ children: slides, showArrows: false })
     assert.ok(!v.props.children.some((c: any) => c?.props?.['aria-label'] === '下一张'))
   })
+
+  it('autoplay advances automatically at interval', async () => {
+    const ctx = mockCtx()
+    const render = mount(Carousel, { children: slides, autoplay: true, interval: 40 }, ctx)!
+    let v = render({ children: slides, autoplay: true, interval: 40 })
+    assert.match(trackOf(v).props.style.transform, /0%/)
+    // 模拟挂载：ref 挂载后 stableRef 启动 autoplay timer
+    const root = v.props.children.find((c: any) => c?.props?.class === 'wf-carousel') ?? v
+    root.props.ref?.(document.createElement('div'))
+    await new Promise((r) => setTimeout(r, 100)) // 2+ interval（40ms）
+    v = render({ children: slides, autoplay: true, interval: 40 })
+    // 100ms / 40ms ≈ 2-3 次自动切换 → 已离开第 1 张（精确比较，避免 -200% 含 0% 子串误判）
+    const t = trackOf(v).props.style.transform
+    assert.notEqual(t, 'translateX(0%)', 'autoplay 应自动切换')
+    assert.notEqual(t, 'translateX(-0%)', 'autoplay 应自动切换')
+    root.props.ref?.(null) // 清理 interval（防测试进程挂起）
+  })
 })

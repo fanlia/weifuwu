@@ -1281,11 +1281,12 @@ const DemoMenubar: Component = () => () => (
 
 const DemoCarousel: Component = () => () => (
   <div class="wf-max-w-sm">
-    <Carousel>
+    <Carousel autoplay interval={2500}>
       {['🟥 第一张', '🟦 第二张', '🟩 第三张'].map((t, i) => (
         <div key={i} class="wf-bg-tertiary wf-p-xl wf-text-center wf-rounded-md">{t}</div>
       ))}
     </Carousel>
+    <div class="wf-text-xs wf-text-secondary wf-mt-xs">autoplay：每 2.5s 自动切换</div>
   </div>
 )
 
