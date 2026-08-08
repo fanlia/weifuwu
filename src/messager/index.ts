@@ -60,6 +60,9 @@ export type CreateConversationInput =
 /** 实时事件（业务事件对象，如 { type: 'new_message', ... }） */
 export type MsgEvent = Record<string, unknown>
 
+/** messager 实例序号（SELF_PID 唯一性：同进程多实例也能区分） */
+let messagerSeq = 0
+
 export interface MessagerClient {
   // ── 实时（P2） ──
   /** 标准 WS 协议 handler（connected/subscribe/unsubscribe/ping/pong），供 app.ws(path, ...) */
@@ -300,7 +303,9 @@ export function messager(options: MessagerOptions): MessagerSystem {
       redisSub.psubscribe(`${REDIS_PREFIX}*`, (channel: string, message: string) => {
         // 跨进程消息 → 本地广播（不重发 Redis，避免环）
         const room = channel.slice(REDIS_PREFIX.length)
-        const event = JSON.parse(message) as MsgEvent
+        const event = JSON.parse(message) as MsgEvent & { _pid?: string }
+        // 本进程 publish 的环回消息跳过（已本地直发过）——否则每个事件发两次，客户端乱序/重复
+        if (event._pid === SELF_PID) return
         broadcastLocal(room, event)
       })
     }).catch((err: unknown) => {
@@ -308,10 +313,17 @@ export function messager(options: MessagerOptions): MessagerSystem {
     })
   }
 
+  // 实例唯一标识：Redis 环回去重（broadcast 本地直发 + Redis publish，
+  // 本实例的 subscriber 会收到自己 publish 的消息 → 重复广播 → 客户端 token 重复/乱序）。
+  // 用 进程pid+实例序号 而非纯 pid：同进程多实例（测试/微服务）也能正确区分。
+  const SELF_PID = `wf:${process.pid}:${++messagerSeq}`
+
   function broadcastLocal(room: string, event: MsgEvent): void {
     const members = rooms.get(room)
     if (!members) return
-    const payload = JSON.stringify(event)
+    // 剥离内部 _pid 元数据（不发给客户端）
+    const { _pid, ...clean } = event
+    const payload = JSON.stringify(clean)
     for (const ws of [...members]) {
       if (ws.readyState === ws.OPEN) {
         try { ws.send(payload) } catch { /* 断线忽略 */ }
@@ -323,7 +335,8 @@ export function messager(options: MessagerOptions): MessagerSystem {
     broadcastLocal(room, event)
     const pool = options.redis?.redis
     if (pool) {
-      pool.publish(`${REDIS_PREFIX}${room}`, JSON.stringify(event)).catch((err: unknown) => {
+      // 携带发布者 PID——订阅方据此跳过自己发的消息（防止单进程环回重复）
+      pool.publish(`${REDIS_PREFIX}${room}`, JSON.stringify({ ...event, _pid: SELF_PID })).catch((err: unknown) => {
         console.error('[messager] redis publish error:', err)
       })
     }

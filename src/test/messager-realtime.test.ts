@@ -116,6 +116,26 @@ describe('messager realtime (real ws + redis)', () => {
     sub.close(); outsider.close()
   })
 
+  it('单实例环回去重：自己 publish 的消息不重复广播（修复 token 乱序根因）', async () => {
+    const { ws, waitMsg } = await connect(server)
+    ws.send(JSON.stringify({ type: 'subscribe', room: 'conv:dedup' }))
+    await waitMsg('subscribed')
+    let count = 0
+    let lastText = ''
+    ws.on('message', (raw: Buffer) => {
+      const ev = JSON.parse(raw.toString())
+      if (ev.type === 'wf:token') { count++; lastText = ev.text }
+    })
+    // 连续 5 个 token 广播——每个应恰好到达一次（直发 1 次，Redis 环回被 _pid 跳过）
+    for (let i = 0; i < 5; i++) {
+      msg.broadcast('conv:dedup', { type: 'wf:token', text: `t${i}` })
+    }
+    await new Promise(r => setTimeout(r, 500))
+    assert.equal(count, 5, `期望 5 个 token 各一次，实际 ${count}（重复=环回未去重）`)
+    assert.equal(lastText, 't4')
+    ws.close()
+  })
+
   it('sendTo 用户维度（user:{id} 房间）', async () => {
     const { ws, waitMsg } = await connect(server)
     ws.send(JSON.stringify({ type: 'subscribe', room: 'user:u-42' }))

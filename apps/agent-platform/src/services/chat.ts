@@ -249,9 +249,10 @@ async function runAgentStreamForAgent(
     }, chatMessages, {
       onChunk: async (text: string) => {
         accumulatedContent += text
-        await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
-
+        // 先同步 emit（保序）：onChunk 是 async，若 await 写库后再 emit，
+        // 多个 chunk 并发时 emit 顺序被 UPDATE 异步完成顺序打乱 → 前端 token 乱序/缺失
         emit.emit({ type: 'wf:token', messageId: msgId, text })
+        await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
       },
       onToolCall: (toolCall: { name: string; args: string }) => {
         emit.emit({ type: 'wf:step', messageId: msgId, stepType: 'tool', name: toolCall.name, args: toolCall.args })
