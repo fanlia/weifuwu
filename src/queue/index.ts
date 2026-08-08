@@ -153,26 +153,45 @@ export function queue(options?: QueueOptions): QueueClientModule {
       const delayed = `${prefix}${name}:delayed`
 
       let running = false
+      let epoch = 0 // 世代标记：stop 时 ++，旧 loop 检查失效退出（防 stop/start 交替时旧 loop 复活）
       let conn: RedisConnection | null = null
-      let loopDone: Promise<void> | null = null
+      let connEpoch = -1 // 连接所属世代（stop 在途的旧连接与 start 的新连接区分）
+      const loops = new Map<number, Promise<void>>() // epoch → loop（stop 只等自己的旧 loop）
       const inflight = new Set<Promise<void>>()
 
-      /** 独立连接：BLOCK 命令不占池连接（池只服务 add/length 等短命令） */
-      async function getConn(): Promise<RedisConnection> {
-        if (conn) return conn
+      /** 独立连接：BLOCK 命令不占池连接（池只服务 add/length 等短命令）。
+       *  连接绑定 epoch——stop 在途的旧连接（connEpoch !== myEpoch）关闭重建，
+       *  不与被 stop 摘除的旧连接混淆。 */
+      async function getConn(myEpoch: number): Promise<RedisConnection> {
+        if (conn && connEpoch === myEpoch) return conn
+        if (conn) {
+          // 旧连接（stop 在途已摘除引用，但 start 并发时可能还在）——安全关闭
+          const c = conn
+          conn = null
+          connEpoch = -1
+          await c.close().catch(() => {})
+        }
         const c = new RedisConnection(connOpts)
         await c.connect()
         conn = c
+        connEpoch = myEpoch
         return c
       }
 
-      /** 消费组幂等创建 */
+      /** 消费组幂等创建（瞬时错误重试 3 次 × 50ms；确定性错误如 WRONGTYPE 同样 reject） */
       async function ensureGroup(): Promise<void> {
-        try {
-          await conn!.command('XGROUP', 'CREATE', s, GROUP, '0', 'MKSTREAM')
-        } catch (e) {
-          if (!String((e as Error).message).includes('BUSYGROUP')) throw e
+        let lastErr: unknown
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await conn!.command('XGROUP', 'CREATE', s, GROUP, '0', 'MKSTREAM')
+            return
+          } catch (e) {
+            if (String((e as Error).message).includes('BUSYGROUP')) return
+            lastErr = e
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 50))
+          }
         }
+        throw lastErr
       }
 
       /** 处理一个 entry：成功 XACK；失败按 attempts 决定延迟重试（ZSET）或 DLQ */
@@ -270,8 +289,8 @@ export function queue(options?: QueueOptions): QueueClientModule {
         }
       }
 
-      async function loop(): Promise<void> {
-        while (running) {
+      async function loop(myEpoch: number): Promise<void> {
+        while (running && myEpoch === epoch) {
           await claimStale()
           await requeueDelayed()
           let result: unknown
@@ -304,29 +323,45 @@ export function queue(options?: QueueOptions): QueueClientModule {
         start: async () => {
           if (running) return
           running = true
-          // 就绪等待：独立连接 + 消费组建好后才 resolve（调用方可知 group 可用）
-          await getConn()
-          await ensureGroup()
+          const myEpoch = epoch
+          try {
+            // 就绪等待：独立连接 + 消费组建好后才 resolve（调用方可知 group 可用）
+            await getConn(myEpoch)
+            await ensureGroup()
+          } catch (e) {
+            // 失败回退：running 复位 + 清理（否则 start 永久卡死无法重试）
+            running = false
+            if (conn) {
+              const c = conn
+              conn = null
+              connEpoch = -1
+              await c.close().catch(() => {})
+            }
+            throw e
+          }
           // fire-and-forget：loop 是无限循环，不能阻塞 start 调用者
-          loopDone = loop()
-          loopDone.catch((e) => console.error('[queue] worker loop crashed:', e))
+          const lp = loop(myEpoch)
+          loops.set(myEpoch, lp)
+          lp.finally(() => loops.delete(myEpoch)).catch((e) =>
+            console.error('[queue] worker loop crashed:', e),
+          )
         },
         stop: async () => {
           if (!running) {
-            await loopDone?.catch(() => {})
+            await Promise.allSettled([...loops.values()])
             return
           }
+          epoch++ // 旧 loop 的 while 检查失效——即使 stop 未完成时 start，旧 loop 也必然退出
           running = false
-          await Promise.allSettled([...inflight])
-          // 等 loop 完全退出（当前 BLOCK 返回后 while 检查退出）——防残留 BLOCK 堵连接
-          await loopDone?.catch(() => {})
-          loopDone = null
-          // 关闭独立连接（BLOCK 不再占任何连接）
-          if (conn) {
-            const c = conn
-            conn = null
-            await c.close().catch(() => {})
-          }
+          // 摘除旧连接引用（start 并发时建新连接，不被误关）
+          const oldConn = conn
+          conn = null
+          connEpoch = -1
+          // 只等本世代（epoch < 当前）的旧 loop——start 并发的新 loop 不受 stop 影响
+          const oldLoops = [...loops.entries()].filter(([e]) => e < epoch).map(([, p]) => p)
+          await Promise.allSettled([...inflight]) // in-flight 的 XACK 用 oldConn，等完成
+          await Promise.allSettled(oldLoops) // 旧 loop 退出（BLOCK 返回后 epoch 检查）
+          await oldConn?.close().catch(() => {}) // 最后关连接（in-flight 已完）
         },
       }
     },

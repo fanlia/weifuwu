@@ -251,3 +251,50 @@ describe('queue worker independent connection (real redis)', () => {
     }
   })
 })
+
+describe('queue worker lifecycle correctness (real redis)', () => {
+  const pool = new RedisPool({ host: 'localhost', port: 6379 })
+  const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+  after(async () => {
+    await pool.close()
+  })
+
+  it('start 失败（group 创建 WRONGTYPE）→ reject；running 回退可重试', async () => {
+    const q = queue()
+    try {
+      const name = qname()
+      // 把 stream key 占为字符串——XGROUP CREATE 报 WRONGTYPE（确定性失败）
+      await pool.command('SET', `q:${name}`, 'not-a-stream')
+      const worker = q.queue.worker<any>(name, async () => {}, { blockMs: 50 })
+      await assert.rejects(worker.start(), /WRONGTYPE|wrong kind/i)
+      // 修复前：running 残留 true → 第二次 start no-op（不 reject）→ 断言失败
+      await assert.rejects(worker.start(), /WRONGTYPE|wrong kind/i, 'running 应回退，start 可重试')
+      await pool.command('DEL', `q:${name}`)
+    } finally {
+      await q.close()
+    }
+  })
+
+  it('stop/start 快速交替：旧 loop 不复活，消费正常', async () => {
+    const q = queue()
+    try {
+      const name = qname()
+      const seen: number[] = []
+      const worker = q.queue.worker<any>(name, async (job) => { seen.push(job.data.n) }, { blockMs: 100 })
+      await worker.start()
+      // stop 未完成（旧 loop BLOCK 100ms 中）时立即 start——旧 loop 不应复活
+      const sp = worker.stop()
+      await worker.start()
+      await sp
+      await q.queue.add(name, { n: 1 })
+      await waitFor(() => seen.includes(1), 3000, '消费正常')
+      await q.queue.add(name, { n: 2 })
+      await waitFor(() => seen.includes(2), 3000, '持续消费正常')
+      await worker.stop()
+    } finally {
+      await q.close()
+    }
+  })
+})
