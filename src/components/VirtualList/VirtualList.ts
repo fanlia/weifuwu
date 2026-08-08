@@ -79,8 +79,9 @@ export const VirtualList: Component<VirtualListProps> = (_init, ctx) => {
 
     return h('div', {
       class: ['wf-virtual-list', className].filter(Boolean).join(' '),
-      // 容器关键定位内联（item 绝对定位依赖 relative——CSS 缺失/旧缓存时 item 逃逸导致空白）
-      style: { position: 'relative', height: `${height}px`, overflowY: 'auto' },
+      // 容器关键定位/宽度内联：item 绝对定位依赖 relative；width:100% 防 flex 子项
+      // flex-basis:auto 取内容宽（absolute 内容不提供宽度 → 容器宽 0 → 文本被压缩）
+      style: { position: 'relative', width: '100%', height: `${height}px`, overflowY: 'auto' },
       ref: stableRef,
     }, [spacer, list])
   }
