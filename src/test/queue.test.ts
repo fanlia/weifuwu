@@ -35,7 +35,7 @@ describe('queue (real redis)', () => {
   it('add + worker 消费成功（XACK，pending 清零）', async () => {
     const name = qname()
     const received: any[] = []
-    const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) })
+    const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
     await worker.start()
 
     await q.queue.add(name, { n: 1 })
@@ -162,7 +162,7 @@ describe('queue (real redis)', () => {
   it('空队列不崩溃；stop 优雅退出', async () => {
     const name = qname()
     let ran = false
-    const worker = q.queue.worker<any>(name, async () => { ran = true })
+    const worker = q.queue.worker<any>(name, async () => { ran = true }, { blockMs: 50 })
     await worker.start()
     await sleep(200) // BLOCK 空等（blockMs 50，验证空等不崩溃）
     assert.equal(ran, false)
