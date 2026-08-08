@@ -21,6 +21,7 @@ import {
   InView, DatePicker, Chart, Editor, ThemeSwitch,
   AiChat, ToolCallCard, ApprovalCard, PageHeader, Icon,
   Markdown, CodeBlock, Timeline, InputNumber, Descriptions, AvatarGroup, MessageBubble,
+  Menu, PasswordInput, TagsInput, Highlight, List, Result,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -711,6 +712,70 @@ const DemoMessageBubble: Component = (_props, ctx) => {
   )
 }
 
+const DemoMenu: Component = (_props, ctx) => {
+  let active = 'agents'
+  const items = [
+    { key: 'dashboard', label: '仪表盘', icon: '📊', group: '工作台' },
+    { key: 'agents', label: 'Agent 管理', icon: '🤖', group: '工作台' },
+    { key: 'depts', label: '部门', icon: '🏢', group: '工作台' },
+    { key: 'settings', label: '设置', icon: '⚙️', group: '系统' },
+    { key: 'logout', label: '退出登录', icon: '🚪', group: '系统', danger: true },
+  ]
+  return (_p: any) => (
+    <div class="wf-w-full">
+      <div style="max-width:220px">
+        <Menu items={items} activeKey={active} onSelect={k => { active = k; ctx.ui.render() }} />
+      </div>
+      <div class="wf-text-xs wf-text-secondary wf-mt-sm">当前: {active}（方向键可导航）</div>
+    </div>
+  )
+}
+
+const DemoPasswordInput: Component = (_props, ctx) => {
+  let pwd = 'secret123'
+  return (_p: any) => (
+    <div class="wf-w-full wf-stack wf-gap-sm" style="max-width:320px">
+      <PasswordInput label="登录密码" value={pwd} placeholder="••••••••" onInput={(e: any) => { pwd = e.target.value; ctx.ui.render() }} hint="点击右侧眼睛切换可见性" />
+    </div>
+  )
+}
+
+const DemoTagsInput: Component = (_props, ctx) => {
+  let tags = ['typescript', 'weifuwu']
+  return (_p: any) => (
+    <div class="wf-w-full wf-stack wf-gap-sm" style="max-width:360px">
+      <TagsInput label="技能标签" value={tags} placeholder="输入后回车添加，支持中文输入法" onChange={v => { tags = v; ctx.ui.render() }} hint={`当前 ${tags.length} 个标签`} />
+    </div>
+  )
+}
+
+const DemoHighlight: Component = () => () => (
+  <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-text-sm"><Highlight text="搜索 张三 的订单记录，张三 是管理员" query={['张三']} /></div>
+    <div class="wf-text-sm wf-text-secondary"><Highlight text="支持多词：weifuwu 与 components" query={['weifuwu', 'components']} /></div>
+  </div>
+)
+
+const DemoList: Component = () => () => (
+  <div class="wf-w-full" style="max-width:400px">
+    <List divided header="最近文件"
+      items={[{ n: '需求文档.md', s: '2 分钟前' }, { n: '架构设计.pdf', s: '昨天' }, { n: '接口说明.docx', s: '3 天前' }]}
+      renderItem={(f: any) => (
+        <div class="wf-split">
+          <span class="wf-text-sm">📄 {f.n}</span>
+          <span class="wf-text-xs wf-text-tertiary">{f.s}</span>
+        </div>
+      )} />
+  </div>
+)
+
+const DemoResult: Component = () => () => (
+  <div class="wf-w-full">
+    <Result status="success" title="注册成功" desc="欢迎加入 weifuwu，验证邮件已发送至你的邮箱"
+      extra={<><Button variant="primary">进入工作台</Button><Button variant="ghost">返回首页</Button></>} />
+  </div>
+)
+
 const DemoDivider: Component = () => () => (
   <div class="wf-stack wf-gap-sm wf-w-full">
     <p>上方分割线</p>
@@ -1225,6 +1290,25 @@ if (ok) { /* 执行 */ }`,
 <MessageBubble role="assistant" status="streaming" content="…"
   actions={<Button size="sm">重试</Button>} />`,
 
+  menu: `<Menu items={[
+  { key: 'agents', label: 'Agent 管理', icon: '🤖', group: '工作台' },
+  { key: 'settings', label: '设置', group: '系统' },
+]} activeKey="agents" onSelect={k => setActive(k)} />`,
+
+  passwordInput: `<PasswordInput label="密码" value={pwd} onInput={e => setPwd(e.target.value)} />
+{/* 眼睛按钮切换可见性 */}`,
+
+  tagsInput: `<TagsInput value={tags} placeholder="回车添加标签"
+  maxTags={10} onChange={setTags} />`,
+
+  highlight: `<Highlight text="搜索 张三 的订单" query={['张三']} />`,
+
+  list: `<List divided header="最近文件" items={files}
+  renderItem={f => <div>{f.name}</div>} />`,
+
+  result: `<Result status="success" title="注册成功" desc="…"
+  extra={<Button variant="primary">进入工作台</Button>} />`,
+
   fileUpload: `<FileUpload accept="image/*,.pdf"
   multiple maxSize={5242880}
   value={files}
@@ -1349,6 +1433,8 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="SearchInput" desc="搜索输入框，带清除按钮" code={CODE.search}><DemoSearchInput /></DemoCard>
         <DemoCard title="ProgressBar" desc="进度条，支持 label/showValue" code={CODE.progress}><DemoProgress /></DemoCard>
         <DemoCard title="InputNumber" desc="数字输入：min/max/step + 增减按钮 + precision" code={CODE.inputNumber}><DemoInputNumber /></DemoCard>
+        <DemoCard title="PasswordInput" desc="密码输入：眼睛按钮切换可见性" code={CODE.passwordInput}><DemoPasswordInput /></DemoCard>
+        <DemoCard title="TagsInput" desc="标签输入：回车/逗号添加 + 中文输入法感知" code={CODE.tagsInput}><DemoTagsInput /></DemoCard>
       </Section>
 
       <Section title="数据展示">
@@ -1365,6 +1451,9 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Markdown" desc="AI 回复渲染：安全子集 parser + 代码块 + 链接白名单" code={CODE.markdown}><DemoMarkdown /></DemoCard>
         <DemoCard title="CodeBlock" desc="代码块：语言标签 + 复制按钮 + 横向滚动" code={CODE.codeblock}><DemoCodeBlock /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
+        <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
+        <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>
+        <DemoCard title="Result" desc="结果页：success/error/warning/info + extra 操作区" code={CODE.result}><DemoResult /></DemoCard>
         <DemoCard title="Confirm" desc="确认对话框，Promise 化 await 调用" code={CODE.confirm}><DemoConfirm /></DemoCard>
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
         <DemoCard title="Chart" desc="SVG 图表：line/bar/pie" code={CODE.chart}><DemoChart /></DemoCard>
@@ -1387,6 +1476,7 @@ const App: Component = (_props, ctx) => {
 
       <Section title="导航组件">
         <DemoCard title="Breadcrumb" desc="面包屑导航，支持 aria-current" code={CODE.breadcrumb}><DemoBreadcrumb /></DemoCard>
+        <DemoCard title="Menu" desc="侧栏导航：分组 + 图标 + 选中态 + 方向键" code={CODE.menu}><DemoMenu /></DemoCard>
         <DemoCard title="Tabs" desc="标签页切换，支持 active/onChange" code={CODE.tabs}><DemoTabs /></DemoCard>
         <DemoCard title="Dropdown" desc="下拉菜单，支持 danger variant" code={CODE.dropdown}><DemoDropdown /></DemoCard>
         <DemoCard title="Pagination" desc="分页器，自动计算页码范围" code={CODE.pagination}><DemoPagination /></DemoCard>

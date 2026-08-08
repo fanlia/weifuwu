@@ -1,0 +1,63 @@
+/* weifuwu/components — TagsInput */
+
+.wf-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  padding: 4px var(--wf-space-sm);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg);
+  min-height: 36px; /* 与 Input 对齐 */
+  cursor: text;
+  transition: border-color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-tags:focus-within {
+  border-color: var(--wf-color-primary);
+  box-shadow: 0 0 0 2px var(--wf-color-primary-bg);
+}
+
+.wf-tags--err { border-color: var(--wf-color-error-text); }
+.wf-tags--disabled { opacity: 0.6; cursor: not-allowed; }
+
+.wf-tags-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--wf-space-xs);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg-secondary);
+  border: 1px solid var(--wf-color-border);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-tags-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--wf-color-text-tertiary);
+  padding: 0;
+  border-radius: 2px;
+}
+.wf-tags-remove:hover { color: var(--wf-color-error-text); }
+.wf-tags-remove:focus-visible { outline: 2px solid var(--wf-color-primary); }
+
+.wf-tags-input {
+  flex: 1;
+  min-width: 60px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  padding: 4px 0;
+}
+.wf-tags-input::placeholder { color: var(--wf-color-text-tertiary); }

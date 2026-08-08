@@ -1,0 +1,56 @@
+/* weifuwu/components — Menu（侧栏导航） */
+
+.wf-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-menu-group {
+  padding: var(--wf-space-sm) var(--wf-space-sm) 2px;
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.wf-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--wf-dur-fast) var(--wf-ease-out), color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-menu-item:hover {
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-text);
+}
+
+.wf-menu-item--active {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary-text);
+  font-weight: var(--wf-font-weight-semibold);
+}
+
+.wf-menu-item--danger { color: var(--wf-color-error-text); }
+.wf-menu-item--danger:hover { background: var(--wf-color-error-bg); color: var(--wf-color-error-text); }
+
+.wf-menu-item:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: -2px;
+}
+
+.wf-menu-icon {
+  display: inline-flex;
+  font-size: var(--wf-font-size-base);
+  width: 18px;
+  justify-content: center;
+  flex-shrink: 0;
+}

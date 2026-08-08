@@ -18,7 +18,7 @@ export type IconName =
   | 'sort' | 'sort-asc' | 'sort-desc'
   | 'check' | 'close' | 'alert' | 'info' | 'warning'
   | 'pause' | 'settings' | 'search' | 'send' | 'stop'
-  | 'retry' | 'upload' | 'trash' | 'edit' | 'plus' | 'copy'
+  | 'retry' | 'upload' | 'trash' | 'edit' | 'plus' | 'copy' | 'eye' | 'eye-off'
 
 export interface IconProps {
   name: IconName
@@ -54,6 +54,8 @@ const PATHS: Record<IconName, string[]> = {
   edit: ['M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7', 'M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'],
   plus: ['M12 5v14', 'M5 12h14'],
   copy: ['M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z', 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
+  eye: ['M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z', 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'],
+  'eye-off': ['M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94', 'M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19', 'M14.12 14.12a3 3 0 1 1-4.24-4.24', 'M1 1l22 22'],
 }
 
 export const Icon: Component<IconProps> = (_init, _ctx) =>

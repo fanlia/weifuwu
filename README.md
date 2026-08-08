@@ -242,7 +242,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 55 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 61 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 141 个主题 Token + 67 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
@@ -282,7 +282,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
-| `weifuwu/components` | **55 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
+| `weifuwu/components` | **61 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 141 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
@@ -2227,7 +2227,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-55 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+61 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -2390,6 +2390,8 @@ props 变化 ──────────────────────�
 | SegmentedControl | `SegmentedControl` | `options: SegmentedOption[]`, `value`, `onChange`, `size` | 分段选择器 |
 | ProgressBar | `ProgressBar` | `value`, `max`, `label`, `showValue` | 进度条 |
 | InputNumber | `InputNumber` | `value`, `min`, `max`, `step`, `precision`, `onChange` | 数字输入（增减按钮） |
+| PasswordInput | `PasswordInput` | `value`, `onInput`, `autoComplete` | 密码输入（可见性切换） |
+| TagsInput | `TagsInput` | `value: string[]`, `maxTags`, `allowDuplicates` | 标签输入（中文输入法感知） |
 
 ### 数据展示
 
@@ -2405,6 +2407,9 @@ props 变化 ──────────────────────�
 | Descriptions | `Descriptions` | `items: DescriptionItem[]`, `column`, `bordered` | 描述列表（详情页字段） |
 | Markdown | `Markdown` | `content` | AI 回复渲染（安全子集 parser） |
 | CodeBlock | `CodeBlock` | `code`, `lang`, `title` | 代码块（语言标签 + 复制） |
+| Highlight | `Highlight` | `text`, `query: string \| string[]` | 搜索词高亮（mark） |
+| List | `List` | `items`, `renderItem`, `divided`, `header/footer/empty` | 通用列表 |
+| Result | `Result` | `status`, `title`, `desc`, `extra` | 结果页（成功/失败/警告/信息） |
 | Icon | `Icon` | `name: IconName`, `size` | 图标（内置 25 个 stroke 图标，currentColor 随字号） |
 | StatCard | `StatCard` | `label`, `value`, `trend: 'up'\|'down'`, `trendLabel`, `icon`, `animate` | 统计卡片 |
 | PageHeader | `PageHeader` | `title`, `sub`, `display` | 页面标题（actions 放 children） |
@@ -2431,6 +2436,7 @@ props 变化 ──────────────────────�
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | Breadcrumb | `Breadcrumb` | `items: BreadcrumbItem[]` | 面包屑 |
+| Menu | `Menu` | `items: MenuItem[]`, `activeKey`, `onSelect` | 侧栏导航（分组 + 图标 + 方向键） |
 | Tabs | `Tabs` | `items: TabItem[]`, `active`, `onChange` | 标签页 |
 | Dropdown | `Dropdown` | `trigger`, `items: DropdownItem[]`, `open`, `onOpenChange` | 下拉菜单 |
 | Pagination | `Pagination` | `total`, `page`, `pageSize`, `onChange` | 分页 |

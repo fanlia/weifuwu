@@ -1,0 +1,9 @@
+/* weifuwu/components — Highlight */
+
+.wf-highlight-mark {
+  background: var(--wf-color-warning-bg);
+  color: var(--wf-color-warning-text);
+  border-radius: 2px;
+  padding: 0 1px;
+  font-weight: var(--wf-font-weight-semibold);
+}
