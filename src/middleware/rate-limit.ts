@@ -85,6 +85,13 @@ interface MemoryState {
 
 const PREFIX = 'rl:'
 
+/** 请求 IP（与全局限流同一取值逻辑：X-Forwarded-For 首个 IP） */
+function requestIp(req: Request): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? req.headers.get('x-real-ip')
+    ?? 'unknown'
+}
+
 export function rateLimit(options?: RateLimitOptions): RateLimitClient {
   const opts = {
     windowMs: options?.windowMs ?? 60_000,
@@ -187,8 +194,14 @@ export function rateLimit(options?: RateLimitOptions): RateLimitClient {
     if (opts.store === 'redis') requireRedis(ctx)
 
     // 注入 ctx.limit（手动限流）——超限抛 HttpError（router/serve 自动转状态码）
-    ctx.limit = async (name: string, manual?: { max?: number; windowMs?: number }) => {
-      const key = `${PREFIX}${name}`
+    ctx.limit = async (
+      name: string,
+      manual?: { max?: number; windowMs?: number; scope?: 'ip' | 'global' },
+    ) => {
+      // 维度：默认按 IP（每 IP 独立计数——登录/注册防暴破场景）；
+      // scope:'global' 全局共享（系统级总量限制）
+      const dim = (manual?.scope ?? 'ip') === 'global' ? '' : `:${requestIp(req)}`
+      const key = `${PREFIX}${name}${dim}`
       const max = manual?.max ?? opts.max
       const windowMs = manual?.windowMs ?? opts.windowMs
       const r = await check(key, max, windowMs)

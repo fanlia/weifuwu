@@ -9,7 +9,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, ui, userSystem, ai, messager } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, ui, userSystem, ai, messager, rateLimit } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -92,6 +92,11 @@ async function main() {
   app.use(users)
   // 框架认证路由：login/logout/refresh/me（register 自定义：建租户 + 默认 agent）
   users.routes(app, { prefix: '/api/auth', exclude: ['register'] })
+
+  // ── 限流（框架 rateLimit：ctx.limit 手动限流，默认按 IP 维度） ──
+  if (hasRedis) {
+    app.use(rateLimit({ store: 'redis', windowMs: 60_000, max: 100 }))
+  }
 
   // ── AI 中间件（框架 ai()：chat/stream/agent/embedding——embedding 默认读 DASHSCOPE_*） ──
   app.use(ai({ embedding: {} }))

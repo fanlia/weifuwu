@@ -3002,6 +3002,14 @@ app.get('/api/search', async (req, ctx) => {
   await ctx.limit('search', { max: 30, windowMs: 60_000 })  // 手动限流，超限抛 429
 })
 
+// 登录/注册防爆破：ctx.limit 默认按 IP 维度（每 IP 独立计数）
+app.post('/api/auth/register', async (req, ctx) => {
+  await ctx.limit('register', { max: 5, windowMs: 60_000 }) // 每 IP 每分钟 5 次
+})
+
+// 系统级总量限制：scope: 'global' 全局共享维度
+await ctx.limit('total-jobs', { max: 1000, windowMs: 60_000, scope: 'global' })
+
 // 登录防爆破（配合 userSystem）：组合键 ip:email（key 接收标准 Request，取头拿 IP）
 app.use(rateLimit({ key: (req) => `login:${req.headers.get('x-forwarded-for')}:${req.headers.get('x-user-email')}`, max: 5, windowMs: 15 * 60_000 }))
 ```

@@ -157,6 +157,32 @@ describe('rateLimit', () => {
     })
   })
 
+  describe('ctx.limit scope（IP 维度）', () => {
+    it('默认按 IP 维度：不同 IP 独立计数（agent-platform register 场景）', async () => {
+      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 10 })
+      const name = `reg-${randomUUID()}`
+      const { ctx: ctxA } = await callMw(mw, makeReq('10.1.1.1'), pool)
+      const { ctx: ctxB } = await callMw(mw, makeReq('10.2.2.2'), pool)
+      // A 两次 + B 一次（max 2）
+      await ctxA.limit(name, { max: 2, windowMs: 60_000 })
+      await ctxA.limit(name, { max: 2, windowMs: 60_000 })
+      await ctxB.limit(name, { max: 2, windowMs: 60_000 })
+      // A 第三次 429；B 仍可再 1 次（独立维度）
+      await assert.rejects(() => ctxA.limit(name, { max: 2, windowMs: 60_000 }))
+      await ctxB.limit(name, { max: 2, windowMs: 60_000 })
+      await assert.rejects(() => ctxB.limit(name, { max: 2, windowMs: 60_000 }))
+    })
+
+    it("scope: 'global' 保持全局维度（现有语义）", async () => {
+      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 10 })
+      const name = `g-${randomUUID()}`
+      const { ctx: ctxA } = await callMw(mw, makeReq('10.3.3.3'), pool)
+      const { ctx: ctxB } = await callMw(mw, makeReq('10.4.4.4'), pool)
+      await ctxA.limit(name, { max: 1, windowMs: 60_000, scope: 'global' })
+      await assert.rejects(() => ctxB.limit(name, { max: 1, windowMs: 60_000, scope: 'global' }))
+    })
+  })
+
   describe('memory store（单实例/开发）', () => {
     it('fixed 语义生效', async () => {
       const mw = rateLimit({ store: 'memory', windowMs: 60_000, max: 2 })

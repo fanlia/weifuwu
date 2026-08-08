@@ -6,7 +6,7 @@
  */
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router, postgres, cors, userSystem } from 'weifuwu'
+import { Router, postgres, cors, redis, userSystem, rateLimit } from 'weifuwu'
 import { readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -14,13 +14,14 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 let pg: ReturnType<typeof postgres>
+let rds: ReturnType<typeof redis>
 let handle: (req: Request, ctx: any) => Promise<Response>
 
 function req(method: string, path: string, body?: unknown): Promise<Response> {
   return handle(
     new Request(`http://localhost${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-forwarded-for': 'auth-test' },
       body: body ? JSON.stringify(body) : undefined,
     }),
     { params: {}, query: {} },
@@ -38,6 +39,9 @@ before(async () => {
   const app = new Router()
   app.use(cors())
   app.use(pg)
+  rds = redis()
+  app.use(rds) // ctx.limit 的 redis store 需要
+  app.use(rateLimit({ store: 'redis', windowMs: 60_000, max: 100 })) // 与 server.ts 同构
 
   // 框架用户系统（与 server.ts 一致）
   const users = userSystem({ sql: pg.sql, secret: process.env.JWT_SECRET ?? 'test' })
@@ -48,6 +52,11 @@ before(async () => {
   // 自定义注册路由（租户 + 框架注册 + 默认 Agent）
   const { registerAuthRoutes } = await import('../src/routes/auth.ts')
   registerAuthRoutes(app)
+
+  // 限流 key 清理（跨运行残留 + 跨测试累计）：本文件统一 IP 'auth-test'
+  const rdsPool = (rds as any).redis
+  await rdsPool.del('rl:global:auth-test')   // 全局限流
+  await rdsPool.del('rl:register:auth-test') // register ctx.limit（IP 维度）
 
   // 受保护路由（仅验证 requireAuth 保护语义；me 由框架 users.routes 提供）
   const protectedRoutes = new Router()
@@ -63,6 +72,7 @@ before(async () => {
 
 after(async () => {
   try { await pg.close() } catch { /* ignore */ }
+  try { await (rds as any).close?.() } catch { /* ignore */ }
 })
 
 describe('Auth', () => {
@@ -125,5 +135,40 @@ describe('Auth', () => {
       { params: {}, query: {} },
     )
     assert.equal(res.status, 401)
+  })
+
+  it('限流（框架 ctx.limit，IP 维度）：同一 IP 5 次注册后 429', async () => {
+    // 清理该 IP 限流计数（ctx.limit key = rl:register:{ip}）
+    await (rds as any).redis.del('rl:register:test-ip')
+    const reqWithIp = (body: unknown) =>
+      handle(
+        new Request('http://localhost/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-forwarded-for': 'test-ip' },
+          body: JSON.stringify(body),
+        }),
+        { params: {}, query: {} },
+      )
+    // 5 次放行
+    for (let i = 0; i < 5; i++) {
+      const res = await reqWithIp({ email: `rl${i}@x.com`, password: 'pass1234', name: `R${i}` })
+      assert.ok(res.status !== 429, `第 ${i + 1} 次应放行（实际 ${res.status}）`)
+    }
+    // 第 6 次 429
+    const blocked = await reqWithIp({ email: 'rlx@x.com', password: 'pass1234', name: 'Rx' })
+    assert.equal(blocked.status, 429)
+    // 不同 IP 不受影响（独立维度）
+    const otherIp = await handle(
+      new Request('http://localhost/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': 'other-ip' },
+        body: JSON.stringify({ email: 'other@x.com', password: 'pass1234', name: 'Other' }),
+      }),
+      { params: {}, query: {} },
+    )
+    assert.ok(otherIp.status !== 429, '不同 IP 独立计数')
+    // 清理
+    await (rds as any).redis.del('rl:register:test-ip')
+    await (rds as any).redis.del('rl:register:other-ip')
   })
 })

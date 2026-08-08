@@ -4,7 +4,6 @@
 
 import type { Router, Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
-import { checkRateLimit, rateLimitKey } from '../services/rate-limit.ts'
 
 /**
  * 自定义注册路由（其余认证路由 login/logout/refresh/me 由框架 user() 提供）：
@@ -15,8 +14,10 @@ export function registerAuthRoutes(app: Router<AppCtx>): void {
   // ── 注册 ─────────────────────────────────────────────────
 
   app.post('/api/auth/register', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    // 限流：每 IP 每分钟 5 次注册请求
-    if (!checkRateLimit(rateLimitKey(req), { windowMs: 60_000, max: 5 })) {
+    // 限流：框架 ctx.limit（默认按 IP 维度）——每 IP 每分钟 5 次注册
+    try {
+      await ctx.limit?.('register', { max: 5, windowMs: 60_000 })
+    } catch {
       return Response.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 })
     }
     const body = await req.json() as {
