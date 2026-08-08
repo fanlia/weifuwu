@@ -7,6 +7,7 @@
 
 import { RedisClient, type RedisClientOptions } from './client.ts'
 import { RedisSubscriber } from './subscriber.ts'
+import { RedisPipeline } from './pipeline.ts'
 import type { RespValue } from './resp.ts'
 import { ConnectionError } from '../errors.ts'
 
@@ -179,6 +180,139 @@ export class RedisPool {
     await this.ensure()
     const c = await this.acquireHealthy()
     return c.cache(this.k(key), fn, ttl)
+  }
+
+  // ── 批量 / 存在 / 计数 ────────────────────────
+
+  async mget(...keys: string[]): Promise<(string | null)[]> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.mget(...keys.map((k) => this.k(k)))
+  }
+
+  async mset(...kv: (string | number)[]): Promise<'OK'> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    const prefixed: (string | number)[] = kv.map((x, i) => (i % 2 === 0 ? this.k(String(x)) : x))
+    return c.mset(...prefixed)
+  }
+
+  async exists(...keys: string[]): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.exists(...keys.map((k) => this.k(k)))
+  }
+
+  async setnx(key: string, value: string | number): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.setnx(this.k(key), value)
+  }
+
+  async incrby(key: string, delta: number): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.incrby(this.k(key), delta)
+  }
+
+  // ── hash ─────────────────────────────────────
+
+  async hset(key: string, field: string, value: string | number): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.hset(this.k(key), field, value)
+  }
+
+  async hget(key: string, field: string): Promise<string | null> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.hget(this.k(key), field)
+  }
+
+  async hgetall(key: string): Promise<Record<string, string>> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.hgetall(this.k(key))
+  }
+
+  async hdel(key: string, ...fields: string[]): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.hdel(this.k(key), ...fields)
+  }
+
+  // ── list ─────────────────────────────────────
+
+  async lpush(key: string, ...values: (string | number)[]): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.lpush(this.k(key), ...values)
+  }
+
+  async rpush(key: string, ...values: (string | number)[]): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.rpush(this.k(key), ...values)
+  }
+
+  async lpop(key: string): Promise<string | null> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.lpop(this.k(key))
+  }
+
+  async rpop(key: string): Promise<string | null> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.rpop(this.k(key))
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.lrange(this.k(key), start, stop)
+  }
+
+  // ── set ──────────────────────────────────────
+
+  async sadd(key: string, ...members: (string | number)[]): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.sadd(this.k(key), ...members)
+  }
+
+  async srem(key: string, ...members: (string | number)[]): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.srem(this.k(key), ...members)
+  }
+
+  async smembers(key: string): Promise<string[]> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.smembers(this.k(key))
+  }
+
+  // ── zset ─────────────────────────────────────
+
+  async zadd(key: string, score: number, member: string | number): Promise<number> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.zadd(this.k(key), score, member)
+  }
+
+  async zrange(key: string, start: number, stop: number): Promise<string[]> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.zrange(this.k(key), start, stop)
+  }
+
+  // ── pipeline（池级：选一健康连接；key 自动加前缀） ──
+
+  async pipeline(): Promise<RedisPipeline> {
+    await this.ensure()
+    const c = await this.acquireHealthy()
+    return c.pipeline()
   }
 
   /** PUBLISH 消息到频道，返回收到消息的订阅者数 */

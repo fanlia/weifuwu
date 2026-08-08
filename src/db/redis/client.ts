@@ -9,6 +9,7 @@
 
 import { RedisConnection, type RedisConnectionOptions } from './connection.ts'
 import type { RespValue } from './resp.ts'
+import { RedisPipeline } from './pipeline.ts'
 import { ValidationError } from '../errors.ts'
 
 export interface RedisClientOptions extends RedisConnectionOptions {}
@@ -83,6 +84,130 @@ export class RedisClient {
   /** TTL 剩余秒数；-1=无 TTL -2=key 不存在 */
   async ttl(key: string): Promise<number> {
     return Number(await this.conn.command('TTL', key))
+  }
+
+  // ── 批量 / 存在 / 计数 ────────────────────────
+
+  /** 批量读：返回与 key 一一对应的值（缺失为 null） */
+  async mget(...keys: string[]): Promise<(string | null)[]> {
+    const v = await this.conn.command('MGET', ...keys)
+    return (v as RespValue[]).map((x) => (x === null ? null : String(x)))
+  }
+
+  /** 批量写：mset(k1, v1, k2, v2, ...)（偶数参数） */
+  async mset(...kv: (string | number)[]): Promise<'OK'> {
+    const reply = await this.conn.command('MSET', ...kv)
+    return String(reply) as 'OK'
+  }
+
+  /** 存在性：返回存在的 key 数 */
+  async exists(...keys: string[]): Promise<number> {
+    return Number(await this.conn.command('EXISTS', ...keys))
+  }
+
+  /** 原子设置（仅 key 不存在时）：1=设置成功 0=已存在（分布式锁基础） */
+  async setnx(key: string, value: string | number): Promise<number> {
+    return Number(await this.conn.command('SETNX', key, value))
+  }
+
+  /** 原子加增量，返回新值 */
+  async incrby(key: string, delta: number): Promise<number> {
+    return Number(await this.conn.command('INCRBY', key, delta))
+  }
+
+  // ── hash ─────────────────────────────────────
+
+  /** 设置字段，返回新增字段数 */
+  async hset(key: string, field: string, value: string | number): Promise<number> {
+    return Number(await this.conn.command('HSET', key, field, value))
+  }
+
+  /** 读字段（缺失 null） */
+  async hget(key: string, field: string): Promise<string | null> {
+    const v = await this.conn.command('HGET', key, field)
+    return v === null ? null : String(v)
+  }
+
+  /** 读整个 hash → Record（key 不存在 → {}） */
+  async hgetall(key: string): Promise<Record<string, string>> {
+    const v = await this.conn.command('HGETALL', key)
+    const arr = v as RespValue[]
+    const out: Record<string, string> = {}
+    for (let i = 0; i + 1 < arr.length; i += 2) out[String(arr[i])] = String(arr[i + 1])
+    return out
+  }
+
+  /** 删除字段，返回删除数 */
+  async hdel(key: string, ...fields: string[]): Promise<number> {
+    return Number(await this.conn.command('HDEL', key, ...fields))
+  }
+
+  // ── list ─────────────────────────────────────
+
+  /** 头插，返回长度 */
+  async lpush(key: string, ...values: (string | number)[]): Promise<number> {
+    return Number(await this.conn.command('LPUSH', key, ...values))
+  }
+
+  /** 尾插，返回长度 */
+  async rpush(key: string, ...values: (string | number)[]): Promise<number> {
+    return Number(await this.conn.command('RPUSH', key, ...values))
+  }
+
+  /** 头弹（缺失 null） */
+  async lpop(key: string): Promise<string | null> {
+    const v = await this.conn.command('LPOP', key)
+    return v === null ? null : String(v)
+  }
+
+  /** 尾弹（缺失 null） */
+  async rpop(key: string): Promise<string | null> {
+    const v = await this.conn.command('RPOP', key)
+    return v === null ? null : String(v)
+  }
+
+  /** 范围读（start/stop 支持负数，如 0 -1 全量） */
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    const v = await this.conn.command('LRANGE', key, start, stop)
+    return (v as RespValue[]).map(String)
+  }
+
+  // ── set ──────────────────────────────────────
+
+  /** 加成员，返回新增数（重复不加） */
+  async sadd(key: string, ...members: (string | number)[]): Promise<number> {
+    return Number(await this.conn.command('SADD', key, ...members))
+  }
+
+  /** 删成员，返回删除数 */
+  async srem(key: string, ...members: (string | number)[]): Promise<number> {
+    return Number(await this.conn.command('SREM', key, ...members))
+  }
+
+  /** 全部成员（无序） */
+  async smembers(key: string): Promise<string[]> {
+    const v = await this.conn.command('SMEMBERS', key)
+    return (v as RespValue[]).map(String)
+  }
+
+  // ── zset ─────────────────────────────────────
+
+  /** 加成员（score 排序），返回新增数 */
+  async zadd(key: string, score: number, member: string | number): Promise<number> {
+    return Number(await this.conn.command('ZADD', key, score, member))
+  }
+
+  /** 范围读（按 score 升序；start/stop 为排名，支持负数） */
+  async zrange(key: string, start: number, stop: number): Promise<string[]> {
+    const v = await this.conn.command('ZRANGE', key, start, stop)
+    return (v as RespValue[]).map(String)
+  }
+
+  // ── pipeline ─────────────────────────────────
+
+  /** 创建管道（批量命令一次往返；结果按序） */
+  pipeline(): RedisPipeline {
+    return new RedisPipeline(this.conn)
   }
 
   // ── JSON 存取（自动序列化） ────────────────

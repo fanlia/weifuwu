@@ -279,3 +279,5 @@ weifuwu 自研 DB 客户端支持:
 | redis 池坏连接剔除 | 断线 client 留在池中，round-robin 持续命中（重连失败后 closed 仍分发） | `acquireHealthy()`：跳过不可用连接 + 剔除 + 异步重建；全死时等补位（1s 上限） | CLIENT KILL 部分/全部池连接 → size 保持 + 命令成功 |
 | redis 命令超时 | 服务器慢/挂起时 pending 永久挂起 | `commandTimeoutMs`：pending 标记 timedOut + 跳过迟到响应；阻塞命令（BLPOP 等）超时 `resolve(null)`（Redis 语义） | 假服务器不响应 → 超时 reject；BLPOP → null |
 | redis socket 超时 | 僵尸连接（服务器杀连接无 close 事件）commandTimeout 只弃命令，连接仍挂 | `socketTimeoutMs`（对齐 ioredis）：有 pending 且超时无数据 → reject pending + `socket.destroy()` → 标准断线自愈 | 假服务器不响应 → 超时 reject + connected=false；空闲/正常响应不触发 |
+| redis 丰富命令面 | app/queue 用 `command()` 裸透传 hash/zset 等 | 语义化方法：hash(hset/hget/hgetall/hdel)、list(lpush/rpush/lpop/rpop/lrange)、set(sadd/srem/smembers)、zset(zadd/zrange)、批量(mget/mset/exists/setnx/incrby) | 每命令 round-trip 真库断言 |
+| redis 池级 pipeline | RedisPipeline 仅 connection 级，池无法使用 | `pool.pipeline()`：选一健康连接（key 自动加前缀）；exec 一次往返 | 池上 set/incr/get 管道一次 exec |

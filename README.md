@@ -838,6 +838,12 @@ await ctx.redis.set('user', 1)         // 实际写入 'api:user'
 | `cache(key, fn, ttl)` | 缓存读-算-写（null 不缓存防穿透） |
 | `publish(channel, msg)` | Pub-Sub 发布 |
 | `createSubscriber()` | 独立订阅连接（`subscribe`/`psubscribe` 回调式） |
+| `hset / hget / hgetall / hdel` | hash 字段读写（`hgetall` → `Record`，缺失 `{}`） |
+| `lpush / rpush / lpop / rpop / lrange` | list 队列操作（`lrange` 支持负数区间） |
+| `sadd / srem / smembers` | set 成员操作（`sadd` 重复不加） |
+| `zadd / zrange` | zset 有序集（score 升序） |
+| `mget / mset / exists / setnx / incrby` | 批量读写 / 存在性 / 原子设值（锁基础）/ 增量 |
+| `pipeline()` | 管道：批量命令一次往返（池级，key 自动加前缀） |
 | `command(name, ...args)` | 底层命令透传 |
 | `close()` | 关闭连接池 |
 

@@ -157,3 +157,91 @@ describe('redis pool connection health (real database)', () => {
     }
   })
 })
+
+describe('redis pool rich commands + pipeline (real database)', () => {
+  const KEY = `wf_rich:${process.pid}:`
+  let pool: RedisPool
+
+  before(async () => {
+    pool = await RedisPool.create({ port, poolSize: 2 })
+  })
+
+  after(async () => {
+    const keys = await pool.command('KEYS', `${KEY}*`)
+    if (Array.isArray(keys)) for (const k of keys) await pool.del(String(k))
+    await pool.close()
+  })
+
+  it('hash: hset/hget/hgetall/hdel', async () => {
+    const k = `${KEY}user:1`
+    assert.equal(await pool.hset(k, 'name', 'alice'), 1)
+    assert.equal(await pool.hset(k, 'age', '30'), 1)
+    assert.equal(await pool.hget(k, 'name'), 'alice')
+    const all = await pool.hgetall(k)
+    assert.deepEqual(all, { name: 'alice', age: '30' })
+    assert.equal(await pool.hdel(k, 'age'), 1)
+    assert.equal(await pool.hget(k, 'age'), null)
+    assert.deepEqual(await pool.hgetall(`${k}:missing`), {})
+  })
+
+  it('list: lpush/rpush/lpop/rpop/lrange', async () => {
+    const k = `${KEY}q`
+    assert.equal(await pool.rpush(k, 'a', 'b'), 2)
+    assert.equal(await pool.lpush(k, 'x'), 3)
+    assert.deepEqual(await pool.lrange(k, 0, -1), ['x', 'a', 'b'])
+    assert.equal(await pool.lpop(k), 'x')
+    assert.equal(await pool.rpop(k), 'b')
+    assert.deepEqual(await pool.lrange(k, 0, -1), ['a'])
+    assert.equal(await pool.lpop(`${k}:empty`), null)
+  })
+
+  it('set: sadd/srem/smembers', async () => {
+    const k = `${KEY}tags`
+    assert.equal(await pool.sadd(k, 'a', 'b', 'c'), 3)
+    assert.equal(await pool.sadd(k, 'a'), 0) // 重复不加
+    const members = await pool.smembers(k)
+    assert.equal(members.length, 3)
+    assert.ok(members.includes('a'))
+    assert.equal(await pool.srem(k, 'a'), 1)
+    assert.deepEqual(await pool.smembers(k), ['b', 'c'])
+  })
+
+  it('zset: zadd/zrange', async () => {
+    const k = `${KEY}rank`
+    assert.equal(await pool.zadd(k, 1, 'low'), 1)
+    assert.equal(await pool.zadd(k, 3, 'high'), 1)
+    assert.equal(await pool.zadd(k, 2, 'mid'), 1)
+    assert.deepEqual(await pool.zrange(k, 0, -1), ['low', 'mid', 'high']) // 按 score 升序
+    assert.deepEqual(await pool.zrange(k, 0, 0), ['low'])
+  })
+
+  it('mget/mset：批量读写', async () => {
+    const k1 = `${KEY}m1`
+    const k2 = `${KEY}m2`
+    assert.equal(await pool.mset(k1, 'v1', k2, 'v2'), 'OK')
+    const vals = await pool.mget(k1, k2, `${KEY}missing`)
+    assert.deepEqual(vals, ['v1', 'v2', null])
+  })
+
+  it('exists/setnx/incrby', async () => {
+    const k = `${KEY}counter`
+    await pool.del(k)
+    assert.equal(await pool.exists(k), 0)
+    assert.equal(await pool.setnx(k, '5'), 1) // 设置成功
+    assert.equal(await pool.setnx(k, '9'), 0) // 已存在
+    assert.equal(await pool.get(k), '5')
+    assert.equal(await pool.incrby(k, 3), 8)
+    assert.equal(await pool.exists(k), 1)
+  })
+
+  it('pool.pipeline(): 池级管道一次往返', async () => {
+    const k = `${KEY}pipe`
+    const pipe = await pool.pipeline()
+    pipe.set(k, 'pv')
+    pipe.incr(`${KEY}pn`)
+    pipe.get(k)
+    const results = await pipe.exec()
+    assert.deepEqual(results.map(String), ['OK', '1', 'pv'])
+    assert.equal(await pool.get(k), 'pv')
+  })
+})
