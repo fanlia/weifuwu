@@ -1075,11 +1075,15 @@ const DemoTypography: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
     <Title level={1}>一级标题</Title>
     <Title level={3}>三级标题</Title>
-    <Text type="secondary">次要文字</Text>{' '}
-    <Text type="success">成功</Text>{' '}
-    <Text type="warning">警告</Text>{' '}
-    <Text type="danger">危险</Text><br />
-    <Text strong>加粗</Text> <Text underline>下划线</Text> <Text strikethrough>删除线</Text> <Text code>const x = 1</Text><br />
+    <div>
+      <Text type="secondary">次要文字</Text>{' '}
+      <Text type="success">成功</Text>{' '}
+      <Text type="warning">警告</Text>{' '}
+      <Text type="danger">危险</Text>
+    </div>
+    <div>
+      <Text strong>加粗</Text> <Text underline>下划线</Text> <Text strikethrough>删除线</Text> <Text code>const x = 1</Text>
+    </div>
     <Paragraph type="secondary" ellipsis>这是一段很长的段落文本，用于演示 ellipsis 单行截断效果，超出宽度时显示省略号。</Paragraph>
   </div>
 )

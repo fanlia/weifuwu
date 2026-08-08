@@ -16,6 +16,8 @@
 .wf-title--5 { font-size: var(--wf-font-size-xl); line-height: 1.4; }
 
 .wf-text {
+  display: inline;
+  align-self: flex-start; /* 防 flex 父级 stretch 把 span 拉成块级占满整行（inline 语义破坏） */
   font-family: var(--wf-font-sans);
   color: var(--wf-color-text);
 }
