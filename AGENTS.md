@@ -405,7 +405,7 @@ return (props) => h('div', { ref: listRef })
 ## 测试
 
 - `node --test` 无 Jest/Mocha
-- **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（≤30 秒），并优先加 `--test-timeout`——真库/集成测试卡住时能快速定位而非无限等待；卡住时用更短 timeout 复跑缩小范围
+- **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（**≤15 秒**），并优先加 `--test-timeout`（如 `timeout 15 node --env-file=.env --test --test-timeout=8000 ...`）——真库/集成测试卡住时能快速定位而非无限等待；卡住时用更短 timeout 复跑缩小范围
 - **CS-04 — DB 客户端（redis/postgres）测试必须连 docker 真实库**：
   - **禁止 mock 网络层**（`mock-server.ts` 已删除）——故障注入用真实机制：
     - Redis 断线/重连：`CLIENT KILL ID <id>`（杀真实连接）+ BLPOP 阻塞（制造确定性 pending）+ 未占用端口（不可达）

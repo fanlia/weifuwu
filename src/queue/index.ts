@@ -35,6 +35,7 @@ import { randomUUID } from 'node:crypto'
 import { hostname } from 'node:os'
 import type { Context, Handler, Middleware } from '../types.ts'
 import { RedisPool } from '../db/redis/pool.ts'
+import { RedisConnection, type RedisConnectionOptions } from '../db/redis/connection.ts'
 
 export interface QueueOptions {
   /** Redis 连接串（默认 REDIS_URL） */
@@ -105,19 +106,19 @@ export interface QueueClientModule extends Middleware<Context, Context & QueueIn
 
 const GROUP = 'workers'
 
-function makePool(options?: QueueOptions): RedisPool {
+function parseUrl(options?: QueueOptions): { conn: RedisConnectionOptions; pool: RedisPool } {
   const url = options?.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
   const u = new URL(url)
-  return new RedisPool({
+  const opts: RedisConnectionOptions = {
     host: u.hostname,
     port: Number(u.port || 6379),
-    poolSize: options?.poolSize,
-  })
+  }
+  return { conn: opts, pool: new RedisPool({ ...opts, poolSize: options?.poolSize }) }
 }
 
 export function queue(options?: QueueOptions): QueueClientModule {
   const prefix = options?.prefix ?? 'q:'
-  const pool = makePool(options)
+  const { conn: connOpts, pool } = parseUrl(options)
   const stream = (name: string) => `${prefix}${name}`
   const deadStream = (name: string) => `${prefix}${name}:dead`
 
@@ -152,12 +153,23 @@ export function queue(options?: QueueOptions): QueueClientModule {
       const delayed = `${prefix}${name}:delayed`
 
       let running = false
+      let conn: RedisConnection | null = null
+      let loopDone: Promise<void> | null = null
       const inflight = new Set<Promise<void>>()
+
+      /** 独立连接：BLOCK 命令不占池连接（池只服务 add/length 等短命令） */
+      async function getConn(): Promise<RedisConnection> {
+        if (conn) return conn
+        const c = new RedisConnection(connOpts)
+        await c.connect()
+        conn = c
+        return c
+      }
 
       /** 消费组幂等创建 */
       async function ensureGroup(): Promise<void> {
         try {
-          await pool.command('XGROUP', 'CREATE', s, GROUP, '0', 'MKSTREAM')
+          await conn!.command('XGROUP', 'CREATE', s, GROUP, '0', 'MKSTREAM')
         } catch (e) {
           if (!String((e as Error).message).includes('BUSYGROUP')) throw e
         }
@@ -170,8 +182,8 @@ export function queue(options?: QueueOptions): QueueClientModule {
           payload = JSON.parse(fields.payload ?? '{}')
         } catch {
           // 无法解析的 entry：XACK 丢弃 + 记 DLQ（避免无限重试坏消息）
-          await pool.command('XACK', s, GROUP, entryId)
-          await pool.command('XADD', dead, '*', 'payload', JSON.stringify({
+          await conn!.command('XACK', s, GROUP, entryId)
+          await conn!.command('XADD', dead, '*', 'payload', JSON.stringify({
             originalId: entryId, name, error: 'unparseable payload', attempts: -1,
           }))
           return
@@ -185,15 +197,15 @@ export function queue(options?: QueueOptions): QueueClientModule {
             data: payload.data as T,
             attempts,
           })
-          await pool.command('XACK', s, GROUP, entryId)
+          await conn!.command('XACK', s, GROUP, entryId)
         } catch (err) {
           const nextAttempt = attempts + 1
           // 无论重试还是 DLQ 都先 XACK（清 pending）——entry 字段不可变，
           // attempts 计数必须持久化到新载体，否则重新 claim 读到旧值无限重试
-          await pool.command('XACK', s, GROUP, entryId)
+          await conn!.command('XACK', s, GROUP, entryId)
           if (nextAttempt >= maxAttempts) {
             // 用尽 → DLQ
-            await pool.command('XADD', dead, '*', 'payload', JSON.stringify({
+            await conn!.command('XADD', dead, '*', 'payload', JSON.stringify({
               originalId: entryId,
               name,
               data: payload.data,
@@ -203,7 +215,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
             console.error(`[queue] ${name} job failed permanently (attempt ${nextAttempt}/${maxAttempts}):`, err)
           } else {
             // 延迟重试：ZSET（score = now + visibilityTimeout），到期后重新入队
-            await pool.command('ZADD', delayed, String(Date.now() + visibilityTimeout), JSON.stringify({
+            await conn!.command('ZADD', delayed, String(Date.now() + visibilityTimeout), JSON.stringify({
               ...payload,
               attempts: nextAttempt,
             }))
@@ -220,9 +232,9 @@ export function queue(options?: QueueOptions): QueueClientModule {
         const now = Date.now()
         let due: unknown
         try {
-          due = await pool.command('ZRANGEBYSCORE', delayed, 0, now)
+          due = await conn!.command('ZRANGEBYSCORE', delayed, 0, now)
         } catch (e) {
-          if (isPoolClosed(e)) {
+          if (isConnClosed(e)) {
             running = false
             return
           }
@@ -230,10 +242,10 @@ export function queue(options?: QueueOptions): QueueClientModule {
           return
         }
         for (const member of due as string[]) {
-          const removed = await pool.command('ZREM', delayed, member)
+          const removed = await conn!.command('ZREM', delayed, member)
           if (removed) {
             // 到期重新入队（attempts 已持久化在 member JSON 里）
-            await pool.command('XADD', s, '*', 'payload', member)
+            await conn!.command('XADD', s, '*', 'payload', member)
           }
         }
       }
@@ -241,7 +253,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
       /** 认领超时 pending（崩溃 worker 遗留 / 失败重投） */
       async function claimStale(): Promise<void> {
         try {
-          const result = await pool.command(
+          const result = await conn!.command(
             'XAUTOCLAIM', s, GROUP, consumer, visibilityTimeout, '0', 'COUNT', String(concurrency),
           )
           const entries = (result as unknown[])[1] as Array<[string, string[]]>
@@ -249,8 +261,8 @@ export function queue(options?: QueueOptions): QueueClientModule {
             await processEntry(entryId, flatFieldsToRecord(fields))
           }
         } catch (e) {
-          // 池关闭 → 退出循环（否则无限刷屏）；其他错误下一轮重试
-          if (isPoolClosed(e)) {
+          // 连接关闭 → 退出循环（否则无限刷屏）；其他错误下一轮重试
+          if (isConnClosed(e)) {
             running = false
             return
           }
@@ -259,19 +271,18 @@ export function queue(options?: QueueOptions): QueueClientModule {
       }
 
       async function loop(): Promise<void> {
-        await ensureGroup()
         while (running) {
           await claimStale()
           await requeueDelayed()
           let result: unknown
           try {
-            result = await pool.command(
+            result = await conn!.command(
               'XREADGROUP', 'GROUP', GROUP, consumer,
               'COUNT', String(concurrency), 'BLOCK', String(blockMs),
               'STREAMS', s, '>',
             )
           } catch (e) {
-            if (isPoolClosed(e)) {
+            if (isConnClosed(e)) {
               running = false
               return
             }
@@ -293,12 +304,29 @@ export function queue(options?: QueueOptions): QueueClientModule {
         start: async () => {
           if (running) return
           running = true
+          // 就绪等待：独立连接 + 消费组建好后才 resolve（调用方可知 group 可用）
+          await getConn()
+          await ensureGroup()
           // fire-and-forget：loop 是无限循环，不能阻塞 start 调用者
-          loop().catch((e) => console.error('[queue] worker loop crashed:', e))
+          loopDone = loop()
+          loopDone.catch((e) => console.error('[queue] worker loop crashed:', e))
         },
         stop: async () => {
+          if (!running) {
+            await loopDone?.catch(() => {})
+            return
+          }
           running = false
           await Promise.allSettled([...inflight])
+          // 等 loop 完全退出（当前 BLOCK 返回后 while 检查退出）——防残留 BLOCK 堵连接
+          await loopDone?.catch(() => {})
+          loopDone = null
+          // 关闭独立连接（BLOCK 不再占任何连接）
+          if (conn) {
+            const c = conn
+            conn = null
+            await c.close().catch(() => {})
+          }
         },
       }
     },
@@ -325,8 +353,8 @@ function flatFieldsToRecord(fields: string[]): Record<string, string> {
   return rec
 }
 
-/** 池已关闭/连接已断 → worker 循环应退出（避免无限刷屏） */
-function isPoolClosed(e: unknown): boolean {
+/** 连接已关闭/池已关 → worker 循环应退出（避免无限刷屏） */
+function isConnClosed(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e)
   return /pool is closed|connection closed/.test(msg)
 }

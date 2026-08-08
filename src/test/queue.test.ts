@@ -187,3 +187,67 @@ describe('queue (real redis)', () => {
     await worker.stop()
   })
 })
+
+describe('queue worker independent connection (real redis)', () => {
+  const pool = new RedisPool({ host: 'localhost', port: 6379 })
+  const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+  after(async () => {
+    await pool.close() // 不关 → 连接驻留 → 进程退出卡住（event loop 不排空）
+  })
+
+  it('worker BLOCK 不堵池：poolSize=1 时 add 仍即时（独立连接）', async () => {
+    const q = queue({ poolSize: 1 })
+    try {
+      const name = qname()
+      const worker = q.queue.worker<any>(name, async () => {}, { blockMs: 500 })
+      await worker.start()
+      await sleep(150) // 确保 XREADGROUP BLOCK 已在服务器端阻塞（否则 add 测不到排队）
+      const t0 = Date.now()
+      await q.queue.add(name, { x: 1 })
+      const elapsed = Date.now() - t0
+      assert.ok(elapsed < 300, `add 不应被 worker BLOCK 排队（实际 ${elapsed}ms，修复前 ≈500）`)
+      await worker.stop()
+    } finally {
+      await q.close()
+    }
+  })
+
+  it('start 等待就绪：start() 返回时 group 已建（XPENDING 不 NOGROUP）', async () => {
+    const q = queue()
+    try {
+      const name = qname()
+      await q.queue.add(name, { a: 1 })
+      const worker = q.queue.worker<any>(name, async () => {}, { blockMs: 100 })
+      await worker.start()
+      // start() resolve 后 group 必须已存在——XPENDING 不炸
+      // （修复前 fire-and-forget：loop 未跑到 ensureGroup 时 XPENDING → NOGROUP）
+      const p = await pool.command('XPENDING', `q:${name}`, 'workers')
+      assert.ok(Array.isArray(p), 'XPENDING 应正常返回数组（group 已建）')
+      await worker.stop()
+    } finally {
+      await q.close()
+    }
+  })
+
+  it('stop 完整退出：多次 start/stop 后无残留 BLOCK 堵连接', async () => {
+    const q = queue({ poolSize: 1 })
+    try {
+      const name = qname()
+      // 3 轮 start/stop——修复前 stop 不等 loop 退出，BLOCK 残留占连接
+      for (let i = 0; i < 3; i++) {
+        const worker = q.queue.worker<any>(name, async () => {}, { blockMs: 500 })
+        await worker.start()
+        await sleep(60) // 让 BLOCK 真正发出
+        await worker.stop()
+      }
+      // 最后一轮后：add 即时（无残留 BLOCK 占连接）
+      const t0 = Date.now()
+      await q.queue.add(name, { after: true })
+      assert.ok(Date.now() - t0 < 300, `stop 后不应有残留 BLOCK 堵连接（实际 ${Date.now() - t0}ms）`)
+    } finally {
+      await q.close()
+    }
+  })
+})
