@@ -153,6 +153,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
       const delayed = `${prefix}${name}:delayed`
 
       let running = false
+      let lastErrAt = 0 // 错误日志抑制（5s 窗口最多打一次——NOGROUP 自愈路径静默）
       let epoch = 0 // 世代标记：stop 时 ++，旧 loop 检查失效退出（防 stop/start 交替时旧 loop 复活）
       let conn: RedisConnection | null = null
       let connEpoch = -1 // 连接所属世代（stop 在途的旧连接与 start 的新连接区分）
@@ -257,7 +258,9 @@ export function queue(options?: QueueOptions): QueueClientModule {
             running = false
             return
           }
-          if (running) console.error('[queue] ZRANGEBYSCORE:', e instanceof Error ? e.message : e)
+          if (running && shouldLogError()) {
+            console.error('[queue] ZRANGEBYSCORE:', e instanceof Error ? e.message : e)
+          }
           return
         }
         for (const member of due as string[]) {
@@ -280,13 +283,38 @@ export function queue(options?: QueueOptions): QueueClientModule {
             await processEntry(entryId, flatFieldsToRecord(fields))
           }
         } catch (e) {
-          // 连接关闭 → 退出循环（否则无限刷屏）；其他错误下一轮重试
+          // 连接关闭 → 退出循环（否则无限刷屏）；NOGROUP → 重建 group 自愈；其他错误下一轮重试
           if (isConnClosed(e)) {
             running = false
             return
           }
-          if (running) console.error('[queue] XAUTOCLAIM:', e instanceof Error ? e.message : e)
+          if (await recoverGroupIfMissing(e)) return
+          if (running && shouldLogError()) {
+            console.error('[queue] XAUTOCLAIM:', e instanceof Error ? e.message : e)
+          }
         }
+      }
+
+      /** NOGROUP 自愈：group 被外部删除（运维）→ 重建后继续（XREADGROUP/XAUTOCLAIM 报 NOGROUP 时） */
+      async function recoverGroupIfMissing(e: unknown): Promise<boolean> {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (!/NOGROUP/.test(msg)) return false
+        try {
+          await ensureGroup()
+          return true
+        } catch {
+          return false
+        }
+      }
+
+      /** 错误日志抑制：5s 窗口最多打一次（持续瞬时错误不刷屏） */
+      function shouldLogError(): boolean {
+        const now = Date.now()
+        if (now - lastErrAt > 5000) {
+          lastErrAt = now
+          return true
+        }
+        return false
       }
 
       async function loop(myEpoch: number): Promise<void> {
@@ -305,7 +333,11 @@ export function queue(options?: QueueOptions): QueueClientModule {
               running = false
               return
             }
-            if (running) console.error('[queue] XREADGROUP:', e instanceof Error ? e.message : e)
+            // NOGROUP（group 被删）→ 重建后继续；其他错误降频打印后重试
+            if (await recoverGroupIfMissing(e)) continue
+            if (running && shouldLogError()) {
+              console.error('[queue] XREADGROUP:', e instanceof Error ? e.message : e)
+            }
             continue
           }
           if (!result) continue // BLOCK 超时无新消息

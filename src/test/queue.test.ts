@@ -298,3 +298,64 @@ describe('queue worker lifecycle correctness (real redis)', () => {
     }
   })
 })
+
+describe('queue worker group recovery (real redis)', () => {
+  const pool = new RedisPool({ host: 'localhost', port: 6379 })
+  const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
+
+  after(async () => {
+    await pool.close()
+  })
+
+  it('group 被外部删除（XGROUP DESTROY）→ worker 自愈重建，继续消费', async () => {
+    const q = queue()
+    try {
+      const name = qname()
+      const seen: number[] = []
+      const worker = q.queue.worker<any>(name, async (job) => { seen.push(job.data.n) }, { blockMs: 50 })
+      await worker.start()
+      await q.queue.add(name, { n: 1 })
+      await waitFor(() => seen.includes(1), 3000, '首次消费')
+
+      // 外部删除 group（运维场景）——worker 应自愈重建而非刷屏/死等
+      await pool.command('XGROUP', 'DESTROY', `q:${name}`, 'workers')
+      await q.queue.add(name, { n: 2 })
+      await waitFor(() => seen.includes(2), 3000, 'group 删除后自愈消费')
+      await worker.stop()
+    } finally {
+      await q.close()
+    }
+  })
+
+  it('持续瞬时错误不刷屏：NOGROUP 自愈路径静默（5s 窗口最多打一次）', async () => {
+    const q = queue()
+    try {
+      const name = qname()
+      const seen: number[] = []
+      // 拦截 console.error 统计 queue 错误输出
+      const origError = console.error
+      let queueErrors = 0
+      console.error = (...args: unknown[]) => {
+        if (String(args[0]).includes('[queue]')) queueErrors++
+        origError(...args)
+      }
+      try {
+        const worker = q.queue.worker<any>(name, async (job) => { seen.push(job.data.n) }, { blockMs: 50 })
+        await worker.start()
+        // 多次删除 group → 每次自愈（错误应被抑制，最多打 1 次/5s）
+        for (let i = 0; i < 3; i++) {
+          await pool.command('XGROUP', 'DESTROY', `q:${name}`, 'workers')
+          await q.queue.add(name, { n: i + 10 })
+          await waitFor(() => seen.includes(i + 10), 3000, `第 ${i + 1} 次自愈消费`)
+          await new Promise((r) => setTimeout(r, 80)) // 给错误日志窗口
+        }
+        await worker.stop()
+        assert.ok(queueErrors <= 2, `NOGROUP 自愈不应刷屏（实际 ${queueErrors} 次）`)
+      } finally {
+        console.error = origError
+      }
+    } finally {
+      await q.close()
+    }
+  })
+})
