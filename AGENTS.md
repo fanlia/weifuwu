@@ -194,6 +194,7 @@ const Popover = (_init, ctx) => {
 | `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
 | `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察**（IntersectionObserver 封装）— 替代组件自建 scroll 监听（Affix/BackTop/InView 统一使用）；`isIn` 响应式变化自动 dirty；rootMargin/threshold 支持函数动态读 props |
+| `ctx.ui.useScrollPosition()` | 注册监听 | 全局 scroll + rAF 节流 | 当前组件 | **滚动位置跟踪** — `y` 响应式（视口/内部容器通用）；scroll handler 无布局访问（无 scroll-linked 警告）；Affix（阈值固定）/ VirtualList（虚拟窗口）使用 |
 | `ctx.ui.useChat()` | 事件驱动 | 流式事件 → `$` 赋值 | 当前组件 | **AI 对话会话** — 消息累积/工具调用内嵌/HITL 审批/stop/retry（协议对页面透明，见 docs/ai-contract.md） |
 
 `render()` 无参 = 当前组件，传参 = 指定组件列表。三个入口同一套 scope 机制。
@@ -402,6 +403,28 @@ return (props) => h('div', { ref: listRef })
 - `__watch` 多消费者订阅：set/deleteProperty trap 在 `dirty()` 后通知 `watchers` 集合（每个 createReactiveState 实例一个集合）；`__watch` 以非枚举属性挂在根 Proxy 上
 - mount/render 阶段 `$.x = val` 不触发渲染（`dirty` 在 `_rendering` 保护期内调用被忽略）
 - 仅事件/timer/Promise.then 中的赋值生效
+
+### 受控组件纪律：受控 props 必须配回调（缺回调 = 静默不可点）
+
+受控组件（`active`/`value`/`checkedKeys`/`month`/`open` 等传入时）状态由父组件独占，点击/选择的**唯一出口是回调**。缺回调时交互**静默失效**——真实操作抓出 6 个同款 demo bug（Collapse/Tree/Calendar/Cascader/Dropdown）：
+
+- **组件**：受控 props 已传但无回调时 `console.warn` 明确提示（Collapse/Tree/Calendar/Cascader/Dropdown 已有防护）
+- **新受控组件**必须自带同款 warn（防静默不可用）
+- 非受控（不传受控 props）即可点击——**demo 要展示可交互用法**（受控配回调或非受控）
+
+### 样式纪律：小尺寸 button 必须固定 min/max-height
+
+全局 button 样式设 `min-height: 36px`——**任何小尺寸按钮**（checkbox/dot/switcher/star/关闭钮等）若不覆盖，会被撑成 36px 竖条（Tree checkbox 14x36、Carousel 圆点 8x45、Rate 星 16x36——真实操作抓出 6 处）：
+
+```css
+.wf-xxx-btn {
+  width: 14px; height: 14px;
+  min-width: 14px; max-width: 14px;
+  min-height: 14px; max-height: 14px;
+  line-height: 0; padding: 0; flex-shrink: 0;
+}
+```
+
 
 ## 测试
 
