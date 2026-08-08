@@ -282,3 +282,4 @@ weifuwu 自研 DB 客户端支持:
 | redis 丰富命令面 | app/queue 用 `command()` 裸透传 hash/zset 等 | 语义化方法：hash(hset/hget/hgetall/hdel)、list(lpush/rpush/lpop/rpop/lrange)、set(sadd/srem/smembers)、zset(zadd/zrange)、批量(mget/mset/exists/setnx/incrby) | 每命令 round-trip 真库断言 |
 | redis 池级 pipeline | RedisPipeline 仅 connection 级，池无法使用 | `pool.pipeline()`：选一健康连接（key 自动加前缀）；exec 一次往返 | 池上 set/incr/get 管道一次 exec |
 | redis onCommand 观测 | 慢命令无法关联请求（PG 有 onQuery+traceId，Redis 不对称） | connection 层 onCommand 钩子 + 中间件 ALS（x-trace-id 头 → 第 4 参） | 命令遥测断言 + 两请求 traceId 到达 |
+| redis 性能 profile（诚实裁剪） | get/set 比 ioredis 慢 1.3-1.4x（~19μs） | 微观 profile：编码 0.0047ms + 解析 0.0001ms = CPU 占 6%，网络占 94%——**不优化**（网络主导，客户端收益 <6%，差距在 bench 波动范围） | 基线固化：set 0.085 / get 0.071（500 次中位数） |
