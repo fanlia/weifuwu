@@ -183,3 +183,185 @@
 - Menu：子菜单展开/水平菜单栏（Menubar）
 - TagsInput：下拉建议（组合 Select searchable）
 - Result：内置路由跳转
+
+---
+
+# 第四批：开发者日常高频场景（61 → 69 组件）
+
+> 视角扩展：前三批以**实战证据**为主，本批补充**开发者日常开发频率**视角——
+> 主流库共识组件（antd ~60 / shadcn ~50 / Mantine ~80）里，开发者每天都要用的东西。
+> 原则不变：TDD 先行、零 npm 运行时依赖、style-audit 纪律、诚实裁剪；
+> 证据标注 [证据] / [共识]，无证据但有强场景的按低频排序。
+
+## 开发者日常场景 → 覆盖 → 缺口
+
+| 日常场景 | 频率 | 现有覆盖 | 缺口（本批） |
+|---------|------|---------|-------------|
+| 写表单（增删改查核心） | ★★★★★ | Input/Textarea/Select/Checkbox/Radio/Switch/Slider/DatePicker/InputNumber/PasswordInput/TagsInput/FileUpload + Form/Field 校验 | **CheckboxGroup**、**TimePicker**、**PinInput**、MultiSelect |
+| 列表 + 筛选 + 分页 | ★★★★★ | Table(sortable)/Pagination/SearchInput/EmptyState | 组合模式业务自拼（可接受）；虚拟滚动裁剪 |
+| 详情/展示页 | ★★★★☆ | Descriptions/Timeline/StatCard/Badge/Avatar/List/Result/Highlight | **ImagePreview**（点击放大）、Anchor（长文） |
+| 弹层交互 | ★★★★☆ | Modal/Drawer/Popover/Tooltip/Dropdown/Confirm | ContextMenu（表格行右键） |
+| 全局反馈 | ★★★☆☆ | Toast/Alert/Result/EmptyState/ProgressBar/Loading/Skeleton | **BackTop**、圆形 Progress |
+| 导航骨架 | ★★★☆☆ | Menu/PageHeader/Breadcrumb/Tabs/Steps/Accordion | Command(Cmd+K) 裁剪 |
+| AI 场景（weifuwu 特色） | ★★★☆☆ | AiChat/Markdown/CodeBlock/MessageBubble/ToolCallCard/ApprovalCard | 已很全；ImagePreview 可补图片结果 |
+| 效率工具 | ★★☆☆☆ | — | **CopyButton** |
+
+## 第四批组件
+
+### P0 — 证据 + 高频刚需（6 项）
+
+#### 1. Accordion 增强 [证据]（现有组件占位 bug，非新增）
+
+- **现状**：`items.map(details open: true)` 全部恒展开、summary 无 toggle 交互、键盘不可达——「可折叠」名不副实
+- 增强：受控 `active: string[]` + `onChange`；`multiple` 互斥/多开；summary 点击切换 + 方向键移动焦点；`aria-expanded` 同步；`--wf-dur-*` 过渡
+- 测试：先补失败测试（点击切换/受控回传/键盘），再实现
+
+#### 2. Collapse [证据] — 行内折叠面板
+
+- 证据：`AgentDetail.tsx:350-375` 知识库文档展开（📄/📂 + expandedDoc + 异步 chunk，~25 行）
+- 与 Accordion 边界：Accordion = 整块卡片面板；Collapse = **标题行 + 行内展开区**（无卡片边框，适配列表行内展开），支持 `loading` 态
+- API：`<Collapse items={[{ key, title, icon?, extra?, content?, loading? }]} active={string[]} onChange? />`
+- 键盘：标题可 focus + Enter/Space + 方向键；裁剪：不做互斥/高度动画
+
+#### 3. CheckboxGroup [证据] — 复选框组
+
+- 证据：`NewDepartment.tsx:58-66` 成员多选（Checkbox + toggle + 已选计数，~15 行）
+- API：`<CheckboxGroup options={[{ value, label, desc? }]} value={string[]} onChange? columns? size? disabled? />`；对齐 Field 体系
+- 原生 checkbox（天然可聚焦可操作）；裁剪：不做全选/搜索过滤
+
+#### 4. CopyButton [证据] — 复制按钮
+
+- 证据：`Chat.tsx:187,292` 消息复制状态机 2 处；CodeBlock 内部同类逻辑待抽取统一
+- API：`<CopyButton value label? size variant? />` — 成功 → icon 变 `check` + "已复制" 2s 复原；clipboard 失败 → execCommand 兜底
+- 复用 Icon `copy`/`check`（已有）
+
+#### 5. PinInput [共识] — 验证码输入（国内应用高频）
+
+- 场景：登录/注册/双因子验证码——国内 SaaS 标配，antd/Mantine 均有
+- API：`<PinInput length={6} value onChange? size? type="number" />` — 自动聚焦下一个框、粘贴分派、Backspace 回退、方向键移动
+- 裁剪：不做"发送验证码"倒计时按钮（业务自配）、不做邮箱/短信（框架 email 中间件可组合）
+
+#### 6. ImagePreview [共识] — 图片点击放大
+
+- 场景：上传后查看/头像预览/图片结果——`Img` 只有展示，无查看交互；antd Image 画廊
+- 实现：`Img` 加 `preview` prop（或独立组件）— 点击 → Modal 复用居中放大 + Escape/遮罩关闭 + `--wf-dur-*` 淡入
+- 裁剪：不做缩放/旋转/左右画廊切换、不做缩略图列表
+
+### P1 — 常见（4 项）
+
+#### 7. TimePicker [共识] — 时间选择
+
+- 场景：预约/调度/定时任务——框架已有 scheduler 中间件，天然配套场景
+- API：`<TimePicker value="09:30" onChange? hour12? />` — HH:mm 下拉/输入选择
+- 裁剪：不做秒/时区/范围联动（DatePicker + TimePicker 组合可覆盖 datetime）
+
+#### 8. MultiSelect [共识] — Select 增强 multiple（非新组件）
+
+- `Select` 加 `multiple`：下拉多选 + 已选标签回显 + 移除；与 TagsInput（自由输入标签）区分——MultiSelect 是**选项多选**
+- 场景：权限/多值字段/成员指派（NewDepartment 垂直列表场景用 CheckboxGroup，横向下拉用这个）
+- 裁剪：不做搜索建议（searchable 已有）、不做全选
+
+#### 9. BackTop [共识] — 回到顶部（成本极低）
+
+- `visibilityHeight` 阈值内隐藏，点击平滑回顶（`window.scrollTo` behavior smooth）
+- 固定右下角，复用 Popover 的定位/动效 token；裁剪：不做自定义按钮动画
+
+#### 10. Rate [共识] — 评分
+
+- 需先新增 `star` 图标（`Icon.PATHS` + `IconName` + Icon.test）
+- API：`<Rate value onChange count={5} size readOnly disabled />`；键盘：方向键 + Home/End
+- 裁剪：不做半星/任意值/hover 预览；无实战证据，实施中觉鸡肋可砍
+
+### P2 — 场景化，按需（不排期）
+
+| 组件 | 场景 | 为何暂缓 |
+|------|------|---------|
+| ContextMenu | 表格/列表行右键操作 | 右键交互模型 + 位置计算，成本中；Dropdown 可组合（触发改 contextmenu） |
+| Anchor | 长文档锚点导航 | 无证据；`wf-*` 原语 + scroll 事件可拼 |
+| Tree | 组织架构/权限树 | 需树模型 + 展开/选中，成本高；知识库单层列表已由 Collapse 覆盖 |
+
+## 暂缓复查（第三批清单 → 第四批结论）
+
+| 组件 | 复查结论 |
+|------|---------|
+| Tree / Carousel / ImagePreview(画廊版) / BackTop(带滚动进度) | 无证据或裁剪边界大 |
+| TimePicker(秒/时区) / ColorPicker / PinInput(倒计时) | 裁剪到最小可用版本 |
+| MultiSelect(搜索) / Transfer / Mentions / Command / Cascader | 交互模型重，维持暂缓 |
+| Watermark / QRCode | 依赖重，偏门 |
+
+## 实施顺序与验证（每组件 TDD）
+
+```
+1. 先写失败测试（renderVNode 断言 + jsdom 事件级，按 UI 组件测试纪律）
+   → 最小实现 → 重构
+2. 顺序：P0 六项（Accordion 增强 → Collapse → CheckboxGroup → CopyButton
+   → PinInput → ImagePreview）→ P1 四项（TimePicker → Select multiple → BackTop → Rate）
+3. CSS 遵守 style-audit：动效 token（--wf-dur-*）、语义色 -text 变体、
+   禁裸文本字形（Icon）、focus-visible、CJK 感知（--wf-heading-case）
+4. 导出：src/components/index.ts + 类型（IconName 加 star）
+5. components-demo 加 DemoCard（每组件）
+6. README 组件列表 + 计数同步（61 → 69）
+7. agent-platform 落地（浏览器实测）：
+   - AgentDetail 知识库 → Collapse（异步 chunk loading）
+   - NewDepartment 成员 → CheckboxGroup
+   - Chat 消息复制 → CopyButton；CodeBlock 内部复用
+   - 登录/注册可加 PinInput 验证码示例（email 中间件发送）
+8. 全量测试 + 构建验证（node scripts/build.mjs）
+```
+
+## 验收
+
+- ✅ 框架测试全绿（P0+P1 十项：渲染快照、交互状态、键盘、受控/非受控）
+- ✅ agent-platform 手写处消失（diff 证据）
+- ✅ style-audit 全绿；README/demo 计数同步（61 → 69）
+- ✅ 浏览器实测（agent-browser）：交互 + 键盘 + 视口
+
+## 诚实裁剪（不做，明确声明）
+
+- Collapse：互斥模式、高度动画过渡
+- CheckboxGroup：全选/反选、搜索过滤
+- CopyButton：成功 toast
+- PinInput：发送验证码倒计时、邮箱/短信发送
+- ImagePreview：缩放/旋转/画廊切换、缩略图列表
+- TimePicker：秒/时区、datetime 范围联动
+- MultiSelect：选项搜索建议、全选
+- BackTop：滚动进度/自定义动画
+- Rate：半星、任意值、hover 预览
+- Accordion 增强：保持卡片面板语义，不做动画高度
+
+---
+
+# 第五批起：三库全量实现（组件驱动开发 CDD，61 → ~90 组件）
+
+> **战略升级**：从"迁移对齐 + 裁剪"转为 **全量实现 antd/EP/shadcn 三库并集 ≈ 90 个组件**。
+> 三重目标：① 生态建设（组件库 = 完整 SaaS 地基）；② client 验证（每组件定向测试 client 一项能力）；
+> ③ CDD 闭环（组件暴露 client 缺陷 → 修复 WFUI-OPTIMIZE → 解锁更难组件）。
+> 完整路线图（难度阶梯 L1-L6、全清单、client 优化映射、里程碑）见 **`docs/components-cdd.md`**；
+> 覆盖矩阵与迁移指南见 **`docs/components-migration.md`**。
+
+## 与前三批的衔接
+
+- 第一批（AI 场景）/ 第二批（表单展示）/ 第三批（Menu 等 13 组件）/ 第四批（P0-P2 表单选择+折叠）
+  → 全部并入 CDD 难度阶梯（L1-L4），作为已有基础
+- 此前"暂缓/裁剪"项（Tree/Carousel/Calendar/Command/QRCode/Watermark/Transfer 等）
+  → **转正**：它们不是为对齐而做，而是 client 能力（树模型/动画/拖拽/键盘流/canvas/虚拟滚动）的试金石
+
+## 首批实施（M1: L1-L2，表单迁移面）
+
+1. Title / Text / Paragraph（Typography 拆分）
+2. Label · AspectRatio
+3. CheckboxGroup · Rate · PinInput · ColorPicker · Toggle / ToggleGroup
+4. Select 增强（键盘 ↑↓ + Enter + multiple）
+
+每组件流程：迁移用例进测试（红）→ 实现（绿）→ style-audit → 导出 + demo → client 能力点核对。
+
+## 里程碑
+
+| 里程碑 | 阶梯 | 验收 |
+|--------|------|------|
+| M1 | L1-L2 表单 | 表单迁移面全绿；键盘/受控测试覆盖 |
+| M2 | L3 弹层 | 弹层矩阵（定位/焦点/Escape）全绿 |
+| M3 | L4 复杂交互 | 动画/拖拽/树模型全绿；client Phase 2/3 关闭 |
+| M4 | L5 数据密集 | **client Phase 5（For 虚拟滚动 + item 级响应式）落地** |
+| M5 | L6 算法挑战 | QRCode 自研 Reed-Solomon / canvas |
+| 终验 | ~90 项 | client 全绿 + 组件 61 → ~90 + 文档同步 |

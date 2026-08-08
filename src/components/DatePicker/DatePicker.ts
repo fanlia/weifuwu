@@ -215,7 +215,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const hours = hourOptions()
         const minutes = minuteOptions()
         const timePanel = h('div', {
-          style: { top: pos.top, left: pos.left, width: pos.width },
+          style: { position: 'fixed', top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-time-picker', role: 'dialog',
           ref: panelRef,
           onKeyDown: handleKeyDown,
@@ -253,7 +253,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const nextGrid = getCalendarGrid(nextY, nextM)
 
         const rangeWrap = h('div', {
-          style: { top: pos.top, left: pos.left },
+          style: { position: 'fixed', top: pos.top, left: pos.left },
           class: 'wf-datepicker-range-wrap',
           ref: panelRef,
           onMouseDown: (e: Event) => e.stopPropagation(),
@@ -315,7 +315,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
           ]))
         }
         const dp = h('div', {
-          style: { top: pos.top, left: pos.left, width: pos.width },
+          style: { position: 'fixed', top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-datepicker-dropdown', role: 'dialog',
           ref: panelRef,
           onKeyDown: handleKeyDown,

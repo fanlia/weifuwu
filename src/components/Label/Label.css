@@ -1,0 +1,16 @@
+/* weifuwu/components — Label（与 Input/Field 的 label 样式同源） */
+
+.wf-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+  margin-bottom: var(--wf-space-xs);
+}
+
+.wf-label-req {
+  color: var(--wf-color-error-text);
+}

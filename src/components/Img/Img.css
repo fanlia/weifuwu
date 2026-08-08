@@ -1,7 +1,40 @@
-/* weifuwu/components — Image */
+/* weifuwu/components — Img */
 
 .wf-image {
+  display: inline-block;
   max-width: 100%;
-  height: auto;
-  display: block;
+}
+
+.wf-img-preview-wrap {
+  display: inline-block;
+}
+
+.wf-img-preview-trigger {
+  display: inline-block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  line-height: 0;
+}
+
+.wf-img-preview-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-img-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wf-z-modal);
+  background: var(--wf-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-in;
+}
+
+.wf-img-preview-image {
+  transition: transform var(--wf-dur-base) var(--wf-ease-out);
 }

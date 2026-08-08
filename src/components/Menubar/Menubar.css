@@ -1,0 +1,99 @@
+/* weifuwu/components — Menubar */
+
+.wf-menubar {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-menubar-trigger {
+  border: none;
+  background: none;
+  padding: 4px var(--wf-space);
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  transition: background var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-menubar-trigger:hover,
+.wf-menubar-trigger--open {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-menubar-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-menubar-trigger--dis {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* 下拉面板 */
+.wf-menubar-panel {
+  position: fixed;
+  z-index: var(--wf-z-popover);
+  min-width: var(--wf-menubar-min-width, 160px);
+  background: var(--wf-color-bg);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  box-shadow: var(--wf-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.12));
+  padding: var(--wf-space-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.wf-menubar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wf-gap-sm);
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 6px var(--wf-space);
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-menubar-item:hover,
+.wf-menubar-item--hl {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-menubar-item:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-menubar-item--dis {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-menubar-item-label {
+  flex: 1;
+}
+
+.wf-menubar-shortcut {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  background: var(--wf-color-bg-tertiary);
+  border-radius: var(--wf-radius-sm);
+  padding: 1px 6px;
+  font-family: var(--wf-font-sans);
+}

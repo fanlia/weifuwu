@@ -2,7 +2,7 @@
 import esbuild from 'esbuild'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdir, cp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, cp, readFile, writeFile, readdir } from 'node:fs/promises'
 import { rm } from 'node:fs/promises'
 import { execSync } from 'node:child_process'
 
@@ -138,7 +138,10 @@ const layoutCss = await mergeLayoutCss()
 await writeFile(join(layoutDist, 'weifuwu-layout.css'), layoutCss)
 
 // 编译组件 CSS = layout 全部 CSS（Token + 暗色 + 基础 + 布局原语 + 工具类）+ 组件 CSS（@layer components）
-const componentDirs = ['Button', 'Input', 'Textarea', 'Select', 'Checkbox', 'Switch', 'RadioGroup', 'Table', 'Modal', 'Toast', 'Alert', 'Loading', 'EmptyState', 'Tabs', 'Dropdown', 'Pagination', 'Card', 'Badge', 'Avatar', 'Tag', 'StatCard', 'Steps', 'Form', 'Field', 'Slider', 'SearchInput', 'SegmentedControl', 'ProgressBar', 'Accordion', 'PageHeader', 'Breadcrumb', 'Divider', 'FileUpload', 'Tooltip', 'Drawer', 'Popover', 'Skeleton', 'Img', 'InView', 'DatePicker', 'Chart', 'Editor', 'ThemeSwitch', 'ToolCallCard', 'ApprovalCard', 'AiChat', 'Markdown', 'CodeBlock', 'Timeline', 'InputNumber', 'Descriptions', 'AvatarGroup', 'MessageBubble', 'Menu', 'PasswordInput', 'TagsInput', 'Highlight', 'List', 'Result']
+// 动态扫描目录（新增组件自动包含，硬编码列表会静默漏 CSS）
+const componentDirs = (await readdir(join(srcDir, 'components'), { withFileTypes: true }))
+  .filter(d => d.isDirectory())
+  .map(d => d.name)
 let componentCss = layoutCss + '\n@layer components {\n'
 for (const dir of componentDirs) {
   const cssPath = join(srcDir, 'components', dir, `${dir}.css`)

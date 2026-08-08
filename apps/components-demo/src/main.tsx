@@ -22,6 +22,12 @@ import {
   AiChat, ToolCallCard, ApprovalCard, PageHeader, Icon,
   Markdown, CodeBlock, Timeline, InputNumber, Descriptions, AvatarGroup, MessageBubble,
   Menu, PasswordInput, TagsInput, Highlight, List, Result,
+  Rate, Title, Text, Paragraph, Label, AspectRatio,
+  Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
+  BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
+  Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
+  VirtualList, InfiniteScroll, QRCode,
+  notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -107,7 +113,7 @@ const DemoSelect: Component = (_props, ctx) => {
     <div class="wf-stack wf-gap-sm wf-w-full">
       <Select label="原生 select" placeholder="请选择"
         value={role}
-        onChange={v => { role = v; ctx.ui.render() }}
+        onChange={v => { role = v as string; ctx.ui.render() }}
         options={[
           { value: 'admin', label: '管理员' },
           { value: 'user', label: '普通用户' },
@@ -1050,6 +1056,301 @@ const DemoAiChat: Component = (_props, ctx) => {
   )
 }
 
+// ── 新增组件 Demo（全量实现批次）────────────────────
+
+const DemoRate: Component = (_props, ctx) => {
+  let v = 3
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <Rate value={v} onChange={(n: number) => { v = n; ctx.ui.render() }} />
+      <Rate value={4} readOnly />
+      <Rate value={0} size="lg" allowClear onChange={(n: number) => { v = n; ctx.ui.render() }} />
+      <div class="wf-text-sm wf-text-secondary">当前：{v} 星</div>
+    </div>
+  )
+}
+
+const DemoTypography: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <Title level={1}>一级标题</Title>
+    <Title level={3}>三级标题</Title>
+    <Text type="secondary">次要文字</Text>{' '}
+    <Text type="success">成功</Text>{' '}
+    <Text type="warning">警告</Text>{' '}
+    <Text type="danger">危险</Text><br />
+    <Text strong>加粗</Text> <Text underline>下划线</Text> <Text strikethrough>删除线</Text> <Text code>const x = 1</Text><br />
+    <Paragraph type="secondary" ellipsis>这是一段很长的段落文本，用于演示 ellipsis 单行截断效果，超出宽度时显示省略号。</Paragraph>
+  </div>
+)
+
+const DemoLabel: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <Label htmlFor="demo-name">用户名</Label>
+    <Label required>必填项</Label>
+  </div>
+)
+
+const DemoAspectRatio: Component = () => () => (
+  <div class="wf-surface wf-border wf-rounded-md">
+    <AspectRatio ratio={16 / 9}>
+      <div class="wf-center wf-text-secondary wf-bg-tertiary">16:9 容器</div>
+    </AspectRatio>
+  </div>
+)
+
+const DemoToggleGroup: Component = (_props, ctx) => {
+  let single = 'bold'
+  let multi: string[] = ['bold']
+  let pressed = false
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <ToggleGroup type="single" options={[{ value: 'bold', label: 'B' }, { value: 'italic', label: 'I' }, { value: 'underline', label: 'U' }]} value={single} onChange={(v: any) => { single = v; ctx.ui.render() }} />
+      <ToggleGroup type="multiple" options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} value={multi} onChange={(v: any) => { multi = v; ctx.ui.render() }} />
+      <div class="wf-row wf-gap-sm wf-items-center">
+        <Toggle pressed={pressed} onPressedChange={(p: boolean) => { pressed = p; ctx.ui.render() }}>单个切换</Toggle>
+        <span class="wf-text-sm wf-text-secondary">状态：{pressed ? '已按下' : '未按下'}</span>
+      </div>
+    </div>
+  )
+}
+
+const DemoCheckboxGroup: Component = (_props, ctx) => {
+  let v: string[] = ['a']
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <CheckboxGroup label="选择成员" options={[{ value: 'a', label: '张三' }, { value: 'b', label: '李四' }, { value: 'c', label: '王五' }]} value={v} onChange={(k: string[]) => { v = k; ctx.ui.render() }} />
+      <div class="wf-text-sm wf-text-secondary">已选：{v.join(', ') || '无'}</div>
+    </div>
+  )
+}
+
+const DemoPinInput: Component = (_props, ctx) => {
+  let v = ''
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <PinInput length={6} value={v} onChange={(s: string) => { v = s; ctx.ui.render() }} />
+      <div class="wf-text-sm wf-text-secondary">验证码：{v || '等待输入'}</div>
+    </div>
+  )
+}
+
+const DemoCopyButton: Component = () => () => (
+  <div class="wf-row wf-gap-sm">
+    <CopyButton value="https://weifuwu.dev/docs" label="复制链接" />
+    <CopyButton value="仅图标" iconOnly />
+  </div>
+)
+
+const DemoColorPicker: Component = (_props, ctx) => {
+  let c = '#4f6ef7'
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <ColorPicker value={c} showInput onChange={(v: string) => { c = v; ctx.ui.render() }} />
+      <div class="wf-text-sm wf-text-secondary">当前：{c}</div>
+    </div>
+  )
+}
+
+const DemoHoverCard: Component = () => () => (
+  <HoverCard openDelay={0} content={
+    <div class="wf-stack wf-gap-xs">
+      <div class="wf-text-sm wf-text-semibold">用户详情</div>
+      <div class="wf-text-xs wf-text-secondary">悬停卡片展示富内容，支持任意 VNode</div>
+    </div>
+  }>
+    <Button variant="secondary">悬停查看用户</Button>
+  </HoverCard>
+)
+
+const DemoNotification: Component = (_props, ctx) => {
+  const show = () => {
+    ;(ctx as any).notification?.success?.({ title: '部署成功', description: 'v0.63.0 已上线' })
+  }
+  return () => (
+    <div class="wf-row wf-gap-sm">
+      <Button variant="primary" onClick={show}>成功通知</Button>
+      <Button variant="secondary" onClick={() => (ctx as any).notification?.warning?.({ title: '磁盘空间不足', description: '已使用 92%' })}>警告通知</Button>
+    </div>
+  )
+}
+
+const DemoBackTop: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <div class="wf-text-sm wf-text-secondary">向下滚动页面超过 400px 后，右下角出现回到顶部按钮</div>
+    <BackTop aria-label="回到顶部" />
+  </div>
+)
+
+const DemoAffix: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <div class="wf-text-sm wf-text-secondary">滚动页面：导航条在距顶部 80px 处固定（Affix）</div>
+    <Affix offsetTop={80}>
+      <div class="wf-surface wf-border wf-rounded-md wf-px-md wf-py-sm wf-row wf-gap-md wf-text-sm">
+        <a href="#affix-demo" class="wf-text-primary">锚点一</a>
+        <a href="#affix-demo" class="wf-text-secondary">锚点二</a>
+        <a href="#affix-demo" class="wf-text-secondary">锚点三</a>
+      </div>
+    </Affix>
+  </div>
+)
+
+const DemoContextMenu: Component = () => () => (
+  <ContextMenu items={[
+    { key: 'edit', label: '编辑', onClick: () => alert('编辑') },
+    { key: 'copy', label: '复制' },
+    { key: 'delete', label: '删除', variant: 'danger', onClick: () => alert('删除') },
+  ]}>
+    <div class="wf-surface wf-border wf-rounded-md wf-p-lg wf-text-center wf-text-secondary">右键点击此区域</div>
+  </ContextMenu>
+)
+
+const DemoMentions: Component = (_props, ctx) => {
+  let v = '输入 @ 提及成员：@ali'
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <Mentions options={[{ value: 'alice', label: 'Alice' }, { value: 'bob', label: 'Bob' }, { value: 'carol', label: 'Carol' }]} value={v} onChange={(s: string) => { v = s; ctx.ui.render() }} />
+      <div class="wf-text-sm wf-text-secondary">文本：{v}</div>
+    </div>
+  )
+}
+
+const DemoCollapse: Component = (_props, ctx) => {
+  let active = ['1']
+  return () => (
+    <Collapse items={[
+      { key: '1', title: '知识库文档', content: '文档分块内容展示（行内展开，区别于 Accordion 卡片面板）' },
+      { key: '2', title: '异步加载示例', loading: true },
+      { key: '3', title: '带操作区', extra: <Button size="sm" variant="ghost">操作</Button>, content: '标题右侧可放操作按钮' },
+    ]} active={active} onChange={(keys: string[]) => { active = keys; ctx.ui.render() }} />
+  )
+}
+
+const DemoToggleTree: Component = (_props, ctx) => {
+  let checked = ['fe']
+  const treeData = [
+    { key: 'root', label: '总部', children: [
+      { key: 'tech', label: '技术部', children: [{ key: 'fe', label: '前端组' }, { key: 'be', label: '后端组' }] },
+      { key: 'mkt', label: '市场部' },
+    ] },
+  ]
+  return () => (
+    <Tree data={treeData} expandedKeys={['root', 'tech']} checkable checkedKeys={checked} onCheck={(keys: string[]) => { checked = keys; ctx.ui.render() }} />
+  )
+}
+
+const DemoCascader: Component = (_props, ctx) => {
+  let value: string[] = ['zj', 'hz']
+  return () => (
+    <Cascader options={[
+      { value: 'zj', label: '浙江', children: [{ value: 'hz', label: '杭州' }, { value: 'nb', label: '宁波' }] },
+      { value: 'gd', label: '广东', children: [{ value: 'sz', label: '深圳' }] },
+    ]} value={value} onChange={(v: string[]) => { value = v; ctx.ui.render() }} />
+  )
+}
+
+const DemoTransfer: Component = (_props, ctx) => {
+  let target = ['a']
+  return () => (
+    <Transfer data={[{ key: 'a', label: '成员A' }, { key: 'b', label: '成员B' }, { key: 'c', label: '成员C' }, { key: 'd', label: '成员D' }]}
+      targetKeys={target} onChange={(k: string[]) => { target = k; ctx.ui.render() }} titles={['可选成员', '已选成员']} />
+  )
+}
+
+const DemoCommand: Component = (_props, ctx) => {
+  let open = false
+  const items = [
+    { key: 'new', label: '新建聊天', shortcut: 'N', onSelect: () => { open = false; ctx.ui.render() } },
+    { key: 'search', label: '搜索', shortcut: 'S' },
+    { key: 'settings', label: '设置', shortcut: 'G S' },
+  ]
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <Button variant="secondary" onClick={() => { open = true; ctx.ui.render() }}>打开命令面板（⌘K）</Button>
+      <Command items={items} open={open} onOpenChange={(o: boolean) => { open = o; ctx.ui.render() }} />
+    </div>
+  )
+}
+
+const DemoMenubar: Component = () => () => (
+  <Menubar menus={[
+    { key: 'file', label: '文件', items: [{ key: 'new', label: '新建', shortcut: 'Ctrl+N' }, { key: 'save', label: '保存', shortcut: 'Ctrl+S' }] },
+    { key: 'edit', label: '编辑', items: [{ key: 'undo', label: '撤销', shortcut: 'Ctrl+Z' }] },
+  ]} />
+)
+
+const DemoCarousel: Component = () => () => (
+  <div class="wf-max-w-sm">
+    <Carousel>
+      {['🟥 第一张', '🟦 第二张', '🟩 第三张'].map((t, i) => (
+        <div key={i} class="wf-bg-tertiary wf-p-xl wf-text-center wf-rounded-md">{t}</div>
+      ))}
+    </Carousel>
+  </div>
+)
+
+const DemoResizable: Component = () => () => (
+  <div class="wf-surface wf-border wf-rounded-md" style="height: 160px">
+    <Resizable defaultSize={180}>
+      {[<div class="wf-p-md wf-text-sm wf-text-secondary">左面板（拖拽分隔条）</div>, <div class="wf-p-md wf-text-sm wf-text-secondary">右面板</div>] as any}
+    </Resizable>
+  </div>
+)
+
+const DemoCalendar: Component = (_props, ctx) => {
+  let view = { month: 5, year: 2025 }
+  return () => (
+    <Calendar month={view.month} year={view.year} selectedDate="2025-06-10"
+      onMonthChange={(m: number, y: number) => { view = { month: m, year: y }; ctx.ui.render() }}
+      events={[
+        { key: 'e1', date: '2025-06-10', title: '产品评审' },
+        { key: 'e2', date: '2025-06-15', title: '团队周会' },
+      ]} />
+  )
+}
+
+const DemoWatermark: Component = () => () => (
+  <Watermark text="weifuwu 内部资料">
+    <div class="wf-surface wf-border wf-rounded-md wf-p-xl wf-text-center wf-text-secondary">水印覆盖内容区</div>
+  </Watermark>
+)
+
+const DemoVirtualList: Component = () => () => (
+  <VirtualList height={240} itemHeight={36} items={Array.from({ length: 200 }, (_, i) => ({ id: i, label: `第 ${i} 行` }))}
+    renderItem={(item: any) => <div class="wf-text-sm wf-border-b wf-py-xs wf-px-sm">{item.label}</div>} />
+)
+
+const DemoQRCode: Component = () => () => (
+  <div class="wf-row wf-gap-md">
+    <QRCode value="https://weifuwu.dev" size={96} />
+    <QRCode value="https://weifuwu.dev/docs" size={96} color="#4f6ef7" />
+  </div>
+)
+
+const DemoInfiniteScroll: Component = (_props, ctx) => {
+  let items: string[] = Array.from({ length: 10 }, (_, i) => `条目 ${i + 1}`)
+  let loading = false
+  let hasMore = true
+  return () => (
+    <InfiniteScroll
+      loading={loading}
+      hasMore={hasMore}
+      onLoadMore={() => {
+        loading = true; ctx.ui.render()
+        setTimeout(() => {
+          const next = Array.from({ length: 5 }, (_, i) => `条目 ${items.length + i + 1}`)
+          items = [...items, ...next]
+          loading = false
+          if (items.length >= 30) hasMore = false
+          ctx.ui.render()
+        }, 600)
+      }}>
+      <div class="wf-stack wf-gap-xs">
+        {items.map(t => <div key={t} class="wf-text-sm wf-border-b wf-py-xs">{t}</div>)}
+      </div>
+    </InfiniteScroll>
+  )
+}
+
 // ── 代码示例字符串 ─────────────────────────────────────
 
 const CODE = {
@@ -1385,6 +1686,103 @@ return () => <AiChat chat={$} />
   onReject={(note) => chat.approve('rejected', note)} />
 
 // 终态：<ApprovalCard request={...} status="approved" />`,
+
+  rate: `<Rate value={3} onChange={setRate} />
+<Rate value={4} readOnly />
+<Rate size="lg" allowClear />`,
+
+  typography: `<Title level={1}>标题</Title>
+<Text type="secondary">次要</Text>
+<Text type="danger">危险</Text>
+<Text code>code</Text>
+<Paragraph ellipsis>长文本</Paragraph>`,
+
+  label: `<Label htmlFor="name">用户名</Label>
+<Label required>必填</Label>`,
+
+  ratio: `<AspectRatio ratio={16/9}>
+  <img src="..." />
+</AspectRatio>`,
+
+  togglegroup: `<ToggleGroup type="single" options={[{value:'b',label:'B'}]} />
+<ToggleGroup type="multiple" />
+<Toggle pressed>单个</Toggle>`,
+
+  checkboxgroup: `<CheckboxGroup options={[{value:'a',label:'A'}]}
+  value={selected} onChange={setSelected} />`,
+
+  pininput: `<PinInput length={6} value={code}
+  onChange={setCode} />`,
+
+  copybtn: `<CopyButton value="https://..." label="复制" />`,
+
+  colorpicker: `<ColorPicker value={color} showInput
+  onChange={setColor} />`,
+
+  hovercard: `<HoverCard content={<UserCard />}>
+  <Button>悬停</Button>
+</HoverCard>`,
+
+  notification: `notification.success({
+  title: '部署成功',
+  description: 'v0.63.0 已上线',
+})`,
+
+  backtop: `<BackTop visibilityHeight={400} />
+
+<Affix offsetTop={80}>
+  <nav>固定导航条</nav>
+</Affix>`,
+
+  contextmenu: `<ContextMenu items={[{key:'edit',label:'编辑'}]}>
+  <div>右键区域</div>
+</ContextMenu>`,
+
+  mentions: `<Mentions options={[{value:'alice',label:'Alice'}]}
+  value={text} onChange={setText} />`,
+
+  collapse: `<Collapse items={[{key:'1',title:'标题',content:'内容',loading}]}
+  active={['1']} />`,
+
+  tree: `<Tree data={treeData} checkable
+  checkedKeys={keys} onCheck={setKeys} />`,
+
+  cascader: `<Cascader options={regions}
+  value={['zj','hz']} onChange={setPath} />`,
+
+  transfer: `<Transfer data={members}
+  targetKeys={selected} onChange={setSelected} />`,
+
+  command: `<Command items={items} open={open}
+  onOpenChange={setOpen} />`,
+
+  menubar: `<Menubar menus={[{key:'file',label:'文件',items:[...]}]} />`,
+
+  carousel: `<Carousel autoplay interval={3000}>
+  {slides.map(s => <div>{s}</div>)}
+</Carousel>`,
+
+  resizable: `<Resizable defaultSize={180}>
+  {[<PaneA />, <PaneB />]}
+</Resizable>`,
+
+  calendar: `<Calendar month={5} year={2025}
+  events={events} selectedDate="2025-06-10" />`,
+
+  watermark: `<Watermark text="内部资料">
+  <div>内容</div>
+</Watermark>`,
+
+  virtuallist: `<VirtualList height={400} itemHeight={36}
+  items={rows} renderItem={renderRow} />`,
+
+  qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
+<QRCode value="..." color="#4f6ef7" />`,
+
+  infinitescroll: `<InfiniteScroll hasMore loading={loading}
+  onLoadMore={loadMore}>
+  {items.map(i => <div>{i}</div>)}
+</InfiniteScroll>`,
 }
 
 // ── 主应用 ─────────────────────────────────────────────
@@ -1496,8 +1894,37 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Divider" desc="分割线，支持 horizontal/vertical/带文字" code={CODE.divider}><DemoDivider /></DemoCard>
       </Section>
 
+      <Section title="新增批次（全量实现）">
+        <DemoCard title="Rate" desc="评分：键盘方向键 / allowClear / readOnly，新增 star 图标" code={CODE.rate}><DemoRate /></DemoCard>
+        <DemoCard title="Typography" desc="Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线" code={CODE.typography}><DemoTypography /></DemoCard>
+        <DemoCard title="Label / AspectRatio" desc="独立标签（required 星号）+ 宽高比容器（内容填满）" code={CODE.label}><DemoLabel /><DemoAspectRatio /></DemoCard>
+        <DemoCard title="Toggle / ToggleGroup" desc="切换按钮：single/multiple 双模式（shadcn 对齐）" code={CODE.togglegroup}><DemoToggleGroup /></DemoCard>
+        <DemoCard title="CheckboxGroup" desc="复选框组：数组受控 + 栅格列数（antd Checkbox.Group）" code={CODE.checkboxgroup}><DemoCheckboxGroup /></DemoCard>
+        <DemoCard title="PinInput" desc="验证码输入：自动聚焦/粘贴分派/Backspace 回退（shadcn InputOTP）" code={CODE.pininput}><DemoPinInput /></DemoCard>
+        <DemoCard title="CopyButton" desc="复制按钮：clipboard + execCommand 降级 + 成功状态机" code={CODE.copybtn}><DemoCopyButton /></DemoCard>
+        <DemoCard title="ColorPicker" desc="颜色选择：预设色板 + hex 输入（Popover 弹层）" code={CODE.colorpicker}><DemoColorPicker /></DemoCard>
+        <DemoCard title="HoverCard" desc="悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）" code={CODE.hovercard}><DemoHoverCard /></DemoCard>
+        <DemoCard title="Notification" desc="队列式通知：notification.success/error/warning 命令式（antd 对齐）" code={CODE.notification}><DemoNotification /></DemoCard>
+        <DemoCard title="BackTop / Affix" desc="回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）" code={CODE.backtop}><DemoBackTop /><DemoAffix /></DemoCard>
+        <DemoCard title="ContextMenu" desc="右键菜单：光标定位 + 方向键 + danger 变体（shadcn）" code={CODE.contextmenu}><DemoContextMenu /></DemoCard>
+        <DemoCard title="Mentions" desc="@提及：composition 抑制 + 过滤插入（antd Mentions）" code={CODE.mentions}><DemoMentions /></DemoCard>
+        <DemoCard title="Collapse" desc="行内折叠：异步 loading + extra 操作区（区别于 Accordion）" code={CODE.collapse}><DemoCollapse /></DemoCard>
+        <DemoCard title="Tree" desc="树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）" code={CODE.tree}><DemoToggleTree /></DemoCard>
+        <DemoCard title="Cascader" desc="级联选择：多列面板逐级推进（antd/EP Cascader）" code={CODE.cascader}><DemoCascader /></DemoCard>
+        <DemoCard title="Transfer" desc="穿梭框：双列表 + 选中移动（antd/EP Transfer）" code={CODE.transfer}><DemoTransfer /></DemoCard>
+        <DemoCard title="Command" desc="命令面板：⌘K 全局快捷键 + 键盘流（shadcn Command）" code={CODE.command}><DemoCommand /></DemoCard>
+        <DemoCard title="Menubar" desc="水平菜单栏：←→ 切换 + ↓ 展开（shadcn Menubar）" code={CODE.menubar}><DemoMenubar /></DemoCard>
+        <DemoCard title="Carousel" desc="轮播：箭头/圆点/循环 + 自动播放（三库共识）" code={CODE.carousel}><DemoCarousel /></DemoCard>
+        <DemoCard title="Resizable" desc="拖拽分割面板：pointer + 键盘方向键 + clamp（shadcn）" code={CODE.resizable}><DemoResizable /></DemoCard>
+        <DemoCard title="Calendar" desc="月历：事件点 + 月切换 + 日期选择（antd/EP Calendar）" code={CODE.calendar}><DemoCalendar /></DemoCard>
+        <DemoCard title="Watermark" desc="水印：canvas 平铺绘制 + overlay（antd Watermark）" code={CODE.watermark}><DemoWatermark /></DemoCard>
+        <DemoCard title="VirtualList" desc="虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM" code={CODE.virtuallist}><DemoVirtualList /></DemoCard>
+        <DemoCard title="InfiniteScroll" desc="无限滚动：底部哨兵触底加载 + loading/end 态" code={CODE.infinitescroll}><DemoInfiniteScroll /></DemoCard>
+        <DemoCard title="QRCode" desc="二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG" code={CODE.qrcode}><DemoQRCode /></DemoCard>
+      </Section>
+
       <div class="wf-text-center wf-py-xl wf-text-tertiary wf-text-sm">
-        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 61 个组件 · 打开 devtools 查看代码'}
+        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 91 个组件 · 打开 devtools 查看代码'}
       </div>
     </div>
     )
@@ -1507,9 +1934,10 @@ const App: Component = (_props, ctx) => {
 createApp()
   .use(confirm())
   .use(toast())
+  .use(notification())
   .use(i18n({ locale: 'zh-CN', messages: {
     'app.title': 'weifuwu/components',
-    'app.desc': '61 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
-    'app.footer': 'weifuwu/components · 全部 61 个组件 · 打开 devtools 查看代码',
+    'app.desc': '91 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
+    'app.footer': 'weifuwu/components · 全部 91 个组件 · 打开 devtools 查看代码',
   } }))
   .mount('#root', App)

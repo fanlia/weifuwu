@@ -187,7 +187,7 @@ export const AgentDetail: Component = (_props, ctx) => {
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
                   <Field label="模型">
-                    <Select value={$.aiModel} onChange={(v: string) => { $.aiModel = v }}
+                    <Select value={$.aiModel} onChange={(v) => { $.aiModel = v as string }}
                       options={MODELS.map(m => ({ value: m.value, label: m.label }))} />
                   </Field>
                 </div>

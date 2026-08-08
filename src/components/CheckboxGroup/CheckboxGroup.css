@@ -1,0 +1,29 @@
+/* weifuwu/components — CheckboxGroup */
+
+.wf-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-checkbox-group--cols-2,
+.wf-checkbox-group--cols-3,
+.wf-checkbox-group--cols-4 {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.wf-checkbox-group--cols-2 > * { flex: 0 0 calc(50% - var(--wf-gap-sm)); }
+.wf-checkbox-group--cols-3 > * { flex: 0 0 calc(33.333% - var(--wf-gap-sm)); }
+.wf-checkbox-group--cols-4 > * { flex: 0 0 calc(25% - var(--wf-gap-sm)); }
+
+.wf-checkbox-group-label {
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+}
+
+.wf-checkbox-group--sm { font-size: var(--wf-font-size-sm); }
+.wf-checkbox-group--md { font-size: var(--wf-font-size-base); }
+.wf-checkbox-group--lg { font-size: var(--wf-font-size-lg); }

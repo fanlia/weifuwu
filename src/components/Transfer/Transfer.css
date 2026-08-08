@@ -1,0 +1,117 @@
+/* weifuwu/components — Transfer */
+
+.wf-transfer {
+  display: flex;
+  align-items: stretch;
+  gap: var(--wf-gap);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-transfer-list {
+  flex: 1;
+  min-width: 0;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  overflow: hidden;
+}
+
+.wf-transfer-title {
+  padding: var(--wf-space) var(--wf-space-md);
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+  background: var(--wf-color-bg-secondary);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+}
+
+.wf-transfer-body {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--wf-space-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.wf-transfer-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 6px var(--wf-space);
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-transfer-item:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-transfer-item--sel {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary-text);
+}
+
+.wf-transfer-item:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-transfer-item--dis {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.wf-transfer-item--dis:hover {
+  background: none;
+}
+
+.wf-transfer-empty {
+  padding: var(--wf-space-lg);
+  text-align: center;
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-transfer-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--wf-gap-sm);
+}
+
+.wf-transfer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  transition: background var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out),
+              border-color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-transfer-btn:hover:not(:disabled) {
+  background: var(--wf-color-bg-tertiary);
+  color: var(--wf-color-text);
+  border-color: var(--wf-color-primary);
+}
+
+.wf-transfer-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-transfer-btn:disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+}

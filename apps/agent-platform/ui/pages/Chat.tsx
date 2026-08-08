@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { Ava } from '../components/ui'
-import { Alert, Badge, Button, EmptyState, Input, Markdown, MessageBubble } from 'weifuwu/components'
+import { Alert, Badge, Button, CopyButton, EmptyState, Input, Markdown, MessageBubble } from 'weifuwu/components'
 
 export const Chat: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -183,13 +183,6 @@ export const Chat: Component = (_props, ctx) => {
     await ctx.api!.delete(`/api/messages/${msg.id}`).then(() => ctx.toast!('消息已撤回', 'success')).catch(() => ctx.toast!('撤回失败', 'error'))
   }
 
-  function copyContent(msg: any) {
-    navigator.clipboard.writeText(msg.content).then(() => {
-      $.copiedId = msg.id
-      setTimeout(() => { if ($.copiedId === msg.id) { $.copiedId = '' } }, 2000)
-    }).catch(() => {})
-  }
-
   async function approveDraft(msgId: string) {
     $.approving = msgId
     await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved: true }).catch(() => {})
@@ -288,9 +281,7 @@ export const Chat: Component = (_props, ctx) => {
                     </span>
                   )}
                   {st === 'complete' && msg.sender_type === 'ai' && msg.content && (
-                    <Button size="sm" variant="ghost" onClick={() => copyContent(msg)}>
-                      {$.copiedId === msg.id ? '✅ 已复制' : '📋 复制'}
-                    </Button>
+                    <CopyButton size="sm" variant="ghost" value={msg.content} label="复制" />
                   )}
                 </div>
 

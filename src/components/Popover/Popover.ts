@@ -77,7 +77,7 @@ export const Popover: Component<PopoverProps> = (_props, ctx) => {
 
     const popover = isOpen ? h('div', {
       class: `wf-popover wf-popover--${position} wf-popover--enter`,
-      style: { top: p.top, left: p.left },
+      style: { position: 'fixed', top: p.top, left: p.left },
       role: 'tooltip',
     }, [
       h('div', { class: 'wf-popover-arrow' }),

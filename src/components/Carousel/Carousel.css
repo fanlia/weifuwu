@@ -1,0 +1,91 @@
+/* weifuwu/components — Carousel */
+
+.wf-carousel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--wf-radius);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-carousel-viewport {
+  overflow: hidden;
+}
+
+.wf-carousel-track {
+  display: flex;
+  transition: transform var(--wf-dur-slow) var(--wf-ease-out);
+}
+
+.wf-carousel-track > * {
+  flex: 0 0 100%;
+}
+
+.wf-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--wf-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+  transition: background var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-carousel-arrow:hover {
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+}
+
+.wf-carousel-arrow:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-carousel-arrow--prev { left: var(--wf-space); }
+.wf-carousel-arrow--next { right: var(--wf-space); }
+
+.wf-carousel-dots {
+  position: absolute;
+  bottom: var(--wf-space);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: var(--wf-gap-xs);
+  z-index: 1;
+}
+
+.wf-carousel-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--wf-color-bg-secondary);
+  cursor: pointer;
+  transition: background var(--wf-dur-fast) var(--wf-ease-out),
+              transform var(--wf-dur-fast) var(--wf-ease-snap);
+}
+
+.wf-carousel-dot:hover {
+  background: var(--wf-color-text-tertiary);
+}
+
+.wf-carousel-dot:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-carousel-dot--active {
+  background: var(--wf-color-primary);
+  transform: scale(1.25);
+}

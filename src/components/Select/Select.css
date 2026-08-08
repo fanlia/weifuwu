@@ -140,3 +140,42 @@
   color: var(--wf-color-text-tertiary);
   text-align: center;
 }
+
+/* 键盘高亮（↑↓ 导航） */
+.wf-select-search-opt--hl {
+  background: var(--wf-color-bg-tertiary);
+}
+
+/* 多选：已选标签 */
+.wf-select-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary-text);
+  font-size: var(--wf-font-size-xs);
+  padding: 1px var(--wf-space-xs);
+  border-radius: var(--wf-radius-sm);
+  white-space: nowrap;
+}
+
+.wf-select-tag-close {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+}
+
+.wf-select-tag-close:hover {
+  opacity: 1;
+}
+
+.wf-select-tag-close:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-radius: var(--wf-radius-sm);
+}

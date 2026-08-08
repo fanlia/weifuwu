@@ -93,6 +93,12 @@ export function createApp<C extends object = {}>(): App<C> {
   }
 
   /** rAF 节流：滚动/resize 时重算所有开着的弹层坐标，然后精准刷新 */
+  // ── 滚动位置跟踪注册表（全局 scroll 监听 + rAF 节流，仿弹层跟踪） ──
+  const _scrollTrackers = new Map<string, {
+    handle: { y: number }
+    getScroller: () => HTMLElement | Window
+  }>()
+
   function schedulePopupRecompute() {
     if (_popupRaf) return
     _popupRaf = requestAnimationFrame(() => {
@@ -106,6 +112,17 @@ export function createApp<C extends object = {}>(): App<C> {
         // 视口夹紧（与 usePopupPosition.refresh 同规则）：滚动/resize 后也保证面板在视口内
         Object.assign(t.pos, clampToViewport(p, t.panel?.(), t.margin))
         ids.push(id)
+      }
+      // 滚动位置：更新所有注册组件（capture 监听覆盖 window + 子容器滚动）
+      for (const [id, st] of _scrollTrackers) {
+        const scroller = st.getScroller()
+        const y = scroller instanceof Window
+          ? (document.scrollingElement?.scrollTop ?? (scroller as Window).scrollY ?? 0)
+          : (scroller as HTMLElement).scrollTop ?? 0
+        if (y !== st.handle.y) {
+          st.handle.y = y
+          ids.push(id)
+        }
       }
       if (ids.length > 0) (ctx as any).ui.render(ids)
     })
@@ -242,6 +259,7 @@ export function createApp<C extends object = {}>(): App<C> {
           if (key.startsWith(`media:${id}:`) || key === `bp:${id}`) unsubscribeMediaEntry(key)
         }
         _popupTrackers.delete(id)
+        _scrollTrackers.delete(id)
       })
 
       // ── 注入 ctx.ui（工厂方法在 ui.ts，app 注入闭包依赖） ──
@@ -253,6 +271,7 @@ export function createApp<C extends object = {}>(): App<C> {
         dirtySet: new Set<string>(),
         mediaRegistry: _mediaRegistry,
         popupTrackers: _popupTrackers,
+        scrollTrackers: _scrollTrackers,
         schedulePopupRecompute,
         ensurePopupListeners,
         destroyPopupListeners,
@@ -288,6 +307,7 @@ export function createApp<C extends object = {}>(): App<C> {
       // 清理弹层位置跟踪的全局监听（scroll/resize）+ 注册表
       destroyPopupListeners()
       _popupTrackers.clear()
+      _scrollTrackers.clear()
       for (const key of [..._mediaRegistry.keys()]) unsubscribeMediaEntry(key)
       // 全部组件失效：清 idRegistry，残留异步回调（Promise/WS/setTimeout）的 dirty 不再命中
       idRegistry.clear()

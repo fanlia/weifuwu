@@ -1,0 +1,70 @@
+/* weifuwu/components — Toggle / ToggleGroup */
+
+.wf-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wf-gap-xs);
+  border: var(--wf-border-width) solid transparent;
+  background: none;
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  color: var(--wf-color-text-secondary);
+  border-radius: var(--wf-radius-sm);
+  transition: background var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out),
+              border-color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-toggle:hover {
+  background: var(--wf-color-bg-tertiary);
+  color: var(--wf-color-text);
+}
+
+.wf-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-toggle--pressed {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary-text);
+}
+
+.wf-toggle--outline {
+  border-color: var(--wf-color-border);
+}
+
+.wf-toggle--outline.wf-toggle--pressed {
+  border-color: var(--wf-color-primary);
+}
+
+.wf-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 尺寸 */
+.wf-toggle--sm { font-size: var(--wf-font-size-sm); padding: 2px var(--wf-space-sm); }
+.wf-toggle--md { font-size: var(--wf-font-size-base); padding: 4px var(--wf-space); }
+.wf-toggle--lg { font-size: var(--wf-font-size-lg); padding: 6px var(--wf-space-md); }
+
+/* 组：紧邻连接，选中项圆角过渡 */
+.wf-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  padding: 2px;
+  gap: 2px;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-toggle-group .wf-toggle {
+  border: none;
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-toggle-group--sm { font-size: var(--wf-font-size-sm); }
+.wf-toggle-group--md { font-size: var(--wf-font-size-base); }
+.wf-toggle-group--lg { font-size: var(--wf-font-size-lg); }

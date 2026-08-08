@@ -1,0 +1,80 @@
+/* weifuwu/components — Collapse */
+
+.wf-collapse {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-collapse-item {
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+}
+
+.wf-collapse-item:last-child {
+  border-bottom: none;
+}
+
+.wf-collapse-header {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: var(--wf-space) var(--wf-space-sm);
+  font-size: var(--wf-font-size-sm);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  border-radius: var(--wf-radius-sm);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-collapse-header:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-collapse-header:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-collapse-chevron {
+  display: inline-flex;
+  color: var(--wf-color-text-tertiary);
+  transition: transform var(--wf-dur-base) var(--wf-ease-out);
+}
+
+.wf-collapse-chevron--open {
+  transform: rotate(180deg);
+}
+
+.wf-collapse-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.wf-collapse-extra {
+  color: var(--wf-color-text-secondary);
+  font-weight: var(--wf-font-weight-normal);
+}
+
+.wf-collapse-content {
+  padding: 0 var(--wf-space-sm) var(--wf-space) var(--wf-space-lg);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-collapse-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  color: var(--wf-color-text-tertiary);
+  animation: wf-collapse-spin 1s linear infinite;
+}
+
+@keyframes wf-collapse-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -242,7 +242,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 61 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 91 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 141 个主题 Token + 67 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
@@ -283,7 +283,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
-| `weifuwu/components` | **61 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
+| `weifuwu/components` | **91 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 141 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
@@ -2295,7 +2295,9 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-61 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+91 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+
+> **组件速查（weifuwu 组件 ↔ antd / Element Plus / shadcn-ui 对应 + 迁移示例）**：见 [`docs/components-map.md`](./docs/components-map.md)——从其他组件库迁来的开发者按功能直接找对应组件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -2385,6 +2387,33 @@ import 'weifuwu/components/style.css'   // 包含 Token + 67 布局原语 + 组�
   </Field>
   <Button type="submit">登录</Button>
 </Form>
+
+// ├─ 新增批次组件（全量实现）
+<Rate value={3} onChange={setRate} />                                        // 评分
+<ToggleGroup type="single" options={toolbar} value={fmt} />                  // 工具栏切换
+<CheckboxGroup options={members} value={selected} onChange={setSelected} />   // 多选列表
+<PinInput length={6} value={code} onChange={setCode} />                       // 验证码
+<CopyButton value="https://weifuwu.dev" label="复制" />                     // 复制
+<ColorPicker value={color} showInput onChange={setColor} />                   // 颜色
+<Notification /> + notification.success({ title, description })               // 队列通知
+<Collapse items={docs} active={open} />                                       // 行内折叠
+<Tree data={orgTree} checkable checkedKeys={keys} />                          // 树形（父子联动）
+<Cascader options={regions} value={['zj','hz']} />                            // 级联选择
+<Transfer data={members} targetKeys={selected} />                             // 穿梭框
+<Command items={commands} open={open} onOpenChange={setOpen} />               // ⌘K 命令面板
+<Carousel autoplay>{slides}</Carousel>                                        // 轮播
+<Resizable defaultSize={180}>…</Resizable>                                    // 拖拽分割
+<Calendar month={5} year={2025} events={events} />                            // 月历
+<Watermark text="内部资料">…</Watermark>                                      // 水印
+<VirtualList height={400} itemHeight={36} items={rows} renderItem={render} /> // 虚拟列表
+<QRCode value="https://weifuwu.dev" size={128} />                            // 二维码（自研编码）
+<Img src="photo.png" preview />                                              // 图片点击放大
+<BackTop /> <Affix offsetTop={64}>…</Affix>                                   // 回顶 / 固定
+<HoverCard content={<UserCard />}>…</HoverCard>                               // 悬停富内容
+<Mentions options={users} value={text} />                                     // @提及
+<ContextMenu items={actions}>…</ContextMenu>                                  // 右键菜单
+<Menubar menus={menus} />                                                     // 水平菜单
+<InfiniteScroll hasMore onLoadMore>…</InfiniteScroll>                        // 无限滚动
 ```
 
 > 所有组件引用 `--wf-*` CSS 变量做主题，详见下文的「样式定制指南」。

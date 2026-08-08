@@ -8,7 +8,7 @@
  * 消除 app.ts 中散落的 `as any`——跨模块状态误用由编译器拦截。
  */
 
-import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle } from './types.ts'
+import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle } from './types.ts'
 import type { VNode } from './vnode.ts'
 import { idRegistry } from './registry.ts'
 import { createReactiveState } from './reactive.ts'
@@ -47,6 +47,10 @@ export interface UiDeps {
     isOpen: () => boolean
     compute: (rect: DOMRect) => { top: number; left: number; width?: number }
   }>
+  scrollTrackers: Map<string, {
+    handle: { y: number }
+    getScroller: () => HTMLElement | Window
+  }>
   schedulePopupRecompute: () => void
   /** 惰性挂载全局 scroll/resize 监听（幂等） */
   ensurePopupListeners: () => void
@@ -56,7 +60,7 @@ export interface UiDeps {
 }
 
 export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
-  const { ctx, renderByIds, getSelfId, dirtyBatch, dirtySet, mediaRegistry, popupTrackers, schedulePopupRecompute, ensurePopupListeners, isRendering } = deps
+  const { ctx, renderByIds, getSelfId, dirtyBatch, dirtySet, mediaRegistry, popupTrackers, scrollTrackers, schedulePopupRecompute, ensurePopupListeners, isRendering } = deps
 
   const ui: WfuiContext['ui'] & UiInternal = {
     _selfId: '_wf_root',
@@ -241,6 +245,107 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         Object.assign(pos, clampToViewport(p, tracker.panel?.(), tracker.margin))
       }
       return pos
+    },
+
+    /**
+     * 可见性观察（IntersectionObserver 封装）：替代组件自建 scroll 监听。
+     * IO 在合成器线程评估，滚动/尺寸变化自动触发，无 scroll-linked 定位警告。
+     * isIn 响应式——变化自动 dirty 当前组件（与 usePopupPosition 的 pos 同模式）。
+     */
+    useInView: function (options: UseInViewOptions): UseInViewHandle {
+      const selfId = getSelfId(this)
+      const handle: UseInViewHandle = {
+        isIn: false,
+        ready: false,
+        observe,
+        refresh,
+        disconnect,
+      }
+
+      let el: HTMLElement | null = null
+      let io: IntersectionObserver | null = null
+
+      const dirty = () => {
+        if (!ctx.ui) return // destroy 后：静默忽略
+        ctx.ui!.dirty(selfId ? [selfId] : undefined)
+      }
+
+      function createIO() {
+        io?.disconnect()
+        io = null
+        if (!el) return
+        const rm = typeof options.rootMargin === 'function' ? options.rootMargin() : options.rootMargin
+        const th = typeof options.threshold === 'function' ? options.threshold() : options.threshold
+        io = new IntersectionObserver((entries) => {
+          const entry = entries[entries.length - 1]
+          if (!entry) return
+          const next = entry.isIntersecting
+          const changed = next !== handle.isIn
+          const wasFirst = !handle.ready
+          handle.isIn = next
+          handle.ready = true
+          // 先给调用方同步最新状态（如宽度/rect），再触发渲染
+          options.onChange?.(entry, next)
+          if (changed || wasFirst) dirty()
+        }, {
+          root: options.root ? options.root() : null,
+          rootMargin: rm ?? '0px',
+          threshold: th ?? 0,
+        })
+        io.observe(el)
+      }
+
+      function observe(target: HTMLElement | null) {
+        el = target
+        if (target) {
+          createIO()
+        } else {
+          io?.disconnect()
+          io = null
+          handle.isIn = false
+        }
+      }
+
+      function refresh() {
+        createIO()
+      }
+
+      function disconnect() {
+        io?.disconnect()
+        io = null
+      }
+
+      return handle
+    },
+
+    /**
+     * 滚动位置跟踪（全局 scroll 监听 + rAF 节流，仿 usePopupPosition）：
+     * 返回响应式 scrollY/scrollTop，变化自动 dirty 当前组件。
+     * 替代组件自建 scroll 监听（Affix/VirtualList 统一使用）。
+     */
+    useScrollPosition: function (options: UseScrollPositionOptions): UseScrollPositionHandle {
+      const selfId = getSelfId(this)
+      const handle: UseScrollPositionHandle = {
+        y: 0,
+        refresh() {
+          const scroller = tracker.getScroller()
+          handle.y = scroller instanceof Window
+            ? (document.scrollingElement?.scrollTop ?? (scroller as Window).scrollY ?? 0)
+            : (scroller as HTMLElement).scrollTop ?? 0
+        },
+      }
+      const tracker = {
+        handle,
+        getScroller: options.getScroller ?? (() => window),
+      }
+      if (!selfId) {
+        handle.refresh()
+        return handle
+      }
+      scrollTrackers.set(selfId, tracker)
+      ensurePopupListeners() // 复用全局 scroll/resize 监听（rAF 节流）
+      handle.refresh() // 初始值
+      return handle
     },
 
     /**

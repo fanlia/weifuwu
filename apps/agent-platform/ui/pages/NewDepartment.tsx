@@ -54,7 +54,7 @@ export const NewDepartment: Component = (_props, ctx) => {
             </Field>
 
             <Field label="所属公司">
-              <Select value={$.companyId} onChange={(v: string) => { $.companyId = v }}
+              <Select value={$.companyId} onChange={(v) => { $.companyId = v as string }}
                 options={$.companies.map((c: any) => ({ value: c.id, label: c.name }))} />
             </Field>
 

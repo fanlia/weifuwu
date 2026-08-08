@@ -35,6 +35,46 @@ export interface PopupPosition {
   refresh: () => void
 }
 
+/** 可见性观察配置 — 供 ctx.ui.useInView 使用（IntersectionObserver 封装，替代 scroll 监听） */
+export interface UseInViewOptions {
+  /** IO 根元素 getter（默认视口；滚动容器场景传 target） */
+  root?: () => Element | null
+  /** IO rootMargin（支持函数——动态读最新 props，observe 时求值） */
+  rootMargin?: string | (() => string)
+  /** IO threshold（默认 0；支持函数——动态读最新 props） */
+  threshold?: number | number[] | (() => number | number[])
+  /** IO 触发回调（entry.boundingClientRect 读取安全，非 scroll handler） */
+  onChange?: (entry: IntersectionObserverEntry, isIn: boolean) => void
+}
+
+/** 可见性观察器 — useInView 的返回值 */
+export interface UseInViewHandle {
+  /** 是否在可见区（响应式：变化自动 dirty 当前组件） */
+  isIn: boolean
+  /** 是否已就绪（首次 IO 回调完成；未就绪时 isIn 为初始 false，组件应保守处理） */
+  ready: boolean
+  /** 观察元素（ref 挂载时调用；传 null 断开） */
+  observe(el: HTMLElement | null): void
+  /** 重建观察（rootMargin 等配置变化后调用） */
+  refresh(): void
+  /** 手动断开观察 */
+  disconnect(): void
+}
+
+/** 滚动位置跟踪配置 — 供 ctx.ui.useScrollPosition 使用 */
+export interface UseScrollPositionOptions {
+  /** 滚动容器 getter（默认 window；内部滚动容器传 ref 元素） */
+  getScroller?: () => HTMLElement | Window
+}
+
+/** 滚动位置跟踪器 — useScrollPosition 的返回值（y 响应式，变化自动 dirty 当前组件） */
+export interface UseScrollPositionHandle {
+  /** 滚动位置（px，scrollY/scrollTop） */
+  y: number
+  /** 手动重读一次滚动位置（不触发渲染） */
+  refresh(): void
+}
+
 /** 应用上下文 */
 export interface WfuiContext {
   [key: string]: unknown
@@ -63,6 +103,29 @@ export interface WfuiContext {
     useBreakpoint: (bpsOrCallback: Record<string, string> | ((vp: string) => void), callback?: (vp: string) => void) => void
     /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标 */
     usePopupPosition: (options: PopupPositionOptions) => PopupPosition
+    /**
+     * 可见性观察（IntersectionObserver 封装）：替代组件自建 scroll 监听。
+     * IO 在合成器线程评估，滚动/尺寸变化自动触发，无 scroll-linked 定位警告。
+     *
+     * ```tsx
+     * const inView = ctx.ui.useInView({
+     *   rootMargin: () => `-${propsRef.offsetTop ?? 0}px 0px 0px 0px`,
+     * })
+     * const ref = (el) => inView.observe(el)
+     * return () => h('div', { ref }, fixed = !inView.isIn ...)
+     * ```
+     */
+    useInView: (options: UseInViewOptions) => UseInViewHandle
+    /**
+     * 滚动位置跟踪（全局 scroll 监听 + rAF 节流，仿 usePopupPosition）：
+     * 返回响应式 scrollY/scrollTop，变化自动 dirty 当前组件。替代组件自建 scroll 监听。
+     *
+     * ```tsx
+     * const scroll = ctx.ui.useScrollPosition({ getScroller: () => wrapEl })
+     * return () => h('div', { ref }, fixed = scroll.y >= threshold)
+     * ```
+     */
+    useScrollPosition: (options: UseScrollPositionOptions) => UseScrollPositionHandle
     /**
      * 异步取数工具（mount 阶段调用）：loading/error 自动管理 + 数据就绪自动渲染。
      *

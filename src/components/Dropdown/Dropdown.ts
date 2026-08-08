@@ -55,7 +55,7 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
 
     const menu = open ? h('div', {
       class: 'wf-dropdown-menu', role: 'menu',
-      style: { top: pos.top, left: pos.left },
+      style: { position: 'fixed', top: pos.top, left: pos.left },
       // Escape 关闭（菜单项可聚焦，keydown 冒泡到菜单）
       onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange?.(false) },
     }, menuItems) : null

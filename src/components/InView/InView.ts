@@ -1,8 +1,8 @@
 /**
  * weifuwu/components — InView
  *
- * 组件挂载后用 ctx.ui.onmounted 获取根元素，设置 IntersectionObserver。
  * 进入视窗后替换占位符为真实内容。
+ * 实现：ctx.ui.useInView（IO 封装）——滚动/尺寸变化由合成器线程评估，无 scroll 监听。
  */
 
 import type { Component } from '../../client/vnode.ts'
@@ -19,30 +19,29 @@ export interface InViewProps {
 }
 
 export const InView: Component<InViewProps> = (_props, ctx) => {
-  let inView = false
+  // ── mount（只一次）──
   let entered = false
-  let io: IntersectionObserver | undefined
+
+  // render 阶段 props 经闭包变量传递（useInView 的 rootMargin/threshold 支持函数）
+  const propsRef: any = { once: true }
+
+  const inViewHandle = ctx.ui.useInView({
+    rootMargin: () => propsRef.rootMargin ?? '0px',
+    threshold: () => propsRef.threshold ?? 0,
+  })
 
   const sentinelRef = (el: HTMLElement | null) => {
-    if (el) {
-      io = new IntersectionObserver((entries) => {
-        if (entries[0]?.isIntersecting) {
-          inView = true
-          ctx.ui.render()
-        }
-      }, { threshold: _props.threshold ?? 0, rootMargin: _props.rootMargin ?? '0px' })
-      io.observe(el)
-    } else {
-      io?.disconnect()
-    }
+    if (el) inViewHandle.observe(el)
+    else inViewHandle.disconnect()
   }
 
   return (props: InViewProps) => {
-    if (inView) {
+    Object.assign(propsRef, props)
+
+    if (inViewHandle.isIn) {
       if (!entered) {
         entered = true
-        const once = props.once !== false
-        if (once) io?.disconnect()
+        if (props.once !== false) inViewHandle.disconnect()
         props.onEnter?.()
       }
       return h('div', { class: 'wf-inview wf-inview--loaded' }, props.children)

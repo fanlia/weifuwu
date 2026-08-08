@@ -200,7 +200,7 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
 
     const tip = tooltip ? h('div', {
       class: 'wf-chart-tooltip',
-      style: { left: pos.left, top: pos.top },
+      style: { position: 'fixed', left: pos.left, top: pos.top },
     }, [
       h('div', { class: 'wf-chart-tooltip-label' }, tooltip.label),
       h('div', { class: 'wf-chart-tooltip-value' }, String(tooltip.value)),

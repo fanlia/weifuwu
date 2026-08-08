@@ -1,0 +1,13 @@
+/* weifuwu/components — Affix */
+
+.wf-affix {
+  font-family: var(--wf-font-sans);
+}
+
+.wf-affix-sentinel {
+  /* 占位：保持文档流位置，fixed 时内容脱离文档流不塌陷 */
+}
+
+.wf-affix-content {
+  transition: none;
+}

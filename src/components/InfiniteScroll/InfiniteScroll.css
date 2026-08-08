@@ -1,0 +1,17 @@
+/* weifuwu/components — InfiniteScroll */
+
+.wf-infinite-scroll {
+  font-family: var(--wf-font-sans);
+}
+
+.wf-infinite-scroll-sentinel {
+  height: 1px;
+}
+
+.wf-infinite-scroll-loading,
+.wf-infinite-scroll-end {
+  padding: var(--wf-space-md);
+  text-align: center;
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-tertiary);
+}

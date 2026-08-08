@@ -213,7 +213,7 @@ export const NewAgent: Component = (_props, ctx) => {
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
                   <Field label="模型">
-                    <Select value={$.aiModel} onChange={(v: string) => { $.aiModel = v }}
+                    <Select value={$.aiModel} onChange={(v) => { $.aiModel = v as string }}
                       options={[
                         { value: '', label: '默认 (deepseek-v4-flash)' },
                         { value: 'deepseek-v4-flash', label: 'DeepSeek Chat' },

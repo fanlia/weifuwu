@@ -1,0 +1,54 @@
+/* weifuwu/components — Resizable */
+
+.wf-resizable {
+  display: flex;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-resizable--horizontal {
+  flex-direction: row;
+}
+
+.wf-resizable--vertical {
+  flex-direction: column;
+}
+
+.wf-resizable-panel {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.wf-resizable-panel--fill {
+  flex: 1 1 0%;
+}
+
+.wf-resizable-handle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  background: var(--wf-color-bg-secondary);
+  transition: background var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-resizable--horizontal .wf-resizable-handle {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.wf-resizable--vertical .wf-resizable-handle {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.wf-resizable-handle:hover,
+.wf-resizable-handle:focus-visible {
+  background: var(--wf-color-primary);
+}
+
+.wf-resizable-handle:focus-visible {
+  outline: none;
+}

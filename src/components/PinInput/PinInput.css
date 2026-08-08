@@ -1,0 +1,35 @@
+/* weifuwu/components — PinInput */
+
+.wf-pin-input {
+  display: inline-flex;
+  gap: var(--wf-gap-sm);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-pin-input-cell {
+  width: 2.6em;
+  height: 2.6em;
+  text-align: center;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  font-size: var(--wf-font-size-xl);
+  font-weight: var(--wf-font-weight-semibold);
+  transition: border-color var(--wf-dur-fast) var(--wf-ease-out),
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-pin-input-cell:focus {
+  outline: none;
+  border-color: var(--wf-color-primary);
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-pin-input-cell:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wf-pin-input--sm .wf-pin-input-cell { font-size: var(--wf-font-size-base); width: 2.4em; height: 2.4em; }
+.wf-pin-input--lg .wf-pin-input-cell { font-size: var(--wf-font-size-2xl); width: 2.8em; height: 2.8em; }

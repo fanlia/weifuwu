@@ -18,12 +18,20 @@
 }
 
 .wf-accordion-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
   padding: var(--wf-space) var(--wf-space-md);
   font-size: var(--wf-font-size-sm);
   font-weight: var(--wf-font-weight-medium);
   color: var(--wf-color-text);
   cursor: pointer;
   user-select: none;
+  font-family: var(--wf-font-sans);
 }
 
 .wf-accordion-summary:hover {

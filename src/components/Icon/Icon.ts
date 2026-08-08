@@ -14,11 +14,12 @@ import { h } from '../../client/vnode.ts'
 
 export type IconName =
   | 'chevron-down' | 'chevron-up' | 'chevron-left' | 'chevron-right'
-  | 'arrow-left' | 'arrow-up' | 'arrow-down'
+  | 'arrow-left' | 'arrow-up' | 'arrow-down' | 'arrow-right'
   | 'sort' | 'sort-asc' | 'sort-desc'
   | 'check' | 'close' | 'alert' | 'info' | 'warning'
   | 'pause' | 'settings' | 'search' | 'send' | 'stop'
   | 'retry' | 'upload' | 'trash' | 'edit' | 'plus' | 'copy' | 'eye' | 'eye-off'
+  | 'star'
 
 export interface IconProps {
   name: IconName
@@ -35,6 +36,7 @@ const PATHS: Record<IconName, string[]> = {
   'arrow-left': ['M19 12H5', 'M12 19l-7-7 7-7'],
   'arrow-up': ['M12 19V5', 'M5 12l7-7 7 7'],
   'arrow-down': ['M12 5v14', 'M19 12l-7 7-7-7'],
+  'arrow-right': ['M5 12h14', 'M12 5l7 7-7 7'],
   sort: ['M7 15l5 5 5-5', 'M7 9l5-5 5 5'],
   'sort-asc': ['M12 19V5', 'M5 12l7-7 7 7'],
   'sort-desc': ['M12 5v14', 'M19 12l-7 7-7-7'],
@@ -56,6 +58,7 @@ const PATHS: Record<IconName, string[]> = {
   copy: ['M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z', 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
   eye: ['M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z', 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'],
   'eye-off': ['M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94', 'M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19', 'M14.12 14.12a3 3 0 1 1-4.24-4.24', 'M1 1l22 22'],
+  star: ['M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'],
 }
 
 export const Icon: Component<IconProps> = (_init, _ctx) =>

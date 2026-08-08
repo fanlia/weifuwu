@@ -1,0 +1,42 @@
+/* weifuwu/components — CopyButton */
+
+.wf-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  border: none;
+  border-radius: var(--wf-radius-sm);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+  transition: background var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-copy-btn:hover {
+  background: var(--wf-color-bg-tertiary);
+  color: var(--wf-color-text);
+}
+
+.wf-copy-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-copy-btn--copied {
+  color: var(--wf-color-success-text);
+}
+
+/* variants */
+.wf-copy-btn--ghost { background: none; padding: 4px var(--wf-space-sm); }
+.wf-copy-btn--secondary { background: var(--wf-color-bg-secondary); padding: 4px var(--wf-space-sm); }
+.wf-copy-btn--default {
+  background: var(--wf-color-bg);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  padding: 4px var(--wf-space-sm);
+}
+
+/* sizes */
+.wf-copy-btn--sm { font-size: var(--wf-font-size-xs); padding: 2px var(--wf-space-xs); }
+.wf-copy-btn--lg { font-size: var(--wf-font-size-base); padding: 6px var(--wf-space-md); }

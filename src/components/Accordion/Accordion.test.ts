@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
+import { setupJsdom } from '../../test/client/setup.ts'
+setupJsdom()
 import { Accordion } from './Accordion.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
@@ -10,8 +12,11 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 }
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}
-, render: () => {}, dirty: () => {}, ready: true } } as any
+  const state = new Proxy({}, {
+    set(t: any, k, v) { t[k] = v; return true },
+    get(t: any, k) { return t[k] },
+  })
+  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
 describe('Accordion', () => {
@@ -39,10 +44,58 @@ describe('Accordion', () => {
     assert.equal(summary.props.children, '标题A')
   })
 
-  it('renders content', () => {
+  it('renders content (非受控默认全展开，向后兼容)', () => {
     const vnode = renderVNode(Accordion, { items }, mockCtx())!
     const content = vnode.props.children[0].props.children[1]
     assert.equal(content.props.class, 'wf-accordion-content')
     assert.equal(content.props.children, '内容A')
+  })
+
+  it('click summary toggles (非受控收起)', () => {
+    const ctx = mockCtx()
+    const result = Accordion({ items }, ctx)
+    const render = result as any
+    const v1 = render({ items })
+    // 点击 A → 收起（内部状态）
+    v1.props.children[0].props.children[0].props.onClick()
+    const v2 = render({ items })
+    assert.equal(v2.props.children[0].props.children.length, 1) // 无 content
+  })
+
+  it('受控: active 控制展开 + onChange 回传', () => {
+    let got: string[] | null = null
+    const vnode = renderVNode(Accordion, { items, active: ['a'], onChange: (k: string[]) => { got = k } }, mockCtx())!
+    // A 展开，B 收起
+    assert.ok(vnode.props.children[0].props.children[1])
+    assert.equal(vnode.props.children[1].props.children.length, 1)
+    // 点击 B → 手风琴互斥：['b']
+    vnode.props.children[1].props.children[0].props.onClick()
+    assert.deepEqual(got, ['b'])
+  })
+
+  it('multiple 模式多开', () => {
+    let got: string[] | null = null
+    const vnode = renderVNode(Accordion, { items, active: ['a'], multiple: true, onChange: (k: string[]) => { got = k } }, mockCtx())!
+    vnode.props.children[1].props.children[0].props.onClick()
+    assert.deepEqual(got, ['a', 'b'])
+  })
+
+  it('aria-expanded 同步', () => {
+    const vnode = renderVNode(Accordion, { items, active: ['a'] }, mockCtx())!
+    assert.equal(vnode.props.children[0].props.children[0].props['aria-expanded'], 'true')
+    assert.equal(vnode.props.children[1].props.children[0].props['aria-expanded'], 'false')
+  })
+
+  it('disabled 项不可交互', () => {
+    const withDis = [{ key: 'a', title: 'A' }, { key: 'b', title: 'B', disabled: true }]
+    const vnode = renderVNode(Accordion, { items: withDis, active: [] }, mockCtx())!
+    assert.equal(vnode.props.children[1].props.children[0].props.onClick, undefined)
+    assert.equal(vnode.props.children[1].props.children[0].props.disabled, true)
+  })
+
+  it('键盘方向键 handler 存在且不抛错', () => {
+    const vnode = renderVNode(Accordion, { items }, mockCtx())!
+    assert.equal(typeof vnode.props.onKeyDown, 'function')
+    assert.doesNotThrow(() => vnode.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} }))
   })
 })

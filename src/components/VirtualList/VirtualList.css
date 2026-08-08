@@ -1,0 +1,22 @@
+/* weifuwu/components — VirtualList */
+
+.wf-virtual-list {
+  position: relative;
+  font-family: var(--wf-font-sans);
+  overflow-y: auto;
+}
+
+.wf-virtual-list-spacer {
+  width: 100%;
+}
+
+.wf-virtual-list-window {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.wf-virtual-list-item {
+  box-sizing: border-box;
+}

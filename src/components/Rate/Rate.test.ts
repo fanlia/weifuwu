@@ -1,0 +1,115 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
+import { Rate } from './Rate.ts'
+import type { WfuiContext } from '../../client/types.ts'
+
+/** Call component and get VNode (two-phase compat) */
+function renderVNode(Comp: any, props: any, ctx: any) {
+  const result = Comp(props, ctx)
+  return typeof result === 'function' ? result(props) : result
+}
+
+function mockCtx(): WfuiContext {
+  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+}
+
+describe('Rate', () => {
+  it('renders count stars (default 5)', () => {
+    const vnode = renderVNode(Rate, { value: 3 }, mockCtx())!
+    assert.match(vnode.props.class, /wf-rate/)
+    const stars = vnode.props.children
+    assert.equal(stars.length, 5)
+  })
+
+  it('marks active stars up to value', () => {
+    const vnode = renderVNode(Rate, { value: 3 }, mockCtx())!
+    const stars = vnode.props.children
+    assert.match(stars[0].props.class, /wf-rate-star--on/)
+    assert.match(stars[2].props.class, /wf-rate-star--on/)
+    assert.doesNotMatch(stars[3].props.class, /--on/)
+  })
+
+  it('renders custom count', () => {
+    const vnode = renderVNode(Rate, { value: 1, count: 10 }, mockCtx())!
+    assert.equal(vnode.props.children.length, 10)
+  })
+
+  it('calls onChange(3) when clicking 3rd star', () => {
+    let got: number | null = null
+    const vnode = renderVNode(Rate, { value: 0, onChange: (v: number) => { got = v } }, mockCtx())!
+    vnode.props.children[2].props.onClick()
+    assert.equal(got, 3)
+  })
+
+  it('readOnly: no onChange on click, non-focusable', () => {
+    let called = false
+    const vnode = renderVNode(Rate, { value: 2, readOnly: true, onChange: () => { called = true } }, mockCtx())!
+    // span（无 onClick），非 button（不可聚焦）
+    assert.equal(vnode.props.children[0].props.onClick, undefined)
+    assert.equal(vnode.props.children[0].type, 'span')
+    assert.equal(called, false)
+  })
+
+  it('disabled: no onChange, non-interactive', () => {
+    let called = false
+    const vnode = renderVNode(Rate, { value: 1, disabled: true, onChange: () => { called = true } }, mockCtx())!
+    assert.equal(vnode.props.children[0].props.onClick, undefined)
+    assert.match(vnode.props.class, /wf-rate--disabled/)
+    assert.equal(called, false)
+  })
+
+  it('keyboard: ArrowRight increases value', () => {
+    let got: number | null = null
+    const ev = (key: string) => ({ key, preventDefault: () => {} })
+    const vnode = renderVNode(Rate, { value: 2, onChange: (v: number) => { got = v } }, mockCtx())!
+    vnode.props.onKeyDown(ev('ArrowRight'))
+    assert.equal(got, 3)
+  })
+
+  it('keyboard: ArrowLeft decreases value', () => {
+    let got: number | null = null
+    const ev = (key: string) => ({ key, preventDefault: () => {} })
+    const vnode = renderVNode(Rate, { value: 2, onChange: (v: number) => { got = v } }, mockCtx())!
+    vnode.props.onKeyDown(ev('ArrowLeft'))
+    assert.equal(got, 1)
+  })
+
+  it('keyboard: Home sets 1, End sets count', () => {
+    let got: number | null = null
+    const ev = (key: string) => ({ key, preventDefault: () => {} })
+    const vnode = renderVNode(Rate, { value: 2, count: 5, onChange: (v: number) => { got = v } }, mockCtx())!
+    vnode.props.onKeyDown(ev('Home'))
+    assert.equal(got, 1)
+    vnode.props.onKeyDown(ev('End'))
+    assert.equal(got, 5)
+  })
+
+  it('keyboard: clamped at bounds', () => {
+    let got: number | null = null
+    const ev = (key: string) => ({ key, preventDefault: () => {} })
+    const vnode = renderVNode(Rate, { value: 5, onChange: (v: number) => { got = v } }, mockCtx())!
+    vnode.props.onKeyDown(ev('ArrowRight'))
+    assert.equal(got, 5)
+  })
+
+  it('allowClear: clicking current value clears to 0', () => {
+    let got: number | null = null
+    const vnode = renderVNode(Rate, { value: 3, allowClear: true, onChange: (v: number) => { got = v } }, mockCtx())!
+    vnode.props.children[2].props.onClick()
+    assert.equal(got, 0)
+  })
+
+  it('allowClear off: clicking current value keeps value', () => {
+    let got: number | null = null
+    const vnode = renderVNode(Rate, { value: 3, onChange: (v: number) => { got = v } }, mockCtx())!
+    vnode.props.children[2].props.onClick()
+    assert.equal(got, 3)
+  })
+
+  it('renders sizes', () => {
+    for (const s of ['sm', 'md', 'lg'] as const) {
+      const vnode = renderVNode(Rate, { value: 1, size: s }, mockCtx())!
+      assert.match(vnode.props.class, new RegExp(`wf-rate--${s}`))
+    }
+  })
+})

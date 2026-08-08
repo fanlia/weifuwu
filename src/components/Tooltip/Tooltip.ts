@@ -54,7 +54,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
 
     const tip = !disabled ? h('div', {
       class: `wf-tooltip wf-tooltip--${position}${show ? '' : ' wf-tooltip--hidden'}`,
-      style: { top: p.top, left: p.left },
+      style: { position: 'fixed', top: p.top, left: p.left },
       role: 'tooltip',
     }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)]) : null
 

@@ -1,0 +1,102 @@
+/* weifuwu/components — Command */
+
+.wf-command-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wf-z-modal);
+  background: var(--wf-overlay);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+
+.wf-command-panel {
+  width: min(520px, 90vw);
+  background: var(--wf-color-bg);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  box-shadow: var(--wf-shadow-lg, 0 16px 48px rgba(0, 0, 0, 0.2));
+  overflow: hidden;
+  font-family: var(--wf-font-sans);
+  animation: wf-command-in var(--wf-dur-base) var(--wf-ease-out);
+}
+
+@keyframes wf-command-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.wf-command-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space) var(--wf-space-md);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-command-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: var(--wf-font-size-base);
+  color: var(--wf-color-text);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-command-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--wf-space-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.wf-command-item {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 8px var(--wf-space);
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-command-item:hover,
+.wf-command-item--hl {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-command-item:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-command-item-label {
+  flex: 1;
+}
+
+.wf-command-shortcut {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  background: var(--wf-color-bg-tertiary);
+  border-radius: var(--wf-radius-sm);
+  padding: 1px 6px;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-command-empty {
+  padding: var(--wf-space-xl);
+  text-align: center;
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-tertiary);
+}

@@ -1,0 +1,38 @@
+/* weifuwu/components — BackTop */
+
+.wf-backtop {
+  position: fixed;
+  right: var(--wf-space-lg);
+  bottom: var(--wf-space-lg);
+  z-index: var(--wf-z-popover);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--wf-radius);
+  border: none;
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--wf-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
+  transition: opacity var(--wf-dur-base) var(--wf-ease-out),
+              transform var(--wf-dur-base) var(--wf-ease-out),
+              background var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-backtop:hover {
+  background: var(--wf-color-bg-tertiary);
+  color: var(--wf-color-text);
+}
+
+.wf-backtop:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-backtop--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+}

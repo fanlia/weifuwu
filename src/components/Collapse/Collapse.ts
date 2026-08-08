@@ -1,0 +1,120 @@
+import type { Component } from '../../client/vnode.ts'
+import type { WfuiContext } from '../../client/types.ts'
+import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
+
+export interface CollapseItem {
+  key: string
+  title: string
+  /** 标题图标 */
+  icon?: any
+  /** 标题右侧操作区 */
+  extra?: any
+  /** 展开内容（惰性渲染：未展开不渲染） */
+  content?: any
+  /** 异步加载态：展开时显示 loading 指示 */
+  loading?: boolean
+}
+
+export interface CollapseProps {
+  items?: CollapseItem[]
+  /** 受控展开 keys */
+  active?: string[]
+  onChange?: (keys: string[]) => void
+  /** false = 手风琴互斥（同一时间只开一个）；默认 true 多开 */
+  multiple?: boolean
+  className?: string
+}
+
+/**
+ * 行内折叠面板（对应 antd/EP Collapse + shadcn Collapsible）：
+ * 标题行 + 行内展开区（无卡片边框，适配列表行内展开），支持异步 loading。
+ * 与 Accordion 边界：Accordion = 整块卡片面板；Collapse = 行内展开。
+ */
+export const Collapse: Component<CollapseProps> = (_init, ctx) => {
+  // ── mount（只一次）──
+  const $ = ctx.ui.$()
+  $.internalActive = [] as string[]
+
+  let headerEls: (HTMLElement | null)[] = []
+  // 稳定 ref：索引从 data-idx 读取（makeHeaderRef 工厂每次渲染新建函数 = 内联 ref 警告）
+  const headerRef = (el: HTMLElement | null) => {
+    if (!el) return
+    const i = Number(el.dataset.idx)
+    if (!Number.isNaN(i)) headerEls[i] = el
+  }
+
+  return (props) => {
+    const { items = [], active, onChange, multiple = true, className } = props
+
+    // 受控/非受控
+    const isControlled = active !== undefined
+    const activeKeys: string[] = isControlled ? active : $.internalActive
+    const isOpen = (key: string) => activeKeys.includes(key)
+
+    const setActive = (next: string[]) => {
+      if (isControlled) onChange?.(next)
+      else $.internalActive = next
+    }
+
+    const toggle = (key: string) => {
+      // 受控但无 onChange：状态由父组件独占，点击无法生效——开发期提示（避免静默失败）
+      if (isControlled && !onChange) {
+        console.warn(`[weifuwu/Collapse] 受控模式（active 已传）但未提供 onChange，点击无法切换。\n非受控：去掉 active prop；受控：传入 onChange={(keys) => setActive(keys)}`)
+        return
+      }
+      if (isOpen(key)) {
+        setActive(activeKeys.filter(k => k !== key))
+      } else {
+        setActive(multiple ? [...activeKeys, key] : [key])
+      }
+    }
+
+    // 键盘：方向键移动焦点（roving tabindex）
+    const onKeyDown = (e: any) => {
+      const current = document.activeElement
+      const idx = headerEls.indexOf(current as HTMLElement)
+      if (idx < 0) return
+      let next = idx
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = (idx + 1) % items.length
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = (idx - 1 + items.length) % items.length
+      else return
+      e.preventDefault()
+      headerEls[next]?.focus()
+    }
+
+    const panels = items.map((item, i) => {
+      const open = isOpen(item.key)
+      const headerChildren: any[] = [
+        h('span', { class: `wf-collapse-chevron${open ? ' wf-collapse-chevron--open' : ''}` }, h(Icon, { name: 'chevron-down', size: 14 })),
+        item.icon,
+        h('span', { class: 'wf-collapse-title' }, item.title),
+      ]
+      if (item.extra) headerChildren.push(h('span', { class: 'wf-collapse-extra' }, item.extra))
+
+      const content = open
+        ? h('div', { class: 'wf-collapse-content' },
+            item.loading
+              ? h('div', { class: 'wf-collapse-loading' }, h(Icon, { name: 'retry', size: 14 }))
+              : item.content ?? null)
+        : null
+
+      return h('div', {
+        class: `wf-collapse-item${open ? ' wf-collapse-item--open' : ''}`,
+        key: item.key,
+      }, [
+        h('button', {
+          type: 'button',
+          class: 'wf-collapse-header',
+          ref: headerRef,
+          'data-idx': String(i),
+          'aria-expanded': open ? 'true' : 'false',
+          onClick: () => toggle(item.key),
+        }, headerChildren),
+        content,
+      ].filter(Boolean))
+    })
+
+    return h('div', { class: ['wf-collapse', className].filter(Boolean).join(' '), onKeyDown }, panels)
+  }
+}

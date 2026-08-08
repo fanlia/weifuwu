@@ -1,0 +1,96 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
+import { Transfer } from './Transfer.ts'
+import type { WfuiContext } from '../../client/types.ts'
+
+function mockCtx(): WfuiContext {
+  const state = new Proxy({}, {
+    set(t: any, k, v) { t[k] = v; return true },
+    get(t: any, k) { return t[k] },
+  })
+  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true } } as any
+}
+
+function renderVNode(Comp: any, props: any, ctx: any) {
+  const result = Comp(props, ctx)
+  return typeof result === 'function' ? result(props) : result
+}
+
+const data = [
+  { key: 'a', label: '选项A' },
+  { key: 'b', label: '选项B' },
+  { key: 'c', label: '选项C' },
+  { key: 'd', label: '选项D' },
+]
+
+describe('Transfer', () => {
+  it('renders two lists and actions', () => {
+    const vnode = renderVNode(Transfer, { data, targetKeys: ['a'] }, mockCtx())!
+    assert.match(vnode.props.class, /wf-transfer/)
+    // 结构：左列表 + 按钮区 + 右列表
+    assert.equal(vnode.props.children.length, 3)
+  })
+
+  it('left list excludes target keys', () => {
+    const vnode = renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, mockCtx())!
+    const leftItems = vnode.props.children[0].props.children[1].props.children
+    const labels = leftItems.map((i: any) => i.props.children)
+    assert.deepEqual(labels, ['选项B', '选项D'])
+  })
+
+  it('right list shows target keys', () => {
+    const vnode = renderVNode(Transfer, { data, targetKeys: ['a', 'c'] }, mockCtx())!
+    const rightItems = vnode.props.children[2].props.children[1].props.children
+    const labels = rightItems.map((i: any) => i.props.children)
+    assert.deepEqual(labels, ['选项A', '选项C'])
+  })
+
+  it('selecting left item and moving adds to target', () => {
+    let got: string[] = ['a']
+    const ctx = mockCtx()
+    const result = Transfer({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } }, ctx)
+    const render = result as any
+    let v = render({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } })
+    // 左列点击 B（选中）→ 点击 → 按钮
+    const leftItem = v.props.children[0].props.children[1].props.children[0]
+    leftItem.props.onClick()
+    v = render({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } })
+    const rightBtn = v.props.children[1].props.children[1] // 右侧按钮（→）
+    rightBtn.props.onClick()
+    assert.deepEqual(got, ['a', 'b'])
+  })
+
+  it('selecting right item and moving back removes', () => {
+    let got: string[] = ['a', 'b']
+    const ctx = mockCtx()
+    const result = Transfer({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } }, ctx)
+    const render = result as any
+    let v = render({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } })
+    const rightItem = v.props.children[2].props.children[1].props.children[0]
+    rightItem.props.onClick()
+    v = render({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } })
+    const leftBtn = v.props.children[1].props.children[0] // 左侧按钮（←）
+    leftBtn.props.onClick()
+    assert.deepEqual(got, ['b'])
+  })
+
+  it('move button disabled when nothing selected', () => {
+    const vnode = renderVNode(Transfer, { data, targetKeys: [] }, mockCtx())!
+    const rightBtn = vnode.props.children[1].props.children[1]
+    assert.equal(rightBtn.props.disabled, true)
+  })
+
+  it('renders titles', () => {
+    const vnode = renderVNode(Transfer, { data, targetKeys: [], titles: ['源列表', '目标列表'] }, mockCtx())!
+    assert.equal(vnode.props.children[0].props.children[0].props.children, '源列表')
+    assert.equal(vnode.props.children[2].props.children[0].props.children, '目标列表')
+  })
+
+  it('disabled items not selectable', () => {
+    const withDis = [{ key: 'a', label: 'A', disabled: true }, { key: 'b', label: 'B' }]
+    const vnode = renderVNode(Transfer, { data: withDis, targetKeys: [] }, mockCtx())!
+    const leftItem = vnode.props.children[0].props.children[1].props.children[0]
+    assert.equal(leftItem.props.onClick, undefined)
+    assert.match(leftItem.props.class, /--dis/)
+  })
+})

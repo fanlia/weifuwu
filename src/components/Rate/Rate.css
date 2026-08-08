@@ -1,0 +1,50 @@
+/* weifuwu/components — Rate */
+
+.wf-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-rate-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--wf-color-text-tertiary);
+  line-height: 1;
+  transition: color var(--wf-dur-fast) var(--wf-ease-out),
+              transform var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-rate-star--on {
+  color: var(--wf-color-warning-text);
+}
+
+.wf-rate-star--on .wf-rate-star-icon {
+  fill: currentColor; /* 覆盖 Icon 的 fill="none"（presentation attribute，CSS 优先） */
+}
+
+.wf-rate-star:hover {
+  transform: scale(1.15);
+}
+
+.wf-rate-star:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-rate--disabled .wf-rate-star {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 尺寸（Icon 默认 1em 随字号缩放） */
+.wf-rate--sm { font-size: var(--wf-font-size-sm); }
+.wf-rate--md { font-size: var(--wf-font-size-xl); }
+.wf-rate--lg { font-size: var(--wf-font-size-2xl); }

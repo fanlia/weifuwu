@@ -7,7 +7,7 @@
  * 配合框架 Router<T extends object>（放开约束后自定义上下文成为一等公民）。
  */
 import type { User, Context, AuthApi } from 'weifuwu'
-import type { AiClientModule, MessagerClient } from 'weifuwu'
+import type { AiClientModule, MessagerClient, RateLimitInjected } from 'weifuwu'
 import type { AuthPayload } from './auth-payload.ts'
 import type { WorkspaceInfo } from './workspace.ts'
 
@@ -28,6 +28,8 @@ export interface AppCtx {
   ai: AiClientModule
   /** 框架 messager() 注入：消息系统（会话/消息/实时广播/WS 协议） */
   msg: MessagerClient
+  /** 框架 rateLimit() 注入：ctx.limit 手动限流（显式声明，避免落入索引签名 unknown） */
+  limit?: RateLimitInjected['limit']
   /** 租户隔离（tenant 中间件从 auth.tenantId 注入） */
   tenantId: string
   workspace?: WorkspaceInfo
