@@ -53,7 +53,27 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     el: () => inputEl,
     isOpen: () => show,
     compute: (r) => ({ top: r.bottom + 4, left: r.left, width: r.width }),
+    panel: () => panelEl,
+    margin: 4,
   })
+
+  // 面板元素（视口夹紧用）：稳定 ref（mount 作用域），挂载后动画结束夹紧
+  let panelEl: HTMLElement | null = null
+  let settleTimer: ReturnType<typeof setTimeout> | undefined
+  const panelRef = (el: any) => {
+    if (el) {
+      panelEl = el
+      // 面板带 wf-panel-in 入场动画（translateY/scale）——动画期间矩形非稳态，
+      // 夹紧必须等动画结束后按稳态几何计算（ref 在 append 前触发，微任务测量会吃到动画中帧）
+      const settle = () => { pos.refresh(); ctx.ui.render() }
+      el.addEventListener('animationend', settle, { once: true })
+      // 兜底：动画事件丢失（无动画环境/事件被吞）时仍夹紧，防挂死
+      settleTimer = setTimeout(settle, 400)
+    } else {
+      panelEl = null
+      clearTimeout(settleTimer)
+    }
+  }
 
   // ── render（每次 dirty/props 变化）──
   return (props: DatePickerProps) => {
@@ -197,6 +217,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const timePanel = h('div', {
           style: { top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-time-picker', role: 'dialog',
+          ref: panelRef,
           onKeyDown: handleKeyDown,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, [
@@ -234,6 +255,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const rangeWrap = h('div', {
           style: { top: pos.top, left: pos.left },
           class: 'wf-datepicker-range-wrap',
+          ref: panelRef,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, [
           h('div', { class: 'wf-datepicker-range-panel' }, [
@@ -295,6 +317,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const dp = h('div', {
           style: { top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-datepicker-dropdown', role: 'dialog',
+          ref: panelRef,
           onKeyDown: handleKeyDown,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, content)

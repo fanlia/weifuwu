@@ -23,6 +23,7 @@ import { patchValue } from './diff.ts'
 import { callRefCleanup, idRegistry, onComponentUnmount } from './registry.ts'
 import type { VNode, Component } from './vnode.ts'
 import { createReactiveState } from './reactive.ts'
+import { clampToViewport } from './popup.ts'
 import { aiStream } from './ai.ts'
 import { createChatSession, type UseChatHandle, type UseChatOptions, type UseChatState } from './use-chat.ts'
 
@@ -69,6 +70,8 @@ export function createApp<C extends object = {}>(): App<C> {
     getEl: () => HTMLElement | null
     isOpen: () => boolean
     compute: (rect: DOMRect) => { top: number; left: number; width?: number }
+    panel?: () => HTMLElement | null
+    margin: number
   }>()
   let _popupListenersReady = false
   let _popupRaf = 0
@@ -100,7 +103,8 @@ export function createApp<C extends object = {}>(): App<C> {
         const el = t.getEl()
         if (!el) continue
         const p = t.compute(el.getBoundingClientRect())
-        Object.assign(t.pos, p)
+        // 视口夹紧（与 usePopupPosition.refresh 同规则）：滚动/resize 后也保证面板在视口内
+        Object.assign(t.pos, clampToViewport(p, t.panel?.(), t.margin))
         ids.push(id)
       }
       if (ids.length > 0) (ctx as any).ui.render(ids)

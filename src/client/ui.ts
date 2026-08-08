@@ -14,6 +14,7 @@ import { idRegistry } from './registry.ts'
 import { createReactiveState } from './reactive.ts'
 import { aiStream } from './ai.ts'
 import { createChatSession, type UseChatHandle, type UseChatOptions, type UseChatState } from './use-chat.ts'
+import { clampToViewport } from './popup.ts'
 
 /** 内部 UI 状态（ctx.ui 扩展字段）——跨模块共享，编译器可检查 */
 export interface UiInternal {
@@ -224,6 +225,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         getEl: options.el,
         isOpen: options.isOpen,
         compute: options.compute,
+        panel: options.panel,
+        margin: options.margin ?? 8,
       }
       popupTrackers.set(selfId, tracker)
       // 惰性挂载全局单例监听（第一个组件注册时）
@@ -233,7 +236,9 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       pos.refresh = () => {
         const el = tracker.getEl()
         if (!el) return
-        Object.assign(pos, tracker.compute(el.getBoundingClientRect()))
+        const p = tracker.compute(el.getBoundingClientRect())
+        // 视口夹紧：面板超高/超宽时平移回视口（确定/取消按钮不可点问题）
+        Object.assign(pos, clampToViewport(p, tracker.panel?.(), tracker.margin))
       }
       return pos
     },

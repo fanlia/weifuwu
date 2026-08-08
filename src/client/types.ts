@@ -12,6 +12,10 @@ export interface PopupPositionOptions {
   isOpen: () => boolean
   /** rect → fixed 坐标（可返回 width 等附加属性） */
   compute: (rect: DOMRect) => { top: number; left: number; width?: number }
+  /** 弹层面板元素 getter（可选）：提供后坐标自动夹紧到视口内（防超高/超宽时底部按钮不可点） */
+  panel?: () => HTMLElement | null
+  /** 视口边缘安全边距（px，默认 8） */
+  margin?: number
 }
 
 /** 异步取数工具返回值 — ctx.ui.useAsync()（data/loading/error 响应式，reload 重跑） */
