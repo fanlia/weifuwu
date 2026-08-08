@@ -117,7 +117,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     }
 
     // 节点勾选状态推导（递归）：叶子看 checkedKeys；父节点 = 所有子都 checked → checked，
-    // 部分 checked/half → half。半选必须向上传播（前端✓ → 技术部◐ → 总部◐）
+    // 部分 checked/half → half。半选必须向上传播（前端勾选 → 技术部半选 → 总部半选）
     const nodeState = (n: TreeNode): 'checked' | 'half' | 'unchecked' => {
       const kids = n.children ?? []
       const checked = checkedKeys ?? []
