@@ -44,12 +44,19 @@
   justify-content: center;
   width: 18px;
   height: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  min-height: 18px; /* 防全局 button min-height 撑高 */
+  max-height: 18px;
   padding: 0;
+  line-height: 0;
   border: none;
   background: none;
   cursor: pointer;
   color: var(--wf-color-text-tertiary);
   border-radius: var(--wf-radius-sm);
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .wf-tree-switcher:hover {
@@ -83,13 +90,19 @@
   justify-content: center;
   width: 14px;
   height: 14px;
+  min-width: 14px;
+  max-width: 14px;
+  min-height: 14px; /* 防全局 button min-height:36 撑高（Carousel dot 同款问题） */
+  max-height: 14px;
   padding: 0;
+  line-height: 0;
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg);
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .wf-tree-checkbox:focus-visible {
