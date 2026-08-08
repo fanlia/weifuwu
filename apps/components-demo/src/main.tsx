@@ -260,7 +260,7 @@ const DemoProgress: Component = (_props, ctx) => {
       setTimeout(tick, 800)
     }
     return (
-    <div class="wf-stack wf-row wf-gap-md wf-w-full">
+    <div class="wf-stack wf-gap-md wf-w-full">
       <ProgressBar value={pct} label="模拟进度" showValue />
       <ProgressBar value={100} label="已完成" showValue />
     </div>

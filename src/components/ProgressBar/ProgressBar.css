@@ -4,6 +4,8 @@
   display: flex;
   align-items: center;
   gap: var(--wf-gap-sm);
+  width: 100%;
+  min-width: 0; /* flex 子项可收缩（防 bar 塌缩为 0） */
 }
 
 .wf-progress-label {
