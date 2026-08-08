@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto'
 import type { Context, Handler, Middleware } from '../types.ts'
 import { RedisConnection, type RedisConnectionOptions } from '../db/redis/connection.ts'
 import type { QueueClientModule } from '../queue/index.ts'
+import { parseCron, nextRun } from './cron.ts'
 
 export interface SchedulerOptions {
   /** Redis 连接串（默认 REDIS_URL） */
@@ -37,20 +38,28 @@ export interface SchedulerClient {
    * 到期自动入队（name）——由 queue.worker 消费。
    */
   schedule: (name: string, data: unknown, opts?: ScheduleOptions) => Promise<{ id: string }>
+  /**
+   * cron 定时任务（重复）：到点自动入队（name）。cron 注册在应用启动处
+   * （进程重启后需重新调用注册——定义持久化在 HASH，守护循环由实例驱动）。
+   */
+  cron: (expr: string, name: string, data?: unknown) => Promise<void>
 }
 
 export interface SchedulerInjected {
   schedule: SchedulerClient['schedule']
+  cron: SchedulerClient['cron']
 }
 
 declare module '../types.ts' {
   interface Context {
     schedule?: SchedulerClient['schedule']
+    cron?: SchedulerClient['cron']
   }
 }
 
 export interface SchedulerClientModule extends Middleware<Context, Context & SchedulerInjected> {
   schedule: SchedulerClient['schedule']
+  cron: SchedulerClient['cron']
   /** 关闭守护循环 + 连接 */
   close: () => Promise<void>
 }
@@ -65,6 +74,7 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   const prefix = options.prefix ?? 'wf:sched:'
   const tickMs = options.tickMs ?? 1000
   const delayedKey = `${prefix}delayed`
+  const cronsKey = `${prefix}crons`
   const connOpts = parseUrl(options)
   const queueModule = options.queue
 
@@ -73,8 +83,10 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   let running = false
   let tickTimer: NodeJS.Timeout | null = null
 
-  /** 守护循环：扫描到期任务 → ZREM 原子抢占 → 入队 */
+  /** 守护循环：扫描到期延时任务 + 推进 cron next-run → 入队 */
   async function tick(): Promise<void> {
+    // ── cron：读注册表 → 到期则原子推进 nextRunAt + 入队 ──
+    await tickCrons()
     let due: unknown
     try {
       due = await conn.command('ZRANGEBYSCORE', delayedKey, 0, Date.now())
@@ -97,6 +109,56 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
         console.error('[scheduler] enqueue:', e instanceof Error ? e.message : e)
       }
     }
+  }
+
+  /**
+   * cron 扫描：滚动生成到期触发点到延时 ZSET（ZADD NX 幂等，多实例不重复）
+   * → 由延时扫描统一 ZREM 抢占入队（完全复用延时机制 + 原子性）
+   */
+  async function tickCrons(): Promise<void> {
+    let crons: unknown
+    try {
+      crons = await conn.command('HGETALL', cronsKey)
+    } catch {
+      return
+    }
+    const now = Date.now()
+    const entries = crons as string[]
+    for (let i = 0; i + 1 < entries.length; i += 2) {
+      const field = entries[i]
+      const value = entries[i + 1]
+      let def: { expr: string; name: string; data: unknown; nextRunAt: number }
+      try {
+        def = JSON.parse(value)
+      } catch {
+        continue
+      }
+      const parsed = parseCron(def.expr)
+      let next = def.nextRunAt
+      // 生成 [nextRunAt, now] 区间内所有到期触发点（每个 = 唯一 ZSET member）
+      while (next <= now) {
+        const ts = next
+        const member = JSON.stringify({ id: `cron:${field}:${ts}`, name: def.name, data: def.data })
+        try {
+          await conn.command('ZADD', delayedKey, 'NX', ts, member) // NX：多实例只加一次
+        } catch {
+          break
+        }
+        next = nextRun(parsed, new Date(ts)).getTime()
+      }
+      if (next !== def.nextRunAt) {
+        // 推进 nextRunAt（幂等：重复 tick 计算同值）
+        await conn.command('HSET', cronsKey, field, JSON.stringify({ ...def, nextRunAt: next }))
+      }
+    }
+  }
+
+  const cron: SchedulerClient['cron'] = async (expr, name, data) => {
+    const parsed = parseCron(expr) // 非法表达式立即抛错（诚实裁剪）
+    const field = `${name}:${expr}`
+    const firstRun = nextRun(parsed, new Date())
+    const def = JSON.stringify({ expr, name, data, nextRunAt: firstRun.getTime() })
+    await conn.command('HSET', cronsKey, field, def)
   }
 
   async function start(): Promise<void> {
@@ -123,11 +185,13 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
 
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
     ctx.schedule = schedule
+    ctx.cron = cron
     return next(req, ctx)
   }) as unknown as SchedulerClientModule
 
-  mw.__meta = { injects: ['schedule'], depends: ['queue'] }
+  mw.__meta = { injects: ['schedule', 'cron'], depends: ['queue'] }
   mw.schedule = schedule
+  mw.cron = cron
   mw.close = async () => {
     running = false
     if (tickTimer) {
