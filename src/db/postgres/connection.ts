@@ -674,8 +674,13 @@ function convertValue(oid: number, value: string | null): unknown {
     case 16:
       // boolean
       return value === 't'
+    case 1184:
+      // timestamptz——带时区（ISO +00），new Date 语义安全（无本地时区魔法）
+      // 裁剪边界：timestamp(1114)/date(1082)/interval(1186) 保持字符串——
+      // 无时区类型转 Date 按本地时区解析本身就是时区魔法，明确不转
+      return new Date(value)
     default:
-      // text / varchar / uuid / date / timestamp 等保持字符串
+      // text / varchar / uuid / timestamp / date 等保持字符串
       return value
   }
 }

@@ -669,7 +669,9 @@ app.post('/transfer', async (req, ctx) => {
 | **int8（超出安全范围）** | **`string`**（防静默丢精度，金额/ID 关键） |
 | float / numeric | `number` |
 | boolean | `boolean` |
-| text / varchar / uuid / date | `string` |
+| text / varchar / uuid | `string` |
+| **timestamptz** | **`Date`**（带时区，ISO 解析无本地时区魔法） |
+| timestamp / date / interval | `string`（无时区语义——转 Date 按本地时区解析即时区魔法，诚实裁剪不转） |
 | NULL | `null` |
 
 ### 类型层（查询泛型 + schema 写前校验）

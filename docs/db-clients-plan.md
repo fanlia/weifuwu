@@ -275,3 +275,4 @@ weifuwu 自研 DB 客户端支持:
 | update/delete | 手写 `sql\`UPDATE...\`` + 拼接 | SET/WHERE 全参数化 + affectedRows + returning；WHERE 必填防全表误删 | 更新/删除影响行数；returning 回读；无匹配 → 0 |
 | idle 回收 | 池连接永不过期（PG 端可能杀空闲连接） | `idleTimeoutMs` 定时扫描 available 超时关闭；acquire 自动扩容重建 | 1.5s 后 `open` 收缩；再查询恢复；默认 0 不回收 |
 | traceId 传播 | onQuery 无法关联请求 | `x-trace-id` 头 → AsyncLocalStorage → onQuery 第 4 参（无则不注入） | 两请求不同 traceId 到达；无头 → undefined |
+| timestamptz→Date | 业务到处 `new Date(String(x))` + 无时区字符串按本地时区解析（时区魔法） | OID 1184 → `new Date`；timestamp(1114)/date(1082)/interval(1186) 保持字符串（无时区转 Date 语义错误，明确不转） | timestamptz→Date + NOW()→Date + round-trip 保真；timestamp/date 保持字符串；NULL 不变 |

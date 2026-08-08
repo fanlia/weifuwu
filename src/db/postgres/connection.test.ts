@@ -478,3 +478,63 @@ describe('postgres statement lifecycle + affectedRows (real database)', () => {
     }
   })
 })
+
+describe('postgres timestamp mapping (real database)', () => {
+  const cfg = parseDbUrl(DB_URL)
+  let conn: PgConnection
+
+  before(async () => {
+    conn = new PgConnection(cfg)
+    await conn.connect()
+  })
+
+  after(async () => {
+    await conn.close()
+  })
+
+  it('timestamptz → Date（带时区语义安全：ISO 解析无本地时区魔法）', async () => {
+    const rows = await conn.query(
+      `SELECT '2024-06-01 10:30:00+00'::timestamptz AS t`,
+    )
+    assert.ok(rows[0].t instanceof Date, `期望 Date，实际 ${typeof rows[0].t}`)
+    assert.equal(rows[0].t.toISOString(), '2024-06-01T10:30:00.000Z')
+  })
+
+  it('timestamptz NOW() → Date', async () => {
+    const rows = await conn.query(`SELECT NOW() AS now`)
+    assert.ok(rows[0].now instanceof Date)
+    // 与当前时间接近（±5s）
+    const diff = Math.abs(Date.now() - rows[0].now.getTime())
+    assert.ok(diff < 5000, `NOW() 与本地时钟偏差 ${diff}ms`)
+  })
+
+  it('timestamp（无时区）→ 保持字符串（转 Date 按本地时区解析 = 时区魔法）', async () => {
+    const rows = await conn.query(`SELECT '2024-06-01 10:30:00'::timestamp AS t`)
+    assert.equal(typeof rows[0].t, 'string')
+    assert.equal(rows[0].t, '2024-06-01 10:30:00')
+  })
+
+  it('date → 保持字符串（避免午夜/UTC 边界魔法）', async () => {
+    const rows = await conn.query(`SELECT '2024-06-01'::date AS d`)
+    assert.equal(typeof rows[0].d, 'string')
+  })
+
+  it('timestamptz NULL → null', async () => {
+    const rows = await conn.query(`SELECT NULL::timestamptz AS t`)
+    assert.equal(rows[0].t, null)
+  })
+
+  it('timestamptz 参数化写入后再读出（round-trip 保真）', async () => {
+    const tbl = `wf_ts_${process.pid}`
+    await conn.query(`CREATE TABLE ${tbl} (id int, created_at timestamptz)`)
+    try {
+      const d = new Date('2024-06-01T10:30:00.000Z')
+      await conn.query(`INSERT INTO ${tbl} VALUES ($1, $2)`, [1, d.toISOString()])
+      const rows = await conn.query(`SELECT created_at FROM ${tbl} WHERE id = $1`, [1])
+      assert.ok(rows[0].created_at instanceof Date)
+      assert.equal(rows[0].created_at.toISOString(), '2024-06-01T10:30:00.000Z')
+    } finally {
+      await conn.query(`DROP TABLE ${tbl}`)
+    }
+  })
+})
