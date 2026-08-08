@@ -89,3 +89,29 @@ describe('scheduler delayed tasks (real redis)', () => {
     await q2.close()
   })
 })
+
+describe('scheduler multi-instance (real redis)', () => {
+  it('延时任务双实例不重复：同一到期点只入队一次（ZREM 抢占）', async () => {
+    const name = qname()
+    const received: unknown[] = []
+    const q = queue()
+    const q2 = queue()
+    const sched = scheduler({ queue: q, tickMs: 100 })
+    const sched2 = scheduler({ queue: q2, tickMs: 100 })
+    const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
+    await worker.start()
+    try {
+      // 只 schedule 一次（单任务）——sched/sched2 两个守护循环竞争消费，
+      // ZREM 原子抢占保证同一任务只入队一次
+      await sched.schedule(name, { dup: true }, { delayMs: 300 })
+      await sleep(800)
+      assert.equal(received.length, 1, `单任务双实例应只消费一次（实际 ${received.length}）`)
+    } finally {
+      await sched.close()
+      await sched2.close()
+      await worker.stop()
+      await q.close()
+      await q2.close()
+    }
+  })
+})

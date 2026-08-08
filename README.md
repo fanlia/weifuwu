@@ -861,6 +861,35 @@ await ctx.redis.set('user', 1)         // 实际写入 'api:user'
 
 ---
 
+## scheduler — 计划任务（即时/延时/cron）
+
+> 依赖 `queue`（触发后入队执行）。三类任务：即时（queue.add 已有）、延时（`ctx.schedule`）、定时（`ctx.cron`）。
+
+```ts
+import { queue, scheduler } from 'weifuwu'
+
+const q = queue()
+app.use(q)
+app.use(scheduler({ queue: q }))       // 依赖 ctx.queue（触发后入队）
+
+// 延时任务（单次）：delayMs 或指定时间
+await ctx.schedule('email.send', { to, body }, { delayMs: 30_000 })
+await ctx.schedule('report.build', {}, { when: new Date('2026-09-01T00:00:00Z') })
+
+// cron 定时任务（重复）：每分钟触发 → 入队执行（注册在应用启动处）
+ctx.cron('* * * * *', 'heartbeat.check', { scope: 'health' })
+
+// 执行端：与 queue 完全一致
+const worker = ctx.queue.worker('email.send', async (job) => { ... })
+```
+
+- **延时**：ZSET（score=触发时间戳）+ 守护循环（独立连接）→ 到期 `ZREM` 原子抢占（多实例不重复）→ `queue.add`
+- **cron**：HASH 注册表 + 滚动生成触发点（`ZADD NX` 幂等）→ 复用延时链路；`nextRunAt` 原子推进
+- **崩溃恢复**：未消费触发点留在 ZSET，重启后补扫立即触发（at-least-once，幂等由业务保证）
+- **cron 表达式**：5 字段（分 时 日 月 周），支持 `*`/步进/列表/范围；时区 = 服务器本地；非法表达式注册即抛错
+- **裁剪**：❌ cron 秒/年/别名（@daily）/特殊字符（L/W/#）、时区配置、任务取消、分布式锁（原子命令抢占替代）
+- **文档红线**：cron 注册在应用启动处（进程重启后需重新调用 `ctx.cron`）
+
 ## ui — SSR 渲染 + JS/CSS 编译
 
 ```ts

@@ -75,7 +75,17 @@ const worker = ctx.queue.worker('email.send', async (job) => { ... })
 - ❌ 持久化调度器（cron 定义重启后需重新注册）
 - ❌ 优先级 / 速率限制（queue 裁剪同）
 
-## 验证
+## 验证（✅ 全部完成）
 
-- 每迭代红→绿 + 真库（CS-04）；全量回归（框架 + db + app）
-- 浏览器/进程级验证：延时任务准点触发、cron 周期触发、多实例无重复
+- ✅ 迭代 1：cron 解析器 16 测试（解析 8 + nextRun 8）
+- ✅ 迭代 2：延时任务 5 测试（delayMs/when/多任务/崩溃恢复/双实例竞争）
+- ✅ 迭代 3：cron 集成 3 测试（到期触发/非法抛错/多实例不重复）
+- ✅ 全量：框架 1031 + db 191 全绿；tsc 干净
+- ✅ cron 集成测试加速：HSET nextRunAt 模拟到点（84s → 0.77s，符合 15s 规则）
+
+### 落地细节
+
+- 依赖 queue（参数传入）：`scheduler({ queue })`——触发后 `queue.add`，复用消费组/重试/DLQ
+- 守护循环：独立 RedisConnection + tickMs 扫描（默认 1000ms）
+- 原子性：延时 ZREM 抢占；cron ZADD NX（触发点唯一 member）+ nextRunAt 幂等推进
+- 崩溃恢复：start() 立即补扫（ZSET 到期任务马上触发）

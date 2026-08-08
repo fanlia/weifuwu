@@ -1,17 +1,19 @@
 /**
  * scheduler cron 集成测试（CS-04：真库）
  *
- * cron 粒度分钟级——测试需等分钟边界（≤60s），单独文件 + 大 timeout：
- *   timeout 70 node --env-file=.env --test --test-timeout=65000 src/scheduler/cron-integration.test.ts
+ * 触发加速：注册后直接 HSET nextRunAt 为过去（模拟"到点"）——不等分钟边界
+ * （nextRun 的分钟计算已由解析器测试覆盖；此处验证注册→到期→触发→入队链路）
  */
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { RedisConnection } from '../db/redis/connection.ts'
 import { queue } from '../queue/index.ts'
 import { scheduler } from './index.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
+const CRONS = 'wf:sched:crons'
 
 async function waitFor(cond: () => boolean, timeout: number, label: string) {
   const start = Date.now()
@@ -20,6 +22,18 @@ async function waitFor(cond: () => boolean, timeout: number, label: string) {
     await sleep(50)
   }
   throw new Error(`waitFor timeout: ${label}`)
+}
+
+/** 把 cron 的 nextRunAt 改为过去——立即触发（模拟到点） */
+async function expireNow(field: string) {
+  const conn = new RedisConnection({ host: 'localhost', port: 6379 })
+  await conn.connect()
+  const raw = await conn.command('HGET', CRONS, field)
+  if (raw !== null) {
+    const def = JSON.parse(String(raw))
+    await conn.command('HSET', CRONS, field, JSON.stringify({ ...def, nextRunAt: Date.now() - 1000 }))
+  }
+  await conn.close()
 }
 
 describe('scheduler cron tasks (real redis)', () => {
@@ -31,17 +45,24 @@ describe('scheduler cron tasks (real redis)', () => {
     await q.close()
   })
 
-  it('cron 每分钟任务：注册后到分钟边界触发入队（worker 消费）', async () => {
+  it('cron 注册后到点触发入队（worker 消费），nextRunAt 推进', async () => {
     const name = qname()
     const received: unknown[] = []
     const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
     await worker.start()
 
     await sched.cron('* * * * *', name, { scope: 'health' })
-    const t0 = Date.now()
-    await waitFor(() => received.length >= 1, 65_000, 'cron 触发')
-    assert.ok(Date.now() - t0 >= 1000, '应在分钟边界后触发（非立即）')
+    const field = `${name}:* * * * *`
+    await expireNow(field)
+    await waitFor(() => received.length >= 1, 5000, 'cron 到期触发')
     assert.deepEqual(received[0], { scope: 'health' })
+    // nextRunAt 已推进到下一次（HASH 里不再 <= now）
+    const conn = new RedisConnection({ host: 'localhost', port: 6379 })
+    await conn.connect()
+    const raw = await conn.command('HGET', CRONS, field)
+    const def = JSON.parse(String(raw))
+    assert.ok(def.nextRunAt > Date.now(), 'nextRunAt 应推进到未来')
+    await conn.close()
     await worker.stop()
   })
 
@@ -61,8 +82,9 @@ describe('scheduler cron tasks (real redis)', () => {
     try {
       await sched.cron('* * * * *', name, { multi: true })
       await sched2.cron('* * * * *', name, { multi: true })
-      await waitFor(() => received.length >= 1, 65_000, 'cron 触发')
-      await sleep(1200)
+      await expireNow(`${name}:* * * * *`)
+      await waitFor(() => received.length >= 1, 5000, 'cron 触发')
+      await sleep(500)
       assert.equal(received.length, 1, `多实例应只触发一次（实际 ${received.length}）`)
     } finally {
       await sched2.close()

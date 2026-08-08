@@ -22,6 +22,7 @@ export { messager } from './messager/index.ts'
 export type { UserSystemOptions, UserInjected, AuthApi, RegisterInput } from './user/index.ts'
 export type { MessagerOptions, MessagerInjected, MessagerClient, MessagerSystem, Message, Conversation } from './messager/index.ts'
 export { queue } from './queue/index.ts'
+export { scheduler } from './scheduler/index.ts'
 export type { QueueOptions, QueueClient, QueueInjected, QueueWorker, WorkerOptions, AddOptions, Job } from './queue/index.ts'
 export { ai } from './ai/index.ts'
 export type {
