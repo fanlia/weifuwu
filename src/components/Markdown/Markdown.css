@@ -1,0 +1,54 @@
+/* weifuwu/components — Markdown 排版 */
+
+.wf-md {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: var(--wf-line-height);
+  color: var(--wf-color-text);
+  word-break: break-word;
+}
+
+.wf-md > :first-child { margin-top: 0; }
+.wf-md > :last-child { margin-bottom: 0; }
+
+.wf-md-h { margin: var(--wf-space-md) 0 var(--wf-space-sm); font-weight: var(--wf-font-weight-bold); line-height: 1.25; }
+.wf-md-h1 { font-size: var(--wf-font-size-xl); }
+.wf-md-h2 { font-size: var(--wf-font-size-lg); }
+.wf-md-h3 { font-size: var(--wf-font-size-base); }
+.wf-md-h4 { font-size: var(--wf-font-size-sm); color: var(--wf-color-text-secondary); }
+
+.wf-md-p { margin: 0 0 var(--wf-space-sm); }
+
+.wf-md-ul, .wf-md-ol { margin: 0 0 var(--wf-space-sm); padding-left: var(--wf-space-lg); }
+.wf-md-li { margin: 2px 0; }
+
+.wf-md-code {
+  font-family: var(--wf-font-mono);
+  font-size: 0.875em; /* 行内代码相对字号（继承父级，随上下文缩放） */
+  background: var(--wf-color-bg-secondary);
+  border-radius: var(--wf-radius-xs);
+  padding: 1px var(--wf-space-xs);
+}
+
+.wf-md-strong { font-weight: var(--wf-font-weight-bold); }
+.wf-md-em { font-style: italic; }
+
+.wf-md-link {
+  color: var(--wf-color-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.wf-md-link:hover { opacity: 0.85; }
+
+.wf-md-quote {
+  margin: 0 0 var(--wf-space-sm);
+  padding: var(--wf-space-xs) var(--wf-space-md);
+  border-left: 3px solid var(--wf-color-border);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-md-hr {
+  border: none;
+  border-top: 1px solid var(--wf-color-border);
+  margin: var(--wf-space-md) 0;
+}

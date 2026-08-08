@@ -242,7 +242,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 48 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 55 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 141 个主题 Token + 67 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
@@ -282,7 +282,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
-| `weifuwu/components` | **48 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
+| `weifuwu/components` | **55 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 141 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
@@ -2227,7 +2227,7 @@ import type { RouterOptions } from 'weifuwu/client'
 
 # 组件库 (`weifuwu/components`)
 
-48 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+55 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -2389,6 +2389,7 @@ props 变化 ──────────────────────�
 | SearchInput | `SearchInput` | `value`, `placeholder`, `onInput`, `onClear` | 搜索框 |
 | SegmentedControl | `SegmentedControl` | `options: SegmentedOption[]`, `value`, `onChange`, `size` | 分段选择器 |
 | ProgressBar | `ProgressBar` | `value`, `max`, `label`, `showValue` | 进度条 |
+| InputNumber | `InputNumber` | `value`, `min`, `max`, `step`, `precision`, `onChange` | 数字输入（增减按钮） |
 
 ### 数据展示
 
@@ -2399,6 +2400,11 @@ props 变化 ──────────────────────�
 | Badge | `Badge` | `variant: BadgeVariant`, `dot` | 徽标 |
 | Tag | `Tag` | `variant: 'default'\|'primary'\|'success'\|'danger'`, `closable`, `onClose` | 标签 |
 | Avatar | `Avatar` | `src`, `name`, `size`, `color` | 头像 |
+| AvatarGroup | `AvatarGroup` | `items`, `max`, `size` | 头像组（堆叠 + 溢出 +N） |
+| Timeline | `Timeline` | `items: TimelineItem[]`, `mode`, `reverse` | 时间线（执行日志/历史） |
+| Descriptions | `Descriptions` | `items: DescriptionItem[]`, `column`, `bordered` | 描述列表（详情页字段） |
+| Markdown | `Markdown` | `content` | AI 回复渲染（安全子集 parser） |
+| CodeBlock | `CodeBlock` | `code`, `lang`, `title` | 代码块（语言标签 + 复制） |
 | Icon | `Icon` | `name: IconName`, `size` | 图标（内置 25 个 stroke 图标，currentColor 随字号） |
 | StatCard | `StatCard` | `label`, `value`, `trend: 'up'\|'down'`, `trendLabel`, `icon`, `animate` | 统计卡片 |
 | PageHeader | `PageHeader` | `title`, `sub`, `display` | 页面标题（actions 放 children） |
@@ -2450,6 +2456,7 @@ props 变化 ──────────────────────�
 | 组件 | 导入名 | 关键 Props | 说明 |
 |-----|--------|-----------|------|
 | AiChat | `AiChat` | `chat`, `maxHeight?`, `labels?`, `renderMessage?`, `renderToolArgs?` | 标准 AI 对话界面：气泡 + 工具卡 + 审批卡 + 自动滚动 + 错误重试（接收 `ctx.ui.useChat()` handle） |
+| MessageBubble | `MessageBubble` | `content`, `role`, `status`, `actions` | 独立消息气泡（业务聊天页复用） |
 | ToolCallCard | `ToolCallCard` | `call`, `progress?`, `result?`, `renderArgs?` | 工具调用卡片：running（进度条）/ ok / error 三态（协议 §4） |
 | ApprovalCard | `ApprovalCard` | `request`, `status?`, `onApprove`, `onReject` | 人工审批卡片：待批（允许/拒绝+备注）/ 已批 / 已拒 / 超时（协议 §4.5） |
 

@@ -1,0 +1,74 @@
+/* weifuwu/components — InputNumber */
+
+.wf-inputnumber-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+  width: 100%;
+}
+
+.wf-inputnumber {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg);
+  min-height: 36px; /* 与 Button md 对齐 */
+  transition: border-color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-inputnumber:focus-within {
+  border-color: var(--wf-color-primary);
+  box-shadow: 0 0 0 2px var(--wf-color-primary-bg);
+}
+
+.wf-inputnumber--err { border-color: var(--wf-color-error-text); }
+.wf-inputnumber--disabled { opacity: 0.6; }
+
+.wf-inputnumber-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0 var(--wf-space-sm);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  width: 100%;
+}
+
+.wf-inputnumber-btns {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--wf-color-border);
+}
+
+.wf-inputnumber-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--wf-color-text-secondary);
+  padding: 2px 6px;
+  min-height: 18px;
+}
+.wf-inputnumber-btn:hover { background: var(--wf-color-bg-secondary); color: var(--wf-color-text); }
+.wf-inputnumber-btn:first-child { border-bottom: 1px solid var(--wf-color-border); }
+.wf-inputnumber-btn:focus-visible { outline: 2px solid var(--wf-color-primary); outline-offset: -2px; }
+.wf-inputnumber-btn:disabled { cursor: not-allowed; }
+
+.wf-inputnumber-label {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+}
+
+.wf-inputnumber-req { color: var(--wf-color-error-text); margin-left: 2px; }
+
+.wf-inputnumber-err { font-size: var(--wf-font-size-xs); color: var(--wf-color-error-text); }
+.wf-inputnumber-hint { font-size: var(--wf-font-size-xs); color: var(--wf-color-text-tertiary); }

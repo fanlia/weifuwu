@@ -1,0 +1,53 @@
+/* weifuwu/components — Descriptions */
+
+.wf-descriptions {
+  display: grid;
+  gap: var(--wf-space-sm) var(--wf-space-md);
+  margin: 0;
+  font-family: var(--wf-font-sans);
+}
+
+.wf-descriptions--1 { grid-template-columns: repeat(1, 1fr); }
+.wf-descriptions--2 { grid-template-columns: repeat(2, 1fr); }
+.wf-descriptions--3 { grid-template-columns: repeat(3, 1fr); }
+.wf-descriptions--4 { grid-template-columns: repeat(4, 1fr); }
+
+.wf-descriptions-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wf-descriptions-label {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  font-weight: var(--wf-font-weight-medium);
+}
+
+.wf-descriptions-value {
+  margin: 0;
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  word-break: break-word;
+}
+
+/* bordered：单元格描边 */
+.wf-descriptions--bordered {
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  gap: 0;
+  overflow: hidden;
+}
+.wf-descriptions--bordered .wf-descriptions-item {
+  border-bottom: 1px solid var(--wf-color-border);
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  border-right: 1px solid var(--wf-color-border);
+}
+.wf-descriptions--bordered .wf-descriptions-item:nth-child(n):last-child {
+  border-bottom: none;
+}
+
+/* size */
+.wf-descriptions--sm .wf-descriptions-value { font-size: var(--wf-font-size-xs); }
+.wf-descriptions--lg .wf-descriptions-value { font-size: var(--wf-font-size-base); }

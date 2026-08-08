@@ -20,6 +20,7 @@ import {
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
   InView, DatePicker, Chart, Editor, ThemeSwitch,
   AiChat, ToolCallCard, ApprovalCard, PageHeader, Icon,
+  Markdown, CodeBlock, Timeline, InputNumber, Descriptions, AvatarGroup, MessageBubble,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -613,6 +614,103 @@ const DemoIcon: Component = () => () => {
   )
 }
 
+const DemoMarkdown: Component = () => () => (
+  <Markdown content={`# 项目进展
+
+本周完成了 **核心模块** 与 \`CodeBlock\` 组件。
+
+- 交付项一
+- 交付项二
+
+1. 第一步：设计
+2. 第二步：实现
+
+> 引用：AI 回复的 markdown 渲染，零依赖安全子集。
+
+\`\`\`ts
+const greet = (name: string) => \`你好，\${name}\`
+\`\`\`
+
+[weifuwu 官网](https://weifuwu.dev) 与行内 \`code\` 混排。`} />
+)
+
+const DemoCodeBlock: Component = () => () => (
+  <div class="wf-stack wf-gap-sm wf-w-full">
+    <CodeBlock lang="ts" title="示例.ts" code={`import { Markdown } from 'weifuwu/components'
+
+// 复制按钮 + 语言标签 + 横向滚动
+const view = <Markdown content="# 标题" />`} />
+    <CodeBlock code={`plain text 无语言标签`} />
+  </div>
+)
+
+const DemoTimeline: Component = (_props, ctx) => {
+  let logs: Array<{ key: string; title: string; time: string; status: 'default' | 'info' | 'success' | 'warning' | 'error'; content?: string }> = [
+    { key: '1', title: '🤖 AI 回复', time: '10:00:12', status: 'success' as const, content: '生成了 256 tokens' },
+    { key: '2', title: '🔧 工具调用 query_weather', time: '10:00:09', status: 'info' as const, content: '查询 北京…' },
+    { key: '3', title: '📝 用户消息', time: '10:00:05', status: 'default' as const, content: '北京天气如何？' },
+  ]
+  return (_p: any) => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <Timeline items={logs} />
+      <Button size="sm" variant="ghost" onClick={() => { logs = [...logs.slice(1), { key: String(Date.now()), title: '📝 新事件', time: '现在', status: 'warning' as const, content: '点击追加' }]; ctx.ui.render() }}>追加事件</Button>
+    </div>
+  )
+}
+
+const DemoInputNumber: Component = (_props, ctx) => {
+  let temp = 0.7
+  let tokens: number | null = 2048
+  return (_p: any) => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <div class="wf-row wf-gap-md">
+        <div style="max-width:160px">
+          <InputNumber label="temperature" value={temp} min={0} max={1} step={0.1} precision={1} onChange={v => { temp = v ?? 0; ctx.ui.render() }} />
+        </div>
+        <div style="max-width:160px">
+          <InputNumber label="max_tokens" value={tokens} min={1} max={8192} step={256} onChange={v => { tokens = v; ctx.ui.render() }} />
+        </div>
+      </div>
+      <div class="wf-text-xs wf-text-secondary">temperature: {temp} · max_tokens: {tokens}</div>
+    </div>
+  )
+}
+
+const DemoDescriptions: Component = () => () => (
+  <div class="wf-w-full">
+    <Descriptions column={2} items={[
+      { label: '名称', value: '小码（开发助手）' },
+      { label: '类型', value: 'AI Agent' },
+      { label: '模型', value: 'deepseek-chat' },
+      { label: '状态', value: <Badge variant="success">运行中</Badge> },
+      { label: '创建时间', value: '2026-08-01 10:00' },
+      { label: '技能', value: '2 个已绑定', span: 2 },
+    ]} />
+  </div>
+)
+
+const DemoAvatarGroup: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <AvatarGroup items={[{ name: '张三' }, { name: '李四' }, { name: '王五' }, { name: '赵六' }]} max={3} />
+    <AvatarGroup items={[{ name: 'A' }, { name: 'B' }]} size="sm" />
+  </div>
+)
+
+const DemoMessageBubble: Component = (_props, ctx) => {
+  let st: 'complete' | 'streaming' | 'error' = 'complete'
+  return (_p: any) => (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <MessageBubble role="user" content="北京天气如何？" />
+      <MessageBubble role="assistant" status={st} content={st === 'error' ? '请求失败，请重试' : '北京 25°C，晴。'} actions={st === 'error' ? <Button size="sm" variant="ghost" onClick={() => { st = 'complete'; ctx.ui.render() }}>🔄 重试</Button> : undefined} />
+      <div class="wf-row wf-gap-xs">
+        {(['complete', 'streaming', 'error'] as const).map(s => (
+          <Button size="sm" variant={st === s ? 'primary' : 'ghost'} onClick={() => { st = s; ctx.ui.render() }}>{s}</Button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const DemoDivider: Component = () => () => (
   <div class="wf-stack wf-gap-sm wf-w-full">
     <p>上方分割线</p>
@@ -1103,6 +1201,30 @@ if (ok) { /* 执行 */ }`,
 <Icon name="settings" size={20} />
 {/* stroke SVG · currentColor · 1em 随字号 */}`,
 
+  markdown: `<Markdown content={"# 标题\n\n**粗体** 与 \`code\`\n\n- 列表项\n\n[链接](https://weifuwu.dev)"} />`,
+
+  codeblock: `<CodeBlock lang="ts" title="示例.ts" code={...} />
+{/* 复制按钮 + 语言标签 + 横向滚动 */}`,
+
+  timeline: `<Timeline items={[
+  { key: '1', title: 'AI 回复', time: '10:00', status: 'success', content: '…' },
+  { key: '2', title: '工具调用', time: '10:00', status: 'info' },
+]} />`,
+
+  inputNumber: `<InputNumber value={0.7} min={0} max={1} step={0.1} precision={1}
+  onChange={v => setTemp(v)} />`,
+
+  descriptions: `<Descriptions column={2} items={[
+  { label: '名称', value: '小码' },
+  { label: '状态', value: <Badge variant="success">运行中</Badge> },
+]} />`,
+
+  avatarGroup: `<AvatarGroup items={[{ name: '张三' }, { name: '李四' }]} max={3} />`,
+
+  messageBubble: `<MessageBubble role="user" content="北京天气如何？" />
+<MessageBubble role="assistant" status="streaming" content="…"
+  actions={<Button size="sm">重试</Button>} />`,
+
   fileUpload: `<FileUpload accept="image/*,.pdf"
   multiple maxSize={5242880}
   value={files}
@@ -1226,6 +1348,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="FileUpload" desc="文件上传，拖拽区 + 文件列表 + accept/maxSize" code={CODE.fileUpload}><DemoFileUpload /></DemoCard>
         <DemoCard title="SearchInput" desc="搜索输入框，带清除按钮" code={CODE.search}><DemoSearchInput /></DemoCard>
         <DemoCard title="ProgressBar" desc="进度条，支持 label/showValue" code={CODE.progress}><DemoProgress /></DemoCard>
+        <DemoCard title="InputNumber" desc="数字输入：min/max/step + 增减按钮 + precision" code={CODE.inputNumber}><DemoInputNumber /></DemoCard>
       </Section>
 
       <Section title="数据展示">
@@ -1236,6 +1359,12 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Avatar" desc="头像（首字母/图片），3 种 size" code={CODE.avatar}><DemoAvatar /></DemoCard>
         <DemoCard title="Img" desc="图片 \<img\> 组件，支持 fallback/loading lazy" code={CODE.image}><DemoImage /></DemoCard>
         <DemoCard title="InView" desc="进入视窗后懒加载内容，支持 IntersectionObserver" code={CODE.inview}><DemoInView /></DemoCard>
+        <DemoCard title="Timeline" desc="时间线：节点状态色 + 时间 + 内容（执行日志/审批历史）" code={CODE.timeline}><DemoTimeline /></DemoCard>
+        <DemoCard title="Descriptions" desc="描述列表：label/value 栅格 + bordered + span（详情页）" code={CODE.descriptions}><DemoDescriptions /></DemoCard>
+        <DemoCard title="AvatarGroup" desc="头像组：堆叠 + max 溢出 +N" code={CODE.avatarGroup}><DemoAvatarGroup /></DemoCard>
+        <DemoCard title="Markdown" desc="AI 回复渲染：安全子集 parser + 代码块 + 链接白名单" code={CODE.markdown}><DemoMarkdown /></DemoCard>
+        <DemoCard title="CodeBlock" desc="代码块：语言标签 + 复制按钮 + 横向滚动" code={CODE.codeblock}><DemoCodeBlock /></DemoCard>
+        <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Confirm" desc="确认对话框，Promise 化 await 调用" code={CODE.confirm}><DemoConfirm /></DemoCard>
         <DemoCard title="StatCard" desc="KPI 指标卡，支持 trend/icon" code={CODE.stat}><DemoStatCard /></DemoCard>
         <DemoCard title="Chart" desc="SVG 图表：line/bar/pie" code={CODE.chart}><DemoChart /></DemoCard>

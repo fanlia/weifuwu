@@ -1,0 +1,94 @@
+/* weifuwu/components — Timeline */
+
+.wf-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wf-timeline-item {
+  position: relative;
+  display: flex;
+  gap: var(--wf-gap-md);
+  padding-bottom: var(--wf-space-md);
+}
+
+/* 连接线（除最后一项） */
+.wf-timeline-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  bottom: 0;
+  left: 8px;
+  width: 2px;
+  background: var(--wf-color-border);
+}
+
+.wf-timeline-node {
+  position: relative;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+/* 节点状态色（-text 语义色变体，对比度达标） */
+.wf-timeline-node--default { background: var(--wf-color-border); color: var(--wf-color-text-secondary); }
+.wf-timeline-node--info { background: var(--wf-color-info-text); color: var(--wf-color-on-brand); }
+.wf-timeline-node--success { background: var(--wf-color-success-text); color: var(--wf-color-on-brand); }
+.wf-timeline-node--warning { background: var(--wf-color-warning-text); color: var(--wf-color-on-brand); }
+.wf-timeline-node--error { background: var(--wf-color-error-text); color: var(--wf-color-on-brand); }
+
+.wf-timeline-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.wf-timeline-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--wf-gap-sm);
+  flex-wrap: wrap;
+}
+
+.wf-timeline-title {
+  font-weight: var(--wf-font-weight-semibold);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+}
+
+.wf-timeline-time {
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-timeline-content {
+  margin-top: 2px;
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-timeline-item--clickable {
+  cursor: pointer;
+  border-radius: var(--wf-radius-sm);
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+.wf-timeline-item--clickable:hover { background: var(--wf-color-bg-secondary); }
+.wf-timeline-item--clickable:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: 1px;
+}
+
+/* alternate：内容左右交替（节点居中分隔） */
+.wf-timeline-item--alt-left, .wf-timeline-item--alt-right {
+  width: 50%;
+}
+.wf-timeline-item--alt-left { align-self: flex-start; text-align: right; }
+.wf-timeline-item--alt-right { align-self: flex-end; margin-left: 50%; }

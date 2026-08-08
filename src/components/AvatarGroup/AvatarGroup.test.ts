@@ -1,0 +1,46 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
+import { AvatarGroup } from './AvatarGroup.ts'
+import type { WfuiContext } from '../../client/types.ts'
+
+function renderVNode(Comp: any, props: any, ctx: any) {
+  const result = Comp(props, ctx)
+  return typeof result === 'function' ? result(props) : result
+}
+function mockCtx(): WfuiContext {
+  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+}
+
+const items = [
+  { name: '张三' },
+  { name: '李四' },
+  { name: '王五' },
+  { name: '赵六' },
+]
+
+describe('AvatarGroup', () => {
+  it('渲染全部头像', () => {
+    const vnode = renderVNode(AvatarGroup, { items }, mockCtx())!
+    assert.match(vnode.props.class, /wf-avatar-group/)
+    assert.equal(vnode.props.children.length, 4)
+  })
+
+  it('max 截断 + 溢出 +N', () => {
+    const vnode = renderVNode(AvatarGroup, { items, max: 3 }, mockCtx())!
+    assert.equal(vnode.props.children.length, 4) // 3 头像 + 1 计数
+    const count = vnode.props.children[3]
+    assert.match(count.props.class, /wf-avatar-group-more/)
+    assert.match(count.props.children, /\+1/)
+  })
+
+  it('size 透传', () => {
+    const vnode = renderVNode(AvatarGroup, { items: [{ name: 'A' }], size: 'lg' }, mockCtx())!
+    const avatar = vnode.props.children[0].props.children // span > Avatar 组件 VNode
+    assert.equal(avatar.props.size, 'lg')
+    assert.equal(avatar.props.name, 'A')
+  })
+
+  it('空 items 返回 null', () => {
+    assert.equal(renderVNode(AvatarGroup, { items: [] }, mockCtx()), null)
+  })
+})

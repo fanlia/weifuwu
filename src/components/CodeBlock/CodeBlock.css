@@ -1,0 +1,74 @@
+/* weifuwu/components — CodeBlock */
+
+.wf-codeblock {
+  margin: 0 0 var(--wf-space-sm);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  overflow: hidden;
+  background: var(--wf-color-bg-secondary);
+  font-family: var(--wf-font-mono);
+}
+
+.wf-codeblock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  background: var(--wf-color-bg-tertiary);
+  border-bottom: 1px solid var(--wf-color-border);
+}
+
+.wf-codeblock-title {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-codeblock-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wf-codeblock-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--wf-color-primary);
+}
+
+.wf-codeblock-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--wf-color-text-secondary);
+  padding: 4px;
+  border-radius: var(--wf-radius-xs);
+}
+.wf-codeblock-copy:hover {
+  color: var(--wf-color-text);
+  background: var(--wf-color-bg);
+}
+.wf-codeblock-copy:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: 1px;
+}
+
+.wf-codeblock-pre {
+  margin: 0;
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  overflow-x: auto;
+  font-size: var(--wf-font-size-xs);
+  line-height: 1.6;
+}
+
+.wf-codeblock-code {
+  font-family: inherit;
+  white-space: pre;
+}

@@ -18,7 +18,7 @@ export type IconName =
   | 'sort' | 'sort-asc' | 'sort-desc'
   | 'check' | 'close' | 'alert' | 'info' | 'warning'
   | 'pause' | 'settings' | 'search' | 'send' | 'stop'
-  | 'retry' | 'upload' | 'trash' | 'edit' | 'plus'
+  | 'retry' | 'upload' | 'trash' | 'edit' | 'plus' | 'copy'
 
 export interface IconProps {
   name: IconName
@@ -53,6 +53,7 @@ const PATHS: Record<IconName, string[]> = {
   trash: ['M3 6h18', 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14', 'M10 11v6', 'M14 11v6'],
   edit: ['M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7', 'M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'],
   plus: ['M12 5v14', 'M5 12h14'],
+  copy: ['M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z', 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
 }
 
 export const Icon: Component<IconProps> = (_init, _ctx) =>

@@ -1,0 +1,29 @@
+/* weifuwu/components — AvatarGroup */
+
+.wf-avatar-group {
+  display: inline-flex;
+  align-items: center;
+}
+
+.wf-avatar-group-item {
+  margin-left: -6px;
+}
+.wf-avatar-group-item:first-child {
+  margin-left: 0;
+}
+
+.wf-avatar-group-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-left: -6px;
+  background: var(--wf-color-bg-tertiary);
+  border: 2px solid var(--wf-color-bg);
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text-secondary);
+  font-family: var(--wf-font-sans);
+}

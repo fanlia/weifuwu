@@ -1,0 +1,30 @@
+/* weifuwu/components — MessageBubble（依赖 layout wf-bubble 原语） */
+
+.wf-bubble--error {
+  border: 1px solid var(--wf-color-error-text);
+  background: var(--wf-color-error-bg);
+  color: var(--wf-color-error-text);
+}
+
+.wf-bubble--streaming {
+  border-right: 3px solid var(--wf-color-primary);
+  border-right-color: var(--wf-color-primary);
+  animation: wf-bubble-blink var(--wf-dur-fast) var(--wf-ease-in-out) infinite;
+}
+
+@keyframes wf-bubble-blink {
+  0%, 100% { border-right-color: var(--wf-color-primary); }
+  50% { border-right-color: transparent; }
+}
+
+.wf-bubble-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-bubble-actions {
+  display: flex;
+  gap: var(--wf-gap-xs);
+  align-items: center;
+}

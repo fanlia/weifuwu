@@ -59,8 +59,9 @@ describe('样式审计 — 设计约束', () => {
   it('组件 font-size 引用 token（仅允许图标/展示尺寸白名单）', () => {
     const css = readComponentCss()
     // 白名单：Avatar/EmptyState/FileUpload/StatCard 等图标与展示尺寸，
-    // 与排版刻度（--wf-font-size-*）无关，属组件内设计决策
-    const allowed = new Set(['10px', '11px', '12px', '13px', '14px', '16px', '24px', '28px', '48px'])
+    // 与排版刻度（--wf-font-size-*）无关，属组件内设计决策；
+    // 0.875em：行内代码相对字号（随父级上下文缩放，Markdown 内嵌于标题/段落）
+    const allowed = new Set(['10px', '11px', '12px', '13px', '14px', '16px', '24px', '28px', '48px', '0.875em'])
     const violations: string[] = []
     for (const m of css.matchAll(/font-size:\s*([^;]+);/g)) {
       const value = m[1].trim()

@@ -150,3 +150,25 @@ export type { ApprovalCardProps, ApprovalStatus } from './ApprovalCard/ApprovalC
 
 export { AiChat } from './AiChat/AiChat.ts'
 export type { AiChatProps, AiChatLabels } from './AiChat/AiChat.ts'
+
+export { Markdown } from './Markdown/Markdown.ts'
+export type { MarkdownProps } from './Markdown/Markdown.ts'
+export { parseMarkdown, parseInline } from './Markdown/parser.ts'
+
+export { CodeBlock } from './CodeBlock/CodeBlock.ts'
+export type { CodeBlockProps } from './CodeBlock/CodeBlock.ts'
+
+export { Timeline } from './Timeline/Timeline.ts'
+export type { TimelineProps, TimelineItem, TimelineStatus } from './Timeline/Timeline.ts'
+
+export { InputNumber } from './InputNumber/InputNumber.ts'
+export type { InputNumberProps } from './InputNumber/InputNumber.ts'
+
+export { Descriptions } from './Descriptions/Descriptions.ts'
+export type { DescriptionsProps, DescriptionItem } from './Descriptions/Descriptions.ts'
+
+export { AvatarGroup } from './AvatarGroup/AvatarGroup.ts'
+export type { AvatarGroupProps, AvatarGroupItem } from './AvatarGroup/AvatarGroup.ts'
+
+export { MessageBubble } from './MessageBubble/MessageBubble.ts'
+export type { MessageBubbleProps, MessageBubbleRole, MessageBubbleStatus } from './MessageBubble/MessageBubble.ts'
