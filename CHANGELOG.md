@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.62.0 (scheduler 计划任务 + 数据层优化 + queue 重写 + 组件 +13)
+
+> 新增 scheduler 中间件（延时/定时任务）；ctx.sql/ctx.redis 可靠性优化；queue 生命周期重写；rateLimit ctx.limit IP 维度；组件库 +13。
+
+### ✨ New
+
+- **scheduler 计划任务中间件**：即时（queue.add 已有）/ 延时（`ctx.schedule`，ZSET + 守护循环）/ 定时（`ctx.cron`，cron 5 字段解析器 + 滚动触发点）；触发后入队复用 queue 可靠执行；多实例原子抢占（ZREM/ZADD NX）无锁；崩溃恢复补扫；`ctx.cancelCron(name)` / `ctx.cancelSchedule(id)`；同 name 重注册 = 覆盖更新；`scheduler({ prefix })` 多应用隔离
+- **rateLimit `ctx.limit` scope**：默认按 IP 维度（登录/注册防爆破），`scope: 'global'` 全局共享
+- **组件库 +13**：Markdown（零依赖安全子集解析）/ CodeBlock / Timeline / InputNumber / Descriptions / AvatarGroup / MessageBubble / Menu / PasswordInput / TagsInput / Highlight / List / Result（61 组件）
+
+### 🚀 ctx.sql（Postgres 自研客户端）
+
+- **DDL 失效自愈**：seed/迁移 DROP 后 cached plan 错误自动清缓存 + 重 Parse（新语句名）
+- **affectedRows**：INSERT/UPDATE/DELETE/MERGE 返回影响行数（非枚举属性，不干扰 deepEqual）
+- **insertMany**（多行 VALUES 单次往返）/ **update / delete**（SET/WHERE 全参数化 + WHERE 必填防全表误删）
+- **prepared statement 服务端释放**：LRU 淘汰 → 连接空闲批量 DEALLOCATE（防 plan 缓存膨胀）
+- **idleTimeoutMs** 空闲连接回收 + acquire 自动扩容重建
+- **timestamptz → Date**（带时区语义安全）；timestamp/date/interval 保持字符串（诚实裁剪）
+- **onQuery 第 4 参 traceId**（x-trace-id 头 → ALS）
+
+### 🚀 ctx.redis（自研客户端）
+
+- **连接健康三层防线**：池坏连接剔除重建 / `commandTimeoutMs`（阻塞命令 resolve(null)）/ `socketTimeoutMs`（僵尸连接自愈：有 pending 超时无数据 → 主动断开重连）
+- **断线状态真实化**：handleDisconnect 更新 status（connected 假阳性修复）
+- **丰富命令面**：hash（hset/hget/hgetall/hdel）/ list（lpush/rpush/lpop/rpop/lrange）/ set（sadd/srem/smembers）/ zset（zadd/zrange）/ mget/mset/exists/setnx/incrby
+- **池级 pipeline()**（key 自动加前缀）
+- **onCommand 观测 + traceId**（对齐 postgres onQuery）
+
+### 🚀 ctx.queue（重写）
+
+- **worker 独立连接**：XREADGROUP BLOCK 不再占池连接（池只服务 add/length）
+- **start() 就绪等待**（group 建好才 resolve）+ **stop() 完整退出**（等 loop + 关连接）
+- **epoch 世代标记**：stop/start 交替旧 loop 不复活；start 失败回退可重试
+- **NOGROUP 自愈**：group 被删自动重建；错误刷屏抑制（5s 窗口）
+
+### 🐛 Fixes
+
+- **messager Redis 环回重复广播**（流式 token 乱序/缺失根因）：publish 携带 `_pid` 实例标识，订阅跳过自己——每个事件恰好投递一次
+- **popup 视口夹紧**：DatePicker 面板超高时底部按钮不可点（clampToViewport + panel 动画等待）
+- **Fragment diff 错位 / StatCard 动画冻结**（组件层修复）
+- **ProgressBar flex 布局塌缩**
+
+### 🧪 Tests
+
+- 1037 全绿（框架 1007 + scheduler 30 + db 191 复用计数）+ app 80
+- scheduler：cron 解析器 16 + 延时 8 + cron 集成 6（触发加速：HSET nextRunAt 模拟到点，84s → 0.77s）
+
+
 ## 0.60.1 (ref 语义修复 + 内联 ref 检测 + 测试 5.2s)
 
 > 框架级修复：ref 替换不再误调旧 ref(null)，内联 ref 从"每次渲染误触发清理"到"机制上不可能"；配套内联 ref 检测警告 + 组件库 6 组件 ref 提升。附带收益：测试时长 24s → 5.2s。
@@ -51,6 +99,54 @@
 ---
 
 # Changelog
+
+## 0.62.0 (scheduler 计划任务 + 数据层优化 + queue 重写 + 组件 +13)
+
+> 新增 scheduler 中间件（延时/定时任务）；ctx.sql/ctx.redis 可靠性优化；queue 生命周期重写；rateLimit ctx.limit IP 维度；组件库 +13。
+
+### ✨ New
+
+- **scheduler 计划任务中间件**：即时（queue.add 已有）/ 延时（`ctx.schedule`，ZSET + 守护循环）/ 定时（`ctx.cron`，cron 5 字段解析器 + 滚动触发点）；触发后入队复用 queue 可靠执行；多实例原子抢占（ZREM/ZADD NX）无锁；崩溃恢复补扫；`ctx.cancelCron(name)` / `ctx.cancelSchedule(id)`；同 name 重注册 = 覆盖更新；`scheduler({ prefix })` 多应用隔离
+- **rateLimit `ctx.limit` scope**：默认按 IP 维度（登录/注册防爆破），`scope: 'global'` 全局共享
+- **组件库 +13**：Markdown（零依赖安全子集解析）/ CodeBlock / Timeline / InputNumber / Descriptions / AvatarGroup / MessageBubble / Menu / PasswordInput / TagsInput / Highlight / List / Result（61 组件）
+
+### 🚀 ctx.sql（Postgres 自研客户端）
+
+- **DDL 失效自愈**：seed/迁移 DROP 后 cached plan 错误自动清缓存 + 重 Parse（新语句名）
+- **affectedRows**：INSERT/UPDATE/DELETE/MERGE 返回影响行数（非枚举属性，不干扰 deepEqual）
+- **insertMany**（多行 VALUES 单次往返）/ **update / delete**（SET/WHERE 全参数化 + WHERE 必填防全表误删）
+- **prepared statement 服务端释放**：LRU 淘汰 → 连接空闲批量 DEALLOCATE（防 plan 缓存膨胀）
+- **idleTimeoutMs** 空闲连接回收 + acquire 自动扩容重建
+- **timestamptz → Date**（带时区语义安全）；timestamp/date/interval 保持字符串（诚实裁剪）
+- **onQuery 第 4 参 traceId**（x-trace-id 头 → ALS）
+
+### 🚀 ctx.redis（自研客户端）
+
+- **连接健康三层防线**：池坏连接剔除重建 / `commandTimeoutMs`（阻塞命令 resolve(null)）/ `socketTimeoutMs`（僵尸连接自愈：有 pending 超时无数据 → 主动断开重连）
+- **断线状态真实化**：handleDisconnect 更新 status（connected 假阳性修复）
+- **丰富命令面**：hash（hset/hget/hgetall/hdel）/ list（lpush/rpush/lpop/rpop/lrange）/ set（sadd/srem/smembers）/ zset（zadd/zrange）/ mget/mset/exists/setnx/incrby
+- **池级 pipeline()**（key 自动加前缀）
+- **onCommand 观测 + traceId**（对齐 postgres onQuery）
+
+### 🚀 ctx.queue（重写）
+
+- **worker 独立连接**：XREADGROUP BLOCK 不再占池连接（池只服务 add/length）
+- **start() 就绪等待**（group 建好才 resolve）+ **stop() 完整退出**（等 loop + 关连接）
+- **epoch 世代标记**：stop/start 交替旧 loop 不复活；start 失败回退可重试
+- **NOGROUP 自愈**：group 被删自动重建；错误刷屏抑制（5s 窗口）
+
+### 🐛 Fixes
+
+- **messager Redis 环回重复广播**（流式 token 乱序/缺失根因）：publish 携带 `_pid` 实例标识，订阅跳过自己——每个事件恰好投递一次
+- **popup 视口夹紧**：DatePicker 面板超高时底部按钮不可点（clampToViewport + panel 动画等待）
+- **Fragment diff 错位 / StatCard 动画冻结**（组件层修复）
+- **ProgressBar flex 布局塌缩**
+
+### 🧪 Tests
+
+- 1037 全绿（框架 1007 + scheduler 30 + db 191 复用计数）+ app 80
+- scheduler：cron 解析器 16 + 延时 8 + cron 集成 6（触发加速：HSET nextRunAt 模拟到点，84s → 0.77s）
+
 
 ## 0.59.1 (README 重写：理念三层化 + async 规则页 + 样式系统总览)
 
