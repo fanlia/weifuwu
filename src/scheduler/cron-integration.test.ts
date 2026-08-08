@@ -14,6 +14,8 @@ import { scheduler } from './index.ts'
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
 const CRONS = 'wf:sched:crons'
+/** 唯一 prefix：并发测试文件隔离（scheduler ZSET/HASH 应用级共享） */
+const schedPrefix = () => `wf:sched:${process.pid}:${randomUUID().toString().slice(0, 4)}:`
 
 async function waitFor(cond: () => boolean, timeout: number, label: string) {
   const start = Date.now()
@@ -25,20 +27,22 @@ async function waitFor(cond: () => boolean, timeout: number, label: string) {
 }
 
 /** 把 cron 的 nextRunAt 改为过去——立即触发（模拟到点） */
-async function expireNow(field: string) {
+async function expireNow(prefix: string, field: string) {
   const conn = new RedisConnection({ host: 'localhost', port: 6379 })
   await conn.connect()
-  const raw = await conn.command('HGET', CRONS, field)
+  const cronsKey = `${prefix}crons`
+  const raw = await conn.command('HGET', cronsKey, field)
   if (raw !== null) {
     const def = JSON.parse(String(raw))
-    await conn.command('HSET', CRONS, field, JSON.stringify({ ...def, nextRunAt: Date.now() - 1000 }))
+    await conn.command('HSET', cronsKey, field, JSON.stringify({ ...def, nextRunAt: Date.now() - 1000 }))
   }
   await conn.close()
 }
 
 describe('scheduler cron tasks (real redis)', () => {
   const q = queue()
-  const sched = scheduler({ queue: q, tickMs: 100 })
+  const prefix = schedPrefix()
+  const sched = scheduler({ queue: q, tickMs: 100, prefix })
 
   after(async () => {
     await sched.close()
@@ -52,13 +56,13 @@ describe('scheduler cron tasks (real redis)', () => {
     await worker.start()
 
     await sched.cron('* * * * *', name, { scope: 'health' })
-    await expireNow(name) // field = name
+    await expireNow(prefix, name) // field = name
     await waitFor(() => received.length >= 1, 5000, 'cron 到期触发')
     assert.deepEqual(received[0], { scope: 'health' })
     // nextRunAt 已推进到下一次（HASH 里不再 <= now）
     const conn = new RedisConnection({ host: 'localhost', port: 6379 })
     await conn.connect()
-    const raw = await conn.command('HGET', CRONS, name)
+    const raw = await conn.command('HGET', `${prefix}crons`, name)
     const def = JSON.parse(String(raw))
     assert.ok(def.nextRunAt > Date.now(), 'nextRunAt 应推进到未来')
     await conn.close()
@@ -77,11 +81,11 @@ describe('scheduler cron tasks (real redis)', () => {
     await worker.start()
 
     const q2 = queue()
-    const sched2 = scheduler({ queue: q2, tickMs: 100 })
+    const sched2 = scheduler({ queue: q2, tickMs: 100, prefix: schedPrefix() })
     try {
       await sched.cron('* * * * *', name, { multi: true })
       await sched2.cron('* * * * *', name, { multi: true })
-      await expireNow(name)
+      await expireNow(prefix, name)
       await waitFor(() => received.length >= 1, 5000, 'cron 触发')
       await sleep(500)
       assert.equal(received.length, 1, `多实例应只触发一次（实际 ${received.length}）`)
@@ -95,13 +99,15 @@ describe('scheduler cron tasks (real redis)', () => {
 
 describe('scheduler cron UX fixes (real redis)', () => {
   const q = queue()
-  const sched = scheduler({ queue: q, tickMs: 100 })
+  const prefix = schedPrefix()
+  const sched = scheduler({ queue: q, tickMs: 100, prefix })
 
   before(async () => {
-    // 清理公共 cron 注册表（历史测试残留——cron 定义无 TTL，测试环境需重置）
+    // 清理本测试 prefix 的 cron 注册表（历史测试残留——cron 定义无 TTL）
     const conn = new RedisConnection({ host: 'localhost', port: 6379 })
     await conn.connect()
-    await conn.command('DEL', CRONS)
+    const keys = (await conn.command('KEYS', `${schedPrefix()}crons`)) as string[]
+    for (const k of keys) await conn.command('DEL', k)
     await conn.close()
   })
 
@@ -118,7 +124,7 @@ describe('scheduler cron UX fixes (real redis)', () => {
 
     // 注册 v1 表达式
     await sched.cron('* * * * *', name, { v: 1 })
-    await expireNow(name) // field 应为 name（修复前是 name:expr）
+    await expireNow(prefix, name) // field 应为 name（修复前是 name:expr）
     await waitFor(() => received.length >= 1, 5000, 'v1 触发')
     assert.deepEqual(received[0], { v: 1 })
 
@@ -127,15 +133,15 @@ describe('scheduler cron UX fixes (real redis)', () => {
     // HASH 里不应有旧 field 残留（field = name 唯一）
     const conn = new RedisConnection({ host: 'localhost', port: 6379 })
     await conn.connect()
-    const hashLen = await conn.command('HLEN', CRONS)
+    const hashLen = await conn.command('HLEN', `${prefix}crons`)
     assert.equal(hashLen, 1, 'HASH 应只有 1 个 cron 定义（覆盖）')
-    const raw = await conn.command('HGET', CRONS, name)
+    const raw = await conn.command('HGET', `${prefix}crons`, name)
     const def = JSON.parse(String(raw))
     assert.equal(def.expr, '*/2 * * * *', '定义应为新表达式')
     await conn.close()
 
     // 新表达式到期 → 触发新 data（旧定义不残留）
-    await expireNow(name)
+    await expireNow(prefix, name)
     await waitFor(() => received.some((r: any) => r.v === 2), 5000, '新表达式触发')
     await sleep(300)
     const v2Count = received.filter((r: any) => r.v === 2).length
@@ -150,7 +156,7 @@ describe('scheduler cron UX fixes (real redis)', () => {
     await worker.start()
 
     await sched.cron('* * * * *', name, { gone: true })
-    await expireNow(name)
+    await expireNow(prefix, name)
     await waitFor(() => received.length >= 1, 5000, '首次触发')
     const before = received.length
 
@@ -160,7 +166,7 @@ describe('scheduler cron UX fixes (real redis)', () => {
     // HASH 无定义 + ZSET 无 pending 触发点
     const conn = new RedisConnection({ host: 'localhost', port: 6379 })
     await conn.connect()
-    assert.equal(await conn.command('HEXISTS', CRONS, name), 0, 'HASH 定义已删')
+    assert.equal(await conn.command('HEXISTS', `${prefix}crons`, name), 0, 'HASH 定义已删')
     const pending = await conn.command('ZRANGE', 'wf:sched:delayed', 0, -1)
     const cronPending = (pending as string[]).filter((m) => m.includes(`"id":"cron:${name}:`))
     assert.equal(cronPending.length, 0, 'pending 触发点已清理')

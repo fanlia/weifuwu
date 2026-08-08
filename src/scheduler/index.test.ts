@@ -9,10 +9,12 @@ import { scheduler } from './index.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
+/** 唯一 prefix：scheduler ZSET/HASH 是应用级共享的——并发测试文件必须隔离（多应用共享 redis 时同此语义） */
+const schedPrefix = () => `wf:sched:${process.pid}:${randomUUID().toString().slice(0, 4)}:`
 
 describe('scheduler delayed tasks (real redis)', () => {
   const q = queue()
-  const sched = scheduler({ queue: q, tickMs: 100 })
+  const sched = scheduler({ queue: q, tickMs: 100, prefix: schedPrefix() })
 
   after(async () => {
     await sched.close()
@@ -96,8 +98,10 @@ describe('scheduler multi-instance (real redis)', () => {
     const received: unknown[] = []
     const q = queue()
     const q2 = queue()
-    const sched = scheduler({ queue: q, tickMs: 100 })
-    const sched2 = scheduler({ queue: q2, tickMs: 100 })
+    // 双实例共享同一 prefix（多实例部署语义）——协作消费同一 ZSET
+    const prefix = schedPrefix()
+    const sched = scheduler({ queue: q, tickMs: 100, prefix })
+    const sched2 = scheduler({ queue: q2, tickMs: 100, prefix })
     const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
     await worker.start()
     try {
@@ -113,5 +117,47 @@ describe('scheduler multi-instance (real redis)', () => {
       await q.close()
       await q2.close()
     }
+  })
+})
+
+describe('scheduler cancelSchedule (real redis)', () => {
+  const q = queue()
+  const sched = scheduler({ queue: q, tickMs: 100, prefix: schedPrefix() })
+
+  after(async () => {
+    await sched.close()
+    await q.close()
+  })
+
+  it('取消未到期任务：不再触发', async () => {
+    const name = qname()
+    const received: unknown[] = []
+    const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
+    await worker.start()
+
+    const { id } = await sched.schedule(name, { n: 1 }, { delayMs: 500 })
+    const removed = await sched.cancelSchedule(id)
+    assert.equal(removed, true)
+    await sleep(800)
+    assert.equal(received.length, 0, '取消后不应触发')
+    await worker.stop()
+  })
+
+  it('取消后同数据重新 schedule：作为新任务正常触发', async () => {
+    const name = qname()
+    const received: unknown[] = []
+    const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
+    await worker.start()
+
+    const { id } = await sched.schedule(name, { n: 2 }, { delayMs: 300 })
+    await sched.cancelSchedule(id)
+    await sched.schedule(name, { n: 3 }, { delayMs: 200 }) // 重新调度
+    await sleep(600)
+    assert.deepEqual(received, [{ n: 3 }], '重新调度的新任务应触发，取消的旧任务不触发')
+    await worker.stop()
+  })
+
+  it('cancelSchedule 不存在的 id 返回 false', async () => {
+    assert.equal(await sched.cancelSchedule('nope-nope'), false)
   })
 })

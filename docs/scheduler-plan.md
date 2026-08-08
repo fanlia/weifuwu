@@ -91,6 +91,11 @@ const worker = ctx.queue.worker('email.send', async (job) => { ... })
 - ✅ 全量：框架 1031 + db 191 全绿；tsc 干净
 - ✅ cron 集成测试加速：HSET nextRunAt 模拟到点（84s → 0.77s，符合 15s 规则）
 
+### 多应用隔离（实测暴露）
+
+- **问题**：全量并发测试时"多个延时任务"偶发失败——scheduler 的 ZSET/HASH（`wf:sched:*`）是**应用级共享**的，并发文件的另一个 scheduler 实例 ZREM 抢占任务 → 入队到自己的 queue → 原 worker 收不到。**真实的多应用串扰**：同一 redis 的多应用会互相抢任务。
+- **修复**：`scheduler({ prefix })`——多应用共用 redis 必须各自 prefix；同应用多实例共享 prefix = 协作消费（多实例语义不变）。测试全部唯一 prefix 隔离。
+
 ### 落地细节
 
 - ✅ **体验完善已落地**（`7c0be2d`）：field=name 覆盖更新 + cancelCron；附带修复 tickCrons 未定义变量崩溃、测试公共注册表累积、断言转义错误

@@ -46,12 +46,15 @@ export interface SchedulerClient {
   cron: (expr: string, name: string, data?: unknown) => Promise<void>
   /** 取消 cron：删除定义 + 清理 ZSET 中该 cron 的 pending 触发点（不再触发） */
   cancelCron: (name: string) => Promise<boolean>
+  /** 取消未到期的延时任务（按 id；已到期入队/已执行的不受影响） */
+  cancelSchedule: (id: string) => Promise<boolean>
 }
 
 export interface SchedulerInjected {
   schedule: SchedulerClient['schedule']
   cron: SchedulerClient['cron']
   cancelCron: SchedulerClient['cancelCron']
+  cancelSchedule: SchedulerClient['cancelSchedule']
 }
 
 declare module '../types.ts' {
@@ -59,6 +62,7 @@ declare module '../types.ts' {
     schedule?: SchedulerClient['schedule']
     cron?: SchedulerClient['cron']
     cancelCron?: SchedulerClient['cancelCron']
+    cancelSchedule?: SchedulerClient['cancelSchedule']
   }
 }
 
@@ -66,6 +70,7 @@ export interface SchedulerClientModule extends Middleware<Context, Context & Sch
   schedule: SchedulerClient['schedule']
   cron: SchedulerClient['cron']
   cancelCron: SchedulerClient['cancelCron']
+  cancelSchedule: SchedulerClient['cancelSchedule']
   /** 关闭守护循环 + 连接 */
   close: () => Promise<void>
 }
@@ -206,17 +211,35 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
     return { id }
   }
 
+  const cancelSchedule: SchedulerClient['cancelSchedule'] = async (id) => {
+    // 扫描 ZSET pending 触发点，按 member JSON 的 id 精确匹配删除
+    try {
+      const pending = (await conn.command('ZRANGE', delayedKey, 0, -1)) as string[]
+      for (const member of pending) {
+        if (member.includes(`"id":"${id}"`)) {
+          const removed = await conn.command('ZREM', delayedKey, member)
+          if (removed === 1) return true
+        }
+      }
+    } catch {
+      // 扫描失败返回 false（连接瞬断——下个 tick 不受影响）
+    }
+    return false
+  }
+
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
     ctx.schedule = schedule
     ctx.cron = cron
     ctx.cancelCron = cancelCron
+    ctx.cancelSchedule = cancelSchedule
     return next(req, ctx)
   }) as unknown as SchedulerClientModule
 
-  mw.__meta = { injects: ['schedule', 'cron', 'cancelCron'], depends: ['queue'] }
+  mw.__meta = { injects: ['schedule', 'cron', 'cancelCron', 'cancelSchedule'], depends: ['queue'] }
   mw.schedule = schedule
   mw.cron = cron
   mw.cancelCron = cancelCron
+  mw.cancelSchedule = cancelSchedule
   mw.close = async () => {
     running = false
     if (tickTimer) {
