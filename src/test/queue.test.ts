@@ -16,7 +16,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 async function waitFor(cond: () => boolean | Promise<boolean>, timeout = 10_000, label = 'condition') {
   const start = Date.now()
   while (Date.now() - start < timeout) {
-    if (await cond()) return
+    try {
+      if (await cond()) return
+    } catch {
+      // 防御：条件内部瞬时协议错误（如 group 未建时的 NOGROUP）视为未满足，继续轮询
+    }
     await sleep(50)
   }
   throw new Error(`waitFor timeout: ${label}`)
