@@ -276,3 +276,6 @@ weifuwu 自研 DB 客户端支持:
 | idle 回收 | 池连接永不过期（PG 端可能杀空闲连接） | `idleTimeoutMs` 定时扫描 available 超时关闭；acquire 自动扩容重建 | 1.5s 后 `open` 收缩；再查询恢复；默认 0 不回收 |
 | traceId 传播 | onQuery 无法关联请求 | `x-trace-id` 头 → AsyncLocalStorage → onQuery 第 4 参（无则不注入） | 两请求不同 traceId 到达；无头 → undefined |
 | timestamptz→Date | 业务到处 `new Date(String(x))` + 无时区字符串按本地时区解析（时区魔法） | OID 1184 → `new Date`；timestamp(1114)/date(1082)/interval(1186) 保持字符串（无时区转 Date 语义错误，明确不转） | timestamptz→Date + NOW()→Date + round-trip 保真；timestamp/date 保持字符串；NULL 不变 |
+| redis 池坏连接剔除 | 断线 client 留在池中，round-robin 持续命中（重连失败后 closed 仍分发） | `acquireHealthy()`：跳过不可用连接 + 剔除 + 异步重建；全死时等补位（1s 上限） | CLIENT KILL 部分/全部池连接 → size 保持 + 命令成功 |
+| redis 命令超时 | 服务器慢/挂起时 pending 永久挂起 | `commandTimeoutMs`：pending 标记 timedOut + 跳过迟到响应；阻塞命令（BLPOP 等）超时 `resolve(null)`（Redis 语义） | 假服务器不响应 → 超时 reject；BLPOP → null |
+| redis socket 超时 | 僵尸连接（服务器杀连接无 close 事件）commandTimeout 只弃命令，连接仍挂 | `socketTimeoutMs`（对齐 ioredis）：有 pending 且超时无数据 → reject pending + `socket.destroy()` → 标准断线自愈 | 假服务器不响应 → 超时 reject + connected=false；空闲/正常响应不触发 |

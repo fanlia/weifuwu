@@ -32,6 +32,11 @@ export class RedisClient {
     return this.conn.command(name, ...args)
   }
 
+  /** 连接是否就绪（池坏连接剔除用） */
+  get connected(): boolean {
+    return this.conn.connected
+  }
+
   // ── 基础命令 ──────────────────────────────
 
   async get(key: string): Promise<string | null> {

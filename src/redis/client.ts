@@ -20,6 +20,8 @@ export function redis(options?: string | RedisOptions): RedisClient {
     poolSize: opts.poolSize,
     keyPrefix: opts.keyPrefix,
     enableOfflineQueue: opts.enableOfflineQueue,
+    commandTimeoutMs: opts.commandTimeoutMs,
+    socketTimeoutMs: opts.socketTimeoutMs,
   })
 
   const mw = (async (req: Request, ctx: Context, next: Handler) => {

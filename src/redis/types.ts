@@ -17,6 +17,10 @@ export type RedisOptions = {
   keyPrefix?: string
   /** 未连接时命令是否入队等待。默认 true。 */
   enableOfflineQueue?: boolean
+  /** 命令超时 ms（服务器慢/挂起时 reject；阻塞命令 resolve(null)）。默认 0 = 禁用。 */
+  commandTimeoutMs?: number
+  /** socket 响应超时 ms（僵尸自愈：有 pending 且超时无数据 → 主动断开重连）。默认 0 = 禁用。 */
+  socketTimeoutMs?: number
 }
 
 export interface RedisInjected {

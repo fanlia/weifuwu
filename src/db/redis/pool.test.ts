@@ -1,6 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { RedisPool } from './pool.ts'
+import { RedisClient } from './client.ts'
 
 // CS-04: 真实 redis
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379'
@@ -107,5 +108,52 @@ describe('redis pool key prefix (real database)', () => {
     const ttl = await pool.ttl('n:1')
     assert.ok(ttl > 0)
     assert.equal(await pool.del('n:1'), 1)
+  })
+})
+
+describe('redis pool connection health (real database)', () => {
+  const port = Number(new URL(process.env.REDIS_URL ?? 'redis://localhost:6379').port || 6379)
+
+  it('CLIENT KILL 杀部分池连接 → 剔除死连接并重建，命令仍成功', async () => {
+    // retryDelayMs 大：死连接不会自己快速重连——池必须主动剔除（否则 round-robin 持续命中死连接）
+    const pool = await RedisPool.create({ port, poolSize: 4, retryDelayMs: 5000 })
+    try {
+      const ctl = await RedisClient.connect({ port })
+      // 杀 3 个池连接的 CLIENT ID
+      const ids: number[] = []
+      for (let i = 0; i < 3; i++) {
+        ids.push(Number(await pool.command('CLIENT', 'ID')))
+      }
+      for (const id of ids) await ctl.command('CLIENT', 'KILL', 'ID', String(id))
+      await new Promise((r) => setTimeout(r, 150))
+      // 池应保持 4 连接（死连接被剔除重建，不等待 5s 重连）
+      assert.equal(pool.size, 4, '池应剔除死连接并重建到 poolSize')
+      // 命令仍成功（不命中死连接）
+      assert.equal(await pool.set('wf:health:k', 'v'), 'OK')
+      assert.equal(await pool.get('wf:health:k'), 'v')
+      await ctl.close()
+    } finally {
+      await pool.del('wf:health:k').catch(() => {})
+      await pool.close()
+    }
+  })
+
+  it('CLIENT KILL 杀全部池连接 → 自动重建，服务不中断', async () => {
+    const pool = await RedisPool.create({ port, poolSize: 3, retryDelayMs: 5000 })
+    try {
+      const ctl = await RedisClient.connect({ port })
+      for (let i = 0; i < 3; i++) {
+        const id = Number(await pool.command('CLIENT', 'ID'))
+        await ctl.command('CLIENT', 'KILL', 'ID', String(id))
+      }
+      // 全部被杀：acquireHealthy 应等待 replenish 补位（<1s）而非挂起/报错
+      assert.equal(await pool.set('wf:health:all', 'x'), 'OK')
+      assert.equal(await pool.get('wf:health:all'), 'x')
+      assert.ok(pool.size >= 1)
+      await ctl.close()
+    } finally {
+      await pool.del('wf:health:all').catch(() => {})
+      await pool.close()
+    }
   })
 })

@@ -846,6 +846,10 @@ await ctx.redis.set('user', 1)         // 实际写入 'api:user'
 | `url` | `string` | `REDIS_URL` 环境变量 | 连接字符串 |
 | `poolSize` | `number` | `5` | 连接池大小 |
 | `keyPrefix` | `string` | `''` | 所有 key 自动加前缀（多应用隔离） |
+| `commandTimeoutMs` | `number` | `0` | 命令超时（阻塞命令 resolve(null)；防挂起。0=禁用） |
+| `socketTimeoutMs` | `number` | `0` | socket 响应超时（僵尸连接自愈：pending 有命令且超时无数据 → 主动断开重连。0=禁用） |
+
+> **连接健康**：断线自动剔除死连接并重建（池不萎缩）；`CLIENT KILL`/网络抖动后服务自愈，命令不命中死连接。
 
 > **裁剪声明**：集群（MOVED 路由）/ 哨兵 / 自动管道不支持（standalone 优先）。
 
