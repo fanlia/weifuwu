@@ -20,3 +20,20 @@
   opacity: 0;
   pointer-events: none;
 }
+
+/* placement 修正（与 Tooltip/Popover 一致）：top 整体上移 + 居中，bottom 居中，left/right 垂直居中 */
+.wf-hover-card--top {
+  transform: translateX(-50%) translateY(-100%);
+}
+
+.wf-hover-card--bottom {
+  transform: translateX(-50%);
+}
+
+.wf-hover-card--left {
+  transform: translateY(-50%) translateX(-100%);
+}
+
+.wf-hover-card--right {
+  transform: translateY(-50%);
+}
