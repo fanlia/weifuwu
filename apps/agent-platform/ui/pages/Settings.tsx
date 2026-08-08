@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, errMsg } from '../components/ui'
-import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
+import { Alert, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
 
 export const Settings: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -61,15 +61,15 @@ export const Settings: Component = (_props, ctx) => {
         <div class="wf-mb-md">{$.pwdErr && <Alert variant="error">{$.pwdErr}</Alert>}</div>
         <form class="wf-stack wf-gap-md" onSubmit={updatePassword}>
           <Field label="当前密码">
-            <Input type="password" placeholder="••••••••" value={$.currentPassword}
+            <PasswordInput placeholder="••••••••" value={$.currentPassword}
               onInput={(e: any) => { $.currentPassword = e.target.value }} />
           </Field>
           <Field label="新密码">
-            <Input type="password" placeholder="至少 6 位" value={$.newPassword}
+            <PasswordInput placeholder="至少 6 位" value={$.newPassword}
               onInput={(e: any) => { $.newPassword = e.target.value }} />
           </Field>
           <Field label="确认新密码">
-            <Input type="password" placeholder="再次输入新密码" value={$.confirmPassword}
+            <PasswordInput placeholder="再次输入新密码" value={$.confirmPassword}
               onInput={(e: any) => { $.confirmPassword = e.target.value }} />
           </Field>
           <div class="wf-right">

@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { setRefreshToken } from '../lib/api'
-import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
+import { Alert, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
 import { Avatar } from 'weifuwu/components'
 
 export const Login: Component = (_props, ctx) => {
@@ -46,7 +46,7 @@ $.email = ''; $.password = ''; $.error = ''; $.loading = false
               onInput={(e: any) => { $.email = e.target.value }} />
           </Field>
           <Field label="密码" required>
-            <Input type="password" placeholder="••••••••" value={$.password}
+            <PasswordInput placeholder="••••••••" value={$.password}
               onInput={(e: any) => { $.password = e.target.value }} />
           </Field>
           <Button variant="primary" block type="submit" disabled={$.loading}>

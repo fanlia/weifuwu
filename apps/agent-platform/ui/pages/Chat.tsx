@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { Ava } from '../components/ui'
-import { Alert, Badge, Button, EmptyState, Input } from 'weifuwu/components'
+import { Alert, Badge, Button, EmptyState, Input, Markdown, MessageBubble } from 'weifuwu/components'
 
 export const Chat: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -306,10 +306,14 @@ export const Chat: Component = (_props, ctx) => {
 
                 {!beingEdited && (
                   <div>
-                    <div class={`wf-bubble${own ? ' wf-bubble--own' : ''}${!own && msg.sender_type === 'ai' && st === 'complete' ? ' wf-bubble--ai' : ''}${isActive ? ' wf-dim' : ''}${isError ? '' : ''}`}
-                      style={isError ? { borderColor: 'var(--wf-color-error)' } : undefined}>
-                      {msg.content || ''}
-                    </div>
+                    <MessageBubble
+                      role={own ? 'user' : 'assistant'}
+                      status={isActive ? 'streaming' : isError ? 'error' : 'complete'}
+                      className={isActive ? 'wf-dim' : ''}
+                      content={msg.sender_type === 'ai'
+                        ? <Markdown content={msg.content || ''} />
+                        : (msg.content || '')}
+                    />
                     {st === 'complete' && msg.usage && (
                       <div class="wf-text-right wf-mt-xs">
                         <Badge variant="default">⚡ {msg.usage.total_tokens} tokens</Badge>

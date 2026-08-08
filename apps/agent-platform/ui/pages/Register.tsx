@@ -1,5 +1,5 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
-import { Alert, Avatar, Button, Card, Field, Input } from 'weifuwu/components'
+import { Alert, Avatar, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
 
 export const Register: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
@@ -37,7 +37,7 @@ $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
             <Input type="email" placeholder="you@example.com" value={$.email} onInput={(e: any) => { $.email = e.target.value }} />
           </Field>
           <Field label="密码" required>
-            <Input type="password" placeholder="••••••••" value={$.password} onInput={(e: any) => { $.password = e.target.value }} />
+            <PasswordInput placeholder="••••••••" value={$.password} onInput={(e: any) => { $.password = e.target.value }} />
           </Field>
           <Button variant="primary" block type="submit" disabled={$.loading}>
             {$.loading ? '注册中...' : '注 册'}

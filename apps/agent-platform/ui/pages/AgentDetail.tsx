@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, TypeBadge, Loading, errMsg } from '../components/ui'
-import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Input, Select, Slider, Textarea } from 'weifuwu/components'
+import { Alert, Avatar, Badge, Button, Card, Checkbox, EmptyState, Field, Input, Select, Slider, Textarea, Timeline } from 'weifuwu/components'
 
 const MODELS = [
   { value: '', label: '默认 (环境变量 DEEPSEEK_MODEL)' },
@@ -309,15 +309,15 @@ export const AgentDetail: Component = (_props, ctx) => {
           </div>
           {$.logsLoading && <Loading />}
           {!$.logsLoading && $.logs.length === 0 && <div class="wf-text-sm wf-text-tertiary wf-py-md">暂无执行日志</div>}
-          {$.logs.map((log: any) => (
-            <div key={log.id} class="wf-py-sm wf-border-b wf-text-sm">
-              <div class="wf-split wf-mb-xs">
-                <span>{log.type === 'ai:response' ? '🤖 AI 回复' : log.type === 'tool:call' ? '🔧 工具调用' : '📝 ' + (log.type ?? '日志')}</span>
-                <span class="wf-text-xs wf-text-tertiary">{log.status ?? ''}</span>
-              </div>
-              <div class="wf-text-xs wf-text-secondary">{log.summary ?? (log.content ?? '').slice(0, 100)}</div>
-            </div>
-          ))}
+          {!$.logsLoading && $.logs.length > 0 && (
+            <Timeline items={$.logs.map((log: any) => ({
+              key: log.id,
+              title: '🤖 AI 执行' + (log.type && log.type !== 'execution' ? ` · ${log.type}` : ''),
+              time: log.created_at ? new Date(log.created_at).toLocaleTimeString() : undefined,
+              status: log.success === false ? 'error' : 'success',
+              content: `${log.messages_count ?? 0} 条消息 · ${log.tokens_total ?? 0} tokens · ${log.elapsed_ms ?? 0}ms`,
+            }))} />
+          )}
         </Card>
       )}
 

@@ -1,6 +1,6 @@
 import type { WfuiContext, Component } from 'weifuwu/client'
 import { PageHeader, errMsg } from '../components/ui'
-import { Alert, Badge, Button, Card, Checkbox, Field, Input, Loading, Select, Slider, Textarea } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, Checkbox, Field, Input, InputNumber, Loading, Select, Slider, Textarea } from 'weifuwu/components'
 
 interface RoleTemplate {
   slug: string; name: string; icon: string; category: string; description: string
@@ -30,7 +30,7 @@ export const NewAgent: Component = (_props, ctx) => {
   $.step = 'template'; $.selectedTemplate = null
   $.type = 'ai'; $.name = ''; $.description = ''; $.systemPrompt = ''
   $.webhookUrl = ''; $.chunkSize = '500'; $.aiModel = ''
-  $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiHITL = false
+  $.aiTemperature = '0.7'; $.aiMaxTokens = 2048; $.aiHITL = false
   $.allowFileTools = false; $.allowCommandExec = false
   $.submitting = false; $.error = ''
   $.roleTemplates = []; $.loading = true
@@ -53,7 +53,7 @@ export const NewAgent: Component = (_props, ctx) => {
     $.selectedTemplate = t; $.name = ''; $.description = t.description ?? ''
     $.systemPrompt = t.default_system_prompt ?? ''; $.aiModel = t.default_model ?? ''
     $.aiTemperature = String(t.default_temperature ?? 0.7)
-    $.aiMaxTokens = String(t.default_max_tokens ?? 2048)
+    $.aiMaxTokens = Number(t.default_max_tokens ?? 2048)
     $.allowFileTools = t.default_allow_file_tools ?? false
     $.allowCommandExec = t.default_allow_command_exec ?? false
     $.step = 'configure'
@@ -61,7 +61,7 @@ export const NewAgent: Component = (_props, ctx) => {
 
   function startDirect() {
     $.selectedTemplate = null; $.systemPrompt = ''; $.aiModel = ''
-    $.aiTemperature = '0.7'; $.aiMaxTokens = '2048'; $.aiHITL = false
+    $.aiTemperature = '0.7'; $.aiMaxTokens = 2048; $.aiHITL = false
     $.allowFileTools = false; $.allowCommandExec = false
     $.step = 'direct'
   }
@@ -79,7 +79,7 @@ export const NewAgent: Component = (_props, ctx) => {
       body.system_prompt = $.systemPrompt || undefined
       body.model = $.aiModel || undefined
       body.temperature = parseFloat($.aiTemperature) || 0.7
-      body.max_tokens = parseInt($.aiMaxTokens) || 2048
+      body.max_tokens = $.aiMaxTokens ?? 2048
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
       try {
@@ -93,7 +93,7 @@ export const NewAgent: Component = (_props, ctx) => {
       body.system_prompt = $.systemPrompt || undefined
       body.model = $.aiModel || undefined
       body.temperature = parseFloat($.aiTemperature) || 0.7
-      body.max_tokens = parseInt($.aiMaxTokens) || 2048
+      body.max_tokens = $.aiMaxTokens ?? 2048
       body.human_in_the_loop = $.aiHITL
       body.allow_file_tools = $.allowFileTools
       body.allow_command_exec = $.allowCommandExec
@@ -234,8 +234,8 @@ export const NewAgent: Component = (_props, ctx) => {
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
                   <Field label="最大 Token 数">
-                    <Input type="number" min="64" max="8192" step="64" value={$.aiMaxTokens}
-                      onInput={(e: any) => { $.aiMaxTokens = e.target.value }} />
+                    <InputNumber value={$.aiMaxTokens} min={64} max={8192} step={64}
+                      onChange={(v) => { $.aiMaxTokens = v }} />
                   </Field>
                 </div>
                 <div class="wf-fill">
