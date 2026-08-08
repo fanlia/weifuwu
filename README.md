@@ -10,7 +10,7 @@ npm install weifuwu
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
 > - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）、`ctx.ui.ssr`（组件 SSR）、`ctx.ui.ssrData`（数据序列化）
-> - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useMedia()` / `useBreakpoint()` / `usePopupPosition()`（浏览器事件监听）
+> - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useMedia()` / `useBreakpoint()` / `usePopupPosition()` / `useInView()` / `useScrollPosition()`（浏览器事件监听）
 > 后端的是「把页面和代码交给浏览器」，前端的是「在浏览器里驱动 UI」。
 
 ---
@@ -1411,6 +1411,8 @@ ctx.ui.render(['name'])
 | `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
 | `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
 | `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |
+| `useInView()` | `useInView(opts)` | 可见性观察（IntersectionObserver 封装，替代组件自建 scroll 监听）；`isIn` 响应式 + `ready` |
+| `useScrollPosition()` | `useScrollPosition({ getScroller? })` | 滚动位置跟踪（全局 scroll 监听 + rAF 节流）；`y` 响应式，容器/视口通用 |
 
 > 每个方法的完整说明见下文对应章节。
 
@@ -1425,6 +1427,8 @@ ctx.ui.render(['name'])
 | `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动 dirty |
 | `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
+| `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察**（IO 封装，无 scroll-linked 警告）— Affix/BackTop/InView 统一使用；rootMargin/threshold 支持函数 |
+| `ctx.ui.useScrollPosition()` | 注册监听 | 全局 scroll + rAF 节流 | 当前组件 | **滚动位置跟踪** — `y` 响应式（视口/内部容器通用），Affix/VirtualList 使用 |
 
 `render()` 和 `dirty()` 无参 = 当前组件，传参 = 指定组件列表。三套 API 同一 scope 机制。
 
@@ -2539,6 +2543,40 @@ props 变化 ──────────────────────�
 | Pagination | `Pagination` | `total`, `page`, `pageSize`, `onChange` | 分页 |
 | Steps | `Steps` | `items: StepItem[]`（`{ key, label }`）, `current`, `active` | 步骤条 |
 | Accordion | `Accordion` | `items: AccordionItem[]`, `multiple` | 手风琴 |
+
+### 新增批次（全量 91 组件）
+
+| 组件 | 导入名 | 关键 Props | 说明 |
+|-----|--------|-----------|------|
+| Rate | `Rate` | `value`, `count`, `onChange`, `allowClear`, `readOnly`, `size` | 评分（键盘方向键/Home/End） |
+| Typography | `Title` `Text` `Paragraph` | `Title: level 1-5`；`Text: type/strong/underline/strike/mark/code`；`Paragraph: ellipsis` | 语义排版（Title/Text/Paragraph 三组件） |
+| Label | `Label` | `htmlFor`, `required` | 独立标签（必填星号） |
+| AspectRatio | `AspectRatio` | `ratio` | 宽高比容器（内容填满） |
+| Toggle | `Toggle` | `pressed`, `onPressedChange`, `variant`, `size` | 切换按钮（shadcn 对齐） |
+| ToggleGroup | `ToggleGroup` | `type: 'single'\|'multiple'`, `options`, `value`, `onChange` | 切换组 |
+| CheckboxGroup | `CheckboxGroup` | `options`, `value: string[]`, `onChange`, `cols` | 复选框组（栅格列数） |
+| PinInput | `PinInput` | `length`, `value`, `onChange`, `type` | 验证码输入（自动聚焦/粘贴分派/回退） |
+| CopyButton | `CopyButton` | `value`, `label`, `onCopy` | 复制按钮（clipboard + execCommand 降级） |
+| ColorPicker | `ColorPicker` | `value`, `onChange`, `showInput`, `preset` | 颜色选择（预设色板 + hex 输入） |
+| HoverCard | `HoverCard` | `content`, `position`, `openDelay`, `closeDelay` | 悬停富内容卡（shadcn） |
+| Notification | `Notification` | 命令式 `notification.success/error/warning/open` | 队列式通知（antd 对齐） |
+| BackTop | `BackTop` | `visibilityHeight`, `target`, `smooth` | 回到顶部（滚动超阈值显示） |
+| Affix | `Affix` | `offsetTop`, `target` | 固定定位（滚动超阈值钉住） |
+| ContextMenu | `ContextMenu` | `items: ContextMenuItem[]`（`{ label, onClick, variant: 'danger' }`） | 右键菜单（光标定位 + 方向键） |
+| Mentions | `Mentions` | `options: { value, label }[]`, `value`, `onChange`, `prefix` | @提及（composition 抑制） |
+| Collapse | `Collapse` | `items: CollapseItem[]`（`{ key, title, content, loading }`）, `active`, `multiple` | 行内折叠（异步 loading） |
+| Tree | `Tree` | `data: TreeNode[]`, `expandedKeys`, `checkedKeys`, `checkable`, `selectedKeys`, `onCheck/onExpand/onSelect` | 树（递归 + 勾选父子联动 + 半选传播） |
+| Cascader | `Cascader` | `options: CascaderOption[]`, `value: string[]`, `onChange` | 级联选择（多列推进） |
+| Transfer | `Transfer` | `data: { key, label }[]`, `targetKeys`, `onChange`, `titles` | 穿梭框（选中 + 批量移动） |
+| Command | `Command` | `items: CommandItem[]`, `open`, `onOpenChange`, `shortcut` | 命令面板（⌘K 全局 + 键盘流） |
+| Menubar | `Menubar` | `menus: { key, label, items }[]` | 水平菜单栏（←→ 切换 + ↓ 展开） |
+| Carousel | `Carousel` | `children`, `autoplay`, `interval`, `loop`, `showArrows/Dots` | 轮播（箭头/圆点/循环/自动播放） |
+| Resizable | `Resizable` | `direction`, `defaultSize`, `min/maxSize` | 拖拽分割面板（pointer + 键盘方向键） |
+| Calendar | `Calendar` | `month`, `year`, `events`, `selectedDate`, `onMonthChange/onSelectDate` | 月历（事件点 + 月切换 + 选日） |
+| Watermark | `Watermark` | `text`, `fontSize`, `rotate`, `zIndex` | 水印（canvas 平铺） |
+| VirtualList | `VirtualList` | `items`, `height`, `itemHeight`, `renderItem`, `overscan` | 虚拟列表（spacer + 可见窗口，1000+ 条） |
+| InfiniteScroll | `InfiniteScroll` | `hasMore`, `loadMore`, `children`, `loader` | 触底加载（IntersectionObserver） |
+| QRCode | `QRCode` | `value`, `ecLevel`, `size`, `color`, `bgColor` | 二维码（自研 Reed-Solomon，版本 1-6） |
 
 ### 图表
 
