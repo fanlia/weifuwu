@@ -157,12 +157,20 @@
 6. 浏览器实测（agent-browser）：交互 + 键盘 + 视口
 ```
 
-## 验收
+## 验收（✅ 已全部完成）
 
-- 框架测试全绿（现有 1056 + 新增）；新组件测试覆盖：渲染快照、交互状态、键盘、安全边界（Markdown XSS 用例）
-- agent-platform 落地验证：Chat 页接入 Markdown + MessageBubble；AgentDetail 日志改 Timeline；
-  NewAgent 参数改 InputNumber；AppLayout 导航改 Menu；密码输入改 PasswordInput —— 减少手写处可量化
-- style-audit 全绿；README/demo 计数同步
+- ✅ 框架测试全绿（994 + db 155 + app 79）；新组件测试覆盖：渲染快照、交互状态、键盘、安全边界（Markdown XSS 用例）
+- ✅ agent-platform 落地验证（浏览器实测）：Chat 页接入 Markdown + MessageBubble（流式渲染）；
+  AgentDetail 日志改 Timeline（6 条执行日志 + 状态色）；NewAgent 参数改 InputNumber（+64 递增/clamp 8192）；
+  AppLayout 导航改 Menu（方向键 + active 随路由）；密码输入改 PasswordInput（Login/Register/Settings 共 6 处）
+- ✅ style-audit 全绿（白名单补充 0.875em）；README/demo 计数同步（48 → 61 组件）
+- ✅ 13 个组件全部落地（两批实施 + 全部测试 + components-demo DemoCard + 浏览器验证）
+
+## 落地后修复
+
+- **messager Redis 环回去重**（流式 token 乱序根因）：broadcast 本地直发 + Redis publish，
+  本实例 subscriber 收到自己的 publish 重复广播 → 事件发两次交错 → 前端 token 重复/乱序。
+  修复：publish 携带实例唯一 `_pid`，订阅跳过自己。配套环回去重回归测试。
 
 ## 诚实裁剪（不做，明确声明）
 

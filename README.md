@@ -62,7 +62,7 @@ npm install weifuwu
 
 **自研数据层** — `ctx.sql`（PG v3 协议）与 `ctx.redis`（RESP2 协议）为**自研客户端**：确定性输出、行为可预测、统一错误模型。jsonb 自动解码、TTL 安全 API、schema 写前校验——高频痛点（双重编码/parseRow 样板/`'EX'` 参数顺序）从根上消除。
 
-> **实践验证**：多租户 AI 平台（`apps/agent-platform`——14 页 + 部门聊天 + 知识库 + HITL 审批）已完全运行在框架上：auth（userSystem）/ AI 引擎（ai）/ 实时消息（messager）/ UI（48 组件）/ 数据管道（ctx.api）零自研替代。框架哲学（中间件注入、诚实裁剪、机制与策略分离）经受住了真实复杂应用的检验——这也是我们确定「哪些进框架、哪些留应用层」的依据。
+> **实践验证**：多租户 AI 平台（`apps/agent-platform`——14 页 + 部门聊天 + 知识库 + HITL 审批）已完全运行在框架上：auth（userSystem）/ AI 引擎（ai）/ 实时消息（messager）/ UI（61 组件）/ 数据管道（ctx.api）零自研替代。框架哲学（中间件注入、诚实裁剪、机制与策略分离）经受住了真实复杂应用的检验——这也是我们确定「哪些进框架、哪些留应用层」的依据。
 
 ---
 
@@ -3048,7 +3048,8 @@ ctx.msg.sendTo('u2', { type: 'mention' })       // 用户维度点对点
 
 - **数据模型**：`_weifuwu_conversations` / `_weifuwu_conversation_members` / `_weifuwu_messages`（`sender_type + sender_id` 不 FK users——user/agent/system 消息天然可存）；direct 会话同对用户唯一、历史游标分页、未读数（`last_read_at`）、编辑/删除软删
 - **实时协议内置**：`handler()` 提供 `connected / subscribe→subscribed / unsubscribe / ping→pong`——前端 `ctx.ws.send({ type: 'subscribe', room })` 直接可用，两端协议由框架定义
-- **跨进程**：`redis` 选项 → Redis pub/sub 广播（psubscribe 模式），多实例部署天然一致；无 redis 优雅降级单进程
+- **跨进程**：`redis` 选项 → Redis pub/sub 广播（psubscribe 模式），多实例部署天然一致；无 redis 优雅降级单进程。
+  **环回去重**：`broadcast` = 本地直发 + Redis publish，本实例的 subscriber 会收到自己 publish 的消息——publish 携带实例唯一标识 `_pid`（`wf:{pid}:{seq}`），订阅回调跳过自己的环回，保证每个事件恰好投递一次（防 token 级事件重复/乱序）
 - **与 userSystem 咬合**：`sendTo(ctx.user.id)` 按身份路由、`createConversation(ctx.user.id)` 创建者即身份、成员校验自动对齐——身份是消息的路由，消息是身份的交互
 - **裁剪**：已读回执状态机（只做未读数）、附件存储、全文搜索、消息确认/重试（可靠投递用 queue）、移动端推送
 
