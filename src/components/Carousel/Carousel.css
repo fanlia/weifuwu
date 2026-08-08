@@ -24,12 +24,16 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 1;
+  z-index: 2; /* 高于 dots 容器（dots 曾覆盖箭头中心导致不可点） */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  padding: 0; /* 防全局 button padding 撑高 */
+  line-height: 0;
   border: none;
   border-radius: 50%;
   background: var(--wf-color-bg-secondary);
@@ -59,17 +63,25 @@
   left: 0;
   right: 0;
   display: flex;
+  align-items: center; /* 防 dot 被 stretch 成椭圆 */
   justify-content: center;
+  width: fit-content; /* 只包裹圆点，不横跨全宽（避免覆盖两侧箭头） */
+  margin: 0 auto;
   gap: var(--wf-gap-xs);
   z-index: 1;
 }
 
 .wf-carousel-dot {
+  flex: 0 0 8px;
   width: 8px;
   height: 8px;
+  min-height: 8px;
+  max-height: 8px;
   padding: 0;
+  line-height: 8px; /* 防 button UA line-height 撑高 */
   border: none;
   border-radius: 50%;
+  box-sizing: border-box;
   background: var(--wf-color-bg-secondary);
   cursor: pointer;
   transition: background var(--wf-dur-fast) var(--wf-ease-out),
