@@ -19,7 +19,7 @@ import {
   Tabs, Dropdown, Pagination, Accordion,
   Breadcrumb, Divider, FileUpload, Tooltip, Drawer, Popover, Skeleton, Img,
   InView, DatePicker, Chart, Editor, ThemeSwitch,
-  AiChat, ToolCallCard, ApprovalCard,
+  AiChat, ToolCallCard, ApprovalCard, PageHeader, Icon,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
 
@@ -577,6 +577,42 @@ const DemoBreadcrumb: Component = () => () => (
   </div>
 )
 
+const DemoPageHeader: Component = (_props, ctx) => {
+  let display = false
+  return (_p: any) => (
+    <div class="wf-stack wf-gap-md wf-w-full">
+      <PageHeader title="用户管理" sub="管理平台所有用户的账号、角色与权限">
+        <Button size="sm" variant="primary">新建用户</Button>
+        <Button size="sm">导出</Button>
+      </PageHeader>
+      <PageHeader display title="大标题模式" sub="display 档 30px 页面大标题" />
+      <Button size="sm" variant="ghost" onClick={() => { display = !display; ctx.ui.render() }}>切换: {display ? '普通' : 'display'}</Button>
+      <PageHeader display={display} title="可切换标题" sub="点击上方按钮切换 display 档" />
+    </div>
+  )
+}
+
+const DemoIcon: Component = () => () => {
+  const names = ['chevron-down','chevron-up','chevron-left','chevron-right','arrow-left','arrow-up','arrow-down','sort','sort-asc','sort-desc','check','close','alert','info','warning','pause','settings','search','send','stop','retry','upload','trash','edit','plus'] as const
+  return (
+    <div class="wf-stack wf-gap-sm wf-w-full">
+      <div class="wf-row wf-gap-md wf-cluster">
+        {names.map(n => (
+          <span class="wf-row wf-gap-xs wf-text-xs wf-text-secondary" style="align-items:center">
+            <Icon name={n} size={16} />
+            <span>{n}</span>
+          </span>
+        ))}
+      </div>
+      <div class="wf-row wf-gap-md wf-cluster wf-text-sm">
+        <span class="wf-row wf-gap-xs" style="align-items:center"><Icon name="search" /> 随字号</span>
+        <span class="wf-row wf-gap-xs wf-text-brand" style="align-items:center"><Icon name="check" size={20} /> currentColor</span>
+        <span class="wf-row wf-gap-xs wf-text-error" style="align-items:center"><Icon name="trash" /> 红色</span>
+      </div>
+    </div>
+  )
+}
+
 const DemoDivider: Component = () => () => (
   <div class="wf-stack wf-gap-sm wf-w-full">
     <p>上方分割线</p>
@@ -1056,6 +1092,17 @@ if (ok) { /* 执行 */ }`,
 <Divider vertical />
 <Divider>或</Divider>`,
 
+  pageheader: `<PageHeader title="用户管理" sub="管理平台所有用户的账号、角色与权限">
+  <Button size="sm" variant="primary">新建用户</Button>
+  <Button size="sm">导出</Button>
+</PageHeader>
+<PageHeader display title="大标题模式" />`,
+
+  icon: `<Icon name="check" size={16} />
+<Icon name="search" />
+<Icon name="settings" size={20} />
+{/* stroke SVG · currentColor · 1em 随字号 */}`,
+
   fileUpload: `<FileUpload accept="image/*,.pdf"
   multiple maxSize={5242880}
   value={files}
@@ -1225,6 +1272,8 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <Section title="其他">
+        <DemoCard title="PageHeader" desc="页面标题栏，支持 sub + 右侧操作区 + display 大标题" code={CODE.pageheader}><DemoPageHeader /></DemoCard>
+        <DemoCard title="Icon" desc="stroke SVG 图标集，currentColor 着色，随字号缩放" code={CODE.icon}><DemoIcon /></DemoCard>
         <DemoCard title="Divider" desc="分割线，支持 horizontal/vertical/带文字" code={CODE.divider}><DemoDivider /></DemoCard>
       </Section>
 
