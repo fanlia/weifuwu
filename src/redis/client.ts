@@ -7,7 +7,11 @@
 
 import { RedisPool } from '../db/redis/pool.ts'
 import type { Context, Handler } from '../types.ts'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import type { RedisOptions, RedisClient } from './types.ts'
+
+/** 请求级 traceId 存储（x-trace-id 头 → ALS → onCommand 第 4 参数，慢命令可关联请求） */
+const traceStore = new AsyncLocalStorage<string>()
 
 export function redis(options?: string | RedisOptions): RedisClient {
   const opts: RedisOptions = typeof options === 'string' ? { url: options } : (options ?? {})
@@ -22,11 +26,19 @@ export function redis(options?: string | RedisOptions): RedisClient {
     enableOfflineQueue: opts.enableOfflineQueue,
     commandTimeoutMs: opts.commandTimeoutMs,
     socketTimeoutMs: opts.socketTimeoutMs,
+    // onCommand 包装：从 ALS 读请求级 traceId 追加到第 4 参数（无头不注入）
+    onCommand: opts.onCommand
+      ? (cmd, args, dur) => {
+          const tid = traceStore.getStore()
+          opts.onCommand?.(cmd, args, dur, tid || undefined)
+        }
+      : undefined,
   })
 
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
     ctx.redis = pool
-    return next(req, ctx)
+    // 请求级 traceId：x-trace-id 头（无则空串——onCommand 层转 undefined）
+    return traceStore.run(req.headers.get('x-trace-id') ?? '', () => next(req, ctx))
   }) as unknown as RedisClient
 
   mw.__meta = { injects: ['redis'], depends: [] }

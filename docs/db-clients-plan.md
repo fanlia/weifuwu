@@ -281,3 +281,4 @@ weifuwu 自研 DB 客户端支持:
 | redis socket 超时 | 僵尸连接（服务器杀连接无 close 事件）commandTimeout 只弃命令，连接仍挂 | `socketTimeoutMs`（对齐 ioredis）：有 pending 且超时无数据 → reject pending + `socket.destroy()` → 标准断线自愈 | 假服务器不响应 → 超时 reject + connected=false；空闲/正常响应不触发 |
 | redis 丰富命令面 | app/queue 用 `command()` 裸透传 hash/zset 等 | 语义化方法：hash(hset/hget/hgetall/hdel)、list(lpush/rpush/lpop/rpop/lrange)、set(sadd/srem/smembers)、zset(zadd/zrange)、批量(mget/mset/exists/setnx/incrby) | 每命令 round-trip 真库断言 |
 | redis 池级 pipeline | RedisPipeline 仅 connection 级，池无法使用 | `pool.pipeline()`：选一健康连接（key 自动加前缀）；exec 一次往返 | 池上 set/incr/get 管道一次 exec |
+| redis onCommand 观测 | 慢命令无法关联请求（PG 有 onQuery+traceId，Redis 不对称） | connection 层 onCommand 钩子 + 中间件 ALS（x-trace-id 头 → 第 4 参） | 命令遥测断言 + 两请求 traceId 到达 |

@@ -21,6 +21,8 @@ export type RedisOptions = {
   commandTimeoutMs?: number
   /** socket 响应超时 ms（僵尸自愈：有 pending 且超时无数据 → 主动断开重连）。默认 0 = 禁用。 */
   socketTimeoutMs?: number
+  /** 命令观测钩子（慢命令日志/审计）；第 4 参数为请求级 traceId（x-trace-id 头，无则 undefined） */
+  onCommand?: (command: string, args: (string | number)[], durationMs: number, traceId?: string) => void
 }
 
 export interface RedisInjected {

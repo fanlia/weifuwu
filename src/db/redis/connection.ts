@@ -32,7 +32,12 @@ export interface RedisConnectionOptions {
   commandTimeoutMs?: number
   /** socket 响应超时 ms（僵尸自愈：有 pending 命令且超时无数据 → 主动断开走重连）。默认 0 = 禁用。 */
   socketTimeoutMs?: number
+  /** 命令观测钩子（慢命令日志/审计；traceId 由中间件 ALS 注入第 4 参） */
+  onCommand?: (command: string, args: (string | number)[], durationMs: number, traceId?: string) => void
 }
+
+/** 构造后全量配置（onCommand 可缺省——避免 Required 把可选函数变必填） */
+type ResolvedOpts = Omit<Required<RedisConnectionOptions>, 'onCommand'> & { onCommand?: RedisConnectionOptions['onCommand'] }
 
 /** 阻塞命令：超时语义 = resolve(null)（Redis 阻塞超时行为），而非 reject */
 const BLOCKING_COMMANDS = new Set(['BLPOP', 'BRPOP', 'BLMPOP', 'BRPOPLPUSH', 'BZPOPMIN', 'BZPOPMAX', 'WAIT', 'XREAD', 'XREADGROUP'])
@@ -52,7 +57,7 @@ interface Pending {
 export class RedisConnection {
   readonly ready = false
 
-  private opts: Required<RedisConnectionOptions>
+  private opts: ResolvedOpts
   private socket: Socket | null = null
   private parser = new RespParser()
   private pending: Pending[] = []
@@ -85,6 +90,7 @@ export class RedisConnection {
       maxOfflineQueue: options.maxOfflineQueue ?? 5000,
       commandTimeoutMs: options.commandTimeoutMs ?? 0,
       socketTimeoutMs: options.socketTimeoutMs ?? 0,
+      onCommand: options.onCommand,
     }
   }
 
@@ -242,7 +248,8 @@ export class RedisConnection {
   }
 
   private sendNow(name: string, args: (string | number)[], asBuffer?: boolean): Promise<RespValue> {
-    return new Promise((resolve, reject) => {
+    const start = performance.now()
+    return new Promise<RespValue>((resolve, reject) => {
       const p: Pending = {
         resolve,
         reject,
@@ -253,7 +260,16 @@ export class RedisConnection {
       this.pending.push(p)
       this.armSocketTimeout()
       this.socket!.write(encodeCommand([name, ...args])) // Uint8Array 直接写，免 Buffer 拷贝
-    })
+    }).then(
+      (v) => {
+        if (this.opts.onCommand) this.opts.onCommand(name, args, performance.now() - start)
+        return v
+      },
+      (e) => {
+        if (this.opts.onCommand) this.opts.onCommand(name, args, performance.now() - start)
+        throw e
+      },
+    )
   }
 
   /** 命令超时（commandTimeoutMs > 0）：超时标记 timedOut + 处理（阻塞命令 resolve(null)，其余 reject） */
