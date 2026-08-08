@@ -1,7 +1,7 @@
 # weifuwu/layout + weifuwu/components 缺口走查（P5）
 
 > 目标：**开发者零自定义 CSS** —— 业务代码只写 `wf-*` 原语 + 组件，不再手写 `style="..."`。
-> 方法：dogfooding 走查（agent-platform / aippt / weifuwu-demo / components-demo）+ 运行时 DOM 审计。
+> 方法：dogfooding 走查（agent-platform / components-demo + 已归档的 aippt / weifuwu-demo）+ 运行时 DOM 审计。
 > 结论：P0-P4 打好的是**设计基线**（层级/无障碍/暗色/排版），本阶段补**表达力缺口**——开发者仍要手写的样式。
 
 ## 走查发现的缺口（按手写频率排序）
@@ -23,7 +23,7 @@ Token 存在但没有**消费 token 的类**，开发者被迫内联。（示例
 ### 3. 排版工具类不全
 
 - 无 `white-space: pre-wrap` / `word-break: break-word`（聊天气泡 `.bubble` 手写）
-- 无 `text-transform` 工具（aippt `.history-theme`、weifuwu-demo 表头 `uppercase + letter-spacing` 手写）
+- 无 `text-transform` 工具（aippt `.history-theme`、weifuwu-demo 表头 `uppercase + letter-spacing` 手写——应用已归档）
 
 ### 4. 组件能力缺口
 

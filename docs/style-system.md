@@ -139,7 +139,7 @@ app.get('/style.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))
 ## 9. 质量基线
 
 - **测试**：796 全绿 + style-audit 8 项（token 计数同步、z-index/font-size 无硬编码、组件关键视觉 var() 化、暗色零硬编码、focus 规则、reduced-motion、暗色双段）
-- **应用证据**：agent-platform（409 行自研 CSS 删除）、aippt（190 行）、components-demo、weifuwu-demo 全部零 style.css，浏览器实测 0 非 `wf-*` 类
+- **应用证据**：agent-platform（409 行自研 CSS 删除）、components-demo 全部零 style.css，浏览器实测 0 非 `wf-*` 类（早期验证应用 aippt/weifuwu-demo 已归档）
 
 ## 10. 文档地图
 

@@ -171,7 +171,7 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 | 错误映射（23505→409 等） | 红：错误码 → HttpError 断言 → 绿 |
 | **替换** `src/postgres/client.ts` | 全量测试 + 回归 611 |
 
-**验收**：`ctx.sql` 零依赖实现；aippt 的 db.ts 迁移后 64 测试全绿
+**验收**：`ctx.sql` 零依赖实现；aippt（已归档）迁移后 64 测试全绿，自研客户端经 agent-platform 生产验证
 
 ---
 
@@ -184,10 +184,10 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 | schema 注册 → 行类型推断 | 红：注册后查询类型正确 → 绿 |
 | 运行时校验（OID → 类型验证） | 红：脏数据被拦截断言 → 绿 |
 | 观测内建（onQuery/慢查询日志/traceId） | 红：钩子调用断言 → 绿 |
-| **全量替换**：aippt 迁移到新客户端 | aippt 64 测试 + 端到端回归 |
+| **全量替换**：aippt（已归档）迁移到新客户端 | aippt 64 测试 + 端到端回归（当时） |
 | 文档：行为契约 + 裁剪声明 | 验收 |
 
-**验收**：aippt 完全跑在自研客户端上；`parseRow()`/双重编码样板从 aippt 消失
+**验收**：aippt（已归档）完全跑在自研客户端上；`parseRow()`/双重编码样板从应用层消失
 
 ---
 
@@ -198,7 +198,7 @@ test/mock/pg-server.ts      v3 协议服务端（认证握手/Parse/Bind/Execute
 | M1 | 第 1 周 | Redis 核心通过 mock + 真库 | ✅ |
 | M2 | 第 2 周 | ctx.redis 替换 ioredis，框架零回归 | ✅ |
 | M3 | 第 4 周 | Postgres 核心通过 mock + 真库 | ✅ |
-| M4 | 第 5 周 | ctx.sql 替换 postgres.js，aippt 迁移成功 | ✅ |
+| M4 | 第 5 周 | ctx.sql 替换 postgres.js，aippt 迁移成功（应用已归档） | ✅ |
 | M5 | 第 6 周 | 类型层 + 文档 + 全量回归 | ✅ |
 
 **总规模**：约 5-6 周（含 TDD 测试编写）
