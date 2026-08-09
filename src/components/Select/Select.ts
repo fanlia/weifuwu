@@ -75,7 +75,10 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
   // overflow/transform 裁剪（AutoComplete 同款教训）。usePopup 提供
   // portal + 定位 + 外部点击 + Escape + 锚点感知。
   let triggerEl: HTMLElement | null = null
+  let inputEl: HTMLInputElement | null = null
   const triggerRef = (el: HTMLElement | null) => { if (el) triggerEl = el }
+  // 稳定 ref：trigger 点击聚焦 input（用户点击 Select 应有输入光标）
+  const searchInputRef = (el: HTMLInputElement | null) => { if (el) inputEl = el }
   const popup = ctx.ui.usePopup({
     trigger: () => 'click',
     placement: () => 'bottom',
@@ -179,12 +182,16 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
       ref: triggerRef,
       // 只开不关（toggle 与 input focus 冲突：点击 input 区域 focus 开→click toggle 关
       // ——'先弹出后自动关闭'根因）。关闭走：外部点击（usePopup）/Escape/选中（handleSelect）
-      onClick: disabled ? undefined : () => { $.open = true },
+      onClick: disabled ? undefined : () => {
+        $.open = true
+        inputEl?.focus() // 点击 Select → 输入框聚焦（光标 + focus 样式）
+      },
     }, [
       ...tags,
       h('input', {
         // key 稳定：无 key 数组子节点每次渲染重建 → input 焦点丢失（受控输入纪律）
         key: 'select-search-input',
+        ref: searchInputRef,
         class: 'wf-select-search-input',
         type: 'text',
         value: isMulti ? '' : ($.open ? $.keyword : (selectedOption?.label ?? '')),
