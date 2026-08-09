@@ -295,6 +295,7 @@ const DemoTable: Component = (_props, ctx) => {
   const $ = ctx.ui.$()
   $.sortKey = 'name'
   $.sortOrder = 'asc'
+  $.view = 'data' // 'data' | 'empty'
   const data = [
     { id: 1, name: '张三', role: '管理员', status: '活跃' },
     { id: 2, name: '李四', role: '编辑', status: '离线' },
@@ -302,7 +303,11 @@ const DemoTable: Component = (_props, ctx) => {
   ]
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
-      <Table data={data} columns={[
+      <div class="wf-row wf-gap-xs">
+        <button class={`wf-btn wf-btn--sm ${$.view === 'data' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { $.view = 'data'; ctx.ui.render() }}>有数据</button>
+        <button class={`wf-btn wf-btn--sm ${$.view === 'empty' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { $.view = 'empty'; ctx.ui.render() }}>空态</button>
+      </div>
+      <Table data={$.view === 'empty' ? [] : data} columns={[
         { key: 'id', label: 'ID', width: 60 },
         { key: 'name', label: '姓名', sortable: true },
         { key: 'role', label: '角色', sortable: true },
@@ -310,7 +315,7 @@ const DemoTable: Component = (_props, ctx) => {
       ]}
         sortKey={$.sortKey} sortOrder={$.sortOrder}
         onSort={(key, order) => { $.sortKey = key; $.sortOrder = order }} />
-      <div class="wf-text-xs wf-text-secondary">点击列头排序（姓名 / 角色）</div>
+      <div class="wf-text-xs wf-text-secondary">点击列头排序（姓名 / 角色）；切换查看空态</div>
     </div>
   )
 }
@@ -500,17 +505,18 @@ const DemoStatCard: Component = () => () => (
 const DemoSteps: Component = (_props, ctx) => {
   let step = 'info'
   return (_p: any) => (
-    <div class="wf-w-full">
+    <div class="wf-w-full wf-stack wf-gap-sm">
       <Steps items={[
-        { key: 'info', label: '填写信息' },
-        { key: 'pay', label: '支付' },
-        { key: 'done', label: '完成' },
+        { key: 'info', label: '填写信息', description: '表单信息' },
+        { key: 'pay', label: '支付', description: '在线付款' },
+        { key: 'done', label: '完成', description: '订单生效' },
       ]} active={step} />
-      <div class="wf-row wf-gap-sm wf-mt-sm" style="justify-content:center">
-        <Button size="sm" onClick={() => { step = 'info'; ctx.ui.render() }}>第一步</Button>
-        <Button size="sm" onClick={() => { step = 'pay'; ctx.ui.render() }}>第二步</Button>
-        <Button size="sm" onClick={() => { step = 'done'; ctx.ui.render() }}>第三步</Button>
+      <div class="wf-row wf-gap-sm" style="justify-content:center">
+        <Button size="sm" variant="secondary" onClick={() => { step = 'info'; ctx.ui.render() }}>第一步</Button>
+        <Button size="sm" variant="secondary" onClick={() => { step = 'pay'; ctx.ui.render() }}>第二步</Button>
+        <Button size="sm" variant="secondary" onClick={() => { step = 'done'; ctx.ui.render() }}>第三步</Button>
       </div>
+      <div class="wf-text-xs wf-text-secondary">三步流程 + 描述；aria-current="step" 标识当前步</div>
     </div>
   )
 }
@@ -811,9 +817,12 @@ const DemoList: Component = () => () => (
 )
 
 const DemoResult: Component = () => () => (
-  <div class="wf-w-full">
+  <div class="wf-w-full wf-stack wf-gap-md">
     <Result status="success" title="注册成功" desc="欢迎加入 weifuwu，验证邮件已发送至你的邮箱"
       extra={<><Button variant="primary">进入工作台</Button><Button variant="ghost">返回首页</Button></>} />
+    <Result status="error" title="提交失败" desc="网络异常，请稍后重试或联系客服"
+      extra={<Button variant="primary">重试</Button>} />
+    <Result status="warning" title="权限不足" desc="当前账号无访问该资源的权限，请联系管理员开通" />
   </div>
 )
 

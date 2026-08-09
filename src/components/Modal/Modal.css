@@ -9,22 +9,41 @@
   z-index: var(--wf-z-modal);
 }
 
-.wf-modal--enter {
-  animation: wf-modal-fadein var(--wf-dur-base) var(--wf-ease-out);
+.wf-modal--enter .wf-modal-overlay {
+  animation: wf-modal-overlay-fadein var(--wf-dur-base) var(--wf-ease-out);
 }
 
-.wf-modal--exit {
-  animation: wf-modal-fadeout var(--wf-dur-base) var(--wf-ease-in) forwards;
+.wf-modal--exit .wf-modal-overlay {
+  animation: wf-modal-overlay-fadeout var(--wf-dur-base) var(--wf-ease-in) forwards;
 }
 
-@keyframes wf-modal-fadein {
+@keyframes wf-modal-overlay-fadein {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-@keyframes wf-modal-fadeout {
+@keyframes wf-modal-overlay-fadeout {
   from { opacity: 1; }
   to   { opacity: 0; }
+}
+
+/* 内容独立动画（不随遮罩 opacity，避免父级 opacity 过渡延迟 backdrop-filter） */
+.wf-modal--enter .wf-modal-content {
+  animation: wf-modal-pop var(--wf-dur-base) var(--wf-ease-out);
+}
+
+.wf-modal--exit .wf-modal-content {
+  animation: wf-modal-unpop var(--wf-dur-base) var(--wf-ease-in) forwards;
+}
+
+@keyframes wf-modal-pop {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes wf-modal-unpop {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.96); }
 }
 
 .wf-modal-overlay {
@@ -46,6 +65,7 @@
   display: flex;
   flex-direction: column;
   z-index: 1;
+  transform-origin: center;
 }
 
 .wf-modal-header {
