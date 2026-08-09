@@ -22,7 +22,13 @@ describe('CodeBlock', () => {
     const pre = vnode.props.children.find((c: any) => c?.props?.class === 'wf-codeblock-pre')
     const codeEl = pre.props.children
     assert.equal(codeEl.props.class, 'wf-codeblock-code')
-    assert.equal(codeEl.props.children, 'const a = 1')
+    // 语法高亮：children 为 token 数组（keyword/number span + 文本）
+    const children = codeEl.props.children
+    assert.ok(Array.isArray(children), '高亮后 children 是 token 数组')
+    assert.ok(children.some((c: any) => c?.props?.class === 'wf-hl-keyword'), '关键字高亮 span')
+    assert.ok(children.some((c: any) => c?.props?.class === 'wf-hl-number'), '数字高亮 span')
+    // token 拼接还原原文
+    assert.equal(children.map((c: any) => typeof c === 'string' ? c : c.props.children).join(''), 'const a = 1')
   })
 
   it('语言标签展示（标题区内）', () => {

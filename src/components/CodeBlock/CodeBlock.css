@@ -72,3 +72,12 @@
   font-family: inherit;
   white-space: pre;
 }
+
+/* ── 语法高亮（自研 tokenizer——语义色 token 亮暗双适配，P2 纪律 -text 变体） ── */
+.wf-hl-comment { color: var(--wf-color-success-text); font-style: italic; }
+.wf-hl-string { color: var(--wf-color-warning-text); }
+.wf-hl-keyword { color: var(--wf-color-primary-text); font-weight: 500; }
+.wf-hl-number { color: var(--wf-color-info-text); }
+.wf-hl-function { color: var(--wf-color-primary-text); }
+.wf-hl-jsx-tag { color: var(--wf-color-error-text); }
+.wf-hl-operator { color: var(--wf-color-text-tertiary); }

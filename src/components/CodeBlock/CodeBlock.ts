@@ -1,15 +1,16 @@
 /**
  * weifuwu/components — CodeBlock
  *
- * 代码展示块：语言标签 + 复制按钮 + 横向滚动。
+ * 代码展示块：语言标签 + 复制按钮 + 横向滚动 + 自研轻量语法高亮
+ * （highlight.ts tokenizer——零依赖 FS-05）。
  * 由 Markdown 代码围栏复用；也可独立使用。
- * 裁剪：不做语法高亮（零依赖，语言标签仅展示）。
  */
 
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
+import { tokenize } from './highlight.ts'
 
 export interface CodeBlockProps {
   code: string
@@ -51,8 +52,16 @@ export const CodeBlock: Component<CodeBlockProps> = (_init, ctx) => {
       copyBtn,
     ].filter(Boolean))
 
+    // 语法高亮：tokenize → span（text 类型不包 span——保持 DOM 轻量）
+    const highlighted = code
+      ? tokenize(code, lang).map((t, i) =>
+          t.type === 'text'
+            ? t.text
+            : h('span', { class: `wf-hl-${t.type}` }, t.text))
+      : code
+
     const pre = h('pre', { class: 'wf-codeblock-pre' },
-      h('code', { class: 'wf-codeblock-code' }, code))
+      h('code', { class: 'wf-codeblock-code' }, highlighted))
 
     return h('div', { class: 'wf-codeblock' }, [header, pre])
   }
