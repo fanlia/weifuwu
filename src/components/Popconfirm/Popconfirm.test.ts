@@ -29,21 +29,35 @@ function mount(Comp: any, props: any, ctx: any) {
   return { render: (p: any = props) => factory(p) }
 }
 
-const mockCtx = () => ({
-  ui: {
-    $: () => ({}),
-    render: () => {},
-    dirty: () => {},
-    usePopup: (opts: any) => ({
-      get open() { return opts.isOpen() },
-      setOpen: opts.setOpen,
-      refresh: () => {},
-      wrapProps: {},
-      portal: (content: any) => content,
-      isOpen: opts.isOpen,
-    }),
-  },
-}) as any
+const mockCtx = () => {
+  const openStates = new Map<string, boolean>()
+  return {
+    ui: {
+      $: () => ({}),
+      render: () => {},
+      dirty: () => {},
+      useOpen: (opts: any) => {
+        const key = opts.name ?? 'default'
+        if (!openStates.has(key)) openStates.set(key, false)
+        const controlled = opts.open !== undefined
+        const isOpen = () => controlled ? !!opts.open : (openStates.get(key) ?? false)
+        const setOpen = (v: boolean) => {
+          if (controlled) opts.onOpenChange?.(v)
+          else openStates.set(key, v)
+        }
+        return { get open() { return isOpen() }, setOpen, triggerProps: { onClick: () => setOpen(true), onFocus: () => {} } }
+      },
+      usePopup: (opts: any) => ({
+        get open() { return opts.isOpen() },
+        setOpen: opts.setOpen,
+        refresh: () => {},
+        wrapProps: {},
+        portal: (content: any) => content,
+        isOpen: opts.isOpen,
+      }),
+    },
+  } as any
+}
 
 describe('Popconfirm', () => {
   test('渲染触发元素 + 气泡内容（title + 确认/取消）', () => {

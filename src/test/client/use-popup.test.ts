@@ -139,14 +139,18 @@ describe('ctx.ui.usePopup', () => {
     t.app.destroy()
   })
 
-  it('click 触发：tap 切换开关', async () => {
+  it('click 触发：只开不关（Select 教训——关闭交外部点击/Escape）', async () => {
     const t = await mountPopup({ trigger: 'click' })
     fire(t.trigger, 'click')
     await flush()
-    assert.ok(t.panel(), '第一次 tap 打开')
+    assert.ok(t.panel(), 'tap 打开')
     fire(t.trigger, 'click')
     await flush()
-    assert.equal(t.panel(), null, '第二次 tap 关闭')
+    assert.ok(t.panel(), '再次 tap 保持打开（只开——防自定义 trigger onClick 双触发净零）')
+    // 外部点击关闭
+    fire(document.body, 'mousedown')
+    await flush()
+    assert.equal(t.panel(), null, '外部点击关闭')
     t.app.destroy()
   })
 

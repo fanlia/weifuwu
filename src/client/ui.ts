@@ -473,7 +473,10 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         wrapProps.onFocus = () => { if (!isDisabled()) { clearTimeout(closeTimer); closeTimer = undefined; openTimer = setTimeout(() => { openTimer = undefined; setOpen(true) }, openDelay()) } }
         wrapProps.onBlur = () => { if (!isDisabled()) { clearTimeout(openTimer); openTimer = undefined; closeTimer = setTimeout(() => { closeTimer = undefined; setOpen(false) }, closeDelay()) } }
       } else if (triggerOf() === 'click') {
-        wrapProps.onClick = () => setOpen(!isOpen())
+        // 只开不关（Select 教训）：trigger 点击只打开——关闭交外部点击/Escape/
+        // 选中（组件业务语义）。toggle 会与自定义 trigger 的 onClick 双触发净零
+        // （Dropdown demo：Button onClick 开 + wrapProps toggle 关 = 永远关）。
+        wrapProps.onClick = () => setOpen(true)
       } else if (triggerOf() === 'longpress') {
         let timer: ReturnType<typeof setTimeout> | undefined
         let startX = 0
@@ -835,6 +838,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       open?: boolean
       onOpenChange?: (open: boolean) => void
       openOnFocus?: boolean
+      /** warn 名称（受控缺回调时提示——弹层/受控组件统一） */
+      name?: string
     }) {
       const selfId = getSelfId(this)
       // render 阶段调用——非受控内部态 Map 缓存跨渲染保持
@@ -843,6 +848,14 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         onComponentUnmount((id) => { openStates.delete(id) })
       }
       const controlled = options.open !== undefined
+      // 受控缺回调 warn：模块级按 name 幂等（对齐 useControlled——受控纪律自动化）
+      if (controlled && !options.onOpenChange && options.name && !warnedControlled.has(options.name)) {
+        warnedControlled.add(options.name)
+        console.warn(
+          `[weifuwu/${options.name}] 受控模式（open 已传）但未提供 onOpenChange，交互无法生效。\n` +
+          `非受控：去掉 open；受控：传入 onOpenChange={(o) => setOpen(o)}`
+        )
+      }
       const isOpen = () => (controlled ? !!options.open : (selfId ? openStates.get(selfId) ?? false : false))
       const dirty = () => {
         if (selfId) ctx.ui?.dirty([selfId])
@@ -856,6 +869,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       return {
         get open() { return isOpen() },
         setOpen,
+        // 弹层/受控双向场景：open getter + setOpen（受控走 onOpenChange）
         // trigger 协调：onClick 只开（focus 开 + click 关冲突教训——关闭交外部）
         triggerProps: {
           onClick: () => setOpen(true),

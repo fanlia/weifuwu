@@ -16,13 +16,22 @@ setupJsdom()
 
 /** usePopup mock：镜像真实语义（受控 isOpen + wf-popup 合并 + disabled/closed → portal null） */
 function createMockCtx(): WfuiContext {
+  const openStates = new Map<string, boolean>()
   return { ui: {
     render: () => {}, $: () => ({}), dirty: () => {},
-    usePopup: (opts: any) => {
-      const isOpen = () => {
-        if (opts.open === undefined) return false // 非受控：组件内部 show（测试里保持关闭）
-        return typeof opts.open === 'function' ? !!opts.open() : !!opts.open
+    useOpen: (opts: any) => {
+      const key = opts.name ?? 'default'
+      if (!openStates.has(key)) openStates.set(key, false)
+      const controlled = opts.open !== undefined
+      const isOpen = () => controlled ? !!opts.open : (openStates.get(key) ?? false)
+      const setOpen = (v: boolean) => {
+        if (controlled) opts.onOpenChange?.(v)
+        else openStates.set(key, v)
       }
+      return { get open() { return isOpen() }, setOpen, triggerProps: { onClick: () => setOpen(true), onFocus: () => {} } }
+    },
+    usePopup: (opts: any) => {
+      const isOpen = () => (opts.isOpen ? opts.isOpen() : false)
       const portal = (content: any) => {
         if (opts.disabled?.() || !isOpen()) return null
         return {
@@ -49,7 +58,7 @@ function createMockCtx(): WfuiContext {
           onClick: () => { opts.onOpenChange?.(!isOpen()) },
           onMouseEnter: () => {}, onMouseLeave: () => {},
           onFocus: () => {}, onBlur: () => {},
-          onKeyDown: (e: any) => { if (e.key === 'Escape') opts.onOpenChange?.(false) },
+          onKeyDown: (e: any) => { if (e.key === 'Escape') opts.setOpen?.(false) },
         },
         portal,
         refresh: () => {},

@@ -390,8 +390,8 @@ export interface WfuiContext {
       selectedLabel: string
       setSelectedLabel: (v: string) => void
     }
-    /** 显隐打开状态机（C4）：trigger/focus 协调（onClick 只开——防 focus 开+click 关冲突） */
-    useOpen: (options: { open?: boolean; onOpenChange?: (open: boolean) => void; openOnFocus?: boolean }) => {
+    /** 显隐打开状态机（C4）：trigger/focus 协调（onClick 只开——防 focus 开+click 关冲突）；弹层双向场景用 open/setOpen（受控走 onOpenChange + 缺回调 warn） */
+    useOpen: (options: { open?: boolean; onOpenChange?: (open: boolean) => void; openOnFocus?: boolean; name?: string }) => {
       open: boolean
       setOpen: (open: boolean) => void
       triggerProps: { onClick: () => void; onFocus: () => void }

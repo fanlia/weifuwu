@@ -39,36 +39,26 @@ export interface PopconfirmProps {
 
 export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
-  let show = false
   let latestPosition: Placement = 'top'
-  let latestOpen: boolean | undefined = _init?.open
-  let latestOnOpenChange: ((v: boolean) => void) | undefined
   let latestOnConfirm: (() => void) | undefined
   let disabled = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
+
+  // useOpen：受控/非受控 open 统一（close 走 setOpen——受控通知父组件）
+  let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
 
   const popup = ctx.ui.usePopup({
     trigger: () => 'click',
     placement: () => latestPosition,
     gap: 8,
     el: () => wrapEl,
-    isOpen: () => show,
-    setOpen: (v) => { show = v; ctx.ui.render() },
-    open: _init?.open !== undefined ? () => !!latestOpen : undefined,
-    onOpenChange: (v) => latestOnOpenChange?.(v),
+    isOpen: () => openCtrl?.open ?? false,
+    setOpen: (v) => openCtrl?.setOpen(v),
     disabled: () => disabled,
   })
 
-  const close = () => {
-    if (latestOpen !== undefined) {
-      // 受控：通知父组件（open 由外部驱动）
-      latestOnOpenChange?.(false)
-    } else {
-      show = false
-      ctx.ui.render()
-    }
-  }
+  const close = () => { openCtrl?.setOpen(false) }
 
   // ── render（每次 dirty/props 变化）──
   return (props: PopconfirmProps) => {
@@ -77,13 +67,12 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: WfuiContext) 
       onConfirm, onCancel, position = 'top', icon,
     } = props
     latestPosition = position
-    latestOpen = props.open
-    latestOnOpenChange = props.onOpenChange
+    openCtrl = ctx.ui.useOpen({ open: props.open, onOpenChange: props.onOpenChange, name: 'Popconfirm' })
     latestOnConfirm = onConfirm
     disabled = !!props.disabled
 
-    // popup.open 是创建时快照（usePopup 设计）——气泡显隐/动效类用内部 show
-    const isOpen = props.open !== undefined ? !!props.open : show
+    // useOpen open getter 读最新（受控 props / 非受控内部）——气泡显隐/动效类
+    const isOpen = openCtrl?.open ?? false
     const bubble = h('div', {
       class: `wf-popconfirm wf-popconfirm--${position}${isOpen ? ' wf-popconfirm--enter' : ' wf-popconfirm--exit'}`,
       role: 'dialog',

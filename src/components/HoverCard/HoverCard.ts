@@ -27,20 +27,22 @@ export interface HoverCardProps {
 /** 悬停富内容卡：hover 延迟显隐，支持任意 VNode 内容（移动端 tap 降级） */
 export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
   // ── mount（只一次）──
-  let show = false
   let latestPosition: HoverCardPosition = 'top'
   let disabled = false
   let latestDelay = { open: 150, close: 0 }
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
 
+  // useOpen：受控/非受控 open 统一（hover 触发由 usePopup trigger 驱动）
+  let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
+
   const popup = ctx.ui.usePopup({
     trigger: 'hover',
     placement: () => latestPosition,
     gap: 8,
     el: () => wrapEl,
-    isOpen: () => show,
-    setOpen: (v) => { show = v; ctx.ui.render() },
+    isOpen: () => openCtrl?.open ?? false,
+    setOpen: (v) => openCtrl?.setOpen(v),
     disabled: () => disabled,
     openDelay: () => latestDelay.open,
     closeDelay: () => latestDelay.close,
@@ -48,6 +50,8 @@ export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
 
   return (props: HoverCardProps) => {
     const { content, position = 'top', children } = props
+    // HoverCard 非受控（hover 显隐由 usePopup trigger 驱动——无 open prop）
+    openCtrl = ctx.ui.useOpen({ name: 'HoverCard' })
     latestPosition = position
     disabled = !!props.disabled
     latestDelay = { open: props.openDelay ?? 150, close: props.closeDelay ?? 0 }

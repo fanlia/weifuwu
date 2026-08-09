@@ -27,32 +27,23 @@ export interface DropdownProps {
 
 export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   // ── mount（只一次）──
-  let latestOpen = false
-  let latestOnOpenChange: ((open: boolean) => void) | undefined = _init?.onOpenChange
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
+
+  // useOpen：受控/非受控 open 统一（warn 缺回调——受控纪律自动化）
+  let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
 
   const popup = ctx.ui.usePopup({
     trigger: 'click',
     el: () => wrapEl,
-    isOpen: () => latestOpen,
-    setOpen: (v) => { latestOpen = v; ctx.ui.render() },
-    // 受控桥：initProps 传了 open 才进受控模式；值每次渲染同步（getter）
-    open: _init?.open !== undefined ? () => latestOpen : undefined,
-    onOpenChange: (v) => {
-      if (latestOnOpenChange) {
-        latestOnOpenChange(v)
-      } else if (_init?.open !== undefined) {
-        console.warn('[weifuwu/Dropdown] 受控模式（open 已传）但未提供 onOpenChange，Escape/外部点击关闭无法生效。\n非受控：去掉 open；受控：传入 onOpenChange={(o) => setOpen(o)}')
-      }
-    },
+    isOpen: () => openCtrl?.open ?? false,
+    setOpen: (v) => openCtrl?.setOpen(v),
   })
 
   // ── render（每次 dirty/props 变化）──
   return (props: DropdownProps) => {
     const { trigger, items = [] } = props
-    latestOpen = !!props.open
-    latestOnOpenChange = props.onOpenChange
+    openCtrl = ctx.ui.useOpen({ open: props.open, onOpenChange: props.onOpenChange, name: 'Dropdown' })
 
     const menuItems = items.map((item, i) =>
       h('button', {
@@ -67,12 +58,12 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     }, menuItems)
 
     return h('div', {
-      class: `wf-dropdown${latestOpen ? ' wf-dropdown--open' : ''}`,
+      class: `wf-dropdown${openCtrl?.open ? ' wf-dropdown--open' : ''}`,
       ref: wrapRef,
       ...popup.wrapProps,
       // 触发区语义：菜单弹出（trigger 为不透明 VNode，ARIA 挂在包装层，文档注明）
       'aria-haspopup': 'menu',
-      'aria-expanded': String(!!latestOpen),
+      'aria-expanded': String(!!openCtrl?.open),
     }, [trigger, popup.portal(menu, 'dropdown')].filter(Boolean))
   }
 }

@@ -24,25 +24,22 @@ export interface PopoverProps {
 
 export const Popover: Component<PopoverProps> = (_init, ctx) => {
   // ── mount（只一次）──
-  let show = false
   let latestPosition: PopoverPosition = 'bottom'
   let latestTrigger: 'click' | 'hover' = 'click'
-  let latestOpen: boolean | undefined = _init?.open
-  let latestOnOpenChange: ((open: boolean) => void) | undefined = _init?.onOpenChange
   let disabled = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
+
+  // useOpen：受控/非受控 open 统一（warn 缺回调——受控纪律自动化）
+  let openCtrl: ReturnType<WfuiContext['ui']['useOpen']> | null = null
 
   const popup = ctx.ui.usePopup({
     trigger: () => latestTrigger,
     placement: () => latestPosition,
     gap: 6,
     el: () => wrapEl,
-    isOpen: () => show,
-    setOpen: (v) => { show = v; ctx.ui.render() },
-    // 受控桥：initProps 传了 open 才进受控模式；open 值每次渲染同步（getter）
-    open: _init?.open !== undefined ? () => !!latestOpen : undefined,
-    onOpenChange: (v) => latestOnOpenChange?.(v),
+    isOpen: () => openCtrl?.open ?? false,
+    setOpen: (v) => openCtrl?.setOpen(v),
     disabled: () => disabled,
   })
 
@@ -51,8 +48,7 @@ export const Popover: Component<PopoverProps> = (_init, ctx) => {
     const { content, position = 'bottom', trigger = 'click', children } = props
     latestPosition = position
     latestTrigger = trigger
-    latestOpen = props.open
-    latestOnOpenChange = props.onOpenChange
+    openCtrl = ctx.ui.useOpen({ open: props.open, onOpenChange: props.onOpenChange, name: 'Popover' })
     disabled = !!props.disabled
 
     const popover = h('div', {
@@ -64,7 +60,7 @@ export const Popover: Component<PopoverProps> = (_init, ctx) => {
     ])
 
     return h('div', {
-      class: `wf-popover-wrap${popup.open ? ' wf-popover-wrap--open' : ''}`,
+      class: `wf-popover-wrap${openCtrl?.open ? ' wf-popover-wrap--open' : ''}`,
       ref: wrapRef,
       ...popup.wrapProps,
     }, [children, popup.portal(popover, 'popover')].filter(Boolean))

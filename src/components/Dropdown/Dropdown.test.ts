@@ -8,9 +8,26 @@ import type { WfuiContext } from '../../client/types.ts'
 
 /** usePopup mock：镜像真实语义（受控 isOpen + wf-popup 合并 + Escape via wrapProps） */
 function mockCtx(): WfuiContext {
+  const openStates = new Map<string, boolean>()
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {},
+    useOpen: (opts: any) => {
+      const key = opts.name ?? 'default'
+      if (!openStates.has(key)) openStates.set(key, false)
+      const controlled = opts.open !== undefined
+      const isOpen = () => controlled ? !!opts.open : (openStates.get(key) ?? false)
+      const setOpen = (v: boolean) => {
+        if (controlled) opts.onOpenChange?.(v)
+        else openStates.set(key, v)
+      }
+      return {
+        get open() { return isOpen() },
+        setOpen,
+        triggerProps: { onClick: () => setOpen(true), onFocus: () => {} },
+      }
+    },
     usePopup: (opts: any) => {
-      const isOpen = () => opts.open === undefined ? false : (typeof opts.open === 'function' ? !!opts.open() : !!opts.open)
+      // 对齐真实 usePopup：isOpen 是函数（迁移后无 open 参数——用 isOpen()）
+      const isOpen = () => (opts.isOpen ? opts.isOpen() : false)
       const portal = (content: any) => {
         if (!isOpen()) return null
         return {
@@ -28,7 +45,8 @@ function mockCtx(): WfuiContext {
         setOpen: (v: any) => { opts.onOpenChange?.(v) },
         wrapProps: {
           onClick: () => {},
-          onKeyDown: (e: any) => { if (e.key === 'Escape') opts.onOpenChange?.(false) },
+          // 对齐真实 usePopup：Escape 调 setOpen（受控走 onOpenChange）
+          onKeyDown: (e: any) => { if (e.key === 'Escape') opts.setOpen?.(false) },
         },
         portal,
         refresh: () => {},

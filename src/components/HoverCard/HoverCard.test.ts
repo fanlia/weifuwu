@@ -8,11 +8,24 @@ import type { WfuiContext } from '../../client/types.ts'
 
 /** usePopup mock：镜像真实语义（openDelay/closeDelay 定时 + disabled/closed → portal null） */
 function mockCtx(show = false): WfuiContext {
+  const openStates = new Map<string, boolean>()
   return { ui: {
     $: {},
     render: () => {},
     dirty: () => {},
+    useOpen: (opts: any) => {
+      const key = opts.name ?? 'default'
+      if (!openStates.has(key)) openStates.set(key, show)
+      const controlled = opts.open !== undefined
+      const isOpen = () => controlled ? !!opts.open : (openStates.get(key) ?? false)
+      const setOpen = (v: boolean) => {
+        if (controlled) opts.onOpenChange?.(v)
+        else openStates.set(key, v)
+      }
+      return { get open() { return isOpen() }, setOpen, triggerProps: { onClick: () => setOpen(true), onFocus: () => {} } }
+    },
     usePopup: (opts: any) => {
+      // 对齐真实 usePopup：isOpen 函数 + setOpen 驱动（受控走 onOpenChange）
       let open = show
       const portal = (content: any) => {
         if (opts.disabled?.() || !open) return null
