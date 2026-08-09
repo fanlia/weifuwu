@@ -186,8 +186,10 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
           h('div', { class: 'wf-json-children' }, rows),
         ])
       }
-      // 标量（顶层键）
+      // 标量（顶层键）——补 toggle 占位（与对象/数组行的 chevron 同宽），
+      // 保证同层 key 文本起始位置对齐（active: 与 model: 同一 x）
       return h('div', { class: 'wf-json-row', 'data-path': path }, [
+        h('span', { class: 'wf-json-toggle-placeholder' }),
         h('span', { class: 'wf-json-key' }, `${key}:`),
         h('span', { class: `wf-json-value ${typeClass(v)}` }, formatValue(v)),
         h('button', {
