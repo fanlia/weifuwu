@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-纯 CSS 布局原语 + 工具类 + 141 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 布局原语 + 工具类 + 143 个主题 Token。不绑定任何 JS 框架。
 
 > **学习路径与命名规范**：见 [`design/style-guide.md`](../design/style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
@@ -101,7 +101,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | `wf-truncate` | 单行省略（ellipsis） |
 | `wf-line-clamp-2/3` | 多行截断 |
 
-## 141 个主题 Token
+## 143 个主题 Token
 
 **双层结构**：原始层（Primitive，色值只定义一次，品牌/暗色调校改这里）+ 语义层（Semantic，组件消费）。
 

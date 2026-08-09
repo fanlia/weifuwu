@@ -63,6 +63,7 @@
   --wf-space-2xl: 40px;
 
   /* ── 圆角 ── */
+  --wf-radius-xs: 2px;   /* 内联代码/小元素圆角 */
   --wf-radius-sm: 4px;
   --wf-radius: 6px;
   --wf-radius-md: 8px;
@@ -170,6 +171,7 @@
 
   --wf-ease-out: cubic-bezier(0.16, 1, 0.3, 1);       /* 入场：快出缓停 */
   --wf-ease-in: cubic-bezier(0.4, 0, 1, 1);            /* 退场：渐入加速 */
+  --wf-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);       /* 往返/闪烁动画 */
   --wf-ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);   /* 选中/弹跳 */
 
   --wf-motion-sm: 4px;

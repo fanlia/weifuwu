@@ -35,8 +35,8 @@
   border-radius: 50%;
   background: var(--wf-color-primary);
   cursor: pointer;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  border: 2px solid var(--wf-color-on-brand);
+  box-shadow: var(--wf-slider-thumb-shadow, 0 1px 3px rgba(0,0,0,0.2));
 }
 
 /* Firefox 同款 thumb（跨浏览器一致） */
@@ -46,8 +46,8 @@
   border-radius: 50%;
   background: var(--wf-color-primary);
   cursor: pointer;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  border: 2px solid var(--wf-color-on-brand);
+  box-shadow: var(--wf-slider-thumb-shadow, 0 1px 3px rgba(0,0,0,0.2));
 }
 
 .wf-slider-input::-moz-range-track {

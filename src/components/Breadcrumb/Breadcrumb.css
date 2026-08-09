@@ -7,7 +7,7 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text-secondary);
-  line-height: var(--wf-line-height-normal);
+  line-height: var(--wf-line-height);
 }
 
 .wf-breadcrumb-link {
