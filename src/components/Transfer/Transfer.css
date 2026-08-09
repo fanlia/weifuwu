@@ -3,7 +3,8 @@
 .wf-transfer {
   display: flex;
   align-items: stretch;
-  gap: var(--wf-gap, var(--wf-gap-md)); // wf-gap-* 改直接 gap 后 --wf-gap 无继承来源——加 fallback
+  /* wf-gap-* 改直接 gap 后 --wf-gap 无继承来源——加 fallback */
+  gap: var(--wf-gap, var(--wf-gap-md));
   font-family: var(--wf-font-sans);
 }
 
