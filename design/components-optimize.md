@@ -43,6 +43,10 @@
 
 ## 进度记录
 
+- **Wave 5 ✅**（2026-08）：Affix/Alert/Anchor/ApprovalCard/BackTop/CodeBlock/CopyButton/
+  InfiniteScroll/Link/Pagination/Tabs/Tag 12 组件补达基线（受控回调/键盘可达/变体/边界）。
+  **TEST_GAP 注册表归零——109 组件全部 ≥ 基线（交互 8 / 展示 3）**，注册表机制保留防空
+  （新组件低于基线必须登记）。计数 904。P10 收官：全量 1878 测试绿
 - **Wave 4 ✅**（2026-08）：Img/Timeline/VirtualTable 补达基线（fallback 边界/reverse+alternate/受控排序/窗口行数）；TEST_GAP W4 清零；计数 875
 - **Wave 3 ✅**（2026-08）：Checkbox/RadioGroup/Switch/Slider/SearchInput/PasswordInput/
   SegmentedControl/Calendar/TreeSelect 9 组件补到达基线；**Calendar 日期格子可点不可聚焦
