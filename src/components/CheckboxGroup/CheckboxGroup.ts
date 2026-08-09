@@ -25,19 +25,25 @@ export interface CheckboxGroupProps {
 }
 
 /** 复选框组/多选列表（对应 antd Checkbox.Group）：成员选择、多值字段 */
-export const CheckboxGroup: Component<CheckboxGroupProps> = (_init) =>
+export const CheckboxGroup: Component<CheckboxGroupProps> = (_init, ctx) =>
   (props) => {
     const {
-      options = [], value = [], onChange, columns,
+      options = [], columns,
       size = 'md', disabled, label, 'aria-label': ariaLabel, className,
     } = props
 
+    // useControlled：受控/非受控统一（原实现非受控静默不可选——受控纪律违规）
+    const ctrl = ctx?.ui?.useControlled<string[]>({ value: props.value, onChange: props.onChange, name: 'CheckboxGroup' })
+    const value = ctrl?.value ?? []
+
     const toggle = (v: string, checked: boolean) => {
-      if (!onChange) return
       const next = checked
         ? [...new Set([...value, v])]
         : value.filter(x => x !== v)
-      onChange(next)
+      const wasControlled = ctrl?.controlled
+      ctrl?.setValue(next)
+      // onChange 通知语义（非受控也调）；受控时 setValue 已调
+      if (!wasControlled) props.onChange?.(next)
     }
 
     const items = options.map(o =>

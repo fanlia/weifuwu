@@ -13,8 +13,20 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 }
 
 function mockCtx(): WfuiContext {
+  const uncontrolled = new Map<string, any>()
   return { ui: { $: {}
-, render: () => {}, dirty: () => {}, ready: true } } as any
+, render: () => {}, dirty: () => {}, ready: true,
+    useControlled: (opts: any) => {
+      const controlled = opts.value !== undefined
+      const key = opts.name ?? 'default'
+      if (!uncontrolled.has(key)) uncontrolled.set(key, opts.value)
+      const setValue = (v: any) => {
+        if (controlled) opts.onChange?.(v)
+        else { uncontrolled.set(key, v); }
+      }
+      return { value: controlled ? opts.value : uncontrolled.get(key), setValue, controlled }
+    },
+  } } as any
 }
 
 describe('Tabs', () => {

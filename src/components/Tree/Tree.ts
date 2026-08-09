@@ -57,9 +57,14 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
 
   return (props) => {
     const {
-      data = [], selectedKeys, onSelect, expandedKeys, onExpand, expandOnClick,
-      checkable, checkedKeys, onCheck, className,
+      data = [], expandedKeys, onExpand, expandOnClick,
+      checkable, className,
     } = props
+
+    // useControlled：受控/非受控统一（缺回调 warn + 非受控内部态——
+    // 原实现非受控选中/勾选静默不可点，受控纪律违规）
+    const selCtrl = ctx?.ui?.useControlled<string[]>({ value: props.selectedKeys, onChange: props.onSelect, name: 'Tree' })
+    const checkCtrl = ctx?.ui?.useControlled<string[]>({ value: props.checkedKeys, onChange: props.onCheck, name: 'Tree' })
 
     const parentMap = new Map<string, TreeNode | null>()
     buildParentMap(data, parentMap)
@@ -81,25 +86,19 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
       else $.internalExpanded = next
     }
 
-    // 选中
+    // 选中（useControlled：非受控内部态 + 受控走 onSelect；缺回调 warn 幂等）
     const toggleSelect = (key: string) => {
-      if (!onSelect) return
-      const next = (selectedKeys ?? []).includes(key)
-        ? []
-        : [key]
-      onSelect(next)
+      const current = selCtrl?.value ?? []
+      const next = current.includes(key) ? [] : [key]
+      const wasControlled = selCtrl?.controlled
+      selCtrl?.setValue(next)
+      // onSelect 通知语义（非受控也调）；受控时 setValue 已调
+      if (!wasControlled) props.onSelect?.(next)
     }
 
-    // 勾选（父子联动）
+    // 勾选（父子联动）——useControlled：非受控内部态 + 受控走 onCheck
     const toggleCheck = (node: TreeNode) => {
-      if (!onCheck) {
-        // 受控（checkedKeys 已传）但无 onCheck：点击无法生效——开发期提示（与 Collapse 一致）
-        if (checkedKeys !== undefined) {
-          console.warn(`[weifuwu/Tree] 受控模式（checkedKeys 已传）但未提供 onCheck，勾选无法生效。\n非受控：去掉 checkedKeys；受控：传入 onCheck={(keys) => setKeys(keys)}`)
-        }
-        return
-      }
-      const current = new Set(checkedKeys ?? [])
+      const current = new Set(checkCtrl?.value ?? [])
       const all = allKeys(node)
       if (current.has(node.key)) {
         // 取消：移除自身 + 后代
@@ -123,14 +122,14 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
           p = parentMap.get(p.key)
         }
       }
-      onCheck(Array.from(current))
+      checkCtrl?.setValue(Array.from(current))
     }
 
     // 节点勾选状态推导（递归）：叶子看 checkedKeys；父节点 = 所有子都 checked → checked，
     // 部分 checked/half → half。半选必须向上传播（前端勾选 → 技术部半选 → 总部半选）
     const nodeState = (n: TreeNode): 'checked' | 'half' | 'unchecked' => {
       const kids = n.children ?? []
-      const checked = checkedKeys ?? []
+      const checked = checkCtrl?.value ?? []
       if (!kids.length) return checked.includes(n.key) ? 'checked' : 'unchecked'
       const states = kids.map(nodeState)
       if (states.every((s) => s === 'checked')) return 'checked'
@@ -151,7 +150,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
 
       const hasChildren = !!node.children?.length
       const open = isExpanded(node.key)
-      const selected = (selectedKeys ?? []).includes(node.key)
+      const selected = (selCtrl?.value ?? []).includes(node.key)
       const checked = nodeState(node) === 'checked' // 推导状态（祖先全选时即使不在 checkedKeys 也显示勾选）
 
       const switcher = hasChildren

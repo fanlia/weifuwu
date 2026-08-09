@@ -16,9 +16,18 @@ export interface RadioGroupProps {
   onChange?: (value: string) => void
 }
 
-export const RadioGroup: Component<RadioGroupProps> = (_init, _ctx) =>
+export const RadioGroup: Component<RadioGroupProps> = (_init, ctx) =>
   (props) => {
-  const { name, value, options = [], inline, onChange } = props
+  const { name, options = [], inline } = props
+
+  // useControlled：受控/非受控统一（原实现非受控静默不可选——受控纪律违规）
+  const ctrl = ctx?.ui?.useControlled<string>({ value: props.value, onChange: props.onChange, name: 'RadioGroup' })
+  const select = (v: string) => {
+    const wasControlled = ctrl?.controlled
+    ctrl?.setValue(v)
+    // onChange 通知语义（非受控也调）；受控时 setValue 已调
+    if (!wasControlled) props.onChange?.(v)
+  }
 
   const radios = options.map(opt => {
     const input = h('input', {
@@ -26,9 +35,9 @@ export const RadioGroup: Component<RadioGroupProps> = (_init, _ctx) =>
       class: 'wf-radio-input',
       name: name ?? 'radio',
       value: opt.value,
-      checked: value === opt.value || undefined,
+      checked: ctrl?.value === opt.value || undefined,
       disabled: opt.disabled || undefined,
-      onChange: onChange ? () => onChange(opt.value) : undefined,
+      onChange: () => select(opt.value),
     })
 
     const visual = h('span', { class: 'wf-radio-visual' })

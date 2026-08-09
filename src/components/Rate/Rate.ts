@@ -23,20 +23,31 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
 
   return (props) => {
     const {
-      value = 0, onChange, count = 5, size = 'md',
+      count = 5, size = 'md',
       readOnly, disabled, allowClear, 'aria-label': ariaLabel,
     } = props
+
+    // useControlled：受控/非受控统一（缺回调 warn + 非受控内部态——
+    // 原实现非受控（无 onChange）静默不可点，受控纪律违规）
+    const ctrl = ctx?.ui?.useControlled<number>({ value: props.value, onChange: props.onChange, name: 'Rate' })
+    const value = ctrl?.value ?? 0
+    const setRate = (v: number) => {
+      const wasControlled = ctrl?.controlled
+      ctrl?.setValue(v)
+      // onChange 通知语义（非受控也调）；受控时 setValue 已调
+      if (!wasControlled) props.onChange?.(v)
+    }
 
     const interactive = !readOnly && !disabled
     const effective = hover >= 0 ? hover + 1 : value
 
     const handleKeyDown = (e: any) => {
-      if (!interactive || !onChange) return
+      if (!interactive) return
       const key = e.key
-      if (key === 'ArrowRight') { e.preventDefault(); onChange(Math.min(value + 1, count)) }
-      else if (key === 'ArrowLeft') { e.preventDefault(); onChange(Math.max(value - 1, 0)) }
-      else if (key === 'Home') { e.preventDefault(); onChange(1) }
-      else if (key === 'End') { e.preventDefault(); onChange(count) }
+      if (key === 'ArrowRight') { e.preventDefault(); setRate(Math.min(value + 1, count)) }
+      else if (key === 'ArrowLeft') { e.preventDefault(); setRate(Math.max(value - 1, 0)) }
+      else if (key === 'Home') { e.preventDefault(); setRate(1) }
+      else if (key === 'End') { e.preventDefault(); setRate(count) }
     }
 
     const stars: any[] = []
@@ -50,9 +61,8 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
       if (interactive) {
         starProps.type = 'button'
         starProps.onClick = () => {
-          if (!onChange) return
-          if (allowClear && value === i + 1) onChange(0)
-          else onChange(i + 1)
+          if (allowClear && value === i + 1) setRate(0)
+          else setRate(i + 1)
         }
         starProps.onMouseEnter = () => { hover = i }
         starProps.onMouseLeave = () => { hover = -1 }

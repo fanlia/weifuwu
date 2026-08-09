@@ -15,21 +15,30 @@ export interface TabsProps {
   onChange?: (key: string) => void
 }
 
-export const Tabs: Component<TabsProps> = (_init, _ctx) => {
-  const _browser = _ctx?.browser ?? createClientBrowser()
+export const Tabs: Component<TabsProps> = (_init, ctx) => {
+  const _browser = ctx?.browser ?? createClientBrowser()
   return (props) => {
-  const { items = [], active, onChange } = props
+  const { items = [] } = props
 
   if (items.length === 0) return null
 
-  const activeKey = active ?? items[0].key
+  // useControlled：受控/非受控统一（缺回调 warn + 非受控内部态——
+  // 原实现非受控时 onClick 为 undefined = 静默不可点，受控纪律违规）
+  const ctrl = ctx?.ui?.useControlled<string>({ value: props.active, onChange: props.onChange, name: 'Tabs' })
+  const select = (key: string) => {
+    const wasControlled = ctrl?.controlled
+    ctrl?.setValue(key)
+    // onChange 是通知语义（非受控也调——antd Tabs 切换回调）；受控时 setValue 已调
+    if (!wasControlled) props.onChange?.(key)
+  }
+  const activeKey = ctrl?.value ?? items[0].key
 
   // 方向键在 tablist 上拦截（事件委托），焦点在 tab 之间环形移动并激活
   const onTabListKeyDown = (e: KeyboardEvent) => {
     const list = e.currentTarget as HTMLElement
     const tabs = Array.from(list.querySelectorAll<HTMLElement>('.wf-tab'))
     const idx = tabs.indexOf((_browser?.activeElement() ?? null) as HTMLElement)
-    if (idx < 0 || !onChange) return
+    if (idx < 0 || !ctrl) return
     let next = idx
     if (e.key === 'ArrowRight') next = (idx + 1) % tabs.length
     else if (e.key === 'ArrowLeft') next = (idx - 1 + tabs.length) % tabs.length
@@ -39,7 +48,7 @@ export const Tabs: Component<TabsProps> = (_init, _ctx) => {
     e.preventDefault()
     const target = items[next]
     if (target && target.key !== items[idx].key) {
-      onChange(target.key)
+      select(target.key)
       tabs[next].focus()
     }
   }
@@ -52,7 +61,7 @@ export const Tabs: Component<TabsProps> = (_init, _ctx) => {
       // roving tabindex：仅激活 tab 可 Tab 聚焦，方向键在 tab 间移动
       tabindex: tab.key === activeKey ? 0 : -1,
       'aria-selected': tab.key === activeKey ? 'true' : 'false',
-      onClick: tab.key !== activeKey && onChange ? () => onChange(tab.key) : undefined,
+      onClick: tab.key !== activeKey ? () => select(tab.key) : undefined,
     }, tab.label)
   )
 

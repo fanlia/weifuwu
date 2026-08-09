@@ -57,12 +57,16 @@ export const Toggle: Component<ToggleProps> = (_init) =>
   }
 
 /** 切换按钮组（对应 shadcn ToggleGroup）：type=single 单选 / multiple 多选 */
-export const ToggleGroup: Component<ToggleGroupProps> = (_init) =>
+export const ToggleGroup: Component<ToggleGroupProps> = (_init, ctx) =>
   (props) => {
     const {
-      type = 'single', value, onChange, options = [],
+      type = 'single', options = [],
       size = 'md', disabled, 'aria-label': ariaLabel, className,
     } = props
+
+    // useControlled：受控/非受控统一（原实现非受控静默不可点——受控纪律违规）
+    const ctrl = ctx?.ui?.useControlled<string | string[]>({ value: props.value, onChange: props.onChange, name: 'ToggleGroup' })
+    const value = ctrl?.value
 
     const isSelected = (v: string) =>
       type === 'multiple'
@@ -70,20 +74,24 @@ export const ToggleGroup: Component<ToggleGroupProps> = (_init) =>
         : value === v
 
     const handleToggle = (v: string) => {
-      if (!onChange) return
+      let next: string | string[]
       if (type === 'multiple') {
         const arr = Array.isArray(value) ? [...value] : []
         const i = arr.indexOf(v)
         if (i >= 0) arr.splice(i, 1)
         else arr.push(v)
-        onChange(arr)
+        next = arr
       } else {
-        onChange(v)
+        next = v
       }
+      const wasControlled = ctrl?.controlled
+      ctrl?.setValue(next)
+      // onChange 通知语义（非受控也调）；受控时 setValue 已调
+      if (!wasControlled) props.onChange?.(next)
     }
 
     const handleKeyDown = (e: any) => {
-      if (disabled || type !== 'single' || !onChange) return
+      if (disabled || type !== 'single') return
       const idx = options.findIndex(o => o.value === value)
       if (idx < 0) return
       let next = idx
@@ -91,7 +99,7 @@ export const ToggleGroup: Component<ToggleGroupProps> = (_init) =>
       else if (e.key === 'ArrowLeft') { e.preventDefault(); next = Math.max(idx - 1, 0) }
       else return
       const target = options[next]
-      if (target && !target.disabled) onChange(target.value)
+      if (target && !target.disabled) handleToggle(target.value)
     }
 
     const buttons = options.map(o => h(Toggle, {
