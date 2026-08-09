@@ -1201,7 +1201,7 @@ const DemoColorPicker: Component = (_props, ctx) => {
       <div class="wf-row wf-gap-sm">
         <ColorPicker value={c} size="sm" onChange={(v: string) => { c = v; ctx.ui.render() }} />
         <ColorPicker value={c} size="lg" onChange={(v: string) => { c = v; ctx.ui.render() }} />
-        <ColorPicker value={c} disabled />
+        <ColorPicker value={c} disabled onChange={() => {}} />
       </div>
       <div class="wf-text-sm wf-text-secondary">当前：{c}</div>
     </div>
@@ -1344,7 +1344,7 @@ const DemoTransfer: Component = (_props, ctx) => {
   let target = ['a']
   return () => (
     <Transfer data={[{ key: 'a', label: '成员A' }, { key: 'b', label: '成员B' }, { key: 'c', label: '成员C' }, { key: 'd', label: '成员D' }]}
-      targetKeys={target} onChange={(k: string[]) => { target = k; ctx.ui.render() }} titles={['可选成员', '已选成员']} />
+      targetKeys={target} onChange={(k: string[]) => { target = k; ctx.ui.render() }} titles={['可选成员', '已选成员']} showSearch />
   )
 }
 
@@ -2369,7 +2369,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">908 测试</Badge>
+          <Badge variant="success">909 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

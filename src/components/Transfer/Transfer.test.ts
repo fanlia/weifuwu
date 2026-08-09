@@ -94,3 +94,22 @@ describe('Transfer', () => {
     assert.match(leftItem.props.class, /--dis/)
   })
 })
+
+it('showSearch：输入过滤两侧列表 + 无匹配提示', () => {
+  const ctx = mockCtx()
+  const factory = Transfer({}, ctx)
+  let vnode = factory({ data, targetKeys: ['a'], showSearch: true })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-transfer-search'), '搜索框渲染')
+  // 模拟左侧输入「B」
+  ctx.ui.$().kwLeft = 'B'
+  vnode = factory({ data, targetKeys: ['a'], showSearch: true })
+  const leftItems = vnode.props.children[0].props.children[2].props.children
+  const labels = leftItems.map((i: any) => i.props?.children).filter(Boolean)
+  // 左侧原 [B,D]（a 在 target），过滤 B → 仅「选项B」
+  assert.deepEqual(labels, ['选项B'])
+  // 无匹配：输入 Z
+  ctx.ui.$().kwLeft = 'Z'
+  vnode = factory({ data, targetKeys: ['a'], showSearch: true })
+  assert.ok(JSON.stringify(vnode).includes('无匹配'), '无匹配提示')
+})

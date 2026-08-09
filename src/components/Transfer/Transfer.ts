@@ -17,20 +17,26 @@ export interface TransferProps {
   titles?: [string, string]
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
+  /** 显示搜索框（每侧独立过滤，内部态） */
+  showSearch?: boolean
+  /** 搜索占位符 */
+  searchPlaceholder?: string
 }
 
-/** 穿梭框（对应 antd/EP Transfer）：双列表 + 中间穿梭按钮。
- * 裁剪：搜索过滤、拖拽排序、自定义渲染。 */
+/** 穿梭框（对应 antd/EP Transfer）：双列表 + 中间穿梭按钮 + 可选搜索。
+ * 裁剪：拖拽排序、自定义渲染。 */
 export const Transfer: Component<TransferProps> = (_init, ctx) => {
   // ── mount（只一次）──
   const $ = ctx.ui.$()
   $.selLeft = [] as string[]
   $.selRight = [] as string[]
+  $.kwLeft = ''
+  $.kwRight = ''
 
   return (props) => {
     const {
       data = [], targetKeys = [], onChange, titles = ['源列表', '目标列表'],
-      size = 'md', disabled,
+      size = 'md', disabled, showSearch, searchPlaceholder = '搜索…',
     } = props
 
     const leftData = data.filter(d => !targetKeys.includes(d.key))
@@ -60,12 +66,24 @@ export const Transfer: Component<TransferProps> = (_init, ctx) => {
 
     const renderList = (side: 'left' | 'right', items: TransferItem[]) => {
       const sel = side === 'left' ? $.selLeft : $.selRight
+      const kw = (side === 'left' ? $.kwLeft : $.kwRight).toLowerCase()
+      const filtered = kw ? items.filter(it => it.label.toLowerCase().includes(kw)) : items
+      const searchInput = showSearch
+        ? h('input', {
+            class: 'wf-transfer-search wf-input',
+            type: 'text',
+            placeholder: searchPlaceholder,
+            value: side === 'left' ? $.kwLeft : $.kwRight,
+            onInput: (e: any) => { if (side === 'left') $.kwLeft = e.target.value; else $.kwRight = e.target.value },
+          })
+        : null
       return h('div', { class: `wf-transfer-list wf-transfer-list--${side}` }, [
         h('div', { class: 'wf-transfer-title' }, titles[side === 'left' ? 0 : 1]),
+        searchInput,
         h('div', { class: 'wf-transfer-body' },
-          items.length === 0
-            ? [h('div', { class: 'wf-transfer-empty' }, '暂无数据')]
-            : items.map(item =>
+          filtered.length === 0
+            ? [h('div', { class: 'wf-transfer-empty' }, kw ? '无匹配' : '暂无数据')]
+            : filtered.map(item =>
                 h('button', {
                   type: 'button',
                   class: [
@@ -79,7 +97,7 @@ export const Transfer: Component<TransferProps> = (_init, ctx) => {
                 }, item.label)
               )
         ),
-      ])
+      ].filter(Boolean))
     }
 
     const rightDisabled = $.selLeft.length === 0 || disabled

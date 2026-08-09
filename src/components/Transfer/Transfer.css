@@ -133,3 +133,12 @@
     flex-direction: column;
   }
 }
+
+.wf-transfer-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: var(--wf-gap-xs);
+  min-height: var(--wf-field-height);
+  padding: var(--wf-control-pad-y) var(--wf-space-sm);
+  font-size: var(--wf-font-size-sm);
+}
