@@ -47,12 +47,12 @@ export const Resizable: Component<ResizableProps> = (_init, ctx) => {
   })
 
   return (props) => {
-    Object.assign(propsRef, props)
     const {
       direction = 'horizontal', defaultSize = 300, min = 80, max = 600,
       step = 20, children, onResize, className,
     } = props
-    void min; void max; void onResize
+    // propsRef 同步**解构默认化后**的值（onMove 读 direction 必须拿到 'horizontal' 而非 undefined）
+    Object.assign(propsRef, props, { direction, min, max, step, onResize })
 
     if (size === 0) size = defaultSize
 
