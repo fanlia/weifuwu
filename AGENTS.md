@@ -506,6 +506,24 @@ const dropdown = open ? createPortal(h('div', { class: 'wf-xxx-dropdown', style:
 ```
 
 
+## 受控输入纪律：数组 children 内 input 必须稳定 key
+
+**数组 children（`h('div', {}, [input, ...]）`）内无 key 子节点每次渲染重建 DOM
+（框架 diff 行为——lastIndex 算法无 key 按索引不匹配 → renderValue 重建）——
+受控 input 重建 → **焦点丢失 → 无法输入**（AutoComplete/Select searchable 真实 bug，
+用户报告'输入框不能聚焦'——MutationObserver 验证 input 被替换）。
+
+```ts
+// ❌ 数组内 input 无 key：每次渲染重建 → 焦点丢失
+h('div', {}, [h('input', { value, onInput }), portal])
+
+// ✅ 稳定 key：diff 按 key 复用元素 → 焦点保持
+h('div', {}, [h('input', { key: 'ac-input', value, onInput }), portal])
+```
+
+排查方法：MutationObserver 监听 input 节点替换 + `document.activeElement` 对比。
+修复记录：AutoComplete（key:'ac-input'）+ Select searchable（key:'select-search-input'）。
+
 ## 测试
 
 - `node --test` 无 Jest/Mocha

@@ -50,9 +50,12 @@ export function filterOptions(options: AutoCompleteOption[], query: string): Aut
 
 export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
-  // open 状态经 $（Proxy 自动 dirty → 重渲染）；受控桥 props.open 覆盖读
+  // open/keyword 状态经 $（Proxy 自动 dirty → 重渲染）；受控桥 props.open 覆盖读
   const $ = ctx.ui.$()
   $.open = _init?.open ?? false
+  // 内部输入态（Select searchable 同款纪律）：输入期间 value 由 $ 管理——
+  // 不依赖受控 value 回流（父 render 会重挂 input → 焦点丢失——AutoComplete 教训）
+  $.keyword = ''
   let activeIndex = -1
   let latestValue = _init?.value ?? ''
   let latestOnChange: ((v: string) => void) | undefined
@@ -85,6 +88,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
   const pick = (option: AutoCompleteOption) => {
     latestOnChange?.(option.value)
     latestOnSelect?.(option.value, option)
+    $.keyword = ''
     activeIndex = -1
     setOpen(false)
   }
@@ -99,7 +103,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     latestOnSelect = onSelect
     if (props.open !== undefined) $.open = !!props.open
 
-    const query = latestValue
+    // 打开时输入态优先（$.keyword——用户正在输入）；无输入回退受控值
+    const query = $.open ? ($.keyword || latestValue) : latestValue
     const filtered = (props.filter ?? filterOptions)(options, query)
     if (activeIndex >= filtered.length) activeIndex = -1
 
@@ -109,6 +114,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     const onInput = (e: any) => {
       if (composing || e.isComposing) return
       const v = e.target.value
+      $.keyword = v // 内部输入态（$ 自动 dirty → 自身重渲染，不依赖父回流）
       latestOnChange?.(v)
       if (!$.open) setOpen(true)
       activeIndex = -1
@@ -118,6 +124,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
       composing = false
       // 组合完成：处理最终中文值（过滤/回填）
       const v = (e.target as HTMLInputElement)?.value ?? ''
+      $.keyword = v
       latestOnChange?.(v)
       if (!$.open) setOpen(true)
     }
@@ -163,8 +170,12 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
 
     return h('div', { class: 'wf-autocomplete-wrap', ref: wrapRef }, [
       h('input', {
+        // key 稳定：数组 children 无 key 子节点每次渲染重建（框架 diff 行为）——
+        // input 重建 → 焦点丢失（Select searchable 同款——受控输入通用纪律）
+        key: 'ac-input',
         class: 'wf-autocomplete-input wf-input',
-        value: query,
+        // 打开/输入时显示内部 keyword（不依赖 props 回流）；关闭时受控 value
+        value: $.open ? $.keyword : query,
         placeholder,
         disabled,
         onInput,

@@ -1618,7 +1618,8 @@ const DemoPopconfirm: Component = (_p, ctx) => () => (
 const DemoAutoComplete: Component = (_p, ctx) => {
   let query = ''
   let selected: string | undefined
-  const render = () => ctx.ui.render()
+  // 输入态由 AutoComplete 内部 $ 管理——onChange 只记录闭包值，不强制父 render
+  // （父 render 会重挂 input → 焦点丢失——Select searchable 同款纪律）
   return () => {
     const options = [
       { value: 'pay-admin', label: '支付平台管理' },
@@ -1631,8 +1632,8 @@ const DemoAutoComplete: Component = (_p, ctx) => {
       <AutoComplete
         options={options}
         value={query}
-        onChange={(v) => { query = v; render() }}
-        onSelect={(v) => { selected = v; render() }}
+        onChange={(v) => { query = v }}
+        onSelect={(v) => { selected = v }}
         placeholder="输入关键词联想…"
       />
     )

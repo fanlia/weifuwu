@@ -163,6 +163,8 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
     }, [
       ...tags,
       h('input', {
+        // key 稳定：无 key 数组子节点每次渲染重建 → input 焦点丢失（受控输入纪律）
+        key: 'select-search-input',
         class: 'wf-select-search-input',
         type: 'text',
         value: isMulti ? '' : ($.open ? $.keyword : (selectedOption?.label ?? '')),
