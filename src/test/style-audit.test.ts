@@ -466,3 +466,10 @@ describe('样式审计 — 设计约束', () => {
     assert.match(reactive, /MUTATING/, 'Set/Map 只读方法不触发 dirty（变异方法白名单）')
   })
 })
+// ── 布局原语回归（agent-browser 体检发现的真实 bug） ──
+it('wf-container 必须 width:100%（flex 父中 margin auto 阻止 stretch——landing 特性区 404 根因）', () => {
+  const layout = readLayoutCss()
+  assert.match(layout, /\.wf-container\s*\{[\s\S]*?width:\s*100%/, 'wf-container 必须有 width:100%')
+  assert.match(layout, /\.wf-container\s*\{[\s\S]*?max-width:\s*var\(--wf-max/, 'max-width 保留')
+  assert.match(layout, /\.wf-container\s*\{[\s\S]*?margin:\s*0 auto/, 'margin auto 居中保留')
+})

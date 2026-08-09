@@ -1,5 +1,8 @@
 /* container — 内容宽度约束居中 */
+/* width: 100% 必须：margin: 0 auto 在 flex 父中阻止 stretch（宽度=内容）
+   ——landing 特性区 404px 而非撑满 1100 容器的根因 */
 .wf-container {
+  width: 100%;
   max-width: var(--wf-max, 1200px);
   margin: 0 auto;
   padding: 0 var(--wf-gap, var(--wf-gap-lg));
