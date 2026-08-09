@@ -3,30 +3,34 @@
  */
 
 import type { FormatState, ToolbarItem } from './types.ts'
+import { createClientBrowser } from '../../../client/browser.ts'
+
+// 编辑器工具：无组件 ctx——模块级 browser（SSR 时 queryCommand 返回安全默认）
+const browser = createClientBrowser()
 
 /** 查询当前选区格式状态 */
 export function queryFormats(): FormatState {
   const f: FormatState = {}
   try {
-    f.bold = document.queryCommandState('bold')
-    f.italic = document.queryCommandState('italic')
-    f.underline = document.queryCommandState('underline')
-    const block = document.queryCommandValue('formatBlock')
+    f.bold = browser.queryCommandState('bold')
+    f.italic = browser.queryCommandState('italic')
+    f.underline = browser.queryCommandState('underline')
+    const block = browser.queryCommandValue('formatBlock')
     f.h1 = block === 'h1' || block === 'H1'
     f.h2 = block === 'h2' || block === 'H2'
     f.h3 = block === 'h3' || block === 'H3'
     f.blockquote = block === 'blockquote' || block === 'BLOCKQUOTE'
-    f.alignLeft = document.queryCommandState('justifyLeft')
-    f.alignCenter = document.queryCommandState('justifyCenter')
-    f.alignRight = document.queryCommandState('justifyRight')
+    f.alignLeft = browser.queryCommandState('justifyLeft')
+    f.alignCenter = browser.queryCommandState('justifyCenter')
+    f.alignRight = browser.queryCommandState('justifyRight')
   } catch { /* 安全忽略 */ }
   return f
 }
 
-/** 执行 document.execCommand */
+/** 执行 execCommand（经 browser 环境抽象） */
 export function exec(cmd: string, value?: string) {
   try {
-    document.execCommand(cmd, false, value)
+    browser.execCommand(cmd, value)
   } catch { /* 安全忽略 */ }
 }
 

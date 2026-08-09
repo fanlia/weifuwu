@@ -3,25 +3,33 @@
  */
 
 import { h } from '../../../client/vnode.ts'
+import { createClientBrowser } from '../../../client/browser.ts'
+
+// 编辑器工具：无组件 ctx——模块级 browser（SSR 时 getSelection/createElement 返回安全默认）
+const browser = createClientBrowser()
 
 /** 最大表格行列数 */
 const MAX = 6
 
 /** 在光标处插入表格 HTML */
 export function insertTable(rows: number, cols: number): void {
-  const sel = window.getSelection()
+  const sel = browser.getSelection()
   if (!sel || !sel.rangeCount) return
   const range = sel.getRangeAt(0)
   if (!range) return
 
-  const table = document.createElement('table')
+  const table = browser.createElement('table')
+  const tbody = browser.createElement('tbody')
+  if (!table || !tbody) return
+
   table.className = 'wf-editor-table'
-  const tbody = document.createElement('tbody')
 
   for (let ri = 0; ri < rows; ri++) {
-    const tr = document.createElement('tr')
+    const tr = browser.createElement('tr')
+    if (!tr) continue
     for (let ci = 0; ci < cols; ci++) {
-      const td = document.createElement('td')
+      const td = browser.createElement('td')
+      if (!td) continue
       if (ri === 0) {
         td.style.fontWeight = 'var(--wf-font-weight-semibold,600)'
       }
@@ -33,7 +41,8 @@ export function insertTable(rows: number, cols: number): void {
 
   table.appendChild(tbody)
 
-  const wrapper = document.createElement('div')
+  const wrapper = browser.createElement('div')
+  if (!wrapper) return
   wrapper.appendChild(table)
 
   range.deleteContents()

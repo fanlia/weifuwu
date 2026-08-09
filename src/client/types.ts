@@ -196,6 +196,10 @@ export interface BrowserEnv {
   selectionText(): string | null
   /** 编辑器选区对象（完整 Selection——Editor 需要 range 操作） */
   getSelection(): Selection | null
+  /** 编辑器格式状态查询（document.queryCommandState） */
+  queryCommandState(cmd: string): boolean
+  /** 编辑器格式值查询（document.queryCommandValue） */
+  queryCommandValue(cmd: string): string
   /** 视口高度 */
   viewportHeight(): number
   /** 滚动量（scrollingElement 优先） */

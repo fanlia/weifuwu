@@ -44,6 +44,8 @@ export function createClientBrowser(): BrowserEnv {
       }
     },
     execCommand: (cmd, value) => (typeof document !== 'undefined' ? document.execCommand(cmd, false, value) : false),
+    queryCommandState: (cmd) => (typeof document !== 'undefined' ? document.queryCommandState(cmd) : false),
+    queryCommandValue: (cmd) => (typeof document !== 'undefined' ? document.queryCommandValue(cmd) : ''),
     selectionText: () => (typeof window !== 'undefined' ? window.getSelection?.()?.toString() ?? null : null),
     getSelection: () => (typeof window !== 'undefined' ? window.getSelection() : null),
     viewportHeight: () => (typeof window !== 'undefined' ? window.innerHeight : 0),

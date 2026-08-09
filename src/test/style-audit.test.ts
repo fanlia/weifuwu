@@ -329,4 +329,35 @@ describe('样式审计 — 设计约束', () => {
     }
     assert.deepEqual(violations, [], '一次性动画必须引用 --wf-dur-* / --wf-ease-* Token（防硬编码回归）')
   })
+
+  it('组件 .ts 禁止直接 DOM 全局引用（必须经 ctx.browser / ctx.ui.useXXX）', () => {
+    // 浏览器环境纪律：内置组件使用浏览器能力必须经 ctx.browser（环境 API）
+    // 与 ctx.ui.useXXX（框架原语）——直接 window./document./navigator./
+    // localStorage/matchMedia(/IntersectionObserver 等 DOM 全局 = 违例
+    const dir = join(root, 'src/components')
+    const files: string[] = []
+    const walk = (d: string) => {
+      for (const ent of readdirSync(d, { withFileTypes: true })) {
+        const p = join(d, ent.name)
+        if (ent.isDirectory()) walk(p)
+        else if (ent.name.endsWith('.ts') && !ent.name.endsWith('.test.ts')) files.push(p)
+      }
+    }
+    walk(dir)
+    // 排除注释后的 DOM 全局引用
+    // getSelection( 需排除已收敛调用（_browser?.getSelection( / browser.getSelection(）——
+    // 用 (?<![\w.]) 前瞻：前面是字母或点 = 已收敛（方法调用），否则 = 直接全局
+    const forbidden = /\bwindow\.|\bdocument\.|\bnavigator\.|\blocation\.|\bhistory\.|\blocalStorage\b|(?<![\w.])getSelection\(|\brequestAnimationFrame\b|\bMutationObserver\b|\bIntersectionObserver\b|matchMedia\(/
+    const violations: string[] = []
+    for (const f of files) {
+      const src = readFileSync(f, 'utf-8')
+      const noComments = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+      for (const line of noComments.split('\n')) {
+        if (forbidden.test(line)) {
+          violations.push(`${f.replace(root + '/', '')}: ${line.trim().slice(0, 80)}`)
+        }
+      }
+    }
+    assert.deepEqual(violations, [], '组件禁止直接 DOM 全局引用——统一经 ctx.browser/useXXX（AGENTS.md 浏览器环境纪律）')
+  })
 })

@@ -131,6 +131,8 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
     execCommand: () => false,
     selectionText: () => null,
     getSelection: () => null,
+    queryCommandState: () => false,
+    queryCommandValue: () => '',
     viewportHeight: () => 0,
     scrollTop: () => 0,
     hash: () => '',
