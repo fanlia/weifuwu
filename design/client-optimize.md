@@ -338,3 +338,34 @@ P2-2 ──（独立）
 - **每项验收**：TDD 红→绿（CS-05）+ 对应组件测试保持绿 + `tsc --noEmit` + 全量 `npm test` ≤15s（当前 1469 测试 ~11.5s，预算余量 ~3.5s）
 - **文档验收**：README 文档导航同步 + 围栏/链接脚本通过
 - **诚实裁剪**：Command/Img preview 不进 useDialog（语义不同）；Select/DatePicker 保持 inline absolute（自适宽，无需 usePopup）——已在 components-map 声明
+
+---
+
+## 后续：动画基础设施（证据驱动，2026-09）
+
+> 目标：组件开发者获得完整的动画能力分层（CSS 语言 / 生命周期 / 数值驱动 / 偏好感知），
+> 内置组件动画监听清零 + 用户扩展组件动画零样板。
+> 证据：DatePicker 组件层 animationend（与 usePopup panelRef 同款但自建）、
+> StatCard 手工 rAF 数值动画 + 手工 matchMedia reduced-motion。
+
+### 能力地图（4 层）
+
+| 层 | 原语 | 状态 |
+|----|------|------|
+| CSS 语言 | Token（--wf-dur-*/ease-*/motion-*）+ --enter/--exit 成对 + reduced-motion 全局降级 | ✅ |
+| 生命周期 | `useAnimationEnd(cb, {once})`（完成回调）+ `usePresence(open, opts)`（显隐状态机）+ `animateOut`（命令式退场，已有） | 🔴 新 |
+| 数值驱动 | `useTween(target, opts)`（数值补间）+ useInView/useScrollPosition（已有） | 🔴 新 |
+| 偏好感知 | `useReducedMotion()`（响应式，JS 动画侧跳过） | 🔴 新 |
+
+### 实施顺序（TDD 红→绿 + 组件测试保持绿 + SSR shim + 契约测试 + 文档）
+
+1. **useReducedMotion**：响应式 matchMedia；StatCard 收敛（删手工读取）
+2. **useAnimationEnd**：stableRef 形态；DatePicker 迁移（组件动画监听清零收官）
+3. **useTween**：rAF + ease + reduced-motion 直落；StatCard 数值动画收敛
+4. **usePresence**：enter/exit 状态机 + 延迟卸载；Dropdown/Toast 退场迁移（风险中）
+5. **useDialog 基于 usePresence 重构**（可选）：对话框测试全绿后再动
+
+### 诚实裁剪
+
+- 不做 FLIP/共享元素/物理动画/useTransitionEnd（useAnimationEnd 预留 event 参数）
+- useDialog 重构为可选（现有状态机稳定，收益<风险时保留）
