@@ -28,7 +28,7 @@ export const DataScreen: Component = (_init, ctx) => {
   $.mem = [...SERIES.mem]
   $.net = [...SERIES.net]
   $.time = '10:24:36'
-  // 实时刷新：2 秒滚动更新曲线 + 时间（布局蓝本演示实时监控——组件卸载自动停止）
+  // 实时刷新：2 秒滚动更新曲线 + 时间（布局蓝本演示实时监控）
   const timer = setInterval(() => {
     $.cpu = tick($.cpu)
     $.mem = tick($.mem)
@@ -36,8 +36,12 @@ export const DataScreen: Component = (_init, ctx) => {
     $.time = new Date().toTimeString().slice(0, 8)
   }, 2000)
 
+  // ref 纪律：稳定引用定义在 mount 作用域——ref(null) 只在真正卸载时调用
+  // （内联 ref 每次渲染新引用 → 反复 clearInterval → 数据永不更新）
+  const rootRef = (el: any) => { if (!el) clearInterval(timer) }
+
   return () => (
-    <div class="wf-fill wf-stack wf-gap-md wf-p-md wf-bg-tertiary" style={{ height: 'calc(100vh - 48px)' }}>
+    <div ref={rootRef} class="wf-fill wf-stack wf-gap-md wf-p-md wf-bg-tertiary" style={{ height: 'calc(100vh - 48px)' }}>
       {/* 顶部标题（fixed 角标） */}
       <div class="wf-pin wf-center" style={{ top: 16, left: 0, right: 0, zIndex: 5 }}>
         <b class="wf-text-lg wf-text-bold wf-tracking-wider">⚡ 实时运维监控中心</b>

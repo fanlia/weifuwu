@@ -1,5 +1,5 @@
 import type { Component } from 'weifuwu/client'
-import {Title,Paragraph, Anchor, Breadcrumb, Button, CodeBlock, Divider, Icon, Tag, Space, } from 'weifuwu/components'
+import {Title,Paragraph, Anchor, BackTop, Breadcrumb, Button, CodeBlock, Divider, Icon, Tag, Space, } from 'weifuwu/components'
 
 
 // ─────────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ export const Docs: Component = (_init, ctx) => {
 
       {/* 主体：左目录 + 右正文 */}
       <div class="wf-row wf-gap-none wf-fill wf-stretch wf-nowrap">
-        <aside class="wf-p-lg wf-border-r" style={{ width: 220, flexShrink: 0 }}>
+        <aside class="wf-p-lg wf-border-r wf-sticky" style={{ width: 220, flexShrink: 0 }}>
           <span class="wf-text-tertiary wf-text-sm wf-block wf-mb-sm">目录</span>
           <Anchor
             container={() => mainEl ?? window}
@@ -96,6 +96,9 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))`} />
       <footer class="wf-row wf-p-md wf-center wf-border-t">
         <span class="wf-text-tertiary wf-text-sm">weifuwu/layout · 189 原语 · 开源 MIT</span>
       </footer>
+
+      {/* 返回顶部（BackTop——组件能力展示：target 指向壳内部滚动容器） */}
+      <BackTop target={() => document.querySelector('.wf-fill.wf-scroll') as HTMLElement} />
     </div>
   )
 }

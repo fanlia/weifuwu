@@ -1,5 +1,5 @@
 import type { Component } from 'weifuwu/client'
-import {Title,Paragraph,Text, Badge, Button, Card, Divider, Icon, Space, Tag, Avatar } from 'weifuwu/components'
+import {Title,Paragraph,Text, Badge, BackTop, Button, Card, Divider, Icon, Space, Tag, Avatar } from 'weifuwu/components'
 
 
 // ─────────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ export const Landing: Component = (_init, _ctx) => (
   () => (
     <div class="wf-stack wf-gap-none">
       {/* 顶部导航 */}
-      <header class="wf-row wf-p-md wf-gap-lg wf-container wf-between" style={{ maxWidth: 1100 }}>
+      <header class="wf-row wf-p-md wf-gap-lg wf-container wf-between wf-sticky wf-bg-secondary" style={{ maxWidth: 1100, top: 0 }}>
         <Space align="center">
           <Icon name="zap" size={20} className="wf-text-primary" />
           <b class="wf-text-bold wf-text-lg">weifuwu</b>
@@ -76,6 +76,7 @@ export const Landing: Component = (_init, _ctx) => (
       </section>
 
       {/* Footer */}
+      <BackTop target={() => document.querySelector('.wf-fill.wf-scroll') as HTMLElement} />
       <footer class="wf-row wf-p-md wf-gap-lg wf-border-t wf-container wf-between" style={{ maxWidth: 1100 }}>
         <Text type="secondary" className="wf-text-sm">© 2026 weifuwu</Text>
         <Space align="center" size="sm">
