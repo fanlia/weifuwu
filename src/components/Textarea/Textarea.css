@@ -6,17 +6,6 @@
   gap: var(--wf-gap-xs);
 }
 
-.wf-textarea-label {
-  font-size: var(--wf-font-size-sm);
-  font-weight: var(--wf-font-weight-medium);
-  color: var(--wf-color-text);
-}
-
-.wf-textarea-req {
-  color: var(--wf-color-error-text);
-  margin-left: 2px;
-}
-
 .wf-textarea {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
@@ -44,16 +33,6 @@
 }
 
 .wf-textarea::placeholder {
-  color: var(--wf-color-text-tertiary);
-}
-
-.wf-textarea-err {
-  font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-error-text);
-}
-
-.wf-textarea-hint {
-  font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-tertiary);
 }
 

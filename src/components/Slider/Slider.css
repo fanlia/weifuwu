@@ -6,12 +6,6 @@
   gap: var(--wf-gap-xs);
 }
 
-.wf-slider-label {
-  font-size: var(--wf-font-size-sm);
-  font-weight: var(--wf-font-weight-medium);
-  color: var(--wf-color-text);
-}
-
 .wf-slider {
   display: flex;
   align-items: center;

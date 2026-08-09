@@ -6,17 +6,6 @@
   gap: var(--wf-gap-xs);
 }
 
-.wf-input-label {
-  font-size: var(--wf-font-size-sm);
-  font-weight: var(--wf-font-weight-medium);
-  color: var(--wf-color-text);
-}
-
-.wf-input-req {
-  color: var(--wf-color-error-text);
-  margin-left: 2px;
-}
-
 .wf-input {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
@@ -61,16 +50,6 @@
 }
 
 .wf-input::placeholder {
-  color: var(--wf-color-text-tertiary);
-}
-
-.wf-input-err {
-  font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-error-text);
-}
-
-.wf-input-hint {
-  font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-tertiary);
 }
 

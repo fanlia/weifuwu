@@ -7,17 +7,6 @@
   position: relative;
 }
 
-.wf-select-label {
-  font-size: var(--wf-font-size-sm);
-  font-weight: var(--wf-font-weight-medium);
-  color: var(--wf-color-text);
-}
-
-.wf-select-req {
-  color: var(--wf-color-error-text);
-  margin-left: 2px;
-}
-
 /* ── 原生 select ── */
 
 .wf-select {
@@ -44,11 +33,6 @@
 .wf-select:disabled {
   opacity: var(--wf-opacity-disabled);
   cursor: not-allowed;
-}
-
-.wf-select-err {
-  font-size: var(--wf-font-size-xs);
-  color: var(--wf-color-error-text);
 }
 
 .wf-select--err .wf-select {

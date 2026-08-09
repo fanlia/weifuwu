@@ -6,23 +6,35 @@
   gap: var(--wf-gap-xs);
 }
 
-.wf-field-label {
+.wf-field-label,
+.wf-input-label,
+.wf-select-label,
+.wf-textarea-label,
+.wf-slider-label {
   font-size: var(--wf-font-size-sm);
   font-weight: var(--wf-font-weight-medium);
   color: var(--wf-color-text);
 }
 
-.wf-field-req {
+.wf-field-req,
+.wf-input-req,
+.wf-select-req,
+.wf-textarea-req {
   color: var(--wf-color-error-text);
   margin-left: 2px;
 }
 
-.wf-field-err {
+.wf-field-err,
+.wf-input-err,
+.wf-select-err,
+.wf-textarea-err {
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-error-text);
 }
 
-.wf-field-hint {
+.wf-field-hint,
+.wf-input-hint,
+.wf-textarea-hint {
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-tertiary);
 }
