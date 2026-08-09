@@ -192,10 +192,22 @@ AiChat · Markdown · CodeBlock · MessageBubble · ToolCallCard · ApprovalCard
 | NavigationMenu 顶部导航 | shadcn（特有） | **NavMenu**（多级 hover 弹出 + 响应式折叠） | 🟡 | hover 定位弹层 + 键盘导航 + useBreakpoint |
 | Link 文字链接 | EP（独立）/ antd（Typography.Link 内嵌） | **Link**（语义色/下划线/disabled/新窗口/图标） | 🟡 | 原语增强、disabled 语义 |
 | Space 间距容器 | antd / EP | **Space**（size/direction/wrap/align/split 分隔） | 🟢 | 布局原语封装（gap 计算 + 分隔符） |
-| Grid 栅格 | antd Row/Col / EP Row/Col | **Grid**（24 栅格 + gutter + flex） | 🟢 | 布局计算（百分比宽度 + gutter 减法） |
+| Grid 栅格 + Flex | antd Row/Col/Flex / EP Row/Col | **Grid**（24 栅格 + gutter + **flex 容器模式**——单行弹性布局等价 antd Flex） | 🟢 | 布局计算（百分比宽度 + gutter 减法 + flex） |
 | Scrollbar 自定义滚动条 | EP | **Scrollbar**（webkit 滚动条样式 + 视口组件） | 🟢 | 滚动容器封装（VirtualList 机制复用） |
 | Statistic 倒计时 | antd Statistic.Countdown / EP | **StatCard ⬆️**（countdown 模式） | 🟢 | 定时器驱动 + 格式化（时分秒） |
 | AlertGroup 通知合并 | EP 2.8（新增） | **AlertGroup**（同类通知合并折叠） | 🟢 | 分组状态机 |
+
+### 覆盖闭环声明（batch-8 完成后）
+
+**三库全部业务组件 100% 有对应**——仅两类不属组件缺口：
+
+| 类 | 三库组件 | weifuwu 等价（框架内置，无需组件） |
+|----|---------|----------------------------------|
+| 全局配置 | antd App / ConfigProvider、EP ElConfigProvider | `createApp` + `--wf-*` CSS token + ctx 注入 |
+| 框架机制 | EP Teleport / Overlay | `createPortal` + `ctx.ui.ssr`（渲染器内置） |
+
+> 严格核对表：三库 208 项（antd 84 / EP 74 / shadcn 50）→ batch-8 后
+> 业务组件全覆盖；Flex 由 Grid 的 flex 容器模式覆盖（同一布局场景）。
 
 ### 批次节奏
 
