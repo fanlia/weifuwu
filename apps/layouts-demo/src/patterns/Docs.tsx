@@ -19,8 +19,10 @@ const SECTIONS = [
   { id: 'api', title: 'API 参考' },
 ]
 
-export const Docs: Component = (_init, _ctx) => (
-  () => (
+export const Docs: Component = (_init, ctx) => {
+  let mainEl: HTMLElement | undefined
+
+  return () => (
     <div class="wf-stack wf-gap-none" style={{ minHeight: 'calc(100vh - 48px)' }}>
       {/* 顶部导航 */}
       <header class="wf-row wf-p-md wf-gap-lg wf-border-b wf-between">
@@ -39,10 +41,16 @@ export const Docs: Component = (_init, _ctx) => (
       <div class="wf-row wf-gap-none wf-fill wf-stretch wf-nowrap">
         <aside class="wf-p-lg wf-border-r" style={{ width: 220, flexShrink: 0 }}>
           <span class="wf-text-tertiary wf-text-sm wf-block wf-mb-sm">目录</span>
-          <Anchor items={SECTIONS.map((s) => ({ href: `#${s.id}`, title: s.title }))} />
+          <Anchor
+            container={() => mainEl ?? window}
+            items={SECTIONS.map((s) => ({ href: `#${s.id}`, title: s.title }))}
+          />
         </aside>
 
-        <main class="wf-fill wf-p-lg wf-scroll">
+        <main
+          ref={(el: any) => { if (el) mainEl = el }}
+          class="wf-fill wf-p-lg wf-scroll"
+        >
           <Breadcrumb items={[{ label: '首页' }, { label: '文档' }, { label: '布局指南' }]} />
           <div class="wf-container wf-prose wf-mt-md" style={{ maxWidth: 720 }}>
             <Title level={1}>快速开始</Title>
@@ -90,5 +98,5 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))`} />
       </footer>
     </div>
   )
-)
+}
 

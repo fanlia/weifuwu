@@ -13,6 +13,7 @@ import {Text, Button, Card, Checkbox, Field, Form, Icon, Input, Space, Alert, Di
 export const FocusTask: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.ok = false
+  $.errors = {} as Record<string, string>
 
   return () => (
     <div class="wf-fill wf-center wf-p-md wf-bg-secondary" style={{ minHeight: 'calc(100vh - 48px)' }}>
@@ -30,6 +31,7 @@ export const FocusTask: Component = (_init, ctx) => {
               username: [{ required: true, message: '请输入用户名' }],
               password: [{ required: true, message: '请输入密码' }],
             }}
+            onError={(errors) => { $.errors = errors }}
             onSubmit={(v) => {
               if (v.username === 'admin' && v.password === 'admin') {
                 $.ok = true
@@ -37,10 +39,10 @@ export const FocusTask: Component = (_init, ctx) => {
             }}
           >
             <div class="wf-stack wf-gap-md">
-              <Field label="用户名" required>
+              <Field label="用户名" required error={$.errors.username}>
                 <Input name="username" placeholder="请输入用户名" />
               </Field>
-              <Field label="密码" required>
+              <Field label="密码" required error={$.errors.password}>
                 <Input name="password" type="password" placeholder="请输入密码" />
               </Field>
               <div class="wf-row wf-between">

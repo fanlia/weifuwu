@@ -26,8 +26,13 @@ const TABS = [
   { icon: 'user' as const, label: '我', active: false },
 ]
 
-export const Mobile: Component = (_init, _ctx) => (
-  () => (
+export const Mobile: Component = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.query = ''
+
+  return () => {
+    const filtered = CHATS.filter((c) => c.name.includes($.query) || c.msg.includes($.query))
+    return (
     <div class="wf-center wf-p-lg wf-bg-tertiary" style={{ minHeight: 'calc(100vh - 48px)' }}>
       {/* 手机视口（390×640 模拟屏——唯一允许的视口容器内联） */}
       <div class="wf-stack wf-gap-none wf-border wf-rounded-lg wf-elevate" style={{ width: 390, maxWidth: '100%', height: 640, overflow: 'hidden' }}>
@@ -38,16 +43,20 @@ export const Mobile: Component = (_init, _ctx) => (
           <Icon name="plus" size={18} />
         </div>
 
-        {/* 搜索 */}
+        {/* 搜索（输入过滤列表） */}
         <div class="wf-p-md wf-border-b">
-          <SearchInput placeholder="搜索会话" />
+          <SearchInput
+            placeholder="搜索会话"
+            onInput={(e) => { $.query = (e.target as HTMLInputElement).value }}
+            onClear={() => { $.query = '' }}
+          />
         </div>
 
         {/* 消息列表（滚动） */}
         <div class="wf-fill wf-scroll">
           <List
             divided
-            items={CHATS}
+            items={filtered}
             renderItem={(c) => (
               <div class="wf-row wf-p-md wf-gap-md">
                 <Avatar name={c.name[0]} size="md" />
@@ -75,6 +84,7 @@ export const Mobile: Component = (_init, _ctx) => (
         </div>
       </div>
     </div>
-  )
-)
+    )
+  }
+}
 

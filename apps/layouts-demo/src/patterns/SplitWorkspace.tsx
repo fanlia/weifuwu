@@ -10,17 +10,8 @@ import {Text, Button, CodeBlock, Descriptions, Divider, Icon, List, Tabs, Space 
 //   List（文件树）、CodeBlock（代码）、Descriptions（属性）
 // ─────────────────────────────────────────────────────────────
 
-const FILES = [
-  { name: 'src/', icon: 'folder' as const, depth: 0 },
-  { name: 'client/', icon: 'folder' as const, depth: 1 },
-  { name: 'ui.ts', icon: 'file-text' as const, depth: 2 },
-  { name: 'diff.ts', icon: 'file-text' as const, depth: 2 },
-  { name: 'server.ts', icon: 'file-text' as const, depth: 1 },
-  { name: 'components/', icon: 'folder' as const, depth: 1 },
-  { name: 'Button.tsx', icon: 'file-text' as const, depth: 2 },
-]
-
-const CODE = `// server.ts —— 一个文件启动全栈应用
+const FILES2 = [
+  { name: 'server.ts', icon: 'file-text' as const, depth: 0, code: `// server.ts —— 一个文件启动全栈应用
 import { serve, Router, ui } from 'weifuwu'
 
 const app = new Router()
@@ -31,40 +22,61 @@ app.get('/app.js', (req, ctx) =>
   ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
 serve(app, { port: 3000 })
-console.log('http://localhost:3000')`
+console.log('http://localhost:3000')` },
+  { name: 'ui.ts', icon: 'file-text' as const, depth: 0, code: `// ui.ts —— 组件 + 响应式状态
+export const Counter: Component = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.count = 0
+  return () => h('button', {
+    onClick: () => { $.count++ },
+  }, '计数：' + $.count)
+}` },
+  { name: 'diff.ts', icon: 'file-text' as const, depth: 0, code: `// diff.ts —— VNode diff（无 key 复用）
+export function patchKeyedChildren(...) {
+  // 数组 diff：allUnkeyed 按位置复用
+  // keyed：移动最小化
+}` },
+]
 
-export const SplitWorkspace: Component = (_init, _ctx) => (
-  () => (
+export const SplitWorkspace: Component = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.file = 'server.ts'
+  $.tab = 'server.ts'
+
+  return () => {
+    const code = (FILES2.find((f) => f.name === $.file) ?? FILES2[0]).code
+    return (
     <div class="wf-grid wf-border wf-rounded-lg" style={{ height: 'calc(100vh - 48px)', '--wf-cols': '20% 1fr 260px', overflow: 'hidden' }}>
       {/* 左栏：文件树 */}
       <aside class="wf-stack wf-gap-none wf-p-md wf-bg-secondary wf-scroll">
         <Text className="wf-text-sm" strong>资源管理器</Text>
         <Divider />
-        <List
-          items={FILES}
-          renderItem={(f) => (
-            <div class="wf-row wf-gap-sm" style={{ paddingLeft: f.depth * 16 }}>
-              <Icon name={f.icon} size={14} className="wf-text-tertiary" />
-              <Text className="wf-text-sm">{f.name}</Text>
+        <div class="wf-stack wf-gap-sm">
+          {FILES2.map((f) => (
+            <div
+              key={f.name}
+              class={`wf-nav-item${$.file === f.name ? ' wf-nav-item--active' : ''}`}
+              style={{ cursor: 'pointer' }}
+              onClick={() => { $.file = f.name }}
+            >
+              <span class="wf-nav-icon"><Icon name={f.icon} size={14} /></span>
+              <span class="wf-nav-label">{f.name}</span>
             </div>
-          )}
-        />
+          ))}
+        </div>
       </aside>
 
       {/* 中栏：编辑器 */}
       <main class="wf-stack wf-gap-none wf-fill">
         <div class="wf-p-sm wf-border-b">
           <Tabs
-            active="server.ts"
-            onChange={() => {}}
-            items={[
-              { key: 'server.ts', label: 'server.ts' },
-              { key: 'ui.ts', label: 'ui.ts' },
-            ]}
+            active={$.tab}
+            onChange={(k) => { $.tab = k; $.file = k }}
+            items={FILES2.map((f) => ({ key: f.name, label: f.name }))}
           />
         </div>
         <div class="wf-fill wf-p-md wf-scroll">
-          <CodeBlock lang="ts" title="server.ts" code={CODE} />
+          <CodeBlock lang="ts" title={$.file} code={code} />
         </div>
         {/* 底部状态栏 */}
         <div class="wf-row wf-p-sm wf-gap-md wf-border-t">
@@ -96,6 +108,7 @@ export const SplitWorkspace: Component = (_init, _ctx) => (
         </div>
       </aside>
     </div>
-  )
-)
+    )
+  }
+}
 
