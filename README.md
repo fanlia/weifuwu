@@ -243,7 +243,7 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 92 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 141 个主题 Token + 67 个布局原语 |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 141 个主题 Token + 70 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -282,9 +282,10 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **i18n** | 国际化中间件（运行时切换语言） | createApp |
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
-| `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect`） | — |
+| `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect` / `clampToViewport`） | — |
+| `weifuwu/client` | **移动端原语** | `usePopup`（弹层组合器）/ `useHoverCapable` / `useLongPress` / `useVisualViewport`（触屏友好由构造保证，见 [docs/mobile.md](./docs/mobile.md)） | — |
 | `weifuwu/components` | **92 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
-| `weifuwu/layout` | **CSS 布局** | 67 个布局原语 + 141 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+| `weifuwu/layout` | **CSS 布局** | 70 个布局原语 + 141 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -1411,6 +1412,10 @@ ctx.ui.render(['name'])
 | `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
 | `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
 | `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |
+| `usePopup()` | `usePopup(opts)` | **弹层组合器**：触发（hover/tap 降级/longpress）+ Escape + 外部点击 + 定位/clamp + portal |
+| `useHoverCapable()` | `useHoverCapable()` | 设备是否支持 hover（`matchMedia '(hover: hover)'`），触屏降级判断 |
+| `useLongPress()` | `useLongPress({ onLongPress, duration })` | 长按手势（pointer 事件 + 位移取消 + 桌面右键兼容） |
+| `useVisualViewport()` | `useVisualViewport()` | 可视视口跟踪（键盘弹起/缩放），`{ height, offsetTop, keyboardOpen }` 响应式 |
 | `useInView()` | `useInView(opts)` | 可见性观察（IntersectionObserver 封装，替代组件自建 scroll 监听）；`isIn` 响应式 + `ready` |
 | `useScrollPosition()` | `useScrollPosition({ getScroller? })` | 滚动位置跟踪（全局 scroll 监听 + rAF 节流）；`y` 响应式，容器/视口通用 |
 
@@ -1427,6 +1432,10 @@ ctx.ui.render(['name'])
 | `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动 dirty |
 | `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
+| `ctx.ui.usePopup()` | 注册监听 | 事件驱动 + document 监听 | 当前组件 | **弹层组合器** — 触发 + Escape + 外部点击 + 定位/clamp + portal（移动端友好由构造保证） |
+| `ctx.ui.useHoverCapable()` | mount 期判定 | 一次 matchMedia | 当前组件 | **hover 能力检测** — 触屏降级 tap 判断 |
+| `ctx.ui.useLongPress()` | 事件驱动 | pointer 事件 | 当前组件 | **长按手势** — ContextMenu 触屏触发、自定义长按操作 |
+| `ctx.ui.useVisualViewport()` | 注册监听 | visualViewport resize/scroll | 当前组件 | **键盘/缩放跟踪** — fixed 底部栏防键盘遮挡（AiChat `raiseOnKeyboard`） |
 | `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察**（IO 封装，无 scroll-linked 警告）— Affix/BackTop/InView 统一使用；rootMargin/threshold 支持函数 |
 | `ctx.ui.useScrollPosition()` | 注册监听 | 全局 scroll + rAF 节流 | 当前组件 | **滚动位置跟踪** — `y` 响应式（视口/内部容器通用），Affix/VirtualList 使用 |
 
@@ -1569,6 +1578,72 @@ const DatePicker = (_init, ctx) => {
 
 已内置接入的组件：**Popover / Tooltip / Dropdown / DatePicker / Chart**（tooltip）——它们的弹出层在页面滚动、嵌套容器滚动、窗口缩放时都会自动跟随触发元素，无需额外配置。
 
+#### `ctx.ui.usePopup(options)` — 弹层组合器（推荐：移动端友好由构造保证）
+
+`usePopupPosition` 的**上层封装**：把弹层组件的完整生命周期（打开状态 + 触发 + Escape + 外部点击 + 定位/视口 clamp + portal）收敛成一个原语。弹层组件用它替代手写样板，**移动端行为自动正确**：
+
+- **hover 触发在触屏自动降级为 tap**（内部 `matchMedia '(hover: hover)'` 判定）
+- **Escape 关闭是 document 级**——焦点在 portal 弹层内按 Escape 也能关
+- **外部点击关闭**（document mousedown，点弹层内部不关）
+- **宽度自动 clamp 视口**（≤ `100vw - 32px`，375px 屏不横向溢出）
+- **定位 + 视口夹紧**（复用 `usePopupPosition`，超高/超宽面板平移回视口）
+- 支持受控（`open`/`onOpenChange`）、动态 props（`placement`/`trigger`/`openDelay` 支持 getter）
+
+```tsx
+const Tooltip = (_init, ctx) => {
+  let show = false
+  let wrapEl: HTMLElement | null = null
+  const wrapRef = (el) => { wrapEl = el }
+
+  const popup = ctx.ui.usePopup({
+    trigger: 'hover',            // 触屏自动降级 tap
+    placement: () => latestPos,  // getter：动态读最新 props
+    el: () => wrapEl,
+    isOpen: () => show,
+    setOpen: (v) => { show = v; ctx.ui.render() },
+    width: 320,                  // 自动 clamp 视口
+    disabled: () => disabled,
+    openDelay: () => delay,      // hover 延迟（HoverCard 用）
+  })
+
+  return (props) => h('div', { ref: wrapRef, ...popup.wrapProps }, [
+    props.children,
+    popup.portal(h('div', { class: 'wf-tooltip' }, props.content), 'tooltip'),
+  ].filter(Boolean))
+}
+```
+
+- `popup.wrapProps` — 触发 + Escape + focus 处理，spread 到包装/触发元素
+- `popup.portal(content, portalKey)` — 定位 + clamp + portal（挂载 `#__wf_portal`），关闭时返回 null；自动附加 `wf-popup` 基类
+- `popup.open` / `popup.setOpen()` — 状态读取与设置
+
+**边界（诚实裁剪）**：Modal/Drawer 全屏对话框不进 `usePopup`（focus-trap/scroll-lock/退场状态机生命周期不同，各自实现）。
+
+已迁移组件：**Tooltip / HoverCard / Popover / Dropdown / Menubar / Mentions / Cascader / ContextMenu**（长按双通道）。
+
+#### `ctx.ui.useHoverCapable()` / `useLongPress()` / `useVisualViewport()` — 移动端原语
+
+- **`useHoverCapable()`** — 设备是否支持 hover（`matchMedia '(hover: hover)'`，mount 期一次判定）。hover 触发组件用它降级 tap。
+
+```ts
+const canHover = ctx.ui.useHoverCapable()
+// canHover=false（触屏）→ 用 tap 打开而非 mouseenter
+```
+
+- **`useLongPress({ onLongPress, duration })`** — 长按手势：`pointerdown` 按住 `duration`（默认 500ms）触发，提前松开/位移 >10px 取消，`contextmenu` 兼容。返回的 props spread 到目标元素。ContextMenu 已内置桌面右键 + 触屏长按双通道。
+
+```ts
+const press = ctx.ui.useLongPress({ onLongPress: (e) => openAt(e), duration: 500 })
+return h('div', { ...press }, children)  // onPointerDown/Up/Leave/Move + onContextMenu
+```
+
+- **`useVisualViewport()`** — 可视视口跟踪（`visualViewport` resize/scroll 监听）：虚拟键盘弹起/页面缩放时自动更新并 dirty。返回响应式 `{ height, offsetTop, keyboardOpen }`；无 `visualViewport` 环境（桌面）降级 `innerHeight`。fixed 底部栏防键盘遮挡用（AiChat `raiseOnKeyboard` prop）。
+
+```ts
+const vv = ctx.ui.useVisualViewport()
+// vv.keyboardOpen → 输入区 fixed 抬升到键盘上方
+```
+
 #### `ctx.ui.selfId(name)` — 跨组件精准刷新
 
 用于全局事件通知、Portal 远程控制、兄弟组件协调等场景——绕过多层 props 传递，直接按 ID 刷新目标组件：
@@ -1615,6 +1690,16 @@ ctx.ui.render(['stats'])        // 同步刷新
 | `wf-block` | `@sm` `@md` `@lg` | 断点以上显示 |
 
 断点尺寸：`--wf-bp-sm: 640px` / `--wf-bp-md: 768px` / `--wf-bp-lg: 1024px` / `--wf-bp-xl: 1280px`
+
+**移动端专用工具**（`weifuwu/layout`）：
+
+| 工具 | 效果 |
+|------|------|
+| `wf-popup` | 浮层基类：宽度视口 clamp（`min(var(--wf-popup-max, 480px), calc(100vw - 32px))`）——手动浮层防横向溢出 |
+| `wf-safe-bottom` / `wf-safe-top` | iOS 安全区：`padding: env(safe-area-inset-bottom/top)`（刘海屏/Home 条） |
+| `@media (pointer: coarse)` 44px | 触屏命中区：button/input/select 全局覆盖；非 button 交互元素由 style-audit 规则强制登记 |
+
+> **移动端开发指南**：断点体系 / 44px 命中区纪律 / usePopup / 手势原语 / safe-area / 验收清单 → [`docs/mobile.md`](./docs/mobile.md)
 
 ### `ctx.ui.dirty()` — 异步标记脏
 
@@ -2634,7 +2719,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 
 也支持相对路径：`ctx.ui.css('./src/style.css')`。
 
-## 67 个布局原语
+## 70 个布局原语
 
 | 类别 | 原语 | 效果 |
 |------|------|------|
@@ -2661,6 +2746,8 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | | `wf-anchor` | position: relative |
 | | `wf-layer` | position: relative + z-index |
 | | `wf-sticky` | position: sticky |
+| | `wf-popup` | 浮层基类：宽度视口 clamp（`min(var(--wf-popup-max, 480px), calc(100vw - 32px))`） |
+| **安全区** | `wf-safe-bottom` / `wf-safe-top` | iOS 刘海屏/Home 条：`padding: env(safe-area-inset-*)` |
 | **容器** | `wf-surface` | 基础面（border-radius + shadow + bg） |
 | | `wf-grid` | display: grid + --wf-cols |
 | | `wf-container` | max-width + margin: auto |
