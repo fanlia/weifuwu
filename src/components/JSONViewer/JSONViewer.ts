@@ -287,26 +287,52 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
       ])
     }
 
-    // 根节点
+    // 根节点：初始展开（depth 0 无条件展开），手动点击可收起
+    // （0 >= defaultExpandDepth 恒 false 会导致 root 永不折叠——改用 $ 手动状态）
     let root: any
     if (typeof data === 'object' && data !== null) {
-      const isCollapsed = 0 >= defaultExpandDepth && !$.expanded[rootName]
+      const isCollapsed = $.expanded[rootName] === true
       root = isCollapsed
-        ? h('div', { class: 'wf-json-row wf-json-collapse', 'data-path': rootName }, [
-            h('button', { class: 'wf-json-toggle', 'aria-label': '展开', onClick: () => toggle(rootName, selfId) }, h(Icon, { name: 'chevron-right', size: 10 })),
+        ? h('div', {
+            class: 'wf-json-row wf-json-collapse',
+            'data-path': rootName,
+            role: 'button',
+            tabIndex: 0,
+            onClick: () => toggle(rootName, selfId),
+            onKeyDown: (e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId) }
+            },
+          }, [
+            h('button', { class: 'wf-json-toggle', 'aria-label': '展开', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId) } }, h(Icon, { name: 'chevron-right', size: 10 })),
             h('span', { class: 'wf-json-summary' }, `Object {…}`),
           ])
         : (Array.isArray(data)
             ? h('div', { class: 'wf-json-node', 'data-path': rootName }, [
-                h('div', { class: 'wf-json-row' }, [
-                  h('button', { class: 'wf-json-toggle', 'aria-label': '收起', onClick: () => toggle(rootName, selfId) }, h(Icon, { name: 'chevron-down', size: 10 })),
+                h('div', {
+                  class: 'wf-json-row wf-json-row--header',
+                  role: 'button',
+                  tabIndex: 0,
+                  onClick: () => toggle(rootName, selfId),
+                  onKeyDown: (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId) }
+                  },
+                }, [
+                  h('button', { class: 'wf-json-toggle', 'aria-label': '收起', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId) } }, h(Icon, { name: 'chevron-down', size: 10 })),
                   h('span', { class: 'wf-json-node-summary' }, `Array(${data.length})`),
                 ]),
                 h('div', { class: 'wf-json-children' }, data.map((item, i) => renderValue(item, `${rootName}[${i}]`, 1, String(i)))),
               ])
             : h('div', { class: 'wf-json-node', 'data-path': rootName }, [
-                h('div', { class: 'wf-json-row' }, [
-                  h('button', { class: 'wf-json-toggle', 'aria-label': '收起', onClick: () => toggle(rootName, selfId) }, h(Icon, { name: 'chevron-down', size: 10 })),
+                h('div', {
+                  class: 'wf-json-row wf-json-row--header',
+                  role: 'button',
+                  tabIndex: 0,
+                  onClick: () => toggle(rootName, selfId),
+                  onKeyDown: (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId) }
+                  },
+                }, [
+                  h('button', { class: 'wf-json-toggle', 'aria-label': '收起', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId) } }, h(Icon, { name: 'chevron-down', size: 10 })),
                   h('span', { class: 'wf-json-key' }, `${rootName}:`),
                   h('span', { class: 'wf-json-node-summary' }, `Object(${Object.keys(data as object).length})`),
                 ]),
