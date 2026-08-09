@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, VirtualTable, InfiniteScroll, QRCode,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1229,6 +1229,32 @@ const DemoAffix: Component = () => () => (
   </div>
 )
 
+const DemoAnchor: Component = (_props, ctx) => {
+  let active = '#anchor-a'
+  const sections = [
+    { id: 'anchor-a', title: '第一节', body: Array.from({ length: 8 }, (_, i) => `这是第一节的第 ${i + 1} 段内容。用于演示锚点滚动高亮跟随。`).join('') },
+    { id: 'anchor-b', title: '第二节', body: Array.from({ length: 8 }, (_, i) => `这是第二节的第 ${i + 1} 段内容。滚动时右侧锚点自动高亮当前节。`).join('') },
+    { id: 'anchor-c', title: '第三节', body: Array.from({ length: 8 }, (_, i) => `这是第三节的第 ${i + 1} 段内容。点击锚点平滑滚动到对应位置。`).join('') },
+  ]
+  return () => (
+    <div class="wf-w-full wf-row wf-gap-lg" style="align-items: flex-start">
+      <div class="wf-flex-1">
+        {sections.map(s => (
+          <div id={s.id} class="wf-border-b wf-pb-md wf-mb-md">
+            <div class="wf-text-base wf-font-semibold wf-mb-sm">{s.title}</div>
+            <div class="wf-text-sm wf-text-secondary">{s.body}</div>
+          </div>
+        ))}
+      </div>
+      <div class="wf-surface wf-border wf-rounded wf-p-md" style="width: 140px; position: sticky; top: 16px">
+        <Anchor items={sections.map(s => ({ href: `#${s.id}`, title: s.title }))}
+          activeKey={active} onAnchorChange={h => { active = h; ctx.ui.render() }} />
+        <div class="wf-text-xs wf-text-secondary wf-mt-sm">滚动页面跟随高亮</div>
+      </div>
+    </div>
+  )
+}
+
 const DemoContextMenu: Component = () => () => (
   <ContextMenu items={[
     { key: 'edit', label: '编辑', onClick: () => alert('编辑') },
@@ -1798,6 +1824,9 @@ return () => <AiChat chat={$} />
   <nav>固定导航条</nav>
 </Affix>`,
 
+  anchor: `<Anchor items={[{ href: '#intro', title: '简介' }, ...]}
+  activeKey={active} onAnchorChange={setActive} />`,
+
   contextmenu: `<ContextMenu items={[{key:'edit',label:'编辑'}]}>
   <div>右键区域</div>
 </ContextMenu>`,
@@ -1976,6 +2005,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="HoverCard" desc="悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）" code={CODE.hovercard}><DemoHoverCard /></DemoCard>
         <DemoCard title="Notification" desc="队列式通知：notification.success/error/warning 命令式（antd 对齐）" code={CODE.notification}><DemoNotification /></DemoCard>
         <DemoCard title="BackTop / Affix" desc="回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）" code={CODE.backtop}><DemoBackTop /><DemoAffix /></DemoCard>
+        <DemoCard title="Anchor" desc="锚点导航：滚动高亮跟随 + 点击平滑滚动" code={CODE.anchor}><DemoAnchor /></DemoCard>
         <DemoCard title="ContextMenu" desc="右键菜单：光标定位 + 方向键 + danger 变体（shadcn）" code={CODE.contextmenu}><DemoContextMenu /></DemoCard>
         <DemoCard title="Mentions" desc="@提及：composition 抑制 + 过滤插入（antd Mentions）" code={CODE.mentions}><DemoMentions /></DemoCard>
         <DemoCard title="Collapse" desc="行内折叠：异步 loading + extra 操作区（区别于 Accordion）" code={CODE.collapse}><DemoCollapse /></DemoCard>

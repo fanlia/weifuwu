@@ -1,0 +1,39 @@
+/* weifuwu/components — Anchor（锚点导航） */
+
+.wf-anchor {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+}
+
+.wf-anchor-link {
+  display: block;
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--wf-radius-sm) var(--wf-radius-sm) 0;
+  color: var(--wf-color-text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--wf-dur-fast) var(--wf-ease-out),
+              background var(--wf-dur-fast) var(--wf-ease-out),
+              border-color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-anchor-link:hover {
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-text);
+}
+
+.wf-anchor-link--active {
+  color: var(--wf-color-primary-text);
+  border-left-color: var(--wf-color-primary);
+  font-weight: var(--wf-font-weight-semibold);
+  background: var(--wf-color-primary-bg);
+}
+
+.wf-anchor-link:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
