@@ -196,6 +196,17 @@ const CollapseItem: Component<{ active?: boolean; onChange?: (v: boolean) => voi
 
 > 多受控维度组件（Tree 的 expandedKeys+checkedKeys）不适用单值 useControlled——保留手工受控判定（参考 Tree.ts），warn 文案与 useControlled 保持一致。
 
+## 8.5 动画（4 层能力）
+
+| 层 | 原语 | 用法 |
+|----|------|------|
+| CSS 语言 | Token（`--wf-dur-*`/`--wf-ease-*`/`--wf-motion-*`）+ `--enter`/`--exit` 成对 | 组件动画统一引用 Token，禁硬编码 |
+| 生命周期 | `useAnimationEnd(cb, { once })`（完成回调）/ `usePresence({ name })`（显隐状态机）/ `animateOut(el, done)`（命令式退场） | 入场 settle / 退场延迟卸载 / 命令式播动画 |
+| 数值驱动 | `useTween(target, { duration, ease })`（补间）/ `useInView` / `useScrollPosition` | count-up / 进入视口播 / 滚动联动 |
+| 偏好感知 | `useReducedMotion()` | JS 动画（rAF/tween）侧跳过；CSS 动画 `_base.css` 已全局降级 |
+
+**纪律**：组件内动画事件监听**唯一入口是 `useAnimationEnd`**——禁直接 `addEventListener('animationend')`（DatePicker 已收敛）；退场优先 `usePresence`（声明式状态机）或 `animateOut`（命令式）。
+
 ## 9. 样式纪律（style-audit 强制）
 
 - 动效用 Token：`--wf-dur-*` / `--wf-ease-*` / `--wf-motion-*`（禁硬编码）

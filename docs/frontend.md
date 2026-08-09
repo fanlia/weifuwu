@@ -161,6 +161,10 @@ ctx.ui.render(['name'])
 | `useGlobalKey()` | `useGlobalKey(handler)` | 全局键盘监听（window keydown：mount 注册 + 卸载清理） |
 | `useDrag()` | `useDrag({ onMove, onStart?, onEnd? })` | 指针拖拽（pointerdown 捕获 → window move delta / up 释放） |
 | `useDragDrop()` | `useDragDrop({ onDrop, onDragOver?, onDragLeave? })` | 原生 DnD（drop/dragover/dragleave + preventDefault，dropProps spread） |
+| `useReducedMotion()` | `useReducedMotion()` | 响应式系统偏好（JS 动画侧跳过；CSS 动画已有全局降级） |
+| `useAnimationEnd()` | `useAnimationEnd(cb, { once? })` | 元素动画完成回调（stableRef：挂载绑定/卸载清理/引用恒定） |
+| `useTween()` | `useTween(target, { duration?, ease? })` | 数值补间（rAF + easeOutCubic + reduced-motion 直落；幂等 reset） |
+| `usePresence()` | `usePresence({ name? })` | 通用显隐状态机（open→exit→closed，animationend 延迟卸载；useDialog 是其特例） |
 | `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
 | `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
 | `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |

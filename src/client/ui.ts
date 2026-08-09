@@ -727,12 +727,14 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
      * 全屏对话框组合器：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap。
      * mount 创建 handle；render 阶段 sync(open) 驱动。Escape 语义留组件层。
      */
-    useDialog: function (options?: { name?: string }) {
+    /**
+     * 通用显隐状态机：open → exit → closed（animationend 延迟卸载）。
+     * useDialog 基于它（+ lock/trap）——状态机单点实现。
+     */
+    usePresence: function (options?: { name?: string }) {
       const selfId = getSelfId(this)
       let phase: 'closed' | 'open' | 'exit' = 'closed'
-      let focusCleanup: (() => void) | undefined
       let animEndHandler: (() => void) | undefined
-      let panelEl: HTMLElement | null = null
 
       const finishExit = () => {
         phase = 'closed'
@@ -742,20 +744,46 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         }
       }
 
-      const rootRef = (el: any) => {
+      const ref = (el: any) => {
         if (el) {
-          lockScroll()
-          if (panelEl) focusCleanup = trapFocus(panelEl as HTMLElement)
           // 挂载期挂一次 animationend：enter 结束忽略，exit 结束才真正卸载
           if (!animEndHandler) {
             animEndHandler = () => { if (phase === 'exit') finishExit() }
             el.addEventListener('animationend', animEndHandler)
           }
         } else {
-          unlockScroll()
-          focusCleanup?.()
           el?.removeEventListener('animationend', animEndHandler as any)
           animEndHandler = undefined
+        }
+      }
+
+      return {
+        get phase() { return phase },
+        ref,
+        sync: (open: boolean) => {
+          if (open) phase = 'open'
+          else if (phase === 'open') phase = 'exit'
+          return phase
+        },
+      }
+    },
+
+    useDialog: function (options?: { name?: string }) {
+      const selfId = getSelfId(this)
+      let focusCleanup: (() => void) | undefined
+      let panelEl: HTMLElement | null = null
+      // 状态机复用 usePresence（open → exit → closed + animationend 卸载）
+      const presence = this.usePresence(options)
+
+      const rootRef = (el: any) => {
+        if (el) {
+          lockScroll()
+          if (panelEl) focusCleanup = trapFocus(panelEl as HTMLElement)
+          presence.ref(el)
+        } else {
+          unlockScroll()
+          focusCleanup?.()
+          presence.ref(null)
         }
       }
 
@@ -768,14 +796,10 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       }
 
       return {
-        get phase() { return phase },
+        get phase() { return presence.phase },
         rootRef,
         panelRef,
-        sync: (open: boolean) => {
-          if (open) phase = 'open'
-          else if (phase === 'open') phase = 'exit'
-          return phase
-        },
+        sync: (open: boolean) => presence.sync(open),
       }
     },
 

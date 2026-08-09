@@ -346,6 +346,15 @@ export interface WfuiContext {
      * ```
      * Escape 语义（危险操作差异）留在组件层——诚实裁剪。
      */
+    /** 通用显隐状态机（非 dialog 浮层/面板）：open → exit → closed（animationend 延迟卸载）。
+     * useDialog 是其对话框特例（+ lockScroll/trapFocus）。mount 创建，render 阶段 sync(open)。 */
+    usePresence: (options?: { name?: string }) => {
+      phase: 'closed' | 'open' | 'exit'
+      /** 挂到根元素（animationend 监听：exit 结束才真正卸载） */
+      ref: (el: any) => void
+      /** render 阶段同步 open → 返回当前 phase */
+      sync: (open: boolean) => 'closed' | 'open' | 'exit'
+    }
     useDialog: (options?: { name?: string }) => {
       phase: 'closed' | 'open' | 'exit'
       /** 挂到 portal 根（lockScroll + animationend 退场监听） */

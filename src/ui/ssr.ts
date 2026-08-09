@@ -101,6 +101,11 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
       portal: () => null,
       refresh: () => {},
     }),
+    usePresence: () => ({
+      phase: 'closed',
+      ref: () => {},
+      sync: (open: boolean) => (open ? 'open' : 'closed'),
+    }),
     useDialog: () => ({
       phase: 'closed',
       rootRef: () => {},
