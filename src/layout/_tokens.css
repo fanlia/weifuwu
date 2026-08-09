@@ -96,6 +96,7 @@
   --wf-kanban-col-max-width: 300px;
   --wf-treeselect-min-width: 200px;
   --wf-navmenu-min-width: 160px;
+  --wf-select-menu-min-width: 200px;
   --wf-treeselect-max-width: 320px;
   --wf-treeselect-dropdown-max-height: 260px;
   --wf-z-popover: 120; /* dropdown/select/datepicker 面板与 popover 同层 */

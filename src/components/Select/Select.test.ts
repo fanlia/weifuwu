@@ -31,7 +31,7 @@ function allNodes(vnode: any): any[] {
 
 describe('Select (native)', () => {
   function nativeCtx() {
-    const ctx = { ui: { $: () => ({}), render: () => {}, dirty: () => {} } } as any
+    const ctx = { ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
     return ctx
   }
 
@@ -86,7 +86,7 @@ describe('Select (native)', () => {
 describe('Select (searchable)', () => {
   function searchableCtx() {
     const state = createState({ open: false, keyword: '', filteredOptions: [] })
-    const ctx = { ui: { $: () => state, render: () => {}, dirty: () => {} } } as any
+    const ctx = { ui: { $: () => state, render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
     // mount: 此时组件内会 $.open = false（与 state 一致）
     const render = Select({}, ctx)!
     return { ctx, state, render }

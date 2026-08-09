@@ -98,11 +98,8 @@
 }
 
 .wf-select-search-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 2px;
+  /* portal 定位（usePopup 接管）——absolute 会被父容器 overflow 裁剪 */
+  min-width: var(--wf-select-menu-min-width, 200px);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-field-radius, var(--wf-radius));

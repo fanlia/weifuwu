@@ -525,6 +525,13 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // el-null fallback：嵌套弹层首帧锚点 ref 在 patch 后设置（render 内
       // el() 为 null）——微任务推迟重试，render 完成后再取坐标
       let lastEl: HTMLElement | null = null
+      // 稳定 portal ref（渲染器内联 ref 检测：内联箭头每次渲染新引用 → ≥3 次警告）。
+      // content 的 ref（prevRef）动态——闭包变量，每次 portal 调用更新
+      let latestContentRef: ((el: any) => void) | null = null
+      const portalPanelRef = (el: HTMLElement | null) => {
+        panelRef(el)
+        if (latestContentRef) latestContentRef(el)
+      }
       const portal = (content: VNode, portalKey = 'popover'): VNode | null => {
         if (isDisabled()) return null
         const now = isOpen()
@@ -540,7 +547,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
           lastEl = el
         }
         const props = (content.props ?? {}) as Record<string, any>
-        const prevRef = props.ref
+        latestContentRef = (props.ref as ((el: any) => void) | null) ?? null
         const cls = ['wf-popup', props.class].filter(Boolean).join(' ')
         const style = {
           ...(props.style ?? {}),
@@ -557,7 +564,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
             ...props,
             class: cls,
             style,
-            ref: (el: HTMLElement | null) => { panelRef(el); if (prevRef) prevRef(el) },
+            ref: portalPanelRef,
           },
         } as VNode
         return createPortal(panel, portalKey)

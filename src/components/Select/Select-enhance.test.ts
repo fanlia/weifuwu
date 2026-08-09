@@ -31,7 +31,7 @@ function allNodes(vnode: any): any[] {
 
 function mockCtx(): WfuiContext {
   const state = createState({})
-  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
 }
 
 describe('Select 增强（键盘导航 + multiple）', () => {

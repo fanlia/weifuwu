@@ -71,6 +71,21 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
   $.filteredOptions = [] as SelectOption[]
   $.highlight = -1
 
+  // 弹层纪律（AGENTS.md）：menu 必须 portal——此前 absolute 会被父容器
+  // overflow/transform 裁剪（AutoComplete 同款教训）。usePopup 提供
+  // portal + 定位 + 外部点击 + Escape + 锚点感知。
+  let triggerEl: HTMLElement | null = null
+  const triggerRef = (el: HTMLElement | null) => { if (el) triggerEl = el }
+  const popup = ctx.ui.usePopup({
+    trigger: () => 'click',
+    placement: () => 'bottom',
+    center: false, // 左对齐 trigger
+    gap: 4,
+    el: () => triggerEl,
+    isOpen: () => $.open,
+    setOpen: (v) => { $.open = v },
+  })
+
   return (props) => {
     const { label, value, options = [], placeholder, required, disabled, error, onChange, onSearch, multiple } = props
 
@@ -158,7 +173,10 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
       : $.open ? $.keyword : (selectedOption?.label ?? '')
 
     const trigger = h('div', {
+      // key 稳定：portal 开关致数组长度变化——无 key trigger 会被重建 → input 焦点丢失
+      key: 'select-trigger',
       class: `wf-select-search-trigger${disabled ? ' wf-select-search--disabled' : ''}${error ? ' wf-select--err' : ''}`,
+      ref: triggerRef,
       onClick: disabled ? undefined : () => { $.open = !$.open },
     }, [
       ...tags,
@@ -202,11 +220,9 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
         ? [h('div', { class: 'wf-select-search-empty' }, '无匹配')]
         : []
 
-    const menu = $.open
-      ? h('div', { class: 'wf-select-search-menu' }, menuChildren)
-      : null
+    const menu = h('div', { class: 'wf-select-search-menu' }, menuChildren)
 
-    wrapChildren.push(h('div', { class: 'wf-select-search' }, [trigger, menu].filter(Boolean)))
+    wrapChildren.push(h('div', { class: 'wf-select-search' }, [trigger, popup.portal(menu, 'wf-select-menu')].filter(Boolean)))
     if (error) wrapChildren.push(h('div', { class: 'wf-select-err' }, error))
 
     return h('div', { class: `wf-select-wrap${error ? ' wf-select--err' : ''}` }, wrapChildren)
