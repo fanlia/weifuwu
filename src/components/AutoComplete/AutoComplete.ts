@@ -94,12 +94,23 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     const filtered = (props.filter ?? filterOptions)(options, query)
     if (activeIndex >= filtered.length) activeIndex = -1
 
+    // IME 组合（中文拼音）：组合期间不处理 onChange/不重渲染——
+    // 否则受控 value 重置打断输入法（Mentions/TagsInput 同款纪律）
+    let composing = false
     const onInput = (e: any) => {
-      console.log('[ac-debug] onInput', e.target?.value)
+      if (composing || e.isComposing) return
       const v = e.target.value
       latestOnChange?.(v)
-      if (!open) setOpen(true)
+      if (!$.open) setOpen(true)
       activeIndex = -1
+    }
+    const onCompositionStart = () => { composing = true }
+    const onCompositionEnd = (e: any) => {
+      composing = false
+      // 组合完成：处理最终中文值（过滤/回填）
+      const v = (e.target as HTMLInputElement)?.value ?? ''
+      latestOnChange?.(v)
+      if (!$.open) setOpen(true)
     }
 
     const onKeyDown = (e: any) => {
@@ -150,6 +161,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
         disabled,
         onInput,
         onKeyDown,
+        onCompositionStart,
+        onCompositionEnd,
         onFocus: () => { if (!$.open) setOpen(true) },
       }),
       dropdown,

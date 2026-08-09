@@ -110,6 +110,24 @@ describe('AutoComplete', () => {
     assert.equal(selected, 'pay-admin', 'Enter 选中高亮项')
   })
 
+  test('IME 组合期间不处理 onChange（中文输入不被重置打断）', () => {
+    let changed = 0
+    const ctx = mockCtx()
+    const inst = mount(AutoComplete, { options, value: '', onChange: () => { changed++ } }, ctx)
+    const vnode = inst.render({ options, value: '', onChange: () => { changed++ } })
+    const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
+    // 组合开始（拼音输入中）
+    input.props.onCompositionStart()
+    input.props.onInput({ target: { value: 'zhifu' }, isComposing: true })
+    assert.equal(changed, 0, '组合期间 input 事件不触发 onChange')
+    // 组合结束（选字完成）
+    input.props.onCompositionEnd({ target: { value: '支付' } })
+    assert.equal(changed, 1, '组合完成触发 onChange（最终中文值）')
+    // 组合后正常输入
+    input.props.onInput({ target: { value: '支付平' }, isComposing: false })
+    assert.equal(changed, 2, '组合后 input 正常处理')
+  })
+
   test('Escape 关闭下拉', () => {
     const ctx = mockCtx()
     const inst = mount(AutoComplete, { options, value: '' }, ctx)
