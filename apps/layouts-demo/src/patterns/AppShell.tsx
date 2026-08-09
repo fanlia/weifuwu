@@ -22,6 +22,16 @@ const NAV = [
 export const AppShell: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.collapsed = false
+  ;(window as any).__appShellVNode = (ctx.ui as any)._selfVNode
+  ;(window as any).__appShellVNode.refProbe = () => ({
+    id: (ctx.ui as any)._selfVNode?._id,
+    refNode: (ctx.ui as any)._selfVNode?._refNode?.tagName,
+    refNull: (ctx.ui as any)._selfVNode?._refNode === null,
+    refUndefined: (ctx.ui as any)._selfVNode?._refNode === undefined,
+    child: !!(ctx.ui as any)._selfVNode?._child,
+    parentNode: !!(ctx.ui as any)._selfVNode?._parentNode,
+    parentNodeCls: (ctx.ui as any)._selfVNode?._parentNode?.className?.slice(0, 30),
+  })
 
   return () => (
     <div

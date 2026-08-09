@@ -97,7 +97,9 @@ export function patchValue(
     const comp = newV.type as Component | AsyncComponent
 
     // 传递 _render（两阶段组件复用 render 函数）+ 保持实例 ID
-    if (oldV._render) {
+    // ——仅类型相同时：组件切换（AppShell→SplitWorkspace）必须重新 mount，
+    // 复用旧 _render 会渲染成旧组件（壳内容区首次切换不更新的根因）
+    if (oldV._render && oldV.type === newV.type) {
       newV._render = oldV._render
       newV._id = oldV._id
       if (newV._id) idRegistry.set(newV._id, newV)
@@ -119,6 +121,7 @@ export function patchValue(
     // ── 三态 skip：props 没变 + $ 没脏 + ctx 版本一致 → 复用旧输出 ──
     if (
       oldV._render &&
+      oldV.type === newV.type && // 类型必须相同（否则三态 skip 会复用旧组件输出）
       componentPropsEqual(oldV.props, newV.props) &&
       !(childCtx.ui as any)._dirtySet?.has(oldV._id) &&
       newV._ctxVersion === (childCtx.ui as any)._ctxVersion
@@ -375,21 +378,29 @@ export function mapChildDomNodes(source: Node[], children: any[]): (Node[] | nul
         out.push(source[idx] ? [source[idx]] : null)
         idx += 1
       }
-    } else if ((v as any)._refNode !== undefined || (v as any)._childNodes) {
-      // 组件/元素 VNode：用实际渲染的 DOM 记录定位（_refNode 单节点 / _childNodes Fragment）
-      // ——不能假设占 1 位：渲染为 null 的组件（closed Drawer/Modal）_refNode=null 无 DOM，
-      // 假设占位会让后续子项 idx 错位（壳内容区模式切换静默失效的根因）
-      const refNode = (v as any)._childNodes ?? (v as any)._refNode
-      if (refNode == null) {
-        out.push(null) // 渲染为 null：无 DOM、不推进 idx
-      } else if (Array.isArray(refNode)) {
-        out.push(refNode.slice())
-        idx += refNode.length
+    } else if (typeof v.type === 'function') {
+      if ((v as any)._render) {
+        // 已挂载组件：用实际渲染的 DOM 记录定位（_refNode 单节点 / _childNodes Fragment）
+        // ——不假设占 1 位：渲染为 null 的组件（closed Drawer/Modal）_refNode=null 无 DOM，
+        // 假设占位会让后续子项 idx 错位（壳内容区首次切换不更新的根因）
+        const refNode = (v as any)._childNodes ?? (v as any)._refNode
+        if (refNode == null) {
+          out.push(null) // 渲染 null：无 DOM、不推进 idx
+        } else if (Array.isArray(refNode)) {
+          out.push(refNode.slice())
+          idx += refNode.length
+        } else {
+          out.push([refNode])
+          idx += 1
+        }
       } else {
-        out.push([refNode])
+        // async 工厂未解析（占位）：逻辑占 1 位——按 source 推进
+        // （占位补全 diff 依赖此位置——复用旧 DOM 锚点做 insertBefore）
+        out.push(source[idx] ? [source[idx]] : null)
         idx += 1
       }
     } else {
+      // 原生元素 VNode：渲染时必占 1 DOM——按 source 位置推进
       if (typeof process !== 'undefined' && process.env.DBG) console.error('[map] idx=', idx, 'type=', v.type, 'sourceLen=', source.length, 'hit=', !!source[idx])
       out.push(source[idx] ? [source[idx]] : null)
       idx += 1
@@ -481,7 +492,18 @@ export function patchKeyedChildren(
         }
       } else if (oldC == null) {
         const node = renderValue(newC, ctx)
-        if (node != null) parent.appendChild(node)
+        if (node != null) {
+          // 插入到下一个已有 DOM 兄弟前（而非 append 末尾）——async 占位补全
+          // 位置正确（A 未解析占位 → 补全后插到 '-' 前）；兄弟定位用 oldNodes
+          // 后续项（map 修复后 null 组件不占位——索引对齐实际 DOM）
+          let next: Node | null = null
+          for (let j = i + 1; j < oldNodes.length; j++) {
+            const n = oldNodes[j]?.[0]
+            if (n && n.parentNode === parent) { next = n; break }
+          }
+          if (next) parent.insertBefore(node, next)
+          else parent.appendChild(node)
+        }
       } else {
         const oldNode = oldNodes[i]?.[0] ?? null
         patchValue(parent, oldNode, oldC, newC, ctx)
