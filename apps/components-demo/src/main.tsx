@@ -867,6 +867,8 @@ const DemoImage: Component = () => () => (
     <Img src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
     <Img src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
     <Img src="/broken.jpg" fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='14'%3E加载失败%3C/text%3E%3C/svg%3E" alt="fallback" width={120} height={120} style={{ objectFit: 'cover', borderRadius: '8px' }} />
+    {/* preview：点击放大（缩放滚轮/双击，Escape/遮罩关闭） */}
+    <Img src="https://picsum.photos/600/400?3" alt="preview 点击放大" preview width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover', cursor: 'zoom-in' }} />
   </div>
 )
 
@@ -1487,7 +1489,8 @@ const CODE = {
 
   image: `<Img src="/photo.jpg" alt="照片" />
 <Img src="/photo.jpg" fallback="/placeholder.png" />
-<Img src="..." loading="lazy" width={200} />`,
+<Img src="..." loading="lazy" width={200} />
+<Img src="..." preview /> {/* 点击放大：Escape/遮罩关闭 */}`,
 
   inview: `<InView>
   <ExpensiveComponent />
@@ -1852,7 +1855,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Badge" desc="状态标签 + 圆点，6 种 variant" code={CODE.badge}><DemoBadge /></DemoCard>
         <DemoCard title="Tag" desc="标签，支持 closable/onClose" code={CODE.tag}><DemoTag /></DemoCard>
         <DemoCard title="Avatar" desc="头像（首字母/图片），3 种 size" code={CODE.avatar}><DemoAvatar /></DemoCard>
-        <DemoCard title="Img" desc="图片 \<img\> 组件，支持 fallback/loading lazy" code={CODE.image}><DemoImage /></DemoCard>
+        <DemoCard title="Img" desc="图片 \<img\> 组件：fallback / lazy / preview 点击放大" code={CODE.image}><DemoImage /></DemoCard>
         <DemoCard title="InView" desc="进入视窗后懒加载内容，支持 IntersectionObserver" code={CODE.inview}><DemoInView /></DemoCard>
         <DemoCard title="Timeline" desc="时间线：节点状态色 + 时间 + 内容（执行日志/审批历史）" code={CODE.timeline}><DemoTimeline /></DemoCard>
         <DemoCard title="Descriptions" desc="描述列表：label/value 栅格 + bordered + span（详情页）" code={CODE.descriptions}><DemoDescriptions /></DemoCard>

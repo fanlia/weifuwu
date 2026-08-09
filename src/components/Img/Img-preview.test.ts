@@ -50,17 +50,33 @@ describe('Img preview 增强', () => {
     assert.equal(overlay.props.children.props.src, 'a.png')
   })
 
-  it('Escape closes preview', () => {
+  it('Escape closes preview（DOM 级：焦点在 portal overlay 内也生效）', async () => {
     const ctx = mockCtx()
     const render = Img({ src: 'a.png', preview: true }, ctx)
     const r = render as any
-    let v = r({ src: 'a.png', preview: true })
-    triggerOf(v).props.onClick()
-    v = r({ src: 'a.png', preview: true })
-    assert.ok(v.props.children[1])
-    v.props.onKeyDown({ key: 'Escape' })
-    v = r({ src: 'a.png', preview: true })
-    assert.equal(v.props.children.length, 1)
+    // DOM 级：真实挂载 + 同树 patch（AGENTS.md：mountVNode 重挂会残留 portal 脏节点）
+    const { mountVNode, patchValue } = await import('../../client/render.ts')
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    let prev = r({ src: 'a.png', preview: true })
+    mountVNode(container, prev, ctx as any)
+    // 打开 preview（mockCtx.render 为空函数——手动重建 vnode + patch 模拟重渲染）
+    ;(container.querySelector('.wf-img-preview-trigger') as HTMLButtonElement).click()
+    const next = r({ src: 'a.png', preview: true })
+    patchValue(container, container.firstChild, prev, next, ctx as any)
+    prev = next
+    assert.ok(document.querySelector('.wf-img-preview-overlay'), 'overlay 已打开（portal 挂载）')
+    // 焦点在 overlay 内（portal 子树）派发 Escape——必须关闭（document 级监听）
+    const overlay = document.querySelector('.wf-img-preview-overlay') as HTMLElement
+    overlay.focus?.()
+    document.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await new Promise(res => setTimeout(res, 0))
+    // close() 已执行（previewOpen=false）——patch 重渲染，portal overlay 应被移除
+    const after = r({ src: 'a.png', preview: true })
+    patchValue(container, container.firstChild, prev, after, ctx as any)
+    assert.ok(!document.querySelector('.wf-img-preview-overlay'), 'portal overlay 内 Escape 应关闭')
+    document.body.removeChild(container)
+    document.querySelectorAll('#__wf_portal').forEach(el => el.remove())
   })
 
   it('click overlay closes preview', () => {

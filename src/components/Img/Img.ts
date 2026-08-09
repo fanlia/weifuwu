@@ -34,6 +34,17 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
     }
   }
 
+  // Escape：document 级监听——预览层经 portal 挂到独立容器，wrap 的 onKeyDown
+  // 收不到 overlay 内的 keydown（不同 DOM 子树，冒泡断裂）。
+  // 稳定引用：mount 作用域定义，卸载（wrapRef(null)）时移除。
+  const onDocKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && previewOpen) close()
+  }
+  const wrapRef = (el: HTMLElement | null) => {
+    if (el) document.addEventListener('keydown', onDocKeyDown)
+    else document.removeEventListener('keydown', onDocKeyDown)
+  }
+
   return (props) => {
     const {
       src, alt = '', fallback, loading, width, height, className, style,
@@ -77,7 +88,7 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
 
     return h('div', {
       class: 'wf-img-preview-wrap',
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') close() },
+      ref: wrapRef,
     }, [
       h('button', {
         type: 'button',
