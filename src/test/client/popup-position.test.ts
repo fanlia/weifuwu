@@ -280,12 +280,45 @@ describe('ctx.ui.usePopupPosition', () => {
     await app.mount('#pp-7', Root)
     const before = renderCount
 
-    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 40, left: 30 })
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 40, left: 30, width: 100, height: 20 })
     pos.refresh()
 
     assert.equal(pos.top, 44)
     assert.equal(pos.left, 30)
     assert.equal(renderCount, before, 'refresh 只重算不渲染（调用方负责 render）')
+    app.destroy()
+    el.remove()
+  })
+
+  it('0 rect（元素替换中/未布局）→ 跳过刷新保留上一坐标', async () => {
+    let open = true
+    let anchor: HTMLElement | null = null
+    let pos: any
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      pos = ctx.ui.usePopupPosition({
+        el: () => anchor,
+        isOpen: () => open,
+        compute: (r) => ({ top: r.bottom + 4, left: r.left }),
+      })
+      return () => h('div', {
+        ref: (el: HTMLElement | null) => { anchor = el },
+      }, 'x')
+    }
+    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'pp-zero-rect'
+    await app.mount('#pp-zero-rect', Root)
+
+    // 正常 rect → 坐标更新
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 100, left: 50, width: 100, height: 30 })
+    pos.refresh()
+    assert.equal(pos.top, 104)
+    // 0 rect（元素替换中）→ 保留上一坐标不覆盖
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 0, left: 0 })
+    pos.refresh()
+    assert.equal(pos.top, 104, '0 rect 时保留上一坐标（防弹层飞到左上角）')
     app.destroy()
     el.remove()
   })

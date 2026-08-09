@@ -289,7 +289,12 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       pos.refresh = () => {
         const el = tracker.getEl()
         if (!el) return
-        const p = tracker.compute(el.getBoundingClientRect())
+        const r = el.getBoundingClientRect()
+        // 0 rect 防护：元素替换中/未布局/隐藏时 rect 全 0——跳过刷新
+        // （保留上一坐标——否则 popup 被覆盖为 0，弹层飞到视口左上角——
+        // TreeSelect 真实 bug：scroll 时 ref 更新间隙读到 0 rect）
+        if (r.width === 0 && r.height === 0) return
+        const p = tracker.compute(r)
         // 视口夹紧：面板超高/超宽时平移回视口（确定/取消按钮不可点问题）
         Object.assign(pos, clampToViewport(p, tracker.panel?.(), tracker.margin))
       }
