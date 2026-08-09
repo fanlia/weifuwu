@@ -65,7 +65,7 @@ function highlightLabel(label: string, q: string): any {
   if (idx < 0) return label
   return [
     label.slice(0, idx),
-    { type: 'mark', props: { class: 'wf-tree-match' }, key: 'm', children: label.slice(idx, idx + q.length) },
+    h('mark', { class: 'wf-tree-match' }, label.slice(idx, idx + q.length)),
     label.slice(idx + q.length),
   ]
 }
