@@ -90,6 +90,9 @@
   --wf-tour-min-width: 240px;
   --wf-kanban-col-min-width: 200px;
   --wf-kanban-col-max-width: 300px;
+  --wf-treeselect-min-width: 200px;
+  --wf-treeselect-max-width: 320px;
+  --wf-treeselect-dropdown-max-height: 260px;
   --wf-z-popover: 120; /* dropdown/select/datepicker 面板与 popover 同层 */
   --wf-z-toast: 140;
   --wf-z-tooltip: 160;

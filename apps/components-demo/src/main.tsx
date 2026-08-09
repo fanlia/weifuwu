@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban, Pipeline,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban, Pipeline, TreeSelect,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1511,6 +1511,42 @@ const DemoPipeline: Component = () => () => (
   </div>
 )
 
+const DemoTreeSelect: Component = (_props, ctx) => {
+  let value: string | string[] | undefined = undefined
+  const render = () => ctx.ui.render()
+  return () => (
+    <div class="wf-stack wf-gap-md">
+      <div class="wf-row wf-gap-lg wf-cluster">
+        <div class="wf-stack wf-gap-xs">
+          <span class="wf-text-xs wf-text-secondary">单选</span>
+          <TreeSelect
+            options={[
+              { key: 'svc', label: '服务', children: [{ key: 'http', label: 'HTTP 服务' }, { key: 'rpc', label: 'RPC 服务' }] },
+              { key: 'db', label: '数据库', children: [{ key: 'pg', label: 'PostgreSQL' }, { key: 'redis', label: 'Redis' }] },
+            ]}
+            value={value as string}
+            onChange={(v) => { value = v; render() }}
+            placeholder="选择服务"
+          />
+        </div>
+        <div class="wf-stack wf-gap-xs">
+          <span class="wf-text-xs wf-text-secondary">多选（父子联动）</span>
+          <TreeSelect
+            multiple
+            options={[
+              { key: 'svc', label: '服务', children: [{ key: 'http', label: 'HTTP 服务' }, { key: 'rpc', label: 'RPC 服务' }] },
+              { key: 'db', label: '数据库', children: [{ key: 'pg', label: 'PostgreSQL' }, { key: 'redis', label: 'Redis' }] },
+            ]}
+            value={value as string[]}
+            onChange={(v) => { value = v; render() }}
+            placeholder="选择多个"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const OLD_CODE = `function handleUser(input) {
   const data = JSON.parse(input)
   const name = data.name
@@ -2060,6 +2096,7 @@ return () => <AiChat chat={$} />
   tour: `<Tour steps={[{ target: '#a', title: '开始', content: '...' }]} open={open} onChange={setOpen} />`,
   kanban: `<Kanban columns={cols} onMove={(from, to) => {}} />`,
   pipeline: `<Pipeline orientation="horizontal" nodes={[{ id: 'a', label: '输入' }]} edges={[]} />`,
+  treeselect: `<TreeSelect options={options} value={value} onChange={setValue} />`,
 
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
@@ -2143,6 +2180,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Tour" desc="新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape" code={CODE.tour}><DemoTour /></DemoCard>
         <DemoCard title="Kanban" desc="看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮" code={CODE.kanban}><DemoKanban /></DemoCard>
         <DemoCard title="Pipeline" desc="Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测" code={CODE.pipeline}><DemoPipeline /></DemoCard>
+        <DemoCard title="TreeSelect" desc="树形选择：单选/多选（父子联动）+ 选中 label 回显 + 受控纪律" code={CODE.treeselect}><DemoTreeSelect /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>

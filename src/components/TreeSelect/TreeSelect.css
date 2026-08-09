@@ -1,0 +1,67 @@
+.wf-treeselect {
+  position: relative;
+  display: inline-block;
+  min-width: var(--wf-treeselect-min-width);
+  max-width: var(--wf-treeselect-max-width);
+}
+
+.wf-treeselect-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg);
+  cursor: pointer;
+  min-height: 36px;
+  user-select: none;
+}
+.wf-treeselect-trigger:hover {
+  border-color: var(--wf-color-primary);
+}
+.wf-treeselect-trigger--open {
+  border-color: var(--wf-color-primary);
+  box-shadow: 0 0 0 2px var(--wf-color-primary-bg, rgba(79, 110, 247, 0.15));
+}
+
+.wf-treeselect-placeholder {
+  color: var(--wf-color-text-tertiary);
+  font-size: 13px;
+}
+.wf-treeselect-label {
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-treeselect-arrow {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--wf-color-text-tertiary);
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out);
+  flex-shrink: 0;
+}
+.wf-treeselect-arrow--open {
+  transform: rotate(180deg);
+}
+
+.wf-treeselect-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: var(--wf-z-popover);
+  background: var(--wf-color-bg);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  box-shadow: var(--wf-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.1));
+  padding: 4px;
+  max-height: var(--wf-treeselect-dropdown-max-height);
+  overflow: auto;
+}
