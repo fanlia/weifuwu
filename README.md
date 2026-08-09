@@ -415,4 +415,4 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/environment.md](docs/environment.md) | 环境变量与开发命令 |
 | [design/](design/) | 设计与计划文档（组件地图 / AI 协议契约 / 移动端指南 / 数据库客户端计划 / 设计系统 / 各阶段计划） |
 
-> 文档跟随 npm 包发布（`files: ['dist/', 'README.md', 'docs/', 'design/']`）——`node_modules/weifuwu/docs` 可离线查阅。
+> `docs/` 用户文档随 npm 包发布（`files: ['dist/', 'README.md', 'docs/']`）——`node_modules/weifuwu/docs` 可离线查阅；`design/` 设计/计划文档仅仓库内。

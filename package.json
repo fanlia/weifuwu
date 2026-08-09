@@ -28,8 +28,7 @@
   "files": [
     "dist/",
     "README.md",
-    "docs/",
-    "design/"
+    "docs/"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

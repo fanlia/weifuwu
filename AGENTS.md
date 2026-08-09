@@ -518,6 +518,20 @@ P8 后 `style-audit`（`src/test/style-audit.test.ts`，16 条规则）是设计
 - `node scripts/release.mjs <version>`（构建 + 发布 + git tag）
 - `npm test` — 运行 `node --test`
 - 测试前执行 `docker compose up -d postgres redis`
+- **发布跟随**：`package.json files` = `['dist/', 'README.md', 'docs/']`——`docs/` 随包发布（用户离线可查），`design/` **不发布**（内部设计/计划，仅仓库内）
+
+## 文档目录（docs/ vs design/）
+
+| 目录 | 用途 | 读者 | 发布 |
+|------|------|------|------|
+| `docs/` | **用户文档**：README 按角色拆分——后端（server/data/realtime/saas）、前端（frontend/frontend-middleware/components/layout/styling）、通用（examples/environment） | 框架使用者 | ✅ 随 npm 包 |
+| `design/` | **设计/计划文档**：阶段计划（components-*/db-clients-*/messager/scheduler/mobile-support）、协议契约（ai-contract）、设计系统（design-system-*/style-guide/token-layout）、指南（mobile/style-system） | 框架开发者/贡献者 | ❌ 仅仓库 |
+
+**维护规则**：
+- 新增用户可见能力 → 写 `docs/`（按角色对号入座），README 文档导航同步
+- 新增实现计划/架构决策 → 写 `design/`（参考各 `*-plan.md` 的格式）
+- README 保持门面（~400 行）：简介/设计理念/快速开始/CDN/模块总览/核心概念 + 文档导航，不堆 API 细节
+- 改协议/裁剪清单 → `design/ai-contract.md` / `design/db-clients-plan.md`（源码注释引用同步）
 
 ## 路由匹配
 
