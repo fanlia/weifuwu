@@ -7,13 +7,34 @@ import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({
+  const states = new Map<string, { keyword: string; selectedLabel: string }>()
+  const values = new Map<string, any>()
+  return { ui: {
+    $: {}, render: () => {}, dirty: () => {}, ready: true,
+    usePopup: (opts: any) => ({
       open: !!opts.isOpen?.(),
       setOpen: (v: boolean) => { if (!v) opts.setOpen?.(false) },
       wrapProps: {},
       portal: (content: any) => opts.isOpen?.() ? { type: Portal, props: { children: { ...content, props: { ...content.props, class: ['wf-popup', content.props?.class].filter(Boolean).join(' '), style: { ...content.props?.style, position: 'fixed', top: '0px', left: '0px' } } }, portalKey: 'popover' }, key: undefined, _placement: 'remote' } : null,
       refresh: () => {},
-    }), ready: true } } as any
+    }),
+    useControlledInput: (opts: any) => {
+      const key = opts.name ?? 'default'
+      const controlled = opts.value !== undefined
+      if (!values.has(key)) values.set(key, opts.value)
+      const st = states.get(key) ?? { keyword: '', selectedLabel: '' }
+      states.set(key, st)
+      return {
+        value: controlled ? opts.value : values.get(key),
+        setValue: (v: any) => { if (controlled) opts.onChange?.(v); else values.set(key, v) },
+        controlled,
+        get keyword() { return st.keyword },
+        setKeyword: (v: string) => { st.keyword = v },
+        get selectedLabel() { return st.selectedLabel },
+        setSelectedLabel: (v: string) => { st.selectedLabel = v },
+      }
+    },
+  } } as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {

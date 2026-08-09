@@ -30,9 +30,18 @@ export const TagsInput: Component<TagsInputProps> = (_init, ctx) => {
 
   return (props: TagsInputProps) => {
     const {
-      value = [], onChange, placeholder, maxTags, allowDuplicates,
+      placeholder, maxTags, allowDuplicates,
       disabled, label, error, hint, className,
     } = props
+
+    // useControlled：受控/非受控统一（原非受控 add/remove 不可用——受控纪律违规）
+    const ctrl = ctx?.ui?.useControlled<string[]>({ value: props.value, onChange: props.onChange, name: 'TagsInput' })
+    const value = ctrl?.value ?? []
+    const setTags = (next: string[]) => {
+      const wasControlled = ctrl?.controlled
+      ctrl?.setValue(next)
+      if (!wasControlled) props.onChange?.(next)
+    }
 
     const addTag = (raw: string) => {
       if (disabled) return
@@ -40,12 +49,12 @@ export const TagsInput: Component<TagsInputProps> = (_init, ctx) => {
       if (!tag) return
       if (maxTags != null && value.length >= maxTags) return
       if (!allowDuplicates && value.includes(tag)) return
-      onChange?.([...value, tag])
+      setTags([...value, tag])
     }
 
     const removeTag = (tag: string) => {
       if (disabled) return
-      onChange?.(value.filter((t) => t !== tag))
+      setTags(value.filter((t) => t !== tag))
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {

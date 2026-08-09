@@ -32,6 +32,10 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
   let taEl: HTMLElement | null = null
   const taRef = (el: HTMLElement | null) => { taEl = el }
 
+  // useControlledInput：受控/非受控统一（原非受控 textarea value='' 固定——
+  // 每次 render 清空用户输入——严重违规）
+  let inputCtrl: ReturnType<WfuiContext['ui']['useControlledInput']> | null = null
+
   // usePopup：借用面板定位/视口 clamp + 外部点击关闭（不 spread wrapProps——
   // 打开由输入 '@' 驱动，非 wrap 触发）；Escape 由 textarea 自己的 onKeyDown 处理
   const popup = ctx.ui.usePopup({
@@ -53,9 +57,13 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
 
   return (props) => {
     const {
-      value = '', onChange, options = [], prefix = '@',
+      options = [], prefix = '@',
       placeholder, rows = 3, disabled, size = 'md',
     } = props
+
+    // render 阶段调用（读最新 props + Map 缓存跨渲染）
+    inputCtrl = ctx.ui.useControlledInput({ value: props.value, onChange: props.onChange, name: 'Mentions' })
+    const value = inputCtrl.value ?? ''
 
     const detect = (text: string, pos: number) => {
       if (composing) { close(); return }
@@ -78,17 +86,19 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
       : options
 
     const insert = (opt: MentionsOption) => {
-      if (!onChange) return
       const before = value.slice(0, keywordStart)
       const after = value.slice(keywordStart + 1 + keyword.length) // prefix + keyword 之后
       const next = `${before}${prefix}${opt.value} ${after}`
       open = false
-      onChange(next)
+      const wasControlled = inputCtrl?.controlled
+      inputCtrl?.setValue(next)
+      // onChange 通知语义（非受控也调）；受控时 setValue 已调
+      if (!wasControlled) props.onChange?.(next)
     }
 
     const handleInput = (e: any) => {
       const text = e.target.value
-      onChange?.(text)
+      inputCtrl?.setValue(text)
       detect(text, e.target.selectionStart ?? text.length)
     }
 

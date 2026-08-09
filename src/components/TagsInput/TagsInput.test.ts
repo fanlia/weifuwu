@@ -8,7 +8,20 @@ function renderVNode(Comp: any, props: any, ctx: any) {
   return typeof result === 'function' ? result(props) : result
 }
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  const uncontrolled = new Map<string, any>()
+  return { ui: {
+    $: {}, render: () => {}, dirty: () => {}, ready: true,
+    useControlled: (opts: any) => {
+      const controlled = opts.value !== undefined
+      const key = opts.name ?? 'default'
+      if (!uncontrolled.has(key)) uncontrolled.set(key, opts.value)
+      const setValue = (v: any) => {
+        if (controlled) opts.onChange?.(v)
+        else uncontrolled.set(key, v)
+      }
+      return { value: controlled ? opts.value : uncontrolled.get(key), setValue, controlled }
+    },
+  } } as any
 }
 
 /** 深度查找满足 class 的节点 */
