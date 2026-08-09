@@ -209,5 +209,5 @@ const longPressProps = ctx.ui.useLongPress(() => openMenu(), { duration: 500 })
 | B3 coarse 44px | ✅ 部分 | Pagination/Carousel 箭头/Transfer/Editor 工具栏/Calendar 导航/Select 选项 + Carousel 圆点 ::after 命中扩展；Rate 星/Tree 勾选/Slider 手柄为已知例外（行级命中区） |
 | D1 audit 规则 | ✅ +2 | 触屏命中区覆盖 + 浮层宽度 clamp 兜底（18 规则全绿） |
 | 测试基建 | ✅ | `npm test` 加 `--test-concurrency=8`（16 核全并发 GC 抖动 >60s → 8 并发稳定 ~11.5s）；postgres idle reaper 测试改轮询（真库并发下固定 sleep 不可靠） |
-| A4 `useVisualViewport` / AiChat 键盘 | ⏳ P2 | |
-| E1 `docs/mobile.md` | ⏳ P2 | |
+| A4 `useVisualViewport` + AiChat 键盘抬升 | ✅ TDD 2/2 | `raiseOnKeyboard` prop（全屏 chat 布局 opt-in）；375px 实测 Modal/Transfer/Tooltip 全部通过 |
+| E1 `docs/mobile.md` | ✅ | 移动端开发指南（断点/命中区/usePopup/手势/safe-area/验收清单） |

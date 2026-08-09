@@ -138,3 +138,11 @@
   padding: var(--wf-space-md);
   border-top: var(--wf-border-width, 1px) solid var(--wf-color-border);
 }
+
+/* 移动端适配（P2）：小屏抽屉全宽（底部安全区） */
+@media (max-width: 639px) {
+  .wf-drawer-panel {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}

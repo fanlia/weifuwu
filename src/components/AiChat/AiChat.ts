@@ -51,6 +51,8 @@ export interface AiChatProps {
   renderMessage?: (msg: UiMessage) => any
   /** 工具参数渲染（透传 ToolCallCard） */
   renderToolArgs?: (args: Record<string, unknown>) => any
+  /** 键盘弹起时输入区 fixed 抬升（全屏 chat 布局用；内联卡片默认 false——原生聚焦滚动已够） */
+  raiseOnKeyboard?: boolean
 }
 
 const defaultLabels: AiChatLabels = {
@@ -75,6 +77,9 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
   // 订阅 chat 变更：chat 是父组件的 $（引用恒定，props 浅比较恒等 → 三态 skip 命中），
   // 父 dirty 不会驱动本组件重渲染 → 自行订阅，任何会话状态变化都 dirty 自身
   const unwatch = (initProps.chat as any).__watch?.(() => ctx.ui.dirty())
+
+  // 可视视口跟踪：虚拟键盘弹起时输入区抬升到键盘上方（fixed 底部栏场景）
+  const vv = ctx.ui.useVisualViewport()
 
   const onScroll = () => {
     if (!listEl) return
@@ -101,7 +106,7 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
 
   // ── render（每次 dirty/props 变化）──
   return (props) => {
-    const { chat } = props
+    const { chat, raiseOnKeyboard = false } = props
     const labels: AiChatLabels = { ...defaultLabels, ...props.labels }
 
     // 自动滚动：内容更新且用户未上翻 → 微任务内滚到底（render 返回后 patch 已完成）
@@ -131,7 +136,13 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
         style: { maxHeight: props.maxHeight ?? '70vh' },
         ref: listRef,
       }, nodes),
-      h('div', { class: 'wf-aichat-inputbar' }, [
+      h('div', {
+        class: `wf-aichat-inputbar${vv.keyboardOpen && raiseOnKeyboard ? ' wf-aichat-inputbar--raised' : ''}`,
+        // 键盘弹起（opt-in，全屏 chat 布局）：fixed 抬升到键盘上方（bottom = 键盘高度）
+        style: vv.keyboardOpen && raiseOnKeyboard
+          ? { position: 'fixed', left: '0', right: '0', bottom: `${Math.max(0, window.innerHeight - (vv.height + vv.offsetTop)) + 8}px`, zIndex: 'var(--wf-z-popover)' }
+          : undefined,
+      }, [
         h('input', {
           class: 'wf-aichat-input',
           value: chat.input ?? '',

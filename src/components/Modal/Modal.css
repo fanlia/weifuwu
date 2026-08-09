@@ -82,3 +82,22 @@
   padding: var(--wf-space-md) var(--wf-space-lg);
   border-top: var(--wf-border-width) solid var(--wf-color-border);
 }
+
+/* ── 移动端适配（P2）：min-width 视口 clamp（修 375px 屏 400px 溢出）+ 小屏 bottom-sheet ── */
+
+.wf-modal-content {
+  min-width: min(var(--wf-modal-width, 400px), calc(100vw - 32px));
+}
+
+@media (max-width: 639px) {
+  .wf-modal {
+    align-items: flex-end; /* bottom-sheet 形态 */
+  }
+  .wf-modal-content {
+    width: 100%;
+    max-width: 100vw;
+    max-height: 85vh;
+    border-radius: var(--wf-radius-lg) var(--wf-radius-lg) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

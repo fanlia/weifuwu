@@ -55,3 +55,12 @@
     min-width: 44px;
   }
 }
+
+/* 移动端适配（P2）：窄屏页码横向滚动兜底（44px 命中区 + 折叠后仍可能溢出） */
+.wf-pagination {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.wf-pagination::-webkit-scrollbar {
+  display: none;
+}

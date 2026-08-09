@@ -86,7 +86,7 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
     const content = h('div', {
       class: 'wf-modal-content',
       onClick: (e: Event) => e.stopPropagation(),
-      style: width ? { minWidth: width, maxWidth: width } : undefined,
+      style: width ? { minWidth: `min(${width}, calc(100vw - 32px))`, maxWidth: `min(${width}, calc(100vw - 32px))` } : undefined,
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {

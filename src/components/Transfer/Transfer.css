@@ -125,3 +125,10 @@
     min-height: 44px;
   }
 }
+
+/* 移动端适配（P2）：窄屏双栏纵向堆叠（操作钮居中） */
+@media (max-width: 767px) {
+  .wf-transfer {
+    flex-direction: column;
+  }
+}

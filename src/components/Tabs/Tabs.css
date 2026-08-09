@@ -42,3 +42,12 @@
 .wf-tab-content {
   padding-top: var(--wf-space-md);
 }
+
+/* 移动端适配（P2）：窄屏标签横向滚动（隐藏滚动条） */
+.wf-tab-list {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.wf-tab-list::-webkit-scrollbar {
+  display: none;
+}

@@ -56,11 +56,12 @@ describe('Modal', () => {
     assert.equal(typeof overlay.props.onClick, 'function')
   })
 
-  it('accepts custom width', () => {
+  it('accepts custom width（视口 clamp：min(600px, calc(100vw - 32px))）', () => {
     const vnode = inner(renderModal({ open: true, children: '内容', width: '600px' }, mockCtx())!)
     const content = vnode.props.children[1]
     assert.equal(content.props.class, 'wf-modal-content')
-    assert.equal(content.props.style.minWidth, '600px')
+    assert.equal(content.props.style.minWidth, 'min(600px, calc(100vw - 32px))')
+    assert.equal(content.props.style.maxWidth, 'min(600px, calc(100vw - 32px))')
   })
 
   it('hides close button when closable=false', () => {

@@ -109,6 +109,16 @@ export interface UseLongPressHandle {
   onContextMenu: (e: any) => void
 }
 
+/** 可视视口（visualViewport）状态 — useVisualViewport 返回值 */
+export interface VisualViewportHandle {
+  /** 可视视口高度（visualViewport.height；无 visualViewport 时 = innerHeight） */
+  height: number
+  /** 可视视口相对布局视口顶部的偏移（键盘弹起时 > 0） */
+  offsetTop: number
+  /** 键盘是否弹起（height < 0.9 × innerHeight 近似） */
+  keyboardOpen: boolean
+}
+
 /** 可见性观察配置 — 供 ctx.ui.useInView 使用（IntersectionObserver 封装，替代 scroll 监听） */
 export interface UseInViewOptions {
   /** IO 根元素 getter（默认视口；滚动容器场景传 target） */
@@ -197,6 +207,11 @@ export interface WfuiContext {
     usePopup: (options: UsePopupOptions) => UsePopupHandle
     /** 当前设备是否支持 hover（matchMedia '(hover: hover)'，mount 期一次判定） */
     useHoverCapable: () => boolean
+    /**
+     * 可视视口跟踪（visualViewport）：键盘弹起/缩放时自动更新 + dirty。
+     * 无 visualViewport（桌面）降级 innerHeight。fixed 底部栏防键盘遮挡用。
+     */
+    useVisualViewport: () => VisualViewportHandle
     /**
      * 长按手势：pointerdown 按住 duration 触发，提前松开/位移取消，桌面右键兼容。
      * 返回的 props spread 到目标元素。

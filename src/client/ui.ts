@@ -8,7 +8,7 @@
  * 消除 app.ts 中散落的 `as any`——跨模块状态误用由编译器拦截。
  */
 
-import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle, UsePopupOptions, UsePopupHandle, UseLongPressOptions, UseLongPressHandle } from './types.ts'
+import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle, UsePopupOptions, UsePopupHandle, UseLongPressOptions, UseLongPressHandle, VisualViewportHandle } from './types.ts'
 import type { VNode } from './vnode.ts'
 import { idRegistry, onComponentUnmount } from './registry.ts'
 import { createReactiveState } from './reactive.ts'
@@ -254,6 +254,52 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
      */
     useHoverCapable: function (): boolean {
       return typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover)').matches
+    },
+
+    /**
+     * 可视视口跟踪（visualViewport）：键盘弹起/缩放时自动更新 + dirty。
+     * 无 visualViewport（桌面/旧浏览器）降级 innerHeight。
+     * 用途：fixed 底部栏（AiChat 输入区/底部抽屉）被虚拟键盘遮挡时抬升。
+     */
+    useVisualViewport: function (): VisualViewportHandle {
+      const selfId = getSelfId(this)
+      const handle: VisualViewportHandle = {
+        height: window.innerHeight,
+        offsetTop: 0,
+        keyboardOpen: false,
+      }
+      const dirty = () => {
+        if (!ctx.ui) return // destroy 后：静默忽略
+        ctx.ui!.dirty(selfId ? [selfId] : undefined)
+      }
+      const update = () => {
+        const vv = (window as any).visualViewport as { height?: number; offsetTop?: number } | undefined
+        handle.height = vv?.height ?? window.innerHeight
+        handle.offsetTop = vv?.offsetTop ?? 0
+        handle.keyboardOpen = handle.height < window.innerHeight * 0.9
+        dirty()
+      }
+      const vv = (window as any).visualViewport as
+        | { addEventListener?: (t: string, cb: () => void) => void; removeEventListener?: (t: string, cb: () => void) => void }
+        | undefined
+      if (vv?.addEventListener) {
+        vv.addEventListener('resize', update)
+        vv.addEventListener('scroll', update)
+      } else {
+        window.addEventListener('resize', update)
+      }
+      if (selfId) {
+        onComponentUnmount((id) => {
+          if (id !== selfId) return
+          if (vv?.removeEventListener) {
+            vv.removeEventListener('resize', update)
+            vv.removeEventListener('scroll', update)
+          } else {
+            window.removeEventListener('resize', update)
+          }
+        })
+      }
+      return handle
     },
 
     /**
