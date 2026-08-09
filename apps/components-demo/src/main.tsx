@@ -469,6 +469,9 @@ const DemoBadge: Component = () => () => (
     <Badge variant="info">信息</Badge>
     <Badge dot variant="success" /> 在线
     <Badge dot variant="danger" />  离线
+    <Badge count={5} variant="danger" />
+    <Badge count={150} variant="danger" />
+    <Badge count={0} showZero />
   </div>
 )
 
@@ -2396,7 +2399,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">918 测试</Badge>
+          <Badge variant="success">920 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

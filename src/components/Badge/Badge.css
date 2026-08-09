@@ -33,3 +33,17 @@
 .wf-badge-dot--warning { background: var(--wf-color-warning); }
 .wf-badge-dot--danger { background: var(--wf-color-error); }
 .wf-badge-dot--info { background: var(--wf-color-info); }
+
+/* 数值角标（count 模式）：圆形，最小宽度保证 2 位数居中 */
+.wf-badge--count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--wf-space-xs);
+  border-radius: var(--wf-radius-xl);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-semibold);
+  line-height: 1;
+}

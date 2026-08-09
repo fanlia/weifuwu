@@ -51,3 +51,17 @@ describe('Badge', () => {
     }
   })
 })
+
+it('count 数值角标 + overflow 显示 N+', () => {
+  const v1 = renderVNode(Badge, { count: 5 }, mockCtx())!
+  assert.equal(v1.props.children, '5')
+  assert.ok(v1.props.class.includes('wf-badge--count'))
+  const v2 = renderVNode(Badge, { count: 150, overflowCount: 99 }, mockCtx())!
+  assert.equal(v2.props.children, '99+')
+})
+
+it('count=0 默认隐藏 + showZero 显示', () => {
+  assert.equal(renderVNode(Badge, { count: 0 }, mockCtx()), null)
+  const v = renderVNode(Badge, { count: 0, showZero: true }, mockCtx())!
+  assert.equal(v.props.children, '0')
+})
