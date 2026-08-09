@@ -1313,6 +1313,7 @@ const DemoCollapse: Component = (_props, ctx) => {
 const DemoToggleTree: Component = (_props, ctx) => {
   let checked = ['fe']
   let expanded = ['root', 'tech']
+  let search = ''
   const treeData = [
     { key: 'root', label: '总部', children: [
       { key: 'tech', label: '技术部', children: [{ key: 'fe', label: '前端组' }, { key: 'be', label: '后端组' }] },
@@ -1320,8 +1321,12 @@ const DemoToggleTree: Component = (_props, ctx) => {
     ] },
   ]
   return () => (
-    <Tree data={treeData} expandedKeys={expanded} onExpand={(keys: string[]) => { expanded = keys; ctx.ui.render() }}
-      checkable checkedKeys={checked} onCheck={(keys: string[]) => { checked = keys; ctx.ui.render() }} />
+    <div class="wf-stack wf-gap-sm">
+      <input class="wf-input" placeholder="搜索节点…" value={search} onInput={(e: any) => { search = e.target.value; ctx.ui.render() }} />
+      <Tree data={treeData} expandedKeys={expanded} onExpand={(keys: string[]) => { expanded = keys; ctx.ui.render() }}
+        searchValue={search}
+        checkable checkedKeys={checked} onCheck={(keys: string[]) => { checked = keys; ctx.ui.render() }} />
+    </div>
   )
 }
 
@@ -2364,7 +2369,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">906 测试</Badge>
+          <Badge variant="success">908 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

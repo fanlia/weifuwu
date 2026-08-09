@@ -222,3 +222,28 @@ describe('Tree', () => {
     assert.equal(r.props.onClick, undefined)
   })
 })
+
+it('searchValue：过滤匹配节点 + 自动展开祖先路径', () => {
+  const ctx = mockCtx()
+  const factory = Tree({}, ctx)
+  // 搜「前端」——应只显示 root > tech > fe（祖先自动展开）
+  const vnode = factory({ data, searchValue: '前端' })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('前端'), '匹配节点渲染（label 被 highlight 拆分，查匹配片段）')
+  assert.ok(!s.includes('市场部'), '不匹配的兄弟节点过滤')
+  assert.ok(!s.includes('后端组'), '不匹配的同级叶子过滤')
+  // 祖先保留（总部/技术部）
+  assert.ok(s.includes('总部'), '祖先保留')
+  assert.ok(s.includes('技术部'), '祖先保留')
+})
+
+it('searchValue：高亮 mark + 无匹配空提示', () => {
+  const ctx = mockCtx()
+  const factory = Tree({}, ctx)
+  const vnode = factory({ data, searchValue: '前端' })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-tree-match'), '高亮 mark 渲染')
+  // 无匹配
+  const empty = factory({ data, searchValue: '不存在' })
+  assert.ok(JSON.stringify(empty).includes('无匹配节点'), '无匹配空提示')
+})

@@ -26,11 +26,48 @@ export interface TreeProps {
   expandOnClick?: boolean
   checkedKeys?: string[]
   onCheck?: (keys: string[]) => void
+  /** 搜索过滤（label 含 searchValue 的节点 + 祖先；自动展开匹配路径 + 高亮） */
+  searchValue?: string
   className?: string
 }
 
 function allKeys(node: TreeNode): string[] {
   return [node.key, ...(node.children ?? []).flatMap(allKeys)]
+}
+
+/** 搜索过滤：保留 label 含 q 的节点及其祖先（递归过滤子树） */
+function filterTree(nodes: TreeNode[], q: string): TreeNode[] {
+  const out: TreeNode[] = []
+  for (const n of nodes) {
+    const self = n.label.toLowerCase().includes(q)
+    const kids = n.children ? filterTree(n.children, q) : []
+    if (self || kids.length) {
+      out.push({ ...n, children: kids.length ? kids : n.children })
+    }
+  }
+  return out
+}
+
+/** 所有含子节点的 key（搜索时全部展开） */
+function expandableKeys(nodes: TreeNode[]): string[] {
+  const out: string[] = []
+  for (const n of nodes) {
+    if (n.children?.length) { out.push(n.key); out.push(...expandableKeys(n.children)) }
+  }
+  return out
+}
+
+/** 高亮 label 中匹配 q 的部分 */
+function highlightLabel(label: string, q: string): any {
+  if (!q) return label
+  const lower = label.toLowerCase()
+  const idx = lower.indexOf(q)
+  if (idx < 0) return label
+  return [
+    label.slice(0, idx),
+    { type: 'mark', props: { class: 'wf-tree-match' }, key: 'm', children: label.slice(idx, idx + q.length) },
+    label.slice(idx + q.length),
+  ]
 }
 
 /** 构建 key → 父节点 映射 */
@@ -43,7 +80,7 @@ function buildParentMap(nodes: TreeNode[], map: Map<string, TreeNode | null>, pa
 
 /**
  * 树形（对应 antd/EP Tree）：递归节点 + 展开/折叠 + 单选 + 勾选（父子联动 +
- * indeterminate 半选态）。裁剪：拖拽、异步加载、搜索过滤。
+ * indeterminate 半选态 + 搜索过滤 searchValue）。裁剪：拖拽、异步加载。
  */
 export const Tree: Component<TreeProps> = (_init, ctx) => {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
@@ -58,8 +95,13 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
   return (props) => {
     const {
       data = [], expandedKeys, onExpand, expandOnClick,
-      checkable, className,
+      checkable, className, searchValue,
     } = props
+
+    // 搜索过滤
+    const q = (searchValue ?? '').trim().toLowerCase()
+    const filteredData = q ? filterTree(data, q) : data
+    const searchExpand = q ? new Set(expandableKeys(filteredData)) : null
 
     // useControlled：受控/非受控统一（缺回调 warn + 非受控内部态——
     // 原实现非受控选中/勾选静默不可点，受控纪律违规）
@@ -72,7 +114,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     // 展开状态
     const isControlledExpand = expandedKeys !== undefined
     const expanded: string[] = isControlledExpand ? expandedKeys : $.internalExpanded
-    const isExpanded = (key: string) => expanded.includes(key)
+    const isExpanded = (key: string) => searchExpand ? searchExpand.has(key) : expanded.includes(key)
     const toggleExpand = (key: string) => {
       // 受控（expandedKeys 已传）但无 onExpand：折叠/展开无法生效——开发期提示
       if (isControlledExpand && !onExpand) {
@@ -180,7 +222,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
         switcher,
         checkbox,
         node.icon,
-        h('span', { class: 'wf-tree-label' }, node.label),
+        h('span', { class: 'wf-tree-label' }, highlightLabel(node.label, q)),
       ].filter(Boolean)
 
       return h('div', { class: 'wf-tree-node', key: node.key }, [
@@ -212,6 +254,11 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
       ].filter(Boolean))
     }
 
+    // 搜索无结果提示
+    const emptyHint = q && filteredData.length === 0
+      ? h('div', { class: 'wf-tree-empty' }, '无匹配节点')
+      : null
+
     // 容器键盘（方向键上下移动焦点）
     const onKeyDown = (e: any) => {
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
@@ -226,12 +273,12 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     }
 
     flatNodes = []
-    const roots = data.map(n => renderNode(n, 0))
+    const roots = filteredData.map(n => renderNode(n, 0))
 
     return h('div', {
       class: ['wf-tree', className].filter(Boolean).join(' '),
       role: 'tree',
       onKeyDown,
-    }, roots)
+    }, [emptyHint, ...roots].filter(Boolean))
   }
 }

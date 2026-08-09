@@ -143,3 +143,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 搜索高亮 */
+.wf-tree-match {
+  background: var(--wf-color-warning-bg);
+  color: var(--wf-color-warning-text);
+  border-radius: var(--wf-radius-xs);
+  padding: 0 1px;
+}
+.wf-tree-empty {
+  padding: var(--wf-space-md);
+  color: var(--wf-color-text-secondary);
+  font-size: var(--wf-font-size-sm);
+  text-align: center;
+}
