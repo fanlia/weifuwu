@@ -88,6 +88,8 @@
   --wf-z-modal: 100;
   --wf-z-tour: 2000;
   --wf-tour-min-width: 240px;
+  --wf-kanban-col-min-width: 200px;
+  --wf-kanban-col-max-width: 300px;
   --wf-z-popover: 120; /* dropdown/select/datepicker 面板与 popover 同层 */
   --wf-z-toast: 140;
   --wf-z-tooltip: 160;

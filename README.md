@@ -305,7 +305,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 |------|---------|------|
 | `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 92 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
-| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 145 个主题 Token + 70 个布局原语 |
+| `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 147 个主题 Token + 70 个布局原语 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
 
 
@@ -347,7 +347,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect` / `clampToViewport`） | — |
 | `weifuwu/client` | **事件原语** | `usePopup` / `useDialog` / `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [docs/mobile.md](docs/mobile.md)） | — |
 | `weifuwu/components` | **92 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
-| `weifuwu/layout` | **CSS 布局** | 70 个布局原语 + 145 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+| `weifuwu/layout` | **CSS 布局** | 70 个布局原语 + 147 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
 
@@ -491,7 +491,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/frontend.md](docs/frontend.md) | 前端核心：createApp / 组件模型 / 状态管理 / 条件与列表 / ref / 类型 |
 | [docs/frontend-middleware.md](docs/frontend-middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [docs/components.md](docs/components.md) | 组件库（92 个组件 + 使用示例 + 组件列表） |
-| [docs/layout.md](docs/layout.md) | 布局系统：70 个布局原语 + 145 个主题 Token |
+| [docs/layout.md](docs/layout.md) | 布局系统：70 个布局原语 + 147 个主题 Token |
 | [docs/styling.md](docs/styling.md) | 样式定制指南：零自定义 CSS 模式 / 暗色 / 组件级覆盖 / 作用域主题 |
 
 ### 通用
