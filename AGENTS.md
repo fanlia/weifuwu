@@ -510,6 +510,63 @@ const dropdown = open ? createPortal(h('div', { class: 'wf-xxx-dropdown', style:
 
 - `node --test` 无 Jest/Mocha
 - **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（**≤15 秒**），并优先加 `--test-timeout`（如 `timeout 15 node --env-file=.env --test --test-timeout=8000 ...`）——真库/集成测试卡住时能快速定位而非无限等待；卡住时用更短 timeout 复跑缩小范围
+
+## 组件问题调试方法论（TreeSelect 排查沉淀，2026-08）
+
+> 一次 TreeSelect「点服务下拉框关闭」排查：用户坚持看真实 HTML → 抓出弹层飞到左上角（0,0）→ debug 日志定位到 scroll 时序竞争读 0 rect。以下为可复用排查步骤。
+
+### 1. 真实 HTML 优先于 text
+
+**只查 `textContent` 会掩盖结构问题**——必须看真实 DOM（用户强制要求）：
+
+```ts
+// agent-browser eval：outerHTML 验证真实结构（ref 属性/定位/children 树/class）
+document.querySelector('.wf-xxx')?.outerHTML
+```
+
+真实 HTML 能抓出：ref 字符串属性（setProp 污染）、弹层定位异常（`top:4px left:0px width:0px` vs 锚点 768,306）、switcher--open 状态、children 树完整性。
+
+### 2. debug 日志组件（带前缀 console.log）
+
+在关键回调加 `console.log('[xxx-debug]', 参数...)`，浏览器端 hook 捕获（页面加载后 hook 才能拿到运行期日志）：
+
+```ts
+// eval 里 hook console.log（只收 [xxx-debug] 前缀避免噪音）
+window.__dbg = []; const ol = console.log
+console.log = (...a) => { if (String(a[0]).includes('[xxx-debug]')) window.__dbg.push(a.join(' ')); ol(...a) }
+// 触发交互后读：JSON.stringify(window.__dbg)
+```
+
+实战：`[ts-debug] getEl → trigger w:0 → compute rect: 0 0 w:0`——直接暴露 scroll 时序竞争。
+
+**适用回调**：usePopupPosition 的 el/compute/panel、Tree 的 row onClick/toggleExpand/toggleSelect、组件 open/close 切换。
+
+### 3. 真实点击 vs eval click（agent-browser）
+
+- `agent-browser click <selector>` = 真实 CDP 鼠标点击（命中测试 + 完整事件序列）——**最接近用户**；覆盖元素会报 `covered by` 提示
+- `element.click()`（eval）= JS 调用——绕过命中测试——覆盖元素时仍会触发——**可能掩盖命中问题**
+- **两者都测**：真实点击验证用户路径；eval click 验证逻辑链路（事件绑定/冒泡）
+
+### 4. 时序竞争排查（scroll/ref 间隙）
+
+组件交互异常若「时好时坏」→ 大概率时序竞争：
+
+- scroll/resize 全局监听（popup-tracker）在元素替换瞬间触发 → `getBoundingClientRect` 读 0 → 状态被覆盖
+- **0 rect 防护**：refresh/定位读取时 `r.width===0 && r.height===0` 跳过（保留上一坐标）——已修复于 `usePopupPosition`
+- ref 更新间隙：元素替换中旧引用 rect 为 0——getter 读 rect 前先判 0
+
+### 5. agent-browser 会话纪律
+
+- **状态残留**：多轮 eval 后组件状态混乱（open/expanded 残留）——`reload` 清状态再测；每次验证从 reload 开始
+- **错误捕获时机**：console.error hook 必须在页面加载**前**（`open` 时注入会被加载期错误绕过）——或用 `agent-browser console --level error` 抓加载期错误
+- **验证用真实命令**：`open → wait networkidle → click → eval 断言`——每步独立命令，不叠加在一个 eval 里
+
+### 6. 验证陷阱（本次踩过）
+
+- **esbuild 中文 `\u` 转义**：`grep "服务" app.js` 得 0 不代表数据缺失——中文被转义为 `\u670d...`（搜英文/唯一标识符）
+- **注释被 esbuild 删除**：用 `// MARKER` 验证缓存失效无效——marker 必须在字符串/数据结构里
+- **服务器加载 dist vs src**：demo 组件走 src（tsconfig paths），但服务器框架（ui.js 编译器）走 `dist`——改框架代码必须 `build` 后重启才生效
+- **同名字段不同含义**：dropdown 的 `style.width`（popup.width=0）vs `getBoundingClientRect().width`（含 padding/border=10）——定位异常时两者都要看
 - **全量测试总时长预算：≤ 15 秒**（`npm test` = pretest docker 1.6s + 测试本体 ~9.4s + npm 启动开销 ≈ **11s 实测**；1466 测试含 db 真库 191 个）。**超过 15 秒 = 必须排查的告警**，按序检查：
   1. **资源未释放**：db 连接未 `close()`（连接池堆积）、redis 订阅未退订（Pub/Sub 残留）、jsdom 定时器未清（setTimeout/interval 未 clear——挂起比失败更难定位）、全局 document/mutation 监听未 remove、async 工厂/WeakMap 缓存异常增长
   2. **新增测试自身慢**：长按/动画测试的 sleep（`usePopup` longpress 500ms×2 是已知最慢项）；改为事件驱动断言或用更短可配置时长
