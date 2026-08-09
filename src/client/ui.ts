@@ -909,6 +909,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
      * 数值补间：rAF + ease + reduced-motion 直落终值。目标变化自动补间。
      */
     useTween: function (target: number, opts?: { duration?: number; ease?: 'linear' | 'easeOutCubic' }) {
+      const selfId = getSelfId(this)
       const reduced = this.useReducedMotion()
       const duration = opts?.duration ?? 400
       const easeFn = opts?.ease === 'linear'
@@ -920,10 +921,17 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         value: reduced ? target : 0,
         reset: () => {},
       }
+      // 每帧渲染（rAF 只更新闭包 value，不触发渲染则 DOM 冻结——真实浏览器暴露）
+      const rerender = () => {
+        if (ctx.ui) {
+          if (selfId) ctx.ui.dirty([selfId])
+          else ctx.ui.render()
+        }
+      }
 
       const tweenTo = (to: number) => {
         currentTarget = to
-        if (reduced) { handle.value = to; return }
+        if (reduced) { handle.value = to; rerender(); return }
         if (to === handle.value) return // 同值不启动（value=0 首帧无动画）
         if (rafId) cancelAnimationFrame(rafId)
         const from = handle.value
@@ -931,8 +939,13 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         const step = (t: number) => {
           const p = Math.min(1, (t - t0) / duration)
           handle.value = Math.round(from + (to - from) * easeFn(p))
-          if (p < 1) rafId = requestAnimationFrame(step)
-          else rafId = undefined
+          if (p < 1) {
+            rafId = requestAnimationFrame(step)
+            rerender()
+          } else {
+            rafId = undefined
+            rerender()
+          }
         }
         rafId = requestAnimationFrame(step)
       }

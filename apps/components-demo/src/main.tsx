@@ -476,6 +476,7 @@ const DemoStatCard: Component = () => () => (
     <StatCard label="总用户" value="1,234" icon="👤" trend="up" trendLabel="12%" />
     <StatCard label="收入" value="¥89,000" icon="💰" trend="up" trendLabel="8%" />
     <StatCard label="退款" value="¥1,200" icon="⚠" trend="down" trendLabel="-3%" />
+    <StatCard label="在线用户" value={1234} animate icon="🟢" />
   </div>
 )
 
