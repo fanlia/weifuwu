@@ -137,6 +137,8 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
     setHash: () => {},
     timeout: () => 0,
     rootElement: () => null,
+    storageGet: () => null,
+    storageSet: () => {},
   }
   const ctx = Object.create(serverCtx ?? {}) as any
   ctx.ui = ui

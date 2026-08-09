@@ -56,5 +56,11 @@ export function createClientBrowser(): BrowserEnv {
     setHash: (h) => { if (typeof window !== 'undefined') window.location.hash = h },
     timeout: (fn, ms) => (typeof window !== 'undefined' ? window.setTimeout(fn, ms) : 0),
     rootElement: () => (typeof document !== 'undefined' ? document.documentElement : null),
+    storageGet: (key) => {
+      try { return typeof window !== 'undefined' ? window.localStorage?.getItem(key) ?? null : null } catch { return null }
+    },
+    storageSet: (key, value) => {
+      try { if (typeof window !== 'undefined') window.localStorage?.setItem(key, value) } catch { /* 隐私模式忽略 */ }
+    },
   }
 }

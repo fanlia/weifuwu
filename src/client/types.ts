@@ -207,6 +207,10 @@ export interface BrowserEnv {
   timeout(fn: () => void, ms: number): number
   /** document.documentElement（主题应用） */
   rootElement(): HTMLElement | null
+  /** localStorage 读取（SSR/隐私模式返回 null） */
+  storageGet(key: string): string | null
+  /** localStorage 写入（SSR/隐私模式 no-op） */
+  storageSet(key: string, value: string): void
 }
 
 export interface WfuiContext {

@@ -32,20 +32,12 @@ export interface ThemeSwitchProps {
 const DEFAULT_KEY = 'wf_theme'
 
 function readStored(key: string): ThemeMode | null {
-  try {
-    const v = localStorage.getItem(key)
-    return v === 'light' || v === 'dark' || v === 'auto' ? v : null
-  } catch {
-    return null
-  }
+  const v = browser.storageGet(key)
+  return v === 'light' || v === 'dark' || v === 'auto' ? v : null
 }
 
 function writeStored(key: string, mode: ThemeMode): void {
-  try {
-    localStorage.setItem(key, mode)
-  } catch {
-    /* 隐私模式等场景下忽略 */
-  }
+  browser.storageSet(key, mode)
 }
 
 /** 应用主题：auto 移除属性，light/dark 显式设置 */
