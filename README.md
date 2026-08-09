@@ -30,7 +30,13 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
 > - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）、`ctx.ui.ssr`（组件 SSR）、`ctx.ui.ssrData`（数据序列化）
-> - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useChat()`（AI 会话）/ `useAsync()`（异步取数）/ `selfId()`（跨组件刷新）/ `useControlled()`（受控/非受控统一）/ `useStableRef()`（稳定 ref）/ `useDialog()`（对话框组合器）/ `useMedia()` / `useBreakpoint()`（响应式断点）/ `usePopupPosition()` / `usePopup()`（弹层定位/组合）/ `useHoverCapable()` / `useLongPress()` / `useVisualViewport()`（移动端原语）/ `useInView()` / `useScrollPosition()`（浏览器事件监听）
+> - **前端** `ctx.ui`（渲染引擎，26 方法）：
+>   - 渲染：`$()`（响应式状态）/ `render()` / `dirty()` / `selfId()`（跨组件刷新）
+>   - 状态：`useControlled()`（受控/非受控）/ `useStableRef()`（稳定 ref）
+>   - 弹层：`usePopup()`（组合器）/ `useDialog()`（对话框）/ `usePopupPosition()`（定位）
+>   - 事件：`useInView()` / `useScrollPosition()` / `useMedia()` / `useBreakpoint()` / `useGlobalKey()` / `useDrag()` / `useDragDrop()` / `useHoverCapable()` / `useLongPress()` / `useVisualViewport()`
+>   - 动画：`useAnimationEnd()`（完成回调）/ `usePresence()`（显隐状态机）/ `useTween()`（数值补间）/ `useReducedMotion()`（偏好感知）
+>   - AI/数据：`useChat()`（AI 会话）/ `useAsync()`（异步取数）
 > 后端的是「把页面和代码交给浏览器」，前端的是「在浏览器里驱动 UI」。
 
 ### 与主流方案的关系
@@ -339,7 +345,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect` / `clampToViewport`） | — |
-| `weifuwu/client` | **移动端原语** | `usePopup`（弹层组合器）/ `useHoverCapable` / `useLongPress` / `useVisualViewport`（触屏友好由构造保证，见 [docs/mobile.md](docs/mobile.md)） | — |
+| `weifuwu/client` | **事件原语** | `usePopup` / `useDialog` / `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [docs/mobile.md](docs/mobile.md)） | — |
 | `weifuwu/components` | **92 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 70 个布局原语 + 141 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
@@ -496,7 +502,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/environment.md](docs/environment.md) | 环境变量与开发命令 |
 | [docs/mobile.md](docs/mobile.md) | 移动端开发指南：断点 / 44px 命中区 / usePopup / 手势 / safe-area |
 | [docs/components-map.md](docs/components-map.md) | 组件速查：weifuwu ↔ antd / Element Plus / shadcn 对应 + 迁移路径 |
-| [docs/custom-components.md](docs/custom-components.md) | 自定义组件开发指南：usePopup / useControlled / 对话框 / AI 组件 / 类型纪律 |
+| [docs/custom-components.md](docs/custom-components.md) | 自定义组件开发指南：usePopup / useControlled / 动画 / AI 组件 / 类型纪律 |
 | [design/](design/) | 设计与计划文档（组件地图 / AI 协议契约 / 移动端指南 / 数据库客户端计划 / 设计系统 / 各阶段计划） |
 
 > `docs/` 用户文档随 npm 包发布（`files: ['dist/', 'README.md', 'docs/']`）——`node_modules/weifuwu/docs` 可离线查阅；`design/` 设计/计划文档仅仓库内。

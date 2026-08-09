@@ -343,6 +343,8 @@ P2-2 ──（独立）
 
 ## 后续：动画基础设施（证据驱动，2026-09）
 
+> **状态（2026-09）**：已全部实施完成 ✅——useReducedMotion/useAnimationEnd/useTween/usePresence 落地（提交 bcd4d39 → d48d278），useDialog 重构复用状态机，组件动画监听清零，1501 测试全绿。
+
 > 目标：组件开发者获得完整的动画能力分层（CSS 语言 / 生命周期 / 数值驱动 / 偏好感知），
 > 内置组件动画监听清零 + 用户扩展组件动画零样板。
 > 证据：DatePicker 组件层 animationend（与 usePopup panelRef 同款但自建）、

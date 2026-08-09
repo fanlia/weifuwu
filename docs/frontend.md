@@ -472,6 +472,39 @@ return () => list.loading ? h(Loading) : list.data?.map(u => h('div', {}, u.name
 - `list.data` / `list.loading` / `list.error` 赋值自动 dirty 当前组件
 - `list.reload()` 重跑；组件卸载后旧 Promise resolve 不再触发渲染（idRegistry 查无此组件，安全忽略）
 
+#### 动画原语（4 层能力）
+
+动画能力按层组织（CSS 语言已有：`--wf-dur-*`/`--wf-ease-*`/`--wf-motion-*` Token + `--enter`/`--exit` 成对纪律）：
+
+| 原语 | 层 | 说明 |
+|------|----|------|
+| `useAnimationEnd(cb, { once? })` | 生命周期 | 元素动画完成回调（stableRef：挂载绑定/卸载清理/引用恒定）——**组件内动画事件唯一入口** |
+| `usePresence({ name? })` | 生命周期 | 显隐状态机：open → exit → closed（animationend 延迟卸载）；`useDialog` 是其对话框特例 |
+| `useTween(target, { duration?, ease? })` | 数值驱动 | 数值补间（rAF + easeOutCubic + reduced-motion 直落；幂等 reset + 每帧自动渲染） |
+| `useReducedMotion()` | 偏好感知 | 响应式系统偏好——**JS 动画**（rAF/tween）侧跳过（CSS 动画已有全局降级） |
+| `useInView` / `useScrollPosition` | 数值驱动 | 进入视口播 / 滚动位置联动（已有） |
+
+```tsx
+// 入场 settle（面板坐标夹紧：动画期间矩形非稳态，结束后按稳态几何计算）
+const settleRef = ctx.ui.useAnimationEnd(() => pos.refresh(), { once: true })
+return () => h('div', { class: 'wf-panel', ref: settleRef }, ...)
+
+// 退场（显隐状态机：open=false 播退场动画，animationend 后才真正卸载）
+const { phase, ref, sync } = ctx.ui.usePresence()
+const p = sync(props.open)
+if (p === 'closed') return null
+return h('div', { class: `wf-panel ${p === 'exit' ? '--exit' : '--enter'}`, ref }, ...)
+
+// 数值动画（count-up：0 → 42，每帧自动渲染）
+const n = ctx.ui.useTween(42, { duration: 400 })
+return () => h('span', { class: 'wf-nums' }, String(n.value))
+
+// 偏好感知（JS 动画侧跳过；CSS 动画 _base.css 已全局降级）
+if (!ctx.ui.useReducedMotion()) { /* 启动 rAF/动画 */ }
+```
+
+> 完整动画纪律见 [custom-components.md](custom-components.md) 的「8.5 动画」章节。
+
 #### CSS 层响应式（不碰 JS）
 
 配合 `weifuwu/layout` 的断点变体，纯 CSS 实现布局方向切换：
