@@ -6,7 +6,7 @@ import {Text, Badge, Card, Icon, Sparkline, StatCard, Space } from 'weifuwu/comp
 // 模式 7：数据大屏（Data Screen）
 //
 // 全屏网格 + 固定角标（标题/时间/状态灯）。
-// 100% 原语 + 组件：wf-fill（撑满）、wf-fixed（角标）、wf-grid（大屏格）
+// 100% 原语 + 组件：wf-fill（撑满）、wf-pin（角标）、wf-grid（大屏格）
 //   Sparkline（曲线）、StatCard、Badge dot（状态灯）
 // ─────────────────────────────────────────────────────────────
 
@@ -20,15 +20,15 @@ export const DataScreen: Component = (_init, _ctx) => (
   () => (
     <div class="wf-fill wf-stack wf-gap-md wf-p-md wf-bg-tertiary" style={{ height: 'calc(100vh - 48px)' }}>
       {/* 顶部标题（fixed 角标） */}
-      <div class="wf-fixed wf-center" style={{ top: 16, left: 0, right: 0, zIndex: 5 }}>
+      <div class="wf-pin wf-center" style={{ top: 16, left: 0, right: 0, zIndex: 5 }}>
         <b class="wf-text-lg wf-text-bold wf-tracking-wider">⚡ 实时运维监控中心</b>
       </div>
       {/* 右上时间 */}
-      <div class="wf-fixed" style={{ top: 16, right: 24, zIndex: 5 }}>
+      <div class="wf-pin" style={{ top: 16, right: 24, zIndex: 5 }}>
         <Text type="secondary" className="wf-text-sm">2026-02-18 10:24:36</Text>
       </div>
       {/* 左上状态灯 */}
-      <div class="wf-fixed wf-row wf-gap-sm" style={{ top: 16, left: 24, zIndex: 5, alignItems: 'center' }}>
+      <div class="wf-pin wf-row wf-gap-sm" style={{ top: 16, left: 24, zIndex: 5, alignItems: 'center' }}>
         <Badge variant="success" dot />
         <Text type="secondary" className="wf-text-sm">运行正常</Text>
       </div>
@@ -54,7 +54,7 @@ export const DataScreen: Component = (_init, _ctx) => (
       </div>
 
       {/* 底部滚动信息 */}
-      <div class="wf-fixed wf-p-sm wf-border-t" style={{ bottom: 12, left: 24, right: 24, zIndex: 5 }}>
+      <div class="wf-pin wf-p-sm wf-border-t" style={{ bottom: 12, left: 24, right: 24, zIndex: 5 }}>
         <Space size="lg">
           <Text type="secondary" className="wf-text-xs">[INFO] 集群 12 节点健康</Text>
           <Text type="secondary" className="wf-text-xs">[INFO] 自动扩容已触发（us-east-1）</Text>

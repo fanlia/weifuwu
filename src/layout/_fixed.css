@@ -2,3 +2,9 @@
 .wf-fixed {
   flex: none;
 }
+
+/* pin — 固定定位（角标/浮层锚点——position: fixed，坐标由 inline 参数控制） */
+.wf-pin {
+  position: fixed;
+  z-index: var(--wf-z, var(--wf-cover-z));
+}

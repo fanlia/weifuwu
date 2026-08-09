@@ -13,7 +13,7 @@
 
 import { createApp, h } from 'weifuwu/client'
 import type { Component } from 'weifuwu/client'
-import { Badge, Divider, Icon, NavMenu, Tag, Text, Space } from 'weifuwu/components'
+import { Badge, Icon, Tag, Text, Space } from 'weifuwu/components'
 
 import { PATTERNS, getPattern } from './patterns/index'
 
@@ -35,7 +35,7 @@ const Shell: Component = (_init, ctx) => {
     return (
       <div class="wf-row wf-gap-none wf-stretch wf-nowrap" style={{ height: '100vh' }}>
         {/* 左侧模式列表 */}
-        <aside class="wf-stack wf-gap-none wf-p-md wf-bg-secondary wf-border-r" style={{ width: 240, flexShrink: 0, overflow: 'auto' }}>
+        <aside class="wf-hidden wf-block@lg wf-stack wf-gap-none wf-p-md wf-bg-secondary wf-border-r" style={{ width: 240, flexShrink: 0, overflow: 'auto' }}>
           <div class="wf-pb-md wf-border-b">
             <Space align="center">
               <Icon name="layout" size={18} className="wf-text-primary" />
@@ -44,11 +44,17 @@ const Shell: Component = (_init, ctx) => {
             <Text type="secondary" className="wf-text-sm">布局模式蓝本 · {PATTERNS.length} 种</Text>
           </div>
 
-          <NavMenu
-            activeKey={active.id}
-            onSelect={(key) => { location.hash = '#/' + key }}
-            items={PATTERNS.map((p) => ({ key: p.id, label: p.name }))}
-          />
+          <nav class="wf-nav">
+            {PATTERNS.map((p) => (
+              <a
+                key={p.id}
+                href={`#/${p.id}`}
+                class={`wf-nav-item${p.id === active.id ? ' wf-nav-item--active' : ''}`}
+              >
+                {p.name}
+              </a>
+            ))}
+          </nav>
 
           <div class="wf-stack wf-gap-sm wf-mt-auto wf-pt-md wf-border-t">
             <Text type="secondary" className="wf-text-sm">189 个布局原语</Text>
@@ -58,14 +64,29 @@ const Shell: Component = (_init, ctx) => {
 
         {/* 右侧：模式描述 + 模式本体 */}
         <main class="wf-fill wf-stack wf-gap-none" style={{ minWidth: 0 }}>
-          <div class="wf-row wf-p-md wf-gap-lg wf-border-b">
-            <div class="wf-stack wf-gap-none">
-              <b class="wf-text-bold">{active.name}</b>
-              <Text type="secondary" className="wf-text-sm">{active.desc}</Text>
+          <div class="wf-stack wf-gap-none wf-border-b">
+            {/* 窄屏模式切换（横向滚动）——lg 起隐藏（左侧栏接管） */}
+            <nav class="wf-hidden@lg wf-nav wf-row wf-nowrap wf-scroll wf-p-sm" style={{ gap: 4, borderBottom: '1px solid var(--wf-color-border-light)' }}>
+              {PATTERNS.map((p) => (
+                <a
+                  key={p.id}
+                  href={`#/${p.id}`}
+                  class={`wf-nav-item${p.id === active.id ? ' wf-nav-item--active' : ''}`}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  {p.name}
+                </a>
+              ))}
+            </nav>
+            <div class="wf-row wf-p-md wf-gap-lg">
+              <div class="wf-stack wf-gap-none">
+                <b class="wf-text-bold">{active.name}</b>
+                <Text type="secondary" className="wf-text-sm">{active.desc}</Text>
+              </div>
+              <Text className="wf-text-tertiary wf-text-xs wf-ml-auto" style={{ fontFamily: 'monospace' }}>
+                {fileOf(active.id)}
+              </Text>
             </div>
-            <Text className="wf-text-tertiary wf-text-xs wf-ml-auto" style={{ fontFamily: 'monospace' }}>
-              {fileOf(active.id)}
-            </Text>
           </div>
           <div class="wf-fill wf-scroll wf-p-md">
             {h(active.comp, {})}

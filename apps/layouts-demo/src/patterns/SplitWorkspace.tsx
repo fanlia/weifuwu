@@ -35,7 +35,7 @@ console.log('http://localhost:3000')`
 
 export const SplitWorkspace: Component = (_init, _ctx) => (
   () => (
-    <div class="wf-split wf-border wf-rounded-lg" style={{ height: 'calc(100vh - 48px)', '--wf-split-ratio': '20% 1fr 260px', overflow: 'hidden' }}>
+    <div class="wf-grid wf-border wf-rounded-lg" style={{ height: 'calc(100vh - 48px)', '--wf-cols': '20% 1fr 260px', overflow: 'hidden' }}>
       {/* 左栏：文件树 */}
       <aside class="wf-stack wf-gap-none wf-p-md wf-bg-secondary wf-scroll">
         <Text className="wf-text-sm" strong>资源管理器</Text>

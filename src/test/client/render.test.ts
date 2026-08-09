@@ -87,6 +87,15 @@ describe('render', () => {
     assert.equal(el.style.fontSize, '14px')
   })
 
+  it('渲染 style 的 CSS 变量（--wf-cols 等必须 setProperty）', () => {
+    const el = render(jsx('div', { style: { '--wf-cols': 'repeat(3, 1fr)', padding: 8 } }), ctx) as HTMLElement
+    assert.equal(el.style.getPropertyValue('--wf-cols'), 'repeat(3, 1fr)', 'CSS 变量必须生效')
+    assert.equal(el.style.padding, '8px', '数字转 px 不回归')
+    // 数值 CSS 变量保持字符串
+    const el2 = render(jsx('div', { style: { '--wf-z': 5 } }), ctx) as HTMLElement
+    assert.equal(el2.style.getPropertyValue('--wf-z'), '5')
+  })
+
   it('渲染 style 字符串作为属性', () => {
     const el = render(jsx('div', { style: 'color:red' }), ctx) as HTMLElement
     assert.equal(el.getAttribute('style'), 'color:red')
