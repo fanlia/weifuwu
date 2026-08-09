@@ -375,6 +375,20 @@ export function mapChildDomNodes(source: Node[], children: any[]): (Node[] | nul
         out.push(source[idx] ? [source[idx]] : null)
         idx += 1
       }
+    } else if ((v as any)._refNode !== undefined || (v as any)._childNodes) {
+      // 组件/元素 VNode：用实际渲染的 DOM 记录定位（_refNode 单节点 / _childNodes Fragment）
+      // ——不能假设占 1 位：渲染为 null 的组件（closed Drawer/Modal）_refNode=null 无 DOM，
+      // 假设占位会让后续子项 idx 错位（壳内容区模式切换静默失效的根因）
+      const refNode = (v as any)._childNodes ?? (v as any)._refNode
+      if (refNode == null) {
+        out.push(null) // 渲染为 null：无 DOM、不推进 idx
+      } else if (Array.isArray(refNode)) {
+        out.push(refNode.slice())
+        idx += refNode.length
+      } else {
+        out.push([refNode])
+        idx += 1
+      }
     } else {
       if (typeof process !== 'undefined' && process.env.DBG) console.error('[map] idx=', idx, 'type=', v.type, 'sourceLen=', source.length, 'hit=', !!source[idx])
       out.push(source[idx] ? [source[idx]] : null)

@@ -1575,3 +1575,29 @@ describe('ref 替换语义（框架修复）', () => {
     assert.equal(cleanupCount, 1, '卸载触发一次清理')
   })
 })
+
+describe('children null 组件 diff', () => {
+it('children 中间 null 组件 diff 不错位（mapChildDomNodes _refNode 定位）', () => {
+  // 场景：children = [div, NullComp(渲染 null), div]——中间 null 组件无 DOM
+  // 按位置 diff 时后续子项必须正确更新（壳内容区模式切换静默失效回归）
+  const NullComp = () => () => null
+  const container = document.createElement('div')
+  // 真实场景（壳模式切换）：null 组件（closed Drawer）后是整块替换的组件区
+  const PanelA = () => () => jsx('div', { class: 'panel-a' }, null)
+  const PanelB = () => () => jsx('div', { class: 'panel-b' }, null)
+  const makeV = (panel: any) => jsx('div', { children: [
+    jsx('span', { children: 'H' }),
+    jsx(NullComp, {}),
+    jsx(panel, {}),
+  ]})
+  const v1 = makeV(PanelA)
+  mountVNode(container, v1, ctx)
+  const el = container.firstChild as HTMLElement
+  assert.ok(el.querySelector('.panel-a'), 'null 组件后组件区渲染（A）')
+
+  // patch：null 组件后组件切换（Drawer closed 时切模式）——必须替换为 B
+  patchValue(container, el, v1, makeV(PanelB), ctx)
+  assert.ok(el.querySelector('.panel-b'), 'null 组件后组件替换必须生效（修复前错位静默失效）')
+  assert.equal(el.querySelector('.panel-a'), null, '旧组件区必须移除')
+})
+})

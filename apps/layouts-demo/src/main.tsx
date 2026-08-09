@@ -120,22 +120,19 @@ const Shell: Component = (_init, ctx) => {
             </div>
           </div>
 
+          {/* 查看代码 Drawer（children 中间位置——框架 mapChildDomNodes null 修复后不再错位） */}
+          <Drawer
+            open={$.showCode}
+            title={`源码 · ${fileOf(active.id)}`}
+            onClose={() => { $.showCode = false }}
+            position="right"
+            width="46%"
+          >
+            <CodeBlock lang="tsx" title={fileOf(active.id)} code={$.code} />
+          </Drawer>
           <div class="wf-fill wf-scroll wf-p-md">
             {h(active.comp, {})}
           </div>
-          {/* Drawer 条件渲染（children 中间 null 组件会让数组 diff 错位——框架级问题
-              记录 Phase 3；此处 showCode 时才入树 + 放末尾规避） */}
-          {$.showCode && (
-            <Drawer
-              open={$.showCode}
-              title={`源码 · ${fileOf(active.id)}`}
-              onClose={() => { $.showCode = false }}
-              position="right"
-              width="46%"
-            >
-              <CodeBlock lang="tsx" title={fileOf(active.id)} code={$.code} />
-            </Drawer>
-          )}
         </main>
       </div>
     )
