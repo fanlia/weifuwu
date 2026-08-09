@@ -1,25 +1,66 @@
 # weifuwu
 
-**一个包的全栈框架** — 后端 HTTP + 前端 VDOM + 组件库 + CSS 设计系统。全自研、零配置、消灭样板。
+**自托管全栈框架** — 一个 npm 包 = 后端 HTTP + 前端 VDOM + 92 组件 + CSS 设计系统 + SaaS 地基（认证 / 消息 / 队列 / AI）。全自研、零构建、消灭样板。
 
 ```bash
-npm install weifuwu
+npm install weifuwu      # 一个依赖，完整应用栈
 ```
 
-一个包 = 后端 (`weifuwu`) + 前端 (`weifuwu/client`) + 组件库 (`weifuwu/components`) + 布局系统 (`weifuwu/layout`)。
+**定位**：面向需要完整应用栈、又不想缝合多个框架/服务、且重视代码与数据所有权的开发者——独立开发者、小团队、自托管/私有化部署。尤其当应用包含 **认证 + 实时消息 + AI 对话 + 后台管理** 时，weifuwu 把这些「每个应用都要的地基」全部内置为一行 `app.use(...)`。
+
+### 五个关键卖点
+
+| 卖点 | 为什么重要 |
+|------|-----------|
+| **一个包，零构建** | 服务端 `node --import weifuwu/dev` 直跑 `.tsx`；浏览器 CDN import map 即用；CSS 一条 link 即得完整设计系统——没有构建步骤、没有脚手架 |
+| **协议层全自研** | PG v3 / RESP2 / GraphQL schema / OpenAI 流式协议全部自研——确定性、可预测、错误模型统一；诚实裁剪：**不支持的能力明确报错，绝不静默降级** |
+| **消灭样板** | 动态编译免构建、`ctx.data.get` 一个 API 覆盖 SSR 预取/hydration/SPA、自研 DB 客户端免双重编码与 parseRow 样板 |
+| **SaaS 地基随包内置** | rateLimit / email / userSystem / messager / queue / ai 六个中间件**互相咬合**（身份是消息的路由）——从「自建基础设施」变「声明业务」 |
+| **自托管友好** | 运行时仅 esbuild + graphql + ws；部署 = 一个 Node 进程 + Postgres + Redis；数据、代码、模型全部在自己手里 |
+
+### 一个包 = 五层能力
+
+| 层 | 入口 | 能力 |
+|----|------|------|
+| 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
+| 前端 | `weifuwu/client` | 两阶段组件 / Proxy 渲染 / 数据管道 / 路由 / api·auth·ws·i18n / 移动端原语 |
+| 组件 | `weifuwu/components` | 92 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
+| 样式 | `weifuwu/layout` | 70 布局原语 + 141 主题 Token，零自定义 CSS 文件 |
+| SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
 > - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）、`ctx.ui.ssr`（组件 SSR）、`ctx.ui.ssrData`（数据序列化）
 > - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useChat()`（AI 会话）/ `useAsync()`（异步取数）/ `selfId()`（跨组件刷新）/ `useMedia()` / `useBreakpoint()`（响应式断点）/ `usePopupPosition()` / `usePopup()`（弹层定位/组合）/ `useHoverCapable()` / `useLongPress()` / `useVisualViewport()`（移动端原语）/ `useInView()` / `useScrollPosition()`（浏览器事件监听）
 > 后端的是「把页面和代码交给浏览器」，前端的是「在浏览器里驱动 UI」。
 
+### 与主流方案的关系
+
+| | weifuwu | Express + React 等 | Next.js 全家桶 |
+|--|---------|------------------|----------------|
+| 依赖 | **1 个包** | 5+ 个框架/库 | 生态绑定 |
+| 构建 | **零**（动态编译直跑 `.tsx`） | 需要 | 需要 |
+| DB 客户端 | **自研协议**（零依赖，确定性输出） | pg + 连接池 | Prisma 等 |
+| AI / Agent | **内置**（agent 循环 + 工具调用 + HITL 审批 + 流式 UI） | 自接 ai-sdk | 自接 |
+| 认证 / 消息 / 队列 | **随包内置、互相咬合** | 自选 + 自缝 | 自选 + 自缝 |
+| 部署 | 一个 Node 进程 + PG + Redis | 各组件自理 | 平台绑定 |
+
+> 定位不是「替代某个框架」，而是**包换包**：用 weifuwu 一个依赖替换你原本要缝合的整套栈。心智模型有借鉴（两阶段组件接近 React、中间件接近 Express），但每一层都是自研的确定性实现——组件模型见[核心概念](#核心概念)，与 antd/Element Plus/shadcn 的对应见 `design/components-map.md`。
+
+### 从这里开始
+
+| 你想… | 去哪 |
+|--------|------|
+| 10 分钟跑通 SPA + SSR | [快速开始](#快速开始) |
+| 立刻体验（跑现成 demo） | 快速开始的「30 秒体验」 |
+| 零后端原型（一个 HTML 文件） | [CDN 快速原型](#cdn-快速原型零构建纯-html) |
+| 按任务找 API（认证/消息/AI/移动端…） | [能力速查](#能力速查任务--api) |
+| 读完整 API 参考 | [文档导航](#文档导航) |
+
 ---
 
 ## 设计理念
 
-### 一句话
-
-**weifuwu = 一个包的全栈框架：全自研、零配置、消灭样板、SaaS 地基随包内置。** 下面四条核心哲学与十一条技术原则都是这句话的展开——我们不做缝合框架，每一层都自研且可预测。
+> 顶部「定位」回答了**是什么 / 为什么**；以下是**哲学展开**——四条核心哲学与十一条技术原则。
 
 ### 核心哲学
 
