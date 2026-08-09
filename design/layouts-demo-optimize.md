@@ -50,14 +50,19 @@
 
 **验收总则**：每个交互 = 真实点击（`agent-browser click`）+ 状态断言（DOM 变化），不 eval click。
 
-### Phase 2：壳体验升级（P0——开发者"参考"效率）
+### Phase 2：壳体验升级（P0——开发者"参考"效率）✅ 已完成（0660f57 后续）
 
-| # | 优化 | agent-browser 验收 |
-|---|------|-------------------|
-| 2.1 | **查看代码**：描述条加"代码"按钮 → Modal/Drawer 展示当前模式完整源码（fetch 文件内容） | 点"代码" → Drawer 打开 + 含 `export const` 源码文本（textContent 断言）；关 Drawer → DOM 消失（animationend） |
-| 2.2 | **模式分组**：工作台类/内容类/营销类/工具类（group 标题） | 左侧列表显示 4 个分组标题 + 对应模式（textContent 断言） |
-| 2.3 | **键盘可达**：模式列表方向键导航（↑↓ 切换 + active 跟随） | Tab 聚焦列表后按 ArrowDown → active 切换（.wf-nav-item--active textContent 断言） |
-| 2.4 | **深链**：初始 hash 直接打开对应模式（已有）+ hash 无效回退首页 | `open http://localhost:3001/#/landing` → 落地页渲染（断言）；`#/xxx` 不存在 → 回退应用壳 |
+| # | 优化 | 状态 |
+|---|------|------|
+| 2.1 | **查看代码**：描述条"查看代码"按钮 → Drawer 展示模式源码（server 源码路由 + kebab→Pascal 文件名 + CodeBlock） | ✅ Drawer 589px + 源码 + 标题联动切换模式 |
+| 2.2 | **模式分组**：工作台/内容展示/营销推广 3 组（wf-nav-group 标题） | ✅ 3 组 8 模式 |
+| 2.3 | **键盘可达**：模式列表 ↑↓ 方向键切换（tabindex + onKeyDown） | ✅ ArrowDown → 分栏工作台 |
+| 2.4 | **深链**：`#/landing` 直达 + 无效 hash 回退应用壳 | ✅ |
+
+**框架 bug（Phase 3 待修）**：children 数组**中间位置的 null 组件**（如 closed Drawer）
+导致 patchKeyedChildren 按位置 diff 错位——后续子项不更新（壳内容区模式切换
+静默失效）。规避：Drawer 条件渲染（`$.showCode && <Drawer>`）+ 放 children 末尾。
+根因在 allUnkeyed 分支对"渲染为 null 的组件 VNode"的 DOM 位置索引错位。
 
 ### Phase 3：框架能力补齐（P1——蓝本暴露的缺口）
 

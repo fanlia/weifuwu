@@ -14,6 +14,16 @@ app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')
 // components.css 构建时已内嵌全部 layout 原语——不单独加载 layout.css（避免双份 CSS）
 app.get('/components.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))
 
+// 模式源码（查看代码 Drawer 用——text/plain 避免浏览器转义）
+// id 是 kebab-case（app-shell）→ 文件名 PascalCase（AppShell.tsx）
+app.get('/src/patterns/:name', async (req: Request, ctx: any): Promise<Response> => {
+  const name = (ctx as any).params?.name
+  const pascal = name.split('-').map((w: string) => w[0].toUpperCase() + w.slice(1)).join('')
+  const file = resolve(__dirname, 'src', 'patterns', `${pascal}.tsx`)
+  const src = await import('node:fs/promises').then(fs => fs.readFile(file, 'utf-8'))
+  return new Response(src, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+})
+
 app.get('/*', async (req, ctx) => ctx.ui.html`
 <!DOCTYPE html>
 <html lang="zh-CN">

@@ -13,21 +13,25 @@
 
 import { createApp, h } from 'weifuwu/client'
 import type { Component } from 'weifuwu/client'
-import { Badge, Icon, Tag, Text, Space } from 'weifuwu/components'
+import { Badge, Button, CodeBlock, Drawer, Icon, Tag, Text, Space } from 'weifuwu/components'
 
-import { PATTERNS, getPattern } from './patterns/index'
+import { PATTERNS, GROUPS, getPattern } from './patterns/index'
 
 
-// 模式 id → 文件名（显示用）
-const fileOf = (id: string) =>
-  'patterns/' + id.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join('') + '.tsx'
+// 模式 id → 文件名（显示用）——显式 file 字段优先（id 驼峰 ≠ 文件名时）
+const fileOf = (id: string) => 'patterns/' + getPattern(id).file + '.tsx'
 
 // ── 壳：左侧模式列表 + hash 路由切换（#/app-shell 等）──
 const Shell: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.active = getPattern(location.hash.replace('#/', '')).id
+  $.showCode = false
+  $.code = ''
 
-  const onHash = () => { $.active = getPattern(location.hash.replace('#/', '')).id }
+  const onHash = () => {
+    $.active = getPattern(location.hash.replace('#/', '')).id
+    $.showCode = false
+  }
   window.addEventListener('hashchange', onHash)
 
   return () => {
@@ -44,15 +48,29 @@ const Shell: Component = (_init, ctx) => {
             <Text type="secondary" className="wf-text-sm">布局模式蓝本 · {PATTERNS.length} 种</Text>
           </div>
 
-          <nav class="wf-nav">
-            {PATTERNS.map((p) => (
-              <a
-                key={p.id}
-                href={`#/${p.id}`}
-                class={`wf-nav-item${p.id === active.id ? ' wf-nav-item--active' : ''}`}
-              >
-                {p.name}
-              </a>
+          <nav
+            class="wf-nav"
+            tabindex="0"
+            aria-label="布局模式列表"
+            onKeyDown={(e: KeyboardEvent) => {
+              const idx = PATTERNS.findIndex((p) => p.id === active.id)
+              if (e.key === 'ArrowDown') { e.preventDefault(); location.hash = '#/' + (PATTERNS[(idx + 1) % PATTERNS.length]?.id ?? PATTERNS[0].id) }
+              if (e.key === 'ArrowUp') { e.preventDefault(); location.hash = '#/' + (PATTERNS[(idx - 1 + PATTERNS.length) % PATTERNS.length]?.id ?? PATTERNS[0].id) }
+            }}
+          >
+            {GROUPS.map((g) => (
+              <div key={g}>
+                <div class="wf-nav-group">{g}</div>
+                {PATTERNS.filter((p) => p.group === g).map((p) => (
+                  <a
+                    key={p.id}
+                    href={`#/${p.id}`}
+                    class={`wf-nav-item${p.id === active.id ? ' wf-nav-item--active' : ''}`}
+                  >
+                    {p.name}
+                  </a>
+                ))}
+              </div>
             ))}
           </nav>
 
@@ -83,14 +101,41 @@ const Shell: Component = (_init, ctx) => {
                 <b class="wf-text-bold">{active.name}</b>
                 <Text type="secondary" className="wf-text-sm">{active.desc}</Text>
               </div>
-              <Text className="wf-text-tertiary wf-text-xs wf-ml-auto" style={{ fontFamily: 'monospace' }}>
-                {fileOf(active.id)}
-              </Text>
+              <Space size="md" align="center">
+                <Text className="wf-text-tertiary wf-text-xs" style={{ fontFamily: 'monospace' }}>
+                  {fileOf(active.id)}
+                </Text>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    $.showCode = true
+                    const res = await fetch(`/src/patterns/${active.file}`)
+                    $.code = await res.text()
+                  }}
+                >
+                  <Icon name="file-text" size={14} /> 查看代码
+                </Button>
+              </Space>
             </div>
           </div>
+
           <div class="wf-fill wf-scroll wf-p-md">
             {h(active.comp, {})}
           </div>
+          {/* Drawer 条件渲染（children 中间 null 组件会让数组 diff 错位——框架级问题
+              记录 Phase 3；此处 showCode 时才入树 + 放末尾规避） */}
+          {$.showCode && (
+            <Drawer
+              open={$.showCode}
+              title={`源码 · ${fileOf(active.id)}`}
+              onClose={() => { $.showCode = false }}
+              position="right"
+              width="46%"
+            >
+              <CodeBlock lang="tsx" title={fileOf(active.id)} code={$.code} />
+            </Drawer>
+          )}
         </main>
       </div>
     )

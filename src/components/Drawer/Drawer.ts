@@ -16,6 +16,8 @@ export interface DrawerProps {
   onClose?: () => void
   children?: any
   footer?: any
+  /** 面板宽度（默认 360px——--wf-drawer-width 变量） */
+  width?: string
 }
 
 export const Drawer: Component<DrawerProps> = (_props, ctx) => {
@@ -23,7 +25,7 @@ export const Drawer: Component<DrawerProps> = (_props, ctx) => {
   const dialog = ctx.ui.useDialog({ name: 'Drawer' })
 
   return (props: DrawerProps) => {
-    const { open, title, position = 'right', onClose, children, footer } = props
+    const { open, title, position = 'right', onClose, children, footer, width } = props
     const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}
     const phase = dialog.sync(!!open)
 
@@ -52,6 +54,7 @@ export const Drawer: Component<DrawerProps> = (_props, ctx) => {
 
     const panel = h('div', {
       class: `wf-drawer-panel wf-drawer-panel--${position}`,
+      style: width ? { '--wf-drawer-width': width } : undefined,
       ref: dialog.panelRef,
       onClick: (e: Event) => e.stopPropagation(),
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
