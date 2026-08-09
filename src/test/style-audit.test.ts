@@ -519,6 +519,95 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(bad, [], `非法 CSS 选择器：\n${bad.join('\n')}`)
   })
 
+  it('组件测试基线（P10：Confirm 0 测试防线——交互 ≥8 目标注册递减，全体 ≥3 硬地板）', () => {
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+      .filter(d => d.isDirectory()).map(d => d.name)
+      .filter(d => { try { readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
+    // 低于交互基线（8）的组件必须在此登记（含 Wave 批次——逐 Wave 递减，归零后删表）
+    const TEST_GAP: Record<string, string> = {
+      Tooltip: 'W2', Menubar: 'W2', Popconfirm: 'W2', AlertGroup: 'W2', FloatButton: 'W2',
+      Checkbox: 'W3', RadioGroup: 'W3', Switch: 'W3', Slider: 'W3', SearchInput: 'W3',
+      PasswordInput: 'W3', SegmentedControl: 'W3', Calendar: 'W3', TreeSelect: 'W3',
+      Img: 'W4', Timeline: 'W4', VirtualTable: 'W4',
+      Affix: 'W5', Alert: 'W5', Anchor: 'W5', ApprovalCard: 'W5', BackTop: 'W5',
+      CodeBlock: 'W5', CopyButton: 'W5', InfiniteScroll: 'W5', Link: 'W5',
+      Pagination: 'W5', Tabs: 'W5', Tag: 'W5',
+    }
+    const INTERACTIVE = /onClick|onKeyDown|onInput|onChange|useControlled|useOpen|usePopup/
+    const errors: string[] = []
+    const actualGap = new Set<string>()
+    for (const d of dirs) {
+      const ts = readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8')
+      let tests = -1
+      try {
+        const test = readFileSync(join(root, 'src/components', d, `${d}.test.ts`), 'utf-8')
+        tests = (test.match(/^\s*(it|test)\(/gm) || []).length
+      } catch { /* 无测试文件 */ }
+      if (tests < 0) { errors.push(`${d}: 无 .test.ts`); continue }
+      if (tests < 3) errors.push(`${d}: 仅 ${tests} 测试（硬地板 3）`)
+      if (INTERACTIVE.test(ts) && tests < 8) actualGap.add(d)
+    }
+    // 注册表与实际缺口集合必须一致——补测试后删登记，新组件低于基线必须登记
+    const registered = new Set(Object.keys(TEST_GAP))
+    for (const d of actualGap) if (!registered.has(d)) errors.push(`${d}: 交互组件 ${`<8`} 测试且未登记 TEST_GAP`)
+    for (const d of registered) if (!actualGap.has(d)) errors.push(`${d}: 已达基线——请从 TEST_GAP 移除登记`)
+    assert.deepEqual(errors, [], `组件测试基线：\n${errors.join('\n')}`)
+  })
+
+  it('受控 props 命名对称（P10-T1：受控 prop 必须配对称回调或登记豁免）', () => {
+    // 受控 prop → 可接受的对称回调名
+    const SYMMETRIC: Record<string, RegExp> = {
+      value: /^on(Change|Input)$/, checked: /^on(Change|Check)$/, open: /^on(OpenChange|Close|Change)$/, // Tour 用 onChange(open) 对称
+      active: /^on(Change|Select)$/, activeKey: /^on(Change|Select)$/,
+      expanded: /^on(Expand|ExpandChange)$/, expandedKeys: /^on(Expand|ExpandChange)$/,
+      checkedKeys: /^onCheck$/, selected: /^on(Select|Change)$/, selectedKeys: /^on(Select|Change)$/,
+      page: /^on(Change|PageChange)$/, current: /^on(Change|StepChange)$/,
+      month: /^onMonthChange$/, year: /^onMonthChange$/,
+      targetKeys: /^onChange$/, collapsed: /^on(Collapse|CollapseChange)$/,
+      month2: /$^/, // 占位防误触
+    }
+    // 豁免（只读展示 prop / 非受控语义）——逐条登记理由
+    const EXEMPT = new Set([
+      'StatCard.value', 'ProgressBar.value', 'QRCode.value', 'Sparkline.value',
+      'Slider.value', 'Descriptions.value', 'Text.value', 'Paragraph.value',
+      'Anchor.activeKey',   // 对称回调 onAnchorChange（命名不同但语义对称）
+      'Card.active',        // 展示态高亮 prop，无交互
+      'CopyButton.value',   // 复制目标文本，非受控状态
+      'Dropdown.value',     // DropdownItem 字段（项值），非受控
+      'Notification.open',  // 命令式方法 open(opts)，非受控 prop
+      'Steps.active',       // 纯展示进度，无交互
+      'Steps.current',      // 同上
+    ])
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+      .filter(d => d.isDirectory()).map(d => d.name)
+    const offenders: string[] = []
+    for (const d of dirs) {
+      let src = ''
+      try { src = readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8') } catch { continue }
+      const callbacks = new Set([...src.matchAll(/on[A-Z]\w*(?=\??:)/g)].map(m => m[0]))
+      for (const [prop, re] of Object.entries(SYMMETRIC)) {
+        if (prop === 'month2') continue
+        // 只查 Props 接口里的可选/必选受控声明（避免匹配函数体）
+        const propRe = new RegExp(`^\\s*${prop}\\??:`, 'm')
+        if (!propRe.test(src)) continue
+        if (EXEMPT.has(`${d}.${prop}`)) continue
+        if (![...callbacks].some(cb => re.test(cb))) {
+          offenders.push(`${d}.${prop}：受控 prop 无对称回调（${re}）`)
+        }
+      }
+    }
+    assert.deepEqual(offenders, [], `受控命名不对称：\n${offenders.join('\n')}`)
+  })
+
+  it('demo 覆盖防线（P10-T6：每组件必须在 components-demo 有演示）', () => {
+    const demo = readFileSync(join(root, 'apps/components-demo/src/main.tsx'), 'utf-8')
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+      .filter(d => d.isDirectory()).map(d => d.name)
+      .filter(d => { try { readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
+    const missing = dirs.filter(d => !demo.includes(d))
+    assert.deepEqual(missing, [], `组件缺 demo：${missing.join(', ')}`)
+  })
+
   it('组件 CSS class 不与 layout 布局原语冲突（Grid 覆盖 .wf-grid 教训）', () => {
     // layout 布局原语 class（.wf-* 顶层规则）——组件 CSS 不得同名定义
     const layout = readLayoutCss()

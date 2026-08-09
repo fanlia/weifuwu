@@ -93,3 +93,24 @@ function findNode(n: any, pred: (n: any) => boolean): any {
   }
   return null
 }
+
+it('键盘可达：折叠行 role=button + tabIndex + Enter 展开（P1 红线）', () => {
+  const data = { a: { deep: { x: 1 } } }
+  const ctx = mockCtx()
+  const factory = JSONViewer({ data, defaultExpandDepth: 1 }, ctx)
+  const vnode = factory({ data, defaultExpandDepth: 1 })
+  const row = findNode(vnode, (n) => n?.props?.class?.includes('wf-json-collapse'))
+  assert.ok(row, '深层折叠行存在')
+  assert.equal(row.props.role, 'button')
+  assert.equal(row.props.tabIndex, 0, '折叠行必须可聚焦')
+  assert.ok(row.props.onKeyDown, 'Enter/Space 键盘处理存在')
+})
+
+it('数组折叠摘要 Array(N) + 复制按钮 aria-label 含路径', () => {
+  const data = { list: [1, 2, 3, { deep: true }] }
+  const vnode = renderVNode(JSONViewer, { data, defaultExpandDepth: 0 }, mockCtx())!
+  const texts = collectText(vnode)
+  assert.ok(texts.some(t => t.includes('Array(4)')), `数组摘要缺失: ${texts.join(',')}`)
+  const copyBtn = findNode(vnode, (n) => n?.props?.class?.includes('wf-json-copy'))
+  assert.match(copyBtn.props['aria-label'], /root\.list/, '复制按钮 aria-label 含完整路径')
+})

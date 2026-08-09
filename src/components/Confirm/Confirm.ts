@@ -10,7 +10,6 @@ import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { mountVNode, callRefCleanup } from '../../client/render.ts'
-import { animateOut } from '../../client/motion.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { Button } from '../Button/Button.ts'
 
@@ -69,37 +68,47 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
     browser.bodyAppend(container)
 
     let settled = false
-    const vnode = h(Confirm, {
-      open: true,
-      title: options.title,
-      message,
-      confirmText: options.confirmText,
-      cancelText: options.cancelText,
-      variant: options.variant,
-      width: options.width,
-      maskClosable: options.maskClosable, // 默认 false：遮罩不取消
-      onConfirm: () => finish(true),
-      onCancel: () => finish(false),
-    } as ConfirmProps)
-
-    const finish = (result: boolean) => {
-      if (settled) return
-      settled = true
-      // 播放退场动画后再清理（命令式路径：直接驱动 DOM，不依赖受控 open 流转）
-      const el = browser.query('.wf-modal')
-      if (el) {
-        el.classList.add('wf-modal--exit')
-        animateOut(el as HTMLElement, () => {
-          callRefCleanup(vnode)
-          container.remove()
-        })
-      } else {
-        callRefCleanup(vnode)
-        container.remove()
+    // 包装组件驱动 open（$ 响应式）：finish 置 false → Modal 退场状态机自播动画并卸载
+    // （portal DOM 随卸载移除）。旧实现静态 open=true + 手动加 --exit 类 + 定时清理：
+    // resolve 后宿主重渲染会把 modal 重挂回 portal，孤儿节点永久残留（浏览器实测）
+    let doFinish: ((result: boolean) => void) | undefined
+    const CommandConfirm: Component = (_init, c) => {
+      const $ = c.ui.$()
+      $.open = true
+      doFinish = (result: boolean) => {
+        if (settled) return
+        settled = true
+        $.open = false
+        resolve(result)
+        // 容器清理：退场动画结束（animationend）或兜底 600ms 后——两者以先者为准
+        const cleanup = () => { callRefCleanup(vnode); container.remove() }
+        const el = browser.query('#__wf_portal .wf-modal')
+        if (el && typeof el.addEventListener === 'function') {
+          let done = false
+          const once = () => { if (!done) { done = true; cleanup() } }
+          el.addEventListener('animationend', once, { once: true })
+          browser.timeout(once, 600)
+        } else {
+          cleanup()
+        }
       }
-      resolve(result)
+      // 总是返回包装 div（非 null）：Confirm→Modal 输出是 Portal，无本地 DOM——
+      // _refNode 为 null 时 renderByIds 静默跳过，open=false 永远打不进去（ToastHost 同款模式）
+      return () => h('div', { class: 'wf-confirm-host' }, h(Confirm, {
+        open: $.open,
+        title: options.title,
+        message,
+        confirmText: options.confirmText,
+        cancelText: options.cancelText,
+        variant: options.variant,
+        width: options.width,
+        maskClosable: options.maskClosable, // 默认 false：遮罩不取消
+        onConfirm: () => doFinish?.(true),
+        onCancel: () => doFinish?.(false),
+      } as ConfirmProps))
     }
 
+    const vnode = h(CommandConfirm, {})
     mountVNode(container, vnode, ctx)
   })
 }
