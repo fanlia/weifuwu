@@ -81,13 +81,13 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
   // 可视视口跟踪：虚拟键盘弹起时输入区抬升到键盘上方（fixed 底部栏场景）
   const vv = ctx.ui.useVisualViewport()
 
-  const onScroll = () => {
-    if (!listEl) return
-    stickToBottom = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 48
-  }
   const scrollToBottom = () => {
     if (listEl) listEl.scrollTop = listEl.scrollHeight
   }
+
+  // 滚动位置跟踪（useScrollPosition：全局 scroll 监听 + rAF 节流，替代自建 listEl scroll 监听）。
+  // y 响应式变化自动 dirty → render 里重算 stickToBottom（贴底判定，距底 <48px 视为贴底）。
+  const scroll = ctx.ui.useScrollPosition({ getScroller: () => listEl ?? window })
 
   // 稳定 ref 函数：跨渲染保持同一引用。
   // weifuwu 的 ref-diff 在 ref 函数引用变化时调用旧 ref(null)——若 ref 内联在 render 里，
@@ -95,10 +95,9 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
   const listRef = (el: any) => {
     if (el && !listEl) {
       listEl = el
-      el.addEventListener('scroll', onScroll)
+      scroll.refresh() // 初始 y
       queueMicrotask(scrollToBottom)
     } else if (!el && listEl) {
-      listEl.removeEventListener('scroll', onScroll)
       listEl = undefined
       unwatch?.() // 真正卸载时退订
     }
@@ -108,6 +107,11 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
   return (props) => {
     const { chat, raiseOnKeyboard = false } = props
     const labels: AiChatLabels = { ...defaultLabels, ...props.labels }
+
+    // 贴底判定（useScrollPosition 的 y 响应式驱动；scrollHeight/clientHeight 读当前 DOM）
+    if (listEl) {
+      stickToBottom = listEl.scrollHeight - scroll.y - listEl.clientHeight < 48
+    }
 
     // 自动滚动：内容更新且用户未上翻 → 微任务内滚到底（render 返回后 patch 已完成）
     if (stickToBottom) queueMicrotask(scrollToBottom)

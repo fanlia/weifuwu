@@ -30,28 +30,30 @@ export const Affix: Component<AffixProps> = (_init, ctx) => {
   const getScroller = () => propsRef.target ? propsRef.target() : window
   const scroll = ctx.ui.useScrollPosition({ getScroller })
 
-  // 重算阈值（rect 视口位置 + 当前滚动 = 文档位置；fixed = scrollY >= 文档位置 - offsetTop）
-  const recompute = () => {
-    if (!wrapEl) return
-    const rect = wrapEl.getBoundingClientRect()
-    const scroller = getScroller()
-    const sy = 'scrollY' in scroller ? (scroller as Window).scrollY ?? 0 : (scroller as HTMLElement).scrollTop ?? 0
-    threshold = rect.top + sy - (propsRef.offsetTop ?? 0)
-    wrapWidth = rect.width
-  }
+  // 阈值/宽度重算经 usePopupPosition 的 compute（scroll/resize 全局监听 + rAF 节流驱动，
+  // 不再自建 window resize 监听）。rect 视口位置 + 当前滚动 = 文档位置；fixed = scrollY >= 文档位置 - offsetTop
+  const pos = ctx.ui.usePopupPosition({
+    el: () => wrapEl,
+    isOpen: () => true,
+    compute: (r) => {
+      const scroller = getScroller()
+      const sy = 'scrollY' in scroller ? (scroller as Window).scrollY ?? 0 : (scroller as HTMLElement).scrollTop ?? 0
+      threshold = r.top + sy - (propsRef.offsetTop ?? 0)
+      wrapWidth = r.width
+      return { top: 0, left: 0 }
+    },
+  })
 
   const stableRef = (node: HTMLElement | null) => {
     if (node) {
       wrapEl = node
       // ref 在 appendChild 之前触发（元素未连接文档，rect 无效）→ 微任务里等连接后重算
       queueMicrotask(() => {
-        recompute()
+        pos.refresh()
         scroll.refresh()
       })
-      window.addEventListener('resize', recompute)
     } else {
       wrapEl = null
-      window.removeEventListener('resize', recompute)
     }
   }
 
@@ -62,7 +64,7 @@ export const Affix: Component<AffixProps> = (_init, ctx) => {
     // offsetTop 运行时变化：重算阈值（非滚动帧的布局读取，可接受）
     if (offsetTop !== lastOffsetTop) {
       lastOffsetTop = offsetTop
-      if (wrapEl) recompute()
+      if (wrapEl) pos.refresh()
     }
 
     const fixed = scroll.y >= threshold

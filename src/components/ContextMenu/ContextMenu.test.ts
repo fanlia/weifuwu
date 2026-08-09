@@ -5,15 +5,37 @@ setupJsdom()
 import { ContextMenu } from './ContextMenu.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
+// mock ctx.ui.usePopup（组件层不跑真实弹层：onContextMenu 触发 + portal 定位简化）
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true,
-    useLongPress: (opts: any) => ({
-      onPointerDown: (e: any) => { opts.onLongPress?.(e) },
-      onPointerUp: () => {},
-      onPointerLeave: () => {},
-      onPointerMove: () => {},
-      onContextMenu: (e: any) => { e.preventDefault(); opts.onLongPress?.(e) },
-    }),
+  return { ui: {
+    $: {}, render: () => {}, dirty: () => {}, ready: true,
+    usePopup: (opts: any) => {
+      const wrapProps: any = {}
+      // 模拟 longpress 触发的右键兼容分支
+      wrapProps.onContextMenu = (e: any) => {
+        e.preventDefault()
+        opts.onTrigger?.({ clientX: e.clientX ?? 0, clientY: e.clientY ?? 0 })
+        opts.setOpen(true)
+      }
+      return {
+        open: false,
+        setOpen: (v: boolean) => opts.setOpen(v),
+        wrapProps,
+        portal: (content: any) => {
+          if (!opts.isOpen()) return null
+          // 简化定位：onTrigger 坐标（cursorX=100/cursorY=200 → top/left）
+          return {
+            ...content,
+            props: {
+              ...content.props,
+              class: ['wf-popup', content.props.class].filter(Boolean).join(' '),
+              style: { ...content.props.style, position: 'fixed', top: '200px', left: '100px' },
+            },
+          }
+        },
+        refresh: () => {},
+      }
+    },
   } } as any
 }
 
@@ -43,13 +65,13 @@ describe('ContextMenu', () => {
     assert.equal(vnode.props.children.length, 1)
   })
 
-  it('contextmenu opens menu at mouse position', () => {
+  it('contextmenu opens menu at mouse position（经 usePopup onTrigger + position）', () => {
     const ctx = mockCtx()
     const render = mount(ContextMenu, { items, children: 'x' }, ctx)!
     const vnode = render({ items, children: 'x' })
     vnode.props.onContextMenu({ clientX: 100, clientY: 200, preventDefault: () => {} })
     const vnode2 = render({ items, children: 'x' })
-    const menu = vnode2.props.children[1]?.props?.children
+    const menu = vnode2.props.children[1]
     assert.ok(menu, '应显示菜单')
     assert.match(menu.props.class, /wf-context-menu/)
     assert.equal(menu.props.style.left, '100px')
@@ -62,7 +84,7 @@ describe('ContextMenu', () => {
     const v = render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     const v2 = render({ items, children: 'x' })
-    const menuItems = v2.props.children[1].props.children.props.children
+    const menuItems = v2.props.children[1].props.children
     assert.equal(menuItems.length, 4)
   })
 
@@ -77,7 +99,7 @@ describe('ContextMenu', () => {
     let v = render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items: myItems, children: 'x' })
-    const menuItems = v.props.children[1].props.children.props.children
+    const menuItems = v.props.children[1].props.children
     menuItems[1].props.onClick()
     assert.equal(clicked, 'b')
     // 点击后关闭
@@ -93,7 +115,7 @@ describe('ContextMenu', () => {
     let v = render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items: myItems, children: 'x' })
-    const item = v.props.children[1].props.children.props.children[0]
+    const item = v.props.children[1].props.children[0]
     assert.equal(item.props.onClick, undefined)
     assert.match(item.props.class, /--dis/)
   })
@@ -104,7 +126,7 @@ describe('ContextMenu', () => {
     let v = render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items, children: 'x' })
-    const menuItems = v.props.children[1].props.children.props.children
+    const menuItems = v.props.children[1].props.children
     assert.match(menuItems[2].props.class, /--danger/)
   })
 
@@ -115,7 +137,7 @@ describe('ContextMenu', () => {
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items, children: 'x' })
     assert.ok(v.props.children.length > 1)
-    const menu = v.props.children[1].props.children
+    const menu = v.props.children[1]
     menu.props.onKeyDown({ key: 'Escape' })
     v = render({ items, children: 'x' })
     assert.equal(v.props.children.length, 1)
@@ -132,11 +154,11 @@ describe('ContextMenu', () => {
     let v = render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
     v = render({ items: myItems, children: 'x' })
-    const menu = v.props.children[1].props.children
+    const menu = v.props.children[1]
     // ArrowDown → 高亮第 2 项（index 1）
     menu.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} })
     v = render({ items: myItems, children: 'x' })
-    const items2 = v.props.children[1].props.children.props.children
+    const items2 = v.props.children[1].props.children
     assert.match(items2[1].props.class, /--hl/)
     items2[1].props.onClick()
     assert.equal(clicked, 'b')

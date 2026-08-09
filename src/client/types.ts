@@ -53,6 +53,8 @@ export interface UsePopupOptions {
   trigger: PopupTrigger | (() => PopupTrigger)
   /** 弹出方向（支持 getter——动态读最新 props），默认 'bottom' */
   placement?: Placement | (() => Placement)
+  /** 自由定位（支持 getter）：提供则忽略 placement，直接用坐标（如右键菜单光标处） */
+  position?: () => { x: number; y: number }
   /** 水平对齐：center=居中于触发元素（默认），start=左对齐（Menubar 面板用） */
   center?: boolean
   /** 与触发元素间距（px，默认 6） */
@@ -77,6 +79,8 @@ export interface UsePopupOptions {
   closeOnEscape?: boolean
   /** 长按触发时长（ms，仅 trigger='longpress'，默认 500） */
   longPressDuration?: number
+  /** 打开触发回调（longpress 计时到/右键兼容时调用，携带光标坐标——右键菜单定位用） */
+  onTrigger?: (e: { clientX: number; clientY: number }) => void
   /** hover 打开延迟（ms 或 getter——动态读最新 props，仅 trigger='hover'，默认 0） */
   openDelay?: number | (() => number)
   /** hover 关闭延迟（ms 或 getter，仅 trigger='hover'，默认 0） */

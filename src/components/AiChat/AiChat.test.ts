@@ -17,7 +17,12 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 }
 
 function mockCtx(): WfuiContext {
-  return { ui: { useVisualViewport: () => ({ height: 800, offsetTop: 0, keyboardOpen: false }), dirty: () => {}, render: () => {} } } as any
+  let scrollY = 0
+  return { ui: {
+    useVisualViewport: () => ({ height: 800, offsetTop: 0, keyboardOpen: false }),
+    useScrollPosition: () => ({ y: scrollY, refresh: () => {} }),
+    dirty: () => {}, render: () => {},
+  } } as any
 }
 
 function mockChat(partial: Partial<UseChatHandle> = {}): UseChatHandle {

@@ -12,6 +12,13 @@ function mockCtx(scrollY = 0): { ctx: WfuiContext; setScrollY: (y: number) => vo
     ui: {
       $: {}, render: () => {}, dirty: () => {},
       useScrollPosition: () => scroll,
+      usePopupPosition: (opts: any) => ({
+        top: 0, left: 0,
+        refresh: () => {
+          const el = opts.el()
+          if (el) opts.compute(el.getBoundingClientRect())
+        },
+      }),
       ready: true,
     },
   } as any

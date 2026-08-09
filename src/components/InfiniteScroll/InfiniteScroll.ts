@@ -15,35 +15,28 @@ export interface InfiniteScrollProps {
   className?: string
 }
 
-/** 无限滚动（对应 EP InfiniteScroll）：底部哨兵进入视口 → 加载更多。 */
+/** 无限滚动（对应 EP InfiniteScroll）：底部哨兵进入视口 → 加载更多。
+ * 实现：ctx.ui.useInView（IO 封装——合成器线程评估，替代组件自建 IntersectionObserver）。
+ * onChange 在交叉状态变化时回调（IO 语义），与自建 IO 等价且不重复触发。 */
 export const InfiniteScroll: Component<InfiniteScrollProps> = (_init, ctx) => {
   // ── mount（只一次）──
-  let io: IntersectionObserver | undefined
-
   const propsRef: any = {}
-
-  const sentinelRef = (el: HTMLElement | null) => {
-    if (el) {
-      io = new IntersectionObserver((entries) => {
-        if (entries[0]?.isIntersecting) {
-          if (propsRef.hasMore !== false && !propsRef.loading) {
-            propsRef.onLoadMore?.()
-          }
-        }
-      }, { rootMargin: `0px 0px ${propsRef.threshold ?? 100}px 0px` })
-      io.observe(el)
-    } else {
-      io?.disconnect()
-      io = undefined
-    }
-  }
+  const inView = ctx.ui.useInView({
+    rootMargin: () => `0px 0px ${propsRef.threshold ?? 100}px 0px`,
+    onChange: (_entry, isIn) => {
+      if (isIn && propsRef.hasMore !== false && !propsRef.loading) {
+        propsRef.onLoadMore?.()
+      }
+    },
+  })
 
   return (props) => {
     Object.assign(propsRef, props)
     const {
-      hasMore = true, loading, onLoadMore, threshold = 100,
+      hasMore = true, loading, threshold = 100,
       children, loadMoreText = '加载中...', endText = '没有更多了', className,
     } = props
+    void threshold // rootMargin 经 getter 动态读 propsRef
 
     let footer: any = null
     if (loading) {
@@ -51,7 +44,10 @@ export const InfiniteScroll: Component<InfiniteScrollProps> = (_init, ctx) => {
     } else if (hasMore === false) {
       footer = h('div', { class: 'wf-infinite-scroll-end' }, endText)
     } else {
-      footer = h('div', { class: 'wf-infinite-scroll-sentinel', ref: sentinelRef })
+      footer = h('div', {
+        class: 'wf-infinite-scroll-sentinel',
+        ref: inView.observe,
+      })
     }
 
     return h('div', {

@@ -355,7 +355,14 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       const pos = ctx.ui!.usePopupPosition({
         el: options.el,
         isOpen: () => isOpen(),
-        compute: (r) => computeFixedPosRect(r, placementOf(), options.gap ?? 6, options.center !== false),
+        compute: (r) => {
+          if (options.position) {
+            // 自由定位（右键菜单光标处）：position getter 提供坐标，忽略 placement
+            const p = options.position()
+            return { top: p.y, left: p.x }
+          }
+          return computeFixedPosRect(r, placementOf(), options.gap ?? 6, options.center !== false)
+        },
         panel: () => panelEl,
         margin: options.margin ?? 8,
       })
@@ -427,7 +434,11 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
           startX = e.clientX ?? 0
           startY = e.clientY ?? 0
           clear()
-          timer = setTimeout(() => { timer = undefined; setOpen(true) }, options.longPressDuration ?? 500)
+          timer = setTimeout(() => {
+            timer = undefined
+            options.onTrigger?.({ clientX: startX, clientY: startY })
+            setOpen(true)
+          }, options.longPressDuration ?? 500)
         }
         wrapProps.onPointerUp = clear
         wrapProps.onPointerLeave = clear
@@ -436,7 +447,11 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
           const dy = Math.abs((e.clientY ?? 0) - startY)
           if (dx > 10 || dy > 10) clear() // 位移 > 10px 视为滚动/拖动，取消
         }
-        wrapProps.onContextMenu = (e: any) => { e.preventDefault(); setOpen(true) } // 桌面右键兼容
+        wrapProps.onContextMenu = (e: any) => {
+          e.preventDefault()
+          options.onTrigger?.({ clientX: e.clientX ?? 0, clientY: e.clientY ?? 0 })
+          setOpen(true)
+        } // 桌面右键兼容
       }
 
       wrapProps.onKeyDown = (e: KeyboardEvent) => {
