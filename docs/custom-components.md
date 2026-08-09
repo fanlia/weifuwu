@@ -219,5 +219,6 @@ const CollapseItem: Component<{ active?: boolean; onChange?: (v: boolean) => voi
 ## 已知边界（诚实裁剪）
 
 - `usePopup` 覆盖浮层（Tooltip/Popover/Dropdown/Mentions/Cascader/ContextMenu）；**全屏对话框**（Modal/Drawer）用 useDialog（Escape 语义留组件层）；Command/Img preview 保持独立实现
+- **事件监听纪律**：组件库内部事件监听统一走 `ctx.ui.useXXX`（useInView/useScrollPosition/usePopupPosition/useMedia/usePopup/useDialog）——InfiniteScroll/AiChat/Affix/ContextMenu 已收敛。剩余 5 处为**无对应原语的语义特例**（非重复轮子）：Command 全局快捷键、DatePicker animationend、FileUpload 原生 DnD、Img preview Escape、Resizable 拖拽
 - **Select/DatePicker** 是 inline/absolute 菜单（自适宽），不迁移 usePopup——菜单直接挂在锚点下
 - `createReactiveState` 已导出：组件外建全局 store（`createReactiveState(() => {})` + `$.__watch(cb)` 订阅）
