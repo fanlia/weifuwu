@@ -177,7 +177,9 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
       key: 'select-trigger',
       class: `wf-select-search-trigger${disabled ? ' wf-select-search--disabled' : ''}${error ? ' wf-select--err' : ''}`,
       ref: triggerRef,
-      onClick: disabled ? undefined : () => { $.open = !$.open },
+      // 只开不关（toggle 与 input focus 冲突：点击 input 区域 focus 开→click toggle 关
+      // ——'先弹出后自动关闭'根因）。关闭走：外部点击（usePopup）/Escape/选中（handleSelect）
+      onClick: disabled ? undefined : () => { $.open = true },
     }, [
       ...tags,
       h('input', {
