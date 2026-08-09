@@ -243,3 +243,83 @@ AiChat · Markdown · CodeBlock · MessageBubble · ToolCallCard · ApprovalCard
 - AutoComplete → 受控 Input + Select 弹层复用（下拉状态机提炼为共享 hook 候选）
 - Popconfirm → Popover 基座复用（验证弹层体系可组合性——**弹层组件的组合才是真复用**）
 - StatCard countdown → 定时器驱动渲染（`$.` 自动 + clear 纪律）
+
+## client 优化计划（2026-08，组件 bug 反哺的治本项）
+
+> 背景：batch-8 组件开发中 AutoComplete/Select/NavMenu/Popconfirm 暴露 10+ bug，
+> 归因 4 类 client 根因（diff 算法不完整 / usePopup API 缺陷 / 受控模式缺原语 /
+> token 暗色策略）。组件层补丁已修症状——以下为治本项，按批次推进。
+
+### C1：数组 diff 无 key 复用（🔴 最大收益）
+
+**问题**：数组 children 无 key 子节点每次渲染完全重建（lastIndex 算法无 key 走
+renderValue）→ 受控 input 重建 → 焦点丢失（AutoComplete/Select 真实 bug）。
+当前组件层补丁：手动加稳定 key（`key: 'ac-input'`）——治标。
+
+**方案**（对标 React）：无 key 子节点按索引对比——type 相同 → 复用 DOM 节点
+patch props（不重建）；type 不同才重建。React 同款行为（key 缺失时索引复用）。
+
+**验收**：
+- 无 key 受控 input 输入后焦点保持（`document.activeElement` 不变）
+- 无 key 列表首项 prop 更新 → patch 非重建（MutationObserver 0 替换）
+- 索引错位（增删中间项）行为与 React 一致（复用 + 移动）
+- 回归：现有 1768 测试全绿（含手动 key 组件不受影响）
+
+**风险**：无 key 语义变化（React 警告但复用）——weifuwu 同款：无 key 复用 +
+console.warn 提示（不破坏现有行为——现有手动 key 组件优先按 key）。
+
+### C2：usePopup.open 改 getter（🔴 API 正确性）
+
+**问题**：`return { open: isOpen() }` 创建时快照——Popconfirm 用 popup.open 判
+类永远 false（显示 --exit）——组件被迫改内部状态。文档却写"渲染期读取"——误导。
+
+**方案**：`get open() { return isOpen() }`——渲染期读取永远最新。
+**验收**：Popconfirm 等可安全读 popup.open；无组件依赖快照（全库扫描）；
+现有 usePopup 测试全绿。
+
+### C3：useControlled 普及（🟡 受控组件标准原语）
+
+**问题**：受控 value 不回流 → 输入态/选中态各自造轮子（`$.keyword`/`$.selected`）
+——AutoComplete/Select 重复实现（Select 已用 $，AutoComplete 刚补 $）。
+
+**方案**：现有 `useControlled` 扩展为 `useControlledInput`（value + 内部输入态 +
+选中回填 + 焦点保持）——AutoComplete/Select 迁移。
+**验收**：两组件删除手写内部态逻辑改用原语；行为回归（输入/选中/焦点）。
+
+### C4：弹层受控打开状态机（🟡 打开/关闭协调原语）
+
+**问题**：Select trigger onClick 与 input focus 冲突（focus 开 + click 关）——
+组件层改"只开不关"。打开/关闭的触发协调（点击/focus/blur/外部/Escape）缺标准模式。
+
+**方案**：`useOpen(options)`——协调 trigger click/focus/blur/外部点击/Escape 的
+打开状态机（组件配置：openOnFocus/openOnClick/closeOnSelect 等）。
+**验收**：Select/AutoComplete 迁移；键盘/焦点测试全绿。
+
+### C5：focus-ring 暗色策略（🟢 token 设计）
+
+**问题**：`--wf-focus-ring` 引用 `--wf-color-primary-bg`——系统暗色偏好
+（prefers-color-scheme: dark）覆盖 primary-bg 为暗色 → 聚焦环不可见
+（Select 真实 bug，组件改 `border-color: primary` 绕开）。
+
+**方案**：`--wf-focus-ring` 双层（`0 0 0 2px primary-bg, 0 0 0 1px primary`）
+——暗色下 primary 是亮蓝 → 聚焦环明暗均可见。或文档红线（focus 视觉用
+primary 不用 bg）。
+**验收**：系统暗色偏好下聚焦环可见；对比度测试。
+
+### C6：usePopup 能力文档化（🟢 防重复造轮子）
+
+**问题**：Popconfirm 自建 overlay 挡按钮——usePopup 已有外部点击关闭但组件
+不知道。能力清单未文档化。
+
+**方案**：AGENTS.md 弹窗纪律补充 usePopup 完整能力清单（portal/定位/锚点感知/
+外部点击/Escape/ref 稳定）——新弹层组件先查清单再实现。
+**验收**：文档 + 新组件不重复造 overlay/外部点击。
+
+### 批次节奏
+
+| 阶段 | 内容 | 验收 |
+|------|------|------|
+| CF-1 | C1 数组 diff 复用 + C2 usePopup.getter | 焦点保持测试 + 全量回归 |
+| CF-2 | C3 useControlledInput + C4 useOpen | AutoComplete/Select 迁移 + 行为回归 |
+| CF-3 | C5 focus-ring + C6 文档 | 暗色聚焦可见 + 纪律文档 |
+| CF-4 | 发布（随 v0.68.0 或独立 patch） | 全绿 + 组件行为无回归 |
