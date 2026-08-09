@@ -81,6 +81,8 @@ export interface VNode {
   _id?: string
   /** 组件 render 函数（两阶段内层） */
   _render?: (props: Record<string, any>) => VNode | null
+  /** 组件输出的 DOM 节点（重渲染定位用） */
+  _refNode?: Node | null
 }
 
 /** VNode 子节点合法值 */

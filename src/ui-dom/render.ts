@@ -56,16 +56,40 @@ export function renderValue(v: VNodeChild, ctx: any): Node | null {
   return el
 }
 
-/** 渲染组件（两阶段：mount 返回 render 函数 → 调用产出 VNode） */
+/** 渲染组件（两阶段：mount 返回 render 函数 → 调用产出 VNode）——支持组件级 $ 重渲染 */
 function renderComponent(Comp: Function, vnode: VNode, ctx: any): Node | null {
+  // 分配组件 id + 注册（组件级 $ 重渲染用）
+  const registry = ctx?.__registry
+  if (registry && !vnode._id) {
+    vnode._id = registry.nextId()
+    registry.set(vnode._id, vnode)
+  }
+
+  // 子 ctx：注入 _selfId/_selfVNode + 组件级 $（赋值 → dirty(id) → 重渲染）
+  const childCtx = Object.create(ctx ?? {})
+  childCtx._selfId = vnode._id
+  childCtx._selfVNode = vnode
+  if (registry && vnode._id) {
+    // 组件级 $：dirty 本组件（区别于路由实例级 $——router 注入的 ctx.ui.$）
+    // 覆盖 childCtx.ui.$——组件内 ctx.ui.$() 返回组件级状态
+    const componentState = createComponentState(registry, vnode._id)
+    childCtx.ui = {
+      ...(ctx?.ui ?? {}),
+      $: () => componentState,
+    }
+  }
+
   // mount（一次）：Comp(initProps, ctx) → render 函数
-  const renderFn = (Comp as any)(vnode.props ?? {}, ctx)
+  const renderFn = (Comp as any)(vnode.props ?? {}, childCtx)
   if (typeof renderFn !== 'function') return null
   vnode._render = renderFn
   const childVNode = renderFn(vnode.props ?? {})
   if (childVNode == null) return null
   vnode._child = childVNode
-  return renderValue(childVNode, ctx)
+  ;(vnode as any)._ctx = childCtx
+  const node = renderValue(childVNode, childCtx)
+  if (node) vnode._refNode = node
+  return node
 }
 
 /** 增量 diff：新旧 VNode → 更新 DOM */
@@ -239,4 +263,45 @@ function patchChildren(parent: Node, oldNode: Node | null, oldV: any, newV: any,
     while (base.childNodes.length > newChildren.length) if (base.lastChild) base.removeChild(base.lastChild)
   }
   return base
+}
+
+// ── 组件级响应式状态 ──────────────────────────────────
+
+import { createReactiveState } from './reactive.ts'
+
+/**
+ * 组件级 $（D1）：赋值 → dirty(组件 id) → 调度重渲染该组件。
+ * 与路由实例级 $（router 注入 ctx.ui.$）区分——组件自身的交互状态。
+ */
+function createComponentState(registry: any, componentId: string): Record<string, any> {
+  return createReactiveState(() => {
+    registry.markDirty(componentId)
+  })
+}
+
+/**
+ * 重渲染 dirty 组件（D1）：重调组件 render → 新 VNode → 局部 patch。
+ * 由调度器（router 或测试）调用——drainDirty 后逐个处理。
+ */
+export function rerenderDirtyComponents(registry: any, _root: Node | null): void {
+  const ids = registry.drainDirty()
+  if (ids.length === 0) return
+  registry.setRendering(true)
+  try {
+    for (const id of ids) {
+      const vnode = registry.get(id)
+      if (!vnode || !vnode._render) continue
+      const oldChild = vnode._child as any
+      const newChild = vnode._render(vnode.props ?? {})
+      vnode._child = newChild
+      // 用 refNode.parentNode 定位（组件可能嵌套在任意层级）
+      const refNode = vnode._refNode ?? null
+      const parent = refNode?.parentNode ?? (vnode as any)._parentNode ?? null
+      if (!parent) continue
+      const result = patchValue(parent, refNode, oldChild, newChild, (vnode as any)._ctx)
+      if (result) vnode._refNode = result
+    }
+  } finally {
+    registry.setRendering(false)
+  }
 }

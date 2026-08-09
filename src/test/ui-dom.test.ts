@@ -174,3 +174,44 @@ test('VDOM diff：patchValue 增量更新（同结构不重建）', async () => 
   assert.equal(span2?.textContent, '1')
   assert.equal(span1, span2, '同结构 span 复用（diff 不重建）')
 })
+
+// ═══════════════════════════════════════════════════════
+// D1 — 组件级重渲染（交互子组件 $ 响应式）
+// ═══════════════════════════════════════════════════════
+
+test('交互子组件 $ 赋值 → 组件局部重渲染（父 handler 不重跑）', async () => {
+  let handlerRuns = 0
+  const ui = new UIRouter()
+  // 交互子组件（两阶段 + 组件级 $）
+  const Counter = (initProps: any, ctx: any) => {
+    const $ = ctx.ui.$()
+    $.count = 0
+    return (props: any) => h('div', { id: `counter-${props.id}` },
+      h('span', { id: `n-${props.id}` }, String($.count)),
+      h('button', { id: `inc-${props.id}`, onClick: () => { $.count = $.count + 1 } }, '+'),
+    )
+  }
+  ui.get('/counters', async (location, ctx) => {
+    handlerRuns++
+    const $ = ctx.ui.$()   // 路由实例级 $（handler 层）
+    $.loaded = $.loaded ?? true
+    return h('div', { id: 'page' },
+      h(Counter, { id: 'a' }),
+      h(Counter, { id: 'b' }),
+    )
+  })
+  window.history.pushState(null, '', '/counters')
+  const el = mount('ui-comp')
+  serveUI(ui, { root: '#ui-comp' })
+  await flush()
+  assert.equal(el.querySelector('#n-a')?.textContent, '0')
+  assert.equal(el.querySelector('#n-b')?.textContent, '0')
+  assert.equal(handlerRuns, 1, 'handler 首次跑一次')
+
+  // 点击 counter-a → 组件级 $ 赋值 → 仅 counter-a 重渲染
+  ;(el.querySelector('#inc-a') as HTMLElement).click()
+  await flush()
+  assert.equal(el.querySelector('#n-a')?.textContent, '1', 'counter-a 更新')
+  assert.equal(el.querySelector('#n-b')?.textContent, '0', 'counter-b 不更新（独立）')
+  assert.equal(handlerRuns, 1, 'handler 不重跑（组件级局部重渲染）')
+})

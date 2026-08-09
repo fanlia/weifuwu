@@ -13,6 +13,7 @@ export type { UIRouterOptions } from './router.ts'
 export { h, jsx, jsxs, jsxDEV } from './vnode.ts'
 export type { VNode, VNodeChild, VNodeType } from './vnode.ts'
 export { createReactiveState } from './reactive.ts'
+export { Registry } from './registry.ts'
 export type { ReactiveState } from './reactive.ts'
 export type {
   UIRequest,

@@ -13,7 +13,8 @@
 
 import type { UIHandler, UIMiddleware, UIRouteDef, UIContext, VNode, VNodeChild } from './types.ts'
 import { createReactiveState } from './reactive.ts'
-import { renderValue, patchValue } from './render.ts'
+import { renderValue, patchValue, rerenderDirtyComponents } from './render.ts'
+import { Registry } from './registry.ts'
 
 /** UIRouter 选项 */
 export interface UIRouterOptions {
@@ -163,6 +164,18 @@ export class UIRouter<C extends object = {}> {
     void this._renderAsync()
   }
 
+  /** 组件级重渲染（D1）：仅重渲染 dirty 组件，不重跑 handler/中间件链 */
+  private _renderComponents(): void {
+    const registry = (this._ctx as any)?.__registry
+    if (!registry || !this._rootEl) return
+    this._rendering = true
+    try {
+      rerenderDirtyComponents(registry, this._rootEl)
+    } finally {
+      this._rendering = false
+    }
+  }
+
   private async _renderAsync(): Promise<void> {
     const flat = flatten(this._routes)
     const path = this._getPath()
@@ -215,16 +228,23 @@ export class UIRouter<C extends object = {}> {
       return this._ctx
     }
     const dataCache = new Map<string, { value?: unknown; promise?: Promise<unknown> }>()
+    // 组件注册表（D1：组件级 $ 重渲染）
+    const registry = new Registry()
 
-    // $ 状态（路由实例级——首次创建，重渲染复用）
+    // 路由实例级 $ 状态（handler 的 ctx.ui.$——首次创建，重渲染复用）
     const state = createReactiveState(() => {
-      // $ 赋值 → 重渲染（外层只使用一次：data 缓存命中 + $ 复用）
       if (!this._rendering) this._render()
+    })
+
+    // 组件级 dirty 调度：仅重渲染 dirty 组件（不重跑 handler）
+    registry.onDirty(() => {
+      if (!this._rendering) this._renderComponents()
     })
 
     const ctx: UIContext = {
       params,
       query: Object.fromEntries(new URLSearchParams(window.location.search)),
+      __registry: registry,
       ui: {
         $: () => state as Record<string, any>,
         render: () => this._render(),
