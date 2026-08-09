@@ -5,7 +5,19 @@ import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {},  } } as any
+  let phase: 'closed' | 'open' | 'exit' = 'closed'
+  return { ui: {
+    $: () => ({}), render: () => {}, dirty: () => {},
+    useDialog: () => ({
+      get phase() { return phase },
+      rootRef: () => {}, panelRef: () => {},
+      sync: (open: boolean) => {
+        if (open) phase = 'open'
+        else if (phase === 'open') phase = 'exit'
+        return phase
+      },
+    }),
+  } } as any
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) */

@@ -8,7 +8,20 @@ import { mountVNode, patchValue } from '../../client/render.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true,  } } as any
+  let phase: 'closed' | 'open' | 'exit' = 'closed'
+  return { ui: {
+    $: () => ({}), render: () => {}, dirty: () => {}, ready: true,
+    // useDialog mock：状态机与真实现同语义（组件层测试不跑渲染器）
+    useDialog: () => ({
+      get phase() { return phase },
+      rootRef: () => {}, panelRef: () => {},
+      sync: (open: boolean) => {
+        if (open) phase = 'open'
+        else if (phase === 'open') phase = 'exit'
+        return phase
+      },
+    }),
+  } } as any
 }
 
 /** 两阶段组件：mount 后调用 renderFn(props) 获取 VNode */
@@ -98,6 +111,7 @@ describe('Modal', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     let open = true
+    let phase: 'closed' | 'open' | 'exit' = 'closed'
     const ctx: any = {
       ui: {
         $: () => ({}), dirty: () => {},
@@ -105,6 +119,24 @@ describe('Modal', () => {
           const next = renderFn!()
           patchValue(container, container.firstChild, prev, next, ctx)
           prev = next
+        },
+        useDialog: () => {
+          let animEndHandler: (() => void) | undefined
+          return {
+            get phase() { return phase },
+            rootRef: (el: any) => {
+              if (el && !animEndHandler) {
+                animEndHandler = () => { if (phase === 'exit') phase = 'closed' }
+                el.addEventListener('animationend', animEndHandler)
+              }
+            },
+            panelRef: () => {},
+            sync: (open: boolean) => {
+              if (open) phase = 'open'
+              else if (phase === 'open') phase = 'exit'
+              return phase
+            },
+          }
         },
       },
     }

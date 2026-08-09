@@ -155,6 +155,9 @@ ctx.ui.render(['name'])
 | `selfId()` | `selfId(name: string)` | 注册组件自定义 ID，配合 `render(['id'])` 跨组件精准刷新 |
 | `useChat()` | `useChat({ url, approveUrl?, body? })` | AI 对话会话：消息/流式/工具/审批，与 `$` 同容器（AiChat 配套） |
 | `useAsync()` | `useAsync(fetcher)` | 异步取数：`data/loading/error` 响应式 + `reload()` |
+| `useControlled()` | `useControlled({ value, onChange, name })` | 受控/非受控统一：受控判定 + 缺回调 warn + 内部状态跨渲染保持 |
+| `useStableRef()` | `useStableRef(init, cleanup?)` | 稳定 ref 引用（根治内联 ref 陷阱） |
+| `useDialog()` | `useDialog({ name })` | 全屏对话框：退场状态机 + 滚动锁 + 焦点 trap（Modal/Drawer 同款） |
 | `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
 | `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
 | `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |

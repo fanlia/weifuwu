@@ -287,6 +287,33 @@ export interface WfuiContext {
       setValue: (v: T) => void
       controlled: boolean
     }
+    /**
+     * 全屏对话框组合器（收敛 Modal/Drawer 的退场状态机 + 滚动锁 + 焦点 trap）：
+     * mount 创建，render 阶段 sync(open) 驱动状态机；组件只管布局。
+     *
+     * ```tsx
+     * const dialog = ctx.ui.useDialog({ name: 'Modal' })
+     * return (props) => {
+     *   const phase = dialog.sync(props.open)
+     *   if (phase === 'closed') return null
+     *   return createPortal(h('div', {
+     *     ref: dialog.rootRef,
+     *     class: `wf-modal ${phase === 'exit' ? 'wf-modal--exit' : 'wf-modal--enter'}`,
+     *     onKeyDown: (e) => { if (e.key === 'Escape') props.onClose?.() },
+     *   }, [overlay, h('div', { class: 'wf-modal-content', ref: dialog.panelRef }, children)]), 'modal')
+     * }
+     * ```
+     * Escape 语义（危险操作差异）留在组件层——诚实裁剪。
+     */
+    useDialog: (options?: { name?: string }) => {
+      phase: 'closed' | 'open' | 'exit'
+      /** 挂到 portal 根（lockScroll + animationend 退场监听） */
+      rootRef: (el: any) => void
+      /** 挂到焦点 trap 目标（对话框面板） */
+      panelRef: (el: any) => void
+      /** render 阶段同步 open → 返回当前 phase */
+      sync: (open: boolean) => 'closed' | 'open' | 'exit'
+    }
     /** 注册组件实例的自定义语义 ID，同名冲突抛错 */
     selfId: (name: string) => void
     /** 当前组件实例 ID（仅供内部使用，通过 ctx 扩展注入） */

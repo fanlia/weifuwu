@@ -18,7 +18,30 @@ import { confirm } from './Confirm.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { render: () => {}, $: () => ({}), dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }) } } as any
+  return { ui: {
+    render: () => {}, $: () => ({}), dirty: () => {},
+    usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
+    // useDialog mock：状态机 + rootRef 绑定 animationend（真实渲染管线需要）
+    useDialog: () => {
+      let phase: 'closed' | 'open' | 'exit' = 'closed'
+      let animEndHandler: (() => void) | undefined
+      return {
+        get phase() { return phase },
+        rootRef: (el: any) => {
+          if (el && !animEndHandler) {
+            animEndHandler = () => { if (phase === 'exit') phase = 'closed' }
+            el.addEventListener('animationend', animEndHandler)
+          }
+        },
+        panelRef: () => {},
+        sync: (open: boolean) => {
+          if (open) phase = 'open'
+          else if (phase === 'open') phase = 'exit'
+          return phase
+        },
+      }
+    },
+  } } as any
 }
 
 /** 两阶段组件：mount → renderFn，反复调用 renderFn(props) 获取 VNode */
@@ -108,13 +131,13 @@ describe('Confirm 组件（声明式）', () => {
 describe('confirm() 命令式中间件', () => {
   it('注入 ctx.confirm', async () => {
     const mw = confirm()
-    const ctx = await mw({} as WfuiContext)
+    const ctx = await mw(mockCtx())
     assert.equal(typeof (ctx as any).confirm, 'function')
   })
 
   it('调用后渲染确认框，点确定 resolve(true) 并清理', async () => {
     const mw = confirm()
-    const ctx = await mw({} as WfuiContext)
+    const ctx = await mw(mockCtx())
     const promise = (ctx as any).confirm('确定删除？')
 
     assert.ok(modal(), '应渲染 .wf-modal')
@@ -134,7 +157,7 @@ describe('confirm() 命令式中间件', () => {
 
   it('点取消 resolve(false)', async () => {
     const mw = confirm()
-    const ctx = await mw({} as WfuiContext)
+    const ctx = await mw(mockCtx())
     const promise = (ctx as any).confirm('x')
     const cancelBtn = buttons().find(b => b.textContent === '取消')!
     cancelBtn.click()
@@ -144,7 +167,7 @@ describe('confirm() 命令式中间件', () => {
 
   it('ESC resolve(false)', async () => {
     const mw = confirm()
-    const ctx = await mw({} as WfuiContext)
+    const ctx = await mw(mockCtx())
     const promise = (ctx as any).confirm('x')
     // Escape 经 Modal 根节点 onKeyDown：从对话框内元素冒泡（焦点被 trap 在框内）
     const firstBtn = modal()!.querySelector('button') as HTMLElement
@@ -155,7 +178,7 @@ describe('confirm() 命令式中间件', () => {
 
   it('遮罩点击默认不取消（命令式，防误触）', async () => {
     const mw = confirm()
-    const ctx = await mw({} as WfuiContext)
+    const ctx = await mw(mockCtx())
     const promise = (ctx as any).confirm('x')
     // 默认 maskClosable=false：遮罩点击后仍不 resolve
     const overlay = document.querySelector('.wf-modal-overlay') as HTMLElement
@@ -172,7 +195,7 @@ describe('confirm() 命令式中间件', () => {
 
   it('自定义文案与 variant', async () => {
     const mw = confirm()
-    const ctx = await mw({} as WfuiContext)
+    const ctx = await mw(mockCtx())
     const promise = (ctx as any).confirm('x', { confirmText: '删除', cancelText: '再想想', variant: 'danger' })
     const texts = buttons().map(b => b.textContent)
     assert.deepEqual(texts, ['再想想', '删除'])
@@ -186,7 +209,7 @@ describe('confirm() 命令式中间件', () => {
 
   it('Promise 只 settle 一次（确定后再点取消不重复 resolve）', async () => {
     const mw = confirm()
-    const ctx = await mw({} as WfuiContext)
+    const ctx = await mw(mockCtx())
     const promise = (ctx as any).confirm('x')
     buttons().find(b => b.textContent === '确定')!.click()
     modal()!.dispatchEvent(new (window as any).Event('animationend')) // 退场完成，清 timer
@@ -198,7 +221,7 @@ describe('confirm() 命令式中间件', () => {
 
   it('连续多次调用：各自独立渲染与 resolve（叠放语义）', async () => {
     const mw = confirm()
-    const ctx = await mw({} as WfuiContext)
+    const ctx = await mw(mockCtx())
     const p1 = (ctx as any).confirm('第一个')
     const p2 = (ctx as any).confirm('第二个')
 

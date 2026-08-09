@@ -92,6 +92,12 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
       portal: () => null,
       refresh: () => {},
     }),
+    useDialog: () => ({
+      phase: 'closed',
+      rootRef: () => {},
+      panelRef: () => {},
+      sync: (open: boolean) => (open ? 'open' : 'closed'),
+    }),
     // SSR 确定性空态：会话不启动（无事件/无网络），仅保证挂载不崩
     useChat: () => ({
       messages: [], input: '', streaming: false, error: null, usage: null, step: null,

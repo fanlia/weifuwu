@@ -6,8 +6,6 @@ import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
-import { lockScroll, unlockScroll } from '../../client/scroll-lock.ts'
-import { trapFocus } from '../../client/focus-trap.ts'
 
 export type DrawerPosition = 'left' | 'right'
 
@@ -21,40 +19,13 @@ export interface DrawerProps {
 }
 
 export const Drawer: Component<DrawerProps> = (_props, ctx) => {
-  // 退场状态机：open → exit（挂 --exit 类播动画）→ animationend → closed（返回 null）
-  let phase: 'closed' | 'open' | 'exit' = 'closed'
-  let focusCleanup: (() => void) | undefined
-  let animEndHandler: (() => void) | undefined
-
-  const finishExit = () => {
-    phase = 'closed'
-    ctx.ui.render()
-  }
-
-  const rootRef = (el: any) => {
-    if (el) {
-      lockScroll()
-      const panelEl = el.querySelector('.wf-drawer') ?? el
-      focusCleanup = trapFocus(panelEl as HTMLElement)
-      // 挂载期挂一次 animationend：enter 结束忽略，exit 结束才真正卸载
-      if (!animEndHandler) {
-        animEndHandler = () => { if (phase === 'exit') finishExit() }
-        el.addEventListener('animationend', animEndHandler)
-      }
-    } else {
-      unlockScroll()
-      focusCleanup?.()
-      el?.removeEventListener('animationend', animEndHandler as any)
-      animEndHandler = undefined
-    }
-  }
+  // useDialog：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap + animationend 卸载
+  const dialog = ctx.ui.useDialog({ name: 'Drawer' })
 
   return (props: DrawerProps) => {
     const { open, title, position = 'right', onClose, children, footer } = props
     const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}
-
-    if (open) phase = 'open'
-    else if (phase === 'open') phase = 'exit'
+    const phase = dialog.sync(!!open)
 
     if (phase === 'closed') return null
 
@@ -81,11 +52,12 @@ export const Drawer: Component<DrawerProps> = (_props, ctx) => {
 
     const panel = h('div', {
       class: `wf-drawer-panel wf-drawer-panel--${position}`,
+      ref: dialog.panelRef,
       onClick: (e: Event) => e.stopPropagation(),
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
-      ref: rootRef,
+      ref: dialog.rootRef,
       class: `wf-drawer wf-drawer--${position} ${phase === 'exit' ? 'wf-drawer--exit' : 'wf-drawer--enter'}`,
       role: 'dialog',
       'aria-modal': 'true',

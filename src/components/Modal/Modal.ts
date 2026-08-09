@@ -6,8 +6,6 @@ import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
-import { lockScroll, unlockScroll } from '../../client/scroll-lock.ts'
-import { trapFocus } from '../../client/focus-trap.ts'
 
 export interface ModalProps {
   open?: boolean
@@ -24,41 +22,13 @@ export interface ModalProps {
 }
 
 export const Modal: Component<ModalProps> = (_props, ctx) => {
-  // 退场状态机：open → exit（挂 --exit 类播动画）→ animationend → closed（返回 null）
-  let phase: 'closed' | 'open' | 'exit' = 'closed'
-  let focusCleanup: (() => void) | undefined
-  let animEndHandler: (() => void) | undefined
-
-  const finishExit = () => {
-    phase = 'closed'
-    ctx.ui.render()
-  }
-
-  const rootRef = (el: any) => {
-    if (el) {
-      lockScroll()
-      const modalEl = el.querySelector('.wf-modal') ?? el
-      focusCleanup = trapFocus(modalEl as HTMLElement)
-      // 挂载期挂一次 animationend：enter 结束忽略，exit 结束才真正卸载
-      if (!animEndHandler) {
-        animEndHandler = () => { if (phase === 'exit') finishExit() }
-        el.addEventListener('animationend', animEndHandler)
-      }
-    } else {
-      unlockScroll()
-      focusCleanup?.()
-      el?.removeEventListener('animationend', animEndHandler as any)
-      animEndHandler = undefined
-    }
-  }
+  // useDialog：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap + animationend 卸载
+  const dialog = ctx.ui.useDialog({ name: 'Modal' })
 
   return (props: ModalProps) => {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
     const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
-
-    if (open) phase = 'open'
-    else if (phase === 'open') phase = 'exit'
-
+    const phase = dialog.sync(!!open)
     if (phase === 'closed') return null
 
     const overlay = h('div', {
@@ -85,12 +55,13 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
 
     const content = h('div', {
       class: 'wf-modal-content',
+      ref: dialog.panelRef,
       onClick: (e: Event) => e.stopPropagation(),
       style: width ? { minWidth: `min(${width}, calc(100vw - 32px))`, maxWidth: `min(${width}, calc(100vw - 32px))` } : undefined,
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
-      ref: rootRef,
+      ref: dialog.rootRef,
       class: `wf-modal ${phase === 'exit' ? 'wf-modal--exit' : 'wf-modal--enter'}`,
       role: 'dialog',
       'aria-modal': 'true',

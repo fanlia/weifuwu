@@ -63,6 +63,12 @@ test('SSR：全部事件原语 no-op 可渲染', async () => {
   assert.ok(html.includes('class="all"'))
 })
 
+test('SSR：useDialog 组件可渲染（Modal 模式，shim no-op）', async () => {
+  const { Modal } = await import('../components/Modal/Modal.ts')
+  const html = (await ssrToString(Modal as any, { open: true, title: 't', children: 'x' }, {})).toString()
+  assert.ok(html.includes('wf-modal'), 'Modal SSR 渲染（shim useDialog 必须存在）')
+})
+
 test('SSR：useChat no-op 确定性空态', async () => {
   const Comp: Component = (_init: any, ctx: any) => {
     const $ = ctx.ui.useChat({ url: '/api/chat' })

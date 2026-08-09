@@ -71,32 +71,32 @@ const MyPopover: Component<{ content: string }> = (_init, ctx) => {
 
 ## 3. 对话框类组件（Modal 系）
 
-全屏对话框（焦点 trap + 滚动锁 + 退场动画）不在 usePopup 范围——用已导出的低层原语组装：
+全屏对话框（焦点 trap + 滚动锁 + 退场动画）不在 usePopup 范围——用 **`ctx.ui.useDialog`** 组合器（Modal/Drawer 同款：退场状态机 + 滚动锁 + 焦点 trap + animationend 卸载）：
 
 ```tsx
-import { trapFocus, lockScroll, unlockScroll, animateOut, createPortal } from 'weifuwu/client'
+import { createPortal } from 'weifuwu/client'
 
 const MyDialog: Component<{ open: boolean; onClose: () => void }> = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.phase = 'closed'           // closed | open | exit（退场状态机）
-  let panelEl: HTMLElement | null = null
+  const dialog = ctx.ui.useDialog({ name: 'MyDialog' })   // mount 创建
 
   return (props) => {
-    // open 变化 → 进场/退场（简化版；完整状态机参考 src/components/Modal/Modal.ts）
+    const phase = dialog.sync(!!props.open)                // render 同步 open
+    if (phase === 'closed') return null
+
     return createPortal(h('div', {
       class: 'wf-overlay',
-      ref: (el) => {
-        if (el) { lockScroll(); trapFocus(el) }
-        else { unlockScroll() }
-      },
-      onClick: (e) => { if (e.target === e.currentTarget) props.onClose() },
-    }, h('div', { class: 'wf-modal', ref: (el) => { panelEl = el } }, props.children)), document.body)
+      onClick: (e: any) => { if (e.target === e.currentTarget) props.onClose() },
+    }, h('div', {
+      class: `wf-modal ${phase === 'exit' ? 'wf-modal--exit' : 'wf-modal--enter'}`,
+      ref: dialog.panelRef,                                // 焦点 trap 目标
+      onKeyDown: (e: any) => { if (e.key === 'Escape') props.onClose() },  // Escape 语义组件层
+    }, props.children)), document.body)
   }
 }
 ```
 
-> `animateOut(el, done, fallbackMs)`：退场动画（挂 exit 类 → animationend → 回调，兜底防挂死）。
-> `trapFocus`/`lockScroll`/`animateOut` 已从 `weifuwu/client` 导出，与 Modal/Drawer 内部同款。
+> `dialog.rootRef` 挂到 portal 根（lockScroll + animationend 退场监听）；`panelRef` 挂到面板（trapFocus）。
+> 低层原语 `trapFocus`/`lockScroll`/`animateOut` 仍从 `weifuwu/client` 导出（特殊场景组装用）。
 
 ## 4. AI 组件
 
@@ -218,6 +218,6 @@ const CollapseItem: Component<{ active?: boolean; onChange?: (v: boolean) => voi
 
 ## 已知边界（诚实裁剪）
 
-- `usePopup` 覆盖浮层（Tooltip/Popover/Dropdown/Mentions/Cascader/ContextMenu）；**全屏对话框**（Modal/Drawer/Command）用 trapFocus/lockScroll 组装
+- `usePopup` 覆盖浮层（Tooltip/Popover/Dropdown/Mentions/Cascader/ContextMenu）；**全屏对话框**（Modal/Drawer）用 useDialog（Escape 语义留组件层）；Command/Img preview 保持独立实现
 - **Select/DatePicker** 是 inline/absolute 菜单（自适宽），不迁移 usePopup——菜单直接挂在锚点下
 - `createReactiveState` 已导出：组件外建全局 store（`createReactiveState(() => {})` + `$.__watch(cb)` 订阅）

@@ -11,6 +11,8 @@
 import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle, UsePopupOptions, UsePopupHandle, UseLongPressOptions, UseLongPressHandle, VisualViewportHandle } from './types.ts'
 import type { VNode } from './vnode.ts'
 import { idRegistry, onComponentUnmount } from './registry.ts'
+import { lockScroll, unlockScroll } from './scroll-lock.ts'
+import { trapFocus } from './focus-trap.ts'
 import { createReactiveState } from './reactive.ts'
 import { aiStream } from './ai.ts'
 import { createChatSession, type UseChatHandle, type UseChatOptions, type UseChatState } from './use-chat.ts'
@@ -703,6 +705,62 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         value: controlled ? options.value : (selfId ? uncontrolledValues.get(selfId) : options.value),
         setValue,
         controlled,
+      }
+    },
+
+    /**
+     * 全屏对话框组合器：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap。
+     * mount 创建 handle；render 阶段 sync(open) 驱动。Escape 语义留组件层。
+     */
+    useDialog: function (options?: { name?: string }) {
+      const selfId = getSelfId(this)
+      let phase: 'closed' | 'open' | 'exit' = 'closed'
+      let focusCleanup: (() => void) | undefined
+      let animEndHandler: (() => void) | undefined
+      let panelEl: HTMLElement | null = null
+
+      const finishExit = () => {
+        phase = 'closed'
+        if (ctx.ui) {
+          if (selfId) ctx.ui.dirty([selfId])
+          else ctx.ui.render()
+        }
+      }
+
+      const rootRef = (el: any) => {
+        if (el) {
+          lockScroll()
+          if (panelEl) focusCleanup = trapFocus(panelEl as HTMLElement)
+          // 挂载期挂一次 animationend：enter 结束忽略，exit 结束才真正卸载
+          if (!animEndHandler) {
+            animEndHandler = () => { if (phase === 'exit') finishExit() }
+            el.addEventListener('animationend', animEndHandler)
+          }
+        } else {
+          unlockScroll()
+          focusCleanup?.()
+          el?.removeEventListener('animationend', animEndHandler as any)
+          animEndHandler = undefined
+        }
+      }
+
+      const panelRef = (el: any) => {
+        panelEl = el
+        // panel 后挂（root 先连）时补 trap
+        if (el && !focusCleanup) {
+          focusCleanup = trapFocus(el as HTMLElement)
+        }
+      }
+
+      return {
+        get phase() { return phase },
+        rootRef,
+        panelRef,
+        sync: (open: boolean) => {
+          if (open) phase = 'open'
+          else if (phase === 'open') phase = 'exit'
+          return phase
+        },
       }
     },
 
