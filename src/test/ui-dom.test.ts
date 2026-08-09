@@ -1,0 +1,176 @@
+/**
+ * weifuwu/ui-dom 独立测试 — UIRouter + VDOM（完全独立于 src/client）
+ *
+ * 验证：
+ *   - serveUI 绑定根节点 + URL 驱动渲染（req = window.location）
+ *   - handler = async (location, ctx) => VNode（res = VNode）
+ *   - ctx.params/query 注入
+ *   - $ 路由实例绑定（赋值重渲染，data 缓存命中）
+ *   - 中间件链（layout 包装 children）
+ *   - 子路由挂载 use(prefix, sub)
+ *   - 404
+ */
+
+import { test, afterEach, before } from 'node:test'
+import assert from 'node:assert/strict'
+import { setupJsdom } from './client/setup.ts'
+import { UIRouter, serveUI, h, createReactiveState } from '../ui-dom/index.ts'
+import type { UIHandler, UIMiddleware } from '../ui-dom/index.ts'
+
+before(setupJsdom)
+
+afterEach(() => {
+  document.body.innerHTML = ''
+  window.history.pushState(null, '', '/')
+})
+
+function mount(id: string): HTMLDivElement {
+  const el = document.createElement('div')
+  document.body.appendChild(el)
+  el.id = id
+  return el
+}
+
+function flush() {
+  return new Promise<void>((r) => setTimeout(r, 0))
+}
+
+test('serveUI 渲染 handler 的 VNode 到根节点（res = VNode）', async () => {
+  const ui = new UIRouter()
+  ui.get('/home', () => h('div', { id: 'home' }, '首页'))
+  window.history.pushState(null, '', '/home')
+  const el = mount('ui-root')
+  serveUI(ui, { root: '#ui-root' })
+  await flush()
+  assert.equal(el.querySelector('#home')?.textContent, '首页')
+})
+
+test('handler 是 async：ctx.data.get 取数 → VNode', async () => {
+  const ui = new UIRouter()
+  ui.get('/users/:id', async (location, ctx) => {
+    const user = await ctx.ui.data.get(`/api/users/${ctx.params.id}`, async () => ({ name: '张三' }))
+    return h('div', { id: 'user' }, `用户: ${(user as any).name}`)
+  })
+  window.history.pushState(null, '', '/users/42')
+  const el = mount('ui-async')
+  serveUI(ui, { root: '#ui-async' })
+  await flush()
+  assert.equal(el.querySelector('#user')?.textContent, '用户: 张三')
+  assert.equal(ui.ctx.params.id, '42', 'params 在 ctx')
+})
+
+test('$ 路由实例绑定：赋值重渲染，data 缓存命中（外层只一次）', async () => {
+  let fetchCount = 0
+  const ui = new UIRouter()
+  ui.get('/counter', async (location, ctx) => {
+    const data = await ctx.ui.data.get('/api/counter', async () => {
+      fetchCount++
+      return { title: '计数器' }
+    })
+    const $ = ctx.ui.$()
+    $.count = $.count ?? 0
+    return h('div', {},
+      h('span', { id: 'count' }, String($.count)),
+      h('button', {
+        id: 'inc',
+        onClick: () => { $.count = $.count + 1 },
+      }, '+'),
+    )
+  })
+  window.history.pushState(null, '', '/counter')
+  const el = mount('ui-counter')
+  serveUI(ui, { root: '#ui-counter' })
+  await flush()
+  assert.equal(el.querySelector('#count')?.textContent, '0')
+  assert.equal(fetchCount, 1, '首次取数一次')
+
+  // 点击 → $ 赋值 → 重渲染（data 缓存命中，不重取数）
+  ;(el.querySelector('#inc') as HTMLElement).click()
+  await flush()
+  assert.equal(el.querySelector('#count')?.textContent, '1', '$ 赋值重渲染')
+  assert.equal(fetchCount, 1, '重渲染不重取数（外层只使用一次）')
+})
+
+test('中间件链：layout 包装 children（两阶段）', async () => {
+  const ui = new UIRouter()
+  const Shell: UIMiddleware = async (location, ctx, children) => {
+    return async (loc, c) => {
+      const child = await children(loc, c)
+      return h('div', { id: 'shell' }, h('nav', { id: 'nav' }, '导航'), child)
+    }
+  }
+  ui.use(Shell)
+  ui.get('/page', () => h('div', { id: 'page' }, '内容'))
+  window.history.pushState(null, '', '/page')
+  const el = mount('ui-layout')
+  serveUI(ui, { root: '#ui-layout' })
+  await flush()
+  assert.ok(el.querySelector('#shell'), 'layout 包装')
+  assert.ok(el.querySelector('#nav'), 'layout 内导航')
+  assert.ok(el.querySelector('#page'), '页面在 layout 内（children）')
+})
+
+test('子路由挂载 use(prefix, subRouter)', async () => {
+  const admin = new UIRouter()
+  admin.get('/users', () => h('div', { id: 'admin-users' }, '用户管理'))
+  const ui = new UIRouter()
+  ui.use('/admin', admin)
+  window.history.pushState(null, '', '/admin/users')
+  const el = mount('ui-sub')
+  serveUI(ui, { root: '#ui-sub' })
+  await flush()
+  assert.equal(el.querySelector('#admin-users')?.textContent, '用户管理')
+})
+
+test('404 notFound', async () => {
+  const ui = new UIRouter()
+  ui.get('/', () => h('div', {}, 'home'))
+  ui.notFound(() => h('div', { id: 'nf' }, '404'))
+  window.history.pushState(null, '', '/nonexistent')
+  const el = mount('ui-nf')
+  serveUI(ui, { root: '#ui-nf' })
+  await flush()
+  assert.equal(el.querySelector('#nf')?.textContent, '404')
+})
+
+test('createReactiveState 独立（$ 深度响应式）', () => {
+  let notified = 0
+  const state = createReactiveState(() => notified++)
+  state.a = 1
+  state.obj = { x: 0 }
+  state.obj.x = 5   // 深度赋值
+  assert.equal(notified, 3, '赋值 + 深层赋值都触发')
+  const unsub = state.__watch(() => notified++)
+  state.b = 2
+  assert.equal(notified, 5, '赋值触发主回调 + 订阅者')
+  unsub()
+  state.c = 3
+  assert.equal(notified, 6, '退订后仅主回调（+1），订阅者不再通知')
+})
+
+test('VDOM diff：patchValue 增量更新（同结构不重建）', async () => {
+  const ui = new UIRouter()
+  let renderCount = 0
+  ui.get('/diff', async (location, ctx) => {
+    renderCount++
+    const $ = ctx.ui.$()
+    $.n = $.n ?? 0
+    return h('div', { id: 'd' },
+      h('span', { id: 'n' }, String($.n)),
+    )
+  })
+  window.history.pushState(null, '', '/diff')
+  const el = mount('ui-diff')
+  serveUI(ui, { root: '#ui-diff' })
+  await flush()
+  const span1 = el.querySelector('#n')
+  assert.equal(span1?.textContent, '0')
+
+  // 触发重渲染（$ 赋值）
+  const $ = (ui.ctx.ui.$() as any)
+  $.n = 1
+  await flush()
+  const span2 = el.querySelector('#n')
+  assert.equal(span2?.textContent, '1')
+  assert.equal(span1, span2, '同结构 span 复用（diff 不重建）')
+})

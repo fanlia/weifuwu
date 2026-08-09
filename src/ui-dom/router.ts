@@ -1,0 +1,271 @@
+/**
+ * weifuwu/ui-dom UIRouter — 独立实现（不依赖 src/client 任何代码）
+ *
+ * 定稿架构：
+ *   req = window.location，res = VNode，serveUI = VDOM（落地）
+ *   handler = 异步组件：async (location, ctx) => vnode（$ 有效）
+ *   middleware = 两阶段 async：(location, ctx, children) => async (location, ctx) => vnode
+ *   layout 与 SSR 都是中间件
+ *
+ * $ 路由实例绑定：首次渲染 mount（取数 + $ 创建），$ 赋值 → 重渲染
+ * （data 缓存命中 + $ 复用——"外层只使用一次"）
+ */
+
+import type { UIHandler, UIMiddleware, UIRouteDef, UIContext, VNode, VNodeChild } from './types.ts'
+import { createReactiveState } from './reactive.ts'
+import { renderValue, patchValue } from './render.ts'
+
+/** UIRouter 选项 */
+export interface UIRouterOptions {
+  mode?: 'hash' | 'history'
+}
+
+/** 编译路径：:param → 正则捕获 */
+function compilePath(path: string): { re: RegExp; keys: string[] } {
+  const keys: string[] = []
+  const reStr = path
+    .replace(/:(\w+)/g, (_, key) => { keys.push(key); return '([^/]+)' })
+    .replace(/\*/g, '.*')
+  return { re: new RegExp(`^${reStr}$`), keys }
+}
+
+/** 展开路由（含前缀拼接——子路由挂载） */
+function flatten(defs: UIRouteDef[], basePath = ''): Array<UIRouteDef & { re: RegExp; keys: string[] }> {
+  const result: Array<UIRouteDef & { re: RegExp; keys: string[] }> = []
+  for (const def of defs) {
+    const full = joinPath(basePath, def.path)
+    const { re, keys } = compilePath(full)
+    result.push({ ...def, re, keys })
+  }
+  return result
+}
+
+function joinPath(a: string, b: string): string {
+  if (!b || b === '/') return a || '/'
+  const left = a.endsWith('/') ? a.slice(0, -1) : a
+  const right = b.startsWith('/') ? b : '/' + b
+  return left + right
+}
+
+/**
+ * 前端路由应用 — new UIRouter()
+ */
+export class UIRouter<C extends object = {}> {
+  private _routes: UIRouteDef[] = []
+  private _middlewares: UIMiddleware[] = []
+  private _mode: 'hash' | 'history'
+  private _notFound?: UIHandler
+  private _rootEl: Element | null = null
+  private _oldVNode: VNode | null = null
+  /** 当前渲染实例的 ctx（$ 绑定） */
+  private _ctx: UIContext | null = null
+  /** 当前匹配 handler 的重渲染缓存（避免每次重跑取数） */
+  private _currentHandler: UIHandler | null = null
+  /** 路由实例的 $（同 URL 共享） */
+  private _state: Record<string, any> | null = null
+  private _cleanupFns: Array<() => void> = []
+  private _rendering = false
+
+  constructor(options: UIRouterOptions = {}) {
+    this._mode = options.mode ?? 'history'
+  }
+
+  /** 中间件（layout/SSR 等） */
+  use<I extends object, O extends object>(mw: UIMiddleware<I, O>): UIRouter<C & O>
+  /** 子路由挂载（= 后端 mount(path, subRouter)） */
+  use(prefix: string, sub: UIRouter): this
+  use(arg: UIMiddleware | string, sub?: UIRouter): UIRouter<C> {
+    if (typeof arg === 'string' && sub) {
+      // 子路由：展开子路由 + 前缀拼接
+      const subRoutes = (sub as any)._routes as UIRouteDef[]
+      this._routes.push(...subRoutes.map(r => ({ ...r, path: joinPath(arg, r.path) })))
+      return this
+    }
+    this._middlewares.push(arg as UIMiddleware)
+    return this as unknown as UIRouter<C>
+  }
+
+  /** 页面路由（对齐后端 get(path, handler)）——handler = 异步组件 */
+  get(path: string, handler: UIHandler<C>, opts?: { title?: string }): this {
+    this._routes.push({ path, handler: handler as UIHandler, title: opts?.title })
+    return this
+  }
+
+  /** 404 */
+  notFound(handler: UIHandler): this {
+    this._notFound = handler
+    return this
+  }
+
+  /** 释放全部资源 */
+  close(): void {
+    for (const fn of this._cleanupFns) fn()
+    this._cleanupFns = []
+    if (this._rootEl) this._rootEl.innerHTML = ''
+    this._rootEl = null
+    this._oldVNode = null
+    this._ctx = null
+    this._state = null
+  }
+
+  /**
+   * 绑定容器 + 监听 URL 变化（serveUI 调用）
+   * 返回清理函数
+   */
+  serve(container: Element, hydrate = false): () => void {
+    this._rootEl = container
+    if (!hydrate) container.innerHTML = ''
+
+    // 首次渲染
+    this._render()
+
+    // URL 变化监听
+    const onPop = () => this._render()
+    window.addEventListener('popstate', onPop)
+    const onHash = () => this._render()
+    if (this._mode === 'hash') window.addEventListener('hashchange', onHash)
+
+    // 编程式导航（注入 ctx.app.navigate）
+    if (this._ctx) {
+      ;(this._ctx as any).app = {
+        navigate: (path: string) => {
+          if (this._mode === 'hash') window.location.hash = '#' + path
+          else window.history.pushState({}, '', path)
+          this._render()
+        },
+      }
+    }
+
+    const cleanup = () => {
+      window.removeEventListener('popstate', onPop)
+      if (this._mode === 'hash') window.removeEventListener('hashchange', onHash)
+    }
+    this._cleanupFns.push(cleanup)
+    return cleanup
+  }
+
+  /** 当前 ctx */
+  get ctx(): UIContext {
+    return this._ctx ?? ({} as UIContext)
+  }
+
+  // ── 渲染管线 ─────────────────────────────────────
+
+  private _getPath(): string {
+    if (this._mode === 'hash') return window.location.hash.replace(/^#/, '') || '/'
+    return window.location.pathname
+  }
+
+  /** 匹配 URL → 执行中间件链 + handler → VNode → 落地 DOM */
+  private _render(): void {
+    if (this._rendering || !this._rootEl) return
+    this._rendering = true
+    void this._renderAsync()
+  }
+
+  private async _renderAsync(): Promise<void> {
+    const flat = flatten(this._routes)
+    const path = this._getPath()
+    const match = flat.find(f => f.re.test(path))
+    const params: Record<string, string> = {}
+    if (match) {
+      const m = path.match(match.re)!
+      for (let i = 0; i < match.keys.length; i++) params[match.keys[i]] = decodeURIComponent(m[i + 1])
+      if (match.title) document.title = match.title
+    }
+
+    // 创建/复用 ctx（$ 绑定当前路由实例）
+    const ctx = this._ensureCtx(params)
+
+    // handler = 匹配的 or 404
+    const handler = match ? match.handler : (this._notFound ?? (() => null))
+
+    try {
+      // 执行中间件链（洋葱）：从最外层向内
+      let inner: UIHandler = handler as UIHandler
+      for (let i = this._middlewares.length - 1; i >= 0; i--) {
+        const mw = this._middlewares[i]
+        const child = inner
+        inner = (await mw(window.location, ctx, child)) ?? child
+      }
+      // 执行 handler → VNode
+      const vnode = (await inner(window.location, ctx)) as VNode | null
+
+      // 落地：首次挂载 / 后续 diff
+      if (this._oldVNode == null) {
+        if (vnode) {
+          const node = renderValue(vnode, ctx)
+          if (node && this._rootEl) this._rootEl.appendChild(node)
+        }
+      } else {
+        if (this._rootEl) {
+          patchValue(this._rootEl, this._rootEl.firstChild, this._oldVNode, vnode, ctx)
+        }
+      }
+      this._oldVNode = vnode
+    } finally {
+      this._rendering = false
+    }
+  }
+
+  /** 创建或复用 ctx（同一 URL 复用 $——路由实例） */
+  private _ensureCtx(params: Record<string, string>): UIContext {
+    if (this._ctx) {
+      this._ctx.params = params
+      return this._ctx
+    }
+    const dataCache = new Map<string, { value?: unknown; promise?: Promise<unknown> }>()
+
+    // $ 状态（路由实例级——首次创建，重渲染复用）
+    const state = createReactiveState(() => {
+      // $ 赋值 → 重渲染（外层只使用一次：data 缓存命中 + $ 复用）
+      if (!this._rendering) this._render()
+    })
+
+    const ctx: UIContext = {
+      params,
+      query: Object.fromEntries(new URLSearchParams(window.location.search)),
+      ui: {
+        $: () => state as Record<string, any>,
+        render: () => this._render(),
+        data: {
+          async get<T>(key: string, fetcher?: () => Promise<T>): Promise<T | undefined> {
+            const entry = dataCache.get(key)
+            if (entry && 'value' in entry) return entry.value as T
+            if (entry?.promise) return entry.promise as Promise<T>
+            if (!fetcher) return undefined
+            const promise = Promise.resolve()
+              .then(() => fetcher())
+              .then((val) => {
+                dataCache.set(key, { value: val })
+                return val
+              })
+            dataCache.set(key, { promise })
+            return promise
+          },
+          set(key: string, value: unknown) {
+            dataCache.set(key, { value })
+          },
+          has(key: string) {
+            return dataCache.has(key)
+          },
+        },
+      },
+    }
+    this._ctx = ctx
+    return ctx
+  }
+}
+
+/** serveUI — 绑定唯一根节点 + URL 变化驱动（= VDOM 落地，对齐 serve(router)） */
+export function serveUI(
+  ui: UIRouter,
+  options: { root: string | Element; hydrate?: boolean },
+): { close(): void } {
+  const el = typeof options.root === 'string'
+    ? document.querySelector(options.root)
+    : options.root
+  if (!el) throw new Error(`serveUI: root not found: ${options.root}`)
+  ui.serve(el as Element, !!options.hydrate)
+  return { close: () => ui.close() }
+}

@@ -25,6 +25,8 @@
     "src/redis/*.ts",
     "src/graphql.ts",
     "src/types.ts",
+    "src/ui-dom/*.ts",
+    "src/ui-dom/**/*.ts",
     "src/client/*.ts",
     "src/client/**/*.ts",
     "src/ui/*.ts",
