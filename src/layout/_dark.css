@@ -33,6 +33,9 @@
   --wf-color-bg: var(--wf-dark-bg);
   --wf-color-bg-secondary: var(--wf-dark-slate-100);
   --wf-color-bg-tertiary: var(--wf-dark-slate-200);
+  --wf-color-fill: var(--wf-dark-fill);
+  --wf-color-bg-subtle: var(--wf-dark-fill);
+  --wf-color-bg-hover: var(--wf-dark-bg-hover);
 
   --wf-color-border: var(--wf-dark-slate-200);
   --wf-color-border-light: var(--wf-dark-slate-100);
@@ -80,6 +83,9 @@
     --wf-color-bg: var(--wf-dark-bg);
     --wf-color-bg-secondary: var(--wf-dark-slate-100);
     --wf-color-bg-tertiary: var(--wf-dark-slate-200);
+    --wf-color-fill: var(--wf-dark-fill);
+    --wf-color-bg-subtle: var(--wf-dark-fill);
+    --wf-color-bg-hover: var(--wf-dark-bg-hover);
 
     --wf-color-border: var(--wf-dark-slate-200);
     --wf-color-border-light: var(--wf-dark-slate-100);

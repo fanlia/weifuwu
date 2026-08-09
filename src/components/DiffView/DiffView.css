@@ -23,7 +23,7 @@
   flex-shrink: 0;
 }
 .wf-diffview-title--old {
-  color: var(--wf-color-danger-text);
+  color: var(--wf-color-error-text);
 }
 .wf-diffview-title--new {
   color: var(--wf-color-success-text);
@@ -63,10 +63,10 @@
   color: var(--wf-color-success-text);
 }
 .wf-diffview-row--remove {
-  background: var(--wf-color-danger-bg, rgba(255, 0, 0, 0.06));
+  background: var(--wf-color-error-bg, rgba(255, 0, 0, 0.06));
 }
 .wf-diffview-row--remove .wf-diffview-sign {
-  color: var(--wf-color-danger-text);
+  color: var(--wf-color-error-text);
 }
 
 /* ── 折叠块 ── */

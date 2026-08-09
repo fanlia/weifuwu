@@ -42,7 +42,7 @@
   align-items: flex-start;
   gap: var(--wf-gap-xs, 8px);
   margin-bottom: var(--wf-space-xs, 8px);
-  color: var(--wf-color-text-primary);
+  color: var(--wf-color-text);
   line-height: 1.5;
 }
 

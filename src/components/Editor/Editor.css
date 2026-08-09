@@ -61,7 +61,7 @@
 }
 
 .wf-editor-tb-btn--active:hover {
-  background: var(--wf-color-primary-lighter, #bae6fd);
+  background: var(--wf-color-primary-bg, #bae6fd);
 }
 
 .wf-editor-tb-btn--link {
@@ -297,7 +297,7 @@
 
 .wf-editor-table-grid-cell:hover,
 .wf-editor-table-grid-cell--active {
-  background: var(--wf-color-primary-light, #e0f2fe);
+  background: var(--wf-color-primary-bg, #e0f2fe);
   border-color: var(--wf-color-primary);
 }
 

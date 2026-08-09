@@ -25,7 +25,7 @@
 
 .wf-float-btn:hover {
   transform: scale(1.05);
-  background: var(--wf-color-primary-600, #1668dc);
+  background: var(--wf-color-primary, #1668dc);
 }
 
 .wf-float-btn--disabled {
@@ -47,7 +47,7 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 50%;
-  background: var(--wf-color-danger);
+  background: var(--wf-color-error);
   color: var(--wf-color-on-brand, #fff);
   font-size: 11px;
   line-height: 18px;

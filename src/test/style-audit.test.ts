@@ -13,7 +13,8 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, globSync } from 'node:fs'
+import { basename } from 'node:path'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -394,6 +395,34 @@ describe('样式审计 — 设计约束', () => {
       } catch {}
     }
     assert.deepEqual(violations, [], 'ref 必须引用 mount 层稳定函数（ref: xxxRef），禁止内联箭头')
+  })
+
+  it('组件 CSS 假 token 防线：var(--wf-*) 引用必须可解析（定义或 fallback）', () => {
+    // 收集 layout 定义的所有 --wf-* token
+    const layoutDefs = new Set()
+    for (const f of readdirSync(join(root, 'src/layout')).filter(x => x.endsWith('.css'))) {
+      const text = readFileSync(join(root, 'src/layout', f), 'utf-8')
+      for (const m of text.matchAll(/--(wf-[a-z0-9-]+)\s*:/g)) layoutDefs.add('--' + m[1])
+    }
+    // 收集组件自身定义的 token（局部变量）
+    const compDefs = new Set()
+    const compFiles = globSync(join(root, 'src/components/*/*.css'))
+    for (const f of compFiles) {
+      const text = readFileSync(f, 'utf-8')
+      for (const m of text.matchAll(/--(wf-[a-z0-9-]+)\s*:/g)) compDefs.add('--' + m[1])
+    }
+    // 扫描组件 CSS：var(--wf-xxx) 无 fallback 且无定义 = 解析失败
+    const broken: string[] = []
+    for (const f of compFiles) {
+      const text = readFileSync(f, 'utf-8')
+      for (const m of text.matchAll(/var\((--wf-[a-z0-9-]+)\)/g)) {
+        const t = m[1]
+        if (!layoutDefs.has(t) && !compDefs.has(t)) {
+          broken.push(`${basename(f)}: ${t}`)
+        }
+      }
+    }
+    assert.deepEqual(broken, [], '组件 CSS 引用了未定义且无 fallback 的 token（解析失败 → initial 值 → 视觉 bug）：\n' + broken.join('\n'))
   })
 
   it('focus-ring 双层：含 primary 线（系统暗色偏好下聚焦可见——C5）', () => {

@@ -51,9 +51,9 @@
   background: var(--wf-color-primary-bg, rgba(79, 110, 247, 0.08));
 }
 .wf-pipeline-node--error {
-  border-color: var(--wf-color-danger-text);
-  color: var(--wf-color-danger-text);
-  background: var(--wf-color-danger-bg, rgba(255, 0, 0, 0.06));
+  border-color: var(--wf-color-error-text);
+  color: var(--wf-color-error-text);
+  background: var(--wf-color-error-bg, rgba(255, 0, 0, 0.06));
 }
 .wf-pipeline-node--pending {
   border-color: var(--wf-color-border);

@@ -118,7 +118,7 @@
   margin-top: 2px;
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text);
-  background: var(--wf-event-color, var(--wf-color-primary-bg));
+  background: var(--wf-color-primary-bg, var(--wf-color-primary-bg));
   color: var(--wf-color-primary-text);
   border-radius: var(--wf-radius-sm);
   padding: 1px 4px;

@@ -27,11 +27,11 @@
 
 .wf-navmenu-item:hover {
   background: var(--wf-color-bg-hover, rgba(0, 0, 0, 0.04));
-  color: var(--wf-color-text-primary);
+  color: var(--wf-color-text);
 }
 
 .wf-navmenu-item--active {
-  color: var(--wf-color-primary-600, #1668dc);
+  color: var(--wf-color-primary, #1668dc);
   font-weight: 600;
 }
 
@@ -73,7 +73,7 @@
   gap: 12px;
   padding: 8px 12px;
   border-radius: var(--wf-radius, 6px);
-  color: var(--wf-color-text-primary);
+  color: var(--wf-color-text);
   cursor: pointer;
   white-space: nowrap;
   transition: background var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
@@ -89,7 +89,7 @@
 }
 
 .wf-navmenu-sub-arrow {
-  color: var(--wf-color-text-muted, #999);
+  color: var(--wf-color-text-tertiary, #999);
 }
 
 .wf-navmenu-sub-nested {

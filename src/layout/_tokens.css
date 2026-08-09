@@ -37,6 +37,8 @@
   --wf-dark-slate-300: #475569;  --wf-dark-slate-200: #334155;  --wf-dark-slate-100: #1e293b;
   --wf-dark-slate-50: #0f172a;   --wf-dark-bg: #0f172a;
   --wf-dark-overlay: rgba(0, 0, 0, 0.6); /* 暗色遮罩（比亮色更深，压住暗底内容） */
+  --wf-dark-fill: var(--wf-dark-slate-200);           /* 暗色填充（比底色亮一级） */
+  --wf-dark-bg-hover: rgba(255, 255, 255, 0.06);      /* 暗色 hover 反白 */
   --wf-dark-surface-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   --wf-dark-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --wf-dark-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -187,6 +189,8 @@
   --wf-ease-in: cubic-bezier(0.4, 0, 1, 1);            /* 退场：渐入加速 */
   --wf-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);       /* 往返/闪烁动画 */
   --wf-ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);   /* 选中/弹跳 */
+  --wf-ease-standard: ease;                           /* 通用缓动（组件假 token 收敛） */
+  --wf-dur-md: var(--wf-dur-base);                    /* 中档时长（= base 别名） */
 
   --wf-motion-sm: 4px;
   --wf-motion-md: 8px;
@@ -203,6 +207,11 @@
   --wf-color-error-text: var(--wf-red-700);
   --wf-color-info-text: var(--wf-sky-700);
 
+  /* ── 色彩 — 通用填充/悬停底色（暗色经 _dark.css 映射） ── */
+  --wf-color-fill: var(--wf-slate-100);               /* 通用填充色（禁裸灰——组件假 token 收敛） */
+  --wf-color-bg-subtle: var(--wf-color-fill);         /* 极淡底（别名） */
+  --wf-color-bg-hover: rgba(0, 0, 0, 0.04);           /* hover 底色（暗色反白） */
+
   /* ── 色彩 — 实心填充上的文字/图标（primary/success 等实心底色） ── */
   --wf-color-on-brand: #fff;
 
@@ -216,6 +225,9 @@
   /* 控件尺寸：垂直内边距 + 目标高度（移动端在 _base.css 提升到 44px） */
   --wf-control-pad-y: 10px;
   --wf-control-height: 36px;
+  /* 字段统一尺寸（组件假 token 收敛——Input/Select/Textarea 引用） */
+  --wf-field-height: var(--wf-control-height);
+  --wf-field-radius: var(--wf-radius);
 
   /* ── 断点 ── */
   --wf-bp-sm: 640px;

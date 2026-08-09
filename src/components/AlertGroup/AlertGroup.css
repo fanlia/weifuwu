@@ -16,7 +16,7 @@
   border: var(--wf-border-width, 1px) solid var(--wf-color-border);
   border-radius: var(--wf-surface-radius, 8px);
   background: var(--wf-color-bg-secondary, #fff);
-  color: var(--wf-color-primary-600, #1668dc);
+  color: var(--wf-color-primary, #1668dc);
   cursor: pointer;
   font-family: var(--wf-font-sans);
   transition: background var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
@@ -38,15 +38,15 @@
 
 .wf-alertgroup-item--success { border-left-color: var(--wf-color-success); }
 .wf-alertgroup-item--warning { border-left-color: var(--wf-color-warning); }
-.wf-alertgroup-item--error { border-left-color: var(--wf-color-danger); }
+.wf-alertgroup-item--error { border-left-color: var(--wf-color-error); }
 
 .wf-alertgroup-message {
   flex: 1;
-  color: var(--wf-color-text-primary);
+  color: var(--wf-color-text);
 }
 
 .wf-alertgroup-time {
-  color: var(--wf-color-text-muted, #999);
+  color: var(--wf-color-text-tertiary, #999);
   font-size: 12px;
 }
 
@@ -61,12 +61,12 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--wf-color-text-muted, #999);
+  color: var(--wf-color-text-tertiary, #999);
   cursor: pointer;
   border-radius: 4px;
 }
 
 .wf-alertgroup-close:hover {
   background: var(--wf-color-bg-hover, rgba(0, 0, 0, 0.04));
-  color: var(--wf-color-text-primary);
+  color: var(--wf-color-text);
 }

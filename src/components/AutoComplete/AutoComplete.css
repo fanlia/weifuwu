@@ -26,7 +26,7 @@
 .wf-autocomplete-option {
   padding: 8px 12px;
   cursor: pointer;
-  color: var(--wf-color-text-primary);
+  color: var(--wf-color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -39,5 +39,5 @@
 }
 
 .wf-autocomplete-option--active {
-  color: var(--wf-color-primary-600, #1668dc);
+  color: var(--wf-color-primary, #1668dc);
 }
