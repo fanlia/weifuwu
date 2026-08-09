@@ -1,0 +1,107 @@
+/* weifuwu/components — JSONViewer（结构化 JSON 浏览） */
+
+.wf-json-viewer {
+  font-family: var(--wf-font-mono);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text);
+  background: var(--wf-color-bg-secondary);
+  border-radius: var(--wf-radius-sm);
+  padding: var(--wf-space-sm);
+  overflow-x: auto;
+  line-height: 1.6;
+}
+
+.wf-json-node {
+  padding-left: var(--wf-space-md);
+}
+
+.wf-json-row {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  white-space: nowrap;
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-json-row:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-json-children {
+  padding-left: var(--wf-space-sm);
+  border-left: 1px solid var(--wf-color-border);
+  margin-left: var(--wf-space-xs);
+}
+
+.wf-json-key {
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-json-toggle {
+  width: 16px; height: 16px;
+  min-width: 16px; max-width: 16px;
+  min-height: 16px; max-height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  line-height: 0; padding: 0; flex-shrink: 0;
+}
+
+.wf-json-toggle:hover {
+  color: var(--wf-color-text);
+}
+
+.wf-json-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-json-summary,
+.wf-json-node-summary {
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-json-more {
+  padding-left: var(--wf-space-lg);
+  color: var(--wf-color-warning-text);
+  font-size: var(--wf-font-size-xs);
+}
+
+.wf-json-copy {
+  width: 16px; height: 16px;
+  min-width: 16px; max-width: 16px;
+  min-height: 16px; max-height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  line-height: 0; padding: 0; flex-shrink: 0;
+  opacity: 0;
+}
+
+.wf-json-row:hover .wf-json-copy {
+  opacity: 1;
+}
+
+.wf-json-copy:hover {
+  color: var(--wf-color-primary-text);
+}
+
+.wf-json-copy:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+  opacity: 1;
+}
+
+/* ── 类型色（语义 Token） ── */
+.wf-json-string { color: var(--wf-color-success-text); }
+.wf-json-number { color: var(--wf-color-primary-text); }
+.wf-json-boolean { color: var(--wf-color-warning-text); }
+.wf-json-null { color: var(--wf-color-text-tertiary); font-style: italic; }

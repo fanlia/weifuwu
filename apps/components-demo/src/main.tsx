@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1415,6 +1415,28 @@ const DemoLogViewer: Component = (_props, ctx) => {
   )
 }
 
+const DemoJSONViewer: Component = () => () => {
+  const sample = {
+    id: 'agent_42',
+    name: '订单处理 Agent',
+    active: true,
+    model: { provider: 'openai', name: 'gpt-4o', temperature: 0.3 },
+    tools: [
+      { name: 'query_orders', args: { userId: 'u_7', limit: 10, filters: { status: 'pending', paid: false } } },
+      { name: 'refund', args: { orderId: 'o_9', amount: 129.9, reason: 'duplicate' } },
+    ],
+    stats: { runs: 1284, successRate: 0.96, avgLatencyMs: 342 },
+  }
+  return (
+    <div class="wf-w-full wf-stack wf-gap-sm">
+      <div style="max-height: 260px; overflow-y: auto">
+        <JSONViewer data={sample} />
+      </div>
+      <span class="wf-text-xs wf-text-secondary">递归折叠 + 类型色 + hover 复制路径（JSONViewer，ToolCallCard 已接入）</span>
+    </div>
+  )
+}
+
 const DemoVirtualTable: Component = (_props, ctx) => {
   let sortKey: string | undefined
   let sortOrder: 'asc' | 'desc' | undefined
@@ -1907,6 +1929,8 @@ return () => <AiChat chat={$} />
   logviewer: `<LogViewer lines={logs} height={260} follow
   showCopy showLineNumbers maxLines={500} />`,
 
+  jsonviewer: `<JSONViewer data={payload} defaultExpandDepth={2} maxKeys={100} />`,
+
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
 
@@ -1983,6 +2007,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Markdown" desc="AI 回复渲染：安全子集 parser + 代码块 + 链接白名单" code={CODE.markdown}><DemoMarkdown /></DemoCard>
         <DemoCard title="CodeBlock" desc="代码块：语言标签 + 复制按钮 + 横向滚动" code={CODE.codeblock}><DemoCodeBlock /></DemoCard>
         <DemoCard title="LogViewer" desc="日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制" code={CODE.logviewer}><DemoLogViewer /></DemoCard>
+        <DemoCard title="JSONViewer" desc="结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开" code={CODE.jsonviewer}><DemoJSONViewer /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>

@@ -1,6 +1,7 @@
 import type { Component } from '../../client/vnode.ts'
 import { h } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
+import { JSONViewer } from '../JSONViewer/JSONViewer.ts'
 import type { IconName } from '../Icon/Icon.ts'
 import type { WfToolCall, WfToolProgress, WfToolResult } from '../../ai/types.ts'
 
@@ -37,7 +38,7 @@ export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx) =>
 
     const argsNode = renderArgs
       ? renderArgs(call.args)
-      : h('code', { class: 'wf-toolcall-args' }, JSON.stringify(call.args))
+      : h(JSONViewer, { data: call.args, defaultExpandDepth: 1, maxKeys: 50, rootName: 'args' })
 
     const progressNode = progress
       ? [
