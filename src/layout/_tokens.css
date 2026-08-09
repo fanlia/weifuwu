@@ -86,6 +86,8 @@
   --wf-z-sticky: 40;
   --wf-z-overlay: 80;
   --wf-z-modal: 100;
+  --wf-z-tour: 2000;
+  --wf-tour-min-width: 240px;
   --wf-z-popover: 120; /* dropdown/select/datepicker 面板与 popover 同层 */
   --wf-z-toast: 140;
   --wf-z-tooltip: 160;

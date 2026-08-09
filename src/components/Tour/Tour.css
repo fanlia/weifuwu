@@ -1,0 +1,92 @@
+.wf-tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wf-z-tour);
+  outline: none;
+}
+
+.wf-tour-mask {
+  position: absolute;
+  inset: 0;
+  background: var(--wf-overlay);
+}
+
+.wf-tour-highlight {
+  position: fixed;
+  border-radius: var(--wf-radius-sm);
+  box-shadow: 0 0 0 9999px var(--wf-overlay), 0 0 0 2px var(--wf-color-primary);
+  z-index: 1;
+  pointer-events: none;
+  transition: all var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-tour-bubble {
+  position: fixed;
+  z-index: 1; /* 同层 DOM 顺序裁决（bubble 在 highlight 后 = 最上） */
+  min-width: var(--wf-tour-min-width);
+  max-width: 360px;
+  background: var(--wf-color-bg);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  box-shadow: var(--wf-shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.12));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wf-tour-bubble-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.wf-tour-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.wf-tour-step {
+  font-size: 12px;
+  color: var(--wf-color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.wf-tour-content {
+  font-size: 13px;
+  color: var(--wf-color-text-secondary);
+  line-height: 1.6;
+}
+
+.wf-tour-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.wf-tour-btn {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--wf-radius-sm);
+  border: 1px solid var(--wf-color-border);
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.wf-tour-btn--primary {
+  background: var(--wf-color-primary);
+  border-color: var(--wf-color-primary);
+  color: var(--wf-color-on-brand);
+}
+.wf-tour-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--wf-color-text-secondary);
+}
+.wf-tour-btn:hover {
+  filter: brightness(0.95);
+}

@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1436,6 +1436,35 @@ const DemoSparkline: Component = () => () => (
   </div>
 )
 
+const DemoTour: Component = (_props, ctx) => {
+  let open = false
+  let step = 0
+  const render = () => ctx.ui.render()
+  return () => (
+    <div class="wf-stack wf-gap-md">
+      <div class="wf-row wf-gap-md wf-cluster">
+        <button id="tour-a" class="wf-btn wf-btn-primary" onClick={() => { open = true; step = 0; render() }}>开始引导</button>
+        <button id="tour-b" class="wf-btn" style="pointer-events: none;">第二步目标</button>
+        <button id="tour-c" class="wf-btn" style="pointer-events: none;">第三步目标</button>
+      </div>
+      {open && (
+        <Tour
+          steps={[
+            { target: '#tour-a', title: '开始引导', content: '点击任意目标查看引导气泡', placement: 'bottom' },
+            { target: '#tour-b', title: '第二步', content: '引导气泡跟随目标位置', placement: 'right' },
+            { target: '#tour-c', title: '最后一步', content: '完成或跳过关闭引导', placement: 'top' },
+          ]}
+          open={open}
+          current={step}
+          onStepChange={(s) => { step = s; render() }}
+          onFinish={() => { open = false; render() }}
+          onChange={(v) => { open = v; render() }}
+        />
+      )}
+    </div>
+  )
+}
+
 const OLD_CODE = `function handleUser(input) {
   const data = JSON.parse(input)
   const name = data.name
@@ -1982,6 +2011,7 @@ return () => <AiChat chat={$} />
   jsonviewer: `<JSONViewer data={payload} defaultExpandDepth={2} maxKeys={100} />`,
   diffview: `<DiffView oldCode={oldCode} newCode={newCode} oldTitle="重构前" newTitle="重构后" />`,
   sparkline: `<Sparkline data={[12, 18, 15, 22, 30, 28, 35]} width={140} height={36} fill />`,
+  tour: `<Tour steps={[{ target: '#a', title: '开始', content: '...' }]} open={open} onChange={setOpen} />`,
 
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
@@ -2062,6 +2092,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="JSONViewer" desc="结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开" code={CODE.jsonviewer}><DemoJSONViewer /></DemoCard>
         <DemoCard title="DiffView" desc="代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色" code={CODE.diffview}><DemoDiffView /></DemoCard>
         <DemoCard title="Sparkline" desc="迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充" code={CODE.sparkline}><DemoSparkline /></DemoCard>
+        <DemoCard title="Tour" desc="新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape" code={CODE.tour}><DemoTour /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>
