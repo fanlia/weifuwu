@@ -141,13 +141,17 @@
 <Badge variant="secondary">x</Badge>               // → <Tag variant="secondary">x</Tag>
 ```
 
-## weifuwu 尚未实现（三库有）→ 待补清单
+## weifuwu 已补齐（第六批，2026-08）→ 待补清单清零 ✅
 
-仅 4 项：
+第六批 6 组件全部落地（TDD 红→绿 + style-audit + demo + agent-browser 实测）：
 
-- **Anchor**（锚点导航，三库均有）
-- **Menu 子菜单/折叠**（分组 group 已支持，子级/折叠待补）
-- **FileUpload 增强**（拖拽已支持；文件列表/预览/进度待补）
-- **VirtualTable**（VirtualList 已有，表格虚拟化待补）
+| 组件 | 类型 | 要点 |
+|------|------|------|
+| **Menu 子菜单/折叠** | 增强 | `children` 子菜单 + `collapsible` 折叠侧栏 + 多级键盘流 |
+| **FileUpload 增强** | 增强 | 图片缩略图（objectURL revoke）+ 进度条 + 受控纪律 |
+| **VirtualTable** | 新增 | 固定表头 + 虚拟滚动（10k 行 ~17 DOM）+ 排序 |
+| **Anchor** | 新增 | 滚动高亮跟随 + 点击平滑滚动 + useHash |
+| **LogViewer** | 新增 | ANSI 着色 + 虚拟滚动 + follow 自动跟随 + maxLines |
+| **JSONViewer** | 新增 | 递归折叠 + 类型色 + 路径复制 + 懒展开（ToolCallCard 已接入） |
 
-> 难度阶梯（L1-L6）与验证的 client 能力点：见 `design/components-cdd.md`；三库 → weifuwu 覆盖矩阵：见 `design/components-migration.md`。
+> 三库共识覆盖度 ~100%（剩余均为已声明裁剪项，见 `design/components-roadmap.md` 第六批裁剪清单）。
