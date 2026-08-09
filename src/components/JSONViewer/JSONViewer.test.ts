@@ -6,7 +6,7 @@ import { JSONViewer } from './JSONViewer.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
 }
 
 function renderVNode(Comp: any, props: any, ctx: any) {

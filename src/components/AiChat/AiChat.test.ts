@@ -21,6 +21,7 @@ function mockCtx(): WfuiContext {
   return { ui: {
     useVisualViewport: () => ({ height: 800, offsetTop: 0, keyboardOpen: false }),
     useScrollPosition: () => ({ y: scrollY, refresh: () => {} }),
+    $: () => ({ expanded: {} }),
     dirty: () => {}, render: () => {},
   } } as any
 }

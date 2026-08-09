@@ -313,6 +313,18 @@ ctx.ui.render(['id'])（跨组件）
 ### `$` Proxy 行为
 
 `ctx.ui.$()` 返回深度 Proxy，由 `createReactiveState()` 创建：
+- **selfId 错位陷阱**（JSONViewer 折叠失效根因）：`$` 的 dirty 回调在 **mount 时捕获 selfId**——组件在
+  无状态包裹/重挂载场景（VNode 重挂载但 `_render` 复用）下，捕获的 selfId 与当前实例错位 →
+  dirty 渲染孤儿实例，**交互静默失效**（无 console 错误）。症状：`$` 赋值后 DOM 不更新。
+  修复模式（JSONViewer 采用）：**render 期捕获当前 selfId + 显式精准 dirty**：
+  ```ts
+  return (props) => {
+    const selfId = (ctx.ui as any)._selfId
+    const set = (k, v) => { $.x = v; if (selfId) ctx.ui.dirty([selfId]) }
+    ...
+  }
+  ```
+  jsdom 单测（mock `$` 为纯对象）无法暴露此缺陷——**必须 agent-browser 实测交互**。
 
 - `$.x = val` → `set` trap → `dirty()`（微任务合并）
 - `$.obj.a = 1` → 递归 Proxy 包装 → `set` trap
