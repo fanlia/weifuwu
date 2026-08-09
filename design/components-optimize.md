@@ -43,6 +43,11 @@
 
 ## 进度记录
 
+- **Wave 4 ✅**（2026-08）：Img/Timeline/VirtualTable 补达基线（fallback 边界/reverse+alternate/受控排序/窗口行数）；TEST_GAP W4 清零；计数 875
+- **Wave 3 ✅**（2026-08）：Checkbox/RadioGroup/Switch/Slider/SearchInput/PasswordInput/
+  SegmentedControl/Calendar/TreeSelect 9 组件补到达基线；**Calendar 日期格子可点不可聚焦
+  修复**（role=button + tabIndex + Enter/Space，P1）；Switch/Checkbox/Slider 原生非受控
+  语义验证合法（无需 useControlled）；TEST_GAP W3 清零；计数 871
 - **Wave 2 ✅**（2026-08）：Tooltip/Menubar 6→8、Popconfirm 5→8、AlertGroup 3→8、
   FloatButton 6→8 测试（受控对称/键盘可达/边界）；弹层族 14 个 demo 实测全过；
   TEST_GAP W2 条目清零；计数 845

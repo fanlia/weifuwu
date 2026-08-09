@@ -525,7 +525,6 @@ describe('样式审计 — 设计约束', () => {
       .filter(d => { try { readFileSync(join(root, 'src/components', d, `${d}.ts`), 'utf-8'); return true } catch { return false } })
     // 低于交互基线（8）的组件必须在此登记（含 Wave 批次——逐 Wave 递减，归零后删表）
     const TEST_GAP: Record<string, string> = {
-      Img: 'W4', Timeline: 'W4', VirtualTable: 'W4',
       Affix: 'W5', Alert: 'W5', Anchor: 'W5', ApprovalCard: 'W5', BackTop: 'W5',
       CodeBlock: 'W5', CopyButton: 'W5', InfiniteScroll: 'W5', Link: 'W5',
       Pagination: 'W5', Tabs: 'W5', Tag: 'W5',

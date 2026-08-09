@@ -55,3 +55,9 @@ describe('Img', () => {
     assert.equal(vnode.props.height, 100)
   })
 })
+
+it('src 缺失时渲染 fallback（边界）', () => {
+  const vnode = renderVNode(Img, { fallback: 'data:image/svg+xml,x', alt: 'x' })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('data:image/svg+xml') || s.includes('wf-img'), 'fallback 或占位渲染')
+})

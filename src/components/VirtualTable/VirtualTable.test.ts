@@ -105,3 +105,29 @@ function collectText(n: any): string[] {
   walk(n)
   return out
 }
+
+it('受控排序对称：sortKey + onSort（点击切换方向）', () => {
+  let sortArgs: any
+  const { ctx } = mockCtx()
+  const factory = mount(VirtualTable, { columns, data: rows.slice(0, 5), sortKey: 'id', sortOrder: 'asc', onSort: (k: string, o: string) => { sortArgs = [k, o] } }, ctx)
+  const vnode = factory({ columns, data: rows.slice(0, 5), sortKey: 'id', sortOrder: 'asc', onSort: (k: string, o: string) => { sortArgs = [k, o] } })
+  const find = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (n.props?.onClick && /th|sort/.test(String(n.props?.class ?? ''))) return n
+    const k = n.props?.children
+    if (Array.isArray(k)) for (const c of k) { const f = find(c); if (f) return f }
+    return null
+  }
+  const th = find(vnode)
+  assert.ok(th, '排序表头存在')
+  th.props.onClick()
+  assert.deepEqual(sortArgs, ['id', 'desc'], 'asc 后点击切 desc')
+})
+
+it('rowHeight/height 控制窗口行数（小视口少渲染）', () => {
+  const { ctx } = mockCtx()
+  const factory = mount(VirtualTable, { columns, data: rows, height: 120, rowHeight: 40 }, ctx)
+  const vnode = factory({ columns, data: rows, height: 120, rowHeight: 40 })
+  const rowCount = (JSON.stringify(vnode).match(/"id":/g) || []).length
+  assert.ok(rowCount < 30, `小视口只渲染少量行（实际 ${rowCount}）`)
+})

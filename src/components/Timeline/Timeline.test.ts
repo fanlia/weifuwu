@@ -89,3 +89,14 @@ function collectText(node: any): string[] {
   walk(node)
   return out
 }
+
+it('reverse 反转顺序 + mode=alternate 类（边界/变体）', () => {
+  const items = [
+    { key: '1', title: '先', time: '10:00' },
+    { key: '2', title: '后', time: '11:00' },
+  ]
+  const vnode = renderVNode(Timeline, { items, reverse: true, mode: 'alternate' }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('alt-left') || s.includes('alt-right'), 'alternate 模式类')
+  assert.ok(s.indexOf('后') < s.indexOf('先'), 'reverse 后"后"在前')
+})
