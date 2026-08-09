@@ -2,6 +2,7 @@ import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { Popover } from '../Popover/Popover.ts'
+import { Icon } from '../Icon/Icon.ts'
 
 export interface ColorPickerProps {
   /** 受控颜色值（hex，如 #4f6ef7） */
@@ -41,15 +42,17 @@ export const ColorPicker: Component<ColorPickerProps> = (_init, ctx) =>
     }
     const current = ctrl?.value ?? ''
 
-    const swatches = colors.map(c =>
-      h('button', {
+    const swatches = colors.map(c => {
+      const sel = c.toLowerCase() === current.toLowerCase()
+      return h('button', {
         type: 'button',
-        class: `wf-color-picker-swatch${c.toLowerCase() === current.toLowerCase() ? ' wf-color-picker-swatch--sel' : ''}`,
+        class: `wf-color-picker-swatch${sel ? ' wf-color-picker-swatch--sel' : ''}`,
         style: { background: c },
         'aria-label': c,
+        'aria-pressed': sel ? 'true' : 'false',
         onClick: () => select(c),
-      })
-    )
+      }, sel ? h(Icon, { name: 'check', size: 14, className: 'wf-color-picker-check' }) : null)
+    })
 
     const panelChildren: any[] = [h('div', { class: 'wf-color-picker-grid' }, swatches)]
 
@@ -71,8 +74,10 @@ export const ColorPicker: Component<ColorPickerProps> = (_init, ctx) =>
 
     const trigger = h('button', {
       type: 'button',
-      class: `wf-color-picker-trigger wf-color-picker-trigger--${size}`,
+      class: `wf-color-picker-trigger wf-color-picker-trigger--${size}${disabled ? ' wf-color-picker-trigger--disabled' : ''}`,
+      disabled,
       'aria-label': ariaLabel ?? '选择颜色',
+      'aria-disabled': disabled ? 'true' : undefined,
     }, [
       h('span', { class: 'wf-color-picker-swatch', style: { background: current || '#fff' } }),
       h('span', { class: 'wf-color-picker-value' }, current || '颜色'),

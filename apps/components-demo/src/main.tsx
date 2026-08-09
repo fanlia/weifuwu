@@ -1198,6 +1198,11 @@ const DemoColorPicker: Component = (_props, ctx) => {
   return () => (
     <div class="wf-stack wf-gap-sm">
       <ColorPicker value={c} showInput onChange={(v: string) => { c = v; ctx.ui.render() }} />
+      <div class="wf-row wf-gap-sm">
+        <ColorPicker value={c} size="sm" onChange={(v: string) => { c = v; ctx.ui.render() }} />
+        <ColorPicker value={c} size="lg" onChange={(v: string) => { c = v; ctx.ui.render() }} />
+        <ColorPicker value={c} disabled />
+      </div>
       <div class="wf-text-sm wf-text-secondary">当前：{c}</div>
     </div>
   )

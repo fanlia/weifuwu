@@ -11,18 +11,29 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);
-  padding: 4px var(--wf-space-sm);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   transition: border-color var(--wf-dur-fast) var(--wf-ease-out),
-              box-shadow var(--wf-dur-fast) var(--wf-ease-out);
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out),
+              transform var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-color-picker-trigger:hover {
   border-color: var(--wf-color-primary);
 }
 
+.wf-color-picker-trigger:active {
+  transform: scale(0.98);
+}
+
 .wf-color-picker-trigger:focus-visible {
   outline: none;
   box-shadow: var(--wf-focus-ring);
+}
+
+.wf-color-picker-trigger--disabled {
+  opacity: var(--wf-opacity-disabled);
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .wf-color-picker-swatch {
@@ -39,8 +50,8 @@
   font-size: var(--wf-font-size-xs);
 }
 
-.wf-color-picker-trigger--sm { padding: 2px var(--wf-space-sm); font-size: var(--wf-font-size-xs); }
-.wf-color-picker-trigger--lg { padding: var(--wf-space-sm) var(--wf-space-md); font-size: var(--wf-font-size-base); }
+.wf-color-picker-trigger--sm { padding: 2px var(--wf-space-sm); font-size: var(--wf-font-size-xs); min-height: 28px; }
+.wf-color-picker-trigger--lg { padding: var(--wf-space-sm) var(--wf-space-md); font-size: var(--wf-font-size-base); min-height: 40px; }
 
 /* 弹层面板 */
 .wf-color-picker-panel {
@@ -55,22 +66,39 @@
 }
 
 .wf-color-picker-grid .wf-color-picker-swatch {
+  position: relative;
   width: 22px;
   height: 22px;
   padding: 0;
   border: none;
+  border-radius: var(--wf-radius-sm);
   cursor: pointer;
   box-shadow: 0 0 0 1px var(--wf-color-border);
-  transition: transform var(--wf-dur-fast) var(--wf-ease-out);
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out),
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-color-picker-grid .wf-color-picker-swatch:hover {
   transform: scale(1.15);
 }
 
+.wf-color-picker-grid .wf-color-picker-swatch:active {
+  transform: scale(0.92);
+}
+
 .wf-color-picker-grid .wf-color-picker-swatch:focus-visible {
   outline: none;
-  box-shadow: var(--wf-focus-ring);
+  box-shadow: 0 0 0 2px var(--wf-color-primary);
+}
+
+/* 选中态：勾选图标（mix-blend 反相——任意底色恒可见，省逐色亮度计算） */
+.wf-color-picker-check {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  color: var(--wf-color-on-brand);
+  mix-blend-mode: difference; /* 白对底反相 → 浅底显黑、深底显白，对比恒 ≥ 4.5 */
+  pointer-events: none;
 }
 
 .wf-color-picker-grid .wf-color-picker-swatch--sel {
@@ -83,11 +111,13 @@
   box-sizing: border-box;
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
-  padding: 4px var(--wf-space-sm);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   font-family: var(--wf-font-mono);
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text);
   background: var(--wf-color-bg);
+  transition: border-color var(--wf-dur-fast) var(--wf-ease-out),
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-color-picker-input:focus {
