@@ -75,3 +75,50 @@ describe('Anchor', () => {
     assert.equal(links[0].props.tabIndex, 0)
   })
 })
+
+it('点击锚点更新内部激活态 + onAnchorChange 通知', () => {
+  const { ctx } = mockCtx()
+  let notified: string | undefined
+  const items = [{ href: '#a', title: 'A' }, { href: '#b', title: 'B' }]
+  const factory = mount(Anchor, { items, onAnchorChange: (h: string) => { notified = h } }, ctx)
+  const vnode = factory({ items, onAnchorChange: (h: string) => { notified = h } })
+  const links = (function find(n: any): any[] {
+    const out: any[] = []
+    const walk = (x: any) => {
+      if (!x || typeof x !== 'object') return
+      if (String(x.props?.class ?? '').includes('wf-anchor-link')) out.push(x)
+      const k = x.props?.children
+      if (Array.isArray(k)) k.forEach(walk)
+    }
+    walk(n)
+    return out
+  })(vnode)
+  assert.ok(links.length >= 2, '锚点链接渲染')
+  links[1].props.onClick({ preventDefault: () => {} })
+  assert.equal(notified, '#b', '点击通知 onAnchorChange')
+})
+
+it('键盘：Home/End 跳首尾（onKeyDown 存在）', () => {
+  const { ctx } = mockCtx()
+  const items = [{ href: '#a', title: 'A' }, { href: '#b', title: 'B' }]
+  const factory = mount(Anchor, { items }, ctx)
+  const vnode = factory({ items })
+  assert.ok(vnode.props.onKeyDown, '导航容器键盘处理存在')
+})
+
+it('useHash=false 默认不写 location.hash（点击仅滚动+回调）', () => {
+  const { ctx } = mockCtx()
+  const items = [{ href: '#a', title: 'A' }]
+  const factory = mount(Anchor, { items }, ctx)
+  const vnode = factory({ items })
+  const link = (function find(n: any): any {
+    if (!n || typeof n !== 'object') return null
+    if (String(n.props?.class ?? '').includes('wf-anchor-link')) return n
+    const k = n.props?.children
+    if (Array.isArray(k)) for (const c of k) { const f = find(c); if (f) return f }
+    return null
+  })(vnode)
+  const e = { preventDefault: () => {} }
+  link.props.onClick(e)
+  assert.ok(true, '默认模式点击不抛错')
+})

@@ -95,3 +95,20 @@ describe('InfiniteScroll', () => {
     assert.equal(loads, 0)
   })
 })
+
+it('loading 中重复进入视口不重复触发 onLoadMore（边界防重）', () => {
+  let loads = 0
+  const ctx = mockCtx()
+  const factory = InfiniteScroll({ hasMore: true, loading: true, onLoadMore: () => loads++ }, ctx)
+  factory({ hasMore: true, loading: true, onLoadMore: () => loads++ })
+  const handle = inViewHandles[inViewHandles.length - 1]
+  handle?.trigger?.(true)
+  assert.equal(loads, 0, 'loading 中不重复加载')
+})
+
+it('hasMore=false 后 sentinel 离开（footer 终态稳定）', () => {
+  const ctx = mockCtx()
+  const factory = InfiniteScroll({ hasMore: false, children: 'x' }, ctx)
+  const vnode = factory({ hasMore: false, children: 'x' })
+  assert.ok(JSON.stringify(vnode).includes('wf-infinite'), '容器渲染')
+})

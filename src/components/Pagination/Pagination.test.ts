@@ -73,3 +73,24 @@ describe('Pagination', () => {
     assert.equal(activeBtns[0].props.children, '2')
   })
 })
+
+it('受控 page + onChange（点击页码回调）', () => {
+  let got: number | undefined
+  const vnode = renderVNode(Pagination, { total: 100, page: 1, pageSize: 10, onChange: (p: number) => { got = p } }, mockCtx())!
+  const find = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (n.props?.class?.includes?.('wf-page-btn') && n.props?.children === '2') return n
+    const k = n.props?.children
+    if (Array.isArray(k)) for (const c of k) { const f = find(c); if (f) return f }
+    return null
+  }
+  const page3 = find(vnode)
+  assert.ok(page3, '页码 2 按钮存在')
+  page3.props.onClick()
+  assert.equal(got, 2)
+})
+
+it('边界：total=0 → null（不渲染）', () => {
+  const vnode = renderVNode(Pagination, { total: 0, page: 1 }, mockCtx())
+  assert.equal(vnode === null || !vnode, true, 'total=0 返回 null')
+})

@@ -43,3 +43,34 @@ describe('Tag', () => {
     assert.equal(closed, true)
   })
 })
+
+it('closable 关闭按钮点击触发 onClose', () => {
+  let closed = 0
+  const vnode = renderVNode(Tag, { closable: true, onClose: () => closed++, children: 'x' }, mockCtx())!
+  const find = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (String(n.props?.class ?? '').includes('wf-tag-close')) return n
+    const k = n.props?.children
+    if (Array.isArray(k)) for (const c of k) { const f = find(c); if (f) return f }
+    return null
+  }
+  find(vnode).props.onClick()
+  assert.equal(closed, 1)
+})
+
+it('非 closable 无关闭按钮（边界）', () => {
+  const vnode = renderVNode(Tag, { children: 'x' }, mockCtx())!
+  assert.ok(!JSON.stringify(vnode).includes('wf-tag-close'))
+})
+
+it('variant 类（success/danger/primary）', () => {
+  for (const v of ['success', 'danger', 'primary'] as const) {
+    const vnode = renderVNode(Tag, { variant: v, children: 'x' }, mockCtx())!
+    assert.ok(JSON.stringify(vnode).includes(`wf-tag--${v}`))
+  }
+})
+
+it('关闭按钮 aria-label（P1 无障碍名）', () => {
+  const vnode = renderVNode(Tag, { closable: true, children: 'x' }, mockCtx())!
+  assert.ok(JSON.stringify(vnode).includes('移除'))
+})

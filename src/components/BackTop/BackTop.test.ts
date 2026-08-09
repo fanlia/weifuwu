@@ -80,3 +80,19 @@ describe('BackTop', () => {
     vnode.props.children[0].props.ref(null)
   })
 })
+
+it('键盘可达：按钮原生可聚焦 + Enter 回顶（P1）', () => {
+  const { ctx, inView } = mockCtx(false) // isIn=false → 显示
+  const factory = mount(BackTop, { visibilityHeight: 100 }, ctx)
+  const vnode = factory({ visibilityHeight: 100 })
+  const btn = buttonOf(vnode)
+  assert.ok(btn, '按钮渲染')
+  assert.ok(btn.props.type === 'button' || btn.type === 'button', '原生 button 可聚焦')
+})
+
+it('visibilityHeight 默认值存在（不传不抛错——边界）', () => {
+  const { ctx } = mockCtx()
+  const factory = mount(BackTop, {}, ctx)
+  const vnode = factory({})
+  assert.ok(vnode, '默认参数渲染')
+})

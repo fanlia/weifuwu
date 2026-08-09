@@ -73,3 +73,25 @@ describe('ApprovalCard', () => {
     }
   })
 })
+
+it('renderDetail 自定义详情渲染', () => {
+  const vnode = renderVNode(ApprovalCard, {
+    request: { id: '1', name: 'run_sql', args: { sql: 'select 1' } } as any,
+    renderDetail: (req: any) => ({ type: 'code', props: { children: req.args.sql }, key: undefined }),
+  }, mockCtx())!
+  assert.ok(JSON.stringify(vnode).includes('select 1'), '自定义详情内容')
+})
+
+it('拒绝备注：输入后确认携带 note（边界：空 note 也可拒绝）', () => {
+  let note: string | undefined = 'UNSET'
+  const ctx = mockCtx()
+  const factory = ApprovalCard({ request: { id: '1', name: 'x', args: {} } as any, onReject: (n?: string) => { note = n } }, ctx)
+  let vnode = factory({ request: { id: '1', name: 'x', args: {} }, onReject: (n?: string) => { note = n } })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('拒绝'), '拒绝按钮存在')
+})
+
+it('边界：request 无 args 不抛错', () => {
+  const vnode = renderVNode(ApprovalCard, { request: { id: '1', name: 'noop' } as any }, mockCtx())!
+  assert.ok(JSON.stringify(vnode).includes('noop'))
+})

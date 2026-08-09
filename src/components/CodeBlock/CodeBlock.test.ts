@@ -63,3 +63,31 @@ describe('CodeBlock', () => {
     assert.doesNotThrow(() => btn.props.onClick())
   })
 })
+
+it('title 渲染在标题区', () => {
+  const vnode = renderVNode(CodeBlock, { code: 'x', title: 'server.ts' }, mockCtx())!
+  assert.ok(JSON.stringify(vnode).includes('server.ts'))
+})
+
+it('无 lang 不渲染语言标签（边界）', () => {
+  const vnode = renderVNode(CodeBlock, { code: 'x' }, mockCtx())!
+  assert.ok(!JSON.stringify(vnode).includes('wf-codeblock-lang'))
+})
+
+it('复制跟随最新 code（props 更新后 latestCode 同步）', async () => {
+  const copied: string[] = []
+  const ctx = mockCtx()
+  ;(ctx as any).browser = { copyText: async (t: string) => { copied.push(t) } }
+  const factory = CodeBlock({ code: 'v1' }, ctx)
+  factory({ code: 'v1' })
+  const vnode2 = factory({ code: 'v2' })
+  const find = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (n.props?.['aria-label'] === '复制') return n
+    const k = n.props?.children
+    if (Array.isArray(k)) for (const c of k) { const f = find(c); if (f) return f }
+    return null
+  }
+  await find(vnode2).props.onClick()
+  assert.deepEqual(copied, ['v2'], '复制的是 props 更新后的代码')
+})

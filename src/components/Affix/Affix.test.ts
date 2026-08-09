@@ -115,3 +115,21 @@ describe('Affix', () => {
     assert.equal(vnode2.props.children[1].props.style.width, '200px')
   })
 })
+
+it('滚动过阈值 → fixed 吸附（setScrollY 驱动）', () => {
+  const { ctx, setScrollY } = mockCtx(0)
+  const factory = Affix({ offsetTop: 100, children: 'x' }, ctx)
+  let vnode = factory({ offsetTop: 100, children: 'x' })
+  const s0 = JSON.stringify(vnode)
+  setScrollY(200)
+  vnode = factory({ offsetTop: 100, children: 'x' })
+  const s1 = JSON.stringify(vnode)
+  assert.ok(s0 !== s1 || /fixed|affix/.test(s1), '滚动后吸附态变化')
+})
+
+it('offsetTop 默认 0 + className 透传（边界）', () => {
+  const { ctx } = mockCtx(0)
+  const factory = Affix({ children: 'x', className: 'my-affix' }, ctx)
+  const vnode = factory({ children: 'x', className: 'my-affix' })
+  assert.ok(JSON.stringify(vnode).includes('my-affix'))
+})

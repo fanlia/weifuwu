@@ -97,3 +97,20 @@ describe('Tabs', () => {
     assert.equal(document.activeElement, tabs[0])
   })
 })
+
+it('受控 active + onChange（点击切换通知）', () => {
+  let got: string | undefined
+  const items = [{ key: 'a', label: 'A', children: 'ca' }, { key: 'b', label: 'B', children: 'cb' }]
+  const vnode = renderVNode(Tabs, { items, active: 'a', onChange: (k: string) => { got = k } }, mockCtx())!
+  const find = (n: any, acc: any[] = []): any[] => {
+    if (!n || typeof n !== 'object') return acc
+    if (n.props?.role === 'tab') acc.push(n)
+    const k = n.props?.children
+    if (Array.isArray(k)) k.forEach(c => find(c, acc))
+    return acc
+  }
+  const tabs = find(vnode)
+  assert.ok(tabs.length === 2, '两个 tab')
+  tabs[1].props.onClick()
+  assert.equal(got, 'b', '点击 B 通知 onChange(b)')
+})

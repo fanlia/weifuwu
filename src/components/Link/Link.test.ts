@@ -50,3 +50,17 @@ describe('Link', () => {
     assert.ok(Array.isArray(kids) && kids[0] === '→')
   })
 })
+
+test('disabled：无 href + aria-disabled + 点击阻止', () => {
+  let clicked = 0
+  const vnode = renderVNode(Link, { href: '/x', disabled: true, onClick: () => clicked++, children: 'x' }, mockCtx())!
+  assert.equal(vnode.props.href, undefined, 'disabled 不输出 href')
+  assert.equal(vnode.props['aria-disabled'], 'true')
+  vnode.props.onClick({ preventDefault: () => {}, stopPropagation: () => {} })
+  assert.equal(clicked, 0, 'disabled 阻断点击')
+})
+
+test('target=_blank 自动补 rel=noopener noreferrer（安全）', () => {
+  const vnode = renderVNode(Link, { href: 'https://x.com', target: '_blank', children: 'x' }, mockCtx())!
+  assert.equal(vnode.props.rel, 'noopener noreferrer')
+})

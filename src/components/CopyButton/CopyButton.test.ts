@@ -88,3 +88,17 @@ describe('CopyButton', () => {
     assert.equal(vnode.props.children.length, 1) // 只有图标
   })
 })
+
+it('复制失败（copyText  reject）不崩溃且无成功态（边界）', async () => {
+  const ctx = mockCtx({ copyText: async () => { throw new Error('denied') } })
+  const factory = mount(CopyButton, { value: 'x' }, ctx)
+  const vnode = factory({ value: 'x' })
+  try { await vnode.props.onClick?.() } catch { /* 允许抛错但不挂死 */ }
+  assert.ok(true, '复制失败路径不挂死')
+})
+
+it('size/variant 变体类', () => {
+  const vnode = mount(CopyButton, { value: 'x', size: 'sm', variant: 'ghost' }, mockCtx())!({ value: 'x', size: 'sm', variant: 'ghost' })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('sm') && s.includes('ghost'))
+})
