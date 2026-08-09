@@ -10,8 +10,8 @@ app.use(ui())
 
 app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
-// weifuwu/layout 原语 + 组件库样式
-app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
+// ── 唯一样式来源：weifuwu/components（Token + 布局原语 + 组件样式）──
+// components.css 构建时已内嵌全部 layout 原语——不单独加载 layout.css（避免双份 CSS）
 app.get('/components.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css'))
 
 app.get('/*', async (req, ctx) => ctx.ui.html`
@@ -20,7 +20,7 @@ app.get('/*', async (req, ctx) => ctx.ui.html`
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- 只加载 components.css——构建时已内嵌 layout 原语（layout.css 独立提供但不重复加载） -->
+  <!-- 唯一样式来源：components.css（内嵌 layout 原语 + 组件样式） -->
   <link rel="stylesheet" href="/components.css">
   <title>weifuwu/layout — 布局模式蓝本</title>
 </head>
