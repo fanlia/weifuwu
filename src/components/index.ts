@@ -275,6 +275,8 @@ export { VirtualTable } from './VirtualTable/VirtualTable.ts'
 export type { VirtualTableProps } from './VirtualTable/VirtualTable.ts'
 export { Anchor } from './Anchor/Anchor.ts'
 export type { AnchorProps, AnchorItem } from './Anchor/Anchor.ts'
+export { LogViewer, parseAnsi } from './LogViewer/LogViewer.ts'
+export type { LogViewerProps } from './LogViewer/LogViewer.ts'
 
 export { QRCode } from './QRCode/QRCode.ts'
 export type { QRCodeProps } from './QRCode/QRCode.ts'

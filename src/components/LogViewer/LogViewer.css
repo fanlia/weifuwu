@@ -1,0 +1,99 @@
+/* weifuwu/components — LogViewer（日志流：ANSI 着色 + 虚拟滚动） */
+
+.wf-log-viewer {
+  font-family: var(--wf-font-mono);
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text);
+  position: relative;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg-secondary);
+  overflow: hidden;
+}
+
+.wf-log-copy {
+  position: absolute;
+  top: var(--wf-space-sm);
+  right: var(--wf-space-sm);
+  z-index: 1;
+  width: 24px; height: 24px;
+  min-width: 24px; max-width: 24px;
+  min-height: 24px; max-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--wf-color-bg-tertiary);
+  border-radius: var(--wf-radius-sm);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  line-height: 0; padding: 0; flex-shrink: 0;
+}
+
+.wf-log-copy:hover {
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+}
+
+.wf-log-body {
+  position: relative;
+  overflow-y: auto;
+}
+
+.wf-log-spacer {
+  pointer-events: none;
+}
+
+.wf-log-row {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding-right: var(--wf-space-md);
+  white-space: pre;
+}
+
+.wf-log-row:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-log-line-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 48px;
+  padding: 0 var(--wf-space-sm);
+  margin-right: var(--wf-space-sm);
+  color: var(--wf-color-text-tertiary);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.wf-log-line-content {
+  overflow: hidden;
+}
+
+/* ── ANSI 前景色（16 色映射到语义 Token） ── */
+.wf-log-ansi--bold { font-weight: var(--wf-font-weight-bold); }
+.wf-log-ansi--30 { color: var(--wf-color-text-secondary); }
+.wf-log-ansi--31 { color: var(--wf-color-error-text); }
+.wf-log-ansi--32 { color: var(--wf-color-success-text); }
+.wf-log-ansi--33 { color: var(--wf-color-warning-text); }
+.wf-log-ansi--34 { color: var(--wf-color-primary-text); }
+.wf-log-ansi--35 { color: var(--wf-color-primary-text); }
+.wf-log-ansi--36 { color: var(--wf-color-info-text); }
+.wf-log-ansi--37 { color: var(--wf-color-text); }
+
+/* ── ANSI 背景色（8 色 → 50 级语义底） ── */
+.wf-log-ansi--bg41 { background: var(--wf-color-error-bg); }
+.wf-log-ansi--bg42 { background: var(--wf-color-success-bg); }
+.wf-log-ansi--bg43 { background: var(--wf-color-warning-bg); }
+.wf-log-ansi--bg44 { background: var(--wf-color-primary-bg); }
+.wf-log-ansi--bg47 { background: var(--wf-color-bg-tertiary); }
+
+.wf-log-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--wf-space-lg);
+  color: var(--wf-color-text-tertiary);
+}

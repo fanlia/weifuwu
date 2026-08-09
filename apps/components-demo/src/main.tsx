@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1383,6 +1383,38 @@ const DemoVirtualList: Component = () => () => (
     renderItem={(item: any) => <div class="wf-text-sm wf-border-b wf-py-xs wf-px-sm">{item.label}</div>} />
 )
 
+const DemoLogViewer: Component = (_props, ctx) => {
+  let lines: string[] = [
+    '\x1b[32m[12:00:01] ✓ 服务启动，端口 3000\x1b[0m',
+    '\x1b[32m[12:00:02] ✓ 连接数据库 demo@localhost:5432\x1b[0m',
+    '[12:00:03] 等待请求…',
+    '\x1b[33m[12:00:04] ⚠ 慢查询警告（342ms）\x1b[0m',
+    '\x1b[31m[12:00:05] ✗ POST /api/agent/run 500 请求失败\x1b[0m',
+    '[12:00:06] 重试 (1/3)…',
+    '\x1b[32m[12:00:07] ✓ 重试成功，返回 200\x1b[0m',
+  ]
+  let idx = 8
+  return () => (
+    <div class="wf-w-full wf-stack wf-gap-sm">
+      <LogViewer lines={lines} height={260} lineHeight={22} follow />
+      <div class="wf-row wf-gap-sm">
+        <Button variant="primary" size="sm" onClick={() => {
+          const log = idx % 3 === 0 ? `\x1b[31m[12:00:${String(idx).padStart(2, '0')}] ✗ 请求失败\x1b[0m`
+            : idx % 3 === 1 ? `\x1b[32m[12:00:${String(idx).padStart(2, '0')}] ✓ 请求成功 (${idx * 7}ms)\x1b[0m`
+            : `[12:00:${String(idx).padStart(2, '0')}] 普通日志行 ${idx}`
+          lines = [...lines, log]
+          idx++
+          ctx.ui.render()
+        }}>追加日志（模拟流）</Button>
+        <Button size="sm" onClick={() => {
+          lines = Array.from({ length: 10000 }, (_, i) => `[12:00:${String(i % 60).padStart(2, '0')}] 批量日志 ${i} 行`)
+          ctx.ui.render()
+        }}>加载 10k 行</Button>
+      </div>
+    </div>
+  )
+}
+
 const DemoVirtualTable: Component = (_props, ctx) => {
   let sortKey: string | undefined
   let sortOrder: 'asc' | 'desc' | undefined
@@ -1872,6 +1904,9 @@ return () => <AiChat chat={$} />
   virtualtable: `<VirtualTable columns={cols} data={rows} height={320}
   sortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />`,
 
+  logviewer: `<LogViewer lines={logs} height={260} follow
+  showCopy showLineNumbers maxLines={500} />`,
+
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
 
@@ -1947,6 +1982,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="AvatarGroup" desc="头像组：堆叠 + max 溢出 +N" code={CODE.avatarGroup}><DemoAvatarGroup /></DemoCard>
         <DemoCard title="Markdown" desc="AI 回复渲染：安全子集 parser + 代码块 + 链接白名单" code={CODE.markdown}><DemoMarkdown /></DemoCard>
         <DemoCard title="CodeBlock" desc="代码块：语言标签 + 复制按钮 + 横向滚动" code={CODE.codeblock}><DemoCodeBlock /></DemoCard>
+        <DemoCard title="LogViewer" desc="日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制" code={CODE.logviewer}><DemoLogViewer /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>
