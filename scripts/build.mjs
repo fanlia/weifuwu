@@ -101,7 +101,7 @@ const layoutDist = join(distDir, 'layout')
 
 const LAYER_OF = {
   _tokens: 'tokens', _dark: 'tokens', _base: 'base',
-  _stack: 'layout', _row: 'layout', _split: 'layout', _center: 'layout',
+  _stack: 'layout', _row: 'layout', _split: 'layout', _center: 'layout', _between: 'layout',
   _right: 'layout', _top: 'layout', _bottom: 'layout', _stretch: 'layout',
   _around: 'layout', _evenly: 'layout', _fill: 'layout', _fixed: 'layout',
   _auto: 'layout', _cover: 'layout', _pop: 'layout', _anchor: 'layout',
@@ -112,6 +112,7 @@ const LAYER_OF = {
   _shrink: 'layout', '_app-shell': 'layout',
   _surface: 'utilities', _spacing: 'utilities', _border: 'utilities',
   _text: 'utilities', _hidden: 'utilities', _block: 'utilities', _prose: 'utilities',
+  _flex: 'utilities', // display 工具族（wf-hidden wf-flex@lg 显隐恢复——必须同层后序获胜）
 }
 
 function mergeLayoutCss() {
@@ -126,7 +127,10 @@ function mergeLayoutCss() {
     return Promise.all(files.map(f =>
       readFile(join(layoutSrc, f), 'utf-8').then(c => {
         const content = c.replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, '').trim()
-        const layer = LAYER_OF[f.replace(/^\.\//, '').replace(/\.css$/, '')] ?? 'layout'
+        const name = f.replace(/^\.\//, '').replace(/\.css$/, '')
+        const layer = LAYER_OF[name]
+        // 未登记文件默认 layout 会静默降级层叠优先级（_flex 掉层致 wf-flex@lg 失效的教训）——报错防呆
+        if (!layer) throw new Error(`layout 文件未登记 @layer 映射: ${f}（在 scripts/build.mjs LAYER_OF 中登记）`)
         return `@layer ${layer} {\n${content}\n}`
       })
     )).then(chunks =>

@@ -1,6 +1,8 @@
-/* stretch — 拉伸对齐 */
+/* stretch — 拉伸对齐（L3：gap 默认值 :where() 零优先级；align-items 是身份属性） */
 .wf-stretch {
   display: flex;
   align-items: stretch;
+}
+:where(.wf-stretch) {
   gap: var(--wf-gap, var(--wf-gap-md));
 }

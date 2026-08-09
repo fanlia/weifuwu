@@ -546,7 +546,7 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 
 ## 8. 设计系统维护（layout/components）
 
-`style-audit`（`src/test/style-audit.test.ts`，25 条规则）是设计约束的防护网——改 CSS/组件不得违反，违反即测试红：
+`style-audit`（`src/test/style-audit.test.ts`，29 条规则）是设计约束的防护网——改 CSS/组件不得违反，违反即测试红：
 
 ### 动效语言（P0）
 - 动效 Token：`--wf-dur-*`（时长阶梯）、`--wf-ease-*`（缓动曲线）、`--wf-motion-*`（位移量）——组件动效统一引用，禁止各自硬编码

@@ -1,7 +1,10 @@
-/* row — 横向排列 */
+/* row — 横向排列（L3：gap/align 默认值 :where() 零优先级——wf-gap-*、wf-top 等
+   覆盖工具靠优先级获胜，不再依赖 import 顺序） */
 .wf-row {
   display: flex;
   flex-wrap: wrap;
+}
+:where(.wf-row) {
   gap: var(--wf-gap, var(--wf-gap-md));
   align-items: var(--wf-align, center);
 }
@@ -14,6 +17,8 @@
   display: flex;
   flex-direction: row-reverse;
   flex-wrap: wrap;
+}
+:where(.wf-row-reverse) {
   gap: var(--wf-gap, var(--wf-gap-md));
   align-items: var(--wf-align, center);
 }

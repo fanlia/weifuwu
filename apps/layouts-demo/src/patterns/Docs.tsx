@@ -93,8 +93,8 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))`} />
       </div>
 
       {/* footer */}
-      <footer class="wf-row wf-p-md wf-center wf-border-t">
-        <span class="wf-text-tertiary wf-text-sm">weifuwu/layout · 189 原语 · 开源 MIT</span>
+      <footer class="wf-cluster wf-p-md wf-border-t">
+        <span class="wf-text-tertiary wf-text-sm">weifuwu/layout · 57 布局原语 · 136 工具类 · 开源 MIT</span>
       </footer>
 
       {/* 返回顶部（BackTop——组件能力展示：target 指向壳内部滚动容器） */}

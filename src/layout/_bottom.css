@@ -1,6 +1,8 @@
-/* bottom — 底部对齐 */
+/* bottom — 底部对齐（L3：gap 默认值 :where() 零优先级；align-items 是身份属性） */
 .wf-bottom {
   display: flex;
   align-items: flex-end;
+}
+:where(.wf-bottom) {
   gap: var(--wf-gap, var(--wf-gap-md));
 }

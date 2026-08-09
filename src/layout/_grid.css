@@ -1,6 +1,8 @@
-/* grid — 二维网格 */
+/* grid — 二维网格（L3：gap 默认值 :where() 零优先级） */
 .wf-grid {
   display: grid;
   grid-template-columns: var(--wf-cols, repeat(auto-fill, minmax(280px, 1fr)));
+}
+:where(.wf-grid) {
   gap: var(--wf-gap, var(--wf-gap-lg));
 }

@@ -1,7 +1,9 @@
-/* evenly — 均匀分布 */
+/* evenly — 均匀分布（L3：align/gap 默认值 :where() 零优先级） */
 .wf-evenly {
   display: flex;
   justify-content: space-evenly;
+}
+:where(.wf-evenly) {
   align-items: var(--wf-align, center);
   gap: var(--wf-gap, var(--wf-gap-md));
 }

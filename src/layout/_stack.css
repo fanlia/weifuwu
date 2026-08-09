@@ -1,7 +1,10 @@
-/* stack — 纵向堆叠 */
+/* stack — 纵向堆叠（L3：gap 默认值 :where() 零优先级——wf-gap-* 等覆盖工具
+   靠优先级获胜，不再依赖 import 顺序） */
 .wf-stack {
   display: flex;
   flex-direction: column;
+}
+:where(.wf-stack) {
   gap: var(--wf-gap, var(--wf-gap-md));
 }
 @media (min-width: 640px) { .wf-stack\@sm { flex-direction: row; align-items: var(--wf-align, center); } }
@@ -12,6 +15,8 @@
 .wf-stack-reverse {
   display: flex;
   flex-direction: column-reverse;
+}
+:where(.wf-stack-reverse) {
   gap: var(--wf-gap, var(--wf-gap-md));
 }
 @media (min-width: 640px) { .wf-stack-reverse\@sm { flex-direction: row-reverse; align-items: var(--wf-align, center); } }

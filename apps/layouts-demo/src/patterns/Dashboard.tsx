@@ -71,8 +71,8 @@ export const Dashboard: Component = (_init, ctx) => {
     const data = DATA[$.period] ?? DATA['30d']
     return (
       <div class="wf-stack wf-gap-lg wf-p-lg wf-scroll" style={{ minHeight: 'calc(100vh - 48px)' }}>
-        {/* 页头 + 时间范围切换 */}
-        <div class="wf-between">
+        {/* 页头 + 时间范围切换（wf-row 提供 wrap——窄屏切换器折行，不挤压标题） */}
+        <div class="wf-row wf-between">
           <PageHeader title="经营仪表盘" sub="实时经营数据 · 自动刷新" />
           <SegmentedControl
             value={$.period}

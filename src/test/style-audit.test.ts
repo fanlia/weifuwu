@@ -96,13 +96,35 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(missing, [], `缺少 focus 规则的交互组件: ${missing.join(', ')}`)
   })
 
-  it(':root token 数量与 README 声明同步', () => {
-    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
-    const count = (tokens.match(/^ {2}--wf-/gm) || []).length
-    assert.ok(count > 100, `token 数异常: ${count}`)
+  it('token/原语/工具类计数与全部文档声明同步（L0 单一事实源）', async () => {
+    const { inventory } = await import('../../scripts/layout-inventory.mjs')
+    const inv = inventory()
+    assert.ok(inv.tokens > 100, `token 数异常: ${inv.tokens}`)
+    assert.ok(inv.primitives > 30, `原语数异常: ${inv.primitives}`)
 
-    const readme = readFileSync(join(root, 'README.md'), 'utf-8')
-    assert.match(readme, new RegExp(`${count} 个主题 Token`), `README 应声明 ${count} 个主题 Token`)
+    // 所有宣称计数的文档/源码必须与清单脚本输出一致（数字漂移 = 立即红）
+    const files = [
+      'README.md',
+      'docs/layout.md',
+      'docs/components.md',
+      'design/style-system.md',
+      'apps/layouts-demo/README.md',
+      'apps/layouts-demo/src/main.tsx',
+      'apps/layouts-demo/src/patterns/Landing.tsx',
+    ]
+    const patterns: [RegExp, number, string][] = [
+      [/(\d+)\s*个?\s*(?:双层\s*)?主题\s*[Tt]oken/g, inv.tokens, '主题 Token'],
+      [/(\d+)\s*个?\s*布局原语/g, inv.primitives, '布局原语'],
+      [/(\d+)\s*个?\s*工具类/g, inv.utilities, '工具类'],
+    ]
+    for (const f of files) {
+      const text = readFileSync(join(root, f), 'utf-8')
+      for (const [re, expected, label] of patterns) {
+        for (const m of text.matchAll(re)) {
+          assert.equal(Number(m[1]), expected, `${f} 声明"${m[0]}"，实际 ${expected} ${label}`)
+        }
+      }
+    }
   })
 
   it('prefers-reduced-motion 降级块存在', () => {
@@ -360,6 +382,111 @@ describe('样式审计 — 设计约束', () => {
       }
     }
     assert.deepEqual(violations, [], '组件禁止直接 DOM 全局引用——统一经 ctx.browser/useXXX（AGENTS.md 浏览器环境纪律）')
+  })
+
+  it('布局原语组合冲突防线（wf-nav×wf-row 静默失效教训——L1）', async () => {
+    const { inventory, conflictMatrix } = await import('../../scripts/layout-inventory.mjs')
+    const inv = inventory()
+    // 用户可组合的布局身份类（语义内部类 nav-item/sidebar-* 与纯工具不参与组合，排除）
+    const CONTAINER = new Set([
+      'wf-stack', 'wf-stack-reverse', 'wf-row', 'wf-row-reverse', 'wf-cluster', 'wf-grid',
+      'wf-nav', 'wf-between', 'wf-right', 'wf-around', 'wf-evenly', 'wf-center',
+      'wf-top', 'wf-bottom', 'wf-stretch', 'wf-nowrap',
+      'wf-block', 'wf-inline', 'wf-inline-block', 'wf-contents', 'wf-hidden', 'wf-flex',
+      'wf-cover', 'wf-pop', 'wf-pin', 'wf-anchor', 'wf-layer', 'wf-sticky',
+      'wf-scroll', 'wf-clip', 'wf-fill', 'wf-fixed', 'wf-flex-none', 'wf-auto', 'wf-shrink',
+      'wf-split', 'wf-app-shell', 'wf-container',
+    ])
+    const conflicts = conflictMatrix(inv).filter((p) => CONTAINER.has(p.a) && CONTAINER.has(p.b))
+    const isConflict = (a: string, b: string) =>
+      conflicts.some((p) => (p.a === a && p.b === b) || (p.a === b && p.b === a))
+
+    // 已知合法组合（值不同但语义就是搭配使用，import 顺序保证后者胜——逐条登记理由）
+    const ALLOW = new Set([
+      'wf-row+wf-nowrap', // nowrap 存在即为了关 row 的 wrap（_nowrap 后导入获胜）
+      'wf-row-reverse+wf-nowrap', // 同上
+      'wf-row+wf-top', // 对齐工具（top/bottom/stretch）设计即覆盖 row 的 align 默认（后导入获胜）
+      'wf-row+wf-bottom', // 同上
+      'wf-row+wf-stretch', // 同上
+      'wf-hidden+wf-stack', // 响应式显隐模式：hidden 窄屏隐藏 + flex@bp 宽屏恢复（不可用 block@bp——覆盖 flex）
+    ].map((s) => s.split('+').sort().join('+')))
+
+    // 扫描 apps 蓝本 + 组件源码的 class 字符串
+    const targets = [
+      ...globSync('apps/*/src/**/*.tsx', { cwd: root }),
+      ...globSync('src/components/**/*.ts', { cwd: root }),
+    ]
+    const offenders: string[] = []
+    for (const rel of targets) {
+      const src = readFileSync(join(root, rel), 'utf-8')
+      for (const m of src.matchAll(/(?:class|className)=\{?["'`]([^"'`]+)["'`]/g)) {
+        const tokens = m[1].split(/\s+/).filter((t) => t.startsWith('wf-'))
+        // @bp 断点变体 = 条件生效，与基类不构成冲突（wf-hidden wf-block@lg 模式）
+        const bases = tokens.filter((t) => !t.includes('\\@')).map((t) => t.replace(/--[a-z-]+$/, ''))
+        const containers = [...new Set(bases)].filter((t) => CONTAINER.has(t))
+        for (let i = 0; i < containers.length; i++) {
+          for (let j = i + 1; j < containers.length; j++) {
+            const [a, b] = [containers[i], containers[j]]
+            const key = [a, b].sort().join('+')
+            if (isConflict(a, b) && !ALLOW.has(key)) {
+              offenders.push(`${rel}: class="${m[1]}"（${a} × ${b} 同属性不同值，import 顺序定胜负）`)
+            }
+          }
+        }
+      }
+    }
+    assert.deepEqual(offenders, [], `布局原语冲突组合：\n${offenders.join('\n')}`)
+  })
+
+  it('wf-* class 引用必须存在（幽灵类防线——wf-mt-auto 未定义静默失效教训）', async () => {
+    const { inventory } = await import('../../scripts/layout-inventory.mjs')
+    const inv = inventory()
+    const known = new Set(inv.classes.map((c: any) => c.name))
+    const bpOk = new Set(inv.withBreakpoints)
+    // 组件 CSS 定义的类同样合法（含 --modifier）；layout 后代选择器中的类也合法（wf-nav-label 等）
+    for (const m of readComponentCss().matchAll(/\.(wf-[a-z0-9]+(?:-[a-z0-9]+)*(--[a-z-]+)?)/g)) known.add(m[1])
+    for (const m of readLayoutCss().matchAll(/\.(wf-[a-z0-9]+(?:-[a-z0-9]+)*(--[a-z-]+)?)/g)) known.add(m[1])
+
+    const targets = [
+      ...globSync('apps/*/src/**/*.tsx', { cwd: root }),
+      ...globSync('src/components/**/*.ts', { cwd: root }),
+    ]
+    const ghosts: string[] = []
+    for (const rel of targets) {
+      const src = readFileSync(join(root, rel), 'utf-8')
+      for (const m of src.matchAll(/(?:class|className)=\{?["'`]([^"'`]+)["'`]/g)) {
+        for (const tok of m[1].split(/\s+/)) {
+          if (!tok.startsWith('wf-') || /[^a-z0-9@\-]/i.test(tok.replace(/^wf-/, ''))) continue // 模板插值跳过
+          const bpMatch = tok.match(/^(wf-[a-z0-9-]+)@(sm|md|lg)$/)
+          if (bpMatch) {
+            if (!bpOk.has(bpMatch[1])) ghosts.push(`${rel}: ${tok}（${bpMatch[1]} 无断点变体）`)
+          } else if (!known.has(tok)) {
+            ghosts.push(`${rel}: ${tok}（layout 与组件 CSS 均未定义）`)
+          }
+        }
+      }
+    }
+    assert.deepEqual(ghosts, [], `幽灵 wf-* class：\n${ghosts.join('\n')}`)
+  })
+
+  it('CSS 选择器合法（注释内 */ 截断致规则被浏览器静默丢弃——_row.css 教训）', () => {
+    // 注释中的 `*/` 会提前终止注释，后续规则的选择器被垃圾文本污染 → Chrome 静默丢规则
+    // （.wf-row{display:flex} 曾因此整规则丢失，且 Curl 看源码完全正常——只有解析能暴露）
+    const files = [
+      ...globSync('src/layout/_*.css', { cwd: root }),
+      ...globSync('src/components/*/*.css', { cwd: root }),
+    ]
+    const bad: string[] = []
+    for (const rel of files) {
+      // 先剥注释：正常注释整体移除；被 */ 截断的注释会留下 CJK 残留 → 被下方字符集检查抓获
+      const css = readFileSync(join(root, rel), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
+      for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        // 合法选择器字符集：ASCII CSS 符号；出现 CJK/全角等 = 注释截断污染
+        const sel = m[1]
+        if (/[^\x20-\x7E\n]/.test(sel)) bad.push(`${rel}: 非法选择器 ${JSON.stringify(sel.slice(0, 50))}`)
+      }
+    }
+    assert.deepEqual(bad, [], `非法 CSS 选择器：\n${bad.join('\n')}`)
   })
 
   it('组件 CSS class 不与 layout 布局原语冲突（Grid 覆盖 .wf-grid 教训）', () => {

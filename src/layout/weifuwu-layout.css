@@ -31,6 +31,7 @@
 @import './_block.css';
 @import './_inline.css';
 @import './_inline-block.css';
+@import './_flex.css';
 @import './_container.css';
 @import './_contents.css';
 @import './_layer.css';

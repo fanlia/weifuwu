@@ -1143,7 +1143,7 @@ const DemoToggleGroup: Component = (_props, ctx) => {
     <div class="wf-stack wf-gap-sm">
       <ToggleGroup type="single" options={[{ value: 'bold', label: 'B' }, { value: 'italic', label: 'I' }, { value: 'underline', label: 'U' }]} value={single} onChange={(v: any) => { single = v; ctx.ui.render() }} />
       <ToggleGroup type="multiple" options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} value={multi} onChange={(v: any) => { multi = v; ctx.ui.render() }} />
-      <div class="wf-row wf-gap-sm wf-items-center">
+      <div class="wf-row wf-gap-sm">
         <Toggle pressed={pressed} onPressedChange={(p: boolean) => { pressed = p; ctx.ui.render() }}>单个切换</Toggle>
         <span class="wf-text-sm wf-text-secondary">状态：{pressed ? '已按下' : '未按下'}</span>
       </div>
@@ -1242,10 +1242,10 @@ const DemoAnchor: Component = (_props, ctx) => {
   ]
   return () => (
     <div class="wf-w-full wf-row wf-gap-lg" style="align-items: flex-start">
-      <div class="wf-flex-1">
+      <div class="wf-fill">
         {sections.map(s => (
           <div id={s.id} class="wf-border-b wf-pb-md wf-mb-md">
-            <div class="wf-text-base wf-font-semibold wf-mb-sm">{s.title}</div>
+            <div class="wf-text-base wf-text-semibold wf-mb-sm">{s.title}</div>
             <div class="wf-text-sm wf-text-secondary">{s.body}</div>
           </div>
         ))}
@@ -1346,7 +1346,7 @@ const DemoMenubar: Component = () => () => (
 )
 
 const DemoCarousel: Component = () => () => (
-  <div class="wf-max-w-sm">
+  <div class="wf-w-sm">
     <Carousel autoplay interval={2500}>
       {['🟥 第一张', '🟦 第二张', '🟩 第三张'].map((t, i) => (
         <div key={i} class="wf-bg-tertiary wf-p-xl wf-text-center wf-rounded-md">{t}</div>
@@ -1445,7 +1445,7 @@ const DemoTour: Component = (_props, ctx) => {
   return () => (
     <div class="wf-stack wf-gap-md">
       <div class="wf-row wf-gap-md wf-cluster">
-        <button id="tour-a" class="wf-btn wf-btn-primary" onClick={() => { open = true; step = 0; render() }}>开始引导</button>
+        <button id="tour-a" class="wf-btn wf-btn--primary" onClick={() => { open = true; step = 0; render() }}>开始引导</button>
         <button id="tour-b" class="wf-btn" style="pointer-events: none;">第二步目标</button>
         <button id="tour-c" class="wf-btn" style="pointer-events: none;">第三步目标</button>
       </div>
@@ -1588,7 +1588,7 @@ const DemoLayout: Component = (_props, ctx) => {
   return () => (
     <Layout style={{ height: 360, borderRadius: 12, overflow: 'hidden' }}>
       <LayoutSider collapsible collapsed={collapsed} onCollapse={(v) => { collapsed = v; ctx.ui.render() }}>
-        <div class="wf-pad-md wf-text-secondary wf-stack wf-gap-sm">
+        <div class="wf-p-md wf-text-secondary wf-stack wf-gap-sm">
           <b>导航</b>
           <span>仪表盘</span>
           <span>订单</span>
@@ -1684,15 +1684,15 @@ const DemoSpace: Component = () => () => (
 const DemoGrid: Component = () => () => (
   <div class="wf-stack wf-gap-md wf-w-full">
     <Grid gutter={16}>
-      <Col span={8}><div class="wf-surface wf-pad-md wf-text-center">1/3</div></Col>
-      <Col span={8}><div class="wf-surface wf-pad-md wf-text-center">1/3</div></Col>
-      <Col span={8}><div class="wf-surface wf-pad-md wf-text-center">1/3</div></Col>
-      <Col span={12}><div class="wf-surface wf-pad-md wf-text-center">1/2</div></Col>
-      <Col span={12}><div class="wf-surface wf-pad-md wf-text-center">1/2</div></Col>
+      <Col span={8}><div class="wf-surface wf-p-md wf-text-center">1/3</div></Col>
+      <Col span={8}><div class="wf-surface wf-p-md wf-text-center">1/3</div></Col>
+      <Col span={8}><div class="wf-surface wf-p-md wf-text-center">1/3</div></Col>
+      <Col span={12}><div class="wf-surface wf-p-md wf-text-center">1/2</div></Col>
+      <Col span={12}><div class="wf-surface wf-p-md wf-text-center">1/2</div></Col>
     </Grid>
     <Grid flex gap={8}>
-      <div class="wf-surface wf-pad-sm">弹性 A</div>
-      <div class="wf-surface wf-pad-sm">弹性 B</div>
+      <div class="wf-surface wf-p-sm">弹性 A</div>
+      <div class="wf-surface wf-p-sm">弹性 B</div>
     </Grid>
   </div>
 )

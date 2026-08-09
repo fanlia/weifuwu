@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-纯 CSS 布局原语 + 工具类 + 143 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 57 个布局原语 + 136 个工具类 + 164 个主题 Token。不绑定任何 JS 框架。
 
 > **学习路径与命名规范**：见 [`design/style-guide.md`](../design/style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
@@ -25,7 +25,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 
 也支持相对路径：`ctx.ui.css('./src/style.css')`。
 
-## 70 个布局原语
+## 57 个布局原语
 
 | 类别 | 原语 | 效果 |
 |------|------|------|
@@ -44,11 +44,12 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | | `wf-bottom` | align-items: flex-end |
 | | `wf-stretch` | align-items: stretch |
 | **弹性** | `wf-fill` | flex: 1 + min-width: 0 |
-| | `wf-fixed` | flex: none |
+| | `wf-flex-none` | flex: none（`wf-fixed` 为兼容别名——易与 position:fixed 混淆，推荐新名） |
 | | `wf-auto` | flex: auto |
 | | `wf-shrink` | min-width/height: 0 |
 | **Z轴** | `wf-cover` | position: fixed + inset: 0 |
-| | `wf-pop` | position: absolute |
+| | `wf-pin` | position: fixed（角标/浮层锚点，坐标由 inline 控制——相对视口） |
+| | `wf-pop` | position: absolute（容器内角标：配合 `wf-layer`/`wf-anchor` 父级） |
 | | `wf-anchor` | position: relative |
 | | `wf-layer` | position: relative + z-index |
 | | `wf-sticky` | position: sticky |
@@ -60,17 +61,24 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | | `wf-scroll` | overflow: auto |
 | | `wf-clip` | overflow: hidden |
 | **显隐** | `wf-hidden` `wf-hidden@sm/md/lg` | display: none |
+| | `wf-flex` `wf-flex@sm/md/lg` | display: flex（响应式显隐的 flex 容器恢复用——见「组合规则」） |
 | | `wf-block` `wf-block@sm/md/lg` | display: block |
 | | `wf-inline` | display: inline |
 | | `wf-inline-block` | display: inline-block |
 | | `wf-contents` | display: contents |
-| **间距** | `wf-p-*` / `wf-px-*` / `wf-py-*`（xs~2xl） | padding：全/水平/垂直，引用 `--wf-space-*` |
+| | `wf-dim` | opacity 0.7（运行中/历史态淡化） |
+| **间距** | `wf-p-*` / `wf-px-*` / `wf-py-*`（xs~2xl，另有 `wf-p-0`） | padding：全/水平/垂直，引用 `--wf-space-*` |
+| | `wf-m-0` | margin: 0 |
 | | `wf-mt-*` / `wf-mb-*` / `wf-my-*`（xs~2xl） | margin：top/bottom/垂直 |
-| | `wf-mx-auto` / `wf-my-auto` | margin: auto 居中 |
+| | `wf-pt-*` / `wf-pb-*`（xs~2xl） | padding：单侧顶/底（分隔条场景） |
+| | `wf-mx-auto` / `wf-my-auto` / `wf-mt-auto` / `wf-mb-auto` | margin: auto 居中 / flex 列推底 |
 | | `wf-gap-*`（xs~2xl） | 为 flex/grid 原语设置 `--wf-gap` |
 | **尺寸** | `wf-w-full` / `wf-h-full` / `wf-w-auto` | 宽/高 100%、auto |
+| | `wf-w-xs…xl` / `wf-w-max` / `wf-w-md-auto` | 固定宽阶（`--wf-space-*` 派生）/ max-content / md 起 auto |
 | **边框** | `wf-border` / `wf-border-t/b/l/r` | 1px 边框（`--wf-border-width` + `--wf-color-border`） |
-| **面工具** | `wf-bg-secondary/tertiary/brand/success/warning/error/info` | 语义背景色（`--wf-color-*-bg`） |
+| **面工具** | `wf-bg-secondary/tertiary/brand/success/warning/error/info`（`wf-bg-primary` 为 brand 别名） | 语义背景色（`--wf-color-*-bg`） |
+| | `wf-elevate` | 抬升阴影（`--wf-shadow-*`） |
+| | `wf-panel-in` | 内凹面板（次级背景 + 内边距） |
 | | `wf-pill` | 胶囊圆角（999px，状态徽章/标签/色块） |
 | | `wf-rounded-sm` `wf-rounded` `wf-rounded-md` `wf-rounded-lg` | 圆角工具（`--wf-radius-*`） |
 | **气泡** | `wf-bubble` / `wf-bubble--own` / `wf-bubble--ai` | 聊天气泡（pre-wrap + 折行内建） |
@@ -84,13 +92,33 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | | `wf-main` | 主内容区（padding + min-width: 0） |
 | | `wf-text-*` 排版工具 | 见下文「排版工具」 |
 
+### 组合规则（冲突防线）
+
+原语分两类：**布局身份类**（display/position/flex-direction——stack/row/grid/nav/center/cover/pop…）
+与**叠加工具类**（gap/对齐/显隐——叠加在身份类上）。规则：
+
+1. **同一元素只带一个布局身份类**——两个身份类设置同一属性不同值时 import 顺序定胜负，
+   静默失效（事故例：`wf-nav wf-row` → nav 的 column 胜，横向失效；`wf-grid wf-stack` → stack 胜，网格失效）。
+   `style-audit` 静态扫描 class 组合，命中即红。
+2. **对齐工具可叠加**：`wf-top/right/bottom/stretch/between/around/evenly` 专门用于覆盖
+   `wf-row` 等的默认对齐（后导入获胜，组合合法）。`wf-nowrap` 专门关 `wf-row` 的 wrap。
+3. **`wf-center` 是 column 双轴居中**（不是 justify-center）——要“行内水平居中”用 `wf-cluster`，
+   不要 `wf-row wf-center`（center 的 column 方向会静默覆盖 row）。
+4. **响应式显隐用 `wf-flex@bp` 恢复**：`wf-hidden wf-flex@lg` = 窄隐宽显（flex 容器）。
+   不可用 `wf-block@lg`——block 会覆盖 `wf-stack` 的 display:flex，gap/mt-auto 静默失效。
+5. **容器内角标用 `wf-pop`**（父级 `wf-layer`/`wf-anchor`）；`wf-pin` 是相对视口的 fixed，
+   嵌进带壳页面会覆盖壳。
+
+完整冲突矩阵由 `node scripts/layout-inventory.mjs --json` 生成（属性指纹自动推导）。
+
 ### 排版工具（`wf-text-*`）
 
 | 工具 | 效果 |
 |------|------|
 | `wf-text-left/center/right` | text-align |
 | `wf-text-xs…5xl` | 字号（`--wf-font-size-*`） |
-| `wf-text-secondary/tertiary/disabled/brand` | 中性色阶 |
+| `wf-text-secondary/tertiary/disabled/brand`（`wf-text-primary` 为 brand 别名） | 中性色阶 |
+| `wf-nums` | tabular-nums（数值防宽度抖动） |
 | `wf-text-success/warning/error/info` | 语义色文本（`--wf-color-*`） |
 | `wf-text-medium/semibold/bold` | 字重 |
 | `wf-tracking-normal/wide/wider` | letter-spacing |
@@ -101,7 +129,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 | `wf-truncate` | 单行省略（ellipsis） |
 | `wf-line-clamp-2/3` | 多行截断 |
 
-## 143 个主题 Token
+## 164 个主题 Token
 
 **双层结构**：原始层（Primitive，色值只定义一次，品牌/暗色调校改这里）+ 语义层（Semantic，组件消费）。
 

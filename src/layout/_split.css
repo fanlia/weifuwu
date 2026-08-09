@@ -1,7 +1,9 @@
-/* split — 两端展开 */
+/* split — 两端展开（L3：align/gap 默认值 :where() 零优先级） */
 .wf-split {
   display: flex;
   justify-content: space-between;
+}
+:where(.wf-split) {
   align-items: var(--wf-align, center);
   gap: var(--wf-gap, var(--wf-gap-md));
 }

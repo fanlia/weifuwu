@@ -39,7 +39,7 @@ const Shell: Component = (_init, ctx) => {
     return (
       <div class="wf-row wf-gap-none wf-stretch wf-nowrap" style={{ height: '100vh' }}>
         {/* 左侧模式列表 */}
-        <aside class="wf-hidden wf-block@lg wf-stack wf-gap-none wf-p-md wf-bg-secondary wf-border-r" style={{ width: 240, flexShrink: 0, overflow: 'auto' }}>
+        <aside class="wf-hidden wf-flex@lg wf-stack wf-gap-none wf-p-md wf-bg-secondary wf-border-r" style={{ width: 240, flexShrink: 0, overflow: 'auto' }}>
           <div class="wf-pb-md wf-border-b">
             <Space align="center">
               <Icon name="layout" size={18} className="wf-text-primary" />
@@ -75,7 +75,7 @@ const Shell: Component = (_init, ctx) => {
           </nav>
 
           <div class="wf-stack wf-gap-sm wf-mt-auto wf-pt-md wf-border-t">
-            <Text type="secondary" className="wf-text-sm">189 个布局原语</Text>
+            <Text type="secondary" className="wf-text-sm">57 个布局原语 + 136 个工具类</Text>
             <Tag variant="primary">复制即用</Tag>
           </div>
         </aside>

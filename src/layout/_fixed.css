@@ -1,4 +1,6 @@
-/* fixed — 固定不伸缩 */
+/* flex-none — 固定不伸缩（推荐名；wf-fixed 为兼容别名——易与 position:fixed 混淆，
+   position:fixed 请用 wf-pin） */
+.wf-flex-none,
 .wf-fixed {
   flex: none;
 }
