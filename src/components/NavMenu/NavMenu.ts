@@ -155,7 +155,6 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
             openKey = isOpen ? null : item.key
             nestedKey = null
             ctx.ui.render()
-            if (!isOpen) queueMicrotask(() => popup.refresh())
           } else {
             onSelect?.(item.key)
             // 点击叶子项：关闭已展开的子菜单（shadcn NavigationMenu 行为）
@@ -175,7 +174,6 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
           if (e.key === 'ArrowRight' && hasChildren) {
             openKey = item.key
             ctx.ui.render()
-            queueMicrotask(() => popup.refresh())
           } else if (e.key === 'Escape') {
             openKey = null
             nestedKey = null
