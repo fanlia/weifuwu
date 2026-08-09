@@ -208,3 +208,40 @@ SPA serveUI = 另一落地（VDOM → DOM）——handler 只产出 VDOM，落�
   - 中间件两阶段（外层拿 children，内层调 children 得子 VNode 包装）
   - FS-02：ctx 注入 C 泛型编译期保证（负例 @ts-expect-error 生效）
 - 纯类型改动——typecheck + 全量 1965 绿
+
+### 独立实现：ui-dom（2026-10，完全零依赖 src/client，17 测试绿）
+
+> 定稿架构从零独立落地为 `src/ui-dom/`（**不 import src/client 任何代码**，不共享 idRegistry/ctx 状态）——避免与 createApp 渲染运行时交叉命中。开发期只跑 ui-dom 测试。
+
+**文件结构**（`src/ui-dom/`）：
+
+| 文件 | 职责 |
+|------|------|
+| `types.ts` | `UIRequest`(=Location) / `UIResponse`(=VNode) / `UIHandler` / `UIMiddleware` / `UIContext`（params/query/ui.$/ui.data/__registry） |
+| `vnode.ts` | VNode 数据结构 + h/jsx/jsxs（**不 declare global JSX**——避免与 client 命名空间冲突） |
+| `reactive.ts` | 深度 Proxy 响应式 $（赋值通知 + `__watch` 订阅） |
+| `render.ts` | VDOM：`renderValue` 挂载 / `patchValue` 增量 diff / `hydrateValue` 收养 / 组件两阶段 + 组件级重渲染 |
+| `registry.ts` | 组件注册表（id 分配 + dirty 集合 + onDirty 调度） |
+| `router.ts` | `UIRouter`（use/get/notFound/serve/close）+ `serveUI` |
+| `ssr.ts` | `renderHtml(vnode)` → HTML（SSR 落地中间件） |
+
+**实现要点**（每项都有测试/冒烟验证）：
+
+- **req = window.location / res = VNode / serveUI = VDOM**：handler `async (location, ctx) => vnode`；落地由 `renderValue`/`patchValue`（VDOM）完成
+- **$ 两层绑定**：
+  - 路由实例级 `$`（handler 的 `ctx.ui.$()`）——赋值 → 重渲染 handler（data 缓存命中，不重取数）
+  - 组件级 `$`（子组件 `ctx.ui.$()` 覆盖为组件状态）——赋值 → dirty(id) → 仅重渲染该组件（**父 handler 不重跑**，counter-a 点击不影响 counter-b）
+- **中间件链洋葱**：`use(mw)` 从最外层向内组装；内层 render `async + await children(loc, c)`（children 是 async handler，返回 Promise——demo 曾因不 await 渲染出 `<undefined>`）
+- **子路由**：`use(prefix, subRouter)` 展开子路由 + 前缀拼接
+- **keyed children diff**：同 key 复用 DOM 不重建，顺序移动（轮转验证 b,c,a）
+- **style diff**：旧 style 消失键清除（`Object.assign` 不清旧键）
+- **SSR/hydration**：`renderHtml` 转义/事件剔除/boolean 属性；`hydrateValue` **消费游标**（WeakMap per-parent）对齐 VNode children 与 DOM 子节点顺序——修复多子节点错位（h2+button+span 时 button onClick 未接线的根因）
+- **路由参数**：`/users/:id` → `ctx.params.id`（浏览器冒烟验证 =42）；query 注入 ctx.query
+
+**测试**（`src/test/ui-dom.test.ts`，14 测试 + 冒烟）：
+- serveUI 渲染 / async handler 取数（ctx.data 缓存）/ $ 重渲染（fetchCount=1）/ 中间件链 / 子路由 / 404
+- 响应式深度 / VDOM diff 复用 / keyed 重排增删 / style diff / renderHtml SSR / serveUI hydrate 收养+事件
+- 交互子组件：点击 inc-a 只更新 a（handler 不重跑）
+- **浏览器冒烟**（`apps/ui-router-demo`，agent-browser 实测）：首页渲染 / 计数器交互 / keyed 轮转 / 导航 /users/42（params）/ 404 / history back
+
+**当前状态**：S1-S4 的 ui-dom 侧能力齐备（类型/路由/serve/VDOM/SSR/hydration）；**S4 平行导出（weifuwu/client 新增）与 S5 替换尚未做**——等 ui-dom 在真实 app 进一步验证后推进。

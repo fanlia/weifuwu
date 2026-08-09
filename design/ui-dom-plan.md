@@ -79,4 +79,11 @@ D5（收尾）── 全部后
 
 ## 验收记录
 
-（每阶段完成后填写）
+| 阶段 | 内容 | 验证 | 状态 |
+|------|------|------|------|
+| D1 | 组件级重渲染（交互子组件 $ 响应式，父 handler 不重跑） | +1 测试（点击 counter-a 只更新 a）；agent-browser 实测 | ✅ |
+| D2 | keyed children diff + style 属性 diff | +3 测试（重排复用/增删/style 键清除） | ✅ |
+| D3 | 浏览器冒烟（apps/ui-router-demo） | agent-browser 全过：渲染/交互/导航/params/404/back | ✅ |
+| D4 | SSR（renderHtml）+ hydration（收养式接管） | +2 测试；消费游标修复多子节点错位 | ✅ |
+| D5 | 收尾：ui-architecture.md 验收记录 + docs/frontend-ui-dom.md + README | 文档同步 | ✅ |
+
