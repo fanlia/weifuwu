@@ -47,11 +47,9 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
   $.copiedPath = undefined as string | undefined
 
   // collapsed = 当前折叠态（render 层传入）：折叠中点击 → 展开（false）；
-  // 展开中点击 → 收起（true）。旧实现 !$.expanded 对"深度默认折叠"节点
-  // （undefined）点击设 true 仍是折叠——需两次点击才展开
+  // 展开中点击 → 收起（true）。$ 赋值自动 dirty（动态 selfId——见 ui.ts $ 实现）
   const toggle = (path: string, selfId?: string, collapsed?: boolean) => {
     $.expanded[path] = collapsed === undefined ? !$.expanded[path] : (collapsed ? false : true)
-    if (selfId) ctx.ui.dirty([selfId])
   }
 
   // 复制：clipboard API + execCommand 降级（非 secure context 下 clipboard 不可用——

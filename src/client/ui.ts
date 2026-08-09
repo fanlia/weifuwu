@@ -117,8 +117,13 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
     $: function () {
       const uiThis = this as any
       if (!uiThis._$cache) {
-        const selfId = getSelfId(this)
-        uiThis._$cache = createReactiveState(() => ctx.ui!.dirty(selfId ? [selfId] : undefined))
+        // dirty 回调动态解析 selfId（而非 mount 一次性捕获）：
+        // 优先 _selfVNode._id（vnode 复用时 id 稳定且正确）——避免组件在
+        // 无状态包裹/重挂载场景下 $ 状态赋值渲染孤儿实例（交互静默失效）
+        uiThis._$cache = createReactiveState(() => {
+          const id = uiThis._selfVNode?._id ?? getSelfId(uiThis)
+          if (id) ctx.ui!.dirty([id])
+        })
       }
       return uiThis._$cache
     },

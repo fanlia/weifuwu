@@ -371,3 +371,124 @@ P2-2 ──（独立）
 
 - 不做 FLIP/共享元素/物理动画/useTransitionEnd（useAnimationEnd 预留 event 参数）
 - useDialog 重构为可选（现有状态机稳定，收益<风险时保留）
+
+---
+
+# JSONViewer 编码复盘：client 层启示（2026-08）
+
+> JSONViewer（递归 JSON 树）编码暴露 4 个 client 问题，其中 2 个确认需优化、1 个待深挖、1 个已文档化。
+> 均以真实用户报告 + agent-browser 探针定位，非理论推测。
+
+## 问题 1：`$` selfId 捕获策略脆弱（确认，需优化）
+
+**现象**：`$` 状态赋值后 DOM 不更新（交互静默失效，无 console 错误）。
+JSONViewer 折叠/复制反馈均受影响。
+
+**证据链**（探针）：
+- render 期 `ctx.ui._selfId` = `_wf_375` vs `$` 捕获 `_wf_193`——错位
+- `dollarSame: false`——click 闭包的 `$` ≠ render 闭包的 `$`
+- 折叠最终靠 **render 期捕获 selfId + 显式 `ctx.ui.dirty([selfId])`** 修复（workaround）
+
+**根因**：`ctx.ui.$()` 的 dirty 回调在 **mount 时捕获 selfId**（ui.ts `$: function` 内
+`const selfId = getSelfId(this)` 一次性闭包）。组件在**无状态包裹（`() => ()`）/
+重挂载（VNode 重挂载但 `_render` 复用）**场景下，捕获的 selfId 与实际渲染实例错位
+→ dirty 渲染孤儿实例 → DOM 永不更新。
+
+**client 优化建议**（2 选 1，推荐 A）：
+
+```ts
+// A. $ 内部动态解析（推荐——组件零改动）
+$: function () {
+  const uiThis = this as any
+  if (!uiThis._$cache) {
+    // dirty 回调每次从 _selfVNode 动态读当前 id（而非 mount 捕获）
+    uiThis._$cache = createReactiveState(() => {
+      const id = uiThis._selfVNode?._id ?? getSelfId(uiThis)
+      if (id) ctx.ui!.dirty([id])
+    })
+  }
+  return uiThis._$cache
+}
+
+// B. 提供 ctx.ui.selfId() 动态方法（组件显式用）
+selfId: function () { return getSelfId(this) ?? this._selfVNode?._id }
+```
+
+**验证方式**：JSONViewer 移除 workaround（render 期 selfId + 显式 dirty）后折叠/复制
+反馈仍正常——agent-browser 必测（jsdom mock `$` 纯对象掩盖）。
+
+## 问题 2：渲染期回调被 `_rendering` 保护忽略（确认，需优化）
+
+**现象**：Anchor 滚动高亮不更新——render 期间调 `onAnchorChange` → 父层
+`ctx.ui.render()` 被 `_rendering` 保护静默丢弃。
+
+**根因**：`render()`/`dirty()` 在渲染期（isRendering）调用直接 return（保护防重入）——
+组件 render 函数内调父层 setState 是合法需求（antd onChange 滚动语义），但被丢弃。
+
+**client 优化建议**：`render()`/`dirty()` 在渲染期调用时**推迟到微任务**（而非直接忽略）：
+```ts
+dirty: function (ids) {
+  if (isRendering()) { queueMicrotask(() => this.dirty(ids)); return }  // 推迟而非丢弃
+  ...
+}
+```
+**注意**：需防无限循环（渲染期回调 → 微任务 render → 渲染期又回调……）——加
+"同批次推迟最多一次"或依赖 onAnchorChange 幂等（当前 JSONViewer/Anchor 用
+`queueMicrotask(() => onAnchorChange?.(...))` + lastNotified 去重已规避）。
+
+## 问题 3：无状态包裹子组件 ctx 一致性（待深挖）
+
+**现象**：JSONViewer 在无状态 demo（`() => ()` 包裹）里 `$` 交互失效；有状态 demo
+（Menu 等用 ctx）正常。疑似无状态包裹子树的 ctx 注入路径与有状态不同。
+
+**现状**：diff.ts/render.ts 均注入 childCtx（`Object.create(ctx)` + `_selfId`）——理论上
+一致。但 JSONViewer 的 `$` 捕获与 render 期 selfId 实测错位，无法完全用"多实例
+querySelector 混淆"解释复制反馈失效（同一实例内 $ 也应一致）。
+
+**待验证**：渲染器对 `() => ()` 无状态组件子树的挂载路径（是否每次 render 重新
+mount 子组件 → 旧闭包 DOM 事件绑定 + 新实例 vnode——onClick 闭包与 vnode 错位）。
+
+**若确认**：优化点为 diff 复用逻辑——**DOM 事件（onClick 闭包）与 vnode id 必须同源**
+（要么全部复用旧闭包，要么全部换新——不能 vnode 换新而事件留旧）。
+
+## 问题 4：微任务批处理时序（已文档化，测试/调试纪律）
+
+**现象**：`dirty()` 微任务批处理——程序化 `.click()` 后**同步查 DOM 看不到变化**
+（渲染在微任务里）——JSONViewer 多次被误判"点击无效"。
+
+**纪律**（AGENTS.md 已补）：agent-browser 交互验证必须**异步等待**（sleep 0.5-0.8s）
+再断言 DOM；jsdom 测试中 `flushMicrotasks` 后再断言。
+
+## 组件侧模式沉淀（已内化，非 client 改动）
+
+1. **交互反馈用 DOM 级直接操作**（复制 check 图标 1s）——不依赖渲染管线
+   （`$` 跨闭包不一致场景下渲染级反馈不可靠）
+2. **toggle 语义明确**：传当前状态（折叠→展开、展开→收起），三态
+   `$.expanded[path]`（undefined 默认/false 手动展开/true 手动收起）
+3. **整行点击大命中区**：折叠行/header 行 role=button + Enter/Space——
+   16px chevron 触屏点不到（style-audit 触屏 44px 规则覆盖按钮，整行兜底）
+
+## 优先级
+
+| 项 | 影响面 | 成本 | 建议 |
+|----|--------|------|------|
+| 问题 1（$ selfId 动态化） | 所有 `$` 组件重挂载场景 | 低（单点改 ui.ts） | **✅ 已修复**（见下） |
+| 问题 2（渲染期回调推迟） | Anchor 模式（滚动通知父层） | 中（防循环） | 与问题 1 同轮评估 |
+| 问题 3（无状态包裹 ctx） | 组件库全部无状态 demo 包裹 | 中（渲染器 diff） | 深挖确认后定 |
+| 问题 4（时序纪律） | 测试/调试 | 已文档化 | 完成 |
+
+## 问题 1 修复实录（$ 动态 selfId）
+
+**改动**（ui.ts `$: function`）：dirty 回调从 **mount 一次性捕获 selfId** 改为
+**每次动态解析**——优先 `_selfVNode._id`（vnode 复用时 id 稳定且正确），兜底
+`getSelfId`。
+
+**验证**（agent-browser 决定性实验）：
+- JSONViewer **移除 workaround**（render 期 selfId + 显式 `ctx.ui.dirty([selfId])`）
+  后——纯 `$` 赋值折叠/展开/root 收起**全部正常**（此前依赖显式 dirty）
+- 复制反馈 DOM 级（不依赖渲染）保持正常
+- Menu 子菜单（同用 $）回归正常；1539/1539 全绿
+
+**结论**：`$` 自动 dirty 在无状态包裹/重挂载场景的失效根因 = **mount 捕获 selfId
+与 vnode 复用后的实际 id 错位**——动态解析根治。组件库后续交互组件可放心只用
+`$` 赋值（无需显式 dirty workaround）。
