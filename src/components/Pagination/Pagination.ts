@@ -12,7 +12,16 @@ export interface PaginationProps {
 
 export const Pagination: Component<PaginationProps> = (_init, ctx) =>
   (props) => {
-  const { total, page = 1, pageSize = 20, onChange } = props
+  const { total, pageSize = 20 } = props
+
+  // useControlled：受控/非受控统一（原非受控不可翻页——受控纪律违规）
+  const ctrl = ctx?.ui?.useControlled<number>({ value: props.page, onChange: props.onChange, name: 'Pagination' })
+  const page = ctrl?.value ?? 1
+  const go = (p: number) => {
+    const wasControlled = ctrl?.controlled
+    ctrl?.setValue(p)
+    if (!wasControlled) props.onChange?.(p)
+  }
   const PL = (ctx as any)?.i18n?.components?.Pagination ?? {}
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
@@ -25,7 +34,7 @@ export const Pagination: Component<PaginationProps> = (_init, ctx) =>
     class: `wf-page-btn${page <= 1 ? ' wf-page-btn--disabled' : ''}`,
     disabled: page <= 1,
     'aria-label': PL.prevAria ?? '上一页',
-    onClick: page > 1 && onChange ? () => onChange(page - 1) : undefined,
+    onClick: page > 1 ? () => go(page - 1) : undefined,
   }, h(Icon, { name: 'chevron-left' })))
 
   // page numbers
@@ -37,7 +46,7 @@ export const Pagination: Component<PaginationProps> = (_init, ctx) =>
       pages.push(h('button', {
         class: `wf-page-btn${p === page ? ' wf-page-btn--active' : ''}`,
         'aria-current': p === page ? 'page' : undefined,
-        onClick: p !== page && onChange ? () => onChange(p as number) : undefined,
+        onClick: p !== page ? () => go(p as number) : undefined,
       }, String(p)))
     }
   }
@@ -47,7 +56,7 @@ export const Pagination: Component<PaginationProps> = (_init, ctx) =>
     class: `wf-page-btn${page >= totalPages ? ' wf-page-btn--disabled' : ''}`,
     disabled: page >= totalPages,
     'aria-label': PL.nextAria ?? '下一页',
-    onClick: page < totalPages && onChange ? () => onChange(page + 1) : undefined,
+    onClick: page < totalPages ? () => go(page + 1) : undefined,
   }, h(Icon, { name: 'chevron-right' })))
 
   return h('nav', { class: 'wf-pagination', 'aria-label': PL.ariaLabel ?? '分页' }, pages)

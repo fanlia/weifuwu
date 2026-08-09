@@ -25,14 +25,21 @@ const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
 /** 颜色选择（对应 antd/EP ColorPicker 预设版）：触发按钮 + 色板弹层 + hex 输入。
  * 裁剪：不做吸管/自由取色/透明度（预设色板 + hex 输入覆盖 90% 场景）。 */
-export const ColorPicker: Component<ColorPickerProps> = (_init, _ctx) =>
+export const ColorPicker: Component<ColorPickerProps> = (_init, ctx) =>
   (props) => {
     const {
-      value, onChange, colors = DEFAULT_COLORS,
+      colors = DEFAULT_COLORS,
       size = 'md', disabled, showInput, 'aria-label': ariaLabel,
     } = props
 
-    const current = value ?? ''
+    // useControlled：受控/非受控统一（原非受控不可选色——受控纪律违规）
+    const ctrl = ctx?.ui?.useControlled<string>({ value: props.value, onChange: props.onChange, name: 'ColorPicker' })
+    const select = (v: string) => {
+      const wasControlled = ctrl?.controlled
+      ctrl?.setValue(v)
+      if (!wasControlled) props.onChange?.(v)
+    }
+    const current = ctrl?.value ?? ''
 
     const swatches = colors.map(c =>
       h('button', {
@@ -40,7 +47,7 @@ export const ColorPicker: Component<ColorPickerProps> = (_init, _ctx) =>
         class: `wf-color-picker-swatch${c.toLowerCase() === current.toLowerCase() ? ' wf-color-picker-swatch--sel' : ''}`,
         style: { background: c },
         'aria-label': c,
-        onClick: () => onChange?.(c),
+        onClick: () => select(c),
       })
     )
 
@@ -55,7 +62,7 @@ export const ColorPicker: Component<ColorPickerProps> = (_init, _ctx) =>
         spellcheck: 'false',
         onInput: (e: any) => {
           const raw = e.target.value.trim()
-          if (HEX_RE.test(raw)) onChange?.(raw)
+          if (HEX_RE.test(raw)) select(raw)
         },
       }))
     }
