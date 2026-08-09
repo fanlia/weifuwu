@@ -61,7 +61,7 @@ const defaultLabels: AiChatLabels = {
   stop: '停止',
   retry: '重试',
   thinking: '🤔 思考中…',
-  runningTool: (name) => (name ? `⚙️ 执行工具 ${name}` : '⚙️ 执行工具…'),
+  runningTool: (name) => (name ? `执行工具 ${name}` : '执行工具…'),
   tokens: (u) => `tokens: ${u.prompt_tokens}→${u.completion_tokens}`,
   error: (e) => `${e.code}: ${e.message}`,
   placeholder: '输入消息，回车发送…',

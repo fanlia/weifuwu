@@ -16,7 +16,7 @@ node server.ts        # → http://localhost:3000
 - 吸顶导航：9 个分组锚点（横向滚动）+ **搜索过滤**（按组件名实时过滤卡片/空分组隐藏）
 - **hash 深链**：`/#sec-导航组件` 直达分组（客户端渲染后 scrollIntoView 补跳）
 - 主题切换（自动/亮色/暗色）+ 中英切换
-- 计数与框架实测同步（109 组件 / 811 测试——style-audit 强制，漂移即红）
+- 计数与框架实测同步（109 组件 / 812 测试——style-audit 强制，漂移即红）
 
 ## 验证矩阵（agent-browser 实测，2026-08）
 
@@ -49,6 +49,11 @@ node server.ts        # → http://localhost:3000
 | ContextMenu / Tour / JSONViewer / Editor / ThemeSwitch | 右键打开 / 引导弹层 / 折叠 / contenteditable / 主题切换 | ✓ |
 | Kanban | 5 卡片 draggable | ✓（合成事件不做完整拖放） |
 | Slider | 原生 range——合成键事件不动为预期（不可信事件限制） | ✓ |
+| VirtualList / VirtualTable | 滚动窗口移动（scrollTop 3000/5000 → 行 78/121） | ✓ |
+| InfiniteScroll | sentinel 入视口加载更多（10→15 条） | ✓ |
+| AiChat | 流式对话 ✓；Agent 模式：工具卡→进度→审批卡→结果→流式答案全链路 | ✓ |
+| Kanban | 真实 CDP 拖拽跨列移动 | ✓ |
+| Popconfirm / Popover / HoverCard / Accordion / Carousel / SearchInput / FileUpload | 打开/确认/清除/切换 | ✓ |
 
 > 走查纪律（附录 A）：真实交互前必须 reload/重开清状态——会话残留会制造假 bug
 > （Select "无匹配"与 Tree "塌陷"均为残留假象，重开后复测通过）。

@@ -60,7 +60,7 @@ export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx) =>
 
     return h('div', { class: `wf-toolcall wf-toolcall--${state}` }, [
       h('div', { class: 'wf-toolcall-header' }, [
-        h('span', { class: `wf-toolcall-icon wf-toolcall-icon--${state}` }, stateIcon[state]),
+        h('span', { class: `wf-toolcall-icon wf-toolcall-icon--${state}` }, h(Icon, { name: stateIcon[state] })),
         h('span', { class: 'wf-toolcall-name' }, call.name),
       ]),
       h('div', { class: 'wf-toolcall-body' }, [argsNode, progressNode, errorNode].filter(Boolean)),
