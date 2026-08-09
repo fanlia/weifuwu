@@ -28,7 +28,18 @@ function mount(Comp: any, props: any, ctx: any) {
 }
 
 const mockCtx = () => ({
-  ui: { $: () => ({}), render: () => {}, dirty: () => {} },
+  ui: {
+    $: () => ({}),
+    render: () => {},
+    dirty: () => {},
+    usePopup: (opts: any) => ({
+      get open() { return opts.isOpen() },
+      setOpen: opts.setOpen,
+      refresh: () => {},
+      portal: (content: any) => content,
+      wrapProps: {},
+    }),
+  },
 }) as any
 
 const items = [
@@ -90,6 +101,72 @@ describe('NavMenu', () => {
     vnode = inst.render({ items })
     const sub = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-navmenu-sub--open'))
     assert.equal(sub, null, 'Escape 关闭子菜单')
+  })
+
+  test('嵌套子菜单：默认不渲染，hover 展开（不无条件拼接）', () => {
+    const ctx = mockCtx()
+    const inst = mount(NavMenu, { items }, ctx)
+    // 未展开：嵌套内容不在（防文字拼接 APIRESTWebSocket）
+    let vnode = inst.render({ items })
+    const nested0 = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--nested'))
+    assert.equal(nested0, null, '嵌套子菜单默认不渲染')
+    // 打开文档子菜单（hover）
+    vnode.props.children[1].props.onMouseEnter()
+    vnode = inst.render({ items })
+    // 找到 API 嵌套项 → hover 展开嵌套
+    const apiItem = vnode.props.children[1].props.children
+    const walkSub = (v: any): any => {
+      if (!v || typeof v !== 'object') return null
+      if (String(v.props?.class ?? '').includes('wf-navmenu-sub-item') && v.props.children?.some?.(c => String(c?.props?.children ?? '') === 'API')) return v
+      const ks = v.props?.children
+      if (Array.isArray(ks)) { for (const k of ks) { const f = walkSub(k); if (f) return f } }
+      else if (ks && typeof ks === 'object') return walkSub(ks)
+      return null
+    }
+    const api = walkSub(vnode)
+    assert.ok(api, '找到 API 嵌套项')
+    api.props.onMouseEnter()
+    vnode = inst.render({ items })
+    const nested = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--nested'))
+    assert.ok(nested, 'hover API 展开嵌套子菜单')
+    // 嵌套内容包含 REST
+    const rest = findVNode(vnode, (v: any) => String(v.props?.children ?? '') === 'REST')
+    assert.ok(rest, '嵌套展开后 REST 出现')
+  })
+
+  test('ref 稳定：同一 key 多次渲染 ref 引用不变（防内联 ref 重复执行）', () => {
+    const ctx = mockCtx()
+    const inst = mount(NavMenu, { items }, ctx)
+    const v1 = inst.render({ items })
+    // 顶层 item refs
+    const refs1 = v1.props.children.map((c: any) => c.props.ref)
+    const v2 = inst.render({ items })
+    const refs2 = v2.props.children.map((c: any) => c.props.ref)
+    assert.equal(refs1.length, refs2.length)
+    for (let i = 0; i < refs1.length; i++) {
+      assert.equal(refs1[i], refs2[i], `item ${i} ref 引用稳定（mount 缓存）`)
+    }
+    // 展开子菜单后嵌套 ref 也稳定
+    v2.props.children[1].props.onMouseEnter()
+    const v3 = inst.render({ items })
+    const sub = v3.props.children[1].props.children
+    const findSubItem = (v: any, label: string): any => {
+      if (!v || typeof v !== 'object') return null
+      const kids = v.props?.children
+      const labelText = Array.isArray(kids)
+        ? (kids.find((k: any) => String(k?.props?.class ?? '').includes('wf-navmenu-sub-label'))?.props?.children ?? '')
+        : String(kids ?? '')
+      if (labelText === label && String(v.props?.class ?? '').includes('wf-navmenu-sub-item')) return v
+      if (Array.isArray(kids)) { for (const k of kids) { const f = findSubItem(k, label); if (f) return f } }
+      else if (kids && typeof kids === 'object') return findSubItem(kids, label)
+      return null
+    }
+    const api1 = findSubItem(v3, 'API')
+    assert.ok(api1, 'API 嵌套项')
+    const refA = api1.props.ref
+    const v4 = inst.render({ items })
+    const api2 = findSubItem(v4, 'API')
+    assert.equal(api2.props.ref, refA, '嵌套 ref 引用稳定')
   })
 
   test('activeKey 受控高亮', () => {
