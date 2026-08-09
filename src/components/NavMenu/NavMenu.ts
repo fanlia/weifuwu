@@ -160,6 +160,9 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
             if (!isOpen) queueMicrotask(() => popup.refresh())
           } else {
             onSelect?.(item.key)
+            // 点击叶子项：关闭已展开的子菜单（shadcn NavigationMenu 行为）
+            popup.setOpen(false)
+            nestedPopup.setOpen(false)
           }
         },
         onMouseEnter: () => {

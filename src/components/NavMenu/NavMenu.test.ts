@@ -169,6 +169,28 @@ describe('NavMenu', () => {
     assert.equal(api2.props.ref, refA, '嵌套 ref 引用稳定')
   })
 
+  test('点击叶子项关闭已展开子菜单', () => {
+    const ctx = mockCtx()
+    let openChanged = false
+    const inst = mount(NavMenu, { items, onSelect: () => {} }, ctx)
+    // hover 打开文档子菜单
+    let vnode = inst.render({ items })
+    vnode.props.children[1].props.onMouseEnter()
+    vnode = inst.render({ items })
+    const sub = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--open'))
+    assert.ok(sub, '子菜单已打开')
+    // 点击首页叶子项 → onSelect + 关闭（setOpen(false) 触发）
+    const home = vnode.props.children[0]
+    home.props.onClick()
+    // mock setOpen 记录关闭调用（通过 usePopup 的 setOpen 包装）
+    // 组件内 popup.setOpen(false) → mock 的 setOpen 直接执行 opts.setOpen(false)
+    // ——验证：重新渲染后无子菜单（openKey 被清）
+    vnode = inst.render({ items })
+    const subAfter = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-sub--open'))
+    assert.equal(subAfter, null, '点击叶子项后子菜单关闭')
+    void openChanged
+  })
+
   test('activeKey 受控高亮', () => {
     const vnode = renderVNode(NavMenu, { items, activeKey: 'about' }, mockCtx())
     const active = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-navmenu-item--active'))
