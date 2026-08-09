@@ -13,12 +13,14 @@ export interface CardProps {
   /** 选中态（边框高亮 + 品牌浅底），适合选择卡片 */
   active?: boolean
   onClick?: () => void
+  className?: string
+  style?: Record<string, string>
   children?: any
 }
 
 export const Card: Component<CardProps> = (_init, _ctx) =>
   (props) => {
-  const { variant = 'default', padding = 'md', clickable, hover, active, onClick, children } = props
+  const { variant = 'default', padding = 'md', clickable, hover, active, onClick, className, style, children } = props
 
   const cls = [
     'wf-card',
@@ -31,7 +33,8 @@ export const Card: Component<CardProps> = (_init, _ctx) =>
   ].filter(Boolean).join(' ')
 
   return h('div', {
-    class: cls,
+    class: className ? `${cls} ${className}` : cls,
+    style,
     onClick,
     role: clickable ? 'button' : undefined,
     tabindex: clickable ? 0 : undefined,

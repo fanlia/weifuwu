@@ -546,7 +546,7 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 
 ## 8. 设计系统维护（layout/components）
 
-`style-audit`（`src/test/style-audit.test.ts`，23 条规则）是设计约束的防护网——改 CSS/组件不得违反，违反即测试红：
+`style-audit`（`src/test/style-audit.test.ts`，25 条规则）是设计约束的防护网——改 CSS/组件不得违反，违反即测试红：
 
 ### 动效语言（P0）
 - 动效 Token：`--wf-dur-*`（时长阶梯）、`--wf-ease-*`（缓动曲线）、`--wf-motion-*`（位移量）——组件动效统一引用，禁止各自硬编码
@@ -572,6 +572,14 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 ### 键盘可达红线（P1）
 - **可聚焦就必须可操作**：`role="button"`/`tabindex` 的元素必须有 Enter/Space 处理；方向键导航（Tabs/DatePicker）必须焦点跟随
 - 浮层类（Modal/Drawer/Dropdown/Popover/Tooltip）Escape 关闭；Modal 系焦点 trap + 归还；Confirm 默认 `maskClosable=false`（危险操作防误触）
+
+### 布局蓝本纪律（apps/layouts-demo，红线）
+`apps/layouts-demo` 的每个布局模式是"复制即用"蓝本——**开发者抄的就是规范用法**，因此：
+- **只使用 weifuwu/layout 原语（wf-* 类）与 weifuwu/components 组件**——布局结构用原语类，内容元素用组件，不自己写组件（裸 div/span 手搓结构），不自己写样式（内联 style / 自定义 CSS）
+- 文本/间距/圆角/背景/边框等一律走原语：`wf-text-*`、`wf-p-*/wf-m-*/wf-gap-*`、`wf-rounded-*`、`wf-bg-*`、`wf-border-t/b`、`wf-surface`、`wf-scroll` 等
+- 图标一律 `Icon` 组件（禁 emoji 装饰）；文本字形（✕✓ 等）禁裸写
+- **能力缺口 → 补到 weifuwu/layout / weifuwu/components**（优化/修复/新增原语或组件），绝不绕过——布局蓝本暴露的缺口就是框架下一步该做的（如 Icon 业务图标缺失 → 扩充 Icon 到 78 个）
+- 唯一允许的内联：CSS 变量注入（`--wf-cols`、`--wf-split-ratio`）与视口模拟容器（手机预览框 390×640 等"模拟视口"类尺寸）
 
 ## 9. 构建 & 发布
 

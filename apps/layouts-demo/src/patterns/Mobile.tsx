@@ -1,11 +1,14 @@
 import type { Component } from 'weifuwu/client'
+import {Text, Avatar, Badge, Divider, Icon, List, SearchInput, Space } from 'weifuwu/components'
+
 
 // ─────────────────────────────────────────────────────────────
 // 模式 6：移动端布局（Mobile App Shell）
 //
-// App 壳：顶部导航（safe-top 避让刘海）+ 内容列表 + 底部 Tab（safe-bottom 避让手势条）。
-// 使用 _safe-area 原语：wf-safe-top / wf-safe-bottom。
-// 用固定视口（390px 居中预览）模拟手机屏——开发者可缩放窗口看窄屏效果。
+// App 壳：顶部导航（wf-safe-top 避让刘海）+ 内容列表 + 底部 Tab
+// （wf-safe-bottom 避让手势条）。固定视口（390px 居中）模拟手机屏。
+// 100% 原语 + 组件：wf-safe-top/bottom、wf-fill、wf-row/gap、wf-center
+//   SearchInput（搜索）、List（消息流）、Badge（未读数）
 // ─────────────────────────────────────────────────────────────
 
 const CHATS = [
@@ -16,61 +19,57 @@ const CHATS = [
   { name: '设计同步', msg: '新图标包已上传 Figma', time: '周一', unread: 5 },
 ]
 
+const TABS = [
+  { icon: 'message' as const, label: '消息', active: true },
+  { icon: 'users' as const, label: '通讯录', active: false },
+  { icon: 'grid' as const, label: '发现', active: false },
+  { icon: 'user' as const, label: '我', active: false },
+]
+
 export const Mobile: Component = (_init, _ctx) => (
   () => (
-    <div class="wf-center wf-pad-lg" style={{ minHeight: 'calc(100vh - 48px)', background: 'var(--wf-color-bg-subtle)' }}>
-      {/* 手机视口（390px 宽模拟） */}
-      <div class="wf-stack wf-gap-none" style={{ width: 390, maxWidth: '100%', height: 640, borderRadius: 24, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,.15)', background: 'var(--wf-color-bg)' }}>
+    <div class="wf-center wf-p-lg wf-bg-tertiary" style={{ minHeight: 'calc(100vh - 48px)' }}>
+      {/* 手机视口（390×640 模拟屏——唯一允许的视口容器内联） */}
+      <div class="wf-stack wf-gap-none wf-border wf-rounded-lg wf-elevate" style={{ width: 390, maxWidth: '100%', height: 640, overflow: 'hidden' }}>
         {/* 顶部导航（安全区避让） */}
-        <div class="wf-safe-top wf-row wf-pad-md wf-gap-sm" style={{ justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--wf-color-border-light)' }}>
-          <span style={{ fontSize: 13 }}>‹ 返回</span>
-          <b style={{ fontSize: 15 }}>消息</b>
-          <span style={{ fontSize: 13 }}>＋</span>
+        <div class="wf-safe-top wf-row wf-p-md wf-gap-sm wf-border-b wf-between">
+          <Icon name="chevron-left" size={18} />
+          <b class="wf-text-bold">消息</b>
+          <Icon name="plus" size={18} />
         </div>
 
         {/* 搜索 */}
-        <div class="wf-pad-md" style={{ borderBottom: '1px solid var(--wf-color-border-light)' }}>
-          <div class="wf-pad-sm wf-text-secondary" style={{ background: 'var(--wf-color-bg-subtle)', borderRadius: 8, fontSize: 13, textAlign: 'center' }}>
-            🔍 搜索会话
-          </div>
+        <div class="wf-p-md wf-border-b">
+          <SearchInput placeholder="搜索会话" />
         </div>
 
         {/* 消息列表（滚动） */}
-        <div class="wf-fill wf-stack wf-gap-none" style={{ overflow: 'auto' }}>
-          {CHATS.map((c) => (
-            <div key={c.name} class="wf-row wf-pad-md wf-gap-md" style={{ borderBottom: '1px solid var(--wf-color-border-light)', alignItems: 'center' }}>
-              <div class="wf-center" style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--wf-color-primary-bg)', color: 'var(--wf-color-primary-text)', fontWeight: 600, flexShrink: 0 }}>
-                {c.name[0]}
-              </div>
-              <div class="wf-fill wf-stack wf-gap-none" style={{ minWidth: 0 }}>
-                <div class="wf-row" style={{ justifyContent: 'space-between' }}>
-                  <b style={{ fontSize: 14 }}>{c.name}</b>
-                  <span class="wf-text-tertiary" style={{ fontSize: 12 }}>{c.time}</span>
+        <div class="wf-fill wf-scroll">
+          <List
+            divided
+            items={CHATS}
+            renderItem={(c) => (
+              <div class="wf-row wf-p-md wf-gap-md">
+                <Avatar name={c.name[0]} size="md" />
+                <div class="wf-fill wf-stack wf-gap-none" style={{ minWidth: 0 }}>
+                  <div class="wf-row wf-gap-none wf-between">
+                    <Text className="wf-text-sm" strong>{c.name}</Text>
+                    <Text type="secondary" className="wf-text-xs">{c.time}</Text>
+                  </div>
+                  <Text type="secondary" className="wf-text-sm wf-truncate">{c.msg}</Text>
                 </div>
-                <span class="wf-text-secondary" style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {c.msg}
-                </span>
+                {c.unread > 0 && <Badge variant="danger" dot={false}>{c.unread}</Badge>}
               </div>
-              {c.unread > 0 && (
-                <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--wf-color-error)', color: '#fff', fontSize: 11, textAlign: 'center', lineHeight: '18px', flexShrink: 0 }}>
-                  {c.unread}
-                </span>
-              )}
-            </div>
-          ))}
+            )}
+          />
         </div>
 
         {/* 底部 Tab（安全区避让） */}
-        <div class="wf-safe-bottom wf-row wf-pad-md wf-gap-none" style={{ borderTop: '1px solid var(--wf-color-border-light)', justifyContent: 'space-around' }}>
-          {[
-            ['💬', '消息', true],
-            ['👥', '通讯录', false],
-            ['✨', '发现', false],
-            ['👤', '我', false],
-          ].map(([icon, label, active]) => (
-            <div key={label as string} class="wf-stack wf-gap-none" style={{ alignItems: 'center', color: active ? 'var(--wf-color-primary)' : 'var(--wf-text-tertiary, var(--wf-color-text-tertiary))' }}>
-              <span style={{ fontSize: 20 }}>{icon}</span>
-              <span style={{ fontSize: 11 }}>{label}</span>
+        <div class="wf-safe-bottom wf-row wf-p-md wf-gap-none wf-border-t wf-around">
+          {TABS.map((t) => (
+            <div key={t.label} class={`wf-stack wf-gap-none wf-center${t.active ? ' wf-text-primary' : ' wf-text-tertiary'}`}>
+              <Icon name={t.icon} size={20} />
+              <Text className={`wf-text-xs${t.active ? '' : ' wf-text-tertiary'}`}>{t.label}</Text>
             </div>
           ))}
         </div>
@@ -79,4 +78,3 @@ export const Mobile: Component = (_init, _ctx) => (
   )
 )
 
-// register({ id: 'mobile', name: '移动端 App', desc: '安全区避让 + 顶部导航 + 底部 Tab', comp: Mobile })
