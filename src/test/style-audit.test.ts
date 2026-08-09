@@ -377,6 +377,25 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(violations, [], '组件 CSS 不得定义与 layout 布局原语同名的 class（demo 双列 grid 被覆盖的教训）')
   })
 
+  it('组件 ref 必须稳定引用（内联 ref 每次渲染新引用 → 回调重复执行）', () => {
+    // 内联 ref = `ref: (el) =>` 直接写在 render 返回的 props 里——
+    // 每次渲染新函数 → ref-diff 反复触发旧 ref(null)+新 ref(el)（AGENTS.md 纪律）
+    // 正确：mount 层定义稳定函数（const xxxRef = (el) => {}）后 ref: xxxRef 引用
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name)
+    const violations: string[] = []
+    for (const d of dirs) {
+      const ts = join(root, 'src/components', d, `${d}.ts`)
+      try {
+        const src = readFileSync(ts, 'utf-8')
+        const m = src.match(/ref:\s*\(/g)
+        if (m) violations.push(`${d}.ts ×${m.length}`)
+      } catch {}
+    }
+    assert.deepEqual(violations, [], 'ref 必须引用 mount 层稳定函数（ref: xxxRef），禁止内联箭头')
+  })
+
   it('client 防线存在：enumerated 属性渲染 + 内置类型降级（CDD 启发回归防线）', () => {
     // 1. draggable enumerated 语义防线（Kanban 教训：setAttribute('draggable','') = false）
     const dragTest = readFileSync(join(root, 'src/test/client/draggable.test.ts'), 'utf-8')

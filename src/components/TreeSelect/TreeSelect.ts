@@ -71,6 +71,8 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
     return findLabel(options, value) ?? ''
   }
 
+  // 稳定 ref（AGENTS.md 纪律）：内联 ref 每次渲染新引用 → 回调重复执行
+  const panelRef = (el: any) => { panelEl = el as HTMLElement | null }
   const triggerRef = (el: any) => {
     triggerEl = el as HTMLElement | null
     // 首次挂载后（含重渲染）若已打开 → 跟随定位
@@ -122,7 +124,7 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
       h('div', {
         class: 'wf-treeselect-dropdown',
         style: { position: 'fixed', top: `${popup.top}px`, left: `${popup.left}px`, width: `${popup.width ?? 0}px` },
-        ref: (el: any) => { panelEl = el as HTMLElement | null },
+        ref: panelRef,
       }, tree),
       'treeselect',
     ) : null
