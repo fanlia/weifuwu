@@ -30,6 +30,8 @@ export interface ApprovalCardProps {
   onReject?: (note?: string) => void
   /** 自定义详情渲染（默认显示 name + args） */
   renderDetail?: (request: WfApprovalRequest) => any
+  /** 提交中（按钮禁用 + 文案反馈，防连点） */
+  loading?: boolean
 }
 
 const statusText: Record<ApprovalStatus, string> = {
@@ -45,7 +47,7 @@ export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
   let showNote = false
 
   return (props) => {
-    const { request, status = 'pending', onApprove, onReject, renderDetail } = props
+    const { request, status = 'pending', onApprove, onReject, renderDetail, loading } = props
 
     const detail = renderDetail
       ? renderDetail(request)
@@ -61,7 +63,9 @@ export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
                 h('input', {
                   class: 'wf-approval-note-input',
                   placeholder: '备注（拒绝原因，将进入 agent 上下文）…',
+                  'aria-label': '拒绝备注',
                   value: note,
+                  disabled: loading || undefined,
                   onInput: (e: any) => { note = e.target.value },
                 }),
               ])
@@ -70,17 +74,27 @@ export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
             h('button', {
               class: 'wf-btn wf-btn--primary wf-btn--sm',
               type: 'button',
-              onClick: () => onApprove?.(),
-            }, '允许'),
+              disabled: loading || undefined,
+              onClick: loading ? undefined : () => onApprove?.(),
+            }, loading ? '提交中…' : '允许'),
             h('button', {
               class: 'wf-btn wf-btn--danger wf-btn--sm',
               type: 'button',
-              onClick: () => {
+              disabled: loading || undefined,
+              onClick: loading ? undefined : () => {
                 if (!showNote) { showNote = true; ctx.ui.render(); return }
                 onReject?.(note)
               },
             }, showNote ? '确认拒绝' : '拒绝'),
-          ]),
+            showNote
+              ? h('button', {
+                  class: 'wf-btn wf-btn--secondary wf-btn--sm',
+                  type: 'button',
+                  disabled: loading || undefined,
+                  onClick: () => { showNote = false; note = ''; ctx.ui.render() },
+                }, '取消')
+              : null,
+          ].filter(Boolean)),
         ].filter(Boolean))
       : h('div', { class: `wf-approval-status wf-approval-status--${status}` }, statusText[status])
 

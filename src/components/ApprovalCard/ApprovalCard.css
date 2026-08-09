@@ -66,10 +66,27 @@
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   color: var(--wf-color-text);
+  transition: border-color var(--wf-dur-fast) var(--wf-ease-out),
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out);
+}
+.wf-approval-note-input:hover {
+  border-color: var(--wf-color-primary);
+}
+.wf-approval-note-input:focus {
+  outline: none;
+  border-color: var(--wf-color-primary);
+  box-shadow: var(--wf-focus-ring);
+}
+.wf-approval-note-input::placeholder {
+  color: var(--wf-color-text-tertiary);
 }
 
 .wf-approval-status {
   margin-top: var(--wf-gap-xs);
   font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-medium);
   color: var(--wf-color-text-secondary);
 }
+.wf-approval-status--approved { color: var(--wf-color-success-text); }
+.wf-approval-status--rejected { color: var(--wf-color-error-text); }
+.wf-approval-status--timeout { color: var(--wf-color-text-tertiary); }

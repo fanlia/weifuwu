@@ -98,9 +98,9 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
         starProps.onBlur = () => { hover = -1 }
       }
       const icon = h(Icon, { name: 'star', className: 'wf-rate-star-icon' })
-      // 半星：底层空星 + 上层满星裁剪 50%（absolute 覆盖左半）
+      // 半星：底层空星轮廓 + 上层满星裁剪左半（0.5em 精确裁剪）
       const inner = half
-        ? h('span', { class: 'wf-rate-star-half', style: 'position:relative' }, [
+        ? h('span', { class: 'wf-rate-star-half' }, [
             h('span', { class: 'wf-rate-star-half-bg' }, icon),
             h('span', { class: 'wf-rate-star-half-fg' }, h(Icon, { name: 'star', className: 'wf-rate-star-icon' })),
           ])

@@ -55,21 +55,39 @@
 .wf-rate--md { font-size: var(--wf-font-size-xl); }
 .wf-rate--lg { font-size: var(--wf-font-size-2xl); }
 
-/* 半星：底层空星（继承 button 默认 tertiary）+ 上层满星裁剪左 50% */
-.wf-rate-star--half .wf-rate-star-half-bg {
-  display: inline-flex;
+/* 半星：1em 容器，底层空星轮廓 + 上层满星裁剪左半（0.5em 精确） */
+.wf-rate-star-half {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
 }
-.wf-rate-star--half .wf-rate-star-half-fg {
+.wf-rate-star-half-bg,
+.wf-rate-star-half-fg {
   position: absolute;
-  left: 0;
   top: 0;
-  width: 50%;
-  overflow: hidden;
+  left: 0;
+  height: 100%;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+}
+.wf-rate-star-half-bg {
+  width: 100%;
+  color: var(--wf-color-text-tertiary);
+}
+.wf-rate-star-half-fg {
+  width: 50%;
+  overflow: hidden;
   color: var(--wf-color-warning-text);
 }
-.wf-rate-star--half .wf-rate-star-half-fg .wf-rate-star-icon {
+.wf-rate-star-half-fg .wf-rate-star-icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
   fill: currentColor;
+}
+.wf-rate-star-half-bg .wf-rate-star-icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
 }

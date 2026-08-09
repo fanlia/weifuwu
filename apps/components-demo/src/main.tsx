@@ -1086,23 +1086,28 @@ const DemoToolCallCard: Component = () => () => (
 )
 
 /** ApprovalCard：pending / approved / rejected 终态 */
-const DemoApprovalCard: Component = () => () => (
-  <div class="wf-stack wf-gap-sm">
-    <ApprovalCard
-      request={{ id: 'ap1', toolCallId: 't1', name: 'place_order', args: { qty: 2 }, reason: '单笔超限，需人工确认' }}
-      onApprove={() => {}}
-      onReject={() => {}}
-    />
-    <ApprovalCard
-      request={{ id: 'ap2', toolCallId: 't2', name: 'delete_user', args: { userId: 'u_42' } }}
-      status="approved"
-    />
-    <ApprovalCard
-      request={{ id: 'ap3', toolCallId: 't3', name: 'refund', args: { orderId: 'o_7' } }}
-      status="rejected"
-    />
-  </div>
-)
+const DemoApprovalCard: Component = (_p, ctx) => {
+  let loading = false
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <ApprovalCard
+        request={{ id: 'ap1', toolCallId: 't1', name: 'place_order', args: { qty: 2 }, reason: '单笔超限，需人工确认' }}
+        loading={loading}
+        onApprove={() => { loading = true; ctx.ui.render(); setTimeout(() => { loading = false; ctx.ui.render() }, 1500) }}
+        onReject={() => {}}
+      />
+      <div class="wf-text-xs wf-text-secondary">↑ 点「允许」看提交中状态（loading 防连点）</div>
+      <ApprovalCard
+        request={{ id: 'ap2', toolCallId: 't2', name: 'delete_user', args: { userId: 'u_42' } }}
+        status="approved"
+      />
+      <ApprovalCard
+        request={{ id: 'ap3', toolCallId: 't3', name: 'refund', args: { orderId: 'o_7' } }}
+        status="rejected"
+      />
+    </div>
+  )
+}
 
 /** AiChat：useChat + 标准对话界面（流式 / 工具 / 审批 / 自动滚动） */
 const DemoAiChat: Component = (_props, ctx) => {
@@ -2401,7 +2406,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">923 测试</Badge>
+          <Badge variant="success">926 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

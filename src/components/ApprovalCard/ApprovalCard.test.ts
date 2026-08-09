@@ -72,6 +72,43 @@ describe('ApprovalCard', () => {
       assert.match(statusNode.props.class, /wf-approval-status/)
     }
   })
+
+  it('loading：按钮禁用 + 文案「提交中…」+ onClick 不触发', () => {
+    let approved = false
+    const vnode = renderVNode(ApprovalCard, { request, loading: true, onApprove: () => { approved = true } }, mockCtx())!
+    const btns = vnode.props.children[3].props.children[0]
+    const allowBtn = btns.props.children[0]
+    assert.equal(allowBtn.props.disabled, true, '禁用')
+    assert.equal(allowBtn.props.children, '提交中…', '加载文案')
+    assert.equal(allowBtn.props.onClick, undefined, 'onClick 不绑定')
+    assert.equal(approved, false)
+  })
+
+  it('展开备注后点「取消」回退', () => {
+    const ctx = mockCtx()
+    const props = { request, onReject: () => {} }
+    const render = ApprovalCard(props, ctx)
+    let vnode = render(props)!
+    vnode.props.children[3].props.children[0].props.children[1].props.onClick() // 展开备注
+    vnode = render(props)!
+    const actions = vnode.props.children[3].props.children
+    const cancelBtn = actions[1].props.children[2]
+    assert.equal(cancelBtn.props.children, '取消')
+    cancelBtn.props.onClick() // 取消
+    vnode = render(props)!
+    assert.ok(!JSON.stringify(vnode).includes('wf-approval-note-input'), '备注输入已收起')
+  })
+
+  it('input 有 aria-label（a11y）', () => {
+    const ctx = mockCtx()
+    const props = { request }
+    const render = ApprovalCard(props, ctx)
+    let vnode = render(props)!
+    vnode.props.children[3].props.children[0].props.children[1].props.onClick() // 展开备注
+    vnode = render(props)!
+    const input = vnode.props.children[3].props.children[0].props.children[0]
+    assert.equal(input.props['aria-label'], '拒绝备注')
+  })
 })
 
 it('renderDetail 自定义详情渲染', () => {
