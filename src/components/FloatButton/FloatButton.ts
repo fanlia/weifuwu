@@ -22,6 +22,8 @@ export interface FloatButtonProps {
   icon?: any
   badge?: number | string
   position?: FloatButtonPosition
+  /** 'static'：组内子项（不 fixed——独立 fixed 会与主按钮重叠） */
+  static?: boolean
   disabled?: boolean
   onClick?: () => void
   'aria-label'?: string
@@ -31,10 +33,10 @@ export interface FloatButtonProps {
 /** 单个悬浮按钮 */
 export const FloatButton: Component<FloatButtonProps> = (_init, _ctx: WfuiContext) =>
   (props) => {
-    const { icon, badge, position = 'bottom-right', disabled, onClick, children } = props
+    const { icon, badge, position = 'bottom-right', static: isStatic, disabled, onClick, children } = props
     return h('button', {
-      class: `wf-float-btn wf-float-btn--${position}${disabled ? ' wf-float-btn--disabled' : ''}`,
-      style: { position: 'fixed' },
+      class: `wf-float-btn wf-float-btn--${position}${isStatic ? ' wf-float-btn--static' : ''}${disabled ? ' wf-float-btn--disabled' : ''}`,
+      style: { position: isStatic ? undefined : 'fixed' },
       'aria-label': props['aria-label'],
       disabled,
       onClick: disabled ? undefined : onClick,
@@ -62,8 +64,12 @@ export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: W
       class: `wf-float-group wf-float-group--${position}${open ? ' wf-float-group--open' : ''}`,
     }, [
       h('div', { class: 'wf-float-group-items' },
-        open ? kids.map((k: any, i: number) =>
-          h('div', { class: 'wf-float-group-item', key: i }, k)) : []),
+        open ? kids.map((k: any, i: number) => {
+          // 子项注入 static（组内不 fixed——否则全部叠在右下角与主按钮重叠）
+          const props = { ...(k.props ?? {}), static: true }
+          const child = k.type ? { ...k, props } : k
+          return h('div', { class: 'wf-float-group-item', key: i }, child)
+        }) : []),
       h('button', {
         class: 'wf-float-group-main',
         'aria-label': open ? '收起' : '展开',

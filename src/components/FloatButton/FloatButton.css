@@ -111,3 +111,9 @@
 .wf-float-group-icon.is-open {
   transform: rotate(45deg);
 }
+
+/* 组内子项：不 fixed（由 group 容器排列） */
+.wf-float-btn--static {
+  position: static;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}

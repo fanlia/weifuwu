@@ -1604,12 +1604,12 @@ const DemoLayout: Component = (_props, ctx) => {
   )
 }
 
-const DemoPopconfirm: Component = () => () => (
+const DemoPopconfirm: Component = (_p, ctx) => () => (
   <div class="wf-row wf-gap-lg wf-cluster">
-    <Popconfirm title="确定删除这条数据？" danger onConfirm={() => toast('已删除', 'success')}>
+    <Popconfirm title="确定删除这条数据？" danger onConfirm={() => ctx.toast('已删除', 'success')}>
       <Button variant="danger">删除</Button>
     </Popconfirm>
-    <Popconfirm title="确定提交审核？" onConfirm={() => toast('已提交', 'success')}>
+    <Popconfirm title="确定提交审核？" onConfirm={() => ctx.toast('已提交', 'success')}>
       <Button>提交</Button>
     </Popconfirm>
   </div>
@@ -1649,15 +1649,15 @@ const DemoLink: Component = () => () => (
   </div>
 )
 
-const DemoFloatButton: Component = () => () => (
+const DemoFloatButton: Component = (_p, ctx) => () => (
   <FloatButtonGroup>
-    <FloatButton icon="✏️" onClick={() => toast('编辑', 'info')} />
-    <FloatButton icon="📊" onClick={() => toast('报表', 'info')} />
-    <FloatButton icon="⚙️" onClick={() => toast('设置', 'info')} />
+    <FloatButton icon="✏️" onClick={() => ctx.toast('编辑', 'info')} />
+    <FloatButton icon="📊" onClick={() => ctx.toast('报表', 'info')} />
+    <FloatButton icon="⚙️" onClick={() => ctx.toast('设置', 'info')} />
   </FloatButtonGroup>
 )
 
-const DemoNavMenu: Component = () => () => (
+const DemoNavMenu: Component = (_p, ctx) => () => (
   <NavMenu
     items={[
       { key: 'home', label: '首页' },
@@ -1668,7 +1668,7 @@ const DemoNavMenu: Component = () => () => (
       { key: 'about', label: '关于' },
     ]}
     activeKey="home"
-    onSelect={(k) => toast(k, 'info')}
+    onSelect={(k) => ctx.toast(k, 'info')}
   />
 )
 

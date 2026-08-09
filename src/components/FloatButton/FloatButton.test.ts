@@ -73,22 +73,38 @@ describe('FloatButton', () => {
 })
 
 describe('FloatButtonGroup', () => {
+  test('组内子项注入 static（不 fixed——防重叠）', () => {
+    const ctx = mockCtx()
+    const kids = [h(FloatButton, { icon: 'x' }), h(FloatButton, { icon: 'y' })]
+    const inst = mount(FloatButtonGroup, { children: kids }, ctx)
+    let vnode = inst.render({ children: kids })
+    const main = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-main'))
+    main.props.onClick()
+    vnode = inst.render({ children: kids })
+    // 子项是组件 VNode（type=FloatButton）——static 注入到 props
+    const item = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-item'))
+    assert.ok(item, '子项容器')
+    const btnChild = item.props.children
+    assert.equal(btnChild.type, FloatButton, '子项是 FloatButton 组件')
+    assert.equal(btnChild.props.static, true, 'static 注入（不 fixed）')
+  })
+
   test('展开状态机：点击主按钮展开/收起', () => {
     const ctx = mockCtx()
     const inst = mount(FloatButtonGroup, { children: ['a', 'b'] }, ctx)
     let vnode = inst.render({ children: ['a', 'b'] })
-    const main = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-float-group-main'))
+    const main = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-main'))
     assert.ok(main)
     // 点击展开
     main.props.onClick()
     vnode = inst.render({ children: ['a', 'b'] })
-    const expanded = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-float-group--open'))
+    const expanded = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group--open'))
     assert.ok(expanded, '展开后 open class')
     // 再点收起
-    const main2 = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-float-group-main'))
+    const main2 = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-main'))
     main2.props.onClick()
     vnode = inst.render({ children: ['a', 'b'] })
-    const closed = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-float-group--open'))
+    const closed = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group--open'))
     assert.equal(closed, null, '收起后移除 open class')
   })
 })
