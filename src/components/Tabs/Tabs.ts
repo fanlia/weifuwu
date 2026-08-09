@@ -17,6 +17,21 @@ export interface TabsProps {
 
 export const Tabs: Component<TabsProps> = (_init, ctx) => {
   const _browser = ctx?.browser ?? createClientBrowser()
+  const $ = ctx.ui.$()
+  $.inkLeft = 0
+  $.inkWidth = 0
+  let listEl: HTMLElement | null = null
+  const measureTab = (el: HTMLElement | null) => {
+    if (!el) return
+    $.inkLeft = el.offsetLeft
+    $.inkWidth = el.offsetWidth
+  }
+  const measureActive = () => {
+    if (!listEl) return
+    measureTab(listEl.querySelector<HTMLElement>('.wf-tab--active'))
+  }
+  // 稳定 ref（§5.1：内联 ref 每次渲染新引用 → 重复触发清理逻辑）
+  const listRef = (el: any) => { if (el) { listEl = el; queueMicrotask(measureActive) } }
   return (props) => {
   const { items = [] } = props
 
@@ -50,6 +65,7 @@ export const Tabs: Component<TabsProps> = (_init, ctx) => {
     if (target && target.key !== items[idx].key) {
       select(target.key)
       tabs[next].focus()
+      measureTab(tabs[next])
     }
   }
 
@@ -61,9 +77,16 @@ export const Tabs: Component<TabsProps> = (_init, ctx) => {
       // roving tabindex：仅激活 tab 可 Tab 聚焦，方向键在 tab 间移动
       tabindex: tab.key === activeKey ? 0 : -1,
       'aria-selected': tab.key === activeKey ? 'true' : 'false',
-      onClick: tab.key !== activeKey ? () => select(tab.key) : undefined,
+      onClick: tab.key !== activeKey ? ((e: any) => { measureTab(e?.currentTarget as HTMLElement); select(tab.key) }) : undefined,
     }, tab.label)
   )
+
+  // ink bar：滑动指示器（transform 过渡，定位到 active tab 下方）
+  const ink = h('span', {
+    class: 'wf-tab-ink',
+    style: { transform: `translateX(${$.inkLeft}px)`, width: `${$.inkWidth}px` },
+    'aria-hidden': 'true',
+  })
 
   const activeTab = items.find(t => t.key === activeKey)
   const content = activeTab?.content
@@ -71,7 +94,7 @@ export const Tabs: Component<TabsProps> = (_init, ctx) => {
     : null
 
   return h('div', { class: 'wf-tabs', role: 'tablist', onKeyDown: onTabListKeyDown }, [
-    h('div', { class: 'wf-tab-list' }, tabList),
+    h('div', { class: 'wf-tab-list', ref: listRef }, [...tabList, ink]),
     content,
   ].filter(Boolean))
   }

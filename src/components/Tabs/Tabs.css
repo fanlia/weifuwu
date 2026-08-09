@@ -8,6 +8,20 @@
   display: flex;
   gap: 0;
   border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  position: relative;
+}
+
+/* 滑动指示器（ink bar）：绝对定位 + transform 过渡 */
+.wf-tab-ink {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--wf-color-primary);
+  transition: transform var(--wf-dur-base) var(--wf-ease-out),
+              width var(--wf-dur-base) var(--wf-ease-out);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .wf-tab {
@@ -31,7 +45,6 @@
 
 .wf-tab--active {
   color: var(--wf-color-primary-text);
-  border-bottom-color: var(--wf-color-primary);
 }
 
 /* 激活指示平滑滑动（下边框） */

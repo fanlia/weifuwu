@@ -14,7 +14,8 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 
 function mockCtx(): WfuiContext {
   const uncontrolled = new Map<string, any>()
-  return { ui: { $: {}
+  const state: any = {}
+  return { ui: { $: () => state
 , render: () => {}, dirty: () => {}, ready: true,
     useControlled: (opts: any) => {
       const controlled = opts.value !== undefined
@@ -38,9 +39,13 @@ describe('Tabs', () => {
   it('renders tab buttons', () => {
     const vnode = renderVNode(Tabs, { items }, mockCtx())!
     const tabList = vnode.props.children[0]
-    assert.equal(tabList.props.children.length, 2)
-    assert.equal(tabList.props.children[0].props.children, '标签A')
-    assert.equal(tabList.props.children[1].props.children, '标签B')
+    // tabList.children = [...tabButtons, inkBar]（末位为滑动指示器）
+    const tabs = tabList.props.children.filter((c: any) => c.props?.role === 'tab')
+    assert.equal(tabs.length, 2)
+    assert.equal(tabs[0].props.children, '标签A')
+    assert.equal(tabs[1].props.children, '标签B')
+    // ink bar 存在
+    assert.ok(tabList.props.children.some((c: any) => c.props?.class === 'wf-tab-ink'))
   })
 
   it('returns null when no items', () => {
