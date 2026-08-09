@@ -515,16 +515,29 @@ const dropdown = open ? createPortal(h('div', { class: 'wf-xxx-dropdown', style:
 
 > 一次 TreeSelect「点服务下拉框关闭」排查：用户坚持看真实 HTML → 抓出弹层飞到左上角（0,0）→ debug 日志定位到 scroll 时序竞争读 0 rect。以下为可复用排查步骤。
 
-### 1. 真实 HTML 优先于 text
+### 1. 真实 HTML 优先于 text（agent-browser 测试铁律）
 
-**只查 `textContent` 会掩盖结构问题**——必须看真实 DOM（用户强制要求）：
+**agent-browser 验证任何组件/交互时，只查 `textContent` 会掩盖结构问题——必须看真实 DOM**（用户强制要求）：
 
 ```ts
-// agent-browser eval：outerHTML 验证真实结构（ref 属性/定位/children 树/class）
+// agent-browser eval：outerHTML 验证真实结构（ref 属性/定位/children 树/class/内联 style）
 document.querySelector('.wf-xxx')?.outerHTML
+// 内联 style 是坐标/显隐真凶：getAttribute('style') 暴露 fixed 定位与 display
+document.querySelector('.wf-xxx')?.getAttribute('style')
 ```
 
-真实 HTML 能抓出：ref 字符串属性（setProp 污染）、弹层定位异常（`top:4px left:0px width:0px` vs 锚点 768,306）、switcher--open 状态、children 树完整性。
+真实 HTML 能抓出：ref 字符串属性（setProp 污染）、弹层定位异常（`top:4px left:0px width:0px` vs 锚点 768,306）、**内联 style 坐标全 0（`top:0 left:0 width:0`——下拉渲染在视口左上角不可见——textContent 显示正常但用户看不到）**、switcher--open 状态、children 树完整性、portal 是否在 `#__wf_portal`。
+
+**验证清单（每次 agent-browser 测试必查）**：
+1. `outerHTML`——结构/属性/class（不含 text 拼写问题）
+2. `getAttribute('style')` 或内联 style——**定位/显隐**（text 完全看不到）
+3. `getBoundingClientRect()`——**真实可见性**（width 0 / 视口外 = 不可见）
+4. `closest('#__wf_portal')`——**弹层是否 portal**（AGENTS.md 弹窗纪律）
+5. `getComputedStyle`——**生效样式**（display:none 等）
+
+> 实战：AutoComplete 输入'支付'后 textContent 正确显示'支付平台管理/支付平账系统'，
+> 但 HTML 暴露 `style="top:0px; left:0px; width:0px"`——下拉在视口左上角宽 0 不可见——
+> 正是用户'输入支付没下拉'的报告。text 全对 ≠ 可见。
 
 ### 2. debug 日志组件（带前缀 console.log）
 

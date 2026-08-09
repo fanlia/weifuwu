@@ -62,15 +62,24 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
 
-  const pos = ctx.ui.usePopupPosition({
+  // usePopup 组合器：portal + 定位 + 打开自动 refresh + 锚点感知 +
+  // Escape + 外部点击（AGENTS.md 弹窗纪律——此前普通 fixed div + 手动
+  // usePopupPosition：pos 初始 0 且打开不 refresh → 下拉 0,0 宽 0 不可见）
+  const popup = ctx.ui.usePopup({
+    trigger: () => 'click',
+    placement: () => 'bottom',
+    center: false, // 左对齐输入框
+    gap: 4,
     el: () => wrapEl,
     isOpen: () => $.open,
-    compute: (r) => ({ top: r.bottom + 4, left: r.left, width: r.width }),
+    setOpen: (v) => {
+      $.open = v // Proxy 赋值 → 自动 dirty → 重渲染
+      latestOnOpenChange?.(v)
+    },
   })
 
   const setOpen = (v: boolean) => {
-    $.open = v // Proxy 赋值 → 自动 dirty → 重渲染
-    latestOnOpenChange?.(v)
+    popup.setOpen(v)
   }
 
   const pick = (option: AutoCompleteOption) => {
@@ -141,8 +150,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
 
     const dropdown = h('div', {
       class: 'wf-autocomplete-dropdown',
-      style: { top: pos.top + 'px', left: pos.left + 'px', width: (pos.width ?? 0) + 'px', display: $.open ? undefined : 'none' },
-    }, $.open ? filtered.map((opt, i) =>
+    }, filtered.map((opt, i) =>
       h('div', {
         class: `wf-autocomplete-option${i === activeIndex ? ' wf-autocomplete-option--active' : ''}`,
         key: opt.value,
@@ -151,7 +159,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
           if (!opt.disabled) pick(opt)
         },
       }, renderOption ? renderOption(opt) : (opt.label ?? opt.value)),
-    ) : [])
+    ))
 
     return h('div', { class: 'wf-autocomplete-wrap', ref: wrapRef }, [
       h('input', {
@@ -165,7 +173,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
         onCompositionEnd,
         onFocus: () => { if (!$.open) setOpen(true) },
       }),
-      dropdown,
+      popup.portal(dropdown, 'wf-autocomplete'),
     ])
   }
 }

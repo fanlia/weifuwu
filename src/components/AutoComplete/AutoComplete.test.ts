@@ -32,7 +32,13 @@ const mockCtx = () => ({
     $: () => ({}),
     render: () => {},
     dirty: () => {},
-    usePopupPosition: () => ({ top: 0, left: 0, width: 200, refresh: () => {} }),
+    usePopup: (opts: any) => ({
+      get open() { return opts.isOpen() },
+      setOpen: opts.setOpen,
+      refresh: () => {},
+      portal: (content: any) => (opts.isOpen() ? content : null),
+      wrapProps: {},
+    }),
   },
 }) as any
 
@@ -74,7 +80,7 @@ describe('AutoComplete', () => {
     const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
     assert.ok(input, '存在输入框')
     const dropdown = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-dropdown'))
-    assert.equal(dropdown.props?.style?.display, 'none', '默认关闭')
+    assert.equal(dropdown, null, '默认关闭（portal 关闭时不渲染）')
   })
 
   test('value 驱动过滤渲染', () => {
@@ -136,6 +142,6 @@ describe('AutoComplete', () => {
     input.props.onKeyDown?.({ key: 'Escape', preventDefault: () => {} })
     vnode = inst.render({ options, value: '' })
     const dropdown = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-dropdown'))
-    assert.equal(dropdown.props?.style?.display, 'none', 'Escape 关闭')
+    assert.equal(dropdown, null, 'Escape 关闭（portal 不渲染）')
   })
 })
