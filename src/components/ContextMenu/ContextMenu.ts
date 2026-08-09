@@ -18,7 +18,7 @@ export interface ContextMenuProps {
   className?: string
 }
 
-/** 右键菜单（对应 shadcn ContextMenu）：右键在光标处弹出，点击外部/Escape 关闭，方向键导航 */
+/** 右键菜单（对应 shadcn ContextMenu）：桌面右键 / 触屏长按 在光标处弹出，点外部/Escape 关闭，方向键导航 */
 export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let show = false
@@ -26,6 +26,8 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
   let y = 0
   let highlight = 0
   let wrapEl: HTMLElement | null = null
+  // items 由 render 阶段更新（openAt/menuKeyDown 闭包读最新）
+  let items: ContextMenuItem[] = []
 
   const close = () => {
     if (show) {
@@ -33,6 +35,24 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
       ctx.ui.render()
     }
   }
+
+  const openAt = (e: any) => {
+    e.preventDefault()
+    // 视口夹紧（菜单约 180×N，粗估；真浏览器用菜单实际尺寸，这里取估算）
+    const menuW = 180
+    const menuH = Math.min(items.length * 36 + 8, 400)
+    x = Math.max(8, Math.min(e.clientX ?? 0, window.innerWidth - menuW))
+    y = Math.max(8, Math.min(e.clientY ?? 0, window.innerHeight - menuH))
+    highlight = items.findIndex(i => !i.disabled)
+    show = true
+    ctx.ui.render()
+  }
+
+  // 长按触发（触屏）：pointerdown 按住 500ms；提前松开/位移取消；桌面 contextmenu 兼容
+  const longPress = ctx.ui.useLongPress({
+    duration: 500,
+    onLongPress: (e: any) => openAt(e),
+  })
 
   const onDocClick = () => close()
   const onDocContext = (e: Event) => { if (e.target !== wrapEl && !wrapEl?.contains(e.target as Node)) close() }
@@ -52,45 +72,34 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
     }
   }
 
-  return (props) => {
-    const { items = [], children, 'aria-label': ariaLabel, className } = props
-
-    const openAt = (e: any) => {
+  const menuKeyDown = (e: any) => {
+    if (e.key === 'ArrowDown') {
       e.preventDefault()
-      // 视口夹紧（菜单约 180×N，粗估；真浏览器用菜单实际尺寸，这里取估算）
-      const menuW = 180
-      const menuH = Math.min(items.length * 36 + 8, 400)
-      x = Math.min(e.clientX, window.innerWidth - menuW)
-      y = Math.min(e.clientY, window.innerHeight - menuH)
-      highlight = items.findIndex(i => !i.disabled)
-      show = true
-      ctx.ui.render()
-    }
-
-    const menuKeyDown = (e: any) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        for (let i = 1; i <= items.length; i++) {
-          const idx = (highlight + i) % items.length
-          if (!items[idx].disabled) { highlight = idx; ctx.ui.render(); break }
-        }
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        for (let i = 1; i <= items.length; i++) {
-          const idx = (highlight - i + items.length) % items.length
-          if (!items[idx].disabled) { highlight = idx; ctx.ui.render(); break }
-        }
-      } else if (e.key === 'Enter') {
-        e.preventDefault()
-        const item = items[highlight]
-        if (item && !item.disabled) {
-          item.onClick?.()
-          close()
-        }
-      } else if (e.key === 'Escape') {
+      for (let i = 1; i <= items.length; i++) {
+        const idx = (highlight + i) % items.length
+        if (!items[idx].disabled) { highlight = idx; ctx.ui.render(); break }
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      for (let i = 1; i <= items.length; i++) {
+        const idx = (highlight - i + items.length) % items.length
+        if (!items[idx].disabled) { highlight = idx; ctx.ui.render(); break }
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const item = items[highlight]
+      if (item && !item.disabled) {
+        item.onClick?.()
         close()
       }
+    } else if (e.key === 'Escape') {
+      close()
     }
+  }
+
+  return (props) => {
+    const { items: propItems = [], children, 'aria-label': ariaLabel, className } = props
+    items = propItems
 
     const menuItems = items.map((item, i) =>
       h('button', {
@@ -123,7 +132,8 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
     return h('div', {
       class: ['wf-context-menu-trigger', className].filter(Boolean).join(' '),
       ref: stableRef,
-      onContextMenu: openAt,
+      // 桌面右键 + 触屏长按双通道（useLongPress 内含 onContextMenu preventDefault）
+      ...longPress,
     }, [children, menu].filter(Boolean))
   }
 }

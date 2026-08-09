@@ -1,18 +1,61 @@
 /**
  * weifuwu/components — Popover test
+ *
+ * 迁移 usePopup 后：外部点击由 document 监听接管（不再有 overlay）；
+ * portal 内容根附加 wf-popup 基类 + inline 定位。
  */
 
 import { describe, it } from 'node:test'
 import * as assert from 'node:assert'
 import { Popover } from './Popover.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h, Portal, createPortal } from '../../client/vnode.ts'
+import { h, Portal } from '../../client/vnode.ts'
 import { mountVNode, patchValue } from '../../client/render.ts'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 
+/** usePopup mock：镜像真实语义（受控 isOpen + wf-popup 合并 + disabled/closed → portal null） */
 function createMockCtx(): WfuiContext {
-  return { ui: { render: () => {}, $: () => ({}), dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),  } } as any
+  return { ui: {
+    render: () => {}, $: () => ({}), dirty: () => {},
+    usePopup: (opts: any) => {
+      const isOpen = () => {
+        if (opts.open === undefined) return false // 非受控：组件内部 show（测试里保持关闭）
+        return typeof opts.open === 'function' ? !!opts.open() : !!opts.open
+      }
+      const portal = (content: any) => {
+        if (opts.disabled?.() || !isOpen()) return null
+        return {
+          type: Portal,
+          props: {
+            children: {
+              ...content,
+              props: {
+                ...content.props,
+                class: ['wf-popup', content.props?.class].filter(Boolean).join(' '),
+                style: { ...content.props?.style, position: 'fixed', top: '0px', left: '0px' },
+              },
+            },
+            portalKey: 'popover',
+          },
+          key: undefined,
+          _placement: 'remote',
+        }
+      }
+      return {
+        open: isOpen(),
+        setOpen: (v: any) => { opts.onOpenChange?.(v) },
+        wrapProps: {
+          onClick: () => { opts.onOpenChange?.(!isOpen()) },
+          onMouseEnter: () => {}, onMouseLeave: () => {},
+          onFocus: () => {}, onBlur: () => {},
+          onKeyDown: (e: any) => { if (e.key === 'Escape') opts.onOpenChange?.(false) },
+        },
+        portal,
+        refresh: () => {},
+      }
+    },
+  } } as any
 }
 
 /** Call component and get VNode (compatible with two-phase model) */
@@ -20,8 +63,6 @@ function renderVNode(Comp: any, props: any, ctx: WfuiContext) {
   const result = Comp(props, ctx)
   return typeof result === 'function' ? result(props) : result
 }
-
-const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
 describe('Popover', () => {
   it('render children', () => {
@@ -44,14 +85,12 @@ describe('Popover', () => {
     const vnode = renderVNode(Popover, { content: 'hello', open: true }, ctx) as any
     assert.equal(vnode.props?.class, 'wf-popover-wrap wf-popover-wrap--open')
     const children = vnode.props?.children ?? []
-    // children: [trigger, portalVNode]
     const portalVNode = children.find((c: any) => c?.type === Portal)
     assert.ok(portalVNode, '应渲染 Portal')
-    const portalChildren = portalVNode.props.children
-    const hasOverlay = portalChildren.some((c: any) => c?.props?.class === 'wf-popover-overlay')
-    const hasPanel = portalChildren.some((c: any) => c?.props?.class?.startsWith('wf-popover wf-popover--'))
-    assert.ok(hasOverlay, 'Portal 中应有遮罩层')
-    assert.ok(hasPanel, 'Portal 中应有弹出面板')
+    const panel = portalVNode.props.children
+    assert.ok(panel.props.class.includes('wf-popover wf-popover--'), '面板应有 wf-popover class')
+    assert.ok(panel.props.class.includes('wf-popup'), '面板应附加 wf-popup 基类')
+    assert.ok(!panel.props.class.includes('wf-popover-overlay'), 'usePopup 接管外部点击，无 overlay')
   })
 
   it('受控模式: open=false 隐藏内容', () => {
@@ -65,22 +104,22 @@ describe('Popover', () => {
     for (const pos of ['top', 'bottom', 'left', 'right'] as const) {
       const vnode = renderVNode(Popover, { content: 'x', open: true, position: pos }, ctx) as any
       const portal = vnode.props?.children?.find((c: any) => c?.type === Portal)
-      const panel = portal?.props?.children?.find((c: any) => c?.props?.class?.startsWith('wf-popover wf-popover--'))
+      const panel = portal?.props?.children
       assert.ok(panel, `position=${pos}: panel should exist`)
-      // position 通过 computeFixedPos 计算 style.top/left，不通过 CSS class
-      assert.ok(panel.props?.style?.top !== undefined || panel.props?.style?.left !== undefined)
+      assert.match(panel.props.class, new RegExp(`wf-popover--${pos}`))
+      // 定位由 usePopup inline style 提供
+      assert.ok(panel.props?.style?.top !== undefined && panel.props?.style?.left !== undefined)
     }
   })
 
-  it('disabled 时不触发', () => {
+  it('disabled 时不渲染 portal', () => {
     const ctx = createMockCtx()
-    const vnode = renderVNode(Popover, { content: 'x', disabled: true }, ctx) as any
+    const vnode = renderVNode(Popover, { content: 'x', children: 'trigger', disabled: true, open: true }, ctx) as any
     const children = vnode.props?.children ?? []
-    const trigger = children.find((c: any) => c?.props?.class === 'wf-popover-trigger')
-    assert.equal(trigger?.props?.onClick, undefined)
+    assert.equal(children.length, 1, 'disabled 只有 trigger，无 portal')
   })
 
-  it('trigger=hover 使用悬停事件', () => {
+  it('trigger=hover 使用悬停事件（来自 usePopup.wrapProps）', () => {
     const ctx = createMockCtx()
     const vnode = renderVNode(Popover, { content: 'x', trigger: 'hover' }, ctx) as any
     assert.ok(typeof vnode.props?.onMouseEnter === 'function')
@@ -90,7 +129,6 @@ describe('Popover', () => {
   it('trigger=click 使用点击事件', () => {
     const ctx = createMockCtx()
     const vnode = renderVNode(Popover, { content: 'x', trigger: 'click', children: 'trigger' }, ctx) as any
-    // trigger 事件在根元素 wf-popover-wrap 上
     assert.ok(typeof vnode.props?.onClick === 'function', '根元素应有 onClick')
   })
 
@@ -100,7 +138,7 @@ describe('Popover', () => {
     document.getElementById('__wf_portal')?.remove()
   }
 
-  it('mount 后 DOM 中存在 overlay', () => {
+  it('mount 后 DOM 中 portal 存在 panel（无 overlay）', () => {
     cleanPortal()
     const ctx = createMockCtx()
     const container = document.createElement('div')
@@ -112,51 +150,30 @@ describe('Popover', () => {
 
     const portal = document.getElementById('__wf_portal')
     assert.ok(portal, '__wf_portal 应存在')
-    assert.ok(portal.querySelector('.wf-popover-overlay'), '__wf_portal 中应有 .wf-popover-overlay')
     assert.ok(portal.querySelector('.wf-popover'), '__wf_portal 中应有 .wf-popover')
+    assert.ok(!portal.querySelector('.wf-popover-overlay'), 'usePopup 模式下无 overlay')
   })
 
-  it('点击 trigger 后 DOM 中出现 overlay', () => {
-    cleanPortal()
-    const ctx = createMockCtx()
-    const container = document.createElement('div')
-    const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
-    mountVNode(container, vnode, ctx)
-
-    let portal = document.getElementById('__wf_portal')
-    assert.ok(!portal?.querySelector('.wf-popover-overlay'))
-
-    const vnodeOpen = renderVNode(Popover, { content: 'hello', open: true }, ctx)
-    const wrap = container.querySelector('.wf-popover-wrap')!
-    patchValue(container, wrap, vnode, vnodeOpen, ctx)
-
-    portal = document.getElementById('__wf_portal')
-    assert.ok(portal?.querySelector('.wf-popover-overlay'), 'patch 后 __wf_portal 中应有 .wf-popover-overlay')
-    assert.ok(portal?.querySelector('.wf-popover'), 'patch 后 __wf_portal 中应有 .wf-popover')
-  })
-
-  it('通过 patchValue 模拟 open → close 状态切换', () => {
+  it('通过 patchValue 模拟受控 open 切换（受控模式 mount 期固定）', () => {
     cleanPortal()
     const ctx = createMockCtx()
     const container = document.createElement('div')
 
-    const v1 = h(Popover, { content: 'hello' })
+    const v1 = h(Popover, { content: 'hello', open: false })
     mountVNode(container, v1, ctx)
     let portal = document.getElementById('__wf_portal')
-    assert.ok(!portal?.querySelector('.wf-popover-overlay'))
+    assert.ok(!portal?.querySelector('.wf-popover'), 'open=false 无 panel')
 
     const v2 = h(Popover, { content: 'hello', open: true })
     const wrap = container.querySelector('.wf-popover-wrap')!
     patchValue(container, wrap, v1, v2, ctx)
     portal = document.getElementById('__wf_portal')
-    assert.ok(portal?.querySelector('.wf-popover-overlay'), 'open=true → portal 中应有 overlay')
     assert.ok(portal?.querySelector('.wf-popover'), 'open=true → portal 中应有 panel')
 
     // 关闭
     const v3 = h(Popover, { content: 'hello', open: false })
     patchValue(container, wrap, v2, v3, ctx)
     portal = document.getElementById('__wf_portal')
-    assert.ok(!portal?.querySelector('.wf-popover-overlay'), 'open=false → overlay 应消失')
     assert.ok(!portal?.querySelector('.wf-popover'), 'open=false → panel 应消失')
   })
 

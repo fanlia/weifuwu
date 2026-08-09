@@ -1,0 +1,7 @@
+/* safe-area — iOS 刘海屏/Home 条安全区工具（env() 未生效环境自动为 0） */
+.wf-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.wf-safe-top {
+  padding-top: env(safe-area-inset-top);
+}

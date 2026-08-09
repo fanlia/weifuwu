@@ -115,3 +115,13 @@
   opacity: var(--wf-opacity-disabled);
   cursor: not-allowed;
 }
+
+/* 触屏（coarse）：移动按钮 44px 命中区 */
+@media (pointer: coarse) {
+  .wf-transfer-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

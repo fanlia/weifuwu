@@ -1,11 +1,13 @@
 /**
  * weifuwu/components — Popover
+ *
+ * usePopup 组合器：click/hover 双触发（hover 触屏自动降级 tap）+ 受控 open +
+ * 外部点击（document 级，取代原 overlay）+ 定位/视口 clamp + Escape + portal。
  */
 
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h, createPortal } from '../../client/vnode.ts'
-import { computeFixedPosRect } from '../../client/popup.ts'
+import { h } from '../../client/vnode.ts'
 import type { Placement } from '../../client/popup.ts'
 
 export type PopoverPosition = Placement
@@ -20,79 +22,51 @@ export interface PopoverProps {
   children?: any
 }
 
-export const Popover: Component<PopoverProps> = (_props, ctx) => {
+export const Popover: Component<PopoverProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let show = false
+  let latestPosition: PopoverPosition = 'bottom'
+  let latestTrigger: 'click' | 'hover' = 'click'
+  let latestOpen: boolean | undefined = _init?.open
+  let latestOnOpenChange: ((open: boolean) => void) | undefined = _init?.onOpenChange
+  let disabled = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
-  let latestOpen = false
-  let latestPosition: PopoverPosition = 'bottom'
-  let prevOpen = false
 
-  // 滚动/resize 时自动重算坐标（弹层跟随触发元素）
-  const pos = ctx.ui.usePopupPosition({
+  const popup = ctx.ui.usePopup({
+    trigger: () => latestTrigger,
+    placement: () => latestPosition,
+    gap: 6,
     el: () => wrapEl,
-    isOpen: () => latestOpen,
-    compute: (r) => computeFixedPosRect(r, latestPosition, 6, true),
+    isOpen: () => show,
+    setOpen: (v) => { show = v; ctx.ui.render() },
+    // 受控桥：initProps 传了 open 才进受控模式；open 值每次渲染同步（getter）
+    open: _init?.open !== undefined ? () => !!latestOpen : undefined,
+    onOpenChange: (v) => latestOnOpenChange?.(v),
+    disabled: () => disabled,
   })
 
   // ── render（每次 dirty/props 变化）──
   return (props: PopoverProps) => {
-    const { content, trigger = 'click', position = 'bottom', open, onOpenChange, disabled, children } = props
-    const isOpen = open !== undefined ? open : show
-    latestOpen = isOpen
+    const { content, position = 'bottom', trigger = 'click', children } = props
     latestPosition = position
-    const setOpen = (v: boolean) => {
-      if (open === undefined) {
-        show = v
-        ctx.ui.render()
-      }
-      onOpenChange?.(v)
-    }
+    latestTrigger = trigger
+    latestOpen = props.open
+    latestOnOpenChange = props.onOpenChange
+    disabled = !!props.disabled
 
-    // ── 打开瞬间算一次初始坐标（受控/非受控统一覆盖）──
-    if (isOpen && !prevOpen) pos.refresh()
-    prevOpen = isOpen
-
-    // ── 事件处理 ────────────────────────────────────
-    const onClick = trigger === 'click' && !disabled
-      ? () => setOpen(!isOpen)
-      : undefined
-
-    const hoverProps: Record<string, any> = {}
-    if (trigger === 'hover' && !disabled) {
-      hoverProps.onMouseEnter = () => setOpen(true)
-      hoverProps.onMouseLeave = () => setOpen(false)
-      hoverProps.onFocus = () => setOpen(true)
-      hoverProps.onBlur = () => setOpen(false)
-    }
-
-    const p = pos
-
-    // ── VNode ────────────────────────────────────────
-    const overlay = isOpen && trigger === 'click' ? h('div', {
-      class: 'wf-popover-overlay',
-      onMouseDown: (e: Event) => { e.stopPropagation(); setOpen(false) },
-    }) : null
-
-    const popover = isOpen ? h('div', {
+    const popover = h('div', {
       class: `wf-popover wf-popover--${position} wf-popover--enter`,
-      style: { position: 'fixed', top: p.top, left: p.left },
       role: 'tooltip',
     }, [
       h('div', { class: 'wf-popover-arrow' }),
       h('div', { class: 'wf-popover-content' }, content),
-    ]) : null
-
-    const portalContent = isOpen ? createPortal([overlay, popover].filter(Boolean), 'popover') : null
+    ])
 
     return h('div', {
-      class: `wf-popover-wrap${isOpen ? ' wf-popover-wrap--open' : ''}`,
+      class: `wf-popover-wrap${popup.open ? ' wf-popover-wrap--open' : ''}`,
       ref: wrapRef,
-      ...hoverProps,
-      onClick,
-      // Escape 关闭（焦点在触发钮/内容内时冒泡到包装层）
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) },
-    }, [children, portalContent].filter(Boolean))
+      ...popup.wrapProps,
+    }, [children, popup.portal(popover, 'popover')].filter(Boolean))
   }
 }

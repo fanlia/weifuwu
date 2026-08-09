@@ -276,6 +276,46 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(violations, [], '文本字形必须替换为 Icon 组件（emoji 属文案性 labels 白名单）')
   })
 
+  it('触屏命中区：非 button 交互元素必须有 coarse 44px 覆盖（新增交互组件在此登记）', () => {
+    const layout = readLayoutCss()
+    const component = readComponentCss()
+    const coarse = layout + component
+    // 括号计数提取所有 @media (pointer: coarse) 块中的选择器（处理嵌套花括号）
+    const selectors = new Set<string>()
+    const re = /@media \(pointer: coarse\)\s*\{/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(coarse))) {
+      let depth = 1
+      let i = re.lastIndex
+      while (i < coarse.length && depth > 0) {
+        if (coarse[i] === '{') depth++
+        else if (coarse[i] === '}') depth--
+        i++
+      }
+      const block = coarse.slice(re.lastIndex, i - 1)
+      for (const line of block.split('\n')) {
+        const sel = line.trim().split(/\s*\{/)[0].split(',')[0].trim()
+        if (sel.startsWith('.')) selectors.add(sel)
+      }
+      re.lastIndex = i
+    }
+    // 非 button/input/select 的交互元素清单（button 类由全局 `button` 选择器覆盖；
+    // 新增非 button 交互组件/类时必须在此登记，否则触屏命中区回归）
+    const MUST_COVER = [
+      '.wf-card--clickable',
+      '.wf-table-th--sortable',
+      '.wf-accordion-summary',
+      '.wf-checkbox',
+      '.wf-switch',
+      '.wf-radio',
+      '.wf-datepicker-cell',
+      '.wf-carousel-dot',
+      '.wf-select-search-opt',
+    ]
+    const missing = MUST_COVER.filter(cls => ![...selectors].some(c => c === cls || c.startsWith(cls + '--') || c.startsWith(cls + ':')))
+    assert.deepEqual(missing, [], `粗指针 44px 命中区未覆盖：${missing.join(', ')}（在 _base.css 或组件 CSS 的 coarse 块登记）`)
+  })
+
   it('一次性动画必须引用动效 Token（循环动画 spinner/shimmer 豁免）', () => {
     const css = readComponentCss() + '\n' + readLayoutCss()
     const violations: string[] = []

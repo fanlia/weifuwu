@@ -128,3 +128,11 @@
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-tertiary);
 }
+
+/* 触屏（coarse）：月份切换按钮 44px 命中区 */
+@media (pointer: coarse) {
+  .wf-calendar-nav-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

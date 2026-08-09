@@ -1,8 +1,7 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h, createPortal } from '../../client/vnode.ts'
+import { h } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
-import { computeFixedPosRect } from '../../client/popup.ts'
 
 export interface CascaderOption {
   value: string
@@ -44,14 +43,18 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
   $.activePath = [] as string[] // 面板内推进的路径（不含最终选中提交）
 
   let triggerEl: HTMLElement | null = null
-  let prevOpen = false
   const triggerRef = (el: HTMLElement | null) => { triggerEl = el }
 
-  // 弹层跟随触发元素（滚动/resize 自动重算，参考 Popover 定位模式）
-  const pos = ctx.ui.usePopupPosition({
+  // usePopup：借用外部点击/Escape 关闭 + 面板定位/视口 clamp + portal
+  // （触发仍走 trigger 自身 onClick=toggleOpen，不 spread wrapProps）
+  const popup = ctx.ui.usePopup({
+    trigger: 'click',
+    placement: 'bottom',
+    center: false,
+    gap: 6,
     el: () => triggerEl,
     isOpen: () => $.open,
-    compute: (r) => computeFixedPosRect(r, 'bottom', 6, false),
+    setOpen: (v) => { $.open = v },
   })
 
   return (props) => {
@@ -63,11 +66,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
     // 当前面板路径：从 value 或内部 activePath
     const panelPath: string[] = $.open ? $.activePath : []
 
-    // 打开瞬间先算坐标（Popover 同款时序：refresh 必须在 panel VNode 创建前——
-    // 否则 VNode 用旧 pos(0,0) 渲染 → 首次打开左上角，第二次才正常）
-    if ($.open && !prevOpen) pos.refresh()
-    prevOpen = $.open
-
+    // 打开瞬间坐标由 usePopup.portal 内部处理
     const toggleOpen = () => {
       if (disabled) return
       $.open = !$.open
@@ -137,14 +136,10 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
       level++
     }
 
-    const panel = $.open ? createPortal(
-      h('div', {
-        class: 'wf-cascader-panel',
-        role: 'listbox',
-        style: { position: 'fixed', top: pos.top, left: pos.left },
-      }, columns),
-      'popover',
-    ) : null
+    const panel = popup.portal(h('div', {
+      class: 'wf-cascader-panel',
+      role: 'listbox',
+    }, columns), 'popover')
 
     const display = Array.isArray(value) && value.length
       ? findPathLabel(options, value)
@@ -171,7 +166,6 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
 
     return h('div', {
       class: 'wf-cascader-wrap',
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape' && $.open) { $.open = false } },
     }, wrapChildren)
   }
 }

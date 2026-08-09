@@ -101,3 +101,22 @@
   background: var(--wf-color-primary);
   transform: scale(1.25);
 }
+
+/* 触屏（coarse）：箭头 44px；圆点保持视觉 8px，用 ::after 扩展命中区（视觉不变） */
+@media (pointer: coarse) {
+  .wf-carousel-arrow {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .wf-carousel-dot {
+    position: relative;
+  }
+  .wf-carousel-dot::after {
+    content: '';
+    position: absolute;
+    inset: -14px;
+    border-radius: 50%;
+  }
+}

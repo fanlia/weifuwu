@@ -386,9 +386,14 @@ describe('postgres pool idle reaping (real database)', () => {
       const a = await pool.query('SELECT 1 AS one')
       assert.equal(a[0].one, 1)
       assert.equal(pool.open, 3)
-      // 等 1.5s——空闲连接被定时回收（池容量收缩）
-      await new Promise((r) => setTimeout(r, 1500))
-      assert.ok(pool.open < 3, `空闲回收后连接数应 < 3，实际 ${pool.open}`)
+      // 轮询等待空闲回收——固定 sleep 在并发负载下不可靠（事件循环繁忙时
+      // setInterval 回调延迟，1.5s 内可能未到下一个 reap 周期；见 AGENTS.md 全量测试纪律）
+      let shrunk = false
+      for (let i = 0; i < 50; i++) {
+        await new Promise((r) => setTimeout(r, 100))
+        if (pool.open < 3) { shrunk = true; break }
+      }
+      assert.ok(shrunk, `空闲回收后连接数应 < 3，实际 ${pool.open}`)
       // 再查询——自动扩容重建，服务不中断
       const b = await pool.query('SELECT 1 AS one')
       assert.equal(b[0].one, 1)

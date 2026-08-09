@@ -430,6 +430,12 @@ return (props) => h('div', { ref: listRef })
 
 - `node --test` 无 Jest/Mocha
 - **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（**≤15 秒**），并优先加 `--test-timeout`（如 `timeout 15 node --env-file=.env --test --test-timeout=8000 ...`）——真库/集成测试卡住时能快速定位而非无限等待；卡住时用更短 timeout 复跑缩小范围
+- **全量测试总时长预算：≤ 15 秒**（`npm test` = pretest docker 1.6s + 测试本体 ~9.4s + npm 启动开销 ≈ **11s 实测**；1466 测试含 db 真库 191 个）。**超过 15 秒 = 必须排查的告警**，按序检查：
+  1. **资源未释放**：db 连接未 `close()`（连接池堆积）、redis 订阅未退订（Pub/Sub 残留）、jsdom 定时器未清（setTimeout/interval 未 clear——挂起比失败更难定位）、全局 document/mutation 监听未 remove、async 工厂/WeakMap 缓存异常增长
+  2. **新增测试自身慢**：长按/动画测试的 sleep（`usePopup` longpress 500ms×2 是已知最慢项）；改为事件驱动断言或用更短可配置时长
+  3. **串行瓶颈**：`--test-concurrency=1` 文件串行 + 每个测试文件的 setup/teardown 开销；db 真库测试耗时占比大（191 测试 4.3s）
+  4. 排查命令：`timeout 15 node --env-file=.env --test --test-timeout=8000 <glob>` 分段跑定位超时文件，再缩短该文件测试查找挂起点
+- **并发数经验：默认 16 核全并发会 GC/锁抖动（全量从 ~9s 恶化到 >60s）——`npm test` 已固化为 `--test-concurrency=8`（实测稳定 ~11.5s）**；新增慢文件或机器变化后先验证此值仍成立（<15s 预算内）
 - **CS-04 — DB 客户端（redis/postgres）测试必须连 docker 真实库**：
   - **禁止 mock 网络层**（`mock-server.ts` 已删除）——故障注入用真实机制：
     - Redis 断线/重连：`CLIENT KILL ID <id>`（杀真实连接）+ BLPOP 阻塞（制造确定性 pending）+ 未占用端口（不可达）

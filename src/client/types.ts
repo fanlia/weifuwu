@@ -3,6 +3,8 @@
  */
 
 import type { UseChatHandle, UseChatOptions } from './use-chat.ts'
+import type { VNode } from './vnode.ts'
+import type { Placement } from './popup.ts'
 
 /** 弹层位置跟踪配置 — 供 ctx.ui.usePopupPosition 使用 */
 export interface PopupPositionOptions {
@@ -33,6 +35,78 @@ export interface PopupPosition {
   width?: number
   /** 立即重算一次坐标（不触发渲染，调用方负责 render） */
   refresh: () => void
+}
+
+/** 弹层触发方式 — usePopup 的 trigger */
+export type PopupTrigger = 'hover' | 'click' | 'longpress'
+
+/** 弹层组合器配置 — 供 ctx.ui.usePopup 使用 */
+export interface UsePopupOptions {
+  /** 触发方式（支持 getter——动态读最新 props；hover 在触屏环境自动降级为 tap） */
+  trigger: PopupTrigger | (() => PopupTrigger)
+  /** 弹出方向（支持 getter——动态读最新 props），默认 'bottom' */
+  placement?: Placement | (() => Placement)
+  /** 水平对齐：center=居中于触发元素（默认），start=左对齐（Menubar 面板用） */
+  center?: boolean
+  /** 与触发元素间距（px，默认 6） */
+  gap?: number
+  /** 视口安全边距（px，默认 8） */
+  margin?: number
+  /** 锚定元素 getter（ref 保存的触发元素） */
+  el: () => HTMLElement | null
+  /** 是否打开（getter） */
+  isOpen: () => boolean
+  /** 非受控：设置打开状态（调用方负责 render/dirty） */
+  setOpen: (open: boolean) => void
+  /** 受控（可选，boolean 或 getter——动态读最新 props）：传了则组件内不直接改状态，只回调 onOpenChange */
+  open?: boolean | (() => boolean)
+  /** 受控回调（可选） */
+  onOpenChange?: (open: boolean) => void
+  /** 面板宽度（px，可选）：自动 clamp 到视口（≤ 100vw - 32px） */
+  width?: number
+  /** 点外部关闭（默认 true） */
+  closeOnOutside?: boolean
+  /** Escape 关闭（默认 true） */
+  closeOnEscape?: boolean
+  /** 长按触发时长（ms，仅 trigger='longpress'，默认 500） */
+  longPressDuration?: number
+  /** hover 打开延迟（ms 或 getter——动态读最新 props，仅 trigger='hover'，默认 0） */
+  openDelay?: number | (() => number)
+  /** hover 关闭延迟（ms 或 getter，仅 trigger='hover'，默认 0） */
+  closeDelay?: number | (() => number)
+  /** 禁用（getter）：禁用时所有触发不生效且 portal 不渲染 */
+  disabled?: () => boolean
+}
+
+/** 弹层组合器返回值 — usePopup */
+export interface UsePopupHandle {
+  /** 当前打开状态（渲染期读取） */
+  open: boolean
+  setOpen: (open: boolean) => void
+  /** spread 到触发/包装元素：触发（hover 门控/tap 降级/longpress）+ Escape + focus */
+  wrapProps: Record<string, any>
+  /** 包装弹层内容：定位 + 视口/宽度 clamp + portal；关闭时返回 null */
+  portal: (content: VNode, portalKey?: string) => VNode | null
+  /** 立即重算坐标（打开/动画结束后调用） */
+  refresh: () => void
+}
+
+/** 长按配置 — 供 ctx.ui.useLongPress 使用 */
+export interface UseLongPressOptions {
+  /** 长按时长（ms，默认 500） */
+  duration?: number
+  /** 长按触发回调（接收触发事件，含 clientX/clientY） */
+  onLongPress: (e?: any) => void
+}
+
+/** 长按返回的触发 props — spread 到目标元素 */
+export interface UseLongPressHandle {
+  onPointerDown: (e: any) => void
+  onPointerUp: (e: any) => void
+  onPointerLeave: (e: any) => void
+  onPointerMove: (e: any) => void
+  /** 桌面右键兼容（移动端浏览器 contextmenu 也会触发） */
+  onContextMenu: (e: any) => void
 }
 
 /** 可见性观察配置 — 供 ctx.ui.useInView 使用（IntersectionObserver 封装，替代 scroll 监听） */
@@ -103,6 +177,31 @@ export interface WfuiContext {
     useBreakpoint: (bpsOrCallback: Record<string, string> | ((vp: string) => void), callback?: (vp: string) => void) => void
     /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标 */
     usePopupPosition: (options: PopupPositionOptions) => PopupPosition
+    /**
+     * 弹层组合器：收敛 open 状态 + 触发（hover/tap 降级/longpress）+ Escape +
+     * 外部点击 + 定位/视口 clamp + portal。移动端友好由构造保证。
+     *
+     * ```ts
+     * const popup = ctx.ui.usePopup({
+     *   trigger: 'hover',          // 触屏自动降级 tap
+     *   el: () => wrapEl,
+     *   isOpen: () => $.open,
+     *   setOpen: (v) => { $.open = v; ctx.ui.render() },
+     *   width: 320,                // 自动 clamp 视口
+     * })
+     * return () => h('div', { ref: wrapRef, ...popup.wrapProps }, [
+     *   children, popup.portal(h('div', { class: 'wf-panel' }, content)),
+     * ].filter(Boolean))
+     * ```
+     */
+    usePopup: (options: UsePopupOptions) => UsePopupHandle
+    /** 当前设备是否支持 hover（matchMedia '(hover: hover)'，mount 期一次判定） */
+    useHoverCapable: () => boolean
+    /**
+     * 长按手势：pointerdown 按住 duration 触发，提前松开/位移取消，桌面右键兼容。
+     * 返回的 props spread 到目标元素。
+     */
+    useLongPress: (options: UseLongPressOptions) => UseLongPressHandle
     /**
      * 可见性观察（IntersectionObserver 封装）：替代组件自建 scroll 监听。
      * IO 在合成器线程评估，滚动/尺寸变化自动触发，无 scroll-linked 定位警告。

@@ -11,7 +11,18 @@ function mockCtx(): WfuiContext {
     set(t: any, k, v) { t[k] = v; return true },
     get(t: any, k) { return t[k] },
   })
-  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }) } } as any
+  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true, usePopup: (opts: any) => {
+      // 镜像 usePopup 的 document 级 Escape（portal 中按 Escape 也能关）
+      const onDocKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && opts.isOpen?.()) opts.setOpen?.(false) }
+      document.addEventListener('keydown', onDocKey)
+      return {
+        open: !!opts.isOpen?.(),
+        setOpen: (v: boolean) => { if (!v) opts.setOpen?.(false) },
+        wrapProps: {},
+        portal: (content: any) => opts.isOpen?.() ? { type: Portal, props: { children: { ...content, props: { ...content.props, class: ['wf-popup', content.props?.class].filter(Boolean).join(' '), style: { ...content.props?.style, position: 'fixed', top: '0px', left: '0px' } } }, portalKey: 'popover' }, key: undefined, _placement: 'remote' } : null,
+        refresh: () => {},
+      }
+    } } } as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {
@@ -131,14 +142,14 @@ describe('Cascader', () => {
     assert.equal(triggerOf(v).props.onClick, undefined)
   })
 
-  it('Escape closes panel', () => {
+  it('Escape closes panel（document 级，usePopup 接管）', () => {
     const ctx = mockCtx()
     const render = mount(Cascader, { options }, ctx)!
     let v = render({ options })
     triggerOf(v).props.onClick()
     v = render({ options })
     assert.ok(panelOf(v))
-    v.props.onKeyDown({ key: 'Escape' })
+    ;(document as any).dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     v = render({ options })
     assert.equal(panelOf(v), undefined)
   })

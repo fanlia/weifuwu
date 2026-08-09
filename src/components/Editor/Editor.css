@@ -309,3 +309,11 @@
   padding-top: var(--wf-space-xs);
   border-top: 1px solid var(--wf-color-border);
 }
+
+/* 触屏（coarse）：工具栏按钮 44px 命中区 */
+@media (pointer: coarse) {
+  .wf-editor-toolbar button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

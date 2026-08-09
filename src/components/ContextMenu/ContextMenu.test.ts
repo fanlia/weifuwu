@@ -6,7 +6,15 @@ import { ContextMenu } from './ContextMenu.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true,
+    useLongPress: (opts: any) => ({
+      onPointerDown: (e: any) => { opts.onLongPress?.(e) },
+      onPointerUp: () => {},
+      onPointerLeave: () => {},
+      onPointerMove: () => {},
+      onContextMenu: (e: any) => { e.preventDefault(); opts.onLongPress?.(e) },
+    }),
+  } } as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {

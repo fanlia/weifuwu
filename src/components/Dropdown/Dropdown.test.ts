@@ -6,8 +6,35 @@ import { Dropdown } from './Dropdown.ts'
 import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
+/** usePopup mock：镜像真实语义（受控 isOpen + wf-popup 合并 + Escape via wrapProps） */
 function mockCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),  } } as any
+  return { ui: { $: () => ({}), render: () => {}, dirty: () => {},
+    usePopup: (opts: any) => {
+      const isOpen = () => opts.open === undefined ? false : (typeof opts.open === 'function' ? !!opts.open() : !!opts.open)
+      const portal = (content: any) => {
+        if (!isOpen()) return null
+        return {
+          type: Portal,
+          props: {
+            children: { ...content, props: { ...content.props, class: ['wf-popup', content.props?.class].filter(Boolean).join(' ') } },
+            portalKey: 'dropdown',
+          },
+          key: undefined,
+          _placement: 'remote',
+        }
+      }
+      return {
+        open: isOpen(),
+        setOpen: (v: any) => { opts.onOpenChange?.(v) },
+        wrapProps: {
+          onClick: () => {},
+          onKeyDown: (e: any) => { if (e.key === 'Escape') opts.onOpenChange?.(false) },
+        },
+        portal,
+        refresh: () => {},
+      }
+    },
+  } } as any
 }
 
 /** Call component and get VNode (compatible with two-phase model) */
@@ -40,6 +67,7 @@ describe('Dropdown', () => {
     const menu = inner(portal)
     assert.equal(menu.type, 'div')
     assert.match(menu.props.class, /wf-dropdown-menu/)
+    assert.match(menu.props.class, /wf-popup/, 'usePopup 附加 wf-popup 基类')
     assert.equal(menu.props.children.length, 2)
   })
 
@@ -60,7 +88,6 @@ describe('Dropdown', () => {
   })
 
   it('renders items with correct labels', () => {
-    const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
     const items = [
       { label: '编辑', onClick: () => {} },
       { label: '删除', variant: 'danger' as const, onClick: () => {} },
@@ -74,13 +101,11 @@ describe('Dropdown', () => {
   })
 
   it('adds open class when open', () => {
-    const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
     const vnode = renderVNode(Dropdown, { trigger, open: true }, mockCtx())!
     assert.match(vnode.props.class, /wf-dropdown--open/)
   })
 
   it('包装层带 aria-haspopup / aria-expanded', () => {
-    const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
     const closed = renderVNode(Dropdown, { trigger }, mockCtx())!
     assert.equal(closed.props['aria-haspopup'], 'menu')
     assert.equal(closed.props['aria-expanded'], 'false')
@@ -88,17 +113,14 @@ describe('Dropdown', () => {
     assert.equal(opened.props['aria-expanded'], 'true')
   })
 
-  it('菜单内 Escape 触发 onOpenChange(false)', () => {
-    const trigger = { type: 'button', props: { children: '菜单' }, key: undefined }
+  it('Escape 触发 onOpenChange(false)（wrapProps，document 级语义）', () => {
     const items = [{ label: '编辑' }, { label: '删除', variant: 'danger' as const }]
     let closed = 0
     const vnode = renderVNode(Dropdown, { trigger, items, open: true, onOpenChange: (v: boolean) => { if (!v) closed++ } }, mockCtx())!
-    const portal = vnode.props.children.find((c: any) => c?.type === Portal)
-    const menu = inner(portal)
-    assert.equal(typeof menu.props.onKeyDown, 'function')
-    menu.props.onKeyDown({ key: 'Escape' })
+    assert.equal(typeof vnode.props.onKeyDown, 'function')
+    vnode.props.onKeyDown({ key: 'Escape' })
     assert.equal(closed, 1)
-    menu.props.onKeyDown({ key: 'Enter' })
+    vnode.props.onKeyDown({ key: 'Enter' })
     assert.equal(closed, 1, '非 Escape 键不关闭')
   })
 })

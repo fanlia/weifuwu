@@ -37,7 +37,7 @@ function Section(props: { title: string; children: any }) {
   return (_p: any) => (
     <section class="wf-stack wf-gap-lg">
       <h2 class="wf-text-2xl wf-m-0 wf-border-b wf-pb-sm">{props.title}</h2>
-      <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(420px, 1fr))">{props.children}</div>
+      <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 420px), 1fr))">{props.children}</div>
     </section>
   )
 }
@@ -46,7 +46,7 @@ function DemoCard(props: { title: string; desc: string; code: string; children: 
   return (_p: any) => (
     <div class="wf-surface wf-border wf-rounded-md wf-clip">
       <h3 class="wf-text-base wf-text-semibold wf-p-md wf-bg-secondary wf-border-b wf-m-0">{props.title}</h3>
-      <div class="wf-p-md wf-row wf-gap-sm wf-cluster wf-border-b">{props.children}</div>
+      <div class="wf-p-md wf-row wf-gap-sm wf-cluster wf-border-b wf-scroll">{props.children}</div>
       <div class="wf-px-md wf-py-sm wf-text-xs wf-text-secondary">{props.desc}</div>
       <pre class="wf-bg-tertiary wf-p-md wf-text-xs wf-m-0 wf-scroll">{props.code}</pre>
     </div>

@@ -1,7 +1,6 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h, createPortal } from '../../client/vnode.ts'
-import { computeFixedPosRect } from '../../client/popup.ts'
+import { h } from '../../client/vnode.ts'
 
 export interface MenubarItem {
   key: string
@@ -31,7 +30,6 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
   let openMenu: string | null = null
   let highlight = 0
   let triggerEls: (HTMLElement | null)[] = []
-  let prevOpen = false
 
   // 稳定 ref：索引从 data-idx 读取（内联 ref 每次渲染换引用，会触发无谓的旧 ref(null)）
   const triggerRef = (el: HTMLElement | null) => {
@@ -40,20 +38,23 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
     if (!Number.isNaN(i)) triggerEls[i] = el
   }
 
-  // 弹层定位在打开的菜单 trigger 下方（参考 Popover 定位模式）
-  const pos = ctx.ui.usePopupPosition({
+  // menus 由 render 阶段更新（闭包读最新）
+  let menus: MenubarMenu[] = []
+
+  // usePopup：只借用 document 级外部点击/Escape + 面板定位/视口 clamp + portal。
+  // trigger 点击仍走自定义 toggle（多 trigger 共用一个面板，不 spread wrapProps）
+  const popup = ctx.ui.usePopup({
+    trigger: 'click',
+    placement: 'bottom',
+    center: false,
+    gap: 4,
     el: () => {
-      const i = triggerEls.length > 0
-        ? menus.findIndex(m => m.key === openMenu)
-        : -1
+      const i = menus.findIndex(m => m.key === openMenu)
       return i >= 0 ? triggerEls[i] : null
     },
     isOpen: () => openMenu !== null,
-    compute: (r) => computeFixedPosRect(r, 'bottom', 4, false),
+    setOpen: (v) => { if (!v) close() },
   })
-
-  // menus 由 render 阶段更新（usePopupPosition 闭包读最新）
-  let menus: MenubarMenu[] = []
 
   const close = () => {
     if (openMenu !== null) {
@@ -115,34 +116,26 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
 
     const openMenuData = menus.find(m => m.key === openMenu)
 
-    // 打开瞬间计算一次坐标（usePopupPosition 不自刷新，参考 Popover）
-    if (openMenu !== null && !prevOpen) pos.refresh()
-    prevOpen = openMenu !== null
-
-    const panel = openMenuData ? createPortal(
-      h('div', {
-        class: 'wf-menubar-panel',
-        role: 'menu',
-        style: { position: 'fixed', top: pos.top, left: pos.left },
-      }, (openMenuData.items ?? []).map((item, i) =>
-        h('button', {
-          type: 'button',
-          class: [
-            'wf-menubar-item',
-            highlight === i ? 'wf-menubar-item--hl' : '',
-            item.disabled ? 'wf-menubar-item--dis' : '',
-          ].filter(Boolean).join(' '),
-          key: item.key,
-          role: 'menuitem',
-          onClick: item.disabled ? undefined : () => { item.onSelect?.(); close() },
-          onMouseEnter: () => { if (!item.disabled) highlight = i },
-        }, [
-          h('span', { class: 'wf-menubar-item-label' }, item.label),
-          item.shortcut ? h('kbd', { class: 'wf-menubar-shortcut' }, item.shortcut) : null,
-        ].filter(Boolean))
-      )),
-      'popover',
-    ) : null
+    const panel = openMenuData ? popup.portal(h('div', {
+      class: 'wf-menubar-panel',
+      role: 'menu',
+    }, (openMenuData.items ?? []).map((item, i) =>
+      h('button', {
+        type: 'button',
+        class: [
+          'wf-menubar-item',
+          highlight === i ? 'wf-menubar-item--hl' : '',
+          item.disabled ? 'wf-menubar-item--dis' : '',
+        ].filter(Boolean).join(' '),
+        key: item.key,
+        role: 'menuitem',
+        onClick: item.disabled ? undefined : () => { item.onSelect?.(); close() },
+        onMouseEnter: () => { if (!item.disabled) highlight = i },
+      }, [
+        h('span', { class: 'wf-menubar-item-label' }, item.label),
+        item.shortcut ? h('kbd', { class: 'wf-menubar-shortcut' }, item.shortcut) : null,
+      ].filter(Boolean))
+    )), 'popover') : null
 
     return h('div', {
       class: 'wf-menubar',

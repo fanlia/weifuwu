@@ -17,6 +17,8 @@
 @import './_auto.css';
 @import './_cover.css';
 @import './_pop.css';
+@import './_popup.css';
+@import './_safe-area.css';
 @import './_anchor.css';
 @import './_sticky.css';
 @import './_surface.css';

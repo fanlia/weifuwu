@@ -1,7 +1,13 @@
+/**
+ * weifuwu/components — HoverCard
+ *
+ * usePopup 组合器：hover 触发（触屏自动降级 tap）+ openDelay/closeDelay +
+ * 定位/视口 clamp + Escape + portal。对应 shadcn HoverCard。
+ */
+
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h, createPortal } from '../../client/vnode.ts'
-import { computeFixedPosRect } from '../../client/popup.ts'
+import { h } from '../../client/vnode.ts'
 import type { Placement } from '../../client/popup.ts'
 
 export type HoverCardPosition = Placement
@@ -18,79 +24,43 @@ export interface HoverCardProps {
   closeDelay?: number
 }
 
-/** 悬停富内容卡（对应 shadcn HoverCard）：hover 延迟显隐，支持任意 VNode 内容 */
+/** 悬停富内容卡：hover 延迟显隐，支持任意 VNode 内容（移动端 tap 降级） */
 export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let show = false
+  let latestPosition: HoverCardPosition = 'top'
+  let disabled = false
+  let latestDelay = { open: 150, close: 0 }
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
-  let latestPosition: HoverCardPosition = 'top'
-  let latestOpenDelay = 150
-  let prevOpen = false
-  let openTimer: ReturnType<typeof setTimeout> | undefined
-  let closeTimer: ReturnType<typeof setTimeout> | undefined
 
-  const pos = ctx.ui.usePopupPosition({
+  const popup = ctx.ui.usePopup({
+    trigger: 'hover',
+    placement: () => latestPosition,
+    gap: 8,
     el: () => wrapEl,
     isOpen: () => show,
-    compute: (r) => computeFixedPosRect(r, latestPosition, 8, true),
+    setOpen: (v) => { show = v; ctx.ui.render() },
+    disabled: () => disabled,
+    openDelay: () => latestDelay.open,
+    closeDelay: () => latestDelay.close,
   })
 
   return (props: HoverCardProps) => {
-    const { content, position = 'top', children, disabled, openDelay = 150, closeDelay = 0 } = props
+    const { content, position = 'top', children } = props
     latestPosition = position
-    latestOpenDelay = openDelay
+    disabled = !!props.disabled
+    latestDelay = { open: props.openDelay ?? 150, close: props.closeDelay ?? 0 }
 
-    const showCard = () => {
-      show = true
-      ctx.ui.render()
-    }
-    const hideCard = () => {
-      show = false
-      ctx.ui.render()
-    }
-
-    const onEnter = () => {
-      if (disabled) return
-      clearTimeout(closeTimer)
-      openTimer = setTimeout(showCard, openDelay)
-    }
-    const onLeave = () => {
-      if (disabled) return
-      clearTimeout(openTimer)
-      closeTimer = setTimeout(hideCard, closeDelay)
-    }
-    const onFocusIn = () => {
-      if (disabled) return
-      clearTimeout(closeTimer)
-      showCard()
-    }
-    const onFocusOut = () => {
-      if (disabled) return
-      hideCard()
-    }
-
-    if (show && !prevOpen) pos.refresh()
-    prevOpen = show
-
-    const p = pos
-
-    const card = !disabled ? h('div', {
-      class: `wf-hover-card wf-hover-card--${position}${show ? '' : ' wf-hover-card--hidden'}`,
-      style: { position: 'fixed', top: p.top, left: p.left },
+    const card = h('div', {
+      class: `wf-hover-card wf-hover-card--${position}`,
       role: 'tooltip',
-    }, content) : null
-
-    const portalContent = !disabled ? createPortal(card, 'popover') : null
+    }, content)
 
     return h('div', {
       class: 'wf-hover-card-wrap',
       ref: wrapRef,
-      onMouseEnter: onEnter,
-      onMouseLeave: onLeave,
-      onFocus: onFocusIn,
-      onBlur: onFocusOut,
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') { clearTimeout(openTimer); hideCard() } },
-    }, [children, portalContent].filter(Boolean))
+      ...popup.wrapProps,
+    }, [children, popup.portal(card, 'popover')].filter(Boolean))
   }
 }

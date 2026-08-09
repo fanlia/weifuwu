@@ -1,11 +1,13 @@
 /**
  * weifuwu/components — Tooltip
+ *
+ * usePopup 组合器：hover 触发（触屏自动降级 tap）+ 定位/视口 clamp + Escape + portal。
+ * 移动端友好由构造保证——tap 可显、44px 命中区走 base coarse 清单。
  */
 
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h, createPortal } from '../../client/vnode.ts'
-import { computeFixedPosRect } from '../../client/popup.ts'
+import { h } from '../../client/vnode.ts'
 import type { Placement } from '../../client/popup.ts'
 
 export type TooltipPosition = Placement
@@ -20,53 +22,36 @@ export interface TooltipProps {
 export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
   // ── mount（只一次）──
   let show = false
+  let latestPosition: TooltipPosition = 'top'
+  let disabled = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
-  let latestPosition: TooltipPosition = 'top'
-  let prevOpen = false
 
-  // 滚动/resize 时自动重算坐标（弹层跟随触发元素）
-  const pos = ctx.ui.usePopupPosition({
+  const popup = ctx.ui.usePopup({
+    trigger: 'hover',
+    placement: () => latestPosition,
+    gap: 6,
     el: () => wrapEl,
     isOpen: () => show,
-    compute: (r) => computeFixedPosRect(r, latestPosition, 6, true),
+    setOpen: (v) => { show = v; ctx.ui.render() },
+    disabled: () => disabled,
   })
 
   // ── render（每次 dirty/props 变化）──
   return (props: TooltipProps) => {
-    const { content, position = 'top', children, disabled } = props
+    const { content, position = 'top', children } = props
     latestPosition = position
+    disabled = !!props.disabled
 
-    const showe = () => {
-      show = true
-      ctx.ui.render()
-    }
-    const hide = () => {
-      show = false
-      ctx.ui.render()
-    }
-
-    // ── 打开瞬间算一次初始坐标 ──
-    if (show && !prevOpen) pos.refresh()
-    prevOpen = show
-
-    const p = pos
-
-    const tip = !disabled ? h('div', {
-      class: `wf-tooltip wf-tooltip--${position}${show ? '' : ' wf-tooltip--hidden'}`,
-      style: { position: 'fixed', top: p.top, left: p.left },
+    const tip = h('div', {
+      class: `wf-tooltip wf-tooltip--${position}`,
       role: 'tooltip',
-    }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)]) : null
-
-    const portalContent = !disabled ? createPortal(tip, 'tooltip') : null
+    }, [h('div', { class: 'wf-tooltip-arrow' }), h('div', { class: 'wf-tooltip-content' }, content)])
 
     return h('div', {
       class: 'wf-tooltip-wrap',
       ref: wrapRef,
-      onMouseEnter: showe, onMouseLeave: hide,
-      onFocus: showe, onBlur: hide,
-      // Escape 隐藏（键盘触发显示后可用 Escape 退出）
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') hide() },
-    }, [children, portalContent].filter(Boolean))
+      ...popup.wrapProps,
+    }, [children, popup.portal(tip, 'tooltip')].filter(Boolean))
   }
 }

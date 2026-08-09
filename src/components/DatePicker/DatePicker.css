@@ -284,3 +284,31 @@
   color: var(--wf-color-text-tertiary);
   padding: 0 2px;
 }
+
+/* ── 移动端适配（P0）：面板宽度视口 clamp + range 窄屏纵向堆叠 ── */
+
+.wf-datepicker-dropdown {
+  max-width: calc(100vw - 32px);
+}
+
+.wf-time-picker {
+  max-width: calc(100vw - 32px);
+}
+
+.wf-datepicker-range-wrap {
+  max-width: calc(100vw - 32px);
+}
+
+/* range 双面板（240px×2 ≈ 500px）在 375px 屏溢出 → 窄屏纵向堆叠 */
+@media (max-width: 639px) {
+  .wf-datepicker-range-wrap {
+    flex-direction: column;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+}
+
+/* 时间选择列（时/分/秒）窄屏横向滚动 */
+.wf-time-body {
+  overflow-x: auto;
+}

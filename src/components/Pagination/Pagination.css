@@ -47,3 +47,11 @@
   padding: 0 var(--wf-space-xs);
   color: var(--wf-color-text-tertiary);
 }
+
+/* 触屏（coarse）：页码 44px 命中区（覆盖全局 button min-height） */
+@media (pointer: coarse) {
+  .wf-pagination-item {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

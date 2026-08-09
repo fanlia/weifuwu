@@ -3,10 +3,44 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { HoverCard } from './HoverCard.ts'
+import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
-function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }), ready: true } } as any
+/** usePopup mock：镜像真实语义（openDelay/closeDelay 定时 + disabled/closed → portal null） */
+function mockCtx(show = false): WfuiContext {
+  return { ui: {
+    $: {},
+    render: () => {},
+    dirty: () => {},
+    usePopup: (opts: any) => {
+      let open = show
+      const portal = (content: any) => {
+        if (opts.disabled?.() || !open) return null
+        return {
+          type: Portal,
+          props: {
+            children: { ...content, props: { ...content.props, class: ['wf-popup', content.props?.class].filter(Boolean).join(' ') } },
+            portalKey: 'popover',
+          },
+          key: undefined,
+          _placement: 'remote',
+        }
+      }
+      return {
+        open,
+        setOpen: (v: boolean) => { open = v },
+        wrapProps: {
+          onMouseEnter: () => { setTimeout(() => { open = true }, opts.openDelay?.() ?? 0) },
+          onMouseLeave: () => { setTimeout(() => { open = false }, opts.closeDelay?.() ?? 0) },
+          onFocus: () => {},
+          onBlur: () => {},
+          onKeyDown: (e: any) => { if (e.key === 'Escape') open = false },
+        },
+        portal,
+        refresh: () => {},
+      }
+    },
+  } } as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {
@@ -24,49 +58,44 @@ describe('HoverCard', () => {
     assert.equal(vnode.props.children[0], '悬停')
   })
 
-  it('hidden by default (card has --hidden class)', () => {
-    const render = mount(HoverCard, { content: '卡片', children: 'x' }, mockCtx())!
+  it('no portal when closed（usePopup 卸载语义）', () => {
+    const render = mount(HoverCard, { content: '卡片', children: 'x' }, mockCtx(false))!
     const vnode = render({ content: '卡片', children: 'x' })
-    const card = vnode.props.children[1]?.props?.children
-    assert.ok(card)
-    assert.match(card.props.class, /wf-hover-card--hidden/)
+    assert.equal(vnode.props.children.length, 1, '关闭时只有 trigger，无 portal')
   })
 
   it('shows content after mouseenter + openDelay', async () => {
-    const ctx = mockCtx()
-    const render = mount(HoverCard, { content: '富内容', openDelay: 0, children: 'x' }, ctx)!
+    const render = mount(HoverCard, { content: '富内容', openDelay: 0, children: 'x' }, mockCtx())!
     const vnode = render({ content: '富内容', openDelay: 0, children: 'x' })
     vnode.props.onMouseEnter()
     await sleep(30)
     const vnode2 = render({ content: '富内容', openDelay: 0, children: 'x' })
-    const card = vnode2.props.children[1]?.props?.children
-    assert.ok(card, '应显示提示卡')
-    assert.doesNotMatch(card.props.class, /--hidden/)
+    const portal = vnode2.props.children[1]
+    assert.ok(portal, '应显示提示卡')
+    assert.equal(portal.type, Portal)
   })
 
   it('hides after mouseleave + closeDelay', async () => {
-    const ctx = mockCtx()
-    const render = mount(HoverCard, { content: '内容', openDelay: 0, closeDelay: 0, children: 'x' }, ctx)!
+    const render = mount(HoverCard, { content: '内容', openDelay: 0, closeDelay: 0, children: 'x' }, mockCtx())!
     let v = render({ content: '内容', openDelay: 0, closeDelay: 0, children: 'x' })
     v.props.onMouseEnter()
     await sleep(30)
     v = render({ content: '内容', openDelay: 0, closeDelay: 0, children: 'x' })
-    assert.doesNotMatch(v.props.children[1].props.children.props.class, /--hidden/)
+    assert.ok(v.props.children[1], '打开后有 portal')
     v.props.onMouseLeave()
     await sleep(30)
     v = render({ content: '内容', openDelay: 0, closeDelay: 0, children: 'x' })
-    assert.match(v.props.children[1].props.children.props.class, /--hidden/)
+    assert.equal(v.props.children.length, 1, '关闭后无 portal')
   })
 
   it('mouseleave before openDelay cancels open', async () => {
-    const ctx = mockCtx()
-    const render = mount(HoverCard, { content: '内容', openDelay: 100, children: 'x' }, ctx)!
+    const render = mount(HoverCard, { content: '内容', openDelay: 100, children: 'x' }, mockCtx())!
     let v = render({ content: '内容', openDelay: 100, children: 'x' })
     v.props.onMouseEnter()
     v.props.onMouseLeave() // 在 100ms 内离开
     await sleep(30)
     v = render({ content: '内容', openDelay: 100, children: 'x' })
-    assert.match(v.props.children[1].props.children.props.class, /--hidden/)
+    assert.equal(v.props.children.length, 1, '延迟内离开不应打开')
   })
 
   it('disabled: no portal, hover no-op', () => {
@@ -76,22 +105,20 @@ describe('HoverCard', () => {
   })
 
   it('Escape hides open card', async () => {
-    const ctx = mockCtx()
-    const render = mount(HoverCard, { content: '内容', openDelay: 0, children: 'x' }, ctx)!
+    const render = mount(HoverCard, { content: '内容', openDelay: 0, children: 'x' }, mockCtx())!
     let v = render({ content: '内容', openDelay: 0, children: 'x' })
     v.props.onMouseEnter()
     await sleep(30)
     v = render({ content: '内容', openDelay: 0, children: 'x' })
-    assert.doesNotMatch(v.props.children[1].props.children.props.class, /--hidden/)
+    assert.ok(v.props.children[1], '打开后有 portal')
     v.props.onKeyDown({ key: 'Escape' })
     v = render({ content: '内容', openDelay: 0, children: 'x' })
-    assert.match(v.props.children[1].props.children.props.class, /--hidden/)
+    assert.equal(v.props.children.length, 1, 'Escape 后无 portal')
   })
 
   it('renders rich content (VNode) not just string', async () => {
-    const ctx = mockCtx()
     const rich = { type: 'div', props: { class: 'rich' }, children: null }
-    const render = mount(HoverCard, { content: rich, openDelay: 0, children: 'x' }, ctx)!
+    const render = mount(HoverCard, { content: rich, openDelay: 0, children: 'x' }, mockCtx())!
     const v = render({ content: rich, openDelay: 0, children: 'x' })
     v.props.onMouseEnter()
     await sleep(30)

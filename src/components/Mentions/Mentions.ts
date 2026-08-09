@@ -1,7 +1,6 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h, createPortal } from '../../client/vnode.ts'
-import { computeFixedPosRect } from '../../client/popup.ts'
+import { h } from '../../client/vnode.ts'
 
 export interface MentionsOption {
   value: string
@@ -31,14 +30,18 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
   let composing = false
 
   let taEl: HTMLElement | null = null
-  let prevOpen = false
   const taRef = (el: HTMLElement | null) => { taEl = el }
 
-  // 弹层跟随输入框（参考 Popover 定位模式）
-  const pos = ctx.ui.usePopupPosition({
+  // usePopup：借用面板定位/视口 clamp + 外部点击关闭（不 spread wrapProps——
+  // 打开由输入 '@' 驱动，非 wrap 触发）；Escape 由 textarea 自己的 onKeyDown 处理
+  const popup = ctx.ui.usePopup({
+    trigger: 'click',
+    placement: 'bottom',
+    center: false,
+    gap: 4,
     el: () => taEl,
     isOpen: () => open,
-    compute: (r) => computeFixedPosRect(r, 'bottom', 4, false),
+    setOpen: (v) => { if (!v) close() },
   })
 
   const close = () => {
@@ -108,16 +111,11 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
       }
     }
 
-    // 打开瞬间先算坐标（Popover 同款时序：refresh 必须在 panel VNode 创建前——
-    // 否则 VNode 用旧 pos(0,0) 渲染 → 首次打开左上角）
-    if (open && !prevOpen) pos.refresh()
-    prevOpen = open
-
-    const panel = open && filtered.length > 0 ? createPortal(
+    // 打开瞬间先算坐标由 usePopup.portal 内部处理（prevOpen 跟踪）
+    const panel = open && filtered.length > 0 ? popup.portal(
       h('div', {
         class: 'wf-mentions-panel',
         role: 'listbox',
-        style: { position: 'fixed', top: pos.top, left: pos.left },
       }, filtered.map((opt, i) =>
         h('button', {
           type: 'button',

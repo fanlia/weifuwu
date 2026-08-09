@@ -8,13 +8,14 @@
  * 消除 app.ts 中散落的 `as any`——跨模块状态误用由编译器拦截。
  */
 
-import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle } from './types.ts'
+import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle, UsePopupOptions, UsePopupHandle, UseLongPressOptions, UseLongPressHandle } from './types.ts'
 import type { VNode } from './vnode.ts'
-import { idRegistry } from './registry.ts'
+import { idRegistry, onComponentUnmount } from './registry.ts'
 import { createReactiveState } from './reactive.ts'
 import { aiStream } from './ai.ts'
 import { createChatSession, type UseChatHandle, type UseChatOptions, type UseChatState } from './use-chat.ts'
-import { clampToViewport } from './popup.ts'
+import { clampToViewport, computeFixedPosRect } from './popup.ts'
+import { createPortal } from './vnode.ts'
 
 /** 内部 UI 状态（ctx.ui 扩展字段）——跨模块共享，编译器可检查 */
 export interface UiInternal {
@@ -245,6 +246,223 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         Object.assign(pos, clampToViewport(p, tracker.panel?.(), tracker.margin))
       }
       return pos
+    },
+
+    /**
+     * 当前设备是否支持 hover（matchMedia '(hover: hover)'，mount 期一次判定）
+     * 用途：hover 触发的交互在触屏降级为 tap（Tooltip/HoverCard/Popover hover 模式）。
+     */
+    useHoverCapable: function (): boolean {
+      return typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover)').matches
+    },
+
+    /**
+     * 弹层组合器：收敛 open 状态 + 触发（hover/tap 降级/longpress）+ Escape +
+     * 外部点击 + 定位/视口 clamp + portal。移动端友好由构造保证（CS-05 诚实裁剪：
+     * Modal/Drawer 等全屏对话框不进本原语，focus-trap/scroll-lock 各自实现）。
+     */
+    usePopup: function (options: UsePopupOptions): UsePopupHandle {
+      const selfId = getSelfId(this)
+      const canHover = this.useHoverCapable()
+      const triggerOf = () => (typeof options.trigger === 'function' ? options.trigger() : options.trigger)
+      const controlled = options.open !== undefined
+      const isDisabled = () => !!options.disabled?.()
+      const isOpen = () => {
+        if (!controlled) return options.isOpen()
+        return typeof options.open === 'function' ? !!options.open() : !!options.open
+      }
+      const setOpen = (v: boolean) => {
+        if (isDisabled()) return
+        if (controlled) {
+          options.onOpenChange?.(v)
+        } else {
+          options.setOpen(v)
+        }
+      }
+      const placementOf = () => {
+        const p = options.placement
+        return typeof p === 'function' ? p() : (p ?? 'bottom')
+      }
+
+      // ── 定位（复用 usePopupPosition：滚动/resize 自动重算 + 视口夹紧） ──
+      let panelEl: HTMLElement | null = null
+      let prevOpen = false
+      const pos = ctx.ui!.usePopupPosition({
+        el: options.el,
+        isOpen: () => isOpen(),
+        compute: (r) => computeFixedPosRect(r, placementOf(), options.gap ?? 6, options.center !== false),
+        panel: () => panelEl,
+        margin: options.margin ?? 8,
+      })
+
+      // ── 外部点击关闭（document 级，卸载退订） ──
+      const onDocMouseDown = (e: Event) => {
+        if (options.closeOnOutside === false) return
+        if (!isOpen()) return
+        const target = e.target
+        if (!(target instanceof Node)) return
+        const el = options.el()
+        if (el && el.contains(target)) return
+        if (panelEl && panelEl.contains(target)) return
+        setOpen(false)
+      }
+      // ── Escape 关闭（document 级：弹层在 portal 中，焦点在弹层内按 Escape 不会冒泡到 wrap） ──
+      const onDocKeyDown = (e: KeyboardEvent) => {
+        if (options.closeOnEscape === false) return
+        if (e.key !== 'Escape' || !isOpen()) return
+        setOpen(false)
+      }
+      document.addEventListener('mousedown', onDocMouseDown)
+      document.addEventListener('keydown', onDocKeyDown)
+      if (selfId) {
+        onComponentUnmount((id) => {
+          if (id === selfId) {
+            document.removeEventListener('mousedown', onDocMouseDown)
+            document.removeEventListener('keydown', onDocKeyDown)
+          }
+        })
+      }
+
+      // ── 触发 props（hover 门控 + tap 降级 + longpress + Escape） ──
+      const wrapProps: Record<string, any> = {}
+      const delayOf = (d: number | (() => number) | undefined) => (typeof d === 'function' ? d() : (d ?? 0))
+      const openDelay = () => delayOf(options.openDelay)
+      const closeDelay = () => delayOf(options.closeDelay)
+      let openTimer: ReturnType<typeof setTimeout> | undefined
+      let closeTimer: ReturnType<typeof setTimeout> | undefined
+      const clearHoverTimers = () => { clearTimeout(openTimer); clearTimeout(closeTimer); openTimer = undefined; closeTimer = undefined }
+      if (triggerOf() === 'hover') {
+        if (canHover) {
+          wrapProps.onMouseEnter = () => {
+            if (isDisabled()) return
+            clearTimeout(closeTimer); closeTimer = undefined
+            openTimer = setTimeout(() => { openTimer = undefined; setOpen(true) }, openDelay())
+          }
+          wrapProps.onMouseLeave = () => {
+            if (isDisabled()) return
+            clearTimeout(openTimer); openTimer = undefined
+            closeTimer = setTimeout(() => { closeTimer = undefined; setOpen(false) }, closeDelay())
+          }
+        } else {
+          // 触屏：tap 切换 + 点外部关闭（外部关闭已在 document 层处理）
+          wrapProps.onClick = () => setOpen(!isOpen())
+        }
+        // 键盘可达（两端一致）
+        wrapProps.onFocus = () => { if (!isDisabled()) { clearTimeout(closeTimer); closeTimer = undefined; openTimer = setTimeout(() => { openTimer = undefined; setOpen(true) }, openDelay()) } }
+        wrapProps.onBlur = () => { if (!isDisabled()) { clearTimeout(openTimer); openTimer = undefined; closeTimer = setTimeout(() => { closeTimer = undefined; setOpen(false) }, closeDelay()) } }
+      } else if (triggerOf() === 'click') {
+        wrapProps.onClick = () => setOpen(!isOpen())
+      } else if (triggerOf() === 'longpress') {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        let startX = 0
+        let startY = 0
+        const clear = () => { clearTimeout(timer); timer = undefined }
+        wrapProps.onPointerDown = (e: any) => {
+          if (isDisabled()) return
+          startX = e.clientX ?? 0
+          startY = e.clientY ?? 0
+          clear()
+          timer = setTimeout(() => { timer = undefined; setOpen(true) }, options.longPressDuration ?? 500)
+        }
+        wrapProps.onPointerUp = clear
+        wrapProps.onPointerLeave = clear
+        wrapProps.onPointerMove = (e: any) => {
+          const dx = Math.abs((e.clientX ?? 0) - startX)
+          const dy = Math.abs((e.clientY ?? 0) - startY)
+          if (dx > 10 || dy > 10) clear() // 位移 > 10px 视为滚动/拖动，取消
+        }
+        wrapProps.onContextMenu = (e: any) => { e.preventDefault(); setOpen(true) } // 桌面右键兼容
+      }
+
+      wrapProps.onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && options.closeOnEscape !== false) setOpen(false)
+      }
+      // 组件卸载时清理悬停计时器
+      if (selfId) {
+        onComponentUnmount((id) => { if (id === selfId) clearHoverTimers() })
+      }
+
+      // ── 面板元素捕获（视口夹紧用；动画结束后重算坐标，DatePicker 同款） ──
+      const panelRef = (el: HTMLElement | null) => {
+        if (el) {
+          panelEl = el
+          const settle = () => pos.refresh()
+          el.addEventListener('animationend', settle, { once: true })
+        } else {
+          panelEl = null
+        }
+      }
+
+      // ── portal：定位 + 宽度 clamp + 打开瞬间重算坐标 ──
+      const portal = (content: VNode, portalKey = 'popover'): VNode | null => {
+        if (isDisabled()) return null
+        const now = isOpen()
+        if (!now) { prevOpen = false; return null }
+        if (!prevOpen) {
+          pos.refresh()
+          prevOpen = true
+        }
+        const props = (content.props ?? {}) as Record<string, any>
+        const prevRef = props.ref
+        const cls = ['wf-popup', props.class].filter(Boolean).join(' ')
+        const style = {
+          ...(props.style ?? {}),
+          position: 'fixed',
+          top: `${pos.top}px`,
+          left: `${pos.left}px`,
+          maxWidth: options.width !== undefined
+            ? `min(${options.width}px, calc(100vw - 32px))`
+            : 'calc(100vw - 32px)',
+        }
+        const panel = {
+          ...content,
+          props: {
+            ...props,
+            class: cls,
+            style,
+            ref: (el: HTMLElement | null) => { panelRef(el); if (prevRef) prevRef(el) },
+          },
+        } as VNode
+        return createPortal(panel, portalKey)
+      }
+
+      return {
+        open: isOpen(),
+        setOpen,
+        wrapProps,
+        portal,
+        refresh: () => pos.refresh(),
+      }
+    },
+
+    /**
+     * 长按手势：pointerdown 按住 duration 触发，提前松开/位移取消，桌面右键兼容。
+     * 返回的 props spread 到目标元素（ContextMenu 移动端触发用）。
+     */
+    useLongPress: function (options: UseLongPressOptions): UseLongPressHandle {
+      const { onLongPress, duration = 500 } = options
+      let timer: ReturnType<typeof setTimeout> | undefined
+      let startX = 0
+      let startY = 0
+      let startEvent: any = null
+      const clear = () => { clearTimeout(timer); timer = undefined }
+      return {
+        onPointerDown: (e: any) => {
+          startX = e.clientX ?? 0
+          startY = e.clientY ?? 0
+          startEvent = e
+          clear()
+          timer = setTimeout(() => { timer = undefined; onLongPress(startEvent) }, duration)
+        },
+        onPointerUp: clear,
+        onPointerLeave: clear,
+        onPointerMove: (e: any) => {
+          const dx = Math.abs((e.clientX ?? 0) - startX)
+          const dy = Math.abs((e.clientY ?? 0) - startY)
+          if (dx > 10 || dy > 10) clear()
+        },
+        onContextMenu: (e: any) => { e.preventDefault(); onLongPress(e) },
+      }
     },
 
     /**

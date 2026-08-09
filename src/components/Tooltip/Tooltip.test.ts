@@ -4,8 +4,37 @@ import { Tooltip } from './Tooltip.ts'
 import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
-function mockCtx(show = false): WfuiContext {
-  return { ui: { $: { show }, render: () => {}, dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }), ready: true } } as any
+/** usePopup mock：镜像真实语义（closed/disabled → portal null；open → Portal + wf-popup 前缀） */
+function mockCtx(show = false, disabled = false): WfuiContext {
+  return { ui: {
+    $: { show },
+    render: () => {},
+    dirty: () => {},
+    usePopup: () => {
+      const portal = (content: any) => {
+        if (disabled || !show) return null
+        return {
+          type: Portal,
+          props: {
+            children: {
+              ...content,
+              props: { ...content.props, class: ['wf-popup', content.props?.class].filter(Boolean).join(' ') },
+            },
+            portalKey: 'tooltip',
+          },
+          key: undefined,
+          _placement: 'remote',
+        }
+      }
+      return {
+        open: show,
+        setOpen: () => {},
+        wrapProps: { onMouseEnter: () => {}, onMouseLeave: () => {}, onFocus: () => {}, onBlur: () => {}, onKeyDown: () => {} },
+        portal,
+        refresh: () => {},
+      }
+    },
+  } } as any
 }
 
 /** Call component and get VNode (compatible with two-phase model) */
@@ -23,17 +52,18 @@ describe('Tooltip', () => {
     assert.equal(vnode.props.children[0], '按钮')
   })
 
-  it('tooltip hidden when $.show is false', () => {
+  it('no portal when closed（usePopup 卸载语义，取代旧的 hidden 类）', () => {
     const vnode = renderVNode(Tooltip, { content: '保存', children: '按钮' }, mockCtx(false))!
-    const portal = vnode.props.children[1]
-    const tip = inner(portal)
-    assert.match(tip.props.class, /wf-tooltip--hidden/)
+    assert.equal(vnode.props.children.length, 1, '关闭时只有 trigger，无 portal')
   })
 
   it('tooltip visible when $.show is true', () => {
     const vnode = renderVNode(Tooltip, { content: '保存', children: '按钮' }, mockCtx(true))!
     const portal = vnode.props.children[1]
     assert.equal(portal.type, Portal)
+    const tip = inner(portal)
+    assert.match(tip.props.class, /wf-tooltip/)
+    assert.match(tip.props.class, /wf-popup/, 'usePopup 附加 wf-popup 基类')
   })
 
   it('renders with different positions', () => {
@@ -46,12 +76,12 @@ describe('Tooltip', () => {
   })
 
   it('does not render portal when disabled', () => {
-    const vnode = renderVNode(Tooltip, { content: '提示', children: 'x', disabled: true }, mockCtx(true))!
+    const vnode = renderVNode(Tooltip, { content: '提示', children: 'x', disabled: true }, mockCtx(true, true))!
     // children 只有 trigger，没有 portal
     assert.equal(vnode.props.children.length, 1)
   })
 
-  it('has event handlers on wrapper', () => {
+  it('has event handlers on wrapper（来自 usePopup.wrapProps）', () => {
     const vnode = renderVNode(Tooltip, { content: '提示', children: 'x' }, mockCtx())!
     assert.equal(typeof vnode.props.onMouseEnter, 'function')
     assert.equal(typeof vnode.props.onMouseLeave, 'function')

@@ -1,0 +1,9 @@
+/* popup — 浮层基类（usePopup.portal 自动附加；Modal/Drawer 等手动浮层可选用）
+ *
+ * 宽度视口 clamp：任何浮层默认不横向溢出（375px 屏也能完整操作）。
+ * usePopup 已内联 maxWidth；本类兜底组件手动引用场景（audit 规则的目标选择器）。
+ */
+.wf-popup {
+  max-width: min(var(--wf-popup-max, 480px), calc(100vw - 32px));
+  box-sizing: border-box;
+}

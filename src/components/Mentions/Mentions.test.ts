@@ -7,7 +7,13 @@ import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }), ready: true } } as any
+  return { ui: { $: {}, render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({
+      open: !!opts.isOpen?.(),
+      setOpen: (v: boolean) => { if (!v) opts.setOpen?.(false) },
+      wrapProps: {},
+      portal: (content: any) => opts.isOpen?.() ? { type: Portal, props: { children: { ...content, props: { ...content.props, class: ['wf-popup', content.props?.class].filter(Boolean).join(' '), style: { ...content.props?.style, position: 'fixed', top: '0px', left: '0px' } } }, portalKey: 'popover' }, key: undefined, _placement: 'remote' } : null,
+      refresh: () => {},
+    }), ready: true } } as any
 }
 
 function mount(Comp: any, props: any, ctx: any) {

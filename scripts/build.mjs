@@ -108,6 +108,7 @@ const LAYER_OF = {
   _sticky: 'layout', _grid: 'layout', _cluster: 'layout', _scroll: 'layout',
   _clip: 'layout', _block: 'layout', '_inline': 'layout', '_inline-block': 'layout',
   _container: 'layout', _contents: 'layout', _layer: 'layout', _nowrap: 'layout',
+  _popup: 'layout', '_safe-area': 'layout',
   _shrink: 'layout', '_app-shell': 'layout',
   _surface: 'utilities', _spacing: 'utilities', _border: 'utilities',
   _text: 'utilities', _hidden: 'utilities', _prose: 'utilities',
