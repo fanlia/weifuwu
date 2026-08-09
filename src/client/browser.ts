@@ -16,7 +16,7 @@ export function createClientBrowser(): BrowserEnv {
     activeElement: () => (typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null),
     byId: (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null),
     query: (sel) => (typeof document !== 'undefined' ? document.querySelector(sel) : null),
-    createElement: (tag) => (typeof document !== 'undefined' ? document.createElement(tag) as any : null),
+    createElement: (tag) => (typeof document !== 'undefined' ? document.createElement(tag) as HTMLElementTagNameMap[typeof tag] : null),
     bodyAppend: (el) => { if (typeof document !== 'undefined') document.body.appendChild(el) },
     bodyRemove: (el) => { if (typeof document !== 'undefined' && el.parentNode) document.body.removeChild(el) },
     copyText: async (text) => {

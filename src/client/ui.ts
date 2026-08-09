@@ -28,18 +28,24 @@ export interface UiInternal {
   bumpCtxVersion(): void
   /** 异步批处理调度标记（dirty 微任务防重入） */
   _dirtyScheduled?: boolean
+  /** 渲染期调 render() 的推迟标记（防重入——见 ui.ts render 实现） */
+  _pendingRender?: boolean
+  /** 渲染期调 dirty() 的推迟标记（防重入——见 ui.ts dirty 实现） */
+  _pendingDirty?: boolean
   /** ctx.ui.$() 的 WeakMap 缓存（每组件一个 $ 容器） */
   _$cache?: Record<string, any>
   /** mount 阶段标记（内部——mountComponent 包裹） */
   setMounting: (v: boolean) => void
   endMounting: () => void
+  /** ErrorBoundary 注入的错误处理器（子组件 render 抛错时调用） */
+  _errorHandler?: (err: unknown) => void
 }
 
 /** createUi 依赖（由 createApp 注入 app 级闭包状态） */
 export interface UiDeps {
   ctx: WfuiContext
   renderByIds: (ids: string[]) => void
-  getSelfId: (ui: any) => string | undefined
+  getSelfId: (ui: WfuiContext['ui'] | undefined) => string | undefined
   dirtyBatch: Set<string>
   dirtySet: Set<string>
   mediaRegistry: Map<string, {
@@ -98,10 +104,10 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // renderByIds 的 _rendering 保护会静默丢弃，父层状态更新丢失
       if (isRendering()) {
         if (isMounting()) return
-        if (!(this as any)._pendingRender) {
-          ;(this as any)._pendingRender = true
+        if (!this._pendingRender) {
+          this._pendingRender = true
           queueMicrotask(() => {
-            ;(this as any)._pendingRender = false
+            this._pendingRender = false
             this.render(ids)
           })
         }
@@ -122,10 +128,10 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // 渲染期调用（组件 render 内调父层 setState）：推迟到渲染完成后微任务，
       // 而非丢弃——否则 onXxx 回调通知父层的模式（Anchor 滚动高亮等）静默失效
       if (isRendering()) {
-        if (!(this as any)._pendingDirty) {
-          ;(this as any)._pendingDirty = true
+        if (!this._pendingDirty) {
+          this._pendingDirty = true
           queueMicrotask(() => {
-            ;(this as any)._pendingDirty = false
+            this._pendingDirty = false
             this.dirty(ids)
           })
         }
@@ -142,10 +148,10 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
           dirtySet.add(id)
         }
       }
-      if (!(this as any)._dirtyScheduled) {
-        ;(this as any)._dirtyScheduled = true
+      if (!this._dirtyScheduled) {
+        this._dirtyScheduled = true
         queueMicrotask(() => {
-          ;(this as any)._dirtyScheduled = false
+          this._dirtyScheduled = false
           const batch = [...dirtyBatch]
           dirtyBatch.clear()
           if (batch.length > 0) renderByIds(batch)
@@ -155,7 +161,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
 
     /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
     $: function () {
-      const uiThis = this as any
+      const uiThis = this
       // 必须 own property——childCtx.ui = Object.create(ctx.ui) 继承 root 的
       // _$cache，若用 truthy 判断子组件会拿到 root 的 $（原型链污染——
       // AppShell 折叠不工作根因：$.collapsed 写到 root，dirty 根后子树
@@ -164,12 +170,13 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         // dirty 回调动态解析 selfId（而非 mount 一次性捕获）：
         // 优先 _selfVNode._id（vnode 复用时 id 稳定且正确）——避免组件在
         // 无状态包裹/重挂载场景下 $ 状态赋值渲染孤儿实例（交互静默失效）
-        uiThis._$cache = createReactiveState(() => {
+        const cache = createReactiveState(() => {
           const id = uiThis._selfVNode?._id ?? getSelfId(uiThis)
           if (id) ctx.ui!.dirty([id])
         })
+        uiThis._$cache = cache
       }
-      return uiThis._$cache
+      return uiThis._$cache!
     },
 
     /**
@@ -182,7 +189,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
      *   // agent：msg.toolCalls（ToolCallCard 直接消费） / msg.approval（ApprovalCard）
      *
      * 返回组件同一个 $（WeakMap 缓存复用）：chat 状态与页面状态共处一个容器。
-     * 卸载时调用 $.dispose()（或经 ref cleanup）中止流，防泄漏。
+     * 卸载时自动 dispose（中止 in-flight 流，防泄漏）——与其他 use* 原语同权，
+     * 组件无需手动调 $.dispose()。手动 dispose 仍可用于提前中止。
      */
     useChat: function (options: UseChatOptions): UseChatHandle {
       const state = this.$() as UseChatState
@@ -195,6 +203,14 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         approve: api.approve,
         dispose: api.dispose,
       })
+      // 自动 dispose：组件卸载时中止 in-flight 流，防泄漏（与 useMedia/useBreakpoint
+      // 等原语同权——组件无需手动调 $.dispose()）。钩子按 selfId 匹配，只对本实例生效。
+      const selfId = getSelfId(this)
+      if (selfId) {
+        const unsub = onComponentUnmount((id) => {
+          if (id === selfId) { api.dispose(); unsub() }
+        })
+      }
       return state as unknown as UseChatHandle
     },
 
@@ -321,8 +337,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
      * 稳定 ref 引用：mount 作用域持有，跨渲染引用恒等，
      * 根治内联 ref 陷阱（ref-diff 在引用变化时调用旧 ref(null)）。
      */
-    useStableRef: function (init: (el: any) => void, cleanup?: () => void) {
-      const ref = (el: any) => {
+    useStableRef: function (init: (el: HTMLElement | null) => void, cleanup?: () => void) {
+      const ref = (el: HTMLElement | null) => {
         if (el) init(el)
         else cleanup?.()
       }
@@ -346,15 +362,13 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         ctx.ui!.dirty(selfId ? [selfId] : undefined)
       }
       const update = () => {
-        const vv = (window as any).visualViewport as { height?: number; offsetTop?: number } | undefined
+        const vv = window.visualViewport
         handle.height = vv?.height ?? window.innerHeight
         handle.offsetTop = vv?.offsetTop ?? 0
         handle.keyboardOpen = handle.height < window.innerHeight * 0.9
         dirty()
       }
-      const vv = (window as any).visualViewport as
-        | { addEventListener?: (t: string, cb: () => void) => void; removeEventListener?: (t: string, cb: () => void) => void }
-        | undefined
+      const vv = window.visualViewport
       if (vv?.addEventListener) {
         vv.addEventListener('resize', update)
         vv.addEventListener('scroll', update)
@@ -362,7 +376,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         window.addEventListener('resize', update)
       }
       if (selfId) {
-        onComponentUnmount((id) => {
+        const unsub = onComponentUnmount((id) => {
           if (id !== selfId) return
           if (vv?.removeEventListener) {
             vv.removeEventListener('resize', update)
@@ -370,6 +384,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
           } else {
             window.removeEventListener('resize', update)
           }
+          unsub()
         })
       }
       return handle
@@ -441,10 +456,11 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       document.addEventListener('mousedown', onDocMouseDown)
       document.addEventListener('keydown', onDocKeyDown)
       if (selfId) {
-        onComponentUnmount((id) => {
+        const unsub = onComponentUnmount((id) => {
           if (id === selfId) {
             document.removeEventListener('mousedown', onDocMouseDown)
             document.removeEventListener('keydown', onDocKeyDown)
+            unsub()
           }
         })
       }
@@ -462,7 +478,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // 若按当时 triggerOf() 分支（如初始 'click'）则 hover 分支永不建立。
       // 统一挂全部 handler，内部分派（triggerOf() 每次调用读最新）——
       // trigger 从 click 切 hover 也生效；click 组件挂 mouseover 无害（分派 return）。
-      const hoverOpen = (e: any) => {
+      const hoverOpen = (e: MouseEvent) => {
         if (isDisabled()) return
         const wrap = e.currentTarget as HTMLElement
         const rt = e.relatedTarget as Node | null
@@ -470,7 +486,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         clearTimeout(closeTimer); closeTimer = undefined
         openTimer = setTimeout(() => { openTimer = undefined; setOpen(true) }, openDelay())
       }
-      const hoverClose = (e: any) => {
+      const hoverClose = (e: MouseEvent) => {
         if (isDisabled()) return
         const wrap = e.currentTarget as HTMLElement
         const rt = e.relatedTarget as Node | null
@@ -483,8 +499,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       const isHover = () => triggerOf() === 'hover'
 
       // 全部 handler 无条件挂（内部分派——trigger 动态变化生效）
-      wrapProps.onMouseOver = (e: any) => { if (isHover()) hoverOpen(e) }
-      wrapProps.onMouseOut = (e: any) => { if (isHover()) hoverClose(e) }
+      wrapProps.onMouseOver = (e: MouseEvent) => { if (isHover()) hoverOpen(e) }
+      wrapProps.onMouseOut = (e: MouseEvent) => { if (isHover()) hoverClose(e) }
       wrapProps.onClick = () => {
         if (isHover()) {
           if (!canHover) setOpen(!isOpen()) // 触屏 tap 退化
@@ -503,7 +519,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         let startX = 0
         let startY = 0
         const clear = () => { clearTimeout(timer); timer = undefined }
-        wrapProps.onPointerDown = (e: any) => {
+        wrapProps.onPointerDown = (e: PointerEvent) => {
           if (isDisabled()) return
           startX = e.clientX ?? 0
           startY = e.clientY ?? 0
@@ -516,12 +532,12 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         }
         wrapProps.onPointerUp = clear
         wrapProps.onPointerLeave = clear
-        wrapProps.onPointerMove = (e: any) => {
+        wrapProps.onPointerMove = (e: PointerEvent) => {
           const dx = Math.abs((e.clientX ?? 0) - startX)
           const dy = Math.abs((e.clientY ?? 0) - startY)
           if (dx > 10 || dy > 10) clear() // 位移 > 10px 视为滚动/拖动，取消
         }
-        wrapProps.onContextMenu = (e: any) => {
+        wrapProps.onContextMenu = (e: MouseEvent) => {
           e.preventDefault()
           options.onTrigger?.({ clientX: e.clientX ?? 0, clientY: e.clientY ?? 0 })
           setOpen(true)
@@ -533,7 +549,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       }
       // 组件卸载时清理悬停计时器
       if (selfId) {
-        onComponentUnmount((id) => { if (id === selfId) clearHoverTimers() })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { clearHoverTimers(); unsub() } })
       }
 
       // ── 面板元素捕获（视口夹紧用；动画结束后重算坐标，DatePicker 同款） ──
@@ -555,7 +571,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       let lastEl: HTMLElement | null = null
       // 稳定 portal ref（渲染器内联 ref 检测：内联箭头每次渲染新引用 → ≥3 次警告）。
       // content 的 ref（prevRef）动态——闭包变量，每次 portal 调用更新
-      let latestContentRef: ((el: any) => void) | null = null
+      let latestContentRef: ((el: HTMLElement | null) => void) | null = null
       const portalPanelRef = (el: HTMLElement | null) => {
         panelRef(el)
         if (latestContentRef) latestContentRef(el)
@@ -575,7 +591,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
           lastEl = el
         }
         const props = (content.props ?? {}) as Record<string, any>
-        latestContentRef = (props.ref as ((el: any) => void) | null) ?? null
+        latestContentRef = (props.ref as ((el: HTMLElement | null) => void) | null) ?? null
         const cls = ['wf-popup', props.class].filter(Boolean).join(' ')
         const style = {
           ...(props.style ?? {}),
@@ -619,24 +635,24 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       let timer: ReturnType<typeof setTimeout> | undefined
       let startX = 0
       let startY = 0
-      let startEvent: any = null
+      let startEvent: PointerEvent | null = null
       const clear = () => { clearTimeout(timer); timer = undefined }
       return {
-        onPointerDown: (e: any) => {
+        onPointerDown: (e: PointerEvent) => {
           startX = e.clientX ?? 0
           startY = e.clientY ?? 0
           startEvent = e
           clear()
-          timer = setTimeout(() => { timer = undefined; onLongPress(startEvent) }, duration)
+          timer = setTimeout(() => { timer = undefined; if (startEvent) onLongPress(startEvent) }, duration)
         },
         onPointerUp: clear,
         onPointerLeave: clear,
-        onPointerMove: (e: any) => {
+        onPointerMove: (e: PointerEvent) => {
           const dx = Math.abs((e.clientX ?? 0) - startX)
           const dy = Math.abs((e.clientY ?? 0) - startY)
           if (dx > 10 || dy > 10) clear()
         },
-        onContextMenu: (e: any) => { e.preventDefault(); onLongPress(e) },
+        onContextMenu: (e: MouseEvent) => { e.preventDefault(); onLongPress(e) },
       }
     },
 
@@ -756,7 +772,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       const state = createReactiveState(() => {
         if (!ctx.ui) return // destroy 后：静默忽略（应用已销毁）
         ctx.ui!.dirty(selfId ? [selfId] : undefined)
-      }) as any
+      })
       state.loading = true
       // stale-close 保护：每次 reload 递增 token，过期 Promise resolve 静默丢弃
       let token = 0
@@ -798,7 +814,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // 非受控内部值：首次用当前 value 初始化，后续跨渲染保持（render 阶段调用也稳定）
       if (!controlled && selfId && !uncontrolledValues.has(selfId)) {
         uncontrolledValues.set(selfId, options.value)
-        onComponentUnmount((id) => { uncontrolledValues.delete(id) })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { uncontrolledValues.delete(selfId); unsub() } })
       }
       const setValue = (v: T) => {
         if (controlled) {
@@ -834,7 +850,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // render 阶段调用（读最新 props）——内部态 Map 缓存跨渲染保持
       if (selfId && !inputStates.has(selfId)) {
         inputStates.set(selfId, { keyword: '', selectedLabel: '' })
-        onComponentUnmount((id) => { inputStates.delete(id) })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { inputStates.delete(selfId); unsub() } })
       }
       const state = selfId ? inputStates.get(selfId)! : { keyword: '', selectedLabel: '' }
       const dirty = () => {
@@ -866,7 +882,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // render 阶段调用——非受控内部态 Map 缓存跨渲染保持
       if (selfId && !openStates.has(selfId)) {
         openStates.set(selfId, false)
-        onComponentUnmount((id) => { openStates.delete(id) })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { openStates.delete(selfId); unsub() } })
       }
       const controlled = options.open !== undefined
       // 受控缺回调 warn：模块级按 name 幂等（对齐 useControlled——受控纪律自动化）
@@ -920,7 +936,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         }
       }
 
-      const ref = (el: any) => {
+      const ref = (el: HTMLElement | null) => {
         if (el) {
           // 挂载期挂一次 animationend：enter 结束忽略，exit 结束才真正卸载
           if (!animEndHandler) {
@@ -928,7 +944,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
             el.addEventListener('animationend', animEndHandler)
           }
         } else {
-          el?.removeEventListener('animationend', animEndHandler as any)
+          // el 为 null（卸载）——listener 随元素移除而销毁，无需手动移除
           animEndHandler = undefined
         }
       }
@@ -951,7 +967,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // 状态机复用 usePresence（open → exit → closed + animationend 卸载）
       const presence = this.usePresence(options)
 
-      const rootRef = (el: any) => {
+      const rootRef = (el: HTMLElement | null) => {
         if (el) {
           lockScroll()
           if (panelEl) focusCleanup = trapFocus(panelEl as HTMLElement)
@@ -963,7 +979,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         }
       }
 
-      const panelRef = (el: any) => {
+      const panelRef = (el: HTMLElement | null) => {
         panelEl = el
         // panel 后挂（root 先连）时补 trap
         if (el && !focusCleanup) {
@@ -987,7 +1003,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       if (typeof window === 'undefined') return () => {}
       window.addEventListener('keydown', handler)
       if (selfId) {
-        onComponentUnmount((id) => { if (id === selfId) window.removeEventListener('keydown', handler) })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { window.removeEventListener('keydown', handler); unsub() } })
       }
       return () => window.removeEventListener('keydown', handler)
     },
@@ -1093,7 +1109,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         cb()
         if (opts?.once && el) el.removeEventListener('animationend', handler)
       }
-      const ref = (node: any) => {
+      const ref = (node: HTMLElement | null) => {
         if (node) {
           el = node
           node.addEventListener('animationend', handler)
@@ -1174,7 +1190,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
           `Each component must have a unique custom ID.`
         )
       }
-      const vnode = (this as any)._selfVNode
+      const vnode = this._selfVNode
       if (!vnode) return
       vnode._customId = name
       idRegistry.set(name, vnode)

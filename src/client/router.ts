@@ -13,7 +13,7 @@ import type { FlattenedRoute } from './route-match.ts'
 export interface RouterOptions {
   mode?: 'hash' | 'history'
   routes: RouteDef[]
-  notFound?: (props: any, ctx: WfuiContext) => any
+  notFound?: (props: Record<string, unknown>, ctx: WfuiContext) => VNode | null
 }
 
 /** router 中间件注入到 ctx 的字段 */
@@ -65,35 +65,36 @@ export function router(opts: RouterOptions): AppMiddleware<{}, RouteInjected> {
   }
 
   return (ctx: WfuiContext) => {
-    const resolved = resolve(getPath())
-    ;(ctx as any).route = resolved
-    if (resolved.title) document.title = resolved.title
+    const bumpRouteVersion = (c: WfuiContext) => {
+      // 路由变化是 ctx 变化：bump 版本使 RouteView 等 ctx 消费者跳过 skip。
+      // bumpCtxVersion 是内部方法（UiInternal），不在公共 ui 类型上——窄结构类型访问
+      ;(c.ui as { bumpCtxVersion?: () => void } | undefined)?.bumpCtxVersion?.()
+    }
 
-    if (!ctx.app) ctx.app = {} as any
-    ctx.app!.navigate = (path: string) => {
+    const navigate = (path: string) => {
       // 页面上下文切换：async 工厂缓存失效（工厂内 ctx.data 的 key 依赖旧 ctx）
       clearAsyncComponentCache()
       if (mode === 'hash') {
         window.location.hash = '#' + path
-        const resolved = resolve(path)
-        ;(ctx as any).route = resolved
+        ctx.route = resolve(path)
       } else {
         window.history.pushState({}, '', path)
-        const resolved = resolve(path)
-        ;(ctx as any).route = resolved
+        ctx.route = resolve(path)
       }
       if (ctx.route?.title) document.title = ctx.route.title
-      // 路由变化是 ctx 变化：bump 版本使 RouteView 等 ctx 消费者跳过 skip
-      ;(ctx as any).ui?.bumpCtxVersion?.()
+      bumpRouteVersion(ctx)
       ctx.ui?.render()
     }
 
+    ctx.route = resolve(getPath())
+    if (ctx.route.title) document.title = ctx.route.title
+    ctx.app = { navigate }
+
     const onPop = () => {
       clearAsyncComponentCache()
-      const resolved = resolve(getPath())
-      ;(ctx as any).route = resolved
+      ctx.route = resolve(getPath())
       if (ctx.route?.title) document.title = ctx.route.title
-      ;(ctx as any).ui?.bumpCtxVersion?.()
+      bumpRouteVersion(ctx)
       ctx.ui?.render()
     }
     window.addEventListener('popstate', onPop)
@@ -109,10 +110,10 @@ export function RouteView(_props: {}, ctx: WfuiContext) {
   // mount 时从 route._rvDepth 读取深度（由父 RouteView 的 render 设置）
   // route 对象是所有 RouteView 共享的（通过 ctx 原型链访问），
   // 且 mount 在 render 的同一次同步执行流中发生，值一定正确
-  const _depth = ((ctx as any).route?._rvDepth as number) ?? 0
+  const _depth = (ctx.route?._rvDepth as number | undefined) ?? 0
 
-  return (): any => {
-    const route = (ctx as any).route
+  return (): VNode | null => {
+    const route = ctx.route
     if (!route?.chain?.length || _depth >= route.chain.length) return null
 
     const def = route.chain[_depth]

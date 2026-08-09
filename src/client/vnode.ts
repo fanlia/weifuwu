@@ -14,19 +14,32 @@ import type { WfuiContext } from './types.ts'
 // （具体泛型会因 props 逆变导致 required-prop 组件无法嵌套，如 h(ToolCallCard, {...})）
 export type VNodeType = string | Component<any, any> | AsyncComponent | typeof Fragment | typeof Portal
 
+/**
+ * VNode 子节点合法值——组件可返回/渲染的多态内容。
+ * 递归联合：string/number/VNode/array/null/boolean 任意组合。
+ */
+export type VNodeChild =
+  | VNode
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | VNodeChild[]
+
 export interface VNode {
   type: VNodeType
   props: Record<string, any>
   key?: string
   el?: Node
   /** 子 VNode 缓存（用于 patchValue diff，避免重复执行组件） */
-  _child?: any
+  _child?: VNode | VNode[] | null
   /** 远程 DOM 容器（Portal 等 remote VNode 的 DOM 所在处） */
   _remoteEl?: HTMLElement | undefined
   /** VNode 的 DOM 归属：'local' 在父 DOM 树下，'remote' 在别处 */
   _placement?: 'local' | 'remote'
   /** 两阶段组件的 render 函数（mount 返回的函数） */
-  _render?: (props: any) => VNode | null
+  _render?: (props: Record<string, unknown>) => VNode | null
 
   /** 组件实例 ID（如 '_wf_0'） */
   _id?: string
@@ -36,6 +49,8 @@ export interface VNode {
   _parentNode?: Node
   /** 组件输出的第一个 DOM 节点 */
   _refNode?: Node | null
+  /** Fragment 展开后的多个直属 DOM 节点范围（diff 对齐用，见 diff.ts） */
+  _childNodes?: Node[]
   /** 组件 mount/render 时的 ctx 版本号（供三态 skip 判定） */
   _ctxVersion?: number
 }
@@ -90,7 +105,7 @@ export function asyncComponent<C extends object = {}, P = {}>(
 
 /** 判定一个组件类型是否为 async 工厂（asyncComponent 包装过） */
 export function isAsyncComponent(type: any): type is AsyncComponent {
-  return typeof type === 'function' && (type as any)?.[ASYNC_MARK] === true
+  return typeof type === 'function' && type?.[ASYNC_MARK] === true
 }
 
 export const Fragment = Symbol('Fragment')
@@ -129,7 +144,7 @@ export function jsxDEV(type: VNodeType, props: Record<string, any> | null, key?:
 }
 
 /** `h`（hyperscript）支持 variadic children: `h('div', {class:'x'}, child1, child2)` */
-export function h(type: VNodeType, props: Record<string, any> | null, ...children: any[]): VNode {
+export function h(type: VNodeType, props: Record<string, any> | null, ...children: VNodeChild[]): VNode {
   const p = normalizeProps(props ?? {})
   if (children.length > 0) {
     p.children = children.length === 1 ? children[0] : children
@@ -164,7 +179,7 @@ export function isPortal(vnode: VNode): boolean {
 }
 
 /** Portal VNode — 子节点渲染到 document.body#__wf_portal 中 */
-export function createPortal(children: any, portalKey?: string): VNode {
+export function createPortal(children: VNodeChild, portalKey?: string): VNode {
   return {
     type: Portal,
     props: { children, portalKey },

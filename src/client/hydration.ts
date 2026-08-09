@@ -6,6 +6,7 @@
  */
 
 import type { VNode, Component, AsyncComponent } from './vnode.ts'
+import type { UiInternal } from './ui.ts'
 import { Fragment, Portal, isAsyncComponent } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 import { flattenChildren, SVG_NS, SVG_TAGS } from './render.ts'
@@ -139,20 +140,21 @@ async function renderValueHydrating(v: any, ctx: WfuiContext, c: HydrationCursor
 
 /** Hydration 组件：await 工厂（或同步 mount）→ render → 递归收养；填充实例簿记 */
 async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: HydrationCursor): Promise<Node | null> {
-  ;(ctx as any).ui = (ctx as any).ui ?? {}
+  // ctx.ui 由 createApp 注入（类型必需字段）——不补默认（同 renderComponent）
 
   if (!vnode._id) {
     vnode._id = nextComponentId()
     idRegistry.set(vnode._id, vnode)
   }
   const childCtx = Object.create(ctx) as WfuiContext
-  childCtx.ui = Object.create(ctx.ui as any) as any
-  childCtx.ui._selfId = vnode._id
-  childCtx.ui._selfVNode = vnode
-  vnode._ctxVersion = (childCtx.ui as any)._ctxVersion ?? 0
+  childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
+  const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
+  childUi._selfId = vnode._id
+  childUi._selfVNode = vnode
+  vnode._ctxVersion = childUi._ctxVersion ?? 0
 
   const Comp = vnode.type as Component | AsyncComponent
-  let childVNode: any
+  let childVNode: VNode | null
   try {
     let def: Component
     if (isAsyncComponent(Comp)) {
@@ -170,7 +172,7 @@ async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: Hydra
     vnode._render = renderFn
     childVNode = renderFn(vnode.props ?? {})
   } catch (e) {
-    const errHandler = (ctx as any).ui?._errorHandler
+    const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
     if (errHandler) {
       errHandler(e)
       childVNode = null
@@ -189,8 +191,8 @@ async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: Hydra
   }
   vnode._child = childVNode
   const domNode = await renderValueHydrating(childVNode, childCtx, c)
-  if (!(vnode as any)._refNode) {
-    ;(vnode as any)._refNode = domNode
+  if (!vnode._refNode) {
+    vnode._refNode = domNode
   }
   return domNode
 }

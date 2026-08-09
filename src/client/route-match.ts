@@ -59,8 +59,19 @@ export function extractParams(path: string, match: FlattenedRoute): Record<strin
   const m = path.match(match.re)
   if (m) {
     for (let i = 0; i < match.keys.length; i++) {
-      params[match.keys[i]] = decodeURIComponent(m[i + 1])
+      params[match.keys[i]] = safeDecode(m[i + 1])
     }
   }
   return params
+}
+
+/**
+ * 安全 URI 解码——畸形序列不抛（返回原值）。
+ *
+ * decodeURIComponent 对不完整的 UTF-8 百分比序列（如 %E0%A4）抛 URIError，
+ * crafted URL 会使路由匹配崩溃。此处兜底返回原字符串（未解码）——
+ * 路由仍可匹配，参数取原始编码值（调用方按需二次处理）。
+ */
+function safeDecode(s: string): string {
+  try { return decodeURIComponent(s) } catch { return s }
 }

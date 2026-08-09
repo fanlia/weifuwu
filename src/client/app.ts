@@ -18,7 +18,7 @@
 import type { WfuiContext, AppMiddleware, PopupPositionOptions, PopupPosition } from './types.ts'
 import { render, patchPortal, renderPortal } from './render.ts'
 import { hydrateVNode } from './hydration.ts'
-import { createUi } from './ui.ts'
+import { createUi, type UiInternal } from './ui.ts'
 import { createClientBrowser } from './browser.ts'
 import { patchValue } from './diff.ts'
 import { callRefCleanup, idRegistry, onComponentUnmount } from './registry.ts'
@@ -43,6 +43,8 @@ export function createApp<C extends object = {}>(): App<C> {
   let rootComponent: Component<any, any> | null = null
   let oldVNode: VNode | null = null
   let _rendering = false
+  // master 卸载钩子退订函数（mount 注册，destroy 退订——防跨 app 实例累积）
+  let _masterUnsub: (() => void) | null = null
   // mount 阶段标记：组件工厂（mountComponent 内 def 执行）期间置位——
   // 期间 $ 初始化赋值应丢弃（旧行为正确）；render 期 dirty 才推迟
   let _mounting = false
@@ -98,7 +100,7 @@ export function createApp<C extends object = {}>(): App<C> {
   }
   function destroyPopupListeners() {
     if (_popupListenersReady) {
-      window.removeEventListener('scroll', schedulePopupRecompute, { capture: true } as any)
+      window.removeEventListener('scroll', schedulePopupRecompute, { capture: true })
       window.removeEventListener('resize', schedulePopupRecompute)
       _popupListenersReady = false
     }
@@ -140,7 +142,7 @@ export function createApp<C extends object = {}>(): App<C> {
           ids.push(id)
         }
       }
-      if (ids.length > 0) (ctx as any).ui.render(ids)
+      if (ids.length > 0) ctx.ui.render(ids)
     })
   }
 
@@ -153,9 +155,9 @@ export function createApp<C extends object = {}>(): App<C> {
       const vnode = idRegistry.get(id)
       if (!vnode || !vnode._render) continue
       // 入口组件（dirty 源）先消费 dirty 标记，但自身仍要 render（它是变化源）
-      ;(ctx as any).ui._dirtySet?.delete(id)
-      const oldChild = vnode._child
-      const newChild = vnode._render(vnode.props)
+      ;(ctx.ui as (WfuiContext['ui'] & UiInternal))._dirtySet?.delete(id)
+      const oldChild = vnode._child as VNode | null
+      const newChild = vnode._render(vnode.props) as VNode | null
       vnode._child = newChild
 
       // 组件输出为 remote（Portal）：委托到 patchPortal，不操作父 DOM
@@ -172,7 +174,8 @@ export function createApp<C extends object = {}>(): App<C> {
 
       // local 组件：用 _parentNode / _refNode 找 DOM 容器
       if (!vnode._parentNode && vnode._refNode) {
-        ;(vnode as any)._parentNode = vnode._refNode.parentNode
+        const pn = vnode._refNode.parentNode
+        if (pn) vnode._parentNode = pn
       }
       if (vnode._parentNode) {
         const newNode = patchValue(
@@ -183,7 +186,7 @@ export function createApp<C extends object = {}>(): App<C> {
         if (newNode && newNode !== vnode._refNode) {
           vnode._refNode = newNode
         } else if (!newNode) {
-          ;(vnode as any)._refNode = null
+          vnode._refNode = null
         }
       }
     }
@@ -195,8 +198,8 @@ export function createApp<C extends object = {}>(): App<C> {
   }
 
   function flushDirtyBatch() {
-    const ui = ctx.ui as any
-    if (_dirtyBatch.size > 0 && !ui._dirtyScheduled) {
+    const ui = ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined
+    if (ui && _dirtyBatch.size > 0 && !ui._dirtyScheduled) {
       ui._dirtyScheduled = true
       queueMicrotask(() => {
         ui._dirtyScheduled = false
@@ -207,9 +210,9 @@ export function createApp<C extends object = {}>(): App<C> {
     }
   }
 
-    /** 获取调用者（组件）的 selfId — 优先从 this，其次从 app 层 ctx */
+  /** 获取调用者（组件）的 selfId — 优先从 this，其次从 app 层 ctx */
   function getSelfId(uiObj: any): string | undefined {
-    return uiObj?._selfId ?? (ctx as any).ui?._selfId
+    return uiObj?._selfId ?? (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._selfId
   }
 
   const app = {
@@ -238,13 +241,13 @@ export function createApp<C extends object = {}>(): App<C> {
       // ── 注入 ctx.data（数据管道）────────────────────
       // 缓存 + in-flight 合并；hydration 场景从 window.__DATA__（SSR 序列化）预置种子
       const dataCache = new Map<string, { value?: unknown; promise?: Promise<unknown> }>()
-      const hydratedData = (globalThis as any).__DATA__
+      const hydratedData = globalThis.__DATA__ ?? window.__DATA__
       if (hydratedData && typeof hydratedData === 'object') {
         for (const [k, v] of Object.entries(hydratedData)) {
           dataCache.set(k, { value: v })
         }
       }
-      ;(ctx as any).data = {
+      ctx.data = {
         async get<T = any>(key: string, fetcher?: () => Promise<T>): Promise<T> {
           const entry = dataCache.get(key)
           // 缓存命中（含 __DATA__ 种子）——hydration 场景不重跑 fetcher
@@ -270,7 +273,8 @@ export function createApp<C extends object = {}>(): App<C> {
       }
 
       // ── 组件卸载清理（P3）：退订 media/breakpoint listener + popup tracker ──
-      onComponentUnmount((id) => {
+      // master 钩子：app 生命周期级，不随组件自退订——destroy 时退订（防跨 app 累积）
+      _masterUnsub = onComponentUnmount((id) => {
         for (const key of [..._mediaRegistry.keys()]) {
           if (key.startsWith(`media:${id}:`) || key === `bp:${id}`) unsubscribeMediaEntry(key)
         }
@@ -279,8 +283,8 @@ export function createApp<C extends object = {}>(): App<C> {
       })
 
       // ── 注入 ctx.ui（工厂方法在 ui.ts，app 注入闭包依赖） ──
-      ;(ctx as any).browser = createClientBrowser()
-      ;(ctx as any).ui = createUi({
+      ctx.browser = createClientBrowser()
+      ctx.ui = createUi({
         ctx,
         renderByIds,
         getSelfId,
@@ -324,15 +328,24 @@ export function createApp<C extends object = {}>(): App<C> {
     },
 
     destroy() {
+      // 取消待处理的弹层重算 rAF（防 destroy 后回调触发）
+      if (_popupRaf) { cancelAnimationFrame(_popupRaf); _popupRaf = 0 }
       // 清理弹层位置跟踪的全局监听（scroll/resize）+ 注册表
       destroyPopupListeners()
+      // 递归清理根组件树：触发所有 ref(null)（用户清理逻辑：clearInterval/socket.close/dispose）
+      // + onComponentUnmount 钩子（media/popup/scroll 自动退订）。必须在清注册表前调用——
+      // callRefCleanup 内部会读 idRegistry 注销组件并触发钩子
+      if (oldVNode) callRefCleanup(oldVNode)
+      // 退订 master 卸载钩子（防跨 app 实例累积）
+      if (_masterUnsub) { _masterUnsub(); _masterUnsub = null }
       _popupTrackers.clear()
       _scrollTrackers.clear()
       for (const key of [..._mediaRegistry.keys()]) unsubscribeMediaEntry(key)
-      // 全部组件失效：清 idRegistry，残留异步回调（Promise/WS/setTimeout）的 dirty 不再命中
+      // 兜底：callRefCleanup 已递归注销，clear 确保无残留（含异步回调的 dirty 不再命中）
       idRegistry.clear()
       if (container) container.innerHTML = ''
       container = null
+      oldVNode = null
       ctx = {} as WfuiContext
     },
   }

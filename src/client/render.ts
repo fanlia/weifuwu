@@ -12,9 +12,10 @@
  */
 
 import { Fragment, Portal, isPortal, isAsyncComponent } from './vnode.ts'
-import type { VNode, Component, AsyncComponent } from './vnode.ts'
+import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
+import type { UiInternal } from './ui.ts'
 import type { WfuiContext } from './types.ts'
-import { idRegistry, nextComponentId, callRefCleanup, startAsyncFactory, resolveAsyncFactorySync, resolveAsyncFactory } from './registry.ts'
+import { idRegistry, nextComponentId, callRefCleanup, safeCallRef, startAsyncFactory, resolveAsyncFactorySync, resolveAsyncFactory } from './registry.ts'
 // ⚠️ 与 diff.ts 的环：renderValue（本文件）↔ patchKeyedChildren（diff.ts）互相需要。
 // 安全原因：两模块顶层仅常量声明，全部函数级延迟调用（渲染运行时两模块均已加载）。
 import { patchProps, normalize, ensureKeys, patchKeyedChildren, mapChildDomNodes } from './diff.ts'
@@ -24,11 +25,11 @@ export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'line', 'rect', 'text'
 
 // ── render ─────────────────────────────────────────────
 
-export function render(input: any, ctx: WfuiContext): Node | null {
+export function render(input: VNodeChild, ctx: WfuiContext): Node | null {
   return renderValue(input, ctx)
 }
 
-export function renderValue(v: any, ctx: WfuiContext): Node | null {
+export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
   if (v == null || typeof v === 'boolean') return null
   if (typeof v === 'string' || typeof v === 'number') return document.createTextNode(String(v))
   if (Array.isArray(v)) return renderArray(v, ctx)
@@ -51,7 +52,7 @@ export function renderValue(v: any, ctx: WfuiContext): Node | null {
     }
     // 记录 Fragment 实际产生的 DOM 节点（DocumentFragment 插入父节点后会展开成多个直属节点）
     // diff 用 `_childNodes` 做精确范围对齐——否则父级按位置索引 `parent.childNodes[i]` 会串位
-    ;(vnode as any)._childNodes = Array.from(frag.childNodes)
+    ;(vnode as VNode)._childNodes = Array.from(frag.childNodes)
     return frag
   }
 
@@ -103,8 +104,8 @@ export function renderValue(v: any, ctx: WfuiContext): Node | null {
     ;(el as HTMLSelectElement).value = String(selectValue)
   }
 
-  // ref 回调：ref(el) 初始化，元素移除时 ref(null) 清理
-  if (typeof vnode.props?.ref === 'function') vnode.props.ref(el)
+  // ref 回调：ref(el) 初始化，元素移除时 ref(null) 清理（safeCallRef 防用户逻辑抛错中断渲染）
+  if (typeof vnode.props?.ref === 'function') safeCallRef(vnode.props.ref, el, 'mount', tag)
 
   return el
 }
@@ -116,8 +117,8 @@ export function renderValue(v: any, ctx: WfuiContext): Node | null {
  */
 
 /** 占位完成后整树重渲染（async 工厂已解析，diff 收敛到目标位置） */
-function scheduleFullReRender(ctx: WfuiContext) {
-  const ui = (ctx as any).ui
+export function scheduleFullReRender(ctx: WfuiContext) {
+  const ui = ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined
   if (ui && typeof ui.render === 'function') ui.render(['_wf_root'])
 }
 
@@ -129,7 +130,7 @@ function scheduleFullReRender(ctx: WfuiContext) {
  */
 export function mountComponent(
   Comp: Component | AsyncComponent,
-  props: any,
+  props: VNode['props'],
   vnode: VNode,
   ctx: WfuiContext,
 ): VNode | null {
@@ -151,12 +152,13 @@ export function mountComponent(
   }
 
   // mount 阶段标记：工厂执行期间 $ 初始化赋值丢弃（_rendering 保护语义细分）
-  ;(ctx as any).ui?.setMounting?.(true)
-  let childVNode: any
+  ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.setMounting?.(true)
+  // def(props, ctx) 返回 render 函数（两阶段模型的第二阶段；Component 类型允许 null）
+  let childVNode: ((props: VNode['props']) => VNode | null) | null | undefined
   try {
     childVNode = def(props, ctx)
   } finally {
-    ;(ctx as any).ui?.endMounting?.()
+    ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.endMounting?.()
   }
   if (typeof childVNode !== 'function') {
     throw new Error(
@@ -170,11 +172,12 @@ export function mountComponent(
 
 function renderComponent(
   Comp: Component | AsyncComponent,
-  props: any,
+  props: VNode['props'],
   vnode: VNode,
   ctx: WfuiContext,
 ): Node | null {
-  ;(ctx as any).ui = (ctx as any).ui ?? {}
+  // ctx.ui 由 createApp 注入（类型必需字段）——此处不补默认（原 ?? {} 是历史防御，
+  // 组件渲染必然在 createApp.mount 之后）
 
   // 生成组件实例 ID
   if (!vnode._id) {
@@ -184,18 +187,19 @@ function renderComponent(
 
   // 扩展 ctx：每个组件有自己的 _selfId 和 VNode 引用
   const childCtx = Object.create(ctx) as WfuiContext
-  childCtx.ui = Object.create(ctx.ui as any) as any
-  childCtx.ui._selfId = vnode._id
-  childCtx.ui._selfVNode = vnode
+  childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
+  const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
+  childUi._selfId = vnode._id
+  childUi._selfVNode = vnode
 
   // 首次渲染记录当前 ctx 版本（供后续三态 skip 使用）
-  vnode._ctxVersion = (childCtx.ui as any)._ctxVersion ?? 0
+  vnode._ctxVersion = childUi._ctxVersion ?? 0
 
-  let childVNode
+  let childVNode: VNode | null
   try {
     childVNode = mountComponent(Comp, props, vnode, childCtx)
   } catch (e) {
-    const errHandler = (ctx as any).ui?._errorHandler
+    const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
     if (errHandler) {
       errHandler(e)
       childVNode = null
@@ -210,6 +214,15 @@ function renderComponent(
 
   if (childVNode == null) {
     vnode._child = null
+    // 若组件注入了 _errorHandler（ErrorBoundary 场景），输出 null 时插入注释占位——
+    // null 输出组件无 DOM 锚点，错误恢复重渲染时 patchValue 无法定位插入位置。
+    // 注释占位提供 _refNode，使 renderByIds 能推导 _parentNode 并替换为 fallback。
+    const errHandler = (childCtx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
+    if (errHandler) {
+      const placeholder = document.createComment('wf-empty')
+      vnode._refNode = placeholder
+      return placeholder
+    }
     return null
   }
   vnode._child = childVNode
@@ -217,13 +230,13 @@ function renderComponent(
   // 为组件 VNode 设置 DOM 锚点，供 scope render 使用
   // 如果组件被原生元素包裹，原生元素路径会覆盖 _parentNode
   // 如果组件被另一个组件返回（如 RouteView → Dashboard），这里确保锚点可用
-  if (!(vnode as any)._refNode) {
-    ;(vnode as any)._refNode = domNode
+  if (!vnode._refNode) {
+    vnode._refNode = domNode
   }
   return domNode
 }
 
-function renderArray(arr: any[], ctx: WfuiContext): DocumentFragment {
+function renderArray(arr: VNodeChild[], ctx: WfuiContext): DocumentFragment {
   const frag = document.createDocumentFragment()
   for (const item of arr) {
     const node = renderValue(item, ctx)
@@ -255,7 +268,8 @@ export function renderPortal(vnode: VNode, ctx: WfuiContext): void {
   vnode._remoteEl = sub
 
   const children = normalize(vnode.props?.children)
-  vnode._child = children
+  // Portal 子项在渲染后均为 VNode（normalize 展平数组/文本）；_child 需 VNode[]
+  vnode._child = children as VNode[]
   for (const child of children) {
     const node = renderValue(child, ctx)
     if (node != null) sub.appendChild(node)
@@ -269,8 +283,8 @@ export function patchPortal(oldV: VNode | null, newV: VNode, ctx: WfuiContext): 
   if (!sub) { renderPortal(newV, ctx); return }
 
   const newChildren = normalize(newV.props?.children)
-  const oldChildren = oldV._child || []
-  newV._child = newChildren
+  const oldChildren = (oldV._child || []) as VNode[]
+  newV._child = newChildren as VNode[]
 
   ensureKeys(oldChildren, newChildren)
   // 节点范围映射：Portal 子项含 Fragment 时产生多个 DOM 节点，需按实际范围对齐
@@ -278,17 +292,17 @@ export function patchPortal(oldV: VNode | null, newV: VNode, ctx: WfuiContext): 
   patchKeyedChildren(sub, oldChildren, newChildren, ctx, oldNodes, oldNodes[0]?.[0] ?? null)
 }
 
-function forEach(children: any, fn: (child: any) => void) {
+function forEach(children: VNodeChild, fn: (child: VNodeChild) => void) {
   if (children == null) return
   if (Array.isArray(children)) { children.forEach(fn); return }
   fn(children)
 }
 
 /** 展平嵌套数组 */
-export function flattenChildren(children: any): any[] {
+export function flattenChildren(children: VNodeChild): VNodeChild[] {
   if (children == null) return []
   if (!Array.isArray(children)) return [children]
-  const result: any[] = []
+  const result: VNodeChild[] = []
   for (const child of children) {
     if (Array.isArray(child)) {
       result.push(...child)
@@ -314,9 +328,11 @@ function setProp(el: Element, key: string, value: any) {
     for (const sk of Object.keys(value)) {
       const sv = value[sk]
       if (sv == null) continue
-      // CSS 变量必须 setProperty（st['--x']=v 静默失败——--wf-cols/--wf-split-ratio 曾不生效）
-      if (sk.startsWith('--')) st.setProperty(sk, String(sv as any))
-      else (st as any)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+      // CSS 变量必须 setProperty（st['--x']=v 静默失败——
+      // --wf-cols/--wf-split-ratio 曾不生效）；数值保持字符串（不转 px）
+      if (sk.startsWith('--')) st.setProperty(sk, String(sv))
+      // 普通 camelCase 键走索引赋值（setProperty 需 kebab-case，camelCase 如 fontSize 会失效）；数值转 px
+      else (st as unknown as Record<string, string>)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
     }
   } else if (key.startsWith('on') && typeof value === 'function') {
     el.addEventListener(key.slice(2).toLowerCase(), value as EventListener)
@@ -347,8 +363,8 @@ function setProp(el: Element, key: string, value: any) {
 export function mountVNode(container: Element, vnode: VNode, ctx: WfuiContext) {
   container.innerHTML = ''
   const node = renderValue(vnode, ctx)
+  // renderValue 返回 Node | null——数组分支不可达（CS-01 死代码），直接插入
   if (node instanceof Node) container.appendChild(node)
-  else if (Array.isArray(node)) (node as any[]).forEach(n => container.appendChild(n))
 }
 
 // ── 兼容导出（P2 拆分：注册表状态已移至 registry.ts、diff 逻辑已移至 diff.ts，这里再导出保持旧导入路径可用） ──

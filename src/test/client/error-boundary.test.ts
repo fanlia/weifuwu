@@ -25,10 +25,11 @@ describe('ErrorBoundary', () => {
     assert.equal(el.textContent, 'ok')
   })
 
-  it('无 children 返回 null', () => {
+  it('无 children 返回空占位（注释——供错误恢复重渲染定位）', () => {
     const v = jsx(ErrorBoundary, {})
     const n = render(v, ctx)
-    assert.equal(n, null)
+    // 注入了 _errorHandler → null 输出返回注释占位（非 null，但无可见元素）
+    assert.ok(n === null || (n as Node).nodeType === 8, '应返回 null 或注释占位')
   })
 
   it('子组件不抛错时正常渲染', () => {
@@ -42,11 +43,12 @@ describe('ErrorBoundary', () => {
     assert.equal(el.textContent, 'content')
   })
 
-  it('无 fallback 时返回 null', () => {
-    // 子组件 render 抛错时 ErrorBoundary 应返回 null（无 fallback）
+  it('无 fallback 时抛错返回空占位（注释）', () => {
+    // 子组件 render 抛错时 ErrorBoundary 无 fallback → 注释占位（错误已捕获，不白屏崩溃）
     const ThrowCmp = (_init: any, _compCtx: any) =>
       (props: any) => { throw new Error('test') }
     const v = jsx(ErrorBoundary, { children: jsx(ThrowCmp, {}) })
-    assert.equal(render(v, ctx), null)
+    const n = render(v, ctx)
+    assert.ok(n === null || (n as Node).nodeType === 8, '应返回 null 或注释占位（无可见元素）')
   })
 })

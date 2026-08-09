@@ -10,6 +10,7 @@
  */
 
 import type { AppMiddleware, WfuiContext } from './types.ts'
+import type { UiInternal } from './ui.ts'
 import { zhCN } from './locale/zh_CN.ts'
 import { enUS } from './locale/en_US.ts'
 
@@ -63,7 +64,9 @@ export function i18n(opts: I18nOptions = {}): AppMiddleware<{}, I18nInjected> {
   }
 
   return (ctx: WfuiContext) => {
-    ;(ctx as any).i18n = state
+    // 中间件注入 ctx.i18n（I18nInjected）——局部类型化引用替代 as any
+    const c = ctx as WfuiContext & I18nInjected
+    c.i18n = state
 
     state.setLocale = (raw: string) => {
       const lang = resolveLang(raw)
@@ -73,8 +76,8 @@ export function i18n(opts: I18nOptions = {}): AppMiddleware<{}, I18nInjected> {
       state.locale = lang
       state.components = merged.components
       // 通知三态 skip：ctx 版本变了，所有组件必须重新 render
-      ;(ctx as any)?.ui?.bumpCtxVersion?.()
-      ;(ctx as any)?.ui?.render()
+      ;(c.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.bumpCtxVersion?.()
+      c.ui?.render()
     }
 
     return ctx as WfuiContext & I18nInjected

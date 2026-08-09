@@ -20,9 +20,24 @@ export const idRegistry = new Map<string, VNode>()
 type UnmountHook = (id: string) => void
 let _unmountHooks: UnmountHook[] = []
 
-/** 注册组件卸载钩子（组件从 idRegistry 注销时触发，含 _customId） */
-export function onComponentUnmount(hook: UnmountHook): void {
+/**
+ * 注册组件卸载钩子（组件从 idRegistry 注销时触发，含 _customId）。
+ *
+ * 返回退订函数——组件级钩子（use* 原语）应在触发后自退订，
+ * 避免 _unmountHooks 数组随 mount 累积导致长期 SPA 内存增长 + unmount O(n) 退化。
+ * app 生命周期级钩子（app.mount 注册的 media/popup/scroll 清理）不退订（随 app 消亡）。
+ */
+export function onComponentUnmount(hook: UnmountHook): () => void {
   _unmountHooks.push(hook)
+  return () => {
+    const i = _unmountHooks.indexOf(hook)
+    if (i >= 0) _unmountHooks.splice(i, 1)
+  }
+}
+
+/** test-only：返回当前注册的卸载钩子数（回归护栏——验证组件级钩子自退订不累积） */
+export function __testHookCount(): number {
+  return _unmountHooks.length
 }
 
 // ── async 工厂缓存（同一工厂只执行一次，多实例/多渲染共享） ──
@@ -74,6 +89,30 @@ export function resolveAsyncFactorySync(Comp: AsyncComponent): Component | undef
   return asyncFactoryCache.get(Comp)?.resolved
 }
 
+// ── ref 安全调用 ────────────────────────────────
+
+/**
+ * 包裹 ref 回调调用——用户 ref 逻辑抛错时不中断渲染/卸载管线。
+ *
+ * ref 在渲染期外执行（mount 后/卸载时），语义上属用户逻辑 bug，不接 _errorHandler
+ * （ErrorBoundary 只覆盖渲染期错误）。console.error 暴露问题即可。
+ */
+export function safeCallRef(
+  ref: Function,
+  arg: any,
+  phase: 'mount' | 'cleanup',
+  name?: string,
+): void {
+  try {
+    ref(arg)
+  } catch (e) {
+    console.error(
+      `[weifuwu] ref ${phase} error in <${name ?? 'anonymous'}>`,
+      e,
+    )
+  }
+}
+
 // ── ref 清理 ────────────────────────────────────
 
 /** 递归清理 Portal 子内容的 ref */
@@ -101,9 +140,11 @@ export function callRefCleanup(input: any) {
     if (vnode._customId) idRegistry.delete(vnode._customId)
     idRegistry.delete(vnode._id)
     // 卸载通知（app 层借此清理 media/popup 注册表条目）
+    // 快照遍历——钩子内可能自退订（splice 修改数组），防迭代错位
     if (_unmountHooks.length > 0) {
-      for (const h of _unmountHooks) h(vnode._id)
-      if (vnode._customId) for (const h of _unmountHooks) h(vnode._customId)
+      const hooks = [..._unmountHooks]
+      for (const h of hooks) h(vnode._id)
+      if (vnode._customId) for (const h of hooks) h(vnode._customId)
     }
     vnode._id = undefined
     vnode._customId = undefined
@@ -130,8 +171,8 @@ export function callRefCleanup(input: any) {
       if (child && typeof child === 'object') callRefCleanup(child as VNode)
     }
   }
-  // 执行 ref 清理
-  if (typeof vnode.props?.ref === 'function') vnode.props.ref(null)
+  // 执行 ref 清理（safeCallRef 防用户逻辑抛错中断递归）
+  if (typeof vnode.props?.ref === 'function') safeCallRef(vnode.props.ref, null, 'cleanup')
 
   // Portal 子容器移除 + 子内容 ref 清理
   if (vnode._remoteEl) {

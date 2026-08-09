@@ -7,7 +7,8 @@
  *   render.ts 不依赖 diff.ts（单向，无环）
  */
 
-import type { VNode, Component, AsyncComponent } from './vnode.ts'
+import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
+import type { UiInternal } from './ui.ts'
 import { Fragment, Portal } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 import { renderValue, mountComponent, patchPortal, renderPortal } from './render.ts'
@@ -38,8 +39,8 @@ function warnRefChurn(el: Element): void {
 export function patchValue(
   parent: Node,
   oldNode: Node | null,
-  oldInput: any,
-  newInput: any,
+  oldInput: VNodeChild,
+  newInput: VNodeChild,
   ctx: WfuiContext,
 ): Node | null {
   // 新增
@@ -111,20 +112,21 @@ export function patchValue(
 
     // 扩展 ctx：注入 _selfId 和 VNode 引用
     const childCtx = Object.create(ctx) as WfuiContext
-    childCtx.ui = Object.create(ctx.ui as any) as any
-    childCtx.ui._selfId = newV._id
-    childCtx.ui._selfVNode = newV
+    childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
+    const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
+    childUi._selfId = newV._id
+    childUi._selfVNode = newV
 
     // ── 传递 ctx 版本号 ──
-    newV._ctxVersion = oldV._ctxVersion ?? (childCtx.ui as any)._ctxVersion ?? 0
+    newV._ctxVersion = oldV._ctxVersion ?? childUi._ctxVersion ?? 0
 
     // ── 三态 skip：props 没变 + $ 没脏 + ctx 版本一致 → 复用旧输出 ──
     if (
       oldV._render &&
       oldV.type === newV.type && // 类型必须相同（否则三态 skip 会复用旧组件输出）
       componentPropsEqual(oldV.props, newV.props) &&
-      !(childCtx.ui as any)._dirtySet?.has(oldV._id) &&
-      newV._ctxVersion === (childCtx.ui as any)._ctxVersion
+      !childUi._dirtySet?.has(oldV._id as string) &&
+      newV._ctxVersion === childUi._ctxVersion
     ) {
       // 复用旧 _child（DOM 未变，不需要重新 render）
       newV._child = oldV._child
@@ -132,7 +134,7 @@ export function patchValue(
     }
 
     // 消费 dirty 标记（使后续 flushDirtyBatch 不会重复处理）
-    ;(childCtx.ui as any)._dirtySet?.delete(oldV._id)
+    childUi._dirtySet?.delete(oldV._id as string)
 
     let childNew
     try {
@@ -143,7 +145,7 @@ export function patchValue(
         childNew = mountComponent(comp, newV.props, newV, childCtx)
       }
     } catch (e) {
-      const errHandler = (ctx as any).ui?._errorHandler
+      const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
       if (errHandler) {
         errHandler(e)
         childNew = null
@@ -170,9 +172,9 @@ export function patchValue(
   if (newV.type === Fragment) {
     // 用 oldV._childNodes 精确对齐 Fragment 的 DOM 范围（Fragment 展开成多个直属节点，
     // 不能按父级 `parent.childNodes[i]` 位置索引——兄弟节点中间的 Fragment 会串位）
-    const oldRange = (oldV as any)._childNodes as Node[] | undefined
+    const oldRange = oldV._childNodes
     const newRange = patchChildren(parent, oldV, newV, ctx, oldRange)
-    ;(newV as any)._childNodes = newRange
+    newV._childNodes = newRange
     return oldNode
   }
 
@@ -234,13 +236,13 @@ const _fnTypeCache = new Map<Function, string>()
 function fnTypeKey(fn: Function): string {
   let key = _fnTypeCache.get(fn)
   if (!key) {
-    key = `fn:${(fn as any).name || 'anon'}`
+    key = `fn:${fn.name || 'anon'}`
     _fnTypeCache.set(fn, key)
   }
   return key
 }
 
-function typeOf(input: any): string {
+function typeOf(input: VNodeChild): string {
   if (input == null || typeof input === 'boolean') return 'null'
   if (typeof input === 'string' || typeof input === 'number') return 'text'
   if (Array.isArray(input)) return 'array'
@@ -254,13 +256,14 @@ function typeOf(input: any): string {
 
 // ── patchProps ─────────────────────────────────────────
 
-export function patchProps(el: Element, oldProps: any, newProps: any) {
+export function patchProps(el: Element, oldProps: Record<string, unknown> | null, newProps: Record<string, unknown>) {
   const oldKeys = oldProps ? Object.keys(oldProps).filter(k => k !== 'children' && k !== 'key' && k !== 'innerHTML') : []
   const newKeys = newProps ? Object.keys(newProps).filter(k => k !== 'children' && k !== 'key' && k !== 'innerHTML') : []
   // O(n·m) → O(n+m)：旧属性删除判定用 Set 查找
   const newKeySet = new Set(newKeys)
 
   for (const key of oldKeys) {
+    if (!oldProps) break // oldKeys 非空意味着 oldProps 非空（TS 收窄辅助）
     if (!newKeySet.has(key)) {
       if (key === 'ref') continue
       if (key.startsWith('on') && typeof oldProps[key] === 'function') {
@@ -283,20 +286,22 @@ export function patchProps(el: Element, oldProps: any, newProps: any) {
     if (key === 'class' || key === 'className') {
         if (el instanceof SVGElement) el.setAttribute('class', classToString(newVal))
         else el.className = classToString(newVal)
-      } else if (key === 'style' && typeof newVal === 'object') {
+      } else if (key === 'style' && typeof newVal === 'object' && newVal !== null) {
         const st = (el as HTMLElement).style
-        for (const sk of Object.keys(newVal)) {
-          const sv = newVal[sk]
+        const styleVal = newVal as Record<string, unknown>
+        for (const sk of Object.keys(styleVal)) {
+          const sv = styleVal[sk]
           if (sv == null) {
             // 新 style 中 undefined/null 的 key 必须移除旧值（否则残留——
             // AutoComplete 下拉 display: undefined 残留 none 的根因）
             if (sk.startsWith('--')) st.removeProperty(sk)
-            else (st as any)[sk] = ''
+            else (st as unknown as Record<string, string>)[sk] = ''
           } else {
             // CSS 变量必须 setProperty（patch 路径与 setProp 对齐——
-            // AppShell 折叠 --wf-sidebar-width 不更新的根因）
+            // AppShell 折叠 --wf-sidebar-width 不更新的根因）；数值保持字符串（不转 px）
             if (sk.startsWith('--')) st.setProperty(sk, String(sv))
-            else (st as any)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+            // 普通 camelCase 键走索引赋值（setProperty 需 kebab-case，camelCase 会失效）；数值转 px
+            else (st as unknown as Record<string, string>)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
           }
         }
       } else if (key.startsWith('on') && typeof newVal === 'function') {
@@ -335,22 +340,23 @@ function classToString(v: any): string {
 
 // ── patchChildren ──────────────────────────────────────
 
-function getKey(input: any): string | undefined {
+function getKey(input: VNodeChild): string | undefined {
   if (input == null || typeof input !== 'object') return undefined
-  return (input as VNode).key
+  // keyed diff 中数组子项无 key（position 复用）；仅 VNode 有 key
+  return Array.isArray(input) ? undefined : (input as VNode).key
 }
 
 /** 为无 key 的子节点自动分配位置 key，确保 keyed diff 正确性 */
-export function ensureKeys(oldChildren: any[], newChildren: any[]) {
-  const hasKey = newChildren.some(c => c && typeof c === 'object' && c.key !== undefined)
+export function ensureKeys(oldChildren: VNodeChild[], newChildren: VNodeChild[]) {
+  const hasKey = newChildren.some(c => c && typeof c === 'object' && !Array.isArray(c) && (c as VNode).key !== undefined)
   if (!hasKey) {
     for (let i = 0; i < newChildren.length; i++) {
       const c = newChildren[i]
-      if (c && typeof c === 'object') c.key = i
+      if (c && typeof c === 'object' && !Array.isArray(c)) (c as VNode).key = String(i)
     }
     for (let i = 0; i < oldChildren.length; i++) {
       const c = oldChildren[i]
-      if (c && typeof c === 'object') c.key = i
+      if (c && typeof c === 'object' && !Array.isArray(c)) (c as VNode).key = String(i)
     }
   }
 }
@@ -362,7 +368,7 @@ export function ensureKeys(oldChildren: any[], newChildren: any[]) {
  * null/boolean/Portal 产生 0 个。explicitNodes 提供限定范围（Fragment 子项
  * 用其自身 _childNodes），否则从 source（parent.childNodes 或给定快照）按计数游标分配。
  */
-export function mapChildDomNodes(source: Node[], children: any[]): (Node[] | null)[] {
+export function mapChildDomNodes(source: Node[], children: VNodeChild[]): (Node[] | null)[] {
   const out: (Node[] | null)[] = []
   let idx = 0
   for (const c of children) {
@@ -370,7 +376,7 @@ export function mapChildDomNodes(source: Node[], children: any[]): (Node[] | nul
     const v = c as VNode
     if (v.type === Portal) { out.push(null); continue } // remote：无直属 DOM
     if (v.type === Fragment) {
-      const fragNodes = (v as any)._childNodes as Node[] | undefined
+      const fragNodes = v._childNodes
       if (Array.isArray(fragNodes) && fragNodes.length > 0) {
         out.push(fragNodes.slice())
         idx += fragNodes.length
@@ -379,11 +385,11 @@ export function mapChildDomNodes(source: Node[], children: any[]): (Node[] | nul
         idx += 1
       }
     } else if (typeof v.type === 'function') {
-      if ((v as any)._render) {
+      if (v._render) {
         // 已挂载组件：用实际渲染的 DOM 记录定位（_refNode 单节点 / _childNodes Fragment）
         // ——不假设占 1 位：渲染为 null 的组件（closed Drawer/Modal）_refNode=null 无 DOM，
         // 假设占位会让后续子项 idx 错位（壳内容区首次切换不更新的根因）
-        const refNode = (v as any)._childNodes ?? (v as any)._refNode
+        const refNode = v._childNodes ?? v._refNode
         if (refNode == null) {
           out.push(null) // 渲染 null：无 DOM、不推进 idx
         } else if (Array.isArray(refNode)) {
@@ -438,11 +444,11 @@ function patchChildren(
   return range
 }
 
-export function normalize(children: any): any[] {
+export function normalize(children: VNodeChild): VNodeChild[] {
   if (children == null) return []
   if (!Array.isArray(children)) return [children]
   // 展平嵌套数组：JSX 中 {arr.map(...)} 产生 [el, [a,b,c]] 结构
-  const result: any[] = []
+  const result: VNodeChild[] = []
   for (const child of children) {
     if (Array.isArray(child)) {
       result.push(...child)
@@ -465,8 +471,8 @@ function collectNodes(node: Node | null): Node[] {
  */
 export function patchKeyedChildren(
   parent: Node,
-  oldChildren: any[],
-  newChildren: any[],
+  oldChildren: VNodeChild[],
+  newChildren: VNodeChild[],
   ctx: WfuiContext,
   oldNodes: (Node[] | null)[] = [],
   rangeStart: Node | null = null,
@@ -475,7 +481,7 @@ export function patchKeyedChildren(
   // 否则 [input(无key), portal(key)] 走 keyed 分支 → 无 key 项 Step1 移除重建 →
   // 受控 input 焦点丢失（AutoComplete/Select 真实 bug——此前组件手动加 key 治标）
   const allUnkeyed = !newChildren.some(c =>
-    c && typeof c === 'object' && c.key !== undefined
+    c && typeof c === 'object' && !Array.isArray(c) && c.key !== undefined
     && (c as VNode)._placement !== 'remote'
   )
 
@@ -522,12 +528,12 @@ export function patchKeyedChildren(
   }
 
   // Step 2: Build old key map（nodes = 实际 DOM 节点引用，移动/删除后依然有效）
-  const oldKeyMap = new Map<string, { vnode: any; nodes: Node[]; index: number }>()
+  const oldKeyMap = new Map<string, { vnode: VNode; nodes: Node[]; index: number }>()
   let domOrder = 0
   for (let i = 0; i < oldChildren.length; i++) {
     const key = getKey(oldChildren[i])
     if (key !== undefined) {
-      oldKeyMap.set(key, { vnode: oldChildren[i], nodes: oldNodes[i] ?? [], index: domOrder++ })
+      oldKeyMap.set(key, { vnode: oldChildren[i] as VNode, nodes: oldNodes[i] ?? [], index: domOrder++ })
     }
   }
 
@@ -550,9 +556,10 @@ export function patchKeyedChildren(
   let nextRef: Node | null = rangeStart && rangeStart.parentNode === parent ? rangeStart : parent.firstChild
   for (let i = 0; i < newChildren.length; i++) {
     const key = newKeys[i]
-    const newChild = newChildren[i]
+    // keyed 路径的子项假定 VNode 语义（有 key 的条目必为 VNode）
+    const newChild = newChildren[i] as VNode | null
     const oldEntry = key !== undefined ? oldKeyMap.get(key) : undefined
-    const isRemote = newChild && typeof newChild === 'object' && (newChild as VNode)._placement === 'remote'
+    const isRemote = newChild && typeof newChild === 'object' && newChild._placement === 'remote'
 
     if (oldEntry) {
       if (oldEntry.nodes.length > 0) {
@@ -563,7 +570,7 @@ export function patchKeyedChildren(
         lastIndex = Math.max(lastIndex, oldEntry.index)
         patchValue(parent, oldEntry.nodes[0], oldEntry.vnode, newChild, ctx)
         // Fragment 子项由 patchValue 更新 _childNodes；其余沿用原节点
-        newNodes[i] = (newChild as any)._childNodes
+        newNodes[i] = (newChild as VNode)._childNodes
           ?? oldEntry.nodes.filter(n => n.parentNode === parent)
         const lastNode = newNodes[i]![newNodes[i]!.length - 1]
         nextRef = lastNode?.nextSibling ?? null
@@ -598,7 +605,7 @@ export function patchKeyedChildren(
  * 对 string/number 做值比较，VNode 做引用比较。
  * 只做一层，不递归（JSX 编译的 flat children 是一维数组）。
  */
-function childrenEqual(a: any, b: any): boolean {
+function childrenEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false
@@ -617,7 +624,7 @@ function childrenEqual(a: any, b: any): boolean {
  * children 为 ['点击 ', count, ' 次'] 时，count 值变必须触发 render。
  * 但数组引用不同而内容相同的情况（每次 JSX 新数组），用 childrenEqual 避免误判。
  */
-function componentPropsEqual(a: any, b: any): boolean {
+function componentPropsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   if (a === b) return true
   if (!a || !b) return false
   const keys = new Set([...Object.keys(a), ...Object.keys(b)])
@@ -633,7 +640,7 @@ function componentPropsEqual(a: any, b: any): boolean {
 }
 
 /** 浅比较两个 props 对象，跳过 children/key */
-function propsEqual(a: any, b: any): boolean {
+function propsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   if (a === b) return true
   if (!a || !b) return false
   const aKeys = Object.keys(a).filter(k => k !== 'children' && k !== 'key')

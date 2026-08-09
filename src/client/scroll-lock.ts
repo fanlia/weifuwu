@@ -37,6 +37,9 @@ export function lockScroll(): void {
 }
 
 export function unlockScroll(): void {
+  // 下溢防护：未锁定时 unlock 是 no-op（防 lockedCount 走负数后
+  // 错误还原 style / scrollTo 覆盖其他锁定者）
+  if (lockedCount === 0) return
   lockedCount--
   if (lockedCount > 0) return
   if (!canLock()) return

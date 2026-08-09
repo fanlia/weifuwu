@@ -107,17 +107,17 @@ export interface UseLongPressOptions {
   /** 长按时长（ms，默认 500） */
   duration?: number
   /** 长按触发回调（接收触发事件，含 clientX/clientY） */
-  onLongPress: (e?: any) => void
+  onLongPress: (e: PointerEvent | MouseEvent) => void
 }
 
 /** 长按返回的触发 props — spread 到目标元素 */
 export interface UseLongPressHandle {
-  onPointerDown: (e: any) => void
-  onPointerUp: (e: any) => void
-  onPointerLeave: (e: any) => void
-  onPointerMove: (e: any) => void
+  onPointerDown: (e: PointerEvent) => void
+  onPointerUp: (e: PointerEvent) => void
+  onPointerLeave: (e: PointerEvent) => void
+  onPointerMove: (e: PointerEvent) => void
   /** 桌面右键兼容（移动端浏览器 contextmenu 也会触发） */
-  onContextMenu: (e: any) => void
+  onContextMenu: (e: MouseEvent) => void
 }
 
 /** 可视视口（visualViewport）状态 — useVisualViewport 返回值 */
@@ -280,7 +280,7 @@ export interface WfuiContext {
      * return () => h('div', { ref: listRef })
      * ```
      */
-    useStableRef: (init: (el: HTMLElement | null) => void, cleanup?: () => void) => (el: any) => void
+    useStableRef: (init: (el: HTMLElement | null) => void, cleanup?: () => void) => (el: HTMLElement | null) => void
     /**
      * 全局键盘监听（window keydown）：mount 注册、组件卸载自动清理；返回退订函数。
      * 覆盖 Command 全局快捷键 / Img preview Escape 等 document/window 级键盘场景。
@@ -419,16 +419,16 @@ export interface WfuiContext {
     usePresence: (options?: { name?: string }) => {
       phase: 'closed' | 'open' | 'exit'
       /** 挂到根元素（animationend 监听：exit 结束才真正卸载） */
-      ref: (el: any) => void
+      ref: (el: HTMLElement | null) => void
       /** render 阶段同步 open → 返回当前 phase */
       sync: (open: boolean) => 'closed' | 'open' | 'exit'
     }
     useDialog: (options?: { name?: string }) => {
       phase: 'closed' | 'open' | 'exit'
       /** 挂到 portal 根（lockScroll + animationend 退场监听） */
-      rootRef: (el: any) => void
+      rootRef: (el: HTMLElement | null) => void
       /** 挂到焦点 trap 目标（对话框面板） */
-      panelRef: (el: any) => void
+      panelRef: (el: HTMLElement | null) => void
       /** render 阶段同步 open → 返回当前 phase */
       sync: (open: boolean) => 'closed' | 'open' | 'exit'
     }
@@ -444,7 +444,7 @@ export interface WfuiContext {
      * return () => h('div', { class: 'wf-panel', ref: settleRef })
      * ```
      */
-    useAnimationEnd: (cb: () => void, opts?: { once?: boolean }) => (el: any) => void
+    useAnimationEnd: (cb: () => void, opts?: { once?: boolean }) => (el: HTMLElement | null) => void
     /** 数值补间（rAF + ease + reduced-motion 直落终值）：count-up / 进度 / 指示器。
      * 目标值变化自动补间；返回 `{ value }`（当前值，render 读）。 */
     useTween: (target: number, opts?: { duration?: number; ease?: 'linear' | 'easeOutCubic' }) => {
@@ -457,7 +457,7 @@ export interface WfuiContext {
     /** 当前组件实例 ID（仅供内部使用，通过 ctx 扩展注入） */
     _selfId?: string
     /** 当前组件 VNode 引用（仅供内部使用，通过 ctx 扩展注入） */
-    _selfVNode?: any
+    _selfVNode?: VNode
   }
 
   /** 路由（由 router 中间件注入） */
@@ -482,13 +482,13 @@ export interface WfuiContext {
     [key: string]: any
   }
 
-  /** API 客户端（由 api 中间件注入） */
+  /** API 客户端（由 api 中间件注入）；options 为 ApiRequestOptions 形状（headers/signal） */
   api?: {
-    get: <T = any>(url: string, opts?: any) => Promise<T>
-    post: <T = any>(url: string, body?: any, opts?: any) => Promise<T>
-    put: <T = any>(url: string, body?: any, opts?: any) => Promise<T>
-    patch: <T = any>(url: string, body?: any, opts?: any) => Promise<T>
-    delete: <T = any>(url: string, opts?: any) => Promise<T>
+    get: <T = unknown>(url: string, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    post: <T = unknown>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    put: <T = unknown>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    patch: <T = unknown>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    delete: <T = unknown>(url: string, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
     [key: string]: any
   }
 
@@ -554,3 +554,13 @@ export function extendCtx<T extends Record<string, unknown>>(
 ): WfuiContext & T {
   return Object.assign(Object.create(ctx), fields) as WfuiContext & T
 }
+
+/** SSR 数据种子（ssr.ts 序列化进 window.__DATA__ 脚本，hydration 时客户端读取） */
+declare global {
+  interface Window {
+    __DATA__?: Record<string, unknown>
+  }
+  var __DATA__: Record<string, unknown> | undefined
+}
+
+export {}
