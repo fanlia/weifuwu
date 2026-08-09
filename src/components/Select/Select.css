@@ -70,9 +70,12 @@
 }
 .wf-select-search-trigger:focus-within {
   border-color: var(--wf-color-primary);
-  /* 蓝线环——与 AutoComplete（.wf-input:focus）聚焦视觉一致。
-     不用 var(--wf-focus-ring)：系统暗色偏好下 primary-bg 变暗（#1e293b）→
-     暗色环不可见（用户反馈'聚焦无蓝色边框'）。border+1px 蓝线明暗均可见。 */
+}
+
+.wf-select-search-input:focus {
+  /* 蓝框在 input 自身（不依赖 trigger box-shadow——trigger 底边蓝框会被
+     menu 面板紧贴遮挡，用户反馈'被挡住了'）。明暗主题均可见（不用
+     focus-ring：系统暗色偏好下 primary-bg 变暗不可见）。 */
   box-shadow: 0 0 0 1px var(--wf-color-primary);
 }
 .wf-select-search--disabled {
