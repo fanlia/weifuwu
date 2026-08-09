@@ -5,6 +5,36 @@
   box-sizing: border-box;
 }
 
+/* 选区色：primary 调（文字反白，与品牌一致） */
+::selection {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary-text);
+}
+
+/* 主题滚动条（全局——所有滚动区一致；Firefox thin + WebKit 样式） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--wf-color-border-dark) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--wf-color-border-dark);
+  border-radius: var(--wf-radius-sm);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--wf-color-text-secondary);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
 :root {
   /* 原生控件/滚动条跟随主题；暗色激活时在 _dark.css 中切为 dark */
   color-scheme: light;
