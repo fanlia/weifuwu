@@ -46,8 +46,11 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
   $.expanded = {} as Record<string, boolean>
   $.copiedPath = undefined as string | undefined
 
-  const toggle = (path: string, selfId?: string) => {
-    $.expanded[path] = !$.expanded[path]
+  // collapsed = 当前折叠态（render 层传入）：折叠中点击 → 展开（false）；
+  // 展开中点击 → 收起（true）。旧实现 !$.expanded 对"深度默认折叠"节点
+  // （undefined）点击设 true 仍是折叠——需两次点击才展开
+  const toggle = (path: string, selfId?: string, collapsed?: boolean) => {
+    $.expanded[path] = collapsed === undefined ? !$.expanded[path] : (collapsed ? false : true)
     if (selfId) ctx.ui.dirty([selfId])
   }
 
@@ -109,16 +112,16 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
             'data-path': path,
             role: 'button',
             tabIndex: 0,
-            onClick: () => toggle(path, selfId),
+            onClick: () => toggle(path, selfId, isCollapsed),
             onKeyDown: (e: KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId) }
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId, isCollapsed) }
             },
           }, [
             h('button', {
               class: 'wf-json-toggle',
               'aria-label': '展开',
               tabIndex: -1,
-              onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId) },
+              onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId, isCollapsed) },
             }, h(Icon, { name: 'chevron-right', size: 10 })),
             h('span', { class: 'wf-json-key' }, `${key}:`),
             h('span', { class: 'wf-json-summary' }, `${summary} {…}`),
@@ -137,16 +140,16 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
               class: 'wf-json-row wf-json-row--header',
               role: 'button',
               tabIndex: 0,
-              onClick: () => toggle(path, selfId),
+              onClick: () => toggle(path, selfId, isCollapsed),
               onKeyDown: (e: KeyboardEvent) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId) }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId, isCollapsed) }
               },
             }, [
               h('button', {
                 class: 'wf-json-toggle',
                 'aria-label': '收起',
                 tabIndex: -1,
-                onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId) },
+                onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId, isCollapsed) },
               }, h(Icon, { name: 'chevron-down', size: 10 })),
               h('span', { class: 'wf-json-key' }, `${key}:`),
               h('span', { class: 'wf-json-node-summary' }, `Array(${v.length})`),
@@ -166,16 +169,16 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
               class: 'wf-json-row wf-json-row--header',
               role: 'button',
               tabIndex: 0,
-              onClick: () => toggle(path, selfId),
+              onClick: () => toggle(path, selfId, isCollapsed),
               onKeyDown: (e: KeyboardEvent) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId) }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId, isCollapsed) }
               },
             }, [
             h('button', {
               class: 'wf-json-toggle',
               'aria-label': '收起',
               tabIndex: -1,
-              onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId) },
+              onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId, isCollapsed) },
             }, h(Icon, { name: 'chevron-down', size: 10 })),
             h('span', { class: 'wf-json-key' }, `${key}:`),
             h('span', { class: 'wf-json-node-summary' }, `Object(${entries.length})`),
@@ -207,12 +210,12 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
             'data-path': rootName,
             role: 'button',
             tabIndex: 0,
-            onClick: () => toggle(rootName, selfId),
+            onClick: () => toggle(rootName, selfId, isCollapsed),
             onKeyDown: (e: KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId) }
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId, isCollapsed) }
             },
           }, [
-            h('button', { class: 'wf-json-toggle', 'aria-label': '展开', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId) } }, h(Icon, { name: 'chevron-right', size: 10 })),
+            h('button', { class: 'wf-json-toggle', 'aria-label': '展开', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId, isCollapsed) } }, h(Icon, { name: 'chevron-right', size: 10 })),
             h('span', { class: 'wf-json-summary' }, `Object {…}`),
           ])
         : (Array.isArray(data)
@@ -221,12 +224,12 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
                   class: 'wf-json-row wf-json-row--header',
                   role: 'button',
                   tabIndex: 0,
-                  onClick: () => toggle(rootName, selfId),
+                  onClick: () => toggle(rootName, selfId, isCollapsed),
                   onKeyDown: (e: KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId) }
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId, isCollapsed) }
                   },
                 }, [
-                  h('button', { class: 'wf-json-toggle', 'aria-label': '收起', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId) } }, h(Icon, { name: 'chevron-down', size: 10 })),
+                  h('button', { class: 'wf-json-toggle', 'aria-label': '收起', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId, isCollapsed) } }, h(Icon, { name: 'chevron-down', size: 10 })),
                   h('span', { class: 'wf-json-node-summary' }, `Array(${data.length})`),
                 ]),
                 h('div', { class: 'wf-json-children' }, data.map((item, i) => renderValue(item, `${rootName}[${i}]`, 1, String(i)))),
@@ -236,12 +239,12 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
                   class: 'wf-json-row wf-json-row--header',
                   role: 'button',
                   tabIndex: 0,
-                  onClick: () => toggle(rootName, selfId),
+                  onClick: () => toggle(rootName, selfId, isCollapsed),
                   onKeyDown: (e: KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId) }
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(rootName, selfId, isCollapsed) }
                   },
                 }, [
-                  h('button', { class: 'wf-json-toggle', 'aria-label': '收起', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId) } }, h(Icon, { name: 'chevron-down', size: 10 })),
+                  h('button', { class: 'wf-json-toggle', 'aria-label': '收起', tabIndex: -1, onClick: (e: Event) => { e.stopPropagation(); toggle(rootName, selfId, isCollapsed) } }, h(Icon, { name: 'chevron-down', size: 10 })),
                   h('span', { class: 'wf-json-key' }, `${rootName}:`),
                   h('span', { class: 'wf-json-node-summary' }, `Object(${Object.keys(data as object).length})`),
                 ]),

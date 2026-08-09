@@ -15,6 +15,12 @@
   padding-left: var(--wf-space-md);
 }
 
+/* 折叠态与展开态 chevron 对齐：折叠行补 node 同级 padding
+   （否则折叠/展开切换时图标 x 位置跳变 16px——model 位置不一致） */
+.wf-json-collapse {
+  padding-left: var(--wf-space-md);
+}
+
 .wf-json-row {
   display: flex;
   align-items: center;
