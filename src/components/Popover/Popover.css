@@ -15,10 +15,10 @@
   z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
-  border-radius: var(--wf-popover-radius, var(--wf-radius-md));
+  border-radius: var(--wf-popover-radius,  var(--wf-radius-md));
   box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space);
-  min-width: var(--wf-popover-width, 160px);
+  min-width: var(--wf-popover-width,  160px);
   max-width: 320px;
 }
 

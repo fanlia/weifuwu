@@ -13,11 +13,11 @@
   align-items: center;
   justify-content: center;
   min-height: 100px;
-  background: var(--wf-color-bg-secondary, #f9fafb);
-  border-radius: var(--wf-radius-md, 8px);
-  border: 1px dashed var(--wf-color-border, #e5e7eb);
-  color: var(--wf-color-text-tertiary, #9ca3af);
-  font-size: var(--wf-font-size-sm, 13px);
+  background: var(--wf-color-bg-secondary);
+  border-radius: var(--wf-radius-md);
+  border: 1px dashed var(--wf-color-border);
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-sm);
 }
 
 .wf-inview-placeholder::after {

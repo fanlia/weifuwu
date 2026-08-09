@@ -22,7 +22,7 @@
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-left-width: 3px;
   border-radius: var(--wf-radius);
-  box-shadow: var(--wf-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.12));
+  box-shadow: var(--wf-shadow-lg);
   padding: var(--wf-space) var(--wf-space-md);
   pointer-events: auto;
   font-family: var(--wf-font-sans);

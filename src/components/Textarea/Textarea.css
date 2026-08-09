@@ -9,10 +9,10 @@
 .wf-textarea {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
-  min-height: var(--wf-field-height, var(--wf-control-height));
+  min-height: var(--wf-field-height);
   padding: var(--wf-control-pad-y) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
-  border-radius: var(--wf-field-radius, var(--wf-radius));
+  border-radius: var(--wf-field-radius);
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   outline: none;

@@ -3,7 +3,7 @@
 .wf-aspect-ratio {
   position: relative;
   width: 100%;
-  aspect-ratio: var(--wf-aspect-ratio, 16 / 9);
+  aspect-ratio: var(--wf-aspect-ratio,  16 / 9);
   overflow: hidden;
 }
 

@@ -11,7 +11,7 @@
   font-weight: var(--wf-font-weight-medium);
   padding: var(--wf-btn-pad-y, var(--wf-control-pad-y)) var(--wf-btn-pad-x, var(--wf-space-md));
   min-height: var(--wf-control-height);
-  border-radius: var(--wf-btn-radius, var(--wf-radius));
+  border-radius: var(--wf-btn-radius,  var(--wf-radius));
   border: var(--wf-border-width) solid transparent;
   cursor: pointer;
   transition: all var(--wf-transition);

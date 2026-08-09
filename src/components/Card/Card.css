@@ -1,13 +1,13 @@
 /* weifuwu/components — Card */
 
 .wf-card {
-  border-radius: var(--wf-card-radius, var(--wf-surface-radius));
+  border-radius: var(--wf-card-radius,  var(--wf-surface-radius));
   background: var(--wf-surface-bg);
   font-family: var(--wf-font-sans);
 }
 
 .wf-card--default {
-  box-shadow: var(--wf-card-shadow, var(--wf-surface-shadow));
+  box-shadow: var(--wf-card-shadow,  var(--wf-surface-shadow));
 }
 
 .wf-card--outlined {

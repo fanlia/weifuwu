@@ -5,7 +5,7 @@
   align-items: center;
   gap: var(--wf-gap-xs);
   padding: 2px var(--wf-space-sm);
-  border-radius: var(--wf-tag-radius, var(--wf-radius-sm));
+  border-radius: var(--wf-tag-radius,  var(--wf-radius-sm));
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-xs);
   line-height: 1.5;

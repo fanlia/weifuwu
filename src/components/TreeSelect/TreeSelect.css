@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 7px 12px;
+  padding: var(--wf-space-sm) 12px;
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg);
@@ -23,7 +23,7 @@
 }
 .wf-treeselect-trigger--open {
   border-color: var(--wf-color-primary);
-  box-shadow: 0 0 0 2px var(--wf-color-primary-bg));
+  box-shadow: 0 0 0 2px var(--wf-color-primary-bg);
 }
 
 .wf-treeselect-placeholder {
@@ -57,7 +57,7 @@
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
-  box-shadow: var(--wf-shadow-md));
+  box-shadow: var(--wf-shadow-md);
   padding: 4px;
   max-height: var(--wf-treeselect-dropdown-max-height);
   overflow: auto;

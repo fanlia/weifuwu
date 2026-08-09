@@ -45,9 +45,9 @@
 }
 
 /* 尺寸 */
-.wf-toggle--sm { font-size: var(--wf-font-size-sm); padding: 2px var(--wf-space-sm); }
-.wf-toggle--md { font-size: var(--wf-font-size-base); padding: 4px var(--wf-space); }
-.wf-toggle--lg { font-size: var(--wf-font-size-lg); padding: 6px var(--wf-space-md); }
+.wf-toggle--sm { padding: 2px var(--wf-space-sm); }
+.wf-toggle--md { padding: 4px var(--wf-space); }
+.wf-toggle--lg { padding: var(--wf-space-sm) var(--wf-space-md); }
 
 /* 组：紧邻连接，选中项圆角过渡 */
 .wf-toggle-group {

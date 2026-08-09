@@ -36,9 +36,9 @@
 
 .wf-modal-content {
   background: var(--wf-color-bg);
-  border-radius: var(--wf-modal-radius, var(--wf-radius-md));
-  box-shadow: var(--wf-modal-shadow, var(--wf-shadow-lg));
-  min-width: var(--wf-modal-width, 400px);
+  border-radius: var(--wf-modal-radius,  var(--wf-radius-md));
+  box-shadow: var(--wf-modal-shadow,  var(--wf-shadow-lg));
+  min-width: var(--wf-modal-width,  400px);
   max-width: 90vw;
   max-height: 80vh;
   display: flex;
@@ -86,7 +86,7 @@
 /* ── 移动端适配（P2）：min-width 视口 clamp（修 375px 屏 400px 溢出）+ 小屏 bottom-sheet ── */
 
 .wf-modal-content {
-  min-width: min(var(--wf-modal-width, 400px), calc(100vw - 32px));
+  min-width: min(var(--wf-modal-width,  400px), calc(100vw - 32px));
 }
 
 @media (max-width: 639px) {

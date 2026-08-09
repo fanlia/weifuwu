@@ -48,7 +48,7 @@
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space);
-  min-width: var(--wf-datepicker-width, 260px);
+  min-width: var(--wf-datepicker-width,  260px);
   user-select: none;
   /* 面板族统一入场：wf-panel-in（scale+fade，Token 驱动） */
   animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
@@ -167,7 +167,7 @@
 }
 
 .wf-datepicker-range-panel {
-  min-width: var(--wf-datepicker-time-width, 240px);
+  min-width: var(--wf-datepicker-time-width,  240px);
 }
 
 /* ── 时间选择 ── */
@@ -180,7 +180,7 @@
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space);
-  min-width: var(--wf-datepicker-range-width, 200px);
+  min-width: var(--wf-datepicker-range-width,  200px);
   user-select: none;
   animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
   transform-origin: top center;

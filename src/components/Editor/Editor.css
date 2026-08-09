@@ -270,7 +270,7 @@
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   padding: var(--wf-space-sm);
-  box-shadow: var(--wf-shadow-lg));
+  box-shadow: var(--wf-shadow-lg);
   /* 定位在工具栏下方 */
 }
 

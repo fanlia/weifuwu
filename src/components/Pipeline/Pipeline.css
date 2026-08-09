@@ -24,7 +24,7 @@
 .wf-pipeline-node {
   position: absolute;
   transform: translate(-50%, -50%);
-  padding: 8px 14px;
+  padding: 8px var(--wf-space-md);
   min-width: 72px;
   max-width: 120px;
   text-align: center;
@@ -37,23 +37,23 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-shadow: var(--wf-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
+  box-shadow: var(--wf-shadow-sm);
 }
 
 .wf-pipeline-node--success {
   border-color: var(--wf-color-success-text);
   color: var(--wf-color-success-text);
-  background: var(--wf-color-success-bg, rgba(20, 83, 45, 0.06));
+  background: var(--wf-color-success-bg);
 }
 .wf-pipeline-node--running {
   border-color: var(--wf-color-primary);
   color: var(--wf-color-primary-text);
-  background: var(--wf-color-primary-bg, rgba(79, 110, 247, 0.08));
+  background: var(--wf-color-primary-bg);
 }
 .wf-pipeline-node--error {
   border-color: var(--wf-color-error-text);
   color: var(--wf-color-error-text);
-  background: var(--wf-color-error-bg, rgba(255, 0, 0, 0.06));
+  background: var(--wf-color-error-bg);
 }
 .wf-pipeline-node--pending {
   border-color: var(--wf-color-border);

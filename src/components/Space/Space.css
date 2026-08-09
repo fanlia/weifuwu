@@ -11,5 +11,5 @@
 }
 
 .wf-space-split {
-  color: var(--wf-color-text-tertiary, #999);
+  color: var(--wf-color-text-tertiary);
 }

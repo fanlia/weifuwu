@@ -40,7 +40,7 @@
 }
 
 .wf-color-picker-trigger--sm { padding: 2px var(--wf-space-sm); font-size: var(--wf-font-size-xs); }
-.wf-color-picker-trigger--lg { padding: 6px var(--wf-space-md); font-size: var(--wf-font-size-base); }
+.wf-color-picker-trigger--lg { padding: var(--wf-space-sm) var(--wf-space-md); font-size: var(--wf-font-size-base); }
 
 /* 弹层面板 */
 .wf-color-picker-panel {

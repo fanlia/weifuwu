@@ -3,9 +3,9 @@
 .wf-aichat {
   display: flex;
   flex-direction: column;
-  gap: var(--wf-gap-sm, 8px);
+  gap: var(--wf-gap-sm);
   font-family: var(--wf-font-sans);
-  font-size: var(--wf-font-size-sm, 14px);
+  font-size: var(--wf-font-size-sm);
   line-height: var(--wf-line-height);
   color: var(--wf-color-text);
 }
@@ -14,24 +14,24 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--wf-gap-sm, 8px);
-  padding: var(--wf-space-sm, 8px);
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg);
 }
 
 .wf-aichat-empty {
-  margin: var(--wf-space-lg, 16px) 0;
+  margin: var(--wf-space-lg) 0;
   text-align: center;
   color: var(--wf-color-text-secondary);
-  font-size: var(--wf-font-size-sm, 14px);
+  font-size: var(--wf-font-size-sm);
 }
 
 .wf-aichat-msg {
   display: flex;
   flex-direction: column;
-  gap: var(--wf-gap-xs, 4px);
+  gap: var(--wf-gap-xs);
 }
 
 .wf-aichat-tools,
@@ -42,9 +42,9 @@
 .wf-aichat-bubble {
   display: inline-block;
   max-width: 85%;
-  padding: var(--wf-space-sm, 8px) var(--wf-space-md, 12px);
+  padding: var(--wf-space-sm) var(--wf-space-md);
   border-radius: var(--wf-radius);
-  font-size: var(--wf-font-size-sm, 14px);
+  font-size: var(--wf-font-size-sm);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -68,38 +68,38 @@
 }
 
 .wf-aichat-status {
-  font-size: var(--wf-font-size-xs, 12px);
+  font-size: var(--wf-font-size-xs);
   color: var(--wf-color-info-text);
 }
 
 .wf-aichat-usage {
-  font-size: var(--wf-font-size-xs, 12px);
+  font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-secondary);
 }
 
 .wf-aichat-error {
-  font-size: var(--wf-font-size-xs, 12px);
+  font-size: var(--wf-font-size-xs);
   color: var(--wf-color-error-text);
   background: var(--wf-color-error-bg);
   border-radius: var(--wf-radius);
-  padding: var(--wf-space-sm, 8px);
+  padding: var(--wf-space-sm);
 }
 
 .wf-aichat-inputbar {
   display: flex;
-  gap: var(--wf-gap-sm, 8px);
+  gap: var(--wf-gap-sm);
   align-items: center;
 }
 
 .wf-aichat-input {
   flex: 1;
   min-width: 0;
-  height: var(--wf-control-height, 36px);
-  padding: var(--wf-control-pad-y, 6px) var(--wf-space-md, 12px);
+  height: var(--wf-control-height);
+  padding: var(--wf-control-pad-y) var(--wf-space-md);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   font-family: var(--wf-font-sans);
-  font-size: var(--wf-font-size-sm, 14px);
+  font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);
   background: var(--wf-color-bg);
 }

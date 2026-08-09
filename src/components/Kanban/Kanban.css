@@ -10,7 +10,7 @@
   flex: 1 1 220px;
   min-width: var(--wf-kanban-col-min-width);
   max-width: var(--wf-kanban-col-max-width);
-  background: var(--wf-color-bg-subtle, var(--wf-color-fill));
+  background: var(--wf-color-bg-subtle);
   border-radius: var(--wf-radius-md);
   border: 1px solid var(--wf-color-border);
   display: flex;
@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: var(--wf-space-sm) 12px;
   font-weight: 600;
   font-size: 13px;
 }
@@ -50,7 +50,7 @@
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
-  padding: 10px 12px;
+  padding: var(--wf-space-sm) 12px;
   cursor: grab;
   display: flex;
   align-items: center;
@@ -79,8 +79,8 @@
 .wf-kanban-tag {
   font-size: 11px;
   color: var(--wf-color-primary-text);
-  background: var(--wf-color-primary-bg, rgba(79, 110, 247, 0.12));
+  background: var(--wf-color-primary-bg);
   border-radius: var(--wf-radius-xs);
-  padding: 1px 6px;
+  padding: 1px var(--wf-space-sm);
   flex-shrink: 0;
 }

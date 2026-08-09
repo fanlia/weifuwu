@@ -40,7 +40,7 @@
   text-align: left;
   border: none;
   background: none;
-  padding: 6px var(--wf-space);
+  padding: var(--wf-space-sm) var(--wf-space);
   border-radius: var(--wf-radius-sm);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);

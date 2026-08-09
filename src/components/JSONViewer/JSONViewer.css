@@ -57,7 +57,7 @@
   background: none;
   color: var(--wf-color-text-tertiary);
   cursor: pointer;
-  line-height: 0; padding: 0; flex-shrink: 0;
+ padding: 0; flex-shrink: 0;
 }
 
 .wf-json-toggle:hover {
@@ -91,7 +91,7 @@
   background: none;
   color: var(--wf-color-text-tertiary);
   cursor: pointer;
-  line-height: 0; padding: 0; flex-shrink: 0;
+ padding: 0; flex-shrink: 0;
   opacity: 0;
 }
 

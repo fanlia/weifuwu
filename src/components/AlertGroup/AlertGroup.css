@@ -3,36 +3,36 @@
 .wf-alertgroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--wf-space-sm);
   font-family: var(--wf-font-sans);
-  font-size: var(--wf-font-size-sm, 13px);
+  font-size: var(--wf-font-size-sm);
 }
 
 .wf-alertgroup-summary {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 16px;
-  border: var(--wf-border-width, 1px) solid var(--wf-color-border);
-  border-radius: var(--wf-surface-radius, 8px);
-  background: var(--wf-color-bg-secondary, #fff);
-  color: var(--wf-color-primary, #1668dc);
+  padding: var(--wf-space-sm) 16px;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-surface-radius);
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-primary-text);
   cursor: pointer;
   font-family: var(--wf-font-sans);
-  transition: background var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
+  transition: background var(--wf-dur-fast) var(--wf-ease-standard);
 }
 
 .wf-alertgroup-summary:hover {
-  background: var(--wf-color-bg-hover, rgba(0, 0, 0, 0.04));
+  background: var(--wf-color-bg-hover);
 }
 
 .wf-alertgroup-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: var(--wf-surface-radius, 8px);
-  background: var(--wf-color-bg-secondary, #fff);
+  gap: var(--wf-space-sm);
+  padding: var(--wf-space-sm) 16px;
+  border-radius: var(--wf-surface-radius);
+  background: var(--wf-color-bg-secondary);
   border-left: 3px solid var(--wf-color-info);
 }
 
@@ -46,7 +46,7 @@
 }
 
 .wf-alertgroup-time {
-  color: var(--wf-color-text-tertiary, #999);
+  color: var(--wf-color-text-tertiary);
   font-size: 12px;
 }
 
@@ -61,12 +61,12 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--wf-color-text-tertiary, #999);
+  color: var(--wf-color-text-tertiary);
   cursor: pointer;
   border-radius: 4px;
 }
 
 .wf-alertgroup-close:hover {
-  background: var(--wf-color-bg-hover, rgba(0, 0, 0, 0.04));
+  background: var(--wf-color-bg-hover);
   color: var(--wf-color-text);
 }

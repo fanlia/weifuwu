@@ -54,7 +54,7 @@
   border: none;
   cursor: pointer;
   color: var(--wf-color-text-secondary);
-  padding: 2px 6px;
+  padding: 2px var(--wf-space-sm);
   min-height: 18px;
 }
 .wf-inputnumber-btn:hover { background: var(--wf-color-bg-secondary); color: var(--wf-color-text); }

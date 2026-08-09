@@ -28,7 +28,7 @@
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
-  box-shadow: var(--wf-shadow-lg));
+  box-shadow: var(--wf-shadow-lg);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -66,7 +66,7 @@
 
 .wf-tour-btn {
   min-height: 32px;
-  padding: 0 14px;
+  padding: 0 var(--wf-space-md);
   border-radius: var(--wf-radius-sm);
   border: 1px solid var(--wf-color-border);
   background: var(--wf-color-bg);

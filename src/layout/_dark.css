@@ -47,6 +47,7 @@
   --wf-shadow: var(--wf-dark-shadow);
   --wf-shadow-md: var(--wf-dark-shadow-md);
   --wf-shadow-lg: var(--wf-dark-shadow-lg);
+  --wf-shadow-inset: var(--wf-dark-shadow-inset);
 
   --wf-color-primary-text: var(--wf-dark-brand-500);
   --wf-color-success-text: var(--wf-dark-green-500);
@@ -97,6 +98,7 @@
     --wf-shadow: var(--wf-dark-shadow);
     --wf-shadow-md: var(--wf-dark-shadow-md);
     --wf-shadow-lg: var(--wf-dark-shadow-lg);
+    --wf-shadow-inset: var(--wf-dark-shadow-inset);
 
     --wf-color-primary-text: var(--wf-dark-brand-500);
     --wf-color-success-text: var(--wf-dark-green-500);

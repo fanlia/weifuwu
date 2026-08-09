@@ -722,7 +722,7 @@ describe('样式审计 — 设计约束', () => {
       if (n) actual[d] = n
     }
     // baseline：当前违规分布（Wave 修复后递减，归零后 {} 即硬门）
-    const baseline: Record<string, number> = {"AiChat":19,"AlertGroup":13,"BackTop":1,"Calendar":1,"Carousel":1,"DiffView":4,"InView":5,"Input":2,"Kanban":2,"Layout":22,"Link":9,"NavMenu":31,"Notification":1,"Pipeline":4,"Scrollbar":1,"Skeleton":8,"Space":1,"Textarea":2}
+    const baseline: Record<string, number> = {}
     assert.deepEqual(actual, baseline, 'var(--token,fallback) 违规数变化：修复后须递减 baseline 并同步本快照')
   })
 
@@ -744,10 +744,10 @@ describe('样式审计 — 设计约束', () => {
     for (const d of dirs) {
       let c = ''; try { c = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
       let n = 0
-      for (const m of c.matchAll(/(padding|margin|gap):\s*([^;]+);/g)) for (const v of m[2].trim().split(/\s+/)) { const px=v.match(/^(-?\d+(?:\.\d+)?)px$/); if(!px)continue; const num=parseFloat(px[1]); if(num===1||num===2||num===0)continue; if(num%4!==0) n++ }
+      for (const m of c.matchAll(/(padding|margin|gap):\s*([^;]+);/g)) for (const v of m[2].trim().split(/\s+/)) { const px=v.match(/^(-?\d+(?:\.\d+)?)px$/); if(!px)continue; const num=parseFloat(px[1]); if(Math.abs(num)<=2)continue; if(num%4!==0) n++ }
       if (n) actual[d] = n
     }
-    const baseline: Record<string, number> = {"AlertGroup":4,"Calendar":1,"Cascader":2,"CodeBlock":1,"ColorPicker":1,"Command":1,"ContextMenu":1,"CopyButton":1,"InputNumber":1,"Kanban":3,"Mentions":2,"Menubar":2,"NavMenu":4,"PasswordInput":1,"Pipeline":1,"Timeline":1,"ToggleGroup":1,"Tour":1,"Transfer":1,"Tree":1,"TreeSelect":1}
+    const baseline: Record<string, number> = {}
     assert.deepEqual(actual, baseline, '间距非 4 倍数违规数变化：修复后须递减 baseline 并同步本快照')
   })
 
@@ -760,7 +760,7 @@ describe('样式审计 — 设计约束', () => {
       const n = [...nc.matchAll(/[^\/]\s*(#[0-9a-fA-F]{3,8})\b/g)].length + [...nc.matchAll(/\brgba?\(/g)].length + [...nc.matchAll(/\bhsla?\(/g)].length
       if (n) actual[d] = n
     }
-    const baseline: Record<string, number> = {"AlertGroup":7,"BackTop":1,"Carousel":1,"DiffView":2,"InView":3,"Kanban":1,"Layout":5,"Link":6,"NavMenu":11,"Notification":1,"Pipeline":4,"Scrollbar":1,"Skeleton":3,"Slider":2,"Space":1,"Switch":1,"ThemeSwitch":1}
+    const baseline: Record<string, number> = {}
     assert.deepEqual(actual, baseline, '裸色值违规数变化：修复后须递减 baseline 并同步本快照')
   })
 

@@ -6,15 +6,15 @@
   gap: 4px;
   text-decoration: underline;
   text-underline-offset: 3px;
-  color: var(--wf-color-primary, #1668dc);
+  color: var(--wf-color-primary-text);
   cursor: pointer;
   font-family: var(--wf-font-sans);
-  font-size: var(--wf-font-size-sm, 13px);
-  transition: color var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
+  font-size: var(--wf-font-size-sm);
+  transition: color var(--wf-dur-fast) var(--wf-ease-standard);
 }
 
 .wf-link:hover {
-  color: var(--wf-color-primary, #1668dc);
+  color: var(--wf-color-primary-text);
 }
 
 .wf-link--default {
@@ -25,14 +25,14 @@
 }
 
 .wf-link--danger {
-  color: var(--wf-color-error-text, #cf1322);
+  color: var(--wf-color-error-text);
 }
 .wf-link--danger:hover {
-  color: var(--wf-color-error-text, #a8071a);
+  color: var(--wf-color-error-text);
 }
 
 .wf-link--muted {
-  color: var(--wf-color-text-tertiary, #999);
+  color: var(--wf-color-text-tertiary);
   text-decoration: none;
 }
 .wf-link--muted:hover {
@@ -44,7 +44,7 @@
 }
 
 .wf-link--disabled {
-  color: var(--wf-color-text-disabled, #bfbfbf);
+  color: var(--wf-color-text-disabled);
   cursor: not-allowed;
   text-decoration: none;
   pointer-events: none;

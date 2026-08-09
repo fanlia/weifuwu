@@ -16,7 +16,7 @@
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
-  box-shadow: var(--wf-shadow-lg));
+  box-shadow: var(--wf-shadow-lg);
   overflow: hidden;
   font-family: var(--wf-font-sans);
   animation: wf-command-in var(--wf-dur-base) var(--wf-ease-out);
@@ -90,7 +90,7 @@
   color: var(--wf-color-text-tertiary);
   background: var(--wf-color-bg-tertiary);
   border-radius: var(--wf-radius-sm);
-  padding: 1px 6px;
+  padding: 1px var(--wf-space-sm);
   font-family: var(--wf-font-sans);
 }
 

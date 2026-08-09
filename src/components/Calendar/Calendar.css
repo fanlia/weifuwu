@@ -10,7 +10,7 @@
   /* flex 容器中宽度稳定：grid 1fr 列在内容驱动宽度下会被事件 nowrap 撑宽/
     无事件塌缩——固定 min-width 防塌缩（定制 Token，默认 280px = 7 列 × 40px） */
   width: 100%;
-  min-width: var(--wf-calendar-min-width, 280px);
+  min-width: var(--wf-calendar-min-width,  280px);
 }
 
 .wf-calendar-header {
@@ -38,7 +38,7 @@
   justify-content: center;
   border: none;
   background: none;
-  padding: 3px var(--wf-space-sm);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   border-radius: var(--wf-radius-sm);
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-secondary);
@@ -118,7 +118,7 @@
   margin-top: 2px;
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text);
-  background: var(--wf-color-primary-bg, var(--wf-color-primary-bg));
+  background: var(--wf-color-primary-bg);
   color: var(--wf-color-primary-text);
   border-radius: var(--wf-radius-sm);
   padding: 1px 4px;

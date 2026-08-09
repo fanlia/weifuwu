@@ -12,7 +12,7 @@
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
-  padding: 6px var(--wf-space);
+  padding: var(--wf-space-sm) var(--wf-space);
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-base);
   line-height: 1.5;
@@ -32,19 +32,19 @@
   cursor: not-allowed;
 }
 
-.wf-mentions-input--sm { font-size: var(--wf-font-size-sm); padding: 4px var(--wf-space-sm); }
-.wf-mentions-input--lg { font-size: var(--wf-font-size-lg); padding: 8px var(--wf-space-md); }
+.wf-mentions-input--sm { padding: 4px var(--wf-space-sm); }
+.wf-mentions-input--lg { padding: 8px var(--wf-space-md); }
 
 .wf-mentions-panel {
   position: fixed;
   z-index: var(--wf-z-popover);
-  min-width: var(--wf-mentions-min-width, 160px);
+  min-width: var(--wf-mentions-min-width,  160px);
   max-height: 220px;
   overflow-y: auto;
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
-  box-shadow: var(--wf-shadow-lg));
+  box-shadow: var(--wf-shadow-lg);
   padding: var(--wf-space-xs);
   display: flex;
   flex-direction: column;
@@ -57,7 +57,7 @@
   text-align: left;
   border: none;
   background: none;
-  padding: 6px var(--wf-space);
+  padding: var(--wf-space-sm) var(--wf-space);
   border-radius: var(--wf-radius-sm);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);

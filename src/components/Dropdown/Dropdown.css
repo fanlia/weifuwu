@@ -6,7 +6,7 @@
 
 .wf-dropdown-menu {
   position: fixed;
-  min-width: var(--wf-dropdown-min-width, 140px);
+  min-width: var(--wf-dropdown-min-width,  140px);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);

@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   gap: var(--wf-gap-xs);
-  padding: 3px var(--wf-space-sm);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   border-radius: var(--wf-radius-sm);
   cursor: pointer;
 }
