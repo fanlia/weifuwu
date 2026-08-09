@@ -175,3 +175,59 @@ AiChat · Markdown · CodeBlock · MessageBubble · ToolCallCard · ApprovalCard
 - usePopupPosition 0 rect 防护的 scroll 监听端（popup-tracker 侧同样防护）
 - 拖拽中 render 保护（dragProps 标记 + _rendering 保护期扩展）
 - enumerated 属性表（contenteditable/translate/spellcheck 等）——审计自动检查
+
+## 第八批计划：三库并集缺口清零（2026-08，102 → 111）
+
+> 三库（antd/EP/shadcn）评估结论：weifuwu 覆盖 antd ~88% / EP ~89% / shadcn 92%。
+> batch-8 补齐全部真实缺口——目标：**三库并集 100% 覆盖**（含换名映射）。
+
+### 缺口总表（三库并集视角）
+
+| 缺口 | 来源 | 命名 | 优先级 | 验证的 client 能力 |
+|------|------|------|:------:|------------------|
+| Layout 外壳（Header/Sider/Content/Footer） | antd Layout / EP Container / shadcn Sidebar | **Layout**（LayoutHeader/LayoutSider/LayoutContent/LayoutFooter 子组件 + 声明式 props 双模式） | 🔴 | 布局状态机、Sider 折叠 + useBreakpoint 响应式、嵌套组合 |
+| AutoComplete 输入联想 | antd / EP / shadcn Combobox | **AutoComplete** | 🔴 | 输入受控 + 弹层联想（复用 Select 键盘导航 + usePopupPosition）、键盘流、选中回填 |
+| Popconfirm 气泡确认 | antd / EP | **Popconfirm**（Popover 基座 + 确认/取消 + 危险色） | 🔴 | 弹层复用 + 键盘 ESC/Enter、防误触纪律（默认危险操作） |
+| FloatButton 悬浮按钮 | antd（特有） | **FloatButton**（group 模式 + badge + tooltip） | 🟡 | 固定定位 + 多按钮组展开状态机 |
+| NavigationMenu 顶部导航 | shadcn（特有） | **NavMenu**（多级 hover 弹出 + 响应式折叠） | 🟡 | hover 定位弹层 + 键盘导航 + useBreakpoint |
+| Link 文字链接 | EP（独立）/ antd（Typography.Link 内嵌） | **Link**（语义色/下划线/disabled/新窗口/图标） | 🟡 | 原语增强、disabled 语义 |
+| Space 间距容器 | antd / EP | **Space**（size/direction/wrap/align/split 分隔） | 🟢 | 布局原语封装（gap 计算 + 分隔符） |
+| Grid 栅格 | antd Row/Col / EP Row/Col | **Grid**（24 栅格 + gutter + flex） | 🟢 | 布局计算（百分比宽度 + gutter 减法） |
+| Scrollbar 自定义滚动条 | EP | **Scrollbar**（webkit 滚动条样式 + 视口组件） | 🟢 | 滚动容器封装（VirtualList 机制复用） |
+| Statistic 倒计时 | antd Statistic.Countdown / EP | **StatCard ⬆️**（countdown 模式） | 🟢 | 定时器驱动 + 格式化（时分秒） |
+| AlertGroup 通知合并 | EP 2.8（新增） | **AlertGroup**（同类通知合并折叠） | 🟢 | 分组状态机 |
+
+### 批次节奏
+
+| 阶段 | 内容 | 验收 |
+|------|------|------|
+| B8-1 | Layout + Popconfirm（🔴×2——布局与确认，产品级刚需） | 结构渲染 + Sider 折叠 + 确认流测试；SSR smoke |
+| B8-2 | AutoComplete + Link（输入联想 + 基础） | 联想过滤 + 键盘流 + 选中回填测试 |
+| B8-3 | FloatButton + NavMenu（悬浮 + 导航） | 展开状态机 + hover/键盘测试 |
+| B8-4 | Space + Grid + Scrollbar + StatCard ⬆️ + AlertGroup（原语组，低成本） | 布局计算测试 + 定时器测试 |
+| B8-5 | 发布 v0.68.0 + 三库对照表更新（README/components-map） | 111 组件 + 三库并集 100% 覆盖声明 |
+
+### 命名决策（独立体系延续）
+
+| 候选 | weifuwu 命名 | 原则 |
+|------|-------------|------|
+| Layout.Header / EP Container / shadcn Sidebar | **Layout**（复合子组件 LayoutHeader/LayoutSider/… + 简式 props 双模式） | 一个组件统吃三库心智 |
+| NavigationMenu | **NavMenu**（短名，区别于 Menu 侧栏） | 短名优先 + 语义区分 |
+| antd FloatButton | **FloatButton** | 同名保留（语义精确） |
+| Row/Col | **Grid**（单一容器 + cols/rows 声明） | 独立体系：声明式而非嵌套 |
+
+### 诚实裁剪（CS-05 登记）
+
+- **Layout**：不做 Sider 拖拽调整宽度（Resizable 可组合）；不做 SSR 骨架布局（静态容器——SSR 天然支持）
+- **AutoComplete**：不做分组/虚拟化候选（Select 已有 searchable 分组；候选列表量级小）；自定义渲染用 `renderOption` 透传
+- **Popconfirm**：不做气泡内表单/自定义箭头；定位复用 Popover 全套（portal + usePopupPosition + Escape）
+- **NavMenu**：不做 hover 延迟微调/子菜单动画曲线定制；折叠态交还 useBreakpoint 由用户驱动
+- **Space/Grid/Scrollbar**：均为"原语封装"级——不引入新布局引擎；Grid 只做 24 栅格百分比 + gutter
+- **AlertGroup**：合并阈值 3 条起（少于此退化为普通 Alert 列表）
+
+### client 预期联动（每组件验证点）
+
+- Layout → `useBreakpoint`（Sider 响应式折叠——已有）验证断点驱动
+- AutoComplete → 受控 Input + Select 弹层复用（下拉状态机提炼为共享 hook 候选）
+- Popconfirm → Popover 基座复用（验证弹层体系可组合性——**弹层组件的组合才是真复用**）
+- StatCard countdown → 定时器驱动渲染（`$.` 自动 + clear 纪律）
