@@ -233,6 +233,43 @@ export interface WfuiContext {
      */
     useStableRef: (init: (el: HTMLElement | null) => void, cleanup?: () => void) => (el: any) => void
     /**
+     * 全局键盘监听（window keydown）：mount 注册、组件卸载自动清理；返回退订函数。
+     * 覆盖 Command 全局快捷键 / Img preview Escape 等 document/window 级键盘场景。
+     *
+     * ```tsx
+     * ctx.ui.useGlobalKey((e) => { if (e.key === 'k' && (e.ctrlKey || e.metaKey)) toggle() })
+     * ```
+     */
+    useGlobalKey: (handler: (e: KeyboardEvent) => void) => () => void
+    /**
+     * 指针拖拽（pointerdown 捕获 → window pointermove/up，up 自动释放）：
+     * 覆盖 Resizable 等拖拽场景。返回 props spread 到拖拽把手。
+     *
+     * ```tsx
+     * const drag = ctx.ui.useDrag({ onMove: (_e, d) => { setSize(startSize + d.x) } })
+     * return () => h('div', { class: 'handle', ...drag })
+     * ```
+     */
+    useDrag: (options: {
+      onStart?: (e: PointerEvent) => void
+      onMove: (e: PointerEvent, delta: { x: number; y: number }) => void
+      onEnd?: (e: PointerEvent) => void
+    }) => { onPointerDown: (e: PointerEvent) => void }
+    /**
+     * 原生 DnD（drop/dragover/dragleave，dragover 自动 preventDefault）：
+     * 覆盖 FileUpload 等拖放区。返回 dropProps spread 到容器（VNode props，渲染器绑定/清理）。
+     *
+     * ```tsx
+     * const { dropProps } = ctx.ui.useDragDrop({ onDrop: (e) => files(e.dataTransfer) })
+     * return () => h('div', { class: 'zone', ...dropProps })
+     * ```
+     */
+    useDragDrop: (options: {
+      onDrop?: (e: DragEvent) => void
+      onDragOver?: (e: DragEvent) => void
+      onDragLeave?: (e: DragEvent) => void
+    }) => { dropProps: Record<string, any> }
+    /**
      * 可视视口跟踪（visualViewport）：键盘弹起/缩放时自动更新 + dirty。
      * 无 visualViewport（桌面）降级 innerHeight。fixed 底部栏防键盘遮挡用。
      */

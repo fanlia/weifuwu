@@ -18,45 +18,43 @@ export interface ResizableProps {
   className?: string
 }
 
-/** 可拖拽分割面板（对应 shadcn Resizable）：两面板 + 拖拽手柄（pointer + 键盘方向键）。 */
+/** 可拖拽分割面板（对应 shadcn Resizable）：两面板 + 拖拽手柄（pointer + 键盘方向键）。
+ * 拖拽经 ctx.ui.useDrag（pointerdown 捕获 → window move delta / up 释放），不再自建 window 监听。
+ * 最新 props 经 propsRef 供 mount 期 useDrag 回调读取。 */
 export const Resizable: Component<ResizableProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let size = 0
+  const propsRef: any = { ..._init }
+
+  const clamp = (v: number) => Math.max(propsRef.min ?? 80, Math.min(v, propsRef.max ?? 600))
+  const setSize = (v: number) => {
+    const next = clamp(v)
+    if (next !== size) {
+      size = next
+      propsRef.onResize?.(next)
+      ctx.ui.render()
+    }
+  }
+
+  // 拖拽原语：onStart 记录起始尺寸，onMove 按方向取 delta
+  let startSize = 0
+  const drag = ctx.ui.useDrag({
+    onStart: () => { startSize = size },
+    onMove: (e, d) => {
+      const delta = propsRef.direction === 'horizontal' ? d.x : d.y
+      setSize(startSize + delta)
+    },
+  })
 
   return (props) => {
+    Object.assign(propsRef, props)
     const {
       direction = 'horizontal', defaultSize = 300, min = 80, max = 600,
       step = 20, children, onResize, className,
     } = props
+    void min; void max; void onResize
 
     if (size === 0) size = defaultSize
-
-    const clamp = (v: number) => Math.max(min, Math.min(v, max))
-
-    const setSize = (v: number) => {
-      const next = clamp(v)
-      if (next !== size) {
-        size = next
-        onResize?.(next)
-        ctx.ui.render()
-      }
-    }
-
-    const onPointerDown = (e: any) => {
-      e.preventDefault()
-      const startPos = direction === 'horizontal' ? e.clientX : e.clientY
-      const startSize = size
-      const onMove = (ev: any) => {
-        const delta = (direction === 'horizontal' ? ev.clientX : ev.clientY) - startPos
-        setSize(startSize + delta)
-      }
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-      }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
-    }
 
     const onKeyDown = (e: any) => {
       const inc = direction === 'horizontal'
@@ -73,7 +71,7 @@ export const Resizable: Component<ResizableProps> = (_init, ctx) => {
       role: 'separator',
       'aria-orientation': direction === 'horizontal' ? 'vertical' : 'horizontal',
       tabIndex: 0,
-      onPointerDown,
+      ...drag, // onPointerDown（useDrag：捕获 + window move/up + preventDefault）
       onKeyDown,
     })
 

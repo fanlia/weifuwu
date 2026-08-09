@@ -6,8 +6,13 @@ import { Command } from './Command.ts'
 import { Portal } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
+// 捕获 useGlobalKey 注册的 handler（测试直接触发）
+const globalKeys: ((e: any) => void)[] = []
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: {
+    $: {}, render: () => {}, dirty: () => {}, ready: true,
+    useGlobalKey: (h: any) => { globalKeys.push(h); return () => {} },
+  } } as any
 }
 
 function renderVNode(Comp: any, props: any, ctx: any) {
@@ -106,9 +111,9 @@ describe('Command', () => {
     const render = Command({ items, open: false, onOpenChange: (o: boolean) => { opened = o } }, ctx)
     const r = render as any
     const v = r({ items, open: false, onOpenChange: (o: boolean) => { opened = o } })
-    // host 的 ref 注册全局监听
-    v.props.ref(document.createElement('div'))
-    window.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
+    void v
+    // useGlobalKey 注册的 handler 直接触发（mod+k → ctrlKey+k）
+    globalKeys.at(-1)?.(new (window as any).KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
     assert.equal(opened, true)
   })
 })

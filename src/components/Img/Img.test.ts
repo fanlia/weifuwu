@@ -8,7 +8,7 @@ import { Img } from './Img.ts'
 
 
 function renderVNode(Comp, props) {
-  const mockCtx = () => ({ ui: { $: {}, render: () => {}, dirty: () => {} } }) as any
+  const mockCtx = () => ({ ui: { $: {}, render: () => {}, dirty: () => {}, useGlobalKey: () => () => {} } }) as any
   const result = Comp(props, mockCtx())
   const renderFn = typeof result === 'function' ? result : null
   return renderFn ? renderFn(props) : result

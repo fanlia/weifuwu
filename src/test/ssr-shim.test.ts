@@ -69,6 +69,16 @@ test('SSR：useDialog 组件可渲染（Modal 模式，shim no-op）', async () 
   assert.ok(html.includes('wf-modal'), 'Modal SSR 渲染（shim useDialog 必须存在）')
 })
 
+test('SSR：useGlobalKey/useDrag/useDragDrop 组件可渲染（Command/Resizable/FileUpload 模式）', async () => {
+  const { Command } = await import('../components/Command/Command.ts')
+  const { Resizable } = await import('../components/Resizable/Resizable.ts')
+  const { FileUpload } = await import('../components/FileUpload/FileUpload.ts')
+  const cmd = (await ssrToString(Command as any, { items: [], open: false }, {})).toString()
+  const res = (await ssrToString(Resizable as any, { children: ['a', 'b'] }, {})).toString()
+  const up = (await ssrToString(FileUpload as any, {}, {})).toString()
+  assert.ok(cmd.length > 0 && res.length > 0 && up.length > 0, '三组件 SSR 渲染（shim 原语必须存在）')
+})
+
 test('SSR：useChat no-op 确定性空态', async () => {
   const Comp: Component = (_init: any, ctx: any) => {
     const $ = ctx.ui.useChat({ url: '/api/chat' })

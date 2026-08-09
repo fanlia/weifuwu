@@ -6,7 +6,11 @@ import { Img } from './Img.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: {
+    $: {}, render: () => {}, dirty: () => {}, ready: true,
+    // mock 真注册（DOM 级 Escape 测试需要真实 window 监听路径）
+    useGlobalKey: (h: any) => { window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h) },
+  } } as any
 }
 
 function renderVNode(Comp: any, props: any, ctx: any) {
@@ -69,7 +73,7 @@ describe('Img preview 增强', () => {
     // 焦点在 overlay 内（portal 子树）派发 Escape——必须关闭（document 级监听）
     const overlay = document.querySelector('.wf-img-preview-overlay') as HTMLElement
     overlay.focus?.()
-    document.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    window.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Escape' })) // useGlobalKey：window 级
     await new Promise(res => setTimeout(res, 0))
     // close() 已执行（previewOpen=false）——patch 重渲染，portal overlay 应被移除
     const after = r({ src: 'a.png', preview: true })

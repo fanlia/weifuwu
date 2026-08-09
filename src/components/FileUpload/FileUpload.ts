@@ -30,7 +30,32 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
   let fileInput: HTMLInputElement | null = null
   const fileInputRef = (el: HTMLInputElement | null) => { if (el) fileInput = el }
 
+  // ── mount（只一次）：DnD 经 ctx.ui.useDragDrop（drop/dragover/dragleave + preventDefault）
+  // 最新 props 经 propsRef；拖拽高亮态 isDragging（闭包 + render）
+  const propsRef: any = { ..._init }
+  let isDragging = false
+  const { dropProps } = ctx.ui.useDragDrop({
+    onDrop: (e) => {
+      isDragging = false
+      ctx.ui.render()
+      if (propsRef.disabled) return
+      const dropped = Array.from(e.dataTransfer?.files ?? [])
+      if (propsRef.maxSize) {
+        const oversized = dropped.filter((f: File) => f.size > propsRef.maxSize)
+        if (oversized.length > 0) return
+      }
+      propsRef.onChange?.(dropped)
+    },
+    onDragOver: () => {
+      if (!isDragging) { isDragging = true; ctx.ui.render() }
+    },
+    onDragLeave: () => {
+      if (isDragging) { isDragging = false; ctx.ui.render() }
+    },
+  })
+
   return (props: FileUploadProps) => {
+    Object.assign(propsRef, props)
     const { accept, multiple, maxSize, disabled, error, hint, value, onChange, children } = props
     const files = value ?? []
 
@@ -43,34 +68,6 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
       }
       onChange?.(selected)
       input.value = ''
-    }
-
-    const dragRef = (el: HTMLElement | null) => {
-      if (!el || disabled) return
-      const onDrop = (e: DragEvent) => {
-        e.preventDefault()
-        el.classList.remove('wf-upload-zone--drag')
-        if (disabled) return
-        const dropped = Array.from(e.dataTransfer?.files ?? [])
-        if (maxSize) {
-          const oversized = dropped.filter(f => f.size > maxSize)
-          if (oversized.length > 0) return
-        }
-        onChange?.(dropped)
-      }
-      const onDragOver = (e: DragEvent) => {
-        e.preventDefault()
-        el.classList.add('wf-upload-zone--drag')
-      }
-      const onDragLeave = () => el.classList.remove('wf-upload-zone--drag')
-      el.addEventListener('drop', onDrop)
-      el.addEventListener('dragover', onDragOver)
-      el.addEventListener('dragleave', onDragLeave)
-      return () => {
-        el.removeEventListener('drop', onDrop)
-        el.removeEventListener('dragover', onDragOver)
-        el.removeEventListener('dragleave', onDragLeave)
-      }
     }
 
     const handleRemove = (i: number) => {
@@ -90,9 +87,9 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
     })
 
     const dropZone = h('div', {
-      class: `wf-upload-zone${disabled ? ' wf-upload-zone--disabled' : ''}${error ? ' wf-upload-zone--err' : ''}`,
+      class: `wf-upload-zone${disabled ? ' wf-upload-zone--disabled' : ''}${error ? ' wf-upload-zone--err' : ''}${isDragging ? ' wf-upload-zone--drag' : ''}`,
       onClick: disabled ? undefined : () => fileInput?.click(),
-      ref: dragRef,
+      ...dropProps, // useDragDrop：drop/dragover/dragleave（VNode props，渲染器绑定/清理）
     }, children ?? h('div', { class: 'wf-upload-placeholder' }, [
       h('span', { class: 'wf-upload-icon' }, '📁'),
       h('span', { class: 'wf-upload-text' }, FL.placeholder ?? '点击或拖拽上传文件'),

@@ -10,8 +10,10 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 }
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}
-, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: {
+    $: {}, render: () => {}, dirty: () => {}, ready: true,
+    useDragDrop: () => ({ dropProps: {} }),
+  } } as any
 }
 
 describe('FileUpload', () => {

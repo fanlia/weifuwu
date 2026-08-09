@@ -158,6 +158,9 @@ ctx.ui.render(['name'])
 | `useControlled()` | `useControlled({ value, onChange, name })` | 受控/非受控统一：受控判定 + 缺回调 warn + 内部状态跨渲染保持 |
 | `useStableRef()` | `useStableRef(init, cleanup?)` | 稳定 ref 引用（根治内联 ref 陷阱） |
 | `useDialog()` | `useDialog({ name })` | 全屏对话框：退场状态机 + 滚动锁 + 焦点 trap（Modal/Drawer 同款） |
+| `useGlobalKey()` | `useGlobalKey(handler)` | 全局键盘监听（window keydown：mount 注册 + 卸载清理） |
+| `useDrag()` | `useDrag({ onMove, onStart?, onEnd? })` | 指针拖拽（pointerdown 捕获 → window move delta / up 释放） |
+| `useDragDrop()` | `useDragDrop({ onDrop, onDragOver?, onDragLeave? })` | 原生 DnD（drop/dragover/dragleave + preventDefault，dropProps spread） |
 | `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
 | `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
 | `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |

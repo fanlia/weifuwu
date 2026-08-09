@@ -29,14 +29,14 @@ export const Command: Component<CommandProps> = (_init, ctx) => {
   // ── mount（只一次）──
   let query = ''
   let highlight = 0
-  let mounted = false
   let latest: { open?: boolean; onOpenChange?: (open: boolean) => void; shortcut?: string | null } = {}
 
   // 稳定 ref：每次打开时 input 重新挂载 → focus；输入变化 render 复用 DOM，不重复 focus
   // （内联 ref 每次渲染换引用，输入时会反复重新 focus 导致光标异常）
   const inputRef = (el: HTMLInputElement | null) => { if (el) queueMicrotask(() => el.focus()) }
 
-  const onGlobalKey = (e: KeyboardEvent) => {
+  // 全局快捷键经 ctx.ui.useGlobalKey（window keydown：mount 注册 + 卸载清理）
+  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
     const sc = latest.shortcut
     if (!sc) return
     const parts = sc.split('+')
@@ -47,17 +47,9 @@ export const Command: Component<CommandProps> = (_init, ctx) => {
       e.preventDefault()
       latest.onOpenChange?.(!latest.open)
     }
-  }
+  })
 
-  const stableRef = (el: HTMLElement | null) => {
-    if (el && !mounted) {
-      mounted = true
-      window.addEventListener('keydown', onGlobalKey)
-    } else if (!el) {
-      mounted = false
-      window.removeEventListener('keydown', onGlobalKey)
-    }
-  }
+  const stableRef = (el: HTMLElement | null) => { void el }
 
   return (props) => {
     const {

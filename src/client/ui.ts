@@ -779,6 +779,79 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       }
     },
 
+    /**
+     * 全局键盘监听：window keydown，mount 注册 + 卸载清理。返回退订函数。
+     */
+    useGlobalKey: function (handler: (e: KeyboardEvent) => void) {
+      const selfId = getSelfId(this)
+      if (typeof window === 'undefined') return () => {}
+      window.addEventListener('keydown', handler)
+      if (selfId) {
+        onComponentUnmount((id) => { if (id === selfId) window.removeEventListener('keydown', handler) })
+      }
+      return () => window.removeEventListener('keydown', handler)
+    },
+
+    /**
+     * 指针拖拽：pointerdown 捕获 → window pointermove（delta）/pointerup（释放）。
+     */
+    useDrag: function (options: {
+      onStart?: (e: PointerEvent) => void
+      onMove: (e: PointerEvent, delta: { x: number; y: number }) => void
+      onEnd?: (e: PointerEvent) => void
+    }) {
+      let startX = 0
+      let startY = 0
+      let active = false
+      const onPointerMove = (e: PointerEvent) => {
+        if (!active) return
+        options.onMove(e, { x: e.clientX - startX, y: e.clientY - startY })
+      }
+      const onPointerUp = (e: PointerEvent) => {
+        if (!active) return
+        active = false
+        window.removeEventListener('pointermove', onPointerMove)
+        window.removeEventListener('pointerup', onPointerUp)
+        options.onEnd?.(e)
+      }
+      const onPointerDown = (e: PointerEvent) => {
+        if (active) return
+        active = true
+        startX = e.clientX
+        startY = e.clientY
+        window.addEventListener('pointermove', onPointerMove)
+        window.addEventListener('pointerup', onPointerUp)
+        options.onStart?.(e)
+      }
+      return { onPointerDown }
+    },
+
+    /**
+     * 原生 DnD：drop/dragover/dragleave（dragover 自动 preventDefault——否则 drop 不触发）。
+     * 返回 dropProps spread 到容器（VNode props，渲染器绑定/卸载自动清理）。
+     */
+    useDragDrop: function (options: {
+      onDrop?: (e: DragEvent) => void
+      onDragOver?: (e: DragEvent) => void
+      onDragLeave?: (e: DragEvent) => void
+    }) {
+      const dropProps: Record<string, any> = {}
+      if (options.onDrop) {
+        dropProps.onDrop = (e: DragEvent) => {
+          e.preventDefault() // drop 默认行为是打开文件——必须阻止
+          options.onDrop!(e)
+        }
+      }
+      if (options.onDragOver) {
+        dropProps.onDragOver = (e: DragEvent) => {
+          e.preventDefault()
+          options.onDragOver!(e)
+        }
+      }
+      if (options.onDragLeave) dropProps.onDragLeave = (e: DragEvent) => options.onDragLeave!(e)
+      return { dropProps }
+    },
+
     /** 注册组件实例的自定义 ID（用于跨组件精准刷新） */
     selfId: function (name: string) {
       if (typeof name !== 'string' || !name) {

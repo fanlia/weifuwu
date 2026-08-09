@@ -79,6 +79,9 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
     useInView: () => ({ isIn: false, ready: false, observe: () => {}, refresh: () => {}, disconnect: () => {} }),
     useScrollPosition: () => ({ y: 0, refresh: () => {} }),
     useStableRef: (init?: any) => (el: any) => { if (el) init?.(el) },
+    useGlobalKey: () => () => {},
+    useDrag: () => ({ onPointerDown: () => {} }),
+    useDragDrop: () => ({ dropProps: {} }),
     useControlled: <T>(options: any) => ({
       value: options.value,
       setValue: (v: T) => { options.onChange?.(v) },
