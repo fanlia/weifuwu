@@ -1,0 +1,25 @@
+/* weifuwu/components — Scrollbar 自定义滚动容器 */
+
+.wf-scrollbar {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--wf-color-border) transparent;
+}
+
+.wf-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.wf-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wf-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--wf-color-border);
+  border-radius: 4px;
+}
+
+.wf-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--wf-color-text-muted, #999);
+}

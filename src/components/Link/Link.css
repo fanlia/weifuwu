@@ -1,0 +1,51 @@
+/* weifuwu/components — Link 文字链接 */
+
+.wf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--wf-color-primary-600, #1668dc);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm, 13px);
+  transition: color var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
+}
+
+.wf-link:hover {
+  color: var(--wf-color-primary-600, #1668dc);
+}
+
+.wf-link--default {
+  color: var(--wf-color-text-secondary);
+}
+.wf-link--default:hover {
+  color: var(--wf-color-text-primary);
+}
+
+.wf-link--danger {
+  color: var(--wf-color-danger-text, #cf1322);
+}
+.wf-link--danger:hover {
+  color: var(--wf-color-danger-600, #a8071a);
+}
+
+.wf-link--muted {
+  color: var(--wf-color-text-muted, #999);
+  text-decoration: none;
+}
+.wf-link--muted:hover {
+  color: var(--wf-color-text-secondary);
+}
+
+.wf-link--no-underline {
+  text-decoration: none;
+}
+
+.wf-link--disabled {
+  color: var(--wf-color-text-disabled, #bfbfbf);
+  cursor: not-allowed;
+  text-decoration: none;
+  pointer-events: none;
+}

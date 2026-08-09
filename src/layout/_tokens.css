@@ -89,8 +89,13 @@
   --wf-z-tour: 2000;
   --wf-tour-min-width: 240px;
   --wf-kanban-col-min-width: 200px;
+  /* Layout 布局外壳（batch-8） */
+  --wf-layout-sider-width: 240px;
+  --wf-layout-sider-collapsed-width: 64px;
+  --wf-layout-header-height: 56px;
   --wf-kanban-col-max-width: 300px;
   --wf-treeselect-min-width: 200px;
+  --wf-navmenu-min-width: 160px;
   --wf-treeselect-max-width: 320px;
   --wf-treeselect-dropdown-max-height: 260px;
   --wf-z-popover: 120; /* dropdown/select/datepicker 面板与 popover 同层 */

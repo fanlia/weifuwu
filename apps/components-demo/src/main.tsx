@@ -27,6 +27,8 @@ import {
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
   VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban, Pipeline, TreeSelect,
+  Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
+  Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, NavMenu,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1580,6 +1582,142 @@ const NEW_CODE = `function handleUser(input) {
   return \`未成年 \${name}\`
 }`
 
+
+const DemoLayout: Component = (_props, ctx) => {
+  let collapsed = false
+  return () => (
+    <Layout style={{ height: 360, borderRadius: 12, overflow: 'hidden' }}>
+      <LayoutSider collapsible collapsed={collapsed} onCollapse={(v) => { collapsed = v; ctx.ui.render() }}>
+        <div class="wf-pad-md wf-text-secondary wf-stack wf-gap-sm">
+          <b>导航</b>
+          <span>仪表盘</span>
+          <span>订单</span>
+          <span>用户</span>
+        </div>
+      </LayoutSider>
+      <Layout>
+        <LayoutHeader>顶部栏</LayoutHeader>
+        <LayoutContent>主内容区（batch-8 Layout 外壳）</LayoutContent>
+        <LayoutFooter>© 2026 weifuwu</LayoutFooter>
+      </Layout>
+    </Layout>
+  )
+}
+
+const DemoPopconfirm: Component = () => () => (
+  <div class="wf-row wf-gap-lg wf-cluster">
+    <Popconfirm title="确定删除这条数据？" danger onConfirm={() => toast('已删除', 'success')}>
+      <Button variant="danger">删除</Button>
+    </Popconfirm>
+    <Popconfirm title="确定提交审核？" onConfirm={() => toast('已提交', 'success')}>
+      <Button>提交</Button>
+    </Popconfirm>
+  </div>
+)
+
+const DemoAutoComplete: Component = () => {
+  let query = ''
+  let selected: string | undefined
+  return () => {
+    const options = [
+      { value: 'pay-admin', label: '支付平台管理' },
+      { value: 'pay-account', label: '支付平账系统' },
+      { value: 'order-center', label: '订单中心' },
+      { value: 'user-svc', label: '用户服务' },
+      { value: 'storage', label: '对象存储' },
+    ]
+    return (
+      <AutoComplete
+        options={options}
+        value={query}
+        onChange={(v) => { query = v }}
+        onSelect={(v) => { selected = v }}
+        placeholder="输入关键词联想…"
+      />
+    )
+  }
+}
+
+const DemoLink: Component = () => () => (
+  <div class="wf-row wf-gap-lg wf-cluster">
+    <Link href="/docs">默认链接</Link>
+    <Link href="/docs" variant="primary">主色链接</Link>
+    <Link href="/docs" variant="danger">危险链接</Link>
+    <Link href="/docs" underline={false}>无下划线</Link>
+    <Link disabled>禁用链接</Link>
+  </div>
+)
+
+const DemoFloatButton: Component = () => () => (
+  <FloatButtonGroup>
+    <FloatButton icon="✏️" onClick={() => toast('编辑', 'info')} />
+    <FloatButton icon="📊" onClick={() => toast('报表', 'info')} />
+    <FloatButton icon="⚙️" onClick={() => toast('设置', 'info')} />
+  </FloatButtonGroup>
+)
+
+const DemoNavMenu: Component = () => () => (
+  <NavMenu
+    items={[
+      { key: 'home', label: '首页' },
+      { key: 'docs', label: '文档', children: [
+        { key: 'guide', label: '指南' },
+        { key: 'api', label: 'API', children: [{ key: 'rest', label: 'REST' }, { key: 'ws', label: 'WebSocket' }] },
+      ]},
+      { key: 'about', label: '关于' },
+    ]}
+    activeKey="home"
+    onSelect={(k) => toast(k, 'info')}
+  />
+)
+
+const DemoSpace: Component = () => () => (
+  <Space split={<Divider orientation="vertical" />}>
+    <span>操作一</span>
+    <span>操作二</span>
+    <span>操作三</span>
+  </Space>
+)
+
+const DemoGrid: Component = () => () => (
+  <div class="wf-stack wf-gap-md">
+    <Grid gutter={16}>
+      <Col span={8}><div class="wf-surface wf-pad-md wf-text-center">1/3</div></Col>
+      <Col span={8}><div class="wf-surface wf-pad-md wf-text-center">1/3</div></Col>
+      <Col span={8}><div class="wf-surface wf-pad-md wf-text-center">1/3</div></Col>
+      <Col span={12}><div class="wf-surface wf-pad-md wf-text-center">1/2</div></Col>
+      <Col span={12}><div class="wf-surface wf-pad-md wf-text-center">1/2</div></Col>
+    </Grid>
+    <Grid flex gap={8}>
+      <div class="wf-surface wf-pad-sm">弹性 A</div>
+      <div class="wf-surface wf-pad-sm">弹性 B</div>
+    </Grid>
+  </div>
+)
+
+const DemoScrollbar: Component = () => () => (
+  <Scrollbar maxHeight={120}>
+    <div class="wf-stack wf-gap-xs">
+      {Array.from({ length: 20 }, (_, i) => <div key={i}>滚动行 {i + 1}</div>)}
+    </div>
+  </Scrollbar>
+)
+
+const DemoAlertGroup: Component = () => () => (
+  <AlertGroup
+    items={[
+      { id: '1', message: '服务 A 重启完成', time: '10:01', variant: 'success' },
+      { id: '2', message: '服务 B 发布成功', time: '10:02', variant: 'success' },
+      { id: '3', message: '服务 C 容量告警', time: '10:03', variant: 'warning' },
+      { id: '4', message: '服务 D 重启完成', time: '10:04', variant: 'success' },
+    ]}
+  />
+)
+
+const DemoStatCountdown: Component = () => () => (
+  <StatCard label="活动倒计时" countdown={Date.now() + 3600 * 1000 + 95 * 1000} trend="up" trendLabel="进行中" />
+)
+
 const DemoDiffView: Component = () => () => (
   <DiffView
     oldCode={OLD_CODE}
@@ -2112,6 +2250,44 @@ return () => <AiChat chat={$} />
   pipeline: `<Pipeline orientation="horizontal" nodes={[{ id: 'a', label: '输入' }]} edges={[]} />`,
   treeselect: `<TreeSelect options={options} value={value} onChange={setValue} />`,
 
+  layout: `<Layout>
+  <LayoutSider collapsible collapsed onCollapse={setCollapsed}>导航</LayoutSider>
+  <Layout>
+    <LayoutHeader>顶部</LayoutHeader>
+    <LayoutContent>主区</LayoutContent>
+    <LayoutFooter>底部</LayoutFooter>
+  </Layout>
+</Layout>`,
+
+  popconfirm: `<Popconfirm title="确定删除？" danger onConfirm={del}>
+  <Button variant="danger">删除</Button>
+</Popconfirm>`,
+
+  autocomplete: `<AutoComplete options={options}
+  value={query} onChange={setQuery} />`,
+
+  link: `<Link href="/docs" variant="primary">文档</Link>`,
+
+  floatbutton: `<FloatButtonGroup>
+  <FloatButton icon={editIcon} onClick={edit} />
+</FloatButtonGroup>`,
+
+  navmenu: `<NavMenu items={items} activeKey="home" onSelect={go} />`,
+
+  space: `<Space split={<Divider orientation="vertical" />}>
+  <span>一</span><span>二</span><span>三</span>
+</Space>`,
+
+  grid: `<Grid gutter={16}>
+  <Col span={8}>A</Col><Col span={8}>B</Col><Col span={8}>C</Col>
+</Grid>`,
+
+  scrollbar: `<Scrollbar maxHeight={120}>长内容</Scrollbar>`,
+
+  alertgroup: `<AlertGroup items={alerts} />`,
+
+  statCountdown: `<StatCard label="倒计时" countdown={deadline} />`,
+
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
 
@@ -2195,6 +2371,17 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Kanban" desc="看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮" code={CODE.kanban}><DemoKanban /></DemoCard>
         <DemoCard title="Pipeline" desc="Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测" code={CODE.pipeline}><DemoPipeline /></DemoCard>
         <DemoCard title="TreeSelect" desc="树形选择：单选/多选（父子联动）+ 选中 label 回显 + 受控纪律" code={CODE.treeselect}><DemoTreeSelect /></DemoCard>
+        <DemoCard title="Layout" desc="布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）" code={CODE.layout}><DemoLayout /></DemoCard>
+        <DemoCard title="Popconfirm" desc="气泡确认：危险操作防误触 + 复用 usePopup 基座" code={CODE.popconfirm}><DemoPopconfirm /></DemoCard>
+        <DemoCard title="AutoComplete" desc="输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填" code={CODE.autocomplete}><DemoAutoComplete /></DemoCard>
+        <DemoCard title="Link" desc="文字链接：语义色/下划线/disabled/新窗口" code={CODE.link}><DemoLink /></DemoCard>
+        <DemoCard title="FloatButton" desc="悬浮按钮组：展开状态机 + badge" code={CODE.floatbutton}><DemoFloatButton /></DemoCard>
+        <DemoCard title="NavMenu" desc="顶部导航：多级 hover 弹出 + 键盘（shadcn NavigationMenu）" code={CODE.navmenu}><DemoNavMenu /></DemoCard>
+        <DemoCard title="Space" desc="间距容器：size/direction/wrap + split 分隔符" code={CODE.space}><DemoSpace /></DemoCard>
+        <DemoCard title="Grid" desc="24 栅格 + gutter + flex 容器模式（Row/Col/Flex 等价）" code={CODE.grid}><DemoGrid /></DemoCard>
+        <DemoCard title="Scrollbar" desc="自定义滚动容器：webkit 样式 + hover 显示" code={CODE.scrollbar}><DemoScrollbar /></DemoCard>
+        <DemoCard title="AlertGroup" desc="通知合并组：≥3 条折叠为 +N，点击展开" code={CODE.alertgroup}><DemoAlertGroup /></DemoCard>
+        <DemoCard title="StatCard Countdown" desc="倒计时模式：剩余 HH:MM:SS + 结束回调" code={CODE.statCountdown}><DemoStatCountdown /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>

@@ -1,0 +1,123 @@
+import { test, describe } from 'node:test'
+import assert from 'node:assert/strict'
+import { AutoComplete, filterOptions } from './AutoComplete.ts'
+
+function renderVNode(Comp: any, props: any, ctx: any) {
+  const result = Comp(props, ctx)
+  return typeof result === 'function' ? result(props) : result
+}
+
+function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
+  if (!vnode || typeof vnode !== 'object') return null
+  if (pred(vnode)) return vnode
+  const kids = vnode.props?.children
+  if (Array.isArray(kids)) {
+    for (const k of kids) {
+      const found = findVNode(k, pred)
+      if (found) return found
+    }
+  } else if (kids && typeof kids === 'object') {
+    return findVNode(kids, pred)
+  }
+  return null
+}
+
+function mount(Comp: any, props: any, ctx: any) {
+  const factory = Comp({}, ctx)
+  return { render: (p: any = props) => factory(p) }
+}
+
+const mockCtx = () => ({
+  ui: {
+    $: () => ({}),
+    render: () => {},
+    dirty: () => {},
+    usePopupPosition: () => ({ top: 0, left: 0, width: 200, refresh: () => {} }),
+  },
+}) as any
+
+function optionLabels(vnode: any): string[] {
+  const out: string[] = []
+  const walk = (v: any) => {
+    if (!v || typeof v !== 'object') return
+    if (String(v.props?.class ?? '').includes('wf-autocomplete-option')) out.push(v.props.children)
+    const kids = v.props?.children
+    if (Array.isArray(kids)) kids.forEach(walk)
+    else if (kids && typeof kids === 'object') walk(kids)
+  }
+  walk(vnode)
+  return out
+}
+
+const options = [
+  { value: 'pay-admin', label: '支付平台管理' },
+  { value: 'pay-account', label: '支付平账系统' },
+  { value: 'order', label: '订单中心' },
+]
+
+describe('filterOptions（纯函数）', () => {
+  test('包含匹配不区分大小写', () => {
+    assert.deepEqual(filterOptions(options, '支付').map(o => o.value), ['pay-admin', 'pay-account'])
+    assert.deepEqual(filterOptions(options, 'PAY').map(o => o.value), ['pay-admin', 'pay-account'])
+  })
+  test('空 query → 全部', () => {
+    assert.equal(filterOptions(options, '').length, 3)
+  })
+  test('无匹配 → 空', () => {
+    assert.equal(filterOptions(options, 'xyz').length, 0)
+  })
+})
+
+describe('AutoComplete', () => {
+  test('渲染输入框 + 下拉默认关闭', () => {
+    const vnode = renderVNode(AutoComplete, { options, value: '' }, mockCtx())
+    const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
+    assert.ok(input, '存在输入框')
+    const dropdown = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-dropdown'))
+    assert.equal(dropdown.props?.style?.display, 'none', '默认关闭')
+  })
+
+  test('value 驱动过滤渲染', () => {
+    const vnode = renderVNode(AutoComplete, { options, value: '支付', open: true }, mockCtx())
+    const labels = optionLabels(vnode)
+    assert.equal(labels.length, 2, '过滤出 2 条')
+    assert.ok(labels.includes('支付平台管理'))
+  })
+
+  test('点击选项 → onChange + 回填', () => {
+    let selected = ''
+    const ctx = mockCtx()
+    const inst = mount(AutoComplete, { options, value: '', onChange: (v: string) => { selected = v } }, ctx)
+    const vnode = inst.render({ options, value: '', open: true, onChange: (v: string) => { selected = v } })
+    const opt = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-option'))
+    opt.props.onMouseDown?.({ stopPropagation: () => {} })
+    assert.equal(selected, 'pay-admin')
+  })
+
+  test('键盘导航：↓ 高亮 → Enter 选中', () => {
+    let selected = ''
+    const ctx = mockCtx()
+    const inst = mount(AutoComplete, { options, value: '', onChange: (v: string) => { selected = v } }, ctx)
+    const props = { options, value: '', open: true, onChange: (v: string) => { selected = v } }
+    let vnode = inst.render(props)
+    const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
+    input.props.onKeyDown?.({ key: 'ArrowDown', preventDefault: () => {} })
+    vnode = inst.render(props)
+    const active = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-autocomplete-option--active'))
+    assert.ok(active, '↓ 后出现高亮项')
+    const input2 = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
+    input2.props.onKeyDown?.({ key: 'Enter', preventDefault: () => {} })
+    assert.equal(selected, 'pay-admin', 'Enter 选中高亮项')
+  })
+
+  test('Escape 关闭下拉', () => {
+    const ctx = mockCtx()
+    const inst = mount(AutoComplete, { options, value: '' }, ctx)
+    let vnode = inst.render({ options, value: '', open: true })
+    const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
+    input.props.onKeyDown?.({ key: 'Escape', preventDefault: () => {} })
+    vnode = inst.render({ options, value: '' })
+    const dropdown = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-dropdown'))
+    assert.equal(dropdown.props?.style?.display, 'none', 'Escape 关闭')
+  })
+})

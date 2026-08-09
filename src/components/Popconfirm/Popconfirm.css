@@ -1,0 +1,67 @@
+/* weifuwu/components — Popconfirm 气泡确认
+ * 复用 usePopup 基座：定位/portal/Escape 继承 Popover 同款
+ */
+
+.wf-popconfirm-wrap {
+  display: inline-block;
+}
+
+.wf-popconfirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--wf-z-popover, 120) - 1);
+}
+
+.wf-popconfirm {
+  position: fixed;
+  z-index: var(--wf-z-popover, 120);
+  min-width: var(--wf-popconfirm-min-width, 180px);
+  padding: var(--wf-space-sm, 12px);
+  border-radius: var(--wf-surface-radius, 8px);
+  background: var(--wf-surface-bg, #fff);
+  box-shadow: var(--wf-surface-shadow, 0 4px 16px rgba(0, 0, 0, 0.12));
+  border: var(--wf-border-width, 1px) solid var(--wf-color-border-light);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm, 13px);
+}
+
+.wf-popconfirm--enter {
+  animation: wf-popconfirm-in var(--wf-dur-md, 0.2s) var(--wf-ease-standard, ease);
+}
+
+.wf-popconfirm--exit {
+  animation: wf-popconfirm-out var(--wf-dur-md, 0.2s) var(--wf-ease-standard, ease) forwards;
+}
+
+@keyframes wf-popconfirm-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes wf-popconfirm-out {
+  from { opacity: 1; }
+  to { opacity: 0; transform: scale(0.98); }
+}
+
+.wf-popconfirm-title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--wf-gap-xs, 8px);
+  margin-bottom: var(--wf-space-xs, 8px);
+  color: var(--wf-color-text-primary);
+  line-height: 1.5;
+}
+
+.wf-popconfirm-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--wf-color-warning-text, #ad6800);
+}
+
+.wf-popconfirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--wf-gap-xs, 8px);
+  margin-top: var(--wf-space-xs, 8px);
+}

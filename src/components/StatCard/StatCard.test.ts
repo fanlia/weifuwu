@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test'
+import { describe, it, test } from 'node:test'
 import assert from 'node:assert'
 import { StatCard } from './StatCard.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -8,6 +8,19 @@ import type { WfuiContext } from '../../client/types.ts'
 function renderVNode(Comp: any, props: any, ctx: any) {
   const result = Comp(props, ctx)
   return typeof result === 'function' ? result(props) : result
+}
+
+function findVNode(vnode: any, pred: (v: any) => boolean): any | null {
+  if (!vnode || typeof vnode !== 'object') return null
+  if (pred(vnode)) return vnode
+  const kids = vnode.props?.children
+  if (Array.isArray(kids)) {
+    for (const k of kids) {
+      const f = findVNode(k, pred)
+      if (f) return f
+    }
+  } else if (kids && typeof kids === 'object') return findVNode(kids, pred)
+  return null
 }
 
 function mockCtx(): WfuiContext {
@@ -156,4 +169,28 @@ describe('StatCard', () => {
       performance.now = origPerf
     }
   })
+})
+
+test('countdown 模式：显示剩余 MM:SS 格式', () => {
+  const ctx = mockCtx()
+  ctx.ui.useTween = () => ({ value: 0, reset: () => {} })
+  const future = Date.now() + 95 * 1000 // 95s → 01:35
+  const factory = StatCard({}, ctx)
+  const vnode = factory({ label: '超时', countdown: future })
+  const val = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-stat-value'))
+  assert.equal(val.props.children, '01:35', '倒计时格式化 MM:SS')
+  factory({ label: '超时' }) // 清理定时器（测试不卸载）
+})
+
+test('countdown 结束 → onFinish 回调 + 定时器清理', () => {
+  const ctx = mockCtx()
+  ctx.ui.useTween = () => ({ value: 0, reset: () => {} })
+  let finished = 0
+  const past = Date.now() - 1000 // 已过时 → 0
+  const factory = StatCard({}, ctx)
+  const vnode = factory({ label: 'x', countdown: past, onFinish: () => finished++ })
+  assert.equal(finished, 0, 'render 期不直接触发 onFinish')
+  const val = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-stat-value'))
+  assert.equal(val.props.children, '00:00', '已过时显示 00:00')
+  factory({ label: 'x' }) // 清理定时器
 })

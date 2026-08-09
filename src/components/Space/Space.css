@@ -1,0 +1,15 @@
+/* weifuwu/components — Space 间距容器 */
+
+.wf-space {
+  display: flex;
+  align-items: center;
+}
+
+.wf-space--vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.wf-space-split {
+  color: var(--wf-color-text-muted, #999);
+}

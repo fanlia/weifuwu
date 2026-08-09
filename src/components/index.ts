@@ -292,3 +292,30 @@ export { Pipeline } from './Pipeline/Pipeline.ts'
 export { layoutGraph, computeLayers, detectCycle } from './Pipeline/dag-utils.ts'
 export { TreeSelect } from './TreeSelect/TreeSelect.ts'
 export { findLabel } from './TreeSelect/TreeSelect.ts'
+
+export { Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter } from './Layout/Layout.ts'
+export type { LayoutProps, LayoutSiderProps } from './Layout/Layout.ts'
+
+export { Popconfirm } from './Popconfirm/Popconfirm.ts'
+export type { PopconfirmProps } from './Popconfirm/Popconfirm.ts'
+
+export { AutoComplete, filterOptions } from './AutoComplete/AutoComplete.ts'
+export type { AutoCompleteProps, AutoCompleteOption } from './AutoComplete/AutoComplete.ts'
+
+export { Link } from './Link/Link.ts'
+export type { LinkProps } from './Link/Link.ts'
+
+export { FloatButton, FloatButtonGroup } from './FloatButton/FloatButton.ts'
+export type { FloatButtonProps, FloatButtonGroupProps, FloatButtonPosition } from './FloatButton/FloatButton.ts'
+
+export { NavMenu } from './NavMenu/NavMenu.ts'
+export type { NavMenuProps, NavMenuItem } from './NavMenu/NavMenu.ts'
+
+export { Space } from './Space/Space.ts'
+export type { SpaceProps } from './Space/Space.ts'
+export { Grid, Col, gridColumns } from './Grid/Grid.ts'
+export type { GridProps, ColProps } from './Grid/Grid.ts'
+export { Scrollbar } from './Scrollbar/Scrollbar.ts'
+export type { ScrollbarProps } from './Scrollbar/Scrollbar.ts'
+export { AlertGroup } from './AlertGroup/AlertGroup.ts'
+export type { AlertGroupProps, AlertGroupItem } from './AlertGroup/AlertGroup.ts'

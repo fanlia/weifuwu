@@ -1,0 +1,113 @@
+/* weifuwu/components — FloatButton 悬浮操作按钮 */
+
+.wf-float-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--wf-color-primary);
+  color: var(--wf-color-on-brand, #fff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  z-index: var(--wf-z-sticky, 40);
+  font-family: var(--wf-font-sans);
+  font-size: 16px;
+  transition: transform var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease),
+              background var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
+}
+
+.wf-float-btn:hover {
+  transform: scale(1.05);
+  background: var(--wf-color-primary-600, #1668dc);
+}
+
+.wf-float-btn--disabled {
+  background: var(--wf-color-text-disabled, #bfbfbf);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.wf-float-btn--top-left { top: 24px; left: 24px; }
+.wf-float-btn--top-right { top: 24px; right: 24px; }
+.wf-float-btn--bottom-left { bottom: 24px; left: 24px; }
+.wf-float-btn--bottom-right { bottom: 24px; right: 24px; }
+
+.wf-float-btn-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 50%;
+  background: var(--wf-color-danger);
+  color: var(--wf-color-on-brand, #fff);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ── 组模式 ── */
+.wf-float-group {
+  position: fixed;
+  z-index: var(--wf-z-sticky, 40);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.wf-float-group--bottom-right { bottom: 24px; right: 24px; }
+.wf-float-group--bottom-left { bottom: 24px; left: 24px; }
+.wf-float-group--top-right { top: 24px; right: 24px; }
+.wf-float-group--top-left { top: 24px; left: 24px; }
+
+.wf-float-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wf-float-group-item {
+  animation: wf-float-item-in var(--wf-dur-md, 0.2s) var(--wf-ease-standard, ease);
+}
+
+@keyframes wf-float-item-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.wf-float-group-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--wf-color-primary);
+  color: var(--wf-color-on-brand, #fff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  font-size: var(--wf-font-size-xl, 20px);
+  font-family: var(--wf-font-sans);
+}
+
+.wf-float-group-icon {
+  display: inline-block;
+  transition: transform var(--wf-dur-md, 0.2s) var(--wf-ease-standard, ease);
+}
+
+.wf-float-group-icon.is-open {
+  transform: rotate(45deg);
+}

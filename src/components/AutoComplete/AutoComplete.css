@@ -1,0 +1,43 @@
+/* weifuwu/components — AutoComplete 输入联想 */
+
+.wf-autocomplete-wrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.wf-autocomplete-input {
+  width: 100%;
+}
+
+.wf-autocomplete-dropdown {
+  position: fixed;
+  z-index: var(--wf-z-popover, 120);
+  max-height: 280px;
+  overflow-y: auto;
+  border-radius: var(--wf-surface-radius, 8px);
+  background: var(--wf-surface-bg, #fff);
+  box-shadow: var(--wf-surface-shadow, 0 4px 16px rgba(0, 0, 0, 0.12));
+  border: var(--wf-border-width, 1px) solid var(--wf-color-border-light);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm, 13px);
+}
+
+.wf-autocomplete-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--wf-color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
+}
+
+.wf-autocomplete-option:hover,
+.wf-autocomplete-option--active {
+  background: var(--wf-color-bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.wf-autocomplete-option--active {
+  color: var(--wf-color-primary-600, #1668dc);
+}

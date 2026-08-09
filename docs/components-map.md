@@ -172,3 +172,25 @@
 > AI 开发者工具链成型：AiChat / Command / JSONViewer / LogViewer / DiffView /
 > Pipeline——三库差异化最深的完整工具线。
 > 裁剪声明见 `design/components-roadmap.md` 第七批。
+
+## 第八批：三库并集缺口清零（102 → 113，2026-08）
+
+> 三库评估：antd 88% / EP 89% / shadcn 92%——本批补齐全部真实缺口，三库 208 项 100% 有对应。
+> 完整逆向映射表见 `docs/compat-three-library.md`。
+
+| 组件 | 类型 | 三库等价 | 要点 |
+|------|------|---------|------|
+| **Layout**（+LayoutHeader/Sider/Content/Footer） | 新增 | antd Layout / EP Container / shadcn Sidebar | 复合子组件双模式；含 Sider → row 布局；Sider 折叠受控/非受控 + trigger |
+| **Popconfirm** | 新增 | antd / EP Popconfirm | 复用 usePopup 基座（弹层组合性）；danger 危险色；确认后自动关闭 |
+| **AutoComplete** | 新增 | antd+EP Autocomplete / shadcn Combobox | 自由输入联想；包含过滤（纯函数）；键盘 ↓↑/Enter/Escape；选中回填 |
+| **Link** | 新增 | EP Link / antd Typography.Link | 语义色/下划线/disabled/new window/icon |
+| **FloatButton** | 新增 | antd FloatButton（特有） | fixed 定位 + badge + 组展开状态机 |
+| **NavMenu** | 新增 | shadcn NavigationMenu（特有） | 顶部多级 hover 弹出 + 键盘 →/Escape |
+| **Space** | 新增 | antd / EP Space | flex gap 布局 + split 分隔符 |
+| **Grid**（+Col） | 新增 | antd Row/Col/Flex / EP Row/Col | 24 栅格 + gutter + flex 容器模式 |
+| **Scrollbar** | 新增 | EP Scrollbar / shadcn ScrollArea | webkit 滚动条样式容器 |
+| **AlertGroup** | 新增 | EP AlertGroup（2.8） | ≥3 条合并折叠 +N，点击展开 |
+| **StatCard ⬆️** | 增强 | antd Statistic.Countdown | countdown 模式：剩余 HH:MM:SS + 结束回调（1s tick + 清理纪律） |
+
+> 三库 208 项（antd 84 / EP 74 / shadcn 50）→ 100% 覆盖（业务组件全对应；
+> 框架级 App/ConfigProvider/Teleport/Overlay 由 createApp/createPortal/--wf-* token 内置）。

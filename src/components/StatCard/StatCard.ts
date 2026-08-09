@@ -13,6 +13,10 @@ export interface StatCardProps {
   onClick?: () => void
   /** 数字从 0 递增动画（reduced-motion 下直接终值），仅数值类型生效 */
   animate?: boolean
+  /** 倒计时目标时间戳（ms）——显示剩余 HH:MM:SS（antd Statistic.Countdown 等价） */
+  countdown?: number
+  /** 倒计时结束回调 */
+  onFinish?: () => void
 }
 
 export const StatCard: Component<StatCardProps> = (_init, ctx) => {
@@ -21,8 +25,18 @@ export const StatCard: Component<StatCardProps> = (_init, ctx) => {
   // 偏好感知经 ctx.ui.useReducedMotion（JS 动画侧跳过，收敛手工 matchMedia）。
   let tween = ctx.ui.useTween(0, { duration: 400, ease: 'easeOutCubic' })
 
+  // 倒计时：1s tick → render；卸载清理（setInterval 纪律）
+  let countdownRemain = 0
+  let timer: ReturnType<typeof setInterval> | null = null
+  let latestOnFinish: (() => void) | undefined
+
+  const stopTimer = () => {
+    if (timer) { clearInterval(timer); timer = null }
+  }
+
   return (props: StatCardProps) => {
-    const { label, value, trend, trendLabel, icon, onClick, animate } = props
+    const { label, value, trend, trendLabel, icon, onClick, animate, countdown, onFinish } = props
+    latestOnFinish = onFinish
     const target = typeof value === 'number' ? value : 0
 
     if (animate && typeof value === 'number') {
@@ -31,7 +45,32 @@ export const StatCard: Component<StatCardProps> = (_init, ctx) => {
       ;(tween as any).value = target // 非动画/非数值：直落
     }
 
-  const display = typeof value === 'number' ? String(tween.value) : String(value)
+    // ── countdown 模式：目标时间戳 → 剩余秒数；启动/续 1s tick ──
+    if (countdown !== undefined) {
+      countdownRemain = Math.max(0, Math.ceil((countdown - Date.now()) / 1000))
+      if (!timer) {
+        timer = setInterval(() => {
+          countdownRemain = Math.max(0, Math.ceil((countdown - Date.now()) / 1000))
+          if (countdownRemain <= 0) {
+            stopTimer()
+            latestOnFinish?.()
+          }
+          ctx.ui.render()
+        }, 1000)
+      }
+    } else if (timer) {
+      stopTimer()
+    }
+
+  const display = countdown !== undefined
+    ? (() => {
+        const hh = Math.floor(countdownRemain / 3600)
+        const mm = Math.floor((countdownRemain % 3600) / 60)
+        const ss = countdownRemain % 60
+        const pad = (n: number) => String(n).padStart(2, '0')
+        return hh > 0 ? `${pad(hh)}:${pad(mm)}:${pad(ss)}` : `${pad(mm)}:${pad(ss)}`
+      })()
+    : (typeof value === 'number' ? String(tween.value) : String(value))
   const children: any[] = []
 
   if (icon) children.push(h('div', { class: 'wf-stat-icon' }, icon))

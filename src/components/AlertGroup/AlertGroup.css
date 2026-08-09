@@ -1,0 +1,72 @@
+/* weifuwu/components — AlertGroup 通知合并组 */
+
+.wf-alertgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm, 13px);
+}
+
+.wf-alertgroup-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: var(--wf-border-width, 1px) solid var(--wf-color-border);
+  border-radius: var(--wf-surface-radius, 8px);
+  background: var(--wf-color-bg-secondary, #fff);
+  color: var(--wf-color-primary-600, #1668dc);
+  cursor: pointer;
+  font-family: var(--wf-font-sans);
+  transition: background var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
+}
+
+.wf-alertgroup-summary:hover {
+  background: var(--wf-color-bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.wf-alertgroup-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--wf-surface-radius, 8px);
+  background: var(--wf-color-bg-secondary, #fff);
+  border-left: 3px solid var(--wf-color-info);
+}
+
+.wf-alertgroup-item--success { border-left-color: var(--wf-color-success); }
+.wf-alertgroup-item--warning { border-left-color: var(--wf-color-warning); }
+.wf-alertgroup-item--error { border-left-color: var(--wf-color-danger); }
+
+.wf-alertgroup-message {
+  flex: 1;
+  color: var(--wf-color-text-primary);
+}
+
+.wf-alertgroup-time {
+  color: var(--wf-color-text-muted, #999);
+  font-size: 12px;
+}
+
+.wf-alertgroup-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--wf-color-text-muted, #999);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.wf-alertgroup-close:hover {
+  background: var(--wf-color-bg-hover, rgba(0, 0, 0, 0.04));
+  color: var(--wf-color-text-primary);
+}

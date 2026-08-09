@@ -23,6 +23,8 @@ import {
   Divider, AspectRatio, Label, ToggleGroup, SegmentedControl, Resizable,
   Command, Menubar, ContextMenu, HoverCard, PageHeader, ThemeSwitch,
   CheckboxGroup, Form, Field, Notification,
+  Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
+  Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, NavMenu,
 } from '../components/index.ts'
 
 const ctx: any = {}
@@ -105,6 +107,17 @@ const cases: Array<[string, Component, Record<string, any>]> = [
   ['ThemeSwitch', ThemeSwitch, {}],
   ['CheckboxGroup', CheckboxGroup, { options: [{ value: 'a', label: 'A' }] }],
   ['Notification', Notification, { title: '通知' }],
+  ['Layout', Layout, { children: [{ type: LayoutHeader, props: { children: 'h' } }, { type: LayoutContent, props: { children: 'c' } }] }],
+  ['LayoutSider', LayoutSider, { children: 'nav', collapsible: true, collapsed: false }],
+  ['Popconfirm', Popconfirm, { title: '确定？', children: '删除' }],
+  ['AutoComplete', AutoComplete, { options: [{ value: 'a', label: 'A' }], value: '' }],
+  ['Link', Link, { href: '/x', children: '链接' }],
+  ['Space', Space, { children: ['a', 'b'] }],
+  ['Grid', Grid, { children: [{ type: Col, props: { span: 12, children: 'c' } }] }],
+  ['Scrollbar', Scrollbar, { maxHeight: 200, children: 'x' }],
+  ['AlertGroup', AlertGroup, { items: [{ id: '1', message: 'm' }] }],
+  ['FloatButton', FloatButton, { children: '+' }],
+  ['NavMenu', NavMenu, { items: [{ key: 'a', label: 'A' }] }],
 ]
 
 describe('SSR 组件冒烟（ctx.browser shim 安全）', () => {
