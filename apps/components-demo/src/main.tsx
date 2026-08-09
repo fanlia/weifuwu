@@ -1521,7 +1521,13 @@ const DemoTreeSelect: Component = (_props, ctx) => {
           <span class="wf-text-xs wf-text-secondary">单选</span>
           <TreeSelect
             options={[
-              { key: 'svc', label: '服务', children: [{ key: 'http', label: 'HTTP 服务' }, { key: 'rpc', label: 'RPC 服务' }] },
+              { key: 'svc', label: '服务', children: [
+                { key: 'http', label: 'HTTP 服务', children: [
+                  { key: 'http-in', label: '内部路由' },
+                  { key: 'http-out', label: '外部路由' },
+                ] },
+                { key: 'rpc', label: 'RPC 服务' },
+              ] },
               { key: 'db', label: '数据库', children: [{ key: 'pg', label: 'PostgreSQL' }, { key: 'redis', label: 'Redis' }] },
             ]}
             value={value as string}
@@ -1534,7 +1540,13 @@ const DemoTreeSelect: Component = (_props, ctx) => {
           <TreeSelect
             multiple
             options={[
-              { key: 'svc', label: '服务', children: [{ key: 'http', label: 'HTTP 服务' }, { key: 'rpc', label: 'RPC 服务' }] },
+              { key: 'svc', label: '服务', children: [
+                { key: 'http', label: 'HTTP 服务', children: [
+                  { key: 'http-in', label: '内部路由' },
+                  { key: 'http-out', label: '外部路由' },
+                ] },
+                { key: 'rpc', label: 'RPC 服务' },
+              ] },
               { key: 'db', label: '数据库', children: [{ key: 'pg', label: 'PostgreSQL' }, { key: 'redis', label: 'Redis' }] },
             ]}
             value={value as string[]}
