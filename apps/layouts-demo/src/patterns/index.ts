@@ -33,7 +33,7 @@ export const PATTERNS: LayoutPattern[] = [
   { id: 'focus-task', name: '聚焦任务页', desc: 'wf-center 居中 + Form 表单全家桶', comp: FocusTask, file: 'FocusTask', group: '工作台' },
   { id: 'docs', name: '文档站', desc: 'Anchor 目录 + prose 正文 + CodeBlock', comp: Docs, file: 'Docs', group: '内容展示' },
   { id: 'dashboard', name: '仪表盘', desc: 'wf-grid 响应式 KPI + 时间范围数据联动', comp: Dashboard, file: 'Dashboard', group: '内容展示' },
-  { id: 'data-screen', name: '数据大屏', desc: 'wf-fill 全屏 + wf-pin 角标 + Sparkline', comp: DataScreen, file: 'DataScreen', group: '内容展示' },
+  { id: 'data-screen', name: '数据大屏', desc: 'wf-fill 全屏 + wf-layer/wf-pop 容器内角标 + Sparkline', comp: DataScreen, file: 'DataScreen', group: '内容展示' },
   { id: 'landing', name: '营销落地页', desc: 'wf-center Hero + wf-grid 特性 + CTA', comp: Landing, file: 'Landing', group: '营销推广' },
   { id: 'mobile', name: '移动端 App', desc: 'wf-safe-top/bottom + SearchInput + List + 底部 Tab', comp: Mobile, file: 'Mobile', group: '营销推广' },
 ]

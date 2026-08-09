@@ -1,4 +1,4 @@
-import type { Component } from '../../client/vnode.ts'
+import type { Component, VNode } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -8,7 +8,8 @@ export interface StatCardProps {
   value: string | number
   trend?: 'up' | 'down'
   trendLabel?: string
-  icon?: string
+  /** 图标——字符串（emoji/字形）或 VNode（推荐 <Icon name=... />，禁 emoji 装饰的场景用后者） */
+  icon?: string | VNode | null
   /** 点击跳转/交互（悬停抬升 + role=button） */
   onClick?: () => void
   /** 数字从 0 递增动画（reduced-motion 下直接终值），仅数值类型生效 */

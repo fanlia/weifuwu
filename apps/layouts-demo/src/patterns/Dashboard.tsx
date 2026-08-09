@@ -1,5 +1,5 @@
 import type { Component } from 'weifuwu/client'
-import { Title, Text, StatCard, PageHeader, ProgressBar, SegmentedControl, Switch, Table, Badge, Card, Divider, Space } from 'weifuwu/components'
+import { Title, Text, StatCard, PageHeader, ProgressBar, SegmentedControl, Switch, Table, Badge, Card, Divider, Icon, Space } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────
 // 模式 3：仪表盘（Dashboard）
@@ -18,10 +18,10 @@ interface PeriodData {
 const DATA: Record<string, PeriodData> = {
   '7d': {
     kpis: [
-      { label: '总营收', value: '¥32.4万', trend: 'up' as const, trendLabel: '8.2% 环比', icon: '💰' },
-      { label: '活跃用户', value: '2,156', trend: 'up' as const, trendLabel: '5.1% 环比', icon: '👥' },
-      { label: '转化率', value: '7.4%', trend: 'up' as const, trendLabel: '1.2% 环比', icon: '📈' },
-      { label: '客单价', value: '¥312', trend: 'up' as const, trendLabel: '3.8% 环比', icon: '🛒' },
+      { label: '总营收', value: '¥32.4万', trend: 'up' as const, trendLabel: '8.2% 环比', icon: 'bar-chart' },
+      { label: '活跃用户', value: '2,156', trend: 'up' as const, trendLabel: '5.1% 环比', icon: 'users' },
+      { label: '转化率', value: '7.4%', trend: 'up' as const, trendLabel: '1.2% 环比', icon: 'trending-up' },
+      { label: '客单价', value: '¥312', trend: 'up' as const, trendLabel: '3.8% 环比', icon: 'tag' },
     ],
     rows: [
       { name: '新品 B', sales: '¥12.8万', growth: '22.6%', status: '热销', v: 'success' },
@@ -32,10 +32,10 @@ const DATA: Record<string, PeriodData> = {
   },
   '30d': {
     kpis: [
-      { label: '总营收', value: '¥128.6万', trend: 'up' as const, trendLabel: '12.4% 环比', icon: '💰' },
-      { label: '活跃用户', value: '8,432', trend: 'up' as const, trendLabel: '3.2% 环比', icon: '👥' },
-      { label: '转化率', value: '6.8%', trend: 'up' as const, trendLabel: '0.5% 环比', icon: '📈' },
-      { label: '客单价', value: '¥286', trend: 'down' as const, trendLabel: '2.1% 环比', icon: '🛒' },
+      { label: '总营收', value: '¥128.6万', trend: 'up' as const, trendLabel: '12.4% 环比', icon: 'bar-chart' },
+      { label: '活跃用户', value: '8,432', trend: 'up' as const, trendLabel: '3.2% 环比', icon: 'users' },
+      { label: '转化率', value: '6.8%', trend: 'up' as const, trendLabel: '0.5% 环比', icon: 'trending-up' },
+      { label: '客单价', value: '¥286', trend: 'down' as const, trendLabel: '2.1% 环比', icon: 'tag' },
     ],
     rows: [
       { name: '商品 A', sales: '¥42.8万', growth: '18.2%', status: '热销', v: 'success' },
@@ -47,10 +47,10 @@ const DATA: Record<string, PeriodData> = {
   },
   '90d': {
     kpis: [
-      { label: '总营收', value: '¥356.2万', trend: 'up' as const, trendLabel: '18.6% 环比', icon: '💰' },
-      { label: '活跃用户', value: '24,680', trend: 'up' as const, trendLabel: '9.8% 环比', icon: '👥' },
-      { label: '转化率', value: '6.1%', trend: 'down' as const, trendLabel: '0.3% 环比', icon: '📈' },
-      { label: '客单价', value: '¥268', trend: 'down' as const, trendLabel: '4.2% 环比', icon: '🛒' },
+      { label: '总营收', value: '¥356.2万', trend: 'up' as const, trendLabel: '18.6% 环比', icon: 'bar-chart' },
+      { label: '活跃用户', value: '24,680', trend: 'up' as const, trendLabel: '9.8% 环比', icon: 'users' },
+      { label: '转化率', value: '6.1%', trend: 'down' as const, trendLabel: '0.3% 环比', icon: 'trending-up' },
+      { label: '客单价', value: '¥268', trend: 'down' as const, trendLabel: '4.2% 环比', icon: 'tag' },
     ],
     rows: [
       { name: '商品 B', sales: '¥98.5万', growth: '31.4%', status: '热销', v: 'success' },
@@ -88,7 +88,7 @@ export const Dashboard: Component = (_init, ctx) => {
         {/* KPI 行：wf-grid 自适应（窄屏自动单列） */}
         <div class="wf-grid" style={{ '--wf-cols': 'repeat(auto-fill, minmax(240px, 1fr))' }}>
           {data.kpis.map((k) => (
-            <StatCard key={k.label} label={k.label} value={k.value} trend={k.trend} trendLabel={k.trendLabel} icon={k.icon} />
+            <StatCard key={k.label} label={k.label} value={k.value} trend={k.trend} trendLabel={k.trendLabel} icon={<Icon name={k.icon as any} size={24} className="wf-text-primary" />} />
           ))}
         </div>
 

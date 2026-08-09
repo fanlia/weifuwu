@@ -48,17 +48,6 @@ export const AppShell: Component = (_init, ctx) => {
     status: ['已支付', '待发货', '已完成', '已取消'][i % 4],
     v: (['success', 'warning', 'default', 'danger'] as const)[i % 4],
   }))
-  ;(window as any).__appShellVNode = (ctx.ui as any)._selfVNode
-  ;(window as any).__appShellVNode.refProbe = () => ({
-    id: (ctx.ui as any)._selfVNode?._id,
-    refNode: (ctx.ui as any)._selfVNode?._refNode?.tagName,
-    refNull: (ctx.ui as any)._selfVNode?._refNode === null,
-    refUndefined: (ctx.ui as any)._selfVNode?._refNode === undefined,
-    child: !!(ctx.ui as any)._selfVNode?._child,
-    parentNode: !!(ctx.ui as any)._selfVNode?._parentNode,
-    parentNodeCls: (ctx.ui as any)._selfVNode?._parentNode?.className?.slice(0, 30),
-  })
-
   return () => (
     <div
       class="wf-app-shell wf-rounded-lg"
@@ -129,10 +118,10 @@ export const AppShell: Component = (_init, ctx) => {
                 <Button variant="primary" onClick={() => { $.nav = 'orders' }}><Icon name="plus" size={14} /> 去下单</Button>
               </PageHeader>
               <div class="wf-grid" style={{ '--wf-cols': 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-                <StatCard label="今日订单" value="128" trend="up" trendLabel="+12% 昨日" icon="📦" />
-                <StatCard label="待发货" value="23" trend="down" trendLabel="-5% 昨日" icon="📬" />
-                <StatCard label="销售额" value="¥42,860" trend="up" trendLabel="+8.6% 昨日" icon="💰" />
-                <StatCard label="客户数" value="1,024" trend="up" trendLabel="+3.2% 昨日" icon="👥" />
+                <StatCard label="今日订单" value="128" trend="up" trendLabel="+12% 昨日" icon={<Icon name="box" size={24} className="wf-text-primary" />} />
+                <StatCard label="待发货" value="23" trend="down" trendLabel="-5% 昨日" icon={<Icon name="inbox" size={24} className="wf-text-primary" />} />
+                <StatCard label="销售额" value="¥42,860" trend="up" trendLabel="+8.6% 昨日" icon={<Icon name="bar-chart" size={24} className="wf-text-primary" />} />
+                <StatCard label="客户数" value="1,024" trend="up" trendLabel="+3.2% 昨日" icon={<Icon name="users" size={24} className="wf-text-primary" />} />
               </div>
             </>
           )}
@@ -143,9 +132,9 @@ export const AppShell: Component = (_init, ctx) => {
               </PageHeader>
 
           <div class="wf-grid wf-mt-md" style={{ '--wf-cols': 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-            <StatCard label="今日订单" value="128" trend="up" trendLabel="+12% 昨日" icon="📦" />
-            <StatCard label="待发货" value="23" trend="down" trendLabel="-5% 昨日" icon="📬" />
-            <StatCard label="销售额" value="¥42,860" trend="up" trendLabel="+8.6% 昨日" icon="💰" />
+            <StatCard label="今日订单" value="128" trend="up" trendLabel="+12% 昨日" icon={<Icon name="box" size={24} className="wf-text-primary" />} />
+            <StatCard label="待发货" value="23" trend="down" trendLabel="-5% 昨日" icon={<Icon name="inbox" size={24} className="wf-text-primary" />} />
+            <StatCard label="销售额" value="¥42,860" trend="up" trendLabel="+8.6% 昨日" icon={<Icon name="bar-chart" size={24} className="wf-text-primary" />} />
           </div>
 
           <Divider />

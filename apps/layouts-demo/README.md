@@ -19,7 +19,7 @@ node server.ts        # → http://localhost:3001
 | 工作台 | 聚焦任务页 | `src/patterns/FocusTask.tsx` | wf-center 居中 + Form 校验错误展示 |
 | 内容展示 | 文档站 | `src/patterns/Docs.tsx` | Anchor 目录 + prose 正文 + CodeBlock |
 | 内容展示 | 仪表盘 | `src/patterns/Dashboard.tsx` | wf-grid 响应式 KPI + 时间范围数据联动 |
-| 内容展示 | 数据大屏 | `src/patterns/DataScreen.tsx` | wf-fill 全屏 + wf-pin 角标 + Sparkline |
+| 内容展示 | 数据大屏 | `src/patterns/DataScreen.tsx` | wf-fill 全屏 + wf-layer/wf-pop 容器内角标 + Sparkline |
 | 营销推广 | 营销落地页 | `src/patterns/Landing.tsx` | wf-center Hero + wf-grid 特性 + CTA |
 | 营销推广 | 移动端 App | `src/patterns/Mobile.tsx` | wf-safe-top/bottom + 搜索过滤 + 底部 Tab |
 

@@ -1,5 +1,5 @@
 import type { Component } from 'weifuwu/client'
-import {Title,Paragraph,Text, Badge, BackTop, Button, Card, Divider, Icon, Space, Tag, Avatar } from 'weifuwu/components'
+import {Title,Paragraph,Text, Badge, BackTop, Button, Card, Divider, Icon, Link, Space, Avatar } from 'weifuwu/components'
 
 
 // ─────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ const FEATURES = [
   { icon: 'database' as const, title: '全栈一体', desc: 'DB / Redis / 队列 / AI / WebSocket 一个框架搞定' },
 ]
 
-export const Landing: Component = (_init, _ctx) => (
+export const Landing: Component = (_init, ctx) => (
   () => (
     <div class="wf-stack wf-gap-none">
       {/* 顶部导航 */}
@@ -26,10 +26,10 @@ export const Landing: Component = (_init, _ctx) => (
           <Icon name="zap" size={20} className="wf-text-primary" />
           <b class="wf-text-bold wf-text-lg">weifuwu</b>
         </Space>
-        <Space size="lg">
-          <Tag>特性</Tag>
-          <Tag>文档</Tag>
-          <Tag>定价</Tag>
+        <Space size="lg" align="center">
+          <Link href="#features" underline={false} variant="muted">特性</Link>
+          <Link href="#docs" underline={false} variant="muted">文档</Link>
+          <Link href="#pricing" underline={false} variant="muted">定价</Link>
         </Space>
         <Button size="sm" variant="primary">开始使用</Button>
       </header>
@@ -46,7 +46,7 @@ export const Landing: Component = (_init, _ctx) => (
           </Paragraph>
           <div class="wf-row wf-gap-md wf-cluster wf-center">
             <Button size="lg" variant="primary">免费开始</Button>
-            <Button size="lg" variant="ghost">查看文档 →</Button>
+            <Button size="lg" variant="ghost">查看文档 <Icon name="arrow-right" size={14} /></Button>
           </div>
         </div>
       </section>
@@ -71,12 +71,12 @@ export const Landing: Component = (_init, _ctx) => (
         <div class="wf-stack wf-gap-md wf-center wf-text-center">
           <Title level={2}>准备构建你的下一个应用？</Title>
           <Paragraph className="wf-text-secondary">npm i weifuwu — 5 分钟跑通全栈</Paragraph>
-          <Button variant="primary" size="lg">🚀 立即上手</Button>
+          <Button variant="primary" size="lg"><Icon name="zap" size={16} /> 立即上手</Button>
         </div>
       </section>
 
       {/* Footer */}
-      <BackTop target={() => document.querySelector('.wf-fill.wf-scroll') as HTMLElement} />
+      <BackTop target={() => ctx.browser?.query('.wf-fill.wf-scroll') as HTMLElement} />
       <footer class="wf-row wf-p-md wf-gap-lg wf-border-t wf-container wf-between" style={{ maxWidth: 1100 }}>
         <Text type="secondary" className="wf-text-sm">© 2026 weifuwu</Text>
         <Space align="center" size="sm">

@@ -98,7 +98,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))`} />
       </footer>
 
       {/* 返回顶部（BackTop——组件能力展示：target 指向壳内部滚动容器） */}
-      <BackTop target={() => document.querySelector('.wf-fill.wf-scroll') as HTMLElement} />
+      <BackTop target={() => ctx.browser?.query('.wf-fill.wf-scroll') as HTMLElement} />
     </div>
   )
 }

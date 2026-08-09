@@ -51,7 +51,7 @@ export const Mobile: Component = (_init, ctx) => {
     return (
     <div class="wf-center wf-p-lg wf-bg-tertiary" style={{ minHeight: 'calc(100vh - 48px)' }}>
       {/* 手机视口（390×640 模拟屏——唯一允许的视口容器内联） */}
-      <div class="wf-stack wf-gap-none wf-border wf-rounded-lg wf-elevate" style={{ width: 390, maxWidth: '100%', height: 640, overflow: 'hidden' }}>
+      <div class="wf-stack wf-gap-none wf-border wf-rounded-lg wf-elevate wf-bg-primary" style={{ width: 390, maxWidth: '100%', height: 640, overflow: 'hidden' }}>
         {/* 顶部导航（安全区避让） */}
         <div class="wf-safe-top wf-row wf-p-md wf-gap-sm wf-border-b wf-between">
           <Icon name="chevron-left" size={18} />

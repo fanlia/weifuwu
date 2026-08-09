@@ -84,7 +84,7 @@ const Shell: Component = (_init, ctx) => {
         <main class="wf-fill wf-stack wf-gap-none" style={{ minWidth: 0 }}>
           <div class="wf-stack wf-gap-none wf-border-b">
             {/* 窄屏模式切换（横向滚动）——lg 起隐藏（左侧栏接管） */}
-            <nav class="wf-hidden@lg wf-nav wf-row wf-nowrap wf-scroll wf-p-sm wf-gap-xs wf-border-b">
+            <nav class="wf-hidden@lg wf-row wf-nowrap wf-scroll wf-p-sm wf-gap-xs wf-border-b" aria-label="布局模式切换">
               {PATTERNS.map((p) => (
                 <a
                   key={p.id}
@@ -101,7 +101,7 @@ const Shell: Component = (_init, ctx) => {
                 <Text type="secondary" className="wf-text-sm">{active.desc}</Text>
               </div>
               <Space size="md" align="center">
-                <Text className="wf-text-tertiary wf-text-xs" style={{ fontFamily: 'monospace' }}>
+                <Text className="wf-text-tertiary wf-text-xs" style={{ fontFamily: 'var(--wf-font-mono)' }}>
                   {fileOf(active.id)}
                 </Text>
                 <Button
