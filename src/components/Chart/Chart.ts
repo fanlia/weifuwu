@@ -206,7 +206,11 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
       h('div', { class: 'wf-chart-tooltip-value' }, String(tooltip.value)),
     ]) : null
 
-    return h('div', { class: `wf-chart${className ? ' ' + className : ''}` }, [
+    return h('div', {
+      class: `wf-chart${className ? ' ' + className : ''}`,
+      role: 'img',
+      'aria-label': title ?? (ctx as any)?.i18n?.components?.Chart?.ariaLabel ?? '图表',
+    }, [
       title ? h('div', { class: 'wf-chart-title' }, title) : null,
       chartContent,
       legend,

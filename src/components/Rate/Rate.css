@@ -54,3 +54,22 @@
 .wf-rate--sm { font-size: var(--wf-font-size-sm); }
 .wf-rate--md { font-size: var(--wf-font-size-xl); }
 .wf-rate--lg { font-size: var(--wf-font-size-2xl); }
+
+/* 半星：底层空星（继承 button 默认 tertiary）+ 上层满星裁剪左 50% */
+.wf-rate-star--half .wf-rate-star-half-bg {
+  display: inline-flex;
+}
+.wf-rate-star--half .wf-rate-star-half-fg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 50%;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wf-color-warning-text);
+}
+.wf-rate-star--half .wf-rate-star-half-fg .wf-rate-star-icon {
+  fill: currentColor;
+}

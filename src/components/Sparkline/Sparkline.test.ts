@@ -86,4 +86,15 @@ describe('Sparkline 组件', () => {
     const kids = vnode.props.children as any[]
     assert.ok(kids.filter(k => k.type === 'path').length >= 1 || kids.some(k => k.type === 'polyline' && k.props.fill !== undefined), '有面积填充')
   })
+
+  test('label 提供：role=img + aria-label（否则 aria-hidden）', () => {
+    const v1 = renderVNode(Sparkline, { data: [1, 2, 3], label: '七日趋势上升' }, mockCtx())!
+    const s1 = JSON.stringify(v1)
+    assert.ok(s1.includes('"role":"img"'), 'role=img')
+    assert.ok(s1.includes('七日趋势上升'), 'aria-label 文本')
+    assert.ok(!s1.includes('"aria-hidden":true'), '有 label 不再 hidden')
+    const v2 = renderVNode(Sparkline, { data: [1, 2, 3] }, mockCtx())!
+    assert.ok(JSON.stringify(v2).includes('"aria-hidden":true'), '无 label 装饰态')
+  })
 })
+

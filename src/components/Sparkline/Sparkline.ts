@@ -15,6 +15,8 @@ export interface SparklineProps {
   fill?: boolean
   /** 平滑曲线（Catmull-Rom）——默认折线 */
   smooth?: boolean
+  /** 可访问名（提供则 role=img + aria-label，否则 aria-hidden 装饰） */
+  label?: string
   className?: string
 }
 
@@ -31,6 +33,7 @@ export const Sparkline: Component<SparklineProps> = (_init, ctx) =>
       stroke = 'currentColor',
       fill = false,
       smooth = false,
+      label,
       className = '',
     } = props
 
@@ -66,6 +69,8 @@ export const Sparkline: Component<SparklineProps> = (_init, ctx) =>
       viewBox: `0 0 ${width} ${height}`,
       width,
       height,
-      'aria-hidden': true,
+      role: label ? 'img' : undefined,
+      'aria-label': label,
+      'aria-hidden': label ? undefined : true,
     }, kids)
   }

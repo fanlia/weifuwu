@@ -126,3 +126,15 @@ describe('Rate', () => {
     }
   })
 })
+
+it('allowHalf：半星渲染 + aria-label', () => {
+  const vnode = renderVNode(Rate, { value: 3.5, allowHalf: true, count: 5, readOnly: true }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-rate-star--half'), '半星类')
+  assert.ok(s.includes('wf-rate-star-half-fg'), '前景裁剪层')
+})
+
+it('allowHalf 无效时不渲染半星', () => {
+  const vnode = renderVNode(Rate, { value: 3.5, count: 5, readOnly: true }, mockCtx())!
+  assert.ok(!JSON.stringify(vnode).includes('wf-rate-star--half'), '无 allowHalf 无半星')
+})

@@ -14,6 +14,8 @@ export interface RateProps {
   disabled?: boolean
   /** 点击当前评分值 → 清除为 0（antd 对齐） */
   allowClear?: boolean
+  /** 允许半星（0.5 精度；点击左半=半星，右半=整星） */
+  allowHalf?: boolean
   'aria-label'?: string
 }
 
@@ -24,7 +26,7 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
   return (props) => {
     const {
       count = 5, size = 'md',
-      readOnly, disabled, allowClear, 'aria-label': ariaLabel,
+      readOnly, disabled, allowClear, allowHalf, 'aria-label': ariaLabel,
     } = props
 
     // useControlled：受控/非受控统一（缺回调 warn + 非受控内部态——
@@ -42,36 +44,68 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
 
     const interactive = !readOnly && !disabled
     const effective = hover >= 0 ? hover + 1 : value
+    const step = allowHalf ? 0.5 : 1
 
     const handleKeyDown = (e: any) => {
       if (!interactive) return
       const key = e.key
-      if (key === 'ArrowRight') { e.preventDefault(); setRate(Math.min(value + 1, count)) }
-      else if (key === 'ArrowLeft') { e.preventDefault(); setRate(Math.max(value - 1, 0)) }
-      else if (key === 'Home') { e.preventDefault(); setRate(1) }
+      if (key === 'ArrowRight') { e.preventDefault(); setRate(Math.min(value + step, count)) }
+      else if (key === 'ArrowLeft') { e.preventDefault(); setRate(Math.max(value - step, 0)) }
+      else if (key === 'Home') { e.preventDefault(); setRate(step) }
       else if (key === 'End') { e.preventDefault(); setRate(count) }
     }
 
     const stars: any[] = []
     for (let i = 0; i < count; i++) {
-      const on = i < effective
+      const full = i < Math.floor(effective)
+      const half = allowHalf && i === Math.floor(effective) && effective % 1 >= 0.5
+      const on = full
       const starProps: Record<string, any> = {
-        class: `wf-rate-star${on ? ' wf-rate-star--on' : ''}`,
+        class: `wf-rate-star${on ? ' wf-rate-star--on' : ''}${half ? ' wf-rate-star--half' : ''}`,
         'aria-label': `${i + 1} 星`,
         key: i,
       }
       if (interactive) {
         starProps.type = 'button'
-        starProps.onClick = () => {
-          if (allowClear && value === i + 1) setRate(0)
-          else setRate(i + 1)
+        starProps.onClick = (e: MouseEvent) => {
+          if (allowHalf) {
+            // 左半=半星，右半=整星（按点击位置相对元素宽）
+            const el = e.currentTarget as HTMLElement
+            const rect = el.getBoundingClientRect()
+            const isLeft = (e.clientX - rect.left) < rect.width / 2
+            setRate(isLeft ? i + 0.5 : i + 1)
+          } else {
+            if (allowClear && value === i + 1) setRate(0)
+            else setRate(i + 1)
+          }
         }
-        starProps.onMouseEnter = () => { hover = i }
+        starProps.onMouseEnter = allowHalf
+          ? (e: MouseEvent) => {
+              const el = e.currentTarget as HTMLElement
+              const rect = el.getBoundingClientRect()
+              hover = (e.clientX - rect.left) < rect.width / 2 ? i + 0.5 - 1 : i
+            }
+          : () => { hover = i }
+        starProps.onMouseMove = allowHalf
+          ? (e: MouseEvent) => {
+              const el = e.currentTarget as HTMLElement
+              const rect = el.getBoundingClientRect()
+              hover = (e.clientX - rect.left) < rect.width / 2 ? i + 0.5 - 1 : i
+            }
+          : undefined
         starProps.onMouseLeave = () => { hover = -1 }
         starProps.onFocus = () => { hover = i }
         starProps.onBlur = () => { hover = -1 }
       }
-      stars.push(h(interactive ? 'button' : 'span', starProps, h(Icon, { name: 'star', className: 'wf-rate-star-icon' })))
+      const icon = h(Icon, { name: 'star', className: 'wf-rate-star-icon' })
+      // 半星：底层空星 + 上层满星裁剪 50%（absolute 覆盖左半）
+      const inner = half
+        ? h('span', { class: 'wf-rate-star-half', style: 'position:relative' }, [
+            h('span', { class: 'wf-rate-star-half-bg' }, icon),
+            h('span', { class: 'wf-rate-star-half-fg' }, h(Icon, { name: 'star', className: 'wf-rate-star-icon' })),
+          ])
+        : icon
+      stars.push(h(interactive ? 'button' : 'span', starProps, inner))
     }
 
     return h('div', {

@@ -1142,6 +1142,8 @@ const DemoRate: Component = (_props, ctx) => {
     <div class="wf-stack wf-gap-sm">
       <Rate value={v} onChange={(n: number) => { v = n; ctx.ui.render() }} />
       <Rate value={4} readOnly />
+      <Rate value={3.5} allowHalf onChange={(n: number) => { v = n; ctx.ui.render() }} />
+      <div class="wf-text-xs wf-text-secondary">半星</div>
       <Rate value={0} size="lg" allowClear onChange={(n: number) => { v = n; ctx.ui.render() }} />
       <div class="wf-text-sm wf-text-secondary">当前：{v} 星</div>
     </div>
@@ -1479,7 +1481,7 @@ const DemoSparkline: Component = () => () => (
     <div class="wf-row wf-gap-lg wf-cluster">
       <div class="wf-stack wf-gap-xs">
         <span class="wf-text-xs wf-text-secondary">本周流量</span>
-        <Sparkline data={[12, 18, 15, 22, 30, 28, 35]} width={140} height={36} stroke="#4f6ef7" fill />
+        <Sparkline data={[12, 18, 15, 22, 30, 28, 35]} width={140} height={36} stroke="#4f6ef7" fill label="本周流量趋势" />
       </div>
       <div class="wf-stack wf-gap-xs">
         <span class="wf-text-xs wf-text-secondary">平滑曲线</span>
@@ -2399,7 +2401,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">920 测试</Badge>
+          <Badge variant="success">923 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
