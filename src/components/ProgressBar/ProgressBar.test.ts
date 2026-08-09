@@ -46,3 +46,17 @@ describe('ProgressBar', () => {
     assert.equal(valueEl.props.children, '75%')
   })
 })
+
+it('indeterminate：value 缺省 → 不确定态动画类 + 无 valuenow', () => {
+  const vnode = renderVNode(ProgressBar, { label: '加载中' }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-progress--indeterminate'), '不确定态类')
+  assert.ok(!s.includes('aria-valuenow'), '无 valuenow（不确定）')
+})
+
+it('status 变色 + size', () => {
+  const v1 = renderVNode(ProgressBar, { value: 100, status: 'success' }, mockCtx())!
+  assert.ok(JSON.stringify(v1).includes('wf-progress-fill--success'), 'success 变体')
+  const v2 = renderVNode(ProgressBar, { value: 50, size: 'lg' }, mockCtx())!
+  assert.ok(JSON.stringify(v2).includes('wf-progress--lg'), 'lg 尺寸')
+})

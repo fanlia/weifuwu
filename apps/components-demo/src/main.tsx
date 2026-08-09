@@ -285,7 +285,10 @@ const DemoProgress: Component = (_props, ctx) => {
     return (
     <div class="wf-stack wf-gap-md wf-w-full">
       <ProgressBar value={pct} label="模拟进度" showValue />
-      <ProgressBar value={100} label="已完成" showValue />
+      <ProgressBar value={100} label="已完成" showValue status="success" />
+      <ProgressBar label="不确定态" /> {/* indeterminate */}
+      <ProgressBar value={60} size="sm" label="小尺寸" showValue />
+      <ProgressBar value={40} status="warning" showValue label="警告" />
     </div>
   )
   }
@@ -2393,7 +2396,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">916 测试</Badge>
+          <Badge variant="success">918 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

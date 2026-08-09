@@ -2,6 +2,7 @@ import type { Component } from '../../client/vnode.ts'
 import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
 
 export interface AccordionItem {
   key: string
@@ -88,7 +89,7 @@ export const Accordion: Component<AccordionProps> = (_init, ctx) => {
           disabled: item.disabled || undefined,
           'aria-expanded': open ? 'true' : 'false',
           onClick: item.disabled ? undefined : () => toggle(item.key),
-        }, item.title),
+        }, [item.title, h(Icon, { name: 'chevron-down', size: 14, className: 'wf-accordion-arrow' })]),
         open && item.content ? h('div', { class: 'wf-accordion-content' }, item.content) : null,
       ].filter(Boolean))
     })

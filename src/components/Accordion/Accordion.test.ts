@@ -41,7 +41,9 @@ describe('Accordion', () => {
     const vnode = renderVNode(Accordion, { items }, mockCtx())!
     const summary = vnode.props.children[0].props.children[0]
     assert.equal(summary.props.class, 'wf-accordion-summary')
-    assert.equal(summary.props.children, '标题A')
+    // children = [title, chevronIcon]
+    const titlePart = Array.isArray(summary.props.children) ? summary.props.children[0] : summary.props.children
+    assert.equal(titlePart, '标题A')
   })
 
   it('renders content (非受控默认全展开，向后兼容)', () => {

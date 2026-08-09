@@ -38,6 +38,15 @@
   background: var(--wf-color-bg-tertiary);
 }
 
+.wf-accordion-arrow {
+  transition: transform var(--wf-dur-base) var(--wf-ease-out);
+  color: var(--wf-color-text-secondary);
+  flex-shrink: 0;
+}
+.wf-accordion-item--open .wf-accordion-arrow {
+  transform: rotate(180deg);
+}
+
 .wf-accordion-summary:focus-visible {
   outline: none;
   box-shadow: var(--wf-focus-ring);
