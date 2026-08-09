@@ -93,6 +93,8 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
 
     const tree = h(Tree, {
       data: options,
+      // 点击有子节点行 = 展开/折叠（直观）；叶子行 = 选中
+      expandOnClick: true,
       selectedKeys: isMultiple ? undefined : value ? [value as string] : [],
       onSelect: (keys: string[]) => {
         if (keys.length === 0) return

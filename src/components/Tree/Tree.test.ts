@@ -88,6 +88,34 @@ describe('Tree', () => {
     assert.equal(rows(vnode).length, 5) // root + tech + mkt + fe + be
   })
 
+  it('expandOnClick：点击有子节点行 = 展开/折叠（不触发选中）', () => {
+    const ctx = mockCtx()
+    let selected: string[] = []
+    const factory = Tree({ data }, ctx)
+    let v = factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
+    assert.equal(rows(v).length, 1)
+    // 点击 root 行（有子节点）→ 展开而非选中
+    rows(v)[0].props.onClick()
+    assert.equal(selected.length, 0, '有子节点行不触发选中')
+    v = factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
+    assert.equal(rows(v).length, 3, '点击行展开子节点')
+    // 再次点击 → 折叠
+    rows(v)[0].props.onClick()
+    v = factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
+    assert.equal(rows(v).length, 1, '再次点击折叠')
+  })
+
+  it('expandOnClick：叶子行仍正常选中', () => {
+    let got: string[] = []
+    const ctx = mockCtx()
+    const factory = Tree({ data }, ctx)
+    let v = factory({ data, expandOnClick: true, expandedKeys: ['root', 'tech'], onSelect: (k: string[]) => { got = k } })
+    // 展开后点击叶子（技术部下 fe）
+    const feRow = rows(v).find((r: any) => labelOf(r) === '前端组')
+    feRow.props.onClick()
+    assert.deepEqual(got, ['fe'])
+  })
+
   it('selecting node calls onSelect', () => {
     let got: string[] = []
     const vnode = renderVNode(Tree, {

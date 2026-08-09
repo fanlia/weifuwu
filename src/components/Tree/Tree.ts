@@ -22,6 +22,8 @@ export interface TreeProps {
   onExpand?: (keys: string[]) => void
   /** 勾选模式（父子联动，antd 非 strict 语义） */
   checkable?: boolean
+  /** 点击有子节点的行 = 展开/折叠（不触发选中）——TreeSelect 场景（点行展开比点箭头直观） */
+  expandOnClick?: boolean
   checkedKeys?: string[]
   onCheck?: (keys: string[]) => void
   className?: string
@@ -55,7 +57,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
 
   return (props) => {
     const {
-      data = [], selectedKeys, onSelect, expandedKeys, onExpand,
+      data = [], selectedKeys, onSelect, expandedKeys, onExpand, expandOnClick,
       checkable, checkedKeys, onCheck, className,
     } = props
 
@@ -193,7 +195,11 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
           ref: rowRefs[rowIndex],
           tabIndex: node.disabled ? undefined : 0,
           'aria-selected': selected ? 'true' : 'false',
-          onClick: node.disabled ? undefined : () => toggleSelect(node.key),
+          onClick: node.disabled ? undefined : () => {
+            // expandOnClick：有子节点 → 展开/折叠；叶子 → 选中
+            if (hasChildren && expandOnClick) toggleExpand(node.key)
+            else toggleSelect(node.key)
+          },
           onKeyDown: node.disabled ? undefined : (e: any) => {
             if (e.key === 'Enter') { e.preventDefault(); toggleSelect(node.key) }
             else if (e.key === ' ' && checkable) { e.preventDefault(); toggleCheck(node) }
