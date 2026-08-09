@@ -126,3 +126,11 @@ describe('TreeSelect 组件', () => {
     assert.equal(findVNode(vnode, (v: any) => v.type === Tree), null, '关闭无 Tree')
   })
 })
+
+test('trigger role=combobox 可聚焦（P1 键盘可达）', () => {
+  const data = [{ key: 'a', label: 'A' }]
+  const vnode = renderVNode(TreeSelect, { data }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('combobox'), 'trigger combobox 角色')
+  assert.ok(/tabindex|tabIndex/.test(s), 'trigger 可聚焦')
+})

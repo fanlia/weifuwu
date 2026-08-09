@@ -57,3 +57,35 @@ describe('RadioGroup', () => {
     assert.match(vnode.props.class, /wf-radio-group--inline/)
   })
 })
+
+it('受控 value：点击通知 onChange（父层独占）', () => {
+  let got: string | undefined
+  const options = [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]
+  const vnode = renderVNode(RadioGroup, { options, value: 'a', onChange: (v: string) => { got = v } }, mockCtx())!
+  const inputB = vnode.props.children[1].props.children[0]
+  inputB.props.onChange()
+  assert.equal(got, 'b', '受控模式点击 B 通知 onChange(b)')
+})
+
+it('非受控：选择经 useControlled 内部态（onChange 仍通知）', () => {
+  let got: string | undefined
+  const options = [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]
+  const ctx = mockCtx()
+  const factory = RadioGroup({}, ctx)
+  factory({ options, onChange: (v: string) => { got = v } })
+  const vnode = factory({ options, onChange: (v: string) => { got = v } })
+  vnode.props.children[1].props.children[0].props.onChange()
+  assert.equal(got, 'b')
+})
+
+it('option disabled 传递到 input', () => {
+  const options = [{ value: 'a', label: 'A', disabled: true }]
+  const vnode = renderVNode(RadioGroup, { options }, mockCtx())!
+  assert.ok(vnode.props.children[0].props.children[0].props.disabled)
+})
+
+it('inline 布局类', () => {
+  const options = [{ value: 'a', label: 'A' }]
+  const vnode = renderVNode(RadioGroup, { options, inline: true }, mockCtx())!
+  assert.match(vnode.props.class, /inline/)
+})

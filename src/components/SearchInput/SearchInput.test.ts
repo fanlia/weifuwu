@@ -50,3 +50,25 @@ describe('SearchInput', () => {
     assert.equal(vnode.props.children.length, 2) // only icon + input
   })
 })
+
+it('有值时渲染清除按钮，点击触发 onClear', () => {
+  let cleared = 0
+  const vnode = renderVNode(SearchInput, { value: 'abc', onClear: () => cleared++ }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('clear'), '有值显示清除')
+  const find = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (/clear/.test(String(n.props?.class ?? ''))) return n
+    const k = n.props?.children
+    if (Array.isArray(k)) for (const c of k) { const f = find(c); if (f) return f }
+    return null
+  }
+  const btn = find(vnode)
+  btn.props.onClick()
+  assert.equal(cleared, 1)
+})
+
+it('空值不渲染清除按钮（边界）', () => {
+  const vnode = renderVNode(SearchInput, { value: '' }, mockCtx())!
+  assert.ok(!/clear/.test(JSON.stringify(vnode)), '空值无清除按钮')
+})

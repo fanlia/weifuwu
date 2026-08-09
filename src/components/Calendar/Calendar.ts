@@ -88,7 +88,12 @@ export const Calendar: Component<CalendarProps> = (_init, ctx) => {
             selected ? 'wf-calendar-cell--selected' : '',
           ].filter(Boolean).join(' '),
           key: `${day.year}-${day.month}-${day.day}`,
+          role: 'button',
+          tabIndex: 0, // P1：可点击必须可聚焦（否则键盘用户无法选择日期）
           onClick: () => onSelectDate?.(dateStr),
+          onKeyDown: (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDate?.(dateStr) }
+          },
         }, [
           h('span', { class: 'wf-calendar-day-num' }, String(day.day)),
           ...dayEvents.slice(0, 3).map(e =>

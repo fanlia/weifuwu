@@ -61,3 +61,47 @@ describe('PasswordInput', () => {
     assert.equal(findInput(vnode).props.value, 'abc')
   })
 })
+
+it('默认 type=password', () => {
+  const vnode = renderVNode(PasswordInput, {}, mockCtx())!
+  assert.equal(findInput(vnode).props.type, 'password')
+})
+
+it('点击眼睛切换可见性（password → text）', () => {
+  const ctx = mockCtx()
+  const factory = PasswordInput({}, ctx)
+  let vnode = factory({})
+  assert.equal(findInput(vnode).props.type, 'password')
+  const findToggle = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (/toggle|eye/.test(String(n.props?.class ?? '')) && n.props?.onClick) return n
+    const k = n.props?.children
+    if (Array.isArray(k)) for (const c of k) { const f = findToggle(c); if (f) return f }
+    return null
+  }
+  findToggle(vnode).props.onClick()
+  vnode = factory({})
+  assert.equal(findInput(vnode).props.type, 'text', '切换后明文')
+})
+
+it('disabled 时切换无效', () => {
+  const ctx = mockCtx()
+  const factory = PasswordInput({}, ctx)
+  let vnode = factory({ disabled: true })
+  const findToggle = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (/toggle|eye/.test(String(n.props?.class ?? '')) && n.props?.onClick) return n
+    const k = n.props?.children
+    if (Array.isArray(k)) for (const c of k) { const f = findToggle(c); if (f) return f }
+    return null
+  }
+  const t = findToggle(vnode)
+  if (t) t.props.onClick()
+  vnode = factory({ disabled: true })
+  assert.equal(findInput(vnode).props.type, 'password', 'disabled 不切换')
+})
+
+it('error/hint 展示', () => {
+  const vnode = renderVNode(PasswordInput, { error: '太短', hint: undefined }, mockCtx())!
+  assert.ok(JSON.stringify(vnode).includes('太短'))
+})

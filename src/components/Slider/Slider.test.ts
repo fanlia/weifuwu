@@ -41,3 +41,39 @@ describe('Slider', () => {
     assert.equal(display.props.children, '50')
   })
 })
+
+it('min/max/step 传递到原生 range', () => {
+  const vnode = renderVNode(Slider, { value: 5, min: 0, max: 10, step: 1 }, mockCtx())!
+  const input = JSON.stringify(vnode)
+  assert.ok(input.includes('"min":0') && input.includes('"max":10') && input.includes('"step":1'))
+})
+
+it('onChange 数值化（string → Number）', () => {
+  let got: number | undefined
+  const vnode = renderVNode(Slider, { value: 0, onChange: (v: number) => { got = v } }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-slider-input'))
+  // 找 input 调 onChange
+  const find = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (n.props?.class === 'wf-slider-input') return n
+    const k = n.props?.children
+    if (Array.isArray(k)) { for (const c of k) { const f = find(c); if (f) return f } }
+    return null
+  }
+  find(vnode).props.onChange({ target: { value: '42' } })
+  assert.equal(got, 42)
+  assert.equal(typeof got, 'number')
+})
+
+it('轨道渐变百分比（value=50 → 50%）', () => {
+  const vnode = renderVNode(Slider, { value: 50, min: 0, max: 100 }, mockCtx())!
+  assert.ok(JSON.stringify(vnode).includes('50%'), '渐变包含 50%')
+})
+
+it('label 渲染 + 无 label 精简结构（边界）', () => {
+  const withLabel = renderVNode(Slider, { label: '音量', value: 1 }, mockCtx())!
+  assert.ok(JSON.stringify(withLabel).includes('wf-slider-label'))
+  const noLabel = renderVNode(Slider, { value: 1 }, mockCtx())!
+  assert.ok(!JSON.stringify(noLabel).includes('wf-slider-label'))
+})

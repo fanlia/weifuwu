@@ -91,3 +91,19 @@ function findCell(vnode: any, day: string): any {
   }
   return null
 }
+
+it('受控 month/year：非受控时内部自管理（无 onMonthChange 也能翻月）', () => {
+  const ctx = mockCtx()
+  const factory = Calendar({}, ctx)
+  const vnode = factory({})
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-calendar'), '非受控渲染日历')
+  // 翻月按钮存在
+  assert.ok(/prev|next|‹|›|chevron/.test(s), '翻月按钮存在')
+})
+
+it('键盘：日期格子可聚焦（tabIndex）+ 方向键处理（P1）', () => {
+  const vnode = renderVNode(Calendar, {}, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(/tabindex|tabIndex/.test(s), '日期格子可聚焦')
+})

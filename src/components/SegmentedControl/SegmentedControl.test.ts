@@ -71,3 +71,36 @@ describe('SegmentedControl', () => {
     assert.match(block.props.class, /wf-segmented--block/)
   })
 })
+
+it('受控 value：点击通知 onChange（父层独占选中）', () => {
+  let got: string | undefined
+  const options = [{ value: '7d', label: '近7天' }, { value: '30d', label: '近30天' }]
+  const vnode = renderVNode(SegmentedControl, { options, value: '7d', onChange: (v: string) => { got = v } }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('近30天'))
+  const find = (n: any): any[] => {
+    const out: any[] = []
+    const walk = (x: any) => {
+      if (!x || typeof x !== 'object') return
+      if (x.props?.onClick && /segment/i.test(String(x.props?.class ?? ''))) out.push(x)
+      const k = x.props?.children
+      if (Array.isArray(k)) k.forEach(walk)
+    }
+    walk(n)
+    return out
+  }
+  find(vnode)[1].props.onClick()
+  assert.equal(got, '30d')
+})
+
+it('size=sm + block 变体类', () => {
+  const options = [{ value: 'a', label: 'A' }]
+  const vnode = renderVNode(SegmentedControl, { options, size: 'sm', block: true }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('sm') && s.includes('block'))
+})
+
+it('空 options 不抛错（边界）', () => {
+  const vnode = renderVNode(SegmentedControl, { options: [] }, mockCtx())!
+  assert.ok(vnode)
+})

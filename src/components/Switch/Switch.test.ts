@@ -53,3 +53,17 @@ describe('Switch', () => {
     const input = vnode.props.children[0]
     assert.equal(input.props['aria-checked'], 'true')
   })
+
+it('role=switch + aria-checked 同步 checked（无障碍）', () => {
+  const vnode = renderVNode(Switch, { checked: true }, mockCtx())!
+  const input = vnode.props.children[0]
+  assert.equal(input.props.role, 'switch')
+  assert.equal(input.props['aria-checked'], 'true')
+})
+
+it('onChange 携带勾选值（事件 target.checked）', () => {
+  let got: boolean | undefined
+  const vnode = renderVNode(Switch, { checked: false, onChange: (v: boolean) => { got = v } }, mockCtx())!
+  vnode.props.children[0].props.onChange({ target: { checked: true } })
+  assert.equal(got, true)
+})
