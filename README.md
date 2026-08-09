@@ -30,7 +30,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
 > - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）、`ctx.ui.ssr`（组件 SSR）、`ctx.ui.ssrData`（数据序列化）
-> - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useChat()`（AI 会话）/ `useAsync()`（异步取数）/ `selfId()`（跨组件刷新）/ `useMedia()` / `useBreakpoint()`（响应式断点）/ `usePopupPosition()` / `usePopup()`（弹层定位/组合）/ `useHoverCapable()` / `useLongPress()` / `useVisualViewport()`（移动端原语）/ `useInView()` / `useScrollPosition()`（浏览器事件监听）
+> - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useChat()`（AI 会话）/ `useAsync()`（异步取数）/ `selfId()`（跨组件刷新）/ `useControlled()`（受控/非受控统一）/ `useStableRef()`（稳定 ref）/ `useDialog()`（对话框组合器）/ `useMedia()` / `useBreakpoint()`（响应式断点）/ `usePopupPosition()` / `usePopup()`（弹层定位/组合）/ `useHoverCapable()` / `useLongPress()` / `useVisualViewport()`（移动端原语）/ `useInView()` / `useScrollPosition()`（浏览器事件监听）
 > 后端的是「把页面和代码交给浏览器」，前端的是「在浏览器里驱动 UI」。
 
 ### 与主流方案的关系
