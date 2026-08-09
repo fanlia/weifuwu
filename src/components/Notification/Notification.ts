@@ -69,9 +69,10 @@ export const Notification: Component<NotificationProps> = (_init, _ctx) =>
     h('div', {
       class: `wf-notification wf-notification--${t.type}`,
       key: t.id,
+      role: t.type === 'error' ? 'alert' : 'status',
+      'aria-live': t.type === 'error' ? 'assertive' : 'polite',
       'data-id': t.id,
       'data-duration': (t.duration ?? duration) || undefined,
-      role: 'alert',
     }, [
       h('span', { class: 'wf-notification-icon' }, h(Icon, { name: iconFor(t.type) })),
       h('div', { class: 'wf-notification-body' }, [

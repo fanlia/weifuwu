@@ -67,6 +67,8 @@ export const Toast: Component<ToastProps> = (_init, ctx) =>
     h('div', {
       class: `wf-toast wf-toast--${t.type}`,
       key: t.id,
+      role: t.type === 'error' ? 'alert' : 'status',
+      'aria-live': t.type === 'error' ? 'assertive' : 'polite',
       'data-id': t.id,
       'data-duration': (t.duration ?? duration) || undefined,
       onClick: onRemove ? () => onRemove(t.id) : undefined,

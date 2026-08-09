@@ -45,7 +45,12 @@ export const Steps: Component<StepsProps> = (_init, _ctx) =>
       ? h('span', { class: `wf-step-connector${isDone ? ' wf-step-connector--done' : ''}` })
       : null
 
-    return h('div', { class: cls, key: item.key }, [
+    return h('div', {
+      class: cls,
+      key: item.key,
+      role: 'listitem',
+      'aria-current': isCurrent ? 'step' : undefined,
+    }, [
       num,
       label,
       desc,
@@ -53,5 +58,5 @@ export const Steps: Component<StepsProps> = (_init, _ctx) =>
     ].filter(Boolean))
   })
 
-  return h('div', { class: 'wf-steps' }, steps)
+  return h('div', { class: 'wf-steps', role: 'list' }, steps)
 }

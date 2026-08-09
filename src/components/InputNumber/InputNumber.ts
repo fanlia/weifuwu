@@ -1,9 +1,9 @@
 /**
  * weifuwu/components — InputNumber
  *
- * 数字输入：min/max/step + 增减按钮 + precision 格式化。
+ * 数字输入：min/max/step + 增减按钮 + precision 格式化 + 长按连增。
  * 受控 value: number | null；空值 → null；输入 clamp 到 min/max。
- * 裁剪：不做长按连增/千分位货币（见 roadmap）。
+ * 裁剪：不做千分位货币（见 roadmap）。
  */
 
 import type { Component } from '../../client/vnode.ts'
@@ -28,8 +28,20 @@ export interface InputNumberProps {
   className?: string
 }
 
-export const InputNumber: Component<InputNumberProps> = (_init, _ctx) =>
-  (props) => {
+export const InputNumber: Component<InputNumberProps> = (_init, _ctx) => {
+  // mount scope：长按连增定时器 + latestStepTo ref（防 render 闭包陈旧）
+  let holdTimer: ReturnType<typeof setTimeout> | undefined
+  let holdInterval: ReturnType<typeof setInterval> | undefined
+  let latestStepTo: (dir: 1 | -1) => void = () => {}
+  const startHold = (dir: 1 | -1) => {
+    clearTimeout(holdTimer); clearInterval(holdInterval)
+    latestStepTo(dir) // 首次立即走一步
+    holdTimer = setTimeout(() => {
+      holdInterval = setInterval(() => latestStepTo(dir), 60)
+    }, 500)
+  }
+  const stopHold = () => { clearTimeout(holdTimer); clearInterval(holdInterval) }
+  return (props) => {
     const {
       value = null, onChange, min, max, step = 1, precision,
       label, name, placeholder, disabled, error, hint, required, className,
@@ -48,6 +60,7 @@ export const InputNumber: Component<InputNumberProps> = (_init, _ctx) =>
       const base = value ?? 0
       onChange?.(clamp(Number((base + dir * step).toFixed(10))))
     }
+    latestStepTo = stepTo
 
     const handleInput = (e: Event) => {
       if (disabled) return
@@ -83,6 +96,9 @@ export const InputNumber: Component<InputNumberProps> = (_init, _ctx) =>
       'aria-label': '增加',
       disabled,
       onClick: () => stepTo(1),
+      onPointerDown: () => startHold(1),
+      onPointerUp: stopHold,
+      onPointerLeave: stopHold,
     }, h(Icon, { name: 'chevron-up', size: 12 }))
 
     const down = h('button', {
@@ -91,6 +107,9 @@ export const InputNumber: Component<InputNumberProps> = (_init, _ctx) =>
       'aria-label': '减少',
       disabled,
       onClick: () => stepTo(-1),
+      onPointerDown: () => startHold(-1),
+      onPointerUp: stopHold,
+      onPointerLeave: stopHold,
     }, h(Icon, { name: 'chevron-down', size: 12 }))
 
     const wrap = h('div', {
@@ -105,3 +124,4 @@ export const InputNumber: Component<InputNumberProps> = (_init, _ctx) =>
 
     return h('div', { class: 'wf-inputnumber-wrap' }, children)
   }
+}

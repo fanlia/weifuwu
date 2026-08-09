@@ -27,6 +27,7 @@ export const Slider: Component<SliderProps> = (_init, _ctx) =>
     min,
     max,
     step,
+    'aria-label': label,
     style: { background: trackBg },
     onChange: onChange ? (e: Event) => onChange(Number((e.target as HTMLInputElement).value)) : undefined,
   })
