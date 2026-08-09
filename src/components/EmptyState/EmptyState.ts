@@ -1,9 +1,11 @@
-import type { Component } from '../../client/vnode.ts'
+import type { Component, VNode } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+import { Icon } from '../Icon/Icon.ts'
 
 export interface EmptyStateProps {
-  icon?: string
+  /** 图标——VNode（推荐 <Icon />）或字符串（emoji/字形）；默认 Icon inbox（P3：组件内禁裸 emoji） */
+  icon?: string | VNode | null
   text?: string
   hint?: string
   children?: any
@@ -11,7 +13,7 @@ export interface EmptyStateProps {
 
 export const EmptyState: Component<EmptyStateProps> = (_init, _ctx) =>
   (props) => {
-  const { icon = '📦', text = '暂无数据', hint, children } = props
+  const { icon = h(Icon, { name: 'inbox' }), text = '暂无数据', hint, children } = props
 
   const parts: any[] = [
     h('div', { class: 'wf-empty-icon' }, icon),

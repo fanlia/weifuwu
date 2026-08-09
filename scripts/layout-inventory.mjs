@@ -18,7 +18,7 @@
  * 消费方：src/test/style-audit.test.ts（计数/组合防线）、docs 计数同步。
  */
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -154,6 +154,20 @@ function collectCorpus() {
   for (const r of ['apps', 'src', 'docs', 'design', 'README.md']) walk(join(root, r))
   _corpus = corpus
   return corpus
+}
+
+/** 组件清单（P9）：组件数（含同名 .ts 的目录）+ 组件测试数（it/test 计数） */
+export function componentInventory() {
+  const compDir = join(root, 'src/components')
+  const dirs = readdirSync(compDir).filter((d) => {
+    try { return statSync(join(compDir, d)).isDirectory() && existsSync(join(compDir, d, `${d}.ts`)) } catch { return false }
+  })
+  let tests = 0
+  for (const d of dirs) {
+    const t = join(compDir, d, `${d}.test.ts`)
+    if (existsSync(t)) tests += (readFileSync(t, 'utf-8').match(/^\s*(?:it|test)\(/gm) || []).length
+  }
+  return { components: dirs.length, tests }
 }
 
 // ── CLI ──

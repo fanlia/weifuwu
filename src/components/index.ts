@@ -40,7 +40,7 @@ export { Confirm, confirm } from './Confirm/Confirm.ts'
 export type { ConfirmProps, ConfirmOptions } from './Confirm/Confirm.ts'
 
 export { Toast, toast } from './Toast/Toast.ts'
-export type { ToastProps, ToastItem, ToastType, ToastPosition, ToastOptions } from './Toast/Toast.ts'
+export type { ToastProps, ToastItem, ToastType, ToastPosition, ToastOptions, ToastInjected } from './Toast/Toast.ts'
 
 export { Alert } from './Alert/Alert.ts'
 export type { AlertProps, AlertVariant } from './Alert/Alert.ts'

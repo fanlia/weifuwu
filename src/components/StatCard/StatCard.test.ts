@@ -194,3 +194,18 @@ test('countdown 结束 → onFinish 回调 + 定时器清理', () => {
   assert.equal(val.props.children, '00:00', '已过时显示 00:00')
   factory({ label: 'x' }) // 清理定时器
 })
+
+test('countdown 模式 value 可选；无 value 不渲染 undefined', () => {
+  const ctx = mockCtx()
+  ctx.ui.useTween = () => ({ value: 0, reset: () => {} })
+  const factory = StatCard({}, ctx)
+  // countdown 模式无需 value
+  const v1 = factory({ label: 'x', countdown: Date.now() + 60_000 })
+  assert.ok(findVNode(v1, (v: any) => v.props?.class?.includes('wf-stat-value')))
+  factory({ label: 'x' }) // 清理
+  // 无 value 无 countdown：空串而非 'undefined'
+  const v2 = factory({ label: 'x' })
+  const val = findVNode(v2, (v: any) => v.props?.class?.includes('wf-stat-value'))
+  assert.notEqual(val.props.children, 'undefined')
+  assert.equal(val.props.children, '')
+})

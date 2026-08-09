@@ -102,7 +102,9 @@ export const Portal = Symbol('Portal')
 declare global {
   namespace JSX {
     type Element = VNode | null
-    type ElementType = string | Component<any>
+    // Component<any, any>：JSX 不提供 ctx——带 ctx 注入声明（Component<P, C>）的组件
+    // 也必须可作 JSX 元素（ctx 由 app 中间件在运行时注入，非 JSX 职责）
+    type ElementType = string | Component<any, any>
     interface IntrinsicAttributes {
       key?: string | number
     }

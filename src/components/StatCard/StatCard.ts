@@ -5,7 +5,8 @@ import { Icon } from '../Icon/Icon.ts'
 
 export interface StatCardProps {
   label: string
-  value: string | number
+  /** 展示值——countdown 模式下可选（显示剩余时间） */
+  value?: string | number
   trend?: 'up' | 'down'
   trendLabel?: string
   /** 图标——字符串（emoji/字形）或 VNode（推荐 <Icon name=... />，禁 emoji 装饰的场景用后者） */
@@ -71,7 +72,7 @@ export const StatCard: Component<StatCardProps> = (_init, ctx) => {
         const pad = (n: number) => String(n).padStart(2, '0')
         return hh > 0 ? `${pad(hh)}:${pad(mm)}:${pad(ss)}` : `${pad(mm)}:${pad(ss)}`
       })()
-    : (typeof value === 'number' ? String(tween.value) : String(value))
+    : (typeof value === 'number' ? String(tween.value) : String(value ?? ''))
   const children: any[] = []
 
   if (icon) children.push(h('div', { class: 'wf-stat-icon' }, icon))

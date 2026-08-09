@@ -31,22 +31,36 @@ import {
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
   notification,
 } from 'weifuwu/components'
-import type { ToastItem, ToastType } from 'weifuwu/components'
+import type { ToastItem, ToastType, ToastInjected } from 'weifuwu/components'
 
 // ── 布局组件 ──────────────────────────────────────────
 
+// ── 搜索过滤态（App 写、Section 读——单页 demo 免逐卡片 props 传递）──
+const cardFilter = { q: '' }
+const matchCard = (title: string) =>
+  !cardFilter.q || title.toLowerCase().includes(cardFilter.q.trim().toLowerCase())
+
+const SECTIONS = ['表单核心', '表单选择', '表单增强', '数据展示', '数据反馈', '导航组件', 'AI 对话', '其他', '新增批次']
+const secId = (t: string) => `sec-${t}`
+const cardId = (t: string) => `c-${t.replace(/[^\w一-龥-]+/g, '-')}`
+
 function Section(props: { title: string; children: any }) {
-  return (_p: any) => (
-    <section class="wf-stack wf-gap-lg">
-      <h2 class="wf-text-2xl wf-m-0 wf-border-b wf-pb-sm">{props.title}</h2>
-      <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 420px), 1fr))">{props.children}</div>
-    </section>
-  )
+  return (_p: any) => {
+    const kids = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean)
+    const visible = cardFilter.q ? kids.filter((v: any) => matchCard(String(v?.props?.title ?? ''))) : kids
+    if (cardFilter.q && visible.length === 0) return null // 搜索时隐藏空分组
+    return (
+      <section class="wf-stack wf-gap-lg" id={secId(props.title)}>
+        <h2 class="wf-text-2xl wf-m-0 wf-border-b wf-pb-sm">{props.title}</h2>
+        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 420px), 1fr))">{visible}</div>
+      </section>
+    )
+  }
 }
 
 function DemoCard(props: { title: string; desc: string; code: string; children: any }) {
   return (_p: any) => (
-    <div class="wf-surface wf-border wf-rounded-md wf-clip">
+    <div class="wf-surface wf-border wf-rounded-md wf-clip" id={cardId(props.title)}>
       <h3 class="wf-text-base wf-text-semibold wf-p-md wf-bg-secondary wf-border-b wf-m-0">{props.title}</h3>
       <div class="wf-p-md wf-row wf-gap-sm wf-cluster wf-border-b wf-scroll">{props.children}</div>
       <div class="wf-px-md wf-py-sm wf-text-xs wf-text-secondary">{props.desc}</div>
@@ -155,6 +169,7 @@ const DemoSwitch: Component = (_props, ctx) => {
 
 const DemoRadio: Component = (_props, ctx) => {
   let gender = 'male'
+  let inline = 'a'
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <RadioGroup name="gender" value={gender} onChange={v => { gender = v; ctx.ui.render() }}
@@ -163,7 +178,7 @@ const DemoRadio: Component = (_props, ctx) => {
           { value: 'female', label: '女' },
           { value: 'other', label: '其他' },
         ]} />
-      <RadioGroup name="inline" value="a" inline
+      <RadioGroup name="inline" value={inline} inline onChange={v => { inline = v; ctx.ui.render() }}
         options={[
           { value: 'a', label: '选项 A' },
           { value: 'b', label: '选项 B' },
@@ -417,7 +432,7 @@ const DemoEmptyState: Component = (_props, ctx) => {
             <p>✅ 数据已添加</p>
             <Button variant="ghost" onClick={() => { hasData = false; ctx.ui.render() }}>清空</Button>
           </div>
-        : <EmptyState icon="📦" text="暂无数据" hint="点击按钮创建第一个项目">
+        : <EmptyState text="暂无数据" hint="点击按钮创建第一个项目">
             <Button variant="primary" onClick={() => { hasData = true; ctx.ui.render() }}>创建项目</Button>
           </EmptyState>}
     </div>
@@ -475,10 +490,10 @@ const DemoAvatar: Component = () => () => (
 
 const DemoStatCard: Component = () => () => (
   <div class="wf-row wf-gap-md wf-cluster">
-    <StatCard label="总用户" value="1,234" icon="👤" trend="up" trendLabel="12%" />
-    <StatCard label="收入" value="¥89,000" icon="💰" trend="up" trendLabel="8%" />
-    <StatCard label="退款" value="¥1,200" icon="⚠" trend="down" trendLabel="-3%" />
-    <StatCard label="在线用户" value={1234} animate icon="🟢" />
+    <StatCard label="总用户" value="1,234" icon={<Icon name="users" size={24} className="wf-text-primary" />} trend="up" trendLabel="12%" />
+    <StatCard label="收入" value="¥89,000" icon={<Icon name="bar-chart" size={24} className="wf-text-primary" />} trend="up" trendLabel="8%" />
+    <StatCard label="退款" value="¥1,200" icon={<Icon name="warning" size={24} className="wf-text-warning" />} trend="down" trendLabel="-3%" />
+    <StatCard label="在线用户" value={1234} animate icon={<Icon name="activity" size={24} className="wf-text-success" />} />
   </div>
 )
 
@@ -726,18 +741,18 @@ const DemoMenu: Component = (_props, ctx) => {
   let active = 'agents'
   let collapsed = false
   const items = [
-    { key: 'dashboard', label: '仪表盘', icon: '📊', group: '工作台' },
-    { key: 'agents', label: 'Agent 管理', icon: '🤖', group: '工作台' },
-    { key: 'depts', label: '部门', icon: '🏢', group: '工作台' },
+    { key: 'dashboard', label: '仪表盘', icon: <Icon name="dashboard" size={16} />, group: '工作台' },
+    { key: 'agents', label: 'Agent 管理', icon: <Icon name="cpu" size={16} />, group: '工作台' },
+    { key: 'depts', label: '部门', icon: <Icon name="briefcase" size={16} />, group: '工作台' },
     {
-      key: 'sys', label: '系统管理', icon: '⚙️', group: '系统',
+      key: 'sys', label: '系统管理', icon: <Icon name="settings" size={16} />, group: '系统',
       children: [
         { key: 'sys-users', label: '用户管理' },
         { key: 'sys-roles', label: '角色权限' },
         { key: 'sys-logs', label: '操作日志' },
       ],
     },
-    { key: 'logout', label: '退出登录', icon: '🚪', group: '系统', danger: true },
+    { key: 'logout', label: '退出登录', icon: <Icon name="log-out" size={16} />, group: '系统', danger: true },
   ]
   return (_p: any) => (
     <div class="wf-w-full">
@@ -1604,7 +1619,7 @@ const DemoLayout: Component = (_props, ctx) => {
   )
 }
 
-const DemoPopconfirm: Component = (_p, ctx) => () => (
+const DemoPopconfirm: Component<any, ToastInjected> = (_p, ctx) => () => (
   <div class="wf-row wf-gap-lg wf-cluster">
     <Popconfirm title="确定删除这条数据？" danger onConfirm={() => ctx.toast('已删除', 'success')}>
       <Button variant="danger">删除</Button>
@@ -1650,31 +1665,35 @@ const DemoLink: Component = () => () => (
   </div>
 )
 
-const DemoFloatButton: Component = (_p, ctx) => () => (
+const DemoFloatButton: Component<any, ToastInjected> = (_p, ctx) => () => (
   <FloatButtonGroup>
-    <FloatButton icon="✏️" onClick={() => ctx.toast('编辑', 'info')} />
-    <FloatButton icon="📊" onClick={() => ctx.toast('报表', 'info')} />
-    <FloatButton icon="⚙️" onClick={() => ctx.toast('设置', 'info')} />
+    <FloatButton icon={<Icon name="edit" size={18} />} onClick={() => ctx.toast('编辑', 'info')} />
+    <FloatButton icon={<Icon name="bar-chart" size={18} />} onClick={() => ctx.toast('报表', 'info')} />
+    <FloatButton icon={<Icon name="settings" size={18} />} onClick={() => ctx.toast('设置', 'info')} />
   </FloatButtonGroup>
 )
 
-const DemoNavMenu: Component = (_p, ctx) => () => (
-  <NavMenu
-    items={[
-      { key: 'home', label: '首页' },
-      { key: 'docs', label: '文档', children: [
-        { key: 'guide', label: '指南' },
-        { key: 'api', label: 'API', children: [{ key: 'rest', label: 'REST' }, { key: 'ws', label: 'WebSocket' }] },
-      ]},
-      { key: 'about', label: '关于' },
-    ]}
-    activeKey="home"
-    onSelect={(k) => ctx.toast(k, 'info')}
-  />
-)
+const DemoNavMenu: Component<any, ToastInjected> = (_p, ctx) => {
+  // 受控纪律（§5.2）：activeKey 必须配 onSelect 更新——否则点击静默失效
+  let active = 'home'
+  return () => (
+    <NavMenu
+      items={[
+        { key: 'home', label: '首页' },
+        { key: 'docs', label: '文档', children: [
+          { key: 'guide', label: '指南' },
+          { key: 'api', label: 'API', children: [{ key: 'rest', label: 'REST' }, { key: 'ws', label: 'WebSocket' }] },
+        ]},
+        { key: 'about', label: '关于' },
+      ]}
+      activeKey={active}
+      onSelect={(k) => { active = k; ctx.toast(k, 'info'); ctx.ui.render() }}
+    />
+  )
+}
 
 const DemoSpace: Component = () => () => (
-  <Space split={<Divider orientation="vertical" />}>
+  <Space split={<Divider vertical />}>
     <span>操作一</span>
     <span>操作二</span>
     <span>操作三</span>
@@ -1955,7 +1974,7 @@ const CODE = {
 })
 if (ok) { /* 执行 */ }`,
 
-  empty: `<EmptyState icon="📦"
+  empty: `<EmptyState
   text="暂无数据"
   hint="提示信息" />`,
 
@@ -1978,7 +1997,7 @@ if (ok) { /* 执行 */ }`,
 <Avatar src="/photo.jpg" />`,
 
   stat: `<StatCard label="用户"
-  value="1,234" icon="👤"
+  value="1,234" icon={<Icon name="users" />}
   trend="up" trendLabel="12%" />`,
 
   steps: `<Steps items={[
@@ -2051,8 +2070,8 @@ if (ok) { /* 执行 */ }`,
   actions={<Button size="sm">重试</Button>} />`,
 
   menu: `<Menu items={[
-  { key: 'agents', label: 'Agent 管理', icon: '🤖', group: '工作台' },
-  { key: 'settings', label: '设置', group: '系统' },
+  { key: 'agents', label: 'Agent 管理', icon: <Icon name="cpu" size={16} />, group: '工作台' },
+  { key: 'settings', label: '设置', icon: <Icon name="settings" size={16} />, group: '系统' },
 ]} activeKey="agents" onSelect={k => setActive(k)} />`,
 
   passwordInput: `<PasswordInput label="密码" value={pwd} onInput={e => setPwd(e.target.value)} />
@@ -2276,7 +2295,7 @@ return () => <AiChat chat={$} />
 
   navmenu: `<NavMenu items={items} activeKey="home" onSelect={go} />`,
 
-  space: `<Space split={<Divider orientation="vertical" />}>
+  space: `<Space split={<Divider vertical />}>
   <span>一</span><span>二</span><span>三</span>
 </Space>`,
 
@@ -2302,25 +2321,43 @@ return () => <AiChat chat={$} />
 // ── 主应用 ─────────────────────────────────────────────
 
 const App: Component = (_props, ctx) => {
+  // hash 深链：客户端渲染完成后跳转（浏览器原生锚点跳转发生在内容渲染之前）
+  ctx.browser?.timeout(() => {
+    const id = location.hash.slice(1)
+    if (id) ctx.browser?.byId(id)?.scrollIntoView()
+  }, 50)
   return (_p: any) => {
     const cur = (ctx as any)?.i18n?.locale ?? 'zh-CN'
     const isEn = cur.startsWith('en')
     return (
     <div class="wf-container wf-stack" style="--wf-max:960px;--wf-gap:32px">
-      <div class="wf-text-center wf-py-xl">
-        {/* 语言切换 + 主题切换 */}
-        <div style="position:absolute;top:16px;right:16px;display:flex;gap:8px;align-items:center">
+      {/* 吸顶导航：分组错点 + 搜索过滤 + 主题/语言（layouts-demo 壳范式） */}
+      <div class="wf-sticky wf-row wf-gap-sm wf-p-sm wf-bg-primary wf-border-b" style="--wf-offset:0;z-index:var(--wf-pop-z)">
+        <b class="wf-text-bold wf-text-nowrap">wf/components</b>
+        <nav class="wf-row wf-nowrap wf-scroll wf-gap-xs wf-fill" aria-label="组件分组">
+          {SECTIONS.map((s) => (
+            <a key={s} href={`#${secId(s)}`} class="wf-nav-item wf-text-nowrap wf-text-sm">{s}</a>
+          ))}
+        </nav>
+        <div class="wf-row wf-gap-sm">
+          <SearchInput
+            placeholder="搜索组件…"
+            onInput={(e) => { cardFilter.q = (e.target as HTMLInputElement).value; ctx.ui.render() }}
+            onClear={() => { cardFilter.q = ''; ctx.ui.render() }}
+          />
           <ThemeSwitch />
           <Button size="sm" variant={cur.startsWith('zh') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('zh-CN')}>中文</Button>
           <Button size="sm" variant={isEn ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('en')}>EN</Button>
         </div>
+      </div>
+      <div class="wf-text-center wf-py-xl">
         <h1 class="wf-text-4xl wf-mb-sm wf-m-0">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p class="wf-text-secondary">{isEn
-          ? '91 HTML primitive components · pure (props, ctx) → VNode · drop-in'
-          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '91 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
-        <div class="wf-row wf-gap-md wf-mt-md" style="justify-content:center">
-          <Badge variant="primary">61 组件</Badge>
-          <Badge variant="success">466 测试</Badge>
+          ? '109 HTML primitive components · pure (props, ctx) → VNode · drop-in'
+          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
+        <div class="wf-cluster wf-gap-md wf-mt-md">
+          <Badge variant="primary">109 组件</Badge>
+          <Badge variant="success">810 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
@@ -2430,7 +2467,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Divider" desc="分割线，支持 horizontal/vertical/带文字" code={CODE.divider}><DemoDivider /></DemoCard>
       </Section>
 
-      <Section title="新增批次（全量实现）">
+      <Section title="新增批次">
         <DemoCard title="Rate" desc="评分：键盘方向键 / allowClear / readOnly，新增 star 图标" code={CODE.rate}><DemoRate /></DemoCard>
         <DemoCard title="Typography" desc="Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线" code={CODE.typography}><DemoTypography /></DemoCard>
         <DemoCard title="Label / AspectRatio" desc="独立标签（required 星号）+ 宽高比容器（内容填满）" code={CODE.label}><DemoLabel /><DemoAspectRatio /></DemoCard>
@@ -2463,8 +2500,8 @@ const App: Component = (_props, ctx) => {
 
       <div class="wf-text-center wf-py-xl wf-text-tertiary wf-text-sm">
         {isEn
-          ? 'weifuwu/components · all 91 components · open devtools for code'
-          : ((ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 91 个组件 · 打开 devtools 查看代码')}
+          ? 'weifuwu/components · all 109 components · open devtools for code'
+          : ((ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 109 个组件 · 打开 devtools 查看代码')}
       </div>
     </div>
     )
@@ -2477,7 +2514,7 @@ createApp()
   .use(notification())
   .use(i18n({ locale: 'zh-CN', messages: {
     'app.title': 'weifuwu/components',
-    'app.desc': '91 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
-    'app.footer': 'weifuwu/components · 全部 91 个组件 · 打开 devtools 查看代码',
+    'app.desc': '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
+    'app.footer': 'weifuwu/components · 全部 109 个组件 · 打开 devtools 查看代码',
   } }))
   .mount('#root', App)

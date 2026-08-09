@@ -97,8 +97,10 @@ describe('样式审计 — 设计约束', () => {
   })
 
   it('token/原语/工具类计数与全部文档声明同步（L0 单一事实源）', async () => {
-    const { inventory } = await import('../../scripts/layout-inventory.mjs')
+    const { inventory, componentInventory } = await import('../../scripts/layout-inventory.mjs')
     const inv = inventory()
+    const comp = componentInventory()
+    assert.ok(comp.components > 80, `组件数异常: ${comp.components}`)
     assert.ok(inv.tokens > 100, `token 数异常: ${inv.tokens}`)
     assert.ok(inv.primitives > 30, `原语数异常: ${inv.primitives}`)
 
@@ -111,11 +113,15 @@ describe('样式审计 — 设计约束', () => {
       'apps/layouts-demo/README.md',
       'apps/layouts-demo/src/main.tsx',
       'apps/layouts-demo/src/patterns/Landing.tsx',
+      'apps/components-demo/src/main.tsx',
     ]
     const patterns: [RegExp, number, string][] = [
       [/(\d+)\s*个?\s*(?:双层\s*)?主题\s*[Tt]oken/g, inv.tokens, '主题 Token'],
       [/(\d+)\s*个?\s*布局原语/g, inv.primitives, '布局原语'],
       [/(\d+)\s*个?\s*工具类/g, inv.utilities, '工具类'],
+      [/(\d+)\s*个?\s*(?:HTML\s*)?原语组件/g, comp.components, '原语组件'],
+      [/(\d+)\s*组件</g, comp.components, '组件徽章'],
+      [/(\d+)\s*测试</g, comp.tests, '测试徽章'],
     ]
     for (const f of files) {
       const text = readFileSync(join(root, f), 'utf-8')

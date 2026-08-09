@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { EmptyState } from './EmptyState.ts'
+import { Icon } from '../Icon/Icon.ts'
+import { h } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 
 /** Call component and get VNode (two-phase compat) */
@@ -24,15 +26,17 @@ describe('EmptyState', () => {
     const vnode = renderVNode(EmptyState, {}, mockCtx())!
     const icon = vnode.props.children[0]
     const text = vnode.props.children[1]
-    assert.equal(icon.props.children, '📦')
+    // 默认图标 = Icon 组件（P3：组件内禁裸 emoji——inbox 空态语义）
+    assert.equal(icon.props.children.type, Icon)
+    assert.equal(icon.props.children.props.name, 'inbox')
     assert.equal(text.props.children, '暂无数据')
   })
 
   it('renders custom icon and text', () => {
-    const vnode = renderVNode(EmptyState, { icon: '👤', text: '没有用户' }, mockCtx())!
+    const vnode = renderVNode(EmptyState, { icon: h(Icon, { name: 'user' }), text: '没有用户' }, mockCtx())!
     const icon = vnode.props.children[0]
     const text = vnode.props.children[1]
-    assert.equal(icon.props.children, '👤')
+    assert.equal(icon.props.children.props.name, 'user')
     assert.equal(text.props.children, '没有用户')
   })
 

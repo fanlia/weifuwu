@@ -124,3 +124,9 @@ describe('Layout', () => {
     assert.ok(innerCol, '内层 column')
   })
 })
+
+test('Layout 透传 style/className（与子组件 Header/Content/Footer 对齐）', () => {
+  const vnode = renderVNode(Layout, { style: { height: 360 }, className: 'my-shell', children: 'x' }, mockCtx())
+  assert.equal(vnode.props.style.height, 360)
+  assert.ok(vnode.props.class.includes('my-shell'))
+})

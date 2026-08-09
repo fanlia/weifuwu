@@ -24,6 +24,8 @@ import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
 export interface LayoutProps {
+  style?: any
+  className?: string
   children?: any
 }
 
@@ -52,7 +54,8 @@ export const Layout: Component<LayoutProps> = (_init) =>
     const kids = Array.isArray(props.children) ? props.children : [props.children]
     const hasSider = kids.some((c: any) => c?.type === LayoutSider)
     return h('div', {
-      class: `wf-layout${hasSider ? ' wf-layout--row' : ' wf-layout--column'}`,
+      class: ['wf-layout', hasSider ? 'wf-layout--row' : 'wf-layout--column', props.className].filter(Boolean).join(' '),
+      style: props.style,
       'data-layout': hasSider ? 'row' : 'column',
     }, props.children)
   }

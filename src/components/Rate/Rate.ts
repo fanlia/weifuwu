@@ -29,7 +29,9 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
 
     // useControlled：受控/非受控统一（缺回调 warn + 非受控内部态——
     // 原实现非受控（无 onChange）静默不可点，受控纪律违规）
-    const ctrl = ctx?.ui?.useControlled<number>({ value: props.value, onChange: props.onChange, name: 'Rate' })
+    // readOnly/disabled 不可交互——value 是展示态非受控态，豁免 warn（demo 静态展示触发误报）
+    const inert = readOnly || disabled
+    const ctrl = ctx?.ui?.useControlled<number>({ value: props.value, onChange: props.onChange, name: inert ? undefined : 'Rate' })
     const value = ctrl?.value ?? 0
     const setRate = (v: number) => {
       const wasControlled = ctrl?.controlled
