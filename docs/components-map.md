@@ -155,3 +155,20 @@
 | **JSONViewer** | 新增 | 递归折叠 + 类型色 + 路径复制 + 懒展开（ToolCallCard 已接入） |
 
 > 三库共识覆盖度 ~100%（剩余均为已声明裁剪项，见 `design/components-roadmap.md` 第六批裁剪清单）。
+
+## 第七批：AI 开发者工具深化（96 → 102 组件）
+
+> 追平期结束（三库共识 ~100%），差异化期——本批全部组件三库没有的直接等价物。
+
+| 组件 | 类型 | 要点 |
+|------|------|------|
+| **DiffView** | 新增 | LCS 行级 diff（自研算法）：三态行 + 未变块折叠 + maxLines 防超大 |
+| **Sparkline** | 新增 | 迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充 + 等值防抖 |
+| **Tour** | 新增 | 新手引导：目标高亮（rect 精确跟随）+ 遮罩 + 步骤气泡 + 全局 Escape |
+| **Kanban** | 新增 | 拖拽看板：原生 DnD + 跨列/重排 + 悬停高亮 + 受控纪律 |
+| **Pipeline** | 新增 | Agent 工作流 DAG：Kahn 拓扑分层 + 贝塞尔连线 + 状态语义色 + 环检测 |
+| **TreeSelect** | 新增 | 树形选择：单选/多选（父子联动）+ label 回显 + 受控纪律 |
+
+> AI 开发者工具链成型：AiChat / Command / JSONViewer / LogViewer / DiffView /
+> Pipeline——三库差异化最深的完整工具线。
+> 裁剪声明见 `design/components-roadmap.md` 第七批。

@@ -581,3 +581,10 @@
 
 > 本批完成后：组件总数 96 → 102，AI 开发者工具线（AiChat/Command/JSONViewer/
 > LogViewer/DiffView/Pipeline）成为三库差异化最深的完整工具链。
+
+> **完成状态（2026-08）：第七批 6/6 全部落地**
+> - DiffView（LCS 行 diff + 折叠）· Sparkline（SVG 归一化）· Tour（引导+高亮）
+> - Kanban（原生 DnD 拖拽）· Pipeline（拓扑分层 DAG）· TreeSelect（树形选择）
+> - 测试 1620 → 1678；README token 143 → 150；组件 96 → 102
+> - agent-browser 全组件实测（DiffView 折叠/Sparkline 坐标/Tour 定位/Kanban 跨列/
+>   Pipeline 连线/TreeSelect 回显）
