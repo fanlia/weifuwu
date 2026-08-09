@@ -153,4 +153,35 @@ describe('Cascader', () => {
     v = render({ options })
     assert.equal(panelOf(v), undefined)
   })
+
+  it('showSearch：关键词扁平过滤结果 + 选中提交路径', () => {
+    const ctx = mockCtx()
+    let picked: string[] | undefined
+    const render = mount(Cascader, { options, showSearch: true, onChange: (v: string[]) => { picked = v } }, ctx)!
+    let v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
+    triggerOf(v).props.onClick()
+    // 模拟输入「宁波」
+    ctx.ui.$().kw = '宁波'
+    v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
+    const panel = panelOf(v)
+    assert.ok(panel, '面板打开')
+    // 搜索框 + 结果列表
+    const s = JSON.stringify(panel)
+    assert.ok(s.includes('wf-cascader-search'), '搜索框渲染')
+    assert.ok(s.includes('宁波'), '匹配结果含宁波')
+    assert.ok(!s.includes('杭州'), '不匹配的兄弟过滤')
+    // 点击结果项提交路径
+    const findItem = (n: any): any => {
+      if (!n || typeof n !== 'object') return null
+      if (n.props?.class === 'wf-cascader-search-item') return n
+      const k = n.props?.children
+      const arr = Array.isArray(k) ? k : (k && typeof k === 'object' ? [k] : [])
+      for (const c of arr) { const f = findItem(c); if (f) return f }
+      return null
+    }
+    const item = findItem(panel)
+    assert.ok(item, '结果项存在')
+    item.props.onClick()
+    assert.deepEqual(picked, ['zj', 'nb'], '提交完整路径')
+  })
 })

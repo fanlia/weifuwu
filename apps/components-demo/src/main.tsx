@@ -1336,7 +1336,7 @@ const DemoCascader: Component = (_props, ctx) => {
     <Cascader options={[
       { value: 'zj', label: '浙江', children: [{ value: 'hz', label: '杭州' }, { value: 'nb', label: '宁波' }] },
       { value: 'gd', label: '广东', children: [{ value: 'sz', label: '深圳' }] },
-    ]} value={value} onChange={(v: string[]) => { value = v; ctx.ui.render() }} />
+    ]} value={value} onChange={(v: string[]) => { value = v; ctx.ui.render() }} showSearch />
   )
 }
 
@@ -2369,7 +2369,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">909 测试</Badge>
+          <Badge variant="success">910 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

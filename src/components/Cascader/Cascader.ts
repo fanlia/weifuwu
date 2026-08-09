@@ -19,6 +19,10 @@ export interface CascaderProps {
   disabled?: boolean
   error?: string
   label?: string
+  /** 显示搜索框（面板内，关键词时扁平过滤结果列表） */
+  showSearch?: boolean
+  /** 搜索占位符 */
+  searchPlaceholder?: string
   'aria-label'?: string
 }
 
@@ -34,13 +38,29 @@ function findPathLabel(options: CascaderOption[], path: string[], sep = ' / '): 
   return labels.join(sep)
 }
 
-/** 级联选择（对应 antd/EP Cascader）：多列面板逐级选择，点击叶子完成。
- * 裁剪：hover 展开、搜索、任意层级配置、异步加载。 */
+/** 展开所有叶子路径（用于搜索扁平结果；递归累积 label） */
+function flattenLeafPaths(options: CascaderOption[], prefix: string[] = [], prefixLabels: string[] = []): { path: string[]; labels: string[] }[] {
+  const out: { path: string[]; labels: string[] }[] = []
+  for (const o of options) {
+    const p = [...prefix, o.value]
+    const ls = [...prefixLabels, o.label]
+    if (o.children?.length) {
+      out.push(...flattenLeafPaths(o.children, p, ls))
+    } else {
+      out.push({ path: p, labels: ls })
+    }
+  }
+  return out
+}
+
+/** 级联选择（对应 antd/EP Cascader）：多列面板逐级选择，点击叶子完成 + 可选搜索。
+ * 裁剪：hover 展开、任意层级配置、异步加载。 */
 export const Cascader: Component<CascaderProps> = (_init, ctx) => {
   // ── mount（只一次）──
   const $ = ctx.ui.$()
   $.open = false
   $.activePath = [] as string[] // 面板内推进的路径（不含最终选中提交）
+  $.kw = ''
 
   let triggerEl: HTMLElement | null = null
   const triggerRef = (el: HTMLElement | null) => { triggerEl = el }
@@ -60,7 +80,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
   return (props) => {
     const {
       options = [], value, onChange, placeholder = '请选择', disabled,
-      error, label, 'aria-label': ariaLabel,
+      error, label, showSearch, searchPlaceholder = '搜索…', 'aria-label': ariaLabel,
     } = props
 
     // 当前面板路径：从 value 或内部 activePath
@@ -136,10 +156,46 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
       level++
     }
 
+    // 搜索态：扁平过滤结果列表
+    const kw = $.kw.trim().toLowerCase()
+    let panelBody: any
+    if (showSearch && kw) {
+      const all = flattenLeafPaths(options)
+      const matched = all.filter(m => m.labels.some(lb => lb.toLowerCase().includes(kw)))
+      panelBody = matched.length === 0
+        ? h('div', { class: 'wf-cascader-empty' }, '无匹配')
+        : h('div', { class: 'wf-cascader-search-results' }, matched.map(m =>
+            h('button', {
+              type: 'button',
+              class: 'wf-cascader-search-item',
+              key: m.path.join('/'),
+              onClick: () => {
+                if (Array.isArray(value) && !onChange) {
+                  console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。`)
+                }
+                $.open = false; $.kw = ''
+                onChange?.(m.path)
+              },
+            }, m.labels.join(' / '))
+          ))
+    } else {
+      panelBody = columns
+    }
+
+    const searchInput = showSearch
+      ? h('input', {
+          class: 'wf-cascader-search wf-input',
+          type: 'text',
+          placeholder: searchPlaceholder,
+          value: $.kw,
+          onInput: (e: any) => { $.kw = e.target.value },
+        })
+      : null
+
     const panel = popup.portal(h('div', {
       class: 'wf-cascader-panel',
       role: 'listbox',
-    }, columns), 'popover')
+    }, showSearch ? [searchInput, panelBody].filter(Boolean) : panelBody), 'popover')
 
     const display = Array.isArray(value) && value.length
       ? findPathLabel(options, value)
