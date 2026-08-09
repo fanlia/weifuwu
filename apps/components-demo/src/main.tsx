@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1417,6 +1417,25 @@ const DemoLogViewer: Component = (_props, ctx) => {
   )
 }
 
+const DemoSparkline: Component = () => () => (
+  <div class="wf-stack wf-gap-md">
+    <div class="wf-row wf-gap-lg wf-cluster">
+      <div class="wf-stack wf-gap-xs">
+        <span class="wf-text-xs wf-text-secondary">本周流量</span>
+        <Sparkline data={[12, 18, 15, 22, 30, 28, 35]} width={140} height={36} stroke="#4f6ef7" fill />
+      </div>
+      <div class="wf-stack wf-gap-xs">
+        <span class="wf-text-xs wf-text-secondary">平滑曲线</span>
+        <Sparkline data={[5, 9, 7, 12, 10, 15, 14]} width={140} height={36} smooth stroke="#16a34a" />
+      </div>
+      <div class="wf-stack wf-gap-xs">
+        <span class="wf-text-xs wf-text-secondary">等值数据（防抖）</span>
+        <Sparkline data={[7, 7, 7, 7, 7]} width={140} height={36} stroke="#f59e0b" />
+      </div>
+    </div>
+  </div>
+)
+
 const OLD_CODE = `function handleUser(input) {
   const data = JSON.parse(input)
   const name = data.name
@@ -1962,6 +1981,7 @@ return () => <AiChat chat={$} />
 
   jsonviewer: `<JSONViewer data={payload} defaultExpandDepth={2} maxKeys={100} />`,
   diffview: `<DiffView oldCode={oldCode} newCode={newCode} oldTitle="重构前" newTitle="重构后" />`,
+  sparkline: `<Sparkline data={[12, 18, 15, 22, 30, 28, 35]} width={140} height={36} fill />`,
 
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
@@ -2041,6 +2061,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="LogViewer" desc="日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制" code={CODE.logviewer}><DemoLogViewer /></DemoCard>
         <DemoCard title="JSONViewer" desc="结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开" code={CODE.jsonviewer}><DemoJSONViewer /></DemoCard>
         <DemoCard title="DiffView" desc="代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色" code={CODE.diffview}><DemoDiffView /></DemoCard>
+        <DemoCard title="Sparkline" desc="迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充" code={CODE.sparkline}><DemoSparkline /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>
