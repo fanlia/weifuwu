@@ -1,17 +1,17 @@
 /* weifuwu/components — Grid 栅格 + Flex 容器 */
 
-.wf-grid {
+.wf-grid-comp {
   display: flex;
   flex-wrap: wrap;
   width: 100%;
   box-sizing: border-box;
 }
 
-.wf-grid--column {
+.wf-grid-comp--column {
   flex-direction: column;
 }
 
-.wf-grid--flex {
+.wf-grid-comp--flex {
   display: flex;
   flex-wrap: wrap;
 }

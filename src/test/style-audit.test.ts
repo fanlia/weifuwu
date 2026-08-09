@@ -361,6 +361,22 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(violations, [], '组件禁止直接 DOM 全局引用——统一经 ctx.browser/useXXX（AGENTS.md 浏览器环境纪律）')
   })
 
+  it('组件 CSS class 不与 layout 布局原语冲突（Grid 覆盖 .wf-grid 教训）', () => {
+    // layout 布局原语 class（.wf-* 顶层规则）——组件 CSS 不得同名定义
+    const layout = readLayoutCss()
+    const layoutClasses = new Set(
+      [...layout.matchAll(/^\.wf-[a-z][\w-]*/gm)].map(m => m[0]),
+    )
+    const component = readComponentCss()
+    const conflicts = [...component.matchAll(/^\.wf-[a-z][\w-]*/gm)]
+      .map(m => m[0])
+      .filter(c => layoutClasses.has(c))
+    // 白名单：组件有意复用的语义 class（wf-btn/wf-input/wf-icon 等基础件）
+    const allowed = new Set(['.wf-btn', '.wf-input', '.wf-icon', '.wf-popup'])
+    const violations = conflicts.filter(c => !allowed.has(c))
+    assert.deepEqual(violations, [], '组件 CSS 不得定义与 layout 布局原语同名的 class（demo 双列 grid 被覆盖的教训）')
+  })
+
   it('client 防线存在：enumerated 属性渲染 + 内置类型降级（CDD 启发回归防线）', () => {
     // 1. draggable enumerated 语义防线（Kanban 教训：setAttribute('draggable','') = false）
     const dragTest = readFileSync(join(root, 'src/test/client/draggable.test.ts'), 'utf-8')

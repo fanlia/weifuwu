@@ -102,7 +102,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
       const isActive = active === it.href
       return h('a', {
         key: it.href,
-        class: `wf-anchor-link${isActive ? ' wf-anchor-link--active' : ''}`,
+        class: `wf-anchor-nav-link${isActive ? ' wf-anchor-link--active' : ''}`,
         href: it.href,
         role: 'link',
         tabIndex: 0,
@@ -115,7 +115,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
     })
 
     return h('nav', {
-      class: ['wf-anchor', className].filter(Boolean).join(' '),
+      class: ['wf-anchor-nav', className].filter(Boolean).join(' '),
       ref: navRef,
       onKeyDown,
       'aria-label': '锚点导航',

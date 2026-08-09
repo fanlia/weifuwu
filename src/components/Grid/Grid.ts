@@ -53,7 +53,7 @@ export const Grid: Component<GridProps> = (_init, _ctx: WfuiContext) =>
       : children
 
     return h('div', {
-      class: `wf-grid${flex ? ' wf-grid--flex' : ''}${direction === 'column' ? ' wf-grid--column' : ''}`,
+      class: `wf-grid-comp${flex ? ' wf-grid-comp--flex' : ''}${direction === 'column' ? ' wf-grid-comp--column' : ''}`,
       style: {
         margin: half ? `0 -${half}px` : undefined,
         gap: gap !== undefined ? `${gap}px` : undefined,

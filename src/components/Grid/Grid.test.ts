@@ -22,7 +22,7 @@ describe('gridColumns（纯函数）', () => {
 describe('Grid', () => {
   test('渲染栅格容器 + gutter', () => {
     const v = renderVNode(Grid, { gutter: 16, children: ['a'] }, mockCtx())
-    assert.match(v.props.class, /wf-grid/)
+    assert.match(v.props.class, /wf-grid-comp/)
     assert.equal(v.props.style.margin, '0 -8px')
   })
   test('Col 百分比宽度 + 内 padding', () => {
@@ -35,6 +35,6 @@ describe('Grid', () => {
   })
   test('flex 容器模式（antd Flex 等价）', () => {
     const v = renderVNode(Grid, { flex: true, children: ['a', 'b'] }, mockCtx())
-    assert.match(v.props.class, /wf-grid--flex/)
+    assert.match(v.props.class, /wf-grid-comp--flex/)
   })
 })
