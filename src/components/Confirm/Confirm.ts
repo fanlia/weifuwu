@@ -6,12 +6,16 @@
  */
 
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { mountVNode, callRefCleanup } from '../../client/render.ts'
 import { animateOut } from '../../client/motion.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { Button } from '../Button/Button.ts'
+
+// 命令式 API：浏览器环境（SSR 不调用）
+const browser = createClientBrowser()
 
 export interface ConfirmProps {
   open?: boolean
@@ -60,8 +64,9 @@ export function confirm(): AppMiddleware<{}, ConfirmInjected> {
 
 function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContext): Promise<boolean> {
   return new Promise(resolve => {
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div') as HTMLDivElement | null
+    if (!container) { resolve(false); return }
+    browser.bodyAppend(container)
 
     let settled = false
     const vnode = h(Confirm, {
@@ -81,7 +86,7 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
       if (settled) return
       settled = true
       // 播放退场动画后再清理（命令式路径：直接驱动 DOM，不依赖受控 open 流转）
-      const el = document.querySelector('.wf-modal')
+      const el = browser.query('.wf-modal')
       if (el) {
         el.classList.add('wf-modal--exit')
         animateOut(el as HTMLElement, () => {

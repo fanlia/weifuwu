@@ -130,6 +130,7 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
     copyText: async () => false,
     execCommand: () => false,
     selectionText: () => null,
+    getSelection: () => null,
     viewportHeight: () => 0,
     scrollTop: () => 0,
     hash: () => '',

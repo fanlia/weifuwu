@@ -19,17 +19,6 @@ export interface CopyButtonProps {
   [key: string]: any
 }
 
-function fallbackCopy(text: string) {
-  const ta = document.createElement('textarea')
-  ta.value = text
-  ta.setAttribute('readonly', '')
-  ta.style.position = 'fixed'
-  ta.style.opacity = '0'
-  document.body.appendChild(ta)
-  ta.select()
-  document.execCommand('copy')
-  document.body.removeChild(ta)
-}
 
 /** 复制按钮（weifuwu 独有，Chat 消息复制/CodeBlock 抽取统一） */
 export const CopyButton: Component<CopyButtonProps> = (_init, ctx) => {

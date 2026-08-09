@@ -7,6 +7,7 @@
  */
 
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
@@ -31,6 +32,8 @@ export interface AnchorProps {
 }
 
 export const Anchor: Component<AnchorProps> = (_init, ctx) => {
+  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let navEl: HTMLElement | null = null
   let internalActive: string | undefined
@@ -55,7 +58,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
   const onKeyDown = (e: KeyboardEvent) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
     const links = navEl ? Array.from(navEl.querySelectorAll<HTMLElement>('.wf-anchor-link')) : []
-    const idx = links.indexOf(document.activeElement as HTMLElement)
+    const idx = links.indexOf((_browser?.activeElement() ?? null) as HTMLElement)
     if (idx < 0) return
     e.preventDefault()
     let next = idx

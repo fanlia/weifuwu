@@ -12,8 +12,11 @@
  */
 
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
+
+const browser = createClientBrowser()
 
 export type ThemeMode = 'auto' | 'light' | 'dark'
 
@@ -47,9 +50,10 @@ function writeStored(key: string, mode: ThemeMode): void {
 
 /** 应用主题：auto 移除属性，light/dark 显式设置 */
 export function applyTheme(mode: ThemeMode): void {
-  if (typeof document === 'undefined') return
-  if (mode === 'auto') document.documentElement.removeAttribute('data-theme')
-  else document.documentElement.setAttribute('data-theme', mode)
+  const root = browser.rootElement()
+  if (!root) return
+  if (mode === 'auto') root.removeAttribute('data-theme')
+  else root.setAttribute('data-theme', mode)
 }
 
 /** 读取当前生效主题（localStorage 优先，其次系统偏好） */

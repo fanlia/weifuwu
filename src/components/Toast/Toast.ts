@@ -1,10 +1,14 @@
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
 import { mountVNode } from '../../client/render.ts'
 import { animateOut } from '../../client/motion.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
+
+// 命令式 API：浏览器环境（SSR 不调用）
+const browser = createClientBrowser()
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
 export type ToastPosition = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center'
@@ -127,7 +131,7 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
       add: (item: ToastItem) => { $.toasts = [...$.toasts, item] },
       remove: (id: string) => {
         // 退场：挂 wf-toast-out 类，有真实动画则播完再移除；无动画环境（jsdom/禁用）立即移除
-        const el = document.querySelector(`.wf-toast[data-id="${id}"]`) as HTMLElement | null
+        const el = browser.query(`.wf-toast[data-id="${id}"]`) as HTMLElement | null
         if (el) {
           el.classList.add('wf-toast-out')
           const anim = getComputedStyle(el).animationName
@@ -155,8 +159,9 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
 
   const ensureHost = () => {
     if (hostApi || !ctxRef) return
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div') as HTMLDivElement | null
+    if (!container) return
+    browser.bodyAppend(container)
     mountVNode(container, h(ToastHost, {}), ctxRef)
   }
 

@@ -1,4 +1,5 @@
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -43,6 +44,8 @@ function buildParentMap(nodes: TreeNode[], map: Map<string, TreeNode | null>, pa
  * indeterminate 半选态）。裁剪：拖拽、异步加载、搜索过滤。
  */
 export const Tree: Component<TreeProps> = (_init, ctx) => {
+  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   const $ = ctx.ui.$()
   $.internalExpanded = [] as string[]
@@ -207,7 +210,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     // 容器键盘（方向键上下移动焦点）
     const onKeyDown = (e: any) => {
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
-      const current = document.activeElement
+      const current = (_browser?.activeElement() ?? null)
       const idx = rowEls.indexOf(current as HTMLElement)
       if (idx < 0) return
       e.preventDefault()

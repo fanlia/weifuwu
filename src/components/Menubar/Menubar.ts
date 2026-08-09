@@ -1,4 +1,5 @@
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
@@ -26,6 +27,8 @@ export interface MenubarProps {
 /** 水平菜单栏（对应 shadcn Menubar）：trigger 点击展开下拉，←→ 切换菜单，Escape 关闭。
  * 裁剪：hover 展开、子菜单、可拖拽菜单。 */
 export const Menubar: Component<MenubarProps> = (_init, ctx) => {
+  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let openMenu: string | null = null
   let highlight = 0
@@ -80,7 +83,7 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
       }
       if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
       if (openMenu) { close(); return }
-      const current = document.activeElement
+      const current = (_browser?.activeElement() ?? null)
       const idx = triggerEls.indexOf(current as HTMLElement)
       if (idx < 0) return
       e.preventDefault()

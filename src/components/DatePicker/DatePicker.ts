@@ -8,6 +8,7 @@
  */
 
 import type { Component, VNode } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -29,6 +30,7 @@ export interface DatePickerProps {
 }
 
 export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let show = false
   let selectedValue = ''
@@ -194,7 +196,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
       const panel = e.currentTarget as HTMLElement
       const cells = Array.from(panel.querySelectorAll<HTMLElement>('.wf-datepicker-cell'))
-      const idx = cells.indexOf(document.activeElement as HTMLElement)
+      const idx = cells.indexOf((_browser?.activeElement() ?? null) as HTMLElement)
       if (idx < 0) return
       e.preventDefault()
       const cols = 7

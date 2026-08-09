@@ -194,6 +194,8 @@ export interface BrowserEnv {
   execCommand(cmd: string, value?: string): boolean
   /** 编辑器选区文本 */
   selectionText(): string | null
+  /** 编辑器选区对象（完整 Selection——Editor 需要 range 操作） */
+  getSelection(): Selection | null
   /** 视口高度 */
   viewportHeight(): number
   /** 滚动量（scrollingElement 优先） */

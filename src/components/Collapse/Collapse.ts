@@ -1,4 +1,5 @@
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -32,6 +33,8 @@ export interface CollapseProps {
  * 与 Accordion 边界：Accordion = 整块卡片面板；Collapse = 行内展开。
  */
 export const Collapse: Component<CollapseProps> = (_init, ctx) => {
+  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let headerEls: (HTMLElement | null)[] = []
   // 稳定 ref：索引从 data-idx 读取（makeHeaderRef 工厂每次渲染新建函数 = 内联 ref 警告）
@@ -66,7 +69,7 @@ export const Collapse: Component<CollapseProps> = (_init, ctx) => {
 
     // 键盘：方向键移动焦点（roving tabindex）
     const onKeyDown = (e: any) => {
-      const current = document.activeElement
+      const current = (_browser?.activeElement() ?? null)
       const idx = headerEls.indexOf(current as HTMLElement)
       if (idx < 0) return
       let next = idx

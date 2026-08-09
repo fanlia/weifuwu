@@ -20,6 +20,7 @@
  */
 
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import { h } from '../../client/vnode.ts'
 import type { UseChatHandle, UiMessage } from '../../client/use-chat.ts'
 import type { WfError, WfUsage } from '../../ai/types.ts'
@@ -70,6 +71,7 @@ const defaultLabels: AiChatLabels = {
 // ── 组件 ─────────────────────────────────────────────────
 
 export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── 手动状态（组件库约定：let + 事件，不依赖 $）──
   let listEl: HTMLElement | undefined
   let stickToBottom = true
@@ -144,7 +146,7 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
         class: `wf-aichat-inputbar${vv.keyboardOpen && raiseOnKeyboard ? ' wf-aichat-inputbar--raised' : ''}`,
         // 键盘弹起（opt-in，全屏 chat 布局）：fixed 抬升到键盘上方（bottom = 键盘高度）
         style: vv.keyboardOpen && raiseOnKeyboard
-          ? { position: 'fixed', left: '0', right: '0', bottom: `${Math.max(0, window.innerHeight - (vv.height + vv.offsetTop)) + 8}px`, zIndex: 'var(--wf-z-popover)' }
+          ? { position: 'fixed', left: '0', right: '0', bottom: `${Math.max(0, _browser?.viewportHeight() - (vv.height + vv.offsetTop)) + 8}px`, zIndex: 'var(--wf-z-popover)' }
           : undefined,
       }, [
         h('input', {

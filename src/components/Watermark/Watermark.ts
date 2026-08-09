@@ -1,4 +1,5 @@
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
@@ -21,6 +22,7 @@ export interface WatermarkProps {
 /** 水印（对应 antd Watermark）：canvas 绘制平铺文字 + overlay 覆盖内容（pointer-events none）。
  * 裁剪：图片水印、多行文字、动态旋转。 */
 export const Watermark: Component<WatermarkProps> = (_init, _ctx) => {
+  const _browser = _ctx?.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let bgImage = ''
   // 稳定 ref：render 层的 props 经 latest 引用读取（ref 定义在 mount 作用域，
@@ -36,7 +38,8 @@ export const Watermark: Component<WatermarkProps> = (_init, _ctx) => {
   }
 
   const draw = (text: string, fontSize: number, color: string, opacity: number, rotate: number, gap: number) => {
-    const canvas = document.createElement('canvas')
+    const canvas = _browser?.createElement('canvas')
+    if (!canvas) return
     const ctx2d = canvas.getContext('2d')
     if (!ctx2d) return
     const { width } = ctx2d.measureText(text)

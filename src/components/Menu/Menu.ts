@@ -7,6 +7,7 @@
  */
 
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -39,6 +40,8 @@ export interface MenuProps {
 }
 
 export const Menu: Component<MenuProps> = (_init, ctx) => {
+  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let navEl: HTMLElement | null = null
   // 非受控内部状态（手动：闭包 let + render，不触发 Proxy 依赖）
@@ -52,7 +55,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
     const items = navEl
       ? Array.from(navEl.querySelectorAll<HTMLElement>('.wf-menu-item, .wf-menu-submenu-title'))
       : []
-    const idx = items.indexOf(document.activeElement as HTMLElement)
+    const idx = items.indexOf((_browser?.activeElement() ?? null) as HTMLElement)
     if (idx < 0) return
     e.preventDefault()
     let next = idx

@@ -1,4 +1,5 @@
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
@@ -23,6 +24,8 @@ export interface AccordionProps {
  * 方向键移动焦点 + aria-expanded 同步。与 Collapse 边界：Accordion = 整块卡片面板容器。
  */
 export const Accordion: Component<AccordionProps> = (_init, ctx) => {
+  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   const $ = ctx.ui.$()
   $.internalActive = [] as string[]
@@ -58,7 +61,7 @@ export const Accordion: Component<AccordionProps> = (_init, ctx) => {
     }
 
     const onKeyDown = (e: any) => {
-      const current = document.activeElement
+      const current = (_browser?.activeElement() ?? null)
       const idx = summaryEls.indexOf(current as HTMLElement)
       if (idx < 0) return
       let next = idx

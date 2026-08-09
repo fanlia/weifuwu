@@ -1,9 +1,13 @@
 import type { Component, VNode } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
 import { h, createPortal } from '../../client/vnode.ts'
 import { mountVNode } from '../../client/render.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
+
+// 命令式 API：浏览器环境（SSR 不调用）
+const browser = createClientBrowser()
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning'
 export type NotificationPosition = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
@@ -142,8 +146,9 @@ export function notification(opts?: NotificationOptions): AppMiddleware<{}, Noti
 
   const ensureHost = () => {
     if (hostApi || !ctxRef) return
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div') as HTMLDivElement | null
+    if (!container) return
+    browser.bodyAppend(container)
     mountVNode(container, h(NotificationHost, {}), ctxRef)
   }
 

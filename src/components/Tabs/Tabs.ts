@@ -1,4 +1,5 @@
 import type { Component } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 
@@ -14,8 +15,9 @@ export interface TabsProps {
   onChange?: (key: string) => void
 }
 
-export const Tabs: Component<TabsProps> = (_init, _ctx) =>
-  (props) => {
+export const Tabs: Component<TabsProps> = (_init, _ctx) => {
+  const _browser = _ctx?.browser ?? createClientBrowser()
+  return (props) => {
   const { items = [], active, onChange } = props
 
   if (items.length === 0) return null
@@ -26,7 +28,7 @@ export const Tabs: Component<TabsProps> = (_init, _ctx) =>
   const onTabListKeyDown = (e: KeyboardEvent) => {
     const list = e.currentTarget as HTMLElement
     const tabs = Array.from(list.querySelectorAll<HTMLElement>('.wf-tab'))
-    const idx = tabs.indexOf(document.activeElement as HTMLElement)
+    const idx = tabs.indexOf((_browser?.activeElement() ?? null) as HTMLElement)
     if (idx < 0 || !onChange) return
     let next = idx
     if (e.key === 'ArrowRight') next = (idx + 1) % tabs.length
@@ -63,4 +65,5 @@ export const Tabs: Component<TabsProps> = (_init, _ctx) =>
     h('div', { class: 'wf-tab-list' }, tabList),
     content,
   ].filter(Boolean))
+  }
 }

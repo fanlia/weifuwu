@@ -1,7 +1,7 @@
 /**
  * weifuwu/components — Editor
  *
- * 富文本编辑器组件，基于 contentEditable + document.execCommand。
+ * 富文本编辑器组件，基于 contentEditable + _browser?.execCommand。
  * 零外部依赖，纯函数 (props, ctx) => VNode。
  *
  * 使用两阶段模型 + VDOM innerHTML 支持。
@@ -9,6 +9,7 @@
  */
 
 import type { Component, VNode } from '../../client/vnode.ts'
+import { createClientBrowser } from '../../client/browser.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h } from '../../client/vnode.ts'
 import { Modal } from '../Modal/Modal.ts'
@@ -33,6 +34,7 @@ function shallowEqual(a: Record<string, boolean>, b: Record<string, boolean>): b
 }
 
 export const Editor: Component<EditorProps> = (_props, ctx) => {
+  const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let activeFormats: FormatState | null = null  // null = 未初始化，首次 mouseUp 只存不 render
   let showLinkInput = false
@@ -53,14 +55,14 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   let savedRange: Range | null = null
 
   const saveSelection = () => {
-    const sel = window.getSelection()
+    const sel = _browser?.getSelection()
     if (sel && sel.rangeCount > 0) savedRange = sel.getRangeAt(0)
   }
 
   const restoreSelection = () => {
     if (!editorEl || !savedRange) return
     editorEl.focus()
-    const sel = window.getSelection()
+    const sel = _browser?.getSelection()
     if (sel) {
       sel.removeAllRanges()
       sel.addRange(savedRange)
@@ -106,14 +108,14 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
 
       if (item === 'link') {
         saveSelection()
-        const sel = window.getSelection()
+        const sel = _browser?.getSelection()
         if (!sel || sel.isCollapsed) {
           showLinkInput = true
           linkUrl = ''
           ctx.ui.render()
           return
         }
-        const existing = document.queryCommandState('createLink')
+        const existing = _browser?.execCommand('createLink')
         if (existing) {
           exec('unlink')
           activeFormats = queryFormats()
