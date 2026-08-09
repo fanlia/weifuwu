@@ -56,6 +56,9 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
   // 内部输入态（Select searchable 同款纪律）：输入期间 value 由 $ 管理——
   // 不依赖受控 value 回流（父 render 会重挂 input → 焦点丢失——AutoComplete 教训）
   $.keyword = ''
+  // 选中态：关闭时 input 回填选中 label（Select 单选同款——
+  // demo 受控 onChange 不渲染则 props.value 不回流 → input 空）
+  $.selected = ''
   let activeIndex = -1
   let latestValue = _init?.value ?? ''
   let latestOnChange: ((v: string) => void) | undefined
@@ -89,6 +92,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     latestOnChange?.(option.value)
     latestOnSelect?.(option.value, option)
     $.keyword = ''
+    $.selected = option.label ?? option.value // 关闭后回填
     activeIndex = -1
     setOpen(false)
   }
@@ -174,8 +178,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
         // input 重建 → 焦点丢失（Select searchable 同款——受控输入通用纪律）
         key: 'ac-input',
         class: 'wf-autocomplete-input wf-input',
-        // 打开/输入时显示内部 keyword（不依赖 props 回流）；关闭时受控 value
-        value: $.open ? $.keyword : query,
+        // 打开/输入时显示内部 keyword；关闭时选中 label（无选中回退受控值）
+        value: $.open ? $.keyword : ($.selected || query),
         placeholder,
         disabled,
         onInput,

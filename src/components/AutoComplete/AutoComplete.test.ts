@@ -116,6 +116,19 @@ describe('AutoComplete', () => {
     assert.equal(selected, 'pay-admin', 'Enter 选中高亮项')
   })
 
+  test('选中后 input 回填选中 label（关闭状态）', () => {
+    const ctx = mockCtx()
+    const inst = mount(AutoComplete, { options, value: '', onChange: () => {} }, ctx)
+    // 打开 + 点击选项选中
+    let vnode = inst.render({ options, value: '', open: true, onChange: () => {} })
+    const opt = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-option'))
+    opt.props.onMouseDown?.({ stopPropagation: () => {} })
+    // 关闭后重新渲染：input 应显示选中 label
+    vnode = inst.render({ options, value: '' })
+    const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
+    assert.equal(input.props.value, '支付平台管理', '关闭后回填选中 label')
+  })
+
   test('IME 组合期间不处理 onChange（中文输入不被重置打断）', () => {
     let changed = 0
     const ctx = mockCtx()
