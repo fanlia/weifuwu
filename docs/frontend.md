@@ -143,6 +143,34 @@ ctx.ui.render(['name'])
 
 ---
 
+## 浏览器环境抽象（ctx.browser）
+
+> 组件**不直接引用 window/document**——统一经 `ctx.browser`（环境 API）：
+> SSR 安全（shim 返回安全默认）+ 测试可 mock + 环境差异单点隔离。
+
+| 方法 | 说明 |
+|------|------|
+| `activeElement()` | 当前焦点元素（键盘导航） |
+| `byId(id)` / `query(sel)` | 元素查询（getElementById / querySelector） |
+| `createElement(tag)` / `bodyAppend(el)` / `bodyRemove(el)` | 动态创建/挂载容器 |
+| `copyText(text)` | **复制统一入口**（clipboard API + execCommand 降级） |
+| `execCommand(cmd, value?)` | 富文本编辑器命令 |
+| `selectionText()` / `getSelection()` | 编辑器选区（文本 / 完整 Selection 对象） |
+| `viewportHeight()` / `scrollTop()` | 视口高度 / 滚动量（scrollingElement 优先） |
+| `hash()` / `setHash(h)` | 锚点 hash |
+| `timeout(fn, ms)` | 定时器（SSR no-op） |
+| `rootElement()` | document.documentElement（主题应用） |
+| `storageGet(key)` / `storageSet(key, val)` | localStorage（SSR/隐私模式安全） |
+
+**三态实现**：客户端 `createClientBrowser`（惰性 typeof 防御）· SSR shim（null/0/no-op）· 测试 mock 或 jsdom fallback。
+
+```tsx
+// 组件内（mount 层）
+const browser = ctx.browser ?? createClientBrowser()
+// 事件回调
+await browser.copyText(text)
+```
+
 ## 状态管理
 
 ### ctx.ui 方法速查

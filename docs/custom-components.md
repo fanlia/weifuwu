@@ -207,6 +207,32 @@ const CollapseItem: Component<{ active?: boolean; onChange?: (v: boolean) => voi
 
 **纪律**：组件内动画事件监听**唯一入口是 `useAnimationEnd`**——禁直接 `addEventListener('animationend')`（DatePicker 已收敛）；退场优先 `usePresence`（声明式状态机）或 `animateOut`（命令式）。
 
+## 8.6 浏览器环境纪律（ctx.browser）
+
+> **自定义组件禁止直接引用 window/document**——统一经 `ctx.browser`：
+> SSR 安全（shim 安全默认）+ 测试 mock 单点 + 环境差异隔离。
+
+```tsx
+const MyComp: Component = (_init, ctx) => {
+  // mount 层取 browser（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  const browser = ctx.browser ?? createClientBrowser()
+  return (props) =>
+    h('button', {
+      onClick: () => {
+        // 复制/查询/存储/滚动——全部经 browser
+        void browser.copyText('hello')
+        const el = browser.byId('target')
+      }
+    })
+}
+```
+
+**规则**：
+- 复制统一 `browser.copyText`（clipboard + 降级——勿自建 textarea+execCommand）
+- 键盘导航用 `browser.activeElement()`（勿 document.activeElement）
+- 存储用 `browser.storageGet/Set`（勿 localStorage 裸调）
+- SSR 场景（render/mount 期）绝对不碰环境 API（shim 返回 null——需防御）
+
 ## 9. 样式纪律（style-audit 强制）
 
 - 动效用 Token：`--wf-dur-*` / `--wf-ease-*` / `--wf-motion-*`（禁硬编码）

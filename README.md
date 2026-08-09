@@ -23,7 +23,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 | 层 | 入口 | 能力 |
 |----|------|------|
 | 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
-| 前端 | `weifuwu/client` | 两阶段组件 / Proxy 渲染 / 数据管道 / 路由 / api·auth·ws·i18n / 移动端原语 |
+| 前端 | `weifuwu/client` | 两阶段组件 / Proxy 渲染 / 数据管道 / 路由 / api·auth·ws·i18n / 移动端原语 / **ctx.browser 环境抽象**（组件零 window/document） |
 | 组件 | `weifuwu/components` | 96 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
 | 样式 | `weifuwu/layout` | 70 布局原语 + 141 主题 Token，零自定义 CSS 文件 |
 | SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
