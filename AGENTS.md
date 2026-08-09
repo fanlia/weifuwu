@@ -525,6 +525,16 @@ const vnode2 = renderVNode(Popover, { content: 'hello' }, ctx)
 - **两道防线**：① `scripts/build.mjs` 组件构建外部化 `src/client/*` 导入 → `weifuwu/client`（dist 消费端共享）；② **app 的 tsconfig `paths` 必须同时映射 `weifuwu/client` 和 `weifuwu/components` 到 src**（dev 全 src 单图）——只映射 client 不映射 components 时，app 用 src 的 client、components 用 dist 的 client，状态仍重复
 - 排查手段：浏览器探针 + 检查 bundle 内 `var _idCounter` 出现次数（>1 = 状态重复）；esbuild metafile 看 `src/client` 与 `dist/client` 是否同时被引用
 
+### 渲染器已知坑：enumerated 属性必须显式字符串（draggable 踩过）
+
+`setProp`/`patchProps` 对 `value === true` 用 `setAttribute(key, '')`——适用于 boolean
+属性（disabled/hidden），但 **enumerated 属性（draggable 等）空字符串解析为 false**——
+`<div draggable />` 实际 `el.draggable === false` → 拖动变成文本选中（Kanban 真实 bug）：
+
+- render.ts/diff.ts 对 `draggable` 显式 `setAttribute('draggable', value ? 'true' : 'false')`
+- 新 enumerated 属性（contenteditable 等）同理——**空字符串语义需查 HTML 规范**
+- 防线：`src/test/client/draggable.test.ts`（el.draggable 真值断言——jsdom 可测）
+
 ### ref 触发时机（focus-trap 踩过）
 
 weifuwu 的 ref 在元素 **appendChild 之前**触发（renderValue 先渲染子节点再调 ref，父层最后 append）——此时元素未连接文档，`el.focus()` 在 Chrome 无效。trapFocus 的初始聚焦用 `queueMicrotask` 延迟到挂载完成后。其他依赖连接态的 ref 初始化同理。

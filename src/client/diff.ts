@@ -291,6 +291,9 @@ export function patchProps(el: Element, oldProps: any, newProps: any) {
         // 移除旧监听器，防止累积
         if (typeof oldVal === 'function') el.removeEventListener(eventName, oldVal as EventListener)
         el.addEventListener(eventName, newVal as EventListener)
+      } else if (key === 'draggable') {
+        // enumerated 属性：空字符串 = false——显式 'true'/'false'
+        el.setAttribute('draggable', newVal ? 'true' : 'false')
       } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
         ;(el as HTMLSelectElement).value = String(newVal ?? '')
       } else if (newVal === true) {

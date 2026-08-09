@@ -314,6 +314,10 @@ function setProp(el: Element, key: string, value: any) {
     }
   } else if (key.startsWith('on') && typeof value === 'function') {
     el.addEventListener(key.slice(2).toLowerCase(), value as EventListener)
+  } else if (key === 'draggable') {
+    // draggable 是 enumerated 属性（非 boolean）——setAttribute('draggable', '')
+    // 空字符串解析为 false——必须显式 'true'/'false'
+    el.setAttribute('draggable', value ? 'true' : 'false')
   } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
     ;(el as HTMLSelectElement).value = String(value ?? '')
   } else if (value === true) {
