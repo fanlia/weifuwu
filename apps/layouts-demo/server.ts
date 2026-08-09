@@ -20,7 +20,7 @@ app.get('/*', async (req, ctx) => ctx.ui.html`
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/layout.css">
+  <!-- 只加载 components.css——构建时已内嵌 layout 原语（layout.css 独立提供但不重复加载） -->
   <link rel="stylesheet" href="/components.css">
   <title>weifuwu/layout — 布局模式蓝本</title>
 </head>
