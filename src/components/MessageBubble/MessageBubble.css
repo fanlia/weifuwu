@@ -9,12 +9,13 @@
 .wf-bubble--streaming {
   border-right: 3px solid var(--wf-color-primary);
   border-right-color: var(--wf-color-primary);
-  animation: wf-bubble-blink var(--wf-dur-fast) var(--wf-ease-in-out) infinite;
+  /* 1s 光标式平缓闪烁（≤1Hz，远低于 3Hz 光敏阈值）；reduced-motion 下基线降为 0.01ms */
+  animation: wf-bubble-blink 1.1s var(--wf-ease-in-out) infinite;
 }
 
 @keyframes wf-bubble-blink {
   0%, 100% { border-right-color: var(--wf-color-primary); }
-  50% { border-right-color: transparent; }
+  50% { border-right-color: var(--wf-color-primary-bg); }
 }
 
 .wf-bubble-body {
