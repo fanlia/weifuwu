@@ -103,7 +103,7 @@ export const LayoutSider: Component<LayoutSiderProps> = (_init, ctx: WfuiContext
     }, children)
   }
 }
-LayoutSider[SIDER as any] = true
+(LayoutSider as any)[SIDER] = true
 
 /** 顶部栏 */
 export const LayoutHeader: Component<LayoutHeaderProps> = (_init) =>
