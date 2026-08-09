@@ -42,6 +42,17 @@ export function createApp<C extends object = {}>(): App<C> {
   let rootComponent: Component<any, any> | null = null
   let oldVNode: VNode | null = null
   let _rendering = false
+  // mount 阶段标记：组件工厂（mountComponent 内 def 执行）期间置位——
+  // 期间 $ 初始化赋值应丢弃（旧行为正确）；render 期 dirty 才推迟
+  let _mounting = false
+  let _mountingPrev: boolean[] = []
+  function setMounting(v: boolean): void {
+    _mountingPrev.push(_mounting)
+    _mounting = v
+  }
+  function endMounting(): void {
+    _mounting = _mountingPrev.pop() ?? false
+  }
 
   // ── 异步渲染批处理 ──────────────────────────────────
   let _dirtyBatch = new Set<string>()
@@ -276,6 +287,9 @@ export function createApp<C extends object = {}>(): App<C> {
         ensurePopupListeners,
         destroyPopupListeners,
         isRendering: () => _rendering,
+        isMounting: () => _mounting,
+        setMounting,
+        endMounting,
       })
 
       // ── 首次渲染 ──────────────────────────────────────

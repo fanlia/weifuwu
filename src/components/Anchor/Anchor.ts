@@ -75,9 +75,11 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
     const computed = computeActive(items, offsetTop)
     if (internalActive !== computed) {
       internalActive = computed
+      // 渲染期调 onAnchorChange → 父层 render 由框架自动推迟到微任务
+      // （ui.ts render 渲染期推迟——无需组件手动 queueMicrotask）
       if (computed !== undefined && computed !== lastNotified) {
         lastNotified = computed
-        queueMicrotask(() => onAnchorChange?.(computed))
+        onAnchorChange?.(computed)
       }
     }
     const active = activeKey !== undefined ? activeKey : (internalActive ?? computed)

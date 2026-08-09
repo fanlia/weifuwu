@@ -30,6 +30,9 @@ export interface UiInternal {
   _dirtyScheduled?: boolean
   /** ctx.ui.$() 的 WeakMap 缓存（每组件一个 $ 容器） */
   _$cache?: Record<string, any>
+  /** mount 阶段标记（内部——mountComponent 包裹） */
+  setMounting: (v: boolean) => void
+  endMounting: () => void
 }
 
 /** createUi 依赖（由 createApp 注入 app 级闭包状态） */
@@ -60,6 +63,11 @@ export interface UiDeps {
   destroyPopupListeners: () => void
   /** 渲染保护期（dirty 被忽略） */
   isRendering: () => boolean
+  /** mount 阶段（组件工厂执行——$ 初始化赋值丢弃） */
+  isMounting: () => boolean
+  /** mount 阶段标记置位/恢复（mountComponent 包裹） */
+  setMounting: (v: boolean) => void
+  endMounting: () => void
 }
 
 /** 受控组件缺回调 warn 去重（按 name） */
@@ -68,7 +76,7 @@ const warnedControlled = new Set<string>()
 const uncontrolledValues = new Map<string, any>()
 
 export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
-  const { ctx, renderByIds, getSelfId, dirtyBatch, dirtySet, mediaRegistry, popupTrackers, scrollTrackers, schedulePopupRecompute, ensurePopupListeners, isRendering } = deps
+  const { ctx, renderByIds, getSelfId, dirtyBatch, dirtySet, mediaRegistry, popupTrackers, scrollTrackers, schedulePopupRecompute, ensurePopupListeners, isRendering, isMounting, setMounting, endMounting } = deps
 
   const ui: WfuiContext['ui'] & UiInternal = {
     _selfId: '_wf_root',
@@ -76,10 +84,25 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
     // ── ctx 版本号（供三态 skip 判定） ──
     _ctxVersion: 0,
     _dirtySet: dirtySet,
+    setMounting: setMounting,
+    endMounting: endMounting,
     bumpCtxVersion: function () { this._ctxVersion++ },
 
     /** 同步刷新（无参 = 当前组件，传参 = 指定组件列表） */
     render: function (ids?: string[]) {
+      // 渲染期调用（render 内调父层 render）：推迟到微任务补渲染——
+      // renderByIds 的 _rendering 保护会静默丢弃，父层状态更新丢失
+      if (isRendering()) {
+        if (isMounting()) return
+        if (!(this as any)._pendingRender) {
+          ;(this as any)._pendingRender = true
+          queueMicrotask(() => {
+            ;(this as any)._pendingRender = false
+            this.render(ids)
+          })
+        }
+        return
+      }
       if (!ids || ids.length === 0) {
         const selfId = getSelfId(this)
         if (selfId) ids = [selfId]
@@ -90,7 +113,20 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
 
     /** 异步刷新（微任务批处理，无参 = 当前组件） */
     dirty: function (ids?: string[]) {
-      if (isRendering()) return
+      // mount 阶段（组件工厂初始化赋值）：丢弃（旧行为正确——初始化不需渲染）
+      if (isMounting()) return
+      // 渲染期调用（组件 render 内调父层 setState）：推迟到渲染完成后微任务，
+      // 而非丢弃——否则 onXxx 回调通知父层的模式（Anchor 滚动高亮等）静默失效
+      if (isRendering()) {
+        if (!(this as any)._pendingDirty) {
+          ;(this as any)._pendingDirty = true
+          queueMicrotask(() => {
+            ;(this as any)._pendingDirty = false
+            this.dirty(ids)
+          })
+        }
+        return
+      }
       if (!ids || ids.length === 0) {
         const selfId = getSelfId(this)
         if (selfId) ids = [selfId]

@@ -460,4 +460,36 @@ describe('scoped render', () => {
     assert.equal(renderB, 3)
     el.remove()
   })
+
+  it('渲染期 dirty() 推迟到渲染完成后执行（不丢弃——父层 setState 模式）', async () => {
+    let renders = 0
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      const $ = ctx.ui.$()
+      let renderPhaseDirty = false
+      return () => {
+        renders++
+        // 渲染期调 dirty（模拟组件 render 内调父层 setState）
+        if (renderPhaseDirty) {
+          renderPhaseDirty = false
+          ctx.ui.dirty()
+        }
+        return h('button', {
+          onClick: () => { renderPhaseDirty = true; $.x = 1 },
+        })
+      }
+    }
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'render-phase-dirty'
+    await app.mount('#render-phase-dirty', Cmp)
+    assert.equal(renders, 1, 'mount only')
+
+    // 点击：事件回调 $.x=1（dirty → render），render 期间再调 dirty
+    el.querySelector('button')!.click()
+    await new Promise(r => setTimeout(r, 30))
+    // 旧行为：渲染期 dirty 丢弃 → renders=2；新行为：推迟 → renders=3
+    assert.equal(renders, 3, '渲染期 dirty 应推迟执行（1 mount + 1 $.x + 1 推迟）')
+    el.remove()
+  })
 })

@@ -150,7 +150,14 @@ export function mountComponent(
     def = Comp as Component
   }
 
-  let childVNode: any = def(props, ctx)
+  // mount 阶段标记：工厂执行期间 $ 初始化赋值丢弃（_rendering 保护语义细分）
+  ;(ctx as any).ui?.setMounting?.(true)
+  let childVNode: any
+  try {
+    childVNode = def(props, ctx)
+  } finally {
+    ;(ctx as any).ui?.endMounting?.()
+  }
   if (typeof childVNode !== 'function') {
     throw new Error(
       `Component ${Comp.name || 'anonymous'} must return a render function. ` +
