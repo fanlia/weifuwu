@@ -12,6 +12,46 @@ export function createReactiveState(dirty: () => void): Record<string, any> {
   const reactive = (target: any): any => {
     if (target === null || typeof target !== 'object') return target
 
+    // 内置集合类型（Set/Map）：Proxy 包装 + 方法 bind 到原始 target——
+    // 直接调用 set.add()/map.set() 也会触发 dirty（DiffView 教训：
+    // 深度 Proxy 包装 Set 后 Set.prototype.has 的 this 绑定被破坏 → TypeError）
+    if (target instanceof Set || target instanceof Map) {
+      if (proxyCache.has(target)) return proxyCache.get(target)
+      // 变异方法（add/delete/clear/set）触发 dirty；只读方法（has/get/size/
+      // keys/values/forEach）不触发（保持只读查询零副作用）
+      const MUTATING = target instanceof Set
+        ? new Set(['add', 'delete', 'clear'])
+        : new Set(['set', 'delete', 'clear'])
+      const proxy = new Proxy(target, {
+        get(t, prop) {
+          const v = Reflect.get(t, prop)
+          // 方法 bind 到原始 target（保持 this 正确——DiffView 教训：
+          // Proxy 包装 Set 后 Set.prototype.has this 绑定被破坏）
+          if (typeof v === 'function') {
+            if (!MUTATING.has(String(prop))) return v.bind(t)
+            return (...args: unknown[]) => {
+              const result = v.apply(t, args)
+              dirty()
+              for (const w of watchers) w()
+              return result
+            }
+          }
+          return v
+        },
+        set(t, key, value) {
+          Reflect.set(t, key, value)
+          dirty()
+          for (const w of watchers) w()
+          return true
+        },
+      })
+      proxyCache.set(target, proxy)
+      return proxy
+    }
+
+    // Date/RegExp 等不可变语义内置类型：返回原引用（不包装——无嵌套赋值）
+    if (target instanceof Date || target instanceof RegExp) return target
+
     // 相同底层对象返回同一 Proxy 实例，保证引用稳定、减少 GC
     if (proxyCache.has(target)) return proxyCache.get(target)
 

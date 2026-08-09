@@ -190,3 +190,9 @@ code {
     scroll-behavior: auto !important;
   }
 }
+
+/* 拖拽中禁用文本选中（useDragDrop 拖拽生命周期标记——Kanban 教训） */
+body.wf-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+}

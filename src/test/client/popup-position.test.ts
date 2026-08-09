@@ -100,7 +100,7 @@ describe('ctx.ui.usePopupPosition', () => {
     assert.equal(renderCount, 2)
 
     // mock 锚点 rect（jsdom 默认全 0）
-    anchor!.getBoundingClientRect = () => fakeRect({ top: 10, bottom: 100, left: 50, right: 200 })
+    anchor!.getBoundingClientRect = () => fakeRect({ top: 10, bottom: 100, left: 50, right: 200, width: 150, height: 90 })
 
     // 触发滚动（capture 监听在 window 上）
     fireScroll()
@@ -134,7 +134,7 @@ describe('ctx.ui.usePopupPosition', () => {
     el.id = 'pp-3'
     await app.mount('#pp-3', Root)
 
-    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 88, left: 66 })
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 88, left: 66, width: 120, height: 24 })
     fireResize()
     await flush()
 
@@ -170,7 +170,7 @@ describe('ctx.ui.usePopupPosition', () => {
     await app.mount('#pp-4', Root)
     const before = renderCount
 
-    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 1, left: 2 })
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 1, left: 2, width: 100, height: 20 })
     // 同一帧内连发 5 次 scroll
     fireScroll()
     fireScroll()
@@ -211,7 +211,7 @@ describe('ctx.ui.usePopupPosition', () => {
     await app.mount('#pp-5', Root)
     const before = renderCount
 
-    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 777, left: 888 })
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 777, left: 888, width: 100, height: 20 })
     fireScroll()
     await flush()
 
@@ -344,7 +344,7 @@ describe('ctx.ui.usePopupPosition', () => {
     el.id = 'pp-8'
     await app.mount('#pp-8', Root)
 
-    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 100, left: 50, width: 300 })
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 100, left: 50, width: 300, height: 30 })
     pos.refresh()
 
     assert.equal(pos.width, 300)
@@ -392,8 +392,8 @@ describe('ctx.ui.usePopupPosition', () => {
     const beforeA = renderA
     const beforeB = renderB
 
-    anchorA!.getBoundingClientRect = () => fakeRect({ bottom: 10, left: 20 })
-    anchorB!.getBoundingClientRect = () => fakeRect({ bottom: 30, left: 40 })
+    anchorA!.getBoundingClientRect = () => fakeRect({ bottom: 10, left: 20, width: 100, height: 20 })
+    anchorB!.getBoundingClientRect = () => fakeRect({ bottom: 30, left: 40, width: 100, height: 20 })
     fireScroll()
     await flush()
 
@@ -429,7 +429,7 @@ describe('ctx.ui.usePopupPosition', () => {
     // 打开 → scroll → 更新
     open = true
     ;(app as any).ctx.ui.render()
-    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 50, left: 60 })
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 50, left: 60, width: 100, height: 20 })
     fireScroll()
     await flush()
     assert.equal(pos.top, 50)
@@ -437,7 +437,7 @@ describe('ctx.ui.usePopupPosition', () => {
     // 关闭 → scroll → 不再更新（保持旧坐标）
     open = false
     ;(app as any).ctx.ui.render()
-    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 999, left: 999 })
+    anchor!.getBoundingClientRect = () => fakeRect({ bottom: 999, left: 999, width: 100, height: 20 })
     fireScroll()
     await flush()
     assert.equal(pos.top, 50, '关闭后保持旧坐标')

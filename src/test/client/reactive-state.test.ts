@@ -52,3 +52,37 @@ test('相同值赋值不触发（引用稳定 + 值比较）', () => {
   assert.equal(dirty, 2, '同引用赋值跳过')
   assert.equal($.ref, first, '相同底层对象返回同一 Proxy 实例')
 })
+
+test('Set 存 $：方法调用触发 dirty 且 this 正确（DiffView 教训回归）', () => {
+  let dirtyCount = 0
+  const $ = createReactiveState(() => { dirtyCount++ })
+  const before = dirtyCount
+  $.expanded = new Set<string>()
+  assert.equal(dirtyCount, before + 1, '赋值触发')
+  // Set 方法调用（此前 TypeError：Proxy 包装破坏 Set.prototype.has this）
+  $.expanded.add('svc')
+  assert.equal(dirtyCount, before + 2, 'add 触发 dirty')
+  assert.ok($.expanded.has('svc'), 'has 工作（this 正确）')
+  $.expanded.delete('svc')
+  assert.equal(dirtyCount, before + 3, 'delete 触发 dirty')
+  assert.equal($.expanded.size, 0)
+})
+
+test('Map 存 $：set/get 方法调用触发 dirty', () => {
+  let dirtyCount = 0
+  const $ = createReactiveState(() => { dirtyCount++ })
+  const before = dirtyCount
+  $.cache = new Map<string, number>()
+  $.cache.set('a', 1)
+  assert.equal($.cache.get('a'), 1)
+  assert.equal(dirtyCount, before + 2, '赋值 + map.set 均触发')
+})
+
+test('Date 存 $：返回原引用（不包装）', () => {
+  let dirtyCount = 0
+  const $ = createReactiveState(() => { dirtyCount++ })
+  const d = new Date()
+  $.start = d
+  assert.equal($.start, d, 'Date 返回原引用（无 Proxy）')
+  assert.equal($.start instanceof Date, true)
+})

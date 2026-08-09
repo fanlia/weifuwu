@@ -927,8 +927,22 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // 拖拽源侧：draggable + onDragStart/onDragEnd（HTML5 DnD 源元素 props）
       // 注意：拖拽进行中禁止重渲染（渲染替换源元素会中断拖拽）——组件负责遵守
       const dragProps: Record<string, any> = { draggable: true }
-      if (options.onDragStart) dragProps.onDragStart = (e: DragEvent) => options.onDragStart!(e)
-      if (options.onDragEnd) dragProps.onDragEnd = (e: DragEvent) => options.onDragEnd!(e)
+      if (options.onDragStart) {
+        const userStart = options.onDragStart
+        dragProps.onDragStart = (e: DragEvent) => {
+          // 全局防文本选中：拖动过程中禁用 user-select（Kanban 教训——
+          // 拖拽时浏览器默认选中文本干扰 drop 目标判定）
+          if (typeof document !== 'undefined') document.body.classList.add('wf-dragging')
+          userStart(e)
+        }
+      }
+      if (options.onDragEnd) {
+        const userEnd = options.onDragEnd
+        dragProps.onDragEnd = (e: DragEvent) => {
+          if (typeof document !== 'undefined') document.body.classList.remove('wf-dragging')
+          userEnd(e)
+        }
+      }
       return { dropProps, dragProps }
     },
 

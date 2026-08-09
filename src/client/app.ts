@@ -120,7 +120,11 @@ export function createApp<C extends object = {}>(): App<C> {
         if (!t.isOpen()) continue
         const el = t.getEl()
         if (!el) continue
-        const p = t.compute(el.getBoundingClientRect())
+        const r = el.getBoundingClientRect()
+        // 0 rect 防护（与 usePopupPosition.refresh 同规则）：元素替换中/未布局时
+        // 跳过刷新——否则 popup 被覆盖为 0，弹层飞到视口左上角（TreeSelect 真实 bug）
+        if (r.width === 0 && r.height === 0) continue
+        const p = t.compute(r)
         // 视口夹紧（与 usePopupPosition.refresh 同规则）：滚动/resize 后也保证面板在视口内
         Object.assign(t.pos, clampToViewport(p, t.panel?.(), t.margin))
         ids.push(id)
