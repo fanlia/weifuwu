@@ -359,6 +359,30 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(violations, [], '一次性动画必须引用 --wf-dur-* / --wf-ease-* Token（防硬编码回归）')
   })
 
+  it('交互 role 元素必须可聚焦（NavMenu menuitem 无 tabIndex 致 keydown 死代码教训）', () => {
+    // 可聚焦才可操作（P1）：role=menuitem/tab/option/switch 等在 div/span 上必须 tabIndex
+    // （button/input/a 等原生可聚焦豁免；aria-activedescendant 模式的 option 在 listbox 容器管理焦点——豁免）
+    const INTERACTIVE = new Set(['menuitem', 'button', 'tab', 'switch', 'checkbox', 'radio', 'slider', 'treeitem'])
+    const NATIVE = new Set(['button', 'input', 'a', 'select', 'textarea'])
+    const offenders: string[] = []
+    const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory())
+    for (const d of dirs) {
+      const f = join(root, 'src/components', d.name, `${d.name}.ts`)
+      let src = ''
+      try { src = readFileSync(f, 'utf-8') } catch { continue }
+      for (const block of src.split(/\bh\(/).slice(1)) {
+        const chunk = block.slice(0, 800)
+        const tag = chunk.match(/^\s*'(\w+)'/)?.[1]
+        if (tag && NATIVE.has(tag)) continue
+        const role = chunk.match(/role:\s*'([a-z]+)'/)?.[1]
+        if (role && INTERACTIVE.has(role) && !/tabIndex|tabindex/.test(chunk)) {
+          offenders.push(`${d.name}: role="${role}" 在 <${tag ?? '?'}> 上无 tabIndex`)
+        }
+      }
+    }
+    assert.deepEqual(offenders, [], `交互 role 缺 tabIndex：\n${offenders.join('\n')}`)
+  })
+
   it('组件 .ts 禁止直接 DOM 全局引用（必须经 ctx.browser / ctx.ui.useXXX）', () => {
     // 浏览器环境纪律：内置组件使用浏览器能力必须经 ctx.browser（环境 API）
     // 与 ctx.ui.useXXX（框架原语）——直接 window./document./navigator./

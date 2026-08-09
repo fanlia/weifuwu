@@ -37,7 +37,7 @@
   门禁落地为 `src/test/apps-typecheck.test.ts`（npm test 并发隐藏 tsc 耗时，增量缓存热 <1s）
 - **C1**：demo emoji 图标清零（StatCard/FloatButton/Menu/EmptyState——消费 P8 StatCard
   VNode icon）；EmptyState 默认图标 📦→Icon inbox（组件级 P3 违规）；计数同步（109 组件/
-  810 测试——README/docs/components.md 三处漂移 102/113/92 一并修正，audit 强制）
+  811 测试——README/docs/components.md 三处漂移 102/113/92 一并修正，audit 强制）
 - **C2**：吸顶导航（9 分组锚点 + 横向滚动）+ 搜索过滤（Section 级过滤 + 空分组隐藏）
   + hash 深链（客户端渲染后 scrollIntoView 补跳）+ 头部内联样式清零
 - **C3**：矩阵（1280/768/375 无溢出）+ 9 组件交互路径实测（记录入 demo README）；
@@ -46,7 +46,7 @@
   组件可作 JSX 元素（C 是类型级 ctx 声明，JSX 不提供 ctx）
 - 走查教训固化：agent-browser 会话残留制造假 bug（Select 无匹配/Tree 塌陷均为假象）——
   交互验证必须从 reload/重开开始（附录 A.5 再次实证）
-- 门禁：全量 1794+ pass / 0 fail；两 app tsc 绿；style-audit 29 条绿
+- 门禁：全量 1794+ pass / 0 fail；两 app tsc 绿；style-audit 30 条绿
 
 ## C0 — 类型门禁 + 存量错误修复
 

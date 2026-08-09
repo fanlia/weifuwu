@@ -197,3 +197,15 @@ describe('NavMenu', () => {
     assert.ok(active, '受控高亮项')
   })
 })
+
+test('键盘可达（P1 红线）：menuitem 可聚焦 + Enter/Space 触发选择', () => {
+  let selected = ''
+  const ctx = mockCtx()
+  const onSelect = (k: string) => { selected = k }
+  const inst = mount(NavMenu, { items, onSelect }, ctx)
+  const vnode = inst.render({ items, onSelect })
+  const first = findVNode(vnode, (v: any) => v.props?.class === 'wf-navmenu-item' || v.props?.class?.startsWith('wf-navmenu-item '))
+  assert.ok(first.props.tabIndex === 0 || first.props.tabindex === 0, 'menuitem 必须 tabIndex=0 可聚焦（否则 onKeyDown 是死代码）')
+  first.props.onKeyDown?.({ key: 'Enter', preventDefault: () => {}, stopPropagation: () => {} })
+  assert.equal(selected, 'home', 'Enter 触发 onSelect')
+})

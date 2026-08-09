@@ -16,7 +16,7 @@ node server.ts        # → http://localhost:3000
 - 吸顶导航：9 个分组锚点（横向滚动）+ **搜索过滤**（按组件名实时过滤卡片/空分组隐藏）
 - **hash 深链**：`/#sec-导航组件` 直达分组（客户端渲染后 scrollIntoView 补跳）
 - 主题切换（自动/亮色/暗色）+ 中英切换
-- 计数与框架实测同步（109 组件 / 810 测试——style-audit 强制，漂移即红）
+- 计数与框架实测同步（109 组件 / 811 测试——style-audit 强制，漂移即红）
 
 ## 验证矩阵（agent-browser 实测，2026-08）
 
@@ -41,6 +41,14 @@ node server.ts        # → http://localhost:3000
 | Cascader | 点击 trigger → 面板入 portal | ✓ |
 | Tree | switcher 收起（5→1）/再展开（1→5）往返 | ✓ |
 | RadioGroup / Rate | 受控 warn 误报修复（readOnly 豁免）+ demo 补 onChange | ✓（控制台零警告） |
+| NavMenu | **menuitem 无 tabIndex（keydown 死代码）→ 修复** + Enter/Space 激活 | ✓ |
+| Drawer / DatePicker / Command / Menubar | 打开 → portal 弹出 → Escape/外点关闭 | ✓ |
+| Tooltip | mouseover → 气泡可见（坐标实测） | ✓ |
+| Transfer | 选中 → 右移按钮启用 → 成员B 移至右列 | ✓ |
+| TagsInput / PinInput / Pagination / ColorPicker / Mentions / TreeSelect / Notification / Calendar | 输入/打开/切换/弹出 | ✓ |
+| ContextMenu / Tour / JSONViewer / Editor / ThemeSwitch | 右键打开 / 引导弹层 / 折叠 / contenteditable / 主题切换 | ✓ |
+| Kanban | 5 卡片 draggable | ✓（合成事件不做完整拖放） |
+| Slider | 原生 range——合成键事件不动为预期（不可信事件限制） | ✓ |
 
 > 走查纪律（附录 A）：真实交互前必须 reload/重开清状态——会话残留会制造假 bug
 > （Select "无匹配"与 Tree "塌陷"均为残留假象，重开后复测通过）。

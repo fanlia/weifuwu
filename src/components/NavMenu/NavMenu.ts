@@ -88,24 +88,29 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
   ): any[] =>
     items.map(item => {
       const hasNested = !!item.children?.length
+      const activate = () => {
+        if (item.disabled) return
+        if (hasNested) {
+          // 嵌套 hover 已展开——点击收起（或直接选中）
+          nestedKey = nestedKey === item.key ? null : item.key
+          ctx.ui.render()
+        } else {
+          onSelect?.(item.key)
+          popup.setOpen(false)
+          nestedPopup.setOpen(false)
+        }
+      }
       return h('div', {
         class: `wf-navmenu-sub-item${item.disabled ? ' wf-navmenu-sub-item--disabled' : ''}${hasNested && nestedKey === item.key ? ' wf-navmenu-sub-item--open' : ''}`,
         key: item.key,
         role: 'menuitem',
+        tabIndex: item.disabled ? undefined : 0, // P1：可聚焦才可操作（否则 keydown 死代码）
         'aria-haspopup': hasNested ? 'menu' : undefined,
         'aria-disabled': item.disabled ? 'true' : undefined,
         ref: nestedRef(item.key),
-        onClick: () => {
-          if (item.disabled) return
-          if (hasNested) {
-            // 嵌套 hover 已展开——点击收起（或直接选中）
-            nestedKey = nestedKey === item.key ? null : item.key
-            ctx.ui.render()
-          } else {
-            onSelect?.(item.key)
-            popup.setOpen(false)
-            nestedPopup.setOpen(false)
-          }
+        onClick: activate,
+        onKeyDown: (e: any) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); activate() }
         },
         onMouseEnter: () => {
           if (!item.disabled && hasNested && nestedKey !== item.key) {
@@ -149,6 +154,7 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
         'aria-haspopup': hasChildren ? 'menu' : undefined,
         'aria-expanded': hasChildren && isOpen ? 'true' : undefined,
         ref: itemRef(item.key),
+        tabIndex: item.disabled ? undefined : 0, // P1：可聚焦才可操作
         onClick: () => {
           if (item.disabled) return
           if (hasChildren) {
@@ -171,7 +177,12 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
           }
         },
         onKeyDown: (e: any) => {
-          if (e.key === 'ArrowRight' && hasChildren) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault?.()
+            if (item.disabled) return
+            if (hasChildren) { openKey = isOpen ? null : item.key; nestedKey = null; ctx.ui.render() }
+            else { onSelect?.(item.key); popup.setOpen(false); nestedPopup.setOpen(false) }
+          } else if (e.key === 'ArrowRight' && hasChildren) {
             openKey = item.key
             ctx.ui.render()
           } else if (e.key === 'Escape') {
