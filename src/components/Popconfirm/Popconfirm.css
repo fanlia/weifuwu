@@ -6,12 +6,6 @@
   display: inline-block;
 }
 
-.wf-popconfirm-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--wf-z-popover, 120) - 1);
-}
-
 .wf-popconfirm {
   position: fixed;
   z-index: var(--wf-z-popover, 120);

@@ -60,7 +60,15 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: WfuiContext) 
     disabled: () => disabled,
   })
 
-  const close = () => { show = false; ctx.ui.render() }
+  const close = () => {
+    if (latestOpen !== undefined) {
+      // 受控：通知父组件（open 由外部驱动）
+      latestOnOpenChange?.(false)
+    } else {
+      show = false
+      ctx.ui.render()
+    }
+  }
 
   // ── render（每次 dirty/props 变化）──
   return (props: PopconfirmProps) => {
@@ -74,8 +82,10 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: WfuiContext) 
     latestOnConfirm = onConfirm
     disabled = !!props.disabled
 
+    // popup.open 是创建时快照（usePopup 设计）——气泡显隐/动效类用内部 show
+    const isOpen = props.open !== undefined ? !!props.open : show
     const bubble = h('div', {
-      class: `wf-popconfirm wf-popconfirm--${position}${popup.open ? ' wf-popconfirm--enter' : ' wf-popconfirm--exit'}`,
+      class: `wf-popconfirm wf-popconfirm--${position}${isOpen ? ' wf-popconfirm--enter' : ' wf-popconfirm--exit'}`,
       role: 'dialog',
       'aria-label': String(title ?? '确认'),
     }, [
@@ -104,12 +114,9 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: WfuiContext) 
       ]),
     ])
 
-    return h('span', { class: 'wf-popconfirm-wrap', ref: wrapRef }, [
+    return h('span', { class: 'wf-popconfirm-wrap', ref: wrapRef, ...popup.wrapProps }, [
       props.children,
-      popup.portal(
-        h('div', { class: 'wf-popconfirm-overlay', onClick: () => close() }),
-      ),
       popup.portal(bubble, 'wf-popconfirm'),
-    ])
+    ].filter(x => x !== null && x !== undefined && x !== false))
   }
 }

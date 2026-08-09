@@ -28,7 +28,7 @@ import {
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
   VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban, Pipeline, TreeSelect,
   Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
-  Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, NavMenu,
+  Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1615,9 +1615,10 @@ const DemoPopconfirm: Component = () => () => (
   </div>
 )
 
-const DemoAutoComplete: Component = () => {
+const DemoAutoComplete: Component = (_p, ctx) => {
   let query = ''
   let selected: string | undefined
+  const render = () => ctx.ui.render()
   return () => {
     const options = [
       { value: 'pay-admin', label: '支付平台管理' },
@@ -1630,8 +1631,8 @@ const DemoAutoComplete: Component = () => {
       <AutoComplete
         options={options}
         value={query}
-        onChange={(v) => { query = v }}
-        onSelect={(v) => { selected = v }}
+        onChange={(v) => { query = v; render() }}
+        onSelect={(v) => { selected = v; render() }}
         placeholder="输入关键词联想…"
       />
     )

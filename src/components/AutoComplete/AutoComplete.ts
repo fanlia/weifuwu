@@ -50,7 +50,9 @@ export function filterOptions(options: AutoCompleteOption[], query: string): Aut
 
 export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
-  let open = _init?.open ?? false
+  // open 状态经 $（Proxy 自动 dirty → 重渲染）；受控桥 props.open 覆盖读
+  const $ = ctx.ui.$()
+  $.open = _init?.open ?? false
   let activeIndex = -1
   let latestValue = _init?.value ?? ''
   let latestOnChange: ((v: string) => void) | undefined
@@ -62,14 +64,13 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
 
   const pos = ctx.ui.usePopupPosition({
     el: () => wrapEl,
-    isOpen: () => open,
+    isOpen: () => $.open,
     compute: (r) => ({ top: r.bottom + 4, left: r.left, width: r.width }),
   })
 
   const setOpen = (v: boolean) => {
-    open = v
+    $.open = v // Proxy 赋值 → 自动 dirty → 重渲染
     latestOnOpenChange?.(v)
-    ctx.ui.render()
   }
 
   const pick = (option: AutoCompleteOption) => {
@@ -87,13 +88,14 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     latestOpen = props.open
     latestOnOpenChange = props.onOpenChange
     latestOnSelect = onSelect
-    if (props.open !== undefined) open = !!props.open
+    if (props.open !== undefined) $.open = !!props.open
 
     const query = latestValue
     const filtered = (props.filter ?? filterOptions)(options, query)
     if (activeIndex >= filtered.length) activeIndex = -1
 
     const onInput = (e: any) => {
+      console.log('[ac-debug] onInput', e.target?.value)
       const v = e.target.value
       latestOnChange?.(v)
       if (!open) setOpen(true)
@@ -101,7 +103,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     }
 
     const onKeyDown = (e: any) => {
-      if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      if (!$.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault()
         setOpen(true)
         activeIndex = e.key === 'ArrowDown' ? 0 : filtered.length - 1
@@ -116,7 +118,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
         activeIndex = activeIndex <= 0 ? filtered.length - 1 : activeIndex - 1
         ctx.ui.render()
       } else if (e.key === 'Enter') {
-        if (open && activeIndex >= 0 && filtered[activeIndex]) {
+        if ($.open && activeIndex >= 0 && filtered[activeIndex]) {
           e.preventDefault()
           pick(filtered[activeIndex])
         }
@@ -128,8 +130,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
 
     const dropdown = h('div', {
       class: 'wf-autocomplete-dropdown',
-      style: { top: pos.top + 'px', left: pos.left + 'px', width: (pos.width ?? 0) + 'px', display: open ? undefined : 'none' },
-    }, open ? filtered.map((opt, i) =>
+      style: { top: pos.top + 'px', left: pos.left + 'px', width: (pos.width ?? 0) + 'px', display: $.open ? undefined : 'none' },
+    }, $.open ? filtered.map((opt, i) =>
       h('div', {
         class: `wf-autocomplete-option${i === activeIndex ? ' wf-autocomplete-option--active' : ''}`,
         key: opt.value,
@@ -148,7 +150,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
         disabled,
         onInput,
         onKeyDown,
-        onFocus: () => { if (!open) setOpen(true) },
+        onFocus: () => { if (!$.open) setOpen(true) },
       }),
       dropdown,
     ])

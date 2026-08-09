@@ -284,7 +284,13 @@ export function patchProps(el: Element, oldProps: any, newProps: any) {
         const st = (el as HTMLElement).style
         for (const sk of Object.keys(newVal)) {
           const sv = newVal[sk]
-          if (sv != null) (st as any)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+          if (sv == null) {
+            // 新 style 中 undefined/null 的 key 必须移除旧值（否则残留——
+            // AutoComplete 下拉 display: undefined 残留 none 的根因）
+            ;(st as any)[sk] = ''
+          } else {
+            ;(st as any)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+          }
         }
       } else if (key.startsWith('on') && typeof newVal === 'function') {
         const eventName = key.slice(2).toLowerCase()

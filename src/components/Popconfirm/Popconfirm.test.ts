@@ -78,20 +78,16 @@ describe('Popconfirm', () => {
     assert.match(ok.props.class, /danger/, 'danger 透传确认按钮')
   })
 
-  test('打开后：确认回调 + 关闭', () => {
+  test('打开后：确认回调 + 受控关闭通知', () => {
     let confirmed = 0
-    let show = false
+    let closed = 0
     const ctx = mockCtx()
     const inst = mount(Popconfirm, { title: 'x', onConfirm: () => confirmed++, children: 't' }, ctx)
-    // 打开（受控 open 桥）
-    let vnode = inst.render({ title: 'x', onConfirm: () => confirmed++, children: 't', open: true })
+    let vnode = inst.render({ title: 'x', onConfirm: () => confirmed++, children: 't', open: true, onOpenChange: () => { closed++ } })
     const ok = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-popconfirm-ok'))
     ok.props.onClick({ stopPropagation: () => {} })
     assert.equal(confirmed, 1, '确认回调触发')
-    // 气泡关闭（确认后 setOpen(false)）
-    const bubble = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-popconfirm'))
-    assert.match(bubble.props?.class, /--exit/, '确认后气泡退场')
-    void show
+    assert.equal(closed, 1, '受控模式通知 onOpenChange(false)')
   })
 
   test('取消回调 + 关闭', () => {
