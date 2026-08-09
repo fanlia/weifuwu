@@ -51,4 +51,5 @@
 
 .wf-textarea--err .wf-textarea {
   border-color: var(--wf-color-error);
+  box-shadow: 0 0 0 2px var(--wf-color-error-bg);
 }

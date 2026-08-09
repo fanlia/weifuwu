@@ -19,7 +19,7 @@
   box-shadow: 0 0 0 2px var(--wf-color-primary-bg);
 }
 
-.wf-tags--err { border-color: var(--wf-color-error-text); }
+.wf-tags--err { border-color: var(--wf-color-error); box-shadow: 0 0 0 2px var(--wf-color-error-bg); }
 .wf-tags--disabled { opacity: 0.6; cursor: not-allowed; }
 
 .wf-tags-tag {

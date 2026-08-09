@@ -37,6 +37,7 @@
 
 .wf-select--err .wf-select {
   border-color: var(--wf-color-error);
+  box-shadow: 0 0 0 2px var(--wf-color-error-bg);
 }
 
 /* ── searchable select ── */
@@ -68,6 +69,7 @@
 }
 .wf-select--err .wf-select-search-trigger {
   border-color: var(--wf-color-error);
+  box-shadow: 0 0 0 2px var(--wf-color-error-bg);
 }
 
 .wf-select-search-input {

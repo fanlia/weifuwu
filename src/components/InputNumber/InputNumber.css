@@ -23,7 +23,7 @@
   box-shadow: 0 0 0 2px var(--wf-color-primary-bg);
 }
 
-.wf-inputnumber--err { border-color: var(--wf-color-error-text); }
+.wf-inputnumber--err { border-color: var(--wf-color-error); box-shadow: 0 0 0 2px var(--wf-color-error-bg); }
 .wf-inputnumber--disabled { opacity: 0.6; }
 
 .wf-inputnumber-input {
