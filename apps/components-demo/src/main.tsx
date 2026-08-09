@@ -1798,6 +1798,7 @@ return () => <AiChat chat={$} />
 const App: Component = (_props, ctx) => {
   return (_p: any) => {
     const cur = (ctx as any)?.i18n?.locale ?? 'zh-CN'
+    const isEn = cur.startsWith('en')
     return (
     <div class="wf-container wf-stack" style="--wf-max:960px;--wf-gap:32px">
       <div class="wf-text-center wf-py-xl">
@@ -1805,10 +1806,12 @@ const App: Component = (_props, ctx) => {
         <div style="position:absolute;top:16px;right:16px;display:flex;gap:8px;align-items:center">
           <ThemeSwitch />
           <Button size="sm" variant={cur.startsWith('zh') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('zh-CN')}>中文</Button>
-          <Button size="sm" variant={cur.startsWith('en') ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('en')}>EN</Button>
+          <Button size="sm" variant={isEn ? 'primary' : 'ghost'} onClick={() => (ctx as any)?.i18n?.setLocale?.('en')}>EN</Button>
         </div>
         <h1 class="wf-text-4xl wf-mb-sm wf-m-0">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
-        <p class="wf-text-secondary">{(ctx as any)?.i18n?.t?.('app.desc') ?? '61 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用'}</p>
+        <p class="wf-text-secondary">{isEn
+          ? '91 HTML primitive components · pure (props, ctx) → VNode · drop-in'
+          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '91 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-row wf-gap-md wf-mt-md" style="justify-content:center">
           <Badge variant="primary">61 组件</Badge>
           <Badge variant="success">466 测试</Badge>
@@ -1932,7 +1935,9 @@ const App: Component = (_props, ctx) => {
       </Section>
 
       <div class="wf-text-center wf-py-xl wf-text-tertiary wf-text-sm">
-        {(ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 91 个组件 · 打开 devtools 查看代码'}
+        {isEn
+          ? 'weifuwu/components · all 91 components · open devtools for code'
+          : ((ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 91 个组件 · 打开 devtools 查看代码')}
       </div>
     </div>
     )

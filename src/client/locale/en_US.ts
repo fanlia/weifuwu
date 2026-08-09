@@ -15,9 +15,9 @@ export const enUS = {
     ProgressBar: { ariaLabel: 'Progress' },
     Switch: { ariaLabel: 'Toggle' },
     Breadcrumb: { ariaLabel: 'Breadcrumb' },
-    Modal: { ariaLabel: 'Dialog' },
+    Modal: { ariaLabel: 'Dialog', closeAria: 'Close' },
     Confirm: { confirmText: 'OK', cancelText: 'Cancel' },
-    Drawer: { ariaLabel: 'Panel' },
+    Drawer: { ariaLabel: 'Panel', closeAria: 'Close' },
     DatePicker: {
       w0: 'Su', w1: 'Mo', w2: 'Tu', w3: 'We', w4: 'Th', w5: 'Fr', w6: 'Sa',
       hour: 'Hour',

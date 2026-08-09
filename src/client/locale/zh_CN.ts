@@ -15,9 +15,9 @@ export const zhCN = {
     ProgressBar: { ariaLabel: '进度' },
     Switch: { ariaLabel: '切换' },
     Breadcrumb: { ariaLabel: '面包屑' },
-    Modal: { ariaLabel: '弹窗' },
+    Modal: { ariaLabel: '弹窗', closeAria: '关闭' },
     Confirm: { confirmText: '确定', cancelText: '取消' },
-    Drawer: { ariaLabel: '侧边面板' },
+    Drawer: { ariaLabel: '侧边面板', closeAria: '关闭' },
     DatePicker: {
       w0: '日', w1: '一', w2: '二', w3: '三', w4: '四', w5: '五', w6: '六',
       hour: '时',
