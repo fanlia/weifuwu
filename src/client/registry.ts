@@ -1,24 +1,54 @@
 /**
  * weifuwu/client 注册表 — 组件实例 ID 注册 + async 工厂缓存 + ref 清理
  *
- * 从 render.ts 拆出（P2 结构拆分）：本文件无内部依赖（仅 vnode/types），
- * render/diff/hydration/app 各模块共享同一实例状态。
- * ⚠️ 模块状态共享约束：本文件必须保持单实例（dist 消费端由 build.mjs 外部化保证）。
+ * 双形态：
+ *   1. 模块级单例（createApp 默认路径——dist 消费端由 build.mjs 外部化保证）
+ *   2. createRegistryState() 工厂（UIRouter 等独立运行时注入 ctx.__registry——
+ *      局部状态隔离，不与 createApp 的 idRegistry 交叉命中）
+ *
+ * render/diff/hydration/ui 统一用 getRegistry(ctx) 取注入实例，无注入回退模块级。
  */
 
 import type { VNode, Component, AsyncComponent } from './vnode.ts'
 import { isAsyncComponent } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 
-// ── 组件实例 ID 注册表 ────────────────────────────
+// ── 注册表状态（可实例化） ─────────────────────────
 
-let _idCounter = 0
-export const idRegistry = new Map<string, VNode>()
-
-// ── 卸载钩子（P3：app 层注册清理 media/popup 注册表） ──
+export interface RegistryState {
+  idCounter: number
+  idRegistry: Map<string, VNode>
+  unmountHooks: UnmountHook[]
+  asyncFactoryCache: WeakMap<AsyncComponent<any, any>, FactoryEntry>
+}
 
 type UnmountHook = (id: string) => void
-let _unmountHooks: UnmountHook[] = []
+
+interface FactoryEntry {
+  promise: Promise<Component<any, any>>
+  resolved?: Component<any, any>
+}
+
+/** 创建局部注册表状态（UIRouter 等独立运行时用） */
+export function createRegistryState(): RegistryState {
+  return {
+    idCounter: 0,
+    idRegistry: new Map(),
+    unmountHooks: [],
+    asyncFactoryCache: new WeakMap(),
+  }
+}
+
+/** 从 ctx 取注入的注册表；无注入回退模块级单例（createApp 兼容） */
+export function getRegistry(ctx: any): RegistryState {
+  return ctx?.__registry ?? globalState
+}
+
+// ── 模块级单例（createApp 路径——保持现有导出兼容） ──
+
+const globalState = createRegistryState()
+
+export const idRegistry = globalState.idRegistry
 
 /**
  * 注册组件卸载钩子（组件从 idRegistry 注销时触发，含 _customId）。
@@ -28,25 +58,22 @@ let _unmountHooks: UnmountHook[] = []
  * app 生命周期级钩子（app.mount 注册的 media/popup/scroll 清理）不退订（随 app 消亡）。
  */
 export function onComponentUnmount(hook: UnmountHook): () => void {
-  _unmountHooks.push(hook)
+  return onComponentUnmountFor(globalState, hook)
+}
+
+/** 指定 registry 实例注册卸载钩子（UIRouter 隔离路径） */
+export function onComponentUnmountFor(state: RegistryState, hook: UnmountHook): () => void {
+  state.unmountHooks.push(hook)
   return () => {
-    const i = _unmountHooks.indexOf(hook)
-    if (i >= 0) _unmountHooks.splice(i, 1)
+    const i = state.unmountHooks.indexOf(hook)
+    if (i >= 0) state.unmountHooks.splice(i, 1)
   }
 }
 
 /** test-only：返回当前注册的卸载钩子数（回归护栏——验证组件级钩子自退订不累积） */
 export function __testHookCount(): number {
-  return _unmountHooks.length
+  return globalState.unmountHooks.length
 }
-
-// ── async 工厂缓存（同一工厂只执行一次，多实例/多渲染共享） ──
-
-interface FactoryEntry {
-  promise: Promise<Component<any, any>>
-  resolved?: Component<any, any>
-}
-let asyncFactoryCache = new WeakMap<AsyncComponent<any, any>, FactoryEntry>()
 
 /**
  * 清空 async 工厂缓存。
@@ -54,12 +81,13 @@ let asyncFactoryCache = new WeakMap<AsyncComponent<any, any>, FactoryEntry>()
  * 上下文变化后旧缓存定义的数据已失效，需要让工厂以新 ctx 重新执行。
  */
 export function clearAsyncComponentCache(): void {
-  asyncFactoryCache = new WeakMap()
+  globalState.asyncFactoryCache = new WeakMap()
 }
 
 /** 启动 async 工厂（幂等，缓存）：返回 entry，promise resolve 后 resolved 可用 */
 export function startAsyncFactory(Comp: AsyncComponent, ctx: WfuiContext): FactoryEntry {
-  const existing = asyncFactoryCache.get(Comp)
+  const state = getRegistry(ctx)
+  const existing = state.asyncFactoryCache.get(Comp)
   if (existing) return existing
 
   const entry: FactoryEntry = { promise: null as unknown as Promise<Component<any, any>> }
@@ -75,7 +103,7 @@ export function startAsyncFactory(Comp: AsyncComponent, ctx: WfuiContext): Facto
       entry.resolved = def as Component
       return def as Component
     })
-  asyncFactoryCache.set(Comp, entry)
+  state.asyncFactoryCache.set(Comp, entry)
   return entry
 }
 
@@ -85,8 +113,9 @@ export async function resolveAsyncFactory(Comp: AsyncComponent, ctx: WfuiContext
 }
 
 /** sync 模式：工厂已解析 → 定义；未解析 → undefined（占位 + 完成后整树重渲染） */
-export function resolveAsyncFactorySync(Comp: AsyncComponent): Component | undefined {
-  return asyncFactoryCache.get(Comp)?.resolved
+export function resolveAsyncFactorySync(Comp: AsyncComponent, ctx?: any): Component | undefined {
+  const state = ctx ? getRegistry(ctx) : globalState
+  return state.asyncFactoryCache.get(Comp)?.resolved
 }
 
 // ── ref 安全调用 ────────────────────────────────
@@ -115,21 +144,21 @@ export function safeCallRef(
 
 // ── ref 清理 ────────────────────────────────────
 
-/** 递归清理 Portal 子内容的 ref */
-function cleanupPortalChildren(vnode: VNode) {
+/** 递归清理 Portal 子内容的 ref（指定 registry） */
+function cleanupPortalChildren(vnode: VNode, state: RegistryState) {
   const child = vnode._child
   if (child == null) return
   if (Array.isArray(child)) {
     for (const c of child) {
-      if (c && typeof c === 'object') callRefCleanup(c as VNode)
+      if (c && typeof c === 'object') callRefCleanupFor(c as VNode, state)
     }
   } else if (typeof child === 'object') {
-    callRefCleanup(child as VNode)
+    callRefCleanupFor(child as VNode, state)
   }
 }
 
-/** 通知 ref 清理 + Portal 子容器清理 */
-export function callRefCleanup(input: any) {
+/** 通知 ref 清理 + Portal 子容器清理（指定 registry 实例） */
+export function callRefCleanupFor(input: any, state: RegistryState): void {
   if (input == null || typeof input !== 'object') return
   const vnode = input as VNode
 
@@ -137,12 +166,12 @@ export function callRefCleanup(input: any) {
   // 防止卸载后残留的异步回调（setTimeout/Promise/WS 消息等）通过
   // ctx.ui.dirty()/render() 触发死组件重渲染，把 DOM 重新插回当前页面
   if (vnode._id) {
-    if (vnode._customId) idRegistry.delete(vnode._customId)
-    idRegistry.delete(vnode._id)
+    if (vnode._customId) state.idRegistry.delete(vnode._customId)
+    state.idRegistry.delete(vnode._id)
     // 卸载通知（app 层借此清理 media/popup 注册表条目）
     // 快照遍历——钩子内可能自退订（splice 修改数组），防迭代错位
-    if (_unmountHooks.length > 0) {
-      const hooks = [..._unmountHooks]
+    if (state.unmountHooks.length > 0) {
+      const hooks = [...state.unmountHooks]
       for (const h of hooks) h(vnode._id)
       if (vnode._customId) for (const h of hooks) h(vnode._customId)
     }
@@ -157,10 +186,10 @@ export function callRefCleanup(input: any) {
   if (vnode._child != null) {
     if (Array.isArray(vnode._child)) {
       for (const child of vnode._child) {
-        if (child && typeof child === 'object') callRefCleanup(child as VNode)
+        if (child && typeof child === 'object') callRefCleanupFor(child as VNode, state)
       }
     } else {
-      callRefCleanup(vnode._child as VNode)
+      callRefCleanupFor(vnode._child as VNode, state)
     }
     vnode._child = undefined
   }
@@ -168,7 +197,7 @@ export function callRefCleanup(input: any) {
   if (vnode.props?.children && typeof vnode.type === 'string') {
     const children = Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children]
     for (const child of children) {
-      if (child && typeof child === 'object') callRefCleanup(child as VNode)
+      if (child && typeof child === 'object') callRefCleanupFor(child as VNode, state)
     }
   }
   // 执行 ref 清理（safeCallRef 防用户逻辑抛错中断递归）
@@ -176,13 +205,23 @@ export function callRefCleanup(input: any) {
 
   // Portal 子容器移除 + 子内容 ref 清理
   if (vnode._remoteEl) {
-    cleanupPortalChildren(vnode)
+    cleanupPortalChildren(vnode, state)
     vnode._remoteEl.remove()
     vnode._remoteEl = undefined
   }
 }
 
-/** 供 hydration/mount 路径生成新组件 ID（保持与 idRegistry 同源递增） */
+/** 通知 ref 清理（模块级默认路径——createApp 兼容） */
+export function callRefCleanup(input: any): void {
+  callRefCleanupFor(input, globalState)
+}
+
+/** 供 hydration/mount 路径生成新组件 ID（模块级默认——createApp 兼容） */
 export function nextComponentId(): string {
-  return `_wf_${_idCounter++}`
+  return `_wf_${globalState.idCounter++}`
+}
+
+/** 供 hydration/mount 路径生成新组件 ID（指定 registry 实例） */
+export function nextComponentIdFor(state: RegistryState): string {
+  return `_wf_${state.idCounter++}`
 }
