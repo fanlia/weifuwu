@@ -10,7 +10,8 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 }
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true },
+    browser: { copyText: async (t: string) => { (globalThis as any).__copied = t; return true } } } as any
 }
 
 describe('CodeBlock', () => {
@@ -39,13 +40,11 @@ describe('CodeBlock', () => {
     assert.equal(btn.props['aria-label'], '复制')
   })
 
-  it('点击复制 → 调 clipboard + 反馈图标', async () => {
+  it('点击复制 → 调 ctx.browser.copyText + 反馈图标', async () => {
     let copied = ''
-    Object.defineProperty(globalThis, 'navigator', {
-      value: { clipboard: { writeText: (t: string) => { copied = t; return Promise.resolve() } } },
-      configurable: true, writable: true,
-    })
-    const vnode = renderVNode(CodeBlock, { code: 'const a = 1' }, mockCtx())!
+    const ctx = { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true },
+      browser: { copyText: async (t: string) => { copied = t; return true } } } as any
+    const vnode = renderVNode(CodeBlock, { code: 'const a = 1' }, ctx)!
     const btn = vnode.props.children[0].props.children.find((c: any) => c?.props?.type === 'button')
     await btn.props.onClick()
     assert.equal(copied, 'const a = 1')

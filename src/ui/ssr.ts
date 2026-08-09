@@ -119,8 +119,27 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
       approve: async () => {}, dispose: () => {},
     }),
   }
+  // 浏览器环境抽象 SSR 安全默认（组件经 ctx.browser 不直接碰 window/document）
+  const browser = {
+    activeElement: () => null,
+    byId: () => null,
+    query: () => null,
+    createElement: () => null,
+    bodyAppend: () => {},
+    bodyRemove: () => {},
+    copyText: async () => false,
+    execCommand: () => false,
+    selectionText: () => null,
+    viewportHeight: () => 0,
+    scrollTop: () => 0,
+    hash: () => '',
+    setHash: () => {},
+    timeout: () => 0,
+    rootElement: () => null,
+  }
   const ctx = Object.create(serverCtx ?? {}) as any
   ctx.ui = ui
+  ctx.browser = browser
   ctx.data = {
     async get<T = any>(key: string, fetcher?: () => Promise<T>): Promise<T> {
       if (dataStore.has(key)) return dataStore.get(key) as T

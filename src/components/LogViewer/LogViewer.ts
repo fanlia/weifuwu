@@ -79,18 +79,8 @@ export const LogViewer: Component<LogViewerProps> = (_init, ctx) => {
   }
 
   const copyLines = async (lines: string[]) => {
-    const text = lines.join('\n')
-    if (navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text)
-    } else {
-      // 降级：execCommand（clipboard API 不可用环境）
-      const ta = document.createElement('textarea')
-      ta.value = text
-      document.body.appendChild(ta)
-      ta.select()
-      try { document.execCommand('copy') } catch { /* 忽略 */ }
-      document.body.removeChild(ta)
-    }
+    // 复制统一经 ctx.browser（clipboard + execCommand 降级）
+    await ctx.browser?.copyText(lines.join('\n'))
   }
 
   return (props: LogViewerProps) => {

@@ -43,12 +43,15 @@ describe('Anchor', () => {
     assert.equal(picked, '#usage')
   })
 
-  it('useHash 点击更新 location.hash', () => {
-    const render = mount(Anchor, { items, useHash: true }, mockCtx().ctx)!
+  it('useHash 点击经 ctx.browser.setHash 更新', () => {
+    let hashed = ''
+    const ctx = mockCtx().ctx as any
+    ctx.browser = { setHash: (h: string) => { hashed = h }, byId: () => null }
+    const render = mount(Anchor, { items, useHash: true }, ctx)!
     const v = render({ items, useHash: true })
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
     links[2].props.onClick({ preventDefault: () => {} })
-    assert.equal(window.location.hash, '#api')
+    assert.equal(hashed, '#api')
   })
 
   it('activeKey 高亮类 + aria-current', () => {

@@ -23,27 +23,11 @@ export const CodeBlock: Component<CodeBlockProps> = (_init, ctx) => {
   let latestCode = ''
 
   const copy = async () => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(latestCode)
-      } else {
-        // 降级：execCommand（clipboard API 不可用环境）
-        const ta = document.createElement('textarea')
-        ta.value = latestCode
-        ta.style.position = 'fixed'
-        ta.style.opacity = '0'
-        document.body.appendChild(ta)
-        ta.select()
-        document.execCommand('copy')
-        ta.remove()
-      }
-      copied = true
-      ctx.ui.render()
-      clearTimeout(timer)
-      timer = setTimeout(() => { copied = false; ctx.ui.render() }, 1600)
-    } catch {
-      /* 复制失败静默（剪贴板权限拒绝等） */
-    }
+    await ctx.browser?.copyText(latestCode)
+    copied = true
+    ctx.ui.render()
+    clearTimeout(timer)
+    timer = setTimeout(() => { copied = false; ctx.ui.render() }, 1600)
   }
 
   return (props: CodeBlockProps) => {

@@ -44,15 +44,8 @@ export const CopyButton: Component<CopyButtonProps> = (_init, ctx) => {
     } = props
 
     const doCopy = async () => {
-      try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(value)
-        } else {
-          fallbackCopy(value)
-        }
-      } catch {
-        fallbackCopy(value)
-      }
+      // 经 ctx.browser 统一复制（clipboard + execCommand 降级）——组件不直接碰 window/document
+      await ctx.browser?.copyText(value)
       copied = true
       onCopied?.()
       ctx.ui.render()

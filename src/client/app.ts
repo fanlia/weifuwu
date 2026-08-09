@@ -19,6 +19,7 @@ import type { WfuiContext, AppMiddleware, PopupPositionOptions, PopupPosition } 
 import { render, patchPortal, renderPortal } from './render.ts'
 import { hydrateVNode } from './hydration.ts'
 import { createUi } from './ui.ts'
+import { createClientBrowser } from './browser.ts'
 import { patchValue } from './diff.ts'
 import { callRefCleanup, idRegistry, onComponentUnmount } from './registry.ts'
 import type { VNode, Component } from './vnode.ts'
@@ -274,6 +275,7 @@ export function createApp<C extends object = {}>(): App<C> {
       })
 
       // ── 注入 ctx.ui（工厂方法在 ui.ts，app 注入闭包依赖） ──
+      ;(ctx as any).browser = createClientBrowser()
       ;(ctx as any).ui = createUi({
         ctx,
         renderByIds,

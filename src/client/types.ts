@@ -171,8 +171,47 @@ export interface UseScrollPositionHandle {
 }
 
 /** 应用上下文 */
+/**
+ * 浏览器环境抽象（ctx.browser）——组件不直接引用 window/document：
+ * ① SSR 安全（shim 返回安全默认）② 测试可 mock（jsdom 无关）③ 复制等
+ * 重复模式统一。客户端由 createClientBrowser 实现，SSR 由 createSsrContext 注入。
+ */
+export interface BrowserEnv {
+  /** 当前焦点元素（键盘导航） */
+  activeElement(): HTMLElement | null
+  /** 按 id 查询元素 */
+  byId(id: string): HTMLElement | null
+  /** CSS 选择器查询元素 */
+  query(sel: string): HTMLElement | null
+  /** 创建元素 */
+  createElement<K extends keyof HTMLElementTagNameMap>(tag: K): HTMLElementTagNameMap[K] | null
+  /** body 追加/移除 */
+  bodyAppend(el: Node): void
+  bodyRemove(el: Node): void
+  /** 复制文本（clipboard API + execCommand 降级，统一组件重复实现） */
+  copyText(text: string): Promise<boolean>
+  /** execCommand（富文本编辑器） */
+  execCommand(cmd: string, value?: string): boolean
+  /** 编辑器选区文本 */
+  selectionText(): string | null
+  /** 视口高度 */
+  viewportHeight(): number
+  /** 滚动量（scrollingElement 优先） */
+  scrollTop(): number
+  /** location.hash */
+  hash(): string
+  setHash(h: string): void
+  /** 定时器（SSR no-op） */
+  timeout(fn: () => void, ms: number): number
+  /** document.documentElement（主题应用） */
+  rootElement(): HTMLElement | null
+}
+
 export interface WfuiContext {
   [key: string]: unknown
+
+  /** 浏览器环境抽象（SSR shim 安全默认）——组件禁直接 window/document */
+  browser?: BrowserEnv
 
   /** UI 框架能力（由 createApp.mount 注入） */
   ui: {

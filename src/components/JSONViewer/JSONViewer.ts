@@ -54,28 +54,10 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
 
   // 复制：clipboard API + execCommand 降级（非 secure context 下 clipboard 不可用——
   // 无降级会静默失败，用户以为按钮无效）
-  const copyText = (text: string) => {
-    if (navigator?.clipboard?.writeText) {
-      return navigator.clipboard.writeText(text).then(() => true).catch(() => fallbackCopy(text))
-    }
-    return Promise.resolve(fallbackCopy(text))
-  }
-  const fallbackCopy = (text: string): boolean => {
-    try {
-      const ta = document.createElement('textarea')
-      ta.value = text
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      const ok = document.execCommand('copy')
-      document.body.removeChild(ta)
-      return ok
-    } catch { return false }
-  }
+  // 复制统一经 ctx.browser（clipboard + execCommand 降级）——组件不直接碰 window/document
   const copyPath = (path: string, value: unknown, onCopy?: (p: string, v: unknown) => void) => {
     if (onCopy) { onCopy(path, value); return }
-    void copyText(`${path} = ${JSON.stringify(value)}`)
+    void ctx.browser?.copyText(`${path} = ${JSON.stringify(value)}`)
   }
 
   return (props: JSONViewerProps) => {
@@ -93,7 +75,7 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
       const oldD = pathEl?.getAttribute('d')
       if (pathEl && oldD) {
         pathEl.setAttribute('d', 'M20 6 9 17l-5-5') // check
-        window.setTimeout(() => pathEl.setAttribute('d', oldD), 1000)
+        ctx.browser?.timeout(() => pathEl.setAttribute('d', oldD), 1000)
       }
     }
 

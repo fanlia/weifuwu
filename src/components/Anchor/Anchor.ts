@@ -45,7 +45,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
   const computeActive = (items: AnchorItem[], threshold: number): string | undefined => {
     let active: string | undefined
     for (const it of items) {
-      const el = it.href.startsWith('#') ? document.getElementById(it.href.slice(1)) : null
+      const el = it.href.startsWith('#') ? ctx.browser?.byId(it.href.slice(1)) ?? null : null
       if (!el) continue
       if (el.getBoundingClientRect().top <= threshold) active = it.href
     }
@@ -86,10 +86,10 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
 
     const handleClick = (href: string) => (e: Event) => {
       e.preventDefault()
-      if (useHash) window.location.hash = href
+      if (useHash) ctx.browser?.setHash(href)
       onAnchorChange?.(href)
       if (!useHash && activeKey === undefined) internalActive = href
-      const el = href.startsWith('#') ? document.getElementById(href.slice(1)) : null
+      const el = href.startsWith('#') ? ctx.browser?.byId(href.slice(1)) ?? null : null
       if (el && typeof (el as any).scrollIntoView === 'function') {
         (el as any).scrollIntoView({ behavior: 'smooth', block: 'start' })
       }

@@ -11,8 +11,9 @@ function mount(Comp: any, props: any, ctx: any) {
   return typeof result === 'function' ? result : null
 }
 
-function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+function mockCtx(opts: { copyText?: (t: string) => Promise<boolean> } = {}): WfuiContext {
+  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true },
+    browser: { copyText: opts.copyText ?? (async (t: string) => { (globalThis as any).__copied = t; return true }) } } as any
 }
 
 describe('CopyButton', () => {
@@ -45,11 +46,13 @@ describe('CopyButton', () => {
     assert.equal(icon.props.name, 'copy')
   })
 
-  it('copies value via navigator.clipboard on click', async () => {
-    const render = mount(CopyButton, { value: '你好世界' }, mockCtx())!
+  it('copies value via ctx.browser.copyText on click', async () => {
+    let copiedText: string | null = null
+    const ctx = mockCtx({ copyText: async (t: string) => { copiedText = t; return true } })
+    const render = mount(CopyButton, { value: '你好世界' }, ctx)!
     const vnode = render({ value: '你好世界' })
     await vnode.props.onClick()
-    assert.equal(written, '你好世界')
+    assert.equal(copiedText, '你好世界')
   })
 
   it('calls onCopied after success', async () => {
@@ -57,20 +60,6 @@ describe('CopyButton', () => {
     const render = mount(CopyButton, { value: 'x' }, mockCtx())!
     await render({ value: 'x', onCopied: () => { copied = true } }).props.onClick()
     assert.equal(copied, true)
-  })
-
-  it('falls back to execCommand when clipboard rejects', async () => {
-    setNavigator({ clipboard: { writeText: async () => { throw new Error('denied') } } })
-    const render = mount(CopyButton, { value: 'fallback' }, mockCtx())!
-    await render({ value: 'fallback' }).props.onClick()
-    assert.equal(execCalled, true)
-  })
-
-  it('uses execCommand when clipboard unavailable', async () => {
-    setNavigator({})
-    const render = mount(CopyButton, { value: 'no-clip' }, mockCtx())!
-    await render({ value: 'no-clip' }).props.onClick()
-    assert.equal(execCalled, true)
   })
 
   it('shows success feedback after copy (check icon)', async () => {
