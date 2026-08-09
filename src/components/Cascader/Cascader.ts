@@ -152,6 +152,8 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
       type: 'button',
       class: `wf-cascader-trigger${disabled ? ' wf-cascader-trigger--dis' : ''}${error ? ' wf-cascader-trigger--err' : ''}`,
       'aria-label': ariaLabel,
+      'aria-haspopup': 'listbox',
+      'aria-expanded': String($.open),
       ref: triggerRef,
       onClick: disabled ? undefined : toggleOpen,
     }, [

@@ -51,6 +51,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
     return h('div', {
       class: 'wf-tooltip-wrap',
       ref: wrapRef,
+      'aria-haspopup': 'tooltip',
       ...popup.wrapProps,
     }, [children, popup.portal(tip, 'tooltip')].filter(Boolean))
   }

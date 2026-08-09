@@ -64,6 +64,8 @@ export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
     return h('div', {
       class: 'wf-hover-card-wrap',
       ref: wrapRef,
+      'aria-haspopup': 'dialog',
+      'aria-expanded': String(!!openCtrl?.open),
       ...popup.wrapProps,
     }, [children, popup.portal(card, 'popover')].filter(Boolean))
   }

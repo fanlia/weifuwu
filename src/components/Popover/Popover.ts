@@ -62,6 +62,8 @@ export const Popover: Component<PopoverProps> = (_init, ctx) => {
     return h('div', {
       class: `wf-popover-wrap${openCtrl?.open ? ' wf-popover-wrap--open' : ''}`,
       ref: wrapRef,
+      'aria-haspopup': 'dialog',
+      'aria-expanded': String(!!openCtrl?.open),
       ...popup.wrapProps,
     }, [children, popup.portal(popover, 'popover')].filter(Boolean))
   }

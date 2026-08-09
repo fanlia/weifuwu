@@ -134,6 +134,8 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
         class: `wf-treeselect-trigger${open ? ' wf-treeselect-trigger--open' : ''}`,
         role: 'combobox',
         tabindex: 0,
+        'aria-haspopup': 'listbox',
+        'aria-expanded': String(open),
         ref: triggerRef,
         onClick: toggle,
         onKeyDown: (e: KeyboardEvent) => {

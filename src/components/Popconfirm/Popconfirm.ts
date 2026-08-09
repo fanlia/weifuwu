@@ -103,7 +103,7 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: WfuiContext) 
       ]),
     ])
 
-    return h('span', { class: 'wf-popconfirm-wrap', ref: wrapRef, ...popup.wrapProps }, [
+    return h('span', { class: 'wf-popconfirm-wrap', ref: wrapRef, 'aria-haspopup': 'dialog', 'aria-expanded': String(isOpen), ...popup.wrapProps }, [
       props.children,
       popup.portal(bubble, 'wf-popconfirm'),
     ].filter(x => x !== null && x !== undefined && x !== false))
