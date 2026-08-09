@@ -52,10 +52,7 @@
 }
 
 .wf-treeselect-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  /* position: fixed + top/left/width 由 JS（usePopupPosition）提供 */
   z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);

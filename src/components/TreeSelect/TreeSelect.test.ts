@@ -13,6 +13,7 @@ const mockCtx = () => ({
     $: () => ({}),
     render: () => {},
     dirty: () => {},
+    usePopupPosition: () => ({ top: 100, left: 200, width: 220, refresh: () => {} }),
   },
 }) as any
 

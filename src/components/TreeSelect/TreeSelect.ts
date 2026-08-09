@@ -1,6 +1,6 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import { h, createPortal } from '../../client/vnode.ts'
 import { Tree } from '../Tree/Tree.ts'
 import type { TreeNode } from '../Tree/Tree.ts'
 
@@ -31,15 +31,26 @@ export function findLabel(nodes: TreeNode[], key: string): string | undefined {
 
 /**
  * TreeSelect — 树形选择（Tree + 下拉组合）。
+ * 下拉经 createPortal + position:fixed（usePopupPosition 定位/跟随/夹紧）——
+ * 与 DatePicker 同模式：父容器 overflow/transform 不影响弹出层。
  * 单选 selectedKeys / 多选 checkable checkedKeys（父子联动）。
  * 受控纪律：value 受控无 onChange → warn。
  */
 export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
   let open = false
   let expanded: string[] = []
+  let triggerEl: HTMLElement | null = null
+
+  const popup = ctx.ui.usePopupPosition?.({
+    el: () => triggerEl,
+    isOpen: () => open,
+    compute: (r) => ({ top: r.bottom + 4, left: r.left, width: r.width }),
+  }) ?? { top: 0, left: 0, refresh: () => {} }
 
   const toggle = () => {
     open = !open
+    // 打开时立即定位（ref 已就绪）
+    if (open) popup.refresh()
     ctx.ui.render()
   }
 
@@ -54,6 +65,12 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
         : labels.join('、')
     }
     return findLabel(options, value) ?? ''
+  }
+
+  const triggerRef = (el: any) => {
+    triggerEl = el as HTMLElement | null
+    // 首次挂载后（含重渲染）若已打开 → 跟随定位
+    if (el && open) popup.refresh()
   }
 
   return (props) => {
@@ -95,11 +112,20 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
       },
     })
 
+    const dropdown = open ? createPortal(
+      h('div', {
+        class: 'wf-treeselect-dropdown',
+        style: { position: 'fixed', top: `${popup.top}px`, left: `${popup.left}px`, width: `${popup.width ?? 0}px` },
+      }, tree),
+      'treeselect',
+    ) : null
+
     return h('div', { class: `wf-treeselect${className ? ` ${className}` : ''}` }, [
       h('div', {
         class: `wf-treeselect-trigger${open ? ' wf-treeselect-trigger--open' : ''}`,
         role: 'combobox',
         tabindex: 0,
+        ref: triggerRef,
         onClick: toggle,
         onKeyDown: (e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -111,7 +137,7 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
         h('span', { class: label ? 'wf-treeselect-label' : 'wf-treeselect-placeholder' }, label || placeholder),
         h('span', { class: `wf-treeselect-arrow${open ? ' wf-treeselect-arrow--open' : ''}` }),
       ]),
-      open && h('div', { class: 'wf-treeselect-dropdown' }, tree),
+      dropdown,
     ].filter(Boolean))
   }
 }
