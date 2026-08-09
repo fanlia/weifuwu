@@ -302,6 +302,9 @@ export function flattenChildren(children: any): any[] {
 // ── setProp ────────────────────────────────────────────
 
 function setProp(el: Element, key: string, value: any) {
+  // ref 是特殊 prop：renderValue 中作为函数调用（ref(el)/ref(null)）——
+  // 不落 DOM 属性（否则 setAttribute('ref', String(fn)) 污染 DOM）
+  if (key === 'ref') return
   if (key === 'class' || key === 'className') {
     // SVG use setAttribute('class'), HTML use className property
     if (el instanceof SVGElement) el.setAttribute('class', String(value ?? ''))

@@ -40,12 +40,16 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
   let open = false
   let expanded: string[] = []
   let triggerEl: HTMLElement | null = null
+  let panelEl: HTMLElement | null = null
 
   const popup = ctx.ui.usePopupPosition?.({
     el: () => triggerEl,
     isOpen: () => open,
     compute: (r) => ({ top: r.bottom + 4, left: r.left, width: r.width }),
-  }) ?? { top: 0, left: 0, refresh: () => {} }
+    // 视口夹紧：dropdown 靠近右/下边缘时平移回视口内（防溢出不可点/点击穿透）
+    panel: () => panelEl,
+    margin: 4,
+  }) ?? { top: 0, left: 0, width: 0, refresh: () => {} }
 
   const toggle = () => {
     open = !open
@@ -118,6 +122,7 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
       h('div', {
         class: 'wf-treeselect-dropdown',
         style: { position: 'fixed', top: `${popup.top}px`, left: `${popup.left}px`, width: `${popup.width ?? 0}px` },
+        ref: (el: any) => { panelEl = el as HTMLElement | null },
       }, tree),
       'treeselect',
     ) : null
