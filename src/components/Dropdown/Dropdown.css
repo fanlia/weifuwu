@@ -13,6 +13,8 @@
   box-shadow: var(--wf-shadow-md);
   z-index: var(--wf-z-dropdown);
   padding: var(--wf-space-xs) 0;
+
+  transform: translateX(-50%);
 }
 
 .wf-dropdown--open {

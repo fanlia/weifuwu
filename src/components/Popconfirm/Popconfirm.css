@@ -19,6 +19,11 @@
   font-size: var(--wf-font-size-sm, 13px);
 }
 
+.wf-popconfirm--bottom { transform: translateX(-50%); }
+.wf-popconfirm--top { transform: translateX(-50%) translateY(-100%); }
+.wf-popconfirm--left { transform: translateY(-50%) translateX(-100%); }
+.wf-popconfirm--right { transform: translateY(-50%); }
+
 .wf-popconfirm--enter {
   animation: wf-popconfirm-in var(--wf-dur-md, 0.2s) var(--wf-ease-standard, ease);
 }
