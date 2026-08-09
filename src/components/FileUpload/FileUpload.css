@@ -102,25 +102,65 @@
   flex-shrink: 0;
 }
 
-.wf-upload-item-remove {
-  border: none;
-  background: transparent;
-  color: var(--wf-color-text-tertiary);
-  cursor: pointer;
-  padding: 2px 4px;
-  font-size: 12px;
-  line-height: 1;
-  border-radius: var(--wf-radius-sm);
-  flex-shrink: 0;
-}
-
-.wf-upload-item-remove:hover {
-  color: var(--wf-color-error-text);
-  background: var(--wf-color-error-bg);
-}
-
 .wf-upload-err {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-error-text);
+}
+
+/* ── 第六批增强：缩略图 / 进度条 ────────────────────────── */
+
+.wf-upload-item {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg-secondary);
+}
+
+.wf-upload-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: var(--wf-radius-sm);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  flex-shrink: 0;
+  background: var(--wf-color-bg);
+}
+
+.wf-upload-item-remove {
+  margin-left: auto;
+  width: 24px; height: 24px;
+  min-width: 24px; max-width: 24px;
+  min-height: 24px; max-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: var(--wf-radius-sm);
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  line-height: 0; padding: 0; flex-shrink: 0;
+}
+
+.wf-upload-item-remove:hover {
+  background: var(--wf-color-error-bg);
+  color: var(--wf-color-error-text);
+}
+
+.wf-upload-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--wf-color-bg-tertiary);
+  overflow: hidden;
+  margin-top: var(--wf-space-sm);
+}
+
+.wf-upload-progress-fill {
+  height: 100%;
+  background: var(--wf-color-primary);
+  border-radius: 2px;
+  transition: width var(--wf-dur-fast) var(--wf-ease-out);
 }

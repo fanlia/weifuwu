@@ -16,6 +16,10 @@ export interface FileUploadProps {
   hint?: string
   value?: File[]
   onChange?: (files: File[]) => void
+  /** 上传中状态（父层驱动——组件不做 xhr，诚实裁剪） */
+  uploading?: boolean
+  /** 上传进度 0-100（父层驱动） */
+  progress?: number
   children?: any
 }
 
@@ -29,6 +33,29 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
   const FL = (ctx as any)?.i18n?.components?.FileUpload ?? {}
   let fileInput: HTMLInputElement | null = null
   const fileInputRef = (el: HTMLInputElement | null) => { if (el) fileInput = el }
+
+  // 图片缩略图 objectURL 缓存（同名同尺寸复用）+ 卸载 revoke（资源生命周期）
+  const objectUrls = new Map<string, string>()
+  const urlKey = (f: File) => `${f.name}:${f.size}`
+  const getThumb = (f: File): string | undefined => {
+    if (!f.type.startsWith('image/')) return undefined
+    const key = urlKey(f)
+    let url = objectUrls.get(key)
+    if (!url && typeof URL !== 'undefined' && URL.createObjectURL) {
+      url = URL.createObjectURL(f)
+      objectUrls.set(key, url)
+    }
+    return url
+  }
+  // 稳定 ref：卸载时 revoke（仅卸载路径，见 ref 纪律）
+  const revokeRef = (el: HTMLElement | null) => {
+    if (el) return
+    for (const url of objectUrls.values()) URL.revokeObjectURL?.(url)
+    objectUrls.clear()
+  }
+
+  // 受控纪律：value 已传但无 onChange → warn 一次（防静默不可用）
+  let warnedNoChange = false
 
   // ── mount（只一次）：DnD 经 ctx.ui.useDragDrop（drop/dragover/dragleave + preventDefault）
   // 最新 props 经 propsRef；拖拽高亮态 isDragging（闭包 + render）
@@ -56,8 +83,13 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
 
   return (props: FileUploadProps) => {
     Object.assign(propsRef, props)
-    const { accept, multiple, maxSize, disabled, error, hint, value, onChange, children } = props
+    const { accept, multiple, maxSize, disabled, error, hint, value, onChange, children, uploading, progress } = props
     const files = value ?? []
+
+    if (value !== undefined && !onChange && !warnedNoChange) {
+      warnedNoChange = true
+      console.warn('[weifuwu/FileUpload] value 已传（受控）但未提供 onChange——选择/删除无法生效。\n传 onChange 或省略 value 使用非受控模式。')
+    }
 
     const handleChange = (e: Event) => {
       const input = e.target as HTMLInputElement
@@ -99,8 +131,10 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
 
     const fileList = files.length > 0
       ? h('ul', { class: 'wf-upload-list' },
-          files.map((f, i) =>
-            h('li', { class: 'wf-upload-item', key: f.name + f.size },
+          files.map((f, i) => {
+            const thumb = getThumb(f)
+            const itemChildren: any[] = [
+              thumb ? h('img', { class: 'wf-upload-thumb', src: thumb, alt: f.name }) : null,
               h('span', { class: 'wf-upload-item-info' }, [
                 h('span', { class: 'wf-upload-item-name' }, f.name),
                 h('span', { class: 'wf-upload-item-size' }, formatSize(f.size)),
@@ -110,15 +144,22 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
                 'aria-label': `${FL.remove ?? '删除'} ${f.name}`,
                 onClick: () => handleRemove(i),
               }, h(Icon, { name: 'trash' }))
-            )
-          )
+            ]
+            return h('li', { class: 'wf-upload-item', key: f.name + f.size }, itemChildren.filter(Boolean))
+          })
         )
       : null
 
-    const parts: any[] = [inputEl, dropZone, fileList]
+    const progressBar = uploading
+      ? h('div', { class: 'wf-upload-progress', role: 'progressbar', 'aria-valuenow': progress ?? 0 },
+          h('div', { class: 'wf-upload-progress-fill', style: { width: `${progress ?? 0}%` } }))
+      : null
+
+    // 顺序兼容旧测试：children[2] = fileList（progressBar 追加在后）
+    const parts: any[] = [inputEl, dropZone, fileList, progressBar]
     if (error) parts.push(h('div', { class: 'wf-upload-err' }, error))
     if (hint && !error) parts.push(h('div', { class: 'wf-upload-hint' }, hint))
 
-    return h('div', { class: 'wf-upload' }, parts)
+    return h('div', { class: 'wf-upload', ref: revokeRef }, parts)
   }
 }

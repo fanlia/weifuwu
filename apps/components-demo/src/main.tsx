@@ -811,14 +811,32 @@ const DemoDivider: Component = () => () => (
 
 const DemoFileUpload: Component = (_props, ctx) => {
   let files: File[] = []
+  let uploading = false
+  let progress = 0
+  // 模拟上传（父层驱动进度——组件不做 xhr，诚实裁剪）
+  const simulateUpload = () => {
+    if (files.length === 0) return
+    uploading = true; progress = 0; ctx.ui.render()
+    const timer = setInterval(() => {
+      progress += 20
+      if (progress >= 100) { clearInterval(timer); uploading = false }
+      ctx.ui.render()
+    }, 300)
+  }
   return (_p: any) => (
-    <div class="wf-w-full">
+    <div class="wf-w-full wf-stack wf-gap-sm">
       <FileUpload
         accept="image/*,.pdf"
         multiple
         maxSize={5 * 1024 * 1024}
         value={files}
+        uploading={uploading}
+        progress={progress}
         onChange={f => { files = f; ctx.ui.render() }} />
+      <div class="wf-row wf-gap-sm">
+        <Button variant="primary" size="sm" onClick={simulateUpload} disabled={!files.length}>模拟上传（进度）</Button>
+        <span class="wf-text-xs wf-text-secondary">选择图片文件可预览缩略图</span>
+      </div>
     </div>
   )
 }
