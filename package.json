@@ -27,7 +27,9 @@
   },
   "files": [
     "dist/",
-    "README.md"
+    "README.md",
+    "docs/",
+    "design/"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

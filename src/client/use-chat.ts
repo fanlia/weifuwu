@@ -4,7 +4,7 @@
  * 在 aiStream（传输解码）之上加一层「一段对话」的语义：
  * 消息累积、工具调用内嵌、HITL 审批、错误恢复、stop/retry/clear。
  *
- * - 协议透明：消费 wf: 事件（docs/ai-contract.md），页面不需要知道事件名
+ * - 协议透明：消费 wf: 事件（design/ai-contract.md），页面不需要知道事件名
  * - 状态即 $：useChat 返回组件同一个响应式 Proxy，赋值自动渲染
  * - 就地累积：token 经 state.messages[idx] 代理就地 append（O(1)/token，
  *   不重建数组；配合 key 稳定引用 → VDOM 只 patch 文本节点）

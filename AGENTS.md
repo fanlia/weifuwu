@@ -195,7 +195,7 @@ const Popover = (_init, ctx) => {
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
 | `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察**（IntersectionObserver 封装）— 替代组件自建 scroll 监听（Affix/BackTop/InView 统一使用）；`isIn` 响应式变化自动 dirty；rootMargin/threshold 支持函数动态读 props |
 | `ctx.ui.useScrollPosition()` | 注册监听 | 全局 scroll + rAF 节流 | 当前组件 | **滚动位置跟踪** — `y` 响应式（视口/内部容器通用）；scroll handler 无布局访问（无 scroll-linked 警告）；Affix（阈值固定）/ VirtualList（虚拟窗口）使用 |
-| `ctx.ui.useChat()` | 事件驱动 | 流式事件 → `$` 赋值 | 当前组件 | **AI 对话会话** — 消息累积/工具调用内嵌/HITL 审批/stop/retry（协议对页面透明，见 docs/ai-contract.md） |
+| `ctx.ui.useChat()` | 事件驱动 | 流式事件 → `$` 赋值 | 当前组件 | **AI 对话会话** — 消息累积/工具调用内嵌/HITL 审批/stop/retry（协议对页面透明，见 design/ai-contract.md） |
 
 `render()` 无参 = 当前组件，传参 = 指定组件列表。三个入口同一套 scope 机制。
 
@@ -537,7 +537,7 @@ weifuwu 的 DB 客户端（`src/db/redis/`、`src/db/postgres/`）与 schema 工
 ### 2. 诚实裁剪（可预测失败）
 - **不支持的能力明确抛 `ProtocolError('unsupported')`**，绝不静默降级或"尽量支持"
 - 已裁剪清单：逻辑复制/大对象/游标/二进制 COPY（PG）；集群/哨兵/自动管道（Redis）
-- 新增裁剪项：在 `docs/db-clients-plan.md` 裁剪声明中登记
+- 新增裁剪项：在 `design/db-clients-plan.md` 裁剪声明中登记
 
 ### 3. 协议语义优先（真实库验证过的坑，不可回归）
 - 错误响应是正常协议消息（`-ERR` → 连接保持，RespError 作为值）

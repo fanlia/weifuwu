@@ -1,7 +1,7 @@
 /**
  * weifuwu AI — OpenAI 兼容客户端（自研，零依赖）
  *
- * 协议（docs/ai-contract.md）的后端参考实现：把 provider 的
+ * 协议（design/ai-contract.md）的后端参考实现：把 provider 的
  * chat/completions 流归一化成 wf: 事件。
  *
  * - 零依赖：fetch + 自研 SSE 解析
