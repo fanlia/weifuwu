@@ -142,3 +142,36 @@ AiChat · Markdown · CodeBlock · MessageBubble · ToolCallCard · ApprovalCard
 
 - 全量实现 ≠ 全量完美：每个组件仍遵守零依赖、TDD、style-audit；L6 的 QRCode 是自研算法挑战，若 Reed-Solomon 成本失控，裁剪为"外部库接入示例"（在 CDD 闭环中登记决策）
 - 命名独立：不承诺 antd/EP/shadcn 的 prop 逐一对齐，只保证"同场景有对应组件 + 迁移指南给映射"
+
+## 第七批 client 启发（2026-08，6 组件暴露 5 个框架缺陷）
+
+> 第七批（DiffView/Sparkline/Tour/Kanban/Pipeline/TreeSelect）是 CDD 闭环的
+> 完整样本——组件编码暴露 client 缺陷 → 框架根治 → 全量验证。
+
+| # | 组件暴露 | 缺陷根因 | client 修复 | 沉淀 |
+|---|---------|---------|------------|------|
+| 1 | DiffView | `$` 深度 Proxy 包装 Set → `Set.prototype.has` this 不兼容（TypeError） | **内置类型（Set/Map/Date）不可存 `$`**——闭包 let + render() 手动模式 | AGENTS.md「`$` Proxy 行为」 |
+| 2 | Kanban | dragstart 里 render() → 渲染替换拖拽源元素 → HTML5 DnD 中断 | **拖拽进行中禁止重渲染**；高亮改 CSS :hover | AGENTS.md 拖拽纪律 |
+| 3 | Kanban | `draggable: true` → `setAttribute('draggable','')` → enumerated 属性空串 = false → `el.draggable=false` → 拖动变文本选中 | **enumerated 属性显式 'true'/'false'**（render.ts/diff.ts 分支） | draggable.test.ts 防线 |
+| 4 | Kanban | useDragDrop 只有 drop 侧（onDrop/onDragOver）——拖拽源侧手写 | **扩展 drag 侧**：`{ dropProps, dragProps }`（draggable + onDragStart/onDragEnd） | types/ui/ssr 三态 |
+| 5 | TreeSelect | absolute 定位弹层在 overflow/transform 父容器裁剪/错位 | **弹层统一 portal**（createPortal + fixed + usePopupPosition） | AGENTS.md「弹窗 portal 纪律」 |
+| 6 | TreeSelect | scroll 时序竞争：popup-tracker refresh 读到 0 rect → popup 覆盖为 0 → 弹层飞左上角 → 点击穿透关闭 | **0 rect 防护**：`r.width===0 && r.height===0` 跳过刷新（保留上一坐标） | popup-position.test.ts |
+| 7 | TreeSelect | setProp 无 ref 分支 → `setAttribute('ref', String(fn))` DOM 污染 | **ref 特殊 prop 跳过**（renderValue 函数调用） | 调试方法论记录 |
+| 8 | Tour | overlay onKeyDown 需焦点在内部 → Escape 不生效 | **全局 Escape 用 useGlobalKey**（不依赖焦点） | 浮层组件纪律 |
+| 9 | Tree | 树形选择场景点行应展开而非选中 | **expandOnClick**（点击有子节点行 = 展开/折叠，叶子 = 选中） | Tree 能力扩展 |
+
+### 对 client 的架构级启发（非单点修复）
+
+1. **属性分类学**（render.ts setProp）：`boolean`（disabled）/`enumerated`（draggable/contenteditable）/`special`（ref/key/children）/`event`（on*）/`style`——每类语义不同，禁止统一 `setAttribute(key, '')` 兜底——**新属性加入前查 HTML 规范语义**
+2. **响应式容器边界**：`$` 是"普通数据容器"——**内置类型实例（Set/Map/Date）不可入**（Proxy 破坏方法 this）——设计上应提供自动降级（存引用时跳过 Proxy 包装）或保持文档红线（现状）
+3. **DnD 与渲染互斥**：HTML5 DnD 是浏览器原生手势——**拖拽生命周期内（dragstart→dragend）禁止任何 DOM 重渲染**——组件库需原语级保证（如 dragProps 内部标记 + render 保护）
+4. **弹层=portal 单例**：所有浮层经 portal 收敛后，z-index 阶梯/Escape/夹紧/退场动画才能在 body 单一上下文统一管理（AGENTS.md 已立纪律）
+5. **时序竞争防护模式**：全局监听（scroll/resize/popup-tracker）在元素替换瞬间读到 0/过期状态——**getter 读取前判 0 rect 是通用防线**（usePopupPosition 已修，其他全局监听同理）
+6. **测试方法论闭环**：真实 HTML > textContent、debug 日志 hook、真实点击 vs eval click、0 rect 单测、审计自动化（style-audit 19 条）——AGENTS.md 已沉淀
+
+### client 待办（启发未闭环项）
+
+- `$` 内置类型自动降级（存 Set/Map/Date 时跳过 Proxy 包装——当前文档红线）
+- usePopupPosition 0 rect 防护的 scroll 监听端（popup-tracker 侧同样防护）
+- 拖拽中 render 保护（dragProps 标记 + _rendering 保护期扩展）
+- enumerated 属性表（contenteditable/translate/spellcheck 等）——审计自动检查
