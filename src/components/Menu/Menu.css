@@ -54,3 +54,99 @@
   justify-content: center;
   flex-shrink: 0;
 }
+
+/* ── 子菜单（第六批） ────────────────────────────── */
+
+.wf-menu-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wf-menu-submenu-title {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  border-radius: var(--wf-radius-sm);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--wf-dur-fast) var(--wf-ease-out), color var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-menu-submenu-title:hover {
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-text);
+}
+
+.wf-menu-submenu-title:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: -2px;
+}
+
+.wf-menu-arrow {
+  margin-left: auto;
+  display: inline-flex;
+  color: var(--wf-color-text-tertiary);
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-menu-submenu--open .wf-menu-arrow {
+  transform: rotate(90deg);
+}
+
+.wf-menu-submenu-content {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wf-menu-submenu--open .wf-menu-submenu-content {
+  display: flex;
+}
+
+.wf-menu-item--child {
+  padding-left: var(--wf-space-xl);
+  font-size: var(--wf-font-size-sm);
+}
+
+/* ── 折叠（第六批） ────────────────────────────── */
+
+.wf-menu--collapsed {
+  width: 56px;
+}
+
+.wf-menu--collapsed .wf-menu-group {
+  display: none;
+}
+
+.wf-menu--collapsed .wf-menu-item,
+.wf-menu--collapsed .wf-menu-submenu-title {
+  justify-content: center;
+  padding: var(--wf-space-sm);
+  gap: 0;
+}
+
+.wf-menu-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  padding: var(--wf-space-sm);
+  border-radius: var(--wf-radius-sm);
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  min-height: 36px;
+}
+
+.wf-menu-collapse-btn:hover {
+  background: var(--wf-color-bg-secondary);
+  color: var(--wf-color-text);
+}
+
+.wf-menu-collapse-btn:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: -2px;
+}

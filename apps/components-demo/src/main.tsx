@@ -722,19 +722,28 @@ const DemoMessageBubble: Component = (_props, ctx) => {
 
 const DemoMenu: Component = (_props, ctx) => {
   let active = 'agents'
+  let collapsed = false
   const items = [
     { key: 'dashboard', label: '仪表盘', icon: '📊', group: '工作台' },
     { key: 'agents', label: 'Agent 管理', icon: '🤖', group: '工作台' },
     { key: 'depts', label: '部门', icon: '🏢', group: '工作台' },
-    { key: 'settings', label: '设置', icon: '⚙️', group: '系统' },
+    {
+      key: 'sys', label: '系统管理', icon: '⚙️', group: '系统',
+      children: [
+        { key: 'sys-users', label: '用户管理' },
+        { key: 'sys-roles', label: '角色权限' },
+        { key: 'sys-logs', label: '操作日志' },
+      ],
+    },
     { key: 'logout', label: '退出登录', icon: '🚪', group: '系统', danger: true },
   ]
   return (_p: any) => (
     <div class="wf-w-full">
-      <div style="max-width:220px">
-        <Menu items={items} activeKey={active} onSelect={k => { active = k; ctx.ui.render() }} />
+      <div style={{ width: collapsed ? '56px' : '220px', transition: 'width 0.2s' }} class="wf-p-sm wf-border wf-rounded wf-bg-secondary">
+        <Menu items={items} activeKey={active} onSelect={k => { active = k; ctx.ui.render() }}
+          collapsible collapsed={collapsed} onCollapseChange={c => { collapsed = c; ctx.ui.render() }} />
       </div>
-      <div class="wf-text-xs wf-text-secondary wf-mt-sm">当前: {active}（方向键可导航）</div>
+      <div class="wf-text-xs wf-text-secondary wf-mt-sm">当前: {active}（方向键导航；子菜单 Enter 展开 / Esc 收起；底部按钮折叠）</div>
     </div>
   )
 }
