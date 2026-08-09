@@ -16,52 +16,22 @@ export interface StatCardProps {
 }
 
 export const StatCard: Component<StatCardProps> = (_init, ctx) => {
-  // ── mount：数字动画状态（rAF 400ms ease-out；reduced-motion 直落） ──
-  // animating 守卫：step 内 ctx.ui.render() 会同步重渲染组件，若每次重渲染都重启动画
-  // （新 t0 + cancel 待调度帧），eased 进度每帧只前进 ~11.5% → Math.round 平台期冻结。
-  // 动画运行中重渲染必须复用当前循环，只有动画结束后值≠目标才重新启动。
-  let shown = 0
-  let rafId: number | undefined
-  let animating = false
+  // ── mount：数值动画经 ctx.ui.useTween（rAF + ease-out + reduced-motion 直落终值；
+  // 幂等 reset——render 每帧调用安全，动画运行中同目标不重启）。
+  // 偏好感知经 ctx.ui.useReducedMotion（JS 动画侧跳过，收敛手工 matchMedia）。
+  let tween = ctx.ui.useTween(0, { duration: 400, ease: 'easeOutCubic' })
 
   return (props: StatCardProps) => {
     const { label, value, trend, trendLabel, icon, onClick, animate } = props
     const target = typeof value === 'number' ? value : 0
 
     if (animate && typeof value === 'number') {
-      const reduce = typeof matchMedia !== 'undefined'
-        && matchMedia('(prefers-reduced-motion: reduce)').matches
-      if (reduce || shown === target) {
-        shown = target
-        animating = false
-      } else if (!animating) {
-        // 仅当没有运行中的动画才启动新循环（重渲染不打断现有动画）
-        animating = true
-        const start = shown
-        const dur = 400
-        const t0 = performance.now()
-        if (rafId) cancelAnimationFrame(rafId)
-        const step = (t: number) => {
-          const p = Math.min(1, (t - t0) / dur)
-          const eased = 1 - Math.pow(1 - p, 3)
-          shown = Math.round(start + (target - start) * eased)
-          if (p < 1) {
-            rafId = requestAnimationFrame(step)
-            ctx.ui.render()
-          } else {
-            rafId = undefined
-            animating = false
-            ctx.ui.render()
-          }
-        }
-        rafId = requestAnimationFrame(step)
-      }
+      tween.reset(target) // 幂等：同目标运行中不重启
     } else {
-      shown = target
-      animating = false
+      ;(tween as any).value = target // 非动画/非数值：直落
     }
 
-  const display = typeof value === 'number' ? String(shown) : String(value)
+  const display = typeof value === 'number' ? String(tween.value) : String(value)
   const children: any[] = []
 
   if (icon) children.push(h('div', { class: 'wf-stat-icon' }, icon))

@@ -79,6 +79,15 @@ test('SSR：useGlobalKey/useDrag/useDragDrop 组件可渲染（Command/Resizable
   assert.ok(cmd.length > 0 && res.length > 0 && up.length > 0, '三组件 SSR 渲染（shim 原语必须存在）')
 })
 
+test('SSR：动画原语组件可渲染（StatCard/DatePicker 模式）', async () => {
+  const { StatCard } = await import('../components/StatCard/StatCard.ts')
+  const { DatePicker } = await import('../components/DatePicker/DatePicker.ts')
+  const st = (await ssrToString(StatCard as any, { label: 'x', value: 42, animate: true }, {})).toString()
+  const dp = (await ssrToString(DatePicker as any, {}, {})).toString()
+  assert.ok(st.includes('42'), 'StatCard reduced-motion 直落终值')
+  assert.ok(dp.length > 0, 'DatePicker SSR（shim useAnimationEnd）')
+})
+
 test('SSR：useChat no-op 确定性空态', async () => {
   const Comp: Component = (_init: any, ctx: any) => {
     const $ = ctx.ui.useChat({ url: '/api/chat' })

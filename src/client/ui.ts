@@ -852,6 +852,80 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       return { dropProps }
     },
 
+    /**
+     * 响应式系统偏好（prefers-reduced-motion）。mount 期一次判定（偏好变化极罕见）。
+     */
+    useReducedMotion: function (): boolean {
+      return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    },
+
+    /**
+     * 元素动画完成回调（animationend）：stableRef——ref 挂载绑定、卸载清理、引用恒定。
+     * { once }：入场 settle（一次性）；默认常驻（退场判断）。
+     */
+    useAnimationEnd: function (cb: () => void, opts?: { once?: boolean }) {
+      let el: HTMLElement | null = null
+      const handler = () => {
+        cb()
+        if (opts?.once && el) el.removeEventListener('animationend', handler)
+      }
+      const ref = (node: any) => {
+        if (node) {
+          el = node
+          node.addEventListener('animationend', handler)
+        } else if (el) {
+          el.removeEventListener('animationend', handler)
+          el = null
+        }
+      }
+      return ref
+    },
+
+    /**
+     * 数值补间：rAF + ease + reduced-motion 直落终值。目标变化自动补间。
+     */
+    useTween: function (target: number, opts?: { duration?: number; ease?: 'linear' | 'easeOutCubic' }) {
+      const reduced = this.useReducedMotion()
+      const duration = opts?.duration ?? 400
+      const easeFn = opts?.ease === 'linear'
+        ? (p: number) => p
+        : (p: number) => 1 - Math.pow(1 - p, 3) // easeOutCubic
+      let rafId: number | undefined
+      let currentTarget = target
+      const handle: { value: number; reset: (to: number) => void } = {
+        value: reduced ? target : 0,
+        reset: () => {},
+      }
+
+      const tweenTo = (to: number) => {
+        currentTarget = to
+        if (reduced) { handle.value = to; return }
+        if (to === handle.value) return // 同值不启动（value=0 首帧无动画）
+        if (rafId) cancelAnimationFrame(rafId)
+        const from = handle.value
+        const t0 = performance.now()
+        const step = (t: number) => {
+          const p = Math.min(1, (t - t0) / duration)
+          handle.value = Math.round(from + (to - from) * easeFn(p))
+          if (p < 1) rafId = requestAnimationFrame(step)
+          else rafId = undefined
+        }
+        rafId = requestAnimationFrame(step)
+      }
+
+      // 幂等 reset：目标相同且动画运行中 → 不重启（render 每帧调用安全；
+      // StatCard animating 守卫的收敛——动画运行中重渲染不打断现有循环）
+      handle.reset = (to: number) => {
+        if (to === currentTarget && rafId) return
+        tweenTo(to)
+      }
+
+      // 首次补间（mount 后微任务启动——避免 render 期 rAF 累积）
+      queueMicrotask(() => tweenTo(target))
+
+      return handle
+    },
+
     /** 注册组件实例的自定义 ID（用于跨组件精准刷新） */
     selfId: function (name: string) {
       if (typeof name !== 'string' || !name) {

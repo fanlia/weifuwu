@@ -11,8 +11,14 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 }
 
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}
-, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: {
+    $: {}, render: () => {}, dirty: () => {}, ready: true,
+    useReducedMotion: () => false,
+    useTween: (target: number) => {
+      const handle: any = { value: target, reset: (to: number) => { handle.value = to } }
+      return handle
+    },
+  } } as any
 }
 
 describe('StatCard', () => {
@@ -89,7 +95,36 @@ describe('StatCard', () => {
     globalThis.cancelAnimationFrame = ((id: number) => { rafCallbacks[id - 1] = undefined as any }) as any
     performance.now = (() => now) as any
     try {
-      const ctx: any = { ui: { $: {}, dirty: () => {} } }
+      // mock useTween：精确复刻真实现（幂等 reset + rAF 步进 + easeOutCubic）——
+      // 测试验证组件在 render 重渲染风暴下动画收敛（组件+原语协作）
+      const ctx: any = {
+        ui: {
+          $: {}, dirty: () => {},
+          useReducedMotion: () => false,
+          useTween: (target: number) => {
+            const duration = 400
+            let rafId: number | undefined
+            let currentTarget = target
+            const handle: any = { value: target }
+            handle.reset = (to: number) => {
+              if (to === currentTarget && rafId) return
+              currentTarget = to
+              if (to === handle.value) return
+              if (rafId) cancelAnimationFrame(rafId)
+              const from = handle.value
+              const t0 = performance.now()
+              const step = (t: number) => {
+                const p = Math.min(1, (t - t0) / duration)
+                handle.value = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)))
+                if (p < 1) rafId = requestAnimationFrame(step)
+                else rafId = undefined
+              }
+              rafId = requestAnimationFrame(step)
+            }
+            return handle
+          },
+        },
+      }
       let renderFn: (p: any) => any
       renderFn = StatCard({ label: 'x', value: 0, animate: true }, ctx)
 

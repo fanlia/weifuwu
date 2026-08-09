@@ -57,18 +57,18 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     margin: 4,
   })
 
-  // 面板元素（视口夹紧用）：稳定 ref（mount 作用域），挂载后动画结束夹紧
+  // 面板元素（视口夹紧用）：经 ctx.ui.useAnimationEnd（唯一动画事件入口）——
+  // 面板带 wf-panel-in 入场动画（translateY/scale）——动画期间矩形非稳态，
+  // 夹紧必须等动画结束后按稳态几何计算（ref 在 append 前触发，微任务测量会吃到动画中帧）
   let panelEl: HTMLElement | null = null
+  const panelRef = ctx.ui.useAnimationEnd(() => { pos.refresh(); ctx.ui.render() }, { once: true })
+  // 兜底：动画事件丢失（无动画环境/事件被吞）时仍夹紧，防挂死
   let settleTimer: ReturnType<typeof setTimeout> | undefined
-  const panelRef = (el: any) => {
+  const settleSafe = (el: any) => {
     if (el) {
       panelEl = el
-      // 面板带 wf-panel-in 入场动画（translateY/scale）——动画期间矩形非稳态，
-      // 夹紧必须等动画结束后按稳态几何计算（ref 在 append 前触发，微任务测量会吃到动画中帧）
-      const settle = () => { pos.refresh(); ctx.ui.render() }
-      el.addEventListener('animationend', settle, { once: true })
-      // 兜底：动画事件丢失（无动画环境/事件被吞）时仍夹紧，防挂死
-      settleTimer = setTimeout(settle, 400)
+      panelRef(el)
+      settleTimer = setTimeout(() => { pos.refresh(); ctx.ui.render() }, 400)
     } else {
       panelEl = null
       clearTimeout(settleTimer)
@@ -217,7 +217,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const timePanel = h('div', {
           style: { position: 'fixed', top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-time-picker', role: 'dialog',
-          ref: panelRef,
+          ref: settleSafe,
           onKeyDown: handleKeyDown,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, [
@@ -255,7 +255,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const rangeWrap = h('div', {
           style: { position: 'fixed', top: pos.top, left: pos.left },
           class: 'wf-datepicker-range-wrap',
-          ref: panelRef,
+          ref: settleSafe,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, [
           h('div', { class: 'wf-datepicker-range-panel' }, [
@@ -317,7 +317,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const dp = h('div', {
           style: { position: 'fixed', top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-datepicker-dropdown', role: 'dialog',
-          ref: panelRef,
+          ref: settleSafe,
           onKeyDown: handleKeyDown,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, content)

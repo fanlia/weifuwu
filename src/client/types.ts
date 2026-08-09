@@ -355,6 +355,26 @@ export interface WfuiContext {
       /** render 阶段同步 open → 返回当前 phase */
       sync: (open: boolean) => 'closed' | 'open' | 'exit'
     }
+    /** 响应式系统偏好（prefers-reduced-motion）：JS 动画（rAF/tween）侧跳过用。
+     * CSS 动画已有 _base.css 全局降级（0.01ms）——此原语覆盖 JS 动画路径。 */
+    useReducedMotion: () => boolean
+    /** 元素动画完成回调（animationend）：stableRef 形态——ref 挂载绑定、卸载清理、引用恒定。
+     * `{ once: true }` 一次性（入场 settle）；默认常驻（退场判断，回调读状态机 phase）。
+     * 唯一动画事件入口（组件内禁直接 addEventListener('animationend')）。
+     *
+     * ```tsx
+     * const settleRef = ctx.ui.useAnimationEnd(() => pos.refresh(), { once: true })
+     * return () => h('div', { class: 'wf-panel', ref: settleRef })
+     * ```
+     */
+    useAnimationEnd: (cb: () => void, opts?: { once?: boolean }) => (el: any) => void
+    /** 数值补间（rAF + ease + reduced-motion 直落终值）：count-up / 进度 / 指示器。
+     * 目标值变化自动补间；返回 `{ value }`（当前值，render 读）。 */
+    useTween: (target: number, opts?: { duration?: number; ease?: 'linear' | 'easeOutCubic' }) => {
+      value: number
+      /** 重设目标（幂等：同目标且动画运行中不重启——render 每帧调用安全） */
+      reset: (to: number) => void
+    }
     /** 注册组件实例的自定义语义 ID，同名冲突抛错 */
     selfId: (name: string) => void
     /** 当前组件实例 ID（仅供内部使用，通过 ctx 扩展注入） */

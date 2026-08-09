@@ -80,6 +80,12 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
     useScrollPosition: () => ({ y: 0, refresh: () => {} }),
     useStableRef: (init?: any) => (el: any) => { if (el) init?.(el) },
     useGlobalKey: () => () => {},
+    useReducedMotion: () => false,
+    useAnimationEnd: () => () => {},
+    useTween: (target: number) => {
+      const handle: any = { value: target, reset: (to: number) => { handle.value = to } }
+      return handle // SSR 确定性：reset 直落终值（无 rAF）
+    },
     useDrag: () => ({ onPointerDown: () => {} }),
     useDragDrop: () => ({ dropProps: {} }),
     useControlled: <T>(options: any) => ({
