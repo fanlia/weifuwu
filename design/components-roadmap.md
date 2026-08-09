@@ -365,3 +365,127 @@
 | M4 | L5 数据密集 | **client Phase 5（For 虚拟滚动 + item 级响应式）落地** |
 | M5 | L6 算法挑战 | QRCode 自研 Reed-Solomon / canvas |
 | 终验 | ~90 项 | client 全绿 + 组件 61 → ~90 + 文档同步 |
+
+---
+
+# 第六批：导航/上传/数据密集/AI 开发者工具（91 → 96 组件）
+
+> 视角扩展（前三批实战证据 + 第四批开发频率）：本批以**缺口补齐**为主线——
+> `docs/components-map.md` 真实未实现清单的 4 项全部转正，外加 2 个 AI 差异化组件
+> （三库没有、weifuwu 生态独有）。原则不变：TDD 先行（红→绿）、零 npm 运行时依赖、
+> style-audit 18 条纪律、诚实裁剪（不支持的能力明确不提供）、真库/真浏览器验证。
+
+## 决策依据（缺口 → 证据）
+
+| 缺口 | 证据/理由 | 来源 |
+|------|----------|------|
+| Menu 子菜单/折叠 | AppLayout 5 处手写导航循环；Sidebar 折叠 = SaaS 标配 | [证据]+[共识] |
+| FileUpload 列表/预览/进度 | 任何含附件的后台都要（上传状态可见性）；当前只有拖拽框 | [共识] |
+| VirtualTable | 数据密集页（日志/订单）性能刚需；VirtualList 已有滚动基座 | [证据] |
+| LogViewer | AgentDetail 日志手写 `wf-border-b` 堆叠；CI/执行日志是 AI 场景刚需 | [证据]+[差异化] |
+| JSON 查看器 | ToolCallCard args 现在 `JSON.stringify` 裸文本；API 响应/工具参数可读性 | [差异化] |
+
+## 第五批组件
+
+### P0 — 缺口转正（三库共识 + 实战证据，4 项）
+
+#### 1. Menu 子菜单/折叠 [证据+共识]（增强，非新增）
+
+- **现状**：Menu 仅 group 分组 + activeKey/onSelect；无子级、无折叠
+- **增强**：
+  - `submenu`：`items: [{ key, label, children: [{ key, label, onClick }] }]`——子菜单展开/收起（点击箭头或 hover）
+  - `collapsible`：整树折叠为图标条（`collapsed` 受控 + `onCollapseChange`），tooltip 浮层显示折叠项文本
+  - 键盘：子菜单 Enter 展开/收起、方向键在子级间移动、Escape 收回到父级
+  - 状态：`openKeys: string[]`（受控可选）+ `onOpenChange`
+- **TDD 测试点**：子菜单点击展开（受控/非受控）、折叠切换、方向键进入子级、Escape 回收、aria-expanded 同步
+- **client 能力验证**：受控 + 非受控双模式、多级键盘流（L4）
+- **裁剪**：水平菜单栏（Menubar 已有）、手风琴式自动互斥子菜单
+
+#### 2. FileUpload 增强 [共识]（增强，非新增）
+
+- **现状**：拖拽/点击选择 → onChange(Files)；无文件列表、无进度、无预览
+- **增强**：
+  - `fileList: File[]`（受控可选）+ `onChange(files)`（现状兼容）
+  - 列表展示：文件名/大小/类型图标 + 删除按钮（`onRemove` 回调，受控需父层更新）
+  - 进度：`uploading?: boolean` + `progress?: number`（0-100，父层驱动——组件不做 xhr，诚实裁剪）
+  - 预览：图片文件缩略图（`URL.createObjectURL` 生命周期：组件卸载时 revoke）
+  - 受控纪律：`fileList` 已传但无 `onChange` 时 `console.warn`（与 Collapse/Tree 一致）
+- **TDD 测试点**：拖入 → fileList 更新、图片缩略图生成、删除项回传、受控无回调 warn、URL revoke（卸载路径）
+- **client 能力验证**：useDragDrop 复用 + 受控纪律 + 资源生命周期（L3）
+- **裁剪**：真实上传进度（xhr/fetch 由业务层驱动）、分片上传、拖拽排序
+
+#### 3. VirtualTable [证据]（新增，L5 数据密集）
+
+- **现状**：Table 全量渲染；VirtualList 像素级 scrollTop 已有——打通为表格虚拟化
+- **实现**：
+  - `columns`（宽度/对齐/排序复用 Table 列定义）+ `rows: any[]` + `rowHeight`（默认 40）
+  - 复用 VirtualList 滚动基座（useScrollPosition 已就位）：固定表头 + 虚拟滚动体
+  - 列宽：`width?: number`（px）/ `minWidth` + `flexGrow`（1fr 语义）
+  - 排序：列头点击（复用 Table sortable 模式）
+- **TDD 测试点**：10k 行只渲染可见窗口（DOM 节点数 < overscan×2）、滚动后窗口更新、排序、固定表头不随滚动
+- **client 能力验证**：L5 虚拟滚动 + item 级响应式（Phase 5 核心验收项）
+- **裁剪**：横向虚拟滚动（列虚拟化）、行编辑、单元格合并
+
+#### 4. Anchor 锚点导航 [共识]（新增，L2）
+
+- **现状**：Affix + scroll 原语已有；长文页锚点跳转缺组件化封装
+- **实现**：
+  - `items: [{ href, title }]` + `container`（滚动容器，默认视口）
+  - 滚动侦听（useScrollPosition）：当前锚点高亮 + 点击平滑滚动（scroll-behavior: smooth 降级）
+  - 点击：`history.pushState` 或 `location.hash` 可选（`useHash` 默认 false）
+  - 键盘：锚点列表方向键移动焦点
+- **TDD 测试点**：点击滚动到目标、滚动经过时高亮切换、hash 模式 URL 更新
+- **client 能力验证**：useScrollPosition 复用 + 定位（L2）
+- **裁剪**：滚动容器非视口检测、嵌套滚动容器
+
+### P1 — AI 差异化（三库没有，weifuwu 生态独有，2 项）
+
+#### 5. LogViewer 日志流 [证据+差异化]（新增，L4）
+
+- **现状**：AgentDetail 日志手写堆叠；执行日志/CI 输出无专用组件
+- **实现**：
+  - `lines: string[]` + 自动跟随（`follow`：新行到达时若已在底部则滚到底）
+  - ANSI 着色子集（16 色 + 粗体 + 背景，自研 parser——零依赖）
+  - 虚拟滚动（复用 VirtualList 基座，10k+ 行）
+  - `maxLines` 环形截断（内存保护）、行号、复制按钮
+- **TDD 测试点**：ANSI 转义解析（颜色类映射）、跟随开关行为、10k 行虚拟滚动、截断
+- **client 能力验证**：L4 增量更新 + 虚拟滚动组合
+- **裁剪**：正则表达式高亮、多日志源合并、流式尾部重绘（增量 append 已支持）
+
+#### 6. JSONViewer JSON 查看器 [差异化]（新增，L3）
+
+- **现状**：ToolCallCard args `JSON.stringify` 裸文本；API 响应无结构化浏览
+- **实现**：
+  - `data: unknown` + 递归树：对象/数组折叠（`defaultExpandDepth` 默认 2）+ 类型色（string/number/boolean/null）
+  - 键值路径显示 + 点击复制（`navigator.clipboard`）
+  - 大数据节流：顶层 > 100 键时懒展开（不一次性渲染）
+- **TDD 测试点**：嵌套折叠展开、类型着色类、路径复制、100 键懒展开
+- **client 能力验证**：递归渲染 + 懒展开（L3）
+- **裁剪**：JSON 编辑、大文本截断省略号
+
+## 实施顺序与验收
+
+| 步骤 | 组件 | 依赖 | 验收 |
+|------|------|------|------|
+| 1 | Menu 子菜单/折叠 | 无 | 受控/非受控 + 键盘流测试全绿；demo 折叠侧栏实测 |
+| 2 | FileUpload 增强 | 无 | 列表/预览/进度测试全绿；agent-browser 拖入实测 |
+| 3 | VirtualTable | VirtualList 基座 | 10k 行窗口化测试 + 排序；demo 实测滚动无卡顿 |
+| 4 | Anchor | useScrollPosition | 高亮/滚动测试；demo 长文页实测 |
+| 5 | LogViewer | VirtualList 基座 + ANSI parser | ANSI/跟随/截断测试；demo 模拟流实测 |
+| 6 | JSONViewer | 无 | 折叠/复制/懒展开测试；ToolCallCard 接入 |
+
+- 每组件：失败测试（红）→ 实现（绿）→ style-audit（18 条）→ 导出 index + demo DemoCard → agent-browser 实测
+- 收尾：`docs/components-map.md` 待补清单（4 项 → 0 项 + 新增 2 项记录）、README 组件计数（92 → 96）、
+  `docs/custom-components.md` 若涉及新 client 原语同步
+
+## 诚实裁剪（不做，明确声明）
+
+- Menu：水平菜单栏（Menubar）、子菜单自动互斥、折叠动画（CSS 过渡即可）
+- FileUpload：真实上传进度（xhr/fetch 父层驱动）、分片、拖拽排序、目录上传
+- VirtualTable：列虚拟化（横向）、行编辑、单元格合并、树形表格
+- Anchor：嵌套滚动容器、滚动容器非视口
+- LogViewer：正则高亮、多源合并、搜索定位
+- JSONViewer：编辑、超大对象流式渲染（懒展开已覆盖 100 键级）
+
+> 本批完成后：`components-map.md` 真实未实现清单清零（0 项），
+> 组件总数 92 → 96，三库共识覆盖度 ~100%（剩余均为已声明裁剪项）。
