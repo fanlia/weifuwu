@@ -131,3 +131,61 @@ it('rowHeight/height 控制窗口行数（小视口少渲染）', () => {
   const rowCount = (JSON.stringify(vnode).match(/"id":/g) || []).length
   assert.ok(rowCount < 30, `小视口只渲染少量行（实际 ${rowCount}）`)
 })
+
+it('rowSelection：全选复选框 + 单行选择 onChange', () => {
+  let sel: any[] = []
+  const selRows: any[] = []
+  const { ctx } = mockCtx()
+  const factory = mount(VirtualTable, {
+    columns, data: rows.slice(0, 5),
+    rowSelection: { selectedRowKeys: [], onChange: (k: any[], r: any[]) => { sel = k; selRows.length = 0; selRows.push(...r) } },
+  }, ctx)
+  const vnode = factory({
+    columns, data: rows.slice(0, 5),
+    rowSelection: { selectedRowKeys: [], onChange: (k: any[], r: any[]) => { sel = k; selRows.length = 0; selRows.push(...r) } },
+  })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-virtual-table-check'), '复选框列渲染')
+  assert.ok(s.includes('全选'), '全选 aria-label')
+  // 找全选 checkbox（表头）
+  const find = (n: any): any => {
+    if (!n || typeof n !== 'object') return null
+    if (n.type === 'input' && n.props?.type === 'checkbox' && n.props?.['aria-label'] === '全选') return n
+    const k = n.props?.children
+    const arr = Array.isArray(k) ? k : (k && typeof k === 'object' ? [k] : [])
+    for (const c of arr) { const f = find(c); if (f) return f }
+    return null
+  }
+  const allCheck = find(vnode)
+  assert.ok(allCheck, '全选 checkbox 存在')
+  allCheck.props.onChange()
+  assert.equal(sel.length, 5, '全选 → 5 行选中')
+})
+
+it('rowSelection：单行勾选 toggle', () => {
+  let sel: any[] = [0]
+  const { ctx } = mockCtx()
+  const factory = mount(VirtualTable, {
+    columns, data: rows.slice(0, 3),
+    rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
+  }, ctx)
+  const vnode = factory({
+    columns, data: rows.slice(0, 3),
+    rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
+  })
+  // 找单行 checkbox（aria-label 含"选择第"）
+  const findAll = (n: any, acc: any[] = []): any[] => {
+    if (!n || typeof n !== 'object') return acc
+    if (n.type === 'input' && n.props?.type === 'checkbox' && /选择第/.test(n.props?.['aria-label'] ?? '')) acc.push(n)
+    const k = n.props?.children
+    const arr = Array.isArray(k) ? k : (k && typeof k === 'object' ? [k] : [])
+    arr.forEach(c => findAll(c, acc))
+    return acc
+  }
+  const rowChecks = findAll(vnode)
+  assert.ok(rowChecks.length >= 1, '单行 checkbox 存在')
+  assert.equal(rowChecks[0].props.checked, true, '第 1 行（key 0）预选中')
+  // 取消选中
+  rowChecks[0].props.onChange()
+  assert.equal(sel.length, 0, '取消后 0 选中')
+})

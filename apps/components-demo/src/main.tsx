@@ -1779,6 +1779,7 @@ const DemoJSONViewer: Component = () => () => {
 const DemoVirtualTable: Component = (_props, ctx) => {
   let sortKey: string | undefined
   let sortOrder: 'asc' | 'desc' | undefined
+  let selectedKeys: (string | number)[] = []
   const cols = [
     { key: 'id', label: 'ID', width: 80, sortable: true },
     { key: 'name', label: '用户名', width: 180, sortable: true },
@@ -1795,8 +1796,9 @@ const DemoVirtualTable: Component = (_props, ctx) => {
     <div class="wf-w-full">
       <VirtualTable columns={cols} data={data} height={320} rowHeight={40}
         sortKey={sortKey} sortOrder={sortOrder}
-        onSort={(k: string, o: 'asc' | 'desc') => { sortKey = k; sortOrder = o; ctx.ui.render() }} />
-      <div class="wf-text-xs wf-text-secondary wf-mt-sm">10,000 行仅渲染可见窗口（滚动流畅）；表头可排序</div>
+        onSort={(k: string, o: 'asc' | 'desc') => { sortKey = k; sortOrder = o; ctx.ui.render() }}
+        rowSelection={{ selectedRowKeys: selectedKeys, onChange: (k: (string|number)[]) => { selectedKeys = k; ctx.ui.render() } }} />
+      <div class="wf-text-xs wf-text-secondary wf-mt-sm">10,000 行仅渲染可见窗口（滚动流畅）；表头可排序 + 行选择（已选 {selectedKeys.length}）</div>
     </div>
   )
 }
@@ -2362,7 +2364,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">904 测试</Badge>
+          <Badge variant="success">906 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

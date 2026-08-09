@@ -95,3 +95,18 @@
   color: var(--wf-color-text-tertiary);
   font-size: var(--wf-font-size-sm);
 }
+
+/* 行选择复选框列 */
+.wf-virtual-table-th--select,
+.wf-virtual-table-td--select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wf-virtual-table-check {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--wf-color-primary);
+}
