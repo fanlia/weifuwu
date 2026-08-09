@@ -12,16 +12,32 @@ import { Button, PageHeader, Table, Badge, Icon, Divider, StatCard, Space, Card 
 // ─────────────────────────────────────────────────────────────
 
 const NAV = [
-  { key: 'dashboard', icon: 'dashboard', label: '仪表盘', active: true },
-  { key: 'orders', icon: 'box', label: '订单管理', active: false },
-  { key: 'users', icon: 'users', label: '用户管理', active: false },
-  { key: 'goods', icon: 'tag', label: '商品管理', active: false },
-  { key: 'settings', icon: 'settings', label: '系统设置', active: false },
+  { key: 'dashboard', icon: 'dashboard', label: '仪表盘' },
+  { key: 'orders', icon: 'box', label: '订单管理' },
+  { key: 'users', icon: 'users', label: '用户管理' },
+  { key: 'goods', icon: 'tag', label: '商品管理' },
+  { key: 'settings', icon: 'settings', label: '系统设置' },
+]
+
+// 5 个视图内容（导航联动——每视图独立 PageHeader + 内容）
+const USERS = [
+  { id: 'U-001', name: '张伟', role: '管理员', email: 'zhang@acme.cn', v: 'primary' },
+  { id: 'U-002', name: '李娜', role: '运营', email: 'li@acme.cn', v: 'default' },
+  { id: 'U-003', name: '王强', role: '开发', email: 'wang@acme.cn', v: 'default' },
+  { id: 'U-004', name: '赵敏', role: '客服', email: 'zhao@acme.cn', v: 'warning' },
+]
+
+const GOODS = [
+  { id: 'G-101', name: '无线键盘', stock: 320, price: '¥199', status: '在售', v: 'success' },
+  { id: 'G-102', name: '机械鼠标', stock: 58, price: '¥89', status: '补货中', v: 'warning' },
+  { id: 'G-103', name: '显示器', stock: 12, price: '¥1299', status: '售罄', v: 'danger' },
+  { id: 'G-104', name: '扩展坞', stock: 200, price: '¥159', status: '在售', v: 'success' },
 ]
 
 export const AppShell: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.collapsed = false
+  $.nav = 'dashboard'
   ;(window as any).__appShellVNode = (ctx.ui as any)._selfVNode
   ;(window as any).__appShellVNode.refProbe = () => ({
     id: (ctx.ui as any)._selfVNode?._id,
@@ -63,9 +79,10 @@ export const AppShell: Component = (_init, ctx) => {
             {NAV.map((n) => (
               <a
                 key={n.key}
-                class={`wf-nav-item${n.active ? ' wf-nav-item--active' : ''}`}
                 href="#/app-shell"
+                class={`wf-nav-item wf-pointer${$.nav === n.key ? ' wf-nav-item--active' : ''}`}
                 title={$.collapsed ? n.label : undefined}
+                onClick={() => { $.nav = n.key }}
               >
                 <span class="wf-nav-icon"><Icon name={n.icon as any} size={16} /></span>
                 <span class="wf-nav-label">{n.label}</span>
@@ -94,11 +111,26 @@ export const AppShell: Component = (_init, ctx) => {
           </Space>
         </div>
 
-        {/* 内容区 */}
+        {/* 内容区（按导航切换） */}
         <div class="wf-main wf-p-lg wf-scroll">
-          <PageHeader title="订单管理" sub="查看和处理所有订单" display>
-            <Button variant="primary"><Icon name="plus" size={14} /> 新建订单</Button>
-          </PageHeader>
+          {$.nav === 'dashboard' && (
+            <>
+              <PageHeader title="仪表盘" sub="经营概览" display>
+                <Button variant="primary" onClick={() => { $.nav = 'orders' }}><Icon name="plus" size={14} /> 去下单</Button>
+              </PageHeader>
+              <div class="wf-grid" style={{ '--wf-cols': 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+                <StatCard label="今日订单" value="128" trend="up" trendLabel="+12% 昨日" icon="📦" />
+                <StatCard label="待发货" value="23" trend="down" trendLabel="-5% 昨日" icon="📬" />
+                <StatCard label="销售额" value="¥42,860" trend="up" trendLabel="+8.6% 昨日" icon="💰" />
+                <StatCard label="客户数" value="1,024" trend="up" trendLabel="+3.2% 昨日" icon="👥" />
+              </div>
+            </>
+          )}
+          {$.nav === 'orders' && (
+            <>
+              <PageHeader title="订单管理" sub="查看和处理所有订单" display>
+                <Button variant="primary"><Icon name="plus" size={14} /> 新建订单</Button>
+              </PageHeader>
 
           <div class="wf-grid wf-mt-md" style={{ '--wf-cols': 'repeat(auto-fill, minmax(220px, 1fr))' }}>
             <StatCard label="今日订单" value="128" trend="up" trendLabel="+12% 昨日" icon="📦" />
@@ -108,22 +140,83 @@ export const AppShell: Component = (_init, ctx) => {
 
           <Divider />
 
-          <Card outlined>
-            <Table
-              data={[
-                { id: 'A-1001', customer: '张伟', amount: '¥1,280', status: '已支付', v: 'success' },
-                { id: 'A-1002', customer: '李娜', amount: '¥560', status: '待发货', v: 'warning' },
-                { id: 'A-1003', customer: '王强', amount: '¥3,200', status: '已完成', v: 'default' },
-                { id: 'A-1004', customer: '赵敏', amount: '¥890', status: '已取消', v: 'danger' },
-              ]}
-              columns={[
-                { key: 'id', label: '订单号' },
-                { key: 'customer', label: '客户' },
-                { key: 'amount', label: '金额' },
-                { key: 'status', label: '状态', render: (v, row) => <Badge variant={row.v}>{v}</Badge> },
-              ]}
-            />
-          </Card>
+              <Card outlined>
+                <Table
+                  data={[
+                    { id: 'A-1001', customer: '张伟', amount: '¥1,280', status: '已支付', v: 'success' },
+                    { id: 'A-1002', customer: '李娜', amount: '¥560', status: '待发货', v: 'warning' },
+                    { id: 'A-1003', customer: '王强', amount: '¥3,200', status: '已完成', v: 'default' },
+                    { id: 'A-1004', customer: '赵敏', amount: '¥890', status: '已取消', v: 'danger' },
+                  ]}
+                  columns={[
+                    { key: 'id', label: '订单号' },
+                    { key: 'customer', label: '客户' },
+                    { key: 'amount', label: '金额' },
+                    { key: 'status', label: '状态', render: (v, row) => <Badge variant={row.v}>{v}</Badge> },
+                  ]}
+                />
+              </Card>
+            </>
+          )}
+          {$.nav === 'users' && (
+            <>
+              <PageHeader title="用户管理" sub="平台用户与角色" display>
+                <Button variant="primary"><Icon name="plus" size={14} /> 邀请用户</Button>
+              </PageHeader>
+              <Card outlined>
+                <Table
+                  data={USERS}
+                  columns={[
+                    { key: 'id', label: '用户 ID' },
+                    { key: 'name', label: '姓名' },
+                    { key: 'role', label: '角色', render: (v, row) => <Badge variant={row.v}>{v}</Badge> },
+                    { key: 'email', label: '邮箱' },
+                  ]}
+                />
+              </Card>
+            </>
+          )}
+          {$.nav === 'goods' && (
+            <>
+              <PageHeader title="商品管理" sub="库存与销售状态" display>
+                <Button variant="primary"><Icon name="plus" size={14} /> 上架商品</Button>
+              </PageHeader>
+              <Card outlined>
+                <Table
+                  data={GOODS}
+                  columns={[
+                    { key: 'id', label: '商品 ID' },
+                    { key: 'name', label: '名称' },
+                    { key: 'stock', label: '库存' },
+                    { key: 'price', label: '价格' },
+                    { key: 'status', label: '状态', render: (v, row) => <Badge variant={row.v}>{v}</Badge> },
+                  ]}
+                />
+              </Card>
+            </>
+          )}
+          {$.nav === 'settings' && (
+            <>
+              <PageHeader title="系统设置" sub="基础配置" display>
+                <Button variant="primary"><Icon name="check" size={14} /> 保存</Button>
+              </PageHeader>
+              <Card outlined>
+                <div class="wf-stack wf-gap-md">
+                  {[
+                    ['站点名称', 'Acme 管理台'],
+                    ['默认语言', '中文（简体）'],
+                    ['数据保留', '90 天'],
+                    ['时区', 'Asia/Shanghai'],
+                  ].map(([k, v]) => (
+                    <div key={k} class="wf-between wf-p-md wf-border-b">
+                      <span class="wf-text-secondary">{k}</span>
+                      <b>{v}</b>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </>
+          )}
         </div>
       </main>
     </div>
