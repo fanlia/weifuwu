@@ -496,6 +496,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/environment.md](docs/environment.md) | 环境变量与开发命令 |
 | [docs/mobile.md](docs/mobile.md) | 移动端开发指南：断点 / 44px 命中区 / usePopup / 手势 / safe-area |
 | [docs/components-map.md](docs/components-map.md) | 组件速查：weifuwu ↔ antd / Element Plus / shadcn 对应 + 迁移路径 |
+| [docs/custom-components.md](docs/custom-components.md) | 自定义组件开发指南：usePopup / useControlled / 对话框 / AI 组件 / 类型纪律 |
 | [design/](design/) | 设计与计划文档（组件地图 / AI 协议契约 / 移动端指南 / 数据库客户端计划 / 设计系统 / 各阶段计划） |
 
 > `docs/` 用户文档随 npm 包发布（`files: ['dist/', 'README.md', 'docs/']`）——`node_modules/weifuwu/docs` 可离线查阅；`design/` 设计/计划文档仅仓库内。

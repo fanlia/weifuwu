@@ -72,6 +72,26 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
     useMedia: () => {},
     useBreakpoint: () => {},
     usePopupPosition: () => ({ top: 0, left: 0, refresh: () => {} }),
+    // 新原语族：SSR 确定性 no-op（不启动监听/会话/取数；组件挂载不崩即契约）
+    useHoverCapable: () => false,
+    useVisualViewport: () => ({ height: 0, offsetTop: 0, keyboardOpen: false }),
+    useLongPress: () => ({}),
+    useInView: () => ({ isIn: false, ready: false, observe: () => {}, refresh: () => {}, disconnect: () => {} }),
+    useScrollPosition: () => ({ y: 0, refresh: () => {} }),
+    useStableRef: (init?: any) => (el: any) => { if (el) init?.(el) },
+    useControlled: <T>(options: any) => ({
+      value: options.value,
+      setValue: (v: T) => { options.onChange?.(v) },
+      controlled: options.value !== undefined,
+    }),
+    useAsync: () => ({ data: undefined, loading: true, error: undefined, reload: () => {} }),
+    usePopup: () => ({
+      open: false,
+      setOpen: () => {},
+      wrapProps: {},
+      portal: () => null,
+      refresh: () => {},
+    }),
     // SSR 确定性空态：会话不启动（无事件/无网络），仅保证挂载不崩
     useChat: () => ({
       messages: [], input: '', streaming: false, error: null, usage: null, step: null,

@@ -5,6 +5,7 @@
 92 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 > **组件速查（weifuwu 组件 ↔ antd / Element Plus / shadcn-ui 对应 + 迁移示例）**：见 [`docs/components-map.md`](components-map.md)——从其他组件库迁来的开发者按功能直接找对应组件。
+> **自定义组件开发**：见 [docs/custom-components.md](custom-components.md)——usePopup/useControlled/对话框/AI 组件/类型纪律逐步指南。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'

@@ -529,6 +529,7 @@ P8 后 `style-audit`（`src/test/style-audit.test.ts`，16 条规则）是设计
 
 **维护规则**：
 - 新增用户可见能力 → 写 `docs/`（按角色对号入座），README 文档导航同步
+- 新增 ctx.ui 原语 → 同步 `docs/custom-components.md`（自定义组件指南）+ `docs/frontend.md` 方法速查表
 - 新增实现计划/架构决策 → 写 `design/`（参考各 `*-plan.md` 的格式）
 - README 保持门面（~400 行）：简介/设计理念/快速开始/CDN/模块总览/核心概念 + 文档导航，不堆 API 细节
 - 改协议/裁剪清单 → `design/ai-contract.md` / `design/db-clients-plan.md`（源码注释引用同步）
