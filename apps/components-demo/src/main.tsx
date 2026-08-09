@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1417,6 +1417,35 @@ const DemoLogViewer: Component = (_props, ctx) => {
   )
 }
 
+const OLD_CODE = `function handleUser(input) {
+  const data = JSON.parse(input)
+  const name = data.name
+  const age = data.age
+  if (age > 18) {
+    return \`欢迎 \${name}\`
+  }
+  return \`未成年 \${name}\`
+}`
+
+const NEW_CODE = `function handleUser(input) {
+  const data = JSON.parse(input)
+  const { name, age } = data
+  if (age >= 18) {
+    return \`欢迎 \${name}（成年）\`
+  }
+  return \`未成年 \${name}\`
+}`
+
+const DemoDiffView: Component = () => () => (
+  <DiffView
+    oldCode={OLD_CODE}
+    newCode={NEW_CODE}
+    oldTitle="重构前"
+    newTitle="重构后"
+    foldThreshold={3}
+  />
+)
+
 const DemoJSONViewer: Component = () => () => {
   const sample = {
     id: 'agent_42',
@@ -1932,6 +1961,7 @@ return () => <AiChat chat={$} />
   showCopy showLineNumbers maxLines={500} />`,
 
   jsonviewer: `<JSONViewer data={payload} defaultExpandDepth={2} maxKeys={100} />`,
+  diffview: `<DiffView oldCode={oldCode} newCode={newCode} oldTitle="重构前" newTitle="重构后" />`,
 
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
@@ -2010,6 +2040,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="CodeBlock" desc="代码块：语言标签 + 复制按钮 + 横向滚动" code={CODE.codeblock}><DemoCodeBlock /></DemoCard>
         <DemoCard title="LogViewer" desc="日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制" code={CODE.logviewer}><DemoLogViewer /></DemoCard>
         <DemoCard title="JSONViewer" desc="结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开" code={CODE.jsonviewer}><DemoJSONViewer /></DemoCard>
+        <DemoCard title="DiffView" desc="代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色" code={CODE.diffview}><DemoDiffView /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>

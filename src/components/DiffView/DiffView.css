@@ -1,0 +1,97 @@
+.wf-diffview {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  overflow: hidden;
+  background: var(--wf-color-bg);
+  font-family: var(--wf-font-mono, 'SFMono-Regular', Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  min-width: 0;
+}
+
+/* ── header ── */
+.wf-diffview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--wf-color-fill);
+  border-bottom: 1px solid var(--wf-color-border);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.wf-diffview-title--old {
+  color: var(--wf-color-danger-text);
+}
+.wf-diffview-title--new {
+  color: var(--wf-color-success-text);
+}
+.wf-diffview-arrow {
+  color: var(--wf-color-text-tertiary);
+}
+
+/* ── body ── */
+.wf-diffview-body {
+  overflow: auto;
+  max-height: 480px;
+  padding: 8px 0;
+}
+
+.wf-diffview-row {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px;
+  white-space: pre;
+}
+.wf-diffview-sign {
+  width: 14px;
+  flex-shrink: 0;
+  user-select: none;
+  color: var(--wf-color-text-tertiary);
+}
+.wf-diffview-line {
+  min-width: 0;
+  overflow: visible;
+}
+
+.wf-diffview-row--add {
+  background: var(--wf-color-success-bg, rgba(0, 128, 0, 0.08));
+}
+.wf-diffview-row--add .wf-diffview-sign {
+  color: var(--wf-color-success-text);
+}
+.wf-diffview-row--remove {
+  background: var(--wf-color-danger-bg, rgba(255, 0, 0, 0.06));
+}
+.wf-diffview-row--remove .wf-diffview-sign {
+  color: var(--wf-color-danger-text);
+}
+
+/* ── 折叠块 ── */
+.wf-diffview-fold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2px 12px;
+  padding: 4px 8px;
+  border: 1px dashed var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  color: var(--wf-color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--wf-color-bg-subtle, var(--wf-color-fill));
+  user-select: none;
+  min-height: 28px;
+}
+.wf-diffview-fold:hover {
+  background: var(--wf-color-fill);
+}
+
+.wf-diffview-overflow {
+  padding: 8px 12px;
+  color: var(--wf-color-text-tertiary);
+  font-size: 12px;
+  text-align: center;
+}
