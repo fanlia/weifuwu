@@ -4,7 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--wf-space-xs);
   width: 44px;
   height: 44px;
   min-width: 44px;
@@ -13,23 +13,23 @@
   border: none;
   border-radius: 50%;
   background: var(--wf-color-primary);
-  color: var(--wf-color-on-brand, #fff);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: var(--wf-color-on-brand);
+  box-shadow: var(--wf-shadow-lg);
   cursor: pointer;
-  z-index: var(--wf-z-sticky, 40);
+  z-index: var(--wf-z-sticky);
   font-family: var(--wf-font-sans);
   font-size: 16px;
-  transition: transform var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease),
-              background var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
+  transition: transform var(--wf-dur-fast) var(--wf-ease-standard),
+              background var(--wf-dur-fast) var(--wf-ease-standard);
 }
 
 .wf-float-btn:hover {
   transform: scale(1.05);
-  background: var(--wf-color-primary, #1668dc);
+  background: var(--wf-color-primary);
 }
 
 .wf-float-btn--disabled {
-  background: var(--wf-color-text-disabled, #bfbfbf);
+  background: var(--wf-color-text-disabled);
   cursor: not-allowed;
   opacity: 0.7;
 }
@@ -45,10 +45,10 @@
   right: -4px;
   min-width: 18px;
   height: 18px;
-  padding: 0 5px;
+  padding: 0 var(--wf-space-xs);
   border-radius: 50%;
   background: var(--wf-color-error);
-  color: var(--wf-color-on-brand, #fff);
+  color: var(--wf-color-on-brand);
   font-size: 11px;
   line-height: 18px;
   text-align: center;
@@ -57,7 +57,7 @@
 /* ── 组模式 ── */
 .wf-float-group {
   position: fixed;
-  z-index: var(--wf-z-sticky, 40);
+  z-index: var(--wf-z-sticky);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -72,11 +72,11 @@
 .wf-float-group-items {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--wf-space-sm);
 }
 
 .wf-float-group-item {
-  animation: wf-float-item-in var(--wf-dur-md, 0.2s) var(--wf-ease-standard, ease);
+  animation: wf-float-item-in var(--wf-dur-md) var(--wf-ease-standard);
 }
 
 @keyframes wf-float-item-in {
@@ -96,16 +96,16 @@
   border: none;
   border-radius: 50%;
   background: var(--wf-color-primary);
-  color: var(--wf-color-on-brand, #fff);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: var(--wf-color-on-brand);
+  box-shadow: var(--wf-shadow-lg);
   cursor: pointer;
-  font-size: var(--wf-font-size-xl, 20px);
+  font-size: var(--wf-font-size-xl);
   font-family: var(--wf-font-sans);
 }
 
 .wf-float-group-icon {
   display: inline-block;
-  transition: transform var(--wf-dur-md, 0.2s) var(--wf-ease-standard, ease);
+  transition: transform var(--wf-dur-md) var(--wf-ease-standard);
 }
 
 .wf-float-group-icon.is-open {
@@ -115,5 +115,5 @@
 /* 组内子项：不 fixed（由 group 容器排列） */
 .wf-float-btn--static {
   position: static;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--wf-shadow-md);
 }

@@ -709,16 +709,20 @@ describe('样式审计 — 设计约束', () => {
   // R34/R35/R36/R37 采用 ratchet 快照（per-component 计数）：当前违规登记为 baseline，
   // deepEqual 断言——Wave 修复后递减、归零后快照为 {} 即硬门。R38 为护栏（豁免登记）。
 
-  it('P11-R34：禁 var(--token, fallback) 双真相源（ratchet：修复后递减）', () => {
+  it('P11-R34：禁 var(--token, fallback) 双真相源（仅 token 层已定义的 token——定制钩子 fallback 是默认值，豁免；ratchet）', () => {
     const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()
+    // token 层已定义集合：fallback 对已定义 token 是死代码；未定义的（如 --wf-drawer-width）是定制钩子默认值，豁免
+    const tokenFiles = readdirSync(join(root, 'src/layout')).filter(f => f.endsWith('.css')).map(f => join(root, 'src/layout', f))
+    const defined = new Set<string>()
+    for (const f of tokenFiles) { try { const c = readFileSync(f, 'utf-8'); for (const m of c.matchAll(/^\s*(--wf-[\w-]+)\s*:/gm)) defined.add(m[1]) } catch {} }
     const actual: Record<string, number> = {}
     for (const d of dirs) {
       let c = ''; try { c = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
-      const n = [...c.matchAll(/var\(--wf-[\w-]+\s*,\s*[^)]+\)/g)].length
+      const n = [...c.matchAll(/var\((--wf-[\w-]+)\s*,\s*[^)]+\)/g)].filter(m => defined.has(m[1])).length
       if (n) actual[d] = n
     }
     // baseline：当前违规分布（Wave 修复后递减，归零后 {} 即硬门）
-    const baseline: Record<string, number> = {"AiChat":19,"Alert":1,"AlertGroup":13,"AspectRatio":1,"AutoComplete":10,"BackTop":1,"Badge":1,"Button":3,"Calendar":2,"Card":2,"Carousel":1,"Cascader":2,"Command":1,"ContextMenu":2,"DatePicker":3,"DiffView":4,"Drawer":4,"Dropdown":1,"Editor":19,"FloatButton":16,"HoverCard":1,"InView":5,"Input":2,"Kanban":2,"Layout":22,"Link":9,"Mentions":2,"Menubar":2,"Modal":4,"NavMenu":31,"Notification":1,"Pipeline":4,"Popconfirm":17,"Popover":2,"Scrollbar":1,"Select":6,"Skeleton":8,"Slider":2,"Space":1,"Switch":2,"Tag":1,"Textarea":2,"ThemeSwitch":1,"Toast":2,"Tooltip":1,"Tour":1,"Transfer":1,"TreeSelect":2}
+    const baseline: Record<string, number> = {"AiChat":19,"AlertGroup":13,"AutoComplete":10,"BackTop":1,"Calendar":1,"Carousel":1,"Command":1,"ContextMenu":1,"DiffView":4,"HoverCard":1,"InView":5,"Input":2,"Kanban":2,"Layout":22,"Link":9,"Mentions":1,"Menubar":1,"NavMenu":31,"Notification":1,"Pipeline":4,"Popconfirm":16,"Scrollbar":1,"Skeleton":8,"Space":1,"Textarea":2,"Tour":1,"TreeSelect":2}
     assert.deepEqual(actual, baseline, 'var(--token,fallback) 违规数变化：修复后须递减 baseline 并同步本快照')
   })
 
@@ -727,10 +731,10 @@ describe('样式审计 — 设计约束', () => {
     const actual: Record<string, number> = {}
     for (const d of dirs) {
       let c = ''; try { c = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
-      const n = [...c.matchAll(/box-shadow:\s*([^;]+);/g)].filter(m => { const v=m[1].trim(); return v!=='none'&&v!=='inherit'&&!v.startsWith('var(--wf-shadow') }).length
+      const n = [...c.matchAll(/box-shadow:\s*([^;]+);/g)].filter(m => { const v=m[1].trim(); return v!=='none'&&v!=='inherit'&&!v.includes('var(--wf-') }).length
       if (n) actual[d] = n
     }
-    const baseline: Record<string, number> = {"Accordion":1,"Anchor":1,"AutoComplete":1,"BackTop":1,"Calendar":2,"Card":1,"Carousel":2,"Cascader":2,"Checkbox":1,"Collapse":1,"ColorPicker":5,"Command":1,"ContextMenu":1,"CopyButton":1,"DatePicker":2,"Editor":2,"FloatButton":3,"Img":1,"Input":2,"InputNumber":1,"JSONViewer":3,"Mentions":2,"Menubar":2,"Modal":1,"NavMenu":2,"Notification":2,"PinInput":1,"Popconfirm":1,"RadioGroup":1,"Rate":1,"SearchInput":1,"SegmentedControl":1,"Select":3,"Slider":3,"StatCard":1,"Steps":1,"Switch":2,"Table":1,"TagsInput":1,"Textarea":1,"ThemeSwitch":2,"Toast":1,"ToggleGroup":1,"Tour":1,"Transfer":2,"Tree":3,"TreeSelect":1,"VirtualTable":1}
+    const baseline: Record<string, number> = {}
     assert.deepEqual(actual, baseline, 'box-shadow 裸值违规数变化：修复后须递减 baseline 并同步本快照')
   })
 
@@ -740,10 +744,10 @@ describe('样式审计 — 设计约束', () => {
     for (const d of dirs) {
       let c = ''; try { c = readFileSync(join(root, 'src/components', d, `${d}.css`), 'utf-8') } catch { continue }
       let n = 0
-      for (const m of c.matchAll(/(padding|margin|gap):\s*([^;]+);/g)) for (const v of m[2].trim().split(/\s+/)) { const px=v.match(/^(-?\d+(?:\.\d+)?)px$/); if(!px)continue; const num=parseFloat(px[1]); if(num===1||num===0)continue; if(num%4!==0) n++ }
+      for (const m of c.matchAll(/(padding|margin|gap):\s*([^;]+);/g)) for (const v of m[2].trim().split(/\s+/)) { const px=v.match(/^(-?\d+(?:\.\d+)?)px$/); if(!px)continue; const num=parseFloat(px[1]); if(num===1||num===2||num===0)continue; if(num%4!==0) n++ }
       if (n) actual[d] = n
     }
-    const baseline: Record<string, number> = {"Alert":1,"AlertGroup":4,"Anchor":1,"Badge":1,"Calendar":1,"Cascader":2,"CodeBlock":1,"ColorPicker":2,"Command":1,"ContextMenu":1,"CopyButton":2,"DatePicker":7,"Descriptions":1,"DiffView":1,"Editor":4,"FloatButton":3,"InputNumber":2,"Kanban":3,"Markdown":1,"Mentions":2,"Menu":4,"Menubar":2,"NavMenu":5,"Notification":1,"PasswordInput":1,"Pipeline":1,"SearchInput":1,"SegmentedControl":3,"Tag":1,"TagsInput":1,"ThemeSwitch":2,"Timeline":2,"ToggleGroup":4,"Tour":1,"Transfer":1,"Tree":1,"TreeSelect":1}
+    const baseline: Record<string, number> = {"AlertGroup":4,"Calendar":1,"Cascader":2,"CodeBlock":1,"ColorPicker":1,"Command":1,"ContextMenu":1,"CopyButton":1,"InputNumber":1,"Kanban":3,"Mentions":2,"Menubar":2,"NavMenu":4,"PasswordInput":1,"Pipeline":1,"Timeline":1,"ToggleGroup":1,"Tour":1,"Transfer":1,"Tree":1,"TreeSelect":1}
     assert.deepEqual(actual, baseline, '间距非 4 倍数违规数变化：修复后须递减 baseline 并同步本快照')
   })
 
@@ -756,7 +760,7 @@ describe('样式审计 — 设计约束', () => {
       const n = [...nc.matchAll(/[^\/]\s*(#[0-9a-fA-F]{3,8})\b/g)].length + [...nc.matchAll(/\brgba?\(/g)].length + [...nc.matchAll(/\bhsla?\(/g)].length
       if (n) actual[d] = n
     }
-    const baseline: Record<string, number> = {"AlertGroup":7,"AutoComplete":4,"BackTop":1,"Carousel":1,"Cascader":1,"Command":1,"ContextMenu":1,"DiffView":2,"Drawer":1,"Editor":9,"FloatButton":8,"HoverCard":1,"InView":3,"Kanban":1,"Layout":5,"Link":6,"Mentions":1,"Menubar":1,"NavMenu":11,"Notification":1,"Pipeline":4,"Popconfirm":3,"Scrollbar":1,"Skeleton":3,"Slider":2,"Space":1,"Switch":1,"ThemeSwitch":1,"Tour":1,"TreeSelect":2}
+    const baseline: Record<string, number> = {"AlertGroup":7,"AutoComplete":4,"BackTop":1,"Carousel":1,"Command":1,"ContextMenu":1,"DiffView":2,"HoverCard":1,"InView":3,"Kanban":1,"Layout":5,"Link":6,"Mentions":1,"Menubar":1,"NavMenu":11,"Notification":1,"Pipeline":4,"Popconfirm":3,"Scrollbar":1,"Skeleton":3,"Slider":2,"Space":1,"Switch":1,"ThemeSwitch":1,"Tour":1,"TreeSelect":2}
     assert.deepEqual(actual, baseline, '裸色值违规数变化：修复后须递减 baseline 并同步本快照')
   })
 

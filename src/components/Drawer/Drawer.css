@@ -47,7 +47,7 @@
   max-width: 100vw;
   height: 100%;
   background: var(--wf-color-bg);
-  box-shadow: var(--wf-shadow-lg, 0 4px 24px rgba(0, 0, 0, 0.12));
+  box-shadow: var(--wf-shadow-lg));
 }
 
 .wf-drawer--enter .wf-drawer-panel {
@@ -99,7 +99,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--wf-space-md);
-  border-bottom: var(--wf-border-width, 1px) solid var(--wf-color-border);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-lg);
   font-weight: var(--wf-font-weight-semibold);
@@ -136,7 +136,7 @@
   justify-content: flex-end;
   gap: var(--wf-gap-sm);
   padding: var(--wf-space-md);
-  border-top: var(--wf-border-width, 1px) solid var(--wf-color-border);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
 }
 
 /* 移动端适配（P2）：小屏抽屉全宽（底部安全区） */

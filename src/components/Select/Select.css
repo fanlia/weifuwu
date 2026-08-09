@@ -12,10 +12,10 @@
 .wf-select {
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
-  min-height: var(--wf-field-height, var(--wf-control-height));
+  min-height: var(--wf-field-height));
   padding: var(--wf-control-pad-y) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
-  border-radius: var(--wf-field-radius, var(--wf-radius));
+  border-radius: var(--wf-field-radius));
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   outline: none;
@@ -47,7 +47,7 @@
 
 .wf-select-search-trigger {
   border: var(--wf-border-width) solid var(--wf-color-border);
-  border-radius: var(--wf-field-radius, var(--wf-radius));
+  border-radius: var(--wf-field-radius));
   background: var(--wf-color-bg);
   cursor: pointer;
   transition: all var(--wf-transition);
@@ -78,7 +78,7 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);
-  min-height: var(--wf-field-height, var(--wf-control-height));
+  min-height: var(--wf-field-height));
   padding: var(--wf-control-pad-y) var(--wf-space);
   cursor: pointer;
   box-sizing: border-box;
@@ -89,10 +89,10 @@
 
 .wf-select-search-menu {
   /* portal 定位（usePopup 接管）——absolute 会被父容器 overflow 裁剪 */
-  min-width: var(--wf-select-menu-min-width, 200px);
+  min-width: var(--wf-select-menu-min-width);
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
-  border-radius: var(--wf-field-radius, var(--wf-radius));
+  border-radius: var(--wf-field-radius));
   box-shadow: var(--wf-shadow-md);
   max-height: 240px;
   overflow-y: auto;
