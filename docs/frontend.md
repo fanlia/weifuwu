@@ -153,6 +153,8 @@ ctx.ui.render(['name'])
 | `render()` | `render(ids?: string[])` | 同步强制渲染；无参 = 当前组件，传参 = 指定组件列表 |
 | `dirty()` | `dirty(ids?: string[])` | 异步渲染（微任务批处理合并）；`$` 内部就是调它 |
 | `selfId()` | `selfId(name: string)` | 注册组件自定义 ID，配合 `render(['id'])` 跨组件精准刷新 |
+| `useChat()` | `useChat({ url, approveUrl?, body? })` | AI 对话会话：消息/流式/工具/审批，与 `$` 同容器（AiChat 配套） |
+| `useAsync()` | `useAsync(fetcher)` | 异步取数：`data/loading/error` 响应式 + `reload()` |
 | `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
 | `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
 | `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |
@@ -411,6 +413,54 @@ ctx.ui.render(['stats'])        // 同步刷新
 - 必须在 **mount 阶段**调用（组件初始化时），注册后组件即可被 `render(['id'])` / `dirty(['id'])` 精准定位
 - **同名冲突直接抛错**，每个自定义 ID 必须全局唯一
 - 配合 `selfId` 注册的组件在跨组件场景下无需把刷新逻辑层层传 props
+
+#### `ctx.ui.useChat(options)` — AI 对话会话（AiChat 配套）
+
+会话语义的流式 AI 状态容器：消息累积 / 工具调用内嵌 / HITL 审批 / stop / retry，协议对页面完全透明（wf: 协议见 `design/ai-contract.md`）。返回的 handle 与 `ctx.ui.$()` **同一个 $**（页面状态与会话状态共处一容器）：
+
+```tsx
+// mount 阶段（服务端 `ai()` 中间件 + `AiChat` 组件配套）
+const $ = ctx.ui.useChat({
+  url: '/api/chat',          // POST 端点（返回 wf: SSE 流）
+  approveUrl: '/api/approve', // HITL 审批上行（缺省时 approve() 只清卡片）
+  body: (messages) => ({ messages, mode: 'agent' }),  // 定制请求体
+  onEvent: (name, data) => { console.log('x:' + name, data) },  // x:* 透传
+})
+
+return (props) =>
+  h('div', {},
+    h(AiChat, { chat: $ }),        // 标准对话界面：流式 token/工具卡/审批卡/自动滚动
+    $.streaming ? '生成中…' : '',  // 会话状态与页面状态同容器
+  )
+```
+
+**状态（`$` 上）**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `$.messages` | `UiMessage[]` | 消息列表（`{ id, role, content, status, toolCalls?, approval?, usage?, error? }`） |
+| `$.input` | `string` | 输入框值（双向绑定） |
+| `$.streaming` | `boolean` | 是否正在流式生成 |
+| `$.error` | `WfError \| null` | 最近错误（code + message） |
+| `$.usage` | `WfUsage \| null` | token 用量（prompt/completion/total） |
+| `$.step` | `WfStep \| null` | 最近 agent 步骤指示（思考/工具），done/error 时清空 |
+
+**操作（`$` 上的方法）**：`$.send()`（发送当前输入）/ `$.stop()`（中止）/ `$.retry()`（截断到最后一条 user 重生成）/ `$.clear()`（清空）/ `$.approve(decision, note?)`（响应审批）/ `$.dispose()`（卸载时释放流）。
+
+**共享 $ 的子组件**（如 `<AiChat chat={$}>`）：父组件 dirty 不驱动子组件（三态 skip），子组件 mount 阶段 `chat.__watch?.(() => ctx.ui.dirty())` 自订阅（AiChat 已内置）。
+
+#### `ctx.ui.useAsync(fetcher)` — 异步取数
+
+`data/loading/error` 响应式 + `reload()` 重跑；数据就绪自动渲染当前组件。
+
+```tsx
+const list = ctx.ui.useAsync(() => ctx.api.get<User[]>('/users'))
+
+return () => list.loading ? h(Loading) : list.data?.map(u => h('div', {}, u.name))
+```
+
+- `list.data` / `list.loading` / `list.error` 赋值自动 dirty 当前组件
+- `list.reload()` 重跑；组件卸载后旧 Promise resolve 不再触发渲染（idRegistry 查无此组件，安全忽略）
 
 #### CSS 层响应式（不碰 JS）
 
