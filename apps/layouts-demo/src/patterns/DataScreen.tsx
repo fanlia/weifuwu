@@ -14,7 +14,19 @@ const SERIES = {
   cpu: [42, 45, 38, 52, 48, 61, 55, 72, 68, 75, 70, 66, 78, 82],
   mem: [30, 32, 35, 33, 38, 42, 40, 45, 43, 48, 52, 50, 55, 58],
   net: [20, 28, 25, 40, 35, 52, 48, 44, 60, 55, 68, 62, 74, 80],
+  qps: [120, 145, 138, 162, 158, 190, 175, 210, 198, 235, 220, 245, 260, 280],
+  latency: [38, 42, 35, 48, 52, 45, 58, 62, 55, 68, 72, 65, 74, 70],
+  disk: [45, 46, 48, 47, 50, 52, 51, 55, 58, 57, 62, 64, 66, 68],
 }
+
+const CARDS = [
+  { title: 'CPU 使用率', key: 'cpu', unit: '%' },
+  { title: '内存占用', key: 'mem', unit: '%' },
+  { title: '网络吞吐', key: 'net', unit: 'MB/s' },
+  { title: '请求 QPS', key: 'qps', unit: '/s' },
+  { title: '接口延迟', key: 'latency', unit: 'ms' },
+  { title: '磁盘使用', key: 'disk', unit: '%' },
+]
 
 const tick = (series: number[]) => {
   const base = series[series.length - 1]
@@ -24,15 +36,11 @@ const tick = (series: number[]) => {
 
 export const DataScreen: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
-  $.cpu = [...SERIES.cpu]
-  $.mem = [...SERIES.mem]
-  $.net = [...SERIES.net]
+  for (const c of CARDS) $[c.key] = [...SERIES[c.key as keyof typeof SERIES]]
   $.time = '10:24:36'
-  // 实时刷新：2 秒滚动更新曲线 + 时间（布局蓝本演示实时监控）
+  // 实时刷新：2 秒滚动更新全部曲线 + 时间（布局蓝本演示实时监控）
   const timer = setInterval(() => {
-    $.cpu = tick($.cpu)
-    $.mem = tick($.mem)
-    $.net = tick($.net)
+    for (const c of CARDS) $[c.key] = tick($[c.key])
     $.time = new Date().toTimeString().slice(0, 8)
   }, 2000)
 
@@ -57,20 +65,16 @@ export const DataScreen: Component = (_init, ctx) => {
       </div>
 
       {/* 主体：指标网格 */}
-      <div class="wf-grid wf-fill wf-p-lg" style={{ '--wf-cols': 'repeat(auto-fill, minmax(300px, 1fr))', alignContent: 'center', paddingTop: 60 }}>
-        {[
-          { title: 'CPU 使用率', series: $.cpu, unit: '%' },
-          { title: '内存占用', series: $.mem, unit: '%' },
-          { title: '网络吞吐', series: $.net, unit: 'MB/s' },
-        ].map((m) => (
+      <div class="wf-grid wf-fill wf-p-lg" style={{ '--wf-cols': 'repeat(auto-fill, minmax(280px, 1fr))', alignContent: 'center', paddingTop: 60 }}>
+        {CARDS.map((m) => (
           <Card outlined key={m.title} padding="lg">
             <Space direction="vertical" size="md">
               <div class="wf-row wf-between">
                 <Text strong>{m.title}</Text>
                 <Text type="success" className="wf-text-sm">● 实时</Text>
               </div>
-              <Sparkline data={m.series} width={280} height={64} />
-              <StatCard label="当前值" value={`${m.series[m.series.length - 1]}${m.unit}`} trend="up" trendLabel="最近采样" />
+              <Sparkline data={$[m.key]} width={280} height={64} />
+              <StatCard label="当前值" value={`${$[m.key][$[m.key].length - 1]}${m.unit}`} trend="up" trendLabel="最近采样" />
             </Space>
           </Card>
         ))}
