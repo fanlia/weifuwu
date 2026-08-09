@@ -571,7 +571,10 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       }
 
       return {
-        open: isOpen(),
+        // open 必须是 getter（渲染期读取永远最新）——创建时快照会让
+        // popup.open 永远 false（Popconfirm 气泡 --exit 的真实 bug：
+        // 组件读 popup.open 判类永远错）
+        get open() { return isOpen() },
         setOpen,
         wrapProps,
         portal,

@@ -174,9 +174,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
 
     return h('div', { class: 'wf-autocomplete-wrap', ref: wrapRef }, [
       h('input', {
-        // key 稳定：数组 children 无 key 子节点每次渲染重建（框架 diff 行为）——
-        // input 重建 → 焦点丢失（Select searchable 同款——受控输入通用纪律）
-        key: 'ac-input',
+        // C1 修复后：portal 内部 key 不算用户 keyed → allUnkeyed 按位置复用
+        // input 不重建（此前需手动 key 防焦点丢失——现已治本）
         class: 'wf-autocomplete-input wf-input',
         // 打开/输入时显示内部 keyword；关闭时选中 label（无选中回退受控值）
         value: $.open ? $.keyword : ($.selected || query),

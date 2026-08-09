@@ -442,10 +442,16 @@ export function patchKeyedChildren(
   oldNodes: (Node[] | null)[] = [],
   rangeStart: Node | null = null,
 ): (Node[] | null)[] {
-  const allUnkeyed = !newChildren.some(c => c && typeof c === 'object' && c.key !== undefined)
+  // remote（portal）的 key 是内部定位（createPortal portalKey）——不算用户 keyed。
+  // 否则 [input(无key), portal(key)] 走 keyed 分支 → 无 key 项 Step1 移除重建 →
+  // 受控 input 焦点丢失（AutoComplete/Select 真实 bug——此前组件手动加 key 治标）
+  const allUnkeyed = !newChildren.some(c =>
+    c && typeof c === 'object' && c.key !== undefined
+    && (c as VNode)._placement !== 'remote'
+  )
 
   if (allUnkeyed) {
-    // 全无 key：按位置匹配，不移动 DOM
+    // 全无 key（含 portal——内部 key 不计）：按位置匹配，不移动 DOM
     const len = Math.max(oldChildren.length, newChildren.length)
     for (let i = 0; i < len; i++) {
       const oldC = i < oldChildren.length ? oldChildren[i] : null
