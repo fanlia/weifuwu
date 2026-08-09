@@ -443,7 +443,7 @@ ctx.ui.render(['stats'])        // 同步刷新
 | `wf-safe-bottom` / `wf-safe-top` | iOS 安全区：`padding: env(safe-area-inset-bottom/top)`（刘海屏/Home 条） |
 | `@media (pointer: coarse)` 44px | 触屏命中区：button/input/select 全局覆盖；非 button 交互元素由 style-audit 规则强制登记 |
 
-> **移动端开发指南**：断点体系 / 44px 命中区纪律 / usePopup / 手势原语 / safe-area / 验收清单 → [`design/mobile.md`](../design/mobile.md)
+> **移动端开发指南**：断点体系 / 44px 命中区纪律 / usePopup / 手势原语 / safe-area / 验收清单 → [`docs/mobile.md`](mobile.md)
 
 ### `ctx.ui.dirty()` — 异步标记脏
 

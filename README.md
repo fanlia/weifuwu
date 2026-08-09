@@ -10,7 +10,7 @@ npm install weifuwu
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
 > - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）、`ctx.ui.ssr`（组件 SSR）、`ctx.ui.ssrData`（数据序列化）
-> - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useMedia()` / `useBreakpoint()` / `usePopupPosition()` / `useInView()` / `useScrollPosition()`（浏览器事件监听）
+> - **前端** `ctx.ui`（渲染引擎）：`ctx.ui.$()`（响应式状态）、`ctx.ui.render()` / `dirty()`（渲染控制）、`useChat()`（AI 会话）/ `useAsync()`（异步取数）/ `selfId()`（跨组件刷新）/ `useMedia()` / `useBreakpoint()`（响应式断点）/ `usePopupPosition()` / `usePopup()`（弹层定位/组合）/ `useHoverCapable()` / `useLongPress()` / `useVisualViewport()`（移动端原语）/ `useInView()` / `useScrollPosition()`（浏览器事件监听）
 > 后端的是「把页面和代码交给浏览器」，前端的是「在浏览器里驱动 UI」。
 
 ---
@@ -166,7 +166,22 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 - 改组件刷新即生效，无需构建步骤
 - 完整可运行示例见 `apps/components-demo`（组件 cheatsheet）与 `apps/agent-platform`（全栈 SaaS 应用）
 
-> 想**零后端、零构建**最快跑起来？直接跳到下面的「CDN 快速原型」。
+> 需要 **Node.js ≥ 20.6**（`--import weifuwu/dev` 与 `node --test` 依赖）。
+
+### 30 秒体验（跑现有 demo）
+
+```bash
+# ① 组件 cheatsheet——92 组件全部可交互预览（零依赖，5 秒起）
+cd apps/components-demo && node server.ts
+# 打开 http://localhost:3000
+
+# ② 全栈 SaaS 示例——多租户 AI 平台（auth / AI 对话 / 部门聊天 / 知识库 / HITL 审批）
+docker compose up -d postgres redis   # 仓库根目录
+cd apps/agent-platform && npm run seed && npm run dev
+# 打开 http://localhost:3000（admin@demo.com / admin123）
+```
+
+> 想**零后端、零构建**最快跑起来？直接跳到下面的「CDN 快速原型」——一个 `.html` 文件即可。
 
 ---
 
@@ -283,9 +298,34 @@ createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
 | `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
 | `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
 | `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect` / `clampToViewport`） | — |
-| `weifuwu/client` | **移动端原语** | `usePopup`（弹层组合器）/ `useHoverCapable` / `useLongPress` / `useVisualViewport`（触屏友好由构造保证，见 [design/mobile.md](design/mobile.md)） | — |
+| `weifuwu/client` | **移动端原语** | `usePopup`（弹层组合器）/ `useHoverCapable` / `useLongPress` / `useVisualViewport`（触屏友好由构造保证，见 [docs/mobile.md](docs/mobile.md)） | — |
 | `weifuwu/components` | **92 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
 | `weifuwu/layout` | **CSS 布局** | 70 个布局原语 + 141 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
+
+---
+
+## 能力速查（任务 → API）
+
+按任务场景找入口（完整参考见对应 docs）：
+
+| 任务 | 用 | 位置 |
+|------|-----|------|
+| 起 HTTP 服务 + 路由 | `serve(app)` + `new Router()` + `app.get/post/...` | [docs/server.md](docs/server.md) |
+| 渲染页面（SPA / SSR+hydrate） | `ui()` + `uiSsr({ routes })`；`createApp()` + `router({ routes })` + `RouteView` | [docs/realtime.md](docs/realtime.md) · [docs/frontend.md](docs/frontend.md) |
+| 数据持久化 | `postgres()` → `` ctx.sql`SELECT *` `` · `redis()` → `ctx.redis` | [docs/data.md](docs/data.md) |
+| 数据管道（SSR 预取/hydration/SPA） | `ctx.data.get(key)` + `asyncComponent` | [docs/frontend.md](docs/frontend.md) |
+| 用户注册/登录/会话/多租户 | `userSystem()` → `ctx.auth` + `/api/auth/*` | [docs/saas.md](docs/saas.md) |
+| 限流防爆破 | `rateLimit()` + `ctx.limit()` | [docs/saas.md](docs/saas.md) |
+| 发邮件 | `email()` → `ctx.email`（Resend/SMTP） | [docs/saas.md](docs/saas.md) |
+| 实时消息/聊天/通知 | `messager()` → `ctx.msg` + `app.ws` | [docs/saas.md](docs/saas.md) |
+| 后台任务/定时 | `queue()` → `ctx.queue` · `scheduler()` → `ctx.schedule/cron` | [docs/saas.md](docs/saas.md) |
+| AI 对话 / Agent / HITL 审批 | `ai()` → `ctx.ai` + `ctx.ui.useChat()` + `AiChat` | [docs/saas.md](docs/saas.md) |
+| GraphQL / WebSocket | `app.graphql(handler)` · `app.ws(path, handler)` | [docs/realtime.md](docs/realtime.md) |
+| 前端 UI 组件 | `weifuwu/components`（92 个：Button/Table/Modal/AiChat/...） | [docs/components.md](docs/components.md) |
+| 布局/主题/暗色 | `weifuwu/layout`（70 原语 + 141 Token） | [docs/layout.md](docs/layout.md) |
+| 样式定制（零自定义 CSS） | `--wf-*` 变量覆盖 + 组件定制钩子 | [docs/styling.md](docs/styling.md) |
+| 移动端适配（tap/长按/键盘/弹层） | `usePopup` / `useHoverCapable` / `useLongPress` / `useVisualViewport` | [docs/mobile.md](docs/mobile.md) |
+| 前后端类型安全中间件 | `createMiddleware`（声明注入即类型化） | [docs/server.md](docs/server.md) |
 
 ---
 
@@ -413,6 +453,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 |------|------|
 | [docs/examples.md](docs/examples.md) | 组合场景示例：登录表单 / 数据列表 + 搜索 / 消息提示 |
 | [docs/environment.md](docs/environment.md) | 环境变量与开发命令 |
+| [docs/mobile.md](docs/mobile.md) | 移动端开发指南：断点 / 44px 命中区 / usePopup / 手势 / safe-area |
 | [design/](design/) | 设计与计划文档（组件地图 / AI 协议契约 / 移动端指南 / 数据库客户端计划 / 设计系统 / 各阶段计划） |
 
 > `docs/` 用户文档随 npm 包发布（`files: ['dist/', 'README.md', 'docs/']`）——`node_modules/weifuwu/docs` 可离线查阅；`design/` 设计/计划文档仅仓库内。
