@@ -40,11 +40,14 @@ interface DragState {
  */
 export const Kanban: Component<KanbanProps> = (_init, ctx) => {
   let drag: DragState | null = null
-  let overCol: string | null = null // 拖拽悬停高亮
-  let overItem: string | null = null
 
-  const { dropProps } = ctx.ui.useDragDrop({
+  // 内置 DnD 原语：drop 侧（列 drop zone）+ drag 侧基础（draggable/onDragEnd）
+  const { dropProps, dragProps } = ctx.ui.useDragDrop({
     onDragOver: () => { /* preventDefault 自动 */ },
+    onDragEnd: () => {
+      drag = null
+      ctx.ui.render()
+    },
   })
 
   return (props) => {
@@ -62,23 +65,17 @@ export const Kanban: Component<KanbanProps> = (_init, ctx) => {
         { columnKey: toColumn, index: toIndex },
       )
       drag = null
-      overCol = null
-      overItem = null
       ctx.ui.render()
     }
 
     const cols = columns.map(col => {
       const colEl = h('div', {
-        class: `wf-kanban-col${overCol === col.key ? ' wf-kanban-col--over' : ''}`,
+        class: 'wf-kanban-col',
         'data-col': col.key,
         ...dropProps,
         onDrop: (e: DragEvent) => {
           e.preventDefault()
-          // 列尾追加（若未落到具体卡片上）
-          const targetIdx = col.items.length
-          if (!(overItem && col.items.some(i => i.id === overItem))) {
-            move(col.key, targetIdx)
-          }
+          move(col.key, col.items.length)
         },
       }, [
         h('div', { class: 'wf-kanban-col-header' }, [
@@ -87,29 +84,20 @@ export const Kanban: Component<KanbanProps> = (_init, ctx) => {
         ]),
         h('div', { class: 'wf-kanban-col-body' }, col.items.map((item, idx) =>
           h('div', {
-            class: `wf-kanban-card${overItem === item.id ? ' wf-kanban-card--over' : ''}`,
-            draggable: true,
+            class: 'wf-kanban-card',
             'data-item': item.id,
+            // 内置 drag 侧基础（draggable + onDragEnd 清理）
+            draggable: dragProps.draggable,
+            onDragEnd: dragProps.onDragEnd,
+            // 身份绑定在渲染期闭包（dragstart 用 dataTransfer + 闭包位置——
+            // 拖拽进行中不渲染，位置信息必须 mount 时捕获）
             onDragStart: (e: DragEvent) => {
               e.dataTransfer?.setData('text/plain', item.id)
               if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
               drag = { itemId: item.id, fromColumn: col.key, fromIndex: idx }
-              overCol = col.key
-              ctx.ui.render()
             },
-            onDragEnd: () => {
-              drag = null
-              overCol = null
-              overItem = null
-              ctx.ui.render()
-            },
-            onDragEnter: () => {
-              overItem = item.id
-              ctx.ui.render()
-            },
-            onDragLeave: () => {
-              if (overItem === item.id) { overItem = null; ctx.ui.render() }
-            },
+            // 卡片级 dragover 允许 drop（列 dropProps 只覆盖列容器）
+            onDragOver: (e: DragEvent) => e.preventDefault(),
             onDrop: (e: DragEvent) => {
               e.preventDefault()
               e.stopPropagation()

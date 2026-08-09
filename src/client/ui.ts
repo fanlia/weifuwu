@@ -901,6 +901,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       onDrop?: (e: DragEvent) => void
       onDragOver?: (e: DragEvent) => void
       onDragLeave?: (e: DragEvent) => void
+      onDragStart?: (e: DragEvent) => void
+      onDragEnd?: (e: DragEvent) => void
     }) {
       const dropProps: Record<string, any> = {}
       if (options.onDrop) {
@@ -916,7 +918,13 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         }
       }
       if (options.onDragLeave) dropProps.onDragLeave = (e: DragEvent) => options.onDragLeave!(e)
-      return { dropProps }
+
+      // 拖拽源侧：draggable + onDragStart/onDragEnd（HTML5 DnD 源元素 props）
+      // 注意：拖拽进行中禁止重渲染（渲染替换源元素会中断拖拽）——组件负责遵守
+      const dragProps: Record<string, any> = { draggable: true }
+      if (options.onDragStart) dragProps.onDragStart = (e: DragEvent) => options.onDragStart!(e)
+      if (options.onDragEnd) dragProps.onDragEnd = (e: DragEvent) => options.onDragEnd!(e)
+      return { dropProps, dragProps }
     },
 
     /**

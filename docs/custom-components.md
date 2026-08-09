@@ -228,6 +228,9 @@ const MyComp: Component = (_init, ctx) => {
 ```
 
 **规则**：
+- 拖拽统一 `ctx.ui.useDragDrop`（drop 侧 dropProps + drag 侧 dragProps：draggable/
+  onDragStart/onDragEnd）——**dragstart 期间禁止重渲染**（渲染替换源元素中断拖拽；
+  身份/位置在渲染期闭包绑定，拖拽视觉高亮用 CSS :hover）
 - 复制统一 `browser.copyText`（clipboard + 降级——勿自建 textarea+execCommand）
 - 键盘导航用 `browser.activeElement()`（勿 document.activeElement）
 - 存储用 `browser.storageGet/Set`（勿 localStorage 裸调）

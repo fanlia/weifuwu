@@ -313,7 +313,10 @@ export interface WfuiContext {
       onDrop?: (e: DragEvent) => void
       onDragOver?: (e: DragEvent) => void
       onDragLeave?: (e: DragEvent) => void
-    }) => { dropProps: Record<string, any> }
+      /** 拖拽源侧：draggable + onDragStart/onDragEnd（返回 dragProps spread 到拖拽源） */
+      onDragStart?: (e: DragEvent) => void
+      onDragEnd?: (e: DragEvent) => void
+    }) => { dropProps: Record<string, any>; dragProps: Record<string, any> }
     /**
      * 可视视口跟踪（visualViewport）：键盘弹起/缩放时自动更新 + dirty。
      * 无 visualViewport（桌面）降级 innerHeight。fixed 底部栏防键盘遮挡用。

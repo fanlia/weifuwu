@@ -87,7 +87,7 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
       return handle // SSR 确定性：reset 直落终值（无 rAF）
     },
     useDrag: () => ({ onPointerDown: () => {} }),
-    useDragDrop: () => ({ dropProps: {} }),
+    useDragDrop: () => ({ dropProps: {}, dragProps: {} }),
     useControlled: <T>(options: any) => ({
       value: options.value,
       setValue: (v: T) => { options.onChange?.(v) },

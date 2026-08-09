@@ -12,7 +12,14 @@ const mockCtx = () => ({
     $: () => ({}),
     render: () => {},
     dirty: () => {},
-    useDragDrop: () => ({ dropProps: {} }),
+    // 模拟内置 useDragDrop（drag 侧 + drop 侧）
+    useDragDrop: (opts: any) => ({
+      dropProps: {
+        onDrop: opts.onDrop ? (e: any) => { e.preventDefault(); opts.onDrop(e) } : undefined,
+        onDragOver: opts.onDragOver ? (e: any) => { e.preventDefault(); opts.onDragOver(e) } : undefined,
+      },
+      dragProps: { draggable: true, onDragStart: opts.onDragStart, onDragEnd: opts.onDragEnd },
+    }),
   },
 }) as any
 

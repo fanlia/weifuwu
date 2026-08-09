@@ -17,7 +17,7 @@
   flex-direction: column;
   transition: border-color var(--wf-dur-fast) var(--wf-ease-out);
 }
-.wf-kanban-col--over {
+.wf-kanban-col:hover {
   border-color: var(--wf-color-primary);
   border-style: dashed;
 }
@@ -63,10 +63,8 @@
 .wf-kanban-card:active {
   cursor: grabbing;
 }
-.wf-kanban-card--over {
+.wf-kanban-card:hover {
   border-color: var(--wf-color-primary);
-  border-style: dashed;
-  transform: translateY(-2px);
 }
 .wf-kanban-card[aria-grabbed='true'] {
   opacity: 0.4;
