@@ -840,6 +840,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       }
       const onPointerDown = (e: PointerEvent) => {
         if (active) return
+        // preventDefault：防拖拽期间文本选中（真实鼠标 down 的默认选择行为）
+        e.preventDefault()
         active = true
         startX = e.clientX
         startY = e.clientY
