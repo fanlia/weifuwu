@@ -48,8 +48,13 @@
   color: var(--wf-color-error-text);
 }
 
-/* ── 入场动画：面板族统一 wf-panel-in（scale+fade，Token 驱动） ── */
+/* ── 入场动画：fade-only（wf-panel-in 含 transform——覆盖定位 translateX(-50%)
+   动画期间右偏，结束归位 = 跳一下——真实 bug，对齐 Popconfirm 修复） ── */
 .wf-dropdown-menu {
-  animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
+  animation: wf-dropdown-in var(--wf-dur-fast) var(--wf-ease-out);
   transform-origin: top center;
+}
+@keyframes wf-dropdown-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }

@@ -397,6 +397,26 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(violations, [], 'ref 必须引用 mount 层稳定函数（ref: xxxRef），禁止内联箭头')
   })
 
+  it('弹层定位 transform 防线：动画含 transform 的组件不得有定位 transform（动画覆盖定位→弹层跳位）', () => {
+    // 收集所有 fixed 弹层组件：动画 transform 与定位 transform 的冲突检测。
+    // 定位 transform = 主类（含 position:fixed）或 --top/bottom/left/right 变体的 transform
+    const compFiles = globSync(join(root, 'src/components/*/*.css'))
+    const conflicts: string[] = []
+    for (const f of compFiles) {
+      const text = readFileSync(f, 'utf-8')
+      if (!text.includes('position: fixed')) continue
+      const hasAnimTransform = /@keyframes[^}]*\{[^}]*transform:/.test(text)
+      // 定位 transform：主类块（position:fixed 同块）或方向变体
+      const hasPosTransform =
+        /\.[a-z-]*\{[^}]*position:\s*fixed[^}]*transform:/.test(text) ||
+        /--(?:top|bottom|left|right)[^{]*\{[^}]*transform:/.test(text)
+      if (hasAnimTransform && hasPosTransform) {
+        conflicts.push(basename(f))
+      }
+    }
+    assert.deepEqual(conflicts, [], '动画 transform 会覆盖定位 transform（弹层动画期间跳位）：' + conflicts.join(', '))
+  })
+
   it('组件 CSS 假 token 防线：var(--wf-*) 引用必须可解析（定义或 fallback）', () => {
     // 收集 layout 定义的所有 --wf-* token
     const layoutDefs = new Set()

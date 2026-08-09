@@ -32,14 +32,17 @@
   animation: wf-popconfirm-out var(--wf-dur-md, 0.2s) var(--wf-ease-standard, ease) forwards;
 }
 
+/* 入场/退场只 fade（opacity）——transform 由定位类独占：
+   动画含 transform 会覆盖 .wf-popconfirm--top 的 translateX(-50%)
+   translateY(-100%)——动画期间弹层右偏/跳位，结束才归位（真实 bug） */
 @keyframes wf-popconfirm-in {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes wf-popconfirm-out {
   from { opacity: 1; }
-  to { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 0; }
 }
 
 .wf-popconfirm-title {
