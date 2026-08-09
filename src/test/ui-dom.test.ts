@@ -215,3 +215,84 @@ test('交互子组件 $ 赋值 → 组件局部重渲染（父 handler 不重跑
   assert.equal(el.querySelector('#n-b')?.textContent, '0', 'counter-b 不更新（独立）')
   assert.equal(handlerRuns, 1, 'handler 不重跑（组件级局部重渲染）')
 })
+
+// ═══════════════════════════════════════════════════════
+// D2 — keyed diff + style 属性 diff
+// ═══════════════════════════════════════════════════════
+
+test('keyed 列表重排：同 key 项复用 DOM（不重建），顺序移动', async () => {
+  const ui = new UIRouter()
+  ui.get('/list', async (location, ctx) => {
+    const $ = ctx.ui.$()
+    $.items = $.items ?? [{ id: 'a', v: 'A' }, { id: 'b', v: 'B' }, { id: 'c', v: 'C' }]
+    return h('ul', { id: 'list' },
+      ...($.items as any[]).map((it: any) =>
+        h('li', { key: it.id, id: `li-${it.id}` }, `${it.v}`)
+      ),
+    )
+  })
+  window.history.pushState(null, '', '/list')
+  const el = mount('ui-keyed')
+  serveUI(ui, { root: '#ui-keyed' })
+  await flush()
+  const liA = el.querySelector('#li-a')
+  const liB = el.querySelector('#li-b')
+  assert.ok(liA && liB)
+
+  // 重排：b 移到最前（keyed 移动，不重建）
+  const $ = (ui.ctx.ui.$() as any)
+  $.items = [{ id: 'b', v: 'B' }, { id: 'a', v: 'A' }, { id: 'c', v: 'C' }]
+  await flush()
+  const order = [...el.querySelectorAll('#list li')].map(n => n.id)
+  assert.deepEqual(order, ['li-b', 'li-a', 'li-c'], 'keyed 移动顺序')
+  assert.equal(el.querySelector('#li-a'), liA, 'li-a 复用不重建')
+  assert.equal(el.querySelector('#li-b'), liB, 'li-b 复用不重建')
+})
+
+test('keyed 列表增删：移除消失 key，新增新 key', async () => {
+  const ui = new UIRouter()
+  ui.get('/crud', async (location, ctx) => {
+    const $ = ctx.ui.$()
+    $.items = $.items ?? [{ id: 'a' }, { id: 'b' }]
+    return h('div', { id: 'crud' },
+      ...($.items as any[]).map((it: any) => h('span', { key: it.id, id: `s-${it.id}` })),
+    )
+  })
+  window.history.pushState(null, '', '/crud')
+  const el = mount('ui-crud')
+  serveUI(ui, { root: '#ui-crud' })
+  await flush()
+  assert.ok(el.querySelector('#s-a'))
+  assert.ok(el.querySelector('#s-b'))
+
+  // 移除 a，新增 d
+  const $ = (ui.ctx.ui.$() as any)
+  $.items = [{ id: 'b' }, { id: 'd' }]
+  await flush()
+  assert.ok(!el.querySelector('#s-a'), 'a 移除')
+  assert.ok(el.querySelector('#s-b'), 'b 保留')
+  assert.ok(el.querySelector('#s-d'), 'd 新增')
+})
+
+test('style diff：消失的 style 键被清除', async () => {
+  const ui = new UIRouter()
+  ui.get('/style', async (location, ctx) => {
+    const $ = ctx.ui.$()
+    $.show = $.show ?? true
+    return h('div', { id: 'sty', style: $.show ? { display: 'block', color: 'red' } : { color: 'red' } }, 'x')
+  })
+  window.history.pushState(null, '', '/style')
+  const el = mount('ui-style')
+  serveUI(ui, { root: '#ui-style' })
+  await flush()
+  const div = el.querySelector('#sty') as HTMLElement
+  assert.equal(div.style.display, 'block')
+  assert.equal(div.style.color, 'red')
+
+  // show=false → style 无 display → 应清除
+  const $ = (ui.ctx.ui.$() as any)
+  $.show = false
+  await flush()
+  assert.equal(div.style.display, '', 'display 被清除')
+  assert.equal(div.style.color, 'red', 'color 保留')
+})

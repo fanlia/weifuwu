@@ -168,18 +168,23 @@ export function patchValue(
     newV.el = el
     // patch props
     patchProps(el, oldV.props, newV.props)
-    // patch children（位置对齐）
+    // patch children（有 key → keyed diff；无 key → 位置对齐）
     const oldChildren = normalizeChildren(oldV.props?.children)
     const newChildren = normalizeChildren(newV.props?.children)
-    const len = Math.max(oldChildren.length, newChildren.length)
-    for (let i = 0; i < len; i++) {
-      const oldChildNode = el.childNodes[i] ?? null
-      const result = patchValue(el, oldChildNode, oldChildren[i], newChildren[i], ctx)
-      if (result && !el.contains(result)) el.insertBefore(result, oldChildNode?.nextSibling ?? null)
-    }
-    // 移除多余的旧节点
-    while (el.childNodes.length > newChildren.length) {
-      if (el.lastChild) el.removeChild(el.lastChild)
+    const hasKey = newChildren.some(c => c && typeof c === 'object' && !Array.isArray(c) && (c as any).key !== undefined)
+    if (hasKey) {
+      patchKeyedChildren(el, oldChildren, newChildren, ctx)
+    } else {
+      const len = Math.max(oldChildren.length, newChildren.length)
+      for (let i = 0; i < len; i++) {
+        const oldChildNode = el.childNodes[i] ?? null
+        const result = patchValue(el, oldChildNode, oldChildren[i], newChildren[i], ctx)
+        if (result && !el.contains(result)) el.insertBefore(result, oldChildNode?.nextSibling ?? null)
+      }
+      // 移除多余的旧节点
+      while (el.childNodes.length > newChildren.length) {
+        if (el.lastChild) el.removeChild(el.lastChild)
+      }
     }
     newV._child = newChildren as VNode[]
     return el
@@ -201,6 +206,7 @@ function patchProps(el: HTMLElement, oldProps: Record<string, any>, newProps: Re
       if (key.startsWith('on')) {
         el.removeEventListener(key.slice(2).toLowerCase(), oldProps[key])
       } else if (key === 'style') {
+        // 新 props 无 style → 清空 style
         el.removeAttribute('style')
       } else {
         el.removeAttribute(key)
@@ -213,6 +219,15 @@ function patchProps(el: HTMLElement, oldProps: Record<string, any>, newProps: Re
     if (key.startsWith('on') && typeof value === 'function') {
       el.addEventListener(key.slice(2).toLowerCase(), value)
     } else if (key === 'style' && typeof value === 'object' && value !== null) {
+      // style diff：移除旧 style 中消失的键（Object.assign 不会清旧键）
+      const oldStyle = oldProps?.['style'] as Record<string, any> | undefined
+      if (oldStyle && typeof oldStyle === 'object') {
+        for (const sk of Object.keys(oldStyle)) {
+          if (!(sk in (value as Record<string, any>))) {
+            ;(el.style as any)[sk] = ''
+          }
+        }
+      }
       Object.assign(el.style, value)
     } else if (value === true) {
       el.setAttribute(key, '')
@@ -263,6 +278,67 @@ function patchChildren(parent: Node, oldNode: Node | null, oldV: any, newV: any,
     while (base.childNodes.length > newChildren.length) if (base.lastChild) base.removeChild(base.lastChild)
   }
   return base
+}
+
+/**
+ * keyed children diff（D2）：key 匹配 → 复用/移动/新增/移除。
+ * 列表场景：同 key 项复用 DOM（不重建），顺序变化时移动。
+ */
+function patchKeyedChildren(parent: HTMLElement, oldChildren: any[], newChildren: any[], ctx: any): void {
+  // 建立旧 key → 索引映射
+  const oldKeyMap = new Map<string, number>()
+  const oldNodes: Array<ChildNode | null> = []
+  for (let i = 0; i < oldChildren.length; i++) {
+    const c = oldChildren[i]
+    const key = c && typeof c === 'object' ? (c as any).key : undefined
+    if (key !== undefined) oldKeyMap.set(String(key), i)
+    oldNodes.push(parent.childNodes[i] ?? null)
+  }
+
+  const newKeys = new Set(newChildren
+    .filter(c => c && typeof c === 'object')
+    .map(c => String((c as any).key)))
+
+  // Step 1: 移除消失的旧 key 节点
+  for (const [key, idx] of oldKeyMap) {
+    if (!newKeys.has(key)) {
+      const node = oldNodes[idx]
+      if (node) node.remove()
+    }
+  }
+
+  // Step 2: 按新顺序 patch/移动
+  let nextRef: ChildNode | null = parent.firstChild
+  let lastIndex = -1
+  for (let i = 0; i < newChildren.length; i++) {
+    const newC = newChildren[i]
+    const newKey = newC && typeof newC === 'object' ? (newC as any).key : undefined
+    const oldIdx = newKey !== undefined ? oldKeyMap.get(String(newKey)) : undefined
+
+    if (oldIdx !== undefined) {
+      // 复用旧节点：patch + 必要时移动
+      const oldNode = oldNodes[oldIdx]
+      if (oldNode) {
+        if (oldIdx < lastIndex) {
+          // 需要移动（新顺序前移）
+          parent.insertBefore(oldNode, nextRef ?? null)
+        }
+        lastIndex = Math.max(lastIndex, oldIdx)
+        patchValue(parent, oldNode, oldChildren[oldIdx], newC, ctx)
+        nextRef = oldNode.nextSibling
+      } else {
+        // 旧节点被移除过（无 DOM）→ 新建
+        const node = renderValue(newC, ctx)
+        if (node) parent.insertBefore(node, nextRef ?? null)
+        nextRef = node?.nextSibling ?? null
+      }
+    } else {
+      // 新增
+      const node = renderValue(newC, ctx)
+      if (node) parent.insertBefore(node, nextRef ?? null)
+      nextRef = node?.nextSibling ?? null
+    }
+  }
 }
 
 // ── 组件级响应式状态 ──────────────────────────────────
