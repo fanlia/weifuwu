@@ -524,7 +524,7 @@ P8 后 `style-audit`（`src/test/style-audit.test.ts`，16 条规则）是设计
 
 | 目录 | 用途 | 读者 | 发布 |
 |------|------|------|------|
-| `docs/` | **用户文档**：README 按角色拆分——后端（server/data/realtime/saas）、前端（frontend/frontend-middleware/components/layout/styling）、通用（examples/environment） | 框架使用者 | ✅ 随 npm 包 |
+| `docs/` | **用户文档**：README 按角色拆分——后端（server/data/realtime/saas）、前端（frontend/frontend-middleware/components/layout/styling/components-map/mobile）、通用（examples/environment） | 框架使用者 | ✅ 随 npm 包 |
 | `design/` | **设计/计划文档**：阶段计划（components-*/db-clients-*/messager/scheduler/mobile-support）、协议契约（ai-contract）、设计系统（design-system-*/style-guide/token-layout）、指南（mobile/style-system） | 框架开发者/贡献者 | ❌ 仅仓库 |
 
 **维护规则**：

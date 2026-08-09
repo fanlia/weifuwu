@@ -44,7 +44,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 | 认证 / 消息 / 队列 | **随包内置、互相咬合** | 自选 + 自缝 | 自选 + 自缝 |
 | 部署 | 一个 Node 进程 + PG + Redis | 各组件自理 | 平台绑定 |
 
-> 定位不是「替代某个框架」，而是**包换包**：用 weifuwu 一个依赖替换你原本要缝合的整套栈。心智模型有借鉴（两阶段组件接近 React、中间件接近 Express），但每一层都是自研的确定性实现——组件模型见[核心概念](#核心概念)，与 antd/Element Plus/shadcn 的对应见 `design/components-map.md`。
+> 定位不是「替代某个框架」，而是**包换包**：用 weifuwu 一个依赖替换你原本要缝合的整套栈。心智模型有借鉴（两阶段组件接近 React、中间件接近 Express），但每一层都是自研的确定性实现——组件模型见[核心概念](#核心概念)，与 antd/Element Plus/shadcn 的对应见 [docs/components-map.md](docs/components-map.md)。
 
 ### 从这里开始
 
@@ -495,6 +495,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | [docs/examples.md](docs/examples.md) | 组合场景示例：登录表单 / 数据列表 + 搜索 / 消息提示 |
 | [docs/environment.md](docs/environment.md) | 环境变量与开发命令 |
 | [docs/mobile.md](docs/mobile.md) | 移动端开发指南：断点 / 44px 命中区 / usePopup / 手势 / safe-area |
+| [docs/components-map.md](docs/components-map.md) | 组件速查：weifuwu ↔ antd / Element Plus / shadcn 对应 + 迁移路径 |
 | [design/](design/) | 设计与计划文档（组件地图 / AI 协议契约 / 移动端指南 / 数据库客户端计划 / 设计系统 / 各阶段计划） |
 
 > `docs/` 用户文档随 npm 包发布（`files: ['dist/', 'README.md', 'docs/']`）——`node_modules/weifuwu/docs` 可离线查阅；`design/` 设计/计划文档仅仓库内。

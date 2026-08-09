@@ -4,7 +4,7 @@
 
 92 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
-> **组件速查（weifuwu 组件 ↔ antd / Element Plus / shadcn-ui 对应 + 迁移示例）**：见 [`design/components-map.md`](../design/components-map.md)——从其他组件库迁来的开发者按功能直接找对应组件。
+> **组件速查（weifuwu 组件 ↔ antd / Element Plus / shadcn-ui 对应 + 迁移示例）**：见 [`docs/components-map.md`](components-map.md)——从其他组件库迁来的开发者按功能直接找对应组件。
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
@@ -162,6 +162,350 @@ props 变化 ──────────────────────�
 | `全局刷新` | `ctx.ui.render(['_wf_root'])` |
 | `局部刷新` | `ctx.ui.render()` 或 `$.x = val` |
 | `跨组件刷新` | `ctx.ui.selfId('name')` + `render(['name'])` |
+
+## 通用约定（所有组件一致）
+
+### 受控模式
+
+| 组件类型 | 受控 prop | 必须配回调 |
+|----------|-----------|-----------|
+| 开关/勾选（Checkbox/Switch/RadioGroup） | `checked` | `onChange` |
+| 输入（Input/Select/DatePicker/Textarea） | `value` | `onChange` / `onInput` |
+| 标签页/折叠（Tabs/Collapse） | `active` | `onChange` |
+| 弹层（Modal/Drawer/Dropdown/Popover） | `open` | `onClose` / `onOpenChange` |
+| 树/级联/穿梭（Tree/Cascader/Transfer） | `checkedKeys`/`value`/`targetKeys` | `onChange` |
+| 月历（Calendar） | `month`/`year` | `onMonthChange` |
+
+**规则**：传受控 props 而不传回调时，交互**静默失效**——组件 `console.warn` 明确提示（Collapse/Tree/Calendar/Cascader/Dropdown 已有防护）。非受控（不传受控 props）即可直接点击。
+
+### size 变体
+
+- `sm` / `md` / `lg`（Button/Avatar/Input 族）。未提供 size 的组件使用默认尺寸（CSS `--wf-control-pad-*` 驱动）。
+- 触屏（coarse pointer）自动 44px 命中区，不受 size 影响。
+
+### 事件命名
+
+| 语义 | 命名 |
+|------|------|
+| 值变化（受控） | `onChange` |
+| 原生输入 | `onInput` |
+| 列表选中 | `onSelect` |
+| 弹层开关 | `onOpenChange`（弹层）/ `onClose`（对话框） |
+| 表格排序 | `onSort` |
+
+### 命令式 API（无需组件）
+
+`confirm()` / `toast()` / `notification.success()`——组件内 `ctx.confirm?.('确定？')` 直接可用（中间件注入）。
+
+## 关键组件 Props 参考
+> 从组件 TS 类型自动提取（`src/components/*/*.ts` 的 `interface XxxProps`）。
+> 完整 props 以 TS 类型为准——`tsc` 编译期校验；此处为速查。受控约定：传受控 props 必须配回调（缺回调运行期 warn）。
+
+### Button（表单/通用）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `variant` | `'primary' \| 'secondary' \| 'ghost' \| 'danger'` | — |
+| `size` | `'sm' \| 'md' \| 'lg'` | — |
+| `block` | `boolean` | — |
+| `loading` | `boolean` | — |
+| `disabled` | `boolean` | — |
+| `type` | `'button' \| 'submit'` | — |
+| `title` | `string` | — |
+| `class` | `string` | 透传原生 class（覆盖默认 wf-btn 组合） |
+| `onClick` | `(e: MouseEvent) => void` | — |
+| `children` | `any` | — |
+
+### Input（表单核心）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `label` | `string` | — |
+| `name` | `string` | — |
+| `type` | `'text' \| 'email' \| 'password' \| 'number' \| 'url' \| 'date' \| 'tel' \| 'time' \| 'color'` | — |
+| `value` | `string` | — |
+| `placeholder` | `string` | — |
+| `required` | `boolean` | — |
+| `disabled` | `boolean` | — |
+| `error` | `string` | — |
+| `hint` | `string` | — |
+| `variant` | `'default' \| 'borderless'` | 边框变体：borderless 用于可编辑标题/内联编辑（hover/focus 才显边框） |
+| `onInput` | `(e: Event) => void` | — |
+| `onChange` | `(e: Event) => void` | — |
+| `min` | `string \| number` | 原生 input 属性透传（type=number 时 min/max/step 等） |
+| `max` | `string \| number` | — |
+| `step` | `string \| number` | — |
+| `key` | `string]: any` | — |
+
+### Textarea（表单核心）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `label` | `string` | — |
+| `value` | `string` | — |
+| `placeholder` | `string` | — |
+| `required` | `boolean` | — |
+| `disabled` | `boolean` | — |
+| `error` | `string` | — |
+| `hint` | `string` | — |
+| `rows` | `number` | — |
+| `maxLength` | `number` | 最大字符数（同时限制输入） |
+| `showCount` | `boolean` | 显示字数统计（右下角；配合受控 value 实时更新） |
+| `onInput` | `(e: Event) => void` | — |
+
+### Select（表单选择）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `label` | `string` | — |
+| `value` | `string \| string[]` | — |
+| `options` | `SelectOption[]` | — |
+| `placeholder` | `string` | — |
+| `required` | `boolean` | — |
+| `disabled` | `boolean` | — |
+| `error` | `string` | — |
+| `onChange` | `(value: string \| string[]) => void` | — |
+| `children` | `any` | — |
+| `searchable` | `boolean` | 启用搜索过滤 |
+| `multiple` | `boolean` | 多选模式（searchable 下生效；value/onChange 为数组） |
+| `onSearch` | `(keyword: string) => SelectOption[] \| Promise<SelectOption[]>` | 异步搜索回调，返回值作为新选项列表 |
+
+### Checkbox（表单选择）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `label` | `string` | — |
+| `checked` | `boolean` | — |
+| `disabled` | `boolean` | — |
+| `onChange` | `(checked: boolean) => void` | — |
+
+### Switch（表单选择）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `label` | `string` | — |
+| `checked` | `boolean` | — |
+| `disabled` | `boolean` | — |
+| `onChange` | `(checked: boolean) => void` | — |
+
+### RadioGroup（表单选择）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `name` | `string` | — |
+| `value` | `string` | — |
+| `options` | `RadioOption[]` | — |
+| `inline` | `boolean` | — |
+| `onChange` | `(value: string) => void` | — |
+
+### DatePicker（表单选择）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `mode` | `DatePickerMode` | — |
+| `value` | `string` | — |
+| `onChange` | `(value: string) => void` | — |
+| `placeholder` | `string` | — |
+| `disabled` | `boolean` | — |
+
+### Form（表单增强）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `onSubmit` | `(values: Record<string, any>) => void \| Promise<void>` | 提交回调，接收字段名→值的对象 |
+| `validation` | `Record<string, ValidationRule[]>` | 验证规则：字段名 → 规则数组 |
+| `onError` | `(errors: Record<string, string>) => void` | 验证失败时回调，接收字段名→错误消息的对象 |
+| `children` | `any` | — |
+
+### Field（表单增强）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `label` | `string` | — |
+| `required` | `boolean` | — |
+| `error` | `string` | — |
+| `hint` | `string` | — |
+| `children` | `any` | — |
+
+### Table（数据展示）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `data` | `any[]` | — |
+| `columns` | `TableColumn[]` | — |
+| `onRowClick` | `(row: any, index: number) => void` | — |
+| `sortKey` | `string` | 当前排序列的 key |
+| `sortOrder` | `'asc' \| 'desc'` | 当前排序方向 |
+| `onSort` | `(key: string, order: 'asc' \| 'desc') => void` | 排序变化回调 |
+| `rowSelection` | `TableRowSelection` | 行选择（受控） |
+| `emptyText` | `string` | 数据为空时显示的文本 |
+| `minWidth` | `string` | 表格最小宽度（窄屏横向滚动，如 '720px'） |
+| `loading` | `boolean` | 加载中：保留表头，渲染骨架行 |
+| `loadingRows` | `number` | 骨架行数，默认 3 |
+
+### Modal（数据反馈）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `open` | `boolean` | — |
+| `title` | `string` | — |
+| `onClose` | `() => void` | — |
+| `children` | `any` | — |
+| `footer` | `any` | — |
+| `width` | `string` | 自定义宽度，如 '500px'、'80%'，默认 400px |
+| `closable` | `boolean` | 是否显示关闭按钮，默认 true |
+| `maskClosable` | `boolean` | 点击遮罩是否关闭，默认 true（危险确认应设 false） |
+
+### Drawer（数据反馈）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `open` | `boolean` | — |
+| `title` | `string` | — |
+| `position` | `DrawerPosition` | — |
+| `onClose` | `() => void` | — |
+| `children` | `any` | — |
+| `footer` | `any` | — |
+
+### Confirm（数据反馈）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `open` | `boolean` | — |
+| `title` | `string` | — |
+| `message` | `any` | 提示内容（文本或任意 VNode） |
+| `confirmText` | `string` | — |
+| `cancelText` | `string` | — |
+| `variant` | `'primary' \| 'danger'` | — |
+| `width` | `string` | 对话框宽度，如 '500px'、'80%'，默认 Modal 的 400px |
+| `maskClosable` | `boolean` | 遮罩点击是否取消（默认 false：危险操作防误触；显式传 true 可恢复） |
+| `onConfirm` | `() => void` | — |
+| `onCancel` | `() => void` | — |
+
+### Toast（数据反馈）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `toasts` | `ToastItem[]` | — |
+| `onRemove` | `(id: string) => void` | — |
+| `position` | `ToastPosition` | 容器位置，默认 top-right |
+| `duration` | `number` | 全局默认自动消失时间（ms），0 = 不自动消失，默认 0 |
+| `max` | `number` | 最大显示条数，超出时移除最早条目，默认 0 = 不限制 |
+
+### Tooltip（数据反馈）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `content` | `string` | — |
+| `position` | `TooltipPosition` | — |
+| `children` | `any` | — |
+| `disabled` | `boolean` | — |
+
+### Popover（数据反馈）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `content` | `any` | — |
+| `trigger` | `'click' \| 'hover'` | — |
+| `position` | `PopoverPosition` | — |
+| `open` | `boolean` | — |
+| `onOpenChange` | `(open: boolean) => void` | — |
+| `disabled` | `boolean` | — |
+| `children` | `any` | — |
+
+### Dropdown（导航组件）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `trigger` | `any` | — |
+| `items` | `DropdownItem[]` | — |
+| `open` | `boolean` | — |
+| `onOpenChange` | `(open: boolean) => void` | 关闭回调（面板内 Escape / 外部点击） |
+
+### Tabs（导航组件）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `items` | `TabItem[]` | — |
+| `active` | `string` | — |
+| `onChange` | `(key: string) => void` | — |
+
+### Pagination（导航组件）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `total` | `number` | — |
+| `page` | `number` | — |
+| `pageSize` | `number` | — |
+| `onChange` | `(page: number) => void` | — |
+
+### Tree（新增批次）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `data` | `TreeNode[]` | — |
+| `selectedKeys` | `string[]` | 受控选中 keys |
+| `onSelect` | `(keys: string[]) => void` | — |
+| `expandedKeys` | `string[]` | 受控展开 keys |
+| `onExpand` | `(keys: string[]) => void` | — |
+| `checkable` | `boolean` | 勾选模式（父子联动，antd 非 strict 语义） |
+| `checkedKeys` | `string[]` | — |
+| `onCheck` | `(keys: string[]) => void` | — |
+| `className` | `string` | — |
+
+### Cascader（新增批次）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `options` | `CascaderOption[]` | — |
+| `value` | `string[]` | 选中路径（数组，如 ['zj','hz','xh']） |
+| `onChange` | `(value: string[]) => void` | — |
+| `placeholder` | `string` | — |
+| `disabled` | `boolean` | — |
+| `error` | `string` | — |
+| `label` | `string` | — |
+
+### Transfer（新增批次）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `data` | `TransferItem[]` | — |
+| `targetKeys` | `string[]` | 目标侧已选 keys |
+| `onChange` | `(targetKeys: string[]) => void` | — |
+| `titles` | `[string, string]` | — |
+| `size` | `'sm' \| 'md' \| 'lg'` | — |
+| `disabled` | `boolean` | — |
+
+### Carousel（新增批次）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `children` | `any[]` | — |
+| `autoplay` | `boolean` | 自动播放 |
+| `interval` | `number` | 自动播放间隔（ms），默认 3000 |
+| `showArrows` | `boolean` | — |
+| `showDots` | `boolean` | — |
+| `loop` | `boolean` | 循环播放（尾 → 头），默认 true |
+| `className` | `string` | — |
+
+### Calendar（新增批次）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `events` | `CalendarEvent[]` | — |
+| `month` | `number` | 受控年月：month 0-11，year 四位数 |
+| `year` | `number` | — |
+| `onMonthChange` | `(month: number, year: number) => void` | — |
+| `onSelectDate` | `(date: string) => void` | — |
+| `selectedDate` | `string` | — |
+
+### AiChat（AI 交互）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `chat` | `UseChatHandle` | ctx.ui.useChat() 返回的会话 handle（同一 $，状态变化自动重渲染） |
+| `maxHeight` | `string` | 消息列表最大高度（默认 '70vh'） |
+| `labels` | `Partial<AiChatLabels>` | 界面文案覆盖 |
+| `renderMessage` | `(msg: UiMessage) => any` | 自定义气泡渲染逃生舱（默认纯文本） |
+| `renderToolArgs` | `(args: Record<string, unknown>) => any` | 工具参数渲染（透传 ToolCallCard） |
+| `raiseOnKeyboard` | `boolean` | 键盘弹起时输入区 fixed 抬升（全屏 chat 布局用；内联卡片默认 false——原生聚焦滚动已够） |
+
+### FileUpload（表单增强）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `accept` | `string` | — |
+| `multiple` | `boolean` | — |
+| `maxSize` | `number` | — |
+| `disabled` | `boolean` | — |
+| `error` | `string` | — |
+| `hint` | `string` | — |
+| `value` | `File[]` | — |
+| `onChange` | `(files: File[]) => void` | — |
+| `children` | `any` | — |
+
+### Slider（表单选择）
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `label` | `string` | — |
+| `value` | `number \| string` | — |
+| `min` | `number` | — |
+| `max` | `number` | — |
+| `step` | `number` | — |
+| `onChange` | `(value: number) => void` | — |
 
 ## 组件列表
 
