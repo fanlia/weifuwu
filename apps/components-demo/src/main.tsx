@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, InfiniteScroll, QRCode,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1357,6 +1357,31 @@ const DemoVirtualList: Component = () => () => (
     renderItem={(item: any) => <div class="wf-text-sm wf-border-b wf-py-xs wf-px-sm">{item.label}</div>} />
 )
 
+const DemoVirtualTable: Component = (_props, ctx) => {
+  let sortKey: string | undefined
+  let sortOrder: 'asc' | 'desc' | undefined
+  const cols = [
+    { key: 'id', label: 'ID', width: 80, sortable: true },
+    { key: 'name', label: '用户名', width: 180, sortable: true },
+    { key: 'email', label: '邮箱', width: 240 },
+    { key: 'status', label: '状态', width: 100, render: (v: string) => v === 'active' ? <span class="wf-tag wf-tag--success">活跃</span> : <span class="wf-tag">停用</span> },
+  ]
+  const data = Array.from({ length: 10000 }, (_, i) => ({
+    id: i + 1,
+    name: `用户${i + 1}`,
+    email: `user${i + 1}@weifuwu.dev`,
+    status: i % 3 === 0 ? 'active' : 'inactive',
+  }))
+  return () => (
+    <div class="wf-w-full">
+      <VirtualTable columns={cols} data={data} height={320} rowHeight={40}
+        sortKey={sortKey} sortOrder={sortOrder}
+        onSort={(k: string, o: 'asc' | 'desc') => { sortKey = k; sortOrder = o; ctx.ui.render() }} />
+      <div class="wf-text-xs wf-text-secondary wf-mt-sm">10,000 行仅渲染可见窗口（滚动流畅）；表头可排序</div>
+    </div>
+  )
+}
+
 const DemoQRCode: Component = () => () => (
   <div class="wf-row wf-gap-md">
     <QRCode value="https://weifuwu.dev" size={96} />
@@ -1815,6 +1840,9 @@ return () => <AiChat chat={$} />
   virtuallist: `<VirtualList height={400} itemHeight={36}
   items={rows} renderItem={renderRow} />`,
 
+  virtualtable: `<VirtualTable columns={cols} data={rows} height={320}
+  sortKey={sortKey} sortOrder={sortOrder} onSort={handleSort} />`,
+
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
 
@@ -1961,6 +1989,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Calendar" desc="月历：事件点 + 月切换 + 日期选择（antd/EP Calendar）" code={CODE.calendar}><DemoCalendar /></DemoCard>
         <DemoCard title="Watermark" desc="水印：canvas 平铺绘制 + overlay（antd Watermark）" code={CODE.watermark}><DemoWatermark /></DemoCard>
         <DemoCard title="VirtualList" desc="虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM" code={CODE.virtuallist}><DemoVirtualList /></DemoCard>
+        <DemoCard title="VirtualTable" desc="虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序" code={CODE.virtualtable}><DemoVirtualTable /></DemoCard>
         <DemoCard title="InfiniteScroll" desc="无限滚动：底部哨兵触底加载 + loading/end 态" code={CODE.infinitescroll}><DemoInfiniteScroll /></DemoCard>
         <DemoCard title="QRCode" desc="二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG" code={CODE.qrcode}><DemoQRCode /></DemoCard>
       </Section>

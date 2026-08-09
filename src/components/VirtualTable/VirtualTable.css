@@ -1,0 +1,97 @@
+/* weifuwu/components — VirtualTable（固定表头 + 虚拟滚动表体） */
+
+.wf-virtual-table {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  color: var(--wf-color-text);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  overflow: hidden;
+}
+
+.wf-virtual-table-thead {
+  display: flex;
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  background: var(--wf-color-bg-secondary);
+}
+
+.wf-virtual-table-th {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  padding: var(--wf-space-sm) var(--wf-space-md);
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text-secondary);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.wf-virtual-table-th--sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.wf-virtual-table-th--sortable:hover {
+  color: var(--wf-color-text);
+}
+
+.wf-virtual-table-th--sortable:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-virtual-table-th--sorted {
+  color: var(--wf-color-primary-text);
+}
+
+.wf-virtual-table-sort-icon {
+  display: inline-flex;
+  color: var(--wf-color-text-tertiary);
+}
+
+.wf-virtual-table-sort-icon--active {
+  color: var(--wf-color-primary-text);
+}
+
+.wf-virtual-table-body {
+  position: relative;
+  overflow-y: auto;
+}
+
+.wf-virtual-table-spacer {
+  pointer-events: none;
+}
+
+.wf-virtual-table-row {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  cursor: default;
+}
+
+.wf-virtual-table-row:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-virtual-table-td {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--wf-space-md);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--wf-color-text);
+}
+
+.wf-virtual-table-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--wf-space-lg);
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-sm);
+}
