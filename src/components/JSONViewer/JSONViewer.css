@@ -105,3 +105,32 @@
 .wf-json-number { color: var(--wf-color-primary-text); }
 .wf-json-boolean { color: var(--wf-color-warning-text); }
 .wf-json-null { color: var(--wf-color-text-tertiary); font-style: italic; }
+
+/* ── 整行折叠交互（大命中区）+ 触屏适配 ── */
+
+.wf-json-collapse,
+.wf-json-row--header {
+  cursor: pointer;
+}
+
+.wf-json-collapse:hover,
+.wf-json-row--header:hover {
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-json-collapse:focus-visible,
+.wf-json-row--header:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+/* 触屏（coarse）：toggle/复制按钮 44px 命中区（padding 扩展） */
+@media (pointer: coarse) {
+  .wf-json-toggle,
+  .wf-json-copy {
+    width: 24px; height: 24px;
+    min-width: 24px; max-width: 24px;
+    min-height: 24px; max-height: 24px;
+    padding: 4px;
+  }
+}

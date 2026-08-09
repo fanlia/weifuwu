@@ -44,20 +44,37 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
   // 闭包 let + ctx.ui.render() 在事件回调里 selfId 不可靠，折叠/展开会静默失败）
   const $ = ctx.ui.$()
   $.expanded = {} as Record<string, boolean>
+  $.copiedPath = undefined as string | undefined
 
   const toggle = (path: string, selfId?: string) => {
     $.expanded[path] = !$.expanded[path]
-    // $ 的 dirty 用 mount 期 selfId——无状态包裹/重挂载时会错位（渲染孤儿实例）；
-    // 这里按 render 期 selfId 显式精准刷新
     if (selfId) ctx.ui.dirty([selfId])
   }
 
+  // 复制：clipboard API + execCommand 降级（非 secure context 下 clipboard 不可用——
+  // 无降级会静默失败，用户以为按钮无效）
+  const copyText = (text: string) => {
+    if (navigator?.clipboard?.writeText) {
+      return navigator.clipboard.writeText(text).then(() => true).catch(() => fallbackCopy(text))
+    }
+    return Promise.resolve(fallbackCopy(text))
+  }
+  const fallbackCopy = (text: string): boolean => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(ta)
+      return ok
+    } catch { return false }
+  }
   const copyPath = (path: string, value: unknown, onCopy?: (p: string, v: unknown) => void) => {
     if (onCopy) { onCopy(path, value); return }
-    const text = `${path} = ${JSON.stringify(value)}`
-    if (navigator?.clipboard?.writeText) {
-      void navigator.clipboard.writeText(text)
-    }
+    void copyText(`${path} = ${JSON.stringify(value)}`)
   }
 
   return (props: JSONViewerProps) => {
@@ -66,23 +83,47 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
     const selfId = (ctx.ui as any)._selfId as string | undefined
     const { data, defaultExpandDepth = 2, maxKeys = 100, rootName = 'root', onCopy, className } = props
 
+    // 复制 + 反馈：DOM 级图标切换（check 1s）——不依赖渲染管线
+    // （$ 在无状态包裹/重挂载场景跨闭包不一致，渲染级反馈不可靠）
+    const copyHere = (path: string, value: unknown, e: Event) => {
+      copyPath(path, value, onCopy)
+      const btn = (e as any).currentTarget as HTMLElement | undefined
+      const pathEl = btn?.querySelector('path')
+      const oldD = pathEl?.getAttribute('d')
+      if (pathEl && oldD) {
+        pathEl.setAttribute('d', 'M20 6 9 17l-5-5') // check
+        window.setTimeout(() => pathEl.setAttribute('d', oldD), 1000)
+      }
+    }
+
     const renderLeaf = (v: unknown, path: string, depth: number): any => {
       // 折叠点：非标量且超深度（或手动折叠）
       const isCollapsed = depth >= defaultExpandDepth && !$.expanded[path]
       if (isCollapsed) {
         const summary = Array.isArray(v) ? `Array(${v.length})` : 'Object'
-        return h('div', { class: 'wf-json-row wf-json-collapse', 'data-path': path }, [
+        return h('div', {
+          class: 'wf-json-row wf-json-collapse',
+          'data-path': path,
+          role: 'button',
+          tabIndex: 0,
+          onClick: () => toggle(path, selfId),
+          onKeyDown: (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId) }
+          },
+        }, [
           h('button', {
             class: 'wf-json-toggle',
             'aria-label': '展开',
-            onClick: () => toggle(path, selfId),
+            tabIndex: -1,
+            onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId) },
           }, h(Icon, { name: 'chevron-right', size: 10 })),
           h('span', { class: 'wf-json-key' }, ''),
           h('span', { class: 'wf-json-summary' }, `${summary} {…}`),
           h('button', {
             class: 'wf-json-copy',
             'aria-label': `复制 ${path}`,
-            onClick: () => copyPath(path, v, onCopy),
+            tabIndex: -1,
+            onClick: (e: Event) => { e.stopPropagation(); copyHere(path, v, e) },
           }, h(Icon, { name: 'copy', size: 10 })),
         ])
       }
@@ -90,11 +131,20 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
       if (Array.isArray(v)) {
         const rows = v.map((item, i) => renderValue(item, `${path}[${i}]`, depth + 1, String(i)))
         return h('div', { class: 'wf-json-node', 'data-path': path }, [
-          h('div', { class: 'wf-json-row' }, [
+          h('div', {
+              class: 'wf-json-row wf-json-row--header',
+              role: 'button',
+              tabIndex: 0,
+              onClick: () => toggle(path, selfId),
+              onKeyDown: (e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId) }
+              },
+            }, [
             h('button', {
               class: 'wf-json-toggle',
               'aria-label': '收起',
-              onClick: () => toggle(path, selfId),
+              tabIndex: -1,
+              onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId) },
             }, h(Icon, { name: 'chevron-down', size: 10 })),
             h('span', { class: 'wf-json-key' }, ''),
             h('span', { class: 'wf-json-node-summary' }, `Array(${v.length})`),
@@ -112,11 +162,20 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
           rows.push(h('div', { class: 'wf-json-more' }, `+${entries.length - maxKeys} 项（懒展开）`))
         }
         return h('div', { class: 'wf-json-node', 'data-path': path }, [
-          h('div', { class: 'wf-json-row' }, [
+          h('div', {
+              class: 'wf-json-row wf-json-row--header',
+              role: 'button',
+              tabIndex: 0,
+              onClick: () => toggle(path, selfId),
+              onKeyDown: (e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId) }
+              },
+            }, [
             h('button', {
               class: 'wf-json-toggle',
               'aria-label': '收起',
-              onClick: () => toggle(path, selfId),
+              tabIndex: -1,
+              onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId) },
             }, h(Icon, { name: 'chevron-down', size: 10 })),
             h('span', { class: 'wf-json-key' }, ''),
             h('span', { class: 'wf-json-node-summary' }, `Object(${entries.length})`),
@@ -132,7 +191,8 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
         h('button', {
           class: 'wf-json-copy',
           'aria-label': `复制 ${path}`,
-          onClick: () => copyPath(path, v, onCopy),
+          tabIndex: -1,
+          onClick: (ev: Event) => copyHere(path, v, ev),
         }, h(Icon, { name: 'copy', size: 10 })),
       ])
     }
@@ -144,19 +204,30 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
         const isCollapsed = depth >= defaultExpandDepth && !$.expanded[path]
         if (isCollapsed) {
           const summary = Array.isArray(v) ? `Array(${v.length})` : 'Object'
-          return h('div', { class: 'wf-json-row wf-json-collapse', 'data-path': path }, [
+          return h('div', {
+            class: 'wf-json-row wf-json-collapse',
+            'data-path': path,
+            role: 'button',
+            tabIndex: 0,
+            onClick: () => toggle(path, selfId),
+            onKeyDown: (e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId) }
+            },
+          }, [
             h('button', {
               class: 'wf-json-toggle',
               'aria-label': '展开',
-              onClick: () => toggle(path, selfId),
+              tabIndex: -1,
+              onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId) },
             }, h(Icon, { name: 'chevron-right', size: 10 })),
             h('span', { class: 'wf-json-key' }, `${key}:`),
             h('span', { class: 'wf-json-summary' }, `${summary} {…}`),
             h('button', {
               class: 'wf-json-copy',
               'aria-label': `复制 ${path}`,
-              onClick: () => copyPath(path, v, onCopy),
-            }, h(Icon, { name: 'copy', size: 10 })),
+              tabIndex: -1,
+              onClick: (e: Event) => { e.stopPropagation(); copyHere(path, v, e) },
+            }, h(Icon, { name: ($.copiedPath === path ? 'check' : 'copy'), size: 10 })),
           ])
         }
         if (Array.isArray(v)) {
@@ -182,11 +253,20 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
           rows.push(h('div', { class: 'wf-json-more' }, `+${entries.length - maxKeys} 项（懒展开）`))
         }
         return h('div', { class: 'wf-json-node', 'data-path': path }, [
-          h('div', { class: 'wf-json-row' }, [
+          h('div', {
+              class: 'wf-json-row wf-json-row--header',
+              role: 'button',
+              tabIndex: 0,
+              onClick: () => toggle(path, selfId),
+              onKeyDown: (e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(path, selfId) }
+              },
+            }, [
             h('button', {
               class: 'wf-json-toggle',
               'aria-label': '收起',
-              onClick: () => toggle(path, selfId),
+              tabIndex: -1,
+              onClick: (e: Event) => { e.stopPropagation(); toggle(path, selfId) },
             }, h(Icon, { name: 'chevron-down', size: 10 })),
             h('span', { class: 'wf-json-key' }, `${key}:`),
             h('span', { class: 'wf-json-node-summary' }, `Object(${entries.length})`),
@@ -201,7 +281,8 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
         h('button', {
           class: 'wf-json-copy',
           'aria-label': `复制 ${path}`,
-          onClick: () => copyPath(path, v, onCopy),
+          tabIndex: -1,
+          onClick: (ev: Event) => copyHere(path, v, ev),
         }, h(Icon, { name: 'copy', size: 10 })),
       ])
     }
