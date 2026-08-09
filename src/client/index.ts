@@ -69,6 +69,8 @@ export type { ErrorBoundaryProps } from './error-boundary.ts'
 export { i18n } from './i18n.ts'
 export type { I18nOptions, I18nState, I18nInjected } from './i18n.ts'
 
+export { createReactiveState } from './reactive.ts'
+export type { ReactiveState } from './types.ts'
 export { lockScroll, unlockScroll } from './scroll-lock.ts'
 export { trapFocus } from './focus-trap.ts'
 

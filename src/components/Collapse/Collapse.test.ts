@@ -16,7 +16,17 @@ function mockCtx(): WfuiContext {
     set(t: any, k, v) { t[k] = v; return true },
     get(t: any, k) { return t[k] },
   })
-  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true } } as any
+  // 非受控内部状态（useControlled 的 selfId 缓存不在 mock 场景，用闭包模拟）
+  let internal: string[] | undefined = undefined
+  const ctrl = (opts: any) => {
+    const controlled = opts.value !== undefined
+    const setValue = (v: string[]) => {
+      if (controlled) { opts.onChange?.(v); return }
+      internal = v; state.internalActive = v
+    }
+    return { value: controlled ? opts.value : internal, setValue, controlled }
+  }
+  return { ui: { $: () => state, render: () => {}, dirty: () => {}, ready: true, useControlled: ctrl } } as any
 }
 
 const items = [
@@ -91,16 +101,14 @@ describe('Collapse', () => {
 
   it('uncontrolled mode keeps internal state', () => {
     const ctx = mockCtx() as any
-    let state: string[] = []
-    ctx.ui.$ = () => new Proxy({}, {
-      set(t: any, k, v) { t[k] = v; state = v; return true },
-      get(t: any, k) { return t[k] },
-    })
     const result = Collapse({ items }, ctx)
     const render = result as any
     const v1 = render({ items })
-    // 点击 A 标题 → 内部 $ 状态更新
+    // 点击 A 标题 → 非受控：内部状态更新（useControlled 内部缓存）
     v1.props.children[0].props.children[0].props.onClick()
-    assert.deepEqual(state, ['a'])
+    // 再次 render（模拟 re-render）：A 面板应保持展开
+    const v2 = render({ items })
+    assert.ok(String(v2.props.children[0].props.class).includes('--open'), 'A 面板展开')
+    assert.ok(!String(v2.props.children[1].props.class).includes('--open'), 'B 面板收起')
   })
 })

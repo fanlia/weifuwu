@@ -94,3 +94,34 @@ test('useAsync 卸载后过期 resolve 不触发渲染（不炸）', async () =>
   assert.equal(renders, before, '卸载后 resolve 不再触发渲染')
   assert.equal(container.children.length, 0)
 })
+
+test('useAsync 竞态：慢旧请求 resolve 不得覆盖新请求结果（stale-close）', async () => {
+  // 第一次取数慢，第二次（reload）快——旧结果后到也必须被丢弃
+  let firstResolve: (d: any) => void = () => {}
+  let call = 0
+  const fetcher = () => {
+    call++
+    if (call === 1) return new Promise(r => { firstResolve = r })  // 慢：悬挂
+    return Promise.resolve('新结果')
+  }
+
+  const Comp: any = (_init: any, ctx: any) => {
+    const list = ctx.ui.useAsync(fetcher)
+    return () => h('button', { class: 'async-comp', onClick: () => list.reload() }, `值:${list.data ?? '未就绪'}`)
+  }
+  const { container, app, mount } = makeMount(Comp)
+  await mount()
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(container.textContent, '值:未就绪', '第一次取数悬挂，loading')
+
+  // reload（第二次，快）→ 新结果就绪
+  ;(container.querySelector('.async-comp') as HTMLElement).click()
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(container.textContent, '值:新结果', '新请求先到，data=新结果')
+
+  // 旧请求（第一次的悬挂）此时才 resolve——必须被丢弃，不能覆盖
+  firstResolve('旧结果')
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(container.textContent, '值:新结果', '旧 resolve 被丢弃，不覆盖新结果')
+  ;(app as any).destroy()
+})

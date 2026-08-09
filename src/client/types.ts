@@ -20,6 +20,13 @@ export interface PopupPositionOptions {
   margin?: number
 }
 
+/** 响应式状态容器（createReactiveState 返回值）——深度 Proxy：任意层级赋值触发 dirty */
+export interface ReactiveState {
+  /** 订阅状态变更（任意层级赋值/删除触发）；返回退订函数 */
+  __watch: (cb: () => void) => () => void
+  [key: string]: any
+}
+
 /** 异步取数工具返回值 — ctx.ui.useAsync()（data/loading/error 响应式，reload 重跑） */
 export interface UseAsyncHandle<T = any> {
   data?: T
@@ -208,6 +215,20 @@ export interface WfuiContext {
     /** 当前设备是否支持 hover（matchMedia '(hover: hover)'，mount 期一次判定） */
     useHoverCapable: () => boolean
     /**
+     * 稳定 ref 引用（根治内联 ref 陷阱）：mount 作用域持有，跨渲染引用恒等。
+     * ref-diff 在 ref 函数引用变化时调用旧 ref(null)——内联 ref 每次渲染都是新函数，
+     * 清理逻辑（退订/dispose）会反复触发而非仅在卸载时。
+     *
+     * ```tsx
+     * const listRef = ctx.ui.useStableRef(
+     *   (el) => { instance = init(el) },
+     *   () => { instance?.dispose() },
+     * )
+     * return () => h('div', { ref: listRef })
+     * ```
+     */
+    useStableRef: (init: (el: HTMLElement | null) => void, cleanup?: () => void) => (el: any) => void
+    /**
      * 可视视口跟踪（visualViewport）：键盘弹起/缩放时自动更新 + dirty。
      * 无 visualViewport（桌面）降级 innerHeight。fixed 底部栏防键盘遮挡用。
      */
@@ -250,6 +271,22 @@ export interface WfuiContext {
      * data/loading/error 响应式；reload() 重跑；组件卸载后旧 Promise resolve 不再触发渲染。
      */
     useAsync: <T = any>(fetcher: () => Promise<T>) => UseAsyncHandle<T>
+    /**
+     * 受控/非受控状态统一（收敛组件库重复的受控判定 + 缺回调 warn）：
+     * value !== undefined → 受控（setValue 只走 onChange，值由父组件回流）；
+     * 否则 → 内部状态 + 自动 render。受控但缺 onChange 时 console.warn 一次（按 name 幂等）。
+     *
+     * ```tsx
+     * const ctrl = ctx.ui.useControlled({ value: props.value, onChange: props.onChange, name: 'Collapse' })
+     * const open = ctrl.value ?? false
+     * // 交互：ctrl.setValue(!open)
+     * ```
+     */
+    useControlled: <T>(options: { value?: T; onChange?: (v: T) => void; name?: string }) => {
+      value: T | undefined
+      setValue: (v: T) => void
+      controlled: boolean
+    }
     /** 注册组件实例的自定义语义 ID，同名冲突抛错 */
     selfId: (name: string) => void
     /** 当前组件实例 ID（仅供内部使用，通过 ctx 扩展注入） */

@@ -33,9 +33,6 @@ export interface CollapseProps {
  */
 export const Collapse: Component<CollapseProps> = (_init, ctx) => {
   // ── mount（只一次）──
-  const $ = ctx.ui.$()
-  $.internalActive = [] as string[]
-
   let headerEls: (HTMLElement | null)[] = []
   // 稳定 ref：索引从 data-idx 读取（makeHeaderRef 工厂每次渲染新建函数 = 内联 ref 警告）
   const headerRef = (el: HTMLElement | null) => {
@@ -45,28 +42,25 @@ export const Collapse: Component<CollapseProps> = (_init, ctx) => {
   }
 
   return (props) => {
-    const { items = [], active, onChange, multiple = true, className } = props
+    const { items = [], multiple = true, className } = props
 
-    // 受控/非受控
-    const isControlled = active !== undefined
-    const activeKeys: string[] = isControlled ? active : $.internalActive
+    // 受控/非受控（useControlled：render 阶段读最新 props；非受控内部状态跨渲染保持；
+    // 受控缺 onChange 的 warn 由 useControlled 按 name 幂等处理）
+    const ctrl = ctx.ui.useControlled<string[]>({
+      value: props.active,
+      onChange: props.onChange,
+      name: 'Collapse',
+    })
+    const activeKeys: string[] = ctrl.value ?? []
     const isOpen = (key: string) => activeKeys.includes(key)
 
-    const setActive = (next: string[]) => {
-      if (isControlled) onChange?.(next)
-      else $.internalActive = next
-    }
-
     const toggle = (key: string) => {
-      // 受控但无 onChange：状态由父组件独占，点击无法生效——开发期提示（避免静默失败）
-      if (isControlled && !onChange) {
-        console.warn(`[weifuwu/Collapse] 受控模式（active 已传）但未提供 onChange，点击无法切换。\n非受控：去掉 active prop；受控：传入 onChange={(keys) => setActive(keys)}`)
-        return
-      }
+      // 受控但无 onChange：状态由父组件独占，点击无法生效（warn 已由 useControlled 提示）
+      if (ctrl.controlled && !props.onChange) return
       if (isOpen(key)) {
-        setActive(activeKeys.filter(k => k !== key))
+        ctrl.setValue(activeKeys.filter(k => k !== key))
       } else {
-        setActive(multiple ? [...activeKeys, key] : [key])
+        ctrl.setValue(multiple ? [...activeKeys, key] : [key])
       }
     }
 

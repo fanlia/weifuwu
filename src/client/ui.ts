@@ -60,6 +60,11 @@ export interface UiDeps {
   isRendering: () => boolean
 }
 
+/** 受控组件缺回调 warn 去重（按 name） */
+const warnedControlled = new Set<string>()
+/** 非受控内部值缓存（按 selfId，卸载时回收） */
+const uncontrolledValues = new Map<string, any>()
+
 export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
   const { ctx, renderByIds, getSelfId, dirtyBatch, dirtySet, mediaRegistry, popupTrackers, scrollTrackers, schedulePopupRecompute, ensurePopupListeners, isRendering } = deps
 
@@ -254,6 +259,18 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
      */
     useHoverCapable: function (): boolean {
       return typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover)').matches
+    },
+
+    /**
+     * 稳定 ref 引用：mount 作用域持有，跨渲染引用恒等，
+     * 根治内联 ref 陷阱（ref-diff 在引用变化时调用旧 ref(null)）。
+     */
+    useStableRef: function (init: (el: any) => void, cleanup?: () => void) {
+      const ref = (el: any) => {
+        if (el) init(el)
+        else cleanup?.()
+      }
+      return ref
     },
 
     /**
@@ -629,17 +646,64 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         ctx.ui!.dirty(selfId ? [selfId] : undefined)
       }) as any
       state.loading = true
+      // stale-close 保护：每次 reload 递增 token，过期 Promise resolve 静默丢弃
+      let token = 0
       const run = () => {
+        const cur = ++token
         state.loading = true
         state.error = null
         Promise.resolve()
           .then(() => fetcher())
-          .then((d) => { state.data = d; state.loading = false })
-          .catch((e) => { state.error = e; state.loading = false })
+          .then((d) => { if (token === cur) { state.data = d; state.loading = false } })
+          .catch((e) => { if (token === cur) { state.error = e; state.loading = false } })
       }
       run()
       state.reload = run
       return state as UseAsyncHandle<T>
+    },
+
+    /**
+     * 受控/非受控状态统一：value !== undefined → 受控（setValue 只走 onChange）；
+     * 否则内部状态 + 自动 render。受控但缺 onChange 时 console.warn 一次（按 name 幂等）。
+     */
+    useControlled: function <T>(options: {
+      value?: T
+      onChange?: (v: T) => void
+      name?: string
+    }): { value: T | undefined; setValue: (v: T) => void; controlled: boolean } {
+      const selfId = getSelfId(this)
+      const controlled = options.value !== undefined
+      // 受控缺回调 warn：模块级按 name 幂等（一次提示即可）
+      if (controlled && !options.onChange && options.name) {
+        if (!warnedControlled.has(options.name)) {
+          warnedControlled.add(options.name)
+          console.warn(
+            `[weifuwu/${options.name}] 受控模式（value 已传）但未提供 onChange，交互无法生效。\n` +
+            `非受控：去掉 value；受控：传入 onChange={(v) => setValue(v)}`
+          )
+        }
+      }
+      // 非受控内部值：首次用当前 value 初始化，后续跨渲染保持（render 阶段调用也稳定）
+      if (!controlled && selfId && !uncontrolledValues.has(selfId)) {
+        uncontrolledValues.set(selfId, options.value)
+        onComponentUnmount((id) => { uncontrolledValues.delete(id) })
+      }
+      const setValue = (v: T) => {
+        if (controlled) {
+          options.onChange?.(v)
+          return
+        }
+        if (selfId) uncontrolledValues.set(selfId, v)
+        if (ctx.ui) {
+          if (selfId) ctx.ui.dirty([selfId])
+          else ctx.ui.render()
+        }
+      }
+      return {
+        value: controlled ? options.value : (selfId ? uncontrolledValues.get(selfId) : options.value),
+        setValue,
+        controlled,
+      }
     },
 
     /** 注册组件实例的自定义 ID（用于跨组件精准刷新） */
