@@ -466,6 +466,32 @@ const MyComp: Component = (_init, ctx) => {
 
 **浏览器全局审计基线**：`grep -rnE '\bwindow\.|\bdocument\.|\bnavigator\.|\blocation\.|\bhistory\.|\blocalStorage|\bgetSelection\(|\brequestAnimationFrame|\bMutationObserver|\bIntersectionObserver|matchMedia\(' src/components/*/*.ts`（排除注释后必须为 0——新组件引入即 CI 噪音）。
 
+### 弹窗组件纪律：浮层必须 portal 渲染（统一弹窗管理）
+
+**所有脱离文档流的浮层（dropdown/select/datepicker/menubar/cascader/mentions/contextmenu/tooltip/popover/hovercard/modal/drawer/toast/notification/confirm/tour/command 等）必须 `createPortal` 渲染到 `#__wf_portal`（body）——禁止 `position: absolute` 相对父容器**（18 个组件已合规；TreeSelect 曾遗漏，absolute 方案在父容器 overflow:hidden/transform/z-index 上下文下裁剪/错位）：
+
+```tsx
+// ✅ portal：渲染到 body——z-index/Escape/夹紧/跟随统一管理
+const dropdown = open ? createPortal(h('div', { class: 'wf-xxx-dropdown', style: { position: 'fixed', top: `${pos.top}px`, left: `${pos.left}px` } }, menu), 'xxx-dropdown') : null
+```
+
+**统一管理的能力**（portal 收敛后才可能）：
+
+| 能力 | 机制 |
+|------|------|
+| 层级 | z-index token 阶梯（`--wf-z-popover/toast/tooltip/modal/tour`）——全 body 同一上下文裁决 |
+| 定位 | `usePopupPosition`（触发元素 rect → fixed 坐标 + 视口夹紧 + scroll/resize 跟随） |
+| 关闭 | Escape 全局（`useGlobalKey`）/ 外部点击（usePopup） |
+| 动画 | 退场 `--exit` 类 + `animateOut`（porta→延迟卸载） |
+| 管理 | portalKey 唯一（`'modal'`/`'dropdown'`/`'treeselect'`…——同 key 互斥渲染） |
+
+**硬性规则**：
+- 浮层根元素必须 `position: fixed` + JS 坐标（禁止 absolute 定位 + CSS 坐标）
+- 定位必须经 `usePopupPosition`（rect 跟随 + 视口夹紧）——打开时 `refresh()`
+- portalKey 语义化（组件名）——同组件多个弹层需区分
+- 弹层容器必须 `z-index: var(--wf-z-*)`（禁裸值，audit 强制）
+- **测试注意**：portal vnode 的 `type` 是 Portal 组件（非字符串标签）——断言子内容用 `vnode.props.children` 递归
+
 ### 样式纪律：小尺寸 button 必须固定 min/max-height
 
 全局 button 样式设 `min-height: 36px`——**任何小尺寸按钮**（checkbox/dot/switcher/star/关闭钮等）若不覆盖，会被撑成 36px 竖条（Tree checkbox 14x36、Carousel 圆点 8x45、Rate 星 16x36——真实操作抓出 6 处）：
