@@ -1,0 +1,70 @@
+.wf-pipeline {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.wf-pipeline-svg {
+  display: block;
+  overflow: visible;
+}
+
+.wf-pipeline-edge {
+  fill: none;
+  stroke: var(--wf-color-border);
+  stroke-width: 1.5;
+}
+
+.wf-pipeline-nodes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wf-pipeline-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 8px 14px;
+  min-width: 72px;
+  max-width: 120px;
+  text-align: center;
+  background: var(--wf-color-bg);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--wf-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
+}
+
+.wf-pipeline-node--success {
+  border-color: var(--wf-color-success-text);
+  color: var(--wf-color-success-text);
+  background: var(--wf-color-success-bg, rgba(20, 83, 45, 0.06));
+}
+.wf-pipeline-node--running {
+  border-color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
+  background: var(--wf-color-primary-bg, rgba(79, 110, 247, 0.08));
+}
+.wf-pipeline-node--error {
+  border-color: var(--wf-color-danger-text);
+  color: var(--wf-color-danger-text);
+  background: var(--wf-color-danger-bg, rgba(255, 0, 0, 0.06));
+}
+.wf-pipeline-node--pending {
+  border-color: var(--wf-color-border);
+  color: var(--wf-color-text-tertiary);
+  background: var(--wf-color-fill);
+}
+
+.wf-pipeline-warn {
+  position: absolute;
+  bottom: -24px;
+  left: 0;
+  font-size: 12px;
+  color: var(--wf-color-warning-text);
+}

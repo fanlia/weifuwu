@@ -26,7 +26,7 @@ import {
   Toggle, ToggleGroup, CheckboxGroup, PinInput, CopyButton, ColorPicker,
   BackTop, Affix, HoverCard, Notification, ContextMenu, Mentions,
   Collapse, Tree, Cascader, Transfer, Command, Menubar, Carousel, Resizable, Calendar, Watermark,
-  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban,
+  VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban, Pipeline,
   notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType } from 'weifuwu/components'
@@ -1490,6 +1490,27 @@ const DemoKanban: Component = (_props, ctx) => {
   )
 }
 
+const DemoPipeline: Component = () => () => (
+  <div class="wf-stack wf-gap-md">
+    <Pipeline
+      orientation="horizontal"
+      width={520}
+      height={180}
+      nodes={[
+        { id: 'p1', label: '用户输入', status: 'success' },
+        { id: 'p2', label: '意图分析', status: 'success' },
+        { id: 'p3', label: '工具调用', status: 'running' },
+        { id: 'p4', label: '结果聚合', status: 'pending' },
+      ]}
+      edges={[
+        { from: 'p1', to: 'p2' },
+        { from: 'p2', to: 'p3' },
+        { from: 'p3', to: 'p4' },
+      ]}
+    />
+  </div>
+)
+
 const OLD_CODE = `function handleUser(input) {
   const data = JSON.parse(input)
   const name = data.name
@@ -2038,6 +2059,7 @@ return () => <AiChat chat={$} />
   sparkline: `<Sparkline data={[12, 18, 15, 22, 30, 28, 35]} width={140} height={36} fill />`,
   tour: `<Tour steps={[{ target: '#a', title: '开始', content: '...' }]} open={open} onChange={setOpen} />`,
   kanban: `<Kanban columns={cols} onMove={(from, to) => {}} />`,
+  pipeline: `<Pipeline orientation="horizontal" nodes={[{ id: 'a', label: '输入' }]} edges={[]} />`,
 
   qrcode: `<QRCode value="https://weifuwu.dev" size={128} />
 <QRCode value="..." color="#4f6ef7" />`,
@@ -2120,6 +2142,7 @@ const App: Component = (_props, ctx) => {
         <DemoCard title="Sparkline" desc="迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充" code={CODE.sparkline}><DemoSparkline /></DemoCard>
         <DemoCard title="Tour" desc="新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape" code={CODE.tour}><DemoTour /></DemoCard>
         <DemoCard title="Kanban" desc="看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮" code={CODE.kanban}><DemoKanban /></DemoCard>
+        <DemoCard title="Pipeline" desc="Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测" code={CODE.pipeline}><DemoPipeline /></DemoCard>
         <DemoCard title="MessageBubble" desc="消息气泡：user/assistant + streaming/error 状态 + actions" code={CODE.messageBubble}><DemoMessageBubble /></DemoCard>
         <DemoCard title="Highlight" desc="搜索词高亮：分词渲染 mark，大小写不敏感" code={CODE.highlight}><DemoHighlight /></DemoCard>
         <DemoCard title="List" desc="通用列表：renderItem + divided + header/footer/empty" code={CODE.list}><DemoList /></DemoCard>
