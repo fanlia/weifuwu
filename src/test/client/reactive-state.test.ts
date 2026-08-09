@@ -86,3 +86,30 @@ test('Date 存 $：返回原引用（不包装）', () => {
   assert.equal($.start, d, 'Date 返回原引用（无 Proxy）')
   assert.equal($.start instanceof Date, true)
 })
+
+test('$ 缓存原型链隔离：子组件 ui 继承 root 时 $ 必须独立（AppShell 折叠根因回归）', () => {
+  // 模拟 render.ts 的 childCtx.ui = Object.create(rootUi) + _selfId/_selfVNode
+  const rootUi = { _selfId: '_wf_root', _selfVNode: { _id: '_wf_root' } }
+  rootUi._$cache = createReactiveState(() => { /* root 的 dirty */ })
+
+  // child 继承 root——若 $() 用 truthy 判断会拿到 root 的 $（原型链污染）
+  const childUi = Object.create(rootUi)
+  childUi._selfId = '_wf_child'
+  childUi._selfVNode = { _id: '_wf_child' }
+
+  // 模拟 ui.ts $()：必须 own property 判断
+  let resolvedChild: string | null = null
+  if (!Object.prototype.hasOwnProperty.call(childUi, '_$cache')) {
+    childUi._$cache = createReactiveState(() => {
+      resolvedChild = childUi._selfVNode?._id ?? childUi._selfId
+    })
+  }
+
+  // child 的 $ 独立于 root——赋值只触发 child 的 dirty
+  childUi._$cache.count = 1
+  assert.equal(resolvedChild, '_wf_child', 'child 的 $ 必须解析到 child 自身')
+  assert.notEqual(childUi._$cache, rootUi._$cache, '$ 缓存必须隔离（own property）')
+  // root 的 $ 不受影响
+  rootUi._$cache.x = 1
+  assert.equal(rootUi._$cache.count, undefined, 'child 赋值不影响 root')
+})

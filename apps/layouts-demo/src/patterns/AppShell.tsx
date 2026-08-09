@@ -4,57 +4,76 @@ import { Button, PageHeader, Table, Badge, Icon, Divider, StatCard, Space, Card 
 // ─────────────────────────────────────────────────────────────
 // 模式 1：后台应用壳（App Shell）
 //
-// 最经典的后台布局：左侧固定导航 + 右侧内容区。
-// 100% 使用 weifuwu/layout 原语 + weifuwu/components 组件——零手写样式：
-//   - wf-app-shell / wf-sidebar / wf-nav / wf-main（应用壳原语）
-//   - NavMenu（导航）、PageHeader、StatCard、Table、Badge、Button
+// 最经典的后台布局：左侧可折叠导航 + 右侧内容区。
+// 100% 使用 weifuwu/layout 原语 + weifuwu/components 组件：
+//   - wf-app-shell / wf-sidebar / wf-nav / wf-nav--collapsed / wf-main
+//   - 折叠 = --wf-sidebar-width 收窄 + wf-nav--collapsed（原语组合）
 // 复制此文件即可得到一个标准后台。
 // ─────────────────────────────────────────────────────────────
 
-export const AppShell: Component = (_init, _ctx) => (
-  () => (
-    <div class="wf-app-shell wf-rounded-lg" style={{ height: 'calc(100vh - 48px)', overflow: 'hidden' }}>
-      {/* ── 左侧导航栏（wf-sidebar 自带 bg-secondary + 边框） ── */}
+const NAV = [
+  { key: 'dashboard', icon: 'dashboard', label: '仪表盘', active: true },
+  { key: 'orders', icon: 'box', label: '订单管理', active: false },
+  { key: 'users', icon: 'users', label: '用户管理', active: false },
+  { key: 'goods', icon: 'tag', label: '商品管理', active: false },
+  { key: 'settings', icon: 'settings', label: '系统设置', active: false },
+]
+
+export const AppShell: Component = (_init, ctx) => {
+  const $ = ctx.ui.$()
+  $.collapsed = false
+
+  return () => (
+    <div
+      class="wf-app-shell wf-rounded-lg"
+      style={{ height: 'calc(100vh - 48px)', overflow: 'hidden', '--wf-sidebar-width': $.collapsed ? '64px' : '240px' }}
+    >
+      {/* ── 左侧导航栏 ── */}
       <aside class="wf-sidebar">
-        <div class="wf-sidebar-header">
-          <Space>
-            <Icon name="zap" size={18} />
-            <b class="wf-text-bold">Acme 管理台</b>
-          </Space>
+        <div class="wf-sidebar-header wf-between">
+          {$.collapsed ? (
+            <Icon name="zap" size={18} className="wf-text-primary" />
+          ) : (
+            <Space>
+              <Icon name="zap" size={18} className="wf-text-primary" />
+              <b class="wf-text-bold">Acme 管理台</b>
+            </Space>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            title={$.collapsed ? '展开侧栏' : '折叠侧栏'}
+            onClick={() => { $.collapsed = !$.collapsed }}
+          >
+            <Icon name={$.collapsed ? 'chevron-right' : 'chevron-left'} size={14} />
+          </Button>
         </div>
         <div class="wf-sidebar-body">
-          <nav class="wf-nav">
-            <a class="wf-nav-item wf-nav-item--active" href="#/app-shell">
-              <span class="wf-nav-icon"><Icon name="dashboard" size={16} /></span>
-              仪表盘
-            </a>
-            <a class="wf-nav-item" href="#/app-shell">
-              <span class="wf-nav-icon"><Icon name="box" size={16} /></span>
-              订单管理
-            </a>
-            <a class="wf-nav-item" href="#/app-shell">
-              <span class="wf-nav-icon"><Icon name="users" size={16} /></span>
-              用户管理
-            </a>
-            <a class="wf-nav-item" href="#/app-shell">
-              <span class="wf-nav-icon"><Icon name="tag" size={16} /></span>
-              商品管理
-            </a>
-            <a class="wf-nav-item" href="#/app-shell">
-              <span class="wf-nav-icon"><Icon name="settings" size={16} /></span>
-              系统设置
-            </a>
+          <nav class={`wf-nav${$.collapsed ? ' wf-nav--collapsed' : ''}`}>
+            {NAV.map((n) => (
+              <a
+                key={n.key}
+                class={`wf-nav-item${n.active ? ' wf-nav-item--active' : ''}`}
+                href="#/app-shell"
+                title={$.collapsed ? n.label : undefined}
+              >
+                <span class="wf-nav-icon"><Icon name={n.icon as any} size={16} /></span>
+                <span class="wf-nav-label">{n.label}</span>
+              </a>
+            ))}
           </nav>
         </div>
         <div class="wf-sidebar-footer">
-          <span class="wf-text-tertiary wf-text-xs">v2.4.0 · 内部系统</span>
+          {$.collapsed
+            ? <Icon name="shield" size={14} className="wf-text-tertiary" />
+            : <span class="wf-text-tertiary wf-text-xs">v2.4.0 · 内部系统</span>}
         </div>
       </aside>
 
       {/* ── 右侧主区 ── */}
       <main class="wf-main">
         {/* 顶栏 */}
-        <div class="wf-row wf-p-md wf-gap-md wf-border-b wf-between">
+        <div class="wf-between wf-p-md wf-border-b">
           <Space>
             <Button size="sm" variant="ghost"><Icon name="star" size={14} /> 收藏</Button>
             <Button size="sm" variant="ghost"><Icon name="bell" size={14} /> 通知</Button>
@@ -99,5 +118,5 @@ export const AppShell: Component = (_init, _ctx) => (
       </main>
     </div>
   )
-)
+}
 

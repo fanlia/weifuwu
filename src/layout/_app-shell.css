@@ -113,6 +113,23 @@
   display: inline-flex;
 }
 
+/* ── 折叠态：图标-only 导航（配合 --wf-sidebar-width 收窄侧栏） ── */
+.wf-nav--collapsed .wf-nav-item {
+  justify-content: center;
+  gap: 0;
+  padding: var(--wf-space-sm);
+}
+.wf-nav--collapsed .wf-nav-label {
+  display: none;
+}
+.wf-nav--collapsed .wf-nav-group {
+  text-align: center;
+  padding-left: 0;
+  padding-right: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 /* ── 主内容区 ── */
 .wf-main {
   padding: var(--wf-space-lg);

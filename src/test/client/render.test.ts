@@ -96,6 +96,21 @@ describe('render', () => {
     assert.equal(el2.style.getPropertyValue('--wf-z'), '5')
   })
 
+  it('patch 路径更新 CSS 变量（patchProps 与 setProp 对齐）', () => {
+    const container = document.createElement('div')
+    const v1 = jsx('div', { style: { '--wf-sidebar-width': '240px', color: 'red' } })
+    const v2 = jsx('div', { style: { '--wf-sidebar-width': '64px', color: 'blue' } })
+    mountVNode(container, v1)
+    const el = container.firstChild as HTMLElement
+    patchValue(container, el, v1, v2, ctx)
+    assert.equal(el.style.getPropertyValue('--wf-sidebar-width'), '64px', 'patch 后 CSS 变量更新')
+    assert.equal(el.style.color, 'blue', '普通属性更新不回归')
+    // 移除 null 值 CSS 变量
+    const v3 = jsx('div', { style: { '--wf-sidebar-width': undefined } })
+    patchValue(container, el, v2, v3, ctx)
+    assert.equal(el.style.getPropertyValue('--wf-sidebar-width'), '', 'null CSS 变量移除')
+  })
+
   it('渲染 style 字符串作为属性', () => {
     const el = render(jsx('div', { style: 'color:red' }), ctx) as HTMLElement
     assert.equal(el.getAttribute('style'), 'color:red')

@@ -156,7 +156,11 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
     /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
     $: function () {
       const uiThis = this as any
-      if (!uiThis._$cache) {
+      // 必须 own property——childCtx.ui = Object.create(ctx.ui) 继承 root 的
+      // _$cache，若用 truthy 判断子组件会拿到 root 的 $（原型链污染——
+      // AppShell 折叠不工作根因：$.collapsed 写到 root，dirty 根后子树
+      // 三态 skip 不更新，交互静默失效）。每组件实例独立 $。
+      if (!Object.prototype.hasOwnProperty.call(uiThis, '_$cache')) {
         // dirty 回调动态解析 selfId（而非 mount 一次性捕获）：
         // 优先 _selfVNode._id（vnode 复用时 id 稳定且正确）——避免组件在
         // 无状态包裹/重挂载场景下 $ 状态赋值渲染孤儿实例（交互静默失效）

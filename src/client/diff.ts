@@ -287,9 +287,13 @@ export function patchProps(el: Element, oldProps: any, newProps: any) {
           if (sv == null) {
             // 新 style 中 undefined/null 的 key 必须移除旧值（否则残留——
             // AutoComplete 下拉 display: undefined 残留 none 的根因）
-            ;(st as any)[sk] = ''
+            if (sk.startsWith('--')) st.removeProperty(sk)
+            else (st as any)[sk] = ''
           } else {
-            ;(st as any)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+            // CSS 变量必须 setProperty（patch 路径与 setProp 对齐——
+            // AppShell 折叠 --wf-sidebar-width 不更新的根因）
+            if (sk.startsWith('--')) st.setProperty(sk, String(sv))
+            else (st as any)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
           }
         }
       } else if (key.startsWith('on') && typeof newVal === 'function') {
