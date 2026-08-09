@@ -23,6 +23,17 @@ export interface WatermarkProps {
 export const Watermark: Component<WatermarkProps> = (_init, _ctx) => {
   // ── mount（只一次）──
   let bgImage = ''
+  // 稳定 ref：render 层的 props 经 latest 引用读取（ref 定义在 mount 作用域，
+  // 避免内联 ref 每次渲染换引用触发 ref-diff churn）
+  let latest: { text: string; fontSize: number; color: string; opacity: number; rotate: number; gap: number } = {
+    text: 'weifuwu', fontSize: 14, color: 'currentColor', opacity: 0.15, rotate: -25, gap: 100,
+  }
+  const overlayRef = (el: HTMLElement | null) => {
+    if (el && !bgImage) {
+      draw(latest.text, latest.fontSize, latest.color, latest.opacity, latest.rotate, latest.gap)
+      if (bgImage) el.style.backgroundImage = `url(${bgImage})`
+    }
+  }
 
   const draw = (text: string, fontSize: number, color: string, opacity: number, rotate: number, gap: number) => {
     const canvas = document.createElement('canvas')
@@ -48,12 +59,7 @@ export const Watermark: Component<WatermarkProps> = (_init, _ctx) => {
       rotate = -25, gap = 100, children, className,
     } = props
 
-    const overlayRef = (el: HTMLElement | null) => {
-      if (el && !bgImage) {
-        draw(text, fontSize, color, opacity, rotate, gap)
-        if (bgImage) el.style.backgroundImage = `url(${bgImage})`
-      }
-    }
+    latest = { text, fontSize, color, opacity, rotate, gap }
 
     return h('div', {
       class: ['wf-watermark', className].filter(Boolean).join(' '),

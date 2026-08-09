@@ -195,9 +195,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       tableHoverRow = -1
       tableHoverCol = -1
       // 先恢复选区 + 插入表格（DOM 还未被 render 移动）
-      console.log('[ED] table sel','editorEl=',!!editorEl,'savedRange=',!!savedRange)
       restoreSelection()
-      console.log('[ED] table after restore','rc=',window.getSelection()?.rangeCount,'focused=',document.activeElement?.className?.includes('wf-editor-content'))
       insertTable(rows, cols)
       // 再 render 关闭弹出层
       ctx.ui.render()
