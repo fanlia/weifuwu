@@ -1,7 +1,7 @@
 # 前端 UI 架构设计 — UIRouter + VDOM（req/res 定义）【定稿】
 
 > **状态（2026-10）**：**已定稿**（纯设计，未实现）。前端 UI 完全对齐后端 Router 模型——
-> **req = window.location，res = VDOM（VNode 树 + 落地机制），params/query 在 ctx**，落地 = VDOM patch/diff 到真实 DOM。
+> **req = window.location，res = VNode，serveUI = VDOM（落地机制），params/query 在 ctx**。
 > **handler = 异步组件**（`async (location, ctx) => vnode`，`$` 有效）；**layout 与 SSR 都是中间件**。
 > 平行于现有 createApp/router() 新增，成熟后完全替换。
 
@@ -9,12 +9,13 @@
 
 ```
 req = window.location（浏览器原生，不包装）
-res = VDOM（VNode 树 + renderValue/patchValue 落地机制）
+res = VNode（数据结构：type/props/key 组成的树）
+serveUI = VDOM（落地机制：renderValue 挂载 / patchValue diff → 真实 DOM）——对齐后端 serve(router) = HTTP 传输
 params/query 在 ctx（对齐后端 ctx.params/ctx.query）
 handler = 异步组件：async (location, ctx) => vnode（三层 asyncComponent 折叠成一层）
   └─ ctx.ui.$() 有效：首次调用 = mount（取数 + $ 创建，只一次）；$ 赋值 = render（ctx.data 缓存命中 + $ 复用）
 middleware = 两阶段 async：(location, ctx, children) => async (location, ctx) => vnode
-  └─ layout 与 SSR 都是中间件（包装/落地 VDOM）
+  └─ layout 与 SSR 都是中间件（包装/落地 VNode）
 UIRouter + VDOM：平行新增，成熟后替换 createApp/router()
 ```
 
@@ -23,23 +24,22 @@ UIRouter + VDOM：平行新增，成熟后替换 createApp/router()
 | 维度 | 后端 | 前端 |
 |------|------|------|
 | **req** | `Request`（url/method/headers/body） | **`window.location`**（浏览器原生 Location） |
-| **res** | `Response`（status/headers/body） | **`VDOM`**（VNode 树 + 落地机制） |
+| **res** | `Response`（status/headers/body） | **`VNode`**（数据结构：type/props/key 组成的树） |
 | params | `ctx.params`（Router 解析 URL 注入） | **`ctx.params`**（UIRouter 解析 URL 注入） |
 | query | `ctx.query` | **`ctx.query`** |
-| 落地 | HTTP 序列化发送 | **VDOM patch/diff → 真实 DOM** |
+| 落地 | HTTP 序列化发送 | **serveUI = VDOM**（renderValue 挂载 / patchValue diff → 真实 DOM） |
 
-### VNode vs VDOM
+### VNode vs VDOM（res 与落地分离）
 
 ```
-VNode = 数据结构（单个节点）        VDOM = VNode 树 + 落地机制（能力）
-{ type: 'div', props, key }        renderValue(vnode) → 挂载到 DOM
-单个节点的描述                      patchValue(old, new) → 增量 diff
+res = VNode（数据结构）           serveUI = VDOM（落地机制）
+{ type: 'div', props, key }       renderValue(vnode) → 挂载到 DOM
+handler 返回的描述                 patchValue(old, new) → 增量 diff
 ```
 
-- **VNode**：数据结构单元（type/props/key）
-- **VDOM**：VNode 树 + renderValue（挂载）/ patchValue（diff）——**res 是 VDOM**
-
-**为什么 res = VDOM**：handler 返回一棵可落地的树（非裸节点），落地需机制（renderValue/patchValue）；对齐后端 Response = "完整可发送的响应"，VDOM = "完整可渲染的树"。
+- **res = VNode**：handler 返回的数据结构（type/props/key 组成的树）——对齐后端 Response（数据）
+- **serveUI = VDOM**：落地机制（renderValue/patchValue）——对齐后端 serve(router)（HTTP 传输）
+- 分离：handler 只产 VNode（数据），serveUI（VDOM）负责落地（DOM）
 
 ## 二、签名定义（对齐后端）
 
@@ -177,7 +177,7 @@ SPA serveUI = 另一落地（VDOM → DOM）——handler 只产出 VDOM，落�
 
 | 步骤 | 内容 | 依赖 |
 |------|------|------|
-| S1 | 定义类型：`UIRequest`(=Location) / `UIResponse`(=VDOM) / `UIHandler` / `UIMiddleware` | 纯类型 |
+| S1 | 定义类型：`UIRequest`(=Location) / `UIResponse`(=VNode) / `UIHandler` / `UIMiddleware` | 纯类型 |
 | S2 | `UIRouter` 类：use/get/notFound + 匹配 + ctx.params/query 注入 + `$` 路由实例绑定 | S1 |
 | S3 | `serveUI`：URL 监听 + 中间件链执行 + VDOM 落地 | S2 |
 | S4 | 平行导出（weifuwu/client 新增 UIRouter/serveUI，createApp/router 保留） | S2/S3 |
