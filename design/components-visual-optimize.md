@@ -114,4 +114,14 @@
 
 ## 进度记录
 
-（Wave 完成后追加）
+- **P11 收官 ✅**（2026-08）：全组件 CSS 全 token 化。R34/35/36/37 四条 ratchet 
+  全部归零成硬门（241/75/73/85 → 0/0/0/0）。token 计数 164→166（新增
+  --wf-shadow-inset + 暗色覆盖）。修复 2 处批量脚本缺陷引入的静默 CSS bug
+  （嵌套 var 尾 ) 残留致 box-shadow 声明无效 / fix_spacing 丢选择器前缀）。
+  4 处文字色 500 级→-text 变体。W0 防线 33→38 条。
+- **W0 ✅**：5 条新规则（R34 fallback 禁令精化为「仅已定义 token」、
+  R35 box-shadow 全 token（允许任意 var(--wf-*)）、R36 间距 4 倍数
+  （簥免 ≤2px/负微偏移）、R37 禁裸 hex/rgba/hsla、R38 交互组件 hover 态）
+- **W1 ✅**：Editor/DatePicker/Select/Menu/Cascader/Drawer/FloatButton
+- **W2 ✅**：13 弹层组件
+- **W3-W5 ✅**：表单/数据展示/导航反馈剩余组件
