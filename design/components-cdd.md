@@ -319,7 +319,7 @@ primary 不用 bg）。
 
 | 阶段 | 内容 | 验收 |
 |------|------|------|
-| CF-1 | C1 数组 diff 复用 + C2 usePopup.getter | 焦点保持测试 + 全量回归 |
-| CF-2 | C3 useControlledInput + C4 useOpen | AutoComplete/Select 迁移 + 行为回归 |
-| CF-3 | C5 focus-ring + C6 文档 | 暗色聚焦可见 + 纪律文档 |
-| CF-4 | 发布（随 v0.68.0 或独立 patch） | 全绿 + 组件行为无回归 |
+| CF-1 | ✅ C1 数组 diff 复用 + C2 usePopup.getter | 焦点保持测试 + 全量回归 |
+| CF-2 | ✅ C3 useControlledInput + C4 useOpen | AutoComplete 迁移 + 行为回归 |
+| CF-3 | ✅ C5 focus-ring + C6 文档 | 暗色聚焦可见 + 纪律文档 |
+| CF-4 | ✅ 发布 v0.68.0 | 全绿 + 组件行为无回归 |
