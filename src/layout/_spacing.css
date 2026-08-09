@@ -70,3 +70,13 @@
 .wf-w-full { width: 100%; }
 .wf-h-full { height: 100%; }
 .wf-w-auto { width: auto; }
+
+/* ── 固定宽度阶梯（对齐 token 阶梯——卡片/面板/容器宽不再内联） ── */
+.wf-w-xs { width: var(--wf-w-xs, 320px); }
+.wf-w-sm { width: var(--wf-w-sm, 480px); }
+.wf-w-md { width: var(--wf-w-md, 640px); }
+.wf-w-lg { width: var(--wf-w-lg, 768px); }
+.wf-w-xl { width: var(--wf-w-xl, 1024px); }
+.wf-w-max { max-width: 100%; }
+.wf-w-md-auto { width: 100%; }
+@media (min-width: 768px) { .wf-w-md-auto { width: var(--wf-w-md, 640px); } }

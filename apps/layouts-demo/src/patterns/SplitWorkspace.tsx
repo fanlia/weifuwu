@@ -55,8 +55,7 @@ export const SplitWorkspace: Component = (_init, ctx) => {
           {FILES2.map((f) => (
             <div
               key={f.name}
-              class={`wf-nav-item${$.file === f.name ? ' wf-nav-item--active' : ''}`}
-              style={{ cursor: 'pointer' }}
+              class={`wf-nav-item wf-pointer${$.file === f.name ? ' wf-nav-item--active' : ''}`}
               onClick={() => { $.file = f.name }}
             >
               <span class="wf-nav-icon"><Icon name={f.icon} size={14} /></span>

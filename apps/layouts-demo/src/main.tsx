@@ -84,13 +84,12 @@ const Shell: Component = (_init, ctx) => {
         <main class="wf-fill wf-stack wf-gap-none" style={{ minWidth: 0 }}>
           <div class="wf-stack wf-gap-none wf-border-b">
             {/* 窄屏模式切换（横向滚动）——lg 起隐藏（左侧栏接管） */}
-            <nav class="wf-hidden@lg wf-nav wf-row wf-nowrap wf-scroll wf-p-sm" style={{ gap: 4, borderBottom: '1px solid var(--wf-color-border-light)' }}>
+            <nav class="wf-hidden@lg wf-nav wf-row wf-nowrap wf-scroll wf-p-sm wf-gap-xs wf-border-b">
               {PATTERNS.map((p) => (
                 <a
                   key={p.id}
                   href={`#/${p.id}`}
-                  class={`wf-nav-item${p.id === active.id ? ' wf-nav-item--active' : ''}`}
-                  style={{ whiteSpace: 'nowrap' }}
+                  class={`wf-nav-item wf-text-nowrap${p.id === active.id ? ' wf-nav-item--active' : ''}`}
                 >
                   {p.name}
                 </a>
