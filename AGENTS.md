@@ -576,6 +576,7 @@ function renderVNode(Comp: any, props: any, ctx: any) {
 ### 布局蓝本纪律（apps/layouts-demo，红线）
 `apps/layouts-demo` 的每个布局模式是"复制即用"蓝本——**开发者抄的就是规范用法**，因此：
 - **新功能先查框架**：实现任何能力前，先查 weifuwu/client（ctx.ui.* 原语）、weifuwu/layout（wf-* 原语）、weifuwu/components（组件）是否已提供——已提供优先用框架能力，绝不重复造轮子（如吸顶：页面级滚动用 Affix 组件，嵌套滚动容器用 wf-sticky 原语——都是框架能力，按场景选型而非自研）
+- **加组件前先审布局/颜色**：向模式添加组件前，先用 agent-browser 审查当前页面布局（间距/对齐/层次/溢出/响应式）与颜色（对比度 ≥4.5:1、语义色一致性、亮暗双适配）是否合理——发现问题先修布局/颜色，再决定加组件（避免组件越加越多掩盖布局问题）
 - **只使用 weifuwu/layout 原语（wf-* 类）与 weifuwu/components 组件**——布局结构用原语类，内容元素用组件，不自己写组件（裸 div/span 手搓结构），不自己写样式（内联 style / 自定义 CSS）
 - 文本/间距/圆角/背景/边框等一律走原语：`wf-text-*`、`wf-p-*/wf-m-*/wf-gap-*`、`wf-rounded-*`、`wf-bg-*`、`wf-border-t/b`、`wf-surface`、`wf-scroll` 等
 - 图标一律 `Icon` 组件（禁 emoji 装饰）；文本字形（✕✓ 等）禁裸写

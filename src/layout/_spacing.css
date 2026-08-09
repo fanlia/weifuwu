@@ -57,14 +57,15 @@
 .wf-mx-auto { margin-left: auto; margin-right: auto; }
 .wf-my-auto { margin-top: auto; margin-bottom: auto; }
 
-/* ── gap：为 flex/grid 原语设置间距变量 ── */
-.wf-gap-none { --wf-gap: 0; }
-.wf-gap-xs { --wf-gap: var(--wf-gap-xs); }
-.wf-gap-sm { --wf-gap: var(--wf-gap-sm); }
-.wf-gap-md { --wf-gap: var(--wf-gap-md); }
-.wf-gap-lg { --wf-gap: var(--wf-gap-lg); }
-.wf-gap-xl { --wf-gap: var(--wf-gap-xl); }
-.wf-gap-2xl { --wf-gap: var(--wf-gap-2xl); }
+/* ── gap：直接设置 gap 属性（不设 --wf-gap 变量——变量会继承污染子孙：
+   壳 root wf-gap-none 曾让 KPI grid 的 gap: var(--wf-gap) = 0 卡无间距） ── */
+.wf-gap-none { gap: 0; }
+.wf-gap-xs { gap: var(--wf-gap-xs); }
+.wf-gap-sm { gap: var(--wf-gap-sm); }
+.wf-gap-md { gap: var(--wf-gap-md); }
+.wf-gap-lg { gap: var(--wf-gap-lg); }
+.wf-gap-xl { gap: var(--wf-gap-xl); }
+.wf-gap-2xl { gap: var(--wf-gap-2xl); }
 
 /* ── 尺寸 ── */
 .wf-w-full { width: 100%; }

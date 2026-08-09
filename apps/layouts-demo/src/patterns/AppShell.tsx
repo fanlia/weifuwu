@@ -1,5 +1,5 @@
 import type { Component } from 'weifuwu/client'
-import { Button, PageHeader, Table, Badge, Icon, Divider, StatCard, Space, Card } from 'weifuwu/components'
+import { Button, PageHeader, Table, Badge, Icon, Divider, Pagination, StatCard, Space, Card, Text } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────
 // 模式 1：后台应用壳（App Shell）
@@ -38,6 +38,16 @@ export const AppShell: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.collapsed = false
   $.nav = 'dashboard'
+  $.page = 1
+
+  // 订单数据（分页演示——12 条 → 每页 5 条）
+  const ORDERS_ALL = Array.from({ length: 12 }, (_, i) => ({
+    id: `A-${2000 + i}`,
+    customer: ['张伟', '李娜', '王强', '赵敏', '陈晨', '刘洋', '孙丽', '周杰', '吴磊', '郑爽', '钱进', '冯刚'][i],
+    amount: `¥${(Math.round(Math.random() * 300) + 100) * 10}`,
+    status: ['已支付', '待发货', '已完成', '已取消'][i % 4],
+    v: (['success', 'warning', 'default', 'danger'] as const)[i % 4],
+  }))
   ;(window as any).__appShellVNode = (ctx.ui as any)._selfVNode
   ;(window as any).__appShellVNode.refProbe = () => ({
     id: (ctx.ui as any)._selfVNode?._id,
@@ -142,12 +152,7 @@ export const AppShell: Component = (_init, ctx) => {
 
               <Card outlined>
                 <Table
-                  data={[
-                    { id: 'A-1001', customer: '张伟', amount: '¥1,280', status: '已支付', v: 'success' },
-                    { id: 'A-1002', customer: '李娜', amount: '¥560', status: '待发货', v: 'warning' },
-                    { id: 'A-1003', customer: '王强', amount: '¥3,200', status: '已完成', v: 'default' },
-                    { id: 'A-1004', customer: '赵敏', amount: '¥890', status: '已取消', v: 'danger' },
-                  ]}
+                  data={ORDERS_ALL.slice(($.page - 1) * 5, $.page * 5)}
                   columns={[
                     { key: 'id', label: '订单号' },
                     { key: 'customer', label: '客户' },
@@ -155,6 +160,10 @@ export const AppShell: Component = (_init, ctx) => {
                     { key: 'status', label: '状态', render: (v, row) => <Badge variant={row.v}>{v}</Badge> },
                   ]}
                 />
+                <div class="wf-p-md wf-between">
+                  <Text className="wf-text-sm">共 {ORDERS_ALL.length} 条</Text>
+                  <Pagination total={ORDERS_ALL.length} page={$.page} pageSize={5} onChange={(p) => { $.page = p }} />
+                </div>
               </Card>
             </>
           )}

@@ -1,5 +1,5 @@
 import type { Component } from 'weifuwu/client'
-import { Title, Text, StatCard, PageHeader, SegmentedControl, Table, Badge, Card, Divider, Space } from 'weifuwu/components'
+import { Title, Text, StatCard, PageHeader, ProgressBar, SegmentedControl, Switch, Table, Badge, Card, Divider, Space } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────
 // 模式 3：仪表盘（Dashboard）
@@ -65,6 +65,7 @@ const DATA: Record<string, PeriodData> = {
 export const Dashboard: Component = (_init, ctx) => {
   const $ = ctx.ui.$()
   $.period = '30d'
+  $.showGoal = true
 
   return () => {
     const data = DATA[$.period] ?? DATA['30d']
@@ -115,6 +116,24 @@ export const Dashboard: Component = (_init, ctx) => {
                 <Text type="secondary" className="wf-text-sm">本期总额</Text>
                 <Text strong className="wf-text-lg">{data.total}</Text>
                 <Text type="success" className="wf-text-sm">↑ 18.6% vs 上一期</Text>
+              </Space>
+            </Card>
+            <Card outlined>
+              <Space direction="vertical" size="sm">
+                <div class="wf-between">
+                  <Text type="secondary" className="wf-text-sm">季度目标</Text>
+                  <Switch
+                    label="展示"
+                    checked={$.showGoal}
+                    onChange={(v) => { $.showGoal = v }}
+                  />
+                </div>
+                {$.showGoal && (
+                  <Space direction="vertical" size="sm">
+                    <ProgressBar value={78} max={100} label="达成率" showValue />
+                    <Text type="secondary" className="wf-text-xs">距离 ¥150 万目标还差 ¥21.4 万</Text>
+                  </Space>
+                )}
               </Space>
             </Card>
             <Card outlined>
