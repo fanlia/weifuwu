@@ -1,274 +1,349 @@
 /**
- * weifuwu/ui-dom VDOM 渲染器 — 完全独立（不依赖 src/client）
+ * weifuwu/client 渲染器 — VNode → DOM + patchValue diff
  *
- * serveUI = VDOM（落地机制）：
- *   - renderValue(vnode) → Node：VNode 树 → 真实 DOM（挂载）
- *   - patchValue(parent, oldNode, oldVNode, newVNode) → Node：增量 diff 更新
+ * render(vnode, ctx)      → 首次渲染，返回 DOM
+ * patchValue(el, old, new, ctx) → 增量更新
  *
- * 简化但完整的实现：文本/元素/组件/Fragment 渲染 + 属性 diff + children diff。
+ * 支持：
+ *   - key 属性（keyed diff）
+ *   - ref / keyed diff
+ *
+ * 状态管理：组件使用闭包变量 + ctx.ui.render() 手动触发重渲染。
  */
 
-import type { VNode, VNodeChild } from './types.ts'
+import { Fragment, Portal, isPortal, isAsyncComponent } from './vnode.ts'
+import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
+import type { UiInternal } from './ui.ts'
+import type { WfuiContext } from './types.ts'
+import { getRegistry, nextComponentIdFor, safeCallRef } from './registry.ts'
+import { startAsyncFactory, resolveAsyncFactorySync, resolveAsyncFactory } from './registry.ts'
+// ⚠️ 与 diff.ts 的环：renderValue（本文件）↔ patchKeyedChildren（diff.ts）互相需要。
+// 安全原因：两模块顶层仅常量声明，全部函数级延迟调用（渲染运行时两模块均已加载）。
+import { patchProps, normalize, ensureKeys, patchKeyedChildren, mapChildDomNodes } from './diff.ts'
 
-/** 渲染 VNode 树 → DOM 节点（挂载） */
-export function renderValue(v: VNodeChild, ctx: any): Node | null {
+export const SVG_NS = 'http://www.w3.org/2000/svg'
+export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'line', 'rect', 'text', 'g', 'polyline', 'polygon', 'ellipse', 'defs', 'use', 'clipPath', 'mask', 'linearGradient', 'radialGradient', 'stop', 'tspan'])
+
+// ── render ─────────────────────────────────────────────
+
+export function render(input: VNodeChild, ctx: WfuiContext): Node | null {
+  return renderValue(input, ctx)
+}
+
+export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
   if (v == null || typeof v === 'boolean') return null
   if (typeof v === 'string' || typeof v === 'number') return document.createTextNode(String(v))
-  if (Array.isArray(v)) {
+  if (Array.isArray(v)) return renderArray(v, ctx)
+
+  const vnode = v as VNode
+
+  // Portal — 渲染到 document.body#__wf_portal
+  if (vnode.type === Portal) {
+    renderPortal(vnode, ctx)
+    return null
+  }
+
+  // Fragment
+  if (vnode.type === Fragment) {
     const frag = document.createDocumentFragment()
-    for (const child of v) {
+    const children = vnode.props?.children == null ? [] : (Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children])
+    for (const child of children) {
       const node = renderValue(child, ctx)
       if (node != null) frag.appendChild(node)
     }
+    // 记录 Fragment 实际产生的 DOM 节点（DocumentFragment 插入父节点后会展开成多个直属节点）
+    // diff 用 `_childNodes` 做精确范围对齐——否则父级按位置索引 `parent.childNodes[i]` 会串位
+    ;(vnode as VNode)._childNodes = Array.from(frag.childNodes)
     return frag
   }
 
-  const vnode = v as VNode
-  // 组件（两阶段：mount → render）
+  // Component（同步组件或 async 工厂）
   if (typeof vnode.type === 'function') {
-    return renderComponent(vnode.type, vnode, ctx)
+    return renderComponent(vnode.type as Component | AsyncComponent, vnode.props, vnode, ctx)
   }
-  // Fragment
-  if (vnode.type === (Symbol.for('wf-fragment'))) {
-    const frag = document.createDocumentFragment()
-    for (const child of normalizeChildren(vnode.props?.children)) {
-      const node = renderValue(child, ctx)
-      if (node != null) frag.appendChild(node)
-    }
-    vnode._child = normalizeChildren(vnode.props?.children) as VNode[]
-    return frag
-  }
-  // 原生元素
+
+  // Native element（SVG 元素必须用 createElementNS）
   const tag = vnode.type as string
-  const el = document.createElement(tag)
+  const el = SVG_TAGS.has(tag) ? document.createElementNS(SVG_NS, tag) : document.createElement(tag)
   vnode.el = el
-  // 属性
+
+  // 先设非 value 属性
+  let selectValue: any
   for (const [key, value] of Object.entries(vnode.props ?? {})) {
-    if (key === 'children' || key === 'key') continue
+    if (key === 'children' || key === 'key' || key === 'value' || key === 'innerHTML') continue
     setProp(el, key, value)
   }
-  // children
-  for (const child of normalizeChildren(vnode.props?.children)) {
-    const node = renderValue(child, ctx)
-    if (node != null) el.appendChild(node)
+  if ('value' in (vnode.props ?? {}) && el instanceof HTMLSelectElement) {
+    selectValue = vnode.props!.value
+  } else if ('value' in (vnode.props ?? {})) {
+    setProp(el, 'value', vnode.props!.value)
   }
-  vnode._child = normalizeChildren(vnode.props?.children) as VNode[]
+
+    // innerHTML 优先：跳过 children 渲染
+  if ('innerHTML' in (vnode.props ?? {})) {
+    el.innerHTML = String(vnode.props!.innerHTML ?? '')
+  } else {
+    // children（select 的 options 必须先生成再设 value）
+    const flatChildren = flattenChildren(vnode.props?.children)
+    for (const child of flatChildren) {
+      const childNode = renderValue(child, ctx)
+      if (childNode == null) continue
+      el.appendChild(childNode)
+      // 首次渲染后为子组件 VNode 设置 DOM 锚点（供 scope render 使用）
+      if (child && typeof child === 'object' && typeof (child as VNode).type === 'function') {
+        const childVNode = child as VNode
+        if (!childVNode._parentNode) {
+          childVNode._parentNode = el
+          childVNode._refNode = childNode
+        }
+      }
+    }
+  }
+
+  // select value 在 options 生成后设置
+  if (selectValue !== undefined) {
+    ;(el as HTMLSelectElement).value = String(selectValue)
+  }
+
+  // ref 回调：ref(el) 初始化，元素移除时 ref(null) 清理（safeCallRef 防用户逻辑抛错中断渲染）
+  if (typeof vnode.props?.ref === 'function') safeCallRef(vnode.props.ref, el, 'mount', tag)
+
   return el
 }
 
-/** 渲染组件（两阶段：mount 返回 render 函数 → 调用产出 VNode）——支持组件级 $ 重渲染 */
-function renderComponent(Comp: Function, vnode: VNode, ctx: any): Node | null {
-  // 分配组件 id + 注册（组件级 $ 重渲染用）
-  const registry = ctx?.__registry
-  if (registry && !vnode._id) {
-    vnode._id = registry.nextId()
-    registry.set(vnode._id, vnode)
-  }
+/**
+ * 异步组件工厂缓存：同一工厂只执行一次，多实例/多渲染共享。
+ * resolved 记录已解析的定义（同步快速路径用）。
+ * （缓存本体在 registry.ts，本文件仅保留依赖 render 的调度函数）
+ */
 
-  // 子 ctx：注入 _selfId/_selfVNode + 组件级 $（赋值 → dirty(id) → 重渲染）
-  const childCtx = Object.create(ctx ?? {})
-  childCtx._selfId = vnode._id
-  childCtx._selfVNode = vnode
-  if (registry && vnode._id) {
-    // 组件级 $：dirty 本组件（区别于路由实例级 $——router 注入的 ctx.ui.$）
-    // 覆盖 childCtx.ui.$/dirty/render——组件内精准定位本组件
-    const selfId = vnode._id
-    const componentState = createComponentState(registry, selfId)
-    childCtx.ui = {
-      ...(ctx?.ui ?? {}),
-      $: () => componentState,
-      // dirty：异步批量（微任务调度在 registry.onDirty）
-      dirty: () => registry.markDirty(selfId),
-      // render：立即同步重渲染本组件（measure/animate 需要最新 DOM）
-      render: () => {
-        registry.markDirty(selfId)
-        rerenderDirtyComponents(registry, null)
-      },
-    }
-  }
-
-  // mount（一次）：Comp(initProps, ctx) → render 函数（mount 期 $ 初始化赋值丢弃）
-  registry?.setMounting?.(true)
-  let renderFn: any
-  try {
-    renderFn = (Comp as any)(vnode.props ?? {}, childCtx)
-  } finally {
-    registry?.setMounting?.(false)
-  }
-  if (typeof renderFn !== 'function') return null
-  vnode._render = renderFn
-  // render 期（首次渲染函数调用）——render 内 $ 赋值丢弃
-  registry?.setRendering?.(true)
-  let childVNode: any
-  try {
-    childVNode = renderFn(vnode.props ?? {})
-  } finally {
-    registry?.setRendering?.(false)
-  }
-  if (childVNode == null) return null
-  vnode._child = childVNode
-  ;(vnode as any)._ctx = childCtx
-  const node = renderValue(childVNode, childCtx)
-  if (node) vnode._refNode = node
-  return node
+/** 占位完成后整树重渲染（async 工厂已解析，diff 收敛到目标位置） */
+export function scheduleFullReRender(ctx: WfuiContext) {
+  const ui = ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined
+  if (ui && typeof ui.render === 'function') ui.render(['_wf_root'])
 }
 
-/** 增量 diff：新旧 VNode → 更新 DOM */
-export function patchValue(
-  parent: Node,
-  oldNode: Node | null,
-  oldVNode: VNodeChild,
-  newVNode: VNodeChild,
-  ctx: any,
-): Node | null {
-  // 新增
-  if (oldVNode == null) {
-    if (newVNode == null) return null
-    const node = renderValue(newVNode, ctx)
-    if (node == null) return null
-    if (oldNode && oldNode.parentNode) {
-      parent.insertBefore(node, oldNode)
-    } else {
-      parent.appendChild(node)
+/**
+ * 同步 mount 组件（async 工厂占位策略）：
+ *   - 同步组件 → def(props, ctx) → render fn → 输出 VNode
+ *   - async 工厂已解析 → 同同步组件
+ *   - async 工厂未解析 → 占位（返回 null）+ 启动工厂 + 完成后整树重渲染
+ */
+export function mountComponent(
+  Comp: Component | AsyncComponent,
+  props: VNode['props'],
+  vnode: VNode,
+  ctx: WfuiContext,
+): VNode | null {
+  let def: Component | undefined
+  if (isAsyncComponent(Comp)) {
+    def = resolveAsyncFactorySync(getRegistry(ctx), Comp)
+    if (!def) {
+      // 占位：启动工厂；resolve 后整树重渲染（此时已解析 → 同步渲染）
+      void startAsyncFactory(getRegistry(ctx), Comp, ctx).promise.then(
+        () => scheduleFullReRender(ctx),
+        () => {
+          // 工厂失败：保持占位（错误保留在缓存 Promise，不产生 unhandled rejection）
+        },
+      )
+      return null
     }
-    return node
+  } else {
+    def = Comp as Component
   }
-  // 移除
-  if (newVNode == null) {
-    if (oldNode && oldNode.parentNode) oldNode.parentNode.removeChild(oldNode)
+
+  // mount 阶段标记：工厂执行期间 $ 初始化赋值丢弃（_rendering 保护语义细分）
+  ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.setMounting?.(true)
+  // def(props, ctx) 返回 render 函数（两阶段模型的第二阶段；Component 类型允许 null）
+  let childVNode: ((props: VNode['props']) => VNode | null) | null | undefined
+  try {
+    childVNode = def(props, ctx)
+  } finally {
+    ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.endMounting?.()
+  }
+  if (typeof childVNode !== 'function') {
+    throw new Error(
+      `Component ${Comp.name || 'anonymous'} must return a render function. ` +
+      `Use (init_props, ctx) => (props) => VNode pattern.`
+    )
+  }
+  vnode._render = childVNode
+  return childVNode(props)
+}
+
+function renderComponent(
+  Comp: Component | AsyncComponent,
+  props: VNode['props'],
+  vnode: VNode,
+  ctx: WfuiContext,
+): Node | null {
+  // ctx.ui 由 createApp 注入（类型必需字段）——此处不补默认（原 ?? {} 是历史防御，
+  // 组件渲染必然在 createApp.mount 之后）
+
+  // 生成组件实例 ID
+  if (!vnode._id) {
+    const reg = getRegistry(ctx)
+    vnode._id = nextComponentIdFor(reg)
+    reg.idRegistry.set(vnode._id, vnode)
+  }
+
+  // 扩展 ctx：每个组件有自己的 _selfId 和 VNode 引用
+  const childCtx = Object.create(ctx) as WfuiContext
+  childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
+  const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
+  childUi._selfId = vnode._id
+  childUi._selfVNode = vnode
+
+  // 首次渲染记录当前 ctx 版本（供后续三态 skip 使用）
+  vnode._ctxVersion = childUi._ctxVersion ?? 0
+
+  let childVNode: VNode | null
+  try {
+    childVNode = mountComponent(Comp, props, vnode, childCtx)
+  } catch (e) {
+    const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
+    if (errHandler) {
+      errHandler(e)
+      childVNode = null
+    } else {
+      console.error(
+        `[weifuwu] Component render error in <${Comp.name || 'anonymous'}> (id: ${vnode._id ?? '?'}, phase: mount)`,
+        e,
+      )
+      childVNode = null
+    }
+  }
+
+  if (childVNode == null) {
+    vnode._child = null
+    // 若组件注入了 _errorHandler（ErrorBoundary 场景），输出 null 时插入注释占位——
+    // null 输出组件无 DOM 锚点，错误恢复重渲染时 patchValue 无法定位插入位置。
+    // 注释占位提供 _refNode，使 renderByIds 能推导 _parentNode 并替换为 fallback。
+    const errHandler = (childCtx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
+    if (errHandler) {
+      const placeholder = document.createComment('wf-empty')
+      vnode._refNode = placeholder
+      return placeholder
+    }
     return null
   }
-  // 文本替换
-  const oldIsText = typeof oldVNode === 'string' || typeof oldVNode === 'number'
-  const newIsText = typeof newVNode === 'string' || typeof newVNode === 'number'
-  if (oldIsText || newIsText) {
-    if (oldIsText && newIsText) {
-      if (String(oldVNode) !== String(newVNode) && oldNode) {
-        ;(oldNode as Text).textContent = String(newVNode)
-      }
-      return oldNode
-    }
-    const node = renderValue(newVNode, ctx)
-    if (node && oldNode && oldNode.parentNode) oldNode.parentNode.replaceChild(node, oldNode)
-    return node
+  vnode._child = childVNode
+  const domNode = renderValue(childVNode, childCtx)
+  // 为组件 VNode 设置 DOM 锚点，供 scope render 使用
+  // 如果组件被原生元素包裹，原生元素路径会覆盖 _parentNode
+  // 如果组件被另一个组件返回（如 RouteView → Dashboard），这里确保锚点可用
+  if (!vnode._refNode) {
+    vnode._refNode = domNode
   }
-  // 数组（Fragment children）
-  if (Array.isArray(oldVNode) || Array.isArray(newVNode)) {
-    return patchChildren(parent, oldNode, oldVNode, newVNode, ctx)
+  return domNode
+}
+
+function renderArray(arr: VNodeChild[], ctx: WfuiContext): DocumentFragment {
+  const frag = document.createDocumentFragment()
+  for (const item of arr) {
+    const node = renderValue(item, ctx)
+    if (node != null) frag.appendChild(node)
   }
+  return frag
+}
 
-  const oldV = oldVNode as VNode
-  const newV = newVNode as VNode
+// ── Portal ────────────────────────────────────────────
 
-  // 组件：复用实例（同 type）→ 调 _render 或重新 mount
-  if (typeof newV.type === 'function') {
-    if (oldV.type === newV.type && oldV._render) {
-      // 复用组件实例：调 render 产出新 VNode → 递归 diff
-      newV._render = oldV._render
-      newV._child = oldV._child
-      const childNew = oldV._render(newV.props ?? {})
-      newV._child = childNew
-      if (childNew == null) {
-        if (oldNode && oldNode.parentNode) oldNode.parentNode.removeChild(oldNode)
-        return null
-      }
-      // 用旧节点的位置递归 patch
-      const result = patchValue(parent, oldNode, oldV._child, childNew, ctx)
-      return result ?? oldNode
-    }
-    // 不同组件：重新 mount
-    const node = renderValue(newV, ctx)
-    if (node && oldNode && oldNode.parentNode) oldNode.parentNode.replaceChild(node, oldNode)
-    return node
+/** 获取/创建全局 Portal 容器（document.body 下） */
+function ensurePortalContainer(): HTMLDivElement {
+  let c = document.getElementById('__wf_portal') as HTMLDivElement | null
+  if (!c) {
+    c = document.createElement('div')
+    c.id = '__wf_portal'
+    c.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999'
+    document.body.appendChild(c)
   }
+  return c
+}
 
-  // 元素：同 tag → patch props + children；不同 tag → 重建
-  if (typeof oldV.type === 'string' && oldV.type === newV.type) {
-    const el = oldNode as HTMLElement
-    if (!el) return null
-    newV.el = el
-    // patch props
-    patchProps(el, oldV.props, newV.props)
-    // patch children（有 key → keyed diff；无 key → 位置对齐）
-    const oldChildren = normalizeChildren(oldV.props?.children)
-    const newChildren = normalizeChildren(newV.props?.children)
-    const hasKey = newChildren.some(c => c && typeof c === 'object' && !Array.isArray(c) && (c as any).key !== undefined)
-    if (hasKey) {
-      patchKeyedChildren(el, oldChildren, newChildren, ctx)
+/** 首次渲染 Portal：创建远程容器、渲染子节点（不返回占位节点） */
+export function renderPortal(vnode: VNode, ctx: WfuiContext): void {
+  const container = ensurePortalContainer()
+  const sub = document.createElement('div')
+  sub.style.pointerEvents = 'auto'
+  container.appendChild(sub)
+  vnode._remoteEl = sub
+
+  const children = normalize(vnode.props?.children)
+  // Portal 子项在渲染后均为 VNode（normalize 展平数组/文本）；_child 需 VNode[]
+  vnode._child = children as VNode[]
+  for (const child of children) {
+    const node = renderValue(child, ctx)
+    if (node != null) sub.appendChild(node)
+  }
+}
+
+/** 更新 Portal：复用远程容器，patch 子节点（不操作父 DOM） */
+export function patchPortal(oldV: VNode | null, newV: VNode, ctx: WfuiContext): void {
+  const sub = oldV?._remoteEl
+  newV._remoteEl = sub
+  if (!sub) { renderPortal(newV, ctx); return }
+
+  const newChildren = normalize(newV.props?.children)
+  const oldChildren = (oldV._child || []) as VNode[]
+  newV._child = newChildren as VNode[]
+
+  ensureKeys(oldChildren, newChildren)
+  // 节点范围映射：Portal 子项含 Fragment 时产生多个 DOM 节点，需按实际范围对齐
+  const oldNodes = mapChildDomNodes(Array.from(sub.childNodes), oldChildren)
+  patchKeyedChildren(sub, oldChildren, newChildren, ctx, oldNodes, oldNodes[0]?.[0] ?? null)
+}
+
+function forEach(children: VNodeChild, fn: (child: VNodeChild) => void) {
+  if (children == null) return
+  if (Array.isArray(children)) { children.forEach(fn); return }
+  fn(children)
+}
+
+/** 展平嵌套数组 */
+export function flattenChildren(children: VNodeChild): VNodeChild[] {
+  if (children == null) return []
+  if (!Array.isArray(children)) return [children]
+  const result: VNodeChild[] = []
+  for (const child of children) {
+    if (Array.isArray(child)) {
+      result.push(...child)
     } else {
-      const len = Math.max(oldChildren.length, newChildren.length)
-      for (let i = 0; i < len; i++) {
-        const oldChildNode = el.childNodes[i] ?? null
-        const result = patchValue(el, oldChildNode, oldChildren[i], newChildren[i], ctx)
-        if (result && !el.contains(result)) el.insertBefore(result, oldChildNode?.nextSibling ?? null)
-      }
-      // 移除多余的旧节点
-      while (el.childNodes.length > newChildren.length) {
-        if (el.lastChild) el.removeChild(el.lastChild)
-      }
+      result.push(child)
     }
-    newV._child = newChildren as VNode[]
-    return el
   }
-  // 不同 tag：重建
-  const node = renderValue(newV, ctx)
-  if (node && oldNode && oldNode.parentNode) oldNode.parentNode.replaceChild(node, oldNode)
-  return node
+  return result
 }
 
-/** patch 属性（简化：移除缺失、设置新增/变化） */
-function patchProps(el: HTMLElement, oldProps: Record<string, any>, newProps: Record<string, any>) {
-  const oldKeys = oldProps ? Object.keys(oldProps).filter(k => k !== 'children' && k !== 'key') : []
-  const newKeys = newProps ? Object.keys(newProps).filter(k => k !== 'children' && k !== 'key') : []
-  const newKeySet = new Set(newKeys)
-  // 移除旧属性
-  for (const key of oldKeys) {
-    if (!newKeySet.has(key)) {
-      if (key.startsWith('on')) {
-        el.removeEventListener(key.slice(2).toLowerCase(), oldProps[key])
-      } else if (key === 'style') {
-        // 新 props 无 style → 清空 style
-        el.removeAttribute('style')
-      } else {
-        el.removeAttribute(key)
-      }
-    }
-  }
-  // 设置新属性
-  for (const key of newKeys) {
-    const value = newProps[key]
-    if (key.startsWith('on') && typeof value === 'function') {
-      // 先移除旧 listener（同 key）——防止重渲染时累积绑定（真实点击抓出：增量 4→8→16 指数）
-      const oldFn = oldProps?.[key]
-      if (oldFn !== value) {
-        if (typeof oldFn === 'function') el.removeEventListener(key.slice(2).toLowerCase(), oldFn)
-        el.addEventListener(key.slice(2).toLowerCase(), value)
-      }
-    } else if (key === 'style' && typeof value === 'object' && value !== null) {
-      // style diff：移除旧 style 中消失的键（Object.assign 不会清旧键）
-      const oldStyle = oldProps?.['style'] as Record<string, any> | undefined
-      if (oldStyle && typeof oldStyle === 'object') {
-        for (const sk of Object.keys(oldStyle)) {
-          if (!(sk in (value as Record<string, any>))) {
-            ;(el.style as any)[sk] = ''
-          }
-        }
-      }
-      Object.assign(el.style, value)
-    } else if (value === true) {
-      el.setAttribute(key, '')
-    } else if (value != null && value !== false) {
-      el.setAttribute(key, String(value))
-    }
-  }
-}
+// ── setProp ────────────────────────────────────────────
 
-/** 设置单个属性（挂载路径） */
-function setProp(el: HTMLElement, key: string, value: any) {
-  if (key.startsWith('on') && typeof value === 'function') {
-    el.addEventListener(key.slice(2).toLowerCase(), value)
+function setProp(el: Element, key: string, value: any) {
+  // ref 是特殊 prop：renderValue 中作为函数调用（ref(el)/ref(null)）——
+  // 不落 DOM 属性（否则 setAttribute('ref', String(fn)) 污染 DOM）
+  if (key === 'ref') return
+  if (key === 'class' || key === 'className') {
+    // SVG use setAttribute('class'), HTML use className property
+    if (el instanceof SVGElement) el.setAttribute('class', String(value ?? ''))
+    else el.className = String(value ?? '')
   } else if (key === 'style' && typeof value === 'object' && value !== null) {
-    Object.assign(el.style, value)
+    const st = (el as HTMLElement).style
+    for (const sk of Object.keys(value)) {
+      const sv = value[sk]
+      if (sv == null) continue
+      // CSS 变量必须 setProperty（st['--x']=v 静默失败——
+      // --wf-cols/--wf-split-ratio 曾不生效）；数值保持字符串（不转 px）
+      if (sk.startsWith('--')) st.setProperty(sk, String(sv))
+      // 普通 camelCase 键走索引赋值（setProperty 需 kebab-case，camelCase 如 fontSize 会失效）；数值转 px
+      else (st as unknown as Record<string, string>)[sk] = typeof sv === 'number' ? sv + 'px' : String(sv)
+    }
+  } else if (key.startsWith('on') && typeof value === 'function') {
+    el.addEventListener(key.slice(2).toLowerCase(), value as EventListener)
+  } else if (key === 'draggable') {
+    // draggable 是 enumerated 属性（非 boolean）——setAttribute('draggable', '')
+    // 空字符串解析为 false——必须显式 'true'/'false'
+    el.setAttribute('draggable', value ? 'true' : 'false')
+  } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+    ;(el as HTMLSelectElement).value = String(value ?? '')
   } else if (value === true) {
     el.setAttribute(key, '')
   } else if (value != null && value !== false) {
@@ -276,202 +351,23 @@ function setProp(el: HTMLElement, key: string, value: any) {
   }
 }
 
-/** 展平 children（数组/单值） */
-function normalizeChildren(children: any): VNodeChild[] {
-  if (children == null) return []
-  if (!Array.isArray(children)) return [children]
-  const result: VNodeChild[] = []
-  for (const c of children) {
-    if (Array.isArray(c)) result.push(...c)
-    else result.push(c)
-  }
-  return result
+// ── 内联 ref 检测 ────────────────────────────────────
+// ref-diff 在 ref 函数引用变化时调用旧 ref(null)（见 patchValue）。
+// 内联 ref（render 里写 `ref: (el) => {...}`）每次渲染都是新函数 → 每渲染触发一次
+// ref(null)+ref(el)，清理逻辑被反复执行而非仅在卸载时。同一元素变化 ≥3 次才警告
+// （放过合法的单次/偶发替换，抓住每次渲染都变的内联反模式）。
+// ── 清理 ────────────────────────────────────────────
+
+// （ref 清理逻辑已移至 registry.ts：callRefCleanup / cleanupPortalChildren）
+
+// ── 挂载到容器 ────────────────────────────────────────
+
+export function mountVNode(container: Element, vnode: VNode, ctx: WfuiContext) {
+  container.innerHTML = ''
+  const node = renderValue(vnode, ctx)
+  // renderValue 返回 Node | null——数组分支不可达（CS-01 死代码），直接插入
+  if (node instanceof Node) container.appendChild(node)
 }
 
-/** patch children（数组场景：位置对齐逐项 patch） */
-function patchChildren(parent: Node, oldNode: Node | null, oldV: any, newV: any, ctx: any): Node | null {
-  const oldChildren = Array.isArray(oldV) ? oldV : normalizeChildren(oldV)
-  const newChildren = Array.isArray(newV) ? newV : normalizeChildren(newV)
-  const len = Math.max(oldChildren.length, newChildren.length)
-  let base = oldNode as ChildNode | null
-  for (let i = 0; i < len; i++) {
-    const refNode = base?.childNodes[i] ?? null
-    const result = patchValue(base ?? parent, refNode, oldChildren[i], newChildren[i], ctx)
-    if (result && base && !base.contains(result)) base.appendChild(result)
-  }
-  // 移除多余旧节点
-  if (base) {
-    while (base.childNodes.length > newChildren.length) if (base.lastChild) base.removeChild(base.lastChild)
-  }
-  return base
-}
-
-/**
- * keyed children diff（D2）：key 匹配 → 复用/移动/新增/移除。
- * 列表场景：同 key 项复用 DOM（不重建），顺序变化时移动。
- */
-function patchKeyedChildren(parent: HTMLElement, oldChildren: any[], newChildren: any[], ctx: any): void {
-  // 建立旧 key → 索引映射
-  const oldKeyMap = new Map<string, number>()
-  const oldNodes: Array<ChildNode | null> = []
-  for (let i = 0; i < oldChildren.length; i++) {
-    const c = oldChildren[i]
-    const key = c && typeof c === 'object' ? (c as any).key : undefined
-    if (key !== undefined) oldKeyMap.set(String(key), i)
-    oldNodes.push(parent.childNodes[i] ?? null)
-  }
-
-  const newKeys = new Set(newChildren
-    .filter(c => c && typeof c === 'object')
-    .map(c => String((c as any).key)))
-
-  // Step 1: 移除消失的旧 key 节点
-  for (const [key, idx] of oldKeyMap) {
-    if (!newKeys.has(key)) {
-      const node = oldNodes[idx]
-      if (node) node.remove()
-    }
-  }
-
-  // Step 2: 按新顺序 patch/移动
-  let nextRef: ChildNode | null = parent.firstChild
-  let lastIndex = -1
-  for (let i = 0; i < newChildren.length; i++) {
-    const newC = newChildren[i]
-    const newKey = newC && typeof newC === 'object' ? (newC as any).key : undefined
-    const oldIdx = newKey !== undefined ? oldKeyMap.get(String(newKey)) : undefined
-
-    if (oldIdx !== undefined) {
-      // 复用旧节点：patch + 必要时移动
-      const oldNode = oldNodes[oldIdx]
-      if (oldNode) {
-        if (oldIdx < lastIndex) {
-          // 需要移动（新顺序前移）
-          parent.insertBefore(oldNode, nextRef ?? null)
-        }
-        lastIndex = Math.max(lastIndex, oldIdx)
-        patchValue(parent, oldNode, oldChildren[oldIdx], newC, ctx)
-        nextRef = oldNode.nextSibling
-      } else {
-        // 旧节点被移除过（无 DOM）→ 新建
-        const node = renderValue(newC, ctx)
-        if (node) parent.insertBefore(node, nextRef ?? null)
-        nextRef = node?.nextSibling ?? null
-      }
-    } else {
-      // 新增
-      const node = renderValue(newC, ctx)
-      if (node) parent.insertBefore(node, nextRef ?? null)
-      nextRef = node?.nextSibling ?? null
-    }
-  }
-}
-
-// ── 组件级响应式状态 ──────────────────────────────────
-
-import { createReactiveState } from './reactive.ts'
-
-/**
- * 组件级 $（D1）：赋值 → dirty(组件 id) → 调度重渲染该组件。
- * 与路由实例级 $（router 注入 ctx.ui.$）区分——组件自身的交互状态。
- */
-function createComponentState(registry: any, componentId: string): Record<string, any> {
-  return createReactiveState(() => {
-    registry.markDirty(componentId)
-  })
-}
-
-/**
- * 重渲染 dirty 组件（D1）：重调组件 render → 新 VNode → 局部 patch。
- * 由调度器（router 或测试）调用——drainDirty 后逐个处理。
- */
-export function rerenderDirtyComponents(registry: any, _root: Node | null): void {
-  const ids = registry.drainDirty()
-  if (ids.length === 0) return
-  registry.setRendering(true)
-  try {
-    for (const id of ids) {
-      const vnode = registry.get(id)
-      if (!vnode || !vnode._render) continue
-      const oldChild = vnode._child as any
-      const newChild = vnode._render(vnode.props ?? {})
-      vnode._child = newChild
-      // 用 refNode.parentNode 定位（组件可能嵌套在任意层级）
-      const refNode = vnode._refNode ?? null
-      const parent = refNode?.parentNode ?? (vnode as any)._parentNode ?? null
-      if (!parent) continue
-      const result = patchValue(parent, refNode, oldChild, newChild, (vnode as any)._ctx)
-      if (result) vnode._refNode = result
-    }
-  } finally {
-    registry.setRendering(false)
-  }
-}
-
-// ── Hydration（D4）：收养服务端 HTML，只接线事件 ──────
-
-/**
- * hydrateValue(parent, vnode, ctx) — 收养现有 DOM 子树（SSR 输出已就位）。
- * 与 vnode 树逐节点匹配（同 tag 复用 DOM，只补事件），不重建。
- */
-export function hydrateValue(parent: Element, v: VNodeChild, ctx: any): Node | null {
-  // 消费游标：记录 parent 已消费的 child 数（同一 parent 的兄弟节点顺序对齐）
-  const cursor = getCursor(parent)
-  if (v == null || typeof v === 'boolean') return null
-  if (typeof v === 'string' || typeof v === 'number') {
-    const node = parent.childNodes[cursor.n]
-    if (node?.nodeType === 3) { cursor.n++; return node }
-    return null
-  }
-  if (Array.isArray(v)) {
-    let last: Node | null = null
-    for (const child of v) {
-      const n = hydrateValue(parent, child, ctx)
-      if (n) last = n
-    }
-    return last
-  }
-
-  const vnode = v as VNode
-
-  // 组件：mount（注册 id + $）+ 递归收养
-  if (typeof vnode.type === 'function') {
-    return renderComponent(vnode.type, vnode, ctx)
-  }
-
-  // Fragment
-  if (vnode.type === Symbol.for('wf-fragment')) {
-    let last: Node | null = null
-    for (const child of normalizeChildren(vnode.props?.children)) {
-      const n = hydrateValue(parent, child, ctx)
-      if (n) last = n
-    }
-    return last
-  }
-
-  // 元素：按游标消费容器子节点（SSR 顺序 = VNode 顺序）
-  const el = parent.childNodes[cursor.n] as HTMLElement | null
-  if (!el || el.nodeType !== 1 || el.tagName.toLowerCase() !== vnode.type) return null
-  cursor.n++
-  vnode.el = el
-  // 事件接线（属性已在服务端 HTML，只补 on*）
-  for (const [key, value] of Object.entries(vnode.props ?? {})) {
-    if (key.startsWith('on') && typeof value === 'function') {
-      el.addEventListener(key.slice(2).toLowerCase(), value)
-    }
-  }
-  // 递归收养 children（独立游标对齐 el 的子节点）
-  for (const child of normalizeChildren(vnode.props?.children)) {
-    hydrateValue(el, child, ctx)
-  }
-  vnode._child = normalizeChildren(vnode.props?.children) as VNode[]
-  return el
-}
-
-/** 创建/获取 parent 的消费游标（弱缓存） */
-const hydrateCursors = new WeakMap<Element, { n: number }>()
-function getCursor(parent: Element): { n: number } {
-  let c = hydrateCursors.get(parent)
-  if (!c) { c = { n: 0 }; hydrateCursors.set(parent, c) }
-  return c
-}
+// ── 兼容导出（diff 逻辑在 diff.ts） ──
+export { patchValue } from './diff.ts'

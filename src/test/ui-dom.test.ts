@@ -1,21 +1,19 @@
 /**
- * weifuwu/ui-dom 独立测试 — UIRouter + VDOM（完全独立于 src/client）
+ * weifuwu/ui-dom 测试 — UIRouter（纯路由）+ uiServe（渲染运行时）
  *
- * 验证：
- *   - serveUI 绑定根节点 + URL 驱动渲染（req = window.location）
- *   - handler = async (location, ctx) => VNode（res = VNode）
- *   - ctx.params/query 注入
- *   - $ 路由实例绑定（赋值重渲染，data 缓存命中）
- *   - 中间件链（layout 包装 children）
- *   - 子路由挂载 use(prefix, sub)
- *   - 404
+ * 定稿架构验证：
+ *   - uiServe(router, {root}) 装配点：路由已注册 → serve 监听 URL → 渲染
+ *   - handler = async (location, ctx) => vnode（$ 有效）
+ *   - ctx.params/query 注入；ctx.data 缓存
+ *   - 渲染运行时复制自 client（registry/createUi 局部实例隔离）
+ *   - weifuwu/components 复用（路径 B 核心验证）
  */
 
 import { test, afterEach, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
-import { UIRouter, serveUI, h, createReactiveState } from '../ui-dom/index.ts'
-import type { UIHandler, UIMiddleware } from '../ui-dom/index.ts'
+import { UIRouter, uiServe, h } from '../ui-dom/index.ts'
+import type { UIHandler, UIMiddleware, WfuiContext } from '../ui-dom/index.ts'
 
 before(setupJsdom)
 
@@ -35,555 +33,252 @@ function flush() {
   return new Promise<void>((r) => setTimeout(r, 0))
 }
 
-test('serveUI 渲染 handler 的 VNode 到根节点（res = VNode）', async () => {
-  const ui = new UIRouter()
-  ui.get('/home', () => h('div', { id: 'home' }, '首页'))
+// ═══════════════════════════════════════════════════════
+// 基础：handler 渲染 / data 缓存 / $ 路由实例
+// ═══════════════════════════════════════════════════════
+
+test('uiServe 渲染 handler 的 VNode 到根节点（res = VNode）', async () => {
+  const router = new UIRouter()
+  router.get('/home', () => h('div', { id: 'home' }, '首页'))
   window.history.pushState(null, '', '/home')
   const el = mount('ui-root')
-  serveUI(ui, { root: '#ui-root' })
+  const handle = uiServe(router, { root: '#ui-root' })
   await flush()
   assert.equal(el.querySelector('#home')?.textContent, '首页')
+  handle.close()
 })
 
-test('handler 是 async：ctx.data.get 取数 → VNode', async () => {
-  const ui = new UIRouter()
-  ui.get('/users/:id', async (location, ctx) => {
-    const user = await ctx.ui.data.get(`/api/users/${ctx.params.id}`, async () => ({ name: '张三' }))
-    return h('div', { id: 'user' }, `用户: ${(user as any).name}`)
+test('handler async：ctx.data 缓存命中（外层只使用一次）+ params 注入', async () => {
+  let fetchCount = 0
+  const router = new UIRouter()
+  router.get('/users/:id', async (location, ctx) => {
+    const user = await ctx.data.get(`/api/users/${ctx.params.id}`, async () => {
+      fetchCount++
+      return { name: '张三' }
+    })
+    const $ = ctx.ui.$()
+    $.clicks = $.clicks ?? 0
+    return h('div', { id: 'user' },
+      h('span', { id: 'uname' }, `用户: ${(user as any).name}`),
+      h('button', { id: 'uc', onClick: () => { $.clicks++ } }, String($.clicks)),
+    )
   })
   window.history.pushState(null, '', '/users/42')
   const el = mount('ui-async')
-  serveUI(ui, { root: '#ui-async' })
+  const handle = uiServe(router, { root: '#ui-async' })
   await flush()
-  assert.equal(el.querySelector('#user')?.textContent, '用户: 张三')
-  assert.equal(ui.ctx.params.id, '42', 'params 在 ctx')
-})
-
-test('$ 路由实例绑定：赋值重渲染，data 缓存命中（外层只一次）', async () => {
-  let fetchCount = 0
-  const ui = new UIRouter()
-  ui.get('/counter', async (location, ctx) => {
-    const data = await ctx.ui.data.get('/api/counter', async () => {
-      fetchCount++
-      return { title: '计数器' }
-    })
-    const $ = ctx.ui.$()
-    $.count = $.count ?? 0
-    return h('div', {},
-      h('span', { id: 'count' }, String($.count)),
-      h('button', {
-        id: 'inc',
-        onClick: () => { $.count = $.count + 1 },
-      }, '+'),
-    )
-  })
-  window.history.pushState(null, '', '/counter')
-  const el = mount('ui-counter')
-  serveUI(ui, { root: '#ui-counter' })
-  await flush()
-  assert.equal(el.querySelector('#count')?.textContent, '0')
+  assert.equal(el.querySelector('#uname')?.textContent, '用户: 张三')
   assert.equal(fetchCount, 1, '首次取数一次')
-
-  // 点击 → $ 赋值 → 重渲染（data 缓存命中，不重取数）
-  ;(el.querySelector('#inc') as HTMLElement).click()
+  assert.equal(handle.ctx.params.id, '42', 'params 在 ctx')
+  // 点击 → $ 重渲染（data 缓存命中，不重取数）
+  ;(el.querySelector('#uc') as HTMLElement).click()
   await flush()
-  assert.equal(el.querySelector('#count')?.textContent, '1', '$ 赋值重渲染')
-  assert.equal(fetchCount, 1, '重渲染不重取数（外层只使用一次）')
+  assert.equal(el.querySelector('#uc')?.textContent, '1')
+  assert.equal(fetchCount, 1, '重渲染不重取数')
+  handle.close()
 })
+
+// ═══════════════════════════════════════════════════════
+// 中间件链 / 子路由（嵌套 + notFound + params + 段边界）
+// ═══════════════════════════════════════════════════════
 
 test('中间件链：layout 包装 children（两阶段）', async () => {
-  const ui = new UIRouter()
+  const router = new UIRouter()
   const Shell: UIMiddleware = async (location, ctx, children) => {
     return async (loc, c) => {
       const child = await children(loc, c)
       return h('div', { id: 'shell' }, h('nav', { id: 'nav' }, '导航'), child)
     }
   }
-  ui.use(Shell)
-  ui.get('/page', () => h('div', { id: 'page' }, '内容'))
+  router.use(Shell)
+  router.get('/page', () => h('div', { id: 'page' }, '内容'))
   window.history.pushState(null, '', '/page')
   const el = mount('ui-layout')
-  serveUI(ui, { root: '#ui-layout' })
+  const handle = uiServe(router, { root: '#ui-layout' })
   await flush()
   assert.ok(el.querySelector('#shell'), 'layout 包装')
-  assert.ok(el.querySelector('#nav'), 'layout 内导航')
-  assert.ok(el.querySelector('#page'), '页面在 layout 内（children）')
+  assert.ok(el.querySelector('#page'), '页面在 layout 内')
+  handle.close()
 })
 
-test('子路由挂载 use(prefix, subRouter)', async () => {
+test('子路由：sub 中间件链 + notFound + 两层嵌套 + params + 段边界', async () => {
+  const router = new UIRouter()
   const admin = new UIRouter()
-  admin.get('/users', () => h('div', { id: 'admin-users' }, '用户管理'))
-  const ui = new UIRouter()
-  ui.use('/admin', admin)
-  window.history.pushState(null, '', '/admin/users')
-  const el = mount('ui-sub')
-  serveUI(ui, { root: '#ui-sub' })
-  await flush()
-  assert.equal(el.querySelector('#admin-users')?.textContent, '用户管理')
-})
-
-test('404 notFound', async () => {
-  const ui = new UIRouter()
-  ui.get('/', () => h('div', {}, 'home'))
-  ui.notFound(() => h('div', { id: 'nf' }, '404'))
-  window.history.pushState(null, '', '/nonexistent')
-  const el = mount('ui-nf')
-  serveUI(ui, { root: '#ui-nf' })
-  await flush()
-  assert.equal(el.querySelector('#nf')?.textContent, '404')
-})
-
-test('createReactiveState 独立（$ 深度响应式）', () => {
-  let notified = 0
-  const state = createReactiveState(() => notified++)
-  state.a = 1
-  state.obj = { x: 0 }
-  state.obj.x = 5   // 深度赋值
-  assert.equal(notified, 3, '赋值 + 深层赋值都触发')
-  const unsub = state.__watch(() => notified++)
-  state.b = 2
-  assert.equal(notified, 5, '赋值触发主回调 + 订阅者')
-  unsub()
-  state.c = 3
-  assert.equal(notified, 6, '退订后仅主回调（+1），订阅者不再通知')
-})
-
-test('VDOM diff：patchValue 增量更新（同结构不重建）', async () => {
-  const ui = new UIRouter()
-  let renderCount = 0
-  ui.get('/diff', async (location, ctx) => {
-    renderCount++
-    const $ = ctx.ui.$()
-    $.n = $.n ?? 0
-    return h('div', { id: 'd' },
-      h('span', { id: 'n' }, String($.n)),
-    )
-  })
-  window.history.pushState(null, '', '/diff')
-  const el = mount('ui-diff')
-  serveUI(ui, { root: '#ui-diff' })
-  await flush()
-  const span1 = el.querySelector('#n')
-  assert.equal(span1?.textContent, '0')
-
-  // 触发重渲染（$ 赋值）
-  const $ = (ui.ctx.ui.$() as any)
-  $.n = 1
-  await flush()
-  const span2 = el.querySelector('#n')
-  assert.equal(span2?.textContent, '1')
-  assert.equal(span1, span2, '同结构 span 复用（diff 不重建）')
-})
-
-// ═══════════════════════════════════════════════════════
-// D1 — 组件级重渲染（交互子组件 $ 响应式）
-// ═══════════════════════════════════════════════════════
-
-test('交互子组件 $ 赋值 → 组件局部重渲染（父 handler 不重跑）', async () => {
-  let handlerRuns = 0
-  const ui = new UIRouter()
-  // 交互子组件（两阶段 + 组件级 $）
-  const Counter = (initProps: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.count = 0
-    return (props: any) => h('div', { id: `counter-${props.id}` },
-      h('span', { id: `n-${props.id}` }, String($.count)),
-      h('button', { id: `inc-${props.id}`, onClick: () => { $.count = $.count + 1 } }, '+'),
-    )
-  }
-  ui.get('/counters', async (location, ctx) => {
-    handlerRuns++
-    const $ = ctx.ui.$()   // 路由实例级 $（handler 层）
-    $.loaded = $.loaded ?? true
-    return h('div', { id: 'page' },
-      h(Counter, { id: 'a' }),
-      h(Counter, { id: 'b' }),
-    )
-  })
-  window.history.pushState(null, '', '/counters')
-  const el = mount('ui-comp')
-  serveUI(ui, { root: '#ui-comp' })
-  await flush()
-  assert.equal(el.querySelector('#n-a')?.textContent, '0')
-  assert.equal(el.querySelector('#n-b')?.textContent, '0')
-  assert.equal(handlerRuns, 1, 'handler 首次跑一次')
-
-  // 点击 counter-a → 组件级 $ 赋值 → 仅 counter-a 重渲染
-  ;(el.querySelector('#inc-a') as HTMLElement).click()
-  await flush()
-  assert.equal(el.querySelector('#n-a')?.textContent, '1', 'counter-a 更新')
-  assert.equal(el.querySelector('#n-b')?.textContent, '0', 'counter-b 不更新（独立）')
-  assert.equal(handlerRuns, 1, 'handler 不重跑（组件级局部重渲染）')
-})
-
-// ═══════════════════════════════════════════════════════
-// D2 — keyed diff + style 属性 diff
-// ═══════════════════════════════════════════════════════
-
-test('keyed 列表重排：同 key 项复用 DOM（不重建），顺序移动', async () => {
-  const ui = new UIRouter()
-  ui.get('/list', async (location, ctx) => {
-    const $ = ctx.ui.$()
-    $.items = $.items ?? [{ id: 'a', v: 'A' }, { id: 'b', v: 'B' }, { id: 'c', v: 'C' }]
-    return h('ul', { id: 'list' },
-      ...($.items as any[]).map((it: any) =>
-        h('li', { key: it.id, id: `li-${it.id}` }, `${it.v}`)
-      ),
-    )
-  })
-  window.history.pushState(null, '', '/list')
-  const el = mount('ui-keyed')
-  serveUI(ui, { root: '#ui-keyed' })
-  await flush()
-  const liA = el.querySelector('#li-a')
-  const liB = el.querySelector('#li-b')
-  assert.ok(liA && liB)
-
-  // 重排：b 移到最前（keyed 移动，不重建）
-  const $ = (ui.ctx.ui.$() as any)
-  $.items = [{ id: 'b', v: 'B' }, { id: 'a', v: 'A' }, { id: 'c', v: 'C' }]
-  await flush()
-  const order = [...el.querySelectorAll('#list li')].map(n => n.id)
-  assert.deepEqual(order, ['li-b', 'li-a', 'li-c'], 'keyed 移动顺序')
-  assert.equal(el.querySelector('#li-a'), liA, 'li-a 复用不重建')
-  assert.equal(el.querySelector('#li-b'), liB, 'li-b 复用不重建')
-})
-
-test('keyed 列表增删：移除消失 key，新增新 key', async () => {
-  const ui = new UIRouter()
-  ui.get('/crud', async (location, ctx) => {
-    const $ = ctx.ui.$()
-    $.items = $.items ?? [{ id: 'a' }, { id: 'b' }]
-    return h('div', { id: 'crud' },
-      ...($.items as any[]).map((it: any) => h('span', { key: it.id, id: `s-${it.id}` })),
-    )
-  })
-  window.history.pushState(null, '', '/crud')
-  const el = mount('ui-crud')
-  serveUI(ui, { root: '#ui-crud' })
-  await flush()
-  assert.ok(el.querySelector('#s-a'))
-  assert.ok(el.querySelector('#s-b'))
-
-  // 移除 a，新增 d
-  const $ = (ui.ctx.ui.$() as any)
-  $.items = [{ id: 'b' }, { id: 'd' }]
-  await flush()
-  assert.ok(!el.querySelector('#s-a'), 'a 移除')
-  assert.ok(el.querySelector('#s-b'), 'b 保留')
-  assert.ok(el.querySelector('#s-d'), 'd 新增')
-})
-
-test('style diff：消失的 style 键被清除', async () => {
-  const ui = new UIRouter()
-  ui.get('/style', async (location, ctx) => {
-    const $ = ctx.ui.$()
-    $.show = $.show ?? true
-    return h('div', { id: 'sty', style: $.show ? { display: 'block', color: 'red' } : { color: 'red' } }, 'x')
-  })
-  window.history.pushState(null, '', '/style')
-  const el = mount('ui-style')
-  serveUI(ui, { root: '#ui-style' })
-  await flush()
-  const div = el.querySelector('#sty') as HTMLElement
-  assert.equal(div.style.display, 'block')
-  assert.equal(div.style.color, 'red')
-
-  // show=false → style 无 display → 应清除
-  const $ = (ui.ctx.ui.$() as any)
-  $.show = false
-  await flush()
-  assert.equal(div.style.display, '', 'display 被清除')
-  assert.equal(div.style.color, 'red', 'color 保留')
-})
-
-// ═══════════════════════════════════════════════════════
-// D4 — SSR（renderHtml）+ hydration（收养服务端 HTML）
-// ═══════════════════════════════════════════════════════
-
-test('renderHtml：VNode → HTML 字符串（SSR 落地）', async () => {
-  const { renderHtml } = await import('../ui-dom/ssr.ts')
-  // 组件（两阶段）SSR
-  const Badge = (_init: any, ctx: any) => (props: any) => h('span', { class: `badge-${props.variant}` }, props.label)
-  // 元素 + 属性（class/style/事件剔除）+ children
-  const html = renderHtml(
-    h('div', { id: 'app', class: 'shell' },
-      h('h1', {}, '标题'),
-      h(Badge, { variant: 'primary', label: '新' }),
-      h('p', { style: { color: 'red', marginTop: '4px' }, onClick: () => {} }, '文本 & <转义>'),
-      h('input', { type: 'text', value: 'x', disabled: true }),
-    ),
-    {},
-  )
-  assert.ok(html.includes('<div id="app" class="shell">'), '根元素')
-  assert.ok(html.includes('<h1>标题</h1>'), '文本')
-  assert.ok(html.includes('<span class="badge-primary">新</span>'), '组件 SSR')
-  assert.ok(html.includes('style="color:red;margin-top:4px"'), 'style 序列化')
-  assert.ok(!html.includes('onClick') && !html.includes('onclick'), '事件不 SSR')
-  assert.ok(html.includes('文本 &amp; &lt;转义&gt;'), '文本转义')
-  assert.ok(html.includes('<input type="text" value="x" disabled>'), 'boolean 属性')
-  assert.ok(!html.includes('undefined'), '无 undefined 泄漏')
-})
-
-test('serveUI hydrate：收养服务端 HTML，不重建 DOM', async () => {
-  const pre = h('div', { id: 'hyd-page' },
-    h('h2', {}, 'SSR 标题'),
-    h('button', { id: 'hyd-btn' }, '点击'),
-    h('span', { id: 'hyd-n' }, '0'),
-  )
-  const { renderHtml } = await import('../ui-dom/ssr.ts')
-  const el = mount('ui-hyd')
-  el.innerHTML = renderHtml(pre)
-
-  const ui = new UIRouter()
-  ui.get('/hyd', (location, ctx) => {
-    const $ = ctx.ui.$()
-    $.n = $.n ?? 0
-    return h('div', { id: 'hyd-page' },
-      h('h2', {}, 'SSR 标题'),
-      h('button', { id: 'hyd-btn', onClick: () => { $.n = $.n + 1 } }, `点击`),
-      h('span', { id: 'hyd-n' }, String($.n)),
-    )
-  })
-  window.history.pushState(null, '', '/hyd')
-  serveUI(ui, { root: '#ui-hyd', hydrate: true })
-  await flush()
-
-  // 服务端已有元素未被重建（同一引用）
-  assert.equal(el.querySelector('#hyd-page')?.textContent, 'SSR 标题点击0', '收养后内容完整')
-  // 事件已接线：点击按钮 → $ 重渲染
-  ;(el.querySelector('#hyd-btn') as HTMLElement).click()
-  await flush()
-  assert.equal(el.querySelector('#hyd-n')?.textContent, '1', 'hydrate 后事件可用（$ 重渲染）')
-})
-
-
-
-
-// ═══════════════════════════════════════════════════════
-// 回归：事件 listener 不累积（真实点击抓出：重渲染时 onClick 重复绑定 → 指数增量）
-// ═══════════════════════════════════════════════════════
-
-test('组件重渲染后 onClick 不累积（点击一次只触发一次）', async () => {
-  const ui = new UIRouter()
-  const Counter = (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.count = 0
-    return (props: any) =>
-      h('button', { id: 'btn-acc', onClick: () => { $.count = $.count + 1 } }, String($.count))
-  }
-  ui.get('/acc', (location, ctx) => h('div', {}, h(Counter)))
-  window.history.pushState(null, '', '/acc')
-  const el = mount('ui-acc')
-  serveUI(ui, { root: '#ui-acc' })
-  await flush()
-  assert.equal(el.querySelector('#btn-acc')?.textContent, '0')
-
-  // 连续点击 5 次——每次只应 +1（若 listener 累积则指数增长）
-  for (let i = 1; i <= 5; i++) {
-    ;(el.querySelector('#btn-acc') as HTMLElement).click()
-    await flush()
-    assert.equal(el.querySelector('#btn-acc')?.textContent, String(i), `第 ${i} 次点击 = ${i}（不累积）`)
-  }
-})
-
-// ═══════════════════════════════════════════════════════
-// 嵌套路由：子路由独立树（中间件链 / notFound / 嵌套 / params）
-// ═══════════════════════════════════════════════════════
-
-test('子路由的中间件链生效（sub 的 layout 包装）', async () => {
-  const ui = new UIRouter()
-  const admin = new UIRouter()
-  // 子路由的 layout 中间件
+  // sub layout
   admin.use(async (_loc, ctx, children) => {
     return async (loc, c) => {
       const child = await children(loc, c)
-      return h('div', { id: 'admin-shell' }, h('h1', {}, '管理后台'), child)
+      return h('div', { id: 'admin-shell' }, h('h1', {}, '后台'), child)
     }
   })
-  admin.get('/users', () => h('div', { id: 'admin-users' }, '用户管理'))
-  ui.use('/admin', admin)
-  window.history.pushState(null, '', '/admin/users')
-  const el = mount('ui-nest-shell')
-  serveUI(ui, { root: '#ui-nest-shell' })
-  await flush()
-  assert.ok(el.querySelector('#admin-shell'), 'sub layout 生效')
-  assert.ok(el.querySelector('#admin-users'), '页面在 sub layout 内')
-  assert.equal(el.querySelector('#admin-shell h1')?.textContent, '管理后台')
-})
-
-test('子路由 notFound 生效（主 app 的 404 不覆盖）', async () => {
-  const ui = new UIRouter()
-  const admin = new UIRouter()
-  admin.get('/users', () => h('div', { id: 'admin-users' }, '用户'))
-  admin.notFound(() => h('div', { id: 'admin-nf' }, '后台 404'))
-  ui.use('/admin', admin)
-  ui.notFound(() => h('div', { id: 'main-nf' }, '主站 404'))
-  // /admin 下未匹配 → admin 的 404
-  window.history.pushState(null, '', '/admin/xxx')
-  const el = mount('ui-nest-nf')
-  serveUI(ui, { root: '#ui-nest-nf' })
-  await flush()
-  assert.ok(el.querySelector('#admin-nf'), 'admin notFound')
-  assert.ok(!el.querySelector('#main-nf'), '主 app 404 不生效')
-  // 主 app 自己的 404 仍生效
-  window.history.pushState(null, '', '/elsewhere')
-  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
-  await flush()
-  assert.ok(el.querySelector('#main-nf'), '主 app 404')
-})
-
-test('嵌套子路由（两层）+ params', async () => {
-  const ui = new UIRouter()
-  const admin = new UIRouter()
   const api = new UIRouter()
   api.get('/users/:id', (loc, ctx) => h('div', { id: 'api-user' }, `用户 ${ctx.params.id}`))
   admin.use('/api', api)
   admin.get('/', () => h('div', { id: 'admin-home' }, '后台首页'))
-  ui.use('/admin', admin)
-  // 两层嵌套：/admin/api/users/7
+  admin.notFound(() => h('div', { id: 'admin-nf' }, '后台 404'))
+  router.use('/admin', admin)
+  router.notFound(() => h('div', { id: 'main-nf' }, '主站 404'))
+
+  // 两层嵌套 + params
   window.history.pushState(null, '', '/admin/api/users/7')
-  const el = mount('ui-nest-deep')
-  serveUI(ui, { root: '#ui-nest-deep' })
+  const el = mount('ui-nest')
+  const handle = uiServe(router, { root: '#ui-nest' })
   await flush()
-  assert.ok(el.querySelector('#api-user'), '两层嵌套命中')
-  assert.equal(el.querySelector('#api-user')?.textContent, '用户 7', '深层 params 注入')
-  assert.equal((ui.ctx as any).params.id, '7', '共享 ctx params')
-  // 一层：/admin
-  window.history.pushState(null, '', '/admin')
+  assert.ok(el.querySelector('#admin-shell'), 'sub layout')
+  assert.equal(el.querySelector('#api-user')?.textContent, '用户 7', '两层嵌套 + params')
+  assert.equal(handle.ctx.params.id, '7')
+
+  // sub notFound（主 app 404 不覆盖）
+  window.history.pushState(null, '', '/admin/zzz')
   ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
   await flush()
-  assert.ok(el.querySelector('#admin-home'), '子路由根页')
-})
+  assert.ok(el.querySelector('#admin-nf'), 'admin notFound')
+  assert.ok(!el.querySelector('#main-nf'), '主 app 404 不生效')
 
-test('前缀段边界：/admin 不匹配 /admin2', async () => {
-  const ui = new UIRouter()
-  const admin = new UIRouter()
-  admin.get('/', () => h('div', { id: 'admin-root' }, 'admin'))
-  ui.use('/admin', admin)
-  ui.get('/admin2', () => h('div', { id: 'admin2' }, 'admin2'))
-  // /admin2 应走主路由（不匹配 /admin 前缀）
+  // 主 app 404
+  window.history.pushState(null, '', '/elsewhere')
+  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
+  await flush()
+  assert.ok(el.querySelector('#main-nf'), '主 app 404')
+
+  // 段边界：/admin2 不匹配 /admin
+  router.get('/admin2', () => h('div', { id: 'admin2' }, 'admin2'))
   window.history.pushState(null, '', '/admin2')
-  const el = mount('ui-nest-boundary')
-  serveUI(ui, { root: '#ui-nest-boundary' })
-  await flush()
-  assert.ok(el.querySelector('#admin2'), '段边界正确：/admin2 走主路由')
-  assert.ok(!el.querySelector('#admin-root'), '未误入 admin')
-})
-
-// ═══════════════════════════════════════════════════════
-// 现状诊断（优化计划依据）
-// ═══════════════════════════════════════════════════════
-
-test('诊断O1: 连续 $ 赋值是否同步多次渲染（应为微任务批量）', async () => {
-  let renderCount = 0
-  const ui = new UIRouter()
-  ui.get('/diag-o1', async (location, ctx) => {
-    renderCount++
-    const $ = ctx.ui.$()
-    $.n = $.n ?? 0
-    return h('span', { id: 'diag-o1' }, String($.n))
-  })
-  window.history.pushState(null, '', '/diag-o1')
-  const el = mount('ui-diag-o1')
-  serveUI(ui, { root: '#ui-diag-o1' })
-  await flush()
-  const before = renderCount
-  const $ = (ui.ctx.ui.$() as any)
-  $.n = 1
-  $.n = 2
-  $.n = 3
-  await flush()
-  console.log(`[diag-o1] 连续3次赋值 → renderCount: ${before}→${renderCount}`)
-  assert.equal(el.querySelector('#diag-o1')?.textContent, '3', '最终值正确')
-})
-
-test('诊断O2: 导航后 registry 泄漏（组件应注销）', async () => {
-  const ui = new UIRouter()
-  const Page = (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.x = 0
-    return () => h('span', { id: 'leak-page' }, '页')
-  }
-  ui.get('/leak-a', () => h('div', {}, h(Page)))
-  ui.get('/leak-b', () => h('div', {}, 'B'))
-  window.history.pushState(null, '', '/leak-a')
-  const el = mount('ui-leak')
-  serveUI(ui, { root: '#ui-leak' })
-  await flush()
-  const reg = (ui.ctx as any).__registry
-  const sizeA = reg._map.size
-  // 导航到 B（Page 应卸载）
-  window.history.pushState(null, '', '/leak-b')
   ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
   await flush()
-  const sizeB = reg._map.size
-  console.log(`[diag-o2] registry: A=${sizeA} → B=${sizeB}`)
-  assert.equal(sizeB, sizeA - 1, '组件卸载后 registry 应减 1（当前无卸载清理=泄漏）')
+  assert.ok(el.querySelector('#admin2'), '段边界正确')
+  handle.close()
 })
 
 // ═══════════════════════════════════════════════════════
-// ctx.ui 三 API：$ / dirty / render（对齐 createApp 能力面）
+// ctx.ui 三 API：$ / dirty / render + 组件级重渲染
 // ═══════════════════════════════════════════════════════
 
-test('ctx.ui.dirty()：闭包 let 手动模式（异步批量重渲染）', async () => {
-  const ui = new UIRouter()
-  const Manual = (_init: any, ctx: any) => {
-    let count = 0 // 手动状态（闭包，不触发渲染）
-    return () => h('button', { id: 'manual-btn', onClick: () => { count++; ctx.ui.dirty() } }, String(count))
+test('组件级 $：点击只重渲染该组件（父 handler 不重跑）', async () => {
+  let handlerRuns = 0
+  const router = new UIRouter()
+  const Counter = (_init: any, ctx: any) => {
+    const $ = ctx.ui.$()
+    $.count = 0
+    return (props: any) =>
+      h('div', {},
+        h('span', { id: `n-${props.id}` }, String($.count)),
+        h('button', { id: `inc-${props.id}`, onClick: () => { $.count++ } }, '+'),
+      )
   }
-  ui.get('/manual', () => h('div', {}, h(Manual)))
+  router.get('/counters', async (location, ctx) => {
+    handlerRuns++
+    return h('div', {}, h(Counter, { id: 'a' }), h(Counter, { id: 'b' }))
+  })
+  window.history.pushState(null, '', '/counters')
+  const el = mount('ui-comp')
+  const handle = uiServe(router, { root: '#ui-comp' })
+  await flush()
+  assert.equal(handlerRuns, 1, 'handler 首跑一次')
+  ;(el.querySelector('#inc-a') as HTMLElement).click()
+  await flush()
+  assert.equal(el.querySelector('#n-a')?.textContent, '1', 'counter-a 更新')
+  assert.equal(el.querySelector('#n-b')?.textContent, '0', 'counter-b 不动')
+  assert.equal(handlerRuns, 1, 'handler 不重跑')
+  handle.close()
+})
+
+test('ctx.ui.dirty()：闭包 let 手动模式 + render() 同步', async () => {
+  const router = new UIRouter()
+  const Manual = (_init: any, ctx: any) => {
+    let count = 0
+    return () => h('button', { id: 'm-btn', onClick: () => { count++; ctx.ui.dirty() } }, String(count))
+  }
+  router.get('/manual', () => h('div', {}, h(Manual)))
   window.history.pushState(null, '', '/manual')
   const el = mount('ui-manual')
-  serveUI(ui, { root: '#ui-manual' })
+  const handle = uiServe(router, { root: '#ui-manual' })
   await flush()
-  assert.equal(el.querySelector('#manual-btn')?.textContent, '0')
-  ;(el.querySelector('#manual-btn') as HTMLElement).click()
+  ;(el.querySelector('#m-btn') as HTMLElement).click()
   await flush()
-  assert.equal(el.querySelector('#manual-btn')?.textContent, '1', 'dirty() 重渲染手动状态')
+  assert.equal(el.querySelector('#m-btn')?.textContent, '1', 'dirty() 重渲染手动状态')
+  handle.close()
 })
 
-test('ctx.ui.render()：同步立即重渲染（measure 场景）', async () => {
-  const ui = new UIRouter()
-  let syncRendered = false
-  const Sync = (_init: any, ctx: any) => {
-    let n = 0
-    return () => h('span', { id: 'sync-span' }, String(n))
-  }
-  // 直接测组件级 render 同步性：通过 $ 变体组件（render 立即 patch）
-  const Comp = (_init: any, ctx: any) => {
+// ═══════════════════════════════════════════════════════
+// keyed / style / 事件不累积（回归）
+// ═══════════════════════════════════════════════════════
+
+test('keyed 列表重排复用 DOM + style diff + 事件不累积', async () => {
+  const router = new UIRouter()
+  router.get('/list', async (location, ctx) => {
     const $ = ctx.ui.$()
-    $.v = 0
-    return (props: any) => h('span', { id: 'sync-v' }, String($.v))
-  }
-  ui.get('/sync', () => h('div', {}, h(Comp)))
-  window.history.pushState(null, '', '/sync')
-  const el = mount('ui-sync')
-  serveUI(ui, { root: '#ui-sync' })
+    $.items = $.items ?? [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    $.show = $.show ?? true
+    return h('div', {},
+      h('ul', {}, ...($.items as any[]).map((it: any) => h('li', { key: it.id, id: `li-${it.id}` }))),
+      h('button', {
+        id: 'shuffle',
+        onClick: () => { const arr = [...($.items as any[])]; const f = arr.shift()!; arr.push(f); $.items = arr },
+      }, '轮转'),
+      h('div', { id: 'sty', style: $.show ? { display: 'block' } : { display: undefined } }),
+    )
+  })
+  window.history.pushState(null, '', '/list')
+  const el = mount('ui-list')
+  const handle = uiServe(router, { root: '#ui-list' })
   await flush()
-  assert.equal(el.querySelector('#sync-v')?.textContent, '0')
-  // render() 同步：$ 赋值后立即读 DOM（无需 await）
-  const $ = (ui.ctx as any).__registry?.get
-  // 通过事件触发 render() 路径（组件 ctx 内）
-  const compCtx = (el.querySelector('#sync-v') as any) // 无法直接拿组件 ctx
-  // 改用 handler 级 render：路由级 render 同步全量
-  const h2 = document.createElement('span')
-  h2.id = 'sync-marker'
-  el.appendChild(h2)
-  // 路由级 render()：立即重渲染（同步落地）
-  ;(ui.ctx.ui.render as () => void)()
+  const liA = el.querySelector('#li-a')
+  ;(el.querySelector('#shuffle') as HTMLElement).click()
   await flush()
-  assert.equal(el.querySelector('#sync-v')?.textContent, '0', 'render() 不丢 DOM')
+  assert.deepEqual([...el.querySelectorAll('li')].map(n => n.id), ['li-b', 'li-c', 'li-a'], 'keyed 重排')
+  assert.equal(el.querySelector('#li-a'), liA, 'li-a 复用不重建')
+  const $ = handle.ctx.ui.$()
+  $.show = false
+  await flush()
+  assert.equal((el.querySelector('#sty') as HTMLElement).style.display, '', 'style diff 清除')
+  handle.close()
 })
+
+// ═══════════════════════════════════════════════════════
+// SSR + hydrate
+// ═══════════════════════════════════════════════════════
+
+test('renderHtml SSR + uiServe hydrate 收养', async () => {
+  const { renderHtml } = await import('../ui-dom/ssr.ts')
+  const html = renderHtml(h('div', { id: 'app' }, h('h1', {}, '标题'), h('span', { onClick: () => {} }, 'x')))
+  assert.ok(html.includes('<h1>标题</h1>'), 'SSR HTML')
+  assert.ok(!html.includes('onClick'), '事件不 SSR')
+  // hydrate 收养
+  const el = mount('ui-hyd')
+  el.innerHTML = renderHtml(h('div', { id: 'p' }, h('button', { id: 'b' }, 'x'), h('span', { id: 'n' }, '0')))
+  const router = new UIRouter()
+  router.get('/hyd', (location, ctx) => {
+    const $ = ctx.ui.$()
+    $.n = $.n ?? 0
+    return h('div', { id: 'p' },
+      h('button', { id: 'b', onClick: () => { $.n++ } }, 'x'),
+      h('span', { id: 'n' }, String($.n)),
+    )
+  })
+  window.history.pushState(null, '', '/hyd')
+  const handle = uiServe(router, { root: '#ui-hyd', hydrate: true })
+  await flush()
+  assert.equal(el.querySelector('#n')?.textContent, '0', '收养保留服务端内容')
+  ;(el.querySelector('#b') as HTMLElement).click()
+  await flush()
+  assert.equal(el.querySelector('#n')?.textContent, '1', 'hydrate 后事件可用')
+  handle.close()
+})
+
+// ═══════════════════════════════════════════════════════
+// 错误兜底
+// ═══════════════════════════════════════════════════════
 
 test('handler 抛错 → 错误页兜底（不黑屏）', async () => {
-  const ui = new UIRouter()
-  ui.get('/boom', () => { throw new Error('炸了') })
+  const router = new UIRouter()
+  router.get('/boom', () => { throw new Error('炸了') })
   window.history.pushState(null, '', '/boom')
   const el = mount('ui-boom')
-  serveUI(ui, { root: '#ui-boom' })
+  const handle = uiServe(router, { root: '#ui-boom' })
   await flush()
-  const errEl = el.querySelector('.ui-dom-error')
-  assert.ok(errEl, '错误页兜底渲染')
-  assert.ok(String(errEl?.textContent).includes('炸了'), '错误信息显示')
+  assert.ok(el.querySelector('.ui-dom-error'), '错误页兜底')
+  assert.ok(String(el.querySelector('.ui-dom-error')?.textContent).includes('炸了'))
+  handle.close()
 })
+

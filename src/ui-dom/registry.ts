@@ -1,80 +1,173 @@
 /**
- * weifuwu/ui-dom 组件注册表 — 完全独立（不依赖 src/client）
+ * weifuwu/ui-dom 注册表 — 工厂版（serve 创建局部实例，隔离于 createApp 的模块级状态）
  *
- * 组件实例管理：id 分配 + vnode 注册 + dirty 集合。
- * D1（组件级重渲染）：组件 $ 赋值 → dirty(id) → 重调组件 render → 局部 patch。
+ * 复制自 client/registry.ts（算法相同），但**无模块级单例**——uiServe 创建实例
+ * 注入 ctx.__registry，render/diff/ui 经 getRegistry(ctx) 读取，与 createApp 零交叉。
  */
 
-import type { VNode } from './types.ts'
+import type { VNode, Component, AsyncComponent } from '../client/vnode.ts'
+import { isAsyncComponent } from '../client/vnode.ts'
+import type { WfuiContext } from '../client/types.ts'
 
-/** 组件注册表（独立实例——每个 UIRouter 一个） */
-export class Registry {
-  private _idCounter = 0
-  private _map = new Map<string, VNode>()
-  /** dirty 集合：组件 $ 赋值 → 加入 → 批量重渲染 */
-  private _dirty = new Set<string>()
-  /** 渲染保护期（重渲染循环中忽略新 dirty，循环结束统一处理） */
-  private _rendering = false
-  /** mount 保护期（组件工厂执行——$ 初始化赋值丢弃，对齐 client setMounting） */
-  private _mounting = false
-  /** dirty 触发回调（router 注入——组件 $ 赋值时调度重渲染循环） */
-  private _onDirty: (() => void) | null = null
+type UnmountHook = (id: string) => void
 
-  /** 设置 dirty 回调（router 调度重渲染） */
-  onDirty(fn: () => void): void {
-    this._onDirty = fn
+interface FactoryEntry {
+  promise: Promise<Component<any, any>>
+  resolved?: Component<any, any>
+}
+
+/** 注册表实例状态 */
+export interface Registry {
+  idCounter: number
+  idRegistry: Map<string, VNode>
+  unmountHooks: UnmountHook[]
+  asyncFactoryCache: WeakMap<AsyncComponent<any, any>, FactoryEntry>
+}
+
+/** 创建局部注册表（uiServe 每实例一个——组件 id/dirty/卸载钩子与 createApp 隔离） */
+export function createRegistry(): Registry {
+  return {
+    idCounter: 0,
+    idRegistry: new Map(),
+    unmountHooks: [],
+    asyncFactoryCache: new WeakMap(),
+  }
+}
+
+/** 从 ctx 取注入的注册表（render/diff/ui 统一入口；serve 注入 __registry） */
+export function getRegistry(ctx: any): Registry {
+  return ctx?.__registry ?? createRegistry()
+}
+
+/** 指定实例生成组件 ID */
+export function nextComponentIdFor(reg: Registry): string {
+  return `_wf_${reg.idCounter++}`
+}
+
+/** 指定实例注册卸载钩子（组件从 idRegistry 注销时触发） */
+export function onComponentUnmountFor(reg: Registry, hook: UnmountHook): () => void {
+  reg.unmountHooks.push(hook)
+  return () => {
+    const i = reg.unmountHooks.indexOf(hook)
+    if (i >= 0) reg.unmountHooks.splice(i, 1)
+  }
+}
+
+// ── async 工厂缓存（复制自 client——局部实例） ──
+
+/** 启动 async 工厂（幂等，缓存） */
+export function startAsyncFactory(reg: Registry, Comp: AsyncComponent, ctx: WfuiContext): FactoryEntry {
+  const existing = reg.asyncFactoryCache.get(Comp)
+  if (existing) return existing
+
+  const entry: FactoryEntry = { promise: null as unknown as Promise<Component<any, any>> }
+  entry.promise = Promise.resolve()
+    .then(() => Comp(ctx))
+    .then((def) => {
+      if (typeof def !== 'function') {
+        throw new Error(
+          `asyncComponent factory <${Comp.name || 'anonymous'}> must return a Component ` +
+            `(initProps, ctx) => (props) => VNode.`
+        )
+      }
+      entry.resolved = def as Component
+      return def as Component
+    })
+  reg.asyncFactoryCache.set(Comp, entry)
+  return entry
+}
+
+/** async 模式：await 工厂定义 */
+export async function resolveAsyncFactory(reg: Registry, Comp: AsyncComponent, ctx: WfuiContext): Promise<Component> {
+  return startAsyncFactory(reg, Comp, ctx).promise
+}
+
+/** sync 模式：工厂已解析 → 定义；未解析 → undefined */
+export function resolveAsyncFactorySync(reg: Registry, Comp: AsyncComponent): Component | undefined {
+  return reg.asyncFactoryCache.get(Comp)?.resolved
+}
+
+// ── ref 安全调用（复制自 client） ──
+
+/** 包裹 ref 回调调用——用户 ref 逻辑抛错时不中断渲染/卸载管线 */
+export function safeCallRef(
+  ref: Function,
+  arg: any,
+  phase: 'mount' | 'cleanup',
+  name?: string,
+): void {
+  try {
+    ref(arg)
+  } catch (e) {
+    console.error(
+      `[weifuwu] ref ${phase} error in <${name ?? 'anonymous'}>`,
+      e,
+    )
+  }
+}
+
+// ── ref 清理（复制自 client——指定实例） ──
+
+/** 递归清理 Portal 子内容的 ref */
+function cleanupPortalChildren(vnode: VNode, reg: Registry) {
+  const child = vnode._child
+  if (child == null) return
+  if (Array.isArray(child)) {
+    for (const c of child) {
+      if (c && typeof c === 'object') callRefCleanupFor(c as VNode, reg)
+    }
+  } else if (typeof child === 'object') {
+    callRefCleanupFor(child as VNode, reg)
+  }
+}
+
+/** 通知 ref 清理 + Portal 子容器清理（指定实例） */
+export function callRefCleanupFor(input: any, reg: Registry): void {
+  if (input == null || typeof input !== 'object') return
+  const vnode = input as VNode
+
+  // 组件卸载：从 idRegistry 注销并清除渲染状态
+  if (vnode._id) {
+    if (vnode._customId) reg.idRegistry.delete(vnode._customId)
+    reg.idRegistry.delete(vnode._id)
+    // 卸载通知（快照遍历——钩子内可能自退订）
+    if (reg.unmountHooks.length > 0) {
+      const hooks = [...reg.unmountHooks]
+      for (const h of hooks) h(vnode._id)
+      if (vnode._customId) for (const h of hooks) h(vnode._customId)
+    }
+    vnode._id = undefined
+    vnode._customId = undefined
+    vnode._render = undefined
+    vnode._parentNode = undefined
+    vnode._refNode = undefined
   }
 
-  /** mount 期标志（renderComponent mount 包裹） */
-  setMounting(v: boolean): void {
-    this._mounting = v
+  // 先递归清理 _child（支持数组——Portal 的 _child 是 `[root, ...]`）
+  if (vnode._child != null) {
+    if (Array.isArray(vnode._child)) {
+      for (const child of vnode._child) {
+        if (child && typeof child === 'object') callRefCleanupFor(child as VNode, reg)
+      }
+    } else {
+      callRefCleanupFor(vnode._child as VNode, reg)
+    }
+    vnode._child = undefined
   }
-
-  get isMounting(): boolean {
-    return this._mounting
+  // 递归 props.children（寻找子组件 VNode）
+  if (vnode.props?.children && typeof vnode.type === 'string') {
+    const children = Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children]
+    for (const child of children) {
+      if (child && typeof child === 'object') callRefCleanupFor(child as VNode, reg)
+    }
   }
+  // 执行 ref 清理（safeCallRef 防用户逻辑抛错中断递归）
+  if (typeof vnode.props?.ref === 'function') safeCallRef(vnode.props.ref, null, 'cleanup')
 
-  get isRendering(): boolean {
-    return this._rendering
-  }
-
-  setRendering(v: boolean): void {
-    this._rendering = v
-  }
-
-  /** 分配组件 id */
-  nextId(): string {
-    return `_wf_${this._idCounter++}`
-  }
-
-  /** 注册组件 vnode */
-  set(id: string, vnode: VNode): void {
-    this._map.set(id, vnode)
-  }
-
-  /** 按 id 查组件 vnode */
-  get(id: string): VNode | undefined {
-    return this._map.get(id)
-  }
-
-  /** 注销组件（卸载时） */
-  delete(id: string): void {
-    this._map.delete(id)
-    this._dirty.delete(id)
-  }
-
-  /** 标记组件 dirty（$ 赋值触发）——mount/渲染保护期丢弃（对齐 client），事件期排队 */
-  markDirty(id: string): void {
-    if (this._mounting || this._rendering) return // mount 初始化/渲染循环中赋值丢弃
-    if (this._dirty.has(id)) return
-    this._dirty.add(id)
-    this._onDirty?.() // 调度重渲染循环
-  }
-
-  /** 消费 dirty 集合（返回待重渲染的 id 列表并清空） */
-  drainDirty(): string[] {
-    const ids = [...this._dirty]
-    this._dirty.clear()
-    return ids
+  // Portal 子容器移除 + 子内容 ref 清理
+  if (vnode._remoteEl) {
+    cleanupPortalChildren(vnode, reg)
+    vnode._remoteEl.remove()
+    vnode._remoteEl = undefined
   }
 }

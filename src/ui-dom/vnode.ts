@@ -1,44 +1,10 @@
 /**
- * weifuwu/ui-dom VNode 工厂 — 完全独立（不依赖 src/client）
+ * weifuwu/ui-dom VNode 契约 — 与 client 共享（components 兼容）
  *
- * VNode = 数据结构（type/props/key）——res 的载体，serveUI（VDOM）落地到 DOM
- * ⚠️ 不 declare global JSX（避免与 src/client 的 JSX 命名空间冲突）——
- *    开发期用 h() 或独立 jsxImportSource。
+ * 复制算法，契约共享：VNode 形状/Fragment/Portal symbol 必须与 client 同一份
+ * （components 用 client 的 h/createPortal 产 VNode，ui-dom 渲染器需识别同一 symbol）。
+ * 渲染算法（render/diff）在 ui-dom 本地复制，registry 局部实例隔离。
  */
 
-import type { VNode, VNodeChild } from './types.ts'
-export type { VNode, VNodeChild } from './types.ts'
-
-/** JSX 元素类型（字符串标签或组件函数） */
-export type VNodeType = string | ((props: any, ctx: any) => any) | symbol
-
-const Fragment = Symbol('Fragment')
-
-/** h — hyperscript：h('div', {class:'x'}, child1, child2) */
-export function h(type: VNodeType, props: Record<string, any> | null, ...children: VNodeChild[]): VNode {
-  const p = normalizeProps(props ?? {})
-  if (children.length > 0) {
-    p.children = children.length === 1 ? children[0] : children
-  }
-  return { type, props: p, key: props?.key }
-}
-
-/** jsx — JSX 编译器调用 */
-export function jsx(type: VNodeType, props: Record<string, any> | null, key?: string | null): VNode {
-  return { type, props: normalizeProps(props), key: key ?? undefined }
-}
-
-export const jsxs = jsx
-export const jsxDEV = jsx
-
-function normalizeProps(props: Record<string, any> | null): Record<string, any> {
-  if (!props) return {}
-  const result: Record<string, any> = {}
-  for (const key of Object.keys(props)) {
-    if (key === 'key') continue
-    result[key] = props[key]
-  }
-  return result
-}
-
-export { Fragment }
+export * from '../client/vnode.ts'
+export { Fragment, Portal, createPortal } from '../client/vnode.ts'

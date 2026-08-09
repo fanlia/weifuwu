@@ -114,3 +114,46 @@ VDOM 是成熟稳定的（1962 测试验证）——没有理由双份。UIRoute
 - components-demo 跑在 UIRouter 上（无需改组件源码）
 - 现有 createApp/router 1962 测试零破坏
 - 交互（弹层/受控表单/拖拽）agent-browser 实测
+
+## 五、定稿：渲染运行时归 serve 层（UIRouter 纯路由）
+
+用户裁决：**不改 client**（算法复制到 ui-dom）+ **渲染运行时由 ui serve 完成**。
+
+### 职责划分（对齐后端 serve(router) = HTTP 传输）
+
+```
+UIRouter（纯路由）                    serveUI（渲染运行时 = VDOM 落地）
+  get(path, handler)                    createRegistry（局部状态隔离）
+  use(mw) / use(prefix, sub)            createUi（19 原语注入 ctx.ui）
+  match(path) → { handler, params }     renderValue / patchValue / hydrateValue
+  ctx.params/query 注入                  ctx.data / ctx.browser 注入
+      │  产 VNode                         组件 $ dirty → renderByIds（局部）
+      └──────────── VNode ──────────→    URL 监听 → UIRouter 匹配 → 落地 DOM
+```
+
+- UIRouter 不碰渲染（无 _renderAsync 落地）；handler 只产 VNode
+- serveUI 持有渲染运行时（registry/ui/diff/render/popup-tracker 复制自 client，局部实例）
+- components 兼容：VNode 契约（Fragment/Portal symbol）从 client import（身份必须共享），
+  渲染算法复制（局部 registry 隔离，不与 createApp 交叉）
+
+### 复制清单（client → ui-dom，全部局部化）
+
+| client 源 | ui-dom 目标 | 说明 |
+|-----------|------------|------|
+| registry.ts | registry.ts（补全） | 复制 unmountHooks/callRefCleanup/asyncFactory，serve 创建局部实例 |
+| render.ts | render.ts（替换） | renderValue/renderComponent/setProp/Portal/SVG/innerHTML/ref |
+| diff.ts | diff.ts（新） | patchValue/patchProps/keyed/ensureKeys/三态 skip |
+| ui.ts | ui.ts（新） | createUi 19 原语（render/dirty/$/usePopup/useInView/useChat…） |
+| app.ts renderByIds | serve.ts | renderByIds/flushDirtyBatch（局部 registry） |
+| popup-tracker（提取版） | popup-tracker.ts | 弹层/滚动跟踪系统 |
+| browser.ts | browser.ts（复制） | createClientBrowser |
+| vnode.ts | vnode.ts（扩展） | Fragment/Portal symbol 从 client import（身份共享） |
+| types.ts | types.ts（扩展） | ui 接口 19 原语对齐 WfuiContext |
+
+### uiServe 装配语义（用户裁决 2）
+
+`uiServe(uiRouter, { root })` 调用时**路由已全部注册**（get/use/notFound 已完成）：
+- serve 是唯一装配入口：创建渲染运行时（registry + createUi + popup-tracker + browser + ctx.data）
+- serve 监听 popstate/hashchange → UIRouter 匹配（params 注入）→ 中间件链 → handler → vnode
+  → renderValue/patchValue diff/patch DOM
+- UIRouter 无 DOM/渲染/状态（纯路由表 + 匹配 + 中间件链）；渲染运行时全部在 serve 层
