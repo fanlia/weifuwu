@@ -37,7 +37,11 @@ export const Affix: Component<AffixProps> = (_init, ctx) => {
     isOpen: () => true,
     compute: (r) => {
       const scroller = getScroller()
-      const sy = 'scrollY' in scroller ? (scroller as Window).scrollY ?? 0 : (scroller as HTMLElement).scrollTop ?? 0
+      // 滚动量读取与 useScrollPosition 一致：scrollingElement 优先——
+      // window.scrollY 在部分环境（headless/特殊视口）恒 0，会导致 threshold 随滚动漂移
+      const sy = scroller instanceof Window
+        ? (document.scrollingElement?.scrollTop ?? (scroller as Window).scrollY ?? 0)
+        : (scroller as HTMLElement).scrollTop ?? 0
       threshold = r.top + sy - (propsRef.offsetTop ?? 0)
       wrapWidth = r.width
       return { top: 0, left: 0 }

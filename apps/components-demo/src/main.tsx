@@ -1218,8 +1218,10 @@ const DemoBackTop: Component = () => () => (
 
 const DemoAffix: Component = () => () => (
   <div class="wf-stack wf-gap-sm">
-    <div class="wf-text-sm wf-text-secondary">滚动页面：导航条在距顶部 80px 处固定（Affix）</div>
-    <Affix offsetTop={80}>
+    <div class="wf-text-sm wf-text-secondary">滚动页面：导航条滑出视窗顶部后固定（Affix，offsetTop=0）</div>
+    {/* offsetTop=0：Affix 块滑出视窗顶部后才固定（scrollY >= 块文档位置）——
+        offsetTop>0 则提前吸附（块距顶 offsetTop 时固定，antd 语义） */}
+    <Affix offsetTop={0}>
       <div class="wf-surface wf-border wf-rounded-md wf-px-md wf-py-sm wf-row wf-gap-md wf-text-sm">
         <a href="#affix-demo" class="wf-text-primary">锚点一</a>
         <a href="#affix-demo" class="wf-text-secondary">锚点二</a>
