@@ -1,9 +1,10 @@
 /**
  * weifuwu/components — Timeline
  *
- * 竖向时间线：节点（状态色圆点/自定义）+ 标题 + 时间 + 内容 + 连接线。
- * 用于执行日志、审批历史、审计记录。
- * 裁剪：不做横向时间线/折叠节点（见 roadmap）。
+ * 时间线：节点（状态色圆点/自定义）+ 标题 + 时间 + 内容 + 连接线。
+ * 竖向（left/alternate）+ 横向（horizontal）。
+ * 用于执行日志、审批历史、审计记录、步骤进度。
+ * 裁剪：不做折叠节点。
  */
 
 import type { Component } from '../../client/vnode.ts'
@@ -25,7 +26,7 @@ export interface TimelineItem {
 
 export interface TimelineProps {
   items: TimelineItem[]
-  mode?: 'left' | 'alternate'
+  mode?: 'left' | 'alternate' | 'horizontal'
   reverse?: boolean
 }
 
@@ -52,6 +53,19 @@ export const Timeline: Component<TimelineProps> = (_init, _ctx) =>
 
       const col = h('div', { class: 'wf-timeline-col' }, [head, body].filter(Boolean))
 
+      if (mode === 'horizontal') {
+        return h('li', {
+          key,
+          class: `wf-timeline-item wf-timeline-item--h${onClick ? ' wf-timeline-item--clickable' : ''}`,
+          role: onClick ? 'button' : undefined,
+          tabIndex: onClick ? 0 : undefined,
+          onClick,
+          onKeyDown: onClick
+            ? (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }
+            : undefined,
+        }, [node, col])
+      }
+
       const altClass = mode === 'alternate'
         ? (i % 2 === 0 ? ' wf-timeline-item--alt-left' : ' wf-timeline-item--alt-right')
         : ''
@@ -68,5 +82,5 @@ export const Timeline: Component<TimelineProps> = (_init, _ctx) =>
       }, [node, col])
     })
 
-    return h('ul', { class: 'wf-timeline' }, lis)
+    return h('ul', { class: `wf-timeline${mode === 'horizontal' ? ' wf-timeline--h' : ''}` }, lis)
   }

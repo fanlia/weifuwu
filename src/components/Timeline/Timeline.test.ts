@@ -100,3 +100,17 @@ it('reverse 反转顺序 + mode=alternate 类（边界/变体）', () => {
   assert.ok(s.includes('alt-left') || s.includes('alt-right'), 'alternate 模式类')
   assert.ok(s.indexOf('后') < s.indexOf('先'), 'reverse 后"后"在前')
 })
+
+it('horizontal 模式：横向类 + 水平连接线', () => {
+  const items = [
+    { key: '1', title: '提交', time: '10:00' },
+    { key: '2', title: '审核', time: '11:00' },
+    { key: '3', title: '完成', time: '12:00', status: 'success' as const },
+  ]
+  const vnode = renderVNode(Timeline, { items, mode: 'horizontal' }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-timeline--h'), '横向容器类')
+  assert.ok(s.includes('wf-timeline-item--h'), '横向项类')
+  // 节点垂直排列（node 在 col 前）
+  assert.ok(s.includes('提交') && s.includes('完成'), '内容渲染')
+})

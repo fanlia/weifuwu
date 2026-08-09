@@ -92,3 +92,41 @@
 }
 .wf-timeline-item--alt-left { align-self: flex-start; text-align: right; }
 .wf-timeline-item--alt-right { align-self: flex-end; margin-left: 50%; }
+
+/* 横向模式（horizontal）：节点水平排列，连接线水平 */
+.wf-timeline--h {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+}
+.wf-timeline-item--h {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: var(--wf-timeline-h-min-width, 120px);
+  padding: 0 var(--wf-space-xs);
+  padding-bottom: 0;
+  text-align: center;
+}
+/* 水平连接线（除最后一项） */
+.wf-timeline-item--h:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: calc(50% + 11px);
+  right: calc(-50% + 11px);
+  height: 2px;
+  width: auto;
+  background: var(--wf-color-border);
+}
+.wf-timeline-item--h .wf-timeline-node {
+  margin-top: 0;
+}
+.wf-timeline-item--h .wf-timeline-head {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--wf-space-xs);
+}

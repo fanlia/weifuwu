@@ -685,14 +685,22 @@ const view = <Markdown content="# 标题" />`} />
 
 const DemoTimeline: Component = (_props, ctx) => {
   let logs: Array<{ key: string; title: string; time: string; status: 'default' | 'info' | 'success' | 'warning' | 'error'; content?: string }> = [
-    { key: '1', title: '🤖 AI 回复', time: '10:00:12', status: 'success' as const, content: '生成了 256 tokens' },
-    { key: '2', title: '🔧 工具调用 query_weather', time: '10:00:09', status: 'info' as const, content: '查询 北京…' },
-    { key: '3', title: '📝 用户消息', time: '10:00:05', status: 'default' as const, content: '北京天气如何？' },
+    { key: '1', title: 'AI 回复', time: '10:00:12', status: 'success' as const, content: '生成了 256 tokens' },
+    { key: '2', title: '工具调用 query_weather', time: '10:00:09', status: 'info' as const, content: '查询 北京…' },
+    { key: '3', title: '用户消息', time: '10:00:05', status: 'default' as const, content: '北京天气如何？' },
+  ]
+  const hItems = [
+    { key: 'h1', title: '提交', time: '10:00', status: 'default' as const },
+    { key: 'h2', title: '审核中', time: '11:00', status: 'info' as const },
+    { key: 'h3', title: '完成', time: '12:00', status: 'success' as const },
   ]
   return (_p: any) => (
-    <div class="wf-stack wf-gap-sm wf-w-full">
+    <div class="wf-stack wf-gap-md wf-w-full">
       <Timeline items={logs} />
-      <Button size="sm" variant="ghost" onClick={() => { logs = [...logs.slice(1), { key: String(Date.now()), title: '📝 新事件', time: '现在', status: 'warning' as const, content: '点击追加' }]; ctx.ui.render() }}>追加事件</Button>
+      <div class="wf-text-xs wf-text-secondary">竖向（默认）</div>
+      <Timeline items={hItems} mode="horizontal" />
+      <div class="wf-text-xs wf-text-secondary">横向模式（步骤进度）</div>
+      <Button size="sm" variant="ghost" onClick={() => { logs = [...logs.slice(1), { key: String(Date.now()), title: '新事件', time: '现在', status: 'warning' as const, content: '点击追加' }]; ctx.ui.render() }}>追加事件</Button>
     </div>
   )
 }
@@ -2385,7 +2393,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">915 测试</Badge>
+          <Badge variant="success">916 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
