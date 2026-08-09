@@ -489,3 +489,95 @@
 
 > 本批完成后：`components-map.md` 真实未实现清单清零（0 项），
 > 组件总数 92 → 96，三库共识覆盖度 ~100%（剩余均为已声明裁剪项）。
+
+---
+
+# 第七批：AI 开发者工具深化（96 → 102 组件）
+
+> 追平期结束（三库共识 ~100%），进入差异化期——本批做三库没有的
+> AI 开发者工具 + 数据密集 + 完成度标志组件。
+
+## 目标组件（6 个）
+
+| # | 组件 | 定位 | 差异化评分 | 依赖 |
+|---|------|------|-----------|------|
+| 1 | **DiffView** | AI 代码生成/审查 diff 展示 | ★★★★★ | LCS 行 diff 算法（自研） |
+| 2 | **Sparkline** | 迷你趋势线（仪表盘/StatCard 生态） | ★★★★ | SVG 自绘 |
+| 3 | **Tour** | 新手引导（组件库成熟度标志） | ★★★★ | 浮层定位（usePopupPosition）+ 遮罩 |
+| 4 | **Kanban** | 看板（任务流拖拽） | ★★★★ | useDragDrop + 列模型 |
+| 5 | **Pipeline/DAG** | Agent 多步工作流可视化 | ★★★★★ | 节点布局 + SVG 连线 |
+| 6 | **TreeSelect** | 树形选择（Tree/Popover 组合） | ★★★★ | Tree + Popover + 键盘流 |
+
+## 每组件设计要点
+
+### 1. DiffView（先做——AI 代码展示刚需）
+
+- **props**：`oldCode/newCode`、`oldTitle/newTitle`、`foldThreshold?`（默认 5 行不变折叠）
+- **算法**：LCS 行 diff（自研——O(n·m) 最长公共子序列，行级粒度）
+- **渲染**：三态行（add/remove/unchanged）+ 折叠块（↕ N 行展开）+ 行号双栏
+- **TDD 测试点**：纯增/纯删/修改（删+增）/交错 diff/折叠块渲染/展开/空输入
+- **client 能力验证**：纯函数算法（可 SSR）+ VNode 列表渲染
+- **裁剪**：词级 diff（char-level）、语法高亮（复用 CodeBlock 的 lang 标签）、忽略空白模式、merge 编辑
+
+### 2. Sparkline（低成本）
+
+- **props**：`data: number[]`、`width/height`（默认 120/32）、`stroke?`、`fill?`、`smooth?`
+- **实现**：SVG polyline/path + area fill；min/max 归一化；尾点动画可选
+- **TDD 测试点**：归一化正确性（min/max 映射）、空数据、单点、等值、smooth path
+- **裁剪**：多序列、交互 tooltip、实时流式
+
+### 3. Tour（成熟度标志）
+
+- **props**：`steps: { target?: string(selector), title, content, placement? }[]`、`open` 受控 + 回调
+- **实现**：遮罩 + 高亮框（目标 boundingRect 定位）+ 步骤气泡 + 上一步/下一步/跳过/完成
+- **复用**：usePopupPosition 定位（scroll/resize 跟随）+ Portal
+- **TDD 测试点**：步骤推进、定位跟随（mock rect）、Escape 关闭、最后一步完成回调、受控纪律
+- **裁剪**：步骤动画过渡、多目标高亮、键盘流完整（保留基础 Escape/箭头）
+
+### 4. Kanban（数据密集交互）
+
+- **props**：`columns: { key, title, items: { id, title, tag? }[] }[]`、`onMove` 受控回调、`draggable?`
+- **实现**：列布局 + 卡片拖拽（useDragDrop/useDrag）+ 拖起高亮 + 落点占位
+- **TDD 测试点**：跨列移动回调（受控纪律）、同列重排、空列、拖拽高亮状态
+- **裁剪**：列增删、卡片编辑、泳道、跨看板
+
+### 5. Pipeline/DAG（最高差异化）
+
+- **props**：`nodes: { id, label, status? }[]`、`edges: { from, to }[]`、`layout?`（上下/左右）
+- **实现**：层级布局（BFS 分层 + 同层对齐）+ SVG 连线（贝塞尔）+ 状态着色（同语义色 token）
+- **TDD 测试点**：分层正确性（依赖图→层分配）、环检测（抛错/警告）、边渲染、状态色
+- **裁剪**：手动拖拽布局、缩放平移、嵌套子图、循环图
+
+### 6. TreeSelect（表单补全）
+
+- **props**：`options: TreeSelectOption[]`（同 Tree 结构）、`value/onChange` 受控、`multiple?`
+- **实现**：Tree + Popover 组合——触发框（选中显示）+ 下拉树 + 键盘流（Tree 复用）
+- **TDD 测试点**：选择回调、清空、多选、键盘导航（复用 Tree 测试模式）、受控纪律
+- **裁剪**：搜索过滤、虚拟滚动（选项量小时）、级联选择父级联动
+
+## 实施顺序与验收
+
+| 步骤 | 组件 | 依赖 | 验收 |
+|------|------|------|------|
+| 1 | DiffView | LCS 算法（自研纯函数） | 5+ diff 场景测试全绿；demo 双代码对比实测 |
+| 2 | Sparkline | SVG 自绘 | 归一化/边界测试；StatCard 趋势接入 demo |
+| 3 | Tour | usePopupPosition + Portal | 步骤推进/定位测试；demo 引导实测 |
+| 4 | Kanban | useDragDrop | 跨列/重排测试；demo 拖拽实测 |
+| 5 | Pipeline | 布局算法（纯函数） | 分层/环检测测试；demo Agent 工作流实测 |
+| 6 | TreeSelect | Tree + Popover | 选择/键盘流测试；demo 表单实测 |
+
+- 每组件：失败测试（红）→ 实现（绿）→ style-audit（18 条）→ 导出 index + demo DemoCard → agent-browser 实测
+- 收尾：`docs/components-map.md` 新增 6 项记录、README 组件计数（96 → 102）、
+  `docs/frontend.md` 若涉及新 client 原语同步
+
+## 诚实裁剪（不做，明确声明）
+
+- DiffView：词级 diff、语法高亮、忽略空白、merge 编辑、侧边折叠条
+- Sparkline：多序列、tooltip、实时流式、动画帧
+- Tour：步骤动画、多目标高亮、完整键盘流、mask 镂空动画
+- Kanban：列增删/编辑、泳道、跨看板、虚拟滚动
+- Pipeline：手动拖拽、缩放平移、嵌套子图、循环图、自动布局参数
+- TreeSelect：搜索过滤、虚拟滚动、级联父级联动、多选 tag 折叠
+
+> 本批完成后：组件总数 96 → 102，AI 开发者工具线（AiChat/Command/JSONViewer/
+> LogViewer/DiffView/Pipeline）成为三库差异化最深的完整工具链。
