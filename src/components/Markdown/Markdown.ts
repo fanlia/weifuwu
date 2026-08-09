@@ -8,7 +8,7 @@
 import type { Component } from '../../client/vnode.ts'
 import type { WfuiContext } from '../../client/types.ts'
 import { h, Fragment } from '../../client/vnode.ts'
-import { parseMarkdown, type MdBlock, type MdInline } from './parser.ts'
+import { parseMarkdown, parseInline, type MdBlock, type MdInline } from './parser.ts'
 import { CodeBlock } from '../CodeBlock/CodeBlock.ts'
 
 export interface MarkdownProps {
@@ -31,16 +31,33 @@ function renderBlock(b: MdBlock, key: number): any {
       return h(`h${b.level!}` as any, { class: `wf-md-h wf-md-h${b.level}`, key }, renderInline(b.inline!))
     case 'paragraph':
       return h('p', { class: 'wf-md-p', key }, renderInline(b.inline!))
-    case 'list':
-      return b.ordered
-        ? h('ol', { class: 'wf-md-ol', key }, b.items!.map((it, i) => h('li', { class: 'wf-md-li', key: i }, renderInline(it))))
-        : h('ul', { class: 'wf-md-ul', key }, b.items!.map((it, i) => h('li', { class: 'wf-md-li', key: i }, renderInline(it))))
+    case 'list': {
+      const hasTask = b.checks?.some(c => c !== null)
+      const Tag = b.ordered ? 'ol' : 'ul'
+      return h(Tag, { class: `wf-md-${b.ordered ? 'ol' : 'ul'}${hasTask ? ' wf-md-task-list' : ''}`, key }, b.items!.map((it, i) => {
+        const checked = b.checks?.[i]
+        return h('li', { class: `wf-md-li${checked !== null && checked !== undefined ? ' wf-md-task' : ''}`, key: i },
+          checked !== null && checked !== undefined
+            ? [h('input', { type: 'checkbox', class: 'wf-md-task-check', checked: !!checked, disabled: true, key: 'c' }), ...renderInline(it)]
+            : renderInline(it))
+      }))
+    }
     case 'code':
       return h(CodeBlock, { key, code: b.code ?? '', lang: b.lang })
     case 'quote':
       return h('blockquote', { class: 'wf-md-quote', key }, renderInline(b.inline!))
     case 'hr':
       return h('hr', { class: 'wf-md-hr', key })
+    case 'table': {
+      const alignStyle = (i: number) => b.aligns?.[i] ? { textAlign: b.aligns[i] } : undefined
+      return h('div', { class: 'wf-md-table-wrap', key }, h('table', { class: 'wf-md-table' }, [
+        h('thead', { key: 'h' }, h('tr', { key: 'r' }, b.headers!.map((hd, i) =>
+          h('th', { class: 'wf-md-th', style: alignStyle(i), key: i }, renderInline(parseInline(hd)))))),
+        h('tbody', { key: 'b' }, b.rows!.map((row, ri) =>
+          h('tr', { class: 'wf-md-tr', key: ri }, row.map((cell, ci) =>
+            h('td', { class: 'wf-md-td', style: alignStyle(ci), key: ci }, renderInline(parseInline(cell))))))),
+      ]))
+    }
     default:
       return null
   }
@@ -55,6 +72,8 @@ export function renderInline(nodes: MdInline[]): any[] {
         return h('strong', { class: 'wf-md-strong', key: i }, renderInline(n.children ?? []))
       case 'italic':
         return h('em', { class: 'wf-md-em', key: i }, renderInline(n.children ?? []))
+      case 'del':
+        return h('del', { class: 'wf-md-del', key: i }, renderInline(n.children ?? []))
       case 'link':
         // 安全：parseInline 已做 URL 白名单；再强制 noopener/nofollow
         return h('a', {

@@ -643,15 +643,22 @@ const DemoIcon: Component = () => () => {
 const DemoMarkdown: Component = () => () => (
   <Markdown content={`# 项目进展
 
-本周完成了 **核心模块** 与 \`CodeBlock\` 组件。
+本周完成了 **核心模块** 与 ~~旧实现~~ 、
 
-- 交付项一
-- 交付项二
+## 任务进度
 
-1. 第一步：设计
-2. 第二步：实现
+- [x] 核心模块
+- [x] CodeBlock 组件
+- [ ] 文档补全
 
-> 引用：AI 回复的 markdown 渲染，零依赖安全子集。
+## 参数对比
+
+| 组件 | 行数 | 复杂度 |
+| :--- | ---: | :---: |
+| Markdown | 295 | 中 |
+| CodeBlock | 80 | 低 |
+
+> GFM：删除线 / 任务列表 / 表格（含对齐）。
 
 \`\`\`ts
 const greet = (name: string) => \`你好，\${name}\`
@@ -2369,7 +2376,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">911 测试</Badge>
+          <Badge variant="success">915 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

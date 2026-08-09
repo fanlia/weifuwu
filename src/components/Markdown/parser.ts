@@ -4,27 +4,33 @@
  * 零依赖自研解析器，输出结构化 token（非 HTML 字符串）——
  * 组件层以 VNode 渲染，天然转义任何用户/AI 内容（无 innerHTML 注入面）。
  *
- * 支持块级：标题(#~####) / 段落 / 列表(有序·无序) / 围栏代码块 / 引用 / 分割线
- * 支持行内：**粗体** / *斜体* / `行内代码` / [文本](链接)
+ * 支持块级：标题(#~####) / 段落 / 列表(有序·无序·GFM 任务) / 围栏代码块 / 引用 / 分割线 / GFM 表格
+ * 支持行内：**粗体** / *斜体* / ~~删除线~~ / `行内代码` / [文本](链接)
  *
- * 诚实裁剪：GFM 表格/任务列表/删除线/脚注/raw HTML/自动链接/语法高亮（见 roadmap）
+ * 诚实裁剪：脚注/raw HTML/自动链接/语法高亮（见 roadmap）
  */
 
 export interface MdInline {
-  type: 'text' | 'code' | 'bold' | 'italic' | 'link'
+  type: 'text' | 'code' | 'bold' | 'italic' | 'del' | 'link'
   text?: string
   href?: string
   children?: MdInline[]
 }
 
 export interface MdBlock {
-  type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'hr'
+  type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'hr' | 'table'
   level?: number
   inline?: MdInline[]
   ordered?: boolean
   items?: MdInline[][]
+  /** GFM 任务列表：与 items 平行，null=非任务项 */
+  checks?: (boolean | null)[]
   lang?: string
   code?: string
+  /** GFM 表格 */
+  headers?: string[]
+  rows?: string[][]
+  aligns?: ('left' | 'center' | 'right')[]
 }
 
 const URL_RE = /^https?:\/\//i
@@ -67,6 +73,16 @@ export function parseInline(src: string): MdInline[] {
       if (end > i) {
         flush()
         out.push({ type: 'bold', children: parseInline(src.slice(i + 2, end)) })
+        i = end + 2
+        continue
+      }
+    }
+    // 删除线 ~~...~~（GFM）
+    if (ch === '~' && src[i + 1] === '~') {
+      const end = src.indexOf('~~', i + 2)
+      if (end > i) {
+        flush()
+        out.push({ type: 'del', children: parseInline(src.slice(i + 2, end)) })
         i = end + 2
         continue
       }
@@ -169,14 +185,46 @@ export function parseMarkdown(content: string): MdBlock[] {
       continue
     }
 
-    // 无序列表 -/*/+
+    // GFM 表格：| a | b | 后跟 | --- | :---: | 分隔行
+    const tableHdr = line.match(/^\|(.+)\|\s*$/)
+    if (tableHdr && i + 1 < lines.length && /^\|?[\s:|-]+\|?[\s:|-]*$/.test(lines[i + 1]) && lines[i + 1].includes('-')) {
+      const splitRow = (r: string) => r.replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim())
+      const headers = splitRow(line)
+      // 对齐行
+      const aligns = splitRow(lines[i + 1]).map(c => {
+        const l = c.startsWith(':'), r2 = c.endsWith(':')
+        if (l && r2) return 'center' as const
+        if (r2) return 'right' as const
+        if (l) return 'left' as const
+        return 'left' as const
+      })
+      i += 2
+      const rows: string[][] = []
+      while (i < lines.length && /^\|(.+)\|\s*$/.test(lines[i])) {
+        rows.push(splitRow(lines[i]))
+        i++
+      }
+      push({ type: 'table', headers, rows, aligns })
+      continue
+    }
+
+    // 无序列表 -/*/+（含 GFM 任务列表 [ ]/[x]）
     const ul = line.match(/^\s*[-*+]\s+(.+)$/)
-    if (ul) {
-      const items: MdInline[][] = [parseInline(ul[1])]
+    const taskRe = /^\s*[-*+]\s+\[([ xX])]\s+(.+)$/
+    const taskM = line.match(taskRe)
+    if (taskM || ul) {
+      const items: MdInline[][] = []
+      const checks: (boolean | null)[] = []
+      const add = (raw: string) => {
+        const tm = raw.match(taskRe)
+        if (tm) { items.push(parseInline(tm[2])); checks.push(tm[1].toLowerCase() === 'x') }
+        else { const m = raw.match(/^\s*[-*+]\s+(.+)$/); items.push(parseInline(m ? m[1] : raw)); checks.push(null) }
+      }
+      add(line)
       i++
       while (i < lines.length) {
-        const m = lines[i].match(/^\s*[-*+]\s+(.+)$/)
-        if (m) { items.push(parseInline(m[1])); i++ }
+        const m = lines[i].match(taskRe) || lines[i].match(/^\s*[-*+]\s+(.+)$/)
+        if (m) { add(lines[i]); i++ }
         else if (/^\s*$/.test(lines[i])) { i++; break }
         else if (/^\s{2,}/.test(lines[i])) { // 续行
           const last = items[items.length - 1]
@@ -184,7 +232,7 @@ export function parseMarkdown(content: string): MdBlock[] {
           i++
         } else break
       }
-      push({ type: 'list', ordered: false, items })
+      push({ type: 'list', ordered: false, items, checks })
       continue
     }
 
@@ -214,7 +262,8 @@ export function parseMarkdown(content: string): MdBlock[] {
       !/^\s*>/.test(lines[i]) &&
       !/^\s*[-*+]\s+/.test(lines[i]) &&
       !/^\s*\d+\.\s+/.test(lines[i]) &&
-      !/^\s*-{3,}\s*$/.test(lines[i])
+      !/^\s*-{3,}\s*$/.test(lines[i]) &&
+      !/^\|(.+)\|\s*$/.test(lines[i])
     ) {
       buf.push(lines[i])
       i++

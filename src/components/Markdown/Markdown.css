@@ -52,3 +52,51 @@
   border-top: 1px solid var(--wf-color-border);
   margin: var(--wf-space-md) 0;
 }
+
+/* GFM 删除线 */
+.wf-md-del {
+  text-decoration: line-through;
+  color: var(--wf-color-text-secondary);
+}
+
+/* GFM 任务列表 */
+.wf-md-task-list {
+  list-style: none;
+  padding-left: var(--wf-space-xs);
+}
+.wf-md-task {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--wf-gap-xs);
+}
+.wf-md-task-check {
+  margin-top: 4px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--wf-color-primary);
+  cursor: default;
+}
+
+/* GFM 表格 */
+.wf-md-table-wrap {
+  overflow-x: auto;
+  margin: var(--wf-space-sm) 0;
+}
+.wf-md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--wf-font-size-sm);
+}
+.wf-md-th,
+.wf-md-td {
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
+}
+.wf-md-th {
+  background: var(--wf-color-bg-secondary);
+  font-weight: var(--wf-font-weight-semibold);
+}
+.wf-md-tr:nth-child(even) .wf-md-td {
+  background: var(--wf-color-bg-secondary);
+}

@@ -83,3 +83,36 @@ function flattenInline(nodes: any[]): any[] {
   }
   return out
 }
+
+describe('Markdown GFM', () => {
+  it('删除线 ~~text~~ → <del>', () => {
+    const v = renderVNode(Markdown, { content: '~~删除~~ 这段' }, mockCtx())!
+    const s = JSON.stringify(v)
+    assert.ok(s.includes('wf-md-del'), 'del 渲染')
+  })
+
+  it('任务列表 [ ]/[x] → checkbox', () => {
+    const v = renderVNode(Markdown, { content: '- [x] 已完成\n- [ ] 待办' }, mockCtx())!
+    const s = JSON.stringify(v)
+    assert.ok(s.includes('wf-md-task-list'), '任务列表类')
+    assert.ok(s.includes('wf-md-task-check'), 'checkbox 渲染')
+    assert.ok(s.includes('"checked":true'), '已完成项 checked')
+    assert.ok(s.includes('"checked":false'), '待办项 unchecked')
+  })
+
+  it('表格 → thead/tbody + 对齐', () => {
+    const md = '| 名称 | 数量 |\n| :--- | ---: |\n| 苹果 | 3 |\n| 香蕉 | 12 |'
+    const v = renderVNode(Markdown, { content: md }, mockCtx())!
+    const s = JSON.stringify(v)
+    assert.ok(s.includes('wf-md-table'), '表格渲染')
+    assert.ok(s.includes('苹果') && s.includes('香蕉'), '行数据')
+    assert.ok(s.includes('textAlign'), '对齐样式')
+    assert.ok(s.includes('center') || s.includes('right'), '含 center/right 对齐')
+  })
+
+  it('表格分隔行缺失时不误判（普通段落）', () => {
+    const v = renderVNode(Markdown, { content: '| 不是表格' }, mockCtx())!
+    // 无分隔行 → 走段落
+    assert.ok(JSON.stringify(v).includes('wf-md-p'), '降级为段落')
+  })
+})
