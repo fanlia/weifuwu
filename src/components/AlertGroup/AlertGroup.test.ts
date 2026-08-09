@@ -53,3 +53,44 @@ describe('AlertGroup', () => {
     assert.ok(expanded, '展开列表')
   })
 })
+
+test('onClose 回调带 id（关闭按钮）', () => {
+  let closed: string | undefined
+  const items = [
+    { id: 'a', message: 'm1', variant: 'info' as const },
+    { id: 'b', message: 'm2', variant: 'success' as const },
+  ]
+  const vnode = renderVNode(AlertGroup, { items, onClose: (id: string) => { closed = id } }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-alertgroup-close'), '有 onClose 时渲染关闭按钮')
+  const closeBtn = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-alertgroup-close'))
+  closeBtn.props.onClick()
+  assert.equal(closed, 'a', '回调携带 item.id')
+})
+
+test('无 onClose 不渲染关闭按钮', () => {
+  const items = [{ id: 'a', message: 'm1' }]
+  const vnode = renderVNode(AlertGroup, { items }, mockCtx())!
+  assert.ok(!JSON.stringify(vnode).includes('wf-alertgroup-close'))
+})
+
+test('variant 着色类（success/warning/error/info）', () => {
+  const items = [
+    { id: 'a', message: '1', variant: 'success' as const },
+    { id: 'b', message: '2', variant: 'warning' as const },
+  ]
+  const vnode = renderVNode(AlertGroup, { items }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-alertgroup-item--success') && s.includes('wf-alertgroup-item--warning'))
+})
+
+test('time 字段渲染', () => {
+  const items = [{ id: 'a', message: 'm', time: '10:24' }]
+  const vnode = renderVNode(AlertGroup, { items }, mockCtx())!
+  assert.ok(JSON.stringify(vnode).includes('10:24'))
+})
+
+test('空 items 渲染空容器不抛错（边界）', () => {
+  const vnode = renderVNode(AlertGroup, { items: [] }, mockCtx())!
+  assert.ok(vnode.props.class.includes('wf-alertgroup'))
+})

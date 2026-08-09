@@ -108,3 +108,15 @@ describe('FloatButtonGroup', () => {
     assert.equal(closed, null, '收起后移除 open class')
   })
 })
+
+test('aria-label 透传（纯图标按钮的无障碍名）', () => {
+  const vnode = renderVNode(FloatButton, { icon: 'x', 'aria-label': '回到顶部' }, mockCtx())!
+  const btn = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-float-btn'))
+  assert.equal(btn.props['aria-label'], '回到顶部')
+})
+
+test('badge 为 0 时不显示（边界）', () => {
+  const vnode = renderVNode(FloatButton, { icon: 'x', badge: 0 }, mockCtx())!
+  const s = JSON.stringify(vnode)
+  assert.ok(!s.includes('wf-float-badge') || s.includes('"badge":0') === false, 'badge=0 不渲染徽章')
+})

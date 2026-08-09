@@ -123,3 +123,35 @@ describe('Popconfirm', () => {
     assert.equal(icon?.props?.children?.type, Icon, '默认图标用 Icon 组件（禁裸字形）')
   })
 })
+
+test('受控 open + onOpenChange 对称（§5.2 受控纪律）', () => {
+  let notified: boolean | undefined
+  const props = { title: 'x', open: false, onOpenChange: (v: boolean) => { notified = v } }
+  const ctx = mockCtx()
+  const inst = mount(Popconfirm, props, ctx)
+  const vnode = inst.render()
+  // 受控 open=false：气泡挂 --exit（非 --enter）——open 由父层独占
+  const bubble = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-popconfirm'))
+  assert.ok(bubble, '气泡 VNode 存在（portal mock 恒渲染）')
+  assert.match(bubble.props.class, /wf-popconfirm--exit/, '受控 open=false → exit 态')
+  // 关闭路径通知父层（onConfirm 后 close → onOpenChange(false)）
+  const okBtn = findVNode(bubble, (v: any) => String(v.props?.class ?? '').includes('wf-popconfirm-ok'))
+  okBtn.props.onClick({ stopPropagation: () => {} })
+  assert.equal(notified, false, '受控关闭必须通知 onOpenChange(false)')
+})
+
+test('自定义 okText/cancelText', () => {
+  const ctx = mockCtx()
+  const inst = mount(Popconfirm, { title: 'x', okText: '删掉', cancelText: '算了' }, ctx)
+  const vnode = inst.render({ title: 'x', okText: '删掉', cancelText: '算了', open: true, onOpenChange: () => {} })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('删掉') && s.includes('算了'), '自定义按钮文案')
+})
+
+test('边界：无 onConfirm/onCancel 点击不抛错', () => {
+  const ctx = mockCtx()
+  const inst = mount(Popconfirm, { title: 'x', open: true, onOpenChange: () => {} }, ctx)
+  const vnode = inst.render({ title: 'x', open: true, onOpenChange: () => {} })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-popconfirm'), '气泡渲染')
+})

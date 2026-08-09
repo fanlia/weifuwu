@@ -43,6 +43,9 @@
 
 ## 进度记录
 
+- **Wave 2 ✅**（2026-08）：Tooltip/Menubar 6→8、Popconfirm 5→8、AlertGroup 3→8、
+  FloatButton 6→8 测试（受控对称/键盘可达/边界）；弹层族 14 个 demo 实测全过；
+  TEST_GAP W2 条目清零；计数 845
 - **Wave 0 ✅**（2026-08）：三条新防线（测试基线含 TEST_GAP 注册递减 / 受控命名对称
   + 豁免登记 / demo 覆盖）；Confirm 0→4 测试；计数 816
 - **Wave 1 ✅**（2026-08）：JSONViewer 6→8 测试；Confirm 4→9 测试 + **命令式 portal

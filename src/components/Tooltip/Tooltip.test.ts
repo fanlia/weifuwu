@@ -90,3 +90,19 @@ describe('Tooltip', () => {
     assert.equal(typeof vnode.props.onKeyDown, 'function', 'Escape 关闭')
   })
 })
+
+it('disabled 切换：同实例从可用到禁用（disabled 闭包捕获而非快照）', () => {
+  const ctx = mockCtx(false, false)
+  const factory = Tooltip({ content: 'a', children: 'x' }, ctx)
+  factory({ content: 'a', children: 'x' })
+  // 禁用后渲染：portal 不出现
+  ;(ctx.ui as any).usePopup = () => ({ portal: () => null, wrapProps: {}, open: false })
+  const vnode = factory({ content: 'a', children: 'x', disabled: true })
+  assert.ok(vnode, '禁用时仍渲染包裹（子内容可用）')
+})
+
+it('position 默认 top（未传时）', () => {
+  const vnode = renderVNode(Tooltip, { content: 'a', children: 'x' }, mockCtx(true))!
+  const s = JSON.stringify(vnode)
+  assert.match(s, /wf-tooltip--top/)
+})

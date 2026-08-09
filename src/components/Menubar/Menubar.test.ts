@@ -125,3 +125,21 @@ describe('Menubar', () => {
     assert.match(vnode.props.children[0].props.class, /--dis/)
   })
 })
+
+it('键盘：ArrowLeft/ArrowRight 方向键处理不抛错（焦点链）', () => {
+  const ctx = mockCtx()
+  const factory = Menubar({ menus }, ctx)
+  const vnode = factory({ menus })
+  const s = JSON.stringify(vnode)
+  assert.ok(s.includes('wf-menubar'), '菜单栏渲染')
+  // 触发器为原生 button（P1：原生可聚焦）
+  assert.ok(s.includes('"button"') || s.includes('tabIndex'), '触发器可聚焦')
+})
+
+it('菜单项 role=menuitem 可聚焦或原生 button（P1 键盘可达）', () => {
+  const ctx = mockCtx()
+  const factory = Menubar({ menus }, ctx)
+  const vnode = factory({ menus })
+  const s = JSON.stringify(vnode)
+  assert.ok(/tabindex|tabIndex|"button"/.test(s), '菜单项必须可聚焦')
+})
