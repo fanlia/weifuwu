@@ -93,6 +93,20 @@ function createSsrContext(serverCtx: any, dataStore: Map<string, unknown>): Wfui
       setValue: (v: T) => { options.onChange?.(v) },
       controlled: options.value !== undefined,
     }),
+    useControlledInput: (options: any) => ({
+      value: options.value,
+      setValue: (v: string) => { options.onChange?.(v) },
+      controlled: options.value !== undefined,
+      keyword: '',
+      setKeyword: () => {},
+      selectedLabel: '',
+      setSelectedLabel: () => {},
+    }),
+    useOpen: (options: any) => ({
+      get open() { return !!options.open },
+      setOpen: (v: boolean) => { options.onOpenChange?.(v) },
+      triggerProps: {},
+    }),
     useAsync: () => ({ data: undefined, loading: true, error: undefined, reload: () => {} }),
     usePopup: () => ({
       open: false,

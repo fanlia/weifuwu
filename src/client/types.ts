@@ -380,6 +380,22 @@ export interface WfuiContext {
       setValue: (v: T) => void
       controlled: boolean
     }
+    /** 受控输入原语（C3）：useControlled + 内部输入态/选中态（keyword/selectedLabel） */
+    useControlledInput: (options: { value?: string; onChange?: (v: string) => void; name?: string }) => {
+      value: string | undefined
+      setValue: (v: string) => void
+      controlled: boolean
+      keyword: string
+      setKeyword: (v: string) => void
+      selectedLabel: string
+      setSelectedLabel: (v: string) => void
+    }
+    /** 显隐打开状态机（C4）：trigger/focus 协调（onClick 只开——防 focus 开+click 关冲突） */
+    useOpen: (options: { open?: boolean; onOpenChange?: (open: boolean) => void; openOnFocus?: boolean }) => {
+      open: boolean
+      setOpen: (open: boolean) => void
+      triggerProps: { onClick: () => void; onFocus: () => void }
+    }
     /**
      * 全屏对话框组合器（收敛 Modal/Drawer 的退场状态机 + 滚动锁 + 焦点 trap）：
      * mount 创建，render 阶段 sync(open) 驱动状态机；组件只管布局。

@@ -27,20 +27,38 @@ function mount(Comp: any, props: any, ctx: any) {
   return { render: (p: any = props) => factory(p) }
 }
 
-const mockCtx = () => ({
-  ui: {
-    $: () => ({}),
-    render: () => {},
-    dirty: () => {},
-    usePopup: (opts: any) => ({
-      get open() { return opts.isOpen() },
-      setOpen: opts.setOpen,
-      refresh: () => {},
-      portal: (content: any) => (opts.isOpen() ? content : null),
-      wrapProps: {},
-    }),
-  },
-}) as any
+const mockCtx = () => {
+  // useControlledInput 需要跨 render 保持内部态——mock 用 Map 缓存
+  const states = new Map<string, { keyword: string; selectedLabel: string }>()
+  return {
+    ui: {
+      $: () => ({}),
+      render: () => {},
+      dirty: () => {},
+      usePopup: (opts: any) => ({
+        get open() { return opts.isOpen() },
+        setOpen: opts.setOpen,
+        refresh: () => {},
+        portal: (content: any) => (opts.isOpen() ? content : null),
+        wrapProps: {},
+      }),
+      useControlledInput: (opts: any) => {
+        const key = opts.name ?? 'default'
+        if (!states.has(key)) states.set(key, { keyword: '', selectedLabel: '' })
+        const st = states.get(key)!
+        return {
+          value: opts.value,
+          setValue: (v: string) => opts.onChange?.(v),
+          controlled: opts.value !== undefined,
+          get keyword() { return st.keyword },
+          setKeyword: (v: string) => { st.keyword = v },
+          get selectedLabel() { return st.selectedLabel },
+          setSelectedLabel: (v: string) => { st.selectedLabel = v },
+        }
+      },
+    },
+  } as any
+}
 
 function optionLabels(vnode: any): string[] {
   const out: string[] = []

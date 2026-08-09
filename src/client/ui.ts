@@ -74,6 +74,10 @@ export interface UiDeps {
 const warnedControlled = new Set<string>()
 /** 非受控内部值缓存（按 selfId，卸载时回收） */
 const uncontrolledValues = new Map<string, any>()
+/** useControlledInput 内部输入态（keyword/selectedLabel——render 阶段调用跨渲染保持） */
+const inputStates = new Map<string, { keyword: string; selectedLabel: string }>()
+/** useOpen 非受控内部打开态（render 阶段调用跨渲染保持） */
+const openStates = new Map<string, boolean>()
 
 export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
   const { ctx, renderByIds, getSelfId, dirtyBatch, dirtySet, mediaRegistry, popupTrackers, scrollTrackers, schedulePopupRecompute, ensurePopupListeners, isRendering, isMounting, setMounting, endMounting } = deps
@@ -787,6 +791,76 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         value: controlled ? options.value : (selfId ? uncontrolledValues.get(selfId) : options.value),
         setValue,
         controlled,
+      }
+    },
+
+    /**
+     * 受控输入原语（C3）：useControlled + 内部输入态/选中态。
+     * 输入期间 value 由 keyword 管理（不依赖受控 value 回流——父 render 会
+     * 重挂 input → 焦点丢失）；选中回填 selectedLabel（Select/AutoComplete 教训）。
+     * mount 层调用一次；keyword/selectedLabel 闭包保持跨渲染。
+     */
+    useControlledInput: function (options: {
+      value?: string
+      onChange?: (v: string) => void
+      name?: string
+    }) {
+      const selfId = getSelfId(this)
+      const ctrl = this.useControlled({ value: options.value, onChange: options.onChange, name: options.name })
+      // render 阶段调用（读最新 props）——内部态 Map 缓存跨渲染保持
+      if (selfId && !inputStates.has(selfId)) {
+        inputStates.set(selfId, { keyword: '', selectedLabel: '' })
+        onComponentUnmount((id) => { inputStates.delete(id) })
+      }
+      const state = selfId ? inputStates.get(selfId)! : { keyword: '', selectedLabel: '' }
+      const dirty = () => {
+        if (selfId) ctx.ui?.dirty([selfId])
+        else ctx.ui?.render()
+      }
+      return {
+        ...ctrl,
+        get keyword() { return state.keyword },
+        setKeyword(v: string) { state.keyword = v; dirty() },
+        get selectedLabel() { return state.selectedLabel },
+        setSelectedLabel(v: string) { state.selectedLabel = v; dirty() },
+      }
+    },
+
+    /**
+     * 显隐打开状态机（C4）：trigger/focus/blur 协调——组件层各自造轮子
+     * 会踩 focus 开 + click toggle 关的冲突（Select 真实 bug）。默认只开不关
+     * （关闭交外部点击/Escape/选中——组件业务语义）；openOnFocus 可选。
+     */
+    useOpen: function (options: {
+      open?: boolean
+      onOpenChange?: (open: boolean) => void
+      openOnFocus?: boolean
+    }) {
+      const selfId = getSelfId(this)
+      // render 阶段调用——非受控内部态 Map 缓存跨渲染保持
+      if (selfId && !openStates.has(selfId)) {
+        openStates.set(selfId, false)
+        onComponentUnmount((id) => { openStates.delete(id) })
+      }
+      const controlled = options.open !== undefined
+      const isOpen = () => (controlled ? !!options.open : (selfId ? openStates.get(selfId) ?? false : false))
+      const dirty = () => {
+        if (selfId) ctx.ui?.dirty([selfId])
+        else ctx.ui?.render()
+      }
+      const setOpen = (v: boolean) => {
+        if (controlled) { options.onOpenChange?.(v); return }
+        if (selfId) openStates.set(selfId, v)
+        dirty()
+      }
+      return {
+        get open() { return isOpen() },
+        setOpen,
+        // trigger 协调：onClick 只开（focus 开 + click 关冲突教训——关闭交外部）
+        triggerProps: {
+          onClick: () => setOpen(true),
+          onFocus: () => { if (options.openOnFocus) setOpen(true) },
+        },
       }
     },
 

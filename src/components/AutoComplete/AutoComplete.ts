@@ -50,15 +50,10 @@ export function filterOptions(options: AutoCompleteOption[], query: string): Aut
 
 export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiContext) => {
   // ── mount（只一次）──
-  // open/keyword 状态经 $（Proxy 自动 dirty → 重渲染）；受控桥 props.open 覆盖读
+  // open 状态经 $（Proxy 自动 dirty → 重渲染，与 usePopup 集成）；
+  // keyword/selected 由 useControlledInput 管理（render 层调用——C3 原语）
   const $ = ctx.ui.$()
   $.open = _init?.open ?? false
-  // 内部输入态（Select searchable 同款纪律）：输入期间 value 由 $ 管理——
-  // 不依赖受控 value 回流（父 render 会重挂 input → 焦点丢失——AutoComplete 教训）
-  $.keyword = ''
-  // 选中态：关闭时 input 回填选中 label（Select 单选同款——
-  // demo 受控 onChange 不渲染则 props.value 不回流 → input 空）
-  $.selected = ''
   let activeIndex = -1
   let latestValue = _init?.value ?? ''
   let latestOnChange: ((v: string) => void) | undefined
@@ -88,11 +83,14 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     popup.setOpen(v)
   }
 
+  // useControlledInput 原语句柄（render 层调用——闭包变量供 pick 用）
+  let inputCtrl: ReturnType<WfuiContext['ui']['useControlledInput']> | null = null
+
   const pick = (option: AutoCompleteOption) => {
-    latestOnChange?.(option.value)
+    inputCtrl?.setValue(option.value)
     latestOnSelect?.(option.value, option)
-    $.keyword = ''
-    $.selected = option.label ?? option.value // 关闭后回填
+    inputCtrl?.setKeyword('')
+    inputCtrl?.setSelectedLabel(option.label ?? option.value) // 关闭后回填
     activeIndex = -1
     setOpen(false)
   }
@@ -100,6 +98,10 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
   // ── render（每次 dirty/props 变化）──
   return (props: AutoCompleteProps) => {
     const { options, value, placeholder = '输入搜索…', disabled, renderOption, onSelect } = props
+    // C3 原语：受控 value + 内部输入态/选中态（render 阶段调用——读最新 props）
+    inputCtrl = ctx.ui.useControlledInput({ value, onChange: props.onChange, name: 'AutoComplete' })
+    const keyword = inputCtrl.keyword
+    const selectedLabel = inputCtrl.selectedLabel
     latestValue = value ?? ''
     latestOnChange = props.onChange
     latestOpen = props.open
@@ -107,8 +109,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     latestOnSelect = onSelect
     if (props.open !== undefined) $.open = !!props.open
 
-    // 打开时输入态优先（$.keyword——用户正在输入）；无输入回退受控值
-    const query = $.open ? ($.keyword || latestValue) : latestValue
+    // 打开时输入态优先（keyword——用户正在输入）；无输入回退受控值
+    const query = $.open ? (keyword || latestValue) : latestValue
     const filtered = (props.filter ?? filterOptions)(options, query)
     if (activeIndex >= filtered.length) activeIndex = -1
 
@@ -118,8 +120,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
     const onInput = (e: any) => {
       if (composing || e.isComposing) return
       const v = e.target.value
-      $.keyword = v // 内部输入态（$ 自动 dirty → 自身重渲染，不依赖父回流）
-      latestOnChange?.(v)
+      inputCtrl?.setKeyword(v) // C3 内部输入态（不依赖受控 value 回流）
+      inputCtrl?.setValue(v)
       if (!$.open) setOpen(true)
       activeIndex = -1
     }
@@ -128,8 +130,8 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
       composing = false
       // 组合完成：处理最终中文值（过滤/回填）
       const v = (e.target as HTMLInputElement)?.value ?? ''
-      $.keyword = v
-      latestOnChange?.(v)
+      inputCtrl?.setKeyword(v)
+      inputCtrl?.setValue(v)
       if (!$.open) setOpen(true)
     }
 
@@ -178,7 +180,7 @@ export const AutoComplete: Component<AutoCompleteProps> = (_init, ctx: WfuiConte
         // input 不重建（此前需手动 key 防焦点丢失——现已治本）
         class: 'wf-autocomplete-input wf-input',
         // 打开/输入时显示内部 keyword；关闭时选中 label（无选中回退受控值）
-        value: $.open ? $.keyword : ($.selected || query),
+        value: $.open ? keyword : (selectedLabel || query),
         placeholder,
         disabled,
         onInput,
