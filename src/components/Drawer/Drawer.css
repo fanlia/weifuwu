@@ -19,6 +19,8 @@
   position: absolute;
   inset: 0;
   background: var(--wf-overlay);
+  backdrop-filter: blur(var(--wf-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--wf-overlay-blur));
 }
 
 .wf-drawer--enter .wf-drawer-overlay {

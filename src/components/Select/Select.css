@@ -19,7 +19,7 @@
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   outline: none;
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
   width: 100%;
   cursor: pointer;
   appearance: auto;
@@ -50,7 +50,7 @@
   border-radius: var(--wf-field-radius);
   background: var(--wf-color-bg);
   cursor: pointer;
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
 }
 .wf-select-search-trigger:focus-within {
   border-color: var(--wf-color-primary);

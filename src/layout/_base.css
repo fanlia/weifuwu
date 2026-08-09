@@ -75,10 +75,19 @@ button {
   padding: var(--wf-control-pad-y) var(--wf-space-md);
   min-height: var(--wf-control-height);
   cursor: pointer;
+  transition: border-color var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out),
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out),
+              background-color var(--wf-dur-fast) var(--wf-ease-out),
+              filter var(--wf-dur-fast) var(--wf-ease-out);
 }
 button:hover {
   border-color: var(--wf-color-primary);
   color: var(--wf-color-primary-text);
+}
+button:active:not(:disabled),
+[role="button"]:active {
+  filter: brightness(0.95); /* 按压反馈：不偏移布局，适用任意宽度（block/inline） */
 }
 
 /* 键盘焦点：button 与 [tabindex] 统一 focus ring（仅键盘触发，鼠标点击不闪） */
@@ -86,6 +95,15 @@ button:focus-visible,
 [tabindex]:focus-visible {
   outline: none;
   box-shadow: var(--wf-focus-ring);
+}
+
+[role="button"] {
+  cursor: pointer;
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out),
+              border-color var(--wf-dur-fast) var(--wf-ease-out),
+              box-shadow var(--wf-dur-fast) var(--wf-ease-out),
+              color var(--wf-dur-fast) var(--wf-ease-out),
+              filter var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 /* 触屏设备（coarse pointer）：交互目标提升到 44px（Apple HIG / WCAG 2.5.8） */

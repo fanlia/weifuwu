@@ -17,7 +17,7 @@
   box-shadow: 0 0 0 9999px var(--wf-overlay), 0 0 0 2px var(--wf-color-primary);
   z-index: 1;
   pointer-events: none;
-  transition: all var(--wf-dur-fast) var(--wf-ease-out);
+  transition: border-color var(--wf-dur-fast) var(--wf-ease-out), box-shadow var(--wf-dur-fast) var(--wf-ease-out), background-color var(--wf-dur-fast) var(--wf-ease-out), color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-tour-bubble {

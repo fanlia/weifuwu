@@ -21,7 +21,7 @@
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
   white-space: nowrap;
 }
 

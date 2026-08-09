@@ -16,7 +16,7 @@
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   outline: none;
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
   width: 100%;
   resize: vertical;
   line-height: var(--wf-line-height);

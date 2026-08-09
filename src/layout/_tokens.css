@@ -219,6 +219,7 @@
 
   /* ── 浮层遮罩（Modal/Drawer overlay，暗色经 --wf-dark-overlay 映射） ── */
   --wf-overlay: rgba(0, 0, 0, 0.4);
+  --wf-overlay-blur: 4px;  /* 遮罩毛玻璃（弹层现代质感，不支持 backdrop-filter 的环境自动降级为纯色） */
 
   /* ── 表单控件 ── */
   --wf-accent-color: var(--wf-color-primary);

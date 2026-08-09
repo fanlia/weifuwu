@@ -27,7 +27,7 @@
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
 }
 
 .wf-theme-seg:hover {

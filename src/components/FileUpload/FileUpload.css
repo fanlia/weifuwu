@@ -17,7 +17,7 @@
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg-secondary);
   cursor: pointer;
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
   min-height: 120px;
 }
 

@@ -24,7 +24,7 @@
   cursor: pointer;
   font-family: inherit;
   font-size: inherit;
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
 }
 
 .wf-page-btn:hover:not(:disabled):not(.wf-page-btn--active) {

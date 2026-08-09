@@ -8,7 +8,7 @@
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg);
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
 }
 
 .wf-search:focus-within {

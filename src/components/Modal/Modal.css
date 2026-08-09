@@ -31,6 +31,8 @@
   position: fixed;
   inset: 0;
   background: var(--wf-overlay);
+  backdrop-filter: blur(var(--wf-overlay-blur));
+  -webkit-backdrop-filter: blur(var(--wf-overlay-blur));
   z-index: -1;
 }
 

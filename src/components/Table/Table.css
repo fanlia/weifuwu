@@ -33,6 +33,7 @@
   border-bottom: var(--wf-border-width) solid var(--wf-color-border);
   color: var(--wf-color-text);
   font-size: var(--wf-font-size-base);
+  transition: background-color var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-table-th--sortable {

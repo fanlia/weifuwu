@@ -26,7 +26,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all var(--wf-transition);
+  transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
   background: var(--wf-color-bg);
 }
 
