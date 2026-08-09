@@ -86,7 +86,7 @@
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
-  box-shadow: var(--wf-shadow-lg));
+  box-shadow: var(--wf-shadow-lg);
   padding: var(--wf-space-xs);
 }
 

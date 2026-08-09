@@ -12,15 +12,15 @@
 
 .wf-autocomplete-dropdown {
   position: fixed;
-  z-index: var(--wf-z-popover, 120);
+  z-index: var(--wf-z-popover);
   max-height: 280px;
   overflow-y: auto;
-  border-radius: var(--wf-surface-radius, 8px);
-  background: var(--wf-surface-bg, #fff);
-  box-shadow: var(--wf-surface-shadow, 0 4px 16px rgba(0, 0, 0, 0.12));
-  border: var(--wf-border-width, 1px) solid var(--wf-color-border-light);
+  border-radius: var(--wf-surface-radius);
+  background: var(--wf-surface-bg);
+  box-shadow: var(--wf-surface-shadow);
+  border: var(--wf-border-width) solid var(--wf-color-border-light);
   font-family: var(--wf-font-sans);
-  font-size: var(--wf-font-size-sm, 13px);
+  font-size: var(--wf-font-size-sm);
 }
 
 .wf-autocomplete-option {
@@ -30,14 +30,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background var(--wf-dur-fast, 0.15s) var(--wf-ease-standard, ease);
+  transition: background var(--wf-dur-fast) var(--wf-ease-standard);
 }
 
 .wf-autocomplete-option:hover,
 .wf-autocomplete-option--active {
-  background: var(--wf-color-bg-hover, rgba(0, 0, 0, 0.04));
+  background: var(--wf-color-bg-hover);
 }
 
 .wf-autocomplete-option--active {
-  color: var(--wf-color-primary, #1668dc);
+  color: var(--wf-color-primary-text);
 }

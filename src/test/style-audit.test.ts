@@ -722,7 +722,7 @@ describe('样式审计 — 设计约束', () => {
       if (n) actual[d] = n
     }
     // baseline：当前违规分布（Wave 修复后递减，归零后 {} 即硬门）
-    const baseline: Record<string, number> = {"AiChat":19,"AlertGroup":13,"AutoComplete":10,"BackTop":1,"Calendar":1,"Carousel":1,"Command":1,"ContextMenu":1,"DiffView":4,"HoverCard":1,"InView":5,"Input":2,"Kanban":2,"Layout":22,"Link":9,"Mentions":1,"Menubar":1,"NavMenu":31,"Notification":1,"Pipeline":4,"Popconfirm":16,"Scrollbar":1,"Skeleton":8,"Space":1,"Textarea":2,"Tour":1,"TreeSelect":2}
+    const baseline: Record<string, number> = {"AiChat":19,"AlertGroup":13,"BackTop":1,"Calendar":1,"Carousel":1,"DiffView":4,"InView":5,"Input":2,"Kanban":2,"Layout":22,"Link":9,"NavMenu":31,"Notification":1,"Pipeline":4,"Scrollbar":1,"Skeleton":8,"Space":1,"Textarea":2}
     assert.deepEqual(actual, baseline, 'var(--token,fallback) 违规数变化：修复后须递减 baseline 并同步本快照')
   })
 
@@ -760,7 +760,7 @@ describe('样式审计 — 设计约束', () => {
       const n = [...nc.matchAll(/[^\/]\s*(#[0-9a-fA-F]{3,8})\b/g)].length + [...nc.matchAll(/\brgba?\(/g)].length + [...nc.matchAll(/\bhsla?\(/g)].length
       if (n) actual[d] = n
     }
-    const baseline: Record<string, number> = {"AlertGroup":7,"AutoComplete":4,"BackTop":1,"Carousel":1,"Command":1,"ContextMenu":1,"DiffView":2,"HoverCard":1,"InView":3,"Kanban":1,"Layout":5,"Link":6,"Mentions":1,"Menubar":1,"NavMenu":11,"Notification":1,"Pipeline":4,"Popconfirm":3,"Scrollbar":1,"Skeleton":3,"Slider":2,"Space":1,"Switch":1,"ThemeSwitch":1,"Tour":1,"TreeSelect":2}
+    const baseline: Record<string, number> = {"AlertGroup":7,"BackTop":1,"Carousel":1,"DiffView":2,"InView":3,"Kanban":1,"Layout":5,"Link":6,"NavMenu":11,"Notification":1,"Pipeline":4,"Scrollbar":1,"Skeleton":3,"Slider":2,"Space":1,"Switch":1,"ThemeSwitch":1}
     assert.deepEqual(actual, baseline, '裸色值违规数变化：修复后须递减 baseline 并同步本快照')
   })
 

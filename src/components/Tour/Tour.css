@@ -28,7 +28,7 @@
   background: var(--wf-color-bg);
   border: 1px solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
-  box-shadow: var(--wf-shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.12));
+  box-shadow: var(--wf-shadow-lg));
   padding: 16px;
   display: flex;
   flex-direction: column;

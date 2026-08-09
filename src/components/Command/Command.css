@@ -16,7 +16,7 @@
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
-  box-shadow: var(--wf-shadow-lg, 0 16px 48px rgba(0, 0, 0, 0.2));
+  box-shadow: var(--wf-shadow-lg));
   overflow: hidden;
   font-family: var(--wf-font-sans);
   animation: wf-command-in var(--wf-dur-base) var(--wf-ease-out);
