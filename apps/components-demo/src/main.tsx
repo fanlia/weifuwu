@@ -314,7 +314,7 @@ const DemoTable: Component = (_props, ctx) => {
         { key: 'status', label: '状态', render: v => <Badge variant={v === '活跃' ? 'success' : 'default'}>{v}</Badge> },
       ]}
         sortKey={$.sortKey} sortOrder={$.sortOrder}
-        onSort={(key, order) => { $.sortKey = key; $.sortOrder = order }} />
+        onSort={(key, order) => { $.sortKey = key; $.sortOrder = order }} emptyText="暂无数据" />
       <div class="wf-text-xs wf-text-secondary">点击列头排序（姓名 / 角色）；切换查看空态</div>
     </div>
   )
@@ -405,7 +405,7 @@ const DemoLoading: Component = (_props, ctx) => {
     }
     return (
     <div class="wf-row wf-gap-lg">
-      {loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成 ✅</Alert>}
+      {loading ? <Loading text="加载中（3秒后消失）..." /> : <Alert variant="success">加载完成</Alert>}
     </div>
   )
   }
@@ -434,7 +434,7 @@ const DemoEmptyState: Component = (_props, ctx) => {
     <div class="wf-w-full">
       {hasData
         ? <div class="wf-stack wf-gap-sm wf-text-center wf-p-lg">
-            <p>✅ 数据已添加</p>
+            <p>数据已添加</p>
             <Button variant="ghost" onClick={() => { hasData = false; ctx.ui.render() }}>清空</Button>
           </div>
         : <EmptyState text="暂无数据" hint="点击按钮创建第一个项目">
@@ -451,7 +451,7 @@ const DemoCardShowcase: Component = (_props, ctx) => {
       <Card>默认卡片</Card>
       <Card variant="outlined">线框卡片</Card>
       <Card clickable onClick={() => { clicked = true; ctx.ui.render() }}>可点击卡片</Card>
-      {clicked && <div class="wf-text-xs wf-w-full wf-text-secondary">卡片被点击了 ✅</div>}
+      {clicked && <div class="wf-text-xs wf-w-full wf-text-secondary">卡片被点击了</div>}
     </div>
   )
 }
@@ -809,7 +809,7 @@ const DemoList: Component = () => () => (
       items={[{ n: '需求文档.md', s: '2 分钟前' }, { n: '架构设计.pdf', s: '昨天' }, { n: '接口说明.docx', s: '3 天前' }]}
       renderItem={(f: any) => (
         <div class="wf-split">
-          <span class="wf-text-sm">📄 {f.n}</span>
+          <span class="wf-row wf-gap-xs"><Icon name="file" size={14} /><span class="wf-text-sm">{f.n}</span></span>
           <span class="wf-text-xs wf-text-tertiary">{f.s}</span>
         </div>
       )} />
@@ -1033,12 +1033,12 @@ const DemoConfirm: Component = (_props, ctx) => {
       confirmText: '删除',
       variant: 'danger',
     })
-    result = ok ? '✅ 已删除' : '已取消'
+    result = ok ? '已删除' : '已取消'
     ctx.ui.render()
   }
   const handleSave = async () => {
     const ok = await (ctx as any).confirm?.('保存修改？')
-    result = ok ? '✅ 已保存' : '已取消'
+    result = ok ? '已保存' : '已取消'
     ctx.ui.render()
   }
   return (_p: any) => (
