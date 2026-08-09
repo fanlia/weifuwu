@@ -111,8 +111,6 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
           if (!item.disabled && hasNested && nestedKey !== item.key) {
             nestedKey = item.key
             ctx.ui.render()
-            // 打开瞬间重算坐标（ref 挂载后）
-            queueMicrotask(() => nestedPopup.refresh())
           }
         },
       }, [
@@ -171,8 +169,6 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: WfuiContext) => {
             openKey = item.key
             nestedKey = null
             ctx.ui.render()
-            // 打开瞬间重算坐标（ref 已挂载——顶层 item ref 稳定）
-            queueMicrotask(() => popup.refresh())
           }
         },
         onKeyDown: (e: any) => {

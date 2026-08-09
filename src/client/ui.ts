@@ -519,14 +519,25 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         }
       }
 
-      // ── portal：定位 + 宽度 clamp + 打开瞬间重算坐标 ──
+      // ── portal：定位 + 宽度 clamp + 打开/锚点变化瞬间重算坐标 ──
+      // 锚点感知：打开状态下切换锚点（hover 导航项切换）也自动重算——
+      // 否则 prevOpen 已 true 不刷新，弹层停留在旧锚点（NavMenu 教训）
+      // el-null fallback：嵌套弹层首帧锚点 ref 在 patch 后设置（render 内
+      // el() 为 null）——微任务推迟重试，render 完成后再取坐标
+      let lastEl: HTMLElement | null = null
       const portal = (content: VNode, portalKey = 'popover'): VNode | null => {
         if (isDisabled()) return null
         const now = isOpen()
-        if (!now) { prevOpen = false; return null }
-        if (!prevOpen) {
-          pos.refresh()
+        if (!now) { prevOpen = false; lastEl = null; return null }
+        const el = options.el()
+        if (!prevOpen || el !== lastEl) {
+          if (el) {
+            pos.refresh()
+          } else {
+            queueMicrotask(() => { if (isOpen()) pos.refresh() })
+          }
           prevOpen = true
+          lastEl = el
         }
         const props = (content.props ?? {}) as Record<string, any>
         const prevRef = props.ref

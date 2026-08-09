@@ -203,3 +203,62 @@ describe('ctx.ui.usePopup', () => {
     t.app.destroy()
   })
 })
+
+
+
+describe('usePopup portal 锚点感知（client 层修复）', () => {
+  it('打开后切换锚点：portal 自动重算坐标（不残留旧锚点）', async () => {
+    const app = createApp()
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    el.id = 'popup-anchor-switch2'
+    let anchorA: HTMLElement | null = null
+    let anchorB: HTMLElement | null = null
+    let cur = 'A'
+    let pos: any
+    const rects: Record<string, DOMRect> = {
+      A: { top: 100, bottom: 124, left: 50, right: 250, width: 200, height: 24, x: 0, y: 0, toJSON() {} } as DOMRect,
+      B: { top: 300, bottom: 324, left: 500, right: 700, width: 200, height: 24, x: 0, y: 0, toJSON() {} } as DOMRect,
+    }
+    const Cmp = (_: any, ctx: WfuiContext) => {
+      const $ = ctx.ui.$()
+      $.open = false
+      const popup = ctx.ui.usePopup({
+        trigger: () => 'click',
+        placement: () => 'bottom',
+        el: () => (cur === 'A' ? anchorA : anchorB),
+        isOpen: () => $.open,
+        setOpen: (v) => { $.open = v; ctx.ui.render() },
+      })
+      pos = popup
+      return () => h('div', {
+        class: 'popup-wrap2',
+        ...popup.wrapProps,
+      }, [
+        h('div', { class: 'anchor-a', ref: (r: HTMLElement | null) => {
+          if (r) { anchorA = r; (r as any).getBoundingClientRect = () => rects.A }
+        } }),
+        h('div', { class: 'anchor-b', ref: (r: HTMLElement | null) => {
+          if (r) { anchorB = r; (r as any).getBoundingClientRect = () => rects.B }
+        } }),
+        h('button', { class: 'switch', type: 'button', onClick: () => { cur = 'B'; ctx.ui.render() } }, '切B'),
+        popup.portal(h('div', { class: 'panel' }), 'anchor-switch2'),
+      ])
+    }
+    await app.mount('#popup-anchor-switch2', Cmp)
+    const wrap = el.querySelector('.popup-wrap2') as HTMLElement
+    // 点击 wrap 打开（wrapProps onClick）
+    wrap.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
+    await new Promise(r => setTimeout(r, 30))
+    const panel = document.querySelector('#__wf_portal .panel') as HTMLElement
+    if (!panel) throw new Error('panel 未渲染（打开失败）——wrap:' + !!wrap + ' portal容器:' + !!document.querySelector('#__wf_portal'))
+    // A 锚点坐标（bottom 124 + gap 6）
+    assert.equal(panel.style.top, '130px', '打开时 A 锚点坐标')
+    // 切换锚点 B（组件内部 render）——portal 锚点感知自动重算
+    el.querySelector('.switch')!.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
+    await new Promise(r => setTimeout(r, 30))
+    assert.equal(panel.style.top, '330px', '切换锚点后坐标跟随 B（不残留 A）')
+    app.destroy()
+    el.remove()
+  })
+})
