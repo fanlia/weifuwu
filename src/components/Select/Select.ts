@@ -66,6 +66,10 @@ const SelectNative: Component<SelectProps> = (_init, _ctx) =>
 
 const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
   const $ = ctx.ui.$()
+  // 卸载保护：blur 延迟关闭等异步回调不再触发（防孤儿 Proxy 赋值）
+  let disposed = false
+  let blurTimer: ReturnType<typeof setTimeout> | undefined
+  ctx.ui.useStableRef?.(() => {}, () => { disposed = true; if (blurTimer) clearTimeout(blurTimer) })
   $.open = false
   $.keyword = ''
   $.filteredOptions = [] as SelectOption[]
@@ -200,7 +204,7 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
         readOnly: !$.open || undefined,
         onInput: (e: any) => handleInput(e.target.value),
         onFocus: () => { if (!disabled) $.open = true },
-        onBlur: () => { setTimeout(() => { $.open = false; $.keyword = '' }, 150) },
+        onBlur: () => { blurTimer = setTimeout(() => { if (!disposed) { $.open = false; $.keyword = '' } }, 150) },
         onKeyDown: handleKeyDown,
       }),
     ])
