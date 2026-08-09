@@ -192,3 +192,19 @@ SPA serveUI = 另一落地（VDOM → DOM）——handler 只产出 VDOM，落�
 - **$ 确定性初始化**：`$.x = $.x ?? 初始值`（重渲染时 $ 已存在，不能每次重置）
 - **不做请求级 ctx**：前端 ctx 应用级；params/query 是当前渲染请求的解析结果（serveUI 每次 URL 变化更新）
 - **asyncComponent 三层保留兼容**：handler 单层是新形态，三层可继续用（内部同语义）
+
+## 七、验收记录
+
+### S1 类型定义（2026-10，+3 测试，1965 全绿）
+
+- 新增 `src/client/ui-types.ts`（平行新增，不动 createApp/router）：
+  - `UIRequest = Location`（req = window.location，浏览器原生）
+  - `UIResponse = VNode | null`（res = VNode 数据结构）
+  - `UIHandler<C> = (location, ctx: WfuiContext & C) => Promise<UIResponse> | UIResponse`（异步组件，$ 有效）
+  - `UIMiddleware<I, O> = (location, ctx, children) => Promise<UIHandler<O>> | UIHandler<O>`（两阶段）
+  - `UIRouteDef = { path, handler, title? }`（UIRouter.get 内部存储）
+- 新增 `src/test/client/ui-types.test.ts`（3 测试）：
+  - handler 形状（async/sync 均合法，location/ctx.params/query 可访问，返回 VNode）
+  - 中间件两阶段（外层拿 children，内层调 children 得子 VNode 包装）
+  - FS-02：ctx 注入 C 泛型编译期保证（负例 @ts-expect-error 生效）
+- 纯类型改动——typecheck + 全量 1965 绿
