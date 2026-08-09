@@ -1511,6 +1511,8 @@ const DemoPipeline: Component = () => () => (
   </div>
 )
 
+// TREESELECT_CACHE_TEST_20260817
+// CACHE_V2_20260817
 const DemoTreeSelect: Component = (_props, ctx) => {
   let value: string | string[] | undefined = undefined
   const render = () => ctx.ui.render()

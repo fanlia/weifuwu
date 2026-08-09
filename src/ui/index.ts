@@ -87,11 +87,16 @@ async function jsCacheFresh(inputs: Record<string, number>): Promise<boolean> {
   for (const [file, mtime] of Object.entries(inputs)) {
     try {
       const st = await stat(file)
-      if (st.mtimeMs !== mtime) return false
+      if (st.mtimeMs !== mtime) {
+        console.log(`[ui:js-cache] 失效: ${file} (cached=${mtime} now=${st.mtimeMs})`)
+        return false
+      }
     } catch {
+      console.log(`[ui:js-cache] 失效: stat 失败 ${file}`)
       return false
     }
   }
+  console.log(`[ui:js-cache] 命中: ${Object.keys(inputs).length} inputs`)
   return true
 }
 const cssCache = new Map<string, { code: string; mtime: number }>()
@@ -157,6 +162,7 @@ export function ui(): Middleware {
       async js(entryPath: string): Promise<Response> {
         const absPath = resolveEntry(entryPath)
         const cached = jsCache.get(absPath)
+        console.log(`[ui:js-cache] 请求: ${absPath.split('/').pop()} (cached=${!!cached})`)
         if (cached && (await jsCacheFresh(cached.inputs))) {
           return new Response(cached.code, {
             headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' },
@@ -184,6 +190,13 @@ export function ui(): Middleware {
             inputs[abs] = (await stat(abs)).mtimeMs
           } catch { /* 文件可能已删除 */ }
         }
+        // esbuild metafile.inputs 不含入口文件本身（只含 import 依赖）——
+        // 入口 mtime 变化不失效 → 服务器进程存活期间入口永不重编译
+        // （真实 bug：main.tsx 加数据后用户一直看旧版）。手动加入入口。
+        try {
+          inputs[absPath] = (await stat(absPath)).mtimeMs
+        } catch { /* 入口消失 */ }
+        console.log(`[ui:js-cache] 编译: ${absPath.split('/').pop()} (${Object.keys(inputs).length} inputs, ${(code.length / 1024).toFixed(0)}KB)`)
         jsCache.set(absPath, { code, inputs })
 
         return new Response(code, {
