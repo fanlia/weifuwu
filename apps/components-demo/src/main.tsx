@@ -760,7 +760,7 @@ const DemoMenu: Component = (_props, ctx) => {
         <Menu items={items} activeKey={active} onSelect={k => { active = k; ctx.ui.render() }}
           collapsible collapsed={collapsed} onCollapseChange={c => { collapsed = c; ctx.ui.render() }} />
       </div>
-      <div class="wf-text-xs wf-text-secondary wf-mt-sm">当前: {active}（方向键导航；子菜单 Enter 展开 / Esc 收起；底部按钮折叠）</div>
+      <div class="wf-text-xs wf-text-secondary wf-mt-sm">当前: {active}（方向键导航；子菜单 Enter 展开 / Esc 收起；折叠态点图标弹出子菜单浮层；底部按钮折叠）</div>
     </div>
   )
 }
@@ -2369,7 +2369,7 @@ const App: Component = (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">910 测试</Badge>
+          <Badge variant="success">911 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

@@ -3,7 +3,7 @@
  *
  * 导航菜单（侧栏导航）：分组项 + 图标 + 选中态 + 方向键导航 + Enter 激活 + 子菜单 + 折叠。
  * 用于 SaaS 应用侧边导航（替代手写 nav-item 循环）。
- * 裁剪：水平菜单栏（Menubar）、折叠时子菜单浮层（popup，见 roadmap）、子菜单自动互斥。
+ * 裁剪：水平菜单栏（Menubar，独立组件）、子菜单自动互斥。折叠态子菜单浮层已实现（usePopup 基座）。
  */
 
 import type { Component } from '../../client/vnode.ts'
@@ -47,6 +47,17 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
   // 非受控内部状态（手动：闭包 let + render，不触发 Proxy 依赖）
   let internalOpen: string[] = []
   let internalCollapsed = false
+  // 折叠态子菜单浮层（roadmap DO）：复用 usePopup 基座（外部点击/Escape/portal/定位，零 document/window）
+  let collapsedPopupKey: string | null = null
+  let popupAnchor: HTMLElement | null = null
+  const popup = ctx.ui.usePopup({
+    trigger: 'click',
+    placement: 'right',
+    gap: 6,
+    el: () => popupAnchor,
+    isOpen: () => collapsedPopupKey !== null,
+    setOpen: (v) => { if (!v) collapsedPopupKey = null; ctx.ui.render() },
+  })
   // 稳定 ref（mount 作用域）：仅保存容器，避免内联 ref 每渲染重建
   const navRef = (el: any) => { if (el) navEl = el }
 
@@ -97,6 +108,38 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
     const renderSubmenu = (item: MenuItem): any => {
       const open = openSet.has(item.key) && !isCollapsed
       const isActive = item.active ?? (activeKey != null && item.key === activeKey)
+
+      // 折叠态：图标标题 + 点击弹出子菜单浮层（roadmap DO，usePopup 基座）
+      if (isCollapsed) {
+        const popupOpen = collapsedPopupKey === item.key
+        const titleEl = h('div', {
+          'data-key': item.key,
+          class: `wf-menu-submenu-title wf-menu-submenu-title--collapsed${isActive ? ' wf-menu-submenu-title--active' : ''}`,
+          role: 'menuitem',
+          tabIndex: isActive ? 0 : -1,
+          'aria-haspopup': 'menu',
+          'aria-expanded': popupOpen ? 'true' : 'false',
+          onClick: (e: MouseEvent) => {
+            if (popupOpen) { collapsedPopupKey = null; ctx.ui.render() }
+            else {
+              popupAnchor = e.currentTarget as HTMLElement
+              collapsedPopupKey = item.key
+              ctx.ui.render()
+            }
+          },
+          onKeyDown: (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); if (!popupOpen) { popupAnchor = e.currentTarget as HTMLElement; collapsedPopupKey = item.key; ctx.ui.render() } }
+            else if (e.key === 'Escape') { e.preventDefault(); collapsedPopupKey = null; ctx.ui.render() }
+          },
+        }, [
+          item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
+        ].filter(Boolean))
+        // 浮层：usePopup.portal（定位/外部点击/Escape 基座内置）
+        const popupContent = popup.portal(h('div', {
+          class: 'wf-menu-popup',
+        }, (item.children ?? []).map(child => renderItem(child, true, true))), 'menu-popup')
+        return h('div', { key: item.key, 'data-key': item.key, class: 'wf-menu-submenu wf-menu-submenu--collapsed' }, [titleEl, popupOpen ? popupContent : null])
+      }
       // 折叠态：icon-only 标题（无 label/无展开交互——浮层裁剪，见 roadmap）
       const titleChildren = [
         item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
@@ -132,7 +175,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
       }, [title, content])
     }
 
-    const renderItem = (item: MenuItem, isChild = false): any => {
+    const renderItem = (item: MenuItem, isChild = false, forceLabel = false): any => {
       if (item.children && item.children.length > 0 && !isCollapsed) return renderSubmenu(item)
       const isActive = item.active ?? (activeKey != null && item.key === activeKey)
       return h('div', {
@@ -156,7 +199,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
         },
       }, [
         item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
-        isCollapsed ? null : h('span', { class: 'wf-menu-label' }, item.label),
+        isCollapsed && !forceLabel ? null : h('span', { class: 'wf-menu-label' }, item.label),
       ].filter(Boolean))
     }
 
@@ -170,9 +213,11 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
       }
       if (item.children && item.children.length > 0) {
         const sub = renderSubmenu(item)
-        // 递归注入 _parentKey（浅处理一层——裁剪：多级子菜单）
-        sub.props.children[1].props.children = sub.props.children[1].props.children.map((c: any) =>
-          c?.props ? { ...c, props: { ...c.props, _parentKey: item.key } } : c)
+        // 递归注入 _parentKey（浅处理一层——裁剪：多级子菜单）；仅非折叠分支有 content
+        if (!isCollapsed && sub.props.children[1]) {
+          sub.props.children[1].props.children = sub.props.children[1].props.children.map((c: any) =>
+            c?.props ? { ...c, props: { ...c.props, _parentKey: item.key } } : c)
+        }
         nodes.push(sub)
       } else {
         nodes.push(renderItem(item))

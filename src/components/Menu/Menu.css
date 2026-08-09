@@ -150,3 +150,29 @@
   outline: 2px solid var(--wf-color-primary);
   outline-offset: -2px;
 }
+
+/* 折叠态子菜单浮层（roadmap DO：折叠时图标点击弹出） */
+.wf-menu-submenu--collapsed {
+  position: relative;
+}
+.wf-menu-submenu-title--collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: var(--wf-space) 0;
+}
+.wf-menu-popup {
+  min-width: var(--wf-menu-popup-min-width, 160px);
+  background: var(--wf-color-bg);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-md);
+  box-shadow: var(--wf-shadow-lg);
+  padding: var(--wf-space-xs);
+  z-index: var(--wf-z-popover);
+  animation: wf-menu-popup-in var(--wf-dur-fast) var(--wf-ease-out);
+}
+@keyframes wf-menu-popup-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

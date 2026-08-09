@@ -8,7 +8,7 @@ function renderVNode(Comp: any, props: any, ctx: any) {
   return typeof result === 'function' ? result(props) : result
 }
 function mockCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true, usePopup: () => ({ wrapProps: {}, portal: (c: any) => c }) } } as any
 }
 
 const items = [
@@ -184,5 +184,29 @@ describe('Menu 子菜单', () => {
     assert.ok(collapseBtn, '折叠按钮存在')
     collapseBtn.props.onClick()
     assert.equal(got, true)
+  })
+
+  it('折叠态子菜单：点击标题弹出浮层（aria-expanded + popup portal）', () => {
+    const ctx = mockCtx()
+    const render = renderVNode.bind(null, Menu) as any
+    const factory = (Menu as any)({ items: submenuItems, collapsible: true, collapsed: true }, ctx)
+    let v = factory({ items: submenuItems, collapsible: true, collapsed: true })
+    // 折叠标题 aria-expanded=false
+    const findTitle = (n: any): any => {
+      if (!n || typeof n !== 'object') return null
+      if (String(n.props?.class ?? '').includes('wf-menu-submenu-title--collapsed')) return n
+      const k = n.props?.children
+      const arr = Array.isArray(k) ? k : (k && typeof k === 'object' ? [k] : [])
+      for (const c of arr) { const f = findTitle(c); if (f) return f }
+      return null
+    }
+    const title = findTitle(v)
+    assert.ok(title, '折叠标题渲染')
+    assert.equal(title.props['aria-expanded'], 'false', '初始未展开')
+    // 点击展开（mock usePopup.portal 返回 content，popupOpen 后 children[1] 非空）
+    title.props.onClick({ currentTarget: {} })
+    v = factory({ items: submenuItems, collapsible: true, collapsed: true })
+    const title2 = findTitle(v)
+    assert.equal(title2.props['aria-expanded'], 'true', '点击后展开')
   })
 })
