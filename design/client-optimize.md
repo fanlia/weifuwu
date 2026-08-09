@@ -224,3 +224,115 @@ dist/client/index.js 71KB 未 minify；内部 API 导出无标注。
 - 仅迁移 Companies.tsx 作为示范；其余 13 页的 fetch 迁移留待后续（模式已验证，机械替换）
 - `ctx.api` 为可选声明需 `!`（与 WfuiContext 现有 api?/auth? 一致的模式）
 - agent-platform 有 5 个既有 typecheck 错误（server.ts/middleware/ai.ts），非本次引入
+
+---
+
+## 后续：自定义组件开发 DX（证据驱动，2026-09）
+
+> 目标：让外部开发者用 weifuwu/client 写自定义组件达到内置组件的同权便利——同原语、同类型安全、同测试护栏。
+> 证据来源：92 组件审计 + client API 面对照（35 项导出 vs 组件内部相对路径 import）。
+
+### 现状基线（审计结论）
+
+- **强**：组件模型（h/Component/两阶段）、响应式 $、usePopup（9 组件共享）、事件原语族（useInView/useScrollPosition/usePopupPosition/useVisualViewport/useHoverCapable/useLongPress）、useChat、对话框基础设施（trapFocus/lockScroll/animateOut 已导出）、低层手工能力（mountVNode/patchValue 已导出）
+- **缺口**：组件内部 `createReactiveState` 1 处 import 但未公开导出；受控 warn 模式在 5+ 组件重复（Dropdown/Calendar/Cascader/Collapse/Tree）；内联 ref 陷阱（ref 纪律）是已知暗坑（AiChat 踩过）；useAsync 存在 stale-close 竞态（reload 无 token 保护）；docs 零"自定义组件"教程
+
+## P0 — 公开面补齐（直接解除外部开发者阻塞）
+
+### P0-1: 导出 createReactiveState（公开响应式状态）
+
+**问题**：`ctx.ui.$()` 绑定组件实例；组件外建响应式状态（全局 store/共享跨组件状态）无公开入口。组件库内部已用（Notification.test），但 `weifuwu/client` 未导出。
+
+**方案**：
+1. `client/index.ts` 导出 `createReactiveState` + `类型 CreateReactiveStateReturn`
+2. 文档示例：全局 store 模式（`createReactiveState(() => {})` + `$.__watch(cb)` 订阅）
+
+**验证**：type-flow.test 正例 + 新测试（独立状态容器赋值触发 watcher）。
+
+### P0-2: docs/custom-components.md（自定义组件开发指南）
+
+**问题**：docs 零"自定义组件"内容；usePopup/事件原语/类型流的组合模式没固化成步骤文档。外部开发者写复杂组件要读 Tooltip/Modal 源码逆向模式。
+
+**方案**：新文档，按复杂度阶梯：
+1. 无状态组件 → 有状态组件（$）→ 异步组件（asyncComponent）
+2. **带弹层组件**：usePopup 逐步示例（trigger 降级/Escape/外部点击/定位/clamp/portal）
+3. **对话框组件**：trapFocus + lockScroll + animateOut 模式（参考 Modal）
+4. **AI 组件**：useChat + 共享 $ 订阅
+5. 类型纪律：Component<P,C>、受控 props 配回调、ref 纪律、style-audit 对齐
+6. 测试写法：renderVNode + @ts-expect-error 负例
+
+**验证**：README 文档导航 + components.md 链接；文档围栏/链接检查脚本通过。
+
+## P1 — 原语收敛（消灭组件层重复）
+
+### P1-1: useControlled 原语（受控判定 + 缺回调 warn）
+
+**问题**：`console.warn('[weifuwu/Dropdown] 受控模式（open 已传）但未提供 onOpenChange…')` 模式在 Dropdown/Calendar/Cascader/Collapse/Tree 5+ 组件逐字重复。
+
+**方案**：`ctx.ui.useControlled({ value, onChange, name })` → `{ value, setValue, controlled }`：
+- `value !== undefined` → controlled；缺 `onChange` → 一次 warn（名称化）
+- 非受控 → 内部 `$` 状态回退
+- SSR 无害（无副作用）
+
+**迁移**：5 组件逐个替换（每个组件改后跑自身测试 + style-audit）；新受控组件一律用它（文档强制）。
+
+**验证**：TDD——先写 useControlled 测试（受控/非受控/缺回调 warn 一次）；迁移后 5 组件测试保持绿。
+
+### P1-2: useStableRef 原语（内联 ref 陷阱根治）
+
+**问题**：ref-diff 在 ref 函数引用变化时调用旧 ref(null)——内联 ref 导致每次渲染误触清理（AiChat 流式不更新的根因之一）。AGENTS.md 有纪律但**无原语**，新开发者仍会踩。
+
+**方案**：`ctx.ui.useStableRef(init, cleanup?)` → 稳定引用（mount 作用域持有，永不重建）：
+```tsx
+const listRef = ctx.ui.useStableRef(
+  (el) => { instance = init(el) },
+  () => { instance?.dispose() },
+)
+return () => h('div', { ref: listRef })
+```
+
+**验证**：TDD——测试 ref 函数引用跨渲染恒等（引用比较）+ null 分支只在卸载触发。
+
+### P1-3: useAsync 竞态修复（stale-close token 保护）
+
+**问题**：`reload()` 无 token 保护——快速 reload 时旧 Promise 后 resolve 覆盖新结果。
+
+**方案**：闭包 `let token = 0`；每次 run `token++`，resolve/catch 前校验 `token === cur`，过期静默丢弃。
+
+**验证**：TDD 红→绿——新测试：慢旧请求 vs 快新请求（可控 Promise）断言旧结果不覆盖。
+
+## P2 — 深度边界（诚实裁剪）
+
+### P2-1: useDialog 组合器（全屏对话框收敛）
+
+**问题**：Modal/Drawer/Command/Img preview 的 Escape + focus-trap + scroll-lock + 退场动画状态机仍手工（usePopup 裁剪外的合理场景，但 Modal/Drawer 已 2 处重复）。
+
+**方案**：`ctx.ui.useDialog({ open, onClose })` → `{ phase, openDialog, closeDialog, overlayProps, panelProps }`：
+- 收敛：Escape（document 级）+ trapFocus + lockScroll + animateOut 退场 + bottom-sheet（≤639px 自动）
+- Modal/Drawer 迁移；Command/Img 保持现状（不同语义，文档说明）
+
+**验证**：TDD——useDialog 测试（开/关/Escape/trap/scroll-lock/退场）+ Modal/Drawer 既有测试保持绿。
+
+### P2-2: SSR no-op 验证测试
+
+**问题**：usePopup/useInView/useScrollPosition/useAsync 的 SSR shim 无独立测试（遍历器下 `$` dirty no-op 已被 shim 覆盖，但原语本身无验证）。
+
+**方案**：服务端 ctx shim 下逐个调用原语，断言不抛 + 返回合理初始值。
+
+**验证**：新测试文件（server ctx 模拟）。
+
+## 依赖与验收汇总
+
+```
+P0-1 ──┐
+P0-2 ──┤（文档先于 P1 迁移，开发者有参考）
+P1-1 ──┼─→ P1 三个原语独立可并行（各自 TDD）
+P1-2 ──┤
+P1-3 ──┘
+P2-1 ──（依赖 P1-1 的 useControlled 模式先定型？否——独立）
+P2-2 ──（独立）
+```
+
+- **每项验收**：TDD 红→绿（CS-05）+ 对应组件测试保持绿 + `tsc --noEmit` + 全量 `npm test` ≤15s（当前 1469 测试 ~11.5s，预算余量 ~3.5s）
+- **文档验收**：README 文档导航同步 + 围栏/链接脚本通过
+- **诚实裁剪**：Command/Img preview 不进 useDialog（语义不同）；Select/DatePicker 保持 inline absolute（自适宽，无需 usePopup）——已在 components-map 声明
