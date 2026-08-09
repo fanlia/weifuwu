@@ -282,3 +282,55 @@ test('handler 抛错 → 错误页兜底（不黑屏）', async () => {
   handle.close()
 })
 
+
+// ═══════════════════════════════════════════════════════
+// UIRouter ctx 注入链（对齐后端 app.use——toast/confirm 注入 ctx.xxx）
+// ═══════════════════════════════════════════════════════
+
+test('UIRouter.use(AppMiddleware)：ctx 注入链（toast/confirm）', async () => {
+  const { toast } = await import('../ui-dom/Toast.ts')
+  const { confirm } = await import('../ui-dom/Confirm.ts')
+  const router = new UIRouter()
+  router.use(toast())
+  router.use(confirm())
+  router.get('/inj', () => h('div', { id: 'inj-page' }, '注入页'))
+  window.history.pushState(null, '', '/inj')
+  const el = mount('ui-inj')
+  const handle = uiServe(router, { root: '#ui-inj' })
+  await flush()
+  const ctx = handle.ctx as any
+  assert.equal(typeof ctx.toast, 'function', 'ctx.toast 注入')
+  assert.equal(typeof ctx.confirm, 'function', 'ctx.confirm 注入')
+  // 调用 toast → 命令式渲染（Toast 组件输出到 portal）
+  ctx.toast('保存成功', 'success')
+  await flush()
+  const host = document.querySelector('.wf-toast-host')
+  assert.ok(host, 'toast host 渲染')
+  const toastEl = document.querySelector('.wf-toast')
+  assert.ok(toastEl, 'toast 消息渲染（portal）')
+  assert.ok(toastEl?.textContent?.includes('保存成功'), 'toast 消息显示')
+  assert.ok(toastEl?.className.includes('wf-toast--success'), 'toast type class')
+  handle.close()
+})
+
+test('UIRouter.use(AppMiddleware)：自定义注入中间件（ctx.xxx 类型扩展）', async () => {
+  const customMw = (ctx: any) => {
+    ;(ctx as any).custom = { hello: 'world' }
+    return ctx
+  }
+  const router = new UIRouter()
+  router.use(customMw)
+  router.get('/c', async (location, ctx: any) => {
+    const $ = ctx.ui.$()
+    $.v = $.v ?? 0
+    return h('div', { id: 'c-page' }, `custom: ${ctx.custom.hello}`)
+  })
+  window.history.pushState(null, '', '/c')
+  const el = mount('ui-c')
+  const handle = uiServe(router, { root: '#ui-c' })
+  await flush()
+  assert.equal(el.querySelector('#c-page')?.textContent, 'custom: world', '自定义注入可用')
+  assert.equal((handle.ctx as any).custom.hello, 'world', 'handle.ctx 有注入')
+  handle.close()
+})
+

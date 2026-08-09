@@ -12,7 +12,7 @@
  */
 
 import type { UIHandler, UIMiddleware, UIRouteDef } from './types.ts'
-import type { VNode, WfuiContext } from './types.ts'
+import type { VNode, WfuiContext, AppMiddleware } from './types.ts'
 
 /** UIRouter 选项 */
 export interface UIRouterOptions {
@@ -48,6 +48,10 @@ export interface RouteMatch {
 export class UIRouter<C extends object = {}> {
   private _routes: UIRouteDef[] = []
   private _middlewares: UIMiddleware[] = []
+  /** ctx 注入中间件链（toast/confirm/notification 等——对齐后端 app.use 注入 ctx.xxx） */
+  private _injections: AppMiddleware<any, any>[] = []
+  /** 注入已完成标记（应用级 ctx——首次渲染时执行一次） */
+  private _injected = false
   private _mode: 'hash' | 'history'
   private _notFound?: UIHandler
 
@@ -59,11 +63,13 @@ export class UIRouter<C extends object = {}> {
     return this._mode
   }
 
-  /** 中间件（layout/SSR 等） */
+  /** ctx 注入中间件（toast/confirm 等——(ctx) => ctx，对齐后端 app.use 注入 ctx.xxx） */
+  use<I extends object, O extends object>(mw: AppMiddleware<I, O>): UIRouter<C & O>
+  /** 渲染中间件（layout/SSR 等）——包装 children 产 vnode */
   use<I extends object, O extends object>(mw: UIMiddleware<I, O>): UIRouter<C & O>
   /** 子路由挂载（= 后端 mount(path, subRouter)）——独立路由树：sub 的中间件/notFound/嵌套均生效 */
   use(prefix: string, sub: UIRouter): this
-  use(arg: UIMiddleware | string, sub?: UIRouter): UIRouter<C> {
+  use(arg: AppMiddleware | UIMiddleware | string, sub?: UIRouter): UIRouter<C> {
     if (typeof arg === 'string' && sub) {
       // 子路由：前缀匹配中间件——URL 在 prefix 下时交给 sub 路由树处理
       const parent = this
@@ -81,8 +87,22 @@ export class UIRouter<C extends object = {}> {
       this._middlewares.push(mw)
       return this
     }
+    // 区分：AppMiddleware（1 参 ctx 注入）vs UIMiddleware（3 参渲染）
+    if (arg.length <= 1) {
+      this._injections.push(arg as AppMiddleware)
+      return this as unknown as UIRouter<C & object>
+    }
     this._middlewares.push(arg as UIMiddleware)
     return this as unknown as UIRouter<C>
+  }
+
+  /** 执行 ctx 注入链（首次渲染时一次——应用级 ctx，对齐 createApp.use 链） */
+  private async _ensureInjected(ctx: WfuiContext): Promise<void> {
+    if (this._injected) return
+    this._injected = true
+    for (const mw of this._injections) {
+      await mw(ctx)
+    }
   }
 
   /** 页面路由（对齐后端 get(path, handler)）——handler = 异步组件 */
@@ -133,6 +153,7 @@ export class UIRouter<C extends object = {}> {
    * 返回 VNode（无渲染——serve 落地）。
    */
   async _handle(relPath: string, location: Location, ctx: WfuiContext): Promise<VNode | null> {
+    await this._ensureInjected(ctx)
     const match = this.match(relPath)
     if (match.title) document.title = match.title
     // 注入共享 ctx（params 是当前渲染请求的解析结果）
@@ -157,6 +178,7 @@ export class UIRouter<C extends object = {}> {
 
   /** 顶层执行：中间件链 + handler → VNode（serve 调用，URL 变化时） */
   async execute(location: Location, ctx: WfuiContext, path: string): Promise<VNode | null> {
+    await this._ensureInjected(ctx)
     const match = this.match(path)
     if (match.title) document.title = match.title
     ctx.params = match.params

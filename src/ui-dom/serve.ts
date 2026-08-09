@@ -30,15 +30,18 @@ export interface UIServeOptions {
 }
 
 /** serve 句柄 */
-export interface UIServeHandle {
+export interface UIServeHandle<C extends object = {}> {
   /** 释放全部资源（监听/渲染状态/注册表） */
   close(): void
-  /** 当前 ctx（调试/测试用） */
-  ctx: WfuiContext
+  /** 当前 ctx（调试/测试用）——含 UIRouter ctx 注入的类型扩展 */
+  ctx: WfuiContext & C
 }
 
 /** uiServe — 绑定唯一根节点 + URL 驱动渲染（= VDOM 落地，对齐 serve(router)） */
-export function uiServe(router: UIRouter, options: UIServeOptions): UIServeHandle {
+export function uiServe<RC extends object = {}>(
+  router: UIRouter<RC>,
+  options: UIServeOptions,
+): UIServeHandle<RC> {
   const el = typeof options.root === 'string'
     ? document.querySelector(options.root)
     : options.root
@@ -260,7 +263,7 @@ export function uiServe(router: UIRouter, options: UIServeOptions): UIServeHandl
 
   // ── handle ──
   return {
-    get ctx() { return ctx },
+    get ctx() { return ctx as WfuiContext & RC },
     close() {
       window.removeEventListener('popstate', onPop)
       if (router.mode === 'hash') window.removeEventListener('hashchange', onHash)
