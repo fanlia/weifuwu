@@ -65,9 +65,14 @@ export class UIRouter<C extends object = {}> {
   /** 路由实例的 $（同 URL 共享） */
   private _state: Record<string, any> | null = null
   private _cleanupFns: Array<() => void> = []
-  private _rendering = false
   /** hydrate 模式（收养服务端 HTML） */
   private _hydrate = false
+  /** O1：微任务已调度（批量合并） */
+  private _scheduled = false
+  /** O1：组件级微任务已调度 */
+  private _compScheduled = false
+  /** 渲染保护期（handler 内 $ 赋值丢弃——对齐 client isRendering） */
+  private _rendering = false
 
   constructor(options: UIRouterOptions = {}) {
     this._mode = options.mode ?? 'history'
@@ -206,24 +211,60 @@ export class UIRouter<C extends object = {}> {
 
   /** 匹配 URL → 执行中间件链 + handler → VNode → 落地 DOM */
   private _render(): void {
-    if (this._rendering || !this._rootEl) return
-    this._rendering = true
-    void this._renderAsync()
+    this._scheduleRender()
+  }
+
+  /** 调度器（handler 级）：微任务批量合并（O1） */
+  private _scheduleRender(): void {
+    if (this._scheduled) return
+    this._scheduled = true
+    queueMicrotask(() => {
+      this._scheduled = false
+      void this._renderAsync()
+    })
+  }
+
+  /** 调度器（组件级）：仅重渲染 dirty 组件，不重跑 handler（交互子组件） */
+  private _scheduleComponents(): void {
+    if (this._compScheduled) return
+    this._compScheduled = true
+    queueMicrotask(() => {
+      this._compScheduled = false
+      this._renderComponents()
+    })
   }
 
   /** 组件级重渲染（D1）：仅重渲染 dirty 组件，不重跑 handler/中间件链 */
   private _renderComponents(): void {
     const registry = (this._ctx as any)?.__registry
     if (!registry || !this._rootEl) return
+    rerenderDirtyComponents(registry, this._rootEl)
+    // 组件重渲染中新 dirty（渲染循环外的赋值）→ 继续（不丢）
+    if (registry._dirty.size > 0) this._renderComponents()
+  }
+
+  private async _renderAsync(): Promise<void> {
+    // 渲染保护期：handler 内 $ 赋值丢弃（对齐 client isRendering）——
+    // 避免 $.x = $.x ?? init 首赋触发二次渲染/循环
+    if (this._rendering) return
     this._rendering = true
     try {
-      rerenderDirtyComponents(registry, this._rootEl)
+      await this._renderAsyncInner()
+    } catch (err) {
+      // O7：handler/中间件抛错 → 错误页兜底（不黑屏）
+      console.error('[ui-dom] render error:', err)
+      if (this._oldVNode == null && this._rootEl) {
+        const errNode = document.createElement('div')
+        errNode.className = 'ui-dom-error'
+        errNode.textContent = `渲染错误: ${(err as Error)?.message ?? String(err)}`
+        this._rootEl.appendChild(errNode)
+      }
     } finally {
       this._rendering = false
     }
   }
 
-  private async _renderAsync(): Promise<void> {
+  private async _renderAsyncInner(): Promise<void> {
     const flat = flatten(this._routes)
     const path = this._getPath()
     const match = flat.find(f => f.re.test(path))
@@ -240,37 +281,33 @@ export class UIRouter<C extends object = {}> {
     // handler = 匹配的 or 404
     const handler = match ? match.handler : (this._notFound ?? (() => null))
 
-    try {
-      // 执行中间件链（洋葱）：从最外层向内
-      let inner: UIHandler = handler as UIHandler
-      for (let i = this._middlewares.length - 1; i >= 0; i--) {
-        const mw = this._middlewares[i]
-        const child = inner
-        inner = (await mw(window.location, ctx, child)) ?? child
-      }
-      // 执行 handler → VNode
-      const vnode = (await inner(window.location, ctx)) as VNode | null
-
-      // 落地：首次挂载 / 后续 diff（hydrate 模式收养服务端 HTML）
-      if (this._oldVNode == null) {
-        if (vnode) {
-          const node = this._hydrate && this._rootEl && this._rootEl.firstElementChild
-            ? hydrateValue(this._rootEl, vnode, ctx)
-            : renderValue(vnode, ctx)
-          if (node && this._rootEl) {
-            // hydrate 收养：不 append（已有节点）；否则 append
-            if (node.parentNode !== this._rootEl) this._rootEl.appendChild(node)
-          }
-        }
-      } else {
-        if (this._rootEl) {
-          patchValue(this._rootEl, this._rootEl.firstChild, this._oldVNode, vnode, ctx)
-        }
-      }
-      this._oldVNode = vnode
-    } finally {
-      this._rendering = false
+    // 执行中间件链（洋葱）：从最外层向内
+    let inner: UIHandler = handler as UIHandler
+    for (let i = this._middlewares.length - 1; i >= 0; i--) {
+      const mw = this._middlewares[i]
+      const child = inner
+      inner = (await mw(window.location, ctx, child)) ?? child
     }
+    // 执行 handler → VNode
+    const vnode = (await inner(window.location, ctx)) as VNode | null
+
+    // 落地：首次挂载 / 后续 diff（hydrate 模式收养服务端 HTML）
+    if (this._oldVNode == null) {
+      if (vnode) {
+        const node = this._hydrate && this._rootEl && this._rootEl.firstElementChild
+          ? hydrateValue(this._rootEl, vnode, ctx)
+          : renderValue(vnode, ctx)
+        if (node && this._rootEl) {
+          // hydrate 收养：不 append（已有节点）；否则 append
+          if (node.parentNode !== this._rootEl) this._rootEl.appendChild(node)
+        }
+      }
+    } else {
+      if (this._rootEl) {
+        patchValue(this._rootEl, this._rootEl.firstChild, this._oldVNode, vnode, ctx)
+      }
+    }
+    this._oldVNode = vnode
   }
 
   /** 创建或复用 ctx（同一 URL 复用 $——路由实例） */
@@ -284,13 +321,15 @@ export class UIRouter<C extends object = {}> {
     const registry = new Registry()
 
     // 路由实例级 $ 状态（handler 的 ctx.ui.$——首次创建，重渲染复用）
+    // 渲染期（_renderAsync 内）赋值丢弃——handler 内赋值总被当前渲染消费
+    // （$.x = $.x ?? init 首赋不触发二次渲染；await 后 $.users = data 同理）
     const state = createReactiveState(() => {
-      if (!this._rendering) this._render()
+      if (!this._rendering) this._scheduleRender()
     })
 
-    // 组件级 dirty 调度：仅重渲染 dirty 组件（不重跑 handler）
+    // 组件级 dirty 调度：仅重渲染 dirty 组件（不重跑 handler）；渲染期丢弃
     registry.onDirty(() => {
-      if (!this._rendering) this._renderComponents()
+      if (!this._rendering) this._scheduleComponents()
     })
 
     const ctx: UIContext = {
@@ -299,7 +338,24 @@ export class UIRouter<C extends object = {}> {
       __registry: registry,
       ui: {
         $: () => state as Record<string, any>,
-        render: () => this._render(),
+        // dirty：当前组件（_selfId）→ markDirty；路由级 → scheduleRender
+        dirty: () => {
+          const selfId = (ctx as any)._selfId
+          if (selfId && registry) {
+            registry.markDirty(selfId)
+          } else {
+            this._scheduleRender()
+          }
+        },
+        // render：同步落地——当前组件（_selfId）→ 立即重渲染；路由级 → 立即全量
+        render: () => {
+          const selfId = (ctx as any)._selfId
+          if (selfId && registry) {
+            rerenderDirtyComponents(registry, this._rootEl as Node | null)
+          } else {
+            void this._renderAsync()
+          }
+        },
         data: {
           async get<T>(key: string, fetcher?: () => Promise<T>): Promise<T | undefined> {
             const entry = dataCache.get(key)

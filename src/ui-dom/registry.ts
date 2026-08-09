@@ -15,12 +15,31 @@ export class Registry {
   private _dirty = new Set<string>()
   /** 渲染保护期（重渲染循环中忽略新 dirty，循环结束统一处理） */
   private _rendering = false
+  /** mount 保护期（组件工厂执行——$ 初始化赋值丢弃，对齐 client setMounting） */
+  private _mounting = false
   /** dirty 触发回调（router 注入——组件 $ 赋值时调度重渲染循环） */
   private _onDirty: (() => void) | null = null
 
   /** 设置 dirty 回调（router 调度重渲染） */
   onDirty(fn: () => void): void {
     this._onDirty = fn
+  }
+
+  /** mount 期标志（renderComponent mount 包裹） */
+  setMounting(v: boolean): void {
+    this._mounting = v
+  }
+
+  get isMounting(): boolean {
+    return this._mounting
+  }
+
+  get isRendering(): boolean {
+    return this._rendering
+  }
+
+  setRendering(v: boolean): void {
+    this._rendering = v
   }
 
   /** 分配组件 id */
@@ -44,9 +63,10 @@ export class Registry {
     this._dirty.delete(id)
   }
 
-  /** 标记组件 dirty（$ 赋值触发） */
+  /** 标记组件 dirty（$ 赋值触发）——mount/渲染保护期丢弃（对齐 client），事件期排队 */
   markDirty(id: string): void {
-    if (this._rendering) return // 渲染保护：循环中忽略，循环结束统一处理
+    if (this._mounting || this._rendering) return // mount 初始化/渲染循环中赋值丢弃
+    if (this._dirty.has(id)) return
     this._dirty.add(id)
     this._onDirty?.() // 调度重渲染循环
   }
@@ -56,14 +76,5 @@ export class Registry {
     const ids = [...this._dirty]
     this._dirty.clear()
     return ids
-  }
-
-  /** 是否渲染保护期 */
-  get isRendering(): boolean {
-    return this._rendering
-  }
-
-  setRendering(v: boolean): void {
-    this._rendering = v
   }
 }

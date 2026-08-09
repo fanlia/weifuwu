@@ -71,19 +71,40 @@ function renderComponent(Comp: Function, vnode: VNode, ctx: any): Node | null {
   childCtx._selfVNode = vnode
   if (registry && vnode._id) {
     // 组件级 $：dirty 本组件（区别于路由实例级 $——router 注入的 ctx.ui.$）
-    // 覆盖 childCtx.ui.$——组件内 ctx.ui.$() 返回组件级状态
-    const componentState = createComponentState(registry, vnode._id)
+    // 覆盖 childCtx.ui.$/dirty/render——组件内精准定位本组件
+    const selfId = vnode._id
+    const componentState = createComponentState(registry, selfId)
     childCtx.ui = {
       ...(ctx?.ui ?? {}),
       $: () => componentState,
+      // dirty：异步批量（微任务调度在 registry.onDirty）
+      dirty: () => registry.markDirty(selfId),
+      // render：立即同步重渲染本组件（measure/animate 需要最新 DOM）
+      render: () => {
+        registry.markDirty(selfId)
+        rerenderDirtyComponents(registry, null)
+      },
     }
   }
 
-  // mount（一次）：Comp(initProps, ctx) → render 函数
-  const renderFn = (Comp as any)(vnode.props ?? {}, childCtx)
+  // mount（一次）：Comp(initProps, ctx) → render 函数（mount 期 $ 初始化赋值丢弃）
+  registry?.setMounting?.(true)
+  let renderFn: any
+  try {
+    renderFn = (Comp as any)(vnode.props ?? {}, childCtx)
+  } finally {
+    registry?.setMounting?.(false)
+  }
   if (typeof renderFn !== 'function') return null
   vnode._render = renderFn
-  const childVNode = renderFn(vnode.props ?? {})
+  // render 期（首次渲染函数调用）——render 内 $ 赋值丢弃
+  registry?.setRendering?.(true)
+  let childVNode: any
+  try {
+    childVNode = renderFn(vnode.props ?? {})
+  } finally {
+    registry?.setRendering?.(false)
+  }
   if (childVNode == null) return null
   vnode._child = childVNode
   ;(vnode as any)._ctx = childCtx

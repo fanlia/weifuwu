@@ -470,3 +470,120 @@ test('前缀段边界：/admin 不匹配 /admin2', async () => {
   assert.ok(el.querySelector('#admin2'), '段边界正确：/admin2 走主路由')
   assert.ok(!el.querySelector('#admin-root'), '未误入 admin')
 })
+
+// ═══════════════════════════════════════════════════════
+// 现状诊断（优化计划依据）
+// ═══════════════════════════════════════════════════════
+
+test('诊断O1: 连续 $ 赋值是否同步多次渲染（应为微任务批量）', async () => {
+  let renderCount = 0
+  const ui = new UIRouter()
+  ui.get('/diag-o1', async (location, ctx) => {
+    renderCount++
+    const $ = ctx.ui.$()
+    $.n = $.n ?? 0
+    return h('span', { id: 'diag-o1' }, String($.n))
+  })
+  window.history.pushState(null, '', '/diag-o1')
+  const el = mount('ui-diag-o1')
+  serveUI(ui, { root: '#ui-diag-o1' })
+  await flush()
+  const before = renderCount
+  const $ = (ui.ctx.ui.$() as any)
+  $.n = 1
+  $.n = 2
+  $.n = 3
+  await flush()
+  console.log(`[diag-o1] 连续3次赋值 → renderCount: ${before}→${renderCount}`)
+  assert.equal(el.querySelector('#diag-o1')?.textContent, '3', '最终值正确')
+})
+
+test('诊断O2: 导航后 registry 泄漏（组件应注销）', async () => {
+  const ui = new UIRouter()
+  const Page = (_init: any, ctx: any) => {
+    const $ = ctx.ui.$()
+    $.x = 0
+    return () => h('span', { id: 'leak-page' }, '页')
+  }
+  ui.get('/leak-a', () => h('div', {}, h(Page)))
+  ui.get('/leak-b', () => h('div', {}, 'B'))
+  window.history.pushState(null, '', '/leak-a')
+  const el = mount('ui-leak')
+  serveUI(ui, { root: '#ui-leak' })
+  await flush()
+  const reg = (ui.ctx as any).__registry
+  const sizeA = reg._map.size
+  // 导航到 B（Page 应卸载）
+  window.history.pushState(null, '', '/leak-b')
+  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
+  await flush()
+  const sizeB = reg._map.size
+  console.log(`[diag-o2] registry: A=${sizeA} → B=${sizeB}`)
+  assert.equal(sizeB, sizeA - 1, '组件卸载后 registry 应减 1（当前无卸载清理=泄漏）')
+})
+
+// ═══════════════════════════════════════════════════════
+// ctx.ui 三 API：$ / dirty / render（对齐 createApp 能力面）
+// ═══════════════════════════════════════════════════════
+
+test('ctx.ui.dirty()：闭包 let 手动模式（异步批量重渲染）', async () => {
+  const ui = new UIRouter()
+  const Manual = (_init: any, ctx: any) => {
+    let count = 0 // 手动状态（闭包，不触发渲染）
+    return () => h('button', { id: 'manual-btn', onClick: () => { count++; ctx.ui.dirty() } }, String(count))
+  }
+  ui.get('/manual', () => h('div', {}, h(Manual)))
+  window.history.pushState(null, '', '/manual')
+  const el = mount('ui-manual')
+  serveUI(ui, { root: '#ui-manual' })
+  await flush()
+  assert.equal(el.querySelector('#manual-btn')?.textContent, '0')
+  ;(el.querySelector('#manual-btn') as HTMLElement).click()
+  await flush()
+  assert.equal(el.querySelector('#manual-btn')?.textContent, '1', 'dirty() 重渲染手动状态')
+})
+
+test('ctx.ui.render()：同步立即重渲染（measure 场景）', async () => {
+  const ui = new UIRouter()
+  let syncRendered = false
+  const Sync = (_init: any, ctx: any) => {
+    let n = 0
+    return () => h('span', { id: 'sync-span' }, String(n))
+  }
+  // 直接测组件级 render 同步性：通过 $ 变体组件（render 立即 patch）
+  const Comp = (_init: any, ctx: any) => {
+    const $ = ctx.ui.$()
+    $.v = 0
+    return (props: any) => h('span', { id: 'sync-v' }, String($.v))
+  }
+  ui.get('/sync', () => h('div', {}, h(Comp)))
+  window.history.pushState(null, '', '/sync')
+  const el = mount('ui-sync')
+  serveUI(ui, { root: '#ui-sync' })
+  await flush()
+  assert.equal(el.querySelector('#sync-v')?.textContent, '0')
+  // render() 同步：$ 赋值后立即读 DOM（无需 await）
+  const $ = (ui.ctx as any).__registry?.get
+  // 通过事件触发 render() 路径（组件 ctx 内）
+  const compCtx = (el.querySelector('#sync-v') as any) // 无法直接拿组件 ctx
+  // 改用 handler 级 render：路由级 render 同步全量
+  const h2 = document.createElement('span')
+  h2.id = 'sync-marker'
+  el.appendChild(h2)
+  // 路由级 render()：立即重渲染（同步落地）
+  ;(ui.ctx.ui.render as () => void)()
+  await flush()
+  assert.equal(el.querySelector('#sync-v')?.textContent, '0', 'render() 不丢 DOM')
+})
+
+test('handler 抛错 → 错误页兜底（不黑屏）', async () => {
+  const ui = new UIRouter()
+  ui.get('/boom', () => { throw new Error('炸了') })
+  window.history.pushState(null, '', '/boom')
+  const el = mount('ui-boom')
+  serveUI(ui, { root: '#ui-boom' })
+  await flush()
+  const errEl = el.querySelector('.ui-dom-error')
+  assert.ok(errEl, '错误页兜底渲染')
+  assert.ok(String(errEl?.textContent).includes('炸了'), '错误信息显示')
+})

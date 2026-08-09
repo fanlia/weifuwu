@@ -19,7 +19,9 @@ export interface UIContext {
   /** 响应式状态容器：$.x = val 自动触发重渲染 */
   ui: {
     $: () => Record<string, any>
-    /** 手动触发当前渲染重执行 */
+    /** 手动标记当前组件脏（异步批量重渲染）——闭包 let 变量手动模式 */
+    dirty: () => void
+    /** 立即同步重渲染（当前组件或路由级）——需要马上拿到最新 DOM（测量/动画） */
     render: () => void
     /** 数据管道：缓存 + in-flight 合并（重渲染命中缓存，保证"外层只使用一次"） */
     data: {
