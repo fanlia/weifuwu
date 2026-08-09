@@ -492,6 +492,26 @@ const dropdown = open ? createPortal(h('div', { class: 'wf-xxx-dropdown', style:
 - 弹层容器必须 `z-index: var(--wf-z-*)`（禁裸值，audit 强制）
 - **测试注意**：portal vnode 的 `type` 是 Portal 组件（非字符串标签）——断言子内容用 `vnode.props.children` 递归
 
+
+### usePopup 能力清单（C6——新弹层组件先查再实现，禁止重复造轮子）
+
+`ctx.ui.usePopup()` 已内置（Select/AutoComplete/NavMenu/Popconfirm/Cascader 等全部复用）：
+
+| 能力 | 说明 |
+|------|------|
+| **portal** | `popup.portal(content, key)` —— createPortal 到 #__wf_portal + fixed 定位 + 视口夹紧 |
+| **定位** | placement（top/bottom/left/right）+ `center:false` 左对齐 + gap/margin |
+| **打开自动 refresh** | 首次打开 + **锚点变化**（el 变化）自动重算坐标（C1 锚点感知） |
+| **el-null fallback** | 嵌套弹层首帧锚点 ref 未挂载——微任务重试 |
+| **外部点击关闭** | document mousedown——el/panel 外点击关闭（**禁止自建 overlay 遮罩——会挡按钮**） |
+| **Escape 关闭** | document keydown |
+| **ref 稳定** | portal 内部 ref 已稳定化（portalPanelRef——无内联 ref 警告） |
+| **open getter** | `popup.open` 是 getter（渲染期读最新——非快照） |
+
+新弹层组件：`usePopup({ trigger, placement, el, isOpen, setOpen })` → `popup.portal(...)`——
+**不需要**：自建 overlay、手动定位计算、手动 Escape/外部点击、手动 portal ref。
+
+
 ### 样式纪律：小尺寸 button 必须固定 min/max-height
 
 全局 button 样式设 `min-height: 36px`——**任何小尺寸按钮**（checkbox/dot/switcher/star/关闭钮等）若不覆盖，会被撑成 36px 竖条（Tree checkbox 14x36、Carousel 圆点 8x45、Rate 星 16x36——真实操作抓出 6 处）：

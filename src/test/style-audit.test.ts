@@ -396,6 +396,15 @@ describe('样式审计 — 设计约束', () => {
     assert.deepEqual(violations, [], 'ref 必须引用 mount 层稳定函数（ref: xxxRef），禁止内联箭头')
   })
 
+  it('focus-ring 双层：含 primary 线（系统暗色偏好下聚焦可见——C5）', () => {
+    const tokens = readFileSync(join(root, 'src/layout/_tokens.css'), 'utf-8')
+    const m = tokens.match(/--wf-focus-ring:\s*([^;]+);/)
+    assert.ok(m, 'focus-ring token 存在')
+    const value = m[1]
+    assert.ok(value.includes('--wf-color-primary'), 'focus-ring 必须含 primary（线）——单用 primary-bg 暗色偏好下不可见')
+    assert.ok(value.includes('--wf-color-primary-bg'), 'focus-ring 应含 bg（淡环）')
+  })
+
   it('client 防线存在：enumerated 属性渲染 + 内置类型降级（CDD 启发回归防线）', () => {
     // 1. draggable enumerated 语义防线（Kanban 教训：setAttribute('draggable','') = false）
     const dragTest = readFileSync(join(root, 'src/test/client/draggable.test.ts'), 'utf-8')

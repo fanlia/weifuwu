@@ -169,8 +169,9 @@
   /* ── 边框宽度 ── */
   --wf-border-width: 1px;
 
-  /* ── 聚焦环（引用 primary-bg，暗色自动跟随） ── */
-  --wf-focus-ring: 0 0 0 2px var(--wf-color-primary-bg);
+  /* ── 聚焦环（双层：淡环 bg + 1px primary 线——C5：系统暗色偏好下 primary-bg
+     变暗不可见，primary 是亮蓝——明暗主题聚焦均可见） ── */
+  --wf-focus-ring: 0 0 0 2px var(--wf-color-primary-bg), 0 0 0 1px var(--wf-color-primary);
 
   /* ── 动效 ── */
   --wf-transition-duration: 150ms;
