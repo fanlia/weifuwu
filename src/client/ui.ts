@@ -10,7 +10,7 @@
 
 import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle, UsePopupOptions, UsePopupHandle, UseLongPressOptions, UseLongPressHandle, VisualViewportHandle } from './types.ts'
 import type { VNode } from './vnode.ts'
-import { idRegistry, onComponentUnmount, onComponentUnmountFor } from './registry.ts'
+import { idRegistry, onComponentUnmount } from './registry.ts'
 import { lockScroll, unlockScroll } from './scroll-lock.ts'
 import { trapFocus } from './focus-trap.ts'
 import { createReactiveState } from './reactive.ts'
@@ -74,8 +74,6 @@ export interface UiDeps {
   /** mount 阶段标记置位/恢复（mountComponent 包裹） */
   setMounting: (v: boolean) => void
   endMounting: () => void
-  /** 注册表实例（UIRouter 隔离路径；缺省用模块级全局） */
-  registry?: import('./registry.ts').RegistryState
 }
 
 /** 受控组件缺回调 warn 去重（按 name） */
@@ -89,11 +87,6 @@ const openStates = new Map<string, boolean>()
 
 export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
   const { ctx, renderByIds, getSelfId, dirtyBatch, dirtySet, mediaRegistry, popupTrackers, scrollTrackers, schedulePopupRecompute, ensurePopupListeners, isRendering, isMounting, setMounting, endMounting } = deps
-  // 注册表实例：UIRouter 注入局部（隔离）；createApp 缺省 → 模块级全局
-  const reg = deps.registry ?? null
-  const unmount = reg
-    ? (hook: (id: string) => void) => onComponentUnmountFor(reg, hook)
-    : onComponentUnmount
 
   const ui: WfuiContext['ui'] & UiInternal = {
     _selfId: '_wf_root',
@@ -214,7 +207,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // 等原语同权——组件无需手动调 $.dispose()）。钩子按 selfId 匹配，只对本实例生效。
       const selfId = getSelfId(this)
       if (selfId) {
-        const unsub = unmount((id) => {
+        const unsub = onComponentUnmount((id) => {
           if (id === selfId) { api.dispose(); unsub() }
         })
       }
@@ -383,7 +376,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         window.addEventListener('resize', update)
       }
       if (selfId) {
-        const unsub = unmount((id) => {
+        const unsub = onComponentUnmount((id) => {
           if (id !== selfId) return
           if (vv?.removeEventListener) {
             vv.removeEventListener('resize', update)
@@ -463,7 +456,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       document.addEventListener('mousedown', onDocMouseDown)
       document.addEventListener('keydown', onDocKeyDown)
       if (selfId) {
-        const unsub = unmount((id) => {
+        const unsub = onComponentUnmount((id) => {
           if (id === selfId) {
             document.removeEventListener('mousedown', onDocMouseDown)
             document.removeEventListener('keydown', onDocKeyDown)
@@ -556,7 +549,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       }
       // 组件卸载时清理悬停计时器
       if (selfId) {
-        const unsub = unmount((id) => { if (id === selfId) { clearHoverTimers(); unsub() } })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { clearHoverTimers(); unsub() } })
       }
 
       // ── 面板元素捕获（视口夹紧用；动画结束后重算坐标，DatePicker 同款） ──
@@ -821,7 +814,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // 非受控内部值：首次用当前 value 初始化，后续跨渲染保持（render 阶段调用也稳定）
       if (!controlled && selfId && !uncontrolledValues.has(selfId)) {
         uncontrolledValues.set(selfId, options.value)
-        const unsub = unmount((id) => { if (id === selfId) { uncontrolledValues.delete(selfId); unsub() } })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { uncontrolledValues.delete(selfId); unsub() } })
       }
       const setValue = (v: T) => {
         if (controlled) {
@@ -857,7 +850,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // render 阶段调用（读最新 props）——内部态 Map 缓存跨渲染保持
       if (selfId && !inputStates.has(selfId)) {
         inputStates.set(selfId, { keyword: '', selectedLabel: '' })
-        const unsub = unmount((id) => { if (id === selfId) { inputStates.delete(selfId); unsub() } })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { inputStates.delete(selfId); unsub() } })
       }
       const state = selfId ? inputStates.get(selfId)! : { keyword: '', selectedLabel: '' }
       const dirty = () => {
@@ -889,7 +882,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       // render 阶段调用——非受控内部态 Map 缓存跨渲染保持
       if (selfId && !openStates.has(selfId)) {
         openStates.set(selfId, false)
-        const unsub = unmount((id) => { if (id === selfId) { openStates.delete(selfId); unsub() } })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { openStates.delete(selfId); unsub() } })
       }
       const controlled = options.open !== undefined
       // 受控缺回调 warn：模块级按 name 幂等（对齐 useControlled——受控纪律自动化）
@@ -1010,7 +1003,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       if (typeof window === 'undefined') return () => {}
       window.addEventListener('keydown', handler)
       if (selfId) {
-        const unsub = unmount((id) => { if (id === selfId) { window.removeEventListener('keydown', handler); unsub() } })
+        const unsub = onComponentUnmount((id) => { if (id === selfId) { window.removeEventListener('keydown', handler); unsub() } })
       }
       return () => window.removeEventListener('keydown', handler)
     },

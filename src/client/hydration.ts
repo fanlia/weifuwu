@@ -11,7 +11,7 @@ import { Fragment, Portal, isAsyncComponent } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 import { flattenChildren, SVG_NS, SVG_TAGS } from './render.ts'
 import { patchProps } from './diff.ts'
-import { idRegistry, nextComponentId, nextComponentIdFor, resolveAsyncFactory, getRegistry } from './registry.ts'
+import { idRegistry, nextComponentId, resolveAsyncFactory } from './registry.ts'
 
 /**
  * 游标：当前遍历位置对应的 DOM 节点。
@@ -143,9 +143,8 @@ async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: Hydra
   // ctx.ui 由 createApp 注入（类型必需字段）——不补默认（同 renderComponent）
 
   if (!vnode._id) {
-    const reg = getRegistry(ctx)
-    vnode._id = nextComponentIdFor(reg)
-    reg.idRegistry.set(vnode._id, vnode)
+    vnode._id = nextComponentId()
+    idRegistry.set(vnode._id, vnode)
   }
   const childCtx = Object.create(ctx) as WfuiContext
   childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal

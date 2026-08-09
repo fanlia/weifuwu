@@ -15,7 +15,7 @@ import { Fragment, Portal, isPortal, isAsyncComponent } from './vnode.ts'
 import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import type { WfuiContext } from './types.ts'
-import { idRegistry, nextComponentId, nextComponentIdFor, callRefCleanup, safeCallRef, startAsyncFactory, resolveAsyncFactorySync, resolveAsyncFactory, getRegistry } from './registry.ts'
+import { idRegistry, nextComponentId, callRefCleanup, safeCallRef, startAsyncFactory, resolveAsyncFactorySync, resolveAsyncFactory } from './registry.ts'
 // ⚠️ 与 diff.ts 的环：renderValue（本文件）↔ patchKeyedChildren（diff.ts）互相需要。
 // 安全原因：两模块顶层仅常量声明，全部函数级延迟调用（渲染运行时两模块均已加载）。
 import { patchProps, normalize, ensureKeys, patchKeyedChildren, mapChildDomNodes } from './diff.ts'
@@ -179,11 +179,10 @@ function renderComponent(
   // ctx.ui 由 createApp 注入（类型必需字段）——此处不补默认（原 ?? {} 是历史防御，
   // 组件渲染必然在 createApp.mount 之后）
 
-  // 生成组件实例 ID（UIRouter 隔离路径：从 ctx 取注入 registry）
+  // 生成组件实例 ID
   if (!vnode._id) {
-    const reg = getRegistry(ctx)
-    vnode._id = nextComponentIdFor(reg)
-    reg.idRegistry.set(vnode._id, vnode)
+    vnode._id = nextComponentId()
+    idRegistry.set(vnode._id, vnode)
   }
 
   // 扩展 ctx：每个组件有自己的 _selfId 和 VNode 引用

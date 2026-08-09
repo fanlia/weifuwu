@@ -12,7 +12,7 @@ import type { UiInternal } from './ui.ts'
 import { Fragment, Portal } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 import { renderValue, mountComponent, patchPortal, renderPortal } from './render.ts'
-import { callRefCleanup, callRefCleanupFor, getRegistry } from './registry.ts'
+import { callRefCleanup, idRegistry } from './registry.ts'
 
 // ── 内联 ref 检测 ────────────────────────────────────
 // ref-diff 在 ref 函数引用变化时调用旧 ref(null)（见 patchValue）。
@@ -59,11 +59,11 @@ export function patchValue(
   // 删除
   if (newInput == null) {
     if (oldNode) {
-      callRefCleanupFor(oldInput, getRegistry(ctx))
+      callRefCleanup(oldInput)
       ;(oldNode as ChildNode).remove()
     } else {
       // oldNode 为 null（remote 组件的 _refNode 为 null），但仍需清理 remote 容器
-      callRefCleanupFor(oldInput, getRegistry(ctx))
+      callRefCleanup(oldInput)
     }
     return null
   }
@@ -73,7 +73,7 @@ export function patchValue(
 
   // 类型不同 → 替换
   if (oldType !== newType) {
-    callRefCleanupFor(oldInput, getRegistry(ctx))
+    callRefCleanup(oldInput)
     const node = renderValue(newInput, ctx)
     if (node == null) return null
     if (oldNode?.parentNode) {
@@ -103,7 +103,7 @@ export function patchValue(
     if (oldV._render && oldV.type === newV.type) {
       newV._render = oldV._render
       newV._id = oldV._id
-      if (newV._id) getRegistry(ctx).idRegistry.set(newV._id, newV)
+      if (newV._id) idRegistry.set(newV._id, newV)
     }
 
     // 存 DOM 锚点（供 ctx.ui.render() scope 使用）
@@ -196,7 +196,7 @@ export function patchValue(
       patchChildren(oldNode, oldV, newV, ctx)
     } else if (oldNode) {
       // oldNode 不是元素节点 → 替换
-      callRefCleanupFor(oldInput, getRegistry(ctx))
+      callRefCleanup(oldInput)
       const node = renderValue(newInput, ctx)
       if (node == null) return null
       oldNode.parentNode?.replaceChild(node, oldNode)
@@ -493,7 +493,7 @@ export function patchKeyedChildren(
       const newC = i < newChildren.length ? newChildren[i] : null
       if (newC == null) {
         if (oldC != null) {
-          callRefCleanupFor(oldC, getRegistry(ctx))
+          callRefCleanup(oldC)
           for (const n of oldNodes[i] ?? []) (n as ChildNode).remove()
         }
       } else if (oldC == null) {
@@ -543,7 +543,7 @@ export function patchKeyedChildren(
   for (const key of [...oldKeyMap.keys()]) {
     if (!newKeySet.has(key)) {
       const entry = oldKeyMap.get(key)!
-      callRefCleanupFor(entry.vnode, getRegistry(ctx))
+      callRefCleanup(entry.vnode)
       for (const n of entry.nodes) (n as ChildNode)?.remove()
       oldKeyMap.delete(key)
     }
