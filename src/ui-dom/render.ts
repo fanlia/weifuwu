@@ -217,7 +217,12 @@ function patchProps(el: HTMLElement, oldProps: Record<string, any>, newProps: Re
   for (const key of newKeys) {
     const value = newProps[key]
     if (key.startsWith('on') && typeof value === 'function') {
-      el.addEventListener(key.slice(2).toLowerCase(), value)
+      // 先移除旧 listener（同 key）——防止重渲染时累积绑定（真实点击抓出：增量 4→8→16 指数）
+      const oldFn = oldProps?.[key]
+      if (oldFn !== value) {
+        if (typeof oldFn === 'function') el.removeEventListener(key.slice(2).toLowerCase(), oldFn)
+        el.addEventListener(key.slice(2).toLowerCase(), value)
+      }
     } else if (key === 'style' && typeof value === 'object' && value !== null) {
       // style diff：移除旧 style 中消失的键（Object.assign 不会清旧键）
       const oldStyle = oldProps?.['style'] as Record<string, any> | undefined

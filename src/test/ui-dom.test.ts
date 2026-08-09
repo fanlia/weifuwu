@@ -359,3 +359,30 @@ test('serveUI hydrate：收养服务端 HTML，不重建 DOM', async () => {
 
 
 
+
+// ═══════════════════════════════════════════════════════
+// 回归：事件 listener 不累积（真实点击抓出：重渲染时 onClick 重复绑定 → 指数增量）
+// ═══════════════════════════════════════════════════════
+
+test('组件重渲染后 onClick 不累积（点击一次只触发一次）', async () => {
+  const ui = new UIRouter()
+  const Counter = (_init: any, ctx: any) => {
+    const $ = ctx.ui.$()
+    $.count = 0
+    return (props: any) =>
+      h('button', { id: 'btn-acc', onClick: () => { $.count = $.count + 1 } }, String($.count))
+  }
+  ui.get('/acc', (location, ctx) => h('div', {}, h(Counter)))
+  window.history.pushState(null, '', '/acc')
+  const el = mount('ui-acc')
+  serveUI(ui, { root: '#ui-acc' })
+  await flush()
+  assert.equal(el.querySelector('#btn-acc')?.textContent, '0')
+
+  // 连续点击 5 次——每次只应 +1（若 listener 累积则指数增长）
+  for (let i = 1; i <= 5; i++) {
+    ;(el.querySelector('#btn-acc') as HTMLElement).click()
+    await flush()
+    assert.equal(el.querySelector('#btn-acc')?.textContent, String(i), `第 ${i} 次点击 = ${i}（不累积）`)
+  }
+})
