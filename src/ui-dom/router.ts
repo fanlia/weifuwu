@@ -75,17 +75,61 @@ export class UIRouter<C extends object = {}> {
 
   /** 中间件（layout/SSR 等） */
   use<I extends object, O extends object>(mw: UIMiddleware<I, O>): UIRouter<C & O>
-  /** 子路由挂载（= 后端 mount(path, subRouter)） */
+  /** 子路由挂载（= 后端 mount(path, subRouter)）——独立路由树：sub 的中间件/notFound/嵌套均生效 */
   use(prefix: string, sub: UIRouter): this
   use(arg: UIMiddleware | string, sub?: UIRouter): UIRouter<C> {
     if (typeof arg === 'string' && sub) {
-      // 子路由：展开子路由 + 前缀拼接
-      const subRoutes = (sub as any)._routes as UIRouteDef[]
-      this._routes.push(...subRoutes.map(r => ({ ...r, path: joinPath(arg, r.path) })))
+      // 子路由：前缀匹配中间件——URL 在 prefix 下时交给 sub 路由树处理
+      const parent = this
+      const prefix = arg
+      const mw: UIMiddleware = async (_location, ctx, children) => {
+        // 当前相对路径（嵌套时 _handle 注入 __routePath；顶层回退 _getPath）
+        const path = (ctx as any).__routePath ?? parent._getPath()
+        // 段边界匹配：/admin 只匹配 /admin、/admin/...（不匹配 /admin2）
+        let rel: string | null = null
+        if (path === prefix) rel = '/'
+        else if (path.startsWith(prefix + '/')) rel = path.slice(prefix.length)
+        if (rel === null) return children // 不在前缀下 → 直通主链
+        return async (loc, c) => sub._handle(rel, loc, c) // 交给子路由树
+      }
+      this._middlewares.push(mw)
       return this
     }
     this._middlewares.push(arg as UIMiddleware)
     return this as unknown as UIRouter<C>
+  }
+
+  /**
+   * 子路由树处理（供 use(prefix, sub) 调用）：
+   * 相对路径匹配 + sub 的中间件链 + sub 的 notFound——支持任意嵌套。
+   */
+  async _handle(relPath: string, location: Location, ctx: UIContext): Promise<VNode | null> {
+    const flat = flatten(this._routes)
+    const match = flat.find(f => f.re.test(relPath))
+    const params: Record<string, string> = {}
+    if (match) {
+      const m = relPath.match(match.re)!
+      for (let i = 0; i < match.keys.length; i++) params[match.keys[i]] = decodeURIComponent(m[i + 1])
+      if (match.title) document.title = match.title
+    }
+    // 注入共享 ctx（params 是当前渲染请求的解析结果）
+    ctx.params = params
+
+    const handler = match ? match.handler : (this._notFound ?? (() => null))
+    let inner: UIHandler = handler as UIHandler
+    // 注入当前相对路径（嵌套子路由的 mw 用段边界判断）
+    const savedRoutePath = (ctx as any).__routePath
+    ;(ctx as any).__routePath = relPath
+    try {
+      for (let i = this._middlewares.length - 1; i >= 0; i--) {
+        const mw = this._middlewares[i]
+        const child = inner
+        inner = (await mw(location, ctx, child)) ?? child
+      }
+      return (await inner(location, ctx)) as VNode | null
+    } finally {
+      ;(ctx as any).__routePath = savedRoutePath
+    }
   }
 
   /** 页面路由（对齐后端 get(path, handler)）——handler = 异步组件 */

@@ -386,3 +386,87 @@ test('组件重渲染后 onClick 不累积（点击一次只触发一次）', as
     assert.equal(el.querySelector('#btn-acc')?.textContent, String(i), `第 ${i} 次点击 = ${i}（不累积）`)
   }
 })
+
+// ═══════════════════════════════════════════════════════
+// 嵌套路由：子路由独立树（中间件链 / notFound / 嵌套 / params）
+// ═══════════════════════════════════════════════════════
+
+test('子路由的中间件链生效（sub 的 layout 包装）', async () => {
+  const ui = new UIRouter()
+  const admin = new UIRouter()
+  // 子路由的 layout 中间件
+  admin.use(async (_loc, ctx, children) => {
+    return async (loc, c) => {
+      const child = await children(loc, c)
+      return h('div', { id: 'admin-shell' }, h('h1', {}, '管理后台'), child)
+    }
+  })
+  admin.get('/users', () => h('div', { id: 'admin-users' }, '用户管理'))
+  ui.use('/admin', admin)
+  window.history.pushState(null, '', '/admin/users')
+  const el = mount('ui-nest-shell')
+  serveUI(ui, { root: '#ui-nest-shell' })
+  await flush()
+  assert.ok(el.querySelector('#admin-shell'), 'sub layout 生效')
+  assert.ok(el.querySelector('#admin-users'), '页面在 sub layout 内')
+  assert.equal(el.querySelector('#admin-shell h1')?.textContent, '管理后台')
+})
+
+test('子路由 notFound 生效（主 app 的 404 不覆盖）', async () => {
+  const ui = new UIRouter()
+  const admin = new UIRouter()
+  admin.get('/users', () => h('div', { id: 'admin-users' }, '用户'))
+  admin.notFound(() => h('div', { id: 'admin-nf' }, '后台 404'))
+  ui.use('/admin', admin)
+  ui.notFound(() => h('div', { id: 'main-nf' }, '主站 404'))
+  // /admin 下未匹配 → admin 的 404
+  window.history.pushState(null, '', '/admin/xxx')
+  const el = mount('ui-nest-nf')
+  serveUI(ui, { root: '#ui-nest-nf' })
+  await flush()
+  assert.ok(el.querySelector('#admin-nf'), 'admin notFound')
+  assert.ok(!el.querySelector('#main-nf'), '主 app 404 不生效')
+  // 主 app 自己的 404 仍生效
+  window.history.pushState(null, '', '/elsewhere')
+  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
+  await flush()
+  assert.ok(el.querySelector('#main-nf'), '主 app 404')
+})
+
+test('嵌套子路由（两层）+ params', async () => {
+  const ui = new UIRouter()
+  const admin = new UIRouter()
+  const api = new UIRouter()
+  api.get('/users/:id', (loc, ctx) => h('div', { id: 'api-user' }, `用户 ${ctx.params.id}`))
+  admin.use('/api', api)
+  admin.get('/', () => h('div', { id: 'admin-home' }, '后台首页'))
+  ui.use('/admin', admin)
+  // 两层嵌套：/admin/api/users/7
+  window.history.pushState(null, '', '/admin/api/users/7')
+  const el = mount('ui-nest-deep')
+  serveUI(ui, { root: '#ui-nest-deep' })
+  await flush()
+  assert.ok(el.querySelector('#api-user'), '两层嵌套命中')
+  assert.equal(el.querySelector('#api-user')?.textContent, '用户 7', '深层 params 注入')
+  assert.equal((ui.ctx as any).params.id, '7', '共享 ctx params')
+  // 一层：/admin
+  window.history.pushState(null, '', '/admin')
+  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
+  await flush()
+  assert.ok(el.querySelector('#admin-home'), '子路由根页')
+})
+
+test('前缀段边界：/admin 不匹配 /admin2', async () => {
+  const ui = new UIRouter()
+  const admin = new UIRouter()
+  admin.get('/', () => h('div', { id: 'admin-root' }, 'admin'))
+  ui.use('/admin', admin)
+  ui.get('/admin2', () => h('div', { id: 'admin2' }, 'admin2'))
+  // /admin2 应走主路由（不匹配 /admin 前缀）
+  window.history.pushState(null, '', '/admin2')
+  const el = mount('ui-nest-boundary')
+  serveUI(ui, { root: '#ui-nest-boundary' })
+  await flush()
+  assert.ok(el.querySelector('#admin2'), '段边界正确：/admin2 走主路由')
+  assert.ok(!el.querySelector('#admin-root'), '未误入 admin')
+})
