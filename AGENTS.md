@@ -424,6 +424,48 @@ return (props) => h('div', { ref: listRef })
 - **新受控组件**必须自带同款 warn（防静默不可用）
 - 非受控（不传受控 props）即可点击——**demo 要展示可交互用法**（受控配回调或非受控）
 
+### 浏览器环境纪律：内置组件禁止直接访问 DOM 全局
+
+**内置组件使用浏览器能力必须经 `ctx.browser`（环境 API）与 `ctx.ui.useXXX`（框架原语）——禁止直接 `window.`/`document.`/`navigator.`/`localStorage`/`matchMedia(`/`IntersectionObserver` 等 DOM 全局**（组件侧已清零，46 处迁移完毕）：
+
+```tsx
+const MyComp: Component = (_init, ctx) => {
+  // ctx.browser 优先，测试/无注入环境 fallback jsdom
+  const browser = ctx.browser ?? createClientBrowser()
+  return (props) =>
+    h('button', {
+      onClick: () => {
+        void browser.copyText('hello')          // 复制（勿自建 textarea+execCommand）
+        const el = browser.byId('target')        // 查询
+        const y = browser.scrollTop()             // 滚动量（scrollingElement 优先）
+        browser.storageSet('k', 'v')             // 存储（SSR/隐私模式安全）
+      }
+    })
+}
+```
+
+**能力映射表**（组件场景 → 唯一入口）：
+
+| 能力 | 唯一入口 | 禁止的替代 |
+|------|---------|-----------|
+| 复制 | `browser.copyText` | `navigator.clipboard` / `document.execCommand` / textarea 自建 |
+| 查询元素 | `browser.byId` / `browser.query` | `document.querySelector` |
+| 创建/挂载容器 | `browser.createElement` / `bodyAppend` | `document.createElement` / `document.body.appendChild` |
+| 键盘导航焦点 | `browser.activeElement` | `document.activeElement` |
+| 选区 | `browser.getSelection` / `selectionText` | `window.getSelection` |
+| 滚动量 | `browser.scrollTop`（scrollingElement 优先） | `window.scrollY`（headless 恒 0 漂移） |
+| 存储 | `browser.storageGet/Set` | `localStorage` 裸调 |
+| 主题根 | `browser.rootElement` | `document.documentElement` |
+| 定时器 | `browser.timeout` | `setTimeout`（SSR no-op 保证） |
+| 媒体查询 | `ctx.ui.useMedia` / `useBreakpoint` | `window.matchMedia` |
+| 监听（键盘/指针/滚动/拖拽） | `ctx.ui.useGlobalKey` / `useDrag` / `useScrollPosition` / `useDragDrop` | `window.addEventListener` 自建 |
+| 可见性 | `ctx.ui.useInView` | 自建 `IntersectionObserver` |
+| 视口 | `ctx.ui.useVisualViewport` | `window.innerHeight` |
+
+**三态实现**：客户端 `createClientBrowser`（惰性 typeof 防御）· SSR shim（null/0/false/no-op——组件 SSR 安全）· 测试 mock 或 jsdom fallback（`_ctx.browser ?? createClientBrowser()`）。
+
+**浏览器全局审计基线**：`grep -rnE '\bwindow\.|\bdocument\.|\bnavigator\.|\blocation\.|\bhistory\.|\blocalStorage|\bgetSelection\(|\brequestAnimationFrame|\bMutationObserver|\bIntersectionObserver|matchMedia\(' src/components/*/*.ts`（排除注释后必须为 0——新组件引入即 CI 噪音）。
+
 ### 样式纪律：小尺寸 button 必须固定 min/max-height
 
 全局 button 样式设 `min-height: 36px`——**任何小尺寸按钮**（checkbox/dot/switcher/star/关闭钮等）若不覆盖，会被撑成 36px 竖条（Tree checkbox 14x36、Carousel 圆点 8x45、Rate 星 16x36——真实操作抓出 6 处）：
