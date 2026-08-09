@@ -9,7 +9,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, ui, userSystem, ai, messager, rateLimit } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, ui, userSystem, ai, messager, rateLimit, verifyPassword } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -28,7 +28,6 @@ import { handleWebhookMessage } from './src/services/webhook.ts'
 
 // ── 内置工具 + Skills ─────────────────────────────────────
 import { registerBuiltinTools, BUILTIN_TOOL_DEFS } from './src/tools/builtin.ts'
-import { hashPassword, verifyPassword } from './src/services/password.ts'
 import { registerSkillRoutes } from './src/routes/skills.ts'
 import { registerRoleTemplateRoutes } from './src/routes/role-templates.ts'
 

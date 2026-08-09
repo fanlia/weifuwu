@@ -16,8 +16,7 @@
  *   用户:   user@demo.com / user123
  */
 
-import { postgres } from 'weifuwu'
-import { hashPassword } from '../src/services/password.ts'
+import { postgres, hashPassword } from 'weifuwu'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
