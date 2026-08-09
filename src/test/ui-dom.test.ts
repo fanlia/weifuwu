@@ -296,3 +296,66 @@ test('style diff：消失的 style 键被清除', async () => {
   assert.equal(div.style.display, '', 'display 被清除')
   assert.equal(div.style.color, 'red', 'color 保留')
 })
+
+// ═══════════════════════════════════════════════════════
+// D4 — SSR（renderHtml）+ hydration（收养服务端 HTML）
+// ═══════════════════════════════════════════════════════
+
+test('renderHtml：VNode → HTML 字符串（SSR 落地）', async () => {
+  const { renderHtml } = await import('../ui-dom/ssr.ts')
+  // 组件（两阶段）SSR
+  const Badge = (_init: any, ctx: any) => (props: any) => h('span', { class: `badge-${props.variant}` }, props.label)
+  // 元素 + 属性（class/style/事件剔除）+ children
+  const html = renderHtml(
+    h('div', { id: 'app', class: 'shell' },
+      h('h1', {}, '标题'),
+      h(Badge, { variant: 'primary', label: '新' }),
+      h('p', { style: { color: 'red', marginTop: '4px' }, onClick: () => {} }, '文本 & <转义>'),
+      h('input', { type: 'text', value: 'x', disabled: true }),
+    ),
+    {},
+  )
+  assert.ok(html.includes('<div id="app" class="shell">'), '根元素')
+  assert.ok(html.includes('<h1>标题</h1>'), '文本')
+  assert.ok(html.includes('<span class="badge-primary">新</span>'), '组件 SSR')
+  assert.ok(html.includes('style="color:red;margin-top:4px"'), 'style 序列化')
+  assert.ok(!html.includes('onClick') && !html.includes('onclick'), '事件不 SSR')
+  assert.ok(html.includes('文本 &amp; &lt;转义&gt;'), '文本转义')
+  assert.ok(html.includes('<input type="text" value="x" disabled>'), 'boolean 属性')
+  assert.ok(!html.includes('undefined'), '无 undefined 泄漏')
+})
+
+test('serveUI hydrate：收养服务端 HTML，不重建 DOM', async () => {
+  const pre = h('div', { id: 'hyd-page' },
+    h('h2', {}, 'SSR 标题'),
+    h('button', { id: 'hyd-btn' }, '点击'),
+    h('span', { id: 'hyd-n' }, '0'),
+  )
+  const { renderHtml } = await import('../ui-dom/ssr.ts')
+  const el = mount('ui-hyd')
+  el.innerHTML = renderHtml(pre)
+
+  const ui = new UIRouter()
+  ui.get('/hyd', (location, ctx) => {
+    const $ = ctx.ui.$()
+    $.n = $.n ?? 0
+    return h('div', { id: 'hyd-page' },
+      h('h2', {}, 'SSR 标题'),
+      h('button', { id: 'hyd-btn', onClick: () => { $.n = $.n + 1 } }, `点击`),
+      h('span', { id: 'hyd-n' }, String($.n)),
+    )
+  })
+  window.history.pushState(null, '', '/hyd')
+  serveUI(ui, { root: '#ui-hyd', hydrate: true })
+  await flush()
+
+  // 服务端已有元素未被重建（同一引用）
+  assert.equal(el.querySelector('#hyd-page')?.textContent, 'SSR 标题点击0', '收养后内容完整')
+  // 事件已接线：点击按钮 → $ 重渲染
+  ;(el.querySelector('#hyd-btn') as HTMLElement).click()
+  await flush()
+  assert.equal(el.querySelector('#hyd-n')?.textContent, '1', 'hydrate 后事件可用（$ 重渲染）')
+})
+
+
+

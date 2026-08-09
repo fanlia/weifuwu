@@ -381,3 +381,71 @@ export function rerenderDirtyComponents(registry: any, _root: Node | null): void
     registry.setRendering(false)
   }
 }
+
+// ── Hydration（D4）：收养服务端 HTML，只接线事件 ──────
+
+/**
+ * hydrateValue(parent, vnode, ctx) — 收养现有 DOM 子树（SSR 输出已就位）。
+ * 与 vnode 树逐节点匹配（同 tag 复用 DOM，只补事件），不重建。
+ */
+export function hydrateValue(parent: Element, v: VNodeChild, ctx: any): Node | null {
+  // 消费游标：记录 parent 已消费的 child 数（同一 parent 的兄弟节点顺序对齐）
+  const cursor = getCursor(parent)
+  if (v == null || typeof v === 'boolean') return null
+  if (typeof v === 'string' || typeof v === 'number') {
+    const node = parent.childNodes[cursor.n]
+    if (node?.nodeType === 3) { cursor.n++; return node }
+    return null
+  }
+  if (Array.isArray(v)) {
+    let last: Node | null = null
+    for (const child of v) {
+      const n = hydrateValue(parent, child, ctx)
+      if (n) last = n
+    }
+    return last
+  }
+
+  const vnode = v as VNode
+
+  // 组件：mount（注册 id + $）+ 递归收养
+  if (typeof vnode.type === 'function') {
+    return renderComponent(vnode.type, vnode, ctx)
+  }
+
+  // Fragment
+  if (vnode.type === Symbol.for('wf-fragment')) {
+    let last: Node | null = null
+    for (const child of normalizeChildren(vnode.props?.children)) {
+      const n = hydrateValue(parent, child, ctx)
+      if (n) last = n
+    }
+    return last
+  }
+
+  // 元素：按游标消费容器子节点（SSR 顺序 = VNode 顺序）
+  const el = parent.childNodes[cursor.n] as HTMLElement | null
+  if (!el || el.nodeType !== 1 || el.tagName.toLowerCase() !== vnode.type) return null
+  cursor.n++
+  vnode.el = el
+  // 事件接线（属性已在服务端 HTML，只补 on*）
+  for (const [key, value] of Object.entries(vnode.props ?? {})) {
+    if (key.startsWith('on') && typeof value === 'function') {
+      el.addEventListener(key.slice(2).toLowerCase(), value)
+    }
+  }
+  // 递归收养 children（独立游标对齐 el 的子节点）
+  for (const child of normalizeChildren(vnode.props?.children)) {
+    hydrateValue(el, child, ctx)
+  }
+  vnode._child = normalizeChildren(vnode.props?.children) as VNode[]
+  return el
+}
+
+/** 创建/获取 parent 的消费游标（弱缓存） */
+const hydrateCursors = new WeakMap<Element, { n: number }>()
+function getCursor(parent: Element): { n: number } {
+  let c = hydrateCursors.get(parent)
+  if (!c) { c = { n: 0 }; hydrateCursors.set(parent, c) }
+  return c
+}

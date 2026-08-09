@@ -13,7 +13,7 @@
 
 import type { UIHandler, UIMiddleware, UIRouteDef, UIContext, VNode, VNodeChild } from './types.ts'
 import { createReactiveState } from './reactive.ts'
-import { renderValue, patchValue, rerenderDirtyComponents } from './render.ts'
+import { renderValue, patchValue, rerenderDirtyComponents, hydrateValue } from './render.ts'
 import { Registry } from './registry.ts'
 
 /** UIRouter 选项 */
@@ -66,6 +66,8 @@ export class UIRouter<C extends object = {}> {
   private _state: Record<string, any> | null = null
   private _cleanupFns: Array<() => void> = []
   private _rendering = false
+  /** hydrate 模式（收养服务端 HTML） */
+  private _hydrate = false
 
   constructor(options: UIRouterOptions = {}) {
     this._mode = options.mode ?? 'history'
@@ -115,6 +117,7 @@ export class UIRouter<C extends object = {}> {
    */
   serve(container: Element, hydrate = false): () => void {
     this._rootEl = container
+    this._hydrate = hydrate
     if (!hydrate) container.innerHTML = ''
 
     // 首次渲染
@@ -204,11 +207,16 @@ export class UIRouter<C extends object = {}> {
       // 执行 handler → VNode
       const vnode = (await inner(window.location, ctx)) as VNode | null
 
-      // 落地：首次挂载 / 后续 diff
+      // 落地：首次挂载 / 后续 diff（hydrate 模式收养服务端 HTML）
       if (this._oldVNode == null) {
         if (vnode) {
-          const node = renderValue(vnode, ctx)
-          if (node && this._rootEl) this._rootEl.appendChild(node)
+          const node = this._hydrate && this._rootEl && this._rootEl.firstElementChild
+            ? hydrateValue(this._rootEl, vnode, ctx)
+            : renderValue(vnode, ctx)
+          if (node && this._rootEl) {
+            // hydrate 收养：不 append（已有节点）；否则 append
+            if (node.parentNode !== this._rootEl) this._rootEl.appendChild(node)
+          }
         }
       } else {
         if (this._rootEl) {
