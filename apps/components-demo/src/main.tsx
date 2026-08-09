@@ -1681,7 +1681,7 @@ const DemoSpace: Component = () => () => (
 )
 
 const DemoGrid: Component = () => () => (
-  <div class="wf-stack wf-gap-md">
+  <div class="wf-stack wf-gap-md wf-w-full">
     <Grid gutter={16}>
       <Col span={8}><div class="wf-surface wf-pad-md wf-text-center">1/3</div></Col>
       <Col span={8}><div class="wf-surface wf-pad-md wf-text-center">1/3</div></Col>
