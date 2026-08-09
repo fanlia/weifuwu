@@ -453,31 +453,48 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       let openTimer: ReturnType<typeof setTimeout> | undefined
       let closeTimer: ReturnType<typeof setTimeout> | undefined
       const clearHoverTimers = () => { clearTimeout(openTimer); clearTimeout(closeTimer); openTimer = undefined; closeTimer = undefined }
-      if (triggerOf() === 'hover') {
-        if (canHover) {
-          wrapProps.onMouseEnter = () => {
-            if (isDisabled()) return
-            clearTimeout(closeTimer); closeTimer = undefined
-            openTimer = setTimeout(() => { openTimer = undefined; setOpen(true) }, openDelay())
-          }
-          wrapProps.onMouseLeave = () => {
-            if (isDisabled()) return
-            clearTimeout(openTimer); openTimer = undefined
-            closeTimer = setTimeout(() => { closeTimer = undefined; setOpen(false) }, closeDelay())
-          }
-        } else {
-          // 触屏：tap 切换 + 点外部关闭（外部关闭已在 document 层处理）
-          wrapProps.onClick = () => setOpen(!isOpen())
+
+      // trigger 动态化（Popover 悬停失效根因）：wrapProps 在 mount 时创建一次——
+      // 若按当时 triggerOf() 分支（如初始 'click'）则 hover 分支永不建立。
+      // 统一挂全部 handler，内部分派（triggerOf() 每次调用读最新）——
+      // trigger 从 click 切 hover 也生效；click 组件挂 mouseover 无害（分派 return）。
+      const hoverOpen = (e: any) => {
+        if (isDisabled()) return
+        const wrap = e.currentTarget as HTMLElement
+        const rt = e.relatedTarget as Node | null
+        if (wrap.contains(rt)) return // 内部移动
+        clearTimeout(closeTimer); closeTimer = undefined
+        openTimer = setTimeout(() => { openTimer = undefined; setOpen(true) }, openDelay())
+      }
+      const hoverClose = (e: any) => {
+        if (isDisabled()) return
+        const wrap = e.currentTarget as HTMLElement
+        const rt = e.relatedTarget as Node | null
+        if (wrap.contains(rt)) return // 移到内部
+        clearTimeout(openTimer); openTimer = undefined
+        closeTimer = setTimeout(() => { closeTimer = undefined; setOpen(false) }, closeDelay())
+      }
+      const focusOpen = () => { if (!isDisabled()) { clearTimeout(closeTimer); closeTimer = undefined; openTimer = setTimeout(() => { openTimer = undefined; setOpen(true) }, openDelay()) } }
+      const blurClose = () => { if (!isDisabled()) { clearTimeout(openTimer); openTimer = undefined; closeTimer = setTimeout(() => { closeTimer = undefined; setOpen(false) }, closeDelay()) } }
+      const isHover = () => triggerOf() === 'hover'
+
+      // 全部 handler 无条件挂（内部分派——trigger 动态变化生效）
+      wrapProps.onMouseOver = (e: any) => { if (isHover()) hoverOpen(e) }
+      wrapProps.onMouseOut = (e: any) => { if (isHover()) hoverClose(e) }
+      wrapProps.onClick = () => {
+        if (isHover()) {
+          if (!canHover) setOpen(!isOpen()) // 触屏 tap 退化
+        } else if (triggerOf() === 'click') {
+          // 只开不关（Select 教训）：trigger 点击只打开——关闭交外部点击/
+          // Escape/选中。toggle 会与自定义 trigger 的 onClick 双触发净零
+          // （Dropdown demo：Button 开 + wrapProps 关 = 永远关）。
+          setOpen(true)
         }
-        // 键盘可达（两端一致）
-        wrapProps.onFocus = () => { if (!isDisabled()) { clearTimeout(closeTimer); closeTimer = undefined; openTimer = setTimeout(() => { openTimer = undefined; setOpen(true) }, openDelay()) } }
-        wrapProps.onBlur = () => { if (!isDisabled()) { clearTimeout(openTimer); openTimer = undefined; closeTimer = setTimeout(() => { closeTimer = undefined; setOpen(false) }, closeDelay()) } }
-      } else if (triggerOf() === 'click') {
-        // 只开不关（Select 教训）：trigger 点击只打开——关闭交外部点击/Escape/
-        // 选中（组件业务语义）。toggle 会与自定义 trigger 的 onClick 双触发净零
-        // （Dropdown demo：Button onClick 开 + wrapProps toggle 关 = 永远关）。
-        wrapProps.onClick = () => setOpen(true)
-      } else if (triggerOf() === 'longpress') {
+      }
+      wrapProps.onFocus = () => { if (isHover()) focusOpen() }
+      wrapProps.onBlur = () => { if (isHover()) blurClose() }
+
+      if (triggerOf() === 'longpress') {
         let timer: ReturnType<typeof setTimeout> | undefined
         let startX = 0
         let startY = 0

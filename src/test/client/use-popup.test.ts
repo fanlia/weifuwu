@@ -43,8 +43,8 @@ before(installMatchMedia)
 const flush = (ms = 30) => new Promise(r => setTimeout(r, ms))
 
 /** jsdom 事件构造（Node 内置 Event 与 jsdom EventTarget 不兼容） */
-const fire = (el: Element | Document, type: string) =>
-  el.dispatchEvent(new (window as any).Event(type, { bubbles: true, cancelable: true }))
+const fire = (el: Element | Document, type: string, opts?: any) =>
+  el.dispatchEvent(new (window as any).MouseEvent(type, { bubbles: true, cancelable: true, ...opts }))
 
 /** 键盘事件（带 key） */
 const fireKey = (el: Element, key: string) =>
@@ -106,18 +106,21 @@ describe('ctx.ui.usePopup', () => {
     HOVER = false
   })
 
-  it('hover 触发 + 触屏环境：(hover: hover) false → mouseenter 不打开，tap 打开，点外部关闭', async () => {
+  it('hover 触发 + 无 hover 能力环境：mouseover 打开（桌面兜底）+ tap 共存', async () => {
     HOVER = false
     const t = await mountPopup({ trigger: 'hover' })
-    // mouseenter 不打开（触屏无 hover 语义）
-    fire(t.wrap, 'mouseenter')
+    // mouseover（冒泡——鼠标直接进 wrap 内子元素也触发）+ relatedTarget 判断
+    fire(t.wrap, 'mouseover', { relatedTarget: document.body })
     await flush()
-    assert.equal(t.panel(), null, '触屏下 mouseenter 不应打开')
+    assert.ok(t.panel(), 'mouseover 应打开（从 wrap 外进入）')
 
-    // tap（click）打开
+    // 关闭后 tap（click）也应打开（触屏共存）
+    fire(document.body, 'mousedown')
+    await flush()
+    assert.equal(t.panel(), null, '点外部关闭')
     fire(t.trigger, 'click')
     await flush()
-    assert.ok(t.panel(), 'tap 应打开')
+    assert.ok(t.panel(), 'tap 应打开（共存）')
 
     // 点外部关闭
     fire(document.body, 'mousedown')
@@ -126,16 +129,16 @@ describe('ctx.ui.usePopup', () => {
     t.app.destroy()
   })
 
-  it('hover 触发 + 桌面环境：(hover: hover) true → mouseenter 打开，mouseleave 关闭', async () => {
+  it('hover 触发 + 桌面环境：(hover: hover) true → mouseover 打开，mouseout 关闭', async () => {
     HOVER = true
     const t = await mountPopup({ trigger: 'hover' })
-    fire(t.wrap, 'mouseenter')
+    fire(t.wrap, 'mouseover', { relatedTarget: document.body })
     await flush()
-    assert.ok(t.panel(), '桌面 mouseenter 应打开')
+    assert.ok(t.panel(), '桌面 mouseover 应打开')
 
-    fire(t.wrap, 'mouseleave')
+    fire(t.wrap, 'mouseout', { relatedTarget: document.body })
     await flush()
-    assert.equal(t.panel(), null, 'mouseleave 应关闭')
+    assert.equal(t.panel(), null, 'mouseout 应关闭')
     t.app.destroy()
   })
 
