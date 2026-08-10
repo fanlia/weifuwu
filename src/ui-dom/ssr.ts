@@ -341,7 +341,7 @@ export interface SsrPageResult {
  */
 export async function ssrPage(
   router: UIRouter,
-  opts: { url: string; title?: string; lang?: string; rootId?: string },
+  opts: { url: string; title?: string; lang?: string; rootId?: string; styles?: string[] },
 ): Promise<SsrPageResult> {
   const dataStore = new Map<string, unknown>()
   const serverCtx: any = { params: {}, query: {} }
@@ -363,12 +363,14 @@ export async function ssrPage(
   const dataScript = serializeData(dataStore)
   const title = match.title ?? opts.title ?? ''
   const rootId = opts.rootId ?? 'root'
+  const styleLinks = (opts.styles ?? []).map((s) => `  <link rel="stylesheet" href="${s}">`).join('\n')
   const page = `<!DOCTYPE html>
 <html lang="${opts.lang ?? 'zh-CN'}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   ${title ? `<title>${title}</title>` : ''}
+  ${styleLinks}
 </head>
 <body>
   <div id="${rootId}">${html}</div>

@@ -52,7 +52,7 @@ const server = createServer(async (req, res) => {
   // SSR：非静态资源请求 → ssrPage 渲染完整 HTML（含 __DATA__）
   if (!url.startsWith('/app.js') && !url.startsWith('/components.css') && url !== '/favicon.ico') {
     try {
-      const { page } = await ssrPage(app, { url })
+      const { page } = await ssrPage(app, { url, styles: ['/components.css'] })
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
       res.end(page)
       return
