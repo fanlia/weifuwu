@@ -400,3 +400,55 @@ test('SSR → hydrate 完整链路：预取数据 __DATA__ 命中 + DOM 收养',
   handle.close()
   delete (window as any).__DATA__
 })
+
+// ═══════════════════════════════════════════════════════
+// confirm / notification 命令式注入冒烟
+// ═══════════════════════════════════════════════════════
+
+test('ctx.confirm：命令式确认框（portal + 确定/取消）', async () => {
+  const { confirm } = await import('../ui-dom/Confirm.ts')
+  const router = new UIRouter()
+  router.use(confirm())
+  router.get('/cf', () => h('div', {}, '页'))
+  window.history.pushState(null, '', '/cf')
+  const el = mount('ui-cf')
+  const handle = uiServe(router, { root: '#ui-cf' })
+  await flush()
+  const ctx = handle.ctx as any
+  assert.equal(typeof ctx.confirm, 'function', 'ctx.confirm 注入')
+  // 触发 confirm
+  let result: boolean | null = null
+  void ctx.confirm('确定删除？').then(r => { result = r })
+  await flush()
+  const portal = document.getElementById('__wf_portal')
+  const modalText = portal?.textContent ?? ''
+  assert.ok(modalText.includes('确定删除？'), '确认框内容（portal Modal）')
+  assert.ok(modalText.includes('确定') && modalText.includes('取消'), '确认/取消按钮')
+  // 点确定
+  const confirmBtn = [...(portal?.querySelectorAll('button') ?? [])].find(b => b.textContent?.includes('确定'))
+  ;(confirmBtn as HTMLElement).click()
+  await flush()
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(result, true, 'confirm resolve true')
+  handle.close()
+})
+
+test('ctx.notification：命令式通知（portal 渲染）', async () => {
+  const { notification } = await import('../ui-dom/Notification.ts')
+  const router = new UIRouter()
+  router.use(notification())
+  router.get('/nf', () => h('div', {}, '页'))
+  window.history.pushState(null, '', '/nf')
+  const el = mount('ui-nf')
+  const handle = uiServe(router, { root: '#ui-nf' })
+  await flush()
+  const ctx = handle.ctx as any
+  assert.equal(typeof ctx.notification, 'function', 'ctx.notification 注入')
+  ctx.notification('系统通知', { type: 'success', description: '操作完成' })
+  await flush()
+  const portal = document.getElementById('__wf_portal')
+  const text = portal?.textContent ?? ''
+  assert.ok(text.includes('系统通知'), '通知标题')
+  assert.ok(text.includes('操作完成'), '通知描述')
+  handle.close()
+})

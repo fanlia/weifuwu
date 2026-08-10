@@ -157,3 +157,37 @@ UIRouter（纯路由）                    serveUI（渲染运行时 = VDOM 落�
 - serve 监听 popstate/hashchange → UIRouter 匹配（params 注入）→ 中间件链 → handler → vnode
   → renderValue/patchValue diff/patch DOM
 - UIRouter 无 DOM/渲染/状态（纯路由表 + 匹配 + 中间件链）；渲染运行时全部在 serve 层
+
+### ctx 注入定稿（用户裁决 3）
+
+注入在 **UIRouter**（对齐后端 `app.use(mw)` 累积注入 ctx.xxx）：
+
+```
+UIRouter.use 三态重载（运行时按 arg.length 区分）：
+  use(AppMiddleware)  (1 参) → _injections 链   ctx.toast/confirm/notification 等
+  use(UIMiddleware)   (3 参) → _middlewares 链  layout/SSR（包装 children 产 vnode）
+  use(prefix, sub)           → 子路由树
+
+_ensureInjected：首次渲染执行一次注入链（应用级 ctx）
+execute/_handle 开头注入 → handler 拿 WfuiContext & C（类型累积）
+```
+
+命令式工厂（toast/confirm/notification）复制到 ui-dom：
+- 原因：components 版 import client 的 mountVNode（模块级 registry）——ToastHost
+  注册到 client 全局，ui-dom 的 renderByIds 查局部 registry → 不渲染
+  （AGENTS.md §6.1 toast 根因镜像）
+- ui-dom 版：mountVNode/callRefCleanup 用局部 registry；组件复用 components
+
+## 验收记录
+
+| 项 | 内容 | 验证 | 状态 |
+|----|------|------|------|
+| registry 工厂化 | createRegistry + getRegistry(ctx) 注入（render/diff/ui 局部化） | 400 client 测试全绿（零破坏） | ✅（方案调整：改为复制到 ui-dom，client 已 revert） |
+| 渲染运行时复制 | render/diff/hydration/ui(19 原语)/popup-tracker/browser 复制到 ui-dom | typecheck + 自定义组件 5 测试 | ✅ |
+| UIRouter 纯路由 | 三态 use（AppMiddleware/UIMiddleware/sub）+ match/execute + params 注入 | 嵌套/段边界/404 测试 | ✅ |
+| ctx 注入链 | UIRouter.use(AppMiddleware) 累积类型（对齐后端 app.use） | toast/confirm 注入测试 | ✅ |
+| 命令式工厂复制 | Toast/Confirm/Notification（局部 registry） | toast→portal/confirm 确定取消/notification 测试 | ✅ |
+| components 复用 | 11 代表组件（Button/Input/Dropdown/Icon/Modal/Tabs/Table…）零修改 | 广测 6 测试 + 浏览器冒烟 | ✅ |
+| SSR/hydrate | ssrPage（renderSsr+__DATA__）+ uiServe hydrate（种子命中不重取数） | 测试 + curl + agent-browser 端到端 | ✅ |
+| demo 端到端 | apps/ui-router-demo（router 共享 + SSR + hydrate + components + toast） | agent-browser 零错误 | ✅ |
+| 文档 | README 模块行 + docs/frontend-ui-dom.md 定稿 | — | ✅ |
