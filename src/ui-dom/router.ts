@@ -155,7 +155,7 @@ export class UIRouter<C extends object = {}> {
   async _handle(relPath: string, location: Location, ctx: UIContext): Promise<VNode | null> {
     await this._ensureInjected(ctx)
     const match = this.match(relPath)
-    if (match.title) document.title = match.title
+    if (match.title && typeof document !== 'undefined') document.title = match.title
     // 注入共享 ctx（params 是当前渲染请求的解析结果）
     ctx.params = match.params
 
@@ -180,7 +180,7 @@ export class UIRouter<C extends object = {}> {
   async execute(location: Location, ctx: UIContext, path: string): Promise<VNode | null> {
     await this._ensureInjected(ctx)
     const match = this.match(path)
-    if (match.title) document.title = match.title
+    if (match.title && typeof document !== 'undefined') document.title = match.title
     ctx.params = match.params
 
     const handler = match.handler

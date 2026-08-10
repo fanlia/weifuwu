@@ -18,7 +18,7 @@ export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts
 export type { VNode, VNodeChild, VNodeType, Component } from './vnode.ts'
 export { createReactiveState } from './reactive.ts'
 export type { ReactiveState } from './reactive.ts'
-export { renderHtml } from './ssr.ts'
+export { ssrPage, serializeData, ssrToString } from './ssr.ts'
 export type {
   UIRequest,
   UIResponse,

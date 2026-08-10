@@ -239,19 +239,24 @@ test('keyed 列表重排复用 DOM + style diff + 事件不累积', async () => 
 // SSR + hydrate
 // ═══════════════════════════════════════════════════════
 
-test('renderHtml SSR + uiServe hydrate 收养', async () => {
-  const { renderHtml } = await import('../ui-dom/ssr.ts')
-  const html = renderHtml(h('div', { id: 'app' }, h('h1', {}, '标题'), h('span', { onClick: () => {} }, 'x')))
+test('ssrToString + uiServe hydrate 收养', async () => {
+  const { ssrToString } = await import('../ui-dom/ssr.ts')
+  const html = await ssrToString(
+    (() => () => h('div', { id: 'app' }, h('h1', {}, '标题'), h('span', { onClick: () => {} }, 'x'))) as any,
+    {},
+    {},
+  )
   assert.ok(html.includes('<h1>标题</h1>'), 'SSR HTML')
   assert.ok(!html.includes('onClick'), '事件不 SSR')
   // hydrate 收养
   const el = mount('ui-hyd')
-  el.innerHTML = renderHtml(h('div', { id: 'p' }, h('button', { id: 'b' }, 'x'), h('span', { id: 'n' }, '0')))
+  el.innerHTML = html
   const router = new UIRouter()
   router.get('/hyd', (location, ctx) => {
     const $ = ctx.ui.$()
     $.n = $.n ?? 0
-    return h('div', { id: 'p' },
+    return h('div', { id: 'app' },
+      h('h1', {}, '标题'),
       h('button', { id: 'b', onClick: () => { $.n++ } }, 'x'),
       h('span', { id: 'n' }, String($.n)),
     )
@@ -334,3 +339,64 @@ test('UIRouter.use(AppMiddleware)：自定义注入中间件（ctx.xxx 类型扩
   handle.close()
 })
 
+
+// ═══════════════════════════════════════════════════════
+// SSR 落地（ssrPage）+ __DATA__ + hydrate 完整链路
+// ═══════════════════════════════════════════════════════
+
+test('ssrPage：SSR 渲染路由页面 → 完整 HTML + __DATA__', async () => {
+  const { ssrPage } = await import('../ui-dom/ssr.ts')
+  const router = new UIRouter()
+  router.get('/users/:id', async (location, ctx) => {
+    const user = await ctx.data.get(`/api/users/${ctx.params.id}`, async () => ({ name: '张三' }))
+    return h('div', { id: 'user-page' },
+      h('h2', {}, `用户 ${ctx.params.id}`),
+      h('span', { id: 'uname' }, `姓名: ${(user as any).name}`),
+    )
+  })
+  const result = await ssrPage(router, { url: '/users/42' })
+  assert.ok(result.html.includes('用户 42'), 'params 注入 SSR')
+  assert.ok(result.html.includes('姓名: 张三'), 'data 预取 SSR')
+  assert.ok(result.html.includes('</div>'), 'HTML 结构')
+  assert.ok(result.dataScript.includes('__DATA__'), '__DATA__ 脚本')
+  assert.ok(result.dataScript.includes('/api/users/42'), '预取数据序列化')
+  assert.ok(result.page.includes('<div id="root">'), '完整页面')
+  assert.ok(result.page.includes(result.html), 'HTML 内联')
+})
+
+test('SSR → hydrate 完整链路：预取数据 __DATA__ 命中 + DOM 收养', async () => {
+  const { ssrPage } = await import('../ui-dom/ssr.ts')
+  const router = new UIRouter()
+  let fetchCount = 0
+  router.get('/page', async (location, ctx) => {
+    const data = await ctx.data.get('/api/data', async () => {
+      fetchCount++
+      return { title: 'SSR 页面' }
+    })
+    return h('div', { id: 'p' }, h('h2', {}, (data as any).title))
+  })
+  // SSR
+  const result = await ssrPage(router, { url: '/page' })
+  assert.equal(fetchCount, 1, 'SSR 取数一次')
+
+  // 客户端 hydrate：__DATA__ 种子命中 → 不重取数
+  const el = mount('ui-hyd-ssr')
+  // 模拟服务端 HTML + __DATA__ 已注入
+  el.innerHTML = result.html
+  ;(window as any).__DATA__ = JSON.parse(result.dataScript.match(/window\.__DATA__=(.*?);/)?.[1] ?? '{}')
+  const client = new UIRouter()
+  client.get('/page', async (location, ctx) => {
+    const data = await ctx.data.get('/api/data', async () => {
+      fetchCount++
+      return { title: 'SSR 页面' }
+    })
+    return h('div', { id: 'p' }, h('h2', {}, (data as any).title))
+  })
+  window.history.pushState(null, '', '/page')
+  const handle = uiServe(client, { root: '#ui-hyd-ssr', hydrate: true })
+  await flush()
+  assert.equal(el.querySelector('h2')?.textContent, 'SSR 页面', 'hydrate 内容保留')
+  assert.equal(fetchCount, 1, 'hydrate 不重取数（__DATA__ 命中）')
+  handle.close()
+  delete (window as any).__DATA__
+})

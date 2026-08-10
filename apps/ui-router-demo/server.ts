@@ -14,6 +14,8 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildSync } from 'esbuild'
+import { ssrPage } from '../../src/ui-dom/ssr.ts'
+import { app } from './src/router.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const port = Number(process.env.PORT ?? 3100)
@@ -39,13 +41,27 @@ const html = `<!DOCTYPE html>
 </body>
 </html>`
 
-const server = createServer((req, res) => {
+const server = createServer(async (req, res) => {
   const url = req.url ?? '/'
   if (url === '/components.css') {
     // components 样式（含 Token + 布局原语 + 组件样式）
     res.writeHead(200, { 'Content-Type': 'text/css' })
     res.end(readFileSync(resolve(__dirname, '..', '..', 'dist', 'components', 'style.css'), 'utf8'))
     return
+  }
+  // SSR：非静态资源请求 → ssrPage 渲染完整 HTML（含 __DATA__）
+  if (!url.startsWith('/app.js') && !url.startsWith('/components.css') && url !== '/favicon.ico') {
+    try {
+      const { page } = await ssrPage(app, { url })
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(page)
+      return
+    } catch (err) {
+      console.error('[ui-router-demo] ssr error:', err)
+      res.writeHead(500, { 'Content-Type': 'text/plain' })
+      res.end(String(err))
+      return
+    }
   }
   if (url === '/app.js') {
     try {
