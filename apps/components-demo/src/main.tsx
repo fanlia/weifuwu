@@ -7,9 +7,11 @@
  * 启动: node apps/components-demo/server.ts
  */
 
-import { createApp, i18n } from 'weifuwu/client'
-import { confirm, toast } from 'weifuwu/components'
 import type { WfuiContext, Component } from 'weifuwu/client'
+import { UIRouter, uiServe } from '../../../src/ui-dom/index.ts'
+import { toast } from '../../../src/ui-dom/Toast.ts'
+import { confirm } from '../../../src/ui-dom/Confirm.ts'
+import { notification } from '../../../src/ui-dom/Notification.ts'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -29,7 +31,6 @@ import {
   VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban, Pipeline, TreeSelect,
   Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
-  notification,
 } from 'weifuwu/components'
 import type { ToastItem, ToastType, ToastInjected } from 'weifuwu/components'
 
@@ -2557,13 +2558,42 @@ const App: Component = (_props, ctx) => {
   }
 }
 
-createApp()
-  .use(confirm())
-  .use(toast())
-  .use(notification())
-  .use(i18n({ locale: 'zh-CN', messages: {
-    'app.title': 'weifuwu/components',
-    'app.desc': '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
-    'app.footer': 'weifuwu/components · 全部 109 个组件 · 打开 devtools 查看代码',
-  } }))
-  .mount('#root', App)
+// ── ui-dom 装配（UIRouter + uiServe + ctx 注入链） ──
+
+// i18n 注入（demo 专用 AppMiddleware——ui-dom 无内置 i18n）
+const i18nMw = (() => {
+  let locale = 'zh-CN'
+  const messages: Record<string, Record<string, string>> = {
+    'app.title': { 'zh-CN': 'weifuwu/components', en: 'weifuwu/components' },
+    'app.desc': {
+      'zh-CN': '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
+      en: '109 HTML primitive components · pure (props, ctx) → VNode · drop-in',
+    },
+    'app.footer': {
+      'zh-CN': 'weifuwu/components · 全部 109 个组件 · 打开 devtools 查看代码',
+      en: 'weifuwu/components · all 109 components · open devtools for code',
+    },
+  }
+  return (ctx: any) => {
+    ctx.i18n = {
+      get locale() { return locale },
+      setLocale: (l: string) => {
+        locale = l
+        // bump ctx 版本 → 组件三态 skip 失效（App 依赖 ctx 变化需重 render）
+        ;(ctx.ui as any).bumpCtxVersion?.()
+        ;(ctx as any).__rerender?.() ?? ctx.ui.render()
+      },
+      t: (key: string) => messages[key]?.[locale] ?? messages[key]?.['zh-CN'] ?? key,
+      components: {},
+    }
+    return ctx
+  }
+})()
+
+const app = new UIRouter()
+app.use(i18nMw)
+app.use(toast())
+app.use(confirm())
+app.use(notification())
+app.get('/', () => <App />)
+uiServe(app, { root: '#root' })

@@ -190,6 +190,9 @@ export function uiServe<RC extends object = {}>(
     getPopupTracker().cleanupTrackers(id)
   })
 
+  // 整树刷新能力（注入中间件/A 组件用——root ctx.ui.render 不触发整树）
+  ;(ctx as any).__rerender = () => scheduleRender()
+
   // ── 渲染主循环 ──
   let oldVNode: VNode | null = null
   let rendering = false
