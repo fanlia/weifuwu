@@ -27,9 +27,11 @@ app.post('/decks', async (req, ctx) => {
   // 读回来自动是对象：rows[0].deck_json === { slides: [...] }（不是字符串）
 })
 
-// ③ 事务（postgres.js 兼容 begin）
+// ③ 事务（中间件实例 pg.transaction——不在 ctx.sql 接口）
+const pg = postgres()
+app.use(pg)
 app.post('/transfer', async (req, ctx) => {
-  await ctx.sql.begin(async sql => {
+  await pg.transaction(async sql => {
     await sql`UPDATE accounts SET balance = balance - 100 WHERE id = 1`
     await sql`UPDATE accounts SET balance = balance + 100 WHERE id = 2`
   })
@@ -105,20 +107,12 @@ const q = queue({ redis })
 | timestamp / date / interval | `string`（无时区语义——转 Date 按本地时区解析即时区魔法，诚实裁剪不转） |
 | NULL | `null` |
 
-### 类型层（查询泛型 + schema 写前校验）
+### 类型层（查询泛型）
 
 ```ts
-// ① 查询结果泛型（编译期类型，无需手写 interface + 断言）
+// 查询结果泛型（编译期类型，无需手写 interface + 断言）
 interface Deck { id: number; title: string; deck_json: { slides: unknown[] } }
-const decks = await ctx.sql.query<Deck>('SELECT id, title, deck_json FROM decks')
-
-// ② schema 注册 → insert 写前校验（脏数据源头拦截）
-ctx.sql.register('decks', {
-  title: { type: 'text', required: true },
-  status: { type: 'enum', values: ['outline', 'ready'] },
-  deck_json: { type: 'jsonb' },
-})
-await ctx.sql.insert('decks', { title: 'x', status: 'INVALID' }) // → ValidationError
+const decks = await ctx.sql`SELECT id, title, deck_json FROM decks` as Deck[]
 ```
 
 ### 方法面
@@ -126,17 +120,13 @@ await ctx.sql.insert('decks', { title: 'x', status: 'INVALID' }) // → Validati
 | 方法 | 说明 |
 |------|------|
 | `ctx.sql\`...\`` | tagged template → 参数化查询（插值=参数，表名需硬编码） |
-| `ctx.sql.query<T>(sql, params?)` | 参数化查询 + 泛型 |
-| `ctx.sql.unsafe(sql, params?)` | 原生 SQL（DDL / 动态表名） |
-| `ctx.sql.begin(fn)` | 事务（回调收到 tagged template sql） |
-| `ctx.sql.transaction(fn)` | 事务（回调收到 `{ query }`） |
-| `ctx.sql.register(table, schema)` | 注册表结构（写前校验） |
-| `ctx.sql.insert(table, row)` | schema 校验 + 参数化插入 |
-| `ctx.sql.insertMany(table, rows[], { batchSize? })` | **批量插入**：多行 VALUES 单次往返（默认 500/批；所有行键必须一致） |
-| `ctx.sql.update(table, set, where, { returning? })` | **参数化 UPDATE**：SET/WHERE 全部参数化，返回 `affectedRows` |
-| `ctx.sql.delete(table, where)` | **参数化 DELETE**：WHERE 必填（防全表误删），返回 `affectedRows` |
-| `ctx.sql\`...\` 内嵌片段` | 条件 SQL 片段（嵌套过滤，参数自动重编号） |
-| `ctx.sql.close()` | 关闭连接池 |
+| `ctx.sql.unsafe(sql, params?)` | 原生 SQL（DDL / 动态表名；`$1` 占位符） |
+| `ctx.sql.query` | **Query Language**：`sql.query.from('users').where({...}).run()`（AST 双后端） |
+| `ctx.sql.raw\`...\`` | 逃生舱片段（`NOW() - interval '7 days'`——真库透传/内存裁剪） |
+| `pg.transaction(fn)` | 事务（中间件实例；回调收到 callable sql，postgres.js 兼容 begin 语义） |
+| `pg.migrate()` / `markMigrated` / `isMigrated` | 幂等迁移（`_weifuwu_migrations` 表） |
+| `pg.poolStats()` | 连接池摘要（active/idle/waiting/max） |
+| `ctx.sql.close()` / `pg.close()` | 关闭连接池 |
 
 ### 影响行数（affectedRows）
 
@@ -145,14 +135,6 @@ await ctx.sql.insert('decks', { title: 'x', status: 'INVALID' }) // → Validati
 ```ts
 const r = await ctx.sql`UPDATE messages SET read = true WHERE id = ${id}`
 if (r.affectedRows === 0) return new Response('not found', { status: 404 })
-```
-
-```ts
-// 批量插入：100 行 1 次往返
-await ctx.sql.insertMany('agent_logs', logs, { batchSize: 500 })
-// 语义化更新/删除：WHERE 全参数化 + 返回影响行数
-await ctx.sql.update('users', { role: 'admin' }, { id: userId })
-await ctx.sql.delete('messages', { id: msgId })
 ```
 
 ### 条件片段（嵌套过滤）
@@ -285,6 +267,7 @@ await ctx.redis.set('user', 1)         // 实际写入 'api:user'
 | `poolSize` | `number` | `5` | 连接池大小 |
 | `keyPrefix` | `string` | `''` | 所有 key 自动加前缀（多应用隔离） |
 | `commandTimeoutMs` | `number` | `0` | 命令超时（阻塞命令 resolve(null)；防挂起。0=禁用） |
+| `onCommand` | `(command, args, durationMs, traceId?) => void` | — | 命令观测钩子；第 4 参数为请求级 traceId（`x-trace-id` 头经 ALS 传播） |
 | `socketTimeoutMs` | `number` | `0` | socket 响应超时（僵尸连接自愈：pending 有命令且超时无数据 → 主动断开重连。0=禁用） |
 
 > **连接健康**：断线自动剔除死连接并重建（池不萎缩）；`CLIENT KILL`/网络抖动后服务自愈，命令不命中死连接。

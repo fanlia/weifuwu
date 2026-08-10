@@ -12,8 +12,9 @@
 ```ts
 import { rateLimit } from 'weifuwu'
 
-app.use(redis())                                        // 依赖 ctx.redis
-app.use(rateLimit({ windowMs: 60_000, max: 100 }))      // 全局限流（默认固定窗口）
+const r = redis()                                      // 注意：REDIS_URL 缺 env 构造抛错
+app.use(r)                                             // 依赖 ctx.redis
+app.use(rateLimit({ redis: r.redis, windowMs: 60_000, max: 100 }))   // redis 必传（模式 A 显式注入）
 
 app.get('/api/search', async (req, ctx) => {
   await ctx.limit('search', { max: 30, windowMs: 60_000 })  // 手动限流，超限抛 429
