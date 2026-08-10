@@ -75,7 +75,7 @@ const server = createServer(async (req, res) => {
         sourcemap: true,
         logLevel: 'silent',
       })
-      res.writeHead(200, { 'Content-Type': 'application/javascript' })
+      res.writeHead(200, { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' })
       res.end(result.outputFiles?.[0]?.text ?? '')
     } catch (err) {
       console.error('[ui-router-demo] build error:', err)

@@ -335,3 +335,33 @@ test('T10 hydration：hydrate:true + SSR HTML 种子 → async 组件收养渲�
   assert.equal(el.querySelector('#t10')?.textContent, 'hydrated', 'hydration 种子命中：async 组件内容保留/渲染')
   handle.close()
 })
+
+test('T11 占位补全后导航替换：_refNode 陈旧锚点不得导致替换不落地（页面必须更新）', async () => {
+  const b = createClientBrowser()
+  // 模拟 SPA 序列：初始页（A）→ 导航到 async 组件页（占位→补全）→ 导航离开（替换）
+  const Slow = async (_init: any) => {
+    await Promise.resolve()
+    return () => h('div', { id: 't11-async' }, 'async 内容')
+  }
+  const router = new UIRouter()
+  router.get('/', () => h('div', { id: 't11-home' }, '首页'))
+  router.get('/async', () => h(Slow, {}))
+  router.get('/away', () => h('div', { id: 't11-away' }, '离开页'))
+  b.navigate('/')
+  const el = mount('unify-t11')
+  const handle = uiServe(router, { root: '#unify-t11' })
+  await flush()
+  assert.equal(el.querySelector('#t11-home')?.textContent, '首页')
+
+  // 导航到 async 页（占位 → 补全）
+  b.navigate('/async')
+  await flush(); await flush()
+  assert.equal(el.querySelector('#t11-async')?.textContent, 'async 内容', 'async 页补全渲染')
+
+  // 导航离开：_refNode 若停留在旧锚点（已移除的 home div）→ 替换分支不落地 → 页面不更新
+  b.navigate('/away')
+  await flush()
+  assert.equal(el.querySelector('#t11-away')?.textContent, '离开页', '从 async 页导航走必须替换成功')
+  assert.equal(el.querySelector('#t11-async'), null, '旧 async 页残留必须移除')
+  handle.close()
+})

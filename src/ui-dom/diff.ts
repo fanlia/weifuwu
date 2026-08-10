@@ -85,6 +85,11 @@ export function patchValue(
     if (node == null) return null
     if (oldNode?.parentNode) {
       oldNode.parentNode.replaceChild(node, oldNode)
+    } else if (!node.parentNode) {
+      // oldNode 缺失/已脱离 DOM（组件补全替换后旧锚点被移除，serve 的 oldVNode
+      // 仍指向旧 vnode → _refNode null/陈旧）→ 自愈追加
+      // （node 未落地才 append——keyed 调用方已 insert 的不重复）
+      parent.appendChild(node)
     }
     return node
   }
@@ -183,11 +188,12 @@ export function patchValue(
     newV._child = childNew
 
     const returnedNode = patchValue(parent, oldNode, _prevChild, childNew, childCtx)
-    // patchValue 返回 null（组件输出为 null），_refNode 指向已移除的节点
-    // 置 null 避免下次 render 使用已脱离 DOM 的引用；
-    // 返回非 null 且当前 _refNode 无效（oldNode 曾为 null）→ 用实际返回补锚点
-    if (returnedNode && !newV._refNode) newV._refNode = returnedNode
-    else if (!returnedNode) newV._refNode = null
+    // _refNode 必须总是对齐本次渲染的实际 DOM：returnedNode 非 null 时覆盖
+    // （旧锚点可能陈旧——组件补全替换后旧 DOM 被移除，留着指向已脱离的节点，
+    //   后续 diff oldNode.parentNode=false → 替换不落地 → 页面不更新）；
+    // 组件输出 null 时置 null（避免引用已移除节点）
+    if (returnedNode) newV._refNode = returnedNode
+    else newV._refNode = null
     return returnedNode
   }
 
