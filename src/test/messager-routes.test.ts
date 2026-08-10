@@ -19,9 +19,14 @@ function mkCtx(extra: Record<string, unknown> = {}) {
 
 describe('messager routes (real postgres + userSystem)', () => {
   const db = postgres()
+  const rds = redis()
   const users = userSystem({ sql: db.sql, secret: 'test-secret-0123456789abcdef' })
-  const system = messager({ sql: db.sql })
+  const system = messager({ sql: db.sql, redis: rds.redis })
   const msg = system.client
+
+  after(async () => {
+    await rds.close()
+  })
 
   const app = new Router()
   app.use(db)

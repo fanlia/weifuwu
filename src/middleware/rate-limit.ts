@@ -9,14 +9,15 @@
  *   - memory：进程内 Map，仅单实例/开发环境（多实例会互相放行，文档红线）
  *
  * 裁剪声明：
- *   ✅ fixed / sliding / redis / memory / 响应头 / ctx.limit / 自定义 key
+ *   ✅ fixed / sliding / redis / 响应头 / ctx.limit / 自定义 key
  *   ❌ 多级限流 DSL、配额策略引擎、动态规则热更新、按租户配额（应用层）
  *
  * ```ts
  * import { rateLimit } from 'weifuwu'
  *
  * app.use(redis())
- * app.use(rateLimit({ windowMs: 60_000, max: 100 }))       // 全局限流
+ * const r = redis(); app.use(r)
+ * app.use(rateLimit({ redis: r.redis, windowMs: 60_000, max: 100 }))  // 全局限流
  *
  * app.get('/api/search', async (req, ctx) => {
  *   await ctx.limit('search', { max: 30, windowMs: 60_000 }) // 手动限流
@@ -33,16 +34,19 @@ export type RateLimitAlgorithm = 'fixed' | 'sliding'
 export type RateLimitStore = 'redis' | 'memory'
 
 export interface RateLimitOptions {
+  /**
+   * Redis 客户端（必传——模式 A 显式注入，对齐 queue({ redis })）：
+   * 唯一存储（固定/滑动窗口计数），多实例一致。所有权在调用方（rateLimit 不 close）。
+   */
+  redis: Redis
   /** 时间窗口（ms）。默认 60_000。 */
   windowMs?: number
   /** 窗口内最大请求数。默认 100。 */
   max?: number
   /** 限流键（默认取 X-Forwarded-For 首个 IP；生产环境请配置反向代理注入该头）。 */
   key?: (req: Request) => string
-  /** 算法。'fixed'（默认）| 'sliding'（sliding 仅支持 redis store） */
+  /** 算法。'fixed'（默认）| 'sliding'。 */
   algorithm?: RateLimitAlgorithm
-  /** 存储。'redis'（默认）| 'memory'（单实例/开发） */
-  store?: RateLimitStore
   /** 超限状态码。默认 429。 */
   statusCode?: number
   /** 超限错误消息。默认 'Too Many Requests'。 */
@@ -78,11 +82,6 @@ interface LimitResult {
   resetSeconds: number
 }
 
-interface MemoryState {
-  count: number
-  resetAt: number
-}
-
 const PREFIX = 'rl:'
 
 /** 请求 IP（与全局限流同一取值逻辑：X-Forwarded-For 首个 IP） */
@@ -92,8 +91,13 @@ function requestIp(req: Request): string {
     ?? 'unknown'
 }
 
-export function rateLimit(options?: RateLimitOptions): RateLimitClient {
+export function rateLimit(options: RateLimitOptions): RateLimitClient {
+  // 构造时校验（可预测失败——JS 调用方无类型保护时也明确报错）
+  if (!options.redis) {
+    throw new Error('rateLimit: options.redis is required — 传 redis() 的 .redis（先 app.use(redis())）或 new RedisPool()')
+  }
   const opts = {
+    redis: options.redis,
     windowMs: options?.windowMs ?? 60_000,
     max: options?.max ?? 100,
     key:
@@ -101,58 +105,26 @@ export function rateLimit(options?: RateLimitOptions): RateLimitClient {
       ((req: Request) =>
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'),
     algorithm: options?.algorithm ?? ('fixed' as RateLimitAlgorithm),
-    store: options?.store ?? ('redis' as RateLimitStore),
     statusCode: options?.statusCode ?? 429,
     message: options?.message ?? 'Too Many Requests',
     headers: options?.headers ?? true,
   }
 
-  if (opts.store === 'memory' && opts.algorithm === 'sliding') {
-    throw new Error('rateLimit: algorithm "sliding" requires store "redis" (memory store 仅支持 fixed)')
-  }
-
-  let redisPool: Redis | null = null
-  const memoryStore = new Map<string, MemoryState>()
-
-  function requireRedis(ctx: Context): void {
-    if (redisPool) return
-    const pool = (ctx as Context & { redis?: Redis }).redis
-    if (!pool) {
-      throw new Error(
-        'rateLimit: store "redis" requires redis() middleware first — app.use(redis()) 必须在 rateLimit 之前注册',
-      )
-    }
-    redisPool = pool
-  }
+  const redisPool: Redis = opts.redis
 
   /** 核心：检查并计数。返回 { allowed, remaining, resetSeconds } */
   async function check(key: string, max: number, windowMs: number): Promise<LimitResult> {
-    if (opts.store === 'memory') {
-      const now = Date.now()
-      const state = memoryStore.get(key)
-      if (!state || state.resetAt <= now) {
-        memoryStore.set(key, { count: 1, resetAt: now + windowMs })
-        return { allowed: true, remaining: Math.max(0, max - 1), resetSeconds: Math.ceil(windowMs / 1000) }
-      }
-      if (state.count >= max) {
-        return { allowed: false, remaining: 0, resetSeconds: Math.ceil((state.resetAt - now) / 1000) }
-      }
-      state.count++
-      return { allowed: true, remaining: Math.max(0, max - state.count), resetSeconds: Math.ceil((state.resetAt - now) / 1000) }
-    }
-
-    // ── redis store ──
     if (opts.algorithm === 'fixed') {
       // INCR 原子；首个请求（返回 1）时设 TTL——并发重复 EXPIRE 幂等无害，无需 Lua
       // PEXPIRE（ms 精度）：windowMs < 1s 时 EXPIRE 秒粒度会虚增 TTL（ceil(500ms)=1s）
-      const count = await redisPool!.incr(PREFIX + key)
+      const count = await redisPool.incr(PREFIX + key)
       if (count === 1) {
-        await redisPool!.command('PEXPIRE', PREFIX + key, windowMs)
+        await redisPool.command('PEXPIRE', PREFIX + key, windowMs)
       }
       return {
         allowed: count <= max,
         remaining: Math.max(0, max - count),
-        resetSeconds: Math.max(1, Math.ceil(await redisPool!.ttl(PREFIX + key))),
+        resetSeconds: Math.max(1, Math.ceil(await redisPool.ttl(PREFIX + key))),
       }
     }
 
@@ -160,18 +132,18 @@ export function rateLimit(options?: RateLimitOptions): RateLimitClient {
     const fullKey = PREFIX + key
     const now = Date.now()
     const min = now - windowMs
-    await redisPool!.command('ZREMRANGEBYSCORE', fullKey, 0, min)
-    const count = Number(await redisPool!.command('ZCARD', fullKey))
+    await redisPool.command('ZREMRANGEBYSCORE', fullKey, 0, min)
+    const count = Number(await redisPool.command('ZCARD', fullKey))
     if (count >= max) {
-      const ttl = Number(await redisPool!.command('TTL', fullKey))
+      const ttl = Number(await redisPool.command('TTL', fullKey))
       return { allowed: false, remaining: 0, resetSeconds: Math.max(1, ttl) }
     }
     const added = Number(
-      await redisPool!.command('ZADD', fullKey, now, `${now}-${Math.random().toString(36).slice(2)}`),
+      await redisPool.command('ZADD', fullKey, now, `${now}-${Math.random().toString(36).slice(2)}`),
     )
     if (added === 1) {
       // 新 key：窗口过期后整 key 消失（内存回收）
-      await redisPool!.command('EXPIRE', fullKey, Math.ceil(windowMs / 1000) * 2)
+      await redisPool.command('EXPIRE', fullKey, Math.ceil(windowMs / 1000) * 2)
     }
     return { allowed: true, remaining: Math.max(0, max - count - 1), resetSeconds: Math.ceil(windowMs / 1000) }
   }
@@ -191,8 +163,6 @@ export function rateLimit(options?: RateLimitOptions): RateLimitClient {
   }
 
   const mw = (async (req: Request, ctx: Context, next: Handler) => {
-    if (opts.store === 'redis') requireRedis(ctx)
-
     // 注入 ctx.limit（手动限流）——超限抛 HttpError（router/serve 自动转状态码）
     ctx.limit = async (
       name: string,
@@ -225,7 +195,7 @@ export function rateLimit(options?: RateLimitOptions): RateLimitClient {
     return res
   }) as unknown as RateLimitClient
 
-  mw.__meta = { injects: ['limit'], depends: opts.store === 'redis' ? ['redis'] : [] }
+  mw.__meta = { injects: ['limit'], depends: [] }
 
   return mw
 }

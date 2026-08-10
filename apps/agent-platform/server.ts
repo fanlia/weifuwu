@@ -95,7 +95,7 @@ async function main() {
 
   // ── 限流（框架 rateLimit：ctx.limit 手动限流，默认按 IP 维度） ──
   if (hasRedis) {
-    app.use(rateLimit({ store: 'redis', windowMs: 60_000, max: 100 }))
+    app.use(rateLimit({ windowMs: 60_000, max: 100, redis: redisClient.redis }))
   }
 
   // ── AI 中间件（框架 ai()：chat/stream/agent/embedding——embedding 默认读 DASHSCOPE_*） ──

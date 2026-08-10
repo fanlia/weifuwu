@@ -2,7 +2,7 @@
  * rateLimit — 限流中间件测试（CS-04：真库 docker redis）
  *
  * 覆盖：fixed/sliding 算法、窗口过期重置、响应头、ctx.limit 手动限流、
- * memory store、多实例共享计数、自定义 key、HttpError 状态码。
+ * 多实例共享计数、自定义 key、HttpError 状态码。
  *
  * 注意：每个测试用唯一 key（IP 后缀），不使用 flushdb——node --test 并行
  * 时 flushdb 会干扰同库的 redis.test.ts。同一测试内复用同一 req（同一 key）。
@@ -42,7 +42,7 @@ describe('rateLimit', () => {
 
   describe('fixed window (redis)', () => {
     it('窗口内 max 次通过，第 max+1 次 429', async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 2 })
+      const mw = rateLimit({ windowMs: 60_000, max: 2, redis: pool })
       const req = makeReq()
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
@@ -52,7 +52,7 @@ describe('rateLimit', () => {
     })
 
     it('不同 key（IP）独立计数', async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 1 })
+      const mw = rateLimit({ windowMs: 60_000, max: 1, redis: pool })
       const reqA = makeReq()
       const reqB = makeReq()
       assert.equal((await callMw(mw, reqA, pool)).res!.status, 200)
@@ -61,7 +61,7 @@ describe('rateLimit', () => {
     })
 
     it('窗口过期后自动重置', async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 500, max: 1 })
+      const mw = rateLimit({ windowMs: 500, max: 1, redis: pool })
       const req = makeReq()
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
       assert.equal((await callMw(mw, req, pool)).res!.status, 429)
@@ -70,7 +70,7 @@ describe('rateLimit', () => {
     })
 
     it('响应头 RateLimit-* 与 429 Retry-After', async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 1 })
+      const mw = rateLimit({ windowMs: 60_000, max: 1, redis: pool })
       const req = makeReq()
       const ok = await callMw(mw, req, pool)
       assert.equal(ok.res!.headers.get('RateLimit-Limit'), '1')
@@ -83,7 +83,7 @@ describe('rateLimit', () => {
 
     it('自定义 key 函数', async () => {
       const mw = rateLimit({
-        store: 'redis',
+        redis: pool,
         windowMs: 60_000,
         max: 1,
         key: (req) => req.headers.get('x-tenant') ?? 'anon',
@@ -103,8 +103,8 @@ describe('rateLimit', () => {
       const pool2: any = r2.redis
       try {
         const req = makeReq() // 同一 req 供两个实例共享
-        const mw1 = rateLimit({ store: 'redis', windowMs: 60_000, max: 2 })
-        const mw2 = rateLimit({ store: 'redis', windowMs: 60_000, max: 2 })
+        const mw1 = rateLimit({ windowMs: 60_000, max: 2, redis: pool })
+        const mw2 = rateLimit({ windowMs: 60_000, max: 2, redis: pool })
         assert.equal((await callMw(mw1, req, pool)).res!.status, 200)
         assert.equal((await callMw(mw2, req, pool2)).res!.status, 200)
         assert.equal((await callMw(mw1, req, pool)).res!.status, 429)
@@ -116,7 +116,7 @@ describe('rateLimit', () => {
 
   describe('sliding window (redis)', () => {
     it('窗口内 max 次通过，第 max+1 次 429', async () => {
-      const mw = rateLimit({ store: 'redis', algorithm: 'sliding', windowMs: 60_000, max: 3 })
+      const mw = rateLimit({ algorithm: 'sliding', windowMs: 60_000, max: 3, redis: pool })
       const req = makeReq()
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
@@ -125,7 +125,7 @@ describe('rateLimit', () => {
     })
 
     it('窗口过期后重置', async () => {
-      const mw = rateLimit({ store: 'redis', algorithm: 'sliding', windowMs: 500, max: 1 })
+      const mw = rateLimit({ algorithm: 'sliding', windowMs: 500, max: 1, redis: pool })
       const req = makeReq()
       assert.equal((await callMw(mw, req, pool)).res!.status, 200)
       assert.equal((await callMw(mw, req, pool)).res!.status, 429)
@@ -136,7 +136,7 @@ describe('rateLimit', () => {
 
   describe('ctx.limit 手动限流', () => {
     it('超限抛 HttpError 429（带 retryAfter）', async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 10 })
+      const mw = rateLimit({ windowMs: 60_000, max: 10, redis: pool })
       const name = `search-${randomUUID()}`
       const { ctx } = await callMw(mw, makeReq(), pool)
       await ctx.limit(name, { max: 1, windowMs: 60_000 })
@@ -147,7 +147,7 @@ describe('rateLimit', () => {
     })
 
     it('不同名称独立计数', async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 10 })
+      const mw = rateLimit({ windowMs: 60_000, max: 10, redis: pool })
       const nameA = `a-${randomUUID()}`
       const nameB = `b-${randomUUID()}`
       const { ctx } = await callMw(mw, makeReq(), pool)
@@ -159,7 +159,7 @@ describe('rateLimit', () => {
 
   describe('ctx.limit scope（IP 维度）', () => {
     it('默认按 IP 维度：不同 IP 独立计数（agent-platform register 场景）', async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 10 })
+      const mw = rateLimit({ windowMs: 60_000, max: 10, redis: pool })
       const name = `reg-${randomUUID()}`
       const { ctx: ctxA } = await callMw(mw, makeReq('10.1.1.1'), pool)
       const { ctx: ctxB } = await callMw(mw, makeReq('10.2.2.2'), pool)
@@ -174,7 +174,7 @@ describe('rateLimit', () => {
     })
 
     it("scope: 'global' 保持全局维度（现有语义）", async () => {
-      const mw = rateLimit({ store: 'redis', windowMs: 60_000, max: 10 })
+      const mw = rateLimit({ windowMs: 60_000, max: 10, redis: pool })
       const name = `g-${randomUUID()}`
       const { ctx: ctxA } = await callMw(mw, makeReq('10.3.3.3'), pool)
       const { ctx: ctxB } = await callMw(mw, makeReq('10.4.4.4'), pool)
@@ -183,34 +183,5 @@ describe('rateLimit', () => {
     })
   })
 
-  describe('memory store（单实例/开发）', () => {
-    it('fixed 语义生效', async () => {
-      const mw = rateLimit({ store: 'memory', windowMs: 60_000, max: 2 })
-      const req = makeReq()
-      assert.equal((await callMw(mw, req, undefined)).res!.status, 200)
-      assert.equal((await callMw(mw, req, undefined)).res!.status, 200)
-      assert.equal((await callMw(mw, req, undefined)).res!.status, 429)
-    })
 
-    it('窗口重置', async () => {
-      const mw = rateLimit({ store: 'memory', windowMs: 500, max: 1 })
-      const req = makeReq()
-      assert.equal((await callMw(mw, req, undefined)).res!.status, 200)
-      assert.equal((await callMw(mw, req, undefined)).res!.status, 429)
-      await sleep(600)
-      assert.equal((await callMw(mw, req, undefined)).res!.status, 200)
-    })
-  })
-
-  describe('配置约束（诚实裁剪）', () => {
-    it('sliding + memory 明确抛错', () => {
-      assert.throws(() => rateLimit({ store: 'memory', algorithm: 'sliding' }), /sliding.*redis/)
-    })
-
-    it('redis store 但未注册 redis() → 明确抛错', async () => {
-      const mw = rateLimit({ store: 'redis' })
-      const { error } = await callMw(mw, makeReq(), undefined)
-      assert.ok(error instanceof Error && /redis\(\)/.test(error.message))
-    })
-  })
 })

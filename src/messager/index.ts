@@ -107,8 +107,8 @@ export interface MessagerSystem extends Middleware<Context, Context & MessagerIn
 
 export interface MessagerOptions {
   sql: SqlClient
-  /** Redis（可选：多进程广播）——Redis 接口：传 `redis().redis`（中间件）或 `new RedisPool()`/`RedisPool.create()` */
-  redis?: Redis
+  /** Redis（必传：多进程广播/实时推送）——Redis 接口：传 `redis().redis`（中间件）或 `new RedisPool()`/`RedisPool.create()` */
+  redis: Redis
   prefix?: string
 }
 
