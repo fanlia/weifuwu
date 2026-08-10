@@ -507,7 +507,7 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 7.1 命令与预算
 
-- `node --test` 无 Jest/Mocha；`npm test` 的 pretest 自动 `docker compose up -d postgres redis`
+- `node --test` 无 Jest/Mocha；`npm test` 无 pretest、**零外部依赖**（docker 不参与测试——见 §7.4 测试范围）
 - **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（**≤15 秒**），并优先加 `--test-timeout`（如 `timeout 15 node --env-file=.env --test --test-timeout=8000 ...`）——真库/集成测试卡住时能快速定位；卡住时用更短 timeout 复跑缩小范围
 - **全量测试总时长预算：≤ 15 秒**（实测 ~11.5s，db 真库 191 个测试占 ~4.3s）。**超过 15 秒 = 必须排查**：
   1. **资源未释放**：db 连接未 `close()`、redis 订阅未退订、jsdom 定时器未清（setTimeout/interval 未 clear——挂起比失败更难定位）、全局 document/mutation 监听未 remove
@@ -515,6 +515,20 @@ const MyComp: Component = (_init, ctx) => {
   3. **串行瓶颈**：`--test-concurrency=1` 文件串行；db 真库测试耗时占比大
   4. 排查命令：`timeout 15 node --env-file=.env --test --test-timeout=8000 <glob>` 分段跑定位超时文件，再缩短该文件测试查找挂起点
 - **并发数经验：默认 16 核全并发会 GC/锁抖动（全量从 ~9s 恶化到 >60s）——`npm test` 已固化为 `--test-concurrency=8`**；新增慢文件或机器变化后先验证此值仍成立（<15s 预算内）
+
+### 7.1.1 测试范围（sql/redis 协议层只测三部分）
+
+**db 协议层（`src/db/**/*.test.ts`）只测三部分，其它情况一律不测**：
+
+1. **connection：连接 / 执行命令 / 断开** — `postgres/connection.test.ts`（连接/认证/简单查询/参数化/错误码/断开）、`redis/connection.test.ts`（连接/命令/重连/订阅/CLIENT KILL/超时）
+2. **AST parse/stringify** — `redis/resp.test.ts` + `postgres/protocol.test.ts`（字节编解码 = parse/stringify 底层）、`src/test/redis-ast.test.ts`（RESP ⇄ RedisCommand）、`src/test/query-language.test.ts`（SQL ⇄ Query Language AST + compileQuery）
+3. **其它不测** — 协议引擎特性（pool 语义/管道/pipeline/类型映射/事务隔离/statement_timeout/prepare cache/流式推送）、schema 层、MemorySql/MemoryRedis 实现细节——**一律删除或不再新增**（生产实现由业务测试间接覆盖）
+
+**规则**：
+- connection 测试连**进程内内存服务器**（`MemoryRedisServer`/`MemoryPostgresServer`——`src/db/test-servers.ts`）——真实 TCP 线协议交互（RESP/PG v3），零 docker
+- 文件级内存服务器必须 `after(close)`（node --test 文件结束需事件循环清空——net server 不关 = 文件挂起）
+- 新增 sql/redis 协议测试前先问：属于三部分哪一类？不属于 → 不写
+- 业务测试（user/queue/messager/rate-limit/email mock）独立于上述范围——仍跑 MemorySql/MemoryRedis 与协议 mock
 
 ### 7.2 UI 组件测试纪律（jsdom + VNode 断言）
 

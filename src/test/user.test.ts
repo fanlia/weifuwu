@@ -17,7 +17,7 @@ import { Router } from '../core/router.ts'
 
 const mkCtx = () => ({ params: {}, query: {} })
 
-describe('userSystem (real postgres)', () => {
+describe('userSystem (memory sql)', () => {
   const db = createMemorySql()
   const users = userSystem({ sql: db, secret: 'test-secret-0123456789abcdef' })
 

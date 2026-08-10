@@ -133,28 +133,23 @@ export class MemoryRedisServer implements DBServer {
     const parser = new RespParser()
     const subscribed = this.subChannels.get(id)!
     let authed = this.opts.password === ''
-    let buffered: string[] = []
-    let buffering = false
 
     sock.on('data', (chunk) => {
-      if (buffering) {
-        // 简单缓冲聚合（大 chunk 拆分——RespParser 已增量，无需手动缓冲）
-      }
-      buffered.push(chunk.toString('utf8'))
       try {
-        const result = parser.push(chunk)
-        if (result.incomplete) return
-        buffered = []
-        const value = decodeCommandArray(result.value)
-        if (value === null) return
-        const [name, ...args] = value
-        void this.dispatch(id, sock, name, args, authed)
-          .then((reply) => {
-            if (reply) sock.write(reply)
-          })
-          .catch((err) => {
-            sock.write(encodeError(err instanceof Error ? err.message : String(err)))
-          })
+        // pushAll：一次 data 事件可能含多个命令（pipeline batch）——全部解析并 dispatch
+        const values = parser.pushAll(chunk)
+        for (const value of values) {
+          const decoded = decodeCommandArray(value)
+          if (decoded === null) continue
+          const [name, ...args] = decoded
+          void this.dispatch(id, sock, name, args, authed)
+            .then((reply) => {
+              if (reply) sock.write(reply)
+            })
+            .catch((err) => {
+              sock.write(encodeError(err instanceof Error ? err.message : String(err)))
+            })
+        }
       } catch (e) {
         if (e instanceof IncompleteError) return
         sock.write(encodeError(`ERR ${e instanceof Error ? e.message : String(e)}`))

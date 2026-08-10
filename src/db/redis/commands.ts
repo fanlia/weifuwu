@@ -32,6 +32,7 @@ export interface CommandDef {
 const defs: CommandDef[] = [
   // ── string ──
   { name: 'GET', minArity: 1, maxArity: 1 },
+  { name: 'KEYS', minArity: 1, maxArity: 1 },
   {
     name: 'SET',
     minArity: 2,
