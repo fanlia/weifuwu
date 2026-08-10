@@ -34,7 +34,8 @@ afterEach(() => {
 /** 挂载一个真实 app + toast 中间件，返回 (ctx, app) */
 async function setup(opts?: any) {
   const router = new UIRouter()
-  router.use(toast(opts))
+  // 默认 duration 0：不自动消失（避免 3000ms 残留定时器拖慢测试——node --test 等定时器清空）
+  router.use(toast({ duration: 0, ...opts }))
   router.get('/', () => h('span', {}, 'root'))
   const el = document.createElement('div')
   document.body.appendChild(el)

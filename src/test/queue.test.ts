@@ -169,7 +169,7 @@ describe('queue (memory redis)', () => {
     let ran = false
     const worker = q.queue.worker<any>(name, async () => { ran = true }, { blockMs: 50 })
     await worker.start()
-    await sleep(200) // BLOCK 空等（blockMs 50，验证空等不崩溃）
+    await sleep(60) // BLOCK 空等（blockMs 50——等一个周期验证不崩溃）
     assert.equal(ran, false)
     await worker.stop()
     assert.ok(true)
@@ -208,7 +208,7 @@ describe('queue worker independent connection (memory redis)', () => {
       const name = qname()
       const worker = q.queue.worker<any>(name, async () => {}, { blockMs: 500 })
       await worker.start()
-      await sleep(150) // 确保 XREADGROUP BLOCK 已在服务器端阻塞（否则 add 测不到排队）
+      await sleep(80) // 确保 XREADGROUP BLOCK 已在服务器端阻塞（否则 add 测不到排队）
       const t0 = Date.now()
       await q.queue.add(name, { x: 1 })
       const elapsed = Date.now() - t0
