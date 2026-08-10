@@ -64,7 +64,7 @@ function connect(server: Server, path = '/ws'): Promise<{ ws: WebSocket; waitMsg
 describe('messager realtime (real ws + redis)', () => {
   const db = postgres()
   const rds = redis()
-  const system = messager({ sql: db.sql, redis: rds })
+  const system = messager({ sql: db.sql, redis: rds.redis })
   const msg = system.client
   let server: Server
 
@@ -167,7 +167,7 @@ describe('messager realtime (real ws + redis)', () => {
   it('Redis 跨进程广播：第二个 messager 实例收到同一房间事件', async () => {
     // 第二实例共享同一 redis（模拟另一进程）
     const rds2 = redis()
-    const system2 = messager({ sql: db.sql, redis: rds2 })
+    const system2 = messager({ sql: db.sql, redis: rds2.redis })
     const msg2 = system2.client
     const app2 = new Router()
     app2.use(db)

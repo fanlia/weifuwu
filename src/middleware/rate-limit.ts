@@ -27,7 +27,7 @@
 
 import type { Context, Handler, Middleware } from '../types.ts'
 import { HttpError } from '../types.ts'
-import type { RedisPool } from '../db/redis/pool.ts'
+import type { Redis } from '../db/contracts.ts'
 
 export type RateLimitAlgorithm = 'fixed' | 'sliding'
 export type RateLimitStore = 'redis' | 'memory'
@@ -111,12 +111,12 @@ export function rateLimit(options?: RateLimitOptions): RateLimitClient {
     throw new Error('rateLimit: algorithm "sliding" requires store "redis" (memory store 仅支持 fixed)')
   }
 
-  let redisPool: RedisPool | null = null
+  let redisPool: Redis | null = null
   const memoryStore = new Map<string, MemoryState>()
 
   function requireRedis(ctx: Context): void {
     if (redisPool) return
-    const pool = (ctx as Context & { redis?: RedisPool }).redis
+    const pool = (ctx as Context & { redis?: Redis }).redis
     if (!pool) {
       throw new Error(
         'rateLimit: store "redis" requires redis() middleware first — app.use(redis()) 必须在 rateLimit 之前注册',

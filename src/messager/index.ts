@@ -15,7 +15,7 @@
 import { HttpError, type Context, type Handler, type Middleware } from '../types.ts'
 import type { Router } from '../core/router.ts'
 import type { SqlClient } from '../postgres/types.ts'
-import type { RedisClient } from '../redis/index.ts'
+import type { Redis } from '../db/contracts.ts'
 import type { WebSocketHandler } from '../core/ws.ts'
 import { ok, created, badRequest, noContent } from '../response.ts'
 
@@ -107,7 +107,8 @@ export interface MessagerSystem extends Middleware<Context, Context & MessagerIn
 
 export interface MessagerOptions {
   sql: SqlClient
-  redis?: RedisClient
+  /** Redis（可选：多进程广播）——Redis 接口：传 `redis().redis`（中间件）或 `new RedisPool()`/`RedisPool.create()` */
+  redis?: Redis
   prefix?: string
 }
 
@@ -296,7 +297,7 @@ export function messager(options: MessagerOptions): MessagerSystem {
   let redisSub: any = null
 
   function initRedis(): void {
-    const pool = options.redis?.redis
+    const pool = options.redis
     if (!pool || redisSub) return
     redisSub = pool.createSubscriber()
     redisSub.connect().then(() => {
@@ -333,7 +334,7 @@ export function messager(options: MessagerOptions): MessagerSystem {
 
   function broadcast(room: string, event: MsgEvent): void {
     broadcastLocal(room, event)
-    const pool = options.redis?.redis
+    const pool = options.redis
     if (pool) {
       // 携带发布者 PID——订阅方据此跳过自己发的消息（防止单进程环回重复）
       pool.publish(`${REDIS_PREFIX}${room}`, JSON.stringify({ ...event, _pid: SELF_PID })).catch((err: unknown) => {
