@@ -27,6 +27,7 @@ export { queue } from './queue/index.ts'
 export { scheduler } from './scheduler/index.ts'
 export type { QueueOptions, QueueClient, QueueInjected, QueueWorker, WorkerOptions, AddOptions, Job } from './queue/index.ts'
 export { ai } from './ai/index.ts'
+export type { Ai, ApprovalRequest } from './ai/contracts.ts'
 export type {
   AiOptions,
   AiInjected,

@@ -27,8 +27,8 @@ async function waitFor(cond: () => boolean | Promise<boolean>, timeout = 10_000,
 }
 
 describe('queue (real redis)', () => {
-  const q = queue()
   const pool = new RedisPool({ host: 'localhost', port: 6379 })
+  const q = queue({ redis: pool })
   const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
 
   after(async () => {
@@ -202,7 +202,7 @@ describe('queue worker independent connection (real redis)', () => {
   })
 
   it('worker BLOCK 不堵池：poolSize=1 时 add 仍即时（独立连接）', async () => {
-    const q = queue({ poolSize: 1 })
+    const q = queue({ redis: pool })
     try {
       const name = qname()
       const worker = q.queue.worker<any>(name, async () => {}, { blockMs: 500 })
@@ -219,7 +219,7 @@ describe('queue worker independent connection (real redis)', () => {
   })
 
   it('start 等待就绪：start() 返回时 group 已建（XPENDING 不 NOGROUP）', async () => {
-    const q = queue()
+    const q = queue({ redis: pool })
     try {
       const name = qname()
       await q.queue.add(name, { a: 1 })
@@ -236,7 +236,7 @@ describe('queue worker independent connection (real redis)', () => {
   })
 
   it('stop 完整退出：多次 start/stop 后无残留 BLOCK 堵连接', async () => {
-    const q = queue({ poolSize: 1 })
+    const q = queue({ redis: pool })
     try {
       const name = qname()
       // 3 轮 start/stop——修复前 stop 不等 loop 退出，BLOCK 残留占连接（排队 250ms）
@@ -266,7 +266,7 @@ describe('queue worker lifecycle correctness (real redis)', () => {
   })
 
   it('start 失败（group 创建 WRONGTYPE）→ reject；running 回退可重试', async () => {
-    const q = queue()
+    const q = queue({ redis: pool })
     try {
       const name = qname()
       // 把 stream key 占为字符串——XGROUP CREATE 报 WRONGTYPE（确定性失败）
@@ -282,7 +282,7 @@ describe('queue worker lifecycle correctness (real redis)', () => {
   })
 
   it('stop/start 快速交替：旧 loop 不复活，消费正常', async () => {
-    const q = queue()
+    const q = queue({ redis: pool })
     try {
       const name = qname()
       const seen: number[] = []
@@ -312,7 +312,7 @@ describe('queue worker group recovery (real redis)', () => {
   })
 
   it('group 被外部删除（XGROUP DESTROY）→ worker 自愈重建，继续消费', async () => {
-    const q = queue()
+    const q = queue({ redis: pool })
     try {
       const name = qname()
       const seen: number[] = []
@@ -332,7 +332,7 @@ describe('queue worker group recovery (real redis)', () => {
   })
 
   it('持续瞬时错误不刷屏：NOGROUP 自愈路径静默（5s 窗口最多打一次）', async () => {
-    const q = queue()
+    const q = queue({ redis: pool })
     try {
       const name = qname()
       const seen: number[] = []

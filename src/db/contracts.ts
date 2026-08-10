@@ -76,6 +76,11 @@ export interface RedisPoolConnection extends PoolConnection {
  * 阻塞命令（BLPOP 等）在 commandTimeoutMs 超时时 resolve(null)（命令超时契约）。
  */
 export interface Redis {
+  /**
+   * 创建独立连接（阻塞命令 / 专用通道——不占池连接，调用方负责 close）。
+   * 引擎实现（RedisPool）用自身配置派生，无需调用方传 url/选项。
+   */
+  createConnection(): Promise<RedisPoolConnection>
   /** 原始命令（RespValue 返回值——RESP 协议层；阻塞命令超时 resolve(null)） */
   command(name: string, ...args: (string | number)[]): Promise<RespValue>
   get(key: string): Promise<string | null>

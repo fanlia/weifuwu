@@ -34,16 +34,17 @@
 import { randomUUID } from 'node:crypto'
 import { hostname } from 'node:os'
 import type { Context, Handler, Middleware } from '../types.ts'
-import { RedisPool } from '../db/redis/pool.ts' // 引擎组装点（值依赖）：queue 自建池
-import type { Redis } from '../db/contracts.ts' // 消费面类型：接口
-import { RedisConnection, type RedisConnectionOptions } from '../db/redis/connection.ts'
+import type { Redis, RedisPoolConnection } from '../db/contracts.ts'
 
 export interface QueueOptions {
-  /** Redis 连接串（默认 REDIS_URL） */
-  url?: string
+  /**
+   * Redis 客户端（必传——模式 A 显式注入，对齐 userSystem({ sql })）：
+   * 池命令（add/length）走轮询连接，worker 阻塞读走 redis.createConnection()（不占池）。
+   * 所有权在调用方：queue.close() 不关闭注入的 redis。
+   */
+  redis: Redis
   /** stream 名前缀。默认 'q:'。 */
   prefix?: string
-  poolSize?: number
 }
 
 export interface AddOptions {
@@ -107,25 +108,15 @@ export interface QueueClientModule extends Middleware<Context, Context & QueueIn
 
 const GROUP = 'workers'
 
-function parseUrl(options?: QueueOptions): { conn: RedisConnectionOptions; pool: Redis } {
-  const url = options?.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
-  const u = new URL(url)
-  const opts: RedisConnectionOptions = {
-    host: u.hostname,
-    port: Number(u.port || 6379),
-  }
-  return { conn: opts, pool: new RedisPool({ ...opts, poolSize: options?.poolSize }) }
-}
-
-export function queue(options?: QueueOptions): QueueClientModule {
-  const prefix = options?.prefix ?? 'q:'
-  const { conn: connOpts, pool } = parseUrl(options)
+export function queue(options: QueueOptions): QueueClientModule {
+  const redis = options.redis
+  const prefix = options.prefix ?? 'q:'
   const stream = (name: string) => `${prefix}${name}`
   const deadStream = (name: string) => `${prefix}${name}:dead`
 
   /** XADD 一个 job 到 stream（payload 序列化为单个 field） */
   async function pushJob(name: string, payload: Record<string, unknown>): Promise<string> {
-    const id = await pool.command('XADD', stream(name), '*', 'payload', JSON.stringify(payload))
+    const id = await redis.command('XADD', stream(name), '*', 'payload', JSON.stringify(payload))
     return String(id)
   }
 
@@ -142,7 +133,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
       return { id }
     },
 
-    length: async (name) => Number(await pool.command('XLEN', stream(name))),
+    length: async (name) => Number(await redis.command('XLEN', stream(name))),
 
     worker<T = unknown>(name: string, handler: (job: Job<T>) => Promise<void>, opts?: WorkerOptions) {
       const consumer = opts?.consumer ?? `${hostname()}-${process.pid}-${Math.random().toString(36).slice(2, 6)}`
@@ -156,7 +147,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
       let running = false
       let lastErrAt = 0 // 错误日志抑制（5s 窗口最多打一次——NOGROUP 自愈路径静默）
       let epoch = 0 // 世代标记：stop 时 ++，旧 loop 检查失效退出（防 stop/start 交替时旧 loop 复活）
-      let conn: RedisConnection | null = null
+      let conn: RedisPoolConnection | null = null
       let connEpoch = -1 // 连接所属世代（stop 在途的旧连接与 start 的新连接区分）
       const loops = new Map<number, Promise<void>>() // epoch → loop（stop 只等自己的旧 loop）
       const inflight = new Set<Promise<void>>()
@@ -164,7 +155,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
       /** 独立连接：BLOCK 命令不占池连接（池只服务 add/length 等短命令）。
        *  连接绑定 epoch——stop 在途的旧连接（connEpoch !== myEpoch）关闭重建，
        *  不与被 stop 摘除的旧连接混淆。 */
-      async function getConn(myEpoch: number): Promise<RedisConnection> {
+      async function getConn(myEpoch: number): Promise<RedisPoolConnection> {
         if (conn && connEpoch === myEpoch) return conn
         if (conn) {
           // 旧连接（stop 在途已摘除引用，但 start 并发时可能还在）——安全关闭
@@ -173,8 +164,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
           connEpoch = -1
           await c.close().catch(() => {})
         }
-        const c = new RedisConnection(connOpts)
-        await c.connect()
+        const c = await redis.createConnection()
         conn = c
         connEpoch = myEpoch
         return c
@@ -407,7 +397,7 @@ export function queue(options?: QueueOptions): QueueClientModule {
 
   mw.__meta = { injects: ['queue'], depends: [] }
   mw.queue = queueClient
-  mw.close = () => pool.close()
+  mw.close = async () => {} // 注入的 redis 所有权在调用方（queue 不关闭）
 
   return mw
 }

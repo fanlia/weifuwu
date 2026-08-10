@@ -21,7 +21,7 @@ export interface SchedulerOptions {
   prefix?: string
   /** 守护循环扫描间隔 ms。默认 1000（延时任务精度上限）。 */
   tickMs?: number
-  /** queue 模块（触发后入队）——应用已 `const q = queue()` 时传入复用 */
+  /** queue 模块（触发后入队）——应用已 `const q = queue({ redis })` 时传入复用 */
   queue: QueueClientModule
 }
 

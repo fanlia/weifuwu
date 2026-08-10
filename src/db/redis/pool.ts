@@ -6,6 +6,7 @@
  */
 
 import { RedisClient, type RedisClientOptions } from './client.ts'
+import { RedisConnection } from './connection.ts'
 import { RedisSubscriber } from './subscriber.ts'
 import { RedisPipeline } from './pipeline.ts'
 import type { RespValue } from './resp.ts'
@@ -112,6 +113,16 @@ export class RedisPool implements Redis {
         // 重建失败（Redis 短暂不可达）：延迟重试，防池永久空
         setTimeout(() => this.replenish(), 500)
       })
+  }
+
+  // ── 连接工厂（契约 Redis.createConnection——阻塞命令/专用通道用） ──
+
+  /** 独立连接：用池自身配置派生（调用方负责 close；不占池连接） */
+  async createConnection(): Promise<RedisConnection> {
+    await this.ensure()
+    const conn = new RedisConnection(this.opts)
+    await conn.connect()
+    return conn
   }
 
   // ── 与 RedisClient 相同的方法面（代理到轮询连接） ──

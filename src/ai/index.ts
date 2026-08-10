@@ -30,7 +30,9 @@
 import type { Context, Middleware } from '../types.ts'
 import { createAiClient, type AiClient, type AiClientOptions, type AiEmbeddingOptions } from './client.ts'
 import { createAgent, type AgentConfig, type AgentRunner } from './agent.ts'
-import type { ChatParams } from './types.ts'
+import type { Ai } from './contracts.ts'
+
+export type { Ai } from './contracts.ts'
 
 export type { AiEmbeddingOptions } from './client.ts'
 export type { AgentRunResult, AgentStep, AgentTool, AgentConfig, AgentRunner, ToolContext } from './agent.ts'
@@ -38,20 +40,20 @@ export type { AgentRunResult, AgentStep, AgentTool, AgentConfig, AgentRunner, To
 export interface AiOptions extends Partial<AiClientOptions> {}
 
 export interface AiInjected {
-  ai: AiClient
+  ai: Ai
 }
 
-/** 模块 = 中间件 + 客户端（queue 式混合：app.use(a) + worker 直接 a.chat()） */
-export interface AiClientModule extends Middleware<Context, Context & AiInjected>, AiClient {
-  /** agent 引擎（工具循环 + HITL 审批） */
-  agent: (config: AgentConfig) => AgentRunner
-  close: () => Promise<void>
+/** 模块 = 中间件 + 客户端（queue 式混合：app.use(a) + worker 直接 a.chat()）。
+ *  实现 Ai 契约（src/ai/contracts.ts 单一来源）；streamStep 为 agent 内部细节（不在契约） */
+export interface AiClientModule extends Middleware<Context, Context & AiInjected>, Ai {
+  /** 内部：单轮 LLM 流式 → emit 事件 + 聚合结果（agent 引擎用——不在契约 Ai） */
+  streamStep: AiClient['streamStep']
 }
 
 declare module '../types.ts' {
   interface Context {
     /** 注入模块本身（含 agent / approve），worker 场景直接 a.chat() */
-    ai?: AiClientModule
+    ai?: Ai
   }
 }
 
