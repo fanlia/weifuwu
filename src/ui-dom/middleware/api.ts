@@ -159,11 +159,11 @@ export function api(options?: ApiOptions): AppMiddleware<{}, ApiInjected> {
 
   return (ctx) => {
     const client: ApiClient = {
-      get: <T>(url: string, reqOpts?: ApiRequestOptions) => request<T>('GET', url, undefined, reqOpts),
-      post: <T>(url: string, body?: unknown, reqOpts?: ApiRequestOptions) => request<T>('POST', url, body, reqOpts),
-      put: <T>(url: string, body?: unknown, reqOpts?: ApiRequestOptions) => request<T>('PUT', url, body, reqOpts),
-      patch: <T>(url: string, body?: unknown, reqOpts?: ApiRequestOptions) => request<T>('PATCH', url, body, reqOpts),
-      delete: <T>(url: string, reqOpts?: ApiRequestOptions) => request<T>('DELETE', url, undefined, reqOpts),
+      get: <T = any>(url: string, reqOpts?: ApiRequestOptions) => request<T>('GET', url, undefined, reqOpts),
+      post: <T = any>(url: string, body?: unknown, reqOpts?: ApiRequestOptions) => request<T>('POST', url, body, reqOpts),
+      put: <T = any>(url: string, body?: unknown, reqOpts?: ApiRequestOptions) => request<T>('PUT', url, body, reqOpts),
+      patch: <T = any>(url: string, body?: unknown, reqOpts?: ApiRequestOptions) => request<T>('PATCH', url, body, reqOpts),
+      delete: <T = any>(url: string, reqOpts?: ApiRequestOptions) => request<T>('DELETE', url, undefined, reqOpts),
     }
 
     return extendCtx(ctx, { api: client })

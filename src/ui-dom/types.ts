@@ -523,11 +523,11 @@ export interface WfuiContext {
 
   /** API 客户端（由 api 中间件注入）；options 为 ApiRequestOptions 形状（headers/signal） */
   api?: {
-    get: <T = unknown>(url: string, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
-    post: <T = unknown>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
-    put: <T = unknown>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
-    patch: <T = unknown>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
-    delete: <T = unknown>(url: string, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    get: <T = any>(url: string, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    post: <T = any>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    put: <T = any>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    patch: <T = any>(url: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
+    delete: <T = any>(url: string, options?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<T>
     [key: string]: any
   }
 
