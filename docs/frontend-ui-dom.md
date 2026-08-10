@@ -161,5 +161,7 @@ uiServe(app, { root: '#root', hydrate: true })
 ## demo
 
 `apps/ui-router-demo`：UIRouter + uiServe + components（Button/Input/Tag/Dropdown）
-+ toast 注入 + 嵌套路由 + SSR/hydrate 端到端。
++ toast 注入 + 嵌套路由 + SSR/hydrate 端到端（原生 async 组件页 `/async` 验证
+占位补全 + `__DATA__` 三场景）。server 用 weifuwu serve + `ui()` 中间件
+（`ctx.ui.js` 编译前端 / `ctx.ui.css` 组件样式 / `/*` → ssrPage）。
 启动：`node apps/ui-router-demo/server.ts` → http://localhost:3100

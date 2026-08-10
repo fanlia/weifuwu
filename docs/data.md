@@ -281,7 +281,7 @@ await ctx.redis.set('user', 1)         // 实际写入 'api:user'
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `url` | `string` | `REDIS_URL` 环境变量 | 连接字符串 |
+| `url` | `string` | `REDIS_URL` 环境变量（两者都缺 → 构造抛错，禁止静默回退 localhost） | 连接字符串 |
 | `poolSize` | `number` | `5` | 连接池大小 |
 | `keyPrefix` | `string` | `''` | 所有 key 自动加前缀（多应用隔离） |
 | `commandTimeoutMs` | `number` | `0` | 命令超时（阻塞命令 resolve(null)；防挂起。0=禁用） |

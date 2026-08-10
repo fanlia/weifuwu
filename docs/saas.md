@@ -77,7 +77,7 @@ app.post('/secure', (req, ctx) => { ctx.auth.requireAuth(); ... })
 
 
 > ⚠️ **weifuwu/client 已删除**——前端运行时唯一入口为 `weifuwu/ui-dom`，见 [frontend-ui-dom.md](frontend-ui-dom.md)。
-- **安全基线**：scrypt 密码哈希（per-user salt + timing-safe，异步不阻塞）；access token = HMAC-SHA256 JWT（与 `weifuwu/client` 的 `auth()` 天然配对）；refresh token = 不透明随机串，DB 只存哈希，logout/轮换即撤销
+- **安全基线**：scrypt 密码哈希（per-user salt + timing-safe，异步不阻塞）；access token = HMAC-SHA256 JWT（与 `weifuwu/ui-dom` 的 `auth()` 天然配对）；refresh token = 不透明随机串，DB 只存哈希，logout/轮换即撤销
 - **防枚举**：登录失败统一 401（不泄露邮箱是否存在）
 - **`ctx.auth` 方法面**：`register` / `login` / `logout` / `requireAuth` / `setPassword(userId, newPwd)` / `createToken(type, payload, { ttlSeconds })`（邮箱验证/密码重置自接）
 - **多租户感知**：`issueSession` 的 token payload 携带 `tenantId`（来自 `user.tenant`）——中间件自动注入 `ctx.tenantId`，并将会话字段（userId/tenantId/email/name/role）合并到 `ctx.auth`，多租户应用免写 token 解码/租户中间件（数据隔离 SQL 是应用职责）
@@ -117,7 +117,8 @@ ctx.msg.sendTo('u2', { type: 'mention' })       // 用户维度点对点
 ```ts
 import { queue } from 'weifuwu'
 
-const q = queue()              // 默认 REDIS_URL
+const r = redis(); app.use(r)  // Redis 中间件（注入 ctx.redis）
+const q = queue({ redis: r.redis })   // queue 必传 Redis（池命令走轮询连接）
 app.use(q)                     // 注入 ctx.queue
 
 app.post('/api/generate', async (req, ctx) => {
@@ -184,10 +185,10 @@ app.post('/api/approve', async (req, ctx) => {
 })
 ```
 
-前端解码（`weifuwu/client`）：
+前端解码（`weifuwu/ui-dom`）：
 
 ```ts
-import { aiStream } from 'weifuwu/client'
+import { aiStream } from 'weifuwu/ui-dom'
 
 const handle = aiStream('/api/chat', { messages }, {
   onToken: (text) => { /* 增量 append 到消息 */ },

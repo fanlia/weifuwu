@@ -4,90 +4,76 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-## router + RouteView — 前端路由
+## UIRouter — 前端路由
 
 ```tsx
-import { createApp, router, RouteView } from 'weifuwu/client'
-import type { RouteDef, WfuiContext } from 'weifuwu/client'
+import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
+import type { UIHandler } from 'weifuwu/ui-dom'
 
-const routes: RouteDef[] = [
-  { path: '/', component: Home },
-  { path: '/users', component: UserList },
-  { path: '/users/:id', component: UserDetail },
-]
+const app = new UIRouter()
+app.get('/', () => h(Home, {}))
+app.get('/users', () => h(UserList, {}))
+app.get('/users/:id', (loc, ctx) => h(UserDetail, { id: ctx.params.id }))
+app.notFound(() => h(NotFound, {}))
+app.use(toast())                    // 中间件（ctx 注入）——app.use(mw)
 
-createApp()
-  .use(router({
-    routes,
-    mode: 'history',  // 或 'hash'
-    notFound: NotFoundPage,
-  }))
-  .mount('#root', () => () => <RouteView />)  // 根组件也要两阶段：外层返回 render 函数
+uiServe(app, { root: '#root' })     // 客户端落地（hydrate: true 收养 SSR HTML）
 ```
 
-### 嵌套布局
+### 嵌套布局（中间件两阶段）
 
 ```tsx
-const routes = [
-  {
-    path: '/dashboard',
-    layout: DashboardLayout,      // 持久布局（包含 RouteView）
-    children: [
-      { path: '/overview', component: Overview },
-      { path: '/settings', component: Settings },
-    ],
-  },
-]
-
-function DashboardLayout(_props: {}, ctx: WfuiContext) {
-  return (props) => (
-    <div style="display:flex">
-      <aside>导航菜单</aside>
-      <main><RouteView /></main>  {/* 渲染子路由 */}
-    </div>
-  )
+const DashboardLayout: UIMiddleware = async (_loc, ctx, children) => {
+  const $ = ctx.ui.$()
+  $.open = true
+  return async (loc, c) => {
+    const child = await children(loc, c)   // 子路由/嵌套路由内容
+    return h('div', { class: 'wf-row' },
+      h('aside', {}, '导航菜单'),
+      h('main', {}, child),
+    )
+  }
 }
+app.use(DashboardLayout)
 ```
 
 ### 编程式导航
 
 ```tsx
-// 在任意组件中
+// 在任意组件/页面中（uiServe 注入）
 ctx.app?.navigate('/users/123?tab=profile')
 ```
 
 | ctx 注入 | 类型 | 说明 |
 |----------|------|------|
+| `ctx.params` / `ctx.query` | `Record<string, string>` | 路由参数 / URL query（顶层注入） |
 | `ctx.route.path` | `string` | 当前路由路径 |
 | `ctx.route.params` | `Record<string, string>` | URL 参数 |
 | `ctx.route.query` | `Record<string, string>` | 查询参数 |
 | `ctx.app.navigate(path)` | `(string) => void` | 编程式导航 |
 
-| RouterOptions | 类型 | 默认值 | 说明 |
-|---------------|------|--------|------|
-| `routes` | `RouteDef[]` | — | 路由定义 |
-| `mode` | `'history' \| 'hash'` | `'history'` | 路由模式 |
-| `notFound` | `Component` | — | 404 页面 |
+| UIRouter API | 签名 | 说明 |
+|--------------|------|------|
+| `get(path, handler)` | `(string, UIHandler)` | 页面路由（handler = async 组件：`async (location, ctx) => vnode`） |
+| `use(prefix, sub)` / `use(mw)` | `(string, UIRouter) \| (mw)` | 子路由树挂载 / 中间件（ctx 注入） |
+| `notFound(handler)` | `(UIHandler)` | 404 页面 |
+| `mode` | `'history' \| 'hash'` | 路由模式（默认 history） |
 
-| RouteDef | 类型 | 说明 |
-|----------|------|------|
-| `path` | `string` | 路径（支持 `:param`） |
-| `component` | `Component` | 页面组件 |
-| `layout` | `Component` | 布局组件（内含 `<RouteView />`） |
-| `children` | `RouteDef[]` | 子路由 |
-| `auth` | `boolean` | 是否需要认证（配合 auth 中间件） |
-| `title` | `string` | 页面标题（自动设置 `document.title`） |
+| UIHandler | 类型 | 说明 |
+|-----------|------|------|
+| 签名 | `(location, ctx) => Promise<VNode> \| VNode` | 页面 = 异步组件（`ctx.data.get` 三场景；async 组件无需包装） |
+| 返回值 | `VNode \| null` | 数据结构（落地由 uiServe/ssrPage 决定） |
 
 ---
 
 ## api — HTTP 客户端中间件
 
 ```tsx
-import { createApp, api } from 'weifuwu/client'
+import { UIRouter, api, uiServe } from 'weifuwu/ui-dom'
 
-createApp()
-  .use(api({ baseURL: '/api' }))
-  .mount('#root', App)
+const app = new UIRouter()
+app.use(api({ baseURL: '/api' }))
+uiServe(app, { root: '#root' })
 
 // 在组件中使用
 async function loadUsers(ctx: WfuiContext) {
@@ -139,11 +125,11 @@ try {
 ## auth — 认证中间件
 
 ```tsx
-import { createApp, auth } from 'weifuwu/client'
+import { UIRouter, auth, uiServe } from 'weifuwu/ui-dom'
 
-createApp()
-  .use(auth())
-  .mount('#root', App)
+const app = new UIRouter()
+app.use(auth())
+uiServe(app, { root: '#root' })
 
 // 在组件中
 function Profile(_props: {}, ctx: WfuiContext) {
@@ -191,11 +177,11 @@ await ctx.auth?.refresh()  // → boolean
 ## ws — WebSocket 客户端中间件
 
 ```tsx
-import { createApp, ws } from 'weifuwu/client'
+import { UIRouter, ws, uiServe } from 'weifuwu/ui-dom'
 
-createApp()
-  .use(ws({ url: '/ws' }))
-  .mount('#root', App)
+const app = new UIRouter()
+app.use(ws({ url: '/ws' }))
+uiServe(app, { root: '#root' })
 
 // 发送消息
 ctx.ws?.send({ type: 'chat', body: 'hello' })
@@ -231,10 +217,10 @@ unsubscribe?.()
 ## i18n — 国际化中间件
 
 ```tsx
-import { createApp, i18n } from 'weifuwu/client'
+import { UIRouter, i18n, uiServe } from 'weifuwu/ui-dom'
 
-createApp()
-  .use(i18n({
+const app = new UIRouter()
+app.use(i18n({
     locale: 'zh-CN',
     messages: {
       'title': '仪表盘',
@@ -268,7 +254,7 @@ ctx.i18n?.setLocale('en-US')
 内置语言包：
 
 ```ts
-import { zhCN, enUS } from 'weifuwu/client'
+import { zhCN, enUS } from 'weifuwu/ui-dom'
 ```
 
 - `zh-CN`：默认中文
@@ -283,7 +269,7 @@ import { zhCN, enUS } from 'weifuwu/client'
 ## ErrorBoundary — 错误边界
 
 ```tsx
-import { ErrorBoundary } from 'weifuwu/client'
+import { ErrorBoundary } from 'weifuwu/ui-dom'
 
 <ErrorBoundary fallback={<p>出错了，请刷新页面</p>}>
   <UserProfile />
@@ -316,12 +302,12 @@ import { ErrorBoundary } from 'weifuwu/client'
 **① 命令式 `ctx.confirm()`（推荐，操作前询问）**
 
 ```tsx
-import { createApp } from 'weifuwu/client'
+import { UIRouter, uiServe } from 'weifuwu/ui-dom'
 import { confirm } from 'weifuwu/components'
 
-createApp()
-  .use(confirm())
-  .mount('#root', App)
+const app = new UIRouter()
+app.use(confirm())
+uiServe(app, { root: '#root' })
 
 // 任意代码中（组件事件、async 逻辑）
 async function handleDelete(ctx: WfuiContext) {
@@ -372,12 +358,12 @@ import { Confirm } from 'weifuwu/components'
 `ctx.toast()` 是 `<Toast>` 组件的全局命令式封装：任意代码中一行调用，自动消失、自动清理，无需宿主状态。
 
 ```tsx
-import { createApp } from 'weifuwu/client'
+import { UIRouter, uiServe } from 'weifuwu/ui-dom'
 import { toast } from 'weifuwu/components'
 
-createApp()
-  .use(toast({ position: 'top-right', duration: 3000, max: 3 }))
-  .mount('#root', App)
+const app = new UIRouter()
+app.use(toast({ position: 'top-right', duration: 3000, max: 3 }))
+uiServe(app, { root: '#root' })
 
 // 任意代码中（组件事件、api 拦截器、WS 回调、定时器）
 ctx.toast?.('保存成功', 'success')
@@ -400,8 +386,8 @@ ctx.toast?.('普通消息')          // 默认 type = 'info'
 ## ScrollLock / FocusTrap
 
 ```tsx
-import { lockScroll, unlockScroll } from 'weifuwu/client'
-import { trapFocus } from 'weifuwu/client'
+import { lockScroll, unlockScroll } from 'weifuwu/ui-dom'
+import { trapFocus } from 'weifuwu/ui-dom'
 
 // 锁定/解锁滚动（支持嵌套计数）
 lockScroll()
@@ -423,7 +409,7 @@ cleanup()  // 恢复之前的焦点
 ## extendCtx — 上下文扩展
 
 ```tsx
-import { extendCtx } from 'weifuwu/client'
+import { extendCtx } from 'weifuwu/ui-dom'
 
 // 在 AppMiddleware 中创建新 ctx，原 ctx getter 通过原型链继承
 function myMw(ctx: WfuiContext): WfuiContext {

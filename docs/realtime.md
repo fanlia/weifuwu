@@ -70,13 +70,12 @@ app.get('/page', (req, ctx) => ctx.ui.html`
 ```ts
 app.get('/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))   // 相对路径
 
-> ⚠️ **weifuwu/client 已删除**——前端运行时唯一入口为 `weifuwu/ui-dom`，见 [frontend-ui-dom.md](frontend-ui-dom.md)。
-app.get('/app.js', (req, ctx) => ctx.ui.js('weifuwu/client'))   // 或包名
+app.get('/app.js', (req, ctx) => ctx.ui.js('weifuwu/ui-dom'))   // 或包名（exports map 解析）
 ```
 
 使用 esbuild 编译：
 - `bundle: true`, `format: 'esm'`, `platform: 'browser'`
-- `jsx: 'automatic'`, `jsxImportSource: 'weifuwu/client'`
+- `jsx: 'automatic'`, `jsxImportSource: 'weifuwu/ui-dom'`
 - 带 mtime 缓存验证（开发时编辑文件后自动失效）
 
 ### ctx.ui.css — CSS 编译
@@ -129,10 +128,11 @@ app.get('/blog/:slug', async (req, ctx) => {
 服务端 HTML + `window.__DATA__`（ctx.data 种子）到达客户端后，`mount(..., { hydrate: true })` **收养现有 DOM**（不重建、不闪跳），只接线事件/ref/$：
 
 ```ts
-import { createApp } from 'weifuwu/client'
+import { UIRouter, uiServe } from 'weifuwu/ui-dom'
 
-createApp()
-  .mount('#root', BlogPage, { hydrate: true })   // 容器已有服务端 HTML
+const app = new UIRouter()
+app.get('/blog/:slug', (loc, ctx) => h(BlogPage, { slug: ctx.params.slug }))
+uiServe(app, { root: '#root', hydrate: true })   // 容器已有服务端 HTML → 收养
 ```
 
 - **游标收养**：元素/文本按位置匹配现有 DOM；tag 不匹配 → 局部替换；文本不一致 → 就地修正；服务端多余节点 → 收尾清理
@@ -146,7 +146,7 @@ createApp()
 
 ```tsx
 // routes.tsx —— 前后端共用
-import type { RouteDef } from 'weifuwu/client'
+import type { RouteDef } from 'weifuwu/ui-dom'
 import { BlogPage } from './pages/BlogPage.tsx'
 
 export const routes: RouteDef[] = [
@@ -157,15 +157,17 @@ export const routes: RouteDef[] = [
 import { uiSsr } from 'weifuwu'
 app.use(uiSsr({ routes, bundle: '/static/blog.js' }))
 
-// blog-hydrate.ts —— 客户端：同一份 routes，router() 注入 ctx.route.params（两端同源）
-createApp()
-  .use(router({ routes }))
-  .mount('#root', routes[0].component, { hydrate: true })
+// blog-hydrate.ts —— 客户端：UIRouter 声明对应路由（匹配逻辑与 uiSsr 同源——route-match 纯函数共用）
+import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
+
+const client = new UIRouter()
+client.get('/blog/:slug', (loc, ctx) => h(BlogPage, { slug: ctx.params.slug }))
+uiServe(client, { root: '#root', hydrate: true })
 ```
 
-- 组件工厂读 `ctx.route.params`（`/blog/:slug` → `ctx.route.params.slug`）——后端 uiSsr / 前端 router **同源注入**
+- 组件工厂读 `ctx.params`（`/blog/:slug` → `ctx.params.slug`）——后端 uiSsr / 前端 UIRouter **同源注入**（`flattenRoutes/compilePath/matchRoute/extractParams` 纯函数共用）
 - 未匹配 → next()（交给 API/静态/404）；非 GET → next()
-- 可自定义 `title` / `template`
+- 可自定义 `title` / `template` / `styles`
 
 ### weifuwu/dev — 服务端直接跑 .tsx
 
@@ -180,7 +182,7 @@ Node 原生 TS 只剥离类型（不支持 JSX）。`weifuwu/dev` 注册 esbuild
 }
 ```
 
-- 前后端同一 JSX 运行时（`jsxImportSource: weifuwu/client`）→ 两端 VNode 一致 → hydration 可靠
+- 前后端同一 JSX 运行时（`jsxImportSource: weifuwu/ui-dom`）→ 两端 VNode 一致 → hydration 可靠
 - 与 `ctx.ui.js` 前端动态编译同一理念：无构建、无产物、改代码即生效
 
 ---

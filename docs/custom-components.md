@@ -1,8 +1,8 @@
 # 自定义组件开发指南
 
 
-> ⚠️ **weifuwu/client 已删除**——前端运行时唯一入口为 `weifuwu/ui-dom`，见 [frontend-ui-dom.md](frontend-ui-dom.md)。
-> 用 weifuwu/client 写自己的组件——与内置组件同权：同渲染引擎、同弹层原语、同类型安全。
+> ⚠️ **weifuwu/client 已并入 `weifuwu/ui-dom`**（`src/client/` 已删除）——前端运行时唯一入口为 `weifuwu/ui-dom`，见 [frontend-ui-dom.md](frontend-ui-dom.md)。
+> 用 weifuwu/ui-dom 写自己的组件——与内置组件同权：同渲染引擎、同弹层原语、同类型安全。
 > 前置：[前端概念](frontend.md)（两阶段模型/ctx.ui）+ [组件列表](components.md)。
 
 ---
@@ -10,7 +10,7 @@
 ## 0. 最小骨架
 
 ```tsx
-import { h, type Component } from 'weifuwu/client'
+import { h, type Component } from 'weifuwu/ui-dom'
 
 // Component<P, C>：P = props（JSX 自动推断），C = ctx 注入依赖（默认 {}）
 const Badge: Component<{ text: string; color?: string }> = () =>
@@ -76,7 +76,7 @@ const MyPopover: Component<{ content: string }> = (_init, ctx) => {
 全屏对话框（焦点 trap + 滚动锁 + 退场动画）不在 usePopup 范围——用 **`ctx.ui.useDialog`** 组合器（Modal/Drawer 同款：退场状态机 + 滚动锁 + 焦点 trap + animationend 卸载）：
 
 ```tsx
-import { createPortal } from 'weifuwu/client'
+import { createPortal } from 'weifuwu/ui-dom'
 
 const MyDialog: Component<{ open: boolean; onClose: () => void }> = (_init, ctx) => {
   const dialog = ctx.ui.useDialog({ name: 'MyDialog' })   // mount 创建
@@ -98,7 +98,7 @@ const MyDialog: Component<{ open: boolean; onClose: () => void }> = (_init, ctx)
 ```
 
 > `dialog.rootRef` 挂到 portal 根（lockScroll + animationend 退场监听）；`panelRef` 挂到面板（trapFocus）。
-> 低层原语 `trapFocus`/`lockScroll`/`animateOut` 仍从 `weifuwu/client` 导出（特殊场景组装用）。
+> 低层原语 `trapFocus`/`lockScroll`/`animateOut` 仍从 `weifuwu/ui-dom` 导出（特殊场景组装用）。
 
 ## 4. AI 组件
 

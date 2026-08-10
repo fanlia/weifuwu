@@ -7,7 +7,7 @@
 | 变量 | 用途 | 模块 | 默认 |
 |------|------|------|------|
 | `DATABASE_URL` | PostgreSQL 连接字符串 | `postgres()` | —（必填） |
-| `REDIS_URL` | Redis 连接字符串 | `redis()` | `redis://localhost:6379` |
+| `REDIS_URL` | Redis 连接字符串 | `redis()` | —（必填；缺 env 且未传 `url` 构造抛错，不静默回退 localhost） |
 | `AUTH_SECRET` | userSystem HMAC 签名密钥（≥16 字符） | `userSystem()` | 可传 `options.secret` |
 | `DEEPSEEK_API_KEY` | LLM 对话 provider API key | `ai()` | — |
 | `DEEPSEEK_BASE_URL` | LLM 对话 provider 端点 | `ai()` | `https://api.deepseek.com/v1` |

@@ -469,9 +469,10 @@ const UserProfile = async (_init, ctx) => {
 | ③ 初始状态必须确定性 | `$.w = window.innerWidth`——SSR/hydration mismatch | 用服务端数据 seed，交互后再测 |
 
 **常见坑**：
-- 工厂**拿不到 props**——数据维度从 `ctx.params` / `ctx.data` 取
-- 闭包数据是页面加载时的**快照**——路由参数变化靠工厂重跑刷新（key 变 → 缓存 miss → 重新取数）；工厂缓存绑定页面上下文，路由导航/登录登出时自动失效
+- 工厂按**实例**执行（N 处实例 = N 次工厂调用）——数据必须走 `ctx.data`（自带缓存 + 并发合并，重复执行零成本）；禁止副作用/昂贵操作裸写工厂（代码分割用 `asyncComponent` 兼容包装——WeakMap 全局一次）
+- 闭包数据是页面加载时的**快照**——路由参数变化靠工厂重跑刷新（key 变 → 缓存 miss → 重新取数）
 - **个性化数据不进 `ctx.data`**——SSR 会把工厂取数结果序列化给所有客户端，会话/用户相关数据留在 `$` + fetch
+- **占位显示**：async 组件未 resolve 时渲染 `Placeholder`——无边界显示 null；`<Suspense fallback={...}>` 边界内占位处显示 fallback（可选，子树内任意深度 async 组件共享）
 
 ### 渲染策略：SPA 还是 SSR？
 
@@ -511,7 +512,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 
 | 文档 | 内容 |
 |------|------|
-| [docs/frontend.md](docs/frontend.md) | 前端核心：UIRouter / 组件模型 / 状态管理 / 条件与列表 / ref / 类型（历史 client 版见 docs/frontend.md） |
+| [docs/frontend.md](docs/frontend.md) | 前端核心：应用引导（UIRouter+uiServe）/ 组件模型 / 异步组件 / 状态管理 / 条件与列表 / ref / 类型（weifuwu/client 已并入 ui-dom） |
 | [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom**：UIRouter 纯路由 + uiServe 渲染运行时 + ctx 注入链 + components 复用 + SSR/hydration（前端唯一运行时——weifuwu/client 已删除） |
 | [docs/frontend-middleware.md](docs/frontend-middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [docs/components.md](docs/components.md) | 组件库（113 个组件 + 使用示例 + 组件列表） |

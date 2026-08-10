@@ -1,6 +1,6 @@
 # 前端 API 核心（weifuwu/ui-dom）
 
-> ⚠️ **`weifuwu/client` 已删除**——本页为历史文档。前端运行时唯一入口是 **`weifuwu/ui-dom`**（UIRouter 纯路由 + uiServe 渲染运行时 + SSR/hydration），权威参考见 **[docs/frontend-ui-dom.md](frontend-ui-dom.md)**。本页的 createApp/router/RouteView 用法已失效，对应新 API 为 `uiServe` / `UIRouter`。
+> ⚠️ **`weifuwu/client` 已并入 `weifuwu/ui-dom`**（`src/client/` 已删除）——本页 import 均用 `weifuwu/ui-dom`。前端运行时唯一入口是 **`weifuwu/ui-dom`**（UIRouter 纯路由 + uiServe 渲染运行时 + SSR/hydration），权威参考见 **[docs/frontend-ui-dom.md](frontend-ui-dom.md)**。本页 `createApp` 为旧 API——对应新 API 为 `uiServe` / `UIRouter`。
 
 > 以下为完整 API 参考，按需查阅。新手建议先阅读 README 的「核心概念」和「快速开始」。
 
@@ -13,40 +13,37 @@
 ```js
 esbuild.build({
   jsx: 'automatic',
-  jsxImportSource: 'weifuwu/client',
+  jsxImportSource: 'weifuwu/ui-dom',
   bundle: true,
 })
 ```
 
 ---
 
-## createApp — 应用引导
+## 应用引导（UIRouter + uiServe）
 
 ```tsx
-import { createApp } from 'weifuwu/client'
+import { UIRouter, uiServe } from 'weifuwu/ui-dom'
 
-const app = createApp()
+const app = new UIRouter()
 
-// 注册中间件
+// 注册中间件（ctx 注入）
 app.use(middleware1)
 app.use(middleware2)
 
-// 挂载到 DOM
-app.mount('#root', RootComponent)
+// 页面路由（handler = 异步组件）
+app.get('/', () => h(Home, {}))
 
-// 获取当前 ctx
-console.log(app.ctx)
-
-// 销毁
-app.destroy()
+// 落地：客户端渲染（hydrate: true 收养 SSR HTML）
+const handle = uiServe(app, { root: '#root' })
 ```
 
-| 方法 | 说明 |
+| API | 说明 |
 |------|------|
-| `createApp()` | 创建应用实例 |
-| `app.use(mw)` | 注册 AppMiddleware |
-| `app.mount(selector, RootComponent)` | 挂载到 DOM |
-| `app.destroy()` | 卸载应用 |
+| `new UIRouter()` | 创建路由实例 |
+| `app.use(mw)` | 注册中间件（AppMiddleware / UIMiddleware） |
+| `app.get(path, handler)` / `use(prefix, sub)` / `notFound(handler)` | 页面路由 / 子路由树 / 404 |
+| `uiServe(app, { root, hydrate })` | 客户端落地（返回 handle，`handle.close()` 卸载） |
 | `app.ctx` | 当前 WfuiContext |
 
 ---
@@ -54,7 +51,7 @@ app.destroy()
 ## 组件模型
 
 ```tsx
-import type { Component, WfuiContext } from 'weifuwu/client'
+import type { Component, WfuiContext } from 'weifuwu/ui-dom'
 
 // 两阶段组件：mount（只一次）→ render（每次 dirty/props 变化）
 const Counter: Component = (_init, ctx) => {
@@ -74,8 +71,8 @@ const Badge: Component = () =>
 ### 类型流（props 泛型 + ctx 注入）
 
 ```tsx
-import type { Component } from 'weifuwu/client'
-import type { ApiInjected, RouteInjected } from 'weifuwu/client'
+import type { Component } from 'weifuwu/ui-dom'
+import type { ApiInjected, RouteInjected } from 'weifuwu/ui-dom'
 
 // ① props 泛型：JSX 使用时自动类型检查（传错类型编译期报错）
 interface DeckCardProps { title: string; pages: number }
@@ -92,13 +89,13 @@ const Home: Component<{}, ApiInjected & RouteInjected> = (_init, ctx) => {
 }
 // 未声明的注入字段编译期报错——注入从"文档约定"变成"类型保证"
 
-createApp()
+const app = new UIRouter<{}>()
   .use(api())                    // 注入 ctx.api
-  .use(router({ routes }))       // 注入 ctx.route / ctx.app
-  .mount('#root', Home)          // mount 时类型累积完整
+  .use(toast())                  // 注入 ctx.toast
+uiServe(app, { root: '#root' })  // 类型累积完整（UIRouter<C & O>）
 ```
 
-> 各中间件的注入接口：`api()` → `ApiInjected`、`auth()` → `AuthInjected`、`ws()` → `WsInjected`、`i18n()` → `I18nInjected`、`router()` → `RouteInjected`（均可从 `weifuwu/client` 导入）。
+> 各中间件的注入接口：`api()` → `ApiInjected`、`auth()` → `AuthInjected`、`ws()` → `WsInjected`、`i18n()` → `I18nInjected`、`router()` → `RouteInjected`（均可从 `weifuwu/ui-dom` 导入）。
 
 | 规则 | 说明 |
 |------|------|
@@ -113,8 +110,8 @@ createApp()
 ### JSX 工厂
 
 ```tsx
-// 由 esbuild 自动调用（jsxImportSource: 'weifuwu/client'）
-import { h, jsx, jsxs, jsxDEV, Fragment } from 'weifuwu/client'
+// 由 esbuild 自动调用（jsxImportSource: 'weifuwu/ui-dom'）
+import { h, jsx, jsxs, jsxDEV, Fragment } from 'weifuwu/ui-dom'
 
 // h 支持 variadic children
 h('div', { class: 'x' }, child1, child2)
@@ -131,7 +128,7 @@ h('div', { class: 'x' }, child1, child2)
 | `Portal` / `createPortal(children, portalKey?)` | 渲染到 `document.body#__wf_portal` 独立容器（弹层/对话框，脱离父级 overflow 裁剪） |
 
 ```tsx
-import { createPortal } from 'weifuwu/client'
+import { createPortal } from 'weifuwu/ui-dom'
 
 // 内容渲染到 body 下的独立容器（不在父组件的 DOM 树内）
 const Tooltip = (_init, ctx) =>
@@ -771,25 +768,26 @@ const UserProfile = async (initProps, ctx) => {
 }
 ```
 
-- **客户端**：首次渲染占位 → 工厂 resolve 后整树重渲染补全（SPA）；数据经 `ctx.data` 缓存（hydration 时从 `__DATA__` 同步命中，不重跑请求）
+- **客户端**：首次渲染占位（`Placeholder`）→ 工厂 resolve 后整树重渲染补全；`_asyncDef` 按实例缓存（diff 传递继承，补全不重跑工厂）——N 处实例 = N 次工厂调用，数据走 `ctx.data` 则零成本（缓存 + 并发合并）
 - **服务端**：`ctx.ui.ssr()` 直接 await 工厂 → 数据进 HTML（无占位）
-- 工厂缓存绑定页面上下文：路由导航/登录登出时自动失效，工厂以新 ctx 重新执行
+- **占位显示**：无边界 → null；`<Suspense fallback={...}>` 边界 → 子树内占位处显示 fallback（可选）
 - 会变的数据：初始值 seed 自服务端数据（`$.count = data.count`），交互改 `$`；初始状态必须确定性（禁止 `window.innerWidth` 直接初始化 → SSR/hydration mismatch）
+- 代码分割/昂贵一次性资源：`asyncComponent(async (ctx) => { const { default: def } = await import('./view'); return def })`（WeakMap 全局一次，兼容保留）
 
 ---
 
 ## 前端类型
 
 ```tsx
-import type { VNode, VNodeType, Component, WfuiContext, AppMiddleware, RouteDef } from 'weifuwu/client'
-import type { ApiClient, ApiOptions, ApiRequestOptions, ApiError } from 'weifuwu/client'
-import type { AuthClient, AuthOptions } from 'weifuwu/client'
-import type { ErrorBoundaryProps } from 'weifuwu/client'
-import type { I18nOptions, I18nState, LocalePackage } from 'weifuwu/client'
-import type { PopupPositionOptions, PopupPosition } from 'weifuwu/client'
+import type { VNode, VNodeType, Component, WfuiContext, AppMiddleware, RouteDef } from 'weifuwu/ui-dom'
+import type { ApiClient, ApiOptions, ApiRequestOptions, ApiError } from 'weifuwu/ui-dom'
+import type { AuthClient, AuthOptions } from 'weifuwu/ui-dom'
+import type { ErrorBoundaryProps } from 'weifuwu/ui-dom'
+import type { I18nOptions, I18nState, LocalePackage } from 'weifuwu/ui-dom'
+import type { PopupPositionOptions, PopupPosition } from 'weifuwu/ui-dom'
 import type { ConfirmProps, ConfirmOptions } from 'weifuwu/components'
 import type { ToastOptions, ToastPosition } from 'weifuwu/components'
-import type { RouterOptions } from 'weifuwu/client'
+import type { RouterOptions } from 'weifuwu/ui-dom'
 ```
 
 | 类型 | 说明 |

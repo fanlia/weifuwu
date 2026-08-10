@@ -105,7 +105,7 @@
 ### 框架级
 | antd | weifuwu | 状态 | 备注 |
 |------|---------|:----:|------|
-| App | `createApp` | 🔧 | client 框架内置 |
+| App 引导 | `UIRouter + uiServe` | 🔧 | ui-dom 框架内置（weifuwu/client 已并入 ui-dom） |
 | ConfigProvider | `--wf-*` token + ctx 注入 | 🔧 | client 框架内置 |
 
 ---
