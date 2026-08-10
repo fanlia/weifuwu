@@ -3,7 +3,7 @@
 > **weifuwu 前端唯一运行时**（`weifuwu/ui-dom`，随 npm 包发布）：
 > **UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时）+ ssrPage/hydration**，
 > 复用 `weifuwu/components`（VNode 契约唯一来源，组件零修改）。
-> 已取代 `weifuwu/client`（createApp/router 已删除）。
+> 已取代 `weifuwu/client`——前端运行时唯一入口（createApp/router 旧 API 已删除）。
 >
 > 概念对齐：**req = window.location**，**res = VNode**（数据结构），
 > **uiServe = VDOM**（落地机制），**params/query 在 ctx**（对齐后端 `ctx.params`）。
