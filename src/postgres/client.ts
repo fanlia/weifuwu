@@ -16,6 +16,9 @@ import { HttpError } from '../types.ts'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { PostgresOptions, PostgresClient, SqlClient } from './types.ts'
 import type { Sql } from './types.ts'
+import { compileQuery } from '../db/query.ts'
+import { rawSql } from '../db/query.ts'
+import { createQueryBuilder } from '../db/query-builder.ts'
 
 export const MIGRATIONS_TABLE = '_weifuwu_migrations'
 
@@ -133,6 +136,16 @@ function makeSql(pool: PgPool): Sql {
   }) as unknown as Sql
 
   sql.unsafe = (query: string, params?: unknown[]) => wrapError(pool.unsafe(query, params as any))
+  // Query Language：AST → 参数化 SQL → 池执行（带错误码映射）
+  sql.query = createQueryBuilder(sql, async (q) => {
+    const { sql: text, params: p } = compileQuery(q)
+    return wrapError(pool.query(text, p as any))
+  })
+  // raw 逃生舱：标签模板 → 片段（真库透传）
+  sql.raw = (strings: TemplateStringsArray, ...values: unknown[]) => rawSql(
+    strings.reduce((acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''), ''),
+    values,
+  )
   sql.close = () => pool.close()
 
   return sql

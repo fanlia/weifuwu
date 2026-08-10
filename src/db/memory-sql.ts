@@ -20,6 +20,8 @@ import { randomUUID } from 'node:crypto'
 import type { Sql, Row, QueryResult } from './contracts.ts'
 import { ProtocolError } from './errors.ts'
 import { HttpError } from '../types.ts'
+import type { Query, SelectQuery, WhereExpr, RawSql, ColOps } from './query.ts'
+import { createQueryBuilder } from './query-builder.ts'
 
 interface MemoryTable {
   rows: Row[]
@@ -64,6 +66,187 @@ export class MemorySql {
 
   async close(): Promise<void> {
     // 内存无连接资源——no-op（幂等）
+  }
+
+  // ── Query Language：直执行 AST（不走字符串解析） ────────
+
+  /** 执行结构化查询（真库编译 SQL / 内存直操作表） */
+  executeQuery(q: Query): QueryResult<Row> {
+    switch (q.kind) {
+      case 'select': return this.execSelect(q)
+      case 'insert': return this.execInsert(q)
+      case 'update': return this.execUpdate(q)
+      case 'delete': return this.execDelete(q)
+    }
+  }
+
+  private execSelect(q: SelectQuery): QueryResult<Row> {
+    // JOIN 笛卡尔积 + on 过滤（内存 INNER/LEFT）
+    let rows: Row[] = this.table(q.table).rows
+    let tableAlias = q.alias ?? q.table
+    for (const j of q.joins ?? []) {
+      const right = this.table(j.table).rows
+      const jAlias = j.alias ?? j.table
+      const joined: Row[] = []
+      for (const l of rows) {
+        for (const r of right) {
+          const merged: Row = {}
+          for (const [k, v] of Object.entries(l)) merged[`${tableAlias}.${k}`] = v
+          for (const [k, v] of Object.entries(r)) merged[`${jAlias}.${k}`] = v
+          if (isRaw(j.on)) throw new ProtocolError('memory-sql: raw JOIN ON 不支持（诚实裁剪——用真库）')
+          if (matchWhereExpr(merged, j.on, undefined)) joined.push(merged)
+        }
+      }
+      rows = joined
+      tableAlias = jAlias
+    }
+    // WHERE（raw 伪装 → 内存裁剪）
+    if (q.where && '__raw' in (q.where as object)) {
+      throw new ProtocolError('memory-sql: raw WHERE 不支持（诚实裁剪——用真库）')
+    }
+    let filtered = q.where ? rows.filter((r) => matchWhereExpr(r, q.where!, tableAlias)) : rows
+    // 子查询（IN/EXISTS——对内存表执行子 AST）
+    for (const sub of q.sub ?? []) {
+      const subRows = this.executeQuery(sub.query) as unknown[]
+      if (sub.type === 'exists') {
+        const hit = subRows.length > 0
+        filtered = filtered.filter(() => sub.not ? !hit : hit)
+      } else {
+        const vals = new Set(subRows.map((r) => (r as Record<string, unknown>)[String(sub.query.cols?.[0] ?? Object.keys(r as Record<string, unknown>)[0])]))
+        filtered = filtered.filter((r) => {
+          const v = resolveCol(r, sub.col!, tableAlias)
+          return sub.not ? !vals.has(v) : vals.has(v)
+        })
+      }
+    }
+    // GROUP BY + 聚合
+    let out: Row[]
+    if (q.aggregate?.length) {
+      const groups = new Map<string, Row[]>()
+      for (const r of filtered) {
+        const key = (q.groupBy ?? []).map((g) => JSON.stringify(resolveCol(r, g, tableAlias))).join('|')
+        if (!groups.has(key)) groups.set(key, [])
+        groups.get(key)!.push(r)
+      }
+      out = [...groups.values()].map((g) => {
+        const row: Row = {}
+        for (const gb of q.groupBy ?? []) row[gb] = resolveCol(g[0], gb, tableAlias)
+        for (const a of q.aggregate!) {
+          const col = a.col === '*' ? undefined : resolveCol(g[0], a.col, tableAlias)
+          const values = a.col === '*' ? g : g.map((r) => resolveCol(r, a.col, tableAlias))
+          if (a.fn === 'count') row[a.as] = values.length
+          else if (a.fn === 'sum') row[a.as] = (values as unknown[]).reduce((x: number, y) => x + Number(y ?? 0), 0)
+          else if (a.fn === 'avg') row[a.as] = (values as unknown[]).length ? (values as unknown[]).reduce((x: number, y) => x + Number(y ?? 0), 0) / (values as unknown[]).length : 0
+          else if (a.fn === 'min') row[a.as] = (values as unknown[]).reduce((x: unknown, y: unknown) => (y !== null && (x === null || (y as never) < (x as never)) ? y : x), null)
+          else if (a.fn === 'max') row[a.as] = (values as unknown[]).reduce((x: unknown, y: unknown) => (y !== null && (x === null || (y as never) > (x as never)) ? y : x), null)
+        }
+        return row
+      })
+      if (q.having) out = out.filter((r) => matchWhereExpr(r, q.having!, undefined))
+    } else if (q.cols?.length) {
+      // 投影：直接从前缀行取列（JOIN 同名列精确——不先 unqualified 丢前缀）
+      out = filtered.map((r) => {
+        const proj: Row = {}
+        for (const c of q.cols!) {
+          if (isRaw(c)) throw new ProtocolError('memory-sql: raw 投影不支持（诚实裁剪——用真库）')
+          proj[stripTable(c)] = resolveCol(r, c)
+        }
+        return proj
+      })
+    } else {
+      out = filtered.map((r) => {
+        const proj: Row = {}
+        const src = q.joins?.length ? r : unqualified(r)
+        for (const [k, v] of Object.entries(src)) proj[stripTable(k)] = v
+        return proj
+      })
+    }
+    // DISTINCT：按投影行去重（cols / 全列两分支统一）
+    if (q.distinct) {
+      const seen = new Set<string>()
+      out = out.filter((r) => {
+        const key = JSON.stringify(r)
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+    }
+    // ORDER BY / LIMIT / OFFSET
+    if (q.orderBy?.length) {
+      const ob = q.orderBy
+      out.sort((a, b) => {
+        for (const o of ob) {
+          const va = a[stripTable(o.col)]
+          const vb = b[stripTable(o.col)]
+          if (va === vb) continue
+          const cmp = Number(va) > Number(vb) ? 1 : -1
+          return o.dir === 'desc' ? -cmp : cmp
+        }
+        return 0
+      })
+    }
+    if (q.offset !== undefined) out = out.slice(q.offset)
+    if (q.limit !== undefined) out = out.slice(0, q.limit)
+    const res = out as QueryResult<Row>
+    res.affectedRows = out.length
+    return res
+  }
+
+  private execInsert(q: import('./query.ts').InsertQuery): QueryResult<Row> {
+    const t = this.table(q.table)
+    const results: Row[] = []
+    for (const row of q.rows) {
+      // PK DEFAULT / UNIQUE 检查（与字符串路径同约束）
+      if (t.pk && !(t.pk.col in row)) row[t.pk.col] = t.pk.defaultUuid ? randomUUID() : `mem-${t.nextId}`
+      for (const u of t.uniques) {
+        if (u in row && t.rows.some((r) => deepEq(r[u], row[u]))) {
+          throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${u}"`, 409)
+        }
+      }
+      t.rows.push(row)
+      t.nextId++
+      if (q.returning) results.push(q.returning === '*' ? { ...row } : pick(row, q.returning))
+    }
+    const res = results as QueryResult<Row>
+    res.affectedRows = q.rows.length
+    return res
+  }
+
+  private execUpdate(q: import('./query.ts').UpdateQuery): QueryResult<Row> {
+    const t = this.table(q.table)
+    let n = 0
+    const results: Row[] = []
+    for (const r of t.rows) {
+      if (!q.where || matchWhereExpr(r, q.where, undefined)) {
+        for (const [k, v] of Object.entries(q.sets)) {
+          if (isRaw(v)) throw new ProtocolError('memory-sql: raw SET 值不支持（诚实裁剪——用真库）')
+          r[k] = v
+        }
+        n++
+        if (q.returning) results.push(q.returning === '*' ? { ...r } : pick(r, q.returning))
+      }
+    }
+    const res = results as QueryResult<Row>
+    res.affectedRows = n
+    return res
+  }
+
+  private execDelete(q: import('./query.ts').DeleteQuery): QueryResult<Row> {
+    const t = this.table(q.table)
+    const before = t.rows.length
+    let kept: Row[] = []
+    const results: Row[] = []
+    for (const r of t.rows) {
+      if (!q.where || matchWhereExpr(r, q.where, undefined)) {
+        if (q.returning) results.push(q.returning === '*' ? { ...r } : pick(r, q.returning))
+      } else {
+        kept.push(r)
+      }
+    }
+    t.rows = kept
+    const res = results as QueryResult<Row>
+    res.affectedRows = before - kept.length
+    return res
   }
 
   // ── 执行 ──────────────────────────────────────────────
@@ -164,8 +347,16 @@ export function createMemorySql(): Sql {
   const engine = new MemorySql()
   const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => engine.tag(strings, values)) as unknown as Sql
   sql.unsafe = (q: string, params?: unknown[]) => engine.unsafe(q, params ?? [])
+  sql.query = createQueryBuilder(sql, async (q) => engine.executeQuery(q) as unknown as Row[])
+  sql.raw = (strings: TemplateStringsArray, ...values: unknown[]) => rawSqlImpl(strings, values)
   sql.close = () => engine.close()
   return sql
+}
+
+/** raw 标签模板（值按 $n 顺序参数化） */
+function rawSqlImpl(strings: TemplateStringsArray, values: unknown[]): RawSql {
+  const text = strings.reduce((acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''), '')
+  return { __raw: text, params: values }
 }
 
 // ── SQL 子集解析 ─────────────────────────────────────────
@@ -344,6 +535,81 @@ function pick(row: Row, cols: string[]): Row {
   const out: Row = {}
   for (const c of cols) if (c in row) out[c] = row[c]
   return out
+}
+
+/** 从行解析列引用（支持 alias.col 与裸列） */
+function resolveCol(row: Row, ref: string, _alias?: string): unknown {
+  if (ref in row) return row[ref]
+  const dot = ref.indexOf('.')
+  if (dot >= 0) return row[ref]
+  for (const [k, v] of Object.entries(row)) {
+    const bare = k.slice(k.indexOf('.') + 1)
+    if (bare === ref) return v
+  }
+  return undefined
+}
+
+function stripTable(col: string): string {
+  const dot = col.lastIndexOf('.')
+  return dot >= 0 ? col.slice(dot + 1) : col
+}
+
+function unqualified(row: Row): Row {
+  const out: Row = {}
+  for (const [k, v] of Object.entries(row)) out[stripTable(k)] = v
+  return out
+}
+
+function isRaw(v: unknown): v is RawSql {
+  return typeof v === 'object' && v !== null && '__raw' in v
+}
+
+/** WhereExpr（query language）→ 行判定 */
+function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
+  for (const [col, field] of Object.entries(expr)) {
+    if (col === 'or') {
+      const ors = field as WhereExpr[]
+      if (!ors.some((o) => matchWhereExpr(row, o, alias))) return false
+      continue
+    }
+    if (Array.isArray(field)) {
+      // IN 列表
+      const actual = resolveCol(row, col, alias)
+      if (!(field as unknown[]).some((v) => deepEq(actual, v))) return false
+      continue
+    }
+    if (isRaw(field)) {
+      throw new ProtocolError('memory-sql: raw WHERE 不支持（诚实裁剪——用真库）')
+    }
+    if (typeof field === 'object' && field !== null) {
+      const ops = field as ColOps
+      const actual = resolveCol(row, col, alias)
+      if (ops.col !== undefined && !deepEq(actual, resolveCol(row, ops.col, alias))) return false
+      if (ops.gt !== undefined && !(Number(actual) > Number(ops.gt))) return false
+      if (ops.gte !== undefined && !(Number(actual) >= Number(ops.gte))) return false
+      if (ops.lt !== undefined && !(Number(actual) < Number(ops.lt))) return false
+      if (ops.lte !== undefined && !(Number(actual) <= Number(ops.lte))) return false
+      if (ops.ne !== undefined && deepEq(actual, ops.ne)) return false
+      if (ops.in && !ops.in.some((v) => deepEq(actual, v))) return false
+      if (ops.notIn && ops.notIn.some((v) => deepEq(actual, v))) return false
+      if (ops.like !== undefined && !String(actual).includes(ops.like.replace(/%/g, ''))) return false
+      if (ops.ilike !== undefined && !String(actual).toLowerCase().includes(ops.ilike.replace(/%/g, '').toLowerCase())) return false
+      if (ops.between) {
+        const [lo, hi] = ops.between
+        if (!(Number(actual) >= Number(lo) && Number(actual) <= Number(hi))) return false
+      }
+      if (ops.isNull !== undefined && (actual === null || actual === undefined) !== ops.isNull) return false
+      continue
+    }
+    // 标量相等
+    const actual = resolveCol(row, col, alias)
+    if (field === null) {
+      if (actual !== null && actual !== undefined) return false
+    } else if (!deepEq(actual, field)) {
+      return false
+    }
+  }
+  return true
 }
 
 function matchWhere(row: Row, where: WhereClause): boolean {

@@ -46,13 +46,21 @@ export interface PostgresPoolConnection extends PoolConnection {
 }
 
 /**
- * SQL 标签模板（ctx.sql）：`sql\`SELECT * FROM t WHERE id = ${id}\`` + 方法面（YAGNI 精简）。
+ * SQL 标签模板（ctx.sql）：`sql\`SELECT * FROM t WHERE id = ${id}\`` + 方法面。
  * 事务能力走中间件面 `pg.transaction`（PostgresClient）——不在 Sql 接口。
+ *
+ * 三条执行路径（同一契约双实现）：
+ *   标签模板 / unsafe —— 原生 SQL 字符串（Postgres 生态面、DDL、复杂原生查询）
+ *   query —— Query Language（结构化对象 → 真库编译 SQL / 内存直执行 AST）
  */
 export interface Sql {
   (strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]>
   /** 原生 SQL（DDL / 动态表名）；$1 占位符 + 参数 */
   unsafe(sql: string, params?: unknown[]): Promise<Row[]>
+  /** Query Language 入口：`sql.query.from('users').where({...}).run()` */
+  query: import('../db/query.ts').QueryBuilder
+  /** raw 逃生舱：`sql.raw\`NOW() - interval '7 days'\``——真库透传/内存裁剪 */
+  raw(strings: TemplateStringsArray, ...values: unknown[]): import('../db/query.ts').RawSql
   close(): Promise<void>
 }
 
