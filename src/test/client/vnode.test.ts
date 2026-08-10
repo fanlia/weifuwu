@@ -4,8 +4,10 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { jsx, jsxs, jsxDEV, h, Fragment } from '../../ui-dom/vnode.ts'
 import type { VNode, Component, WfuiContext } from '../../ui-dom/vnode.ts'
+const browser = createClientBrowser()
 
 describe('jsx', () => {
   it('创建原生元素 VNode', () => {

@@ -8,16 +8,18 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { h, type Component } from '../../ui-dom/vnode.ts'
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 test('useStableRef：返回的 ref 引用恒定，不随渲染重建', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   let refs: any[] = []
   let renders = 0
 
@@ -43,8 +45,8 @@ test('useStableRef：返回的 ref 引用恒定，不随渲染重建', async () 
 })
 
 test('useStableRef：cleanup 只在真正卸载时触发（re-render 不误触）', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   const initCalls: any[] = []
   const cleanupCalls: string[] = []
 

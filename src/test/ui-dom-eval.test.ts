@@ -4,16 +4,18 @@
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
 import { UIRouter, uiServe, h } from '../ui-dom/index.ts'
 import { Button, Icon, Tabs, Checkbox, Switch, Tag, Card, Badge, StatCard, Table, Alert, Input, Modal, Pagination } from '../components/index.ts'
+const browser = createClientBrowser()
 
 before(setupJsdom)
 afterEach(() => {
-  document.body.innerHTML = ''
-  document.getElementById('__wf_portal')?.remove()
-  window.history.pushState(null, '', '/')
+  browser.clearBody()
+  browser.byId('__wf_portal')?.remove()
+  browser.navigate('/')
 })
-function mount(id: string) { const el = document.createElement('div'); document.body.appendChild(el); el.id = id; return el }
+function mount(id: string) { const el = browser.createElement('div'); browser.bodyAppend(el); el.id = id; return el }
 function flush() { return new Promise<void>((r) => setTimeout(r, 0)) }
 
 test('Icon（SVG 渲染）+ Tag/Badge/Card 等展示组件', async () => {
@@ -25,7 +27,7 @@ test('Icon（SVG 渲染）+ Tag/Badge/Card 等展示组件', async () => {
       h(Badge, { count: 5 }, '消息'),
       h(Card, { title: '卡片' }, h('p', {}, '内容')),
     ))
-  window.history.pushState(null, '', '/show')
+  browser.navigate('/show')
   const el = mount('e-show')
   const handle = uiServe(router, { root: '#e-show' })
   await flush()
@@ -42,7 +44,7 @@ test('Tabs 交互（方向键/点击切换）', async () => {
     h('div', {},
       h(Tabs, { active: 'a', items: [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }] }),
     ))
-  window.history.pushState(null, '', '/tabs')
+  browser.navigate('/tabs')
   const el = mount('e-tabs')
   const handle = uiServe(router, { root: '#e-tabs' })
   await flush()
@@ -60,7 +62,7 @@ test('Checkbox/Switch 交互（受控 + 回调）', async () => {
       h(Checkbox, { label: '同意', checked, onChange: (v: boolean) => { checked = v } }),
       h(Switch, { checked, onChange: (v: boolean) => { checked = v } }),
     ))
-  window.history.pushState(null, '', '/form')
+  browser.navigate('/form')
   const el = mount('e-form')
   const handle = uiServe(router, { root: '#e-form' })
   await flush()
@@ -82,7 +84,7 @@ test('Table 渲染（columns + data）', async () => {
         data: [{ name: '张三', age: 30 }, { name: '李四', age: 25 }],
       }),
     ))
-  window.history.pushState(null, '', '/table')
+  browser.navigate('/table')
   const el = mount('e-table')
   const handle = uiServe(router, { root: '#e-table' })
   await flush()
@@ -98,11 +100,11 @@ test('Modal 打开（useDialog + createPortal）', async () => {
     h('div', {},
       h(Modal, { open: true, title: '弹窗', onClose: () => {} }, h('p', {}, '内容')),
     ))
-  window.history.pushState(null, '', '/modal')
+  browser.navigate('/modal')
   const el = mount('e-modal')
   const handle = uiServe(router, { root: '#e-modal' })
   await flush()
-  const portal = document.getElementById('__wf_portal')
+  const portal = browser.byId('__wf_portal')
   assert.ok(portal, 'portal')
   const modalText = portal?.textContent ?? ''
   assert.ok(modalText.includes('弹窗') && modalText.includes('内容'), 'Modal 内容在 portal')
@@ -117,7 +119,7 @@ test('Pagination + Alert + StatCard', async () => {
       h(StatCard, { title: '订单', value: '100' }),
       h(Pagination, { current: 2, total: 50, onChange: () => {} }),
     ))
-  window.history.pushState(null, '', '/misc')
+  browser.navigate('/misc')
   const el = mount('e-misc')
   const handle = uiServe(router, { root: '#e-misc' })
   await flush()

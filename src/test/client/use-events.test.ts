@@ -7,16 +7,18 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { mountApp } from '../ui-dom-mount.ts'
 import { h, type Component } from '../../ui-dom/vnode.ts'
+const browser = createClientBrowser()
 
 async function mountWith(Comp: any) {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   const mountRes = await mountApp(container as any, Comp)
   return { container, app: mountRes }
 }
@@ -31,12 +33,12 @@ test('useGlobalKey：window keydown 注册 + 卸载清理', async () => {
     return () => h('div', {}, 'x')
   }
   const { app } = await mountWith(Comp)
-  window.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'k' }))
+  browser.dispatchEvent(window, browser.event('keydown', { key: 'k' }))
   assert.deepEqual(keys, ['k'], 'keydown 触发')
 
   show = false
   ;(app as any).close?.() // 卸载 → 监听移除
-  window.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'k' }))
+  browser.dispatchEvent(window, browser.event('keydown', { key: 'k' }))
   assert.deepEqual(keys, ['k'], '卸载后不再触发（监听已清理）')
 })
 
@@ -54,12 +56,12 @@ test('useDrag：pointerdown 捕获 → window move 回调 delta → up 释放', 
   const handle = container.querySelector('.handle') as HTMLElement
 
   handle.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 100, clientY: 50 }))
-  window.dispatchEvent(new (window as any).PointerEvent('pointermove', { clientX: 130, clientY: 60 }))
-  window.dispatchEvent(new (window as any).PointerEvent('pointerup', {}))
+  browser.dispatchEvent(window, browser.event('pointermove', { clientX: 130, clientY: 60 }))
+  browser.dispatchEvent(window, browser.event('pointerup', {}))
   assert.deepEqual(deltas, [{ x: 30, y: 10 }], 'delta = 移动量')
 
   // up 后不再响应
-  window.dispatchEvent(new (window as any).PointerEvent('pointermove', { clientX: 200, clientY: 200 }))
+  browser.dispatchEvent(window, browser.event('pointermove', { clientX: 200, clientY: 200 }))
   assert.equal(deltas.length, 1, '释放后 move 不响应')
   ;(app as any).close?.()
 })
@@ -77,7 +79,7 @@ test('useDrag：onStart/onEnd 回调', async () => {
   const { container, app } = await mountWith(Comp)
   const h2 = container.querySelector('.h') as HTMLElement
   h2.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 0, clientY: 0 }))
-  window.dispatchEvent(new (window as any).PointerEvent('pointerup', {}))
+  browser.dispatchEvent(window, browser.event('pointerup', {}))
   assert.deepEqual(calls, ['start', 'end'])
   ;(app as any).close?.()
 })

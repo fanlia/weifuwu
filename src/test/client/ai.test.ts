@@ -11,6 +11,8 @@ import { createServer, type Server } from 'node:http'
 import type { WfStreamEvent } from '../../ai/types.ts'
 
 const { aiStream } = await import('../../ui-dom/ai.ts')
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+const browser = createClientBrowser()
 
 // ── wire-fake：输出 wf: SSE 的真实服务器 ───────────────────
 

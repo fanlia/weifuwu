@@ -7,16 +7,18 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { h, type Component } from '../../ui-dom/vnode.ts'
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 test('useControlled 受控：value 回流，setValue 只走 onChange', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   const calls: string[] = []
   let propValue = '外部值'
 
@@ -42,8 +44,8 @@ test('useControlled 受控：value 回流，setValue 只走 onChange', async () 
 })
 
 test('useControlled 非受控：内部状态 + 自动渲染 + 跨渲染保持', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
 
   const Comp: Component = (_init, c) => {
     return () => {
@@ -73,8 +75,8 @@ test('useControlled 缺回调 warn：按 name 幂等（一次）', async () => {
   console.warn = (msg: any) => { warns.push(String(msg)) }
 
   try {
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
 
     const Comp: Component = (_init, c) => {
       return () => {
@@ -94,8 +96,8 @@ test('useControlled 缺回调 warn：按 name 幂等（一次）', async () => {
 })
 
 test('useControlled 非受控初始值：value 作为初始内部值', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
 
   const Comp: Component = (_init, c) => {
     return () => {

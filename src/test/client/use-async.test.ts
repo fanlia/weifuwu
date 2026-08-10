@@ -6,16 +6,18 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { h } from '../../ui-dom/vnode.ts'
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 function makeMount(Comp: any) {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   let handle: any
   const mount = () => { handle = undefined; return mountApp(container as any, Comp).then(h => { handle = h; return h }) }
   return { container, app: { destroy: () => { container.innerHTML = '' } }, mount }

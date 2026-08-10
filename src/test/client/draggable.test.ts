@@ -5,14 +5,16 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { h } from '../../ui-dom/vnode.ts'
 import { mountVNode } from '../../ui-dom/render.ts'
+const browser = createClientBrowser()
 
 setupJsdom()
 
 function renderToDom(vnode: any) {
-  const container = document.createElement('div')
+  const container = browser.createElement('div')
   mountVNode(container, vnode, { ui: {} } as any)
   return container.firstChild as HTMLElement
 }

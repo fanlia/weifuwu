@@ -8,16 +8,18 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { h, type Component } from '../../ui-dom/vnode.ts'
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 test('useDialog：状态机 open → exit → closed（退场动画结束才卸载）', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   let dialog: any
   let open = true
 
@@ -49,8 +51,8 @@ test('useDialog：状态机 open → exit → closed（退场动画结束才卸�
 })
 
 test('useDialog：重新打开 exit → open 可恢复', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   let dialog: any
   let open = true
 
@@ -81,8 +83,8 @@ test('useDialog：重新打开 exit → open 可恢复', async () => {
 })
 
 test('useDialog：rootRef 挂载锁滚动 + 焦点 trap，卸载释放', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   const calls: string[] = []
   let dialog: any
 

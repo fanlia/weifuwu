@@ -1,16 +1,18 @@
 import { test, describe, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { h } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 describe('style diff：undefined 值移除旧样式（渲染器防线）', () => {
   test('display: undefined 移除旧 display: none', async () => {
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'style-test-1'
     let open = false
     let root: any
@@ -34,8 +36,8 @@ describe('style diff：undefined 值移除旧样式（渲染器防线）', () =>
   })
 
   test('style 值更新（number → px + 字符串）', async () => {
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'style-test-2'
     let w = 10
     let root: any

@@ -4,8 +4,10 @@
 
 import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { auth } from '../../ui-dom/middleware/auth.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+const browser = createClientBrowser()
 
 // localStorage mock
 let store: Record<string, string> = {}

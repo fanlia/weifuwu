@@ -9,20 +9,22 @@
 import { test, afterEach, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
 import { UIRouter, uiServe, h, createPortal } from '../ui-dom/index.ts'
 import type { Component, WfuiContext } from '../ui-dom/index.ts'
+const browser = createClientBrowser()
 
 before(setupJsdom)
 
 afterEach(() => {
-  document.body.innerHTML = ''
-  document.getElementById('__wf_portal')?.remove()
-  window.history.pushState(null, '', '/')
+  browser.clearBody()
+  browser.byId('__wf_portal')?.remove()
+  browser.navigate('/')
 })
 
 function mount(id: string): HTMLDivElement {
-  const el = document.createElement('div')
-  document.body.appendChild(el)
+  const el = browser.createElement('div')
+  browser.bodyAppend(el)
   el.id = id
   return el
 }
@@ -67,7 +69,7 @@ test('MyButton：class 拼接 + 事件绑定 + children', async () => {
       h(MyButton, { variant: 'danger', size: 'sm', onClick: () => clicked++ }, '删除'),
       h(MyButton, { disabled: true }, '禁用'),
     ))
-  window.history.pushState(null, '', '/btn')
+  browser.navigate('/btn')
   const el = mount('ui-btn')
   const handle = uiServe(router, { root: '#ui-btn' })
   await flush()
@@ -106,7 +108,7 @@ test('Counter：组件级 $ 点击重渲染（仅本组件）', async () => {
       h(Counter), h(Counter),
     )
   })
-  window.history.pushState(null, '', '/counter')
+  browser.navigate('/counter')
   const el = mount('ui-counter')
   const handle = uiServe(router, { root: '#ui-counter' })
   await flush()
@@ -155,7 +157,7 @@ test('MyInput：受控 value + onInput', async () => {
   let val = ''
   router.get('/input', () =>
     h('div', {}, h(MyInput, { id: 'mi', value: val, onInput: (v) => { val = v } })))
-  window.history.pushState(null, '', '/input')
+  browser.navigate('/input')
   const el = mount('ui-input')
   const handle = uiServe(router, { root: '#ui-input' })
   await flush()
@@ -202,14 +204,14 @@ test('MyDropdown：usePopup + createPortal 弹层', async () => {
     h('div', { id: 'page' },
       h(MyDropdown, { label: '菜单', items: ['编辑', '删除'], onSelect: (s) => { selected = s } }),
     ))
-  window.history.pushState(null, '', '/dd')
+  browser.navigate('/dd')
   const el = mount('ui-dd')
   const handle = uiServe(router, { root: '#ui-dd' })
   await flush()
   // 打开
   ;(el.querySelector('#dd-btn') as HTMLElement).click()
   await flush()
-  const portal = document.getElementById('__wf_portal')
+  const portal = browser.byId('__wf_portal')
   assert.ok(portal, 'portal 容器（弹层纪律 §5.4）')
   const panel = portal?.querySelector('.dd-panel')
   assert.ok(panel, '面板在 portal')
@@ -221,7 +223,7 @@ test('MyDropdown：usePopup + createPortal 弹层', async () => {
   await flush()
   assert.equal(selected, '删除', 'onSelect 触发')
   // 选择后关闭
-  assert.ok(!document.getElementById('__wf_portal')?.querySelector('.dd-panel') || !panel?.isConnected, '选择后面板关闭')
+  assert.ok(!browser.byId('__wf_portal')?.querySelector('.dd-panel') || !panel?.isConnected, '选择后面板关闭')
   handle.close()
 })
 
@@ -240,7 +242,7 @@ test('完整场景：async handler 取数 + 组件组合', async () => {
       h(MyButton, { variant: 'primary', onClick: () => { (window as any).__pageBtn = true } }, '操作'),
     )
   })
-  window.history.pushState(null, '', '/page/9')
+  browser.navigate('/page/9')
   const el = mount('ui-page')
   const handle = uiServe(router, { root: '#ui-page' })
   await flush()
@@ -252,7 +254,7 @@ test('完整场景：async handler 取数 + 组件组合', async () => {
   assert.equal(el.querySelector('.counter-val')?.textContent, '1')
   // 导航到新路由（组件卸载清理）
   router.get('/other', () => h('div', { class: 'other' }, '其他'))
-  window.history.pushState(null, '', '/other')
+  browser.navigate('/other')
   ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
   await flush()
   assert.ok(el.querySelector('.other'), '导航成功')

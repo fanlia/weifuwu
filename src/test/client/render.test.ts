@@ -7,11 +7,13 @@
 
 import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { jsx, Fragment, createPortal } from '../../ui-dom/vnode.ts'
 import type { VNode } from '../../ui-dom/vnode.ts'
 import { render, patchValue, mountVNode } from '../../ui-dom/render.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+const browser = createClientBrowser()
 
 let ctx: WfuiContext
 before(setupJsdom)
@@ -23,7 +25,7 @@ beforeEach(() => {
 /** 遍历 root 下所有 TextNode */
 function getAllTextNodes(root: Node): Text[] {
   const result: Text[] = []
-  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const walk = browser.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   let n: Text | null
   while ((n = walk.nextNode() as Text | null)) result.push(n)
   return result
@@ -96,7 +98,7 @@ describe('render', () => {
   })
 
   it('patch 路径更新 CSS 变量（patchProps 与 setProp 对齐）', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const v1 = jsx('div', { style: { '--wf-sidebar-width': '240px', color: 'red' } })
     const v2 = jsx('div', { style: { '--wf-sidebar-width': '64px', color: 'blue' } })
     mountVNode(container, v1)
@@ -173,7 +175,7 @@ describe('render', () => {
 
 describe('patchValue', () => {
   it('更新文本内容', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('p', { children: 'old' })
     const newV = jsx('p', { children: 'new' })
     mountVNode(container, oldV, ctx)
@@ -182,7 +184,7 @@ describe('patchValue', () => {
   })
 
   it('替换不同类型', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     mountVNode(container, jsx('span', { children: 'text' }), ctx)
     patchValue(container, container.firstChild, jsx('span', { children: 'text' }), jsx('div', { children: 'replaced' }), ctx)
     assert.equal(container.firstChild?.nodeName, 'DIV')
@@ -191,13 +193,13 @@ describe('patchValue', () => {
 
 
   it('新增元素（oldInput=null）', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     patchValue(container, null, null, jsx('p', { children: 'new' }), ctx)
     assert.equal(container.firstChild?.textContent, 'new')
   })
 
   it('新增元素（oldNode 有 parentNode 时插入前面）', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     mountVNode(container, jsx('span', { children: 'existing' }), ctx)
     const existing = container.firstChild
     patchValue(container, existing, null, jsx('b', { children: 'before' }), ctx)
@@ -207,18 +209,18 @@ describe('patchValue', () => {
 
 
   it('newInput 和 oldInput 都为 null 返回 null', () => {
-    assert.equal(patchValue(document.createElement('div'), null, null, null, ctx), null)
+    assert.equal(patchValue(browser.createElement('div'), null, null, null, ctx), null)
   })
 
   it('从文本更新为文本', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     mountVNode(container, jsx('p', { children: 'old' }), ctx)
     patchValue(container, container.firstChild, 'old', 'new', ctx)
     assert.equal(container.firstChild?.textContent, 'new')
   })
 
   it('追加子节点', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('ul', { children: [jsx('li', { children: 'a' })] })
     const newV = jsx('ul', { children: [jsx('li', { children: 'a' }), jsx('li', { children: 'b' })] })
     mountVNode(container, oldV, ctx)
@@ -227,7 +229,7 @@ describe('patchValue', () => {
   })
 
   it('删除子节点', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('ul', { children: [jsx('li', { children: 'a' }), jsx('li', { children: 'b' })] })
     const newV = jsx('ul', { children: [jsx('li', { children: 'a' })] })
     mountVNode(container, oldV, ctx)
@@ -237,14 +239,14 @@ describe('patchValue', () => {
   })
 
   it('从文本替换为元素', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     container.textContent = 'old'
     patchValue(container, container.firstChild, 'old', jsx('b', { children: 'new' }), ctx)
     assert.equal(container.firstChild?.nodeName, 'B')
   })
 
   it('从元素替换为文本', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     mountVNode(container, jsx('span', { children: 'x' }), ctx)
     patchValue(container, container.firstChild, jsx('span', { children: 'x' }), 'text', ctx)
     assert.equal(container.firstChild?.textContent, 'text')
@@ -256,7 +258,7 @@ describe('patchValue', () => {
 
 describe('patchProps', () => {
   it('更新 class', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { class: 'old' })
     const newV = jsx('div', { class: 'new' })
     mountVNode(container, oldV, ctx)
@@ -265,7 +267,7 @@ describe('patchProps', () => {
   })
 
   it('移除属性', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { id: 'x', class: 'y' })
     const newV = jsx('div', { class: 'y' })
     mountVNode(container, oldV, ctx)
@@ -274,7 +276,7 @@ describe('patchProps', () => {
   })
 
   it('更新 style 对象', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { style: { color: 'red' } })
     const newV = jsx('div', { style: { color: 'blue', fontSize: '16px' } })
     mountVNode(container, oldV, ctx)
@@ -285,7 +287,7 @@ describe('patchProps', () => {
   })
 
   it('移除 style', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { style: { color: 'red' } })
     const newV = jsx('div', {})
     mountVNode(container, oldV, ctx)
@@ -295,7 +297,7 @@ describe('patchProps', () => {
   })
 
   it('更新事件处理器不累积', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     let calls: string[] = []
     const h1 = () => calls.push('old')
     const h2 = () => calls.push('new')
@@ -308,7 +310,7 @@ describe('patchProps', () => {
   })
 
   it('移除事件处理器', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const h = () => { throw new Error('should not be called') }
     const oldV = jsx('button', { onClick: h })
     const newV = jsx('button', {})
@@ -319,7 +321,7 @@ describe('patchProps', () => {
   })
 
   it('className 被移除', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { className: 'old' })
     const newV = jsx('div', {})
     mountVNode(container, oldV, ctx)
@@ -328,7 +330,7 @@ describe('patchProps', () => {
   })
 
   it('更新布尔属性', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('input', { disabled: true })
     const newV = jsx('input', { disabled: false })
     mountVNode(container, oldV, ctx)
@@ -341,7 +343,7 @@ describe('patchProps', () => {
 
 describe('component patchValue', () => {
   it('组件重渲染保持状态', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     let count = 0
     const Cmp = (_: any, c: WfuiContext) => {
       const $ = c.ui!.$
@@ -360,7 +362,7 @@ describe('component patchValue', () => {
   })
 
   it('组件重渲染更新 props', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const Cmp = (_props: any, c: WfuiContext) => {
       const $ = c.ui!.$
       return (props: any) => {
@@ -379,7 +381,7 @@ describe('component patchValue', () => {
   })
 
   it('组件重渲染使用 _child 缓存', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     let execCount = 0
     const Cmp = (_: any, c: WfuiContext) => {
       execCount++
@@ -396,7 +398,7 @@ describe('component patchValue', () => {
   })
 
   it('组件第一次返回 null，第二次返回元素', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     let first = true
     const Cmp = (_: any) => () => first ? null : jsx('span', { children: 'ok' })
     const v1 = jsx(Cmp, {})
@@ -414,7 +416,7 @@ describe('component patchValue', () => {
 
 describe('Fragment patchValue', () => {
   it('Fragment 内容变化', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx(Fragment, { children: [jsx('span', { children: 'a' })] })
     const newV = jsx(Fragment, { children: [jsx('span', { children: 'b' })] })
     mountVNode(container, oldV, ctx)
@@ -423,7 +425,7 @@ describe('Fragment patchValue', () => {
   })
 
   it('Fragment 新增子节点', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx(Fragment, { children: jsx('span', { children: 'a' }) })
     const newV = jsx(Fragment, { children: [jsx('span', { children: 'a' }), jsx('span', { children: 'b' })] })
     mountVNode(container, oldV, ctx)
@@ -436,7 +438,7 @@ describe('Fragment patchValue', () => {
 
 describe('Array patchValue', () => {
   it('从空数组变为有元素', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { children: [] })
     const newV = jsx('div', { children: [jsx('p', { children: 'item' })] })
     mountVNode(container, oldV, ctx)
@@ -445,7 +447,7 @@ describe('Array patchValue', () => {
   })
 
   it('从有元素变为空数组', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { children: [jsx('p', { children: 'x' })] })
     const newV = jsx('div', { children: [] })
     mountVNode(container, oldV, ctx)
@@ -455,7 +457,7 @@ describe('Array patchValue', () => {
   })
 
   it('数组元素更新', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { children: [jsx('span', { children: 'a' })] })
     const newV = jsx('div', { children: [jsx('span', { children: 'b' })] })
     mountVNode(container, oldV, ctx)
@@ -468,7 +470,7 @@ describe('Array patchValue', () => {
 
 describe('keyed children diff', () => {
   it('按 key 重新排序', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const Cmp = (_: any) => (props: any) => jsx('div', { children: props.label })
     const oldV = jsx('div', { children: [
       jsx(Cmp, { label: 'A' }, 'a'),
@@ -488,7 +490,7 @@ describe('keyed children diff', () => {
   })
 
   it('按 key 新增', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { children: [jsx('span', { children: 'a' }, 'a')] })
     const newV = jsx('div', { children: [jsx('span', { children: 'a' }, 'a'), jsx('span', { children: 'b' }, 'b')] })
     mountVNode(container, oldV, ctx)
@@ -497,7 +499,7 @@ describe('keyed children diff', () => {
   })
 
   it('按 key 删除', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { children: [jsx('span', { children: 'a' }, 'a'), jsx('span', { children: 'b' }, 'b')] })
     const newV = jsx('div', { children: [jsx('span', { children: 'b' }, 'b')] })
     mountVNode(container, oldV, ctx)
@@ -507,7 +509,7 @@ describe('keyed children diff', () => {
   })
 
   it('keyed 到 keyed 内容变化', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { children: [jsx('span', { children: 'a' }, 'a')] })
     const newV = jsx('div', { children: [jsx('span', { children: 'b' }, 'a')] })
     mountVNode(container, oldV, ctx)
@@ -521,7 +523,7 @@ describe('keyed children diff', () => {
     // 如果 B 的类型变化（span→div），patchValue 会 replaceChild
     // B 的旧 DOM 脱离 parent，但 insertBefore 仍指向它
     // 下一轮 (i=0) parent.insertBefore(A, B_detached) → DOMException
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
 
     const oldV = jsx('div', { children: [
       jsx('span', { children: 'A' }, 'a'),
@@ -550,7 +552,7 @@ describe('keyed children diff', () => {
 
   it('组件输出从元素变为 null 再恢复', () => {
     // Drawer open/close 模式：open→render div→close→null→open→div
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
 
     let show = true
     const Comp = (_: any, _ctx: any) => {
@@ -577,7 +579,7 @@ describe('keyed children diff', () => {
   it('patchValue 对组件输出 null 返回 null 不使 insertBefore 失效', () => {
     // 验证 patchValue 对组件输出 null 时返回 null 的行为
     // 不导致 patchKeyedChildren 的 insertBefore 引用失效
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
 
     let showB = true
     const A = (_: any, _ctx: any) => () => jsx('span', { children: 'A' }, 'a')
@@ -614,27 +616,27 @@ describe('keyed children diff', () => {
 
 describe('mountVNode', () => {
   it('清空容器并挂载', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     container.innerHTML = '<span>old</span>'
     mountVNode(container, jsx('p', { children: 'new' }), ctx)
     assert.equal(container.innerHTML, '<p>new</p>')
   })
 
   it('挂载 Fragment', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     mountVNode(container, jsx(Fragment, { children: [jsx('a', { children: '1' }), jsx('b', { children: '2' })] }), ctx)
     assert.equal(container.children.length, 2)
     assert.equal(container.children[0].tagName, 'A')
   })
 
   it('挂载数组', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     mountVNode(container, [jsx('span', { children: 'a' }), jsx('span', { children: 'b' })] as any, ctx)
     assert.equal(container.children.length, 2)
   })
 
   it('空容器', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     mountVNode(container, null as any, ctx)
     assert.equal(container.innerHTML, '')
   })
@@ -644,7 +646,7 @@ describe('mountVNode', () => {
 
 describe('edge cases', () => {
   it('patchValue 返回 oldNode 当新类型无法处理', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     // 先渲染一个正常文本
     container.textContent = 'old'
     // patchValue 时传入相同 'text' 类型
@@ -654,7 +656,7 @@ describe('edge cases', () => {
   })
 
   it('patchValue 时 oldNode 为 null（native element）', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { children: 'x' })
     mountVNode(container, oldV, ctx)
     // 当 oldNode 为 null，但 oldInput 存在时
@@ -665,7 +667,7 @@ describe('edge cases', () => {
   })
 
   it('normalize 处理单元素和 null', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     // children 为单个字符串（非数组）
     const oldV = jsx('div', { children: 'single' })
     const newV = jsx('div', { children: 'updated' })
@@ -675,7 +677,7 @@ describe('edge cases', () => {
   })
 
   it('patchSimpleChildren 处理 oldChild 缺少 existingNode', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const oldV = jsx('div', { children: 'a' })
     const newV = jsx('div', { children: ['a', 'b'] })
     mountVNode(container, oldV, ctx)
@@ -707,7 +709,7 @@ describe('edge cases', () => {
   it('三元表达式从空状态切换到列表时正确移除旧元素', () => {
     // 模拟 JSX: {items.length === 0 ? <p>empty</p> : items.map(i => <div>{i}</div>)}
     const items: number[] = []
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
 
     // 空状态：
     const oldV = jsx('div', {
@@ -733,7 +735,7 @@ describe('edge cases', () => {
   })
 
   it('组件 VNode 删除时递归清理 _child 的 ref', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     let cleaned = false
 
     // 子组件：返回带 ref 的元素
@@ -790,7 +792,7 @@ describe('two-phase component model', () => {
 
     // patch with same type → render should run again, mount should not
     const v2 = { type: Comp as any, props: {}, key: undefined }
-    patchValue(document.body, el, v, v2, ctx)
+    patchValue(browser.bodyElement() as HTMLElement, el, v, v2, ctx)
 
     assert.equal(mountCount, 1, 'mount should not run again')
     assert.equal(renderCount, 2, 'render should run again on patch')
@@ -811,7 +813,7 @@ describe('two-phase component model', () => {
     assert.equal(refCalls.length, 1, 'ref(el) called on mount')
     assert.ok(refCalls[0] instanceof HTMLElement, 'ref receives DOM element')
 
-    patchValue(document.body, el, v, null, ctx)
+    patchValue(browser.bodyElement() as HTMLElement, el, v, null, ctx)
     assert.equal(refCalls.length, 2, 'ref(null) called on unmount')
     assert.equal(refCalls[1], null, 'ref receives null on unmount')
   })
@@ -830,7 +832,7 @@ describe('two-phase component model', () => {
       () => ({ type: 'div', props: { children: { type: Child as any, props: {}, key: undefined } }, key: undefined })
 
     const v = { type: Parent as any, props: {}, key: undefined }
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const el = render(v, ctx) as HTMLElement
     assert.equal(childRefCalls.length, 1, 'child ref(el) called on mount')
 
@@ -857,7 +859,7 @@ describe('two-phase component model', () => {
 
     // Patch with same component type + same render function
     const v2 = { type: Comp as any, props: {}, key: undefined, _render: (v as any)._render }
-    patchValue(document.body, (v as any).el, v, v2, ctx)
+    patchValue(browser.bodyElement() as HTMLElement, (v as any).el, v, v2, ctx)
 
     assert.equal(renderCount, 2, 're-render triggered via patchValue')
   })
@@ -888,7 +890,7 @@ describe('two-phase component model', () => {
     assert.equal(parentRenderCount, 1, 'parent renders once')
 
     const v2 = { type: Parent as any, props: {}, key: undefined, _render: (v as any)._render }
-    patchValue(document.body, el, v, v2, ctx)
+    patchValue(browser.bodyElement() as HTMLElement, el, v, v2, ctx)
     assert.equal(childMountCount, 1, 'child should not re-mount on parent re-render')
     assert.equal(childRenderCount, 2, 'child should re-render on parent re-render')
   })
@@ -964,8 +966,8 @@ describe('two-phase component model', () => {
         }
       }
 
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
     const v = { type: Parent as any, props: {}, key: undefined }
     mountVNode(container, v, skipCtx)
 
@@ -1052,8 +1054,8 @@ describe('keyed diff DOM mutations', () => {
   }
 
   it('顺序不变: 0 DOM 修改', () => {
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
     const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c')] }, key: undefined }
     const newV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c')] }, key: undefined }
     mountVNode(container, oldV, skipCtx)
@@ -1063,8 +1065,8 @@ describe('keyed diff DOM mutations', () => {
   })
 
   it('新增 1 项: 仅新增节点产生 DOM 修改', () => {
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
     const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c')] }, key: undefined }
     const newV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d')] }, key: undefined }
     mountVNode(container, oldV, skipCtx)
@@ -1075,8 +1077,8 @@ describe('keyed diff DOM mutations', () => {
   })
 
   it('删除 1 项: 仅删除节点产生 DOM 修改', () => {
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
     const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d')] }, key: undefined }
     const newV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c')] }, key: undefined }
     mountVNode(container, oldV, skipCtx)
@@ -1087,8 +1089,8 @@ describe('keyed diff DOM mutations', () => {
   })
 
   it('部分重排: 只移需要后移的节点', () => {
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
     const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d'), span('E','e')] }, key: undefined }
     const newV = { type: 'div', props: { children: [span('A','a'), span('C','c'), span('B','b'), span('D','d'), span('E','e')] }, key: undefined }
     mountVNode(container, oldV, skipCtx)
@@ -1100,8 +1102,8 @@ describe('keyed diff DOM mutations', () => {
   })
 
   it('完全反转: 移 N-1 个节点', () => {
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
     const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d')] }, key: undefined }
     const newV = { type: 'div', props: { children: [span('D','d'), span('C','c'), span('B','b'), span('A','a')] }, key: undefined }
     mountVNode(container, oldV, skipCtx)
@@ -1113,8 +1115,8 @@ describe('keyed diff DOM mutations', () => {
   })
 
   it('新增 + 删除混合: 1 insertBefore + 1 removeChild', () => {
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
     const oldV = { type: 'div', props: { children: [span('A','a'), span('B','b'), span('C','c'), span('D','d')] }, key: undefined }
     const newV = { type: 'div', props: { children: [span('A','a'), span('C','c'), span('E','e')] }, key: undefined }
     mountVNode(container, oldV, skipCtx)
@@ -1140,8 +1142,8 @@ describe('keyed diff DOM mutations', () => {
     const skipCtx: any = { ui: { _ctxVersion: 1, _dirtySet: new Set<string>() } }
 
     // 首次挂载（closed）
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
     let v = { type: Comp as any, props: {}, key: undefined }
     mountVNode(container, v, skipCtx)
 
@@ -1161,7 +1163,7 @@ describe('keyed diff DOM mutations', () => {
     // Portal 不占父 DOM 位置，container 内无子节点
     assert.equal(total, 0, 'open: 0 DOM ops on parent (Portal remote)')
     // Portal 内容在 #__wf_portal 下
-    const portal = document.getElementById('__wf_portal')
+    const portal = browser.byId('__wf_portal')
     assert.ok(portal, '__wf_portal exists')
     assert.equal(portal!.textContent, 'portal-content', 'portal rendered')
 
@@ -1198,8 +1200,8 @@ describe('keyed diff DOM mutations', () => {
       () => ({ type: 'button', props: { children: 'btn' }, key: undefined })
 
     const skipCtx: any = { ui: { _ctxVersion: 1, _dirtySet: new Set<string>() } }
-    const container = document.createElement('div')
-    document.body.appendChild(container)
+    const container = browser.createElement('div')
+    browser.bodyAppend(container)
 
     // 首次挂载（open=false）
     let open = false
@@ -1229,7 +1231,7 @@ describe('keyed diff DOM mutations', () => {
     patchValue(container, div, v, v2, skipCtx)
     assert.equal(div.childNodes.length, 2, 'open: 2 buttons remain (portal remote)')
     assert.equal(renderCount, 2, 'open: Modal renders (open prop changed)')
-    let portal = document.getElementById('__wf_portal')
+    let portal = browser.byId('__wf_portal')
     assert.ok(portal?.textContent?.includes('content-m1'), 'open: portal rendered')
 
     // 关闭（open=false）→ Modal 输出 null
@@ -1255,14 +1257,14 @@ describe('keyed diff DOM mutations', () => {
     assert.equal(circle.getAttribute('fill'), 'red')
     // patch SVG
     const v2 = { type: 'svg', props: { width: 200, children: { type: 'circle', props: { cx: 30, r: 20, fill: 'blue' }, key: undefined } }, key: undefined }
-    patchValue(document.body, el, v, v2, ctx)
+    patchValue(browser.bodyElement() as HTMLElement, el, v, v2, ctx)
     assert.equal(el.getAttribute('width'), '200')
     assert.equal(circle.getAttribute('cx'), '30')
     assert.equal(circle.getAttribute('fill'), 'blue')
   })
 
   it('innerHTML prop 忽略 children', () => {
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const v = { type: 'div', props: { innerHTML: '<p>hello</p>', children: 'ignored-text' }, key: undefined }
     mountVNode(container, v, ctx)
     const div = container.firstChild as HTMLElement
@@ -1273,7 +1275,7 @@ describe('keyed diff DOM mutations', () => {
   it('ref 回调在 mount/unmount 时调用', () => {
     const refCalls: (HTMLElement | null)[] = []
     const v = { type: 'div', props: { ref: (el: any) => refCalls.push(el), children: 'ref-test' }, key: undefined }
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     mountVNode(container, v, ctx)
     const div = container.firstChild as HTMLElement
     assert.equal(refCalls.length, 1, 'ref(el) on mount')
@@ -1297,7 +1299,7 @@ describe('keyed diff DOM mutations', () => {
         ]}, key: undefined }
       }
 
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
     const v = { type: Comp as any, props: {}, key: undefined }
     mountVNode(container, v, ctx)
     // container 直接包含 span 子节点，没有 fragment 包装
@@ -1322,7 +1324,7 @@ describe('keyed diff DOM mutations', () => {
 
 describe('ref 替换语义（框架修复）', () => {
   beforeEach(() => {
-    document.body.innerHTML = ''
+    browser.clearBody()
   })
 
   it('内联 ref + null 分支清理：重渲染不触发清理（ref(null) 只在真正卸载时调用）', () => {
@@ -1334,17 +1336,17 @@ describe('ref 替换语义（框架修复）', () => {
     // 首次挂载
     const v = { type: 'div' as const, props: { ref: ref1 }, key: undefined }
     const el = render(v, ctx) as HTMLElement
-    document.body.appendChild(el)
+    browser.bodyAppend(el)
     assert.equal(cleanupCount, 0, '挂载不清理')
 
     // 重渲染：ref 函数变化（内联 ref 每次渲染都是新函数）
     // 框架修复：不再调用旧 ref(null)——清理不得触发
     const v2 = { type: 'div' as const, props: { ref: ref2 }, key: undefined }
-    patchValue(document.body, el, v, v2, ctx)
+    patchValue(browser.bodyElement() as HTMLElement, el, v, v2, ctx)
     assert.equal(cleanupCount, 0, 'ref 替换（重渲染）不得触发 null 分支清理')
 
     // 真正卸载 → ref(null) 触发清理
-    patchValue(document.body, el, v2, null, ctx)
+    patchValue(browser.bodyElement() as HTMLElement, el, v2, null, ctx)
     assert.equal(cleanupCount, 1, '卸载触发一次清理')
   })
 })
@@ -1354,7 +1356,7 @@ it('children 中间 null 组件 diff 不错位（mapChildDomNodes _refNode 定�
   // 场景：children = [div, NullComp(渲染 null), div]——中间 null 组件无 DOM
   // 按位置 diff 时后续子项必须正确更新（壳内容区模式切换静默失效回归）
   const NullComp = () => () => null
-  const container = document.createElement('div')
+  const container = browser.createElement('div')
   // 真实场景（壳模式切换）：null 组件（closed Drawer）后是整块替换的组件区
   const PanelA = () => () => jsx('div', { class: 'panel-a' }, null)
   const PanelB = () => () => jsx('div', { class: 'panel-b' }, null)

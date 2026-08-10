@@ -7,24 +7,26 @@
 
 import { test, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { trapFocus } from '../../ui-dom/focus-trap.ts'
+const browser = createClientBrowser()
 
 let container: HTMLElement
 
 beforeEach(() => {
-  container = document.createElement('div')
-  document.body.appendChild(container)
+  container = browser.createElement('div')
+  browser.bodyAppend(container)
 })
 afterEach(() => {
   container.remove()
 })
 
 function addFocusable(tag: string, id: string): HTMLElement {
-  const el = document.createElement(tag)
+  const el = browser.createElement(tag)
   el.id = id
   el.setAttribute('tabindex', '0')
   container.appendChild(el)
@@ -48,7 +50,7 @@ test('初始聚焦第一个可聚焦元素（微任务）', async () => {
   addFocusable('button', 'f2')
   trapFocus(container)
   await new Promise<void>((r) => queueMicrotask(r))
-  assert.equal(document.activeElement, first)
+  assert.equal(browser.activeElement(), first)
 })
 
 test('Tab 在最后一个元素时聚焦第一个（循环）', async () => {
@@ -58,11 +60,11 @@ test('Tab 在最后一个元素时聚焦第一个（循环）', async () => {
   const cleanup = trapFocus(container)
   await new Promise<void>((r) => queueMicrotask(r))
   last.focus()
-  assert.equal(document.activeElement, last)
+  assert.equal(browser.activeElement(), last)
   tab(false)
   // jsdom 的 KeyboardEvent 不反映 defaultPrevented（已知限制），
   // 断言焦点移动效果（真实浏览器下 preventDefault 阻止默认 Tab 跳出）
-  assert.equal(document.activeElement, first, '应循环回第一个')
+  assert.equal(browser.activeElement(), first, '应循环回第一个')
   cleanup()
 })
 
@@ -74,7 +76,7 @@ test('shift+Tab 在第一个元素时聚焦最后一个（反向循环）', asyn
   await new Promise<void>((r) => queueMicrotask(r))
   first.focus()
   tab(true)
-  assert.equal(document.activeElement, last, '应反向循环到最后一个')
+  assert.equal(browser.activeElement(), last, '应反向循环到最后一个')
   cleanup()
 })
 
@@ -88,24 +90,24 @@ test('Tab 在中间元素时正常不拦截（焦点不跳到首尾）', async (
   tab(false)
   // 中间元素 Tab 不拦截——焦点不跳到 first（jsdom 无默认 Tab 行为，
   // 断言焦点仍在 mid 即说明 handler 未强制移动）
-  assert.equal(document.activeElement, mid, '中间元素 Tab 不强制移动焦点')
+  assert.equal(browser.activeElement(), mid, '中间元素 Tab 不强制移动焦点')
   cleanup()
 })
 
 test('cleanup 还原焦点到 trap 前的 activeElement', async () => {
-  const outside = document.createElement('button')
+  const outside = browser.createElement('button')
   outside.id = 'outside'
-  document.body.appendChild(outside)
+  browser.bodyAppend(outside)
   outside.focus()
-  assert.equal(document.activeElement, outside)
+  assert.equal(browser.activeElement(), outside)
 
   addFocusable('button', 'f1')
   addFocusable('button', 'f2')
   const cleanup = trapFocus(container)
   await new Promise<void>((r) => queueMicrotask(r))
-  assert.notEqual(document.activeElement, outside, 'trap 期间焦点在容器内')
+  assert.notEqual(browser.activeElement(), outside, 'trap 期间焦点在容器内')
 
   cleanup()
-  assert.equal(document.activeElement, outside, 'cleanup 还原焦点')
+  assert.equal(browser.activeElement(), outside, 'cleanup 还原焦点')
   outside.remove()
 })

@@ -16,9 +16,25 @@ export function createClientBrowser(): BrowserEnv {
     activeElement: () => (typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null),
     byId: (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null),
     query: (sel) => (typeof document !== 'undefined' ? document.querySelector(sel) : null),
+    queryAll: (sel) => (typeof document !== 'undefined' ? document.querySelectorAll(sel) : null),
     createElement: (tag) => (typeof document !== 'undefined' ? document.createElement(tag) as HTMLElementTagNameMap[typeof tag] : null),
+    bodyElement: () => (typeof document !== 'undefined' ? document.body : null),
     bodyAppend: (el) => { if (typeof document !== 'undefined') document.body.appendChild(el) },
     bodyRemove: (el) => { if (typeof document !== 'undefined' && el.parentNode) document.body.removeChild(el) },
+    clearBody: () => { if (typeof document !== 'undefined') document.body.innerHTML = '' },
+    event: (type, init) => {
+      const w = typeof window !== 'undefined' ? window : null
+      const Ctor = init && (init.key || init.code) ? 'KeyboardEvent'
+        : init && (init.clientX !== undefined || init.clientY !== undefined || init.pointerId !== undefined) ? 'PointerEvent'
+        : 'Event'
+      try { return new (w as any)[Ctor](type, init) } catch { return new (w as any).Event(type, init) }
+    },
+    dispatchEvent: (target, evt) => (typeof target !== 'undefined' ? target.dispatchEvent(evt) : false),
+    navigate: (url) => {
+      if (typeof window === 'undefined') return
+      window.history.pushState(null, '', url)
+      window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
+    },
     copyText: async (text) => {
       const w = typeof window !== 'undefined' ? window : null
       if (w?.navigator?.clipboard?.writeText) {
@@ -49,6 +65,8 @@ export function createClientBrowser(): BrowserEnv {
     selectionText: () => (typeof window !== 'undefined' ? window.getSelection?.()?.toString() ?? null : null),
     getSelection: () => (typeof window !== 'undefined' ? window.getSelection() : null),
     viewportHeight: () => (typeof window !== 'undefined' ? window.innerHeight : 0),
+    viewportWidth: () => (typeof window !== 'undefined' ? window.innerWidth : 0),
+    createTreeWalker: (root, whatToShow) => (typeof document !== 'undefined' ? document.createTreeWalker(root, whatToShow ?? NodeFilter.SHOW_ALL) : null),
     scrollTop: () => {
       const d = typeof document !== 'undefined' ? document : null
       const w = typeof window !== 'undefined' ? window : null

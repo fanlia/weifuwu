@@ -184,11 +184,25 @@ export interface BrowserEnv {
   byId(id: string): HTMLElement | null
   /** CSS 选择器查询元素 */
   query(sel: string): HTMLElement | null
+  /** CSS 选择器批量查询 */
+  queryAll(sel: string): NodeListOf<Element> | null
   /** 创建元素 */
   createElement<K extends keyof HTMLElementTagNameMap>(tag: K): HTMLElementTagNameMap[K] | null
+  /** body 引用（容器/断言） */
+  bodyElement(): HTMLElement | null
   /** body 追加/移除 */
   bodyAppend(el: Node): void
   bodyRemove(el: Node): void
+  /** 清空 body（测试清理 / 命令式重置） */
+  clearBody(): void
+  /** 创建浏览器事件（Event/KeyboardEvent/PointerEvent——按 init 推断构造器） */
+  event(type: string, init?: any): Event
+  /** 派发事件到目标（测试/命令式触发） */
+  dispatchEvent(target: EventTarget, evt: Event): boolean
+  /** 编程式导航（history.pushState + popstate——路由驱动） */
+  navigate(url: string): void
+  /** 文本遍历（TreeWalker） */
+  createTreeWalker(root: Node, whatToShow?: number): TreeWalker | null
   /** 复制文本（clipboard API + execCommand 降级，统一组件重复实现） */
   copyText(text: string): Promise<boolean>
   /** execCommand（富文本编辑器） */
@@ -203,6 +217,8 @@ export interface BrowserEnv {
   queryCommandValue(cmd: string): string
   /** 视口高度 */
   viewportHeight(): number
+  /** 视口宽度 */
+  viewportWidth(): number
   /** 滚动量（scrollingElement 优先） */
   scrollTop(): number
   /** location.hash */

@@ -4,12 +4,14 @@
 
 import { describe, it, before, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 before(setupJsdom)
 
 const { ws } = await import('../../ui-dom/middleware/ws.ts')
 import type { WfuiContext } from '../../ui-dom/types.ts'
+const browser = createClientBrowser()
 
 // ── WebSocket mock ─────────────────────────────────────────
 

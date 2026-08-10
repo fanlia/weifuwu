@@ -1,7 +1,9 @@
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
 import { clampToViewport } from '../ui-dom/popup.ts'
+const browser = createClientBrowser()
 
 before(setupJsdom)
 
@@ -13,8 +15,8 @@ before(setupJsdom)
  * 修复在 popup.ts 通用工具层：任何使用 usePopupPosition 的组件均可受益。
  */
 describe('popup clampToViewport', () => {
-  const vw = window.innerWidth // jsdom: 1024
-  const vh = window.innerHeight // jsdom: 768
+  const vw = browser.viewportWidth() // jsdom: 1024
+  const vh = browser.viewportHeight() // jsdom: 768
 
   // jsdom 无真实布局：getBoundingClientRect 恒为 0，需 mock 面板尺寸
   function fakePanel(w: number, h: number, top: number, left: number) {

@@ -8,12 +8,14 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { mountApp } from '../ui-dom-mount.ts'
 import { h, type Component } from '../../ui-dom/vnode.ts'
+const browser = createClientBrowser()
 
 // ── useReducedMotion ────────────────────────────────
 
@@ -27,8 +29,8 @@ test('useReducedMotion：返回系统偏好（matchMedia 判定）', async () =>
     rm = c.ui.useReducedMotion()
     return () => h('div', {}, 'x')
   }
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   const mountRes = await mountApp(container as any, Comp)
   assert.equal(rm, true, 'reduced-motion 开启 → true')
   ;(mountRes as any).close?.()
@@ -43,8 +45,8 @@ test('useAnimationEnd：stableRef 挂载绑定 animationend，卸载清理', asy
     settleRef = c.ui.useAnimationEnd(() => { calls.push('anim-end') }, { once: true })
     return () => h('div', { class: 'panel', ref: settleRef }, 'p')
   }
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   const mountRes = await mountApp(container as any, Comp)
 
   const panel = container.querySelector('.panel') as HTMLElement
@@ -64,8 +66,8 @@ test('useAnimationEnd：常驻模式（无 once）可多次触发 + 卸载后不
     settleRef = c.ui.useAnimationEnd(() => { calls.push('e') })
     return () => h('div', { class: 'panel', ref: settleRef }, 'p')
   }
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   const mountRes = await mountApp(container as any, Comp)
 
   const panel = container.querySelector('.panel') as HTMLElement
@@ -89,8 +91,8 @@ test('useTween：目标值驱动补间，reduced-motion 直落终值', async () 
     tween = c.ui.useTween(42, { duration: 300 })
     return () => h('div', {}, String(tween.value))
   }
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   const mountRes = await mountApp(container as any, Comp)
   // reduced-motion → 直落终值（无 rAF 等待）
   await new Promise(r => setTimeout(r, 10))

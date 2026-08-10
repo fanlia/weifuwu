@@ -4,12 +4,14 @@
 
 import { describe, it, before, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 before(setupJsdom)
 
 const { api, ApiError } = await import('../../ui-dom/middleware/api.ts')
 import type { ApiClient } from '../../ui-dom/middleware/api.ts'
+const browser = createClientBrowser()
 
 // ── fetch mock ──────────────────────────────────────────────
 

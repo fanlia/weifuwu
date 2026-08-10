@@ -13,18 +13,20 @@
 
 import { test, describe, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { h, createPortal } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
   test('[input 无key, portal] 混合：input 不重建（复用 + patch）', async () => {
     let mountRes: any
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'c1-unkeyed'
     let open = false
     let inputEl: HTMLInputElement | null = null
@@ -51,7 +53,7 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
     await new Promise(r => setTimeout(r, 30))
     const inputAfter = el.querySelector('input') as HTMLInputElement
     assert.equal(inputAfter, input, 'input 未被重建（同一 DOM 引用）')
-    assert.equal(document.activeElement, input, '焦点保持')
+    assert.equal(browser.activeElement(), input, '焦点保持')
     assert.equal(input.value, 'x', '输入值保持')
     ;(mountRes as any).close?.()
     el.remove()
@@ -59,8 +61,8 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
 
   test('portal 开/关切换正常（allUnkeyed 分支 patchPortal）', async () => {
     let mountRes: any
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'c1-portal-toggle'
     let open = false
     const Cmp = (_: any, ctx: any) => {
@@ -73,15 +75,15 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
     }
     mountRes = await mountApp(el, Cmp)
     // 初始关闭——portal 不渲染
-    assert.equal(document.querySelector('#__wf_portal .p2'), null, '初始 portal 关闭')
+    assert.equal(browser.query('#__wf_portal .p2'), null, '初始 portal 关闭')
     // 打开
     el.querySelector('button')!.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
     await new Promise(r => setTimeout(r, 30))
-    assert.ok(document.querySelector('#__wf_portal .p2'), 'portal 打开渲染')
+    assert.ok(browser.query('#__wf_portal .p2'), 'portal 打开渲染')
     // 关闭
     el.querySelector('button')!.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
     await new Promise(r => setTimeout(r, 30))
-    assert.equal(document.querySelector('#__wf_portal .p2'), null, 'portal 关闭移除')
+    assert.equal(browser.query('#__wf_portal .p2'), null, 'portal 关闭移除')
     ;(mountRes as any).close?.()
     el.remove()
   })

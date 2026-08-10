@@ -13,6 +13,7 @@
 
 import { describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { h, type VNode } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
@@ -20,6 +21,7 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 before(setupJsdom)
 
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 /** 可切换的 hover 能力 mock */
 let HOVER = false
@@ -84,12 +86,12 @@ async function mountPopup(opts: HarnessOpts = {}) {
     ].filter(Boolean))
   }
   const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-  const el = document.createElement('div')
+  const el = browser.createElement('div')
   el.id = 'popup-harness'
-  document.body.appendChild(el)
+  browser.bodyAppend(el)
   const app = await mountApp(el, Root)
   // 注意：无 key 子节点每次渲染重建 DOM（框架 diff 行为），交互前必须重新查询 live 节点
-  const q = (sel: string) => document.querySelector(sel) as HTMLElement | null
+  const q = (sel: string) => browser.query(sel) as HTMLElement | null
   return {
     app,
     get wrap() { return q('.popup-wrap') },
@@ -101,7 +103,7 @@ async function mountPopup(opts: HarnessOpts = {}) {
 
 describe('ctx.ui.usePopup', () => {
   afterEach(() => {
-    document.body.innerHTML = ''
+    browser.clearBody()
     HOVER = false
   })
 
@@ -109,12 +111,12 @@ describe('ctx.ui.usePopup', () => {
     HOVER = false
     const t = await mountPopup({ trigger: 'hover' })
     // mouseover（冒泡——鼠标直接进 wrap 内子元素也触发）+ relatedTarget 判断
-    fire(t.wrap, 'mouseover', { relatedTarget: document.body })
+    fire(t.wrap, 'mouseover', { relatedTarget: browser.bodyElement() as HTMLElement })
     await flush()
     assert.ok(t.panel(), 'mouseover 应打开（从 wrap 外进入）')
 
     // 关闭后 tap（click）也应打开（触屏共存）
-    fire(document.body, 'mousedown')
+    fire(browser.bodyElement() as HTMLElement, 'mousedown')
     await flush()
     assert.equal(t.panel(), null, '点外部关闭')
     fire(t.trigger, 'click')
@@ -122,7 +124,7 @@ describe('ctx.ui.usePopup', () => {
     assert.ok(t.panel(), 'tap 应打开（共存）')
 
     // 点外部关闭
-    fire(document.body, 'mousedown')
+    fire(browser.bodyElement() as HTMLElement, 'mousedown')
     await flush()
     assert.equal(t.panel(), null, '点外部应关闭')
     ;(t.app as any).close?.()
@@ -131,11 +133,11 @@ describe('ctx.ui.usePopup', () => {
   it('hover 触发 + 桌面环境：(hover: hover) true → mouseover 打开，mouseout 关闭', async () => {
     HOVER = true
     const t = await mountPopup({ trigger: 'hover' })
-    fire(t.wrap, 'mouseover', { relatedTarget: document.body })
+    fire(t.wrap, 'mouseover', { relatedTarget: browser.bodyElement() as HTMLElement })
     await flush()
     assert.ok(t.panel(), '桌面 mouseover 应打开')
 
-    fire(t.wrap, 'mouseout', { relatedTarget: document.body })
+    fire(t.wrap, 'mouseout', { relatedTarget: browser.bodyElement() as HTMLElement })
     await flush()
     assert.equal(t.panel(), null, 'mouseout 应关闭')
     ;(t.app as any).close?.()
@@ -150,7 +152,7 @@ describe('ctx.ui.usePopup', () => {
     await flush()
     assert.ok(t.panel(), '再次 tap 保持打开（只开——防自定义 trigger onClick 双触发净零）')
     // 外部点击关闭
-    fire(document.body, 'mousedown')
+    fire(browser.bodyElement() as HTMLElement, 'mousedown')
     await flush()
     assert.equal(t.panel(), null, '外部点击关闭')
     ;(t.app as any).close?.()
@@ -214,8 +216,8 @@ describe('ctx.ui.usePopup', () => {
 
 describe('usePopup portal 锚点感知（client 层修复）', () => {
   it('打开后切换锚点：portal 自动重算坐标（不残留旧锚点）', async () => {
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'popup-anchor-switch2'
     let anchorA: HTMLElement | null = null
     let anchorB: HTMLElement | null = null
@@ -255,8 +257,8 @@ describe('usePopup portal 锚点感知（client 层修复）', () => {
     // 点击 wrap 打开（wrapProps onClick）
     wrap.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
     await new Promise(r => setTimeout(r, 30))
-    const panel = document.querySelector('#__wf_portal .panel') as HTMLElement
-    if (!panel) throw new Error('panel 未渲染（打开失败）——wrap:' + !!wrap + ' portal容器:' + !!document.querySelector('#__wf_portal'))
+    const panel = browser.query('#__wf_portal .panel') as HTMLElement
+    if (!panel) throw new Error('panel 未渲染（打开失败）——wrap:' + !!wrap + ' portal容器:' + !!browser.query('#__wf_portal'))
     // A 锚点坐标（bottom 124 + gap 6）
     assert.equal(panel.style.top, '130px', '打开时 A 锚点坐标')
     // 切换锚点 B（组件内部 render）——portal 锚点感知自动重算

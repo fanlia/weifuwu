@@ -13,6 +13,7 @@
 
 import { describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { h } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
@@ -20,6 +21,7 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 before(setupJsdom)
 
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 /** 等待 rAF/微任务队列消化 */
 const flush = () => new Promise(r => setTimeout(r, 30))
@@ -38,7 +40,7 @@ function fakeRect(over: Partial<DOMRect>): DOMRect {
 
 describe('ctx.ui.usePopupPosition', () => {
   afterEach(() => {
-    document.body.innerHTML = ''
+    browser.clearBody()
   })
 
   it('返回 pos 对象：top/left 初始 0 + refresh 方法', async () => {
@@ -52,8 +54,8 @@ describe('ctx.ui.usePopupPosition', () => {
       return () => h('div', {}, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-1'
     const mountRes = await mountApp(el, Root)
 
@@ -86,8 +88,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-2'
     const mountRes = await mountApp(el, Root)
     assert.equal(renderCount, 1)
@@ -126,8 +128,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-3'
     const mountRes = await mountApp(el, Root)
 
@@ -160,8 +162,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-4'
     const mountRes = await mountApp(el, Root)
     const before = renderCount
@@ -200,8 +202,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-5'
     const mountRes = await mountApp(el, Root)
     const before = renderCount
@@ -231,8 +233,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-6'
     const mountRes = await mountApp(el, Root)
 
@@ -267,8 +269,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-7'
     const mountRes = await mountApp(el, Root)
     const before = renderCount
@@ -298,8 +300,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-zero-rect'
     const mountRes = await mountApp(el, Root)
 
@@ -330,8 +332,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-8'
     const mountRes = await mountApp(el, Root)
 
@@ -375,8 +377,8 @@ describe('ctx.ui.usePopupPosition', () => {
     }
     const Root = (_: any) => () => h('div', {}, [h(A), h(B)])
 
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-9'
     const mountRes = await mountApp(el, Root)
     const beforeA = renderA
@@ -410,8 +412,8 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
-    document.body.appendChild(el)
+    const el = browser.createElement('div')
+    browser.bodyAppend(el)
     el.id = 'pp-10'
     const mountRes = await mountApp(el, Root)
 

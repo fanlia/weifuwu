@@ -4,8 +4,10 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { extendCtx } from '../../ui-dom/types.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+const browser = createClientBrowser()
 
 describe('extendCtx', () => {
   it('合并新字段到 ctx', () => {

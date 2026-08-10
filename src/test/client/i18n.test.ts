@@ -1,7 +1,9 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { i18n } from '../../ui-dom/i18n.ts'
+const browser = createClientBrowser()
 
 function mockCtx(): WfuiContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true }, app: {} } as any

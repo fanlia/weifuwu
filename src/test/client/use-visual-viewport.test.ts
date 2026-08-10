@@ -10,6 +10,7 @@
 
 import { describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { h } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
@@ -17,10 +18,11 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 before(setupJsdom)
 
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 /** 可编程 visualViewport mock */
 function installVisualViewport() {
-  let state = { height: window.innerHeight, offsetTop: 0 }
+  let state = { height: browser.viewportHeight(), offsetTop: 0 }
   const handlers: Record<string, (() => void)[]> = {}
   ;(window as any).visualViewport = {
     get height() { return state.height },
@@ -36,7 +38,7 @@ function installVisualViewport() {
 const flush = () => new Promise(r => setTimeout(r, 30))
 
 describe('ctx.ui.useVisualViewport', () => {
-  afterEach(() => { document.body.innerHTML = ''; delete (window as any).visualViewport })
+  afterEach(() => { browser.clearBody(); delete (window as any).visualViewport })
 
   it('无 visualViewport 环境（桌面）降级 innerHeight，不抛错', async () => {
     let vp: any
@@ -45,11 +47,11 @@ describe('ctx.ui.useVisualViewport', () => {
       return () => h('div', {}, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
+    const el = browser.createElement('div')
     el.id = 'vv-1'
-    document.body.appendChild(el)
+    browser.bodyAppend(el)
     const mountRes = await mountApp(el, Root)
-    assert.equal(vp.height, window.innerHeight)
+    assert.equal(vp.height, browser.viewportHeight())
     assert.equal(vp.offsetTop, 0)
     assert.equal(vp.keyboardOpen, false)
     ;(mountRes as any).close?.()
@@ -65,9 +67,9 @@ describe('ctx.ui.useVisualViewport', () => {
       return () => h('div', {}, `h=${vp.height}`)
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const el = document.createElement('div')
+    const el = browser.createElement('div')
     el.id = 'vv-2'
-    document.body.appendChild(el)
+    browser.bodyAppend(el)
     const mountRes = await mountApp(el, Root)
     assert.equal(vp.keyboardOpen, false)
 

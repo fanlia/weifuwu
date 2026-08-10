@@ -10,6 +10,7 @@
 
 import { test, afterEach, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 before(setupJsdom)
@@ -17,15 +18,16 @@ before(setupJsdom)
 import { h } from '../../ui-dom/vnode.ts'
 import { mountApp } from '../ui-dom-mount.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
+const browser = createClientBrowser()
 
 afterEach(() => {
-  document.body.innerHTML = ''
+  browser.clearBody()
 })
 
 let _idSeq = 0
 async function mount(comp: (p: any, ctx: WfuiContext) => any) {
-  const el = document.createElement('div')
-  document.body.appendChild(el)
+  const el = browser.createElement('div')
+  browser.bodyAppend(el)
   el.id = `t2-root-${++_idSeq}`
   const handle = await mountApp(el, comp)
   return { app: handle, el }

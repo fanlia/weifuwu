@@ -4,11 +4,13 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { computeFixedPosRect, computeFixedPos, clampToViewport } from '../../ui-dom/popup.ts'
+const browser = createClientBrowser()
 
 // 构造 DOMRect（jsdom 的 getBoundingClientRect 返回全 0，这里手造）
 function rect(x: number, y: number, w: number, h: number): DOMRect {
@@ -67,7 +69,7 @@ test('clampToViewport: panel 为 null 时原样返回', () => {
 })
 
 test('clampToViewport: 0 rect 跳过（未布局）', () => {
-  const el = document.createElement('div')
+  const el = browser.createElement('div')
   const pos = { top: 500, left: 500 }
   // jsdom getBoundingClientRect 返回全 0 → 跳过
   const r = clampToViewport(pos, el)
@@ -76,7 +78,7 @@ test('clampToViewport: 0 rect 跳过（未布局）', () => {
 
 test('clampToViewport: 底部超出视口时上移', () => {
   // 视口 jsdom 默认 innerWidth/Height = 1024x768
-  const panel = document.createElement('div')
+  const panel = browser.createElement('div')
   // 模拟面板已渲染在 pos 位置：rect top=700 height=200 → bottom=900 > 768
   ;(panel as any).getBoundingClientRect = () => rect(100, 700, 200, 200)
   ;(panel as any).style = { top: '700px', left: '100px' }
@@ -87,7 +89,7 @@ test('clampToViewport: 底部超出视口时上移', () => {
 })
 
 test('clampToViewport: 在视口内不动', () => {
-  const panel = document.createElement('div')
+  const panel = browser.createElement('div')
   ;(panel as any).getBoundingClientRect = () => rect(100, 100, 200, 200)
   ;(panel as any).style = { top: '100px', left: '100px' }
   const pos = { top: 100, left: 100 }

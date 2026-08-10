@@ -10,11 +10,13 @@
 
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import type { UIRequest, UIResponse, UIHandler, UIMiddleware, UIRouteDef } from '../../ui-dom/types.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import type { VNode } from '../../ui-dom/vnode.ts'
 import { h } from '../../ui-dom/vnode.ts'
+const browser = createClientBrowser()
 
 before(setupJsdom)
 

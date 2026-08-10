@@ -10,12 +10,14 @@
 
 import { describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { createServer, type Server } from 'node:http'
 import { createReactiveState } from '../../ui-dom/reactive.ts'
 import { createChatSession, toChatMessages, type ChatTransport, type UseChatOptions, type UiMessage, type ChatApi } from '../../ui-dom/use-chat.ts'
 import type { WfStreamEvent, WfApprovalRequest, WfToolCall, WfError } from '../../ai/types.ts'
 import type { AiStreamCallbacks } from '../../ui-dom/ai.ts'
+const browser = createClientBrowser()
 
 before(setupJsdom)
 
@@ -335,7 +337,7 @@ describe('useChat — 请求体定制', () => {
 
 describe('useChat — 集成（真实 HTTP wf: 流 → createApp → DOM）', () => {
   afterEach(() => {
-    document.body.innerHTML = ''
+    browser.clearBody()
   })
 
   it('挂载组件：输入 → send → 流式 token 渲染到 DOM，streaming 状态切换', async () => {
@@ -353,10 +355,10 @@ describe('useChat — 集成（真实 HTTP wf: 流 → createApp → DOM）', ()
 
     const { mountApp } = await import('../ui-dom-mount.ts')
     const { jsx } = await import('../../ui-dom/vnode.ts')
-    document.body.innerHTML = ''
-    const root = document.createElement('div')
+    browser.clearBody()
+    const root = browser.createElement('div')
     root.id = 'root'
-    document.body.appendChild(root)
+    browser.bodyAppend(root)
 
     const ChatDemo: any = (_init: unknown, ctx: any) => {
       const $ = ctx.ui.useChat({ url })
@@ -378,13 +380,13 @@ describe('useChat — 集成（真实 HTTP wf: 流 → createApp → DOM）', ()
     let app: any
     try {
       app = await mountApp(root, ChatDemo)
-      const input = document.getElementById('inp') as HTMLInputElement
+      const input = browser.byId('inp') as HTMLInputElement
       input.value = '你好'
       input.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
-      ;(document.getElementById('btn') as HTMLButtonElement).click()
+      ;(browser.byId('btn') as HTMLButtonElement).click()
 
-      await waitFor(() => (document.getElementById('msgs')!.textContent ?? '').includes('你好你好'))
-      const msgs = document.getElementById('msgs')!.textContent!
+      await waitFor(() => (browser.byId('msgs')!.textContent ?? '').includes('你好你好'))
+      const msgs = browser.byId('msgs')!.textContent!
       assert.ok(msgs.includes('你好你好'), `DOM 应为用户+回复，实际: ${msgs}`)
     } finally {
       app?.close?.()
@@ -407,7 +409,7 @@ async function waitFor(fn: () => boolean, timeoutMs = 3000, interval = 10): Prom
 
 describe('AiChat 子组件共享父 $ — 三态 skip 回归', () => {
   afterEach(() => {
-    document.body.innerHTML = ''
+    browser.clearBody()
   })
 
   it('父组件 useChat → <AiChat chat={$} />：流式 token 实时渲染到 AiChat DOM', async () => {
@@ -428,9 +430,9 @@ describe('AiChat 子组件共享父 $ — 三态 skip 回归', () => {
     const { AiChat } = await import('../../components/AiChat/AiChat.ts')
 
     // 前序测试 afterEach 清空了 #root：重建挂载点
-    const root = document.createElement('div')
+    const root = browser.createElement('div')
     root.id = 'root'
-    document.body.appendChild(root)
+    browser.bodyAppend(root)
 
     // 父组件：useChat + AiChat 子组件（父自身不读 messages，仅传 chat handle）
     const Parent: any = (_init: unknown, ctx: any) => {
@@ -441,14 +443,14 @@ describe('AiChat 子组件共享父 $ — 三态 skip 回归', () => {
     let app: any
     try {
       app = await mountApp(root, Parent)
-      const input = document.querySelector('.wf-aichat-input') as HTMLInputElement
+      const input = browser.query('.wf-aichat-input') as HTMLInputElement
       assert.ok(input, 'AiChat 应挂载输入框')
       input.value = 'hi'
       input.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
-      ;(document.querySelector('.wf-aichat-inputbar button') as HTMLButtonElement).click()
+      ;(browser.query('.wf-aichat-inputbar button') as HTMLButtonElement).click()
 
-      await waitFor(() => (document.querySelector('.wf-aichat-list')?.textContent ?? '').includes('流式'))
-      const bubbles = document.querySelectorAll('.wf-aichat-bubble')
+      await waitFor(() => (browser.query('.wf-aichat-list')?.textContent ?? '').includes('流式'))
+      const bubbles = browser.queryAll('.wf-aichat-bubble')
       assert.equal(bubbles.length, 2, 'user + assistant 气泡')
       assert.ok(bubbles[1].textContent!.includes('流式'), `assistant 气泡应含流式 token，实际: ${bubbles[1].textContent}`)
     } finally {

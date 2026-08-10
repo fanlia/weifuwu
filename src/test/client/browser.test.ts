@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
 before(setupJsdom)
 const { createClientBrowser } = await import('../../ui-dom/browser.ts')
+const browser = createClientBrowser()
 
 describe('ctx.browser（浏览器环境抽象）', () => {
-  afterEach(() => { document.body.innerHTML = '' })
+  afterEach(() => { browser.clearBody() })
 
   it('copyText：clipboard API 优先', async () => {
     let written = ''
@@ -43,10 +44,10 @@ describe('ctx.browser（浏览器环境抽象）', () => {
   })
 
   it('byId/query/activeElement 正常（jsdom）', () => {
-    const div = document.createElement('div')
+    const div = browser.createElement('div')
     div.id = 'target'
     div.className = 'cls-a'
-    document.body.appendChild(div)
+    browser.bodyAppend(div)
     const b = createClientBrowser()
     assert.equal(b.byId('target'), div)
     assert.equal(b.query('.cls-a'), div)

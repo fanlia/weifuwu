@@ -12,19 +12,21 @@
 import { test, afterEach, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
 import { UIRouter, uiServe, h } from '../ui-dom/index.ts'
 import type { UIHandler, UIMiddleware, WfuiContext } from '../ui-dom/index.ts'
+const browser = createClientBrowser()
 
 before(setupJsdom)
 
 afterEach(() => {
-  document.body.innerHTML = ''
-  window.history.pushState(null, '', '/')
+  browser.clearBody()
+  browser.navigate('/')
 })
 
 function mount(id: string): HTMLDivElement {
-  const el = document.createElement('div')
-  document.body.appendChild(el)
+  const el = browser.createElement('div')
+  browser.bodyAppend(el)
   el.id = id
   return el
 }
@@ -40,7 +42,7 @@ function flush() {
 test('uiServe 渲染 handler 的 VNode 到根节点（res = VNode）', async () => {
   const router = new UIRouter()
   router.get('/home', () => h('div', { id: 'home' }, '首页'))
-  window.history.pushState(null, '', '/home')
+  browser.navigate('/home')
   const el = mount('ui-root')
   const handle = uiServe(router, { root: '#ui-root' })
   await flush()
@@ -63,7 +65,7 @@ test('handler async：ctx.data 缓存命中（外层只使用一次）+ params �
       h('button', { id: 'uc', onClick: () => { $.clicks++ } }, String($.clicks)),
     )
   })
-  window.history.pushState(null, '', '/users/42')
+  browser.navigate('/users/42')
   const el = mount('ui-async')
   const handle = uiServe(router, { root: '#ui-async' })
   await flush()
@@ -92,7 +94,7 @@ test('中间件链：layout 包装 children（两阶段）', async () => {
   }
   router.use(Shell)
   router.get('/page', () => h('div', { id: 'page' }, '内容'))
-  window.history.pushState(null, '', '/page')
+  browser.navigate('/page')
   const el = mount('ui-layout')
   const handle = uiServe(router, { root: '#ui-layout' })
   await flush()
@@ -120,7 +122,7 @@ test('子路由：sub 中间件链 + notFound + 两层嵌套 + params + 段边�
   router.notFound(() => h('div', { id: 'main-nf' }, '主站 404'))
 
   // 两层嵌套 + params
-  window.history.pushState(null, '', '/admin/api/users/7')
+  browser.navigate('/admin/api/users/7')
   const el = mount('ui-nest')
   const handle = uiServe(router, { root: '#ui-nest' })
   await flush()
@@ -129,21 +131,21 @@ test('子路由：sub 中间件链 + notFound + 两层嵌套 + params + 段边�
   assert.equal(handle.ctx.params.id, '7')
 
   // sub notFound（主 app 404 不覆盖）
-  window.history.pushState(null, '', '/admin/zzz')
+  browser.navigate('/admin/zzz')
   ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
   await flush()
   assert.ok(el.querySelector('#admin-nf'), 'admin notFound')
   assert.ok(!el.querySelector('#main-nf'), '主 app 404 不生效')
 
   // 主 app 404
-  window.history.pushState(null, '', '/elsewhere')
+  browser.navigate('/elsewhere')
   ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
   await flush()
   assert.ok(el.querySelector('#main-nf'), '主 app 404')
 
   // 段边界：/admin2 不匹配 /admin
   router.get('/admin2', () => h('div', { id: 'admin2' }, 'admin2'))
-  window.history.pushState(null, '', '/admin2')
+  browser.navigate('/admin2')
   ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
   await flush()
   assert.ok(el.querySelector('#admin2'), '段边界正确')
@@ -170,7 +172,7 @@ test('组件级 $：点击只重渲染该组件（父 handler 不重跑）', asy
     handlerRuns++
     return h('div', {}, h(Counter, { id: 'a' }), h(Counter, { id: 'b' }))
   })
-  window.history.pushState(null, '', '/counters')
+  browser.navigate('/counters')
   const el = mount('ui-comp')
   const handle = uiServe(router, { root: '#ui-comp' })
   await flush()
@@ -190,7 +192,7 @@ test('ctx.ui.dirty()：闭包 let 手动模式 + render() 同步', async () => {
     return () => h('button', { id: 'm-btn', onClick: () => { count++; ctx.ui.dirty() } }, String(count))
   }
   router.get('/manual', () => h('div', {}, h(Manual)))
-  window.history.pushState(null, '', '/manual')
+  browser.navigate('/manual')
   const el = mount('ui-manual')
   const handle = uiServe(router, { root: '#ui-manual' })
   await flush()
@@ -219,7 +221,7 @@ test('keyed 列表重排复用 DOM + style diff + 事件不累积', async () => 
       h('div', { id: 'sty', style: $.show ? { display: 'block' } : { display: undefined } }),
     )
   })
-  window.history.pushState(null, '', '/list')
+  browser.navigate('/list')
   const el = mount('ui-list')
   const handle = uiServe(router, { root: '#ui-list' })
   await flush()
@@ -261,7 +263,7 @@ test('ssrToString + uiServe hydrate 收养', async () => {
       h('span', { id: 'n' }, String($.n)),
     )
   })
-  window.history.pushState(null, '', '/hyd')
+  browser.navigate('/hyd')
   const handle = uiServe(router, { root: '#ui-hyd', hydrate: true })
   await flush()
   assert.equal(el.querySelector('#n')?.textContent, '0', '收养保留服务端内容')
@@ -278,7 +280,7 @@ test('ssrToString + uiServe hydrate 收养', async () => {
 test('handler 抛错 → 错误页兜底（不黑屏）', async () => {
   const router = new UIRouter()
   router.get('/boom', () => { throw new Error('炸了') })
-  window.history.pushState(null, '', '/boom')
+  browser.navigate('/boom')
   const el = mount('ui-boom')
   const handle = uiServe(router, { root: '#ui-boom' })
   await flush()
@@ -299,7 +301,7 @@ test('UIRouter.use(AppMiddleware)：ctx 注入链（toast/confirm）', async () 
   router.use(toast())
   router.use(confirm())
   router.get('/inj', () => h('div', { id: 'inj-page' }, '注入页'))
-  window.history.pushState(null, '', '/inj')
+  browser.navigate('/inj')
   const el = mount('ui-inj')
   const handle = uiServe(router, { root: '#ui-inj' })
   await flush()
@@ -309,9 +311,9 @@ test('UIRouter.use(AppMiddleware)：ctx 注入链（toast/confirm）', async () 
   // 调用 toast → 命令式渲染（Toast 组件输出到 portal）
   ctx.toast('保存成功', 'success')
   await flush()
-  const host = document.querySelector('.wf-toast-host')
+  const host = browser.query('.wf-toast-host')
   assert.ok(host, 'toast host 渲染')
-  const toastEl = document.querySelector('.wf-toast')
+  const toastEl = browser.query('.wf-toast')
   assert.ok(toastEl, 'toast 消息渲染（portal）')
   assert.ok(toastEl?.textContent?.includes('保存成功'), 'toast 消息显示')
   assert.ok(toastEl?.className.includes('wf-toast--success'), 'toast type class')
@@ -330,7 +332,7 @@ test('UIRouter.use(AppMiddleware)：自定义注入中间件（ctx.xxx 类型扩
     $.v = $.v ?? 0
     return h('div', { id: 'c-page' }, `custom: ${ctx.custom.hello}`)
   })
-  window.history.pushState(null, '', '/c')
+  browser.navigate('/c')
   const el = mount('ui-c')
   const handle = uiServe(router, { root: '#ui-c' })
   await flush()
@@ -392,7 +394,7 @@ test('SSR → hydrate 完整链路：预取数据 __DATA__ 命中 + DOM 收养',
     })
     return h('div', { id: 'p' }, h('h2', {}, (data as any).title))
   })
-  window.history.pushState(null, '', '/page')
+  browser.navigate('/page')
   const handle = uiServe(client, { root: '#ui-hyd-ssr', hydrate: true })
   await flush()
   assert.equal(el.querySelector('h2')?.textContent, 'SSR 页面', 'hydrate 内容保留')
@@ -410,7 +412,7 @@ test('ctx.confirm：命令式确认框（portal + 确定/取消）', async () =>
   const router = new UIRouter()
   router.use(confirm())
   router.get('/cf', () => h('div', {}, '页'))
-  window.history.pushState(null, '', '/cf')
+  browser.navigate('/cf')
   const el = mount('ui-cf')
   const handle = uiServe(router, { root: '#ui-cf' })
   await flush()
@@ -420,7 +422,7 @@ test('ctx.confirm：命令式确认框（portal + 确定/取消）', async () =>
   let result: boolean | null = null
   void ctx.confirm('确定删除？').then(r => { result = r })
   await flush()
-  const portal = document.getElementById('__wf_portal')
+  const portal = browser.byId('__wf_portal')
   const modalText = portal?.textContent ?? ''
   assert.ok(modalText.includes('确定删除？'), '确认框内容（portal Modal）')
   assert.ok(modalText.includes('确定') && modalText.includes('取消'), '确认/取消按钮')
@@ -438,7 +440,7 @@ test('ctx.notification：命令式通知（portal 渲染）', async () => {
   const router = new UIRouter()
   router.use(notification())
   router.get('/nf', () => h('div', {}, '页'))
-  window.history.pushState(null, '', '/nf')
+  browser.navigate('/nf')
   const el = mount('ui-nf')
   const handle = uiServe(router, { root: '#ui-nf' })
   await flush()
@@ -446,7 +448,7 @@ test('ctx.notification：命令式通知（portal 渲染）', async () => {
   assert.equal(typeof ctx.notification, 'function', 'ctx.notification 注入')
   ctx.notification('系统通知', { type: 'success', description: '操作完成' })
   await flush()
-  const portal = document.getElementById('__wf_portal')
+  const portal = browser.byId('__wf_portal')
   const text = portal?.textContent ?? ''
   assert.ok(text.includes('系统通知'), '通知标题')
   assert.ok(text.includes('操作完成'), '通知描述')
@@ -461,7 +463,7 @@ test('DBG form submit 事件', async () => {
       h('input', { type: 'text', name: 'q' }),
       h('button', { type: 'submit' }, '提交'),
     ))
-  window.history.pushState(null, '', '/f')
+  browser.navigate('/f')
   const el = mount('ui-form')
   const handle = uiServe(router, { root: '#ui-form' })
   await flush()

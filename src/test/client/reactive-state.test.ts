@@ -6,7 +6,9 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { createReactiveState } from '../../ui-dom/reactive.ts'
+const browser = createClientBrowser()
 
 test('独立容器：顶层赋值触发 dirty + watcher', () => {
   let dirty = 0

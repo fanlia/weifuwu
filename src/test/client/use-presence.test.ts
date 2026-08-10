@@ -8,16 +8,18 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
 import { mountApp } from '../ui-dom-mount.ts'
 import { h, type Component } from '../../ui-dom/vnode.ts'
+const browser = createClientBrowser()
 
 test('usePresence：sync 状态机 open → exit → closed（animationend 卸载）', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   let presence: any
   let open = true
 
@@ -48,8 +50,8 @@ test('usePresence：sync 状态机 open → exit → closed（animationend 卸�
 })
 
 test('usePresence：exit → 重新打开可恢复 open', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   let presence: any
   let open = true
 
@@ -77,8 +79,8 @@ test('usePresence：exit → 重新打开可恢复 open', async () => {
 })
 
 test('usePresence：ref(null) 清理 animationend 监听', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
+  const container = browser.createElement('div')
+  browser.bodyAppend(container)
   let presence: any
 
   const Comp: Component = (_init, c) => {

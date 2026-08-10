@@ -7,19 +7,21 @@
 
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { h } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 
 import { mountApp } from '../ui-dom-mount.ts'
+const browser = createClientBrowser()
 
 describe('C3 useControlledInput', () => {
   it('受控：value 由 props 驱动，setValue 走 onChange', async () => {
     let mountRes: any
-    const el = document.createElement('div')
+    const el = browser.createElement('div')
     el.id = 'c3-controlled'
-    document.body.appendChild(el)
+    browser.bodyAppend(el)
     let changed: string | undefined
     let ctrl: any
     const Cmp = (_: any, ctx: any) => {
@@ -37,9 +39,9 @@ describe('C3 useControlledInput', () => {
 
   it('非受控：内部 value + keyword/selectedLabel 独立状态', async () => {
     let mountRes: any
-    const el = document.createElement('div')
+    const el = browser.createElement('div')
     el.id = 'c3-uncontrolled'
-    document.body.appendChild(el)
+    browser.bodyAppend(el)
     let ctrl: any
     const Cmp = (_: any, ctx: any) => {
       ctrl = ctx.ui.useControlledInput({ name: 'C3U' })
@@ -61,9 +63,9 @@ describe('C3 useControlledInput', () => {
 describe('C4 useOpen', () => {
   it('onClick 只开（不 toggle——focus 开+click 关冲突教训）', async () => {
     let mountRes: any
-    const el = document.createElement('div')
+    const el = browser.createElement('div')
     el.id = 'c4-open'
-    document.body.appendChild(el)
+    browser.bodyAppend(el)
     let handle: any
     const Cmp = (_: any, ctx: any) => {
       handle = ctx.ui.useOpen({})
@@ -81,9 +83,9 @@ describe('C4 useOpen', () => {
 
   it('openOnFocus：focus 打开；受控 open/onOpenChange', async () => {
     let mountRes: any
-    const el = document.createElement('div')
+    const el = browser.createElement('div')
     el.id = 'c4-focus'
-    document.body.appendChild(el)
+    browser.bodyAppend(el)
     let changed = 0
     let handle: any
     const Cmp = (_: any, ctx: any) => {

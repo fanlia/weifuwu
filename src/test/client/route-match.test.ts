@@ -14,7 +14,9 @@ import {
   matchRoute,
   extractParams,
 } from '../../ui-dom/route-match.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { RouteDef } from '../../ui-dom/types.ts'
+const browser = createClientBrowser()
 
 // ── joinPaths ────────────────────────────────────────
 

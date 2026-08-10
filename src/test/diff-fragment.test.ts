@@ -10,10 +10,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
 import { mountVNode, patchValue } from '../ui-dom/render.ts'
 import { h, Fragment } from '../ui-dom/vnode.ts'
 
 setupJsdom()
+const browser = createClientBrowser()
 
 function fakeCtx(): any {
   return { ui: { $: {}, dirty: () => {}, render: () => {}, ready: true } }
@@ -22,7 +24,7 @@ function fakeCtx(): any {
 describe('diff: fragment + siblings 位置对齐', () => {
   it('fragment 夹在兄弟节点中间：重渲染不串位、不丢节点', () => {
     const ctx = fakeCtx()
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
 
     const make = () => h('div', {},
       h('span', { id: 'a' }, 'name'),
@@ -50,7 +52,7 @@ describe('diff: fragment + siblings 位置对齐', () => {
 
   it('fragment 子项数量变化：重渲染后 DOM 与结构一致', () => {
     const ctx = fakeCtx()
-    const container = document.createElement('div')
+    const container = browser.createElement('div')
 
     const prev = h('div', {},
       h('span', { id: 'a' }, 'name'),
