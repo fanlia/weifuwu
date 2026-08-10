@@ -1,4 +1,3 @@
-import { RouteView } from 'weifuwu/client'
 import type { WfuiContext } from 'weifuwu/client'
 import { Avatar, Button, Menu } from 'weifuwu/components'
 import { Loading } from './ui'
@@ -34,7 +33,7 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
     ctx.app?.navigate('/login')
   }
 
-  return (__props: {}) => {
+  return (__props: { children?: any }) => {
     // 渲染期读取路由（layout 跨子路由复用，mount 捕获的 route 不随导航更新）
     // 子路由 'agents' → '/agents'（NAV 匹配用；'/' 保持）
     const route = '/' + (ctx.route?.path ?? '').replace(/^\/+$/, '')
@@ -69,7 +68,7 @@ export function AppLayout(_props: {}, ctx: WfuiContext) {
       </aside>
 
       <main class="wf-main">
-        <RouteView />
+        {__props.children}
       </main>
     </div>
     )

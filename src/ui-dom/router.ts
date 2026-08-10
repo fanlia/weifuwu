@@ -22,7 +22,7 @@ export interface UIRouterOptions {
 /** 编译路径：:param → 正则捕获 */
 function compilePath(path: string): { re: RegExp; keys: string[] } {
   const keys: string[] = []
-  const reStr = path
+  const reStr = (path || '/')
     .replace(/:(\w+)/g, (_, key) => { keys.push(key); return '([^/]+)' })
     .replace(/\*/g, '.*')
   return { re: new RegExp(`^${reStr}$`), keys }
@@ -64,7 +64,7 @@ export class UIRouter<C extends object = {}> {
   }
 
   /** ctx 注入中间件（toast/confirm 等——(ctx) => ctx，对齐后端 app.use 注入 ctx.xxx） */
-  use<I extends object, O extends object>(mw: AppMiddleware<I, O>): UIRouter<C & O>
+  use<O extends object>(mw: AppMiddleware<any, O>): UIRouter<C & O>
   /** 渲染中间件（layout/SSR 等）——包装 children 产 vnode */
   use<I extends object, O extends object>(mw: UIMiddleware<I, O>): UIRouter<C & O>
   /** 子路由挂载（= 后端 mount(path, subRouter)）——独立路由树：sub 的中间件/notFound/嵌套均生效 */
@@ -80,7 +80,9 @@ export class UIRouter<C extends object = {}> {
         // 段边界匹配：/admin 只匹配 /admin、/admin/...（不匹配 /admin2）
         let rel: string | null = null
         if (path === prefix) rel = '/'
-        else if (path.startsWith(prefix + '/')) rel = path.slice(prefix.length)
+        else if (prefix === '/' ? (path !== '/' && path.startsWith('/')) : path.startsWith(prefix + '/')) {
+          rel = path.slice(prefix.length)
+        }
         if (rel === null) return children // 不在前缀下 → 直通主链
         return async (loc, c) => sub._handle(rel, loc, c) // 交给子路由树
       }
@@ -101,7 +103,10 @@ export class UIRouter<C extends object = {}> {
     if (this._injected) return
     this._injected = true
     for (const mw of this._injections) {
-      await mw(ctx)
+      const result = (await mw(ctx)) as UIContext | undefined
+      // 中间件可能返回新 ctx（client extendCtx 模式）——注入字段复制回原 ctx
+      // （serve 持原 ctx 引用——组件从原型链读注入）
+      if (result && result !== ctx) Object.assign(ctx, result)
     }
   }
 

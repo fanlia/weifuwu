@@ -21,7 +21,7 @@ await esbuild.build({
   entryPoints: [join(root, 'ui', 'main.tsx')],
   outfile: join(dist, 'app.js'),
   jsx: 'automatic',
-  jsxImportSource: 'weifuwu/client',
+  jsxImportSource: 'weifuwu/ui-dom',
   bundle: true,
   format: 'esm',
   platform: 'browser',

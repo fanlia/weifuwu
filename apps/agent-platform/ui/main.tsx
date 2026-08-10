@@ -4,8 +4,10 @@
  * agent-platform 前端入口
  */
 
-import { createApp, router, RouteView, api, auth, ws } from 'weifuwu/client'
-import { EmptyState, confirm, toast } from 'weifuwu/components'
+import { api, auth, ws } from 'weifuwu/client'
+import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
+import { EmptyState, confirm as uiDomConfirm, toast as uiDomToast } from 'weifuwu/components'
+
 import { AppLayout } from './components/AppLayout'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
@@ -24,9 +26,9 @@ import { Settings } from './pages/Settings'
 
 // ── 应用 ─────────────────────────────────────────────────
 
-const app = createApp()
+const app = new UIRouter()
 
-// 中间件
+// 中间件（api/auth/ws 为 client AppMiddleware——UIRouter.use 兼容注入 ctx）
 app.use(api({
   baseURL: '',
   // 自动鉴权：请求自动带 Bearer token（apps 不再手写 Authorization 头）
@@ -40,44 +42,41 @@ app.use(auth({
 }))
 app.use(ws({ url: '/ws' }))
 
-// 命令式确认/轻提示（P8：Confirm 默认禁遮罩取消 + 退场动画；Toast 带退场）
-app.use(confirm())
-app.use(toast())
+// 命令式确认/轻提示（ui-dom 版——局部 registry）
+app.use(uiDomConfirm())
+app.use(uiDomToast())
 
-app.use(router({
-  mode: 'history',
-  routes: [
-    // 认证页（无侧边栏）
-    { path: '/login', component: Login, title: '登录 — Agent Platform' },
-    { path: '/register', component: Register, title: '注册 — Agent Platform' },
+// 认证页（无侧边栏）
+app.get('/login', () => h(Login, {}), { title: '登录 — Agent Platform' })
+app.get('/register', () => h(Register, {}), { title: '注册 — Agent Platform' })
 
-    // 工作台（持久化侧边栏布局）
-    {
-      path: '/',
-      layout: AppLayout,
-      children: [
-        { path: '', component: Dashboard, title: '概览 — Agent Platform' },
-        { path: 'agents', component: Agents, title: 'Agent — Agent Platform' },
-        { path: 'agents/new', component: NewAgent, title: '创建 Agent' },
-        { path: 'agents/:id', component: AgentDetail, title: '编辑 Agent' },
-        { path: 'companies', component: Companies, title: '公司 — Agent Platform' },
-        { path: 'companies/new', component: NewCompany, title: '创建公司' },
-        { path: 'departments', component: Departments, title: '部门 — Agent Platform' },
-        { path: 'departments/new', component: NewDepartment, title: '创建部门' },
-        { path: 'departments/:id', component: DepartmentDetail, title: '部门详情' },
-        { path: 'chat/new', component: NewChat, title: '发起聊天' },
-        { path: 'chat/:id', component: Chat, title: '聊天' },
-        { path: 'settings', component: Settings, title: '设置 — Agent Platform' },
-      ],
-    },
-  ],
-  notFound: () => () => (
-    <div class="wf-p-xl" style={{ paddingTop: '30vh' }}>
-      <EmptyState icon="🧭" text="404 — 页面不存在" />
-    </div>
-  ),
-}))
+// 工作台（AppLayout 包装——layout 中间件）
+const layoutMw = async (_location: any, ctx: any, children: any) => {
+  return async (loc: any, c: any) => {
+    const child = await children(loc, c)
+    return h(AppLayout, {}, child)
+  }
+}
+const main = new UIRouter()
+main.use(layoutMw)
+main.get('', () => h(Dashboard, {}), { title: '概览 — Agent Platform' })
+main.get('agents', () => h(Agents, {}), { title: 'Agent — Agent Platform' })
+main.get('agents/new', () => h(NewAgent, {}), { title: '创建 Agent' })
+main.get('agents/:id', () => h(AgentDetail, {}), { title: '编辑 Agent' })
+main.get('companies', () => h(Companies, {}), { title: '公司 — Agent Platform' })
+main.get('companies/new', () => h(NewCompany, {}), { title: '创建公司' })
+main.get('departments', () => h(Departments, {}), { title: '部门 — Agent Platform' })
+main.get('departments/new', () => h(NewDepartment, {}), { title: '创建部门' })
+main.get('departments/:id', () => h(DepartmentDetail, {}), { title: '部门详情' })
+main.get('chat/new', () => h(NewChat, {}), { title: '发起聊天' })
+main.get('chat/:id', () => h(Chat, {}), { title: '聊天' })
+main.get('settings', () => h(Settings, {}), { title: '设置 — Agent Platform' })
+app.use('/', main)
 
-// ── 挂载 ─────────────────────────────────────────────────
+app.notFound(() => (
+  h('div', { class: 'wf-p-xl', style: { paddingTop: '30vh' } },
+    h(EmptyState, { icon: '🧭', text: '404 — 页面不存在' }),
+  )
+))
 
-app.mount('#root', () => () => <RouteView />)
+uiServe(app, { root: '#root' })

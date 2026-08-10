@@ -13,6 +13,8 @@
       "weifuwu": ["../../src/index.ts"],
       "weifuwu/client": ["../../src/client/index.ts"],
       "weifuwu/client/jsx-runtime": ["../../src/client/index.ts"],
+      "weifuwu/ui-dom": ["../../src/ui-dom/index.ts"],
+      "weifuwu/ui-dom/jsx-runtime": ["../../src/ui-dom/jsx-runtime.ts"],
       "weifuwu/components": ["../../src/components/index.ts"],
     }
   },

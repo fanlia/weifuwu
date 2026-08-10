@@ -193,6 +193,14 @@ export function uiServe<RC extends object = {}>(
 
   // 整树刷新能力（注入中间件/A 组件用——root ctx.ui.render 不触发整树）
   ;(ctx as any).__rerender = () => scheduleRender()
+  // ctx.app.navigate（对齐 client router() 注入——组件导航用）
+  ;(ctx as any).app = {
+    navigate: (path: string) => {
+      if (router.mode === 'hash') window.location.hash = '#' + path
+      else window.history.pushState({}, '', path)
+      scheduleRender()
+    },
+  }
 
   // ── 渲染主循环 ──
   let oldVNode: VNode | null = null
@@ -213,6 +221,8 @@ export function uiServe<RC extends object = {}>(
     rendering = true
     try {
       const path = router.getPath()
+      // ctx.route 同步（对齐 client router 注入——组件读 ctx.route.params）
+      ;(ctx as any).route = { path, params: ctx.params, query: ctx.query }
       // 路由级 $（handler 的 ctx.ui.$——首次创建，重渲染复用）
       if (!(ctx as any).__state) {
         const state = createReactiveState(() => {

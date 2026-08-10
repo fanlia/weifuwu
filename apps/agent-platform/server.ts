@@ -72,6 +72,7 @@ async function main() {
   let redisClient: any = null
   if (hasRedis) {
     redisClient = redis()
+    app.use(redisClient)
     console.log('[agent-platform] Redis 已连接（自研客户端）')
   }
 
