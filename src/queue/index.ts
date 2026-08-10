@@ -34,7 +34,8 @@
 import { randomUUID } from 'node:crypto'
 import { hostname } from 'node:os'
 import type { Context, Handler, Middleware } from '../types.ts'
-import { RedisPool } from '../db/redis/pool.ts'
+import { RedisPool } from '../db/redis/pool.ts' // 引擎组装点（值依赖）：queue 自建池
+import type { Redis } from '../db/contracts.ts' // 消费面类型：接口
 import { RedisConnection, type RedisConnectionOptions } from '../db/redis/connection.ts'
 
 export interface QueueOptions {
@@ -106,7 +107,7 @@ export interface QueueClientModule extends Middleware<Context, Context & QueueIn
 
 const GROUP = 'workers'
 
-function parseUrl(options?: QueueOptions): { conn: RedisConnectionOptions; pool: RedisPool } {
+function parseUrl(options?: QueueOptions): { conn: RedisConnectionOptions; pool: Redis } {
   const url = options?.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
   const u = new URL(url)
   const opts: RedisConnectionOptions = {

@@ -10,6 +10,7 @@ import { RedisSubscriber } from './subscriber.ts'
 import { RedisPipeline } from './pipeline.ts'
 import type { RespValue } from './resp.ts'
 import { ConnectionError } from '../errors.ts'
+import type { Redis } from '../contracts.ts'
 
 export interface RedisPoolOptions extends RedisClientOptions {
   /** 池大小（连接数）。默认 5。 */
@@ -18,7 +19,7 @@ export interface RedisPoolOptions extends RedisClientOptions {
   keyPrefix?: string
 }
 
-export class RedisPool {
+export class RedisPool implements Redis {
   private clients: RedisClient[] = []
   private rr = 0
   private replenishWaiters: (() => void)[] = []

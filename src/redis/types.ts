@@ -1,13 +1,14 @@
 import type { Context, Middleware, Closeable } from '../types.ts'
-import type { RedisPool } from '../db/redis/pool.ts'
+import type { Redis } from '../db/contracts.ts'
 
 declare module '../types.ts' {
   interface Context {
-    redis: RedisPool
+    redis: Redis
   }
 }
 
-export type { RedisPool as Redis }
+/** 契约：Redis 命令面（ctx.redis）——定义于 src/db/contracts.ts（RedisPool 实现） */
+export type { Redis }
 
 export type RedisOptions = {
   url?: string
@@ -26,10 +27,10 @@ export type RedisOptions = {
 }
 
 export interface RedisInjected {
-  redis: RedisPool
+  redis: Redis
 }
 
 export interface RedisClient extends Middleware<Context, Context & RedisInjected>, Closeable {
-  redis: RedisPool
+  redis: Redis
   close: () => Promise<void>
 }

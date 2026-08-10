@@ -14,6 +14,7 @@
 import net from 'node:net'
 import type { Socket } from 'node:net'
 import crypto from 'node:crypto'
+import type { PostgresPoolConnection, Row, QueryResult } from '../contracts.ts'
 import {
   startupMessage,
   queryMessage,
@@ -61,16 +62,7 @@ export interface PgConnectionOptions {
   /** SSL 模式（暂不支持） */
 }
 
-export interface Row {
-  [col: string]: unknown
-}
-
-/** 查询结果：行数组 + 影响行数（INSERT/UPDATE/DELETE/MERGE 的 CommandComplete tag） */
-export interface QueryResult<T = Row> extends Array<T> {
-  affectedRows?: number
-}
-
-export class PgConnection {
+export class PgConnection implements PostgresPoolConnection {
   private opts: Required<
     Pick<PgConnectionOptions, 'host' | 'port' | 'user' | 'database' | 'connectTimeoutMs' | 'statementTimeoutMs'>
   > & {
@@ -684,3 +676,6 @@ function convertValue(oid: number, value: string | null): unknown {
       return value
   }
 }
+
+// 契约兼容 re-export（旧 import { Row } from connection.ts 继续可用）
+export type { Row, QueryResult } from '../contracts.ts'

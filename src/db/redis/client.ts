@@ -11,10 +11,11 @@ import { RedisConnection, type RedisConnectionOptions } from './connection.ts'
 import type { RespValue } from './resp.ts'
 import { RedisPipeline } from './pipeline.ts'
 import { ValidationError } from '../errors.ts'
+import type { RedisPoolConnection } from '../contracts.ts'
 
 export interface RedisClientOptions extends RedisConnectionOptions {}
 
-export class RedisClient {
+export class RedisClient implements RedisPoolConnection {
   private conn: RedisConnection
 
   private constructor(conn: RedisConnection) {

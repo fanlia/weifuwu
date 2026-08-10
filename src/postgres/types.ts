@@ -1,25 +1,17 @@
-import type { Row } from '../db/postgres/connection.ts'
 import type { Context, Middleware, Closeable } from '../types.ts'
+import type { Sql, Row } from '../db/contracts.ts'
 
 declare module '../types.ts' {
   interface Context {
-    sql: SqlClient
+    sql: Sql
   }
 }
 
-/** callable tagged template sql（postgres.js 兼容面） */
-export interface SqlClient {
-  (strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]>
-  /** 原生 SQL（DDL / 动态表名）；$1 占位符 + 参数 */
-  unsafe(sql: string, params?: unknown[]): Promise<Row[]>
-  /** 参数化查询 */
-  query(sql: string, params?: unknown[]): Promise<Row[]>
-  /** 事务（postgres.js 兼容）：回调收到 tagged template 事务 sql */
-  begin<T>(fn: (sql: SqlClient) => Promise<T>): Promise<T>
-  /** 事务（框架式）：回调收到 { query } */
-  transaction<T>(fn: (tx: { query: (sql: string, params?: unknown[]) => Promise<Row[]> }) => Promise<T>): Promise<T>
-  close(): Promise<void>
-}
+/** 契约：SQL 标签模板（ctx.sql）——定义于 src/db/contracts.ts（自研引擎实现） */
+export type { Sql }
+
+/** 旧名兼容（SqlClient → Sql，契约单一来源 db/contracts.ts） */
+export type SqlClient = Sql
 
 export interface PostgresInjected {
   sql: SqlClient

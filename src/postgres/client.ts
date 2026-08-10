@@ -15,6 +15,7 @@ import type { Context, Handler } from '../types.ts'
 import { HttpError } from '../types.ts'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { PostgresOptions, PostgresClient, SqlClient } from './types.ts'
+import type { Sql } from './types.ts'
 
 export const MIGRATIONS_TABLE = '_weifuwu_migrations'
 
@@ -126,11 +127,11 @@ class TaggedQuery<T> {
 }
 
 /** 将 PgPool 包装为 callable tagged template sql（postgres.js 兼容面） */
-function makeSql(pool: PgPool): SqlClient {
+function makeSql(pool: PgPool): Sql {
   const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
     const { sql: text, params } = parseTaggedFromPool(strings, values)
     return new TaggedQuery(text, params, (s, p) => wrapError(pool.query(s, p as any)))
-  }) as unknown as SqlClient
+  }) as unknown as Sql
 
   sql.unsafe = (query: string, params?: unknown[]) => wrapError(pool.unsafe(query, params as any))
   sql.query = (query: string, params?: unknown[]) => wrapError(pool.query(query, params as any))
