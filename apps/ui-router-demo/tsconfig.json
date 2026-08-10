@@ -10,6 +10,7 @@
     "noEmit": true,
     "types": ["node"],
     "paths": {
+      "weifuwu": ["../../src/index.ts"],
       "weifuwu/ui-dom": ["../../src/ui-dom/index.ts"],
       "weifuwu/components": ["../../src/components/index.ts"],
       "weifuwu/client": ["../../src/client/index.ts"]
