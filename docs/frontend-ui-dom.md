@@ -1,12 +1,67 @@
-# ui-dom — 前端路由（UIRouter + uiServe，试验性）
+# ui-dom — 前端运行时（UIRouter + uiServe + SSR/hydration）
 
-> **试验性**：`src/ui-dom/` 是定稿架构（`design/ui-architecture.md`）的落地——
-> **UIRouter（纯路由）+ uiServe（渲染运行时）**，复用 `weifuwu/components`
-> （VNode 契约共享，组件零修改）。渲染算法复制自 client（局部 registry 隔离，
-> 不与 createApp 交叉）。当前未随 npm 包发布，源码直用。
+> **weifuwu 前端唯一运行时**（`weifuwu/ui-dom`，随 npm 包发布）：
+> **UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时）+ ssrPage/hydration**，
+> 复用 `weifuwu/components`（VNode 契约唯一来源，组件零修改）。
+> 已取代 `weifuwu/client`（createApp/router 已删除）。
 >
 > 概念对齐：**req = window.location**，**res = VNode**（数据结构），
 > **uiServe = VDOM**（落地机制），**params/query 在 ctx**（对齐后端 `ctx.params`）。
+
+## 为什么是 ui-dom（开发者价值）
+
+### 心智模型统一：一套 API 贯穿两端，无需「两套前端」
+
+```
+后端: Request → [Middleware → ctx.field] → Handler → Response
+前端: window.location → [UIMiddleware → ctx.field] → Handler → VNode
+```
+
+- **req/res 契约同构**：`UIRequest = window.location`（原生对象，不包装）对齐后端 `Request`；`UIResponse = VNode` 对齐 `Response`。后端开发者迁移到前端，中间件思维直接复用（`app.use(mw)` 与 `router.use(mw)` 累积类型同构）。
+- **SSR 不是另一套代码**：同一份 `router.ts`（两端共享），`ssrPage(router, { url })` 服务端直接跑，`uiServe(router, { root, hydrate: true })` 客户端收养。`ctx.data.get(key)` 一个 API 三场景自动适配（SSR 真 fetch → 序列化进 `__DATA__` → hydration 种子命中 → SPA 未命中触发 fetcher）——**开发者不需要理解「首屏/水合/客户端渲染」的区别**。
+
+### 两阶段组件模型：从 hooks 心智负担中解脱
+
+```tsx
+const Counter = (initProps, ctx) => {
+  const $ = ctx.ui.$()
+  $.count = initProps.initial ?? 0      // mount：只执行一次
+  return (props) =>
+    h('button', { onClick: () => $.count += props.step }, $.count)  // render
+}
+```
+
+- **没有 hooks 规则、没有依赖数组、没有闭包陷阱**。外层 = 初始化（一次），内层 = 渲染（每次变化）。`$` Proxy 赋值自动触发组件级重渲染——**状态更新就是赋值**，不需要思考 `useState`/`useEffect`/`useMemo` 三件套的触发时机。
+- **状态驱动渲染**：`$.x = val` → dirty → 局部 patch。组件库手动优先（行为可预测、测试简单），业务层自动优先（省样板、不易遗漏）——按场景选模式而非被迫统一。
+
+### 框架即纪律：浏览器环境抽象把常见坑变成编译期/审计期错误
+
+- **`ctx.browser` 唯一入口**：复制/查询/滚动/存储/主题/定时器/媒体查询/事件监听全部经 BrowserEnv（组件侧 46 处迁移清零 + 测试侧 ~300 处对齐，SSR shim 三态同构）。开发者不需要记「SSR 里 `window.innerWidth` 会崩」这类环境知识——**框架替他们承担**。
+- **诚实裁剪**：不支持的能力明确抛 `ProtocolError('unsupported')`——确定性失败，绝不静默降级。
+
+### 零依赖 + 确定性：可审计、可测试、可读的运行时
+
+- **零 npm 运行时依赖**（对比 React + react-dom + react-router + 状态库 + SSR 工具 5+ 依赖）。
+- **自研 VDOM/diff**（keyed children、style diff、CSS 变量、Portal、hydration 游标收养）——每个算法都有对应测试与纪律条目（真实事故沉淀）。**读源码即可完全理解框架行为**。
+- **零构建步骤**：`weifuwu/dev` loader + `ctx.ui.js/css` 动态编译，服务端直接跑 `.tsx`，改组件刷新即生效。
+
+### 弹层/浮层体系：最难的 UI 类别变成复用的原语
+
+`ctx.ui.usePopup()` 一个组合器覆盖：portal 渲染、fixed 定位 + 视口夹紧、锚点变化自动重算、外部点击/Escape 关闭、el-null 微任务重试、ref 稳定化。**开发者不需要再写任何弹层脚手架**——这是传统前端最常重复造轮子的地方。弹窗纪律（portal 必须、z-index token、exit 动画成对）由审计测试强制。
+
+### 对贡献者的价值：纪律 = 事故沉淀
+
+AGENTS.md 每条纪律对应真实事故（JSONViewer selfId 错位、AutoComplete 焦点丢失、TreeSelect 0 rect、Kanban draggable 空字符串解析 false）——新贡献者站在「踩过坑」的肩膀上。分层清晰（UIRouter 纯路由 → uiServe 装配点 → ctx.browser 环境边界 → components 消费层），改动边界由架构约束，协议层改动 TDD 先行 + 真实库验证（CS-04/CS-05）。
+
+| 维度 | 价值 |
+|------|------|
+| **上手** | 两阶段组件 + 赋值即渲染——无 hooks/依赖数组心智负担 |
+| **后端互迁** | req/res/中间件契约同构，SSR 透明，一份 router 两端共享 |
+| **可靠性** | 确定性失败、诚实裁剪、环境边界、测试侧同构 |
+| **效率** | 弹层/数据管道/事件原语全覆盖——不重复造轮子 |
+| **可维护** | 零依赖可审计、纪律沉淀事故教训、构建可选 |
+
+> 一句话：ui-dom 不是「又一个 React」——它是把 weifuwu 后端中间件生态的确定性、可测试性和纪律性，原样移植到了前端。开发者得到的是一个行为可预测、失败可预期、源码可读懂的运行时。
 
 ## 快速开始
 
@@ -62,12 +117,12 @@ handler 只产 VNode，落地由 serve 决定——SSR 与 SPA 是两种落地�
 
 ### components 复用（零修改）
 
-VNode 契约与 client 共享（Fragment/Portal symbol 同一份）——components 产的 VNode
-直接被 ui-dom 渲染器识别。渲染算法（render/diff/createUi 19 原语）复制到 ui-dom，
-**registry/popup-tracker/dirty 集合局部实例**（不与 createApp 交叉）。
+VNode 契约以 ui-dom 为唯一来源（Fragment/Portal symbol 由 ui-dom 自持）——components 产的 VNode
+直接被 ui-dom 渲染器识别。渲染算法（render/diff/createUi 原语）在 ui-dom 内自主实现，
+**registry/popup-tracker/dirty 集合局部实例**（serve 每实例隔离）。
 
-命令式工厂（toast/confirm/notification）复制到 ui-dom（`src/ui-dom/Toast.ts` 等）：
-components 版 import client 的 mountVNode（模块级 registry）会注册错——ui-dom 版用局部。
+命令式工厂（toast/confirm/notification）位于 ui-dom（`src/ui-dom/Toast.ts` 等）：
+components 消费端 import `weifuwu/ui-dom`（构建外部化，共享同一模块实例）。
 
 ### $ 响应式（两层）
 
@@ -100,7 +155,7 @@ uiServe(app, { root: '#root', hydrate: true })
 | `ctx.params` / `ctx.query` | 路由参数 / URL query（顶层，对齐后端） |
 | `ctx.data.get/set/has` | 数据管道（缓存 + in-flight 合并 + `__DATA__` 种子） |
 | `ctx.ui.*` | 19 原语（`$`/`dirty`/`render`/`usePopup`/`useChat`/`useInView`…） |
-| `ctx.browser.*` | 环境抽象（复制自 client） |
+| `ctx.browser.*` | 环境抽象（window/document 唯一入口，SSR shim 同构） |
 | `ctx.toast` / `ctx.confirm` / `ctx.notification` | 命令式注入（`app.use(toast())` 等） |
 
 ## demo
