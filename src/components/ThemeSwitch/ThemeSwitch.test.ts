@@ -2,7 +2,7 @@ import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 import { ThemeSwitch, applyTheme, getTheme } from './ThemeSwitch.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 before(setupJsdom)
 

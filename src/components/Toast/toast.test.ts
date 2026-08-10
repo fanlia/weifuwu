@@ -17,8 +17,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 
-const { createApp } = await import('../../client/app.ts')
-import { h } from '../../client/vnode.ts'
+const { UIRouter, uiServe } = await import('../../ui-dom/index.ts')
+import { h } from '../../ui-dom/vnode.ts'
 import { toast } from './Toast.ts'
 
 const toasts = () => Array.from(document.querySelectorAll('.wf-toast')) as HTMLElement[]
@@ -33,14 +33,16 @@ afterEach(() => {
 
 /** 挂载一个真实 app + toast 中间件，返回 (ctx, app) */
 async function setup(opts?: any) {
-  const app = createApp()
-  app.use(toast(opts))
+  const router = new UIRouter()
+  router.use(toast(opts))
+  router.get('/', () => h('span', {}, 'root'))
   const el = document.createElement('div')
   document.body.appendChild(el)
   el.id = `t-${Math.random().toString(36).slice(2, 8)}`
-  await app.mount(`#${el.id}`, () => () => h('span', {}, 'root'))
-  const ctx = (app as any).ctx
-  return { ctx, app, el }
+  const handle = uiServe(router, { root: `#${el.id}` })
+  await flush()
+  const ctx = handle.ctx as any
+  return { ctx, app: { ctx }, el }
 }
 
 describe('toast() 命令式中间件', () => {

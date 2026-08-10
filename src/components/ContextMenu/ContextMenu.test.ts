@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { ContextMenu } from './ContextMenu.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // mock ctx.ui.usePopup（组件层不跑真实弹层：onContextMenu 触发 + portal 定位简化）
 function mockCtx(): WfuiContext {

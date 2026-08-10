@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Carousel } from './Carousel.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true } } as any

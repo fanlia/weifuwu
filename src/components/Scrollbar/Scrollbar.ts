@@ -9,9 +9,9 @@
  * 裁剪（CS-05）：不做虚拟滚动/拖动滚动条 thumb（VirtualList 覆盖虚拟化）。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export interface ScrollbarProps {
   maxHeight?: number | string

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Transfer } from './Transfer.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   const state = new Proxy({}, {

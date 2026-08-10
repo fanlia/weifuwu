@@ -7,7 +7,7 @@
 
 import type { Component } from './vnode.ts'
 import { createClientBrowser } from './browser.ts'
-import type { WfuiContext, AppMiddleware } from '../client/types.ts'
+import type { WfuiContext, AppMiddleware } from './types.ts'
 import { h } from './vnode.ts'
 import { mountVNode } from './render.ts'
 import { callRefCleanupFor, getRegistry } from './registry.ts'

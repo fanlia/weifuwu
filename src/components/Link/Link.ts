@@ -9,9 +9,9 @@
  * 裁剪（CS-05）：不做 hover 弹层预览/图标内置枚举（icon 任意 VNode）。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export interface LinkProps {
   href?: string

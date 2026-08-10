@@ -3,8 +3,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Menubar } from './Menubar.ts'
-import { Portal } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   return { ui: { $: {}, render: () => {}, dirty: () => {},

@@ -3,8 +3,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Command } from './Command.ts'
-import { Portal } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // 捕获 useGlobalKey 注册的 handler（测试直接触发）
 const globalKeys: ((e: any) => void)[] = []

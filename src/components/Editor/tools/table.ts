@@ -2,8 +2,8 @@
  * weifuwu/components/Editor/tools — 表格工具
  */
 
-import { h } from '../../../client/vnode.ts'
-import { createClientBrowser } from '../../../client/browser.ts'
+import { h } from '../../../ui-dom/vnode.ts'
+import { createClientBrowser } from '../../../ui-dom/browser.ts'
 
 // 编辑器工具：无组件 ctx——模块级 browser（SSR 时 getSelection/createElement 返回安全默认）
 const browser = createClientBrowser()

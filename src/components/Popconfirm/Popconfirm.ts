@@ -14,11 +14,11 @@
  * - 裁剪（CS-05）：不做气泡内表单/自定义箭头
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
-import type { Placement } from '../../client/popup.ts'
+import type { Placement } from '../../ui-dom/popup.ts'
 
 export interface PopconfirmProps {
   title?: any

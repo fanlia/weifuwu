@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Drawer } from './Drawer.ts'
-import { Portal } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   let phase: 'closed' | 'open' | 'exit' = 'closed'

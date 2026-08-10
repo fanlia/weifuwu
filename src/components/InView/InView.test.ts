@@ -3,8 +3,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { InView } from './InView.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 function mockCtx(): WfuiContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, useInView: () => ({ isIn: false, ready: true, observe: () => {}, refresh: () => {}, disconnect: () => {} }), } } as any

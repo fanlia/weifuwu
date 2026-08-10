@@ -5,9 +5,9 @@
  * 用于 Agent 配置展示、实体详情、订单信息等只读字段场景。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export interface DescriptionItem {
   label: any

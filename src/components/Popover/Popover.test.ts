@@ -8,9 +8,9 @@
 import { describe, it } from 'node:test'
 import * as assert from 'node:assert'
 import { Popover } from './Popover.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h, Portal } from '../../client/vnode.ts'
-import { mountVNode, patchValue } from '../../client/render.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h, Portal } from '../../ui-dom/vnode.ts'
+import { mountVNode, patchValue } from '../../ui-dom/render.ts'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 

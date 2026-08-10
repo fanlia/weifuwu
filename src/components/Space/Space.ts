@@ -5,9 +5,9 @@
  * size/direction/wrap/align + split 分隔符。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export interface SpaceProps {
   size?: number | 'sm' | 'md' | 'lg'

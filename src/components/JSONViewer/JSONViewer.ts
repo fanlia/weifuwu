@@ -6,9 +6,9 @@
  * 裁剪：JSON 编辑、超大对象流式渲染（懒展开覆盖 100 键级）。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface JSONViewerProps {

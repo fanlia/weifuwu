@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { VirtualList } from './VirtualList.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // 可控 useScrollPosition mock：y 驱动可见窗口（scrollTop 响应式）
 function mockCtx(scrollY = 0): { ctx: WfuiContext; setY: (y: number) => void } {

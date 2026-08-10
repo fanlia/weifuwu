@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { CopyButton } from './CopyButton.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 /** Call component and get render fn (two-phase) */
 function mount(Comp: any, props: any, ctx: any) {

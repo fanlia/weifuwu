@@ -8,10 +8,10 @@
  * 状态管理：闭包变量 + ctx.ui.render()
  */
 
-import type { Component, VNode } from '../../client/vnode.ts'
-import { createClientBrowser } from '../../client/browser.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component, VNode } from '../../ui-dom/vnode.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { FileUpload } from '../FileUpload/FileUpload.ts'
 import { Popover } from '../Popover/Popover.ts'

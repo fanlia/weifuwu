@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Resizable } from './Resizable.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   return { ui: {

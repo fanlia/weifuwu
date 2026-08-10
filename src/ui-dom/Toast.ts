@@ -1,9 +1,9 @@
 import type { Component } from './vnode.ts'
 import { createClientBrowser } from './browser.ts'
-import type { WfuiContext, AppMiddleware } from '../client/types.ts'
+import type { WfuiContext, AppMiddleware } from './types.ts'
 import { h, createPortal } from './vnode.ts'
 import { mountVNode } from './render.ts'
-import { animateOut } from '../client/motion.ts'
+import { animateOut } from './motion.ts'
 import { Icon } from '../components/Icon/Icon.ts'
 import type { IconName } from '../components/Icon/Icon.ts'
 

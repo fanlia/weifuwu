@@ -5,10 +5,10 @@
  * 移动端友好由构造保证——tap 可显、44px 命中区走 base coarse 清单。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
-import type { Placement } from '../../client/popup.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import type { Placement } from '../../ui-dom/popup.ts'
 
 export type TooltipPosition = Placement
 

@@ -1,5 +1,5 @@
-import type { Component } from '../../client/vnode.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { layoutGraph, detectCycle } from './dag-utils.ts'
 
 export type NodeStatus = 'default' | 'success' | 'running' | 'error' | 'pending'

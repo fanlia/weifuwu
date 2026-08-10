@@ -2,7 +2,7 @@ import { describe, it, test } from 'node:test'
 import assert from 'node:assert'
 import { StatCard } from './StatCard.ts'
 import { Icon } from '../Icon/Icon.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 /** Call component and get VNode (two-phase compat) */
 function renderVNode(Comp: any, props: any, ctx: any) {

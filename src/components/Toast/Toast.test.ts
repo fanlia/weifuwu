@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Toast } from './Toast.ts'
-import { Portal } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function renderVNode(Comp: any, props: any, ctx: any) {
   const result = Comp(props, ctx)

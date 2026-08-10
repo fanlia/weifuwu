@@ -19,10 +19,10 @@
  * ```
  */
 
-import type { Component } from '../../client/vnode.ts'
-import { createClientBrowser } from '../../client/browser.ts'
-import { h } from '../../client/vnode.ts'
-import type { UseChatHandle, UiMessage } from '../../client/use-chat.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import type { UseChatHandle, UiMessage } from '../../ui-dom/use-chat.ts'
 import type { WfError, WfUsage } from '../../ai/types.ts'
 import { ToolCallCard } from '../ToolCallCard/ToolCallCard.ts'
 import { ApprovalCard } from '../ApprovalCard/ApprovalCard.ts'

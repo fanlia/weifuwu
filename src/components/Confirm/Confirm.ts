@@ -5,11 +5,11 @@
  * 命令式：confirm() 中间件注入 ctx.confirm()，返回 Promise<boolean>。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import { createClientBrowser } from '../../client/browser.ts'
-import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
-import { mountVNode, callRefCleanup } from '../../client/render.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import { mountVNode, callRefCleanup } from '../../ui-dom/render.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { Button } from '../Button/Button.ts'
 

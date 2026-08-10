@@ -175,7 +175,10 @@ export function ui(): Middleware {
           format: 'esm',
           platform: 'browser',
           jsx: 'automatic',
-          jsxImportSource: 'weifuwu/client',
+          jsxImportSource: 'weifuwu/ui-dom',
+          alias: {
+            'weifuwu/ui-dom/jsx-runtime': fileURLToPath(new URL('../ui-dom/jsx-runtime.ts', import.meta.url)),
+          },
           write: false,
           metafile: true,
         })

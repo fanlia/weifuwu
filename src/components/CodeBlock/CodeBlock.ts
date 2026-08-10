@@ -6,9 +6,9 @@
  * 由 Markdown 代码围栏复用；也可独立使用。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { tokenize } from './highlight.ts'
 

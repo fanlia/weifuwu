@@ -3,9 +3,9 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Notification, notification } from './Notification.ts'
-import { Portal } from '../../client/vnode.ts'
-import { createReactiveState } from '../../client/reactive.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import { createReactiveState } from '../../ui-dom/reactive.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function renderVNode(Comp: any, props: any, ctx: any) {
   const result = Comp(props, ctx)

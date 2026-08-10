@@ -6,9 +6,9 @@
  * 裁剪：不做内置路由跳转（页面自身处理）。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 

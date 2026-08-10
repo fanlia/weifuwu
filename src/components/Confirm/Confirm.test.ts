@@ -14,13 +14,13 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 
-import { h } from '../../client/vnode.ts'
-import { mountVNode } from '../../client/render.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import { mountVNode } from '../../ui-dom/render.ts'
 import { Confirm, confirm } from './Confirm.ts'
 import { Modal } from '../Modal/Modal.ts'
-import { createApp } from '../../client/app.ts'
-import { jsx } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { UIRouter, uiServe, jsx } from '../../ui-dom/index.ts'
+import { confirm as uiDomConfirm } from '../../ui-dom/Confirm.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   return { ui: {
@@ -65,13 +65,15 @@ afterEach(() => {
 
 // ── 命令式测试基建：真实 app（$ 响应式才能驱动 Modal 退场状态机）──
 async function mountConfirmApp() {
-  const app = createApp()
+  const router = new UIRouter()
   let captured: any
-  app.use(confirm())
+  router.use(uiDomConfirm())
+  router.get('/', (location: any, ctx: any) => { captured = ctx; return jsx('div', { children: 'host' }) })
   const el = document.createElement('div')
   el.id = `confirm-root-${Math.random().toString(36).slice(2)}`
   document.body.appendChild(el)
-  await app.mount(`#${el.id}`, (init: any, ctx: any) => { captured = ctx; return () => jsx('div', { children: 'host' }) })
+  uiServe(router, { root: `#${el.id}` })
+  await flush()
   return captured as WfuiContext & { confirm: (m: string, o?: any) => Promise<boolean> }
 }
 

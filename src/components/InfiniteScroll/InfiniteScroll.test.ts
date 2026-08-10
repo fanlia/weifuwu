@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { InfiniteScroll } from './InfiniteScroll.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // ── mock ctx.ui.useInView（组件层不跑真实 IO）──
 let inViewHandles: any[] = []

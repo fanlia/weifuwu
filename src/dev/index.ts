@@ -23,7 +23,7 @@ registerHooks({
       const result = transformSync(code, {
         loader: url.endsWith('.tsx') ? 'tsx' : 'ts',
         jsx: 'automatic',
-        jsxImportSource: 'weifuwu/client',
+        jsxImportSource: 'weifuwu/ui-dom',
         format: 'esm',
         sourcemap: 'inline',
         target: 'node22',

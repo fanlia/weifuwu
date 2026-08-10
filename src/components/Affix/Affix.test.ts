@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Affix } from './Affix.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // 可控 useScrollPosition mock：scrollY 响应式驱动 fixed 判定（fixed = scroll.y >= threshold）
 function mockCtx(scrollY = 0): { ctx: WfuiContext; setScrollY: (y: number) => void } {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Anchor } from './Anchor.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): { ctx: WfuiContext; setY: (y: number) => void } {
   const scroll = { y: 0, refresh: () => {} }

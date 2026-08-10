@@ -6,9 +6,9 @@
  * 裁剪：正则高亮、多日志源合并、搜索定位。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface LogViewerProps {

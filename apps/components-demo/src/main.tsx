@@ -7,7 +7,7 @@
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { WfuiContext, Component } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { UIRouter, uiServe } from '../../../src/ui-dom/index.ts'
 import { toast } from '../../../src/ui-dom/Toast.ts'
 import { confirm } from '../../../src/ui-dom/Confirm.ts'

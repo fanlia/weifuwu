@@ -2,8 +2,8 @@
  * weifuwu/components/Editor/tools — 工具栏渲染
  */
 
-import type { VNode } from '../../../client/vnode.ts'
-import { h } from '../../../client/vnode.ts'
+import type { VNode } from '../../../ui-dom/vnode.ts'
+import { h } from '../../../ui-dom/vnode.ts'
 import type { FormatState, ToolbarItem } from './types.ts'
 
 // ── 默认工具栏配置 ────────────────────────────────────

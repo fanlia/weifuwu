@@ -7,9 +7,9 @@
  * 裁剪：不做打字指示动画（Loading 已有）。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export type MessageBubbleRole = 'user' | 'assistant'
 export type MessageBubbleStatus = 'complete' | 'streaming' | 'error'

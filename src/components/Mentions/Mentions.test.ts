@@ -3,8 +3,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Mentions } from './Mentions.ts'
-import { Portal } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   const states = new Map<string, { keyword: string; selectedLabel: string }>()

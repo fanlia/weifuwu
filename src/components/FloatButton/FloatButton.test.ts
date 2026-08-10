@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { FloatButton, FloatButtonGroup } from './FloatButton.ts'
-import { h } from '../../client/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 function renderVNode(Comp: any, props: any, ctx: any) {
   const result = Comp(props, ctx)

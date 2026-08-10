@@ -5,7 +5,7 @@ setupJsdom()
 import { Editor } from './Editor.ts'
 import { Modal } from '../Modal/Modal.ts'
 import { FileUpload } from '../FileUpload/FileUpload.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: false } } as any

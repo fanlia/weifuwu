@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Select } from './Select.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function childrenOf(vnode: any): any[] {
   if (!vnode) return []

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { ApprovalCard } from './ApprovalCard.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function renderVNode(Comp: any, props: any, ctx: any) {
   const result = Comp(props, ctx)

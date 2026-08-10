@@ -9,8 +9,8 @@
  *   h(Icon, { name: 'check', size: 16 })
  */
 
-import type { Component } from '../../client/vnode.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export type IconName =
   | 'chevron-down' | 'chevron-up' | 'chevron-left' | 'chevron-right'

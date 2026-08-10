@@ -7,7 +7,7 @@
  * 内部对 window/document 做 typeof 防御（SSR/无 DOM 环境不崩）。
  */
 
-import type { BrowserEnv } from '../client/types.ts'
+import type { BrowserEnv } from './types.ts'
 
 export function createClientBrowser(): BrowserEnv {
   // 惰性读取：模块级实例在 import 时创建（测试 setupJsdom 可能未跑）——

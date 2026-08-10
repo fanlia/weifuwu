@@ -8,8 +8,8 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { ssrToString } from '../ui/ssr.ts'
-import type { Component } from '../client/vnode.ts'
+import { ssrToString } from '../ui-dom/ssr.ts'
+import type { Component } from '../ui-dom/vnode.ts'
 import {
   Button, Badge, Menu, Accordion, Collapse, Tabs, Breadcrumb, Steps, Pagination,
   Input, Textarea, Select, Checkbox, Switch, RadioGroup, Slider, DatePicker,

@@ -3,9 +3,9 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Modal } from './Modal.ts'
-import { Portal } from '../../client/vnode.ts'
-import { mountVNode, patchValue } from '../../client/render.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import { mountVNode, patchValue } from '../../ui-dom/render.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   let phase: 'closed' | 'open' | 'exit' = 'closed'

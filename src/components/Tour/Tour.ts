@@ -1,6 +1,6 @@
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h, createPortal } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h, createPortal } from '../../ui-dom/vnode.ts'
 
 export type TourPlacement = 'top' | 'bottom' | 'left' | 'right'
 

@@ -8,8 +8,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { AiChat } from './AiChat.ts'
-import type { UseChatHandle, UiMessage } from '../../client/use-chat.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { UseChatHandle, UiMessage } from '../../ui-dom/use-chat.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function renderVNode(Comp: any, props: any, ctx: any) {
   const result = Comp(props, ctx)

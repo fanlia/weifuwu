@@ -7,9 +7,9 @@
  * 裁剪：不做折叠节点。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export type TimelineStatus = 'default' | 'info' | 'success' | 'warning' | 'error'
 

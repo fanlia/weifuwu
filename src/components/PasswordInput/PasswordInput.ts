@@ -4,9 +4,9 @@
  * 密码输入：眼睛按钮切换可见性。Input 子集（label/error/hint/required/autoComplete 透传）。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface PasswordInputProps {

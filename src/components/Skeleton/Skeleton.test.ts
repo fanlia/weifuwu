@@ -5,7 +5,7 @@
 import { describe, it } from 'node:test'
 import * as assert from 'node:assert'
 import { Skeleton } from './Skeleton.ts'
-import { h, Fragment } from '../../client/vnode.ts'
+import { h, Fragment } from '../../ui-dom/vnode.ts'
 
 
 function renderVNode(Comp, props) {

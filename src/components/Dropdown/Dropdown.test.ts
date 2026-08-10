@@ -3,8 +3,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Dropdown } from './Dropdown.ts'
-import { Portal } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 /** usePopup mock：镜像真实语义（受控 isOpen + wf-popup 合并 + Escape via wrapProps） */
 function mockCtx(): WfuiContext {

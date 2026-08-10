@@ -1,8 +1,8 @@
-import type { Component, VNode } from '../../client/vnode.ts'
-import { createClientBrowser } from '../../client/browser.ts'
-import type { WfuiContext, AppMiddleware } from '../../client/types.ts'
-import { h, createPortal } from '../../client/vnode.ts'
-import { mountVNode } from '../../client/render.ts'
+import type { Component, VNode } from '../../ui-dom/vnode.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
+import { h, createPortal } from '../../ui-dom/vnode.ts'
+import { mountVNode } from '../../ui-dom/render.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 

@@ -2,8 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { EmptyState } from './EmptyState.ts'
 import { Icon } from '../Icon/Icon.ts'
-import { h } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 /** Call component and get VNode (two-phase compat) */
 function renderVNode(Comp: any, props: any, ctx: any) {

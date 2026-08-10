@@ -1,5 +1,5 @@
-import type { Component } from '../../client/vnode.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export interface LabelProps {
   htmlFor?: string

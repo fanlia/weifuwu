@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Img } from './Img.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(): WfuiContext {
   return { ui: {
@@ -59,7 +59,7 @@ describe('Img preview 增强', () => {
     const render = Img({ src: 'a.png', preview: true }, ctx)
     const r = render as any
     // DOM 级：真实挂载 + 同树 patch（AGENTS.md：mountVNode 重挂会残留 portal 脏节点）
-    const { mountVNode, patchValue } = await import('../../client/render.ts')
+    const { mountVNode, patchValue } = await import('../../ui-dom/render.ts')
     const container = document.createElement('div')
     document.body.appendChild(container)
     let prev = r({ src: 'a.png', preview: true })

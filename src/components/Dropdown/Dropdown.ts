@@ -5,9 +5,9 @@
  * 弹层在 portal 中按 Escape 也能关）+ 定位/视口 clamp + portal。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export interface DropdownItem {
   label: string

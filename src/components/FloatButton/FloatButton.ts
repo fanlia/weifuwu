@@ -12,9 +12,9 @@
  * 裁剪（CS-05）：不做拖拽悬浮（Resizable 可组合）；回顶用 BackTop 语义更清晰。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export type FloatButtonPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 

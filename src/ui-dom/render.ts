@@ -371,3 +371,10 @@ export function mountVNode(container: Element, vnode: VNode, ctx: WfuiContext) {
 
 // ── 兼容导出（diff 逻辑在 diff.ts） ──
 export { patchValue } from './diff.ts'
+
+// ── 兼容导出（components 迁移——callRefCleanup 无 ctx 场景回退新实例） ──
+import { callRefCleanupFor, createRegistry } from './registry.ts'
+/** 模块级兼容（无 ctx 场景——独立清理，不影响活跃 registry） */
+export function callRefCleanup(input: any): void {
+  callRefCleanupFor(input, createRegistry())
+}

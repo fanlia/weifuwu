@@ -3,8 +3,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Tabs } from './Tabs.ts'
-import { mountVNode } from '../../client/render.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { mountVNode } from '../../ui-dom/render.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 /** Call component and get VNode (two-phase compat) */
 function renderVNode(Comp: any, props: any, ctx: any) {

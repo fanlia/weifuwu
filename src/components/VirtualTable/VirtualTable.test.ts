@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { VirtualTable } from './VirtualTable.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // 可控 useScrollPosition mock（VirtualList 同款）
 function mockCtx(scrollY = 0): { ctx: WfuiContext; setY: (y: number) => void } {

@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Accordion } from './Accordion.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 /** Call component and get VNode (two-phase compat) */
 function renderVNode(Comp: any, props: any, ctx: any) {

@@ -2,8 +2,8 @@
  * weifuwu/components — Skeleton
  */
 
-import type { Component } from '../../client/vnode.ts'
-import { h, Fragment } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import { h, Fragment } from '../../ui-dom/vnode.ts'
 
 export type SkeletonVariant = 'text' | 'circle' | 'rect' | 'image' | 'avatar' | 'table'
 

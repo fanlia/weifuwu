@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { BackTop } from './BackTop.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // 可控 useInView mock：isIn=true = 哨兵仍在扩展区（未滚动超阈值）→ 按钮隐藏
 function mockCtx(initialIsIn = true): { ctx: WfuiContext; inView: { isIn: boolean } } {

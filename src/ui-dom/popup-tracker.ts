@@ -6,7 +6,7 @@
  */
 
 import { clampToViewport } from './popup.ts'
-import type { PopupPosition } from '../client/types.ts'
+import type { PopupPosition } from './types.ts'
 
 export interface PopupTrackerEntry {
   pos: PopupPosition

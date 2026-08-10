@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "weifuwu/client",
+    "jsxImportSource": "weifuwu/ui-dom",
     "types": [
       "node"
     ],

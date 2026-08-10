@@ -6,10 +6,10 @@
  * 裁剪：水平菜单栏（Menubar，独立组件）、子菜单自动互斥。折叠态子菜单浮层已实现（usePopup 基座）。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import { createClientBrowser } from '../../client/browser.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface MenuItem {

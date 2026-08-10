@@ -8,9 +8,9 @@
  * 裁剪：列虚拟化（横向）、行编辑、单元格合并、树形表格。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { TableColumn } from '../Table/Table.ts'
 

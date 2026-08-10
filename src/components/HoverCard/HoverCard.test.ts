@@ -3,8 +3,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { HoverCard } from './HoverCard.ts'
-import { Portal } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 /** usePopup mock：镜像真实语义（openDelay/closeDelay 定时 + disabled/closed → portal null） */
 function mockCtx(show = false): WfuiContext {

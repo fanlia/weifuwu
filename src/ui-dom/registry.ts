@@ -5,9 +5,9 @@
  * 注入 ctx.__registry，render/diff/ui 经 getRegistry(ctx) 读取，与 createApp 零交叉。
  */
 
-import type { VNode, Component, AsyncComponent } from '../client/vnode.ts'
-import { isAsyncComponent } from '../client/vnode.ts'
-import type { WfuiContext } from '../client/types.ts'
+import type { VNode, Component, AsyncComponent } from './vnode.ts'
+import { isAsyncComponent } from './vnode.ts'
+import type { WfuiContext } from './types.ts'
 
 type UnmountHook = (id: string) => void
 

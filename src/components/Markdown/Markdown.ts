@@ -5,9 +5,9 @@
  * 与 CodeBlock 组合渲染代码围栏。
  */
 
-import type { Component } from '../../client/vnode.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import { h, Fragment } from '../../client/vnode.ts'
+import type { Component } from '../../ui-dom/vnode.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import { h, Fragment } from '../../ui-dom/vnode.ts'
 import { parseMarkdown, parseInline, type MdBlock, type MdInline } from './parser.ts'
 import { CodeBlock } from '../CodeBlock/CodeBlock.ts'
 
