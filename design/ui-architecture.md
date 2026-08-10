@@ -196,7 +196,7 @@ SPA serveUI = 另一落地（VDOM → DOM）——handler 只产出 VDOM，落�
 
 ### S1 类型定义（2026-10，+3 测试，1965 全绿）
 
-- 新增 `src/client/ui-types.ts`（平行新增，不动 createApp/router）：
+- 新增 `src/ui-dom/ui-types.ts`（UIRouter 独立类型）：
   - `UIRequest = Location`（req = window.location，浏览器原生）
   - `UIResponse = VNode | null`（res = VNode 数据结构）
   - `UIHandler<C> = (location, ctx: WfuiContext & C) => Promise<UIResponse> | UIResponse`（异步组件，$ 有效）

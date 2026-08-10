@@ -1,4 +1,4 @@
-# 移动端友好支持计划 — weifuwu/client + weifuwu/layout → components 自适应提升
+# 移动端友好支持计划 — weifuwu/ui-dom + weifuwu/layout → components 自适应提升
 
 > 目标：让框架提供移动端基础能力，组件获得"由构造保证"的自适应体验，
 > 而非每个组件各自手写（现状：16 个组件重复 Escape、9 个重复定位、9 个重复 hover 触发）。
@@ -24,7 +24,7 @@
 
 ## 二、分层设计
 
-### A. weifuwu/client — JS 侧原语（核心）
+### A. weifuwu/ui-dom — JS 侧原语（核心）
 
 #### A1. `usePopup` 组合器（P0，最高杠杆）
 收敛 15 个弹层组件重复的同一套生命周期。与 `usePopupPosition`/`useChat` 同族。
