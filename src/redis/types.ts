@@ -11,6 +11,7 @@ declare module '../types.ts' {
 export type { Redis }
 
 export type RedisOptions = {
+  /** Redis URL（默认 REDIS_URL 环境变量；两者都缺 → 构造抛错，禁止静默回退 localhost） */
   url?: string
   /** 池大小（连接数）。默认 5。 */
   poolSize?: number

@@ -16,7 +16,12 @@ const traceStore = new AsyncLocalStorage<string>()
 export function redis(options?: string | RedisOptions): RedisClient {
   const opts: RedisOptions = typeof options === 'string' ? { url: options } : (options ?? {})
 
-  const url = opts.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
+  const url = opts.url ?? process.env.REDIS_URL
+  if (!url) {
+    throw new Error(
+      'redis: REDIS_URL is not set. Pass a URL or set the REDIS_URL environment variable.',
+    )
+  }
   const u = new URL(url)
   const pool = new RedisPool({
     host: u.hostname,

@@ -293,7 +293,7 @@ async function main() {
   app.mount('/', protectedRoutes)
 
   // ── WebSocket（框架 messager：房间广播 + Redis 跨进程） ──
-  const messagerSystem = messager({ sql: pg.sql, redis: redisClient.redis })
+  const messagerSystem = messager({ sql: pg.sql, redis: redisClient?.redis })
   app.use(messagerSystem)
   app.ws('/ws', messagerSystem.client.handler())
 
