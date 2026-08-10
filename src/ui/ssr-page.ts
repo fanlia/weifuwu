@@ -1,11 +1,12 @@
 /**
  * uiSsr — 路由级 SSR 中间件：前端路由表驱动的自动服务端渲染
  *
- * 开发者只声明路由（path + component），GET 匹配即自动 SSR：
- *   匹配 → 注入 params → ctx.ui.ssr 渲染组件（async 工厂 await）→ 页面模板 + __DATA__
+ * 开发者只声明路由（path + component，RouteDef[]），GET 匹配即自动 SSR：
+ *   匹配 → 注入 params → ctx.ui.ssr 渲染组件（async 组件 await）→ 页面模板 + __DATA__
  *   未匹配 → next()（交给后续 API/静态/404）
  *
- * 与客户端 router() 共用同一份路由定义（route-match.ts），SPA/SSR 一个声明。
+ * 匹配逻辑（flattenRoutes/matchRoute/extractParams——ui-dom route-match 纯函数）
+ * 与前端 UIRouter 同源；路由定义格式各自声明（uiSsr 用 RouteDef[]，UIRouter 用 get/use）。
  */
 
 import type { Middleware } from '../types.ts'
