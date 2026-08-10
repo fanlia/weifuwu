@@ -17,6 +17,7 @@ import { createPopupTrackerSystem } from './popup-tracker.ts'
 import { createUi } from './ui.ts'
 import type { UiInternal } from './ui.ts'
 import { renderValue, renderPortal, patchPortal } from './render.ts'
+import { createReactiveState } from './reactive.ts'
 import { patchValue } from './diff.ts'
 import { hydrateVNode } from './hydration.ts'
 import { createClientBrowser } from './browser.ts'
@@ -214,7 +215,6 @@ export function uiServe<RC extends object = {}>(
       const path = router.getPath()
       // 路由级 $（handler 的 ctx.ui.$——首次创建，重渲染复用）
       if (!(ctx as any).__state) {
-        const { createReactiveState } = await import('./reactive.ts')
         const state = createReactiveState(() => {
           if (!rendering) scheduleRender()
         })
