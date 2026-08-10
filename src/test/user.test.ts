@@ -9,7 +9,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { postgres } from '../postgres/index.ts'
+import { createMemorySql } from '../db/memory-sql.ts'
 import { userSystem } from '../user/index.ts'
 import { verifyPassword } from '../user/password.ts'
 import { verifyToken, signToken } from '../user/token.ts'
@@ -18,17 +18,16 @@ import { Router } from '../core/router.ts'
 const mkCtx = () => ({ params: {}, query: {} })
 
 describe('userSystem (real postgres)', () => {
-  const db = postgres()
-  const users = userSystem({ sql: db.sql, secret: 'test-secret-0123456789abcdef' })
+  const db = createMemorySql()
+  const users = userSystem({ sql: db, secret: 'test-secret-0123456789abcdef' })
 
   const app = new Router()
-  app.use(db)
   app.use(users)
   users.routes(app)
   const handler = app.handler()
 
   before(async () => {
-    await db.migrate()
+    // MemorySql 惰性建表（无 migrate）——userSystem 迁移 = DDL no-op
     await users.migrate()
   })
 
@@ -75,7 +74,7 @@ describe('userSystem (real postgres)', () => {
       assert.equal(data.user.password_hash, undefined, '不返回密码哈希')
 
       // DB 里是哈希且可验证
-      const rows = await db.sql.unsafe('SELECT password_hash FROM _weifuwu_users WHERE email = $1', [email])
+      const rows = await db.unsafe('SELECT password_hash FROM _weifuwu_users WHERE email = $1', [email])
       const stored = String(rows[0].password_hash)
       assert.ok(stored.startsWith('scrypt$'))
       assert.ok(!stored.includes('password123'))

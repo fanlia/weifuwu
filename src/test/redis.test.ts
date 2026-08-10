@@ -4,6 +4,7 @@ import { createServer } from 'node:http'
 import { redis } from '../redis/index.ts'
 import { Router } from '../core/router.ts'
 import { RedisPool } from '../db/redis/pool.ts'
+import { MemoryRedis } from '../db/memory-redis.ts'
 
 function startServer(app: Router): Promise<any> {
   return new Promise((resolve) => {
@@ -24,13 +25,11 @@ function startServer(app: Router): Promise<any> {
 }
 
 describe('redis', () => {
-  const r = redis()
-  const c = r.redis
+  // 命令/中间件注入用 MemoryRedis（无外部依赖）；引擎遥测（onCommand/traceId）保留真库
+  const c: any = new MemoryRedis()
 
   after(async () => {
-    // 只清理本文件用过的 key（CS-04 真库并行纪律：flushdb 会清掉并行测试的计数）
-    await c.del('test:key', 'test:del', 'test:counter')
-    await r.close()
+    await c.close()
   })
 
   it('set and get string', async () => {
@@ -55,14 +54,21 @@ describe('redis', () => {
 
   it('ctx.redis is injected by middleware', async () => {
     let captured: any
-    await r(
-      new Request('http://localhost/'),
-      {} as any,
-      async (req, ctx: any) => {
-        captured = ctx.redis
-        return new Response('ok')
-      })
-    assert.ok(captured)
+    await (async () => {
+      const rds = redis()
+      try {
+        await rds(
+          new Request('http://localhost/'),
+          {} as any,
+          async (_req, ctx: any) => {
+            captured = ctx.redis
+            return new Response('ok')
+          })
+        assert.ok(captured, 'ctx.redis 注入')
+      } finally {
+        await (rds as any).close()
+      }
+    })()
   })
 })
 

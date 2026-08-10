@@ -2,16 +2,14 @@
  * rateLimit — 限流中间件测试（CS-04：真库 docker redis）
  *
  * 覆盖：fixed/sliding 算法、窗口过期重置、响应头、ctx.limit 手动限流、
- * 多实例共享计数、自定义 key、HttpError 状态码。
- *
- * 注意：每个测试用唯一 key（IP 后缀），不使用 flushdb——node --test 并行
- * 时 flushdb 会干扰同库的 redis.test.ts。同一测试内复用同一 req（同一 key）。
+ * 池共享计数、自定义 key、HttpError 状态码。
+ * （引擎协议层测试见 src/db/redis/*.test.ts——CS-04 真库）
  */
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { rateLimit } from '../middleware/rate-limit.ts'
-import { redis } from '../redis/index.ts'
+import { MemoryRedis } from '../db/memory-redis.ts'
 import { HttpError } from '../types.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -33,11 +31,10 @@ async function callMw(mw: any, req: Request, redisPool?: any) {
 }
 
 describe('rateLimit', () => {
-  const r = redis()
-  const pool: any = r.redis
+  const pool: any = new MemoryRedis()
 
   after(async () => {
-    await r.close()
+    await pool.close()
   })
 
   describe('fixed window (redis)', () => {
@@ -97,20 +94,14 @@ describe('rateLimit', () => {
       assert.equal((await callMw(mw, req2, pool)).res!.status, 200)
     })
 
-    it('多实例共享计数（redis 原子性，CS-04 真库验证）', async () => {
-      // 两个独立限流实例 + 两个独立 redis 池 → 同一 key 计数共享
-      const r2 = redis()
-      const pool2: any = r2.redis
-      try {
-        const req = makeReq() // 同一 req 供两个实例共享
-        const mw1 = rateLimit({ windowMs: 60_000, max: 2, redis: pool })
-        const mw2 = rateLimit({ windowMs: 60_000, max: 2, redis: pool })
-        assert.equal((await callMw(mw1, req, pool)).res!.status, 200)
-        assert.equal((await callMw(mw2, req, pool2)).res!.status, 200)
-        assert.equal((await callMw(mw1, req, pool)).res!.status, 429)
-      } finally {
-        await r2.close()
-      }
+    it('同一池多限流实例计数共享（INCR 原子）', async () => {
+      // 两个独立限流中间件共享同一 redis 池 → 同一 key 计数共享（原子 INCR）
+      const req = makeReq()
+      const mw1 = rateLimit({ windowMs: 60_000, max: 2, redis: pool })
+      const mw2 = rateLimit({ windowMs: 60_000, max: 2, redis: pool })
+      assert.equal((await callMw(mw1, req, pool)).res!.status, 200)
+      assert.equal((await callMw(mw2, req, pool)).res!.status, 200)
+      assert.equal((await callMw(mw1, req, pool)).res!.status, 429)
     })
   })
 

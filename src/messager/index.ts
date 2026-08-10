@@ -433,7 +433,7 @@ export function messager(options: MessagerOptions): MessagerSystem {
   }) as unknown as MessagerSystem
 
   mw.client = client
-  mw.__meta = { injects: ['msg'], depends: ['sql'] }
+  mw.__meta = { injects: ['msg'], depends: [] } // sql/redis 构造注入（options），非 ctx 读取
 
   // ── 幂等建表 ──
   mw.migrate = async () => {

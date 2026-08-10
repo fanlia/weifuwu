@@ -1,15 +1,16 @@
 /**
- * queue — 可靠任务队列测试（CS-04：真库 docker redis）
+ * queue — 可靠任务队列测试（MemoryRedis——无外部依赖）
  *
  * 覆盖：消费成功/XACK、失败重试（固定间隔 = visibilityTimeout）、
  * attempts 用尽 → DLQ、崩溃 worker 接管（XAUTOCLAIM）、并发、
  * 多 worker 实例消费组隔离、空队列不崩溃、length。
+ * （引擎协议层测试见 src/db/redis/*.test.ts——CS-04 真库）
  */
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { queue } from '../queue/index.ts'
-import { RedisPool } from '../db/redis/pool.ts'
+import { MemoryRedis } from '../db/memory-redis.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -26,8 +27,8 @@ async function waitFor(cond: () => boolean | Promise<boolean>, timeout = 10_000,
   throw new Error(`waitFor timeout: ${label}`)
 }
 
-describe('queue (real redis)', () => {
-  const pool = new RedisPool({ host: 'localhost', port: 6379 })
+describe('queue (memory redis)', () => {
+  const pool = new MemoryRedis()
   const q = queue({ redis: pool })
   const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
 
@@ -192,8 +193,8 @@ describe('queue (real redis)', () => {
   })
 })
 
-describe('queue worker independent connection (real redis)', () => {
-  const pool = new RedisPool({ host: 'localhost', port: 6379 })
+describe('queue worker independent connection (memory redis)', () => {
+  const pool = new MemoryRedis()
   const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -256,8 +257,8 @@ describe('queue worker independent connection (real redis)', () => {
   })
 })
 
-describe('queue worker lifecycle correctness (real redis)', () => {
-  const pool = new RedisPool({ host: 'localhost', port: 6379 })
+describe('queue worker lifecycle correctness (memory redis)', () => {
+  const pool = new MemoryRedis()
   const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -303,8 +304,8 @@ describe('queue worker lifecycle correctness (real redis)', () => {
   })
 })
 
-describe('queue worker group recovery (real redis)', () => {
-  const pool = new RedisPool({ host: 'localhost', port: 6379 })
+describe('queue worker group recovery (memory redis)', () => {
+  const pool = new MemoryRedis()
   const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
 
   after(async () => {

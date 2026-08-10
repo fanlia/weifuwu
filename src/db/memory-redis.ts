@@ -154,7 +154,8 @@ export class MemoryRedis implements Redis {
     this.assertOpen()
     const cur = Number((await this.get(key)) ?? '0')
     const next = Number.isNaN(cur) ? 1 : cur + 1
-    this.strings.set(key, { value: String(next), expiresAt: null })
+    // 保留现有 TTL（rateLimit INCR + PEXPIRE 模式——INCR 不得清过期时间）
+    this.strings.set(key, { value: String(next), expiresAt: this.strings.get(key)?.expiresAt ?? null })
     return next
   }
 
@@ -162,7 +163,7 @@ export class MemoryRedis implements Redis {
     this.assertOpen()
     const cur = Number((await this.get(key)) ?? '0')
     const next = cur + delta
-    this.strings.set(key, { value: String(next), expiresAt: null })
+    this.strings.set(key, { value: String(next), expiresAt: this.strings.get(key)?.expiresAt ?? null })
     return next
   }
 
@@ -414,7 +415,13 @@ export class MemoryRedis implements Redis {
       case 'DEL': return this.del(...args.map(String))
       case 'INCR': return this.incr(String(a))
       case 'EXPIRE': return this.expire(String(a), Number(b))
-      case 'PEXPIRE': return this.expire(String(a), Math.ceil(Number(b) / 1000))
+      case 'PEXPIRE': {
+        // 毫秒级 TTL 直接设 expiresAt（不经秒转换——窗口过期测试 500ms 精度）
+        const s = this.strings.get(String(a))
+        if (!s) return 0
+        s.expiresAt = Date.now() + Number(b)
+        return 1
+      }
       case 'TTL': return this.ttl(String(a))
       case 'FLUSHDB': return this.flushdb()
 
@@ -433,7 +440,12 @@ export class MemoryRedis implements Redis {
       // stream（queue 消费组）
       case 'XADD': return this.xadd(String(a), String(b), args.slice(2)) // [key, id, field, value, ...]
       case 'XLEN': return this.streams.get(String(a))?.entries.length ?? 0
-      case 'XGROUP': return this.xgroup(String(a), String(b), String(c))
+      case 'XGROUP': {
+        // 格式：XGROUP SUBCOMMAND key group [start]——key 是第二参数
+        const sub = String(a).toUpperCase()
+        if (sub === 'DESTROY') return this.xgroupDestroy(String(b), String(c))
+        return this.xgroup(String(b), String(c), String(d))
+      }
       case 'XREADGROUP': return this.xreadgroup(String(a), String(b), String(c), args) as unknown as RespValue
       case 'XACK': return this.xack(String(a), String(b), String(c))
       case 'XAUTOCLAIM': return this.xautoclaim(String(a), String(b), String(c), Number(d), args) as unknown as RespValue
@@ -481,14 +493,24 @@ export class MemoryRedis implements Redis {
     return id
   }
 
-  /** XGROUP CREATE key group '0' [MKSTREAM] → 'OK'；已存在抛 BUSYGROUP */
+  /** XGROUP CREATE key group '0' [MKSTREAM] → 'OK'；已存在抛 BUSYGROUP；key 非 stream 抛 WRONGTYPE */
   private async xgroup(key: string, group: string, _startId: string): Promise<'OK'> {
+    if (this.strings.has(key) && !this.streams.has(key)) {
+      throw new Error(`WRONGTYPE Operation against a key holding the wrong kind of value`)
+    }
     const st = this.stream(key)
     if (st.lastDelivered.has(group)) {
       throw new Error(`BUSYGROUP Consumer Group name already exists: ${group}`)
     }
     st.lastDelivered.set(group, 0) // 游标 = entries 序号（0 = 从第一条投递）
     return 'OK'
+  }
+
+  /** XGROUP DESTROY key group → 1（删除消费组——queue 自愈测试） */
+  private async xgroupDestroy(key: string, group: string): Promise<number> {
+    const st = this.streams.get(key)
+    if (!st) return 0
+    return st.lastDelivered.delete(group) ? 1 : 0
   }
 
   /** XREADGROUP GROUP g c COUNT n BLOCK ms STREAMS key '>' → [[key, [[id,[k,v,...]],...]]] | null */

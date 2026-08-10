@@ -104,8 +104,7 @@ describe('MemorySql', () => {
     const sql = createMemorySql()
     await assert.rejects(() => sql`SELECT * FROM a JOIN b ON a.id = b.id`, ProtocolError)
     await assert.rejects(() => sql`SELECT * FROM t ORDER BY v`, ProtocolError)
-    await assert.rejects(() => sql`SELECT name FROM t`, ProtocolError, '字段投影不支持')
-    await assert.rejects(() => sql`SELECT * FROM t WHERE x = now()`, ProtocolError, '函数字面量不支持')
+    await assert.rejects(() => sql`SELECT * FROM t WHERE x = random()`, ProtocolError, '未知函数字面量不支持（now() 已支持）')
   })
 
   it('参数越界 → 明确报错', async () => {

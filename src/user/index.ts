@@ -253,7 +253,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     return next(req, ctx)
   }) as unknown as UserSystemClient
 
-  mw.__meta = { injects: ['user', 'auth'], depends: ['sql'] }
+  mw.__meta = { injects: ['user', 'auth'], depends: [] } // sql 构造注入（options.sql），非 ctx.sql
 
   // ── 幂等建表 ──
   mw.migrate = async () => {
