@@ -217,3 +217,78 @@ test('渲染死循环 failsafe：renderValue 超限抛错（防御无限挂载�
   assert.ok(el.querySelector('div'), '渲染完成（无死循环——正常渲染路径不受 failsafe 影响）')
   handle.close()
 })
+
+
+// ═══════════════════════════════════════════════════════
+// 7. 中间件不触发页面刷新（注入幂等 + 渲染中间件无副作用）
+// ═══════════════════════════════════════════════════════
+
+test('注入中间件只执行一次（_ensureInjected 幂等——不因渲染重复注入）', async () => {
+  const b = createClientBrowser()
+  let injectCount = 0
+  const injectMw = (ctx: any) => {
+    injectCount++
+    ctx.injected = { api: {} }
+    return ctx
+  }
+  const router = new UIRouter()
+  router.use(injectMw as any)
+  router.get('/', () => h('div', { id: 'home' }, '首页'))
+
+  b.navigate('/')
+  const el = mount('rt-inject')
+  const handle = uiServe(router, { root: '#rt-inject' })
+  await flush()
+  assert.equal(injectCount, 1, '首次渲染注入 1 次')
+
+  // 多次渲染（popstate）——注入不重复（不因渲染触发额外副作用）
+  b.navigate('/')
+  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
+  await flush()
+  b.navigate('/')
+  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
+  await flush()
+  assert.equal(injectCount, 1, '多次渲染注入仍只 1 次（中间件不触发刷新循环）')
+  handle.close()
+})
+
+test('渲染中间件执行次数 = 渲染次数（中间件自身不触发额外刷新）', async () => {
+  const b = createClientBrowser()
+  let mwCount = 0
+  let renderCount = 0
+  const renderMw = async (_loc: any, ctx: any, children: any) => {
+    mwCount++ // 每次渲染执行（渲染中间件正常）
+    return async (loc: any, c: any) => {
+      const child = await children(loc, c)
+      return child == null ? child : h('div', { id: 'mw-shell' }, child)
+    }
+  }
+  const Page = (_init: any, ctx: any) => {
+    const $ = ctx.ui.$()
+    $.n = 0
+    return () => {
+      renderCount++
+      return h('div', { id: 'page' }, 'page')
+    }
+  }
+  const router = new UIRouter()
+  router.use(renderMw)
+  router.get('/', () => h(Page, {}))
+
+  b.navigate('/')
+  const el = mount('rt-mw')
+  const handle = uiServe(router, { root: '#rt-mw' })
+  await flush()
+  const firstMw = mwCount
+  const firstRender = renderCount
+  assert.ok(firstMw >= 1, '渲染中间件首次执行')
+  assert.ok(el.querySelector('#mw-shell'), '中间件包裹渲染')
+
+  // 同路由重新渲染（popstate）——中间件执行 1 次、组件三态 skip（render 不重跑）
+  b.navigate('/')
+  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
+  await flush()
+  assert.equal(mwCount, firstMw + 1, '渲染中间件每次渲染执行 1 次（不额外触发）')
+  assert.equal(renderCount, firstRender, '组件三态 skip——不重渲染（中间件不触发刷新循环）')
+  handle.close()
+})
