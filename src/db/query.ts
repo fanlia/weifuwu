@@ -16,6 +16,7 @@
  *
  * 内存端诚实裁剪：raw 片段与内存无法等价的语义（窗口/递归）→ ProtocolError。
  */
+import { ProtocolError } from './errors.ts'
 import type { Sql, Row, QueryResult } from './contracts.ts'
 
 // ── RAW（逃生舱：任意 SQL 片段，真库透传 / 内存裁剪） ─────
@@ -90,6 +91,12 @@ export interface SelectQuery {
   offset?: number
   /** COUNT/SUM 等聚合投影（groupBy 时自动聚合模式） */
   aggregate?: { fn: 'count' | 'sum' | 'avg' | 'min' | 'max'; col: string; as: string }[]
+  /** count(*) 聚合（SQL parser 产出——SELECT count(*) FROM t）——结果为单行 { count } */
+  count?: boolean
+  /** 内存执行扩展：常量投影/UNION 行（SQL parser 产出——无表查询） */
+  unionRows?: Row[]
+  /** 内存执行扩展：派生表（FROM (SELECT ...) alias——parser 产出） */
+  derived?: { innerSql: string; alias?: string; where?: string }
 }
 
 export interface InsertQuery {
@@ -116,7 +123,17 @@ export interface DeleteQuery {
   returning?: string[] | '*'
 }
 
-export type Query = SelectQuery | InsertQuery | UpdateQuery | DeleteQuery
+/** DDL 语句（SQL parser 产出——内存执行提取约束；真库走 raw 字符串） */
+export interface DdlQuery {
+  kind: 'ddl'
+  op: 'createTable' | 'dropTable' | 'createIndex' | 'alter'
+  table?: string
+  ifNotExists?: boolean
+  /** 列定义（createTable）——约束提取（PK/UNIQUE/DEFAULT now） */
+  columns?: { name: string; type: string; pk: boolean; unique: boolean; defaultNow: boolean; defaultUuid: boolean }[]
+}
+
+export type Query = SelectQuery | InsertQuery | UpdateQuery | DeleteQuery | DdlQuery
 
 // ── Builder（sql.query 入口） ─────────────────────────────
 
@@ -345,6 +362,7 @@ export function compileQuery(q: Query): Compiled {
     case 'insert': return compileInsert(q)
     case 'update': return compileUpdate(q)
     case 'delete': return compileDelete(q)
+    case 'ddl': throw new ProtocolError('memory-sql: DDL 不走 Query Language（用 sql.unsafe 字符串——真库直接执行）')
   }
 }
 

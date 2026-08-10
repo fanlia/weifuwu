@@ -122,14 +122,14 @@ export class RedisConnection {
       sock.setNoDelay(true) // 禁用 Nagle
       this.status = 'ready'
       this.retries = 0
-      this.flushOffline()
-      this.onceReady?.()
-      // 重连后恢复订阅（首次连接跳过——subscribe() 已发过）
+      // 重连后先恢复订阅（优先于离线命令 flush——订阅恢复不应被离线队列阻塞）
       if (this.connectedOnce) {
         for (const ch of this.subs.keys()) this.sendNow('SUBSCRIBE', [ch])
         for (const pat of this.psubs.keys()) this.sendNow('PSUBSCRIBE', [pat])
       }
       this.connectedOnce = true
+      this.flushOffline()
+      this.onceReady?.()
     })
 
     sock.on('data', (chunk: Buffer) => this.onData(new Uint8Array(chunk)))
@@ -232,7 +232,7 @@ export class RedisConnection {
       typeof last === 'object' && last !== null && !(last instanceof Uint8Array)
         ? (args.pop() as { asBuffer?: boolean })
         : undefined
-    if (this.status === 'ready' && this.socket) {
+    if (this.status === 'ready' && this.socket && !this.socket.destroyed) {
       return this.sendNow(name, args as (string | number)[], opts?.asBuffer)
     }
     if (this.closed || this.status === 'closed' || !this.opts.enableOfflineQueue) {
@@ -259,7 +259,14 @@ export class RedisConnection {
       this.armTimeout(p)
       this.pending.push(p)
       this.armSocketTimeout()
-      this.socket!.write(encodeCommand([name, ...args])) // Uint8Array 直接写，免 Buffer 拷贝
+      // Uint8Array 直接写，免 Buffer 拷贝；write 失败（socket 已销毁）→ reject 而非挂起
+      this.socket!.write(encodeCommand([name, ...args]), (err) => {
+        if (err) {
+          const idx = this.pending.indexOf(p)
+          if (idx >= 0) this.pending.splice(idx, 1)
+          p.reject(err instanceof Error ? err : new ConnectionError('redis: socket write failed'))
+        }
+      })
     }).then(
       (v) => {
         if (this.opts.onCommand) this.opts.onCommand(name, args, performance.now() - start)

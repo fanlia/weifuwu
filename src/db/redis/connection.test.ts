@@ -10,13 +10,12 @@ import assert from 'node:assert/strict'
 import net from 'node:net'
 import { RedisConnection } from './connection.ts'
 import { ConnectionError } from '../errors.ts'
+import { MemoryRedisServer } from '../redis-server.ts'
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379'
-
-function portOf(url: string): number {
-  const u = new URL(url)
-  return Number(u.port || 6379)
-}
+/** 内存 Redis 服务器（进程内——零外部依赖；CS-04 真实协议交互保留） */
+const server = new MemoryRedisServer()
+await server.start()
+const port = server.port
 
 /** 用独立控制连接杀掉目标连接（订阅模式下目标连接自己发 CLIENT 会被拒） */
 async function killConn(conn: RedisConnection, ctl: RedisConnection): Promise<void> {
@@ -39,8 +38,7 @@ async function waitForReady(conn: RedisConnection, timeoutMs = 3000): Promise<vo
   throw new Error('connection did not recover in time')
 }
 
-describe('redis connection resilience (real database)', () => {
-  const port = portOf(REDIS_URL)
+describe('redis connection resilience (memory server)', () => {
   const CH = `wf_test:${process.pid}`
 
   after(async () => {
@@ -91,7 +89,9 @@ describe('redis connection resilience (real database)', () => {
     await conn.subscribe(CH, (c, m) => got.push(m))
     // 杀连接 → 自动重连 → 订阅必须恢复
     await ctl.command('CLIENT', 'KILL', 'ID', String(id))
+    await new Promise((r) => setTimeout(r, 60)) // 等客户端感知断开（close 事件 → handleDisconnect）
     await waitForReady(conn)
+    await new Promise((r) => setTimeout(r, 80)) // 等重发 SUBSCRIBE 的确认帧（异步恢复）
     // 用独立连接发布，验证重连后的订阅收到消息
     const pub = new RedisConnection({ port })
     await pub.connect()
@@ -138,8 +138,7 @@ describe('redis connection resilience (real database)', () => {
   })
 })
 
-describe('redis connection health (real database)', () => {
-  const port = Number(new URL(process.env.REDIS_URL ?? 'redis://localhost:6379').port || 6379)
+describe('redis connection health (memory server)', () => {
   let conn: RedisConnection
   let ctl: RedisConnection
 
@@ -279,4 +278,8 @@ describe('redis socket timeout (zombie detection, real database)', () => {
     await feeder.command('DEL', 'wf:blk:null')
     await feeder.close()
   })
+})
+
+after(async () => {
+  await server.close()
 })

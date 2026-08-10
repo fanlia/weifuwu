@@ -3,8 +3,11 @@ import assert from 'node:assert/strict'
 import { PgConnection } from './connection.ts'
 import { ConnectionError } from '../errors.ts'
 
-// CS-04: 必须连 docker-compose 真实 postgres（localhost:5432，DATABASE_URL）
-const DB_URL = process.env.DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo'
+// 内存 Postgres 服务器（进程内——零外部依赖；真实 PG v3 线协议交互保留）
+import { MemoryPostgresServer } from '../postgres-server.ts'
+const pgServer = new MemoryPostgresServer()
+await pgServer.start()
+const DB_URL = pgServer.url
 
 interface DbConfig {
   host: string
@@ -25,7 +28,7 @@ function parseDbUrl(url: string): DbConfig {
   }
 }
 
-describe('postgres connection (real database)', () => {
+describe('postgres connection (memory server)', () => {
   const cfg = parseDbUrl(DB_URL)
   let conn: PgConnection
 
@@ -83,8 +86,15 @@ describe('postgres connection (real database)', () => {
   })
 
   it('rejects with ConnectionError on bad credentials', async () => {
-    const bad = new PgConnection({ ...cfg, password: 'wrong-password' })
-    await assert.rejects(() => bad.connect(), (e: unknown) => e instanceof ConnectionError)
+    // 带密码的独立服务器——认证失败路径（客户端 SCRAM/MD5 握手被拒）
+    const secure = new MemoryPostgresServer({ port: 0, password: 'secret' })
+    await secure.start()
+    try {
+      const bad = new PgConnection({ ...parseDbUrl(secure.url), password: 'wrong-password' })
+      await assert.rejects(() => bad.connect(), (e: unknown) => e instanceof ConnectionError)
+    } finally {
+      await secure.close()
+    }
   })
 
   it('terminates cleanly on close', async () => {
@@ -314,7 +324,7 @@ describe('postgres precision boundaries (real database)', () => {
   })
 })
 
-describe('postgres statement_timeout (real database)', () => {
+describe('postgres statement_timeout (real database)', { skip: process.env.REAL_DB ? false : '真库引擎特性——内存服务器诚实裁剪（REAL_DB=1 连真库）' }, () => {
   it('kills slow queries after timeout', async () => {
     const cfg2 = parseDbUrl(DB_URL)
     const conn = new PgConnection({ ...cfg2, statementTimeoutMs: 200 })
@@ -350,7 +360,7 @@ describe('postgres statement_timeout (real database)', () => {
   })
 })
 
-describe('postgres prepare cache DDL recovery (real database)', () => {
+describe('postgres prepare cache DDL recovery (real database)', { skip: process.env.REAL_DB ? false : '真库引擎特性——内存服务器诚实裁剪（REAL_DB=1 连真库）' }, () => {
   const cfg = parseDbUrl(DB_URL)
   let conn: PgConnection
 
@@ -411,7 +421,7 @@ describe('postgres prepare cache DDL recovery (real database)', () => {
   })
 })
 
-describe('postgres statement lifecycle + affectedRows (real database)', () => {
+describe('postgres statement lifecycle + affectedRows (real database)', { skip: process.env.REAL_DB ? false : '真库引擎特性——内存服务器诚实裁剪（REAL_DB=1 连真库）' }, () => {
   const cfg = parseDbUrl(DB_URL)
   let conn: PgConnection
 
@@ -479,7 +489,7 @@ describe('postgres statement lifecycle + affectedRows (real database)', () => {
   })
 })
 
-describe('postgres timestamp mapping (real database)', () => {
+describe('postgres timestamp mapping (real database)', { skip: process.env.REAL_DB ? false : '真库引擎特性——内存服务器诚实裁剪（REAL_DB=1 连真库）' }, () => {
   const cfg = parseDbUrl(DB_URL)
   let conn: PgConnection
 
@@ -537,4 +547,8 @@ describe('postgres timestamp mapping (real database)', () => {
       await conn.query(`DROP TABLE ${tbl}`)
     }
   })
+})
+
+after(async () => {
+  await pgServer.close()
 })

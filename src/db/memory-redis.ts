@@ -16,6 +16,7 @@ import type { RespValue } from './redis/resp.ts'
 import type { RedisPipeline } from './redis/pipeline.ts'
 import type { RedisSubscriber } from './redis/subscriber.ts'
 import { ProtocolError } from './errors.ts'
+import { resolveCommand } from './redis/commands.ts'
 
 interface MemoryEntry {
   id: string
@@ -407,10 +408,19 @@ export class MemoryRedis implements Redis {
 
   async command(name: string, ...args: (string | number)[]): Promise<RespValue> {
     this.assertOpen()
+    // 命令注册表前置校验：unknown/arity 抛（对齐真库 -ERR 可预测失败）
+    resolveCommand({ name, args })
     const [a, b, c, d, e] = args as (string | number | undefined)[]
     switch (name.toUpperCase()) {
       // string
       case 'GET': return this.get(String(a))
+      // list（服务器 BLPOP/LPUSH 语义）
+      case 'LPUSH': return this.lpush(String(a), ...(args.slice(1) as (string | number)[]))
+      case 'RPUSH': return this.rpush(String(a), ...(args.slice(1) as (string | number)[]))
+      case 'LPOP': return this.lpop(String(a))
+      case 'RPOP': return this.rpop(String(a))
+      case 'LLEN': return this.lists.get(String(a))?.length ?? 0
+      case 'LRANGE': return this.lrange(String(a), Number(b), Number(c))
       case 'SET': return this.set(String(a), String(b), c !== undefined ? Number(c === 'EX' ? d : c) : undefined)
       case 'DEL': return this.del(...args.map(String))
       case 'INCR': return this.incr(String(a))

@@ -22,6 +22,7 @@ import { ProtocolError } from './errors.ts'
 import { HttpError } from '../types.ts'
 import type { Query, SelectQuery, WhereExpr, RawSql, ColOps } from './query.ts'
 import { createQueryBuilder } from './query-builder.ts'
+import { parseSqlToAst, parseWhereToExpr } from './sql-parser.ts'
 
 interface MemoryTable {
   rows: Row[]
@@ -30,19 +31,11 @@ interface MemoryTable {
   pk?: { col: string; defaultUuid: boolean }
   uniques: Set<string>
   defaultNow: Set<string>
+  /** 表列序（CREATE TABLE 定义）——无列名 INSERT 按序映射 */
+  columns: string[]
+  /** 列类型（CREATE TABLE 定义）——PG 服务器 Describe OID 推断 */
+  columnTypes: Record<string, string>
 }
-
-type WhereClause = {
-  cols: { col: string; op: string; val: unknown }[]
-}
-
-/** 解析后的语句（单表 CRUD 子集） */
-type Statement =
-  | { kind: 'ddl'; table?: string; drop?: string; constraints?: { pk?: { col: string; defaultUuid: boolean }; uniques: string[]; defaultNow: string[] } }
-  | { kind: 'select'; table: string; cols?: string[]; where?: WhereClause; limit?: number; count?: boolean }
-  | { kind: 'insert'; table: string; cols: string[]; vals: unknown[]; returning: boolean; returningCols?: string[] }
-  | { kind: 'update'; table: string; sets: { col: string; val: unknown }[]; where?: WhereClause }
-  | { kind: 'delete'; table: string; where?: WhereClause }
 
 export class MemorySql {
   private tables = new Map<string, MemoryTable>()
@@ -62,8 +55,9 @@ export class MemorySql {
       return res
     }
     try {
-      const stmt = parseSQL(sql, params)
-      return this.execute(stmt)
+      // SQL 字符串 → Parser → Query Language AST → 内存直执行（单条执行路径）
+      const ast = parseSqlToAst(sql, params)
+      return this.executeQuery(ast)
     } catch (e) {
       // PG 错误码映射（对齐 makeSql wrapError）——唯一冲突 23505 → 409
       const code = (e as { code?: string })?.code
@@ -85,10 +79,47 @@ export class MemorySql {
       case 'insert': return this.execInsert(q)
       case 'update': return this.execUpdate(q)
       case 'delete': return this.execDelete(q)
+      case 'ddl': return this.executeDdl(q)
     }
   }
 
   private execSelect(q: SelectQuery, outerCtx?: { row: Row; alias: string }): QueryResult<Row> {
+    // count(*) 聚合：过滤后行数 → 单行 { count }
+    if (q.count) {
+      const t = this.table(q.table)
+      const n = q.where ? t.rows.filter((r) => matchWhereExpr(r, q.where!, q.alias)).length : t.rows.length
+      const colName = (q.cols?.[0] as string | undefined) ?? 'count'
+      const res: QueryResult<Row> = [{ [colName]: n }]
+      res.affectedRows = 1
+      return res
+    }
+    // 常量投影/UNION（无 FROM——SQL parser 产出）
+    if (q.unionRows && q.table === '') {
+      const res = q.unionRows.map((r) => ({ ...r })) as QueryResult<Row>
+      res.affectedRows = res.length
+      return res
+    }
+    // 派生表（FROM (SELECT ...) t——parser 递归解析内层）
+    if (q.derived && q.table === '') {
+      const inner = this.executeQuery(parseSqlToAst(q.derived.innerSql))
+      const alias = q.derived.alias
+      let rows: Row[] = inner.map((r) => {
+        if (!alias) return { ...r }
+        const out: Row = {}
+        for (const [k, v] of Object.entries(r)) out[`${alias}.${k}`] = v
+        return out
+      })
+      if (q.derived.where) {
+        const w = q.derived.where
+        if (/^1\s*=\s*0$/.test(w)) rows = []
+        else if (w.trim()) {
+          try { rows = rows.filter((r) => matchWhereExpr(r, parseWhereToExpr(w, []))) } catch { /* 裁剪 */ }
+        }
+      }
+      const res = rows.map((r) => ({ ...r })) as QueryResult<Row>
+      res.affectedRows = res.length
+      return res
+    }
     // JOIN 笛卡尔积 + on 过滤（内存 INNER/LEFT）
     let rows: Row[] = this.table(q.table).rows
     let tableAlias = q.alias ?? q.table
@@ -220,7 +251,18 @@ export class MemorySql {
   private execInsert(q: import('./query.ts').InsertQuery): QueryResult<Row> {
     const t = this.table(q.table)
     const results: Row[] = []
-    for (const row of q.rows) {
+    // 无列名 INSERT（parser 占位 f1..fn）→ 按表列序映射
+    const fPlaceholder = q.rows.some((r) => Object.keys(r).every((k) => /^f\d+$/.test(k)))
+    const mapped = q.rows.map((r) => {
+      if (!fPlaceholder || !t.columns.length) return r
+      const out: Row = {}
+      for (const [k, v] of Object.entries(r)) {
+        const idx = Number(k.slice(1)) - 1
+        out[t.columns[idx] ?? k] = v
+      }
+      return out
+    })
+    for (const row of mapped) {
       // PK DEFAULT / UNIQUE 检查（与字符串路径同约束）
       if (t.pk && !(t.pk.col in row)) row[t.pk.col] = t.pk.defaultUuid ? randomUUID() : `mem-${t.nextId}`
       for (const c of t.defaultNow) {
@@ -291,109 +333,63 @@ export class MemorySql {
 
   private table(name: string): MemoryTable {
     let t = this.tables.get(name)
-    if (!t) { t = { rows: [], nextId: 1, uniques: new Set(), defaultNow: new Set() }; this.tables.set(name, t) }
+    if (!t) { t = { rows: [], nextId: 1, uniques: new Set(), defaultNow: new Set(), columns: [], columnTypes: {} }; this.tables.set(name, t) }
     return t
   }
 
-  private execute(stmt: Statement): QueryResult<Row> {
-    switch (stmt.kind) {
-      case 'ddl': {
-        if (stmt.drop) {
-          this.tables.delete(stmt.drop)
-        } else if (stmt.table && stmt.constraints) {
-          // CREATE TABLE：立即建元数据（含约束）——INSERT 时强制 PK 默认值/唯一检查
-          const t = this.table(stmt.table)
-          t.pk = stmt.constraints.pk
-          for (const u of stmt.constraints.uniques) t.uniques.add(u)
-          for (const c of stmt.constraints.defaultNow) t.defaultNow.add(c)
-        }
-        const res: QueryResult<Row> = []
-        res.affectedRows = 0
-        return res
-      }
-      case 'select': {
-        const t = this.table(stmt.table)
-        let rows = stmt.where ? t.rows.filter((r) => matchWhere(r, stmt.where!)) : [...t.rows]
-        if (stmt.limit !== undefined) rows = rows.slice(0, stmt.limit)
-        const res = (stmt.count
-          ? [{ count: rows.length }]
-          : stmt.cols
-            ? rows.map((r) => pick(r, stmt.cols!))
-            : rows.map((r) => ({ ...r }))) as QueryResult<Row>
-        res.affectedRows = res.length
-        return res
-      }
-      case 'insert': {
-        const t = this.table(stmt.table)
-        const row: Row = {}
-        for (let i = 0; i < stmt.cols.length; i++) row[stmt.cols[i]] = stmt.vals[i]
-        // PK DEFAULT：未提供时生成（gen_random_uuid() → uuid；否则自增序号）
-        if (t.pk && !(t.pk.col in row)) {
-          row[t.pk.col] = t.pk.defaultUuid ? randomUUID() : `mem-${t.nextId}`
-        }
-        // DEFAULT now()：未提供时填充当前时间戳
-        for (const c of t.defaultNow) {
-          if (!(c in row)) row[c] = new Date().toISOString()
-        }
-        // UNIQUE 约束：重复 → 23505（userSystem 唯一冲突映射 409）
-        for (const u of t.uniques) {
-          if (u in row && t.rows.some((r) => deepEq(r[u], row[u]))) {
-            const err = new ProtocolError(`duplicate key value violates unique constraint "${u}"`)
-            ;(err as Error & { code?: string }).code = '23505'
-            throw err
-          }
-        }
-        t.rows.push(row)
-        t.nextId++
-        const res: QueryResult<Row> = []
-        if (stmt.returning) {
-          res.push(stmt.returningCols ? pick(row, stmt.returningCols) : { ...row })
-        }
-        res.affectedRows = 1
-        return res
-      }
-      case 'update': {
-        const t = this.table(stmt.table)
-        let n = 0
-        for (const r of t.rows) {
-          if (!stmt.where || matchWhere(r, stmt.where)) {
-            for (const { col, val } of stmt.sets) r[col] = val
-            n++
-          }
-        }
-        const res: QueryResult<Row> = []
-        res.affectedRows = n
-        return res
-      }
-      case 'delete': {
-        const t = this.table(stmt.table)
-        const before = t.rows.length
-        t.rows = stmt.where ? t.rows.filter((r) => !matchWhere(r, stmt.where!)) : []
-        const res: QueryResult<Row> = []
-        res.affectedRows = before - t.rows.length
-        return res
-      }
+  /** 表是否存在（PG 服务器 42P01 检查——内存惰性建表 vs 真库报错） */
+  hasTable(table: string): boolean {
+    return this.tables.has(table)
+  }
+
+  /** PG 服务器 Describe：列类型 → OID 推断辅助 */
+  getColumnType(table: string, col: string): string | undefined {
+    return this.tables.get(table)?.columnTypes[col]
+  }
+
+  /** PG 服务器 Parse：INSERT VALUES 列序 → 类型列表 */
+  getColumnTypes(table: string): string[] {
+    return this.tables.get(table)?.columns.map((c) => this.tables.get(table)!.columnTypes[c] ?? 'text') ?? []
+  }
+
+  /** 事务快照（服务器 ROLLBACK 撤销事务内写入——内存自动提交的对偶） */
+  snapshot(): Map<string, Row[]> {
+    const snap = new Map<string, Row[]>()
+    for (const [name, t] of this.tables) snap.set(name, t.rows.map((r) => ({ ...r })))
+    return snap
+  }
+
+  /** 恢复快照（ROLLBACK）——rows 替换为快照副本（保留元数据/约束） */
+  restore(snap: Map<string, Row[]>): void {
+    for (const [name, rows] of snap) {
+      const t = this.tables.get(name)
+      if (t) t.rows = rows.map((r) => ({ ...r }))
+    }
+    // 快照后新建的表：清空
+    for (const name of this.tables.keys()) {
+      if (!snap.has(name)) this.tables.delete(name)
     }
   }
 
-  /** 测试辅助：当前表内容 */
-  _dump(table: string): Row[] {
-    return (this.tables.get(table)?.rows ?? []).map((r) => ({ ...r }))
+  /** DDL 执行（parser 产出 DdlQuery）——约束提取到表元数据 */
+  private executeDdl(stmt: Extract<Query, { kind: 'ddl' }>): QueryResult<Row> {
+    if (stmt.op === 'createTable' && stmt.table) {
+      const t = this.table(stmt.table)
+      // 表列序（无列名 INSERT 按序映射——CREATE 时覆盖）+ 列类型（Describe OID）
+      t.columns = (stmt.columns ?? []).map((c) => c.name)
+      for (const c of stmt.columns ?? []) t.columnTypes[c.name] = c.type.toLowerCase()
+      for (const col of stmt.columns ?? []) {
+        if (col.pk) t.pk = { col: col.name, defaultUuid: col.defaultUuid }
+        if (col.unique) t.uniques.add(col.name)
+        if (col.defaultNow) t.defaultNow.add(col.name)
+      }
+    } else if (stmt.op === 'dropTable' && stmt.table) {
+      this.tables.delete(stmt.table)
+    }
+    const res: QueryResult<Row> = []
+    res.affectedRows = 0
+    return res
   }
-}
-
-/**
- * 工厂：返回 callable Sql（标签模板 `sql\`...\``）+ unsafe + close。
- * 与真实 makeSql(PgPool) 同一契约形状——引擎可无缝替换。
- */
-export function createMemorySql(): Sql {
-  const engine = new MemorySql()
-  const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => engine.tag(strings, values)) as unknown as Sql
-  sql.unsafe = (q: string, params?: unknown[]) => engine.unsafe(q, params ?? [])
-  sql.query = createQueryBuilder(sql, async (q) => engine.executeQuery(q) as unknown as Row[])
-  sql.raw = (strings: TemplateStringsArray, ...values: unknown[]) => rawSqlImpl(strings, values)
-  sql.close = () => engine.close()
-  return sql
 }
 
 /** raw 标签模板（值按 $n 顺序参数化） */
@@ -402,178 +398,6 @@ function rawSqlImpl(strings: TemplateStringsArray, values: unknown[]): RawSql {
   return { __raw: text, params: values }
 }
 
-// ── SQL 子集解析 ─────────────────────────────────────────
-
-function parseSQL(sql: string, params: unknown[]): Statement {
-  const s = sql.trim().replace(/;$/, '')
-  const upper = s.toUpperCase()
-
-  // INSERT INTO t (c1, c2) VALUES ($1, $2) [RETURNING * | RETURNING col1, col2]
-  const ins = /^INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)(\s+RETURNING\s+(\*|\w+(?:\s*,\s*\w+)*))?/i.exec(s)
-  if (ins) {
-    const cols = ins[2].split(',').map((c) => c.trim())
-    const vals = ins[3].split(',').map((v) => resolveValue(v.trim(), params))
-    if (cols.length !== vals.length) {
-      throw new ProtocolError(`memory-sql: INSERT 列数(${cols.length})与值数(${vals.length})不匹配`)
-    }
-    return {
-      kind: 'insert',
-      table: ins[1],
-      cols,
-      vals,
-      returning: !!ins[4],
-      returningCols: ins[5] && ins[5] !== '*' ? ins[5].split(',').map((c) => c.trim()) : undefined,
-    }
-  }
-
-  // CREATE TABLE [IF NOT EXISTS] t (cols) / DROP TABLE [IF EXISTS] t
-  // 解析列约束（PRIMARY KEY DEFAULT / UNIQUE）——约束注入表元数据（INSERT 时强制）
-  const createTable = /^CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([\s\S]*)\)$/i.exec(s)
-  if (createTable) {
-    const constraints = parseColumnConstraints(createTable[3])
-    return { kind: 'ddl' as const, table: createTable[2], constraints }
-  }
-  const dropTable = /^DROP\s+TABLE\s+(IF\s+EXISTS\s+)?(\w+)/i.exec(s)
-  if (dropTable) {
-    return { kind: 'ddl', drop: dropTable[2] }
-  }
-  // CREATE INDEX [IF NOT EXISTS] ... ——内存无索引语义（no-op）
-  if (/^CREATE\s+INDEX/i.test(s)) {
-    return { kind: 'ddl' }
-  }
-
-  // SELECT cols FROM t [alias] [WHERE ...] [LIMIT n]
-  const sel = /^SELECT\s+(.+?)\s+FROM\s+(\w+)(?:\s+(\w+))?(\s+WHERE\s+(.+?))?(\s+LIMIT\s+(\d+))?$/i.exec(s)
-  if (sel) {
-    const fields = sel[1].trim()
-    const alias = sel[3]
-    // 投影列：* / COUNT(*) / 列列表（支持 alias.col → col 剥离）
-    let cols: string[] | undefined
-    if (fields === '*') {
-      cols = undefined
-    } else if (/^COUNT\s*\(\s*\*\s*\)$/i.test(fields)) {
-      // COUNT(*)：返回 { count } 聚合行（真库语义）
-      return { kind: 'select', table: sel[2], cols: undefined, where: sel[5] ? parseWhere(sel[5], params, alias) : undefined, limit: undefined, count: true }
-    } else {
-      cols = fields.split(',').map((c) => stripAlias(c.trim(), alias))
-    }
-    return {
-      kind: 'select',
-      table: sel[2],
-      cols,
-      where: sel[5] ? parseWhere(sel[5], params, alias) : undefined,
-      limit: sel[7] ? Number(sel[7]) : undefined,
-    }
-  }
-
-  // UPDATE t SET c1 = $1, c2 = $2 [WHERE ...]
-  const upd = /^UPDATE\s+(\w+)\s+SET\s+(.+?)(\s+WHERE\s+(.+?))?$/i.exec(s)
-  if (upd) {
-    const sets = upd[2].split(',').map((part) => {
-      const m = /^(\w+)\s*=\s*(.+)$/.exec(part.trim())
-      if (!m) throw new ProtocolError(`memory-sql: UPDATE SET 语法无效 '${part.trim()}'`)
-      return { col: m[1], val: resolveValue(m[2].trim(), params) }
-    })
-    return { kind: 'update', table: upd[1], sets, where: upd[4] ? parseWhere(upd[4], params) : undefined }
-  }
-
-  // DELETE FROM t [WHERE ...]
-  const del = /^DELETE\s+FROM\s+(\w+)(\s+WHERE\s+(.+?))?$/i.exec(s)
-  if (del) {
-    return { kind: 'delete', table: del[1], where: del[3] ? parseWhere(del[3], params) : undefined }
-  }
-
-  throw new ProtocolError(`memory-sql: SQL 不支持 '${s.slice(0, 60)}...'（诚实裁剪——JOIN/ORDER BY/DDL/子查询需真库）`)
-}
-
-/** WHERE col op val [AND col op val ...]——op: = != <> > < >= <= IN；列支持 alias.col 剥离 */
-function parseWhere(clause: string, params: unknown[], alias?: string): WhereClause {
-  const parts = clause.split(/\s+AND\s+/i)
-  const cols = parts.map((part) => {
-    const p = part.trim()
-    // IS NULL / IS NOT NULL（无值操作符）
-    const isNull = /^(\w+(?:\.\w+)?)\s+IS\s+(NOT\s+)?NULL$/i.exec(p)
-    if (isNull) {
-      return { col: stripAlias(isNull[1], alias), op: isNull[2] ? 'IS NOT NULL' : 'IS NULL', val: undefined }
-    }
-    const m = /^(\w+(?:\.\w+)?)\s*(=|!=|<>|>=|<=|>|<|IN)\s*(.+)$/.exec(p)
-    if (!m) throw new ProtocolError(`memory-sql: WHERE 语法无效 '${p}'（仅支持 = != <> > < >= <= IN + AND + IS NULL）`)
-    const col = stripAlias(m[1], alias)
-    const op = m[2].toUpperCase()
-    const raw = m[3].trim()
-    if (op === 'IN') {
-      const inMatch = /^\(([^)]+)\)$/.exec(raw)
-      if (!inMatch) throw new ProtocolError(`memory-sql: IN 需要 (v1, v2, ...) 形式`)
-      const vals = inMatch[1].split(',').map((v) => resolveValue(v.trim(), params))
-      return { col, op, val: vals }
-    }
-    return { col, op, val: resolveValue(raw, params) }
-  })
-  return { cols }
-}
-
-/** 剥离表别名前缀：'s.user_id' + alias 's' → 'user_id'；无别名原样 */
-function stripAlias(ref: string, alias?: string): string {
-  const dot = ref.indexOf('.')
-  if (dot >= 0) return ref.slice(dot + 1)
-  return ref
-}
-
-/** 解析 CREATE TABLE 列定义 → 约束（pk + uniques） */
-function parseColumnConstraints(colsSql: string): { pk?: { col: string; defaultUuid: boolean }; uniques: string[]; defaultNow: string[] } {
-  const result: { pk?: { col: string; defaultUuid: boolean }; uniques: string[]; defaultNow: string[] } = { uniques: [], defaultNow: [] }
-  const cols = splitTopLevel(colsSql)
-  for (const colDef of cols) {
-    const m = /^(\w+)\s+([\w\s(),.'-]+)$/.exec(colDef.trim())
-    if (!m) continue
-    const col = m[1]
-    const def = m[2].toUpperCase()
-    if (/\bPRIMARY\s+KEY\b/.test(def)) {
-      result.pk = { col, defaultUuid: /GEN_RANDOM_UUID/.test(def) }
-    }
-    if (/\bUNIQUE\b/.test(def)) result.uniques.push(col)
-    if (/DEFAULT\s+NOW/.test(def)) result.defaultNow.push(col)
-  }
-  return result
-}
-
-/** 顶层逗号分割（忽略括号内） */
-function splitTopLevel(s: string): string[] {
-  const out: string[] = []
-  let depth = 0
-  let cur = ''
-  for (const ch of s) {
-    if (ch === '(') depth++
-    if (ch === ')') depth--
-    if (ch === ',' && depth === 0) { out.push(cur); cur = ''; continue }
-    cur += ch
-  }
-  if (cur.trim()) out.push(cur)
-  return out
-}
-
-/** $n → params[n-1]；字面量 → 解析（数字/字符串/布尔/null） */
-function resolveValue(raw: string, params: unknown[]): unknown {
-  const ph = /^\$(\d+)$/.exec(raw)
-  if (ph) {
-    const idx = Number(ph[1]) - 1
-    if (idx < 0 || idx >= params.length) {
-      throw new ProtocolError(`memory-sql: 参数 $${ph[1]} 越界（仅 ${params.length} 个）`)
-    }
-    return params[idx]
-  }
-  if (/^'([^']*)'$/.test(raw)) return raw.slice(1, -1)
-  if (/^-?\d+(\.\d+)?$/.test(raw)) return Number(raw)
-  if (raw.toUpperCase() === 'NULL') return null
-  if (raw.toUpperCase() === 'TRUE') return true
-  if (raw.toUpperCase() === 'FALSE') return false
-  // SQL 函数：now() → 当前时间戳（userSystem revoked_at 等）
-  if (/^now\(\)$/i.test(raw)) return new Date().toISOString()
-  // 未知字面量（列引用/函数等）——诚实裁剪
-  throw new ProtocolError(`memory-sql: 不支持的字面量 '${raw}'（请用 $n 参数）`)
-}
-
-/** 投影：行 → 指定列子集 */
 function pick(row: Row, cols: string[]): Row {
   const out: Row = {}
   for (const c of cols) if (c in row) out[c] = row[c]
@@ -613,6 +437,8 @@ function isRaw(v: unknown): v is RawSql {
 }
 
 /** WhereExpr（query language）→ 行判定 */
+/** 字符串 WHERE → WhereExpr（派生表过滤——无参数场景） */
+
 function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
   for (const [col, field] of Object.entries(expr)) {
     if (col === 'or') {
@@ -632,6 +458,12 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
     if (typeof field === 'object' && field !== null) {
       const ops = field as ColOps
       const actual = resolveCol(row, col, alias)
+      // 纯对象值（jsonb）——无任何操作符键 → 按值 deepEq 比较
+      const hasOp = (['col', 'gt', 'gte', 'lt', 'lte', 'ne', 'in', 'notIn', 'like', 'ilike', 'isNull', 'between'] as const).some((k) => ops[k] !== undefined)
+      if (!hasOp) {
+        if (!deepEq(actual, field)) return false
+        continue
+      }
       if (ops.col !== undefined && !deepEq(actual, resolveCol(row, ops.col, alias))) return false
       if (ops.gt !== undefined && cmpValue(actual, ops.gt) <= 0) return false
       if (ops.gte !== undefined && cmpValue(actual, ops.gte) < 0) return false
@@ -660,25 +492,6 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
   return true
 }
 
-function matchWhere(row: Row, where: WhereClause): boolean {
-  return where.cols.every(({ col, op, val }) => {
-    const actual = row[col]
-    switch (op) {
-      case 'IS NULL': return actual === null || actual === undefined
-      case 'IS NOT NULL': return actual !== null && actual !== undefined
-      case '=': return deepEq(actual, val)
-      case '!=': case '<>': return !deepEq(actual, val)
-      case '>': return Number(actual) > Number(val)
-      case '<': return Number(actual) < Number(val)
-      case '>=': return Number(actual) >= Number(val)
-      case '<=': return Number(actual) <= Number(val)
-      case 'IN': return (val as unknown[]).some((v) => deepEq(actual, v))
-      default: return false
-    }
-  })
-}
-
-/** 通用比较：数字按数值、字符串按字典序（ISO 时间戳字典序 = 时间序） */
 function cmpValue(a: unknown, b: unknown): number {
   if (typeof a === 'number' && typeof b === 'number') return a > b ? 1 : a < b ? -1 : 0
   const sa = String(a)
@@ -693,4 +506,16 @@ function deepEq(a: unknown, b: unknown): boolean {
     return JSON.stringify(a) === JSON.stringify(b)
   }
   return false
+}
+
+/** MemorySql 工厂：类不可 callable——工厂包装为 callable Sql（与 makeSql(PgPool) 同构） */
+export function createMemorySql(): Sql {
+  const mem = new MemorySql()
+  const sql = (async (strings: TemplateStringsArray, ...values: unknown[]) =>
+    mem.tag(strings, values)) as Sql
+  sql.unsafe = (s: string, p?: unknown[]) => mem.unsafe(s, p)
+  sql.query = createQueryBuilder(mem as unknown as Sql, (q) => Promise.resolve(mem.executeQuery(q)))
+  sql.raw = (strings: TemplateStringsArray, ...values: unknown[]) => rawSqlImpl(strings, values)
+  sql.close = () => mem.close()
+  return sql
 }

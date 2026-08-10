@@ -100,11 +100,16 @@ describe('MemorySql', () => {
     assert.equal((await sql`SELECT * FROM _weifuwu_users`).length, 0, 'DROP 清表')
   })
 
-  it('诚实裁剪：JOIN/ORDER BY/复杂语句抛 ProtocolError(unsupported)', async () => {
+  it('诚实裁剪：JOIN/GROUP BY/未知函数抛 ProtocolError(unsupported)；ORDER BY 已支持', async () => {
     const sql = createMemorySql()
     await assert.rejects(() => sql`SELECT * FROM a JOIN b ON a.id = b.id`, ProtocolError)
-    await assert.rejects(() => sql`SELECT * FROM t ORDER BY v`, ProtocolError)
+    await assert.rejects(() => sql`SELECT * FROM t GROUP BY v`, ProtocolError)
     await assert.rejects(() => sql`SELECT * FROM t WHERE x = random()`, ProtocolError, '未知函数字面量不支持（now() 已支持）')
+    // ORDER BY 现已支持（parser 系统性覆盖）
+    await sql`INSERT INTO t (v) VALUES (${2})`
+    await sql`INSERT INTO t (v) VALUES (${1})`
+    const ordered = await sql`SELECT * FROM t ORDER BY v`
+    assert.equal(ordered[0].v, 1, 'ORDER BY 升序')
   })
 
   it('参数越界 → 明确报错', async () => {
