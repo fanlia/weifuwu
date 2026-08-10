@@ -1,5 +1,5 @@
 /**
- * weifuwu/client — 弹出层定位工具
+ * weifuwu/ui-dom — 弹出层定位工具
  *
  * 基于 position: fixed 的坐标计算，替代 CSS absolute 定位。
  * 配合 createPortal 使用，让弹出层不受父级 overflow/transform 影响。

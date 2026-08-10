@@ -1,5 +1,5 @@
 /**
- * weifuwu/client 渲染器 — VNode → DOM + patchValue diff
+ * weifuwu/ui-dom 渲染器 — VNode → DOM + patchValue diff
  *
  * render(vnode, ctx)      → 首次渲染，返回 DOM
  * patchValue(el, old, new, ctx) → 增量更新

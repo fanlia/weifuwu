@@ -1,5 +1,5 @@
 /**
- * weifuwu/client api middleware — HTTP 客户端测试
+ * weifuwu/ui-dom api middleware — HTTP 客户端测试
  */
 
 import { describe, it, before, beforeEach, afterEach } from 'node:test'

@@ -1,5 +1,5 @@
 /**
- * weifuwu/client AI 解码器测试 — 端到端：后端 wf: SSE 编码 → 前端解码分发
+ * weifuwu/ui-dom AI 解码器测试 — 端到端：后端 wf: SSE 编码 → 前端解码分发
  *
  * wire-fake：真 HTTP 服务器，按协议 §1.1 输出 wf: 事件（与后端 ai.stream 输出同构）。
  * 不 mock fetch、不 mock 网络层（CS-04 精神）。

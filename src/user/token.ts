@@ -2,7 +2,7 @@
  * 会话令牌（零依赖，node:crypto）
  *
  * access token：HMAC-SHA256 签名的 JWT 形态（base64url），
- *   与 weifuwu/client 的 auth() 兼容（客户端解码 payload 检查 exp）。
+ *   与 weifuwu/ui-dom 的 auth() 兼容（客户端解码 payload 检查 exp）。
  * refresh token：不透明随机串（256-bit），DB 只存 SHA-256 哈希（可撤销）。
  */
 

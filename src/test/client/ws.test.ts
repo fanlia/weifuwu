@@ -1,5 +1,5 @@
 /**
- * weifuwu/client ws — WebSocket 中间件测试
+ * weifuwu/ui-dom ws — WebSocket 中间件测试
  */
 
 import { describe, it, before, beforeEach, afterEach } from 'node:test'

@@ -1,5 +1,5 @@
 /**
- * weifuwu/client — ctx.ui.usePopup 组合器测试（TDD）
+ * weifuwu/ui-dom — ctx.ui.usePopup 组合器测试（TDD）
  *
  * 覆盖：
  *   - trigger='hover'：触屏（(hover: hover) false）mouseenter 不打开、tap 打开、点外部关闭

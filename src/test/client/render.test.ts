@@ -1,5 +1,5 @@
 /**
- * weifuwu/client 渲染器测试 — render + patchValue + mountVNode
+ * weifuwu/ui-dom 渲染器测试 — render + patchValue + mountVNode
  *
  * 覆盖 render.ts 所有 export 和关键内部路径
  *   106 tests + 新增覆盖率测试 = full coverage

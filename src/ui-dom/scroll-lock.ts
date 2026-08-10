@@ -1,5 +1,5 @@
 /**
- * weifuwu/client — ScrollLock
+ * weifuwu/ui-dom — ScrollLock
  */
 
 import { createClientBrowser } from './browser.ts'

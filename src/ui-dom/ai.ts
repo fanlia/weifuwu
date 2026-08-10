@@ -1,5 +1,5 @@
 /**
- * weifuwu/client AI 解码器 — 消费 wf: 协议（design/ai-contract.md）
+ * weifuwu/ui-dom AI 解码器 — 消费 wf: 协议（design/ai-contract.md）
  *
  * 协议的前端参考实现：POST → 解析 SSE → 按事件名分发回调。
  *

@@ -1,5 +1,5 @@
 /**
- * weifuwu/client 测试环境 setup
+ * weifuwu/ui-dom 测试环境 setup
  *
  * 在每个测试文件开头调用：
  * ```ts

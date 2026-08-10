@@ -40,7 +40,7 @@ declare module '../types.ts' {
     ui: {
       /** Tagged template → HTML Response */
       html: UiHtmlTag
-      /** 编译 TSX → JS bundle Response（支持包名 weifuwu/client 或文件路径） */
+      /** 编译 TSX → JS bundle Response（支持包名 weifuwu/ui-dom 或文件路径） */
       js: (entryPath: string) => Promise<Response>
       /** 读取 CSS → CSS Response（支持包名 weifuwu/layout、weifuwu/components/style.css 或文件路径） */
       css: (entryPath: string) => Promise<Response>

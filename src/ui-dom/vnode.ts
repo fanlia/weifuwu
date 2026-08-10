@@ -1,10 +1,10 @@
 /**
- * weifuwu/client VNode — 虚拟 DOM 节点
+ * weifuwu/ui-dom VNode — 虚拟 DOM 节点
  *
  * VNode 是纯 JS 对象，不依赖 DOM。组件返回 VNode。
  *
  * h/jsx 由 esbuild JSX 编译调用：
- *   --jsxImportSource=weifuwu/client
+ *   --jsxImportSource=weifuwu/ui-dom
  */
 
 import type { WfuiContext } from './types.ts'

@@ -1,5 +1,5 @@
 /**
- * weifuwu/client 类型定义
+ * weifuwu/ui-dom 类型定义
  */
 
 import type { UseChatHandle, UseChatOptions } from './use-chat.ts'

@@ -1,5 +1,5 @@
 /**
- * weifuwu/client VNode 类型与工厂函数测试
+ * weifuwu/ui-dom VNode 类型与工厂函数测试
  */
 
 import { describe, it } from 'node:test'

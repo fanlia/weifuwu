@@ -1,5 +1,5 @@
 /**
- * weifuwu/client auth — 认证中间件测试
+ * weifuwu/ui-dom auth — 认证中间件测试
  */
 
 import { describe, it, before, beforeEach } from 'node:test'

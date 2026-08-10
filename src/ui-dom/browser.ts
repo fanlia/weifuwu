@@ -1,5 +1,5 @@
 /**
- * weifuwu/client — 浏览器环境抽象（ctx.browser 的客户端实现）
+ * weifuwu/ui-dom — 浏览器环境抽象（ctx.browser 的客户端实现）
  *
  * 组件不直接引用 window/document——统一经 ctx.browser：
  * ① SSR 安全（createSsrContext 注入安全默认）② 测试可 mock

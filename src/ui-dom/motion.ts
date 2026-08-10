@@ -1,5 +1,5 @@
 /**
- * weifuwu/client — 动效工具
+ * weifuwu/ui-dom — 动效工具
  *
  * animateOut：挂 --exit 类播退场动画，animationend 后回调。
  * - reduced-motion 下动画时长被 _base.css 降为 0.01ms，animationend 立即触发，等效瞬时关闭

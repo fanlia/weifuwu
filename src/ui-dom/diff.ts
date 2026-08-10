@@ -1,5 +1,5 @@
 /**
- * weifuwu/client 增量 diff — patchValue 及全部 diff 辅助
+ * weifuwu/ui-dom 增量 diff — patchValue 及全部 diff 辅助
  *
  * 从 render.ts 拆出（P2 结构拆分）。依赖方向：
  *   diff.ts → render.ts（renderValue/mountComponent/patchPortal/renderPortal）

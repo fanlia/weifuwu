@@ -1,5 +1,5 @@
 /**
- * weifuwu/client Hydration（游标收养）— 收养服务端 HTML，不重建 DOM
+ * weifuwu/ui-dom Hydration（游标收养）— 收养服务端 HTML，不重建 DOM
  *
  * 从 render.ts 拆出（P2 结构拆分）。依赖：render.ts（flattenChildren/SVG 常量）、
  * diff.ts（patchProps）、registry.ts（idRegistry/nextComponentId/resolveAsyncFactory）。

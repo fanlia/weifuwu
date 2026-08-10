@@ -1,13 +1,13 @@
 /**
- * weifuwu/client api — HTTP 客户端中间件
+ * weifuwu/ui-dom api — HTTP 客户端中间件
  *
  * 注入 ctx.api，提供类型友好的 fetch 封装。
  * 支持 baseURL、默认 headers、请求/响应拦截器。
  *
  * ```ts
- * import { createApp, api } from 'weifuwu/client'
+ * import { UIRouter, api } from 'weifuwu/ui-dom'
  *
- * const app = createApp()
+ * const app = new UIRouter()
  * app.use(api({ baseURL: '/api' }))
  *
  * // 在组件中：

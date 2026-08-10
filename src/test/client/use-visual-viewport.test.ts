@@ -1,5 +1,5 @@
 /**
- * weifuwu/client — ctx.ui.useVisualViewport 测试（TDD）
+ * weifuwu/ui-dom — ctx.ui.useVisualViewport 测试（TDD）
  *
  * 覆盖：
  *   - 返回响应式 { height, offsetTop }（初始 = innerHeight / 0）

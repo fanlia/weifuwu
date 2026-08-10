@@ -1,5 +1,5 @@
 /**
- * weifuwu/client ctx.ui 工厂 — createApp 注入的 UI 能力
+ * weifuwu/ui-dom ctx.ui 工厂 — createApp 注入的 UI 能力
  *
  * 从 app.ts 拆出（P2 结构拆分）。createUi(deps) 返回完整 ui 对象：
  * render / dirty / $ / useChat / useMedia / useBreakpoint / usePopupPosition / selfId

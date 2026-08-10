@@ -1,5 +1,5 @@
 /**
- * weifuwu/client — ctx.ui.usePopupPosition 测试
+ * weifuwu/ui-dom — ctx.ui.usePopupPosition 测试
  *
  * 覆盖：
  *   - 返回 pos 对象（top/left 初始 0 + refresh）

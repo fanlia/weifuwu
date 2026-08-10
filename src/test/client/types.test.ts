@@ -1,5 +1,5 @@
 /**
- * weifuwu/client types — extendCtx 测试
+ * weifuwu/ui-dom types — extendCtx 测试
  */
 
 import { describe, it } from 'node:test'

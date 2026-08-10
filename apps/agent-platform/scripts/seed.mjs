@@ -275,7 +275,7 @@ Agent Platform 是一个多租户 AI Agent 平台，基于 weifuwu 框架构建�
 
 ## 系统架构
 
-前端使用 weifuwu/client 信号驱动 UI，后端使用 weifuwu Router + Postgres + 可选的 Redis。`
+前端使用 weifuwu/ui-dom 信号驱动 UI，后端使用 weifuwu Router + Postgres + 可选的 Redis。`
   const [doc1] = await sql`
     INSERT INTO kb_documents (agent_id, filename, content, chunk_count)
     VALUES (${kbAgent.id}, '产品介绍.md', ${doc1Content}, 2)
