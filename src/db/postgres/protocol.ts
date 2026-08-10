@@ -7,6 +7,8 @@
  * 响应解析辅助: authCode / parseRowDescription / parseDataRow / readyStatus / parseErrorFields
  */
 
+import { ProtocolError } from '../errors.ts'
+
 /** 客户端消息类型 */
 export type ClientMessageType = 'Q' | 'P' | 'B' | 'E' | 'S' | 'X' | 'p' | 'd' | 'H' | 'C' | 'D' | 'c' | 'f'
 
@@ -188,6 +190,8 @@ export function passwordMessage(password: string): Uint8Array {
 export class MessageStream {
   private buf: Uint8Array = new Uint8Array(0)
   private off = 0
+  /** 不完整消息缓冲上限（DoS 防御：伪造巨大帧头/缓慢喂入——超过即抛，杜绝 O(n²) concat 累积） */
+  static readonly MAX_BUFFER = 1 << 20 // 1MB
 
   push(chunk: Uint8Array): Message[] {
     this.append(chunk)
@@ -214,7 +218,17 @@ export class MessageStream {
       this.off = 0
       return
     }
-    const merged = new Uint8Array(rest + chunk.length)
+    const need = rest + chunk.length
+    if (need > MessageStream.MAX_BUFFER) {
+      throw new ProtocolError(`postgres: 不完整消息超过缓冲上限（${MessageStream.MAX_BUFFER} 字节）——DoS 防御`)
+    }
+    // 加倍增长（amortized O(1)——避免每 chunk 全量 concat 的 O(n²)）
+    if (this.buf.length >= need) {
+      this.buf.set(chunk, rest)
+      this.off = 0
+      return
+    }
+    const merged = new Uint8Array(Math.max(need, this.buf.length * 2))
     merged.set(this.buf.subarray(this.off), 0)
     merged.set(chunk, rest)
     this.buf = merged
@@ -234,8 +248,10 @@ export class MessageStream {
   /** 尝试读一条完整消息；不完整返回 null（不消费） */
   private tryRead(): Message | null {
     if (this.buf.length - this.off < 5) return null
+    // >>> 0：无符号读取（<< 是有符号 32 位——0xffffffff 帧头变负 → off 负向移动 → 无限消息 OOM）
     const len =
-      (this.buf[this.off + 1] << 24) | (this.buf[this.off + 2] << 16) | (this.buf[this.off + 3] << 8) | this.buf[this.off + 4]
+      (((this.buf[this.off + 1] << 24) | (this.buf[this.off + 2] << 16) | (this.buf[this.off + 3] << 8) | this.buf[this.off + 4]) >>> 0)
+    if (len === 0 || len > MessageStream.MAX_BUFFER) return null // 帧长 0 或超上限——视为不完整（DoS 防御）
     if (this.buf.length - this.off < 1 + len) return null
     const type = String.fromCharCode(this.buf[this.off])
     const payload = this.buf.subarray(this.off + 5, this.off + 1 + len)

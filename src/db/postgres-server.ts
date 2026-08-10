@@ -242,9 +242,9 @@ export class MemoryPostgresServer implements DBServer {
         off += 2
         const params: unknown[] = []
         for (let i = 0; i < paramCount; i++) {
-          const len = (msg.payload[off] << 24) | (msg.payload[off + 1] << 16) | (msg.payload[off + 2] << 8) | msg.payload[off + 3]
+          const len = (((msg.payload[off] << 24) | (msg.payload[off + 1] << 16) | (msg.payload[off + 2] << 8) | msg.payload[off + 3]) >>> 0)
           off += 4
-          if (len === -1) {
+          if (len === 0xffffffff) {
             params.push(null)
           } else {
             const raw = _decoder.decode(msg.payload.subarray(off, off + len))

@@ -30,59 +30,75 @@ interface Token {
 }
 
 function tokenize(sql: string): Token[] {
+  // 状态机词法：Start → (InString/InNumber/InIdent/InParam) → Start
+  // 循环不变量：每轮 i 严格前进 ≥1 或抛 ProtocolError——空消费路径物理不可能
+  // 字符分类 charCodeAt 查表 O(1)（替代逐字符正则 + ops 线性扫描）
   const tokens: Token[] = []
   let i = 0
-  while (i < sql.length) {
-    const ch = sql[i]
-    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') { i++; continue }
-    if (ch === '(') { tokens.push({ type: 'lparen', value: '(' }); i++; continue }
-    if (ch === ')') { tokens.push({ type: 'rparen', value: ')' }); i++; continue }
-    if (ch === ',') { tokens.push({ type: 'comma', value: ',' }); i++; continue }
-    if (ch === '*') { tokens.push({ type: 'star', value: '*' }); i++; continue }
-    if (ch === '$') {
+  const n = sql.length
+  while (i < n) {
+    const start = i
+    const c = sql.charCodeAt(i)
+    // ── 空白（状态：Start → Start，消费）──
+    if (c === 32 || c === 9 || c === 10 || c === 13) { i++; continue }
+    // ── 单字符符号（状态转移：消费 1 字符 → 产 token）──
+    if (c === 40) { tokens.push({ type: 'lparen', value: '(' }); i++; continue }
+    if (c === 41) { tokens.push({ type: 'rparen', value: ')' }); i++; continue }
+    if (c === 44) { tokens.push({ type: 'comma', value: ',' }); i++; continue }
+    if (c === 42) { tokens.push({ type: 'star', value: '*' }); i++; continue }
+    // ── 参数状态（$ 后数字；无数字则 $ 单独——值解析时抛）──
+    if (c === 36) {
       let j = i + 1
-      while (j < sql.length && /\d/.test(sql[j])) j++
+      while (j < n && sql.charCodeAt(j) >= 48 && sql.charCodeAt(j) <= 57) j++
       tokens.push({ type: 'param', value: sql.slice(i, j) })
-      i = j
+      i = j // j > i——严格前进
       continue
     }
-    if (ch === "'") {
-      // 引号字符串（'' 转义）
+    // ── 字符串状态（'' 转义；未闭合消费到结尾——i 前进退出）──
+    if (c === 39) {
       let j = i + 1
       let s = ''
-      while (j < sql.length) {
-        if (sql[j] === "'") {
-          if (sql[j + 1] === "'") { s += "'"; j += 2; continue }
+      while (j < n) {
+        const sc = sql.charCodeAt(j)
+        if (sc === 39) {
+          if (sql.charCodeAt(j + 1) === 39) { s += "'"; j += 2; continue }
           break
         }
         s += sql[j]
         j++
       }
       tokens.push({ type: 'string', value: s })
-      i = j + 1
+      i = j + 1 // ≥ i+2——严格前进
       continue
     }
-    if (/[0-9]/.test(ch) || (ch === '-' && /[0-9]/.test(sql[i + 1] ?? ''))) {
-      let j = i
-      if (ch === '-') j++ // 负号——消费从数字开始
-      while (j < sql.length && /[0-9.]/.test(sql[j])) j++
+    // ── 数字状态（数字开头或负号后数字）──
+    const isDigit = c >= 48 && c <= 57
+    const isNegDigit = c === 45 && sql.charCodeAt(i + 1) >= 48 && sql.charCodeAt(i + 1) <= 57
+    if (isDigit || isNegDigit) {
+      let j = i + (isNegDigit ? 1 : 0)
+      while (j < n && ((sql.charCodeAt(j) >= 48 && sql.charCodeAt(j) <= 57) || sql.charCodeAt(j) === 46)) j++
       tokens.push({ type: 'number', value: sql.slice(i, j) })
-      i = j
+      i = j // j > i——严格前进
       continue
     }
-    // 操作符（最长匹配）
-    const ops = ['>=', '<=', '<>', '!=', '::', '=', '>', '<', '+', '-', '*', '/']
-    const matched = ops.find((op) => sql.startsWith(op, i))
-    if (matched) { tokens.push({ type: 'op', value: matched }); i += matched.length; continue }
-    // 标识符（含 . 与 _）
-    if (/[a-zA-Z_]/.test(ch)) {
+    // ── 操作符（最长匹配）──
+    const two = sql.slice(i, i + 2)
+    const twoOp = two === '>=' || two === '<=' || two === '<>' || two === '!=' || two === '::' ? two : ''
+    if (twoOp) { tokens.push({ type: 'op', value: twoOp }); i += 2; continue }
+    if (c === 61 || c === 62 || c === 60 || c === 43 || c === 45 || c === 47) {
+      tokens.push({ type: 'op', value: sql[i] }); i++; continue
+    }
+    // ── 标识符状态（字母/_ 开头；含 . 与 _）──
+    const isLetter = (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95
+    if (isLetter) {
       let j = i
-      while (j < sql.length && /[a-zA-Z0-9_.]/.test(sql[j])) j++
+      while (j < n && ((sql.charCodeAt(j) >= 48 && sql.charCodeAt(j) <= 57) || (sql.charCodeAt(j) >= 65 && sql.charCodeAt(j) <= 90) || (sql.charCodeAt(j) >= 97 && sql.charCodeAt(j) <= 122) || sql.charCodeAt(j) === 95 || sql.charCodeAt(j) === 46)) j++
       tokens.push({ type: 'ident', value: sql.slice(i, j) })
-      i = j
+      i = j // j > i——严格前进
       continue
     }
-    throw new ProtocolError(`memory-sql: 无法解析的字符 '${ch}'（位置 ${i}）`)
+    // ── 状态机安全网：任何未处理字符 = 抛错（空消费即抛——死循环不可能）──
+    throw new ProtocolError(`memory-sql: 无法解析的字符 '${sql[i]}'（位置 ${i}）`)
   }
   tokens.push({ type: 'eof', value: '' })
   return tokens
@@ -93,8 +109,15 @@ function tokenize(sql: string): Token[] {
 export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
   const tokens = tokenize(sql.replace(/;$/, '').trim())
   let pos = 0
-  const peek = (): Token => tokens[pos]
-  const next = (): Token => tokens[pos++]
+  // failsafe：步骤计数——任何解析逻辑漏洞超限即抛（死循环物理不可能）
+  let steps = 0
+  const MAX_STEPS = 1_000_000
+  const peek = (): Token => (pos < tokens.length ? tokens[pos] : tokens[tokens.length - 1])
+  const next = (): Token => {
+    if (++steps > MAX_STEPS) throw new ProtocolError('memory-sql: 解析器超出最大步骤限制（内部错误）')
+    if (pos >= tokens.length) throw new ProtocolError('memory-sql: 解析器 token 越界（输入截断？）')
+    return tokens[pos++]
+  }
   const expect = (type: TokenType, what: string): Token => {
     const t = next()
     if (t.type !== type) throw new ProtocolError(`memory-sql: 期望 ${what}，得到 '${t.value}'`)
@@ -176,6 +199,7 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
       let depth = 1
       while (depth > 0) {
         const t = next()
+        if (t.type === 'eof') throw new ProtocolError('memory-sql: 派生表缺少闭合右括号（FROM (SELECT ...）')
         if (t.type === 'lparen') depth++
         if (t.type === 'rparen') depth--
         if (depth > 0) inner = appendToken(inner, t.type === 'string' ? `'${t.value.replace(/'/g, "''")}'` : t.value)
