@@ -11,7 +11,7 @@
  * 启动: node apps/layouts-demo/server.ts → http://localhost:3001
  */
 
-import { createApp, h } from 'weifuwu/client'
+import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
 import type { Component } from 'weifuwu/client'
 import { Badge, Button, CodeBlock, Drawer, Icon, Tag, Text, Space } from 'weifuwu/components'
 
@@ -138,4 +138,6 @@ const Shell: Component = (_init, ctx) => {
   }
 }
 
-createApp().mount('#root', Shell)
+const app = new UIRouter()
+app.get('/', () => h(Shell, {}))
+uiServe(app, { root: '#root' })

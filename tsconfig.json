@@ -15,7 +15,11 @@
       "node"
     ],
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "weifuwu/ui-dom": ["./src/ui-dom/index.ts"],
+      "weifuwu/ui-dom/jsx-runtime": ["./src/ui-dom/jsx-runtime.ts"]
+    }
   },
   "include": [
     "src/*.ts",
