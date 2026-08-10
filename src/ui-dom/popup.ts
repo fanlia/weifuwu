@@ -23,6 +23,9 @@ export type Placement = 'top' | 'bottom' | 'left' | 'right'
  * @param gap 间距（px），默认 6
  * @param center 是否居中于触发元素，默认 true
  */
+import { createClientBrowser } from './browser.ts'
+const browser = createClientBrowser()
+
 export function computeFixedPosRect(
   rect: DOMRect,
   placement: Placement = 'bottom',
@@ -102,8 +105,8 @@ export function clampToViewport(
     left: r.left + dx,
     right: r.right + dx,
   }
-  const vw = window.innerWidth
-  const vh = window.innerHeight
+  const vw = browser.viewportWidth()
+  const vh = browser.viewportHeight()
   let top = pos.top
   let left = pos.left
   // 垂直：底部/顶部超出 → 平移回视口（下限 margin，不反向越界）

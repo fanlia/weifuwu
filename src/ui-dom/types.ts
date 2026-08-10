@@ -188,6 +188,26 @@ export interface BrowserEnv {
   queryAll(sel: string): NodeListOf<Element> | null
   /** 创建元素 */
   createElement<K extends keyof HTMLElementTagNameMap>(tag: K): HTMLElementTagNameMap[K] | null
+  /** 创建 SVG/命名空间元素 */
+  createElementNS(ns: string, tag: string): Element | null
+  /** 创建文档片段 */
+  createDocumentFragment(): DocumentFragment | null
+  /** 创建注释节点 */
+  createComment(text: string): Comment | null
+  /** 创建文本节点 */
+  createTextNode(text: string): Text | null
+  /** 全局事件监听（scroll/resize/popstate 等） */
+  addEventListener(type: string, fn: (e: any) => void, options?: any): void
+  /** 全局事件移除 */
+  removeEventListener(type: string, fn: (e: any) => void, options?: any): void
+  /** 滚动到指定 y（window.scrollTo） */
+  scrollTo(y: number): void
+  /** 媒体查询（组件 useMedia 入口） */
+  matchMedia(query: string): MediaQueryList | null
+  /** 视觉视口（键盘弹起感知——完整对象，含 addEventListener 监听） */
+  visualViewport(): VisualViewport | null
+  /** scrollingElement（滚动量读取优先源） */
+  scrollingElement(): Element | null
   /** body 引用（容器/断言） */
   bodyElement(): HTMLElement | null
   /** body 追加/移除 */
@@ -219,6 +239,8 @@ export interface BrowserEnv {
   viewportHeight(): number
   /** 视口宽度 */
   viewportWidth(): number
+  /** 当前位置路径（location.pathname） */
+  pathname(): string
   /** 滚动量（scrollingElement 优先） */
   scrollTop(): number
   /** location.hash */

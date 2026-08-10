@@ -18,6 +18,19 @@ export function createClientBrowser(): BrowserEnv {
     query: (sel) => (typeof document !== 'undefined' ? document.querySelector(sel) : null),
     queryAll: (sel) => (typeof document !== 'undefined' ? document.querySelectorAll(sel) : null),
     createElement: (tag) => (typeof document !== 'undefined' ? document.createElement(tag) as HTMLElementTagNameMap[typeof tag] : null),
+    createElementNS: (ns, tag) => (typeof document !== 'undefined' ? document.createElementNS(ns, tag) : null),
+    createDocumentFragment: () => (typeof document !== 'undefined' ? document.createDocumentFragment() : null),
+    createComment: (text) => (typeof document !== 'undefined' ? document.createComment(text) : null),
+    createTextNode: (text) => (typeof document !== 'undefined' ? document.createTextNode(text) : null),
+    addEventListener: (type, fn, options) => { if (typeof window !== 'undefined') window.addEventListener(type, fn, options) },
+    removeEventListener: (type, fn, options) => { if (typeof window !== 'undefined') window.removeEventListener(type, fn, options) },
+    scrollTo: (y) => { if (typeof window !== 'undefined') window.scrollTo(0, y) },
+    matchMedia: (query) => (typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia(query) : null),
+    visualViewport: () => {
+      const w = typeof window !== 'undefined' ? window : null
+      return w?.visualViewport ?? null
+    },
+    scrollingElement: () => (typeof document !== 'undefined' ? (document.scrollingElement as Element | null) : null),
     bodyElement: () => (typeof document !== 'undefined' ? document.body : null),
     bodyAppend: (el) => { if (typeof document !== 'undefined') document.body.appendChild(el) },
     bodyRemove: (el) => { if (typeof document !== 'undefined' && el.parentNode) document.body.removeChild(el) },
@@ -66,6 +79,7 @@ export function createClientBrowser(): BrowserEnv {
     getSelection: () => (typeof window !== 'undefined' ? window.getSelection() : null),
     viewportHeight: () => (typeof window !== 'undefined' ? window.innerHeight : 0),
     viewportWidth: () => (typeof window !== 'undefined' ? window.innerWidth : 0),
+    pathname: () => (typeof window !== 'undefined' ? window.location.pathname : ''),
     createTreeWalker: (root, whatToShow) => (typeof document !== 'undefined' ? document.createTreeWalker(root, whatToShow ?? NodeFilter.SHOW_ALL) : null),
     scrollTop: () => {
       const d = typeof document !== 'undefined' ? document : null

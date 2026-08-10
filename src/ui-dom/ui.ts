@@ -8,7 +8,8 @@
  * 消除 app.ts 中散落的 `as any`——跨模块状态误用由编译器拦截。
  */
 
-import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle, UsePopupOptions, UsePopupHandle, UseLongPressOptions, UseLongPressHandle, VisualViewportHandle } from './types.ts'
+import { createClientBrowser } from './browser.ts'
+import type { WfuiContext, PopupPositionOptions, PopupPosition, UseAsyncHandle, UseInViewOptions, UseInViewHandle, UseScrollPositionOptions, UseScrollPositionHandle, UsePopupOptions, UsePopupHandle, UseLongPressOptions, UseLongPressHandle, VisualViewportHandle, BrowserEnv } from './types.ts'
 import type { VNode } from './vnode.ts'
 import { getRegistry, onComponentUnmountFor } from './registry.ts'
 import { lockScroll, unlockScroll } from './scroll-lock.ts'
@@ -89,6 +90,7 @@ const openStates = new Map<string, boolean>()
 
 export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
   const { ctx, renderByIds, getSelfId, dirtyBatch, dirtySet, mediaRegistry, popupTrackers, scrollTrackers, schedulePopupRecompute, ensurePopupListeners, isRendering, isMounting, setMounting, endMounting } = deps
+  const b = (ctx.browser ?? createClientBrowser()) as BrowserEnv
   // 注册表实例：serve 注入局部（隔离）；缺省回退 ctx.__registry
   const reg = deps.registry ?? getRegistry(ctx)
   const unmount = (hook: (id: string) => void) => onComponentUnmountFor(reg, hook)
@@ -232,7 +234,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       const selfId = getSelfId(this)
       const key = `media:${selfId}:${query}`
       if (!mediaRegistry.has(key)) {
-        const mql = window.matchMedia(query)
+        const mql = b.matchMedia(query) as MediaQueryList
         // 立即回调当前值
         callback(mql.matches)
         // 注册变化监听
@@ -264,7 +266,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
 
       function evaluate(): string {
         for (const [name, query] of Object.entries(bps)) {
-          if (window.matchMedia(query).matches) return name
+          if ((b.matchMedia(query) as MediaQueryList).matches) return name
         }
         return Object.keys(bps)[0] ?? ''
       }
@@ -275,7 +277,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         // 为每个断点注册 change 监听，变化时重新求值（卸载时逐个退订）
         const mqls: Array<{ mql: MediaQueryList; handler: () => void }> = []
         for (const query of Object.values(bps)) {
-          const mql = window.matchMedia(query)
+          const mql = b.matchMedia(query) as MediaQueryList
           const handler = () => cb(evaluate())
           mql.addEventListener('change', handler)
           mqls.push({ mql, handler })
@@ -358,7 +360,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
     useVisualViewport: function (): VisualViewportHandle {
       const selfId = getSelfId(this)
       const handle: VisualViewportHandle = {
-        height: window.innerHeight,
+        height: b.viewportHeight(),
         offsetTop: 0,
         keyboardOpen: false,
       }
@@ -367,18 +369,18 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         ctx.ui!.dirty(selfId ? [selfId] : undefined)
       }
       const update = () => {
-        const vv = window.visualViewport
-        handle.height = vv?.height ?? window.innerHeight
+        const vv = b.visualViewport()
+        handle.height = vv?.height ?? b.viewportHeight()
         handle.offsetTop = vv?.offsetTop ?? 0
-        handle.keyboardOpen = handle.height < window.innerHeight * 0.9
+        handle.keyboardOpen = handle.height < b.viewportHeight() * 0.9
         dirty()
       }
-      const vv = window.visualViewport
+      const vv = b.visualViewport()
       if (vv?.addEventListener) {
         vv.addEventListener('resize', update)
         vv.addEventListener('scroll', update)
       } else {
-        window.addEventListener('resize', update)
+        b.addEventListener('resize', update)
       }
       if (selfId) {
         const unsub = unmount((id) => {
@@ -387,7 +389,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
             vv.removeEventListener('resize', update)
             vv.removeEventListener('scroll', update)
           } else {
-            window.removeEventListener('resize', update)
+            b.removeEventListener('resize', update)
           }
           unsub()
         })
@@ -458,13 +460,13 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         if (e.key !== 'Escape' || !isOpen()) return
         setOpen(false)
       }
-      document.addEventListener('mousedown', onDocMouseDown)
-      document.addEventListener('keydown', onDocKeyDown)
+      b.addEventListener('mousedown', onDocMouseDown)
+      b.addEventListener('keydown', onDocKeyDown)
       if (selfId) {
         const unsub = unmount((id) => {
           if (id === selfId) {
-            document.removeEventListener('mousedown', onDocMouseDown)
-            document.removeEventListener('keydown', onDocKeyDown)
+            b.removeEventListener('mousedown', onDocMouseDown)
+            b.removeEventListener('keydown', onDocKeyDown)
             unsub()
           }
         })
@@ -744,7 +746,7 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         refresh() {
           const scroller = tracker.getScroller()
           handle.y = scroller instanceof Window
-            ? (document.scrollingElement?.scrollTop ?? (scroller as Window).scrollY ?? 0)
+            ? (b.scrollingElement()?.scrollTop ?? b.scrollTop())
             : (scroller as HTMLElement).scrollTop ?? 0
         },
       }
@@ -1006,11 +1008,11 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
     useGlobalKey: function (handler: (e: KeyboardEvent) => void) {
       const selfId = getSelfId(this)
       if (typeof window === 'undefined') return () => {}
-      window.addEventListener('keydown', handler)
+      b.addEventListener('keydown', handler)
       if (selfId) {
-        const unsub = unmount((id) => { if (id === selfId) { window.removeEventListener('keydown', handler); unsub() } })
+        const unsub = unmount((id) => { if (id === selfId) { b.removeEventListener('keydown', handler); unsub() } })
       }
-      return () => window.removeEventListener('keydown', handler)
+      return () => b.removeEventListener('keydown', handler)
     },
 
     /**
@@ -1031,8 +1033,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
       const onPointerUp = (e: PointerEvent) => {
         if (!active) return
         active = false
-        window.removeEventListener('pointermove', onPointerMove)
-        window.removeEventListener('pointerup', onPointerUp)
+        b.removeEventListener('pointermove', onPointerMove)
+        b.removeEventListener('pointerup', onPointerUp)
         options.onEnd?.(e)
       }
       const onPointerDown = (e: PointerEvent) => {
@@ -1042,8 +1044,8 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
         active = true
         startX = e.clientX
         startY = e.clientY
-        window.addEventListener('pointermove', onPointerMove)
-        window.addEventListener('pointerup', onPointerUp)
+        b.addEventListener('pointermove', onPointerMove)
+        b.addEventListener('pointerup', onPointerUp)
         options.onStart?.(e)
       }
       return { onPointerDown }

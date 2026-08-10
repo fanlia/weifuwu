@@ -10,6 +10,8 @@ import type { UiInternal } from './ui.ts'
 import { Fragment, Portal, isAsyncComponent } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 import { flattenChildren, SVG_NS, SVG_TAGS } from './render.ts'
+import { createClientBrowser } from './browser.ts'
+import type { BrowserEnv } from './types.ts'
 import { patchProps } from './diff.ts'
 import { getRegistry, nextComponentIdFor, resolveAsyncFactory } from './registry.ts'
 
@@ -48,6 +50,7 @@ function cursorReplace(c: HydrationCursor, n: Node) {
  * async：await 工厂（hydration 时 __DATA__ 同步命中，微任务即 resolve）。
  */
 async function renderValueHydrating(v: any, ctx: WfuiContext, c: HydrationCursor): Promise<Node | null> {
+  const b = (ctx.browser ?? createClientBrowser()) as BrowserEnv
   if (v == null || typeof v === 'boolean') return null
   if (typeof v === 'string' || typeof v === 'number') {
     const text = String(v)
@@ -56,7 +59,7 @@ async function renderValueHydrating(v: any, ctx: WfuiContext, c: HydrationCursor
       cursorAdvance(c)
       return c.node
     }
-    const tn = document.createTextNode(text)
+    const tn = b.createTextNode(text) as Text
     cursorInsert(c, tn)
     return tn
   }
@@ -95,7 +98,7 @@ async function renderValueHydrating(v: any, ctx: WfuiContext, c: HydrationCursor
     el = c.node as Element
     cursorAdvance(c)
   } else {
-    el = SVG_TAGS.has(tag) ? document.createElementNS(SVG_NS, tag) : document.createElement(tag)
+    el = (SVG_TAGS.has(tag) ? b.createElementNS(SVG_NS, tag) : b.createElement(tag as keyof HTMLElementTagNameMap)) as Element
     cursorReplace(c, el)
   }
   vnode.el = el

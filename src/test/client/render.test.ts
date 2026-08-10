@@ -101,7 +101,7 @@ describe('render', () => {
     const container = browser.createElement('div')
     const v1 = jsx('div', { style: { '--wf-sidebar-width': '240px', color: 'red' } })
     const v2 = jsx('div', { style: { '--wf-sidebar-width': '64px', color: 'blue' } })
-    mountVNode(container, v1)
+    mountVNode(container, v1, ctx)
     const el = container.firstChild as HTMLElement
     patchValue(container, el, v1, v2, ctx)
     assert.equal(el.style.getPropertyValue('--wf-sidebar-width'), '64px', 'patch 后 CSS 变量更新')

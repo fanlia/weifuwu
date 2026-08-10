@@ -2,6 +2,9 @@
  * weifuwu/client — ScrollLock
  */
 
+import { createClientBrowser } from './browser.ts'
+const browser = createClientBrowser()
+
 let lockedCount = 0
 let originalOverflow = ''
 let originalPosition = ''
@@ -18,8 +21,8 @@ export function lockScroll(): void {
   if (lockedCount > 1) return
   if (!canLock()) return
 
-  scrollY = window.scrollY
-  const body = document.body
+  scrollY = browser.scrollTop()
+  const body = browser.bodyElement() as HTMLElement
   originalOverflow = body.style.overflow
   originalPosition = body.style.position
   originalTop = body.style.top
@@ -44,11 +47,11 @@ export function unlockScroll(): void {
   if (lockedCount > 0) return
   if (!canLock()) return
 
-  const body = document.body
+  const body = browser.bodyElement() as HTMLElement
   body.style.overflow = originalOverflow
   body.style.position = originalPosition
   body.style.top = originalTop
   body.style.width = originalWidth
 
-  if (scrollY > 0) window.scrollTo(0, scrollY)
+  if (scrollY > 0) browser.scrollTo(scrollY)
 }

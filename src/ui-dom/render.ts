@@ -15,24 +15,29 @@ import { Fragment, Portal, isPortal, isAsyncComponent } from './vnode.ts'
 import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import type { WfuiContext } from './types.ts'
+import type { BrowserEnv } from './types.ts'
+import { createClientBrowser } from './browser.ts'
 import { getRegistry, nextComponentIdFor, safeCallRef } from './registry.ts'
 import { startAsyncFactory, resolveAsyncFactorySync, resolveAsyncFactory } from './registry.ts'
 // ⚠️ 与 diff.ts 的环：renderValue（本文件）↔ patchKeyedChildren（diff.ts）互相需要。
 // 安全原因：两模块顶层仅常量声明，全部函数级延迟调用（渲染运行时两模块均已加载）。
 import { patchProps, normalize, ensureKeys, patchKeyedChildren, mapChildDomNodes } from './diff.ts'
 
+const clientBrowser = createClientBrowser()
 export const SVG_NS = 'http://www.w3.org/2000/svg'
 export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'line', 'rect', 'text', 'g', 'polyline', 'polygon', 'ellipse', 'defs', 'use', 'clipPath', 'mask', 'linearGradient', 'radialGradient', 'stop', 'tspan'])
 
 // ── render ─────────────────────────────────────────────
 
 export function render(input: VNodeChild, ctx: WfuiContext): Node | null {
+  const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   return renderValue(input, ctx)
 }
 
 export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
+  const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   if (v == null || typeof v === 'boolean') return null
-  if (typeof v === 'string' || typeof v === 'number') return document.createTextNode(String(v))
+  if (typeof v === 'string' || typeof v === 'number') return b.createTextNode(String(v))
   if (Array.isArray(v)) return renderArray(v, ctx)
 
   const vnode = v as VNode
@@ -45,7 +50,7 @@ export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
 
   // Fragment
   if (vnode.type === Fragment) {
-    const frag = document.createDocumentFragment()
+    const frag = b.createDocumentFragment() as DocumentFragment
     const children = vnode.props?.children == null ? [] : (Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children])
     for (const child of children) {
       const node = renderValue(child, ctx)
@@ -64,8 +69,11 @@ export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
 
   // Native element（SVG 元素必须用 createElementNS）
   const tag = vnode.type as string
-  const el = SVG_TAGS.has(tag) ? document.createElementNS(SVG_NS, tag) : document.createElement(tag)
-  vnode.el = el
+  const el = SVG_TAGS.has(tag)
+    ? b.createElementNS(SVG_NS, tag)
+    : b.createElement(tag as keyof HTMLElementTagNameMap)
+  if (!el) return null
+  vnode.el = el as Element
 
   // 先设非 value 属性
   let selectValue: any
@@ -135,6 +143,7 @@ export function mountComponent(
   vnode: VNode,
   ctx: WfuiContext,
 ): VNode | null {
+  const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   let def: Component | undefined
   if (isAsyncComponent(Comp)) {
     def = resolveAsyncFactorySync(getRegistry(ctx), Comp)
@@ -177,6 +186,7 @@ function renderComponent(
   vnode: VNode,
   ctx: WfuiContext,
 ): Node | null {
+  const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   // ctx.ui 由 createApp 注入（类型必需字段）——此处不补默认（原 ?? {} 是历史防御，
   // 组件渲染必然在 createApp.mount 之后）
 
@@ -221,7 +231,7 @@ function renderComponent(
     // 注释占位提供 _refNode，使 renderByIds 能推导 _parentNode 并替换为 fallback。
     const errHandler = (childCtx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
     if (errHandler) {
-      const placeholder = document.createComment('wf-empty')
+      const placeholder = b.createComment('wf-empty')
       vnode._refNode = placeholder
       return placeholder
     }
@@ -239,7 +249,8 @@ function renderComponent(
 }
 
 function renderArray(arr: VNodeChild[], ctx: WfuiContext): DocumentFragment {
-  const frag = document.createDocumentFragment()
+  const b = (ctx.browser ?? clientBrowser) as BrowserEnv
+  const frag = b.createDocumentFragment() as DocumentFragment
   for (const item of arr) {
     const node = renderValue(item, ctx)
     if (node != null) frag.appendChild(node)
@@ -251,20 +262,23 @@ function renderArray(arr: VNodeChild[], ctx: WfuiContext): DocumentFragment {
 
 /** 获取/创建全局 Portal 容器（document.body 下） */
 function ensurePortalContainer(): HTMLDivElement {
-  let c = document.getElementById('__wf_portal') as HTMLDivElement | null
+  const b = clientBrowser as BrowserEnv
+  let c = b.byId('__wf_portal') as HTMLDivElement | null
   if (!c) {
-    c = document.createElement('div')
+    c = b.createElement('div') as HTMLDivElement
+    if (!c) throw new Error('[ui-dom] portal container creation failed')
     c.id = '__wf_portal'
     c.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999'
-    document.body.appendChild(c)
+    b.bodyAppend(c)
   }
   return c
 }
 
 /** 首次渲染 Portal：创建远程容器、渲染子节点（不返回占位节点） */
 export function renderPortal(vnode: VNode, ctx: WfuiContext): void {
+  const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   const container = ensurePortalContainer()
-  const sub = document.createElement('div')
+  const sub = b.createElement('div') as HTMLDivElement
   sub.style.pointerEvents = 'auto'
   container.appendChild(sub)
   vnode._remoteEl = sub
@@ -280,6 +294,7 @@ export function renderPortal(vnode: VNode, ctx: WfuiContext): void {
 
 /** 更新 Portal：复用远程容器，patch 子节点（不操作父 DOM） */
 export function patchPortal(oldV: VNode | null, newV: VNode, ctx: WfuiContext): void {
+  const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   const sub = oldV?._remoteEl
   newV._remoteEl = sub
   if (!sub) { renderPortal(newV, ctx); return }

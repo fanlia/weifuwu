@@ -6,7 +6,9 @@
  */
 
 import { clampToViewport } from './popup.ts'
+import { createClientBrowser } from './browser.ts'
 import type { PopupPosition } from './types.ts'
+const browser = createClientBrowser()
 
 export interface PopupTrackerEntry {
   pos: PopupPosition
@@ -58,7 +60,7 @@ export function createPopupTrackerSystem(renderByIds: (ids: string[]) => void): 
       for (const [id, st] of scrollTrackers) {
         const scroller = st.getScroller()
         const y = scroller instanceof Window
-          ? (document.scrollingElement?.scrollTop ?? (scroller as Window).scrollY ?? 0)
+          ? (browser.scrollingElement()?.scrollTop ?? browser.scrollTop())
           : (scroller as HTMLElement).scrollTop ?? 0
         if (y !== st.handle.y) {
           st.handle.y = y
@@ -74,14 +76,14 @@ export function createPopupTrackerSystem(renderByIds: (ids: string[]) => void): 
     if (popupListenersReady) return
     popupListenersReady = true
     // capture 捕获所有嵌套容器的 scroll（scroll 不冒泡）
-    window.addEventListener('scroll', schedulePopupRecompute, { capture: true, passive: true })
-    window.addEventListener('resize', schedulePopupRecompute)
+    browser.addEventListener('scroll', schedulePopupRecompute, { capture: true, passive: true })
+    browser.addEventListener('resize', schedulePopupRecompute)
   }
 
   function destroyPopupListeners() {
     if (popupListenersReady) {
-      window.removeEventListener('scroll', schedulePopupRecompute, { capture: true })
-      window.removeEventListener('resize', schedulePopupRecompute)
+      browser.removeEventListener('scroll', schedulePopupRecompute, { capture: true })
+      browser.removeEventListener('resize', schedulePopupRecompute)
       popupListenersReady = false
     }
   }

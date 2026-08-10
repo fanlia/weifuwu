@@ -43,8 +43,9 @@ export function uiServe<RC extends object = {}>(
   router: UIRouter<RC>,
   options: UIServeOptions,
 ): UIServeHandle<RC> {
+  const browser = createClientBrowser()
   const el = typeof options.root === 'string'
-    ? document.querySelector(options.root)
+    ? browser.query(options.root)
     : options.root
   if (!el) throw new Error(`uiServe: root not found: ${options.root}`)
   const root = el as Element
@@ -72,7 +73,8 @@ export function uiServe<RC extends object = {}>(
 
   // ── ctx.data（数据管道：缓存 + in-flight 合并 + __DATA__ 种子） ──
   const dataCache = new Map<string, { value?: unknown; promise?: Promise<unknown> }>()
-  const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
+  // hydration 种子契约（ssr.ts 输出 window.__DATA__ 脚本——globalThis 与 window 双查兼容 jsdom/浏览器）
+const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
   if (hydratedData && typeof hydratedData === 'object') {
     for (const [k, v] of Object.entries(hydratedData)) dataCache.set(k, { value: v })
   }
@@ -196,8 +198,8 @@ export function uiServe<RC extends object = {}>(
   // ctx.app.navigate（对齐 client router() 注入——组件导航用）
   ;(ctx as any).app = {
     navigate: (path: string) => {
-      if (router.mode === 'hash') window.location.hash = '#' + path
-      else window.history.pushState({}, '', path)
+      if (router.mode === 'hash') browser.setHash('#' + path)
+      else browser.navigate(path)
       scheduleRender()
     },
   }
@@ -255,7 +257,7 @@ export function uiServe<RC extends object = {}>(
     } catch (err) {
       console.error('[ui-dom] render error:', err)
       if (oldVNode == null) {
-        const errNode = document.createElement('div')
+        const errNode = browser.createElement('div') as HTMLDivElement
         errNode.className = 'ui-dom-error'
         errNode.textContent = `渲染错误: ${(err as Error)?.message ?? String(err)}`
         root.appendChild(errNode)
@@ -267,9 +269,9 @@ export function uiServe<RC extends object = {}>(
 
   // URL 变化监听
   const onPop = () => scheduleRender()
-  window.addEventListener('popstate', onPop)
+  browser.addEventListener('popstate', onPop)
   const onHash = () => scheduleRender()
-  if (router.mode === 'hash') window.addEventListener('hashchange', onHash)
+  if (router.mode === 'hash') browser.addEventListener('hashchange', onHash)
 
   // 首次渲染
   scheduleRender()
@@ -278,8 +280,8 @@ export function uiServe<RC extends object = {}>(
   return {
     get ctx() { return ctx as unknown as WfuiContext & RC },
     close() {
-      window.removeEventListener('popstate', onPop)
-      if (router.mode === 'hash') window.removeEventListener('hashchange', onHash)
+      browser.removeEventListener('popstate', onPop)
+      if (router.mode === 'hash') browser.removeEventListener('hashchange', onHash)
       if (oldVNode) callRefCleanupFor(oldVNode, registry)
       getPopupTracker().destroy()
       registry.idRegistry.clear()
