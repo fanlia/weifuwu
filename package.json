@@ -16,6 +16,14 @@
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
     },
+    "./ui-dom": {
+      "types": "./dist/ui-dom/index.d.ts",
+      "default": "./dist/ui-dom/index.js"
+    },
+    "./ui-dom/jsx-runtime": {
+      "types": "./dist/ui-dom/index.d.ts",
+      "default": "./dist/ui-dom/jsx-runtime.js"
+    },
     "./layout": "./dist/layout/weifuwu-layout.css",
     "./layout/style.css": "./dist/layout/weifuwu-layout.css",
     "./components": {

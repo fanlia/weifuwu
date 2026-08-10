@@ -18,6 +18,7 @@ await mkdir(distDir, { recursive: true })
 await mkdir(join(distDir, 'client'), { recursive: true })
 await mkdir(join(distDir, 'layout'), { recursive: true })
 await mkdir(join(distDir, 'components'), { recursive: true })
+await mkdir(join(distDir, 'ui-dom'), { recursive: true })
 
 
 const external = [
@@ -64,18 +65,40 @@ await esbuild.build({
   minify: true,
 })
 
+// ui-dom bundle（前端运行时——UIRouter/uiServe/渲染器/契约）
+await esbuild.build({
+  entryPoints: [join(srcDir, 'ui-dom', 'index.ts')],
+  outfile: join(distDir, 'ui-dom', 'index.js'),
+  format: 'esm',
+  platform: 'browser',
+  jsx: 'automatic',
+  jsxImportSource: 'weifuwu/ui-dom',
+  bundle: true,
+  minify: true,
+})
+
+// ui-dom/jsx-runtime
+await esbuild.build({
+  entryPoints: [join(srcDir, 'ui-dom', 'jsx-runtime.ts')],
+  outfile: join(distDir, 'ui-dom', 'jsx-runtime.js'),
+  format: 'esm',
+  platform: 'browser',
+  bundle: true,
+  minify: true,
+})
+
 // 编译组件 JS
 // 关键：把组件源码对 src/client/* 的相对导入外部化为 weifuwu/client——
 // 运行时与 client bundle 共享同一模块实例（idRegistry/_idCounter/_dirtyBatch 等状态不重复）。
 // 若不外部化：components bundle 内联一份 client 源码 → 命令式中间件（toast host）挂载的
 // 组件注册在 components 的 registry，而 $ 的 dirty 走 app 的 renderByIds（查 app 的 registry）
 // → 命中无关组件/漏渲染（真实 app 实测：toast 永不渲染）。
-const externalizeClientPlugin = {
-  name: 'externalize-client',
+const externalizeUiDomPlugin = {
+  name: 'externalize-ui-dom',
   setup(build) {
-    // 匹配相对导入：../../client/xxx.ts 或 ../../../client/xxx.ts
-    build.onResolve({ filter: /\.\.\/(client)\// }, (args) => ({
-      path: 'weifuwu/client',
+    // 匹配相对导入：../../ui-dom/xxx.ts（components 契约归 ui-dom）
+    build.onResolve({ filter: /\.\.\/(ui-dom)\// }, (args) => ({
+      path: 'weifuwu/ui-dom',
       external: true,
     }))
   },
@@ -83,16 +106,16 @@ const externalizeClientPlugin = {
 
 await esbuild.build({
   entryPoints: [join(srcDir, 'components', 'index.ts')],
-  tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/client' } },
+  tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/ui-dom' } },
   outfile: join(distDir, 'components', 'index.js'),
   format: 'esm',
   platform: 'browser',
   jsx: 'automatic',
-  jsxImportSource: 'weifuwu/client',
+  jsxImportSource: 'weifuwu/ui-dom',
   bundle: true,
   minify: true,
-  external: ['weifuwu/client'],
-  plugins: [externalizeClientPlugin],
+  external: ['weifuwu/ui-dom', 'weifuwu/ui-dom/jsx-runtime'],
+  plugins: [externalizeUiDomPlugin],
 })
 
 // 编译 layout CSS → 单文件（按文件映射 @layer，源文件零侵入）
