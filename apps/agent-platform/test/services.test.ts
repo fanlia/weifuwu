@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { postgres } from 'weifuwu'
 import type { Context } from 'weifuwu'
 import { runAgent, streamAgent } from '../src/services/agent-runner.ts'
-import { handleNewMessage } from '../src/services/chat.ts'
+import { handleNewMessage, handleNewMessageStream } from '../src/services/chat.ts'
 import { handleWebhookMessage } from '../src/services/webhook.ts'
 import { chunkAndEmbed, searchKnowledgeBase } from '../src/services/embedding.ts'
 
@@ -233,6 +233,42 @@ describe('Services', () => {
         SELECT * FROM messages WHERE ai_approved IS NULL
       `
       assert.ok(drafts.length >= 1, '应有待审批的 AI 草稿')
+    })
+  })
+
+  // ── Chat Service 流式 ───────────────────────────────────
+
+  describe('handleNewMessageStream()', () => {
+    it('并发 chunk 不覆盖 DB 为中间值（串行化写入——刷新后不截断）', async () => {
+      // mock AI 流式：同步连续 emit 多个 wf:token（模拟 streamAgent 不 await
+      // onChunk 的并发调用——修复前 UPDATE 乱序完成覆盖为中间值）
+      const chunks = ['今天是', ' **2026年8月10日**', '，星期一。']
+      const ctx = makeMockCtx({
+        sql: await pg.sql as any,
+        msg: { broadcast: () => {} },
+        ai: {
+          ...mockAiClient,
+          agent: (config: any) => ({
+            ...mockAiClient.agent(config),
+            stream: async (_m: any[], opts?: any) => {
+              for (const c of chunks) opts?.emit?.('wf:token', { text: c })
+              opts?.emit?.('wf:usage', { totalTokens: 10 })
+              opts?.emit?.('wf:done', {})
+            },
+          }),
+        },
+      })
+
+      await handleNewMessageStream(ctx, DEPT_ID, USER_AGENT_ID, '今天几号', '')
+
+      // 最新 AI 消息的 content 必须是完整拼接（修复前可能是中间值/截断）
+      const rows = await pg.sql`
+        SELECT content FROM messages
+        WHERE department_id = ${DEPT_ID} AND sender_id = ${AI_AGENT_ID}
+        ORDER BY created_at DESC LIMIT 1
+      `
+      assert.ok(rows.length >= 1, '应有 AI 流式回复消息')
+      assert.equal(rows[0].content, chunks.join(''), 'DB content 应为完整拼接（并发 UPDATE 不得覆盖为中间值）')
     })
   })
 

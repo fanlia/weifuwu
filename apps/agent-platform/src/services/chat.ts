@@ -232,6 +232,11 @@ async function runAgentStreamForAgent(
   let streamFailed = false
   let hasEmittedGenerating = false
   let finalUsage: import('weifuwu').WfUsage | undefined
+  // DB 写入串行链：onChunk 是 async 且未被 streamAgent await（agent-runner 裸调用
+  // callbacks.onChunk），多个 chunk 的 UPDATE 并发执行 → SQL 乱序完成 → content 被
+  // 中间值覆盖（真实 bug：DB 存"今天是 **2026"而前端已完成——刷新后仍截断）。
+  // 链式保证 UPDATE 顺序；闭包在链执行时读最新 accumulatedContent → 收敛最终值。
+  let dbWriteChain: Promise<unknown> = Promise.resolve()
 
   try {
     finalUsage = await streamAgent(ctx, {
@@ -247,12 +252,15 @@ async function runAgentStreamForAgent(
       allowFileTools: agent.allow_file_tools,
       allowCommandExec: agent.allow_command_exec,
     }, chatMessages, {
-      onChunk: async (text: string) => {
+      onChunk: (text: string) => {
         accumulatedContent += text
         // 先同步 emit（保序）：onChunk 是 async，若 await 写库后再 emit，
         // 多个 chunk 并发时 emit 顺序被 UPDATE 异步完成顺序打乱 → 前端 token 乱序/缺失
         emit.emit({ type: 'wf:token', messageId: msgId, text })
-        await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
+        // DB 写入串行化（防并发 UPDATE 乱序覆盖为中间值——流式截断根因）
+        dbWriteChain = dbWriteChain.then(() =>
+          sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
+        )
       },
       onToolCall: (toolCall: { name: string; args: string }) => {
         emit.emit({ type: 'wf:step', messageId: msgId, stepType: 'tool', name: toolCall.name, args: toolCall.args })

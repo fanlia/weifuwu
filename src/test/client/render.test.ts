@@ -659,11 +659,13 @@ describe('edge cases', () => {
     const container = browser.createElement('div')
     const oldV = jsx('div', { children: 'x' })
     mountVNode(container, oldV, ctx)
-    // 当 oldNode 为 null，但 oldInput 存在时
+    // 当 oldNode 为 null，但 oldInput 存在时（组件曾输出 null → _refNode 丢失，
+    // 如 Markdown 空 content 占位 → 流式 token 更新）：
+    // 修复前静默返回 null → DOM 永不更新（Chat 流式停更根因）；
+    // 修复后自愈：清理旧输出 → 重新渲染插入
     const result = patchValue(container, null, oldV, oldV, ctx)
-    // oldNode null → 走文本或 native 分支，但 oldNode 为 null → 不 patch 直接返回 null
-    // 实际的 oldNode null 不会发生在正常流程中
-    assert.equal(result, null)
+    assert.ok(result, 'oldNode 丢失但旧输出非空 → 应自愈重新渲染插入（不得静默跳过）')
+    assert.equal(container.textContent, 'x', '重新渲染插入后 DOM 有内容')
   })
 
   it('normalize 处理单元素和 null', () => {

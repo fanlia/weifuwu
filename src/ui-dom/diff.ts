@@ -37,6 +37,7 @@ function warnRefChurn(el: Element): void {
 
 // ── patchValue ─────────────────────────────────────────
 
+let __pvDepth = 0
 export function patchValue(
   parent: Node,
   oldNode: Node | null,
@@ -113,8 +114,11 @@ export function patchValue(
     }
 
     // 存 DOM 锚点（供 ctx.ui.render() scope 使用）
+    // 只用非 null 锚点：组件曾输出 null（如 Markdown 空 content）时 oldNode 为 null，
+    // 无条件覆盖会把 _refNode 置 null → 后续 patch mapChildDomNodes 读 null →
+    // 原生元素路径静默跳过 → 流式 DOM 停更（Chat token 只渲染开头根因）
     newV._parentNode = parent
-    newV._refNode = oldNode
+    if (oldNode) newV._refNode = oldNode
 
     // 扩展 ctx：注入 _selfId 和 VNode 引用
     const childCtx = Object.create(ctx) as WfuiContext
@@ -131,6 +135,7 @@ export function patchValue(
     const skipProps = componentPropsEqual(oldV.props, newV.props)
     const skipDirty = !childUi._dirtySet?.has(oldV._id as string)
     const skipVersion = newV._ctxVersion === childUi._ctxVersion
+    const _cname = (comp as any)?.name ?? 'anon'
     if (uiDebugEnabled()) {
       const name = (comp as any)?.name ?? 'anon'
       uiLog('tri-state-skip', name + ' type=' + skipType + ' props=' + skipProps + ' dirty=' + skipDirty + ' ver=' + skipVersion)
@@ -171,8 +176,10 @@ export function patchValue(
 
     const returnedNode = patchValue(parent, oldNode, _prevChild, childNew, childCtx)
     // patchValue 返回 null（组件输出为 null），_refNode 指向已移除的节点
-    // 置 null 避免下次 render 使用已脱离 DOM 的引用
-    if (!returnedNode) newV._refNode = null
+    // 置 null 避免下次 render 使用已脱离 DOM 的引用；
+    // 返回非 null 且当前 _refNode 无效（oldNode 曾为 null）→ 用实际返回补锚点
+    if (returnedNode && !newV._refNode) newV._refNode = returnedNode
+    else if (!returnedNode) newV._refNode = null
     return returnedNode
   }
 
@@ -208,6 +215,17 @@ export function patchValue(
       const node = renderValue(newInput, ctx)
       if (node == null) return null
       oldNode.parentNode?.replaceChild(node, oldNode)
+      return node
+    } else {
+      // oldNode 丢失（组件曾输出 null → _refNode 失效；如 Markdown 空 content 占位）
+      // 但旧输出非空——静默跳过会让 DOM 永不更新（Chat 流式 token 停更根因）。
+      // 自愈：先移除旧输出 DOM（vnode.el 持有），再重新渲染插入（新增路径等价）
+      const oldDom = (oldInput as VNode).el ?? (oldInput as VNode)._refNode
+      callRefCleanupFor(oldInput, getRegistry(ctx))
+      if (oldDom && oldDom.parentNode) (oldDom as ChildNode).remove()
+      const node = renderValue(newInput, ctx)
+      if (node == null) return null
+      parent.appendChild(node)
       return node
     }
     return oldNode
