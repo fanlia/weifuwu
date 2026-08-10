@@ -58,7 +58,7 @@
 
 ### O6 ctx.data 完善
 
-`delete(key)`/`clear()` 失效；`renderHtml` 输出 `__DATA__`（工厂取数序列化）+ hydrate 时 `ctx.data` 预填命中（对齐 createApp 的三场景适配）。
+`delete(key)`/`clear()` 失效；`renderHtml` 输出 `__DATA__`（工厂取数序列化）+ hydrate 时 `ctx.data` 预填命中（对齐 uiServe 的三场景适配）。
 
 ### O7 错误边界
 

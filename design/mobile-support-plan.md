@@ -8,8 +8,8 @@
 ### 已有能力（复用，不重复造）
 | 能力 | 位置 |
 |------|------|
-| `useMedia` / `useBreakpoint`（matchMedia 断点） | `src/client/ui.ts` |
-| `usePopupPosition` + `clampToViewport`（弹层**位置**视口夹紧） | `src/client/popup.ts` |
+| `useMedia` / `useBreakpoint`（matchMedia 断点） | `src/ui-dom/ui.ts` |
+| `usePopupPosition` + `clampToViewport`（弹层**位置**视口夹紧） | `src/ui-dom/popup.ts` |
 | 布局原语响应式变体（`wf-stack@sm`、`wf-hidden@sm`…640/768/1024） | `src/layout/` |
 | `@media (pointer: coarse)` 44px 命中区（基础清单） | `src/layout/_base.css` |
 | `prefers-reduced-motion` / 暗色模式 | `src/layout/_base.css` / `_dark.css` |
@@ -60,7 +60,7 @@ interface UsePopup {
 - `trigger='longpress'`：`pointerdown` + 计时（默认 500ms）+ 移动取消 + `contextmenu` 兼容（ContextMenu 用）
 - 宽度 clamp：`width` 自动 ≤ `100vw - 32px`
 - Escape / 外部点击 / focus 进出 统一处理
-- enter/exit 动画类配对（复用 `src/client/motion.ts`）
+- enter/exit 动画类配对（复用 `src/ui-dom/motion.ts`）
 
 **边界（诚实裁剪 CS-05）**：Modal/Drawer/Command 是全屏对话框（focus-trap + scroll-lock + 退场状态机），**不进 usePopup**——生命周期不同，硬塞会让组合器变重。
 
@@ -171,7 +171,7 @@ const longPressProps = ctx.ui.useLongPress(() => openMenu(), { duration: 500 })
 
 ## 五、CS-05 测试先行（红→绿清单）
 
-`usePopup` 首个测试用例（`src/components/__tests__` 或 `src/client/` 侧）：
+`usePopup` 首个测试用例（`src/components/__tests__` 或 `src/ui-dom/` 侧）：
 1. `trigger='hover'` 且 matchMedia `(hover: hover)` false → tap（pointerdown/click）打开，mouseenter 不打开
 2. `trigger='hover'` 且 hover true → mouseenter 打开，tap 不重复触发
 3. `trigger='longpress'` → pointerdown 500ms 后触发；提前松开取消；move 取消

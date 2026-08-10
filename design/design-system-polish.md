@@ -46,7 +46,7 @@ a) 动效 Token（`_tokens.css` 语义层新增，默认值不破坏现状）：
 --wf-transition: var(--wf-dur-base) var(--wf-ease-out); /* 保持旧名兼容 */
 ```
 
-b) exit 动画公共机制：`src/client/motion.ts` 新增 `animateOut(el, classSuffix, done)`——
+b) exit 动画公共机制：`src/ui-dom/motion.ts` 新增 `animateOut(el, classSuffix, done)`——
 
 ```ts
 /** 挂 --exit 类，animationend 后回调（含 reduced-motion 立即回调） */
@@ -262,7 +262,7 @@ P0 动效（地基，exit 机制被 P4/P6 依赖）
 ### P0 — 动效 Token + exit 动画机制 ✅
 
 - **新增 9 个动效 Token**（128 → 137）：`--wf-dur-fast/base/slow`（120/200/300ms）+ `--wf-ease-out/in/snap` 三曲线 + `--wf-motion-sm/md/lg`（4/8/24px）
-- **`src/client/motion.ts` 新增 `animateOut(el, done, fallbackMs)`**：挂退场类 → animationend → 回调；兜底 timeout 防 animationend 丢失挂死；reduced-motion 下动画被降为 0.01ms 等效瞬时
+- **`src/ui-dom/motion.ts` 新增 `animateOut(el, done, fallbackMs)`**：挂退场类 → animationend → 回调；兜底 timeout 防 animationend 丢失挂死；reduced-motion 下动画被降为 0.01ms 等效瞬时
 - **Modal/Drawer 退场状态机**（`phase: closed|open|exit`）：open=false 先渲染 `--exit` 帧（不再立即消失），挂载期一次性监听 animationend（enter 结束忽略），exit 结束 `ctx.ui.render()` 卸载——`--exit` 死代码复活
 - **Confirm 命令式退场**：`finish()` 挂 `wf-modal--exit` + animateOut 后清理，不再"啪"地消失；resolve 仍立即返回，DOM 异步清理
 - **Toast 退场**：`wf-toast-out`（向右淡出 200ms ease-in）+ `data-id` 定位；加类后查 `getComputedStyle().animationName` 自适应——真浏览器播动画，jsdom/禁用环境立即移除（测试零改动）
@@ -344,7 +344,7 @@ P0 动效（地基，exit 机制被 P4/P6 依赖）
 
 agent-platform 接入 P8 特性（confirm/toast 中间件 5 处删除流、StatCard animate）+ agent-browser 走查暴露并修复：
 
-1. **客户端模块状态重复（最严重）**：`dist/components` 内联一份 client 源码（`external` 只挡 JSX 运行时包名导入）→ 命令式中间件挂载的组件注册在 components 的 `idRegistry`，但 `$` 的 dirty 走 app 的 `renderByIds`（查 app 的 registry）→ toast 永不渲染且单测全绿（node --test 单模块图掩盖）。修复双防线：① build.mjs 组件构建外部化 `src/client/*` → `weifuwu/client`（dist 消费端共享）；② apps tsconfig `paths` 补 `weifuwu/components` → src（dev 全 src 单图）。补 client 导出 `mountVNode/callRefCleanup/patchValue/animateOut`
+1. **客户端模块状态重复（最严重）**：`dist/components` 内联一份 client 源码（`external` 只挡 JSX 运行时包名导入）→ 命令式中间件挂载的组件注册在 components 的 `idRegistry`，但 `$` 的 dirty 走 app 的 `renderByIds`（查 app 的 registry）→ toast 永不渲染且单测全绿（node --test 单模块图掩盖）。修复双防线：① build.mjs 组件构建外部化 `src/ui-dom/*` → `weifuwu/ui-dom`（dist 消费端共享）；② apps tsconfig `paths` 补 `weifuwu/components` → src（dev 全 src 单图）。补 client 导出 `mountVNode/callRefCleanup/patchValue/animateOut`
 2. **trapFocus 初始聚焦失效**：weifuwu ref 在元素 appendChild 前触发（未连接文档 `focus()` 无效，浏览器实测 `firstIsConn=false`）→ `queueMicrotask` 延迟聚焦
 3. **AppLayout 缺 Loading import**（agent-platform 既有）
 

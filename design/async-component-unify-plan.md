@@ -1,6 +1,6 @@
 # 组件统一计划：asyncComponent → 原生 async 组件
 
-> **状态（2026-10）**：✅ 已实施（TDD 13 用例全绿 + 全量 1773 回归）。`asyncComponent` 装饰器已下沉为渲染器对 async 组件函数的原生支持（`返回值 instanceof Promise` 判别），签名统一 `(initProps, ctx)`；`ctx.data.get()` 三场景不变。占位信号 = `Placeholder`（可选 `<Suspense fallback>` 边界显示 loading）。
+> **状态（2026-10）**：✅ 已实施并收尾。`asyncComponent` 装饰器已下沉为渲染器对 async 组件函数的原生支持（`返回值 instanceof Promise` 判别），签名统一 `(initProps, ctx)`；`ctx.data.get()` 三场景不变。占位信号 = `Placeholder`（可选 `<Suspense fallback>` 边界显示 loading）。**后续（2026-10）`asyncComponent` 兼容层已彻底移除**（见提交"移除 asyncComponent"）——渲染器只保留原生 async 组件路径（vnode 级 `_asyncDef` 按实例缓存），`isAsyncComponent`/`ASYNC_MARK`/WeakMap 全局缓存全部删除。
 >
 > 背景讨论见会话记录：统一后「少一套签名、initProps 可用、缓存语义自动正确」；代价是工厂默认按实例执行（数据走 ctx.data 则零成本）。
 

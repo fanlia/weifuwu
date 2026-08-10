@@ -1,9 +1,8 @@
 # 前端 UI 架构设计 — UIRouter + VDOM（req/res 定义）【定稿】
 
-> **状态（2026-10）**：**已定稿**（纯设计，未实现）。前端 UI 完全对齐后端 Router 模型——
-> **req = window.location，res = VNode，serveUI = VDOM（落地机制），params/query 在 ctx**。
+> **状态（2026-10）**：**已实施**（UIRouter + uiServe + ssrPage/hydration 全链路落地；`weifuwu/client` 已删除——createApp/router() 旧 API 不复存在）。
+> **req = window.location，res = VNode，uiServe = VDOM（落地机制），params/query 在 ctx**。
 > **handler = 异步组件**（`async (location, ctx) => vnode`，`$` 有效）；**layout 与 SSR 都是中间件**。
-> 平行于现有 createApp/router() 新增，成熟后完全替换。
 
 ## 〇、核心决策链（定稿依据）
 

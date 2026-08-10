@@ -2,6 +2,8 @@
 
 > 目标：零第三方依赖的 postgres / redis 客户端，测试驱动开发，可预测失败模式。
 > 状态：✅ 已完成（M1-M5 全部达成）——2026-07-31
+>
+> **后续修正（2026-10，YAGNI）**：本计划中的 `Sql` 接口方法面（`begin/transaction/register/insert/insertMany/update/delete`）已在 `src/db/contracts.ts` **精简移除**（见提交"Sql 接口 YAGNI 精简"）——当前 `Sql` 接口仅：tagged template / `unsafe` / `query`（Query Language） / `raw` / `close`；事务走中间件实例 `pg.transaction`（PostgresClient）。文档以 [docs/data.md](../docs/data.md) 为准。
 
 ---
 
