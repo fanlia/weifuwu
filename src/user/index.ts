@@ -121,10 +121,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   let currentUser: User | null = null
 
   async function findUserById(id: string): Promise<User | null> {
-    const rows = await sql.unsafe(
-      `SELECT id, email, name, role, tenant FROM ${USERS_TABLE} WHERE id = $1`,
-      [id],
-    )
+    const rows = await sql.query.from(USERS_TABLE)
+      .select('id', 'email', 'name', 'role', 'tenant')
+      .where({ id })
+      .run()
     return rows.length ? (rows[0] as unknown as User) : null
   }
 
@@ -137,19 +137,17 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     )
     const refreshToken = generateRefreshToken()
     const expiresAt = new Date(Date.now() + refreshTtlDays * 24 * 3600 * 1000)
-    await sql.unsafe(
-      `INSERT INTO ${SESSIONS_TABLE} (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
-      [hashRefreshToken(refreshToken), user.id, expiresAt],
-    )
+    await sql.query.insert(SESSIONS_TABLE)
+      .values({ token_hash: hashRefreshToken(refreshToken), user_id: user.id, expires_at: expiresAt })
+      .run()
     return { token, refreshToken }
   }
 
   async function consumeRefreshToken(refreshToken: string): Promise<User> {
-    const rows = await sql.unsafe(
-      `SELECT s.user_id, s.expires_at FROM ${SESSIONS_TABLE} s
-       WHERE s.token_hash = $1 AND s.revoked_at IS NULL`,
-      [hashRefreshToken(refreshToken)],
-    )
+    const rows = await sql.query.from(`${SESSIONS_TABLE} s`)
+      .select('s.user_id', 's.expires_at')
+      .where({ 's.token_hash': hashRefreshToken(refreshToken), 's.revoked_at': { isNull: true } })
+      .run()
     if (!rows.length) throw new HttpError('Invalid refresh token', 401)
     const row = rows[0]
     if (new Date(row.expires_at as Date) < new Date()) {
@@ -194,21 +192,23 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         if (input.password.length < 8) throw new HttpError('password must be at least 8 characters', 400)
         const email = normalizeEmail(input.email)
         const passwordHash = await hashPassword(input.password)
-        const rows = await sql.unsafe(
-          `INSERT INTO ${USERS_TABLE} (email, password_hash, name, role, tenant)
-           VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, role, tenant`,
-          [email, passwordHash, input.name ?? null, input.role ?? null, input.tenant ?? null],
-        )
+        const rows = await sql.query.insert(USERS_TABLE)
+          .values({
+            email, password_hash: passwordHash,
+            name: input.name ?? null, role: input.role ?? null, tenant: input.tenant ?? null,
+          })
+          .returning('id', 'email', 'name', 'role', 'tenant')
+          .run()
         const user = rows[0] as unknown as User
         const session = await issueSession(user)
         return { ...session, user }
       },
 
       async login(email: string, password: string) {
-        const rows = await sql.unsafe(
-          `SELECT id, email, password_hash, name, role, tenant FROM ${USERS_TABLE} WHERE email = $1`,
-          [normalizeEmail(email)],
-        )
+        const rows = await sql.query.from(USERS_TABLE)
+          .select('id', 'email', 'password_hash', 'name', 'role', 'tenant')
+          .where({ email: normalizeEmail(email) })
+          .run()
         const row = rows[0]
         // 统一 401（不泄露邮箱是否存在——防枚举）
         if (!row) throw new HttpError('Invalid email or password', 401)
@@ -226,9 +226,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       async logout(refreshToken: string) {
-        await sql.unsafe(`UPDATE ${SESSIONS_TABLE} SET revoked_at = now() WHERE token_hash = $1`, [
-          hashRefreshToken(refreshToken),
-        ])
+        await sql.query.update(SESSIONS_TABLE)
+          .set({ revoked_at: sql.raw`now()` })
+          .where({ token_hash: hashRefreshToken(refreshToken) })
+          .run()
       },
 
       requireAuth() {
@@ -239,10 +240,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       async setPassword(userId: string, newPassword: string) {
         if (newPassword.length < 8) throw new HttpError('password must be at least 8 characters', 400)
         const passwordHash = await hashPassword(newPassword)
-        await sql.unsafe(`UPDATE ${USERS_TABLE} SET password_hash = $1 WHERE id = $2`, [
-          passwordHash,
-          userId,
-        ])
+        await sql.query.update(USERS_TABLE)
+          .set({ password_hash: passwordHash })
+          .where({ id: userId })
+          .run()
       },
 
       createToken(type: string, payload: Record<string, unknown>, opts: { ttlSeconds: number }) {
