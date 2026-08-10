@@ -58,19 +58,23 @@ ctx.redis.cache(key, fn, ttl)                    // 缓存便捷层
 
 ## 2. TDD 方法论
 
-### 2.1 测试金字塔（三层，全部自动化）
+### 2.1 测试范围（零外部依赖——只测三部分）
 
 ```
-┌─────────────────────────────────────────────┐
-│ 集成层: docker 真库（postgres/redis）          │  ← 真实兼容性
-│   weifuwu 测试已有 docker compose 基建         │
-├─────────────────────────────────────────────┤
-│ 协议层: mock 服务器（net.Socket 实现假服务端）   │  ← 主战场，快而确定
-│   断言完整会话: 握手 → 查询 → 结果 → 关闭        │
-├─────────────────────────────────────────────┤
-│ 字节层: 纯函数编解码单元测试                     │  ← 最细粒度
-│   输入 buffer → 输出消息对象（golden 断言）      │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│ connection: 连接 / 执行命令 / 断开                │  ← 连进程内内存服务器
+│   MemoryRedisServer / MemoryPostgresServer       │     （真实 TCP 线协议 RESP/PG v3）
+├─────────────────────────────────────────────────┤
+│ AST parse/stringify: 字节编解码 + 命令/查询对象    │  ← 纯函数，最细粒度
+│   resp/protocol 编解码 + parseSqlToAst/compileQuery│
+│   + parseCommand/stringifyCommand                │
+└─────────────────────────────────────────────────┘
+业务测试（user/queue/messager/rate-limit）跑 MemorySql/MemoryRedis——
+生产契约黑盒实现，与真库同一契约。
+
+**docker 不参与测试**（`npm test` 零外部依赖）——协议引擎特性
+（pool 语义/管道/类型映射/事务隔离/statement_timeout/prepare cache）
+不测（生产实现由业务测试间接覆盖）。
 ```
 
 ### 2.2 黄金字节回归（对齐 pptx golden 哲学）

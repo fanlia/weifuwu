@@ -330,8 +330,9 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu` | **serve** | HTTP 服务器 | Router |
 | `weifuwu` | **cors** | CORS 跨域中间件 | Router |
 | `weifuwu` | **serveStatic** | 静态文件服务（ETag/304/目录索引） | Router |
-| `weifuwu` | **postgres** | PostgreSQL 客户端（自研 PG v3 协议）→ `ctx.sql` | Router, DATABASE_URL |
+| `weifuwu` | **postgres** | PostgreSQL 客户端（自研 PG v3 协议）→ `ctx.sql`；**Query Language**（`sql.query` AST 双后端——真库编译 SQL / 内存直执行） | Router, DATABASE_URL |
 | `weifuwu` | **redis** | Redis 客户端（自研 RESP2 协议）→ `ctx.redis` | Router, REDIS_URL |
+| `weifuwu/db` | **Memory 实现** | `createMemorySql()` / `MemoryRedis`——生产契约黑盒实现（开发/测试/单实例零数据库）；`MemoryRedisServer`/`MemoryPostgresServer`——进程内线协议服务器（协议测试零 docker） | — |
 | `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
 | `weifuwu/ui-dom` | **uiServe** | 渲染运行时：监听 location → 执行路由 → VDOM 落地（`hydrate: true` 收养 SSR HTML） | UIRouter |
 | `weifuwu/ui-dom` | **ssrPage** | 路由级 SSR：匹配共享 router → 自动完整 HTML + `__DATA__` | Router, ui |
@@ -370,7 +371,8 @@ cd apps/agent-platform && npm run seed && npm run dev
 |------|-----|------|
 | 起 HTTP 服务 + 路由 | `serve(app)` + `new Router()` + `app.get/post/...` | [docs/server.md](docs/server.md) |
 | 渲染页面（SPA / SSR+hydrate） | `ui()` + `ssrPage(router)`；`uiServe(router, { root, hydrate })` | [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) · [docs/frontend.md](docs/frontend.md) |
-| 数据持久化 | `postgres()` → `` ctx.sql`SELECT *` `` · `redis()` → `ctx.redis` | [docs/data.md](docs/data.md) |
+| 数据持久化 | `postgres()` → `` ctx.sql`SELECT *` `` · `redis()` → `ctx.redis` · **`sql.query`**（Query Language AST 双后端） | [docs/data.md](docs/data.md) |
+| 零数据库开发/测试 | `createMemorySql()` / `MemoryRedis`——契约同真库、替换成本为零 | [docs/data.md](docs/data.md) |
 | 数据管道（SSR 预取/hydration/SPA） | `ctx.data.get(key)` + `asyncComponent` | [docs/frontend.md](docs/frontend.md) |
 | 用户注册/登录/会话/多租户 | `userSystem()` → `ctx.auth` + `/api/auth/*` | [docs/saas.md](docs/saas.md) |
 | 限流防爆破 | `rateLimit()` + `ctx.limit()` | [docs/saas.md](docs/saas.md) |
@@ -504,7 +506,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | 文档 | 内容 |
 |------|------|
 | [docs/server.md](docs/server.md) | HTTP 服务层：Router / serve / cors / serveStatic / HttpError / 响应辅助 / parseBody |
-| [docs/data.md](docs/data.md) | 数据层：postgres（PG v3 自研协议）/ redis（RESP2 自研协议） |
+| [docs/data.md](docs/data.md) | 数据层：postgres（PG v3 自研协议）/ redis（RESP2 自研协议）/ Query Language（AST 双后端）/ Memory 实现（零数据库）/ 测试零外部依赖 |
 | [docs/realtime.md](docs/realtime.md) | 实时与渲染：scheduler / ui（SSR + JS/CSS 编译）/ graphql / WebSocket |
 | [docs/saas.md](docs/saas.md) | SaaS 地基：rateLimit / email / userSystem / messager / queue / ai |
 

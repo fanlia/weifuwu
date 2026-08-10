@@ -36,6 +36,61 @@ app.post('/transfer', async (req, ctx) => {
 })
 ```
 
+### Query Language（`sql.query` — AST 双后端）
+
+结构化查询对象（AST）→ **真库编译参数化 SQL / 内存直执行**——同一查询两种后端，业务代码零改动切换：
+
+```ts
+// 链式 builder：SQL 能力（WHERE 合并/聚合/JOIN/子查询）以类型安全对象表达
+const rows = await sql.query.from('orders')
+  .where({ user_id: userId, status: { in: ['paid', 'shipped'] } })
+  .orderBy('created_at', 'desc')
+  .limit(20)
+  .run()
+
+// 插入 + RETURNING（onConflict 无列 = 任意唯一冲突 DO NOTHING）
+const conv = (await sql.query.insert('conversations')
+  .values({ type: 'direct', created_by: userId })
+  .returning('id', 'created_at')
+  .run())[0]
+
+// 逃生舱：raw 片段（真库透传 / 内存裁剪）
+await sql.raw`now()`
+```
+
+- **双后端一致**：内存端（MemorySql）直执行同一 AST——关联子查询/聚合/JOIN/游标分页语义对齐真库
+- **诚实裁剪**：内存不支持的语义（raw 片段/窗口函数等）抛 `ProtocolError('unsupported')`
+- 事务性写入（INSERT/UPDATE/DELETE）建议走 Query Language；分析型列表（复杂 JOIN/COALESCE）用 tagged template 真库
+
+### Memory 实现（零数据库模式）
+
+`MemorySql` / `MemoryRedis` 是**生产契约的黑盒实现**（非 mock 桩）——开发/测试/单实例部署**零外部数据库**：
+
+```ts
+import { createMemorySql } from 'weifuwu/db/memory-sql'
+import { MemoryRedis } from 'weifuwu/db/memory-redis'
+
+const sql = createMemorySql()      // 契约 Sql：tagged template / query / unsafe / raw
+const redis = new MemoryRedis()    // 契约 Redis：command / publish / subscribe / close
+
+// 注入中间件（构造注入模式——消费方只见接口）
+const msg = messager({ sql, redis })
+const q = queue({ redis })
+```
+
+- **语义对齐真库**：惰性 TTL、XREADGROUP 游标、XACK/XAUTOCLAIM、23505→409、gen_random_uuid / now() 默认值、事务 BEGIN/COMMIT no-op（回滚快照由服务器层提供）
+- **替换成本为零**：与生产实现（PgConnection/RedisClient）同一契约——业务测试跑内存、协议测试跑内存服务器、生产跑真库
+
+### 测试（零外部依赖）
+
+`npm test` **不需要 docker**——协议层测试连进程内内存服务器（`MemoryRedisServer` / `MemoryPostgresServer`：真实 TCP 线协议 RESP/PG v3 交互），业务测试跑 Memory 实现：
+
+```
+协议测试（三部分）        connection（连接/命令/断开）→ 内存服务器
+                          AST parse/stringify        → resp/protocol 编解码 + query-language
+业务测试                  user/queue/messager/rate-limit → MemorySql/MemoryRedis
+```
+
 ### 类型映射（自动）
 
 | 数据库类型 | 返回 JS 类型 |

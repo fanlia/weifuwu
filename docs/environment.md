@@ -28,14 +28,13 @@
 ```bash
 npm run build       # 构建 dist/
 npm run typecheck   # TypeScript 类型检查
-npm test            # 运行 node --test（含 docker 真库测试）
+npm test            # 运行 node --test（零外部依赖——协议层连内存服务器，无需 docker）
 node scripts/release.mjs <version>   # 构建 + 发布 + git tag
 ```
 
-```bash
-# 测试前启动依赖服务（postgres / redis / smtp）
-docker compose up -d
-```
+> **测试零外部依赖**：`npm test` 无需 docker——协议层测试（connection/AST parse-stringify）连进程内
+> `MemoryRedisServer`/`MemoryPostgresServer`（真实 TCP 线协议），业务测试跑 `MemorySql`/`MemoryRedis`。
+> docker 仅用于跑应用 demo（`apps/agent-platform` 等需要真库的场景）。
 
 ---
 
