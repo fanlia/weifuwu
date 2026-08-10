@@ -46,21 +46,13 @@ export interface PostgresPoolConnection extends PoolConnection {
 }
 
 /**
- * SQL 标签模板（ctx.sql）：`sql\`SELECT * FROM t WHERE id = ${id}\`` + 方法面。
- * callable tagged template → 参数化查询（$1 占位符）。
+ * SQL 标签模板（ctx.sql）：`sql\`SELECT * FROM t WHERE id = ${id}\`` + 方法面（YAGNI 精简）。
+ * 事务能力走中间件面 `pg.transaction`（PostgresClient）——不在 Sql 接口。
  */
 export interface Sql {
   (strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]>
   /** 原生 SQL（DDL / 动态表名）；$1 占位符 + 参数 */
   unsafe(sql: string, params?: unknown[]): Promise<Row[]>
-  /** 参数化查询 */
-  query(sql: string, params?: unknown[]): Promise<Row[]>
-  /** 事务（postgres.js 兼容）：回调收到 tagged template 事务 sql */
-  begin<T>(fn: (sql: Sql) => Promise<T>): Promise<T>
-  /** 事务（框架式）：回调收到 { query } */
-  transaction<T>(
-    fn: (tx: { query: (sql: string, params?: unknown[]) => Promise<Row[]> }) => Promise<T>,
-  ): Promise<T>
   close(): Promise<void>
 }
 

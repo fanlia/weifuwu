@@ -40,7 +40,7 @@ describe('postgres', () => {
   })
 
   it('transaction commits', async () => {
-    await pg.sql.begin(async (sql) => {
+    await pg.transaction(async (sql) => {
       await sql`INSERT INTO __test_items (name) VALUES ('tx-commit')`
     })
     const rows = await pg.sql`SELECT * FROM __test_items WHERE name = 'tx-commit'`
@@ -49,7 +49,7 @@ describe('postgres', () => {
 
   it('transaction rolls back on error', async () => {
     try {
-      await pg.sql.begin(async (sql) => {
+      await pg.transaction(async (sql) => {
         await sql`INSERT INTO __test_items (name) VALUES ('tx-rollback')`
         throw new Error('abort')
       })
@@ -170,8 +170,8 @@ describe('postgres middleware option passthrough (real database)', () => {
     const { sql } = pg
     try {
       // 事务占用唯一连接
-      const tx = sql.transaction(async (tx) => {
-        await tx.query('SELECT pg_sleep(1)')
+      const tx = pg.transaction(async (sql) => {
+        await sql`SELECT pg_sleep(1)`
       })
       await new Promise((r) => setTimeout(r, 50))
       await assert.rejects(sql`SELECT 1`)

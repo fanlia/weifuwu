@@ -82,9 +82,8 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
     return rows.length > 0
   }
 
-  mw.transaction = (async (fn: any) => {
-    return sql.transaction(fn)
-  }) as any
+  // 事务回调收 callable 事务 sql（postgres.js 兼容 begin 语义——pool.begin 包装）
+  mw.transaction = ((fn: any) => pool.begin(fn as any)) as any
 
   mw.poolStats = () => ({ active: 0, idle: pool.size, waiting: 0, max: pool.size })
 
@@ -134,9 +133,6 @@ function makeSql(pool: PgPool): Sql {
   }) as unknown as Sql
 
   sql.unsafe = (query: string, params?: unknown[]) => wrapError(pool.unsafe(query, params as any))
-  sql.query = (query: string, params?: unknown[]) => wrapError(pool.query(query, params as any))
-  sql.begin = (fn: any) => pool.begin(fn)
-  sql.transaction = (fn: any) => pool.transaction(fn)
   sql.close = () => pool.close()
 
   return sql
