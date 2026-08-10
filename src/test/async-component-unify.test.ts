@@ -315,3 +315,23 @@ test('T8 resolve 后 $ 赋值二次渲染：走 _render，不重跑工厂', asyn
   assert.equal(factoryRuns, runsAfterMount, '二次渲染不重跑工厂（走 _render）')
   handle.close()
 })
+
+test('T10 hydration：hydrate:true + SSR HTML 种子 → async 组件收养渲染', async () => {
+  const b = createClientBrowser()
+  ;(globalThis as any).__DATA__ = { '/api/hyd': { v: 'hydrated' } }
+  const Page = async (_init: any, ctx: any) => {
+    const d = await ctx.data.get('/api/hyd', async () => ({ v: 'fetched' }))
+    return () => h('div', { id: 't10' }, d.v)
+  }
+  // 模拟 SSR 已输出 HTML（含 async-page 内容——工厂已 await，无占位）
+  const el = mount('unify-t10')
+  el.innerHTML = '<div class="shell"><div id="t10">hydrated</div></div>'
+  const router = new UIRouter()
+  router.get('/', () => h('div', { class: 'shell' }, h(Page, {})))
+  b.navigate('/')
+  const handle = uiServe(router, { root: '#unify-t10', hydrate: true })
+  await flush(); await flush()
+
+  assert.equal(el.querySelector('#t10')?.textContent, 'hydrated', 'hydration 种子命中：async 组件内容保留/渲染')
+  handle.close()
+})

@@ -145,6 +145,24 @@ admin.use('/api', api)
 
 
 
+// ── 原生 async 组件页面（统一签名：async (initProps, ctx) => renderFn——无需 asyncComponent 包装）──
+
+const AsyncPage = async (initProps: any, ctx: any) => {
+  // 数据管道：三场景自动（SSR→__DATA__ / hydration 种子 / SPA fetch）
+  const info = await ctx.data.get('/api/async-page', async () => ({
+    title: '原生 async 组件',
+    desc: '无需 asyncComponent 包装——async 函数即组件，数据自动进 __DATA__',
+  }))
+  const $ = ctx.ui.$()
+  $.clicks = 0
+  return (props: any) =>
+    h('div', { id: 'async-page', class: 'page' },
+      h('h2', {}, (info as any).title),
+      h('p', {}, (info as any).desc),
+      h('button', { id: 'async-click', onClick: () => { $.clicks = $.clicks + 1 } }, `点击 ${$.clicks} 次`),
+    )
+}
+
 // ── 应用装配（server 与 client 共享的 router 定义） ──
 
 const app = new UIRouter()
@@ -153,6 +171,7 @@ app.use(toast())
 app.get('/', Home)
 app.get('/todos', Todos)
 app.get('/users/:id', User)
+app.get('/async', (_loc, ctx) => h(AsyncPage, {}))   // handler 返回组件 vnode（async 组件由渲染器原生 mount）
 app.use('/admin', admin)
 app.notFound(() => h('div', { id: 'nf', class: 'page' }, h('h2', {}, '404 — 页面不存在')))
 

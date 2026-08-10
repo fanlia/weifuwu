@@ -160,21 +160,24 @@ async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: Hydra
   const Comp = vnode.type as Component | AsyncComponent
   let childVNode: VNode | null
   try {
-    let def: Component
+    let renderFn: unknown
     if (isAsyncComponent(Comp)) {
-      def = await resolveAsyncFactory(getRegistry(ctx), Comp, childCtx)
+      // asyncComponent 兼容：工厂签名 (ctx)，resolved 是两阶段 Component
+      const def = await resolveAsyncFactory(getRegistry(ctx), Comp, childCtx)
+      renderFn = def(vnode.props ?? {}, childCtx)
     } else {
-      def = Comp as Component
+      // 统一：同步或原生 async 组件——返回值 Promise = 原生 async（await 得 renderFn）
+      renderFn = Comp(vnode.props ?? {}, childCtx)
+      if (renderFn instanceof Promise) renderFn = await renderFn
     }
-    const renderFn = def(vnode.props ?? {}, childCtx)
     if (typeof renderFn !== 'function') {
       throw new Error(
         `Component ${Comp.name || 'anonymous'} must return a render function. ` +
         `Use (init_props, ctx) => (props) => VNode pattern.`
       )
     }
-    vnode._render = renderFn
-    childVNode = renderFn(vnode.props ?? {})
+    vnode._render = renderFn as (props: Record<string, unknown>) => VNode | null
+    childVNode = (renderFn as (props: Record<string, unknown>) => VNode | null)(vnode.props ?? {})
   } catch (e) {
     const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
     if (errHandler) {
