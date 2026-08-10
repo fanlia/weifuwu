@@ -197,6 +197,26 @@ describe('query language — memory 执行面', () => {
     )
   })
 
+  it('关联 EXISTS 子查询（外层列引用——messager direct 会话查重模式）', async () => {
+    // 模拟会话/成员：c1 含 alice+bob（2 成员），c2 含 alice+dave
+    await sql.query.insert('convs').rows([
+      { id: 'c1', type: 'direct' }, { id: 'c2', type: 'direct' },
+    ]).run()
+    await sql.query.insert('mems').rows([
+      { conversation_id: 'c1', user_id: 'alice' }, { conversation_id: 'c1', user_id: 'bob' },
+      { conversation_id: 'c2', user_id: 'alice' }, { conversation_id: 'c2', user_id: 'dave' },
+    ]).run()
+    // alice+bob 的共同 direct 会话：c1（两成员）
+    const found = await sql.query.from('convs c')
+      .where({ 'c.type': 'direct' })
+      .exists({ kind: 'select', table: 'mems', alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': 'alice' } } as SelectQuery)
+      .exists({ kind: 'select', table: 'mems', alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': 'bob' } } as SelectQuery)
+      .in('c.id', { kind: 'select', table: 'mems', alias: 'm', cols: ['conversation_id'], groupBy: ['conversation_id'], having: { 'count(*)': 2 } } as SelectQuery)
+      .run()
+    assert.equal(found.length, 1)
+    assert.equal(found[0].id, 'c1', '仅共同会话且恰 2 成员')
+  })
+
   it('raw 逃生：内存裁剪 ProtocolError（诚实）', async () => {
     await assert.rejects(
       () => sql.query.from('users').whereRaw("created_at > NOW() - interval '7 days'").run(),

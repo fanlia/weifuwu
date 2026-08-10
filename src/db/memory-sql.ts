@@ -26,9 +26,10 @@ import { createQueryBuilder } from './query-builder.ts'
 interface MemoryTable {
   rows: Row[]
   nextId: number
-  /** DDL 解析的约束：pk（DEFAULT 生成列）与 unique 列 */
+  /** DDL 解析的约束：pk（DEFAULT 生成列）、unique 列、DEFAULT now() 列 */
   pk?: { col: string; defaultUuid: boolean }
   uniques: Set<string>
+  defaultNow: Set<string>
 }
 
 type WhereClause = {
@@ -37,7 +38,7 @@ type WhereClause = {
 
 /** 解析后的语句（单表 CRUD 子集） */
 type Statement =
-  | { kind: 'ddl'; table?: string; drop?: string; constraints?: { pk?: { col: string; defaultUuid: boolean }; uniques: string[] } }
+  | { kind: 'ddl'; table?: string; drop?: string; constraints?: { pk?: { col: string; defaultUuid: boolean }; uniques: string[]; defaultNow: string[] } }
   | { kind: 'select'; table: string; cols?: string[]; where?: WhereClause; limit?: number; count?: boolean }
   | { kind: 'insert'; table: string; cols: string[]; vals: unknown[]; returning: boolean; returningCols?: string[] }
   | { kind: 'update'; table: string; sets: { col: string; val: unknown }[]; where?: WhereClause }
@@ -53,6 +54,13 @@ export class MemorySql {
   }
 
   async unsafe(sql: string, params: unknown[] = []): Promise<Row[]> {
+    // 事务原语：内存自动提交（无真实事务边界）——BEGIN/COMMIT/ROLLBACK no-op
+    const head = sql.trim().toUpperCase()
+    if (head === 'BEGIN' || head === 'COMMIT' || head === 'ROLLBACK' || head === 'END') {
+      const res: QueryResult<Row> = []
+      res.affectedRows = 0
+      return res
+    }
     try {
       const stmt = parseSQL(sql, params)
       return this.execute(stmt)
@@ -80,7 +88,7 @@ export class MemorySql {
     }
   }
 
-  private execSelect(q: SelectQuery): QueryResult<Row> {
+  private execSelect(q: SelectQuery, outerCtx?: { row: Row; alias: string }): QueryResult<Row> {
     // JOIN 笛卡尔积 + on 过滤（内存 INNER/LEFT）
     let rows: Row[] = this.table(q.table).rows
     let tableAlias = q.alias ?? q.table
@@ -100,24 +108,27 @@ export class MemorySql {
       rows = joined
       tableAlias = jAlias
     }
-    // WHERE（raw 伪装 → 内存裁剪）
+    // WHERE（raw 伪装 → 内存裁剪）；关联子查询时合并外层行上下文
     if (q.where && '__raw' in (q.where as object)) {
       throw new ProtocolError('memory-sql: raw WHERE 不支持（诚实裁剪——用真库）')
     }
-    let filtered = q.where ? rows.filter((r) => matchWhereExpr(r, q.where!, tableAlias)) : rows
-    // 子查询（IN/EXISTS——对内存表执行子 AST）
+    const matchRow = (r: Row): Row => {
+      if (!outerCtx) return r
+      const merged: Row = {}
+      for (const [k, v] of Object.entries(r)) merged[`${q.alias ?? q.table}.${k}`] = v
+      for (const [k, v] of Object.entries(outerCtx.row)) merged[`${outerCtx.alias}.${k}`] = v
+      return merged
+    }
+    let filtered = q.where ? rows.filter((r) => matchWhereExpr(matchRow(r), q.where!, q.alias)) : rows
+    // 子查询（IN/EXISTS——关联：每外层行执行子 AST，外层列经 outerCtx 引用）
     for (const sub of q.sub ?? []) {
-      const subRows = this.executeQuery(sub.query) as unknown[]
-      if (sub.type === 'exists') {
-        const hit = subRows.length > 0
-        filtered = filtered.filter(() => sub.not ? !hit : hit)
-      } else {
-        const vals = new Set(subRows.map((r) => (r as Record<string, unknown>)[String(sub.query.cols?.[0] ?? Object.keys(r as Record<string, unknown>)[0])]))
-        filtered = filtered.filter((r) => {
-          const v = resolveCol(r, sub.col!, tableAlias)
-          return sub.not ? !vals.has(v) : vals.has(v)
-        })
-      }
+      filtered = filtered.filter((r) => {
+        const subRows = this.execSelect(sub.query, { row: r, alias: tableAlias }) as unknown[]
+        if (sub.type === 'exists') return sub.not ? subRows.length === 0 : subRows.length > 0
+        const vals = new Set(subRows.map((sr) => (sr as Record<string, unknown>)[String(sub.query.cols?.[0] ?? Object.keys(sr as Record<string, unknown>)[0])]))
+        const v = resolveCol(r, sub.col!, tableAlias)
+        return sub.not ? !vals.has(v) : vals.has(v)
+      })
     }
     // GROUP BY + 聚合
     let out: Row[]
@@ -142,7 +153,14 @@ export class MemorySql {
         }
         return row
       })
-      if (q.having) out = out.filter((r) => matchWhereExpr(r, q.having!, undefined))
+      if (q.having) {
+        // HAVING 聚合函数键（count(*)）→ 聚合行 as 名（count）
+        const aggAlias = new Map<string, string>()
+        for (const a of q.aggregate ?? []) aggAlias.set(`${a.fn}(${a.col === '*' ? '*' : a.col})`, a.as)
+        const mapped: WhereExpr = {}
+        for (const [k, v] of Object.entries(q.having)) mapped[aggAlias.get(k) ?? k] = v as never
+        out = out.filter((r) => matchWhereExpr(r, mapped, undefined))
+      }
     } else if (q.cols?.length) {
       // 投影：直接从前缀行取列（JOIN 同名列精确——不先 unqualified 丢前缀）
       out = filtered.map((r) => {
@@ -174,16 +192,23 @@ export class MemorySql {
     // ORDER BY / LIMIT / OFFSET
     if (q.orderBy?.length) {
       const ob = q.orderBy
-      out.sort((a, b) => {
-        for (const o of ob) {
-          const va = a[stripTable(o.col)]
-          const vb = b[stripTable(o.col)]
-          if (va === vb) continue
-          const cmp = Number(va) > Number(vb) ? 1 : -1
-          return o.dir === 'desc' ? -cmp : cmp
-        }
-        return 0
-      })
+      // 带索引排序（tie-break 用插入序——近似真库时间戳微秒：最新插入在后 → 排前）
+      out = out
+        .map((r, idx) => ({ r, idx }))
+        .sort((a, b) => {
+          for (const o of ob) {
+            const va = a.r[stripTable(o.col)]
+            const vb = b.r[stripTable(o.col)]
+            if (va === vb) continue
+            // 通用比较：数字按数值、字符串按字典序（ISO 时间戳字典序 = 时间序）
+            const cmp = typeof va === 'number' && typeof vb === 'number'
+              ? (va > vb ? 1 : -1)
+              : String(va) > String(vb) ? 1 : -1
+            return o.dir === 'desc' ? -cmp : cmp
+          }
+          return b.idx - a.idx // 全相等：插入序倒序（稳定且符合比较器契约）
+        })
+        .map((x) => x.r)
     }
     if (q.offset !== undefined) out = out.slice(q.offset)
     if (q.limit !== undefined) out = out.slice(0, q.limit)
@@ -198,14 +223,22 @@ export class MemorySql {
     for (const row of q.rows) {
       // PK DEFAULT / UNIQUE 检查（与字符串路径同约束）
       if (t.pk && !(t.pk.col in row)) row[t.pk.col] = t.pk.defaultUuid ? randomUUID() : `mem-${t.nextId}`
+      for (const c of t.defaultNow) {
+        if (!(c in row)) row[c] = new Date().toISOString()
+      }
+      // 唯一冲突：onConflict DO NOTHING → 跳过该行；否则 409（同字符串路径）
+      let conflicted = false
       for (const u of t.uniques) {
         if (u in row && t.rows.some((r) => deepEq(r[u], row[u]))) {
+          if (q.onConflict) { conflicted = true; break }
           throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${u}"`, 409)
         }
       }
-      t.rows.push(row)
-      t.nextId++
-      if (q.returning) results.push(q.returning === '*' ? { ...row } : pick(row, q.returning))
+      if (!conflicted) {
+        t.rows.push(row)
+        t.nextId++
+        if (q.returning) results.push(q.returning === '*' ? { ...row } : pick(row, q.returning))
+      }
     }
     const res = results as QueryResult<Row>
     res.affectedRows = q.rows.length
@@ -219,8 +252,13 @@ export class MemorySql {
     for (const r of t.rows) {
       if (!q.where || matchWhereExpr(r, q.where, undefined)) {
         for (const [k, v] of Object.entries(q.sets)) {
-          if (isRaw(v)) throw new ProtocolError('memory-sql: raw SET 值不支持（诚实裁剪——用真库）')
-          r[k] = v
+          if (isRaw(v)) {
+            // raw SET 值：now() 特判（编辑/软删时间戳）；其余裁剪
+            if (/^now\(\)$/i.test((v as RawSql).__raw.trim())) r[k] = new Date().toISOString()
+            else throw new ProtocolError('memory-sql: raw SET 值不支持（诚实裁剪——用真库）')
+          } else {
+            r[k] = v
+          }
         }
         n++
         if (q.returning) results.push(q.returning === '*' ? { ...r } : pick(r, q.returning))
@@ -253,7 +291,7 @@ export class MemorySql {
 
   private table(name: string): MemoryTable {
     let t = this.tables.get(name)
-    if (!t) { t = { rows: [], nextId: 1, uniques: new Set() }; this.tables.set(name, t) }
+    if (!t) { t = { rows: [], nextId: 1, uniques: new Set(), defaultNow: new Set() }; this.tables.set(name, t) }
     return t
   }
 
@@ -267,6 +305,7 @@ export class MemorySql {
           const t = this.table(stmt.table)
           t.pk = stmt.constraints.pk
           for (const u of stmt.constraints.uniques) t.uniques.add(u)
+          for (const c of stmt.constraints.defaultNow) t.defaultNow.add(c)
         }
         const res: QueryResult<Row> = []
         res.affectedRows = 0
@@ -291,6 +330,10 @@ export class MemorySql {
         // PK DEFAULT：未提供时生成（gen_random_uuid() → uuid；否则自增序号）
         if (t.pk && !(t.pk.col in row)) {
           row[t.pk.col] = t.pk.defaultUuid ? randomUUID() : `mem-${t.nextId}`
+        }
+        // DEFAULT now()：未提供时填充当前时间戳
+        for (const c of t.defaultNow) {
+          if (!(c in row)) row[c] = new Date().toISOString()
         }
         // UNIQUE 约束：重复 → 23505（userSystem 唯一冲突映射 409）
         for (const u of t.uniques) {
@@ -477,12 +520,11 @@ function stripAlias(ref: string, alias?: string): string {
 }
 
 /** 解析 CREATE TABLE 列定义 → 约束（pk + uniques） */
-function parseColumnConstraints(colsSql: string): { pk?: { col: string; defaultUuid: boolean }; uniques: string[] } {
-  const result: { pk?: { col: string; defaultUuid: boolean }; uniques: string[] } = { uniques: [] }
-  // 逐列解析（简单分割：列定义逗号分隔——不含括号内逗号）
+function parseColumnConstraints(colsSql: string): { pk?: { col: string; defaultUuid: boolean }; uniques: string[]; defaultNow: string[] } {
+  const result: { pk?: { col: string; defaultUuid: boolean }; uniques: string[]; defaultNow: string[] } = { uniques: [], defaultNow: [] }
   const cols = splitTopLevel(colsSql)
   for (const colDef of cols) {
-    const m = /^(\w+)\s+([\w\s(),.]+)$/.exec(colDef.trim())
+    const m = /^(\w+)\s+([\w\s(),.'-]+)$/.exec(colDef.trim())
     if (!m) continue
     const col = m[1]
     const def = m[2].toUpperCase()
@@ -490,6 +532,7 @@ function parseColumnConstraints(colsSql: string): { pk?: { col: string; defaultU
       result.pk = { col, defaultUuid: /GEN_RANDOM_UUID/.test(def) }
     }
     if (/\bUNIQUE\b/.test(def)) result.uniques.push(col)
+    if (/DEFAULT\s+NOW/.test(def)) result.defaultNow.push(col)
   }
   return result
 }
@@ -541,7 +584,12 @@ function pick(row: Row, cols: string[]): Row {
 function resolveCol(row: Row, ref: string, _alias?: string): unknown {
   if (ref in row) return row[ref]
   const dot = ref.indexOf('.')
-  if (dot >= 0) return row[ref]
+  if (dot >= 0) {
+    // 带别名引用：行无前缀（非 JOIN）时回退裸列
+    const bare = ref.slice(dot + 1)
+    if (bare in row) return row[bare]
+    return undefined
+  }
   for (const [k, v] of Object.entries(row)) {
     const bare = k.slice(k.indexOf('.') + 1)
     if (bare === ref) return v
@@ -585,10 +633,10 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
       const ops = field as ColOps
       const actual = resolveCol(row, col, alias)
       if (ops.col !== undefined && !deepEq(actual, resolveCol(row, ops.col, alias))) return false
-      if (ops.gt !== undefined && !(Number(actual) > Number(ops.gt))) return false
-      if (ops.gte !== undefined && !(Number(actual) >= Number(ops.gte))) return false
-      if (ops.lt !== undefined && !(Number(actual) < Number(ops.lt))) return false
-      if (ops.lte !== undefined && !(Number(actual) <= Number(ops.lte))) return false
+      if (ops.gt !== undefined && cmpValue(actual, ops.gt) <= 0) return false
+      if (ops.gte !== undefined && cmpValue(actual, ops.gte) < 0) return false
+      if (ops.lt !== undefined && cmpValue(actual, ops.lt) >= 0) return false
+      if (ops.lte !== undefined && cmpValue(actual, ops.lte) > 0) return false
       if (ops.ne !== undefined && deepEq(actual, ops.ne)) return false
       if (ops.in && !ops.in.some((v) => deepEq(actual, v))) return false
       if (ops.notIn && ops.notIn.some((v) => deepEq(actual, v))) return false
@@ -628,6 +676,14 @@ function matchWhere(row: Row, where: WhereClause): boolean {
       default: return false
     }
   })
+}
+
+/** 通用比较：数字按数值、字符串按字典序（ISO 时间戳字典序 = 时间序） */
+function cmpValue(a: unknown, b: unknown): number {
+  if (typeof a === 'number' && typeof b === 'number') return a > b ? 1 : a < b ? -1 : 0
+  const sa = String(a)
+  const sb = String(b)
+  return sa > sb ? 1 : sa < sb ? -1 : 0
 }
 
 function deepEq(a: unknown, b: unknown): boolean {

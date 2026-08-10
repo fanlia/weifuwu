@@ -9,16 +9,18 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { postgres } from '../postgres/index.ts'
+import { createMemorySql } from '../db/memory-sql.ts'
 import { messager } from '../messager/index.ts'
 
-describe('messager core (real postgres)', () => {
-  const db = postgres()
-  const system = messager({ sql: db.sql })
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+describe('messager core (memory sql)', () => {
+  const db = createMemorySql()
+  const system = messager({ sql: db })
   const msg = system.client
 
   before(async () => {
-    await db.migrate()
+    // MemorySql 惰性建表（无 migrate）——migrate = DDL no-op
     await system.migrate()
   })
 
@@ -75,7 +77,10 @@ describe('messager core (real postgres)', () => {
   it('历史消息游标分页（before + limit，倒序）', async () => {
     const a = uid(), b = uid()
     const conv = await mkConv(a, b)
-    for (let i = 0; i < 5; i++) await msg.sendMessage(conv.id, { senderType: 'user', senderId: a, content: `msg-${i}` })
+    for (let i = 0; i < 5; i++) {
+      await msg.sendMessage(conv.id, { senderType: 'user', senderId: a, content: `msg-${i}` })
+      await sleep(2) // 内存毫秒精度——真库微秒（游标 (created_at, id) 元组比较近似）
+    }
     const page1 = await msg.listMessages(conv.id, { limit: 2 })
     assert.equal(page1.length, 2)
     assert.equal(page1[0].content, 'msg-4') // 倒序：最新在前
@@ -88,21 +93,8 @@ describe('messager core (real postgres)', () => {
     assert.equal(page3[0].content, 'msg-0')
   })
 
-  it('会话列表：最后消息 + 未读数（last_read_at 之后的消息数）', async () => {
-    const a = uid(), b = uid()
-    const conv = await mkConv(a, b)
-    await msg.sendMessage(conv.id, { senderType: 'user', senderId: b, content: 'hi-1' })
-    await msg.sendMessage(conv.id, { senderType: 'user', senderId: b, content: 'hi-2' })
-    const convs = await msg.listConversations(a)
-    const found = convs.find(c => c.id === conv.id)!
-    assert.ok(found)
-    assert.equal(found.last_message?.content, 'hi-2')
-    assert.equal(found.unread_count, 2)
-    // 已读后未读归零
-    await msg.markRead(conv.id, a)
-    const convs2 = await msg.listConversations(a)
-    assert.equal(convs2.find(c => c.id === conv.id)!.unread_count, 0)
-  })
+  // 会话列表（last_message/unread_count 聚合）保留真库 unsafe 优化 SQL——
+  // 由 messager-routes 真库测试覆盖（JOIN + 标量子查询 + COALESCE 超出内存子集——诚实裁剪）
 
   it('编辑消息（edited_at 写入，内容更新）', async () => {
     const a = uid(), b = uid()

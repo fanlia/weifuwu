@@ -133,16 +133,15 @@ export function messager(options: MessagerOptions): MessagerSystem {
   // ── 会话 ──
   async function createConversation(userId: string, input: CreateConversationInput): Promise<Conversation> {
     if (input.type === 'direct') {
-      // 同对用户唯一（顺序无关，恰好两名成员）
-      const existing = await sql.unsafe(
-        `SELECT c.id, c.type, c.created_by, c.created_at FROM ${CONVERSATIONS} c
-         WHERE c.type = 'direct'
-           AND EXISTS (SELECT 1 FROM ${MEMBERS} m WHERE m.conversation_id = c.id AND m.user_id = $1)
-           AND EXISTS (SELECT 1 FROM ${MEMBERS} m WHERE m.conversation_id = c.id AND m.user_id = $2)
-           AND (SELECT count(*) FROM ${MEMBERS} m WHERE m.conversation_id = c.id) = 2
-         LIMIT 1`,
-        [userId, input.otherUserId],
-      )
+      // 同对用户唯一（顺序无关，恰好两名成员）——Query Language（真库编译/内存直执行）
+      const existing = await sql.query.from(`${CONVERSATIONS} c`)
+        .where({ 'c.type': 'direct' })
+        .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': userId } })
+        .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': input.otherUserId } })
+        .in('c.id', { kind: 'select', table: MEMBERS, alias: 'm', cols: ['conversation_id'], groupBy: ['conversation_id'], having: { 'count(*)': 2 } })
+        .select('c.id', 'c.type', 'c.created_by', 'c.created_at')
+        .limit(1)
+        .run()
       if (existing.length) return existing[0] as unknown as Conversation
       return createConversationRow(userId, 'direct', [userId, input.otherUserId])
     }
@@ -155,19 +154,19 @@ export function messager(options: MessagerOptions): MessagerSystem {
     type: 'direct' | 'group',
     memberIds: string[],
   ): Promise<Conversation> {
-    // 事务：会话 + 成员
+    // 事务：会话 + 成员（INSERT 走 Query Language；BEGIN/COMMIT 由引擎处理——内存自动提交）
     await sql.unsafe(`BEGIN`)
     try {
-      const rows = await sql.unsafe(
-        `INSERT INTO ${CONVERSATIONS} (type, created_by) VALUES ($1, $2) RETURNING id, type, created_by, created_at`,
-        [type, createdBy],
-      )
+      const rows = await sql.query.insert(CONVERSATIONS)
+        .values({ type, created_by: createdBy })
+        .returning('id', 'type', 'created_by', 'created_at')
+        .run()
       const conv = rows[0]
       for (const memberId of memberIds) {
-        await sql.unsafe(
-          `INSERT INTO ${MEMBERS} (conversation_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [conv.id, memberId],
-        )
+        await sql.query.insert(MEMBERS)
+          .values({ conversation_id: conv.id, user_id: memberId })
+          .onConflict(undefined, false) // 无目标列：任意唯一冲突跳过（联合约束 (conversation_id, user_id)）
+          .run()
       }
       await sql.unsafe(`COMMIT`)
       return conv as unknown as Conversation
@@ -209,28 +208,30 @@ export function messager(options: MessagerOptions): MessagerSystem {
 
   async function getConversationForUser(conversationId: string, userId: string): Promise<Conversation | null> {
     if (!(await isMember(conversationId, userId))) return null
-    const rows = await sql.unsafe(
-      `SELECT id, type, created_by, created_at FROM ${CONVERSATIONS} WHERE id = $1`,
-      [conversationId],
-    )
+    const rows = await sql.query.from(CONVERSATIONS)
+      .select('id', 'type', 'created_by', 'created_at')
+      .where({ id: conversationId })
+      .run()
     return rows.length ? (rows[0] as unknown as Conversation) : null
   }
 
   async function isMember(conversationId: string, userId: string): Promise<boolean> {
-    const rows = await sql.unsafe(
-      `SELECT 1 FROM ${MEMBERS} WHERE conversation_id = $1 AND user_id = $2`,
-      [conversationId, userId],
-    )
+    const rows = await sql.query.from(MEMBERS).select('1').where({ conversation_id: conversationId, user_id: userId }).run()
     return rows.length > 0
   }
 
   // ── 消息 ──
   async function sendMessage(conversationId: string, input: SendMessageInput): Promise<Message> {
-    const rows = await sql.unsafe(
-      `INSERT INTO ${MESSAGES} (conversation_id, sender_type, sender_id, content, msg_type)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [conversationId, input.senderType, input.senderId ?? null, input.content, input.msgType ?? 'text'],
-    )
+    const rows = await sql.query.insert(MESSAGES)
+      .values({
+        conversation_id: conversationId,
+        sender_type: input.senderType,
+        sender_id: input.senderId ?? null,
+        content: input.content,
+        msg_type: input.msgType ?? 'text',
+      })
+      .returning('*')
+      .run()
     return normalizeMessage(rows[0])
   }
 
@@ -239,40 +240,46 @@ export function messager(options: MessagerOptions): MessagerSystem {
     opts: { before?: string; limit?: number },
   ): Promise<Message[]> {
     const limit = opts.limit ?? 50
-    // 保留软删消息（deleted_at 标记，前端自行显示"已删除"占位或隐藏）
-    const rows = await sql.unsafe(
-      `SELECT * FROM ${MESSAGES}
-       WHERE conversation_id = $1
-         AND ($2::uuid IS NULL OR (created_at, id) < (SELECT created_at, id FROM ${MESSAGES} WHERE id = $2))
-       ORDER BY created_at DESC, id DESC
-       LIMIT $3`,
-      [conversationId, opts.before ?? null, limit],
-    )
+    const q = sql.query.from(MESSAGES).where({ conversation_id: conversationId })
+    // 游标分页：无 before 全查；有 before → 元组比较 (created_at, id) < (b.created_at, b.id) 拆 OR 组
+    if (opts.before) {
+      const [before] = await sql.query.from(MESSAGES).select('created_at', 'id').where({ id: opts.before }).run()
+      if (before) {
+        q.where({
+          or: [
+            { created_at: { lt: before.created_at as string } },
+            { created_at: before.created_at as string, id: { lt: before.id as string } },
+          ],
+        })
+      }
+    }
+    const rows = await q.orderBy('created_at', 'desc').orderBy('id', 'desc').limit(limit).run()
     return rows.map(normalizeMessage)
   }
 
   async function editMessage(messageId: string, content: string): Promise<Message | null> {
-    const rows = await sql.unsafe(
-      `UPDATE ${MESSAGES} SET content = $2, edited_at = now()
-       WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
-      [messageId, content],
-    )
+    const rows = await sql.query.update(MESSAGES)
+      .set({ content, edited_at: sql.raw`now()` })
+      .where({ id: messageId, deleted_at: { isNull: true } })
+      .returning('*')
+      .run()
     return rows.length ? normalizeMessage(rows[0]) : null
   }
 
   async function deleteMessage(messageId: string): Promise<boolean> {
-    const rows = await sql.unsafe(
-      `UPDATE ${MESSAGES} SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
-      [messageId],
-    )
+    const rows = await sql.query.update(MESSAGES)
+      .set({ deleted_at: sql.raw`now()` })
+      .where({ id: messageId, deleted_at: { isNull: true } })
+      .returning('id')
+      .run()
     return rows.length > 0
   }
 
   async function markRead(conversationId: string, userId: string): Promise<void> {
-    await sql.unsafe(
-      `UPDATE ${MEMBERS} SET last_read_at = now() WHERE conversation_id = $1 AND user_id = $2`,
-      [conversationId, userId],
-    )
+    await sql.query.update(MEMBERS)
+      .set({ last_read_at: sql.raw`now()` })
+      .where({ conversation_id: conversationId, user_id: userId })
+      .run()
   }
 
   function normalizeMessage(row: any): Message {

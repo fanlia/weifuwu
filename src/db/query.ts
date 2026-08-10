@@ -97,8 +97,8 @@ export interface InsertQuery {
   table: string
   rows: Row[] // 一行或多行（同列）
   returning?: string[] | '*'
-  /** upsert：ON CONFLICT (col) DO UPDATE SET col=EXCLUDED.col */
-  onConflict?: { col: string; update?: boolean }
+  /** upsert：ON CONFLICT (col) DO UPDATE SET col=EXCLUDED.col；col 省略 = 任意唯一冲突 DO NOTHING */
+  onConflict?: { col?: string; update?: boolean }
 }
 
 export interface UpdateQuery {
@@ -149,7 +149,7 @@ export interface InsertBuilder {
   values(row: Row): this
   rows(rows: Row[]): this
   returning(...cols: (string | '*')[]): this
-  onConflict(col: string, update?: boolean): this
+  onConflict(col?: string, update?: boolean): this
   run(): Promise<QueryResult<Row>>
 }
 
@@ -227,7 +227,7 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
       for (const [op, rhs] of ops) parts.push(`${col} ${op} ${rhs}`)
       continue
     }
-    // 标量相等
+    // 标量相等（聚合函数键如 count(*) 直接表达式——HAVING 场景）
     if (field === null) parts.push(`${col} IS NULL`)
     else parts.push(`${col} = ${param(params, field)}`)
   }
@@ -262,12 +262,15 @@ export function compileSelect(q: SelectQuery): Compiled {
   if (q.where) sql += ` WHERE ${compileWhere(q.where, params)}`
   for (const s of q.sub ?? []) {
     const sub = compileSelect(s.query)
+    // 子查询参数重编号（base offset——子查询内部 $n 独立，映射到全局参数数组）
+    const base = params.length + 1
+    const subSql = sub.sql.replace(/\$(\d+)/g, (_m, n: string) => `$${base + Number(n) - 1}`)
     params.push(...sub.params)
     const op = s.type === 'exists' ? (s.not ? 'NOT EXISTS' : 'EXISTS') : s.not ? 'NOT IN' : 'IN'
     if (s.type === 'exists') {
-      sql += ` AND ${op} (${sub.sql})`
+      sql += ` AND ${op} (${subSql})`
     } else {
-      sql += ` AND ${s.col} ${op} (${sub.sql})`
+      sql += ` AND ${s.col} ${op} (${subSql})`
     }
   }
   if (q.groupBy?.length) sql += ` GROUP BY ${q.groupBy.join(', ')}`
@@ -286,14 +289,19 @@ export function compileInsert(q: InsertQuery): Compiled {
   const valueRows = q.rows.map((r) => `(${cols.map((c) => param(params, r[c])).join(', ')})`)
   let sql = `INSERT INTO ${q.table} (${colSql}) VALUES ${valueRows.join(', ')}`
   if (q.onConflict) {
-    sql += ` ON CONFLICT (${q.onConflict.col})`
-    if (q.onConflict.update) {
-      // 非冲突列更新；单列（全冲突）场景 SET 冲突列自身（PG 合法 no-op）
-      const updateCols = cols.filter((c) => c !== q.onConflict!.col)
-      const setCols = updateCols.length ? updateCols : [q.onConflict!.col]
-      sql += ` DO UPDATE SET ${setCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')}`
+    if (q.onConflict.col) {
+      sql += ` ON CONFLICT (${q.onConflict.col})`
+      if (q.onConflict.update) {
+        // 非冲突列更新；单列（全冲突）场景 SET 冲突列自身（PG 合法 no-op）
+        const updateCols = cols.filter((c) => c !== q.onConflict!.col)
+        const setCols = updateCols.length ? updateCols : [q.onConflict!.col]
+        sql += ` DO UPDATE SET ${setCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')}`
+      } else {
+        sql += ' DO NOTHING'
+      }
     } else {
-      sql += ' DO NOTHING'
+      // 无目标列：任意唯一冲突跳过（原 unsafe `ON CONFLICT DO NOTHING` 语义）
+      sql += ' ON CONFLICT DO NOTHING'
     }
   }
   if (q.returning) {

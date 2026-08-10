@@ -44,11 +44,12 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
         return b
       },
       where(expr: WhereExpr): SelectBuilder {
-        ast.where = expr
+        // 多次 where 追加 AND（不覆盖——游标等链式条件）
+        ast.where = ast.where ? { ...ast.where, ...expr } : expr
         return b
       },
       whereRaw(sqlText: string, params: unknown[] = []): SelectBuilder {
-        ast.where = { __raw: sqlText, params } as unknown as WhereExpr
+        ast.where = { ...(ast.where ?? {}), __raw: sqlText, params } as unknown as WhereExpr
         return b
       },
       in(col: string, query: SelectQuery, not = false): SelectBuilder {
@@ -118,7 +119,7 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
         ast.returning = cols.length === 1 && cols[0] === '*' ? '*' : cols
         return b
       },
-      onConflict(col: string, update = false): InsertBuilder {
+      onConflict(col?: string, update = false): InsertBuilder {
         ast.onConflict = { col, update }
         return b
       },
@@ -137,7 +138,7 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
         return b
       },
       where(expr: WhereExpr): UpdateBuilder {
-        ast.where = expr
+        ast.where = ast.where ? { ...ast.where, ...expr } : expr
         return b
       },
       whereRaw(sqlText: string, params: unknown[] = []): UpdateBuilder {
@@ -159,7 +160,7 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
     const ast: DeleteQuery = { kind: 'delete', table }
     const b: DeleteBuilder = {
       where(expr: WhereExpr): DeleteBuilder {
-        ast.where = expr
+        ast.where = ast.where ? { ...ast.where, ...expr } : expr
         return b
       },
       whereRaw(sqlText: string, params: unknown[] = []): DeleteBuilder {
