@@ -3,13 +3,11 @@
  *
  * 注入 ctx.limit（手动限流）+ 全局请求限流。
  *
- * store:
- *   - redis（默认）：fixed（INCR + EXPIRE，原子无竞态）或 sliding（ZSET 时间戳），
- *     计数在 redis 内 → 多实例天然一致
- *   - memory：进程内 Map，仅单实例/开发环境（多实例会互相放行，文档红线）
+ * store：仅 redis（必传 redis 参数）——fixed（INCR + EXPIRE，原子无竞态）或
+ *   sliding（ZSET 时间戳），计数在 redis 内 → 多实例天然一致
  *
  * 裁剪声明：
- *   ✅ fixed / sliding / redis / 响应头 / ctx.limit / 自定义 key
+ *   ✅ fixed / sliding / 响应头 / ctx.limit / 自定义 key
  *   ❌ 多级限流 DSL、配额策略引擎、动态规则热更新、按租户配额（应用层）
  *
  * ```ts
@@ -31,7 +29,6 @@ import { HttpError } from '../types.ts'
 import type { Redis } from '../db/contracts.ts'
 
 export type RateLimitAlgorithm = 'fixed' | 'sliding'
-export type RateLimitStore = 'redis' | 'memory'
 
 export interface RateLimitOptions {
   /**
