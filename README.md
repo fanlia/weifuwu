@@ -191,7 +191,7 @@ router.use(ui())
 // → 完整 HTML + __DATA__ + bundle/styles 引用（无需手写页面 handler）
 router.get('*', async (req, ctx) => {
   const { page } = await ssrPage(app, { url: req.url ?? '/' })
-  return ctx.ui.html(page)
+  return ctx.ui.html.unsafe(page)   // page 是完整 HTML（ssrPage 已序列化 __DATA__）——unsafe 防二次转义
 })
 
 router.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
@@ -390,16 +390,15 @@ cd apps/agent-platform && npm run seed && npm run dev
 
 ## 核心概念
 
-### 三层形态（路由 / 组件 / 异步工厂）
+### 三层形态（路由 / 同步组件 / async 组件）
 
 | 层 | 签名 | 异步 | 生命周期 |
 |----|------|------|---------|
 | **UIHandler**（路由） | `async (location, ctx) => VNode` | ✅ 整体 | 每次路由变化执行 |
-| **Component**（组件） | `(initProps, ctx) => (props) => VNode` | ❌ 同步 | mount 一次 + render 每次 |
-| **AsyncFactory**（异步组件） | `async (ctx) => (initProps, ctx) => (props) => VNode` | ✅ 只工厂 | 工厂一次（WeakMap 缓存） |
+| **Component**（同步组件） | `(initProps, ctx) => (props) => VNode` | ❌ 同步 | mount 一次 + render 每次 |
+| **AsyncComponent**（async 组件） | `async (initProps, ctx) => (props) => VNode` | ✅ 只工厂 | 工厂按实例（diff 传递 `_asyncDef`，补全不重跑） |
 
-异步只出现在两个边界——路由 handler（整页）和组件工厂（数据声明）；**mount/render 永远同步**（SSR/hydration 两端一致性的根基）。`async (initProps, ctx) => ...` 是混合错形——渲染器不 await 同步组件，Promise 会被当 render 函数调用。
-
+异步只出现在两个边界——路由 handler（整页）和 async 组件工厂（数据声明）；**mount/render 永远同步**（SSR/hydration 两端一致性的根基）。async 组件与同步组件**同签名**（唯一差别是 `async` 关键字）——渲染器按「返回值 instanceof Promise」统一判别：未 resolve → `Placeholder` 占位（`<Suspense fallback>` 边界内显示 fallback），resolve 后整树重渲染补全。
 ### 两阶段组件（新手必读：为什么是两层）
 
 组件 = `(initProps, ctx) => (props) => VNode`——**外层 = 初始化（只执行一次），内层 = 渲染（每次状态/props 变化时执行）**。类比：外层是对象的构造函数，内层是它的 render 方法。
