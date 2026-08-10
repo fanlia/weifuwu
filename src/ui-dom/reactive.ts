@@ -4,7 +4,15 @@
  * 纯 JS（无 DOM），客户端（ctx.ui.$()）与服务端（SSR ctx shim）共用。
  */
 
+import { uiLog } from './debug.ts'
+
 export function createReactiveState(dirty: () => void): Record<string, any> {
+  const _debugSets = new Map<string, number>()
+  const _dbg = (key: string, label: string) => {
+    const n = (_debugSets.get(key) ?? 0) + 1
+    _debugSets.set(key, n)
+    if (n <= 5 || n % 100 === 0) uiLog(label, key + ' count=' + n, { throttle: 100 })
+  }
   const proxyCache = new WeakMap()
   // 多消费者订阅：同一状态被父组件（$）与子组件（AiChat 等共享 handle）同时观察
   const watchers = new Set<() => void>()
@@ -12,7 +20,7 @@ export function createReactiveState(dirty: () => void): Record<string, any> {
   const reactive = (target: any): any => {
     if (target === null || typeof target !== 'object') return target
 
-    // 内置集合类型（Set/Map）：Proxy 包装 + 方法 bind 到原始 target——
+// 内置集合类型（Set/Map）：Proxy 包装 + 方法 bind 到原始 target——
     // 直接调用 set.add()/map.set() 也会触发 dirty（DiffView 教训：
     // 深度 Proxy 包装 Set 后 Set.prototype.has 的 this 绑定被破坏 → TypeError）
     if (target instanceof Set || target instanceof Map) {
@@ -40,6 +48,7 @@ export function createReactiveState(dirty: () => void): Record<string, any> {
         },
         set(t, key, value) {
           Reflect.set(t, key, value)
+          _dbg(String(key), 'set')
           dirty()
           for (const w of watchers) w()
           return true

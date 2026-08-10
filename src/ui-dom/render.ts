@@ -19,6 +19,7 @@ import type { BrowserEnv } from './types.ts'
 import { createClientBrowser } from './browser.ts'
 import { getRegistry, nextComponentIdFor, safeCallRef } from './registry.ts'
 import { startAsyncFactory, resolveAsyncFactorySync, resolveAsyncFactory } from './registry.ts'
+import { uiDebugEnabled, uiLog, pushDepth, popDepth } from './debug.ts'
 // ⚠️ 与 diff.ts 的环：renderValue（本文件）↔ patchKeyedChildren（diff.ts）互相需要。
 // 安全原因：两模块顶层仅常量声明，全部函数级延迟调用（渲染运行时两模块均已加载）。
 import { patchProps, normalize, ensureKeys, patchKeyedChildren, mapChildDomNodes } from './diff.ts'
@@ -36,9 +37,13 @@ export function render(input: VNodeChild, ctx: WfuiContext): Node | null {
 
 export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
   const b = (ctx.browser ?? clientBrowser) as BrowserEnv
-  if (v == null || typeof v === 'boolean') return null
-  if (typeof v === 'string' || typeof v === 'number') return b.createTextNode(String(v))
-  if (Array.isArray(v)) return renderArray(v, ctx)
+  if (uiDebugEnabled()) {
+    const vt = v != null && typeof v === 'object' ? (v as any).type?.name ?? String((v as any).type).slice(0, 20) : typeof v
+    uiLog('renderValue', 'type=' + vt, { depth: pushDepth() })
+  }
+  if (v == null || typeof v === 'boolean') { if (uiDebugEnabled()) popDepth(); return null }
+  if (typeof v === 'string' || typeof v === 'number') { if (uiDebugEnabled()) popDepth(); return b.createTextNode(String(v)) }
+  if (Array.isArray(v)) { const r = renderArray(v, ctx); if (uiDebugEnabled()) popDepth(); return r }
 
   const vnode = v as VNode
 
@@ -143,6 +148,17 @@ export function mountComponent(
   vnode: VNode,
   ctx: WfuiContext,
 ): VNode | null {
+  if (uiDebugEnabled()) {
+    const name = (Comp as any)?.name ?? (typeof Comp === 'function' ? 'fn' : String(typeof Comp))
+    uiLog('mountComponent', name + ' id=' + String((vnode as any).id ?? '').slice(0, 10))
+  }
+  // failsafe：单次渲染管线挂载超限 = 无限递归（渲染死循环）——抛错拿堆栈
+  const g = globalThis as any
+  if (g.__wf_mountCount === undefined) g.__wf_mountCount = 0
+  if (++g.__wf_mountCount > 500) {
+    g.__wf_mountCount = 0
+    throw new Error('[wf-render] mountComponent 超过 500 次——渲染死循环（无限挂载）')
+  }
   const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   let def: Component | undefined
   if (isAsyncComponent(Comp)) {

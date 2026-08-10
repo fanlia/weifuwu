@@ -16,6 +16,7 @@ import { lockScroll, unlockScroll } from './scroll-lock.ts'
 import { trapFocus } from './focus-trap.ts'
 import { createReactiveState } from './reactive.ts'
 import { aiStream } from './ai.ts'
+import { uiDebugEnabled, uiLog } from './debug.ts'
 import { createChatSession, type UseChatHandle, type UseChatOptions, type UseChatState } from './use-chat.ts'
 import { clampToViewport, computeFixedPosRect } from './popup.ts'
 import { createPortal } from './vnode.ts'
@@ -130,6 +131,11 @@ export function createUi(deps: UiDeps): WfuiContext['ui'] & UiInternal {
 
     /** 异步刷新（微任务批处理，无参 = 当前组件） */
     dirty: function (ids?: string[]) {
+      // debug：谁在反复 dirty（死循环定位——uiLog 节流）
+      const selfId = this._selfId ?? ''
+      const n = (this as any)._debugDirty = ((this as any)._debugDirty ?? 0) + 1
+      uiLog('dirty', 'self=' + String(selfId).slice(0, 20) + ' ids=' + JSON.stringify(ids) + ' n=' + n + ' mounting=' + isMounting() + ' rendering=' + isRendering(), { throttle: 200 })
+      if (n <= 3 && uiDebugEnabled()) console.trace('[ui-debug]', 'dirty-trace', String(selfId).slice(0, 20))
       // mount 阶段（组件工厂初始化赋值）：丢弃（旧行为正确——初始化不需渲染）
       if (isMounting()) return
       // 渲染期调用（组件 render 内调父层 setState）：推迟到渲染完成后微任务，

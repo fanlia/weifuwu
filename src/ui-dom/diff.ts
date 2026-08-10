@@ -10,6 +10,7 @@
 import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import { Fragment, Portal } from './vnode.ts'
+import { uiDebugEnabled, uiLog } from './debug.ts'
 import type { WfuiContext } from './types.ts'
 import { renderValue, mountComponent, patchPortal, renderPortal } from './render.ts'
 import { callRefCleanupFor, getRegistry } from './registry.ts'
@@ -43,6 +44,11 @@ export function patchValue(
   newInput: VNodeChild,
   ctx: WfuiContext,
 ): Node | null {
+  if (uiDebugEnabled()) {
+    const oldT = oldInput != null && typeof oldInput === 'object' ? (oldInput as any).type?.name ?? String((oldInput as any).type).slice(0, 20) : String(typeof oldInput)
+    const newT = newInput != null && typeof newInput === 'object' ? (newInput as any).type?.name ?? String((newInput as any).type).slice(0, 20) : String(typeof newInput)
+    uiLog('patchValue', 'old=' + oldT + ' new=' + newT)
+  }
   // 新增
   if (oldInput == null) {
     if (newInput == null) return null
@@ -121,13 +127,15 @@ export function patchValue(
     newV._ctxVersion = oldV._ctxVersion ?? childUi._ctxVersion ?? 0
 
     // ── 三态 skip：props 没变 + $ 没脏 + ctx 版本一致 → 复用旧输出 ──
-    if (
-      oldV._render &&
-      oldV.type === newV.type && // 类型必须相同（否则三态 skip 会复用旧组件输出）
-      componentPropsEqual(oldV.props, newV.props) &&
-      !childUi._dirtySet?.has(oldV._id as string) &&
-      newV._ctxVersion === childUi._ctxVersion
-    ) {
+    const skipType = oldV._render && oldV.type === newV.type
+    const skipProps = componentPropsEqual(oldV.props, newV.props)
+    const skipDirty = !childUi._dirtySet?.has(oldV._id as string)
+    const skipVersion = newV._ctxVersion === childUi._ctxVersion
+    if (uiDebugEnabled()) {
+      const name = (comp as any)?.name ?? 'anon'
+      uiLog('tri-state-skip', name + ' type=' + skipType + ' props=' + skipProps + ' dirty=' + skipDirty + ' ver=' + skipVersion)
+    }
+    if (skipType && skipProps && skipDirty && skipVersion) {
       // 复用旧 _child（DOM 未变，不需要重新 render）
       newV._child = oldV._child
       return oldNode
@@ -257,6 +265,7 @@ function typeOf(input: VNodeChild): string {
 // ── patchProps ─────────────────────────────────────────
 
 export function patchProps(el: Element, oldProps: Record<string, unknown> | null, newProps: Record<string, unknown>) {
+  if (uiDebugEnabled()) uiLog('patchProps', 'oldKeys=' + (oldProps ? Object.keys(oldProps).length : 0) + ' newKeys=' + Object.keys(newProps).length)
   const oldKeys = oldProps ? Object.keys(oldProps).filter(k => k !== 'children' && k !== 'key' && k !== 'innerHTML') : []
   const newKeys = newProps ? Object.keys(newProps).filter(k => k !== 'children' && k !== 'key' && k !== 'innerHTML') : []
   // O(n·m) → O(n+m)：旧属性删除判定用 Set 查找
@@ -426,6 +435,7 @@ function patchChildren(
   ctx: WfuiContext,
   oldNodesOverride?: Node[],
 ): Node[] {
+  if (uiDebugEnabled()) uiLog('patchChildren', 'old=' + (oldVNode.props?.children as any)?.length + ' new=' + (newVNode.props?.children as any)?.length)
   const oldChildren = normalize(oldVNode.props?.children)
   const newChildren = normalize(newVNode.props?.children)
 
@@ -477,6 +487,7 @@ export function patchKeyedChildren(
   oldNodes: (Node[] | null)[] = [],
   rangeStart: Node | null = null,
 ): (Node[] | null)[] {
+  if (uiDebugEnabled()) uiLog('patchKeyedChildren', 'old=' + oldChildren.length + ' new=' + newChildren.length)
   // remote（portal）的 key 是内部定位（createPortal portalKey）——不算用户 keyed。
   // 否则 [input(无key), portal(key)] 走 keyed 分支 → 无 key 项 Step1 移除重建 →
   // 受控 input 焦点丢失（AutoComplete/Select 真实 bug——此前组件手动加 key 治标）

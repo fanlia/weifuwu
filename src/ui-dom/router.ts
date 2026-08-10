@@ -84,7 +84,12 @@ export class UIRouter<C extends object = {}> {
           rel = path.slice(prefix.length)
         }
         if (rel === null) return children // 不在前缀下 → 直通主链
-        return async (loc, c) => sub._handle(rel, loc, c) // 交给子路由树
+        return async (loc, c) => {
+          // 交给子路由树；子树无匹配（null）→ 回退父链（父路由/notFound 仍可处理——fallthrough）
+          const result = await sub._handle(rel, loc, c)
+          if (result === null) return children(loc, c)
+          return result
+        }
       }
       this._middlewares.push(mw)
       return this
@@ -161,8 +166,9 @@ export class UIRouter<C extends object = {}> {
     await this._ensureInjected(ctx)
     const match = this.match(relPath)
     if (match.title && typeof document !== 'undefined') document.title = match.title
-    // 注入共享 ctx（params 是当前渲染请求的解析结果）
+    // 注入共享 ctx（params 是当前渲染请求的解析结果）——同步 route 快照（serve 在 execute 前设置）
     ctx.params = match.params
+    if ((ctx as any).route) (ctx as any).route.params = match.params
 
     const handler = match.handler
     let inner: UIHandler = handler
@@ -187,6 +193,7 @@ export class UIRouter<C extends object = {}> {
     const match = this.match(path)
     if (match.title && typeof document !== 'undefined') document.title = match.title
     ctx.params = match.params
+    if ((ctx as any).route) (ctx as any).route.params = match.params
 
     const handler = match.handler
     let inner: UIHandler = handler

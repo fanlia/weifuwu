@@ -25,7 +25,7 @@ export interface AccordionProps {
  * 方向键移动焦点 + aria-expanded 同步。与 Collapse 边界：Accordion = 整块卡片面板容器。
  */
 export const Accordion: Component<AccordionProps> = (_init, ctx) => {
-  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   const $ = ctx.ui.$()

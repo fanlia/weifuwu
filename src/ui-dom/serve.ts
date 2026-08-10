@@ -21,6 +21,7 @@ import { createReactiveState } from './reactive.ts'
 import { patchValue } from './diff.ts'
 import { hydrateVNode } from './hydration.ts'
 import { createClientBrowser } from './browser.ts'
+import { uiDebugEnabled, uiLog } from './debug.ts'
 import type { UIRouter } from './router.ts'
 import type { VNode, WfuiContext, UIContext } from './types.ts'
 
@@ -55,6 +56,7 @@ export function uiServe<RC extends object = {}>(
   // ── 渲染运行时（局部实例——与 createApp 隔离） ──
   const registry: Registry = createRegistry()
   const dirtyBatch = new Set<string>()
+  let _debugDirtyCount = 0
   const dirtySet = new Set<string>()
   const mediaRegistry = new Map()
   let _rendering = false
@@ -104,7 +106,10 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
         _dirtyScheduled = false
         const batch = [...dirtyBatch]
         dirtyBatch.clear()
-        if (batch.length > 0) renderByIds(batch)
+        if (batch.length > 0) {
+          uiLog('flushDirty', 'ids=' + JSON.stringify(batch))
+          renderByIds(batch)
+        }
       })
     }
   }
@@ -117,6 +122,7 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
     for (const id of ids) {
       const vnode = registry.idRegistry.get(id)
       if (!vnode || !vnode._render) continue
+      uiLog('renderByIds-start', id + ' render=' + String(vnode._render.name).slice(0, 30))
       ;(ctx.ui as WfuiContext['ui'] & UiInternal)._dirtySet?.delete(id)
       const oldChild = vnode._child as VNode | null
       const newChild = vnode._render(vnode.props) as VNode | null
@@ -144,6 +150,7 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
         if (newNode && newNode !== vnode._refNode) vnode._refNode = newNode
         else if (!newNode) vnode._refNode = null
       }
+      uiLog('renderByIds-done', id)
     }
 
     _rendering = false
@@ -159,7 +166,7 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
   }
 
   // ── 注入 ctx.ui（createUi——19 原语，局部 registry/popup-tracker） ──
-  ctx.browser = createClientBrowser()
+  ctx.browser = browser // 复用根 browser（同一身份——监听注册/移除一致，防泄漏）
   ctx.__registry = registry
   ctx.ui = createUi({
     ctx,
@@ -220,6 +227,7 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
 
   async function doRender() {
     if (rendering) return
+    uiLog('doRender', 'path=' + router.getPath())
     rendering = true
     try {
       const path = router.getPath()

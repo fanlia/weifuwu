@@ -80,7 +80,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
 </head>
 <body>
   <div id="root"><div class="boot-loading"><div class="spinner"></div>加载中...</div></div>
-  <script src="/static/app.js"></script>
+  <script type="module" src="/static/app.js"></script>
 </body>
 </html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
       })
@@ -107,7 +107,7 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
         </head>
         <body>
           <div id="root"><div class="boot-loading"><div class="spinner"></div>加载中...</div></div>
-          <script src="/static/app.js"></script>
+          <script type="module" src="/static/app.js"></script>
         </body>
         </html>
       `)

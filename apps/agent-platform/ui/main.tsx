@@ -54,6 +54,8 @@ app.get('/register', () => h(Register, {}), { title: '注册 — Agent Platform'
 const layoutMw = async (_location: any, ctx: any, children: any) => {
   return async (loc: any, c: any) => {
     const child = await children(loc, c)
+    // 子路由无匹配（null）→ 不包 AppLayout——回退父链（/login 等认证页不被 layout 拦截）
+    if (child == null) return child
     return h(AppLayout, {}, child)
   }
 }

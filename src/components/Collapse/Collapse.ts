@@ -33,7 +33,7 @@ export interface CollapseProps {
  * 与 Accordion 边界：Accordion = 整块卡片面板；Collapse = 行内展开。
  */
 export const Collapse: Component<CollapseProps> = (_init, ctx) => {
-  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback jsdom）
+  // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let headerEls: (HTMLElement | null)[] = []
