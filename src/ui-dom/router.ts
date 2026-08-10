@@ -12,7 +12,7 @@
  */
 
 import type { UIHandler, UIMiddleware, UIRouteDef } from './types.ts'
-import type { VNode, WfuiContext, AppMiddleware } from './types.ts'
+import type { VNode, UIContext, AppMiddleware } from './types.ts'
 
 /** UIRouter 选项 */
 export interface UIRouterOptions {
@@ -97,7 +97,7 @@ export class UIRouter<C extends object = {}> {
   }
 
   /** 执行 ctx 注入链（首次渲染时一次——应用级 ctx，对齐 createApp.use 链） */
-  private async _ensureInjected(ctx: WfuiContext): Promise<void> {
+  private async _ensureInjected(ctx: UIContext): Promise<void> {
     if (this._injected) return
     this._injected = true
     for (const mw of this._injections) {
@@ -152,7 +152,7 @@ export class UIRouter<C extends object = {}> {
    * 相对路径匹配 + sub 的中间件链 + sub 的 notFound——支持任意嵌套。
    * 返回 VNode（无渲染——serve 落地）。
    */
-  async _handle(relPath: string, location: Location, ctx: WfuiContext): Promise<VNode | null> {
+  async _handle(relPath: string, location: Location, ctx: UIContext): Promise<VNode | null> {
     await this._ensureInjected(ctx)
     const match = this.match(relPath)
     if (match.title) document.title = match.title
@@ -177,7 +177,7 @@ export class UIRouter<C extends object = {}> {
   }
 
   /** 顶层执行：中间件链 + handler → VNode（serve 调用，URL 变化时） */
-  async execute(location: Location, ctx: WfuiContext, path: string): Promise<VNode | null> {
+  async execute(location: Location, ctx: UIContext, path: string): Promise<VNode | null> {
     await this._ensureInjected(ctx)
     const match = this.match(path)
     if (match.title) document.title = match.title

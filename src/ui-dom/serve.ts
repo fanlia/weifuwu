@@ -21,7 +21,7 @@ import { patchValue } from './diff.ts'
 import { hydrateVNode } from './hydration.ts'
 import { createClientBrowser } from './browser.ts'
 import type { UIRouter } from './router.ts'
-import type { VNode, WfuiContext } from './types.ts'
+import type { VNode, WfuiContext, UIContext } from './types.ts'
 
 /** uiServe 选项 */
 export interface UIServeOptions {
@@ -67,7 +67,7 @@ export function uiServe<RC extends object = {}>(
   }
 
   // ctx（WfuiContext——createUi 需要先有 ctx 引用）
-  const ctx = { params: {}, query: {} } as unknown as WfuiContext
+  const ctx = { params: {}, query: {} } as unknown as UIContext
 
   // ── ctx.data（数据管道：缓存 + in-flight 合并 + __DATA__ 种子） ──
   const dataCache = new Map<string, { value?: unknown; promise?: Promise<unknown> }>()
@@ -263,7 +263,7 @@ export function uiServe<RC extends object = {}>(
 
   // ── handle ──
   return {
-    get ctx() { return ctx as WfuiContext & RC },
+    get ctx() { return ctx as unknown as WfuiContext & RC },
     close() {
       window.removeEventListener('popstate', onPop)
       if (router.mode === 'hash') window.removeEventListener('hashchange', onHash)

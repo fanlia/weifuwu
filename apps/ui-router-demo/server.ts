@@ -23,7 +23,8 @@ const html = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ui-dom — 独立 UIRouter demo</title>
+  <title>ui-dom × components demo</title>
+  <link rel="stylesheet" href="/components.css">
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem; }
     nav a { margin-right: 1rem; }
@@ -40,6 +41,12 @@ const html = `<!DOCTYPE html>
 
 const server = createServer((req, res) => {
   const url = req.url ?? '/'
+  if (url === '/components.css') {
+    // components 样式（含 Token + 布局原语 + 组件样式）
+    res.writeHead(200, { 'Content-Type': 'text/css' })
+    res.end(readFileSync(resolve(__dirname, '..', '..', 'dist', 'components', 'style.css'), 'utf8'))
+    return
+  }
   if (url === '/app.js') {
     try {
       const result = buildSync({
