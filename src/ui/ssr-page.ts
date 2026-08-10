@@ -9,9 +9,9 @@
  */
 
 import type { Middleware } from '../types.ts'
-import type { RouteDef } from '../client/types.ts'
-import type { Component, AsyncComponent } from '../client/vnode.ts'
-import { flattenRoutes, matchRoute, extractParams } from '../client/route-match.ts'
+import type { RouteDef } from '../ui-dom/types.ts'
+import type { Component, AsyncComponent } from '../ui-dom/vnode.ts'
+import { flattenRoutes, matchRoute, extractParams } from '../ui-dom/route-match.ts'
 import { ssrToString, serializeData } from './ssr.ts'
 import { HtmlSafe } from './html-safe.ts'
 

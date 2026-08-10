@@ -6,7 +6,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createReactiveState } from '../../client/reactive.ts'
+import { createReactiveState } from '../../ui-dom/reactive.ts'
 
 test('独立容器：顶层赋值触发 dirty + watcher', () => {
   let dirty = 0

@@ -12,8 +12,8 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { h, type Component } from '../../client/vnode.ts'
-import { createApp } from '../../client/app.ts'
+import { h, type Component } from '../../ui-dom/vnode.ts'
+import { mountApp } from '../ui-dom-mount.ts'
 
 test('useDialog：状态机 open → exit → closed（退场动画结束才卸载）', async () => {
   const container = document.createElement('div')
@@ -30,14 +30,13 @@ test('useDialog：状态机 open → exit → closed（退场动画结束才卸�
     }
   }
 
-  const app = createApp()
-  await app.mount(container as any, Comp as any, {} as any)
+  const mountRes = await mountApp(container as any, Comp as any)
   assert.equal(dialog.sync(true), 'open', '首渲染 open')
   assert.ok(container.querySelector('.panel'), 'panel 渲染')
 
   // open → exit（模拟外部关闭）
   open = false
-  ;(app as any).ctx.ui.render()
+  mountRes.rerender()
   await new Promise(r => setTimeout(r, 10))
   assert.equal(dialog.sync(false), 'exit', 'open → exit（退场动画，DOM 仍在）')
   assert.ok(container.querySelector('.panel'), '退场期 DOM 未卸载（播 --exit 动画）')
@@ -46,7 +45,7 @@ test('useDialog：状态机 open → exit → closed（退场动画结束才卸�
   container.querySelector('.root')!.dispatchEvent(new (window as any).Event('animationend'))
   await new Promise(r => setTimeout(r, 10))
   assert.equal(dialog.sync(false), 'closed', 'animationend 后 closed')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })
 
 test('useDialog：重新打开 exit → open 可恢复', async () => {
@@ -63,11 +62,10 @@ test('useDialog：重新打开 exit → open 可恢复', async () => {
     }
   }
 
-  const app = createApp()
-  await app.mount(container as any, Comp as any, {} as any)
+  const mountRes = await mountApp(container as any, Comp as any)
   // 关闭 → exit
   open = false
-  ;(app as any).ctx.ui.render()
+  mountRes.rerender()
   await new Promise(r => setTimeout(r, 10))
   assert.equal(dialog.sync(false), 'exit', '关闭进退场')
   // 退场完成 → closed
@@ -76,10 +74,10 @@ test('useDialog：重新打开 exit → open 可恢复', async () => {
   assert.equal(dialog.sync(false), 'closed')
   // 重新打开 → open
   open = true
-  ;(app as any).ctx.ui.render()
+  mountRes.rerender()
   await new Promise(r => setTimeout(r, 10))
   assert.equal(dialog.sync(true), 'open', '重新打开可恢复')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })
 
 test('useDialog：rootRef 挂载锁滚动 + 焦点 trap，卸载释放', async () => {
@@ -106,9 +104,8 @@ test('useDialog：rootRef 挂载锁滚动 + 焦点 trap，卸载释放', async (
     }
   }
 
-  const app = createApp()
-  await app.mount(container as any, Comp as any, {} as any)
+  const mountRes = await mountApp(container as any, Comp as any)
   assert.ok(calls.includes('lock'), '挂载锁滚动')
   assert.ok(container.querySelector('.panel'), 'panel 在 DOM')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })

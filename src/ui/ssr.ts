@@ -12,10 +12,10 @@
  * 产物为 HtmlSafe 标记的安全 HTML 片段，可直接内联进 ctx.ui.html 模板。
  */
 
-import { Fragment, Portal, isAsyncComponent } from '../client/vnode.ts'
-import type { VNode, Component, AsyncComponent } from '../client/vnode.ts'
-import type { WfuiContext } from '../client/types.ts'
-import { createReactiveState } from '../client/reactive.ts'
+import { Fragment, Portal, isAsyncComponent } from '../ui-dom/vnode.ts'
+import type { VNode, Component, AsyncComponent } from '../ui-dom/vnode.ts'
+import type { WfuiContext } from '../ui-dom/types.ts'
+import { createReactiveState } from '../ui-dom/reactive.ts'
 import { HtmlSafe } from './html-safe.ts'
 
 export { HtmlSafe } from './html-safe.ts'

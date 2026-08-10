@@ -13,7 +13,7 @@
 import { describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-import { h, asyncComponent } from '../../client/vnode.ts'
+import { h, asyncComponent } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 

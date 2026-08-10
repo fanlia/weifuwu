@@ -12,8 +12,8 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { createApp } from '../../client/app.ts'
-import { h, type Component } from '../../client/vnode.ts'
+import { mountApp } from '../ui-dom-mount.ts'
+import { h, type Component } from '../../ui-dom/vnode.ts'
 
 test('usePresence：sync 状态机 open → exit → closed（animationend 卸载）', async () => {
   const container = document.createElement('div')
@@ -30,13 +30,12 @@ test('usePresence：sync 状态机 open → exit → closed（animationend 卸�
     }
   }
 
-  const app = createApp()
-  await app.mount(container as any, Comp, {} as any)
+  const mountRes = await mountApp(container as any, Comp)
   assert.equal(presence.sync(true), 'open', '首渲染 open')
   assert.ok(container.querySelector('.panel'))
 
   open = false
-  ;(app as any).ctx.ui.render()
+  mountRes.rerender()
   await new Promise(r => setTimeout(r, 10))
   assert.equal(presence.sync(false), 'exit', 'open → exit（播退场动画，DOM 仍在）')
   assert.ok(container.querySelector('.panel'), '退场期 DOM 未卸载')
@@ -45,7 +44,7 @@ test('usePresence：sync 状态机 open → exit → closed（animationend 卸�
   container.querySelector('.panel')!.dispatchEvent(new (window as any).Event('animationend'))
   await new Promise(r => setTimeout(r, 10))
   assert.equal(presence.sync(false), 'closed')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })
 
 test('usePresence：exit → 重新打开可恢复 open', async () => {
@@ -63,19 +62,18 @@ test('usePresence：exit → 重新打开可恢复 open', async () => {
     }
   }
 
-  const app = createApp()
-  await app.mount(container as any, Comp, {} as any)
+  const mountRes = await mountApp(container as any, Comp)
   open = false
-  ;(app as any).ctx.ui.render()
+  mountRes.rerender()
   await new Promise(r => setTimeout(r, 10))
   assert.equal(presence.sync(false), 'exit')
 
   // 退场中重新打开 → 恢复 open
   open = true
-  ;(app as any).ctx.ui.render()
+  mountRes.rerender()
   await new Promise(r => setTimeout(r, 10))
   assert.equal(presence.sync(true), 'open', '退场中重开恢复')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })
 
 test('usePresence：ref(null) 清理 animationend 监听', async () => {
@@ -92,8 +90,7 @@ test('usePresence：ref(null) 清理 animationend 监听', async () => {
     }
   }
 
-  const app = createApp()
-  await app.mount(container as any, Comp, {} as any)
+  const mountRes = await mountApp(container as any, Comp)
   const panel = container.querySelector('.panel') as HTMLElement
 
   // 卸载清理（ref 契约）
@@ -101,5 +98,5 @@ test('usePresence：ref(null) 清理 animationend 监听', async () => {
   // 不再能触发状态变化（监听已移除）
   panel.dispatchEvent(new (window as any).Event('animationend'))
   await new Promise(r => setTimeout(r, 10))
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })

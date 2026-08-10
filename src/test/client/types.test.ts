@@ -4,8 +4,8 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { extendCtx } from '../../client/types.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { extendCtx } from '../../ui-dom/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 describe('extendCtx', () => {
   it('合并新字段到 ctx', () => {

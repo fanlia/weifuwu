@@ -30,7 +30,6 @@ export { auth } from './middleware/auth.ts'
 export type { AuthClient, AuthInjected } from './middleware/auth.ts'
 export { ws } from './middleware/ws.ts'
 export type { WsClient, WsInjected } from './middleware/ws.ts'
-export type { ReactiveState } from './reactive.ts'
 export { ssrPage, serializeData, ssrToString } from './ssr.ts'
 export type {
   UIRequest,

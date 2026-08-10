@@ -14,9 +14,9 @@ import { setupJsdom } from './setup.ts'
 
 before(setupJsdom)
 
-import { h } from '../../client/vnode.ts'
-import { createApp } from '../../client/app.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import { mountApp } from '../ui-dom-mount.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -24,13 +24,11 @@ afterEach(() => {
 
 let _idSeq = 0
 async function mount(comp: (p: any, ctx: WfuiContext) => any) {
-  const app = createApp()
   const el = document.createElement('div')
   document.body.appendChild(el)
-  const id = `t2-root-${++_idSeq}`
-  el.id = id
-  await app.mount(`#${id}`, comp)
-  return { app, el }
+  el.id = `t2-root-${++_idSeq}`
+  const handle = await mountApp(el, comp)
+  return { app: handle, el }
 }
 
 test('mount ref 抛错不中断子树渲染', async () => {
@@ -67,7 +65,7 @@ test('unmount ref(null) 抛错不中断 callRefCleanup 递归', async () => {
     )
   )
 
-  app.destroy()
+  ;(app as any).close?.()
   assert.ok(errors.some((e) => e.includes('cleanup boom')), '应 console.error 暴露 cleanup 错误')
   assert.equal(secondCleaned, true, '后续组件 ref(null) 仍应被调用（递归不中断）')
 })
@@ -83,6 +81,6 @@ test('ref 正常工作不被 safeCallRef 影响', async () => {
   )
   assert.equal(mountCalled, true, 'mount ref 正常调用')
 
-  app.destroy()
+  ;(app as any).close?.()
   assert.equal(cleanupCalled, true, 'cleanup ref 正常调用')
 })

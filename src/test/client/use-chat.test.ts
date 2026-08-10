@@ -12,10 +12,10 @@ import { describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
 import { createServer, type Server } from 'node:http'
-import { createReactiveState } from '../../client/reactive.ts'
-import { createChatSession, toChatMessages, type ChatTransport, type UseChatOptions, type UiMessage, type ChatApi } from '../../client/use-chat.ts'
+import { createReactiveState } from '../../ui-dom/reactive.ts'
+import { createChatSession, toChatMessages, type ChatTransport, type UseChatOptions, type UiMessage, type ChatApi } from '../../ui-dom/use-chat.ts'
 import type { WfStreamEvent, WfApprovalRequest, WfToolCall, WfError } from '../../ai/types.ts'
-import type { AiStreamCallbacks } from '../../client/ai.ts'
+import type { AiStreamCallbacks } from '../../ui-dom/ai.ts'
 
 before(setupJsdom)
 

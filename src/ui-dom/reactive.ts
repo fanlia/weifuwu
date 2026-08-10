@@ -1,53 +1,91 @@
 /**
- * weifuwu/ui-dom 响应式状态 — 完全独立（不依赖 src/client）
+ * 创建响应式状态容器：深度 Proxy，任意层级属性赋值自动触发 dirty。
  *
- * 深度 Proxy：任意层级属性赋值自动触发 notify（重渲染）。
- * handler 里的 ctx.ui.$() 用它——$ 赋值 → 重渲染（ctx.data 缓存命中 + $ 复用）
+ * 纯 JS（无 DOM），客户端（ctx.ui.$()）与服务端（SSR ctx shim）共用。
  */
 
-/** 响应式状态容器 */
-export type ReactiveState = Record<string, any> & {
-  /** 订阅状态变更；返回退订函数（UIRouter 用它观察 $ 触发重渲染） */
-  __watch: (cb: () => void) => () => void
-}
-
-/** 创建响应式状态：$.x = val → notify() */
-export function createReactiveState(notify: () => void): ReactiveState {
+export function createReactiveState(dirty: () => void): Record<string, any> {
+  const proxyCache = new WeakMap()
+  // 多消费者订阅：同一状态被父组件（$）与子组件（AiChat 等共享 handle）同时观察
   const watchers = new Set<() => void>()
-  const proxyCache = new WeakMap<object, any>()
 
   const reactive = (target: any): any => {
     if (target === null || typeof target !== 'object') return target
+
+    // 内置集合类型（Set/Map）：Proxy 包装 + 方法 bind 到原始 target——
+    // 直接调用 set.add()/map.set() 也会触发 dirty（DiffView 教训：
+    // 深度 Proxy 包装 Set 后 Set.prototype.has 的 this 绑定被破坏 → TypeError）
+    if (target instanceof Set || target instanceof Map) {
+      if (proxyCache.has(target)) return proxyCache.get(target)
+      // 变异方法（add/delete/clear/set）触发 dirty；只读方法（has/get/size/
+      // keys/values/forEach）不触发（保持只读查询零副作用）
+      const MUTATING = target instanceof Set
+        ? new Set(['add', 'delete', 'clear'])
+        : new Set(['set', 'delete', 'clear'])
+      const proxy = new Proxy(target, {
+        get(t, prop) {
+          const v = Reflect.get(t, prop)
+          // 方法 bind 到原始 target（保持 this 正确——DiffView 教训：
+          // Proxy 包装 Set 后 Set.prototype.has this 绑定被破坏）
+          if (typeof v === 'function') {
+            if (!MUTATING.has(String(prop))) return v.bind(t)
+            return (...args: unknown[]) => {
+              const result = v.apply(t, args)
+              dirty()
+              for (const w of watchers) w()
+              return result
+            }
+          }
+          return v
+        },
+        set(t, key, value) {
+          Reflect.set(t, key, value)
+          dirty()
+          for (const w of watchers) w()
+          return true
+        },
+      })
+      proxyCache.set(target, proxy)
+      return proxy
+    }
+
+    // Date/RegExp 等不可变语义内置类型：返回原引用（不包装——无嵌套赋值）
+    if (target instanceof Date || target instanceof RegExp) return target
+
+    // 相同底层对象返回同一 Proxy 实例，保证引用稳定、减少 GC
     if (proxyCache.has(target)) return proxyCache.get(target)
 
     const proxy = new Proxy(target, {
-      set(t, key, value) {
-        const old = Reflect.get(t, key)
+      set(target, key, value) {
+        const old = Reflect.get(target, key)
         if (old === value) return true
-        Reflect.set(t, key, value)
-        notify()
+        Reflect.set(target, key, value)
+        dirty()
         for (const w of watchers) w()
         return true
       },
-      get(t, key) {
-        const value = Reflect.get(t, key)
+      get(target, key) {
+        const value = Reflect.get(target, key)
+        // 返回深度包装的 Proxy，确保深层赋值也能触发 dirty
         if (typeof value === 'object' && value !== null) return reactive(value)
         return value
       },
-      deleteProperty(t, key) {
-        if (Reflect.has(t, key)) {
-          Reflect.deleteProperty(t, key)
-          notify()
+      deleteProperty(target, key) {
+        if (Reflect.has(target, key)) {
+          Reflect.deleteProperty(target, key)
+          dirty()
           for (const w of watchers) w()
         }
         return true
       },
     })
+
     proxyCache.set(target, proxy)
     return proxy
   }
 
   const root = reactive({})
+  // 订阅状态变更（返回退订函数）。内部 API：子组件共享父 $ 时用它驱动自身重渲染
   Object.defineProperty(root, '__watch', {
     value: (cb: () => void) => {
       watchers.add(cb)
@@ -56,5 +94,5 @@ export function createReactiveState(notify: () => void): ReactiveState {
     writable: false,
     enumerable: false,
   })
-  return root as ReactiveState
+  return root
 }

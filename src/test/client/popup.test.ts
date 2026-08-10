@@ -8,7 +8,7 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { computeFixedPosRect, computeFixedPos, clampToViewport } from '../../client/popup.ts'
+import { computeFixedPosRect, computeFixedPos, clampToViewport } from '../../ui-dom/popup.ts'
 
 // 构造 DOMRect（jsdom 的 getBoundingClientRect 返回全 0，这里手造）
 function rect(x: number, y: number, w: number, h: number): DOMRect {

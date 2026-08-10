@@ -12,8 +12,8 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { createApp } from '../../client/app.ts'
-import { h, type Component } from '../../client/vnode.ts'
+import { mountApp } from '../ui-dom-mount.ts'
+import { h, type Component } from '../../ui-dom/vnode.ts'
 
 // ── useReducedMotion ────────────────────────────────
 
@@ -29,10 +29,9 @@ test('useReducedMotion：返回系统偏好（matchMedia 判定）', async () =>
   }
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const app = createApp()
-  await app.mount(container as any, Comp, {} as any)
+  const mountRes = await mountApp(container as any, Comp)
   assert.equal(rm, true, 'reduced-motion 开启 → true')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })
 
 // ── useAnimationEnd ──────────────────────────────────
@@ -46,8 +45,7 @@ test('useAnimationEnd：stableRef 挂载绑定 animationend，卸载清理', asy
   }
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const app = createApp()
-  await app.mount(container as any, Comp, {} as any)
+  const mountRes = await mountApp(container as any, Comp)
 
   const panel = container.querySelector('.panel') as HTMLElement
   panel.dispatchEvent(new (window as any).Event('animationend'))
@@ -56,7 +54,7 @@ test('useAnimationEnd：stableRef 挂载绑定 animationend，卸载清理', asy
   // once：第二次不触发
   panel.dispatchEvent(new (window as any).Event('animationend'))
   assert.deepEqual(calls, ['anim-end'], 'once 后不重复')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })
 
 test('useAnimationEnd：常驻模式（无 once）可多次触发 + 卸载后不触发', async () => {
@@ -68,8 +66,7 @@ test('useAnimationEnd：常驻模式（无 once）可多次触发 + 卸载后不
   }
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const app = createApp()
-  await app.mount(container as any, Comp, {} as any)
+  const mountRes = await mountApp(container as any, Comp)
 
   const panel = container.querySelector('.panel') as HTMLElement
   panel.dispatchEvent(new (window as any).Event('animationend'))
@@ -80,7 +77,7 @@ test('useAnimationEnd：常驻模式（无 once）可多次触发 + 卸载后不
   settleRef(null)
   panel.dispatchEvent(new (window as any).Event('animationend'))
   assert.equal(calls.length, 2, '卸载后不再触发（监听已清理）')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })
 
 // ── useTween ────────────────────────────────────────
@@ -94,10 +91,9 @@ test('useTween：目标值驱动补间，reduced-motion 直落终值', async () 
   }
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const app = createApp()
-  await app.mount(container as any, Comp, {} as any)
+  const mountRes = await mountApp(container as any, Comp)
   // reduced-motion → 直落终值（无 rAF 等待）
   await new Promise(r => setTimeout(r, 10))
   assert.equal(tween.value, 42, 'reduced-motion 直落终值')
-  ;(app as any).destroy()
+  ;(mountRes as any).close?.()
 })

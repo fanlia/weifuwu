@@ -4,8 +4,8 @@
 
 import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { auth } from '../../client/middleware/auth.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { auth } from '../../ui-dom/middleware/auth.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // localStorage mock
 let store: Record<string, string> = {}

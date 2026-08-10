@@ -174,3 +174,21 @@ export function createPortal(children: VNodeChild, portalKey?: string): VNode {
     _placement: 'remote',
   }
 }
+
+/** JSX 类型声明 — ui-dom 是 jsxImportSource（client 壳不再声明） */
+declare global {
+  namespace JSX {
+    type Element = import('./vnode.ts').VNode | null
+    type ElementType =
+      | string
+      | ((props: any, ctx: any) => any)
+      | typeof Fragment
+      | typeof Portal
+    interface IntrinsicElements {
+      [tag: string]: any
+    }
+    interface IntrinsicAttributes {
+      key?: string | number
+    }
+  }
+}

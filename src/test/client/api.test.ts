@@ -9,7 +9,7 @@ import { setupJsdom } from './setup.ts'
 before(setupJsdom)
 
 const { api, ApiError } = await import('../../client/middleware/api.ts')
-import type { ApiClient } from '../../client/middleware/api.ts'
+import type { ApiClient } from '../../ui-dom/middleware/api.ts'
 
 // ── fetch mock ──────────────────────────────────────────────
 

@@ -11,15 +11,14 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { createApp } from '../../client/app.ts'
-import { h, type Component } from '../../client/vnode.ts'
+import { mountApp } from '../ui-dom-mount.ts'
+import { h, type Component } from '../../ui-dom/vnode.ts'
 
 async function mountWith(Comp: any) {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const app = createApp()
-  await app.mount(container as any, Comp, {} as any)
-  return { container, app }
+  const mountRes = await mountApp(container as any, Comp)
+  return { container, app: mountRes }
 }
 
 // ── useGlobalKey ─────────────────────────────────────
@@ -36,7 +35,7 @@ test('useGlobalKey：window keydown 注册 + 卸载清理', async () => {
   assert.deepEqual(keys, ['k'], 'keydown 触发')
 
   show = false
-  ;(app as any).destroy() // 卸载 → 监听移除
+  ;(app as any).close?.() // 卸载 → 监听移除
   window.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'k' }))
   assert.deepEqual(keys, ['k'], '卸载后不再触发（监听已清理）')
 })
@@ -62,7 +61,7 @@ test('useDrag：pointerdown 捕获 → window move 回调 delta → up 释放', 
   // up 后不再响应
   window.dispatchEvent(new (window as any).PointerEvent('pointermove', { clientX: 200, clientY: 200 }))
   assert.equal(deltas.length, 1, '释放后 move 不响应')
-  ;(app as any).destroy()
+  ;(app as any).close?.()
 })
 
 test('useDrag：onStart/onEnd 回调', async () => {
@@ -80,7 +79,7 @@ test('useDrag：onStart/onEnd 回调', async () => {
   h2.dispatchEvent(new (window as any).PointerEvent('pointerdown', { clientX: 0, clientY: 0 }))
   window.dispatchEvent(new (window as any).PointerEvent('pointerup', {}))
   assert.deepEqual(calls, ['start', 'end'])
-  ;(app as any).destroy()
+  ;(app as any).close?.()
 })
 
 // ── useDragDrop ──────────────────────────────────────
@@ -113,5 +112,5 @@ test('useDragDrop：dropProps spread 后 dragover/drop/leave 回调 + preventDef
   ;(drop as any).data = 'f1'
   zone.dispatchEvent(drop)
   assert.ok(events.includes('drop:f1'))
-  ;(app as any).destroy()
+  ;(app as any).close?.()
 })

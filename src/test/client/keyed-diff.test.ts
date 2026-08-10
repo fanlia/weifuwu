@@ -14,7 +14,7 @@
 import { test, describe, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-import { h, createPortal } from '../../client/vnode.ts'
+import { h, createPortal } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 

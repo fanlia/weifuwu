@@ -10,14 +10,15 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { h } from '../../client/vnode.ts'
-import { createApp } from '../../client/app.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import { mountApp } from '../ui-dom-mount.ts'
 
 function makeMount(Comp: any) {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  const app = createApp()
-  return { container, app, mount: () => app.mount(container as any, Comp, {} as any) }
+  let handle: any
+  const mount = () => { handle = undefined; return mountApp(container as any, Comp).then(h => { handle = h; return h }) }
+  return { container, app: { destroy: () => { container.innerHTML = '' } }, mount }
 }
 
 test('useAsync 成功：data 就绪后自动渲染', async () => {
@@ -36,7 +37,7 @@ test('useAsync 成功：data 就绪后自动渲染', async () => {
   await new Promise(r => setTimeout(r, 10))
 
   assert.equal(container.textContent, '数据:[{"id":1},{"id":2}]', 'resolve 后自动渲染')
-  ;(app as any).destroy()
+  ;(app as any).destroy?.()
 })
 
 test('useAsync 失败：error 被设置且 UI 反映', async () => {
@@ -51,7 +52,7 @@ test('useAsync 失败：error 被设置且 UI 反映', async () => {
   await new Promise(r => setTimeout(r, 10))
 
   assert.equal(container.textContent, '错误:网络错误', 'error 状态渲染')
-  ;(app as any).destroy()
+  ;(app as any).destroy?.()
 })
 
 test('useAsync reload：重跑取数并更新', async () => {
@@ -70,7 +71,7 @@ test('useAsync reload：重跑取数并更新', async () => {
   ;(container.querySelector('.async-comp') as HTMLElement).click()
   await new Promise(r => setTimeout(r, 10))
   assert.equal(container.textContent, '值:2', 'reload 重跑')
-  ;(app as any).destroy()
+  ;(app as any).destroy?.()
 })
 
 test('useAsync 卸载后过期 resolve 不触发渲染（不炸）', async () => {
@@ -84,7 +85,7 @@ test('useAsync 卸载后过期 resolve 不触发渲染（不炸）', async () =>
   }
   const { container, app, mount } = makeMount(Comp)
   await mount()
-  ;(app as any).destroy()   // 卸载
+  ;(app as any).destroy?.()   // 卸载
 
   resolveFn([1])            // 过期 resolve——应被安全忽略
   await new Promise(r => setTimeout(r, 10))
@@ -123,5 +124,5 @@ test('useAsync 竞态：慢旧请求 resolve 不得覆盖新请求结果（stale
   firstResolve('旧结果')
   await new Promise(r => setTimeout(r, 10))
   assert.equal(container.textContent, '值:新结果', '旧 resolve 被丢弃，不覆盖新结果')
-  ;(app as any).destroy()
+  ;(app as any).destroy?.()
 })

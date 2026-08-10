@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
 import { ssrToString, serializeData } from './ssr.ts'
-import type { Component, AsyncComponent } from '../client/vnode.ts'
+import type { Component, AsyncComponent } from '../ui-dom/vnode.ts'
 
 declare module '../types.ts' {
   interface Context {

@@ -8,7 +8,7 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { lockScroll, unlockScroll } from '../../client/scroll-lock.ts'
+import { lockScroll, unlockScroll } from '../../ui-dom/scroll-lock.ts'
 
 beforeEach(() => {
   document.body.style.overflow = ''

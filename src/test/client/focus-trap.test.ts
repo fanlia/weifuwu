@@ -11,7 +11,7 @@ import { setupJsdom } from './setup.ts'
 
 setupJsdom()
 
-import { trapFocus } from '../../client/focus-trap.ts'
+import { trapFocus } from '../../ui-dom/focus-trap.ts'
 
 let container: HTMLElement
 

@@ -4,8 +4,8 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { jsx, jsxs, jsxDEV, h, Fragment } from '../../client/vnode.ts'
-import type { VNode, Component, WfuiContext } from '../../client/vnode.ts'
+import { jsx, jsxs, jsxDEV, h, Fragment } from '../../ui-dom/vnode.ts'
+import type { VNode, Component, WfuiContext } from '../../ui-dom/vnode.ts'
 
 describe('jsx', () => {
   it('创建原生元素 VNode', () => {

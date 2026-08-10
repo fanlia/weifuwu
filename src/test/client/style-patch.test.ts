@@ -1,7 +1,7 @@
 import { test, describe, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-import { h } from '../../client/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 

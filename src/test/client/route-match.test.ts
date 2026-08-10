@@ -13,8 +13,8 @@ import {
   flattenRoutes,
   matchRoute,
   extractParams,
-} from '../../client/route-match.ts'
-import type { RouteDef } from '../../client/types.ts'
+} from '../../ui-dom/route-match.ts'
+import type { RouteDef } from '../../ui-dom/types.ts'
 
 // ── joinPaths ────────────────────────────────────────
 
