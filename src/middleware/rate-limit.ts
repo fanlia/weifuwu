@@ -114,14 +114,14 @@ export function rateLimit(options: RateLimitOptions): RateLimitClient {
     if (opts.algorithm === 'fixed') {
       // INCR 原子；首个请求（返回 1）时设 TTL——并发重复 EXPIRE 幂等无害，无需 Lua
       // PEXPIRE（ms 精度）：windowMs < 1s 时 EXPIRE 秒粒度会虚增 TTL（ceil(500ms)=1s）
-      const count = await redisPool.incr(PREFIX + key)
+      const count = Number(await redisPool.command('INCR', PREFIX + key))
       if (count === 1) {
         await redisPool.command('PEXPIRE', PREFIX + key, windowMs)
       }
       return {
         allowed: count <= max,
         remaining: Math.max(0, max - count),
-        resetSeconds: Math.max(1, Math.ceil(await redisPool.ttl(PREFIX + key))),
+        resetSeconds: Math.max(1, Math.ceil(Number(await redisPool.command('TTL', PREFIX + key)))),
       }
     }
 

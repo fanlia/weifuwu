@@ -72,7 +72,8 @@ export interface RedisPoolConnection extends PoolConnection {
 }
 
 /**
- * Redis 客户端（ctx.redis）：命令面（key 前缀 / 池轮询 / 断线自愈由引擎内部处理）。
+ * Redis 客户端（ctx.redis）：命令执行面（YAGNI 精简——消费方经 command 原始命令）。
+ * 便捷方法（get/set/…）在需要时按需加回接口（MemoryRedis 保留完整实现供测试）。
  * 阻塞命令（BLPOP 等）在 commandTimeoutMs 超时时 resolve(null)（命令超时契约）。
  */
 export interface Redis {
@@ -83,40 +84,10 @@ export interface Redis {
   createConnection(): Promise<RedisPoolConnection>
   /** 原始命令（RespValue 返回值——RESP 协议层；阻塞命令超时 resolve(null)） */
   command(name: string, ...args: (string | number)[]): Promise<RespValue>
-  get(key: string): Promise<string | null>
-  /** 二进制安全读取（原始字节，不解码） */
-  getBuffer(key: string): Promise<Uint8Array | null>
-  set(key: string, value: string | number, ttl?: number): Promise<'OK'>
-  del(...keys: string[]): Promise<number>
-  incr(key: string): Promise<number>
-  expire(key: string, seconds: number): Promise<number>
-  ttl(key: string): Promise<number>
-  jsonGet(key: string): Promise<unknown | null>
-  jsonSet(key: string, value: unknown, ttl?: number): Promise<'OK'>
-  /** 读缓存：命中返回；未命中调 fn 填充（并发合并，单飞） */
-  cache<T>(key: string, fn: () => Promise<T | null>, ttl: number): Promise<T | null>
-  mget(...keys: string[]): Promise<(string | null)[]>
-  mset(...kv: (string | number)[]): Promise<'OK'>
-  exists(...keys: string[]): Promise<number>
-  setnx(key: string, value: string | number): Promise<number>
-  incrby(key: string, delta: number): Promise<number>
-  hset(key: string, field: string, value: string | number): Promise<number>
-  hget(key: string, field: string): Promise<string | null>
-  hgetall(key: string): Promise<Record<string, string>>
-  hdel(key: string, ...fields: string[]): Promise<number>
-  lpush(key: string, ...values: (string | number)[]): Promise<number>
-  rpush(key: string, ...values: (string | number)[]): Promise<number>
-  lpop(key: string): Promise<string | null>
-  rpop(key: string): Promise<string | null>
-  lrange(key: string, start: number, stop: number): Promise<string[]>
-  sadd(key: string, ...members: (string | number)[]): Promise<number>
-  srem(key: string, ...members: (string | number)[]): Promise<number>
-  smembers(key: string): Promise<string[]>
-  zadd(key: string, score: number, member: string | number): Promise<number>
-  zrange(key: string, start: number, stop: number): Promise<string[]>
-  pipeline(): Promise<RedisPipeline>
-  publish(channel: string, message: string | number): Promise<number>
+  /** 创建订阅者（Pub/Sub，独立连接——messager 跨进程广播用） */
   createSubscriber(): RedisSubscriber
-  flushdb(): Promise<'OK'>
+  /** 发布消息到频道（订阅者回调触发） */
+  publish(channel: string, message: string | number): Promise<number>
+  /** 关闭（幂等） */
   close(): Promise<void>
 }

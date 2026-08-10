@@ -72,6 +72,7 @@ export type { PostgresOptions, PostgresClient, PostgresInjected } from './postgr
 export { redis } from './redis/index.ts'
 export type { RedisOptions, RedisClient, RedisInjected } from './redis/types.ts'
 export type { Sql, Redis, PoolConnection, PostgresPoolConnection, RedisPoolConnection } from './db/contracts.ts'
+export { MemoryRedis } from './db/memory-redis.ts'
 export { ok, created, noContent, badRequest, unauthorized, forbidden, notFound, conflict, unprocessable, tooManyRequests, serverError, redirect } from './response.ts'
 export { parseBody } from './request.ts'
 

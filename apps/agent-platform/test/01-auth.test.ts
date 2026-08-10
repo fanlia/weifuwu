@@ -139,7 +139,7 @@ describe('Auth', () => {
 
   it('限流（框架 ctx.limit，IP 维度）：同一 IP 5 次注册后 429', async () => {
     // 清理该 IP 限流计数（ctx.limit key = rl:register:{ip}）
-    await (rds as any).redis.del('rl:register:test-ip')
+    await (rds as any).redis.command('DEL', 'rl:register:test-ip')
     const reqWithIp = (body: unknown) =>
       handle(
         new Request('http://localhost/api/auth/register', {
@@ -168,7 +168,7 @@ describe('Auth', () => {
     )
     assert.ok(otherIp.status !== 429, '不同 IP 独立计数')
     // 清理
-    await (rds as any).redis.del('rl:register:test-ip')
-    await (rds as any).redis.del('rl:register:other-ip')
+    await (rds as any).redis.command('DEL', 'rl:register:test-ip')
+    await (rds as any).redis.command('DEL', 'rl:register:other-ip')
   })
 })
