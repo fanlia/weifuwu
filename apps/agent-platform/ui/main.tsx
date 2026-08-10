@@ -4,7 +4,7 @@
  * agent-platform 前端入口
  */
 
-import { api, auth, ws } from 'weifuwu/client'
+import { api, auth, ws } from 'weifuwu/ui-dom'
 import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
 import { EmptyState, confirm as uiDomConfirm, toast as uiDomToast } from 'weifuwu/components'
 

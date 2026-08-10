@@ -452,3 +452,24 @@ test('ctx.notification：命令式通知（portal 渲染）', async () => {
   assert.ok(text.includes('操作完成'), '通知描述')
   handle.close()
 })
+
+test('DBG form submit 事件', async () => {
+  const router = new UIRouter()
+  let submitted = ''
+  router.get('/f', () =>
+    h('form', { onSubmit: (e: Event) => { e.preventDefault(); submitted = 'ok' } },
+      h('input', { type: 'text', name: 'q' }),
+      h('button', { type: 'submit' }, '提交'),
+    ))
+  window.history.pushState(null, '', '/f')
+  const el = mount('ui-form')
+  const handle = uiServe(router, { root: '#ui-form' })
+  await flush()
+  ;(el.querySelector('button') as HTMLElement).click()
+  await flush()
+  console.log('[dbg-form] after button click, submitted:', submitted)
+  ;(el.querySelector('form') as HTMLElement).dispatchEvent(new (window as any).Event('submit', { bubbles: true, cancelable: true }))
+  await flush()
+  console.log('[dbg-form] after dispatch submit, submitted:', submitted)
+  handle.close()
+})

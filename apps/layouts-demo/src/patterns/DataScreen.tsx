@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/client'
+import type { Component } from 'weifuwu/ui-dom'
 import {Text, Badge, Card, Icon, Sparkline, StatCard, Space } from 'weifuwu/components'
 
 

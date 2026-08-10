@@ -1,4 +1,4 @@
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext } from 'weifuwu/ui-dom'
 import { Avatar, Button, Menu } from 'weifuwu/components'
 import { Loading } from './ui'
 

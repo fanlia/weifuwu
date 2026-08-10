@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/client'
+import type { Component } from 'weifuwu/ui-dom'
 import {Text, Button, Card, Checkbox, Field, Form, Icon, Input, Space, Alert, Divider } from 'weifuwu/components'
 
 

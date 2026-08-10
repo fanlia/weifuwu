@@ -12,7 +12,7 @@
  */
 
 import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
-import type { Component } from 'weifuwu/client'
+import type { Component } from 'weifuwu/ui-dom'
 import { Badge, Button, CodeBlock, Drawer, Icon, Tag, Text, Space } from 'weifuwu/components'
 
 import { PATTERNS, GROUPS, getPattern } from './patterns/index'

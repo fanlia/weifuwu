@@ -3,7 +3,7 @@
  */
 
 import type { FormatState, ToolbarItem } from './types.ts'
-import { createClientBrowser } from '../../../client/browser.ts'
+import { createClientBrowser } from '../../../ui-dom/browser.ts'
 
 // 编辑器工具：无组件 ctx——模块级 browser（SSR 时 queryCommand 返回安全默认）
 const browser = createClientBrowser()

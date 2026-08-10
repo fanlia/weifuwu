@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava } from '../components/ui'
 import { Alert, Badge, Button, CopyButton, EmptyState, Input, Markdown, MessageBubble } from 'weifuwu/components'
 

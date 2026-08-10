@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/client'
+import type { Component } from 'weifuwu/ui-dom'
 import {Text, Avatar, Badge, Divider, Icon, List, SearchInput, Space } from 'weifuwu/components'
 
 

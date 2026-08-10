@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../components/ui'
 import { Button, Card } from 'weifuwu/components'
 

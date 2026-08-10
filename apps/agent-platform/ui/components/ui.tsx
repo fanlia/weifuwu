@@ -2,7 +2,7 @@
  * 共享 UI 原语 — 全部基于 weifuwu/components，无自定义 CSS
  */
 
-import type { WfuiContext } from 'weifuwu/client'
+import type { WfuiContext } from 'weifuwu/ui-dom'
 import { Avatar, Badge, EmptyState, Loading, PageHeader } from 'weifuwu/components'
 
 export { PageHeader, EmptyState, Loading }

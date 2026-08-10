@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Alert, Avatar, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
 
 export const Register: Component = (_props, ctx) => {

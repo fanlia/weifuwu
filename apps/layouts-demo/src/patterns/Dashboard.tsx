@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/client'
+import type { Component } from 'weifuwu/ui-dom'
 import { Title, Text, StatCard, PageHeader, ProgressBar, SegmentedControl, Switch, Table, Badge, Card, Divider, Icon, Space } from 'weifuwu/components'
 
 // ─────────────────────────────────────────────────────────────

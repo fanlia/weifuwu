@@ -1,4 +1,4 @@
-import type { WfuiContext, Component } from 'weifuwu/client'
+import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { setRefreshToken } from '../lib/api'
 import { Alert, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
 import { Avatar } from 'weifuwu/components'

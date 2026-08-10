@@ -1,4 +1,4 @@
-import type { Component } from 'weifuwu/client'
+import type { Component } from 'weifuwu/ui-dom'
 import { AppShell } from './AppShell'
 import { Docs } from './Docs'
 import { Dashboard } from './Dashboard'
