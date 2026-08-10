@@ -64,8 +64,6 @@ export type {
   ToolDefinition,
 } from './ai/types.ts'
 export { ui } from './ui/index.ts'
-export { uiSsr } from './ui/ssr-page.ts'
-export type { UiSsrOptions } from './ui/ssr-page.ts'
 export type { GraphQLOptions, GraphQLHandler } from './graphql.ts'
 export { postgres, MIGRATIONS_TABLE } from './postgres/index.ts'
 export type { PostgresOptions, PostgresClient, PostgresInjected } from './postgres/types.ts'

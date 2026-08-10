@@ -82,7 +82,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))`} />
             <Divider />
 
             <Title level={2}>服务端渲染</Title>
-            <Paragraph>布局纯 CSS + 无状态组件，天然适配 SSR——uiSsr 路由级渲染时布局零成本。</Paragraph>
+            <Paragraph>布局纯 CSS + 无状态组件，天然适配 SSR——路由级渲染时布局零成本。</Paragraph>
 
             <Divider />
 

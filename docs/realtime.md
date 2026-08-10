@@ -140,34 +140,27 @@ uiServe(app, { root: '#root', hydrate: true })   // 容器已有服务端 HTML �
 - hydration 后 `$`/dirty/事件全量可用（与纯 SPA 无差别）
 - 诚实裁剪：Portal 内容就地收养（不移动到 `#__wf_portal`）；渲染期非确定性（Date/random）会导致 mismatch（dev 警告）
 
-### uiSsr — 路由级 SSR（声明即渲染）
+### 路由级 SSR（UIRouter 两端共享）
 
-共享路由定义，前后端同一份声明——后端匹配即自动 SSR，无需手写 handler/模板/序列化：
+同一份 UIRouter 路由定义，后端匹配即自动 SSR，无需手写 handler/模板/序列化：
 
 ```tsx
-// routes.tsx —— 前后端共用
-import type { RouteDef } from 'weifuwu/ui-dom'
-import { BlogPage } from './pages/BlogPage.tsx'
+// router.ts —— 前后端共用
+import { UIRouter, h } from 'weifuwu/ui-dom'
 
-export const routes: RouteDef[] = [
-  { path: '/blog/:slug', component: BlogPage, title: '博客' },
-]
+export const app = new UIRouter()
+app.get('/blog/:slug', (loc, ctx) => h(BlogPage, { slug: ctx.params.slug }))
 
-// server.ts —— 一行中间件：GET 匹配 → 注入 ctx.route.params → await 组件工厂 → 完整 HTML + __DATA__ + bundle
-import { uiSsr } from 'weifuwu'
-app.use(uiSsr({ routes, bundle: '/static/blog.js' }))
+// server.ts —— ssrPage 服务端落地：完整 HTML + __DATA__ + styles
+import { ssrPage } from 'weifuwu/ui-dom'
+const { page } = await ssrPage(app, { url: '/blog/hello', styles: ['/components.css'] })
 
-// blog-hydrate.ts —— 客户端：UIRouter 声明对应路由（匹配逻辑与 uiSsr 同源——route-match 纯函数共用）
-import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
-
-const client = new UIRouter()
-client.get('/blog/:slug', (loc, ctx) => h(BlogPage, { slug: ctx.params.slug }))
-uiServe(client, { root: '#root', hydrate: true })
+// client.ts —— uiServe 客户端收养（hydrate: true）
+uiServe(app, { root: '#root', hydrate: true })
 ```
 
-- 组件工厂读 `ctx.params`（`/blog/:slug` → `ctx.params.slug`）——后端 uiSsr / 前端 UIRouter **同源注入**（`flattenRoutes/compilePath/matchRoute/extractParams` 纯函数共用）
-- 未匹配 → next()（交给 API/静态/404）；非 GET → next()
-- 可自定义 `title` / `template` / `styles`
+- 组件工厂读 `ctx.params`（`/blog/:slug` → `ctx.params.slug`）——两端同源注入
+- `ssrPage` 选项：`styles`（stylesheet link）/ `title` / `lang` / `rootId`
 
 ### weifuwu/dev — 服务端直接跑 .tsx
 

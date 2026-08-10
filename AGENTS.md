@@ -137,8 +137,7 @@ const UserProfile = async (initProps, ctx) => {
 
 ### 3.5 SSR（SPA/SSR 透明）
 
-- **`uiSsr({ routes, bundle })`**（`src/ui/ssr-page.ts`）：GET 匹配共享路由 → 注入 `ctx.route.params` → await 组件工厂 → 完整 HTML + `__DATA__` + bundle；未匹配/非 GET → next()
-- **共享路由**（`src/client/route-match.ts`）：`flattenRoutes/compilePath/matchRoute/extractParams` 纯函数，router 与 uiSsr 共用——**组件工厂读 `ctx.route.params`，两端同源**
+- **SSR 与客户端共享同一 UIRouter**：`uiSsr`（RouteDef[] 声明式 SSR 中间件）已删除——路由定义只有 UIRouter（`get/use/notFound`）一份，`ssrPage(router, { url })` 服务端落地、`uiServe(router, { hydrate: true })` 客户端收养；匹配/参数注入两端同源
 - **`weifuwu/dev`**（`src/dev/index.ts`）：Node `registerHooks` + esbuild 同步编译 `.ts/.tsx`，服务端直接跑 `.tsx`——与 `ctx.ui.js` 前端动态编译对称，两端同一 JSX 运行时
 - **`ctx.ui.ssr(Comp, props, { data })`** → HtmlSafe HTML 片段；`ctx.ui.ssrData(data)` → `__DATA__` 脚本：
 
