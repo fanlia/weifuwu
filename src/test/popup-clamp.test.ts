@@ -1,7 +1,7 @@
 import { describe, it, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
-import { clampToViewport } from '../client/popup.ts'
+import { clampToViewport } from '../ui-dom/popup.ts'
 
 before(setupJsdom)
 

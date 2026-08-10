@@ -16,7 +16,7 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 
 before(setupJsdom)
 
-const { createApp } = await import('../../client/app.ts')
+import { mountApp } from '../ui-dom-mount.ts'
 
 /** 可编程 visualViewport mock */
 function installVisualViewport() {
@@ -45,15 +45,14 @@ describe('ctx.ui.useVisualViewport', () => {
       return () => h('div', {}, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     el.id = 'vv-1'
     document.body.appendChild(el)
-    await app.mount('#vv-1', Root)
+    const mountRes = await mountApp(el, Root)
     assert.equal(vp.height, window.innerHeight)
     assert.equal(vp.offsetTop, 0)
     assert.equal(vp.keyboardOpen, false)
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -66,11 +65,10 @@ describe('ctx.ui.useVisualViewport', () => {
       return () => h('div', {}, `h=${vp.height}`)
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     el.id = 'vv-2'
     document.body.appendChild(el)
-    await app.mount('#vv-2', Root)
+    const mountRes = await mountApp(el, Root)
     assert.equal(vp.keyboardOpen, false)
 
     // 模拟键盘弹起：innerHeight 800 → visualViewport 450（键盘占 ~44%）
@@ -81,7 +79,7 @@ describe('ctx.ui.useVisualViewport', () => {
     assert.equal(vp.offsetTop, 350)
     assert.equal(vp.keyboardOpen, true, 'height 收缩应标记 keyboardOpen')
     assert.notEqual(vp.height, before)
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 })

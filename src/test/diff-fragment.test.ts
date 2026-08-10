@@ -10,8 +10,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
-import { mountVNode, patchValue } from '../client/render.ts'
-import { h, Fragment } from '../client/vnode.ts'
+import { mountVNode, patchValue } from '../ui-dom/render.ts'
+import { h, Fragment } from '../ui-dom/vnode.ts'
 
 setupJsdom()
 

@@ -53,18 +53,6 @@ await esbuild.build({
   external,
 })
 
-// 前端 bundle（minify：浏览器产物安全压缩；dev 模式动态编译保持可读不受影响）
-await esbuild.build({
-  entryPoints: [join(srcDir, 'client', 'index.ts')],
-  outfile: join(distDir, 'client', 'index.js'),
-  format: 'esm',
-  platform: 'browser',
-  jsx: 'automatic',
-  jsxImportSource: 'weifuwu/client',
-  bundle: true,
-  minify: true,
-})
-
 // ui-dom bundle（前端运行时——UIRouter/uiServe/渲染器/契约）
 await esbuild.build({
   entryPoints: [join(srcDir, 'ui-dom', 'index.ts')],
@@ -88,9 +76,9 @@ await esbuild.build({
 })
 
 // 编译组件 JS
-// 关键：把组件源码对 src/client/* 的相对导入外部化为 weifuwu/client——
-// 运行时与 client bundle 共享同一模块实例（idRegistry/_idCounter/_dirtyBatch 等状态不重复）。
-// 若不外部化：components bundle 内联一份 client 源码 → 命令式中间件（toast host）挂载的
+// 关键：把组件源码对 src/ui-dom/* 的相对导入外部化为 weifuwu/ui-dom——
+// 运行时与 ui-dom bundle 共享同一模块实例（registry/组件 id 等状态不重复）。
+// 若不外部化：components bundle 内联一份 ui-dom 源码 → 命令式中间件（toast host）挂载的
 // 组件注册在 components 的 registry，而 $ 的 dirty 走 app 的 renderByIds（查 app 的 registry）
 // → 命中无关组件/漏渲染（真实 app 实测：toast 永不渲染）。
 const externalizeUiDomPlugin = {

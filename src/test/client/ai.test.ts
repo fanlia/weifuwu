@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
 import type { WfStreamEvent } from '../../ai/types.ts'
 
-const { aiStream } = await import('../../client/ai.ts')
+const { aiStream } = await import('../../ui-dom/ai.ts')
 
 // ── wire-fake：输出 wf: SSE 的真实服务器 ───────────────────
 

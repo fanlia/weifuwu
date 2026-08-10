@@ -693,14 +693,14 @@ describe('样式审计 — 设计约束', () => {
     assert.ok(value.includes('--wf-color-primary-bg'), 'focus-ring 应含 bg（淡环）')
   })
 
-  it('client 防线存在：enumerated 属性渲染 + 内置类型降级（CDD 启发回归防线）', () => {
+  it('渲染器防线存在：enumerated 属性渲染 + 内置类型降级（CDD 启发回归防线）', () => {
     // 1. draggable enumerated 语义防线（Kanban 教训：setAttribute('draggable','') = false）
     const dragTest = readFileSync(join(root, 'src/test/client/draggable.test.ts'), 'utf-8')
     assert.match(dragTest, /el\.draggable/, 'draggable.test.ts 必须断言 el.draggable 真值')
     assert.match(dragTest, /'true'/, '渲染器必须显式 setAttribute(\'true\')')
 
     // 2. 内置集合类型降级防线（DiffView 教训：$ 存 Set 破坏方法 this）
-    const reactive = readFileSync(join(root, 'src/client/reactive.ts'), 'utf-8')
+    const reactive = readFileSync(join(root, 'src/ui-dom/reactive.ts'), 'utf-8')
     assert.match(reactive, /instanceof Set/, 'reactive.ts 必须处理 Set（内置类型降级）')
     assert.match(reactive, /MUTATING/, 'Set/Map 只读方法不触发 dirty（变异方法白名单）')
   })

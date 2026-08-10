@@ -8,7 +8,7 @@ import { setupJsdom } from './setup.ts'
 
 before(setupJsdom)
 
-const { ws } = await import('../../client/middleware/ws.ts')
+const { ws } = await import('../../ui-dom/middleware/ws.ts')
 import type { WfuiContext } from '../../ui-dom/types.ts'
 
 // ── WebSocket mock ─────────────────────────────────────────

@@ -8,11 +8,10 @@
 import { describe, it, before, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-import { jsx, Fragment, createPortal } from '../../client/vnode.ts'
-import type { VNode } from '../../client/vnode.ts'
-import { render, patchValue, mountVNode, idRegistry } from '../../client/render.ts'
-import { createApp } from '../../client/app.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import { jsx, Fragment, createPortal } from '../../ui-dom/vnode.ts'
+import type { VNode } from '../../ui-dom/vnode.ts'
+import { render, patchValue, mountVNode } from '../../ui-dom/render.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 
 let ctx: WfuiContext
 before(setupJsdom)

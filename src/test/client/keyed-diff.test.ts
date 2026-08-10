@@ -18,11 +18,11 @@ import { h, createPortal } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 
-const { createApp } = await import('../../client/app.ts')
+import { mountApp } from '../ui-dom-mount.ts'
 
 describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
   test('[input 无key, portal] 混合：input 不重建（复用 + patch）', async () => {
-    const app = createApp()
+    let mountRes: any
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'c1-unkeyed'
@@ -40,7 +40,7 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
         createPortal(open ? h('div', { class: 'panel' }, '面板') : null, 'c1-portal'),
       ])
     }
-    await app.mount('#c1-unkeyed', Cmp)
+    mountRes = await mountApp(el, Cmp)
     const input = el.querySelector('input') as HTMLInputElement
     inputEl = input
     input.focus()
@@ -53,12 +53,12 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
     assert.equal(inputAfter, input, 'input 未被重建（同一 DOM 引用）')
     assert.equal(document.activeElement, input, '焦点保持')
     assert.equal(input.value, 'x', '输入值保持')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
   test('portal 开/关切换正常（allUnkeyed 分支 patchPortal）', async () => {
-    const app = createApp()
+    let mountRes: any
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'c1-portal-toggle'
@@ -71,7 +71,7 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
         createPortal($.open ? h('div', { class: 'p2' }, '开') : null, 'c1-toggle'),
       ])
     }
-    await app.mount('#c1-portal-toggle', Cmp)
+    mountRes = await mountApp(el, Cmp)
     // 初始关闭——portal 不渲染
     assert.equal(document.querySelector('#__wf_portal .p2'), null, '初始 portal 关闭')
     // 打开
@@ -82,7 +82,7 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
     el.querySelector('button')!.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
     await new Promise(r => setTimeout(r, 30))
     assert.equal(document.querySelector('#__wf_portal .p2'), null, 'portal 关闭移除')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 })

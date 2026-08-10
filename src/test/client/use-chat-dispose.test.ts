@@ -13,10 +13,10 @@ import { setupJsdom } from './setup.ts'
 
 before(setupJsdom)
 
-import { h } from '../../client/vnode.ts'
-import { createApp } from '../../client/app.ts'
-import type { WfuiContext } from '../../client/types.ts'
-import type { UseChatHandle } from '../../client/use-chat.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import { mountApp } from '../ui-dom-mount.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
+import type { UseChatHandle } from '../../ui-dom/use-chat.ts'
 
 afterEach(() => {
   document.body.innerHTML = ''
@@ -27,12 +27,11 @@ const _origFetch = (globalThis as any).fetch
 
 let _idSeq = 0
 async function mount(comp: (p: any, ctx: WfuiContext) => any) {
-  const app = createApp()
   const el = document.createElement('div')
   document.body.appendChild(el)
   const id = `s2-root-${++_idSeq}`
   el.id = id
-  await app.mount(`#${id}`, comp)
+  const app = await mountApp(el, comp)
   return { app, el }
 }
 
@@ -64,7 +63,7 @@ test('组件卸载时 useChat 自动 dispose（中止 in-flight 流）', async (
   assert.ok(capturedSignal, 'fetch 应被调用并捕获 signal')
   assert.equal(capturedSignal!.aborted, false, '卸载前 signal 未中止')
 
-  app.destroy()
+  ;(app as any).close?.()
   assert.equal(capturedSignal!.aborted, true, '卸载后 useChat 应自动 dispose → signal 中止')
 })
 
@@ -91,5 +90,5 @@ test('useChat 仍支持手动 dispose（向后兼容）', async () => {
   // 手动 dispose 也应中止
   chat$!.dispose()
   assert.equal(capturedSignal!.aborted, true, '手动 dispose 仍生效')
-  app.destroy()
+  ;(app as any).close?.()
 })

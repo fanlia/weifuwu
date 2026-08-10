@@ -19,7 +19,7 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 
 before(setupJsdom)
 
-const { createApp } = await import('../../client/app.ts')
+import { mountApp } from '../ui-dom-mount.ts'
 
 /** 等待 rAF/微任务队列消化 */
 const flush = () => new Promise(r => setTimeout(r, 30))
@@ -52,16 +52,15 @@ describe('ctx.ui.usePopupPosition', () => {
       return () => h('div', {}, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-1'
-    await app.mount('#pp-1', Root)
+    const mountRes = await mountApp(el, Root)
 
     assert.equal(pos.top, 0)
     assert.equal(pos.left, 0)
     assert.equal(typeof pos.refresh, 'function')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -87,11 +86,10 @@ describe('ctx.ui.usePopupPosition', () => {
       }
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-2'
-    await app.mount('#pp-2', Root)
+    const mountRes = await mountApp(el, Root)
     assert.equal(renderCount, 1)
 
     // 点击按钮打开（$ 赋值 → dirty → re-render，真实交互路径）
@@ -109,7 +107,7 @@ describe('ctx.ui.usePopupPosition', () => {
     assert.equal(pos.top, 104, 'rect.bottom + gap(4)')
     assert.equal(pos.left, 50)
     assert.equal(renderCount, 3, 'scroll 后组件应重渲染以应用新坐标')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -128,11 +126,10 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-3'
-    await app.mount('#pp-3', Root)
+    const mountRes = await mountApp(el, Root)
 
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 88, left: 66, width: 120, height: 24 })
     fireResize()
@@ -140,7 +137,7 @@ describe('ctx.ui.usePopupPosition', () => {
 
     assert.equal(pos.top, 88)
     assert.equal(pos.left, 66)
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -163,11 +160,10 @@ describe('ctx.ui.usePopupPosition', () => {
       }
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-4'
-    await app.mount('#pp-4', Root)
+    const mountRes = await mountApp(el, Root)
     const before = renderCount
 
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 1, left: 2, width: 100, height: 20 })
@@ -181,7 +177,7 @@ describe('ctx.ui.usePopupPosition', () => {
 
     assert.equal(renderCount, before + 1, '5 次 scroll 合并为 1 次重算 + 1 次渲染')
     assert.equal(pos.top, 1)
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -204,11 +200,10 @@ describe('ctx.ui.usePopupPosition', () => {
       }
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-5'
-    await app.mount('#pp-5', Root)
+    const mountRes = await mountApp(el, Root)
     const before = renderCount
 
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 777, left: 888, width: 100, height: 20 })
@@ -217,7 +212,7 @@ describe('ctx.ui.usePopupPosition', () => {
 
     assert.equal(pos.top, 0, '关闭状态不重算')
     assert.equal(renderCount, before, '关闭状态不渲染')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -236,11 +231,10 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-6'
-    await app.mount('#pp-6', Root)
+    const mountRes = await mountApp(el, Root)
 
     // 锚点尚未挂载（el 返回 null）→ scroll 不崩溃、pos 不变
     const saved = anchor
@@ -250,7 +244,7 @@ describe('ctx.ui.usePopupPosition', () => {
     anchor = saved
 
     assert.equal(pos.top, 0)
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -273,11 +267,10 @@ describe('ctx.ui.usePopupPosition', () => {
       }
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-7'
-    await app.mount('#pp-7', Root)
+    const mountRes = await mountApp(el, Root)
     const before = renderCount
 
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 40, left: 30, width: 100, height: 20 })
@@ -286,7 +279,7 @@ describe('ctx.ui.usePopupPosition', () => {
     assert.equal(pos.top, 44)
     assert.equal(pos.left, 30)
     assert.equal(renderCount, before, 'refresh 只重算不渲染（调用方负责 render）')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -305,11 +298,10 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-zero-rect'
-    await app.mount('#pp-zero-rect', Root)
+    const mountRes = await mountApp(el, Root)
 
     // 正常 rect → 坐标更新
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 100, left: 50, width: 100, height: 30 })
@@ -319,7 +311,7 @@ describe('ctx.ui.usePopupPosition', () => {
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 0, left: 0 })
     pos.refresh()
     assert.equal(pos.top, 104, '0 rect 时保留上一坐标（防弹层飞到左上角）')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -338,17 +330,16 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-8'
-    await app.mount('#pp-8', Root)
+    const mountRes = await mountApp(el, Root)
 
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 100, left: 50, width: 300, height: 30 })
     pos.refresh()
 
     assert.equal(pos.width, 300)
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -384,11 +375,10 @@ describe('ctx.ui.usePopupPosition', () => {
     }
     const Root = (_: any) => () => h('div', {}, [h(A), h(B)])
 
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-9'
-    await app.mount('#pp-9', Root)
+    const mountRes = await mountApp(el, Root)
     const beforeA = renderA
     const beforeB = renderB
 
@@ -401,7 +391,7 @@ describe('ctx.ui.usePopupPosition', () => {
     assert.equal(posB.top, 30)
     assert.equal(renderA, beforeA + 1, 'A 被定向刷新')
     assert.equal(renderB, beforeB + 1, 'B 被定向刷新')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 
@@ -420,15 +410,14 @@ describe('ctx.ui.usePopupPosition', () => {
       }, 'x')
     }
     const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'pp-10'
-    await app.mount('#pp-10', Root)
+    const mountRes = await mountApp(el, Root)
 
     // 打开 → scroll → 更新
     open = true
-    ;(app as any).ctx.ui.render()
+    mountRes.rerender()
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 50, left: 60, width: 100, height: 20 })
     fireScroll()
     await flush()
@@ -436,7 +425,7 @@ describe('ctx.ui.usePopupPosition', () => {
 
     // 关闭 → scroll → 不再更新（保持旧坐标）
     open = false
-    ;(app as any).ctx.ui.render()
+    mountRes.rerender()
     anchor!.getBoundingClientRect = () => fakeRect({ bottom: 999, left: 999, width: 100, height: 20 })
     fireScroll()
     await flush()
@@ -444,11 +433,11 @@ describe('ctx.ui.usePopupPosition', () => {
 
     // 重新打开 → scroll → 更新
     open = true
-    ;(app as any).ctx.ui.render()
+    mountRes.rerender()
     fireScroll()
     await flush()
     assert.equal(pos.top, 999, '重新打开后恢复跟随')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 })

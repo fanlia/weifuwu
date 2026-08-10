@@ -351,9 +351,12 @@ describe('useChat — 集成（真实 HTTP wf: 流 → createApp → DOM）', ()
     const { port } = server.address() as { port: number }
     const url = `http://127.0.0.1:${port}/api/chat`
 
-    const { createApp } = await import('../../client/app.ts')
-    const { jsx } = await import('../../client/vnode.ts')
-    const app = createApp()
+    const { mountApp } = await import('../ui-dom-mount.ts')
+    const { jsx } = await import('../../ui-dom/vnode.ts')
+    document.body.innerHTML = ''
+    const root = document.createElement('div')
+    root.id = 'root'
+    document.body.appendChild(root)
 
     const ChatDemo: any = (_init: unknown, ctx: any) => {
       const $ = ctx.ui.useChat({ url })
@@ -372,8 +375,9 @@ describe('useChat — 集成（真实 HTTP wf: 流 → createApp → DOM）', ()
         })
     }
 
+    let app: any
     try {
-      await app.mount('#root', ChatDemo)
+      app = await mountApp(root, ChatDemo)
       const input = document.getElementById('inp') as HTMLInputElement
       input.value = '你好'
       input.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
@@ -383,7 +387,7 @@ describe('useChat — 集成（真实 HTTP wf: 流 → createApp → DOM）', ()
       const msgs = document.getElementById('msgs')!.textContent!
       assert.ok(msgs.includes('你好你好'), `DOM 应为用户+回复，实际: ${msgs}`)
     } finally {
-      app.destroy()
+      app?.close?.()
       await new Promise((r) => server.close(() => r()))
     }
   })
@@ -419,10 +423,9 @@ describe('AiChat 子组件共享父 $ — 三态 skip 回归', () => {
     const { port } = server.address() as { port: number }
     const url = `http://127.0.0.1:${port}/api/chat`
 
-    const { createApp } = await import('../../client/app.ts')
-    const { jsx } = await import('../../client/vnode.ts')
+    const { mountApp } = await import('../ui-dom-mount.ts')
+    const { jsx } = await import('../../ui-dom/vnode.ts')
     const { AiChat } = await import('../../components/AiChat/AiChat.ts')
-    const app = createApp()
 
     // 前序测试 afterEach 清空了 #root：重建挂载点
     const root = document.createElement('div')
@@ -435,8 +438,9 @@ describe('AiChat 子组件共享父 $ — 三态 skip 回归', () => {
       return () => jsx('div', { id: 'wrap', children: [jsx(AiChat, { chat: $ })] })
     }
 
+    let app: any
     try {
-      await app.mount('#root', Parent)
+      app = await mountApp(root, Parent)
       const input = document.querySelector('.wf-aichat-input') as HTMLInputElement
       assert.ok(input, 'AiChat 应挂载输入框')
       input.value = 'hi'
@@ -448,7 +452,7 @@ describe('AiChat 子组件共享父 $ — 三态 skip 回归', () => {
       assert.equal(bubbles.length, 2, 'user + assistant 气泡')
       assert.ok(bubbles[1].textContent!.includes('流式'), `assistant 气泡应含流式 token，实际: ${bubbles[1].textContent}`)
     } finally {
-      app.destroy()
+      app?.close?.()
       await new Promise((r) => server.close(() => r()))
     }
   })

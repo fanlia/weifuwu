@@ -2,7 +2,7 @@ import { describe, it, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
 before(setupJsdom)
-const { createClientBrowser } = await import('../../client/browser.ts')
+const { createClientBrowser } = await import('../../ui-dom/browser.ts')
 
 describe('ctx.browser（浏览器环境抽象）', () => {
   afterEach(() => { document.body.innerHTML = '' })
