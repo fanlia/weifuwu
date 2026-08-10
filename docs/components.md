@@ -9,7 +9,7 @@
 
 ```ts
 import { Button, Input, Table, Modal, Toast } from 'weifuwu/components'
-import 'weifuwu/components/style.css'   // 包含 Token + 203 布局/工具类 + 组件样式，一次性引入
+import 'weifuwu/components/style.css'   // 包含 Token + 57 布局原语 + 136 工具类 + 组件样式，一次性引入
 ```
 
 ### 使用示例
