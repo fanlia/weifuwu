@@ -10,6 +10,8 @@ export interface ButtonProps {
   disabled?: boolean
   type?: 'button' | 'submit'
   title?: string
+  /** 透传 DOM id（测试定位/锚点） */
+  id?: string
   /** 透传原生 class（覆盖默认 wf-btn 组合） */
   class?: string
   onClick?: (e: MouseEvent) => void
@@ -30,6 +32,7 @@ export const Button: Component<ButtonProps> = (_init, ctx) =>
   const L = (ctx as any)?.i18n?.components?.Button ?? {}
 
   return h('button', {
+    id: props.id,
     class: cls,
     type: type ?? 'button',
     disabled: disabled || loading || undefined,

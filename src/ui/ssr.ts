@@ -196,7 +196,7 @@ async function renderSsr(input: any, ctx: any): Promise<string> {
     const Comp = vnode.type as Component
     if (isAsyncComponent(vnode.type)) {
       // asyncComponent 兼容：工厂签名 (ctx)，resolved 是两阶段 Component
-      const def = await (vnode.type as AsyncComponent)({} as never, ctx)
+      const def = await (vnode.type as any)({} as never, ctx) // asyncComponent 兼容：resolved 是两阶段 Component
       if (typeof def !== 'function') {
         throw new Error(
           `asyncComponent factory <${vnode.type.name || 'anonymous'}> must return a Component ` +
@@ -204,7 +204,8 @@ async function renderSsr(input: any, ctx: any): Promise<string> {
         )
       }
       const childCtx = Object.create(ctx)
-      const renderFn = def(vnode.props ?? {}, childCtx)
+      const compDef = def as Component
+      const renderFn = compDef(vnode.props ?? {}, childCtx)
       if (typeof renderFn !== 'function') {
         throw new Error(
           `Component ${Comp.name || 'anonymous'} must return a render function. ` +

@@ -70,4 +70,10 @@ describe('Button', () => {
     assert.match(children[0].props.class, /wf-btn-spinner/, '加载中渲染 spinner')
     assert.equal(children[1], '加载中...')
   })
+
+  it('透传 id（测试定位/锚点）', () => {
+    const vnode = renderVNode(Button, { id: 'async-click', children: '点击' }, mockCtx())!
+    assert.equal(vnode.props.id, 'async-click', 'id 透传到原生 button')
+  })
 })
+

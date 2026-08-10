@@ -79,7 +79,7 @@ export type Component<P = {}, C extends object = {}> = (
 export type AsyncComponent<C extends object = {}, P = {}> = (
   initProps: P,
   ctx: WfuiContext & C,
-) => Promise<Component<P, C> | null>
+) => Promise<((props: P) => VNode | null) | null>
 
 const ASYNC_MARK = '__wfAsyncComponent'
 
