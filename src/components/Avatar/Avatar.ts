@@ -21,7 +21,10 @@ function hashColor(name: string): string {
 export const Avatar: Component<AvatarProps> = (_init, _ctx) =>
   (props) => {
   const { name = '', src, size = 'md', color } = props
-  const initial = name.trim()[0]?.toUpperCase() ?? '?'
+  // 按码点取首字符（Array.from 而非 name[0]）——emoji 是代理对，name[0]
+  // 会切出孤立代理项（\ud83d 等），写入文本节点会让 Chrome 的 AX 树/布局
+  // 计算挂死（agent-platform 部门页整页 a11y snapshot 挂死/为空的根因）
+  const initial = Array.from(name.trim())[0]?.toUpperCase() ?? '?'
 
   if (src) {
     return h('img', {

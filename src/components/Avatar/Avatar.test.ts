@@ -56,3 +56,35 @@ describe('Avatar', () => {
     const vnode = renderVNode(Avatar, { name: 'alice' }, mockCtx())!
     assert.equal(vnode.props.children, 'A')
   })
+
+  it('emoji name → 完整 emoji 首字符（禁止切出孤立代理项——Chrome AX 树挂死根因）', () => {
+    const vnode = renderVNode(Avatar, { name: '💬' }, mockCtx())!
+    const initial = String(vnode.props.children)
+    // 必须是完整码点（代理对成对出现——无孤立代理项）
+    assert.equal(initial.length, 2) // surrogate pair
+    assert.equal(initial.codePointAt(0)!.toString(16), '1f4ac')
+    assert.equal([...initial].length, 1)
+    assert.equal(hasLoneSurrogate(initial), false)
+  })
+
+  it('emoji+文本名 → 完整 emoji 首字符', () => {
+    const vnode = renderVNode(Avatar, { name: '🤖小悟' }, mockCtx())!
+    assert.equal(vnode.props.children, '🤖')
+    assert.equal([...String(vnode.props.children)].length, 1)
+  })
+
+/** 孤立代理项检测（高代理无低配对 / 低代理独处） */
+function hasLoneSurrogate(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    const u = s.charCodeAt(i)
+    if (u >= 0xd800 && u <= 0xdbff) {
+      if (i + 1 >= s.length) return true
+      const next = s.charCodeAt(i + 1)
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return true
+      i++
+    } else if (u >= 0xdc00 && u <= 0xdfff) {
+      return true
+    }
+  }
+  return false
+}
