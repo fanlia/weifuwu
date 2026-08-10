@@ -75,6 +75,8 @@ app.get('/me', (req, ctx) => ok(ctx.user))        // 已注入
 app.post('/secure', (req, ctx) => { ctx.auth.requireAuth(); ... })
 ```
 
+
+> ⚠️ **weifuwu/client 已删除**——前端运行时唯一入口为 `weifuwu/ui-dom`，见 [frontend-ui-dom.md](frontend-ui-dom.md)。
 - **安全基线**：scrypt 密码哈希（per-user salt + timing-safe，异步不阻塞）；access token = HMAC-SHA256 JWT（与 `weifuwu/client` 的 `auth()` 天然配对）；refresh token = 不透明随机串，DB 只存哈希，logout/轮换即撤销
 - **防枚举**：登录失败统一 401（不泄露邮箱是否存在）
 - **`ctx.auth` 方法面**：`register` / `login` / `logout` / `requireAuth` / `setPassword(userId, newPwd)` / `createToken(type, payload, { ttlSeconds })`（邮箱验证/密码重置自接）

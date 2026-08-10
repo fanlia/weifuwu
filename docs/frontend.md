@@ -1,4 +1,6 @@
-# 前端 API 核心（weifuwu/client）
+# 前端 API 核心（weifuwu/ui-dom）
+
+> ⚠️ **`weifuwu/client` 已删除**——本页为历史文档。前端运行时唯一入口是 **`weifuwu/ui-dom`**（UIRouter 纯路由 + uiServe 渲染运行时 + SSR/hydration），权威参考见 **[docs/frontend-ui-dom.md](frontend-ui-dom.md)**。本页的 createApp/router/RouteView 用法已失效，对应新 API 为 `uiServe` / `UIRouter`。
 
 > 以下为完整 API 参考，按需查阅。新手建议先阅读 README 的「核心概念」和「快速开始」。
 

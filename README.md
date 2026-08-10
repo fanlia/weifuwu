@@ -23,7 +23,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 | 层 | 入口 | 能力 |
 |----|------|------|
 | 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
-| 前端 | `weifuwu/ui-dom` | **UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时）+ SSR/hydration**——handler=异步组件 / 中间件两阶段 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom）；`weifuwu/client`（createApp/router）保留为兼容壳（稳定后被取代，见 `design/ui-architecture.md` / `design/ui-dom-client-align.md`） |
+| 前端 | `weifuwu/ui-dom` | **UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时）+ SSR/hydration**——handler=异步组件 / 中间件两阶段 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom，见 `docs/frontend-ui-dom.md`） |
 | 组件 | `weifuwu/components` | 109 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
 | 样式 | `weifuwu/layout` | 57 布局原语 + 136 工具类 + 167 主题 Token，零自定义 CSS 文件 |
 | SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
@@ -125,9 +125,10 @@ npm install weifuwu      # 一个依赖，完整应用栈
 ### 先写共享部分（两种模式都一样）
 
 ```tsx
-// routes.tsx —— 页面声明（前后端共用）
-import type { RouteDef } from 'weifuwu/client'
-import { asyncComponent } from 'weifuwu/client'
+// routes.tsx —— 页面声明（前后端共用 UIRouter）
+import { UIRouter, asyncComponent } from 'weifuwu/ui-dom'
+
+const app = new UIRouter()
 
 // async 工厂组件：await 数据 → 返回视图（两阶段：外层初始化，内层渲染）
 const Home = asyncComponent(async (ctx) => {
@@ -136,7 +137,9 @@ const Home = asyncComponent(async (ctx) => {
     (props) => <h1>{msg.msg}</h1>
 })
 
-export const routes: RouteDef[] = [{ path: '/', component: Home }]
+app.get('/', async () => <Home />)   // handler = 异步组件
+
+export { app }
 ```
 
 ### 模式 A：纯 SPA
@@ -144,30 +147,31 @@ export const routes: RouteDef[] = [{ path: '/', component: Home }]
 ```ts
 // server.ts
 import { serve, Router, ui, cors } from 'weifuwu'
+import { app } from './routes.tsx'
 
-const app = new Router()
-app.use(cors())
-app.use(ui())   // 注入 ctx.ui.html / ctx.ui.js / ctx.ui.css
+const router = new Router()
+router.use(cors())
+router.use(ui())   // 注入 ctx.ui.html / ctx.ui.js / ctx.ui.css
 
 // SPA 外壳（空 root + 前端 bundle）
-app.get('/', (req, ctx) => ctx.ui.html`
+router.get('/', (req, ctx) => ctx.ui.html`
   <!doctype html><html><body>
     <div id="root"></div>
     <script src="/static/app.js"></script>
   </body></html>
 `)
-app.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
-app.get('/api/hello', () => Response.json({ msg: 'world' }))
+router.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
+router.get('/api/hello', () => Response.json({ msg: 'world' }))
 
-serve(app, { port: 3000 })
+serve(router, { port: 3000 })
 ```
 
 ```ts
 // src/client.ts —— 纯客户端渲染
-import { createApp, router, RouteView } from 'weifuwu/client'
-import { routes } from './routes.tsx'
+import { uiServe } from 'weifuwu/ui-dom'
+import { app } from './routes.tsx'
 
-createApp().use(router({ routes })).mount('#root', RouteView)
+uiServe(app, { root: '#root' })   // 监听 location → 执行路由 → VDOM 落地
 ```
 
 ### 模式 B：SSR + Hydration（内容页/SEO）
@@ -175,31 +179,35 @@ createApp().use(router({ routes })).mount('#root', RouteView)
 同一份 `routes`、同一个组件，差异只在**后端加 `uiSsr` 一行、客户端加 `hydrate` 参数**：
 
 ```ts
-// server.ts —— 完整版（与模式 A 的差异：uiSsr 中间件 + 一条样式路由）
-import { serve, Router, ui, uiSsr, cors } from 'weifuwu'
-import { routes } from './routes.tsx'
+// server.ts —— 完整版（与模式 A 的差异：ssrPage + 一条样式路由）
+import { serve, Router, ui, cors } from 'weifuwu'
+import { ssrPage } from 'weifuwu/ui-dom'
+import { app } from './routes.tsx'
 
-const app = new Router()
-app.use(cors())
-app.use(ui())
+const router = new Router()
+router.use(cors())
+router.use(ui())
 
-// 路由级 SSR：GET 匹配 routes → 注入 ctx.route.params → await 组件工厂
+// 路由级 SSR：GET 匹配共享 router → 注入 ctx.params → await 组件工厂
 // → 完整 HTML + __DATA__ + bundle/styles 引用（无需手写页面 handler）
-app.use(uiSsr({ routes, bundle: '/static/app.js', styles: ['/static/style.css'] }))
+router.get('*', async (req, ctx) => {
+  const { page } = await ssrPage(app, { url: req.url ?? '/' })
+  return ctx.ui.html(page)
+})
 
-app.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
-app.get('/static/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))
-app.get('/api/hello', () => Response.json({ msg: 'world' }))
+router.get('/static/app.js', (req, ctx) => ctx.ui.js('./src/client.ts'))
+router.get('/static/style.css', (req, ctx) => ctx.ui.css('./src/style.css'))
+router.get('/api/hello', () => Response.json({ msg: 'world' }))
 
-serve(app, { port: 3000 })
+serve(router, { port: 3000 })
 ```
 
 ```ts
 // src/client.ts —— 与模式 A 的唯一差异：hydrate: true（收养服务端 HTML，无闪跳）
-import { createApp, router, RouteView } from 'weifuwu/client'
-import { routes } from './routes.tsx'
+import { uiServe } from 'weifuwu/ui-dom'
+import { app } from './routes.tsx'
 
-createApp().use(router({ routes })).mount('#root', RouteView, { hydrate: true })
+uiServe(app, { root: '#root', hydrate: true })
 ```
 
 ### 启动（两种模式都一样）
@@ -245,7 +253,7 @@ cd apps/agent-platform && npm run seed && npm run dev
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Weifuwu CDN 示例</title>
 
-  <!-- 组件样式（可选，如只用 weifuwu/client 则不需要） -->
+  <!-- 组件样式（可选，如只用 weifuwu/ui-dom 则不需要） -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/weifuwu@latest/dist/components/style.css"
@@ -258,14 +266,14 @@ cd apps/agent-platform && npm run seed && npm run dev
   <script type="importmap">
     {
       "imports": {
-        "weifuwu/client": "https://unpkg.com/weifuwu@latest/dist/client/index.js",
+        "weifuwu/ui-dom": "https://unpkg.com/weifuwu@latest/dist/ui-dom/index.js",
         "weifuwu/components": "https://unpkg.com/weifuwu@latest/dist/components/index.js"
       }
     }
   </script>
 
   <script type="module">
-    import { createApp, h } from 'weifuwu/client'
+    import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
     import { Card, Button, Badge } from 'weifuwu/components'
 
     // 组件 = (initProps, ctx) => (props) => VNode
@@ -291,7 +299,10 @@ cd apps/agent-platform && npm run seed && npm run dev
         )
     }
 
-    createApp().mount('#root', Counter)
+    // 路由 + 渲染：监听 location → 执行 handler → VDOM 落地
+    const app = new UIRouter()
+    app.get('/', () => h(Counter, {}))
+    uiServe(app, { root: '#root' })
   </script>
 </body>
 </html>
@@ -303,7 +314,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 
 | 资源 | CDN 地址 | 说明 |
 |------|---------|------|
-| `weifuwu/client` | `https://unpkg.com/weifuwu@latest/dist/client/index.js` | 客户端核心（createApp, h, 路由, 状态管理等） |
+| `weifuwu/ui-dom` | `https://unpkg.com/weifuwu@latest/dist/ui-dom/index.js` | 前端运行时（UIRouter, uiServe, h, 状态管理等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/index.js` | 102 个 UI 组件（Button, Card, Table, Modal, Icon 等） |
 | `weifuwu/components` | `https://unpkg.com/weifuwu@latest/dist/components/style.css` | 组件 CSS + 167 个主题 Token + 57 个布局原语 + 136 个工具类 |
 | 独立布局系统 | `https://unpkg.com/weifuwu@latest/dist/layout/weifuwu-layout.css` | 仅 CSS 布局，不依赖 JS |
@@ -336,17 +347,16 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu` | **ok / badRequest / …** | HTTP 响应辅助函数（ok/badRequest/... 等 12 个） | — |
 | `weifuwu` | **parseBody** | JSON 请求体安全解析 | — |
 | Router 方法 | **app.graphql()** | GraphQL 端点（支持 GraphiQL），Router 实例方法（无需单独 import） | Router |
-| `weifuwu/client` | **createApp** | 应用引导 + VDOM 渲染引擎 | — |
-| `weifuwu/client` | **router / RouteView** | 前端路由（history/hash 模式） | createApp |
-| `weifuwu/client` | **asyncComponent** | async 工厂组件：工厂层声明数据，mount/render 同步（三条纪律见[核心概念](#核心概念)） | — |
-| `weifuwu/client` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | createApp |
-| `weifuwu/client` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | createApp |
-| `weifuwu/client` | **i18n** | 国际化中间件（运行时切换语言） | createApp |
-| `weifuwu/client` | **ErrorBoundary** | 错误边界组件 | createApp |
-| `weifuwu/client` | **lockScroll/trapFocus** | 滚动锁定 / 焦点陷阱工具 | — |
-| `weifuwu/client` | **popup** | 弹层 fixed 定位工具（`computeFixedPos` / `computeFixedPosRect` / `clampToViewport`） | — |
-| `weifuwu/client` | **事件原语** | `usePopup` / `useDialog` / `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [docs/mobile.md](docs/mobile.md)） | — |
-| `weifuwu/components` | **113 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/client |
+| `weifuwu/ui-dom` | **UIRouter** | 纯路由 + ctx 注入链（`use` 中间件累积类型，对齐后端 `app.use`）；handler=异步组件 | — |
+| `weifuwu/ui-dom` | **uiServe** | 渲染运行时：监听 location → 执行路由 → VDOM diff/patch；`hydrate: true` 收养 SSR HTML | UIRouter |
+| `weifuwu/ui-dom` | **asyncComponent** | async 工厂组件：工厂层声明数据，mount/render 同步（三条纪律见[核心概念](#核心概念)） | — |
+| `weifuwu/ui-dom` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | uiServe |
+| `weifuwu/ui-dom` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | — |
+| `weifuwu/ui-dom` | **i18n** | 国际化中间件（运行时切换语言） | — |
+| `weifuwu/ui-dom` | **ssrPage / serializeData** | 服务端渲染：SSR HTML + `__DATA__` 序列化（`ctx.params` 两端同源） | — |
+| `weifuwu/ui-dom` | **useChat / AiChat 原语** | AI 会话（流式/工具调用/HITL） | — |
+| `weifuwu/ui-dom` | **事件原语** | `usePopup` / `useDialog` / `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [docs/mobile.md](docs/mobile.md)） | — |
+| `weifuwu/components` | **113 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/ui-dom |
 | `weifuwu/layout` | **CSS 布局** | 57 个布局原语 + 136 个工具类 + 167 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 
 ---
@@ -358,7 +368,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | 任务 | 用 | 位置 |
 |------|-----|------|
 | 起 HTTP 服务 + 路由 | `serve(app)` + `new Router()` + `app.get/post/...` | [docs/server.md](docs/server.md) |
-| 渲染页面（SPA / SSR+hydrate） | `ui()` + `uiSsr({ routes })`；`createApp()` + `router({ routes })` + `RouteView` | [docs/realtime.md](docs/realtime.md) · [docs/frontend.md](docs/frontend.md) |
+| 渲染页面（SPA / SSR+hydrate） | `ui()` + `ssrPage(router)`；`uiServe(router, { root, hydrate })` | [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) · [docs/frontend.md](docs/frontend.md) |
 | 数据持久化 | `postgres()` → `` ctx.sql`SELECT *` `` · `redis()` → `ctx.redis` | [docs/data.md](docs/data.md) |
 | 数据管道（SSR 预取/hydration/SPA） | `ctx.data.get(key)` + `asyncComponent` | [docs/frontend.md](docs/frontend.md) |
 | 用户注册/登录/会话/多租户 | `userSystem()` → `ctx.auth` + `/api/auth/*` | [docs/saas.md](docs/saas.md) |
@@ -489,7 +499,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | 文档 | 内容 |
 |------|------|
 | [docs/frontend.md](docs/frontend.md) | 前端核心：createApp / 组件模型 / 状态管理 / 条件与列表 / ref / 类型 |
-| [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom**：UIRouter 纯路由 + uiServe 渲染运行时 + ctx 注入链 + components 复用 + SSR/hydration（weifuwu/client 将被取代） |
+| [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom**：UIRouter 纯路由 + uiServe 渲染运行时 + ctx 注入链 + components 复用 + SSR/hydration（前端唯一运行时——weifuwu/client 已删除） |
 | [docs/frontend-middleware.md](docs/frontend-middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [docs/components.md](docs/components.md) | 组件库（113 个组件 + 使用示例 + 组件列表） |
 | [docs/layout.md](docs/layout.md) | 布局系统：57 个布局原语 + 136 个工具类 + 167 个主题 Token |

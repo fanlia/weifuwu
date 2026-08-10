@@ -69,6 +69,8 @@ app.get('/page', (req, ctx) => ctx.ui.html`
 
 ```ts
 app.get('/app.js', (req, ctx) => ctx.ui.js('./src/main.tsx'))   // 相对路径
+
+> ⚠️ **weifuwu/client 已删除**——前端运行时唯一入口为 `weifuwu/ui-dom`，见 [frontend-ui-dom.md](frontend-ui-dom.md)。
 app.get('/app.js', (req, ctx) => ctx.ui.js('weifuwu/client'))   // 或包名
 ```
 

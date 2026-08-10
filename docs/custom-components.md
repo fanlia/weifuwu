@@ -1,5 +1,7 @@
 # 自定义组件开发指南
 
+
+> ⚠️ **weifuwu/client 已删除**——前端运行时唯一入口为 `weifuwu/ui-dom`，见 [frontend-ui-dom.md](frontend-ui-dom.md)。
 > 用 weifuwu/client 写自己的组件——与内置组件同权：同渲染引擎、同弹层原语、同类型安全。
 > 前置：[前端概念](frontend.md)（两阶段模型/ctx.ui）+ [组件列表](components.md)。
 

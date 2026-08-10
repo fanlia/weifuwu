@@ -1,4 +1,6 @@
-# 前端中间件与工具（weifuwu/client）
+# 前端中间件与工具（weifuwu/ui-dom）
+
+> ⚠️ **`weifuwu/client` 已删除**——中间件（api/auth/ws/i18n）现位于 `weifuwu/ui-dom`，新 API 见 [frontend-ui-dom.md](frontend-ui-dom.md)。
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 

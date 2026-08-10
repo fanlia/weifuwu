@@ -15,7 +15,6 @@ const distDir = join(root, 'dist')
 // Clean stale dist
 await rm(distDir, { recursive: true, force: true })
 await mkdir(distDir, { recursive: true })
-await mkdir(join(distDir, 'client'), { recursive: true })
 await mkdir(join(distDir, 'layout'), { recursive: true })
 await mkdir(join(distDir, 'components'), { recursive: true })
 await mkdir(join(distDir, 'ui-dom'), { recursive: true })
@@ -170,8 +169,6 @@ for (const dir of componentDirs) {
 componentCss += '}\n'
 await writeFile(join(distDir, 'components', 'style.css'), componentCss)
 
-// jsx-runtime re-exports from client/index.js via package.json exports
-
 // 生成类型声明
 console.log('\nGenerating declarations...')
 try {
@@ -185,7 +182,7 @@ console.log('\nBuild complete.')
 
 // ── 产物体积记录（P4 验收用） ──
 import { statSync } from 'node:fs'
-for (const f of ['index.js', 'client/index.js', 'components/index.js', 'components/style.css', 'layout/weifuwu-layout.css']) {
+for (const f of ['index.js', 'ui-dom/index.js', 'ui-dom/jsx-runtime.js', 'components/index.js', 'components/style.css', 'layout/weifuwu-layout.css']) {
   const p = join(distDir, f)
   try {
     console.log(`  dist/${f}: ${(statSync(p).size / 1024).toFixed(1)} KB`)
