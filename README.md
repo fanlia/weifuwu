@@ -97,7 +97,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **async 工厂组件** — `async (ctx) => (initProps, ctx) => (props) => VNode`：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`$`）、render 输出视图。异步只在工厂边界，mount/render 保持同步；数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
 
-**SPA/SSR/Hydration 统一透明** — 同一份路由定义（`routes`）一个组件三场景自动适配：后端 `uiSsr({ routes })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `router({ routes })` + `RouteView` + `mount(..., { hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
+**SPA/SSR/Hydration 统一透明** — 同一份路由定义（`UIRouter`）一个组件三场景自动适配：后端 `ssrPage(router, { url })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `uiServe(router, { root, hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
 
 **AI 是一等公民** — 自研 OpenAI 兼容协议（`design/ai-contract.md`）+ 零依赖流式客户端 + agent 工具循环 + HITL 人工审批 + embedding 向量化。后端 `ctx.ai` 一个入口：`chat()` / `stream()` / `agent()`（`stream(messages, { emit })` emitter 抽象——事件可接任意通道，`runToResult()` 结构化结果）/ `approve()` / `embed()` / `embedMany()`；前端 `ctx.ui.useChat()`（会话语义）+ `AiChat` 组件（标准对话界面）——流式 token / 工具调用卡 / 审批卡开箱即用，协议对页面完全透明，不用 ai-sdk。
 
@@ -119,8 +119,8 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 | 模式 | 适用场景 | 后端 | 客户端入口 |
 |------|---------|------|-----------|
-| **SPA** | 应用页（Dashboard、工具、后台） | HTML 外壳 | `mount('#root', RouteView)` |
-| **SSR + Hydration** | 内容页（博客、营销，需要 SEO/首屏） | `uiSsr` 一行 | `mount('#root', RouteView, { hydrate: true })` |
+| **SPA** | 应用页（Dashboard、工具、后台） | HTML 外壳 | `uiServe(router, { root: '#root' })` |
+| **SSR + Hydration** | 内容页（博客、营销，需要 SEO/首屏） | `ssrPage(router)` 一行 | `uiServe(router, { root: '#root', hydrate: true })` |
 
 ### 先写共享部分（两种模式都一样）
 
@@ -176,7 +176,7 @@ uiServe(app, { root: '#root' })   // 监听 location → 执行路由 → VDOM �
 
 ### 模式 B：SSR + Hydration（内容页/SEO）
 
-同一份 `routes`、同一个组件，差异只在**后端加 `uiSsr` 一行、客户端加 `hydrate` 参数**：
+同一份 `router`、同一个组件，差异只在**后端加 `ssrPage` 一行、客户端加 `hydrate` 参数**：
 
 ```ts
 // server.ts —— 完整版（与模式 A 的差异：ssrPage + 一条样式路由）
@@ -333,7 +333,8 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu` | **postgres** | PostgreSQL 客户端（自研 PG v3 协议）→ `ctx.sql` | Router, DATABASE_URL |
 | `weifuwu` | **redis** | Redis 客户端（自研 RESP2 协议）→ `ctx.redis` | Router, REDIS_URL |
 | `weifuwu` | **ui** | SSR 渲染 + esbuild JS/CSS 动态编译 → `ctx.ui` | Router |
-| `weifuwu` | **uiSsr** | 路由级 SSR：匹配 routes → 自动完整 HTML + `__DATA__` + bundle | Router, ui |
+| `weifuwu/ui-dom` | **uiServe** | 渲染运行时：监听 location → 执行路由 → VDOM 落地（`hydrate: true` 收养 SSR HTML） | UIRouter |
+| `weifuwu/ui-dom` | **ssrPage** | 路由级 SSR：匹配共享 router → 自动完整 HTML + `__DATA__` | Router, ui |
 | `weifuwu` | **rateLimit** | 限流中间件（fixed/sliding，redis 多实例原子）→ `ctx.limit` | Router, redis |
 | `weifuwu` | **email** | 邮件发送（Resend/SMTP 自研/自定义适配器）→ `ctx.email` | Router |
 | `weifuwu` | **userSystem** | 用户系统（scrypt 密码哈希 + 混合会话 + 多租户感知）→ `ctx.user` / `ctx.auth` / `ctx.tenantId` + `/api/auth/*` | Router, postgres |
@@ -388,6 +389,16 @@ cd apps/agent-platform && npm run seed && npm run dev
 
 ## 核心概念
 
+### 三层形态（路由 / 组件 / 异步工厂）
+
+| 层 | 签名 | 异步 | 生命周期 |
+|----|------|------|---------|
+| **UIHandler**（路由） | `async (location, ctx) => VNode` | ✅ 整体 | 每次路由变化执行 |
+| **Component**（组件） | `(initProps, ctx) => (props) => VNode` | ❌ 同步 | mount 一次 + render 每次 |
+| **AsyncFactory**（异步组件） | `async (ctx) => (initProps, ctx) => (props) => VNode` | ✅ 只工厂 | 工厂一次（WeakMap 缓存） |
+
+异步只出现在两个边界——路由 handler（整页）和组件工厂（数据声明）；**mount/render 永远同步**（SSR/hydration 两端一致性的根基）。`async (initProps, ctx) => ...` 是混合错形——渲染器不 await 同步组件，Promise 会被当 render 函数调用。
+
 ### 两阶段组件（新手必读：为什么是两层）
 
 组件 = `(initProps, ctx) => (props) => VNode`——**外层 = 初始化（只执行一次），内层 = 渲染（每次状态/props 变化时执行）**。类比：外层是对象的构造函数，内层是它的 render 方法。
@@ -414,12 +425,15 @@ const Counter = (_init, ctx) => {
        app.get('/users', (req, ctx) => { ctx.sql`SELECT *` })
        // ctx 已注入 ctx.sql
 
-前端:  createApp()
-         .use(api({ baseURL: '/api' }))
-         .use(auth())
-         .mount('#root', App)
+前端:  const router = new UIRouter()
+       router.use(api({ baseURL: '/api' }))
+       router.use(auth())
+       router.get('/users', async (location, ctx) => h(UsersPage, {}))
+       uiServe(router, { root: '#root' })
        // ctx 已注入 ctx.api, ctx.auth
 ```
+
+前端 req = `window.location`（原生对象，不包装），res = `VNode`，`uiServe` = VDOM 落地——与后端 `Request → Response`、`serve(router)` 完全同构。
 
 ### 状态管理
 
@@ -467,10 +481,10 @@ const UserProfile = asyncComponent(async (ctx) => {
 | | SPA | SSR + Hydration |
 |---|---|---|
 | 适用 | 应用页（后台、工具、Dashboard） | 内容页（博客、营销，需要 SEO/首屏） |
-| 后端 | HTML 外壳 | `uiSsr({ routes })` 一行（自动完整 HTML + `__DATA__`） |
-| 客户端 | `mount('#root', RouteView)` | `mount('#root', RouteView, { hydrate: true })` |
+| 后端 | HTML 外壳 | `ssrPage(router, { url })` 一行（自动完整 HTML + `__DATA__`） |
+| 客户端 | `uiServe(router, { root: '#root' })` | `uiServe(router, { root: '#root', hydrate: true })` |
 
-**怎么选**：默认 SPA；需要 SEO 或首屏即内容时用 SSR。两种模式可混合——一个 app 内 `uiSsr` 匹配共享路由，未匹配 `next()` 走普通 handler。
+**怎么选**：默认 SPA；需要 SEO 或首屏即内容时用 SSR。两种模式可混合——一个 app 内 `ssrPage` 匹配共享 router，未匹配 `next()` 走普通 handler。
 
 ### Closeable 接口
 
@@ -498,7 +512,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 
 | 文档 | 内容 |
 |------|------|
-| [docs/frontend.md](docs/frontend.md) | 前端核心：createApp / 组件模型 / 状态管理 / 条件与列表 / ref / 类型 |
+| [docs/frontend.md](docs/frontend.md) | 前端核心：UIRouter / 组件模型 / 状态管理 / 条件与列表 / ref / 类型（历史 client 版见 docs/frontend.md） |
 | [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom**：UIRouter 纯路由 + uiServe 渲染运行时 + ctx 注入链 + components 复用 + SSR/hydration（前端唯一运行时——weifuwu/client 已删除） |
 | [docs/frontend-middleware.md](docs/frontend-middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [docs/components.md](docs/components.md) | 组件库（113 个组件 + 使用示例 + 组件列表） |
