@@ -6,8 +6,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-import { h } from '../../client/vnode.ts'
-import { mountVNode } from '../../client/render.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import { mountVNode } from '../../ui-dom/render.ts'
 
 setupJsdom()
 

@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ssrToString } from '../ui/ssr.ts'
-import { h, type Component } from '../client/vnode.ts'
+import { h, type Component } from '../ui-dom/vnode.ts'
 
 test('SSR：useControlled 组件可渲染（Collapse 模式）', async () => {
   const Comp: Component = (_init: any, ctx: any) => {

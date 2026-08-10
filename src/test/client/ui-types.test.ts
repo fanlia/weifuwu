@@ -11,8 +11,8 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './setup.ts'
-import type { UIRequest, UIResponse, UIHandler, UIMiddleware, UIRouteDef } from '../../client/ui-types.ts'
-import type { WfuiContext } from '../../client/types.ts'
+import type { UIRequest, UIResponse, UIHandler, UIMiddleware, UIRouteDef } from '../../ui-dom/types.ts'
+import type { WfuiContext } from '../../ui-dom/types.ts'
 import type { VNode } from '../../client/vnode.ts'
 import { h } from '../../client/vnode.ts'
 

@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 
 import { ai, type AiClientModule, type AgentTool, type AiInjected } from '../ai/index.ts'
 import type { WfStreamEvent, WfApprovalDecision, WfErrorCode, ChatMessage, ToolCall } from '../ai/index.ts'
-import { aiStream, type AiStreamCallbacks } from '../client/ai.ts'
+import { aiStream, type AiStreamCallbacks } from '../ui-dom/ai.ts'
 
 // ① ctx.ai 注入类型：app.use(ai()) 后 ctx 上是完整模块（含 agent/approve）
 const aiMw: AiClientModule = ai({ apiKey: 'k' })
@@ -89,7 +89,7 @@ void callbacks
 
 // ⑦ ctx.ui.useChat：url 必填、返回 $ 超集（状态 + 操作）、messages 是 UiMessage[]
 // 运行时零执行（函数从不调用）；tsc 编译期完成全部类型断言
-import type { WfuiContext, UseChatHandle, UiMessage } from '../client/index.ts'
+import type { WfuiContext, UseChatHandle, UiMessage } from '../ui-dom/index.ts'
 
 declare const wfuiCtx: WfuiContext
 declare const wfuiCtx2: WfuiContext

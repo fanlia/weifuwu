@@ -19,7 +19,7 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 
 before(setupJsdom)
 
-const { createApp } = await import('../../client/app.ts')
+import { mountApp } from '../ui-dom-mount.ts'
 
 /** 可切换的 hover 能力 mock */
 let HOVER = false
@@ -84,11 +84,10 @@ async function mountPopup(opts: HarnessOpts = {}) {
     ].filter(Boolean))
   }
   const Root = (_: any) => () => h('div', {}, [h(Cmp)])
-  const app = createApp()
   const el = document.createElement('div')
   el.id = 'popup-harness'
   document.body.appendChild(el)
-  await app.mount('#popup-harness', Root)
+  const app = await mountApp(el, Root)
   // 注意：无 key 子节点每次渲染重建 DOM（框架 diff 行为），交互前必须重新查询 live 节点
   const q = (sel: string) => document.querySelector(sel) as HTMLElement | null
   return {
@@ -126,7 +125,7 @@ describe('ctx.ui.usePopup', () => {
     fire(document.body, 'mousedown')
     await flush()
     assert.equal(t.panel(), null, '点外部应关闭')
-    t.app.destroy()
+    ;(t.app as any).close?.()
   })
 
   it('hover 触发 + 桌面环境：(hover: hover) true → mouseover 打开，mouseout 关闭', async () => {
@@ -139,7 +138,7 @@ describe('ctx.ui.usePopup', () => {
     fire(t.wrap, 'mouseout', { relatedTarget: document.body })
     await flush()
     assert.equal(t.panel(), null, 'mouseout 应关闭')
-    t.app.destroy()
+    ;(t.app as any).close?.()
   })
 
   it('click 触发：只开不关（Select 教训——关闭交外部点击/Escape）', async () => {
@@ -154,7 +153,7 @@ describe('ctx.ui.usePopup', () => {
     fire(document.body, 'mousedown')
     await flush()
     assert.equal(t.panel(), null, '外部点击关闭')
-    t.app.destroy()
+    ;(t.app as any).close?.()
   })
 
   it('Escape 关闭（wrapProps.onKeyDown 冒泡）', async () => {
@@ -165,7 +164,7 @@ describe('ctx.ui.usePopup', () => {
     fireKey(t.wrap, "Escape")
     await flush()
     assert.equal(t.panel(), null, 'Escape 应关闭')
-    t.app.destroy()
+    ;(t.app as any).close?.()
   })
 
   it('longpress 触发：pointerdown 按住 500ms 触发；提前松开取消', async () => {
@@ -181,7 +180,7 @@ describe('ctx.ui.usePopup', () => {
     fire(t.trigger, 'pointerdown')
     await flush(550)
     assert.ok(t.panel(), '长按 500ms 应打开')
-    t.app.destroy()
+    ;(t.app as any).close?.()
   })
 
   it('宽度 clamp：width=400 时面板 maxWidth = min(400px, calc(100vw - 32px))', async () => {
@@ -191,7 +190,7 @@ describe('ctx.ui.usePopup', () => {
     const panel = t.panel()
     assert.ok(panel, '面板应打开')
     assert.match(panel.style.maxWidth, /min\(400px, calc\(100vw - 32px\)\)/)
-    t.app.destroy()
+    ;(t.app as any).close?.()
   })
 
   it('受控模式：open/onOpenChange 由外部接管，组件内 setOpen 不直接改状态', async () => {
@@ -207,7 +206,7 @@ describe('ctx.ui.usePopup', () => {
     await flush()
     assert.deepEqual(calls, [true], 'onOpenChange 收到 true')
     assert.equal(t.panel(), null, '受控 open=false 时面板不渲染')
-    t.app.destroy()
+    ;(t.app as any).close?.()
   })
 })
 
@@ -215,7 +214,6 @@ describe('ctx.ui.usePopup', () => {
 
 describe('usePopup portal 锚点感知（client 层修复）', () => {
   it('打开后切换锚点：portal 自动重算坐标（不残留旧锚点）', async () => {
-    const app = createApp()
     const el = document.createElement('div')
     document.body.appendChild(el)
     el.id = 'popup-anchor-switch2'
@@ -252,7 +250,7 @@ describe('usePopup portal 锚点感知（client 层修复）', () => {
         popup.portal(h('div', { class: 'panel' }), 'anchor-switch2'),
       ])
     }
-    await app.mount('#popup-anchor-switch2', Cmp)
+    const mountRes = await mountApp(el, Cmp)
     const wrap = el.querySelector('.popup-wrap2') as HTMLElement
     // 点击 wrap 打开（wrapProps onClick）
     wrap.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
@@ -265,7 +263,7 @@ describe('usePopup portal 锚点感知（client 层修复）', () => {
     el.querySelector('.switch')!.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
     await new Promise(r => setTimeout(r, 30))
     assert.equal(panel.style.top, '330px', '切换锚点后坐标跟随 B（不残留 A）')
-    app.destroy()
+    ;(mountRes as any).close?.()
     el.remove()
   })
 })

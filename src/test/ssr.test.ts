@@ -12,7 +12,7 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, Fragment, createPortal, asyncComponent } from '../client/vnode.ts'
+import { h, Fragment, createPortal, asyncComponent } from '../ui-dom/vnode.ts'
 import { ssrToString, serializeData } from '../ui/ssr.ts'
 
 function ssr(Comp: any, props: any = {}, ctx: any = {}, opts: any = {}): Promise<string> {
