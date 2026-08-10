@@ -754,25 +754,21 @@ const UserProfile: Component = (initProps, ctx) => {
 }
 ```
 
-### asyncComponent 工厂（async 组件）— 同步式数据声明
+### async 组件（原生——无需 asyncComponent 包装）
 
-`async (ctx) => (initProps, ctx) => (props) => VNode` — 工厂层（async，只执行一次并缓存）声明数据/加载代码，mount/render 保持同步。数据经闭包注入组件，渲染无 loading 分支：
+组件 = 函数，async 组件 = async 函数：签名与同步组件一致 `(initProps, ctx) => renderFn`，渲染器按「返回值是 Promise」原生判别。数据经闭包注入，渲染无 loading 分支：
 
 ```tsx
-import { asyncComponent } from 'weifuwu/client'
-
-const UserProfile = asyncComponent(async (ctx) => {
-  const user = await ctx.data.get(`/api/user/${ctx.params.id}`)
-  return (_init, ctx) => {
-    const $ = ctx.ui.$()
-    $.liked = false                        // 客户端状态（交互后变化）
-    return (props) =>
-      h('div', {},
-        h('p', {}, user.name),             // 服务端状态（闭包，SSR 进 HTML）
-        h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'),
-      )
-  }
-})
+const UserProfile = async (initProps, ctx) => {
+  const user = await ctx.data.get(`/api/user/${initProps.userId}`)   // 三场景：SSR→__DATA__ / hydration 种子 / SPA fetch
+  const $ = ctx.ui.$()
+  $.liked = false                        // 客户端状态（交互后变化）
+  return (props) =>
+    h('div', {},
+      h('p', {}, user.name),             // 服务端状态（闭包，SSR 进 HTML）
+      h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'),
+    )
+}
 ```
 
 - **客户端**：首次渲染占位 → 工厂 resolve 后整树重渲染补全（SPA）；数据经 `ctx.data` 缓存（hydration 时从 `__DATA__` 同步命中，不重跑请求）

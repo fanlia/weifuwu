@@ -145,7 +145,7 @@ uiServe(app, { root: '#root', hydrate: true })
 ```
 
 - SSR 时 `ctx.data.get` 写入 dataStore → `__DATA__` 脚本；hydrate 从种子同步命中
-- renderSsr：组件两阶段 + asyncComponent await（数据 per-request）/ Portal 内联 / 事件剥离
+- renderSsr：组件两阶段 + async 组件 await（数据 per-request）/ Portal 内联 / 事件剥离
 - SSR 确定性：ui 19 原语 shim 全 no-op（不启动监听/会话）；渲染期非确定性由开发者规避
 
 ## ctx 注入

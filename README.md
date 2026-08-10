@@ -126,16 +126,15 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 ```tsx
 // routes.tsx —— 页面声明（前后端共用 UIRouter）
-import { UIRouter, asyncComponent } from 'weifuwu/ui-dom'
+import { UIRouter } from 'weifuwu/ui-dom'
 
 const app = new UIRouter()
 
-// async 工厂组件：await 数据 → 返回视图（两阶段：外层初始化，内层渲染）
-const Home = asyncComponent(async (ctx) => {
+// async 组件（原生）：await 数据 → 返回视图（外层初始化，内层渲染）
+const Home = async (_init, ctx) => {
   const msg = await ctx.data.get('/api/hello')   // 数据管道：一个 API 三场景
-  return (_init, ctx) =>
-    (props) => <h1>{msg.msg}</h1>
-})
+  return (props) => <h1>{msg.msg}</h1>
+}
 
 app.get('/', async () => <Home />)   // handler = 异步组件
 
@@ -351,7 +350,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | Router 方法 | **app.graphql()** | GraphQL 端点（支持 GraphiQL），Router 实例方法（无需单独 import） | Router |
 | `weifuwu/ui-dom` | **UIRouter** | 纯路由 + ctx 注入链（`use` 中间件累积类型，对齐后端 `app.use`）；handler=异步组件 | — |
 | `weifuwu/ui-dom` | **uiServe** | 渲染运行时：监听 location → 执行路由 → VDOM diff/patch；`hydrate: true` 收养 SSR HTML | UIRouter |
-| `weifuwu/ui-dom` | **asyncComponent** | async 工厂组件：工厂层声明数据，mount/render 同步（三条纪律见[核心概念](#核心概念)） | — |
+| `weifuwu/ui-dom` | **async 组件** | async 函数即组件（与同步同签名）；数据走 ctx.data 三场景（三条纪律见[核心概念](#核心概念)） | — |
 | `weifuwu/ui-dom` | **ctx.data** | 数据管道：SSR 预取 / hydration 命中 / SPA fetch（`ctx.data.get`） | uiServe |
 | `weifuwu/ui-dom` | **api / auth / ws** | HTTP 客户端 / 认证 / WebSocket 中间件 | — |
 | `weifuwu/ui-dom` | **i18n** | 国际化中间件（运行时切换语言） | — |
@@ -373,7 +372,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | 渲染页面（SPA / SSR+hydrate） | `ui()` + `ssrPage(router)`；`uiServe(router, { root, hydrate })` | [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) · [docs/frontend.md](docs/frontend.md) |
 | 数据持久化 | `postgres()` → `` ctx.sql`SELECT *` `` · `redis()` → `ctx.redis` · **`sql.query`**（Query Language AST 双后端） | [docs/data.md](docs/data.md) |
 | 零数据库开发/测试 | `createMemorySql()` / `MemoryRedis`——契约同真库、替换成本为零 | [docs/data.md](docs/data.md) |
-| 数据管道（SSR 预取/hydration/SPA） | `ctx.data.get(key)` + `asyncComponent` | [docs/frontend.md](docs/frontend.md) |
+| 数据管道（SSR 预取/hydration/SPA） | `ctx.data.get(key)` + async 组件 | [docs/frontend.md](docs/frontend.md) |
 | 用户注册/登录/会话/多租户 | `userSystem()` → `ctx.auth` + `/api/auth/*` | [docs/saas.md](docs/saas.md) |
 | 限流防爆破 | `rateLimit()` + `ctx.limit()` | [docs/saas.md](docs/saas.md) |
 | 发邮件 | `email()` → `ctx.email`（Resend/SMTP） | [docs/saas.md](docs/saas.md) |
@@ -417,7 +416,7 @@ const Counter = (_init, ctx) => {
 ```
 
 > 为什么不是单层函数（React 风格）？单层函数每次渲染都执行整个函数体，需要 hooks 记忆机制来区分"初始化"和"渲染"；两阶段用**位置即语义**——外层天生只跑一次，没有 hooks 规则、没有依赖数组、没有闭包陷阱。
-> 异步数据用 `asyncComponent` 工厂（见下文）：`async (ctx) => await ctx.data.get(...)` → 返回两阶段组件，数据经闭包注入。
+> 异步数据用原生 async 组件（见下文）：`async (initProps, ctx) => await ctx.data.get(...)` → 返回 renderFn，数据经闭包注入。
 
 ### 中间件模式（前后端一致）
 
@@ -447,20 +446,18 @@ const Counter = (_init, ctx) => {
 
 ### async 组件（三条纪律）
 
-`asyncComponent` 让"拿数据渲染页面"像写同步代码——三层结构：**工厂**（async，只执行一次，声明数据）→ **mount**（初始化 `$`）→ **render**（输出视图）。异步只在工厂边界：
+async 组件让"拿数据渲染页面"像写同步代码——签名与同步组件一致，唯一差别是 `async` 关键字（**无需 asyncComponent 包装**）：`async (initProps, ctx) => renderFn`。异步只在工厂边界：
 
 ```tsx
-const UserProfile = asyncComponent(async (ctx) => {
-  const user = await ctx.data.get(`/api/user/${ctx.params.id}`)   // ① 工厂层：声明数据
-  return (_init, ctx) => {
-    const $ = ctx.ui.$()
-    $.liked = false                                               // ② mount：客户端状态
-    return (props) =>
-      h('div', {},
-        h('p', {}, user.name),          // 服务端状态（闭包，SSR 进 HTML）
-        h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'))
-  }
-})
+const UserProfile = async (_init, ctx) => {
+  const user = await ctx.data.get(`/api/user/${ctx.params.id}`)   // ① 工厂层：声明数据（三场景自动）
+  const $ = ctx.ui.$()
+  $.liked = false                                                 // ② mount：客户端状态
+  return (props) =>
+    h('div', {},
+      h('p', {}, user.name),          // 服务端状态（闭包，SSR 进 HTML）
+      h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'))
+}
 ```
 
 **三条纪律**（不遵守就是隐性 bug）：

@@ -49,6 +49,8 @@ export interface VNode {
   _parentNode?: Node
   /** 组件输出的第一个 DOM 节点 */
   _refNode?: Node | null
+  /** 原生 async 组件缓存（vnode 级按实例）：in-flight Promise → resolved renderFn（diff 传递继承） */
+  _asyncDef?: ((props: Record<string, unknown>) => VNode | null) | Promise<((props: Record<string, unknown>) => VNode | null)> | null
   /** Fragment 展开后的多个直属 DOM 节点范围（diff 对齐用，见 diff.ts） */
   _childNodes?: Node[]
   /** 组件 mount/render 时的 ctx 版本号（供三态 skip 判定） */
@@ -65,40 +67,39 @@ export type Component<P = {}, C extends object = {}> = (
 ) => ((props: P) => VNode | null) | null
 
 /**
- * 异步组件工厂（形态 C）：async (ctx) => (initProps, ctx) => (props) => VNode
+ * 异步组件（统一签名——与 Component 同参，唯一差别是 async）：
+ *   async (initProps, ctx) => Promise<renderFn | null>
  *
- * 工厂层（async，只执行一次并缓存）：
- *   - 数据声明：const data = await ctx.data.get(key, fetcher)
- *   - 代码分割：const { default: def } = await import('./view.tsx')
- *   - 异步初始化：模块加载、共享资源
+ * 渲染器统一判别「返回值 instanceof Promise」：
+ *   客户端：占位 → resolve 后整树重渲染（vnode 级 _asyncDef 按实例缓存）
+ *   SSR：直接 await（无占位）
  *
- * 返回标准的 Component——mount/render 保持同步，异步只发生在工厂边界。
- * 服务端遍历器与客户端渲染器都 await 工厂；更新路径（_render 缓存）不碰工厂。
- *
- * 必须用 asyncComponent() 包装以标记（渲染器据此区分调用约定）：
- *   Component       → Comp(initProps, ctx)
- *   AsyncComponent  → await Comp(ctx) → Component
+ * asyncComponent() 是兼容包装（工厂签名 (ctx)，WeakMap 全局一次——代码分割场景）。
  */
 export type AsyncComponent<C extends object = {}, P = {}> = (
+  initProps: P,
   ctx: WfuiContext & C,
-) => Promise<Component<P, C>>
+) => Promise<Component<P, C> | null>
 
 const ASYNC_MARK = '__wfAsyncComponent'
 
 /**
- * 包装异步组件工厂。
+ * 兼容包装：async 工厂（旧签名 (ctx)，WeakMap 全局一次——代码分割/昂贵一次性资源）。
+ * 统一为原生 async 组件签名 (initProps, ctx) => Promise<Component>，渲染器原生处理。
  *
  * ```tsx
  * const UserProfile = asyncComponent(async (ctx) => {
- *   const user = await ctx.data.get(`/api/user/${ctx.params.id}`)
- *   return (initProps, ctx) => (props) => h('div', {}, user.name)
+ *   const { default: def } = await import('./view.tsx')
+ *   return def
  * })
  * ```
  */
 export function asyncComponent<C extends object = {}, P = {}>(
-  factory: AsyncComponent<C, P>,
+  factory: (ctx: WfuiContext & C) => Promise<Component<P, C>>,
 ): AsyncComponent<C, P> {
-  const fn = factory as AsyncComponent<C, P> & { [ASYNC_MARK]: true }
+  const fn = (async (_initProps: P, ctx: WfuiContext & C) => {
+    return factory(ctx)
+  }) as AsyncComponent<C, P> & { [ASYNC_MARK]: true }
   fn[ASYNC_MARK] = true
   return fn as AsyncComponent<C, P>
 }
@@ -112,6 +113,27 @@ export const Fragment = Symbol('Fragment')
 
 /** Portal — 将子 VNode 渲染到 document.body 下的独立容器 */
 export const Portal = Symbol('Portal')
+
+/**
+ * 占位显示策略组件（原生 async 组件未 resolve 时的占位 vnode）。
+ * 渲染时查 ctx 原型链上最近的 Suspense 边界：有 → fallback；无 → null（向后兼容）。
+ */
+export const Placeholder: Component = (_init, ctx) => {
+  const s = (ctx as any)._suspense
+  return () => s?.fallback ?? null
+}
+
+/**
+ * Suspense 边界（可选）：子树内 async 组件占位时显示 fallback。
+ * 渲染器对 type === Suspense 的组件在 childCtx 挂 _suspense（Object.create 继承 → 子树可见）。
+ * 语义：占位处局部显示 fallback（非 React 整树回滚）；无边界时占位为 null。
+ *
+ * ```tsx
+ * h(Suspense, { fallback: h(Spinner) }, h(UserProfile, {}))
+ * ```
+ */
+export const Suspense: Component = (_init, ctx) =>
+  (props: Record<string, any>) => props.children
 
 /** JSX 类型声明 — 使 TypeScript 理解自定义 JSX 运行时 */
 

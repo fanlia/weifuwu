@@ -62,7 +62,7 @@ export function startAsyncFactory(reg: Registry, Comp: AsyncComponent, ctx: Wfui
 
   const entry: FactoryEntry = { promise: null as unknown as Promise<Component<any, any>> }
   entry.promise = Promise.resolve()
-    .then(() => Comp(ctx))
+    .then(() => (Comp as any)(undefined, ctx))
     .then((def) => {
       if (typeof def !== 'function') {
         throw new Error(

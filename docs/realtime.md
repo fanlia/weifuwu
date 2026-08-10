@@ -93,17 +93,17 @@ app.get('/style.css', (req, ctx) => ctx.ui.css('weifuwu/components/style.css')) 
 
 ### ctx.ui.ssr — SSR 渲染组件 → HTML
 
-将组件（含 async 工厂组件）在服务端渲染为完整 HTML 片段，数据经 `ctx.data` 预取并序列化进 `window.__DATA__`（客户端 hydration 时同步命中，不重跑请求）：
+将组件（含 async 组件）在服务端渲染为完整 HTML 片段，数据经 `ctx.data` 预取并序列化进 `window.__DATA__`（客户端 hydration 时同步命中，不重跑请求）：
 
 ```ts
-const BlogPage = asyncComponent(async (ctx) => {
+const BlogPage = async (initProps, ctx) => {
   const post = await ctx.data.get(`/api/posts/${ctx.params.slug}`, fetchPost)
-  return (_init, ctx) => () =>
+  return () =>
     h('article', {},
       h('h1', {}, post.title),
       h('div', { innerHTML: post.body }),
     )
-})
+}
 
 app.get('/blog/:slug', async (req, ctx) => {
   const data = new Map()

@@ -94,34 +94,33 @@ const Button = (_init, ctx) =>
   (props) => h('button', { class: props.variant }, props.children)
 ```
 
-### 3.3 异步组件（asyncComponent 工厂）
+### 3.3 异步组件（原生 async——无需包装）
 
-> `async (ctx) => (initProps, ctx) => (props) => VNode` — 工厂层（async，只执行一次并缓存）做数据声明/代码分割，mount/render 保持同步。必须用 `asyncComponent()` 包装。
+> 组件 = 函数，async 组件 = async 函数。签名与同步 Component 完全一致（`(initProps, ctx) => renderFn`），唯一差别是 `async` 关键字。**不需要 `asyncComponent()` 包装**——渲染器按「返回值是 Promise」原生判别。
 
 ```tsx
-const UserProfile = asyncComponent(async (ctx) => {
-  // ── 工厂层：数据声明（异步只在工厂边界）──
-  const user = await ctx.data.get(`/api/user/${ctx.params.id}`)
+const UserProfile = async (initProps, ctx) => {
+  // ── 工厂层（异步边界）：数据声明——ctx.data.get 三场景自动（SSR→__DATA__ / hydration 种子 / SPA fetch）──
+  const user = await ctx.data.get(`/api/user/${initProps.userId ?? ctx.params.id}`)
 
-  return (initProps, ctx) => {
-    // ── mount：客户端状态（hydration 后交互）──
-    const $ = ctx.ui.$()
-    $.liked = false
+  // ── mount 后返回 renderFn：$ 状态 + 交互 ──
+  const $ = ctx.ui.$()
+  $.liked = false
 
-    return (props) =>
-      h('div', {},
-        user.name,  // 服务端状态（闭包，SSR 进 HTML）
-        h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'),
-      )
-  }
-})
+  return (props) =>
+    h('div', {},
+      user.name,  // 服务端状态（闭包，SSR 进 HTML）
+      h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'),
+    )
+}
 ```
 
 关键规则：
-- 工厂**只执行一次**（WeakMap 缓存），数据经闭包注入组件
-- 客户端首次渲染：未解析 → **占位**，resolve 后整树重渲染补全；服务端遍历器直接 await（SSR 无占位）
-- 工厂拿 `ctx`（数据/路由参数），不拿 props
-- 会变的数据：初始值 seed 自服务端数据（`$.count = data.count`），交互改 `$`
+- 渲染器统一判别「返回值 instanceof Promise」：客户端未 resolve → **占位**（`Placeholder`），resolve 后整树重渲染补全（`_asyncDef` 按实例缓存，diff 传递，不重跑工厂）；SSR 直接 await（无占位）
+- 工厂按**实例**执行（N 处实例 = N 次工厂调用）；**数据必须走 ctx.data**（自带缓存+并发合并，重复执行零成本）——禁止副作用/昂贵操作裸写工厂
+- 工厂拿 `initProps` + `ctx`（与同步组件同签名）；initProps 不同的实例各得各自数据（T3 隔离）
+- 占位显示：无边界 → null；`<Suspense fallback={...}>` 边界 → 占位处显示 fallback（可选）
+- **`asyncComponent()` 兼容保留**：工厂签名 `(ctx)`，WeakMap 全局只执行一次——代码分割场景（`await import()`）用；原生 async 组件不必用
 - 初始状态必须确定性（禁止 `window.innerWidth` 之类直接初始化 → mismatch）
 
 ### 3.4 ctx.data — 数据管道（工厂层取数）

@@ -72,6 +72,8 @@ export function uiServe<RC extends object = {}>(
 
   // ctx（WfuiContext——createUi 需要先有 ctx 引用）
   const ctx = { params: {}, query: {} } as unknown as UIContext
+  // async 组件占位补全：工厂 resolve 后触发整树重渲染（mountComponent 的 scheduleFullReRender 优先走此）
+  ;(ctx as any).__scheduleRender = scheduleRender
 
   // ── ctx.data（数据管道：缓存 + in-flight 合并 + __DATA__ 种子） ──
   const dataCache = new Map<string, { value?: unknown; promise?: Promise<unknown> }>()
@@ -259,7 +261,9 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
           if (node && node.parentNode !== root) root.appendChild(node)
         }
       } else {
-        patchValue(root, root.firstChild, oldVNode, vnode, ctx)
+        // 补全：patchValue 返回新节点（占位 null→内容 时顶层需落地；已有 parentNode 的不重复）
+        const node = patchValue(root, root.firstChild, oldVNode, vnode, ctx)
+        if (node && node.parentNode !== root) root.appendChild(node)
       }
       oldVNode = vnode
     } catch (err) {

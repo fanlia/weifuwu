@@ -11,7 +11,7 @@
  * 状态管理：组件使用闭包变量 + ctx.ui.render() 手动触发重渲染。
  */
 
-import { Fragment, Portal, isPortal, isAsyncComponent } from './vnode.ts'
+import { Fragment, Portal, isPortal, isAsyncComponent, Placeholder, Suspense, h } from './vnode.ts'
 import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import type { WfuiContext } from './types.ts'
@@ -130,8 +130,17 @@ export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
  * （缓存本体在 registry.ts，本文件仅保留依赖 render 的调度函数）
  */
 
-/** 占位完成后整树重渲染（async 工厂已解析，diff 收敛到目标位置） */
+/**
+ * 占位完成后整树重渲染（async 工厂已解析，diff 收敛到目标位置）。
+ * 优先走 serve 的调度（重新执行 handler → 新树 → diff 传递 _asyncDef）；
+ * 无 serve 注入（SSR/独立渲染）时回退 ui.render(['_wf_root'])。
+ */
 export function scheduleFullReRender(ctx: WfuiContext) {
+  const refresh = (ctx as any).__scheduleRender
+  if (typeof refresh === 'function') {
+    refresh()
+    return
+  }
   const ui = ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined
   if (ui && typeof ui.render === 'function') ui.render(['_wf_root'])
 }
@@ -162,6 +171,7 @@ export function mountComponent(
   const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   let def: Component | undefined
   if (isAsyncComponent(Comp)) {
+    // 兼容路径：asyncComponent 包装（工厂签名 (ctx)，WeakMap 全局一次）
     def = resolveAsyncFactorySync(getRegistry(ctx), Comp)
     if (!def) {
       // 占位：启动工厂；resolve 后整树重渲染（此时已解析 → 同步渲染）
@@ -171,10 +181,58 @@ export function mountComponent(
           // 工厂失败：保持占位（错误保留在缓存 Promise，不产生 unhandled rejection）
         },
       )
-      return null
+      return h(Placeholder, {})
     }
   } else {
-    def = Comp as Component
+    // 统一路径：同步调用组件——返回值是 Promise = 原生 async 组件
+    // （vnode 级按实例缓存 _asyncDef；diff 传递继承，补全渲染不再重跑工厂）
+    const cached = vnode._asyncDef
+    if (cached instanceof Promise) {
+      return h(Placeholder, {}) // in-flight：占位
+    }
+    if (typeof cached === 'function') {
+      // resolved async 组件：cached 即 renderFn（工厂已 await 数据，mount 完成）
+      vnode._render = cached
+      return cached(props)
+    }
+    // 首次调用组件（mount）：setMounting 保护期 $ 初始化赋值不触发渲染
+    ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.setMounting?.(true)
+    let result: unknown
+    try {
+      result = (Comp as Component)(props, ctx)
+    } finally {
+      ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.endMounting?.()
+    }
+    if (result instanceof Promise) {
+      const promise = result as Promise<(props: VNode['props']) => VNode | null>
+      vnode._asyncDef = promise
+      void promise.then(
+        (defFn) => {
+          if (typeof defFn !== 'function') {
+            throw new Error(
+              `Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
+                `(props) => VNode pattern.`
+            )
+          }
+          vnode._asyncDef = defFn
+          scheduleFullReRender(ctx)
+        },
+        () => {
+          // 工厂失败：保持占位
+        },
+      )
+      return h(Placeholder, {})
+    }
+    if (typeof result !== 'function') {
+      throw new Error(
+        `Component ${Comp.name || 'anonymous'} must return a render function. ` +
+          `Use (init_props, ctx) => (props) => VNode pattern.`
+      )
+    }
+    // 同步组件：result 即 renderFn（mount 已完成）——直接渲染，避免二次调用
+    const renderFn = result as (props: VNode['props']) => VNode | null
+    vnode._render = renderFn
+    return renderFn(props)
   }
 
   // mount 阶段标记：工厂执行期间 $ 初始化赋值丢弃（_rendering 保护语义细分）
@@ -215,6 +273,10 @@ function renderComponent(
 
   // 扩展 ctx：每个组件有自己的 _selfId 和 VNode 引用
   const childCtx = Object.create(ctx) as WfuiContext
+  // Suspense 边界：子树内 async 组件占位时读此（Object.create 继承 → 子树任意深度可见）
+  if (vnode.type === Suspense) {
+    ;(childCtx as any)._suspense = { fallback: vnode.props?.fallback }
+  }
   childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
   const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
   childUi._selfId = vnode._id

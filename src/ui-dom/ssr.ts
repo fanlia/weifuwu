@@ -210,26 +210,40 @@ async function renderSsr(input: any, ctx: any): Promise<string> {
   if (vnode.type === Portal) return renderSsr(vnode.props?.children, ctx)
   if (vnode.type === Fragment) return renderSsr(vnode.props?.children, ctx)
 
-  // 组件（同步或 async 工厂）
+  // 组件（同步或 async：原生 async 组件返回值是 Promise，统一 await）
   if (typeof vnode.type === 'function') {
-    let def: Component
+    const Comp = vnode.type as Component
     if (isAsyncComponent(vnode.type)) {
-      // 服务端不缓存工厂定义（数据 per-request）；工厂内 ctx.data 由 dataStore 去重
-      def = await (vnode.type as AsyncComponent)(ctx)
+      // asyncComponent 兼容：工厂签名 (ctx)，服务端不缓存工厂定义（数据 per-request）
+      const def = await (vnode.type as AsyncComponent)({} as never, ctx)
       if (typeof def !== 'function') {
         throw new Error(
           `asyncComponent factory <${vnode.type.name || 'anonymous'}> must return a Component ` +
             `(initProps, ctx) => (props) => VNode.`
         )
       }
-    } else {
-      def = vnode.type as Component
+      const childCtx = Object.create(ctx)
+      const renderFn = def(vnode.props ?? {}, childCtx)
+      if (typeof renderFn !== 'function') {
+        throw new Error(
+          `Component ${Comp.name || 'anonymous'} must return a render function. ` +
+            `Use (init_props, ctx) => (props) => VNode pattern.`
+        )
+      }
+      return renderSsr(renderFn(vnode.props ?? {}), childCtx)
     }
+    // 统一：同步或原生 async 组件——调用得 renderFn（同步）或 Promise<renderFn>（async await）
     const childCtx = Object.create(ctx)
-    const renderFn = def(vnode.props ?? {}, childCtx)
+    let renderFn: unknown
+    try {
+      renderFn = Comp(vnode.props ?? {}, childCtx)
+    } catch (e) {
+      throw e
+    }
+    if (renderFn instanceof Promise) renderFn = await renderFn
     if (typeof renderFn !== 'function') {
       throw new Error(
-        `Component ${(vnode.type as any).name || 'anonymous'} must return a render function. ` +
+        `Component ${Comp.name || 'anonymous'} must return a render function. ` +
           `Use (init_props, ctx) => (props) => VNode pattern.`
       )
     }

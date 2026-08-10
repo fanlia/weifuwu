@@ -107,10 +107,18 @@ export function patchValue(
     // 传递 _render（两阶段组件复用 render 函数）+ 保持实例 ID
     // ——仅类型相同时：组件切换（AppShell→SplitWorkspace）必须重新 mount，
     // 复用旧 _render 会渲染成旧组件（壳内容区首次切换不更新的根因）
-    if (oldV._render && oldV.type === newV.type) {
-      newV._render = oldV._render
+    // 条件含 _asyncDef：占位期 vnode 无 _render（async 组件未 resolve）——但 id 必须传递，
+    // 否则 $ 的 dirty（绑定占位期 _selfId）→ idRegistry 指向旧 vnode（无 _render）→ 交互失效
+    if (oldV.type === newV.type && (oldV._render || oldV._asyncDef)) {
+      if (oldV._render) newV._render = oldV._render
       newV._id = oldV._id
       if (newV._id) getRegistry(ctx).idRegistry.set(newV._id, newV)
+    }
+
+    // 传递原生 async 组件缓存（占位 resolve 后整树重渲染 → 此处继承 resolved，
+    // mountComponent 走同步快速路径不再重跑工厂/不再占位）
+    if (oldV.type === newV.type && oldV._asyncDef) {
+      newV._asyncDef = oldV._asyncDef
     }
 
     // 存 DOM 锚点（供 ctx.ui.render() scope 使用）
