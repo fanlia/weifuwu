@@ -23,8 +23,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 | 层 | 入口 | 能力 |
 |----|------|------|
 | 后端 | `weifuwu` | Trie 路由 / 中间件链 / serve / 自研 PG+Redis / SSR / GraphQL / WebSocket |
-| 前端 | `weifuwu/client` | 两阶段组件 / Proxy 渲染 / 数据管道 / 路由 / api·auth·ws·i18n / 移动端原语 / **ctx.browser 环境抽象**（组件零 window/document） |
-| 前端(新) | `src/ui-dom/`（试验性） | UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时：registry/createUi 19 原语/diff·patch）+ SSR/hydration——**复用 weifuwu/components**（VNode 契约共享，109 组件零修改）；渲染算法复制自 client 局部隔离（设计见 `design/ui-architecture.md` / `design/ui-dom-client-align.md`） |
+| 前端 | `weifuwu/ui-dom` | **UIRouter（纯路由 + ctx 注入链）+ uiServe（渲染运行时）+ SSR/hydration**——handler=异步组件 / 中间件两阶段 / ctx.params 对齐后端；**weifuwu/components 直接复用**（VNode 契约唯一来源 ui-dom）；`weifuwu/client`（createApp/router）保留为兼容壳（稳定后被取代，见 `design/ui-architecture.md` / `design/ui-dom-client-align.md`） |
 | 组件 | `weifuwu/components` | 109 个 HTML 原语组件（表单/表格/弹层/AiChat…），引用 `--wf-*` 主题变量 |
 | 样式 | `weifuwu/layout` | 57 布局原语 + 136 工具类 + 167 主题 Token，零自定义 CSS 文件 |
 | SaaS 地基 | 随包内置 | rateLimit / email / userSystem / messager / queue / ai → `ctx.*` 一行接入 |
@@ -490,7 +489,7 @@ README 只保留入门内容（设计理念 / 快速开始 / 核心概念 / 模�
 | 文档 | 内容 |
 |------|------|
 | [docs/frontend.md](docs/frontend.md) | 前端核心：createApp / 组件模型 / 状态管理 / 条件与列表 / ref / 类型 |
-| [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom（试验性）**：UIRouter 纯路由 + uiServe 渲染运行时 + ctx 注入链 + components 复用 + SSR/hydration |
+| [docs/frontend-ui-dom.md](docs/frontend-ui-dom.md) | **ui-dom**：UIRouter 纯路由 + uiServe 渲染运行时 + ctx 注入链 + components 复用 + SSR/hydration（weifuwu/client 将被取代） |
 | [docs/frontend-middleware.md](docs/frontend-middleware.md) | 前端中间件：router / api / auth / ws / i18n / ErrorBoundary / confirm / toast / ScrollLock / extendCtx |
 | [docs/components.md](docs/components.md) | 组件库（113 个组件 + 使用示例 + 组件列表） |
 | [docs/layout.md](docs/layout.md) | 布局系统：57 个布局原语 + 136 个工具类 + 167 个主题 Token |

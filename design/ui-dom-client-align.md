@@ -191,3 +191,15 @@ execute/_handle 开头注入 → handler 拿 WfuiContext & C（类型累积）
 | SSR/hydrate | ssrPage（renderSsr+__DATA__）+ uiServe hydrate（种子命中不重取数） | 测试 + curl + agent-browser 端到端 | ✅ |
 | demo 端到端 | apps/ui-router-demo（router 共享 + SSR + hydrate + components + toast） | agent-browser 零错误 | ✅ |
 | 文档 | README 模块行 + docs/frontend-ui-dom.md 定稿 | — | ✅ |
+
+## 取代推进记录
+
+| 提交 | 内容 |
+|------|------|
+| d4a7130 | components 契约归 ui-dom（import 迁移 + client vnode 成壳 + JSX 运行时统一）——1800 测试绿 |
+| b8bf30c | jsx-runtime 补 Fragment |
+| cf5dfc5 | build.mjs ui-dom 构建 + package exports（weifuwu/ui-dom 可发布消费）——components 外部化指 ui-dom |
+
+**状态**：ui-dom 是契约唯一来源（VNode/Component/h/Fragment/Portal）；client 是兼容壳
+（re-export + createApp 实现）。删除 client 剩余：client 的 render/diff/ui/createApp
+实现（agent-platform/layouts-demo 在用）——迁移后 client 可删。
