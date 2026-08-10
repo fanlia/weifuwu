@@ -7,13 +7,13 @@
 
 import type { VNode, Component, AsyncComponent } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
-import { Fragment, Portal, isAsyncComponent } from './vnode.ts'
+import { Fragment, Portal } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 import { flattenChildren, SVG_NS, SVG_TAGS } from './render.ts'
 import { createClientBrowser } from './browser.ts'
 import type { BrowserEnv } from './types.ts'
 import { patchProps } from './diff.ts'
-import { getRegistry, nextComponentIdFor, resolveAsyncFactory } from './registry.ts'
+import { getRegistry, nextComponentIdFor } from './registry.ts'
 
 /**
  * 游标：当前遍历位置对应的 DOM 节点。
@@ -160,16 +160,9 @@ async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: Hydra
   const Comp = vnode.type as Component | AsyncComponent
   let childVNode: VNode | null
   try {
-    let renderFn: unknown
-    if (isAsyncComponent(Comp)) {
-      // asyncComponent 兼容：工厂签名 (ctx)，resolved 是两阶段 Component
-      const def = await resolveAsyncFactory(getRegistry(ctx), Comp, childCtx)
-      renderFn = def(vnode.props ?? {}, childCtx)
-    } else {
-      // 统一：同步或原生 async 组件——返回值 Promise = 原生 async（await 得 renderFn）
-      renderFn = Comp(vnode.props ?? {}, childCtx)
-      if (renderFn instanceof Promise) renderFn = await renderFn
-    }
+    // 统一：同步或原生 async 组件——返回值 Promise = 原生 async（await 得 renderFn）
+    let renderFn: unknown = Comp(vnode.props ?? {}, childCtx)
+    if (renderFn instanceof Promise) renderFn = await renderFn
     if (typeof renderFn !== 'function') {
       throw new Error(
         `Component ${Comp.name || 'anonymous'} must return a render function. ` +

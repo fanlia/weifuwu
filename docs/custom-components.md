@@ -138,7 +138,6 @@ const UserCard = async (initProps, ctx) => {
 - 渲染器按「返回值是 Promise」判别：客户端未 resolve → 占位（`Placeholder`），resolve 后整树补全；SSR 直接 await（无占位）
 - 工厂按实例执行；**数据必须走 ctx.data**（缓存+并发合并，重复执行零成本）；禁止副作用裸写工厂
 - 占位显示：无边界 → null；`<Suspense fallback={...}>` → 占位处显示 fallback（可选）
-- 代码分割/昂贵一次性资源：`asyncComponent(async (ctx) => { const { default: def } = await import('./view'); return def })`（WeakMap 全局一次，兼容保留）
 - **个性化数据不进 ctx.data**（SSR 会序列化给所有客户端）——留在客户端 `$` + fetch
 
 ## 6. 类型纪律（编译期防线）

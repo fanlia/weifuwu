@@ -133,13 +133,13 @@ const User: UIHandler = async (_location, ctx) => {
   )
 }
 
-// ── 原生 async 组件页面（统一签名：async (initProps, ctx) => renderFn——无需 asyncComponent 包装）──
+// ── 原生 async 组件页面（统一签名：async (initProps, ctx) => renderFn）──
 
 const AsyncPage = async (initProps: any, ctx: any) => {
   // 数据管道：三场景自动（SSR→__DATA__ / hydration 种子 / SPA fetch）
   const info = await ctx.data.get('/api/async-page', async () => ({
     title: '原生 async 组件',
-    desc: '无需 asyncComponent 包装——async 函数即组件，数据自动进 __DATA__',
+    desc: 'async 函数即组件（原生支持）——数据自动进 __DATA__',
   }))
   const $ = ctx.ui.$()
   $.clicks = 0

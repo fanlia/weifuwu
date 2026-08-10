@@ -72,42 +72,12 @@ export type Component<P = {}, C extends object = {}> = (
  *
  * 渲染器统一判别「返回值 instanceof Promise」：
  *   客户端：占位 → resolve 后整树重渲染（vnode 级 _asyncDef 按实例缓存）
- *   SSR：直接 await（无占位）
- *
- * asyncComponent() 是兼容包装（工厂签名 (ctx)，WeakMap 全局一次——代码分割场景）。
+ *   SSR/hydration：直接 await（无占位）
  */
 export type AsyncComponent<C extends object = {}, P = {}> = (
   initProps: P,
   ctx: WfuiContext & C,
 ) => Promise<((props: P) => VNode | null) | null>
-
-const ASYNC_MARK = '__wfAsyncComponent'
-
-/**
- * 兼容包装：async 工厂（旧签名 (ctx)，WeakMap 全局一次——代码分割/昂贵一次性资源）。
- * 统一为原生 async 组件签名 (initProps, ctx) => Promise<Component>，渲染器原生处理。
- *
- * ```tsx
- * const UserProfile = asyncComponent(async (ctx) => {
- *   const { default: def } = await import('./view.tsx')
- *   return def
- * })
- * ```
- */
-export function asyncComponent<C extends object = {}, P = {}>(
-  factory: (ctx: WfuiContext & C) => Promise<Component<P, C>>,
-): AsyncComponent<C, P> {
-  const fn = (async (_initProps: P, ctx: WfuiContext & C) => {
-    return factory(ctx)
-  }) as AsyncComponent<C, P> & { [ASYNC_MARK]: true }
-  fn[ASYNC_MARK] = true
-  return fn as AsyncComponent<C, P>
-}
-
-/** 判定一个组件类型是否为 async 工厂（asyncComponent 包装过） */
-export function isAsyncComponent(type: any): type is AsyncComponent {
-  return typeof type === 'function' && type?.[ASYNC_MARK] === true
-}
 
 export const Fragment = Symbol('Fragment')
 

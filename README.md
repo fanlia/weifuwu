@@ -446,7 +446,7 @@ const Counter = (_init, ctx) => {
 
 ### async 组件（三条纪律）
 
-async 组件让"拿数据渲染页面"像写同步代码——签名与同步组件一致，唯一差别是 `async` 关键字（**无需 asyncComponent 包装**）：`async (initProps, ctx) => renderFn`。异步只在工厂边界：
+async 组件让"拿数据渲染页面"像写同步代码——签名与同步组件一致，唯一差别是 `async` 关键字：`async (initProps, ctx) => renderFn`。异步只在工厂边界：
 
 ```tsx
 const UserProfile = async (_init, ctx) => {
@@ -469,7 +469,7 @@ const UserProfile = async (_init, ctx) => {
 | ③ 初始状态必须确定性 | `$.w = window.innerWidth`——SSR/hydration mismatch | 用服务端数据 seed，交互后再测 |
 
 **常见坑**：
-- 工厂按**实例**执行（N 处实例 = N 次工厂调用）——数据必须走 `ctx.data`（自带缓存 + 并发合并，重复执行零成本）；禁止副作用/昂贵操作裸写工厂（代码分割用 `asyncComponent` 兼容包装——WeakMap 全局一次）
+- 工厂按**实例**执行（N 处实例 = N 次工厂调用）——数据必须走 `ctx.data`（自带缓存 + 并发合并，重复执行零成本）；禁止副作用/昂贵操作裸写工厂
 - 闭包数据是页面加载时的**快照**——路由参数变化靠工厂重跑刷新（key 变 → 缓存 miss → 重新取数）
 - **个性化数据不进 `ctx.data`**——SSR 会把工厂取数结果序列化给所有客户端，会话/用户相关数据留在 `$` + fetch
 - **占位显示**：async 组件未 resolve 时渲染 `Placeholder`——无边界显示 null；`<Suspense fallback={...}>` 边界内占位处显示 fallback（可选，子树内任意深度 async 组件共享）

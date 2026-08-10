@@ -13,7 +13,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { uiSsr } from '../ui/ssr-page.ts'
-import { h, asyncComponent } from '../ui-dom/vnode.ts'
+import { h } from '../ui-dom/vnode.ts'
 
 const NEXT = () => new Response('NEXT-CALLED', { status: 404 })
 
@@ -53,10 +53,10 @@ describe('uiSsr 路由级 SSR', () => {
   })
 
   it('params 注入：组件工厂 ctx.params.slug 可用', async () => {
-    const Page = asyncComponent(async (ctx: any) => {
+    const Page = async (_init: any, ctx: any) => {
       const slug = ctx.params.slug
-      return (_init: any) => () => h('h1', {}, `post:${slug}`)
-    })
+      return () => h('h1', {}, `post:${slug}`)
+    }
     const mw = uiSsr({ routes: [{ path: '/blog/:slug', component: Page }] })
     const res = await call(mw, '/blog/hello-world')
     const html = await res.text()
@@ -64,10 +64,10 @@ describe('uiSsr 路由级 SSR', () => {
   })
 
   it('async 工厂 + ctx.data 预取 → 数据进 HTML + __DATA__', async () => {
-    const Page = asyncComponent(async (ctx: any) => {
+    const Page = async (_init: any, ctx: any) => {
       const post = await ctx.data.get('/api/post', async () => ({ title: 'T' }))
-      return (_init: any) => () => h('article', {}, h('h2', {}, post.title))
-    })
+      return () => h('article', {}, h('h2', {}, post.title))
+    }
     const mw = uiSsr({ routes: [{ path: '/post', component: Page }] })
     const res = await call(mw, '/post')
     const html = await res.text()
@@ -99,10 +99,10 @@ describe('uiSsr 路由级 SSR', () => {
   })
 
   it('查询参数注入 ctx.route.query', async () => {
-    const Page = asyncComponent(async (ctx: any) => {
+    const Page = async (_init: any, ctx: any) => {
       const q = ctx.route.query.q
-      return (_init: any) => () => h('span', {}, `q=${q}`)
-    })
+      return () => h('span', {}, `q=${q}`)
+    }
     const mw = uiSsr({ routes: [{ path: '/search', component: Page }] })
     const res = await call(mw, '/search?q=weifuwu')
     const html = await res.text()

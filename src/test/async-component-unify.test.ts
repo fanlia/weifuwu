@@ -1,5 +1,5 @@
 /**
- * 组件统一回归测试——asyncComponent → 原生 async 组件（TDD 红→绿）
+ * 原生 async 组件回归测试（TDD 红→绿）——asyncComponent 已移除
  *
  * 目标形态（与 Component 同签名，唯一差别是 async 关键字）：
  * ```tsx
@@ -11,15 +11,15 @@
  *
  * 关键决策（design/async-component-unify-plan.md）：
  *   D1 签名统一：AsyncComponent = (initProps, ctx) => Promise<Component>——判别改为返回值 instanceof Promise
- *   D2 缓存按实例：工厂结果存组件实例；ctx.data 兜底去重；asyncComponent 保留为显式全局一次
+ *   D2 缓存按实例：工厂结果存组件实例；ctx.data 兜底去重
  *   D3 占位/补全复用现有机制（mountComponent 返回 null + scheduleFullReRender）
- *   D4 SSR 遍历器统一 await，删 isAsyncComponent 分支
+ *   D4 SSR/hydration 遍历器统一 await
  */
 import { test, afterEach, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
-import { UIRouter, uiServe, h, asyncComponent, Suspense } from '../ui-dom/index.ts'
+import { UIRouter, uiServe, h, Suspense } from '../ui-dom/index.ts'
 import { ssrToString } from '../ui/ssr.ts'
 
 before(setupJsdom)
@@ -99,7 +99,7 @@ test('T9b 无 Suspense 边界：占位为 null（向后兼容，行为同旧占�
 
 // ── T1 原生 async 组件挂载（占位 → 补全） ─────────────────
 
-test('T1 原生 async 组件（无 asyncComponent 包装）→ 占位后 DOM 补全', async () => {
+test('T1 原生 async 组件 → 占位后 DOM 补全', async () => {
   const b = createClientBrowser()
   const Home = async (_init: any, ctx: any) => {
     const msg = await Promise.resolve({ text: 'hello async' })
@@ -263,28 +263,6 @@ test('T6 SSR：嵌套原生 async 组件 await 展开', async () => {
   }
   const html = await ssrToString(Outer, {}, {}, { data: new Map() } as any)
   assert.equal(html.toString(), '<div>outer<b>inner</b></div>', 'SSR 直接 await 无占位')
-})
-
-// ── T7 asyncComponent 兼容（显式全局一次） ───────────────
-
-test('T7 asyncComponent 包装仍可用（全局一次 + 无占位）', async () => {
-  const b = createClientBrowser()
-  let factoryRuns = 0
-  const Profile = asyncComponent(async (ctx: any) => {
-    factoryRuns++
-    const d = await Promise.resolve({ name: 'Bob' })
-    return (_init: any) => (props: any) => h('div', { id: 't7' }, `user:${d.name}`)
-  })
-  const router = new UIRouter()
-  router.get('/', () => h('div', {}, h(Profile, {}), h(Profile, {})))
-  b.navigate('/')
-  const el = mount('unify-t7')
-  const handle = uiServe(router, { root: '#unify-t7' })
-  await flush()
-
-  assert.equal(el.querySelectorAll('#t7').length, 2, '两个实例')
-  assert.equal(factoryRuns, 1, 'asyncComponent 显式全局一次')
-  handle.close()
 })
 
 // ── T8 _render 复用（resolve 后二次渲染不重跑工厂） ──────

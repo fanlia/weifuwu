@@ -12,7 +12,7 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, Fragment, createPortal, asyncComponent } from '../ui-dom/vnode.ts'
+import { h, Fragment, createPortal } from '../ui-dom/vnode.ts'
 import { ssrToString, serializeData } from '../ui/ssr.ts'
 
 function ssr(Comp: any, props: any = {}, ctx: any = {}, opts: any = {}): Promise<string> {
@@ -26,21 +26,21 @@ describe('SSR 字符串遍历器', () => {
     assert.equal(html, '<p class="greet">hi Alice</p>')
   })
 
-  it('async 工厂组件 → await 工厂 → 数据进 HTML', async () => {
-    const Profile = asyncComponent(async (ctx: any) => {
+  it('async 组件 → await 工厂 → 数据进 HTML', async () => {
+    const Profile = async (_init: any, ctx: any) => {
       const user = await Promise.resolve({ name: 'Bob' })
-      return (_init: any) => (props: any) => h('div', {}, `user:${user.name}`)
-    })
+      return (props: any) => h('div', {}, `user:${user.name}`)
+    }
     const html = await ssr(Profile)
     assert.equal(html, '<div>user:Bob</div>')
   })
 
-  it('async 工厂内 ctx.data.get → 预取并进 HTML', async () => {
+  it('async 组件内 ctx.data.get → 预取并进 HTML', async () => {
     const data = new Map<string, unknown>()
-    const Page = asyncComponent(async (ctx: any) => {
+    const Page = async (_init: any, ctx: any) => {
       const post = await ctx.data.get('/api/posts/1', async () => ({ title: 'SSR 标题' }))
-      return (_init: any) => () => h('article', {}, h('h1', {}, post.title))
-    })
+      return () => h('article', {}, h('h1', {}, post.title))
+    }
     const html = await ssr(Page, {}, {}, { data })
     assert.equal(html, '<article><h1>SSR 标题</h1></article>')
     assert.deepEqual(data.get('/api/posts/1'), { title: 'SSR 标题' })
@@ -106,30 +106,30 @@ describe('SSR 字符串遍历器', () => {
 
   it('嵌套：async 工厂包含同步子组件 + 多 async 组件', async () => {
     const Inner = (_init: any) => (props: any) => h('b', {}, props.label)
-    const A = asyncComponent(async () => {
+    const A = async () => {
       const a = await Promise.resolve('AAA')
-      return () => () => h('span', {}, a)
-    })
-    const B = asyncComponent(async () => {
+      return () => h('span', {}, a)
+    }
+    const B = async () => {
       const b = await Promise.resolve('BBB')
-      return () => () => h('span', {}, b)
-    })
-    const Root = asyncComponent(async () => {
+      return () => h('span', {}, b)
+    }
+    const Root = async (_init: any, ctx: any) => {
       const title = await Promise.resolve('T')
-      return (_init: any) => () =>
+      return () =>
         h('section', {}, h('h1', {}, title), h(A, {}), h(Inner, { label: 'in' }), h(B, {}))
-    })
+    }
     const html = await ssr(Root)
     assert.equal(html, '<section><h1>T</h1><span>AAA</span><b>in</b><span>BBB</span></section>')
   })
 
   it('服务端 ctx shim：$ 可用（dirty no-op），selfId 请求级隔离', async () => {
-    const Cmp = asyncComponent(async (ctx: any) => {
+    const Cmp = async (_init: any, ctx: any) => {
       const $ = ctx.ui.$()
       $.count = 1
       ctx.ui.selfId('stats')
-      return (_init: any) => () => h('div', {}, `count=${$.count}`)
-    })
+      return () => h('div', {}, `count=${$.count}`)
+    }
     const html = await ssr(Cmp)
     assert.equal(html, '<div>count=1</div>')
   })
@@ -150,9 +150,9 @@ describe('SSR 字符串遍历器', () => {
   })
 
   it('async 工厂抛错 → 错误传播（调用方可捕获）', async () => {
-    const Bad = asyncComponent(async () => {
+    const Bad = async () => {
       throw new Error('factory boom')
-    })
+    }
     await assert.rejects(() => ssr(Bad), /factory boom/)
   })
 })

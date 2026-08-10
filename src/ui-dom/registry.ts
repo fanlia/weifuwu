@@ -5,23 +5,16 @@
  * 注入 ctx.__registry，render/diff/ui 经 getRegistry(ctx) 读取，与 createApp 零交叉。
  */
 
-import type { VNode, Component, AsyncComponent } from './vnode.ts'
-import { isAsyncComponent } from './vnode.ts'
+import type { VNode, Component } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
 
 type UnmountHook = (id: string) => void
-
-interface FactoryEntry {
-  promise: Promise<Component<any, any>>
-  resolved?: Component<any, any>
-}
 
 /** 注册表实例状态 */
 export interface Registry {
   idCounter: number
   idRegistry: Map<string, VNode>
   unmountHooks: UnmountHook[]
-  asyncFactoryCache: WeakMap<AsyncComponent<any, any>, FactoryEntry>
 }
 
 /** 创建局部注册表（uiServe 每实例一个——组件 id/dirty/卸载钩子与 createApp 隔离） */
@@ -30,7 +23,6 @@ export function createRegistry(): Registry {
     idCounter: 0,
     idRegistry: new Map(),
     unmountHooks: [],
-    asyncFactoryCache: new WeakMap(),
   }
 }
 
@@ -51,40 +43,6 @@ export function onComponentUnmountFor(reg: Registry, hook: UnmountHook): () => v
     const i = reg.unmountHooks.indexOf(hook)
     if (i >= 0) reg.unmountHooks.splice(i, 1)
   }
-}
-
-// ── async 工厂缓存（复制自 client——局部实例） ──
-
-/** 启动 async 工厂（幂等，缓存） */
-export function startAsyncFactory(reg: Registry, Comp: AsyncComponent, ctx: WfuiContext): FactoryEntry {
-  const existing = reg.asyncFactoryCache.get(Comp)
-  if (existing) return existing
-
-  const entry: FactoryEntry = { promise: null as unknown as Promise<Component<any, any>> }
-  entry.promise = Promise.resolve()
-    .then(() => (Comp as any)(undefined, ctx))
-    .then((def) => {
-      if (typeof def !== 'function') {
-        throw new Error(
-          `asyncComponent factory <${Comp.name || 'anonymous'}> must return a Component ` +
-            `(initProps, ctx) => (props) => VNode.`
-        )
-      }
-      entry.resolved = def as Component
-      return def as Component
-    })
-  reg.asyncFactoryCache.set(Comp, entry)
-  return entry
-}
-
-/** async 模式：await 工厂定义 */
-export async function resolveAsyncFactory(reg: Registry, Comp: AsyncComponent, ctx: WfuiContext): Promise<Component> {
-  return startAsyncFactory(reg, Comp, ctx).promise
-}
-
-/** sync 模式：工厂已解析 → 定义；未解析 → undefined */
-export function resolveAsyncFactorySync(reg: Registry, Comp: AsyncComponent): Component | undefined {
-  return reg.asyncFactoryCache.get(Comp)?.resolved
 }
 
 // ── ref 安全调用（复制自 client） ──

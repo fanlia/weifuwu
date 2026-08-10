@@ -751,7 +751,7 @@ const UserProfile: Component = (initProps, ctx) => {
 }
 ```
 
-### async 组件（原生——无需 asyncComponent 包装）
+### async 组件（原生）
 
 组件 = 函数，async 组件 = async 函数：签名与同步组件一致 `(initProps, ctx) => renderFn`，渲染器按「返回值是 Promise」原生判别。数据经闭包注入，渲染无 loading 分支：
 
@@ -772,7 +772,6 @@ const UserProfile = async (initProps, ctx) => {
 - **服务端**：`ctx.ui.ssr()` 直接 await 工厂 → 数据进 HTML（无占位）
 - **占位显示**：无边界 → null；`<Suspense fallback={...}>` 边界 → 子树内占位处显示 fallback（可选）
 - 会变的数据：初始值 seed 自服务端数据（`$.count = data.count`），交互改 `$`；初始状态必须确定性（禁止 `window.innerWidth` 直接初始化 → SSR/hydration mismatch）
-- 代码分割/昂贵一次性资源：`asyncComponent(async (ctx) => { const { default: def } = await import('./view'); return def })`（WeakMap 全局一次，兼容保留）
 
 ---
 

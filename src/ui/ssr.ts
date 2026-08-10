@@ -12,7 +12,7 @@
  * 产物为 HtmlSafe 标记的安全 HTML 片段，可直接内联进 ctx.ui.html 模板。
  */
 
-import { Fragment, Portal, isAsyncComponent } from '../ui-dom/vnode.ts'
+import { Fragment, Portal } from '../ui-dom/vnode.ts'
 import type { VNode, Component, AsyncComponent } from '../ui-dom/vnode.ts'
 import type { WfuiContext } from '../ui-dom/types.ts'
 import { createReactiveState } from '../ui-dom/reactive.ts'
@@ -193,39 +193,18 @@ async function renderSsr(input: any, ctx: any): Promise<string> {
 
   // 组件（同步或 async 工厂）
   if (typeof vnode.type === 'function') {
-    const Comp = vnode.type as Component
-    if (isAsyncComponent(vnode.type)) {
-      // asyncComponent 兼容：工厂签名 (ctx)，resolved 是两阶段 Component
-      const def = await (vnode.type as any)({} as never, ctx) // asyncComponent 兼容：resolved 是两阶段 Component
-      if (typeof def !== 'function') {
-        throw new Error(
-          `asyncComponent factory <${vnode.type.name || 'anonymous'}> must return a Component ` +
-            `(initProps, ctx) => (props) => VNode.`
-        )
-      }
-      const childCtx = Object.create(ctx)
-      const compDef = def as Component
-      const renderFn = compDef(vnode.props ?? {}, childCtx)
-      if (typeof renderFn !== 'function') {
-        throw new Error(
-          `Component ${Comp.name || 'anonymous'} must return a render function. ` +
-            `Use (init_props, ctx) => (props) => VNode pattern.`
-        )
-      }
-      return renderSsr(renderFn(vnode.props ?? {}), childCtx)
-    }
-    // 统一：同步或原生 async 组件——调用得 renderFn（同步）或 Promise<renderFn>（async await）
+    // 统一：同步或原生 async 组件——返回值 Promise = 原生 async（await 得 renderFn）
     const childCtx = Object.create(ctx)
     let renderFn: unknown
     try {
-      renderFn = Comp(vnode.props ?? {}, childCtx)
+      renderFn = (vnode.type as Component)(vnode.props ?? {}, childCtx)
     } catch (e) {
       throw e
     }
     if (renderFn instanceof Promise) renderFn = await renderFn
     if (typeof renderFn !== 'function') {
       throw new Error(
-        `Component ${Comp.name || 'anonymous'} must return a render function. ` +
+        `Component ${(vnode.type as any).name || 'anonymous'} must return a render function. ` +
           `Use (init_props, ctx) => (props) => VNode pattern.`
       )
     }

@@ -96,7 +96,7 @@ const Button = (_init, ctx) =>
 
 ### 3.3 异步组件（原生 async——无需包装）
 
-> 组件 = 函数，async 组件 = async 函数。签名与同步 Component 完全一致（`(initProps, ctx) => renderFn`），唯一差别是 `async` 关键字。**不需要 `asyncComponent()` 包装**——渲染器按「返回值是 Promise」原生判别。
+> 组件 = 函数，async 组件 = async 函数。签名与同步 Component 完全一致（`(initProps, ctx) => renderFn`），唯一差别是 `async` 关键字——渲染器按「返回值是 Promise」原生判别（asyncComponent 已移除）。
 
 ```tsx
 const UserProfile = async (initProps, ctx) => {
@@ -120,7 +120,6 @@ const UserProfile = async (initProps, ctx) => {
 - 工厂按**实例**执行（N 处实例 = N 次工厂调用）；**数据必须走 ctx.data**（自带缓存+并发合并，重复执行零成本）——禁止副作用/昂贵操作裸写工厂
 - 工厂拿 `initProps` + `ctx`（与同步组件同签名）；initProps 不同的实例各得各自数据（T3 隔离）
 - 占位显示：无边界 → null；`<Suspense fallback={...}>` 边界 → 占位处显示 fallback（可选）
-- **`asyncComponent()` 兼容保留**：工厂签名 `(ctx)`，WeakMap 全局只执行一次——代码分割场景（`await import()`）用；原生 async 组件不必用
 - 初始状态必须确定性（禁止 `window.innerWidth` 之类直接初始化 → mismatch）
 
 ### 3.4 ctx.data — 数据管道（工厂层取数）
