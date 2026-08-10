@@ -179,7 +179,7 @@ SPA serveUI = 另一落地（VDOM → DOM）——handler 只产出 VDOM，落�
 | S1 | 定义类型：`UIRequest`(=Location) / `UIResponse`(=VNode) / `UIHandler` / `UIMiddleware` | 纯类型 |
 | S2 | `UIRouter` 类：use/get/notFound + 匹配 + ctx.params/query 注入 + `$` 路由实例绑定 | S1 |
 | S3 | `serveUI`：URL 监听 + 中间件链执行 + VDOM 落地 | S2 |
-| S4 | 平行导出（weifuwu/client 新增 UIRouter/serveUI，createApp/router 保留） | S2/S3 |
+| ~~S4~~ | ~~平行导出（weifuwu/client 新增 UIRouter/serveUI）~~ —— 已由「client 整体删除、ui-dom 独立落地」替代（见下） | — |
 | S5 | 成熟后替换 createApp/router | 浏览器冒烟验证后 |
 
 ## 六、诚实裁剪
@@ -243,4 +243,4 @@ SPA serveUI = 另一落地（VDOM → DOM）——handler 只产出 VDOM，落�
 - 交互子组件：点击 inc-a 只更新 a（handler 不重跑）
 - **浏览器冒烟**（`apps/ui-router-demo`，agent-browser 实测）：首页渲染 / 计数器交互 / keyed 轮转 / 导航 /users/42（params）/ 404 / history back
 
-**当前状态**：S1-S4 的 ui-dom 侧能力齐备（类型/路由/serve/VDOM/SSR/hydration）；**S4 平行导出（weifuwu/client 新增）与 S5 替换尚未做**——等 ui-dom 在真实 app 进一步验证后推进。
+**当前状态（2026-10 收尾）**：ui-dom 侧能力齐备（类型/路由/serve/VDOM/SSR/hydration/async 组件）；**S4/S5 已由「weifuwu/client 整体删除、ui-dom 唯一前端运行时」终结**（createApp/router() 不复存在——见提交「清理 weifuwu/client 引用」）。
