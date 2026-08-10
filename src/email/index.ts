@@ -32,22 +32,10 @@
 import type { Context, Handler, Middleware } from '../types.ts'
 import { HttpError } from '../types.ts'
 import { sendSmtp, type SmtpConfig } from './smtp.ts'
+import type { Mailer, EmailMessage, EmailResult } from './contracts.ts'
 
-export interface EmailMessage {
-  /** 收件人（可多个） */
-  to: string | string[]
-  subject: string
-  text?: string
-  html?: string
-  /** 覆盖全局 from（可选） */
-  from?: string
-}
-
-export interface EmailResult {
-  /** 服务商返回的邮件 ID（有则给） */
-  id?: string
-  accepted: boolean
-}
+/** 契约（src/email/contracts.ts 单一来源）：ctx.email 类型 = Mailer */
+export type { Mailer, EmailMessage, EmailResult }
 
 /** 适配器：输入已标准化的邮件消息，输出结果。 */
 export type EmailAdapter = (msg: EmailMessage) => Promise<EmailResult>
@@ -65,14 +53,12 @@ export interface EmailOptions {
 }
 
 export interface EmailInjected {
-  email: {
-    send: (msg: EmailMessage) => Promise<EmailResult>
-  }
+  email: Mailer
 }
 
 declare module '../types.ts' {
   interface Context {
-    email?: EmailInjected['email']
+    email?: Mailer
   }
 }
 
