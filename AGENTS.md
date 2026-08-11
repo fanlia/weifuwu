@@ -64,6 +64,27 @@ const Bad = (props, ctx) =>
   () => h('div', {}, props.label)  // props.label 不会随父组件更新
 ```
 
+#### mount / render / ref 生命周期职责（事件函数写在哪层）
+
+| 阶段 | 执行时机 | 职责 | 可访问 | 事件函数 |
+|------|---------|------|--------|---------|
+| **mount**（外层工厂） | 只一次 | 初始化状态 / 订阅 / 定时器 / **定义依赖稳定引用的回调** | `initProps`（首次）、`ctx`、mount `let`、稳定 handle（useChat 的 `chat`） | **只依赖稳定引用 → mount 定义**（天然引用恒等，零重绑） |
+| **render**（内层 renderFn） | 每次 `render()` 触发/props 变化 | 读最新 props / 派生数据 / **定义依赖它们的回调** / 输出视图 | 最新 `props`、mount 闭包、`ctx` | **依赖最新 props / 派生状态 → render 内定义**（闭包捕获最新值；引用变化导致事件重绑是正确性要求——必须读最新状态） |
+| **ref**（DOM 回调） | 元素挂载/卸载时调用 | 持有 DOM 引用 / 初始化第三方库 / 清理 | `el`（挂载）或 `null`（卸载） | **定义在 mount 作用域**（内联 ref 每渲染新函数 → ref(null) 反复触发——见 §5.1） |
+
+```tsx
+const AiChat = async (initProps, ctx) => {
+  const chat = initProps.chat           // 稳定 handle（useChat 返回，引用不变）
+  const onSend = () => chat.send()      // ✅ mount：只依赖稳定引用——引用恒等，零重绑
+  return async (props) => {
+    const onSelect = (k: string) => props.onSelect?.(k)   // ✅ render：依赖最新 props——闭包捕获当前值
+    return h('button', { onClick: onSelect }, '选')
+  }
+}
+```
+
+**规则**：回调只依赖 ctx / mount `let` / 稳定 handle → **mount 定义**（天然稳定，不重绑）；依赖最新 props / 派生数据 → **render 内定义**（闭包捕获最新值；事件重绑是**正确性要求**——框架不做稳定引用魔法）。ref 必须 mount 作用域定义（§5.1 纪律）。
+
 ### 3.2 组件两种形态
 
 **无状态**（只用 props）：
