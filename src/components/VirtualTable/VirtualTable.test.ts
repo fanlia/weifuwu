@@ -27,7 +27,7 @@ const rows = Array.from({ length: 10000 }, (_, i) => ({ id: i, name: `用户${i}
 describe('VirtualTable', () => {
   it('渲染固定表头 + 只渲染可见窗口行（10k 行 → < 20 行 VNode）', async () => {
     const render = await mount(VirtualTable, { columns, data: rows }, makeCtx().ctx)!
-    const v = render({ columns, data: rows })
+    const v = await render({ columns, data: rows })
     const thead = v.props.children[0]
     assert.match(thead.props.class, /wf-virtual-table-thead/)
     const ths = thead.props.children.filter((c: any) => c?.props?.class?.includes('wf-virtual-table-th'))
@@ -41,7 +41,7 @@ describe('VirtualTable', () => {
 
   it('行单元格渲染 columns cells + render 自定义', async () => {
     const render = await mount(VirtualTable, { columns, data: rows }, makeCtx().ctx)!
-    const v = render({ columns, data: rows })
+    const v = await render({ columns, data: rows })
     const body = v.props.children[1]
     const row0 = body.props.children.filter((c: any) => c?.props?.class?.includes('wf-virtual-table-row'))[0]
     const cells = row0.props.children.filter((c: any) => c?.props?.class?.includes('wf-virtual-table-td'))
@@ -55,7 +55,7 @@ describe('VirtualTable', () => {
     const { ctx, setY } = makeCtx()
     const render = await mount(VirtualTable, { columns, data: rows }, ctx)!
     setY(4000) // 第 100 行附近
-    const v = render({ columns, data: rows })
+    const v = await render({ columns, data: rows })
     const body = v.props.children[1]
     const firstRow = body.props.children.filter((c: any) => c?.props?.class?.includes('wf-virtual-table-row'))[0]
     // 首行 top = 起点行 index(95) × 40 = 3800px（overscan 从 95 行起渲染）
@@ -68,7 +68,7 @@ describe('VirtualTable', () => {
       columns, data: rows,
       onSort: (k: string, o: 'asc' | 'desc') => { got = [k, o] },
     }, makeCtx().ctx)!
-    const v = render({ columns, data: rows, onSort: (k: string, o: 'asc' | 'desc') => { got = [k, o] } })
+    const v = await render({ columns, data: rows, onSort: (k: string, o: 'asc' | 'desc') => { got = [k, o] } })
     const ths = v.props.children[0].props.children.filter((c: any) => c?.props?.class?.includes('wf-virtual-table-th'))
     const nameTh = ths.find((c: any) => c.props.children[0].props.children === '姓名')
     nameTh.props.onClick()
@@ -77,7 +77,7 @@ describe('VirtualTable', () => {
 
   it('受控排序：sortKey 升序后首行正确 + 排序图标激活', async () => {
     const render = await mount(VirtualTable, { columns, data: rows, sortKey: 'id', sortOrder: 'desc' }, makeCtx().ctx)!
-    const v = render({ columns, data: rows, sortKey: 'id', sortOrder: 'desc' })
+    const v = await render({ columns, data: rows, sortKey: 'id', sortOrder: 'desc' })
     const ths = v.props.children[0].props.children.filter((c: any) => c?.props?.class?.includes('wf-virtual-table-th'))
     const idTh = ths[0]
     assert.match(idTh.props.class, /wf-virtual-table-th--sorted/)
@@ -89,7 +89,7 @@ describe('VirtualTable', () => {
 
   it('空数据渲染 emptyText', async () => {
     const render = await mount(VirtualTable, { columns, data: [], emptyText: '暂无数据' }, makeCtx().ctx)!
-    const v = render({ columns, data: [], emptyText: '暂无数据' })
+    const v = await render({ columns, data: [], emptyText: '暂无数据' })
     const texts = collectText(v)
     assert.ok(texts.includes('暂无数据'))
   })
@@ -111,7 +111,7 @@ it('受控排序对称：sortKey + onSort（点击切换方向）', async () => 
   let sortArgs: any
   const { ctx } = makeCtx()
   const factory = await mount(VirtualTable, { columns, data: rows.slice(0, 5), sortKey: 'id', sortOrder: 'asc', onSort: (k: string, o: string) => { sortArgs = [k, o] } }, ctx)
-  const vnode = factory({ columns, data: rows.slice(0, 5), sortKey: 'id', sortOrder: 'asc', onSort: (k: string, o: string) => { sortArgs = [k, o] } })
+  const vnode = await factory({ columns, data: rows.slice(0, 5), sortKey: 'id', sortOrder: 'asc', onSort: (k: string, o: string) => { sortArgs = [k, o] } })
   const find = (n: any): any => {
     if (!n || typeof n !== 'object') return null
     if (n.props?.onClick && /th|sort/.test(String(n.props?.class ?? ''))) return n
@@ -128,7 +128,7 @@ it('受控排序对称：sortKey + onSort（点击切换方向）', async () => 
 it('rowHeight/height 控制窗口行数（小视口少渲染）', async () => {
   const { ctx } = makeCtx()
   const factory = await mount(VirtualTable, { columns, data: rows, height: 120, rowHeight: 40 }, ctx)
-  const vnode = factory({ columns, data: rows, height: 120, rowHeight: 40 })
+  const vnode = await factory({ columns, data: rows, height: 120, rowHeight: 40 })
   const rowCount = (JSON.stringify(vnode).match(/"id":/g) || []).length
   assert.ok(rowCount < 30, `小视口只渲染少量行（实际 ${rowCount}）`)
 })
@@ -141,7 +141,7 @@ it('rowSelection：全选复选框 + 单行选择 onChange', async () => {
     columns, data: rows.slice(0, 5),
     rowSelection: { selectedRowKeys: [], onChange: (k: any[], r: any[]) => { sel = k; selRows.length = 0; selRows.push(...r) } },
   }, ctx)
-  const vnode = factory({
+  const vnode = await factory({
     columns, data: rows.slice(0, 5),
     rowSelection: { selectedRowKeys: [], onChange: (k: any[], r: any[]) => { sel = k; selRows.length = 0; selRows.push(...r) } },
   })
@@ -170,7 +170,7 @@ it('rowSelection：单行勾选 toggle', async () => {
     columns, data: rows.slice(0, 3),
     rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
   }, ctx)
-  const vnode = factory({
+  const vnode = await factory({
     columns, data: rows.slice(0, 3),
     rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
   })
@@ -199,7 +199,7 @@ it('rowSelection：部分选中 → 表头 indeterminate 半选态', async () =>
     columns, data: rows.slice(0, 3),
     rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
   }, ctx)
-  const vnode = factory({
+  const vnode = await factory({
     columns, data: rows.slice(0, 3),
     rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
   })
@@ -225,7 +225,7 @@ it('rowSelection：全选时表头非 indeterminate', async () => {
     columns, data: rows.slice(0, 3),
     rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
   }, ctx)
-  const vnode = factory({
+  const vnode = await factory({
     columns, data: rows.slice(0, 3),
     rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
   })

@@ -57,7 +57,7 @@ const panelOf = (v: any) => {
 describe('Mentions', () => {
   it('renders textarea', async () => {
     const render = await mount(Mentions, { options, children: undefined }, makeCtx())!
-    const vnode = render({ options })
+    const vnode = await render({ options })
     const ta = vnode.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     assert.equal(ta.type, 'textarea')
   })
@@ -65,10 +65,10 @@ describe('Mentions', () => {
   it('typing @ triggers mention panel', async () => {
     const ctx = makeCtx()
     const render = await mount(Mentions, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '你好 @a', selectionStart: 7 } } as any)
-    v = render({ options })
+    v = await render({ options })
     const panel = panelOf(v)
     assert.ok(panel, '应显示提及面板')
     assert.match(panel.props.class, /wf-mentions-panel/)
@@ -77,10 +77,10 @@ describe('Mentions', () => {
   it('filters options by keyword', async () => {
     const ctx = makeCtx()
     const render = await mount(Mentions, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '@ca', selectionStart: 3 } } as any)
-    v = render({ options })
+    v = await render({ options })
     const panel = panelOf(v)
     const items = panel.props.children
     assert.equal(items.length, 1) // 只有 carol
@@ -90,10 +90,10 @@ describe('Mentions', () => {
   it('no panel without @ prefix', async () => {
     const ctx = makeCtx()
     const render = await mount(Mentions, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '你好 world', selectionStart: 5 } } as any)
-    v = render({ options })
+    v = await render({ options })
     assert.equal(v.props.children.length, 1) // 无面板
   })
 
@@ -101,10 +101,10 @@ describe('Mentions', () => {
     let got = ''
     const ctx = makeCtx()
     const render = await mount(Mentions, { options, onChange: (v: string) => { got = v } }, ctx)!
-    let v = render({ options, onChange: (v: string) => { got = v } })
+    let v = await render({ options, onChange: (v: string) => { got = v } })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '你好 @a', selectionStart: 7 } } as any)
-    v = render({ options, onChange: (v: string) => { got = v } })
+    v = await render({ options, onChange: (v: string) => { got = v } })
     const panel = panelOf(v)
     panel.props.children[0].props.onClick()
     assert.match(got, /@alice/)
@@ -113,23 +113,23 @@ describe('Mentions', () => {
   it('composition start suppresses panel', async () => {
     const ctx = makeCtx()
     const render = await mount(Mentions, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onCompositionStart({})
     ta.props.onInput({ target: { value: '@a', selectionStart: 2 } } as any)
-    v = render({ options })
+    v = await render({ options })
     assert.equal(v.props.children.length, 1) // composition 中不弹
   })
 
   it('composition end resumes', async () => {
     const ctx = makeCtx()
     const render = await mount(Mentions, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onCompositionStart({})
     ta.props.onCompositionEnd({})
     ta.props.onInput({ target: { value: '@b', selectionStart: 2 } } as any)
-    v = render({ options })
+    v = await render({ options })
     const panel = panelOf(v)
     assert.ok(panel)
     assert.equal(panel.props.children.length, 1) // bob
@@ -138,14 +138,14 @@ describe('Mentions', () => {
   it('Escape closes panel', async () => {
     const ctx = makeCtx()
     const render = await mount(Mentions, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '@a', selectionStart: 2 } } as any)
-    v = render({ options })
+    v = await render({ options })
     assert.ok(panelOf(v))
     const ta2 = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta2.props.onKeyDown({ key: 'Escape', preventDefault: () => {} })
-    v = render({ options })
+    v = await render({ options })
     assert.equal(v.props.children.length, 1)
   })
 
@@ -153,10 +153,10 @@ describe('Mentions', () => {
     let got = ''
     const ctx = makeCtx()
     const render = await mount(Mentions, { options, onChange: (v: string) => { got = v } }, ctx)!
-    let v = render({ options, onChange: (v: string) => { got = v } })
+    let v = await render({ options, onChange: (v: string) => { got = v } })
     const ta = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta.props.onInput({ target: { value: '@', selectionStart: 1 } } as any)
-    v = render({ options, onChange: (v: string) => { got = v } })
+    v = await render({ options, onChange: (v: string) => { got = v } })
     const ta2 = v.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     ta2.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} })
     ta2.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
@@ -165,7 +165,7 @@ describe('Mentions', () => {
 
   it('disabled textarea', async () => {
     const render = await mount(Mentions, { options, disabled: true }, makeCtx())!
-    const vnode = render({ options, disabled: true })
+    const vnode = await render({ options, disabled: true })
     const ta = vnode.props.children.find((c: any) => c.props?.class?.includes('wf-mentions-input'))
     assert.equal(ta.props.disabled, true)
   })

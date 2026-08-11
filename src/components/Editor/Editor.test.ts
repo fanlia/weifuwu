@@ -45,7 +45,7 @@ function findAllButtons(vnode: any): any[] {
 describe('Editor', () => {
   it('renders an editor container', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     assert.ok(vnode, 'should render')
     assert.equal(vnode!.type, 'div')
     assert.ok(vnode!.props.class?.includes('wf-editor'), 'should have wf-editor class')
@@ -53,7 +53,7 @@ describe('Editor', () => {
 
   it('renders toolbar with all 18 default items', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     assert.ok(toolbar, 'should have a toolbar')
     const buttons = findAllButtons(toolbar)
@@ -62,28 +62,28 @@ describe('Editor', () => {
 
   it('renders contentEditable div in rich mode', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
     assert.ok(editable, 'should have contentEditable div')
   })
 
   it('hides toolbar when disabled', async () => {
     const ed = await makeEditor({ disabled: true }, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     assert.ok(!toolbar, 'should not render toolbar when disabled')
   })
 
   it('sets contentEditable=false when disabled', async () => {
     const ed = await makeEditor({ disabled: true }, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === false)
     assert.ok(editable, 'contentEditable should be false when disabled')
   })
 
   it('sets minHeight from props', async () => {
     const ed = await makeEditor({ minHeight: '300px' }, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
     assert.ok(editable, 'should have editable div')
     assert.equal(editable.props.style.minHeight, '300px')
@@ -91,7 +91,7 @@ describe('Editor', () => {
 
   it('renders placeholder attribute', async () => {
     const ed = await makeEditor({ placeholder: '请输入内容...' }, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
     assert.ok(editable, 'should have editable div')
     assert.equal(editable.props['data-placeholder'], '请输入内容...')
@@ -99,7 +99,7 @@ describe('Editor', () => {
 
   it('accepts custom toolbar items', async () => {
     const ed = await makeEditor({ toolbar: ['bold', 'italic', 'link', 'source'] }, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     assert.ok(toolbar, 'should have toolbar')
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
@@ -112,7 +112,7 @@ describe('Editor', () => {
 
   it('renders hidden input with value', async () => {
     const ed = await makeEditor({ value: '<p>Hello</p>' }, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const hidden = findAllByType(vnode, 'input').find((i: any) => i.props.type === 'hidden')
     assert.ok(hidden, 'should have hidden input')
     assert.equal(hidden.props.value, '<p>Hello</p>')
@@ -121,13 +121,13 @@ describe('Editor', () => {
   it('renders Modal when showLinkInput is true via toolbar click', async () => {
     const ctx = makeCtx()
     const ed = await makeEditor({}, ctx)
-    let vnode = ed.render()
+    let vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const linkBtn = buttons.find((b: any) => b.props['data-item'] === 'link')
     assert.ok(linkBtn, 'link button should exist')
     linkBtn.props.onClick()
-    vnode = ed.render()
+    vnode = await ed.render()
     const modal = vnode.props.children.find((c: any) => c?.type === Modal)
     assert.ok(modal, 'should render Modal for link input')
     assert.equal(modal.props.title, '插入链接')
@@ -137,7 +137,7 @@ describe('Editor', () => {
     const calls: string[] = []
     const ctx = makeCtx()
     const ed = await makeEditor({ value: '', onChange: (v) => calls.push(v) }, ctx)
-    const vnode = ed.render({ value: '', onChange: (v) => calls.push(v) })
+    const vnode = await ed.render({ value: '', onChange: (v) => calls.push(v) })
     const editable = findAllByType(vnode, 'div').find((d: any) => d.props.contentEditable === true)
     assert.ok(editable, 'should have editable div')
     editable.props.onInput({ currentTarget: { innerHTML: '<p>changed</p>' } })
@@ -147,14 +147,14 @@ describe('Editor', () => {
 
   it('sets disabled class on container', async () => {
     const ed = await makeEditor({ disabled: true }, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const cls = vnode!.props.class
     assert.ok(cls.includes('wf-editor--disabled'), 'should have disabled class')
   })
 
   it('toolbar buttons have correct aria labels', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const boldBtn = buttons.find((b: any) => b.props['data-item'] === 'bold')
@@ -165,13 +165,13 @@ describe('Editor', () => {
   it('renders textarea in source mode via toolbar click', async () => {
     const ctx = makeCtx()
     const ed = await makeEditor({ value: '<p>source</p>' }, ctx)
-    let vnode = ed.render({ value: '<p>source</p>' })
+    let vnode = await ed.render({ value: '<p>source</p>' })
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const sourceBtn = buttons.find((b: any) => b.props['data-item'] === 'source')
     assert.ok(sourceBtn, 'source button should exist')
     sourceBtn.props.onClick()
-    vnode = ed.render({ value: '<p>source</p>' })
+    vnode = await ed.render({ value: '<p>source</p>' })
     const textarea = findAllByType(vnode, 'textarea').find((t: any) => t.props.class === 'wf-editor-source')
     assert.ok(textarea, 'should render textarea in source mode')
     assert.equal(textarea.props.value, '<p>source</p>')
@@ -181,12 +181,12 @@ describe('Editor', () => {
     const calls: string[] = []
     const ctx = makeCtx()
     const ed = await makeEditor({ value: '', onChange: (v) => calls.push(v) }, ctx)
-    let vnode = ed.render({ value: '', onChange: (v) => calls.push(v) })
+    let vnode = await ed.render({ value: '', onChange: (v) => calls.push(v) })
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const sourceBtn = buttons.find((b: any) => b.props['data-item'] === 'source')
     sourceBtn.props.onClick()
-    vnode = ed.render({ value: '', onChange: (v) => calls.push(v) })
+    vnode = await ed.render({ value: '', onChange: (v) => calls.push(v) })
     const textarea = findAllByType(vnode, 'textarea').find((t: any) => t.props.class === 'wf-editor-source')
     assert.ok(textarea, 'should have source textarea')
     textarea.props.onInput({ target: { value: '<p>edited</p>' } })
@@ -196,7 +196,7 @@ describe('Editor', () => {
 
   it('toolbar includes blockquote', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const btn = buttons.find((b: any) => b.props['data-item'] === 'blockquote')
@@ -206,7 +206,7 @@ describe('Editor', () => {
 
   it('toolbar includes alignment buttons', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     assert.ok(buttons.find((b: any) => b.props['data-item'] === 'alignLeft'), 'alignLeft')
@@ -216,7 +216,7 @@ describe('Editor', () => {
 
   it('toolbar includes hr button', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     assert.ok(buttons.find((b: any) => b.props['data-item'] === 'hr'), 'hr button')
@@ -225,7 +225,7 @@ describe('Editor', () => {
 
   it('toolbar includes source button', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const sourceBtn = buttons.find((b: any) => b.props['data-item'] === 'source')
@@ -235,7 +235,7 @@ describe('Editor', () => {
 
   it('toolbar includes image button', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const imgBtn = buttons.find((b: any) => b.props['data-item'] === 'image')
@@ -245,7 +245,7 @@ describe('Editor', () => {
 
   it('toolbar includes table button', async () => {
     const ed = await makeEditor({}, makeCtx())
-    const vnode = ed.render()
+    const vnode = await ed.render()
     const allButtons = findAllButtons(vnode)
     const tblBtn = allButtons.find((b: any) => b.props['data-item'] === 'table')
     assert.ok(tblBtn, 'table button exists')
@@ -255,7 +255,7 @@ describe('Editor', () => {
   it('renders table grid inside Popover when table button clicked', async () => {
     const ctx = makeCtx()
     const ed = await makeEditor({}, ctx)
-    let vnode = ed.render()
+    let vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     assert.ok(toolbar, 'toolbar should exist')
     // 按 type.name 找到 Popover（content 初始为 null，需先触发打开）
@@ -264,7 +264,7 @@ describe('Editor', () => {
     )
     assert.ok(popover, 'Popover should exist in toolbar')
     popover.props.onOpenChange(true)
-    vnode = ed.render()
+    vnode = await ed.render()
     // 重新 render 后 content 应有 table picker
     const toolbar2 = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const popover2 = toolbar2.props.children.find((c: any) =>
@@ -278,13 +278,13 @@ describe('Editor', () => {
   it('renders Modal when image button clicked', async () => {
     const ctx = makeCtx()
     const ed = await makeEditor({}, ctx)
-    let vnode = ed.render()
+    let vnode = await ed.render()
     // 点击 image 按钮触发 Modal
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const imgBtn = buttons.find((b: any) => b.props['data-item'] === 'image')
     imgBtn.props.onClick()
-    vnode = ed.render()
+    vnode = await ed.render()
     const imgModal = vnode.props.children.find((m: any) => m?.type === Modal && m?.props?.title === '插入图片')
     assert.ok(imgModal, 'should render Modal for image input')
   })
@@ -292,13 +292,13 @@ describe('Editor', () => {
   it('renders FileUpload inside image Modal when onUpload provided', async () => {
     const ctx = makeCtx()
     const ed = await makeEditor({ value: '', onUpload: async (f: any) => f.name }, ctx)
-    let vnode = ed.render({ value: '', onUpload: async (f: any) => f.name })
+    let vnode = await ed.render({ value: '', onUpload: async (f: any) => f.name })
     // 点击 image 按钮
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const imgBtn = buttons.find((b: any) => b.props['data-item'] === 'image')
     imgBtn.props.onClick()
-    vnode = ed.render({ value: '', onUpload: async (f: any) => f.name })
+    vnode = await ed.render({ value: '', onUpload: async (f: any) => f.name })
     const imgModal = vnode.props.children.find((c: any) => c?.type === Modal && c.props.title === '插入图片')
     assert.ok(imgModal, 'should render image Modal')
     const bodyChildren = imgModal.props.children?.props?.children
@@ -310,12 +310,12 @@ describe('Editor', () => {
   it('switches to source mode via toolbar', async () => {
     const ctx = makeCtx()
     const ed = await makeEditor({}, ctx)
-    let vnode = ed.render()
+    let vnode = await ed.render()
     const toolbar = vnode.props.children.find((c: any) => c?.props?.class?.includes('wf-editor-toolbar'))
     const buttons = toolbar.props.children.filter((c: any) => c?.type === 'button')
     const sourceBtn = buttons.find((b: any) => b.props['data-item'] === 'source')
     sourceBtn.props.onClick()
-    vnode = ed.render()
+    vnode = await ed.render()
     const modals = vnode.props.children.filter((c: any) => c?.type === Modal)
     assert.equal(modals.length, 0, 'Modals should not render in source mode')
   })

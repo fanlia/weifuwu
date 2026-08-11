@@ -67,7 +67,7 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
     portal: () => null, refresh: () => {},
   }
 
-  return (props) => {
+  return async (props) => {
     const {
       open, onOpenChange, items = [], placeholder = '输入命令或搜索...',
       emptyText = '无匹配结果', globalShortcut = 'mod+k',

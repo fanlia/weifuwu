@@ -17,7 +17,7 @@ export interface MarkdownProps {
 }
 
 export const Markdown: Component<MarkdownProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
     const { content = '', className } = props
     const blocks = parseMarkdown(content)
     if (blocks.length === 0) return null

@@ -70,7 +70,7 @@ export const VirtualTable: Component<VirtualTableProps> = async (_init, ctx) => 
     }
   }
 
-  return (props: VirtualTableProps) => {
+  return async (props: VirtualTableProps) => {
     const {
       columns, data = [], height = 400, rowHeight = 40, overscan = 5,
       sortKey, sortOrder, onSort, emptyText = '暂无数据', onRowClick, rowSelection, className,

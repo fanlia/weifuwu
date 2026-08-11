@@ -17,7 +17,7 @@ export interface BadgeProps {
 }
 
 export const Badge: Component<BadgeProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { variant = 'default', dot, children, count, overflowCount = 99, showZero = false } = props
 
   if (dot) {

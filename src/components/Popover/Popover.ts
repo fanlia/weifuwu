@@ -44,7 +44,7 @@ export const Popover: Component<PopoverProps> = async (_init, ctx) => {
   })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: PopoverProps) => {
+  return async (props: PopoverProps) => {
     const { content, position = 'bottom', trigger = 'click', children } = props
     latestPosition = position
     latestTrigger = trigger

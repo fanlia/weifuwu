@@ -38,7 +38,7 @@ describe('Select (native)', () => {
   it('renders a select element', async () => {
     const ctx = nativeCtx()
     const render = await Select({}, ctx)!
-    const vnode = render({ options: [{ value: 'a', label: 'A' }] })
+    const vnode = await render({ options: [{ value: 'a', label: 'A' }] })
     const select = childrenOf(vnode).find((c: any) => c?.type === 'select')
     assert.ok(select)
   })
@@ -46,7 +46,7 @@ describe('Select (native)', () => {
   it('renders options from options prop', async () => {
     const ctx = nativeCtx()
     const render = await Select({}, ctx)!
-    const vnode = render({ options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] })
+    const vnode = await render({ options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] })
     const select = childrenOf(vnode).find((c: any) => c?.type === 'select')
     const options = Array.isArray(select.props.children) ? select.props.children : [select.props.children]
     assert.equal(options.length, 2)
@@ -57,7 +57,7 @@ describe('Select (native)', () => {
   it('renders label when provided', async () => {
     const ctx = nativeCtx()
     const render = await Select({}, ctx)!
-    const vnode = render({ label: '角色', options: [{ value: 'admin', label: '管理员' }] })
+    const vnode = await render({ label: '角色', options: [{ value: 'admin', label: '管理员' }] })
     const labels = childrenOf(vnode).filter((c: any) => c?.props?.class === 'wf-select-label')
     assert.ok(labels.length > 0)
   })
@@ -65,7 +65,7 @@ describe('Select (native)', () => {
   it('shows placeholder option', async () => {
     const ctx = nativeCtx()
     const render = await Select({}, ctx)!
-    const vnode = render({ placeholder: '请选择', options: [{ value: 'a', label: 'A' }] })
+    const vnode = await render({ placeholder: '请选择', options: [{ value: 'a', label: 'A' }] })
     const select = childrenOf(vnode).find((c: any) => c?.type === 'select')
     const options = Array.isArray(select.props.children) ? select.props.children : [select.props.children]
     assert.equal(options.length, 2)
@@ -76,7 +76,7 @@ describe('Select (native)', () => {
   it('shows error message', async () => {
     const ctx = nativeCtx()
     const render = await Select({}, ctx)!
-    const vnode = render({ error: '请选择', options: [{ value: 'a', label: 'A' }] })
+    const vnode = await render({ error: '请选择', options: [{ value: 'a', label: 'A' }] })
     const err = childrenOf(vnode).find((c: any) => c?.props?.class === 'wf-select-err')
     assert.ok(err)
     assert.equal(err.props.children, '请选择')
@@ -93,7 +93,7 @@ describe('Select (searchable)', () => {
 
   it('renders trigger input', async () => {
     const { render } = await searchableCtx()
-    const vnode = render({ searchable: true, options: [{ value: 'a', label: 'A' }] })
+    const vnode = await render({ searchable: true, options: [{ value: 'a', label: 'A' }] })
     const nodes = allNodes(vnode)
     const input = nodes.find((n: any) => n?.props?.class === 'wf-select-search-input')
     assert.ok(input, 'should render search input')
@@ -102,12 +102,12 @@ describe('Select (searchable)', () => {
   it('shows menu when opened (click trigger)', async () => {
     const { render } = await searchableCtx()
     const props = { searchable: true, options: [{ value: 'a', label: 'A' }] }
-    let vnode = render(props)
+    let vnode = await render(props)
     let nodes = allNodes(vnode)
     const trigger = nodes.find((n: any) => n?.props?.class === 'wf-select-search-trigger')
     assert.ok(trigger)
     trigger.props.onClick()          // 驱动内部 open = true
-    vnode = render(props)            // 同实例 re-render
+    vnode = await render(props)            // 同实例 re-render
     nodes = allNodes(vnode)
     const menu = nodes.find((n: any) => n?.props?.class?.startsWith?.('wf-select-search-menu'))
     assert.ok(menu, 'should render menu when open')
@@ -115,7 +115,7 @@ describe('Select (searchable)', () => {
 
   it('shows selected value in trigger when closed', async () => {
     const { render, state } = await searchableCtx()
-    const vnode = render({ searchable: true, value: 'a', options: [{ value: 'a', label: 'A选项' }] })
+    const vnode = await render({ searchable: true, value: 'a', options: [{ value: 'a', label: 'A选项' }] })
     const nodes = allNodes(vnode)
     const input = nodes.find((n: any) => n?.props?.class === 'wf-select-search-input')
     assert.ok(input)
@@ -132,12 +132,12 @@ describe('Select (searchable)', () => {
         { value: 'c', label: 'Gamma' },
       ],
     }
-    let vnode = render(props)
+    let vnode = await render(props)
     let nodes = allNodes(vnode)
     nodes.find((n: any) => n?.props?.class === 'wf-select-search-trigger').props.onClick() // 打开
-    const input = allNodes(render(props)).find((n: any) => n?.props?.class === 'wf-select-search-input')
+    const input = allNodes(await render(props)).find((n: any) => n?.props?.class === 'wf-select-search-input')
     await input.props.onInput({ target: { value: 'Beta' } })    // 驱动 keyword 过滤
-    vnode = render(props)
+    vnode = await render(props)
     nodes = allNodes(vnode)
     const opts = nodes.filter((n: any) => n?.props?.class?.startsWith?.('wf-select-search-opt'))
     assert.equal(opts.length, 1)
@@ -148,9 +148,9 @@ describe('Select (searchable)', () => {
     const { render } = await searchableCtx()
     const props = { searchable: true, options: [{ value: 'a', label: 'A' }] }
     render(props)
-    const input = allNodes(render(props)).find((n: any) => n?.props?.class === 'wf-select-search-input')
+    const input = allNodes(await render(props)).find((n: any) => n?.props?.class === 'wf-select-search-input')
     await input.props.onInput({ target: { value: 'XYZ' } })     // 驱动 keyword
-    const vnode = render(props)
+    const vnode = await render(props)
     const nodes = allNodes(vnode)
     const empty = nodes.find((n: any) => n?.props?.class === 'wf-select-search-empty')
     assert.ok(empty)
@@ -161,10 +161,10 @@ describe('Select (searchable)', () => {
     let captured = ''
     const { render } = await searchableCtx()
     const props = { searchable: true, options: [{ value: 'x', label: 'X' }], onChange: (v: string) => { captured = v } }
-    let vnode = render(props)
+    let vnode = await render(props)
     let nodes = allNodes(vnode)
     nodes.find((n: any) => n?.props?.class === 'wf-select-search-trigger').props.onClick() // 打开
-    vnode = render(props)
+    vnode = await render(props)
     nodes = allNodes(vnode)
     const opt = nodes.find((n: any) => n?.props?.class?.startsWith?.('wf-select-search-opt'))
     assert.ok(opt)

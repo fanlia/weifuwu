@@ -55,7 +55,7 @@ export const Mentions: Component<MentionsProps> = async (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return async (props) => {
     const {
       options = [], prefix = '@',
       placeholder, rows = 3, disabled, size = 'md',

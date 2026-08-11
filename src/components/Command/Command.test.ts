@@ -47,7 +47,7 @@ describe('Command', () => {
   })
 
   it('renders panel when open', async () => {
-    const vnode = inner(await renderVNode(Command, { items, open: true }, createTestCtx())!)
+    const vnode = await inner(await renderVNode(Command, { items, open: true }, createTestCtx())!)
     // usePopup mask 统一后 portal 返回 panel（遮罩在真实引擎，mock 只验 panel 结构）
     assert.ok(vnode)
     assert.match(JSON.stringify(vnode.props.class ?? ''), /wf-command-panel/)
@@ -65,9 +65,9 @@ describe('Command', () => {
     const ctx = createTestCtx()
     const render = await Command({ items, open: true }, ctx)
     const r = render as any
-    const v1 = r({ items, open: true })
+    const v1 = await r({ items, open: true })
     inputOf(v1).props.onInput({ target: { value: '设置' } })
-    const v2 = r({ items, open: true })
+    const v2 = await r({ items, open: true })
     const list = panelOfCmd(v2).props.children[1].props.children
     assert.equal(list.length, 1)
     assert.equal(list[0].props.children[1].props.children, '设置')
@@ -83,7 +83,7 @@ describe('Command', () => {
     const render = await Command({ items: myItems, open: true }, ctx)
     const r = render as any
     r({ items: myItems, open: true })
-    const v = r({ items: myItems, open: true })
+    const v = await r({ items: myItems, open: true })
     const input = inputOf(v)
     input.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} })
     input.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
@@ -95,7 +95,7 @@ describe('Command', () => {
     const ctx = createTestCtx()
     const render = await Command({ items, open: true, onOpenChange: (o: boolean) => { closed = !o } }, ctx)
     const r = render as any
-    const v = r({ items, open: true, onOpenChange: (o: boolean) => { closed = !o } })
+    const v = await r({ items, open: true, onOpenChange: (o: boolean) => { closed = !o } })
     inputOf(v).props.onKeyDown({ key: 'Escape' })
     assert.equal(closed, true)
   })
@@ -104,9 +104,9 @@ describe('Command', () => {
     const ctx = createTestCtx()
     const render = await Command({ items, open: true, emptyText: '无结果' }, ctx)
     const r = render as any
-    const v1 = r({ items, open: true, emptyText: '无结果' })
+    const v1 = await r({ items, open: true, emptyText: '无结果' })
     inputOf(v1).props.onInput({ target: { value: 'zzz' } })
-    const v2 = r({ items, open: true, emptyText: '无结果' })
+    const v2 = await r({ items, open: true, emptyText: '无结果' })
     const list = panelOfCmd(v2).props.children[1].props.children
     assert.equal(list[0].props.children, '无结果')
   })
@@ -116,7 +116,7 @@ describe('Command', () => {
     const ctx = createTestCtx()
     const render = await Command({ items, open: false, onOpenChange: (o: boolean) => { opened = o } }, ctx)
     const r = render as any
-    const v = r({ items, open: false, onOpenChange: (o: boolean) => { opened = o } })
+    const v = await r({ items, open: false, onOpenChange: (o: boolean) => { opened = o } })
     void v
     // useGlobalKey 注册的 handler 直接触发（mod+k → ctrlKey+k）
     globalKeys.at(-1)?.(new (window as any).KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))

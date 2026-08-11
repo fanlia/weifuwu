@@ -59,7 +59,7 @@ function iconFor(type: NotificationType): IconName {
 
 /** 通知（对应 antd/EP Notification 队列式）：title + description + icon + 操作，聚合角落 */
 export const Notification: Component<NotificationProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { items = [], onRemove, position = 'top-right', duration = 4500, max = 0 } = props
 
   const visible = max > 0 && items.length > max ? items.slice(-max) : items
@@ -134,7 +134,7 @@ export function notification(opts?: NotificationOptions): AppMiddleware<{}, Noti
       add: (item: NotificationItem) => { items = [...items, item]; render() },
       remove: (id: string) => { items = items.filter((t: NotificationItem) => t.id !== id); render() },
     }
-    return () => h('div', { class: 'wf-notification-host' }, [
+    return async () => h('div', { class: 'wf-notification-host' }, [
       h(Notification, {
         items,
         position: defaults.position,

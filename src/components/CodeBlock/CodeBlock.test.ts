@@ -77,7 +77,7 @@ it('复制跟随最新 code（props 更新后 latestCode 同步）', async () =>
   ;(ctx as any).browser = { copyText: async (t: string) => { copied.push(t) } }
   const factory = await CodeBlock({ code: 'v1' }, ctx)
   factory({ code: 'v1' })
-  const vnode2 = factory({ code: 'v2' })
+  const vnode2 = await factory({ code: 'v2' })
   const find = (n: any): any => {
     if (!n || typeof n !== 'object') return null
     if (n.props?.['aria-label'] === '复制') return n

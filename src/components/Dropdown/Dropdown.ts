@@ -41,7 +41,7 @@ export const Dropdown: Component<DropdownProps> = async (_init, ctx) => {
   })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: DropdownProps) => {
+  return async (props: DropdownProps) => {
     const { trigger, items = [] } = props
     openCtrl = ctx.ui.useOpen({ open: props.open, onOpenChange: props.onOpenChange, name: 'Dropdown' })
 

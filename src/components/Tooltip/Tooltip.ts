@@ -38,7 +38,7 @@ export const Tooltip: Component<TooltipProps> = async (_props, ctx) => {
   })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: TooltipProps) => {
+  return async (props: TooltipProps) => {
     const { content, position = 'top', children } = props
     latestPosition = position
     disabled = !!props.disabled

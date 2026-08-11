@@ -31,7 +31,7 @@ export const CodeBlock: Component<CodeBlockProps> = async (_init, ctx) => {
     timer = setTimeout(() => { copied = false; ctx.ui.render() }, 1600)
   }
 
-  return (props: CodeBlockProps) => {
+  return async (props: CodeBlockProps) => {
     const { code, lang, title } = props
     latestCode = code
 

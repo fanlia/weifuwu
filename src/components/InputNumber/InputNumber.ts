@@ -41,7 +41,7 @@ export const InputNumber: Component<InputNumberProps> = async (_init, _ctx) => {
     }, 500)
   }
   const stopHold = () => { clearTimeout(holdTimer); clearInterval(holdInterval) }
-  return (props) => {
+  return async (props) => {
     const {
       value = null, onChange, min, max, step = 1, precision,
       label, name, placeholder, disabled, error, hint, required, className,

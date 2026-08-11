@@ -33,7 +33,7 @@ export const AlertGroup: Component<AlertGroupProps> = async (_init, ctx: WfuiCon
   // ── mount（只一次）──
   let expanded = false
 
-  return (props) => {
+  return async (props) => {
     const { items, onClose } = props
     const collapsible = items.length >= THRESHOLD
 

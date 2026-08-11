@@ -12,7 +12,7 @@ export interface SliderProps {
 }
 
 export const Slider: Component<SliderProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { label, value = 0, min = 0, max = 100, step = 1, onChange } = props
 
   const numVal = Number(value)

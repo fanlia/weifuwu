@@ -65,7 +65,7 @@ export async function validateValues(
 }
 
 export const Form: Component<FormProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { validation, onSubmit, onError, children } = props
 
   const handleSubmit = async (e: Event) => {

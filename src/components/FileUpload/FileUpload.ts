@@ -81,7 +81,7 @@ export const FileUpload: Component<FileUploadProps> = async (_init, ctx) => {
     },
   })
 
-  return (props: FileUploadProps) => {
+  return async (props: FileUploadProps) => {
     Object.assign(propsRef, props)
     const { accept, multiple, maxSize, disabled, error, hint, value, onChange, children, uploading, progress } = props
     const files = value ?? []

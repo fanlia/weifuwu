@@ -21,7 +21,7 @@ export interface ListProps<T = any> {
 }
 
 export const List: Component<ListProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
     const { items, renderItem, divided, header, footer, emptyText = '暂无数据', emptyIcon, className } = props
 
     const body = items.length === 0

@@ -46,12 +46,12 @@ describe('ApprovalCard', () => {
     const props = { request, onReject: (note: string | undefined) => { rejected = note } }
     const render = await ApprovalCard(props, ctx)
     // 第一次渲染：拒绝按钮（actions.children = [btns]）
-    let vnode = render(props)!
+    let vnode = await render(props)!
     const btns = vnode.props.children[3].props.children[0]
     btns.props.children[1].props.onClick() // 第一次点击：展开备注（不回调）
     assert.equal(rejected, undefined)
     // 重渲染：actions.children = [noteDiv, btns]
-    vnode = render(props)!
+    vnode = await render(props)!
     const actions = vnode.props.children[3].props.children
     const inputNode = actions[0].props.children[0]
     inputNode.props.onInput({ target: { value: '预算不够' } })
@@ -83,14 +83,14 @@ describe('ApprovalCard', () => {
     const ctx = createTestCtx()
     const props = { request, onReject: () => {} }
     const render = await ApprovalCard(props, ctx)
-    let vnode = render(props)!
+    let vnode = await render(props)!
     vnode.props.children[3].props.children[0].props.children[1].props.onClick() // 展开备注
-    vnode = render(props)!
+    vnode = await render(props)!
     const actions = vnode.props.children[3].props.children
     const cancelBtn = actions[1].props.children[2]
     assert.equal(cancelBtn.props.children, '取消')
     cancelBtn.props.onClick() // 取消
-    vnode = render(props)!
+    vnode = await render(props)!
     assert.ok(!JSON.stringify(vnode).includes('wf-approval-note-input'), '备注输入已收起')
   })
 
@@ -98,9 +98,9 @@ describe('ApprovalCard', () => {
     const ctx = createTestCtx()
     const props = { request }
     const render = await ApprovalCard(props, ctx)
-    let vnode = render(props)!
+    let vnode = await render(props)!
     vnode.props.children[3].props.children[0].props.children[1].props.onClick() // 展开备注
-    vnode = render(props)!
+    vnode = await render(props)!
     const input = vnode.props.children[3].props.children[0].props.children[0]
     assert.equal(input.props['aria-label'], '拒绝备注')
   })
@@ -118,7 +118,7 @@ it('拒绝备注：输入后确认携带 note（边界：空 note 也可拒绝�
   let note: string | undefined = 'UNSET'
   const ctx = createTestCtx()
   const factory = await ApprovalCard({ request: { id: '1', name: 'x', args: {} } as any, onReject: (n?: string) => { note = n } }, ctx)
-  let vnode = factory({ request: { id: '1', name: 'x', args: {} }, onReject: (n?: string) => { note = n } })
+  let vnode = await factory({ request: { id: '1', name: 'x', args: {} }, onReject: (n?: string) => { note = n } })
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('拒绝'), '拒绝按钮存在')
 })
@@ -155,12 +155,12 @@ describe('ApprovalCard — 修改参数（B9-5）', () => {
     const ctx = createTestCtx()
     const props = { request: req, argsSchema: schema }
     const render = await mountComponent(ApprovalCard, props, ctx)
-    let vnode = render()!
+    let vnode = await render()!
     assert.ok(JSON.stringify(vnode).includes('修改参数'), '修改参数按钮存在')
     assert.equal(collect(vnode, (n: any) => n?.type === JsonSchemaForm).length, 0, '初始不展开表单')
     const btns = vnode.props.children[3].props.children[0]
     btns.props.children[1].props.onClick()
-    vnode = render()!
+    vnode = await render()!
     const form = collect(vnode, (n: any) => n?.type === JsonSchemaForm)[0]
     assert.ok(form, '表单展开')
     assert.equal(form.props.submitLabel, '以修改后参数批准')
@@ -172,9 +172,9 @@ describe('ApprovalCard — 修改参数（B9-5）', () => {
     const ctx = createTestCtx()
     const props = { request: req, argsSchema: schema, onApprove: (m?: Record<string, unknown>) => { modified = m } }
     const render = await mountComponent(ApprovalCard, props, ctx)
-    let vnode = render()!
+    let vnode = await render()!
     vnode.props.children[3].props.children[0].props.children[1].props.onClick() // 展开
-    vnode = render()!
+    vnode = await render()!
     const form = collect(vnode, (n: any) => n?.type === JsonSchemaForm)[0]
     form.props.onSubmit({ to: 'b@x.com', qty: 5 }) // 模拟表单提交（校验由 JsonSchemaForm 内部处理）
     assert.ok(modified !== 'UNSET', 'onApprove 触发')
@@ -186,14 +186,14 @@ describe('ApprovalCard — 修改参数（B9-5）', () => {
     const ctx = createTestCtx()
     const props = { request: req, argsSchema: schema }
     const render = await mountComponent(ApprovalCard, props, ctx)
-    let vnode = render()!
+    let vnode = await render()!
     vnode.props.children[3].props.children[0].props.children[1].props.onClick() // 展开
-    vnode = render()!
+    vnode = await render()!
     assert.equal(collect(vnode, (n: any) => n?.type === JsonSchemaForm).length, 1, '表单已展开')
     const cancel = findByClass(vnode, 'wf-approval-modify-cancel')[0]
     assert.ok(cancel, '取消修改按钮')
     cancel.props.onClick()
-    vnode = render()!
+    vnode = await render()!
     assert.equal(collect(vnode, (n: any) => n?.type === JsonSchemaForm).length, 0, '表单收起')
   })
 })

@@ -34,7 +34,7 @@ export interface ToggleGroupProps {
 
 /** 单个切换按钮（对应 shadcn Toggle）：加粗/斜体/视图切换等 */
 export const Toggle: Component<ToggleProps> = async (_init) =>
-  (props) => {
+  async (props) => {
     const {
       pressed, onPressedChange, variant = 'default', size = 'md',
       disabled, 'aria-label': ariaLabel, children, className, ...rest
@@ -58,7 +58,7 @@ export const Toggle: Component<ToggleProps> = async (_init) =>
 
 /** 切换按钮组（对应 shadcn ToggleGroup）：type=single 单选 / multiple 多选 */
 export const ToggleGroup: Component<ToggleGroupProps> = async (_init, ctx) =>
-  (props) => {
+  async (props) => {
     const {
       type = 'single', options = [],
       size = 'md', disabled, 'aria-label': ariaLabel, className,

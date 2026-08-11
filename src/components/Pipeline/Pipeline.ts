@@ -32,7 +32,7 @@ export interface PipelineProps {
  * 纯函数布局（dag-utils）可 SSR/单测；环检测 → 渲染警告不崩溃。
  */
 export const Pipeline: Component<PipelineProps> = async (_init, ctx) =>
-  (props) => {
+  async (props) => {
     const {
       nodes,
       edges,

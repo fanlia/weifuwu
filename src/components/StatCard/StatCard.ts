@@ -36,7 +36,7 @@ export const StatCard: Component<StatCardProps> = async (_init, ctx) => {
     if (timer) { clearInterval(timer); timer = null }
   }
 
-  return (props: StatCardProps) => {
+  return async (props: StatCardProps) => {
     const { label, value, trend, trendLabel, icon, onClick, animate, countdown, onFinish } = props
     latestOnFinish = onFinish
     const target = typeof value === 'number' ? value : 0

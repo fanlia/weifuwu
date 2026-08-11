@@ -38,7 +38,7 @@ export const VirtualList: Component<VirtualListProps> = async (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return async (props) => {
     const {
       items = [], height = 400, itemHeight = 40, renderItem,
       overscan = 5, keyBy, className,

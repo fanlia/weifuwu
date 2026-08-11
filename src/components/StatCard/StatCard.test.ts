@@ -173,7 +173,7 @@ test('countdown 模式：显示剩余 MM:SS 格式', async () => {
   ctx.ui.useTween = () => ({ value: 0, reset: () => {} })
   const future = Date.now() + 95 * 1000 // 95s → 01:35
   const factory = await StatCard({}, ctx)
-  const vnode = factory({ label: '超时', countdown: future })
+  const vnode = await factory({ label: '超时', countdown: future })
   const val = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-stat-value'))
   assert.equal(val.props.children, '01:35', '倒计时格式化 MM:SS')
   factory({ label: '超时' }) // 清理定时器（测试不卸载）
@@ -185,7 +185,7 @@ test('countdown 结束 → onFinish 回调 + 定时器清理', async () => {
   let finished = 0
   const past = Date.now() - 1000 // 已过时 → 0
   const factory = await StatCard({}, ctx)
-  const vnode = factory({ label: 'x', countdown: past, onFinish: () => finished++ })
+  const vnode = await factory({ label: 'x', countdown: past, onFinish: () => finished++ })
   assert.equal(finished, 0, 'render 期不直接触发 onFinish')
   const val = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-stat-value'))
   assert.equal(val.props.children, '00:00', '已过时显示 00:00')
@@ -197,11 +197,11 @@ test('countdown 模式 value 可选；无 value 不渲染 undefined', async () =
   ctx.ui.useTween = () => ({ value: 0, reset: () => {} })
   const factory = await StatCard({}, ctx)
   // countdown 模式无需 value
-  const v1 = factory({ label: 'x', countdown: Date.now() + 60_000 })
+  const v1 = await factory({ label: 'x', countdown: Date.now() + 60_000 })
   assert.ok(findVNode(v1, (v: any) => v.props?.class?.includes('wf-stat-value')))
   factory({ label: 'x' }) // 清理
   // 无 value 无 countdown：空串而非 'undefined'
-  const v2 = factory({ label: 'x' })
+  const v2 = await factory({ label: 'x' })
   const val = findVNode(v2, (v: any) => v.props?.class?.includes('wf-stat-value'))
   assert.notEqual(val.props.children, 'undefined')
   assert.equal(val.props.children, '')

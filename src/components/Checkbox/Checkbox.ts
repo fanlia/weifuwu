@@ -10,7 +10,7 @@ export interface CheckboxProps {
 }
 
 export const Checkbox: Component<CheckboxProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { label, checked, disabled, onChange } = props
 
   const input = h('input', {

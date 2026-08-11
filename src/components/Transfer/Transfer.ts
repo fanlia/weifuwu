@@ -32,7 +32,7 @@ export const Transfer: Component<TransferProps> = async (_init, ctx) => {
   let kwLeft = ''
   let kwRight = ''
 
-  return (props) => {
+  return async (props) => {
     const {
       data = [], targetKeys = [], onChange, titles = ['源列表', '目标列表'],
       size = 'md', disabled, showSearch, searchPlaceholder = '搜索…',

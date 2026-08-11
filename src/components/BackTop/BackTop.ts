@@ -42,7 +42,7 @@ export const BackTop: Component<BackTopProps> = async (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return async (props) => {
     Object.assign(propsRef, props)
     const {
       visibilityHeight = 400, smooth = true, 'aria-label': ariaLabel,

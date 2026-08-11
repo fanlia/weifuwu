@@ -45,11 +45,11 @@ describe('Select 增强（键盘导航 + multiple）', () => {
     const ctx = mockCtx()
     const result = await Select({ searchable: true, options: opts, ...props }, ctx)
     const render = result as any
-    const vnode = render({ searchable: true, options: opts, ...props })
+    const vnode = await render({ searchable: true, options: opts, ...props })
     // 打开菜单
     const input = allNodes(vnode).find((n: any) => n.props?.class === 'wf-select-search-input')
     input.props.onFocus()
-    const vnode2 = render({ searchable: true, options: opts, ...props })
+    const vnode2 = await render({ searchable: true, options: opts, ...props })
     return { ctx, render, vnode2 }
   }
 
@@ -66,15 +66,15 @@ describe('Select 增强（键盘导航 + multiple）', () => {
     const render = await Select({ searchable: true, multiple: true, options: opts, value: ['a'], onChange: (v: any) => { got = v } }, ctx) as any
     render({ searchable: true, multiple: true, options: opts, value: ['a'], onChange: (v: any) => { got = v } })
     // 打开 + 点击 option B
-    const closed = render({ searchable: true, multiple: true, options: opts, value: ['a'], onChange: (v: any) => { got = v } })
+    const closed = await render({ searchable: true, multiple: true, options: opts, value: ['a'], onChange: (v: any) => { got = v } })
     const input = allNodes(closed).find((n: any) => n.props?.class === 'wf-select-search-input')
     input.props.onFocus()
-    const open = render({ searchable: true, multiple: true, options: opts, value: ['a'], onChange: (v: any) => { got = v } })
+    const open = await render({ searchable: true, multiple: true, options: opts, value: ['a'], onChange: (v: any) => { got = v } })
     const optB = allNodes(open).find((n: any) => n.props?.class?.includes('wf-select-search-opt') && n.props.children === '选项B')
     optB.props.onMouseDown({ preventDefault: () => {} })
     assert.deepEqual(got, ['a', 'b'])
     // 再点 B → 移除
-    const open2 = render({ searchable: true, multiple: true, options: opts, value: ['a', 'b'], onChange: (v: any) => { got = v } })
+    const open2 = await render({ searchable: true, multiple: true, options: opts, value: ['a', 'b'], onChange: (v: any) => { got = v } })
     const optB2 = allNodes(open2).find((n: any) => n.props?.class?.includes('wf-select-search-opt') && n.props.children === '选项B')
     optB2.props.onMouseDown({ preventDefault: () => {} })
     assert.deepEqual(got, ['a'])
@@ -84,7 +84,7 @@ describe('Select 增强（键盘导航 + multiple）', () => {
     let got: any = null
     const ctx = mockCtx()
     const render = await Select({ searchable: true, multiple: true, options: opts, value: ['a', 'b'], onChange: (v: any) => { got = v } }, ctx) as any
-    const vnode = render({ searchable: true, multiple: true, options: opts, value: ['a', 'b'], onChange: (v: any) => { got = v } })
+    const vnode = await render({ searchable: true, multiple: true, options: opts, value: ['a', 'b'], onChange: (v: any) => { got = v } })
     const closeBtn = allNodes(vnode).find((n: any) => n.props?.class === 'wf-select-tag-close')
     closeBtn.props.onClick({ stopPropagation: () => {} })
     assert.deepEqual(got, ['b'])
@@ -94,14 +94,14 @@ describe('Select 增强（键盘导航 + multiple）', () => {
     let got: any = null
     const ctx = mockCtx()
     const render = await Select({ searchable: true, options: opts, onChange: (v: any) => { got = v } }, ctx) as any
-    const vnode = render({ searchable: true, options: opts, onChange: (v: any) => { got = v } })
+    const vnode = await render({ searchable: true, options: opts, onChange: (v: any) => { got = v } })
     const input = allNodes(vnode).find((n: any) => n.props?.class === 'wf-select-search-input')
     // 打开 + 下移 + Enter
     input.props.onFocus()
-    const vnode2 = render({ searchable: true, options: opts, onChange: (v: any) => { got = v } })
+    const vnode2 = await render({ searchable: true, options: opts, onChange: (v: any) => { got = v } })
     const input2 = allNodes(vnode2).find((n: any) => n.props?.class === 'wf-select-search-input')
     input2.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} })
-    const vnode3 = render({ searchable: true, options: opts, onChange: (v: any) => { got = v } })
+    const vnode3 = await render({ searchable: true, options: opts, onChange: (v: any) => { got = v } })
     const input3 = allNodes(vnode3).find((n: any) => n.props?.class === 'wf-select-search-input')
     input3.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
     assert.equal(got, 'a')
@@ -111,26 +111,26 @@ describe('Select 增强（键盘导航 + multiple）', () => {
     let got: any = null
     const ctx = mockCtx()
     const render = await Select({ searchable: true, options: opts, onChange: (v: any) => { got = v } }, ctx) as any
-    const step = (key: string) => {
-      const v = render({ searchable: true, options: opts, onChange: (v: any) => { got = v } })
+    const step = async (key: string) => {
+      const v = await render({ searchable: true, options: opts, onChange: (v: any) => { got = v } })
       const input = allNodes(v).find((n: any) => n.props?.class === 'wf-select-search-input')
       input.props.onKeyDown({ key, preventDefault: () => {} })
     }
-    step('ArrowDown'); step('ArrowDown'); step('Enter')
+    await step('ArrowDown'); await step('ArrowDown'); await step('Enter')
     assert.equal(got, 'b')
   })
 
   it('keyboard: Escape closes menu', async () => {
     const ctx = mockCtx()
     const render = await Select({ searchable: true, options: opts }, ctx) as any
-    const vnode = render({ searchable: true, options: opts })
+    const vnode = await render({ searchable: true, options: opts })
     const input = allNodes(vnode).find((n: any) => n.props?.class === 'wf-select-search-input')
     input.props.onFocus()
-    let v2 = render({ searchable: true, options: opts })
+    let v2 = await render({ searchable: true, options: opts })
     assert.ok(allNodes(v2).some((n: any) => n.props?.class === 'wf-select-search-menu'))
     const input2 = allNodes(v2).find((n: any) => n.props?.class === 'wf-select-search-input')
     input2.props.onKeyDown({ key: 'Escape', preventDefault: () => {} })
-    v2 = render({ searchable: true, options: opts })
+    v2 = await render({ searchable: true, options: opts })
     assert.ok(!allNodes(v2).some((n: any) => n.props?.class === 'wf-select-search-menu'))
   })
 
@@ -138,13 +138,13 @@ describe('Select 增强（键盘导航 + multiple）', () => {
     const ctx = mockCtx()
     const render = await Select({ searchable: true, options: opts }, ctx) as any
     render({ searchable: true, options: opts })
-    const v1 = render({ searchable: true, options: opts })
+    const v1 = await render({ searchable: true, options: opts })
     const input = allNodes(v1).find((n: any) => n.props?.class === 'wf-select-search-input')
     input.props.onFocus()
-    const v2 = render({ searchable: true, options: opts })
+    const v2 = await render({ searchable: true, options: opts })
     const input2 = allNodes(v2).find((n: any) => n.props?.class === 'wf-select-search-input')
     input2.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} })
-    const v3 = render({ searchable: true, options: opts })
+    const v3 = await render({ searchable: true, options: opts })
     const hl = allNodes(v3).filter((n: any) => n.props?.class?.includes('wf-select-search-opt--hl'))
     assert.equal(hl.length, 1)
     assert.equal(hl[0].props.children, '选项A')

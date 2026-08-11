@@ -46,7 +46,7 @@ export const Resizable: Component<ResizableProps> = async (_init, ctx) => {
     },
   })
 
-  return (props) => {
+  return async (props) => {
     const {
       direction = 'horizontal', defaultSize = 300, min = 80, max = 600,
       step = 20, children, onResize, className,

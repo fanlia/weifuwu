@@ -50,7 +50,7 @@ export const Kanban: Component<KanbanProps> = async (_init, ctx) => {
     },
   })
 
-  return (props) => {
+  return async (props) => {
     const { columns, onMove, className = '' } = props
 
     // 受控纪律：columns 受控 + 无 onMove → warn（防静默不可用）

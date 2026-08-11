@@ -56,10 +56,10 @@ describe('SessionList', () => {
     const ctx = createTestCtx()
     const props = { sessions, onRename: (id: string, title: string) => { renamed = { id, title } } }
     const render = await mountComponent(SessionList, props, ctx)
-    let v = render()
+    let v = await render()
     const editBtns = findByClass(v, 'wf-session-rename')
     editBtns[0].props.onClick({ stopPropagation: () => {} })
-    v = render()
+    v = await render()
     const input = findByClass(v, 'wf-session-rename-input')[0]
     assert.ok(input, '重命名输入框')
     assert.equal(input.props.value, '今天的话题', '预填原标题')
@@ -73,12 +73,12 @@ describe('SessionList', () => {
     const ctx = createTestCtx()
     const props = { sessions, onRename: () => { renamed = true } }
     const render = await mountComponent(SessionList, props, ctx)
-    let v = render()
+    let v = await render()
     findByClass(v, 'wf-session-rename')[0].props.onClick({ stopPropagation: () => {} })
-    v = render()
+    v = await render()
     findByClass(v, 'wf-session-rename-input')[0].props.onKeyDown({ key: 'Escape', preventDefault: () => {} })
     assert.equal(renamed, false)
-    v = render()
+    v = await render()
     assert.equal(findByClass(v, 'wf-session-rename-input').length, 0, '输入框收起')
   })
 
@@ -86,11 +86,11 @@ describe('SessionList', () => {
     const ctx = createTestCtx()
     const props = { sessions, searchable: true }
     const render = await mountComponent(SessionList, props, ctx)
-    let v = render()
+    let v = await render()
     const search = findByClass(v, 'wf-session-search')[0]
     assert.ok(search, '搜索框')
     search.props.onInput({ target: { value: '昨天' } })
-    v = render()
+    v = await render()
     const rows = findByClass(v, 'wf-session-item')
     assert.equal(rows.length, 1)
     assert.ok(JSON.stringify(rows[0].props.children).includes('昨天'))
@@ -110,11 +110,11 @@ describe('SessionList', () => {
     const ctx = createTestCtx()
     const props = { sessions, activeId: 's1', onSelect: (id: string) => { selected = id } }
     const render = await mountComponent(SessionList, props, ctx)
-    let v = render()
+    let v = await render()
     const list = findByClass(v, 'wf-session-list')[0]
     // ArrowDown：s1 → s2（焦点移动，--focus 视觉）
     list.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} })
-    v = render()
+    v = await render()
     const rows = findByClass(v, 'wf-session-item')
     const focused = rows.find((r: any) => String(r.props.class).includes('--focus'))
     assert.equal(focused.props['data-id'], 's2', '焦点下移')

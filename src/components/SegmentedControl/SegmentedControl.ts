@@ -25,7 +25,7 @@ export interface SegmentedControlProps {
  * 语义：toggle group（aria-pressed），键盘 focus-visible 可见
  */
 export const SegmentedControl: Component<SegmentedControlProps> = async (_init, ctx) =>
-  (props) => {
+  async (props) => {
   const { options, size = 'md', block, ariaLabel } = props
 
   // useControlled：受控/非受控统一（原非受控静默不可点——受控纪律违规）

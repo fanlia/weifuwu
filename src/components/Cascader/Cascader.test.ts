@@ -59,7 +59,7 @@ const triggerOf = (v: any) => wrapOf(v).props.children[0]
 describe('Cascader', () => {
   it('renders trigger with placeholder', async () => {
     const render = await mount(Cascader, { options }, makeCtx())!
-    const v = render({ options })
+    const v = await render({ options })
     const trigger = triggerOf(v)
     assert.ok(trigger)
     assert.match(trigger.props.class, /wf-cascader-trigger/)
@@ -67,7 +67,7 @@ describe('Cascader', () => {
 
   it('shows selected path label', async () => {
     const render = await mount(Cascader, { options, value: ['zj', 'hz', 'xh'] }, makeCtx())!
-    const v = render({ options, value: ['zj', 'hz', 'xh'] })
+    const v = await render({ options, value: ['zj', 'hz', 'xh'] })
     const label = triggerOf(v).props.children.find((c: any) => c?.props?.class === 'wf-cascader-value')
     assert.equal(label.props.children, '浙江 / 杭州 / 西湖区')
   })
@@ -75,9 +75,9 @@ describe('Cascader', () => {
   it('opens panel on click, shows first column', async () => {
     const ctx = makeCtx()
     const render = await mount(Cascader, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     triggerOf(v).props.onClick()
-    v = render({ options })
+    v = await render({ options })
     const panel = panelOf(v)
     assert.ok(panel, '应显示级联面板')
     const col = panel.props.children[0]
@@ -87,14 +87,14 @@ describe('Cascader', () => {
   it('clicking parent advances to next column', async () => {
     const ctx = makeCtx()
     const render = await mount(Cascader, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     triggerOf(v).props.onClick()
-    v = render({ options })
+    v = await render({ options })
     const panel = panelOf(v)
     const col0 = panel.props.children[0]
     // 点击浙江（有子 → 推进）
     col0.props.children[0].props.onClick()
-    v = render({ options })
+    v = await render({ options })
     const panel2 = panelOf(v)
     assert.equal(panel2.props.children.length, 2) // 两列：浙江 + 杭州/宁波
     const col1 = panel2.props.children[1]
@@ -105,12 +105,12 @@ describe('Cascader', () => {
     let got: string[] = []
     const ctx = makeCtx()
     const render = await mount(Cascader, { options, onChange: (v: string[]) => { got = v } }, ctx)!
-    let v = render({ options, onChange: (v: string[]) => { got = v } })
+    let v = await render({ options, onChange: (v: string[]) => { got = v } })
     triggerOf(v).props.onClick()
-    v = render({ options, onChange: (v: string[]) => { got = v } })
+    v = await render({ options, onChange: (v: string[]) => { got = v } })
     const panel = panelOf(v)
     panel.props.children[0].props.children[1].props.onClick() // 广东
-    v = render({ options, onChange: (v: string[]) => { got = v } })
+    v = await render({ options, onChange: (v: string[]) => { got = v } })
     const panel2 = panelOf(v)
     panel2.props.children[1].props.children[0].props.onClick() // 深圳（叶子）
     assert.deepEqual(got, ['gd', 'sz'])
@@ -120,13 +120,13 @@ describe('Cascader', () => {
     let got: string[] = []
     const ctx = makeCtx()
     const render = await mount(Cascader, { options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } }, ctx)!
-    let v = render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
+    let v = await render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
     triggerOf(v).props.onClick()
-    v = render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
+    v = await render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
     // 列1 第2项 = 广东（点击时 path 必须为 [] 而非循环结束值 ['zj']）
     const panel = panelOf(v)
     panel.props.children[0].props.children[1].props.onClick()
-    v = render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
+    v = await render({ options, value: ['zj', 'hz'], onChange: (v: string[]) => { got = v } })
     // 推进后列2 应为深圳（广东的子级）——证明 activePath 是 ['gd'] 而非 ['zj','gd']
     const panel2 = panelOf(v)
     const col1 = panel2.props.children[0]
@@ -139,19 +139,19 @@ describe('Cascader', () => {
 
   it('disabled trigger not interactive', async () => {
     const render = await mount(Cascader, { options, disabled: true }, makeCtx())!
-    const v = render({ options, disabled: true })
+    const v = await render({ options, disabled: true })
     assert.equal(triggerOf(v).props.onClick, undefined)
   })
 
   it('Escape closes panel（document 级，usePopup 接管）', async () => {
     const ctx = makeCtx()
     const render = await mount(Cascader, { options }, ctx)!
-    let v = render({ options })
+    let v = await render({ options })
     triggerOf(v).props.onClick()
-    v = render({ options })
+    v = await render({ options })
     assert.ok(panelOf(v))
     ;(document as any).dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    v = render({ options })
+    v = await render({ options })
     assert.equal(panelOf(v), undefined)
   })
 
@@ -159,9 +159,9 @@ describe('Cascader', () => {
     const ctx = makeCtx()
     let picked: string[] | undefined
     const render = await mount(Cascader, { options, showSearch: true, onChange: (v: string[]) => { picked = v } }, ctx)!
-    let v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
+    let v = await render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
     triggerOf(v).props.onClick() // 打开面板
-    v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
+    v = await render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
     // render-only：搜索框 onInput 驱动内部 kw
     const findInput = (n: any): any => {
       if (!n || typeof n !== 'object') return null
@@ -172,7 +172,7 @@ describe('Cascader', () => {
       return null
     }
     findInput(panelOf(v))?.props.onInput({ target: { value: '宁波' } })
-    v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
+    v = await render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
     const panel = panelOf(v)
     assert.ok(panel, '面板打开')
     // 搜索框 + 结果列表

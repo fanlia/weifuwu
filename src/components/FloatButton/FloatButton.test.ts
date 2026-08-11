@@ -72,10 +72,10 @@ describe('FloatButtonGroup', () => {
     const ctx = createTestCtx()
     const kids = [h(FloatButton, { icon: 'x' }), h(FloatButton, { icon: 'y' })]
     const inst = await mount(FloatButtonGroup, { children: kids }, ctx)
-    let vnode = inst.render({ children: kids })
+    let vnode = await inst.render({ children: kids })
     const main = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-main'))
     main.props.onClick()
-    vnode = inst.render({ children: kids })
+    vnode = await inst.render({ children: kids })
     // 子项是组件 VNode（type=FloatButton）——static 注入到 props
     const item = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-item'))
     assert.ok(item, '子项容器')
@@ -87,18 +87,18 @@ describe('FloatButtonGroup', () => {
   test('展开状态机：点击主按钮展开/收起', async () => {
     const ctx = createTestCtx()
     const inst = await mount(FloatButtonGroup, { children: ['a', 'b'] }, ctx)
-    let vnode = inst.render({ children: ['a', 'b'] })
+    let vnode = await inst.render({ children: ['a', 'b'] })
     const main = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-main'))
     assert.ok(main)
     // 点击展开
     main.props.onClick()
-    vnode = inst.render({ children: ['a', 'b'] })
+    vnode = await inst.render({ children: ['a', 'b'] })
     const expanded = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group--open'))
     assert.ok(expanded, '展开后 open class')
     // 再点收起
     const main2 = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group-main'))
     main2.props.onClick()
-    vnode = inst.render({ children: ['a', 'b'] })
+    vnode = await inst.render({ children: ['a', 'b'] })
     const closed = findVNode(vnode, (v: any) => String(v.props?.class ?? '').split(' ').includes('wf-float-group--open'))
     assert.equal(closed, null, '收起后移除 open class')
   })

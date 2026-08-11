@@ -66,7 +66,7 @@ const lines = [
 describe('LogViewer', () => {
   it('渲染行号 + 行内容', async () => {
     const render = await mount(LogViewer, { lines, height: 200 }, makeCtx().ctx)!
-    const v = render({ lines, height: 200 })
+    const v = await render({ lines, height: 200 })
     assert.match(v.props.class, /wf-log-viewer/)
     const rows = getRows(v)
     assert.equal(rows.length, 4)
@@ -77,7 +77,7 @@ describe('LogViewer', () => {
   it('maxLines 截断显示（只渲染尾部 N 行）', async () => {
     const many = Array.from({ length: 20 }, (_, i) => `line-${i}`)
     const render = await mount(LogViewer, { lines: many, height: 400, maxLines: 5 }, makeCtx().ctx)!
-    const v = render({ lines: many, height: 400, maxLines: 5 })
+    const v = await render({ lines: many, height: 400, maxLines: 5 })
     const rows = getRows(v)
     assert.equal(rows.length, 5)
     // 行号从截断起点开始
@@ -87,7 +87,7 @@ describe('LogViewer', () => {
   it('10k 行只渲染可见窗口', async () => {
     const many = Array.from({ length: 10000 }, (_, i) => `line-${i}`)
     const render = await mount(LogViewer, { lines: many, height: 300, lineHeight: 30 }, makeCtx().ctx)!
-    const v = render({ lines: many, height: 300, lineHeight: 30 })
+    const v = await render({ lines: many, height: 300, lineHeight: 30 })
     const rows = getRows(v)
     assert.ok(rows.length < 20, `应只渲染可见窗口，实际 ${rows.length}`)
   })
@@ -97,7 +97,7 @@ describe('LogViewer', () => {
     const many = Array.from({ length: 1000 }, (_, i) => `line-${i}`)
     const render = await mount(LogViewer, { lines: many, height: 300 }, ctx)!
     setY(9000)
-    const v = render({ lines: many, height: 300 })
+    const v = await render({ lines: many, height: 300 })
     const rows = getRows(v)
     const first = rows[0]
     // 起点行 = floor(9000/24) - 5 = 370 → top = 370×24 = 8880px
@@ -106,7 +106,7 @@ describe('LogViewer', () => {
 
   it('复制按钮存在', async () => {
     const render = await mount(LogViewer, { lines, height: 200, showCopy: true }, makeCtx().ctx)!
-    const v = render({ lines, height: 200, showCopy: true })
+    const v = await render({ lines, height: 200, showCopy: true })
     const btn = v.props.children.find((c: any) => c?.props?.class?.includes('wf-log-copy'))
     assert.ok(btn, '复制按钮应存在')
   })

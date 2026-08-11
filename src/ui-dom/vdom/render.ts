@@ -151,12 +151,15 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
   }
 
   if (typeof vnode.type === 'function') {
-    // 组件必须已构建（buildVNode await 工厂）
+    // 组件必须已构建（buildVNode await 工厂 + renderFn）——renderFn 强制异步，
+    // renderValue 同步上下文永不执行 renderFn（拿不到 vnode，只拿到 Promise）
     if (typeof vnode._render !== 'function') {
       throw new Error(`[vdom] component ${(vnode.type as any).name || 'anonymous'} not built (missing _render) — buildVNode must run before renderValue`)
     }
-    // 优先用 buildVNode 预构建的 _child（重跑 renderFn 会产生未构建的新 vnode → 递归抛错）
-    const childVNode = vnode._child !== undefined ? vnode._child : vnode._render(vnode.props)
+    if (vnode._child === undefined) {
+      throw new Error(`[vdom] component ${(vnode.type as any).name || 'anonymous'} not built (missing _child) — buildVNode must run before renderValue`)
+    }
+    const childVNode = vnode._child
     if (childVNode == null) {
       vnode._child = null
       return null

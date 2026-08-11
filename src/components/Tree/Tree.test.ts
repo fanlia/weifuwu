@@ -84,12 +84,12 @@ describe('Tree', () => {
     const ctx = createTestCtx()
     const result = await Tree({ data }, ctx)
     const render = result as any
-    let v = render({ data })
+    let v = await render({ data })
     assert.equal(rows(v).length, 1)
     // 点击 root 的展开箭头
     const rootRow = rows(v)[0]
     switcherOf(rootRow).props.onClick({ stopPropagation: () => {} })
-    v = render({ data })
+    v = await render({ data })
     assert.equal(rows(v).length, 3) // root + tech + mkt
   })
 
@@ -102,16 +102,16 @@ describe('Tree', () => {
     const ctx = createTestCtx()
     let selected: string[] = []
     const factory = await Tree({ data }, ctx)
-    let v = factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
+    let v = await factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
     assert.equal(rows(v).length, 1)
     // 点击 root 行（有子节点）→ 展开而非选中
     rows(v)[0].props.onClick()
     assert.equal(selected.length, 0, '有子节点行不触发选中')
-    v = factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
+    v = await factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
     assert.equal(rows(v).length, 3, '点击行展开子节点')
     // 再次点击 → 折叠
     rows(v)[0].props.onClick()
-    v = factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
+    v = await factory({ data, expandOnClick: true, onSelect: (k: string[]) => { selected = k } })
     assert.equal(rows(v).length, 1, '再次点击折叠')
   })
 
@@ -119,7 +119,7 @@ describe('Tree', () => {
     let got: string[] = []
     const ctx = createTestCtx()
     const factory = await Tree({ data }, ctx)
-    let v = factory({ data, expandOnClick: true, expandedKeys: ['root', 'tech'], onSelect: (k: string[]) => { got = k } })
+    let v = await factory({ data, expandOnClick: true, expandedKeys: ['root', 'tech'], onSelect: (k: string[]) => { got = k } })
     // 展开后点击叶子（技术部下 fe）
     const feRow = rows(v).find((r: any) => labelOf(r) === '前端组')
     feRow.props.onClick()
@@ -224,7 +224,7 @@ it('searchValue：过滤匹配节点 + 自动展开祖先路径', async () => {
   const ctx = createTestCtx()
   const factory = await Tree({}, ctx)
   // 搜「前端」——应只显示 root > tech > fe（祖先自动展开）
-  const vnode = factory({ data, searchValue: '前端' })
+  const vnode = await factory({ data, searchValue: '前端' })
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('前端'), '匹配节点渲染（label 被 highlight 拆分，查匹配片段）')
   assert.ok(!s.includes('市场部'), '不匹配的兄弟节点过滤')
@@ -237,10 +237,10 @@ it('searchValue：过滤匹配节点 + 自动展开祖先路径', async () => {
 it('searchValue：高亮 mark + 无匹配空提示', async () => {
   const ctx = createTestCtx()
   const factory = await Tree({}, ctx)
-  const vnode = factory({ data, searchValue: '前端' })
+  const vnode = await factory({ data, searchValue: '前端' })
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-tree-match'), '高亮 mark 渲染')
   // 无匹配
-  const empty = factory({ data, searchValue: '不存在' })
+  const empty = await factory({ data, searchValue: '不存在' })
   assert.ok(JSON.stringify(empty).includes('无匹配节点'), '无匹配空提示')
 })

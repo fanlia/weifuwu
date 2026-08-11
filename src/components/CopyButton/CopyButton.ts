@@ -26,7 +26,7 @@ export const CopyButton: Component<CopyButtonProps> = async (_init, ctx) => {
   let copied = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
-  return (props) => {
+  return async (props) => {
     const {
       value, label, size = 'md', variant = 'secondary',
       iconOnly, successText = '已复制', onCopied, className, ...rest

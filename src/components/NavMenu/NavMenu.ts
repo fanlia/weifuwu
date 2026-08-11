@@ -137,7 +137,7 @@ export const NavMenu: Component<NavMenuProps> = async (_init, ctx: WfuiContext) 
     })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: NavMenuProps) => {
+  return async (props: NavMenuProps) => {
     const { items, activeKey, onSelect } = props
 
     return h('nav', {

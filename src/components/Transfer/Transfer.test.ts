@@ -47,11 +47,11 @@ describe('Transfer', () => {
     const ctx = createTestCtx()
     const result = await Transfer({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } }, ctx)
     const render = result as any
-    let v = render({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } })
+    let v = await render({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } })
     // 左列点击 B（选中）→ 点击 → 按钮
     const leftItem = v.props.children[0].props.children[1].props.children[0]
     leftItem.props.onClick()
-    v = render({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } })
+    v = await render({ data, targetKeys: ['a'], onChange: (k: string[]) => { got = k } })
     const rightBtn = v.props.children[1].props.children[1] // 右侧按钮（→）
     rightBtn.props.onClick()
     assert.deepEqual(got, ['a', 'b'])
@@ -62,10 +62,10 @@ describe('Transfer', () => {
     const ctx = createTestCtx()
     const result = await Transfer({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } }, ctx)
     const render = result as any
-    let v = render({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } })
+    let v = await render({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } })
     const rightItem = v.props.children[2].props.children[1].props.children[0]
     rightItem.props.onClick()
-    v = render({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } })
+    v = await render({ data, targetKeys: ['a', 'b'], onChange: (k: string[]) => { got = k } })
     const leftBtn = v.props.children[1].props.children[0] // 左侧按钮（←）
     leftBtn.props.onClick()
     assert.deepEqual(got, ['b'])
@@ -95,18 +95,18 @@ describe('Transfer', () => {
 it('showSearch：输入过滤两侧列表 + 无匹配提示', async () => {
   const ctx = createTestCtx()
   const factory = await Transfer({}, ctx)
-  let vnode = factory({ data, targetKeys: ['a'], showSearch: true })
+  let vnode = await factory({ data, targetKeys: ['a'], showSearch: true })
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-transfer-search'), '搜索框渲染')
   // 模拟左侧输入「B」（render-only：onInput 事件驱动内部状态）
   vnode.props.children[0].props.children[1].props.onInput({ target: { value: 'B' } })
-  vnode = factory({ data, targetKeys: ['a'], showSearch: true })
+  vnode = await factory({ data, targetKeys: ['a'], showSearch: true })
   const leftItems = vnode.props.children[0].props.children[2].props.children
   const labels = leftItems.map((i: any) => i.props?.children).filter(Boolean)
   // 左侧原 [B,D]（a 在 target），过滤 B → 仅「选项B」
   assert.deepEqual(labels, ['选项B'])
   // 无匹配：输入 Z
   vnode.props.children[0].props.children[1].props.onInput({ target: { value: 'Z' } })
-  vnode = factory({ data, targetKeys: ['a'], showSearch: true })
+  vnode = await factory({ data, targetKeys: ['a'], showSearch: true })
   assert.ok(JSON.stringify(vnode).includes('无匹配'), '无匹配提示')
 })

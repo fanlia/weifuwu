@@ -47,7 +47,7 @@ describe('JsonSchemaForm', () => {
   it('required 校验：缺值提交 → 错误展示 + onSubmit 不触发', async () => {
     let submitted: any = null
     const render = await mountComponent(JsonSchemaForm, { schema, onSubmit: (vals: any) => { submitted = vals } }, createTestCtx())
-    const v = render()
+    const v = await render()
     const btn = findByClass(v, 'wf-jsf-submit')[0]
     assert.ok(btn, '提交按钮')
     btn.props.onClick()
@@ -58,12 +58,12 @@ describe('JsonSchemaForm', () => {
   it('编辑 string 字段 → onChange 通知 + 值更新', async () => {
     let changed: any = null
     const render = await mountComponent(JsonSchemaForm, { schema, onChange: (v2: any) => { changed = v2 } }, createTestCtx())
-    let v = render()
+    let v = await render()
     const input = ofType(v, Input)[0]
     input.props.onInput({ target: { value: '北京' } })
     assert.ok(changed, 'onChange 触发')
     assert.equal(changed.city, '北京')
-    v = render() // 内部状态回流 → 输入框回显
+    v = await render() // 内部状态回流 → 输入框回显
     assert.equal(ofType(v, Input)[0].props.value, '北京')
   })
 
@@ -100,11 +100,11 @@ describe('JsonSchemaForm', () => {
     }
     let changed: any = null
     const render = await mountComponent(JsonSchemaForm, { schema: arrSchema, onChange: (v2: any) => { changed = v2 } }, createTestCtx())
-    let v = render()
+    let v = await render()
     assert.equal(findByClass(v, 'wf-jsf-arr-item').length, 0, '初始空数组')
     findByClass(v, 'wf-jsf-arr-add')[0].props.onClick() // 添加
     assert.ok(changed && Array.isArray(changed.tags) && changed.tags.length === 1, '添加一项')
-    v = render()
+    v = await render()
     assert.equal(findByClass(v, 'wf-jsf-arr-item').length, 1)
     findByClass(v, 'wf-jsf-arr-del')[0].props.onClick() // 删除
     assert.ok(changed && changed.tags.length === 0, '删除后空')

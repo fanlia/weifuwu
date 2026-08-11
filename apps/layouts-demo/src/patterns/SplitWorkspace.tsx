@@ -43,7 +43,7 @@ export const SplitWorkspace: Component = async (_init, ctx) => {
   let file = 'server.ts'
   let tab = 'server.ts'
 
-  return () => {
+  return async () => {
     const code = (FILES2.find((f) => f.name === file) ?? FILES2[0]).code
     return (
     <div class="wf-grid wf-border wf-rounded-lg" style={{ height: 'calc(100vh - 48px)', '--wf-cols': '20% 1fr 260px', overflow: 'hidden' }}>

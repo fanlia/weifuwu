@@ -47,7 +47,7 @@ export interface SelectProps {
 }
 
 const SelectNative: Component<SelectProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { label, value, options, placeholder, required, disabled, error, onChange, children } = props
 
   const optionEls: any[] = []
@@ -117,7 +117,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
     setOpen: (v) => { open = v; ctx.ui.render() }, // 外部点击/Escape 关闭必须显式渲染
   })
 
-  return (props) => {
+  return async (props) => {
     const { label, value, options = [], placeholder, required, disabled, error, onChange, onSearch, multiple } = props
 
     // 多选：value 为数组

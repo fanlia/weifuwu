@@ -54,10 +54,10 @@ describe('Accordion', () => {
     const ctx = createTestCtx()
     const result = await Accordion({ items }, ctx)
     const render = result as any
-    const v1 = render({ items })
+    const v1 = await render({ items })
     // 点击 A → 收起（内部状态）
     v1.props.children[0].props.children[0].props.onClick()
-    const v2 = render({ items })
+    const v2 = await render({ items })
     assert.equal(v2.props.children[0].props.children.length, 1) // 无 content
   })
 

@@ -28,9 +28,9 @@ describe('CitationCard', () => {
 
   it('点击展开 → 列表显示（title/source/snippet + 序号）', async () => {
     const render = await mountComponent(CitationCard, { items }, createTestCtx())
-    let v = render()
+    let v = await render()
     findByClass(v, 'wf-citation-toggle')[0].props.onClick()
-    v = render()
+    v = await render()
     assert.equal(findByClass(v, 'wf-citation-toggle')[0].props['aria-expanded'], true)
     const rows = findByClass(v, 'wf-citation-item')
     assert.equal(rows.length, 2)
@@ -42,9 +42,9 @@ describe('CitationCard', () => {
   it('maxVisible：折叠只显示前 N 条 + 溢出计数', async () => {
     const many: Citation[] = [1, 2, 3, 4].map((i) => ({ id: `c${i}`, title: `条目 ${i}`, snippet: `片段 ${i}` }))
     const render = await mountComponent(CitationCard, { items: many, maxVisible: 2 }, createTestCtx())
-    let v = render()
+    let v = await render()
     findByClass(v, 'wf-citation-toggle')[0].props.onClick()
-    v = render()
+    v = await render()
     const rows = findByClass(v, 'wf-citation-item')
     assert.equal(rows.length, 3, '2 条 + 1 溢出条目')
     assert.ok(JSON.stringify(rows[2].props.children).includes('2'), '溢出条目显示 +N')
@@ -77,9 +77,9 @@ describe('CitationCard', () => {
 
   it('键盘可达：Enter/Space 切换展开', async () => {
     const render = await mountComponent(CitationCard, { items }, createTestCtx())
-    let v = render()
+    let v = await render()
     findByClass(v, 'wf-citation-toggle')[0].props.onKeyDown({ key: ' ', preventDefault: () => {} })
-    v = render()
+    v = await render()
     assert.equal(findByClass(v, 'wf-citation-toggle')[0].props['aria-expanded'], true)
   })
 

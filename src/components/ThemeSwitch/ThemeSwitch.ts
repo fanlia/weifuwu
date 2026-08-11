@@ -62,7 +62,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = async (initProps, ctx) =
   applyTheme(mode)
 
   // ── render ──
-  return (props) => {
+  return async (props) => {
     const SL = (ctx as any)?.i18n?.components?.ThemeSwitch ?? {}
     const modes: Array<{ value: ThemeMode; label: string }> = [
       { value: 'auto', label: SL.auto ?? '自动' },

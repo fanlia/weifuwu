@@ -43,7 +43,7 @@ export interface CitationCardProps {
 export const CitationCard: Component<CitationCardProps, WfuiContext> = async (initProps, ctx) => {
   let expanded = !!initProps.defaultExpanded
 
-  return (props) => {
+  return async (props) => {
     const { items, label = '引用来源', maxVisible = 3, onOpen } = props
     if (!items?.length) return null
 

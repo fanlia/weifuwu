@@ -71,7 +71,7 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
           `Use (init_props, ctx) => (props) => VNode pattern.`,
       )
     }
-    return renderSsr(renderFn(vnode.props ?? {}), childCtx)
+    return renderSsr(await renderFn(vnode.props ?? {}), childCtx)
   }
 
   // Native

@@ -29,7 +29,7 @@ export const Drawer: Component<DrawerProps> = async (_props, ctx) => {
     if (e.key === 'Escape' && dialog.phase === 'open') latestOnClose?.()
   })
 
-  return (props: DrawerProps) => {
+  return async (props: DrawerProps) => {
     const { open, title, position = 'right', onClose, children, footer, width } = props
     latestOnClose = onClose
     const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}

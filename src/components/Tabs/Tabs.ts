@@ -33,7 +33,7 @@ export const Tabs: Component<TabsProps> = async (_init, ctx) => {
   }
   // 稳定 ref（§5.1：内联 ref 每次渲染新引用 → 重复触发清理逻辑）
   const listRef = (el: any) => { if (el) { listEl = el; queueMicrotask(measureActive) } }
-  return (props) => {
+  return async (props) => {
   const { items = [] } = props
 
   if (items.length === 0) return null

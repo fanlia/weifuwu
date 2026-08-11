@@ -61,7 +61,7 @@ export const Popconfirm: Component<PopconfirmProps> = async (_init, ctx: WfuiCon
   const close = () => { openCtrl?.setOpen(false) }
 
   // ── render（每次 dirty/props 变化）──
-  return (props: PopconfirmProps) => {
+  return async (props: PopconfirmProps) => {
     const {
       title, okText = '确定', cancelText = '取消', danger,
       onConfirm, onCancel, position = 'top', icon,

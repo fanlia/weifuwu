@@ -11,7 +11,7 @@ export interface TagProps {
 }
 
 export const Tag: Component<TagProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { closable, onClose, variant = 'default', children } = props
 
   const closeBtn = closable

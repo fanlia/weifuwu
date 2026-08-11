@@ -32,7 +32,7 @@ describe('InView', () => {
     const renderFn = typeof result === 'function' ? result : null
     // 通过 ref 获取 sentinel 元素并触发 IntersectionObserver
     // 这里简化：直接验证首次不渲染 children，而是渲染占位
-    const vnode = renderFn!({ children: h('p', null, '内容') })!
+    const vnode = await renderFn!({ children: h('p', null, '内容') })!
     const pendingEl = vnode.props.children?.find?.((c: any) => c?.props?.class === 'wf-inview-pending')
     assert.ok(pendingEl, 'should have sentinel element when not in view')
     assert.match(vnode.props.class, /wf-inview--pending/)
@@ -66,7 +66,7 @@ describe('InView', () => {
     const ctx = makeCtx()
     const result = await InView({ children: '内容' }, ctx)
     const renderFn = typeof result === 'function' ? result : null
-    const vnode = renderFn!({ children: '内容' })!
+    const vnode = await renderFn!({ children: '内容' })!
     assert.match(vnode.props.class, /pending/)
   })
 })

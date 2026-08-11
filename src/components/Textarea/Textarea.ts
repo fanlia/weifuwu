@@ -19,7 +19,7 @@ export interface TextareaProps {
 }
 
 export const Textarea: Component<TextareaProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { label, value, placeholder, required, disabled, error, hint, rows = 3, maxLength, showCount, onInput } = props
 
   const textareaEl = h('textarea', {

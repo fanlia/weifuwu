@@ -70,7 +70,7 @@ export const Editor: Component<EditorProps> = async (_props, ctx) => {
   }
 
   // ── render（每次 dirty/props 变化）──
-  return (props: EditorProps) => {
+  return async (props: EditorProps) => {
     const { value = '', onChange, onUpload, placeholder = '', disabled = false, minHeight = '200px' } = props
     const toolbarItems = props.toolbar ?? DEFAULT_TOOLBAR
     const isRichMode = mode === 'rich'

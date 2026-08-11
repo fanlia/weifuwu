@@ -67,7 +67,7 @@ export const Dashboard: Component = async (_init, ctx) => {
   let showGoal = true
   const rerender = () => ctx.ui.render()
 
-  return () => {
+  return async () => {
     const data = DATA[period] ?? DATA['30d']
     return (
       <div class="wf-stack wf-gap-lg wf-p-lg wf-scroll" style={{ minHeight: 'calc(100vh - 48px)' }}>

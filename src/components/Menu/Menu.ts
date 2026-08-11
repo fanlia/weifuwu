@@ -77,7 +77,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
     items[next].focus()
   }
 
-  return (props: MenuProps) => {
+  return async (props: MenuProps) => {
     const {
       items, onSelect, activeKey, className,
       openKeys, onOpenChange, collapsible, collapsed, onCollapseChange,

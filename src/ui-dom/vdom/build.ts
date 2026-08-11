@@ -32,7 +32,7 @@ export async function mountAsyncComponent(
   ctx: WfuiContext,
   reg: Registry,
   opts?: { reuse?: VNode },
-): Promise<{ renderFn: (props: VNode['props']) => VNode | null; childCtx: WfuiContext }> {
+): Promise<{ renderFn: (props: VNode['props']) => Promise<VNode | null>; childCtx: WfuiContext }> {
   if (!vnode._id) {
     // 旧树同位置同类型 → 复用旧 id（渲染定位锚点不漂移：剪枝新 vnode 若分配新 id，
     // 组件内部 render([selfId]) 会命中 registry 里的新 vnode——其 _parentNode 未设置 →
@@ -65,7 +65,7 @@ export async function mountAsyncComponent(
 
   // 旧树同位置同类型复用（工厂不重跑——组件跨渲染保持内部状态）
   if (typeof vnode._render !== 'function' && typeof opts?.reuse?._render === 'function') {
-    vnode._render = opts.reuse._render as (props: VNode['props']) => VNode | null
+    vnode._render = opts.reuse._render as (props: VNode['props']) => Promise<VNode | null>
   }
   if (typeof vnode._render !== 'function') {
     // mount 保护期：$ 初始化赋值不产生 dirty 标记
@@ -82,9 +82,9 @@ export async function mountAsyncComponent(
           `Use (init_props, ctx) => (props) => VNode pattern.`,
       )
     }
-    vnode._render = renderFn as (props: VNode['props']) => VNode | null
+    vnode._render = renderFn as (props: VNode['props']) => Promise<VNode | null>
   }
-  return { renderFn: vnode._render as (props: VNode['props']) => VNode | null, childCtx }
+  return { renderFn: vnode._render as (props: VNode['props']) => Promise<VNode | null>, childCtx }
 }
 
 /**
@@ -127,7 +127,7 @@ export async function buildVNode(
     const ctxVersion = (ctx as any)?.ui?._ctxVersion ?? 0
     const verSame = (oldV?._ctxVersion ?? -1) === ctxVersion
     if (opts?.force || !propsSame || !verSame || oldV?._child == null) {
-      const built = await buildVNode(vnode._render!(vnode.props), childCtx, oldV?._child, registry)
+      const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry)
       vnode._child = (built ?? null) as VNode | VNode[] | null
       vnode._ctxVersion = ctxVersion
     } else {

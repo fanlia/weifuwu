@@ -55,7 +55,7 @@ function positionClass(pos: ToastPosition): string {
 }
 
 export const Toast: Component<ToastProps> = async (_init, ctx) =>
-  (props) => {
+  async (props) => {
   const { toasts = [], onRemove, position = 'top-right', duration = 0, max = 0 } = props
 
   // 限制最大显示条数
@@ -148,7 +148,7 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
       },
     }
     // 总是返回包装 div（非 null）——保证 _refNode 有值，scope render 能定位本组件
-    return () => h('div', { class: 'wf-toast-host' }, [
+    return async () => h('div', { class: 'wf-toast-host' }, [
         h(Toast, {
           toasts,
           position: defaults.position,

@@ -123,12 +123,12 @@ describe('Menu 子菜单', () => {
   it('点击标题展开（非受控）：aria-expanded true + 子项可聚焦', async () => {
     // 同一组件实例（mount 一次 render 多次）——内部闭包状态跨 render 保持
     const factory = await Menu({} as any, createTestCtx())
-    let vnode = factory({ items: submenuItems })!
+    let vnode = await factory({ items: submenuItems })!
     const sub = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu'))
     const title = sub.props.children.find((c: any) => c.props?.class?.includes('wf-menu-submenu-title'))
     title.props.onClick()
     // 重渲染后展开
-    vnode = factory({ items: submenuItems })!
+    vnode = await factory({ items: submenuItems })!
     const sub2 = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu'))
     const title2 = sub2.props.children.find((c: any) => c.props?.class?.includes('wf-menu-submenu-title'))
     assert.equal(title2.props['aria-expanded'], 'true')
@@ -151,15 +151,15 @@ describe('Menu 子菜单', () => {
 
   it('键盘：标题 Enter 展开 / 再次 Enter 收起', async () => {
     const factory = await Menu({} as any, createTestCtx())
-    let vnode = factory({ items: submenuItems })!
+    let vnode = await factory({ items: submenuItems })!
     const sub = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu'))
     const title = sub.props.children.find((c: any) => c.props?.class?.includes('wf-menu-submenu-title'))
     title.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
-    vnode = factory({ items: submenuItems })!
+    vnode = await factory({ items: submenuItems })!
     const title2 = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu-title'))
     assert.equal(title2.props['aria-expanded'], 'true')
     title2.props.onKeyDown({ key: 'Escape', preventDefault: () => {} })
-    vnode = factory({ items: submenuItems })!
+    vnode = await factory({ items: submenuItems })!
     const title3 = findV(vnode, (n) => n.props?.class?.includes('wf-menu-submenu-title'))
     assert.equal(title3.props['aria-expanded'], 'false')
   })
@@ -187,7 +187,7 @@ describe('Menu 子菜单', () => {
     const ctx = createTestCtx()
     const render = renderVNode.bind(null, Menu) as any
     const factory = await (Menu as any)({ items: submenuItems, collapsible: true, collapsed: true }, ctx)
-    let v = factory({ items: submenuItems, collapsible: true, collapsed: true })
+    let v = await factory({ items: submenuItems, collapsible: true, collapsed: true })
     // 折叠标题 aria-expanded=false
     const findTitle = (n: any): any => {
       if (!n || typeof n !== 'object') return null
@@ -202,7 +202,7 @@ describe('Menu 子菜单', () => {
     assert.equal(title.props['aria-expanded'], 'false', '初始未展开')
     // 点击展开（mock usePopup.portal 返回 content，popupOpen 后 children[1] 非空）
     title.props.onClick({ currentTarget: {} })
-    v = factory({ items: submenuItems, collapsible: true, collapsed: true })
+    v = await factory({ items: submenuItems, collapsible: true, collapsed: true })
     const title2 = findTitle(v)
     assert.equal(title2.props['aria-expanded'], 'true', '点击后展开')
   })

@@ -27,7 +27,7 @@ export interface PasswordInputProps {
 export const PasswordInput: Component<PasswordInputProps> = async (_init, ctx) => {
   let show = false
 
-  return (props: PasswordInputProps) => {
+  return async (props: PasswordInputProps) => {
     const {
       value, onInput, onChange, label, name, placeholder,
       disabled, error, hint, required, autoComplete, className,

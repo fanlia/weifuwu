@@ -27,7 +27,7 @@ async function mount(Comp: any, props: any, ctx: WfuiContext) {
 describe('DatePicker', () => {
   it('renders input with placeholder', async () => {
     const render = await mount(DatePicker, { placeholder: '选择日期' }, makeCtx())
-    const vnode = render()
+    const vnode = await render()
     const input = vnode.props.children[0]
     assert.equal(input.props.type, 'text')
     assert.equal(input.props.placeholder, '选择日期')
@@ -36,17 +36,17 @@ describe('DatePicker', () => {
 
   it('applies disabled class', async () => {
     const render = await mount(DatePicker, { disabled: true }, makeCtx())
-    const vnode = render()
+    const vnode = await render()
     assert.match(vnode.props.class, /wf-datepicker--disabled/)
   })
 
   it('mode=date shows calendar panel via portal when open', async () => {
     const render = await mount(DatePicker, { mode: 'date', placeholder: '日期' }, makeCtx())
     // 点击 input 触发打开
-    let vnode = render()
+    let vnode = await render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
     // 重新 render，此时 show=true
-    vnode = render()
+    vnode = await render()
     const portal = vnode.props.children[1]
     assert.equal(portal?.type, Portal, '应渲染 Portal')
     const panel = portal?.props?.children?.find((c: any) => c?.props?.class === 'wf-datepicker-dropdown')
@@ -56,9 +56,9 @@ describe('DatePicker', () => {
 
   it('mode=time shows time picker', async () => {
     const render = await mount(DatePicker, { mode: 'time', placeholder: '时间' }, makeCtx())
-    let vnode = render()
+    let vnode = await render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
-    vnode = render()
+    vnode = await render()
     const portal = vnode.props.children[1]
     const timePanel = portal?.props?.children?.find((c: any) => c?.props?.class === 'wf-time-picker')
     assert.ok(timePanel, '时间选择面板应在 Portal 中')
@@ -66,9 +66,9 @@ describe('DatePicker', () => {
 
   it('mode=range shows dual month panels', async () => {
     const render = await mount(DatePicker, { mode: 'range', placeholder: '范围' }, makeCtx())
-    let vnode = render()
+    let vnode = await render()
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
-    vnode = render()
+    vnode = await render()
     const portal = vnode.props.children[1]
     const rangeWrap = portal?.props?.children?.find((c: any) => c?.props?.class === 'wf-datepicker-range-wrap')
     assert.ok(rangeWrap, '区间面板应在 Portal 中')
@@ -78,17 +78,17 @@ describe('DatePicker', () => {
 
   it('does not show panel when closed', async () => {
     const render = await mount(DatePicker, { mode: 'date' }, makeCtx())
-    const vnode = render()
+    const vnode = await render()
     assert.equal(vnode.props.children.length, 1, '关闭状态下只有一个 input')
   })
 
   it('calls onChange on date select', async () => {
     let val = ''
     const render = await mount(DatePicker, { mode: 'date', onChange: (v: string) => { val = v } }, makeCtx())
-    let vnode = render()
+    let vnode = await render()
     // 打开日历
     vnode.props.children[0].props.onClick({ preventDefault: () => {} })
-    vnode = render()
+    vnode = await render()
     const portal = vnode.props.children[1]
     const panel = portal?.props?.children?.find((c: any) => c?.props?.class === 'wf-datepicker-dropdown')
     const calPanel = panel?.props?.children?.[0]
@@ -115,7 +115,7 @@ describe('DatePicker', () => {
         $: () => ({}), dirty: () => {},
         // 模拟真实 ctx.ui.render：同树 patch（含 portal 增删），避免 remount 留脏节点
         render: async () => {
-          const next = renderFn!()
+          const next = await renderFn!()
           await patchToDom(container, container.firstChild, prev, next, ctx)
           prev = next
         },
@@ -126,7 +126,7 @@ describe('DatePicker', () => {
     }
     const result = await (DatePicker as any)({}, ctx)
     renderFn = typeof result === 'function' ? () => result({}) : null
-    prev = renderFn!()
+    prev = await renderFn!()
     await mountToDom(container, prev, ctx)
 
     // 点击输入框打开面板（toggle）

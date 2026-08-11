@@ -19,7 +19,7 @@
 - **域契约层**——`src/email/contracts.ts`（`Mailer` → ctx.email）、`src/ai/contracts.ts`（`Ai` → ctx.ai）：同模式，中间件引擎实现接口，消费方只依赖接口类型
 - **queue 注入模式**（模式 A 显式注入）：`queue({ redis })` 必传 Redis——池命令走轮询连接，worker 阻塞读走 `redis.createConnection()`（不占池）；所有权在调用方（queue.close() 不关闭注入 redis）；scheduler 走 `queue: QueueClientModule` 参数复用
 - **render-only 状态驱动** — 渲染唯一触发 `ctx.ui.render()`（闭包绑定组件）；状态是普通对象（`let` + `render()` / `createStore` + `useExternal` 订阅）——无 `$` Proxy、无隐式触发
-- **组件签名** — `(initProps, ctx) => (props) => VNode | null`（两阶段模型）
+- **组件签名** — `async (initProps, ctx) => async (props) => Promise<VNode | null>`（两阶段模型，renderFn 强制异步）
 - **VDOM 支持 innerHTML** — 直接用 `innerHTML` prop
 - **ref 管理 DOM** — `ref={el => { if (el) init; else cleanup }}`
 
@@ -90,7 +90,7 @@ const Toggle: Component = (_init, ctx) => {
 
 ### 3.3 两阶段异步组件（唯一组件形态）
 
-> **weifuwu 只支持这一种组件签名**：`async (initProps, ctx) => (props) => vnode`——外层工厂（mount，可 await 数据）+ 内层 render 函数（同步）。渲染器按「返回值是 Promise」原生判别；同步组件已不支持（Component 类型强制 Promise 返回）。
+> **weifuwu 只支持这一种组件签名**：`async (initProps, ctx) => async (props) => vnode`——外层工厂（mount，可 await 数据）+ 内层 renderFn（**强制异步**，可 await 数据——统一异步心智：两阶段都可 await，无「同步 vs 异步」二元形态）。同步 renderFn 是类型错误（`RenderFn<P> = (props) => Promise<VNode | null>`）；渲染器在 buildVNode 阶段 await renderFn（diff 永不执行 renderFn——同步上下文拿不到 vnode）。
 
 ```tsx
 const UserProfile = async (initProps, ctx) => {
@@ -489,6 +489,8 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 7.1 命令与预算
 
+- **开发迭代只跑单文件**（快速定位）：`timeout 15 node --env-file=.env --test --test-timeout=8000 <单文件>`——改动只影响该文件的测试（如 `src/test/vdom-diff.test.ts`、`src/components/Table/Table.test.ts`）；涉及引擎/渲染管线的改动跑相关测试组（`'src/test/vdom*.test.ts'`）即可
+- **全量测试只在发布版本之前运行**（`npm test` = `node --env-file=.env --test --test-concurrency=8 'src/test/**/*.test.ts' 'src/components/**/*.test.ts' 'src/db/**/*.test.ts'`）——开发中不跑全量（~17s + db 真库依赖 docker），避免干扰定位；发布前（`node scripts/release.mjs <version>`）跑全量确认全绿
 - `node --test` 无 Jest/Mocha；`npm test` 无 pretest、**零外部依赖**（docker 不参与测试——见 §7.4 测试范围）
 - **bash 命令 timeout 原则**：运行测试/脚本的 `bash` 命令必须设 `timeout`（**≤15 秒**），并优先加 `--test-timeout`（如 `timeout 15 node --env-file=.env --test --test-timeout=8000 ...`）——真库/集成测试卡住时能快速定位；卡住时用更短 timeout 复跑缩小范围
 - **全量测试总时长预算：≤ 15 秒**（实测 ~11.5s，db 真库 191 个测试占 ~4.3s）。**超过 15 秒 = 必须排查**：

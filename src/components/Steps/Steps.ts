@@ -16,7 +16,7 @@ export interface StepsProps {
 }
 
 export const Steps: Component<StepsProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { items = [], active, current = 0 } = props
 
   const activeKey = active ?? items[current]?.key

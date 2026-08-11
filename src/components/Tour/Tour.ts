@@ -93,7 +93,7 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
     ctx.ui.render()
   }
 
-  return (props) => {
+  return async (props) => {
     latestProps = props
     latestOpen = !!props.open
     const isControlledOpen = props.open !== undefined

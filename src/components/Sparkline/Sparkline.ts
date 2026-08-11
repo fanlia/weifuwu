@@ -25,7 +25,7 @@ export interface SparklineProps {
  * 归一化到 viewBox，等值/单点/空数据安全。
  */
 export const Sparkline: Component<SparklineProps> = async (_init, ctx) =>
-  (props) => {
+  async (props) => {
     const {
       data,
       width = 120,

@@ -48,7 +48,7 @@ export const Collapse: Component<CollapseProps> = async (_init, ctx) => {
     return fn
   }
 
-  return (props) => {
+  return async (props) => {
     const { items = [], multiple = true, className } = props
 
     // 受控/非受控（useControlled：render 阶段读最新 props；非受控内部状态跨渲染保持；

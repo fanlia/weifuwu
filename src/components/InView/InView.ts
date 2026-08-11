@@ -35,7 +35,7 @@ export const InView: Component<InViewProps> = async (_props, ctx) => {
     else inViewHandle.disconnect()
   }
 
-  return (props: InViewProps) => {
+  return async (props: InViewProps) => {
     Object.assign(propsRef, props)
 
     if (inViewHandle.isIn) {

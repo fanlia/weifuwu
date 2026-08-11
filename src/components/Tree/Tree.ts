@@ -91,7 +91,7 @@ export const Tree: Component<TreeProps> = async (_init, ctx) => {
   let rowEls: (HTMLElement | null)[] = []
   const rowRefs: ((el: HTMLElement | null) => void)[] = []
 
-  return (props) => {
+  return async (props) => {
     const {
       data = [], expandedKeys, onExpand, expandOnClick,
       checkable, className, searchValue,

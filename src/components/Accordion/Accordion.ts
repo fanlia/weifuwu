@@ -42,7 +42,7 @@ export const Accordion: Component<AccordionProps> = async (_init, ctx) => {
     return fn
   }
 
-  return (props) => {
+  return async (props) => {
     const { items = [], active, onChange, multiple = false } = props
 
     // 非受控：内部状态初始化为全部展开（向后兼容旧实现的行为）——

@@ -40,7 +40,7 @@ describe('Calendar', () => {
       onMonthChange: (m: number, y: number) => { gotMonth = m; gotYear = y },
     }, ctx)
     const render = result as any
-    const v = render({
+    const v = await render({
       events, month: 5, year: 2025,
       onMonthChange: (m: number, y: number) => { gotMonth = m; gotYear = y },
     })
@@ -92,7 +92,7 @@ function findCell(vnode: any, day: string): any {
 it('受控 month/year：非受控时内部自管理（无 onMonthChange 也能翻月）', async () => {
   const ctx = createTestCtx()
   const factory = await Calendar({}, ctx)
-  const vnode = factory({})
+  const vnode = await factory({})
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-calendar'), '非受控渲染日历')
   // 翻月按钮存在

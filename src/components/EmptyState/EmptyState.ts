@@ -12,7 +12,7 @@ export interface EmptyStateProps {
 }
 
 export const EmptyState: Component<EmptyStateProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { icon = h(Icon, { name: 'inbox' }), text = '暂无数据', hint, children } = props
 
   const parts: any[] = [

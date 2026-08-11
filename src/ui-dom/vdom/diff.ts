@@ -190,14 +190,15 @@ export function patchValue(
       return oldNode
     }
 
-    // 渲染输出（_render 同步——buildVNode 已展开 _child 优先）
+    // 渲染输出（_child 必已由 buildVNode 预构建——renderFn 强制异步，diff 同步上下文
+    // 永不执行 renderFn：异步 renderFn 在此执行会拿到 Promise → 泄漏进同步 diff）
     let childNew: VNodeChild
-    if (newV._child !== undefined) {
-      childNew = newV._child
-    } else {
-      childNew = newV._render!(newV.props)
-      newV._child = childNew
+    if (newV._child === undefined) {
+      throw new Error(
+        `[vdom] component ${(newV.type as any).name || 'anonymous'} not built (missing _child) — buildVNode must run before patchValue`,
+      )
     }
+    childNew = newV._child
     const returned = patchValue(parent, oldNode, oldV?._child, childNew, ctx)
     if (returned) newV._refNode = returned
     return returned

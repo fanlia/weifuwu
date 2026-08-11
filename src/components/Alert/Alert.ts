@@ -14,7 +14,7 @@ export interface AlertProps {
 }
 
 export const Alert: Component<AlertProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { variant = 'info', closable, onClose, children } = props
 
   if (!children) return null

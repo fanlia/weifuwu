@@ -69,12 +69,12 @@ export const Anchor: Component<AnchorProps> = async (_init, ctx) => {
     links[next].focus()
   }
 
-  return (props: AnchorProps) => {
+  return async (props: AnchorProps) => {
     Object.assign(propsRef, props)
     const { items, activeKey, onAnchorChange, useHash, offsetTop = 80, className } = props
 
     // 受控：显示 activeKey；滚动计算始终进行（onAnchorChange 通知父层——antd onChange 语义）
-    // 回调推迟到微任务：渲染期调用 onAnchorChange 触发父层 render——scheduler 队列串行化
+    // 回调推迟到微任务：渲染期调用 onAnchorChange 触发父层 render——renderer 直接执行
     // （render-only：render() 是 fire-and-forget async，渲染期调用会排入队列后执行，无嵌套渲染）
     const computed = computeActive(items, offsetTop)
     if (internalActive !== computed) {

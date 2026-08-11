@@ -35,7 +35,7 @@ describe('BackTop', () => {
   it('renders hidden by default (IO isIn=true = 未超过阈值)', async () => {
     const { ctx } = makeCtx(true)
     const render = await mount(BackTop, {}, ctx)!
-    const vnode = render({})
+    const vnode = await render({})
     assert.equal(vnode.type, 'div') // host
     assert.match(buttonOf(vnode).props.class, /wf-backtop--hidden/)
   })
@@ -44,7 +44,7 @@ describe('BackTop', () => {
     const { ctx, inView } = makeCtx(true)
     const render = await mount(BackTop, { visibilityHeight: 400 }, ctx)!
     inView.isIn = false // 模拟 IO：哨兵离开扩展区（滚动超 400px）
-    const vnode = render({ visibilityHeight: 400 })
+    const vnode = await render({ visibilityHeight: 400 })
     assert.doesNotMatch(buttonOf(vnode).props.class, /--hidden/)
     assert.match(buttonOf(vnode).props.class, /wf-backtop/)
   })
@@ -52,7 +52,7 @@ describe('BackTop', () => {
   it('stays hidden below threshold (IO isIn=true)', async () => {
     const { ctx, inView } = makeCtx(true)
     const render = await mount(BackTop, { visibilityHeight: 400 }, ctx)!
-    const vnode = render({ visibilityHeight: 400 })
+    const vnode = await render({ visibilityHeight: 400 })
     assert.match(buttonOf(vnode).props.class, /--hidden/)
     assert.equal(inView.isIn, true)
   })
@@ -60,7 +60,7 @@ describe('BackTop', () => {
   it('click scrolls to top', async () => {
     const { ctx } = makeCtx(true)
     const render = await mount(BackTop, {}, ctx)!
-    const vnode = render({})
+    const vnode = await render({})
     buttonOf(vnode).props.onClick()
     assert.equal(scrolledTo, 0)
   })
@@ -68,14 +68,14 @@ describe('BackTop', () => {
   it('renders custom children', async () => {
     const { ctx } = makeCtx(true)
     const render = await mount(BackTop, { children: 'TOP' }, ctx)!
-    const vnode = render({ children: 'TOP' })
+    const vnode = await render({ children: 'TOP' })
     assert.equal(buttonOf(vnode).props.children, 'TOP')
   })
 
   it('cleanup disconnects observer (sentinel ref null branch)', async () => {
     const { ctx } = makeCtx(true)
     const render = await mount(BackTop, {}, ctx)!
-    const vnode = render({})
+    const vnode = await render({})
     // sentinel ref：挂载 + 卸载（observe/disconnect，无异常即可）
     vnode.props.children[0].props.ref(document.createElement('div'))
     vnode.props.children[0].props.ref(null)
@@ -85,7 +85,7 @@ describe('BackTop', () => {
 it('键盘可达：按钮原生可聚焦 + Enter 回顶（P1）', async () => {
   const { ctx, inView } = makeCtx(false) // isIn=false → 显示
   const factory = await mount(BackTop, { visibilityHeight: 100 }, ctx)
-  const vnode = factory({ visibilityHeight: 100 })
+  const vnode = await factory({ visibilityHeight: 100 })
   const btn = buttonOf(vnode)
   assert.ok(btn, '按钮渲染')
   assert.ok(btn.props.type === 'button' || btn.type === 'button', '原生 button 可聚焦')
@@ -94,6 +94,6 @@ it('键盘可达：按钮原生可聚焦 + Enter 回顶（P1）', async () => {
 it('visibilityHeight 默认值存在（不传不抛错——边界）', async () => {
   const { ctx } = makeCtx()
   const factory = await mount(BackTop, {}, ctx)
-  const vnode = factory({})
+  const vnode = await factory({})
   assert.ok(vnode, '默认参数渲染')
 })

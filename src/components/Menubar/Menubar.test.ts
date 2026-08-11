@@ -64,9 +64,9 @@ describe('Menubar', () => {
     const ctx = createTestCtx()
     const result = await Menubar({ menus }, ctx)
     const render = result as any
-    let v = render({ menus })
+    let v = await render({ menus })
     v.props.children[0].props.onClick()
-    v = render({ menus })
+    v = await render({ menus })
     // 有 portal（下拉面板）
     const portal = v.props.children[2]
     assert.ok(portal, '应打开下拉')
@@ -82,13 +82,13 @@ describe('Menubar', () => {
     const ctx = createTestCtx()
     const result = await Menubar({ menus: myMenus }, ctx)
     const render = result as any
-    let v = render({ menus: myMenus })
+    let v = await render({ menus: myMenus })
     v.props.children[0].props.onClick()
-    v = render({ menus: myMenus })
-    const panel = inner(v.props.children[1]).props.children
+    v = await render({ menus: myMenus })
+    const panel = (await inner(v.props.children[1])).props.children
     panel[1].props.onClick() // B
     assert.equal(selected, 'b')
-    v = render({ menus: myMenus })
+    v = await render({ menus: myMenus })
     assert.equal(v.props.children.length, 1) // 已关闭
   })
 
@@ -96,7 +96,7 @@ describe('Menubar', () => {
     const ctx = createTestCtx()
     const result = await Menubar({ menus }, ctx)
     const render = result as any
-    let v = render({ menus })
+    let v = await render({ menus })
     // 模拟焦点在第一个 trigger：按 ArrowRight → 打开第二个？简化：验证 handler + 不抛错
     assert.equal(typeof v.props.onKeyDown, 'function')
     assert.doesNotThrow(() => v.props.onKeyDown({ key: 'ArrowRight', preventDefault: () => {} }))
@@ -106,12 +106,12 @@ describe('Menubar', () => {
     const ctx = createTestCtx()
     const result = await Menubar({ menus }, ctx)
     const render = result as any
-    let v = render({ menus })
+    let v = await render({ menus })
     v.props.children[0].props.onClick()
-    v = render({ menus })
+    v = await render({ menus })
     assert.ok(v.props.children.length > 2) // triggers + portal
     v.props.onKeyDown({ key: 'Escape' })
-    v = render({ menus })
+    v = await render({ menus })
     assert.equal(v.props.children.length, 2) // 只有 2 个 triggers
   })
 
@@ -126,7 +126,7 @@ describe('Menubar', () => {
 it('键盘：ArrowLeft/ArrowRight 方向键处理不抛错（焦点链）', async () => {
   const ctx = createTestCtx()
   const factory = await Menubar({ menus }, ctx)
-  const vnode = factory({ menus })
+  const vnode = await factory({ menus })
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('wf-menubar'), '菜单栏渲染')
   // 触发器为原生 button（P1：原生可聚焦）
@@ -136,7 +136,7 @@ it('键盘：ArrowLeft/ArrowRight 方向键处理不抛错（焦点链）', asyn
 it('菜单项 role=menuitem 可聚焦或原生 button（P1 键盘可达）', async () => {
   const ctx = createTestCtx()
   const factory = await Menubar({ menus }, ctx)
-  const vnode = factory({ menus })
+  const vnode = await factory({ menus })
   const s = JSON.stringify(vnode)
   assert.ok(/tabindex|tabIndex|"button"/.test(s), '菜单项必须可聚焦')
 })

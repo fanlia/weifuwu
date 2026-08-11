@@ -30,7 +30,7 @@ export interface DiffViewProps {
 export const DiffView: Component<DiffViewProps> = async (_init, ctx) => {
   let expanded = new Set<number>() // 已展开的折叠块索引（手动：不触发 $ Proxy）
 
-  return (props) => {
+  return async (props) => {
     const {
       oldCode = '',
       newCode = '',

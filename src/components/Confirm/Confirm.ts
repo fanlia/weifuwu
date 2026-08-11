@@ -95,7 +95,7 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
       }
       // 总是返回包装 div（非 null）：Confirm→Modal 输出是 Portal，无本地 DOM——
       // _refNode 为 null 时 renderByIds 静默跳过，open=false 永远打不进去（ToastHost 同款模式）
-      return () => h('div', { class: 'wf-confirm-host' }, h(Confirm, {
+      return async () => h('div', { class: 'wf-confirm-host' }, h(Confirm, {
         open,
         title: options.title,
         message,
@@ -116,7 +116,7 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
 
 export const Confirm: Component<ConfirmProps> = async (_init, _ctx) => {
   // ── render（每次 dirty/props 变化）──
-  return (props: ConfirmProps) => {
+  return async (props: ConfirmProps) => {
     const { open = false, title, message, confirmText, cancelText, variant = 'primary', width, maskClosable = false, onConfirm, onCancel } = props
     const CL = (_ctx as any)?.i18n?.components?.Confirm ?? {}
 

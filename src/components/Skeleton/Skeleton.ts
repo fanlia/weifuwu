@@ -17,7 +17,7 @@ export interface SkeletonProps {
 }
 
 export const Skeleton: Component<SkeletonProps> = async (_init) =>
-  (props) => {
+  async (props) => {
     const { variant = 'text', lines = 1, cols = 3, width, height, className } = props
 
     const style: Record<string, string> = {}

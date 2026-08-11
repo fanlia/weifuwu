@@ -28,7 +28,7 @@ export const TagsInput: Component<TagsInputProps> = async (_init, ctx) => {
   // 输入法 composition 状态（中文候选词确认 Enter 不应提交标签）
   let composing = false
 
-  return (props: TagsInputProps) => {
+  return async (props: TagsInputProps) => {
     const {
       placeholder, maxTags, allowDuplicates,
       disabled, label, error, hint, className,

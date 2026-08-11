@@ -24,7 +24,7 @@ export interface ScrollbarProps {
 }
 
 export const Scrollbar: Component<ScrollbarProps> = async (_init, _ctx: WfuiContext) =>
-  (props) => {
+  async (props) => {
     const { maxHeight, height, orientation = 'vertical', always, children, style } = props
     const hAxis = orientation === 'horizontal'
     return h('div', {

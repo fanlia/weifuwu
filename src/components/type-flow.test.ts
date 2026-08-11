@@ -44,11 +44,20 @@ const badSort: TableProps = {
 const badMode: DatePickerProps = { mode: 'week' }
 
 // ④ 负例：ctx 注入未声明字段（C 泛型真实生效）
-const NoInjected: Component<{}, {}> = (_init, ctx) => {
+const NoInjected: Component<{}, {}> = async (_init, ctx) => {
   // @ts-expect-error C 泛型未声明 i18n，访问应报错
   ctx.i18n
-  return () => null
+  return async () => null
 }
+
+// ④b 负例：renderFn 强制异步——同步 renderFn 是类型错误
+// @ts-expect-error 同步 renderFn（返回 VNode 而非 Promise<VNode>）不合法
+const SyncRenderFn: Component<{ label: string }> = async (_init, ctx) =>
+  (props) => h('span', {}, props.label)
+
+// ④c 正例：异步 renderFn（render 期 await 数据）合法
+const AsyncRenderFn: Component<{ id: string }> = async (_init, ctx) =>
+  async (props) => { await Promise.resolve(); return h('span', {}, props.id) }
 
 // ⑤ 负例：移动端 usePopup trigger 字面量
 // @ts-expect-error trigger 仅 hover/click/longpress

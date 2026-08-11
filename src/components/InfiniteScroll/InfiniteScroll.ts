@@ -30,7 +30,7 @@ export const InfiniteScroll: Component<InfiniteScrollProps> = async (_init, ctx)
     },
   })
 
-  return (props) => {
+  return async (props) => {
     Object.assign(propsRef, props)
     const {
       hasMore = true, loading, threshold = 100,

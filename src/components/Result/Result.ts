@@ -30,7 +30,7 @@ const ICON: Record<ResultStatus, IconName> = {
 }
 
 export const Result: Component<ResultProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
     const { status = 'info', title, desc, extra, className } = props
 
     return h('div', { class: `wf-result wf-result--${status}${className ? ` ${className}` : ''}` }, [

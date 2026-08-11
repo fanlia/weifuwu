@@ -29,7 +29,7 @@ export interface ReasoningBlockProps {
 export const ReasoningBlock: Component<ReasoningBlockProps, WfuiContext> = async (initProps, ctx) => {
   let expanded = !!initProps.defaultExpanded
 
-  return (props) => {
+  return async (props) => {
     const { content, streaming, label = '已思考' } = props
     const toggle = () => { expanded = !expanded; ctx.ui.render() }
 

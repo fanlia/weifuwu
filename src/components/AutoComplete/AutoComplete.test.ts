@@ -101,7 +101,7 @@ describe('AutoComplete', () => {
     let selected = ''
     const ctx = makeCtx()
     const inst = await mount(AutoComplete, { options, value: '', onChange: (v: string) => { selected = v } }, ctx)
-    const vnode = inst.render({ options, value: '', open: true, onChange: (v: string) => { selected = v } })
+    const vnode = await inst.render({ options, value: '', open: true, onChange: (v: string) => { selected = v } })
     const opt = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-option'))
     opt.props.onMouseDown?.({ stopPropagation: () => {} })
     assert.equal(selected, 'pay-admin')
@@ -112,10 +112,10 @@ describe('AutoComplete', () => {
     const ctx = makeCtx()
     const inst = await mount(AutoComplete, { options, value: '', onChange: (v: string) => { selected = v } }, ctx)
     const props = { options, value: '', open: true, onChange: (v: string) => { selected = v } }
-    let vnode = inst.render(props)
+    let vnode = await inst.render(props)
     const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
     input.props.onKeyDown?.({ key: 'ArrowDown', preventDefault: () => {} })
-    vnode = inst.render(props)
+    vnode = await inst.render(props)
     const active = findVNode(vnode, (v: any) => String(v.props?.class ?? '').includes('wf-autocomplete-option--active'))
     assert.ok(active, '↓ 后出现高亮项')
     const input2 = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
@@ -127,11 +127,11 @@ describe('AutoComplete', () => {
     const ctx = makeCtx()
     const inst = await mount(AutoComplete, { options, value: '', onChange: () => {} }, ctx)
     // 打开 + 点击选项选中
-    let vnode = inst.render({ options, value: '', open: true, onChange: () => {} })
+    let vnode = await inst.render({ options, value: '', open: true, onChange: () => {} })
     const opt = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-option'))
     opt.props.onMouseDown?.({ stopPropagation: () => {} })
     // 关闭后重新渲染：input 应显示选中 label
-    vnode = inst.render({ options, value: '' })
+    vnode = await inst.render({ options, value: '' })
     const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
     assert.equal(input.props.value, '支付平台管理', '关闭后回填选中 label')
   })
@@ -140,7 +140,7 @@ describe('AutoComplete', () => {
     let changed = 0
     const ctx = makeCtx()
     const inst = await mount(AutoComplete, { options, value: '', onChange: () => { changed++ } }, ctx)
-    const vnode = inst.render({ options, value: '', onChange: () => { changed++ } })
+    const vnode = await inst.render({ options, value: '', onChange: () => { changed++ } })
     const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
     // 组合开始（拼音输入中）
     input.props.onCompositionStart()
@@ -157,10 +157,10 @@ describe('AutoComplete', () => {
   test('Escape 关闭下拉', async () => {
     const ctx = makeCtx()
     const inst = await mount(AutoComplete, { options, value: '' }, ctx)
-    let vnode = inst.render({ options, value: '', open: true })
+    let vnode = await inst.render({ options, value: '', open: true })
     const input = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-input'))
     input.props.onKeyDown?.({ key: 'Escape', preventDefault: () => {} })
-    vnode = inst.render({ options, value: '' })
+    vnode = await inst.render({ options, value: '' })
     const dropdown = findVNode(vnode, (v: any) => v.props?.class?.includes('wf-autocomplete-dropdown'))
     assert.equal(dropdown, null, 'Escape 关闭（portal 不渲染）')
   })

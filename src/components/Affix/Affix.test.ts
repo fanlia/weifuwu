@@ -41,11 +41,11 @@ describe('Affix', () => {
     const { ctx } = makeCtx(0)
     const render = await mount(Affix, { offsetTop: 80, children: '导航' }, ctx)!
     // 模拟 ref 挂载：sentinel 在文档 18500px 处（scrollY=0 时 rect.top=18500）
-    const vnode = render({ offsetTop: 80, children: '导航' })
+    const vnode = await render({ offsetTop: 80, children: '导航' })
     mockRect(vnode.props.children[0], 18500)
     vnode.props.children[0].props.ref(vnode.props.children[0])
     await new Promise((r) => setTimeout(r, 5)) // 等微任务 recompute
-    const vnode2 = render({ offsetTop: 80, children: '导航' })
+    const vnode2 = await render({ offsetTop: 80, children: '导航' })
     assert.doesNotMatch(vnode2.props.children[1].props.class, /--fixed/)
     assert.equal(vnode2.props.children[1].props.style, undefined)
   })
@@ -53,7 +53,7 @@ describe('Affix', () => {
   it('renders wrapper with children', async () => {
     const { ctx } = makeCtx()
     const render = await mount(Affix, { children: '内容' }, ctx)!
-    const vnode = render({ children: '内容' })
+    const vnode = await render({ children: '内容' })
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-affix/)
     assert.equal(vnode.props.children[1].props.children, '内容')
@@ -62,12 +62,12 @@ describe('Affix', () => {
   it('滚过阈值后固定（scrollY >= 文档位置 - offsetTop）', async () => {
     const { ctx, setScrollY } = makeCtx(0)
     const render = await mount(Affix, { offsetTop: 80, children: 'x' }, ctx)!
-    const vnode = render({ offsetTop: 80, children: 'x' })
+    const vnode = await render({ offsetTop: 80, children: 'x' })
     mockRect(vnode.props.children[0], 18500) // 文档 18500，threshold = 18500-80 = 18420
     vnode.props.children[0].props.ref(vnode.props.children[0])
     await new Promise((r) => setTimeout(r, 5))
     setScrollY(18500) // 滚动到 sentinel → scrollY >= 18420 → fixed
-    const vnode2 = render({ offsetTop: 80, children: 'x' })
+    const vnode2 = await render({ offsetTop: 80, children: 'x' })
     const content = vnode2.props.children[1]
     assert.match(content.props.class, /wf-affix-content--fixed/)
     assert.equal(content.props.style.top, '80px')
@@ -77,40 +77,40 @@ describe('Affix', () => {
   it('未滚到阈值时取消固定（scrollY < threshold）', async () => {
     const { ctx, setScrollY } = makeCtx(0)
     const render = await mount(Affix, { offsetTop: 80, children: 'x' }, ctx)!
-    const vnode = render({ offsetTop: 80, children: 'x' })
+    const vnode = await render({ offsetTop: 80, children: 'x' })
     mockRect(vnode.props.children[0], 18500)
     vnode.props.children[0].props.ref(vnode.props.children[0])
     await new Promise((r) => setTimeout(r, 5))
     setScrollY(18000) // 未到 18420
-    const vnode2 = render({ offsetTop: 80, children: 'x' })
+    const vnode2 = await render({ offsetTop: 80, children: 'x' })
     assert.doesNotMatch(vnode2.props.children[1].props.class, /--fixed/)
     // 再滚回顶部
     setScrollY(0)
-    const vnode3 = render({ offsetTop: 80, children: 'x' })
+    const vnode3 = await render({ offsetTop: 80, children: 'x' })
     assert.doesNotMatch(vnode3.props.children[1].props.class, /--fixed/)
   })
 
   it('offsetTop default is 0', async () => {
     const { ctx, setScrollY } = makeCtx(0)
     const render = await mount(Affix, { children: 'x' }, ctx)!
-    const vnode = render({ children: 'x' })
+    const vnode = await render({ children: 'x' })
     mockRect(vnode.props.children[0], 100) // threshold = 100-0 = 100
     vnode.props.children[0].props.ref(vnode.props.children[0])
     await new Promise((r) => setTimeout(r, 5))
     setScrollY(150)
-    const vnode2 = render({ children: 'x' })
+    const vnode2 = await render({ children: 'x' })
     assert.match(vnode2.props.children[1].props.class, /--fixed/)
   })
 
   it('fixed content keeps wrapper width', async () => {
     const { ctx, setScrollY } = makeCtx(0)
     const render = await mount(Affix, { offsetTop: 80, children: 'x' }, ctx)!
-    const vnode = render({ offsetTop: 80, children: 'x' })
+    const vnode = await render({ offsetTop: 80, children: 'x' })
     mockRect(vnode.props.children[0], 18500)
     vnode.props.children[0].props.ref(vnode.props.children[0])
     await new Promise((r) => setTimeout(r, 5))
     setScrollY(18500)
-    const vnode2 = render({ offsetTop: 80, children: 'x' })
+    const vnode2 = await render({ offsetTop: 80, children: 'x' })
     assert.equal(vnode2.props.children[1].props.style.width, '200px')
   })
 })
@@ -118,10 +118,10 @@ describe('Affix', () => {
 it('滚动过阈值 → fixed 吸附（setScrollY 驱动）', async () => {
   const { ctx, setScrollY } = makeCtx(0)
   const factory = await Affix({ offsetTop: 100, children: 'x' }, ctx)
-  let vnode = factory({ offsetTop: 100, children: 'x' })
+  let vnode = await factory({ offsetTop: 100, children: 'x' })
   const s0 = JSON.stringify(vnode)
   setScrollY(200)
-  vnode = factory({ offsetTop: 100, children: 'x' })
+  vnode = await factory({ offsetTop: 100, children: 'x' })
   const s1 = JSON.stringify(vnode)
   assert.ok(s0 !== s1 || /fixed|affix/.test(s1), '滚动后吸附态变化')
 })
@@ -129,6 +129,6 @@ it('滚动过阈值 → fixed 吸附（setScrollY 驱动）', async () => {
 it('offsetTop 默认 0 + className 透传（边界）', async () => {
   const { ctx } = makeCtx(0)
   const factory = await Affix({ children: 'x', className: 'my-affix' }, ctx)
-  const vnode = factory({ children: 'x', className: 'my-affix' })
+  const vnode = await factory({ children: 'x', className: 'my-affix' })
   assert.ok(JSON.stringify(vnode).includes('my-affix'))
 })

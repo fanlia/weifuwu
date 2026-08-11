@@ -459,3 +459,39 @@ test('真实 i18n 中间件：setLocale 后 props 不变子组件文案更新（
   assert.equal(root.querySelector('#lbl')?.textContent, 'Loading...', '真实 i18n setLocale 后子组件文案更新')
   handle.unmount()
 })
+
+
+// ── 数据驱动 renderFn 全流程（流式场景：外部状态 + render 期 await + 合并） ──
+test('数据驱动 renderFn：状态变化 → await render() → DOM 反映新数据（流式合并）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  const { ctx } = handle
+
+  // 模拟 useChat 式共享会话（外部状态，组件 renderFn 读取）
+  const session = { messages: ['你好'] }
+
+  const ChatView = async (_init: any, c: any) => {
+    return async () => {
+      await new Promise(r => setTimeout(r, 2))   // render 期 await（数据流到达）
+      return h('div', { id: 'chat' }, session.messages.map(m => h('p', { class: 'msg' }, m)))
+    }
+  }
+  await handle.mount(h(ChatView, {}))
+  assert.equal(root.querySelectorAll('.msg').length, 1, '首帧 1 条')
+
+  // 流式：新消息到达 → 改外部状态 → render() → await 后 DOM 已同步
+  session.messages.push('第二条')
+  await ctx.ui.render()
+  assert.equal(root.querySelectorAll('.msg').length, 2, 'await render() 后新消息已落地')
+  assert.equal(root.querySelectorAll('.msg')[1]?.textContent, '第二条')
+
+  // 同 tick 连续触发（流式高频）→ 合并 → 最终状态落地
+  session.messages.push('第三条')
+  session.messages.push('第四条')
+  const p1 = ctx.ui.render()
+  const p2 = ctx.ui.render()
+  await Promise.all([p1, p2])
+  assert.equal(root.querySelectorAll('.msg').length, 4, '合并补跑后最终 4 条')
+  handle.unmount()
+})

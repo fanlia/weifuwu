@@ -15,7 +15,7 @@ export const FocusTask: Component = async (_init, ctx) => {
   let errors = {} as Record<string, string>
   const rerender = () => ctx.ui.render()
 
-  return () => (
+  return async () => (
     <div class="wf-fill wf-center wf-p-md wf-bg-secondary" style={{ minHeight: 'calc(100vh - 48px)' }}>
       <Card padding="lg" style={{ width: '400px', maxWidth: '100%' }}>
         <div class="wf-stack wf-gap-md wf-center">

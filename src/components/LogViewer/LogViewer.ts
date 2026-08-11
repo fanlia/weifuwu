@@ -83,7 +83,7 @@ export const LogViewer: Component<LogViewerProps> = async (_init, ctx) => {
     await ctx.browser?.copyText(lines.join('\n'))
   }
 
-  return (props: LogViewerProps) => {
+  return async (props: LogViewerProps) => {
     const {
       lines, height = 400, lineHeight = 24, overscan = 5,
       follow = true, maxLines, showCopy = true, showLineNumbers = true, className,

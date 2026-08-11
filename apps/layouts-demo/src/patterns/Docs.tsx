@@ -22,7 +22,7 @@ const SECTIONS = [
 export const Docs: Component = async (_init, ctx) => {
   let mainEl: HTMLElement | undefined
 
-  return () => (
+  return async () => (
     <div class="wf-stack wf-gap-none" style={{ minHeight: 'calc(100vh - 48px)' }}>
       {/* 顶部导航 */}
       <header class="wf-row wf-p-md wf-gap-lg wf-border-b wf-between">

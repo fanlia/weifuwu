@@ -52,7 +52,7 @@ export const DataScreen: Component = async (_init, ctx) => {
   // （内联 ref 每次渲染新引用 → 反复 clearInterval → 数据永不更新）
   const rootRef = (el: any) => { if (!el) clearInterval(timer) }
 
-  return () => (
+  return async () => (
     <div ref={rootRef} class="wf-fill wf-layer wf-stack wf-gap-md wf-p-md wf-bg-tertiary" style={{ height: 'calc(100vh - 48px)' }}>
       {/* 顶部标题（容器内角标——wf-layer + wf-pop） */}
       <div class="wf-pop wf-center" style={{ top: 16, left: 0, right: 0 }}>

@@ -35,7 +35,7 @@ const Shell: Component = async (_init, ctx) => {
   }
   window.addEventListener('hashchange', onHash)
 
-  return () => {
+  return async () => {
     const current = PATTERNS.find((p) => p.id === active) ?? PATTERNS[0]
     return (
       <div class="wf-row wf-gap-none wf-stretch wf-nowrap" style={{ height: '100vh' }}>

@@ -7,7 +7,7 @@
  * - render.ts: 95-97 数组 fragment / 109-110 body 缺失 Portal null
  * - ssr.ts: 30-36 classToString 数组/对象 / 69-73 工厂非函数 throw / 98-100 enumerated
  * - serve.ts: 110-111 loading 模式不清空 root（骨架屏保留→原子替换）
- * - scheduler.ts: 顺序队列（无互斥锁）——同步跳过未挂载 / 连续 render 顺序落地 / onError
+ * - renderer（mount.ts 内联，原 scheduler.ts 已取消）：直接执行（进行中合并）——同步跳过未挂载 / 并发合并补跑 / onError
  *   / 112-113 补跑链 / 142-145 无参 render → selfId
  * - diff.ts: 112-125 顶层数组 patch / 250-257 patchProps 移除各分支
  * - mount.ts: 118-128 selfId 校验（空/重复/正常）/ 245-250 createCommandContainer
@@ -21,7 +21,7 @@ import { h, Fragment, Portal, createPortal, isNative, isComponent, isFragment, i
 import { buildVNode } from '../ui-dom/vdom/build.ts'
 import { renderValue, setProp } from '../ui-dom/vdom/render.ts'
 import { patchValue, patchProps } from '../ui-dom/vdom/diff.ts'
-import { createScheduler, type Scheduler } from '../ui-dom/vdom/scheduler.ts'
+import { createRenderer, type Renderer } from '../ui-dom/vdom/mount.ts'
 import { createRegistry, ensureId, safeCallRef } from '../ui-dom/vdom/registry.ts'
 import { mountRoot, createCommandContainer, mountCommand, unmountCommand } from '../ui-dom/vdom/mount.ts'
 import { createVdomContext } from '../ui-dom/vdom/mount.ts'
@@ -330,11 +330,11 @@ test('serve: 组件工厂抛错 → 错误页兜底（buildVNode catch）', asyn
   handle.close()
 })
 
-test('scheduler: 顺序执行——同 id 连续触发按序落地（无互斥锁）', async () => {
+test('renderer: 进行中合并——同 id 连续触发按序落地（补跑最新状态）', async () => {
   const reg = createRegistry()
   const ctx = { browser: createClientBrowser(), ui: { _selfId: '_wf_root' } } as any
   const root = mount('w-root')
-  const s = createScheduler({ registry: reg, ctx, rootEl: root })
+  const s = createRenderer({ registry: reg, ctx, rootEl: root })
   let renders = 0
   const vnode = { type: () => {}, props: {}, _id: '_wf_re', _render: () => { renders++; return h('div', { class: 're' }, String(renders)) }, _parentNode: root } as any
   reg.idRegistry.set('_wf_re', vnode)
@@ -342,7 +342,7 @@ test('scheduler: 顺序执行——同 id 连续触发按序落地（无互斥�
   const node = renderValue(vnode._child, ctx, ctx.browser)!
   root.appendChild(node)
   vnode._refNode = node
-  // 连续触发两次：顺序执行，都落地（await 拿到最终 DOM）
+  // 连续触发两次：都落地（await 拿到最终 DOM）
   await s.render(['_wf_re'])
   await s.render(['_wf_re'])
   assert.equal(renders, 3, '首帧 1 + 两次 render')
@@ -364,12 +364,12 @@ test('serve: loading 模式不清空 root（骨架屏保留 → 首帧原子替�
   handle.close()
 })
 
-// ═══════════════ scheduler.ts ═══════════════
+// ═══════════════ renderer（原 scheduler.ts——已取消调度队列，render 直接执行） ═══════════════
 
-test('scheduler: 未挂载/挂载中组件 render → 同步跳过（不排队、立即 resolve）', async () => {
+test('renderer: 未挂载/挂载中组件 render → 同步跳过（立即 resolve）', async () => {
   const reg = createRegistry()
   const ctx = { browser: createClientBrowser(), ui: { _selfId: '_wf_root' } } as any
-  const s = createScheduler({ registry: reg, ctx })
+  const s = createRenderer({ registry: reg, ctx })
   // 未注册 id
   await s.render(['_wf_nonexistent'])
   // 已注册但 _render 未设（工厂执行中——mountCommand 挂载期）
@@ -378,11 +378,11 @@ test('scheduler: 未挂载/挂载中组件 render → 同步跳过（不排队�
   await s.render(['_wf_pending'])
 })
 
-test('scheduler: 顺序队列——连续 render await 后 DOM 为最终状态', async () => {
+test('renderer: 并发合并——不 await 连续 render 后 DOM 为最终状态', async () => {
   const reg = createRegistry()
   const ctx = { browser: createClientBrowser(), ui: { _selfId: '_wf_root' } } as any
   const root = mount('sch-root')
-  const s = createScheduler({ registry: reg, ctx, rootEl: root })
+  const s = createRenderer({ registry: reg, ctx, rootEl: root })
   const renderFn = (props: any) => h('div', { class: 'v' }, String(props.n))
   const vnode = { type: () => {}, props: {}, _id: '_wf_a', _render: renderFn, _parentNode: root } as any
   reg.idRegistry.set('_wf_a', vnode)
@@ -390,32 +390,32 @@ test('scheduler: 顺序队列——连续 render await 后 DOM 为最终状态',
   const node = renderValue(vnode._child, ctx, ctx.browser)!
   root.appendChild(node)
   vnode._refNode = node
-  // 连续 render（不 await 第一个）：顺序队列保证第二个在前一个完成后执行
+  // 连续 render（不 await 第一个）：进行中合并——第二次等第一次完成后补跑最新状态
   let n = 0
   vnode._render = () => h('div', { class: 'v' }, String(++n))
   const p1 = s.render(['_wf_a'])
   const p2 = s.render(['_wf_a'])
   await Promise.all([p1, p2])
-  assert.equal(root.querySelector('.v')?.textContent, '2', '顺序执行最终 DOM 最新')
+  assert.equal(root.querySelector('.v')?.textContent, '2', '合并补跑最终 DOM 最新')
 })
 
-test('scheduler: 渲染抛错 → onError 回调（不吞）', async () => {
+test('renderer: 渲染抛错 → onError 回调（不吞）', async () => {
   const reg = createRegistry()
   const ctx = { browser: createClientBrowser(), ui: { _selfId: '_wf_root' } } as any
   const root = mount('err-root')
   let got: unknown
-  const s = createScheduler({ registry: reg, ctx, rootEl: root, onError: (e) => { got = e } })
+  const s = createRenderer({ registry: reg, ctx, rootEl: root, onError: (e) => { got = e } })
   const vnode = { type: () => {}, props: {}, _id: '_wf_e', _render: () => { throw new Error('boom') }, _parentNode: root, _refNode: root.firstChild } as any
   reg.idRegistry.set('_wf_e', vnode)
   await s.render(['_wf_e'])
   assert.ok(got instanceof Error, `onError 收到错误（实际 ${got}）`)
 })
 
-test('scheduler: render() 无参 → 当前 selfId 渲染', async () => {
+test('renderer: render() 无参 → 当前 selfId 渲染', async () => {
   const reg = createRegistry()
   const ctx = { browser: createClientBrowser(), ui: { _selfId: '_wf_root' } } as any
   const root = mount('noself-root')
-  const s = createScheduler({ registry: reg, ctx, rootEl: root })
+  const s = createRenderer({ registry: reg, ctx, rootEl: root })
   // 无 _selfId（root ui）→ 直接 resolve
   await s.render()
 })

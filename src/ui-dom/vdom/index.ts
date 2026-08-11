@@ -15,7 +15,7 @@
 export { buildVNode } from './build.ts'
 export { renderValue } from './render.ts'
 export { patchValue } from './diff.ts'
-export { createScheduler, type Scheduler } from './scheduler.ts'
+export { createRenderer, type Renderer } from './mount.ts'
 export { createRegistry, type Registry } from './registry.ts'
 export { createStore, type ExternalStore } from '../store.ts'
 export { mountRoot, createVdomContext, mountCommand, unmountCommand, createCommandContainer } from './mount.ts'

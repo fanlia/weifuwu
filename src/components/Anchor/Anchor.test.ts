@@ -26,7 +26,7 @@ const items = [
 describe('Anchor', () => {
   it('渲染锚点列表（nav + 链接 href/title）', async () => {
     const render = await mount(Anchor, { items }, makeCtx().ctx)!
-    const v = render({ items })
+    const v = await render({ items })
     assert.equal(v.type, 'nav')
     assert.match(v.props.class, /wf-anchor/)
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
@@ -38,7 +38,7 @@ describe('Anchor', () => {
   it('点击链接 → onAnchorChange 回调 + href', async () => {
     let picked = ''
     const render = await mount(Anchor, { items, onAnchorChange: (h: string) => { picked = h } }, makeCtx().ctx)!
-    const v = render({ items, onAnchorChange: (h: string) => { picked = h } })
+    const v = await render({ items, onAnchorChange: (h: string) => { picked = h } })
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
     links[1].props.onClick({ preventDefault: () => {} })
     assert.equal(picked, '#usage')
@@ -49,7 +49,7 @@ describe('Anchor', () => {
     const ctx = makeCtx().ctx as any
     ctx.browser = { setHash: (h: string) => { hashed = h }, byId: () => null }
     const render = await mount(Anchor, { items, useHash: true }, ctx)!
-    const v = render({ items, useHash: true })
+    const v = await render({ items, useHash: true })
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
     links[2].props.onClick({ preventDefault: () => {} })
     assert.equal(hashed, '#api')
@@ -57,7 +57,7 @@ describe('Anchor', () => {
 
   it('activeKey 高亮类 + aria-current', async () => {
     const render = await mount(Anchor, { items, activeKey: '#usage' }, makeCtx().ctx)!
-    const v = render({ items, activeKey: '#usage' })
+    const v = await render({ items, activeKey: '#usage' })
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
     assert.match(links[1].props.class, /wf-anchor-link--active/)
     assert.equal(links[1].props['aria-current'], 'true')
@@ -67,7 +67,7 @@ describe('Anchor', () => {
   it('键盘：方向键移动焦点高亮', async () => {
     const { ctx } = makeCtx()
     const render = await mount(Anchor, { items }, ctx)!
-    const v = render({ items })
+    const v = await render({ items })
     const links = v.props.children.filter((c: any) => c?.props?.role === 'link')
     // 模拟 ArrowDown 在 nav 容器键盘处理
     const down = links[0].props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} })
@@ -82,7 +82,7 @@ it('点击锚点更新内部激活态 + onAnchorChange 通知', async () => {
   let notified: string | undefined
   const items = [{ href: '#a', title: 'A' }, { href: '#b', title: 'B' }]
   const factory = await mount(Anchor, { items, onAnchorChange: (h: string) => { notified = h } }, ctx)
-  const vnode = factory({ items, onAnchorChange: (h: string) => { notified = h } })
+  const vnode = await factory({ items, onAnchorChange: (h: string) => { notified = h } })
   const links = (function find(n: any): any[] {
     const out: any[] = []
     const walk = (x: any) => {
@@ -103,7 +103,7 @@ it('键盘：Home/End 跳首尾（onKeyDown 存在）', async () => {
   const { ctx } = makeCtx()
   const items = [{ href: '#a', title: 'A' }, { href: '#b', title: 'B' }]
   const factory = await mount(Anchor, { items }, ctx)
-  const vnode = factory({ items })
+  const vnode = await factory({ items })
   assert.ok(vnode.props.onKeyDown, '导航容器键盘处理存在')
 })
 
@@ -111,7 +111,7 @@ it('useHash=false 默认不写 location.hash（点击仅滚动+回调）', async
   const { ctx } = makeCtx()
   const items = [{ href: '#a', title: 'A' }]
   const factory = await mount(Anchor, { items }, ctx)
-  const vnode = factory({ items })
+  const vnode = await factory({ items })
   const link = (function find(n: any): any {
     if (!n || typeof n !== 'object') return null
     if (String(n.props?.class ?? '').includes('wf-anchor-link')) return n

@@ -11,7 +11,7 @@ export interface SearchInputProps {
 }
 
 export const SearchInput: Component<SearchInputProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { value = '', placeholder = '搜索...', onInput, onClear } = props
 
   const clearBtn = value && onClear

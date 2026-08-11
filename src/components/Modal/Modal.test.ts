@@ -44,20 +44,20 @@ describe('Modal', () => {
   })
 
   it('renders content when open', async () => {
-    const vnode = inner(await renderModal({ open: true, children: '内容' }, makeCtx())!)
+    const vnode = await inner(await renderModal({ open: true, children: '内容' }, makeCtx())!)
     assert.equal(vnode.type, 'div')
     assert.match(vnode.props.class, /wf-modal/)
   })
 
   it('renders title when provided', async () => {
-    const vnode = inner(await renderModal({ open: true, title: '确认', children: '内容' }, makeCtx())!)
+    const vnode = await inner(await renderModal({ open: true, title: '确认', children: '内容' }, makeCtx())!)
     const content = vnode.props.children[1]
     const header = content.props.children[0]
     assert.equal(header.props.children[0], '确认')
   })
 
   it('renders footer when provided', async () => {
-    const vnode = inner(await renderModal({ open: true, title: '确认', children: '内容', footer: '底部' }, makeCtx())!)
+    const vnode = await inner(await renderModal({ open: true, title: '确认', children: '内容', footer: '底部' }, makeCtx())!)
     const content = vnode.props.children[1]
     const footer = content.props.children[2]
     assert.equal(footer.props.class, 'wf-modal-footer')
@@ -66,14 +66,14 @@ describe('Modal', () => {
 
   it('has overlay that calls onClose on click', async () => {
     let closed = false
-    const vnode = inner(await renderModal({ open: true, children: '内容', onClose: () => { closed = true } }, makeCtx())!)
+    const vnode = await inner(await renderModal({ open: true, children: '内容', onClose: () => { closed = true } }, makeCtx())!)
     const overlay = vnode.props.children[0]
     assert.equal(overlay.props.class, 'wf-modal-overlay')
     assert.equal(typeof overlay.props.onClick, 'function')
   })
 
   it('accepts custom width（视口 clamp：min(600px, calc(100vw - 32px))）', async () => {
-    const vnode = inner(await renderModal({ open: true, children: '内容', width: '600px' }, makeCtx())!)
+    const vnode = await inner(await renderModal({ open: true, children: '内容', width: '600px' }, makeCtx())!)
     const content = vnode.props.children[1]
     assert.equal(content.props.class, 'wf-modal-content')
     assert.equal(content.props.style.minWidth, 'min(600px, calc(100vw - 32px))')
@@ -81,7 +81,7 @@ describe('Modal', () => {
   })
 
   it('hides close button when closable=false', async () => {
-    const vnode = inner(await renderModal({ open: true, title: '标题', children: '内容', closable: false }, makeCtx())!)
+    const vnode = await inner(await renderModal({ open: true, title: '标题', children: '内容', closable: false }, makeCtx())!)
     const content = vnode.props.children[1]
     const header = content.props.children[0]
     // no close button in header children
@@ -90,7 +90,7 @@ describe('Modal', () => {
   })
 
   it('shows close button by default', async () => {
-    const vnode = inner(await renderModal({ open: true, title: '标题', children: '内容' }, makeCtx())!)
+    const vnode = await inner(await renderModal({ open: true, title: '标题', children: '内容' }, makeCtx())!)
     const content = vnode.props.children[1]
     const header = content.props.children[0]
     const closeBtn = (Array.isArray(header.props.children) ? header.props.children : [header.props.children]).find((c: any) => c?.props?.class === 'wf-modal-close')
@@ -124,7 +124,7 @@ describe('Modal', () => {
         $: () => ({}), dirty: () => {},
         useGlobalKey: () => () => {},
         render: async () => {
-          const next = renderFn!()
+          const next = await renderFn!()
           await patchToDom(container, container.firstChild, prev, next, ctx)
           prev = next
         },
@@ -149,8 +149,8 @@ describe('Modal', () => {
       },
     }
     const result = await (Modal as any)({}, ctx)
-    renderFn = typeof result === 'function' ? () => result({ open, children: 'x' }) : null
-    prev = renderFn!()
+    renderFn = typeof result === 'function' ? async () => await result({ open, children: 'x' }) : null
+    prev = await renderFn!()
     await mountToDom(container, prev, ctx)
     assert.ok(document.querySelector('.wf-modal'), 'open=true 应渲染')
     assert.match(document.querySelector('.wf-modal')!.className, /wf-modal--enter/)

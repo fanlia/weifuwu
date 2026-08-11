@@ -31,7 +31,7 @@ export interface TimelineProps {
 }
 
 export const Timeline: Component<TimelineProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
     const { items, mode = 'left', reverse } = props
     const list = reverse ? [...items].reverse() : items
 

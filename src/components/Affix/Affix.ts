@@ -61,7 +61,7 @@ export const Affix: Component<AffixProps> = async (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return async (props) => {
     Object.assign(propsRef, props)
     const { offsetTop = 0, children, className, ...rest } = props
 

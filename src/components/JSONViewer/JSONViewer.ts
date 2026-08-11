@@ -59,7 +59,7 @@ export const JSONViewer: Component<JSONViewerProps> = async (_init, ctx) => {
     void ctx.browser?.copyText(`${path} = ${JSON.stringify(value)}`)
   }
 
-  return (props: JSONViewerProps) => {
+  return async (props: JSONViewerProps) => {
     const { data, defaultExpandDepth = 2, maxKeys = 100, rootName = 'root', onCopy, className } = props
 
     // 复制 + 反馈：DOM 级图标切换（check 1s）——不依赖渲染管线

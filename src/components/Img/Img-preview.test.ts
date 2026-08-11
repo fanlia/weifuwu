@@ -42,9 +42,9 @@ describe('Img preview 增强', () => {
     const ctx = mockCtx()
     const render = await Img({ src: 'a.png', preview: true }, ctx)
     const r = render as any
-    let v = r({ src: 'a.png', preview: true })
+    let v = await r({ src: 'a.png', preview: true })
     triggerOf(v).props.onClick()
-    v = r({ src: 'a.png', preview: true })
+    v = await r({ src: 'a.png', preview: true })
     assert.ok(v.props.children[1], '应显示预览层（portal）')
     // mock portal 直接返回内容——panel 是预览图片 vnode
     const panel = v.props.children[1]

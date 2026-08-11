@@ -37,7 +37,7 @@ export const Chart: Component<ChartProps> = async (_props, ctx) => {
   })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: ChartProps) => {
+  return async (props: ChartProps) => {
     const { type = 'line', data, options = {}, title, area, className } = props
 
     const W = options.width ?? 320

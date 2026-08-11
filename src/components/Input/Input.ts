@@ -23,7 +23,7 @@ export interface InputProps {
 }
 
 export const Input: Component<InputProps> = async (_init) =>
-  (props) => {
+  async (props) => {
   const { label, name, type = 'text', value, placeholder, required, disabled, error, hint, variant = 'default', onInput, onChange } = props
 
   const inputEl = h('input', {

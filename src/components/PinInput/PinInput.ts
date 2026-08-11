@@ -44,7 +44,7 @@ export const PinInput: Component<PinInputProps> = async (_init, ctx) => {
     return fn
   }
 
-  return (props) => {
+  return async (props) => {
     const {
       length = 6, value = '', onChange, type = 'number',
       size = 'md', disabled, 'aria-label': ariaLabel,

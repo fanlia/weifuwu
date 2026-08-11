@@ -33,7 +33,7 @@ export const Calendar: Component<CalendarProps> = async (_init, ctx) => {
   let viewMonth = now.getMonth()
   let viewYear = now.getFullYear()
 
-  return (props) => {
+  return async (props) => {
     const {
       events = [], month, year, onMonthChange, onSelectDate, selectedDate,
       'aria-label': ariaLabel,

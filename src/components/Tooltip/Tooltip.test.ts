@@ -56,7 +56,7 @@ describe('Tooltip', () => {
     const vnode = await renderVNode(Tooltip, { content: '保存', children: '按钮' }, makeCtx(true))!
     const portal = vnode.props.children[1]
     assert.equal(portal.type, Portal)
-    const tip = inner(portal)
+    const tip = await inner(portal)
     assert.match(tip.props.class, /wf-tooltip/)
     assert.match(tip.props.class, /wf-popup/, 'usePopup 附加 wf-popup 基类')
   })
@@ -65,7 +65,7 @@ describe('Tooltip', () => {
     for (const pos of ['top', 'bottom', 'left', 'right'] as const) {
       const vnode = await renderVNode(Tooltip, { content: '提示', children: 'x', position: pos }, makeCtx(true))!
       const portal = vnode.props.children[1]
-      const tip = inner(portal)
+      const tip = await inner(portal)
       assert.match(tip.props.class, new RegExp(`wf-tooltip--${pos}`))
     }
   })
@@ -92,7 +92,7 @@ it('disabled 切换：同实例从可用到禁用（disabled 闭包捕获而非�
   factory({ content: 'a', children: 'x' })
   // 禁用后渲染：portal 不出现
   ;(ctx.ui as any).usePopup = () => ({ portal: () => null, wrapProps: {}, open: false })
-  const vnode = factory({ content: 'a', children: 'x', disabled: true })
+  const vnode = await factory({ content: 'a', children: 'x', disabled: true })
   assert.ok(vnode, '禁用时仍渲染包裹（子内容可用）')
 })
 

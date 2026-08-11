@@ -48,7 +48,7 @@ export const HoverCard: Component<HoverCardProps> = async (_props, ctx) => {
     closeDelay: () => latestDelay.close,
   })
 
-  return (props: HoverCardProps) => {
+  return async (props: HoverCardProps) => {
     const { content, position = 'top', children } = props
     // HoverCard 非受控（hover 显隐由 usePopup trigger 驱动——无 open prop）
     openCtrl = ctx.ui.useOpen({ name: 'HoverCard' })

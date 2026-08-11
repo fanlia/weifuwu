@@ -3,7 +3,7 @@
  *
  * 与第 1 代 serve.ts 的区别（AGENTS.md §4.0 无自动渲染原则）：
  * - 渲染管线：buildVNode（async 预构建 await 全部）→ renderValue/patchValue（同步落地）
- * - 调度：vdom scheduler（无 flush 批处理——$ 赋值直接 fire-and-forget 渲染）
+ * - 调度：vdom renderer（render() 直接执行——await = DOM 已同步）
  * - 动态挂载：buildVNode 阶段 await（无占位/注释/补全回调）
  *
  * 保留公开 API（uiServe/UIServeOptions/UIServeHandle）——迁移无缝。
@@ -52,8 +52,8 @@ export function uiServe<RC extends object = {}>(
   const hydrating = !!options.hydrate
   if (!hydrating && !options.loading) root.innerHTML = ''
 
-  // ── vdom 渲染上下文（ctx/registry/scheduler/rootUi——完整 hooks） ──
-  const { ctx, registry, scheduler, rootUi, destroyPopupListeners } = createVdomContext({
+  // ── vdom 渲染上下文（ctx/registry/renderer/rootUi——完整 hooks） ──
+  const { ctx, registry, renderer, rootUi, destroyPopupListeners } = createVdomContext({
     browser,
     root: root as HTMLElement,
   })

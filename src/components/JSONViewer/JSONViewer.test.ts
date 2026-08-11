@@ -95,7 +95,7 @@ it('键盘可达：折叠行 role=button + tabIndex + Enter 展开（P1 红线�
   const data = { a: { deep: { x: 1 } } }
   const ctx = createTestCtx()
   const factory = await JSONViewer({ data, defaultExpandDepth: 1 }, ctx)
-  const vnode = factory({ data, defaultExpandDepth: 1 })
+  const vnode = await factory({ data, defaultExpandDepth: 1 })
   const row = findNode(vnode, (n) => n?.props?.class?.includes('wf-json-collapse'))
   assert.ok(row, '深层折叠行存在')
   assert.equal(row.props.role, 'button')

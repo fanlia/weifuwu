@@ -18,7 +18,7 @@ const FEATURES = [
 ]
 
 export const Landing: Component = async (_init, ctx) => (
-  () => (
+  async () => (
     <div class="wf-stack wf-gap-none">
       {/* 顶部导航 */}
       <header class="wf-row wf-p-md wf-gap-lg wf-container wf-between wf-sticky wf-bg-secondary" style={{ maxWidth: 1100, top: 0 }}>

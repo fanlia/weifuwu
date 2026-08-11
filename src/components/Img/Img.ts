@@ -44,7 +44,7 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
 
   const triggerRef = (el: any) => { triggerEl = el as HTMLElement | null }
 
-  return (props) => {
+  return async (props) => {
     const {
       src, alt = '', fallback, loading, width, height, className, style,
       preview, previewScale = 1,

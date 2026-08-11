@@ -41,10 +41,10 @@ describe('AlertGroup', () => {
     void r1
     // mount 保持状态
     const factory = await AlertGroup({}, ctx)
-    let v = factory({ items })
+    let v = await factory({ items })
     const summary = findVNode(v, (x: any) => x.props?.class?.includes('wf-alertgroup-summary'))
     summary.props.onClick()
-    v = factory({ items })
+    v = await factory({ items })
     const expanded = findVNode(v, (x: any) => x.props?.class?.includes('wf-alertgroup-list--open'))
     assert.ok(expanded, '展开列表')
   })

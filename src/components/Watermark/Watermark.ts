@@ -56,7 +56,7 @@ export const Watermark: Component<WatermarkProps> = async (_init, _ctx) => {
     bgImage = canvas.toDataURL()
   }
 
-  return (props) => {
+  return async (props) => {
     const {
       text = 'weifuwu', fontSize = 14, color = 'currentColor', opacity = 0.15,
       rotate = -25, gap = 100, children, className,

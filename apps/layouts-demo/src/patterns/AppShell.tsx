@@ -49,7 +49,7 @@ export const AppShell: Component = async (_init, ctx) => {
     status: ['已支付', '待发货', '已完成', '已取消'][i % 4],
     v: (['success', 'warning', 'default', 'danger'] as const)[i % 4],
   }))
-  return () => (
+  return async () => (
     <div
       class="wf-app-shell wf-rounded-lg"
       style={{ height: 'calc(100vh - 48px)', overflow: 'hidden', '--wf-sidebar-width': collapsed ? '64px' : '240px' }}

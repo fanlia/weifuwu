@@ -50,7 +50,7 @@ export const ApprovalCard: Component<ApprovalCardProps> = async (_init, ctx) => 
   let showNote = false
   let showModify = false
 
-  return (props) => {
+  return async (props) => {
     const { request, status = 'pending', onApprove, onReject, renderDetail, loading, argsSchema } = props
 
     const detail = renderDetail

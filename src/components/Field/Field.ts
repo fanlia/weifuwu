@@ -11,7 +11,7 @@ export interface FieldProps {
 }
 
 export const Field: Component<FieldProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { label, required, error, hint, children } = props
 
   const parts: any[] = []

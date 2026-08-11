@@ -55,23 +55,23 @@ const items = [
 describe('ContextMenu', () => {
   it('renders trigger children', async () => {
     const render = await mount(ContextMenu, { items, children: '区域' }, makeCtx())!
-    const vnode = render({ items, children: '区域' })
+    const vnode = await render({ items, children: '区域' })
     assert.match(vnode.props.class, /wf-context-menu-trigger/)
     assert.equal(vnode.props.children[0], '区域')
   })
 
   it('closed by default (no menu)', async () => {
     const render = await mount(ContextMenu, { items, children: 'x' }, makeCtx())!
-    const vnode = render({ items, children: 'x' })
+    const vnode = await render({ items, children: 'x' })
     assert.equal(vnode.props.children.length, 1)
   })
 
   it('contextmenu opens menu at mouse position（经 usePopup onTrigger + position）', async () => {
     const ctx = makeCtx()
     const render = await mount(ContextMenu, { items, children: 'x' }, ctx)!
-    const vnode = render({ items, children: 'x' })
+    const vnode = await render({ items, children: 'x' })
     vnode.props.onContextMenu({ clientX: 100, clientY: 200, preventDefault: () => {} })
-    const vnode2 = render({ items, children: 'x' })
+    const vnode2 = await render({ items, children: 'x' })
     const menu = vnode2.props.children[1]
     assert.ok(menu, '应显示菜单')
     assert.match(menu.props.class, /wf-context-menu/)
@@ -82,9 +82,9 @@ describe('ContextMenu', () => {
   it('renders all items in menu', async () => {
     const ctx = makeCtx()
     const render = await mount(ContextMenu, { items, children: 'x' }, ctx)!
-    const v = render({ items, children: 'x' })
+    const v = await render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
-    const v2 = render({ items, children: 'x' })
+    const v2 = await render({ items, children: 'x' })
     const menuItems = v2.props.children[1].props.children
     assert.equal(menuItems.length, 4)
   })
@@ -97,14 +97,14 @@ describe('ContextMenu', () => {
       { key: 'b', label: 'B', onClick: () => { clicked = 'b' } },
     ]
     const render = await mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
-    let v = render({ items: myItems, children: 'x' })
+    let v = await render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
-    v = render({ items: myItems, children: 'x' })
+    v = await render({ items: myItems, children: 'x' })
     const menuItems = v.props.children[1].props.children
     menuItems[1].props.onClick()
     assert.equal(clicked, 'b')
     // 点击后关闭
-    v = render({ items: myItems, children: 'x' })
+    v = await render({ items: myItems, children: 'x' })
     assert.equal(v.props.children.length, 1)
   })
 
@@ -113,9 +113,9 @@ describe('ContextMenu', () => {
     const ctx = makeCtx()
     const myItems = [{ key: 'd', label: 'D', disabled: true, onClick: () => { clicked = true } }]
     const render = await mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
-    let v = render({ items: myItems, children: 'x' })
+    let v = await render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
-    v = render({ items: myItems, children: 'x' })
+    v = await render({ items: myItems, children: 'x' })
     const item = v.props.children[1].props.children[0]
     assert.equal(item.props.onClick, undefined)
     assert.match(item.props.class, /--dis/)
@@ -124,9 +124,9 @@ describe('ContextMenu', () => {
   it('danger variant class', async () => {
     const ctx = makeCtx()
     const render = await mount(ContextMenu, { items, children: 'x' }, ctx)!
-    let v = render({ items, children: 'x' })
+    let v = await render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
-    v = render({ items, children: 'x' })
+    v = await render({ items, children: 'x' })
     const menuItems = v.props.children[1].props.children
     assert.match(menuItems[2].props.class, /--danger/)
   })
@@ -134,13 +134,13 @@ describe('ContextMenu', () => {
   it('Escape closes menu', async () => {
     const ctx = makeCtx()
     const render = await mount(ContextMenu, { items, children: 'x' }, ctx)!
-    let v = render({ items, children: 'x' })
+    let v = await render({ items, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
-    v = render({ items, children: 'x' })
+    v = await render({ items, children: 'x' })
     assert.ok(v.props.children.length > 1)
     const menu = v.props.children[1]
     menu.props.onKeyDown({ key: 'Escape' })
-    v = render({ items, children: 'x' })
+    v = await render({ items, children: 'x' })
     assert.equal(v.props.children.length, 1)
   })
 
@@ -152,13 +152,13 @@ describe('ContextMenu', () => {
       { key: 'b', label: 'B', onClick: () => { clicked = 'b' } },
     ]
     const render = await mount(ContextMenu, { items: myItems, children: 'x' }, ctx)!
-    let v = render({ items: myItems, children: 'x' })
+    let v = await render({ items: myItems, children: 'x' })
     v.props.onContextMenu({ clientX: 0, clientY: 0, preventDefault: () => {} })
-    v = render({ items: myItems, children: 'x' })
+    v = await render({ items: myItems, children: 'x' })
     const menu = v.props.children[1]
     // ArrowDown → 高亮第 2 项（index 1）
     menu.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} })
-    v = render({ items: myItems, children: 'x' })
+    v = await render({ items: myItems, children: 'x' })
     const items2 = v.props.children[1].props.children
     assert.match(items2[1].props.class, /--hl/)
     items2[1].props.onClick()

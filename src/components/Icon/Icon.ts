@@ -119,7 +119,7 @@ const PATHS: Record<IconName, string[]> = {
 }
 
 export const Icon: Component<IconProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
     const { name, size, className } = props
     return h('svg', {
       class: `wf-icon${className ? ' ' + className : ''}`,

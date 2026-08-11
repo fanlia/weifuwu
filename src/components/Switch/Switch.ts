@@ -10,7 +10,7 @@ export interface SwitchProps {
 }
 
 export const Switch: Component<SwitchProps> = async (_init, ctx) =>
-  (props) => {
+  async (props) => {
   const { label, checked, disabled, onChange } = props
 
   const input = h('input', {

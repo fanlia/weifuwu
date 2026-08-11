@@ -15,10 +15,10 @@ describe('ReasoningBlock', () => {
 
   it('点击展开 → aria-expanded=true + 正文可见', async () => {
     const render = await mountComponent(ReasoningBlock, { content: '推理文本' }, createTestCtx())
-    let v = render()
+    let v = await render()
     const toggle = findByClass(v, 'wf-reasoning-toggle')[0]
     toggle.props.onClick()
-    v = render()
+    v = await render()
     assert.equal(findByClass(v, 'wf-reasoning-toggle')[0].props['aria-expanded'], true)
     const body = findByClass(v, 'wf-reasoning-body')[0]
     assert.ok(String(body.props.class).includes('open'), '正文可见')
@@ -37,27 +37,27 @@ describe('ReasoningBlock', () => {
 
   it('自定义 label + 键盘可达（Enter 切换）', async () => {
     const render = await mountComponent(ReasoningBlock, { content: 'x', label: '思考过程' }, createTestCtx())
-    let v = render()
+    let v = await render()
     const toggle = findByClass(v, 'wf-reasoning-toggle')[0]
     assert.ok(String(toggle.props.children).includes('思考过程') || JSON.stringify(toggle.props.children).includes('思考过程'))
     toggle.props.onKeyDown({ key: 'Enter', preventDefault: () => {} })
-    v = render()
+    v = await render()
     assert.equal(findByClass(v, 'wf-reasoning-toggle')[0].props['aria-expanded'], true)
   })
 
   it('空格键同样切换（键盘红线：可聚焦即可操作）', async () => {
     const render = await mountComponent(ReasoningBlock, { content: 'x' }, createTestCtx())
-    let v = render()
+    let v = await render()
     findByClass(v, 'wf-reasoning-toggle')[0].props.onKeyDown({ key: ' ', preventDefault: () => {} })
-    v = render()
+    v = await render()
     assert.equal(findByClass(v, 'wf-reasoning-toggle')[0].props['aria-expanded'], true)
   })
 
   it('再次点击收起 → aria-expanded 还原 false', async () => {
     const render = await mountComponent(ReasoningBlock, { content: 'x', defaultExpanded: true }, createTestCtx())
-    let v = render()
+    let v = await render()
     findByClass(v, 'wf-reasoning-toggle')[0].props.onClick()
-    v = render()
+    v = await render()
     assert.equal(findByClass(v, 'wf-reasoning-toggle')[0].props['aria-expanded'], false)
     assert.equal(findByClass(v, 'wf-reasoning-body')[0].props.hidden, true)
   })

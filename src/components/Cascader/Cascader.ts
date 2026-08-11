@@ -76,7 +76,7 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
     setOpen: (v) => { open = v; ctx.ui.render() }, // 外部点击/Escape 关闭必须显式渲染
   })
 
-  return (props) => {
+  return async (props) => {
     const {
       options = [], value, onChange, placeholder = '请选择', disabled,
       error, label, showSearch, searchPlaceholder = '搜索…', 'aria-label': ariaLabel,

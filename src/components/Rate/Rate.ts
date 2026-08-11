@@ -30,7 +30,7 @@ export const Rate: Component<RateProps> = async (_init, ctx) => {
     ctx.ui.render()
   }
 
-  return (props) => {
+  return async (props) => {
     const {
       count = 5, size = 'md',
       readOnly, disabled, allowClear, allowHalf, 'aria-label': ariaLabel,

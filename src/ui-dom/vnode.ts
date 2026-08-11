@@ -38,8 +38,8 @@ export interface VNode {
   _remoteEl?: HTMLElement | undefined
   /** VNode 的 DOM 归属：'local' 在父 DOM 树下，'remote' 在别处 */
   _placement?: 'local' | 'remote'
-  /** 两阶段组件的 render 函数（mount 返回的函数） */
-  _render?: (props: Record<string, unknown>) => VNode | null
+  /** 两阶段组件的 render 函数（mount 返回的函数——强制异步：props 变化时可 await 数据） */
+  _render?: (props: Record<string, unknown>) => Promise<VNode | null>
 
   /** 组件实例 ID（如 '_wf_0'） */
   _id?: string
@@ -59,18 +59,22 @@ export interface VNode {
 }
 
 /**
- * 两阶段异步组件（统一签名——weifuwu 只支持这一种形态）：
+ * 两阶段异步组件（weifuwu 唯一组件形态）：
  *   async (initProps, ctx) => Promise<renderFn>
- * 外层 = mount（一次，可 await 数据），内层 = render（每次 dirty/props 变化，同步）。
+ * 外层 = mount（一次，可 await 数据），内层 = renderFn（每次 dirty/props 变化——**强制异步**，
+ * 可 await 数据；统一异步心智：两阶段都可 await，无「同步组件 vs 异步组件」二元形态）。
  * P = props 类型（JSX 自动推断），C = 组件依赖的 ctx 注入（如 ApiInjected & RouteInjected）
  *
- * 模式 A（design/async-mode-a-plan.md）：主路径 buildVNode await 全部工厂（无占位）；
- * 动态挂载兑底占位 + 局部补全。渲染器按「返回值是 Promise」原生判别。
+ * renderFn 签名：async (props) => Promise<VNode | null>——同步 renderFn 是类型错误
+ * （diff 永不执行 renderFn——渲染器在 buildVNode 阶段 await，同步上下文拿不到 vnode）。
+ * 渲染器按「返回值是 Promise」判别（主路径 buildVNode await 全部工厂 + renderFn）。
  */
+export type RenderFn<P> = (props: P) => Promise<VNode | null>
+
 export type Component<P = {}, C extends object = {}> = (
   initProps: P,
   ctx: WfuiContext & C,
-) => Promise<((props: P) => VNode | null) | null>
+) => Promise<RenderFn<P> | null>
 
 export const Fragment = Symbol('Fragment')
 

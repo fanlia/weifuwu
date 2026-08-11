@@ -41,7 +41,7 @@ export const Carousel: Component<CarouselProps> = async (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return async (props) => {
     const {
       children = [], autoplay, interval = 3000,
       showArrows = true, showDots = true, loop = true,

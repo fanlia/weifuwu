@@ -87,7 +87,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
   }
 
   // ── render（每次 dirty/props 变化）──
-  return (props: DatePickerProps) => {
+  return async (props: DatePickerProps) => {
     const L = (ctx as any)?.i18n?.components?.DatePicker ?? {}
     const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled } = props
 

@@ -11,7 +11,7 @@ export interface PaginationProps {
 }
 
 export const Pagination: Component<PaginationProps> = async (_init, ctx) =>
-  (props) => {
+  async (props) => {
   const { total, pageSize = 20 } = props
 
   // useControlled：受控/非受控统一（原非受控不可翻页——受控纪律违规）

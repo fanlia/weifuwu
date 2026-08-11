@@ -79,7 +79,7 @@ describe('Dropdown', () => {
     // children: [trigger, portalVNode]
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
     assert.ok(portal, '应有 Portal VNode')
-    const menu = inner(portal)
+    const menu = await inner(portal)
     assert.equal(menu.type, 'div')
     assert.match(menu.props.class, /wf-dropdown-menu/)
     assert.match(menu.props.class, /wf-popup/, 'usePopup 附加 wf-popup 基类')
@@ -97,7 +97,7 @@ describe('Dropdown', () => {
     ]
     const vnode = await renderVNode(Dropdown, { trigger, items, open: true }, makeCtx())!
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
-    const menu = inner(portal)
+    const menu = await inner(portal)
     const btn = menu.props.children[0]
     assert.match(btn.props.class, /wf-dropdown-item--danger/)
   })
@@ -109,7 +109,7 @@ describe('Dropdown', () => {
     ]
     const vnode = await renderVNode(Dropdown, { trigger, items, open: true }, makeCtx())!
     const portal = vnode.props.children.find((c: any) => c?.type === Portal)
-    const menu = inner(portal)
+    const menu = await inner(portal)
     assert.equal(menu.props.role, 'menu')
     assert.equal(menu.props.children[0].props.role, 'menuitem')
     assert.equal(menu.props.children[0].props.children, '编辑')

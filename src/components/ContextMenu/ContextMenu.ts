@@ -76,7 +76,7 @@ export const ContextMenu: Component<ContextMenuProps> = async (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return async (props) => {
     const { items: propItems = [], children, 'aria-label': ariaLabel, className } = props
     items = propItems
 

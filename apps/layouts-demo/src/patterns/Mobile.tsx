@@ -46,7 +46,7 @@ export const Mobile: Component = async (_init, ctx) => {
   let tab = '消息'
   const rerender = () => ctx.ui.render()
 
-  return () => {
+  return async () => {
     const filtered = CHATS.filter((c) => c.name.includes(query) || c.msg.includes(query))
     return (
     <div class="wf-center wf-p-lg wf-bg-tertiary" style={{ minHeight: 'calc(100vh - 48px)' }}>

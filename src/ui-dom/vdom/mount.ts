@@ -10,8 +10,7 @@ import type { WfuiContext } from '../types.ts'
 import type { BrowserEnv } from '../types.ts'
 import { buildVNode } from './build.ts'
 import { renderValue } from './render.ts'
-import { patchValue } from './diff.ts'
-import { createScheduler, type Scheduler } from './scheduler.ts'
+import { patchValue, type PatchCtx } from './diff.ts'
 import { createRegistry, type Registry, onComponentUnmountFor, cleanupComponent } from './registry.ts'
 import type { HookEnv } from '../hooks/types.ts'
 import { callRefCleanupFor } from './registry.ts'
@@ -29,14 +28,14 @@ export interface MountOptions {
   browser: BrowserEnv
   root: HTMLElement
   registry?: Registry
-  scheduler?: Scheduler
+  renderer?: Renderer
   onError?: (e: unknown) => void
 }
 
 export interface MountHandle {
   ctx: WfuiContext
   registry: Registry
-  scheduler: Scheduler
+  renderer: Renderer
   /** 挂载根组件 */
   mount(comp: Component | VNodeChild): Promise<void>
   /** 整树强制重渲染（force——测试辅助/手动刷新：renderFn 重跑 + patch） */
@@ -48,12 +47,88 @@ export interface MountHandle {
 export interface VdomContext {
   ctx: WfuiContext
   registry: Registry
-  scheduler: Scheduler
+  renderer: Renderer
   rootUi: any
   destroyPopupListeners: () => void
 }
 
-/** 组装 vdom 渲染上下文（ctx/registry/scheduler/rootUi——含完整 hooks 转发） */
+// ── 渲染执行器（render-only 唯一渲染入口——无调度队列） ──
+// 语义：
+// - render(ids) **直接执行**（无 enqueue/队列抽象）——await 它 = 数据（renderFn await）+
+//   buildVNode + patchValue 全部完成，**DOM 已同步**
+// - 同一组件进行中合并：渲染中再次 render → 等完成后补跑（最新状态落地，不丢变更）
+// - 不同组件并行（Promise.all）——兄弟组件无竞态（各 patch 各子树）；父子同时渲染属
+//   罕见场景（应用层单组件 render 为主），由同 id 合并兜底
+// - renderFn 强制异步：renderOne 内 await（数据驱动组件的取数延迟被 await 吸收）
+export interface Renderer {
+  render(ids?: string[]): Promise<void>
+}
+export interface RendererOptions {
+  registry: Registry
+  ctx: WfuiContext
+  rootEl?: HTMLElement
+  onError?: (e: unknown) => void
+}
+
+export function createRenderer(opts: RendererOptions): Renderer {
+  // 进行中渲染表（id → Promise）——同 id 合并（补跑）
+  const inflight = new Map<string, Promise<void>>()
+
+  async function renderOne(id: string): Promise<void> {
+    // 同一组件渲染中：等完成后补跑（期间状态变化落地——不丢变更）
+    const prev = inflight.get(id)
+    if (prev) {
+      await prev
+      if (inflight.has(id)) return // 补跑已由其他调用启动
+      return renderOne(id) // 无新渲染启动 → 自己补跑一次（最新状态）
+    }
+    const p = doRender(id)
+    inflight.set(id, p)
+    try { await p } finally { inflight.delete(id) }
+  }
+
+  async function doRender(id: string): Promise<void> {
+    const vnode = opts.registry.idRegistry.get(id)
+    if (!vnode || typeof vnode._render !== 'function') return
+    try {
+      const patchCtx: PatchCtx = {
+        browser: opts.ctx.browser,
+        registry: opts.registry,
+        // 当前 ctx 版本（rootUi._ctxVersion——bumpCtxVersion 递增；三态 skip 版本比较基准）
+        ctxVersion: (opts.ctx as any)?.ui?._ctxVersion ?? 0,
+      }
+      // renderFn 强制异步：await 数据 → 输出 vnode 树
+      const output = await vnode._render!(vnode.props)
+      const newChild = (await buildVNode(output, opts.ctx, vnode._child, opts.registry)) ?? null
+      const oldChild = vnode._child as VNode | null
+      vnode._child = newChild as VNode | VNode[] | null
+      // 定位渲染容器：_parentNode 优先；_refNode.parentNode fallback（
+      // _refNode 是组件输出的真实 DOM 锚点——挂载后未经历 diff 的组件 _parentNode 可能缺失，
+      // 直接 fallback rootEl 会把整树当 diff 基准 → 整树被组件输出覆盖 → 重挂 → 动画重启 → 渲染风暴）
+      const parent = (vnode as any)._parentNode ?? (vnode as any)._refNode?.parentNode ?? opts.rootEl ?? null
+      if (parent) {
+        const node = patchValue(parent, (vnode as any)._refNode ?? null, oldChild, newChild, patchCtx)
+        if (node) (vnode as any)._refNode = node
+        else (vnode as any)._refNode = null
+      }
+    } catch (e) {
+      if (opts.onError) opts.onError(e)
+      else console.error('[weifuwu] render error:', (e as any)?.stack ?? e)
+    }
+  }
+
+  function render(ids?: string[]): Promise<void> {
+    if (ids == null) {
+      const selfId = (opts.ctx.ui as any)?._selfId
+      if (!selfId) return Promise.resolve()
+      return renderOne(selfId)
+    }
+    return Promise.all(ids.map((id) => renderOne(id))).then(() => undefined)
+  }
+  return { render }
+}
+
+/** 组装 vdom 渲染上下文（ctx/registry/renderer/rootUi——含完整 hooks 转发） */
 export function createVdomContext(opts: MountOptions): VdomContext {
   const registry = opts.registry ?? createRegistry()
   const rootUi: any = {
@@ -68,16 +143,16 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     __registry: registry,
   } as any
 
-  const scheduler = opts.scheduler ?? createScheduler({ registry, ctx, rootEl: opts.root })
+  const renderer = opts.renderer ?? createRenderer({ registry, ctx, rootEl: opts.root })
 
   rootUi.render = function (this: any, ids?: string[]): Promise<void> {
     // this = 调用者的 childCtx.ui（组件 ctx.ui.render() → this._selfId = 组件 id）
     // root 层（this = rootUi，_selfId = '_wf_root' 虚拟 id）→ 渲染实际 root 组件（_rootVNodeId）
     if (ids == null) {
       const self = this._selfId !== '_wf_root' && this._selfId ? this._selfId : rootUi._rootVNodeId
-      return self ? scheduler.render([self]) : Promise.resolve()
+      return self ? renderer.render([self]) : Promise.resolve()
     }
-    return scheduler.render(ids)
+    return renderer.render(ids)
   }
   // render-only（design/render-only-plan.md）：仅 render() 触发渲染——$ / dirty 已删除
   rootUi.setMounting = (v: boolean) => { rootUi._mounting = v }
@@ -86,7 +161,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
 ;(ctx as any).ui = rootUi
 
   // ── 弹层/滚动跟踪系统（scroll/resize 重算 → 渲染） ──
-  const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) scheduler.render([id]) })
+  const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) renderer.render([id]) })
   const { mediaRegistry, popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners, cleanupTrackers } = tracker as any
 
   // ── 卸载钩子防御：hook 自身已注册清理（usePopupPosition/useScrollPosition/useMedia），
@@ -108,7 +183,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
       const id = self?._selfVNode?._id ?? self?._selfId
       return typeof id === 'string' ? id : undefined
     },
-    render: (ids) => scheduler.render(ids),
+    render: (ids) => renderer.render(ids),
     browser: opts.browser,
     onUnmount: (fn) => onComponentUnmountFor(registry, fn),
     registry,
@@ -163,18 +238,18 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   rootUi.useTween = function (this: any, t: number, o?: any) { return useTween(makeEnv(this), t, o) }
   rootUi.destroyPopupListeners = destroyPopupListeners
 
-  return { ctx, registry, scheduler, rootUi, destroyPopupListeners }
+  return { ctx, registry, renderer, rootUi, destroyPopupListeners }
 }
 
 export function mountRoot(opts: MountOptions): MountHandle {
-  const { ctx, registry, scheduler, rootUi, destroyPopupListeners } = createVdomContext(opts)
+  const { ctx, registry, renderer, rootUi, destroyPopupListeners } = createVdomContext(opts)
   let mounted: VNodeChild | null = null
   let prevChild: VNodeChild | null = null
 
   const handle: MountHandle = {
     ctx,
     registry,
-    scheduler,
+    renderer,
     async mount(input) {
       // 首帧：buildVNode（await 全部工厂）→ renderValue（同步落地）
       mounted = input as VNodeChild

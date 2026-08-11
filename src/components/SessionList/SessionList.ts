@@ -63,7 +63,7 @@ export const SessionList: Component<SessionListProps, WfuiContext> = async (_ini
   /** 键盘导航焦点 id（与 activeId 独立：方向键移动高亮） */
   let focusId: string | undefined
 
-  return (props) => {
+  return async (props) => {
     const { sessions, activeId, onSelect, onNew, onRename, onDelete, searchable, newLabel = '新建会话' } = props
 
     // 搜索过滤 + 分组

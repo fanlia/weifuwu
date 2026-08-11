@@ -30,7 +30,7 @@ export const Modal: Component<ModalProps> = async (_props, ctx) => {
     if (e.key === 'Escape' && dialog.phase === 'open') latestOnClose?.()
   })
 
-  return (props: ModalProps) => {
+  return async (props: ModalProps) => {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
     latestOnClose = onClose
     const ML = (ctx as any)?.i18n?.components?.Modal ?? {}

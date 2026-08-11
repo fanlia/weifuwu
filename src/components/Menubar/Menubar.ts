@@ -76,7 +76,7 @@ export const Menubar: Component<MenubarProps> = async (_init, ctx) => {
     ctx.ui.render()
   }
 
-  return (props) => {
+  return async (props) => {
     const { menus: propMenus = [], 'aria-label': ariaLabel } = props
     menus = propMenus
 

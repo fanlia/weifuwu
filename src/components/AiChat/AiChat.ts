@@ -111,7 +111,7 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
   }
 
   // ── render（每次 dirty/props 变化）──
-  return (props) => {
+  return async (props) => {
     const { chat, raiseOnKeyboard = false } = props
     const labels: AiChatLabels = { ...defaultLabels, ...props.labels }
 

@@ -62,7 +62,7 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
 }
 
 export const Table: Component<TableProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { data = [], columns, onRowClick, sortKey, sortOrder, onSort, emptyText, rowSelection } = props
 
   const sortedData = sortData(data, columns, sortKey, sortOrder)

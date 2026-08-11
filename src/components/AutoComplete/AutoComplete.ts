@@ -95,7 +95,7 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
   }
 
   // ── render（每次 dirty/props 变化）──
-  return (props: AutoCompleteProps) => {
+  return async (props: AutoCompleteProps) => {
     const { options, value, placeholder = '输入搜索…', disabled, renderOption, onSelect } = props
     // C3 原语：受控 value + 内部输入态/选中态（render 阶段调用——读最新 props）
     inputCtrl = ctx.ui.useControlledInput({ value, onChange: props.onChange, name: 'AutoComplete' })

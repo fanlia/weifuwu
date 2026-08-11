@@ -244,7 +244,7 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, WfuiContext> = async
   }
 
   // ── render（每次 render()/props 变化）──
-  return (props) => {
+  return async (props) => {
     // 初始值只取一次（mount 时 value 是 initProps）；render 期 props.value 变化不回流
     // （非受控语义，文档注明）
     const schema = props.schema

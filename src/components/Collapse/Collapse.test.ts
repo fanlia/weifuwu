@@ -100,11 +100,11 @@ describe('Collapse', () => {
     const ctx = createTestCtx() as any
     const result = await Collapse({ items }, ctx)
     const render = result as any
-    const v1 = render({ items })
+    const v1 = await render({ items })
     // 点击 A 标题 → 非受控：内部状态更新（useControlled 内部缓存）
     v1.props.children[0].props.children[0].props.onClick()
     // 再次 render（模拟 re-render）：A 面板应保持展开
-    const v2 = render({ items })
+    const v2 = await render({ items })
     assert.ok(String(v2.props.children[0].props.class).includes('--open'), 'A 面板展开')
     assert.ok(!String(v2.props.children[1].props.class).includes('--open'), 'B 面板收起')
   })

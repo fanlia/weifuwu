@@ -8,7 +8,7 @@ export interface DividerProps {
 }
 
 export const Divider: Component<DividerProps> = async (_init, _ctx) =>
-  (props) => {
+  async (props) => {
   const { vertical, children } = props
 
   if (vertical) {

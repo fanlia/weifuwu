@@ -41,7 +41,7 @@ export function gridColumns(span: number): string {
 }
 
 export const Grid: Component<GridProps> = async (_init, _ctx: WfuiContext) =>
-  (props) => {
+  async (props) => {
     const { gutter, flex, gap, direction = 'row', align, children } = props
     const half = gutter ? gutter / 2 : 0
     // gutter 通过 style 传递——子 Col 从 Grid 拿（简化：注入 gutter 到 children props）
@@ -63,7 +63,7 @@ export const Grid: Component<GridProps> = async (_init, _ctx: WfuiContext) =>
   }
 
 export const Col: Component<ColProps> = async (_init, _ctx: WfuiContext) =>
-  (props) => {
+  async (props) => {
     const { span = 24, gutter, children } = props
     const half = gutter ? gutter / 2 : 0
     return h('div', {

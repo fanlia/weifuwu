@@ -80,7 +80,7 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
     if (el && popup.open) popup.refresh()
   }
 
-  return (props) => {
+  return async (props) => {
     const {
       options,
       value,
