@@ -60,6 +60,12 @@ export function setProp(el: Element, key: string, value: any): void {
     ;(el as HTMLInputElement).value = value
     return
   }
+  if (key === 'indeterminate') {
+    // input[type=checkbox] 半选态：property 而非 attribute——setAttribute('indeterminate','')
+    // 解析为 false（同 draggable 枚举坑）；el.indeterminate = true 才有效
+    ;(el as HTMLInputElement).indeterminate = !!value
+    return
+  }
   if (key === 'innerHTML') {
     el.innerHTML = String(value ?? '')
     return

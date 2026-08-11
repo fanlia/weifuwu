@@ -208,6 +208,21 @@ test('setProp: enumerated 属性显式字符串', () => {
   assert.equal(el.getAttribute('draggable'), null, 'false 不设属性（移除由 patchProps）')
 })
 
+test('setProp: indeterminate 半选态用 property（setAttribute 无效）', () => {
+  const el = document.createElement('input')
+  el.type = 'checkbox'
+  setProp(el, 'indeterminate', true)
+  assert.equal(el.indeterminate, true, 'property 赋值生效')
+  // patchProps 移除 → 半选态清除
+  patchProps(el, { indeterminate: true }, {})
+  assert.equal(el.indeterminate, false, '移除后清除半选态')
+  // false → 不设
+  const el2 = document.createElement('input')
+  el2.type = 'checkbox'
+  setProp(el2, 'indeterminate', false)
+  assert.equal(el2.indeterminate, false)
+})
+
 test('normalizeChildren: null/数组/单值', () => {
   assert.deepEqual(normalizeChildren(null), [])
   assert.deepEqual(normalizeChildren([1, 2]), [1, 2])

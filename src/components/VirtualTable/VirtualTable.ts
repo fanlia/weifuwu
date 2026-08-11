@@ -145,10 +145,11 @@ export const VirtualTable: Component<VirtualTableProps> = async (_init, ctx) => 
       ].filter(Boolean))
     })
 
-    // 行选择：表头全选复选框列
+    // 行选择：表头全选复选框列（三态：全选 / 部分选中 indeterminate / 未选）
     const headerCells: any[] = []
     if (rowSelection) {
       const allSelected = total > 0 && sortedData.every((r, ri) => selectedSet.has(rowKeyOf(r, ri)))
+      const someSelected = total > 0 && !allSelected && sortedData.some((r, ri) => selectedSet.has(rowKeyOf(r, ri)))
       headerCells.push(h('div', {
         class: 'wf-virtual-table-th wf-virtual-table-th--select',
         style: { width: '40px' },
@@ -156,7 +157,10 @@ export const VirtualTable: Component<VirtualTableProps> = async (_init, ctx) => 
         type: 'checkbox',
         class: 'wf-virtual-table-check',
         checked: allSelected,
+        // 部分选中 → indeterminate（半选标记）：仅部分行被选中时表头显示横线
+        indeterminate: someSelected,
         'aria-label': allSelected ? '取消全选' : '全选',
+        'aria-checked': someSelected ? 'mixed' : String(allSelected),
         onChange: toggleAll,
       })))
     }

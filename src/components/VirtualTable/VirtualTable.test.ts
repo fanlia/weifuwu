@@ -190,3 +190,55 @@ it('rowSelection：单行勾选 toggle', async () => {
   rowChecks[0].props.onChange()
   assert.equal(sel.length, 0, '取消后 0 选中')
 })
+
+it('rowSelection：部分选中 → 表头 indeterminate 半选态', async () => {
+  // 场景：选中 1/3 行 → 表头 checkbox 应 indeterminate（既非全选也非未选）
+  let sel: any[] = [0]
+  const { ctx } = makeCtx()
+  const factory = await mount(VirtualTable, {
+    columns, data: rows.slice(0, 3),
+    rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
+  }, ctx)
+  const vnode = factory({
+    columns, data: rows.slice(0, 3),
+    rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
+  })
+  const find = (n: any, pred: (n: any) => boolean): any => {
+    if (!n || typeof n !== 'object') return null
+    if (pred(n)) return n
+    const k = n.props?.children
+    const arr = Array.isArray(k) ? k : (k && typeof k === 'object' ? [k] : [])
+    for (const c of arr) { const f = find(c, pred); if (f) return f }
+    return null
+  }
+  const headerCheck = find(vnode, (n: any) => n.type === 'input' && n.props?.type === 'checkbox' && n.props?.['aria-label'] === '全选')
+  assert.ok(headerCheck, '表头全选 checkbox 存在')
+  assert.equal(headerCheck.props.indeterminate, true, '部分选中 → indeterminate')
+  assert.equal(headerCheck.props.checked, false, '非全选 → checked=false')
+  assert.equal(headerCheck.props['aria-checked'], 'mixed', 'aria-checked=mixed')
+})
+
+it('rowSelection：全选时表头非 indeterminate', async () => {
+  let sel: any[] = [0, 1, 2]
+  const { ctx } = makeCtx()
+  const factory = await mount(VirtualTable, {
+    columns, data: rows.slice(0, 3),
+    rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
+  }, ctx)
+  const vnode = factory({
+    columns, data: rows.slice(0, 3),
+    rowSelection: { selectedRowKeys: sel, onChange: (k: any[]) => { sel = k } },
+  })
+  const find = (n: any, pred: (n: any) => boolean): any => {
+    if (!n || typeof n !== 'object') return null
+    if (pred(n)) return n
+    const k = n.props?.children
+    const arr = Array.isArray(k) ? k : (k && typeof k === 'object' ? [k] : [])
+    for (const c of arr) { const f = find(c, pred); if (f) return f }
+    return null
+  }
+  const headerCheck = find(vnode, (n: any) => n.type === 'input' && n.props?.type === 'checkbox' && n.props?.['aria-label'] === '取消全选')
+  assert.ok(headerCheck, '全选时表头 aria-label=取消全选')
+  assert.ok(!headerCheck.props.indeterminate, '全选 → 无 indeterminate（falsy）')
+  assert.equal(headerCheck.props['aria-checked'], 'true', 'aria-checked=true')
+})

@@ -252,6 +252,7 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
       else if (key.startsWith('on')) { el.removeEventListener(key.slice(2).toLowerCase(), ov) }
       else if (key === 'ref') { if (typeof ov === 'function') { try { ov(null) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } } }
       else if (key === 'value') { (el as HTMLInputElement).value = '' }
+      else if (key === 'indeterminate') { (el as HTMLInputElement).indeterminate = false }  // 半选态清除（delete 无效——property）
       else { el.removeAttribute(key); try { delete (el as any)[key] } catch {} }
       continue
     }
