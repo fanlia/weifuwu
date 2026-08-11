@@ -256,6 +256,7 @@ export const Chat: Component = async (_props, ctx) => {
         )}
 
         {$.msgs.map((msg: any) => {
+          if ((globalThis as any).__dbgMsgs) console.log('[chat-map]', String(msg.id).slice(0, 8), msg.sender_name, 'msgsLen=', $.msgs.length)
           const own = isOwn(msg)
           const beingEdited = $.editingId === msg.id
           const st = msg.status
@@ -266,7 +267,7 @@ export const Chat: Component = async (_props, ctx) => {
           if (msg.msg_type === 'system') return <div class="wf-center"><span class="wf-pill wf-bg-tertiary wf-text-secondary wf-px-sm wf-py-xs wf-text-xs">{msg.content}</span></div>
 
           return (
-            <div class={`wf-row wf-top wf-gap-sm${own ? ' wf-row-reverse' : ''}`}>
+            <div data-msgid={String(msg.id).slice(0, 8)} data-msgtype={msg.msg_type} class={`wf-row wf-top wf-gap-sm${own ? ' wf-row-reverse' : ''}`}>
               <Ava name={msg.sender_name} type={msg.sender_type ?? 'user'} small />
               <div class={`wf-stack wf-gap-xs wf-shrink${own ? ' wf-bottom' : ''}`}>
                 <div class={`wf-row wf-gap-xs wf-text-xs wf-text-tertiary${own ? ' wf-row-reverse' : ''}`}>

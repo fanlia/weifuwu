@@ -56,7 +56,13 @@ export function patchValue(
     const node = renderValue(newInput, ctx)
     if (node == null) return null
     if (oldNode && oldNode.parentNode) {
-      oldNode.parentNode.insertBefore(node, oldNode)
+      // 注释锚点（wf-async/wf-empty 占位）→ replace（占位补全不残留——insertBefore 会留注释，
+      // 导致 DOM 与 vnode children 错位 → 含 async 组件的数组再次 diff 时重复插入（chat 消息×2 事故））
+      if (oldNode.nodeType === 8 /* COMMENT_NODE */) {
+        oldNode.parentNode.replaceChild(node, oldNode)
+      } else {
+        oldNode.parentNode.insertBefore(node, oldNode)
+      }
     } else {
       parent.appendChild(node)
     }
