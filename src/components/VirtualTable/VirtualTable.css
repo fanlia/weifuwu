@@ -109,4 +109,53 @@
   height: 16px;
   cursor: pointer;
   accent-color: var(--wf-color-primary);
+  /* 对齐 Tree 三态视觉（原生 indeterminate 横线浅灰不明显）：
+     半选态 = primary 背景 + on-brand 横线 */
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg);
+  position: relative;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* 选中（全选/行勾选）：primary 背景 + 白勾 */
+.wf-virtual-table-check:checked {
+  background: var(--wf-color-primary);
+  border-color: var(--wf-color-primary);
+}
+.wf-virtual-table-check:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid var(--wf-color-on-brand);
+  border-bottom: 2px solid var(--wf-color-on-brand);
+  transform: translate(-50%, -60%) rotate(-45deg);
+}
+
+/* 半选（部分行选中）：primary 背景 + on-brand 横线 */
+.wf-virtual-table-check:indeterminate {
+  background: var(--wf-color-primary);
+  border-color: var(--wf-color-primary);
+}
+.wf-virtual-table-check:indeterminate::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 2px;
+  background: var(--wf-color-on-brand);
+  transform: translate(-50%, -50%);
+}
+
+.wf-virtual-table-check:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
 }
