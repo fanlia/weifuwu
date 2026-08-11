@@ -62,7 +62,7 @@ const DATA: Record<string, PeriodData> = {
   },
 }
 
-export const Dashboard: Component = (_init, ctx) => {
+export const Dashboard: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   $.period = '30d'
   $.showGoal = true

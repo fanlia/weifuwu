@@ -54,7 +54,7 @@ function positionClass(pos: ToastPosition): string {
   return map[pos] ?? 'wf-toast--tr'
 }
 
-export const Toast: Component<ToastProps> = (_init, ctx) =>
+export const Toast: Component<ToastProps> = async (_init, ctx) =>
   (props) => {
   const { toasts = [], onRemove, position = 'top-right', duration = 0, max = 0 } = props
 
@@ -126,7 +126,7 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
   let seq = 0
 
   // ToastHost — 内部常驻组件：状态在 $ 里，赋值自动渲染
-  const ToastHost: Component = (_init, ctx) => {
+  const ToastHost: Component = async (_init, ctx) => {
     const $ = ctx.ui.$()
     $.toasts = []
     hostApi = {
@@ -164,7 +164,7 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
     const container = browser.createElement('div') as HTMLDivElement | null
     if (!container) return
     browser.bodyAppend(container)
-    mountVNode(container, h(ToastHost, {}), ctxRef)
+    void mountVNode(container, h(ToastHost, {}), ctxRef)
   }
 
   return (ctx: WfuiContext) => {

@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
 import { ssrToString, serializeData } from './ssr.ts'
-import type { Component, AsyncComponent } from '../ui-dom/vnode.ts'
+import type { Component } from '../ui-dom/vnode.ts'
 
 declare module '../types.ts' {
   interface Context {
@@ -49,7 +49,7 @@ declare module '../types.ts' {
        * 支持 async 工厂组件：await 工厂 → 数据进 HTML。
        * opts.data（Map）收集 ctx.data 预取结果，用 ctx.ui.ssrData(data) 序列化进 __DATA__。
        */
-      ssr: (Comp: Component | AsyncComponent, props?: Record<string, any>, opts?: { data?: Map<string, unknown> }) => Promise<string>
+      ssr: (Comp: Component, props?: Record<string, any>, opts?: { data?: Map<string, unknown> }) => Promise<string>
       /** 序列化 SSR 数据存储 → <script>window.__DATA__=...</script>（HtmlSafe） */
       ssrData: (data: Map<string, unknown>) => string
     }
@@ -149,7 +149,7 @@ export function ui(): Middleware {
       html: Object.assign(htmlTag, { unsafe }) as any,
 
       /** SSR 渲染组件 → HTML 片段（HtmlSafe：内联进 ctx.ui.html 不二次转义） */
-      async ssr(Comp: Component | AsyncComponent, props?: Record<string, any>, opts?: { data?: Map<string, unknown> }): Promise<string> {
+      async ssr(Comp: Component, props?: Record<string, any>, opts?: { data?: Map<string, unknown> }): Promise<string> {
         const safe = await ssrToString(Comp, props ?? {}, ctx, opts)
         return safe as unknown as string
       },

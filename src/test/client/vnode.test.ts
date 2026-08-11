@@ -85,10 +85,11 @@ describe('jsxs / jsxDEV', () => {
 })
 
 describe('Component 类型', () => {
-  it('组件返回 VNode', () => {
-    const Greeting: Component<{ name: string }> = (props) =>
-      jsx('div', { children: `Hello, ${props.name}` })
-    const v = Greeting({ name: 'Alice' }, {} as WfuiContext)
+  it('组件返回 VNode', async () => {
+    const Greeting: Component<{ name: string }> = async (props) =>
+      () => jsx('div', { children: `Hello, ${props.name}` })
+    const renderFn = await Greeting({ name: 'Alice' }, {} as WfuiContext)
+    const v = renderFn!({ name: 'Alice' })
     assert.equal(v.type, 'div')
     assert.equal(v.props.children, 'Hello, Alice')
   })
@@ -100,7 +101,7 @@ describe('Component 类型', () => {
 
   it('组件接收 ctx', () => {
     let capturedCtx: any = null
-    const CtxReader: Component = (_props, ctx) => {
+    const CtxReader: Component = async (_props, ctx) => {
       capturedCtx = ctx
       return jsx('div', null)
     }

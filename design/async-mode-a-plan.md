@@ -55,6 +55,7 @@
 - **S2**：骨架屏 API（handle.ready + 原子替换）+ demo 验证 + AGENTS.md/docs 同步
 - **S3**（分批，待 S1/S2 验收后）：113 组件 async 化（机械 churn，每批 10-15 + 对应测试 await）
 - **S4** ✅：三遍历器合一——提取 `mountAsyncComponent`（共享：id 分配 + childCtx 构造 + 工厂 await + setMounting 保护 + renderFn 校验）供 buildVNode/hydration 共用；renderSsr 保持独立（per-request 无状态遍历——不分配 id/不设 _render，本质不同，注释说明）。组件工厂调用语义单一事实源
+- **S5** ✅：统一组件定义——只支持两阶段异步组件（Component 类型强制 `Promise<renderFn>` 返回，删 AsyncComponent）；mountComponent/ssr/testing 删同步路径；mountVNode async（await buildVNode）；renderValue 组件分支 `_child !== undefined` 区分「未构建 vs 构建为 null」（Modal 输出 null 回归）
 
 ## 风险与对策
 

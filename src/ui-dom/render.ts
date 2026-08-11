@@ -12,7 +12,7 @@
  */
 
 import { Fragment, Portal, isPortal, h } from './vnode.ts'
-import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
+import type { VNode, VNodeChild, Component } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import type { WfuiContext } from './types.ts'
 import type { BrowserEnv } from './types.ts'
@@ -68,7 +68,7 @@ export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
 
   // Component（同步组件或 async 工厂）
   if (typeof vnode.type === 'function') {
-    return renderComponent(vnode.type as Component | AsyncComponent, vnode.props, vnode, ctx)
+    return renderComponent(vnode.type as Component, vnode.props, vnode, ctx)
   }
 
   // Native element（SVG 元素必须用 createElementNS）
@@ -148,7 +148,7 @@ function scheduleLocalRefresh(vnode: VNode, ctx: WfuiContext): void {
  *   - 同步工厂 → 返回 render fn 输出
  */
 export function mountComponent(
-  Comp: Component | AsyncComponent,
+  Comp: Component,
   props: VNode['props'],
   vnode: VNode,
   ctx: WfuiContext,
@@ -167,7 +167,8 @@ export function mountComponent(
   const b = (ctx.browser ?? clientBrowser) as BrowserEnv
   // 已解析（buildVNode 预构建 或 补全后）：直接渲染，不重跑工厂
   if (typeof vnode._render === 'function') return vnode._render(props)
-  // 首次调用组件（mount）：setMounting 保护期 $ 初始化赋值不触发渲染
+  // 首次调用组件（mount）：setMounting 保护期 $ 初始化赋值不触发渲染；
+  // 统一签名：所有组件工厂都是 async（返回 Promise）——同步执行到第一个 await（数据请求已在飞）
   ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.setMounting?.(true)
   let result: unknown
   try {
@@ -175,42 +176,30 @@ export function mountComponent(
   } finally {
     ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.endMounting?.()
   }
-  if (result instanceof Promise) {
-    // async 工厂：同步执行到第一个 await（数据请求已在飞）——占位；resolve 后局部补全
-    const promise = result as Promise<(props: VNode['props']) => VNode | null>
-    vnode._asyncDef = promise // 占位标记（renderComponent 据此输出注释锚点）
-    void promise.then(
-      (defFn: any) => {
-        if (typeof defFn !== 'function') {
-          console.error(
-            `Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
-              `(props) => VNode pattern.`
-          )
-          return
-        }
-        vnode._render = defFn
-        scheduleLocalRefresh(vnode, ctx)
-      },
-      () => {
-        // 工厂失败：保持占位（已知裁剪：reject 无错误 UI/重试——见 components-cuts.md）
-      },
-    )
-    return null // 占位（renderComponent 特判输出注释节点作锚点）
-  }
-  if (typeof result !== 'function') {
-    throw new Error(
-      `Component ${Comp.name || 'anonymous'} must return a render function. ` +
-        `Use (init_props, ctx) => (props) => VNode pattern.`
-    )
-  }
-  // 同步组件：result 即 renderFn（mount 已完成）——直接渲染，避免二次调用
-  const renderFn = result as (props: VNode['props']) => VNode | null
-  vnode._render = renderFn
-  return renderFn(props)
+  // 统一 async 工厂：占位；resolve 后局部补全（同步组件已不支持——类型系统强制 async）
+  const promise = result as Promise<(props: VNode['props']) => VNode | null>
+  vnode._asyncDef = promise // 占位标记（renderComponent 据此输出注释锚点）
+  void promise.then(
+    (defFn: any) => {
+      if (typeof defFn !== 'function') {
+        console.error(
+          `Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
+            `(props) => VNode pattern.`
+        )
+        return
+      }
+      vnode._render = defFn
+      scheduleLocalRefresh(vnode, ctx)
+    },
+    () => {
+      // 工厂失败：保持占位（已知裁剪：reject 无错误 UI/重试——见 components-cuts.md）
+    },
+  )
+  return null // 占位（renderComponent 特判输出注释节点作锚点）
 }
 
 function renderComponent(
-  Comp: Component | AsyncComponent,
+  Comp: Component,
   props: VNode['props'],
   vnode: VNode,
   ctx: WfuiContext,
@@ -239,7 +228,9 @@ function renderComponent(
   let childVNode: VNode | VNode[] | null
   try {
     // buildVNode 已解析（_child 预构建）→ 直接渲染；否则动态挂载（mountComponent）
-    childVNode = (vnode._child as VNode | VNode[] | null) ?? mountComponent(Comp, props, vnode, childCtx)
+    childVNode = vnode._child !== undefined
+      ? (vnode._child as VNode | VNode[] | null)
+      : mountComponent(Comp, props, vnode, childCtx)
   } catch (e) {
     const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
     if (errHandler) {
@@ -418,8 +409,10 @@ function setProp(el: Element, key: string, value: any) {
 
 // ── 挂载到容器 ────────────────────────────────────────
 
-export function mountVNode(container: Element, vnode: VNode, ctx: WfuiContext) {
+/** 挂载 VNode 树到容器（async：await buildVNode 预构建——统一 async 组件签名） */
+export async function mountVNode(container: Element, vnode: VNode, ctx: WfuiContext) {
   container.innerHTML = ''
+  await buildVNode(vnode, ctx)
   const node = renderValue(vnode, ctx)
   // renderValue 返回 Node | null——数组分支不可达（CS-01 死代码），直接插入
   if (node instanceof Node) container.appendChild(node)

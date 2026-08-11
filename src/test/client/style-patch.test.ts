@@ -16,7 +16,7 @@ describe('style diff：undefined 值移除旧样式（渲染器防线）', () =>
     el.id = 'style-test-1'
     let open = false
     let root: any
-    const Cmp = (_: any, ctx: any) => {
+    const Cmp = async (_: any, ctx: any) => {
       root = ctx
       return () => h('div', { class: 'panel', style: { display: open ? undefined : 'none' } }, 'x')
     }
@@ -41,7 +41,7 @@ describe('style diff：undefined 值移除旧样式（渲染器防线）', () =>
     el.id = 'style-test-2'
     let w = 10
     let root: any
-    const Cmp = (_: any, ctx: any) => {
+    const Cmp = async (_: any, ctx: any) => {
       root = ctx
       return () => h('div', { class: 'w', style: { width: w, opacity: w > 50 ? '1' : '0.5' } })
     }

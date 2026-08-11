@@ -10,7 +10,7 @@ import {Text, Button, Card, Checkbox, Field, Form, Icon, Input, Space, Alert, Di
 //   Form / Field / Input / Checkbox / Button（weifuwu 表单全家桶）
 // ─────────────────────────────────────────────────────────────
 
-export const FocusTask: Component = (_init, ctx) => {
+export const FocusTask: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   $.ok = false
   $.errors = {} as Record<string, string>

@@ -119,7 +119,7 @@ test('嵌套子路由：ctx.route.params 随 match 同步（组件读 params.id 
 test('三态 skip：props 相同 + 无 dirty → 组件 patch 复用（render 不重跑）', async () => {
   const b = createClientBrowser()
   let renderCount = 0
-  const Counter = (_init: any, ctx: any) => {
+  const Counter = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.n = 0
     return () => {
@@ -200,7 +200,7 @@ test('ctx.browser 读操作无副作用（普通对象非 Proxy——读不触�
 test('渲染死循环 failsafe：renderValue 超限抛错（防御无限挂载不卡死主线程）', async () => {
   const b = createClientBrowser()
   // 组件渲染期反复触发 dirty（渲染 → dirty → 渲染……微任务风暴）——failsafe 抛错而非无限循环
-  const Loop = (_init: any, ctx: any) => {
+  const Loop = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.n = 0
     return () => {
@@ -226,7 +226,7 @@ test('渲染死循环 failsafe：renderValue 超限抛错（防御无限挂载�
 test('注入中间件只执行一次（_ensureInjected 幂等——不因渲染重复注入）', async () => {
   const b = createClientBrowser()
   let injectCount = 0
-  const injectMw = (ctx: any) => {
+  const injectMw = async (ctx: any) => {
     injectCount++
     ctx.injected = { api: {} }
     return ctx
@@ -263,7 +263,7 @@ test('渲染中间件执行次数 = 渲染次数（中间件自身不触发额�
       return child == null ? child : h('div', { id: 'mw-shell' }, child)
     }
   }
-  const Page = (_init: any, ctx: any) => {
+  const Page = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.n = 0
     return () => {

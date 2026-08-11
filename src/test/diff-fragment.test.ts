@@ -17,12 +17,12 @@ import { h, Fragment } from '../ui-dom/vnode.ts'
 setupJsdom()
 const browser = createClientBrowser()
 
-function fakeCtx(): any {
+function fakeCtx(){
   return { ui: { $: {}, dirty: () => {}, render: () => {}, ready: true } }
 }
 
 describe('diff: fragment + siblings 位置对齐', () => {
-  it('fragment 夹在兄弟节点中间：重渲染不串位、不丢节点', () => {
+  it('fragment 夹在兄弟节点中间：重渲染不串位、不丢节点', async () => {
     const ctx = fakeCtx()
     const container = browser.createElement('div')
 
@@ -36,7 +36,7 @@ describe('diff: fragment + siblings 位置对齐', () => {
     )
 
     const prev = make()
-    mountVNode(container, prev, ctx)
+    await mountVNode(container, prev, ctx)
 
     // 状态变化触发重渲染（结构不变；new 是全新 VNode，old 是上次挂载的树）
     patchValue(container, container.firstChild, prev, make(), ctx)
@@ -50,7 +50,7 @@ describe('diff: fragment + siblings 位置对齐', () => {
     assert.deepEqual(order, ['a', 'b1', 'b2', 'c'], '子节点顺序不得错乱')
   })
 
-  it('fragment 子项数量变化：重渲染后 DOM 与结构一致', () => {
+  it('fragment 子项数量变化：重渲染后 DOM 与结构一致', async () => {
     const ctx = fakeCtx()
     const container = browser.createElement('div')
 
@@ -59,7 +59,7 @@ describe('diff: fragment + siblings 位置对齐', () => {
       h(Fragment, {}, h('b', { id: 'b1' }, 'A')),
       h('span', { id: 'c' }, 'end'),
     )
-    mountVNode(container, prev, ctx)
+    await mountVNode(container, prev, ctx)
 
     const next = h('div', {},
       h('span', { id: 'a' }, 'name'),

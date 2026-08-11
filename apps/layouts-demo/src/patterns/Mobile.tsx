@@ -41,7 +41,7 @@ const TABS = [
   { icon: 'user' as const, label: '我' },
 ]
 
-export const Mobile: Component = (_init, ctx) => {
+export const Mobile: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   $.query = ''
   $.tab = '消息'

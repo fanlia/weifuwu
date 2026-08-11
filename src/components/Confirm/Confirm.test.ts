@@ -83,7 +83,7 @@ describe('Confirm 组件（声明式）', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const vnode = await renderVNode(Confirm, { open: false, message: 'x' }, ctx)
-    mountVNode(container, vnode, ctx)
+    await mountVNode(container, vnode, ctx)
     await new Promise((r) => setTimeout(r, 0)) // Modal async 化：占位补全
     assert.equal(modal(), null, 'Modal open=false 不渲染 DOM')
   })
@@ -100,7 +100,7 @@ describe('Confirm 组件（声明式）', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const vnode = await renderVNode(Confirm, { open: true, message: 'x', confirmText: '删除', cancelText: '再想想', onConfirm: () => {}, onCancel: () => {} }, ctx)
-    mountVNode(container, vnode, ctx)
+    await mountVNode(container, vnode, ctx)
     // Button async 化：VNode 层断言（mock ctx 无补全调度——DOM 按钮不落地）
     const modal = vnode as any
     const btns = modal.props.footer.filter((b: any) => b?.type?.name === 'Button')

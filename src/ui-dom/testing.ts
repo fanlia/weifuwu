@@ -23,30 +23,22 @@ import type { WfuiContext } from './types.ts'
 // ── 两阶段组件渲染 ──────────────────────────────────────
 
 /**
- * 渲染两阶段组件到 VNode 层：mount 一次（外层）+ render 一次（内层）。
+ * 渲染两阶段异步组件到 VNode 层：await 工厂（mount）+ render 一次（内层）。
  * **只渲染一层**——子组件 VNode 的 type 是组件函数（断言 === Comp），不展开 DOM。
- * 无状态组件（外层直接返回 render 函数）同样支持。
- *
- * 双形态：同步组件返回 VNode（零破坏）；async 组件返回 Promise<VNode>（测试 await）。
+ * 统一 async 签名（weifuwu 只支持 async 两阶段组件）——总是返回 Promise<VNode>。
  * 注意：每次调用是**新 mount**——内部 `let` 状态不保留；测状态流转用 `mountComponent`。
  */
-export function renderVNode(Comp: any, props: Record<string, any>, ctx: WfuiContext): VNode | null | Promise<VNode | null> {
-  const result = Comp(props, ctx)
-  if (result instanceof Promise) {
-    return result.then((fn) => (typeof fn === 'function' ? fn(props) : fn))
-  }
-  return typeof result === 'function' ? result(props) : result
+export async function renderVNode(Comp: any, props: Record<string, any>, ctx: WfuiContext): Promise<VNode | null> {
+  const renderFn = await Comp(props, ctx)
+  return typeof renderFn === 'function' ? renderFn(props) : renderFn
 }
 
 /**
- * 同实例渲染器：mount 一次，之后每次调用重跑内层 render（保留内部 `let` 状态）。
+ * 同实例渲染器：await 工厂（mount 一次），之后每次调用重跑内层 render（保留内部 `let` 状态）。
  * 交互测试（点击/输入后状态流转）必须用这个——`renderVNode` 每次是新 mount 会丢状态。
  */
-export function mountComponent(Comp: any, props: Record<string, any>, ctx: WfuiContext): (() => VNode | null) | Promise<() => VNode | null> {
-  const inner = Comp(props, ctx)
-  if (inner instanceof Promise) {
-    return inner.then((fn) => () => (typeof fn === 'function' ? fn(props) : fn))
-  }
+export async function mountComponent(Comp: any, props: Record<string, any>, ctx: WfuiContext): Promise<() => VNode | null> {
+  const inner = await Comp(props, ctx)
   return () => (typeof inner === 'function' ? inner(props) : inner)
 }
 

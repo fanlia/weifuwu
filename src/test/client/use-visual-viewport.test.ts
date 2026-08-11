@@ -42,11 +42,11 @@ describe('ctx.ui.useVisualViewport', () => {
 
   it('无 visualViewport 环境（桌面）降级 innerHeight，不抛错', async () => {
     let vp: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       vp = ctx.ui.useVisualViewport()
       return () => h('div', {}, 'x')
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     el.id = 'vv-1'
     browser.bodyAppend(el)
@@ -62,11 +62,11 @@ describe('ctx.ui.useVisualViewport', () => {
     const sim = installVisualViewport()
     let vp: any
     let renderCount = 0
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       vp = ctx.ui.useVisualViewport()
       return () => h('div', {}, `h=${vp.height}`)
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     el.id = 'vv-2'
     browser.bodyAppend(el)

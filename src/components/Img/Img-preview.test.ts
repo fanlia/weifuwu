@@ -60,7 +60,7 @@ describe('Img preview 增强', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     let prev = r({ src: 'a.png', preview: true })
-    mountVNode(container, prev, ctx as any)
+    await mountVNode(container, prev, ctx as any)
     // 打开 preview（mockCtx.render 为空函数——手动重建 vnode + patch 模拟重渲染）
     ;(container.querySelector('.wf-img-preview-trigger') as HTMLButtonElement).click()
     const next = r({ src: 'a.png', preview: true })

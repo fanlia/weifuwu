@@ -24,7 +24,7 @@ app.get('/app.js', (req, ctx) =>
 serve(app, { port: 3000 })
 console.log('http://localhost:3000')` },
   { name: 'ui.ts', icon: 'file-text' as const, depth: 0, code: `// ui.ts —— 组件 + 响应式状态
-export const Counter: Component = (_init, ctx) => {
+export const Counter: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   $.count = 0
   return () => h('button', {
@@ -38,7 +38,7 @@ export function patchKeyedChildren(...) {
 }` },
 ]
 
-export const SplitWorkspace: Component = (_init, ctx) => {
+export const SplitWorkspace: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   $.file = 'server.ts'
   $.tab = 'server.ts'

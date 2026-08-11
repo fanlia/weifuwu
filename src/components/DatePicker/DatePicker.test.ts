@@ -125,7 +125,7 @@ describe('DatePicker', () => {
     const result = await (DatePicker as any)({}, ctx)
     renderFn = typeof result === 'function' ? () => result({}) : null
     prev = renderFn!()
-    mountVNode(container, prev, ctx)
+    await mountVNode(container, prev, ctx)
 
     // 点击输入框打开面板（toggle）
     const input = container.querySelector('.wf-datepicker-input') as HTMLElement

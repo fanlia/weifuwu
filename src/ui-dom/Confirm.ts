@@ -73,7 +73,7 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
     // （portal DOM 随卸载移除）。旧实现静态 open=true + 手动加 --exit 类 + 定时清理：
     // resolve 后宿主重渲染会把 modal 重挂回 portal，孤儿节点永久残留（浏览器实测）
     let doFinish: ((result: boolean) => void) | undefined
-    const CommandConfirm: Component = (_init, c) => {
+    const CommandConfirm: Component = async (_init, c) => {
       const $ = c.ui.$()
       $.open = true
       doFinish = (result: boolean) => {
@@ -110,11 +110,11 @@ function createConfirm(message: string, options: ConfirmOptions, ctx: WfuiContex
     }
 
     const vnode = h(CommandConfirm, {})
-    mountVNode(container, vnode, ctx)
+    void mountVNode(container, vnode, ctx)
   })
 }
 
-export const Confirm: Component<ConfirmProps> = (_init, _ctx) => {
+export const Confirm: Component<ConfirmProps> = async (_init, _ctx) => {
   // ── render（每次 dirty/props 变化）──
   return (props: ConfirmProps) => {
     const { open = false, title, message, confirmText, cancelText, variant = 'primary', width, maskClosable = false, onConfirm, onCancel } = props

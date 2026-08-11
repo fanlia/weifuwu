@@ -17,7 +17,7 @@ const FEATURES = [
   { icon: 'database' as const, title: '全栈一体', desc: 'DB / Redis / 队列 / AI / WebSocket 一个框架搞定' },
 ]
 
-export const Landing: Component = (_init, ctx) => (
+export const Landing: Component = async (_init, ctx) => (
   () => (
     <div class="wf-stack wf-gap-none">
       {/* 顶部导航 */}

@@ -23,7 +23,7 @@ test('usePresence：sync 状态机 open → exit → closed（animationend 卸�
   let presence: any
   let open = true
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     presence = c.ui.usePresence({ name: 'Panel' })
     return () => {
       const phase = presence.sync(open)
@@ -55,7 +55,7 @@ test('usePresence：exit → 重新打开可恢复 open', async () => {
   let presence: any
   let open = true
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     presence = c.ui.usePresence()
     return () => {
       const phase = presence.sync(open)
@@ -83,7 +83,7 @@ test('usePresence：ref(null) 清理 animationend 监听', async () => {
   browser.bodyAppend(container)
   let presence: any
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     presence = c.ui.usePresence()
     return () => {
       const phase = presence.sync(true)

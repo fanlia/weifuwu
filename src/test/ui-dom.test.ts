@@ -159,7 +159,7 @@ test('子路由：sub 中间件链 + notFound + 两层嵌套 + params + 段边�
 test('组件级 $：点击只重渲染该组件（父 handler 不重跑）', async () => {
   let handlerRuns = 0
   const router = new UIRouter()
-  const Counter = (_init: any, ctx: any) => {
+  const Counter = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.count = 0
     return (props: any) =>
@@ -187,7 +187,7 @@ test('组件级 $：点击只重渲染该组件（父 handler 不重跑）', asy
 
 test('ctx.ui.dirty()：闭包 let 手动模式 + render() 同步', async () => {
   const router = new UIRouter()
-  const Manual = (_init: any, ctx: any) => {
+  const Manual = async (_init: any, ctx: any) => {
     let count = 0
     return () => h('button', { id: 'm-btn', onClick: () => { count++; ctx.ui.dirty() } }, String(count))
   }
@@ -321,7 +321,7 @@ test('UIRouter.use(AppMiddleware)：ctx 注入链（toast/confirm）', async () 
 })
 
 test('UIRouter.use(AppMiddleware)：自定义注入中间件（ctx.xxx 类型扩展）', async () => {
-  const customMw = (ctx: any) => {
+  const customMw = async (ctx: any) => {
     ;(ctx as any).custom = { hello: 'world' }
     return ctx
   }

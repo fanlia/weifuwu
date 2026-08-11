@@ -28,7 +28,7 @@ async function mountWith(Comp: any) {
 test('useGlobalKey：window keydown 注册 + 卸载清理', async () => {
   const keys: string[] = []
   let show = true
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     c.ui.useGlobalKey((e: KeyboardEvent) => { if (show) keys.push(e.key) })
     return () => h('div', {}, 'x')
   }
@@ -46,7 +46,7 @@ test('useGlobalKey：window keydown 注册 + 卸载清理', async () => {
 
 test('useDrag：pointerdown 捕获 → window move 回调 delta → up 释放', async () => {
   const deltas: any[] = []
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     const drag = c.ui.useDrag({
       onMove: (_e, d) => { deltas.push(d) },
     })
@@ -68,7 +68,7 @@ test('useDrag：pointerdown 捕获 → window move 回调 delta → up 释放', 
 
 test('useDrag：onStart/onEnd 回调', async () => {
   const calls: string[] = []
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     const drag = c.ui.useDrag({
       onStart: () => { calls.push('start') },
       onMove: () => {},
@@ -88,7 +88,7 @@ test('useDrag：onStart/onEnd 回调', async () => {
 
 test('useDragDrop：dropProps spread 后 dragover/drop/leave 回调 + preventDefault', async () => {
   const events: string[] = []
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     const { dropProps } = c.ui.useDragDrop({
       onDrop: (e) => { events.push('drop:' + (e as any).data) },
       onDragOver: () => { events.push('over') },

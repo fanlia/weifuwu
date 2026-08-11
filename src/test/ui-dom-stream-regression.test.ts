@@ -45,7 +45,7 @@ function flush() {
 
 /** 模拟 Chat 消息列表：Markdown 占位（content='' → null）→ token 逐步累积 */
 function makeApp() {
-  const App = (_init: any, ctx: any) => {
+  const App = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.msgs = [{ id: 'm1', content: '', status: 'thinking' }]
     ;(globalThis as any).__setContent = (c: string) => { $.msgs[0].content = c }
@@ -93,7 +93,7 @@ test('流式回归：Markdown 占位(null)→token 累积→DOM 必须持续更�
 
 test('流式回归：占位非空内容直接流式（无 null 占位）也必须正常', async () => {
   const b = createClientBrowser()
-  const App = (_init: any, ctx: any) => {
+  const App = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.text = '开始'
     ;(globalThis as any).__setContent = (c: string) => { $.text = c }
@@ -115,7 +115,7 @@ test('流式回归：占位非空内容直接流式（无 null 占位）也必�
 
 test('流式回归：消息列表增删（模拟多条消息）不破坏后续更新', async () => {
   const b = createClientBrowser()
-  const App = (_init: any, ctx: any) => {
+  const App = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.msgs = [{ id: 'm0', content: '' }]
     ;(globalThis as any).__addMsg = (id: string, c: string) => { $.msgs.push({ id, content: c }) }

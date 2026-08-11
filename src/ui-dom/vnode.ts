@@ -12,7 +12,7 @@ import type { WfuiContext } from './types.ts'
 // VNodeType 的组件部分用 Component<any, any>：h() 的 props 是 Record<string, any>，
 // 调用点的 props 检查本来就发生在组件声明处；这里只要求「是组件」。
 // （具体泛型会因 props 逆变导致 required-prop 组件无法嵌套，如 h(ToolCallCard, {...})）
-export type VNodeType = string | Component<any, any> | AsyncComponent | typeof Fragment | typeof Portal
+export type VNodeType = string | Component<any, any> | typeof Fragment | typeof Portal
 
 /**
  * VNode 子节点合法值——组件可返回/渲染的多态内容。
@@ -58,26 +58,15 @@ export interface VNode {
 }
 
 /**
- * 两阶段组件：外层 = mount（一次），内层 = render（每次 dirty/props 变化）。
+ * 两阶段异步组件（统一签名——weifuwu 只支持这一种形态）：
+ *   async (initProps, ctx) => Promise<renderFn>
+ * 外层 = mount（一次，可 await 数据），内层 = render（每次 dirty/props 变化，同步）。
  * P = props 类型（JSX 自动推断），C = 组件依赖的 ctx 注入（如 ApiInjected & RouteInjected）
  *
- * 模式 A（design/async-mode-a-plan.md）：工厂可 async（返回 Promise<renderFn>）——
- * 主路径 buildVNode await 全部（无占位）；动态挂载兑底占位 + 局部补全。
- * 统一签名：同步/async 工厂同类型（唯一差别是 async 关键字——渲染器按返回值判别）。
+ * 模式 A（design/async-mode-a-plan.md）：主路径 buildVNode await 全部工厂（无占位）；
+ * 动态挂载兑底占位 + 局部补全。渲染器按「返回值是 Promise」原生判别。
  */
 export type Component<P = {}, C extends object = {}> = (
-  initProps: P,
-  ctx: WfuiContext & C,
-) => ((props: P) => VNode | null) | null | Promise<((props: P) => VNode | null) | null>
-
-/**
- * 异步组件（统一签名——与 Component 同参，唯一差别是 async）：
- *   async (initProps, ctx) => Promise<renderFn | null>
- *
- * 模式 A（design/async-mode-a-plan.md）：主路径 buildVNode await 全部工厂（无占位）；
- * 动态挂载兑底占位 + 局部补全（resolve 后 renderByIds）。
- */
-export type AsyncComponent<C extends object = {}, P = {}> = (
   initProps: P,
   ctx: WfuiContext & C,
 ) => Promise<((props: P) => VNode | null) | null>

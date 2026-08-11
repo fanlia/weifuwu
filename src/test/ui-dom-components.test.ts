@@ -45,7 +45,7 @@ interface MyButtonProps {
   children?: any
 }
 
-const MyButton: Component<MyButtonProps> = (_init, ctx) =>
+const MyButton: Component<MyButtonProps> = async (_init, ctx) =>
   (props) => {
     const cls = [
       'my-btn',
@@ -88,7 +88,7 @@ test('MyButton：class 拼接 + 事件绑定 + children', async () => {
 // Counter 风格（组件级 $ 状态——点击重渲染本组件）
 // ═══════════════════════════════════════════════════════
 
-const Counter: Component = (_init, ctx) => {
+const Counter: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   $.count = 0
   return (props) =>
@@ -134,7 +134,7 @@ interface MyInputProps {
   id?: string
 }
 
-const MyInput: Component<MyInputProps> = (_init, ctx) =>
+const MyInput: Component<MyInputProps> = async (_init, ctx) =>
   (props) => {
     const $ = ctx.ui.$()
     $.text = props.value ?? '' // 内部输入态（不依赖受控回流）
@@ -185,7 +185,7 @@ const MyDropdown: Component<{ label: string; items: string[]; onSelect?: (s: str
     setOpen: (v) => { open = v; ctx.ui.render() },
     width: 160,
   })
-  const wrapRef = (el: any) => { wrapEl = el ?? undefined }
+  const wrapRef = async (el: any) => { wrapEl = el ?? undefined }
   return (props) =>
     h('div', { class: 'dd-wrap', ref: wrapRef, ...popup.wrapProps },
       h('button', { class: 'dd-btn', id: 'dd-btn', onClick: () => popup.setOpen(!open) }, props.label),

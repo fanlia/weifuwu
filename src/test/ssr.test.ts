@@ -21,7 +21,7 @@ function ssr(Comp: any, props: any = {}, ctx: any = {}, opts: any = {}): Promise
 
 describe('SSR 字符串遍历器', () => {
   it('同步组件 → HTML', async () => {
-    const Cmp = (_init: any) => (props: any) => h('p', { class: 'greet' }, `hi ${props.name}`)
+    const Cmp = async (_init: any) => (props: any) => h('p', { class: 'greet' }, `hi ${props.name}`)
     const html = await ssr(Cmp, { name: 'Alice' })
     assert.equal(html, '<p class="greet">hi Alice</p>')
   })
@@ -54,27 +54,27 @@ describe('SSR 字符串遍历器', () => {
   })
 
   it('事件/ref 剥离', async () => {
-    const Cmp = (_init: any) => () =>
+    const Cmp = async (_init: any) => () =>
       h('button', { onClick: () => {}, onInput: () => {}, ref: (el: any) => {} }, '点我')
     const html = await ssr(Cmp)
     assert.equal(html, '<button>点我</button>')
   })
 
   it('文本转义（XSS）', async () => {
-    const Cmp = (_init: any) => () => h('div', {}, '<script>alert(1)</script> & "quoted"')
+    const Cmp = async (_init: any) => () => h('div', {}, '<script>alert(1)</script> & "quoted"')
     const html = await ssr(Cmp)
     assert.equal(html, '<div>&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;quoted&quot;</div>')
   })
 
   it('class 对象 / style 对象序列化', async () => {
-    const Cmp = (_init: any) => () =>
+    const Cmp = async (_init: any) => () =>
       h('div', { class: { active: true, hidden: false }, style: { color: 'red', padding: 4 } }, 'x')
     const html = await ssr(Cmp)
     assert.equal(html, '<div class="active" style="color:red;padding:4px">x</div>')
   })
 
   it('Fragment / Portal 内联', async () => {
-    const Cmp = (_init: any) => () =>
+    const Cmp = async (_init: any) => () =>
       h('div', {},
         h(Fragment, {}, h('span', {}, 'a'), h('span', {}, 'b')),
         createPortal(h('aside', {}, 'portal-content')),
@@ -84,28 +84,28 @@ describe('SSR 字符串遍历器', () => {
   })
 
   it('innerHTML 原样输出（跳过 children）', async () => {
-    const Cmp = (_init: any) => () =>
+    const Cmp = async (_init: any) => () =>
       h('div', { innerHTML: '<b>rich</b>', children: h('i', {}, 'ignored') })
     const html = await ssr(Cmp)
     assert.equal(html, '<div><b>rich</b></div>')
   })
 
   it('void 标签自闭合', async () => {
-    const Cmp = (_init: any) => () =>
+    const Cmp = async (_init: any) => () =>
       h('div', {}, h('br', {}), h('img', { src: '/a.png', alt: 'x' }))
     const html = await ssr(Cmp)
     assert.equal(html, '<div><br><img src="/a.png" alt="x"></div>')
   })
 
   it('布尔/空值属性', async () => {
-    const Cmp = (_init: any) => () =>
+    const Cmp = async (_init: any) => () =>
       h('input', { disabled: true, required: false, placeholder: null })
     const html = await ssr(Cmp)
     assert.equal(html, '<input disabled>')
   })
 
   it('嵌套：async 工厂包含同步子组件 + 多 async 组件', async () => {
-    const Inner = (_init: any) => (props: any) => h('b', {}, props.label)
+    const Inner = async (_init: any) => (props: any) => h('b', {}, props.label)
     const A = async () => {
       const a = await Promise.resolve('AAA')
       return () => h('span', {}, a)
@@ -135,14 +135,14 @@ describe('SSR 字符串遍历器', () => {
   })
 
   it('数组子节点', async () => {
-    const Cmp = (_init: any) => () =>
+    const Cmp = async (_init: any) => () =>
       h('ul', {}, [h('li', {}, '1'), h('li', {}, '2')])
     const html = await ssr(Cmp)
     assert.equal(html, '<ul><li>1</li><li>2</li></ul>')
   })
 
   it('组件返回 null / 条件渲染', async () => {
-    const Maybe = (_init: any) => (props: any) => (props.show ? h('p', {}, 'yes') : null)
+    const Maybe = async (_init: any) => (props: any) => (props.show ? h('p', {}, 'yes') : null)
     const html = await ssr(Maybe, { show: false })
     assert.equal(html, '')
     const html2 = await ssr(Maybe, { show: true })

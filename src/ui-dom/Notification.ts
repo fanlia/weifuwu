@@ -58,7 +58,7 @@ function iconFor(type: NotificationType): IconName {
 }
 
 /** 通知（对应 antd/EP Notification 队列式）：title + description + icon + 操作，聚合角落 */
-export const Notification: Component<NotificationProps> = (_init, _ctx) =>
+export const Notification: Component<NotificationProps> = async (_init, _ctx) =>
   (props) => {
   const { items = [], onRemove, position = 'top-right', duration = 4500, max = 0 } = props
 
@@ -127,7 +127,7 @@ export function notification(opts?: NotificationOptions): AppMiddleware<{}, Noti
   let ctxRef: WfuiContext | null = null
   let seq = 0
 
-  const NotificationHost: Component = (_init, ctx) => {
+  const NotificationHost: Component = async (_init, ctx) => {
     const $ = ctx.ui.$()
     $.items = []
     hostApi = {
@@ -150,7 +150,7 @@ export function notification(opts?: NotificationOptions): AppMiddleware<{}, Noti
     const container = browser.createElement('div') as HTMLDivElement | null
     if (!container) return
     browser.bodyAppend(container)
-    mountVNode(container, h(NotificationHost, {}), ctxRef)
+    void mountVNode(container, h(NotificationHost, {}), ctxRef)
   }
 
   const emit = (item: Omit<NotificationItem, 'id'>) => {

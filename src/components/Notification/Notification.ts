@@ -127,7 +127,7 @@ export function notification(opts?: NotificationOptions): AppMiddleware<{}, Noti
   let ctxRef: WfuiContext | null = null
   let seq = 0
 
-  const NotificationHost: Component = (_init, ctx) => {
+  const NotificationHost: Component = async (_init, ctx) => {
     const $ = ctx.ui.$()
     $.items = []
     hostApi = {

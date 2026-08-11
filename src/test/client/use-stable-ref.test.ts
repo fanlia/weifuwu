@@ -23,7 +23,7 @@ test('useStableRef：返回的 ref 引用恒定，不随渲染重建', async () 
   let refs: any[] = []
   let renders = 0
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     const ref = c.ui.useStableRef((el) => { void el })
     refs.push(ref)
     return () => {
@@ -50,7 +50,7 @@ test('useStableRef：cleanup 只在真正卸载时触发（re-render 不误触�
   const initCalls: any[] = []
   const cleanupCalls: string[] = []
 
-  const Inner: Component = (_init, c) => {
+  const Inner: Component = async (_init, c) => {
     const ref = c.ui.useStableRef(
       (el) => { initCalls.push(el) },
       () => { cleanupCalls.push('cleanup') },
@@ -60,7 +60,7 @@ test('useStableRef：cleanup 只在真正卸载时触发（re-render 不误触�
 
   // 闭包变量 + 手动 render（不依赖 $）——lifecycle.test 同模式
   let show = true
-  const Outer: Component = (_init, c) => {
+  const Outer: Component = async (_init, c) => {
     return () => h('div', { class: 'outer' }, show ? h(Inner, {}) : null)
   }
 

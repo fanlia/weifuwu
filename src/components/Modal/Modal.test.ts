@@ -144,7 +144,7 @@ describe('Modal', () => {
     const result = await (Modal as any)({}, ctx)
     renderFn = typeof result === 'function' ? () => result({ open, children: 'x' }) : null
     prev = renderFn!()
-    mountVNode(container, prev, ctx)
+    await mountVNode(container, prev, ctx)
     assert.ok(document.querySelector('.wf-modal'), 'open=true 应渲染')
     assert.match(document.querySelector('.wf-modal')!.className, /wf-modal--enter/)
 

@@ -73,7 +73,7 @@ function DemoCard(props: { title: string; desc: string; code: string; children: 
 
 // ── 交互型 Demo 组件 ──────────────────────────────────
 
-const DemoButton: Component = (_props, ctx) => {
+const DemoButton: Component = async (_props, ctx) => {
   let loading = false
   let count = 0
   return (_p: any) => (
@@ -98,7 +98,7 @@ const DemoButton: Component = (_props, ctx) => {
   )
 }
 
-const DemoInput: Component = (_props, ctx) => {
+const DemoInput: Component = async (_props, ctx) => {
   let text = '可编辑'
   let email = ''
   let pwd = ''
@@ -114,7 +114,7 @@ const DemoInput: Component = (_props, ctx) => {
   )
 }
 
-const DemoTextarea: Component = (_props, ctx) => {
+const DemoTextarea: Component = async (_props, ctx) => {
   let bio = '可编辑文本'
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
@@ -125,7 +125,7 @@ const DemoTextarea: Component = (_props, ctx) => {
   )
 }
 
-const DemoSelect: Component = (_props, ctx) => {
+const DemoSelect: Component = async (_props, ctx) => {
   let role = ''
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
@@ -149,7 +149,7 @@ const DemoSelect: Component = (_props, ctx) => {
   )
 }
 
-const DemoCheckbox: Component = (_props, ctx) => {
+const DemoCheckbox: Component = async (_props, ctx) => {
   let agree = false
   let remember = true
   return (_p: any) => (
@@ -162,7 +162,7 @@ const DemoCheckbox: Component = (_props, ctx) => {
   )
 }
 
-const DemoSwitch: Component = (_props, ctx) => {
+const DemoSwitch: Component = async (_props, ctx) => {
   let notify = true
   let auto = false
   return (_p: any) => (
@@ -175,7 +175,7 @@ const DemoSwitch: Component = (_props, ctx) => {
   )
 }
 
-const DemoRadio: Component = (_props, ctx) => {
+const DemoRadio: Component = async (_props, ctx) => {
   let gender = 'male'
   let inline = 'a'
   return (_p: any) => (
@@ -196,7 +196,7 @@ const DemoRadio: Component = (_props, ctx) => {
   )
 }
 
-const DemoSegmented: Component = (_props, ctx) => {
+const DemoSegmented: Component = async (_props, ctx) => {
   let mode = 'ai'
   let size: 'sm' | 'md' = 'md'
   return (_p: any) => (
@@ -218,7 +218,7 @@ const DemoSegmented: Component = (_props, ctx) => {
   )
 }
 
-const DemoSlider: Component = (_props, ctx) => {
+const DemoSlider: Component = async (_props, ctx) => {
   let volume = 60
   let brightness = 30
   return (_p: any) => (
@@ -229,7 +229,7 @@ const DemoSlider: Component = (_props, ctx) => {
   )
 }
 
-const DemoForm: Component = (_props, ctx) => {
+const DemoForm: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   $.errors = {}
   $.submitted = false
@@ -254,7 +254,7 @@ const DemoForm: Component = (_props, ctx) => {
   )
 }
 
-const DemoField: Component = (_props, ctx) => {
+const DemoField: Component = async (_props, ctx) => {
   let name = ''
   let mail = 'bad-input'
   return (_p: any) => (
@@ -266,7 +266,7 @@ const DemoField: Component = (_props, ctx) => {
   )
 }
 
-const DemoSearchInput: Component = (_props, ctx) => {
+const DemoSearchInput: Component = async (_props, ctx) => {
   let query = ''
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
@@ -276,7 +276,7 @@ const DemoSearchInput: Component = (_props, ctx) => {
   )
 }
 
-const DemoProgress: Component = (_props, ctx) => {
+const DemoProgress: Component = async (_props, ctx) => {
   let pct = 45
   let started = false
   return (_p: any) => {
@@ -302,7 +302,7 @@ const DemoProgress: Component = (_props, ctx) => {
   }
 }
 
-const DemoTable: Component = (_props, ctx) => {
+const DemoTable: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   $.sortKey = 'name'
   $.sortOrder = 'asc'
@@ -331,7 +331,7 @@ const DemoTable: Component = (_props, ctx) => {
   )
 }
 
-const DemoModal: Component = (_props, ctx) => {
+const DemoModal: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   $.open = false
   $.width = '420px'
@@ -359,7 +359,7 @@ const DemoModal: Component = (_props, ctx) => {
   )
 }
 
-const DemoToast: Component = (_props, ctx) => {
+const DemoToast: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   $.toasts = [] as ToastItem[]
   $.position = 'top-right'
@@ -393,7 +393,7 @@ const DemoToast: Component = (_props, ctx) => {
   )
 }
 
-const DemoAlert: Component = (_props, ctx) => {
+const DemoAlert: Component = async (_props, ctx) => {
   let showErr = true
   let showInfo = true
   return (_p: any) => (
@@ -406,7 +406,7 @@ const DemoAlert: Component = (_props, ctx) => {
   )
 }
 
-const DemoLoading: Component = (_props, ctx) => {
+const DemoLoading: Component = async (_props, ctx) => {
   let loading = true
   let started = false
   return (_p: any) => {
@@ -422,7 +422,7 @@ const DemoLoading: Component = (_props, ctx) => {
   }
 }
 
-const DemoSkeleton: Component = () => () => (
+const DemoSkeleton: Component = async () => () => (
   <div class="wf-stack wf-gap-md">
     <div class="wf-row wf-gap-md">
       <Skeleton variant="avatar" />
@@ -439,7 +439,7 @@ const DemoSkeleton: Component = () => () => (
   </div>
 )
 
-const DemoEmptyState: Component = (_props, ctx) => {
+const DemoEmptyState: Component = async (_props, ctx) => {
   let hasData = false
   return (_p: any) => (
     <div class="wf-w-full">
@@ -455,7 +455,7 @@ const DemoEmptyState: Component = (_props, ctx) => {
   )
 }
 
-const DemoCardShowcase: Component = (_props, ctx) => {
+const DemoCardShowcase: Component = async (_props, ctx) => {
   let clicked = false
   return (_p: any) => (
     <div class="wf-row wf-gap-md wf-cluster">
@@ -467,7 +467,7 @@ const DemoCardShowcase: Component = (_props, ctx) => {
   )
 }
 
-const DemoBadge: Component = () => () => (
+const DemoBadge: Component = async () => () => (
   <div class="wf-row wf-gap-sm wf-cluster">
     <Badge>默认</Badge>
     <Badge variant="primary">主要</Badge>
@@ -483,7 +483,7 @@ const DemoBadge: Component = () => () => (
   </div>
 )
 
-const DemoTag: Component = (_props, ctx) => {
+const DemoTag: Component = async (_props, ctx) => {
   let tags = ['可关闭标签', '删除我']
   return (_p: any) => (
     <div class="wf-row wf-gap-sm wf-cluster">
@@ -498,7 +498,7 @@ const DemoTag: Component = (_props, ctx) => {
   )
 }
 
-const DemoAvatar: Component = () => () => (
+const DemoAvatar: Component = async () => () => (
   <div class="wf-row wf-gap-md wf-bottom">
     <Avatar name="张三" />
     <Avatar name="李四" size="sm" />
@@ -507,7 +507,7 @@ const DemoAvatar: Component = () => () => (
   </div>
 )
 
-const DemoStatCard: Component = () => () => (
+const DemoStatCard: Component = async () => () => (
   <div class="wf-row wf-gap-md wf-cluster">
     <StatCard label="总用户" value="1,234" icon={<Icon name="users" size={24} className="wf-text-primary" />} trend="up" trendLabel="12%" />
     <StatCard label="收入" value="¥89,000" icon={<Icon name="bar-chart" size={24} className="wf-text-primary" />} trend="up" trendLabel="8%" />
@@ -516,7 +516,7 @@ const DemoStatCard: Component = () => () => (
   </div>
 )
 
-const DemoSteps: Component = (_props, ctx) => {
+const DemoSteps: Component = async (_props, ctx) => {
   let step = 'info'
   return (_p: any) => (
     <div class="wf-w-full wf-stack wf-gap-sm">
@@ -535,7 +535,7 @@ const DemoSteps: Component = (_props, ctx) => {
   )
 }
 
-const DemoTabs: Component = (_props, ctx) => {
+const DemoTabs: Component = async (_props, ctx) => {
   let tab = 'a'
   return (_p: any) => (
     <div class="wf-w-full">
@@ -548,7 +548,7 @@ const DemoTabs: Component = (_props, ctx) => {
   )
 }
 
-const DemoDropdown: Component = (_props, ctx) => {
+const DemoDropdown: Component = async (_props, ctx) => {
   let open = false
   let lastAction = ''
   return (_p: any) => (
@@ -571,7 +571,7 @@ const DemoDropdown: Component = (_props, ctx) => {
   )
 }
 
-const DemoPagination: Component = (_props, ctx) => {
+const DemoPagination: Component = async (_props, ctx) => {
   let page = 3
   return (_p: any) => (
     <div class="wf-center wf-gap-sm">
@@ -581,7 +581,7 @@ const DemoPagination: Component = (_props, ctx) => {
   )
 }
 
-const DemoAccordion: Component = () => () => (
+const DemoAccordion: Component = async () => () => (
   <div class="wf-w-full">
     <Accordion items={[
       { key: 'a', title: '什么是 weifuwu？', content: <p class="wf-m-0">weifuwu 是一个全栈框架，一个包包含后端、前端和布局系统。</p> },
@@ -591,7 +591,7 @@ const DemoAccordion: Component = () => () => (
   </div>
 )
 
-const DemoSearchableSelect: Component = (_props, ctx) => {
+const DemoSearchableSelect: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   $.value = ''
   const options = [
@@ -614,7 +614,7 @@ const DemoSearchableSelect: Component = (_props, ctx) => {
 
 // ── 新增组件 Demo ────────────────────────────────────
 
-const DemoBreadcrumb: Component = () => () => (
+const DemoBreadcrumb: Component = async () => () => (
   <div class="wf-w-full">
     <Breadcrumb items={[
       { label: '首页', href: '/' },
@@ -624,7 +624,7 @@ const DemoBreadcrumb: Component = () => () => (
   </div>
 )
 
-const DemoPageHeader: Component = (_props, ctx) => {
+const DemoPageHeader: Component = async (_props, ctx) => {
   let display = false
   return (_p: any) => (
     <div class="wf-stack wf-gap-md wf-w-full">
@@ -639,7 +639,7 @@ const DemoPageHeader: Component = (_props, ctx) => {
   )
 }
 
-const DemoIcon: Component = () => () => {
+const DemoIcon: Component = async () => () => {
   const names = ['chevron-down','chevron-up','chevron-left','chevron-right','arrow-left','arrow-up','arrow-down','sort','sort-asc','sort-desc','check','close','alert','info','warning','pause','settings','search','send','stop','retry','upload','trash','edit','plus'] as const
   return (
     <div class="wf-stack wf-gap-sm wf-w-full">
@@ -660,7 +660,7 @@ const DemoIcon: Component = () => () => {
   )
 }
 
-const DemoMarkdown: Component = () => () => (
+const DemoMarkdown: Component = async () => () => (
   <Markdown content={`# 项目进展
 
 本周完成了 **核心模块** 与 ~~旧实现~~ 、
@@ -687,7 +687,7 @@ const greet = (name: string) => \`你好，\${name}\`
 [weifuwu 官网](https://weifuwu.dev) 与行内 \`code\` 混排。`} />
 )
 
-const DemoCodeBlock: Component = () => () => (
+const DemoCodeBlock: Component = async () => () => (
   <div class="wf-stack wf-gap-sm wf-w-full">
     <CodeBlock lang="ts" title="示例.ts" code={`import { Markdown } from 'weifuwu/components'
 
@@ -697,7 +697,7 @@ const view = <Markdown content="# 标题" />`} />
   </div>
 )
 
-const DemoTimeline: Component = (_props, ctx) => {
+const DemoTimeline: Component = async (_props, ctx) => {
   let logs: Array<{ key: string; title: string; time: string; status: 'default' | 'info' | 'success' | 'warning' | 'error'; content?: string }> = [
     { key: '1', title: 'AI 回复', time: '10:00:12', status: 'success' as const, content: '生成了 256 tokens' },
     { key: '2', title: '工具调用 query_weather', time: '10:00:09', status: 'info' as const, content: '查询 北京…' },
@@ -719,7 +719,7 @@ const DemoTimeline: Component = (_props, ctx) => {
   )
 }
 
-const DemoInputNumber: Component = (_props, ctx) => {
+const DemoInputNumber: Component = async (_props, ctx) => {
   let temp = 0.7
   let tokens: number | null = 2048
   return (_p: any) => (
@@ -737,7 +737,7 @@ const DemoInputNumber: Component = (_props, ctx) => {
   )
 }
 
-const DemoDescriptions: Component = () => () => (
+const DemoDescriptions: Component = async () => () => (
   <div class="wf-w-full">
     <Descriptions column={2} items={[
       { label: '名称', value: '小码（开发助手）' },
@@ -750,14 +750,14 @@ const DemoDescriptions: Component = () => () => (
   </div>
 )
 
-const DemoAvatarGroup: Component = () => () => (
+const DemoAvatarGroup: Component = async () => () => (
   <div class="wf-stack wf-gap-sm">
     <AvatarGroup items={[{ name: '张三' }, { name: '李四' }, { name: '王五' }, { name: '赵六' }]} max={3} />
     <AvatarGroup items={[{ name: 'A' }, { name: 'B' }]} size="sm" />
   </div>
 )
 
-const DemoMessageBubble: Component = (_props, ctx) => {
+const DemoMessageBubble: Component = async (_props, ctx) => {
   let st: 'complete' | 'streaming' | 'error' = 'complete'
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
@@ -772,7 +772,7 @@ const DemoMessageBubble: Component = (_props, ctx) => {
   )
 }
 
-const DemoMenu: Component = (_props, ctx) => {
+const DemoMenu: Component = async (_props, ctx) => {
   let active = 'agents'
   let collapsed = false
   const items = [
@@ -800,7 +800,7 @@ const DemoMenu: Component = (_props, ctx) => {
   )
 }
 
-const DemoPasswordInput: Component = (_props, ctx) => {
+const DemoPasswordInput: Component = async (_props, ctx) => {
   let pwd = 'secret123'
   return (_p: any) => (
     <div class="wf-w-full wf-stack wf-gap-sm" style="max-width:320px">
@@ -809,7 +809,7 @@ const DemoPasswordInput: Component = (_props, ctx) => {
   )
 }
 
-const DemoTagsInput: Component = (_props, ctx) => {
+const DemoTagsInput: Component = async (_props, ctx) => {
   let tags = ['typescript', 'weifuwu']
   return (_p: any) => (
     <div class="wf-w-full wf-stack wf-gap-sm" style="max-width:360px">
@@ -818,14 +818,14 @@ const DemoTagsInput: Component = (_props, ctx) => {
   )
 }
 
-const DemoHighlight: Component = () => () => (
+const DemoHighlight: Component = async () => () => (
   <div class="wf-stack wf-gap-sm wf-w-full">
     <div class="wf-text-sm"><Highlight text="搜索 张三 的订单记录，张三 是管理员" query={['张三']} /></div>
     <div class="wf-text-sm wf-text-secondary"><Highlight text="支持多词：weifuwu 与 components" query={['weifuwu', 'components']} /></div>
   </div>
 )
 
-const DemoList: Component = () => () => (
+const DemoList: Component = async () => () => (
   <div class="wf-w-full" style="max-width:400px">
     <List divided header="最近文件"
       items={[{ n: '需求文档.md', s: '2 分钟前' }, { n: '架构设计.pdf', s: '昨天' }, { n: '接口说明.docx', s: '3 天前' }]}
@@ -838,7 +838,7 @@ const DemoList: Component = () => () => (
   </div>
 )
 
-const DemoResult: Component = () => () => (
+const DemoResult: Component = async () => () => (
   <div class="wf-w-full wf-stack wf-gap-md">
     <Result status="success" title="注册成功" desc="欢迎加入 weifuwu，验证邮件已发送至你的邮箱"
       extra={<><Button variant="primary">进入工作台</Button><Button variant="ghost">返回首页</Button></>} />
@@ -848,7 +848,7 @@ const DemoResult: Component = () => () => (
   </div>
 )
 
-const DemoDivider: Component = () => () => (
+const DemoDivider: Component = async () => () => (
   <div class="wf-stack wf-gap-sm wf-w-full">
     <p>上方分割线</p>
     <Divider />
@@ -864,7 +864,7 @@ const DemoDivider: Component = () => () => (
   </div>
 )
 
-const DemoFileUpload: Component = (_props, ctx) => {
+const DemoFileUpload: Component = async (_props, ctx) => {
   let files: File[] = []
   let uploading = false
   let progress = 0
@@ -896,7 +896,7 @@ const DemoFileUpload: Component = (_props, ctx) => {
   )
 }
 
-const DemoTooltip: Component = () => () => (
+const DemoTooltip: Component = async () => () => (
   <div class="wf-row wf-gap-xl wf-py-lg">
     <Tooltip content="保存文件" position="top"><Button>上</Button></Tooltip>
     <Tooltip content="底部提示" position="bottom"><Button>下</Button></Tooltip>
@@ -905,7 +905,7 @@ const DemoTooltip: Component = () => () => (
   </div>
 )
 
-const DemoDrawer: Component = (_props, ctx) => {
+const DemoDrawer: Component = async (_props, ctx) => {
   let rightOpen = false
   let leftOpen = false
   return (_p: any) => (
@@ -927,7 +927,7 @@ const DemoDrawer: Component = (_props, ctx) => {
   )
 }
 
-const DemoPopover: Component = (_props, ctx) => {
+const DemoPopover: Component = async (_props, ctx) => {
   let showBottom = false
   let showTop = false
   return (_p: any) => (
@@ -945,7 +945,7 @@ const DemoPopover: Component = (_props, ctx) => {
   )
 }
 
-const DemoImage: Component = () => () => (
+const DemoImage: Component = async () => () => (
   <div class="wf-row wf-gap-lg wf-top">
     <Img src="https://picsum.photos/200/200?1" alt="示例图片" width={120} height={120} style={{ borderRadius: '8px', objectFit: 'cover' }} />
     <Img src="https://picsum.photos/200/200?2" alt="loading=lazy" width={120} height={120} style={{ borderRadius: '50%', objectFit: 'cover' }} />
@@ -955,7 +955,7 @@ const DemoImage: Component = () => () => (
   </div>
 )
 
-const DemoInView: Component = (_props, ctx) => {
+const DemoInView: Component = async (_props, ctx) => {
   let log: string[] = []
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
@@ -974,7 +974,7 @@ const DemoInView: Component = (_props, ctx) => {
   )
 }
 
-const DemoDatePicker: Component = (_props, ctx) => {
+const DemoDatePicker: Component = async (_props, ctx) => {
   let result = ''
   return (_p: any) => (
     <div class="wf-row wf-gap-md wf-cluster wf-w-full">
@@ -996,7 +996,7 @@ const DemoDatePicker: Component = (_props, ctx) => {
 }
 
 
-const DemoEditor: Component = (_props, ctx) => {
+const DemoEditor: Component = async (_props, ctx) => {
   let html = '<p>Hello <strong>weifuwu</strong>!</p><blockquote>引用块示例</blockquote><p class="wf-text-center">居中文字</p>'
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
@@ -1008,7 +1008,7 @@ const DemoEditor: Component = (_props, ctx) => {
   )
 }
 
-const DemoThemeSwitch: Component = (_props, ctx) => {
+const DemoThemeSwitch: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   $.mode = 'auto'
   return (_p: any) => (
@@ -1023,7 +1023,7 @@ const DemoThemeSwitch: Component = (_props, ctx) => {
   )
 }
 
-const DemoChart: Component = () => () => {
+const DemoChart: Component = async () => () => {
   const sales = [
     { label: '1月', value: 120 },
     { label: '2月', value: 200 },
@@ -1047,7 +1047,7 @@ const DemoChart: Component = () => () => {
   )
 }
 
-const DemoConfirm: Component = (_props, ctx) => {
+const DemoConfirm: Component = async (_props, ctx) => {
   let result = ''
   const handleDelete = async () => {
     const ok = await (ctx as any).confirm?.('确定要删除这条记录吗？', {
@@ -1075,7 +1075,7 @@ const DemoConfirm: Component = (_props, ctx) => {
 // ── AI 对话组件演示 ────────────────────────────────────
 
 /** ToolCallCard：running / ok / error 状态机（纯展示） */
-const DemoToolCallCard: Component = () => () => (
+const DemoToolCallCard: Component = async () => () => (
   <div class="wf-stack wf-gap-sm">
     <ToolCallCard call={{ id: 't1', name: 'query_weather', args: { city: '北京' } }} />
     <ToolCallCard
@@ -1105,7 +1105,7 @@ const toolSchema: JsonSchema = {
   },
   required: ['city'],
 }
-const DemoJsonSchemaForm: Component = () => () => (
+const DemoJsonSchemaForm: Component = async () => () => (
   <div class="wf-stack wf-gap-sm">
     <JsonSchemaForm schema={toolSchema} value={{ city: '北京', days: 3, with_weather: true }} submitLabel="执行工具" />
     <span class="wf-text-xs wf-text-secondary">↑ schema 驱动表单：必填校验（城市）拦截提交；单位/天数/开关即改即生效（onChange）</span>
@@ -1113,7 +1113,7 @@ const DemoJsonSchemaForm: Component = () => () => (
 )
 
 /** ReasoningBlock：CoT 推理过程折叠展示 */
-const DemoReasoningBlock: Component = (_p, ctx) => {
+const DemoReasoningBlock: Component = async (_p, ctx) => {
   let streaming = false
   return () => (
     <div class="wf-stack wf-gap-sm">
@@ -1130,7 +1130,7 @@ const DemoReasoningBlock: Component = (_p, ctx) => {
 }
 
 /** CitationCard：RAG 引用来源展示 */
-const DemoCitationCard: Component = () => () => (
+const DemoCitationCard: Component = async () => () => (
   <div class="wf-stack wf-gap-sm">
     <div class="wf-text-sm">根据以下资料回答：
       <span class="wf-text-secondary">引用来源折叠展示（最多 3 条，溢出 +N）</span>
@@ -1147,7 +1147,7 @@ const DemoCitationCard: Component = () => () => (
 )
 
 /** SessionList：会话管理列表（分组 + 搜索 + 重命名/删除/新建） */
-const DemoSessionList: Component = (_p, ctx) => {
+const DemoSessionList: Component = async (_p, ctx) => {
   const day = 24 * 3600 * 1000
   const now = Date.now()
   let sessions = [
@@ -1179,7 +1179,7 @@ const DemoSessionList: Component = (_p, ctx) => {
 }
 
 /** ApprovalCard：pending / approved / rejected 终态 */
-const DemoApprovalCard: Component = (_p, ctx) => {
+const DemoApprovalCard: Component = async (_p, ctx) => {
   let loading = false
   let modified: string | undefined
   return () => (
@@ -1211,7 +1211,7 @@ const DemoApprovalCard: Component = (_p, ctx) => {
 }
 
 /** AiChat：useChat + 标准对话界面（流式 / 工具 / 审批 / 自动滚动） */
-const DemoAiChat: Component = (_props, ctx) => {
+const DemoAiChat: Component = async (_props, ctx) => {
   const $ = ctx.ui.useChat({
     url: '/api/chat',
     approveUrl: '/api/approve',
@@ -1242,7 +1242,7 @@ const DemoAiChat: Component = (_props, ctx) => {
 
 // ── 新增组件 Demo（全量实现批次）────────────────────
 
-const DemoRate: Component = (_props, ctx) => {
+const DemoRate: Component = async (_props, ctx) => {
   let v = 3
   return () => (
     <div class="wf-stack wf-gap-sm">
@@ -1256,7 +1256,7 @@ const DemoRate: Component = (_props, ctx) => {
   )
 }
 
-const DemoTypography: Component = () => () => (
+const DemoTypography: Component = async () => () => (
   <div class="wf-stack wf-gap-sm" style="max-width:100%">
     <Title level={1}>一级标题</Title>
     <Title level={3}>三级标题</Title>
@@ -1273,14 +1273,14 @@ const DemoTypography: Component = () => () => (
   </div>
 )
 
-const DemoLabel: Component = () => () => (
+const DemoLabel: Component = async () => () => (
   <div class="wf-stack wf-gap-sm">
     <Label htmlFor="demo-name">用户名</Label>
     <Label required>必填项</Label>
   </div>
 )
 
-const DemoAspectRatio: Component = () => () => (
+const DemoAspectRatio: Component = async () => () => (
   <div class="wf-surface wf-border wf-rounded-md">
     <AspectRatio ratio={16 / 9}>
       <div class="wf-center wf-text-secondary wf-bg-tertiary">16:9 容器</div>
@@ -1288,7 +1288,7 @@ const DemoAspectRatio: Component = () => () => (
   </div>
 )
 
-const DemoToggleGroup: Component = (_props, ctx) => {
+const DemoToggleGroup: Component = async (_props, ctx) => {
   let single = 'bold'
   let multi: string[] = ['bold']
   let pressed = false
@@ -1304,7 +1304,7 @@ const DemoToggleGroup: Component = (_props, ctx) => {
   )
 }
 
-const DemoCheckboxGroup: Component = (_props, ctx) => {
+const DemoCheckboxGroup: Component = async (_props, ctx) => {
   let v: string[] = ['a']
   return () => (
     <div class="wf-stack wf-gap-sm">
@@ -1314,7 +1314,7 @@ const DemoCheckboxGroup: Component = (_props, ctx) => {
   )
 }
 
-const DemoPinInput: Component = (_props, ctx) => {
+const DemoPinInput: Component = async (_props, ctx) => {
   let v = ''
   return () => (
     <div class="wf-stack wf-gap-sm">
@@ -1324,14 +1324,14 @@ const DemoPinInput: Component = (_props, ctx) => {
   )
 }
 
-const DemoCopyButton: Component = () => () => (
+const DemoCopyButton: Component = async () => () => (
   <div class="wf-row wf-gap-sm">
     <CopyButton value="https://weifuwu.dev/docs" label="复制链接" />
     <CopyButton value="仅图标" iconOnly />
   </div>
 )
 
-const DemoColorPicker: Component = (_props, ctx) => {
+const DemoColorPicker: Component = async (_props, ctx) => {
   let c = '#4f6ef7'
   return () => (
     <div class="wf-stack wf-gap-sm">
@@ -1346,7 +1346,7 @@ const DemoColorPicker: Component = (_props, ctx) => {
   )
 }
 
-const DemoHoverCard: Component = () => () => (
+const DemoHoverCard: Component = async () => () => (
   <HoverCard openDelay={0} content={
     <div class="wf-stack wf-gap-xs">
       <div class="wf-text-sm wf-text-semibold">用户详情</div>
@@ -1357,7 +1357,7 @@ const DemoHoverCard: Component = () => () => (
   </HoverCard>
 )
 
-const DemoNotification: Component = (_props, ctx) => {
+const DemoNotification: Component = async (_props, ctx) => {
   const show = () => {
     ;(ctx as any).notification?.success?.({ title: '部署成功', description: 'v0.63.0 已上线' })
   }
@@ -1369,14 +1369,14 @@ const DemoNotification: Component = (_props, ctx) => {
   )
 }
 
-const DemoBackTop: Component = () => () => (
+const DemoBackTop: Component = async () => () => (
   <div class="wf-stack wf-gap-sm">
     <div class="wf-text-sm wf-text-secondary">向下滚动页面超过 400px 后，右下角出现回到顶部按钮</div>
     <BackTop aria-label="回到顶部" />
   </div>
 )
 
-const DemoAffix: Component = () => () => (
+const DemoAffix: Component = async () => () => (
   <div class="wf-stack wf-gap-sm">
     <div class="wf-text-sm wf-text-secondary">滚动页面：导航条滑出视窗顶部后固定（Affix，offsetTop=0）</div>
     {/* offsetTop=0：Affix 块滑出视窗顶部后才固定（scrollY >= 块文档位置）——
@@ -1391,7 +1391,7 @@ const DemoAffix: Component = () => () => (
   </div>
 )
 
-const DemoAnchor: Component = (_props, ctx) => {
+const DemoAnchor: Component = async (_props, ctx) => {
   let active = '#anchor-a'
   const sections = [
     { id: 'anchor-a', title: '第一节', body: Array.from({ length: 8 }, (_, i) => `这是第一节的第 ${i + 1} 段内容。用于演示锚点滚动高亮跟随。`).join('') },
@@ -1417,7 +1417,7 @@ const DemoAnchor: Component = (_props, ctx) => {
   )
 }
 
-const DemoContextMenu: Component = () => () => (
+const DemoContextMenu: Component = async () => () => (
   <ContextMenu items={[
     { key: 'edit', label: '编辑', onClick: () => alert('编辑') },
     { key: 'copy', label: '复制' },
@@ -1427,7 +1427,7 @@ const DemoContextMenu: Component = () => () => (
   </ContextMenu>
 )
 
-const DemoMentions: Component = (_props, ctx) => {
+const DemoMentions: Component = async (_props, ctx) => {
   let v = '输入 @ 提及成员：@ali'
   return () => (
     <div class="wf-stack wf-gap-sm">
@@ -1437,7 +1437,7 @@ const DemoMentions: Component = (_props, ctx) => {
   )
 }
 
-const DemoCollapse: Component = (_props, ctx) => {
+const DemoCollapse: Component = async (_props, ctx) => {
   let active = ['1']
   return () => (
     <Collapse items={[
@@ -1448,7 +1448,7 @@ const DemoCollapse: Component = (_props, ctx) => {
   )
 }
 
-const DemoToggleTree: Component = (_props, ctx) => {
+const DemoToggleTree: Component = async (_props, ctx) => {
   let checked = ['fe']
   let expanded = ['root', 'tech']
   let search = ''
@@ -1468,7 +1468,7 @@ const DemoToggleTree: Component = (_props, ctx) => {
   )
 }
 
-const DemoCascader: Component = (_props, ctx) => {
+const DemoCascader: Component = async (_props, ctx) => {
   let value: string[] = ['zj', 'hz']
   return () => (
     <Cascader options={[
@@ -1478,7 +1478,7 @@ const DemoCascader: Component = (_props, ctx) => {
   )
 }
 
-const DemoTransfer: Component = (_props, ctx) => {
+const DemoTransfer: Component = async (_props, ctx) => {
   let target = ['a']
   return () => (
     <Transfer data={[{ key: 'a', label: '成员A' }, { key: 'b', label: '成员B' }, { key: 'c', label: '成员C' }, { key: 'd', label: '成员D' }]}
@@ -1486,7 +1486,7 @@ const DemoTransfer: Component = (_props, ctx) => {
   )
 }
 
-const DemoCommand: Component = (_props, ctx) => {
+const DemoCommand: Component = async (_props, ctx) => {
   let open = false
   const items = [
     { key: 'new', label: '新建聊天', shortcut: 'N', onSelect: () => { open = false; ctx.ui.render() } },
@@ -1501,14 +1501,14 @@ const DemoCommand: Component = (_props, ctx) => {
   )
 }
 
-const DemoMenubar: Component = () => () => (
+const DemoMenubar: Component = async () => () => (
   <Menubar menus={[
     { key: 'file', label: '文件', items: [{ key: 'new', label: '新建', shortcut: 'Ctrl+N' }, { key: 'save', label: '保存', shortcut: 'Ctrl+S' }] },
     { key: 'edit', label: '编辑', items: [{ key: 'undo', label: '撤销', shortcut: 'Ctrl+Z' }] },
   ]} />
 )
 
-const DemoCarousel: Component = () => () => (
+const DemoCarousel: Component = async () => () => (
   <div class="wf-w-sm">
     <Carousel autoplay interval={2500}>
       {['🟥 第一张', '🟦 第二张', '🟩 第三张'].map((t, i) => (
@@ -1519,7 +1519,7 @@ const DemoCarousel: Component = () => () => (
   </div>
 )
 
-const DemoResizable: Component = () => () => (
+const DemoResizable: Component = async () => () => (
   <div class="wf-surface wf-border wf-rounded-md" style="height: 160px">
     <Resizable defaultSize={180}>
       {[<div class="wf-p-md wf-text-sm wf-text-secondary">左面板（拖拽分隔条）</div>, <div class="wf-p-md wf-text-sm wf-text-secondary">右面板</div>] as any}
@@ -1527,7 +1527,7 @@ const DemoResizable: Component = () => () => (
   </div>
 )
 
-const DemoCalendar: Component = (_props, ctx) => {
+const DemoCalendar: Component = async (_props, ctx) => {
   let view = { month: 5, year: 2025 }
   return () => (
     <Calendar month={view.month} year={view.year} selectedDate="2025-06-10"
@@ -1539,18 +1539,18 @@ const DemoCalendar: Component = (_props, ctx) => {
   )
 }
 
-const DemoWatermark: Component = () => () => (
+const DemoWatermark: Component = async () => () => (
   <Watermark text="weifuwu 内部资料">
     <div class="wf-surface wf-border wf-rounded-md wf-p-xl wf-text-center wf-text-secondary">水印覆盖内容区</div>
   </Watermark>
 )
 
-const DemoVirtualList: Component = () => () => (
+const DemoVirtualList: Component = async () => () => (
   <VirtualList height={240} itemHeight={36} items={Array.from({ length: 200 }, (_, i) => ({ id: i, label: `第 ${i} 行` }))}
     renderItem={(item: any) => <div class="wf-text-sm wf-border-b wf-py-xs wf-px-sm">{item.label}</div>} />
 )
 
-const DemoLogViewer: Component = (_props, ctx) => {
+const DemoLogViewer: Component = async (_props, ctx) => {
   let lines: string[] = [
     '\x1b[32m[12:00:01] ✓ 服务启动，端口 3000\x1b[0m',
     '\x1b[32m[12:00:02] ✓ 连接数据库 demo@localhost:5432\x1b[0m',
@@ -1582,7 +1582,7 @@ const DemoLogViewer: Component = (_props, ctx) => {
   )
 }
 
-const DemoSparkline: Component = () => () => (
+const DemoSparkline: Component = async () => () => (
   <div class="wf-stack wf-gap-md">
     <div class="wf-row wf-gap-lg wf-cluster">
       <div class="wf-stack wf-gap-xs">
@@ -1601,7 +1601,7 @@ const DemoSparkline: Component = () => () => (
   </div>
 )
 
-const DemoTour: Component = (_props, ctx) => {
+const DemoTour: Component = async (_props, ctx) => {
   let open = false
   let step = 0
   const render = () => ctx.ui.render()
@@ -1630,7 +1630,7 @@ const DemoTour: Component = (_props, ctx) => {
   )
 }
 
-const DemoKanban: Component = (_props, ctx) => {
+const DemoKanban: Component = async (_props, ctx) => {
   let cols = [
     { key: 'todo', title: '待办', items: [{ id: 'k1', title: '设计 API 契约', tag: '设计' }, { id: 'k2', title: '实现 LCS diff', tag: '开发' }] },
     { key: 'doing', title: '进行中', items: [{ id: 'k3', title: 'Tour 定位修复', tag: '开发' }] },
@@ -1655,7 +1655,7 @@ const DemoKanban: Component = (_props, ctx) => {
   )
 }
 
-const DemoPipeline: Component = () => () => (
+const DemoPipeline: Component = async () => () => (
   <div class="wf-stack wf-gap-md">
     <Pipeline
       orientation="horizontal"
@@ -1678,7 +1678,7 @@ const DemoPipeline: Component = () => () => (
 
 // TREESELECT_CACHE_TEST_20260817
 // CACHE_V2_20260817
-const DemoTreeSelect: Component = (_props, ctx) => {
+const DemoTreeSelect: Component = async (_props, ctx) => {
   let value: string | string[] | undefined = undefined
   const render = () => ctx.ui.render()
   return () => (
@@ -1746,7 +1746,7 @@ const NEW_CODE = `function handleUser(input) {
 }`
 
 
-const DemoLayout: Component = (_props, ctx) => {
+const DemoLayout: Component = async (_props, ctx) => {
   let collapsed = false
   return () => (
     <Layout style={{ height: 360, borderRadius: 12, overflow: 'hidden' }}>
@@ -1767,7 +1767,7 @@ const DemoLayout: Component = (_props, ctx) => {
   )
 }
 
-const DemoPopconfirm: Component<any, ToastInjected> = (_p, ctx) => () => (
+const DemoPopconfirm: Component<any, ToastInjected> = async (_p, ctx) => () => (
   <div class="wf-row wf-gap-lg wf-cluster">
     <Popconfirm title="确定删除这条数据？" danger onConfirm={() => ctx.toast('已删除', 'success')}>
       <Button variant="danger">删除</Button>
@@ -1778,7 +1778,7 @@ const DemoPopconfirm: Component<any, ToastInjected> = (_p, ctx) => () => (
   </div>
 )
 
-const DemoAutoComplete: Component = (_p, ctx) => {
+const DemoAutoComplete: Component = async (_p, ctx) => {
   let query = ''
   let selected: string | undefined
   // 输入态由 AutoComplete 内部 $ 管理——onChange 只记录闭包值，不强制父 render
@@ -1803,7 +1803,7 @@ const DemoAutoComplete: Component = (_p, ctx) => {
   }
 }
 
-const DemoLink: Component = () => () => (
+const DemoLink: Component = async () => () => (
   <div class="wf-row wf-gap-lg wf-cluster">
     <Link href="/docs">默认链接</Link>
     <Link href="/docs" variant="primary">主色链接</Link>
@@ -1813,7 +1813,7 @@ const DemoLink: Component = () => () => (
   </div>
 )
 
-const DemoFloatButton: Component<any, ToastInjected> = (_p, ctx) => () => (
+const DemoFloatButton: Component<any, ToastInjected> = async (_p, ctx) => () => (
   <FloatButtonGroup>
     <FloatButton icon={<Icon name="edit" size={18} />} onClick={() => ctx.toast('编辑', 'info')} />
     <FloatButton icon={<Icon name="bar-chart" size={18} />} onClick={() => ctx.toast('报表', 'info')} />
@@ -1821,7 +1821,7 @@ const DemoFloatButton: Component<any, ToastInjected> = (_p, ctx) => () => (
   </FloatButtonGroup>
 )
 
-const DemoNavMenu: Component<any, ToastInjected> = (_p, ctx) => {
+const DemoNavMenu: Component<any, ToastInjected> = async (_p, ctx) => {
   // 受控纪律（§5.2）：activeKey 必须配 onSelect 更新——否则点击静默失效
   let active = 'home'
   return () => (
@@ -1840,7 +1840,7 @@ const DemoNavMenu: Component<any, ToastInjected> = (_p, ctx) => {
   )
 }
 
-const DemoSpace: Component = () => () => (
+const DemoSpace: Component = async () => () => (
   <Space split={<Divider vertical />}>
     <span>操作一</span>
     <span>操作二</span>
@@ -1848,7 +1848,7 @@ const DemoSpace: Component = () => () => (
   </Space>
 )
 
-const DemoGrid: Component = () => () => (
+const DemoGrid: Component = async () => () => (
   <div class="wf-stack wf-gap-md wf-w-full">
     <Grid gutter={16}>
       <Col span={8}><div class="wf-surface wf-p-md wf-text-center">1/3</div></Col>
@@ -1864,7 +1864,7 @@ const DemoGrid: Component = () => () => (
   </div>
 )
 
-const DemoScrollbar: Component = () => () => (
+const DemoScrollbar: Component = async () => () => (
   <Scrollbar maxHeight={120}>
     <div class="wf-stack wf-gap-xs">
       {Array.from({ length: 20 }, (_, i) => <div key={i}>滚动行 {i + 1}</div>)}
@@ -1872,7 +1872,7 @@ const DemoScrollbar: Component = () => () => (
   </Scrollbar>
 )
 
-const DemoAlertGroup: Component = () => () => (
+const DemoAlertGroup: Component = async () => () => (
   <AlertGroup
     items={[
       { id: '1', message: '服务 A 重启完成', time: '10:01', variant: 'success' },
@@ -1883,11 +1883,11 @@ const DemoAlertGroup: Component = () => () => (
   />
 )
 
-const DemoStatCountdown: Component = () => () => (
+const DemoStatCountdown: Component = async () => () => (
   <StatCard label="活动倒计时" countdown={Date.now() + 3600 * 1000 + 95 * 1000} trend="up" trendLabel="进行中" />
 )
 
-const DemoDiffView: Component = () => () => (
+const DemoDiffView: Component = async () => () => (
   <DiffView
     oldCode={OLD_CODE}
     newCode={NEW_CODE}
@@ -1897,7 +1897,7 @@ const DemoDiffView: Component = () => () => (
   />
 )
 
-const DemoJSONViewer: Component = () => () => {
+const DemoJSONViewer: Component = async () => () => {
   const sample = {
     id: 'agent_42',
     name: '订单处理 Agent',
@@ -1919,7 +1919,7 @@ const DemoJSONViewer: Component = () => () => {
   )
 }
 
-const DemoVirtualTable: Component = (_props, ctx) => {
+const DemoVirtualTable: Component = async (_props, ctx) => {
   let sortKey: string | undefined
   let sortOrder: 'asc' | 'desc' | undefined
   let selectedKeys: (string | number)[] = []
@@ -1946,14 +1946,14 @@ const DemoVirtualTable: Component = (_props, ctx) => {
   )
 }
 
-const DemoQRCode: Component = () => () => (
+const DemoQRCode: Component = async () => () => (
   <div class="wf-row wf-gap-md">
     <QRCode value="https://weifuwu.dev" size={96} />
     <QRCode value="https://weifuwu.dev/docs" size={96} color="#4f6ef7" />
   </div>
 )
 
-const DemoInfiniteScroll: Component = (_props, ctx) => {
+const DemoInfiniteScroll: Component = async (_props, ctx) => {
   let items: string[] = Array.from({ length: 10 }, (_, i) => `条目 ${i + 1}`)
   let loading = false
   let hasMore = true
@@ -2482,7 +2482,7 @@ return () => <AiChat chat={$} />
 
 // ── 主应用 ─────────────────────────────────────────────
 
-const App: Component = (_props, ctx) => {
+const App: Component = async (_props, ctx) => {
   // hash 深链：客户端渲染完成后跳转（浏览器原生锚点跳转发生在内容渲染之前）
   ctx.browser?.timeout(() => {
     const id = location.hash.slice(1)

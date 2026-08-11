@@ -63,7 +63,7 @@ interface HarnessOpts {
 async function mountPopup(opts: HarnessOpts = {}) {
   let wrapEl: HTMLElement | null = null
   let handle: any
-  const Cmp = (_: any, ctx: WfuiContext) => {
+  const Cmp = async (_: any, ctx: WfuiContext) => {
     const $ = ctx.ui.$()
     $.open = false
     const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
@@ -85,7 +85,7 @@ async function mountPopup(opts: HarnessOpts = {}) {
       handle.portal(h('div', { class: 'wf-panel', 'data-test': 'panel' }, 'P')),
     ].filter(Boolean))
   }
-  const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+  const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
   const el = browser.createElement('div')
   el.id = 'popup-harness'
   browser.bodyAppend(el)
@@ -227,7 +227,7 @@ describe('usePopup portal 锚点感知（client 层修复）', () => {
       A: { top: 100, bottom: 124, left: 50, right: 250, width: 200, height: 24, x: 0, y: 0, toJSON() {} } as DOMRect,
       B: { top: 300, bottom: 324, left: 500, right: 700, width: 200, height: 24, x: 0, y: 0, toJSON() {} } as DOMRect,
     }
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       const $ = ctx.ui.$()
       $.open = false
       const popup = ctx.ui.usePopup({

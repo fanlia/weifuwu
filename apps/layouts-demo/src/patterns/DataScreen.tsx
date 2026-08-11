@@ -35,7 +35,7 @@ const tick = (series: number[]) => {
   return [...series.slice(1), Math.round(next)]
 }
 
-export const DataScreen: Component = (_init, ctx) => {
+export const DataScreen: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   for (const c of CARDS) $[c.key] = [...SERIES[c.key as keyof typeof SERIES]]
   $.time = new Date().toTimeString().slice(0, 8)

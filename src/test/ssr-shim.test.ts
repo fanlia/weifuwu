@@ -13,7 +13,7 @@ import { ssrToString } from '../ui/ssr.ts'
 import { h, type Component } from '../ui-dom/vnode.ts'
 
 test('SSR：useControlled 组件可渲染（Collapse 模式）', async () => {
-  const Comp: Component = (_init: any, ctx: any) => {
+  const Comp: Component = async (_init: any, ctx: any) => {
     return (props: any) => {
       const ctrl = ctx.ui.useControlled<string[]>({ value: props.active, name: 'Collapse' })
       const keys = ctrl.value ?? []
@@ -27,7 +27,7 @@ test('SSR：useControlled 组件可渲染（Collapse 模式）', async () => {
 })
 
 test('SSR：useStableRef 组件可渲染（ref 不触发）', async () => {
-  const Comp: Component = (_init: any, ctx: any) => {
+  const Comp: Component = async (_init: any, ctx: any) => {
     const ref = ctx.ui.useStableRef(() => { throw new Error('SSR 不应 init ref') })
     return () => h('div', { class: 'r', ref })
   }
@@ -36,7 +36,7 @@ test('SSR：useStableRef 组件可渲染（ref 不触发）', async () => {
 })
 
 test('SSR：useAsync 组件可渲染（不启动取数）', async () => {
-  const Comp: Component = (_init: any, ctx: any) => {
+  const Comp: Component = async (_init: any, ctx: any) => {
     const list = ctx.ui.useAsync(() => Promise.reject(new Error('SSR 不应取数')))
     return () => h('div', { class: 'a' }, list.loading ? 'L' : 'D')
   }
@@ -45,7 +45,7 @@ test('SSR：useAsync 组件可渲染（不启动取数）', async () => {
 })
 
 test('SSR：全部事件原语 no-op 可渲染', async () => {
-  const Comp: Component = (_init: any, ctx: any) => {
+  const Comp: Component = async (_init: any, ctx: any) => {
     // mount 期逐个调用（SSR shim 应全部 no-op 安全）
     ctx.ui.useMedia('(max-width: 640px)', () => {})
     ctx.ui.useBreakpoint({ m: '(max-width: 640px)' }, () => {})
@@ -89,7 +89,7 @@ test('SSR：动画原语组件可渲染（StatCard/DatePicker 模式）', async 
 })
 
 test('SSR：useChat no-op 确定性空态', async () => {
-  const Comp: Component = (_init: any, ctx: any) => {
+  const Comp: Component = async (_init: any, ctx: any) => {
     const $ = ctx.ui.useChat({ url: '/api/chat' })
     return () => h('div', { class: 'chat' }, $.streaming ? 's' : `${$.messages.length}`)
   }

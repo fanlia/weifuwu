@@ -22,7 +22,7 @@ test('useControlled 受控：value 回流，setValue 只走 onChange', async () 
   const calls: string[] = []
   let propValue = '外部值'
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     return () => {
       const ctrl = c.ui.useControlled({ value: propValue, onChange: (v) => { calls.push(v) }, name: 'Input' })
       assert.equal(ctrl.controlled, true, 'value 已传 → 受控')
@@ -47,7 +47,7 @@ test('useControlled 非受控：内部状态 + 自动渲染 + 跨渲染保持', 
   const container = browser.createElement('div')
   browser.bodyAppend(container)
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     return () => {
       const ctrl = c.ui.useControlled<string>({ name: 'Collapse' })
       assert.equal(ctrl.controlled, false, '未传 value → 非受控')
@@ -78,7 +78,7 @@ test('useControlled 缺回调 warn：按 name 幂等（一次）', async () => {
     const container = browser.createElement('div')
     browser.bodyAppend(container)
 
-    const Comp: Component = (_init, c) => {
+    const Comp: Component = async (_init, c) => {
       return () => {
         const ctrl = c.ui.useControlled({ value: 'v', name: 'Select' }) // 受控但缺 onChange
         void ctrl
@@ -99,7 +99,7 @@ test('useControlled 非受控初始值：value 作为初始内部值', async () 
   const container = browser.createElement('div')
   browser.bodyAppend(container)
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     return () => {
       const ctrl = c.ui.useControlled<string>({ value: '初始', name: 'Accordion' }) // 受控缺回调 warn
       void ctrl

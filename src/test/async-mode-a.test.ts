@@ -95,7 +95,7 @@ test('S1 动态挂载：运行时切出 async 组件 → 占位 → resolve → 
   let siblingRenders = 0
   let resolveSlow!: () => void
   const slowGate = new Promise<void>((r) => { resolveSlow = r })
-  const Sibling = (_init: any, ctx: any) => {
+  const Sibling = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.n = 0
     return () => { siblingRenders++; return h('span', { id: 'ma-sib' }, `sib:${$.n}`) }
@@ -104,7 +104,7 @@ test('S1 动态挂载：运行时切出 async 组件 → 占位 → resolve → 
     await slowGate
     return () => h('div', { id: 'ma-dyn' }, '动态加载')
   }
-  const Holder = (_init: any, ctx: any) => {
+  const Holder = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.show = false
     ;(globalThis as any).__maToggle = () => { $.show = true }
@@ -160,7 +160,7 @@ test('S2 handle.ready：首帧（await 全部 + 落地）完成后 resolve', asy
 
 test('S2 loading 模式：预置骨架屏被原子替换（不 append 残留）', async () => {
   const b = createClientBrowser()
-  const Page = (_init: any) => () => h('div', { id: 'ma-content' }, '内容')
+  const Page = async (_init: any) => () => h('div', { id: 'ma-content' }, '内容')
   const router = new UIRouter()
   router.get('/', () => h(Page, {}))
   b.navigate('/')

@@ -24,7 +24,7 @@ describe('C3 useControlledInput', () => {
     browser.bodyAppend(el)
     let changed: string | undefined
     let ctrl: any
-    const Cmp = (_: any, ctx: any) => {
+    const Cmp = async (_: any, ctx: any) => {
       ctrl = ctx.ui.useControlledInput({ value: 'a', onChange: (v: string) => { changed = v }, name: 'C3' })
       return () => h('input', { value: ctrl.value })
     }
@@ -43,7 +43,7 @@ describe('C3 useControlledInput', () => {
     el.id = 'c3-uncontrolled'
     browser.bodyAppend(el)
     let ctrl: any
-    const Cmp = (_: any, ctx: any) => {
+    const Cmp = async (_: any, ctx: any) => {
       ctrl = ctx.ui.useControlledInput({ name: 'C3U' })
       return () => h('input', { value: ctrl.value ?? '' })
     }
@@ -67,7 +67,7 @@ describe('C4 useOpen', () => {
     el.id = 'c4-open'
     browser.bodyAppend(el)
     let handle: any
-    const Cmp = (_: any, ctx: any) => {
+    const Cmp = async (_: any, ctx: any) => {
       handle = ctx.ui.useOpen({})
       return () => h('button', { ...handle.triggerProps }, 't')
     }
@@ -88,7 +88,7 @@ describe('C4 useOpen', () => {
     browser.bodyAppend(el)
     let changed = 0
     let handle: any
-    const Cmp = (_: any, ctx: any) => {
+    const Cmp = async (_: any, ctx: any) => {
       handle = ctx.ui.useOpen({ open: false, onOpenChange: () => { changed++ }, openOnFocus: true })
       return () => h('button', { ...handle.triggerProps }, 't')
     }

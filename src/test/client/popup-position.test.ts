@@ -45,7 +45,7 @@ describe('ctx.ui.usePopupPosition', () => {
 
   it('返回 pos 对象：top/left 初始 0 + refresh 方法', async () => {
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => null,
         isOpen: () => false,
@@ -53,7 +53,7 @@ describe('ctx.ui.usePopupPosition', () => {
       })
       return () => h('div', {}, 'x')
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-1'
@@ -70,7 +70,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let renderCount = 0
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       const $ = ctx.ui.$()
       $.open = false
       pos = ctx.ui.usePopupPosition({
@@ -87,7 +87,7 @@ describe('ctx.ui.usePopupPosition', () => {
         }, 'x')
       }
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-2'
@@ -117,7 +117,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let open = true
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
         isOpen: () => open,
@@ -127,7 +127,7 @@ describe('ctx.ui.usePopupPosition', () => {
         ref: (el: HTMLElement | null) => { anchor = el },
       }, 'x')
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-3'
@@ -148,7 +148,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let open = true
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
         isOpen: () => open,
@@ -161,7 +161,7 @@ describe('ctx.ui.usePopupPosition', () => {
         }, 'x')
       }
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-4'
@@ -188,7 +188,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let open = false
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
         isOpen: () => open,
@@ -201,7 +201,7 @@ describe('ctx.ui.usePopupPosition', () => {
         }, 'x')
       }
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-5'
@@ -222,7 +222,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let open = true
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
         isOpen: () => open,
@@ -232,7 +232,7 @@ describe('ctx.ui.usePopupPosition', () => {
         ref: (el: HTMLElement | null) => { anchor = el },
       }, 'x')
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-6'
@@ -255,7 +255,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let open = true
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
         isOpen: () => open,
@@ -268,7 +268,7 @@ describe('ctx.ui.usePopupPosition', () => {
         }, 'x')
       }
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-7'
@@ -289,7 +289,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let open = true
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
         isOpen: () => open,
@@ -299,7 +299,7 @@ describe('ctx.ui.usePopupPosition', () => {
         ref: (el: HTMLElement | null) => { anchor = el },
       }, 'x')
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-zero-rect'
@@ -321,7 +321,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let open = true
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
         isOpen: () => open,
@@ -331,7 +331,7 @@ describe('ctx.ui.usePopupPosition', () => {
         ref: (el: HTMLElement | null) => { anchor = el },
       }, 'x')
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-8'
@@ -353,7 +353,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let posA: any
     let posB: any
 
-    const A = (_: any, ctx: WfuiContext) => {
+    const A = async (_: any, ctx: WfuiContext) => {
       posA = ctx.ui.usePopupPosition({
         el: () => anchorA,
         isOpen: () => true,
@@ -364,7 +364,7 @@ describe('ctx.ui.usePopupPosition', () => {
         return h('div', { ref: (el: HTMLElement | null) => { anchorA = el } }, 'A')
       }
     }
-    const B = (_: any, ctx: WfuiContext) => {
+    const B = async (_: any, ctx: WfuiContext) => {
       posB = ctx.ui.usePopupPosition({
         el: () => anchorB,
         isOpen: () => true,
@@ -375,7 +375,7 @@ describe('ctx.ui.usePopupPosition', () => {
         return h('div', { ref: (el: HTMLElement | null) => { anchorB = el } }, 'B')
       }
     }
-    const Root = (_: any) => () => h('div', {}, [h(A), h(B)])
+    const Root = async (_: any) => () => h('div', {}, [h(A), h(B)])
 
     const el = browser.createElement('div')
     browser.bodyAppend(el)
@@ -401,7 +401,7 @@ describe('ctx.ui.usePopupPosition', () => {
     let open = false
     let anchor: HTMLElement | null = null
     let pos: any
-    const Cmp = (_: any, ctx: WfuiContext) => {
+    const Cmp = async (_: any, ctx: WfuiContext) => {
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
         isOpen: () => open,
@@ -411,7 +411,7 @@ describe('ctx.ui.usePopupPosition', () => {
         ref: (el: HTMLElement | null) => { anchor = el },
       }, 'x')
     }
-    const Root = (_: any) => () => h('div', {}, [h(Cmp)])
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
     const el = browser.createElement('div')
     browser.bodyAppend(el)
     el.id = 'pp-10'

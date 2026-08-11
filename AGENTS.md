@@ -94,9 +94,9 @@ const Button = (_init, ctx) =>
   (props) => h('button', { class: props.variant }, props.children)
 ```
 
-### 3.3 异步组件（原生 async——无需包装）
+### 3.3 两阶段异步组件（唯一组件形态）
 
-> 组件 = 函数，async 组件 = async 函数。签名与同步 Component 完全一致（`(initProps, ctx) => renderFn`），唯一差别是 `async` 关键字——渲染器按「返回值是 Promise」原生判别（asyncComponent 已移除）。
+> **weifuwu 只支持这一种组件签名**：`async (initProps, ctx) => (props) => vnode`——外层工厂（mount，可 await 数据）+ 内层 render 函数（同步）。渲染器按「返回值是 Promise」原生判别；同步组件已不支持（Component 类型强制 Promise 返回）。
 
 ```tsx
 const UserProfile = async (initProps, ctx) => {

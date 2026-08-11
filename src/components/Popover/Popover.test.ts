@@ -149,7 +149,7 @@ describe('Popover', () => {
     const ctx = createMockCtx()
     const container = document.createElement('div')
     const vnode = await renderVNode(Popover, { content: 'hello', open: true }, ctx)
-    mountVNode(container, vnode, ctx)
+    await mountVNode(container, vnode, ctx)
 
     const wrap = container.querySelector('.wf-popover-wrap')
     assert.ok(wrap, 'wrap 元素应存在')
@@ -166,7 +166,7 @@ describe('Popover', () => {
     const container = document.createElement('div')
 
     const v1 = (await buildVNode(h(Popover, { content: 'hello', open: false }), ctx)) as any
-    mountVNode(container, v1, ctx)
+    await mountVNode(container, v1, ctx)
     let portal = document.getElementById('__wf_portal')
     assert.ok(!portal?.querySelector('.wf-popover'), 'open=false 无 panel')
 

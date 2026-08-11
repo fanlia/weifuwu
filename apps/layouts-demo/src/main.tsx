@@ -22,7 +22,7 @@ import { PATTERNS, GROUPS, getPattern } from './patterns/index'
 const fileOf = (id: string) => 'patterns/' + getPattern(id).file + '.tsx'
 
 // ── 壳：左侧模式列表 + hash 路由切换（#/app-shell 等）──
-const Shell: Component = (_init, ctx) => {
+const Shell: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   $.active = getPattern(location.hash.replace('#/', '')).id
   $.showCode = false

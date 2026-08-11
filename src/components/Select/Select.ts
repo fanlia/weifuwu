@@ -46,7 +46,7 @@ export interface SelectProps {
   onSearch?: (keyword: string) => SelectOption[] | Promise<SelectOption[]>
 }
 
-const SelectNative: Component<SelectProps> = (_init, _ctx) =>
+const SelectNative: Component<SelectProps> = async (_init, _ctx) =>
   (props) => {
   const { label, value, options, placeholder, required, disabled, error, onChange, children } = props
 
@@ -88,7 +88,7 @@ const SelectNative: Component<SelectProps> = (_init, _ctx) =>
   return h('div', { class: `wf-select-wrap${error ? ' wf-select--err' : ''}` }, wrapChildren)
 }
 
-const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
+const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
   const $ = ctx.ui.$()
   // 卸载保护：blur 延迟关闭等异步回调不再触发（防孤儿 Proxy 赋值）
   let disposed = false
@@ -296,7 +296,7 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
 }
 
 export const Select: Component<SelectProps> = async (_init, ctx) => {
-  const nativeRender = SelectNative(_init, ctx) as (props: SelectProps) => any
-  const searchableRender = SelectSearchable(_init, ctx) as (props: SelectProps) => any
+  const nativeRender = (await SelectNative(_init, ctx)) as (props: SelectProps) => any
+  const searchableRender = (await SelectSearchable(_init, ctx)) as (props: SelectProps) => any
   return (props) => props.searchable ? searchableRender(props) : nativeRender(props)
 }

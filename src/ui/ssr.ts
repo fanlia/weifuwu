@@ -13,7 +13,7 @@
  */
 
 import { Fragment, Portal } from '../ui-dom/vnode.ts'
-import type { VNode, Component, AsyncComponent } from '../ui-dom/vnode.ts'
+import type { VNode, Component } from '../ui-dom/vnode.ts'
 import type { WfuiContext } from '../ui-dom/types.ts'
 import { createReactiveState } from '../ui-dom/reactive.ts'
 import { HtmlSafe } from './html-safe.ts'
@@ -262,7 +262,7 @@ export interface SsrOptions {
  * ```
  */
 export async function ssrToString(
-  Comp: Component | AsyncComponent,
+  Comp: Component,
   props: Record<string, any>,
   serverCtx: any,
   opts: SsrOptions = {},

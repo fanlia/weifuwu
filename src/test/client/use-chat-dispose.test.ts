@@ -50,7 +50,7 @@ test('组件卸载时 useChat 自动 dispose（中止 in-flight 流）', async (
   }
 
   let chat$: UseChatHandle | undefined
-  const ChatComp = (_init: any, ctx: WfuiContext) => {
+  const ChatComp = async (_init: any, ctx: WfuiContext) => {
     chat$ = ctx.ui.useChat({ url: '/api/chat' })
     return () => h('div', { id: 'c' }, 'chat')
   }
@@ -79,7 +79,7 @@ test('useChat 仍支持手动 dispose（向后兼容）', async () => {
   }
 
   let chat$: UseChatHandle | undefined
-  const ChatComp = (_init: any, ctx: WfuiContext) => {
+  const ChatComp = async (_init: any, ctx: WfuiContext) => {
     chat$ = ctx.ui.useChat({ url: '/api/chat' })
     return () => h('div', { id: 'c' })
   }

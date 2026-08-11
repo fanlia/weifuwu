@@ -85,7 +85,7 @@ describe('Tabs', () => {
     document.body.appendChild(container) // jsdom：未连接文档的元素 .focus() 无效
     const changed: string[] = []
     const vnode = await renderVNode(Tabs, { items, onChange: (k: string) => changed.push(k) }, createTestCtx())!
-    mountVNode(container, vnode, createTestCtx())
+    await mountVNode(container, vnode, createTestCtx())
     const tabs = container.querySelectorAll<HTMLElement>('.wf-tab')
     assert.equal(tabs.length, 2)
     tabs[0].focus()

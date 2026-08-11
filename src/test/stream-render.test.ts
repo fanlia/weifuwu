@@ -26,7 +26,7 @@ test('流式推送：组件 $ msgs 深赋值 content 每次 token 都触发渲�
   const b = createClientBrowser()
   const renderLog: string[] = []
   // 模拟 Chat：mount 时注册 ws onMessage（闭包捕获组件级 $）——真实 Chat 模式
-  const Chat = (_init: any, ctx: any) => {
+  const Chat = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.msgs = []
     // 模拟 ws onMessage 回调（Chat.tsx 的 ctx.ws.onMessage → m.content += text）
@@ -73,7 +73,7 @@ test('流式推送：组件 $ msgs 深赋值 content 每次 token 都触发渲�
 
 test('流式推送：渲染进行中 token 到达（isRendering 拦截）→ pendingDirty 不丢——最终 UI 完整', async () => {
   const b = createClientBrowser()
-  const Chat = (_init: any, ctx: any) => {
+  const Chat = async (_init: any, ctx: any) => {
     const $ = ctx.ui.$()
     $.msgs = []
     const onToken = (text: string) => {

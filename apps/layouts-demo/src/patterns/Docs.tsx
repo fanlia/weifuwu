@@ -19,7 +19,7 @@ const SECTIONS = [
   { id: 'api', title: 'API 参考' },
 ]
 
-export const Docs: Component = (_init, ctx) => {
+export const Docs: Component = async (_init, ctx) => {
   let mainEl: HTMLElement | undefined
 
   return () => (

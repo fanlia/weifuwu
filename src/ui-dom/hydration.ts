@@ -5,7 +5,7 @@
  * diff.ts（patchProps）、registry.ts（idRegistry/nextComponentId/resolveAsyncFactory）。
  */
 
-import type { VNode, Component, AsyncComponent } from './vnode.ts'
+import type { VNode, Component } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import { Fragment, Portal } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
@@ -145,7 +145,7 @@ async function renderValueHydrating(v: any, ctx: WfuiContext, c: HydrationCursor
 async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: HydrationCursor): Promise<Node | null> {
   // ctx.ui 由 createApp 注入（类型必需字段）——不补默认（同 renderComponent）
 
-  const Comp = vnode.type as Component | AsyncComponent
+  const Comp = vnode.type as Component
   let childVNode: VNode | null
   let childCtx: WfuiContext = ctx as WfuiContext
   try {

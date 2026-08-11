@@ -23,7 +23,7 @@ test('useDialog：状态机 open → exit → closed（退场动画结束才卸�
   let dialog: any
   let open = true
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     dialog = c.ui.useDialog({ name: 'TestDialog' })
     return () => {
       const phase = dialog.sync(open)
@@ -56,7 +56,7 @@ test('useDialog：重新打开 exit → open 可恢复', async () => {
   let dialog: any
   let open = true
 
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     dialog = c.ui.useDialog({ name: 'Reopen' })
     return () => {
       const phase = dialog.sync(open)
@@ -89,7 +89,7 @@ test('useDialog：rootRef 挂载锁滚动 + 焦点 trap，卸载释放', async (
   let dialog: any
 
   // 模拟 lockScroll/trapFocus（jsdom 环境探测调用）
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     dialog = c.ui.useDialog({ name: 'Trap' })
     return () => {
       const phase = dialog.sync(true)

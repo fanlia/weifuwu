@@ -126,7 +126,7 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
   let seq = 0
 
   // ToastHost — 内部常驻组件：状态在 $ 里，赋值自动渲染
-  const ToastHost: Component = (_init, ctx) => {
+  const ToastHost: Component = async (_init, ctx) => {
     const $ = ctx.ui.$()
     $.toasts = []
     hostApi = {

@@ -13,27 +13,27 @@ const browser = createClientBrowser()
 
 setupJsdom()
 
-function renderToDom(vnode: any) {
+async function renderToDom(vnode: any){
   const container = browser.createElement('div')
-  mountVNode(container, vnode, { ui: {} } as any)
+  await mountVNode(container, vnode, { ui: {} } as any)
   return container.firstChild as HTMLElement
 }
 
-test('draggable: true → el.draggable === true（enumerated 显式 true）', () => {
-  const el = renderToDom(h('div', { draggable: true }))
+test('draggable: true → el.draggable === true（enumerated 显式 true）', async () => {
+  const el = await renderToDom(h('div', { draggable: true }))
   assert.equal(el.getAttribute('draggable'), 'true')
   assert.equal(el.draggable, true)
 })
 
-test('draggable: false → el.draggable === false', () => {
-  const el = renderToDom(h('div', { draggable: false }))
+test('draggable: false → el.draggable === false', async () => {
+  const el = await renderToDom(h('div', { draggable: false }))
   assert.equal(el.getAttribute('draggable'), 'false')
   assert.equal(el.draggable, false)
 })
 
-test('drag 事件绑定（onDragStart → dragstart listener）', () => {
+test('drag 事件绑定（onDragStart → dragstart listener）', async () => {
   let fired = 0
-  const el = renderToDom(h('div', { draggable: true, onDragStart: () => { fired++ } }))
+  const el = await renderToDom(h('div', { draggable: true, onDragStart: () => { fired++ } }))
   el.dispatchEvent(new (window as any).Event('dragstart', { bubbles: true }))
   assert.equal(fired, 1, 'dragstart 事件应触发')
 })

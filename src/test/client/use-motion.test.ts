@@ -25,7 +25,7 @@ test('useReducedMotion：返回系统偏好（matchMedia 判定）', async () =>
   ;(window as any).matchMedia = (q: string) => (q === query ? mql : { matches: false, addEventListener: () => {}, removeEventListener: () => {} })
 
   let rm: any = null
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     rm = c.ui.useReducedMotion()
     return () => h('div', {}, 'x')
   }
@@ -41,7 +41,7 @@ test('useReducedMotion：返回系统偏好（matchMedia 判定）', async () =>
 test('useAnimationEnd：stableRef 挂载绑定 animationend，卸载清理', async () => {
   const calls: string[] = []
   let settleRef: any = null
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     settleRef = c.ui.useAnimationEnd(() => { calls.push('anim-end') }, { once: true })
     return () => h('div', { class: 'panel', ref: settleRef }, 'p')
   }
@@ -62,7 +62,7 @@ test('useAnimationEnd：stableRef 挂载绑定 animationend，卸载清理', asy
 test('useAnimationEnd：常驻模式（无 once）可多次触发 + 卸载后不触发', async () => {
   const calls: string[] = []
   let settleRef: any = null
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     settleRef = c.ui.useAnimationEnd(() => { calls.push('e') })
     return () => h('div', { class: 'panel', ref: settleRef }, 'p')
   }
@@ -87,7 +87,7 @@ test('useAnimationEnd：常驻模式（无 once）可多次触发 + 卸载后不
 test('useTween：目标值驱动补间，reduced-motion 直落终值', async () => {
   ;(window as any).matchMedia = (q: string) => ({ matches: q.includes('reduced-motion'), addEventListener: () => {}, removeEventListener: () => {} })
   let tween: any = null
-  const Comp: Component = (_init, c) => {
+  const Comp: Component = async (_init, c) => {
     tween = c.ui.useTween(42, { duration: 300 })
     return () => h('div', {}, String(tween.value))
   }

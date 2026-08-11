@@ -31,7 +31,7 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
     let open = false
     let inputEl: HTMLInputElement | null = null
 
-    const Cmp = (_: any, ctx: any) => {
+    const Cmp = async (_: any, ctx: any) => {
       const $ = ctx.ui.$()
       $.text = ''
       return () => h('div', { class: 'wrap' }, [
@@ -65,7 +65,7 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
     browser.bodyAppend(el)
     el.id = 'c1-portal-toggle'
     let open = false
-    const Cmp = (_: any, ctx: any) => {
+    const Cmp = async (_: any, ctx: any) => {
       const $ = ctx.ui.$()
       $.open = false
       return () => h('div', { class: 'wrap2' }, [

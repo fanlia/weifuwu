@@ -203,7 +203,7 @@ test('T4 工厂按实例执行 N 次；ctx.data fetcher 合并只 1 次', async 
 
 test('T5 同步组件与原生 async 组件混排正常', async () => {
   const b = createClientBrowser()
-  const Sync = (_init: any) => (props: any) => h('span', { class: 'sync' }, `s:${props.x}`)
+  const Sync = async (_init: any) => (props: any) => h('span', { class: 'sync' }, `s:${props.x}`)
   const Async = async (_init: any) => {
     await Promise.resolve()
     return (props: any) => h('span', { class: 'async' }, `a:${props.x}`)

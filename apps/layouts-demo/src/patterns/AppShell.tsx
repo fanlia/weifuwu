@@ -34,7 +34,7 @@ const GOODS = [
   { id: 'G-104', name: '扩展坞', stock: 200, price: '¥159', status: '在售', v: 'success' },
 ]
 
-export const AppShell: Component = (_init, ctx) => {
+export const AppShell: Component = async (_init, ctx) => {
   const $ = ctx.ui.$()
   $.collapsed = false
   $.nav = 'dashboard'

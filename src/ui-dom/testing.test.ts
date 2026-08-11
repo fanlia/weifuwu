@@ -7,14 +7,14 @@ import {
 
 // ── 两阶段组件样本 ─────────────────────────────────────
 
-const Stateless = (_init: any, _ctx: any) => (props: any) => h('div', { class: 'x' }, props.label)
+const Stateless = async (_init: any, _ctx: any) => (props: any) => h('div', { class: 'x' }, props.label)
 
-const Counter = (_init: any, _ctx: any) => {
+const Counter = async (_init: any, _ctx: any) => {
   let count = 0
   return (_props: any) => h('button', { onClick: () => { count++ } }, String(count))
 }
 
-const TreeComp = (_init: any, _ctx: any) =>
+const TreeComp = async (_init: any, _ctx: any) =>
   (props: any) => h('div', { class: 'root' }, [
     h('span', { class: 'a' }, 'A'),
     [h('i', { class: 'b' }, 'B1'), h('i', { class: 'b2' }, 'B2')], // 嵌套数组（Select optgroup 同款）
@@ -28,7 +28,7 @@ describe('ui-dom/testing — renderVNode', () => {
   })
 
   it('只渲染一层：子组件保留为函数引用', () => {
-    const Parent = (_i: any, _c: any) => () => h('div', {}, h(Stateless, { label: 'child' }))
+    const Parent = async (_i: any, _c: any) => () => h('div', {}, h(Stateless, { label: 'child' }))
     const v: any = renderVNode(Parent, {}, createTestCtx())
     const child = v!.props.children
     assert.equal(child.type, Stateless, '子组件不展开')

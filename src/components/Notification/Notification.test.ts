@@ -101,7 +101,8 @@ describe('notification 命令式中间件', () => {
     ctx.ui.$ = () => state
     const middleware = notification({ duration: 0, max: 10 }) as any
     middleware(ctx)
-    ctx.notification.success({ title: '保存成功', description: '已写入数据库' }) // 首次 emit → 惰性挂载 host
+    ctx.notification.success({ title: '保存成功', description: '已写入数据库' }) // 首次 emit → 惰性挂载 host（void，微任务）
+    await new Promise((r) => setTimeout(r, 0))
     const host = document.querySelector('.wf-notification-host')
     assert.ok(host, '应挂载 NotificationHost')
     assert.ok(dirtyCount > 0, '$ 赋值应触发 dirty（渲染链路通）')

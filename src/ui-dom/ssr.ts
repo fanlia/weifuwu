@@ -13,7 +13,7 @@
  */
 
 import { Fragment, Portal } from './vnode.ts'
-import type { VNode, Component, AsyncComponent } from './vnode.ts'
+import type { VNode, Component,  } from './vnode.ts'
 import type { WfuiContext, UIContext } from './types.ts'
 import { createReactiveState } from './reactive.ts'
 
@@ -216,11 +216,11 @@ async function renderSsr(input: any, ctx: any): Promise<string> {
     const childCtx = Object.create(ctx)
     let renderFn: unknown
     try {
-      renderFn = (vnode.type as Component)(vnode.props ?? {}, childCtx)
+      // 统一签名：所有组件工厂都是 async（返回 Promise<renderFn>）——统一 await
+      renderFn = await (vnode.type as Component)(vnode.props ?? {}, childCtx)
     } catch (e) {
       throw e
     }
-    if (renderFn instanceof Promise) renderFn = await renderFn
     if (typeof renderFn !== 'function') {
       throw new Error(
         `Component ${(vnode.type as any).name || 'anonymous'} must return a render function. ` +
@@ -281,7 +281,7 @@ export interface SsrOptions {
  * ```
  */
 export async function ssrToString(
-  Comp: Component | AsyncComponent,
+  Comp: Component,
   props: Record<string, any>,
   serverCtx: any,
   opts: SsrOptions = {},

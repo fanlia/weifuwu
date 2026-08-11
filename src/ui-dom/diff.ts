@@ -7,7 +7,7 @@
  *   render.ts 不依赖 diff.ts（单向，无环）
  */
 
-import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
+import type { VNode, VNodeChild, Component } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import { Fragment, Portal } from './vnode.ts'
 import { uiDebugEnabled, uiLog } from './debug.ts'
@@ -107,7 +107,7 @@ export function patchValue(
 
   // 组件
   if (typeof newV.type === 'function') {
-    const comp = newV.type as Component | AsyncComponent
+    const comp = newV.type as Component
 
     // 传递 _render（两阶段组件复用 render 函数）+ 保持实例 ID
     // ——仅类型相同时：组件切换（AppShell→SplitWorkspace）必须重新 mount，

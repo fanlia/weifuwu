@@ -645,7 +645,7 @@ describe('样式审计 — 设计约束', () => {
   it('组件 ref 必须稳定引用（内联 ref 每次渲染新引用 → 回调重复执行）', () => {
     // 内联 ref = `ref: (el) =>` 直接写在 render 返回的 props 里——
     // 每次渲染新函数 → ref-diff 反复触发旧 ref(null)+新 ref(el)（AGENTS.md 纪律）
-    // 正确：mount 层定义稳定函数（const xxxRef = (el) => {}）后 ref: xxxRef 引用
+    // 正确：mount 层定义稳定函数（const xxxRef = async (el) => {}）后 ref: xxxRef 引用
     const dirs = readdirSync(join(root, 'src/components'), { withFileTypes: true })
       .filter(d => d.isDirectory())
       .map(d => d.name)
