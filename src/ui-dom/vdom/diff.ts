@@ -16,7 +16,6 @@ import { callRefCleanupFor } from './registry.ts'
 
 /** 组件 vnode 从树中移除：ref(null) 递归 + 卸载钩子（cleanupComponent） */
 function disposeComponent(vnode: VNode, registry?: Registry): void {
-  console.log('[dispose]', (vnode.type as any).name, 'id=', vnode._id)
   if (registry && typeof vnode.type === 'function' && vnode._id) {
     try { callRefCleanupFor(vnode, registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
     cleanupComponent(registry, vnode._id)
