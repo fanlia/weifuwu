@@ -556,45 +556,39 @@ if (!ctx.ui.useReducedMotion()) { /* 启动 rAF/动画 */ }
 
 > **移动端开发指南**：断点体系 / 44px 命中区纪律 / usePopup / 手势原语 / safe-area / 验收清单 → [`docs/mobile.md`](mobile.md)
 
-### `ctx.ui.dirty()` — 异步标记脏
+### `ctx.ui.render()` — 渲染唯一入口（render-only）
 
-异步版本，无参 = 当前组件，传参 = 指定组件列表。多次调用合并为一次微任务渲染。`$` 内部就是调 `dirty()`。
-
-与 `render()` 的区别：`dirty()` 是**异步**（微任务批量合并，同帧多次调用只渲染一次），`render()` 是**同步**（立即执行 VDOM diff + patch）。日常 UI 状态用 `$` 或 `dirty()`，需要立即拿到最新 DOM（测量/动画/第三方库）时用 `render()`。
-
-### `ctx.ui.render()` — 同步强制渲染
-
-与 `dirty()` 的微任务批量不同，`render()` 是**同步执行**的。调用后立即执行 VDOM diff + patch，DOM 立刻更新。无参时只刷新当前组件，传参时可精准刷新指定组件。
+**渲染只发生在 `render()` 调用处**——改状态后必须调 `ctx.ui.render()`（无参 = 当前组件，传参 = 指定组件列表）。异步落地（fire-and-forget，`await` 可精确等待），多次调用合并为一次渲染。
 
 **何时必须用 `render()`**：
 
 ```tsx
 // 1. DOM 测量（读取 offsetHeight/scrollWidth 等）
-// 用 ref 在 DOM 创建后操作
-ref: (el) => {
+// 用 ref 在 DOM 创建后操作；需要最新 DOM 时 await render()
+ref: async (el) => {
   if (!el) return
   el.style.height = 'auto'
-  ctx.ui.render()
+  await ctx.ui.render()          // await 等 VDOM patch 完成
   const h = el.offsetHeight
   el.style.height = h + 'px'
 }
 
 // 2. 动画触发（需要确保上一帧 DOM 已提交）
 function startAnimation() {
-  $.animating = true
-  ctx.ui.render()                // 同步刷新 DOM
+  animating = true
+  ctx.ui.render()
   el.startViewTransition(...)    // 拿到最新 DOM 启动动画
 }
 
 // 3. 第三方库需要在事件回调中读取最新 DOM
-onClick: () => {
-  $.selected = !$.selected
-  ctx.ui.render()                // 确保 DOM 已更新
+onClick: async () => {
+  selected = !selected
+  await ctx.ui.render()          // 确保 DOM 已更新
   thirdPartyLib.measure(el)      // 读取最新状态
 }
 ```
 
-**规则**：render-only——渲染只发生在 `render()` 调用处。改状态后必须调 `ctx.ui.render()`；共享状态用 `createStore` + `useExternal`。
+**规则**：状态是普通对象（`let` / `createStore`），改状态后必须显式 `render()`；共享状态用 `createStore` + `useExternal`（store 变更自动重渲染订阅组件）。
 
 ### 三种方式速查
 

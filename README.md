@@ -30,9 +30,9 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
 > - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）、`ctx.ui.ssr`（组件 SSR）、`ctx.ui.ssrData`（数据序列化）
-> - **前端** `ctx.ui`（渲染引擎，26 方法）：
->   - 渲染：`$()`（响应式状态）/ `render()` / `dirty()` / `selfId()`（跨组件刷新）
->   - 状态：`useControlled()`（受控/非受控）/ `useStableRef()`（稳定 ref）
+> - **前端** `ctx.ui`（渲染引擎，24 方法）：
+>   - 渲染：`render()`（唯一触发——render-only）/ `selfId()`（跨组件精准刷新）
+>   - 状态：`useControlled()`（受控/非受控）/ `useStableRef()`（稳定 ref）/ `useExternal()`（共享状态订阅）
 >   - 弹层：`usePopup()`（组合器）/ `useDialog()`（对话框）/ `usePopupPosition()`（定位）
 >   - 事件：`useInView()` / `useScrollPosition()` / `useMedia()` / `useBreakpoint()` / `useGlobalKey()` / `useDrag()` / `useDragDrop()` / `useHoverCapable()` / `useLongPress()` / `useVisualViewport()`
 >   - 动画：`useAnimationEnd()`（完成回调）/ `usePresence()`（显隐状态机）/ `useTween()`（数值补间）/ `useReducedMotion()`（偏好感知）
@@ -95,7 +95,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` / `ctx.limit` / `ctx.email` / `ctx.queue` / `ctx.ai` / `ctx.msg` 等），Handler/组件从 `ctx` 读取。
 
-**async 工厂组件** — `async (ctx) => (initProps, ctx) => (props) => VNode`：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`$`）、render 输出视图。异步只在工厂边界，mount/render 保持同步；数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
+**async 工厂组件** — `async (ctx) => (initProps, ctx) => (props) => VNode`：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`let` + `render()`）、render 输出视图。异步只在工厂边界，mount/render 保持同步；数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
 
 **SPA/SSR/Hydration 统一透明** — 同一份路由定义（`UIRouter`）一个组件三场景自动适配：后端 `ssrPage(router, { url })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `uiServe(router, { root, hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
 
@@ -380,7 +380,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | AI 对话 / Agent / HITL 审批 | `ai()` → `ctx.ai` + `ctx.ui.useChat()` + `AiChat` | [docs/saas.md](docs/saas.md) |
 | GraphQL / WebSocket | `app.graphql(handler)` · `app.ws(path, handler)` | [docs/realtime.md](docs/realtime.md) |
 | 前端 UI 组件 | `weifuwu/components`（113 个：Button/Table/Modal/AiChat/...） | [docs/components.md](docs/components.md) |
-| 布局/主题/暗色 | `weifuwu/layout`（57 原语 + 136 工具类 + 167 Token） | [docs/layout.md](docs/layout.md) |
+| 布局/主题/暗色 | `weifuwu/layout`（58 原语 + 136 工具类 + 167 Token） | [docs/layout.md](docs/layout.md) |
 | 样式定制（零自定义 CSS） | `--wf-*` 变量覆盖 + 组件定制钩子 | [docs/styling.md](docs/styling.md) |
 | 移动端适配（tap/长按/键盘/弹层） | `usePopup` / `useHoverCapable` / `useLongPress` / `useVisualViewport` | [docs/mobile.md](docs/mobile.md) |
 | 前后端类型安全中间件 | `createMiddleware`（声明注入即类型化） | [docs/server.md](docs/server.md) |
@@ -395,9 +395,9 @@ cd apps/agent-platform && npm run seed && npm run dev
 |----|------|------|---------|
 | **UIHandler**（路由） | `async (location, ctx) => VNode` | ✅ 整体 | 每次路由变化执行 |
 | **Component**（同步组件） | `(initProps, ctx) => (props) => VNode` | ❌ 同步 | mount 一次 + render 每次 |
-| **AsyncComponent**（async 组件） | `async (initProps, ctx) => (props) => VNode` | ✅ 只工厂 | 工厂按实例（diff 传递 `_asyncDef`，补全不重跑） |
+| **AsyncComponent**（async 组件） | `async (initProps, ctx) => (props) => VNode` | ✅ 只工厂 | 工厂按实例（N 处实例 = N 次工厂调用，数据走 ctx.data 缓存）；同位置同类型复用 `_render`（工厂不重跑，状态保持） |
 
-异步只出现在两个边界——路由 handler（整页）和 async 组件工厂（数据声明）；async 组件与同步组件**同签名**（唯一差别是 `async` 关键字）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 落地零占位；动态挂载兑底占位 + 局部补全；骨架屏 `uiServe({ loading })` + `handle.ready`。
+异步只出现在两个边界——路由 handler（整页）和 async 组件工厂（数据声明）；async 组件与同步组件**同签名**（唯一差别是 `async` 关键字）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 原子落地（无占位、无补全回调）；运行时首次挂载的 async 组件同样在 buildVNode 阶段 await；骨架屏 `uiServe({ loading })` + `handle.ready`。
 ### 两阶段组件（新手必读：为什么是两层）
 
 组件 = `(initProps, ctx) => (props) => VNode`——**外层 = 初始化（只执行一次），内层 = 渲染（每次状态/props 变化时执行）**。类比：外层是对象的构造函数，内层是它的 render 方法。
