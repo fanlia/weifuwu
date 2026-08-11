@@ -88,7 +88,12 @@ export function patchValue(
   if (oldType !== newType) {
     callRefCleanupFor(oldInput, getRegistry(ctx))
     const node = renderValue(newInput, ctx)
-    if (node == null) return null
+    if (node == null) {
+      // 占位（async 组件 in-flight，无 DOM）：移除旧 DOM——resolve 后父级重渲染插入
+      // （占位 null 无锚点无法原地替换——旧内容不清理会残留，切换场景 empty 残留根因）
+      if (oldNode?.parentNode) (oldNode as ChildNode).remove()
+      return null
+    }
     if (oldNode?.parentNode) {
       oldNode.parentNode.replaceChild(node, oldNode)
     } else if (!node.parentNode) {
@@ -152,12 +157,16 @@ export function patchValue(
     const skipProps = componentPropsEqual(oldV.props, newV.props)
     const skipDirty = !childUi._dirtySet?.has(oldV._id as string)
     const skipVersion = newV._ctxVersion === childUi._ctxVersion
+    // 占位组件（_asyncDef 存在——动态挂载 in-flight 或刚 resolve）不参与 skip：
+    // resolve 后 _child 仍 null（占位残留）但 _render 已设——skip 复用 null 会导致
+    // 补全不插入 DOM（数组新增 async 组件不显示的根因）
+    const skipPlaceholder = !oldV._asyncDef
     const _cname = (comp as any)?.name ?? 'anon'
     if (uiDebugEnabled()) {
       const name = (comp as any)?.name ?? 'anon'
       uiLog('tri-state-skip', name + ' type=' + skipType + ' props=' + skipProps + ' dirty=' + skipDirty + ' ver=' + skipVersion)
     }
-    if (skipType && skipProps && skipDirty && skipVersion) {
+    if (skipType && skipProps && skipDirty && skipVersion && skipPlaceholder) {
       // 复用旧 _child（DOM 未变，不需要重新 render）
       newV._child = oldV._child
       return oldNode
@@ -480,6 +489,12 @@ function patchChildren(
   if (uiDebugEnabled()) uiLog('patchChildren', 'old=' + (oldVNode.props?.children as any)?.length + ' new=' + (newVNode.props?.children as any)?.length)
   const oldChildren = normalize(oldVNode.props?.children)
   const newChildren = normalize(newVNode.props?.children)
+
+  // 父 vnode 引用：动态挂载组件 resolve 后向上找持有组件（_parentVNode 链）——
+  // 取消占位注释后，补全靠父级重渲染（数组 diff next 定位）而非单组件 DOM 锚点
+  for (const c of newChildren) {
+    if (c && typeof c === 'object' && !Array.isArray(c)) (c as VNode)._parentVNode = newVNode
+  }
 
   // 始终使用 keyed diff，无 key 时自动分配位置 key
   ensureKeys(oldChildren, newChildren)

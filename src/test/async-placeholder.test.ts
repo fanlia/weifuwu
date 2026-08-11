@@ -1,9 +1,10 @@
 /**
- * 占位注释（wf-async/wf-empty）全场景回归——chat 消息×2 事故的防线
+ * 动态挂载（async 组件运行时首次出现）补全回归——chat 消息×2 事故防线
  *
- * 事故：数组 children 含 async 组件 → 动态挂载占位注释 → 补全用 insertBefore
- * （注释残留）→ DOM 与 vnode children 错位 → 再次 diff 重复插入。
- * 修复：patchValue 新增分支对注释锚点 replaceChild（占位补全不残留）。
+ * 占位概念已取消（模式 A 主路径 await 全部；动态挂载占位 = null，无注释锚点）：
+ * - resolve 后父级重渲染（_parentVNode 链向上找持有组件）→ 数组 diff next 定位插入
+ * - 三态 skip 对占位组件（_asyncDef）失效（否则复用 null 不插入）
+ * - 切换场景占位时移除旧 DOM（否则 empty 残留）
  */
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
@@ -72,7 +73,7 @@ test('数组含 async 组件：补全后注释无残留 + 再渲染不重复（c
 // ── 场景 2：数组新增 async 组件（首次出现）→ 补全 → 无残留 + 后续正确 ──
 
 test('数组新增 async 组件：插入补全无注释残留', async () => {
-  const b = createClientBrowser()
+      const b = createClientBrowser()
   let resolveA!: () => void
   const gate = new Promise<void>((r) => { resolveA = r })
   const Slow = async (_init: any) => { await gate; return () => h('span', { class: 'slow' }, 'S') }

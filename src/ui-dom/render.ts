@@ -130,14 +130,26 @@ export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
  */
 
 /**
- * 动态挂载补全：运行时首次挂载的 async 组件 resolve 后，局部刷新该组件（renderByIds）。
- * 替代整树重渲染（scheduleFullReRender 已删）——补全只影响占位点子树。
+ * 动态挂载补全：运行时首次挂载的 async 组件 resolve 后，触发**父组件**重渲染。
+ * 占位概念已取消（动态挂载占位 = null，无注释锚点）——resolve 后单组件 renderByIds
+ * 无法定位（无 DOM 锚点）；父级重渲染 → 新树（组件已 resolve，_render 设）→ 数组 diff
+ * 的 next 兄弟定位插入正确位置。
+ *
+ * 父组件 id 从 ctx.ui 原型链推导：动态挂载时 childCtx.ui = Object.create(父ui)，
+ * 原型链上第一个 _selfId 即父组件。
  */
 function scheduleLocalRefresh(vnode: VNode, ctx: WfuiContext): void {
   const id = vnode._id
   if (!id) return
   const ui = ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined
-  if (ui && typeof ui.render === 'function') ui.render([id])
+  if (!ui || typeof ui.render !== 'function') return
+  // 占位概念已取消（无 DOM 锚点）——补全靠**持有组件**重渲染（_parentVNode 链向上找最近组件），
+  // 新树 diff 的数组 next 定位插入正确位置。自身（占位组件）renderByIds 无锚点定位不了。
+  let cur: VNode | undefined = vnode._parentVNode
+  let chain = 0
+  while (cur && !cur._id && chain < 10) { cur = cur._parentVNode; chain++ }
+  const target = cur?._id ?? id
+  ui.render([target])
 }
 
 /**
@@ -228,9 +240,15 @@ function renderComponent(
   let childVNode: VNode | VNode[] | null
   try {
     // buildVNode 已解析（_child 预构建）→ 直接渲染；否则动态挂载（mountComponent）
-    childVNode = vnode._child !== undefined
+    childVNode = vnode._child != null
       ? (vnode._child as VNode | VNode[] | null)
-      : mountComponent(Comp, props, vnode, childCtx)
+      // 占位/resolve 残留（_asyncDef 存在）：走 mount（resolve 后 _render 已设 → 渲染插入）
+      : vnode._asyncDef
+        ? mountComponent(Comp, props, vnode, childCtx)
+        // 常规 null 输出组件（_child 已构建为 null——Modal open=false）：复用 null 不重渲染
+        : vnode._child !== undefined
+          ? null
+          : mountComponent(Comp, props, vnode, childCtx)
   } catch (e) {
     const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
     if (errHandler) {
@@ -247,22 +265,9 @@ function renderComponent(
 
   if (childVNode == null) {
     vnode._child = null
-    // 动态挂载的 async 组件 in-flight：输出注释占位（提供 _refNode 锚点——
-    // resolve 后 renderByIds 能推导 _parentNode 并替换为内容）
-    if (vnode._asyncDef instanceof Promise) {
-      const placeholder = b.createComment('wf-async')
-      vnode._refNode = placeholder
-      return placeholder
-    }
-    // 若组件注入了 _errorHandler（ErrorBoundary 场景），输出 null 时插入注释占位——
-    // null 输出组件无 DOM 锚点，错误恢复重渲染时 patchValue 无法定位插入位置。
-    // 注释占位提供 _refNode，使 renderByIds 能推导 _parentNode 并替换为 fallback。
-    const errHandler = (childCtx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
-    if (errHandler) {
-      const placeholder = b.createComment('wf-empty')
-      vnode._refNode = placeholder
-      return placeholder
-    }
+    // 占位概念已取消（模式 A：主路径 buildVNode await 全部；动态挂载占位 = null，
+    // resolve 后由父级重渲染 diff 插入——无注释锚点/无残留）。
+    // 错误边界（ErrorBoundary）输出 null 同样返回 null——错误恢复走父级重渲染。
     return null
   }
   vnode._child = childVNode

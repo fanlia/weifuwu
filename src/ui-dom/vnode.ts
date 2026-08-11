@@ -47,6 +47,8 @@ export interface VNode {
   _customId?: string
   /** 组件输出的 DOM 父节点 */
   _parentNode?: Node
+  /** 父 vnode 引用（动态挂载补全向上找持有组件） */
+  _parentVNode?: VNode
   /** 组件输出的第一个 DOM 节点 */
   _refNode?: Node | null
   /** 原生 async 组件缓存（vnode 级按实例）：in-flight Promise → resolved renderFn（diff 传递继承） */

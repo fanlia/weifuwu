@@ -131,6 +131,7 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
       const oldChild = vnode._child as VNode | null
       const newChild = vnode._render(vnode.props) as VNode | null
       vnode._child = newChild
+      if (newChild && typeof newChild === 'object' && !Array.isArray(newChild)) (newChild as VNode)._parentVNode = vnode
 
       // 组件输出为 remote（Portal）：委托到 patchPortal，不操作父 DOM
       if ((oldChild && (oldChild as any)._placement === 'remote') || (newChild && (newChild as any)._placement === 'remote')) {
