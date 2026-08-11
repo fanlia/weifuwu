@@ -42,6 +42,10 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
   let triggerEl: HTMLElement | null = null
   let panelEl: HTMLElement | null = null
 
+  // ESC 关闭（document 级——焦点在触发器外也可关闭）
+  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && open) { open = false; ctx.ui.render() }
+  })
   const popup = ctx.ui.usePopupPosition?.({
     el: () => triggerEl,
     isOpen: () => open,

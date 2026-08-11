@@ -9,6 +9,7 @@ function makeCtx(): WfuiContext {
   let phase: 'closed' | 'open' | 'exit' = 'closed'
   return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {},
+    useGlobalKey: () => () => {},
     useDialog: () => ({
       get phase() { return phase },
       rootRef: () => {}, panelRef: () => {},

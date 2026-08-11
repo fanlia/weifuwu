@@ -28,6 +28,7 @@ function makeCtx(): WfuiContext {
   return createTestCtx({ ui: {
     render: () => {}, $: () => ({}), dirty: () => {},
     usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
+    useGlobalKey: () => () => {},
     // useDialog mock：状态机 + rootRef 绑定 animationend（真实渲染管线需要）
     useDialog: () => {
       let phase: 'closed' | 'open' | 'exit' = 'closed'

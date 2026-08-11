@@ -24,9 +24,15 @@ export interface ModalProps {
 export const Modal: Component<ModalProps> = async (_props, ctx) => {
   // useDialog：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap + animationend 卸载
   const dialog = ctx.ui.useDialog({ name: 'Modal' })
+  // ESC 关闭（document 级——焦点在 trap 外也可关闭；phase=open 才触发避免 exit 期间重复）
+  let latestOnClose: (() => void) | undefined
+  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && dialog.phase === 'open') latestOnClose?.()
+  })
 
   return (props: ModalProps) => {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
+    latestOnClose = onClose
     const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
     const phase = dialog.sync(!!open)
     if (phase === 'closed') return null
@@ -66,8 +72,7 @@ export const Modal: Component<ModalProps> = async (_props, ctx) => {
       role: 'dialog',
       'aria-modal': 'true',
       'aria-label': title ?? (ML.ariaLabel ?? '弹窗'),
-      // Escape 关闭：焦点被 trap 在对话框内，keydown 冒泡到根节点
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') onClose?.() },
+      // Escape 关闭：document 级（useGlobalKey——mount 层注册）——不再依赖焦点 trap 冒泡
     }, [overlay, content])
 
     return createPortal(root, 'modal')

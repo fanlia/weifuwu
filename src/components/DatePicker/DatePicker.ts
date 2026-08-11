@@ -51,6 +51,10 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
   let prevOpen = false
 
   // 滚动/resize 时自动重算坐标（弹层跟随输入框）
+  // ESC 关闭（document 级——面板 keydown 只在焦点内生效；这里覆盖全局）
+  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && show) { show = false; ctx.ui.render() }
+  })
   const pos = ctx.ui.usePopupPosition({
     el: () => inputEl,
     isOpen: () => show,

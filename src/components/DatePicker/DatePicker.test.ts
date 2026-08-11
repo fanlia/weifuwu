@@ -13,6 +13,7 @@ function makeCtx(): WfuiContext {
     $: () => ({}), render: () => {}, dirty: () => {},
     usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
     useAnimationEnd: () => () => {},
+    useGlobalKey: () => () => {},
   } }) as any
 }
 
@@ -120,6 +121,7 @@ describe('DatePicker', () => {
         },
         usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
         useAnimationEnd: () => () => {},
+        useGlobalKey: () => () => {},
       },
     }
     const result = await (DatePicker as any)({}, ctx)

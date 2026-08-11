@@ -11,6 +11,7 @@ const makeCtx = () => createTestCtx({ ui: {
     render: () => {},
     dirty: () => {},
     usePopupPosition: () => ({ top: 100, left: 200, width: 220, refresh: () => {} }),
+    useGlobalKey: () => () => {},
   },
 }) as any
 

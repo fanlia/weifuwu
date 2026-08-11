@@ -8,11 +8,13 @@ import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { createTestCtx } from '../../ui-dom/testing.ts'
 
+const globalKeys: ((e: any) => void)[] = []
 function makeCtx(): WfuiContext {
   let phase: 'closed' | 'open' | 'exit' = 'closed'
   return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {}, ready: true,
     // useDialog mock：状态机与真实现同语义（组件层测试不跑渲染器）
+    useGlobalKey: (h: any) => { globalKeys.push(h); return () => {} },
     useDialog: () => ({
       get phase() { return phase },
       rootRef: () => {}, panelRef: () => {},
@@ -95,15 +97,19 @@ describe('Modal', () => {
     assert.ok(closeBtn)
   })
 
-  it('Escape 触发 onClose（根节点 onKeyDown）', async () => {
+  it('Escape 触发 onClose（document 级 useGlobalKey）', async () => {
+    const ctx = makeCtx()
+    const keysBefore = globalKeys.length
     let closed = 0
-    const vnode = inner(await renderModal({ open: true, onClose: () => closed++ }, makeCtx())!)
-    assert.equal(typeof vnode.props.onKeyDown, 'function')
-    vnode.props.onKeyDown({ key: 'Escape' })
+    await renderModal({ open: true, onClose: () => closed++ }, ctx)
+    const esc = globalKeys[globalKeys.length - 1]
+    assert.equal(typeof esc, 'function')
+    esc({ key: 'Escape' })
     assert.equal(closed, 1)
     // 非 Escape 键不触发
-    vnode.props.onKeyDown({ key: 'Tab' })
+    esc({ key: 'Tab' })
     assert.equal(closed, 1)
+    void keysBefore
   })
 
   it('关闭先挂 --exit 类，animationend 后才真正卸载（patch 管线）', async () => {
@@ -116,6 +122,7 @@ describe('Modal', () => {
     const ctx: any = {
       ui: {
         $: () => ({}), dirty: () => {},
+        useGlobalKey: () => () => {},
         render: async () => {
           const next = renderFn!()
           await patchToDom(container, container.firstChild, prev, next, ctx)

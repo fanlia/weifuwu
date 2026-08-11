@@ -23,9 +23,15 @@ export interface DrawerProps {
 export const Drawer: Component<DrawerProps> = async (_props, ctx) => {
   // useDialog：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap + animationend 卸载
   const dialog = ctx.ui.useDialog({ name: 'Drawer' })
+  // ESC 关闭（document 级——焦点在 trap 外也可关闭；phase=open 才触发避免 exit 期间重复）
+  let latestOnClose: (() => void) | undefined
+  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && dialog.phase === 'open') latestOnClose?.()
+  })
 
   return (props: DrawerProps) => {
     const { open, title, position = 'right', onClose, children, footer, width } = props
+    latestOnClose = onClose
     const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}
     const phase = dialog.sync(!!open)
 
