@@ -8,7 +8,7 @@
 
 import type { VNode, VNodeChild } from '../vnode.ts'
 import type { BrowserEnv } from '../types.ts'
-import { Fragment, Portal } from '../vnode.ts'
+import { Fragment, Portal, normalizeChildren } from '../vnode.ts'
 
 export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'clipPath'])
 
@@ -141,8 +141,8 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
   if (vnode.type === Fragment) {
     const frag = b.createDocumentFragment()
     if (!frag) return null
-    const children = (Array.isArray(vnode.props?.children) ? vnode.props.children : [vnode.props?.children]).flat(Infinity)
-    for (const c of children) {
+    // P-5：normalizeChildren 统一展开（替代 flat(Infinity) 重复展开）
+    for (const c of normalizeChildren(vnode.props?.children)) {
       const n = renderValue(c, ctx, b)
       if (n != null) frag.appendChild(n)
     }
@@ -194,8 +194,8 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
     setProp(el, key, value)
   }
   if (!('innerHTML' in (vnode.props ?? {}))) {
-    const children = (Array.isArray(vnode.props?.children) ? vnode.props.children : [vnode.props?.children]).flat(Infinity)
-    for (const c of children) {
+    // P-5：normalizeChildren 统一展开（替代 flat(Infinity) 重复展开）
+    for (const c of normalizeChildren(vnode.props?.children)) {
       const n = renderValue(c, ctx, b)
       if (n == null) continue
       el.appendChild(n)

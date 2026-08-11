@@ -121,6 +121,23 @@ export function isNative(vnode: VNode): boolean {
   return typeof vnode.type === 'string'
 }
 
+/** 递归文本/数组归一化（children 数组展开——嵌套数组扁平化，DOM 范围对齐）。
+ *  栈展开（索引遍历替代 shift/unshift 头部操作——长数组 O(n) 而非 O(n²)）；逆序入栈 + pop 保持原顺序 */
+export function normalizeChildren(c: VNodeChild | undefined | null): VNodeChild[] {
+  if (c == null || typeof c === 'boolean') return []
+  const out: VNodeChild[] = []
+  const stack: VNodeChild[] = Array.isArray(c) ? [...c].reverse() : [c]
+  while (stack.length > 0) {
+    const item = stack.pop()!
+    if (Array.isArray(item)) {
+      for (let i = item.length - 1; i >= 0; i--) stack.push(item[i])
+    } else {
+      out.push(item)
+    }
+  }
+  return out
+}
+
 export function isComponent(vnode: VNode): boolean {
   return typeof vnode.type === 'function'
 }

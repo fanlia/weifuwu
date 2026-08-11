@@ -51,9 +51,10 @@ export async function renderSsr(input: VNodeChild, ctx: WfuiContext): Promise<st
   if (input == null || typeof input === 'boolean') return ''
   if (typeof input === 'string' || typeof input === 'number') return escape(String(input))
   if (Array.isArray(input)) {
-    let s = ''
-    for (const c of input) s += await renderSsr(c, ctx)
-    return s
+    // P-6：并行——统一异步后 renderFn 可 await 数据，串行会让数据驱动 SSR 页面
+    // 取数变为「所有组件延迟之和」；并行 = 「最慢组件延迟」（对齐客户端 buildVNode 的 Promise.all）
+    const parts = await Promise.all(input.map((c) => renderSsr(c, ctx)))
+    return parts.join('')
   }
 
   const vnode = input as VNode

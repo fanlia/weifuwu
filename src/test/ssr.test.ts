@@ -11,9 +11,10 @@
  */
 
 import { describe, it } from 'node:test'
+import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, Fragment, createPortal } from '../ui-dom/vnode.ts'
-import { ssrToString, serializeData } from '../ui-dom/vdom/ssr.ts'
+import { ssrToString, serializeData, renderSsr } from '../ui-dom/vdom/ssr.ts'
 
 function ssr(Comp: any, props: any = {}, ctx: any = {}, opts: any = {}): Promise<string> {
   return ssrToString(Comp, props, ctx, opts).then(s => s.toString())
@@ -154,4 +155,30 @@ describe('SSR 字符串遍历器', () => {
     }
     await assert.rejects(() => ssr(Bad), /factory boom/)
   })
+})
+
+// ── P-6：SSR 数据驱动并行取数（renderFn await 数据——Promise.all 并行） ──
+test('SSR: 数据驱动组件数组并行取数（最慢组件延迟而非总和）', async () => {
+  const active = { count: 0, max: 0 }
+  const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
+  const dataCard = (label: string, ms: number) => async (_init: any, ctx: any) =>
+    async () => {
+      active.count++
+      active.max = Math.max(active.max, active.count)
+      await delay(ms)
+      active.count--
+      return h('div', { class: 'card' }, label)
+    }
+  const Page = async (_init: any, ctx: any) =>
+    async () => h('div', {}, [
+      h(await dataCard('A', 30), {}),
+      h(await dataCard('B', 30), {}),
+      h(await dataCard('C', 30), {}),
+    ])
+  const t0 = Date.now()
+  const html = await renderSsr(h(Page, {}), {} as any)
+  const dt = Date.now() - t0
+  assert.equal(html.includes('A') && html.includes('B') && html.includes('C'), true, '三个卡片都渲染')
+  assert.ok(active.max >= 3, `并发峰值 ≥3（并行取数；实际 ${active.max}）`)
+  assert.ok(dt < 80, `耗时 < 80ms（串行 90ms——实际 ${dt}ms）`)
 })

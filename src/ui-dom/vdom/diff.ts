@@ -9,7 +9,9 @@
  */
 
 import type { VNode, VNodeChild } from '../vnode.ts'
-import { Fragment, Portal } from '../vnode.ts'
+import { Fragment, Portal, normalizeChildren } from '../vnode.ts'
+// re-export（v1 导入点兼容——normalizeChildren 已移至 vnode.ts 统一）
+export { normalizeChildren }
 import { createClientBrowser } from '../browser.ts'
 import { cleanupComponent, type Registry } from './registry.ts'
 import { callRefCleanupFor } from './registry.ts'
@@ -22,25 +24,7 @@ function disposeComponent(vnode: VNode, registry?: Registry): void {
   }
 }
 import { renderValue, setProp, EVENT_RE } from './render.ts'
-import { componentPropsEqual } from './build.ts'
 
-/** 递归文本/数组归一化（children 数组展开——嵌套数组扁平化，DOM 范围对齐） */
-export function normalizeChildren(c: VNodeChild | undefined | null): VNodeChild[] {
-  if (c == null || typeof c === 'boolean') return []
-  const out: VNodeChild[] = []
-  // 栈展开（索引遍历替代 shift/unshift 头部操作——长数组 O(n) 而非 O(n²)）
-  // 逆序入栈 + pop 保持原顺序
-  const stack: VNodeChild[] = Array.isArray(c) ? [...c].reverse() : [c]
-  while (stack.length > 0) {
-    const item = stack.pop()!
-    if (Array.isArray(item)) {
-      for (let i = item.length - 1; i >= 0; i--) stack.push(item[i])
-    } else {
-      out.push(item)
-    }
-  }
-  return out
-}
 
 /** 从 vnode 取稳定 key（Portal 内部 key 不算用户 keyed） */
 function getKey(v: VNodeChild): string | undefined {
@@ -178,15 +162,12 @@ export function patchValue(
     newV._parentNode = parent
     if (oldNode) newV._refNode = oldNode
 
-    // 三态 skip：同类型 + props 同 + 版本同 + 已构建 → 复用旧 _child
-    // （必须同类型——导航 A→B 不同组件不得 skip，否则复用 A 的 _child → 页面不切换）
-    // 版本比较基于 oldV（旧树构建时的 _ctxVersion）vs 当前 ctxVersion：
-    // 版本变化（bumpCtxVersion）→ 不 skip → 用 buildVNode 重跑后的新 _child
+    // 三态 skip（P-2 简化）：diff 完全信任 buildVNode 产出——剪枝命中时 buildVNode
+    // 直接复用旧 _child（引用相等 = 剪枝已通过 props/版本判断），diff 无需再比 props/版本；
+    // force/版本变化路径 buildVNode 已重跑 renderFn（_child 是新树，引用不等 → 不 skip）
+    // 必须同类型——导航 A→B 不同组件不得 skip，否则复用 A 的 _child → 页面不切换
     const typeSame = oldV?.type === newV.type
-    const propsSame = componentPropsEqual(oldV?.props ?? {}, newV.props ?? {})
-    const verSame = (oldV?._ctxVersion ?? -1) === (ctx.ctxVersion ?? 0)
-    if (!ctx.force && oldV && typeSame && propsSame && verSame && oldV._child !== undefined) {
-      newV._child = oldV._child
+    if (!ctx.force && oldV && typeSame && oldV._child !== undefined && newV._child === oldV._child) {
       return oldNode
     }
 
@@ -239,7 +220,18 @@ export function patchValue(
 
 /** 属性 patch（只设不删语义保持简单；差异删除由 diff 上层处理） */
 export function patchProps(el: Element, oldProps: Record<string, any>, newProps: Record<string, any>): void {
-  const allKeys = new Set([...Object.keys(oldProps), ...Object.keys(newProps)])
+  // P-3 快速路径：引用级浅比较全等 → 零遍历直接返回（省 Set 构建 + 全量 key 遍历——
+  // renderFn 重建的 vnode props 值大多没变，DOM 写已跳过但遍历不可跳过）
+  const ka = Object.keys(oldProps)
+  const kb = Object.keys(newProps)
+  if (ka.length === kb.length) {
+    let same = true
+    for (let i = 0; i < ka.length; i++) {
+      if (ka[i] !== kb[i] || oldProps[ka[i]] !== newProps[ka[i]]) { same = false; break }
+    }
+    if (same) return
+  }
+  const allKeys = new Set([...ka, ...kb])
   for (const key of allKeys) {
     if (key === 'children' || key === 'key') continue
     const ov = oldProps[key]
@@ -405,11 +397,13 @@ export function patchChildren(
         const node = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
         out.push(node)
         if (node != null) {
-          parent.appendChild(node)
-          // 新增节点位置校正（追加在末尾后移到正确位置）
-          if (lastDom && node.previousSibling !== lastDom) {
-            parent.insertBefore(node, lastDom.nextSibling)
-          }
+          // P-4：新增节点单次插入——直接插到正确位置（不 append 末尾再校正）
+          // lastDom 存在 → 插到已处理链尾后（中间/尾部插入：1 次写）
+          // lastDom 为 null（列表头新增）→ 插到第一个旧节点前（头部插入：1 次写——
+          //   旧实现 append 末尾导致后续所有匹配项位置校正 insertBefore 移动——
+          //   100 行头部插入 = 103 次 DOM 写，perf 基准实锤）
+          if (lastDom) parent.insertBefore(node, lastDom.nextSibling)
+          else parent.insertBefore(node, parent.firstChild)
           lastDom = node
         }
       }

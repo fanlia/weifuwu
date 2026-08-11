@@ -120,20 +120,38 @@ export async function buildVNode(
       : null
 
   if (typeof vnode.type === 'function') {
-    const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? undefined })
-    // 剪枝：同 props + 同 ctx 版本 + 旧 _child 有值 → 复用旧 _child（renderFn 不重跑）。
+    // ── P-1 公共轻量（同步——剪枝命中路径零 await 零 childCtx） ──
+    if (!vnode._id) {
+      // 旧树同位置同类型 → 复用旧 id（渲染定位锚点不漂移：剪枝新 vnode 若分配新 id，
+      // 组件内部 render([selfId]) 会命中 registry 里的新 vnode——其 _parentNode 未设置 →
+      // patch 错位 fallback rootEl → 整树被覆盖 → 重挂 → 动画/定时器重启 → 渲染风暴）
+      vnode._id = oldV?._id ?? registry.nextId()
+      registry.idRegistry.set(vnode._id, vnode)
+    }
+    // 旧树同位置同类型：继承定位信息（_parentNode/_refNode——剪枝复用旧 _child 时新 vnode
+    // 需要正确的渲染容器；否则 renderByIds 的 parent 定位失败 → patch 错位）+ 版本号
+    // （_ctxVersion——剪枝版本比较基准：reuse 继承旧版本，版本没变才允许剪枝）+ renderFn
+    if (oldV) {
+      if (oldV._parentNode) vnode._parentNode = oldV._parentNode
+      if (oldV._refNode) vnode._refNode = oldV._refNode
+      if (oldV._ctxVersion != null) vnode._ctxVersion = oldV._ctxVersion
+      if (typeof oldV._render === 'function') vnode._render = oldV._render
+    }
+    // ── 剪枝判断（前置——命中 = 纯同步 O(1)，不创建 childCtx 不 await） ──
     // force（renderByIds 显式渲染）→ 强制重跑 renderFn（读最新状态）
     const propsSame = componentPropsEqual(oldV?.props ?? {}, vnode.props ?? {})
     const ctxVersion = (ctx as any)?.ui?._ctxVersion ?? 0
     const verSame = (oldV?._ctxVersion ?? -1) === ctxVersion
-    if (opts?.force || !propsSame || !verSame || oldV?._child == null) {
-      const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry)
-      vnode._child = (built ?? null) as VNode | VNode[] | null
-      vnode._ctxVersion = ctxVersion
-    } else {
+    if (!opts?.force && propsSame && verSame && oldV?._child != null) {
       vnode._child = oldV._child
       vnode._ctxVersion = oldV._ctxVersion
+      return vnode
     }
+    // ── 完整路径：mountAsyncComponent（childCtx + 工厂——公共轻量部分幂等跳过） ──
+    const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? undefined })
+    const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry)
+    vnode._child = (built ?? null) as VNode | VNode[] | null
+    vnode._ctxVersion = ctxVersion
     return vnode
   }
 
