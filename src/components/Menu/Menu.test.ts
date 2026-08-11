@@ -5,7 +5,7 @@ import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
 
 function createTestCtx(): WfuiContext {
-  return { ui: { $: {}, render: () => {}, dirty: () => {}, ready: true, usePopup: () => ({ wrapProps: {}, portal: (c: any) => c }) } } as any
+  return { ui: { render: () => {}, ready: true, useStableCallback: (_name: string, fn: any) => fn, usePopup: () => ({ wrapProps: {}, portal: (c: any) => c }) } } as any
 }
 
 const items = [

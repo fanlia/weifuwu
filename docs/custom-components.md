@@ -157,6 +157,7 @@ const Page: Component<{}, { api: ApiInjected['api'] }> = (_init, ctx) => {
 | `Component<P, C>` 类型化（禁 `_init: any`） | 编译期不可查 |
 | 受控 props 必须配回调 | 交互静默失效（组件 console.warn） |
 | ref 用 `ctx.ui.useStableRef`（禁内联 ref） | 清理逻辑每次渲染误触 |
+| 事件函数用 `ctx.ui.useStableCallback`（禁内联传子） | 父 render 新函数 → 子组件三态 skip 失效 → 全量重跑 |
 | 初始状态确定性（禁 `window.innerWidth` 直接初始化） | SSR/hydration mismatch |
 | 小尺寸按钮固定 min/max-height | 被全局 36px 撑成竖条 |
 

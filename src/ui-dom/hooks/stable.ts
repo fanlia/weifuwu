@@ -24,6 +24,46 @@ export function useStableRef(
   return ref
 }
 
+/**
+ * 稳定回调（S-1——三态 skip 命中率的核心原语）：renderFn 内调用，返回**引用恒等**的转发器。
+ *
+ * 问题：组件库/应用层 100% 内联事件函数（`onClick={() => toggleOpen(item.key)}`）——每次 renderFn
+ * 重跑产生新函数 → 父组件 props 值比较失败 → 子组件三态 skip 失效 → 全量重跑（剪枝命中率打穿；
+ * 且「直接 await 取数」用户每次剪枝失败 = 重新请求）。
+ *
+ * 方案（显式 name——对齐 selfId 语义化，无调用序依赖）：同组件内同名调用点返回同一转发器；
+ * 内部每次 render 更新 `latest`（最新闭包）——引用恒等（props 浅比较通过 → 三态 skip 命中）
+ * 且行为正确（调用时转发到最新闭包，读最新状态）。无 deps 数组（位置即语义）。
+ *
+ * ```tsx
+ * const onSelect = ctx.ui.useStableCallback('select', (key: string) => { internalOpen = ...; ctx.ui.render() })
+ * return () => h('div', { onClick: () => onSelect(item.key) })   // onSelect 引用恒等
+ * ```
+ *
+ * 注意：同组件内 name 必须唯一（同名覆盖——同调用点复用语义）；卸载自动清理。
+ */
+export function useStableCallback(env: HookEnv, name: string, fn: (...args: any[]) => any): (...args: any[]) => any {
+  const selfId = env.selfId()
+  if (!selfId) return fn // SSR/无 selfId（shim）→ 直返（无订阅无缓存）
+  const key = `${selfId}#${name}`
+  let entry = env.stableCallbacks.get(key)
+  if (!entry) {
+    const e = { latest: fn, proxy: (...args: any[]) => (e.latest as any)(...args) }
+    entry = e
+    env.stableCallbacks.set(key, e)
+    const unsub = env.onUnmount((id) => {
+      if (id === selfId) {
+        for (const k of [...env.stableCallbacks.keys()]) {
+          if (k.startsWith(selfId + '#')) env.stableCallbacks.delete(k)
+        }
+        unsub()
+      }
+    })
+  }
+  entry.latest = fn // 每次 render 更新最新闭包
+  return entry.proxy
+}
+
 /** 当前设备是否支持 hover（matchMedia '(hover: hover)'，mount 期一次判定） */
 export function useHoverCapable(env: HookEnv): boolean {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover)').matches

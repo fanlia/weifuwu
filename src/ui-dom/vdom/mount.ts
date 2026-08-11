@@ -18,7 +18,7 @@ import { createPopupTrackerSystem } from '../popup-tracker.ts'
 import { createClientBrowser } from '../browser.ts'
 import {
   useChat, useMedia, useBreakpoint, usePopupPosition, useHoverCapable,
-  useStableRef, useVisualViewport, usePopup, useLongPress, useInView,
+  useStableRef, useStableCallback, useVisualViewport, usePopup, useLongPress, useInView,
   useScrollPosition, useAsync, useControlled, useControlledInput, useOpen,
   usePresence, useDialog, useGlobalKey, useDrag, useDragDrop,
   useReducedMotion, useAnimationEnd, useTween, useExternal,
@@ -188,6 +188,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   const uncontrolledValues = new Map<string, any>()
   const inputStates = new Map<string, { keyword: string; selectedLabel: string }>()
   const openStates = new Map<string, boolean>()
+  const stableCallbacks = new Map<string, { latest: (...args: any[]) => any; proxy: (...args: any[]) => any }>()
 
   // ── HookEnv 组装（hooks 实现依赖——见 hooks/types.ts） ──
   const makeEnv = (self: any): HookEnv => ({
@@ -207,6 +208,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     uncontrolledValues,
     inputStates,
     openStates,
+    stableCallbacks,
     ensurePopupListeners,
   })
 
@@ -230,6 +232,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   rootUi.usePopupPosition = function (this: any, o: any) { return usePopupPosition(makeEnv(this), o) }
   rootUi.useHoverCapable = function (this: any) { return useHoverCapable(makeEnv(this)) }
   rootUi.useStableRef = function (this: any, init: any, cleanup?: any) { return useStableRef(makeEnv(this), init, cleanup) }
+  rootUi.useStableCallback = function (this: any, name: string, fn: any) { return useStableCallback(makeEnv(this), name, fn) }
   rootUi.useVisualViewport = function (this: any) { return useVisualViewport(makeEnv(this)) }
   rootUi.usePopup = function (this: any, o: any) { return usePopup(makeEnv(this), o) }
   rootUi.useLongPress = function (this: any, o: any) { return useLongPress(makeEnv(this), o) }

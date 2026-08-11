@@ -184,6 +184,7 @@ await browser.copyText(text)
 | `useAsync()` | `useAsync(fetcher)` | 异步取数：`data/loading/error` 响应式 + `reload()` |
 | `useControlled()` | `useControlled({ value, onChange, name })` | 受控/非受控统一：受控判定 + 缺回调 warn + 内部状态跨渲染保持 |
 | `useStableRef()` | `useStableRef(init, cleanup?)` | 稳定 ref 引用（根治内联 ref 陷阱） |
+| `useStableCallback()` | `useStableCallback(name, fn)` | **稳定回调（三态 skip 命中率核心）**：返回引用恒等的转发器（内部每 render 更新最新闭包）——父组件传出的回调引用稳定 → 子组件剪枝命中不重跑；无 deps 数组（位置即语义） |
 | `useDialog()` | `useDialog({ name })` | 全屏对话框：退场状态机 + 滚动锁 + 焦点 trap（Modal/Drawer 同款） |
 | `useGlobalKey()` | `useGlobalKey(handler)` | 全局键盘监听（window keydown：mount 注册 + 卸载清理） |
 | `useDrag()` | `useDrag({ onMove, onStart?, onEnd? })` | 指针拖拽（pointerdown 捕获 → window move delta / up 释放） |
