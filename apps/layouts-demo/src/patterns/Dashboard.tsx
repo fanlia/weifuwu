@@ -5,7 +5,7 @@ import { Title, Text, StatCard, PageHeader, ProgressBar, SegmentedControl, Switc
 // 模式 3：仪表盘（Dashboard）
 //
 // 响应式卡片网格：KPI 行（StatCard）+ 数据表 + 侧栏概览。
-// SegmentedControl 切换时间范围 → KPI/表格数据联动（$ 响应式）。
+// SegmentedControl 切换时间范围 → KPI/表格数据联动（let + render()）。
 // 100% 原语 + 组件：wf-grid（--wf-cols 控制列数）窄屏自动单列。
 // ─────────────────────────────────────────────────────────────
 
@@ -139,7 +139,7 @@ export const Dashboard: Component = async (_init, ctx) => {
             <Card outlined>
               <Space direction="vertical" size="sm">
                 <Text type="secondary" className="wf-text-sm">数据刷新</Text>
-                <Text className="wf-text-sm">切换时间范围观察数据联动（$ 响应式状态）</Text>
+                <Text className="wf-text-sm">切换时间范围观察数据联动（let + render() 状态）</Text>
               </Space>
             </Card>
             <Divider />

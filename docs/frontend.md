@@ -732,23 +732,44 @@ const UserProfile: Component = (initProps, ctx) => {
 
 ### async 组件（原生）
 
-组件 = 函数，async 组件 = async 函数：签名与同步组件一致 `(initProps, ctx) => renderFn`，渲染器按「返回值是 Promise」原生判别。数据经闭包注入，渲染无 loading 分支：
+组件 = 函数，async 组件 = async 函数：**两阶段都异步**（统一签名 `async (initProps, ctx) => async (props) => Promise<VNode>`）——工厂层（mount 一次）与 renderFn（每次 dirty/props 变化）都可 await 数据。渲染器在 buildVNode 阶段 await 全部；diff 永不执行 renderFn。数据经闭包注入，渲染无 loading 分支：
 
 ```tsx
 const UserProfile = async (initProps, ctx) => {
-  const user = await ctx.data.get(`/api/user/${initProps.userId}`)   // 三场景：SSR→__DATA__ / hydration 种子 / SPA fetch
+  const user = await ctx.data.get(`/api/user/${initProps.userId}`)   // ① 工厂层：数据不随 props 变（三场景：SSR→__DATA__ / hydration 种子 / SPA fetch）
   let liked = false                        // 客户端状态（交互后变化，render-only）
-  return (props) =>
-    h('div', {},
-      h('p', {}, user.name),             // 服务端状态（闭包，SSR 进 HTML）
+  return async (props) => {
+    const related = await ctx.data.get(`/api/user/${props.userId}/related`)  // ② renderFn 层：数据随 props 变（每次重跑取新数据）
+    return h('div', {},
+      h('p', {}, user.name),               // 服务端状态（闭包，SSR 进 HTML）
+      h('span', {}, `相关 ${related.length}`),
       h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }, liked ? '❤️' : '🤍'),
     )
+  }
 }
 ```
 
-- **客户端**：主路径 `buildVNode` async 预构建（await 全部工厂；兄弟并行）→ 落地零占位；运行时首次挂载的 async 组件在 buildVNode 阶段 await（无占位/补全回调）——N 处实例 = N 次工厂调用，数据走 `ctx.data` 则零成本（缓存 + 并发合并）
-- **服务端**：`ctx.ui.ssr()` 直接 await 工厂 → 数据进 HTML（无占位）
+- **两阶段数据分层**：数据不随 props 变 → 工厂层 await（只一次，`ctx.data` 缓存）；随 props/状态变 → renderFn 层 await（每次重跑，props 变化自动刷新）
+- **客户端**：主路径 `buildVNode` async 预构建（await 全部工厂 + renderFn；**兄弟组件并行取数**）→ 落地零占位；运行时首次挂载的 async 组件在 buildVNode 阶段 await（无占位/补全回调）——N 处实例 = N 次工厂调用，数据走 `ctx.data` 则零成本（缓存 + 并发合并）
+- **服务端**：`ctx.ui.ssr()` 直接 await 工厂 + renderFn → 数据进 HTML（无占位；数组分支 Promise.all 并行取数）
 - 初始状态必须确定性（禁止 `window.innerWidth` 直接初始化 → SSR/hydration mismatch）
+
+### 取数模式（机制与策略分离——不绑定 ctx.data）
+
+renderFn 内可 await **任意 Promise**（fetch / `ctx.api` / 第三方 SDK / `ctx.data`）——渲染管线对三种模式一视同仁（并发取数 + 原子落地 + props 自动刷新都成立）。取数是**策略**（开发者决定），框架只提供机制：
+
+| 模式 | 写法 | 语义 | 适用 |
+|---|---|---|---|
+| **ctx.data 管道** | `await ctx.data.get(key, fetcher)` | 缓存 + 并发合并 + SSR 三场景（fetcher 可以是任意函数） | 重复执行 / 跨组件共享 / 需要 SSR 的数据 |
+| **直接 await** | `await fetch(...)` / `ctx.api.get(...)` / SDK | **每次 renderFn 重跑重新执行**（无缓存） | 一次性局部取数 |
+| **事件驱动** | 闭包 `let` + fetch + `ctx.ui.render()` | 只执行一次，renderFn 读闭包 | 需精确控制触发时机 / 有副作用 |
+
+**决策规则**：数据会重复执行或跨组件共享？→ ctx.data；一次性局部数据？→ 直接 await；需精确控制时机？→ 事件驱动。
+
+**红线**：
+- 直接 await = **每次 renderFn 重跑重新请求**（父组件无关状态变化也会触发）——高频数据用 ctx.data 缓存防重复
+- renderFn 内 await 应为**幂等取数**（副作用走事件驱动）
+- ctx.data 的 fetcher 可以是**任意函数**（不只框架 API）：`ctx.data.get('/key', () => sdk.query(...))`
 
 ---
 

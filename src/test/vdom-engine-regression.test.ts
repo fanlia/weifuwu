@@ -9,6 +9,8 @@ import { h, createPortal } from '../ui-dom/vnode.ts'
 import { mountRoot } from '../ui-dom/vdom/mount.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { i18n } from '../ui-dom/i18n.ts'
+import { uiServe } from '../ui-dom/vdom/serve.ts'
+import { UIRouter } from '../ui-dom/router.ts'
 import { DatePicker } from '../components/DatePicker/DatePicker.ts'
 import { Modal } from '../components/Modal/Modal.ts'
 import { Command } from '../components/Command/Command.ts'
@@ -494,4 +496,33 @@ test('数据驱动 renderFn：状态变化 → await render() → DOM 反映新�
   await Promise.all([p1, p2])
   assert.equal(root.querySelectorAll('.msg').length, 4, '合并补跑后最终 4 条')
   handle.unmount()
+})
+
+// ── B-1：UIHandler 页面（直接返回 vnode）render 无参 → warn 兜底（不静默） ──
+test('B-1: UIHandler 页面 render() 无参 → console.warn（替代静默空操作）', async () => {
+  const router = new UIRouter()
+  const Home = async (_loc: any, ctx: any) => {
+    let clicks = 0
+    const rerender = () => ctx.ui.render()
+    return h('div', { id: 'home' },
+      h('button', { id: 'click-me', onClick: () => { clicks++; rerender() } }, `点击 ${clicks} 次`))
+  }
+  router.get('/', Home)
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = uiServe(router, { root })
+  await handle.ready
+  // 点击 → render 无参 → 无目标（native 根）→ warn（不再静默）
+  const warns: string[] = []
+  const origWarn = console.warn
+  console.warn = (m: any) => { warns.push(String(m)) }
+  try {
+    ;(root.querySelector('#click-me') as HTMLElement).click()
+    await new Promise(r => setTimeout(r, 10))
+  } finally {
+    console.warn = origWarn
+  }
+  assert.ok(warns.some(w => w.includes('render() 无参但无渲染目标')), `warn 出现（实际 ${warns[0]?.slice(0, 60)}）`)
+  assert.equal(root.querySelector('#click-me')?.textContent, '点击 0 次', '状态不更新（UIHandler 形态限制——warn 提示改用组件形态）')
+  handle.close()
 })

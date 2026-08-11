@@ -145,12 +145,24 @@ export function createVdomContext(opts: MountOptions): VdomContext {
 
   const renderer = opts.renderer ?? createRenderer({ registry, ctx, rootEl: opts.root })
 
+  // B-1：UIHandler 页面 render 无目标 warn 只发一次（防刷屏）
+  let warnedNoTarget = false
   rootUi.render = function (this: any, ids?: string[]): Promise<void> {
     // this = 调用者的 childCtx.ui（组件 ctx.ui.render() → this._selfId = 组件 id）
     // root 层（this = rootUi，_selfId = '_wf_root' 虚拟 id）→ 渲染实际 root 组件（_rootVNodeId）
     if (ids == null) {
       const self = this._selfId !== '_wf_root' && this._selfId ? this._selfId : rootUi._rootVNodeId
-      return self ? renderer.render([self]) : Promise.resolve()
+      if (!self) {
+        // B-1：UIHandler 页面（直接返回 vnode——页面根是 native vnode 无 _id/_render）
+        // render 无参无目标 = 静默空操作 → warn 一次（对齐「不静默」纪律；
+        // 正确用法：async 组件形态或 createStore + useExternal）
+        if (!warnedNoTarget) {
+          warnedNoTarget = true
+          console.warn('[weifuwu] render() 无参但无渲染目标：页面根是 native vnode（UIHandler 直接返回 vnode 的页面形态），内部状态渲染无效。改用 async 组件形态（const Page: Component = async ... => (props) => ...）或 createStore + useExternal 共享状态。')
+        }
+        return Promise.resolve()
+      }
+      return renderer.render([self])
     }
     return renderer.render(ids)
   }

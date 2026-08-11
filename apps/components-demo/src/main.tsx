@@ -2297,7 +2297,7 @@ getTheme()  // 'auto' | 'light' | 'dark'
 </Popover>`,
 
   aichat: `const chat = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
-return () => <AiChat chat={$} />
+return () => <AiChat chat={chat} />
 
 // 状态：chat.messages / chat.input / chat.streaming / chat.error
 // 操作：chat.send() / chat.stop() / chat.retry() / chat.approve(decision)
