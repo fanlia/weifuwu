@@ -1,7 +1,7 @@
 /**
  * vdom 集成测试——mount + 渲染触发（无自动渲染）
  *
- * **核心原则回归**：只有用户手动 $ 赋值 / ctx.ui.render() / ctx.ui.dirty() 才渲染。
+ * **核心原则回归（render-only）**：只有 ctx.ui.render() 显式触发才渲染（无自动渲染）。
  * 无 flush 批处理、无自动调度循环。
  *
  * 关键场景：
@@ -40,10 +40,9 @@ const tick = () => new Promise<void>((r) => setTimeout(r, 5))
 test('集成：$ 赋值 → 组件重渲染（renderFn 重跑 + DOM 更新）', async () => {
   const el = mount('m1')
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.count = 0
-    ;(globalThis as any).__inc = () => { $.count++ }
-    return () => h('button', {}, `count: ${$.count}`)
+    let count = 0
+    ;(globalThis as any).__inc = () => { count++; ctx.ui.render() }
+    return () => h('button', {}, `count: ${count}`)
   }
   const handle = mountRoot({ browser: createClientBrowser(), root: el })
   await handle.mount(h(App, {}))
@@ -62,11 +61,10 @@ test('集成：.then 加载后 async 组件动态挂载 → 渲染（列表页�
   const el = mount('m2')
   const Item = async (_init: any) => () => h('div', { class: 'item' }, 'I')
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.items = []
-    ;(globalThis as any).__load = (items: any[]) => { $.items = items }
+    let items: any[] = []
+    ;(globalThis as any).__load = (it: any[]) => { items = it; ctx.ui.render() }
     return () => h('div', { class: 'list' },
-      ($.items as any[]).map((i: any) => h(Item, { key: i })),
+      (items as any[]).map((i: any) => h(Item, { key: i })),
     )
   }
   const handle = mountRoot({ browser: createClientBrowser(), root: el })
@@ -82,11 +80,10 @@ test('集成：chat 数组 [Ava, body] 动态挂载 → 渲染 ×1 不重复', a
   const el = mount('m3')
   const Ava = async (_init: any) => () => h('div', { class: 'ava' }, 'A')
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.msgs = []
-    ;(globalThis as any).__set = (msgs: any[]) => { $.msgs = msgs }
+    let msgs: any[] = []
+    ;(globalThis as any).__set = (list: any[]) => { msgs = list; ctx.ui.render() }
     return () => h('div', { class: 'list' },
-      ($.msgs as any[]).map((m: any) =>
+      (msgs as any[]).map((m: any) =>
         h('div', { class: 'item', key: m.id }, h(Ava, {}), h('div', { class: 'body' }, String(m.id))),
       ),
     )
@@ -117,14 +114,13 @@ test('集成：动态挂载后多次重渲染无死循环（工厂不重跑）',
   let factoryCalls = 0
   const Item = async (_init: any) => { factoryCalls++; return () => h('div', { class: 'item' }, 'I') }
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.items = []
-    $.n = 0
-    ;(globalThis as any).__load = (items: any[]) => { $.items = items }
-    ;(globalThis as any).__bump = () => { $.n++ }
+    let items: any[] = []
+    let n = 0
+    ;(globalThis as any).__load = (it: any[]) => { items = it; ctx.ui.render() }
+    ;(globalThis as any).__bump = () => { n++; ctx.ui.render() }
     return () => h('div', {},
-      h('span', { class: 'n' }, String($.n)),
-      ($.items as any[]).map((i: any) => h(Item, { key: i })),
+      h('span', { class: 'n' }, String(n)),
+      (items as any[]).map((i: any) => h(Item, { key: i })),
     )
   }
   const handle = mountRoot({ browser: createClientBrowser(), root: el })
@@ -148,11 +144,10 @@ test('集成：动态挂载后多次重渲染无死循环（工厂不重跑）',
 test('集成：组件输出 null ↔ 内容切换', async () => {
   const el = mount('m5')
   const Modal = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.open = false
-    ;(globalThis as any).__open = () => { $.open = true }
-    ;(globalThis as any).__close = () => { $.open = false }
-    return () => $.open ? h('div', { class: 'modal' }, 'M') : null
+    let open = false
+    ;(globalThis as any).__open = () => { open = true; ctx.ui.render() }
+    ;(globalThis as any).__close = () => { open = false; ctx.ui.render() }
+    return () => open ? h('div', { class: 'modal' }, 'M') : null
   }
   const App = async (_init: any) => () => h('div', {}, h(Modal, {}), h('span', {}, 'tail'))
   const handle = mountRoot({ browser: createClientBrowser(), root: el })
@@ -173,10 +168,9 @@ test('集成：Portal 内容更新', async () => {
   const { createPortal } = await import('../../vnode.ts')
   const el = mount('m6')
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.text = 'a'
-    ;(globalThis as any).__set = (t: string) => { $.text = t }
-    return () => h('div', {}, 'wrap', createPortal(h('span', { class: 'po' }, $.text), 'p'))
+    let text = 'a'
+    ;(globalThis as any).__set = (t: string) => { text = t; ctx.ui.render() }
+    return () => h('div', {}, 'wrap', createPortal(h('span', { class: 'po' }, text), 'p'))
   }
   const handle = mountRoot({ browser: createClientBrowser(), root: el })
   await handle.mount(h(App, {}))
@@ -192,10 +186,8 @@ test('集成：Portal 内容更新', async () => {
 test('集成：ctx.ui.render()/dirty() 手动触发渲染', async () => {
   const el = mount('m7')
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
     let manual = 0
     ;(globalThis as any).__r = () => ctx.ui.render()
-    ;(globalThis as any).__d = () => ctx.ui.dirty()
     return () => h('div', { class: 'man' }, `manual: ${manual++}`)
   }
   const handle = mountRoot({ browser: createClientBrowser(), root: el })
@@ -204,7 +196,7 @@ test('集成：ctx.ui.render()/dirty() 手动触发渲染', async () => {
   ;(globalThis as any).__r()
   await tick()
   assert.equal(el.querySelector('.man')?.textContent, 'manual: 1', 'render() 触发')
-  ;(globalThis as any).__d()
+  ;(globalThis as any).__r()
   await tick()
-  assert.equal(el.querySelector('.man')?.textContent, 'manual: 2', 'dirty() 触发')
+  assert.equal(el.querySelector('.man')?.textContent, 'manual: 2', 'render() 再次触发')
 })

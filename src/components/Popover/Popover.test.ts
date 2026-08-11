@@ -10,7 +10,7 @@ import * as assert from 'node:assert'
 import { Popover } from './Popover.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { h, Portal } from '../../ui-dom/vnode.ts'
-import { mountVNode, patchValue, buildVNode } from '../../ui-dom/render.ts'
+import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
 import { setupJsdom } from '../../test/client/setup.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
 setupJsdom()
@@ -149,7 +149,7 @@ describe('Popover', () => {
     const ctx = createMockCtx()
     const container = document.createElement('div')
     const vnode = await renderVNode(Popover, { content: 'hello', open: true }, ctx)
-    await mountVNode(container, vnode, ctx)
+    await mountToDom(container, vnode, ctx)
 
     const wrap = container.querySelector('.wf-popover-wrap')
     assert.ok(wrap, 'wrap 元素应存在')
@@ -165,20 +165,20 @@ describe('Popover', () => {
     const ctx = createMockCtx()
     const container = document.createElement('div')
 
-    const v1 = (await buildVNode(h(Popover, { content: 'hello', open: false }), ctx)) as any
-    await mountVNode(container, v1, ctx)
+    const v1 = (await buildToDom(h(Popover, { content: 'hello', open: false }), ctx)) as any
+    await mountToDom(container, v1, ctx)
     let portal = document.getElementById('__wf_portal')
     assert.ok(!portal?.querySelector('.wf-popover'), 'open=false 无 panel')
 
-    const v2 = (await buildVNode(h(Popover, { content: 'hello', open: true }), ctx)) as any
+    const v2 = (await buildToDom(h(Popover, { content: 'hello', open: true }), ctx)) as any
     const wrap = container.querySelector('.wf-popover-wrap')!
-    patchValue(container, wrap, v1, v2, ctx)
+    await patchToDom(container, wrap, v1, v2, ctx)
     portal = document.getElementById('__wf_portal')
     assert.ok(portal?.querySelector('.wf-popover'), 'open=true → portal 中应有 panel')
 
     // 关闭
-    const v3 = (await buildVNode(h(Popover, { content: 'hello', open: false }), ctx)) as any
-    patchValue(container, wrap, v2, v3, ctx)
+    const v3 = (await buildToDom(h(Popover, { content: 'hello', open: false }), ctx)) as any
+    await patchToDom(container, wrap, v2, v3, ctx)
     portal = document.getElementById('__wf_portal')
     assert.ok(!portal?.querySelector('.wf-popover'), 'open=false → panel 应消失')
   })

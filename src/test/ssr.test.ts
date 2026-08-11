@@ -13,7 +13,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { h, Fragment, createPortal } from '../ui-dom/vnode.ts'
-import { ssrToString, serializeData } from '../ui/ssr.ts'
+import { ssrToString, serializeData } from '../ui-dom/vdom/ssr.ts'
 
 function ssr(Comp: any, props: any = {}, ctx: any = {}, opts: any = {}): Promise<string> {
   return ssrToString(Comp, props, ctx, opts).then(s => s.toString())
@@ -123,12 +123,11 @@ describe('SSR 字符串遍历器', () => {
     assert.equal(html, '<section><h1>T</h1><span>AAA</span><b>in</b><span>BBB</span></section>')
   })
 
-  it('服务端 ctx shim：$ 可用（dirty no-op），selfId 请求级隔离', async () => {
+  it('服务端 ctx shim：selfId 请求级隔离 + 组件可渲染', async () => {
     const Cmp = async (_init: any, ctx: any) => {
-      const $ = ctx.ui.$()
-      $.count = 1
+      const count = 1
       ctx.ui.selfId('stats')
-      return () => h('div', {}, `count=${$.count}`)
+      return () => h('div', {}, `count=${count}`)
     }
     const html = await ssr(Cmp)
     assert.equal(html, '<div>count=1</div>')

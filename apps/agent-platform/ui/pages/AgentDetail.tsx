@@ -9,7 +9,8 @@ const MODELS = [
 ]
 
 export const AgentDetail: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   const agentId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token
 
@@ -32,7 +33,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
       ctx.api!.get('/api/skills/available').catch(() => ({ skills: [] })),
     ]).then(([agentRes, skillRes, availRes]) => {
       const a = agentRes.agent ?? agentRes
-      if (!a?.id) { $.notFound = true; $.loading = false; return }
+      if (!a?.id) { $.notFound = true; $.loading = false; rerender(); return }
       $.agent = a; $.name = a.name ?? ''; $.description = a.description ?? ''
       $.systemPrompt = a.system_prompt ?? ''; $.aiModel = a.model ?? ''
       $.aiTemperature = String(a.temperature ?? 0.7)
@@ -57,7 +58,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
       }
 
       $.loading = false
-    }).catch(() => { $.loading = false })
+      rerender()
+    }).catch(() => { $.loading = false; rerender() })
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
@@ -78,7 +80,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
     try {
       await ctx.api!.put(`/api/agents/${agentId}`, body)
       $.ok = '保存成功'; $.saving = false
-    } catch (e) { $.error = errMsg(e, '保存失败'); $.saving = false }
+      rerender()
+    } catch (e) { $.error = errMsg(e, '保存失败'); $.saving = false; rerender() }
   }
 
   async function bindSkill(skill: any) {
@@ -89,6 +92,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     await ctx.api!.post(`/api/agents/${agentId}/skills`, { skill_name: skillName, skill_dir: skillDir })
     const d = await ctx.api!.get(`/api/agents/${agentId}/skills`)
     $.boundSkills = d.skills ?? []
+    rerender()
   }
 
   async function unbindSkill(id: string) {
@@ -96,6 +100,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
     await ctx.api!.delete(`/api/agents/${agentId}/skills/${id}`)
     const d = await ctx.api!.get(`/api/agents/${agentId}/skills`)
     $.boundSkills = d.skills ?? []
+    rerender()
   }
 
   async function loadLogs() {
@@ -103,7 +108,8 @@ export const AgentDetail: Component = async (_props, ctx) => {
     try {
       const d = await ctx.api!.get(`/api/stats/agents/${agentId}/logs`)
       $.logs = d.logs ?? []; $.logsLoading = false
-    } catch { $.logsLoading = false }
+      rerender()
+    } catch { $.logsLoading = false; rerender() }
   }
 
   async function loadWebhookLogs() {
@@ -111,38 +117,46 @@ export const AgentDetail: Component = async (_props, ctx) => {
     try {
       const d = await ctx.api!.get(`/api/stats/agents/${agentId}/webhook-logs`)
       $.whLogs = d.logs ?? []; $.whLogsLoading = false
-    } catch { $.whLogsLoading = false }
+      rerender()
+    } catch { $.whLogsLoading = false; rerender() }
   }
 
   async function toggleExpandDoc(docId: string) {
-    if ($.expandedDoc === docId) { $.expandedDoc = null; $.docChunks = []; return }
+    if ($.expandedDoc === docId) { $.expandedDoc = null; $.docChunks = []; rerender(); return }
     $.expandedDoc = docId; $.loadingChunks = true
+    rerender()
     try {
       const d = await ctx.api!.get(`/api/knowledge/${docId}?chunks=true`).catch(() => null)
       if (d) $.docChunks = d.chunks ?? []
     } catch {}
     $.loadingChunks = false
+    rerender()
   }
 
   async function uploadDoc(e: Event) {
     e.preventDefault()
     if (!$.newDocFilename.trim() || !$.newDocContent.trim()) return
     $.uploading = true
+    rerender()
     try {
       await ctx.api!.post(`/api/agents/${agentId}/knowledge`, { filename: $.newDocFilename.trim(), content: $.newDocContent })
       {
         $.newDocFilename = ''; $.newDocContent = ''
+        rerender()
         const d = await ctx.api!.get(`/api/agents/${agentId}/knowledge`)
         $.docs = d.documents ?? []
+    rerender()
       }
     } catch {}
     $.uploading = false
+    rerender()
   }
 
   async function deleteDoc(docId: string) {
     await ctx.api!.delete(`/api/knowledge/${docId}`)
     const d = await ctx.api!.get(`/api/agents/${agentId}/knowledge`)
     $.docs = d.documents ?? []
+    rerender()
   }
 
   return (props) => {
@@ -173,21 +187,21 @@ export const AgentDetail: Component = async (_props, ctx) => {
         <div class="wf-text-sm wf-text-semibold wf-uppercase wf-tracking-wide wf-text-secondary wf-mb-md">基本设置</div>
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           <Field label="名称">
-            <Input value={$.name} onInput={(e: any) => { $.name = e.target.value }} />
+            <Input value={$.name} onInput={(e: any) => { $.name = e.target.value; rerender() }} />
           </Field>
           <Field label="描述">
-            <Textarea value={$.description} onInput={(e: any) => { $.description = e.target.value }} />
+            <Textarea value={$.description} onInput={(e: any) => { $.description = e.target.value; rerender() }} />
           </Field>
 
           {a.type === 'ai' && (
             <>
               <Field label="系统提示词">
-                <Textarea rows={5} value={$.systemPrompt} onInput={(e: any) => { $.systemPrompt = e.target.value }} />
+                <Textarea rows={5} value={$.systemPrompt} onInput={(e: any) => { $.systemPrompt = e.target.value; rerender() }} />
               </Field>
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
                   <Field label="模型">
-                    <Select value={$.aiModel} onChange={(v) => { $.aiModel = v as string }}
+                    <Select value={$.aiModel} onChange={(v) => { $.aiModel = v as string; rerender() }}
                       options={MODELS.map(m => ({ value: m.value, label: m.label }))} />
                   </Field>
                 </div>
@@ -195,7 +209,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                   <Field label="温度">
                     <div class="wf-row wf-gap-sm">
                       <Slider min={0} max={2} step={0.1} value={$.aiTemperature}
-                        onChange={(v) => { $.aiTemperature = v }} />
+                        onChange={(v) => { $.aiTemperature = v; rerender() }} />
                       <span class="wf-text-sm wf-text-semibold" style="min-width: 30px; text-align: center">{$.aiTemperature}</span>
                     </div>
                   </Field>
@@ -205,13 +219,13 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="最大 Token 数">
                     <Input type="number" min="64" max="8192" step="64" value={$.aiMaxTokens}
-                      onInput={(e: any) => { $.aiMaxTokens = e.target.value }} />
+                      onInput={(e: any) => { $.aiMaxTokens = e.target.value; rerender() }} />
                   </Field>
                 </div>
                 <div class="wf-fill">
                   <Field label="人工审批 (HITL)">
                     <Checkbox label="开启后 AI 回复需人工批准后才发送" checked={$.aiHITL}
-                      onChange={(v: boolean) => { $.aiHITL = v }} />
+                      onChange={(v: boolean) => { $.aiHITL = v; rerender() }} />
                   </Field>
                 </div>
               </div>
@@ -223,9 +237,9 @@ export const AgentDetail: Component = async (_props, ctx) => {
               </div>
               <div class="wf-row wf-gap-lg">
                 <Checkbox label="📄 启用文件工具 (read/write/edit/grep)" checked={$.allowFileTools}
-                  onChange={(v: boolean) => { $.allowFileTools = v }} />
+                  onChange={(v: boolean) => { $.allowFileTools = v; rerender() }} />
                 <Checkbox label="⚡ 启用命令执行 (bash)" checked={$.allowCommandExec}
-                  onChange={(v: boolean) => { $.allowCommandExec = v }} />
+                  onChange={(v: boolean) => { $.allowCommandExec = v; rerender() }} />
               </div>
             </>
           )}
@@ -233,15 +247,15 @@ export const AgentDetail: Component = async (_props, ctx) => {
           {a.type === 'webhook' && (
             <>
               <Field label="Webhook URL" hint="消息将以 POST JSON 推送到该地址">
-                <Input type="url" value={$.webhookUrl} onInput={(e: any) => { $.webhookUrl = e.target.value }} />
+                <Input type="url" value={$.webhookUrl} onInput={(e: any) => { $.webhookUrl = e.target.value; rerender() }} />
               </Field>
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
                   <Field label="Webhook Secret" hint="设置后，请求必须携带 X-Signature: HMAC-SHA256(body) 头">
                     <div class="wf-row wf-gap-xs">
                       <Input type={$.secretVisible ? 'text' : 'password'} placeholder="留空不验证签名"
-                        value={$.webhookSecret} onInput={(e: any) => { $.webhookSecret = e.target.value }} />
-                      <Button type="button" variant="ghost" onClick={() => { $.secretVisible = !$.secretVisible }}>
+                        value={$.webhookSecret} onInput={(e: any) => { $.webhookSecret = e.target.value; rerender() }} />
+                      <Button type="button" variant="ghost" onClick={() => { $.secretVisible = !$.secretVisible; rerender() }}>
                         {$.secretVisible ? '🙈' : '👁'}
                       </Button>
                     </div>
@@ -250,7 +264,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="重试次数" hint="失败后指数退避重试（默认 3 次）">
                     <Input type="number" min="0" max="5" value={$.webhookRetryCount}
-                      onInput={(e: any) => { $.webhookRetryCount = e.target.value }} />
+                      onInput={(e: any) => { $.webhookRetryCount = e.target.value; rerender() }} />
                   </Field>
                 </div>
               </div>
@@ -280,7 +294,7 @@ export const AgentDetail: Component = async (_props, ctx) => {
             </div>
           ))}
           {$.availableSkills.length > 0 && (
-            <Button size="sm" variant="ghost" onClick={() => { $.showSkillPicker = !$.showSkillPicker }}>
+            <Button size="sm" variant="ghost" onClick={() => { $.showSkillPicker = !$.showSkillPicker; rerender() }}>
               {$.showSkillPicker ? '收起' : '+ 绑定技能'}
             </Button>
           )}
@@ -375,11 +389,11 @@ export const AgentDetail: Component = async (_props, ctx) => {
           <form class="wf-stack wf-gap-md" onSubmit={uploadDoc}>
             <Field label="文件名">
               <Input type="text" placeholder="如：产品手册.txt" value={$.newDocFilename}
-                onInput={(e: any) => { $.newDocFilename = e.target.value }} />
+                onInput={(e: any) => { $.newDocFilename = e.target.value; rerender() }} />
             </Field>
             <Field label="文档内容">
               <Textarea rows={5} placeholder="粘贴文档内容..." value={$.newDocContent}
-                onInput={(e: any) => { $.newDocContent = e.target.value }} />
+                onInput={(e: any) => { $.newDocContent = e.target.value; rerender() }} />
             </Field>
             <div class="wf-right">
               <Button type="submit" variant="primary" disabled={$.uploading}>

@@ -56,11 +56,10 @@ function flattenLeafPaths(options: CascaderOption[], prefix: string[] = [], pref
 /** 级联选择（对应 antd/EP Cascader）：多列面板逐级选择，点击叶子完成 + 可选搜索。
  * 裁剪：hover 展开、任意层级配置、异步加载。 */
 export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
-  // ── mount（只一次）──
-  const $ = ctx.ui.$()
-  $.open = false
-  $.activePath = [] as string[] // 面板内推进的路径（不含最终选中提交）
-  $.kw = ''
+  // render-only：内部状态 let + 显式 render（open/面板路径/搜索词）
+  let open = false
+  let activePath: string[] = [] // 面板内推进的路径（不含最终选中提交）
+  let kw = ''
 
   let triggerEl: HTMLElement | null = null
   const triggerRef = (el: HTMLElement | null) => { triggerEl = el }
@@ -73,8 +72,8 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
     center: false,
     gap: 6,
     el: () => triggerEl,
-    isOpen: () => $.open,
-    setOpen: (v) => { $.open = v },
+    isOpen: () => open,
+    setOpen: (v) => { open = v; ctx.ui.render() }, // 外部点击/Escape 关闭必须显式渲染
   })
 
   return (props) => {
@@ -84,13 +83,14 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
     } = props
 
     // 当前面板路径：从 value 或内部 activePath
-    const panelPath: string[] = $.open ? $.activePath : []
+    const panelPath: string[] = open ? activePath : []
 
     // 打开瞬间坐标由 usePopup.portal 内部处理
     const toggleOpen = () => {
       if (disabled) return
-      $.open = !$.open
-      $.activePath = Array.isArray(value) ? [...value] : []
+      open = !open
+      activePath = Array.isArray(value) ? [...value] : []
+      ctx.ui.render()
     }
 
     const resolve = (path: string[]): CascaderOption[] => {
@@ -107,13 +107,15 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       if (opt.disabled) return
       const nextPath = [...path, opt.value]
       if (opt.children?.length) {
-        $.activePath = nextPath
+        activePath = nextPath
+        ctx.ui.render()
       } else {
         if (Array.isArray(value) && !onChange) {
           // 受控（value 已传）但无 onChange：选中无法生效——开发期提示（与 Collapse/Tree/Calendar 一致）
           console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。\n非受控：去掉 value；受控：传入 onChange={(path) => setPath(path)}`)
         }
-        $.open = false
+        open = false
+        ctx.ui.render()
         onChange?.(nextPath)
       }
     }
@@ -157,11 +159,11 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
     }
 
     // 搜索态：扁平过滤结果列表
-    const kw = $.kw.trim().toLowerCase()
+    const kwLower = kw.trim().toLowerCase()
     let panelBody: any
-    if (showSearch && kw) {
+    if (showSearch && kwLower) {
       const all = flattenLeafPaths(options)
-      const matched = all.filter(m => m.labels.some(lb => lb.toLowerCase().includes(kw)))
+      const matched = all.filter(m => m.labels.some(lb => lb.toLowerCase().includes(kwLower)))
       panelBody = matched.length === 0
         ? h('div', { class: 'wf-cascader-empty' }, '无匹配')
         : h('div', { class: 'wf-cascader-search-results' }, matched.map(m =>
@@ -173,7 +175,8 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
                 if (Array.isArray(value) && !onChange) {
                   console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。`)
                 }
-                $.open = false; $.kw = ''
+                open = false; kw = ''
+                ctx.ui.render()
                 onChange?.(m.path)
               },
             }, m.labels.join(' / '))
@@ -187,8 +190,8 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
           class: 'wf-cascader-search wf-input',
           type: 'text',
           placeholder: searchPlaceholder,
-          value: $.kw,
-          onInput: (e: any) => { $.kw = e.target.value },
+          value: kw,
+          onInput: (e: any) => { kw = e.target.value; ctx.ui.render() },
         })
       : null
 
@@ -209,14 +212,14 @@ export const Cascader: Component<CascaderProps> = async (_init, ctx) => {
       class: `wf-cascader-trigger${disabled ? ' wf-cascader-trigger--dis' : ''}${error ? ' wf-cascader-trigger--err' : ''}`,
       'aria-label': ariaLabel,
       'aria-haspopup': 'listbox',
-      'aria-expanded': String($.open),
+      'aria-expanded': String(open),
       ref: triggerRef,
       onClick: disabled ? undefined : toggleOpen,
     }, [
       h('span', {
         class: `wf-cascader-value${value?.length ? '' : ' wf-cascader-value--placeholder'}`,
       }, display),
-      h('span', { class: `wf-cascader-arrow${$.open ? ' wf-cascader-arrow--open' : ''}` }, h(Icon, { name: 'chevron-down', size: 12 })),
+      h('span', { class: `wf-cascader-arrow${open ? ' wf-cascader-arrow--open' : ''}` }, h(Icon, { name: 'chevron-down', size: 12 })),
     ])
 
     wrapChildren.push(h('div', { class: 'wf-cascader' }, [trigger, panel].filter(Boolean)))

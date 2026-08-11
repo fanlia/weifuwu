@@ -36,14 +36,16 @@ const tick = (series: number[]) => {
 }
 
 export const DataScreen: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  for (const c of CARDS) $[c.key] = [...SERIES[c.key as keyof typeof SERIES]]
-  $.time = new Date().toTimeString().slice(0, 8)
+  // render-only：内部状态 let + 显式 render（实时曲线数据 + 时间）
+  const series: Record<string, number[]> = {}
+  for (const c of CARDS) series[c.key] = [...SERIES[c.key as keyof typeof SERIES]]
+  let time = new Date().toTimeString().slice(0, 8)
   const today = new Date().toISOString().slice(0, 10)
   // 实时刷新：2 秒滚动更新全部曲线 + 时间（布局蓝本演示实时监控）
   const timer = setInterval(() => {
-    for (const c of CARDS) $[c.key] = tick($[c.key])
-    $.time = new Date().toTimeString().slice(0, 8)
+    for (const c of CARDS) series[c.key] = tick(series[c.key])
+    time = new Date().toTimeString().slice(0, 8)
+    ctx.ui.render()
   }, 2000)
 
   // ref 纪律：稳定引用定义在 mount 作用域——ref(null) 只在真正卸载时调用
@@ -61,7 +63,7 @@ export const DataScreen: Component = async (_init, ctx) => {
       </div>
       {/* 右上时间（实时） */}
       <div class="wf-pop" style={{ top: 16, right: 24 }}>
-        <Text type="secondary" className="wf-text-sm wf-nums">{today} {$.time}</Text>
+        <Text type="secondary" className="wf-text-sm wf-nums">{today} {time}</Text>
       </div>
       {/* 左上状态灯 */}
       <div class="wf-pop wf-row wf-gap-sm" style={{ top: 16, left: 24, alignItems: 'center' }}>
@@ -81,8 +83,8 @@ export const DataScreen: Component = async (_init, ctx) => {
                   <Text type="success" className="wf-text-sm">实时</Text>
                 </Space>
               </div>
-              <Sparkline data={$[m.key]} width={280} height={64} />
-              <StatCard label="当前值" value={`${$[m.key][$[m.key].length - 1]}${m.unit}`} trend="up" trendLabel="最近采样" />
+              <Sparkline data={series[m.key]} width={280} height={64} />
+              <StatCard label="当前值" value={`${series[m.key][series[m.key].length - 1]}${m.unit}`} trend="up" trendLabel="最近采样" />
             </Space>
           </Card>
         ))}

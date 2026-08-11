@@ -3,7 +3,8 @@ import { Ava, Loading, TypeBadge } from '../components/ui'
 import { Badge, Button, Card, EmptyState } from 'weifuwu/components'
 
 export const DepartmentDetail: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   const deptId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token
 
@@ -15,7 +16,8 @@ export const DepartmentDetail: Component = async (_props, ctx) => {
         $.dept = d
         $.members = data.members ?? []
         $.loading = false
-      }).catch(() => { $.loading = false })
+        rerender()
+      }).catch(() => { $.loading = false; rerender() })
 
   return (props) => {
     if ($.loading) return <div class="wf-stack wf-gap-lg"><Loading /></div>

@@ -2,7 +2,7 @@
  * vdom/mount — 挂载入口（首帧 + ctx/ui 组装）
  *
  * 渲染管线：buildVNode（async 预构建）→ renderValue（同步落地）。
- * ctx.ui：render/dirty/$/setMounting/endMounting——$ 绑定创建时的组件 id。
+ * ctx.ui：render/setMounting/endMounting——render-only（design/render-only-plan.md）。
  */
 
 import type { VNode, VNodeChild, Component } from '../vnode.ts'
@@ -10,17 +10,19 @@ import type { WfuiContext } from '../types.ts'
 import type { BrowserEnv } from '../types.ts'
 import { buildVNode } from './build.ts'
 import { renderValue } from './render.ts'
+import { patchValue } from './diff.ts'
 import { createScheduler, type Scheduler } from './scheduler.ts'
-import { createRegistry, type Registry, onComponentUnmountFor } from './registry.ts'
-import { createReactiveState } from './state.ts'
+import { createRegistry, type Registry, onComponentUnmountFor, cleanupComponent } from './registry.ts'
 import type { HookEnv } from '../hooks/types.ts'
+import { callRefCleanupFor } from './registry.ts'
 import { createPopupTrackerSystem } from '../popup-tracker.ts'
+import { createClientBrowser } from '../browser.ts'
 import {
   useChat, useMedia, useBreakpoint, usePopupPosition, useHoverCapable,
   useStableRef, useVisualViewport, usePopup, useLongPress, useInView,
   useScrollPosition, useAsync, useControlled, useControlledInput, useOpen,
   usePresence, useDialog, useGlobalKey, useDrag, useDragDrop,
-  useReducedMotion, useAnimationEnd, useTween,
+  useReducedMotion, useAnimationEnd, useTween, useExternal,
 } from '../hooks/index.ts'
 
 export interface MountOptions {
@@ -37,6 +39,8 @@ export interface MountHandle {
   scheduler: Scheduler
   /** 挂载根组件 */
   mount(comp: Component | VNodeChild): Promise<void>
+  /** 整树强制重渲染（force——测试辅助/手动刷新：renderFn 重跑 + patch） */
+  rerender(): Promise<void>
   /** 卸载（清理 DOM） */
   unmount(): void
 }
@@ -70,23 +74,14 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     if (ids == null) { const self = this._selfId ?? '_wf_root'; if (self) scheduler.render([self]) }
     else scheduler.render(ids)
   }
-  rootUi.dirty = function (this: any, ids?: string[]) {
-    if (ids == null) { const self = this._selfId ?? '_wf_root'; if (self) scheduler.dirty([self]) }
-    else scheduler.dirty(ids)
-  }
-  rootUi.$ = function (this: any) {
-    const selfId = this._selfId ?? '_wf_root'
-    return createReactiveState(() => scheduler.dirty([selfId]), {
-      isMounting: () => rootUi._mounting === true,
-    })
-  }
+  // render-only（design/render-only-plan.md）：仅 render() 触发渲染——$ / dirty 已删除
   rootUi.setMounting = (v: boolean) => { rootUi._mounting = v }
   rootUi.endMounting = () => { rootUi._mounting = false }
 
 ;(ctx as any).ui = rootUi
 
   // ── 弹层/滚动跟踪系统（scroll/resize 重算 → 渲染） ──
-  const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) scheduler.dirty([id]) })
+  const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) scheduler.render([id]) })
   const { mediaRegistry, popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners } = tracker as any
 
   // hooks 共享内部态（跨组件按 selfId）
@@ -101,7 +96,6 @@ export function createVdomContext(opts: MountOptions): VdomContext {
       const id = self?._selfVNode?._id ?? self?._selfId
       return typeof id === 'string' ? id : undefined
     },
-    dirty: (ids) => scheduler.dirty(ids),
     render: (ids) => scheduler.render(ids),
     browser: opts.browser,
     onUnmount: (fn) => onComponentUnmountFor(registry, fn),
@@ -111,7 +105,6 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     scrollTrackers,
     isMounting: () => rootUi._mounting === true,
     isRendering: () => rootUi._rendering === true,
-    $: () => (self ?? rootUi).$(),
     warned,
     uncontrolledValues,
     inputStates,
@@ -153,6 +146,7 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   rootUi.useGlobalKey = function (this: any, h: (e: KeyboardEvent) => void) { return useGlobalKey(makeEnv(this), h) }
   rootUi.useDrag = function (this: any, o: any) { return useDrag(makeEnv(this), o) }
   rootUi.useDragDrop = function (this: any, o: any) { return useDragDrop(makeEnv(this), o) }
+  rootUi.useExternal = function (this: any, store: any) { return useExternal(makeEnv(this), store) }
   rootUi.useReducedMotion = function (this: any) { return useReducedMotion(makeEnv(this)) }
   rootUi.useAnimationEnd = function (this: any, cb: () => void, o?: { once?: boolean }) { return useAnimationEnd(makeEnv(this), cb, o) }
   rootUi.useTween = function (this: any, t: number, o?: any) { return useTween(makeEnv(this), t, o) }
@@ -163,6 +157,8 @@ export function createVdomContext(opts: MountOptions): VdomContext {
 
 export function mountRoot(opts: MountOptions): MountHandle {
   const { ctx, registry, scheduler, rootUi, destroyPopupListeners } = createVdomContext(opts)
+  let mounted: VNodeChild | null = null
+  let prevChild: VNodeChild | null = null
 
   const handle: MountHandle = {
     ctx,
@@ -170,12 +166,31 @@ export function mountRoot(opts: MountOptions): MountHandle {
     scheduler,
     async mount(input) {
       // 首帧：buildVNode（await 全部工厂）→ renderValue（同步落地）
+      mounted = input as VNodeChild
       const built = await buildVNode(input as VNodeChild, ctx, undefined, registry)
       opts.root.innerHTML = ''
       const node = renderValue(built, ctx, opts.browser)
       if (node != null) opts.root.appendChild(node)
+      // prevChild 存「渲染内容」（组件 vnode 的 _child）——rerender 内容级 patch 对比用
+      prevChild = (built as VNode)?._child ?? built
+    },
+    async rerender() {
+      if (mounted == null) return
+      // force 整树重建：renderFn 重跑（读最新闭包/外部状态）→ 内容级 patch
+      // （不 patch 组件 vnode 本身——组件三态 skip 会复用旧 _child 抵消 force）
+      const built = await buildVNode(mounted, ctx, mounted as any, registry, { force: true })
+      const rootV = mounted as VNode
+      const oldChild = prevChild
+      const newChild = rootV._child as VNodeChild
+      const prevNode = opts.root.firstChild
+      patchValue(opts.root, prevNode, oldChild, newChild, { browser: opts.browser, registry })
+      prevChild = newChild
     },
     unmount() {
+      // ref 清理递归（v1 语义：unmount 时 ref(null) 全部调用——不中断子树）
+      for (const [, vnode] of registry.idRegistry) {
+        try { callRefCleanupFor(vnode, registry as any) } catch (e) { console.error('[weifuwu] unmount ref error', e) }
+      }
       opts.root.innerHTML = ''
       registry.idRegistry.clear()
       destroyPopupListeners()
@@ -183,3 +198,54 @@ export function mountRoot(opts: MountOptions): MountHandle {
   }
   return handle
 }
+
+// ── 命令式挂载辅助（弹窗中间件用——components 各组件内部实现中间件，见 design/render-only-plan.md）──
+
+/** 命令式挂载 registry：ctx.__registry 优先（真实引擎），mock ctx 惰性创建（组件测试兼容） */
+function commandRegistry(ctx: WfuiContext): Registry {
+  return ((ctx as any).__registry ?? ((ctx as any).__registry = createRegistry())) as Registry
+}
+
+/** vdom 命令式挂载：buildVNode（await 工厂）→ renderValue → append + _parentNode */
+export function mountCommand(
+  container: HTMLElement,
+  vnode: VNode,
+  ctx: WfuiContext,
+  opts?: { onMounted?: () => void },
+): { id: string } {
+  const reg = commandRegistry(ctx)
+  const browser = (ctx.browser ?? createClientBrowser()) as BrowserEnv
+  void buildVNode(vnode, ctx, undefined, reg)
+    .then(() => {
+      const node = renderValue(vnode, ctx, browser)
+      if (node != null) container.appendChild(node)
+      // 关键：ctx.ui.render → renderByIds 定位容器（否则 vnode._parentNode 为 null——跳过）
+      if (vnode._id && reg) {
+        const v = reg.idRegistry.get(vnode._id)
+        if (v) v._parentNode = container
+      }
+      opts?.onMounted?.()
+    })
+    .catch((e) => console.error('[weifuwu] command mount error', e))
+  return { id: vnode._id ?? '' }
+}
+
+/** vdom 命令式卸载：ref 清理 + 卸载钩子 + 容器移除 */
+export function unmountCommand(container: HTMLElement, vnode: VNode | null, ctx: WfuiContext): void {
+  const reg = (ctx as any).__registry as Registry | undefined
+  if (vnode && reg) {
+    callRefCleanupFor(vnode, reg as any)
+    if (vnode._id) cleanupComponent(reg, vnode._id)
+  }
+  container.remove()
+}
+
+/** 创建命令式挂载容器（body 下独立 div） */
+export function createCommandContainer(): HTMLDivElement | null {
+  const browser = createClientBrowser()
+  const container = browser.createElement('div')
+  if (!container) return null
+  browser.bodyAppend(container)
+  return container
+}
+

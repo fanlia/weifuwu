@@ -46,12 +46,11 @@ function flush() {
 /** 模拟 Chat 消息列表：Markdown 占位（content='' → null）→ token 逐步累积 */
 function makeApp() {
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.msgs = [{ id: 'm1', content: '', status: 'thinking' }]
-    ;(globalThis as any).__setContent = (c: string) => { $.msgs[0].content = c }
+    const msgs: any[] = [{ id: 'm1', content: '', status: 'thinking' }]
+    ;(globalThis as any).__setContent = (c: string) => { msgs[0].content = c; ctx.ui.render() }
     return () =>
       h('div', { id: 'chat' },
-        $.msgs.map((m: any) =>
+        msgs.map((m: any) =>
           h('div', { key: m.id, class: 'msg' }, h(Markdown, { content: m.content })),
         ),
       )
@@ -94,10 +93,9 @@ test('流式回归：Markdown 占位(null)→token 累积→DOM 必须持续更�
 test('流式回归：占位非空内容直接流式（无 null 占位）也必须正常', async () => {
   const b = createClientBrowser()
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.text = '开始'
-    ;(globalThis as any).__setContent = (c: string) => { $.text = c }
-    return () => h('div', { id: 'chat' }, h('div', { class: 'msg' }, h(Markdown, { content: $.text })))
+    let text = '开始'
+    ;(globalThis as any).__setContent = (c: string) => { text = c; ctx.ui.render() }
+    return () => h('div', { id: 'chat' }, h('div', { class: 'msg' }, h(Markdown, { content: text })))
   }
   const router = new UIRouter()
   router.get('/', () => h(App, {}))
@@ -116,16 +114,15 @@ test('流式回归：占位非空内容直接流式（无 null 占位）也必�
 test('流式回归：消息列表增删（模拟多条消息）不破坏后续更新', async () => {
   const b = createClientBrowser()
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.msgs = [{ id: 'm0', content: '' }]
-    ;(globalThis as any).__addMsg = (id: string, c: string) => { $.msgs.push({ id, content: c }) }
+    const msgs: any[] = [{ id: 'm0', content: '' }]
+    ;(globalThis as any).__addMsg = (id: string, c: string) => { msgs.push({ id, content: c }); ctx.ui.render() }
     ;(globalThis as any).__setMsg = (id: string, c: string) => {
-      const m = $.msgs.find((x: any) => x.id === id)
-      if (m) m.content = c
+      const m = msgs.find((x: any) => x.id === id)
+      if (m) { m.content = c; ctx.ui.render() }
     }
     return () =>
       h('div', { id: 'chat' },
-        $.msgs.map((m: any) => h('div', { key: m.id, class: 'msg' }, h(Markdown, { content: m.content }))),
+        msgs.map((m: any) => h('div', { key: m.id, class: 'msg' }, h(Markdown, { content: m.content }))),
       )
   }
   const router = new UIRouter()

@@ -10,6 +10,7 @@
  */
 
 import { createClientBrowser } from '../browser.ts'
+import { h } from '../vnode.ts'
 import { uiLog } from '../debug.ts'
 import type { UIRouter } from '../router.ts'
 import type { VNode, WfuiContext, UIContext } from '../types.ts'
@@ -93,10 +94,21 @@ export function uiServe<RC extends object = {}>(
     const token = ++navToken
     const location = { pathname: path, search: '' } as any
     ;(ctx as any).route.path = path
-    const output = await router.execute(location, ctx as UIContext, path)
+    let output: VNodeChild
+    try {
+      output = await router.execute(location, ctx as UIContext, path)
+    } catch (e: any) {
+      // 错误兜底（不黑屏）：handler 抛错 → 错误页（对齐 v1 语义）
+      output = h('div', { class: 'ui-dom-error' }, `页面渲染失败: ${e?.message ?? String(e)}`)
+    }
     if (closing || token !== navToken) return // 过期导航丢弃（串行化——快速连续导航防竞态）
     // async 预构建：await 全部工厂（含动态挂载）——diff 只处理已构建树
-    const built = await buildVNode(output as VNodeChild, ctx, currentChild, registry)
+    let built: VNodeChild
+    try {
+      built = await buildVNode(output as VNodeChild, ctx, currentChild, registry)
+    } catch (e: any) {
+      built = h('div', { class: 'ui-dom-error' }, `组件渲染失败: ${e?.message ?? String(e)}`)
+    }
     if (closing || token !== navToken) return
     if (initial) {
       root.innerHTML = ''

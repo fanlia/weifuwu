@@ -3,11 +3,12 @@ import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Badge, Button, Card } from 'weifuwu/components'
 
 export const Departments: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
    $.depts = []; $.loading = true
     ctx.api!.get('/api/departments')
-      .then(d => { $.depts = d.departments ?? []; $.loading = false })
-      .catch(() => { $.loading = false })
+      .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
+      .catch(() => { $.loading = false; rerender() })
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -16,6 +17,7 @@ export const Departments: Component = async (_props, ctx) => {
     const res = await ctx.api!.delete(`/api/departments/${id}`)
     if (res.ok || res.status === 204) {
       $.depts = $.depts.filter((d: any) => d.id !== id)
+      rerender()
       ;ctx.toast!('部门已删除', 'success')
     } else {
       ;ctx.toast!('删除失败', 'error')

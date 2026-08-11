@@ -3,19 +3,21 @@ import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
 
 export const NewCompany: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   const token = ctx.auth?.token
 
 $.name = ''; $.error = ''; $.submitting = false
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
-    if (!$.name.trim()) { $.error = '请输入公司名称'; return }
+    if (!$.name.trim()) { $.error = '请输入公司名称'; rerender(); return }
     $.submitting = true; $.error = ''
+    rerender()
     try {
       await ctx.api!.post('/api/companies', { name: $.name.trim() })
       ctx.app?.navigate('/companies')
-    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
+    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
   return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">
@@ -28,7 +30,7 @@ $.name = ''; $.error = ''; $.submitting = false
         <form class="wf-stack wf-gap-md" onSubmit={handleSubmit}>
           <Field label="公司名称" required>
             <Input type="text" placeholder="如：某某科技有限公司" value={$.name}
-              onInput={(e: any) => { $.name = e.target.value }} />
+              onInput={(e: any) => { $.name = e.target.value; rerender() }} />
           </Field>
           <div class="wf-right wf-gap-sm">
             <Button type="button" variant="ghost" onClick={() => ctx.app?.navigate('/companies')}>取消</Button>

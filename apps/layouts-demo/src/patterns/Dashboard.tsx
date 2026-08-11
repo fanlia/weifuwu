@@ -63,20 +63,20 @@ const DATA: Record<string, PeriodData> = {
 }
 
 export const Dashboard: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.period = '30d'
-  $.showGoal = true
+  let period = '30d'
+  let showGoal = true
+  const rerender = () => ctx.ui.render()
 
   return () => {
-    const data = DATA[$.period] ?? DATA['30d']
+    const data = DATA[period] ?? DATA['30d']
     return (
       <div class="wf-stack wf-gap-lg wf-p-lg wf-scroll" style={{ minHeight: 'calc(100vh - 48px)' }}>
         {/* 页头 + 时间范围切换（wf-row 提供 wrap——窄屏切换器折行，不挤压标题） */}
         <div class="wf-row wf-between">
           <PageHeader title="经营仪表盘" sub="实时经营数据 · 自动刷新" />
           <SegmentedControl
-            value={$.period}
-            onChange={(v) => { $.period = v }}
+            value={period}
+            onChange={(v) => { period = v; rerender() }}
             options={[
               { value: '7d', label: '近 7 天' },
               { value: '30d', label: '近 30 天' },
@@ -96,7 +96,7 @@ export const Dashboard: Component = async (_init, ctx) => {
         <div class="wf-grid" style={{ '--wf-cols': '2fr 1fr', alignItems: 'start' }}>
           <Card outlined>
             <Space direction="vertical">
-              <Title level={4}>商品销售排行 · {$.period}</Title>
+              <Title level={4}>商品销售排行 · {period}</Title>
               <Table
                 data={data.rows}
                 columns={[
@@ -124,11 +124,11 @@ export const Dashboard: Component = async (_init, ctx) => {
                   <Text type="secondary" className="wf-text-sm">季度目标</Text>
                   <Switch
                     label="展示"
-                    checked={$.showGoal}
-                    onChange={(v) => { $.showGoal = v }}
+                    checked={showGoal}
+                    onChange={(v) => { showGoal = v; rerender() }}
                   />
                 </div>
-                {$.showGoal && (
+                {showGoal && (
                   <Space direction="vertical" size="sm">
                     <ProgressBar value={78} max={100} label="达成率" showValue />
                     <Text type="secondary" className="wf-text-xs">距离 ¥150 万目标还差 ¥21.4 万</Text>

@@ -35,3 +35,5 @@ export { useOpen } from './popup.ts'
 export { useDialog } from './popup.ts'
 
 export { useChat } from './chat.ts'
+
+export { useExternal } from './external.ts'

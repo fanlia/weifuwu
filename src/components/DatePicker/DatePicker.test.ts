@@ -4,7 +4,7 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { DatePicker } from './DatePicker.ts'
 import { Portal, h } from '../../ui-dom/vnode.ts'
-import { mountVNode, patchValue } from '../../ui-dom/render.ts'
+import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { createTestCtx } from '../../ui-dom/testing.ts'
 
@@ -113,9 +113,9 @@ describe('DatePicker', () => {
       ui: {
         $: () => ({}), dirty: () => {},
         // 模拟真实 ctx.ui.render：同树 patch（含 portal 增删），避免 remount 留脏节点
-        render: () => {
+        render: async () => {
           const next = renderFn!()
-          patchValue(container, container.firstChild, prev, next, ctx)
+          await patchToDom(container, container.firstChild, prev, next, ctx)
           prev = next
         },
         usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
@@ -125,11 +125,12 @@ describe('DatePicker', () => {
     const result = await (DatePicker as any)({}, ctx)
     renderFn = typeof result === 'function' ? () => result({}) : null
     prev = renderFn!()
-    await mountVNode(container, prev, ctx)
+    await mountToDom(container, prev, ctx)
 
     // 点击输入框打开面板（toggle）
     const input = container.querySelector('.wf-datepicker-input') as HTMLElement
     input.click()
+    await new Promise(r => setTimeout(r, 0))   // vdom 异步渲染
     const panel = document.querySelector('#__wf_portal .wf-datepicker-dropdown') as HTMLElement
     assert.ok(panel, '面板应打开')
 
@@ -144,6 +145,7 @@ describe('DatePicker', () => {
     assert.equal(document.activeElement, cells[4], 'ArrowUp 焦点上移一行')
     // Escape 关闭面板
     cells[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await new Promise(r => setTimeout(r, 0))
     assert.ok(!document.querySelector('#__wf_portal .wf-datepicker-dropdown'), 'Escape 应关闭面板')
   })
 })

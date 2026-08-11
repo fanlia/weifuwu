@@ -96,19 +96,17 @@ test('S1 动态挂载：运行时切出 async 组件 → 占位 → resolve → 
   let resolveSlow!: () => void
   const slowGate = new Promise<void>((r) => { resolveSlow = r })
   const Sibling = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.n = 0
-    return () => { siblingRenders++; return h('span', { id: 'ma-sib' }, `sib:${$.n}`) }
+    let n = 0
+    return () => { siblingRenders++; return h('span', { id: 'ma-sib' }, `sib:${n}`) }
   }
   const Slow = async (_init: any) => {
     await slowGate
     return () => h('div', { id: 'ma-dyn' }, '动态加载')
   }
   const Holder = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.show = false
-    ;(globalThis as any).__maToggle = () => { $.show = true }
-    return () => h('div', {}, h(Sibling, {}), $.show ? h(Slow, {}) : null)
+    let show = false
+    ;(globalThis as any).__maToggle = () => { show = true; ctx.ui.render() }
+    return () => h('div', {}, h(Sibling, {}), show ? h(Slow, {}) : null)
   }
   const router = new UIRouter()
   router.get('/', () => h(Holder, {}))

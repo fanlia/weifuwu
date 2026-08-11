@@ -27,9 +27,8 @@ export interface AccordionProps {
 export const Accordion: Component<AccordionProps> = async (_init, ctx) => {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
-  // ── mount（只一次）──
-  const $ = ctx.ui.$()
-  $.internalActive = [] as string[]
+  // render-only：内部状态 let + 显式 render（非受控展开 keys）
+  let internalActive: string[] = []
 
   let summaryEls: (HTMLElement | null)[] = []
   // 稳定 ref：索引从 data-idx 读取（工厂模式每次渲染新建函数 = 内联 ref 警告）
@@ -42,18 +41,19 @@ export const Accordion: Component<AccordionProps> = async (_init, ctx) => {
   return (props) => {
     const { items = [], active, onChange, multiple = false } = props
 
-    // 非受控：内部状态初始化为全部展开（向后兼容旧实现的行为）
-    if ($.internalActive.length === 0 && items.length > 0) {
-      $.internalActive = items.map(i => i.key)
+    // 非受控：内部状态初始化为全部展开（向后兼容旧实现的行为）——
+    // renderFn 内赋值：本次渲染直接读新值（无需额外 render）
+    if (internalActive.length === 0 && items.length > 0) {
+      internalActive = items.map(i => i.key)
     }
 
     const isControlled = active !== undefined
-    const activeKeys: string[] = isControlled ? active : $.internalActive
+    const activeKeys: string[] = isControlled ? active : internalActive
     const isOpen = (key: string) => activeKeys.includes(key)
 
     const setActive = (next: string[]) => {
       if (isControlled) onChange?.(next)
-      else $.internalActive = next
+      else { internalActive = next; ctx.ui.render() }
     }
 
     const toggle = (key: string) => {

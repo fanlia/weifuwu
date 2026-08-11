@@ -89,15 +89,15 @@ const SelectNative: Component<SelectProps> = async (_init, _ctx) =>
 }
 
 const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  // 卸载保护：blur 延迟关闭等异步回调不再触发（防孤儿 Proxy 赋值）
+  // render-only：内部 UI 状态 let + 显式 render（design/render-only-plan.md）
+  let open = false
+  let keyword = ''
+  let filteredOptions = [] as SelectOption[]
+  let highlight = -1
+  // 卸载保护：blur 延迟关闭等异步回调不再触发（防孤儿闭包赋值）
   let disposed = false
   let blurTimer: ReturnType<typeof setTimeout> | undefined
   ctx.ui.useStableRef?.(() => {}, () => { disposed = true; if (blurTimer) clearTimeout(blurTimer) })
-  $.open = false
-  $.keyword = ''
-  $.filteredOptions = [] as SelectOption[]
-  $.highlight = -1
 
   // 弹层纪律（AGENTS.md）：menu 必须 portal——此前 absolute 会被父容器
   // overflow/transform 裁剪（AutoComplete 同款教训）。usePopup 提供
@@ -113,8 +113,8 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
     center: false, // 左对齐 trigger
     gap: 4,
     el: () => triggerEl,
-    isOpen: () => $.open,
-    setOpen: (v) => { $.open = v },
+    isOpen: () => open,
+    setOpen: (v) => { open = v; ctx.ui.render() }, // 外部点击/Escape 关闭必须显式渲染
   })
 
   return (props) => {
@@ -137,9 +137,9 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
       })
     }
 
-    const displayGrouped = $.keyword && onSearch && $.filteredOptions.length > 0
-      ? $.filteredOptions as SelectOptions
-      : filterGrouped(options as SelectOptions, $.keyword)
+    const displayGrouped = keyword && onSearch && filteredOptions.length > 0
+      ? filteredOptions as SelectOptions
+      : filterGrouped(options as SelectOptions, keyword)
 
     // flatten 供键盘索引 / 选中查找（跨组连续计数）
     const displayOptions = flattenOptions(displayGrouped)
@@ -148,13 +148,14 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
     const selectedOption = flatAll.find(o => o.value === value)
     const selectedOptions = flatAll.filter(o => values.includes(o.value))
 
-    const handleInput = async (keyword: string) => {
-      $.keyword = keyword
-      $.open = true
-      $.highlight = 0
-      if (onSearch && keyword) {
-        const result = await onSearch(keyword)
-        if (result) $.filteredOptions = (result as SelectOption[])
+    const handleInput = async (kw: string) => {
+      keyword = kw
+      open = true
+      highlight = 0
+      ctx.ui.render()
+      if (onSearch && kw) {
+        const result = await onSearch(kw)
+        if (result) { filteredOptions = (result as SelectOption[]); ctx.ui.render() }
       }
     }
 
@@ -167,8 +168,9 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
         else arr.push(opt.value)
         onChange?.(arr)
       } else {
-        $.keyword = ''
-        $.open = false
+        keyword = ''
+        open = false
+        ctx.ui.render()
         onChange?.(opt.value)
       }
     }
@@ -182,17 +184,19 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
     const handleKeyDown = (e: any) => {
       if (disabled) return
       if (e.key === 'ArrowDown') {
-        e.preventDefault(); $.open = true
-        $.highlight = Math.min($.highlight + 1, displayOptions.length - 1)
+        e.preventDefault(); open = true
+        highlight = Math.min(highlight + 1, displayOptions.length - 1)
+        ctx.ui.render()
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault(); $.open = true
-        $.highlight = Math.max($.highlight - 1, 0)
+        e.preventDefault(); open = true
+        highlight = Math.max(highlight - 1, 0)
+        ctx.ui.render()
       } else if (e.key === 'Enter') {
         e.preventDefault()
-        const opt = displayOptions[$.highlight]
+        const opt = displayOptions[highlight]
         if (opt) handleSelect(opt)
       } else if (e.key === 'Escape') {
-        e.preventDefault(); $.open = false; $.keyword = ''
+        e.preventDefault(); open = false; keyword = ''; ctx.ui.render()
       }
     }
 
@@ -213,7 +217,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
 
     const displayText = isMulti
       ? ''
-      : $.open ? $.keyword : (selectedOption?.label ?? '')
+      : open ? keyword : (selectedOption?.label ?? '')
 
     const trigger = h('div', {
       // key 稳定：portal 开关致数组长度变化——无 key trigger 会被重建 → input 焦点丢失
@@ -222,11 +226,12 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
       ref: triggerRef,
       role: 'combobox',
       'aria-haspopup': 'listbox',
-      'aria-expanded': String($.open),
+      'aria-expanded': String(open),
       // 只开不关（toggle 与 input focus 冲突：点击 input 区域 focus 开→click toggle 关
       // ——'先弹出后自动关闭'根因）。关闭走：外部点击（usePopup）/Escape/选中（handleSelect）
       onClick: disabled ? undefined : () => {
-        $.open = true
+        open = true
+        ctx.ui.render()
         inputEl?.focus() // 点击 Select → 输入框聚焦（光标 + focus 样式）
       },
     }, [
@@ -237,13 +242,13 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
         ref: searchInputRef,
         class: 'wf-select-search-input',
         type: 'text',
-        value: isMulti ? '' : ($.open ? $.keyword : (selectedOption?.label ?? '')),
+        value: isMulti ? '' : (open ? keyword : (selectedOption?.label ?? '')),
         placeholder: selectedOptions.length > 0 ? undefined : (placeholder ?? ''),
         disabled,
-        readOnly: !$.open || undefined,
+        readOnly: !open || undefined,
         onInput: (e: any) => handleInput(e.target.value),
-        onFocus: () => { if (!disabled) $.open = true },
-        onBlur: () => { blurTimer = setTimeout(() => { if (!disposed) { $.open = false; $.keyword = '' } }, 150) },
+        onFocus: () => { if (!disabled) { open = true; ctx.ui.render() } },
+        onBlur: () => { blurTimer = setTimeout(() => { if (!disposed) { open = false; keyword = ''; ctx.ui.render() } }, 150) },
         onKeyDown: handleKeyDown,
       }),
     ])
@@ -263,7 +268,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
         ? values.includes(opt.value)
         : opt.value === value
       const node = h('div', {
-        class: `wf-select-search-opt${sel ? ' wf-select-search-opt--sel' : ''}${opt.disabled ? ' wf-select-search-opt--dis' : ''}${$.highlight === i ? ' wf-select-search-opt--hl' : ''}`,
+        class: `wf-select-search-opt${sel ? ' wf-select-search-opt--sel' : ''}${opt.disabled ? ' wf-select-search-opt--dis' : ''}${highlight === i ? ' wf-select-search-opt--hl' : ''}`,
         key: opt.value,
         onMouseDown: (e: Event) => { e.preventDefault(); handleSelect(opt) },
       }, opt.label)
@@ -282,7 +287,7 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
           menuChildren.push(renderOpt(item, flatIdx))
         }
       }
-    } else if ($.keyword) {
+    } else if (keyword) {
       menuChildren.push(h('div', { class: 'wf-select-search-empty' }, '无匹配'))
     }
 

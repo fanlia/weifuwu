@@ -35,10 +35,11 @@ const GOODS = [
 ]
 
 export const AppShell: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.collapsed = false
-  $.nav = 'dashboard'
-  $.page = 1
+  // render-only：内部状态 let + 显式 render（design/render-only-plan.md）
+  let collapsed = false
+  let nav = 'dashboard'
+  let page = 1
+  const rerender = () => ctx.ui.render()
 
   // 订单数据（分页演示——12 条 → 每页 5 条）
   const ORDERS_ALL = Array.from({ length: 12 }, (_, i) => ({
@@ -51,12 +52,12 @@ export const AppShell: Component = async (_init, ctx) => {
   return () => (
     <div
       class="wf-app-shell wf-rounded-lg"
-      style={{ height: 'calc(100vh - 48px)', overflow: 'hidden', '--wf-sidebar-width': $.collapsed ? '64px' : '240px' }}
+      style={{ height: 'calc(100vh - 48px)', overflow: 'hidden', '--wf-sidebar-width': collapsed ? '64px' : '240px' }}
     >
       {/* ── 左侧导航栏 ── */}
       <aside class="wf-sidebar">
         <div class="wf-sidebar-header wf-between">
-          {$.collapsed ? (
+          {collapsed ? (
             <Icon name="zap" size={18} className="wf-text-primary" />
           ) : (
             <Space>
@@ -67,21 +68,21 @@ export const AppShell: Component = async (_init, ctx) => {
           <Button
             size="sm"
             variant="ghost"
-            title={$.collapsed ? '展开侧栏' : '折叠侧栏'}
-            onClick={() => { $.collapsed = !$.collapsed }}
+            title={collapsed ? '展开侧栏' : '折叠侧栏'}
+            onClick={() => { collapsed = !collapsed; rerender() }}
           >
-            <Icon name={$.collapsed ? 'chevron-right' : 'chevron-left'} size={14} />
+            <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={14} />
           </Button>
         </div>
         <div class="wf-sidebar-body">
-          <nav class={`wf-nav${$.collapsed ? ' wf-nav--collapsed' : ''}`}>
+          <nav class={`wf-nav${collapsed ? ' wf-nav--collapsed' : ''}`}>
             {NAV.map((n) => (
               <a
                 key={n.key}
                 href="#/app-shell"
-                class={`wf-nav-item wf-pointer${$.nav === n.key ? ' wf-nav-item--active' : ''}`}
-                title={$.collapsed ? n.label : undefined}
-                onClick={() => { $.nav = n.key }}
+                class={`wf-nav-item wf-pointer${nav === n.key ? ' wf-nav-item--active' : ''}`}
+                title={collapsed ? n.label : undefined}
+                onClick={() => { nav = n.key; rerender() }}
               >
                 <span class="wf-nav-icon"><Icon name={n.icon as any} size={16} /></span>
                 <span class="wf-nav-label">{n.label}</span>
@@ -90,7 +91,7 @@ export const AppShell: Component = async (_init, ctx) => {
           </nav>
         </div>
         <div class="wf-sidebar-footer">
-          {$.collapsed
+          {collapsed
             ? <Icon name="shield" size={14} className="wf-text-tertiary" />
             : <span class="wf-text-tertiary wf-text-xs">v2.4.0 · 内部系统</span>}
         </div>
@@ -112,10 +113,10 @@ export const AppShell: Component = async (_init, ctx) => {
 
         {/* 内容区（按导航切换） */}
         <div class="wf-main wf-p-lg wf-scroll">
-          {$.nav === 'dashboard' && (
+          {nav === 'dashboard' && (
             <>
               <PageHeader title="仪表盘" sub="经营概览" display>
-                <Button variant="primary" onClick={() => { $.nav = 'orders' }}><Icon name="plus" size={14} /> 去下单</Button>
+                <Button variant="primary" onClick={() => { nav = 'orders'; rerender() }}><Icon name="plus" size={14} /> 去下单</Button>
               </PageHeader>
               <div class="wf-grid" style={{ '--wf-cols': 'repeat(auto-fill, minmax(220px, 1fr))' }}>
                 <StatCard label="今日订单" value="128" trend="up" trendLabel="+12% 昨日" icon={<Icon name="box" size={24} className="wf-text-primary" />} />
@@ -125,7 +126,7 @@ export const AppShell: Component = async (_init, ctx) => {
               </div>
             </>
           )}
-          {$.nav === 'orders' && (
+          {nav === 'orders' && (
             <>
               <PageHeader title="订单管理" sub="查看和处理所有订单" display>
                 <Button variant="primary"><Icon name="plus" size={14} /> 新建订单</Button>
@@ -141,7 +142,7 @@ export const AppShell: Component = async (_init, ctx) => {
 
               <Card outlined>
                 <Table
-                  data={ORDERS_ALL.slice(($.page - 1) * 5, $.page * 5)}
+                  data={ORDERS_ALL.slice((page - 1) * 5, page * 5)}
                   columns={[
                     { key: 'id', label: '订单号' },
                     { key: 'customer', label: '客户' },
@@ -151,12 +152,12 @@ export const AppShell: Component = async (_init, ctx) => {
                 />
                 <div class="wf-p-md wf-between">
                   <Text className="wf-text-sm">共 {ORDERS_ALL.length} 条</Text>
-                  <Pagination total={ORDERS_ALL.length} page={$.page} pageSize={5} onChange={(p) => { $.page = p }} />
+                  <Pagination total={ORDERS_ALL.length} page={page} pageSize={5} onChange={(p) => { page = p; rerender() }} />
                 </div>
               </Card>
             </>
           )}
-          {$.nav === 'users' && (
+          {nav === 'users' && (
             <>
               <PageHeader title="用户管理" sub="平台用户与角色" display>
                 <Button variant="primary"><Icon name="plus" size={14} /> 邀请用户</Button>
@@ -174,7 +175,7 @@ export const AppShell: Component = async (_init, ctx) => {
               </Card>
             </>
           )}
-          {$.nav === 'goods' && (
+          {nav === 'goods' && (
             <>
               <PageHeader title="商品管理" sub="库存与销售状态" display>
                 <Button variant="primary"><Icon name="plus" size={14} /> 上架商品</Button>
@@ -193,7 +194,7 @@ export const AppShell: Component = async (_init, ctx) => {
               </Card>
             </>
           )}
-          {$.nav === 'settings' && (
+          {nav === 'settings' && (
             <>
               <PageHeader title="系统设置" sub="基础配置" display>
                 <Button variant="primary"><Icon name="check" size={14} /> 保存</Button>

@@ -33,7 +33,7 @@ import {
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
   JsonSchemaForm, ReasoningBlock, CitationCard, SessionList,
 } from 'weifuwu/components'
-import type { ToastItem, ToastType, ToastInjected, JsonSchema } from 'weifuwu/components'
+import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
 
 // ── 布局组件 ──────────────────────────────────────────
 
@@ -230,9 +230,9 @@ const DemoSlider: Component = async (_props, ctx) => {
 }
 
 const DemoForm: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
-  $.errors = {}
-  $.submitted = false
+  let errors = {} as Record<string, string>
+  let submitted = false
+  const rerender = () => ctx.ui.render()
 
   return (_p: any) => (
     <Form
@@ -240,15 +240,15 @@ const DemoForm: Component = async (_props, ctx) => {
         username: [{ required: true, message: '请输入用户名' }],
         email: [{ required: true, pattern: /@/, message: '请输入有效邮箱' }],
       }}
-      onSubmit={() => { $.submitted = true }}
-      onError={(errors) => { $.errors = errors }}>
-      <Field label="用户名" error={$.errors.username}>
+      onSubmit={() => { submitted = true; rerender() }}
+      onError={(e) => { errors = e; rerender() }}>
+      <Field label="用户名" error={errors.username}>
         <Input name="username" placeholder="输入用户名" />
       </Field>
-      <Field label="邮箱" error={$.errors.email}>
+      <Field label="邮箱" error={errors.email}>
         <Input name="email" type="email" placeholder="email@example.com" />
       </Field>
-      {$.submitted && <Alert variant="success">表单已提交！</Alert>}
+      {submitted && <Alert variant="success">表单已提交！</Alert>}
       <Button type="submit" variant="primary">提交表单</Button>
     </Form>
   )
@@ -303,10 +303,10 @@ const DemoProgress: Component = async (_props, ctx) => {
 }
 
 const DemoTable: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
-  $.sortKey = 'name'
-  $.sortOrder = 'asc'
-  $.view = 'data' // 'data' | 'empty'
+  let sortKey = 'name'
+  let sortOrder: 'asc' | 'desc' = 'asc'
+  let view = 'data' // 'data' | 'empty'
+  const rerender = () => ctx.ui.render()
   const data = [
     { id: 1, name: '张三', role: '管理员', status: '活跃' },
     { id: 2, name: '李四', role: '编辑', status: '离线' },
@@ -315,44 +315,44 @@ const DemoTable: Component = async (_props, ctx) => {
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <div class="wf-row wf-gap-xs">
-        <button class={`wf-btn wf-btn--sm ${$.view === 'data' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { $.view = 'data'; ctx.ui.render() }}>有数据</button>
-        <button class={`wf-btn wf-btn--sm ${$.view === 'empty' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { $.view = 'empty'; ctx.ui.render() }}>空态</button>
+        <button class={`wf-btn wf-btn--sm ${view === 'data' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { view = 'data'; rerender() }}>有数据</button>
+        <button class={`wf-btn wf-btn--sm ${view === 'empty' ? 'wf-btn--primary' : 'wf-btn--secondary'}`} onClick={() => { view = 'empty'; rerender() }}>空态</button>
       </div>
-      <Table data={$.view === 'empty' ? [] : data} columns={[
+      <Table data={view === 'empty' ? [] : data} columns={[
         { key: 'id', label: 'ID', width: 60 },
         { key: 'name', label: '姓名', sortable: true },
         { key: 'role', label: '角色', sortable: true },
         { key: 'status', label: '状态', render: v => <Badge variant={v === '活跃' ? 'success' : 'default'}>{v}</Badge> },
       ]}
-        sortKey={$.sortKey} sortOrder={$.sortOrder}
-        onSort={(key, order) => { $.sortKey = key; $.sortOrder = order }} emptyText="暂无数据" />
+        sortKey={sortKey} sortOrder={sortOrder}
+        onSort={(key, order) => { sortKey = key; sortOrder = order; rerender() }} emptyText="暂无数据" />
       <div class="wf-text-xs wf-text-secondary">点击列头排序（姓名 / 角色）；切换查看空态</div>
     </div>
   )
 }
 
 const DemoModal: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
-  $.open = false
-  $.width = '420px'
-  $.closable = true
+  let open = false
+  let width = '420px'
+  let closable = true
+  const rerender = () => ctx.ui.render()
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row wf-gap-sm">
-        <Button variant="primary" onClick={() => { $.open = true }}>打开弹窗</Button>
+        <Button variant="primary" onClick={() => { open = true; rerender() }}>打开弹窗</Button>
         <label class="wf-row wf-gap-xs wf-text-xs">
-          <input type="checkbox" checked={$.closable} onChange={(e: any) => { $.closable = e.target.checked }} />
+          <input type="checkbox" checked={closable} onChange={(e: any) => { closable = e.target.checked; rerender() }} />
           显示关闭按钮
         </label>
-        <select value={$.width} onChange={(e: any) => { $.width = e.target.value }} class="wf-text-xs" style="padding:2px 4px">
+        <select value={width} onChange={(e: any) => { width = e.target.value; rerender() }} class="wf-text-xs" style="padding:2px 4px">
           <option value="360px">窄 (360px)</option>
           <option value="420px">中 (420px)</option>
           <option value="600px">宽 (600px)</option>
         </select>
       </div>
-      <Modal open={$.open} title="确认操作" width={$.width} closable={$.closable}
-        onClose={() => { $.open = false }}
-        footer={<Button variant="primary" onClick={() => { $.open = false }}>确定</Button>}>
+      <Modal open={open} title="确认操作" width={width} closable={closable}
+        onClose={() => { open = false; rerender() }}
+        footer={<Button variant="primary" onClick={() => { open = false; rerender() }}>确定</Button>}>
         <p>这是弹窗内容。试试切换右上角的设置。</p>
       </Modal>
     </div>
@@ -360,14 +360,14 @@ const DemoModal: Component = async (_props, ctx) => {
 }
 
 const DemoToast: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
-  $.toasts = [] as ToastItem[]
-  $.position = 'top-right'
+  let toasts = [] as ToastItem[]
+  let position: ToastPosition = 'top-right'
+  const rerender = () => ctx.ui.render()
   function add(type: ToastType) {
     const id = String(Date.now())
     const msgs: Record<ToastType, string> = { success: '操作成功完成', error: '发生了一个错误', warning: '请注意：此操作不可撤销', info: '这是一条提示信息' }
-    $.toasts = [...$.toasts, { id, type, message: msgs[type] }]
-    setTimeout(() => { $.toasts = $.toasts.filter((t: any) => t.id !== id) }, 3000)
+    toasts = [...toasts, { id, type, message: msgs[type] }]; rerender()
+    setTimeout(() => { toasts = toasts.filter((t: any) => t.id !== id); rerender() }, 3000)
   }
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm">
@@ -379,7 +379,7 @@ const DemoToast: Component = async (_props, ctx) => {
       </div>
       <div class="wf-row wf-gap-xs wf-text-xs wf-text-secondary">
         <span>位置:</span>
-        <select value={$.position} onChange={(e: any) => { $.position = e.target.value }}>
+        <select value={position} onChange={(e: any) => { position = e.target.value; rerender() }}>
           <option value="top-right">右上</option>
           <option value="top-left">左上</option>
           <option value="bottom-right">右下</option>
@@ -387,8 +387,8 @@ const DemoToast: Component = async (_props, ctx) => {
           <option value="top-center">顶部居中</option>
         </select>
       </div>
-      <Toast toasts={$.toasts} position={$.position} max={3}
-        onRemove={id => { $.toasts = $.toasts.filter((t: any) => t.id !== id) }} />
+      <Toast toasts={toasts} position={position} max={3}
+        onRemove={id => { toasts = toasts.filter((t: any) => t.id !== id); rerender() }} />
     </div>
   )
 }
@@ -592,8 +592,8 @@ const DemoAccordion: Component = async () => () => (
 )
 
 const DemoSearchableSelect: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
-  $.value = ''
+  let value = '' as string
+  const rerender = () => ctx.ui.render()
   const options = [
     { value: 'zhang', label: '张三 (zhang@example.com)' },
     { value: 'li', label: '李四 (li@example.com)' },
@@ -604,10 +604,10 @@ const DemoSearchableSelect: Component = async (_props, ctx) => {
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <Select searchable label="搜索选择用户" placeholder="输入姓名或邮箱搜索..."
-        value={$.value}
-        onChange={v => { $.value = v }}
+        value={value}
+        onChange={(v) => { value = String(v); rerender() }}
         options={options} />
-      <div class="wf-text-xs wf-text-secondary">已选: {options.find(o => o.value === $.value)?.label || '(未选择)'}</div>
+      <div class="wf-text-xs wf-text-secondary">已选: {options.find(o => o.value === value)?.label || '(未选择)'}</div>
     </div>
   )
 }
@@ -1009,15 +1009,15 @@ const DemoEditor: Component = async (_props, ctx) => {
 }
 
 const DemoThemeSwitch: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
-  $.mode = 'auto'
+  let mode = 'auto'
+  const rerender = () => ctx.ui.render()
   return (_p: any) => (
     <div class="wf-stack wf-gap-sm wf-w-full">
       <div class="wf-row wf-gap-sm">
-        <ThemeSwitch onChange={(m) => { $.mode = m }} />
+        <ThemeSwitch onChange={(m) => { mode = m; rerender() }} />
       </div>
       <div class="wf-text-xs wf-text-secondary">
-        当前模式: <code>{$.mode}</code> · 已持久化到 localStorage · 右上角也有一个可直接用
+        当前模式: <code>{mode}</code> · 已持久化到 localStorage · 右上角也有一个可直接用
       </div>
     </div>
   )
@@ -1212,30 +1212,30 @@ const DemoApprovalCard: Component = async (_p, ctx) => {
 
 /** AiChat：useChat + 标准对话界面（流式 / 工具 / 审批 / 自动滚动） */
 const DemoAiChat: Component = async (_props, ctx) => {
-  const $ = ctx.ui.useChat({
+  const chat = ctx.ui.useChat({
     url: '/api/chat',
     approveUrl: '/api/approve',
     body: (messages) => ({
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      mode: $.mode, // chat | agent
+      mode: chat.mode, // chat | agent
     }),
   })
-  $.mode = 'chat'
+  chat.mode = 'chat'
 
   return () => (
     <div class="wf-stack wf-gap-sm">
       <div class="wf-row">
         {(['chat', 'agent'] as const).map((m) => (
           <button
-            class={`wf-btn wf-btn--sm ${$.mode === m ? 'wf-btn--primary' : ''}`}
+            class={`wf-btn wf-btn--sm ${chat.mode === m ? 'wf-btn--primary' : ''}`}
             type="button"
-            onClick={() => { $.mode = m; $.clear() }}
+            onClick={() => { chat.mode = m; chat.clear() }}
           >
             {m === 'chat' ? '流式对话' : 'Agent（工具+审批）'}
           </button>
         ))}
       </div>
-      <AiChat chat={$} maxHeight="300px" />
+      <AiChat chat={chat} maxHeight="300px" />
     </div>
   )
 }
@@ -2296,11 +2296,12 @@ getTheme()  // 'auto' | 'light' | 'dark'
   <span>悬停查看</span>
 </Popover>`,
 
-  aichat: `const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
+  aichat: `const chat = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })
 return () => <AiChat chat={$} />
 
-// 状态：$.messages / $.input / $.streaming / $.error
-// 操作：$.send() / $.stop() / $.retry() / $.approve(decision)
+// 状态：chat.messages / chat.input / chat.streaming / chat.error
+// 操作：chat.send() / chat.stop() / chat.retry() / chat.approve(decision)
+// 订阅共享：ctx.ui.useExternal(chat) —— 子组件共享会话状态
 // agent 消息内嵌：msg.toolCalls / msg.approval`,
 
   toolcall: `<ToolCallCard call={{ id, name, args }} />

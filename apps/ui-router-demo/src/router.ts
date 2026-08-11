@@ -14,39 +14,40 @@ import { Button, Input, Dropdown, Tag, Icon } from '../../../src/components/inde
 
 /** 计数器（组件级 $：赋值 → 本组件重渲染，父 handler 不重跑） */
 const Counter = (_init: any, ctx: any) => {
-  const $ = ctx.ui.$()
-  $.count = 0
+  let count = 0
+  const rerender = () => ctx.ui.render()
   return (props: any) =>
     h('div', { id: `counter-${props.id}`, class: 'wf-surface wf-rounded-lg wf-p-lg wf-stack wf-gap-sm' },
       h('div', { class: 'wf-row wf-gap-md' },
         h('h3', { class: 'wf-text-base wf-m-0' }, `计数器 ${props.id}`),
-        h(Button, { variant: 'secondary', size: 'sm', onClick: () => { $.count = $.count - 1 } }, '-'),
-        h('span', { id: `val-${props.id}`, class: 'wf-nums wf-text-lg wf-text-brand' }, String($.count)),
-        h(Button, { variant: 'primary', size: 'sm', onClick: () => { $.count = $.count + 1 } }, '+'),
+        h(Button, { variant: 'secondary', size: 'sm', onClick: () => { count = count - 1; rerender() } }, '-'),
+        h('span', { id: `val-${props.id}`, class: 'wf-nums wf-text-lg wf-text-brand' }, String(count)),
+        h(Button, { variant: 'primary', size: 'sm', onClick: () => { count = count + 1; rerender() } }, '+'),
       ),
     )
 }
 
 /** keyed 列表（顺序重排复用 DOM） */
 const TodoList = (_init: any, ctx: any) => {
-  const $ = ctx.ui.$()
-  $.items = [
+  const rerender = () => ctx.ui.render()
+  let items = [
     { id: 'a', label: '设计 req/res' },
     { id: 'b', label: '实现 UIRouter' },
     { id: 'c', label: '浏览器冒烟' },
   ]
   const shuffle = () => {
-    const arr = [...($.items as any[])]
+    const arr = [...(items as any[])]
     const first = arr.shift()!
     arr.push(first)
-    $.items = arr
+    items = arr
+    rerender()
   }
   return () =>
     h('div', { class: 'wf-stack wf-gap-sm' },
       h(Button, { variant: 'secondary', size: 'sm', onClick: shuffle },
         h(Icon, { name: 'refresh', size: 14 }), ' 轮转顺序'),
       h('ul', { id: 'todos', class: 'wf-stack wf-gap-xs wf-m-0 wf-p-0' },
-        ...($.items as any[]).map((it: any) =>
+        ...(items as any[]).map((it: any) =>
           h('li', { key: it.id, id: `todo-${it.id}`, class: 'wf-row wf-gap-sm wf-p-sm wf-surface wf-rounded-sm wf-text-sm' },
             h(Tag, { variant: it.id === 'a' ? 'primary' : it.id === 'b' ? 'success' : 'danger' }, it.id),
             h('span', {}, it.label),
@@ -58,14 +59,13 @@ const TodoList = (_init: any, ctx: any) => {
 
 // ── Layout 中间件（两阶段：外层 mount 拿 children，内层包装）──
 const Layout: UIMiddleware = async (_location, ctx, children) => {
-  const $ = ctx.ui.$()
-  $.tabs = [{ path: '/', label: '首页' }, { path: '/todos', label: '列表' }, { path: '/async', label: '异步' }, { path: '/users/42', label: '用户' }, { path: '/admin/api/users/7', label: '后台' }]
+  const tabs = [{ path: '/', label: '首页' }, { path: '/todos', label: '列表' }, { path: '/async', label: '异步' }, { path: '/users/42', label: '用户' }, { path: '/admin/api/users/7', label: '后台' }]
   return async (loc, c) => {
     const child = await children(loc, c)
     const path = loc.pathname
     return h('div', { class: 'wf-container wf-my-lg' },
       h('nav', { class: 'wf-row wf-gap-md wf-mb-lg wf-border-b wf-pb-md' },
-        ...($.tabs as any[]).map((t: any) =>
+        ...(tabs as any[]).map((t: any) =>
           h('a', {
             class: t.path === path
               ? 'wf-text-primary wf-text-sm'
@@ -85,8 +85,8 @@ const Layout: UIMiddleware = async (_location, ctx, children) => {
 const Home: UIHandler = async (_location, ctx) => {
   // data 缓存（首次取数，重渲染命中）
   const info = await ctx.data.get('/api/info', async () => ({ title: 'ui-dom × components', desc: 'req=location / res=VNode / uiServe=VDOM / components 直接复用' }))
-  const $ = ctx.ui.$()
-  $.clicks = $.clicks ?? 0
+  let clicks = 0
+  const rerender = () => ctx.ui.render()
   return h('div', { id: 'home', class: 'wf-surface wf-rounded-lg wf-p-lg wf-stack wf-gap-md' },
     h('div', { class: 'wf-row wf-gap-sm' },
       h(Icon, { name: 'layout', className: 'wf-text-primary' }),
@@ -95,8 +95,8 @@ const Home: UIHandler = async (_location, ctx) => {
     h('p', { class: 'wf-text-secondary wf-text-sm wf-m-0' }, (info as any).desc),
     h('p', { class: 'wf-text-sm wf-m-0 wf-nums' }, 'query: ', JSON.stringify(ctx.query)),
     h('div', { class: 'wf-row wf-gap-sm' },
-      h(Button, { id: 'click-me', onClick: () => { $.clicks = $.clicks + 1 } },
-        `点击 ${$.clicks} 次`),
+      h(Button, { id: 'click-me', onClick: () => { clicks = clicks + 1; rerender() } },
+        `点击 ${clicks} 次`),
       h(Button, { variant: 'secondary', onClick: () => (ctx as any).toast?.('来自 ui-dom 的 toast！', 'success') }, '弹 toast'),
     ),
     h('div', { class: 'wf-row wf-gap-xs' },
@@ -110,8 +110,7 @@ const Home: UIHandler = async (_location, ctx) => {
 }
 
 const Todos: UIHandler = async (_location, ctx) => {
-  const $ = ctx.ui.$()
-  $.loaded = $.loaded ?? true
+  let loaded = true
   return h('div', { id: 'todos-page', class: 'wf-surface wf-rounded-lg wf-p-lg wf-stack wf-gap-md' },
     h('div', { class: 'wf-row wf-gap-sm' },
       h(Icon, { name: 'list', className: 'wf-text-primary' }),
@@ -141,8 +140,8 @@ const AsyncPage = async (initProps: any, ctx: any) => {
     title: '原生 async 组件',
     desc: 'async 函数即组件（原生支持）——数据自动进 __DATA__',
   }))
-  const $ = ctx.ui.$()
-  $.clicks = 0
+  let clicks = 0
+  const rerender = () => ctx.ui.render()
   return (props: any) =>
     h('div', { id: 'async-page', class: 'wf-surface wf-rounded-lg wf-p-lg wf-stack wf-gap-md' },
       h('div', { class: 'wf-row wf-gap-sm' },
@@ -154,8 +153,8 @@ const AsyncPage = async (initProps: any, ctx: any) => {
         h(Tag, { variant: 'primary' }, 'async'),
         h(Tag, { variant: 'success' }, '__DATA__'),
       ),
-      h(Button, { id: 'async-click', variant: 'primary', onClick: () => { $.clicks = $.clicks + 1 } },
-        h(Icon, { name: 'zap', size: 14 }), ` 点击 ${$.clicks} 次`),
+      h(Button, { id: 'async-click', variant: 'primary', onClick: () => { clicks = clicks + 1; rerender() } },
+        h(Icon, { name: 'zap', size: 14 }), ` 点击 ${clicks} 次`),
     )
 }
 

@@ -97,10 +97,9 @@ test('hydrate: 收养现有 DOM——元素引用保持 + 事件接线', async (
   el.innerHTML = '<div class="counter"><button id="b">0</button></div>' // 服务端 HTML
   let clicks = 0
   const Counter = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.n = 0
-    ;(globalThis as any).__inc = () => { $.n++ }
-    return () => h('div', { class: 'counter' }, h('button', { id: 'b', onClick: () => { clicks++; $.n++ } }, String($.n)))
+    let n = 0
+    ;(globalThis as any).__inc = () => { n++; ctx.ui.render() }
+    return () => h('div', { class: 'counter' }, h('button', { id: 'b', onClick: () => { clicks++; n++; ctx.ui.render() } }, String(n)))
   }
   const router = new UIRouter()
   router.get('/', () => h(Counter, {}))

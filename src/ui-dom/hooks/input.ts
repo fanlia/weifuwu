@@ -6,7 +6,6 @@
 
 import type { HookEnv } from './types.ts'
 import type { UseAsyncHandle } from '../types.ts'
-import { createReactiveState } from '../reactive.ts'
 
 /** 受控/非受控状态统一：value !== undefined → 受控（setValue 只走 onChange） */
 export function useControlled<T>(env: HookEnv, options: {
@@ -37,7 +36,7 @@ export function useControlled<T>(env: HookEnv, options: {
       return
     }
     if (selfId) env.uncontrolledValues.set(selfId, v)
-    if (selfId) env.dirty([selfId])
+    if (selfId) env.render([selfId])
     else env.render()
   }
   return {
@@ -62,7 +61,7 @@ export function useControlledInput(env: HookEnv, options: {
   }
   const state = selfId ? env.inputStates.get(selfId)! : { keyword: '', selectedLabel: '' }
   const dirty = () => {
-    if (selfId) env.dirty([selfId])
+    if (selfId) env.render([selfId])
     else env.render()
   }
   return {
@@ -77,21 +76,23 @@ export function useControlledInput(env: HookEnv, options: {
 /** 异步取数工具（mount 阶段调用）：loading/error 自动管理 + 数据就绪自动渲染 */
 export function useAsync<T>(env: HookEnv, fetcher: () => Promise<T>): UseAsyncHandle<T> {
   const selfId = env.selfId()
-  const state = createReactiveState(() => {
-    if (selfId) env.dirty([selfId])
+  // render-only：普通对象状态（非 Proxy）——每次变更显式 render
+  const render = () => {
+    if (selfId) env.render([selfId])
     else env.render()
-  })
-  state.loading = true
+  }
+  const state: any = { data: undefined, loading: false, error: undefined }
   // stale-close 保护：每次 reload 递增 token，过期 Promise resolve 静默丢弃
   let token = 0
   const run = () => {
     const cur = ++token
     state.loading = true
     state.error = null
+    render()
     Promise.resolve()
       .then(() => fetcher())
-      .then((d) => { if (token === cur) { state.data = d; state.loading = false } })
-      .catch((e) => { if (token === cur) { state.error = e; state.loading = false } })
+      .then((d) => { if (token === cur) { state.data = d; state.loading = false; render() } })
+      .catch((e) => { if (token === cur) { state.error = e; state.loading = false; render() } })
   }
   run()
   state.reload = run

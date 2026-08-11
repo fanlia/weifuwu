@@ -36,9 +36,7 @@ export interface ScrollTracker {
 export interface HookEnv {
   /** 当前组件 id（ui._selfId / _selfVNode._id 解析） */
   selfId(): string | undefined
-  /** 触发渲染（dirty 语义——微任务批处理） */
-  dirty(ids?: string[]): void
-  /** 触发渲染（立即） */
+  /** 触发渲染（render-only 唯一触发） */
   render(ids?: string[]): void
   /** 浏览器环境（ctx.browser） */
   browser: BrowserEnv
@@ -52,11 +50,9 @@ export interface HookEnv {
   popupTrackers: Map<string, PopupTracker>
   /** 跨组件共享：scroll tracker */
   scrollTrackers: Map<string, ScrollTracker>
-  /** 渲染保护期（dirty 被推迟/丢弃） */
+  /** 渲染保护期（渲染请求被跳过） */
   isMounting(): boolean
   isRendering(): boolean
-  /** $ 容器（useChat/useAsync 内部状态用——同一组件共享） */
-  $(): Record<string, any>
   /** 受控缺回调 warn 去重（跨组件按 name 幂等） */
   warned: Set<string>
   /** useControlled 非受控内部值（按 selfId） */

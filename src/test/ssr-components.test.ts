@@ -8,7 +8,7 @@
 
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { ssrToString } from '../ui-dom/ssr.ts'
+import { ssrToString } from '../ui-dom/vdom/ssr.ts'
 import type { Component } from '../ui-dom/vnode.ts'
 import {
   Button, Badge, Menu, Accordion, Collapse, Tabs, Breadcrumb, Steps, Pagination,

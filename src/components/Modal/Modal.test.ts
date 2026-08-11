@@ -4,7 +4,7 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Modal } from './Modal.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
-import { mountVNode, patchValue } from '../../ui-dom/render.ts'
+import { mountToDom, patchToDom, buildToDom } from '../../ui-dom/testing.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { createTestCtx } from '../../ui-dom/testing.ts'
 
@@ -116,9 +116,9 @@ describe('Modal', () => {
     const ctx: any = {
       ui: {
         $: () => ({}), dirty: () => {},
-        render: () => {
+        render: async () => {
           const next = renderFn!()
-          patchValue(container, container.firstChild, prev, next, ctx)
+          await patchToDom(container, container.firstChild, prev, next, ctx)
           prev = next
         },
         useDialog: () => {
@@ -144,20 +144,20 @@ describe('Modal', () => {
     const result = await (Modal as any)({}, ctx)
     renderFn = typeof result === 'function' ? () => result({ open, children: 'x' }) : null
     prev = renderFn!()
-    await mountVNode(container, prev, ctx)
+    await mountToDom(container, prev, ctx)
     assert.ok(document.querySelector('.wf-modal'), 'open=true 应渲染')
     assert.match(document.querySelector('.wf-modal')!.className, /wf-modal--enter/)
 
     // 父组件关闭 → 退场帧（不立刻卸载）
     open = false
-    ctx.ui.render()
+    await ctx.ui.render()
     const el = document.querySelector('.wf-modal') as HTMLElement
     assert.ok(el, '关闭瞬间仍保留在 DOM（播退场动画）')
     assert.match(el.className, /wf-modal--exit/, '退场帧应挂 --exit 类')
 
     // animationend → 真正卸载
     el.dispatchEvent(new (window as any).Event('animationend'))
-    ctx.ui.render()
+    await ctx.ui.render()
     assert.ok(!document.querySelector('.wf-modal'), 'animationend 后应卸载')
   })
 })

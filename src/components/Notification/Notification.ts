@@ -2,7 +2,7 @@ import type { Component, VNode } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
 import { h, createPortal } from '../../ui-dom/vnode.ts'
-import { mountVNode } from '../../ui-dom/render.ts'
+import { mountCommand } from '../../ui-dom/vdom/mount.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 
@@ -128,15 +128,15 @@ export function notification(opts?: NotificationOptions): AppMiddleware<{}, Noti
   let seq = 0
 
   const NotificationHost: Component = async (_init, ctx) => {
-    const $ = ctx.ui.$()
-    $.items = []
+    let items: NotificationItem[] = []
+    const render = () => ctx.ui.render()
     hostApi = {
-      add: (item: NotificationItem) => { $.items = [...$.items, item] },
-      remove: (id: string) => { $.items = $.items.filter((t: NotificationItem) => t.id !== id) },
+      add: (item: NotificationItem) => { items = [...items, item]; render() },
+      remove: (id: string) => { items = items.filter((t: NotificationItem) => t.id !== id); render() },
     }
     return () => h('div', { class: 'wf-notification-host' }, [
       h(Notification, {
-        items: $.items,
+        items,
         position: defaults.position,
         duration: defaults.duration,
         max: defaults.max,
@@ -150,7 +150,7 @@ export function notification(opts?: NotificationOptions): AppMiddleware<{}, Noti
     const container = browser.createElement('div') as HTMLDivElement | null
     if (!container) return
     browser.bodyAppend(container)
-    mountVNode(container, h(NotificationHost, {}), ctxRef)
+    mountCommand(container, h(NotificationHost, {}), ctxRef)
   }
 
   const emit = (item: Omit<NotificationItem, 'id'>) => {

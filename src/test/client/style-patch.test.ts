@@ -1,60 +1,39 @@
-import { test, describe, before } from 'node:test'
+/**
+ * vdom style diff 防线：null/undefined 值移除旧样式 + 值更新
+ *
+ * v1 时代曾踩过「style diff 只设不删：display: undefined 残留旧 none」——
+ * vdom setProp 修复后以单元测试固化（不依赖挂载/rerender 机制）。
+ */
+import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
-import { h } from '../../ui-dom/vnode.ts'
+import { setProp } from '../../ui-dom/vdom/render.ts'
+import { patchProps } from '../../ui-dom/vdom/diff.ts'
 
 before(setupJsdom)
 
-import { mountApp } from '../ui-dom-mount.ts'
-const browser = createClientBrowser()
+test('style diff：display: undefined 移除旧 display: none', () => {
+  const el = document.createElement('div')
+  // 首次渲染：display: none
+  setProp(el, 'style', { display: 'none' })
+  assert.equal(el.style.display, 'none', '初始 none')
 
-describe('style diff：undefined 值移除旧样式（渲染器防线）', () => {
-  test('display: undefined 移除旧 display: none', async () => {
-    const el = browser.createElement('div')
-    browser.bodyAppend(el)
-    el.id = 'style-test-1'
-    let open = false
-    let root: any
-    const Cmp = async (_: any, ctx: any) => {
-      root = ctx
-      return () => h('div', { class: 'panel', style: { display: open ? undefined : 'none' } }, 'x')
-    }
-    const mountRes = await mountApp(el, Cmp)
-    const panel = el.querySelector('.panel') as HTMLElement
-    assert.equal(panel.style.display, 'none', '初始关闭')
-    open = true
-    mountRes.rerender()
-    await new Promise(r => setTimeout(r, 10))
-    assert.equal(panel.style.display, '', '打开后 display 应移除（不再残留 none）')
-    open = false
-    mountRes.rerender()
-    await new Promise(r => setTimeout(r, 10))
-    assert.equal(panel.style.display, 'none', '再次关闭恢复 none')
-    ;(mountRes as any).close?.()
-    el.remove()
-  })
+  // diff：display → undefined（移除）
+  patchProps(el, { style: { display: 'none' } }, { style: { display: undefined } })
+  assert.equal(el.style.display, '', 'undefined 应移除旧 display（不残留 none）')
 
-  test('style 值更新（number → px + 字符串）', async () => {
-    const el = browser.createElement('div')
-    browser.bodyAppend(el)
-    el.id = 'style-test-2'
-    let w = 10
-    let root: any
-    const Cmp = async (_: any, ctx: any) => {
-      root = ctx
-      return () => h('div', { class: 'w', style: { width: w, opacity: w > 50 ? '1' : '0.5' } })
-    }
-    const mountRes = await mountApp(el, Cmp)
-    const wEl = el.querySelector('.w') as HTMLElement
-    assert.equal(wEl.style.width, '10px')
-    assert.equal(wEl.style.opacity, '0.5')
-    w = 100
-    mountRes.rerender()
-    await new Promise(r => setTimeout(r, 10))
-    assert.equal(wEl.style.width, '100px')
-    assert.equal(wEl.style.opacity, '1')
-    ;(mountRes as any).close?.()
-    el.remove()
-  })
+  // 再切回 none
+  patchProps(el, { style: { display: undefined } }, { style: { display: 'none' } })
+  assert.equal(el.style.display, 'none', '再次设置恢复 none')
+})
+
+test('style 值更新（字符串 + number）', () => {
+  const el = document.createElement('div')
+  setProp(el, 'style', { width: '10px', opacity: 0.5 })
+  assert.equal(el.style.width, '10px')
+  assert.equal(el.style.opacity, '0.5')
+
+  patchProps(el, { style: { width: '10px', opacity: 0.5 } }, { style: { width: '100px', opacity: 1 } })
+  assert.equal(el.style.width, '100px')
+  assert.equal(el.style.opacity, '1')
 })

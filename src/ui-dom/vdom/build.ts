@@ -42,6 +42,11 @@ export async function mountAsyncComponent(
   const childUi = childCtx.ui as WfuiContext['ui'] & { _selfId?: string; _selfVNode?: VNode }
   childUi._selfId = vnode._id
   childUi._selfVNode = vnode
+  // render-only：闭包绑定渲染（无 this 陷阱——根治 §4.5 selfId 错位：重挂载/解构不影响）
+  childUi.render = function (this: any, ids?: string[]) {
+    if (ids == null && vnode._id) ctx.ui.render([vnode._id])
+    else ctx.ui.render(ids)
+  }
 
   // 旧树同位置同类型复用（工厂不重跑——组件跨渲染保持内部状态）
   if (typeof vnode._render !== 'function' && typeof opts?.reuse?._render === 'function') {

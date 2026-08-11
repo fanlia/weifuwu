@@ -12,15 +12,19 @@ import { setupJsdom } from './setup.ts'
 setupJsdom()
 
 import { h } from '../../ui-dom/vnode.ts'
-import { mountApp } from '../ui-dom-mount.ts'
+import { mountRoot } from '../../ui-dom/vdom/mount.ts'
 const browser = createClientBrowser()
 
 function makeMount(Comp: any) {
   const container = browser.createElement('div')
   browser.bodyAppend(container)
   let handle: any
-  const mount = () => { handle = undefined; return mountApp(container as any, Comp).then(h => { handle = h; return h }) }
-  return { container, app: { destroy: () => { container.innerHTML = '' } }, mount }
+  const mount = async () => {
+    handle = mountRoot({ browser, root: container })
+    await handle.mount(h(Comp, {}))
+    return handle
+  }
+  return { container, app: { destroy: () => { handle?.unmount?.() } }, mount }
 }
 
 test('useAsync 成功：data 就绪后自动渲染', async () => {

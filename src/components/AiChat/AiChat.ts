@@ -81,9 +81,10 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
   let listEl: HTMLElement | undefined
   let stickToBottom = true
 
-  // 订阅 chat 变更：chat 是父组件的 $（引用恒定，props 浅比较恒等 → 三态 skip 命中），
-  // 父 dirty 不会驱动本组件重渲染 → 自行订阅，任何会话状态变化都 dirty 自身
-  const unwatch = (initProps.chat as any).__watch?.(() => ctx.ui.dirty())
+  // 订阅 chat 变更（render-only 共享原语）：chat 是父组件持有的共享会话（活引用，
+  // props 浅比较恒等 → 三态 skip 命中），父 dirty 不会驱动本组件重渲染 →
+  // useExternal 订阅：任何会话状态变化 → 自身重渲染（unmount 自动退订）
+  ctx.ui.useExternal(initProps.chat)
 
   // 可视视口跟踪：虚拟键盘弹起时输入区抬升到键盘上方（fixed 底部栏场景）
   const vv = ctx.ui.useVisualViewport()
@@ -106,7 +107,6 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
       queueMicrotask(scrollToBottom)
     } else if (!el && listEl) {
       listEl = undefined
-      unwatch?.() // 真正卸载时退订
     }
   }
 

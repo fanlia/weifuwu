@@ -19,6 +19,34 @@
 
 import type { VNode } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
+import { mountCommand } from './vdom/mount.ts'
+import { patchValue } from './vdom/diff.ts'
+import { buildVNode } from './vdom/build.ts'
+import { createRegistry } from './vdom/registry.ts'
+
+/**
+ * 组件 DOM 级测试辅助（vdom 引擎）：
+ * - mountToDom：buildVNode（await 工厂）→ renderValue → append（等挂载完成）
+ * - patchToDom：同树 patch（patchValue 兼容签名——第 5 参 ctx）
+ * - buildToDom：buildVNode 预构建（vdom 签名：reg 参数可省略）
+ */
+export function mountToDom(container: Element, vnode: VNode, ctx: any): Promise<void> {
+  return new Promise<void>((resolve) => {
+    mountCommand(container as HTMLElement, vnode, ctx, { onMounted: resolve })
+  })
+}
+export async function patchToDom(container: Element, node: Node | null, prev: any, next: any, ctx: any): Promise<any> {
+  // vdom 不变量：diff 前必须 buildVNode（组件 _render 已设——否则 renderValue 抛「not built」）
+  await buildVNode(next, ctx, prev, (ctx as any).__registry)
+  return patchValue(container, node, prev, next, {
+    browser: ctx.browser ?? (ctx as any).__browser,
+    registry: (ctx as any).__registry,
+  })
+}
+export function buildToDom(vnode: VNode, ctx: any): Promise<any> {
+  const reg = (ctx as any).__registry ?? ((ctx as any).__registry = createRegistry())
+  return buildVNode(vnode, ctx, undefined, reg)
+}
 
 // ── 两阶段组件渲染 ──────────────────────────────────────
 
@@ -76,16 +104,16 @@ export function findByClass(vnode: unknown, cls: string): any[] {
 // ── ctx 构造 ───────────────────────────────────────────
 
 /**
- * 标准测试 ctx：`{ ui: { $: () => ({}), render, dirty, ready: true } }` + 覆盖。
+ * 标准测试 ctx：`{ ui: { render, ready: true } }` + 覆盖。
  * overrides.ui 部分覆盖（可注入 usePopup/useScrollPosition 等任意原语 mock）。
  */
 export function createTestCtx(overrides?: { ui?: Partial<WfuiContext['ui']>; browser?: WfuiContext['browser'] }): WfuiContext {
   const base: any = {
     ui: {
-      $: () => ({}),
       render: () => {},
-      dirty: () => {},
       ready: true,
+      // useExternal 默认 no-op：订阅记录但不触发渲染（测试用 renderVNode 手动断言）
+      useExternal: () => undefined,
     },
   }
   const merged = overrides

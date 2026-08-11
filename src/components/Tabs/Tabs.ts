@@ -17,14 +17,15 @@ export interface TabsProps {
 
 export const Tabs: Component<TabsProps> = async (_init, ctx) => {
   const _browser = ctx?.browser ?? createClientBrowser()
-  const $ = ctx.ui.$()
-  $.inkLeft = 0
-  $.inkWidth = 0
+  // render-only：内部状态 let + 显式 render（ink bar 位置更新）
+  let inkLeft = 0
+  let inkWidth = 0
   let listEl: HTMLElement | null = null
   const measureTab = (el: HTMLElement | null) => {
     if (!el) return
-    $.inkLeft = el.offsetLeft
-    $.inkWidth = el.offsetWidth
+    inkLeft = el.offsetLeft
+    inkWidth = el.offsetWidth
+    ctx.ui.render()
   }
   const measureActive = () => {
     if (!listEl) return
@@ -84,7 +85,7 @@ export const Tabs: Component<TabsProps> = async (_init, ctx) => {
   // ink bar：滑动指示器（transform 过渡，定位到 active tab 下方）
   const ink = h('span', {
     class: 'wf-tab-ink',
-    style: { transform: `translateX(${$.inkLeft}px)`, width: `${$.inkWidth}px` },
+    style: { transform: `translateX(${inkLeft}px)`, width: `${inkWidth}px` },
     'aria-hidden': 'true',
   })
 

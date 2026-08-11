@@ -23,19 +23,20 @@ const fileOf = (id: string) => 'patterns/' + getPattern(id).file + '.tsx'
 
 // ── 壳：左侧模式列表 + hash 路由切换（#/app-shell 等）──
 const Shell: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.active = getPattern(location.hash.replace('#/', '')).id
-  $.showCode = false
-  $.code = ''
+  let active = getPattern(location.hash.replace('#/', '')).id
+  let showCode = false
+  let code = ''
+  const rerender = () => ctx.ui.render()
 
   const onHash = () => {
-    $.active = getPattern(location.hash.replace('#/', '')).id
-    $.showCode = false
+    active = getPattern(location.hash.replace('#/', '')).id
+    showCode = false
+    rerender()
   }
   window.addEventListener('hashchange', onHash)
 
   return () => {
-    const active = PATTERNS.find((p) => p.id === $.active) ?? PATTERNS[0]
+    const current = PATTERNS.find((p) => p.id === active) ?? PATTERNS[0]
     return (
       <div class="wf-row wf-gap-none wf-stretch wf-nowrap" style={{ height: '100vh' }}>
         {/* 左侧模式列表 */}
@@ -53,7 +54,7 @@ const Shell: Component = async (_init, ctx) => {
             tabindex="0"
             aria-label="布局模式列表"
             onKeyDown={(e: KeyboardEvent) => {
-              const idx = PATTERNS.findIndex((p) => p.id === active.id)
+              const idx = PATTERNS.findIndex((p) => p.id === active)
               if (e.key === 'ArrowDown') { e.preventDefault(); location.hash = '#/' + (PATTERNS[(idx + 1) % PATTERNS.length]?.id ?? PATTERNS[0].id) }
               if (e.key === 'ArrowUp') { e.preventDefault(); location.hash = '#/' + (PATTERNS[(idx - 1 + PATTERNS.length) % PATTERNS.length]?.id ?? PATTERNS[0].id) }
             }}
@@ -65,7 +66,7 @@ const Shell: Component = async (_init, ctx) => {
                   <a
                     key={p.id}
                     href={`#/${p.id}`}
-                    class={`wf-nav-item${p.id === active.id ? ' wf-nav-item--active' : ''}`}
+                    class={`wf-nav-item${p.id === active ? ' wf-nav-item--active' : ''}`}
                   >
                     {p.name}
                   </a>
@@ -89,7 +90,7 @@ const Shell: Component = async (_init, ctx) => {
                 <a
                   key={p.id}
                   href={`#/${p.id}`}
-                  class={`wf-nav-item wf-text-nowrap${p.id === active.id ? ' wf-nav-item--active' : ''}`}
+                  class={`wf-nav-item wf-text-nowrap${p.id === active ? ' wf-nav-item--active' : ''}`}
                 >
                   {p.name}
                 </a>
@@ -97,20 +98,22 @@ const Shell: Component = async (_init, ctx) => {
             </nav>
             <div class="wf-row wf-p-md wf-gap-lg">
               <div class="wf-stack wf-gap-none">
-                <b class="wf-text-bold">{active.name}</b>
-                <Text type="secondary" className="wf-text-sm">{active.desc}</Text>
+                <b class="wf-text-bold">{current.name}</b>
+                <Text type="secondary" className="wf-text-sm">{current.desc}</Text>
               </div>
               <Space size="md" align="center">
                 <Text className="wf-text-tertiary wf-text-xs" style={{ fontFamily: 'var(--wf-font-mono)' }}>
-                  {fileOf(active.id)}
+                  {fileOf(current.id)}
                 </Text>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={async () => {
-                    $.showCode = true
-                    const res = await fetch(`/src/patterns/${active.file}`)
-                    $.code = await res.text()
+                    showCode = true
+                    rerender()
+                    const res = await fetch(`/src/patterns/${current.file}`)
+                    code = await res.text()
+                    rerender()
                   }}
                 >
                   <Icon name="file-text" size={14} /> 查看代码
@@ -121,16 +124,16 @@ const Shell: Component = async (_init, ctx) => {
 
           {/* 查看代码 Drawer（children 中间位置——框架 mapChildDomNodes null 修复后不再错位） */}
           <Drawer
-            open={$.showCode}
-            title={`源码 · ${fileOf(active.id)}`}
-            onClose={() => { $.showCode = false }}
+            open={showCode}
+            title={`源码 · ${fileOf(current.id)}`}
+            onClose={() => { showCode = false; rerender() }}
             position="right"
             width="46%"
           >
-            <CodeBlock lang="tsx" title={fileOf(active.id)} code={$.code} />
+            <CodeBlock lang="tsx" title={fileOf(current.id)} code={code} />
           </Drawer>
           <div class="wf-fill wf-scroll wf-p-md">
-            {h(active.comp, {})}
+            {h(current.comp, {})}
           </div>
         </main>
       </div>

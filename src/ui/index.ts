@@ -32,7 +32,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
-import { ssrToString, serializeData } from './ssr.ts'
+import { ssrToString, serializeData } from '../ui-dom/vdom/ssr.ts'
 import type { Component } from '../ui-dom/vnode.ts'
 
 declare module '../types.ts' {

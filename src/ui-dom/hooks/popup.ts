@@ -293,7 +293,7 @@ export function useOpen(env: HookEnv, options: {
   }
   const isOpen = () => (controlled ? !!options.open : (selfId ? env.openStates.get(selfId) ?? false : false))
   const dirty = () => {
-    if (selfId) env.dirty([selfId])
+    if (selfId) env.render([selfId])
     else env.render()
   }
   const setOpen = (v: boolean) => {

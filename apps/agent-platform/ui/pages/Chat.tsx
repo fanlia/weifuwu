@@ -3,7 +3,8 @@ import { Ava } from '../components/ui'
 import { Alert, Badge, Button, CopyButton, EmptyState, Input, Markdown, MessageBubble } from 'weifuwu/components'
 
 export const Chat: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   const deptId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token
 
@@ -24,6 +25,7 @@ export const Chat: Component = async (_props, ctx) => {
     $.msgs = (msgRes.messages ?? []).reverse().map((m: any) => ({ ...m }))
     $.deptName = deptRes?.department?.name ?? deptRes?.name ?? '聊天'
     $.memberCount = (deptRes?.members ?? []).length
+    rerender()
   }).catch(() => {})
 
   const unsub = ctx.ws?.onMessage((event: any) => {
@@ -93,6 +95,7 @@ export const Chat: Component = async (_props, ctx) => {
         $.msgs = $.msgs.filter((m: any) => m.id !== event.messageId); break
       }
     }
+    rerender()
   })
   $.unsubWs = unsub
 
@@ -110,7 +113,7 @@ export const Chat: Component = async (_props, ctx) => {
       }
       return m
     })
-    if (changed) { $.msgs = updated }
+    if (changed) { $.msgs = updated; rerender() }
   }, 30000)
   $.streamTimer = timer
 
@@ -153,7 +156,7 @@ export const Chat: Component = async (_props, ctx) => {
         $.input = saved; alert('发送失败')
       }
     } catch { $.input = saved; alert('网络错误') }
-    finally { $.sending = false }
+    finally { $.sending = false; rerender() }
   }
 
   async function retryMessage(fromMsgId: string) {
@@ -166,10 +169,11 @@ export const Chat: Component = async (_props, ctx) => {
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: lastUser.content }).catch(() => {})
     $.sending = false
+    rerender()
   }
 
-  function startEdit(msg: any) { $.editingId = msg.id; $.editValue = msg.content }
-  function cancelEdit() { $.editingId = ''; $.editValue = '' }
+  function startEdit(msg: any) { $.editingId = msg.id; $.editValue = msg.content; rerender() }
+  function cancelEdit() { $.editingId = ''; $.editValue = ''; rerender() }
 
   async function saveEdit(e: Event) {
     e.preventDefault()
@@ -180,19 +184,21 @@ export const Chat: Component = async (_props, ctx) => {
   async function deleteMsg(msg: any) {
     const ok = await ctx.confirm!('确定撤回这条消息？')
     if (!ok) return
-    await ctx.api!.delete(`/api/messages/${msg.id}`).then(() => ctx.toast!('消息已撤回', 'success')).catch(() => ctx.toast!('撤回失败', 'error'))
+    await ctx.api!.delete(`/api/messages/${msg.id}`).then(() => { ctx.toast!('消息已撤回', 'success'); rerender() }).catch(() => ctx.toast!('撤回失败', 'error'))
   }
 
   async function approveDraft(msgId: string) {
     $.approving = msgId
     await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved: true }).catch(() => {})
     $.approving = null
+    rerender()
   }
 
   async function rejectDraft(msgId: string) {
     $.approving = msgId
     await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved: false }).catch(() => {})
     $.approving = null
+    rerender()
   }
 
   const chatBodyRef = (el: any) => {
@@ -335,7 +341,7 @@ export const Chat: Component = async (_props, ctx) => {
                 {beingEdited && (
                   <form onSubmit={saveEdit} class="wf-row wf-gap-xs wf-top">
                     <div class="wf-fill">
-                      <Input value={$.editValue} onInput={(e: any) => { $.editValue = e.target.value }} />
+                      <Input value={$.editValue} onInput={(e: any) => { $.editValue = e.target.value; rerender() }} />
                     </div>
                     <Button type="submit" size="sm">✓</Button>
                     <Button type="button" size="sm" variant="secondary" onClick={cancelEdit}>✕</Button>
@@ -350,7 +356,7 @@ export const Chat: Component = async (_props, ctx) => {
       <form class="wf-row wf-gap-sm wf-p-sm wf-border-t" onSubmit={sendMessage}>
         <div class="wf-fill">
           <Input type="text" placeholder="输入消息，回车发送..."
-            value={$.input} onInput={(e: any) => { $.input = e.target.value }}
+            value={$.input} onInput={(e: any) => { $.input = e.target.value; rerender() }}
             disabled={inputDisabled} />
         </div>
         <Button type="submit" variant="primary" disabled={!canSend}>➤</Button>

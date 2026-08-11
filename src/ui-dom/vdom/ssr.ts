@@ -35,10 +35,15 @@ function classToString(v: any): string {
 }
 
 function styleToString(v: Record<string, any>): string {
+  // 对齐 v1 序列化：数字加 px（非 0）+ 无空格分隔（紧凑）
   return Object.entries(v)
     .filter(([, val]) => val != null)
-    .map(([k, val]) => `${k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}: ${val}`)
-    .join('; ')
+    .map(([k, val]) => {
+      const key = k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())
+      const value = typeof val === 'number' && val !== 0 ? `${val}px` : String(val)
+      return `${key}:${value}`
+    })
+    .join(';')
 }
 
 /** 渲染 vnode → HTML 字符串（服务端） */
@@ -121,7 +126,8 @@ function createSsrUi(): any {
     setMounting: () => {},
     endMounting: () => {},
     // hooks no-op（组件 SSR 安全——不注册监听/定时器）
-    useChat: () => ({ messages: [], send: () => {}, stop: () => {}, retry: () => {}, clear: () => {}, approve: () => {} }),
+    useChat: () => ({ messages: [], input: '', streaming: false, error: null, usage: null, step: null, send: () => {}, stop: () => {}, retry: () => {}, clear: () => {}, approve: () => {}, subscribe: () => () => {} }),
+    useExternal: (store: any) => store,
     useMedia: noop,
     useBreakpoint: noop,
     usePopupPosition: () => ({ top: 0, left: 0, refresh: () => {} }),
@@ -137,13 +143,21 @@ function createSsrUi(): any {
     useControlledInput: () => ({ value: undefined, setValue: () => {}, keyword: '', setKeyword: () => {}, selectedLabel: '', setSelectedLabel: () => {}, controlled: false }),
     useOpen: () => ({ open: false, setOpen: () => {}, triggerProps: {} }),
     usePresence: () => ({ phase: 'closed', ref: () => {}, sync: () => 'closed' }),
-    useDialog: () => ({ phase: 'closed', rootRef: () => {}, panelRef: () => {}, sync: () => 'closed' }),
+    useDialog: () => ({ phase: 'closed', rootRef: () => {}, panelRef: () => {}, sync: (open: boolean) => (open ? 'open' : 'closed') }),
     useGlobalKey: () => () => {},
     useDrag: noopReturn,
     useDragDrop: () => ({ dropProps: {}, dragProps: {} }),
-    useReducedMotion: () => false,
+    useReducedMotion: () => true,  // SSR 无动画——组件直落终值
     useAnimationEnd: () => () => {},
-    useTween: () => ({ value: 0, reset: () => {} }),
+    useTween: (t: number) => {
+    // SSR 直落终值：reset 设目标；value 可读写（非动画路径 `tween.value = target`）
+    let v = t
+    return {
+      get value() { return v },
+      set value(n: number) { v = n },
+      reset: (n?: number) => { if (n !== undefined) v = n; return v },
+    }
+  },
   }
 }
 

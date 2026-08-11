@@ -21,13 +21,6 @@ export interface PopupPositionOptions {
   margin?: number
 }
 
-/** 响应式状态容器（createReactiveState 返回值）——深度 Proxy：任意层级赋值触发 dirty */
-export interface ReactiveState {
-  /** 订阅状态变更（任意层级赋值/删除触发）；返回退订函数 */
-  __watch: (cb: () => void) => () => void
-  [key: string]: any
-}
-
 /** 异步取数工具返回值 — ctx.ui.useAsync()（data/loading/error 响应式，reload 重跑） */
 export interface UseAsyncHandle<T = any> {
   data?: T
@@ -266,10 +259,6 @@ export interface WfuiContext {
   ui: {
     /** 触发组件重渲染（同步，无参 = 当前组件） */
     render: (ids?: string[]) => void
-    /** 异步触发组件重渲染（微任务批处理，无参 = 当前组件） */
-    dirty: (ids?: string[]) => void
-    /** 创建响应式状态容器：$.x = val 自动触发 dirty() */
-    $: () => Record<string, any>
     /**
      * AI 对话会话：$ 超集（会话语义 + 工具调用内嵌 + HITL 审批）
      *
@@ -360,6 +349,20 @@ export interface WfuiContext {
       onDragStart?: (e: DragEvent) => void
       onDragEnd?: (e: DragEvent) => void
     }) => { dropProps: Record<string, any>; dragProps: Record<string, any> }
+    /**
+     * 订阅共享状态（render-only 共享原语——design/render-only-plan.md）：
+     * mount 注册订阅（任何变化 → 自身重渲染），unmount 自动退订；返回 store 本身（活引用）。
+     * 参数契约：任何 { subscribe(cb): unsub } 的可订阅对象（createStore 产物 / useChat handle）。
+     *
+     * ```tsx
+     * const store = createStore({ count: 0 })
+     * const Comp = (_init, ctx) => {
+     *   ctx.ui.useExternal(store)
+     *   return () => h('div', {}, store.state.count)
+     * }
+     * ```
+     */
+    useExternal: (store: { subscribe(cb: () => void): () => void; [key: string]: any }) => any
     /**
      * 可视视口跟踪（visualViewport）：键盘弹起/缩放时自动更新 + dirty。
      * 无 visualViewport（桌面）降级 innerHeight。fixed 底部栏防键盘遮挡用。

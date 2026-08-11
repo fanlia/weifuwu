@@ -1,20 +1,17 @@
 /**
- * ui-dom 测试辅助——用 uiServe 挂载组件（替代已删除的 createApp.mount）
+ * ui-dom 测试辅助——用 vdom 引擎（mountRoot）挂载组件（v1 退役后）
  */
-import { UIRouter, uiServe, h } from '../ui-dom/index.ts'
+import { h } from '../ui-dom/index.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
+import { mountRoot } from '../ui-dom/vdom/mount.ts'
 
 export async function mountApp(container: Element, Comp: any): Promise<{ ctx: any; rerender: () => void }> {
-  const router = new UIRouter()
-  router.get('/', () => h(Comp, {}))
-  const handle = uiServe(router, { root: container })
+  const handle = mountRoot({ browser: createClientBrowser(), root: container as HTMLElement })
+  await handle.mount(h(Comp, {}))
   await new Promise((r) => setTimeout(r, 0))
   return {
-    close: () => handle.close(),
+    close: () => handle.unmount(),
     ctx: handle.ctx,
-    rerender: () => {
-      // 对齐 createApp ctx.ui.render()：bump 版本失效三态 skip + 整树重渲染
-      ;(handle.ctx.ui as any).bumpCtxVersion?.()
-      ;(handle.ctx as any).__rerender?.()
-    },
+    rerender: () => handle.rerender(),
   }
 }

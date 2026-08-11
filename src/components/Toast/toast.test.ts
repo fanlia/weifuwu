@@ -17,7 +17,8 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 
-const { UIRouter, uiServe } = await import('../../ui-dom/index.ts')
+const { UIRouter } = await import('../../ui-dom/index.ts')
+const { uiServe } = await import('../../ui-dom/vdom/serve.ts')
 import { h } from '../../ui-dom/vnode.ts'
 import { toast } from './Toast.ts'
 

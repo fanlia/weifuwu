@@ -20,7 +20,7 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { UIRouter, uiServe, h } from '../ui-dom/index.ts'
-import { ssrToString } from '../ui/ssr.ts'
+import { ssrToString } from '../ui-dom/vdom/ssr.ts'
 
 before(setupJsdom)
 
@@ -237,16 +237,15 @@ test('T6 SSR：嵌套原生 async 组件 await 展开', async () => {
 
 // ── T8 _render 复用（resolve 后二次渲染不重跑工厂） ──────
 
-test('T8 resolve 后 $ 赋值二次渲染：走 _render，不重跑工厂', async () => {
+test('T8 resolve 后 render 二次渲染：走 _render，不重跑工厂', async () => {
   const b = createClientBrowser()
   let factoryRuns = 0
   const Home = async (_init: any, ctx: any) => {
     factoryRuns++
     const d = await Promise.resolve({ base: 'b' })
-    const $ = ctx.ui.$()
-    $.count = 0
-    ;(globalThis as any).__inc = () => { $.count++ }
-    return () => h('div', { id: 't8' }, `${d.base}:${$.count}`)
+    let count = 0
+    ;(globalThis as any).__inc = () => { count++; ctx.ui.render() }
+    return () => h('div', { id: 't8' }, `${d.base}:${count}`)
   }
   const router = new UIRouter()
   router.get('/', () => h(Home, {}))

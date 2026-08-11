@@ -25,11 +25,11 @@ serve(app, { port: 3000 })
 console.log('http://localhost:3000')` },
   { name: 'ui.ts', icon: 'file-text' as const, depth: 0, code: `// ui.ts —— 组件 + 响应式状态
 export const Counter: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.count = 0
+  let count = 0
+  const rerender = () => ctx.ui.render()
   return () => h('button', {
-    onClick: () => { $.count++ },
-  }, '计数：' + $.count)
+    onClick: () => { count++; rerender() },
+  }, '计数：' + count)
 }` },
   { name: 'diff.ts', icon: 'file-text' as const, depth: 0, code: `// diff.ts —— VNode diff（无 key 复用）
 export function patchKeyedChildren(...) {
@@ -39,12 +39,12 @@ export function patchKeyedChildren(...) {
 ]
 
 export const SplitWorkspace: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.file = 'server.ts'
-  $.tab = 'server.ts'
+  const rerender = () => ctx.ui.render()
+  let file = 'server.ts'
+  let tab = 'server.ts'
 
   return () => {
-    const code = (FILES2.find((f) => f.name === $.file) ?? FILES2[0]).code
+    const code = (FILES2.find((f) => f.name === file) ?? FILES2[0]).code
     return (
     <div class="wf-grid wf-border wf-rounded-lg" style={{ height: 'calc(100vh - 48px)', '--wf-cols': '20% 1fr 260px', overflow: 'hidden' }}>
       {/* 左栏：文件树 */}
@@ -55,8 +55,8 @@ export const SplitWorkspace: Component = async (_init, ctx) => {
           {FILES2.map((f) => (
             <div
               key={f.name}
-              class={`wf-nav-item wf-pointer${$.file === f.name ? ' wf-nav-item--active' : ''}`}
-              onClick={() => { $.file = f.name }}
+              class={`wf-nav-item wf-pointer${file === f.name ? ' wf-nav-item--active' : ''}`}
+              onClick={() => { file = f.name; rerender() }}
             >
               <span class="wf-nav-icon"><Icon name={f.icon} size={14} /></span>
               <span class="wf-nav-label">{f.name}</span>
@@ -69,13 +69,13 @@ export const SplitWorkspace: Component = async (_init, ctx) => {
       <main class="wf-stack wf-gap-none wf-fill">
         <div class="wf-p-sm wf-border-b">
           <Tabs
-            active={$.tab}
-            onChange={(k) => { $.tab = k; $.file = k }}
+            active={tab}
+            onChange={(k) => { tab = k; file = k; rerender() }}
             items={FILES2.map((f) => ({ key: f.name, label: f.name }))}
           />
         </div>
         <div class="wf-fill wf-p-md wf-scroll">
-          <CodeBlock lang="ts" title={$.file} code={code} />
+          <CodeBlock lang="ts" title={file} code={code} />
         </div>
         {/* 底部状态栏 */}
         <div class="wf-row wf-p-sm wf-gap-md wf-border-t">

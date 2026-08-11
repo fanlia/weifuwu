@@ -85,11 +85,10 @@ describe('Select (native)', () => {
 
 describe('Select (searchable)', () => {
   async function searchableCtx(){
-    const state = createState({ open: false, keyword: '', filteredOptions: [] })
-    const ctx = { ui: { $: () => state, render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
-    // mount: 此时组件内会 $.open = false（与 state 一致）
+    const ctx = { ui: { $: () => ({}), render: () => {}, dirty: () => {}, usePopup: (opts: any) => ({ get open() { return opts.isOpen() }, setOpen: opts.setOpen, refresh: () => {}, portal: (c: any) => (opts.isOpen() ? c : null), wrapProps: {} }) } } as any
+    // render-only：内部状态为闭包 let——测试通过真实交互处理器（onClick/onInput）驱动
     const render = await Select({}, ctx)!
-    return { ctx, state, render }
+    return { ctx, render }
   }
 
   it('renders trigger input', async () => {
@@ -100,11 +99,16 @@ describe('Select (searchable)', () => {
     assert.ok(input, 'should render search input')
   })
 
-  it('shows menu when state.open is true', async () => {
-    const { render, state } = await searchableCtx()
-    state.open = true  // 修改状态后 re-render
-    const vnode = render({ searchable: true, options: [{ value: 'a', label: 'A' }] })
-    const nodes = allNodes(vnode)
+  it('shows menu when opened (click trigger)', async () => {
+    const { render } = await searchableCtx()
+    const props = { searchable: true, options: [{ value: 'a', label: 'A' }] }
+    let vnode = render(props)
+    let nodes = allNodes(vnode)
+    const trigger = nodes.find((n: any) => n?.props?.class === 'wf-select-search-trigger')
+    assert.ok(trigger)
+    trigger.props.onClick()          // 驱动内部 open = true
+    vnode = render(props)            // 同实例 re-render
+    nodes = allNodes(vnode)
     const menu = nodes.find((n: any) => n?.props?.class?.startsWith?.('wf-select-search-menu'))
     assert.ok(menu, 'should render menu when open')
   })
@@ -119,28 +123,34 @@ describe('Select (searchable)', () => {
   })
 
   it('filters options on keyword', async () => {
-    const { render, state } = await searchableCtx()
-    state.open = true
-    state.keyword = 'Beta'
-    const vnode = render({
+    const { render } = await searchableCtx()
+    const props = {
       searchable: true,
       options: [
         { value: 'a', label: 'Alpha' },
         { value: 'b', label: 'Beta' },
         { value: 'c', label: 'Gamma' },
       ],
-    })
-    const nodes = allNodes(vnode)
+    }
+    let vnode = render(props)
+    let nodes = allNodes(vnode)
+    nodes.find((n: any) => n?.props?.class === 'wf-select-search-trigger').props.onClick() // 打开
+    const input = allNodes(render(props)).find((n: any) => n?.props?.class === 'wf-select-search-input')
+    await input.props.onInput({ target: { value: 'Beta' } })    // 驱动 keyword 过滤
+    vnode = render(props)
+    nodes = allNodes(vnode)
     const opts = nodes.filter((n: any) => n?.props?.class?.startsWith?.('wf-select-search-opt'))
     assert.equal(opts.length, 1)
     assert.equal(opts[0].props.children, 'Beta')
   })
 
   it('shows empty message when no match', async () => {
-    const { render, state } = await searchableCtx()
-    state.open = true
-    state.keyword = 'XYZ'
-    const vnode = render({ searchable: true, options: [{ value: 'a', label: 'A' }] })
+    const { render } = await searchableCtx()
+    const props = { searchable: true, options: [{ value: 'a', label: 'A' }] }
+    render(props)
+    const input = allNodes(render(props)).find((n: any) => n?.props?.class === 'wf-select-search-input')
+    await input.props.onInput({ target: { value: 'XYZ' } })     // 驱动 keyword
+    const vnode = render(props)
     const nodes = allNodes(vnode)
     const empty = nodes.find((n: any) => n?.props?.class === 'wf-select-search-empty')
     assert.ok(empty)
@@ -149,11 +159,13 @@ describe('Select (searchable)', () => {
 
   it('calls onChange on option select', async () => {
     let captured = ''
-    const { render, state } = await searchableCtx()
-    state.open = true
-    state.keyword = ''
-    const vnode = render({ searchable: true, options: [{ value: 'x', label: 'X' }], onChange: (v: string) => { captured = v } })
-    const nodes = allNodes(vnode)
+    const { render } = await searchableCtx()
+    const props = { searchable: true, options: [{ value: 'x', label: 'X' }], onChange: (v: string) => { captured = v } }
+    let vnode = render(props)
+    let nodes = allNodes(vnode)
+    nodes.find((n: any) => n?.props?.class === 'wf-select-search-trigger').props.onClick() // 打开
+    vnode = render(props)
+    nodes = allNodes(vnode)
     const opt = nodes.find((n: any) => n?.props?.class?.startsWith?.('wf-select-search-opt'))
     assert.ok(opt)
     opt.props.onMouseDown({ preventDefault: () => {} })

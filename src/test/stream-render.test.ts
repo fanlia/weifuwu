@@ -27,19 +27,18 @@ test('流式推送：组件 $ msgs 深赋值 content 每次 token 都触发渲�
   const renderLog: string[] = []
   // 模拟 Chat：mount 时注册 ws onMessage（闭包捕获组件级 $）——真实 Chat 模式
   const Chat = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.msgs = []
+    const msgs: any[] = []
     // 模拟 ws onMessage 回调（Chat.tsx 的 ctx.ws.onMessage → m.content += text）
     const onToken = (text: string) => {
       // 首 token 前先有占位消息（Chat 的 ai_draft/new_message 创建空消息）
-      let m = $.msgs.find((x: any) => x.id === 'm1')
-      if (!m) { $.msgs.push({ id: 'm1', content: '', status: 'generating' }); m = $.msgs.find((x: any) => x.id === 'm1') }
-      if (m) m.content += text
+      let m = msgs.find((x: any) => x.id === 'm1')
+      if (!m) { msgs.push({ id: 'm1', content: '', status: 'generating' }); m = msgs.find((x: any) => x.id === 'm1') }
+      if (m) { m.content += text; ctx.ui.render() }
     }
     ;(globalThis as any).__chatOnToken = onToken
     return () => {
-      renderLog.push($.msgs.map((m: any) => m.content).join(''))
-      return h('div', { id: 'chat' }, $.msgs.map((m: any) => h('p', { key: m.id }, m.content)))
+      renderLog.push(msgs.map((m: any) => m.content).join(''))
+      return h('div', { id: 'chat' }, msgs.map((m: any) => h('p', { key: m.id }, m.content)))
     }
   }
   const router = new UIRouter()
@@ -74,18 +73,17 @@ test('流式推送：组件 $ msgs 深赋值 content 每次 token 都触发渲�
 test('流式推送：渲染进行中 token 到达（isRendering 拦截）→ pendingDirty 不丢——最终 UI 完整', async () => {
   const b = createClientBrowser()
   const Chat = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.msgs = []
+    const msgs: any[] = []
     const onToken = (text: string) => {
-      let m = $.msgs.find((x: any) => x.id === 'm1')
-      if (!m) { $.msgs.push({ id: 'm1', content: '' }); m = $.msgs.find((x: any) => x.id === 'm1') }
-      if (m) m.content += text
+      let m = msgs.find((x: any) => x.id === 'm1')
+      if (!m) { msgs.push({ id: 'm1', content: '' }); m = msgs.find((x: any) => x.id === 'm1') }
+      if (m) { m.content += text; ctx.ui.render() }
     }
     ;(globalThis as any).__chatOnToken2 = onToken
     return () => {
       // 渲染 200 个节点——延长渲染时间，制造"渲染中 token 到达"窗口
       return h('div', { id: 'chat2' },
-        $.msgs.map((m: any) => h('p', { key: m.id }, m.content)),
+        msgs.map((m: any) => h('p', { key: m.id }, m.content)),
         ...Array.from({ length: 200 }, (_, i) => h('span', { key: 'x' + i }, String(i))),
       )
     }

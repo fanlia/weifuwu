@@ -160,9 +160,18 @@ describe('Cascader', () => {
     let picked: string[] | undefined
     const render = await mount(Cascader, { options, showSearch: true, onChange: (v: string[]) => { picked = v } }, ctx)!
     let v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
-    triggerOf(v).props.onClick()
-    // 模拟输入「宁波」
-    ctx.ui.$().kw = '宁波'
+    triggerOf(v).props.onClick() // 打开面板
+    v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
+    // render-only：搜索框 onInput 驱动内部 kw
+    const findInput = (n: any): any => {
+      if (!n || typeof n !== 'object') return null
+      if (String(n.props?.class ?? '').split(' ').includes('wf-cascader-search')) return n
+      const k = n.props?.children
+      const arr = Array.isArray(k) ? k : (k && typeof k === 'object' ? [k] : [])
+      for (const c of arr) { const f = findInput(c); if (f) return f }
+      return null
+    }
+    findInput(panelOf(v))?.props.onInput({ target: { value: '宁波' } })
     v = render({ options, showSearch: true, onChange: (v: string[]) => { picked = v } })
     const panel = panelOf(v)
     assert.ok(panel, '面板打开')

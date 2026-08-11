@@ -20,6 +20,7 @@ function createTestCtx(): WfuiContext {
     useScrollPosition: () => ({ y: scrollY, refresh: () => {} }),
     $: () => ({ expanded: {} }),
     dirty: () => {}, render: () => {},
+    useExternal: () => undefined,
   } } as any
 }
 

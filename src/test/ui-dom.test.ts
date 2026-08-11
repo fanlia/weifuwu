@@ -13,7 +13,8 @@ import { test, afterEach, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
-import { UIRouter, uiServe, h } from '../ui-dom/index.ts'
+import { UIRouter, h } from '../ui-dom/index.ts'
+import { uiServe } from '../ui-dom/vdom/serve.ts'
 import type { UIHandler, UIMiddleware, WfuiContext } from '../ui-dom/index.ts'
 const browser = createClientBrowser()
 
@@ -58,11 +59,14 @@ test('handler async：ctx.data 缓存命中（外层只使用一次）+ params �
       fetchCount++
       return { name: '张三' }
     })
-    const $ = ctx.ui.$()
-    $.clicks = $.clicks ?? 0
+    // render-only：交互状态包成子组件（handler 非组件——无 render 能力）
+    const Clicker = async (_init: any, c: any) => {
+      let clicks = 0
+      return () => h('button', { id: 'uc', onClick: () => { clicks++; c.ui.render() } }, String(clicks))
+    }
     return h('div', { id: 'user' },
       h('span', { id: 'uname' }, `用户: ${(user as any).name}`),
-      h('button', { id: 'uc', onClick: () => { $.clicks++ } }, String($.clicks)),
+      h(Clicker, {}),
     )
   })
   browser.navigate('/users/42')
@@ -156,16 +160,15 @@ test('子路由：sub 中间件链 + notFound + 两层嵌套 + params + 段边�
 // ctx.ui 三 API：$ / dirty / render + 组件级重渲染
 // ═══════════════════════════════════════════════════════
 
-test('组件级 $：点击只重渲染该组件（父 handler 不重跑）', async () => {
+test('组件级状态：点击只重渲染该组件（父 handler 不重跑）', async () => {
   let handlerRuns = 0
   const router = new UIRouter()
   const Counter = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.count = 0
+    let count = 0
     return (props: any) =>
       h('div', {},
-        h('span', { id: `n-${props.id}` }, String($.count)),
-        h('button', { id: `inc-${props.id}`, onClick: () => { $.count++ } }, '+'),
+        h('span', { id: `n-${props.id}` }, String(count)),
+        h('button', { id: `inc-${props.id}`, onClick: () => { count++; ctx.ui.render() } }, '+'),
       )
   }
   router.get('/counters', async (location, ctx) => {
@@ -185,11 +188,11 @@ test('组件级 $：点击只重渲染该组件（父 handler 不重跑）', asy
   handle.close()
 })
 
-test('ctx.ui.dirty()：闭包 let 手动模式 + render() 同步', async () => {
+test('render-only：闭包 let + ctx.ui.render() 手动触发', async () => {
   const router = new UIRouter()
   const Manual = async (_init: any, ctx: any) => {
     let count = 0
-    return () => h('button', { id: 'm-btn', onClick: () => { count++; ctx.ui.dirty() } }, String(count))
+    return () => h('button', { id: 'm-btn', onClick: () => { count++; ctx.ui.render() } }, String(count))
   }
   router.get('/manual', () => h('div', {}, h(Manual)))
   browser.navigate('/manual')
@@ -208,18 +211,22 @@ test('ctx.ui.dirty()：闭包 let 手动模式 + render() 同步', async () => {
 
 test('keyed 列表重排复用 DOM + style diff + 事件不累积', async () => {
   const router = new UIRouter()
-  router.get('/list', async (location, ctx) => {
-    const $ = ctx.ui.$()
-    $.items = $.items ?? [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
-    $.show = $.show ?? true
-    return h('div', {},
-      h('ul', {}, ...($.items as any[]).map((it: any) => h('li', { key: it.id, id: `li-${it.id}` }))),
+  // render-only：状态包成子组件（handler 无 render 能力）
+  const ListDemo = async (_init: any, c: any) => {
+    let items: any[] = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    let show = true
+    return () => h('div', {},
+      h('ul', {}, ...(items as any[]).map((it: any) => h('li', { key: it.id, id: `li-${it.id}` }))),
       h('button', {
         id: 'shuffle',
-        onClick: () => { const arr = [...($.items as any[])]; const f = arr.shift()!; arr.push(f); $.items = arr },
+        onClick: () => { const arr = [...(items as any[])]; const f = arr.shift()!; arr.push(f); items = arr; c.ui.render() },
       }, '轮转'),
-      h('div', { id: 'sty', style: $.show ? { display: 'block' } : { display: undefined } }),
+      h('button', { id: 'tog', onClick: () => { show = !show; c.ui.render() } }, '切换'),
+      h('div', { id: 'sty', style: show ? { display: 'block' } : { display: undefined } }),
     )
+  }
+  router.get('/list', async (location, ctx) => {
+    return h(ListDemo, {})
   })
   browser.navigate('/list')
   const el = mount('ui-list')
@@ -230,8 +237,7 @@ test('keyed 列表重排复用 DOM + style diff + 事件不累积', async () => 
   await flush()
   assert.deepEqual([...el.querySelectorAll('li')].map(n => n.id), ['li-b', 'li-c', 'li-a'], 'keyed 重排')
   assert.equal(el.querySelector('#li-a'), liA, 'li-a 复用不重建')
-  const $ = handle.ctx.ui.$()
-  $.show = false
+  ;(el.querySelector('#tog') as HTMLElement).click()   // render-only：组件内部状态切换
   await flush()
   assert.equal((el.querySelector('#sty') as HTMLElement).style.display, '', 'style diff 清除')
   handle.close()
@@ -242,7 +248,7 @@ test('keyed 列表重排复用 DOM + style diff + 事件不累积', async () => 
 // ═══════════════════════════════════════════════════════
 
 test('ssrToString + uiServe hydrate 收养', async () => {
-  const { ssrToString } = await import('../ui-dom/ssr.ts')
+  const { ssrToString } = await import('../ui-dom/vdom/ssr.ts')
   const html = await ssrToString(
     (() => () => h('div', { id: 'app' }, h('h1', {}, '标题'), h('span', { onClick: () => {} }, 'x'))) as any,
     {},
@@ -254,13 +260,17 @@ test('ssrToString + uiServe hydrate 收养', async () => {
   const el = mount('ui-hyd')
   el.innerHTML = html
   const router = new UIRouter()
+  const HydCounter = async (_init: any, c: any) => {
+    let n = 0
+    return () => h('div', {},
+      h('button', { id: 'b', onClick: () => { n++; c.ui.render() } }, 'x'),
+      h('span', { id: 'n' }, String(n)),
+    )
+  }
   router.get('/hyd', (location, ctx) => {
-    const $ = ctx.ui.$()
-    $.n = $.n ?? 0
     return h('div', { id: 'app' },
       h('h1', {}, '标题'),
-      h('button', { id: 'b', onClick: () => { $.n++ } }, 'x'),
-      h('span', { id: 'n' }, String($.n)),
+      h(HydCounter, {}),
     )
   })
   browser.navigate('/hyd')
@@ -328,8 +338,6 @@ test('UIRouter.use(AppMiddleware)：自定义注入中间件（ctx.xxx 类型扩
   const router = new UIRouter()
   router.use(customMw)
   router.get('/c', async (location, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.v = $.v ?? 0
     return h('div', { id: 'c-page' }, `custom: ${ctx.custom.hello}`)
   })
   browser.navigate('/c')
@@ -347,7 +355,7 @@ test('UIRouter.use(AppMiddleware)：自定义注入中间件（ctx.xxx 类型扩
 // ═══════════════════════════════════════════════════════
 
 test('ssrPage：SSR 渲染路由页面 → 完整 HTML + __DATA__', async () => {
-  const { ssrPage } = await import('../ui-dom/ssr.ts')
+  const { ssrPage } = await import('../ui-dom/vdom/ssr.ts')
   const router = new UIRouter()
   router.get('/users/:id', async (location, ctx) => {
     const user = await ctx.data.get(`/api/users/${ctx.params.id}`, async () => ({ name: '张三' }))
@@ -367,7 +375,7 @@ test('ssrPage：SSR 渲染路由页面 → 完整 HTML + __DATA__', async () => 
 })
 
 test('SSR → hydrate 完整链路：预取数据 __DATA__ 命中 + DOM 收养', async () => {
-  const { ssrPage } = await import('../ui-dom/ssr.ts')
+  const { ssrPage } = await import('../ui-dom/vdom/ssr.ts')
   const router = new UIRouter()
   let fetchCount = 0
   router.get('/page', async (location, ctx) => {

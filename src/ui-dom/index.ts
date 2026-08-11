@@ -1,35 +1,27 @@
 /**
- * weifuwu/ui-dom — 前端路由（UIRouter 纯路由 + uiServe 渲染运行时）
+ * weifuwu/ui-dom — 前端路由 + 渲染运行时（v2 vdom 引擎，render-only）
  *
- * 定稿架构（design/ui-architecture.md + ui-dom-client-align.md）：
- *   req = window.location，res = VNode，uiServe = VDOM（落地）
- *   handler = 异步组件：async (location, ctx) => vnode（$ 有效）
- *   middleware = 两阶段 async（layout 与 SSR 都是中间件）
+ * 渲染运行时 = vdom（第 2 代引擎，design/render-only-plan.md）：
+ * - 渲染触发唯一原语 ctx.ui.render()（无 $ / dirty——无自动渲染）
+ * - 共享状态：createStore + ctx.ui.useExternal
+ * - 命令式挂载：mountCommand/unmountCommand（弹窗中间件在 components 各组件内部）
  *
- * 渲染运行时复制自 client（registry/createUi/render/diff/popup-tracker 局部实例），
- * VNode 契约共享（components 直接复用）。
+ * 定稿架构（design/ui-architecture.md）：req = window.location，res = VNode，
+ * uiServe = VDOM（落地）；handler = 异步组件；middleware = 两阶段 async。
  */
 
 export { UIRouter } from './router.ts'
 export type { UIRouterOptions, RouteMatch } from './router.ts'
-export { uiServe } from './serve.ts'
-export type { UIServeOptions, UIServeHandle } from './serve.ts'
 export { h, jsx, jsxs, jsxDEV, Fragment, Portal, createPortal } from './vnode.ts'
 export type { VNode, VNodeChild, VNodeType, Component } from './vnode.ts'
-export { createReactiveState } from './reactive.ts'
 export { createClientBrowser } from './browser.ts'
-export { mountVNode } from './render.ts'
-export { callRefCleanup } from './render.ts'
 export { animateOut } from './motion.ts'
-export { patchValue } from './diff.ts'
-export { hydrateVNode } from './hydration.ts'
 export { api } from './middleware/api.ts'
 export type { ApiClient, ApiOptions, ApiRequestOptions, ApiInjected } from './middleware/api.ts'
 export { auth } from './middleware/auth.ts'
 export type { AuthClient, AuthInjected } from './middleware/auth.ts'
 export { ws } from './middleware/ws.ts'
 export type { WsClient, WsInjected } from './middleware/ws.ts'
-export { ssrPage, serializeData, ssrToString } from './ssr.ts'
 export type {
   UIRequest,
   UIResponse,
@@ -38,3 +30,16 @@ export type {
   UIRouteDef,
   WfuiContext,
 } from './types.ts'
+
+// ── v2 vdom 引擎（render-only）──
+export { uiServe } from './vdom/serve.ts'
+export type { UIServeOptions, UIServeHandle } from './vdom/serve.ts'
+export { patchValue } from './vdom/diff.ts'
+export { hydrateVNode } from './vdom/hydration.ts'
+export { ssrPage, ssrToString, serializeData } from './vdom/ssr.ts'
+export { mountRoot, createVdomContext, mountCommand, unmountCommand, createCommandContainer } from './vdom/mount.ts'
+export { buildVNode } from './vdom/build.ts'
+export { renderValue } from './vdom/render.ts'
+export { createScheduler, type Scheduler } from './vdom/scheduler.ts'
+export { createStore } from './store.ts'
+export type { ExternalStore } from './store.ts'

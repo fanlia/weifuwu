@@ -1,7 +1,9 @@
 /**
  * hooks/chat — AI 对话会话（useChat）
  *
- * 会话语义 + 工具调用内嵌 + HITL 审批。返回组件同一个 $（缓存复用）。
+ * 会话语义 + 工具调用内嵌 + HITL 审批。render-only 方案（design/render-only-plan.md）：
+ * state 是**普通对象**（不再挂组件 $），变化 → notify → 订阅者重渲染；
+ * handle 带 subscribe——共享会话的子组件用 ctx.ui.useExternal(handle) 订阅。
  */
 
 import type { HookEnv } from './types.ts'
@@ -11,16 +13,27 @@ import { aiStream } from '../ai.ts'
 
 /** AI 对话会话（会话语义 + 工具调用内嵌 + HITL 审批） */
 export function useChat(env: HookEnv, options: UseChatOptions): UseChatHandle {
-  const state = env.$() as UseChatState
-  const api = createChatSession(state, aiStream, options)
-  Object.assign(state, {
-    send: api.send,
-    stop: api.stop,
-    retry: api.retry,
-    clear: api.clear,
-    approve: api.approve,
-    dispose: api.dispose,
-  })
+  // 共享状态：普通对象 + 订阅表（render-only——不再挂组件 $）
+  const state: UseChatState = {
+    messages: [],
+    input: '',
+    streaming: false,
+    error: null,
+    usage: null,
+    step: null,
+  }
+  const subs = new Set<() => void>()
+  const notify = () => {
+    for (const cb of [...subs]) cb()
+  }
+  const api = createChatSession(state, aiStream, options, notify)
+  Object.assign(state, api)
+  ;(state as any).subscribe = (cb: () => void) => {
+    subs.add(cb)
+    return () => {
+      subs.delete(cb)
+    }
+  }
   // 自动 dispose：组件卸载时中止 in-flight 流，防泄漏
   const selfId = env.selfId()
   if (selfId) {

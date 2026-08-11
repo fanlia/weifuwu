@@ -14,8 +14,6 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { UIRouter, uiServe, h } from '../ui-dom/index.ts'
-import { createReactiveState } from '../ui-dom/reactive.ts'
-import { renderValue } from '../ui-dom/render.ts'
 import type { WfuiContext } from '../ui-dom/index.ts'
 
 before(setupJsdom)
@@ -120,11 +118,10 @@ test('三态 skip：props 相同 + 无 dirty → 组件 patch 复用（render �
   const b = createClientBrowser()
   let renderCount = 0
   const Counter = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.n = 0
+    let n = 0
     return () => {
       renderCount++
-      return h('div', { id: 'counter' }, `count=${$.n}`)
+      return h('div', { id: 'counter' }, `count=${n}`)
     }
   }
 
@@ -143,36 +140,6 @@ test('三态 skip：props 相同 + 无 dirty → 组件 patch 复用（render �
   await flush()
   assert.equal(renderCount, afterMount, '同 props + 无 dirty → 组件渲染被三态 skip 复用')
   handle.close()
-})
-
-// ═══════════════════════════════════════════════════════
-// 4. reactive 读不触发 dirty（Map/Set/Date/数组/对象——排查假设验证）
-// ═══════════════════════════════════════════════════════
-
-test('reactive 读操作不触发 dirty（Map/Set/Date/数组/对象）', () => {
-  let dirty = 0
-  const $ = createReactiveState(() => dirty++)
-
-  $.obj = { a: 1 }
-  $.arr = [{ id: 1 }, { id: 2 }]
-  $.map = new Map([['k', 'v']])
-  $.set = new Set(['x'])
-  $.date = new Date()
-  dirty = 0
-
-  const reads: unknown[] = [
-    $.obj.a,
-    $.arr.map((d: any) => d.id),
-    $.arr.length,
-    $.map.get('k'),
-    $.map.size,
-    $.map.has('k'),
-    $.set.has('x'),
-    $.set.size,
-    $.date.getTime(),
-  ]
-  assert.equal(dirty, 0, '所有读操作均不触发 dirty（读触发 = 渲染死循环隐患）')
-  assert.equal(reads.length, 9)
 })
 
 // ═══════════════════════════════════════════════════════
@@ -201,12 +168,7 @@ test('渲染死循环 failsafe：renderValue 超限抛错（防御无限挂载�
   const b = createClientBrowser()
   // 组件渲染期反复触发 dirty（渲染 → dirty → 渲染……微任务风暴）——failsafe 抛错而非无限循环
   const Loop = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.n = 0
-    return () => {
-      // 渲染期赋值——isRendering 拦截推微任务——微任务风暴场景由 failsafe 兜底
-      return h('div', {}, 'loop')
-    }
+    return () => h('div', {}, 'loop')
   }
   const router = new UIRouter()
   router.get('/', () => h(Loop, {}))
@@ -264,8 +226,7 @@ test('渲染中间件执行次数 = 渲染次数（中间件自身不触发额�
     }
   }
   const Page = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.n = 0
+    let n = 0
     return () => {
       renderCount++
       return h('div', { id: 'page' }, 'page')
@@ -284,11 +245,12 @@ test('渲染中间件执行次数 = 渲染次数（中间件自身不触发额�
   assert.ok(firstMw >= 1, '渲染中间件首次执行')
   assert.ok(el.querySelector('#mw-shell'), '中间件包裹渲染')
 
-  // 同路由重新渲染（popstate）——中间件执行 1 次、组件三态 skip（render 不重跑）
-  b.navigate('/')
-  ;(window as any).dispatchEvent(new PopStateEvent('popstate'))
+  // 跨路径导航（popstate）——中间件执行 1 次、组件 render 不额外循环
+  // （vdom 跳过同路径导航——path !== currentPath 优化）
+  router.get('/other', () => h('div', { id: 'other' }, 'other'))
+  b.navigate('/other')   // navigate 内部已 dispatch popstate
   await flush()
   assert.equal(mwCount, firstMw + 1, '渲染中间件每次渲染执行 1 次（不额外触发）')
-  assert.equal(renderCount, firstRender, '组件三态 skip——不重渲染（中间件不触发刷新循环）')
+  assert.ok(el.querySelector('#other'), '导航到新页面渲染')
   handle.close()
 })

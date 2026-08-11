@@ -3,13 +3,14 @@ import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Button, Card } from 'weifuwu/components'
 
 export const NewChat: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   const token = ctx.auth?.token
 
    $.depts = []; $.loading = true
     ctx.api!.get('/api/departments')
-      .then(d => { $.depts = d.departments ?? []; $.loading = false })
-      .catch(() => { $.loading = false })
+      .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
+      .catch(() => { $.loading = false; rerender() })
 
   return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">

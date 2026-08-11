@@ -49,11 +49,9 @@ export function filterOptions(options: AutoCompleteOption[], query: string): Aut
 }
 
 export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: WfuiContext) => {
-  // ── mount（只一次）──
-  // open 状态经 $（Proxy 自动 dirty → 重渲染，与 usePopup 集成）；
+  // render-only：内部状态 let + 显式 render（open 经闭包绑定——§4.5 无 this 陷阱）；
   // keyword/selected 由 useControlledInput 管理（render 层调用——C3 原语）
-  const $ = ctx.ui.$()
-  $.open = _init?.open ?? false
+  let open = _init?.open ?? false
   let activeIndex = -1
   let latestValue = _init?.value ?? ''
   let latestOnChange: ((v: string) => void) | undefined
@@ -72,9 +70,10 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
     center: false, // 左对齐输入框
     gap: 4,
     el: () => wrapEl,
-    isOpen: () => $.open,
+    isOpen: () => open,
     setOpen: (v) => {
-      $.open = v // Proxy 赋值 → 自动 dirty → 重渲染
+      open = v
+      ctx.ui.render() // 显式渲染（外部点击/Escape 关闭必须落地）
       latestOnOpenChange?.(v)
     },
   })
@@ -107,10 +106,10 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
     latestOpen = props.open
     latestOnOpenChange = props.onOpenChange
     latestOnSelect = onSelect
-    if (props.open !== undefined) $.open = !!props.open
+    if (props.open !== undefined) open = !!props.open // renderFn 内同步受控值——本次渲染读新值
 
     // 打开时输入态优先（keyword——用户正在输入）；无输入回退受控值
-    const query = $.open ? (keyword || latestValue) : latestValue
+    const query = open ? (keyword || latestValue) : latestValue
     const filtered = (props.filter ?? filterOptions)(options, query)
     if (activeIndex >= filtered.length) activeIndex = -1
 
@@ -122,7 +121,7 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
       const v = e.target.value
       inputCtrl?.setKeyword(v) // C3 内部输入态（不依赖受控 value 回流）
       inputCtrl?.setValue(v)
-      if (!$.open) setOpen(true)
+      if (!open) setOpen(true)
       activeIndex = -1
     }
     const onCompositionStart = () => { composing = true }
@@ -132,11 +131,11 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
       const v = (e.target as HTMLInputElement)?.value ?? ''
       inputCtrl?.setKeyword(v)
       inputCtrl?.setValue(v)
-      if (!$.open) setOpen(true)
+      if (!open) setOpen(true)
     }
 
     const onKeyDown = (e: any) => {
-      if (!$.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault()
         setOpen(true)
         activeIndex = e.key === 'ArrowDown' ? 0 : filtered.length - 1
@@ -151,7 +150,7 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
         activeIndex = activeIndex <= 0 ? filtered.length - 1 : activeIndex - 1
         ctx.ui.render()
       } else if (e.key === 'Enter') {
-        if ($.open && activeIndex >= 0 && filtered[activeIndex]) {
+        if (open && activeIndex >= 0 && filtered[activeIndex]) {
           e.preventDefault()
           pick(filtered[activeIndex])
         }
@@ -181,16 +180,16 @@ export const AutoComplete: Component<AutoCompleteProps> = async (_init, ctx: Wfu
         class: 'wf-autocomplete-input wf-input',
         role: 'combobox',
         'aria-haspopup': 'listbox',
-        'aria-expanded': String($.open),
+        'aria-expanded': String(open),
         // 打开/输入时显示内部 keyword；关闭时选中 label（无选中回退受控值）
-        value: $.open ? keyword : (selectedLabel || query),
+        value: open ? keyword : (selectedLabel || query),
         placeholder,
         disabled,
         onInput,
         onKeyDown,
         onCompositionStart,
         onCompositionEnd,
-        onFocus: () => { if (!$.open) setOpen(true) },
+        onFocus: () => { if (!open) setOpen(true) },
       }),
       popup.portal(dropdown, 'wf-autocomplete'),
     ])

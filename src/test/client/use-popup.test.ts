@@ -64,14 +64,13 @@ async function mountPopup(opts: HarnessOpts = {}) {
   let wrapEl: HTMLElement | null = null
   let handle: any
   const Cmp = async (_: any, ctx: WfuiContext) => {
-    const $ = ctx.ui.$()
-    $.open = false
+    let isOpen = false
     const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
     handle = ctx.ui.usePopup({
       trigger: opts.trigger ?? 'click',
       el: () => wrapEl,
-      isOpen: () => $.open,
-      setOpen: (v) => { $.open = v; ctx.ui.render() },
+      isOpen: () => isOpen,
+      setOpen: (v) => { isOpen = v; ctx.ui.render() },
       open: opts.open,
       onOpenChange: opts.onOpenChange,
       width: opts.width,
@@ -228,14 +227,13 @@ describe('usePopup portal 锚点感知（client 层修复）', () => {
       B: { top: 300, bottom: 324, left: 500, right: 700, width: 200, height: 24, x: 0, y: 0, toJSON() {} } as DOMRect,
     }
     const Cmp = async (_: any, ctx: WfuiContext) => {
-      const $ = ctx.ui.$()
-      $.open = false
+      let isOpen = false
       const popup = ctx.ui.usePopup({
         trigger: () => 'click',
         placement: () => 'bottom',
         el: () => (cur === 'A' ? anchorA : anchorB),
-        isOpen: () => $.open,
-        setOpen: (v) => { $.open = v; ctx.ui.render() },
+        isOpen: () => isOpen,
+        setOpen: (v) => { isOpen = v; ctx.ui.render() },
       })
       pos = popup
       return () => h('div', {

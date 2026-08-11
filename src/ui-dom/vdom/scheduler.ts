@@ -1,10 +1,7 @@
 /**
- * vdom/scheduler — 渲染触发（无自动调度）
+ * vdom/scheduler — 渲染触发（render-only，design/render-only-plan.md）
  *
- * **vdom 核心原则：只有用户显式操作才触发渲染**——
- *   - `$.xxx = val`（$ proxy set trap）
- *   - `ctx.ui.render(ids?)`
- *   - `ctx.ui.dirty(ids?)`
+ * **vdom 核心原则：只有 ctx.ui.render() 显式触发渲染**——
  * 除此之外**没有任何自动渲染**：无 flush 批处理、无微任务轮询、无 resolve 回调补渲染、
  * 无渲染循环。渲染是 fire-and-forget 的 async（buildVNode await 动态挂载组件）。
  *
@@ -18,9 +15,7 @@ import { patchValue, type PatchCtx } from './diff.ts'
 import type { Registry } from './registry.ts'
 
 export interface Scheduler {
-  /** $ 赋值/手动请求渲染（fire-and-forget async） */
-  dirty(ids?: string[]): void
-  /** 立即渲染（与 dirty 等价——都直接触发，async 落地） */
+  /** 渲染（fire-and-forget async——render-only 唯一触发） */
   render(ids?: string[]): void
 }
 
@@ -36,14 +31,16 @@ export interface SchedulerOptions {
 
 export function createScheduler(opts: SchedulerOptions): Scheduler {
   const renderingIds = new Set<string>()
+  const pending = new Set<string>()
 
   function isMounting(): boolean {
     return (opts.ctx.ui as any)?._mounting === true
   }
 
   async function renderByIds(id: string): Promise<void> {
-    // 防重入：同一 id 同时只渲染一次（渲染中再次触发 → 跳过——非自动补渲染）
-    if (renderingIds.has(id)) return
+    // 防重入：渲染中再次触发 → 排队补跑（不丢请求——流式 token 渲染中到达必须最终落地）。
+    // 渲染中多次触发合并为一次补跑（读最新状态——非批处理风暴）
+    if (renderingIds.has(id)) { pending.add(id); return }
     const vnode = opts.registry.idRegistry.get(id)
     if (!vnode || typeof vnode._render !== 'function') return
     renderingIds.add(id)
@@ -71,17 +68,9 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     } finally {
       renderingIds.delete(id)
       ;(opts.ctx.ui as any)._rendering = false
+      // 渲染中触发的请求：补跑一次（读最新状态——流式 token 不丢）
+      if (pending.delete(id)) void renderByIds(id)
     }
-  }
-
-  function dirty(ids?: string[]): void {
-    if (isMounting()) return
-    if (ids == null) {
-      const selfId = (opts.ctx.ui as any)?._selfId
-      if (selfId) void renderByIds(selfId)
-      return
-    }
-    for (const id of ids) void renderByIds(id)
   }
 
   function render(ids?: string[]): void {
@@ -94,5 +83,5 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     for (const id of ids) void renderByIds(id)
   }
 
-  return { dirty, render }
+  return { render }
 }

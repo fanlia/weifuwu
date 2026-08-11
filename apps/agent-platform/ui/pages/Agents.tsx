@@ -3,13 +3,14 @@ import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../c
 import { Button, Card } from 'weifuwu/components'
 
 export const Agents: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   const token = ctx.auth?.token
 
     $.agents = []; $.loading = true
     ctx.api!.get('/api/agents')
-      .then(d => { $.agents = d.agents ?? []; $.loading = false })
-      .catch(() => { $.loading = false })
+      .then(d => { $.agents = d.agents ?? []; $.loading = false; rerender() })
+      .catch(() => { $.loading = false; rerender() })
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
@@ -18,6 +19,7 @@ export const Agents: Component = async (_props, ctx) => {
     const res = await ctx.api!.delete(`/api/agents/${id}`)
     if (res.ok || res.status === 204) {
       $.agents = $.agents.filter((a: any) => a.id !== id)
+      rerender()
       ;ctx.toast!('Agent 已删除', 'success')
     } else {
       ;ctx.toast!('删除失败', 'error')

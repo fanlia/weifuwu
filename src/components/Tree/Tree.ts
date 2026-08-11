@@ -85,9 +85,8 @@ function buildParentMap(nodes: TreeNode[], map: Map<string, TreeNode | null>, pa
 export const Tree: Component<TreeProps> = async (_init, ctx) => {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
-  // ── mount（只一次）──
-  const $ = ctx.ui.$()
-  $.internalExpanded = [] as string[]
+  // render-only：内部状态 let + 显式 render（非受控展开 keys）
+  let internalExpanded: string[] = []
 
   let rowEls: (HTMLElement | null)[] = []
   const rowRefs: ((el: HTMLElement | null) => void)[] = []
@@ -113,7 +112,7 @@ export const Tree: Component<TreeProps> = async (_init, ctx) => {
 
     // 展开状态
     const isControlledExpand = expandedKeys !== undefined
-    const expanded: string[] = isControlledExpand ? expandedKeys : $.internalExpanded
+    const expanded: string[] = isControlledExpand ? expandedKeys : internalExpanded
     const isExpanded = (key: string) => searchExpand ? searchExpand.has(key) : expanded.includes(key)
     const toggleExpand = (key: string) => {
       // 受控（expandedKeys 已传）但无 onExpand：折叠/展开无法生效——开发期提示
@@ -125,7 +124,7 @@ export const Tree: Component<TreeProps> = async (_init, ctx) => {
         ? expanded.filter(k => k !== key)
         : [...expanded, key]
       if (isControlledExpand) onExpand?.(next)
-      else $.internalExpanded = next
+      else { internalExpanded = next; ctx.ui.render() }
     }
 
     // 选中（useControlled：非受控内部态 + 受控走 onSelect；缺回调 warn 幂等）

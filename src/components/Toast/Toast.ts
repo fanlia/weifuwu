@@ -2,7 +2,7 @@ import type { Component } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
 import { h, createPortal } from '../../ui-dom/vnode.ts'
-import { mountVNode } from '../../ui-dom/render.ts'
+import { mountCommand } from '../../ui-dom/vdom/mount.ts'
 import { animateOut } from '../../ui-dom/motion.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
@@ -125,12 +125,12 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
   let ctxRef: WfuiContext | null = null
   let seq = 0
 
-  // ToastHost — 内部常驻组件：状态在 $ 里，赋值自动渲染
+  // ToastHost — 内部常驻组件：状态 let + 显式 render（render-only）
   const ToastHost: Component = async (_init, ctx) => {
-    const $ = ctx.ui.$()
-    $.toasts = []
+    let toasts: ToastItem[] = []
+    const render = () => ctx.ui.render()
     hostApi = {
-      add: (item: ToastItem) => { $.toasts = [...$.toasts, item] },
+      add: (item: ToastItem) => { toasts = [...toasts, item]; render() },
       remove: (id: string) => {
         // 退场：挂 wf-toast-out 类，有真实动画则播完再移除；无动画环境（jsdom/禁用）立即移除
         const el = browser.query(`.wf-toast[data-id="${id}"]`) as HTMLElement | null
@@ -139,18 +139,18 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
           const anim = getComputedStyle(el).animationName
           if (anim && anim !== 'none') {
             animateOut(el, () => {
-              $.toasts = $.toasts.filter((t: ToastItem) => t.id !== id)
+              toasts = toasts.filter((t: ToastItem) => t.id !== id); render()
             })
             return
           }
         }
-        $.toasts = $.toasts.filter((t: ToastItem) => t.id !== id)
+        toasts = toasts.filter((t: ToastItem) => t.id !== id); render()
       },
     }
     // 总是返回包装 div（非 null）——保证 _refNode 有值，scope render 能定位本组件
     return () => h('div', { class: 'wf-toast-host' }, [
         h(Toast, {
-          toasts: $.toasts,
+          toasts,
           position: defaults.position,
           duration: defaults.duration,
           max: defaults.max,
@@ -164,7 +164,7 @@ export function toast(opts?: ToastOptions): AppMiddleware<{}, ToastInjected> {
     const container = browser.createElement('div') as HTMLDivElement | null
     if (!container) return
     browser.bodyAppend(container)
-    mountVNode(container, h(ToastHost, {}), ctxRef)
+    mountCommand(container, h(ToastHost, {}), ctxRef)
   }
 
   return (ctx: WfuiContext) => {

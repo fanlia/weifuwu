@@ -19,7 +19,7 @@ import { h, createPortal } from '../../ui-dom/vnode.ts'
 
 before(setupJsdom)
 
-import { mountApp } from '../ui-dom-mount.ts'
+import { mountRoot } from '../../ui-dom/vdom/mount.ts'
 const browser = createClientBrowser()
 
 describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
@@ -32,17 +32,17 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
     let inputEl: HTMLInputElement | null = null
 
     const Cmp = async (_: any, ctx: any) => {
-      const $ = ctx.ui.$()
-      $.text = ''
+      let text = ''
       return () => h('div', { class: 'wrap' }, [
         h('input', { // 无 key（C1 前会被 portal 的 key 拖入 keyed 分支重建）
-          value: $.text,
-          onInput: (e: any) => { $.text = e.target.value },
+          value: text,
+          onInput: (e: any) => { text = e.target.value; ctx.ui.render() },
         }),
         createPortal(open ? h('div', { class: 'panel' }, '面板') : null, 'c1-portal'),
       ])
     }
-    mountRes = await mountApp(el, Cmp)
+    mountRes = mountRoot({ browser, root: el })
+    await mountRes.mount(h(Cmp, {}))
     const input = el.querySelector('input') as HTMLInputElement
     inputEl = input
     input.focus()
@@ -66,14 +66,14 @@ describe('数组 diff：portal 内部 key 不破坏 allUnkeyed（C1）', () => {
     el.id = 'c1-portal-toggle'
     let open = false
     const Cmp = async (_: any, ctx: any) => {
-      const $ = ctx.ui.$()
-      $.open = false
+      let isOpen = false
       return () => h('div', { class: 'wrap2' }, [
-        h('button', { onClick: () => { $.open = !$.open } }, 'toggle'),
-        createPortal($.open ? h('div', { class: 'p2' }, '开') : null, 'c1-toggle'),
+        h('button', { onClick: () => { isOpen = !isOpen; ctx.ui.render() } }, 'toggle'),
+        createPortal(isOpen ? h('div', { class: 'p2' }, '开') : null, 'c1-toggle'),
       ])
     }
-    mountRes = await mountApp(el, Cmp)
+    mountRes = mountRoot({ browser, root: el })
+    await mountRes.mount(h(Cmp, {}))
     // 初始关闭——portal 不渲染
     assert.equal(browser.query('#__wf_portal .p2'), null, '初始 portal 关闭')
     // 打开

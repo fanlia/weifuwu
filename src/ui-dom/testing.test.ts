@@ -82,11 +82,9 @@ describe('ui-dom/testing — walkVNode / findVNode / findByClass', () => {
 })
 
 describe('ui-dom/testing — createTestCtx / createPopupMock', () => {
-  it('默认 ctx：$ / render / dirty / ready', () => {
+  it('默认 ctx：render / ready（render-only 无 $ / dirty）', () => {
     const ctx = createTestCtx()
-    assert.equal(typeof ctx.ui.$, 'function')
     assert.equal(typeof ctx.ui.render, 'function')
-    assert.equal(typeof ctx.ui.dirty, 'function')
     assert.equal((ctx.ui as any).ready, true)
     assert.doesNotThrow(() => ctx.ui.render())
   })

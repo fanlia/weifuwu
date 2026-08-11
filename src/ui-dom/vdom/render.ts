@@ -30,14 +30,17 @@ export function setProp(el: Element, key: string, value: any): void {
     else {
       const st = (el as HTMLElement).style
       for (const [k, v] of Object.entries(value)) {
-        if (v == null) continue
-        ;(st as any)[k] = String(v)
+        if (v == null) { (st as any)[k] = '' }  // null/undefined → 删除样式属性（§6.4 style 只设不删修复）
+        else (st as any)[k] = String(v)
       }
     }
     return
   }
   if (key === 'ref') {
-    if (typeof value === 'function') value(el)
+    if (typeof value === 'function') {
+      // ref 错误隔离（safeCallRef——用户 ref 抛错不中断渲染管线）
+      try { value(el) } catch (e) { console.error('[weifuwu] ref error', e) }
+    }
     return
   }
   if (EVENT_RE.test(key)) {

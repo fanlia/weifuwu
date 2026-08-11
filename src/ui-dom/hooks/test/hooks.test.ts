@@ -13,8 +13,8 @@ import { usePresence, useTween, useStableRef } from '../stable.ts'
 import { useScrollPosition, useInView } from '../media.ts'
 import { useGlobalKey } from '../events.ts'
 import type { HookEnv } from '../types.ts'
-import type { Registry } from '../../registry.ts'
-import { createRegistry } from '../../registry.ts'
+import type { Registry } from '../../vdom/registry.ts'
+import { createRegistry } from '../../vdom/registry.ts'
 
 before(setupJsdom)
 afterEach(() => {
@@ -32,7 +32,6 @@ function makeEnv(overrides: Partial<HookEnv> = {}): { env: HookEnv; state: any }
   let selfId = '_wf_0'
   const env: HookEnv = {
     selfId: () => selfId,
-    dirty: (ids) => { state.dirty.push(...(ids ?? [])) },
     render: (ids) => { state.rendered.push(...(ids ?? [])) },
     browser,
     onUnmount: (fn) => { state.unmountHooks.push(fn); return () => {} },
@@ -42,7 +41,6 @@ function makeEnv(overrides: Partial<HookEnv> = {}): { env: HookEnv; state: any }
     scrollTrackers: new Map(),
     isMounting: () => false,
     isRendering: () => false,
-    $: () => ({ set self(v: any) {}, get self() { return selfId } } as any),
     warned: new Set(),
     uncontrolledValues: new Map(),
     inputStates: new Map(),
@@ -63,7 +61,7 @@ test('useControlled: 受控 → setValue 走 onChange，不写内部态', () => 
   assert.equal(c.value, 'a')
   c.setValue('b')
   assert.deepEqual(calls, ['b'])
-  assert.equal(state.dirty.length, 0, '受控不 dirty')
+  assert.equal(state.rendered.length, 0, '受控不 dirty')
 })
 
 test('useControlled: 非受控 → 内部态 + dirty', () => {
@@ -72,7 +70,7 @@ test('useControlled: 非受控 → 内部态 + dirty', () => {
   assert.equal(c.controlled, false)
   c.setValue('x')
   assert.equal(env.uncontrolledValues.get('_wf_0'), 'x')
-  assert.deepEqual(state.dirty, ['_wf_0'])
+  assert.deepEqual(state.rendered, ['_wf_0'])
   // 卸载清理
   for (const fn of state.unmountHooks) fn('_wf_0')
   assert.equal(env.uncontrolledValues.has('_wf_0'), false, '卸载清理内部态')
@@ -100,7 +98,7 @@ test('useOpen: 非受控 setOpen + dirty；受控走 onOpenChange', () => {
   assert.equal(o.open, false)
   o.setOpen(true)
   assert.equal(o.open, true)
-  assert.deepEqual(state.dirty, ['_wf_0'])
+  assert.deepEqual(state.rendered, ['_wf_0'])
   // 受控
   const calls: boolean[] = []
   const oc = useOpen(env, { open: true, onOpenChange: (v) => calls.push(v) })
@@ -165,7 +163,7 @@ test('usePresence: open → exit → closed（animationend 卸载）', () => {
   presence.ref(el)
   el.dispatchEvent(new (window as any).Event('animationend'))
   assert.equal(presence.phase, 'closed')
-  assert.deepEqual(state.dirty, ['_wf_0'])
+  assert.deepEqual(state.rendered, ['_wf_0'])
 })
 
 test('useDialog: 返回 rootRef/panelRef/sync', () => {
@@ -186,7 +184,7 @@ test('useAsync: resolve 后 data 更新 + dirty', async () => {
   await new Promise((r) => setTimeout(r, 5))
   assert.equal(a.data, 'data1')
   assert.equal(a.loading, false)
-  assert.ok(state.dirty.length > 0, 'resolve 后 dirty')
+  assert.ok(state.rendered.length > 0, 'resolve 后 dirty')
 })
 
 test('useAsync: stale-close——慢旧请求不覆盖新结果', async () => {

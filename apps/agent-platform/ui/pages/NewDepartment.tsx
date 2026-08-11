@@ -3,7 +3,8 @@ import { PageHeader, Loading, TypeBadge, errMsg } from '../components/ui'
 import { Alert, Button, Card, Checkbox, EmptyState, Field, Input, Select } from 'weifuwu/components'
 
 export const NewDepartment: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   const token = ctx.auth?.token
 
     $.name = ''; $.companyId = ''; $.selected = []; $.submitting = false; $.error = ''
@@ -12,25 +13,27 @@ export const NewDepartment: Component = async (_props, ctx) => {
       ctx.api!.get<{ companies: any[] }>('/api/companies').then(d => d.companies ?? []).catch(() => []),
       ctx.api!.get<{ agents: any[] }>('/api/agents').then(d => d.agents ?? []).catch(() => []),
     ]).then(([companies, agents]) => {
-      $.companies = companies; $.agents = agents; $.loading = false
-    }).catch(() => { $.loading = false })
+      $.companies = companies; $.agents = agents; $.loading = false; rerender()
+    }).catch(() => { $.loading = false; rerender() })
 
   function toggle(id: string) {
     const set = new Set($.selected)
     if (set.has(id)) set.delete(id); else set.add(id)
     $.selected = [...set]
+    rerender()
   }
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
-    if (!$.name.trim()) { $.error = '请输入部门名称'; return }
+    if (!$.name.trim()) { $.error = '请输入部门名称'; rerender(); return }
     const cid = $.companyId || $.companies?.[0]?.id
-    if (!cid) { $.error = '请先创建公司'; return }
+    if (!cid) { $.error = '请先创建公司'; rerender(); return }
     $.submitting = true; $.error = ''
+    rerender()
     try {
       await ctx.api!.post('/api/departments', { company_id: cid, name: $.name.trim(), member_ids: $.selected })
       ctx.app?.navigate('/departments')
-    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
+    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
   return (props) => (
     <div class="wf-container wf-stack wf-gap-lg wf-p-lg wf-mx-auto" style="--wf-max: 720px">

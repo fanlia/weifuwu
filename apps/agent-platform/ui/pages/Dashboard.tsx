@@ -12,7 +12,8 @@ function greeting(): string {
 }
 
 export const Dashboard: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0
   Promise.all([
     ctx.api!.get('/api/stats').catch(() => ({})),
@@ -21,6 +22,7 @@ export const Dashboard: Component = async (_props, ctx) => {
   ]).then(([stats, agents, depts]) => {
     $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
     $.loading = false
+    rerender()
   })
 
   return (props) => {

@@ -28,11 +28,10 @@ const MONTH_NAMES = ['1 月', '2 月', '3 月', '4 月', '5 月', '6 月', '7 �
 /** 月历（对应 antd/EP Calendar）：月视图网格 + 事件点 + 月切换 + 日期选择。
  * 裁剪：周/日视图、拖拽创建事件、事件详情弹层。 */
 export const Calendar: Component<CalendarProps> = async (_init, ctx) => {
-  // ── mount（只一次）──
-  const $ = ctx.ui.$()
+  // render-only：内部状态 let + 显式 render（非受控月份）
   const now = new Date()
-  $.viewMonth = now.getMonth()
-  $.viewYear = now.getFullYear()
+  let viewMonth = now.getMonth()
+  let viewYear = now.getFullYear()
 
   return (props) => {
     const {
@@ -41,8 +40,8 @@ export const Calendar: Component<CalendarProps> = async (_init, ctx) => {
     } = props
 
     const isControlled = month !== undefined && year !== undefined
-    const viewMonth: number = isControlled ? month : $.viewMonth
-    const viewYear: number = isControlled ? year : $.viewYear
+    const currentMonth: number = isControlled ? month : viewMonth
+    const currentYear: number = isControlled ? year : viewYear
 
     const shiftMonth = (delta: number) => {
       if (isControlled && !onMonthChange) {
@@ -50,24 +49,24 @@ export const Calendar: Component<CalendarProps> = async (_init, ctx) => {
         console.warn(`[weifuwu/Calendar] 受控模式（month/year 已传）但未提供 onMonthChange，月份切换无法生效。\n非受控：去掉 month/year；受控：传入 onMonthChange={(m, y) => setView(m, y)}`)
         return
       }
-      let m = viewMonth + delta
-      let y = viewYear
+      let m = currentMonth + delta
+      let y = currentYear
       if (m < 0) { m = 11; y-- }
       else if (m > 11) { m = 0; y++ }
       if (isControlled) onMonthChange?.(m, y)
-      else { $.viewMonth = m; $.viewYear = y }
+      else { viewMonth = m; viewYear = y; ctx.ui.render() }
     }
 
     const goToday = () => {
       if (isControlled) onMonthChange?.(now.getMonth(), now.getFullYear())
-      else { $.viewMonth = now.getMonth(); $.viewYear = now.getFullYear() }
+      else { viewMonth = now.getMonth(); viewYear = now.getFullYear(); ctx.ui.render() }
     }
 
-    const grid = getCalendarGrid(viewYear, viewMonth)
+    const grid = getCalendarGrid(currentYear, currentMonth)
     const weekdays = getWeekdays()
 
     const header = h('div', { class: 'wf-calendar-header' }, [
-      h('div', { class: 'wf-calendar-title' }, `${viewYear} 年 ${MONTH_NAMES[viewMonth]}`),
+      h('div', { class: 'wf-calendar-title' }, `${currentYear} 年 ${MONTH_NAMES[currentMonth]}`),
       h('div', { class: 'wf-calendar-nav' }, [
         h('button', { type: 'button', class: 'wf-calendar-nav-btn', 'aria-label': '上个月', onClick: () => shiftMonth(-1) }, h(Icon, { name: 'chevron-left', size: 14 })),
         h('button', { type: 'button', class: 'wf-calendar-nav-btn', 'aria-label': '今天', onClick: goToday }, '今天'),

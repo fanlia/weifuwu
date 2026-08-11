@@ -42,12 +42,12 @@ const TABS = [
 ]
 
 export const Mobile: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.query = ''
-  $.tab = '消息'
+  let query = ''
+  let tab = '消息'
+  const rerender = () => ctx.ui.render()
 
   return () => {
-    const filtered = CHATS.filter((c) => c.name.includes($.query) || c.msg.includes($.query))
+    const filtered = CHATS.filter((c) => c.name.includes(query) || c.msg.includes(query))
     return (
     <div class="wf-center wf-p-lg wf-bg-tertiary" style={{ minHeight: 'calc(100vh - 48px)' }}>
       {/* 手机视口（390×640 模拟屏——唯一允许的视口容器内联） */}
@@ -63,14 +63,14 @@ export const Mobile: Component = async (_init, ctx) => {
         <div class="wf-p-md wf-border-b">
           <SearchInput
             placeholder="搜索会话"
-            onInput={(e) => { $.query = (e.target as HTMLInputElement).value }}
-            onClear={() => { $.query = '' }}
+            onInput={(e) => { query = (e.target as HTMLInputElement).value; rerender() }}
+            onClear={() => { query = ''; rerender() }}
           />
         </div>
 
         {/* 内容区（按底部 Tab 切换） */}
         <div class="wf-fill wf-scroll">
-          {$.tab === '消息' && (
+          {tab === '消息' && (
           <List
             divided
             items={filtered}
@@ -89,7 +89,7 @@ export const Mobile: Component = async (_init, ctx) => {
             )}
           />
           )}
-          {$.tab === '通讯录' && (
+          {tab === '通讯录' && (
             <List
               divided
               items={CONTACTS}
@@ -105,7 +105,7 @@ export const Mobile: Component = async (_init, ctx) => {
               )}
             />
           )}
-          {$.tab === '发现' && (
+          {tab === '发现' && (
             <List
               divided
               items={DISCOVER}
@@ -121,7 +121,7 @@ export const Mobile: Component = async (_init, ctx) => {
               )}
             />
           )}
-          {$.tab === '我' && (
+          {tab === '我' && (
             <div class="wf-stack wf-gap-md wf-p-md">
               <div class="wf-row wf-gap-md">
                 <Avatar name="我" size="lg" />
@@ -145,11 +145,11 @@ export const Mobile: Component = async (_init, ctx) => {
           {TABS.map((t) => (
             <div
               key={t.label}
-              class={`wf-stack wf-gap-none wf-center wf-pointer${$.tab === t.label ? ' wf-text-primary' : ' wf-text-tertiary'}`}
-              onClick={() => { $.tab = t.label }}
+              class={`wf-stack wf-gap-none wf-center wf-pointer${tab === t.label ? ' wf-text-primary' : ' wf-text-tertiary'}`}
+              onClick={() => { tab = t.label; rerender() }}
             >
               <Icon name={t.icon} size={20} />
-              <Text className={`wf-text-xs${$.tab === t.label ? '' : ' wf-text-tertiary'}`}>{t.label}</Text>
+              <Text className={`wf-text-xs${tab === t.label ? '' : ' wf-text-tertiary'}`}>{t.label}</Text>
             </div>
           ))}
         </div>

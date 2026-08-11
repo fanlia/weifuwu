@@ -13,7 +13,6 @@ import assert from 'node:assert/strict'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { setupJsdom } from './setup.ts'
 import { createServer, type Server } from 'node:http'
-import { createReactiveState } from '../../ui-dom/reactive.ts'
 import { createChatSession, toChatMessages, type ChatTransport, type UseChatOptions, type UiMessage, type ChatApi } from '../../ui-dom/use-chat.ts'
 import type { WfStreamEvent, WfApprovalRequest, WfToolCall, WfError } from '../../ai/types.ts'
 import type { AiStreamCallbacks } from '../../ui-dom/ai.ts'
@@ -72,11 +71,15 @@ function fakeTransport(): FakeTransport {
   }
 }
 
-function makeSession(opts: Partial<UseChatOptions> & { url?: string }, transport?: ChatTransport): { state: any; api: ChatApi; fake: FakeTransport } {
-  const state = createReactiveState(() => {})
+function makeSession(opts: Partial<UseChatOptions> & { url?: string }, transport?: ChatTransport): { state: UseChatState; api: ChatApi; fake: FakeTransport; subscribe: (cb: () => void) => () => void } {
+  // render-only：state 是普通对象（非 Proxy）——渲染由 notify 驱动
+  const state: UseChatState = { messages: [], input: '', streaming: false, error: null, usage: null, step: null }
+  const subs = new Set<() => void>()
+  const notify = () => { for (const cb of [...subs]) cb() }
   const fake = fakeTransport()
-  const api = createChatSession(state, transport ?? fake.transport, { url: '/api/chat', ...opts })
-  return { state, api, fake }
+  const api = createChatSession(state, transport ?? fake.transport, { url: '/api/chat', ...opts }, notify)
+  const subscribe = (cb: () => void) => { subs.add(cb); return () => { subs.delete(cb) } }
+  return { state, api, fake, subscribe }
 }
 
 const done = (content = '') => ev('wf:done', { content, usage: { prompt_tokens: 5, completion_tokens: 3 } })
@@ -352,18 +355,18 @@ describe('useChat — error 恢复 / stop / retry / clear', () => {
     assert.equal((state.messages as UiMessage[]).length, 3)
   })
 
-  it('__watch：订阅状态变更（多消费者），退订后不再通知', () => {
-    const { state, api } = makeSession({})
+  it('subscribe：会话操作触发订阅（多消费者），退订后不再通知', () => {
+    const { state, api, subscribe } = makeSession({})
     let fired = 0
-    const unsub = (state as any).__watch(() => { fired++ })
+    const unsub = subscribe(() => { fired++ })
     state.input = 'a'
-    assert.equal(fired, 1)
+    assert.equal(fired, 0, '直接赋值不触发（普通对象——渲染由 notify 驱动）')
     api.send()
-    const afterSend = fired
-    assert.ok(afterSend >= 3, `send 应多次触发订阅（input 清空 + messages push + streaming），实际 ${afterSend}`)
+    assert.equal(fired, 1, 'send 后 notify 一次')
     unsub()
     state.input = 'b'
-    assert.equal(fired, afterSend) // 退订后不再通知
+    api.send()
+    assert.equal(fired, 1, '退订后不再通知')
   })
 })
 
@@ -408,6 +411,7 @@ describe('useChat — 集成（真实 HTTP wf: 流 → createApp → DOM）', ()
 
     const ChatDemo: any = (_init: unknown, ctx: any) => {
       const $ = ctx.ui.useChat({ url })
+      ctx.ui.useExternal($) // 订阅：会话变化 → 自身重渲染（render-only）
       return () =>
         jsx('div', {
           id: 'chat',
@@ -416,7 +420,7 @@ describe('useChat — 集成（真实 HTTP wf: 流 → createApp → DOM）', ()
             jsx('input', {
               id: 'inp',
               value: $.input,
-              onInput: (e: any) => { $.input = e.target.value },
+              onInput: (e: any) => { $.input = e.target.value; ctx.ui.render() },
             }),
             jsx('button', { id: 'btn', onClick: () => $.send(), children: '发送' }),
           ],
@@ -451,7 +455,7 @@ async function waitFor(fn: () => boolean, timeoutMs = 3000, interval = 10): Prom
 
 // ── 回归：AiChat 作为子组件（共享父 $）必须在流式事件时更新 DOM ──
 // 背景：chat handle 是父组件的 $（引用恒定），props 浅比较恒等 → 三态 skip 命中，
-// 子组件永不重渲染。修复：reactive 状态 __watch 订阅，AiChat 自订阅驱动自身 dirty。
+// 子组件永不重渲染。修复：useExternal 订阅（render-only）——AiChat 自订阅驱动自身重渲染。
 
 describe('AiChat 子组件共享父 $ — 三态 skip 回归', () => {
   afterEach(() => {

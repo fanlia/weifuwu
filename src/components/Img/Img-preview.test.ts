@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Img } from './Img.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import { renderVNode, mountToDom, patchToDom } from '../../ui-dom/testing.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 
 function mockCtx(){
@@ -56,15 +56,14 @@ describe('Img preview 增强', () => {
     const render = await Img({ src: 'a.png', preview: true }, ctx)
     const r = render as any
     // DOM 级：真实挂载 + 同树 patch（AGENTS.md：mountVNode 重挂会残留 portal 脏节点）
-    const { mountVNode, patchValue } = await import('../../ui-dom/render.ts')
     const container = document.createElement('div')
     document.body.appendChild(container)
     let prev = r({ src: 'a.png', preview: true })
-    await mountVNode(container, prev, ctx as any)
+    await mountToDom(container, prev, ctx as any)
     // 打开 preview（mockCtx.render 为空函数——手动重建 vnode + patch 模拟重渲染）
     ;(container.querySelector('.wf-img-preview-trigger') as HTMLButtonElement).click()
     const next = r({ src: 'a.png', preview: true })
-    patchValue(container, container.firstChild, prev, next, ctx as any)
+    await patchToDom(container, container.firstChild, prev, next, ctx as any)
     prev = next
     assert.ok(document.querySelector('.wf-img-preview-overlay'), 'overlay 已打开（portal 挂载）')
     // 焦点在 overlay 内（portal 子树）派发 Escape——必须关闭（document 级监听）
@@ -74,7 +73,7 @@ describe('Img preview 增强', () => {
     await new Promise(res => setTimeout(res, 0))
     // close() 已执行（previewOpen=false）——patch 重渲染，portal overlay 应被移除
     const after = r({ src: 'a.png', preview: true })
-    patchValue(container, container.firstChild, prev, after, ctx as any)
+    await patchToDom(container, container.firstChild, prev, after, ctx as any)
     assert.ok(!document.querySelector('.wf-img-preview-overlay'), 'portal overlay 内 Escape 应关闭')
     document.body.removeChild(container)
     document.querySelectorAll('#__wf_portal').forEach(el => el.remove())

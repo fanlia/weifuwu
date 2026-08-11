@@ -5,13 +5,15 @@
  * 消息累积、工具调用内嵌、HITL 审批、错误恢复、stop/retry/clear。
  *
  * - 协议透明：消费 wf: 事件（design/ai-contract.md），页面不需要知道事件名
- * - 状态即 $：useChat 返回组件同一个响应式 Proxy，赋值自动渲染
- * - 就地累积：token 经 state.messages[idx] 代理就地 append（O(1)/token，
+ * - 状态即共享 store（render-only 方案——design/render-only-plan.md）：
+ *   state 是**普通对象**（非 Proxy），变化 → notify() → 订阅者（useExternal）重渲染；
+ *   handle 带 subscribe——可被 useExternal 订阅（AiChat 等共享会话的子组件）
+ * - 就地累积：token 经 state.messages[idx] 就地 append（O(1)/token，
  *   不重建数组；配合 key 稳定引用 → VDOM 只 patch 文本节点）
  * - 工具内嵌：wf:tool_call/progress/result 按 toolCallId/id 聚合到
  *   消息的 toolCalls[]，ToolCallCard 直接消费（call/progress/result）
  * - 审批：approval 挂消息，approve() POST approveUrl（协议 §4.5）
- * - 生命周期：dispose() 中止流（组件 ref cleanup 调用；卸载防泄漏）
+ * - 生命周期：dispose() 中止流（组件卸载时调用；卸载防泄漏）
  *
  * 核心与框架无关：transport 注入（默认 aiStream），node 直接测。
  */
@@ -53,7 +55,7 @@ export interface UiMessage {
   error?: WfError
 }
 
-/** useChat 会话状态（挂在 $ 上，赋值自动渲染） */
+/** useChat 会话状态（普通对象 + 订阅——不再挂组件 $） */
 export interface UseChatState {
   messages: UiMessage[]
   input: string
@@ -62,11 +64,11 @@ export interface UseChatState {
   usage: WfUsage | null
   /** 最近 wf:step（思考/工具指示），done/error 时清空 */
   step: WfStep | null
-  /** 页面自有状态与 chat 状态共处一个 $（与 ctx.ui.$() 一致） */
+  /** 页面自有状态与 chat 状态共处一个 store（订阅者共享） */
   [key: string]: any
 }
 
-/** useChat 操作（挂到 $ 上的方法；调用不触发渲染，内部 set 触发） */
+/** useChat 操作（挂到 state 上的方法；调用不触发渲染，内部 notify 触发） */
 export interface ChatApi {
   /** 发送当前输入：追加 user + assistant 占位 → POST url */
   send: () => void
@@ -80,12 +82,13 @@ export interface ChatApi {
   approve: (decision: WfApprovalDecision, note?: string, modifiedArgs?: Record<string, unknown>) => Promise<void>
   /** 中止流并释放（组件卸载时调用） */
   dispose: () => void
-  /** 内部：订阅会话状态变更（AiChat 等共享 $ 的子组件用；返回退订）。
-   *  父组件 dirty 只驱动自身重渲染，共享 handle 的子组件需自行订阅。 */
-  __watch?: (cb: () => void) => () => void
 }
 
-export type UseChatHandle = UseChatState & ChatApi
+/** useChat 返回句柄：状态 + 方法 + subscribe（可被 useExternal 订阅——AiChat 等共享子组件） */
+export type UseChatHandle = UseChatState & ChatApi & {
+  /** 订阅会话状态变更（任何变化 → cb）；返回退订 */
+  subscribe: (cb: () => void) => () => void
+}
 
 export interface UseChatOptions {
   /** POST 端点（返回 wf: SSE 流） */
@@ -130,7 +133,12 @@ function uid(): string {
 
 // ── 会话状态机（transport 注入，node 可测）────────────────
 
-export function createChatSession(state: UseChatState, transport: ChatTransport, options: UseChatOptions): ChatApi {
+export function createChatSession(
+  state: UseChatState,
+  transport: ChatTransport,
+  options: UseChatOptions,
+  notify?: () => void,
+): ChatApi {
   // ── 初始化（确定性；组件挂载期赋值不触发渲染）──
   if (options.initialMessages) {
     state.messages = structuredClone(options.initialMessages)
@@ -212,6 +220,7 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
         onEvent?.(name, data)
         break
     }
+    notify?.()
   }
 
   /** 发起一次流式请求（assistant 占位已就位后调用） */
@@ -248,6 +257,7 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
       { id: uid(), role: 'assistant', content: '', status: 'streaming', toolCalls: [] },
     )
     startStream()
+    notify?.()
   }
 
   function stop(): void {
@@ -262,6 +272,7 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
         m.status = 'done'
       }
     }
+    notify?.()
   }
 
   function retry(): void {
@@ -277,6 +288,7 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
     state.step = null
     state.messages.push({ id: uid(), role: 'assistant', content: '', status: 'streaming', toolCalls: [] })
     startStream()
+    notify?.()
   }
 
   function clear(): void {
@@ -287,6 +299,7 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
     state.error = null
     state.usage = null
     state.step = null
+    notify?.()
   }
 
   async function approve(decision: WfApprovalDecision, note?: string, modifiedArgs?: Record<string, unknown>): Promise<void> {
@@ -295,6 +308,7 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
     const req = m?.role === 'assistant' ? m.approval : undefined
     if (!req) return
     m!.approval = undefined // 立即清卡片（UI 响应优先）
+    notify?.()
     if (!options.approveUrl) return
     try {
       await fetch(options.approveUrl, {
@@ -309,6 +323,7 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
     } catch (err) {
       if (options.signal?.aborted) return
       state.error = { code: 'provider_error', message: err instanceof Error ? err.message : String(err) }
+      notify?.()
     }
   }
 

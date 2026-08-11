@@ -11,7 +11,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
-import { mountVNode, patchValue } from '../ui-dom/render.ts'
+import { mountCommand } from '../ui-dom/vdom/mount.ts'
+import { patchValue } from '../ui-dom/vdom/diff.ts'
 import { h, Fragment } from '../ui-dom/vnode.ts'
 
 setupJsdom()
@@ -36,10 +37,10 @@ describe('diff: fragment + siblings 位置对齐', () => {
     )
 
     const prev = make()
-    await mountVNode(container, prev, ctx)
+    await mountCommand(container, prev, ctx)
 
     // 状态变化触发重渲染（结构不变；new 是全新 VNode，old 是上次挂载的树）
-    patchValue(container, container.firstChild, prev, make(), ctx)
+    patchValue(container, container.firstChild, prev, make(), { browser: ctx.browser, registry: (ctx as any).__registry })
 
     assert.equal((container.firstChild as Element).childNodes.length, 4, 'div 应保持 4 个子节点 (span/b/b/span)')
     assert.equal(container.querySelector('#a')?.textContent, 'name')
@@ -59,7 +60,7 @@ describe('diff: fragment + siblings 位置对齐', () => {
       h(Fragment, {}, h('b', { id: 'b1' }, 'A')),
       h('span', { id: 'c' }, 'end'),
     )
-    await mountVNode(container, prev, ctx)
+    await mountCommand(container, prev, ctx)
 
     const next = h('div', {},
       h('span', { id: 'a' }, 'name'),
@@ -70,7 +71,7 @@ describe('diff: fragment + siblings 位置对齐', () => {
       ),
       h('span', { id: 'c' }, 'end'),
     )
-    patchValue(container, container.firstChild, prev, next, ctx)
+    patchValue(container, container.firstChild, prev, next, { browser: ctx.browser, registry: (ctx as any).__registry })
 
     assert.equal((container.firstChild as Element).childNodes.length, 5, 'div 应为 5 个子节点 (span/b/b/b/span)')
     assert.equal(container.querySelector('#a')?.textContent, 'name')

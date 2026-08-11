@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 import { Tabs } from './Tabs.ts'
-import { mountVNode } from '../../ui-dom/render.ts'
+import { mountToDom } from '../../ui-dom/testing.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
 
@@ -85,7 +85,7 @@ describe('Tabs', () => {
     document.body.appendChild(container) // jsdom：未连接文档的元素 .focus() 无效
     const changed: string[] = []
     const vnode = await renderVNode(Tabs, { items, onChange: (k: string) => changed.push(k) }, createTestCtx())!
-    await mountVNode(container, vnode, createTestCtx())
+    await mountToDom(container, vnode, createTestCtx())
     const tabs = container.querySelectorAll<HTMLElement>('.wf-tab')
     assert.equal(tabs.length, 2)
     tabs[0].focus()

@@ -26,12 +26,11 @@ export interface TransferProps {
 /** 穿梭框（对应 antd/EP Transfer）：双列表 + 中间穿梭按钮 + 可选搜索。
  * 裁剪：拖拽排序、自定义渲染。 */
 export const Transfer: Component<TransferProps> = async (_init, ctx) => {
-  // ── mount（只一次）──
-  const $ = ctx.ui.$()
-  $.selLeft = [] as string[]
-  $.selRight = [] as string[]
-  $.kwLeft = ''
-  $.kwRight = ''
+  // render-only：内部状态 let + 显式 render（选中/搜索词）
+  let selLeft: string[] = []
+  let selRight: string[] = []
+  let kwLeft = ''
+  let kwRight = ''
 
   return (props) => {
     const {
@@ -44,37 +43,40 @@ export const Transfer: Component<TransferProps> = async (_init, ctx) => {
 
     const toggleSel = (side: 'left' | 'right', key: string) => {
       if (disabled) return
-      const arr: string[] = side === 'left' ? $.selLeft : $.selRight
+      const arr: string[] = side === 'left' ? selLeft : selRight
       const next = arr.includes(key) ? arr.filter((k: string) => k !== key) : [...arr, key]
-      if (side === 'left') $.selLeft = next
-      else $.selRight = next
+      if (side === 'left') selLeft = next
+      else selRight = next
+      ctx.ui.render()
     }
 
     const moveRight = () => {
-      if (!onChange || $.selLeft.length === 0) return
-      const next = [...targetKeys, ...$.selLeft]
-      $.selLeft = []
+      if (!onChange || selLeft.length === 0) return
+      const next = [...targetKeys, ...selLeft]
+      selLeft = []
+      ctx.ui.render()
       onChange(next)
     }
 
     const moveLeft = () => {
-      if (!onChange || $.selRight.length === 0) return
-      const next = targetKeys.filter(k => !$.selRight.includes(k))
-      $.selRight = []
+      if (!onChange || selRight.length === 0) return
+      const next = targetKeys.filter(k => !selRight.includes(k))
+      selRight = []
+      ctx.ui.render()
       onChange(next)
     }
 
     const renderList = (side: 'left' | 'right', items: TransferItem[]) => {
-      const sel = side === 'left' ? $.selLeft : $.selRight
-      const kw = (side === 'left' ? $.kwLeft : $.kwRight).toLowerCase()
+      const sel = side === 'left' ? selLeft : selRight
+      const kw = (side === 'left' ? kwLeft : kwRight).toLowerCase()
       const filtered = kw ? items.filter(it => it.label.toLowerCase().includes(kw)) : items
       const searchInput = showSearch
         ? h('input', {
             class: 'wf-transfer-search wf-input',
             type: 'text',
             placeholder: searchPlaceholder,
-            value: side === 'left' ? $.kwLeft : $.kwRight,
-            onInput: (e: any) => { if (side === 'left') $.kwLeft = e.target.value; else $.kwRight = e.target.value },
+            value: side === 'left' ? kwLeft : kwRight,
+            onInput: (e: any) => { if (side === 'left') kwLeft = e.target.value; else kwRight = e.target.value; ctx.ui.render() },
           })
         : null
       return h('div', { class: `wf-transfer-list wf-transfer-list--${side}` }, [
@@ -100,8 +102,8 @@ export const Transfer: Component<TransferProps> = async (_init, ctx) => {
       ].filter(Boolean))
     }
 
-    const rightDisabled = $.selLeft.length === 0 || disabled
-    const leftDisabled = $.selRight.length === 0 || disabled
+    const rightDisabled = selLeft.length === 0 || disabled
+    const leftDisabled = selRight.length === 0 || disabled
 
     const actions = h('div', { class: 'wf-transfer-actions' }, [
       h('button', {

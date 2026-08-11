@@ -11,9 +11,9 @@ import {Text, Button, Card, Checkbox, Field, Form, Icon, Input, Space, Alert, Di
 // ─────────────────────────────────────────────────────────────
 
 export const FocusTask: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.ok = false
-  $.errors = {} as Record<string, string>
+  let ok = false
+  let errors = {} as Record<string, string>
+  const rerender = () => ctx.ui.render()
 
   return () => (
     <div class="wf-fill wf-center wf-p-md wf-bg-secondary" style={{ minHeight: 'calc(100vh - 48px)' }}>
@@ -31,18 +31,18 @@ export const FocusTask: Component = async (_init, ctx) => {
               username: [{ required: true, message: '请输入用户名' }],
               password: [{ required: true, message: '请输入密码' }],
             }}
-            onError={(errors) => { $.errors = errors }}
+            onError={(e) => { errors = e; rerender() }}
             onSubmit={(v) => {
               if (v.username === 'admin' && v.password === 'admin') {
-                $.ok = true
+                ok = true; rerender()
               }
             }}
           >
             <div class="wf-stack wf-gap-md">
-              <Field label="用户名" required error={$.errors.username}>
+              <Field label="用户名" required error={errors.username}>
                 <Input name="username" placeholder="请输入用户名" />
               </Field>
-              <Field label="密码" required error={$.errors.password}>
+              <Field label="密码" required error={errors.password}>
                 <Input name="password" type="password" placeholder="请输入密码" />
               </Field>
               <div class="wf-row wf-between">
@@ -53,8 +53,8 @@ export const FocusTask: Component = async (_init, ctx) => {
             </div>
           </Form>
 
-          {$.ok && <Alert variant="success">登录成功（demo：admin / admin）</Alert>}
-          {!$.ok && (
+          {ok && <Alert variant="success">登录成功（demo：admin / admin）</Alert>}
+          {!ok && (
             <Divider>
               <Text type="secondary" className="wf-text-sm">没有账号？<Text className="wf-text-primary wf-pointer">立即注册</Text></Text>
             </Divider>

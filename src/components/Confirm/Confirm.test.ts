@@ -15,10 +15,11 @@ import { setupJsdom } from '../../test/client/setup.ts'
 setupJsdom()
 
 import { h } from '../../ui-dom/vnode.ts'
-import { mountVNode } from '../../ui-dom/render.ts'
+import { mountToDom } from '../../ui-dom/testing.ts'
 import { Confirm, confirm } from './Confirm.ts'
 import { Modal } from '../Modal/Modal.ts'
-import { UIRouter, uiServe, jsx } from '../../ui-dom/index.ts'
+import { UIRouter, jsx } from '../../ui-dom/index.ts'
+import { uiServe } from '../../ui-dom/vdom/serve.ts'
 import { confirm as uiDomConfirm } from '../../ui-dom/Confirm.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
 import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
@@ -83,7 +84,7 @@ describe('Confirm 组件（声明式）', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const vnode = await renderVNode(Confirm, { open: false, message: 'x' }, ctx)
-    await mountVNode(container, vnode, ctx)
+    await mountToDom(container, vnode, ctx)
     await new Promise((r) => setTimeout(r, 0)) // Modal async 化：占位补全
     assert.equal(modal(), null, 'Modal open=false 不渲染 DOM')
   })
@@ -100,7 +101,7 @@ describe('Confirm 组件（声明式）', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const vnode = await renderVNode(Confirm, { open: true, message: 'x', confirmText: '删除', cancelText: '再想想', onConfirm: () => {}, onCancel: () => {} }, ctx)
-    await mountVNode(container, vnode, ctx)
+    await mountToDom(container, vnode, ctx)
     // Button async 化：VNode 层断言（mock ctx 无补全调度——DOM 按钮不落地）
     const modal = vnode as any
     const btns = modal.props.footer.filter((b: any) => b?.type?.name === 'Button')

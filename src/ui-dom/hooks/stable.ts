@@ -93,7 +93,7 @@ export function usePresence(env: HookEnv, options?: { name?: string }) {
 
   const finishExit = () => {
     phase = 'closed'
-    if (selfId) env.dirty([selfId])
+    if (selfId) env.render([selfId])
     else env.render()
   }
 
@@ -135,7 +135,7 @@ export function useTween(env: HookEnv, target: number, opts?: { duration?: numbe
   }
   // 每帧渲染（rAF 只更新闭包 value，不触发渲染则 DOM 冻结）
   const rerender = () => {
-    if (selfId) env.dirty([selfId])
+    if (selfId) env.render([selfId])
     else env.render()
   }
 

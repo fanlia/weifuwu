@@ -10,7 +10,6 @@
  */
 
 import type { AppMiddleware, WfuiContext } from './types.ts'
-import type { UiInternal } from './ui.ts'
 import { zhCN } from './locale/zh_CN.ts'
 import { enUS } from './locale/en_US.ts'
 
@@ -76,7 +75,7 @@ export function i18n(opts: I18nOptions = {}): AppMiddleware<{}, I18nInjected> {
       state.locale = lang
       state.components = merged.components
       // 通知三态 skip：ctx 版本变了，所有组件必须重新 render
-      ;(c.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.bumpCtxVersion?.()
+      ;(c.ui as any)?.bumpCtxVersion?.()
       c.ui?.render()
     }
 

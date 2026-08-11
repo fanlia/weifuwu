@@ -34,10 +34,9 @@ test('serve: 路由匹配 + 首帧渲染 + $ 交互', async () => {
   b.navigate('/')
   const el = mount('s1')
   const Counter = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.count = 0
-    ;(globalThis as any).__inc = () => { $.count++ }
-    return () => h('button', { id: 'cnt' }, `count: ${$.count}`)
+    let count = 0
+    ;(globalThis as any).__inc = () => { count++; ctx.ui.render() }
+    return () => h('button', { id: 'cnt' }, `count: ${count}`)
   }
   const router = new UIRouter()
   router.get('/', () => h(Counter, {}))
@@ -77,10 +76,9 @@ test('serve: 动态挂载列表渲染 + 不重复', async () => {
   const el = mount('s3')
   const Item = async (_init: any) => () => h('div', { class: 'item' }, 'I')
   const App = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.items = []
-    ;(globalThis as any).__load = (items: any[]) => { $.items = items }
-    return () => h('div', {}, ($.items as any[]).map((i: any) => h(Item, { key: i })))
+    let items: any[] = []
+    ;(globalThis as any).__load = (it: any[]) => { items = it; ctx.ui.render() }
+    return () => h('div', {}, (items as any[]).map((i: any) => h(Item, { key: i })))
   }
   const router = new UIRouter()
   router.get('/', () => h(App, {}))
@@ -102,16 +100,15 @@ test('serve: usePopup 打开/关闭 + portal', async () => {
   b.navigate('/')
   const el = mount('s4')
   const Pop = async (_init: any, ctx: any) => {
-    const $ = ctx.ui.$()
-    $.open = false
+    let open = false
     const popup = ctx.ui.usePopup({
       trigger: 'click',
       el: () => document.getElementById('pop-trigger'),
-      isOpen: () => $.open,
-      setOpen: (v) => { $.open = v },
+      isOpen: () => open,
+      setOpen: (v) => { open = v; ctx.ui.render() },
     })
-    ;(globalThis as any).__open = () => { $.open = true }
-    ;(globalThis as any).__close = () => { $.open = false }
+    ;(globalThis as any).__open = () => { open = true; ctx.ui.render() }
+    ;(globalThis as any).__close = () => { open = false; ctx.ui.render() }
     return () => h('div', {},
       h('button', { id: 'pop-trigger', ...popup.wrapProps }, 'trigger'),
       popup.portal(h('div', { class: 'panel' }, 'PANEL'), 'pop'),

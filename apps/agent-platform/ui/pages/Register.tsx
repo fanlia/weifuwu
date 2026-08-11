@@ -2,23 +2,25 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Alert, Avatar, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
 
 export const Register: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
 $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
 
   async function handleRegister(e: Event) {
     e.preventDefault()
-    if (!$.email || !$.name || !$.password) { $.error = '请填写所有字段'; return }
+    if (!$.email || !$.name || !$.password) { $.error = '请填写所有字段'; rerender(); return }
     $.loading = true; $.error = ''
+    rerender()
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: $.email, name: $.name, password: $.password }),
       })
       const data = await res.json()
-      if (!res.ok) { $.error = data.error || '注册失败'; $.loading = false; return }
+      if (!res.ok) { $.error = data.error || '注册失败'; $.loading = false; rerender(); return }
       ctx.auth?.login(data.token, data.user, data.refreshToken)
       ctx.app?.navigate('/')
-    } catch { $.error = '网络错误'; $.loading = false }
+    } catch { $.error = '网络错误'; $.loading = false; rerender() }
   }
   return (props) => (
     <div class="wf-center wf-p-xl wf-bg-secondary" style="min-height: 100vh">
@@ -31,13 +33,13 @@ $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
         <div class="wf-mb-md">{$.error && <Alert variant="error">{$.error}</Alert>}</div>
         <form class="wf-stack wf-gap-md" onSubmit={handleRegister}>
           <Field label="姓名" required>
-            <Input placeholder="你的名字" value={$.name} onInput={(e: any) => { $.name = e.target.value }} />
+            <Input placeholder="你的名字" value={$.name} onInput={(e: any) => { $.name = e.target.value; rerender() }} />
           </Field>
           <Field label="邮箱" required>
-            <Input type="email" placeholder="you@example.com" value={$.email} onInput={(e: any) => { $.email = e.target.value }} />
+            <Input type="email" placeholder="you@example.com" value={$.email} onInput={(e: any) => { $.email = e.target.value; rerender() }} />
           </Field>
           <Field label="密码" required>
-            <PasswordInput placeholder="••••••••" value={$.password} onInput={(e: any) => { $.password = e.target.value }} />
+            <PasswordInput placeholder="••••••••" value={$.password} onInput={(e: any) => { $.password = e.target.value; rerender() }} />
           </Field>
           <Button variant="primary" block type="submit" disabled={$.loading}>
             {$.loading ? '注册中...' : '注 册'}

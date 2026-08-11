@@ -71,18 +71,17 @@ describe('ctx.ui.usePopupPosition', () => {
     let anchor: HTMLElement | null = null
     let pos: any
     const Cmp = async (_: any, ctx: WfuiContext) => {
-      const $ = ctx.ui.$()
-      $.open = false
+      let isOpen = false
       pos = ctx.ui.usePopupPosition({
         el: () => anchor,
-        isOpen: () => $.open,
+        isOpen: () => isOpen,
         compute: (r) => ({ top: r.bottom + 4, left: r.left }),
       })
       return () => {
         renderCount++
         return h('button', {
           id: 'pp-2-toggle',
-          onClick: () => { $.open = true },
+          onClick: () => { isOpen = true; ctx.ui.render() },
           ref: (el: HTMLElement | null) => { anchor = el },
         }, 'x')
       }

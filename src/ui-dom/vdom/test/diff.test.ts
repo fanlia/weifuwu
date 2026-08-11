@@ -16,7 +16,7 @@ import { createClientBrowser } from '../../browser.ts'
 import { h, type VNode } from '../../vnode.ts'
 import { buildVNode } from '../build.ts'
 import { renderValue, setProp } from '../render.ts'
-import { patchValue, patchChildren, normalizeChildren } from '../diff.ts'
+import { patchValue, patchChildren, normalizeChildren, patchProps } from '../diff.ts'
 import { createRegistry } from '../registry.ts'
 
 before(setupJsdom)
@@ -213,4 +213,13 @@ test('normalizeChildren: null/数组/单值', () => {
   assert.deepEqual(normalizeChildren(null), [])
   assert.deepEqual(normalizeChildren([1, 2]), [1, 2])
   assert.deepEqual(normalizeChildren('x'), ['x'])
+})
+
+test('patchProps: 事件函数引用变化 → 移除旧 handler（不重复绑定累积）', () => {
+  const el = document.createElement('button')
+  let clicks = 0
+  const oldClick = () => { clicks++ }
+  patchProps(el, { onClick: oldClick }, { onClick: () => { clicks++ } })
+  el.click()
+  assert.equal(clicks, 1, '新 handler 只触发一次——旧 handler 已移除（否则重复绑定触发两次）')
 })

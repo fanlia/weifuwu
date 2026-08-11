@@ -24,7 +24,8 @@ const CAT_LABELS: Record<string, string> = {
 }
 
 export const NewAgent: Component = async (_props, ctx) => {
-  const $ = ctx.ui.$()
+  const $: Record<string, any> = {}
+  const rerender = () => ctx.ui.render()
   const token = ctx.auth?.token
 
   $.step = 'template'; $.selectedTemplate = null
@@ -37,7 +38,7 @@ export const NewAgent: Component = async (_props, ctx) => {
 
   ctx.api!.get<{ templates: any[] }>('/api/role-templates')
     .then(d => { $.roleTemplates = d.templates ?? []; $.loading = false })
-    .catch(() => { $.loading = false })
+    .catch(() => { $.loading = false; rerender() })
 
   function buildCategories() {
     const cats = new Map<string, { label: string; templates: RoleTemplate[] }>()
@@ -57,6 +58,7 @@ export const NewAgent: Component = async (_props, ctx) => {
     $.allowFileTools = t.default_allow_file_tools ?? false
     $.allowCommandExec = t.default_allow_command_exec ?? false
     $.step = 'configure'
+    rerender()
   }
 
   function startDirect() {
@@ -68,8 +70,9 @@ export const NewAgent: Component = async (_props, ctx) => {
 
   async function handleSubmit(e: Event) {
     e.preventDefault()
-    if (!$.name.trim()) { $.error = '请输入名称'; return }
+    if (!$.name.trim()) { $.error = '请输入名称'; rerender(); return }
     $.submitting = true; $.error = ''
+    rerender()
 
     const body: Record<string, unknown> = { type: $.type, name: $.name.trim() }
 
@@ -104,7 +107,7 @@ export const NewAgent: Component = async (_props, ctx) => {
     try {
       const data = await ctx.api!.post<{ agent: { id: string } }>('/api/agents', body)
       ctx.app?.navigate(`/agents/${data.agent.id}`)
-    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
+    } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }
 
   // render：步骤判断必须在 render 函数内部（mount 只返回一个 render fn，
@@ -165,7 +168,7 @@ export const NewAgent: Component = async (_props, ctx) => {
               <div class="wf-text-base wf-text-semibold">{$.selectedTemplate.name}</div>
               <div class="wf-text-xs wf-text-tertiary">{$.selectedTemplate.description}</div>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => { $.step = 'template' }}>切换模板</Button>
+            <Button size="sm" variant="ghost" onClick={() => { $.step = 'template'; rerender() }}>切换模板</Button>
           </div>
         </Card>
       )}
@@ -182,7 +185,7 @@ export const NewAgent: Component = async (_props, ctx) => {
               <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(160px, 1fr))">
                 {AGENT_TYPES.map(t => (
                   <Card key={t.value} outlined hover active={$.type === t.value}
-                    onClick={() => { $.type = t.value; $.error = '' }}>
+                    onClick={() => { $.type = t.value; $.error = ''; rerender() }}>
                     <div class="wf-text-base wf-text-semibold">{t.label}</div>
                     <div class="wf-text-xs wf-text-secondary">{t.desc}</div>
                   </Card>
@@ -193,18 +196,18 @@ export const NewAgent: Component = async (_props, ctx) => {
 
           <Field label="名称" required>
             <Input type="text" placeholder="输入 Agent 名称" value={$.name}
-              onInput={(e: any) => { $.name = e.target.value }} />
+              onInput={(e: any) => { $.name = e.target.value; rerender() }} />
           </Field>
 
           <Field label="描述">
             <Input type="text" placeholder="简短描述此 Agent 的用途" value={$.description}
-              onInput={(e: any) => { $.description = e.target.value }} />
+              onInput={(e: any) => { $.description = e.target.value; rerender() }} />
           </Field>
 
           {hasAIConfig && (
             <Field label="系统提示词（System Prompt）" hint="留空则使用默认助手人格">
               <Textarea rows={5} placeholder="设定 AI 的角色与行为指令..." value={$.systemPrompt}
-                onInput={(e: any) => { $.systemPrompt = e.target.value }} />
+                onInput={(e: any) => { $.systemPrompt = e.target.value; rerender() }} />
             </Field>
           )}
 
@@ -213,7 +216,7 @@ export const NewAgent: Component = async (_props, ctx) => {
               <div class="wf-row wf-gap-lg">
                 <div class="wf-fill">
                   <Field label="模型">
-                    <Select value={$.aiModel} onChange={(v) => { $.aiModel = v as string }}
+                    <Select value={$.aiModel} onChange={(v) => { $.aiModel = v as string; rerender() }}
                       options={[
                         { value: '', label: '默认 (deepseek-v4-flash)' },
                         { value: 'deepseek-v4-flash', label: 'DeepSeek Chat' },
@@ -225,7 +228,7 @@ export const NewAgent: Component = async (_props, ctx) => {
                   <Field label="温度">
                     <div class="wf-row wf-gap-sm">
                       <Slider min={0} max={2} step={0.1} value={$.aiTemperature}
-                        onChange={(v) => { $.aiTemperature = v }} />
+                        onChange={(v) => { $.aiTemperature = v; rerender() }} />
                       <span class="wf-text-sm wf-text-semibold" style="min-width: 30px; text-align: center">{$.aiTemperature}</span>
                     </div>
                   </Field>
@@ -235,13 +238,13 @@ export const NewAgent: Component = async (_props, ctx) => {
                 <div class="wf-fill">
                   <Field label="最大 Token 数">
                     <InputNumber value={$.aiMaxTokens} min={64} max={8192} step={64}
-                      onChange={(v) => { $.aiMaxTokens = v }} />
+                      onChange={(v) => { $.aiMaxTokens = v; rerender() }} />
                   </Field>
                 </div>
                 <div class="wf-fill">
                   <Field label="人工审批 (HITL)">
                     <Checkbox label="开启后 AI 回复需人工批准后才发送" checked={$.aiHITL}
-                      onChange={(v: boolean) => { $.aiHITL = v }} />
+                      onChange={(v: boolean) => { $.aiHITL = v; rerender() }} />
                   </Field>
                 </div>
               </div>
@@ -256,9 +259,9 @@ export const NewAgent: Component = async (_props, ctx) => {
               </div>
               <div class="wf-row wf-gap-lg">
                 <Checkbox label="📄 启用文件工具 (read/write/edit/grep)" checked={$.allowFileTools}
-                  onChange={(v: boolean) => { $.allowFileTools = v }} />
+                  onChange={(v: boolean) => { $.allowFileTools = v; rerender() }} />
                 <Checkbox label="⚡ 启用命令执行 (bash)" checked={$.allowCommandExec}
-                  onChange={(v: boolean) => { $.allowCommandExec = v }} />
+                  onChange={(v: boolean) => { $.allowCommandExec = v; rerender() }} />
               </div>
             </>
           )}
@@ -266,12 +269,12 @@ export const NewAgent: Component = async (_props, ctx) => {
           {!$.selectedTemplate && isWebhook && (
             <Field label="Webhook URL">
               <Input type="url" placeholder="https://example.com/webhook" value={$.webhookUrl}
-                onInput={(e: any) => { $.webhookUrl = e.target.value }} />
+                onInput={(e: any) => { $.webhookUrl = e.target.value; rerender() }} />
             </Field>
           )}
           {!$.selectedTemplate && isKB && (
             <Field label="分块大小">
-              <Input type="number" value={$.chunkSize} onInput={(e: any) => { $.chunkSize = e.target.value }} />
+              <Input type="number" value={$.chunkSize} onInput={(e: any) => { $.chunkSize = e.target.value; rerender() }} />
             </Field>
           )}
 

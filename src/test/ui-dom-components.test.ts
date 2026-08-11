@@ -89,12 +89,11 @@ test('MyButton：class 拼接 + 事件绑定 + children', async () => {
 // ═══════════════════════════════════════════════════════
 
 const Counter: Component = async (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.count = 0
+  let count = 0
   return (props) =>
     h('div', { class: 'counter' },
-      h('span', { class: 'counter-val' }, String($.count)),
-      h('button', { class: 'counter-inc', onClick: () => { $.count++ } }, '+'),
+      h('span', { class: 'counter-val' }, String(count)),
+      h('button', { class: 'counter-inc', onClick: () => { count++; ctx.ui.render() } }, '+'),
     )
 }
 
@@ -136,8 +135,7 @@ interface MyInputProps {
 
 const MyInput: Component<MyInputProps> = async (_init, ctx) =>
   (props) => {
-    const $ = ctx.ui.$()
-    $.text = props.value ?? '' // 内部输入态（不依赖受控回流）
+    let text = props.value ?? '' // 内部输入态（不依赖受控回流）
     return h('input', {
       id: props.id,
       class: 'my-input',
@@ -146,7 +144,8 @@ const MyInput: Component<MyInputProps> = async (_init, ctx) =>
       placeholder: props.placeholder,
       onInput: (e: Event) => {
         const v = (e.target as HTMLInputElement).value
-        $.text = v
+        text = v
+        ctx.ui.render()
         props.onInput?.(v)
       },
     })

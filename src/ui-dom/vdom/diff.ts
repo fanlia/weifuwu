@@ -10,6 +10,18 @@
 
 import type { VNode, VNodeChild } from '../vnode.ts'
 import { Fragment, Portal } from '../vnode.ts'
+import { createClientBrowser } from '../browser.ts'
+import { cleanupComponent, type Registry } from './registry.ts'
+import { callRefCleanupFor } from './registry.ts'
+
+/** 组件 vnode 从树中移除：ref(null) 递归 + 卸载钩子（cleanupComponent） */
+function disposeComponent(vnode: VNode, registry?: Registry): void {
+  console.log('[dispose]', (vnode.type as any).name, 'id=', vnode._id)
+  if (registry && typeof vnode.type === 'function' && vnode._id) {
+    try { callRefCleanupFor(vnode, registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
+    cleanupComponent(registry, vnode._id)
+  }
+}
 import { renderValue, setProp } from './render.ts'
 import { componentPropsEqual } from './build.ts'
 
@@ -80,6 +92,9 @@ export function patchValue(
       remoteEl?.parentNode?.removeChild(remoteEl)
       return null
     }
+    if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) && typeof (oldInput as VNode).type === 'function') {
+      disposeComponent(oldInput as VNode, ctx.registry)
+    }
     if (oldNode?.parentNode) oldNode.parentNode.removeChild(oldNode)
     return null
   }
@@ -95,20 +110,21 @@ export function patchValue(
 
   const newV = newInput as VNode
 
-  // Portal：remote patch（简化——重建容器内容）
+  // Portal：remote patch（递归 patch——不重建容器内容。
+  // 重建（innerHTML=''）会丢 portal 内 ref 状态——Modal 退场 animationend 监听等）
   if (newV.type === Portal) {
     const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
     if (oldV?.type === Portal) {
       const container = oldV._remoteEl
       if (container) {
-        container.innerHTML = ''
-        const child = renderValue(newV.props?.children ?? null, ctx, ctx.browser)
-        if (child != null) container.appendChild(child)
+        const oldChild = oldV.props?.children ?? null
+        const newChild = newV.props?.children ?? null
+        patchValue(container, container.firstChild, oldChild, newChild, ctx)
       }
       newV._remoteEl = oldV._remoteEl
       return null
     }
-    renderValue(newV, ctx, ctx.browser)
+    renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
     return null
   }
 
@@ -177,7 +193,7 @@ export function patchValue(
     return el
   }
   // 新增/替换
-  const node = renderValue(newV, ctx, ctx.browser)
+  const node = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
   if (node == null) return null
   if (oldNode?.parentNode) oldNode.parentNode.replaceChild(node, oldNode)
   else parent.appendChild(node)
@@ -192,11 +208,18 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
     const ov = oldProps[key]
     const nv = newProps[key]
     if (ov === nv) continue
+    if (key.startsWith('on')) {
+      // 事件函数引用变化：先移除旧 handler 再绑定新（否则重复绑定累积——
+      // renderFn 重渲染产生新函数 → 每次 patch 多一个监听 → 点击触发多次）
+      if (typeof ov === 'function') el.removeEventListener(key.slice(2).toLowerCase(), ov)
+      if (nv != null && nv !== false) el.addEventListener(key.slice(2).toLowerCase(), nv)
+      continue
+    }
     if (nv == null || nv === false) {
       // 移除
       if (key === 'class' || key === 'className') { el.removeAttribute('class') }
       else if (key.startsWith('on')) { el.removeEventListener(key.slice(2).toLowerCase(), ov) }
-      else if (key === 'ref') { if (typeof ov === 'function') ov(null) }
+      else if (key === 'ref') { if (typeof ov === 'function') { try { ov(null) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } } }
       else if (key === 'value') { (el as HTMLInputElement).value = '' }
       else { el.removeAttribute(key); try { delete (el as any)[key] } catch {} }
       continue
@@ -239,6 +262,9 @@ export function patchChildren(
       const oldC = i < oldChildren.length ? oldChildren[i] : null
       const newC = i < newChildren.length ? newChildren[i] : null
       if (newC == null || typeof newC === 'boolean') {
+        if (oldC && typeof oldC === 'object' && !Array.isArray(oldC) && typeof (oldC as VNode).type === 'function') {
+          disposeComponent(oldC as VNode, ctx.registry)
+        }
         const on = oldNodes[i]
         if (on?.parentNode) on.parentNode.removeChild(on)
         out.push(null)
@@ -246,7 +272,7 @@ export function patchChildren(
       }
       if (oldC == null || typeof oldC === 'boolean') {
         // 新增：渲染 + 插到下一个兄弟前（位置正确）
-        const node = renderValue(newC, ctx, ctx.browser)
+        const node = renderValue(newC, ctx, ctx.browser ?? createClientBrowser())
         if (node == null) { out.push(null); continue }
         let next: Node | null = null
         for (let j = i + 1; j < oldNodes.length; j++) {
@@ -274,6 +300,8 @@ export function patchChildren(
   })
   const out: (Node | null)[] = []
   const movedKeys = new Set<string>()
+  // 位置校正锚点：保证最终 DOM 顺序 = newChildren 顺序（keyed 移动必须 insertBefore）
+  let lastDom: Node | null = null
   newChildren.forEach((c, i) => {
     const k = getKey(c)
     const newV = c as VNode
@@ -282,21 +310,36 @@ export function patchChildren(
       const oldNode = entry.nodes[0] ?? null
       movedKeys.add(k)
       const node = patchValue(parent, oldNode, entry.vnode, newV, ctx)
+      // 位置校正：node 必须位于 lastDom 之后（keyed 重排——旧实现只 patch 不移动 DOM）
+      if (node && node.parentNode === parent && lastDom && node.previousSibling !== lastDom) {
+        parent.insertBefore(node, lastDom.nextSibling)
+      }
       out.push(node)
+      if (node) lastDom = node
     } else {
       // 新增
-      const node = renderValue(newV, ctx, ctx.browser)
+      const node = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
       out.push(node)
-      if (node != null) parent.appendChild(node)
+      if (node != null) {
+        parent.appendChild(node)
+        // 新增节点位置校正（追加在末尾后移到正确位置）
+        if (lastDom && node.previousSibling !== lastDom) {
+          parent.insertBefore(node, lastDom.nextSibling)
+        }
+        lastDom = node
+      }
     }
   })
   // 删除未移动的旧节点
   oldChildren.forEach((c, i) => {
     const k = getKey(c)
+    const isComponent = c && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function'
     if (k !== undefined && !movedKeys.has(k)) {
+      if (isComponent) disposeComponent(c as VNode, ctx.registry)
       const on = oldNodes[i]
       if (on?.parentNode) on.parentNode.removeChild(on)
     } else if (k === undefined) {
+      if (isComponent) disposeComponent(c as VNode, ctx.registry)
       const on = oldNodes[i]
       if (on?.parentNode) on.parentNode.removeChild(on)
     }
