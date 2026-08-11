@@ -4,6 +4,7 @@
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { RedisPool } from '../db/redis/pool.ts'
 import { queue } from '../queue/index.ts'
 import { scheduler } from './index.ts'
 
@@ -13,12 +14,14 @@ const qname = () => `t-${randomUUID().toString().slice(0, 8)}`
 const schedPrefix = () => `wf:sched:${process.pid}:${randomUUID().toString().slice(0, 4)}:`
 
 describe('scheduler delayed tasks (real redis)', () => {
-  const q = queue()
-  const sched = scheduler({ queue: q, tickMs: 100, prefix: schedPrefix() })
+  const r = new RedisPool({ host: 'localhost', port: 6379 })
+  const q = queue({ redis: r })
+  const sched = scheduler({ redis: r, queue: q, tickMs: 100, prefix: schedPrefix() })
 
   after(async () => {
     await sched.close()
     await q.close()
+    await r.close()
   })
 
   it('delayMs 到期后入队并被 worker 消费', async () => {
@@ -78,8 +81,9 @@ describe('scheduler delayed tasks (real redis)', () => {
     await c.close()
 
     // 新 scheduler 实例（模拟重启）——start 时立即补扫到期任务
-    const q2 = queue()
-    const sched2 = scheduler({ queue: q2, tickMs: 1000 })
+    const r2 = new RedisPool({ host: 'localhost', port: 6379 })
+    const q2 = queue({ redis: r2 })
+    const sched2 = scheduler({ redis: r2, queue: q2, tickMs: 1000 })
     const received: unknown[] = []
     const worker = q2.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
     await worker.start()
@@ -89,6 +93,7 @@ describe('scheduler delayed tasks (real redis)', () => {
     await worker.stop()
     await sched2.close()
     await q2.close()
+    await r2.close()
   })
 })
 
@@ -96,12 +101,14 @@ describe('scheduler multi-instance (real redis)', () => {
   it('延时任务双实例不重复：同一到期点只入队一次（ZREM 抢占）', async () => {
     const name = qname()
     const received: unknown[] = []
-    const q = queue()
-    const q2 = queue()
+    const r = new RedisPool({ host: 'localhost', port: 6379 })
+    const r2 = new RedisPool({ host: 'localhost', port: 6379 })
+    const q = queue({ redis: r })
+    const q2 = queue({ redis: r2 })
     // 双实例共享同一 prefix（多实例部署语义）——协作消费同一 ZSET
     const prefix = schedPrefix()
-    const sched = scheduler({ queue: q, tickMs: 100, prefix })
-    const sched2 = scheduler({ queue: q2, tickMs: 100, prefix })
+    const sched = scheduler({ redis: r, queue: q, tickMs: 100, prefix })
+    const sched2 = scheduler({ redis: r2, queue: q2, tickMs: 100, prefix })
     const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
     await worker.start()
     try {
@@ -116,17 +123,21 @@ describe('scheduler multi-instance (real redis)', () => {
       await worker.stop()
       await q.close()
       await q2.close()
+      await r.close()
+      await r2.close()
     }
   })
 })
 
 describe('scheduler cancelSchedule (real redis)', () => {
-  const q = queue()
-  const sched = scheduler({ queue: q, tickMs: 100, prefix: schedPrefix() })
+  const r = new RedisPool({ host: 'localhost', port: 6379 })
+  const q = queue({ redis: r })
+  const sched = scheduler({ redis: r, queue: q, tickMs: 100, prefix: schedPrefix() })
 
   after(async () => {
     await sched.close()
     await q.close()
+    await r.close()
   })
 
   it('取消未到期任务：不再触发', async () => {

@@ -8,6 +8,7 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { RedisConnection } from '../db/redis/connection.ts'
+import { RedisPool } from '../db/redis/pool.ts'
 import { queue } from '../queue/index.ts'
 import { scheduler } from './index.ts'
 
@@ -40,13 +41,15 @@ async function expireNow(prefix: string, field: string) {
 }
 
 describe('scheduler cron tasks (real redis)', () => {
-  const q = queue()
+  const r = new RedisPool({ host: 'localhost', port: 6379 })
+  const q = queue({ redis: r })
   const prefix = schedPrefix()
-  const sched = scheduler({ queue: q, tickMs: 100, prefix })
+  const sched = scheduler({ redis: r, queue: q, tickMs: 100, prefix })
 
   after(async () => {
     await sched.close()
     await q.close()
+    await r.close()
   })
 
   it('cron 注册后到点触发入队（worker 消费），nextRunAt 推进', async () => {
@@ -80,8 +83,9 @@ describe('scheduler cron tasks (real redis)', () => {
     const worker = q.queue.worker<any>(name, async (job) => { received.push(job.data) }, { blockMs: 50 })
     await worker.start()
 
-    const q2 = queue()
-    const sched2 = scheduler({ queue: q2, tickMs: 100, prefix: schedPrefix() })
+    const r2 = new RedisPool({ host: 'localhost', port: 6379 })
+    const q2 = queue({ redis: r2 })
+    const sched2 = scheduler({ redis: r2, queue: q2, tickMs: 100, prefix: schedPrefix() })
     try {
       await sched.cron('* * * * *', name, { multi: true })
       await sched2.cron('* * * * *', name, { multi: true })
@@ -92,15 +96,23 @@ describe('scheduler cron tasks (real redis)', () => {
     } finally {
       await sched2.close()
       await q2.close()
+      await r2.close()
     }
     await worker.stop()
   })
 })
 
 describe('scheduler cron UX fixes (real redis)', () => {
-  const q = queue()
+  const r = new RedisPool({ host: 'localhost', port: 6379 })
+  const q = queue({ redis: r })
   const prefix = schedPrefix()
-  const sched = scheduler({ queue: q, tickMs: 100, prefix })
+  const sched = scheduler({ redis: r, queue: q, tickMs: 100, prefix })
+
+  after(async () => {
+    await sched.close()
+    await q.close()
+    await r.close()
+  })
 
   before(async () => {
     // 清理本测试 prefix 的 cron 注册表（历史测试残留——cron 定义无 TTL）
@@ -109,11 +121,6 @@ describe('scheduler cron UX fixes (real redis)', () => {
     const keys = (await conn.command('KEYS', `${schedPrefix()}crons`)) as string[]
     for (const k of keys) await conn.command('DEL', k)
     await conn.close()
-  })
-
-  after(async () => {
-    await sched.close()
-    await q.close()
   })
 
   it('同 name 改表达式：覆盖更新，旧定义不残留（无双触发）', async () => {

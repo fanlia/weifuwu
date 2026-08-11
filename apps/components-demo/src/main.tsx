@@ -2520,7 +2520,7 @@ const App: Component = async (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '113 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">113 组件</Badge>
-          <Badge variant="success">974 测试</Badge>
+          <Badge variant="success">979 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>

@@ -7,11 +7,15 @@
 > 依赖 `queue`（触发后入队执行）。三类任务：即时（queue.add 已有）、延时（`ctx.schedule`）、定时（`ctx.cron`）。
 
 ```ts
-import { queue, scheduler } from 'weifuwu'
+import { redis, queue, scheduler } from 'weifuwu'
 
-const q = queue()
+// 模式 A 显式注入：redis 是 scheduler 的第一方消费者（ZSET 延时队列 + HASH cron 注册表
+// 直接命令 redis）——必传，与 queue({ redis }) 对齐；scheduler.close() 不关闭注入的 redis
+const r = redis()                      // ctx.redis（RedisPool）
+const q = queue({ redis: r.redis })    // 入队执行（stream）
+app.use(r)
 app.use(q)
-app.use(scheduler({ queue: q }))       // 依赖 ctx.queue（触发后入队）
+app.use(scheduler({ redis: r.redis, queue: q }))   // 守护循环走 createConnection() 独立连接
 
 // 延时任务（单次）：delayMs 或指定时间
 await ctx.schedule('email.send', { to, body }, { delayMs: 30_000 })
@@ -30,6 +34,7 @@ const worker = ctx.queue.worker('email.send', async (job) => { ... })
 
 - **延时**：ZSET（score=触发时间戳）+ 守护循环（独立连接）→ 到期 `ZREM` 原子抢占（多实例不重复）→ `queue.add`
 - **多应用隔离**：`scheduler({ prefix })`——ZSET/HASH 应用级共享，多应用共用 redis 时必须各自 prefix（同应用多实例共享 prefix = 协作消费）
+- **连接所有权**：scheduler 内部用 `redis.createConnection()` 独立守护连接（不占池——对齐 queue worker）；`scheduler.close()` 只关守护连接——**不关闭注入的 redis**（调用方负责 `r.close()`）
 - **cron**：HASH 注册表（**field = name，同 name 重新注册 = 覆盖更新**，改表达式不残留旧定义）+ 滚动生成触发点（`ZADD NX` 幂等）→ 复用延时链路；`nextRunAt` 原子推进
 - **取消**：`ctx.cancelCron(name)` 删定义 + 清理 pending 触发点（停用 cron 必须 cancel——定义无 TTL 会累积）
 - **崩溃恢复**：未消费触发点留在 ZSET，重启后补扫立即触发（at-least-once，幂等由业务保证）

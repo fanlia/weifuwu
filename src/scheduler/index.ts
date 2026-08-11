@@ -10,13 +10,17 @@
 
 import { randomUUID } from 'node:crypto'
 import type { Context, Handler, Middleware } from '../types.ts'
-import { RedisConnection, type RedisConnectionOptions } from '../db/redis/connection.ts'
+import type { Redis, RedisPoolConnection } from '../db/contracts.ts'
 import type { QueueClientModule } from '../queue/index.ts'
 import { parseCron, nextRun } from './cron.ts'
 
 export interface SchedulerOptions {
-  /** Redis 连接串（默认 REDIS_URL） */
-  url?: string
+  /**
+   * Redis 客户端（必传——模式 A 显式注入，对齐 queue({ redis })）：
+   * 守护循环走 redis.createConnection() 独立连接（不占池——对齐 queue worker 阻塞读）；
+   * 所有权在调用方：scheduler.close() 不关闭注入的 redis（只关守护连接）。
+   */
+  redis: Redis
   /** key 前缀。默认 'wf:sched:'。 */
   prefix?: string
   /** 守护循环扫描间隔 ms。默认 1000（延时任务精度上限）。 */
@@ -75,22 +79,20 @@ export interface SchedulerClientModule extends Middleware<Context, Context & Sch
   close: () => Promise<void>
 }
 
-function parseUrl(options?: SchedulerOptions): RedisConnectionOptions {
-  const url = options?.url ?? process.env.REDIS_URL ?? 'redis://localhost:6379'
-  const u = new URL(url)
-  return { host: u.hostname, port: Number(u.port || 6379) }
-}
-
 export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   const prefix = options.prefix ?? 'wf:sched:'
   const tickMs = options.tickMs ?? 1000
   const delayedKey = `${prefix}delayed`
   const cronsKey = `${prefix}crons`
-  const connOpts = parseUrl(options)
   const queueModule = options.queue
 
-  // 独立连接：守护循环专用（不占应用连接池）
-  const conn = new RedisConnection(connOpts)
+  // 守护循环独立连接（redis.createConnection——不占池；对齐 queue worker 阻塞读模式）。
+  // 惰性创建：schedule/cron/tick 首次调用才建连接（scheduler() 同步返回，start 异步）
+  let connPromise: Promise<RedisPoolConnection> | null = null
+  function getConn(): Promise<RedisPoolConnection> {
+    if (!connPromise) connPromise = options.redis.createConnection()
+    return connPromise
+  }
   let running = false
   let tickTimer: NodeJS.Timeout | null = null
 
@@ -100,14 +102,14 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
     await tickCrons()
     let due: unknown
     try {
-      due = await conn.command('ZRANGEBYSCORE', delayedKey, 0, Date.now())
+      due = await (await getConn()).command('ZRANGEBYSCORE', delayedKey, 0, Date.now())
     } catch {
       return // 连接未就绪/瞬断——下一 tick 重试
     }
     for (const member of due as string[]) {
       let removed: unknown
       try {
-        removed = await conn.command('ZREM', delayedKey, member)
+        removed = await (await getConn()).command('ZREM', delayedKey, member)
       } catch {
         return
       }
@@ -129,7 +131,7 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   async function tickCrons(): Promise<void> {
     let crons: unknown
     try {
-      crons = await conn.command('HGETALL', cronsKey)
+      crons = await (await getConn()).command('HGETALL', cronsKey)
     } catch {
       return
     }
@@ -151,7 +153,7 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
         const ts = next
         const member = JSON.stringify({ id: `cron:${field}:${ts}`, name: def.name, data: def.data })
         try {
-          await conn.command('ZADD', delayedKey, 'NX', ts, member) // NX：多实例只加一次
+          await (await getConn()).command('ZADD', delayedKey, 'NX', ts, member) // NX：多实例只加一次
         } catch {
           break
         }
@@ -159,7 +161,7 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
       }
       if (next !== def.nextRunAt) {
         // 推进 nextRunAt（幂等：重复 tick 计算同值）
-        await conn.command('HSET', cronsKey, field, JSON.stringify({ ...def, nextRunAt: next }))
+        await (await getConn()).command('HSET', cronsKey, field, JSON.stringify({ ...def, nextRunAt: next }))
       }
     }
   }
@@ -169,18 +171,18 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
     const firstRun = nextRun(parsed, new Date())
     // field = name（唯一）：同 name 重新注册 = HSET 覆盖——改表达式不残留旧定义
     const def = JSON.stringify({ expr, name, data, nextRunAt: firstRun.getTime() })
-    await conn.command('HSET', cronsKey, name, def)
+    await (await getConn()).command('HSET', cronsKey, name, def)
   }
 
   const cancelCron: SchedulerClient['cancelCron'] = async (name) => {
     // 1. 删 HASH 定义
-    const removed = await conn.command('HDEL', cronsKey, name)
+    const removed = await (await getConn()).command('HDEL', cronsKey, name)
     // 2. 清理 ZSET 中该 cron 的 pending 触发点（member = {"id":"cron:{name}:{ts}"...}）
     try {
-      const pending = (await conn.command('ZRANGE', delayedKey, 0, -1)) as string[]
+      const pending = (await (await getConn()).command('ZRANGE', delayedKey, 0, -1)) as string[]
       for (const member of pending) {
         if (member.includes(`"id":"cron:${name}:`)) {
-          await conn.command('ZREM', delayedKey, member)
+          await (await getConn()).command('ZREM', delayedKey, member)
         }
       }
     } catch {
@@ -192,7 +194,7 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
   async function start(): Promise<void> {
     if (running) return
     running = true
-    await conn.connect()
+    await getConn()   // 创建独立守护连接（createConnection 已 connect）
     // 先补一次到期扫描（进程重启后恢复：ZSET 里的到期任务立即触发）
     await tick()
     tickTimer = setInterval(() => {
@@ -207,17 +209,17 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
     if (!Number.isFinite(runAt)) throw new Error('scheduler: invalid when/delayMs')
     const id = randomUUID()
     const member = JSON.stringify({ id, name, data })
-    await conn.command('ZADD', delayedKey, runAt, member)
+    await (await getConn()).command('ZADD', delayedKey, runAt, member)
     return { id }
   }
 
   const cancelSchedule: SchedulerClient['cancelSchedule'] = async (id) => {
     // 扫描 ZSET pending 触发点，按 member JSON 的 id 精确匹配删除
     try {
-      const pending = (await conn.command('ZRANGE', delayedKey, 0, -1)) as string[]
+      const pending = (await (await getConn()).command('ZRANGE', delayedKey, 0, -1)) as string[]
       for (const member of pending) {
         if (member.includes(`"id":"${id}"`)) {
-          const removed = await conn.command('ZREM', delayedKey, member)
+          const removed = await (await getConn()).command('ZREM', delayedKey, member)
           if (removed === 1) return true
         }
       }
@@ -246,7 +248,8 @@ export function scheduler(options: SchedulerOptions): SchedulerClientModule {
       clearInterval(tickTimer)
       tickTimer = null
     }
-    await conn.close().catch(() => {})
+    // 只关守护连接——不关闭注入的 redis（所有权在调用方，对齐 queue({ redis })）
+    if (connPromise) await connPromise.then((c) => c.close()).catch(() => {})
   }
 
   // 守护循环启动（模块初始化即开始扫描——与 queue worker 同模式）
