@@ -12,7 +12,7 @@ import type {
   UsePopupHandle,
 } from '../types.ts'
 import { clampToViewport, computeFixedPosRect } from '../popup.ts'
-import { createPortal } from '../vnode.ts'
+import { createPortal, h } from '../vnode.ts'
 import type { VNode } from '../vnode.ts'
 import { lockScroll, unlockScroll } from '../scroll-lock.ts'
 import { trapFocus } from '../focus-trap.ts'
@@ -97,6 +97,8 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
   // ── 外部点击关闭（document 级，卸载退订） ──
   const onDocMouseDown = (e: Event) => {
     if (options.closeOnOutside === false) return
+    // mask 模式：遮罩接管关闭（全屏 fixed 已覆盖所有点击）——外部点击关闭关闭关闭
+    if (options.mask) return
     if (!isOpen()) return
     const target = e.target
     if (!(target instanceof Node)) return
@@ -257,6 +259,28 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
         ref: portalPanelRef,
       },
     } as VNode
+    // mask 模式：渲染全屏遮罩 + 面板（遮罩 z-index=--wf-z-overlay < 面板 --wf-z-popover）。
+    // 面板显式 z-index 高于遮罩（否则遮罩覆盖面板）；遮罩点击关闭（maskClosable 门控）。
+    if (options.mask) {
+      const maskEl = h('div', {
+        class: 'wf-popup-mask',
+        'data-portal-mask': portalKey,
+        onClick: options.maskClosable === false ? undefined : () => setOpen(false),
+      })
+      // maskCentered：面板覆盖全屏 flex 居中（预览/全屏浮层）——覆盖 trigger 定位，
+      // 保留 content 原始 style（transform 等——Img 缩放依赖），丢弃 top/left/maxWidth
+      const maskStyle = options.maskCentered
+        ? { position: 'fixed', inset: '0', zIndex: 'var(--wf-z-popover)', display: 'flex', alignItems: 'center', justifyContent: 'center', ...(props.style ?? {}) }
+        : { ...(panel.props?.style ?? {}), zIndex: 'var(--wf-z-popover)' }
+      const maskedPanel = {
+        ...panel,
+        props: {
+          ...panel.props,
+          style: maskStyle,
+        },
+      } as VNode
+      return createPortal([maskEl, maskedPanel], portalKey)
+    }
     return createPortal(panel, portalKey)
   }
 

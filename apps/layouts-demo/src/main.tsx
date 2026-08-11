@@ -76,7 +76,7 @@ const Shell: Component = async (_init, ctx) => {
           </nav>
 
           <div class="wf-stack wf-gap-sm wf-mt-auto wf-pt-md wf-border-t">
-            <Text type="secondary" className="wf-text-sm">57 个布局原语 + 136 个工具类</Text>
+            <Text type="secondary" className="wf-text-sm">58 个布局原语 + 136 个工具类</Text>
             <Tag variant="primary">复制即用</Tag>
           </div>
         </aside>

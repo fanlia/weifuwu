@@ -7,3 +7,12 @@
   max-width: min(var(--wf-popup-max, 480px), calc(100vw - 32px));
   box-sizing: border-box;
 }
+
+/* usePopup mask 模式遮罩：全屏 fixed，z-index 低于面板（overlay=80 < popover=120），
+ * 模态语义阻断页面交互；点击遮罩关闭（maskClosable 门控在组件层） */
+.wf-popup-mask {
+  position: fixed;
+  inset: 0;
+  z-index: var(--wf-z-overlay);
+  background: var(--wf-overlay);
+}

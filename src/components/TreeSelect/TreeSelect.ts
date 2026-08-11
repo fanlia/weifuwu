@@ -1,6 +1,6 @@
 import type { Component } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h, createPortal } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Tree } from '../Tree/Tree.ts'
 import type { TreeNode } from '../Tree/Tree.ts'
 
@@ -31,8 +31,9 @@ export function findLabel(nodes: TreeNode[], key: string): string | undefined {
 
 /**
  * TreeSelect — 树形选择（Tree + 下拉组合）。
- * 下拉经 createPortal + position:fixed（usePopupPosition 定位/跟随/夹紧）——
- * 与 DatePicker 同模式：父容器 overflow/transform 不影响弹出层。
+ * 弹层经 ctx.ui.usePopup（§5.4 弹窗纪律统一组合器）：portal 到 #__wf_portal +
+ * fixed 定位/视口夹紧 + 外部点击关闭 + Escape 关闭 + ref 稳定——不再手写
+ * usePopupPosition/createPortal/panelRef（此前缺外部点击关闭的真实 bug）。
  * 单选 selectedKeys / 多选 checkable checkedKeys（父子联动）。
  * 受控纪律：value 受控无 onChange → warn。
  */
@@ -40,26 +41,23 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
   let open = false
   let expanded: string[] = []
   let triggerEl: HTMLElement | null = null
-  let panelEl: HTMLElement | null = null
 
-  // ESC 关闭（document 级——焦点在触发器外也可关闭）
-  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && open) { open = false; ctx.ui.render() }
-  })
-  const popup = ctx.ui.usePopupPosition?.({
+  // 弹层组合器：portal + 定位/夹紧 + 外部点击/Escape 关闭（统一能力）
+  const popup = ctx.ui.usePopup?.({
+    trigger: () => 'click',
+    placement: () => 'bottom',
+    center: false,
+    gap: 4,
     el: () => triggerEl,
     isOpen: () => open,
-    compute: (r) => ({ top: r.bottom + 4, left: r.left, width: r.width }),
-    // 视口夹紧：dropdown 靠近右/下边缘时平移回视口内（防溢出不可点/点击穿透）
-    panel: () => panelEl,
-    margin: 4,
-  }) ?? { top: 0, left: 0, width: 0, refresh: () => {} }
+    setOpen: (v) => { open = v; ctx.ui.render() }, // 外部点击/Escape 关闭必须显式渲染
+  }) ?? {
+    open: false, setOpen: () => {}, wrapProps: {},
+    portal: () => null, refresh: () => {},
+  }
 
   const toggle = () => {
-    open = !open
-    // 打开时立即定位（ref 已就绪）
-    if (open) popup.refresh()
-    ctx.ui.render()
+    popup.setOpen(!popup.open)
   }
 
   const pickLabel = (value: string | string[] | undefined, options: TreeNode[]): string => {
@@ -76,11 +74,10 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
   }
 
   // 稳定 ref（AGENTS.md 纪律）：内联 ref 每次渲染新引用 → 回调重复执行
-  const panelRef = (el: any) => { panelEl = el as HTMLElement | null }
   const triggerRef = (el: any) => {
     triggerEl = el as HTMLElement | null
     // 首次挂载后（含重渲染）若已打开 → 跟随定位
-    if (el && open) popup.refresh()
+    if (el && popup.open) popup.refresh()
   }
 
   return (props) => {
@@ -109,8 +106,7 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
       onSelect: (keys: string[]) => {
         if (keys.length === 0) return
         onChange?.(keys[0])
-        open = false
-        ctx.ui.render()
+        popup.setOpen(false)
       },
       checkable: multiple || undefined,
       checkedKeys: isMultiple ? (value as string[]) : undefined,
@@ -124,16 +120,17 @@ export const TreeSelect: Component<TreeSelectProps> = async (_init, ctx) => {
       },
     })
 
-    const dropdown = open ? createPortal(
-      h('div', {
-        class: 'wf-treeselect-dropdown',
-        style: { position: 'fixed', top: `${popup.top}px`, left: `${popup.left}px`, width: `${popup.width ?? 0}px` },
-        ref: panelRef,
-      }, tree),
+    const dropdown = popup.portal(
+      h('div', { class: 'wf-treeselect-dropdown' }, tree),
       'treeselect',
-    ) : null
+    )
 
-    return h('div', { class: `wf-treeselect${className ? ` ${className}` : ''}` }, [
+    // 不 spread popup.wrapProps：TreeSelect 自管 trigger（click 切换开/关）——
+    // usePopup 的 wrapProps.onClick 是「只开不关」（Select 教训），spread 会导致
+    // 外层 div 点击误开。只用 portal（外部点击关闭/Escape/定位）能力。
+    return h('div', {
+      class: `wf-treeselect${className ? ` ${className}` : ''}`,
+    }, [
       h('div', {
         class: `wf-treeselect-trigger${open ? ' wf-treeselect-trigger--open' : ''}`,
         role: 'combobox',

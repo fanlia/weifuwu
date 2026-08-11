@@ -71,11 +71,14 @@
 }
 .wf-md-task-check {
   margin-top: 4px;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   accent-color: var(--wf-color-primary);
   cursor: default;
+  /* 覆盖 _base.css input 全局 padding（12px 横向撑大 checkbox） */
+  padding: 0;
+  box-sizing: border-box;
 }
 
 /* GFM 表格 */

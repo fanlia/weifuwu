@@ -71,6 +71,16 @@ export interface UsePopupOptions {
   closeOnOutside?: boolean
   /** Escape 关闭（默认 true） */
   closeOnEscape?: boolean
+  /** 遮罩（默认 false）：渲染全屏 overlay（--wf-overlay，点击遮罩关闭，
+   *  模态语义阻断页面交互）。false = 无遮罩 document 外部点击（§5.4 默认）。
+   *  遮罩层 z-index = --wf-z-overlay(80) < 面板 --wf-z-popover(120)。
+   *  配合 maskClosable 控制遮罩点击是否关闭。 */
+  mask?: boolean
+  /** 遮罩点击关闭（默认 true；mask:true 时生效——危险确认 maskClosable=false 防误触） */
+  maskClosable?: boolean
+  /** 遮罩面板居中（默认 false；mask:true 时生效）：面板覆盖全屏 flex 居中
+   *  （预览图/全屏浮层场景——忽略 trigger 定位，替代 dropdown 的 bottom 定位） */
+  maskCentered?: boolean
   /** 长按触发时长（ms，仅 trigger='longpress'，默认 500） */
   longPressDuration?: number
   /** 打开触发回调（longpress 计时到/右键兼容时调用，携带光标坐标——右键菜单定位用） */

@@ -4,7 +4,7 @@
 
 import type { Component } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h, createPortal } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export interface ImgProps {
   src?: string
@@ -25,21 +25,24 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let previewOpen = false
   let scale = 1
+  let triggerEl: HTMLElement | null = null
 
-  const close = () => {
-    if (previewOpen) {
-      previewOpen = false
-      scale = 1
-      ctx.ui.render()
-    }
+  // 预览层经 usePopup mask 模式统一（§5.4）：全屏遮罩（--wf-overlay + 点击关闭）+
+  // Escape 关闭 + portal——不再手写 createPortal/overlay/Escape（统一遮罩处理）
+  const popup = ctx.ui.usePopup?.({
+    trigger: 'click',
+    placement: 'bottom',
+    el: () => triggerEl,
+    isOpen: () => previewOpen,
+    setOpen: (v) => { previewOpen = v; scale = v ? scale : 1; ctx.ui.render() },
+    mask: true, // 全屏遮罩：模态预览（点击遮罩关闭，maskClosable 默认 true）
+    maskCentered: true, // 图片预览居中显示（覆盖 trigger 定位）
+  }) ?? {
+    open: false, setOpen: () => {}, wrapProps: {},
+    portal: () => null, refresh: () => {},
   }
 
-  // Escape：经 ctx.ui.useGlobalKey（window keydown：mount 注册 + 卸载自动清理）——
-  // 预览层经 portal 挂到独立容器，wrap 的 onKeyDown 收不到 overlay 内 keydown
-  // （不同 DOM 子树，冒泡断裂），需全局级监听。
-  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && previewOpen) close()
-  })
+  const triggerRef = (el: any) => { triggerEl = el as HTMLElement | null }
 
   return (props) => {
     const {
@@ -67,20 +70,17 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
 
     if (!preview) return h('img', imgProps)
 
-    // 预览模式：触发按钮 + 全屏预览层
-    const previewLayer = previewOpen ? createPortal(
-      h('div', {
-        class: 'wf-img-preview-overlay',
-        onClick: (e: Event) => { if (e.target === e.currentTarget) close() },
-      }, h('img', {
+    // 预览模式：usePopup mask 遮罩 + 图片层（点击图片缩放，stopPropagation 不触发遮罩关闭）
+    const previewLayer = popup.portal(
+      h('img', {
         class: 'wf-img-preview-image',
         src: src ?? fallback ?? '',
         alt,
         style: { transform: `scale(${scale * previewScale})`, maxWidth: '90vw', maxHeight: '90vh' },
         onClick: (e: Event) => { e.stopPropagation(); scale = scale === 1 ? 2 : 1; ctx.ui.render() },
-      })),
-      'popover',
-    ) : null
+      }),
+      'img-preview',
+    )
 
     return h('div', {
       class: 'wf-img-preview-wrap',
@@ -89,6 +89,7 @@ export const Img: Component<ImgProps> = async (_init, ctx) => {
         type: 'button',
         class: 'wf-img-preview-trigger',
         'aria-label': '放大预览',
+        ref: triggerRef,
         onClick: () => { previewOpen = true; ctx.ui.render() },
       }, h('img', imgProps)),
       previewLayer,

@@ -105,8 +105,8 @@
   flex-shrink: 0;
 }
 .wf-virtual-table-check {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
   accent-color: var(--wf-color-primary);
   /* 对齐 Tree 三态视觉（原生 indeterminate 横线浅灰不明显）：
@@ -114,6 +114,7 @@
   appearance: none;
   -webkit-appearance: none;
   margin: 0;
+  padding: 0; /* 覆盖 _base.css input 全局 padding（12px 横向撑大 checkbox） */
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg);

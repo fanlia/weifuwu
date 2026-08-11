@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-纯 CSS 57 个布局原语 + 136 个工具类 + 167 个主题 Token。不绑定任何 JS 框架。
+纯 CSS 58 个布局原语 + 136 个工具类 + 167 个主题 Token。不绑定任何 JS 框架。
 
 > **学习路径与命名规范**：见 [`design/style-guide.md`](../design/style-guide.md)——统一语法 `wf-<域>-<名>`、三档学习（组件 → 10 核心原语 → 完整速查）、场景速查、变量定制。
 
@@ -25,7 +25,7 @@ app.get('/layout.css', (req, ctx) => ctx.ui.css('weifuwu/layout'))
 
 也支持相对路径：`ctx.ui.css('./src/style.css')`。
 
-## 57 个布局原语
+## 58 个布局原语
 
 | 类别 | 原语 | 效果 |
 |------|------|------|

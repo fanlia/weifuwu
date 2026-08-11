@@ -267,3 +267,104 @@ describe('usePopup portal 锚点感知（client 层修复）', () => {
     el.remove()
   })
 })
+
+describe('usePopup mask 模式（统一遮罩处理）', () => {
+  afterEach(() => { browser.clearBody() })
+
+  it('mask: true → 渲染全屏遮罩 + 面板（z-index 遮罩 < 面板）', async () => {
+    let wrapEl: HTMLElement | null = null
+    let handle: any
+    const Cmp = async (_: any, ctx: WfuiContext) => {
+      let isOpen = false
+      const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
+      handle = ctx.ui.usePopup({
+        trigger: 'click',
+        el: () => wrapEl,
+        isOpen: () => isOpen,
+        setOpen: (v) => { isOpen = v; ctx.ui.render() },
+        mask: true,
+      })
+      return () => h('div', {
+        class: 'mask-wrap',
+        ref: wrapRef,
+        ...handle.wrapProps,
+      }, [
+        h('button', { class: 'trigger', type: 'button' }, 'T'),
+        handle.portal(h('div', { class: 'wf-panel', 'data-test': 'mask-panel' }, 'P')),
+      ].filter(Boolean))
+    }
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
+    const el = browser.createElement('div')
+    el.id = 'mask-harness'
+    browser.bodyAppend(el)
+    await mountApp(el, Root)
+
+    const wrap = browser.query('.mask-wrap') as HTMLElement
+    wrap.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
+    await new Promise(r => setTimeout(r, 30))
+
+    const mask = browser.query('.wf-popup-mask') as HTMLElement
+    const panel = browser.query('[data-test="mask-panel"]') as HTMLElement
+    assert.ok(mask, '遮罩已渲染')
+    assert.ok(panel, '面板已渲染')
+    // jsdom 不解析 CSS 变量——z-index 层叠关系由 CSS（overlay=80 < popover=120）保证，
+    // 这里断言结构（遮罩与面板都在 #__wf_portal，遮罩在面板前 = 更低层）
+    const portalEl = browser.query('#__wf_portal')
+    assert.ok(portalEl, 'portal 容器存在')
+    // createPortal 的 children 数组渲染到同一 container 内（mask 与 panel 是兄弟直接子节点）
+    const container = [...(portalEl as HTMLElement).children].find(c => c.getAttribute('data-portal') === 'popover') as HTMLElement
+    assert.ok(container, 'portal container 存在')
+    const kids = [...container.children]
+    const maskChild = kids.find(c => c.classList.contains('wf-popup-mask'))
+    const panelChild = kids.find(c => c.getAttribute('data-test') === 'mask-panel')
+    assert.ok(maskChild && panelChild, '遮罩与面板都在 portal 容器')
+    assert.ok(kids.indexOf(maskChild!) < kids.indexOf(panelChild!), '遮罩在面板之前（更低层）')
+
+    // 点击遮罩 → 关闭（重新查询 live 节点——re-render 可能替换 DOM）
+    const liveMask = browser.query('.wf-popup-mask') as HTMLElement
+    liveMask.dispatchEvent(new (window as any).MouseEvent('click', { bubbles: true }))
+    await new Promise(r => setTimeout(r, 30))
+    assert.ok(!browser.query('[data-test="mask-panel"]'), '点击遮罩后面板关闭')
+    el.remove()
+  })
+
+  it('mask: true + maskClosable: false → 点击遮罩不关闭', async () => {
+    let wrapEl: HTMLElement | null = null
+    let handle: any
+    const Cmp = async (_: any, ctx: WfuiContext) => {
+      let isOpen = false
+      const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
+      handle = ctx.ui.usePopup({
+        trigger: 'click',
+        el: () => wrapEl,
+        isOpen: () => isOpen,
+        setOpen: (v) => { isOpen = v; ctx.ui.render() },
+        mask: true,
+        maskClosable: false,
+      })
+      return () => h('div', {
+        class: 'mask-wrap2',
+        ref: wrapRef,
+        ...handle.wrapProps,
+      }, [
+        h('button', { class: 'trigger', type: 'button' }, 'T'),
+        handle.portal(h('div', { class: 'wf-panel', 'data-test': 'mask-panel2' }, 'P')),
+      ].filter(Boolean))
+    }
+    const Root = async (_: any) => () => h('div', {}, [h(Cmp)])
+    const el = browser.createElement('div')
+    el.id = 'mask-harness2'
+    browser.bodyAppend(el)
+    await mountApp(el, Root)
+
+    const wrap = browser.query('.mask-wrap2') as HTMLElement
+    wrap.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
+    await new Promise(r => setTimeout(r, 30))
+    const mask = browser.query('.wf-popup-mask') as HTMLElement
+    assert.ok(mask, '遮罩渲染')
+    mask.dispatchEvent(new (window as any).Event('click', { bubbles: true }))
+    await new Promise(r => setTimeout(r, 30))
+    assert.ok(browser.query('[data-test="mask-panel2"]'), 'maskClosable=false 点击遮罩不关闭')
+    el.remove()
+  })
+})

@@ -76,3 +76,58 @@
   padding: var(--wf-space-xl) var(--wf-space-sm);
   color: var(--wf-color-text-tertiary);
 }
+
+/* ── 行选择 checkbox（对齐 VirtualTable/Tree 三态视觉——原生 input 需覆盖
+   _base.css 全局 input padding，否则 12px 横向 padding 撑大 checkbox） ── */
+.wf-table-checkbox {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--wf-color-primary);
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg);
+  position: relative;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.wf-table-checkbox:checked {
+  background: var(--wf-color-primary);
+  border-color: var(--wf-color-primary);
+}
+.wf-table-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid var(--wf-color-on-brand);
+  border-bottom: 2px solid var(--wf-color-on-brand);
+  transform: translate(-50%, -60%) rotate(-45deg);
+}
+
+.wf-table-checkbox:indeterminate {
+  background: var(--wf-color-primary);
+  border-color: var(--wf-color-primary);
+}
+.wf-table-checkbox:indeterminate::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 2px;
+  background: var(--wf-color-on-brand);
+  transform: translate(-50%, -50%);
+}
+
+.wf-table-checkbox:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}

@@ -605,9 +605,13 @@ describe('样式审计 — 设计约束', () => {
       const callbacks = new Set([...src.matchAll(/on[A-Z]\w*(?=\??:)/g)].map(m => m[0]))
       for (const [prop, re] of Object.entries(SYMMETRIC)) {
         if (prop === 'month2') continue
-        // 只查 Props 接口里的可选/必选受控声明（避免匹配函数体）
-        const propRe = new RegExp(`^\\s*${prop}\\??:`, 'm')
-        if (!propRe.test(src)) continue
+        // 只查 Props 接口块内的受控声明（避免函数体/内部对象属性误判——Img fallback 的 open 教训）
+        const propRe = new RegExp(`^\s*${prop}\??:`)
+        // 截取 interface <Comp>Props { ... } 块：
+        const ifaceRe = new RegExp(`interface\\s+${d}Props\\s*\\{[\\s\\S]*?\\}`)
+        const iface = src.match(ifaceRe)?.[0] ?? ''
+        if (!iface) continue // 无 Props 接口（跳过）
+        if (!propRe.test(iface)) continue
         if (EXEMPT.has(`${d}.${prop}`)) continue
         if (![...callbacks].some(cb => re.test(cb))) {
           offenders.push(`${d}.${prop}：受控 prop 无对称回调（${re}）`)

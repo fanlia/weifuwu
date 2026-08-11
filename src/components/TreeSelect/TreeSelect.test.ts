@@ -1,16 +1,23 @@
-import { test, describe } from 'node:test'
+import { test, describe, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { TreeSelect } from './TreeSelect.ts'
 import { Tree } from '../Tree/Tree.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
-import { createTestCtx } from '../../ui-dom/testing.ts'
+import { createTestCtx, createPopupMock } from '../../ui-dom/testing.ts'
+import { setupJsdom } from '../../test/client/setup.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import { mountRoot } from '../../ui-dom/vdom/mount.ts'
+
+before(setupJsdom)
+afterEach(() => { createClientBrowser().clearBody() })
 
 
 const makeCtx = () => createTestCtx({ ui: {
     $: () => ({}),
     render: () => {},
     dirty: () => {},
-    usePopupPosition: () => ({ top: 100, left: 200, width: 220, refresh: () => {} }),
+    usePopup: (opts: any) => createPopupMock(() => opts.isOpen(), opts.setOpen),
     useGlobalKey: () => () => {},
   },
 }) as any
@@ -131,4 +138,33 @@ test('trigger role=combobox 可聚焦（P1 键盘可达）', async () => {
   const s = JSON.stringify(vnode)
   assert.ok(s.includes('combobox'), 'trigger combobox 角色')
   assert.ok(/tabindex|tabIndex/.test(s), 'trigger 可聚焦')
+})
+
+// 回归：外部点击关闭（用户报告——此前只有 Escape 关闭，缺外部点击）
+// DOM 级：usePopup 的 onDocMouseDown 依赖真实 document 监听，须 mountRoot 实测
+test('外部点击关闭下拉（usePopup 统一组合器回归）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  const Demo = async (_init: any, ctx: any) => () =>
+    h('div', { class: 'wrapper' }, [
+      h('div', { class: 'outside' }, '外部区域'),
+      h(TreeSelect, { options: [{ key: 'a', label: 'A' }] }),
+    ])
+  await handle.mount(h('div', {}, h(Demo, {})))
+  const flush = () => new Promise((r) => setTimeout(r, 30))
+  await flush()
+
+  // 打开下拉
+  const trigger = root.querySelector('.wf-treeselect-trigger') as HTMLElement
+  trigger.click()
+  await flush()
+  assert.ok(root.querySelector('.wf-treeselect-dropdown') || document.querySelector('.wf-treeselect-dropdown'), '下拉已打开')
+
+  // 点击外部区域 → 下拉关闭
+  const outside = root.querySelector('.outside') as HTMLElement
+  outside.dispatchEvent(new (window as any).MouseEvent('mousedown', { bubbles: true }))
+  await flush()
+  assert.ok(!document.querySelector('.wf-treeselect-dropdown'), '外部点击后下拉关闭（此前 bug：不关闭）')
+  handle.unmount()
 })
