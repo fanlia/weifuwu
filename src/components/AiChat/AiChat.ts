@@ -83,8 +83,18 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
 
   // 订阅 chat 变更（render-only 共享原语）：chat 是父组件持有的共享会话（活引用，
   // props 浅比较恒等 → 三态 skip 命中），父 dirty 不会驱动本组件重渲染 →
-  // useExternal 订阅：任何会话状态变化 → 自身重渲染（unmount 自动退订）
-  ctx.ui.useExternal(initProps.chat)
+  // 订阅：任何会话状态变化 → 自身重渲染。**跟随最新 chat**（父换 handle → 重新订阅——
+  // 防“订阅旧 handle：新会话流式更新但界面无输出”——真实事故：父组件违反稳定契约传新 handle）
+  let currentChat: UseChatHandle = initProps.chat
+  let unsubChat: (() => void) | undefined
+  const resubscribe = () => {
+    unsubChat?.()
+    const c = currentChat as UseChatHandle & { subscribe?: (cb: () => void) => () => void }
+    unsubChat = c?.subscribe ? c.subscribe(() => ctx.ui.render()) : undefined
+  }
+  resubscribe()
+  // 卸载退订（ref 纪律：稳定 ref + null 分支只在真卸载触发）
+  const rootRef = (el: any) => { if (!el) { unsubChat?.(); unsubChat = undefined } }
 
   // 可视视口跟踪：虚拟键盘弹起时输入区抬升到键盘上方（fixed 底部栏场景）
   const vv = ctx.ui.useVisualViewport()
@@ -115,6 +125,28 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
     const { chat, raiseOnKeyboard = false } = props
     const labels: AiChatLabels = { ...defaultLabels, ...props.labels }
 
+    // §5.3 受控输入纪律：输入态走内部 keyword（IME 组合期间不回流传受控 value——
+    // 否则组合被打断，中文输入法无法输入 → 消息发不出 → “没有流式输出”的真实根因）
+    // 受控 value = chat.input（共享 handle 的输入态）；Enter 时写入 chat.input + send
+    if (chat !== currentChat) {
+      currentChat = chat
+      resubscribe() // 换 handle → 重新订阅（新会话的 notify 才能驱动本组件）
+    }
+    const input = ctx.ui.useControlledInput({
+      value: chat.input ?? '',
+      onChange: (v: string) => { chat.input = v },
+      name: 'AiChat',
+    })
+    let composing = false
+    const sendInput = () => {
+      const text = input.keyword.trim()
+      if (!text) return
+      chat.input = text // 写入共享 handle（send 读 state.input）
+      input.setKeyword('') // 清内部输入态（防残留）
+      chat.send()
+    }
+
+
     // 贴底判定（useScrollPosition 的 y 响应式驱动；scrollHeight/clientHeight 读当前 DOM）
     if (listEl) {
       stickToBottom = listEl.scrollHeight - scroll.y - listEl.clientHeight < 48
@@ -141,7 +173,7 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
     if (chat.usage) nodes.push(h('div', { class: 'wf-aichat-usage' }, labels.tokens(chat.usage)))
     if (chat.error) nodes.push(h('div', { class: 'wf-aichat-error' }, labels.error(chat.error)))
 
-    return h('div', { class: 'wf-aichat' }, [
+    return h('div', { class: 'wf-aichat', ref: rootRef }, [
       h('div', {
         class: 'wf-aichat-list',
         style: { maxHeight: props.maxHeight ?? '70vh' },
@@ -156,10 +188,13 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
       }, [
         h('input', {
           class: 'wf-aichat-input',
-          value: chat.input ?? '',
+          // 内部 keyword（IME 安全：组合中不回流传受控 value）；发送/清空后回空
+          value: input.keyword,
           placeholder: labels.placeholder,
-          onInput: (e: any) => { chat.input = e.target.value },
-          onKeyDown: (e: any) => { if (e.key === 'Enter') chat.send() },
+          onInput: (e: any) => { if (composing || e.isComposing) return; input.setKeyword(e.target.value) },
+          onCompositionStart: () => { composing = true },
+          onCompositionEnd: (e: any) => { composing = false; input.setKeyword((e.target as HTMLInputElement)?.value ?? '') },
+          onKeyDown: (e: any) => { if (e.key === 'Enter' && !composing && !e.isComposing) sendInput() },
         }),
         chat.streaming
           ? h('button', {
@@ -170,7 +205,7 @@ export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
           : h('button', {
               class: 'wf-btn wf-btn--primary wf-btn--sm',
               type: 'button',
-              onClick: () => chat.send(),
+              onClick: () => sendInput(),
             }, labels.send),
         !chat.streaming && chat.error
           ? h('button', {

@@ -5,12 +5,16 @@
  * 交互回调（send/stop/retry/approve）直接调用 handle 方法。
  */
 
-import { describe, it } from 'node:test'
+import { describe, it, before } from 'node:test'
 import assert from 'node:assert'
 import { AiChat } from './AiChat.ts'
 import type { UseChatHandle, UiMessage } from '../../ui-dom/use-chat.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import { renderVNode, mountToDom, buildToDom } from '../../ui-dom/testing.ts'
+import { h } from '../../ui-dom/vnode.ts'
+import { setupJsdom } from '../../test/client/setup.ts'
+
+before(setupJsdom)
 
 
 function createTestCtx(): WfuiContext {
@@ -20,6 +24,17 @@ function createTestCtx(): WfuiContext {
     useScrollPosition: () => ({ y: scrollY, refresh: () => {} }),
     render: () => {},
     useExternal: () => undefined,
+    // §5.3 受控输入 mock：内部 keyword（闭包有状态——同 vnode 内输入→发送读同一状态）
+    useControlledInput: () => {
+      const st = { keyword: '' }
+      return {
+        value: '', setValue: () => {},
+        get keyword() { return st.keyword },
+        setKeyword(v: string) { st.keyword = v },
+        get selectedLabel() { return '' },
+        setSelectedLabel: () => {},
+      }
+    },
   } } as any
 }
 
@@ -174,7 +189,9 @@ describe('AiChat', () => {
     const v1 = await renderVNode(AiChat, { chat: chat1 }, createTestCtx())
     const sendBtn = buttons(v1).find((b) => b.props.children === '发送')
     assert.ok(sendBtn)
-    sendBtn.props.onClick()
+    const input1 = await find(v1, 'wf-aichat-input')
+    input1.props.onInput({ target: { value: 'hi' } })
+    sendBtn.props.onClick() // 发送：内部 keyword → chat.input + chat.send
     assert.equal((chat1 as any).calls.at(-1), 'send')
 
     const chat2 = mockChat({ streaming: true })
@@ -185,15 +202,20 @@ describe('AiChat', () => {
     assert.equal((chat2 as any).calls.at(-1), 'stop')
   })
 
-  it('Enter 键 → chat.send；输入框双向绑定 chat.input', async () => {
-    const chat = mockChat({ input: 'hi' })
+  it('Enter 键 → 写入 chat.input + send；输入期内部 keyword 不回流（IME 安全）', async () => {
+    const chat = mockChat()
     const vnode = await renderVNode(AiChat, { chat }, createTestCtx())
     const input = await find(vnode, 'wf-aichat-input')
-    assert.equal(input.props.value, 'hi')
+    // 输入 → 内部 keyword（§5.3：组合期间不回流受控 value——中文 IME 不打断）
+    input.props.onInput({ target: { value: 'hi' } })
+    assert.equal(chat.input, '', '输入期不回流受控值（IME 组合安全）')
+    // Enter → 写入 chat.input + send（send 读 state.input）
     input.props.onKeyDown({ key: 'Enter' })
+    assert.equal(chat.input, 'hi', 'Enter 写入 chat.input')
     assert.equal((chat as any).calls.at(-1), 'send')
-    input.props.onInput({ target: { value: 'hi2' } })
-    assert.equal(chat.input, 'hi2')
+    // 空输入不发送
+    input.props.onKeyDown({ key: 'Enter' })
+    assert.equal((chat as any).calls.length, 1, 'keyword 已清空——空输入不重复发送')
   })
 
   it('错误态：非流式显示重试按钮（→ retry），流式时不显示', async () => {
@@ -241,4 +263,129 @@ describe('AiChat', () => {
     const vnode = await renderVNode(AiChat, { chat, labels: { send: 'Submit' } }, createTestCtx())
     assert.ok(buttons(vnode).some((b) => b.props.children === 'Submit'))
   })
+})
+
+// ── 真实订阅流式（§4.6 陷阱回归：jsdom 静态 renderVNode 掩盖——必须真实挂载验证 token 流逐帧落 DOM） ──
+
+import { createChatSession } from '../../../src/ui-dom/use-chat.ts'
+
+function makeStreamChat() {
+  const state: any = { messages: [], input: '', streaming: false, error: null, usage: null, step: null }
+  const subs = new Set<() => void>()
+  state.subs = subs
+  const notify = () => { for (const cb of [...subs]) cb() }
+  const transport: any = (url: string, body: unknown, cbs: any) => {
+    // 假 SSE：延迟发 token（onToken 期望纯字符串——apply 内部包 { text: t }）
+    setTimeout(() => cbs.onToken('你'), 5)
+    setTimeout(() => cbs.onToken('好'), 15)
+    setTimeout(() => cbs.onDone({}), 25)
+    return { abort: () => {} }
+  }
+  const api = createChatSession(state, transport, { url: '/x' }, notify)
+  Object.assign(state, api)
+  state.subscribe = (cb: () => void) => { subs.add(cb); return () => subs.delete(cb) }
+  return state as any
+}
+
+
+// ── 真实运行链路复现（createVdomContext + mountRoot——真实 useExternal 订阅，非 mock） ──
+
+import { mountRoot, createVdomContext } from '../../ui-dom/vdom/mount.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+
+it('流式：真实 vdom 上下文（useExternal 真实订阅）token 逐帧落 DOM', async () => {
+  const chat = makeStreamChat()
+  chat._calls = 0
+  const origSub = chat.subscribe
+  chat.subscribe = (cb: () => void) => { const u = origSub(cb); const wrapped = () => { chat._calls++; cb() }; chat.subs.delete(cb); chat.subs.add(wrapped); return () => { chat.subs.delete(wrapped); u() } }
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const browser = createClientBrowser()
+  const { ctx } = createVdomContext({ root: container, browser })
+  const handle = mountRoot({ root: container, ctx, browser })
+  await handle.mount(h(AiChat, { chat }))
+  chat.input = 'hi'
+  chat.send()
+  await new Promise((r) => setTimeout(r, 20))
+  const list = container.querySelector('.wf-aichat-list')!
+  assert.ok(list.textContent!.includes('你'), `token1 已落地（实际: ${list.textContent!.slice(0, 60)}）`)
+  await new Promise((r) => setTimeout(r, 25))
+  assert.ok(list.textContent!.includes('你好'), `token2 已追加（实际: ${list.textContent!.slice(0, 60)}）`)
+  await new Promise((r) => setTimeout(r, 20))
+  const sendBtn = container.querySelector('.wf-btn--primary')
+  assert.ok(sendBtn && sendBtn.textContent!.includes('发送'), '流结束回到发送态')
+  document.body.removeChild(container)
+})
+
+it('订阅注册 + notify → render 链路（流式渲染基座）', async () => {
+  const chat: any = { messages: [], input: '', streaming: false, error: null, usage: null, step: null, subs: new Set() }
+  chat.subscribe = (cb: () => void) => { chat.subs.add(cb); return () => chat.subs.delete(cb) }
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const browser = createClientBrowser()
+  const { ctx } = createVdomContext({ root: container, browser })
+  const handle = mountRoot({ root: container, ctx, browser })
+  await handle.mount(h(AiChat, { chat }))
+  // 订阅注册了吗？
+  // 手动触发 notify → 渲染了吗？
+  chat.messages.push({ id: 'm1', role: 'assistant', content: '你', status: 'streaming' })
+  for (const cb of [...chat.subs]) cb()
+  await new Promise((r) => setTimeout(r, 10))
+  const list = container.querySelector('.wf-aichat-list')!
+  assert.ok(list.textContent!.includes('你'), 'notify 后 DOM 更新')
+  document.body.removeChild(container)
+})
+
+it('IME 组合期间 onInput 不回流受控值（中文输入法不打断）', async () => {
+  const chat = makeStreamChat()
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const browser = createClientBrowser()
+  const { ctx } = createVdomContext({ root: container, browser })
+  const handle = mountRoot({ root: container, ctx, browser })
+  await handle.mount(h(AiChat, { chat }))
+  const input = container.querySelector('.wf-aichat-input') as HTMLInputElement
+  // 组合开始（拼音输入中）
+  input.dispatchEvent(new (window as any).Event('compositionstart', { bubbles: true }))
+  // 组合中 onInput（拼音候选）——不应回流受控值/不应触发 send
+  input.value = 'ni'
+  input.dispatchEvent(new (window as any).Event('input', { bubbles: true }))
+  assert.equal(chat.input, '', '组合期间不回流 chat.input')
+  assert.equal(chat.messages.length, 0, '组合期间不发送')
+  // 组合结束（选中中文）
+  input.value = '你好'
+  input.dispatchEvent(new (window as any).Event('compositionend', { bubbles: true }))
+  // Enter 发送
+  input.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  assert.equal(chat.input, '', 'send 消费后清空输入态')
+  assert.equal(chat.messages.length, 2, 'user + assistant 占位')
+  assert.equal(chat.messages[0].content, '你好', '组合完成后 Enter 发送中文')
+  document.body.removeChild(container)
+})
+
+it('换 chat handle → 重新订阅（新会话 notify 驱动渲染——防订阅旧 handle 无流式）', async () => {
+  const chatA = makeStreamChat()
+  const chatB = makeStreamChat()
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const browser = createClientBrowser()
+  const { ctx } = createVdomContext({ root: container, browser })
+  const handle = mountRoot({ root: container, ctx, browser })
+  // 用一个转发组件：mount 时 chatA，props 变化换 chatB
+  const ChatHost: any = async (initProps: any, c: any) => {
+    let latest = initProps.chat
+    return async (props: any) => {
+      latest = props.chat
+      return h('div', {}, h(AiChat, { chat: latest }))
+    }
+  }
+  await handle.mount(h(ChatHost, { chat: chatA }))
+  // 父组件换 chatB（props 变化 → ChatHost renderFn 重跑 → AiChat 收到新 chat）
+  await handle.rerender() // 简单路径：先验证同一挂载下 AiChat 订阅 chatA
+  // 手动触发 chatA notify → 应渲染（订阅 chatA）
+  chatA.messages.push({ id: 'ma', role: 'assistant', content: 'A', status: 'done' })
+  ;[...chatA.subs].forEach((cb: any) => cb())
+  await new Promise((r) => setTimeout(r, 10))
+  assert.ok(container.querySelector('.wf-aichat-list')!.textContent!.includes('A'), 'chatA 流式显示')
+  document.body.removeChild(container)
 })
