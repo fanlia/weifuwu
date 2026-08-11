@@ -18,7 +18,7 @@
 - **DB 契约层**（`src/db/contracts.ts`）——接口与实现分离：`PoolConnection`（pg/redis 通用连接：生命周期+健康）、`Sql`（ctx.sql）、`Redis`（ctx.redis，含 `createConnection()` 独立连接工厂）；自研引擎（PgConnection/RedisClient/RedisPool）implements 接口，消费方只依赖接口类型（引擎组装点：postgres()/redis() 中间件与 queue 的 `new`）
 - **域契约层**——`src/email/contracts.ts`（`Mailer` → ctx.email）、`src/ai/contracts.ts`（`Ai` → ctx.ai）：同模式，中间件引擎实现接口，消费方只依赖接口类型
 - **queue 注入模式**（模式 A 显式注入）：`queue({ redis })` 必传 Redis——池命令走轮询连接，worker 阻塞读走 `redis.createConnection()`（不占池）；所有权在调用方（queue.close() 不关闭注入 redis）；scheduler 走 `queue: QueueClientModule` 参数复用
-- **状态驱动渲染** — `ctx.ui.$()` 深度 Proxy，赋值自动触发 VDOM patch
+- **render-only 状态驱动** — 渲染唯一触发 `ctx.ui.render()`（闭包绑定组件）；状态是普通对象（`let` + `render()` / `createStore` + `useExternal` 订阅）——无 `$` Proxy、无隐式触发
 - **组件签名** — `(initProps, ctx) => (props) => VNode | null`（两阶段模型）
 - **VDOM 支持 innerHTML** — 直接用 `innerHTML` prop
 - **ref 管理 DOM** — `ref={el => { if (el) init; else cleanup }}`
@@ -35,7 +35,7 @@
 | CS-06 | **行为变更先查旧测试**：默认值/时序变更后，旧测试可能静默挂起而非失败 | `await promise` 永不 resolve = 挂起信号；`--test-timeout` 定位 |
 | FS-01 | 组件 = `Component<P, C>`：`(initProps: P, ctx) => (props: P) => VNode` | 无 class/hook/this；P=props（JSX 自动推断），C=ctx 注入依赖 |
 | FS-02 | 组件必须类型化：`Component<P, C>`，ctx 注入声明 C | 禁止 `_init: any`；`ctx.api` 等由 C 泛型编译期保证 |
-| FS-03 | Proxy 驱动渲染 | `$.x = val` 而非 DOM 操作 |
+| FS-03 | 渲染只发生在 `render()` 调用处 | 事件/定时器里改状态后 `ctx.ui.render()`——禁止隐式触发/`$` Proxy（render-only，design/render-only-plan.md） |
 | FS-04 | 禁止 eval/new Function | 安全基线 |
 | FS-05 | 前端无 npm 运行时依赖 | client 包 import 无外部 dep |
 | PS-01 | 请求路径无同步 I/O | 无 readFileSync/execSync |
@@ -44,20 +44,19 @@
 
 ### 3.1 两阶段模型与核心规则
 
-**外层函数 = mount（只一次）**，**内层返回函数 = render（每次 dirty/props 变化）**。
+**外层函数 = mount（只一次）**，**内层返回函数 = render（每次 `render()` 触发/props 变化）**。
 
 | 参数 | 作用域 | 说明 |
 |------|--------|------|
 | `initProps` | mount 阶段 | 组件首次渲染时的 props，用于初始化 |
-| `props` | render 阶段 | 每次 dirty/props 变化时保持最新值的 props |
+| `props` | render 阶段 | 每次渲染时保持最新值的 props |
 
 ```tsx
-// ✅ 正确：初始化用 initProps，渲染用 props
+// ✅ 正确：状态是普通对象（render-only——改状态后显式 render()）
 const Counter = (initProps, ctx) => {
-  const $ = ctx.ui.$()
-  $.count = initProps.initial ?? 0
+  let count = initProps.initial ?? 0
   return (props) =>
-    h('button', { onClick: () => $.count += props.step ?? 1 }, $.count)
+    h('button', { onClick: () => { count += props.step ?? 1; ctx.ui.render() } }, count)
 }
 
 // ❌ 错误：用 mount 时捕获的 props 渲染，值永远不更新
@@ -65,7 +64,7 @@ const Bad = (props, ctx) =>
   () => h('div', {}, props.label)  // props.label 不会随父组件更新
 ```
 
-### 3.2 组件三种形态
+### 3.2 组件两种形态
 
 **无状态**（只用 props）：
 
@@ -74,25 +73,20 @@ const Badge: Component<{ variant: 'primary' | 'muted' }> = () =>
   (props) => h('span', { class: `badge-${props.variant}` }, props.children)
 ```
 
-**有状态**（$ Proxy——赋值自动重渲染）：
+**有状态**（普通对象 `let` + 显式 `render()`）：
 
 ```tsx
 const Toggle: Component = (_init, ctx) => {
   // ── mount（只一次）──
-  const $ = ctx.ui.$()
-  $.on = false
-  // ── render（每次 dirty/props 变化）──
+  let on = false
+  // ── render（每次 render() 触发/props 变化）──
   return (props) =>
-    h('button', { onClick: () => $.on = !$.on }, $.on ? '开' : '关')
+    h('button', { onClick: () => { on = !on; ctx.ui.render() } }, on ? '开' : '关')
 }
 ```
 
-**无 $ 组件**（`$` 可选——只有需要触发 re-render 的状态才用）：
-
-```tsx
-const Button = (_init, ctx) =>
-  (props) => h('button', { class: props.variant }, props.children)
-```
+> **render-only 唯一规则**（design/render-only-plan.md）：渲染只发生在 `render()` 调用处——
+> 状态回归普通 JS 对象（`let` / `createStore`），行为可静态推导、测试无 mock 盲区。
 
 ### 3.3 两阶段异步组件（唯一组件形态）
 
@@ -103,22 +97,21 @@ const UserProfile = async (initProps, ctx) => {
   // ── 工厂层（异步边界）：数据声明——ctx.data.get 三场景自动（SSR→__DATA__ / hydration 种子 / SPA fetch）──
   const user = await ctx.data.get(`/api/user/${initProps.userId ?? ctx.params.id}`)
 
-  // ── mount 后返回 renderFn：$ 状态 + 交互 ──
-  const $ = ctx.ui.$()
-  $.liked = false
+  // ── mount 后返回 renderFn：let 状态 + 交互（render-only）──
+  let liked = false
 
   return (props) =>
     h('div', {},
       user.name,  // 服务端状态（闭包，SSR 进 HTML）
-      h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'),
+      h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }, liked ? '❤️' : '🤍'),
     )
 }
 ```
 
 关键规则（模式 A——design/async-mode-a-plan.md）：
 - **主路径 await 全部**：首帧/导航 = `buildVNode`（async 预构建：await 全部工厂；兄弟 Promise.all 并行；零 DOM）→ 完成后 `renderValue`/`patchValue` 一次落地——**无占位、无闪烁**；导航旧页保持到新树就绪（原子切换）
-- **旧树对照复用**：同位置同类型组件复用 `_render`（工厂不重跑，`$`/let/ref 状态保持）；`ctx.data` 缓存兜底并发合并
-- **动态挂载兑底**：运行时首次挂载的 async 组件（如 `$.show` 切出）→ 注释占位 → resolve 后 `renderByIds([id])` **局部补全**（非整树——兄弟组件不重渲染）
+- **旧树对照复用**：同位置同类型组件复用 `_render`（工厂不重跑，let/ref 状态保持）；`ctx.data` 缓存兜底并发合并
+- **运行时首次挂载的 async 组件**：在 `buildVNode` 阶段 await（构建完成）→ diff 同步渲染——无占位/注释/补全回调（第 1 代死循环已根治）
 - 工厂按**实例**执行（N 处实例 = N 次工厂调用）；**数据必须走 ctx.data**（自带缓存+并发合并，重复执行零成本）——禁止副作用/昂贵操作裸写工厂
 - 工厂拿 `initProps` + `ctx`（与同步组件同签名）；initProps 不同的实例各得各自数据（T3 隔离）
 - **骨架屏**：`uiServe(router, { root, loading: true })` 不清空 root（预置骨架屏 HTML）→ 首帧原子替换；`handle.ready` = 首帧完成 Promise
@@ -136,7 +129,7 @@ const UserProfile = async (initProps, ctx) => {
 - **key 约定即 URL**（`/api/posts/1`），天然唯一；key 必须包含数据维度（route params、userId）
 - **三场景自动适配**：SSR（服务端真 fetch，结果序列化进 `__DATA__`）/ hydration（`window.__DATA__` 种子同步命中）/ SPA（未命中触发 fetcher）
 - **失效**：工厂缓存绑定页面上下文——路由导航/登录登出时 `clearAsyncComponentCache()` 自动失效
-- **个性化数据不进 ctx.data**：SSR 会把工厂取数结果序列化给所有客户端——会话/用户相关数据污染索引且泄露——留在客户端 `$` + fetch
+- **个性化数据不进 ctx.data**：SSR 会把工厂取数结果序列化给所有客户端——会话/用户相关数据污染索引且泄露——留在客户端 `let` + fetch + `render()`
 
 ### 3.5 SSR（SPA/SSR 透明）
 
@@ -150,27 +143,27 @@ const html = await ctx.ui.ssr(BlogPage, {}, { data })
 return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 ```
 
-- 服务端 ctx shim：`$` dirty no-op、`ctx.data` 预取去重、`selfId` 请求级隔离
+- 服务端 ctx shim：hooks no-op、`ctx.data` 预取去重、`selfId` 请求级隔离（SSR 无 `render` 语义）
 - **诚实裁剪**（CS-05）：渲染期非确定性（Date/Math.random/locale）导致 SSR/hydration mismatch——dev 检测，文档红线；个性化数据不上 SSR
 
 ## 4. 状态与渲染
 
 ### 4.0 vdom 核心原则：无自动渲染（渲染时机完全由用户显式操作决定）
 
-> **只有以下三种操作会触发渲染，除此之外没有任何自动渲染**：
-> 1. `$.xxx = val`（$ proxy set trap——赋值即触发）
-> 2. `ctx.ui.render(ids?)`（立即渲染）
-> 3. `ctx.ui.dirty(ids?)`（请求渲染）
+> **render-only（design/render-only-plan.md）：只有 `ctx.ui.render(ids?)` 一种触发渲染，除此之外没有任何自动渲染**。
+> `$` Proxy / `ctx.ui.dirty()` 已删除——状态是普通对象（`let` / `createStore`），改状态后必须显式 `render()`。
+> 行为可静态推导：代码审查看事件回调里有无 `render()` 即可验证渲染逻辑。
 
 **禁止的自动渲染机制**（vdom 引擎红线——`src/ui-dom/vdom/`）：
-- ❌ **无 flush/微任务批处理调度层**——$ 赋值直接 fire-and-forget 渲染（`renderByIds`），不经过"dirtySet → 微任务批量 flush"
+- ❌ **无响应式引擎/Proxy 赋值触发**——状态是普通对象，无 `set` trap、无隐式 dirty
+- ❌ **无 flush/微任务批处理调度层**——`render()` 直接 fire-and-forget 渲染（`renderByIds`），不经过"dirtySet → 微任务批量 flush"
 - ❌ **无 resolve 回调补渲染**——async 组件工厂 resolve 即构建完、构建完即渲染，**没有"resolve 后触发父级重渲染"的回调**（第 1 代死循环根因：mountComponent → resolve → scheduleLocalRefresh → renderByIds → diff 又动态挂载 → 无限）
 - ❌ **无占位/注释/补全定位机制**——动态挂载组件在 `buildVNode` 阶段 await（构建完成）→ diff 同步渲染
 - ❌ **无渲染循环**（runLoop）——渲染结束后不检查/不补跑任何待渲染项
 
 **渲染管线（两阶段）**：
 ```
-用户操作（$ 赋值 / render / dirty）
+用户操作（ctx.ui.render()）
   → renderByIds（async）
     → buildVNode（await 动态挂载组件——工厂只跑一次，_render 缓存）
     → patchValue（同步 diff——只处理已构建树，永不调工厂）
@@ -180,28 +173,28 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 - 组件 vnode 进入 diff 前**必须已构建**（`_render` 已设）——diff 遇未构建组件直接抛错（开发期暴露）
 - 防重入：同一组件 id 同时只跑一次渲染（渲染中再次触发 → 跳过——错过由下次用户操作捕获，**不补跑**）
 - 工厂只跑一次：vnode 级缓存 + 旧树同位置同类型复用（跨渲染保持组件内部状态）
-- mount 保护期（工厂执行）$ 赋值不触发渲染（初始化赋值）
+- **ctx 版本（bumpCtxVersion）**：i18n 等全局状态变化时递增——buildVNode 剪枝 + diff 三态 skip 比较 `_ctxVersion`，版本不同强制重跑 renderFn（`_ctxVersion` 未接线是 i18n 切换不更新的根因，已修复 + 回归测试）
+- mount 保护期（工厂执行）`render()` 调用被 `_render` 守卫天然拦截（未挂载组件跳过）
 
-**实现位置**：`src/ui-dom/vdom/`（build.ts / diff.ts / render.ts / scheduler.ts / state.ts / mount.ts / registry.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
+**实现位置**：`src/ui-dom/vdom/`（build.ts / diff.ts / render.ts / scheduler.ts / mount.ts / registry.ts / hydration.ts / ssr.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
 
 ### 4.1 状态存放位置
 
 | 状态类型 | 存放位置 | 触发渲染 | 例子 |
 |---------|---------|---------|------|
-| 自动 UI 状态 | `$.xxx` | 赋值自动 | `$.show`, `$.count` |
-| 手动 UI 状态 | 闭包变量 `let` | 需调 `render()` | `let count; render()` |
+| 组件内部状态 | 闭包变量 `let` | 改后调 `ctx.ui.render()` | `let count; count++; ctx.ui.render()` |
+| 共享状态 | `createStore()` + `ctx.ui.useExternal(store)` | store.set/update/notify 自动 | 跨组件全局状态（登录态、主题） |
 | 内部缓存（不触发渲染） | 闭包变量 `let` | 不触发 | `let el`, `let timerId` |
 | DOM 引用 | 闭包变量 + ref | 不触发 | `let wrapEl; ref={e => wrapEl=e}` |
 
 ```tsx
 const Popover = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.show = false
+  let show = false
   let wrapEl: HTMLElement | undefined
   return (props) =>
     h('div', {
       ref: (el) => { if (el) wrapEl = el },
-      onClick: () => $.show = !$.show
+      onClick: () => { show = !show; ctx.ui.render() }
     })
 }
 ```
@@ -210,46 +203,47 @@ const Popover = (_init, ctx) => {
 
 | API | 触发时机 | 渲染方式 | 作用域 | 使用场景 |
 |------|---------|---------|--------|---------|
-| `$.x = val` | 赋值后自动 | 微任务批量（异步） | 当前组件 | **日常 UI 状态** — 表单输入、开关、异步加载 |
-| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | 当前/指定 | **绕过 Proxy 后手动标记**（实际极少——Proxy 已拦截几乎所有变异） |
-| `ctx.ui.render()` | 主动调用 | 异步落地（fire-and-forget，`await` 可精确等待） | 当前/指定 | 唯一渲染触发；`await ctx.ui.render()` 后拿最新 DOM（测量/动画） |
+| `ctx.ui.render()` | 主动调用 | 异步落地（fire-and-forget，`await` 可精确等待） | 当前组件 | **唯一渲染触发**；改状态后调用；`await ctx.ui.render()` 后拿最新 DOM（测量/动画） |
 | `ctx.ui.render(['id'])` | 主动调用 | 异步落地 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
-| `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化自动 dirty |
-| `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
+| `ctx.ui.useExternal(store)` | 订阅共享状态 | store 变化自动重渲染（unmount 退订） | 当前组件 | **跨组件共享状态** — createStore 唯一消费通道 |
+| `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化自动重渲染 |
+| `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动重渲染 |
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 自动重算 fixed 坐标 |
-| `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察** — `isIn` 响应式变化自动 dirty；替代组件自建 scroll 监听 |
+| `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察** — `isIn` 响应式变化自动重渲染；替代组件自建 scroll 监听 |
 | `ctx.ui.useScrollPosition()` | 注册监听 | 全局 scroll + rAF 节流 | 当前组件 | **滚动位置跟踪** — `y` 响应式（视口/内部容器通用）；Affix/VirtualList 使用 |
-| `ctx.ui.useChat()` | 事件驱动 | 流式事件 → `$` 赋值 | 当前组件 | **AI 对话会话** — 消息累积/工具调用/HITL 审批（见 design/ai-contract.md） |
+| `ctx.ui.useChat()` | 事件驱动 | 流式事件 → notify（useExternal 订阅） | 当前组件 | **AI 对话会话** — 消息累积/工具调用/HITL 审批（见 design/ai-contract.md） |
 
-`render()` 无参 = 当前组件，传参 = 指定组件列表。三个入口同一套 scope 机制。
+`render()` 无参 = 当前组件（闭包绑定，无 this 陷阱），传参 = 指定组件列表。hooks（useMedia/useInView 等）是**事件驱动**重渲染（浏览器事件 → render）——与 `$` 的"赋值自动"本质不同，保留合理。
 
 ### 4.3 `ctx.ui.selfId()` — 自定义组件 ID（跨组件精准刷新）
 
-mount 阶段注册语义化 ID（同名冲突抛错，全局唯一），之后任意位置 `render(['id'])`/`dirty(['id'])` 精准定位组件，绕过多层 props 传递：
+mount 阶段注册语义化 ID（同名冲突抛错，全局唯一），之后任意位置 `render(['id'])` 精准定位组件，绕过多层 props 传递：
 
 ```tsx
 const StatsPanel = (_init, ctx) => {
   ctx.ui.selfId('stats')
-  const $ = ctx.ui.$()
-  $.data = []
+  let data: Item[] = []
   return (props) => h('div', {}, ...)
 }
-// 组件 B（或其他地方）：ctx.ui.render(['stats']) 或 ctx.ui.dirty(['stats'])
+// 组件 B（或其他地方）：ctx.ui.render(['stats'])
 ```
 
-### 4.4 手动 vs 自动（组件库手动优先 / 业务自动优先）
+### 4.4 组件状态模式（内部 let + render / 共享 store + useExternal）
 
 ```
-手动组件（components）                 自动业务层（app）
-                              ┌──────────────────────┐
-                              │  OrderPage           │
-                              │  $.orders = data     │ ← $ 自动
-                              │  $.loading = true    │
-                              └──────┬───────────────┘
-                                     │ props 传递
-                                     ↓
+组件内部状态                        跨组件共享状态
+┌──────────────────────┐          ┌──────────────────────────┐
+│  OrderPage           │          │  createStore(init)       │
+│  let orders = []     │          │  const store = ...       │
+│  let loading = false │          │  // 任意组件订阅          │
+│  onClick: fetch →     │          │  ctx.ui.useExternal(store)
+│    orders = data      │          │  // store.set/notify →    │
+│    ctx.ui.render()    │          │  // 订阅组件自动重渲染     │
+└──────────┬───────────┘          └──────────────────────────┘
+           │ props 传递
+           ↓
 ┌─────────────────────────────────────────────┐
-│  Table（手动）                               │
+│  Table（组件库：内部 let + render）           │
 │  let sortKey / ctx.ui.render()              │ ← props 变化驱动
 │  return (props) => h('table', ...)          │ ← 内部 UI 状态手动
 │    └─ Badge（无状态，只用 props）              │
@@ -257,7 +251,7 @@ const StatsPanel = (_init, ctx) => {
 └─────────────────────────────────────────────┘
 ```
 
-**组件库：手动优先**（行为可预测 + 测试简单——`render()` mock 为空即可）：
+**组件库与业务层同一模式**（render-only 无第二套写法）：
 
 ```tsx
 const DatePicker = (_init, ctx) => {
@@ -270,87 +264,45 @@ const DatePicker = (_init, ctx) => {
 }
 ```
 
-**业务层：自动优先**（省样板 + 不易遗漏 + `$` 绑定所属组件精准）：
+**共享状态（createStore + useExternal）**：
 
 ```tsx
-const OrderPage = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.orders = []
-  $.loading = false
-  $.activeTab = 'all'
-  return (props) =>
-    h('div', {},
-      $.loading ? h(Spinner) : h(OrderList, { orders: $.orders }),
-    )
+const store = createStore({ user: null })   // 模块级单例
+const UserBadge = (_init, ctx) => {
+  const state = ctx.ui.useExternal(store)    // 订阅：store 变化 → 自身重渲染
+  return (props) => h('span', {}, state.user?.name ?? '未登录')
 }
-```
-
-**灵活混用**（同一组件按变量选模式）：
-
-```tsx
-const Panel = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  let cached: Data[]       // 手动：不触发渲染
-  $.visible = true         // 自动：频繁变化
-  return (props) =>
-    h('button', {
-      onClick: async () => {
-        cached = await fetch('/api/data')
-        ctx.ui.render()    // 手动：数据回来后统一刷新
-      }
-    })
-}
+// 任何位置：store.set({ user })/store.update(fn)/store.notify() → 订阅组件自动重渲染
 ```
 
 **选择指南**：
 
 ```
-需要渲染                         不需要渲染
-─────────────────              ─────────────────
-$.xxx = val（自动）            let x = val（手动）
-ctx.ui.render()（手动）
-ctx.ui.render(['id'])（跨组件）
+需要渲染 → 改状态后 ctx.ui.render()（内部）或 store 变更（共享）
+不需要渲染 → let x = val（内部缓存）
+跨组件 → selfId + render(['id']) 或 createStore + useExternal
 ```
 
-### 4.5 `$` Proxy 行为
+### 4.5 共享状态原语：`createStore` + `ctx.ui.useExternal`（替代 $ 的跨组件通道）
 
-`ctx.ui.$()` 返回深度 Proxy，由 `createReactiveState()` 创建：
-
-- `$.x = val` → `set` trap → `dirty()`（微任务合并）
-- `$.obj.a = 1` → 递归 Proxy 包装 → `set` trap
-- `$.arr.push(val)` → 内部 `[[Set]]` → `set` trap
-- `delete $.x` → `deleteProperty` trap
-- 每个组件实例独立 Proxy，WeakMap 缓存复用
-- **实现要点**：mount/render 阶段 `$.x = val` 不触发渲染（`dirty` 在 `_rendering` 保护期内被忽略）——仅事件/timer/Promise.then 中的赋值生效
-- **selfId 错位陷阱**（JSONViewer 折叠失效根因）：`$` 的 dirty 回调在 **mount 时捕获 selfId**——组件在无状态包裹/重挂载场景（VNode 重挂载但 `_render` 复用）下，捕获的 selfId 与当前实例错位 → dirty 渲染孤儿实例，**交互静默失效**（无 console 错误）。症状：`$` 赋值后 DOM 不更新。修复模式（JSONViewer 采用）：**render 期捕获当前 selfId + 显式精准 dirty**：
+`createStore(init)`（`src/ui-dom/store.ts`）——普通对象状态 + subscribe/set/update/notify，**无响应式引擎**：
 
 ```ts
-return (props) => {
-  const selfId = (ctx.ui as any)._selfId
-  const set = (k, v) => { $.x = v; if (selfId) ctx.ui.dirty([selfId]) }
-  ...
+interface ExternalStore<T> {
+  state: T                                   // 普通对象（非 Proxy）
+  subscribe(cb: () => void): () => void      // 订阅（unmount 自动退订）
+  set(partial: Partial<T>): void             // 合并写 + notify
+  update(fn: (state: T) => void): void       // 可变写 + notify
+  notify(): void                             // 手动通知
 }
 ```
 
-> jsdom 单测（mock `$` 为纯对象）无法暴露此缺陷——**必须 agent-browser 实测交互**。
+- `ctx.ui.useExternal(store)`：mount 阶段订阅，store 变化 → 自身重渲染（unmount 自动退订）；渲染期读 `store.state` 最新值
+- SSR 无害：shim 返回 `store.state` 只读不订阅
+- **useChat 会话**：handle 带 `subscribe(cb)`——`ctx.ui.useExternal(chat)` 订阅会话变化（替代已删除的 `__watch`）
+- 高频 notify 风险：流式场景由写者控制频率（每 N token notify）——与防重入（渲染中丢请求）配合
 
-### 4.6 `$.__watch(cb)` — 多消费者订阅（共享 $ 的子组件）
-
-`$` 默认只通知创建者（dirty → 当前组件）。当**同一响应式状态被多个组件共享**时（典型：父组件把 `ctx.ui.useChat()` 的 handle 作为 prop 传给子组件，如 `<AiChat chat={$} />`），父组件 dirty 不会驱动子组件重渲染（三态 skip：props 引用恒等 + 子组件自身未脏）。子组件在 mount 阶段自订阅：
-
-```tsx
-const AiChat = (initProps, ctx) => {
-  const unwatch = initProps.chat.__watch?.(() => ctx.ui.dirty())
-  // 任何会话状态变化 → dirty 自身 → 重渲染
-  return (props) => h('div', {
-    ref: (el) => { if (!el) unwatch?.() },  // 真正卸载时退订（见 ref 纪律）
-  })
-}
-```
-
-- 订阅在 mount 阶段注册；任何 `$.x = val`（含深层赋值/数组变异）都会通知**所有**订阅者
-- 返回退订函数；**退订必须放在真正的卸载路径**（见 §5.1 ref 纪律——内联 ref 会导致每次渲染误退订）
-- SSR 无害：shim 同样返回带 `__watch` 的容器，无订阅者即无副作用
+> **历史教训（JSONViewer 折叠失效根因）**：v1 的 `$` Proxy dirty 回调在 mount 时捕获 selfId——重挂载场景下捕获的 selfId 与当前实例错位 → dirty 渲染孤儿实例，交互静默失效。render-only 方案根治：`render()` 闭包绑定组件 id（mountAsyncComponent 创建 childUi 时捕获），无 this/selfId 错位。jsdom 单测（mock `$` 为纯对象）无法暴露此类缺陷——**agent-browser 实测交互**仍是验收标准。
 
 ## 5. 组件纪律（红线——均来自真实事故）
 
@@ -507,9 +459,9 @@ const MyComp: Component = (_init, ctx) => {
 
 ### 6.1 客户端模块状态共享（重要）
 
-`weifuwu/client` 与 `weifuwu/components` **必须共享同一模块实例**（`idRegistry`/`_idCounter`/`_dirtyBatch` 等状态只在 client 模块内存在一份）：
+`weifuwu/client` 与 `weifuwu/components` **必须共享同一模块实例**（`idRegistry`/`_idCounter` 等状态只在 client 模块内存在一份）：
 
-- **症状**：命令式中间件（`toast()` 等）挂载的组件注册在 components 自己的 idRegistry，但 `$` 的 dirty 走 app 的 `renderByIds`（查 app 的 registry）→ 命中无关组件/漏渲染——真实 app 实测：toast 永不渲染，单测全绿（node --test 单模块图掩盖）
+- **症状**：命令式中间件（`toast()` 等）挂载的组件注册在 components 自己的 idRegistry，但 `renderByIds` 走 app 的 registry（查 app 的 registry）→ 命中无关组件/漏渲染——真实 app 实测：toast 永不渲染，单测全绿（node --test 单模块图掩盖）
 - **两道防线**：① `scripts/build.mjs` 组件构建外部化 `src/client/*` 导入 → `weifuwu/client`（dist 消费端共享）；② **app 的 tsconfig `paths` 必须同时映射 `weifuwu/client` 和 `weifuwu/components` 到 src**（dev 全 src 单图）——只映射 client 不映射 components 时，app 用 src 的 client、components 用 dist 的 client，状态仍重复
 - 排查手段：浏览器探针 + 检查 bundle 内 `var _idCounter` 出现次数（>1 = 状态重复）；esbuild metafile 看 `src/client` 与 `dist/client` 是否同时被引用
 
@@ -530,7 +482,8 @@ const MyComp: Component = (_init, ctx) => {
 ### 6.4 其他渲染器坑
 
 - **style diff 只设不删**：`display: undefined` 残留旧 none → 条件显隐组件失效（已修——`src/test/client/style-patch.test.ts` 防线）
-- **`$` 内置类型降级**：Set/Map 方法 bind 原始 target + 变异方法触发 dirty；只读方法零副作用；Date/RegExp 返回原引用（DiffView 教训提升为框架能力）
+- **事件 prop 判定必须 `on + 大写`（EVENT_RE）**：`diff.ts` 曾用 `key.startsWith('on')`——`once`/`only` 等 on 开头属性被误判为事件 → `addEventListener('ce', true)` 抛 TypeError 中断渲染。统一用 `EVENT_RE = /^on[A-Z]/`（render.ts 导出，diff.ts 复用）
+- **事件 prop 非函数值守卫**：`onClick={true}` / 字符串不抛 DOMException——`console.warn` + 跳过（不中断渲染管线）；`addEventListener` 前 `typeof value === 'function'` 检查
 
 ## 7. 测试
 
@@ -570,13 +523,13 @@ import { renderVNode, mountComponent, findByClass, findVNode, createTestCtx, cre
 // renderVNode：两阶段组件渲染到 VNode 层（**只一层**——子组件保留函数引用，断言 type 而非 DOM）
 // mountComponent：**同实例 re-render**（内部 let 状态流转测试）——renderVNode 每次是新 mount，状态会丢
 // findByClass：class token 精确匹配（split(' ')——includes 会误匹配 wf-a ⊃ wf-a-b）
-// createTestCtx(overrides)：标准 ctx（$ / render / dirty / ready）
+// createTestCtx(overrides)：标准 ctx（render / ready + hooks mock）
 // createPopupMock(isOpen)：usePopup 标准 mock（portal 按 isOpen 条件渲染）
 
 // 无状态：const vnode = renderVNode(Button, { variant: 'primary' }, createTestCtx())
 // 有状态（VNode 层）：const ctx = createTestCtx(); const vnode = renderVNode(Popover, { content: 'hello' }, ctx)
-//           const $ = ctx.ui.$(); $.show = true; const vnode2 = renderVNode(Popover, {...}, ctx)
 // 有状态（同实例，交互流转）：const render = mountComponent(Popover, {...}, ctx); render(); ...; render()
+// 交互流转驱动：组件内部 let 状态在事件回调里变化 + render()——测试里触发事件后 await ctx.ui.render() 断言 DOM
 ```
 
 - **renderVNode 只渲染一层**：子组件 VNode 的 `type` 是组件函数（断言 `=== Icon`），不是 `'svg'` 等标签名

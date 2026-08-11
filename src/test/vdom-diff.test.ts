@@ -237,3 +237,39 @@ test('patchProps: 事件函数引用变化 → 移除旧 handler（不重复绑�
   el.click()
   assert.equal(clicks, 1, '新 handler 只触发一次——旧 handler 已移除（否则重复绑定触发两次）')
 })
+
+test('patchProps: 事件 prop 非函数值不抛错（onClick=true 守卫——不中断渲染管线）', () => {
+  const el = document.createElement('button')
+  // setProp 路径（新渲染）
+  setProp(el, 'onClick', true as any)   // 不抛 DOMException
+  // patchProps 路径（diff）
+  patchProps(el, {}, { onClick: true as any })
+  patchProps(el, { onClick: true as any }, { onClick: 'str' as any })
+  // once/only 等 on 开头非事件属性不被误判为事件（EVENT_RE：on + 大写）
+  const el2 = document.createElement('div')
+  setProp(el2, 'once', true)   // 应作为普通属性设置，不 removeEventListener('ce')
+  patchProps(el2, { once: true }, { once: false })  // 应走移除分支（removeAttribute），不抛错
+  assert.ok(true, '非函数事件值 + once 属性均不抛错')
+})
+
+test('patchProps: on 开头非事件属性（once）不当事件处理', () => {
+  const el = document.createElement('div')
+  // 事件引用变化分支不拦截 once（EVENT_RE 排除）
+  patchProps(el, {}, { once: 'x' })
+  assert.equal(el.getAttribute('once'), 'x', 'once 作为普通属性设置')
+  // 移除分支：once 变 null → removeAttribute（不 removeEventListener）
+  patchProps(el, { once: 'x' }, {})
+  assert.equal(el.getAttribute('once'), null, 'once 移除')
+})
+
+test('normalizeChildren: 嵌套数组扁平化顺序保持', () => {
+  const c1 = h('span', {}, 'a')
+  const c2 = h('span', {}, 'b')
+  const c3 = h('span', {}, 'c')
+  // 深层嵌套 + 混合——顺序必须保持（栈展开顺序正确性）
+  assert.deepEqual(
+    normalizeChildren([[c1, [c2]], c3, [null, 't']]),
+    [c1, c2, c3, null, 't'],
+  )
+  assert.deepEqual(normalizeChildren([[1, [2, [3]]], 4]), [1, 2, 3, 4])
+})

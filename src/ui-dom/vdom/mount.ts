@@ -59,8 +59,9 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   const rootUi: any = {
     _selfId: '_wf_root',
     _mounting: false,
-    _rendering: false,
     _ctxVersion: 0,
+    /** root 组件 vnode id（mount/serve 构建完成后设置——root 层 render 无参时精准渲染） */
+    _rootVNodeId: undefined as string | undefined,
   }
   const ctx: WfuiContext = {
     browser: opts.browser,
@@ -71,7 +72,11 @@ export function createVdomContext(opts: MountOptions): VdomContext {
 
   rootUi.render = function (this: any, ids?: string[]): Promise<void> {
     // this = 调用者的 childCtx.ui（组件 ctx.ui.render() → this._selfId = 组件 id）
-    if (ids == null) { const self = this._selfId ?? '_wf_root'; return self ? scheduler.render([self]) : Promise.resolve() }
+    // root 层（this = rootUi，_selfId = '_wf_root' 虚拟 id）→ 渲染实际 root 组件（_rootVNodeId）
+    if (ids == null) {
+      const self = this._selfId !== '_wf_root' && this._selfId ? this._selfId : rootUi._rootVNodeId
+      return self ? scheduler.render([self]) : Promise.resolve()
+    }
     return scheduler.render(ids)
   }
   // render-only（design/render-only-plan.md）：仅 render() 触发渲染——$ / dirty 已删除
@@ -111,7 +116,6 @@ export function createVdomContext(opts: MountOptions): VdomContext {
     popupTrackers,
     scrollTrackers,
     isMounting: () => rootUi._mounting === true,
-    isRendering: () => rootUi._rendering === true,
     warned,
     uncontrolledValues,
     inputStates,
@@ -180,6 +184,8 @@ export function mountRoot(opts: MountOptions): MountHandle {
       if (node != null) opts.root.appendChild(node)
       // prevChild 存「渲染内容」（组件 vnode 的 _child）——rerender 内容级 patch 对比用
       prevChild = (built as VNode)?._child ?? built
+      // root 组件 id（rootUi.render() 无参精准渲染）——built 为组件 vnode 时才有 id
+      rootUi._rootVNodeId = (built as VNode)?._id
     },
     async rerender() {
       if (mounted == null) return
@@ -190,7 +196,12 @@ export function mountRoot(opts: MountOptions): MountHandle {
       const oldChild = prevChild
       const newChild = rootV._child as VNodeChild
       const prevNode = opts.root.firstChild
-      patchValue(opts.root, prevNode, oldChild, newChild, { browser: opts.browser, registry })
+      // force patch：跳过三态 skip（buildVNode force 重跑了 renderFn——diff 必须全量落地）
+      patchValue(opts.root, prevNode, oldChild, newChild, {
+        browser: opts.browser, registry,
+        ctxVersion: (ctx as any)?.ui?._ctxVersion ?? 0,
+        force: true,
+      })
       prevChild = newChild
     },
     unmount() {

@@ -12,7 +12,8 @@ import { Fragment, Portal } from '../vnode.ts'
 
 export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'clipPath'])
 
-const EVENT_RE = /^on[A-Z]/
+/** 事件 prop 判定：on + 大写字母（React 约定）——排除 once/only 等 on 开头非事件属性 */
+export const EVENT_RE = /^on[A-Z]/
 // CSS 无单位属性（数字不加 px）——其余数字样式属性（top/left/width/height/margin 等）必须加 px
 const UNITLESS_PROPS = new Set([
   'zIndex', 'opacity', 'lineHeight', 'fontWeight', 'fontSizeAdjust', 'flex', 'flexGrow', 'flexShrink',
@@ -53,6 +54,11 @@ export function setProp(el: Element, key: string, value: any): void {
   }
   if (EVENT_RE.test(key)) {
     const type = key.slice(2).toLowerCase()
+    // 类型守卫：非函数值（onClick={true} / 字符串）不抛错——warn + 跳过，不中断渲染管线
+    if (typeof value !== 'function') {
+      console.warn(`[weifuwu] event prop ${key} expects a function, got ${typeof value} — ignored`)
+      return
+    }
     el.addEventListener(type, value)
     return
   }

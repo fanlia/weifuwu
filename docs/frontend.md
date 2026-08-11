@@ -104,7 +104,7 @@ uiServe(app, { root: '#root' })  // 类型累积完整（UIRouter<C & O>）
 | render 阶段 | 内层函数每次 dirty/props 变化时执行，返回 VNode |
 | 无 class | 无 `this`，无实例方法 |
 | 无 hook | 无 `useState` / `useEffect` / `useMemo` |
-| 状态 | 闭包变量 + `ctx.ui.render()` 手动触发，或 `ctx.ui.$()` 响应式容器 |
+| 状态 | 闭包变量 `let` + `ctx.ui.render()` 手动触发；跨组件共享用 `createStore()` + `ctx.ui.useExternal()` |
 | ref 引用 | `ref={el => { if (el) init; else cleanup }}` 获取 DOM |
 
 ### JSX 工厂
@@ -208,12 +208,11 @@ await browser.copyText(text)
 
 | API | 触发时机 | 渲染方式 | 作用域 | 使用场景 |
 |------|---------|---------|--------|---------|
-| `$.x = val` | 赋值后自动 | 微任务批量（异步） | 当前组件 | **日常 UI 状态** — 表单输入、切换开关、异步数据加载等 |
-| `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | 当前/指定 | **绕过 Proxy 后手动标记** |
-| `ctx.ui.render()` | 主动调用 | 立即同步 | 当前/指定 | **需要立即拿到最新 DOM** — DOM 测量、动画触发 |
-| `ctx.ui.render(['id'])` | 主动调用 | 立即同步 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
-| `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动 dirty |
-| `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
+| `ctx.ui.render()` | 主动调用 | 异步落地（fire-and-forget，`await` 可精确等待） | 当前组件 | **唯一渲染触发** — 改状态后调用；`await` 后拿最新 DOM（测量/动画） |
+| `ctx.ui.render(['id'])` | 主动调用 | 异步落地 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
+| `ctx.ui.useExternal(store)` | 订阅共享状态 | store 变更自动重渲染（unmount 退订） | 当前组件 | **跨组件共享状态** — createStore 唯一消费通道 |
+| `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化时自动重渲染 |
+| `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动重渲染 |
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 时自动重算 fixed 坐标 |
 | `ctx.ui.usePopup()` | 注册监听 | 事件驱动 + document 监听 | 当前组件 | **弹层组合器** — 触发 + Escape + 外部点击 + 定位/clamp + portal（移动端友好由构造保证） |
 | `ctx.ui.useHoverCapable()` | mount 期判定 | 一次 matchMedia | 当前组件 | **hover 能力检测** — 触屏降级 tap 判断 |
@@ -222,9 +221,9 @@ await browser.copyText(text)
 | `ctx.ui.useInView()` | 注册监听 | IO 合成器线程评估 | 当前组件 | **可见性观察**（IO 封装，无 scroll-linked 警告）— Affix/BackTop/InView 统一使用；rootMargin/threshold 支持函数 |
 | `ctx.ui.useScrollPosition()` | 注册监听 | 全局 scroll + rAF 节流 | 当前组件 | **滚动位置跟踪** — `y` 响应式（视口/内部容器通用），Affix/VirtualList 使用 |
 
-`render()` 和 `dirty()` 无参 = 当前组件，传参 = 指定组件列表。三套 API 同一 scope 机制。
+`render()` 无参 = 当前组件（闭包绑定），传参 = 指定组件列表。hooks（useMedia/useInView 等）是事件驱动重渲染——与"赋值自动"本质不同。
 
-### 闭包变量 + `ctx.ui.render()`（简单场景）
+### 闭包变量 + `ctx.ui.render()`（唯一状态模式）
 
 ```tsx
 const Counter: Component = (_init, ctx) => {
@@ -234,63 +233,54 @@ const Counter: Component = (_init, ctx) => {
 }
 ```
 
-适合状态极少的简单组件。每次修改后手动调用 `ctx.ui.render()` 同步刷新 DOM。
+**render-only 唯一规则**：渲染只发生在 `render()` 调用处（design/render-only-plan.md）——
+状态是普通对象（`let` / `createStore`），**没有 `$` Proxy、没有赋值自动渲染**。改状态后必须显式 `ctx.ui.render()`。
 
-### `ctx.ui.$()` — 响应式 Proxy（推荐首选）
+### `createStore` + `ctx.ui.useExternal()` — 跨组件共享状态
 
-`ctx.ui.$()` 返回**深度 Proxy** 容器。任意层级赋值操作自动触发渲染（微任务批量合并）：
+需要多个组件共享同一状态时（登录态、主题、全局缓存），用 `createStore`（`weifuwu/ui-dom`）订阅：
 
 ```tsx
-const FormPage: Component = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.email = ''
-  $.loading = false
-  return (props) =>
-    h('input', {
-      value: $.email,
-      onInput: (e: any) => { $.email = e.target.value }
-    })
+// 模块级单例（或组件内 createStore 传递）
+const store = createStore({ user: null, theme: 'light' })
+
+const NavBar: Component = (_init, ctx) => {
+  const state = ctx.ui.useExternal(store)   // 订阅：store 变更 → 自身自动重渲染
+  return (props) => h('div', { class: 'nav' }, state.user?.name ?? '未登录')
 }
+
+// 任意位置更新（写入方不需要知道谁在订阅）：
+store.set({ theme: 'dark' })         // 合并写 + 通知
+store.update((s) => { s.user = user })  // 可变写 + 通知
+store.notify()                       // 手动通知
 ```
 
-**深度 Proxy 拦截**：
-- `$.x = val` → 自动排队重渲染
-- `$.obj.a = 1` → 自动 dirty（嵌套对象递归包装）
-- `$.arr.push(val)` / `$.arr[0].x = y` → 自动 dirty（数组变异 + 嵌套属性拦截）
-- `delete $.x` → 自动 dirty
-- 每个组件实例独立 Proxy，同名变量不冲突
-
-**注意**：mount/render 中 `$.x = val` **不触发渲染**，仅事件/timer/Promise.then 中生效。这是有意设计——初始化和 mount 阶段设置状态不应触发额外渲染。
-
-**何时用 `$`**：所有需要触发 UI 重新渲染的状态。90% 以上的场景用 `$` 就够。
-
-**何时不用**：
-- 不需要触发渲染的内部缓存（用闭包变量 `let`）
-- 简单组件只有一两个状态变量（闭包变量 + `render()` 更轻量）
+- `useExternal` 在 mount 阶段订阅、unmount 自动退订（无需手动清理）
+- `store.state` 是普通对象（非 Proxy）——渲染期读最新值，无隐式触发
+- SSR 无害：服务端 shim 返回 `store.state` 只读不订阅
 
 ### 响应式自适应组件
 
 #### `ctx.ui.useMedia(query, callback)` — 响应式媒体查询
 
-注册媒体查询监听，值变化时自动调用 callback（callback 内赋值 `$` 触发 dirty）：
+注册媒体查询监听，值变化时自动重渲染当前组件（回调内改状态 + `ctx.ui.render()`）：
 
 ```tsx
 const Card = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.isMobile = false
-  // 立即回调一次（取当前值），之后变化时自动重新回调
-  ctx.ui.useMedia('(max-width: 640px)', (v) => { $.isMobile = v })
+  let isMobile = false
+  // 立即回调一次（取当前值），之后变化时自动重渲染
+  ctx.ui.useMedia('(max-width: 640px)', (v) => { isMobile = v; ctx.ui.render() })
 
   return (props) => (
-    <div class={$.isMobile ? 'wf-stack' : 'wf-row'}>
-      {!$.isMobile && <Sidebar />}
+    <div class={isMobile ? 'wf-stack' : 'wf-row'}>
+      {!isMobile && <Sidebar />}
       <Content />
     </div>
   )
 }
 ```
 
-`callback` 在 mount 时立即执行一次，之后断点变化时再次执行。赋值给 `$` 的属性自动触发渲染。
+`callback` 在 mount 时立即执行一次，之后断点变化时再次执行。回调里改状态后调 `ctx.ui.render()` 触发渲染（hooks 内部已封装——组件内通常无需手动 render）。
 
 #### `ctx.ui.useBreakpoint(callback)` — 命名断点
 
@@ -298,13 +288,13 @@ const Card = (_init, ctx) => {
 
 ```tsx
 const Layout = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  ctx.ui.useBreakpoint((vp) => { $.vp = vp })
+  let vp = 'desktop'
+  ctx.ui.useBreakpoint((next) => { vp = next; ctx.ui.render() })
 
   return (props) =>
-    <div class={`sidebar-${$.vp}`}>
-      {$.vp === 'mobile' ? <BottomNav /> : <SideNav />}
-      {$.vp === 'mobile' ? <MobileContent /> : <Content />}
+    <div class={`sidebar-${vp}`}>
+      {vp === 'mobile' ? <BottomNav /> : <SideNav />}
+      {vp === 'mobile' ? <MobileContent /> : <Content />}
     </div>
 }
 ```
@@ -314,7 +304,7 @@ const Layout = (_init, ctx) => {
 ```tsx
 ctx.ui.useBreakpoint(
   { narrow: '(max-width: 480px)', wide: '(min-width: 1200px)' },
-  (vp) => { $.size = vp },
+  (vp) => { size = vp; ctx.ui.render() },
 )
 ```
 
@@ -435,56 +425,57 @@ const vv = ctx.ui.useVisualViewport()
 // 组件 A：mount 阶段注册自定义 ID
 const StatsPanel = (_init, ctx) => {
   ctx.ui.selfId('stats')
-  const $ = ctx.ui.$()
-  $.data = []
-  return (props) => h('div', {}, String($.data.length))
+  let data: unknown[] = []
+  return (props) => h('div', {}, String(data.length))
 }
 
 // 组件 B（或其他任何地方）用 ID 精准刷新
-ctx.ui.render(['stats'])        // 同步刷新
-// 或：ctx.ui.dirty(['stats'])   // 异步批处理版本
+ctx.ui.render(['stats'])
 ```
 
 **语义**：
 
-- 必须在 **mount 阶段**调用（组件初始化时），注册后组件即可被 `render(['id'])` / `dirty(['id'])` 精准定位
+- 必须在 **mount 阶段**调用（组件初始化时），注册后组件即可被 `render(['id'])` 精准定位
 - **同名冲突直接抛错**，每个自定义 ID 必须全局唯一
 - 配合 `selfId` 注册的组件在跨组件场景下无需把刷新逻辑层层传 props
 
 #### `ctx.ui.useChat(options)` — AI 对话会话（AiChat 配套）
 
-会话语义的流式 AI 状态容器：消息累积 / 工具调用内嵌 / HITL 审批 / stop / retry，协议对页面完全透明（wf: 协议见 `design/ai-contract.md`）。返回的 handle 与 `ctx.ui.$()` **同一个 $**（页面状态与会话状态共处一容器）：
+会话语义的流式 AI 状态容器：消息累积 / 工具调用内嵌 / HITL 审批 / stop / retry，协议对页面完全透明（wf: 协议见 `design/ai-contract.md`）。返回 handle 带 `subscribe(cb)`——子组件用 `ctx.ui.useExternal(chat)` 订阅会话变化（render-only 共享状态原语）：
 
 ```tsx
 // mount 阶段（服务端 `ai()` 中间件 + `AiChat` 组件配套）
-const $ = ctx.ui.useChat({
+const chat = ctx.ui.useChat({
   url: '/api/chat',          // POST 端点（返回 wf: SSE 流）
   approveUrl: '/api/approve', // HITL 审批上行（缺省时 approve() 只清卡片）
   body: (messages) => ({ messages, mode: 'agent' }),  // 定制请求体
   onEvent: (name, data) => { console.log('x:' + name, data) },  // x:* 透传
 })
 
+// 子组件订阅会话变化（AiChat 已内置 useExternal）：
+// const state = ctx.ui.useExternal(chat)
+
 return (props) =>
   h('div', {},
-    h(AiChat, { chat: $ }),        // 标准对话界面：流式 token/工具卡/审批卡/自动滚动
-    $.streaming ? '生成中…' : '',  // 会话状态与页面状态同容器
+    h(AiChat, { chat }),             // 标准对话界面：流式 token/工具卡/审批卡/自动滚动
+    chat.streaming ? '生成中…' : '',  // 会话状态（直接读 handle）
   )
 ```
 
-**状态（`$` 上）**：
+**状态（handle 上）**：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `$.messages` | `UiMessage[]` | 消息列表（`{ id, role, content, status, toolCalls?, approval?, usage?, error? }`） |
-| `$.input` | `string` | 输入框值（双向绑定） |
-| `$.streaming` | `boolean` | 是否正在流式生成 |
-| `$.error` | `WfError \| null` | 最近错误（code + message） |
-| `$.usage` | `WfUsage \| null` | token 用量（prompt/completion/total） |
-| `$.step` | `WfStep \| null` | 最近 agent 步骤指示（思考/工具），done/error 时清空 |
+| `chat.messages` | `UiMessage[]` | 消息列表（`{ id, role, content, status, toolCalls?, approval?, usage?, error? }`） |
+| `chat.input` | `string` | 输入框值（双向绑定） |
+| `chat.streaming` | `boolean` | 是否正在流式生成 |
+| `chat.error` | `WfError \| null` | 最近错误（code + message） |
+| `chat.usage` | `WfUsage \| null` | token 用量（prompt/completion/total） |
+| `chat.step` | `WfStep \| null` | 最近 agent 步骤指示（思考/工具），done/error 时清空 |
 
-**操作（`$` 上的方法）**：`$.send()`（发送当前输入）/ `$.stop()`（中止）/ `$.retry()`（截断到最后一条 user 重生成）/ `$.clear()`（清空）/ `$.approve(decision, note?)`（响应审批）/ `$.dispose()`（卸载时释放流）。
+**操作（handle 上的方法）**：`chat.send()`（发送当前输入）/ `chat.stop()`（中止）/ `chat.retry()`（截断到最后一条 user 重生成）/ `chat.clear()`（清空）/ `chat.approve(decision, note?)`（响应审批）/ `chat.dispose()`（卸载时释放流）。
 
-**共享 $ 的子组件**（如 `<AiChat chat={$}>`）：父组件 dirty 不驱动子组件（三态 skip），子组件 mount 阶段 `chat.__watch?.(() => ctx.ui.dirty())` 自订阅（AiChat 已内置）。
+**共享 handle 的子组件**（如 `<AiChat chat={chat}>`）：会话状态变化 → `notify()` → `useExternal` 订阅者自动重渲染（AiChat 已内置——替代已删除的 `__watch`）。
 
 #### `ctx.ui.useAsync(fetcher)` — 异步取数
 
@@ -496,7 +487,7 @@ const list = ctx.ui.useAsync(() => ctx.api.get<User[]>('/users'))
 return () => list.loading ? h(Loading) : list.data?.map(u => h('div', {}, u.name))
 ```
 
-- `list.data` / `list.loading` / `list.error` 赋值自动 dirty 当前组件
+- `list.data` / `list.loading` / `list.error` 变化自动重渲染当前组件
 - `list.reload()` 重跑；组件卸载后旧 Promise resolve 不再触发渲染（idRegistry 查无此组件，安全忽略）
 
 #### 动画原语（4 层能力）
@@ -603,41 +594,34 @@ onClick: () => {
 }
 ```
 
-**规则**：能用 `$` 就用 `$`。只有当你**必须同步拿到最新 DOM 状态**时才用 `render()`。
+**规则**：render-only——渲染只发生在 `render()` 调用处。改状态后必须调 `ctx.ui.render()`；共享状态用 `createStore` + `useExternal`。
 
 ### 三种方式速查
 
 ```tsx
-// 自动：$.x = val — 微任务批量，绑定当前组件
-const $ = ctx.ui.$()
-$.count++
-$.name = 'hello'         // 多次赋值合并为一次渲染
-
-// 手动：ctx.ui.render() — 同步，无参=当前，传参=指定
+// 手动：ctx.ui.render() — 异步落地（fire-and-forget），无参=当前，传参=指定
 let count = 0
 count++
-ctx.ui.render()          // DOM 立刻更新
+ctx.ui.render()          // DOM 更新（await 可精确等待）
 ctx.ui.render(['stats']) // 精准刷新指定组件
 
-// 异步：ctx.ui.dirty() — 微任务批量，同 render() 作用域
-ctx.ui.dirty()
-ctx.ui.dirty(['stats'])  // 批处理合并
+// 共享：createStore + useExternal — store 变更自动重渲染订阅组件
+const store = createStore({ count: 0 })
+store.set({ count: store.state.count + 1 })  // 通知订阅者
 ```
 
 **性能说明**：
-- `$.x = val` 和 `dirty()` 都是微任务批量合并
-- `render()` 从 dirty 组件**向下**遍历（scope render），兄弟组件不遍历
-- **三态 skip 自动优化**：组件重新渲染时，框架自动检查三个维度：
-  - **props**（含 children 元素级比较）——值没变则不渲染
-  - **`$` 状态**——没被 dirty 标记则不渲染
-  - **ctx 版本**——ctx 没变化则不渲染
-  三个条件全部满足时跳过整个子树（零 `_render` 调用、零 `patchValue` 遍历）
+- `render()` 精准渲染目标组件（renderByIds），兄弟组件不遍历
+- **剪枝/三态 skip 自动优化**：组件重新渲染时，框架自动检查：
+  - **props**（含 children 元素级比较）——值没变则复用旧 _child（renderFn 不重跑）
+  - **ctx 版本**——`bumpCtxVersion` 后版本变化强制重跑（i18n 切换语言）
+  全部满足时跳过整个子树（零 `_render` 调用、零 `patchValue` 遍历）
 - **lastIndex keyed diff**：列表 diff 采用正向 lastIndex 算法（React 同款），顺序不变时零 `insertBefore`。对比传统的逆序循环全量移动，DOM 修改从 O(N) 降到 O(0)。
 - 示例：DemoButton 点击一次，DOM 修改从 34 次降到 **1 次**（仅变更文本节点的 `textContent`）
 
-### 实践建议
+### 实践建议（render-only 唯一模式）
 
-**组件库**（可分享组件）推荐手动模式：
+**组件库与业务层同一模式**：
 
 ```tsx
 const DatePicker = (_init, ctx) => {
@@ -649,33 +633,34 @@ const DatePicker = (_init, ctx) => {
 }
 ```
 
-行为只由 `render()` 显式控制，不依赖 `$`，测试中 `render()` 直接 mock 为空函数。
+行为只由 `render()` 显式控制，测试中 `render()` mock 为空即可。
 
-**业务层**推荐自动模式：
+**跨组件共享**（业务层）：
 
 ```tsx
+const store = createStore({ orders: [], loading: false })
+
 const OrderPage = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.orders = []                // $ 赋值自动触发渲染
-  $.loading = false
-  return (props) => h('div', {}, $.loading ? h(Spinner) : h(OrderList, { orders: $.orders }))
+  const state = ctx.ui.useExternal(store)   // 订阅：store 变更自动重渲染
+  return (props) => h('div', {}, state.loading ? h(Spinner) : h(OrderList, { orders: state.orders }))
 }
+
+// 数据到达：store.set({ orders, loading: false }) → 订阅组件自动更新
 ```
 
-省事、安全、`$` 绑定所属组件不波及兄弟。
-
-同一个组件内可以按变量混用两种模式：需要渲染的用 `$`，不需要的用 `let`。
+内部状态用 `let` + `render()`，共享状态用 `store` + `useExternal`。
 
 ### VDOM diff 优化机制
 
-weifuwu 的 VDOM 在每次 render 时自动执行**三态 skip 判定**，减少不必要的组件渲染和 DOM 操作：
+weifuwu 的 VDOM 在每次渲染时自动执行**剪枝 + 三态 skip 判定**，减少不必要的组件渲染和 DOM 操作：
 
 ```
-canSkip = (props 没变) AND ($ 没脏) AND (ctx 版本一致)
-          ↑ 值级浅比较    ↑ VNode dirty 标记  ↑ 全局版本号
+canSkip = (props 没变) AND (ctx 版本一致) AND (旧 _child 已构建)
+          ↑ 值级浅比较    ↑ bumpCtxVersion 后强制重跑  ↑ renderFn 不重跑
 ```
 
-三个维度各自独立判断，AND 合并。任何一个维度说
+条件全部满足时复用旧 `_child`（零 `_render` 调用、零 `patchValue` 遍历）——
+版本变化（i18n 切换）时剪枝失效，所有组件重跑 renderFn。
 
 ---
 
@@ -733,21 +718,21 @@ return h('div', {},
 
 ### 异步组件
 
-在 mount 阶段发起请求，数据通过 `$.x = val` 自动触发渲染：
+在 mount 阶段发起请求，数据到达后 `ctx.ui.render()` 触发渲染：
 
 ```tsx
 const UserProfile: Component = (initProps, ctx) => {
-  const $ = ctx.ui.$()
-  $.loading = true
+  let loading = true
+  let user: { name?: string } | null = null
 
   fetch(`/api/user/${initProps.id}`)
     .then(r => r.json())
-    .then(user => { $.user = user; $.loading = false })
+    .then(u => { user = u; loading = false; ctx.ui.render() })
 
   return (props) =>
-    $.loading
+    loading
       ? h('div', {}, '加载中...')
-      : h('div', {}, $.user?.name ?? '')
+      : h('div', {}, user?.name ?? '')
 }
 ```
 
@@ -758,20 +743,18 @@ const UserProfile: Component = (initProps, ctx) => {
 ```tsx
 const UserProfile = async (initProps, ctx) => {
   const user = await ctx.data.get(`/api/user/${initProps.userId}`)   // 三场景：SSR→__DATA__ / hydration 种子 / SPA fetch
-  const $ = ctx.ui.$()
-  $.liked = false                        // 客户端状态（交互后变化）
+  let liked = false                        // 客户端状态（交互后变化，render-only）
   return (props) =>
     h('div', {},
       h('p', {}, user.name),             // 服务端状态（闭包，SSR 进 HTML）
-      h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'),
+      h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }, liked ? '❤️' : '🤍'),
     )
 }
 ```
 
-- **客户端**：主路径 `buildVNode` async 预构建（await 全部工厂；兄弟并行）→ 落地零占位；动态挂载兑底占位 → 局部补全——N 处实例 = N 次工厂调用，数据走 `ctx.data` 则零成本（缓存 + 并发合并）
+- **客户端**：主路径 `buildVNode` async 预构建（await 全部工厂；兄弟并行）→ 落地零占位；运行时首次挂载的 async 组件在 buildVNode 阶段 await（无占位/补全回调）——N 处实例 = N 次工厂调用，数据走 `ctx.data` 则零成本（缓存 + 并发合并）
 - **服务端**：`ctx.ui.ssr()` 直接 await 工厂 → 数据进 HTML（无占位）
-- **占位显示**：动态挂载的 async 组件占位 = 注释节点，resolve 后局部补全（Suspense 边界已裁剪）
-- 会变的数据：初始值 seed 自服务端数据（`$.count = data.count`），交互改 `$`；初始状态必须确定性（禁止 `window.innerWidth` 直接初始化 → SSR/hydration mismatch）
+- 初始状态必须确定性（禁止 `window.innerWidth` 直接初始化 → SSR/hydration mismatch）
 
 ---
 

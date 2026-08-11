@@ -8,6 +8,7 @@ setupJsdom()
 import { h, createPortal } from '../ui-dom/vnode.ts'
 import { mountRoot } from '../ui-dom/vdom/mount.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
+import { i18n } from '../ui-dom/i18n.ts'
 import { DatePicker } from '../components/DatePicker/DatePicker.ts'
 import { Modal } from '../components/Modal/Modal.ts'
 import { Command } from '../components/Command/Command.ts'
@@ -384,5 +385,77 @@ test('usePopup 组件卸载后 document 监听退订（mousedown/Escape 不再�
   document.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Escape' }))
   await flush()
   assert.equal(onOpenChangeCount, 0, '卸载后 document 监听退订（不触发 onOpenChange）')
+  handle.unmount()
+})
+
+// ── ctx 版本机制（bumpCtxVersion）：props 不变的子组件在版本变化后必须重跑 renderFn ──
+// 真实场景：i18n setLocale → bumpCtxVersion + render——子组件从 ctx.i18n 读文案（props 恒 {}），
+// 若无版本比较 → buildVNode 剪枝 + diff 三态 skip 都复用旧 _child → 文案不更新（静默 bug）。
+test('ctx 版本变化（bumpCtxVersion）：props 不变的子组件强制重渲染（i18n 切换语言回归）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  const { ctx } = handle
+  const ctxAny = ctx as any
+  let dict: Record<string, string> = { hello: '你好' }
+  ctxAny.i18n = { t: (k: string) => dict[k] ?? k }
+
+  // 子组件：从 ctx.i18n 读文案（props 恒 {}）——i18n 组件典型用法（业务层读 ctx 而非 props）
+  const Label = async (_init: any, c: any) => () => h('span', { id: 'lbl' }, c.i18n?.t('hello') ?? '?')
+  const App = async (_init: any, c: any) => () => h('div', {}, h(Label, {}))
+  await handle.mount(h(App))
+  await flush()
+  assert.equal(root.querySelector('#lbl')?.textContent, '你好')
+
+  // 模拟 setLocale：更新外部字典 + bumpCtxVersion + render（i18n.ts 中间件路径）
+  dict = { hello: 'Hello' }
+  ctxAny.ui.bumpCtxVersion?.()
+  await ctx.ui.render()
+  await flush()
+  assert.equal(root.querySelector('#lbl')?.textContent, 'Hello', '版本变化后子组件必须重跑 renderFn（新文案）')
+  handle.unmount()
+})
+
+// ── ctx 版本不变：剪枝/三态 skip 正常（版本比较不破坏常规性能路径） ──
+test('ctx 版本不变：props 不变的子组件仍剪枝复用（不重跑 renderFn）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  const { ctx } = handle
+  let labelRenders = 0
+  const Label = async (_init: any, c: any) => () => { labelRenders++; return h('span', { id: 'lbl2' }, 'static') }
+  const App = async (_init: any, c: any) => () => h('div', {}, h(Label, {}))
+  await handle.mount(h(App))
+  await flush()
+  assert.equal(labelRenders, 1, '首次构建 renderFn 一次')
+
+  await ctx.ui.render()
+  await flush()
+  await ctx.ui.render()
+  await flush()
+  assert.equal(labelRenders, 1, '版本不变 + props 同 → 剪枝复用（renderFn 不重跑）')
+  handle.unmount()
+})
+
+// ── 真实 i18n 中间件端到端：setLocale → bumpCtxVersion → root render → 子组件重跑 ──
+test('真实 i18n 中间件：setLocale 后 props 不变子组件文案更新（zh→en 端到端）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  const { ctx } = handle
+  const i18nMw = i18n({ locale: 'zh-CN' })
+  const injected = await i18nMw(ctx as any)
+  ;(ctx as any).i18n = injected.i18n
+
+  // 子组件读 ctx.i18n.components 文案（props 恒 {}——真实组件库用法）
+  const BtnLabel = async (_init: any, c: any) => () => h('span', { id: 'lbl' }, c.i18n?.components?.Button?.loading ?? '?')
+  const App = async (_init: any, c: any) => () => h('div', {}, h(BtnLabel, {}))
+  await handle.mount(h(App))
+  await flush()
+  assert.equal(root.querySelector('#lbl')?.textContent, '加载中...')
+
+  ;(ctx as any).i18n.setLocale('en-US')
+  await flush()
+  assert.equal(root.querySelector('#lbl')?.textContent, 'Loading...', '真实 i18n setLocale 后子组件文案更新')
   handle.unmount()
 })

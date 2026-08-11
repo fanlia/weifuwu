@@ -52,7 +52,6 @@ export interface HookEnv {
   scrollTrackers: Map<string, ScrollTracker>
   /** 渲染保护期（渲染请求被跳过） */
   isMounting(): boolean
-  isRendering(): boolean
   /** 受控缺回调 warn 去重（跨组件按 name 幂等） */
   warned: Set<string>
   /** useControlled 非受控内部值（按 selfId） */

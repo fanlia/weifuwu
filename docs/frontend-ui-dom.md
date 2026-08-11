@@ -24,15 +24,14 @@
 
 ```tsx
 const Counter = (initProps, ctx) => {
-  const $ = ctx.ui.$()
-  $.count = initProps.initial ?? 0      // mount：只执行一次
+  let count = initProps.initial ?? 0        // mount：只执行一次
   return (props) =>
-    h('button', { onClick: () => $.count += props.step }, $.count)  // render
+    h('button', { onClick: () => { count += props.step; ctx.ui.render() } }, count)  // render
 }
 ```
 
-- **没有 hooks 规则、没有依赖数组、没有闭包陷阱**。外层 = 初始化（一次），内层 = 渲染（每次变化）。`$` Proxy 赋值自动触发组件级重渲染——**状态更新就是赋值**，不需要思考 `useState`/`useEffect`/`useMemo` 三件套的触发时机。
-- **状态驱动渲染**：`$.x = val` → dirty → 局部 patch。组件库手动优先（行为可预测、测试简单），业务层自动优先（省样板、不易遗漏）——按场景选模式而非被迫统一。
+- **没有 hooks 规则、没有依赖数组、没有闭包陷阱**。外层 = 初始化（一次），内层 = 渲染（每次变化）。
+- **render-only 确定性渲染**（design/render-only-plan.md）：渲染只发生在 `ctx.ui.render()` 调用处——改状态后显式 `render()`，行为可静态推导。无 `$` Proxy、无隐式触发；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。
 
 ### 框架即纪律：浏览器环境抽象把常见坑变成编译期/审计期错误
 
@@ -55,7 +54,7 @@ AGENTS.md 每条纪律对应真实事故（JSONViewer selfId 错位、AutoComple
 
 | 维度 | 价值 |
 |------|------|
-| **上手** | 两阶段组件 + 赋值即渲染——无 hooks/依赖数组心智负担 |
+| **上手** | 两阶段组件 + 改状态后 render()——无 hooks/依赖数组心智负担 |
 | **后端互迁** | req/res/中间件契约同构，SSR 透明，一份 router 两端共享 |
 | **可靠性** | 确定性失败、诚实裁剪、环境边界、测试侧同构 |
 | **效率** | 弹层/数据管道/事件原语全覆盖——不重复造轮子 |
@@ -74,14 +73,13 @@ const app = new UIRouter()
 
 app.use(toast()) // ctx 注入链（对齐后端 app.use——注入 ctx.toast）
 
-// handler = 异步组件：async (location, ctx) => VNode（$ 有效）
+// handler = 异步组件：async (location, ctx) => VNode（render-only——改状态后 ctx.ui.render()）
 app.get('/', async (location, ctx) => {
   const info = await ctx.data.get('/api/info', async () => ({ title: '首页' }))
-  const $ = ctx.ui.$()
-  $.clicks = $.clicks ?? 0
+  let clicks = 0
   return h('div', {},
     h('h2', {}, info.title),
-    h(Button, { onClick: () => $.clicks++ }, `点击 ${$.clicks} 次`),
+    h(Button, { onClick: () => { clicks++; ctx.ui.render() } }, `点击 ${clicks} 次`),
     h(Button, { variant: 'secondary', onClick: () => ctx.toast?.('提示', 'success') }, '弹 toast'),
   )
 })
@@ -119,17 +117,22 @@ handler 只产 VNode，落地由 serve 决定——SSR 与 SPA 是两种落地�
 
 VNode 契约以 ui-dom 为唯一来源（Fragment/Portal symbol 由 ui-dom 自持）——components 产的 VNode
 直接被 ui-dom 渲染器识别。渲染算法（render/diff/createUi 原语）在 ui-dom 内自主实现，
-**registry/popup-tracker/dirty 集合局部实例**（serve 每实例隔离）。
+**registry/popup-tracker 局部实例**（serve 每实例隔离）。
 
 命令式工厂（toast/confirm/notification）位于 ui-dom（`src/ui-dom/Toast.ts` 等）：
 components 消费端 import `weifuwu/ui-dom`（构建外部化，共享同一模块实例）。
 
-### $ 响应式（两层）
+### render-only 渲染（唯一触发：ctx.ui.render()）
 
-| 层级 | 触发 | 重渲染范围 |
+| 原语 | 触发 | 重渲染范围 |
 |------|------|-----------|
-| 路由实例级 `$`（handler 的 `ctx.ui.$()`） | 赋值 | 重渲染 handler（data 缓存命中） |
-| 组件级 `$`（子组件 `ctx.ui.$()`） | 赋值 | **仅该组件**（父 handler 不重跑） |
+| `ctx.ui.render()`（无参） | 主动调用 | 当前组件（闭包绑定，无 this 陷阱） |
+| `ctx.ui.render(['id'])` | 主动调用 | 指定组件（selfId 注册的语义 ID） |
+| `ctx.ui.useExternal(store)` | store 变更自动 | **仅订阅组件**（unmount 自动退订） |
+
+- 状态是普通对象（`let` / `createStore`）——改状态后显式 `render()`，无赋值自动渲染
+- 跨组件共享：`createStore` + `useExternal`（替代已删除的 `$` Proxy / `dirty`）
+- hooks（useMedia/useInView/usePopup 等）事件驱动重渲染——与"赋值自动"本质不同
 
 ## SSR + hydration（端到端）
 
@@ -154,7 +157,7 @@ uiServe(app, { root: '#root', hydrate: true })
 |------|------|
 | `ctx.params` / `ctx.query` | 路由参数 / URL query（顶层，对齐后端） |
 | `ctx.data.get/set/has` | 数据管道（缓存 + in-flight 合并 + `__DATA__` 种子） |
-| `ctx.ui.*` | 19 原语（`$`/`dirty`/`render`/`usePopup`/`useChat`/`useInView`…） |
+| `ctx.ui.*` | 原语（`render`/`useExternal`/`usePopup`/`useChat`/`useInView`…） |
 | `ctx.browser.*` | 环境抽象（window/document 唯一入口，SSR shim 同构） |
 | `ctx.toast` / `ctx.confirm` / `ctx.notification` | 命令式注入（`app.use(toast())` 等） |
 

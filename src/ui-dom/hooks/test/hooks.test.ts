@@ -40,7 +40,6 @@ function makeEnv(overrides: Partial<HookEnv> = {}): { env: HookEnv; state: any }
     popupTrackers: new Map(),
     scrollTrackers: new Map(),
     isMounting: () => false,
-    isRendering: () => false,
     warned: new Set(),
     uncontrolledValues: new Map(),
     inputStates: new Map(),

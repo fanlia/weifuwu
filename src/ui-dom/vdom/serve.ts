@@ -118,10 +118,12 @@ export function uiServe<RC extends object = {}>(
       const prev = currentChild
       currentChild = built
       const prevNode = (prev as VNode)?.el ?? (prev as VNode)?._refNode ?? null
-      patchValue(root, prevNode, prev, built, { browser, registry, ctxVersion: 0 })
+      patchValue(root, prevNode, prev, built, { browser, registry, ctxVersion: (ctx as any)?.ui?._ctxVersion ?? 0 })
     }
     currentChild = built
     currentPath = path
+    // root 组件 id（rootUi.render() 无参精准渲染——i18n 中间件等 root 层 render 调用）
+    rootUi._rootVNodeId = (built as VNode)?._id
   }
 
   // ── 首帧 ──

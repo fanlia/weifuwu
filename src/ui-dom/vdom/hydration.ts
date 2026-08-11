@@ -91,7 +91,7 @@ function renderValueHydrating(v: VNodeChild, ctx: WfuiContext, c: HydrationCurso
     const child = vnode._child
     if (child == null) {
       // 构建为 null（或未构建——throw 暴露）
-      if (typeof vnode._render !== 'function' && !(vnode._asyncDef || typeof vnode._render === 'function')) {
+      if (typeof vnode._render !== 'function') {
         throw new Error(`[vdom] component ${(vnode.type as any).name || 'anonymous'} not built before hydration`)
       }
       vnode._child = null

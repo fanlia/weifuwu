@@ -24,8 +24,7 @@ uiServe(app, { root: '#root' })     // 客户端落地（hydrate: true 收养 SS
 
 ```tsx
 const DashboardLayout: UIMiddleware = async (_loc, ctx, children) => {
-  const $ = ctx.ui.$()
-  $.open = true
+  let open = true
   return async (loc, c) => {
     const child = await children(loc, c)   // 子路由/嵌套路由内容
     return h('div', { class: 'wf-row' },

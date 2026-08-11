@@ -18,26 +18,25 @@ const Badge: Component<{ text: string; color?: string }> = () =>
 ```
 
 - 两阶段：外层 `(initProps, ctx) => …` 只执行一次（mount），内层 `(props) => VNode` 每次渲染执行
-- 不需要状态就不调 `ctx.ui.$()`；需要交互才用
+- 有状态组件用闭包 `let` + 事件里 `ctx.ui.render()`（render-only）；不需要渲染的状态不调 `render()`
 
 ## 1. 有状态组件
 
 ```tsx
 const Toggle: Component = (_init, ctx) => {
-  const $ = ctx.ui.$()        // 深度 Proxy：赋值自动触发渲染（微任务批量）
-  $.on = false
+  let on = false        // 普通对象状态（render-only：无 $ Proxy）
 
   return (props) => h('button', {
     class: 'my-toggle',
-    onClick: () => $.on = !$.on,
-  }, $.on ? '开' : '关')
+    onClick: () => { on = !on; ctx.ui.render() },   // 改状态后显式 render()
+  }, on ? '开' : '关')
 }
 ```
 
 | 状态类型 | 存放位置 | 触发渲染 |
 |---------|---------|---------|
-| 自动 UI 状态 | `$.xxx` | 赋值自动（微任务） |
-| 手动 UI 状态 | 闭包 `let` | 需 `ctx.ui.render()` |
+| 组件内部状态 | 闭包 `let` | 改后调 `ctx.ui.render()` |
+| 共享状态 | `createStore` + `ctx.ui.useExternal()` | store 变更自动 |
 | 内部缓存 | 闭包 `let` | 不触发 |
 
 ## 2. 带弹层的组件（最高频的自定义场景）
@@ -46,16 +45,15 @@ const Toggle: Component = (_init, ctx) => {
 
 ```tsx
 const MyPopover: Component<{ content: string }> = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.open = false
+  let open = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
 
   const popup = ctx.ui.usePopup({
     trigger: 'hover',          // 触屏自动降级 tap（useHoverCapable 内部判定）
     el: () => wrapEl,          // 锚点
-    isOpen: () => $.open,
-    setOpen: (v) => { $.open = v },   // $ 赋值自动渲染
+    isOpen: () => open,
+    setOpen: (v) => { open = v; ctx.ui.render() },   // 改状态 + render
     width: 320,                // 自动 clamp 视口
     closeOnOutside: true,      // 外部点击关闭（默认）
     closeOnEscape: true,       // Escape 关闭（默认，document 级——portal 焦点也生效）
@@ -106,21 +104,20 @@ const MyDialog: Component<{ open: boolean; onClose: () => void }> = (_init, ctx)
 
 ```tsx
 const ChatPanel: Component = (_init, ctx) => {
-  const $ = ctx.ui.useChat({
+  const chat = ctx.ui.useChat({
     url: '/api/chat',
     approveUrl: '/api/approve',   // HITL 审批上行（缺省 approve() 只清卡片）
     body: (messages) => ({ messages, mode: 'agent' }),
   })
 
   return () => h('div', { class: 'chat' },
-    $.messages.map((m) => h('div', { class: `msg-${m.role}` }, m.content)),
-    h('input', { value: $.input, onInput: (e: any) => $.input = e.target.value }),
-    h('button', { onClick: () => $.send() }, $.streaming ? '…' : '发送'),
+    h(AiChat, { chat }),                    // 标准界面：输入/消息/流式/工具卡全内置
+    h('button', { onClick: () => chat.send() }, chat.streaming ? '…' : '发送'),
   )
 }
 ```
 
-**共享 `$` 给子组件**（如 `<AiChat chat={$} />`）：父组件 dirty 不驱动子组件（三态 skip），子组件 mount 期 `initProps.chat.__watch?.(() => ctx.ui.dirty())` 自订阅。
+**共享 handle 给子组件**（如 `<AiChat chat={chat} />`）：会话 handle 带 `subscribe(cb)`——子组件 mount 期 `ctx.ui.useExternal(initProps.chat)` 自订阅（AiChat 已内置），会话状态变化自动重渲染订阅组件。
 
 ## 5. 异步组件（数据声明在工厂层）
 
@@ -129,16 +126,14 @@ const ChatPanel: Component = (_init, ctx) => {
 ```tsx
 const UserCard = async (initProps, ctx) => {
   const user = await ctx.data.get(`/api/user/${initProps.userId}`)  // 三场景：SSR→__DATA__ / hydration 种子 / SPA fetch
-  const $ = ctx.ui.$()
-  $.liked = false
-  return (props) => h('div', {}, user.name, h('button', { onClick: () => $.liked = !$.liked }))
+  let liked = false
+  return (props) => h('div', {}, user.name, h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }))
 }
 ```
 
-- 渲染器按「返回值是 Promise」判别：主路径 `buildVNode` await 全部（无占位）；动态挂载兑底占位 + 局部补全；SSR 直接 await
+- 渲染器按「返回值是 Promise」判别：主路径 `buildVNode` await 全部（无占位）；运行时首次挂载的 async 组件在 buildVNode 阶段 await（无占位/补全回调）；SSR 直接 await
 - 工厂按实例执行；**数据必须走 ctx.data**（缓存+并发合并，重复执行零成本）；禁止副作用裸写工厂
-- 占位显示：动态挂载的 async 组件占位 = 注释节点，resolve 后局部补全（Suspense 边界已裁剪）
-- **个性化数据不进 ctx.data**（SSR 会序列化给所有客户端）——留在客户端 `$` + fetch
+- **个性化数据不进 ctx.data**（SSR 会序列化给所有客户端）——留在客户端 `let` + fetch + `render()`
 
 ## 6. 类型纪律（编译期防线）
 

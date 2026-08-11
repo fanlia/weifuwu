@@ -21,18 +21,23 @@ function disposeComponent(vnode: VNode, registry?: Registry): void {
     cleanupComponent(registry, vnode._id)
   }
 }
-import { renderValue, setProp } from './render.ts'
+import { renderValue, setProp, EVENT_RE } from './render.ts'
 import { componentPropsEqual } from './build.ts'
 
 /** 递归文本/数组归一化（children 数组展开——嵌套数组扁平化，DOM 范围对齐） */
 export function normalizeChildren(c: VNodeChild | undefined | null): VNodeChild[] {
   if (c == null || typeof c === 'boolean') return []
   const out: VNodeChild[] = []
-  const stack: VNodeChild[] = Array.isArray(c) ? [...c] : [c]
+  // 栈展开（索引遍历替代 shift/unshift 头部操作——长数组 O(n) 而非 O(n²)）
+  // 逆序入栈 + pop 保持原顺序
+  const stack: VNodeChild[] = Array.isArray(c) ? [...c].reverse() : [c]
   while (stack.length > 0) {
-    const item = stack.shift()!
-    if (Array.isArray(item)) stack.unshift(...item)
-    else out.push(item)
+    const item = stack.pop()!
+    if (Array.isArray(item)) {
+      for (let i = item.length - 1; i >= 0; i--) stack.push(item[i])
+    } else {
+      out.push(item)
+    }
   }
   return out
 }
@@ -50,12 +55,11 @@ function getKey(v: VNodeChild): string | undefined {
 export interface PatchCtx {
   browser: any
   registry: import('./registry.ts').Registry
-  /** 三态 skip 的 dirty 集合（组件 id → true） */
-  /** 已渲染组件（skip 判定——记录到 ctx，供 scheduler 清 dirty） */
-  rendered?: Set<string>
-  /** 当前 ctx 版本号 */
+  /** 当前 ctx 版本号（三态 skip 版本比较：组件 _ctxVersion !== 当前版本 → 不 skip，
+   *  强制重渲染——bumpCtxVersion 递增后所有组件重跑 renderFn，如 i18n 切换语言） */
   ctxVersion?: number
-  getCtxVersion?: (id: string) => number
+  /** force：跳过三态 skip（mountRoot.rerender 全量重跑用） */
+  force?: boolean
 }
 
 /**
@@ -174,13 +178,14 @@ export function patchValue(
     newV._parentNode = parent
     if (oldNode) newV._refNode = oldNode
 
-    // 三态 skip：同类型 + props 同 + 无 dirty + 版本同 + 已构建 → 复用旧 _child
+    // 三态 skip：同类型 + props 同 + 版本同 + 已构建 → 复用旧 _child
     // （必须同类型——导航 A→B 不同组件不得 skip，否则复用 A 的 _child → 页面不切换）
+    // 版本比较基于 oldV（旧树构建时的 _ctxVersion）vs 当前 ctxVersion：
+    // 版本变化（bumpCtxVersion）→ 不 skip → 用 buildVNode 重跑后的新 _child
     const typeSame = oldV?.type === newV.type
     const propsSame = componentPropsEqual(oldV?.props ?? {}, newV.props ?? {})
-    const ver = ctx.getCtxVersion ? ctx.getCtxVersion(newV._id ?? '') : undefined
-    const verSame = ver === undefined || (ctx.ctxVersion ?? 0) === ver
-    if (oldV && typeSame && propsSame && verSame && oldV._child !== undefined) {
+    const verSame = (oldV?._ctxVersion ?? -1) === (ctx.ctxVersion ?? 0)
+    if (!ctx.force && oldV && typeSame && propsSame && verSame && oldV._child !== undefined) {
       newV._child = oldV._child
       return oldNode
     }
@@ -239,17 +244,24 @@ export function patchProps(el: Element, oldProps: Record<string, any>, newProps:
     const ov = oldProps[key]
     const nv = newProps[key]
     if (ov === nv) continue
-    if (key.startsWith('on')) {
+    if (EVENT_RE.test(key)) {
       // 事件函数引用变化：先移除旧 handler 再绑定新（否则重复绑定累积——
       // renderFn 重渲染产生新函数 → 每次 patch 多一个监听 → 点击触发多次）
       if (typeof ov === 'function') el.removeEventListener(key.slice(2).toLowerCase(), ov)
-      if (nv != null && nv !== false) el.addEventListener(key.slice(2).toLowerCase(), nv)
+      // 类型守卫：非函数值不抛错（once/only 等 on 开头非事件属性由 EVENT_RE 排除）
+      if (nv != null && nv !== false) {
+        if (typeof nv !== 'function') {
+          console.warn(`[weifuwu] event prop ${key} expects a function, got ${typeof nv} — ignored`)
+        } else {
+          el.addEventListener(key.slice(2).toLowerCase(), nv)
+        }
+      }
       continue
     }
     if (nv == null || nv === false) {
       // 移除
       if (key === 'class' || key === 'className') { el.removeAttribute('class') }
-      else if (key.startsWith('on')) { el.removeEventListener(key.slice(2).toLowerCase(), ov) }
+      else if (EVENT_RE.test(key)) { el.removeEventListener(key.slice(2).toLowerCase(), ov) }
       else if (key === 'ref') { if (typeof ov === 'function') { try { ov(null) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } } }
       else if (key === 'value') { (el as HTMLInputElement).value = '' }
       else if (key === 'indeterminate') { (el as HTMLInputElement).indeterminate = false }  // 半选态清除（delete 无效——property）
@@ -279,7 +291,13 @@ export function patchChildren(
   // 否则 keyed 分支对无 key 项「移除旧 + 新建」→ 固定结构（表头/行标签等）每次 render 重建 → 闪烁。
   // （v1 ensureKeys 精神——但 v1 只在全无 key 时分配，混合场景缺失：DatePicker 面板
   //  [header(无key), ...gridRows(keyed)] 每次选时间整段重建的真实 bug）
-  const hasUserKey = newChildren.some((c) => getKey(c) !== undefined)
+  // 注意：portal（_placement: 'remote'）的 portalKey 不算用户 keyed（C1——
+  // [input(无key), portal] 走 allUnkeyed 按位置复用，不分配 pos key、不 mutate vnode.key）
+  const hasUserKey = newChildren.some((c) => {
+    if (c == null || typeof c !== 'object' || Array.isArray(c)) return false
+    const vn = c as VNode
+    return vn._placement !== 'remote' && vn.key !== undefined
+  })
   if (hasUserKey) {
     for (let i = 0; i < newChildren.length; i++) {
       const c = newChildren[i]

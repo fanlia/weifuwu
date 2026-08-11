@@ -119,8 +119,6 @@ function createSsrUi(): any {
   return {
     _selfId: '_wf_root',
     render: () => {},
-    dirty: () => {},
-    $: () => ({}),
     selfId: () => {},
     bumpCtxVersion: () => {},
     setMounting: () => {},

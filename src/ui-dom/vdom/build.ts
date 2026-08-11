@@ -45,10 +45,12 @@ export async function mountAsyncComponent(
     reg.idRegistry.set(vnode._id, vnode)
   }
   // 旧树同位置同类型：继承定位信息（_parentNode/_refNode——剪枝复用旧 _child 时新 vnode 需要
-  // 正确的渲染容器；否则 renderByIds 的 parent 定位失败 → patch 错位）
+  // 正确的渲染容器；否则 renderByIds 的 parent 定位失败 → patch 错位）+ 版本号（_ctxVersion——
+  // 剪枝版本比较基准：reuse 继承旧版本，版本没变才允许剪枝）
   if (opts?.reuse) {
     if (opts.reuse._parentNode) vnode._parentNode = opts.reuse._parentNode
     if (opts.reuse._refNode) vnode._refNode = opts.reuse._refNode
+    if (opts.reuse._ctxVersion != null) vnode._ctxVersion = opts.reuse._ctxVersion
   }
   const childCtx = Object.create(ctx) as WfuiContext
   childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & Record<string, unknown>
@@ -119,14 +121,18 @@ export async function buildVNode(
 
   if (typeof vnode.type === 'function') {
     const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? undefined })
-    // 剪枝：同 props + 旧 _child 有值 → 复用旧 _child（renderFn 不重跑）。
+    // 剪枝：同 props + 同 ctx 版本 + 旧 _child 有值 → 复用旧 _child（renderFn 不重跑）。
     // force（renderByIds 显式渲染）→ 强制重跑 renderFn（读最新状态）
     const propsSame = componentPropsEqual(oldV?.props ?? {}, vnode.props ?? {})
-    if (opts?.force || !propsSame || oldV?._child == null) {
+    const ctxVersion = (ctx as any)?.ui?._ctxVersion ?? 0
+    const verSame = (oldV?._ctxVersion ?? -1) === ctxVersion
+    if (opts?.force || !propsSame || !verSame || oldV?._child == null) {
       const built = await buildVNode(vnode._render!(vnode.props), childCtx, oldV?._child, registry)
       vnode._child = (built ?? null) as VNode | VNode[] | null
+      vnode._ctxVersion = ctxVersion
     } else {
       vnode._child = oldV._child
+      vnode._ctxVersion = oldV._ctxVersion
     }
     return vnode
   }

@@ -91,7 +91,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **两阶段组件模型** — 组件 = `(initProps, ctx) => (props) => VNode`。外层函数只执行一次（mount），内层函数每次状态/props 变化时执行（render）。无 class、无 `this`、无 Hook——**位置即语义**：外层天生只跑一次，没有 hooks 规则、没有依赖数组、没有闭包陷阱（详解见[核心概念](#核心概念)）。
 
-**Proxy 驱动渲染** — `ctx.ui.$()` 返回深度 Proxy，`$.x = val` 自动触发当前组件的 VDOM patch；也支持手动 `ctx.ui.render()` 精确控制渲染时机。**组件库手动优先、业务层自动优先**——同一框架内按角色选模式（详见[组件库](docs/components.md)）。
+**render-only 确定性渲染** — 渲染唯一触发 `ctx.ui.render()`（闭包绑定组件），状态是普通对象（`let` + `render()`）；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。行为可静态推导，无隐式触发（详见[组件库](docs/components.md)）。
 
 **中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` / `ctx.limit` / `ctx.email` / `ctx.queue` / `ctx.ai` / `ctx.msg` 等），Handler/组件从 `ctx` 读取。
 
@@ -275,25 +275,24 @@ cd apps/agent-platform && npm run seed && npm run dev
     import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
     import { Card, Button, Badge } from 'weifuwu/components'
 
-    // 组件 = (initProps, ctx) => (props) => VNode
+    // 组件 = (initProps, ctx) => (props) => VNode（render-only：改状态后 ctx.ui.render()）
     const Counter = (_props, ctx) => {
-      const $ = ctx.ui.$()
-      $.count = 0 // mount 初始化
+      let count = 0 // mount 初始化
 
       return () =>
         h(Card, { variant: 'default', padding: 'lg' },
           h('h2', { style: { textAlign: 'center', margin: 0 } }, '⚡ Weifuwu'),
           h('div', { style: { fontSize: '4rem', fontWeight: 600, textAlign: 'center' } },
-            String($.count)),
+            String(count)),
           h('div', { style: { textAlign: 'center', marginTop: '1rem' } },
             h(Badge, {
-              variant: $.count % 2 === 0 ? 'success' : 'warning'
-            }, $.count % 2 === 0 ? '偶数' : '奇数')),
+              variant: count % 2 === 0 ? 'success' : 'warning'
+            }, count % 2 === 0 ? '偶数' : '奇数')),
           h('hr', { style: { margin: '1rem 0', border: 'none', borderTop: '1px solid #eee' } }),
           h('div', { style: { display: 'flex', gap: '0.5rem', justifyContent: 'center' } },
-            h(Button, { variant: 'secondary', onClick: () => $.count-- }, '➖ 减 1'),
-            h(Button, { variant: 'danger', onClick: () => $.count = 0 }, '↺ 重置'),
-            h(Button, { variant: 'primary', onClick: () => $.count++ }, '➕ 加 1'),
+            h(Button, { variant: 'secondary', onClick: () => { count--; ctx.ui.render() } }, '➖ 减 1'),
+            h(Button, { variant: 'danger', onClick: () => { count = 0; ctx.ui.render() } }, '↺ 重置'),
+            h(Button, { variant: 'primary', onClick: () => { count++; ctx.ui.render() } }, '➕ 加 1'),
           ),
         )
     }
@@ -406,11 +405,10 @@ cd apps/agent-platform && npm run seed && npm run dev
 ```tsx
 const Counter = (_init, ctx) => {
   // 外层（mount）：只跑一次——初始化状态、订阅、定时器
-  const $ = ctx.ui.$()
-  $.count = 0
+  let count = 0
   return (props) =>
-    // 内层（render）：每次变化执行——读状态输出视图
-    <button onClick={() => $.count++}>{$.count}</button>
+    // 内层（render）：每次变化执行——读状态输出视图（render-only：改状态后显式 render()）
+    <button onClick={() => { count++; ctx.ui.render() }}>{count}</button>
 }
 ```
 
@@ -441,7 +439,7 @@ const Counter = (_init, ctx) => {
 |------|------|------|
 | 注入 | 中间件注入 ctx.field | 中间件注入 ctx.field |
 | 读取 | handler 读取 ctx | 组件读取 ctx |
-| 渲染 | 返回 Response | `ctx.ui.render()` / `ctx.ui.dirty()` / `$.x = val` 触发局部 VDOM patch |
+| 渲染 | 返回 Response | `ctx.ui.render()` 触发局部 VDOM patch（render-only）；共享状态 `createStore` + `useExternal` |
 
 ### async 组件（三条纪律）
 
@@ -450,12 +448,11 @@ async 组件让"拿数据渲染页面"像写同步代码——签名与同步组
 ```tsx
 const UserProfile = async (_init, ctx) => {
   const user = await ctx.data.get(`/api/user/${ctx.params.id}`)   // ① 工厂层：声明数据（三场景自动）
-  const $ = ctx.ui.$()
-  $.liked = false                                                 // ② mount：客户端状态
+  let liked = false                                                // ② mount：客户端状态（render-only）
   return (props) =>
     h('div', {},
       h('p', {}, user.name),          // 服务端状态（闭包，SSR 进 HTML）
-      h('button', { onClick: () => $.liked = !$.liked }, $.liked ? '❤️' : '🤍'))
+      h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }, liked ? '❤️' : '🤍'))
 }
 ```
 
@@ -464,14 +461,13 @@ const UserProfile = async (_init, ctx) => {
 | 纪律 | 反例 | 正确 |
 |---|---|---|
 | ① 数据 key 必须含维度 | `ctx.data.get('/api/user')`——`/users/1 → /users/2` 导航命中旧缓存 | `ctx.data.get(\`/api/user/${ctx.params.id}\`)` |
-| ② 会变的数据放 `$` | `const count = data.count`——点击永不更新 | `$.count = data.count`（初始值 seed 自服务端数据） |
-| ③ 初始状态必须确定性 | `$.w = window.innerWidth`——SSR/hydration mismatch | 用服务端数据 seed，交互后再测 |
+| ② 会变的数据放组件状态 | `const count = data.count`——点击永不更新 | `let count = data.count` + 交互后 `ctx.ui.render()`（初始值 seed 自服务端数据） |
+| ③ 初始状态必须确定性 | `let w = window.innerWidth`——SSR/hydration mismatch | 用服务端数据 seed，交互后再测 |
 
 **常见坑**：
 - 工厂按**实例**执行（N 处实例 = N 次工厂调用）——数据必须走 `ctx.data`（自带缓存 + 并发合并，重复执行零成本）；禁止副作用/昂贵操作裸写工厂
 - 闭包数据是页面加载时的**快照**——路由参数变化靠工厂重跑刷新（key 变 → 缓存 miss → 重新取数）
-- **个性化数据不进 `ctx.data`**——SSR 会把工厂取数结果序列化给所有客户端，会话/用户相关数据留在 `$` + fetch
-- **占位显示**：async 组件未 resolve 时渲染 `Placeholder`——无边界显示 null；`<Suspense fallback={...}>` 边界内占位处显示 fallback（可选，子树内任意深度 async 组件共享）
+- **个性化数据不进 `ctx.data`**——SSR 会把工厂取数结果序列化给所有客户端，会话/用户相关数据留在客户端 `let` + fetch + `render()`
 
 ### 渲染策略：SPA 还是 SSR？
 

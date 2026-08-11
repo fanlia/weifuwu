@@ -22,7 +22,6 @@ export interface SchedulerOptions {
   registry: Registry
   ctx: WfuiContext
   rootEl?: HTMLElement
-  getCtxVersion?: (id: string) => number
   onError?: (e: unknown) => void
 }
 
@@ -37,8 +36,8 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
       const patchCtx: PatchCtx = {
         browser: opts.ctx.browser,
         registry: opts.registry,
-        ctxVersion: opts.getCtxVersion?.(id) ?? 0,
-        getCtxVersion: opts.getCtxVersion,
+        // 当前 ctx 版本（rootUi._ctxVersion——bumpCtxVersion 递增；三态 skip 版本比较基准）
+        ctxVersion: (opts.ctx as any)?.ui?._ctxVersion ?? 0,
       }
       const output = vnode._render!(vnode.props)
       const newChild = (await buildVNode(output, opts.ctx, vnode._child, opts.registry)) ?? null

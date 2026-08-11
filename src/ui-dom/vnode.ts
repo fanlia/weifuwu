@@ -51,11 +51,10 @@ export interface VNode {
   _parentVNode?: VNode
   /** 组件输出的第一个 DOM 节点 */
   _refNode?: Node | null
-  /** 原生 async 组件缓存（vnode 级按实例）：in-flight Promise → resolved renderFn（diff 传递继承） */
-  _asyncDef?: ((props: Record<string, unknown>) => VNode | null) | Promise<((props: Record<string, unknown>) => VNode | null)> | null
   /** Fragment 展开后的多个直属 DOM 节点范围（diff 对齐用，见 diff.ts） */
   _childNodes?: Node[]
-  /** 组件 mount/render 时的 ctx 版本号（供三态 skip 判定） */
+  /** 组件 renderFn 上次执行时的 ctx 版本号（buildVNode 剪枝 + diff 三态 skip 的版本比较——
+   *  bumpCtxVersion 递增后版本不同 → 强制重跑 renderFn，如 i18n 切换语言） */
   _ctxVersion?: number
 }
 

@@ -6,9 +6,8 @@
 
 ```tsx
 const LoginPage = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.errors = {}
-  $.submitting = false
+  let errors: Record<string, string> = {}
+  let submitting = false
 
   return (props) =>
     h('div', { class: 'wf-stack', style: { maxWidth: 400, margin: '40px auto' } },
@@ -21,17 +20,19 @@ const LoginPage = (_init, ctx) => {
               password: [{ required: true, minLength: 6, message: '密码至少6位' }],
             },
             onSubmit: async (values) => {
-              $.submitting = true
+              submitting = true
+              ctx.ui.render()
               await ctx.api?.post('/login', values)   // api 客户端由中间件注入 ctx.api
-              $.submitting = false
+              submitting = false
+              ctx.ui.render()
             },
-            onError: (errors) => { $.errors = errors },
+            onError: (errs) => { errors = errs; ctx.ui.render() },
           }, [
-            h(Field, { label: '邮箱', error: $.errors.email },
+            h(Field, { label: '邮箱', error: errors.email },
               h(Input, { name: 'email', type: 'email', placeholder: 'name@example.com' })),
-            h(Field, { label: '密码', error: $.errors.password },
+            h(Field, { label: '密码', error: errors.password },
               h(Input, { name: 'password', type: 'password' })),
-            h(Button, { type: 'submit', loading: $.submitting, block: true }, '登录'),
+            h(Button, { type: 'submit', loading: submitting, block: true }, '登录'),
           ])
         )
       )
@@ -43,19 +44,18 @@ const LoginPage = (_init, ctx) => {
 
 ```tsx
 const UserList = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.keyword = ''
-  $.sortKey = 'name'
-  $.sortOrder = 'asc'
+  let keyword = ''
+  let sortKey = 'name'
+  let sortOrder = 'asc'
   const users = [
     { id: 1, name: '张三', email: 'zhang@example.com', role: '管理员' },
     { id: 2, name: '李四', email: 'li@example.com', role: '编辑' },
   ]
 
   return (props) => {
-    // 派生数据必须在 render 内计算（每次 render 读最新 $.keyword）
+    // 派生数据必须在 render 内计算（每次 render 读最新 keyword）
     const filtered = users.filter(u =>
-      !$.keyword || u.name.includes($.keyword) || u.email.includes($.keyword)
+      !keyword || u.name.includes(keyword) || u.email.includes(keyword)
     )
 
     return h('div', { class: 'wf-stack', style: { gap: 'var(--wf-space-md)' } },
@@ -85,39 +85,33 @@ const UserList = (_init, ctx) => {
 ## 消息提示
 
 ```tsx
-// 在任意组件中调用
+// 官方推荐：命令式中间件（app.use(toast()) → ctx.toast('消息', 'success')）
+app.use(toast())
+// 任意组件：ctx.toast?.('操作成功', 'success')
+
+// 自管理列表（render-only：let + render()）
+let toasts: { id: string; type: string; message: string }[] = []
 let toastId = 0
 
-function showToast(ctx: WfuiContext, type: ToastType, message: string) {
-  // 通过 ctx 管理 Toast 列表
-  const $ = ctx.ui.$()
-  $.toasts = $.toasts ?? []
-  const id = String(++toastId)
-  $.toasts = [...$.toasts, { id, type, message }]
-
-  // 自动消失
+function showToast(ctx: WfuiContext, type: string, message: string) {
+  toasts = [...toasts, { id: String(++toastId), type, message }]
+  ctx.ui.render()
   if (type !== 'error') {
-    setTimeout(() => {
-      $.toasts = $.toasts.filter((t: any) => t.id !== id)
-    }, 3000)
+    setTimeout(() => { toasts = toasts.filter((t: any) => t.id !== String(toastId)); ctx.ui.render() }, 3000)
   }
 }
 
 // 页面中使用
 const App = (_init, ctx) => {
-  const $ = ctx.ui.$()
-  $.toasts = []
-
+  toasts = []
   return (props) =>
     h('div', {}, [
-      h(Button, {
-        onClick: () => showToast(ctx, 'success', '操作成功'),
-      }, '显示提示'),
+      h(Button, { onClick: () => showToast(ctx, 'success', '操作成功') }, '显示提示'),
       h(Toast, {
-        toasts: $.toasts,
+        toasts,
         position: 'top-right',
         max: 3,
-        onRemove: (id) => { $.toasts = $.toasts.filter((t: any) => t.id !== id) },
+        onRemove: (id) => { toasts = toasts.filter((t: any) => t.id !== id); ctx.ui.render() },
       }),
     ])
 }
