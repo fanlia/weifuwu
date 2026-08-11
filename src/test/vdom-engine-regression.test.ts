@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from '../test/client/setup.ts'
 setupJsdom()
-import { h } from '../ui-dom/vnode.ts'
+import { h, createPortal } from '../ui-dom/vnode.ts'
 import { mountRoot } from '../ui-dom/vdom/mount.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { DatePicker } from '../components/DatePicker/DatePicker.ts'
@@ -168,5 +168,44 @@ test('select value 在 options 后设置 + 替换时旧 ref 清理', async () =>
   await flush()
   assert.equal(root.querySelector('#new')?.textContent, 'y', '新元素渲染')
   assert.equal(cleaned, 1, '类型替换旧 ref(null) 调用（v1 patchValue 行为）')
+  handle.unmount()
+})
+
+// ── portal keyed 复用（v1 getKey 语义——Editor table tool hover 闪烁回归） ──
+test('混合 keyed 数组含 portal：portal 复用容器（getKey remote 语义）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  const { ctx } = handle
+  let hover = -1
+  const App: any = async (_i: any, c: any) => () =>
+    h('div', {}, [
+      h('button', { key: 'btn' } as any, '触发'),
+      hover >= 0
+        ? createPortal(h('div', { class: 'portal-content', id: 'pc' }, [
+            h('div', { class: 'row', key: 'r0' } as any, String(hover)),
+          ]), 'test-portal')
+        : null,
+    ])
+  await handle.mount(h(App))
+  await flush()
+  assert.ok(!root.querySelector('#pc'), '初始无 portal')
+
+  // 打开 portal（hover 首次）
+  hover = 0
+  await handle.rerender()
+  await flush()
+  const pc = document.querySelector('#pc') as HTMLElement
+  assert.ok(pc, 'portal 渲染')
+  const row = pc.querySelector('.row')
+
+  // hover 更新（portal 内容 patch——容器/内容复用）
+  hover = 5
+  await handle.rerender()
+  await flush()
+  const pc2 = document.querySelector('#pc') as HTMLElement
+  assert.equal(pc, pc2, 'portal 容器复用（getKey remote 语义）')
+  assert.equal(pc2.querySelector('.row'), row, 'portal 内容复用')
+  assert.equal(pc2.querySelector('.row')?.textContent, '5', '内容 patch 更新')
   handle.unmount()
 })

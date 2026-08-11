@@ -42,7 +42,9 @@ export function normalizeChildren(c: VNodeChild | undefined | null): VNodeChild[
 function getKey(v: VNodeChild): string | undefined {
   if (v == null || typeof v !== 'object' || Array.isArray(v)) return undefined
   const vn = v as VNode
-  if (vn._placement === 'remote') return undefined
+  // remote（portal）：portalKey 作 key（v1 语义——keyed diff 复用容器 patch 内容）。
+  // C1（input+portal 焦点）由 allUnkeyed 判断排除 remote 保证——这里返回 key 不影响 allUnkeyed
+  if (vn._placement === 'remote') return vn.props?.portalKey as string | undefined
   return vn.key
 }
 
@@ -298,7 +300,12 @@ export function patchChildren(
     return vn._refNode ?? vn.el ?? null
   })
 
-  const allUnkeyed = !newChildren.some((c) => getKey(c) !== undefined)
+  // C1：remote（portal）的 portalKey 不算用户 keyed——[input(无key), portal] 走 allUnkeyed 按位置复用
+  const allUnkeyed = !newChildren.some((c) => {
+    if (c == null || typeof c !== 'object' || Array.isArray(c)) return false
+    const vn = c as VNode
+    return vn._placement !== 'remote' && vn.key !== undefined
+  })
 
   if (allUnkeyed) {
     // 无 key：按位置匹配（不移动 DOM）
@@ -367,16 +374,25 @@ export function patchChildren(
       out.push(node)
       if (node) lastDom = node
     } else {
-      // 新增
-      const node = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
-      out.push(node)
-      if (node != null) {
-        parent.appendChild(node)
-        // 新增节点位置校正（追加在末尾后移到正确位置）
-        if (lastDom && node.previousSibling !== lastDom) {
-          parent.insertBefore(node, lastDom.nextSibling)
+      // 新增——但 remote（portal）项必须走 patchValue：H 的 Portal 分支复用旧容器 patch 内容
+      // （v1 patchPortal 语义——否则混合 keyed 数组里 portal 每次 render renderValue 新建容器
+      //  → Popover 内容（Editor table grid）整体重建 → 闪烁）
+      if ((newV as any)?._placement === 'remote') {
+        const oldC = oldChildren[i] ?? null
+        const node = patchValue(parent, oldNodes[i] ?? null, oldC, newV, ctx)
+        out.push(node)
+        if (node) lastDom = node
+      } else {
+        const node = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
+        out.push(node)
+        if (node != null) {
+          parent.appendChild(node)
+          // 新增节点位置校正（追加在末尾后移到正确位置）
+          if (lastDom && node.previousSibling !== lastDom) {
+            parent.insertBefore(node, lastDom.nextSibling)
+          }
+          lastDom = node
         }
-        lastDom = node
       }
     }
   })
