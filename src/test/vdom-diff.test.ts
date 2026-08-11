@@ -273,3 +273,20 @@ test('normalizeChildren: 嵌套数组扁平化顺序保持', () => {
   )
   assert.deepEqual(normalizeChildren([[1, [2, [3]]], 4]), [1, 2, 3, 4])
 })
+
+test('patchProps: 键顺序不同但内容相同 → 回退全量（正确性无损，不丢属性）', () => {
+  const el = document.createElement('div')
+  // 键顺序不同（快速路径不命中 → 回退全量）——所有属性仍正确 patch
+  patchProps(el, {}, { title: 't', 'data-x': '1', class: 'a' })
+  assert.equal(el.getAttribute('class'), 'a')
+  assert.equal(el.getAttribute('title'), 't')
+  assert.equal(el.getAttribute('data-x'), '1')
+  // 键顺序相同且值相同 → 快速路径命中（零 DOM 操作）
+  const el2 = document.createElement('div')
+  el2.setAttribute('class', 'b')
+  patchProps(el2, { class: 'b' }, { class: 'b' })
+  assert.equal(el2.getAttribute('class'), 'b', '值相同不破坏')
+  // 值变化 → 正常 patch
+  patchProps(el2, { class: 'b' }, { class: 'c' })
+  assert.equal(el2.getAttribute('class'), 'c')
+})

@@ -13,10 +13,10 @@ import { Button, Input, Dropdown, Tag, Icon } from '../../../src/components/inde
 // ── 交互子组件（两阶段 + 组件级 $）──────────────────────
 
 /** 计数器（组件级 $：赋值 → 本组件重渲染，父 handler 不重跑） */
-const Counter = (_init: any, ctx: any) => {
+const Counter = async (_init: any, ctx: any) => {
   let count = 0
   const rerender = () => ctx.ui.render()
-  return (props: any) =>
+  return async (props: any) =>
     h('div', { id: `counter-${props.id}`, class: 'wf-surface wf-rounded-lg wf-p-lg wf-stack wf-gap-sm' },
       h('div', { class: 'wf-row wf-gap-md' },
         h('h3', { class: 'wf-text-base wf-m-0' }, `计数器 ${props.id}`),
@@ -28,7 +28,7 @@ const Counter = (_init: any, ctx: any) => {
 }
 
 /** keyed 列表（顺序重排复用 DOM） */
-const TodoList = (_init: any, ctx: any) => {
+const TodoList = async (_init: any, ctx: any) => {
   const rerender = () => ctx.ui.render()
   let items = [
     { id: 'a', label: '设计 req/res' },
@@ -42,7 +42,7 @@ const TodoList = (_init: any, ctx: any) => {
     items = arr
     rerender()
   }
-  return () =>
+  return async () =>
     h('div', { class: 'wf-stack wf-gap-sm' },
       h(Button, { variant: 'secondary', size: 'sm', onClick: shuffle },
         h(Icon, { name: 'refresh', size: 14 }), ' 轮转顺序'),
@@ -82,11 +82,15 @@ const Layout: UIMiddleware = async (_location, ctx, children) => {
 
 // ── 页面 handler（async：数据管道 + 原语布局）──
 
+// 点击计数器（独立组件——UIHandler 页面无内部状态，状态放组件（B-1 纪律））
+const ClickCounter = async (_init: any, ctx: any) => {
+  let clicks = 0
+  return async () => h(Button, { id: 'click-me', onClick: () => { clicks = clicks + 1; ctx.ui.render() } }, `点击 ${clicks} 次`)
+}
+
 const Home: UIHandler = async (_location, ctx) => {
   // data 缓存（首次取数，重渲染命中）
   const info = await ctx.data.get('/api/info', async () => ({ title: 'ui-dom × components', desc: 'req=location / res=VNode / uiServe=VDOM / components 直接复用' }))
-  let clicks = 0
-  const rerender = () => ctx.ui.render()
   return h('div', { id: 'home', class: 'wf-surface wf-rounded-lg wf-p-lg wf-stack wf-gap-md' },
     h('div', { class: 'wf-row wf-gap-sm' },
       h(Icon, { name: 'layout', className: 'wf-text-primary' }),
@@ -95,8 +99,7 @@ const Home: UIHandler = async (_location, ctx) => {
     h('p', { class: 'wf-text-secondary wf-text-sm wf-m-0' }, (info as any).desc),
     h('p', { class: 'wf-text-sm wf-m-0 wf-nums' }, 'query: ', JSON.stringify(ctx.query)),
     h('div', { class: 'wf-row wf-gap-sm' },
-      h(Button, { id: 'click-me', onClick: () => { clicks = clicks + 1; rerender() } },
-        `点击 ${clicks} 次`),
+      h(ClickCounter, {}),
       h(Button, { variant: 'secondary', onClick: () => (ctx as any).toast?.('来自 ui-dom 的 toast！', 'success') }, '弹 toast'),
     ),
     h('div', { class: 'wf-row wf-gap-xs' },
@@ -142,7 +145,7 @@ const AsyncPage = async (initProps: any, ctx: any) => {
   }))
   let clicks = 0
   const rerender = () => ctx.ui.render()
-  return (props: any) =>
+  return async (props: any) =>
     h('div', { id: 'async-page', class: 'wf-surface wf-rounded-lg wf-p-lg wf-stack wf-gap-md' },
       h('div', { class: 'wf-row wf-gap-sm' },
         h(Icon, { name: 'zap', className: 'wf-text-primary' }),

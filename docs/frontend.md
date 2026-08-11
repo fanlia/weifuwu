@@ -800,6 +800,18 @@ renderFn 内可 await **任意 Promise**（fetch / `ctx.api` / 第三方 SDK / `
 - renderFn 内 await 应为**幂等取数**（副作用走事件驱动）
 - ctx.data 的 fetcher 可以是**任意函数**（不只框架 API）：`ctx.data.get('/key', () => sdk.query(...))`
 
+**页面形态纪律（B-1）**：路由 handler（UIHandler）直接返回 vnode——**页面根是 native vnode，无组件 `_render`/`_id`，handler 闭包内的 `let` 状态 + `ctx.ui.render()` 无效**（静默空操作——`render()` 无参无目标会 console.warn 提示）。页面内部状态两种正确写法：
+1. **async 组件形态**（推荐）：`const Page: Component = async (initProps, ctx) => { let state = ...; return async (props) => h(...) }`——handler 返回 `h(Page, {})`
+2. **createStore + useExternal**：跨页面共享状态
+
+```tsx
+// ❌ UIHandler 闭包内部状态（render() 空操作）
+const Home: UIHandler = async (_loc, ctx) => { let clicks = 0; return h(Button, { onClick: () => { clicks++; ctx.ui.render() } }) }
+// ✅ handler 只返回组件 vnode，状态在组件里
+const ClickCounter: Component = async (_init, ctx) => { let clicks = 0; return async () => h(Button, { onClick: () => { clicks++; ctx.ui.render() } }) }
+const Home: UIHandler = async () => h('div', {}, h(ClickCounter, {}))
+```
+
 ---
 
 ## 前端类型
