@@ -20,6 +20,10 @@ import { setupJsdom } from './setup.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { h } from '../../ui-dom/vnode.ts'
 import { mountRoot } from '../../ui-dom/vdom/mount.ts'
+import { buildVNode } from '../../ui-dom/vdom/build.ts'
+import { renderValue } from '../../ui-dom/vdom/render.ts'
+import { patchValue } from '../../ui-dom/vdom/diff.ts'
+import { createRegistry } from '../../ui-dom/vdom/registry.ts'
 
 before(setupJsdom)
 afterEach(() => {
@@ -245,4 +249,83 @@ test('perf: 剪枝命中率——无关父状态变化 → 子组件 renderFn �
   console.log(`[perf] 父状态变化 → 子 renderFn 重跑数: ${after - before}（应为 0——剪枝命中）`)
   handle.unmount()
   handle2.unmount()
+})
+
+// ── v3 阶段 0：耗时分解基准（对照 design/vdom-perf-v3-plan.md——相对基线，不设死值） ──
+
+/** 1000 行 native keyed 列表（无组件包裹——Table 行形态） */
+function nativeRows(start: number, n: number) {
+  return Array.from({ length: n }, (_, i) =>
+    h('div', { key: `r${start + i}`, class: 'row' },
+      h('span', {}, `row ${start + i}`),
+      h('span', { class: 'x' }, (start + i) * 2),
+    ))
+}
+
+function makeProbeCtx() {
+  const browser = createClientBrowser()
+  const registry = createRegistry()
+  return { browser, registry, ctx: { browser, __registry: registry, ui: { _ctxVersion: 0 } } as any }
+}
+
+test('perf(v3): 1000 行 native 列表 build/render/patch 耗时分解', async () => {
+  const { browser, registry, ctx } = makeProbeCtx()
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+
+  // 首帧：build → render
+  const vroot = h('div', { class: 'list' }, nativeRows(0, 1000))
+  let t = performance.now()
+  const built = await buildVNode(vroot, ctx, undefined, registry)
+  const buildMs = performance.now() - t
+  t = performance.now()
+  const node = renderValue(built, ctx, browser)
+  container.appendChild(node)
+  const renderMs = performance.now() - t
+
+  // 更新（内容全同——剪枝路径）：build → patch
+  const vroot2 = h('div', { class: 'list' }, nativeRows(0, 1000))
+  t = performance.now()
+  const built2 = await buildVNode(vroot2, ctx, vroot, registry)
+  const buildUpdMs = performance.now() - t
+  const patchCtx = { browser, registry, ctxVersion: 0 } as any
+  t = performance.now()
+  patchValue(container, container.firstChild, vroot._child, built2._child, patchCtx)
+  const patchMs = performance.now() - t
+
+  // 更新（1 行变化——keyed 定位）：build → patch
+  const changed = nativeRows(0, 1000)
+  changed[500] = h('div', { key: 'r500', class: 'row' }, h('span', {}, 'row 500 UPDATED'))
+  const vroot3 = h('div', { class: 'list' }, changed)
+  t = performance.now()
+  const built3 = await buildVNode(vroot3, ctx, vroot, registry)
+  const buildChgMs = performance.now() - t
+  t = performance.now()
+  patchValue(container, container.firstChild, vroot._child, built3._child, patchCtx)
+  const patchChgMs = performance.now() - t
+
+  // 相对基线断言：build 不应比 render 慢（构建是纯内存，DOM 创建是最终大头）
+  assert.ok(buildMs < renderMs, `首帧 build(${buildMs.toFixed(1)}ms) < render(${renderMs.toFixed(1)}ms)——纯内存构建应快于 DOM 创建`)
+  console.log(`[perf-v3] 首帧: build ${buildMs.toFixed(2)}ms / render ${renderMs.toFixed(2)}ms`)
+  console.log(`[perf-v3] 更新(剪枝全命中): build ${buildUpdMs.toFixed(2)}ms / patch ${patchMs.toFixed(2)}ms`)
+  console.log(`[perf-v3] 更新(1 行变): build ${buildChgMs.toFixed(2)}ms / patch ${patchChgMs.toFixed(2)}ms`)
+  container.remove()
+})
+
+test('perf(v3): 文本节点更新方式对比（nodeValue vs replaceChild——V3-1 前后对照）', () => {
+  const el = document.createElement('div')
+  document.body.appendChild(el)
+  const txt = document.createTextNode('old')
+  el.appendChild(txt)
+  // nodeValue 直改（V3-1 目标路径）
+  let t = performance.now()
+  for (let i = 0; i < 5000; i++) txt.nodeValue = `new ${i}`
+  const nodeValueMs = performance.now() - t
+  // replaceChild（当前路径）
+  t = performance.now()
+  for (let i = 0; i < 5000; i++) { const n = document.createTextNode(`new ${i}`); el.replaceChild(n, el.firstChild!) }
+  const replaceMs = performance.now() - t
+  assert.ok(nodeValueMs < replaceMs, `nodeValue(${nodeValueMs.toFixed(1)}ms) 应快于 replaceChild(${replaceMs.toFixed(1)}ms)`)
+  console.log(`[perf-v3] 文本更新 ×5000: nodeValue ${nodeValueMs.toFixed(2)}ms vs replaceChild ${replaceMs.toFixed(2)}ms（${(replaceMs / Math.max(nodeValueMs, 0.01)).toFixed(1)}x）`)
+  el.remove()
 })
