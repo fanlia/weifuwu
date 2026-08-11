@@ -220,6 +220,36 @@ describe('useChat — 工具调用内嵌', () => {
       await new Promise((r) => server.close(() => r()))
     }
   })
+
+  it('HITL modified：approve("modified", note, modifiedArgs) → POST 带 modifiedArgs（闭环：后端按修改后参数执行）', async () => {
+    let posted: unknown = null
+    const server: Server = createServer(async (req, res) => {
+      let raw = ''
+      for await (const c of req) raw += c
+      posted = JSON.parse(raw)
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true }))
+    })
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
+    const { port } = server.address() as { port: number }
+
+    try {
+      const { state, api, fake } = makeSession({ approveUrl: `http://127.0.0.1:${port}/approve` })
+      state.input = '下单'
+      api.send()
+      fake.play([
+        ev('wf:tool_call', { id: 'tc_1', name: 'create_order', args: { qty: 2 } }),
+        ev('wf:approval_request', { id: 'ap_1', toolCallId: 'tc_1', name: 'create_order', args: { qty: 2 }, reason: '确认下单' }),
+      ])
+      const msg = (state.messages as UiMessage[])[1]
+
+      await api.approve('modified', '数量改为 5', { qty: 5 })
+      assert.equal(msg.approval, undefined)              // 卡片清除
+      assert.deepEqual(posted, { id: 'ap_1', decision: 'modified', note: '数量改为 5', modifiedArgs: { qty: 5 } })
+    } finally {
+      await new Promise((r) => server.close(() => r()))
+    }
+  })
 })
 
 describe('useChat — error 恢复 / stop / retry / clear', () => {
@@ -293,6 +323,22 @@ describe('useChat — error 恢复 / stop / retry / clear', () => {
     assert.equal((state.messages as UiMessage[])[1].usage!.total_tokens, 3)
     fake.play([done()])
     assert.equal(state.step, null)                            // done 后清 step
+  })
+
+  it('wf:done 携带 reasoning → 挂到消息；toChatMessages 回传 reasoning_content（thinking 闭环）', () => {
+    const { state, api, fake } = makeSession({})
+    state.input = '深度问题'
+    api.send()
+    fake.play([ev('wf:token', { text: '回答' })])
+    fake.play([ev('wf:done', { content: '回答', reasoning: '先分析：这是 thinking 模式' })])
+    const m = (state.messages as UiMessage[])[1]
+    assert.equal(m.reasoning, '先分析：这是 thinking 模式')
+    // 回传：下一轮请求体带 reasoning_content（provider 要求）
+    const chat = toChatMessages(state.messages as UiMessage[])
+    assert.equal(chat[1].reasoning_content, '先分析：这是 thinking 模式')
+    // 无 reasoning 的消息不带该字段
+    const plain = toChatMessages([{ id: 'x', role: 'user', content: '普通', status: 'done' }])
+    assert.equal(plain[0].reasoning_content, undefined)
   })
 
   it('initialMessages 种子初始化', () => {

@@ -134,6 +134,15 @@ describe('render', () => {
     assert.equal(el.hasAttribute('disabled'), false)
   })
 
+  it('aria-* boolean 必须显式 true/false 字符串（枚举语义——ReasoningBlock CDD 暴露）', () => {
+    const open = render(jsx('button', { 'aria-expanded': true }), ctx) as HTMLElement
+    assert.equal(open.getAttribute('aria-expanded'), 'true')
+    const closed = render(jsx('button', { 'aria-expanded': false }), ctx) as HTMLElement
+    assert.equal(closed.getAttribute('aria-expanded'), 'false')
+    const ariaHidden = render(jsx('div', { 'aria-hidden': true }), ctx) as HTMLElement
+    assert.equal(ariaHidden.getAttribute('aria-hidden'), 'true')
+  })
+
   it('null/undefined 属性不渲染', () => {
     const el = render(jsx('div', { title: null, 'data-x': undefined }), ctx) as HTMLElement
     assert.equal(el.hasAttribute('title'), false)
