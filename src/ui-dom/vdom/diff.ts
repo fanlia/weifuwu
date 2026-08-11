@@ -36,6 +36,16 @@ function getKey(v: VNodeChild): string | undefined {
   return vn.key
 }
 
+/** 子项输出收集：Fragment 项展开全部 childNodes——patchValue 只返回锚点（首个节点），
+ *  数组分支/frag 收全需要完整范围（否则 Fragment 后续节点残留——diff-fragment 真实 bug） */
+function collectChildNodes(newC: VNodeChild, node: Node | null): (Node | null)[] {
+  if (node && newC && typeof newC === 'object' && !Array.isArray(newC) && (newC as VNode).type === Fragment) {
+    const nodes = (newC as VNode)._childNodes
+    if (nodes && nodes.length) return nodes
+  }
+  return [node]
+}
+
 export interface PatchCtx {
   browser: any
   registry: import('./registry.ts').Registry
@@ -150,7 +160,9 @@ export function patchValue(
   if (newV.type === Fragment) {
     const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
     const oldRange = oldV?._childNodes
-    const range = patchChildren(parent, oldInput, newV.props?.children ?? null, ctx, oldRange)
+    // oldInput 传旧 Fragment 的 props.children（旧 vnode 本身会导致 oldChildren 错位 1 项
+    // ——[fragV] vs [b1,b2] → 替换路径新建节点 → 重复残留；diff-fragment 真实 bug）
+    const range = patchChildren(parent, oldV?.props?.children ?? oldInput, newV.props?.children ?? null, ctx, oldRange)
     newV._childNodes = range.filter(Boolean) as Node[]
     if (oldNode?.parentNode && oldNode.nodeType === 8) oldNode.parentNode.removeChild(oldNode)
     return oldNode && oldNode.nodeType === 1 ? oldNode : (range[0] ?? null)
@@ -369,13 +381,26 @@ export function patchChildren(
           const n = oldNodes[j]
           if (n && n.parentNode === parent) { next = n; break }
         }
+        // Fragment 内新增：oldNodes 用完（旧 children 短于新）→ 优先用已处理项（out 尾部）的
+        // nextSibling（连续新增按序插入）；fallback 用最后一个旧节点的 nextSibling（Fragment
+        // 尾节点后的兄弟——c）——否则 append 末尾/顺序颠倒（diff-fragment bug）
+        if (!next) {
+          let last: Node | null = null
+          for (let k = out.length - 1; k >= 0; k--) if (out[k]) { last = out[k]; break }
+          if (last && last.parentNode === parent) next = last.nextSibling
+          if (!next) {
+            const l = oldNodes[oldNodes.length - 1]
+            if (l && l.parentNode === parent) next = l.nextSibling
+          }
+        }
         if (next && next.parentNode === parent) parent.insertBefore(node, next)
         else parent.appendChild(node)
         out.push(node)
         continue
       }
       const node = patchValue(parent, oldNodes[i], oldC, newC, ctx)
-      out.push(node)
+      // Fragment 项展开全部 childNodes（patchValue 只返回锚点——多节点 Fragment 漏收）
+      out.push(...collectChildNodes(newC, node))
     }
     return out
   }
@@ -400,12 +425,15 @@ export function patchChildren(
       const oldNode = entry.nodes[0] ?? null
       movedKeys.add(k)
       const node = patchValue(parent, oldNode, entry.vnode, newV, ctx)
+      const collected = collectChildNodes(newV, node)
       // 位置校正：node 必须位于 lastDom 之后（keyed 重排——旧实现只 patch 不移动 DOM）
-      if (node && node.parentNode === parent && lastDom && node.previousSibling !== lastDom) {
-        parent.insertBefore(node, lastDom.nextSibling)
+      // Fragment 项用最后一个节点校正（多节点展开——插入不能拆散 Fragment）
+      const last = collected[collected.length - 1] ?? node
+      if (last && last.parentNode === parent && lastDom && last.previousSibling !== lastDom) {
+        parent.insertBefore(last, lastDom.nextSibling)
       }
-      out.push(node)
-      if (node) lastDom = node
+      out.push(...collected)
+      if (last) lastDom = last
     } else {
       // 新增——但 remote（portal）项必须走 patchValue：H 的 Portal 分支复用旧容器 patch 内容
       // （v1 patchPortal 语义——否则混合 keyed 数组里 portal 每次 render renderValue 新建容器
@@ -413,8 +441,10 @@ export function patchChildren(
       if ((newV as any)?._placement === 'remote') {
         const oldC = oldChildren[i] ?? null
         const node = patchValue(parent, oldNodes[i] ?? null, oldC, newV, ctx)
-        out.push(node)
-        if (node) lastDom = node
+        const collected = collectChildNodes(newV, node)
+        out.push(...collected)
+        const last = collected[collected.length - 1] ?? node
+        if (last) lastDom = last
       } else {
         const node = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
         out.push(node)
