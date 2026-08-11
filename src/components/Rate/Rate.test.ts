@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { Rate } from './Rate.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import { renderVNode, mountComponent } from '../../ui-dom/testing.ts'
 
 /** Call component and get VNode (two-phase compat) */
 
@@ -121,6 +121,45 @@ describe('Rate', () => {
       const vnode = await renderVNode(Rate, { value: 1, size: s }, createTestCtx())!
       assert.match(vnode.props.class, new RegExp(`wf-rate--${s}`))
     }
+  })
+
+  // 回归：hover 是手动状态（let + ctx.ui.render）——旧实现只赋值不 render，
+  // effective = hover + 1 是死代码，hover/focus 预览永不落地（§4.1 纪律）
+  it('hover: mouseenter 第 4 星 → 前 4 颗亮（render 触发预览）', async () => {
+    const ctx = createTestCtx()
+    const render = await mountComponent(Rate, { value: 2 }, ctx)!
+    let vnode = render()
+    // 接线：ctx.ui.render 真实重跑内层 render（模拟 vdom 渲染器）
+    ctx.ui.render = () => { vnode = render() }
+    vnode.props.children[3].props.onMouseEnter()
+    ctx.ui.render()
+    assert.match(vnode.props.children[3].props.class, /wf-rate-star--on/, '悬停第 4 星应亮')
+    assert.doesNotMatch(vnode.props.children[4].props.class, /--on/, '第 5 星不亮')
+  })
+
+  it('hover: mouseleave 重置预览（恢复 value 显示）', async () => {
+    const ctx = createTestCtx()
+    const render = await mountComponent(Rate, { value: 2 }, ctx)!
+    let vnode = render()
+    ctx.ui.render = () => { vnode = render() }
+    vnode.props.children[3].props.onMouseEnter()
+    ctx.ui.render()
+    assert.match(vnode.props.children[3].props.class, /--on/)
+    vnode.props.children[3].props.onMouseLeave()
+    ctx.ui.render()
+    assert.doesNotMatch(vnode.props.children[3].props.class, /--on/, '离开后恢复 value=2')
+    assert.doesNotMatch(vnode.props.children[2].props.class, /--on/, '第 3 星按 value=2 不亮')
+  })
+
+  it('hover: 无 onChange 的非受控组件 hover 也触发 render（预览不依赖受控）', async () => {
+    const ctx = createTestCtx()
+    const render = await mountComponent(Rate, { value: 1 }, ctx)!
+    let vnode = render()
+    ctx.ui.render = () => { vnode = render() }
+    vnode.props.children[4].props.onMouseEnter()
+    ctx.ui.render()
+    assert.match(vnode.props.children[4].props.class, /--on/)
+    assert.match(vnode.props.children[0].props.class, /--on/)
   })
 })
 

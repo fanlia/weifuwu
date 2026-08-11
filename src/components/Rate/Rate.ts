@@ -22,6 +22,13 @@ export interface RateProps {
 export const Rate: Component<RateProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let hover = -1 // -1 = 未悬停；键盘悬停态复用（聚焦跟随）
+  // 手动状态纪律（§4.1）：hover 是手动 UI 状态——变更必须显式 render，
+  // 否则 effective = hover + 1 的预览是死代码（hover/focus 预览不落地）
+  const setHover = (v: number) => {
+    if (hover === v) return
+    hover = v
+    ctx.ui.render()
+  }
 
   return (props) => {
     const {
@@ -83,19 +90,19 @@ export const Rate: Component<RateProps> = async (_init, ctx) => {
           ? (e: MouseEvent) => {
               const el = e.currentTarget as HTMLElement
               const rect = el.getBoundingClientRect()
-              hover = (e.clientX - rect.left) < rect.width / 2 ? i + 0.5 - 1 : i
+              setHover((e.clientX - rect.left) < rect.width / 2 ? i + 0.5 - 1 : i)
             }
-          : () => { hover = i }
+          : () => setHover(i)
         starProps.onMouseMove = allowHalf
           ? (e: MouseEvent) => {
               const el = e.currentTarget as HTMLElement
               const rect = el.getBoundingClientRect()
-              hover = (e.clientX - rect.left) < rect.width / 2 ? i + 0.5 - 1 : i
+              setHover((e.clientX - rect.left) < rect.width / 2 ? i + 0.5 - 1 : i)
             }
           : undefined
-        starProps.onMouseLeave = () => { hover = -1 }
-        starProps.onFocus = () => { hover = i }
-        starProps.onBlur = () => { hover = -1 }
+        starProps.onMouseLeave = () => setHover(-1)
+        starProps.onFocus = () => setHover(i)
+        starProps.onBlur = () => setHover(-1)
       }
       const icon = h(Icon, { name: 'star', className: 'wf-rate-star-icon' })
       // 半星：底层空星轮廓 + 上层满星裁剪左半（0.5em 精确裁剪）

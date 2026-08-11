@@ -257,3 +257,42 @@ test('DatePicker 选中日期：父组件 render + 组件内部 render 竞态不
   assert.equal(document.querySelector('.result')?.textContent, `已选: ${result}`, 'demo result 更新')
   handle.unmount()
 })
+
+test('事件绑定不累积：渲染后 onClick 只触发一次（patchProps remove+add 回归）', async () => {
+  // 复现：受控组件每次渲染新 onClick 引用 → patchProps remove(旧)+add(新)。
+  // 若 remove 失效（实际绑定的 handler 未移除），监听累积 → 点击一次触发多次。
+  // 浏览器实测：Rate 第二次点击触发 2 次 onChange（每次交互累积一个监听）。
+  setupJsdom()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+
+  let value = 0
+  let onChangeCount = 0
+  const Clicks = (_init: any, ctx: any) => (_p: any) =>
+    h('div', {}, h('button', {
+      class: 'wf-rate-star',  // 触发 patchProps 的 on 分支
+      onClick: () => { onChangeCount++; ctx.ui.render() },  // 每次渲染新引用
+    }, 'star'))
+
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  await handle.mount(h('div', {}, h(Clicks, {})))
+  await flush()
+
+  const btn = root.querySelector('button') as HTMLElement
+  // 第一次点击
+  btn.dispatchEvent(new (window as any).MouseEvent('click', { bubbles: true }))
+  await flush()
+  assert.equal(onChangeCount, 1, `第一次点击触发 1 次（实际 ${onChangeCount}）`)
+
+  // 第二次点击（渲染已发生——若 remove 失效则多一个监听）
+  btn.dispatchEvent(new (window as any).MouseEvent('click', { bubbles: true }))
+  await flush()
+  assert.equal(onChangeCount, 2, `第二次点击仍触发 1 次——总 ${onChangeCount}（累积则 >2）`)
+
+  // 第三次
+  btn.dispatchEvent(new (window as any).MouseEvent('click', { bubbles: true }))
+  await flush()
+  assert.equal(onChangeCount, 3, `第三次点击总 ${onChangeCount}（累积则 >3）`)
+  void value
+  handle.unmount()
+})

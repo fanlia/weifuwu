@@ -1248,9 +1248,9 @@ const DemoRate: Component = async (_props, ctx) => {
     <div class="wf-stack wf-gap-sm">
       <Rate value={v} onChange={(n: number) => { v = n; ctx.ui.render() }} />
       <Rate value={4} readOnly />
-      <Rate value={3.5} allowHalf onChange={(n: number) => { v = n; ctx.ui.render() }} />
-      <div class="wf-text-xs wf-text-secondary">半星</div>
-      <Rate value={0} size="lg" allowClear onChange={(n: number) => { v = n; ctx.ui.render() }} />
+      <Rate value={v} allowHalf onChange={(n: number) => { v = n; ctx.ui.render() }} />
+      <div class="wf-text-xs wf-text-secondary">半星（与第一行同步）</div>
+      <Rate size="lg" allowClear onChange={(n: number) => { v = n; ctx.ui.render() }} />
       <div class="wf-text-sm wf-text-secondary">当前：{v} 星</div>
     </div>
   )
@@ -2520,7 +2520,7 @@ const App: Component = async (_props, ctx) => {
           : ((ctx as any)?.i18n?.t?.('app.desc') ?? '113 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
           <Badge variant="primary">113 组件</Badge>
-          <Badge variant="success">967 测试</Badge>
+          <Badge variant="success">970 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
