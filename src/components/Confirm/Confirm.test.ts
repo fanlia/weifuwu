@@ -29,24 +29,31 @@ function makeCtx(): WfuiContext {
     render: () => {}, $: () => ({}), dirty: () => {},
     usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
     useGlobalKey: () => () => {},
-    // useDialog mock：状态机 + rootRef 绑定 animationend（真实渲染管线需要）
-    useDialog: () => {
+    // usePopup mock：presence 状态机 + portal 绑定 animationend（真实渲染管线需要）
+    usePopup: () => {
       let phase: 'closed' | 'open' | 'exit' = 'closed'
       let animEndHandler: (() => void) | undefined
       return {
         get phase() { return phase },
-        rootRef: (el: any) => {
-          if (el && !animEndHandler) {
-            animEndHandler = () => { if (phase === 'exit') phase = 'closed' }
-            el.addEventListener('animationend', animEndHandler)
-          }
-        },
-        panelRef: () => {},
         sync: (open: boolean) => {
           if (open) phase = 'open'
           else if (phase === 'open') phase = 'exit'
           return phase
         },
+        portal: (content: any) => ({
+          ...content,
+          props: {
+            ...content.props,
+            ref: (el: any) => {
+              if (el && !animEndHandler) {
+                animEndHandler = () => { if (phase === 'exit') phase = 'closed' }
+                el.addEventListener('animationend', animEndHandler)
+              }
+              if (typeof content.props?.ref === 'function') content.props.ref(el)
+            },
+          },
+        }),
+        wrapProps: {}, setOpen: () => {}, refresh: () => {},
       }
     },
   } }) as any

@@ -33,7 +33,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 > - **前端** `ctx.ui`（渲染引擎，24 方法）：
 >   - 渲染：`render()`（唯一触发——render-only）/ `selfId()`（跨组件精准刷新）
 >   - 状态：`useControlled()`（受控/非受控）/ `useStableRef()`（稳定 ref）/ `useExternal()`（共享状态订阅）
->   - 弹层：`usePopup()`（组合器）/ `useDialog()`（对话框）/ `usePopupPosition()`（定位）
+>   - 弹层：`usePopup()`（统一能力层——锚定浮层 + 会话级模态）/ `usePopupPosition()`（定位）
 >   - 事件：`useInView()` / `useScrollPosition()` / `useMedia()` / `useBreakpoint()` / `useGlobalKey()` / `useDrag()` / `useDragDrop()` / `useHoverCapable()` / `useLongPress()` / `useVisualViewport()`
 >   - 动画：`useAnimationEnd()`（完成回调）/ `usePresence()`（显隐状态机）/ `useTween()`（数值补间）/ `useReducedMotion()`（偏好感知）
 >   - AI/数据：`useChat()`（AI 会话）/ `useAsync()`（异步取数）
@@ -355,7 +355,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | `weifuwu/ui-dom` | **i18n** | 国际化中间件（运行时切换语言） | — |
 | `weifuwu/ui-dom` | **ssrPage / serializeData** | 服务端渲染：SSR HTML + `__DATA__` 序列化（`ctx.params` 两端同源） | — |
 | `weifuwu/ui-dom` | **useChat / AiChat 原语** | AI 会话（流式/工具调用/HITL） | — |
-| `weifuwu/ui-dom` | **事件原语** | `usePopup` / `useDialog` / `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [docs/mobile.md](docs/mobile.md)） | — |
+| `weifuwu/ui-dom` | **事件原语** | `usePopup`（统一弹窗能力层）/ `usePresence` / `useInView` / `useScrollPosition` / `useGlobalKey` / `useDrag` / `useDragDrop` / `useAnimationEnd` / `useTween` / `useReducedMotion`（浏览器事件/动画统一入口，见 [docs/mobile.md](docs/mobile.md)） | — |
 | `weifuwu/components` | **113 个组件** | Button/Table/Modal/Confirm/Toast/... + `confirm()` / `toast()` 命令式中间件 | weifuwu/ui-dom |
 | `weifuwu/layout` | **CSS 布局** | 58 个布局原语 + 136 个工具类 + 167 个主题 Token（也支持 `weifuwu/layout/style.css`） | — |
 

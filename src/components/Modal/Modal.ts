@@ -22,19 +22,31 @@ export interface ModalProps {
 }
 
 export const Modal: Component<ModalProps> = async (_props, ctx) => {
-  // useDialog：退场状态机（open → exit → closed）+ 滚动锁 + 焦点 trap + animationend 卸载
-  const dialog = ctx.ui.useDialog({ name: 'Modal' })
+  // usePopup 会话级模态（统一弹窗能力）：presence 退场状态机 + 焦点 trap + 滚动锁
+  // position 'none'：Modal 的 .wf-modal 自己 inset:0 居中（CSS flex——不依赖锚点坐标）
+  let latestOpen = false
+  const popup = ctx.ui.usePopup({
+    presence: true,
+    trapFocus: true,
+    lockScroll: true,
+    positioning: 'none',
+    closeOnOutside: false, // 关闭语义组件自控（overlay 点击 maskClosable）
+    closeOnEscape: false,  // Escape 组件自控（useGlobalKey——危险操作差异留在组件层）
+    isOpen: () => latestOpen,
+    setOpen: () => {},
+  })
   // ESC 关闭（document 级——焦点在 trap 外也可关闭；phase=open 才触发避免 exit 期间重复）
   let latestOnClose: (() => void) | undefined
   ctx.ui.useGlobalKey((e: KeyboardEvent) => {
-    if (e.key === 'Escape' && dialog.phase === 'open') latestOnClose?.()
+    if (e.key === 'Escape' && popup.phase === 'open') latestOnClose?.()
   })
 
   return async (props: ModalProps) => {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
     latestOnClose = onClose
+    latestOpen = !!open
     const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
-    const phase = dialog.sync(!!open)
+    const phase = popup.sync!(latestOpen)
     if (phase === 'closed') return null
 
     const overlay = h('div', {
@@ -61,13 +73,11 @@ export const Modal: Component<ModalProps> = async (_props, ctx) => {
 
     const content = h('div', {
       class: 'wf-modal-content',
-      ref: dialog.panelRef,
       onClick: (e: Event) => e.stopPropagation(),
       style: width ? { minWidth: `min(${width}, calc(100vw - 32px))`, maxWidth: `min(${width}, calc(100vw - 32px))` } : undefined,
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
-      ref: dialog.rootRef,
       class: `wf-modal ${phase === 'exit' ? 'wf-modal--exit' : 'wf-modal--enter'}`,
       role: 'dialog',
       'aria-modal': 'true',
@@ -75,6 +85,7 @@ export const Modal: Component<ModalProps> = async (_props, ctx) => {
       // Escape 关闭：document 级（useGlobalKey——mount 层注册）——不再依赖焦点 trap 冒泡
     }, [overlay, content])
 
-    return createPortal(root, 'modal')
+    // 焦点 trap + 滚动锁 + 退场监听由 usePopup 内部 portalPanelRef 接线（无需手动 ref）
+    return popup.portal(root, 'modal')
   }
 }

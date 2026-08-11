@@ -39,12 +39,13 @@ export interface PopupPosition {
 }
 
 /** 弹层触发方式 — usePopup 的 trigger */
-export type PopupTrigger = 'hover' | 'click' | 'longpress'
+export type PopupTrigger = 'hover' | 'click' | 'longpress' | 'manual'
 
 /** 弹层组合器配置 — 供 ctx.ui.usePopup 使用 */
 export interface UsePopupOptions {
-  /** 触发方式（支持 getter——动态读最新 props；hover 在触屏环境自动降级为 tap） */
-  trigger: PopupTrigger | (() => PopupTrigger)
+  /** 触发方式（支持 getter——动态读最新 props；hover 在触屏环境自动降级为 tap）。
+   *  可选——缺省 'manual'（无触发 handler——Modal/Drawer 会话级模态场景） */
+  trigger?: PopupTrigger | (() => PopupTrigger)
   /** 弹出方向（支持 getter——动态读最新 props），默认 'bottom' */
   placement?: Placement | (() => Placement)
   /** 自由定位（支持 getter）：提供则忽略 placement，直接用坐标（如右键菜单光标处） */
@@ -55,8 +56,8 @@ export interface UsePopupOptions {
   gap?: number
   /** 视口安全边距（px，默认 8） */
   margin?: number
-  /** 锚定元素 getter（ref 保存的触发元素） */
-  el: () => HTMLElement | null
+  /** 锚定元素 getter（ref 保存的触发元素）；positioning 'none' 场景可省略 */
+  el?: () => HTMLElement | null
   /** 是否打开（getter） */
   isOpen: () => boolean
   /** 非受控：设置打开状态（调用方负责 render/dirty） */
@@ -91,6 +92,16 @@ export interface UsePopupOptions {
   closeDelay?: number | (() => number)
   /** 禁用（getter）：禁用时所有触发不生效且 portal 不渲染 */
   disabled?: () => boolean
+  /** 定位模式：'anchor'（默认——锚定 el 计算坐标）/ 'none'（不加坐标——组件自定义定位，
+   *  如 Modal 的 .wf-modal inset:0 居中） */
+  positioning?: 'anchor' | 'none'
+  /** 会话级模态能力（Modal/Drawer 用——锚定弹层默认全关，零成本） */
+  /** 退场状态机（open → exit → closed + animationend 卸载）：组件 render 阶段调 sync(open) 驱动 */
+  presence?: boolean
+  /** 焦点 trap（面板挂载时锁定焦点，卸载归还——会话级模态专用） */
+  trapFocus?: boolean
+  /** 滚动锁（sync(true) 锁 body 滚动 / 面板卸载释放——会话级模态专用） */
+  lockScroll?: boolean
 }
 
 /** 弹层组合器返回值 — usePopup */
@@ -98,6 +109,10 @@ export interface UsePopupHandle {
   /** 当前打开状态（渲染期读取） */
   open: boolean
   setOpen: (open: boolean) => void
+  /** 当前阶段（presence 模式：open → exit → closed；非 presence：open/closed 二态） */
+  phase?: 'closed' | 'open' | 'exit'
+  /** 同步打开状态（render 阶段调用——presence 模式驱动退场状态机，返回当前 phase；非 presence 模式返回二态） */
+  sync?: (open: boolean) => 'closed' | 'open' | 'exit'
   /** spread 到触发/包装元素：触发（hover 门控/tap 降级/longpress）+ Escape + focus */
   wrapProps: Record<string, any>
   /** 包装弹层内容：定位 + 视口/宽度 clamp + portal；关闭时返回 null */
@@ -448,39 +463,10 @@ export interface WfuiContext {
       setOpen: (open: boolean) => void
       triggerProps: { onClick: () => void; onFocus: () => void }
     }
-    /**
-     * 全屏对话框组合器（收敛 Modal/Drawer 的退场状态机 + 滚动锁 + 焦点 trap）：
-     * mount 创建，render 阶段 sync(open) 驱动状态机；组件只管布局。
-     *
-     * ```tsx
-     * const dialog = ctx.ui.useDialog({ name: 'Modal' })
-     * return (props) => {
-     *   const phase = dialog.sync(props.open)
-     *   if (phase === 'closed') return null
-     *   return createPortal(h('div', {
-     *     ref: dialog.rootRef,
-     *     class: `wf-modal ${phase === 'exit' ? 'wf-modal--exit' : 'wf-modal--enter'}`,
-     *     onKeyDown: (e) => { if (e.key === 'Escape') props.onClose?.() },
-     *   }, [overlay, h('div', { class: 'wf-modal-content', ref: dialog.panelRef }, children)]), 'modal')
-     * }
-     * ```
-     * Escape 语义（危险操作差异）留在组件层——诚实裁剪。
-     */
-    /** 通用显隐状态机（非 dialog 浮层/面板）：open → exit → closed（animationend 延迟卸载）。
-     * useDialog 是其对话框特例（+ lockScroll/trapFocus）。mount 创建，render 阶段 sync(open)。 */
     usePresence: (options?: { name?: string }) => {
       phase: 'closed' | 'open' | 'exit'
       /** 挂到根元素（animationend 监听：exit 结束才真正卸载） */
       ref: (el: HTMLElement | null) => void
-      /** render 阶段同步 open → 返回当前 phase */
-      sync: (open: boolean) => 'closed' | 'open' | 'exit'
-    }
-    useDialog: (options?: { name?: string }) => {
-      phase: 'closed' | 'open' | 'exit'
-      /** 挂到 portal 根（lockScroll + animationend 退场监听） */
-      rootRef: (el: HTMLElement | null) => void
-      /** 挂到焦点 trap 目标（对话框面板） */
-      panelRef: (el: HTMLElement | null) => void
       /** render 阶段同步 open → 返回当前 phase */
       sync: (open: boolean) => 'closed' | 'open' | 'exit'
     }

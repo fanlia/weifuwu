@@ -24,7 +24,7 @@
 
 | 原语 | 使用组件数 | 原语 | 使用组件数 |
 |------|-----------|------|-----------|
-| usePopup | 16 | useDialog | 2 |
+| usePopup | 16 | usePopup 模态模式 | 2（Modal/Drawer 真实链路） |
 | useScrollPosition | 9 | useControlledInput | 2 |
 | useInView | 7 | useAnimationEnd | 2 |
 | useTween | 5 | useVisualViewport | 1 |
@@ -123,7 +123,7 @@
 **过程**：
 1. 脚本批量迁移 68 个同形模板文件（renderVNode/mockCtx 精确块）——全绿
 2. **事故**：首次脚本误替换变体 mockCtx 调用 → 回滚时 `git checkout -- src/components/` 误伤**整个目录**，丢失第九批已跟踪实现——按实现记录完整重建（见下）
-3. 批量迁移策略分四波：同形模板（68）→ 简化型 const mockCtx（12）→ 别名化（11）→ renderVNode 残留（16）→ 带原语 mock 变体（逐一手动：useScrollPosition 族 4 / useInView 族 3 / browser 族 / useOpen 族 / useDialog 族 3 / usePopup 族 / 集成式 2 / 带状态 5）
+3. 批量迁移策略分四波：同形模板（68）→ 简化型 const mockCtx（12）→ 别名化（11）→ renderVNode 残留（16）→ 带原语 mock 变体（逐一手动：useScrollPosition 族 4 / useInView 族 3 / browser 族 / useOpen 族 / usePopup 模态模式 3 / usePopup 族 / 集成式 2 / 带状态 5）
 4. **最终结果：94 → 0 手抄，LEGACY 表清空**——100% 迁移完成
 5. 教训：回滚必须精确到文件；脚本替换前先验证对象边界（正则截断含逗号对象教训——Img 事故）
 

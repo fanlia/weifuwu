@@ -1,13 +1,14 @@
 /**
  * hooks/popup — 弹层 hooks
  *
- * usePopupPosition / usePopup / useOpen / useDialog
+ * usePopupPosition / usePopup / useOpen
  */
 
 import type { HookEnv } from './types.ts'
 import type {
   PopupPositionOptions,
   PopupPosition,
+  PopupTrigger,
   UsePopupOptions,
   UsePopupHandle,
 } from '../types.ts'
@@ -16,8 +17,7 @@ import { createPortal, h } from '../vnode.ts'
 import type { VNode } from '../vnode.ts'
 import { lockScroll, unlockScroll } from '../scroll-lock.ts'
 import { trapFocus } from '../focus-trap.ts'
-import { usePresence } from './stable.ts'
-import { useHoverCapable } from './stable.ts'
+import { useHoverCapable, usePresence } from './stable.ts'
 
 /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标（0 rect 防护） */
 export function usePopupPosition(env: HookEnv, options: PopupPositionOptions): PopupPosition {
@@ -61,17 +61,32 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
   const selfId = env.selfId()
   const b = env.browser
   const canHover = useHoverCapable(env)
-  const triggerOf = () => (typeof options.trigger === 'function' ? options.trigger() : options.trigger)
+  const triggerOf = (): PopupTrigger => (typeof options.trigger === 'function' ? options.trigger() : (options.trigger ?? 'manual'))
   const controlled = options.open !== undefined
   const isDisabled = () => !!options.disabled?.()
   const isOpen = () => {
     if (!controlled) return options.isOpen()
     return typeof options.open === 'function' ? !!options.open() : !!options.open
   }
+
+  // ── 会话级模态能力（presence/trap/lock——Modal/Drawer 用，锚定弹层默认全关） ──
+  const presence = options.presence ? usePresence(env, { name: (options as any).name }) : null
+  let focusCleanup: (() => void) | undefined
+  let wasLocked = false
+  // render 阶段同步打开状态 → 驱动退场状态机（open → exit → closed），返回当前 phase
+  const sync = (open: boolean): 'closed' | 'open' | 'exit' => {
+    if (!presence) return open ? 'open' : 'closed'
+    const p = presence.sync(open)
+    if (open && options.lockScroll && !wasLocked) { lockScroll(); wasLocked = true }
+    return p
+  }
   const setOpen = (v: boolean) => {
     if (isDisabled()) return
     if (controlled) {
       options.onOpenChange?.(v)
+    } else if (presence) {
+      if (v) sync(true)
+      else if (isOpen()) sync(false) // open → exit（退场动画）
     } else {
       options.setOpen(v)
     }
@@ -85,7 +100,7 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
   let panelEl: HTMLElement | null = null
   let prevOpen = false
   const pos = usePopupPosition(env, {
-    el: options.el,
+    el: (options.el ?? (() => null)) as () => HTMLElement | null,
     isOpen: () => isOpen(),
     compute: (r) => {
       if (options.position) {
@@ -106,7 +121,7 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
     if (!isOpen()) return
     const target = e.target
     if (!(target instanceof Node)) return
-    const el = options.el()
+    const el = options.el?.() ?? null
     if (el && el.contains(target)) return
     if (panelEl && panelEl.contains(target)) return
     setOpen(false)
@@ -227,12 +242,20 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
   const portalPanelRef = (el: HTMLElement | null) => {
     panelRef(el)
     if (latestContentRef) latestContentRef(el)
+    // 模态能力接线（presence 退场监听 / trap 锁定归还 / lock 释放）
+    presence?.ref(el)
+    if (options.trapFocus) {
+      if (el) focusCleanup = trapFocus(el as HTMLElement)
+      else { focusCleanup?.(); focusCleanup = undefined }
+    }
+    if (options.lockScroll && !el && wasLocked) { unlockScroll(); wasLocked = false }
   }
   const portal = (content: VNode, portalKey = 'popover'): VNode | null => {
     if (isDisabled()) return null
-    const now = isOpen()
+    // presence 模式：exit 阶段仍需渲染（退场动画）——用 phase 而非 isOpen
+    const now = presence ? presence.phase !== 'closed' : isOpen()
     if (!now) { prevOpen = false; lastEl = null; return null }
-    const el = options.el()
+    const el = options.el?.() ?? null
     if (!prevOpen || el !== lastEl) {
       if (el) {
         pos.refresh()
@@ -244,16 +267,23 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
     }
     const props = (content.props ?? {}) as Record<string, any>
     latestContentRef = (props.ref as ((el: HTMLElement | null) => void) | null) ?? null
-    const cls = ['wf-popup', props.class].filter(Boolean).join(' ')
-    const style = {
-      ...(props.style ?? {}),
-      position: 'fixed',
-      top: `${pos.top}px`,
-      left: `${pos.left}px`,
-      maxWidth: options.width !== undefined
-        ? `min(${options.width}px, calc(100vw - 32px))`
-        : 'calc(100vw - 32px)',
-    }
+    // positioning 'none'（Modal/Drawer 自定义定位）：不附加 wf-popup（其 max-width:480px
+    // 会限制 .wf-modal/.wf-drawer 的 inset:0 全屏尺寸——flex 居中失效）
+    const cls = options.positioning === 'none'
+      ? (props.class ?? '')
+      : ['wf-popup', props.class].filter(Boolean).join(' ')
+    // position 'none'：组件自定义定位（Modal 的 .wf-modal inset:0 居中）——不加坐标计算
+    const style = options.positioning === 'none'
+      ? { ...(props.style ?? {}), position: 'fixed', top: '0', left: '0' }
+      : {
+          ...(props.style ?? {}),
+          position: 'fixed',
+          top: `${pos.top}px`,
+          left: `${pos.left}px`,
+          maxWidth: options.width !== undefined
+            ? `min(${options.width}px, calc(100vw - 32px))`
+            : 'calc(100vw - 32px)',
+        }
     const panel = {
       ...content,
       props: {
@@ -308,6 +338,8 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
   return {
     get open() { return isOpen() },
     setOpen,
+    get phase() { return presence ? presence.phase : (isOpen() ? 'open' : 'closed') },
+    sync,
     wrapProps,
     portal,
     refresh: () => pos.refresh(),
@@ -357,38 +389,3 @@ export function useOpen(env: HookEnv, options: {
 }
 
 /** 全屏对话框组合器：退场状态机 + 滚动锁 + 焦点 trap（基于 usePresence） */
-export function useDialog(env: HookEnv, options?: { name?: string }) {
-  const selfId = env.selfId()
-  let focusCleanup: (() => void) | undefined
-  let panelEl: HTMLElement | null = null
-  // 状态机复用 usePresence（open → exit → closed + animationend 卸载）
-  const presence = usePresence(env, options)
-
-  const rootRef = (el: HTMLElement | null) => {
-    if (el) {
-      lockScroll()
-      if (panelEl) focusCleanup = trapFocus(panelEl as HTMLElement)
-      presence.ref(el)
-    } else {
-      unlockScroll()
-      focusCleanup?.()
-      presence.ref(null)
-    }
-  }
-
-  const panelRef = (el: HTMLElement | null) => {
-    panelEl = el
-    // panel 后挂（root 先连）时补 trap
-    if (el && !focusCleanup) {
-      focusCleanup = trapFocus(el as HTMLElement)
-    }
-  }
-
-  void selfId
-  return {
-    get phase() { return presence.phase },
-    rootRef,
-    panelRef,
-    sync: (open: boolean) => presence.sync(open),
-  }
-}

@@ -92,19 +92,27 @@ const MyPopover: Component<{ content: string }> = (_init, ctx) => {
 
 ## 3. 对话框类组件（Modal 系）
 
-全屏对话框（焦点 trap + 滚动锁 + 退场动画）不在 usePopup 范围——用 **`ctx.ui.useDialog`** 组合器（Modal/Drawer 同款：退场状态机 + 滚动锁 + 焦点 trap + animationend 卸载）：
+全屏对话框（焦点 trap + 滚动锁 + 退场动画）是 usePopup 的**会话级模态模式**（`presence/trapFocus/lockScroll/positioning: 'none'`——Modal/Drawer 同款）：
 
 ```tsx
-import { createPortal } from 'weifuwu/ui-dom'
-
 const MyDialog: Component<{ open: boolean; onClose: () => void }> = (_init, ctx) => {
-  const dialog = ctx.ui.useDialog({ name: 'MyDialog' })   // mount 创建
+  let latestOpen = false
+  const popup = ctx.ui.usePopup({
+    presence: true,      // 退场状态机（open → exit → closed + animationend）
+    trapFocus: true,     // 焦点 trap（面板挂载锁定/卸载归还）
+    lockScroll: true,    // 滚动锁（打开锁 / 面板卸载释放）
+    positioning: 'none', // 组件自定义定位（.wf-modal inset:0 居中）
+    closeOnOutside: false, closeOnEscape: false, // 关闭语义组件自控
+    isOpen: () => latestOpen,
+    setOpen: () => {},
+  })                     // mount 创建
 
   return (props) => {
-    const phase = dialog.sync(!!props.open)                // render 同步 open
+    latestOpen = !!props.open
+    const phase = popup.sync!(latestOpen)                // render 同步 open
     if (phase === 'closed') return null
 
-    return createPortal(h('div', {
+    return popup.portal(h('div', {
       class: 'wf-overlay',
       onClick: (e: any) => { if (e.target === e.currentTarget) props.onClose() },
     }, h('div', {
@@ -282,9 +290,9 @@ const MyComp: Component = (_init, ctx) => {
 
 ## 已知边界（诚实裁剪）
 
-- `usePopup` 覆盖浮层（Tooltip/Popover/Dropdown/Mentions/Cascader/ContextMenu）；**全屏对话框**（Modal/Drawer）用 useDialog（Escape 语义留组件层）；Command/Img preview 保持独立实现
+- `usePopup` 是**统一弹窗能力层**：锚定浮层（Tooltip/Popover/Dropdown/Mentions/Cascader/ContextMenu）+ 会话级模态（Modal/Drawer——presence/trapFocus/lockScroll/positioning 'none'，Escape 语义留组件层）；Command/Img preview（mask/maskCentered）同入口
 - **事件监听纪律**：组件库内部浏览器事件监听**统一走 `ctx.ui.useXXX`**——滚动/观察/弹层/对话框/快捷键/拖拽/DnD 全覆盖：
-  `useInView`（InfiniteScroll）、`useScrollPosition`（AiChat/Affix/BackTop/VirtualList）、`usePopupPosition`（Affix 阈值重算）、`usePopup`（ContextMenu 自由定位）、`useDialog`（Modal/Drawer）、`useGlobalKey`（Command 快捷键/Img preview Escape）、`useDrag`（Resizable）、`useDragDrop`（FileUpload）、`useControlled`/`useStableRef`（状态/ref）
+  `useInView`（InfiniteScroll）、`useScrollPosition`（AiChat/Affix/BackTop/VirtualList）、`usePopupPosition`（Affix 阈值重算）、`usePopup`（ContextMenu 自由定位 + Modal/Drawer 模态模式）、`useGlobalKey`（Command 快捷键/Img preview Escape）、`useDrag`（Resizable）、`useDragDrop`（FileUpload）、`useControlled`/`useStableRef`（状态/ref）
 - 唯一保留：**DatePicker 元素级 `animationend`**（入场动画完成后坐标 settle——与 usePopup panelRef/motion.animateOut 同款框架基础设施，非浏览器全局事件）
 - **Select/DatePicker** 是 inline/absolute 菜单（自适宽），不迁移 usePopup——菜单直接挂在锚点下
 - `createReactiveState` 已导出：组件外建全局 store（`createReactiveState(() => {})` + `$.__watch(cb)` 订阅）

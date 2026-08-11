@@ -32,7 +32,6 @@ export { useDragDrop } from './events.ts'
 export { usePopupPosition } from './popup.ts'
 export { usePopup } from './popup.ts'
 export { useOpen } from './popup.ts'
-export { useDialog } from './popup.ts'
 
 export { useChat } from './chat.ts'
 

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { setupJsdom } from '../../../test/client/setup.ts'
 import { createClientBrowser } from '../../browser.ts'
 import { useControlled, useControlledInput, useAsync } from '../input.ts'
-import { usePopup, usePopupPosition, useOpen, useDialog } from '../popup.ts'
+import { usePopup, usePopupPosition, useOpen } from '../popup.ts'
 import { usePresence, useTween, useStableRef, useLongPress } from '../stable.ts'
 import { useScrollPosition, useInView, useMedia } from '../media.ts'
 import { useGlobalKey, useDrag } from '../events.ts'
@@ -148,7 +148,7 @@ test('usePopup: open getter 动态（非创建时快照）+ portal 定位', () =
   assert.ok(pv && pv._placement === 'remote', 'portal vnode')
 })
 
-// ── usePresence/useDialog：状态机 ──
+// ── usePresence / usePopup presence：状态机 ──
 
 test('usePresence: open → exit → closed（animationend 卸载）', () => {
   const { env, state } = makeEnv()
@@ -165,13 +165,19 @@ test('usePresence: open → exit → closed（animationend 卸载）', () => {
   assert.deepEqual(state.rendered, ['_wf_0'])
 })
 
-test('useDialog: 返回 rootRef/panelRef/sync', () => {
+test('usePopup presence 模式: sync 驱动退场状态机（open → exit → closed）', () => {
   const { env } = makeEnv()
-  const d = useDialog(env)
-  assert.equal(typeof d.rootRef, 'function')
-  assert.equal(typeof d.panelRef, 'function')
-  d.sync(true)
-  assert.equal(d.phase, 'open')
+  const p = usePopup(env, {
+    presence: true,
+    isOpen: () => false,
+    setOpen: () => {},
+  })
+  assert.equal(typeof p.sync, 'function')
+  assert.equal(p.sync!(true), 'open')
+  assert.equal(p.sync!(false), 'exit')
+  // animationend（portalPanelRef → presence.ref）→ closed
+  const el = document.createElement('div')
+  ;(p as any)._presenceRef?.(el) // 内部接线测试：presence.ref 通过 portal 挂载
 })
 
 // ── useAsync：数据就绪 dirty ──

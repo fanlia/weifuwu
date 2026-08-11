@@ -63,10 +63,10 @@ test('SSR：全部事件原语 no-op 可渲染', async () => {
   assert.ok(html.includes('class="all"'))
 })
 
-test('SSR：useDialog 组件可渲染（Modal 模式，shim no-op）', async () => {
+test('SSR：usePopup presence 组件可渲染（Modal 模式，shim no-op）', async () => {
   const { Modal } = await import('../components/Modal/Modal.ts')
   const html = (await ssrToString(Modal as any, { open: true, title: 't', children: 'x' }, {})).toString()
-  assert.ok(html.includes('wf-modal'), 'Modal SSR 渲染（shim useDialog 必须存在）')
+  assert.ok(html.includes('wf-modal'), 'Modal SSR 渲染（shim usePopup 必须存在）')
 })
 
 test('SSR：useGlobalKey/useDrag/useDragDrop 组件可渲染（Command/Resizable/FileUpload 模式）', async () => {

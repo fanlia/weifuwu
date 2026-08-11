@@ -10,14 +10,16 @@ function makeCtx(): WfuiContext {
   return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {},
     useGlobalKey: () => () => {},
-    useDialog: () => ({
+    usePopup: () => ({
       get phase() { return phase },
-      rootRef: () => {}, panelRef: () => {},
+      get open() { return phase !== 'closed' },
+      setOpen: (v: boolean) => { if (v) phase = 'open'; else if (phase === 'open') phase = 'exit' },
       sync: (open: boolean) => {
         if (open) phase = 'open'
         else if (phase === 'open') phase = 'exit'
         return phase
       },
+      wrapProps: {}, portal: (c: any) => c, refresh: () => {},
     }),
   } }) as any
 }

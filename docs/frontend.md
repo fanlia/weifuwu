@@ -184,18 +184,18 @@ await browser.copyText(text)
 | `useAsync()` | `useAsync(fetcher)` | 异步取数：`data/loading/error` 响应式 + `reload()` |
 | `useControlled()` | `useControlled({ value, onChange, name })` | 受控/非受控统一：受控判定 + 缺回调 warn + 内部状态跨渲染保持 |
 | `useStableRef()` | `useStableRef(init, cleanup?)` | 稳定 ref 引用（根治内联 ref 陷阱） |
-| `useDialog()` | `useDialog({ name })` | 全屏对话框：退场状态机 + 滚动锁 + 焦点 trap（Modal/Drawer 同款） |
+| `usePopup()` 会话级模态 | `usePopup({ presence, trapFocus, lockScroll, positioning })` | **统一弹窗能力**：锚定浮层 + 会话级模态（Modal/Drawer 同款——退场状态机 + 滚动锁 + 焦点 trap + 居中定位）——一个入口按 options 组合 |
 | `useGlobalKey()` | `useGlobalKey(handler)` | 全局键盘监听（window keydown：mount 注册 + 卸载清理） |
 | `useDrag()` | `useDrag({ onMove, onStart?, onEnd? })` | 指针拖拽（pointerdown 捕获 → window move delta / up 释放） |
 | `useDragDrop()` | `useDragDrop({ onDrop, onDragOver?, onDragLeave? })` | 原生 DnD（drop/dragover/dragleave + preventDefault，dropProps spread） |
 | `useReducedMotion()` | `useReducedMotion()` | 响应式系统偏好（JS 动画侧跳过；CSS 动画已有全局降级） |
 | `useAnimationEnd()` | `useAnimationEnd(cb, { once? })` | 元素动画完成回调（stableRef：挂载绑定/卸载清理/引用恒定） |
 | `useTween()` | `useTween(target, { duration?, ease? })` | 数值补间（rAF + easeOutCubic + reduced-motion 直落；幂等 reset） |
-| `usePresence()` | `usePresence({ name? })` | 通用显隐状态机（open→exit→closed，animationend 延迟卸载；useDialog 是其特例） |
+| `usePresence()` | `usePresence({ name? })` | 通用显隐状态机（open→exit→closed，animationend 延迟卸载；usePopup presence 模式内部使用） |
 | `useMedia()` | `useMedia(query, cb)` | 响应式媒体查询，断点变化时自动回调 |
 | `useBreakpoint()` | `useBreakpoint(cb \| bps, cb?)` | 命名断点 mobile/tablet/desktop |
 | `usePopupPosition()` | `usePopupPosition(opts)` | 弹层坐标跟随：scroll/resize 时自动重算 fixed 坐标 |
-| `usePopup()` | `usePopup(opts)` | **弹层组合器**：触发（hover/tap 降级/longpress）+ Escape + 外部点击 + 定位/clamp + portal |
+| `usePopup()` | `usePopup(opts)` | **统一弹窗能力层**：触发（hover/tap 降级/longpress）+ Escape + 外部点击 + 定位/clamp + portal + 会话级模态（presence/trapFocus/lockScroll/positioning none——Modal/Drawer 同款） |
 | `useHoverCapable()` | `useHoverCapable()` | 设备是否支持 hover（`matchMedia '(hover: hover)'`），触屏降级判断 |
 | `useLongPress()` | `useLongPress({ onLongPress, duration })` | 长按手势（pointer 事件 + 位移取消 + 桌面右键兼容） |
 | `useVisualViewport()` | `useVisualViewport()` | 可视视口跟踪（键盘弹起/缩放），`{ height, offsetTop, keyboardOpen }` 响应式 |
@@ -497,7 +497,7 @@ return () => list.loading ? h(Loading) : list.data?.map(u => h('div', {}, u.name
 | 原语 | 层 | 说明 |
 |------|----|------|
 | `useAnimationEnd(cb, { once? })` | 生命周期 | 元素动画完成回调（stableRef：挂载绑定/卸载清理/引用恒定）——**组件内动画事件唯一入口** |
-| `usePresence({ name? })` | 生命周期 | 显隐状态机：open → exit → closed（animationend 延迟卸载）；`useDialog` 是其对话框特例 |
+| `usePresence({ name? })` | 生命周期 | 显隐状态机：open → exit → closed（animationend 延迟卸载）；`usePopup` presence 模式内部使用 |
 | `useTween(target, { duration?, ease? })` | 数值驱动 | 数值补间（rAF + easeOutCubic + reduced-motion 直落；幂等 reset + 每帧自动渲染） |
 | `useReducedMotion()` | 偏好感知 | 响应式系统偏好——**JS 动画**（rAF/tween）侧跳过（CSS 动画已有全局降级） |
 | `useInView` / `useScrollPosition` | 数值驱动 | 进入视口播 / 滚动位置联动（已有） |

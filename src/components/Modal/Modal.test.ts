@@ -13,16 +13,18 @@ function makeCtx(): WfuiContext {
   let phase: 'closed' | 'open' | 'exit' = 'closed'
   return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {}, ready: true,
-    // useDialog mock：状态机与真实现同语义（组件层测试不跑渲染器）
+    // usePopup mock：presence 模式状态机（组件层测试不跑渲染器）
     useGlobalKey: (h: any) => { globalKeys.push(h); return () => {} },
-    useDialog: () => ({
+    usePopup: () => ({
       get phase() { return phase },
-      rootRef: () => {}, panelRef: () => {},
+      get open() { return phase !== 'closed' },
+      setOpen: (v: boolean) => { if (v) phase = 'open'; else if (phase === 'open') phase = 'exit' },
       sync: (open: boolean) => {
         if (open) phase = 'open'
         else if (phase === 'open') phase = 'exit'
         return phase
       },
+      wrapProps: {}, portal: (c: any) => c, refresh: () => {},
     }),
   } }) as any
 }
@@ -128,22 +130,30 @@ describe('Modal', () => {
           await patchToDom(container, container.firstChild, prev, next, ctx)
           prev = next
         },
-        useDialog: () => {
+        usePopup: () => {
           let animEndHandler: (() => void) | undefined
           return {
             get phase() { return phase },
-            rootRef: (el: any) => {
-              if (el && !animEndHandler) {
-                animEndHandler = () => { if (phase === 'exit') phase = 'closed' }
-                el.addEventListener('animationend', animEndHandler)
-              }
-            },
-            panelRef: () => {},
             sync: (open: boolean) => {
               if (open) phase = 'open'
               else if (phase === 'open') phase = 'exit'
               return phase
             },
+            // 模拟 portalPanelRef（presence.ref——animationend 退场监听挂到渲染元素）
+            portal: (content: any) => ({
+              ...content,
+              props: {
+                ...content.props,
+                ref: (el: any) => {
+                  if (el && !animEndHandler) {
+                    animEndHandler = () => { if (phase === 'exit') phase = 'closed' }
+                    el.addEventListener('animationend', animEndHandler)
+                  }
+                  if (typeof content.props?.ref === 'function') content.props.ref(el)
+                },
+              },
+            }),
+            wrapProps: {}, setOpen: () => {}, refresh: () => {},
           }
         },
       },
@@ -167,4 +177,41 @@ describe('Modal', () => {
     await ctx.ui.render()
     assert.ok(!document.querySelector('.wf-modal'), 'animationend 后应卸载')
   })
+})
+
+// ── 真实 usePopup 链路（非 mock——createVdomContext + mountRoot：presence 退场接线） ──
+
+import { mountRoot, createVdomContext } from '../../ui-dom/vdom/mount.ts'
+import { createClientBrowser } from '../../ui-dom/browser.ts'
+import { h } from '../../ui-dom/vnode.ts'
+
+it('真实 usePopup：open → 渲染 → close → exit 动画 → animationend 卸载', async () => {
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const browser = createClientBrowser()
+  const { ctx } = createVdomContext({ root: container, browser })
+  const handle = mountRoot({ root: container, ctx, browser })
+  let open = false
+  let modalPhase: string | undefined
+  const Host: any = async (_i: any, c: any) => async () => h('div', {}, h(Modal, { open, onClose: () => { open = false } }))
+  await handle.mount(h(Host, {}))
+  open = true
+  await handle.ctx.ui.render()
+  // Modal 经 portal 渲染到 #__wf_portal（body）——查全局 DOM
+  const q = () => document.querySelector('.wf-modal')
+  assert.ok(q(), 'open → 渲染 wf-modal（portal）')
+  assert.match(q()!.className, /wf-modal--enter/)
+
+  // 关闭 → 退场帧（不立刻卸载——presence exit）
+  open = false
+  await handle.ctx.ui.render()
+  const el = q()
+  assert.ok(el, '关闭瞬间仍保留（退场动画）')
+  assert.match(el!.className, /wf-modal--exit/, '挂 --exit 类')
+
+  // animationend（portalPanelRef → presence.ref）→ 真正卸载
+  el!.dispatchEvent(new (window as any).Event('animationend'))
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(!q(), 'animationend 后卸载')
+  document.body.removeChild(container)
 })

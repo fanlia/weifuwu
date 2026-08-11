@@ -1,9 +1,9 @@
 /**
  * ctx.ui.usePresence — 通用显隐状态机（动画基础设施 2/2）
  *
- * 收敛 useDialog 的退场状态机核心（open → exit → closed + animationend 卸载），
+ * 收敛 usePopup presence 模式的退场状态机核心（open → exit → closed + animationend 卸载），
  * 去掉 lockScroll/trapFocus（对话框特例）——非 dialog 浮层/面板显隐用。
- * useDialog 基于它（+ lock/trap）——状态机单点实现。
+ * usePopup presence 模式基于它（+ lock/trap）——状态机单点实现。
  */
 
 import { test } from 'node:test'

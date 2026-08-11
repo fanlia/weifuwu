@@ -88,7 +88,7 @@ export function useLongPress(env: HookEnv, options: UseLongPressOptions): UseLon
 
 /**
  * 通用显隐状态机：open → exit → closed（animationend 延迟卸载）。
- * useDialog 基于它——状态机单点实现。
+ * usePopup presence 模式基于它——状态机单点实现。
  */
 export function usePresence(env: HookEnv, options?: { name?: string }) {
   void options

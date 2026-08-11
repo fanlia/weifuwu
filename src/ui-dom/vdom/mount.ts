@@ -20,7 +20,7 @@ import {
   useChat, useMedia, useBreakpoint, usePopupPosition, useHoverCapable,
   useStableRef, useVisualViewport, usePopup, useLongPress, useInView,
   useScrollPosition, useAsync, useControlled, useControlledInput, useOpen,
-  usePresence, useDialog, useGlobalKey, useDrag, useDragDrop,
+  usePresence,  useGlobalKey, useDrag, useDragDrop,
   useReducedMotion, useAnimationEnd, useTween, useExternal,
 } from '../hooks/index.ts'
 
@@ -240,7 +240,6 @@ export function createVdomContext(opts: MountOptions): VdomContext {
   rootUi.useControlledInput = function (this: any, o: any) { return useControlledInput(makeEnv(this), o) }
   rootUi.useOpen = function (this: any, o: any) { return useOpen(makeEnv(this), o) }
   rootUi.usePresence = function (this: any, o?: any) { return usePresence(makeEnv(this), o) }
-  rootUi.useDialog = function (this: any, o?: any) { return useDialog(makeEnv(this), o) }
   rootUi.useGlobalKey = function (this: any, h: (e: KeyboardEvent) => void) { return useGlobalKey(makeEnv(this), h) }
   rootUi.useDrag = function (this: any, o: any) { return useDrag(makeEnv(this), o) }
   rootUi.useDragDrop = function (this: any, o: any) { return useDragDrop(makeEnv(this), o) }

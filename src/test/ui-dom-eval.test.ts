@@ -94,7 +94,7 @@ test('Table 渲染（columns + data）', async () => {
   handle.close()
 })
 
-test('Modal 打开（useDialog + createPortal）', async () => {
+test('Modal 打开（usePopup presence + portal）', async () => {
   const router = new UIRouter()
   router.get('/modal', () =>
     h('div', {},

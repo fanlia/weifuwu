@@ -410,6 +410,8 @@ const dropdown = open ? createPortal(h('div', { class: 'wf-xxx-dropdown', style:
 | **Escape 关闭** | document keydown |
 | **ref 稳定** | portal 内部 ref 已稳定化（portalPanelRef——无内联 ref 警告） |
 | **open getter** | `popup.open` 是 getter（渲染期读最新——非创建时快照） |
+| **会话级模态**（Modal/Drawer 同款） | `presence`（退场状态机 open→exit→closed + animationend）/ `trapFocus`（焦点 trap）/ `lockScroll`（滚动锁）/ `positioning: 'none'`（组件自定义定位如 .wf-modal inset:0 居中）——render 期 `popup.sync!(open)` 驱动，`phase` 读阶段 |
+| **统一弹窗入口** | 锚定浮层（anchor 定位）+ 轻量居中（mask/maskCentered——Img preview）+ 会话级模态（上述四件套）——**一个 usePopup 按 options 组合**；Modal/Drawer/Confirm 已迁移（useDialog 已删除），新弹窗组件一律 usePopup |
 
 新弹层组件：`usePopup({ trigger, placement, el, isOpen, setOpen })` → `popup.portal(...)`——**不需要**自建 overlay、手动定位计算、手动 Escape/外部点击、手动 portal ref。
 

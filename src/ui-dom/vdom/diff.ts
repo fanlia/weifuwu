@@ -85,7 +85,7 @@ export function patchValue(
     }
     if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput)) {
       // 组件：完整 dispose（ref 清理 + 卸载钩子）；原生元素：ref(null) 清理
-      // （Modal root div 移除时若不调 ref(null)——useDialog 的 rootRef 依赖它 unlockScroll——
+      // （Modal root div 移除时若不调 ref(null)——usePopup 的 portalPanelRef 依赖它 unlockScroll——
       //   滚动锁泄漏 → body overflow 卡 hidden → 滑动条消失）
       if (typeof (oldInput as VNode).type === 'function') {
         disposeComponent(oldInput as VNode, ctx.registry)
