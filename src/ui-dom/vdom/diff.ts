@@ -74,6 +74,12 @@ export function patchValue(
     return t
   }
   if (newInput == null || typeof newInput === 'boolean') {
+    // 旧输出是 Portal（remote）→ 移除 remote 容器（vdom renderValue 在 #__wf_portal）
+    if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) && (oldInput as VNode).type === Portal) {
+      const remoteEl = (oldInput as VNode)._remoteEl
+      remoteEl?.parentNode?.removeChild(remoteEl)
+      return null
+    }
     if (oldNode?.parentNode) oldNode.parentNode.removeChild(oldNode)
     return null
   }
@@ -133,12 +139,14 @@ export function patchValue(
     newV._parentNode = parent
     if (oldNode) newV._refNode = oldNode
 
-    // 三态 skip：props 同 + 无 dirty + 版本同 + 已构建 → 复用旧 _child
+    // 三态 skip：同类型 + props 同 + 无 dirty + 版本同 + 已构建 → 复用旧 _child
+    // （必须同类型——导航 A→B 不同组件不得 skip，否则复用 A 的 _child → 页面不切换）
+    const typeSame = oldV?.type === newV.type
     const propsSame = componentPropsEqual(oldV?.props ?? {}, newV.props ?? {})
     const dirty = newV._id ? ctx.dirtySet?.has(newV._id) : false
     const ver = ctx.getCtxVersion ? ctx.getCtxVersion(newV._id ?? '') : undefined
     const verSame = ver === undefined || (ctx.ctxVersion ?? 0) === ver
-    if (oldV && propsSame && !dirty && verSame && oldV._child !== undefined) {
+    if (oldV && typeSame && propsSame && !dirty && verSame && oldV._child !== undefined) {
       newV._child = oldV._child
       return oldNode
     }
@@ -216,7 +224,7 @@ export function patchChildren(
   const oldNodes: (Node | null)[] = oldChildren.map((c, i) => {
     if (c == null || typeof c !== 'object' || Array.isArray(c)) return source[i] ?? null
     const vn = c as VNode
-    if (vn._placement === 'remote') return null
+    if (vn._placement === 'remote') return (vn._remoteEl ?? null) as Node | null
     if (vn.type === Fragment) return vn._childNodes?.[0] ?? null
     return vn._refNode ?? vn.el ?? null
   })

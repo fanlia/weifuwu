@@ -9,7 +9,6 @@
  */
 
 import type { BrowserEnv } from '../types.ts'
-import type { Registry } from '../registry.ts'
 
 /** 媒体查询注册表项（跨组件共享——useMedia/useBreakpoint 按 key 去重注册） */
 export interface MediaRegistryItem {
@@ -45,8 +44,8 @@ export interface HookEnv {
   browser: BrowserEnv
   /** 组件卸载回调注册（hooks 清理用——onComponentUnmountFor）——返回退订函数 */
   onUnmount(fn: (id: string) => void): () => void
-  /** 注册表实例（selfId 注册/查询） */
-  registry: Registry
+  /** 注册表实例（selfId 注册/查询）——结构兼容（第 1 代/vdom 均含 idRegistry） */
+  registry: { idRegistry: Map<string, any> }
   /** 跨组件共享：媒体查询注册表 */
   mediaRegistry: Map<string, MediaRegistryItem>
   /** 跨组件共享：popup 定位 tracker */
