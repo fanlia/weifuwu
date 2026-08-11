@@ -164,10 +164,15 @@
   user-select: none;
   animation: wf-panel-in var(--wf-dur-fast) var(--wf-ease-out);
   transform-origin: top center;
+  /* 宽度自适应内容（双面板 2×240 + gap）——不被容器/trigger 压缩 */
+  width: max-content;
+  max-width: calc(100vw - 32px);
 }
 
 .wf-datepicker-range-panel {
-  min-width: var(--wf-datepicker-time-width,  240px);
+  min-width: var(--wf-datepicker-time-width, 240px);
+  /* flex 子项不压缩——面板保持自身宽度（内联 width 残留时防溢出） */
+  flex-shrink: 0;
 }
 
 /* ── 时间选择 ── */
@@ -292,10 +297,6 @@
 }
 
 .wf-time-picker {
-  max-width: calc(100vw - 32px);
-}
-
-.wf-datepicker-range-wrap {
   max-width: calc(100vw - 32px);
 }
 
