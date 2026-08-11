@@ -6,7 +6,7 @@ import { renderVNode } from '../../ui-dom/testing.ts'
 
 
 function createTestCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: { render: () => {}, ready: true } } as any
 }
 
 /** Table 现在包在 .wf-table-wrap 滚动容器里，取内层 table VNode */

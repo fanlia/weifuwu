@@ -104,8 +104,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
       if (isCollapsedControlled) onCollapseChange?.(next)
       else { internalCollapsed = next; ctx.ui.render() }
     }
-    // S-1 试点：稳定回调（引用恒等）——Menu 自身 render 重跑时 collapse 按钮事件不重复解绑/绑定
-    const stableToggleCollapse = ctx.ui.useStableCallback('menu-collapse', toggleCollapse)
+
 
     const renderSubmenu = (item: MenuItem): any => {
       const open = openSet.has(item.key) && !isCollapsed
@@ -239,7 +238,7 @@ export const Menu: Component<MenuProps> = async (_init, ctx) => {
         role: 'button',
         tabIndex: 0,
         'aria-label': isCollapsed ? '展开菜单' : '折叠菜单',
-        onClick: stableToggleCollapse,
+        onClick: toggleCollapse,
         onKeyDown: (e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCollapse() }
         },

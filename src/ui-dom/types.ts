@@ -320,17 +320,6 @@ export interface WfuiContext {
      */
     useStableRef: (init: (el: HTMLElement | null) => void, cleanup?: () => void) => (el: HTMLElement | null) => void
     /**
-     * 稳定回调（S-1 剪枝命中率原语）：renderFn 内调用返回引用恒等的转发器——
-     * 内部每 render 更新最新闭包（无 deps 数组，位置即语义）。props 传出的回调引用稳定
-     * → 三态 skip 命中（父组件内联新函数不会导致子组件重跑）。
-     *
-     * ```tsx
-     * const toggle = ctx.ui.useStableCallback((key) => { internalOpen = ...; ctx.ui.render() })
-     * return () => h('button', { onClick: () => toggle(item.key) }, '切换')
-     * ```
-     */
-    useStableCallback: (name: string, fn: (...args: any[]) => any) => (...args: any[]) => any
-    /**
      * 全局键盘监听（window keydown）：mount 注册、组件卸载自动清理；返回退订函数。
      * 覆盖 Command 全局快捷键 / Img preview Escape 等 document/window 级键盘场景。
      *

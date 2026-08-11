@@ -118,16 +118,18 @@ renderFn 异步化是**通用能力**（await 任意 Promise），不绑定 ctx.
 
 ### 1.3 结构性（应用层 + 组件库共同模式——需基准支撑后决策）
 
-**S-1：内联事件函数 → 三态 skip 失效（最大潜在收益）——v2 重要性上升**
+**S-1：内联事件函数 → 三态 skip 失效（最大潜在收益）——v2 定论：mount/render 职责纪律**
 - 组件库 100%：Menu/Tree/Table 每个 item 的 onClick/onKeyDown 内联新建；应用层 100%：`onClick={() => { count++; rerender() }}`
 - 后果：父组件每次 render → 子组件 props 值比较（函数引用不同）失败 → renderFn 全量重跑
 - **v2 语境**：剪枝命中率是唯一性能变量——内联函数直接打穿命中率；且「直接 await 取数」的用户
   （无 ctx.data 缓存）每次剪枝失败 = 重新请求——**S-1 同时是取数性能问题**（防重复请求）
-- 修复（两阶段）：
-  1. 原语：`ctx.ui.useStableCallback(fn, deps?)`——依赖不变返回稳定引用（React useCallback 的
-     「位置即语义」版，与 useStableRef 同族；mount 作用域 + 卸载自动清理）
-  2. 试点：Menu（`onClick` 读 `item.key`/`toggleOpen`——需把 render 期依赖函数提升到 mount 作用域）
-     → 基准验证列表场景收益 → 决定推广范围
+- **定论（2026-08，useStableCallback 已删）**：不新增原语——事件函数按「mount/render 职责」分类书写：
+  - **mount（外层工厂）定义**：依赖稳定引用的回调（ctx / mount let / initProps / 稳定 handle
+    如 useChat 的 chat）——天然引用恒等（AiChat 的 send/stop 示范）
+  - **render（内层 renderFn）定义**：依赖最新 props / 派生数据的回调（Table 的 toggleAll 读
+    rowSelection、Menu 的 toggleOpen 读 openSet）——闭包捕获最新值；引用变化导致重绑是
+    正确性要求（patchProps 对值没变的跳过——P-3 快速路径）
+  - 事件函数引用变化是正确性要求（闭包读最新状态）——不追求「稳定引用」，追求「读对的值」
 - 纪律先行：应用层「配置式数据（columns/options/items）定义在 mount 层/模块层」（DemoVirtualTable
   好模式 vs DemoTable 差模式）——文档引导，零成本
 
@@ -151,7 +153,7 @@ renderFn 异步化是**通用能力**（await 任意 Promise），不绑定 ctx.
   - 场景 4：流式追加 10 条（每帧 +1 条 → DOM 写 = 新增节点数）
   - 场景 5：受控输入 10 字符（DOM 写受控、无整树重建）
   - **场景 6（v2 新增）**：剪枝命中率指标——renderFn 执行次数 / 总组件数
-    （统一异步后这是核心性能变量；对比 useStableCallback 改造前后的命中率）
+    （统一异步后这是核心性能变量；对比 mount/render 职责纪律落实前后的命中率）
 - 基线固化后各阶段对比（性能断言不设死值——相对基线比例）
 
 ### 阶段 1：正确性修复
@@ -180,8 +182,8 @@ renderFn 异步化是**通用能力**（await 任意 Promise），不绑定 ctx.
 
 | # | 项 | 前置条件 | 说明 |
 |---|----|---------|------|
-| 3.1 | `useStableCallback` 原语 | 基准证明 S-1 是主导热点 | API + hooks 实现 + 单测；Menu 试点改造 + 基准对比 |
-| 3.2 | 组件库事件函数稳定化 | 3.1 完成且收益验证 | Menu/Tree/Table/AiChat 逐步：事件函数提升 mount 作用域 / 改读 data 属性 |
+| 3.1 | **mount/render 职责文档**（已实施） | — | docs/custom-components.md：稳定引用 → mount 定义；props 派生 → render 内定义（接受重绑） |
+| 3.2 | 组件库按职责自查 | 低（纪律，无新机制） | AiChat（chat 稳定 → mount）已示范；Table/Menu 的 props 派生回调留在 render（正确性优先） |
 | 3.3 | 文档引导（配置 mount 层 + 取数模式） | 随时可做（低风险） | docs/frontend.md「配置式数据放 mount 层 / 薄封装用普通函数 / 取数模式表」 |
 
 ### 阶段 4：明确不做（及原因）
@@ -204,12 +206,12 @@ renderFn 异步化是**通用能力**（await 任意 Promise），不绑定 ctx.
 | 0 | render-perf.test.ts 6 场景（含剪枝命中率） | 全绿 + 基线记录 |
 | 1 | B-1 复现测试 + 相关测试组 | warn 出现 + 相关组全绿 |
 | 2 | 相关测试组 + render-perf 断言 + typecheck | 全绿 + 场景 2/3/4 DOM 写符合断言 + 场景 6 命中率基线 |
-| 3 | useStableCallback 单测 + Menu 基准对比 | API 全绿 + 列表场景命中率/耗时改善（对比基线） |
+| 3 | mount/render 职责文档 + AiChat mount 示范 | 文档审查 + 组件测试全绿 |
 
 ## 4. 纪律提醒（执行时注意）
 
 - **AGENTS.md §7.1（v2 已更新）**：开发迭代只跑单文件/相关分组（快速定位）；**全量测试只在发布版本之前运行**
   （`npm test` + db 真库 docker 依赖）；bash 命令 timeout ≤15s
 - 阶段 2 每项独立提交（一项一个 commit，语义零变化 + 测试守护）
-- 阶段 3 的 useStableCallback 是**新公共 API**——按 AGENTS.md §10 同步 docs/custom-components.md + docs/frontend.md 方法速查表
+- 阶段 3 的 mount/render 职责是**书写纪律**（无新 API）——docs/custom-components.md 已说明
 - 取数模式（§0.3）是**文档纪律**（D-3）——不新增引擎机制；「直接 await = 每次重跑重新执行」写入红线

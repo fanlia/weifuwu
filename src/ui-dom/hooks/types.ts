@@ -60,8 +60,6 @@ export interface HookEnv {
   inputStates: Map<string, { keyword: string; selectedLabel: string }>
   /** useOpen 非受控内部打开态（按 selfId） */
   openStates: Map<string, boolean>
-  /** useStableCallback 稳定回调缓存（按 selfId#调用序）——转发器引用恒等，latest 每 render 更新 */
-  stableCallbacks: Map<string, { latest: (...args: any[]) => any; proxy: (...args: any[]) => any }>
   /** 惰性挂载全局 scroll/resize 监听（幂等） */
   ensurePopupListeners(): void
 }

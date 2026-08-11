@@ -82,6 +82,7 @@ export const Table: Component<TableProps> = async (_init, _ctx) =>
     rowSelection.onChange(allSelected ? [] : allRowKeys, allSelected ? [] : next)
   }
 
+
   const toggleRow = (row: any, i: number) => {
     if (!rowSelection?.onChange) return
     const key = String(rowKeyOf(row, i))
@@ -132,6 +133,7 @@ export const Table: Component<TableProps> = async (_init, _ctx) =>
     const sortFn = col.sortable && onSort
       ? () => onSort(col.key, isSorted && isAsc ? 'desc' : 'asc')
       : undefined
+
     return h('th', {
       class: `wf-table-th${col.sortable ? ' wf-table-th--sortable' : ''}${isSorted ? ' wf-table-th--sorted' : ''}`,
       scope: 'col',

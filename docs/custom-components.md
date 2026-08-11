@@ -17,8 +17,29 @@ const Badge: Component<{ text: string; color?: string }> = () =>
   (props) => h('span', { class: 'my-badge', style: { color: props.color } }, props.text)
 ```
 
-- 两阶段：外层 `(initProps, ctx) => …` 只执行一次（mount），内层 `(props) => VNode` 每次渲染执行
+- 两阶段：外层 `(initProps, ctx) => …` 只执行一次（mount），内层 `(props) => Promise<VNode>` 每次渲染执行（renderFn 强制异步——可 await 数据）
 - 有状态组件用闭包 `let` + 事件里 `ctx.ui.render()`（render-only）；不需要渲染的状态不调 `render()`
+
+### mount 与 render 的职责（事件函数写在哪层）
+
+| | mount（外层工厂，一次） | render（内层 renderFn，每次） |
+|---|---|---|
+| 职责 | 初始化状态 / 订阅 / 定时器 / **定义依赖稳定引用的回调** | 读最新 props / 派生数据 / **定义依赖它们的回调** / 输出视图 |
+| 可访问 | `initProps`（首次）、`ctx`、mount `let`、稳定 handle | 最新 `props`、mount 闭包、`ctx` |
+| 事件函数 | **只依赖稳定引用**（ctx / mount let / 稳定 handle 如 useChat 的 `chat`）→ mount 定义，天然引用恒等 | 依赖最新 props / 派生状态（如 Table 的 `rowSelection`、Menu 的 `openSet`）→ render 内定义（闭包捕获最新值） |
+
+```tsx
+const AiChat = async (initProps, ctx) => {
+  const chat = initProps.chat           // 稳定 handle（useChat 返回，引用不变）
+  const onSend = () => chat.send()      // ✅ mount 定义：只依赖稳定引用——引用恒等，零重绑
+  return async (props) => {
+    const onSelect = (k: string) => props.onSelect?.(k)   // ✅ render 定义：依赖最新 props——闭包捕获当前值
+    return h('button', { onClick: onSelect }, '选')
+  }
+}
+```
+
+**规则**：回调只依赖 ctx / mount `let` / 稳定 handle → **mount 定义**（天然稳定，不重绑）；依赖最新 props / 派生数据 → **render 内定义**（闭包捕获最新值；引用变化导致事件重绑是**正确性要求**——必须读最新状态，框架不做稳定引用魔法）。
 
 ## 1. 有状态组件
 
@@ -157,7 +178,6 @@ const Page: Component<{}, { api: ApiInjected['api'] }> = (_init, ctx) => {
 | `Component<P, C>` 类型化（禁 `_init: any`） | 编译期不可查 |
 | 受控 props 必须配回调 | 交互静默失效（组件 console.warn） |
 | ref 用 `ctx.ui.useStableRef`（禁内联 ref） | 清理逻辑每次渲染误触 |
-| 事件函数用 `ctx.ui.useStableCallback`（禁内联传子） | 父 render 新函数 → 子组件三态 skip 失效 → 全量重跑 |
 | 初始状态确定性（禁 `window.innerWidth` 直接初始化） | SSR/hydration mismatch |
 | 小尺寸按钮固定 min/max-height | 被全局 36px 撑成竖条 |
 

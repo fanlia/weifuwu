@@ -528,41 +528,4 @@ test('B-1: UIHandler 页面 render() 无参 → console.warn（替代静默空�
 })
 
 // ── S-1：useStableCallback——稳定回调 → 三态 skip 命中（父内联新函数不导致子重跑） ──
-test('S-1: useStableCallback 稳定回调 → 父组件内联新函数不导致子组件重跑', async () => {
-  const root = document.createElement('div')
-  document.body.appendChild(root)
-  const handle = mountRoot({ root, browser: createClientBrowser() })
-  const { ctx } = handle
-  let childRenders = 0
-  let selected: string | null = null
 
-  // 子组件：接收 onSelect prop（值比较——父传的引用是否稳定决定三态 skip）
-  const Item = async (_init: any, c: any) => async (props: any) => {
-    childRenders++
-    return h('button', { class: 'item', onClick: () => props.onSelect(props.id) }, props.label)
-  }
-  // 父组件：useStableCallback 稳定传出回调（引用恒等）——tick 变化时子 props 全等 → 三态 skip
-  const List = async (_init: any, c: any) => {
-    let tick = 0
-    const onSelect = c.ui.useStableCallback('select', (k: string) => { selected = k })
-    return async () => {
-      tick++
-      return h('div', {}, [
-        h('span', { class: 'tick' }, String(tick)),
-        h(Item, { key: 'a', id: 'a', label: 'A', onSelect }),
-        h(Item, { key: 'b', id: 'b', label: 'B', onSelect }),
-      ])
-    }
-  }
-  await handle.mount(h(List, {}))
-  assert.equal(childRenders, 2, '首帧 2 个子组件渲染')
-  // 父内部状态变化 → render → 子 props.onSelect 引用恒等（useStableCallback）→ 三态 skip → 子不重跑
-  const before = childRenders
-  await ctx.ui.render()
-  assert.equal(childRenders, before, `父 render 后子组件不重跑（useStableCallback 引用恒等 → 三态 skip；实际 ${childRenders - before} 次重跑）`)
-  assert.equal(root.querySelector('.tick')?.textContent, '2', '父组件自身更新')
-  // 点击 item → 稳定回调转发到最新闭包
-  ;(root.querySelectorAll('.item')[1] as HTMLElement).click()
-  assert.equal(selected, 'b', '稳定回调调用转发最新闭包')
-  handle.unmount()
-})

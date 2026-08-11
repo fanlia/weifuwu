@@ -114,8 +114,6 @@ export function createTestCtx(overrides?: { ui?: Partial<WfuiContext['ui']>; bro
       ready: true,
       // useExternal 默认 no-op：订阅记录但不触发渲染（测试用 renderVNode 手动断言）
       useExternal: () => undefined,
-      // useStableCallback 默认直返（测试不验证引用恒等——vdom 回归测试覆盖真实语义）
-      useStableCallback: (_name: string, fn: any) => fn,
     },
   }
   const merged = overrides

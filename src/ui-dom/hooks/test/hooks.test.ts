@@ -9,7 +9,7 @@ import { setupJsdom } from '../../../test/client/setup.ts'
 import { createClientBrowser } from '../../browser.ts'
 import { useControlled, useControlledInput, useAsync } from '../input.ts'
 import { usePopup, usePopupPosition, useOpen, useDialog } from '../popup.ts'
-import { usePresence, useTween, useStableRef, useStableCallback, useLongPress } from '../stable.ts'
+import { usePresence, useTween, useStableRef, useLongPress } from '../stable.ts'
 import { useScrollPosition, useInView, useMedia } from '../media.ts'
 import { useGlobalKey, useDrag } from '../events.ts'
 import type { HookEnv } from '../types.ts'
@@ -44,7 +44,6 @@ function makeEnv(overrides: Partial<HookEnv> = {}): { env: HookEnv; state: any }
     uncontrolledValues: new Map(),
     inputStates: new Map(),
     openStates: new Map(),
-    stableCallbacks: new Map(),
     ensurePopupListeners: () => {},
     ...overrides,
   }
@@ -341,37 +340,3 @@ test('useTween: 卸载取消 rAF', () => {
   }
 })
 
-// ── useStableCallback（S-1：稳定转发器——三态 skip 命中率原语） ──
-
-test('useStableCallback: 引用恒等 + 转发到最新闭包', () => {
-  const { env } = makeEnv()
-  let count = 0
-  const cb1 = useStableCallback(env, 'a', () => count)
-  const cb2 = useStableCallback(env, 'b', () => count)
-  assert.equal(cb1, cb1, '同调用点引用恒等')
-  assert.notEqual(cb1, cb2, '不同 name 独立转发器')
-  // 最新闭包转发
-  count = 42
-  assert.equal(cb1(), 42, '转发到最新闭包（无 deps 数组——位置即语义）')
-})
-
-test('useStableCallback: 每次 render 更新 latest（同引用读最新状态）', () => {
-  const { env } = makeEnv()
-  let state = 1
-  const cb = useStableCallback(env, 'x', () => state)
-  const ref1 = cb
-  state = 2
-  const ref2 = useStableCallback(env, 'x', () => state)
-  assert.equal(ref1, ref2, '跨 render 同 name 引用恒等（props 浅比较通过）')
-  assert.equal(ref1(), 2, '调用时转发最新闭包')
-})
-
-test('useStableCallback: 卸载自动清理（转发器不泄漏）', () => {
-  const { env, state } = makeEnv()
-  const cb = useStableCallback(env, 'y', () => 1)
-  const key = [...env.stableCallbacks.keys()][0]
-  assert.ok(key, '缓存注册')
-  // 触发卸载回调
-  for (const fn of state.unmountHooks) fn('_wf_0')
-  assert.equal(env.stableCallbacks.has(key), false, '卸载后清理')
-})
