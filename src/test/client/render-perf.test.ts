@@ -138,7 +138,7 @@ test('perf: 更新单行 → DOM 写 ≈ 1（无全量重排）', async () => {
   await flush()
   const writes = counter.count()
   assert.equal(root.querySelectorAll('.row')[500].textContent, '已更新')
-  assert.ok(writes <= 3, `更新单行 DOM 写应 ≤3（textContent 替换；实际 ${writes}）`)
+  assert.ok(writes <= 3, `更新单行 DOM 写应 ≤3（V3-1 后 nodeValue 直改——0 次节点操作；实际 ${writes}）`)
   console.log(`[perf] 更新单行 DOM 写: ${writes}`)
   handle.unmount()
 })
