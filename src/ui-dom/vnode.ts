@@ -70,9 +70,8 @@ export type Component<P = {}, C extends object = {}> = (
  * 异步组件（统一签名——与 Component 同参，唯一差别是 async）：
  *   async (initProps, ctx) => Promise<renderFn | null>
  *
- * 渲染器统一判别「返回值 instanceof Promise」：
- *   客户端：占位 → resolve 后整树重渲染（vnode 级 _asyncDef 按实例缓存）
- *   SSR/hydration：直接 await（无占位）
+ * 模式 A（design/async-mode-a-plan.md）：主路径 buildVNode await 全部工厂（无占位）；
+ * 动态挂载兑底占位 + 局部补全（resolve 后 renderByIds）。
  */
 export type AsyncComponent<C extends object = {}, P = {}> = (
   initProps: P,
@@ -83,27 +82,6 @@ export const Fragment = Symbol('Fragment')
 
 /** Portal — 将子 VNode 渲染到 document.body 下的独立容器 */
 export const Portal = Symbol('Portal')
-
-/**
- * 占位显示策略组件（原生 async 组件未 resolve 时的占位 vnode）。
- * 渲染时查 ctx 原型链上最近的 Suspense 边界：有 → fallback；无 → null（向后兼容）。
- */
-export const Placeholder: Component = (_init, ctx) => {
-  const s = (ctx as any)._suspense
-  return () => s?.fallback ?? null
-}
-
-/**
- * Suspense 边界（可选）：子树内 async 组件占位时显示 fallback。
- * 渲染器对 type === Suspense 的组件在 childCtx 挂 _suspense（Object.create 继承 → 子树可见）。
- * 语义：占位处局部显示 fallback（非 React 整树回滚）；无边界时占位为 null。
- *
- * ```tsx
- * h(Suspense, { fallback: h(Spinner) }, h(UserProfile, {}))
- * ```
- */
-export const Suspense: Component = (_init, ctx) =>
-  (props: Record<string, any>) => props.children
 
 /** JSX 类型声明 — 使 TypeScript 理解自定义 JSX 运行时 */
 

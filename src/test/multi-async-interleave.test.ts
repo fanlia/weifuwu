@@ -37,15 +37,16 @@ test('多 async 组件交错 resolve：A 先 → B 后，B 不得卡占位', asy
   const handle = uiServe(router, { root: '#multi-async' })
   await flush()
 
-  // A resolve → 整树重渲染（diff 时 B 仍 in-flight，_asyncDef 复制 Promise 引用）
+  // 模式 A 主路径：buildVNode 兄弟并行 await 全部——resolveA 后整树仍未落地（B in-flight）
   resolveA()
   await flush()
-  assert.equal(el.querySelector('#mA')?.textContent, 'A', 'A 补全')
-  assert.equal(el.querySelector('#mB'), null, 'B 尚在占位')
+  assert.equal(el.querySelector('#mA'), null, 'A resolve 但 B in-flight → 整树未落地（await 全部）')
+  assert.equal(el.querySelector('#mB'), null, 'B 尚在等待')
 
-  // B resolve → 必须补全（.then 回调闭包捕获的是首次 vnode——已被 A 触发的重渲染替换）
+  // B resolve → 兄弟并行全部完成 → 一起落地（无占位/无交错问题）
   resolveB()
   await flush()
-  assert.equal(el.querySelector('#mB')?.textContent, 'B', 'B 必须补全（交错 resolve 不得卡占位）')
+  assert.equal(el.querySelector('#mA')?.textContent, 'A', 'A 落地')
+  assert.equal(el.querySelector('#mB')?.textContent, 'B', 'B 落地（await 全部：无占位交错）')
   handle.close()
 })

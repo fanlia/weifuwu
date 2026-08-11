@@ -19,7 +19,7 @@ import { test, afterEach, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { setupJsdom } from './client/setup.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
-import { UIRouter, uiServe, h, Suspense } from '../ui-dom/index.ts'
+import { UIRouter, uiServe, h } from '../ui-dom/index.ts'
 import { ssrToString } from '../ui/ssr.ts'
 
 before(setupJsdom)
@@ -42,40 +42,9 @@ function flush() {
   return new Promise<void>((r) => setTimeout(r, 0))
 }
 
-// ── T9 Suspense 边界（可选：占位显示 fallback） ──────────
+// ── T9 无边界占位（动态挂载兑底：模式 A 主路径 await 全部，占位只在运行时首次挂载出现） ──
 
-test('T9 Suspense 边界：async 组件占位期显示 fallback，resolve 后显示内容', async () => {
-  const b = createClientBrowser()
-  let resolveSlow!: () => void
-  const slowPromise = new Promise<void>((r) => { resolveSlow = r })
-  const Slow = async (_init: any) => {
-    await slowPromise
-    return () => h('div', { id: 't9' }, 'loaded')
-  }
-  const router = new UIRouter()
-  router.get('/', () =>
-    h('div', { id: 't9-wrap' },
-      h(Suspense, { fallback: h('span', { id: 't9-fb' }, 'loading…') }, h(Slow, {})),
-    ),
-  )
-  b.navigate('/')
-  const el = mount('unify-t9')
-  const handle = uiServe(router, { root: '#unify-t9' })
-  await flush()
-
-  // 占位期（promise 未 resolve）：Suspense fallback 显示
-  assert.equal(el.querySelector('#t9-fb')?.textContent, 'loading…', '占位期显示 fallback')
-  assert.equal(el.querySelector('#t9'), null, '内容未加载')
-
-  // resolve 后：内容显示，fallback 消失
-  resolveSlow()
-  await flush()
-  assert.equal(el.querySelector('#t9')?.textContent, 'loaded', 'resolve 后显示内容')
-  assert.equal(el.querySelector('#t9-fb'), null, 'fallback 消失')
-  handle.close()
-})
-
-test('T9b 无 Suspense 边界：占位为 null（向后兼容，行为同旧占位）', async () => {
+test('T9b 动态挂载：无边界占位 → resolve 后局部补全', async () => {
   const b = createClientBrowser()
   let resolveSlow!: () => void
   const slowPromise = new Promise<void>((r) => { resolveSlow = r })
@@ -90,7 +59,8 @@ test('T9b 无 Suspense 边界：占位为 null（向后兼容，行为同旧占�
   const handle = uiServe(router, { root: '#unify-t9b' })
   await flush()
 
-  assert.equal(el.querySelector('#t9b'), null, '占位期无输出（fallback 缺失 → null）')
+  // 主路径 await 全部：slow 未 resolve → 首帧未落地（零 DOM）
+  assert.equal(el.querySelector('#t9b'), null, 'await 全部期间无输出')
   resolveSlow()
   await flush()
   assert.equal(el.querySelector('#t9b')?.textContent, 'loaded', 'resolve 后显示')

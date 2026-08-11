@@ -22,20 +22,20 @@ const TreeComp = (_init: any, _ctx: any) =>
 
 describe('ui-dom/testing — renderVNode', () => {
   it('两阶段组件渲染到 VNode 层（mount + render 一次）', () => {
-    const v = renderVNode(Stateless, { label: 'hi' }, createTestCtx())
+    const v: any = renderVNode(Stateless, { label: 'hi' }, createTestCtx())
     assert.ok(v && v.props.class === 'x')
     assert.equal(v.props.children, 'hi')
   })
 
   it('只渲染一层：子组件保留为函数引用', () => {
     const Parent = (_i: any, _c: any) => () => h('div', {}, h(Stateless, { label: 'child' }))
-    const v = renderVNode(Parent, {}, createTestCtx())
+    const v: any = renderVNode(Parent, {}, createTestCtx())
     const child = v!.props.children
     assert.equal(child.type, Stateless, '子组件不展开')
   })
 
   it('无状态组件（直接返回 render 函数）', () => {
-    const v = renderVNode(Counter, {}, createTestCtx())
+    const v: any = renderVNode(Counter, {}, createTestCtx())
     assert.equal(v!.props.children, '0')
   })
 })

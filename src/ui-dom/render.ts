@@ -11,7 +11,7 @@
  * 状态管理：组件使用闭包变量 + ctx.ui.render() 手动触发重渲染。
  */
 
-import { Fragment, Portal, isPortal, Placeholder, Suspense, h } from './vnode.ts'
+import { Fragment, Portal, isPortal, h } from './vnode.ts'
 import type { VNode, VNodeChild, Component, AsyncComponent } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import type { WfuiContext } from './types.ts'
@@ -21,7 +21,7 @@ import { getRegistry, nextComponentIdFor, safeCallRef } from './registry.ts'
 import { uiDebugEnabled, uiLog, pushDepth, popDepth } from './debug.ts'
 // ⚠️ 与 diff.ts 的环：renderValue（本文件）↔ patchKeyedChildren（diff.ts）互相需要。
 // 安全原因：两模块顶层仅常量声明，全部函数级延迟调用（渲染运行时两模块均已加载）。
-import { patchProps, normalize, ensureKeys, patchKeyedChildren, mapChildDomNodes } from './diff.ts'
+import { patchProps, normalize, ensureKeys, patchKeyedChildren, mapChildDomNodes, componentPropsEqual } from './diff.ts'
 
 const clientBrowser = createClientBrowser()
 export const SVG_NS = 'http://www.w3.org/2000/svg'
@@ -130,37 +130,22 @@ export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
  */
 
 /**
- * 占位完成后整树重渲染（async 工厂已解析，diff 收敛到目标位置）。
- * 优先走 serve 的调度（重新执行 handler → 新树 → diff 传递 _asyncDef）；
- * 无 serve 注入（SSR/独立渲染）时回退 ui.render(['_wf_root'])。
+ * 动态挂载补全：运行时首次挂载的 async 组件 resolve 后，局部刷新该组件（renderByIds）。
+ * 替代整树重渲染（scheduleFullReRender 已删）——补全只影响占位点子树。
  */
-export function scheduleFullReRender(ctx: WfuiContext) {
-  const refresh = (ctx as any).__scheduleRender
-  if (typeof refresh === 'function') {
-    refresh()
-    return
-  }
+function scheduleLocalRefresh(vnode: VNode, ctx: WfuiContext): void {
+  const id = vnode._id
+  if (!id) return
   const ui = ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined
-  if (ui && typeof ui.render === 'function') ui.render(['_wf_root'])
+  if (ui && typeof ui.render === 'function') ui.render([id])
 }
 
 /**
- * 异步工厂 resolve 结果共享表（Promise → renderFn）。
- * 背景（multi-async-interleave 事故）：vnode._asyncDef 的 diff 传递是引用复制——
- * A/B 两个 async 组件同屏，A 先 resolve 触发的整树重渲染会把 B 的 Promise 引用复制到新 vnode；
- * 而 .then 回调闭包捕获的是首次 vnode（已离树）→ B resolve 后新 vnode 仍持 Promise → 永久占位。
- * 修复：resolve 结果写入表（key=Promise 引用，跨 vnode 共享），mountComponent 每次查表。
- * WeakMap：vnode 改为 defFn 后 Promise 无强引用 → 可 GC。
- */
-const asyncResolved = new WeakMap<Promise<unknown>, (props: VNode['props']) => VNode | null>()
-/** 已注册 then 的 Promise（幂等防重复 attach） */
-const asyncPending = new WeakSet<Promise<unknown>>()
-
-/**
- * 同步 mount 组件（async 工厂占位策略）：
- *   - 同步组件 → def(props, ctx) → render fn → 输出 VNode
- *   - async 工厂已解析 → 同同步组件
- *   - async 工厂未解析 → 占位（返回 null）+ 启动工厂 + 完成后整树重渲染
+ * 同步 mount 组件（动态挂载兑底——buildVNode 已解析的组件不走此路径）：
+ *   - 已解析（_render 已设）→ 直接渲染
+ *   - async 工厂 → 同步调用（执行到第一个 await，数据请求在飞）→ 返回 null 占位；
+ *     resolve 后设 _render + 局部补全（renderByIds([id])）
+ *   - 同步工厂 → 返回 render fn 输出
  */
 export function mountComponent(
   Comp: Component | AsyncComponent,
@@ -180,44 +165,8 @@ export function mountComponent(
     throw new Error('[wf-render] mountComponent 超过 500 次——渲染死循环（无限挂载）')
   }
   const b = (ctx.browser ?? clientBrowser) as BrowserEnv
-  // 统一路径：同步调用组件——返回值是 Promise = 原生 async 组件
-  // （vnode 级按实例缓存 _asyncDef；diff 传递继承，补全渲染不再重跑工厂）
-  const cached = vnode._asyncDef
-  if (cached instanceof Promise) {
-    // 已 resolve 的 Promise（任何 vnode 副本都能查表——不依赖闭包 vnode 引用）
-    const def = asyncResolved.get(cached)
-    if (def) {
-      vnode._asyncDef = def
-      vnode._render = def
-      return def(props)
-    }
-    // 仍 in-flight：幂等 attach（resolve 后写入共享表——多 vnode 副本同一 Promise 只注册一次）
-    if (!asyncPending.has(cached)) {
-      asyncPending.add(cached)
-      void cached.then(
-        (defFn: any) => {
-          if (typeof defFn !== 'function') {
-            console.error(
-              `[weifuwu] Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
-                `(props) => VNode pattern.`
-            )
-            return
-          }
-          asyncResolved.set(cached, defFn)
-          scheduleFullReRender(ctx)
-        },
-        () => {
-          // 工厂失败：保持占位（已知裁剪：async 工厂 reject 无错误 UI/重试——见 components-cuts.md）
-        },
-      )
-    }
-    return h(Placeholder, {}) // in-flight：占位
-  }
-  if (typeof cached === 'function') {
-    // resolved async 组件：cached 即 renderFn（工厂已 await 数据，mount 完成）
-    vnode._render = cached
-    return cached(props)
-  }
+  // 已解析（buildVNode 预构建 或 补全后）：直接渲染，不重跑工厂
+  if (typeof vnode._render === 'function') return vnode._render(props)
   // 首次调用组件（mount）：setMounting 保护期 $ 初始化赋值不触发渲染
   ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.setMounting?.(true)
   let result: unknown
@@ -227,28 +176,25 @@ export function mountComponent(
     ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.endMounting?.()
   }
   if (result instanceof Promise) {
+    // async 工厂：同步执行到第一个 await（数据请求已在飞）——占位；resolve 后局部补全
     const promise = result as Promise<(props: VNode['props']) => VNode | null>
-    vnode._asyncDef = promise
-    if (!asyncPending.has(promise)) {
-      asyncPending.add(promise)
-      void promise.then(
-        (defFn: any) => {
-          if (typeof defFn !== 'function') {
-            console.error(
-              `Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
-                `(props) => VNode pattern.`
-            )
-            return
-          }
-          asyncResolved.set(promise, defFn)
-          scheduleFullReRender(ctx)
-        },
-        () => {
-          // 工厂失败：保持占位（已知裁剪）
-        },
-      )
-    }
-    return h(Placeholder, {})
+    void promise.then(
+      (defFn: any) => {
+        if (typeof defFn !== 'function') {
+          console.error(
+            `Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
+              `(props) => VNode pattern.`
+          )
+          return
+        }
+        vnode._render = defFn
+        scheduleLocalRefresh(vnode, ctx)
+      },
+      () => {
+        // 工厂失败：保持占位（已知裁剪：reject 无错误 UI/重试——见 components-cuts.md）
+      },
+    )
+    return null // 占位（renderComponent 特判输出注释节点作锚点）
   }
   if (typeof result !== 'function') {
     throw new Error(
@@ -281,10 +227,6 @@ function renderComponent(
 
   // 扩展 ctx：每个组件有自己的 _selfId 和 VNode 引用
   const childCtx = Object.create(ctx) as WfuiContext
-  // Suspense 边界：子树内 async 组件占位时读此（Object.create 继承 → 子树任意深度可见）
-  if (vnode.type === Suspense) {
-    ;(childCtx as any)._suspense = { fallback: vnode.props?.fallback }
-  }
   childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
   const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
   childUi._selfId = vnode._id
@@ -293,9 +235,10 @@ function renderComponent(
   // 首次渲染记录当前 ctx 版本（供后续三态 skip 使用）
   vnode._ctxVersion = childUi._ctxVersion ?? 0
 
-  let childVNode: VNode | null
+  let childVNode: VNode | VNode[] | null
   try {
-    childVNode = mountComponent(Comp, props, vnode, childCtx)
+    // buildVNode 已解析（_child 预构建）→ 直接渲染；否则动态挂载（mountComponent）
+    childVNode = (vnode._child as VNode | VNode[] | null) ?? mountComponent(Comp, props, vnode, childCtx)
   } catch (e) {
     const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
     if (errHandler) {
@@ -312,6 +255,13 @@ function renderComponent(
 
   if (childVNode == null) {
     vnode._child = null
+    // 动态挂载的 async 组件 in-flight：输出注释占位（提供 _refNode 锚点——
+    // resolve 后 renderByIds 能推导 _parentNode 并替换为内容）
+    if (vnode._asyncDef instanceof Promise) {
+      const placeholder = b.createComment('wf-async')
+      vnode._refNode = placeholder
+      return placeholder
+    }
     // 若组件注入了 _errorHandler（ErrorBoundary 场景），输出 null 时插入注释占位——
     // null 输出组件无 DOM 锚点，错误恢复重渲染时 patchValue 无法定位插入位置。
     // 注释占位提供 _refNode，使 renderByIds 能推导 _parentNode 并替换为 fallback。
@@ -472,6 +422,91 @@ export function mountVNode(container: Element, vnode: VNode, ctx: WfuiContext) {
   const node = renderValue(vnode, ctx)
   // renderValue 返回 Node | null——数组分支不可达（CS-01 死代码），直接插入
   if (node instanceof Node) container.appendChild(node)
+}
+
+// ── buildVNode（模式 A：async 预构建） ──────────────────
+
+/**
+ * 递归展开组件树（async）：await 工厂 → renderFn → 递归子树。**零 DOM**。
+ *
+ * - 组件节点保留在树上（挂 `_render` + `_child`）——`$` dirty 精准刷新锚点不丢
+ * - 兄弟组件 Promise.all 并行（工厂同步执行到第一个 await，数据请求在飞）
+ * - **旧树对照**（oldInput）：同位置同类型组件复用旧 `_render`（工厂不重跑）——
+ *   组件跨渲染保持内部状态（$ / let / useStableRef）——与 diff 的 _render 传递同语义，
+ *   只是提前到构建期（否则导航每次重跑工厂，useStableRef 测试暴露）
+ * - 原地 mutate vnode（_render/_child）——引用保持，diff 三态 skip 不受影响
+ *
+ * 返回后可：renderValue（DOM 落地）或 patchValue（导航 diff）——两次调用间工厂只跑一次。
+ */
+export async function buildVNode(input: VNodeChild, ctx: WfuiContext, oldInput?: VNodeChild): Promise<VNodeChild> {
+  if (input == null || typeof input === 'boolean' || typeof input === 'string' || typeof input === 'number') {
+    return input
+  }
+  if (Array.isArray(input)) {
+    // 兄弟并行：所有子树同时启动（async 组件工厂同步执行到第一个 await 后并发等待）
+    const oldArr = Array.isArray(oldInput) ? oldInput : []
+    await Promise.all(input.map((c, i) => buildVNode(c, ctx, oldArr[i])))
+    return input
+  }
+  const vnode = input as VNode
+  const oldV = (oldInput != null && typeof oldInput === 'object' && !Array.isArray(oldInput) && (oldInput as VNode).type === vnode.type)
+    ? (oldInput as VNode)
+    : null
+  // 组件：await 工厂 → renderFn → 递归子树（组件节点保留，挂 _render/_child）
+  if (typeof vnode.type === 'function') {
+    const Comp = vnode.type as Component | AsyncComponent
+    if (!vnode._id) {
+      const reg = getRegistry(ctx)
+      vnode._id = nextComponentIdFor(reg)
+      reg.idRegistry.set(vnode._id, vnode)
+    }
+    const childCtx = Object.create(ctx) as WfuiContext
+    childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
+    const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
+    childUi._selfId = vnode._id
+    childUi._selfVNode = vnode
+    vnode._ctxVersion = childUi._ctxVersion ?? 0
+    // 已解析（重复构建）或 旧树同位置同类型（复用——不重跑工厂，保持内部状态）
+    if (typeof vnode._render !== 'function' && typeof oldV?._render === 'function') {
+      vnode._render = oldV._render
+    }
+    if (typeof vnode._render !== 'function') {
+      // mount 保护期：$ 初始化赋值不产生 dirty 标记（否则污染 dirtySet → 破坏后续三态 skip 的
+      // dirty 判定——debug-skip 事故：首帧 $.n=0 赋值 → 导航时 skipDirty=false → renderFn 重跑）
+      ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.setMounting?.(true)
+      let renderFn: ((props: VNode['props']) => VNode | null) | null = null
+      try {
+        renderFn = (await (Comp as Component)(vnode.props ?? {}, childCtx)) as (props: VNode['props']) => VNode | null | null
+      } finally {
+        ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.endMounting?.()
+      }
+      if (typeof renderFn !== 'function') {
+        throw new Error(
+          `Component ${Comp.name || 'anonymous'} must return a render function. ` +
+            `Use (init_props, ctx) => (props) => VNode pattern.`
+        )
+      }
+      vnode._render = renderFn
+    }
+    // 渲染 _child：仅当无旧 _child 可复用 或 props 已变（diff 必非 skip——需要预构建子树）。
+    // 同 props + 有旧 _child → 跳过渲染（三态 skip 语义前置：diff skip 复用旧 _child，
+    // renderFn 不重跑——否则导航/重渲染每次重跑 renderFn 绕过 skip，ui-dom-regression 暴露）
+    const propsSame = componentPropsEqual(oldV?.props ?? {}, vnode.props ?? {})
+    if (!propsSame || oldV?._child == null) {
+      vnode._child = (await buildVNode(vnode._render(vnode.props ?? {}), childCtx, oldV?._child ?? undefined)) as VNode | null
+    }
+    return vnode
+  }
+  // native / Fragment / Portal：递归 children（组件可能在 children 深处）
+  if (vnode.props?.children != null) {
+    await buildVNode(vnode.props.children, childCtxOf(ctx), oldV?.props?.children)
+  }
+  return vnode
+}
+
+/** buildVNode 的 native 子树 ctx（无组件上下文扩展——渲染器在 renderValue 时扩展） */
+function childCtxOf(ctx: WfuiContext): WfuiContext {
+  return ctx
 }
 
 // ── 兼容导出（diff 逻辑在 diff.ts） ──

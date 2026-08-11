@@ -16,7 +16,7 @@ import type { Registry } from './registry.ts'
 import { createPopupTrackerSystem } from './popup-tracker.ts'
 import { createUi } from './ui.ts'
 import type { UiInternal } from './ui.ts'
-import { renderValue, renderPortal, patchPortal } from './render.ts'
+import { renderValue, renderPortal, patchPortal, buildVNode } from './render.ts'
 import { createReactiveState } from './reactive.ts'
 import { patchValue } from './diff.ts'
 import { hydrateVNode } from './hydration.ts'
@@ -72,8 +72,6 @@ export function uiServe<RC extends object = {}>(
 
   // ctx（WfuiContext——createUi 需要先有 ctx 引用）
   const ctx = { params: {}, query: {} } as unknown as UIContext
-  // async 组件占位补全：工厂 resolve 后触发整树重渲染（mountComponent 的 scheduleFullReRender 优先走此）
-  ;(ctx as any).__scheduleRender = scheduleRender
 
   // ── ctx.data（数据管道：缓存 + in-flight 合并 + __DATA__ 种子） ──
   const dataCache = new Map<string, { value?: unknown; promise?: Promise<unknown> }>()
@@ -251,6 +249,12 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
       }
       // handler 执行（router.execute：匹配 + 中间件链 + handler → vnode）
       const vnode = await router.execute(window.location, ctx, path)
+
+      // 模式 A：async 预构建组件树（await 全部工厂；兄弟并行；零 DOM）——
+      // 首帧：构建完成 → renderValue 一次落地；导航：旧页保持 → 构建完成 → 同步 diff 原子切换
+      // 旧树对照（oldVNode）：同类型组件复用 _render（状态保持），新组件才跑工厂
+      // （hydration 不走此——hydrateVNode 自身 async 收养，buildVNode 重复调用工厂是无用功）
+      if (!hydrating) await buildVNode(vnode, ctx, oldVNode ?? undefined)
 
       // 落地：首次挂载 / 后续 diff（hydrate 收养）
       if (oldVNode == null) {

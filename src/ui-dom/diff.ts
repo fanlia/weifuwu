@@ -112,18 +112,10 @@ export function patchValue(
     // 传递 _render（两阶段组件复用 render 函数）+ 保持实例 ID
     // ——仅类型相同时：组件切换（AppShell→SplitWorkspace）必须重新 mount，
     // 复用旧 _render 会渲染成旧组件（壳内容区首次切换不更新的根因）
-    // 条件含 _asyncDef：占位期 vnode 无 _render（async 组件未 resolve）——但 id 必须传递，
-    // 否则 $ 的 dirty（绑定占位期 _selfId）→ idRegistry 指向旧 vnode（无 _render）→ 交互失效
-    if (oldV.type === newV.type && (oldV._render || oldV._asyncDef)) {
-      if (oldV._render) newV._render = oldV._render
+    if (oldV.type === newV.type && oldV._render) {
+      newV._render = oldV._render
       newV._id = oldV._id
       if (newV._id) getRegistry(ctx).idRegistry.set(newV._id, newV)
-    }
-
-    // 传递原生 async 组件缓存（占位 resolve 后整树重渲染 → 此处继承 resolved，
-    // mountComponent 走同步快速路径不再重跑工厂/不再占位）
-    if (oldV.type === newV.type && oldV._asyncDef) {
-      newV._asyncDef = oldV._asyncDef
     }
 
     // 存 DOM 锚点（供 ctx.ui.render() scope 使用）
@@ -164,10 +156,13 @@ export function patchValue(
 
     let childNew
     try {
-      if (typeof newV._render === 'function') {
+      if (newV._child != null) {
+        // buildVNode 已展开（含子树 async 解析——工厂/renderFn 只跑一次）
+        childNew = newV._child
+      } else if (typeof newV._render === 'function') {
         childNew = newV._render(newV.props)
       } else {
-        // fallback: 首次挂载（_render 未传递）——支持 async 工厂（未解析 → 占位 + 完成后重渲染）
+        // fallback: 首次挂载（_render 未传递）——支持 async 工厂（未解析 → 占位 + 局部补全）
         childNew = mountComponent(comp, newV.props, newV, childCtx)
       }
     } catch (e) {
@@ -670,7 +665,7 @@ function childrenEqual(a: unknown, b: unknown): boolean {
  * children 为 ['点击 ', count, ' 次'] 时，count 值变必须触发 render。
  * 但数组引用不同而内容相同的情况（每次 JSX 新数组），用 childrenEqual 避免误判。
  */
-function componentPropsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+export function componentPropsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   if (a === b) return true
   if (!a || !b) return false
   const keys = new Set([...Object.keys(a), ...Object.keys(b)])
@@ -686,7 +681,7 @@ function componentPropsEqual(a: Record<string, unknown>, b: Record<string, unkno
 }
 
 /** 浅比较两个 props 对象，跳过 children/key */
-function propsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+export function propsEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   if (a === b) return true
   if (!a || !b) return false
   const aKeys = Object.keys(a).filter(k => k !== 'children' && k !== 'key')

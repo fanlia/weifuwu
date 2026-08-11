@@ -27,10 +27,14 @@ import type { WfuiContext } from './types.ts'
  * **只渲染一层**——子组件 VNode 的 type 是组件函数（断言 === Comp），不展开 DOM。
  * 无状态组件（外层直接返回 render 函数）同样支持。
  *
+ * 双形态：同步组件返回 VNode（零破坏）；async 组件返回 Promise<VNode>（测试 await）。
  * 注意：每次调用是**新 mount**——内部 `let` 状态不保留；测状态流转用 `mountComponent`。
  */
-export function renderVNode(Comp: any, props: Record<string, any>, ctx: WfuiContext): VNode | null {
+export function renderVNode(Comp: any, props: Record<string, any>, ctx: WfuiContext): VNode | null | Promise<VNode | null> {
   const result = Comp(props, ctx)
+  if (result instanceof Promise) {
+    return result.then((fn) => (typeof fn === 'function' ? fn(props) : fn))
+  }
   return typeof result === 'function' ? result(props) : result
 }
 
