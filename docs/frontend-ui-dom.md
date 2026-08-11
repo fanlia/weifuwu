@@ -23,9 +23,9 @@
 ### 两阶段组件模型：从 hooks 心智负担中解脱
 
 ```tsx
-const Counter = (initProps, ctx) => {
+const Counter = async (initProps, ctx) => {
   let count = initProps.initial ?? 0        // mount：只执行一次
-  return (props) =>
+  return async (props) =>
     h('button', { onClick: () => { count += props.step; ctx.ui.render() } }, count)  // render
 }
 ```

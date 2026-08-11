@@ -30,7 +30,7 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 > ⚠️ **注意：前后端都有 `ctx.ui`，但用途完全不同**
 > - **后端** `ctx.ui`（SSR/编译）：`ctx.ui.html`（HTML 模板）、`ctx.ui.js`（TSX→JS 动态编译）、`ctx.ui.css`（CSS 编译）、`ctx.ui.ssr`（组件 SSR）、`ctx.ui.ssrData`（数据序列化）
-> - **前端** `ctx.ui`（渲染引擎，24 方法）：
+> - **前端** `ctx.ui`（渲染引擎，20+ hooks）：
 >   - 渲染：`render()`（唯一触发——render-only）/ `selfId()`（跨组件精准刷新）
 >   - 状态：`useControlled()`（受控/非受控）/ `useStableRef()`（稳定 ref）/ `useExternal()`（共享状态订阅）
 >   - 弹层：`usePopup()`（统一能力层——锚定浮层 + 会话级模态）/ `usePopupPosition()`（定位）
@@ -89,13 +89,13 @@ npm install weifuwu      # 一个依赖，完整应用栈
 
 **零运行时依赖** — 前端无 npm 运行时依赖（自研 VDOM，不引入 Virtual DOM 库、rxjs、immer 等）。后端仅依赖 `esbuild`（TSX→JS 编译）+ `graphql` + `ws`（语言/协议本身）——**数据库客户端（PostgreSQL/Redis 协议）、GraphQL schema 工具全部自研**。esbuild 作为运行时依赖随 `npm install weifuwu` 自动安装，`ctx.ui.js()` 开箱即用。
 
-**两阶段组件模型** — 组件 = `(initProps, ctx) => (props) => VNode`。外层函数只执行一次（mount），内层函数每次状态/props 变化时执行（render）。无 class、无 `this`、无 Hook——**位置即语义**：外层天生只跑一次，没有 hooks 规则、没有依赖数组、没有闭包陷阱（详解见[核心概念](#核心概念)）。
+**两阶段组件模型** — 组件 = `async (initProps, ctx) => (props) => Promise<VNode>`。外层工厂只执行一次（mount，可 await 数据），内层 renderFn 每次状态/props 变化时执行（强制异步）。无 class、无 `this`、无 Hook——**位置即语义**：外层天生只跑一次，没有 hooks 规则、没有依赖数组、没有闭包陷阱（详解见[核心概念](#核心概念)）。
 
 **render-only 确定性渲染** — 渲染唯一触发 `ctx.ui.render()`（闭包绑定组件），状态是普通对象（`let` + `render()`）；跨组件共享用 `createStore` + `ctx.ui.useExternal()`。行为可静态推导，无隐式触发（详见[组件库](docs/components.md)）。
 
 **中间件注入一切** — 后端和前端共用同一理念：中间件向 `ctx` 注入能力（`ctx.sql` / `ctx.redis` / `ctx.api` / `ctx.auth` / `ctx.i18n` / `ctx.limit` / `ctx.email` / `ctx.queue` / `ctx.ai` / `ctx.msg` 等），Handler/组件从 `ctx` 读取。
 
-**async 工厂组件** — `async (ctx) => (initProps, ctx) => (props) => VNode`：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`let` + `render()`）、render 输出视图。异步只在工厂边界，mount/render 保持同步；数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
+**async 工厂组件** — `async (initProps, ctx) => (props) => Promise<VNode>`（weifuwu **唯一组件形态**——同步组件已不支持）：工厂层声明数据（`await ctx.data.get`）、mount 初始化状态（`let` + `render()`）、render 输出视图。异步在工厂边界与 renderFn，数据经闭包注入，写数据像写同步代码。三条纪律见[核心概念 · async 组件](#核心概念)。
 
 **SPA/SSR/Hydration 统一透明** — 同一份路由定义（`UIRouter`）一个组件三场景自动适配：后端 `ssrPage(router, { url })` 匹配即自动 SSR（完整 HTML + `__DATA__`），客户端 `uiServe(router, { root, hydrate: true })` 按 URL 同源匹配并收养服务端 HTML（不重建、无闪跳）。`ctx.data.get` 一个 API：SSR 预取 / hydration 命中（不重复请求）/ SPA 触发 fetch。服务端直接用 `.tsx`（`weifuwu/dev` Node loader），前后端同一 JSX 运行时。
 
@@ -133,7 +133,7 @@ const app = new UIRouter()
 // async 组件（原生）：await 数据 → 返回视图（外层初始化，内层渲染）
 const Home = async (_init, ctx) => {
   const msg = await ctx.data.get('/api/hello')   // 数据管道：一个 API 三场景
-  return (props) => <h1>{msg.msg}</h1>
+  return async (props) => <h1>{msg.msg}</h1>
 }
 
 app.get('/', async () => <Home />)   // handler = 异步组件
@@ -275,8 +275,8 @@ cd apps/agent-platform && npm run seed && npm run dev
     import { UIRouter, uiServe, h } from 'weifuwu/ui-dom'
     import { Card, Button, Badge } from 'weifuwu/components'
 
-    // 组件 = (initProps, ctx) => (props) => VNode（render-only：改状态后 ctx.ui.render()）
-    const Counter = (_props, ctx) => {
+    // 组件 = async (initProps, ctx) => (props) => Promise<VNode>（render-only：改状态后 ctx.ui.render()）
+    const Counter = async (_init, ctx) => {
       let count = 0 // mount 初始化
 
       return () =>
@@ -389,25 +389,24 @@ cd apps/agent-platform && npm run seed && npm run dev
 
 ## 核心概念
 
-### 三层形态（路由 / 同步组件 / async 组件）
+### 三层形态（路由 / 组件 / async 组件工厂）
 
 | 层 | 签名 | 异步 | 生命周期 |
 |----|------|------|---------|
 | **UIHandler**（路由） | `async (location, ctx) => VNode` | ✅ 整体 | 每次路由变化执行 |
-| **Component**（同步组件） | `(initProps, ctx) => (props) => VNode` | ❌ 同步 | mount 一次 + render 每次 |
-| **AsyncComponent**（async 组件） | `async (initProps, ctx) => (props) => VNode` | ✅ 只工厂 | 工厂按实例（N 处实例 = N 次工厂调用，数据走 ctx.data 缓存）；同位置同类型复用 `_render`（工厂不重跑，状态保持） |
+| **Component**（唯一形态） | `async (initProps, ctx) => (props) => Promise<VNode>` | ✅ 工厂 + renderFn | mount 一次 + render 每次；同步组件已不支持（类型强制 Promise） |
 
-异步只出现在两个边界——路由 handler（整页）和 async 组件工厂（数据声明）；async 组件与同步组件**同签名**（唯一差别是 `async` 关键字）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 原子落地（无占位、无补全回调）；运行时首次挂载的 async 组件同样在 buildVNode 阶段 await；骨架屏 `uiServe({ loading })` + `handle.ready`。
+异步只在两个边界——路由 handler（整页）和组件工厂（数据声明）+ renderFn（强制异步）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 原子落地（无占位、无补全回调）；运行时首次挂载的 async 组件同样在 buildVNode 阶段 await；骨架屏 `uiServe({ loading })` + `handle.ready`。
 ### 两阶段组件（新手必读：为什么是两层）
 
-组件 = `(initProps, ctx) => (props) => VNode`——**外层 = 初始化（只执行一次），内层 = 渲染（每次状态/props 变化时执行）**。类比：外层是对象的构造函数，内层是它的 render 方法。
+组件 = `async (initProps, ctx) => (props) => Promise<VNode>`——**外层 = 初始化（只执行一次，可 await 数据），内层 = 渲染（每次状态/props 变化时执行，强制异步）**。类比：外层是对象的构造函数，内层是它的 render 方法。
 
 ```tsx
-const Counter = (_init, ctx) => {
-  // 外层（mount）：只跑一次——初始化状态、订阅、定时器
+const Counter = async (_init, ctx) => {
+  // 外层（mount）：只跑一次——初始化状态、订阅、定时器（可 await 数据）
   let count = 0
-  return (props) =>
-    // 内层（render）：每次变化执行——读状态输出视图（render-only：改状态后显式 render()）
+  return async (props) =>
+    // 内层（render）：每次变化执行（强制异步）——读状态输出视图（render-only：改状态后显式 render()）
     <button onClick={() => { count++; ctx.ui.render() }}>{count}</button>
 }
 ```
@@ -449,7 +448,7 @@ async 组件让"拿数据渲染页面"像写同步代码——签名与同步组
 const UserProfile = async (_init, ctx) => {
   const user = await ctx.data.get(`/api/user/${ctx.params.id}`)   // ① 工厂层：声明数据（三场景自动）
   let liked = false                                                // ② mount：客户端状态（render-only）
-  return (props) =>
+  return async (props) =>
     h('div', {},
       h('p', {}, user.name),          // 服务端状态（闭包，SSR 进 HTML）
       h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }, liked ? '❤️' : '🤍'))

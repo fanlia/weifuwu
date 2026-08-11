@@ -5,11 +5,11 @@
 ## 登录表单
 
 ```tsx
-const LoginPage = (_init, ctx) => {
+const LoginPage = async (_init, ctx) => {
   let errors: Record<string, string> = {}
   let submitting = false
 
-  return (props) =>
+  return async (props) =>
     h('div', { class: 'wf-stack', style: { maxWidth: 400, margin: '40px auto' } },
       h(Card, { padding: 'lg' },
         h('div', { class: 'wf-stack', style: { gap: 'var(--wf-space-md)' } },
@@ -43,7 +43,7 @@ const LoginPage = (_init, ctx) => {
 ## 数据列表 + 搜索
 
 ```tsx
-const UserList = (_init, ctx) => {
+const UserList = async (_init, ctx) => {
   let keyword = ''
   let sortKey = 'name'
   let sortOrder = 'asc'
@@ -52,7 +52,7 @@ const UserList = (_init, ctx) => {
     { id: 2, name: '李四', email: 'li@example.com', role: '编辑' },
   ]
 
-  return (props) => {
+  return async (props) => {
     // 派生数据必须在 render 内计算（每次 render 读最新 keyword）
     const filtered = users.filter(u =>
       !keyword || u.name.includes(keyword) || u.email.includes(keyword)
@@ -102,9 +102,9 @@ function showToast(ctx: WfuiContext, type: string, message: string) {
 }
 
 // 页面中使用
-const App = (_init, ctx) => {
+const App = async (_init, ctx) => {
   toasts = []
-  return (props) =>
+  return async (props) =>
     h('div', {}, [
       h(Button, { onClick: () => showToast(ctx, 'success', '操作成功') }, '显示提示'),
       h(Toast, {

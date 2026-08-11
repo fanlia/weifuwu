@@ -6,7 +6,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-零外部 npm 运行时依赖。组件签名：`(initProps, ctx) => (props) => VNode`（两阶段模型，外层 mount 只一次，内层 render 每次变化时执行）。无状态组件可简写为 `() => () => VNode`。
+零外部 npm 运行时依赖。组件签名：`async (initProps, ctx) => (props) => Promise<VNode>`（两阶段模型，外层 mount 只一次可 await 数据，内层 renderFn 每次变化时执行——强制异步）。同步组件已不支持；无状态组件可简写为 `async (_init) => (props) => VNode`。
 
 构建配置（esbuild）：
 
@@ -54,12 +54,12 @@ const handle = uiServe(app, { root: '#root' })
 import type { Component, WfuiContext } from 'weifuwu/ui-dom'
 
 // 两阶段组件：mount（只一次）→ render（每次 dirty/props 变化）
-const Counter: Component = (_init, ctx) => {
+const Counter: Component = async (_init, ctx) => {
   // ── mount ──
   let count = 0
 
   // ── render ──
-  return (props) =>
+  return async (props) =>
     h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
 }
 
@@ -82,7 +82,7 @@ const DeckCard: Component<DeckCardProps> = (_init, ctx) =>
 // <DeckCard title="x" pages="8" />     ✗ 编译期报错
 
 // ② ctx 注入声明：use(api()).use(router()) 后组件声明依赖，ctx 直接访问
-const Home: Component<{}, ApiInjected & RouteInjected> = (_init, ctx) => {
+const Home: Component<{}, ApiInjected & RouteInjected> = async (_init, ctx) => {
   ctx.api.get('/users')   // ✓ 有类型
   ctx.app.navigate('/x')  // ✓ 有类型
   return () => <h1>Home</h1>
@@ -226,9 +226,9 @@ await browser.copyText(text)
 ### 闭包变量 + `ctx.ui.render()`（唯一状态模式）
 
 ```tsx
-const Counter: Component = (_init, ctx) => {
+const Counter: Component = async (_init, ctx) => {
   let count = 0
-  return (props) =>
+  return async (props) =>
     h('button', { onClick: () => { count++; ctx.ui.render() } }, count)
 }
 ```
@@ -244,9 +244,9 @@ const Counter: Component = (_init, ctx) => {
 // 模块级单例（或组件内 createStore 传递）
 const store = createStore({ user: null, theme: 'light' })
 
-const NavBar: Component = (_init, ctx) => {
+const NavBar: Component = async (_init, ctx) => {
   const state = ctx.ui.useExternal(store)   // 订阅：store 变更 → 自身自动重渲染
-  return (props) => h('div', { class: 'nav' }, state.user?.name ?? '未登录')
+  return async (props) => h('div', { class: 'nav' }, state.user?.name ?? '未登录')
 }
 
 // 任意位置更新（写入方不需要知道谁在订阅）：
@@ -266,12 +266,12 @@ store.notify()                       // 手动通知
 注册媒体查询监听，值变化时自动重渲染当前组件（回调内改状态 + `ctx.ui.render()`）：
 
 ```tsx
-const Card = (_init, ctx) => {
+const Card = async (_init, ctx) => {
   let isMobile = false
   // 立即回调一次（取当前值），之后变化时自动重渲染
   ctx.ui.useMedia('(max-width: 640px)', (v) => { isMobile = v; ctx.ui.render() })
 
-  return (props) => (
+  return async (props) => (
     <div class={isMobile ? 'wf-stack' : 'wf-row'}>
       {!isMobile && <Sidebar />}
       <Content />
@@ -287,11 +287,11 @@ const Card = (_init, ctx) => {
 预设三个断点名称：`mobile`（<640px）、`tablet`（640-1023px）、`desktop`（≥1024px）：
 
 ```tsx
-const Layout = (_init, ctx) => {
+const Layout = async (_init, ctx) => {
   let vp = 'desktop'
   ctx.ui.useBreakpoint((next) => { vp = next; ctx.ui.render() })
 
-  return (props) =>
+  return async (props) =>
     <div class={`sidebar-${vp}`}>
       {vp === 'mobile' ? <BottomNav /> : <SideNav />}
       {vp === 'mobile' ? <MobileContent /> : <Content />}
@@ -312,8 +312,10 @@ ctx.ui.useBreakpoint(
 
 解决弹出层（Popover / Tooltip / Dropdown / DatePicker 等）在 **页面滚动 / 窗口缩放后不跟随触发元素** 的问题。基于 `position: fixed` + `getBoundingClientRect()`（视口坐标）的弹层，滚动后坐标需要重算——本 API 用全局 scroll/resize 监听（rAF 节流）自动重算并精准刷新当前组件。
 
+> **使用场景**：`usePopup` 内部已集成 usePopupPosition（弹窗组件无需直接使用）；本 API 供**坐标工具**独立使用（Affix 阈值重算 / Chart tooltip）或**自定义弹层**场景。
+
 ```tsx
-const DatePicker = (_init, ctx) => {
+const CustomPopup = async (_init, ctx) => {
   let show = false
   let inputEl: HTMLElement | null = null
   let prevOpen = false
@@ -325,7 +327,7 @@ const DatePicker = (_init, ctx) => {
     compute: (r) => ({ top: r.bottom + 4, left: r.left }),  // rect → 坐标
   })
 
-  return (props) => {
+  return async (props) => {
     const isOpen = show
     // 打开瞬间算一次初始坐标（受控/非受控统一覆盖）
     if (isOpen && !prevOpen) pos.refresh()
@@ -358,12 +360,14 @@ const DatePicker = (_init, ctx) => {
 - **hover 触发在触屏自动降级为 tap**（内部 `matchMedia '(hover: hover)'` 判定）
 - **Escape 关闭是 document 级**——焦点在 portal 弹层内按 Escape 也能关
 - **外部点击关闭**（document mousedown，点弹层内部不关）
-- **宽度自动 clamp 视口**（≤ `100vw - 32px`，375px 屏不横向溢出）
+- **宽度自动 clamp 视口**（≤ `100vw - 32px`，375px 屏不横向溢出）；`width` 支持 getter（DatePicker 跟随 trigger 宽）
 - **定位 + 视口夹紧**（复用 `usePopupPosition`，超高/超宽面板平移回视口）
+- **mask 遮罩**（`mask: true`——全屏遮罩 + 点击关闭；`maskCentered` 全屏居中——Modal 缩放预览/Command 面板；`mask: VNode` 自定义遮罩内容——Tour 挖洞高亮）
+- **trigger `'focus'`**（DatePicker）——focus 开 + blur 延迟关（`closeDelay` 窗口内面板交互生效）
 - 支持受控（`open`/`onOpenChange`）、动态 props（`placement`/`trigger`/`openDelay` 支持 getter）
 
 ```tsx
-const Tooltip = (_init, ctx) => {
+const Tooltip = async (_init, ctx) => {
   let show = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el) => { wrapEl = el }
@@ -379,7 +383,7 @@ const Tooltip = (_init, ctx) => {
     openDelay: () => delay,      // hover 延迟（HoverCard 用）
   })
 
-  return (props) => h('div', { ref: wrapRef, ...popup.wrapProps }, [
+  return async (props) => h('div', { ref: wrapRef, ...popup.wrapProps }, [
     props.children,
     popup.portal(h('div', { class: 'wf-tooltip' }, props.content), 'tooltip'),
   ].filter(Boolean))
@@ -387,12 +391,15 @@ const Tooltip = (_init, ctx) => {
 ```
 
 - `popup.wrapProps` — 触发 + Escape + focus 处理，spread 到包装/触发元素
-- `popup.portal(content, portalKey)` — 定位 + clamp + portal（挂载 `#__wf_portal`），关闭时返回 null；自动附加 `wf-popup` 基类
+- `popup.portal(content, portalKey)` — 定位 + clamp + portal（挂载 `#__wf_portal`），关闭时返回 null；自动附加 `wf-popup` 基类；`positioning: 'none'` 时不加坐标（只 `position: fixed`——组件自定义定位，Modal/Toast 用）
 - `popup.open` / `popup.setOpen()` — 状态读取与设置
+- `popup.sync(open)` / `popup.phase` — 会话级模态模式（`presence: true`）render 期同步打开状态 + 读退场 phase（`'closed' | 'open' | 'exit'`——exit 阶段保留退场动画）
 
-**边界（诚实裁剪）**：Modal/Drawer 全屏对话框不进 `usePopup`（focus-trap/scroll-lock/退场状态机生命周期不同，各自实现）。
+**会话级模态模式**（Modal/Drawer/Confirm 同款）：`presence: true`（退场状态机）+ `trapFocus: true`（焦点 trap）+ `lockScroll: true`（滚动锁）+ `positioning: 'none'`（自定义定位）——全部能力 usePopup 内部实现（`trapFocus`/`lockScroll` 不对外导出）。
 
-已迁移组件：**Tooltip / HoverCard / Popover / Dropdown / Menubar / Mentions / Cascader / ContextMenu**（长按双通道）。
+**已迁移组件（全部弹窗统一 usePopup 单一入口）**：Tooltip / HoverCard / Popover / Dropdown / Menubar / Mentions / Cascader / ContextMenu / Select / AutoComplete / NavMenu / Popconfirm / DatePicker（focus 触发）/ Tour（mask 自定义遮罩）/ Toast / Notification（positioning 'none' 常驻容器）/ Modal / Drawer / Confirm / Command / Img（mask 全屏遮罩）/ TreeSelect。
+
+**usePopupPosition 独立用户**：Affix / Chart（tooltip）——坐标工具（非弹窗组合器），滚动跟随自动。
 
 #### `ctx.ui.useHoverCapable()` / `useLongPress()` / `useVisualViewport()` — 移动端原语
 
@@ -423,10 +430,10 @@ const vv = ctx.ui.useVisualViewport()
 
 ```tsx
 // 组件 A：mount 阶段注册自定义 ID
-const StatsPanel = (_init, ctx) => {
+const StatsPanel = async (_init, ctx) => {
   ctx.ui.selfId('stats')
   let data: unknown[] = []
-  return (props) => h('div', {}, String(data.length))
+  return async (props) => h('div', {}, String(data.length))
 }
 
 // 组件 B（或其他任何地方）用 ID 精准刷新
@@ -455,7 +462,7 @@ const chat = ctx.ui.useChat({
 // 子组件订阅会话变化（AiChat 已内置 useExternal）：
 // const state = ctx.ui.useExternal(chat)
 
-return (props) =>
+return async (props) =>
   h('div', {},
     h(AiChat, { chat }),             // 标准对话界面：流式 token/工具卡/审批卡/自动滚动
     chat.streaming ? '生成中…' : '',  // 会话状态（直接读 handle）
@@ -618,9 +625,9 @@ store.set({ count: store.state.count + 1 })  // 通知订阅者
 **组件库与业务层同一模式**：
 
 ```tsx
-const DatePicker = (_init, ctx) => {
+const DatePicker = async (_init, ctx) => {
   let show = false             // let 不触发渲染
-  return (props) =>
+  return async (props) =>
     h('input', {
       onClick: () => { show = true; ctx.ui.render() }
     })
@@ -634,9 +641,9 @@ const DatePicker = (_init, ctx) => {
 ```tsx
 const store = createStore({ orders: [], loading: false })
 
-const OrderPage = (_init, ctx) => {
+const OrderPage = async (_init, ctx) => {
   const state = ctx.ui.useExternal(store)   // 订阅：store 变更自动重渲染
-  return (props) => h('div', {}, state.loading ? h(Spinner) : h(OrderList, { orders: state.orders }))
+  return async (props) => h('div', {}, state.loading ? h(Spinner) : h(OrderList, { orders: state.orders }))
 }
 
 // 数据到达：store.set({ orders, loading: false }) → 订阅组件自动更新
@@ -738,10 +745,10 @@ const List = (_init, ctx) =>
 使用 `ref` prop 获取元素引用，适合管理第三方库或读取 DOM：
 
 ```tsx
-const Timer: Component = (_init, ctx) => {
+const Timer: Component = async (_init, ctx) => {
   let timer: ReturnType<typeof setInterval> | undefined
 
-  return (props) =>
+  return async (props) =>
     h('div', {
       ref: (el) => {
         if (el) {
@@ -773,7 +780,7 @@ return h('div', {},
 在 mount 阶段发起请求，数据到达后 `ctx.ui.render()` 触发渲染：
 
 ```tsx
-const UserProfile: Component = (initProps, ctx) => {
+const UserProfile: Component = async (initProps, ctx) => {
   let loading = true
   let user: { name?: string } | null = null
 
@@ -781,7 +788,7 @@ const UserProfile: Component = (initProps, ctx) => {
     .then(r => r.json())
     .then(u => { user = u; loading = false; ctx.ui.render() })
 
-  return (props) =>
+  return async (props) =>
     loading
       ? h('div', {}, '加载中...')
       : h('div', {}, user?.name ?? '')

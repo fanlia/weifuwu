@@ -63,9 +63,9 @@ const popup = ctx.ui.usePopup({
 // popup.portal(content, portalKey) — 定位 + clamp + portal（挂载 #__wf_portal）
 ```
 
-**内置行为**：hover 桌面 / tap 触屏 / Escape（document 级，portal 内也可关）/ 外部点击 / 视口 clamp / 宽度 clamp。
+**内置行为**：hover 桌面 / tap 触屏 / Escape（document 级，portal 内也可关）/ 外部点击 / 视口 clamp / 宽度 clamp / focus 触发（DatePicker） / mask 遮罩（Command/Img/Tour）/ 会话级模态（Modal/Drawer/Confirm——presence 退场 + trapFocus + lockScroll + positioning 'none'）。
 
-**边界**：Modal/Drawer 全屏对话框不进 usePopup（focus-trap/scroll-lock 各自实现）。
+**全部弹窗统一 usePopup 单一入口**（锚定浮层 + 居中模态 + 通知 + 引导 + 日历）；`usePopupPosition` 仅 Affix/Chart 坐标工具独立使用。
 
 ## 四、手势原语
 

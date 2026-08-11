@@ -13,8 +13,8 @@
 import { h, type Component } from 'weifuwu/ui-dom'
 
 // Component<P, C>：P = props（JSX 自动推断），C = ctx 注入依赖（默认 {}）
-const Badge: Component<{ text: string; color?: string }> = () =>
-  (props) => h('span', { class: 'my-badge', style: { color: props.color } }, props.text)
+const Badge: Component<{ text: string; color?: string }> = async () =>
+  async (props) => h('span', { class: 'my-badge', style: { color: props.color } }, props.text)
 ```
 
 - 两阶段：外层 `(initProps, ctx) => …` 只执行一次（mount），内层 `(props) => Promise<VNode>` 每次渲染执行（renderFn 强制异步——可 await 数据）
@@ -44,10 +44,10 @@ const AiChat = async (initProps, ctx) => {
 ## 1. 有状态组件
 
 ```tsx
-const Toggle: Component = (_init, ctx) => {
+const Toggle: Component = async (_init, ctx) => {
   let on = false        // 普通对象状态（render-only：无 $ Proxy）
 
-  return (props) => h('button', {
+  return async (props) => h('button', {
     class: 'my-toggle',
     onClick: () => { on = !on; ctx.ui.render() },   // 改状态后显式 render()
   }, on ? '开' : '关')
@@ -65,7 +65,7 @@ const Toggle: Component = (_init, ctx) => {
 用 `ctx.ui.usePopup`——一个组合器收敛 open 状态 + 触发（hover→tap 降级/longpress）+ Escape + 外部点击 + 定位/视口 clamp + portal：
 
 ```tsx
-const MyPopover: Component<{ content: string }> = (_init, ctx) => {
+const MyPopover: Component<{ content: string }> = async (_init, ctx) => {
   let open = false
   let wrapEl: HTMLElement | null = null
   const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
@@ -80,7 +80,7 @@ const MyPopover: Component<{ content: string }> = (_init, ctx) => {
     closeOnEscape: true,       // Escape 关闭（默认，document 级——portal 焦点也生效）
   })
 
-  return (props) =>
+  return async (props) =>
     h('span', { class: 'anchor', ref: wrapRef, ...popup.wrapProps },
       props.children,
       popup.portal(h('div', { class: 'wf-panel' }, props.content)),
@@ -95,7 +95,7 @@ const MyPopover: Component<{ content: string }> = (_init, ctx) => {
 全屏对话框（焦点 trap + 滚动锁 + 退场动画）是 usePopup 的**会话级模态模式**（`presence/trapFocus/lockScroll/positioning: 'none'`——Modal/Drawer 同款）：
 
 ```tsx
-const MyDialog: Component<{ open: boolean; onClose: () => void }> = (_init, ctx) => {
+const MyDialog: Component<{ open: boolean; onClose: () => void }> = async (_init, ctx) => {
   let latestOpen = false
   const popup = ctx.ui.usePopup({
     presence: true,      // 退场状态机（open → exit → closed + animationend）
@@ -107,7 +107,7 @@ const MyDialog: Component<{ open: boolean; onClose: () => void }> = (_init, ctx)
     setOpen: () => {},
   })                     // mount 创建
 
-  return (props) => {
+  return async (props) => {
     latestOpen = !!props.open
     const phase = popup.sync!(latestOpen)                // render 同步 open
     if (phase === 'closed') return null
@@ -117,22 +117,23 @@ const MyDialog: Component<{ open: boolean; onClose: () => void }> = (_init, ctx)
       onClick: (e: any) => { if (e.target === e.currentTarget) props.onClose() },
     }, h('div', {
       class: `wf-modal ${phase === 'exit' ? 'wf-modal--exit' : 'wf-modal--enter'}`,
-      ref: dialog.panelRef,                                // 焦点 trap 目标
       onKeyDown: (e: any) => { if (e.key === 'Escape') props.onClose() },  // Escape 语义组件层
-    }, props.children)), document.body)
+    }, props.children)), 'modal')   // portalKey 语义化（#__wf_portal 容器标记）
   }
 }
 ```
 
-> `dialog.rootRef` 挂到 portal 根（lockScroll + animationend 退场监听）；`panelRef` 挂到面板（trapFocus）。
-> 低层原语 `trapFocus`/`lockScroll`/`animateOut` 仍从 `weifuwu/ui-dom` 导出（特殊场景组装用）。
+> **ref 接线**：`trapFocus`/`lockScroll`/presence 退场监听全部由 usePopup 内部接线到 portal 面板
+> （`portalPanelRef`——content 的 `ref` prop 会被转发调用）——组件层无需手挂 `rootRef`/`panelRef`。
+> 低层原语 `trapFocus`/`lockScroll` 已收编为 usePopup 内部实现（**不对外导出**——AGENTS.md §5.4）；
+> `animateOut` 仍从 `weifuwu/ui-dom` 导出（非弹窗动画场景用）。
 
 ## 4. AI 组件
 
 会话语义由 `ctx.ui.useChat` 提供（消息/流式/工具/审批/stop/retry 全封装），返回的 handle 与 `$` 同一容器：
 
 ```tsx
-const ChatPanel: Component = (_init, ctx) => {
+const ChatPanel: Component = async (_init, ctx) => {
   const chat = ctx.ui.useChat({
     url: '/api/chat',
     approveUrl: '/api/approve',   // HITL 审批上行（缺省 approve() 只清卡片）
@@ -156,7 +157,7 @@ const ChatPanel: Component = (_init, ctx) => {
 const UserCard = async (initProps, ctx) => {
   const user = await ctx.data.get(`/api/user/${initProps.userId}`)  // 三场景：SSR→__DATA__ / hydration 种子 / SPA fetch
   let liked = false
-  return (props) => h('div', {}, user.name, h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }))
+  return async (props) => h('div', {}, user.name, h('button', { onClick: () => { liked = !liked; ctx.ui.render() } }))
 }
 ```
 
@@ -167,15 +168,15 @@ const UserCard = async (initProps, ctx) => {
 ## 6. 类型纪律（编译期防线）
 
 ```tsx
-const Badge: Component<{ variant: 'primary' | 'muted' }> = () =>
-  (props) => h('span', { class: `badge-${props.variant}` }, props.children)
+const Badge: Component<{ variant: 'primary' | 'muted' }> = async () =>
+  async (props) => h('span', { class: `badge-${props.variant}` }, props.children)
 
 // 负例：variant 传错 → tsc 报错（@ts-expect-error 是类型流测试的写法）
 // @ts-expect-error variant 不允许 'bogus'
 const bad: { variant: 'primary' | 'muted' } = { variant: 'bogus' }
 
 // ctx 注入声明（C 泛型）：声明了才能用，未声明编译期报错
-const Page: Component<{}, { api: ApiInjected['api'] }> = (_init, ctx) => {
+const Page: Component<{}, { api: ApiInjected['api'] }> = async (_init, ctx) => {
   ctx.api.get('/x')
   return () => null
 }
@@ -216,8 +217,8 @@ render() // 重渲染，状态保留
 新受控组件**必须**用 `ctx.ui.useControlled`（受控判定 + 缺回调 warn 一次 + 非受控内部状态跨渲染保持）：
 
 ```tsx
-const CollapseItem: Component<{ active?: boolean; onChange?: (v: boolean) => void }> = (_init, ctx) => {
-  return (props) => {
+const CollapseItem: Component<{ active?: boolean; onChange?: (v: boolean) => void }> = async (_init, ctx) => {
+  return async (props) => {
     const ctrl = ctx.ui.useControlled<boolean>({ value: props.active, onChange: props.onChange, name: 'CollapseItem' })
     return h('button', {
       onClick: () => ctrl.setValue(!(ctrl.value ?? false)),   // 受控走 onChange；非受控内部状态
@@ -245,10 +246,10 @@ const CollapseItem: Component<{ active?: boolean; onChange?: (v: boolean) => voi
 > SSR 安全（shim 安全默认）+ 测试 mock 单点 + 环境差异隔离。
 
 ```tsx
-const MyComp: Component = (_init, ctx) => {
+const MyComp: Component = async (_init, ctx) => {
   // mount 层取 browser（ctx.browser 优先，测试/无注入环境 fallback jsdom）
   const browser = ctx.browser ?? createClientBrowser()
-  return (props) =>
+  return async (props) =>
     h('button', {
       onClick: () => {
         // 复制/查询/存储/滚动——全部经 browser
@@ -290,9 +291,8 @@ const MyComp: Component = (_init, ctx) => {
 
 ## 已知边界（诚实裁剪）
 
-- `usePopup` 是**统一弹窗能力层**：锚定浮层（Tooltip/Popover/Dropdown/Mentions/Cascader/ContextMenu）+ 会话级模态（Modal/Drawer——presence/trapFocus/lockScroll/positioning 'none'，Escape 语义留组件层）；Command/Img preview（mask/maskCentered）同入口
+- `usePopup` 是**统一弹窗能力层**：锚定浮层（Tooltip/Popover/Dropdown/Select/AutoComplete/Mentions/Cascader/ContextMenu/NavMenu/Popconfirm/TreeSelect）+ 会话级模态（Modal/Drawer/Confirm——presence/trapFocus/lockScroll/positioning 'none'，Escape 语义留组件层）+ mask 模式（Command/Img preview/Tour——mask/maskCentered/自定义 mask VNode）+ focus 触发（DatePicker）+ positioning 'none' 常驻容器（Toast/Notification）——**全部弹窗单一入口**
 - **事件监听纪律**：组件库内部浏览器事件监听**统一走 `ctx.ui.useXXX`**——滚动/观察/弹层/对话框/快捷键/拖拽/DnD 全覆盖：
-  `useInView`（InfiniteScroll）、`useScrollPosition`（AiChat/Affix/BackTop/VirtualList）、`usePopupPosition`（Affix 阈值重算）、`usePopup`（ContextMenu 自由定位 + Modal/Drawer 模态模式）、`useGlobalKey`（Command 快捷键/Img preview Escape）、`useDrag`（Resizable）、`useDragDrop`（FileUpload）、`useControlled`/`useStableRef`（状态/ref）
-- 唯一保留：**DatePicker 元素级 `animationend`**（入场动画完成后坐标 settle——与 usePopup panelRef/motion.animateOut 同款框架基础设施，非浏览器全局事件）
-- **Select/DatePicker** 是 inline/absolute 菜单（自适宽），不迁移 usePopup——菜单直接挂在锚点下
+  `useInView`（InfiniteScroll）、`useScrollPosition`（AiChat/Affix/BackTop/VirtualList）、`usePopupPosition`（Affix 阈值重算）、`usePopup`（弹窗统一——ContextMenu 自由定位 + Modal/Drawer 模态模式 + mask 遮罩）、`useGlobalKey`（Command 快捷键/Img preview Escape）、`useDrag`（Resizable）、`useDragDrop`（FileUpload）、`useControlled`/`useStableRef`（状态/ref）
+- **唯一保留 usePopupPosition 独立使用**：Affix / Chart（坐标工具——非弹窗组合器，滚动跟随自动）
 - `createReactiveState` 已导出：组件外建全局 store（`createReactiveState(() => {})` + `$.__watch(cb)` 订阅）

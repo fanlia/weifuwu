@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-113 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+113 个 HTML 原语组件。每个是 `async (initProps, ctx) => (props) => Promise<VNode>`（两阶段组件，与前端框架同一模型——外层工厂 + 内层 renderFn 强制异步），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 > **组件速查（weifuwu 组件 ↔ antd / Element Plus / shadcn-ui 对应 + 迁移示例）**：见 [`docs/components-map.md`](components-map.md)——从其他组件库迁来的开发者按功能直接找对应组件。
 > **自定义组件开发**：见 [docs/custom-components.md](custom-components.md)——usePopup/useControlled/对话框/AI 组件/类型纪律逐步指南。
@@ -133,9 +133,9 @@ import 'weifuwu/components/style.css'   // 包含 Token + 58 布局原语 + 136 
 
 ```
 mount ──────────────────────────────────────────
-  const Counter = (_init, ctx) => {       ← mount（只一次）
+  const Counter = async (_init, ctx) => {   ← mount（只一次，可 await）
     let count = 0                           ← 初始化状态
-    return (props) => {                     ← render 函数
+    return async (props) => {               ← renderFn（强制异步）
       // ...                                 ← 每次 dirty/props 变化执行
     }
   }
@@ -149,7 +149,7 @@ ref ─────────────────────────�
   })
 
 props 变化 ─────────────────────────────────────
-  return (props) => {
+  return async (props) => {
     // 每次 render 都收到最新 props           ← 相当于 onupdate
     if (props.value !== prevValue) { ... }
   }

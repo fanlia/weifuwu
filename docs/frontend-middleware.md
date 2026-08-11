@@ -131,8 +131,8 @@ app.use(auth())
 uiServe(app, { root: '#root' })
 
 // 在组件中
-function Profile(_props: {}, ctx: WfuiContext) {
-  return (props) => {
+async function Profile(_props: {}, ctx: WfuiContext) {
+  return async (props) => {
     if (!ctx.auth?.isLoggedIn) return <p>请登录</p>
     return <p>欢迎, {ctx.auth?.user?.name}</p>
   }
