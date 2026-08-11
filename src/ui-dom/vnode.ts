@@ -125,17 +125,27 @@ export function isNative(vnode: VNode): boolean {
  *  栈展开（索引遍历替代 shift/unshift 头部操作——长数组 O(n) 而非 O(n²)）；逆序入栈 + pop 保持原顺序 */
 export function normalizeChildren(c: VNodeChild | undefined | null): VNodeChild[] {
   if (c == null || typeof c === 'boolean') return []
-  const out: VNodeChild[] = []
-  const stack: VNodeChild[] = Array.isArray(c) ? [...c].reverse() : [c]
-  while (stack.length > 0) {
-    const item = stack.pop()!
-    if (Array.isArray(item)) {
-      for (let i = item.length - 1; i >= 0; i--) stack.push(item[i])
-    } else {
-      out.push(item)
+  // V3-3b：已扁平数组（无嵌套数组项）→ 零拷贝返回原引用（patchChildren 每次调用都跑——
+  // 省数组重建 + 栈展开；嵌套数组仍展开）
+  if (Array.isArray(c)) {
+    let nested = false
+    for (let i = 0; i < c.length; i++) {
+      if (Array.isArray(c[i])) { nested = true; break }
     }
+    if (!nested) return c
+    const out: VNodeChild[] = []
+    const stack: VNodeChild[] = [...c].reverse()
+    while (stack.length > 0) {
+      const item = stack.pop()!
+      if (Array.isArray(item)) {
+        for (let i = item.length - 1; i >= 0; i--) stack.push(item[i])
+      } else {
+        out.push(item)
+      }
+    }
+    return out
   }
-  return out
+  return [c]
 }
 
 export function isComponent(vnode: VNode): boolean {

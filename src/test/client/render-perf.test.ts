@@ -312,6 +312,31 @@ test('perf(v3): 1000 行 native 列表 build/render/patch 耗时分解', async (
   container.remove()
 })
 
+test('perf(v3): patchChildren 引用短路——稳定数组透传 → 未变项零递归（V3-3a）', async () => {
+  const { browser, registry, ctx } = makeProbeCtx()
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  // 稳定数组：renderFn 原样透传 props.items（引用跨 render 不变）——未变项 newC === oldC
+  const stableItems = nativeRows(0, 200)
+  const vroot = h('div', { class: 'list' }, stableItems)
+  const built = await buildVNode(vroot, ctx, undefined, registry)
+  const node = renderValue(built, ctx, browser)
+  container.appendChild(node)
+
+  // 第二次 render：同数组引用（未变）→ 引用短路应跳过全部 patchValue 递归
+  const vroot2 = h('div', { class: 'list' }, stableItems)  // children 引用相同
+  const built2 = await buildVNode(vroot2, ctx, vroot, registry)
+  // 计数：patchValue 是否对未变项短路——用 DOM 写计数（短路 = 0 节点操作）
+  const counter = installDomCounter()
+  const patchCtx = { browser, registry, ctxVersion: 0 } as any
+  patchValue(container, container.firstChild, vroot._child, built2._child, patchCtx)
+  const writes = counter.count()
+  assert.equal(writes, 0, `稳定数组透传 → 引用短路零 DOM 操作（实际 ${writes}）`)
+  assert.equal(container.querySelectorAll('.row').length, 200, '200 行保持')
+  console.log(`[perf-v3] 引用短路（200 项稳定数组透传）: DOM 写 = ${writes}`)
+  container.remove()
+})
+
 test('perf(v3): 文本节点更新方式对比（nodeValue vs replaceChild——V3-1 前后对照）', () => {
   const el = document.createElement('div')
   document.body.appendChild(el)

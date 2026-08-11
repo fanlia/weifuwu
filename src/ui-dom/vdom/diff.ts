@@ -104,6 +104,10 @@ export function patchValue(
     return null
   }
   if (Array.isArray(newInput)) {
+    // V3-3a：数组引用相同 → 内容未变（构建产物不可变约定——renderFn 返回稳定数组
+    // 引用透传；引用相同 = 未变，patchChildren 短路返回旧节点后 frag 重建会把旧节点
+    // append 移动（无意义 DOM 写——200 项短路 → 200 次 append）——顶层直接短路零操作）
+    if (oldInput === newInput && oldNode?.parentNode) return oldNode
     // 数组 patch（patchChildren 处理——顶层数组转 fragment 语义）
     const frag = parent.ownerDocument!.createDocumentFragment()
     const range = patchChildren(parent, oldInput, newInput, ctx, oldNode ? [oldNode] : undefined)
@@ -161,6 +165,16 @@ export function patchValue(
     }
     const oldV = oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) ? (oldInput as VNode) : null
 
+    // 三态 skip（V3-3c 前置——P-2 简化：diff 完全信任 buildVNode 产出——剪枝命中时 buildVNode
+    // 直接复用旧 _child（引用相等 = 剪枝已通过 props/版本判断），diff 无需再比 props/版本；
+    // force/版本变化路径 buildVNode 已重跑 renderFn（_child 是新树，引用不等 → 不 skip）
+    // 必须同类型——导航 A→B 不同组件不得 skip，否则复用 A 的 _child → 页面不切换）
+    // 前置到 id 传递/registry 注册之前——skip 时省 registry 写（V3-3c）
+    const typeSame = oldV?.type === newV.type
+    if (!ctx.force && oldV && typeSame && oldV._child !== undefined && newV._child === oldV._child) {
+      return oldNode
+    }
+
     // id 传递 + 注册
     if (oldV?.type === newV.type && oldV._id) {
       newV._id = oldV._id
@@ -168,15 +182,6 @@ export function patchValue(
     }
     newV._parentNode = parent
     if (oldNode) newV._refNode = oldNode
-
-    // 三态 skip（P-2 简化）：diff 完全信任 buildVNode 产出——剪枝命中时 buildVNode
-    // 直接复用旧 _child（引用相等 = 剪枝已通过 props/版本判断），diff 无需再比 props/版本；
-    // force/版本变化路径 buildVNode 已重跑 renderFn（_child 是新树，引用不等 → 不 skip）
-    // 必须同类型——导航 A→B 不同组件不得 skip，否则复用 A 的 _child → 页面不切换
-    const typeSame = oldV?.type === newV.type
-    if (!ctx.force && oldV && typeSame && oldV._child !== undefined && newV._child === oldV._child) {
-      return oldNode
-    }
 
     // 渲染输出（_child 必已由 buildVNode 预构建——renderFn 强制异步，diff 同步上下文
     // 永不执行 renderFn：异步 renderFn 在此执行会拿到 Promise → 泄漏进同步 diff）
@@ -343,6 +348,16 @@ export function patchChildren(
         const on = oldNodes[i]
         if (on?.parentNode) on.parentNode.removeChild(on)
         out.push(null)
+        continue
+      }
+      // V3-3a：引用短路——newC === oldC（vnode 引用相等 = 子树未变——JS 对象不可变约定）
+      // → 跳过 patchValue 全递归（未变项零开销）。命中场景：renderFn 返回稳定数组引用
+      // （props.items 原样透传）+ build 同步构建的 native 项（引用保持）；组件项剪枝
+      // 已由 patchValue 组件 skip 覆盖（此处短路仅原生项）
+      if (oldC != null && typeof oldC === 'object' && !Array.isArray(oldC) &&
+          newC != null && typeof newC === 'object' && !Array.isArray(newC) &&
+          newC === oldC) {
+        out.push(oldNodes[i])
         continue
       }
       if (oldC == null || typeof oldC === 'boolean') {
