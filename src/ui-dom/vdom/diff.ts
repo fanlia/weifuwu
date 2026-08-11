@@ -212,8 +212,21 @@ export function patchValue(
   // 新增/替换
   const node = renderValue(newV, ctx, ctx.browser ?? createClientBrowser())
   if (node == null) return null
-  if (oldNode?.parentNode) oldNode.parentNode.replaceChild(node, oldNode)
-  else parent.appendChild(node)
+  if (oldNode?.parentNode) {
+    if (oldInput != null && typeof oldInput !== 'boolean') {
+      // 替换（oldInput 存在——object/string/数组）：清理旧 ref（object 时）+ replaceChild。
+      // 注意 oldInput 为 string（文本→元素）也必须 replaceChild——不能 insertBefore（旧文本残留）
+      if (typeof oldInput === 'object' && !Array.isArray(oldInput)) {
+        try { callRefCleanupFor(oldInput as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
+      }
+      oldNode.parentNode.replaceChild(node, oldNode)
+    } else {
+      // 新增（oldInput null/boolean + 锚点存在）：插入到锚点前——位置正确（v1 insertBefore 行为）
+      oldNode.parentNode.insertBefore(node, oldNode)
+    }
+  } else {
+    parent.appendChild(node)
+  }
   return node
 }
 

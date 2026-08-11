@@ -132,3 +132,41 @@ test('datetime 选中日期：portal 面板复用不重建', async () => {
   assert.equal(overlay2, overlay1, 'overlay 应复用')
   handle.unmount()
 })
+
+// ── v1 setProp/patchValue 对比遗漏（v1 引擎退役核对） ──
+test('CSS 变量（--wf-*）对象 style + aria boolean（v1 setProp 对比）', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  const { ctx } = handle
+  await handle.mount(h('div', {}, h('div', { class: 't1', style: { '--wf-cols': 'repeat(2, 1fr)', color: 'red' }, 'aria-expanded': true } as any)))
+  await flush()
+  const el = root.querySelector('.t1') as HTMLElement
+  assert.equal(el.style.getPropertyValue('--wf-cols'), 'repeat(2, 1fr)', 'CSS 变量 setProperty 生效')
+  assert.equal(el.style.color, 'red')
+  assert.equal(el.getAttribute('aria-expanded'), 'true', 'aria boolean 显式 true')
+  handle.unmount()
+})
+
+test('select value 在 options 后设置 + 替换时旧 ref 清理', async () => {
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  const { ctx } = handle
+  await handle.mount(h('div', {}, h('select', { id: 'sel', value: 'b' } as any, [
+    h('option', { value: 'a' } as any, 'A'),
+    h('option', { value: 'b' } as any, 'B'),
+  ])))
+  await flush()
+  assert.equal((root.querySelector('#sel') as HTMLSelectElement).value, 'b', 'select.value 在 options 后设置')
+
+  // 替换（类型变化）：旧 ref(null) 调用
+  let cleaned = 0
+  await handle.mount(h('div', {}, h('span', { id: 'old', ref: () => { cleaned++ } } as any, 'x')))
+  await flush()
+  await handle.mount(h('div', {}, h('div', { id: 'new' } as any, 'y')))
+  await flush()
+  assert.equal(root.querySelector('#new')?.textContent, 'y', '新元素渲染')
+  assert.equal(cleaned, 1, '类型替换旧 ref(null) 调用（v1 patchValue 行为）')
+  handle.unmount()
+})

@@ -37,6 +37,7 @@ export function setProp(el: Element, key: string, value: any): void {
       const st = (el as HTMLElement).style
       for (const [k, v] of Object.entries(value)) {
         if (v == null) { (st as any)[k] = '' }  // null/undefined → 删除样式属性（§6.4 style 只设不删修复）
+        else if (k.startsWith('--')) { st.setProperty(k, String(v)) }  // CSS 变量必须 setProperty（st['--x']=v 静默失败——--wf-cols 事故，v1 处理）
         else if (typeof v === 'number' && !UNITLESS_PROPS.has(k)) { (st as any)[k] = `${v}px` }  // 数字加 px（top/left/width 等——无单位值被浏览器忽略 → 坐标丢失）
         else (st as any)[k] = String(v)
       }
@@ -65,6 +66,11 @@ export function setProp(el: Element, key: string, value: any): void {
   }
   if (key === 'draggable' || key === 'contenteditable' || key === 'spellcheck') {
     // enumerated 属性：空字符串解析为 false（draggable 事故）——显式 true/false
+    el.setAttribute(key, value ? 'true' : 'false')
+    return
+  }
+  if (key.startsWith('aria-') && typeof value === 'boolean') {
+    // aria-* 枚举语义属性（同 draggable）：aria-expanded="" 解析为非标准值——boolean 必须显式 'true'/'false'
     el.setAttribute(key, value ? 'true' : 'false')
     return
   }
@@ -164,8 +170,12 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
   if (!el) return null
   vnode.el = el
 
+  // select value 延后设置（v1 处理）：options 生成前设置 select.value 无效——
+  // 必须在 children（option）渲染后赋值
+  let selectValue: any
   for (const [key, value] of Object.entries(vnode.props ?? {})) {
     if (key === 'children' || key === 'key') continue
+    if (key === 'value' && el instanceof HTMLSelectElement) { selectValue = value; continue }
     setProp(el, key, value)
   }
   if (!('innerHTML' in (vnode.props ?? {}))) {
@@ -183,6 +193,10 @@ export function renderValue(v: VNodeChild, ctx: any, browser?: BrowserEnv): Node
         }
       }
     }
+  }
+  // select value 在 options 生成后设置（v1 处理——value 属性延后）
+  if (selectValue !== undefined) {
+    ;(el as HTMLSelectElement).value = String(selectValue)
   }
   return el
 }
