@@ -1,5 +1,11 @@
 /* weifuwu/components — ContextMenu */
 
+.wf-context-menu-trigger {
+  /* 锚定容器收缩（flex 父容器 blockify 兜底——同 Dropdown） */
+  display: inline-block;
+  width: fit-content;
+}
+
 .wf-context-menu {
   position: fixed;
   z-index: var(--wf-z-popover);

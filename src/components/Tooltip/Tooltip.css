@@ -1,7 +1,9 @@
 /* weifuwu/components — Tooltip */
 
 .wf-tooltip-wrap {
+  /* flex 父容器 blockify 兜底（同 Dropdown） */
   display: inline-flex;
+  width: fit-content;
 }
 
 .wf-tooltip {
