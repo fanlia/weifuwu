@@ -75,7 +75,7 @@ const defaultLabels: AiChatLabels = {
 
 // ── 组件 ─────────────────────────────────────────────────
 
-export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
+export const AiChat: Component<AiChatProps> = async (initProps, ctx) => {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── 手动状态（组件库约定：let + 事件，不依赖 $）──
   let listEl: HTMLElement | undefined

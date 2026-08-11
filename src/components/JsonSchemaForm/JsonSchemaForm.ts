@@ -112,7 +112,7 @@ function validateField(s: JsonSchema, val: any, required = false): string | unde
   return undefined
 }
 
-export const JsonSchemaForm: Component<JsonSchemaFormProps, WfuiContext> = (initProps, ctx) => {
+export const JsonSchemaForm: Component<JsonSchemaFormProps, WfuiContext> = async (initProps, ctx) => {
   // ── 手动状态（组件库纪律：let + render()；value 仅初始值）──
   let values: Record<string, any> = cloneValues(initProps.value)
 

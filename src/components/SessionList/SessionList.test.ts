@@ -13,8 +13,8 @@ const sessions: Session[] = [
 ]
 
 describe('SessionList', () => {
-  it('渲染会话 + 时间分组（今天/昨天/更早）', () => {
-    const v = renderVNode(SessionList, { sessions }, createTestCtx())!
+  it('渲染会话 + 时间分组（今天/昨天/更早）', async () => {
+    const v = await renderVNode(SessionList, { sessions }, createTestCtx())!
     const groups = findByClass(v, 'wf-session-group-title')
     const labels = groups.map((g: any) => g.props.children)
     assert.ok(labels.includes('今天'), `分组缺今天: ${labels.join(',')}`)
@@ -24,8 +24,8 @@ describe('SessionList', () => {
     assert.equal(rows.length, 4)
   })
 
-  it('activeId → 高亮 class + aria-selected', () => {
-    const v = renderVNode(SessionList, { sessions, activeId: 's2' }, createTestCtx())!
+  it('activeId → 高亮 class + aria-selected', async () => {
+    const v = await renderVNode(SessionList, { sessions, activeId: 's2' }, createTestCtx())!
     const rows = findByClass(v, 'wf-session-item')
     const s2 = rows.find((r: any) => r.props['data-id'] === 's2')
     assert.ok(String(s2.props.class).includes('--active'), '高亮')
@@ -34,28 +34,28 @@ describe('SessionList', () => {
     assert.ok(!String(s1.props.class).includes('--active'))
   })
 
-  it('点击会话 → onSelect(id)', () => {
+  it('点击会话 → onSelect(id)', async () => {
     let selected: string | undefined
-    const v = renderVNode(SessionList, { sessions, onSelect: (id: string) => { selected = id } }, createTestCtx())!
+    const v = await renderVNode(SessionList, { sessions, onSelect: (id: string) => { selected = id } }, createTestCtx())!
     const rows = findByClass(v, 'wf-session-item')
     rows[1].props.onClick()
     assert.equal(selected, 's2')
   })
 
-  it('悬停删除按钮 → onDelete(id)', () => {
+  it('悬停删除按钮 → onDelete(id)', async () => {
     let deleted: string | undefined
-    const v = renderVNode(SessionList, { sessions, onDelete: (id: string) => { deleted = id } }, createTestCtx())!
+    const v = await renderVNode(SessionList, { sessions, onDelete: (id: string) => { deleted = id } }, createTestCtx())!
     const delBtns = findByClass(v, 'wf-session-del')
     assert.equal(delBtns.length, 4, '每行删除按钮')
     delBtns[0].props.onClick({ stopPropagation: () => {} })
     assert.equal(deleted, 's1')
   })
 
-  it('重命名：编辑按钮 → 行内输入 → Enter → onRename(id, title)', () => {
+  it('重命名：编辑按钮 → 行内输入 → Enter → onRename(id, title)', async () => {
     let renamed: { id: string; title: string } | undefined
     const ctx = createTestCtx()
     const props = { sessions, onRename: (id: string, title: string) => { renamed = { id, title } } }
-    const render = mountComponent(SessionList, props, ctx)
+    const render = await mountComponent(SessionList, props, ctx)
     let v = render()
     const editBtns = findByClass(v, 'wf-session-rename')
     editBtns[0].props.onClick({ stopPropagation: () => {} })
@@ -68,11 +68,11 @@ describe('SessionList', () => {
     assert.ok(renamed && renamed.id === 's1' && renamed.title === '改后的标题')
   })
 
-  it('重命名 Escape 取消（不触发 onRename）', () => {
+  it('重命名 Escape 取消（不触发 onRename）', async () => {
     let renamed = false
     const ctx = createTestCtx()
     const props = { sessions, onRename: () => { renamed = true } }
-    const render = mountComponent(SessionList, props, ctx)
+    const render = await mountComponent(SessionList, props, ctx)
     let v = render()
     findByClass(v, 'wf-session-rename')[0].props.onClick({ stopPropagation: () => {} })
     v = render()
@@ -82,10 +82,10 @@ describe('SessionList', () => {
     assert.equal(findByClass(v, 'wf-session-rename-input').length, 0, '输入框收起')
   })
 
-  it('搜索过滤（searchable）：按标题匹配', () => {
+  it('搜索过滤（searchable）：按标题匹配', async () => {
     const ctx = createTestCtx()
     const props = { sessions, searchable: true }
-    const render = mountComponent(SessionList, props, ctx)
+    const render = await mountComponent(SessionList, props, ctx)
     let v = render()
     const search = findByClass(v, 'wf-session-search')[0]
     assert.ok(search, '搜索框')
@@ -96,20 +96,20 @@ describe('SessionList', () => {
     assert.ok(JSON.stringify(rows[0].props.children).includes('昨天'))
   })
 
-  it('新建按钮 → onNew', () => {
+  it('新建按钮 → onNew', async () => {
     let clicked = false
-    const v = renderVNode(SessionList, { sessions, onNew: () => { clicked = true } }, createTestCtx())!
+    const v = await renderVNode(SessionList, { sessions, onNew: () => { clicked = true } }, createTestCtx())!
     const btn = findByClass(v, 'wf-session-new')[0]
     assert.ok(btn)
     btn.props.onClick()
     assert.equal(clicked, true)
   })
 
-  it('键盘：方向键移动选中 + Enter 激活', () => {
+  it('键盘：方向键移动选中 + Enter 激活', async () => {
     let selected: string | undefined
     const ctx = createTestCtx()
     const props = { sessions, activeId: 's1', onSelect: (id: string) => { selected = id } }
-    const render = mountComponent(SessionList, props, ctx)
+    const render = await mountComponent(SessionList, props, ctx)
     let v = render()
     const list = findByClass(v, 'wf-session-list')[0]
     // ArrowDown：s1 → s2（焦点移动，--focus 视觉）
@@ -123,8 +123,8 @@ describe('SessionList', () => {
     assert.equal(selected, 's2')
   })
 
-  it('空列表 → 空态提示', () => {
-    const v = renderVNode(SessionList, { sessions: [] }, createTestCtx())!
+  it('空列表 → 空态提示', async () => {
+    const v = await renderVNode(SessionList, { sessions: [] }, createTestCtx())!
     const empty = findByClass(v, 'wf-session-empty')
     assert.equal(empty.length, 1)
   })

@@ -42,8 +42,11 @@ export function renderVNode(Comp: any, props: Record<string, any>, ctx: WfuiCont
  * 同实例渲染器：mount 一次，之后每次调用重跑内层 render（保留内部 `let` 状态）。
  * 交互测试（点击/输入后状态流转）必须用这个——`renderVNode` 每次是新 mount 会丢状态。
  */
-export function mountComponent(Comp: any, props: Record<string, any>, ctx: WfuiContext): () => VNode | null {
+export function mountComponent(Comp: any, props: Record<string, any>, ctx: WfuiContext): (() => VNode | null) | Promise<() => VNode | null> {
   const inner = Comp(props, ctx)
+  if (inner instanceof Promise) {
+    return inner.then((fn) => () => (typeof fn === 'function' ? fn(props) : fn))
+  }
   return () => (typeof inner === 'function' ? inner(props) : inner)
 }
 

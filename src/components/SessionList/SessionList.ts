@@ -55,7 +55,7 @@ export function groupKey(t: number, now = Date.now()): 'today' | 'yesterday' | '
 
 const GROUP_LABEL: Record<string, string> = { today: '今天', yesterday: '昨天', earlier: '更早' }
 
-export const SessionList: Component<SessionListProps, WfuiContext> = (_init, ctx) => {
+export const SessionList: Component<SessionListProps, WfuiContext> = async (_init, ctx) => {
   // ── 手动状态（组件库纪律：let + render()）──
   let keyword = ''
   let renamingId: string | undefined

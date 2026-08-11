@@ -28,8 +28,8 @@ const schema: JsonSchema = {
 }
 
 describe('JsonSchemaForm', () => {
-  it('对象 schema → 各类型控件渲染', () => {
-    const v = renderVNode(JsonSchemaForm, { schema }, createTestCtx())!
+  it('对象 schema → 各类型控件渲染', async () => {
+    const v = await renderVNode(JsonSchemaForm, { schema }, createTestCtx())!
     assert.equal(ofType(v, Input).length, 1, 'string → Input')
     assert.equal(ofType(v, InputNumber).length, 1, 'integer → InputNumber')
     assert.equal(ofType(v, Switch).length, 1, 'boolean → Switch')
@@ -44,9 +44,9 @@ describe('JsonSchemaForm', () => {
     assert.equal(cityField.props.required, true)
   })
 
-  it('required 校验：缺值提交 → 错误展示 + onSubmit 不触发', () => {
+  it('required 校验：缺值提交 → 错误展示 + onSubmit 不触发', async () => {
     let submitted: any = null
-    const render = mountComponent(JsonSchemaForm, { schema, onSubmit: (vals: any) => { submitted = vals } }, createTestCtx())
+    const render = await mountComponent(JsonSchemaForm, { schema, onSubmit: (vals: any) => { submitted = vals } }, createTestCtx())
     const v = render()
     const btn = findByClass(v, 'wf-jsf-submit')[0]
     assert.ok(btn, '提交按钮')
@@ -55,9 +55,9 @@ describe('JsonSchemaForm', () => {
     assert.ok(fieldErr(v).length >= 1, '错误展示')
   })
 
-  it('编辑 string 字段 → onChange 通知 + 值更新', () => {
+  it('编辑 string 字段 → onChange 通知 + 值更新', async () => {
     let changed: any = null
-    const render = mountComponent(JsonSchemaForm, { schema, onChange: (v2: any) => { changed = v2 } }, createTestCtx())
+    const render = await mountComponent(JsonSchemaForm, { schema, onChange: (v2: any) => { changed = v2 } }, createTestCtx())
     let v = render()
     const input = ofType(v, Input)[0]
     input.props.onInput({ target: { value: '北京' } })
@@ -67,9 +67,9 @@ describe('JsonSchemaForm', () => {
     assert.equal(ofType(v, Input)[0].props.value, '北京')
   })
 
-  it('校验通过 → onSubmit 触发', () => {
+  it('校验通过 → onSubmit 触发', async () => {
     let submitted: any = null
-    const v = renderVNode(JsonSchemaForm, {
+    const v = await renderVNode(JsonSchemaForm, {
       schema, value: { city: '北京', days: 7 },
       onSubmit: (vals: any) => { submitted = vals },
     }, createTestCtx())!
@@ -78,7 +78,7 @@ describe('JsonSchemaForm', () => {
     assert.equal(submitted.city, '北京')
   })
 
-  it('嵌套 object 递归渲染', () => {
+  it('嵌套 object 递归渲染', async () => {
     const nested: JsonSchema = {
       type: 'object',
       properties: {
@@ -88,18 +88,18 @@ describe('JsonSchemaForm', () => {
         },
       },
     }
-    const v = renderVNode(JsonSchemaForm, { schema: nested }, createTestCtx())!
+    const v = await renderVNode(JsonSchemaForm, { schema: nested }, createTestCtx())!
     assert.ok(findByClass(v, 'wf-jsf-obj').length >= 1, '嵌套容器')
     assert.equal(ofType(v, InputNumber).length, 2, '嵌套字段递归')
   })
 
-  it('array 字段：添加/删除项', () => {
+  it('array 字段：添加/删除项', async () => {
     const arrSchema: JsonSchema = {
       type: 'object',
       properties: { tags: { type: 'array', title: '标签', items: { type: 'string' } } },
     }
     let changed: any = null
-    const render = mountComponent(JsonSchemaForm, { schema: arrSchema, onChange: (v2: any) => { changed = v2 } }, createTestCtx())
+    const render = await mountComponent(JsonSchemaForm, { schema: arrSchema, onChange: (v2: any) => { changed = v2 } }, createTestCtx())
     let v = render()
     assert.equal(findByClass(v, 'wf-jsf-arr-item').length, 0, '初始空数组')
     findByClass(v, 'wf-jsf-arr-add')[0].props.onClick() // 添加
@@ -110,9 +110,9 @@ describe('JsonSchemaForm', () => {
     assert.ok(changed && changed.tags.length === 0, '删除后空')
   })
 
-  it('number 字段 min/max 校验', () => {
+  it('number 字段 min/max 校验', async () => {
     let submitted: any = null
-    const v = renderVNode(JsonSchemaForm, {
+    const v = await renderVNode(JsonSchemaForm, {
       schema, value: { city: '北京', days: 99 },
       onSubmit: (vals: any) => { submitted = vals },
     }, createTestCtx())!
@@ -121,12 +121,12 @@ describe('JsonSchemaForm', () => {
     assert.ok(fieldErr(v).length >= 1)
   })
 
-  it('不支持的 schema 项 → console.warn 降级为输入框', () => {
+  it('不支持的 schema 项 → console.warn 降级为输入框', async () => {
     const warns: string[] = []
     const orig = console.warn
     console.warn = (...a: any[]) => { warns.push(a.join(' ')) }
     try {
-      const v = renderVNode(JsonSchemaForm, {
+      const v = await renderVNode(JsonSchemaForm, {
         schema: { type: 'object', properties: { x: { type: 'null' }, y: { $ref: '#/defs/a' } } },
       }, createTestCtx())!
       // 降级：仍渲染 Input（文本输入逃生舱），不崩

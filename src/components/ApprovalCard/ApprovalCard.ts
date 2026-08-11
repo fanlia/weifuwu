@@ -44,7 +44,7 @@ const statusText: Record<ApprovalStatus, string> = {
   timeout: '审批超时',
 }
 
-export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
+export const ApprovalCard: Component<ApprovalCardProps> = async (_init, ctx) => {
   // ── 手动状态（组件库约定：mount 作用域 let + render，不依赖 $）──
   let note = ''
   let showNote = false

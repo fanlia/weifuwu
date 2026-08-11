@@ -26,7 +26,7 @@ export interface ReasoningBlockProps {
   streaming?: boolean
 }
 
-export const ReasoningBlock: Component<ReasoningBlockProps, WfuiContext> = (initProps, ctx) => {
+export const ReasoningBlock: Component<ReasoningBlockProps, WfuiContext> = async (initProps, ctx) => {
   let expanded = !!initProps.defaultExpanded
 
   return (props) => {

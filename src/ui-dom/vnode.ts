@@ -60,11 +60,15 @@ export interface VNode {
 /**
  * 两阶段组件：外层 = mount（一次），内层 = render（每次 dirty/props 变化）。
  * P = props 类型（JSX 自动推断），C = 组件依赖的 ctx 注入（如 ApiInjected & RouteInjected）
+ *
+ * 模式 A（design/async-mode-a-plan.md）：工厂可 async（返回 Promise<renderFn>）——
+ * 主路径 buildVNode await 全部（无占位）；动态挂载兑底占位 + 局部补全。
+ * 统一签名：同步/async 工厂同类型（唯一差别是 async 关键字——渲染器按返回值判别）。
  */
 export type Component<P = {}, C extends object = {}> = (
   initProps: P,
   ctx: WfuiContext & C,
-) => ((props: P) => VNode | null) | null
+) => ((props: P) => VNode | null) | null | Promise<((props: P) => VNode | null) | null>
 
 /**
  * 异步组件（统一签名——与 Component 同参，唯一差别是 async）：

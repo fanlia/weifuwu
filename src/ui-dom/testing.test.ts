@@ -41,8 +41,8 @@ describe('ui-dom/testing — renderVNode', () => {
 })
 
 describe('ui-dom/testing — mountComponent（同实例）', () => {
-  it('re-render 保留内部状态（renderVNode 每次新 mount 会丢）', () => {
-    const render = mountComponent(Counter, {}, createTestCtx())
+  it('re-render 保留内部状态（renderVNode 每次新 mount 会丢）', async () => {
+    const render = await mountComponent(Counter, {}, createTestCtx())
     let v = render()
     assert.equal(v!.props.children, '0')
     v!.props.onClick() // 内部 count++
@@ -50,8 +50,8 @@ describe('ui-dom/testing — mountComponent（同实例）', () => {
     assert.equal(v!.props.children, '1', '同实例状态保留')
   })
 
-  it('props 变化 re-render 同样保留状态', () => {
-    const render = mountComponent(Counter, {}, createTestCtx())
+  it('props 变化 re-render 同样保留状态', async () => {
+    const render = await mountComponent(Counter, {}, createTestCtx())
     render()
     const v2 = render()
     assert.equal(v2!.props.children, '0')
