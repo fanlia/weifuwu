@@ -99,6 +99,29 @@ test('perf: 首帧 1000 行 keyed 列表（DOM 写 = 行数级）', async () => 
   handle.unmount()
 })
 
+// ── 耗时基准（相对基线对比——不设死值，记录供优化前后对照） ──
+
+test('perf: 渲染耗时基线（首帧/更新/流式）', async () => {
+  const { handle, state, root } = await mountList(makeListData(1000))
+  await flush()
+  // 更新单行耗时（剪枝命中主路径——await render() = DOM 同步，无需 flush 等待）
+  const t0 = performance.now()
+  state.rows[500] = { id: 500, label: '已更新' }
+  await handle.ctx.ui.render()
+  const updateMs = performance.now() - t0
+  // 流式追加 10 帧耗时（数据驱动 renderFn 路径）
+  const t1 = performance.now()
+  for (let i = 0; i < 10; i++) {
+    state.rows.push({ id: 2000 + i, label: `流 ${i}` })
+    await handle.ctx.ui.render()
+  }
+  const streamMs = performance.now() - t1
+  assert.equal(root.querySelectorAll('.row').length, 1010, '1010 行落地（await render() 后 DOM 已同步）')
+  console.log(`[perf] 更新单行耗时: ${updateMs.toFixed(2)}ms（剪枝命中主路径）`)
+  console.log(`[perf] 流式追加 10 帧耗时: ${streamMs.toFixed(2)}ms`)
+  handle.unmount()
+})
+
 // ── 场景 2：更新单行 ──────────────────────────────────────
 
 test('perf: 更新单行 → DOM 写 ≈ 1（无全量重排）', async () => {

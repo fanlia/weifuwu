@@ -644,6 +644,35 @@ const OrderPage = (_init, ctx) => {
 
 内部状态用 `let` + `render()`，共享状态用 `store` + `useExternal`。
 
+**配置式数据定义在 mount 层 / 模块层**（剪枝命中率——三态 skip 的组件侧纪律）：
+
+```tsx
+// ❌ 差：columns/options 内联 renderFn——每次 render 新建数组 + 内联函数 → Table 全量重跑
+const DemoTable = async (_init, ctx) =>
+  async () => h(Table, { columns: [{ key: 'name', render: v => <Badge>{v}</Badge> }], ... })
+
+// ✅ 好：静态配置定义在 mount 层 / 模块层——引用稳定 → 子组件 props 稳定 → 剪枝命中不重跑
+const COLS = [{ key: 'name', sortable: true }]   // 模块层（纯静态）
+const DemoTable2 = async (_init, ctx) => {
+  const cols = COLS                                // 或工厂层（读 ctx/状态时）
+  return async () => h(Table, { columns: cols, ... })
+}
+```
+
+**规则**：不依赖 render 期数据的配置（columns/options/items/NAV）→ mount 层或模块层定义（引用稳定，子组件剪枝命中）；依赖 render 期派生数据（过滤后的列表）→ 才在 render 内构建。
+
+**薄封装用普通函数**（不建组件——组件有工厂 + childCtx 开销）：
+
+```tsx
+// ❌ 薄封装组件：TypeBadge 无状态无实例需求，却是 async 组件形态 → 每实例走 mountAsyncComponent
+const TypeBadge: Component = async (_init) => async (props) => h(Badge, {...}, props.label)
+
+// ✅ 普通函数：在父 renderFn 内调用（不参与 vdom 组件树——无工厂/childCtx 开销）
+const typeBadge = (label: string, type: string) => h(Badge, { variant: ... }, label)
+```
+
+**规则**：纯透传 / 派生渲染 → 普通函数（父 renderFn 内调用）；有状态 / 需实例化 / props 驱动重渲染 → 组件形态。
+
 ### VDOM diff 优化机制
 
 weifuwu 的 VDOM 在每次渲染时自动执行**剪枝 + 三态 skip 判定**，减少不必要的组件渲染和 DOM 操作：
