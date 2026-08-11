@@ -178,6 +178,7 @@ export function mountComponent(
   if (result instanceof Promise) {
     // async 工厂：同步执行到第一个 await（数据请求已在飞）——占位；resolve 后局部补全
     const promise = result as Promise<(props: VNode['props']) => VNode | null>
+    vnode._asyncDef = promise // 占位标记（renderComponent 据此输出注释锚点）
     void promise.then(
       (defFn: any) => {
         if (typeof defFn !== 'function') {

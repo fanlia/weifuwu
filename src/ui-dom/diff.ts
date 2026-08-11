@@ -13,7 +13,7 @@ import { Fragment, Portal } from './vnode.ts'
 import { uiDebugEnabled, uiLog } from './debug.ts'
 import type { WfuiContext } from './types.ts'
 import { renderValue, mountComponent, patchPortal, renderPortal } from './render.ts'
-import { callRefCleanupFor, getRegistry } from './registry.ts'
+import { callRefCleanupFor, getRegistry, nextComponentIdFor } from './registry.ts'
 
 // ── 内联 ref 检测 ────────────────────────────────────
 // ref-diff 在 ref 函数引用变化时调用旧 ref(null)（见 patchValue）。
@@ -116,6 +116,12 @@ export function patchValue(
       newV._render = oldV._render
       newV._id = oldV._id
       if (newV._id) getRegistry(ctx).idRegistry.set(newV._id, newV)
+    }
+    // 首次挂载组件（diff 路径——动态挂载/update 新组件）：分配 id（renderByIds 局部补全依赖）
+    if (!newV._id) {
+      const reg = getRegistry(ctx)
+      newV._id = nextComponentIdFor(reg)
+      reg.idRegistry.set(newV._id, newV)
     }
 
     // 存 DOM 锚点（供 ctx.ui.render() scope 使用）

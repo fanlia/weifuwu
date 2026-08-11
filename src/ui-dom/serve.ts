@@ -29,12 +29,16 @@ import type { VNode, WfuiContext, UIContext } from './types.ts'
 export interface UIServeOptions {
   root: string | Element
   hydrate?: boolean
+  /** loading 模式：不清空 root（信任调用方预置骨架屏 HTML）——首帧原子替换 */
+  loading?: boolean
 }
 
 /** serve 句柄 */
 export interface UIServeHandle<C extends object = {}> {
   /** 释放全部资源（监听/渲染状态/注册表） */
   close(): void
+  /** 首帧完成 Promise：await 全部工厂 + DOM 落地后 resolve（骨架屏：await 后替换） */
+  ready: Promise<void>
   /** 当前 ctx（调试/测试用）——含 UIRouter ctx 注入的类型扩展 */
   ctx: WfuiContext & C
 }
@@ -51,7 +55,7 @@ export function uiServe<RC extends object = {}>(
   if (!el) throw new Error(`uiServe: root not found: ${options.root}`)
   const root = el as Element
   const hydrating = !!options.hydrate
-  if (!hydrating) root.innerHTML = ''
+  if (!hydrating && !options.loading) root.innerHTML = ''
 
   // ── 渲染运行时（局部实例——与 createApp 隔离） ──
   const registry: Registry = createRegistry()
@@ -262,8 +266,13 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
           const node = hydrating && root.firstElementChild
             ? (hydrateVNode(root, vnode, ctx), root.firstChild)
             : renderValue(vnode, ctx)
-          if (node && node.parentNode !== root) root.appendChild(node)
+          if (node && node.parentNode !== root) {
+            // loading 模式：原子替换预置骨架屏（不 append 残留）；默认模式 append
+            if (options.loading && root.firstChild) root.replaceChildren(node)
+            else root.appendChild(node)
+          }
         }
+        resolveReady()
       } else {
         // 补全：patchValue 返回新节点（占位 null→内容 时顶层需落地；已有 parentNode 的不重复）
         const node = patchValue(root, root.firstChild, oldVNode, vnode, ctx)
@@ -278,6 +287,7 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
         errNode.textContent = `渲染错误: ${(err as Error)?.message ?? String(err)}`
         root.appendChild(errNode)
       }
+      if (oldVNode == null) resolveReady()
     } finally {
       rendering = false
     }
@@ -293,8 +303,11 @@ const hydratedData = (globalThis as any).__DATA__ ?? (window as any).__DATA__
   scheduleRender()
 
   // ── handle ──
+  let resolveReady!: () => void
+  const ready = new Promise<void>((r) => { resolveReady = r })
   return {
     get ctx() { return ctx as unknown as WfuiContext & RC },
+    ready,
     close() {
       browser.removeEventListener('popstate', onPop)
       if (router.mode === 'hash') browser.removeEventListener('hashchange', onHash)
