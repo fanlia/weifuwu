@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { Tour } from './Tour.ts'
 import { renderVNode } from '../../ui-dom/testing.ts'
 import { createTestCtx } from '../../ui-dom/testing.ts'
+import { Portal } from '../../ui-dom/vnode.ts'
 
 
 const makeCtx = () => {
@@ -11,7 +12,11 @@ const makeCtx = () => {
       $: () => ({}),
       render: () => {},
       dirty: () => {},
-      usePopupPosition: () => ({ top: 100, left: 200, refresh: () => {} }),
+      usePopup: () => ({
+        get open() { return false }, setOpen: () => {},
+        get phase() { return 'closed' }, sync: (o: boolean) => (o ? 'open' : 'closed'),
+        wrapProps: {}, portal: (c: any) => ({ type: Portal, props: { children: [c] } }), refresh: () => {},
+      }),
       useGlobalKey: (fn: (e: any) => void) => { keyHandler = fn },
       _keyHandler: () => keyHandler,
     },
@@ -34,9 +39,10 @@ describe('Tour 组件', () => {
   test('打开渲染 Portal（遮罩 + 气泡）', async () => {
     const vnode = await renderVNode(Tour, { steps, open: true }, makeCtx())
     assert.ok(vnode, 'open 时非 null')
-    // 检查遮罩元素（Portal vnode 的 props.children 内）
+    // 检查 panel（usePopup mask 提供遮罩——panel 含 highlight + bubble）
     const str = JSON.stringify(vnode)
-    assert.match(str, /wf-tour-mask/, '应有遮罩')
+    assert.match(str, /wf-tour-layer/, '应有 tour 层')
+    assert.match(str, /wf-tour-highlight/, '应有目标高亮')
     assert.match(str, /wf-tour-bubble/, '应有气泡')
   })
 

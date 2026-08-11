@@ -103,7 +103,7 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
     compute: (r) => {
       if (options.position) {
         const p = options.position()
-        return { top: p.y, left: p.x }
+        return { top: p.y, left: p.x, width: p.width }
       }
       return computeFixedPosRect(r, placementOf(), options.gap ?? 6, options.center !== false)
     },
@@ -182,8 +182,19 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
       setOpen(true) // 只开不关（Select 教训）
     }
   }
-  wrapProps.onFocus = () => { if (isHover()) focusOpen() }
-  wrapProps.onBlur = () => { if (isHover()) blurClose() }
+  wrapProps.onFocus = () => {
+    if (isHover()) focusOpen()
+    else if (triggerOf() === 'focus') { clearTimeout(closeTimer); closeTimer = undefined; setOpen(true) }
+  }
+  wrapProps.onBlur = () => {
+    if (isHover()) blurClose()
+    else if (triggerOf() === 'focus') {
+      // 延迟关闭：面板内 mousedown/click 在 blur 后到达（stopPropagation 防外部点击关）——
+      // closeDelay 窗口内完成交互（DatePicker 选中日期的 click 先于关闭生效）
+      clearTimeout(openTimer); openTimer = undefined
+      closeTimer = setTimeout(() => { closeTimer = undefined; setOpen(false) }, closeDelay())
+    }
+  }
 
   if (triggerOf() === 'longpress') {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -270,17 +281,20 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
     const cls = options.positioning === 'none'
       ? (props.class ?? '')
       : ['wf-popup', props.class].filter(Boolean).join(' ')
-    // position 'none'：组件自定义定位（Modal 的 .wf-modal inset:0 居中）——不加坐标计算
+    // positioning 'none'：组件自定义定位（Modal 的 .wf-modal inset:0、Toast 的 CSS 角落）——
+    // 只 position: fixed，不加坐标
     const style = options.positioning === 'none'
-      ? { ...(props.style ?? {}), position: 'fixed', top: '0', left: '0' }
+      ? { ...(props.style ?? {}), position: 'fixed' }
       : {
           ...(props.style ?? {}),
           position: 'fixed',
           top: `${pos.top}px`,
           left: `${pos.left}px`,
-          maxWidth: options.width !== undefined
-            ? `min(${options.width}px, calc(100vw - 32px))`
-            : 'calc(100vw - 32px)',
+          ...(pos.width !== undefined ? { width: `${pos.width}px` } : {}),
+          maxWidth: (() => {
+            const w = typeof options.width === 'function' ? options.width() : options.width
+            return w !== undefined ? `min(${w}px, calc(100vw - 32px))` : 'calc(100vw - 32px)'
+          })(),
         }
     const panel = {
       ...content,
@@ -294,11 +308,14 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
     // mask 模式：渲染全屏遮罩 + 面板（遮罩 z-index=--wf-z-overlay < 面板 --wf-z-popover）。
     // 面板显式 z-index 高于遮罩（否则遮罩覆盖面板）；遮罩点击关闭（maskClosable 门控）。
     if (options.mask) {
-      const maskEl = h('div', {
-        class: 'wf-popup-mask',
-        'data-portal-mask': portalKey,
-        onClick: options.maskClosable === false ? undefined : () => setOpen(false),
-      })
+      // 自定义 mask（Tour 挖洞高亮遮罩）——交互组件自控，不自动 onClick
+      const maskEl = typeof options.mask === 'object'
+        ? options.mask
+        : h('div', {
+            class: 'wf-popup-mask',
+            'data-portal-mask': portalKey,
+            onClick: options.maskClosable === false ? undefined : () => setOpen(false),
+          })
       // maskCentered：外包全屏居中容器——用 layout 原语 .wf-cover（AGENTS.md §8：
       // 先查框架原语不重复造轮子——position:fixed+inset:0+flex 居中已提供），
       // --wf-z 覆盖为面板层（遮罩 80 < 面板 120）；不能把 flex 加到 content 自身

@@ -1,6 +1,6 @@
 import type { Component } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h, createPortal } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 
 export type TourPlacement = 'top' | 'bottom' | 'left' | 'right'
 
@@ -38,7 +38,7 @@ interface Rect {
 
 /**
  * Tour — 新手引导（步骤式）。
- * 目标 rect 定位（usePopupPosition 跟随 scroll/resize）+ Portal 遮罩 + 步骤气泡。
+ * 统一 usePopup：mask 遮罩 + portal 出口；position 回调更新目标 rect（scroll 跟随）。
  *
  * 状态纪律：
  * - 步骤索引闭包 let + render()（手动模式——避免 $ 内置类型问题）
@@ -49,12 +49,21 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
   let targetEl: HTMLElement | null = null
   let rect: Rect = { top: 0, left: 0, width: 0, height: 0 }
 
-  const popup = ctx.ui.usePopupPosition({
+  // 统一 usePopup：mask 遮罩 + portal 出口；position 回调更新目标 rect（scroll 跟随经
+  // usePopup 内部 popup-tracker——refresh → position → rect 更新 → render 重算坐标）
+  const popup = ctx.ui.usePopup({
+    mask: true,
+    maskClosable: false,       // 遮罩点击不关（步骤由按钮控制）
+    positioning: 'none',       // panel（highlight+bubble）自定位（fixed 视口坐标）
+    closeOnOutside: false, closeOnEscape: false,
     el: () => targetEl,
-    isOpen: () => open(),
-    compute: (r) => {
-      rect = { top: r.top, left: r.left, width: r.width, height: r.height }
-      return bubblePos(rect, latestPlacement)
+    isOpen: () => latestOpen,
+    setOpen: (v) => { if (!v) close() },
+    position: () => {
+      const r = targetEl?.getBoundingClientRect()
+      if (r) rect = { top: r.top, left: r.left, width: r.width, height: r.height }
+      const p = bubblePos(rect, latestPlacement)
+      return { x: p.left, y: p.top }
     },
   })
 
@@ -120,8 +129,9 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
     if (!st) return null
 
     const isLast = current >= props.steps.length - 1
-    const bubbleX = popup.left
-    const bubbleY = popup.top
+    const bp = bubblePos(rect, latestPlacement)
+    const bubbleX = bp.left
+    const bubbleY = bp.top
 
     const bubble = h('div', {
       class: `wf-tour-bubble wf-tour-bubble--${latestPlacement}`,
@@ -158,15 +168,8 @@ export const Tour: Component<TourProps> = async (_init, ctx) => {
       },
     })
 
-    const mask = props.mask === false
-      ? null
-      : h('div', { class: 'wf-tour-mask' })
-
-    const overlay = h('div', {
-      class: 'wf-tour-overlay',
-    }, [mask, highlight, bubble].filter(Boolean))
-
-    return createPortal(overlay, 'tour')
+    // mask 由 usePopup 提供（mask: true）——panel 内容 = highlight + bubble（fixed 视口坐标）
+    return popup.portal(h('div', { class: 'wf-tour-layer' }, [highlight, bubble]), 'tour')
   }
 }
 

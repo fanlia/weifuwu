@@ -39,7 +39,7 @@ export interface PopupPosition {
 }
 
 /** 弹层触发方式 — usePopup 的 trigger */
-export type PopupTrigger = 'hover' | 'click' | 'longpress' | 'manual'
+export type PopupTrigger = 'hover' | 'click' | 'longpress' | 'focus' | 'manual'
 
 /** 弹层组合器配置 — 供 ctx.ui.usePopup 使用 */
 export interface UsePopupOptions {
@@ -48,8 +48,9 @@ export interface UsePopupOptions {
   trigger?: PopupTrigger | (() => PopupTrigger)
   /** 弹出方向（支持 getter——动态读最新 props），默认 'bottom' */
   placement?: Placement | (() => Placement)
-  /** 自由定位（支持 getter）：提供则忽略 placement，直接用坐标（如右键菜单光标处） */
-  position?: () => { x: number; y: number }
+  /** 自由定位（支持 getter）：提供则忽略 placement，直接用坐标（如右键菜单光标处）。
+   *  可返回 width（可选）——portal 内联 style 精确宽度（DatePicker 跟随 trigger 宽） */
+  position?: () => { x: number; y: number; width?: number }
   /** 水平对齐：center=居中于触发元素（默认），start=左对齐（Menubar 面板用） */
   center?: boolean
   /** 与触发元素间距（px，默认 6） */
@@ -66,8 +67,9 @@ export interface UsePopupOptions {
   open?: boolean | (() => boolean)
   /** 受控回调（可选） */
   onOpenChange?: (open: boolean) => void
-  /** 面板宽度（px，可选）：自动 clamp 到视口（≤ 100vw - 32px） */
-  width?: number
+  /** 面板宽度（px 或 getter，可选）：自动 clamp 到视口（≤ 100vw - 32px）；getter 动态跟随
+   *  （DatePicker date 模式跟随 trigger 宽，range 模式返回 undefined 自适应双面板） */
+  width?: number | (() => number | undefined)
   /** 点外部关闭（默认 true） */
   closeOnOutside?: boolean
   /** Escape 关闭（默认 true） */
@@ -75,8 +77,9 @@ export interface UsePopupOptions {
   /** 遮罩（默认 false）：渲染全屏 overlay（--wf-overlay，点击遮罩关闭，
    *  模态语义阻断页面交互）。false = 无遮罩 document 外部点击（§5.4 默认）。
    *  遮罩层 z-index = --wf-z-overlay(80) < 面板 --wf-z-popover(120)。
-   *  配合 maskClosable 控制遮罩点击是否关闭。 */
-  mask?: boolean
+   *  配合 maskClosable 控制遮罩点击是否关闭。
+   *  传 VNode = 自定义遮罩内容（Tour 挖洞高亮遮罩——交互组件自控，不自动 onClick） */
+  mask?: boolean | VNode
   /** 遮罩点击关闭（默认 true；mask:true 时生效——危险确认 maskClosable=false 防误触） */
   maskClosable?: boolean
   /** 遮罩面板居中（默认 false；mask:true 时生效）：面板覆盖全屏 flex 居中

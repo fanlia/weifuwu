@@ -9,7 +9,10 @@ import { renderVNode, createTestCtx } from '../../ui-dom/testing.ts'
 
 
 function makeCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true, useExternal: () => undefined } } as any
+  return { ui: {
+    $: () => ({}), render: () => {}, dirty: () => {}, ready: true, useExternal: () => undefined,
+    usePopup: () => ({ get open() { return true }, setOpen: () => {}, wrapProps: {}, portal: (c: any) => c, refresh: () => {} }),
+  } } as any
 }
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v
@@ -95,7 +98,10 @@ describe('notification 命令式中间件', () => {
   it('notification.success mounts host and triggers reactive update', async () => {
     document.body.innerHTML = ''
     let renderCount = 0
-    const ctx = createTestCtx({ ui: { render: () => { renderCount++ } } }) as any
+    const ctx = createTestCtx({ ui: {
+      render: () => { renderCount++ },
+      usePopup: () => ({ get open() { return true }, setOpen: () => {}, wrapProps: {}, portal: (c: any) => c, refresh: () => {} }),
+    } }) as any
     const middleware = notification({ duration: 0, max: 10 }) as any
     middleware(ctx)
         ctx.notification.success({ title: '保存成功', description: '已写入数据库' }) // 首次 emit → 惰性挂载 host
@@ -109,7 +115,10 @@ describe('notification 命令式中间件', () => {
   it('notification.open with type', async () => {
     document.body.innerHTML = ''
     let renderCount = 0
-    const ctx = createTestCtx({ ui: { render: () => { renderCount++ } } }) as any
+    const ctx = createTestCtx({ ui: {
+      render: () => { renderCount++ },
+      usePopup: () => ({ get open() { return true }, setOpen: () => {}, wrapProps: {}, portal: (c: any) => c, refresh: () => {} }),
+    } }) as any
     const middleware = notification({ duration: 0 }) as any
     middleware(ctx)
     ctx.notification.open({ type: 'error', title: '请求失败', description: '500' })  // 挂载 host

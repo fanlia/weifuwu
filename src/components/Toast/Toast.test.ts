@@ -7,7 +7,10 @@ import { renderVNode } from '../../ui-dom/testing.ts'
 
 
 function createTestCtx(): WfuiContext {
-  return { ui: { $: () => ({}), render: () => {}, dirty: () => {}, ready: true } } as any
+  return { ui: {
+    $: () => ({}), render: () => {}, dirty: () => {}, ready: true,
+    usePopup: () => ({ get open() { return true }, setOpen: () => {}, wrapProps: {}, portal: (c: any) => c, refresh: () => {} }),
+  } } as any
 }
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v

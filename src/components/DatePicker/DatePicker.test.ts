@@ -11,8 +11,12 @@ import { createTestCtx } from '../../ui-dom/testing.ts'
 function makeCtx(): WfuiContext {
   return createTestCtx({ ui: {
     $: () => ({}), render: () => {}, dirty: () => {},
-    usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
-    useAnimationEnd: () => () => {},
+    // usePopup mock：focus 触发 + mask + portal 返回 Portal 包装（测试断言 type===Portal）
+    usePopup: () => ({
+      get open() { return false }, setOpen: () => {},
+      get phase() { return 'closed' }, sync: (o: boolean) => (o ? 'open' : 'closed'),
+      wrapProps: {}, portal: (c: any) => ({ type: Portal, props: { children: [c] } }), refresh: () => {},
+    }),
     useGlobalKey: () => () => {},
   } }) as any
 }
@@ -119,8 +123,11 @@ describe('DatePicker', () => {
           await patchToDom(container, container.firstChild, prev, next, ctx)
           prev = next
         },
-        usePopupPosition: () => ({ top: 0, left: 0, refresh() {} }),
-        useAnimationEnd: () => () => {},
+        usePopup: () => ({
+          get open() { return false }, setOpen: () => {},
+          get phase() { return 'closed' }, sync: (o: boolean) => (o ? 'open' : 'closed'),
+          wrapProps: {}, portal: (c: any) => c, refresh: () => {},
+        }),
         useGlobalKey: () => () => {},
       },
     }
@@ -133,8 +140,8 @@ describe('DatePicker', () => {
     const input = container.querySelector('.wf-datepicker-input') as HTMLElement
     input.click()
     await new Promise(r => setTimeout(r, 0))   // vdom 异步渲染
-    const panel = document.querySelector('#__wf_portal .wf-datepicker-dropdown') as HTMLElement
-    assert.ok(panel, '面板应打开')
+    const panel = container.querySelector('.wf-datepicker-dropdown') as HTMLElement
+    assert.ok(panel, '面板应打开（mock portal 直返内容——patch 渲染在 container）')
 
     const cells = Array.from(panel.querySelectorAll<HTMLElement>('.wf-datepicker-cell'))
     assert.ok(cells.length >= 28, `应有日历网格: ${cells.length}`)

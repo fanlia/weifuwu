@@ -2,7 +2,7 @@
  * weifuwu/components — DatePicker
  *
  * 四合一日期选择器，支持 mode: date | datetime | time | range
- * 使用 createPortal + position:fixed 定位弹出层。
+ * 统一 usePopup：focus 触发 + mask 遮罩 + 自由定位（left 对齐 + width 跟随 trigger）。
  *
  * 状态管理：闭包变量 + ctx.ui.render()
  */
@@ -10,7 +10,7 @@
 import type { Component, VNode } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h, createPortal } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
 import {
@@ -47,59 +47,41 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
 
   let inputEl: HTMLElement | null = null
   const inputRef = (el: HTMLElement | null) => { inputEl = el }
-  // 稳定 ref（mount 作用域）：避免内联 ref 每次渲染重建 + ref-diff 变化
-  let prevOpen = false
+  let latestMode: DatePickerMode = 'date'
 
-  // 滚动/resize 时自动重算坐标（弹层跟随输入框）
   // ESC 关闭（document 级——面板 keydown 只在焦点内生效；这里覆盖全局）
   ctx.ui.useGlobalKey((e: KeyboardEvent) => {
     if (e.key === 'Escape' && show) { show = false; ctx.ui.render() }
   })
-  const pos = ctx.ui.usePopupPosition({
+  // 统一 usePopup：focus 触发 + mask 遮罩（点外部关）+ 自由定位（left 对齐 + width 跟随 trigger）
+  const popup = ctx.ui.usePopup({
+    trigger: 'focus',
+    mask: true,
+    maskClosable: true,
+    closeOnEscape: false,   // 组件自控（useGlobalKey）
+    closeDelay: 120,        // blur 延迟关闭窗口（面板内选中日期的 click 先于关闭生效）
     el: () => inputEl,
     isOpen: () => show,
-    compute: (r) => ({ top: r.bottom + 4, left: r.left, width: r.width }),
-    panel: () => panelEl,
-    margin: 4,
+    setOpen: (v) => { show = v; ctx.ui.render() },
+    position: () => {
+      const r = inputEl?.getBoundingClientRect()
+      if (!r) return { x: 0, y: 0 }
+      // range 模式双面板自适应宽度（不塞 trigger 宽）；其余跟随 trigger
+      const isRange = latestMode === 'range'
+      return { x: r.left, y: r.bottom + 4, width: isRange ? undefined : r.width }
+    },
   })
 
-  // 面板元素（视口夹紧用）：经 ctx.ui.useAnimationEnd（唯一动画事件入口）——
-  // 面板带 wf-panel-in 入场动画（translateY/scale）——动画期间矩形非稳态，
-  // 夹紧必须等动画结束后按稳态几何计算（ref 在 append 前触发，微任务测量会吃到动画中帧）
-  let panelEl: HTMLElement | null = null
-  // 坐标更新走 ctx.ui.render()（正常渲染管线——render 读 pos 生成 style 内联坐标）：
-  // 不旁路直接写 DOM。scroll/resize 由 popup-tracker 全局监听自动 refresh + render；
-  // 手动 refresh 点（动画结束/兜底）这里统一 pos.refresh() + ctx.ui.render()。
-  // 宽度由 render 时 style 内联决定（time 模式跟随 trigger）；range wrap 无 width
-  // 自适应 flex 内容（双面板 2×240px + gap）——不塞 trigger 宽（range wrap 被压成 220px bug）
-  const panelRef = ctx.ui.useAnimationEnd(() => { pos.refresh(); ctx.ui.render() }, { once: true })
-  // 兜底：动画事件丢失（无动画环境/事件被吞）时仍夹紧，防挂死
-  let settleTimer: ReturnType<typeof setTimeout> | undefined
-  const settleSafe = (el: any) => {
-    if (el) {
-      panelEl = el
-      panelRef(el)
-      settleTimer = setTimeout(() => { pos.refresh(); ctx.ui.render() }, 400)
-    } else {
-      panelEl = null
-      clearTimeout(settleTimer)
-    }
-  }
-
-  // ── render（每次 dirty/props 变化）──
   return async (props: DatePickerProps) => {
     const L = (ctx as any)?.i18n?.components?.DatePicker ?? {}
     const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled } = props
+    latestMode = mode
 
     const isOpen = show
     const setOpen = (v: boolean) => {
       show = v
       ctx.ui.render()
     }
-
-    // ── 打开瞬间算一次初始坐标 ──
-    if (show && !prevOpen) pos.refresh()
-    prevOpen = show
 
     const toggle = (e: Event) => {
       if (disabled) return
@@ -217,18 +199,14 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
       if (next >= 0 && next < cells.length) cells[next].focus()
     }
 
-    const overlay = h('div', { class: 'wf-datepicker-overlay', onMouseDown: () => setOpen(false) })
-
-    let panel: VNode | [VNode, ...VNode[]] | null = null
+    let panel: VNode | null = null
 
     if (isOpen) {
       if (mode === 'time') {
         const hours = hourOptions()
         const minutes = minuteOptions()
         const timePanel = h('div', {
-          style: { position: 'fixed', top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-time-picker', role: 'dialog',
-          ref: settleSafe,
           onKeyDown: handleKeyDown,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, [
@@ -257,16 +235,14 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
             h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: confirmTime }, L.confirm ?? '确定'),
           ]),
         ])
-        panel = [overlay, timePanel]
+        panel = timePanel
       } else if (mode === 'range') {
         const nextM = viewMonth === 11 ? 0 : viewMonth + 1
         const nextY = viewMonth === 11 ? viewYear + 1 : viewYear
         const nextGrid = getCalendarGrid(nextY, nextM)
 
         const rangeWrap = h('div', {
-          style: { position: 'fixed', top: pos.top, left: pos.left },
           class: 'wf-datepicker-range-wrap',
-          ref: settleSafe,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, [
           h('div', { class: 'wf-datepicker-range-panel' }, [
@@ -301,7 +277,7 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
                 }))),
           ]),
         ])
-        panel = [overlay, rangeWrap]
+        panel = rangeWrap
       } else {
         const content: any[] = [calendarPanel]
         if (mode === 'datetime') {
@@ -326,17 +302,15 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
           ]))
         }
         const dp = h('div', {
-          style: { position: 'fixed', top: pos.top, left: pos.left, width: pos.width },
           class: 'wf-datepicker-dropdown', role: 'dialog',
-          ref: settleSafe,
           onKeyDown: handleKeyDown,
           onMouseDown: (e: Event) => e.stopPropagation(),
         }, content)
-        panel = [overlay, dp]
+        panel = dp
       }
     }
 
-    const portalContent = isOpen ? createPortal(panel, 'dp-calendar') : null
+    const portalContent = isOpen && panel ? popup.portal(panel, 'dp-calendar') : null
     const displayValue = value ?? selectedValue ?? ''
 
     return h('div', { class: `wf-datepicker${disabled ? ' wf-datepicker--disabled' : ''}` }, [

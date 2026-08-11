@@ -1,7 +1,7 @@
 import type { Component } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
-import { h, createPortal } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { mountCommand } from '../../ui-dom/vdom/mount.ts'
 import { animateOut } from '../../ui-dom/motion.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -58,6 +58,14 @@ export const Toast: Component<ToastProps> = async (_init, ctx) =>
   async (props) => {
   const { toasts = [], onRemove, position = 'top-right', duration = 0, max = 0 } = props
 
+  // 统一 usePopup：常驻容器（positioning 'none'——CSS class 角落定位）
+  const popup = ctx.ui.usePopup?.({
+    positioning: 'none',
+    closeOnOutside: false, closeOnEscape: false,
+    isOpen: () => true,   // 容器常驻（toast 内容动态增删）
+    setOpen: () => {},
+  })
+
   // 限制最大显示条数
   const visible = max > 0 && toasts.length > max ? toasts.slice(-max) : toasts
 
@@ -85,7 +93,7 @@ export const Toast: Component<ToastProps> = async (_init, ctx) =>
     ].filter(Boolean))
   )
 
-  return createPortal(
+  return popup.portal(
     h('div', {
       class: `wf-toast-container ${positionClass(position)}`,
       'data-max': max || undefined,

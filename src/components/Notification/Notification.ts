@@ -1,7 +1,7 @@
 import type { Component, VNode } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import type { WfuiContext, AppMiddleware } from '../../ui-dom/types.ts'
-import { h, createPortal } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { mountCommand } from '../../ui-dom/vdom/mount.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { IconName } from '../Icon/Icon.ts'
@@ -58,48 +58,57 @@ function iconFor(type: NotificationType): IconName {
 }
 
 /** 通知（对应 antd/EP Notification 队列式）：title + description + icon + 操作，聚合角落 */
-export const Notification: Component<NotificationProps> = async (_init, _ctx) =>
-  async (props) => {
-  const { items = [], onRemove, position = 'top-right', duration = 4500, max = 0 } = props
+export const Notification: Component<NotificationProps> = async (_init, ctx) => {
+  // 统一 usePopup：常驻容器（positioning 'none'——CSS class 角落定位）
+  const popup = ctx.ui.usePopup?.({
+    positioning: 'none',
+    closeOnOutside: false, closeOnEscape: false,
+    isOpen: () => true,
+    setOpen: () => {},
+  })
 
-  const visible = max > 0 && items.length > max ? items.slice(-max) : items
-  if (visible.length === 0) return null
+  return async (props) => {
+    const { items = [], onRemove, position = 'top-right', duration = 4500, max = 0 } = props
 
-  const cards = visible.map(t =>
-    h('div', {
-      class: `wf-notification wf-notification--${t.type}`,
-      key: t.id,
-      role: t.type === 'error' ? 'alert' : 'status',
-      'aria-live': t.type === 'error' ? 'assertive' : 'polite',
-      'data-id': t.id,
-      'data-duration': (t.duration ?? duration) || undefined,
-    }, [
-      h('span', { class: 'wf-notification-icon' }, h(Icon, { name: iconFor(t.type) })),
-      h('div', { class: 'wf-notification-body' }, [
-        h('div', { class: 'wf-notification-title' }, t.title),
-        t.description ? h('div', { class: 'wf-notification-desc' }, t.description) : null,
-        t.action ? h('button', {
-          class: 'wf-notification-action',
+    const visible = max > 0 && items.length > max ? items.slice(-max) : items
+    if (visible.length === 0) return null
+
+    const cards = visible.map(t =>
+      h('div', {
+        class: `wf-notification wf-notification--${t.type}`,
+        key: t.id,
+        role: t.type === 'error' ? 'alert' : 'status',
+        'aria-live': t.type === 'error' ? 'assertive' : 'polite',
+        'data-id': t.id,
+        'data-duration': (t.duration ?? duration) || undefined,
+      }, [
+        h('span', { class: 'wf-notification-icon' }, h(Icon, { name: iconFor(t.type) })),
+        h('div', { class: 'wf-notification-body' }, [
+          h('div', { class: 'wf-notification-title' }, t.title),
+          t.description ? h('div', { class: 'wf-notification-desc' }, t.description) : null,
+          t.action ? h('button', {
+            class: 'wf-notification-action',
+            type: 'button',
+            onClick: (e: Event) => { e.stopPropagation(); t.action!.onClick() },
+          }, t.action.label) : null,
+        ].filter(Boolean)),
+        h('button', {
           type: 'button',
-          onClick: (e: Event) => { e.stopPropagation(); t.action!.onClick() },
-        }, t.action.label) : null,
-      ].filter(Boolean)),
-      h('button', {
-        type: 'button',
-        class: 'wf-notification-close',
-        'aria-label': '关闭通知',
-        onClick: () => onRemove?.(t.id),
-      }, h(Icon, { name: 'close', size: 12 })),
-    ].filter(Boolean))
-  )
+          class: 'wf-notification-close',
+          'aria-label': '关闭通知',
+          onClick: () => onRemove?.(t.id),
+        }, h(Icon, { name: 'close', size: 12 })),
+      ].filter(Boolean))
+    )
 
-  return createPortal(
-    h('div', {
-      class: `wf-notification-container ${positionClass(position)}`,
-      'data-max': max || undefined,
-    }, cards),
-    'notification',
-  )
+    return popup.portal(
+      h('div', {
+        class: `wf-notification-container ${positionClass(position)}`,
+        'data-max': max || undefined,
+      }, cards),
+      'notification',
+    )
+  }
 }
 
 // ── 命令式中间件：ctx.notification() ──────────────────
