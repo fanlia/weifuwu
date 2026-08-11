@@ -5,7 +5,7 @@ setupJsdom()
 import { Command } from './Command.ts'
 import { Portal } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { renderVNode } from '../../ui-dom/testing.ts'
+import { renderVNode, createPopupMock } from '../../ui-dom/testing.ts'
 
 // 捕获 useGlobalKey 注册的 handler（测试直接触发）
 const globalKeys: ((e: any) => void)[] = []
@@ -13,17 +13,26 @@ function createTestCtx(): WfuiContext {
   return { ui: {
     $: {}, render: () => {}, dirty: () => {}, ready: true,
     useGlobalKey: (h: any) => { globalKeys.push(h); return () => {} },
+    // usePopup mask 模式统一（createPopupMock：open getter + setOpen 转发 + portal 条件渲染）
+    usePopup: (opts: any) => createPopupMock(() => opts.isOpen(), opts.setOpen),
   } } as any
 }
 
 
 const inner = (v: any) => v?.type === Portal ? v.props.children : v
 
-/** v(overlay) → panel：Portal > overlay > panel */
-const panelOfCmd = (v: any) => v.props.children.props.children
+/** v → panel（mock portal 直接返回 panel；真实 usePopup portal 是 Portal 包装） */
+const panelOfCmd = (v: any) => {
+  let n = v
+  if (n?.type === Portal) n = n.props.children
+  return n?.props?.class?.includes('wf-command-panel') ? n : (n?.props?.children ?? n)
+}
 
 /** panel → 搜索输入框 */
-const inputOf = (v: any) => panelOfCmd(v).props.children[0].props.children[1]
+const inputOf = (v: any) => {
+  const panel = panelOfCmd(v)
+  return panel.props.children[0].props.children[1]
+}
 
 const items = [
   { key: 'new', label: '新建聊天', shortcut: 'N' },
@@ -32,21 +41,21 @@ const items = [
 ]
 
 describe('Command', () => {
-  it('closed renders hidden host（保持全局快捷键监听）', async () => {
+  it('closed renders null（usePopup portal 只在 open 渲染；快捷键监听在 mount 注册）', async () => {
     const vnode = await renderVNode(Command, { items, open: false }, createTestCtx())
-    assert.ok(vnode)
-    assert.match(vnode.props.class, /wf-command-host/)
+    assert.equal(vnode, null)
   })
 
   it('renders panel when open', async () => {
     const vnode = inner(await renderVNode(Command, { items, open: true }, createTestCtx())!)
-    assert.equal(vnode.type, 'div')
-    assert.match(vnode.props.class, /wf-command-overlay/)
+    // usePopup mask 统一后 portal 返回 panel（遮罩在真实引擎，mock 只验 panel 结构）
+    assert.ok(vnode)
+    assert.match(JSON.stringify(vnode.props.class ?? ''), /wf-command-panel/)
   })
 
   it('renders all items', async () => {
-    const vnode = inner(await renderVNode(Command, { items, open: true }, createTestCtx())!)
-    const panel = vnode.props.children // overlay 直接子 = panel
+    const vnode = await renderVNode(Command, { items, open: true }, createTestCtx())!
+    const panel = panelOfCmd(inner(vnode))
     assert.match(panel.props.class, /wf-command-panel/)
     const list = panel.props.children[1] // [input-wrap, list]
     assert.equal(list.props.children.length, 3)

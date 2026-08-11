@@ -296,3 +296,36 @@ test('事件绑定不累积：渲染后 onClick 只触发一次（patchProps rem
   void value
   handle.unmount()
 })
+
+
+test('组件输出 Portal → null：props 变化关闭清理（usePopup mask 组件同款——Command 点遮罩不关闭回归）', async () => {
+  // 场景：组件 open 时输出 createPortal（mask 面板），props 变化（open=false）→ 输出 null。
+  // scheduler 渲染组件（props 变化 → renderFn 重跑 → 新输出 null）→ patchValue 对比
+  // 旧 _child（Portal）vs 新（null）→ 必须清理 remote 容器。
+  // 修复前：Command 点遮罩后 portal DOM 残留 #__wf_portal + 面板不消失（真实 bug）
+  setupJsdom()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  let show = true
+  const Demo = async (_init: any) => () => {
+    if (show) return createPortal(h('div', { class: 'pp' }, 'P'), 't')
+    return null
+  }
+  const Outer = async (_init: any, ctx: any) => () =>
+    h('div', {}, [
+      h('button', { class: 'close', onClick: () => { show = false; ctx.ui.render() } }, '关'),
+      h(Demo, { show }), // 受控 props——变化触发重渲染
+    ])
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  await handle.mount(h('div', {}, h(Outer, {})))
+  await flush()
+  assert.ok(document.querySelector('.pp'), 'portal 内容渲染')
+
+  ;(root.querySelector('.close') as HTMLElement).click()
+  await flush()
+  await flush()
+  assert.ok(!document.querySelector('.pp'), '关闭后 portal 内容移除（无残留）')
+  assert.equal(document.querySelector('#__wf_portal')?.children.length ?? 0, 0, 'portal 容器清空')
+  handle.unmount()
+})
+

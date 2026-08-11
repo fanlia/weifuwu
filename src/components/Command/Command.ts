@@ -1,6 +1,6 @@
 import type { Component } from '../../ui-dom/vnode.ts'
 import type { WfuiContext } from '../../ui-dom/types.ts'
-import { h, createPortal } from '../../ui-dom/vnode.ts'
+import { h } from '../../ui-dom/vnode.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface CommandItem {
@@ -24,7 +24,7 @@ export interface CommandProps {
   globalShortcut?: string | null
 }
 
-/** 命令面板（对应 shadcn Command）：全屏 overlay + 搜索 + 键盘流（↑↓ Enter Escape）+ Cmd+K 全局快捷键 */
+/** 命令面板（对应 shadcn Command）：usePopup mask 全屏遮罩 + 搜索 + 键盘流（↑↓ Enter Escape）+ Cmd+K 全局快捷键 */
 export const Command: Component<CommandProps> = async (_init, ctx) => {
   // ── mount（只一次）──
   let query = ''
@@ -50,6 +50,22 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
   })
 
   const stableRef = (el: HTMLElement | null) => { void el }
+  // 弹层组合器：mask 全屏遮罩（§5.4 统一——Command 全屏模态）——
+  // 受控 open/onOpenChange；Escape/遮罩点击关闭由 usePopup 内置
+  const popup = ctx.ui.usePopup?.({
+    trigger: 'click',
+    placement: 'bottom',
+    el: () => null,
+    isOpen: () => !!latest.open,
+    setOpen: (v) => { if (!v) latest.onOpenChange?.(false) },
+    open: () => !!latest.open,
+    onOpenChange: (v) => { latest.onOpenChange?.(v) },
+    mask: true,
+    maskCentered: true,
+  }) ?? {
+    open: false, setOpen: () => {}, wrapProps: {},
+    portal: () => null, refresh: () => {},
+  }
 
   return (props) => {
     const {
@@ -59,8 +75,9 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
     latest = { open, onOpenChange, shortcut: globalShortcut }
 
     if (!open) {
-      // 常驻 host：保证 ref 挂载 → 全局快捷键监听持续有效
-      return h('div', { class: 'wf-command-host', ref: stableRef })
+      // 关闭：返回 null（usePopup portal 只在 open 渲染；全局快捷键监听在 mount 注册
+      // 不依赖 DOM——host div 无意义且会造成 Portal→div 切换的引擎边界问题）
+      return null
     }
 
     const filtered = query
@@ -113,7 +130,6 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
       class: 'wf-command-panel',
       role: 'dialog',
       'aria-label': '命令面板',
-      ref: stableRef,
     }, [
       h('div', { class: 'wf-command-input-wrap' }, [
         h(Icon, { name: 'search', size: 14 }),
@@ -130,13 +146,7 @@ export const Command: Component<CommandProps> = async (_init, ctx) => {
       h('div', { class: 'wf-command-list' }, list),
     ])
 
-    return createPortal(
-      h('div', {
-        class: 'wf-command-overlay',
-        onMouseDown: (e: Event) => { if (e.target === e.currentTarget) close() },
-        onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Escape') close() },
-      }, panel),
-      'popover',
-    )
+    // usePopup mask 全屏遮罩 + 居中（统一管理——不再手写 overlay）
+    return popup.portal(panel, 'command')
   }
 }

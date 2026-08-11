@@ -1,16 +1,5 @@
 /* weifuwu/components — Command */
 
-.wf-command-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--wf-z-modal);
-  background: var(--wf-overlay);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 12vh;
-}
-
 .wf-command-panel {
   width: min(520px, 90vw);
   background: var(--wf-color-bg);
@@ -20,6 +9,8 @@
   overflow: hidden;
   font-family: var(--wf-font-sans);
   animation: wf-command-in var(--wf-dur-base) var(--wf-ease-out);
+  /* usePopup maskCentered 全屏居中（.wf-cover flex 居中）——命令面板惯例偏上 12vh */
+  margin-top: -12vh;
 }
 
 @keyframes wf-command-in {
