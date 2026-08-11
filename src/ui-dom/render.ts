@@ -428,6 +428,57 @@ export function mountVNode(container: Element, vnode: VNode, ctx: WfuiContext) {
 // ── buildVNode（模式 A：async 预构建） ──────────────────
 
 /**
+ * 共享的 async 组件挂载辅助（S4 三遍历器合一——buildVNode/hydration 共用）：
+ * 同一套「id 分配 + childCtx 构造（ui 扩展 + _selfId/_selfVNode/_ctxVersion）+ 工厂调用
+ * （setMounting 保护期 $ 初始化不污染 dirtySet + renderFn 校验）」——单一事实源。
+ *
+ * - opts.reuse：旧树同位置同类型组件复用 _render（工厂不重跑，保持内部状态——buildVNode 导航场景）
+ * - 返回 { renderFn, childCtx }：调用方用 childCtx 递归子树
+ *
+ * renderSsr 不使用本辅助（per-request 无状态遍历——不分配 id/不设 _render，本质不同）。
+ */
+export async function mountAsyncComponent(
+  vnode: VNode,
+  ctx: WfuiContext,
+  opts?: { reuse?: VNode },
+): Promise<{ renderFn: (props: VNode['props']) => VNode | null; childCtx: WfuiContext }> {
+  if (!vnode._id) {
+    const reg = getRegistry(ctx)
+    vnode._id = nextComponentIdFor(reg)
+    reg.idRegistry.set(vnode._id, vnode)
+  }
+  const childCtx = Object.create(ctx) as WfuiContext
+  childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
+  const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
+  childUi._selfId = vnode._id
+  childUi._selfVNode = vnode
+  vnode._ctxVersion = childUi._ctxVersion ?? 0
+  // 旧树同位置同类型复用（工厂不重跑——组件跨渲染保持内部状态：$ / let / useStableRef）
+  if (typeof vnode._render !== 'function' && typeof opts?.reuse?._render === 'function') {
+    vnode._render = opts.reuse._render
+  }
+  if (typeof vnode._render !== 'function') {
+    // mount 保护期：$ 初始化赋值不产生 dirty 标记（否则污染 dirtySet → 破坏后续三态 skip 的
+    // dirty 判定——debug-skip 事故：首帧 $.n=0 赋值 → 导航时 skipDirty=false → renderFn 重跑）
+    ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.setMounting?.(true)
+    let renderFn: unknown
+    try {
+      renderFn = await (vnode.type as Component)(vnode.props ?? {}, childCtx)
+    } finally {
+      ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.endMounting?.()
+    }
+    if (typeof renderFn !== 'function') {
+      throw new Error(
+        `Component ${(vnode.type as any).name || 'anonymous'} must return a render function. ` +
+          `Use (init_props, ctx) => (props) => VNode pattern.`
+      )
+    }
+    vnode._render = renderFn as (props: VNode['props']) => VNode | null
+  }
+  return { renderFn: vnode._render as (props: VNode['props']) => VNode | null, childCtx }
+}
+
+/**
  * 递归展开组件树（async）：await 工厂 → renderFn → 递归子树。**零 DOM**。
  *
  * - 组件节点保留在树上（挂 `_render` + `_child`）——`$` dirty 精准刷新锚点不丢
@@ -455,46 +506,13 @@ export async function buildVNode(input: VNodeChild, ctx: WfuiContext, oldInput?:
     : null
   // 组件：await 工厂 → renderFn → 递归子树（组件节点保留，挂 _render/_child）
   if (typeof vnode.type === 'function') {
-    const Comp = vnode.type as Component | AsyncComponent
-    if (!vnode._id) {
-      const reg = getRegistry(ctx)
-      vnode._id = nextComponentIdFor(reg)
-      reg.idRegistry.set(vnode._id, vnode)
-    }
-    const childCtx = Object.create(ctx) as WfuiContext
-    childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
-    const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
-    childUi._selfId = vnode._id
-    childUi._selfVNode = vnode
-    vnode._ctxVersion = childUi._ctxVersion ?? 0
-    // 已解析（重复构建）或 旧树同位置同类型（复用——不重跑工厂，保持内部状态）
-    if (typeof vnode._render !== 'function' && typeof oldV?._render === 'function') {
-      vnode._render = oldV._render
-    }
-    if (typeof vnode._render !== 'function') {
-      // mount 保护期：$ 初始化赋值不产生 dirty 标记（否则污染 dirtySet → 破坏后续三态 skip 的
-      // dirty 判定——debug-skip 事故：首帧 $.n=0 赋值 → 导航时 skipDirty=false → renderFn 重跑）
-      ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.setMounting?.(true)
-      let renderFn: ((props: VNode['props']) => VNode | null) | null = null
-      try {
-        renderFn = (await (Comp as Component)(vnode.props ?? {}, childCtx)) as (props: VNode['props']) => VNode | null | null
-      } finally {
-        ;(ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?.endMounting?.()
-      }
-      if (typeof renderFn !== 'function') {
-        throw new Error(
-          `Component ${Comp.name || 'anonymous'} must return a render function. ` +
-            `Use (init_props, ctx) => (props) => VNode pattern.`
-        )
-      }
-      vnode._render = renderFn
-    }
+    const { childCtx } = await mountAsyncComponent(vnode, ctx, { reuse: oldV ?? undefined })
     // 渲染 _child：仅当无旧 _child 可复用 或 props 已变（diff 必非 skip——需要预构建子树）。
     // 同 props + 有旧 _child → 跳过渲染（三态 skip 语义前置：diff skip 复用旧 _child，
     // renderFn 不重跑——否则导航/重渲染每次重跑 renderFn 绕过 skip，ui-dom-regression 暴露）
     const propsSame = componentPropsEqual(oldV?.props ?? {}, vnode.props ?? {})
     if (!propsSame || oldV?._child == null) {
-      vnode._child = (await buildVNode(vnode._render(vnode.props ?? {}), childCtx, oldV?._child ?? undefined)) as VNode | null
+      vnode._child = (await buildVNode(vnode._render!(vnode.props ?? {}), childCtx, oldV?._child ?? undefined)) as VNode | null | VNode[]
     }
     return vnode
   }

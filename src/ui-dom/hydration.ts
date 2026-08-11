@@ -9,7 +9,7 @@ import type { VNode, Component, AsyncComponent } from './vnode.ts'
 import type { UiInternal } from './ui.ts'
 import { Fragment, Portal } from './vnode.ts'
 import type { WfuiContext } from './types.ts'
-import { flattenChildren, SVG_NS, SVG_TAGS } from './render.ts'
+import { flattenChildren, SVG_NS, SVG_TAGS, mountAsyncComponent } from './render.ts'
 import { createClientBrowser } from './browser.ts'
 import type { BrowserEnv } from './types.ts'
 import { patchProps } from './diff.ts'
@@ -145,32 +145,14 @@ async function renderValueHydrating(v: any, ctx: WfuiContext, c: HydrationCursor
 async function renderComponentHydrating(vnode: VNode, ctx: WfuiContext, c: HydrationCursor): Promise<Node | null> {
   // ctx.ui 由 createApp 注入（类型必需字段）——不补默认（同 renderComponent）
 
-  if (!vnode._id) {
-    const reg = getRegistry(ctx)
-    vnode._id = nextComponentIdFor(reg)
-    reg.idRegistry.set(vnode._id, vnode)
-  }
-  const childCtx = Object.create(ctx) as WfuiContext
-  childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & UiInternal
-  const childUi = childCtx.ui as WfuiContext['ui'] & UiInternal
-  childUi._selfId = vnode._id
-  childUi._selfVNode = vnode
-  vnode._ctxVersion = childUi._ctxVersion ?? 0
-
   const Comp = vnode.type as Component | AsyncComponent
   let childVNode: VNode | null
+  let childCtx: WfuiContext = ctx as WfuiContext
   try {
-    // 统一：同步或原生 async 组件——返回值 Promise = 原生 async（await 得 renderFn）
-    let renderFn: unknown = Comp(vnode.props ?? {}, childCtx)
-    if (renderFn instanceof Promise) renderFn = await renderFn
-    if (typeof renderFn !== 'function') {
-      throw new Error(
-        `Component ${Comp.name || 'anonymous'} must return a render function. ` +
-        `Use (init_props, ctx) => (props) => VNode pattern.`
-      )
-    }
-    vnode._render = renderFn as (props: Record<string, unknown>) => VNode | null
-    childVNode = (renderFn as (props: Record<string, unknown>) => VNode | null)(vnode.props ?? {})
+    // 共享挂载辅助（S4）：id 分配 + childCtx 构造 + 工厂 await（setMounting 保护 + renderFn 校验）
+    const res = await mountAsyncComponent(vnode, ctx)
+    childCtx = res.childCtx
+    childVNode = res.renderFn(vnode.props ?? {})
   } catch (e) {
     const errHandler = (ctx.ui as (WfuiContext['ui'] & UiInternal) | undefined)?._errorHandler
     if (errHandler) {
