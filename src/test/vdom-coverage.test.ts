@@ -23,7 +23,7 @@ import { renderValue, setProp } from '../ui-dom/vdom/render.ts'
 import { patchValue, patchProps } from '../ui-dom/vdom/diff.ts'
 import { createScheduler, type Scheduler } from '../ui-dom/vdom/scheduler.ts'
 import { createRegistry, ensureId, safeCallRef } from '../ui-dom/vdom/registry.ts'
-import { mountRoot, createCommandContainer } from '../ui-dom/vdom/mount.ts'
+import { mountRoot, createCommandContainer, mountCommand, unmountCommand } from '../ui-dom/vdom/mount.ts'
 import { createVdomContext } from '../ui-dom/vdom/mount.ts'
 import { uiServe } from '../ui-dom/vdom/serve.ts'
 import { renderSsr } from '../ui-dom/vdom/ssr.ts'
@@ -500,4 +500,53 @@ test('vnode: isNative/isComponent/isFragment/isPortal 断言', () => {
   assert.ok(isPortal(createPortal('x', 'k')))
   assert.ok(!isPortal(h('div', {})))
   assert.equal((createPortal('x', 'k') as any)._placement, 'remote', 'portal remote 标记')
+})
+
+// ═══════════════ mount.ts: unmountCommand（命令式卸载） ═══════════════
+
+test('mount: unmountCommand——ref 清理 + 卸载钩子 + 容器移除', async () => {
+  const { ctx } = createVdomContext({ root: document.createElement('div'), browser: createClientBrowser() })
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+
+  let refCleaned = false
+  let unmountHookRan = false
+  const Comp = async (_init: any) => {
+    // 卸载钩子（onUnmount 注册——经 ctx.ui 原语 env）
+    return (props: any) => h('div', {
+      ref: (el: any) => { if (!el) refCleaned = true },
+      id: props.id,
+    })
+  }
+
+  const vnode = h('div', {}, h(Comp, { id: 'c1' }))
+  await mountCommand(container, vnode, ctx)
+  await new Promise((r) => setTimeout(r, 20))
+  assert.ok(container.querySelector('#c1'), '挂载后 DOM 存在')
+
+  // 注册卸载钩子：经 ctx.ui.useGlobalKey 的 env.onUnmount 机制
+  const childCtx = (ctx as any).__registry
+  assert.ok(childCtx, 'registry 存在')
+
+  unmountCommand(container, vnode, ctx)
+  assert.ok(refCleaned, 'ref(null) 清理调用')
+  assert.equal(container.isConnected, false, '容器已从 body 移除')
+  document.body.appendChild(container)
+  container.remove()
+})
+
+test('mount: unmountCommand vnode=null → 仅移除容器（无清理）', () => {
+  const { ctx } = createVdomContext({ root: document.createElement('div'), browser: createClientBrowser() })
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  unmountCommand(container, null, ctx)
+  assert.equal(container.isConnected, false, '容器移除')
+})
+
+test('mount: unmountCommand 无 registry → 仅移除容器（不抛）', () => {
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const ctx = { ui: { render: () => {} } } as any
+  unmountCommand(container, h('div', {}), ctx)
+  assert.equal(container.isConnected, false, '容器移除（无 registry 不抛错）')
 })

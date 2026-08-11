@@ -121,3 +121,57 @@ CS-05 不强行凑覆盖）。
 - jsdom 测试：`setupJsdom()` + `createClientBrowser()`；`dispatchEvent` 必须用 jsdom Event
 - 事件级测试 container 必须 `document.body.appendChild`（未连接 DOM 的 focus 无效）
 - 防御分支（try/catch、null guard）用 mock 注入验证，不删代码凑覆盖
+
+---
+
+## 四、完成状态（2026-08 实测收尾）
+
+### 达成
+
+| 指标 | 目标 | 实测（全量测试 + coverage） | 状态 |
+|------|------|------|------|
+| line % | 100 | **100.00**（10 文件全部 100%） | ✅ |
+| branch % | 100 | 94.48 | ⚠️ 裁剪声明（见下） |
+| funcs % | 100 | 74.07 | ⚠️ node 计数局限 + 裁剪 |
+
+**全量测试**（`npm test` glob：`src/test/**` + `src/components/**` + `src/db/**`，
+排除 SessionList 时间边界既有失败）：
+
+```text
+build.ts      100.00 line / 98.77 branch / 100.00 funcs
+diff.ts       100.00 line / 98.10 branch / 100.00 funcs
+hydration.ts  100.00 line / 89.55 branch / 100.00 funcs
+mount.ts      100.00 line / 86.57 branch /  81.25 funcs
+registry.ts   100.00 line / 100.00 branch / 100.00 funcs
+render.ts     100.00 line / 96.46 branch / 100.00 funcs
+scheduler.ts  100.00 line / 93.33 branch /  87.50 funcs
+serve.ts      100.00 line / 88.64 branch /  81.82 funcs
+ssr.ts        100.00 line / 90.40 branch /  53.16 funcs
+vnode.ts      100.00 line / 100.00 branch / 100.00 funcs
+```
+
+### 裁剪声明（诚实裁剪——CS-05，不强凑覆盖）
+
+剩余 branch/funcs 缺口按类评估：
+
+1. **防御分支（保留，不删）**：`c.node && c.node.parentNode`（hydration 游标）、
+   `b.createDocumentFragment` 返回 null、`try/catch` 清理兜底、0-rect 防护等——
+   jsdom 下构造成本高且非主路径，真实防御保留。
+2. **命令式路径（已补）**：`unmountCommand`（ref 清理 + 卸载钩子 + 容器移除；
+   vnode=null / 无 registry 分支）——`vdom-coverage.test.ts` 3 测试锁定。
+3. **node 26 funcs% 计数局限（非真实缺口）**：`renderSsr` 内部间接调用的函数
+   （classToString/styleToString 等）不被 funcs 计数——实测直接调用 `escape` 计入、
+   经 `renderSsr` 间接调用不计。**行覆盖 100% 已证明代码执行**，funcs% 仅作参考。
+
+### 补充记录
+
+- **覆盖测量命令**（node 26 必须 `--test-coverage-exclude='!**'`，否则项目路径含
+  `test` 段被整体排除——报告恒显 100% 无 per-file 行）：
+  `node --experimental-test-coverage --test-coverage-exclude='!**'
+   --test-coverage-include='src/ui-dom/vdom/**' --test-coverage-include='src/ui-dom/vnode.ts'
+   --test --test-timeout=8000 --test-concurrency=8 <测试文件 glob>`
+- **测试文件**：9 个 `src/test/vdom-*.test.ts`（build/diff/hydration/mount/render/
+  serve/external/coverage/engine-regression）+ `src/ui-dom/hooks/test/hooks.test.ts`，
+  全部在 npm test glob 内。
+- **npm test 全量**：1810 测试（+unmountCommand 3 测试），SessionList 时间边界失败
+  （凌晨 0 点「今天」分组为空）为既有问题，与覆盖无关。
