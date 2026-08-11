@@ -702,6 +702,35 @@ canSkip = (props 没变) AND (ctx 版本一致) AND (旧 _child 已构建)
 ))}
 ```
 
+### 列表性能（v3——剪枝命中率是唯一性能变量）
+
+渲染引擎对**大列表**的性能模型：剪枝命中（props 同 + 版本同）→ 复用旧子树（renderFn 不重跑 + diff 零递归）。
+**剪枝只对组件生效**——native 元素（`<div>`/`<tr>` 等）每次渲染都会全量 patch：
+
+| 列表行形态 | 更新单行 | 说明 |
+|---|---|---|---|
+| **组件包裹**（推荐） | 剪枝命中，~O(1) | 行 props 不变 → renderFn 不重跑 + diff 跳过 |
+| 裸 native 元素 | 全量 patch O(n) | 每次 render 重建整树 + 全量 diff（1000 行 ~30-40ms jsdom） |
+
+```tsx
+// ✅ 大列表行用组件包裹（剪枝生效——更新单行 O(1)）
+const Row = (_init, ctx) =>
+  (props) => h('div', { class: 'row' }, h('span', {}, props.label))
+
+const List = (_init, ctx) =>
+  (props) => h('div', {}, props.items.map(r => h(Row, { key: r.id, label: r.label })))
+
+// ❌ 裸 native 行：每次 render 全量 patch（1000 行 = 全量遍历）
+{items.map(item => <div key={item.id}>{item.name}</div>)}
+```
+
+- **更新单行/单单元格**：数据模型建议行级状态（行组件各自持有状态 + `ctx.ui.render()` 精准刷新该行），
+  而非整表状态（整表 renderFn 重跑必然重建全部行）
+- **稳定数组透传**：renderFn 直接返回 `props.items`（不 map 重建）时，引用短路生效——未变项零 diff
+  （V3-3a）
+- 基准（1000 行 keyed 列表，jsdom）：首帧 build 0.6ms + render 26ms；更新单行（组件剪枝）DOM 写 0；
+  头部插入 DOM 写 1
+
 ---
 
 ## ref 管理 DOM
