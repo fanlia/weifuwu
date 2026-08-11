@@ -7,6 +7,11 @@
  * - 剪枝：已构建 + props 同 + 旧 _child 有值 → 复用旧 _child（renderFn 不重跑）
  * - 兄弟组件并行（工厂同步执行到第一个 await 后并发等待）
  * - **纯函数无 DOM**——构建产物只含 vnode 树
+ *
+ * V3-2（同步快路径）：buildVNode 非 async——返回 `VNodeChild | Promise<VNodeChild>`。
+ * **红线（用户确认）：组件两阶段异步定义不可改动**——组件 vnode 分支仍 await 工厂 +
+ * renderFn（renderFn 强制异步契约不变）；仅「无需 await 的路径」（剪枝复用/文本/null/
+ * 已构建 native）同步返回——零微任务。调用方统一 await 吸收（同步值 await 仅 1 微任务）。
  */
 
 import type { VNode, VNodeChild, Component } from '../vnode.ts'
@@ -87,28 +92,41 @@ export async function mountAsyncComponent(
   return { renderFn: vnode._render as (props: VNode['props']) => Promise<VNode | null>, childCtx }
 }
 
+/** thenable 判定（buildVNode 返回值可能是同步值或 Promise） */
+function isThenable(v: unknown): v is Promise<VNodeChild> {
+  return !!v && typeof (v as any).then === 'function'
+}
+
 /**
- * 递归展开组件树（async）：await 工厂 → renderFn → 递归子树。**零 DOM**。
+ * 递归展开组件树：await 工厂 → renderFn → 递归子树。**零 DOM**。
  *
  * - 组件节点保留在树上（挂 `_render` + `_child`）——$ dirty 精准刷新锚点不丢
  * - 兄弟组件 Promise.all 并行
  * - 旧树对照（oldInput）：同位置同类型组件复用旧 `_render`；同 props + 旧 _child 有值
  *   复用旧 `_child`（renderFn 不重跑——三态 skip 语义前置）
  * - 原地 mutate vnode（_render/_child）——引用保持
+ * - V3-2：非 async——剪枝/文本/null/已构建 native 同步返回（零微任务）；
+ *   组件路径（工厂 + renderFn await）返回 Promise（异步契约不变）
  */
-export async function buildVNode(
+export function buildVNode(
   input: VNodeChild,
   ctx: WfuiContext,
   oldInput?: VNodeChild,
   reg?: Registry,
   opts?: { force?: boolean },
-): Promise<VNodeChild> {
+): VNodeChild | Promise<VNodeChild> {
   if (input == null || typeof input === 'boolean' || typeof input === 'string' || typeof input === 'number') {
     return input
   }
   if (Array.isArray(input)) {
     const oldArr = Array.isArray(oldInput) ? oldInput : []
-    await Promise.all(input.map((c, i) => buildVNode(c, ctx, oldArr[i], reg, opts)))
+    const jobs = input.map((c, i) => buildVNode(c, ctx, oldArr[i], reg, opts))
+    // 全同步（剪枝/文本/已构建 native）→ 零微任务直接返回；含异步项 → Promise.all 并行
+    let hasAsync = false
+    for (let i = 0; i < jobs.length; i++) {
+      if (isThenable(jobs[i])) { hasAsync = true; break }
+    }
+    if (hasAsync) return Promise.all(jobs).then(() => input)
     return input
   }
   const vnode = input as VNode
@@ -147,24 +165,32 @@ export async function buildVNode(
       vnode._ctxVersion = oldV._ctxVersion
       return vnode
     }
-    // ── 完整路径：mountAsyncComponent（childCtx + 工厂——公共轻量部分幂等跳过） ──
-    const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? undefined })
-    const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry)
-    vnode._child = (built ?? null) as VNode | VNode[] | null
-    vnode._ctxVersion = ctxVersion
-    return vnode
+    // ── 完整路径：mountAsyncComponent（await 工厂——组件两阶段异步契约不变） ──
+    return (async () => {
+      const { childCtx } = await mountAsyncComponent(vnode, ctx, registry, { reuse: oldV ?? undefined })
+      const built = await buildVNode(await vnode._render!(vnode.props), childCtx, oldV?._child, registry)
+      vnode._child = (built ?? null) as VNode | VNode[] | null
+      vnode._ctxVersion = ctxVersion
+      return vnode
+    })()
   }
 
   if (vnode.type === Fragment) {
-    const built = await buildVNode(vnode.props?.children ?? null, ctx, oldV?._child ?? oldV?.props?.children, registry)
-    vnode._child = (built ?? null) as VNode | VNode[] | null
+    const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?._child ?? oldV?.props?.children, registry)
+    if (isThenable(r)) {
+      return r.then((built) => { vnode._child = (built ?? null) as VNode | VNode[] | null; return vnode })
+    }
+    vnode._child = (r ?? null) as VNode | VNode[] | null
     return vnode
   }
 
-  // Native：递归 children（旧树同位置对照复用）
+  // Native：递归 children（旧树同位置对照复用）——children 同步时同步设置 _child
   if (typeof vnode.type === 'string' || typeof vnode.type === 'symbol') {
-    const built = await buildVNode(vnode.props?.children ?? null, ctx, oldV?.props?.children, registry)
-    vnode._child = (built ?? null) as VNode | VNode[] | null
+    const r = buildVNode(vnode.props?.children ?? null, ctx, oldV?.props?.children, registry)
+    if (isThenable(r)) {
+      return r.then((built) => { vnode._child = (built ?? null) as VNode | VNode[] | null; return vnode })
+    }
+    vnode._child = (r ?? null) as VNode | VNode[] | null
     return vnode
   }
 

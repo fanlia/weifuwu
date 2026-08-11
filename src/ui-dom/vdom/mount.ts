@@ -319,7 +319,7 @@ export function mountCommand(
 ): { id: string } {
   const reg = commandRegistry(ctx)
   const browser = (ctx.browser ?? createClientBrowser()) as BrowserEnv
-  void buildVNode(vnode, ctx, undefined, reg)
+  void Promise.resolve(buildVNode(vnode, ctx, undefined, reg))
     .then(() => {
       const node = renderValue(vnode, ctx, browser)
       if (node != null) container.appendChild(node)

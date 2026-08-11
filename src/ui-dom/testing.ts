@@ -45,7 +45,8 @@ export async function patchToDom(container: Element, node: Node | null, prev: an
 }
 export function buildToDom(vnode: VNode, ctx: any): Promise<any> {
   const reg = (ctx as any).__registry ?? ((ctx as any).__registry = createRegistry())
-  return buildVNode(vnode, ctx, undefined, reg)
+  // V3-2：buildVNode 可能同步返回（剪枝/文本）——统一 Promise 语义
+  return Promise.resolve(buildVNode(vnode, ctx, undefined, reg))
 }
 
 // ── 两阶段组件渲染 ──────────────────────────────────────
