@@ -145,6 +145,18 @@ export function scheduleFullReRender(ctx: WfuiContext) {
 }
 
 /**
+ * 异步工厂 resolve 结果共享表（Promise → renderFn）。
+ * 背景（multi-async-interleave 事故）：vnode._asyncDef 的 diff 传递是引用复制——
+ * A/B 两个 async 组件同屏，A 先 resolve 触发的整树重渲染会把 B 的 Promise 引用复制到新 vnode；
+ * 而 .then 回调闭包捕获的是首次 vnode（已离树）→ B resolve 后新 vnode 仍持 Promise → 永久占位。
+ * 修复：resolve 结果写入表（key=Promise 引用，跨 vnode 共享），mountComponent 每次查表。
+ * WeakMap：vnode 改为 defFn 后 Promise 无强引用 → 可 GC。
+ */
+const asyncResolved = new WeakMap<Promise<unknown>, (props: VNode['props']) => VNode | null>()
+/** 已注册 then 的 Promise（幂等防重复 attach） */
+const asyncPending = new WeakSet<Promise<unknown>>()
+
+/**
  * 同步 mount 组件（async 工厂占位策略）：
  *   - 同步组件 → def(props, ctx) → render fn → 输出 VNode
  *   - async 工厂已解析 → 同同步组件
@@ -172,6 +184,33 @@ export function mountComponent(
   // （vnode 级按实例缓存 _asyncDef；diff 传递继承，补全渲染不再重跑工厂）
   const cached = vnode._asyncDef
   if (cached instanceof Promise) {
+    // 已 resolve 的 Promise（任何 vnode 副本都能查表——不依赖闭包 vnode 引用）
+    const def = asyncResolved.get(cached)
+    if (def) {
+      vnode._asyncDef = def
+      vnode._render = def
+      return def(props)
+    }
+    // 仍 in-flight：幂等 attach（resolve 后写入共享表——多 vnode 副本同一 Promise 只注册一次）
+    if (!asyncPending.has(cached)) {
+      asyncPending.add(cached)
+      void cached.then(
+        (defFn: any) => {
+          if (typeof defFn !== 'function') {
+            console.error(
+              `[weifuwu] Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
+                `(props) => VNode pattern.`
+            )
+            return
+          }
+          asyncResolved.set(cached, defFn)
+          scheduleFullReRender(ctx)
+        },
+        () => {
+          // 工厂失败：保持占位（已知裁剪：async 工厂 reject 无错误 UI/重试——见 components-cuts.md）
+        },
+      )
+    }
     return h(Placeholder, {}) // in-flight：占位
   }
   if (typeof cached === 'function') {
@@ -190,21 +229,25 @@ export function mountComponent(
   if (result instanceof Promise) {
     const promise = result as Promise<(props: VNode['props']) => VNode | null>
     vnode._asyncDef = promise
-    void promise.then(
-      (defFn) => {
-        if (typeof defFn !== 'function') {
-          throw new Error(
-            `Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
-              `(props) => VNode pattern.`
-          )
-        }
-        vnode._asyncDef = defFn
-        scheduleFullReRender(ctx)
-      },
-      () => {
-        // 工厂失败：保持占位
-      },
-    )
+    if (!asyncPending.has(promise)) {
+      asyncPending.add(promise)
+      void promise.then(
+        (defFn: any) => {
+          if (typeof defFn !== 'function') {
+            console.error(
+              `Component ${Comp.name || 'anonymous'} async factory must return a render function. ` +
+                `(props) => VNode pattern.`
+            )
+            return
+          }
+          asyncResolved.set(promise, defFn)
+          scheduleFullReRender(ctx)
+        },
+        () => {
+          // 工厂失败：保持占位（已知裁剪）
+        },
+      )
+    }
     return h(Placeholder, {})
   }
   if (typeof result !== 'function') {
