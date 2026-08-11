@@ -23,7 +23,7 @@ const CAT_LABELS: Record<string, string> = {
   management: '👔 管理决策', general: '🤖 通用',
 }
 
-export const NewAgent: Component = (_props, ctx) => {
+export const NewAgent: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   const token = ctx.auth?.token
 

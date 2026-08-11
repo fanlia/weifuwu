@@ -1,7 +1,7 @@
 import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Alert, Avatar, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
 
-export const Register: Component = (_props, ctx) => {
+export const Register: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
 $.email = ''; $.name = ''; $.password = ''; $.error = ''; $.loading = false
 

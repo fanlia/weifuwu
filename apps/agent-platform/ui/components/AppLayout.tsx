@@ -17,7 +17,7 @@ const NAV: NavDef[] = [
   { path: '/chat/new', icon: '💬', label: '聊天', match: p => p.startsWith('/chat') },
 ]
 
-export function AppLayout(_props: {}, ctx: WfuiContext) {
+export async function AppLayout(_props: {}, ctx: WfuiContext) {
   // ── 认证守卫 ──
   if (!ctx.auth?.isLoggedIn) {
     queueMicrotask(() => ctx.app?.navigate('/login'))

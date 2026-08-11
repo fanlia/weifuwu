@@ -2,7 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
 import { Badge, Button, Card } from 'weifuwu/components'
 
-export const Departments: Component = (_props, ctx) => {
+export const Departments: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
    $.depts = []; $.loading = true
     ctx.api!.get('/api/departments')

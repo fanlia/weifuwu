@@ -29,7 +29,7 @@ export const TYPE_META: Record<string, { label: string; icon: string; color: str
 }
 
 /** 类型徽章 */
-export function TypeBadge(_init: { type: string }, _ctx: WfuiContext) {
+export async function TypeBadge(_init: { type: string }, _ctx: WfuiContext) {
   return (props: { type: string }) => {
     const meta = TYPE_META[props.type] ?? { label: props.type, icon: '❓', color: '#64748b' }
     return <Badge variant={props.type === 'webhook' ? 'warning' : props.type === 'knowledge_base' ? 'success' : 'primary'}>{meta.icon} {meta.label}</Badge>
@@ -37,7 +37,7 @@ export function TypeBadge(_init: { type: string }, _ctx: WfuiContext) {
 }
 
 /** 头像（按类型着色） */
-export function Ava(_init: { name?: string; type?: string; small?: boolean }, _ctx: WfuiContext) {
+export async function Ava(_init: { name?: string; type?: string; small?: boolean }, _ctx: WfuiContext) {
   return (props: { name?: string; type?: string; small?: boolean }) => {
     const meta = TYPE_META[props.type ?? 'user']
     return <Avatar name={props.name} color={meta.color} size={props.small ? 'sm' : 'md'} />
@@ -45,7 +45,7 @@ export function Ava(_init: { name?: string; type?: string; small?: boolean }, _c
 }
 
 /** 状态点 + 文字 */
-export function StatusDot(_init: { on?: boolean; label?: string }, _ctx: WfuiContext) {
+export async function StatusDot(_init: { on?: boolean; label?: string }, _ctx: WfuiContext) {
   return (props: { on?: boolean; label?: string }) =>
     (
     <span class="wf-row wf-gap-xs wf-text-sm">

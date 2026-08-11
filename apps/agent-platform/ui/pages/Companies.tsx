@@ -2,7 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, EmptyState, Loading } from '../components/ui'
 import { Avatar, Button, Card } from 'weifuwu/components'
 
-export const Companies: Component = (_props, ctx) => {
+export const Companies: Component = async (_props, ctx) => {
   // 取数工具：loading/error 自动管理 + 自动渲染（token 由 api 中间件自动注入）
   const companies = ctx.ui.useAsync(async () => {
     const d = await ctx.api!.get<{ companies: any[] }>('/api/companies')

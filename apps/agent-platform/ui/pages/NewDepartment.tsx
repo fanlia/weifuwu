@@ -2,7 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Loading, TypeBadge, errMsg } from '../components/ui'
 import { Alert, Button, Card, Checkbox, EmptyState, Field, Input, Select } from 'weifuwu/components'
 
-export const NewDepartment: Component = (_props, ctx) => {
+export const NewDepartment: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   const token = ctx.auth?.token
 

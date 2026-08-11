@@ -3,7 +3,7 @@ import { setRefreshToken } from '../lib/api'
 import { Alert, Button, Card, Field, Input, PasswordInput } from 'weifuwu/components'
 import { Avatar } from 'weifuwu/components'
 
-export const Login: Component = (_props, ctx) => {
+export const Login: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
 $.email = ''; $.password = ''; $.error = ''; $.loading = false
 

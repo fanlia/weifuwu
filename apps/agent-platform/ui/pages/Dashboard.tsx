@@ -11,7 +11,7 @@ function greeting(): string {
   return '晚上好'
 }
 
-export const Dashboard: Component = (_props, ctx) => {
+export const Dashboard: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0
   Promise.all([

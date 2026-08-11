@@ -2,7 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, errMsg } from '../components/ui'
 import { Alert, Button, Card, Field, Input } from 'weifuwu/components'
 
-export const NewCompany: Component = (_props, ctx) => {
+export const NewCompany: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   const token = ctx.auth?.token
 

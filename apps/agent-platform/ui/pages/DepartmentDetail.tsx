@@ -2,7 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava, Loading, TypeBadge } from '../components/ui'
 import { Badge, Button, Card, EmptyState } from 'weifuwu/components'
 
-export const DepartmentDetail: Component = (_props, ctx) => {
+export const DepartmentDetail: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   const deptId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token

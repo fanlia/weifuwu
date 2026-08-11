@@ -8,7 +8,7 @@ const MODELS = [
   { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner' },
 ]
 
-export const AgentDetail: Component = (_props, ctx) => {
+export const AgentDetail: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   const agentId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token

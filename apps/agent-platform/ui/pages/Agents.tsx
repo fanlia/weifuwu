@@ -2,7 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot } from '../components/ui'
 import { Button, Card } from 'weifuwu/components'
 
-export const Agents: Component = (_props, ctx) => {
+export const Agents: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   const token = ctx.auth?.token
 

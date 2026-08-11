@@ -2,7 +2,7 @@ import type { WfuiContext, Component } from 'weifuwu/ui-dom'
 import { Ava } from '../components/ui'
 import { Alert, Badge, Button, CopyButton, EmptyState, Input, Markdown, MessageBubble } from 'weifuwu/components'
 
-export const Chat: Component = (_props, ctx) => {
+export const Chat: Component = async (_props, ctx) => {
   const $ = ctx.ui.$()
   const deptId = ctx.route?.params?.id ?? ''
   const token = ctx.auth?.token
