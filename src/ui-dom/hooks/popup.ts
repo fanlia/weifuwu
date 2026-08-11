@@ -267,12 +267,29 @@ export function usePopup(env: HookEnv, options: UsePopupOptions): UsePopupHandle
         'data-portal-mask': portalKey,
         onClick: options.maskClosable === false ? undefined : () => setOpen(false),
       })
-      // maskCentered：面板覆盖全屏 flex 居中（预览/全屏浮层）——覆盖 trigger 定位，
-      // 保留 content 原始 style（transform 等——Img 缩放依赖），丢弃 top/left/maxWidth
+      // maskCentered：外包全屏居中容器——用 layout 原语 .wf-cover（AGENTS.md §8：
+      // 先查框架原语不重复造轮子——position:fixed+inset:0+flex 居中已提供），
+      // --wf-z 覆盖为面板层（遮罩 80 < 面板 120）；不能把 flex 加到 content 自身
+      // （<img> 替换元素 display:flex 无效）。容器 pointer-events:none 透明区穿透
+      // 到遮罩关闭，子元素 auto 接收点击（缩放）
+      const centeredWrap = options.maskCentered
+        ? h('div', {
+            // layout 原语 .wf-cover：全屏居中（AGENTS.md §8 先查框架原语）
+            class: 'wf-cover',
+            style: { '--wf-z': 'var(--wf-z-popover)', pointerEvents: 'none' },
+          }, {
+            ...panel,
+            props: {
+              ...panel.props,
+              style: { ...(props.style ?? {}), pointerEvents: 'auto' },
+              ref: portalPanelRef,
+            },
+          } as VNode)
+        : null
       const maskStyle = options.maskCentered
-        ? { position: 'fixed', inset: '0', zIndex: 'var(--wf-z-popover)', display: 'flex', alignItems: 'center', justifyContent: 'center', ...(props.style ?? {}) }
+        ? undefined
         : { ...(panel.props?.style ?? {}), zIndex: 'var(--wf-z-popover)' }
-      const maskedPanel = {
+      const maskedPanel = options.maskCentered ? centeredWrap : {
         ...panel,
         props: {
           ...panel.props,
