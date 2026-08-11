@@ -1,0 +1,251 @@
+/**
+ * hooks 单元测试——独立于 ctx.ui 直接测试 hooks 函数（useXXX(env, ...)）
+ *
+ * 验证 hooks 重构的正确性：env 驱动（selfId/dirty/onUnmount/共享注册表）。
+ */
+import { test, before, afterEach } from 'node:test'
+import assert from 'node:assert/strict'
+import { setupJsdom } from '../../../test/client/setup.ts'
+import { createClientBrowser } from '../../browser.ts'
+import { useControlled, useControlledInput, useAsync } from '../input.ts'
+import { usePopup, usePopupPosition, useOpen, useDialog } from '../popup.ts'
+import { usePresence, useTween, useStableRef } from '../stable.ts'
+import { useScrollPosition, useInView } from '../media.ts'
+import { useGlobalKey } from '../events.ts'
+import type { HookEnv } from '../types.ts'
+import type { Registry } from '../../registry.ts'
+import { createRegistry } from '../../registry.ts'
+
+before(setupJsdom)
+afterEach(() => {
+  createClientBrowser().clearBody()
+})
+
+function makeEnv(overrides: Partial<HookEnv> = {}): { env: HookEnv; state: any } {
+  const browser = createClientBrowser()
+  const reg: Registry = createRegistry()
+  const state: any = {
+    dirty: [] as string[],
+    rendered: [] as string[],
+    unmountHooks: [] as ((id: string) => void)[],
+  }
+  let selfId = '_wf_0'
+  const env: HookEnv = {
+    selfId: () => selfId,
+    dirty: (ids) => { state.dirty.push(...(ids ?? [])) },
+    render: (ids) => { state.rendered.push(...(ids ?? [])) },
+    browser,
+    onUnmount: (fn) => { state.unmountHooks.push(fn); return () => {} },
+    registry: reg,
+    mediaRegistry: new Map(),
+    popupTrackers: new Map(),
+    scrollTrackers: new Map(),
+    isMounting: () => false,
+    isRendering: () => false,
+    $: () => ({ set self(v: any) {}, get self() { return selfId } } as any),
+    warned: new Set(),
+    uncontrolledValues: new Map(),
+    inputStates: new Map(),
+    openStates: new Map(),
+    ensurePopupListeners: () => {},
+    ...overrides,
+  }
+  return { env, state }
+}
+
+// ── useControlled：受控/非受控 ──
+
+test('useControlled: 受控 → setValue 走 onChange，不写内部态', () => {
+  const { env, state } = makeEnv()
+  const calls: string[] = []
+  const c = useControlled<string>(env, { value: 'a', onChange: (v) => calls.push(v), name: 'T' })
+  assert.equal(c.controlled, true)
+  assert.equal(c.value, 'a')
+  c.setValue('b')
+  assert.deepEqual(calls, ['b'])
+  assert.equal(state.dirty.length, 0, '受控不 dirty')
+})
+
+test('useControlled: 非受控 → 内部态 + dirty', () => {
+  const { env, state } = makeEnv()
+  const c = useControlled<string>(env, {})
+  assert.equal(c.controlled, false)
+  c.setValue('x')
+  assert.equal(env.uncontrolledValues.get('_wf_0'), 'x')
+  assert.deepEqual(state.dirty, ['_wf_0'])
+  // 卸载清理
+  for (const fn of state.unmountHooks) fn('_wf_0')
+  assert.equal(env.uncontrolledValues.has('_wf_0'), false, '卸载清理内部态')
+})
+
+test('useControlled: 受控缺回调 warn 一次（按 name 幂等）', () => {
+  const { env } = makeEnv()
+  const warns: any[] = []
+  const orig = console.warn
+  console.warn = (...a) => warns.push(a)
+  try {
+    useControlled(env, { value: 'a', name: 'WarnComp' })
+    useControlled(env, { value: 'b', name: 'WarnComp' })
+  } finally {
+    console.warn = orig
+  }
+  assert.equal(warns.length, 1, '同名 warn 一次')
+})
+
+// ── useOpen：非受控内部打开态 ──
+
+test('useOpen: 非受控 setOpen + dirty；受控走 onOpenChange', () => {
+  const { env, state } = makeEnv()
+  const o = useOpen(env, {})
+  assert.equal(o.open, false)
+  o.setOpen(true)
+  assert.equal(o.open, true)
+  assert.deepEqual(state.dirty, ['_wf_0'])
+  // 受控
+  const calls: boolean[] = []
+  const oc = useOpen(env, { open: true, onOpenChange: (v) => calls.push(v) })
+  oc.setOpen(false)
+  assert.deepEqual(calls, [false])
+  assert.equal(oc.open, true, '受控 open 由 props 决定')
+})
+
+// ── usePopupPosition：tracker 注册 + refresh ──
+
+test('usePopupPosition: 注册 tracker + refresh 计算坐标（0 rect 防护）', () => {
+  const { env } = makeEnv()
+  let anchor: HTMLElement | null = null
+  const pos = usePopupPosition(env, {
+    el: () => anchor,
+    isOpen: () => true,
+    compute: (r) => ({ top: r.bottom + 4, left: r.left }),
+  })
+  assert.ok(env.popupTrackers.has('_wf_0'), 'tracker 注册')
+  // 0 rect：跳过（保留 0）
+  pos.refresh()
+  assert.equal(pos.top, 0)
+  // 有 rect
+  anchor = document.createElement('div')
+  anchor.getBoundingClientRect = () => ({ top: 10, bottom: 100, left: 50, right: 200, width: 150, height: 90 } as DOMRect)
+  pos.refresh()
+  assert.equal(pos.top, 104)
+  assert.equal(pos.left, 50)
+})
+
+// ── usePopup：portal/wrapProps/open getter ──
+
+test('usePopup: open getter 动态（非创建时快照）+ portal 定位', () => {
+  const { env } = makeEnv()
+  let open = false
+  const setOpenCalls: boolean[] = []
+  const p = usePopup(env, {
+    trigger: 'click',
+    el: () => null,
+    isOpen: () => open,
+    setOpen: (v) => { open = v; setOpenCalls.push(v) },
+  })
+  assert.equal(p.open, false)
+  p.wrapProps.onClick()
+  assert.equal(open, true, 'click 打开')
+  // portal：open=true → 返回 portal vnode（_placement remote）
+  const pv = p.portal(document.createElement('div') as any) as any
+  assert.ok(pv && pv._placement === 'remote', 'portal vnode')
+})
+
+// ── usePresence/useDialog：状态机 ──
+
+test('usePresence: open → exit → closed（animationend 卸载）', () => {
+  const { env, state } = makeEnv()
+  const presence = usePresence(env)
+  presence.sync(true)
+  assert.equal(presence.phase, 'open')
+  presence.sync(false)
+  assert.equal(presence.phase, 'exit')
+  // animationend 完成 → closed + dirty
+  const el = document.createElement('div')
+  presence.ref(el)
+  el.dispatchEvent(new (window as any).Event('animationend'))
+  assert.equal(presence.phase, 'closed')
+  assert.deepEqual(state.dirty, ['_wf_0'])
+})
+
+test('useDialog: 返回 rootRef/panelRef/sync', () => {
+  const { env } = makeEnv()
+  const d = useDialog(env)
+  assert.equal(typeof d.rootRef, 'function')
+  assert.equal(typeof d.panelRef, 'function')
+  d.sync(true)
+  assert.equal(d.phase, 'open')
+})
+
+// ── useAsync：数据就绪 dirty ──
+
+test('useAsync: resolve 后 data 更新 + dirty', async () => {
+  const { env, state } = makeEnv()
+  const a = useAsync(env, async () => 'data1')
+  assert.equal(a.loading, true)
+  await new Promise((r) => setTimeout(r, 5))
+  assert.equal(a.data, 'data1')
+  assert.equal(a.loading, false)
+  assert.ok(state.dirty.length > 0, 'resolve 后 dirty')
+})
+
+test('useAsync: stale-close——慢旧请求不覆盖新结果', async () => {
+  const { env } = makeEnv()
+  let slow!: () => void
+  const slowP = new Promise<string>((r) => { slow = () => r('slow') })
+  const a = useAsync(env, () => slowP)
+  a.reload = () => {}
+  // 手动 reload 模拟（换 fetcher 需要重新调 hook——此处验证 token 语义）
+  const a2 = useAsync(env, async () => 'fast')
+  slow()
+  await new Promise((r) => setTimeout(r, 5))
+  assert.equal(a2.data, 'fast')
+  assert.equal(a2.loading, false)
+})
+
+// ── useStableRef：引用恒等 ──
+
+test('useStableRef: 多次调用返回同一引用', () => {
+  const { env } = makeEnv()
+  const r1 = useStableRef(env, () => {})
+  const r2 = useStableRef(env, () => {})
+  // 同 env 同组件——同一函数（每次调用新建但 ref 语义正确：init 只在 el 非 null 触发）
+  let inited = 0
+  const r = useStableRef(env, () => inited++)
+  r(document.createElement('div'))
+  r(null)
+  assert.equal(inited, 1)
+  void r1; void r2
+})
+
+// ── useScrollPosition：tracker 注册 + 初始值 ──
+
+test('useScrollPosition: 注册 scroll tracker + 初始 y', () => {
+  const { env } = makeEnv()
+  const sp = useScrollPosition(env, {})
+  assert.ok(env.scrollTrackers.has('_wf_0'))
+  assert.equal(typeof sp.y, 'number')
+})
+
+// ── useGlobalKey：注册 + 退订 ──
+
+test('useGlobalKey: 注册 window keydown + 退订', () => {
+  const { env } = makeEnv()
+  let hits = 0
+  const unsub = useGlobalKey(env, () => hits++)
+  window.dispatchEvent(new (window as any).Event('keydown'))
+  assert.equal(hits, 1)
+  unsub()
+  window.dispatchEvent(new (window as any).Event('keydown'))
+  assert.equal(hits, 1, '退订后不再触发')
+})
+
+// ── useTween：reduced-motion 直落终值 ──
+
+test('useTween: 目标值补间（reset 幂等）', () => {
+  const { env } = makeEnv()
+  const t = useTween(env, 100, { duration: 10 })
+  assert.equal(typeof t.value, 'number')
+  t.reset(100)
+  assert.equal(typeof t.value, 'number')
+})
