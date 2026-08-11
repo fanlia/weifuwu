@@ -155,6 +155,35 @@ return ctx.ui.html`<div id="root">${html}</div>${ctx.ui.ssrData(data)}`
 
 ## 4. 状态与渲染
 
+### 4.0 vdom 核心原则：无自动渲染（渲染时机完全由用户显式操作决定）
+
+> **只有以下三种操作会触发渲染，除此之外没有任何自动渲染**：
+> 1. `$.xxx = val`（$ proxy set trap——赋值即触发）
+> 2. `ctx.ui.render(ids?)`（立即渲染）
+> 3. `ctx.ui.dirty(ids?)`（请求渲染）
+
+**禁止的自动渲染机制**（vdom 引擎红线——`src/ui-dom/vdom/`）：
+- ❌ **无 flush/微任务批处理调度层**——$ 赋值直接 fire-and-forget 渲染（`renderByIds`），不经过"dirtySet → 微任务批量 flush"
+- ❌ **无 resolve 回调补渲染**——async 组件工厂 resolve 即构建完、构建完即渲染，**没有"resolve 后触发父级重渲染"的回调**（第 1 代死循环根因：mountComponent → resolve → scheduleLocalRefresh → renderByIds → diff 又动态挂载 → 无限）
+- ❌ **无占位/注释/补全定位机制**——动态挂载组件在 `buildVNode` 阶段 await（构建完成）→ diff 同步渲染
+- ❌ **无渲染循环**（runLoop）——渲染结束后不检查/不补跑任何待渲染项
+
+**渲染管线（两阶段）**：
+```
+用户操作（$ 赋值 / render / dirty）
+  → renderByIds（async）
+    → buildVNode（await 动态挂载组件——工厂只跑一次，_render 缓存）
+    → patchValue（同步 diff——只处理已构建树，永不调工厂）
+```
+
+**关键不变量**：
+- 组件 vnode 进入 diff 前**必须已构建**（`_render` 已设）——diff 遇未构建组件直接抛错（开发期暴露）
+- 防重入：同一组件 id 同时只跑一次渲染（渲染中再次触发 → 跳过——错过由下次用户操作捕获，**不补跑**）
+- 工厂只跑一次：vnode 级缓存 + 旧树同位置同类型复用（跨渲染保持组件内部状态）
+- mount 保护期（工厂执行）$ 赋值不触发渲染（初始化赋值）
+
+**实现位置**：`src/ui-dom/vdom/`（build.ts / diff.ts / render.ts / scheduler.ts / state.ts / mount.ts / registry.ts）——第 2 代引擎，替代第 1 代（render.ts/diff.ts 顶层文件）的占位/补全/批处理机制。
+
 ### 4.1 状态存放位置
 
 | 状态类型 | 存放位置 | 触发渲染 | 例子 |

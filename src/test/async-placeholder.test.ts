@@ -128,3 +128,26 @@ test('ErrorBoundary wf-empty 占位：恢复后注释被替换', async () => {
   assert.ok(true, 'buildVNode 抛错路径由 doRender catch（另测）')
   handle.close()
 })
+
+// ── 场景 4：列表数据 .then 加载后 async 组件首次出现（agents/companies 页真实场景） ──
+
+test('列表 .then 加载后 async 组件动态挂载：补全插入（列表页事故）', async () => {
+  const b = createClientBrowser()
+  const Item = async (_init: any) => () => h('div', { class: 'item' }, 'I')
+  const App = async (_init: any, ctx: any) => {
+    const $ = ctx.ui.$()
+    $.items = []
+    // 模拟 API .then：微任务后设置数据
+    queueMicrotask(() => { $.items = [1, 2, 3] })
+    return () => h('div', { class: 'list' },
+      ($.items as any[]).map((i: any) => h(Item, { key: i })),
+    )
+  }
+  const router = new UIRouter()
+  router.get('/', () => h(App, {}))
+  b.navigate('/')
+  const el = mount('ap4')
+  const handle = uiServe(router, { root: '#ap4' })
+  await flush(); await flush()
+  assert.equal(el.querySelectorAll('.item').length, 3, '3 items 补全插入')
+})

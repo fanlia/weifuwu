@@ -62,6 +62,7 @@ const layoutMw = async (_location: any, ctx: any, children: any) => {
 const main = new UIRouter()
 main.use(layoutMw)
 main.get('', () => h(Dashboard, {}), { title: '概览 — Agent Platform' })
+main.get('dashboard', () => h(Dashboard, {}), { title: '概览 — Agent Platform' })
 main.get('agents', () => h(Agents, {}), { title: 'Agent — Agent Platform' })
 main.get('agents/new', () => h(NewAgent, {}), { title: '创建 Agent' })
 main.get('agents/:id', () => h(AgentDetail, {}), { title: '编辑 Agent' })

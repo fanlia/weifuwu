@@ -493,7 +493,10 @@ function patchChildren(
   // 父 vnode 引用：动态挂载组件 resolve 后向上找持有组件（_parentVNode 链）——
   // 取消占位注释后，补全靠父级重渲染（数组 diff next 定位）而非单组件 DOM 锚点
   for (const c of newChildren) {
-    if (c && typeof c === 'object' && !Array.isArray(c)) (c as VNode)._parentVNode = newVNode
+    if (c && typeof c === 'object' && !Array.isArray(c)) {
+      ;(c as VNode)._parentVNode = newVNode
+      if ((globalThis as any).__wf_dbg && (c as VNode).type === 'function') console.log('[pv]', ((c as VNode).type as any).name, '→ parent:', (newVNode as any)?.type?.name ?? newVNode?.type)
+    }
   }
 
   // 始终使用 keyed diff，无 key 时自动分配位置 key

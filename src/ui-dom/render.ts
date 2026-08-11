@@ -57,6 +57,7 @@ export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
     const frag = b.createDocumentFragment() as DocumentFragment
     const children = vnode.props?.children == null ? [] : (Array.isArray(vnode.props.children) ? vnode.props.children : [vnode.props.children])
     for (const child of children) {
+      if (child && typeof child === 'object' && !Array.isArray(child)) (child as VNode)._parentVNode = vnode
       const node = renderValue(child, ctx)
       if (node != null) frag.appendChild(node)
     }
@@ -98,6 +99,9 @@ export function renderValue(v: VNodeChild, ctx: WfuiContext): Node | null {
     // children（select 的 options 必须先生成再设 value）
     const flatChildren = flattenChildren(vnode.props?.children)
     for (const child of flatChildren) {
+      // 父 vnode 引用（新增子树 renderValue 路径——列表容器新增时整体渲染，
+      // 与 patchChildren 的 diff 路径对齐；动态挂载补全靠 _parentVNode 链找持有组件）
+      if (child && typeof child === 'object' && !Array.isArray(child)) (child as VNode)._parentVNode = vnode
       const childNode = renderValue(child, ctx)
       if (childNode == null) continue
       el.appendChild(childNode)
@@ -149,6 +153,7 @@ function scheduleLocalRefresh(vnode: VNode, ctx: WfuiContext): void {
   let chain = 0
   while (cur && !cur._id && chain < 10) { cur = cur._parentVNode; chain++ }
   const target = cur?._id ?? id
+  if ((globalThis as any).__wf_dbg) console.log('[refresh]', id, '→ target:', target, 'parentChain:', chain, 'parentType:', (cur as any)?.type?.name ?? (cur as any)?.type)
   ui.render([target])
 }
 
@@ -271,6 +276,7 @@ function renderComponent(
     return null
   }
   vnode._child = childVNode
+  if (childVNode && typeof childVNode === 'object' && !Array.isArray(childVNode)) childVNode._parentVNode = vnode
   const domNode = renderValue(childVNode, childCtx)
   // 为组件 VNode 设置 DOM 锚点，供 scope render 使用
   // 如果组件被原生元素包裹，原生元素路径会覆盖 _parentNode
