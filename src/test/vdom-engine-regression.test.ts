@@ -209,3 +209,51 @@ test('混合 keyed 数组含 portal：portal 复用容器（getKey remote 语义
   assert.equal(pc2.querySelector('.row')?.textContent, '5', '内容 patch 更新')
   handle.unmount()
 })
+
+test('DatePicker 选中日期：父组件 render + 组件内部 render 竞态不复制 DOM（全局渲染互斥）', async () => {
+  // 场景：DemoDatePicker（容器）里 onChange 触发自身 render；DatePicker 内部 setOpen(false)
+  // 也触发自身 render——两个不同 id 的 renderByIds 并发。v2 async buildVNode 在
+  // 「新 vnode 已注册但 _child 未设」的中间态 yield → 抢跑的 renderByIds 读到 oldChild
+  // undefined → patchValue 走 insertBefore 新增分支 → 同一组件 DOM 被复制。
+  // v1 同步渲染天然串行；v2 需要全局互斥锁恢复串行语义。
+  setupJsdom()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+
+  let result = ''
+  const Demo = (_init: any, ctx: any) => (_p: any) =>
+    h('div', { class: 'demo' }, [
+      h('div', { class: 'dp-wrap' }, h(DatePicker, {
+        mode: 'date',
+        placeholder: '选择日期',
+        onChange: (v: string) => { result = v; ctx.ui.render() },
+      })),
+      result ? h('div', { class: 'result' }, `已选: ${result}`) : null,
+    ].filter(Boolean))
+
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  await handle.mount(h('div', {}, h(Demo, {})))
+  await flush()
+
+  // 打开面板
+  const input = root.querySelector('input[placeholder="选择日期"]') as HTMLInputElement
+  assert.ok(input, 'DatePicker input 已渲染')
+  input.dispatchEvent(new (window as any).MouseEvent('click', { bubbles: true }))
+  await flush()
+  const dpOpen = document.querySelectorAll('.wf-datepicker').length
+  assert.equal(dpOpen, 1, '初始 1 个 DatePicker')
+
+  // 选中日期（onChange + setOpen(false) 双 render 竞争）
+  const dropdown = document.querySelector('.wf-datepicker-dropdown')
+  const cells = [...document.querySelectorAll('.wf-datepicker-cell')]
+  const cell = cells.find(c => !c.classList.contains('disabled') && c.textContent.trim() && !isNaN(+c.textContent.trim())) as HTMLElement
+  assert.ok(dropdown, '面板已打开')
+  cell.dispatchEvent(new (window as any).MouseEvent('click', { bubbles: true }))
+  await flush()
+  await flush()
+
+  const after = document.querySelectorAll('.wf-datepicker').length
+  assert.equal(after, 1, `选中日期后仍 1 个 DatePicker（实际 ${after}——修复前 insertBefore 复制）`)
+  assert.equal(document.querySelector('.result')?.textContent, `已选: ${result}`, 'demo result 更新')
+  handle.unmount()
+})
