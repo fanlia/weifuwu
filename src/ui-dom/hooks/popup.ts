@@ -15,8 +15,6 @@ import type {
 import { clampToViewport, computeFixedPosRect } from '../popup.ts'
 import { createPortal, h } from '../vnode.ts'
 import type { VNode } from '../vnode.ts'
-import { lockScroll, unlockScroll } from '../scroll-lock.ts'
-import { trapFocus } from '../focus-trap.ts'
 import { useHoverCapable, usePresence } from './stable.ts'
 
 /** 弹层位置跟踪：滚动/resize 时自动重算 fixed 坐标（0 rect 防护） */
@@ -389,3 +387,97 @@ export function useOpen(env: HookEnv, options: {
 }
 
 /** 全屏对话框组合器：退场状态机 + 滚动锁 + 焦点 trap（基于 usePresence） */
+
+
+// ══ 会话级模态内部实现（usePopup presence/trapFocus/lockScroll 专用——不对外导出） ══
+
+import { createClientBrowser } from '../browser.ts'
+const _browser = createClientBrowser()
+
+let lockedCount = 0
+let originalOverflow = ''
+let originalPosition = ''
+let originalTop = ''
+let originalWidth = ''
+let scrollY = 0
+
+function canLock(): boolean {
+  return typeof window !== 'undefined' && typeof document !== 'undefined'
+}
+
+function lockScroll(): void {
+  lockedCount++
+  if (lockedCount > 1) return
+  if (!canLock()) return
+
+  scrollY = _browser.scrollTop()
+  const body = _browser.bodyElement() as HTMLElement
+  originalOverflow = body.style.overflow
+  originalPosition = body.style.position
+  originalTop = body.style.top
+  originalWidth = body.style.width
+
+  body.style.overflow = 'hidden'
+
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.platform) ||
+    (/Mac/.test(navigator.platform) && 'ontouchend' in document)
+  if (isIOS) {
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.width = '100%'
+  }
+}
+
+function unlockScroll(): void {
+  // 下溢防护：未锁定时 unlock 是 no-op（防 lockedCount 走负数后
+  // 错误还原 style / scrollTo 覆盖其他锁定者）
+  if (lockedCount === 0) return
+  lockedCount--
+  if (lockedCount > 0) return
+  if (!canLock()) return
+
+  const body = _browser.bodyElement() as HTMLElement
+  body.style.overflow = originalOverflow
+  body.style.position = originalPosition
+  body.style.top = originalTop
+  body.style.width = originalWidth
+
+  if (scrollY > 0) _browser.scrollTo(scrollY)
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+function trapFocus(container: HTMLElement): () => void {
+  let cleanup: (() => void) | undefined
+  // §5.1：ref 在子节点 appendChild 之前触发——容器挂载时 children 未连接，
+  // querySelectorAll 查不到可聚焦元素（真实事故：handler 不注册 → Tab 循环失效）。
+  // 延迟到微任务：同任务内 mount 已完成，元素已连接、children 完整。
+  queueMicrotask(() => {
+    const focusable = container.querySelectorAll<HTMLElement>(FOCUSABLE)
+    if (focusable.length === 0) return
+
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+      if (e.shiftKey && _browser.activeElement() === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && _browser.activeElement() === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
+    const prevFocused = _browser.activeElement() as HTMLElement | null
+    first.focus()
+
+    container.addEventListener('keydown', handler)
+    cleanup = () => {
+      container.removeEventListener('keydown', handler)
+      prevFocused?.focus()
+    }
+  })
+  return () => cleanup?.()
+}
