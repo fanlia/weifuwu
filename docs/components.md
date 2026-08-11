@@ -2,7 +2,7 @@
 
 > 本页为 weifuwu 官方文档拆分页 · [返回 README](../README.md)
 
-109 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
+113 个 HTML 原语组件。每个是 `(_init, ctx) => (props) => VNode`（两阶段组件，与前端框架同一模型），引用 `--wf-*` CSS 变量做主题。另含 `confirm()` / `toast()` 命令式中间件。
 
 > **组件速查（weifuwu 组件 ↔ antd / Element Plus / shadcn-ui 对应 + 迁移示例）**：见 [`docs/components-map.md`](components-map.md)——从其他组件库迁来的开发者按功能直接找对应组件。
 > **自定义组件开发**：见 [docs/custom-components.md](custom-components.md)——usePopup/useControlled/对话框/AI 组件/类型纪律逐步指南。
@@ -26,9 +26,10 @@ import 'weifuwu/components/style.css'   // 包含 Token + 57 布局原语 + 136 
 <Input type="password" hint="至少6位" />
 <Input name="email" type="email" disabled placeholder="name@example.com" />
 
-// ├─ 选择器
+// ├─ 选择器（options 支持平铺项与分组混用：{ label, options } → optgroup）
 <Select options={[{ value: 'a', label: '选项A' }]} placeholder="请选择" />
 <Select searchable options={options} onChange={v => setVal(v)} />
+<Select options={[{ label: '一线', options: [{ value: 'bj', label: '北京' }] }, { value: 'other', label: '其他' }]} />
 
 // ├─ 复选框 / 开关 / 单选
 <Checkbox checked={agree} onChange={setAgree} label="同意协议" />
@@ -647,7 +648,11 @@ props 变化 ──────────────────────�
 | AiChat | `AiChat` | `chat`, `maxHeight?`, `labels?`, `renderMessage?`, `renderToolArgs?` | 标准 AI 对话界面：气泡 + 工具卡 + 审批卡 + 自动滚动 + 错误重试（接收 `ctx.ui.useChat()` handle） |
 | MessageBubble | `MessageBubble` | `content`, `role`, `status`, `actions` | 独立消息气泡（业务聊天页复用） |
 | ToolCallCard | `ToolCallCard` | `call`, `progress?`, `result?`, `renderArgs?` | 工具调用卡片：running（进度条）/ ok / error 三态（协议 §4） |
-| ApprovalCard | `ApprovalCard` | `request`, `status?`, `onApprove`, `onReject` | 人工审批卡片：待批（允许/拒绝+备注）/ 已批 / 已拒 / 超时（协议 §4.5） |
+| JsonSchemaForm | `JsonSchemaForm` | `schema`, `value?`, `onChange?`, `onSubmit?`, `submitLabel?` | JSON Schema（对象子集）→ 参数输入表单：类型映射 + required/范围校验 + 嵌套/数组（工具参数输入面；不支持项告警降级） |
+| ReasoningBlock | `ReasoningBlock` | `content`, `label?`, `defaultExpanded?`, `streaming?` | CoT 推理折叠展示（thinking 模式 `reasoning_content`；aria-expanded + 键盘可达 + 流式脉冲） |
+| CitationCard | `CitationCard` | `items`, `label?`, `maxVisible?`, `defaultExpanded?`, `onOpen?` | RAG 引用来源展示：折叠「引用 N 条」+ 条目（序号/标题/来源/片段/链接）+ 溢出 +N；onOpen 时全部可点（调用方处理跳转） |
+| SessionList | `SessionList` | `sessions`, `activeId?`, `onSelect?`, `onNew?`, `onRename?`, `onDelete?`, `searchable?` | 会话管理列表：分组（今天/昨天/更早）+ 选中高亮 + 搜索 + 行内重命名（Enter 确认/Escape 取消）/删除 + 键盘方向键导航 |
+| ApprovalCard | `ApprovalCard` | `request`, `status?`, `onApprove(modifiedArgs?)`, `onReject`, `argsSchema?` | 人工审批卡片：待批（允许/拒绝+备注）/ 已批 / 已拒 / 超时；`argsSchema` 提供时渲染「修改参数」（JsonSchemaForm 预填 args，提交带修改后参数 → `onApprove(modifiedArgs)` → 父层选 modified 决策） |
 
 ### 全局工具
 

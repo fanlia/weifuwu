@@ -44,6 +44,8 @@ export interface UiMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  /** thinking 模式推理过程（wf:done 下发后挂上，ReasoningBlock 展示） */
+  reasoning?: string
   status: 'streaming' | 'done' | 'error'
   usage?: WfUsage
   toolCalls?: UiToolCall[]
@@ -74,8 +76,8 @@ export interface ChatApi {
   retry: () => void
   /** 清空会话并中止 */
   clear: () => void
-  /** 响应 HITL 审批（协议 §4.5）：清卡片 + POST approveUrl */
-  approve: (decision: WfApprovalDecision, note?: string) => Promise<void>
+  /** 响应 HITL 审批（协议 §4.5）：清卡片 + POST approveUrl；modified 决策带修改后参数 */
+  approve: (decision: WfApprovalDecision, note?: string, modifiedArgs?: Record<string, unknown>) => Promise<void>
   /** 中止流并释放（组件卸载时调用） */
   dispose: () => void
   /** 内部：订阅会话状态变更（AiChat 等共享 $ 的子组件用；返回退订）。
@@ -110,9 +112,13 @@ export type ChatTransport = (
 
 // ── 工具 ─────────────────────────────────────────────────
 
-/** UiMessage[] → provider ChatMessage[]（剥离 UI 字段） */
+/** UiMessage[] → provider ChatMessage[]（剥离 UI 字段；reasoning 回传——thinking 模式闭环） */
 export function toChatMessages(msgs: UiMessage[]): ChatMessage[] {
-  return msgs.map((m) => ({ role: m.role, content: m.content }))
+  return msgs.map((m) => {
+    const out: ChatMessage = { role: m.role, content: m.content }
+    if (m.reasoning) out.reasoning_content = m.reasoning
+    return out
+  })
 }
 
 function uid(): string {
@@ -186,6 +192,8 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
         if (m) {
           m.status = 'done'
           m.approval = undefined // 收尾时仍挂起的审批一并清除
+          const d = data as { reasoning?: string }
+          if (d.reasoning) m.reasoning = d.reasoning
         }
         state.streaming = false
         state.step = null
@@ -281,7 +289,7 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
     state.step = null
   }
 
-  async function approve(decision: WfApprovalDecision, note?: string): Promise<void> {
+  async function approve(decision: WfApprovalDecision, note?: string, modifiedArgs?: Record<string, unknown>): Promise<void> {
     // 审批可能晚于流结束仍挂起：查最后一条 assistant 消息，不依赖 streaming
     const m = state.messages[state.messages.length - 1]
     const req = m?.role === 'assistant' ? m.approval : undefined
@@ -292,7 +300,10 @@ export function createChatSession(state: UseChatState, transport: ChatTransport,
       await fetch(options.approveUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...options.headers },
-        body: JSON.stringify({ id: req.id, decision, note }),
+        // modified 决策：带修改后参数（协议 WfApprovalResponse.modifiedArgs，后端按它执行）
+        body: JSON.stringify(modifiedArgs
+          ? { id: req.id, decision, note, modifiedArgs }
+          : { id: req.id, decision, note }),
         signal: options.signal,
       })
     } catch (err) {

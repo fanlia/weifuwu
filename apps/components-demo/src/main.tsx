@@ -31,8 +31,9 @@ import {
   VirtualList, VirtualTable, InfiniteScroll, QRCode, Anchor, LogViewer, JSONViewer, DiffView, Sparkline, Tour, Kanban, Pipeline, TreeSelect,
   Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
+  JsonSchemaForm, ReasoningBlock, CitationCard, SessionList,
 } from 'weifuwu/components'
-import type { ToastItem, ToastType, ToastInjected } from 'weifuwu/components'
+import type { ToastItem, ToastType, ToastInjected, JsonSchema } from 'weifuwu/components'
 
 // ── 布局组件 ──────────────────────────────────────────
 
@@ -138,6 +139,12 @@ const DemoSelect: Component = (_props, ctx) => {
         ]} />
       <div class="wf-text-xs wf-text-secondary">当前值: {role || '(未选择)'}</div>
       <Select label="带错误" error="请选择角色" options={[{ value: 'a', label: '选项 A' }]} />
+      <Select label="分组选项（optgroup）" placeholder="选择城市"
+        options={[
+          { label: '一线', options: [{ value: 'bj', label: '北京' }, { value: 'sh', label: '上海' }] },
+          { label: '二线', options: [{ value: 'hz', label: '杭州' }] },
+          { value: 'other', label: '其他' },
+        ]} />
     </div>
   )
 }
@@ -1086,9 +1093,95 @@ const DemoToolCallCard: Component = () => () => (
   </div>
 )
 
+/** JsonSchemaForm：schema → 工具参数输入表单（AI 差异化） */
+const toolSchema: JsonSchema = {
+  type: 'object',
+  title: 'query_weather 参数',
+  properties: {
+    city: { type: 'string', title: '城市', description: '目标城市名' },
+    days: { type: 'integer', title: '预报天数', minimum: 1, maximum: 7 },
+    with_weather: { type: 'boolean', title: '含天气详情' },
+    unit: { type: 'string', enum: ['celsius', 'fahrenheit'], title: '单位' },
+  },
+  required: ['city'],
+}
+const DemoJsonSchemaForm: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <JsonSchemaForm schema={toolSchema} value={{ city: '北京', days: 3, with_weather: true }} submitLabel="执行工具" />
+    <span class="wf-text-xs wf-text-secondary">↑ schema 驱动表单：必填校验（城市）拦截提交；单位/天数/开关即改即生效（onChange）</span>
+  </div>
+)
+
+/** ReasoningBlock：CoT 推理过程折叠展示 */
+const DemoReasoningBlock: Component = (_p, ctx) => {
+  let streaming = false
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <ReasoningBlock
+        content={'先分析用户意图：用户询问北京天气，需要调用 query_weather 工具。\n参数推导：city=北京，days=3（默认），单位取摄氏度。\n工具已就绪，开始执行。'}
+        label="已思考"
+        streaming={streaming}
+      />
+      <button class="wf-btn wf-btn--sm" onClick={() => { streaming = !streaming; ctx.ui.render() }}>
+        {streaming ? '停止模拟流式' : '模拟流式'}
+      </button>
+    </div>
+  )
+}
+
+/** CitationCard：RAG 引用来源展示 */
+const DemoCitationCard: Component = () => () => (
+  <div class="wf-stack wf-gap-sm">
+    <div class="wf-text-sm">根据以下资料回答：
+      <span class="wf-text-secondary">引用来源折叠展示（最多 3 条，溢出 +N）</span>
+    </div>
+    <CitationCard
+      items={[
+        { id: 'c1', title: '产品手册 · 计费', source: 'docs/billing.md', snippet: '按量计费以小时为粒度，出账后 24 小时内可查看明细。', url: 'https://example.com/docs/billing' },
+        { id: 'c2', title: 'FAQ · 退款', source: 'faq.md', snippet: '退款将在 3-5 个工作日内原路退回，超过 30 天请联系客服。' },
+        { id: 'c3', title: 'API 文档 · 限流', source: 'api/rate-limit.md', snippet: '单账号 QPS 上限 100，超出返回 429。' },
+        { id: 'c4', title: '公告 · 新功能', source: 'changelog.md', snippet: 'v0.75 新增审批修改参数能力。' },
+      ]}
+    />
+  </div>
+)
+
+/** SessionList：会话管理列表（分组 + 搜索 + 重命名/删除/新建） */
+const DemoSessionList: Component = (_p, ctx) => {
+  const day = 24 * 3600 * 1000
+  const now = Date.now()
+  let sessions = [
+    { id: 's1', title: '北京天气查询', updatedAt: now - 30 * 60 * 1000 },
+    { id: 's2', title: '订单退款处理', updatedAt: now - 5 * 60 * 1000 },
+    { id: 's3', title: '上周的周报总结', updatedAt: now - 2 * day },
+    { id: 's4', title: '知识库问答', updatedAt: now - 20 * day },
+  ]
+  let active = 's2'
+  let idc = 10
+  return () => (
+    <div class="wf-stack wf-gap-sm">
+      <div class="wf-row">
+        <div class="wf-col" style={{ width: '260px' }}>
+          <SessionList
+            sessions={sessions}
+            activeId={active}
+            searchable
+            onSelect={(id) => { active = id; ctx.ui.render() }}
+            onNew={() => { sessions = [{ id: `s${idc++}`, title: '新会话', updatedAt: Date.now() }, ...sessions]; ctx.ui.render() }}
+            onRename={(id, title) => { sessions = sessions.map((s) => s.id === id ? { ...s, title } : s); ctx.ui.render() }}
+            onDelete={(id) => { sessions = sessions.filter((s) => s.id !== id); if (active === id) active = ''; ctx.ui.render() }}
+          />
+        </div>
+      </div>
+      <span class="wf-text-xs wf-text-secondary">分组（今天/昨天/更早）+ 搜索 + 选中；悬停行内重命名/删除；+ 新建会话</span>
+    </div>
+  )
+}
+
 /** ApprovalCard：pending / approved / rejected 终态 */
 const DemoApprovalCard: Component = (_p, ctx) => {
   let loading = false
+  let modified: string | undefined
   return () => (
     <div class="wf-stack wf-gap-sm">
       <ApprovalCard
@@ -1098,6 +1191,13 @@ const DemoApprovalCard: Component = (_p, ctx) => {
         onReject={() => {}}
       />
       <div class="wf-text-xs wf-text-secondary">↑ 点「允许」看提交中状态（loading 防连点）</div>
+      <ApprovalCard
+        request={{ id: 'ap4', toolCallId: 't4', name: 'place_order', args: { qty: 2, note: '' }, reason: '单笔超限——可修改参数后批准（modified 决策）' }}
+        argsSchema={{ type: 'object', properties: { qty: { type: 'integer', title: '数量', minimum: 1, maximum: 10 }, note: { type: 'string', title: '备注' } }, required: ['qty'] }}
+        onApprove={(m) => { modified = m ? `qty=${m.qty}` : '原参数批准'; ctx.ui.render() }}
+        onReject={() => {}}
+      />
+      <div class="wf-text-xs wf-text-secondary">↑ 点「修改参数」改数量后批准：{modified ?? '（尚未操作）'}</div>
       <ApprovalCard
         request={{ id: 'ap2', toolCallId: 't2', name: 'delete_user', args: { userId: 'u_42' } }}
         status="approved"
@@ -2210,7 +2310,9 @@ return () => <AiChat chat={$} />
 // 状态机：running → ok / error`,
 
   approval: `<ApprovalCard request={{ id, toolCallId, name, args }}
-  onApprove={() => chat.approve('approved')}
+  argsSchema={toolSchema}                       // 提供 → 「修改参数」入口（JsonSchemaForm）
+  onApprove={(modifiedArgs) =>
+    chat.approve(modifiedArgs ? 'modified' : 'approved', undefined, modifiedArgs)}
   onReject={(note) => chat.approve('rejected', note)} />
 
 // 终态：<ApprovalCard request={...} status="approved" />`,
@@ -2314,6 +2416,16 @@ return () => <AiChat chat={$} />
   showCopy showLineNumbers maxLines={500} />`,
 
   jsonviewer: `<JSONViewer data={payload} defaultExpandDepth={2} maxKeys={100} />`,
+  jsonschemaform: `<JsonSchemaForm
+  schema={toolSchema}
+  value={{ city: '北京' }}
+  onSubmit={(v) => console.log('执行', v)}
+  submitLabel="执行工具"
+/>`,
+  reasoningblock: `<ReasoningBlock content={reasoningText} />`,
+  citationcard: `<CitationCard items={[{ id, title, source, snippet, url }]} maxVisible={3} />`,
+  sessionlist: `<SessionList sessions={sessions} activeId={cur} searchable
+  onSelect={setCur} onNew={create} onRename={rename} onDelete={remove} />`,
   diffview: `<DiffView oldCode={oldCode} newCode={newCode} oldTitle="重构前" newTitle="重构后" />`,
   sparkline: `<Sparkline data={[12, 18, 15, 22, 30, 28, 35]} width={140} height={36} fill />`,
   tour: `<Tour steps={[{ target: '#a', title: '开始', content: '...' }]} open={open} onChange={setOpen} />`,
@@ -2403,11 +2515,11 @@ const App: Component = (_props, ctx) => {
       <div class="wf-text-center wf-py-xl">
         <h1 class="wf-text-4xl wf-mb-sm wf-m-0">{(ctx as any)?.i18n?.t?.('app.title') ?? 'weifuwu/components'}</h1>
         <p class="wf-text-secondary">{isEn
-          ? '109 HTML primitive components · pure (props, ctx) → VNode · drop-in'
-          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
+          ? '113 HTML primitive components · pure (props, ctx) → VNode · drop-in'
+          : ((ctx as any)?.i18n?.t?.('app.desc') ?? '113 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用')}</p>
         <div class="wf-cluster wf-gap-md wf-mt-md">
-          <Badge variant="primary">109 组件</Badge>
-          <Badge variant="success">929 测试</Badge>
+          <Badge variant="primary">113 组件</Badge>
+          <Badge variant="success">967 测试</Badge>
           <Badge variant="info">零依赖</Badge>
         </div>
       </div>
@@ -2508,7 +2620,11 @@ const App: Component = (_props, ctx) => {
       <Section title="AI 对话">
         <DemoCard title="AiChat" desc="useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明" code={CODE.aichat}><DemoAiChat /></DemoCard>
         <DemoCard title="ToolCallCard" desc="工具调用卡片：running / ok / error 状态机（call/progress/result 三字段驱动）" code={CODE.toolcall}><DemoToolCallCard /></DemoCard>
-        <DemoCard title="ApprovalCard" desc="HITL 审批卡片：pending 可批/拒，approved/rejected/timeout 终态" code={CODE.approval}><DemoApprovalCard /></DemoCard>
+        <DemoCard title="JsonSchemaForm" desc="JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（AI 工具参数输入面）" code={CODE.jsonschemaform}><DemoJsonSchemaForm /></DemoCard>
+        <DemoCard title="ReasoningBlock" desc="CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲（thinking 模式 reasoning_content）" code={CODE.reasoningblock}><DemoReasoningBlock /></DemoCard>
+        <DemoCard title="CitationCard" desc="RAG 引用来源：折叠「引用 N 条」+ 条目列表（序号/标题/来源/片段/链接）+ 溢出 +N" code={CODE.citationcard}><DemoCitationCard /></DemoCard>
+        <DemoCard title="SessionList" desc="会话管理列表：分组（今天/昨天/更早）+ 搜索 + 选中 + 重命名/删除/新建 + 键盘导航" code={CODE.sessionlist}><DemoSessionList /></DemoCard>
+        <DemoCard title="ApprovalCard" desc="HITL 审批卡片：pending 可批/拒 + 修改参数（JsonSchemaForm）· approved/rejected/timeout 终态" code={CODE.approval}><DemoApprovalCard /></DemoCard>
       </Section>
 
       <Section title="其他">
@@ -2550,8 +2666,8 @@ const App: Component = (_props, ctx) => {
 
       <div class="wf-text-center wf-py-xl wf-text-tertiary wf-text-sm">
         {isEn
-          ? 'weifuwu/components · all 109 components · open devtools for code'
-          : ((ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 109 个组件 · 打开 devtools 查看代码')}
+          ? 'weifuwu/components · all 113 components · open devtools for code'
+          : ((ctx as any)?.i18n?.t?.('app.footer') ?? 'weifuwu/components · 全部 113 个组件 · 打开 devtools 查看代码')}
       </div>
     </div>
     )
@@ -2566,12 +2682,12 @@ const i18nMw = (() => {
   const messages: Record<string, Record<string, string>> = {
     'app.title': { 'zh-CN': 'weifuwu/components', en: 'weifuwu/components' },
     'app.desc': {
-      'zh-CN': '109 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
-      en: '109 HTML primitive components · pure (props, ctx) → VNode · drop-in',
+      'zh-CN': '113 个 HTML 原语组件 · 纯函数 (props, ctx) → VNode · 即插即用',
+      en: '113 HTML primitive components · pure (props, ctx) → VNode · drop-in',
     },
     'app.footer': {
-      'zh-CN': 'weifuwu/components · 全部 109 个组件 · 打开 devtools 查看代码',
-      en: 'weifuwu/components · all 109 components · open devtools for code',
+      'zh-CN': 'weifuwu/components · 全部 113 个组件 · 打开 devtools 查看代码',
+      en: 'weifuwu/components · all 113 components · open devtools for code',
     },
   }
   return (ctx: any) => {

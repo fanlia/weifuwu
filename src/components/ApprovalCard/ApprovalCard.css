@@ -90,3 +90,16 @@
 .wf-approval-status--approved { color: var(--wf-color-success-text); }
 .wf-approval-status--rejected { color: var(--wf-color-error-text); }
 .wf-approval-status--timeout { color: var(--wf-color-text-tertiary); }
+
+/* 修改参数面板（B9-5：JsonSchemaForm 复用——审批 modified 决策取参来源） */
+.wf-approval-modify {
+  margin-top: var(--wf-gap-md);
+  padding: var(--wf-gap-md);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm);
+  align-items: flex-start;
+}

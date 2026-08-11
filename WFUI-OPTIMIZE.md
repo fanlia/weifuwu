@@ -62,6 +62,10 @@
 
 ## Phase 3 — 健壮性
 
+- [x] ~~`setProp` aria-* boolean 字符串化~~（ReasoningBlock CDD 暴露：`aria-expanded: true` 落成空字符串——
+      aria-* 是枚举语义属性（同 draggable），boolean 必须显式 'true'/'false'；
+      已修 render.ts setProp + diff.ts patchProps 双路径 + render.test.ts 回归测试）
+
 - [x] jsx 组件错误边界：try-catch + console.error + 空 fallback
 - [ ] `appendChild` 函数值静默跳过（非 Node 应 ignore 而非 String()）
 - [ ] `setProp` className Signal 空值保护

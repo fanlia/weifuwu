@@ -111,6 +111,16 @@
   cursor: pointer;
   transition: background 0.1s;
 }
+
+/* 分组标题（optgroup）：次级色小字，不可选 */
+.wf-select-search-group {
+  padding: var(--wf-gap-xs) var(--wf-space) 2px;
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-secondary);
+  font-weight: var(--wf-font-weight-medium);
+  text-transform: var(--wf-heading-case); /* CJK 感知：中文 no-op */
+  user-select: none;
+}
 .wf-select-search-opt:hover {
   background: var(--wf-color-bg-tertiary);
 }

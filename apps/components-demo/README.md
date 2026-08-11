@@ -1,6 +1,6 @@
 # apps/components-demo — 组件库质量走查面
 
-109 个 HTML 原语组件的交互 cheatsheet：每个组件一张 DemoCard（演示 + 描述 + 可复制代码）。
+113 个 HTML 原语组件的交互 cheatsheet：每个组件一张 DemoCard（演示 + 描述 + 可复制代码）。
 也是组件库的**质量走查面**（design/components-demo-optimize.md）——类型门禁、受控纪律、
 弹层定位、键盘可达都在这里实测。
 
@@ -16,7 +16,7 @@ node server.ts        # → http://localhost:3000
 - 吸顶导航：9 个分组锚点（横向滚动）+ **搜索过滤**（按组件名实时过滤卡片/空分组隐藏）
 - **hash 深链**：`/#sec-导航组件` 直达分组（客户端渲染后 scrollIntoView 补跳）
 - 主题切换（自动/亮色/暗色）+ 中英切换
-- 计数与框架实测同步（109 组件 / 926 测试——style-audit 强制，漂移即红）
+- 计数与框架实测同步（113 组件 / 971 测试——style-audit 强制，漂移即红）
 
 ## 验证矩阵（agent-browser 实测，2026-08）
 

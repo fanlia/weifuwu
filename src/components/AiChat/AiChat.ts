@@ -23,9 +23,11 @@ import type { Component } from '../../ui-dom/vnode.ts'
 import { createClientBrowser } from '../../ui-dom/browser.ts'
 import { h } from '../../ui-dom/vnode.ts'
 import type { UseChatHandle, UiMessage } from '../../ui-dom/use-chat.ts'
-import type { WfError, WfUsage } from '../../ai/types.ts'
+import type { WfError, WfUsage, WfApprovalRequest } from '../../ai/types.ts'
+import type { JsonSchema } from '../JsonSchemaForm/JsonSchemaForm.ts'
 import { ToolCallCard } from '../ToolCallCard/ToolCallCard.ts'
 import { ApprovalCard } from '../ApprovalCard/ApprovalCard.ts'
+import { ReasoningBlock } from '../ReasoningBlock/ReasoningBlock.ts'
 
 // ── 类型 ─────────────────────────────────────────────────
 
@@ -52,6 +54,9 @@ export interface AiChatProps {
   renderMessage?: (msg: UiMessage) => any
   /** 工具参数渲染（透传 ToolCallCard） */
   renderToolArgs?: (args: Record<string, unknown>) => any
+  /** 审批修改参数：按审批请求返回工具参数 schema（返回 undefined 则审批卡无修改入口；
+   *  提交修改后参数 → chat.approve('modified', …)——后端按 modifiedArgs 执行） */
+  approveSchema?: (request: WfApprovalRequest) => JsonSchema | undefined
   /** 键盘弹起时输入区 fixed 抬升（全屏 chat 布局用；内联卡片默认 false——原生聚焦滚动已够） */
   raiseOnKeyboard?: boolean
 }
@@ -199,10 +204,18 @@ function renderMessage(m: UiMessage, props: AiChatProps, _labels: AiChatLabels):
   if (m.approval) {
     const card = h(ApprovalCard, {
       request: m.approval,
-      onApprove: () => props.chat.approve('approved'),
+      argsSchema: props.approveSchema?.(m.approval),
+      onApprove: (modifiedArgs?: Record<string, unknown>) => props.chat.approve(modifiedArgs ? 'modified' : 'approved', undefined, modifiedArgs),
       onReject: (note?: string) => props.chat.approve('rejected', note ?? '用户拒绝'),
     })
     nodes.push(h('div', { class: 'wf-aichat-approval' }, card))
+  }
+
+  if (m.reasoning) {
+    nodes.push(h(ReasoningBlock, {
+      content: m.reasoning,
+      streaming: m.status === 'streaming',
+    }))
   }
 
   nodes.push(h('div', { class: `wf-aichat-bubble wf-aichat-bubble--${m.role}` },

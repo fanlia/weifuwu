@@ -1,0 +1,88 @@
+/* weifuwu/components — JsonSchemaForm */
+
+.wf-jsf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-md);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: var(--wf-line-height);
+}
+
+.wf-jsf-title {
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-text);
+}
+
+/* 嵌套对象：左边线缩进（层级可读） */
+.wf-jsf-obj {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-md);
+  padding-left: var(--wf-gap-md);
+  border-left: 1px solid var(--wf-color-border);
+}
+
+.wf-jsf-obj-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wf-gap-xs);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+}
+
+/* 数组：项 + 删除按钮横排 */
+.wf-jsf-arr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm);
+}
+
+.wf-jsf-arr-item {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+}
+
+.wf-jsf-arr-item > :first-child { flex: 1; }
+
+/* 添加/删除按钮：小尺寸固定宽高（§5.6 小按钮纪律） */
+.wf-jsf-arr-add,
+.wf-jsf-arr-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  padding: 0;
+  line-height: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg-tertiary);
+  color: var(--wf-color-text-secondary);
+  cursor: pointer;
+  transition: var(--wf-transition);
+}
+
+.wf-jsf-arr-add:hover,
+.wf-jsf-arr-del:hover {
+  border-color: var(--wf-color-primary);
+  color: var(--wf-color-primary-text);
+}
+
+.wf-jsf-arr-add:focus-visible,
+.wf-jsf-arr-del:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: 1px;
+}
+
+.wf-jsf-submit {
+  align-self: flex-start;
+  margin-top: var(--wf-gap-xs);
+}

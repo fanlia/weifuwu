@@ -28,6 +28,8 @@ export interface WfUsage {
 export interface WfDone {
   content: string
   usage?: WfUsage
+  /** thinking 模式的推理过程（reasoning_content），收尾时一次性下发（v1 不进流式） */
+  reasoning?: string
 }
 
 export type WfErrorCode =

@@ -400,6 +400,10 @@ function setProp(el: Element, key: string, value: any) {
     // draggable 是 enumerated 属性（非 boolean）——setAttribute('draggable', '')
     // 空字符串解析为 false——必须显式 'true'/'false'
     el.setAttribute('draggable', value ? 'true' : 'false')
+  } else if (key.startsWith('aria-') && typeof value === 'boolean') {
+    // aria-* 是枚举语义属性（同 draggable）：aria-expanded="" 解析为非标准值——
+    // boolean 必须显式 'true'/'false' 字符串（ReasoningBlock CDD 暴露）
+    el.setAttribute(key, value ? 'true' : 'false')
   } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
     ;(el as HTMLSelectElement).value = String(value ?? '')
   } else if (value === true) {

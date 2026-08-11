@@ -353,6 +353,9 @@ export function patchProps(el: Element, oldProps: Record<string, unknown> | null
       } else if (key === 'draggable') {
         // enumerated 属性：空字符串 = false——显式 'true'/'false'
         el.setAttribute('draggable', newVal ? 'true' : 'false')
+      } else if (key.startsWith('aria-') && typeof newVal === 'boolean') {
+        // aria-* 枚举语义（同 draggable）——显式 'true'/'false'（ReasoningBlock CDD 暴露）
+        el.setAttribute(key, newVal ? 'true' : 'false')
       } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
         ;(el as HTMLSelectElement).value = String(newVal ?? '')
       } else if (newVal === true) {

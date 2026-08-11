@@ -38,7 +38,7 @@
 |------|---------|------|-------------|-----------|---------|
 | 输入框 | `<Input label error hint variant>` | Input | Input | Input | weifuwu 自带 label/error/hint 包装（antd 需 Form.Item）；`variant="borderless"` 内联编辑 |
 | 文本域 | `<Textarea rows showCount maxLength>` | Input.TextArea | Input textarea | Textarea | weifuwu 独立组件 + 字数统计 |
-| 选择器 | `<Select options searchable multiple>` | Select | Select | Select / Combobox | **searchable + 键盘 ↑↓ + multiple 已实现**（近 Combobox） |
+| 选择器 | `<Select options searchable multiple>` | Select | Select | Select / Combobox | **searchable + 键盘 ↑↓ + multiple + optgroup 分组已实现**（近 Combobox） |
 | 复选框 | `<Checkbox checked label>` | Checkbox | Checkbox | Checkbox | 等价 |
 | 复选组 | `<CheckboxGroup options value>` | Checkbox.Group | Checkbox 组 | — | 数组受控 + 栅格列数 |
 | 单选 | `<RadioGroup options value>` | Radio.Group | Radio | RadioGroup | 等价 |
@@ -115,12 +115,29 @@
 | `<CodeBlock code lang>` | 代码块 + 语言标签 + 复制按钮 |
 | `<MessageBubble role status>` | 聊天气泡（独立复用，AiChat 抽取） |
 | `<ToolCallCard>` | AI 工具调用状态机（running/ok/error） |
+| `<JsonSchemaForm schema value onSubmit>` | JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（工具参数输入面；不支持项告警降级） |
+| `<ReasoningBlock content>` | CoT 推理折叠展示（thinking 模式 reasoning_content；流式脉冲） |
+| `<CitationCard items>` | RAG 引用来源列表：折叠 + 序号/标题/来源/片段/链接 + 溢出 +N |
+| `<SessionList sessions>` | 会话管理：分组（今天/昨天/更早）+ 搜索 + 重命名/删除/新建 + 键盘导航 |
 | `<ApprovalCard>` | HITL 人工审批卡片（pending/approved/rejected/timeout） |
 | `<Editor>` | 富文本编辑器（contentEditable + 工具栏/表格/图片，零依赖） |
 | `<ThemeSwitch>` | 明暗主题切换（CSS 变量驱动，配 `data-theme`） |
 | `<InView>` | 交叉观察（进入视口触发，可做无限滚动） |
 | `<AspectRatio>` | 宽高比容器（内容填满） |
 | `<CopyButton>` | 复制（clipboard + execCommand 降级 + 成功状态机） |
+
+## 第九批：AI 差异化（109 → 111 组件，2026-08）
+
+> 三库业务组件覆盖 ~100% 后的差异化期——补 AI **输入层 + 推理展示层**。
+> 完整设计/裁剪见 `design/ai-differentiation-plan.md`。
+
+| 组件 | 类型 | 三库等价 | 要点 |
+|------|------|---------|------|
+| **JsonSchemaForm** | 新增 | @rjsf（依赖重，weifuwu 零依赖子集） | JSON Schema（对象子集）→ 参数输入表单：string/number/integer/boolean/enum/object/array 类型映射 + required/范围校验 + 嵌套/数组增删；不支持项（$ref/组合 schema）告警降级 |
+| **ReasoningBlock** | 新增 | 三库无 | CoT 推理折叠展示：aria-expanded + 键盘可达 + 流式脉冲 |
+| **AiChat 集成** | 增强 | — | `WfDone.reasoning`（additive，收尾一次性下发）+ use-chat 聚合 + toChatMessages 回传 `reasoning_content`（thinking 模式闭环） |
+
+> 协议变更：`wf:done` 新增可选 `reasoning` 字段（向后兼容），见 `design/ai-contract.md` §3.4。
 
 ## 快速迁移路径（三库 → weifuwu）
 

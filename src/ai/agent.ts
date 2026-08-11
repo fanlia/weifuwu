@@ -186,7 +186,7 @@ export function createAgent(client: AiClient, config: AgentConfig): AgentRunner 
       // 无工具调用 → 完成
       if (!finish.toolCalls?.length) {
         emit('wf:usage', usage)
-        emit('wf:done', { content: finish.content, usage })
+        emit('wf:done', { content: finish.content, usage, reasoning: finish.reasoning_content })
         return
       }
 

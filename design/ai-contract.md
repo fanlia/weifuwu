@@ -41,6 +41,8 @@ POST /api/ai/approve
 Content-Type: application/json
 
 {"id":"ap_01","decision":"approved","note":"OK"}
+// modified 决策：携带修改后参数（use-chat approve('modified', note, modifiedArgs) 自动带上）
+// {"id":"ap_01","decision":"modified","note":"数量改为 5","modifiedArgs":{"qty":5}}
 ```
 
 - 回传载荷形状由协议定义（见 §4.5）；**路由路径是 app 的**（app 知道自己的 run 生命周期）。
@@ -64,7 +66,7 @@ Content-Type: application/json
 | `wf:message_start` | 核心 | 下行 | 创建会话/消息 | ✅ 实现 |
 | `wf:token` | 核心 | 下行 | **append** 文本 | ✅ 实现 |
 | `wf:usage` | 核心 | 下行 | 更新 token 计数 | ✅ 实现 |
-| `wf:done` | 核心 | 下行 | 收尾（内容 + usage） | ✅ 实现 |
+| `wf:done` | 核心 | 下行 | 收尾（内容 + usage + 可选 reasoning） | ✅ 实现 |
 | `wf:error` | 核心 | 下行 | 结构化降级（重试/提示） | ✅ 实现 |
 | `wf:tool_call` | 工具 | 下行 | 渲染工具卡片 | ✅ 实现 |
 | `wf:tool_result` | 工具 | 下行 | 卡片 → 结果态 | ✅ 实现 |
@@ -113,11 +115,15 @@ Content-Type: application/json
 ```jsonc
 {
   "content": "你好，有什么可以帮你？",
-  "usage": { "prompt_tokens": 512, "completion_tokens": 384 }
+  "usage": { "prompt_tokens": 512, "completion_tokens": 384 },
+  "reasoning": "先分析用户意图：……"   // 可选：thinking 模式推理过程（reasoning_content）
 }
 ```
 
 - 正常收尾事件：完整内容 + 最终 usage。
+- **`reasoning`（可选，additive）**：thinking 模式（DeepSeek 等）的推理过程，
+  收尾时一次性下发——**v1 不进流式**（`wf:token` 只承载正文增量）；
+  前端以 ReasoningBlock 折叠展示，下一轮回传（`toChatMessages` 带 `reasoning_content`）。
 - 前端标记会话完成（停止打字指示、启用输入框）。
 
 ### 3.5 `wf:error`
@@ -316,7 +322,7 @@ tools: [{
 export interface WfMessageStart { id: string }
 export interface WfToken { text: string }
 export interface WfUsage { prompt_tokens: number; completion_tokens: number; total_tokens?: number }
-export interface WfDone { content: string; usage?: WfUsage }
+export interface WfDone { content: string; usage?: WfUsage; reasoning?: string }
 
 export type WfErrorCode =
   | 'auth_failed' | 'rate_limited' | 'context_length' | 'timeout'

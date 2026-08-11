@@ -18,8 +18,8 @@ export type { InputProps } from './Input/Input.ts'
 export { Textarea } from './Textarea/Textarea.ts'
 export type { TextareaProps } from './Textarea/Textarea.ts'
 
-export { Select } from './Select/Select.ts'
-export type { SelectProps, SelectOption } from './Select/Select.ts'
+export { Select, flattenOptions } from './Select/Select.ts'
+export type { SelectProps, SelectOption, SelectOptionGroup, SelectOptions } from './Select/Select.ts'
 
 export { Checkbox } from './Checkbox/Checkbox.ts'
 export type { CheckboxProps } from './Checkbox/Checkbox.ts'
@@ -319,3 +319,15 @@ export { Scrollbar } from './Scrollbar/Scrollbar.ts'
 export type { ScrollbarProps } from './Scrollbar/Scrollbar.ts'
 export { AlertGroup } from './AlertGroup/AlertGroup.ts'
 export type { AlertGroupProps, AlertGroupItem } from './AlertGroup/AlertGroup.ts'
+
+export { JsonSchemaForm } from './JsonSchemaForm/JsonSchemaForm.ts'
+export type { JsonSchemaFormProps, JsonSchema } from './JsonSchemaForm/JsonSchemaForm.ts'
+
+export { ReasoningBlock } from './ReasoningBlock/ReasoningBlock.ts'
+export type { ReasoningBlockProps } from './ReasoningBlock/ReasoningBlock.ts'
+
+export { CitationCard } from './CitationCard/CitationCard.ts'
+export type { CitationCardProps, Citation } from './CitationCard/CitationCard.ts'
+
+export { SessionList, groupKey } from './SessionList/SessionList.ts'
+export type { SessionListProps, Session } from './SessionList/SessionList.ts'

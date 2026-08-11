@@ -1,0 +1,65 @@
+/* weifuwu/components — ReasoningBlock（CoT 推理折叠展示） */
+
+.wf-reasoning {
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg-tertiary);
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: var(--wf-line-height);
+}
+
+.wf-reasoning-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  width: 100%;
+  padding: var(--wf-gap-xs) var(--wf-gap-sm);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--wf-color-text-secondary);
+  font: inherit;
+  text-align: left;
+}
+
+.wf-reasoning-toggle:hover { color: var(--wf-color-text); }
+
+.wf-reasoning-toggle:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: -1px;
+  border-radius: var(--wf-radius);
+}
+
+.wf-reasoning-chevron {
+  display: inline-flex;
+  color: var(--wf-color-text-secondary);
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-reasoning-chevron--open { transform: rotate(180deg); }
+
+.wf-reasoning-label { font-weight: var(--wf-font-weight-medium); }
+
+/* 流式指示点：脉冲动画 */
+.wf-reasoning-dot {
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 50%;
+  background: var(--wf-color-info-text);
+  animation: wf-reasoning-pulse var(--wf-dur-slow) ease-in-out infinite;
+}
+
+@keyframes wf-reasoning-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.wf-reasoning-body {
+  padding: var(--wf-gap-xs) var(--wf-gap-sm) var(--wf-gap-sm);
+  color: var(--wf-color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

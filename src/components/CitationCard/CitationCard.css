@@ -1,0 +1,144 @@
+/* weifuwu/components — CitationCard（RAG 引用展示） */
+
+.wf-citation {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: var(--wf-line-height);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius);
+  background: var(--wf-color-bg-tertiary);
+}
+
+.wf-citation-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  width: 100%;
+  padding: var(--wf-gap-xs) var(--wf-gap-sm);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--wf-color-text-secondary);
+  font: inherit;
+  text-align: left;
+}
+
+.wf-citation-toggle:hover { color: var(--wf-color-text); }
+
+.wf-citation-toggle:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: -1px;
+  border-radius: var(--wf-radius);
+}
+
+.wf-citation-chevron {
+  display: inline-flex;
+  color: var(--wf-color-text-secondary);
+  transition: transform var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-citation-chevron--open { transform: rotate(180deg); }
+
+.wf-citation-count { font-weight: var(--wf-font-weight-medium); }
+
+.wf-citation-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--wf-gap-sm) var(--wf-gap-sm);
+  gap: var(--wf-gap-xs);
+}
+
+.wf-citation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-gap-xs);
+  border: 1px solid var(--wf-color-border);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg);
+}
+
+.wf-citation-idx {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-semibold);
+  color: var(--wf-color-primary-text);
+  background: var(--wf-color-primary-bg);
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-citation-content { flex: 1; min-width: 0; }
+
+.wf-citation-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--wf-gap-xs);
+  font-weight: var(--wf-font-weight-medium);
+  color: var(--wf-color-text);
+  word-break: break-word;
+}
+
+.wf-citation-source {
+  font-size: var(--wf-font-size-xs);
+  font-weight: var(--wf-font-weight-normal);
+  color: var(--wf-color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-citation-snippet {
+  margin-top: 2px;
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wf-citation-link {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: var(--wf-radius-sm);
+}
+
+.wf-citation-link:hover { color: var(--wf-color-primary-text); }
+
+.wf-citation-link:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: 1px;
+}
+
+/* 溢出汇总条目（+N 更多） */
+.wf-citation-more {
+  justify-content: center;
+  cursor: pointer;
+  color: var(--wf-color-primary-text);
+  font-weight: var(--wf-font-weight-medium);
+  border-style: dashed;
+}
+
+.wf-citation-more:hover { background: var(--wf-color-primary-bg); }
+
+/* 触屏（coarse）：条目 44px 命中区 */
+@media (pointer: coarse) {
+  .wf-citation-item { min-height: 44px; align-items: center; }
+  .wf-citation-toggle { min-height: 44px; }
+}

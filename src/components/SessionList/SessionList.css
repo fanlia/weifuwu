@@ -1,0 +1,155 @@
+/* weifuwu/components — SessionList（会话管理列表） */
+
+.wf-session {
+  font-family: var(--wf-font-sans);
+  font-size: var(--wf-font-size-sm);
+  line-height: var(--wf-line-height);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wf-gap-sm);
+}
+
+.wf-session-head {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+}
+
+.wf-session-search {
+  flex: 1;
+  min-width: 0;
+  padding: var(--wf-control-pad-y) var(--wf-gap-sm);
+  border: var(--wf-border-width) solid var(--wf-color-border);
+  border-radius: var(--wf-field-radius);
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  font: inherit;
+  font-size: var(--wf-font-size-sm);
+}
+
+.wf-session-search:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-session-new { flex-shrink: 0; }
+
+.wf-session-list {
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.wf-session-group-title {
+  padding: var(--wf-gap-xs) var(--wf-gap-xs) 2px;
+  font-size: var(--wf-font-size-xs);
+  color: var(--wf-color-text-tertiary);
+  font-weight: var(--wf-font-weight-medium);
+  text-transform: var(--wf-heading-case); /* CJK 感知：中文 no-op */
+  user-select: none;
+}
+
+.wf-session-item {
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-xs);
+  padding: var(--wf-gap-xs) var(--wf-gap-sm);
+  border-radius: var(--wf-radius-sm);
+  cursor: pointer;
+  color: var(--wf-color-text);
+  min-height: 32px;
+}
+
+.wf-session-item:hover { background: var(--wf-color-bg-tertiary); }
+
+.wf-session-item--focus { background: var(--wf-color-bg-tertiary); }
+
+.wf-session-item--active {
+  background: var(--wf-color-primary-bg);
+  color: var(--wf-color-primary-text);
+  font-weight: var(--wf-font-weight-medium);
+}
+
+.wf-session-item--active:hover { background: var(--wf-color-primary-bg); }
+
+.wf-session-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 行内操作按钮：悬停才显示（默认透明） */
+.wf-session-rename,
+.wf-session-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  line-height: 0;
+  border: none;
+  border-radius: var(--wf-radius-sm);
+  background: none;
+  color: var(--wf-color-text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--wf-dur-fast) var(--wf-ease-out);
+}
+
+.wf-session-item:hover .wf-session-rename,
+.wf-session-item:hover .wf-session-del,
+.wf-session-rename:focus-visible,
+.wf-session-del:focus-visible {
+  opacity: 1;
+}
+
+.wf-session-rename:hover { color: var(--wf-color-info-text); }
+.wf-session-del:hover { color: var(--wf-color-error-text); }
+
+.wf-session-rename:focus-visible,
+.wf-session-del:focus-visible {
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: 1px;
+}
+
+/* 重命名输入行 */
+.wf-session-item--rename {
+  cursor: default;
+}
+
+.wf-session-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px var(--wf-gap-xs);
+  border: var(--wf-border-width) solid var(--wf-color-primary);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg);
+  color: var(--wf-color-text);
+  font: inherit;
+  font-size: var(--wf-font-size-sm);
+}
+
+.wf-session-rename-input:focus-visible {
+  outline: none;
+  box-shadow: var(--wf-focus-ring);
+}
+
+.wf-session-empty {
+  padding: var(--wf-gap-md) var(--wf-gap-sm);
+  text-align: center;
+  color: var(--wf-color-text-tertiary);
+  font-size: var(--wf-font-size-xs);
+}
+
+/* 触屏（coarse）：44px 命中区 */
+@media (pointer: coarse) {
+  .wf-session-item { min-height: 44px; }
+  .wf-session-rename,
+  .wf-session-del { opacity: 1; width: 28px; height: 28px; }
+}

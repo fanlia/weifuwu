@@ -9,10 +9,29 @@ export interface SelectOption {
   disabled?: boolean
 }
 
+/** 选项组（optgroup）：label + 组内选项 */
+export interface SelectOptionGroup {
+  label: string
+  options: SelectOption[]
+}
+
+/** 选项列表：平铺项与分组可混用 */
+export type SelectOptions = (SelectOption | SelectOptionGroup)[]
+
+export function isOptionGroup(o: SelectOption | SelectOptionGroup): o is SelectOptionGroup {
+  return 'options' in o && !('value' in o)
+}
+
+/** 展平（键盘索引 / 选中查找用）；保持顺序 */
+export function flattenOptions(opts: SelectOptions | undefined): SelectOption[] {
+  if (!opts) return []
+  return opts.flatMap((o) => (isOptionGroup(o) ? o.options : [o]))
+}
+
 export interface SelectProps {
   label?: string
   value?: string | string[]
-  options?: SelectOption[]
+  options?: SelectOptions
   placeholder?: string
   required?: boolean
   disabled?: boolean
@@ -37,7 +56,12 @@ const SelectNative: Component<SelectProps> = (_init, _ctx) =>
   }
   if (options) {
     for (const opt of options) {
-      optionEls.push(h('option', { value: opt.value, disabled: opt.disabled }, opt.label))
+      if (isOptionGroup(opt)) {
+        // 分组 → 原生 optgroup（组标题不可选，子项 option）
+        optionEls.push(h('optgroup', { label: opt.label }, opt.options.map((o) => h('option', { value: o.value, disabled: o.disabled }, o.label))))
+      } else {
+        optionEls.push(h('option', { value: opt.value, disabled: opt.disabled }, opt.label))
+      }
     }
   }
 
@@ -100,17 +124,29 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
     const isMulti = !!multiple
     const values = isMulti ? (Array.isArray(value) ? value : []) : [value as string | undefined]
 
-    // 本地过滤
-    const filtered = $.keyword
-      ? options.filter(o => o.label.toLowerCase().includes($.keyword.toLowerCase()))
-      : options
+    // 本地过滤（组感知：组内项按 label 匹配，空组隐藏；平铺项直接匹配）
+    const filterGrouped = (opts: SelectOptions, kw: string): SelectOptions => {
+      if (!kw) return opts
+      const lower = kw.toLowerCase()
+      return opts.flatMap((o): (SelectOption | SelectOptionGroup)[] => {
+        if (isOptionGroup(o)) {
+          const kids = o.options.filter((x) => x.label.toLowerCase().includes(lower))
+          return kids.length ? [{ label: o.label, options: kids }] : []
+        }
+        return o.label.toLowerCase().includes(lower) ? [o] : []
+      })
+    }
 
-    const displayOptions = $.keyword && onSearch && $.filteredOptions.length > 0
-      ? $.filteredOptions
-      : filtered
+    const displayGrouped = $.keyword && onSearch && $.filteredOptions.length > 0
+      ? $.filteredOptions as SelectOptions
+      : filterGrouped(options as SelectOptions, $.keyword)
 
-    const selectedOption = options.find(o => o.value === value)
-    const selectedOptions = options.filter(o => values.includes(o.value))
+    // flatten 供键盘索引 / 选中查找（跨组连续计数）
+    const displayOptions = flattenOptions(displayGrouped)
+
+    const flatAll = flattenOptions(options)
+    const selectedOption = flatAll.find(o => o.value === value)
+    const selectedOptions = flatAll.filter(o => values.includes(o.value))
 
     const handleInput = async (keyword: string) => {
       $.keyword = keyword
@@ -220,21 +256,35 @@ const SelectSearchable: Component<SelectProps> = (_init, ctx) => {
       wrapChildren.push(h('label', { class: 'wf-select-label' }, labelContent))
     }
 
-    // 选项面板
-    const menuChildren = displayOptions.length > 0
-      ? displayOptions.map((opt: SelectOption, i: number) => {
-          const sel = isMulti
-            ? values.includes(opt.value)
-            : opt.value === value
-          return h('div', {
-            class: `wf-select-search-opt${sel ? ' wf-select-search-opt--sel' : ''}${opt.disabled ? ' wf-select-search-opt--dis' : ''}${$.highlight === i ? ' wf-select-search-opt--hl' : ''}`,
-            key: opt.value,
-            onMouseDown: (e: Event) => { e.preventDefault(); handleSelect(opt) },
-          }, opt.label)
-        })
-      : $.keyword
-        ? [h('div', { class: 'wf-select-search-empty' }, '无匹配')]
-        : []
+    // 选项面板（组感知：组头 + 组内选项；flatten 索引连续——键盘高亮跨组正确）
+    let flatIdx = 0
+    const renderOpt = (opt: SelectOption, i: number) => {
+      const sel = isMulti
+        ? values.includes(opt.value)
+        : opt.value === value
+      const node = h('div', {
+        class: `wf-select-search-opt${sel ? ' wf-select-search-opt--sel' : ''}${opt.disabled ? ' wf-select-search-opt--dis' : ''}${$.highlight === i ? ' wf-select-search-opt--hl' : ''}`,
+        key: opt.value,
+        onMouseDown: (e: Event) => { e.preventDefault(); handleSelect(opt) },
+      }, opt.label)
+      flatIdx++
+      return node
+    }
+
+    // 显式 push 扁平数组（map 产生嵌套数组 children——渲染器不展开嵌套数组）
+    const menuChildren: any[] = []
+    if (displayOptions.length > 0) {
+      for (const item of displayGrouped) {
+        if (isOptionGroup(item)) {
+          menuChildren.push(h('div', { class: 'wf-select-search-group', key: `group-${item.label}` }, item.label))
+          for (const opt of item.options) menuChildren.push(renderOpt(opt, flatIdx))
+        } else {
+          menuChildren.push(renderOpt(item, flatIdx))
+        }
+      }
+    } else if ($.keyword) {
+      menuChildren.push(h('div', { class: 'wf-select-search-empty' }, '无匹配'))
+    }
 
     const menu = h('div', { class: 'wf-select-search-menu' }, menuChildren)
 
