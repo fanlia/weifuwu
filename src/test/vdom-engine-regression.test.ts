@@ -10,6 +10,8 @@ import { mountRoot } from '../ui-dom/vdom/mount.ts'
 import { createClientBrowser } from '../ui-dom/browser.ts'
 import { DatePicker } from '../components/DatePicker/DatePicker.ts'
 import { Modal } from '../components/Modal/Modal.ts'
+import { Command } from '../components/Command/Command.ts'
+import { Dropdown } from '../components/Dropdown/Dropdown.ts'
 
 const flush = () => new Promise(r => setTimeout(r, 30))
 
@@ -329,3 +331,58 @@ test('组件输出 Portal → null：props 变化关闭清理（usePopup mask �
   handle.unmount()
 })
 
+
+test('组件卸载：打开的 mask 弹窗（Command）→ portal 清空 + document 监听退订', async () => {
+  // 生产路径（scheduler 驱动）：父组件状态变化移除子组件（含打开中的 mask 弹窗）——
+  // 引擎必须清理 portal remote（mask+panel）并触发卸载钩子（document 监听退订）。
+  // 注意：mountRoot.rerender 是三态 skip 抵消 force 的测试辅助（mount.ts 注释明示），
+  // 不反映生产路径——必须用 scheduler render（props 变化）验证
+  setupJsdom()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  let showCmd = true
+  const Demo = async (_init: any, ctx: any) => () =>
+    h('div', {}, [
+      h('button', { class: 'rm', onClick: () => { showCmd = false; ctx.ui.render() } }, '移除'),
+      showCmd ? h(Command, { items: [{ key: 'a', label: 'A' }], open: true }) : null,
+    ])
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  await handle.mount(h('div', {}, h(Demo, {})))
+  await flush()
+  assert.ok(document.querySelector('.wf-popup-mask'), 'mask 渲染（Command 打开）')
+
+  ;(root.querySelector('.rm') as HTMLElement).click()
+  await flush()
+  await flush()
+  assert.ok(!document.querySelector('.wf-popup-mask'), '移除后 mask 消失')
+  assert.equal(document.querySelector('#__wf_portal')?.children.length ?? 0, 0, 'portal 清空（mask+panel 清理）')
+  handle.unmount()
+})
+
+test('usePopup 组件卸载后 document 监听退订（mousedown/Escape 不再触发）', async () => {
+  // usePopup 的 document mousedown/keydown 监听经 onUnmount 退订——组件销毁后
+  // 外部点击/Escape 不得再触发 onOpenChange（无此清理 → 卸载后点击仍开关幽灵弹窗）
+  setupJsdom()
+  const root = document.createElement('div')
+  document.body.appendChild(root)
+  let show = true
+  let onOpenChangeCount = 0
+  const Demo = async (_init: any, ctx: any) => () =>
+    h('div', {}, [
+      h('button', { class: 'rm', onClick: () => { show = false; ctx.ui.render() } }, '移除'),
+      show
+        ? h(Dropdown, { trigger: 'click', items: [{ key: 'a', label: 'A' }], open: false, onOpenChange: () => { onOpenChangeCount++ } })
+        : null,
+    ])
+  const handle = mountRoot({ root, browser: createClientBrowser() })
+  await handle.mount(h('div', {}, h(Demo, {})))
+  await flush()
+  ;(root.querySelector('.rm') as HTMLElement).click()
+  await flush()
+  await flush()
+  document.dispatchEvent(new (window as any).MouseEvent('mousedown', { bubbles: true }))
+  document.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Escape' }))
+  await flush()
+  assert.equal(onOpenChangeCount, 0, '卸载后 document 监听退订（不触发 onOpenChange）')
+  handle.unmount()
+})

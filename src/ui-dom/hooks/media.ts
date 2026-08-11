@@ -24,6 +24,17 @@ export function useMedia(env: HookEnv, query: string, callback: (matches: boolea
     const handler = (e: MediaQueryListEvent) => callback(e.matches)
     mql.addEventListener('change', handler)
     env.mediaRegistry.set(key, { mql, handler })
+    // 卸载清理 mql 监听（组件销毁后 media 变化不再回调已卸载组件——
+    // 无此清理则重复 mount/unmount 累积监听）
+    const unsub = env.onUnmount((id) => {
+      if (id !== selfId) return
+      const item = env.mediaRegistry.get(key)
+      if (item?.mql && item.handler) {
+        try { (item.mql as any).removeEventListener('change', item.handler) } catch (e) { /* 清理尽力而为 */ }
+      }
+      env.mediaRegistry.delete(key)
+      unsub()
+    })
   }
 }
 
@@ -59,6 +70,18 @@ export function useBreakpoint(
       mqls.push({ mql, handler })
     }
     env.mediaRegistry.set(key, { mqls })
+    // 卸载清理 mql 监听（同 useMedia）
+    const unsub = env.onUnmount((id) => {
+      if (id !== selfId) return
+      const item = env.mediaRegistry.get(key)
+      if (item?.mqls) {
+        for (const m of item.mqls) {
+          try { (m.mql as any).removeEventListener('change', m.handler) } catch (e) { /* 清理尽力而为 */ }
+        }
+      }
+      env.mediaRegistry.delete(key)
+      unsub()
+    })
   }
 }
 
@@ -167,6 +190,12 @@ export function useInView(env: HookEnv, options: UseInViewOptions): UseInViewHan
     io = null
   }
 
+  // 组件卸载时自动断开 IO（防御：组件若只用 observe(el) 未接 ref(null)，
+  // 卸载后 IO 仍观察已移除元素——泄漏）
+  if (selfId) {
+    const unsub = env.onUnmount((id) => { if (id === selfId) { disconnect(); unsub() } })
+  }
+
   return handle
 }
 
@@ -194,5 +223,9 @@ export function useScrollPosition(env: HookEnv, options: UseScrollPositionOption
   env.scrollTrackers.set(selfId, tracker)
   env.ensurePopupListeners() // 复用全局 scroll/resize 监听（rAF 节流）
   handle.refresh() // 初始值
+  // 卸载清理 tracker（组件销毁后 scroll 重算不再引用已卸载组件）
+  const unsub = env.onUnmount((id) => {
+    if (id === selfId) { env.scrollTrackers.delete(selfId); unsub() }
+  })
   return handle
 }

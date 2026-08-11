@@ -49,6 +49,20 @@ export function useDrag(env: HookEnv, options: {
     b.addEventListener('pointerup', onPointerUp)
     options.onStart?.(e)
   }
+
+  // 组件卸载时释放活动期监听（拖拽中卸载：pointermove/pointerup 残留 window——泄漏）
+  const selfId = env.selfId()
+  if (selfId) {
+    const unsub = env.onUnmount((id) => {
+      if (id !== selfId) return
+      if (active) {
+        b.removeEventListener('pointermove', onPointerMove)
+        b.removeEventListener('pointerup', onPointerUp)
+        active = false
+      }
+      unsub()
+    })
+  }
   return { onPointerDown }
 }
 

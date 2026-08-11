@@ -35,6 +35,10 @@ export function usePopupPosition(env: HookEnv, options: PopupPositionOptions): P
   }
   env.popupTrackers.set(selfId, tracker)
   env.ensurePopupListeners() // 惰性挂载全局单例监听
+  // 卸载清理 tracker（组件销毁后 scroll/resize 重算不再引用已卸载组件）
+  const unsub = env.onUnmount((id) => {
+    if (id === selfId) { env.popupTrackers.delete(selfId); unsub() }
+  })
 
   // 手动重算：只更新坐标，不触发渲染（调用方负责 render）
   pos.refresh = () => {

@@ -55,13 +55,18 @@ export function useAnimationEnd(env: HookEnv, cb: () => void, opts?: { once?: bo
 }
 
 /** 长按手势：pointerdown 按住 duration 触发，提前松开/位移取消，桌面右键兼容 */
-export function useLongPress(_env: HookEnv, options: UseLongPressOptions): UseLongPressHandle {
+export function useLongPress(env: HookEnv, options: UseLongPressOptions): UseLongPressHandle {
   const { onLongPress, duration = 500 } = options
   let timer: ReturnType<typeof setTimeout> | undefined
   let startX = 0
   let startY = 0
   let startEvent: PointerEvent | null = null
   const clear = () => { clearTimeout(timer); timer = undefined }
+  // 组件卸载时清除挂起定时器（长按中卸载：onLongPress 仍会触发——泄漏）
+  const selfId = env.selfId()
+  if (selfId) {
+    const unsub = env.onUnmount((id) => { if (id === selfId) { clear(); unsub() } })
+  }
   return {
     onPointerDown: (e: PointerEvent) => {
       startX = e.clientX ?? 0
@@ -163,6 +168,15 @@ export function useTween(env: HookEnv, target: number, opts?: { duration?: numbe
   handle.reset = (to: number) => {
     if (to === currentTarget && rafId) return
     tweenTo(to)
+  }
+
+  // 组件卸载时取消 rAF（否则动画持续回调 rerender → 渲染已卸载组件——泄漏）
+  if (selfId) {
+    const unsub = env.onUnmount((id) => {
+      if (id !== selfId) return
+      if (rafId) { cancelAnimationFrame(rafId); rafId = undefined }
+      unsub()
+    })
   }
 
   queueMicrotask(() => tweenTo(target))

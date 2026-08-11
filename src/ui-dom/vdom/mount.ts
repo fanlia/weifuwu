@@ -82,7 +82,14 @@ export function createVdomContext(opts: MountOptions): VdomContext {
 
   // ── 弹层/滚动跟踪系统（scroll/resize 重算 → 渲染） ──
   const tracker = createPopupTrackerSystem((ids: string[]) => { for (const id of ids) scheduler.render([id]) })
-  const { mediaRegistry, popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners } = tracker as any
+  const { mediaRegistry, popupTrackers, scrollTrackers, ensurePopupListeners, destroyPopupListeners, cleanupTrackers } = tracker as any
+
+  // ── 卸载钩子防御：hook 自身已注册清理（usePopupPosition/useScrollPosition/useMedia），
+  // 此处兜底清理跟踪条目（防 hook 未接线场景——如旧代码路径） ──
+  onComponentUnmountFor(registry, (id: string) => {
+    cleanupTrackers(id)
+    if (popupTrackers.has(id)) popupTrackers.delete(id)
+  })
 
   // hooks 共享内部态（跨组件按 selfId）
   const warned = new Set<string>()

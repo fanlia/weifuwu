@@ -9,9 +9,9 @@ import { setupJsdom } from '../../../test/client/setup.ts'
 import { createClientBrowser } from '../../browser.ts'
 import { useControlled, useControlledInput, useAsync } from '../input.ts'
 import { usePopup, usePopupPosition, useOpen, useDialog } from '../popup.ts'
-import { usePresence, useTween, useStableRef } from '../stable.ts'
-import { useScrollPosition, useInView } from '../media.ts'
-import { useGlobalKey } from '../events.ts'
+import { usePresence, useTween, useStableRef, useLongPress } from '../stable.ts'
+import { useScrollPosition, useInView, useMedia } from '../media.ts'
+import { useGlobalKey, useDrag } from '../events.ts'
 import type { HookEnv } from '../types.ts'
 import type { Registry } from '../../vdom/registry.ts'
 import { createRegistry } from '../../vdom/registry.ts'
@@ -246,4 +246,97 @@ test('useTween: 目标值补间（reset 幂等）', () => {
   assert.equal(typeof t.value, 'number')
   t.reset(100)
   assert.equal(typeof t.value, 'number')
+})
+
+// ── 卸载清理：组件销毁时监听/tracker 自动释放 ──
+
+test('usePopupPosition: 卸载清理 tracker（cleanupTrackers 接线）', () => {
+  const { env, state } = makeEnv()
+  usePopupPosition(env, { el: () => null, isOpen: () => true, compute: (r) => ({ top: 0, left: 0 }) })
+  assert.ok(env.popupTrackers.has('_wf_0'), 'tracker 注册')
+  for (const fn of state.unmountHooks) fn('_wf_0')
+  assert.equal(env.popupTrackers.has('_wf_0'), false, '卸载清理 tracker')
+})
+
+test('useScrollPosition: 卸载清理 scroll tracker', () => {
+  const { env, state } = makeEnv()
+  useScrollPosition(env, {})
+  assert.ok(env.scrollTrackers.has('_wf_0'))
+  for (const fn of state.unmountHooks) fn('_wf_0')
+  assert.equal(env.scrollTrackers.has('_wf_0'), false, '卸载清理 scroll tracker')
+})
+
+test('useMedia: 卸载移除 mql change 监听', () => {
+  const { env, state } = makeEnv()
+  let removed = 0
+  const fakeMql = {
+    matches: false,
+    addEventListener: (_t: string, _h: any) => {},
+    removeEventListener: () => { removed++ },
+  }
+  env.browser.matchMedia = (() => fakeMql) as any
+  useMedia(env, '(max-width: 100px)', () => {})
+  assert.ok(env.mediaRegistry.has('media:_wf_0:(max-width: 100px)'))
+  for (const fn of state.unmountHooks) fn('_wf_0')
+  assert.equal(removed, 1, '卸载移除 mql 监听')
+  assert.equal(env.mediaRegistry.has('media:_wf_0:(max-width: 100px)'), false, 'mediaRegistry 清理')
+})
+
+test('useInView: 卸载自动 disconnect IO', () => {
+  const { env, state } = makeEnv()
+  let disconnected = 0
+  const FakeIO = class {
+    observe() {}
+    disconnect() { disconnected++ }
+  }
+  ;(globalThis as any).IntersectionObserver = FakeIO
+  const iv = useInView(env, {})
+  iv.observe(document.createElement('div'))
+  for (const fn of state.unmountHooks) fn('_wf_0')
+  assert.equal(disconnected, 1, '卸载自动 disconnect IO')
+})
+
+test('useLongPress: 卸载清除挂起定时器', async () => {
+  const { env, state } = makeEnv()
+  let fired = 0
+  const lp = useLongPress(env, { onLongPress: () => fired++, duration: 50 })
+  // 触发长按启动（挂起定时器）
+  lp.onPointerDown(new (window as any).PointerEvent('pointerdown', { clientX: 0, clientY: 0 }))
+  for (const fn of state.unmountHooks) fn('_wf_0')
+  await new Promise((r) => setTimeout(r, 80))
+  assert.equal(fired, 0, '卸载后定时器不触发 onLongPress')
+})
+
+test('useDrag: 卸载释放活动期 window 监听', () => {
+  const { env, state } = makeEnv()
+  const drag = useDrag(env, { onMove: () => {} })
+  // 模拟拖拽开始（pointerdown → window pointermove/up 注册）
+  drag.onPointerDown(new (window as any).PointerEvent('pointerdown', { clientX: 10, clientY: 10 }))
+  for (const fn of state.unmountHooks) fn('_wf_0')
+  // 卸载后 window pointermove 不应触发 onMove
+  let moved = 0
+  const drag2 = useDrag(env, { onMove: () => moved++ })
+  drag2.onPointerDown(new (window as any).PointerEvent('pointerdown', { clientX: 0, clientY: 0 }))
+  for (const fn of state.unmountHooks) fn('_wf_0')
+  window.dispatchEvent(new (window as any).PointerEvent('pointermove', { clientX: 30, clientY: 30 }))
+  assert.equal(moved, 0, '卸载后 window 监听已移除')
+})
+
+test('useTween: 卸载取消 rAF', () => {
+  const { env, state } = makeEnv()
+  let cancelled = 0
+  const origRAF = (globalThis as any).requestAnimationFrame
+  const origCAF = (globalThis as any).cancelAnimationFrame
+  ;(globalThis as any).requestAnimationFrame = () => 1
+  ;(globalThis as any).cancelAnimationFrame = () => { cancelled++ }
+  try {
+    const t = useTween(env, 100, { duration: 100 })
+    // 触发动画（rAF 启动）
+    t.reset(200)
+    for (const fn of state.unmountHooks) fn('_wf_0')
+    assert.ok(cancelled >= 1, '卸载取消 rAF')
+  } finally {
+    ;(globalThis as any).requestAnimationFrame = origRAF
+    ;(globalThis as any).cancelAnimationFrame = origCAF
+  }
 })

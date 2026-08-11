@@ -91,7 +91,7 @@ export function createPopupTrackerSystem(renderByIds: (ids: string[]) => void): 
   /** 卸载组件时清理其跟踪条目（卸载钩子调用） */
   function cleanupTrackers(id: string) {
     for (const key of [...popupTrackers.keys()]) {
-      if (key.startsWith(`popup:${id}:`) || key === `popup:${id}`) popupTrackers.delete(key)
+      if (key.startsWith(`popup:${id}:`) || key === `popup:${id}` || key === id) popupTrackers.delete(key)
     }
     scrollTrackers.delete(id)
   }

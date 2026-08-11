@@ -76,8 +76,14 @@ export function useControlledInput(env: HookEnv, options: {
 /** 异步取数工具（mount 阶段调用）：loading/error 自动管理 + 数据就绪自动渲染 */
 export function useAsync<T>(env: HookEnv, fetcher: () => Promise<T>): UseAsyncHandle<T> {
   const selfId = env.selfId()
+  let disposed = false
+  // 组件卸载：丢弃后续 resolve 的 render（in-flight 结果不再渲染已卸载组件）
+  if (selfId) {
+    const unsub = env.onUnmount((id) => { if (id === selfId) { disposed = true; unsub() } })
+  }
   // render-only：普通对象状态（非 Proxy）——每次变更显式 render
   const render = () => {
+    if (disposed) return
     if (selfId) env.render([selfId])
     else env.render()
   }
