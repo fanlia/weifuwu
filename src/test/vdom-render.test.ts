@@ -5,12 +5,12 @@
  */
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../test/client/setup.ts'
-import { createClientBrowser } from '../../browser.ts'
-import { h, type VNode } from '../../vnode.ts'
-import { buildVNode } from '../build.ts'
-import { renderValue } from '../render.ts'
-import { createRegistry } from '../registry.ts'
+import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
+import { h, type VNode } from '../ui-dom/vnode.ts'
+import { buildVNode } from '../ui-dom/vdom/build.ts'
+import { renderValue } from '../ui-dom/vdom/render.ts'
+import { createRegistry } from '../ui-dom/vdom/registry.ts'
 
 before(setupJsdom)
 afterEach(() => {
@@ -126,7 +126,7 @@ test('renderValue: 未构建组件 → 抛错（防静默）', async () => {
 
 test('renderValue: Portal → #__wf_portal', async () => {
   const ctx = await makeCtx()
-  const { createPortal } = await import('../../vnode.ts')
+  const { createPortal } = await import('../ui-dom/vnode.ts')
   const vnode = h('div', {}, createPortal(h('span', { class: 'po' }, 'P'), 'test-portal'))
   await buildVNode(vnode, ctx)
   const el = mount('r8')
@@ -138,7 +138,7 @@ test('renderValue: Portal → #__wf_portal', async () => {
 
 test('renderValue: Fragment 展开', async () => {
   const ctx = await makeCtx()
-  const { Fragment } = await import('../../vnode.ts')
+  const { Fragment } = await import('../ui-dom/vnode.ts')
   const vnode = h('div', {}, h(Fragment as any, {}, [h('span', { class: 'a' }, '1'), h('span', { class: 'b' }, '2')]))
   await buildVNode(vnode, ctx)
   const el = mount('r9')

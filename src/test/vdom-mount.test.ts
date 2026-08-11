@@ -14,10 +14,10 @@
  */
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../test/client/setup.ts'
-import { createClientBrowser } from '../../browser.ts'
-import { h } from '../../vnode.ts'
-import { mountRoot } from '../mount.ts'
+import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
+import { h } from '../ui-dom/vnode.ts'
+import { mountRoot } from '../ui-dom/vdom/mount.ts'
 
 before(setupJsdom)
 afterEach(() => {
@@ -165,7 +165,7 @@ test('集成：组件输出 null ↔ 内容切换', async () => {
 // ── 6. Portal 动态挂载 ──
 
 test('集成：Portal 内容更新', async () => {
-  const { createPortal } = await import('../../vnode.ts')
+  const { createPortal } = await import('../ui-dom/vnode.ts')
   const el = mount('m6')
   const App = async (_init: any, ctx: any) => {
     let text = 'a'

@@ -10,11 +10,11 @@
  */
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../test/client/setup.ts'
-import { createClientBrowser } from '../../browser.ts'
-import { h } from '../../vnode.ts'
-import { mountRoot } from '../mount.ts'
-import { createStore } from '../../store.ts'
+import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
+import { h } from '../ui-dom/vnode.ts'
+import { mountRoot } from '../ui-dom/vdom/mount.ts'
+import { createStore } from '../ui-dom/store.ts'
 
 before(setupJsdom)
 afterEach(() => {

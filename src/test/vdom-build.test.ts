@@ -10,9 +10,9 @@
  */
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, type VNode } from '../../vnode.ts'
-import { buildVNode, mountAsyncComponent, componentPropsEqual } from '../build.ts'
-import { createRegistry } from '../registry.ts'
+import { h, type VNode } from '../ui-dom/vnode.ts'
+import { buildVNode, mountAsyncComponent, componentPropsEqual } from '../ui-dom/vdom/build.ts'
+import { createRegistry } from '../ui-dom/vdom/registry.ts'
 
 function makeCtx(): any {
   const reg = createRegistry()

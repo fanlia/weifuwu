@@ -6,13 +6,13 @@
  */
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../test/client/setup.ts'
-import { createClientBrowser } from '../../browser.ts'
-import { UIRouter, h } from '../../index.ts'
-import { ssrPage, serializeData } from '../ssr.ts'
-import { hydrateVNode } from '../hydration.ts'
-import { createVdomContext } from '../mount.ts'
-import { createRegistry } from '../registry.ts'
+import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
+import { UIRouter, h } from '../ui-dom/index.ts'
+import { ssrPage, serializeData } from '../ui-dom/vdom/ssr.ts'
+import { hydrateVNode } from '../ui-dom/vdom/hydration.ts'
+import { createVdomContext } from '../ui-dom/vdom/mount.ts'
+// import { createRegistry } from ../registry.ts
 
 before(setupJsdom)
 afterEach(() => {

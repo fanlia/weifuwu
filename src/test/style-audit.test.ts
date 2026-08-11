@@ -721,7 +721,7 @@ describe('样式审计 — 设计约束', () => {
   it('渲染器防线存在：enumerated 属性渲染（CDD 启发回归防线——render-only 无 $/无内置类型降级）', () => {
     // draggable enumerated 语义防线（Kanban 教训：setAttribute('draggable','') = false）
     // vdom diff 测试固化（v1 draggable.test.ts 随 v1 退役删除——vdom diff.test.ts 覆盖）
-    const diffTest = readFileSync(join(root, 'src/ui-dom/vdom/test/diff.test.ts'), 'utf-8')
+    const diffTest = readFileSync(join(root, 'src/test/vdom-diff.test.ts'), 'utf-8')
     assert.match(diffTest, /setProp: enumerated 属性显式字符串/, 'vdom diff 测试必须覆盖 enumerated 属性')
     assert.match(diffTest, /el\.getAttribute\('draggable'\)/, '渲染器必须显式 setAttribute(\'true\')')
   })

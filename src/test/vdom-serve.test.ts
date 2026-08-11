@@ -5,10 +5,10 @@
  */
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../test/client/setup.ts'
-import { createClientBrowser } from '../../browser.ts'
-import { UIRouter, h } from '../../index.ts'
-import { uiServe } from '../serve.ts'
+import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
+import { UIRouter, h } from '../ui-dom/index.ts'
+import { uiServe } from '../ui-dom/vdom/serve.ts'
 
 before(setupJsdom)
 afterEach(() => {

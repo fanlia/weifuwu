@@ -11,13 +11,13 @@
  */
 import { test, before, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { setupJsdom } from '../../../test/client/setup.ts'
-import { createClientBrowser } from '../../browser.ts'
-import { h, type VNode } from '../../vnode.ts'
-import { buildVNode } from '../build.ts'
-import { renderValue, setProp } from '../render.ts'
-import { patchValue, patchChildren, normalizeChildren, patchProps } from '../diff.ts'
-import { createRegistry } from '../registry.ts'
+import { setupJsdom } from './client/setup.ts'
+import { createClientBrowser } from '../ui-dom/browser.ts'
+import { h, type VNode } from '../ui-dom/vnode.ts'
+import { buildVNode } from '../ui-dom/vdom/build.ts'
+import { renderValue, setProp } from '../ui-dom/vdom/render.ts'
+import { patchValue, patchChildren, normalizeChildren, patchProps } from '../ui-dom/vdom/diff.ts'
+import { createRegistry } from '../ui-dom/vdom/registry.ts'
 
 before(setupJsdom)
 afterEach(() => {

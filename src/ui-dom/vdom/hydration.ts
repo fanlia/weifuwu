@@ -144,7 +144,7 @@ function renderValueHydrating(v: VNodeChild, ctx: WfuiContext, c: HydrationCurso
   if ('value' in props && el instanceof HTMLSelectElement) {
     ;(el as HTMLSelectElement).value = String(props.value ?? '')
   }
-  if (typeof props.ref === 'function') props.ref(el)
+  // ref 已由 wireProps → setProp 调用（与 render.ts 一致——只调一次）
 
   return el
 }
