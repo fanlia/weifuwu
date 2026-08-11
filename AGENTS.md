@@ -115,12 +115,15 @@ const UserProfile = async (initProps, ctx) => {
 }
 ```
 
-关键规则：
-- 渲染器统一判别「返回值 instanceof Promise」：客户端未 resolve → **占位**（`Placeholder`），resolve 后整树重渲染补全（`_asyncDef` 按实例缓存，diff 传递，不重跑工厂）；SSR 直接 await（无占位）
+关键规则（模式 A——design/async-mode-a-plan.md）：
+- **主路径 await 全部**：首帧/导航 = `buildVNode`（async 预构建：await 全部工厂；兄弟 Promise.all 并行；零 DOM）→ 完成后 `renderValue`/`patchValue` 一次落地——**无占位、无闪烁**；导航旧页保持到新树就绪（原子切换）
+- **旧树对照复用**：同位置同类型组件复用 `_render`（工厂不重跑，`$`/let/ref 状态保持）；`ctx.data` 缓存兜底并发合并
+- **动态挂载兑底**：运行时首次挂载的 async 组件（如 `$.show` 切出）→ 注释占位 → resolve 后 `renderByIds([id])` **局部补全**（非整树——兄弟组件不重渲染）
 - 工厂按**实例**执行（N 处实例 = N 次工厂调用）；**数据必须走 ctx.data**（自带缓存+并发合并，重复执行零成本）——禁止副作用/昂贵操作裸写工厂
 - 工厂拿 `initProps` + `ctx`（与同步组件同签名）；initProps 不同的实例各得各自数据（T3 隔离）
-- 占位显示：无边界 → null；`<Suspense fallback={...}>` 边界 → 占位处显示 fallback（可选）
+- **骨架屏**：`uiServe(router, { root, loading: true })` 不清空 root（预置骨架屏 HTML）→ 首帧原子替换；`handle.ready` = 首帧完成 Promise
 - 初始状态必须确定性（禁止 `window.innerWidth` 之类直接初始化 → mismatch）
+- 已裁剪：Suspense 边界/fallback（无生产使用点，已删）；async 工厂 reject 无错误 UI/重试（保持占位）
 
 ### 3.4 ctx.data — 数据管道（工厂层取数）
 

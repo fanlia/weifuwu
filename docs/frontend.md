@@ -768,9 +768,9 @@ const UserProfile = async (initProps, ctx) => {
 }
 ```
 
-- **客户端**：首次渲染占位（`Placeholder`）→ 工厂 resolve 后整树重渲染补全；`_asyncDef` 按实例缓存（diff 传递继承，补全不重跑工厂）——N 处实例 = N 次工厂调用，数据走 `ctx.data` 则零成本（缓存 + 并发合并）
+- **客户端**：主路径 `buildVNode` async 预构建（await 全部工厂；兄弟并行）→ 落地零占位；动态挂载兑底占位 → 局部补全——N 处实例 = N 次工厂调用，数据走 `ctx.data` 则零成本（缓存 + 并发合并）
 - **服务端**：`ctx.ui.ssr()` 直接 await 工厂 → 数据进 HTML（无占位）
-- **占位显示**：无边界 → null；`<Suspense fallback={...}>` 边界 → 子树内占位处显示 fallback（可选）
+- **占位显示**：动态挂载的 async 组件占位 = 注释节点，resolve 后局部补全（Suspense 边界已裁剪）
 - 会变的数据：初始值 seed 自服务端数据（`$.count = data.count`），交互改 `$`；初始状态必须确定性（禁止 `window.innerWidth` 直接初始化 → SSR/hydration mismatch）
 
 ---

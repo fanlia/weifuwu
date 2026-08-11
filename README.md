@@ -398,7 +398,7 @@ cd apps/agent-platform && npm run seed && npm run dev
 | **Component**（同步组件） | `(initProps, ctx) => (props) => VNode` | ❌ 同步 | mount 一次 + render 每次 |
 | **AsyncComponent**（async 组件） | `async (initProps, ctx) => (props) => VNode` | ✅ 只工厂 | 工厂按实例（diff 传递 `_asyncDef`，补全不重跑） |
 
-异步只出现在两个边界——路由 handler（整页）和 async 组件工厂（数据声明）；**mount/render 永远同步**（SSR/hydration 两端一致性的根基）。async 组件与同步组件**同签名**（唯一差别是 `async` 关键字）——渲染器按「返回值 instanceof Promise」统一判别：未 resolve → `Placeholder` 占位（`<Suspense fallback>` 边界内显示 fallback），resolve 后整树重渲染补全。
+异步只出现在两个边界——路由 handler（整页）和 async 组件工厂（数据声明）；async 组件与同步组件**同签名**（唯一差别是 `async` 关键字）。渲染器按「返回值 instanceof Promise」统一判别：主路径 `buildVNode` async 预构建（await 全部工厂，兄弟并行）→ 落地零占位；动态挂载兑底占位 + 局部补全；骨架屏 `uiServe({ loading })` + `handle.ready`。
 ### 两阶段组件（新手必读：为什么是两层）
 
 组件 = `(initProps, ctx) => (props) => VNode`——**外层 = 初始化（只执行一次），内层 = 渲染（每次状态/props 变化时执行）**。类比：外层是对象的构造函数，内层是它的 render 方法。
