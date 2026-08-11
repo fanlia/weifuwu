@@ -293,7 +293,8 @@ const SelectSearchable: Component<SelectProps> = async (_init, ctx) => {
 
     const menu = h('div', { class: 'wf-select-search-menu' }, menuChildren)
 
-    wrapChildren.push(h('div', { class: 'wf-select-search' }, [trigger, popup.portal(menu, 'wf-select-menu')].filter(Boolean)))
+    const menuPortal = popup.portal(menu, 'wf-select-menu')
+    wrapChildren.push(h('div', { class: 'wf-select-search' }, [trigger, menuPortal].filter(Boolean)))
     if (error) wrapChildren.push(h('div', { class: 'wf-select-err' }, error))
 
     return h('div', { class: `wf-select-wrap${error ? ' wf-select--err' : ''}` }, wrapChildren)

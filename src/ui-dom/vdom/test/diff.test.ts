@@ -32,7 +32,6 @@ async function makePatchCtx(): Promise<{ ctx: any; reg: any }> {
     ctx: {
       browser,
       registry: reg,
-      dirtySet: new Set<string>(),
       ctxVersion: 0,
       getCtxVersion: () => 0,
       ui: {

@@ -34,8 +34,21 @@ export async function mountAsyncComponent(
   opts?: { reuse?: VNode },
 ): Promise<{ renderFn: (props: VNode['props']) => VNode | null; childCtx: WfuiContext }> {
   if (!vnode._id) {
-    vnode._id = reg.nextId()
+    // 旧树同位置同类型 → 复用旧 id（渲染定位锚点不漂移：剪枝新 vnode 若分配新 id，
+    // 组件内部 render([selfId]) 会命中 registry 里的新 vnode——其 _parentNode 未设置 →
+    // patch 错位 fallback rootEl → 整树被覆盖 → 重挂 → 动画/定时器重启 → 渲染风暴）
+    if (opts?.reuse?._id) {
+      vnode._id = opts.reuse._id
+    } else {
+      vnode._id = reg.nextId()
+    }
     reg.idRegistry.set(vnode._id, vnode)
+  }
+  // 旧树同位置同类型：继承定位信息（_parentNode/_refNode——剪枝复用旧 _child 时新 vnode 需要
+  // 正确的渲染容器；否则 renderByIds 的 parent 定位失败 → patch 错位）
+  if (opts?.reuse) {
+    if (opts.reuse._parentNode) vnode._parentNode = opts.reuse._parentNode
+    if (opts.reuse._refNode) vnode._refNode = opts.reuse._refNode
   }
   const childCtx = Object.create(ctx) as WfuiContext
   childCtx.ui = Object.create(ctx.ui) as WfuiContext['ui'] & Record<string, unknown>
@@ -43,9 +56,9 @@ export async function mountAsyncComponent(
   childUi._selfId = vnode._id
   childUi._selfVNode = vnode
   // render-only：闭包绑定渲染（无 this 陷阱——根治 §4.5 selfId 错位：重挂载/解构不影响）
-  childUi.render = function (this: any, ids?: string[]) {
-    if (ids == null && vnode._id) ctx.ui.render([vnode._id])
-    else ctx.ui.render(ids)
+  childUi.render = function (this: any, ids?: string[]): Promise<void> {
+    if (ids == null && vnode._id) return ctx.ui.render([vnode._id])
+    return ctx.ui.render(ids)
   }
 
   // 旧树同位置同类型复用（工厂不重跑——组件跨渲染保持内部状态）

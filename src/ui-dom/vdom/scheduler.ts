@@ -15,8 +15,13 @@ import { patchValue, type PatchCtx } from './diff.ts'
 import type { Registry } from './registry.ts'
 
 export interface Scheduler {
-  /** 渲染（fire-and-forget async——render-only 唯一触发） */
-  render(ids?: string[]): void
+  /**
+   * 渲染（render-only 唯一触发）。
+   * 语义：同步调用、异步落地——DOM 更新在 buildVNode（async 预构建）完成后，
+   * 即当前同步代码之后（≥1 微任务 tick；动态挂载组件更久）。
+   * fire-and-forget（调用方 void 掉即可）；需要精确等待渲染完成时 `await render()`。
+   */
+  render(ids?: string[]): Promise<void>
 }
 
 export interface SchedulerOptions {
@@ -32,17 +37,34 @@ export interface SchedulerOptions {
 export function createScheduler(opts: SchedulerOptions): Scheduler {
   const renderingIds = new Set<string>()
   const pending = new Set<string>()
+  // 渲染中触发 → 注册等待者：await render() 等到【本次 + 连锁补跑全部完成】后的最终 DOM
+  const waiters = new Map<string, Array<() => void>>()
 
-  function isMounting(): boolean {
-    return (opts.ctx.ui as any)?._mounting === true
+  function notifyWaiters(id: string): void {
+    const arr = waiters.get(id)
+    if (arr) {
+      waiters.delete(id)
+      for (const r of arr) r()
+    }
   }
 
   async function renderByIds(id: string): Promise<void> {
     // 防重入：渲染中再次触发 → 排队补跑（不丢请求——流式 token 渲染中到达必须最终落地）。
-    // 渲染中多次触发合并为一次补跑（读最新状态——非批处理风暴）
-    if (renderingIds.has(id)) { pending.add(id); return }
+    // 渲染中多次触发合并为一次补跑（读最新状态——非批处理风暴）。
+    // 本次 promise 等【补跑完成】——await render() 保证 DOM 是最终状态（非提前 resolve）
+    if (renderingIds.has(id)) {
+      pending.add(id)
+      return new Promise<void>((resolve) => {
+        const arr = waiters.get(id) ?? []
+        arr.push(resolve)
+        waiters.set(id, arr)
+      })
+    }
     const vnode = opts.registry.idRegistry.get(id)
-    if (!vnode || typeof vnode._render !== 'function') return
+    if (!vnode || typeof vnode._render !== 'function') {
+      notifyWaiters(id)
+      return
+    }
     renderingIds.add(id)
     ;(opts.ctx.ui as any)._rendering = true
     try {
@@ -52,35 +74,49 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
         ctxVersion: opts.getCtxVersion?.(id) ?? 0,
         getCtxVersion: opts.getCtxVersion,
       }
-      // async 预构建：await 动态挂载组件（首次出现）——完成后 diff 同步渲染
-      const newChild = (await buildVNode(vnode._render!(vnode.props), opts.ctx, vnode._child, opts.registry, { force: true })) ?? null
+      // render-only 精确重渲染（设计：render 不再需要 mount 阶段的重活）：
+      // 1. 目标组件 renderFn 是【同步】的（内层返回 vnode）——显式重跑读最新闭包状态（force 语义）
+      // 2. buildVNode 不传 force → 子组件走剪枝：props 同 → 复用旧 _child（renderFn 不重跑，
+      //    父 render 不扰动子组件内部状态）；props 变 → 重跑；新出现组件 → await 工厂（唯一异步点）
+      const output = vnode._render!(vnode.props)
+      const newChild = (await buildVNode(output, opts.ctx, vnode._child, opts.registry)) ?? null
       const oldChild = vnode._child as VNode | null
       vnode._child = newChild as VNode | VNode[] | null
-      const parent = vnode._parentNode ?? opts.rootEl ?? null
+      // 定位渲染容器：_parentNode 优先；_refNode.parentNode fallback（
+      // _refNode 是组件输出的真实 DOM 锚点——挂载后未经历 diff 的组件 _parentNode 可能缺失，
+      // 直接 fallback rootEl 会把整树当 diff 基准 → 整树被组件输出覆盖 → 重挂 → 动画重启 → 渲染风暴）
+      const parent = (vnode as any)._parentNode ?? (vnode as any)._refNode?.parentNode ?? opts.rootEl ?? null
       if (parent) {
-        const node = patchValue(parent, vnode._refNode ?? null, oldChild, newChild, patchCtx)
+        const node = patchValue(parent, (vnode as any)._refNode ?? null, oldChild, newChild, patchCtx)
         // 写回 _refNode（组件输出 null↔内容切换的定位锚点）
-        if (node) vnode._refNode = node
-        else vnode._refNode = null
+        if (node) (vnode as any)._refNode = node
+        else (vnode as any)._refNode = null
       }
     } catch (e) {
-      opts.onError?.(e)
+      if (opts.onError) opts.onError(e)
+      else console.error('[weifuwu] render error:', (e as any)?.stack ?? e)
     } finally {
       renderingIds.delete(id)
       ;(opts.ctx.ui as any)._rendering = false
-      // 渲染中触发的请求：补跑一次（读最新状态——流式 token 不丢）
-      if (pending.delete(id)) void renderByIds(id)
     }
+    // 补跑链：渲染完成后处理排队触发——链式 await 直到 pending 空（渲染中多次触发合并为一次）
+    while (pending.delete(id)) {
+      await renderByIds(id)
+    }
+    // 所有连锁补跑完成 → 通知等待者（await render() 拿到最终 DOM）
+    notifyWaiters(id)
   }
 
-  function render(ids?: string[]): void {
-    if (isMounting()) return
+  function render(ids?: string[]): Promise<void> {
+    // 挂载期不丢弃：renderByIds 的 `_render` 检查天然跳过未挂载组件（工厂执行中）。
+    // 已挂载组件（如页面 async 组件加载期间被用户点击）的 render 必须执行——
+    // 全局 _mounting 丢弃曾导致「挂载期交互静默失效」（open=true 但弹窗不打开）。
     if (ids == null) {
       const selfId = (opts.ctx.ui as any)?._selfId
-      if (selfId) void renderByIds(selfId)
-      return
+      if (selfId) return renderByIds(selfId)
+      return Promise.resolve()
     }
-    for (const id of ids) void renderByIds(id)
+    return Promise.all(ids.map((id) => renderByIds(id))).then(() => undefined)
   }
 
   return { render }

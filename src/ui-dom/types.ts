@@ -258,7 +258,7 @@ export interface WfuiContext {
   /** UI 框架能力（由 createApp.mount 注入） */
   ui: {
     /** 触发组件重渲染（同步，无参 = 当前组件） */
-    render: (ids?: string[]) => void
+    render: (ids?: string[]) => Promise<void>
     /**
      * AI 对话会话：$ 超集（会话语义 + 工具调用内嵌 + HITL 审批）
      *

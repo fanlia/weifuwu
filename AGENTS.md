@@ -212,8 +212,8 @@ const Popover = (_init, ctx) => {
 |------|---------|---------|--------|---------|
 | `$.x = val` | 赋值后自动 | 微任务批量（异步） | 当前组件 | **日常 UI 状态** — 表单输入、开关、异步加载 |
 | `ctx.ui.dirty()` | 主动调用 | 微任务批量（异步） | 当前/指定 | **绕过 Proxy 后手动标记**（实际极少——Proxy 已拦截几乎所有变异） |
-| `ctx.ui.render()` | 主动调用 | 立即同步 | 当前/指定 | **需要立即拿到最新 DOM** — 测量、动画 |
-| `ctx.ui.render(['id'])` | 主动调用 | 立即同步 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
+| `ctx.ui.render()` | 主动调用 | 异步落地（fire-and-forget，`await` 可精确等待） | 当前/指定 | 唯一渲染触发；`await ctx.ui.render()` 后拿最新 DOM（测量/动画） |
+| `ctx.ui.render(['id'])` | 主动调用 | 异步落地 | 指定组件 | **跨组件精准刷新** — 全局事件、Portal 远程控制 |
 | `ctx.ui.useMedia()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **响应式媒体查询** — 断点变化自动 dirty |
 | `ctx.ui.useBreakpoint()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **命名断点** — mobile/tablet/desktop 自动 dirty |
 | `ctx.ui.usePopupPosition()` | 注册监听 | 浏览器事件驱动 | 当前组件 | **弹层坐标跟随** — scroll/resize 自动重算 fixed 坐标 |

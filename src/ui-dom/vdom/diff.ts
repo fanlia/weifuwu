@@ -50,7 +50,6 @@ export interface PatchCtx {
   browser: any
   registry: import('./registry.ts').Registry
   /** 三态 skip 的 dirty 集合（组件 id → true） */
-  dirtySet?: Set<string>
   /** 已渲染组件（skip 判定——记录到 ctx，供 scheduler 清 dirty） */
   rendered?: Set<string>
   /** 当前 ctx 版本号 */
@@ -89,11 +88,21 @@ export function patchValue(
     // 旧输出是 Portal（remote）→ 移除 remote 容器（vdom renderValue 在 #__wf_portal）
     if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) && (oldInput as VNode).type === Portal) {
       const remoteEl = (oldInput as VNode)._remoteEl
+      // 递归清理 portal 内容的 ref（Modal root div 的 rootRef → unlockScroll；
+      // 直接 removeChild 会跳过 ref(null) → 滚动锁泄漏 → body overflow 卡 hidden）
+      try { callRefCleanupFor((oldInput as VNode).props?.children, ctx.registry as any) } catch (e) { console.error('[weifuwu] portal ref cleanup error', e) }
       remoteEl?.parentNode?.removeChild(remoteEl)
       return null
     }
-    if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput) && typeof (oldInput as VNode).type === 'function') {
-      disposeComponent(oldInput as VNode, ctx.registry)
+    if (oldInput && typeof oldInput === 'object' && !Array.isArray(oldInput)) {
+      // 组件：完整 dispose（ref 清理 + 卸载钩子）；原生元素：ref(null) 清理
+      // （Modal root div 移除时若不调 ref(null)——useDialog 的 rootRef 依赖它 unlockScroll——
+      //   滚动锁泄漏 → body overflow 卡 hidden → 滑动条消失）
+      if (typeof (oldInput as VNode).type === 'function') {
+        disposeComponent(oldInput as VNode, ctx.registry)
+      } else {
+        try { callRefCleanupFor(oldInput as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
+      }
     }
     if (oldNode?.parentNode) oldNode.parentNode.removeChild(oldNode)
     return null
@@ -103,8 +112,14 @@ export function patchValue(
     const frag = parent.ownerDocument!.createDocumentFragment()
     const range = patchChildren(parent, oldInput, newInput, ctx, oldNode ? [oldNode] : undefined)
     for (const n of range) if (n) frag.appendChild(n)
-    if (oldNode?.parentNode) oldNode.parentNode.replaceChild(frag, oldNode)
-    else parent.appendChild(frag)
+    if (oldNode?.parentNode) {
+      // frag 可能已含 oldNode（patchChildren 对照复用了旧 DOM）——replaceChild(frag, oldNode)
+      // 会抛 HierarchyRequestError（new child contains parent）——此时只需 append（节点被移动）
+      if (!frag.contains(oldNode)) oldNode.parentNode.replaceChild(frag, oldNode)
+      else parent.appendChild(frag)
+    } else {
+      parent.appendChild(frag)
+    }
     return frag
   }
 
@@ -119,7 +134,10 @@ export function patchValue(
       if (container) {
         const oldChild = oldV.props?.children ?? null
         const newChild = newV.props?.children ?? null
-        patchValue(container, container.firstChild, oldChild, newChild, ctx)
+        // patchChildren 直接处理（v1 patchPortal 精神——复用容器 patch 子节点，不操作父 DOM）。
+        // patchValue 数组分支会「frag.contains(oldNode) → appendChild」重排容器 →
+        // portal 内容每次 render 被移除重加 → datetime 选中日期闪烁的真实根因
+        patchChildren(container, oldChild, newChild, ctx)
       }
       newV._remoteEl = oldV._remoteEl
       return null
@@ -159,10 +177,9 @@ export function patchValue(
     // （必须同类型——导航 A→B 不同组件不得 skip，否则复用 A 的 _child → 页面不切换）
     const typeSame = oldV?.type === newV.type
     const propsSame = componentPropsEqual(oldV?.props ?? {}, newV.props ?? {})
-    const dirty = newV._id ? ctx.dirtySet?.has(newV._id) : false
     const ver = ctx.getCtxVersion ? ctx.getCtxVersion(newV._id ?? '') : undefined
     const verSame = ver === undefined || (ctx.ctxVersion ?? 0) === ver
-    if (oldV && typeSame && propsSame && !dirty && verSame && oldV._child !== undefined) {
+    if (oldV && typeSame && propsSame && verSame && oldV._child !== undefined) {
       newV._child = oldV._child
       return oldNode
     }
@@ -243,6 +260,22 @@ export function patchChildren(
   const newChildren = normalizeChildren(newInput)
   const source = oldRange ?? Array.from(parent.childNodes)
 
+  // 混合 keyed 数组（部分项有用户 key）：给无 key 项自动分配位置 key——
+  // 否则 keyed 分支对无 key 项「移除旧 + 新建」→ 固定结构（表头/行标签等）每次 render 重建 → 闪烁。
+  // （v1 ensureKeys 精神——但 v1 只在全无 key 时分配，混合场景缺失：DatePicker 面板
+  //  [header(无key), ...gridRows(keyed)] 每次选时间整段重建的真实 bug）
+  const hasUserKey = newChildren.some((c) => getKey(c) !== undefined)
+  if (hasUserKey) {
+    for (let i = 0; i < newChildren.length; i++) {
+      const c = newChildren[i]
+      if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === undefined) (c as VNode).key = `pos:${i}`
+    }
+    for (let i = 0; i < oldChildren.length; i++) {
+      const c = oldChildren[i]
+      if (c && typeof c === 'object' && !Array.isArray(c) && getKey(c) === undefined) (c as VNode).key = `pos:${i}`
+    }
+  }
+
   // 映射旧 DOM 范围（文本/null 用 source 位置；组件用 _refNode 精确）
   const oldNodes: (Node | null)[] = oldChildren.map((c, i) => {
     if (c == null || typeof c !== 'object' || Array.isArray(c)) return source[i] ?? null
@@ -262,8 +295,12 @@ export function patchChildren(
       const oldC = i < oldChildren.length ? oldChildren[i] : null
       const newC = i < newChildren.length ? newChildren[i] : null
       if (newC == null || typeof newC === 'boolean') {
-        if (oldC && typeof oldC === 'object' && !Array.isArray(oldC) && typeof (oldC as VNode).type === 'function') {
-          disposeComponent(oldC as VNode, ctx.registry)
+        if (oldC && typeof oldC === 'object' && !Array.isArray(oldC)) {
+          if (typeof (oldC as VNode).type === 'function') {
+            disposeComponent(oldC as VNode, ctx.registry)
+          } else {
+            try { callRefCleanupFor(oldC as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) }
+          }
         }
         const on = oldNodes[i]
         if (on?.parentNode) on.parentNode.removeChild(on)
@@ -335,11 +372,17 @@ export function patchChildren(
     const k = getKey(c)
     const isComponent = c && typeof c === 'object' && !Array.isArray(c) && typeof (c as VNode).type === 'function'
     if (k !== undefined && !movedKeys.has(k)) {
-      if (isComponent) disposeComponent(c as VNode, ctx.registry)
+      if (c && typeof c === 'object' && !Array.isArray(c)) {
+        if (isComponent) disposeComponent(c as VNode, ctx.registry)
+        else { try { callRefCleanupFor(c as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+      }
       const on = oldNodes[i]
       if (on?.parentNode) on.parentNode.removeChild(on)
     } else if (k === undefined) {
-      if (isComponent) disposeComponent(c as VNode, ctx.registry)
+      if (c && typeof c === 'object' && !Array.isArray(c)) {
+        if (isComponent) disposeComponent(c as VNode, ctx.registry)
+        else { try { callRefCleanupFor(c as VNode, ctx.registry as any) } catch (e) { console.error('[weifuwu] ref cleanup error', e) } }
+      }
       const on = oldNodes[i]
       if (on?.parentNode) on.parentNode.removeChild(on)
     }

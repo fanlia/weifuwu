@@ -63,14 +63,26 @@ export const DatePicker: Component<DatePickerProps> = async (_props, ctx) => {
   // 面板带 wf-panel-in 入场动画（translateY/scale）——动画期间矩形非稳态，
   // 夹紧必须等动画结束后按稳态几何计算（ref 在 append 前触发，微任务测量会吃到动画中帧）
   let panelEl: HTMLElement | null = null
-  const panelRef = ctx.ui.useAnimationEnd(() => { pos.refresh(); ctx.ui.render() }, { once: true })
+  // 坐标微调直接操作 DOM（不触发整树 render——面板 42 格 diff 开销 + 打开时多次
+  // render 会被感知为「刷新好几次」）。render 只负责内容，坐标由 applyPanelPos 直达 DOM。
+  const applyPanelPos = () => {
+    if (!panelEl) return
+    const s = panelEl.style
+    s.top = `${pos.top}px`
+    s.left = `${pos.left}px`
+    if (pos.width) s.width = `${pos.width}px`
+  }
+  const panelRef = ctx.ui.useAnimationEnd(() => { pos.refresh(); applyPanelPos() }, { once: true })
   // 兜底：动画事件丢失（无动画环境/事件被吞）时仍夹紧，防挂死
   let settleTimer: ReturnType<typeof setTimeout> | undefined
   const settleSafe = (el: any) => {
     if (el) {
       panelEl = el
+      // 首次挂载：先按当前 pos 定位（render 时 style 已含坐标——但 pos 可能未 clamp，
+      // 这里统一用 clamp 后的值直接落地，避免位置跳变）
+      applyPanelPos()
       panelRef(el)
-      settleTimer = setTimeout(() => { pos.refresh(); ctx.ui.render() }, 400)
+      settleTimer = setTimeout(() => { pos.refresh(); applyPanelPos() }, 400)
     } else {
       panelEl = null
       clearTimeout(settleTimer)

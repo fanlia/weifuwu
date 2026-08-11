@@ -69,10 +69,10 @@ export function createVdomContext(opts: MountOptions): VdomContext {
 
   const scheduler = opts.scheduler ?? createScheduler({ registry, ctx, rootEl: opts.root })
 
-  rootUi.render = function (this: any, ids?: string[]) {
+  rootUi.render = function (this: any, ids?: string[]): Promise<void> {
     // this = 调用者的 childCtx.ui（组件 ctx.ui.render() → this._selfId = 组件 id）
-    if (ids == null) { const self = this._selfId ?? '_wf_root'; if (self) scheduler.render([self]) }
-    else scheduler.render(ids)
+    if (ids == null) { const self = this._selfId ?? '_wf_root'; return self ? scheduler.render([self]) : Promise.resolve() }
+    return scheduler.render(ids)
   }
   // render-only（design/render-only-plan.md）：仅 render() 触发渲染——$ / dirty 已删除
   rootUi.setMounting = (v: boolean) => { rootUi._mounting = v }

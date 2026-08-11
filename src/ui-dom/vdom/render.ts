@@ -13,6 +13,12 @@ import { Fragment, Portal } from '../vnode.ts'
 export const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'use', 'clipPath'])
 
 const EVENT_RE = /^on[A-Z]/
+// CSS 无单位属性（数字不加 px）——其余数字样式属性（top/left/width/height/margin 等）必须加 px
+const UNITLESS_PROPS = new Set([
+  'zIndex', 'opacity', 'lineHeight', 'fontWeight', 'fontSizeAdjust', 'flex', 'flexGrow', 'flexShrink',
+  'order', 'zoom', 'aspectRatio', 'gridRow', 'gridColumn', 'scale', 'rotate', 'animationIterationCount',
+  'columnCount', 'fillOpacity', 'strokeOpacity', 'stopOpacity', 'floodOpacity',
+])
 
 export function setProp(el: Element, key: string, value: any): void {
   if (value == null || value === false) return
@@ -31,6 +37,7 @@ export function setProp(el: Element, key: string, value: any): void {
       const st = (el as HTMLElement).style
       for (const [k, v] of Object.entries(value)) {
         if (v == null) { (st as any)[k] = '' }  // null/undefined → 删除样式属性（§6.4 style 只设不删修复）
+        else if (typeof v === 'number' && !UNITLESS_PROPS.has(k)) { (st as any)[k] = `${v}px` }  // 数字加 px（top/left/width 等——无单位值被浏览器忽略 → 坐标丢失）
         else (st as any)[k] = String(v)
       }
     }
